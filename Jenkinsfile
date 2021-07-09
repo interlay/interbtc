@@ -40,11 +40,11 @@ pipeline {
                     sh 'SCCACHE_START_SERVER=1 SCCACHE_IDLE_TIMEOUT=0 /usr/local/bin/sccache'
                     sh '/usr/local/bin/sccache -s'
 
-                    sh 'cargo build --manifest-path parachain/Cargo.toml --release --no-default-features --features aura-grandpa'
+                    sh 'cargo build --release --bin interbtc-standalone'
 
-                    sh 'cp target/release/btc-parachain target/release/btc-parachain-standalone'
-                    archiveArtifacts 'target/release/btc-parachain-standalone'
-                    stash(name: 'build-standalone', includes: 'Dockerfile_release, target/release/btc-parachain')
+                    sh 'cp target/release/interbtc-standalone target/release/interbtc-standalone'
+                    archiveArtifacts 'target/release/interbtc-standalone'
+                    stash(name: 'build-standalone', includes: 'Dockerfile_release, target/release/interbtc-standalone')
 
                     sh '/usr/local/bin/sccache -s'
                 }
@@ -57,10 +57,10 @@ pipeline {
                     sh 'SCCACHE_START_SERVER=1 SCCACHE_IDLE_TIMEOUT=0 /usr/local/bin/sccache'
                     sh '/usr/local/bin/sccache -s'
 
-                    sh 'cargo build --manifest-path parachain/Cargo.toml --release --no-default-features --features cumulus-polkadot'
+                    sh 'cargo build --release --bin interbtc-parachain'
 
-                    archiveArtifacts 'target/release/btc-parachain'
-                    stash(name: 'build-parachain', includes: 'Dockerfile_release, target/release/btc-parachain')
+                    archiveArtifacts 'target/release/interbtc-parachain'
+                    stash(name: 'build-parachain', includes: 'Dockerfile_release, target/release/interbtc-parachain')
 
                     sh '/usr/local/bin/sccache -s'
                 }
@@ -77,7 +77,7 @@ pipeline {
             environment {
                 PATH        = "/busybox:$PATH"
                 REGISTRY    = 'registry.gitlab.com' // Configure your own registry
-                REPOSITORY  = 'interlay/btc-parachain'
+                REPOSITORY  = 'interlay/interbtc'
                 IMAGE       = 'standalone'
             }
             steps {
@@ -99,7 +99,7 @@ pipeline {
             environment {
                 PATH        = "/busybox:$PATH"
                 REGISTRY    = 'registry.gitlab.com' // Configure your own registry
-                REPOSITORY  = 'interlay/btc-parachain'
+                REPOSITORY  = 'interlay/interbtc'
                 IMAGE       = 'parachain'
             }
             steps {
@@ -156,7 +156,7 @@ pipeline {
 def runKaniko() {
     sh '''#!/busybox/sh
     GIT_BRANCH_SLUG=$(echo $BRANCH_NAME | sed -e 's/\\//-/g')
-    /kaniko/executor -f `pwd`/Dockerfile_release -c `pwd` --build-arg BINARY=btc-parachain \
+    /kaniko/executor -f `pwd`/Dockerfile_release -c `pwd` --build-arg BINARY=interbtc-parachain \
         --destination=${REGISTRY}/${REPOSITORY}/${IMAGE}:${GIT_BRANCH_SLUG} \
         --destination=${REGISTRY}/${REPOSITORY}/${IMAGE}:${GIT_BRANCH_SLUG}-${GIT_COMMIT:0:6}
     '''

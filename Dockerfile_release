@@ -1,7 +1,7 @@
 FROM ubuntu:20.04
 
 ARG PROFILE=release
-ARG BINARY=btc-parachain
+ARG BINARY=interbtc-parachain
 
 COPY target/${PROFILE}/${BINARY} /usr/local/bin
 

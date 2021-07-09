@@ -30,7 +30,7 @@ image: "registry.gitlab.com/interlay/containers/rust-base:nightly-2021-03-15"
     - echo "{\"auths\":{\"$CI_REGISTRY\":{\"username\":\"$CI_REGISTRY_USER\",\"password\":\"$CI_REGISTRY_PASSWORD\"}}}" > /kaniko/.docker/config.json
     - |
       /kaniko/executor \
-      --build-arg BINARY=btc-parachain \
+      --build-arg BINARY=interbtc-parachain \
       --context ${CI_PROJECT_DIR} \
       --dockerfile ${CI_PROJECT_DIR}/Dockerfile_release \
       --destination ${CI_REGISTRY_IMAGE}:${CI_COMMIT_REF_NAME}-${CI_COMMIT_SHORT_SHA}-$(date +%s) \
@@ -57,9 +57,9 @@ build-standalone:
   extends:
     - .rust-base-job
   variables:
-    ARTIFACT_BIN_PATH: btc-parachain
+    ARTIFACT_BIN_PATH: interbtc-standalone
   script:
-    - cargo build --manifest-path parachain/Cargo.toml --release --no-default-features --features aura-grandpa
+    - cargo build --release --bin interbtc-standalone
   artifacts:
     name: "${CI_COMMIT_REF_SLUG}-standalone"
     paths:
@@ -70,9 +70,9 @@ build-parachain:
   extends:
     - .rust-base-job
   variables:
-    ARTIFACT_BIN_PATH: btc-parachain
+    ARTIFACT_BIN_PATH: interbtc-parachain
   script:
-    - cargo build --manifest-path parachain/Cargo.toml --release --no-default-features --features cumulus-polkadot
+    - cargo build --release --bin interbtc-parachain
   artifacts:
     name: "${CI_COMMIT_REF_SLUG}-parachain"
     paths:
@@ -96,6 +96,6 @@ release-github:
   script:
     - gh auth status
     - git-chglog --output CHANGELOG.md $CI_COMMIT_TAG
-    - gh release -R https://github.com/interlay/btc-parachain create $CI_COMMIT_TAG --title $CI_COMMIT_TAG -F CHANGELOG.md -d
+    - gh release -R https://github.com/interlay/interbtc create $CI_COMMIT_TAG --title $CI_COMMIT_TAG -F CHANGELOG.md -d
   only:
     - tags

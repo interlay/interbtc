@@ -1,15 +1,13 @@
 use bitcoin::utils::{virtual_transaction_size, InputType, TransactionInputMetadata, TransactionOutputMetadata};
-use cumulus_primitives_core::ParaId;
 use hex_literal::hex;
 use interbtc_runtime::{
-    AccountId, AuraConfig, BTCRelayConfig, ExchangeRateOracleConfig, FeeConfig, GenesisConfig, IssueConfig,
-    NominationConfig, ParachainInfoConfig, RedeemConfig, RefundConfig, ReplaceConfig, Signature, SlaConfig, SudoConfig,
+    AccountId, AuraConfig, BTCRelayConfig, ExchangeRateOracleConfig, FeeConfig, GenesisConfig, GrandpaConfig,
+    IssueConfig, NominationConfig, RedeemConfig, RefundConfig, ReplaceConfig, Signature, SlaConfig, SudoConfig,
     SystemConfig, TokensConfig, VaultRegistryConfig, BITCOIN_BLOCK_SPACING, DAYS, DOT, WASM_BINARY,
 };
-use sc_chain_spec::{ChainSpecExtension, ChainSpecGroup};
-use serde::{Deserialize, Serialize};
 use sp_consensus_aura::sr25519::AuthorityId as AuraId;
 use sp_core::crypto::UncheckedInto;
+use sp_finality_grandpa::AuthorityId as GrandpaId;
 
 #[cfg(feature = "runtime-benchmarks")]
 use frame_benchmarking::account;
@@ -24,8 +22,7 @@ use std::str::FromStr;
 // The URL for the telemetry server.
 // const STAGING_TELEMETRY_URL: &str = "wss://telemetry.polkadot.io/submit/";
 
-/// Specialized `ChainSpec` for the normal parachain runtime.
-pub type ChainSpec = sc_service::GenericChainSpec<GenesisConfig, Extensions>;
+pub type ChainSpec = sc_service::GenericChainSpec<GenesisConfig>;
 
 /// Helper function to generate a crypto pair from seed
 pub fn get_from_seed<TPublic: Public>(seed: &str) -> <TPublic::Pair as Pair>::Public {
@@ -34,25 +31,13 @@ pub fn get_from_seed<TPublic: Public>(seed: &str) -> <TPublic::Pair as Pair>::Pu
         .public()
 }
 
+/// Generate an Aura authority key.
+pub fn authority_keys_from_seed(s: &str) -> (AuraId, GrandpaId) {
+    (get_from_seed::<AuraId>(s), get_from_seed::<GrandpaId>(s))
+}
+
 fn get_account_id_from_string(account_id: &str) -> AccountId {
     AccountId::from_str(account_id).expect("account id is not valid")
-}
-
-/// The extensions for the [`ChainSpec`].
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, ChainSpecExtension, ChainSpecGroup)]
-#[serde(deny_unknown_fields)]
-pub struct Extensions {
-    /// The relay chain of the Parachain.
-    pub relay_chain: String,
-    /// The id of the Parachain.
-    pub para_id: u32,
-}
-
-impl Extensions {
-    /// Try to get the extension from the given `ChainSpec`.
-    pub fn try_get(chain_spec: &dyn sc_service::ChainSpec) -> Option<&Self> {
-        sc_chain_spec::get_extension(chain_spec.extensions())
-    }
 }
 
 type AccountPublic = <Signature as Verify>::Signer;
@@ -65,7 +50,7 @@ where
     AccountPublic::from(get_from_seed::<TPublic>(seed)).into_account()
 }
 
-pub fn local_config(id: ParaId) -> ChainSpec {
+pub fn local_config() -> ChainSpec {
     ChainSpec::from_genesis(
         "InterBTC",
         "local_testnet",
@@ -93,7 +78,6 @@ pub fn local_config(id: ParaId) -> ChainSpec {
                     get_account_id_from_seed::<sr25519::Public>("Bob"),
                     "Bob".as_bytes().to_vec(),
                 )],
-                id,
                 0,
             )
         },
@@ -108,30 +92,50 @@ pub fn local_config(id: ParaId) -> ChainSpec {
             }))
             .unwrap(),
         ),
-        Extensions {
-            relay_chain: "local".into(),
-            para_id: id.into(),
-        },
+        None,
     )
 }
 
-pub fn rococo_testnet_config(id: ParaId) -> ChainSpec {
+pub fn beta_testnet_config() -> ChainSpec {
     ChainSpec::from_genesis(
         "InterBTC",
-        "rococo_testnet",
+        "beta_testnet",
         ChainType::Live,
         move || {
             testnet_genesis(
                 get_account_id_from_string("5HeVGqvfpabwFqzV1DhiQmjaLQiFcTSmq2sH6f7atsXkgvtt"),
                 get_account_id_from_string("5FqYNDWeJ9bwa3NhEryxscBELAMj54yrKqGaYNR9CjLZFYLB"),
                 vec![
-                    // 5DJ3wbdicFSFFudXndYBuvZKjucTsyxtJX5WPzQM8HysSkFY
-                    hex!["366a092a27b4b28199a588b0155a2c9f3f0513d92481de4ee2138273926fa91c"].unchecked_into(),
+                    (
+                        // 5DJ3wbdicFSFFudXndYBuvZKjucTsyxtJX5WPzQM8HysSkFY
+                        hex!["366a092a27b4b28199a588b0155a2c9f3f0513d92481de4ee2138273926fa91c"].unchecked_into(),
+                        hex!["dce82040dc0a90843897aee1cc1a96c205fe7c1165b8f46635c2547ed15a3013"].unchecked_into(),
+                    ),
+                    (
+                        // 5HW7ApFamN6ovtDkFyj67tRLRhp8B2kVNjureRUWWYhkTg9j
+                        hex!["f08cc7cf45f88e6dbe312a63f6ce639061834b4208415b235f77a67b51435f63"].unchecked_into(),
+                        hex!["5b4651cf045ddf55f0df7bfbb9bb4c45bbeb3c536c6ce4a98275781b8f0f0754"].unchecked_into(),
+                    ),
+                    (
+                        // 5FNbq8zGPZtinsfgyD4w2G3BMh75H3r2Qg3uKudTZkJtRru6
+                        hex!["925ad4bdf35945bea91baeb5419a7ffa07002c6a85ba334adfa7cb5b05623c1b"].unchecked_into(),
+                        hex!["8de3db7b51864804d2dd5c5905d571aa34d7161537d5a0045755b72d1ac2062e"].unchecked_into(),
+                    ),
                 ],
                 vec![
+                    // root key
                     get_account_id_from_string("5HeVGqvfpabwFqzV1DhiQmjaLQiFcTSmq2sH6f7atsXkgvtt"),
-                    get_account_id_from_string("5DNzULM1UJXDM7NUgDL4i8Hrhe9e3vZkB3ByM1eEXMGAs4Bv"),
+                    // faucet
+                    get_account_id_from_string("5FHy3cvyToZ4ConPXhi43rycAcGYw2R2a8cCjfVMfyuS1Ywg"),
+                    // vaults
                     get_account_id_from_string("5F7Q9FqnGwJmjLtsFGymHZXPEx2dWRVE7NW4Sw2jzEhUB5WQ"),
+                    get_account_id_from_string("5CJncqjWDkYv4P6nccZHGh8JVoEBXvharMqVpkpJedoYNu4A"),
+                    get_account_id_from_string("5GpnEWKTWv7xiQtDFi9Rku7DrvgHj4oqMDev4qBQhfwQE8nx"),
+                    get_account_id_from_string("5DttG269R1NTBDWcghYxa9NmV2wHxXpTe4U8pu4jK3LCE9zi"),
+                    // relayers
+                    get_account_id_from_string("5DNzULM1UJXDM7NUgDL4i8Hrhe9e3vZkB3ByM1eEXMGAs4Bv"),
+                    get_account_id_from_string("5GEXRnnv8Qz9rEwMs4TfvHme48HQvVTEDHJECCvKPzFB4pFZ"),
+                    // oracles
                     get_account_id_from_string("5H8zjSWfzMn86d1meeNrZJDj3QZSvRjKxpTfuVaZ46QJZ4qs"),
                     get_account_id_from_string("5FPBT2BVVaLveuvznZ9A1TUtDcbxK5yvvGcMTJxgFmhcWGwj"),
                 ],
@@ -145,7 +149,6 @@ pub fn rococo_testnet_config(id: ParaId) -> ChainSpec {
                         "Band".as_bytes().to_vec(),
                     ),
                 ],
-                id,
                 1,
             )
         },
@@ -160,14 +163,11 @@ pub fn rococo_testnet_config(id: ParaId) -> ChainSpec {
             }))
             .unwrap(),
         ),
-        Extensions {
-            relay_chain: "staging".into(),
-            para_id: id.into(),
-        },
+        None,
     )
 }
 
-pub fn development_config(id: ParaId) -> ChainSpec {
+pub fn development_config() -> ChainSpec {
     ChainSpec::from_genesis(
         "InterBTC",
         "dev_testnet",
@@ -176,7 +176,7 @@ pub fn development_config(id: ParaId) -> ChainSpec {
             testnet_genesis(
                 get_account_id_from_seed::<sr25519::Public>("Alice"),
                 get_account_id_from_seed::<sr25519::Public>("Maintainer"),
-                vec![get_from_seed::<AuraId>("Alice")],
+                vec![authority_keys_from_seed("Alice")],
                 vec![
                     get_account_id_from_seed::<sr25519::Public>("Alice"),
                     get_account_id_from_seed::<sr25519::Public>("Bob"),
@@ -209,7 +209,6 @@ pub fn development_config(id: ParaId) -> ChainSpec {
                         "Charlie".as_bytes().to_vec(),
                     ),
                 ],
-                id,
                 1,
             )
         },
@@ -224,20 +223,16 @@ pub fn development_config(id: ParaId) -> ChainSpec {
             }))
             .unwrap(),
         ),
-        Extensions {
-            relay_chain: "dev".into(),
-            para_id: id.into(),
-        },
+        None,
     )
 }
 
 fn testnet_genesis(
     root_key: AccountId,
     maintainer: AccountId,
-    initial_authorities: Vec<AuraId>,
+    initial_authorities: Vec<(AuraId, GrandpaId)>,
     endowed_accounts: Vec<AccountId>,
     authorized_oracles: Vec<(AccountId, Vec<u8>)>,
-    id: ParaId,
     bitcoin_confirmations: u32,
 ) -> GenesisConfig {
     GenesisConfig {
@@ -248,10 +243,11 @@ fn testnet_genesis(
             changes_trie_config: Default::default(),
         },
         aura: AuraConfig {
-            authorities: initial_authorities,
+            authorities: initial_authorities.iter().map(|x| (x.0.clone())).collect(),
         },
-        aura_ext: Default::default(),
-        parachain_info: ParachainInfoConfig { parachain_id: id },
+        grandpa: GrandpaConfig {
+            authorities: initial_authorities.iter().map(|x| (x.1.clone(), 1)).collect(),
+        },
         sudo: SudoConfig {
             // Assign network admin rights.
             key: root_key.clone(),

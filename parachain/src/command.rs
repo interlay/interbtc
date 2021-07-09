@@ -17,49 +17,31 @@
 use crate::{
     chain_spec,
     cli::{Cli, Subcommand},
+    service as interbtc_service,
 };
-use btc_parachain_runtime::Block;
+use interbtc_runtime::Block;
 use sc_cli::{ChainSpec, Result, RuntimeVersion, SubstrateCli};
 use sc_service::{Configuration, PartialComponents, TaskManager};
 
-#[cfg(feature = "aura-grandpa")]
-use sc_cli::Role;
+use crate::cli::RelayChainCli;
+use codec::Encode;
+use cumulus_client_service::genesis::generate_genesis_block;
+use cumulus_primitives_core::ParaId;
+use log::info;
+use polkadot_parachain::primitives::AccountIdConversion;
+use sc_cli::{CliConfiguration, DefaultConfigurationValues, ImportParams, KeystoreParams, NetworkParams, SharedParams};
+use sc_service::config::{BasePath, PrometheusConfig};
+use sp_core::hexdisplay::HexDisplay;
+use sp_runtime::traits::Block as BlockT;
+use std::{io::Write, net::SocketAddr};
 
-#[cfg(feature = "cumulus-polkadot")]
-use {
-    crate::cli::RelayChainCli,
-    codec::Encode,
-    cumulus_primitives::ParaId,
-    cumulus_service::genesis::generate_genesis_block,
-    log::info,
-    polkadot_parachain::primitives::AccountIdConversion,
-    sc_cli::{CliConfiguration, DefaultConfigurationValues, ImportParams, KeystoreParams, NetworkParams, SharedParams},
-    sc_service::config::{BasePath, PrometheusConfig},
-    sp_core::hexdisplay::HexDisplay,
-    sp_runtime::traits::Block as BlockT,
-    std::{io::Write, net::SocketAddr},
-};
-
-#[cfg(feature = "cumulus-polkadot")]
 const DEFAULT_PARA_ID: u32 = 21;
 
-fn load_spec(
-    id: &str,
-    #[cfg(feature = "cumulus-polkadot")] para_id: ParaId,
-) -> std::result::Result<Box<dyn sc_service::ChainSpec>, String> {
+fn load_spec(id: &str, para_id: ParaId) -> std::result::Result<Box<dyn sc_service::ChainSpec>, String> {
     match id {
-        #[cfg(feature = "cumulus-polkadot")]
         "rococo" => Ok(Box::new(chain_spec::rococo_testnet_config(para_id))),
-        #[cfg(feature = "aura-grandpa")]
-        "beta" => Ok(Box::new(chain_spec::beta_testnet_config())),
-        "dev" => Ok(Box::new(chain_spec::development_config(
-            #[cfg(feature = "cumulus-polkadot")]
-            para_id,
-        ))),
-        "" => Ok(Box::new(chain_spec::local_config(
-            #[cfg(feature = "cumulus-polkadot")]
-            para_id,
-        ))),
+        "dev" => Ok(Box::new(chain_spec::development_config(para_id))),
+        "" => Ok(Box::new(chain_spec::local_config(para_id))),
         path => Ok(Box::new(chain_spec::ChainSpec::from_json_file(path.into())?)),
     }
 }
@@ -82,7 +64,7 @@ impl SubstrateCli for Cli {
     }
 
     fn support_url() -> String {
-        "https://github.com/interlay/btc-parachain/issues/new".into()
+        "https://github.com/interlay/interbtc/issues/new".into()
     }
 
     fn copyright_start_year() -> i32 {
@@ -90,19 +72,14 @@ impl SubstrateCli for Cli {
     }
 
     fn load_spec(&self, id: &str) -> std::result::Result<Box<dyn sc_service::ChainSpec>, String> {
-        load_spec(
-            id,
-            #[cfg(feature = "cumulus-polkadot")]
-            self.run.parachain_id.unwrap_or(DEFAULT_PARA_ID).into(),
-        )
+        load_spec(id, self.run.parachain_id.unwrap_or(DEFAULT_PARA_ID).into())
     }
 
     fn native_runtime_version(_: &Box<dyn ChainSpec>) -> &'static RuntimeVersion {
-        &btc_parachain_runtime::VERSION
+        &interbtc_runtime::VERSION
     }
 }
 
-#[cfg(feature = "cumulus-polkadot")]
 impl SubstrateCli for RelayChainCli {
     fn impl_name() -> String {
         "BTC Parachain".into()
@@ -141,7 +118,6 @@ impl SubstrateCli for RelayChainCli {
     }
 }
 
-#[cfg(feature = "cumulus-polkadot")]
 fn extract_genesis_wasm(chain_spec: &Box<dyn sc_service::ChainSpec>) -> Result<Vec<u8>> {
     let mut storage = chain_spec.build_storage()?;
 
@@ -168,7 +144,7 @@ pub fn run() -> Result<()> {
                     task_manager,
                     import_queue,
                     ..
-                } = btc_parachain_service::new_partial(&config)?;
+                } = interbtc_service::new_partial(&config)?;
                 Ok((cmd.run(client, import_queue), task_manager))
             })
         }
@@ -177,7 +153,7 @@ pub fn run() -> Result<()> {
             runner.async_run(|config| {
                 let PartialComponents {
                     client, task_manager, ..
-                } = btc_parachain_service::new_partial(&config)?;
+                } = interbtc_service::new_partial(&config)?;
                 Ok((cmd.run(client, config.database), task_manager))
             })
         }
@@ -186,7 +162,7 @@ pub fn run() -> Result<()> {
             runner.async_run(|config| {
                 let PartialComponents {
                     client, task_manager, ..
-                } = btc_parachain_service::new_partial(&config)?;
+                } = interbtc_service::new_partial(&config)?;
                 Ok((cmd.run(client, config.chain_spec), task_manager))
             })
         }
@@ -198,7 +174,7 @@ pub fn run() -> Result<()> {
                     task_manager,
                     import_queue,
                     ..
-                } = btc_parachain_service::new_partial(&config)?;
+                } = interbtc_service::new_partial(&config)?;
                 Ok((cmd.run(client, import_queue), task_manager))
             })
         }
@@ -214,7 +190,7 @@ pub fn run() -> Result<()> {
                     task_manager,
                     backend,
                     ..
-                } = btc_parachain_service::new_partial(&config)?;
+                } = interbtc_service::new_partial(&config)?;
                 Ok((cmd.run(client, backend), task_manager))
             })
         }
@@ -222,14 +198,13 @@ pub fn run() -> Result<()> {
             if cfg!(feature = "runtime-benchmarks") {
                 let runner = cli.create_runner(cmd)?;
 
-                runner.sync_run(|config| cmd.run::<Block, btc_parachain_service::Executor>(config))
+                runner.sync_run(|config| cmd.run::<Block, interbtc_service::Executor>(config))
             } else {
                 Err("Benchmarking wasn't enabled when building the node. \
 				You can enable it with `--features runtime-benchmarks`."
                     .into())
             }
         }
-        #[cfg(feature = "cumulus-polkadot")]
         Some(Subcommand::ExportGenesisState(params)) => {
             let mut builder = sc_cli::LoggerBuilder::new("");
             builder.with_profiling(sc_tracing::TracingReceiver::Log, "");
@@ -254,7 +229,6 @@ pub fn run() -> Result<()> {
 
             Ok(())
         }
-        #[cfg(feature = "cumulus-polkadot")]
         Some(Subcommand::ExportGenesisWasm(params)) => {
             let mut builder = sc_cli::LoggerBuilder::new("");
             builder.with_profiling(sc_tracing::TracingReceiver::Log, "");
@@ -285,16 +259,6 @@ pub fn run() -> Result<()> {
     }
 }
 
-#[cfg(feature = "aura-grandpa")]
-async fn start_node(_: Cli, config: Configuration) -> sc_service::error::Result<TaskManager> {
-    match config.role {
-        Role::Light => btc_parachain_service::new_light(config),
-        _ => btc_parachain_service::new_full(config),
-    }
-    .map(|(task_manager, _)| task_manager)
-}
-
-#[cfg(feature = "cumulus-polkadot")]
 async fn start_node(cli: Cli, config: Configuration) -> sc_service::error::Result<TaskManager> {
     let para_id = chain_spec::Extensions::try_get(&*config.chain_spec).map(|e| e.para_id);
 
@@ -324,12 +288,11 @@ async fn start_node(cli: Cli, config: Configuration) -> sc_service::error::Resul
         if config.role.is_authority() { "yes" } else { "no" }
     );
 
-    btc_parachain_service::start_node(config, polkadot_config, id)
+    interbtc_service::start_node(config, polkadot_config, id)
         .await
         .map(|srv| srv.0)
 }
 
-#[cfg(feature = "cumulus-polkadot")]
 impl DefaultConfigurationValues for RelayChainCli {
     fn p2p_listen_port() -> u16 {
         30334
@@ -348,7 +311,6 @@ impl DefaultConfigurationValues for RelayChainCli {
     }
 }
 
-#[cfg(feature = "cumulus-polkadot")]
 impl CliConfiguration<Self> for RelayChainCli {
     fn shared_params(&self) -> &SharedParams {
         self.base.base.shared_params()

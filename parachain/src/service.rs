@@ -6,9 +6,11 @@ use cumulus_client_service::{
 };
 use cumulus_primitives_core::ParaId;
 
+use interbtc_runtime::{primitives::Block, RuntimeApi};
 use sc_client_api::ExecutorProvider;
+use sc_executor::native_executor_instance;
 use sc_network::NetworkService;
-use sc_service::{Configuration, PartialComponents, Role, TaskManager};
+use sc_service::{Configuration, PartialComponents, Role, TFullBackend, TFullClient, TaskManager};
 use sc_telemetry::{Telemetry, TelemetryHandle, TelemetryWorker, TelemetryWorkerHandle};
 use sp_consensus::SlotData;
 use sp_keystore::SyncCryptoStorePtr;
@@ -16,9 +18,16 @@ use sp_runtime::traits::BlakeTwo256;
 use std::sync::Arc;
 use substrate_prometheus_endpoint::Registry;
 
-use crate::{Executor, FullBackend, FullClient};
+// Native executor instance.
+native_executor_instance!(
+    pub Executor,
+    interbtc_runtime::api::dispatch,
+    interbtc_runtime::native_version,
+    frame_benchmarking::benchmarking::HostFunctions,
+);
 
-use btc_parachain_runtime::primitives::Block;
+pub type FullClient = TFullClient<Block, RuntimeApi, Executor>;
+pub type FullBackend = TFullBackend<Block>;
 
 // type BlockNumber = u32;
 // type Header = sp_runtime::generic::Header<BlockNumber, sp_runtime::traits::BlakeTwo256>;
@@ -57,7 +66,7 @@ where
         .transpose()?;
 
     let (client, backend, keystore_container, task_manager) =
-        sc_service::new_full_parts::<Block, btc_parachain_runtime::RuntimeApi, Executor>(
+        sc_service::new_full_parts::<Block, interbtc_runtime::RuntimeApi, Executor>(
             &config,
             telemetry.as_ref().map(|(_, telemetry)| telemetry.handle()),
         )?;

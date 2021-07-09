@@ -7,13 +7,13 @@ pub use bitcoin::{
     formatter::{Formattable, TryFormattable},
     types::*,
 };
-pub use btc_parachain_runtime::{
-    AccountId, BlockNumber, Call, Event, GetCollateralCurrencyId, GetWrappedCurrencyId, Runtime, DOT, INTERBTC,
-};
 pub use btc_relay::{BtcAddress, BtcPublicKey};
 pub use currency::ParachainCurrency;
 use frame_support::traits::GenesisBuild;
 pub use frame_support::{assert_err, assert_noop, assert_ok, dispatch::DispatchResultWithPostInfo};
+pub use interbtc_runtime_standalone::{
+    AccountId, BlockNumber, Call, Event, GetCollateralCurrencyId, GetWrappedCurrencyId, Runtime, DOT, INTERBTC,
+};
 pub use mocktopus::mocking::*;
 pub use orml_tokens::CurrencyAdapter;
 pub use security::{ErrorCode, StatusCode};

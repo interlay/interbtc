@@ -25,8 +25,8 @@ Compile and install the [parachain](https://github.com/interlay/interbtc) with t
 git clone git@github.com:interlay/interbtc.git
 cd interbtc
 
-cargo build --manifest-path parachain/Cargo.toml --release --no-default-features --features cumulus-polkadot
-sudo cp ./target/release/btc-parachain /usr/local/bin/
+cargo build --release --bin interbtc-parachain
+sudo cp ./target/release/interbtc-parachain /usr/local/bin/
 ```
 
 Run polkadot-launch with [this config](./xcm-config.json).
@@ -58,13 +58,13 @@ Compile and install the parachain as above.
 
 ```shell
 # Export genesis state
-btc-parachain export-genesis-state --chain dev --parachain-id 21 > genesis-state
+interbtc-parachain export-genesis-state --chain dev --parachain-id 21 > genesis-state
 
 # Export genesis wasm
-btc-parachain export-genesis-wasm > genesis-wasm
+interbtc-parachain export-genesis-wasm > genesis-wasm
 
 # Run parachain collator
-btc-parachain --collator --discover-local --tmp --parachain-id 200 --port 40335 --ws-port 9946 -- --execution wasm --chain ../polkadot/rococo-local.json --port 30335 --discover-local
+interbtc-parachain --collator --discover-local --tmp --parachain-id 200 --port 40335 --ws-port 9946 -- --execution wasm --chain ../polkadot/rococo-local.json --port 30335 --discover-local
 ```
 
 ## Register

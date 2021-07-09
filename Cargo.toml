@@ -1,15 +1,15 @@
 [workspace]
 members = [
   "crates/*",
+  "primitives",
   "parachain",
   "parachain/runtime",
-  "parachain/service",
-  "parachain/rpc",
-  "primitives",
+  "standalone",
+  "standalone/runtime",
+  "rpc",
 ]
 
 resolver = "2"
-
 
 # disable incremental compilation to work around a compiler bug.
 # See https://blog.rust-lang.org/2021/05/10/Rust-1.52.1.html

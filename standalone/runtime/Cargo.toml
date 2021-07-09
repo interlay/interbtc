@@ -1,7 +1,7 @@
 [package]
 authors = ["Interlay Ltd"]
 edition = "2018"
-name = 'interbtc-runtime-parachain'
+name = 'interbtc-runtime-standalone'
 version = "0.8.0"
 
 [package.metadata.docs.rs]
@@ -44,25 +44,9 @@ frame-system-rpc-runtime-api = { git = "https://github.com/paritytech/substrate"
 pallet-transaction-payment-rpc-runtime-api = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.7", default-features = false }
 
 # Aura & GRANDPA dependencies
+pallet-grandpa = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.7", default-features = false }
 pallet-aura = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.7", default-features = false }
 sp-consensus-aura = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.7", default-features = false }
-
-# Cumulus dependencies
-cumulus-pallet-aura-ext = { git = "https://github.com/paritytech/cumulus", branch = "polkadot-v0.9.7", default-features = false }
-cumulus-pallet-parachain-system = { git = "https://github.com/paritytech/cumulus", branch = "polkadot-v0.9.7", default-features = false }
-cumulus-primitives-core = { git = "https://github.com/paritytech/cumulus", branch = "polkadot-v0.9.7", default-features = false }
-cumulus-primitives-timestamp = { git = "https://github.com/paritytech/cumulus", branch = "polkadot-v0.9.7", default-features = false }
-cumulus-primitives-utility = { git = "https://github.com/paritytech/cumulus", branch = "polkadot-v0.9.7", default-features = false }
-cumulus-pallet-dmp-queue = { git = "https://github.com/paritytech/cumulus", branch = "polkadot-v0.9.7", default-features = false }
-cumulus-pallet-xcmp-queue = { git = "https://github.com/paritytech/cumulus", branch = "polkadot-v0.9.7", default-features = false }
-cumulus-pallet-xcm = { git = "https://github.com/paritytech/cumulus", branch = "polkadot-v0.9.7", default-features = false }
-
-# Polkadot dependencies
-polkadot-parachain = { git = "https://github.com/paritytech/polkadot", branch = "release-v0.9.7", default-features = false }
-xcm = { git = "https://github.com/paritytech/polkadot", branch = "release-v0.9.7", default-features = false }
-xcm-builder = { git = "https://github.com/paritytech/polkadot", branch = "release-v0.9.7", default-features = false }
-xcm-executor = { git = "https://github.com/paritytech/polkadot", branch = "release-v0.9.7", default-features = false }
-pallet-xcm = { git = "https://github.com/paritytech/polkadot", branch = "release-v0.9.7", default-features = false }
 
 # Parachain dependencies
 btc-relay = { path = "../../crates/btc-relay", default-features = false }
@@ -83,8 +67,6 @@ staking = { path = "../../crates/staking", default-features = false }
 
 primitives = { package = "interbtc-primitives", path = "../../primitives", default-features = false }
 
-parachain-info = { path = "../../crates/parachain-info", default-features = false }
-
 module-btc-relay-rpc-runtime-api = { path = "../../crates/btc-relay/rpc/runtime-api", default-features = false }
 module-exchange-rate-oracle-rpc-runtime-api = { path = "../../crates/exchange-rate-oracle/rpc/runtime-api", default-features = false }
 module-relay-rpc-runtime-api = { path = "../../crates/relay/rpc/runtime-api", default-features = false }
@@ -98,10 +80,6 @@ module-refund-rpc-runtime-api = { path = "../../crates/refund/rpc/runtime-api", 
 orml-tokens = { git = "https://github.com/open-web3-stack/open-runtime-module-library", rev = "443ee91", default-features = false }
 orml-traits = { git = "https://github.com/open-web3-stack/open-runtime-module-library", rev = "443ee91", default-features = false }
 
-orml-xtokens = { git = "https://github.com/open-web3-stack/open-runtime-module-library", rev = "443ee91", default-features = false }
-orml-xcm-support = { git = "https://github.com/open-web3-stack/open-runtime-module-library", rev = "443ee91", default-features = false }
-orml-unknown-tokens = { git = "https://github.com/open-web3-stack/open-runtime-module-library", rev = "443ee91", default-features = false }
-
 [dev-dependencies]
 hex = '0.4.2'
 mocktopus = '0.7.0'
@@ -111,10 +89,6 @@ bitcoin = { path = "../../crates/bitcoin", default-features = false }
 
 [build-dependencies]
 substrate-wasm-builder = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.7" }
-
-# TODO: enable weak dependency activation when available
-# https://github.com/rust-lang/cargo/issues/8832
-# https://github.com/paritytech/substrate/issues/8161
 
 [features]
 default = ["std"]
@@ -152,23 +126,10 @@ std = [
   "frame-system-rpc-runtime-api/std",
   "pallet-transaction-payment-rpc-runtime-api/std",
 
+  "pallet-grandpa/std",
+
   "pallet-aura/std",
   "sp-consensus-aura/std",
-
-	"cumulus-pallet-aura-ext/std",
-	"cumulus-pallet-dmp-queue/std",
-	"cumulus-pallet-parachain-system/std",
-	"cumulus-pallet-xcmp-queue/std",
-	"cumulus-pallet-xcm/std",
-	"cumulus-primitives-core/std",
-  "cumulus-primitives-timestamp/std",
-	"cumulus-primitives-utility/std",
-
-  "polkadot-parachain/std",
-	"xcm/std",
-	"xcm-builder/std",
-	"xcm-executor/std",
-  "pallet-xcm/std",
 
   "btc-relay/std",
   "currency/std",
@@ -188,8 +149,6 @@ std = [
 
   "primitives/std",
 
-  "parachain-info/std",
-
   "module-btc-relay-rpc-runtime-api/std",
   "module-exchange-rate-oracle-rpc-runtime-api/std",
   "module-relay-rpc-runtime-api/std",
@@ -201,10 +160,6 @@ std = [
 
   "orml-tokens/std",
   "orml-traits/std",
-
-  "orml-xtokens/std",
-  "orml-xcm-support/std",
-  "orml-unknown-tokens/std",
 ]
 runtime-benchmarks = [
   "hex-literal",

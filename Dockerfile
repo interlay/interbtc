@@ -25,17 +25,17 @@ FROM bitnami/minideb:buster
 
 ARG PROFILE=release
 
-COPY --from=build /src/target/$PROFILE/btc-parachain /usr/local/bin
+COPY --from=build /src/target/$PROFILE/interbtc-parachain /usr/local/bin
 
 # Checks
-RUN chmod +x /usr/local/bin/btc-parachain && \
-    ldd /usr/local/bin/btc-parachain && \
-    /usr/local/bin/btc-parachain --version
+RUN chmod +x /usr/local/bin/interbtc-parachain && \
+    ldd /usr/local/bin/interbtc-parachain && \
+    /usr/local/bin/interbtc-parachain --version
 
-RUN /usr/local/bin/btc-parachain export-genesis-state --chain staging --parachain-id 21 > /var/lib/genesis-state
-RUN /usr/local/bin/btc-parachain export-genesis-wasm --chain staging > /var/lib/genesis-wasm
+RUN /usr/local/bin/interbtc-parachain export-genesis-state --chain staging --parachain-id 21 > /var/lib/genesis-state
+RUN /usr/local/bin/interbtc-parachain export-genesis-wasm --chain staging > /var/lib/genesis-wasm
 
 EXPOSE 30333 9933 9944
 VOLUME ["/data"]
 
-CMD ["/usr/local/bin/btc-parachain"]
+CMD ["/usr/local/bin/interbtc-parachain"]

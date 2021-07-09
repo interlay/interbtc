@@ -1,15 +1,25 @@
-use btc_parachain_runtime::{primitives::Block, RuntimeApi};
+use interbtc_runtime::{primitives::Block, RuntimeApi};
 use sc_client_api::{ExecutorProvider, RemoteBackend};
 use sc_consensus_aura::{ImportQueueParams, SlotProportion, StartAuraParams};
+use sc_executor::native_executor_instance;
 use sc_finality_grandpa::SharedVoterState;
 use sc_keystore::LocalKeystore;
-use sc_service::{error::Error as ServiceError, Configuration, RpcHandlers, TaskManager};
+use sc_service::{error::Error as ServiceError, Configuration, RpcHandlers, TFullBackend, TFullClient, TaskManager};
 use sc_telemetry::{Telemetry, TelemetryWorker};
 use sp_consensus::SlotData;
 use sp_consensus_aura::sr25519::AuthorityPair as AuraPair;
 use std::{sync::Arc, time::Duration};
 
-use crate::{Executor, FullBackend, FullClient};
+// Native executor instance.
+native_executor_instance!(
+    pub Executor,
+    interbtc_runtime::api::dispatch,
+    interbtc_runtime::native_version,
+    frame_benchmarking::benchmarking::HostFunctions,
+);
+
+pub type FullClient = TFullClient<Block, RuntimeApi, Executor>;
+pub type FullBackend = TFullBackend<Block>;
 
 type FullSelectChain = sc_consensus::LongestChain<FullBackend, Block>;
 
@@ -171,13 +181,13 @@ pub fn new_full(mut config: Configuration) -> Result<(TaskManager, RpcHandlers),
         let pool = transaction_pool.clone();
 
         Box::new(move |deny_unsafe, _| {
-            let deps = btc_parachain_rpc::FullDeps {
+            let deps = interbtc_rpc::FullDeps {
                 client: client.clone(),
                 pool: pool.clone(),
                 deny_unsafe,
             };
 
-            btc_parachain_rpc::create_full(deps)
+            interbtc_rpc::create_full(deps)
         })
     };
 

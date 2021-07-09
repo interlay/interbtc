@@ -32,12 +32,11 @@ This project is currently under active development.
 
 ## About the Project
 
-This is a proof of concept implementation of a BTC Parachain to bring Bitcoin into the Polkadot universe.
-It allows the creation of **InterBTC**, a fungible token that represents Bitcoin in the Polkadot ecosystem.
+InterBTC allows the creation of **InterBTC**, a fungible token that represents Bitcoin in the Polkadot ecosystem.
 InterBTC is backed by Bitcoin 1:1 and allows redeeming of the equivalent amount of Bitcoins by relying on a collateralized third-party.
 
 The project uses the concept of [Cryptocurrency-backed Assets](https://xclaim.io) to lock Bitcoin on the Bitcoin blockchain and issue BTC-backed tokens on the BTC Parachain.
-The implementation is based on the [BTC Parachain specification](https://interlay.gitlab.io/polkabtc-spec/).
+The implementation is based on the [InterBTC specification](https://interlay.gitlab.io/interbtc-spec/).
 
 ### Built with
 
@@ -106,7 +105,7 @@ To build, run:
 cargo build
 ```
 
-For more detailed development instructions [see here](./parachain/README.md).
+For more detailed development instructions [see here](./docs/README.md).
 
 [override file]: https://rust-lang.github.io/rustup/overrides.html#the-toolchain-file
 
@@ -131,37 +130,28 @@ cargo cov test
 cargo cov report --open
 ```
 
-### Running
+### Running - Standalone
 
 To run a local development node, use the `dev` chain spec.
 
 ```shell
-cargo run --release -- --dev
+cargo run --release --bin interbtc-standalone -- --dev
 ```
 
 Clear the database using the `purge-chain` command.
 
 ```shell
-cargo run --release -- purge-chain --dev
+cargo run --release --bin interbtc-standalone -- purge-chain --dev
 ```
 
-To disable all btc-relay block inclusion checks, use the special `dev-no-btc` chain spec.
-This is useful for testing without the overhead of running a block relayer.
+Additional CLI usage options are available and may be shown by running `cargo run --bin interbtc-standalone -- --help`.
+
+### Running - Parachain
+
+To run a local development node, use the `dev` chain spec.
 
 ```shell
-cargo run --release -- --alice --chain dev-no-btc --rpc-cors all --validator --force-authoring --tmp
-```
-
-Additional CLI usage options are available and may be shown by running `cargo run -- --help`.
-
-### Rococo
-
-By default, the node will build in standalone mode with the `aura-grandpa` feature.
-
-To build with "parachain" support use the `cumulus-polkadot` feature:
-
-```shell
-cargo build --manifest-path parachain/Cargo.toml --release --no-default-features --features cumulus-polkadot
+cargo run --release --bin interbtc-parachain -- --dev
 ```
 
 To connect with a local relay-chain follow [these instructions](docs/rococo.md).
