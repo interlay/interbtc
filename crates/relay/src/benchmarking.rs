@@ -2,7 +2,10 @@ use super::*;
 use crate::Pallet as Relay;
 use bitcoin::{
     formatter::{Formattable, TryFormattable},
-    types::{BlockBuilder, H256Le, RawBlockHeader, TransactionBuilder, TransactionInputBuilder, TransactionOutput},
+    types::{
+        BlockBuilder, H256Le, RawBlockHeader, TransactionBuilder, TransactionInputBuilder, TransactionInputSource,
+        TransactionOutput,
+    },
 };
 use btc_relay::{BtcAddress, BtcPublicKey, Pallet as BtcRelay};
 use currency::ParachainCurrency;
@@ -115,13 +118,11 @@ benchmarks! {
             .with_version(2)
             .add_input(
                 TransactionInputBuilder::new()
-                    .with_coinbase(false)
-                    .with_sequence(4294967295)
-                    .with_previous_index(1)
-                    .with_previous_hash(H256Le::from_bytes_le(&[
-                        193, 80, 65, 160, 109, 235, 107, 56, 24, 176, 34, 250, 197, 88, 218, 76,
-                        226, 9, 127, 8, 96, 200, 246, 66, 16, 91, 186, 217, 210, 155, 224, 42,
-                    ]))
+                                        .with_sequence(4294967295)
+                    .with_source(TransactionInputSource::FromOutput(H256Le::from_bytes_le(&[
+                            193, 80, 65, 160, 109, 235, 107, 56, 24, 176, 34, 250, 197, 88, 218, 76,
+                            226, 9, 127, 8, 96, 200, 246, 66, 16, 91, 186, 217, 210, 155, 224, 42,
+                        ]), 1))
                     .with_script(&[
                         73, 48, 70, 2, 33, 0, 207, 210, 162, 211, 50, 178, 154, 220, 225, 25, 197,
                         90, 159, 173, 211, 192, 115, 51, 32, 36, 183, 226, 114, 81, 62, 81, 98, 60,

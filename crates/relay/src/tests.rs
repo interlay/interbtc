@@ -3,7 +3,8 @@ use crate::{ext, mock::*};
 use bitcoin::{
     formatter::Formattable,
     types::{
-        BlockHeader, H256Le, MerkleProof, Transaction, TransactionBuilder, TransactionInputBuilder, TransactionOutput,
+        BlockHeader, H256Le, MerkleProof, Transaction, TransactionBuilder, TransactionInputBuilder,
+        TransactionInputSource, TransactionOutput,
     },
 };
 use btc_relay::{BtcAddress, BtcPublicKey, Error as BtcRelayError, OpReturnPaymentData};
@@ -148,13 +149,14 @@ fn build_dummy_transaction_with(output_addresses: Vec<BtcAddress>) -> Transactio
     let mut builder = TransactionBuilder::new();
     builder.with_version(1).add_input(
         TransactionInputBuilder::new()
-            .with_coinbase(false)
             .with_sequence(4294967295)
-            .with_previous_index(1)
-            .with_previous_hash(H256Le::from_bytes_le(&[
-                193, 80, 65, 160, 109, 235, 107, 56, 24, 176, 34, 250, 197, 88, 218, 76, 226, 9, 127, 8, 96, 200, 246,
-                66, 16, 91, 186, 217, 210, 155, 224, 42,
-            ]))
+            .with_source(TransactionInputSource::FromOutput(
+                H256Le::from_bytes_le(&[
+                    193, 80, 65, 160, 109, 235, 107, 56, 24, 176, 34, 250, 197, 88, 218, 76, 226, 9, 127, 8, 96, 200,
+                    246, 66, 16, 91, 186, 217, 210, 155, 224, 42,
+                ]),
+                1,
+            ))
             .with_script(&[
                 73, 48, 70, 2, 33, 0, 207, 210, 162, 211, 50, 178, 154, 220, 225, 25, 197, 90, 159, 173, 211, 192, 115,
                 51, 32, 36, 183, 226, 114, 81, 62, 81, 98, 60, 161, 89, 147, 72, 2, 33, 0, 155, 72, 45, 127, 123, 77,
@@ -216,13 +218,14 @@ fn build_dummy2_transaction_with(output_addresses: Vec<(i64, BtcAddress)>, op_re
     let mut builder = TransactionBuilder::new();
     builder.with_version(1).add_input(
         TransactionInputBuilder::new()
-            .with_coinbase(false)
             .with_sequence(4294967295)
-            .with_previous_index(1)
-            .with_previous_hash(H256Le::from_bytes_le(&[
-                193, 80, 65, 160, 109, 235, 107, 56, 24, 176, 34, 250, 197, 88, 218, 76, 226, 9, 127, 8, 96, 200, 246,
-                66, 16, 91, 186, 217, 210, 155, 224, 42,
-            ]))
+            .with_source(TransactionInputSource::FromOutput(
+                H256Le::from_bytes_le(&[
+                    193, 80, 65, 160, 109, 235, 107, 56, 24, 176, 34, 250, 197, 88, 218, 76, 226, 9, 127, 8, 96, 200,
+                    246, 66, 16, 91, 186, 217, 210, 155, 224, 42,
+                ]),
+                1,
+            ))
             .with_script(&[
                 73, 48, 70, 2, 33, 0, 207, 210, 162, 211, 50, 178, 154, 220, 225, 25, 197, 90, 159, 173, 211, 192, 115,
                 51, 32, 36, 183, 226, 114, 81, 62, 81, 98, 60, 161, 89, 147, 72, 2, 33, 0, 155, 72, 45, 127, 123, 77,
@@ -356,13 +359,14 @@ fn test_is_transaction_invalid_fails_with_valid_merge_transaction() {
             .with_version(1)
             .add_input(
                 TransactionInputBuilder::new()
-                    .with_coinbase(false)
                     .with_sequence(4294967295)
-                    .with_previous_index(1)
-                    .with_previous_hash(H256Le::from_bytes_le(&[
-                        193, 80, 65, 160, 109, 235, 107, 56, 24, 176, 34, 250, 197, 88, 218, 76, 226, 9, 127, 8, 96,
-                        200, 246, 66, 16, 91, 186, 217, 210, 155, 224, 42,
-                    ]))
+                    .with_source(TransactionInputSource::FromOutput(
+                        H256Le::from_bytes_le(&[
+                            193, 80, 65, 160, 109, 235, 107, 56, 24, 176, 34, 250, 197, 88, 218, 76, 226, 9, 127, 8,
+                            96, 200, 246, 66, 16, 91, 186, 217, 210, 155, 224, 42,
+                        ]),
+                        1,
+                    ))
                     .with_script(&[
                         73, 48, 70, 2, 33, 0, 207, 210, 162, 211, 50, 178, 154, 220, 225, 25, 197, 90, 159, 173, 211,
                         192, 115, 51, 32, 36, 183, 226, 114, 81, 62, 81, 98, 60, 161, 89, 147, 72, 2, 33, 0, 155, 72,
@@ -430,10 +434,9 @@ fn test_is_transaction_invalid_fails_with_valid_request_or_redeem() {
             .with_version(1)
             .add_input(
                 TransactionInputBuilder::new()
-                    .with_coinbase(false)
-                    .with_previous_index(1)
-                    .with_previous_hash(H256Le::from_hex_le(
-                        "40d43a99926d43eb0e619bf0b3d83b4a31f60c176beecfb9d35bf45e54d0f742",
+                    .with_source(TransactionInputSource::FromOutput(
+                        H256Le::from_hex_le("40d43a99926d43eb0e619bf0b3d83b4a31f60c176beecfb9d35bf45e54d0f742"),
+                        1,
                     ))
                     .with_sequence(4294967295)
                     .with_script(&[
@@ -502,13 +505,14 @@ fn test_is_transaction_invalid_succeeds() {
             .with_version(1)
             .add_input(
                 TransactionInputBuilder::new()
-                    .with_coinbase(false)
                     .with_sequence(4294967295)
-                    .with_previous_index(1)
-                    .with_previous_hash(H256Le::from_bytes_le(&[
-                        193, 80, 65, 160, 109, 235, 107, 56, 24, 176, 34, 250, 197, 88, 218, 76, 226, 9, 127, 8, 96,
-                        200, 246, 66, 16, 91, 186, 217, 210, 155, 224, 42,
-                    ]))
+                    .with_source(TransactionInputSource::FromOutput(
+                        H256Le::from_bytes_le(&[
+                            193, 80, 65, 160, 109, 235, 107, 56, 24, 176, 34, 250, 197, 88, 218, 76, 226, 9, 127, 8,
+                            96, 200, 246, 66, 16, 91, 186, 217, 210, 155, 224, 42,
+                        ]),
+                        1,
+                    ))
                     .with_script(&[
                         73, 48, 70, 2, 33, 0, 207, 210, 162, 211, 50, 178, 154, 220, 225, 25, 197, 90, 159, 173, 211,
                         192, 115, 51, 32, 36, 183, 226, 114, 81, 62, 81, 98, 60, 161, 89, 147, 72, 2, 33, 0, 155, 72,

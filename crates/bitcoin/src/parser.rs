@@ -319,7 +319,7 @@ pub fn parse_transaction(raw_transaction: &[u8]) -> Result<Transaction, Error> {
     if (flags & 1) != 0 && allow_witness {
         flags ^= 1;
         for input in &mut inputs {
-            input.with_witness(flags, parser.parse()?);
+            input.with_witness(parser.parse()?);
         }
 
         if inputs.iter().all(|input| input.witness.is_empty()) {
@@ -365,18 +365,25 @@ fn parse_transaction_input(raw_input: &[u8], version: i32) -> Result<(Transactio
     }
 
     let mut script_size: u64 = parser.parse::<CompactUint>()?.value;
-    let height = if is_coinbase && version == 2 {
-        // https://github.com/bitcoin/bips/blob/master/bip-0034.mediawiki
-        let height_size: u64 = parser.parse::<CompactUint>()?.value;
-        script_size = script_size.checked_sub(height_size + 1).ok_or(Error::EndOfFile)?;
+    let source = if is_coinbase {
+        let height = if version != 2 {
+            // version 1 does not include height
+            None
+        } else {
+            // version 2 transactions include a height as the first 4 bytes, see
+            // https://github.com/bitcoin/bips/blob/master/bip-0034.mediawiki
+            let height_size: u64 = parser.parse::<CompactUint>()?.value;
+            script_size = script_size.checked_sub(height_size + 1).ok_or(Error::EndOfFile)?;
 
-        let mut buffer = [0u8; 4];
-        let bytes = parser.read(height_size as usize)?;
-        buffer[..3].copy_from_slice(bytes.get(0..3).ok_or(Error::EndOfFile)?);
+            let mut buffer = [0u8; 4];
+            let bytes = parser.read(height_size as usize)?;
+            buffer[..3].copy_from_slice(bytes.get(0..3).ok_or(Error::EndOfFile)?);
+            Some(u32::from_le_bytes(buffer))
+        };
 
-        Some(u32::from_le_bytes(buffer))
+        TransactionInputSource::Coinbase(height)
     } else {
-        None
+        TransactionInputSource::FromOutput(previous_hash, previous_index)
     };
 
     let script = parser.read(script_size as usize)?;
@@ -390,13 +397,9 @@ fn parse_transaction_input(raw_input: &[u8], version: i32) -> Result<(Transactio
 
     Ok((
         TransactionInput {
-            previous_hash,
-            previous_index,
-            coinbase: is_coinbase,
-            height,
+            source,
             script,
             sequence,
-            flags: 0,
             witness: vec![],
         },
         consumed_bytes,
@@ -617,11 +620,8 @@ pub(crate) mod tests {
         let input_bytes = hex::decode(&raw_input).unwrap();
         let mut parser = BytesParser::new(&input_bytes);
         let input: TransactionInput = parser.parse_with(2).unwrap();
-        assert_eq!(input.coinbase, true);
+        assert!(matches!(input.source, TransactionInputSource::Coinbase(Some(328014))));
         assert_eq!(input.sequence, 0);
-        assert_eq!(input.previous_index, u32::max_value());
-        let height = input.height.unwrap();
-        assert_eq!(height, 328014);
         assert_eq!(input.script.len(), 37); // 0x29 - 4
     }
 
@@ -631,14 +631,12 @@ pub(crate) mod tests {
         let input_bytes = hex::decode(&raw_input).unwrap();
         let mut parser = BytesParser::new(&input_bytes);
         let input: TransactionInput = parser.parse_with(2).unwrap();
-        assert_eq!(input.coinbase, false);
-        assert_eq!(input.sequence, u32::max_value());
-        assert_eq!(input.previous_index, 0);
-        assert_eq!(input.height, None);
-        assert_eq!(input.script.len(), 73);
 
         let previous_hash = H256Le::from_hex_le("7b1eabe0209b1fe794124575ef807057c77ada2138ae4fa8d6c4de0398a14f3f");
-        assert_eq!(input.previous_hash, previous_hash);
+
+        assert!(matches!(input.source, TransactionInputSource::FromOutput(hash, 0) if hash == previous_hash));
+        assert_eq!(input.sequence, u32::max_value());
+        assert_eq!(input.script.len(), 73);
     }
 
     #[test]
@@ -660,8 +658,8 @@ pub(crate) mod tests {
         let outputs = transaction.outputs;
         assert_eq!(transaction.version, 1);
         assert_eq!(inputs.len(), 2);
-        assert_eq!(inputs[0].coinbase, true);
-        assert_eq!(inputs[1].coinbase, false);
+        assert!(matches!(inputs[0].source, TransactionInputSource::Coinbase(_)));
+        assert!(matches!(inputs[1].source, TransactionInputSource::FromOutput(_, _)));
         assert_eq!(outputs.len(), 1);
         assert_eq!(transaction.lock_at, LockTime::BlockHeight(0));
     }
@@ -675,7 +673,7 @@ pub(crate) mod tests {
         let outputs = transaction.outputs;
         assert_eq!(transaction.version, 2);
         assert_eq!(inputs.len(), 1);
-        assert_eq!(inputs[0].coinbase, false);
+        assert!(matches!(inputs[0].source, TransactionInputSource::FromOutput(_, _)));
         assert_eq!(inputs[0].witness.len(), 2);
         assert_eq!(inputs[0].witness[0].len(), 72);
         assert_eq!(inputs[0].witness[1].len(), 33);

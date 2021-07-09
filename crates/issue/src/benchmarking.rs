@@ -2,7 +2,10 @@ use super::*;
 use crate::Pallet as Issue;
 use bitcoin::{
     formatter::{Formattable, TryFormattable},
-    types::{BlockBuilder, RawBlockHeader, TransactionBuilder, TransactionInputBuilder, TransactionOutput},
+    types::{
+        BlockBuilder, RawBlockHeader, TransactionBuilder, TransactionInputBuilder, TransactionInputSource,
+        TransactionOutput,
+    },
 };
 use btc_relay::{BtcAddress, BtcPublicKey, Pallet as BtcRelay};
 use currency::ParachainCurrency;
@@ -47,8 +50,7 @@ fn mine_blocks<T: crate::Config>() {
         .with_version(2)
         .add_input(
             TransactionInputBuilder::new()
-                .with_coinbase(false)
-                .with_previous_hash(block.transactions[0].hash())
+                .with_source(TransactionInputSource::FromOutput(block.transactions[0].hash(), 0))
                 .with_script(&[
                     0, 71, 48, 68, 2, 32, 91, 128, 41, 150, 96, 53, 187, 63, 230, 129, 53, 234, 210, 186, 21, 187, 98,
                     38, 255, 112, 30, 27, 228, 29, 132, 140, 155, 62, 123, 216, 232, 168, 2, 32, 72, 126, 179, 207,
@@ -118,8 +120,7 @@ benchmarks! {
         .with_version(2)
         .add_input(
             TransactionInputBuilder::new()
-                .with_coinbase(false)
-                .with_previous_hash(block.transactions[0].hash())
+                .with_source(TransactionInputSource::FromOutput(block.transactions[0].hash(), 0))
                 .with_script(&[
                     0, 71, 48, 68, 2, 32, 91, 128, 41, 150, 96, 53, 187, 63, 230, 129, 53, 234,
                     210, 186, 21, 187, 98, 38, 255, 112, 30, 27, 228, 29, 132, 140, 155, 62, 123,
@@ -189,8 +190,7 @@ benchmarks! {
             .with_version(2)
             .add_input(
                 TransactionInputBuilder::new()
-                    .with_coinbase(false)
-                    .with_previous_hash(block.transactions[0].hash())
+                    .with_source(TransactionInputSource::FromOutput(block.transactions[0].hash(), 0))
                     .with_script(&[
                         0, 71, 48, 68, 2, 32, 91, 128, 41, 150, 96, 53, 187, 63, 230, 129, 53, 234,
                         210, 186, 21, 187, 98, 38, 255, 112, 30, 27, 228, 29, 132, 140, 155, 62, 123,

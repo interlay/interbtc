@@ -4,7 +4,7 @@ use bitcoin::{
     formatter::{Formattable, TryFormattable},
     types::{
         Block, BlockBuilder, RawBlockHeader, Transaction, TransactionBuilder, TransactionInputBuilder,
-        TransactionOutput,
+        TransactionInputSource, TransactionOutput,
     },
 };
 use frame_benchmarking::{account, benchmarks};
@@ -42,8 +42,7 @@ fn mine_block_with_one_tx<T: Config>(
         .with_version(2)
         .add_input(
             TransactionInputBuilder::new()
-                .with_coinbase(false)
-                .with_previous_hash(prev.transactions[0].hash())
+                .with_source(TransactionInputSource::FromOutput(prev.transactions[0].hash(), 0))
                 .with_script(&[
                     0, 71, 48, 68, 2, 32, 91, 128, 41, 150, 96, 53, 187, 63, 230, 129, 53, 234, 210, 186, 21, 187, 98,
                     38, 255, 112, 30, 27, 228, 29, 132, 140, 155, 62, 123, 216, 232, 168, 2, 32, 72, 126, 179, 207,

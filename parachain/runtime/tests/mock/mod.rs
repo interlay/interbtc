@@ -2,6 +2,7 @@
 
 extern crate hex;
 
+use bitcoin::types::TransactionInputSource;
 pub use bitcoin::{
     formatter::{Formattable, TryFormattable},
     types::*,
@@ -688,9 +689,8 @@ impl TransactionGenerator {
         transaction_builder.with_version(2);
         transaction_builder.add_input(
             TransactionInputBuilder::new()
-                .with_coinbase(false)
                 .with_script(&self.script)
-                .with_previous_hash(init_block.transactions[0].hash())
+                .with_source(TransactionInputSource::FromOutput(init_block.transactions[0].hash(), 0))
                 .build(),
         );
 
