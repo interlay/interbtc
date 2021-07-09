@@ -110,5 +110,6 @@ create_currency_id! {
         DOT("Polkadot", 10),
         KSM("Kusama", 12),
         INTERBTC("InterBTC", 8),
+        INTR("Interlay", 10),
     }
 }
