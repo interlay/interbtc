@@ -162,6 +162,7 @@ pub mod pallet {
         #[pallet::weight(<T as Config>::WeightInfo::opt_out_of_nomination())]
         #[transactional]
         pub fn opt_out_of_nomination(origin: OriginFor<T>) -> DispatchResultWithPostInfo {
+            ext::security::ensure_parachain_status_running::<T>()?;
             Self::_opt_out_of_nomination(&ensure_signed(origin)?)?;
             Ok(().into())
         }
