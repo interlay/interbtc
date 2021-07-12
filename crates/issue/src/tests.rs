@@ -1,4 +1,4 @@
-use crate::{ext, mock::*, Collateral, Config, Event, Wrapped};
+use crate::{ext, mock::*, BalanceOf, Config, Event};
 
 use bitcoin::types::{MerkleProof, Transaction};
 use btc_relay::{BtcAddress, BtcPublicKey};
@@ -61,7 +61,7 @@ fn cancel_issue(origin: AccountId, issue_id: &H256) -> Result<(), DispatchError>
     Issue::_cancel_issue(origin, *issue_id)
 }
 
-fn init_zero_vault<T: Config>(id: T::AccountId) -> Vault<T::AccountId, T::BlockNumber, Wrapped<T>, Collateral<T>> {
+fn init_zero_vault<T: Config>(id: T::AccountId) -> Vault<T::AccountId, T::BlockNumber, BalanceOf<T>> {
     let mut vault = Vault::default();
     vault.id = id;
     vault

@@ -844,7 +844,7 @@ mod liquidation_threshold_tests {
 
     use super::*;
 
-    fn setup() -> Vault<AccountId, BlockNumber, Balance, Balance> {
+    fn setup() -> Vault<AccountId, BlockNumber, Balance> {
         let id = create_sample_vault();
 
         assert_ok!(VaultRegistry::try_increase_to_be_issued_tokens(&id, 50),);
