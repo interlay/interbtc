@@ -59,7 +59,7 @@ At this point in time, assuming we slash 50 DOT in A, we have the following stak
 
 ### Unslashing
 
-It is reasonable to assume that stake may be re-distributed to participants after slashing. In this case we would want to "unslash" participant stake proportionally. Since we calculate the amount to slash dynamically we can handle this case by reducing `slash_per_token` by the amount to release.
+It is reasonable to assume that stake may be re-distributed to participants after slashing. In this case we would want to "unslash" participant stake proportionally. Since we calculate the amount to slash dynamically we can handle this case by reducing `slash_per_token` by the amount to release. An example of where this might be useful is if the Vault is liquidated with open redeem requests, upon completion we should re-distribute collateral to the Vault and its Nominators.
 
 ## Rewards
 
