@@ -124,16 +124,8 @@ At this point in time, assuming we distribute 100 DOT in A and 100 DOT in B, we 
 
 ## Force Refunds
 
-To allow Vaults to refund all Nominators at once, we index each staking pool by a nonce.
+To allow Vaults to refund all Nominators at once, we index each staking pool by a nonce. Most operations will use the latest nonce when reading from storage, but Nominators must specify this to recover past stake or rewards. This allows for optimal complexity since no on-chain iteration is required.
 
-- This nonce is zero-initialized and incremented on force refund.
-- Nominators may watch for relevent events and withdraw stake.
-- Vault stake is re-distributed to the new staking pool.
-
-Previously accrued rewards will still be available at the prior nonce.
-
-### Example
-
-1. Vault forces Nominator refund at nonce `n`.
-2. Vault stake is now tracked at nonce `n+1`.
-3. Nominator may withdraw stake and rewards at nonce `n`.
+- The nonce (`n`) is zero-initialized and incremented on force refund.
+- Vault stake is re-distributed to the new staking pool at nonce `n+1`.
+- Nominators may withdraw stake and rewards at nonce `n`.
