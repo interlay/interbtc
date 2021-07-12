@@ -2,9 +2,10 @@ use bitcoin::utils::{virtual_transaction_size, InputType, TransactionInputMetada
 use cumulus_primitives_core::ParaId;
 use hex_literal::hex;
 use interbtc_runtime::{
-    AccountId, AuraConfig, BTCRelayConfig, ExchangeRateOracleConfig, FeeConfig, GenesisConfig, IssueConfig,
-    NominationConfig, ParachainInfoConfig, RedeemConfig, RefundConfig, ReplaceConfig, Signature, SlaConfig, SudoConfig,
-    SystemConfig, TokensConfig, VaultRegistryConfig, BITCOIN_BLOCK_SPACING, DAYS, DOT, WASM_BINARY,
+    AccountId, AuraConfig, BTCRelayConfig, ExchangeRateOracleConfig, FeeConfig, GeneralCouncilConfig, GenesisConfig,
+    IssueConfig, NominationConfig, ParachainInfoConfig, RedeemConfig, RefundConfig, ReplaceConfig, Signature,
+    SlaConfig, SudoConfig, SystemConfig, TechnicalCommitteeConfig, TokensConfig, VaultRegistryConfig,
+    BITCOIN_BLOCK_SPACING, DAYS, DOT, WASM_BINARY,
 };
 use sc_chain_spec::{ChainSpecExtension, ChainSpecGroup};
 use serde::{Deserialize, Serialize};
@@ -331,5 +332,16 @@ fn testnet_genesis(
         nomination: NominationConfig {
             is_nomination_enabled: false,
         },
+        general_council: GeneralCouncilConfig {
+            members: vec![],
+            phantom: Default::default(),
+        },
+        technical_committee: TechnicalCommitteeConfig {
+            members: vec![],
+            phantom: Default::default(),
+        },
+        treasury: Default::default(),
+        technical_membership: Default::default(),
+        democracy: Default::default(),
     }
 }
