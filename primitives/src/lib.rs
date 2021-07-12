@@ -109,7 +109,7 @@ create_currency_id! {
     pub enum CurrencyId {
         DOT("Polkadot", 10),
         KSM("Kusama", 12),
-        INTERBTC("InterBTC", 8),
+        INTERBTC("interBTC", 8),
         INTR("Interlay", 10),
     }
 }

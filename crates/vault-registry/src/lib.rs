@@ -135,7 +135,7 @@ pub mod pallet {
         /// Collateral currency, e.g. DOT/KSM.
         type Collateral: ParachainCurrency<Self::AccountId, Balance = BalanceOf<Self>>;
 
-        /// Wrapped currency, e.g. InterBTC.
+        /// Wrapped currency, e.g. interBTC.
         type Wrapped: ParachainCurrency<Self::AccountId, Balance = BalanceOf<Self>>;
 
         /// Rewards currency, e.g. INTERBTC.

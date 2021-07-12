@@ -52,7 +52,7 @@ where
 
 pub fn local_config() -> ChainSpec {
     ChainSpec::from_genesis(
-        "InterBTC",
+        "interBTC",
         "local_testnet",
         ChainType::Local,
         move || {
@@ -88,7 +88,7 @@ pub fn local_config() -> ChainSpec {
             serde_json::from_value(json!({
                 "ss58Format": 42,
                 "tokenDecimals": [10, 8],
-                "tokenSymbol": ["DOT", "InterBTC"]
+                "tokenSymbol": ["DOT", "interBTC"]
             }))
             .unwrap(),
         ),
@@ -98,7 +98,7 @@ pub fn local_config() -> ChainSpec {
 
 pub fn beta_testnet_config() -> ChainSpec {
     ChainSpec::from_genesis(
-        "InterBTC",
+        "interBTC",
         "beta_testnet",
         ChainType::Live,
         move || {
@@ -159,7 +159,7 @@ pub fn beta_testnet_config() -> ChainSpec {
             serde_json::from_value(json!({
                 "ss58Format": 42,
                 "tokenDecimals": [10, 8],
-                "tokenSymbol": ["DOT", "InterBTC"]
+                "tokenSymbol": ["DOT", "interBTC"]
             }))
             .unwrap(),
         ),
@@ -169,7 +169,7 @@ pub fn beta_testnet_config() -> ChainSpec {
 
 pub fn development_config() -> ChainSpec {
     ChainSpec::from_genesis(
-        "InterBTC",
+        "interBTC",
         "dev_testnet",
         ChainType::Development,
         move || {
@@ -219,7 +219,7 @@ pub fn development_config() -> ChainSpec {
             serde_json::from_value(json!({
                 "ss58Format": 42,
                 "tokenDecimals": [10, 8],
-                "tokenSymbol": ["DOT", "InterBTC"]
+                "tokenSymbol": ["DOT", "interBTC"]
             }))
             .unwrap(),
         ),
