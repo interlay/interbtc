@@ -63,7 +63,7 @@ It is reasonable to assume that stake may be re-distributed to participants afte
 
 ## Rewards
 
-The proportionality of rewards is directly tied to the stake of a participant. Assuming stake may be slashed after reward distribution and prior to reward withdrawal, we must make slight adjustments to the [scalable reward distribution](https://solmaz.io/2019/02/24/scalable-reward-changing/). For instance, upon slashing we increase `reward_per_token` by `amount * reward_per_token` to account for lost rewards. Additionally, we must re-compute stake in `withdraw_rewards` to get the correct balance for an account.
+The proportionality of rewards is directly tied to the stake of a participant. Assuming stake may be slashed after reward distribution and prior to reward withdrawal, we must make slight adjustments to the [scalable reward distribution](https://solmaz.io/2019/02/24/scalable-reward-changing/). For instance, upon slashing we increase `reward_per_token` by `(amount * reward_per_token) / total_stake` to account for lost rewards. Additionally, we must re-compute stake in `withdraw_rewards` to get the correct balance for an account.
 
 We present the simple solution (without adjustments) below:
 
