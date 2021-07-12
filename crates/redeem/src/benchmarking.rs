@@ -39,7 +39,7 @@ fn mine_blocks<T: crate::Config>() {
     mint_collateral::<T>(&relayer_id, (1u32 << 31).into());
     let height = 0;
     let block = BlockBuilder::new()
-        .with_version(2)
+        .with_version(4)
         .with_coinbase(&BtcAddress::P2SH(H160::zero()), 50, 3)
         .with_timestamp(1588813835)
         .mine(U256::from(2).pow(254.into()))
@@ -73,7 +73,7 @@ fn mine_blocks<T: crate::Config>() {
     for _ in 0..100 {
         let block = BlockBuilder::new()
             .with_previous_hash(prev_hash)
-            .with_version(2)
+            .with_version(4)
             .with_coinbase(&BtcAddress::P2SH(H160::zero()), 50, 3)
             .with_timestamp(1588813835)
             .add_transaction(transaction.clone())
@@ -131,7 +131,7 @@ benchmarks! {
 
         let height = 0;
         let block = BlockBuilder::new()
-            .with_version(2)
+            .with_version(4)
             .with_coinbase(&origin_btc_address, 50, 3)
             .with_timestamp(1588813835)
             .mine(U256::from(2).pow(254.into())).unwrap();
@@ -168,7 +168,7 @@ benchmarks! {
 
         let block = BlockBuilder::new()
             .with_previous_hash(block_hash)
-            .with_version(2)
+            .with_version(4)
             .with_coinbase(&origin_btc_address, 50, 3)
             .with_timestamp(1588813835)
             .add_transaction(transaction.clone())

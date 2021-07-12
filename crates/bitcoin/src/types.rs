@@ -421,7 +421,9 @@ impl Default for BlockBuilder {
 
 impl BlockBuilder {
     pub fn new() -> BlockBuilder {
-        Self::default()
+        let mut ret = Self::default();
+        ret.block.header.version = 4;
+        ret
     }
 
     pub fn with_timestamp(&mut self, timestamp: u32) -> &mut Self {
@@ -981,12 +983,12 @@ mod tests {
         clear_mocks();
         let address = Address::P2PKH(H160::from_str(&"66c7060feb882664ae62ffad0051fe843e318e85").unwrap());
         let block = BlockBuilder::new()
-            .with_version(2)
+            .with_version(4)
             .with_coinbase(&address, 50, 3)
             .with_timestamp(1588814835)
             .mine(U256::from(2).pow(254.into()))
             .unwrap();
-        assert_eq!(block.header.version, 2);
+        assert_eq!(block.header.version, 4);
         assert_eq!(block.header.merkle_root, block.transactions[0].tx_id());
         // should be 3, might change if block is changed
         assert_eq!(block.header.nonce, 3);
@@ -1005,7 +1007,7 @@ mod tests {
             .build();
 
         let block = BlockBuilder::new()
-            .with_version(2)
+            .with_version(4)
             .with_coinbase(&address, 50, 3)
             .with_timestamp(1588814835)
             .add_transaction(transaction.clone())

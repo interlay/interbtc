@@ -666,7 +666,7 @@ impl TransactionGenerator {
 
         // initialize BTC Relay with one block
         let init_block = BlockBuilder::new()
-            .with_version(2)
+            .with_version(4)
             .with_coinbase(&self.address, 50, 3)
             .with_timestamp(1588813835)
             .mine(U256::from(2).pow(254.into()))
@@ -704,7 +704,7 @@ impl TransactionGenerator {
         let prev_hash = BTCRelayPallet::get_best_block();
         let block = BlockBuilder::new()
             .with_previous_hash(prev_hash)
-            .with_version(2)
+            .with_version(4)
             .with_coinbase(&self.address, 50, 3)
             .with_timestamp(1588814835)
             .add_transaction(transaction.clone())
@@ -730,7 +730,7 @@ impl TransactionGenerator {
             timestamp += 1000;
             let conf_block = BlockBuilder::new()
                 .with_previous_hash(prev_block_hash)
-                .with_version(2)
+                .with_version(4)
                 .with_coinbase(&self.address, 50, 3)
                 .with_timestamp(timestamp)
                 .mine(U256::from(2).pow(254.into()))

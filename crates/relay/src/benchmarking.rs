@@ -36,7 +36,7 @@ benchmarks! {
 
         let address = BtcAddress::P2PKH(H160::from([0; 20]));
         let block = BlockBuilder::new()
-            .with_version(2)
+            .with_version(4)
             .with_coinbase(&address, 50, 3)
             .with_timestamp(1588813835)
             .mine(U256::from(2).pow(254.into())).unwrap();
@@ -51,7 +51,7 @@ benchmarks! {
         let stake = 100u32;
 
         let init_block = BlockBuilder::new()
-            .with_version(2)
+            .with_version(4)
             .with_coinbase(&address, 50, 3)
             .with_timestamp(1588813835)
             .mine(U256::from(2).pow(254.into())).unwrap();
@@ -65,7 +65,7 @@ benchmarks! {
 
         let block = BlockBuilder::new()
             .with_previous_hash(init_block_hash)
-            .with_version(2)
+            .with_version(4)
             .with_coinbase(&address, 50, 3)
             .with_timestamp(1588814835)
             .mine(U256::from(2).pow(254.into())).unwrap();
@@ -101,7 +101,7 @@ benchmarks! {
 
         let height = 0;
         let block = BlockBuilder::new()
-            .with_version(2)
+            .with_version(4)
             .with_coinbase(&address, 50, 3)
             .with_timestamp(1588813835)
             .mine(U256::from(2).pow(254.into())).unwrap();
@@ -139,7 +139,7 @@ benchmarks! {
 
         let block = BlockBuilder::new()
             .with_previous_hash(block_hash)
-            .with_version(2)
+            .with_version(4)
             .with_coinbase(&address, 50, 3)
             .with_timestamp(1588813835)
             .add_transaction(transaction.clone())

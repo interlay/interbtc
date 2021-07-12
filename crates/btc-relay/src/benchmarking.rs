@@ -15,7 +15,7 @@ use sp_std::prelude::*;
 
 fn mine_genesis<T: Config>(account_id: T::AccountId, address: &BtcAddress, height: u32) -> Block {
     let block = BlockBuilder::new()
-        .with_version(2)
+        .with_version(4)
         .with_coinbase(address, 50, 3)
         .with_timestamp(1588813835)
         .mine(U256::from(2).pow(254.into()))
@@ -60,7 +60,7 @@ fn mine_block_with_one_tx<T: Config>(
 
     let block = BlockBuilder::new()
         .with_previous_hash(prev_block_hash)
-        .with_version(2)
+        .with_version(4)
         .with_coinbase(address, 50, 3)
         .with_timestamp(1588813835)
         .add_transaction(transaction.clone())
