@@ -1,8 +1,8 @@
 <p align="center">
   <a href="https://github.com/interlay/interbtc">
-    <img alt="InterBTC" src="/docs/img/banner.jpg">
+    <img alt="interBTC" src="/docs/img/banner.jpg">
   </a>
-  <h2 align="center">InterBTC</h2>
+  <h2 align="center">interBTC</h2>
 
   <p align="center">
     A trust-minimized bridge from Bitcoin to Polkadot.
@@ -35,15 +35,15 @@ This project is currently under active development.
 
 ## About the Project
 
-InterBTC allows the creation of **InterBTC**, a fungible token that represents Bitcoin in the Polkadot ecosystem.
-InterBTC is backed by Bitcoin 1:1 and allows redeeming of the equivalent amount of Bitcoins by relying on a collateralized third-party.
+The interBTC runtime allows the creation of **interBTC**, a fungible token that represents Bitcoin in the Polkadot ecosystem.
+Each interBTC is backed by Bitcoin 1:1 and allows redeeming of the equivalent amount of Bitcoins by relying on a collateralized third-party.
 
 The project uses the concept of [Cryptocurrency-backed Assets](https://xclaim.io) to lock Bitcoin on the Bitcoin blockchain and issue BTC-backed tokens on the BTC Parachain.
-The implementation is based on the [InterBTC specification](https://interlay.gitlab.io/interbtc-spec/).
+The implementation is based on the [interBTC specification](https://interlay.gitlab.io/interbtc-spec/).
 
 ### Built with
 
-The InterBTC project is built with:
+The interBTC project is built with:
 
 - [Rust](https://www.rust-lang.org/)
 - [Substrate](https://substrate.dev/)
@@ -64,11 +64,11 @@ The Substrate runtime makes use of various custom pallets that are found in the 
 
 - [bitcoin](crates/bitcoin): Library for Bitcoin type, parsing and verification functions.
 - [btc-relay](crates/btc-relay): Stateful SPV client for Bitcoin. Stores Bitcoin main chain, tracks forks, verifies Merkle proofs and validates specific transaction formats.
-- [currency](crates/currency) Handles currencies used as backing collateral (e.g. DOT/KSM) and issued tokens (e.g. InterBTC).
+- [currency](crates/currency) Handles currencies used as backing collateral (e.g. DOT/KSM) and issued tokens (e.g. interBTC).
 - [exchange-rate-oracle](crates/exchange-rate-oracle): Exchange rate oracle. Integration with external provider pending.
 - [fee](crates/fee): Participant reward calculation and distribution.
-- [issue](crates/issue): Handles issuing of InterBTC for BTC on Bitcoin.
-- [redeem](crates/redeem) Handles redeeming of InterBTC for BTC on Bitcoin.
+- [issue](crates/issue): Handles issuing of interBTC for BTC on Bitcoin.
+- [redeem](crates/redeem) Handles redeeming of interBTC for BTC on Bitcoin.
 - [refund](crates/refund) Handles refunds for when a vault receives more BTC than it can cover.
 - [replace](crates/replace) Handles replacing vaults.
 - [security](crates/security): Handles BTC Parachain status and error changes.
@@ -185,7 +185,7 @@ We are [hiring](https://www.interlay.io/careers/)!
 
 (C) Copyright 2020 [Interlay](https://www.interlay.io) Ltd
 
-InterBTC is currently licensed under the terms of the Apache License (Version 2.0). See LICENSE
+interBTC is currently licensed under the terms of the Apache License (Version 2.0). See LICENSE
 
 ## Contact
 

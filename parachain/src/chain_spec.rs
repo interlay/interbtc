@@ -67,7 +67,7 @@ where
 
 pub fn local_config(id: ParaId) -> ChainSpec {
     ChainSpec::from_genesis(
-        "InterBTC",
+        "interBTC",
         "local_testnet",
         ChainType::Local,
         move || {
@@ -104,7 +104,7 @@ pub fn local_config(id: ParaId) -> ChainSpec {
             serde_json::from_value(json!({
                 "ss58Format": 42,
                 "tokenDecimals": [10, 8],
-                "tokenSymbol": ["DOT", "InterBTC"]
+                "tokenSymbol": ["DOT", "interBTC"]
             }))
             .unwrap(),
         ),
@@ -117,7 +117,7 @@ pub fn local_config(id: ParaId) -> ChainSpec {
 
 pub fn rococo_testnet_config(id: ParaId) -> ChainSpec {
     ChainSpec::from_genesis(
-        "InterBTC",
+        "interBTC",
         "rococo_testnet",
         ChainType::Live,
         move || {
@@ -156,7 +156,7 @@ pub fn rococo_testnet_config(id: ParaId) -> ChainSpec {
             serde_json::from_value(json!({
                 "ss58Format": 42,
                 "tokenDecimals": [10, 8],
-                "tokenSymbol": ["DOT", "InterBTC"]
+                "tokenSymbol": ["DOT", "interBTC"]
             }))
             .unwrap(),
         ),
@@ -169,7 +169,7 @@ pub fn rococo_testnet_config(id: ParaId) -> ChainSpec {
 
 pub fn development_config(id: ParaId) -> ChainSpec {
     ChainSpec::from_genesis(
-        "InterBTC",
+        "interBTC",
         "dev_testnet",
         ChainType::Development,
         move || {
@@ -220,7 +220,7 @@ pub fn development_config(id: ParaId) -> ChainSpec {
             serde_json::from_value(json!({
                 "ss58Format": 42,
                 "tokenDecimals": [10, 8],
-                "tokenSymbol": ["DOT", "InterBTC"]
+                "tokenSymbol": ["DOT", "interBTC"]
             }))
             .unwrap(),
         ),
