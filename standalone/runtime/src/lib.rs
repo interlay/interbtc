@@ -7,12 +7,12 @@
 // Make the WASM binary available.
 #[cfg(feature = "std")]
 include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
-
 use bitcoin::types::H256Le;
 use frame_support::dispatch::{DispatchError, DispatchResult};
 use sp_core::H256;
 
-use frame_support::PalletId;
+use frame_support::{traits::SortedMembers, PalletId};
+use frame_system::EnsureRoot;
 use orml_traits::parameter_type_with_key;
 use sp_api::impl_runtime_apis;
 use sp_core::OpaqueMetadata;
@@ -26,7 +26,6 @@ use sp_std::prelude::*;
 #[cfg(feature = "std")]
 use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
-
 // A few exports that help ease life for downstream crates.
 pub use frame_support::{
     construct_runtime, parameter_types,
@@ -48,8 +47,8 @@ pub use btc_relay::{bitcoin, Call as RelayCall, TARGET_SPACING};
 pub use module_exchange_rate_oracle_rpc_runtime_api::BalanceWrapper;
 
 pub use primitives::{
-    self, AccountId, Amount, Balance, BlockNumber, CurrencyId, Hash, Moment, Nonce, Signature, SignedFixedPoint,
-    SignedInner, UnsignedFixedPoint, UnsignedInner, DOT, INTERBTC,
+    self, oracle::Key as OracleKey, AccountId, Amount, Balance, BlockNumber, CurrencyId, Hash, Moment, Nonce,
+    Signature, SignedFixedPoint, SignedInner, UnsignedFixedPoint, UnsignedInner, DOT, INTERBTC,
 };
 
 use pallet_grandpa::{fg_primitives, AuthorityId as GrandpaId, AuthorityList as GrandpaAuthorityList};
@@ -324,6 +323,7 @@ impl exchange_rate_oracle::Config for Runtime {
     type Balance = Balance;
     type UnsignedFixedPoint = UnsignedFixedPoint;
     type WeightInfo = ();
+    type Oracle = Oracle;
 }
 
 parameter_types! {
@@ -387,6 +387,48 @@ impl nomination::Config for Runtime {
     type VaultRewards = reward::RewardsCurrencyAdapter<Runtime, (), GetWrappedCurrencyId>;
 }
 
+parameter_types! {
+    pub const MinimumOracleCount: u32 = 1;
+    pub const ExpiresIn: Moment = 1000 * 60 * 60; // 60 mins
+    pub ZeroAccountId: AccountId = AccountId::from([0u8; 32]);
+    pub const MaxHasDispatchedSize: u32 = 40;
+}
+pub struct Bla;
+impl<T: Ord> SortedMembers<T> for Bla {
+    fn sorted_members() -> Vec<T> {
+        vec![]
+    }
+}
+
+impl orml_oracle::Config for Runtime {
+    type Event = Event;
+    type OnNewData = ();
+    type CombineData = orml_oracle::DefaultCombineData<Runtime, MinimumOracleCount, ExpiresIn>;
+    type Time = Timestamp;
+    type OracleKey = OracleKey;
+    type OracleValue = UnsignedFixedPoint;
+    type RootOperatorAccountId = ();
+    type Members = Membership;
+    type MaxHasDispatchedSize = MaxHasDispatchedSize;
+    type WeightInfo = ();
+}
+
+parameter_types! {
+    pub const MaxOracles: u32 = 40;
+}
+impl pallet_membership::Config for Runtime {
+    type Event = Event;
+    type AddOrigin = EnsureRoot<AccountId>;
+    type RemoveOrigin = EnsureRoot<AccountId>;
+    type SwapOrigin = EnsureRoot<AccountId>;
+    type ResetOrigin = EnsureRoot<AccountId>;
+    type PrimeOrigin = EnsureRoot<AccountId>;
+    type MembershipInitialized = ();
+    type MembershipChanged = (); // todo
+    type MaxMembers = MaxOracles;
+    type WeightInfo = ();
+}
+
 construct_runtime! {
     pub enum Runtime where
         Block = Block,
@@ -413,6 +455,8 @@ construct_runtime! {
         Relay: relay::{Pallet, Call, Storage, Event<T>},
         VaultRegistry: vault_registry::{Pallet, Call, Config<T>, Storage, Event<T>, ValidateUnsigned},
         ExchangeRateOracle: exchange_rate_oracle::{Pallet, Call, Config<T>, Storage, Event<T>},
+        Oracle: orml_oracle::{Pallet, Call, Storage, Event<T>},
+        Membership: pallet_membership::{Pallet, Call, Storage, Event<T>, Config<T>},
         Issue: issue::{Pallet, Call, Config<T>, Storage, Event<T>},
         Redeem: redeem::{Pallet, Call, Config<T>, Storage, Event<T>},
         Replace: replace::{Pallet, Call, Config<T>, Storage, Event<T>},

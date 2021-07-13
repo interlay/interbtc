@@ -2,8 +2,8 @@ use bitcoin::utils::{virtual_transaction_size, InputType, TransactionInputMetada
 use hex_literal::hex;
 use interbtc_runtime::{
     AccountId, AuraConfig, BTCRelayConfig, ExchangeRateOracleConfig, FeeConfig, GenesisConfig, GrandpaConfig,
-    IssueConfig, NominationConfig, RedeemConfig, RefundConfig, ReplaceConfig, Signature, SlaConfig, SudoConfig,
-    SystemConfig, TokensConfig, VaultRegistryConfig, BITCOIN_BLOCK_SPACING, DAYS, DOT, WASM_BINARY,
+    IssueConfig, MembershipConfig, NominationConfig, RedeemConfig, RefundConfig, ReplaceConfig, Signature, SlaConfig,
+    SudoConfig, SystemConfig, TokensConfig, VaultRegistryConfig, BITCOIN_BLOCK_SPACING, DAYS, DOT, WASM_BINARY,
 };
 use sp_consensus_aura::sr25519::AuthorityId as AuraId;
 use sp_core::crypto::UncheckedInto;
@@ -235,6 +235,7 @@ fn testnet_genesis(
     authorized_oracles: Vec<(AccountId, Vec<u8>)>,
     bitcoin_confirmations: u32,
 ) -> GenesisConfig {
+    let oracle_accounts: Vec<_> = authorized_oracles.iter().map(|x| x.0.clone()).collect();
     GenesisConfig {
         system: SystemConfig {
             code: WASM_BINARY
@@ -257,7 +258,12 @@ fn testnet_genesis(
         },
         exchange_rate_oracle: ExchangeRateOracleConfig {
             authorized_oracles,
+
             max_delay: 3600000, // one hour
+        },
+        membership: MembershipConfig {
+            members: oracle_accounts,
+            ..Default::default()
         },
         btc_relay: BTCRelayConfig {
             bitcoin_confirmations,

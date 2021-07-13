@@ -86,6 +86,11 @@ pub type TreasuryPallet = CurrencyAdapter<Runtime, GetWrappedCurrencyId>;
 pub type ExchangeRateOracleCall = exchange_rate_oracle::Call<Runtime>;
 pub type ExchangeRateOraclePallet = exchange_rate_oracle::Pallet<Runtime>;
 
+pub type OracleCall = orml_oracle::Call<Runtime>;
+pub type OraclePallet = orml_oracle::Pallet<Runtime>;
+pub type OracleError = orml_oracle::Error<Runtime>;
+pub type OracleEvent = orml_oracle::Event<Runtime>;
+
 pub type FeeCall = fee::Call<Runtime>;
 pub type FeeError = fee::Error<Runtime>;
 pub type FeePallet = fee::Pallet<Runtime>;
@@ -803,6 +808,13 @@ impl ExtBuilder {
         exchange_rate_oracle::GenesisConfig::<Runtime> {
             authorized_oracles: vec![(account_of(BOB), BOB.to_vec())],
             max_delay: 3600000, // one hour
+        }
+        .assimilate_storage(&mut storage)
+        .unwrap();
+
+        pallet_membership::GenesisConfig::<Runtime> {
+            members: vec![account_of(ALICE), account_of(BOB), account_of(CAROL)],
+            ..Default::default()
         }
         .assimilate_storage(&mut storage)
         .unwrap();

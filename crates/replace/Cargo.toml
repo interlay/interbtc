@@ -31,6 +31,7 @@ sla = { path = "../sla", default-features = false }
 currency = { path = "../currency", default-features = false }
 vault-registry = { path = "../vault-registry", default-features = false }
 nomination = { path = "../nomination", default-features = false }
+primitives = { package = "interbtc-primitives", path = "../../primitives", default-features = false }
 
 [dev-dependencies]
 mocktopus = "0.7.0"

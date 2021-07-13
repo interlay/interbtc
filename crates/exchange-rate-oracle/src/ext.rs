@@ -22,3 +22,14 @@ pub(crate) mod security {
         <security::Pallet<T>>::insert_error(error_code)
     }
 }
+
+// #[cfg_attr(test, mockable)]
+// pub(crate) mod orml_oracle {
+//     pub fn feed_value<T: crate::Config>(
+//         who: T::AccountId,
+//         key: T::OracleKey,
+//         value: T::OracleValue
+//     ) -> DispatchResult {
+//         <orml_oracle::Pallet<T>>::feed_value(who, key, value)
+//     }
+// }

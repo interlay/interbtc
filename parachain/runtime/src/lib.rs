@@ -403,16 +403,19 @@ impl pallet_collective::Config<TechnicalCommitteeInstance> for Runtime {
     type WeightInfo = ();
 }
 
+parameter_types! {
+    pub const MaxOracles: u32 = 100;
+}
 impl pallet_membership::Config for Runtime {
     type Event = Event;
-    type AddOrigin = EnsureRootOrThreeFourthsGeneralCouncil;
-    type RemoveOrigin = EnsureRootOrThreeFourthsGeneralCouncil;
-    type SwapOrigin = EnsureRootOrThreeFourthsGeneralCouncil;
-    type ResetOrigin = EnsureRootOrThreeFourthsGeneralCouncil;
-    type PrimeOrigin = EnsureRootOrThreeFourthsGeneralCouncil;
-    type MembershipInitialized = GeneralCouncil;
-    type MembershipChanged = GeneralCouncil;
-    type MaxMembers = GeneralCouncilMaxMembers;
+    type AddOrigin = EnsureRoot<AccountId>;
+    type RemoveOrigin = EnsureRoot<AccountId>;
+    type SwapOrigin = EnsureRoot<AccountId>;
+    type ResetOrigin = EnsureRoot<AccountId>;
+    type PrimeOrigin = EnsureRoot<AccountId>;
+    type MembershipInitialized = ();
+    type MembershipChanged = (); // todo
+    type MaxMembers = MaxOracles;
     type WeightInfo = ();
 }
 

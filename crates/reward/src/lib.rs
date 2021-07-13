@@ -174,6 +174,8 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
         checked_add_mut!(Stake<T, I>, currency_id, account_id, &amount);
         checked_add_mut!(TotalStake<T, I>, currency_id, &amount);
 
+        // Adding stake should not change the amount earned retroactivally. As such, increase
+        // the reward tally to make sure the withdrawable reward remains unchanged.
         <RewardTally<T, I>>::mutate(currency_id, account_id, |reward_tally| {
             let reward_per_token = Self::reward_per_token(currency_id);
             let reward_per_token_mul_amount = reward_per_token

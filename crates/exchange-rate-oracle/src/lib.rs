@@ -37,6 +37,7 @@ use frame_support::{
     ensure, transactional,
     weights::Weight,
 };
+use orml_traits::{DataFeeder, DataProvider};
 use frame_system::{ensure_root, ensure_signed};
 use security::{ErrorCode, StatusCode};
 use sp_runtime::{
@@ -44,6 +45,7 @@ use sp_runtime::{
     FixedPointNumber, FixedPointOperand,
 };
 use sp_std::{convert::TryInto, fmt::Debug, vec::Vec};
+use primitives::{CurrencyId, oracle::Key};
 
 pub use pallet::*;
 
@@ -74,6 +76,8 @@ pub mod pallet {
 
         /// Weight information for the extrinsics in this module.
         type WeightInfo: WeightInfo;
+
+        type Oracle: DataFeeder<Key, <Self as Config>::UnsignedFixedPoint, <Self as frame_system::Config>::AccountId>;
     }
 
     #[pallet::event]
@@ -190,14 +194,20 @@ pub mod pallet {
             ext::security::ensure_parachain_status_not_shutdown::<T>()?;
 
             let signer = ensure_signed(origin)?;
+            
+            T::Oracle::feed_value(
+                signer, 
+                Key::ExchangeRate(CurrencyId::DOT),
+                exchange_rate
+            )
 
             // fail if the signer is not an authorized oracle
-            ensure!(Self::is_authorized(&signer), Error::<T>::InvalidOracleSource);
+//             ensure!(Self::is_authorized(&signer), Error::<T>::InvalidOracleSource);
+// 
+//             Self::_set_exchange_rate(exchange_rate)?;
+//             Self::deposit_event(Event::<T>::SetExchangeRate(signer, exchange_rate));
 
-            Self::_set_exchange_rate(exchange_rate)?;
-            Self::deposit_event(Event::<T>::SetExchangeRate(signer, exchange_rate));
-
-            Ok(())
+            // Ok(())
         }
 
         /// Sets the estimated transaction inclusion fees based on the estimated inclusion time
@@ -268,10 +278,8 @@ impl<T: Config> Pallet<T> {
     /// Public getters
 
     /// Get the exchange rate in planck per satoshi
-    pub fn get_exchange_rate() -> Result<UnsignedFixedPoint<T>, DispatchError> {
-        let max_delay_passed = Self::is_max_delay_passed();
-        ensure!(!max_delay_passed, Error::<T>::MissingExchangeRate);
-        Ok(<ExchangeRate<T>>::get())
+    fn get_exchange_rate() -> Result<UnsignedFixedPoint<T>, DispatchError> {
+        T::Oracle::get(&Key::ExchangeRate(CurrencyId::DOT)).ok_or(Error::<T>::MissingExchangeRate.into())
     }
 
     pub fn wrapped_to_collateral(amount: Wrapped<T>) -> Result<Collateral<T>, DispatchError> {
