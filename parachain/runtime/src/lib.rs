@@ -22,7 +22,7 @@ use sp_api::impl_runtime_apis;
 use sp_core::OpaqueMetadata;
 use sp_runtime::{
     create_runtime_str, generic, impl_opaque_keys,
-    traits::{BlakeTwo256, Block as BlockT, IdentityLookup, Zero},
+    traits::{AccountIdConversion, BlakeTwo256, Block as BlockT, IdentityLookup, Zero},
     transaction_validity::{TransactionSource, TransactionValidity},
     ApplyExtrinsicResult,
 };
@@ -680,6 +680,10 @@ parameter_type_with_key! {
     };
 }
 
+parameter_types! {
+    pub FeeAccount: AccountId = FeePalletId::get().into_account();
+}
+
 impl orml_tokens::Config for Runtime {
     type Event = Event;
     type Balance = Balance;
@@ -687,7 +691,7 @@ impl orml_tokens::Config for Runtime {
     type CurrencyId = CurrencyId;
     type WeightInfo = ();
     type ExistentialDeposits = ExistentialDeposits;
-    type OnDust = ();
+    type OnDust = orml_tokens::TransferDust<Runtime, FeeAccount>;
     type MaxLocks = MaxLocks;
 }
 
