@@ -81,12 +81,16 @@ build-parachain:
 docker-publish-standalone:
   dependencies:
     - build-standalone
+  variables:
+    ARTIFACT_BIN_PATH: interbtc-standalone
   extends:
     - .docker-base-job
 
 docker-publish-parachain:
   dependencies:
     - build-parachain
+  variables:
+    ARTIFACT_BIN_PATH: interbtc-parachain
   extends:
     - .docker-base-job
 
