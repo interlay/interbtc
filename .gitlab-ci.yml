@@ -30,7 +30,7 @@ image: "registry.gitlab.com/interlay/containers/rust-base:nightly-2021-03-15"
     - echo "{\"auths\":{\"$CI_REGISTRY\":{\"username\":\"$CI_REGISTRY_USER\",\"password\":\"$CI_REGISTRY_PASSWORD\"}}}" > /kaniko/.docker/config.json
     - |
       /kaniko/executor \
-      --build-arg BINARY=interbtc-parachain \
+      --build-arg BINARY=${ARTIFACT_BIN_PATH} \
       --context ${CI_PROJECT_DIR} \
       --dockerfile ${CI_PROJECT_DIR}/Dockerfile_release \
       --destination ${CI_REGISTRY_IMAGE}:${CI_COMMIT_REF_NAME}-${CI_COMMIT_SHORT_SHA}-$(date +%s) \
