@@ -425,8 +425,6 @@ impl<T: Config> Pallet<T> {
 
         Self::insert_replace_request(&replace_id, &replace);
 
-        Self::insert_replace_request(&replace_id, &replace);
-
         // Emit AcceptReplace event
         Self::deposit_event(<Event<T>>::AcceptReplace(
             replace_id,
