@@ -52,7 +52,8 @@ pub mod pallet {
     #[pallet::metadata(
         T::CurrencyId = "CurrencyId",
         T::AccountId = "AccountId",
-        T::SignedFixedPoint = "SignedFixedPoint"
+        T::SignedFixedPoint = "SignedFixedPoint",
+        T::Index = "Index"
     )]
     pub enum Event<T: Config> {
         DepositStake(T::CurrencyId, T::AccountId, T::AccountId, T::SignedFixedPoint),
