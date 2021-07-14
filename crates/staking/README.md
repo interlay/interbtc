@@ -4,7 +4,7 @@ This pallet is used to manage joint funds for Vaults and Nominators.
 
 ## Slashing
 
-We extend the [scalable reward distribution](https://solmaz.io/2019/02/24/scalable-reward-changing/) to account for the imbalance in Vault collateral. Instead of tallying the `reward_per_token` we increase `slash_per_token` to lazily calculate the proportion of collateral to subtract from a Vault or Nominator's stake on deposit or withdrawal.
+We extend the [scalable reward distribution](https://solmaz.io/2019/02/24/scalable-reward-changing/) to account for the imbalance in Vault collateral after slashing. Instead of tallying the `reward_per_token` we increase `slash_per_token` to lazily calculate the proportion of collateral to subtract from a Vault or Nominator's stake on deposit or withdrawal. Slashing reduces the stake of *everyone* in the pool proportionally, meaning Nominators with a larger stake will be slashed more.
 
 We present the simple solution (without rewards) below:
 
