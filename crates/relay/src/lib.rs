@@ -96,8 +96,6 @@ pub mod pallet {
         InvalidTransaction,
         /// Unable to convert value
         TryIntoIntError,
-        /// Expected two unique merkle proofs
-        DuplicateMerkleProof,
         /// Expected two unique transactions
         DuplicateTransaction,
         /// Expected duplicate OP_RETURN ids
@@ -209,7 +207,7 @@ pub mod pallet {
         }
 
         /// Report misbehavior by a Vault, providing a fraud proof (malicious Bitcoin transaction
-        /// and the corresponding transaction inclusion proof).
+        /// and the corresponding transaction inclusion proof). This fully slashes the Vault.
         ///
         /// # Arguments
         ///
@@ -258,7 +256,10 @@ pub mod pallet {
         }
 
         /// Report Vault double payment, providing two fraud proofs (malicious Bitcoin transactions
-        /// and the corresponding transaction inclusion proofs).
+        /// and the corresponding transaction inclusion proofs). This fully slashes the Vault.
+        ///
+        /// This can be used for any multiple of payments, i.e., a vault making two, three, four, etc. payments
+        /// by proving just one double payment.
         ///
         /// # Arguments
         ///
@@ -277,34 +278,25 @@ pub mod pallet {
             ext::security::ensure_parachain_status_not_shutdown::<T>()?;
             let signer = ensure_signed(origin)?;
 
-            ensure!(
-                raw_merkle_proofs.0 != raw_merkle_proofs.1,
-                Error::<T>::DuplicateMerkleProof,
-            );
             ensure!(raw_txs.0 != raw_txs.1, Error::<T>::DuplicateTransaction);
 
-            let (left_proof, right_proof) = match raw_merkle_proofs {
-                (left, right) => (
-                    ext::btc_relay::parse_merkle_proof::<T>(&left)?,
-                    ext::btc_relay::parse_merkle_proof::<T>(&right)?,
-                ),
+            let parse_and_verify = |raw_tx, raw_proof| -> Result<Transaction, DispatchError> {
+                let merkle_proof = ext::btc_relay::parse_merkle_proof::<T>(raw_proof)?;
+                let transaction = parse_transaction(raw_tx).map_err(|_| Error::<T>::InvalidTransaction)?;
+                // ensure transaction is included
+                ext::btc_relay::verify_transaction_inclusion::<T>(transaction.tx_id(), merkle_proof)?;
+                Ok(transaction)
             };
 
-            let (left_tx, right_tx) = match raw_txs {
-                (left, right) => (
-                    parse_transaction(left.as_slice()).map_err(|_| Error::<T>::InvalidTransaction)?,
-                    parse_transaction(right.as_slice()).map_err(|_| Error::<T>::InvalidTransaction)?,
-                ),
-            };
+            let left_tx = parse_and_verify(&raw_txs.0, &raw_merkle_proofs.0)?;
+            let right_tx = parse_and_verify(&raw_txs.1, &raw_merkle_proofs.1)?;
 
             let left_tx_id = left_tx.tx_id();
             let right_tx_id = right_tx.tx_id();
 
-            // ensure both transactions are included
-            ext::btc_relay::verify_transaction_inclusion::<T>(left_tx_id, left_proof)?;
-            ext::btc_relay::verify_transaction_inclusion::<T>(right_tx_id, right_proof)?;
-
             let vault = ext::vault_registry::get_active_vault_from_id::<T>(&vault_id)?;
+            // ensure that the payment is made from one of the registered wallets of the Vault,
+            // this prevents a transaction with the same OP_RETURN flagging this Vault for theft
             ensure!(
                 Self::has_input_from_wallet(&left_tx, &vault.wallet)
                     && Self::has_input_from_wallet(&right_tx, &vault.wallet),
@@ -316,6 +308,8 @@ pub mod pallet {
                 OpReturnPaymentData::<T>::try_from(right_tx),
             ) {
                 (Ok(left), Ok(right)) => {
+                    // verify that the OP_RETURN matches, amounts are not relevant as Vaults
+                    // might transfer any amount in the theft transaction
                     ensure!(left.op_return == right.op_return, Error::<T>::ExpectedDuplicate);
 
                     ext::vault_registry::liquidate_theft_vault::<T>(&vault_id)?;
