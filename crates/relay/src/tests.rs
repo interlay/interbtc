@@ -145,7 +145,26 @@ fn test_report_vault_theft_succeeds() {
     })
 }
 
-fn build_dummy_transaction_with(output_addresses: Vec<BtcAddress>) -> Transaction {
+fn build_dummy_transaction_from_input_with_output_and_op_return(
+    prev_hash: H256Le,
+    public_key: &BtcPublicKey,
+    output: BtcAddress,
+    op_return: &[u8],
+) -> Transaction {
+    let mut builder = TransactionBuilder::new();
+    builder.with_version(1).add_input(
+        TransactionInputBuilder::new()
+            .with_source(TransactionInputSource::FromOutput(prev_hash, 1))
+            .with_sequence(4294967295)
+            .with_p2pkh(public_key, vec![1u8; 32])
+            .build(),
+    );
+    builder.add_output(TransactionOutput::payment(100, &output));
+    builder.add_output(TransactionOutput::op_return(0, &op_return));
+    builder.build()
+}
+
+fn build_dummy_transaction_with_output(addresses: Vec<BtcAddress>) -> Transaction {
     let mut builder = TransactionBuilder::new();
     builder.with_version(1).add_input(
         TransactionInputBuilder::new()
@@ -166,7 +185,7 @@ fn build_dummy_transaction_with(output_addresses: Vec<BtcAddress>) -> Transactio
             ])
             .build(),
     );
-    for address in output_addresses {
+    for address in addresses {
         builder.add_output(TransactionOutput::payment(100, &address));
     }
     builder.build()
@@ -180,7 +199,7 @@ fn test_is_valid_merge_transaction_fails() {
             .mock_safe(move |_| MockResult::Return(Ok(init_zero_vault(vault, None))));
 
         let address1 = BtcAddress::P2PKH(H160::from_str(&"66c7060feb882664ae62ffad0051fe843e318e85").unwrap());
-        let transaction1 = build_dummy_transaction_with(vec![address1]);
+        let transaction1 = build_dummy_transaction_with_output(vec![address1]);
         assert_eq!(
             Relay::is_valid_merge_transaction(&transaction1, &Wallet::new(dummy_public_key())),
             false,
@@ -188,7 +207,7 @@ fn test_is_valid_merge_transaction_fails() {
         );
 
         let address2 = BtcAddress::P2PKH(H160::from_str(&"5f69790b72c98041330644bbd50f2ebb5d073c36").unwrap());
-        let transaction2 = build_dummy_transaction_with(vec![address2]);
+        let transaction2 = build_dummy_transaction_with_output(vec![address2]);
         assert_eq!(
             Relay::is_valid_merge_transaction(&transaction2, &Wallet::new(dummy_public_key())),
             false,
@@ -205,7 +224,7 @@ fn test_is_valid_merge_transaction_succeeds() {
             .mock_safe(move |_| MockResult::Return(Ok(init_zero_vault(vault, None))));
 
         let address = BtcAddress::P2PKH(H160::from_str(&"66c7060feb882664ae62ffad0051fe843e318e85").unwrap());
-        let transaction = build_dummy_transaction_with(vec![address]);
+        let transaction = build_dummy_transaction_with_output(vec![address]);
 
         let mut wallet = Wallet::new(dummy_public_key());
         wallet.add_btc_address(address);
@@ -613,6 +632,92 @@ fn test_store_block_header_and_update_sla_fails_with_invalid() {
         assert_err!(
             Relay::store_block_header_and_update_sla(&0, BlockHeader::default()),
             BtcRelayError::<Test>::DiffTargetHeader
+        );
+    })
+}
+
+#[test]
+fn should_not_report_double_payment_with_identical_tx() {
+    run_test(|| {
+        assert_err!(
+            Relay::report_vault_double_payment(
+                Origin::signed(ALICE),
+                CAROL,
+                (vec![0u8; 32], vec![0u8; 32]),
+                (vec![0u8; 32], vec![0u8; 32]),
+            ),
+            TestError::DuplicateTransaction
+        );
+    })
+}
+
+#[test]
+fn should_report_double_payment() {
+    run_test(|| {
+        let public_key = dummy_public_key();
+        let input_address = BtcAddress::P2PKH(public_key.to_hash());
+        let output_address = BtcAddress::P2PKH(H160::random());
+        let left_tx = build_dummy_transaction_from_input_with_output_and_op_return(
+            H256Le::from_bytes_le(&vec![1u8; 32]),
+            &public_key,
+            output_address,
+            &[1; 32],
+        );
+        let right_tx = build_dummy_transaction_from_input_with_output_and_op_return(
+            H256Le::from_bytes_le(&vec![2u8; 32]),
+            &public_key,
+            output_address,
+            &[1; 32],
+        );
+
+        ext::vault_registry::get_active_vault_from_id::<Test>
+            .mock_safe(move |_| MockResult::Return(Ok(init_zero_vault(CAROL, Some(input_address)))));
+        ext::btc_relay::parse_merkle_proof::<Test>.mock_safe(|_| MockResult::Return(Ok(dummy_merkle_proof())));
+        ext::btc_relay::verify_transaction_inclusion::<Test>.mock_safe(move |_, _| MockResult::Return(Ok(())));
+        ext::vault_registry::liquidate_theft_vault::<Test>.mock_safe(|_| MockResult::Return(Ok(())));
+
+        assert_ok!(Relay::report_vault_double_payment(
+            Origin::signed(ALICE),
+            CAROL,
+            (vec![0u8; 32], vec![1u8; 32]),
+            (left_tx.format(), right_tx.format()),
+        ));
+    })
+}
+
+#[test]
+fn should_not_report_double_payment_with_vault_no_input() {
+    run_test(|| {
+        let public_key = dummy_public_key();
+        let input_address = BtcAddress::P2PKH(H160::random());
+        let output_address = BtcAddress::P2PKH(H160::random());
+        let left_tx = build_dummy_transaction_from_input_with_output_and_op_return(
+            H256Le::from_bytes_le(&vec![1u8; 32]),
+            &public_key,
+            output_address,
+            &[1; 32],
+        );
+        let right_tx = build_dummy_transaction_from_input_with_output_and_op_return(
+            H256Le::from_bytes_le(&vec![2u8; 32]),
+            &public_key,
+            output_address,
+            &[1; 32],
+        );
+
+        ext::vault_registry::get_active_vault_from_id::<Test>
+            .mock_safe(move |_| MockResult::Return(Ok(init_zero_vault(CAROL, Some(input_address)))));
+        ext::btc_relay::parse_merkle_proof::<Test>.mock_safe(|_| MockResult::Return(Ok(dummy_merkle_proof())));
+        ext::btc_relay::verify_transaction_inclusion::<Test>.mock_safe(move |_, _| MockResult::Return(Ok(())));
+        ext::vault_registry::liquidate_theft_vault::<Test>.mock_safe(|_| MockResult::Return(Ok(())));
+
+        assert_err!(
+            Relay::report_vault_double_payment(
+                Origin::signed(ALICE),
+                CAROL,
+                (vec![0u8; 32], vec![1u8; 32]),
+                (left_tx.format(), right_tx.format()),
+            ),
+            TestError::VaultNoInputToTransaction
         );
     })
 }
