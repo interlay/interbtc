@@ -154,10 +154,8 @@ fn build_dummy_transaction_from_input_with_output_and_op_return(
     let mut builder = TransactionBuilder::new();
     builder.with_version(1).add_input(
         TransactionInputBuilder::new()
-            .with_coinbase(false)
+            .with_source(TransactionInputSource::FromOutput(prev_hash, 1))
             .with_sequence(4294967295)
-            .with_previous_index(1)
-            .with_previous_hash(prev_hash)
             .with_p2pkh(public_key, vec![1u8; 32])
             .build(),
     );

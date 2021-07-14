@@ -278,6 +278,7 @@ pub mod pallet {
             ext::security::ensure_parachain_status_not_shutdown::<T>()?;
             let signer = ensure_signed(origin)?;
 
+            // transactions must be unique
             ensure!(raw_txs.0 != raw_txs.1, Error::<T>::DuplicateTransaction);
 
             let parse_and_verify = |raw_tx, raw_proof| -> Result<Transaction, DispatchError> {
@@ -325,7 +326,8 @@ pub mod pallet {
                     ext::sla::event_update_vault_sla::<T>(&signer, ext::sla::Action::TheftReport)?;
                     Self::deposit_event(<Event<T>>::VaultDoublePayment(vault_id, left_tx_id, right_tx_id));
 
-                    Ok(().into())
+                    // don't take tx fees on success
+                    Ok(Pays::No.into())
                 }
                 _ => Err(Error::<T>::InvalidTransaction.into()),
             }
