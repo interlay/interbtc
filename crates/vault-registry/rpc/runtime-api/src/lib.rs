@@ -14,6 +14,12 @@ sp_api::decl_runtime_apis! {
         Collateral: Codec,
         UnsignedFixedPoint: Codec
     {
+        /// Get the vault's collateral (excluding nomination)
+        fn get_vault_collateral(vault_id: AccountId) -> Result<BalanceWrapper<Collateral>, DispatchError>;
+
+        /// Get the vault's collateral (including nomination)
+        fn get_vault_total_collateral(vault_id: AccountId) -> Result<BalanceWrapper<Collateral>, DispatchError>;
+
         /// Get the total collateralization of the system
         fn get_total_collateralization() -> Result<UnsignedFixedPoint, DispatchError>;
 

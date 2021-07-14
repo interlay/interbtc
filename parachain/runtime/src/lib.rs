@@ -1090,6 +1090,16 @@ impl_runtime_apis! {
         Balance,
         UnsignedFixedPoint
     > for Runtime {
+        fn get_vault_collateral(vault_id: AccountId) -> Result<BalanceWrapper<Balance>, DispatchError> {
+            let result = VaultRegistry::compute_collateral(&vault_id)?;
+            Ok(BalanceWrapper{amount:result})
+        }
+
+        fn get_vault_total_collateral(vault_id: AccountId) -> Result<BalanceWrapper<Balance>, DispatchError> {
+            let result = VaultRegistry::get_backing_collateral(&vault_id)?;
+            Ok(BalanceWrapper{amount:result})
+        }
+
         fn get_total_collateralization() -> Result<UnsignedFixedPoint, DispatchError> {
             VaultRegistry::get_total_collateralization()
         }

@@ -22,6 +22,20 @@ where
     Collateral: Codec + MaybeDisplay + MaybeFromStr,
     UnsignedFixedPoint: Codec + MaybeDisplay + MaybeFromStr,
 {
+    #[rpc(name = "vaultRegistry_getVaultCollateral")]
+    fn get_vault_collateral(
+        &self,
+        vault_id: AccountId,
+        at: Option<BlockHash>,
+    ) -> JsonRpcResult<BalanceWrapper<Collateral>>;
+
+    #[rpc(name = "vaultRegistry_getVaultTotalCollateral")]
+    fn get_vault_total_collateral(
+        &self,
+        vault_id: AccountId,
+        at: Option<BlockHash>,
+    ) -> JsonRpcResult<BalanceWrapper<Collateral>>;
+
     #[rpc(name = "vaultRegistry_getTotalCollateralization")]
     fn get_total_collateralization(&self, at: Option<BlockHash>) -> JsonRpcResult<UnsignedFixedPoint>;
 
@@ -158,6 +172,34 @@ where
     Collateral: Codec + MaybeDisplay + MaybeFromStr,
     UnsignedFixedPoint: Codec + MaybeDisplay + MaybeFromStr,
 {
+    fn get_vault_collateral(
+        &self,
+        vault_id: AccountId,
+        at: Option<<Block as BlockT>::Hash>,
+    ) -> JsonRpcResult<BalanceWrapper<Collateral>> {
+        let api = self.client.runtime_api();
+        let at = BlockId::hash(at.unwrap_or_else(|| self.client.info().best_hash));
+
+        handle_response(
+            api.get_vault_collateral(&at, vault_id),
+            "Unable to get the vault's collateral.".into(),
+        )
+    }
+
+    fn get_vault_total_collateral(
+        &self,
+        vault_id: AccountId,
+        at: Option<<Block as BlockT>::Hash>,
+    ) -> JsonRpcResult<BalanceWrapper<Collateral>> {
+        let api = self.client.runtime_api();
+        let at = BlockId::hash(at.unwrap_or_else(|| self.client.info().best_hash));
+
+        handle_response(
+            api.get_vault_total_collateral(&at, vault_id),
+            "Unable to get the vault's collateral.".into(),
+        )
+    }
+
     fn get_total_collateralization(&self, at: Option<<Block as BlockT>::Hash>) -> JsonRpcResult<UnsignedFixedPoint> {
         let api = self.client.runtime_api();
         let at = BlockId::hash(at.unwrap_or_else(|| self.client.info().best_hash));
