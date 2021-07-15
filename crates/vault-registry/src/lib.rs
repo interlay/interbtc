@@ -353,6 +353,8 @@ pub mod pallet {
         DecreaseToBeRedeemedTokens(T::AccountId, Wrapped<T>),
         /// vault_id, additional to-be-replaced tokens
         IncreaseToBeReplacedTokens(T::AccountId, Wrapped<T>),
+        /// vault_id, decrease in to-be-replaced tokens
+        DecreaseToBeReplacedTokens(T::AccountId, Wrapped<T>),
         /// vault_id, user_id, amount of tokens reduced in issued & to-be-redeemed
         DecreaseTokens(T::AccountId, T::AccountId, Wrapped<T>),
         /// vault_id, amount of newly redeemed tokens
@@ -820,6 +822,8 @@ impl<T: Config> Pallet<T> {
             .ok_or(Error::<T>::ArithmeticUnderflow)?;
 
         vault.set_to_be_replaced_amount(new_to_be_replaced, new_collateral)?;
+
+        Self::deposit_event(Event::<T>::DecreaseToBeReplacedTokens(vault.id(), tokens));
 
         Ok((used_tokens, used_collateral))
     }
