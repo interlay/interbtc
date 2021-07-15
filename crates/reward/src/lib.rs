@@ -53,6 +53,7 @@ pub mod pallet {
     )]
     pub enum Event<T: Config<I>, I: 'static = ()> {
         DepositStake(T::CurrencyId, T::AccountId, T::SignedFixedPoint),
+        DistributeReward(T::CurrencyId, T::SignedFixedPoint),
         WithdrawStake(T::CurrencyId, T::AccountId, T::SignedFixedPoint),
         WithdrawReward(T::CurrencyId, T::AccountId, T::SignedFixedPoint),
     }
@@ -202,6 +203,8 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
             .ok_or(Error::<T, I>::ArithmeticUnderflow)?;
         checked_add_mut!(RewardPerToken<T, I>, currency_id, &reward_div_total_stake);
         checked_add_mut!(TotalRewards<T, I>, currency_id, &reward);
+
+        Self::deposit_event(Event::<T, I>::DistributeReward(currency_id, reward));
         Ok(reward)
     }
 
