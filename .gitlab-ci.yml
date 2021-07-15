@@ -33,8 +33,8 @@ image: "registry.gitlab.com/interlay/containers/rust-base:nightly-2021-03-15"
       --build-arg BINARY=${ARTIFACT_BIN_PATH} \
       --context ${CI_PROJECT_DIR} \
       --dockerfile ${CI_PROJECT_DIR}/Dockerfile_release \
-      --destination ${CI_REGISTRY_IMAGE}:${CI_COMMIT_REF_NAME}-${CI_COMMIT_SHORT_SHA}-$(date +%s) \
-      --destination ${CI_REGISTRY_IMAGE}:${CI_COMMIT_REF_NAME}
+      --destination ${DOCKER_REGISTRY_IMAGE}:${ARTIFACT_BIN_PATH}-${CI_COMMIT_REF_NAME}-${CI_COMMIT_SHORT_SHA}-$(date +%s) \
+      --destination ${DOCKER_REGISTRY_IMAGE}:${ARTIFACT_BIN_PATH}-${CI_COMMIT_REF_NAME}
   <<: *only_refs
 
 stages:
@@ -83,6 +83,7 @@ docker-publish-standalone:
     - build-standalone
   variables:
     ARTIFACT_BIN_PATH: interbtc-standalone
+    DOCKER_REGISTRY_IMAGE: interlayhq/interbtc
   extends:
     - .docker-base-job
 
@@ -91,6 +92,7 @@ docker-publish-parachain:
     - build-parachain
   variables:
     ARTIFACT_BIN_PATH: interbtc-parachain
+    DOCKER_REGISTRY_IMAGE: interlayhq/interbtc
   extends:
     - .docker-base-job
 
