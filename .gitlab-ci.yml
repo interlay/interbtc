@@ -27,7 +27,7 @@ image: "registry.gitlab.com/interlay/containers/rust-base:nightly-2021-03-15"
     name: gcr.io/kaniko-project/executor:debug
     entrypoint: [""]
   script:
-    - echo "{\"auths\":{\"$CI_REGISTRY\":{\"username\":\"$CI_REGISTRY_USER\",\"password\":\"$CI_REGISTRY_PASSWORD\"}}}" > /kaniko/.docker/config.json
+    - echo "{\"auths\":{\"https://index.docker.io/v1/\":{\"auth\":\"$DOCKER_HUB_TOKEN\"}}}" > /kaniko/.docker/config.json
     - |
       /kaniko/executor \
       --build-arg BINARY=${ARTIFACT_BIN_PATH} \
