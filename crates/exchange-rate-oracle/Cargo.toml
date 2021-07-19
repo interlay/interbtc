@@ -20,8 +20,8 @@ frame-benchmarking = { git = "https://github.com/paritytech/substrate", branch =
 pallet-timestamp = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.8", default-features = false }
 
 # orml dependencies
-orml-oracle = { git = "https://github.com/interlay/open-runtime-module-library", rev = "5c448f69", default-features = false }
-orml-traits = { git = "https://github.com/interlay/open-runtime-module-library", rev = "5c448f69", default-features = false }
+orml-oracle = { git = "https://github.com/interlay/open-runtime-module-library", rev = "2d6f7f0", default-features = false }
+orml-traits = { git = "https://github.com/interlay/open-runtime-module-library", rev = "2d6f7f0", default-features = false }
 
 # Parachain dependencies
 security = { path = "../security", default-features = false }

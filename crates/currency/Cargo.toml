@@ -17,8 +17,8 @@ frame-system = { git = "https://github.com/paritytech/substrate", branch = "polk
 pallet-transaction-payment = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.8", default-features = false }
 
 # Orml dependencies
-orml-tokens = { git = "https://github.com/interlay/open-runtime-module-library", rev = "5c448f69", default-features = false }
-orml-traits = { git = "https://github.com/interlay/open-runtime-module-library", rev = "5c448f69", default-features = false }
+orml-tokens = { git = "https://github.com/interlay/open-runtime-module-library", rev = "2d6f7f0", default-features = false }
+orml-traits = { git = "https://github.com/interlay/open-runtime-module-library", rev = "2d6f7f0", default-features = false }
 
 [dev-dependencies]
 sp-core = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.8", default-features = false }

@@ -76,9 +76,9 @@ module-replace-rpc-runtime-api = { path = "../../crates/replace/rpc/runtime-api"
 module-refund-rpc-runtime-api = { path = "../../crates/refund/rpc/runtime-api", default-features = false }
 
 # Orml dependencies
-orml-tokens = { git = "https://github.com/interlay/open-runtime-module-library", rev = "5c448f69", default-features = false }
-orml-traits = { git = "https://github.com/interlay/open-runtime-module-library", rev = "5c448f69", default-features = false }
-orml-oracle = { git = "https://github.com/interlay/open-runtime-module-library", rev = "5c448f69", default-features = false }
+orml-tokens = { git = "https://github.com/interlay/open-runtime-module-library", rev = "2d6f7f0", default-features = false }
+orml-traits = { git = "https://github.com/interlay/open-runtime-module-library", rev = "2d6f7f0", default-features = false }
+orml-oracle = { git = "https://github.com/interlay/open-runtime-module-library", rev = "2d6f7f0", default-features = false }
 
 [dev-dependencies]
 hex = '0.4.2'

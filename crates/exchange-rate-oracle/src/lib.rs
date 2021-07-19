@@ -37,15 +37,15 @@ use frame_support::{
     ensure, transactional,
     weights::Weight,
 };
-use orml_traits::{DataFeeder, DataProvider};
 use frame_system::{ensure_root, ensure_signed};
+use orml_traits::{DataFeeder, DataProvider};
+use primitives::{oracle::Key, CurrencyId};
 use security::{ErrorCode, StatusCode};
 use sp_runtime::{
     traits::{UniqueSaturatedInto, *},
     FixedPointNumber, FixedPointOperand,
 };
 use sp_std::{convert::TryInto, fmt::Debug, vec::Vec};
-use primitives::{CurrencyId, oracle::Key};
 
 pub use pallet::*;
 
@@ -194,18 +194,14 @@ pub mod pallet {
             ext::security::ensure_parachain_status_not_shutdown::<T>()?;
 
             let signer = ensure_signed(origin)?;
-            
-            T::Oracle::feed_value(
-                signer, 
-                Key::ExchangeRate(CurrencyId::DOT),
-                exchange_rate
-            )
+
+            T::Oracle::feed_value(signer, Key::ExchangeRate(CurrencyId::DOT), exchange_rate)
 
             // fail if the signer is not an authorized oracle
-//             ensure!(Self::is_authorized(&signer), Error::<T>::InvalidOracleSource);
-// 
-//             Self::_set_exchange_rate(exchange_rate)?;
-//             Self::deposit_event(Event::<T>::SetExchangeRate(signer, exchange_rate));
+            //             ensure!(Self::is_authorized(&signer), Error::<T>::InvalidOracleSource);
+            //
+            //             Self::_set_exchange_rate(exchange_rate)?;
+            //             Self::deposit_event(Event::<T>::SetExchangeRate(signer, exchange_rate));
 
             // Ok(())
         }
