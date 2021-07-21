@@ -28,117 +28,448 @@ fn consume_to_be_replaced(vault: &mut CoreVaultData, amount_btc: u128) {
     vault.to_be_replaced -= to_be_replaced_decrease;
 }
 
-#[test]
-fn integration_test_redeem_with_parachain_shutdown_fails() {
-    test_with(|| {
-        SecurityPallet::set_status(StatusCode::Shutdown);
-
-        assert_noop!(
-            Call::Redeem(RedeemCall::request_redeem(
-                1000,
-                BtcAddress::P2PKH(H160([0u8; 20])),
-                account_of(BOB),
-            ))
-            .dispatch(origin_of(account_of(ALICE))),
-            SecurityError::ParachainShutdown,
-        );
-
-        assert_noop!(
-            Call::Redeem(RedeemCall::execute_redeem(
-                Default::default(),
-                Default::default(),
-                Default::default()
-            ))
-            .dispatch(origin_of(account_of(ALICE))),
-            SecurityError::ParachainShutdown,
-        );
-
-        assert_noop!(
-            Call::Redeem(RedeemCall::cancel_redeem(Default::default(), false)).dispatch(origin_of(account_of(ALICE))),
-            SecurityError::ParachainShutdown,
-        );
-        assert_noop!(
-            Call::Redeem(RedeemCall::cancel_redeem(Default::default(), true)).dispatch(origin_of(account_of(ALICE))),
-            SecurityError::ParachainShutdown,
-        );
-
-        assert_noop!(
-            Call::Redeem(RedeemCall::liquidation_redeem(1000)).dispatch(origin_of(account_of(ALICE))),
-            SecurityError::ParachainShutdown,
-        );
-
-        assert_noop!(
-            Call::Redeem(RedeemCall::mint_tokens_for_reimbursed_redeem(Default::default()))
-                .dispatch(origin_of(account_of(ALICE))),
-            SecurityError::ParachainShutdown,
-        );
-    });
-}
-
-mod request_redeem_tests {
+mod spec_based_tests {
     use super::*;
-
-    fn calculate_vault_capacity() -> u128 {
-        let redeemable_tokens = DEFAULT_VAULT_ISSUED - DEFAULT_VAULT_TO_BE_REDEEMED;
-
-        // we are able to redeem `redeemable_tokens`. However, when requesting a redeem,
-        // the fee is subtracted for this amount. As such, a user is able to request more
-        // than `redeemable_tokens`. A first approximation of the limit is redeemable_tokens+fee,
-        // however, this slightly underestimates it. Since the actual fee rate is not exposed,
-        // use an iterative process to find the maximum redeem request amount.
-        let mut ret = redeemable_tokens + FeePallet::get_redeem_fee(redeemable_tokens).unwrap();
-
-        loop {
-            let actually_redeemed_tokens = ret - FeePallet::get_redeem_fee(ret).unwrap();
-            if actually_redeemed_tokens > redeemable_tokens {
-                return ret - 1;
-            }
-            ret += 1;
-        }
-    }
-
     #[test]
-    fn integration_test_request_redeem_at_capacity_succeeds() {
+    fn integration_test_redeem_with_parachain_shutdown_status_fails() {
+        // Checked PRECONDITION: The BTC Parachain status in the Security component
         test_with(|| {
-            let amount = calculate_vault_capacity();
-            assert_ok!(Call::Redeem(RedeemCall::request_redeem(
-                amount,
-                BtcAddress::default(),
-                account_of(VAULT)
-            ))
-            .dispatch(origin_of(account_of(USER))));
+            SecurityPallet::set_status(StatusCode::Shutdown);
 
-            let redeem_id = assert_redeem_request_event();
-            let redeem = RedeemPallet::get_open_redeem_request_from_id(&redeem_id).unwrap();
+            assert_noop!(
+                Call::Redeem(RedeemCall::request_redeem(
+                    1500,
+                    BtcAddress::P2PKH(H160([0u8; 20])),
+                    account_of(BOB),
+                ))
+                .dispatch(origin_of(account_of(ALICE))),
+                SecurityError::ParachainNotRunning,
+            );
 
-            assert_eq!(amount, redeem.fee + redeem.amount_btc + redeem.transfer_fee_btc);
+            assert_noop!(
+                Call::Redeem(RedeemCall::execute_redeem(
+                    Default::default(),
+                    Default::default(),
+                    Default::default()
+                ))
+                .dispatch(origin_of(account_of(ALICE))),
+                SecurityError::ParachainShutdown,
+            );
 
-            assert_eq!(
-                ParachainState::get(),
-                ParachainState::default().with_changes(|user, vault, _, _| {
-                    vault.to_be_redeemed += redeem.amount_btc + redeem.transfer_fee_btc;
-                    user.free_tokens -= redeem.amount_btc + redeem.transfer_fee_btc + redeem.fee;
-                    user.locked_tokens += redeem.amount_btc + redeem.transfer_fee_btc + redeem.fee;
-                    consume_to_be_replaced(vault, redeem.amount_btc);
-                })
+            assert_noop!(
+                Call::Redeem(RedeemCall::cancel_redeem(Default::default(), false))
+                    .dispatch(origin_of(account_of(ALICE))),
+                SecurityError::ParachainNotRunning,
+            );
+            assert_noop!(
+                Call::Redeem(RedeemCall::cancel_redeem(Default::default(), true))
+                    .dispatch(origin_of(account_of(ALICE))),
+                SecurityError::ParachainNotRunning,
+            );
+
+            assert_noop!(
+                Call::Redeem(RedeemCall::liquidation_redeem(1000)).dispatch(origin_of(account_of(ALICE))),
+                SecurityError::ParachainShutdown,
+            );
+
+            assert_noop!(
+                Call::Redeem(RedeemCall::mint_tokens_for_reimbursed_redeem(Default::default()))
+                    .dispatch(origin_of(account_of(ALICE))),
+                SecurityError::ParachainNotRunning,
             );
         });
     }
 
     #[test]
-    fn integration_test_request_redeem_above_capacity_fails() {
+    fn integration_test_redeem_with_parachain_error_status_fails() {
+        // Checked PRECONDITION: The BTC Parachain status in the Security component
         test_with(|| {
-            let amount = calculate_vault_capacity() + 1;
+            // `liquidation_redeem` and `execute_redeem` are not tested here
+            // because they only require the parachain status not to be `Shutdown`
+            SecurityPallet::set_status(StatusCode::Error);
+
             assert_noop!(
                 Call::Redeem(RedeemCall::request_redeem(
+                    1500,
+                    BtcAddress::P2PKH(H160([0u8; 20])),
+                    account_of(BOB),
+                ))
+                .dispatch(origin_of(account_of(ALICE))),
+                SecurityError::ParachainNotRunning,
+            );
+
+            assert_noop!(
+                Call::Redeem(RedeemCall::cancel_redeem(Default::default(), false))
+                    .dispatch(origin_of(account_of(ALICE))),
+                SecurityError::ParachainNotRunning,
+            );
+            assert_noop!(
+                Call::Redeem(RedeemCall::cancel_redeem(Default::default(), true))
+                    .dispatch(origin_of(account_of(ALICE))),
+                SecurityError::ParachainNotRunning,
+            );
+
+            assert_noop!(
+                Call::Redeem(RedeemCall::mint_tokens_for_reimbursed_redeem(Default::default()))
+                    .dispatch(origin_of(account_of(ALICE))),
+                SecurityError::ParachainNotRunning,
+            );
+        });
+    }
+
+    mod request_redeem {
+        use frame_support::assert_ok;
+        use redeem::RedeemRequestStatus;
+        use sp_runtime::{
+            traits::{CheckedDiv, CheckedSub},
+            FixedU128,
+        };
+
+        use super::*;
+
+        fn calculate_vault_capacity() -> u128 {
+            let redeemable_tokens = DEFAULT_VAULT_ISSUED - DEFAULT_VAULT_TO_BE_REDEEMED;
+
+            // we are able to redeem `redeemable_tokens`. However, when requesting a redeem,
+            // the fee is subtracted for this amount. As such, a user is able to request more
+            // than `redeemable_tokens`. A first approximation of the limit is redeemable_tokens+fee,
+            // however, this slightly underestimates it. Since the actual fee rate is not exposed,
+            // use an iterative process to find the maximum redeem request amount.
+            let mut ret = redeemable_tokens + FeePallet::get_redeem_fee(redeemable_tokens).unwrap();
+
+            loop {
+                let actually_redeemed_tokens = ret - FeePallet::get_redeem_fee(ret).unwrap();
+                if actually_redeemed_tokens > redeemable_tokens {
+                    return ret - 1;
+                }
+                ret += 1;
+            }
+        }
+
+        #[test]
+        fn integration_test_request_redeem_at_capacity_succeeds() {
+            // Checked PRECONDITION: The vault’s `issuedTokens` MUST be at least `vault.toBeRedeemedTokens +
+            // burnedTokens`
+            test_with(|| {
+                let amount = calculate_vault_capacity();
+                assert_ok!(Call::Redeem(RedeemCall::request_redeem(
                     amount,
                     BtcAddress::default(),
                     account_of(VAULT)
                 ))
-                .dispatch(origin_of(account_of(USER))),
-                VaultRegistryError::InsufficientTokensCommitted
-            );
-        });
+                .dispatch(origin_of(account_of(USER))));
+
+                let redeem_id = assert_redeem_request_event();
+                let redeem = RedeemPallet::get_open_redeem_request_from_id(&redeem_id).unwrap();
+
+                assert_eq!(amount, redeem.fee + redeem.amount_btc + redeem.transfer_fee_btc);
+                assert_eq!(redeem.vault, account_of(VAULT));
+
+                assert_eq!(
+                    ParachainState::get(),
+                    ParachainState::default().with_changes(|user, vault, _, _| {
+                        vault.to_be_redeemed += redeem.amount_btc + redeem.transfer_fee_btc;
+                        user.free_tokens -= redeem.amount_btc + redeem.transfer_fee_btc + redeem.fee;
+                        user.locked_tokens += redeem.amount_btc + redeem.transfer_fee_btc + redeem.fee;
+                        consume_to_be_replaced(vault, redeem.amount_btc);
+                    })
+                );
+            });
+        }
+
+        #[test]
+        fn integration_test_request_redeem_above_capacity_fails() {
+            // Checked PRECONDITION: The vault’s `issuedTokens` MUST be at least `vault.toBeRedeemedTokens +
+            // burnedTokens`
+            test_with(|| {
+                let amount = calculate_vault_capacity() + 1;
+                assert_noop!(
+                    Call::Redeem(RedeemCall::request_redeem(
+                        amount,
+                        BtcAddress::default(),
+                        account_of(VAULT)
+                    ))
+                    .dispatch(origin_of(account_of(USER))),
+                    VaultRegistryError::InsufficientTokensCommitted
+                );
+            });
+        }
+
+        #[test]
+        fn integration_test_redeen_cannot_request_from_liquidated_vault() {
+            // Checked PRECONDITION: The selected vault MUST NOT be liquidated.
+            test_with(|| {
+                drop_exchange_rate_and_liquidate(VAULT);
+                assert_noop!(
+                    Call::Redeem(RedeemCall::request_redeem(
+                        1500,
+                        BtcAddress::P2PKH(H160([0u8; 20])),
+                        account_of(VAULT),
+                    ))
+                    .dispatch(origin_of(account_of(ALICE))),
+                    VaultRegistryError::VaultNotFound,
+                );
+            });
+        }
+
+        #[test]
+        fn integration_test_redeen_redeemer_free_tokens() {
+            // Checked PRECONDITION: The redeemer MUST have at least `amountWrapped` free tokens.
+            test_with(|| {
+                let free_tokens_to_redeem = 1500;
+                UserData::force_to(
+                    ALICE,
+                    UserData {
+                        free_tokens: free_tokens_to_redeem,
+                        ..UserData::get(USER)
+                    },
+                );
+                assert_ok!(Call::Redeem(RedeemCall::request_redeem(
+                    free_tokens_to_redeem,
+                    BtcAddress::P2PKH(H160([0u8; 20])),
+                    account_of(VAULT),
+                ))
+                .dispatch(origin_of(account_of(ALICE))));
+                UserData::force_to(
+                    ALICE,
+                    UserData {
+                        free_tokens: free_tokens_to_redeem - 1,
+                        ..UserData::get(USER)
+                    },
+                );
+                assert_noop!(
+                    Call::Redeem(RedeemCall::request_redeem(
+                        free_tokens_to_redeem,
+                        BtcAddress::P2PKH(H160([0u8; 20])),
+                        account_of(VAULT),
+                    ))
+                    .dispatch(origin_of(account_of(ALICE))),
+                    RedeemError::AmountExceedsUserBalance,
+                );
+            });
+        }
+
+        #[test]
+        fn integration_test_redeen_vault_capacity_sufficient() {
+            // Checked PRECONDITION: The vault’s `issuedTokens` MUST be at least `vault.toBeRedeemedTokens +
+            // burnedTokens`.
+            // Checked POSTCONDITIONS:
+            //  - The vault’s `toBeRedeemedTokens` MUST increase by `burnedTokens`.
+            //  - `amountWrapped` of the redeemer’s tokens MUST be locked by this transaction.
+            test_with(|| {
+                let vault_to_be_redeemed = 1500;
+                let user_to_redeem = 1500;
+                let redeem_fee = FeePallet::get_redeem_fee(user_to_redeem).unwrap();
+                let burned_tokens = user_to_redeem - redeem_fee;
+                let vault_issued_tokens = vault_to_be_redeemed + burned_tokens;
+                let inclusion_fee = RedeemPallet::get_current_inclusion_fee().unwrap();
+                let redeem_period = RedeemPallet::redeem_period();
+                let btc_address = BtcAddress::P2PKH(H160([0u8; 20]));
+                let btc_height = BTCRelayPallet::get_best_block_height();
+                let opentime = SecurityPallet::active_block_number();
+
+                CoreVaultData::force_to(
+                    VAULT,
+                    CoreVaultData {
+                        issued: vault_issued_tokens,
+                        to_be_redeemed: vault_to_be_redeemed,
+                        backing_collateral: DEFAULT_VAULT_BACKING_COLLATERAL,
+                        ..Default::default()
+                    },
+                );
+                UserData::force_to(
+                    ALICE,
+                    UserData {
+                        free_tokens: user_to_redeem,
+                        ..UserData::get(USER)
+                    },
+                );
+                let parachain_state_before_request = ParachainState::get();
+                assert_ok!(Call::Redeem(RedeemCall::request_redeem(
+                    user_to_redeem,
+                    btc_address,
+                    account_of(VAULT),
+                ))
+                .dispatch(origin_of(account_of(ALICE))));
+                let redeem_id = assert_redeem_request_event();
+                let actual_redeem = RedeemPallet::get_open_redeem_request_from_id(&redeem_id).unwrap();
+                let expected_redeem = RedeemRequest {
+                    vault: account_of(VAULT),
+                    opentime,
+                    fee: redeem_fee,
+                    transfer_fee_btc: inclusion_fee,
+                    amount_btc: burned_tokens - inclusion_fee,
+                    premium: 0,
+                    period: redeem_period,
+                    redeemer: account_of(USER),
+                    btc_address,
+                    btc_height,
+                    status: RedeemRequestStatus::Pending,
+                };
+                assert_eq!(actual_redeem, expected_redeem);
+                assert_eq!(
+                    ParachainState::get(),
+                    parachain_state_before_request.with_changes(|user, vault, _liquidation_vault, _fee_pool| {
+                        user.locked_tokens += user_to_redeem;
+                        user.free_tokens -= user_to_redeem;
+                        vault.to_be_redeemed += burned_tokens;
+                    })
+                );
+            });
+        }
+
+        #[test]
+        fn integration_test_redeen_with_premium() {
+            // Checked PRECONDITION: The vault’s `issuedTokens` MUST be at least `vault.toBeRedeemedTokens +
+            // burnedTokens`.
+            // Checked POSTCONDITIONS:
+            //  - The vault’s `toBeRedeemedTokens` MUST increase by `burnedTokens`.
+            //  - `amountWrapped` of the redeemer’s tokens MUST be locked by this transaction.
+            test_with(|| {
+                let vault_to_be_redeemed = 1500;
+                let user_to_redeem = 1500;
+                let redeem_fee = FeePallet::get_redeem_fee(user_to_redeem).unwrap();
+                let burned_tokens = user_to_redeem - redeem_fee;
+                let vault_issued_tokens = vault_to_be_redeemed + burned_tokens;
+                let inclusion_fee = RedeemPallet::get_current_inclusion_fee().unwrap();
+                let redeem_period = RedeemPallet::redeem_period();
+                let btc_address = BtcAddress::P2PKH(H160([0u8; 20]));
+                let btc_height = BTCRelayPallet::get_best_block_height();
+                let opentime = SecurityPallet::active_block_number();
+                let premium_redeem_fee = FeePallet::get_premium_redeem_fee(burned_tokens - inclusion_fee).unwrap();
+
+                CoreVaultData::force_to(
+                    VAULT,
+                    CoreVaultData {
+                        issued: vault_issued_tokens,
+                        to_be_redeemed: vault_to_be_redeemed,
+                        ..Default::default()
+                    },
+                );
+                UserData::force_to(
+                    ALICE,
+                    UserData {
+                        free_tokens: user_to_redeem,
+                        ..UserData::get(USER)
+                    },
+                );
+                assert_ok!(Call::Redeem(RedeemCall::request_redeem(
+                    user_to_redeem,
+                    btc_address,
+                    account_of(VAULT),
+                ))
+                .dispatch(origin_of(account_of(ALICE))));
+                let redeem_id = assert_redeem_request_event();
+                let actual_redeem = RedeemPallet::get_open_redeem_request_from_id(&redeem_id).unwrap();
+                let expected_redeem = RedeemRequest {
+                    vault: account_of(VAULT),
+                    opentime,
+                    fee: redeem_fee,
+                    transfer_fee_btc: inclusion_fee,
+                    amount_btc: burned_tokens - inclusion_fee,
+                    premium: premium_redeem_fee,
+                    period: redeem_period,
+                    redeemer: account_of(USER),
+                    btc_address,
+                    btc_height,
+                    status: RedeemRequestStatus::Pending,
+                };
+                assert_eq!(actual_redeem, expected_redeem);
+            });
+        }
+
+        #[test]
+        fn integration_test_redeen_vault_capacity_insufficient() {
+            // Checked PRECONDITION: The vault’s `issuedTokens` MUST be at least `vault.toBeRedeemedTokens +
+            // burnedTokens`.
+            test_with(|| {
+                let vault_to_be_redeemed = 1500;
+                let user_to_redeem = 1500;
+                let burned_tokens = user_to_redeem - FeePallet::get_redeem_fee(user_to_redeem).unwrap();
+                let vault_issued_tokens = vault_to_be_redeemed + burned_tokens - 1;
+                CoreVaultData::force_to(
+                    VAULT,
+                    CoreVaultData {
+                        issued: vault_issued_tokens,
+                        to_be_redeemed: vault_to_be_redeemed,
+                        ..Default::default()
+                    },
+                );
+                UserData::force_to(
+                    ALICE,
+                    UserData {
+                        free_tokens: user_to_redeem,
+                        ..UserData::get(USER)
+                    },
+                );
+                assert_noop!(
+                    Call::Redeem(RedeemCall::request_redeem(
+                        user_to_redeem,
+                        BtcAddress::P2PKH(H160([0u8; 20])),
+                        account_of(VAULT),
+                    ))
+                    .dispatch(origin_of(account_of(ALICE))),
+                    VaultRegistryError::InsufficientTokensCommitted
+                );
+            });
+        }
+
+        #[test]
+        fn integration_test_redeen_dust_value_succeeds() {
+            // Checked PRECONDITION: `burnedTokens` minus the inclusion fee MUST be above the RedeemBtcDustValue,
+            // where the inclusion fee is the multiplication of RedeemTransactionSize and the fee rate estimate
+            // reported by the oracle.
+
+            test_with(|| {
+                // The formula for finding the threshold `to_redeem` for the dust amount error is
+                // `(redeem_dust_value + inclusion_fee) / (1 - redeem_fee_rate)`
+                let redeem_dust_value = RedeemPallet::redeem_btc_dust_value();
+                let inclusion_fee = RedeemPallet::get_current_inclusion_fee().unwrap();
+                let redeem_fee_rate = FeePallet::redeem_fee();
+                let denominator = FixedU128::one().checked_sub(&redeem_fee_rate).expect("Division failed");
+                let numerator = FixedU128::from_inner(redeem_dust_value + inclusion_fee);
+                let to_redeem = numerator
+                    .checked_div(&denominator)
+                    .expect("Division failed")
+                    .into_inner();
+                assert_ok!(Call::Redeem(RedeemCall::request_redeem(
+                    to_redeem,
+                    BtcAddress::P2PKH(H160([0u8; 20])),
+                    account_of(VAULT),
+                ))
+                .dispatch(origin_of(account_of(ALICE))));
+            });
+        }
+
+        #[test]
+        fn integration_test_redeen_dust_value_fails() {
+            // Checked PRECONDITION: `burnedTokens` minus the inclusion fee MUST be above the RedeemBtcDustValue,
+            // where the inclusion fee is the multiplication of RedeemTransactionSize and the fee rate estimate
+            // reported by the oracle.
+
+            test_with(|| {
+                // The formula for finding the threshold `to_redeem` for the dust amount error is
+                // `(redeem_dust_value + inclusion_fee) / (1 - redeem_fee_rate)`
+                let redeem_dust_value = RedeemPallet::redeem_btc_dust_value();
+                let inclusion_fee = RedeemPallet::get_current_inclusion_fee().unwrap();
+                let redeem_fee_rate = FeePallet::redeem_fee();
+                let denominator = FixedU128::one().checked_sub(&redeem_fee_rate).expect("Division failed");
+                let numerator = FixedU128::from_inner(redeem_dust_value + inclusion_fee);
+                let to_redeem = numerator
+                    .checked_div(&denominator)
+                    .expect("Division failed")
+                    .into_inner();
+                assert_noop!(
+                    Call::Redeem(RedeemCall::request_redeem(
+                        to_redeem - 1,
+                        BtcAddress::P2PKH(H160([0u8; 20])),
+                        account_of(VAULT),
+                    ))
+                    .dispatch(origin_of(account_of(ALICE))),
+                    RedeemError::AmountBelowDustAmount
+                );
+            });
+        }
     }
 }
 
@@ -761,90 +1092,6 @@ fn integration_test_redeem_wrapped_execute_liquidated() {
             })
         );
     });
-}
-
-#[test]
-fn integration_test_redeem_banning() {
-    test_with(|| {
-        let vault2 = CAROL;
-
-        let redeem_id = setup_cancelable_redeem(USER, VAULT, 50_000, 10_000);
-
-        // make sure the vault & user have funds after the cancel_redeem
-        CoreVaultData::force_to(
-            VAULT,
-            CoreVaultData {
-                issued: 1000000,
-                backing_collateral: 10000000,
-                free_balance: 100, // to be used for griefing collateral
-                ..CoreVaultData::vault(VAULT)
-            },
-        );
-        UserData::force_to(
-            USER,
-            UserData {
-                free_balance: 1000000,
-                free_tokens: 10000000,
-                ..UserData::get(USER)
-            },
-        );
-
-        // setup vault2 to be replacable
-        CoreVaultData::force_to(
-            vault2,
-            CoreVaultData {
-                backing_collateral: 500,
-                ..default_vault_state()
-            },
-        );
-
-        // can still make a replace request now
-        assert_ok!(Call::Replace(ReplaceCall::request_replace(100, 100)).dispatch(origin_of(account_of(VAULT))));
-
-        // cancel the redeem, this should ban the vault
-        cancel_redeem(redeem_id, USER, true);
-
-        // can not redeem with vault while banned
-        assert_noop!(
-            Call::Redeem(RedeemCall::request_redeem(
-                10_000,
-                BtcAddress::P2PKH(H160([0u8; 20])),
-                account_of(VAULT),
-            ))
-            .dispatch(origin_of(account_of(USER))),
-            VaultRegistryError::VaultBanned,
-        );
-
-        // can not issue with vault while banned
-        assert_noop!(
-            Call::Issue(IssueCall::request_issue(50, account_of(VAULT), 50)).dispatch(origin_of(account_of(USER))),
-            VaultRegistryError::VaultBanned,
-        );
-
-        // can not request replace while banned
-        assert_noop!(
-            Call::Replace(ReplaceCall::request_replace(0, 0)).dispatch(origin_of(account_of(VAULT))),
-            VaultRegistryError::VaultBanned,
-        );
-
-        // banned vault can not accept replace
-        assert_noop!(
-            Call::Replace(ReplaceCall::accept_replace(
-                account_of(vault2),
-                1000,
-                1000,
-                BtcAddress::default()
-            ))
-            .dispatch(origin_of(account_of(VAULT))),
-            VaultRegistryError::VaultBanned,
-        );
-
-        // check that the ban is not permanent
-        SecurityPallet::set_active_block_number(100000000);
-        assert_ok!(
-            Call::Issue(IssueCall::request_issue(50, account_of(VAULT), 50)).dispatch(origin_of(account_of(USER)))
-        );
-    })
 }
 
 mod mint_tokens_for_reimbursed_redeem_equivalence_test {
