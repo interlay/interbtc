@@ -38,8 +38,8 @@ mocktopus = "0.7.0"
 frame-benchmarking = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.8", default-features = false }
 
 # Orml dependencies
-orml-tokens = { git = "https://github.com/interlay/open-runtime-module-library", rev = "5c448f69", default-features = false }
-orml-traits = { git = "https://github.com/interlay/open-runtime-module-library", rev = "5c448f69", default-features = false }
+orml-tokens = { git = "https://github.com/open-web3-stack/open-runtime-module-library", rev = "81511f1", default-features = false }
+orml-traits = { git = "https://github.com/open-web3-stack/open-runtime-module-library", rev = "81511f1", default-features = false }
 
 [features]
 default = ["std"]
