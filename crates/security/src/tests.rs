@@ -108,7 +108,7 @@ fn test_recover_from_oracle_offline_succeeds() {
 }
 
 #[test]
-fn testget_secure_id() {
+fn test_get_secure_id() {
     run_test(|| {
         frame_system::Pallet::<Test>::set_parent_hash(H256::zero());
         assert_eq!(
@@ -122,7 +122,7 @@ fn testget_secure_id() {
 }
 
 #[test]
-fn testget_increment_active_block_succeeds() {
+fn test_get_increment_active_block_succeeds() {
     run_test(|| {
         let initial_active_block = Security::active_block_number();
         Security::set_status(StatusCode::Running);
@@ -132,7 +132,7 @@ fn testget_increment_active_block_succeeds() {
 }
 
 #[test]
-fn testget_active_block_not_incremented_if_not_running() {
+fn test_get_active_block_not_incremented_if_not_running() {
     run_test(|| {
         let initial_active_block = Security::active_block_number();
 
