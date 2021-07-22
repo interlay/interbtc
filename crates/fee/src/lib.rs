@@ -261,8 +261,10 @@ impl<T: Config> Pallet<T> {
     pub fn distribute_rewards(amount: Wrapped<T>) -> Result<(), DispatchError> {
         // distribute vault rewards and return leftover
         let remaining = Self::distribute::<_, _, T::SignedFixedPoint, T::VaultRewards>(amount)?;
-        // sweep the remaining rewards to the treasury
-        T::OnSweep::on_sweep(&Self::fee_pool_account_id(), remaining)?;
+        if !remaining.is_zero() {
+            // sweep the remaining rewards to the treasury if non-zero
+            T::OnSweep::on_sweep(&Self::fee_pool_account_id(), remaining)?;
+        }
         Ok(())
     }
 
