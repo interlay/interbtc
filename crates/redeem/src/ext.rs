@@ -275,10 +275,6 @@ pub(crate) mod fee {
         <fee::Pallet<T>>::distribute_rewards(amount)
     }
 
-    pub fn get_punishment_fee<T: crate::Config>(amount: Collateral<T>) -> Result<Collateral<T>, DispatchError> {
-        <fee::Pallet<T>>::get_punishment_fee(amount)
-    }
-
     pub fn get_premium_redeem_fee<T: crate::Config>(amount: Collateral<T>) -> Result<Collateral<T>, DispatchError> {
         <fee::Pallet<T>>::get_premium_redeem_fee(amount)
     }

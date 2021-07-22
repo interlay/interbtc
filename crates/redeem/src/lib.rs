@@ -480,7 +480,6 @@ impl<T: Config> Pallet<T> {
             .ok_or(Error::<T>::ArithmeticOverflow)?;
 
         let amount_wrapped_in_collateral = ext::oracle::wrapped_to_collateral::<T>(vault_to_be_burned_tokens)?;
-        let punishment_fee_in_collateral = ext::fee::get_punishment_fee::<T>(amount_wrapped_in_collateral)?;
 
         // now update the collateral; the logic is different for liquidated vaults.
         let slashed_amount = if vault.is_liquidated() {
@@ -505,43 +504,20 @@ impl<T: Config> Pallet<T> {
             confiscated_collateral
         } else {
             // not liquidated
-            let slashed_collateral = if reimburse {
-                // user requested to be reimbursed in collateral
-                let reimburse_in_collateral = amount_wrapped_in_collateral
-                    .checked_add(&punishment_fee_in_collateral)
-                    .ok_or(Error::<T>::ArithmeticOverflow)?;
-                ext::vault_registry::transfer_funds_saturated::<T>(
-                    CurrencySource::Collateral(vault_id.clone()),
-                    CurrencySource::FreeBalance(redeem.redeemer.clone()),
-                    reimburse_in_collateral,
-                )?
-            } else {
-                // user chose to keep their issued tokens - only transfer it the punishment fee
-                // returns the amount actually slashed
-                ext::vault_registry::transfer_funds_saturated::<T>(
-                    CurrencySource::Collateral(vault_id.clone()),
-                    CurrencySource::FreeBalance(redeemer.clone()),
-                    punishment_fee_in_collateral,
-                )?
-            };
-            // calculate additional amount to slash, a high SLA means we slash less
-            let slashing_amount_in_collateral =
+
+            // calculate the amount to slash, a high SLA means we slash less
+            let punishment_fee_in_collateral =
                 ext::vault_registry::calculate_slashed_amount::<T>(&vault_id, amount_wrapped_in_collateral, reimburse)?;
 
-            // slash the remaining amount from the vault to the fee pool
-            let remaining_collateral_to_be_slashed = slashing_amount_in_collateral
-                .checked_sub(&slashed_collateral)
-                .ok_or(Error::<T>::ArithmeticUnderflow)?;
-            if remaining_collateral_to_be_slashed > Collateral::<T>::zero() {
-                ext::vault_registry::transfer_funds_saturated::<T>(
-                    CurrencySource::Collateral(vault_id.clone()),
-                    CurrencySource::FreeBalance(redeemer.clone()),
-                    remaining_collateral_to_be_slashed,
-                )?;
-            }
+            ext::vault_registry::transfer_funds_saturated::<T>(
+                CurrencySource::Collateral(vault_id.clone()),
+                CurrencySource::FreeBalance(redeemer.clone()),
+                punishment_fee_in_collateral,
+            )?;
+
             let _ = ext::vault_registry::ban_vault::<T>(vault_id.clone());
 
-            slashing_amount_in_collateral
+            punishment_fee_in_collateral
         };
 
         // first update the issued tokens; this logic is the same regardless of whether or not the vault is liquidated
