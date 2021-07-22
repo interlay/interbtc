@@ -516,27 +516,48 @@ mod execute_issue_test {
 
     #[test]
     fn integration_test_issue_execute_precond_rawtx_valid() {
+        test_with_initialized_vault(|| {
+            let (issue_id, issue) = request_issue(1000);
+            let (_tx_id, _height, proof, _raw_tx, mut transaction) = TransactionGenerator::new()
+                .with_address(issue.btc_address)
+                .with_amount(1000)
+                .with_op_return(None)
+                .mine();
+
+            SecurityPallet::set_active_block_number(SecurityPallet::active_block_number() + CONFIRMATIONS);
+
+            // send to wrong address
+            let bogus_address = BtcAddress::P2WPKHv0(H160::zero());
+            transaction.outputs[0] = TransactionOutput::payment(1000, &bogus_address);
+            assert_noop!(
+                Call::Issue(IssueCall::execute_issue(issue_id, proof, transaction.format_with(true)))
+                    .dispatch(origin_of(account_of(CAROL))),
+                BTCRelayError::InvalidTxid
+            );
+        })
     }
 
     #[test]
     fn integration_test_issue_execute_precond_proof_valid() {
+        test_with_initialized_vault(|| {
+            let (issue_id, issue) = request_issue(1000);
+            let (_tx_id, _height, mut proof, _raw_tx, transaction) = TransactionGenerator::new()
+                .with_address(issue.btc_address)
+                .with_amount(1)
+                .with_op_return(None)
+                .mine();
+
+            SecurityPallet::set_active_block_number(SecurityPallet::active_block_number() + CONFIRMATIONS);
+
+            // mangle block header in merkle proof
+            proof[0] += 1;
+            assert_noop!(
+                Call::Issue(IssueCall::execute_issue(issue_id, proof, transaction.format_with(true)))
+                    .dispatch(origin_of(account_of(CAROL))),
+                BTCRelayError::BlockNotFound
+            );
+        })
     }
-
-    // #[test]
-    // fn integration_test_issue_execute_precond_includes_fee() {
-    //     test_with(|| {
-    //         let (issue_id, issue) = request_issue(400);
-    //         let mut executor = ExecuteIssueBuilder::new(issue_id);
-    //         executor.with_amount(1) // send tiny amount
-    //             .with_submitter(USER, false) // from the issue requester
-    //             .prepare_for_execution();
-
-    //         assert_noop!(
-    //             executor.execute_prepared(),
-    //             IssueError:: // is there any error for too small deposit?
-    //         );
-    //     });
-    // }
 
     #[test]
     fn integration_test_issue_execute_precond_underpayment_executed_by_requester() {
@@ -551,6 +572,39 @@ mod execute_issue_test {
             assert_noop!(
                 executor.execute_prepared(),
                 IssueError::InvalidExecutor
+            );
+        });
+    }
+
+    #[test]
+    fn integration_test_issue_execute_postcond_exact_payment() {
+        test_with_initialized_vault(|| {
+            let requested_btc = 1000;
+            let (issue_id, issue) = request_issue(requested_btc);
+            let post_request_state = ParachainState::get();
+
+            ExecuteIssueBuilder::new(issue_id)
+                .assert_execute();
+
+            assert_eq!(
+                ParachainState::get(),
+                post_request_state.with_changes(|user, vault, _, fee_pool| {
+                    user.locked_balance -= issue.griefing_collateral;
+                    user.free_balance += issue.griefing_collateral;
+                    user.free_tokens += issue.amount;
+
+                    fee_pool.vault_rewards += issue.fee;
+                    vault.issued += requested_btc;
+                    vault.to_be_issued -= requested_btc;
+                })
+            );
+
+            let user_issues = IssuePallet::get_issue_requests_for_account(account_of(USER));
+            let (_, onchain_issue) = user_issues.iter().find(|(id, _)| {id == &issue_id})
+                .expect("Test issue ID wasn't found");
+            assert_eq!(
+                onchain_issue.status,
+                IssueRequestStatus::Completed(None)
             );
         });
     }
@@ -656,6 +710,55 @@ mod execute_issue_test {
 
     #[test]
     fn integration_test_issue_execute_postcond_overpayment_creates_refund() {
+        test_with_initialized_vault(|| {
+            let requested_btc = 1000;
+
+            // make sure we don't have enough collateral to fulfil the overpayment
+            let current_minimum_collateral =
+                VaultRegistryPallet::get_required_collateral_for_vault(account_of(VAULT)).unwrap();
+            CoreVaultData::force_to(
+                VAULT,
+                CoreVaultData {
+                    backing_collateral: current_minimum_collateral + requested_btc * 2,
+                    ..CoreVaultData::vault(VAULT)
+                },
+            );
+
+            let (issue_id, issue) = request_issue(requested_btc);
+            let sent_btc = (issue.amount + issue.fee) * 4;
+            let post_request_state = ParachainState::get();
+
+            ExecuteIssueBuilder::new(issue_id)
+                .with_amount(sent_btc)
+                .assert_execute();
+
+            // not enough collateral to back sent amount, so it's as if the user sent the correct amount
+            assert_eq!(
+                ParachainState::get(),
+                post_request_state.with_changes(|user, vault, _, fee_pool| {
+                    user.locked_balance -= issue.griefing_collateral;
+                    user.free_balance += issue.griefing_collateral;
+
+                    user.free_tokens += issue.amount;
+                    fee_pool.vault_rewards += issue.fee;
+
+                    vault.issued += issue.fee + issue.amount;
+                    vault.to_be_issued -= issue.fee + issue.amount;
+                })
+            );
+
+            let refund_id = assert_refund_request_event();
+            let refund = RefundPallet::get_open_refund_request_from_id(&refund_id).unwrap();
+            assert_eq!(refund.issue_id, issue_id);
+
+            let user_issues = IssuePallet::get_issue_requests_for_account(account_of(USER));
+            let (_, onchain_issue) = user_issues.iter().find(|(id, _)| {id == &issue_id})
+                .expect("Test issue ID wasn't found");
+            assert_eq!(
+                onchain_issue.status,
+                IssueRequestStatus::Completed(Some(refund_id))
+            );
+        });
     }
 }
 
@@ -752,33 +855,4 @@ fn integration_test_issue_wrapped_execute_liquidated() {
             })
         );
     });
-}
-
-#[test]
-fn integration_test_issue_with_unrelated_rawtx_and_txid_fails() {
-    test_with_initialized_vault(|| {
-        let (issue_id, issue) = request_issue(1000);
-        let (_tx_id, _height, proof, raw_tx, mut transaction) = TransactionGenerator::new()
-            .with_address(issue.btc_address)
-            .with_amount(1)
-            .with_op_return(None)
-            .mine();
-
-        SecurityPallet::set_active_block_number(SecurityPallet::active_block_number() + CONFIRMATIONS);
-
-        // fail due to insufficient amount
-        assert_noop!(
-            Call::Issue(IssueCall::execute_issue(issue_id, proof.clone(), raw_tx))
-                .dispatch(origin_of(account_of(CAROL))),
-            IssueError::InvalidExecutor
-        );
-
-        // increase the amount in the raw_tx, but not in the blockchain. This should definitely fail
-        transaction.outputs[0].value = 1000;
-        assert_noop!(
-            Call::Issue(IssueCall::execute_issue(issue_id, proof, transaction.format_with(true)))
-                .dispatch(origin_of(account_of(CAROL))),
-            BTCRelayError::InvalidTxid
-        );
-    })
 }
