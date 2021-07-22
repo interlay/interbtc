@@ -47,6 +47,12 @@ use sp_std::{convert::TryInto, fmt::Debug, vec::Vec};
 
 pub use pallet::*;
 
+#[derive(Encode, Decode, Eq, PartialEq, Clone, Copy, Ord, PartialOrd)]
+pub struct TimestampedValue<Value, Moment> {
+    pub value: Value,
+    pub timestamp: Moment,
+}
+
 #[frame_support::pallet]
 pub mod pallet {
     use super::*;
@@ -111,11 +117,18 @@ pub mod pallet {
 
     /// Current exchange rate (i.e. Planck per Satoshi)
     #[pallet::storage]
-    pub type ExchangeRate<T: Config> = StorageValue<_, UnsignedFixedPoint<T>, ValueQuery>;
+    pub type ExchangeRate<T: Config> = StorageValue<_, UnsignedFixedPoint<T>>;
+
+    #[pallet::storage]
+    pub type RawValues<T: Config> =
+        StorageMap<_, Blake2_128Concat, T::AccountId, TimestampedValue<UnsignedFixedPoint<T>, T::Moment>>;
+
+    #[pallet::storage]
+    pub type RawValuesUpdated<T: Config> = StorageValue<_, bool, ValueQuery>;
 
     /// Last exchange rate time
     #[pallet::storage]
-    pub type LastExchangeRateTime<T: Config> = StorageValue<_, T::Moment, ValueQuery>;
+    pub type ValidUntil<T: Config> = StorageValue<_, T::Moment>;
 
     /// The estimated inclusion time for a Bitcoin transaction in Satoshis per byte
     #[pallet::storage]
@@ -194,7 +207,13 @@ pub mod pallet {
             // fail if the signer is not an authorized oracle
             ensure!(Self::is_authorized(&signer), Error::<T>::InvalidOracleSource);
 
-            Self::_set_exchange_rate(exchange_rate)?;
+            let timestamped = TimestampedValue {
+                timestamp: Self::get_current_time(),
+                value: exchange_rate.clone(),
+            };
+            RawValues::<T>::insert(&signer, timestamped);
+            RawValuesUpdated::<T>::set(true);
+
             Self::deposit_event(Event::<T>::SetExchangeRate(signer, exchange_rate));
 
             Ok(())
@@ -260,8 +279,32 @@ pub mod pallet {
 #[cfg_attr(test, mockable)]
 impl<T: Config> Pallet<T> {
     fn begin_block(_height: T::BlockNumber) {
-        if Self::is_max_delay_passed() {
-            Self::report_oracle_offline();
+        if Self::is_invalidated() {
+            RawValuesUpdated::<T>::set(false);
+
+            let mut raw_values: Vec<_> = RawValues::<T>::iter().map(|(_key, value)| value).collect();
+            let min_timestamp = Self::get_current_time().saturating_sub(Self::get_max_delay());
+            raw_values.retain(|value| value.timestamp >= min_timestamp);
+            if raw_values.len() == 0 {
+                Self::report_oracle_offline();
+            } else {
+                let valid_until = raw_values
+                    .iter()
+                    .map(|x| x.timestamp)
+                    .min()
+                    .map(|timestamp| timestamp + Self::get_max_delay())
+                    .unwrap(); // Won't panic as `values` ensured not empty.
+
+                let mid_index = raw_values.len() / 2;
+                let (_, value, _) = raw_values.select_nth_unstable_by(mid_index as usize, |a, b| a.value.cmp(&b.value));
+
+                if ExchangeRate::<T>::get().is_none() {
+                    Self::recover_from_oracle_offline();
+                }
+
+                ExchangeRate::<T>::set(Some(value.value));
+                ValidUntil::<T>::set(Some(valid_until));
+            }
         }
     }
 
@@ -269,9 +312,7 @@ impl<T: Config> Pallet<T> {
 
     /// Get the exchange rate in planck per satoshi
     pub fn get_exchange_rate() -> Result<UnsignedFixedPoint<T>, DispatchError> {
-        let max_delay_passed = Self::is_max_delay_passed();
-        ensure!(!max_delay_passed, Error::<T>::MissingExchangeRate);
-        Ok(<ExchangeRate<T>>::get())
+        ExchangeRate::<T>::get().ok_or(Error::<T>::MissingExchangeRate.into())
     }
 
     pub fn wrapped_to_collateral(amount: Wrapped<T>) -> Result<Collateral<T>, DispatchError> {
@@ -298,52 +339,41 @@ impl<T: Config> Pallet<T> {
             .unique_saturated_into())
     }
 
-    pub fn get_last_exchange_rate_time() -> T::Moment {
-        <LastExchangeRateTime<T>>::get()
-    }
-
     /// Private getters and setters
+
+    fn is_invalidated() -> bool {
+        if RawValuesUpdated::<T>::get() {
+            true
+        } else {
+            let valid_until = ValidUntil::<T>::get();
+            let current_time = Self::get_current_time();
+            matches!(valid_until, Some(t) if current_time > t)
+        }
+    }
 
     fn get_max_delay() -> T::Moment {
         <MaxDelay<T>>::get()
     }
 
-    /// Set the current exchange rate
+    /// Set the current exchange rate. ONLY FOR TESTING.
     ///
     /// # Arguments
     ///
     /// * `exchange_rate` - i.e. planck per satoshi
     pub fn _set_exchange_rate(exchange_rate: UnsignedFixedPoint<T>) -> DispatchResult {
-        <ExchangeRate<T>>::put(exchange_rate);
-        // recover if the max delay was already passed
-        if Self::is_max_delay_passed() {
-            Self::recover_from_oracle_offline();
-        }
-        let now = Self::get_current_time();
-        Self::set_last_exchange_rate_time(now);
+        ExchangeRate::<T>::set(Some(exchange_rate));
         Ok(())
-    }
-
-    fn set_last_exchange_rate_time(time: T::Moment) {
-        <LastExchangeRateTime<T>>::put(time);
     }
 
     fn report_oracle_offline() {
         ext::security::set_status::<T>(StatusCode::Error);
         ext::security::insert_error::<T>(ErrorCode::OracleOffline);
+        ExchangeRate::<T>::kill();
+        ValidUntil::<T>::kill();
     }
 
     fn recover_from_oracle_offline() {
         ext::security::recover_from_oracle_offline::<T>()
-    }
-
-    /// Returns true if the last update to the exchange rate
-    /// was before the maximum allowed delay
-    pub fn is_max_delay_passed() -> bool {
-        let timestamp = Self::get_current_time();
-        let last_update = Self::get_last_exchange_rate_time();
-        let max_delay = Self::get_max_delay();
-        last_update + max_delay < timestamp
     }
 
     /// Returns the current timestamp

@@ -23,27 +23,26 @@ benchmarks! {
         let amount: u32 = 100;
         let public_key = BtcPublicKey::default();
     }: _(RawOrigin::Signed(origin.clone()), amount.into(), public_key)
-    verify {
-        // assert_eq!(Vaults::<T>::get(origin).wallet.get_btc_address(), btc_address);
-    }
 
     deposit_collateral {
         let origin: T::AccountId = account("Origin", 0, 0);
         let u in 0 .. 100;
         mint_collateral::<T>(&origin, (1u32 << 31).into());
         VaultRegistry::<T>::_register_vault(&origin, 1234u32.into(), dummy_public_key()).unwrap();
+        ExchangeRateOracle::<T>::_set_exchange_rate(
+            <T as exchange_rate_oracle::Config>::UnsignedFixedPoint::one()
+        ).unwrap();
     }: _(RawOrigin::Signed(origin), u.into())
-    verify {
-    }
 
     withdraw_collateral {
         let origin: T::AccountId = account("Origin", 0, 0);
         let u in 0 .. 100;
         mint_collateral::<T>(&origin, (1u32 << 31).into());
         VaultRegistry::<T>::_register_vault(&origin, u.into(), dummy_public_key()).unwrap();
+        ExchangeRateOracle::<T>::_set_exchange_rate(
+            <T as exchange_rate_oracle::Config>::UnsignedFixedPoint::one()
+        ).unwrap();
     }: _(RawOrigin::Signed(origin), u.into())
-    verify {
-    }
 
     update_public_key {
         let origin: T::AccountId = account("Origin", 0, 0);

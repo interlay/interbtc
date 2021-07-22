@@ -106,6 +106,9 @@ benchmarks! {
 
         assert_ok!(Treasury::<T>::mint(&origin, amount));
 
+        assert_ok!(ExchangeRateOracle::<T>::_set_exchange_rate(
+            <T as exchange_rate_oracle::Config>::UnsignedFixedPoint::one()
+        ));
     }: _(RawOrigin::Signed(origin), amount, btc_address, vault_id.clone())
 
     execute_redeem {
@@ -184,6 +187,9 @@ benchmarks! {
         BtcRelay::<T>::store_block_header(&relayer_id, block_header).unwrap();
         Security::<T>::set_active_block_number(Security::<T>::active_block_number() + BtcRelay::<T>::parachain_confirmations() + 1u32.into());
 
+        assert_ok!(ExchangeRateOracle::<T>::_set_exchange_rate(
+            <T as exchange_rate_oracle::Config>::UnsignedFixedPoint::one()
+        ));
     }: _(RawOrigin::Signed(vault_id), redeem_id, proof, raw_tx)
 
     cancel_redeem_reimburse {
@@ -235,6 +241,10 @@ benchmarks! {
         );
         mint_collateral::<T>(&vault_id, 1000u32.into());
         assert_ok!(VaultRegistry::<T>::try_deposit_collateral(&vault_id, 1000u32.into()));
+
+        assert_ok!(ExchangeRateOracle::<T>::_set_exchange_rate(
+            <T as exchange_rate_oracle::Config>::UnsignedFixedPoint::one()
+        ));
     }: cancel_redeem(RawOrigin::Signed(origin), redeem_id, false)
 
     set_redeem_period {

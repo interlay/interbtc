@@ -11,7 +11,8 @@ benchmarks! {
         let rate = UnsignedFixedPoint::<T>::checked_from_rational(1, 1).unwrap();
     }: _(RawOrigin::Signed(origin), rate)
     verify {
-        assert_eq!(ExchangeRate::<T>::get(), UnsignedFixedPoint::<T>::checked_from_rational(1, 1).unwrap());
+        crate::Pallet::<T>::begin_block(0u32.into());
+        assert_eq!(ExchangeRate::<T>::get().unwrap(), UnsignedFixedPoint::<T>::checked_from_rational(1, 1).unwrap());
     }
 
     set_btc_tx_fees_per_byte {

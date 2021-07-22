@@ -9,11 +9,13 @@ use bitcoin::{
 };
 use btc_relay::{BtcAddress, BtcPublicKey, Pallet as BtcRelay};
 use currency::ParachainCurrency;
+use exchange_rate_oracle::Pallet as ExchangeRateOracle;
 use frame_benchmarking::{account, benchmarks, impl_benchmark_test_suite};
 use frame_support::assert_ok;
 use frame_system::RawOrigin;
 use security::Pallet as Security;
 use sp_core::{H160, U256};
+use sp_runtime::traits::One;
 use sp_std::prelude::*;
 use vault_registry::{
     types::{Vault, Wallet},
@@ -155,6 +157,9 @@ benchmarks! {
         BtcRelay::<T>::store_block_header(&relayer_id, block_header).unwrap();
         Security::<T>::set_active_block_number(Security::<T>::active_block_number() + BtcRelay::<T>::parachain_confirmations() + 1u32.into());
 
+        ExchangeRateOracle::<T>::_set_exchange_rate(
+            <T as exchange_rate_oracle::Config>::UnsignedFixedPoint::one()
+        ).unwrap();
     }: _(RawOrigin::Signed(origin), vault_id, proof, raw_tx)
 }
 

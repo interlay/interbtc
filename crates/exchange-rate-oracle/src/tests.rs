@@ -24,6 +24,10 @@ macro_rules! assert_not_emitted {
     };
 }
 
+fn mine_block() {
+    crate::Pallet::<Test>::begin_block(0);
+}
+
 #[test]
 fn set_exchange_rate_succeeds() {
     run_test(|| {
@@ -32,6 +36,8 @@ fn set_exchange_rate_succeeds() {
         ExchangeRateOracle::is_authorized.mock_safe(|_| MockResult::Return(true));
         let result = ExchangeRateOracle::set_exchange_rate(Origin::signed(3), rate);
         assert_ok!(result);
+
+        mine_block();
 
         let exchange_rate = ExchangeRateOracle::get_exchange_rate().unwrap();
         assert_eq!(exchange_rate, rate);
@@ -46,7 +52,6 @@ fn set_exchange_rate_recovers_from_oracle_offline() {
         let rate = FixedU128::checked_from_rational(1, 1).unwrap();
 
         ExchangeRateOracle::is_authorized.mock_safe(|_| MockResult::Return(true));
-        ExchangeRateOracle::is_max_delay_passed.mock_safe(|| MockResult::Return(true));
 
         unsafe {
             let mut oracle_recovered = false;
@@ -56,11 +61,12 @@ fn set_exchange_rate_recovers_from_oracle_offline() {
             });
 
             assert_ok!(ExchangeRateOracle::set_exchange_rate(Origin::signed(3), rate));
+            mine_block();
             assert!(oracle_recovered, "Oracle should be recovered from offline");
         }
     });
 }
-
+//
 #[test]
 fn set_exchange_rate_fails_with_invalid_oracle_source() {
     run_test(|| {
@@ -73,11 +79,15 @@ fn set_exchange_rate_fails_with_invalid_oracle_source() {
             successful_rate
         ));
 
+        mine_block();
+
         ExchangeRateOracle::is_authorized.mock_safe(|_| MockResult::Return(false));
         assert_err!(
             ExchangeRateOracle::set_exchange_rate(Origin::signed(3), failed_rate),
             TestError::InvalidOracleSource
         );
+
+        mine_block();
 
         let exchange_rate = ExchangeRateOracle::get_exchange_rate().unwrap();
         assert_eq!(exchange_rate, successful_rate);
@@ -90,7 +100,6 @@ fn set_exchange_rate_fails_with_invalid_oracle_source() {
 #[test]
 fn getting_exchange_rate_fails_with_missing_exchange_rate() {
     run_test(|| {
-        ExchangeRateOracle::is_max_delay_passed.mock_safe(|| MockResult::Return(true));
         assert_err!(ExchangeRateOracle::get_exchange_rate(), TestError::MissingExchangeRate);
         assert_err!(
             ExchangeRateOracle::wrapped_to_collateral(0),
@@ -130,20 +139,29 @@ fn collateral_to_wrapped() {
 }
 
 #[test]
-fn is_max_delay_passed() {
+fn test_is_invalidated() {
     run_test(|| {
         let now = 1585776145;
-
         ExchangeRateOracle::get_current_time.mock_safe(move || MockResult::Return(now));
-        ExchangeRateOracle::get_last_exchange_rate_time.mock_safe(move || MockResult::Return(now - 3600));
+        ExchangeRateOracle::get_max_delay.mock_safe(|| MockResult::Return(3600));
+        ExchangeRateOracle::is_authorized.mock_safe(|_| MockResult::Return(true));
 
-        // max delay is 30 minutes but 1 hour passed
-        ExchangeRateOracle::get_max_delay.mock_safe(|| MockResult::Return(1800));
-        assert!(ExchangeRateOracle::is_max_delay_passed());
+        assert_ok!(ExchangeRateOracle::set_exchange_rate(
+            Origin::signed(3),
+            FixedU128::from(2)
+        ));
+        mine_block();
 
-        // max delay is 2 hours and 1 hour passed
-        ExchangeRateOracle::get_max_delay.mock_safe(|| MockResult::Return(7200));
-        assert!(!ExchangeRateOracle::is_max_delay_passed());
+        // max delay is 60 minutes, 60+ passed
+        ExchangeRateOracle::get_current_time.mock_safe(move || MockResult::Return(now + 3601));
+        assert!(ExchangeRateOracle::is_invalidated());
+
+        // max delay is 60 minutes, 30 passed
+        ExchangeRateOracle::get_current_time.mock_safe(move || MockResult::Return(now + 1800));
+        assert!(!ExchangeRateOracle::is_invalidated());
+
+        crate::RawValuesUpdated::<Test>::set(true);
+        assert!(ExchangeRateOracle::is_invalidated());
     });
 }
 
@@ -236,7 +254,7 @@ fn set_btc_tx_fees_per_byte_succeeds() {
 #[test]
 fn begin_block_set_oracle_offline_succeeds() {
     run_test(|| {
-        ExchangeRateOracle::is_max_delay_passed.mock_safe(|| MockResult::Return(true));
+        ExchangeRateOracle::is_invalidated.mock_safe(|| MockResult::Return(true));
 
         unsafe {
             let mut oracle_reported = false;
