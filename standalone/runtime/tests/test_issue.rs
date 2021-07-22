@@ -139,16 +139,6 @@ fn integration_test_issue_with_parachain_shutdown_fails() {
         );
 
         assert_noop!(
-            Call::Issue(IssueCall::execute_issue(
-                Default::default(),
-                Default::default(),
-                Default::default()
-            ))
-            .dispatch(origin_of(account_of(ALICE))),
-            SecurityError::ParachainShutdown,
-        );
-
-        assert_noop!(
             Call::Refund(RefundCall::execute_refund(
                 Default::default(),
                 Default::default(),
@@ -363,30 +353,6 @@ fn integration_test_withdraw_after_request_issue() {
 }
 
 #[test]
-fn integration_test_issue_overpayment() {
-    test_with_initialized_vault(|| {
-        let requested_btc = 1000;
-        let (issue_id, issue) = request_issue(requested_btc);
-        let sent_btc = (issue.amount + issue.fee) * 2;
-
-        ExecuteIssueBuilder::new(issue_id)
-            .with_amount(sent_btc)
-            .assert_execute();
-
-        assert_eq!(
-            ParachainState::get(),
-            ParachainState::default().with_changes(|user, vault, _, fee_pool| {
-                user.free_tokens += 2 * issue.amount;
-                fee_pool.vault_rewards += 2 * vault_rewards(issue.fee);
-                vault.issued += sent_btc;
-            })
-        );
-
-        assert_issue_amount_change_event(issue_id, 2 * issue.amount, 2 * issue.fee, 0);
-    });
-}
-
-#[test]
 /// overpay by a factor of 4
 fn integration_test_issue_refund() {
     test_with_initialized_vault(|| {
@@ -494,60 +460,205 @@ mod execute_refund_payment_limits {
     }
 }
 
-#[test]
-fn integration_test_issue_underpayment_succeeds() {
-    test_with_initialized_vault(|| {
-        let requested_btc = 4000;
-        let (issue_id, issue) = request_issue(requested_btc);
-        let sent_btc = (issue.amount + issue.fee) / 4;
+mod execute_issue_test {
+    use super::*;
+    #[test]
+    fn integration_test_issue_execute_precond_not_shutdown() {
+        test_with(|| {
+            SecurityPallet::set_status(StatusCode::Shutdown);
 
-        // need stake for rewards to deposit
-        assert_ok!(VaultRewardsPallet::deposit_stake(
-            DOT,
-            &account_of(VAULT),
-            signed_fixed_point!(1)
-        ));
+            assert_noop!(
+                Call::Issue(IssueCall::execute_issue(
+                        Default::default(),
+                        Default::default(),
+                        Default::default()
+                        ))
+                .dispatch(origin_of(account_of(ALICE))),
+                SecurityError::ParachainShutdown,
+            );
+        });
+    }
 
-        ExecuteIssueBuilder::new(issue_id)
-            .with_amount(sent_btc)
-            .with_submitter(USER, false)
-            .assert_execute();
+    #[test]
+    fn integration_test_issue_execute_precond_issue_exists() {
+        test_with(|| {
+            let (issue_id, _issue) = request_issue(4_000);
+            let nonexistent_issue_id = H256::zero();
 
-        let slashed_griefing_collateral = (issue.griefing_collateral * 3) / 4;
+            let mut executor = ExecuteIssueBuilder::new(issue_id);
+            executor.with_submitter(PROOF_SUBMITTER, true)
+                .with_issue_id(nonexistent_issue_id)
+                .prepare_for_execution();
 
-        assert_eq!(
-            ParachainState::get(),
-            ParachainState::default().with_changes(|user, vault, _, fee_pool| {
-                // user loses 75% of griefing collateral for having only fulfilled 25%
-                user.free_balance -= slashed_griefing_collateral;
-                vault.free_balance += slashed_griefing_collateral;
+            assert_noop!(
+                executor.execute_prepared(),
+                IssueError::IssueIdNotFound
+            );
+        });
+    }
 
-                // token updating as if only 25% was requested
-                user.free_tokens += issue.amount / 4;
-                fee_pool.vault_rewards += vault_rewards(issue.fee / 4);
-                vault.issued += (issue.fee + issue.amount) / 4;
-            })
-        );
+    #[test]
+    fn integration_test_issue_execute_precond_not_expired() {
+        test_with(|| {
+            let (issue_id, issue) = request_issue(4_000);
+            let mut executor = ExecuteIssueBuilder::new(issue_id);
+            executor.prepare_for_execution();
 
-        assert_issue_amount_change_event(issue_id, issue.amount / 4, issue.fee / 4, slashed_griefing_collateral);
-    });
-}
+            SecurityPallet::set_active_block_number(IssuePallet::issue_period() + 1 + 1);
+            mine_blocks(issue.period + 99);
 
-#[test]
-fn integration_test_issue_underpayment_executed_by_third_party_fails() {
-    test_with(|| {
-        let (issue_id, issue) = request_issue(4_000);
+            assert_noop!(
+                executor.execute_prepared(),
+                IssueError::CommitPeriodExpired
+            );
+        });
+    }
 
-        // note: not doing assert_noop because the build does additional calls that change the storage
-        assert_err!(
-            ExecuteIssueBuilder::new(issue_id)
-                .with_amount((issue.amount + issue.fee) / 4)
+    #[test]
+    fn integration_test_issue_execute_precond_rawtx_valid() {
+    }
+
+    #[test]
+    fn integration_test_issue_execute_precond_proof_valid() {
+    }
+
+    // #[test]
+    // fn integration_test_issue_execute_precond_includes_fee() {
+    //     test_with(|| {
+    //         let (issue_id, issue) = request_issue(400);
+    //         let mut executor = ExecuteIssueBuilder::new(issue_id);
+    //         executor.with_amount(1) // send tiny amount
+    //             .with_submitter(USER, false) // from the issue requester
+    //             .prepare_for_execution();
+
+    //         assert_noop!(
+    //             executor.execute_prepared(),
+    //             IssueError:: // is there any error for too small deposit?
+    //         );
+    //     });
+    // }
+
+    #[test]
+    fn integration_test_issue_execute_precond_underpayment_executed_by_requester() {
+        test_with(|| {
+            let (issue_id, issue) = request_issue(4_000);
+
+            let mut executor = ExecuteIssueBuilder::new(issue_id);
+            executor.with_amount((issue.amount + issue.fee) / 4)
                 .with_submitter(PROOF_SUBMITTER, true)
-                .execute(),
-            IssueError::InvalidExecutor
-        );
-    });
+                .prepare_for_execution();
+
+            assert_noop!(
+                executor.execute_prepared(),
+                IssueError::InvalidExecutor
+            );
+        });
+    }
+
+    #[test]
+    fn integration_test_issue_execute_postcond_underpayment() {
+        test_with_initialized_vault(|| {
+            let requested_btc = 40_000;
+            let (issue_id, issue) = request_issue(requested_btc);
+            let sent_btc = (issue.amount + issue.fee) / 4;
+
+            let post_request_state = ParachainState::get();
+
+            // need stake for rewards to deposit
+            assert_ok!(VaultRewardsPallet::deposit_stake(
+                    DOT,
+                    &account_of(VAULT),
+                    signed_fixed_point!(1)
+                ));
+
+            ExecuteIssueBuilder::new(issue_id)
+                .with_amount(sent_btc)
+                .with_submitter(USER, false)
+                .assert_execute();
+
+            let slashed_griefing_collateral = (issue.griefing_collateral * 3) / 4;
+            let returned_griefing_collateral = issue.griefing_collateral - issue.griefing_collateral * 3 / 4;
+
+            assert_eq!(
+                ParachainState::get(),
+                post_request_state.with_changes(|user, vault, _, fee_pool| {
+                    // user loses 75% of griefing collateral for having only fulfilled 25%
+                    user.locked_balance -= issue.griefing_collateral;
+                    user.free_balance += returned_griefing_collateral;
+                    vault.free_balance += slashed_griefing_collateral;
+
+                    // token updating as if only 25% was requested
+                    user.free_tokens += issue.amount / 4;
+                    fee_pool.vault_rewards += issue.fee / 4;
+                    vault.issued += (issue.fee + issue.amount) / 4;
+                    vault.to_be_issued -= issue.fee + issue.amount; // decrease to sent_btc and then decrease to zero happens within execute_issue and adds up to full amount
+                })
+            );
+
+            assert_issue_amount_change_event(issue_id, issue.amount / 4, issue.fee / 4, slashed_griefing_collateral);
+
+            let mut completed_issue = issue;
+            completed_issue.amount /= 4;
+            completed_issue.fee /= 4;
+            completed_issue.status = IssueRequestStatus::Completed(None);
+
+            let user_issues = IssuePallet::get_issue_requests_for_account(account_of(USER));
+            let (_, onchain_issue) = user_issues.iter().find(|(id, _)| {id == &issue_id})
+                .expect("Test issue ID wasn't found");
+            assert_eq!(
+                onchain_issue,
+                &completed_issue
+            );
+        });
+    }
+
+    #[test]
+    fn integration_test_issue_execute_postcond_overpayment_succeeds() {
+        test_with_initialized_vault(|| {
+            let requested_btc = 1000;
+            let (issue_id, issue) = request_issue(requested_btc);
+            let sent_btc = (issue.amount + issue.fee) * 2;
+            let post_request_state = ParachainState::get();
+
+            ExecuteIssueBuilder::new(issue_id)
+                .with_amount(sent_btc)
+                .assert_execute();
+
+            assert_eq!(
+                ParachainState::get(),
+                post_request_state.with_changes(|user, vault, _, fee_pool| {
+                    user.locked_balance -= issue.griefing_collateral;
+                    user.free_balance += issue.griefing_collateral;
+                    user.free_tokens += 2 * issue.amount;
+
+                    fee_pool.vault_rewards += 2 * issue.fee;
+                    vault.issued += sent_btc;
+                    vault.to_be_issued -= requested_btc; // increase to sent_btc and decrease back to zero happens within execute_issue and cancels out
+                })
+            );
+
+            assert_issue_amount_change_event(issue_id, 2 * issue.amount, 2 * issue.fee, 0);
+
+            let mut completed_issue = issue;
+            completed_issue.amount *= 2;
+            completed_issue.fee *= 2;
+            completed_issue.status = IssueRequestStatus::Completed(None);
+
+            let user_issues = IssuePallet::get_issue_requests_for_account(account_of(USER));
+            let (_, onchain_issue) = user_issues.iter().find(|(id, _)| {id == &issue_id})
+                .expect("Test issue ID wasn't found");
+            assert_eq!(
+                onchain_issue,
+                &completed_issue
+            );
+        });
+    }
+
+    #[test]
+    fn integration_test_issue_execute_postcond_overpayment_creates_refund() {
+    }
 }
+
 
 #[test]
 fn integration_test_issue_wrapped_cancel() {
