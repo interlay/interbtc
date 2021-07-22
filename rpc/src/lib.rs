@@ -6,7 +6,8 @@
 #![warn(missing_docs)]
 
 use primitives::{
-    AccountId, Balance, Block, BlockNumber, H256Le, IssueRequest, Nonce, RedeemRequest, RefundRequest, ReplaceRequest,
+    issue::IssueRequest, redeem::RedeemRequest, refund::RefundRequest, replace::ReplaceRequest, AccountId, Balance,
+    Block, BlockNumber, H256Le, Nonce,
 };
 pub use sc_rpc_api::DenyUnsafe;
 use sp_api::ProvideRuntimeApi;

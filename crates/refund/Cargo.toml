@@ -28,6 +28,7 @@ exchange-rate-oracle = { path = "../exchange-rate-oracle", default-features = fa
 btc-relay = { path = "../btc-relay", default-features = false }
 security = { path = "../security", default-features = false }
 bitcoin = { path = "../bitcoin", default-features = false }
+primitives = { package = "interbtc-primitives", path = "../../primitives", default-features = false }
 
 [dev-dependencies]
 mocktopus = "0.7.0"
