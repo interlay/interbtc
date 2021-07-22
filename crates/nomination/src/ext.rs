@@ -47,14 +47,6 @@ pub(crate) mod vault_registry {
         <vault_registry::Pallet<T>>::vault_exists(id)
     }
 
-    pub fn get_secure_collateral_threshold<T: crate::Config>() -> UnsignedFixedPoint<T> {
-        <vault_registry::Pallet<T>>::secure_collateral_threshold()
-    }
-
-    pub fn get_premium_redeem_threshold<T: crate::Config>() -> UnsignedFixedPoint<T> {
-        <vault_registry::Pallet<T>>::premium_redeem_threshold()
-    }
-
     pub fn compute_collateral<T: crate::Config>(vault_id: &T::AccountId) -> Result<Collateral<T>, DispatchError> {
         <vault_registry::Pallet<T>>::compute_collateral(vault_id)
     }
@@ -110,5 +102,9 @@ pub(crate) mod staking {
         nominator_id: &T::AccountId,
     ) -> Result<SignedInner<T>, DispatchError> {
         <staking::Pallet<T>>::compute_stake(T::GetRewardsCurrencyId::get(), vault_id, nominator_id)
+    }
+
+    pub fn force_refund<T: crate::Config>(vault_id: &T::AccountId) -> Result<(), DispatchError> {
+        <staking::Pallet<T>>::force_refund(T::GetRewardsCurrencyId::get(), vault_id)
     }
 }

@@ -11601,6 +11601,7 @@ dependencies = [
  "bitcoin",
  "currency",
  "exchange-rate-oracle",
+ "fee",
  "fixed-hash",
  "frame-benchmarking",
  "frame-support",

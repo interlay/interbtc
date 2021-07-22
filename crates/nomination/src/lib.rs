@@ -28,7 +28,7 @@ use frame_support::{
 };
 use frame_system::{ensure_root, ensure_signed};
 use sp_runtime::{
-    traits::{CheckedAdd, CheckedDiv, CheckedSub, One, Zero},
+    traits::{CheckedAdd, CheckedDiv, CheckedSub, One},
     FixedPointNumber,
 };
 use sp_std::convert::TryInto;
@@ -277,11 +277,7 @@ impl<T: Config> Pallet<T> {
     }
 
     fn _opt_out_of_nomination(vault_id: &T::AccountId) -> DispatchResult {
-        // TODO: force refund
-        ensure!(
-            Self::get_total_nominated_collateral(vault_id)?.is_zero(),
-            Error::<T>::HasNominatedCollateral
-        );
+        ext::staking::force_refund::<T>(vault_id)?;
         <Vaults<T>>::remove(vault_id);
         Self::deposit_event(Event::<T>::NominationOptOut(vault_id.clone()));
         Ok(())
@@ -299,16 +295,6 @@ impl<T: Config> Pallet<T> {
             .ok_or(Error::<T>::ArithmeticUnderflow)?)
     }
 
-    pub fn get_max_nomination_ratio() -> Result<UnsignedFixedPoint<T>, DispatchError> {
-        let secure_collateral_threshold = ext::vault_registry::get_secure_collateral_threshold::<T>();
-        let premium_redeem_threshold = ext::vault_registry::get_premium_redeem_threshold::<T>();
-        Ok(secure_collateral_threshold
-            .checked_div(&premium_redeem_threshold)
-            .ok_or(Error::<T>::ArithmeticUnderflow)?
-            .checked_sub(&UnsignedFixedPoint::<T>::one())
-            .ok_or(Error::<T>::ArithmeticUnderflow)?)
-    }
-
     pub fn get_nominator_collateral(
         vault_id: &T::AccountId,
         nominator_id: &T::AccountId,
@@ -317,7 +303,7 @@ impl<T: Config> Pallet<T> {
         collateral.try_into().map_err(|_| Error::<T>::TryIntoIntError.into())
     }
 
-    fn get_max_nominatable_collateral(vault_collateral: Collateral<T>) -> Result<Collateral<T>, DispatchError> {
+    pub fn get_max_nominatable_collateral(vault_collateral: Collateral<T>) -> Result<Collateral<T>, DispatchError> {
         ext::fee::collateral_for::<T>(vault_collateral, Self::get_max_nomination_ratio()?)
     }
 

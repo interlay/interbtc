@@ -28,7 +28,7 @@ use mocktopus::macros::mockable;
 
 use crate::types::{
     BalanceOf, BtcAddress, Collateral, DefaultSystemVault, RichSystemVault, RichVault, SignedFixedPoint, SignedInner,
-    UnsignedFixedPoint, UpdatableVault, Version, Wrapped,
+    UnsignedFixedPoint, UnsignedInner, UpdatableVault, Version, Wrapped,
 };
 
 #[doc(inline)]
@@ -48,7 +48,7 @@ use frame_system::{
 };
 use sp_core::{H256, U256};
 #[cfg(feature = "std")]
-use sp_runtime::traits::AccountIdConversion;
+// use sp_runtime::traits::AccountIdConversion;
 use sp_runtime::{
     traits::*,
     transaction_validity::{InvalidTransaction, TransactionSource, TransactionValidity, ValidTransaction},
@@ -82,6 +82,7 @@ pub mod pallet {
         + exchange_rate_oracle::Config<Balance = BalanceOf<Self>>
         + sla::Config<Balance = BalanceOf<Self>>
         + security::Config
+        + fee::Config<UnsignedInner = UnsignedInner<Self>, UnsignedFixedPoint = UnsignedFixedPoint<Self>>
         + staking::Config<SignedInner = SignedInner<Self>, SignedFixedPoint = SignedFixedPoint<Self>>
     {
         /// The vault module id, used for deriving its sovereign account ID.
@@ -98,6 +99,9 @@ pub mod pallet {
 
         /// The `Inner` type of the `SignedFixedPoint`.
         type SignedInner: Debug + TryFrom<BalanceOf<Self>> + TryInto<BalanceOf<Self>> + MaybeSerializeDeserialize;
+
+        /// The `Inner` type of the `UnsignedFixedPoint`.
+        type UnsignedInner: Debug + TryFrom<BalanceOf<Self>> + TryInto<BalanceOf<Self>> + MaybeSerializeDeserialize;
 
         /// The primitive balance type.
         type Balance: AtLeast32BitUnsigned
@@ -522,7 +526,7 @@ pub mod pallet {
             PremiumRedeemThreshold::<T>::put(self.premium_redeem_threshold);
             LiquidationCollateralThreshold::<T>::put(self.liquidation_collateral_threshold);
             StorageVersion::<T>::put(Version::V1);
-            LiquidationVaultAccountId::<T>::put::<T::AccountId>(T::PalletId::get().into_account());
+            LiquidationVaultAccountId::<T>::put::<T::AccountId>(<T as pallet::Config>::PalletId::get().into_account());
         }
     }
 }
@@ -569,6 +573,12 @@ impl<T: Config> Pallet<T> {
 
     pub fn get_backing_collateral(vault_id: &T::AccountId) -> Result<Collateral<T>, DispatchError> {
         Ok(ext::staking::total_current_stake::<T>(vault_id)?
+            .try_into()
+            .map_err(|_| Error::<T>::TryIntoIntError)?)
+    }
+
+    pub fn get_vault_collateral(vault_id: &T::AccountId) -> Result<Collateral<T>, DispatchError> {
+        Ok(ext::staking::compute_stake::<T>(vault_id, vault_id)?
             .try_into()
             .map_err(|_| Error::<T>::TryIntoIntError)?)
     }
@@ -641,7 +651,15 @@ impl<T: Config> Pallet<T> {
             Self::is_allowed_to_withdraw_collateral(vault_id, amount)?,
             Error::<T>::InsufficientCollateral
         );
-
+        let new_collateral = Self::get_backing_collateral(vault_id)?
+            .checked_sub(&amount)
+            .ok_or(Error::<T>::ArithmeticUnderflow)?;
+        let vault_collateral = Self::get_vault_collateral(vault_id)?;
+        let current_nomination = Self::get_max_nominatable_collateral(vault_collateral)?;
+        let max_nomination_after_withdrawal = Self::get_max_nominatable_collateral(new_collateral)?;
+        if current_nomination.gt(&max_nomination_after_withdrawal) {
+            ext::staking::force_refund::<T>(&vault_id)?;
+        }
         Self::force_withdraw_collateral(vault_id, amount)
     }
 
@@ -1155,6 +1173,7 @@ impl<T: Config> Pallet<T> {
 
         let to_slash = vault.liquidate(status)?;
         ext::sla::event_update_vault_sla::<T>(&vault.id(), ext::sla::Action::Liquidate)?;
+        ext::staking::force_refund::<T>(&vault_id)?;
 
         Self::deposit_event(Event::<T>::LiquidateVault(
             vault_id.clone(),
@@ -1244,6 +1263,7 @@ impl<T: Config> Pallet<T> {
         let mut vault = Self::get_active_rich_vault_from_id(&vault_id)?;
         let banned_until = height + Self::punishment_delay();
         vault.ban_until(banned_until);
+        ext::staking::force_refund::<T>(&vault_id)?;
         Self::deposit_event(Event::<T>::BanVault(vault.id(), banned_until));
         Ok(())
     }
@@ -1542,6 +1562,20 @@ impl<T: Config> Pallet<T> {
     pub fn compute_collateral(vault_id: &T::AccountId) -> Result<Collateral<T>, DispatchError> {
         let collateral = ext::staking::compute_stake::<T>(vault_id, vault_id)?;
         collateral.try_into().map_err(|_| Error::<T>::TryIntoIntError.into())
+    }
+
+    pub fn get_max_nomination_ratio() -> Result<UnsignedFixedPoint<T>, DispatchError> {
+        let secure_collateral_threshold = Self::secure_collateral_threshold();
+        let premium_redeem_threshold = Self::premium_redeem_threshold();
+        Ok(secure_collateral_threshold
+            .checked_div(&premium_redeem_threshold)
+            .ok_or(Error::<T>::ArithmeticUnderflow)?
+            .checked_sub(&UnsignedFixedPoint::<T>::one())
+            .ok_or(Error::<T>::ArithmeticUnderflow)?)
+    }
+
+    pub fn get_max_nominatable_collateral(vault_collateral: Collateral<T>) -> Result<Collateral<T>, DispatchError> {
+        ext::fee::collateral_for::<T>(vault_collateral, Self::get_max_nomination_ratio()?)
     }
 
     /// Private getters and setters

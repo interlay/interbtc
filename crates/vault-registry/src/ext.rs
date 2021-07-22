@@ -34,11 +34,11 @@ pub(crate) mod collateral {
 
 #[cfg_attr(test, mockable)]
 pub(crate) mod treasury {
-    use crate::types::Wrapped;
+    use crate::{types::Wrapped, Config};
     use currency::ParachainCurrency;
 
     pub fn total_issued<T: crate::Config>() -> Wrapped<T> {
-        T::Wrapped::get_total_supply()
+        <T as Config>::Wrapped::get_total_supply()
     }
 }
 
@@ -134,6 +134,10 @@ pub(crate) mod staking {
         <staking::Pallet<T>>::unslash_stake(T::GetRewardsCurrencyId::get(), vault_id, amount)
     }
 
+    pub fn force_refund<T: crate::Config>(vault_id: &T::AccountId) -> Result<(), DispatchError> {
+        <staking::Pallet<T>>::force_refund(T::GetRewardsCurrencyId::get(), vault_id)
+    }
+
     pub fn compute_stake<T: crate::Config>(
         vault_id: &T::AccountId,
         nominator_id: &T::AccountId,
@@ -143,5 +147,18 @@ pub(crate) mod staking {
 
     pub fn total_current_stake<T: crate::Config>(vault_id: &T::AccountId) -> Result<SignedInner<T>, DispatchError> {
         <staking::Pallet<T>>::total_current_stake(T::GetRewardsCurrencyId::get(), vault_id)
+    }
+}
+
+#[cfg_attr(test, mockable)]
+pub(crate) mod fee {
+    use crate::types::{Collateral, UnsignedFixedPoint};
+    use frame_support::dispatch::DispatchError;
+
+    pub fn collateral_for<T: crate::Config>(
+        amount: Collateral<T>,
+        percentage: UnsignedFixedPoint<T>,
+    ) -> Result<Collateral<T>, DispatchError> {
+        <fee::Pallet<T>>::collateral_for(amount, percentage)
     }
 }

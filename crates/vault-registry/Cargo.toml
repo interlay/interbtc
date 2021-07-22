@@ -27,6 +27,7 @@ pallet-randomness-collective-flip = { git = "https://github.com/paritytech/subst
 # Parachain dependencies
 bitcoin = { path = "../bitcoin", default-features = false }
 exchange-rate-oracle = { path = "../exchange-rate-oracle", default-features = false }
+fee = { path = "../fee", default-features = false }
 security = { path = "../security", default-features = false }
 currency = { path = "../currency", default-features = false }
 sla = { path = "../sla", default-features = false }
@@ -61,6 +62,7 @@ std = [
 
   "bitcoin/std",
   "exchange-rate-oracle/std",
+  "fee/std",
   "security/std",
   "currency/std",
   "reward/std",
