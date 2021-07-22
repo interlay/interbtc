@@ -58,7 +58,6 @@ pub fn local_config() -> ChainSpec {
         move || {
             testnet_genesis(
                 get_account_id_from_seed::<sr25519::Public>("Alice"),
-                get_account_id_from_seed::<sr25519::Public>("Maintainer"),
                 vec![],
                 vec![
                     get_account_id_from_seed::<sr25519::Public>("Alice"),
@@ -104,7 +103,6 @@ pub fn beta_testnet_config() -> ChainSpec {
         move || {
             testnet_genesis(
                 get_account_id_from_string("5HeVGqvfpabwFqzV1DhiQmjaLQiFcTSmq2sH6f7atsXkgvtt"),
-                get_account_id_from_string("5FqYNDWeJ9bwa3NhEryxscBELAMj54yrKqGaYNR9CjLZFYLB"),
                 vec![
                     (
                         // 5DJ3wbdicFSFFudXndYBuvZKjucTsyxtJX5WPzQM8HysSkFY
@@ -175,7 +173,6 @@ pub fn development_config() -> ChainSpec {
         move || {
             testnet_genesis(
                 get_account_id_from_seed::<sr25519::Public>("Alice"),
-                get_account_id_from_seed::<sr25519::Public>("Maintainer"),
                 vec![authority_keys_from_seed("Alice")],
                 vec![
                     get_account_id_from_seed::<sr25519::Public>("Alice"),
@@ -229,7 +226,6 @@ pub fn development_config() -> ChainSpec {
 
 fn testnet_genesis(
     root_key: AccountId,
-    maintainer: AccountId,
     initial_authorities: Vec<(AuraId, GrandpaId)>,
     endowed_accounts: Vec<AccountId>,
     authorized_oracles: Vec<(AccountId, Vec<u8>)>,
@@ -305,10 +301,6 @@ fn testnet_genesis(
             premium_redeem_fee: FixedU128::checked_from_rational(5, 100).unwrap(), // 5%
             punishment_fee: FixedU128::checked_from_rational(1, 10).unwrap(), // 10%
             replace_griefing_collateral: FixedU128::checked_from_rational(1, 10).unwrap(), // 10%
-            maintainer_account_id: maintainer,
-            vault_rewards: FixedU128::checked_from_rational(80, 100).unwrap(),
-            maintainer_rewards: FixedU128::checked_from_rational(20, 100).unwrap(),
-            nomination_rewards: FixedU128::checked_from_rational(0, 100).unwrap(),
         },
         sla: SlaConfig {
             vault_target_sla: FixedI128::from(100),

@@ -189,13 +189,13 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
         Ok(())
     }
 
-    pub fn distribute(
+    pub fn distribute_reward(
         currency_id: T::CurrencyId,
         reward: SignedFixedPoint<T, I>,
     ) -> Result<SignedFixedPoint<T, I>, DispatchError> {
         let total_stake = Self::total_stake(currency_id);
         if total_stake.is_zero() {
-            return Ok(SignedFixedPoint::<T, I>::zero());
+            return Ok(reward);
         }
 
         let reward_div_total_stake = reward
@@ -205,7 +205,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
         checked_add_mut!(TotalRewards<T, I>, currency_id, &reward);
 
         Self::deposit_event(Event::<T, I>::DistributeReward(currency_id, reward));
-        Ok(reward)
+        Ok(Zero::zero())
     }
 
     pub fn compute_reward(
@@ -295,8 +295,8 @@ pub trait Rewards<AccountId> {
     /// Deposit an `amount` of stake to the `account_id`.
     fn deposit_stake(account_id: &AccountId, amount: Self::SignedFixedPoint) -> Result<(), DispatchError>;
 
-    /// Distribute the `reward` to all participants.
-    fn distribute(reward: Self::SignedFixedPoint) -> Result<Self::SignedFixedPoint, DispatchError>;
+    /// Distribute the `reward` to all participants OR return the leftover.
+    fn distribute_reward(reward: Self::SignedFixedPoint) -> Result<Self::SignedFixedPoint, DispatchError>;
 
     /// Compute the expected reward for the `account_id`.
     fn compute_reward(
@@ -330,8 +330,8 @@ where
         Pallet::<T, I>::deposit_stake(GetCurrencyId::get(), account_id, amount)
     }
 
-    fn distribute(reward: Self::SignedFixedPoint) -> Result<Self::SignedFixedPoint, DispatchError> {
-        Pallet::<T, I>::distribute(GetCurrencyId::get(), reward)
+    fn distribute_reward(reward: Self::SignedFixedPoint) -> Result<Self::SignedFixedPoint, DispatchError> {
+        Pallet::<T, I>::distribute_reward(GetCurrencyId::get(), reward)
     }
 
     fn compute_reward(

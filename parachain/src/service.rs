@@ -356,6 +356,7 @@ pub async fn start_node(
                 // We got around 500ms for proposing
                 block_proposal_slot_portion: SlotProportion::new(1f32 / 24f32),
                 telemetry,
+                max_block_proposal_slot_portion: None,
             }))
         },
     )

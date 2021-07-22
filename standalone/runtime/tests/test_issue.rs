@@ -1,7 +1,7 @@
 mod mock;
 
 use frame_support::assert_err;
-use mock::{issue_testing_utils::*, reward_testing_utils::vault_rewards, *};
+use mock::{issue_testing_utils::*, *};
 
 fn test_with<R>(execute: impl FnOnce() -> R) -> R {
     ExtBuilder::build().execute_with(|| {
@@ -300,7 +300,7 @@ fn integration_test_issue_wrapped_execute_bookkeeping() {
             ParachainState::get(),
             ParachainState::default().with_changes(|user, vault, _, fee_pool| {
                 user.free_tokens += issue.amount;
-                fee_pool.vault_rewards += vault_rewards(issue.fee);
+                fee_pool.vault_rewards += issue.fee;
                 vault.issued += issue.fee + issue.amount;
             })
         );
@@ -383,7 +383,7 @@ fn integration_test_issue_refund() {
             post_redeem_state,
             initial_state.with_changes(|user, vault, _, fee_pool| {
                 user.free_tokens += issue.amount;
-                fee_pool.vault_rewards += vault_rewards(issue.fee);
+                fee_pool.vault_rewards += issue.fee;
                 vault.issued += issue.fee + issue.amount;
             })
         );
@@ -742,7 +742,7 @@ fn integration_test_issue_wrapped_execute_liquidated() {
             ParachainState::get(),
             post_liquidation_status.with_changes(|user, _vault, liquidation_vault, fee_pool| {
                 user.free_tokens += issue.amount;
-                fee_pool.vault_rewards += vault_rewards(issue.fee);
+                fee_pool.vault_rewards += issue.fee;
 
                 user.free_balance += issue.griefing_collateral;
                 user.locked_balance -= issue.griefing_collateral;

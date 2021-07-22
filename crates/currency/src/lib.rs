@@ -212,3 +212,32 @@ where
         Ok(())
     }
 }
+
+pub trait OnSweep<AccountId, Balance> {
+    fn on_sweep(who: &AccountId, amount: Balance) -> DispatchResult;
+}
+
+impl<AccountId, Balance> OnSweep<AccountId, Balance> for () {
+    fn on_sweep(_: &AccountId, _: Balance) -> DispatchResult {
+        Ok(())
+    }
+}
+
+pub struct SweepFunds<T, GetAccountId, GetCurrencyId>(PhantomData<(T, GetAccountId, GetCurrencyId)>);
+
+impl<T, GetAccountId, GetCurrencyId> OnSweep<T::AccountId, T::Balance> for SweepFunds<T, GetAccountId, GetCurrencyId>
+where
+    T: orml_tokens::Config,
+    GetAccountId: Get<T::AccountId>,
+    GetCurrencyId: Get<T::CurrencyId>,
+{
+    fn on_sweep(who: &T::AccountId, amount: T::Balance) -> DispatchResult {
+        // transfer the funds to treasury account
+        <orml_tokens::Pallet<T> as MultiCurrency<T::AccountId>>::transfer(
+            GetCurrencyId::get(),
+            who,
+            &GetAccountId::get(),
+            amount,
+        )
+    }
+}

@@ -244,6 +244,7 @@ pub fn new_full(mut config: Configuration) -> Result<(TaskManager, RpcHandlers),
             justification_sync_link: network.clone(),
             block_proposal_slot_portion: SlotProportion::new(2f32 / 3f32),
             telemetry: telemetry.as_ref().map(|x| x.handle()),
+            max_block_proposal_slot_portion: None,
         })?;
 
         // the AURA authoring task is considered essential, i.e. if it
