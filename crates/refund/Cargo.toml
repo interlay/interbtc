@@ -23,7 +23,6 @@ pallet-timestamp = { git = "https://github.com/paritytech/substrate", branch = "
 # Parachain dependencies
 currency = { path = "../currency", default-features = false }
 fee = { path = "../fee", default-features = false }
-sla = { path = "../sla", default-features = false }
 vault-registry = { path = "../vault-registry", default-features = false }
 exchange-rate-oracle = { path = "../exchange-rate-oracle", default-features = false }
 btc-relay = { path = "../btc-relay", default-features = false }
@@ -59,7 +58,6 @@ std = [
 
 	"currency/std",
 	"fee/std",
-	"sla/std",
 	"vault-registry/std",
 	"exchange-rate-oracle/std",
 	"btc-relay/std",

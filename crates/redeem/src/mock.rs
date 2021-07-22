@@ -39,7 +39,6 @@ frame_support::construct_runtime!(
         ExchangeRateOracle: exchange_rate_oracle::{Pallet, Call, Config<T>, Storage, Event<T>},
         Redeem: redeem::{Pallet, Call, Config<T>, Storage, Event<T>},
         Fee: fee::{Pallet, Call, Config<T>, Storage},
-        Sla: sla::{Pallet, Call, Config<T>, Storage, Event<T>},
         Staking: staking::{Pallet, Storage, Event<T>},
     }
 );
@@ -210,14 +209,6 @@ impl fee::Config for Test {
     type OnSweep = ();
 }
 
-impl sla::Config for Test {
-    type Event = TestEvent;
-    type SignedFixedPoint = SignedFixedPoint;
-    type SignedInner = SignedInner;
-    type Balance = Balance;
-    type VaultRewards = reward::RewardsCurrencyAdapter<Test, (), GetWrappedCurrencyId>;
-}
-
 impl Config for Test {
     type Event = TestEvent;
     type WeightInfo = ();
@@ -261,20 +252,6 @@ impl ExtBuilder {
             secure_collateral_threshold: UnsignedFixedPoint::checked_from_rational(200, 100).unwrap(),
             premium_redeem_threshold: UnsignedFixedPoint::checked_from_rational(120, 100).unwrap(),
             liquidation_collateral_threshold: UnsignedFixedPoint::checked_from_rational(110, 100).unwrap(),
-        }
-        .assimilate_storage(&mut storage)
-        .unwrap();
-
-        sla::GenesisConfig::<Test> {
-            vault_target_sla: SignedFixedPoint::from(100),
-            vault_redeem_failure_sla_change: SignedFixedPoint::from(-10),
-            vault_execute_issue_max_sla_change: SignedFixedPoint::from(4),
-            vault_deposit_max_sla_change: SignedFixedPoint::from(4),
-            vault_withdraw_max_sla_change: SignedFixedPoint::from(-4),
-            vault_submit_issue_proof: SignedFixedPoint::from(0),
-            vault_refund: SignedFixedPoint::from(1),
-            relayer_store_block: SignedFixedPoint::from(1),
-            relayer_theft_report: SignedFixedPoint::from(1),
         }
         .assimilate_storage(&mut storage)
         .unwrap();

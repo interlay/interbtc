@@ -21,7 +21,6 @@ pallet-timestamp = { git = "https://github.com/paritytech/substrate", branch = "
 
 # Parachain dependencies
 bitcoin = { path = "../bitcoin", default-features = false }
-sla = { path = "../sla", default-features = false }
 security = { path = "../security", default-features = false }
 
 [dev-dependencies]
@@ -48,7 +47,6 @@ std = [
     "pallet-timestamp/std",
 
     "bitcoin/std",
-    "sla/std",
     "security/std",
 ]
 runtime-benchmarks = [

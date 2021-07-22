@@ -27,7 +27,6 @@ fee = { path = "../fee", default-features = false }
 redeem = { path = "../redeem", default-features = false }
 replace = { path = "../replace", default-features = false }
 security = { path = "../security", default-features = false }
-sla = { path = "../sla", default-features = false }
 currency = { path = "../currency", default-features = false }
 vault-registry = { path = "../vault-registry", default-features = false }
 refund = { path = "../refund", default-features = false }
@@ -70,7 +69,6 @@ std = [
   "redeem/std",
   "replace/std",
   "security/std",
-  "sla/std",
   "currency/std",
   "vault-registry/std",
   "refund/std",

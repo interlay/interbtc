@@ -166,28 +166,6 @@ pub(crate) mod vault_registry {
     ) -> Result<(Wrapped<T>, Collateral<T>), DispatchError> {
         <vault_registry::Pallet<T>>::decrease_to_be_replaced_tokens(vault_id, tokens)
     }
-
-    pub fn calculate_slashed_amount<T: crate::Config>(
-        vault_id: &T::AccountId,
-        stake: Collateral<T>,
-        reimburse: bool,
-    ) -> Result<Collateral<T>, DispatchError> {
-        <vault_registry::Pallet<T>>::calculate_slashed_amount(vault_id, stake, reimburse)
-    }
-}
-
-#[cfg_attr(test, mockable)]
-pub(crate) mod sla {
-    use crate::types::BalanceOf;
-    use frame_support::dispatch::DispatchError;
-    pub use sla::Action;
-
-    pub fn event_update_vault_sla<T: crate::Config>(
-        vault_id: &T::AccountId,
-        action: Action<BalanceOf<T>>,
-    ) -> Result<(), DispatchError> {
-        <sla::Pallet<T>>::event_update_vault_sla(vault_id, action)
-    }
 }
 
 #[cfg_attr(test, mockable)]
@@ -273,6 +251,10 @@ pub(crate) mod fee {
 
     pub fn distribute_rewards<T: crate::Config>(amount: Wrapped<T>) -> DispatchResult {
         <fee::Pallet<T>>::distribute_rewards(amount)
+    }
+
+    pub fn get_punishment_fee<T: crate::Config>(amount: Collateral<T>) -> Result<Collateral<T>, DispatchError> {
+        <fee::Pallet<T>>::get_punishment_fee(amount)
     }
 
     pub fn get_premium_redeem_fee<T: crate::Config>(amount: Collateral<T>) -> Result<Collateral<T>, DispatchError> {

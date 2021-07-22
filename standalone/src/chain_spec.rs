@@ -2,8 +2,8 @@ use bitcoin::utils::{virtual_transaction_size, InputType, TransactionInputMetada
 use hex_literal::hex;
 use interbtc_runtime::{
     AccountId, AuraConfig, BTCRelayConfig, ExchangeRateOracleConfig, FeeConfig, GenesisConfig, GrandpaConfig,
-    IssueConfig, NominationConfig, RedeemConfig, RefundConfig, ReplaceConfig, Signature, SlaConfig, SudoConfig,
-    SystemConfig, TokensConfig, VaultRegistryConfig, BITCOIN_BLOCK_SPACING, DAYS, DOT, WASM_BINARY,
+    IssueConfig, NominationConfig, RedeemConfig, RefundConfig, ReplaceConfig, Signature, SudoConfig, SystemConfig,
+    TokensConfig, VaultRegistryConfig, BITCOIN_BLOCK_SPACING, DAYS, DOT, WASM_BINARY,
 };
 use sp_consensus_aura::sr25519::AuthorityId as AuraId;
 use sp_core::crypto::UncheckedInto;
@@ -14,7 +14,7 @@ use frame_benchmarking::account;
 
 use interbtc_rpc::jsonrpc_core::serde_json::{self, json};
 use sc_service::ChainType;
-use sp_arithmetic::{FixedI128, FixedPointNumber, FixedU128};
+use sp_arithmetic::{FixedPointNumber, FixedU128};
 use sp_core::{sr25519, Pair, Public};
 use sp_runtime::traits::{IdentifyAccount, Verify};
 use std::str::FromStr;
@@ -301,17 +301,6 @@ fn testnet_genesis(
             premium_redeem_fee: FixedU128::checked_from_rational(5, 100).unwrap(), // 5%
             punishment_fee: FixedU128::checked_from_rational(1, 10).unwrap(), // 10%
             replace_griefing_collateral: FixedU128::checked_from_rational(1, 10).unwrap(), // 10%
-        },
-        sla: SlaConfig {
-            vault_target_sla: FixedI128::from(100),
-            vault_redeem_failure_sla_change: FixedI128::from(-100),
-            vault_execute_issue_max_sla_change: FixedI128::from(4),
-            vault_deposit_max_sla_change: FixedI128::from(4),
-            vault_withdraw_max_sla_change: FixedI128::from(-4),
-            vault_submit_issue_proof: FixedI128::from(1),
-            vault_refund: FixedI128::from(1),
-            relayer_store_block: FixedI128::from(1),
-            relayer_theft_report: FixedI128::from(1),
         },
         refund: RefundConfig {
             refund_btc_dust_value: 1000,

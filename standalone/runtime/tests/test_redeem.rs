@@ -470,24 +470,20 @@ fn integration_test_redeem_wrapped_cancel_reimburse_sufficient_collateral_for_wr
         let punishment_fee = FeePallet::get_punishment_fee(amount_without_fee_collateral).unwrap();
         assert!(punishment_fee > 0);
 
-        SlaPallet::set_vault_sla(&account_of(VAULT), FixedI128::from(80));
         // alice cancels redeem request and chooses to reimburse
         assert_ok!(Call::Redeem(RedeemCall::cancel_redeem(redeem_id, true)).dispatch(origin_of(account_of(USER))));
 
         assert_eq!(
             ParachainState::get(),
             ParachainState::default().with_changes(|user, vault, _, fee_pool| {
-                // with sla of 80, vault gets slashed for 115%: 110 to user, 5 to fee pool
-
-                user.free_balance += amount_without_fee_collateral / 20;
-                fee_pool.vault_rewards += redeem.fee;
-
-                vault.backing_collateral -=
-                    amount_without_fee_collateral + punishment_fee + amount_without_fee_collateral / 20;
+                // vault gets slashed for 110% to user
+                vault.backing_collateral -= amount_without_fee_collateral + punishment_fee;
                 vault.free_tokens += redeem.amount_btc + redeem.transfer_fee_btc;
 
                 user.free_balance += amount_without_fee_collateral + punishment_fee;
                 user.free_tokens -= amount_btc;
+
+                fee_pool.vault_rewards += redeem.fee;
 
                 consume_to_be_replaced(vault, redeem.amount_btc + redeem.transfer_fee_btc);
             })
@@ -521,25 +517,21 @@ fn integration_test_redeem_wrapped_cancel_reimburse_insufficient_collateral_for_
         let punishment_fee = FeePallet::get_punishment_fee(amount_without_fee_as_collateral).unwrap();
         assert!(punishment_fee > 0);
 
-        SlaPallet::set_vault_sla(&account_of(VAULT), FixedI128::from(80));
         // alice cancels redeem request and chooses to reimburse
         assert_ok!(Call::Redeem(RedeemCall::cancel_redeem(redeem_id, true)).dispatch(origin_of(account_of(USER))));
 
         assert_eq!(
             ParachainState::get(),
             initial_state.with_changes(|user, vault, _, fee_pool| {
-                // with sla of 80, vault gets slashed for 115%: 110 to user, 5 to fee pool
-
-                user.free_balance += amount_without_fee_as_collateral / 20;
-                fee_pool.vault_rewards += redeem.fee;
-
-                vault.backing_collateral -=
-                    amount_without_fee_as_collateral + punishment_fee + amount_without_fee_as_collateral / 20;
+                // vault gets slashed for 110% to user
+                vault.backing_collateral -= amount_without_fee_as_collateral + punishment_fee;
                 // vault free tokens does not change, and issued tokens is reduced
                 vault.issued -= redeem.amount_btc + redeem.transfer_fee_btc;
 
                 user.free_balance += amount_without_fee_as_collateral + punishment_fee;
                 user.free_tokens -= amount_btc;
+
+                fee_pool.vault_rewards += redeem.fee;
 
                 consume_to_be_replaced(vault, redeem.amount_btc + redeem.transfer_fee_btc);
             })
@@ -580,20 +572,17 @@ fn integration_test_redeem_wrapped_cancel_no_reimburse() {
         let punishment_fee = FeePallet::get_punishment_fee(amount_without_fee_collateral).unwrap();
         assert!(punishment_fee > 0);
 
-        SlaPallet::set_vault_sla(&account_of(VAULT), FixedI128::from(80));
         // alice cancels redeem request and chooses not to reimburse
         assert_ok!(Call::Redeem(RedeemCall::cancel_redeem(redeem_id, false)).dispatch(origin_of(account_of(USER))));
 
         assert_eq!(
             ParachainState::get(),
             ParachainState::default().with_changes(|user, vault, _, _| {
-                // with sla of 80, vault gets slashed for 15%: punishment of 10 to user, 5 to fee pool
-
-                user.free_balance += amount_without_fee_collateral / 20;
-
-                vault.backing_collateral -= punishment_fee + amount_without_fee_collateral / 20;
+                // vault is slashed a punishment fee of 10%
 
                 user.free_balance += punishment_fee;
+
+                vault.backing_collateral -= punishment_fee;
 
                 consume_to_be_replaced(vault, redeem.amount_btc + redeem.transfer_fee_btc);
             })
@@ -872,7 +861,6 @@ mod mint_tokens_for_reimbursed_redeem_equivalence_test {
         let punishment_fee = FeePallet::get_punishment_fee(amount_without_fee_as_collateral).unwrap();
         assert!(punishment_fee > 0);
 
-        SlaPallet::set_vault_sla(&account_of(VAULT), FixedI128::from(80));
         redeem_id
     }
 

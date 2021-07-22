@@ -4,6 +4,7 @@ use frame_support::{
     dispatch::{DispatchError, DispatchResult},
     ensure,
 };
+use reward::Rewards;
 use sp_arithmetic::FixedPointNumber;
 use sp_core::H256;
 use sp_runtime::traits::{CheckedAdd, CheckedSub, Saturating, Zero};
@@ -243,6 +244,7 @@ impl<T: Config> UpdatableVault<T> for RichVault<T> {
         if self.data.is_liquidated() {
             Pallet::<T>::get_rich_liquidation_vault().increase_issued(tokens)
         } else {
+            T::VaultRewards::deposit_stake(&self.id(), Pallet::<T>::currency_to_fixed(tokens)?)?;
             self.update(|v| {
                 v.issued_tokens = v
                     .issued_tokens
@@ -283,6 +285,7 @@ impl<T: Config> UpdatableVault<T> for RichVault<T> {
         if self.data.is_liquidated() {
             Pallet::<T>::get_rich_liquidation_vault().decrease_issued(tokens)
         } else {
+            T::VaultRewards::withdraw_stake(&self.id(), Pallet::<T>::currency_to_fixed(tokens)?)?;
             self.update(|v| {
                 v.issued_tokens = v
                     .issued_tokens
@@ -440,7 +443,7 @@ impl<T: Config> RichVault<T> {
     }
 
     pub(crate) fn slash_to_liquidation_vault(&mut self, amount: Collateral<T>) -> DispatchResult {
-        ext::staking::slash_stake::<T>(&self.id(), Pallet::<T>::collateral_to_fixed(amount)?)?;
+        ext::staking::slash_stake::<T>(&self.id(), Pallet::<T>::currency_to_fixed(amount)?)?;
         Pallet::<T>::transfer_funds(
             CurrencySource::ReservedBalance(self.id()),
             CurrencySource::LiquidationVault,
@@ -475,7 +478,7 @@ impl<T: Config> RichVault<T> {
         // this is re-distributed once the tokens are burned
         ext::staking::slash_stake::<T>(
             &self.id(),
-            Pallet::<T>::collateral_to_fixed(collateral_for_to_be_redeemed)?,
+            Pallet::<T>::currency_to_fixed(collateral_for_to_be_redeemed)?,
         )?;
         self.increase_liquidated_collateral(collateral_for_to_be_redeemed)?;
 
@@ -484,6 +487,9 @@ impl<T: Config> RichVault<T> {
         liquidation_vault.increase_issued(self.data.issued_tokens)?;
         liquidation_vault.increase_to_be_issued(self.data.to_be_issued_tokens)?;
         liquidation_vault.increase_to_be_redeemed(self.data.to_be_redeemed_tokens)?;
+
+        // withdraw stake from the reward pool
+        T::VaultRewards::withdraw_stake(&self.id(), Pallet::<T>::currency_to_fixed(self.data.issued_tokens)?)?;
 
         // Update vault: clear to_be_issued & issued_tokens, but don't touch to_be_redeemed
         let _ = self.update(|v| {

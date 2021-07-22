@@ -27,7 +27,6 @@ btc-relay = { path = "../btc-relay", default-features = false }
 exchange-rate-oracle = { path = "../exchange-rate-oracle", default-features = false }
 fee = { path = "../fee", default-features = false }
 security = { path = "../security", default-features = false }
-sla = { path = "../sla", default-features = false }
 currency = { path = "../currency", default-features = false }
 vault-registry = { path = "../vault-registry", default-features = false }
 nomination = { path = "../nomination", default-features = false }
@@ -66,7 +65,6 @@ std = [
 	"exchange-rate-oracle/std",
 	"fee/std",
 	"security/std",
-	"sla/std",
 	"currency/std",
 	"vault-registry/std",
 	"nomination/std",

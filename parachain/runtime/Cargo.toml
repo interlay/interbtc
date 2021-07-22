@@ -78,7 +78,6 @@ relay = { path = "../../crates/relay", default-features = false }
 vault-registry = { path = "../../crates/vault-registry", default-features = false }
 exchange-rate-oracle = { path = "../../crates/exchange-rate-oracle", default-features = false }
 fee = { path = "../../crates/fee", default-features = false }
-sla = { path = "../../crates/sla", default-features = false }
 issue = { path = "../../crates/issue", default-features = false }
 redeem = { path = "../../crates/redeem", default-features = false }
 replace = { path = "../../crates/replace", default-features = false }
@@ -189,7 +188,6 @@ std = [
   "vault-registry/std",
   "exchange-rate-oracle/std",
   "fee/std",
-  "sla/std",
   "refund/std",
   "issue/std",
   "redeem/std",

@@ -113,9 +113,6 @@ pub type ReplacePallet = replace::Pallet<Runtime>;
 pub type SecurityError = security::Error<Runtime>;
 pub type SecurityPallet = security::Pallet<Runtime>;
 
-pub type SlaPallet = sla::Pallet<Runtime>;
-pub type SlaCall = sla::Call<Runtime>;
-
 pub type RelayCall = relay::Call<Runtime>;
 pub type RelayPallet = relay::Pallet<Runtime>;
 
@@ -855,20 +852,6 @@ impl ExtBuilder {
             premium_redeem_fee: FixedU128::checked_from_rational(5, 100).unwrap(), // 5%
             punishment_fee: FixedU128::checked_from_rational(1, 10).unwrap(), // 10%
             replace_griefing_collateral: FixedU128::checked_from_rational(1, 10).unwrap(), // 10%
-        }
-        .assimilate_storage(&mut storage)
-        .unwrap();
-
-        sla::GenesisConfig::<Runtime> {
-            vault_target_sla: FixedI128::from(100),
-            vault_redeem_failure_sla_change: FixedI128::from(-100),
-            vault_execute_issue_max_sla_change: FixedI128::from(4),
-            vault_deposit_max_sla_change: FixedI128::from(4),
-            vault_withdraw_max_sla_change: FixedI128::from(-4),
-            vault_submit_issue_proof: FixedI128::from(1),
-            vault_refund: FixedI128::from(1),
-            relayer_store_block: FixedI128::from(1),
-            relayer_theft_report: FixedI128::from(1),
         }
         .assimilate_storage(&mut storage)
         .unwrap();

@@ -41,7 +41,6 @@ frame_support::construct_runtime!(
         Redeem: redeem::{Pallet, Call, Config<T>, Storage, Event<T>},
         Replace: replace::{Pallet, Call, Config<T>, Storage, Event<T>},
         Fee: fee::{Pallet, Call, Config<T>, Storage},
-        Sla: sla::{Pallet, Call, Config<T>, Storage, Event<T>},
         Refund: refund::{Pallet, Call, Config<T>, Storage, Event<T>},
         Nomination: nomination::{Pallet, Call, Config, Storage, Event<T>},
         Staking: staking::{Pallet, Storage, Event<T>},
@@ -202,14 +201,6 @@ impl fee::Config for Test {
     type VaultStaking = staking::StakingCurrencyAdapter<Test, GetWrappedCurrencyId>;
     type Wrapped = CurrencyAdapter<Test, GetWrappedCurrencyId>;
     type OnSweep = ();
-}
-
-impl sla::Config for Test {
-    type Event = TestEvent;
-    type SignedFixedPoint = SignedFixedPoint;
-    type SignedInner = SignedInner;
-    type Balance = Balance;
-    type VaultRewards = reward::RewardsCurrencyAdapter<Test, (), GetWrappedCurrencyId>;
 }
 
 impl refund::Config for Test {
