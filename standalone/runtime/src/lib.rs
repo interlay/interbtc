@@ -339,8 +339,8 @@ impl fee::Config for Runtime {
     type UnsignedInner = UnsignedInner;
     type VaultRewards = reward::RewardsCurrencyAdapter<Runtime, (), GetWrappedCurrencyId>;
     type VaultStaking = staking::StakingCurrencyAdapter<Runtime, GetWrappedCurrencyId>;
-    type Collateral = orml_tokens::CurrencyAdapter<Runtime, GetCollateralCurrencyId>;
     type Wrapped = orml_tokens::CurrencyAdapter<Runtime, GetWrappedCurrencyId>;
+    type OnSweep = currency::SweepFunds<Runtime, FeeAccount, GetWrappedCurrencyId>;
 }
 
 impl sla::Config for Runtime {

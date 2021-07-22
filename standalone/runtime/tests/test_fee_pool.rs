@@ -2,7 +2,7 @@ mod mock;
 use mock::{
     issue_testing_utils::{ExecuteIssueBuilder, RequestIssueBuilder},
     nomination_testing_utils::*,
-    reward_testing_utils::{BasicRewardPool, MAINTAINER_REWARDS, VAULT_REWARDS},
+    reward_testing_utils::BasicRewardPool,
     *,
 };
 use staking::Staking;
@@ -124,10 +124,10 @@ fn test_vault_fee_pool_withdrawal() {
         reward_pool
             .deposit_stake(VAULT_1, get_vault_sla(VAULT_1) as f64)
             .deposit_stake(ISSUE_RELAYER, 7.0)
-            .distribute((20000.0 * ISSUE_FEE) * VAULT_REWARDS)
+            .distribute(20000.0 * ISSUE_FEE)
             .deposit_stake(VAULT_2, get_vault_sla(VAULT_2) as f64)
             .deposit_stake(ISSUE_RELAYER, 7.0)
-            .distribute((80000.0 * ISSUE_FEE) * VAULT_REWARDS);
+            .distribute(80000.0 * ISSUE_FEE);
 
         assert_eq_modulo_rounding!(
             withdraw_vault_global_pool_rewards(VAULT_1),
@@ -155,7 +155,7 @@ fn test_new_nomination_withdraws_global_reward() {
         reward_pool
             .deposit_stake(VAULT_1, get_vault_sla(VAULT_1) as f64)
             .deposit_stake(ISSUE_RELAYER, 7.0)
-            .distribute((10000.0 * ISSUE_FEE) * VAULT_REWARDS);
+            .distribute(10000.0 * ISSUE_FEE);
 
         assert_eq_modulo_rounding!(
             get_vault_global_pool_rewards(VAULT_1),
@@ -195,7 +195,7 @@ fn test_fee_nomination() {
         global_reward_pool
             .deposit_stake(VAULT_1, vault_sla_1 as f64)
             .deposit_stake(ISSUE_RELAYER, relayer_sla_1 as f64)
-            .distribute((100000.0 * ISSUE_FEE) * VAULT_REWARDS);
+            .distribute(100000.0 * ISSUE_FEE);
 
         let mut local_reward_pool = BasicRewardPool::default();
         local_reward_pool
@@ -207,7 +207,7 @@ fn test_fee_nomination() {
             .withdraw_reward(VAULT_1)
             .deposit_stake(VAULT_1, (vault_sla_2 - vault_sla_1) as f64)
             .deposit_stake(ISSUE_RELAYER, (relayer_sla_2 - relayer_sla_1) as f64)
-            .distribute((100000.0 * ISSUE_FEE) * VAULT_REWARDS);
+            .distribute(100000.0 * ISSUE_FEE);
 
         assert_eq_modulo_rounding!(
             get_vault_global_pool_rewards(VAULT_1),
@@ -256,7 +256,7 @@ fn test_fee_nomination_slashing() {
         global_reward_pool
             .deposit_stake(VAULT_1, get_vault_sla(VAULT_1) as f64)
             .deposit_stake(ISSUE_RELAYER, get_vault_sla(ISSUE_RELAYER) as f64)
-            .distribute((100000.0 * ISSUE_FEE) * VAULT_REWARDS);
+            .distribute(100000.0 * ISSUE_FEE);
 
         let vault_collateral = get_vault_collateral(VAULT_1) as f64;
         let nominator_collateral = DEFAULT_NOMINATION as f64;
@@ -302,7 +302,7 @@ fn test_fee_nomination_withdrawal() {
         global_reward_pool
             .deposit_stake(VAULT_1, get_vault_sla(VAULT_1) as f64)
             .deposit_stake(ISSUE_RELAYER, get_vault_sla(ISSUE_RELAYER) as f64)
-            .distribute((50000.0 * ISSUE_FEE) * VAULT_REWARDS);
+            .distribute(50000.0 * ISSUE_FEE);
 
         let mut local_reward_pool = BasicRewardPool::default();
         local_reward_pool
@@ -337,7 +337,7 @@ fn test_relayer_fee_pool_withdrawal() {
             .deposit_stake(VAULT_1, get_vault_sla(VAULT_1) as f64)
             .deposit_stake(RELAYER_1, 20.0)
             .deposit_stake(RELAYER_2, 40.0)
-            .distribute((100000.0 * ISSUE_FEE) * VAULT_REWARDS);
+            .distribute(100000.0 * ISSUE_FEE);
 
         // first relayer gets 33% of the pool
         assert_eq_modulo_rounding!(
@@ -349,22 +349,6 @@ fn test_relayer_fee_pool_withdrawal() {
             withdraw_vault_global_pool_rewards(RELAYER_2),
             reward_pool.compute_reward(RELAYER_2) as i128
         );
-    });
-}
-
-#[test]
-fn test_maintainer_fee_pool_withdrawal() {
-    ExtBuilder::build().execute_with(|| {
-        SecurityPallet::set_active_block_number(1);
-        assert_ok!(ExchangeRateOraclePallet::_set_exchange_rate(FixedU128::one()));
-
-        issue_with_relayer_and_vault(ISSUE_RELAYER, VAULT_1, 100000);
-
-        let maintainer_rewards = (100000.0 * ISSUE_FEE) * MAINTAINER_REWARDS;
-        let maintainer_account_id = FeePallet::maintainer_account_id();
-        let maintainer_balance = TreasuryPallet::get_free_balance(&maintainer_account_id);
-
-        assert_eq_modulo_rounding!(maintainer_balance, maintainer_rewards as u128);
     });
 }
 

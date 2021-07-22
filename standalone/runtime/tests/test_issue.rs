@@ -1,7 +1,7 @@
 mod mock;
 
 use frame_support::assert_err;
-use mock::{issue_testing_utils::*, reward_testing_utils::vault_rewards, *};
+use mock::{issue_testing_utils::*, *};
 
 fn test_with<R>(execute: impl FnOnce() -> R) -> R {
     ExtBuilder::build().execute_with(|| {
@@ -310,7 +310,7 @@ fn integration_test_issue_wrapped_execute_bookkeeping() {
             ParachainState::get(),
             ParachainState::default().with_changes(|user, vault, _, fee_pool| {
                 user.free_tokens += issue.amount;
-                fee_pool.vault_rewards += vault_rewards(issue.fee);
+                fee_pool.vault_rewards += issue.fee;
                 vault.issued += issue.fee + issue.amount;
             })
         );
@@ -377,7 +377,7 @@ fn integration_test_issue_overpayment() {
             ParachainState::get(),
             ParachainState::default().with_changes(|user, vault, _, fee_pool| {
                 user.free_tokens += 2 * issue.amount;
-                fee_pool.vault_rewards += 2 * vault_rewards(issue.fee);
+                fee_pool.vault_rewards += 2 * issue.fee;
                 vault.issued += sent_btc;
             })
         );
@@ -417,7 +417,7 @@ fn integration_test_issue_refund() {
             post_redeem_state,
             initial_state.with_changes(|user, vault, _, fee_pool| {
                 user.free_tokens += issue.amount;
-                fee_pool.vault_rewards += vault_rewards(issue.fee);
+                fee_pool.vault_rewards += issue.fee;
                 vault.issued += issue.fee + issue.amount;
             })
         );
@@ -524,7 +524,7 @@ fn integration_test_issue_underpayment_succeeds() {
 
                 // token updating as if only 25% was requested
                 user.free_tokens += issue.amount / 4;
-                fee_pool.vault_rewards += vault_rewards(issue.fee / 4);
+                fee_pool.vault_rewards += issue.fee / 4;
                 vault.issued += (issue.fee + issue.amount) / 4;
             })
         );
@@ -631,7 +631,7 @@ fn integration_test_issue_wrapped_execute_liquidated() {
             ParachainState::get(),
             post_liquidation_status.with_changes(|user, _vault, liquidation_vault, fee_pool| {
                 user.free_tokens += issue.amount;
-                fee_pool.vault_rewards += vault_rewards(issue.fee);
+                fee_pool.vault_rewards += issue.fee;
 
                 user.free_balance += issue.griefing_collateral;
                 user.locked_balance -= issue.griefing_collateral;

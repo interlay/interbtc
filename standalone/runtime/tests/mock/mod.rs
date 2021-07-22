@@ -45,8 +45,6 @@ pub const EVE: [u8; 32] = [11u8; 32];
 pub const FRANK: [u8; 32] = [12u8; 32];
 pub const GRACE: [u8; 32] = [13u8; 32];
 
-pub const MAINTAINER: [u8; 32] = [5u8; 32];
-
 pub const FAUCET: [u8; 32] = [128u8; 32];
 pub const DUMMY: [u8; 32] = [255u8; 32];
 
@@ -857,10 +855,6 @@ impl ExtBuilder {
             premium_redeem_fee: FixedU128::checked_from_rational(5, 100).unwrap(), // 5%
             punishment_fee: FixedU128::checked_from_rational(1, 10).unwrap(), // 10%
             replace_griefing_collateral: FixedU128::checked_from_rational(1, 10).unwrap(), // 10%
-            maintainer_account_id: account_of(MAINTAINER),
-            vault_rewards: FixedU128::checked_from_rational(90, 100).unwrap(), // 70%
-            maintainer_rewards: FixedU128::checked_from_rational(10, 100).unwrap(), // 10%
-            nomination_rewards: FixedU128::checked_from_rational(0, 100).unwrap(), // 0%
         }
         .assimilate_storage(&mut storage)
         .unwrap();

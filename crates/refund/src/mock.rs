@@ -148,8 +148,8 @@ impl fee::Config for Test {
     type UnsignedInner = UnsignedInner;
     type VaultRewards = reward::RewardsCurrencyAdapter<Test, (), GetWrappedCurrencyId>;
     type VaultStaking = staking::StakingCurrencyAdapter<Test, GetWrappedCurrencyId>;
-    type Collateral = CurrencyAdapter<Test, GetCollateralCurrencyId>;
     type Wrapped = CurrencyAdapter<Test, GetWrappedCurrencyId>;
+    type OnSweep = ();
 }
 
 impl sla::Config for Test {
