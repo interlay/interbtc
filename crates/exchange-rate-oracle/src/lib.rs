@@ -293,6 +293,10 @@ impl<T: Config> Pallet<T> {
         // read to a temporary value, because we can't alter the map while we iterate over it
         let raw_values_updated: Vec<_> = RawValuesUpdated::<T>::iter().collect();
 
+        if raw_values_updated.len() == 0 {
+            // this is only for the initial parachain state, before a single value has been fed
+            Self::report_oracle_offline(None);
+        }
         let current_time = Self::get_current_time();
 
         for (ref key, is_updated) in raw_values_updated {
@@ -306,7 +310,7 @@ impl<T: Config> Pallet<T> {
             let min_timestamp = Self::get_current_time().saturating_sub(Self::get_max_delay());
             raw_values.retain(|value| value.timestamp >= min_timestamp);
             if raw_values.len() == 0 {
-                Self::report_oracle_offline(key);
+                Self::report_oracle_offline(Some(key));
             } else {
                 let valid_until = raw_values
                     .iter()
@@ -380,11 +384,13 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
-    fn report_oracle_offline(key: &OracleKey) {
+    fn report_oracle_offline(key: Option<&OracleKey>) {
         ext::security::set_status::<T>(StatusCode::Error);
         ext::security::insert_error::<T>(ErrorCode::OracleOffline);
-        ExchangeRate::<T>::remove(key);
-        ValidUntil::<T>::remove(key);
+        if let Some(key) = key {
+            ExchangeRate::<T>::remove(key);
+            ValidUntil::<T>::remove(key);
+        }
     }
 
     fn recover_from_oracle_offline() {
