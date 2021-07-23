@@ -28,7 +28,7 @@ use mocktopus::macros::mockable;
 
 use crate::types::{
     BalanceOf, BtcAddress, Collateral, DefaultSystemVault, RichSystemVault, RichVault, SignedFixedPoint, SignedInner,
-    UnsignedFixedPoint, UnsignedInner, UpdatableVault, Version, Wrapped,
+    UnsignedFixedPoint, UpdatableVault, Version, Wrapped,
 };
 
 #[doc(inline)]
@@ -82,7 +82,6 @@ pub mod pallet {
         + exchange_rate_oracle::Config<Balance = BalanceOf<Self>>
         + sla::Config<Balance = BalanceOf<Self>>
         + security::Config
-        + fee::Config<UnsignedInner = UnsignedInner<Self>, UnsignedFixedPoint = UnsignedFixedPoint<Self>>
         + staking::Config<SignedInner = SignedInner<Self>, SignedFixedPoint = SignedFixedPoint<Self>>
     {
         /// The vault module id, used for deriving its sovereign account ID.
@@ -99,9 +98,6 @@ pub mod pallet {
 
         /// The `Inner` type of the `SignedFixedPoint`.
         type SignedInner: Debug + TryFrom<BalanceOf<Self>> + TryInto<BalanceOf<Self>> + MaybeSerializeDeserialize;
-
-        /// The `Inner` type of the `UnsignedFixedPoint`.
-        type UnsignedInner: Debug + TryFrom<BalanceOf<Self>> + TryInto<BalanceOf<Self>> + MaybeSerializeDeserialize;
 
         /// The primitive balance type.
         type Balance: AtLeast32BitUnsigned
@@ -1575,7 +1571,7 @@ impl<T: Config> Pallet<T> {
     }
 
     pub fn get_max_nominatable_collateral(vault_collateral: Collateral<T>) -> Result<Collateral<T>, DispatchError> {
-        ext::fee::collateral_for::<T>(vault_collateral, Self::get_max_nomination_ratio()?)
+        Self::percentage_of_amount(vault_collateral, Self::get_max_nomination_ratio()?)
     }
 
     /// Private getters and setters
@@ -1716,6 +1712,25 @@ impl<T: Config> Pallet<T> {
         let signed_fixed_point = <T as pallet::Config>::SignedFixedPoint::checked_from_integer(signed_inner)
             .ok_or(Error::<T>::TryIntoIntError)?;
         Ok(signed_fixed_point)
+    }
+
+    pub(crate) fn percentage_of_amount(
+        amount: BalanceOf<T>,
+        percentage: UnsignedFixedPoint<T>,
+    ) -> Result<BalanceOf<T>, DispatchError> {
+        // we add 0.5 before we do the final integer division to round the result we return.
+        // note that unwrapping is safe because we use a constant
+        let rounding_addition = UnsignedFixedPoint::<T>::checked_from_rational(1, 2).unwrap();
+
+        UnsignedFixedPoint::<T>::checked_from_integer(amount)
+            .ok_or(Error::<T>::ArithmeticOverflow)?
+            .checked_mul(&percentage)
+            .ok_or(Error::<T>::ArithmeticOverflow)?
+            .checked_add(&rounding_addition)
+            .ok_or(Error::<T>::ArithmeticOverflow)?
+            .into_inner()
+            .checked_div(&UnsignedFixedPoint::<T>::accuracy())
+            .ok_or(Error::<T>::ArithmeticUnderflow.into())
     }
 }
 

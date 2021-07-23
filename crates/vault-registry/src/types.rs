@@ -90,8 +90,6 @@ pub(crate) type UnsignedFixedPoint<T> = <T as Config>::UnsignedFixedPoint;
 
 pub(crate) type SignedInner<T> = <T as Config>::SignedInner;
 
-pub(crate) type UnsignedInner<T> = <T as Config>::UnsignedInner;
-
 #[derive(Encode, Decode, Clone, PartialEq, Debug, Default)]
 pub struct Wallet {
     // store all addresses for `report_vault_theft` checks

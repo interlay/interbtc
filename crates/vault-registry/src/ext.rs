@@ -149,16 +149,3 @@ pub(crate) mod staking {
         <staking::Pallet<T>>::total_current_stake(T::GetRewardsCurrencyId::get(), vault_id)
     }
 }
-
-#[cfg_attr(test, mockable)]
-pub(crate) mod fee {
-    use crate::types::{Collateral, UnsignedFixedPoint};
-    use frame_support::dispatch::DispatchError;
-
-    pub fn collateral_for<T: crate::Config>(
-        amount: Collateral<T>,
-        percentage: UnsignedFixedPoint<T>,
-    ) -> Result<Collateral<T>, DispatchError> {
-        <fee::Pallet<T>>::collateral_for(amount, percentage)
-    }
-}
