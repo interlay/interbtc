@@ -35,7 +35,7 @@ pub(crate) mod collateral {
 
 #[cfg_attr(test, mockable)]
 pub(crate) mod vault_registry {
-    use crate::{types::UnsignedFixedPoint, Collateral};
+    use crate::Collateral;
     pub use frame_support::dispatch::{DispatchError, DispatchResult};
     pub use vault_registry::{DefaultVault, VaultStatus};
 
@@ -57,19 +57,17 @@ pub(crate) mod vault_registry {
     ) -> Result<bool, DispatchError> {
         <vault_registry::Pallet<T>>::is_allowed_to_withdraw_collateral(vault_id, amount)
     }
+
+    pub fn get_max_nominatable_collateral<T: crate::Config>(
+        vault_collateral: Collateral<T>,
+    ) -> Result<Collateral<T>, DispatchError> {
+        <vault_registry::Pallet<T>>::get_max_nominatable_collateral(vault_collateral)
+    }
 }
 
 #[cfg_attr(test, mockable)]
 pub(crate) mod fee {
-    use crate::types::{Collateral, UnsignedFixedPoint};
-    use frame_support::dispatch::{DispatchError, DispatchResult};
-
-    pub fn collateral_for<T: crate::Config>(
-        amount: Collateral<T>,
-        percentage: UnsignedFixedPoint<T>,
-    ) -> Result<Collateral<T>, DispatchError> {
-        <fee::Pallet<T>>::collateral_for(amount, percentage)
-    }
+    use frame_support::dispatch::DispatchResult;
 
     pub fn withdraw_all_vault_rewards<T: fee::Config>(account_id: &T::AccountId) -> DispatchResult {
         <fee::Pallet<T>>::withdraw_all_vault_rewards(account_id)

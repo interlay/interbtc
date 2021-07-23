@@ -28,7 +28,7 @@ use frame_support::{
 };
 use frame_system::{ensure_root, ensure_signed};
 use sp_runtime::{
-    traits::{CheckedAdd, CheckedDiv, CheckedSub, One},
+    traits::{CheckedAdd, CheckedSub},
     FixedPointNumber,
 };
 use sp_std::convert::TryInto;
@@ -243,7 +243,8 @@ impl<T: Config> Pallet<T> {
             .checked_add(&amount)
             .ok_or(Error::<T>::ArithmeticOverflow)?;
         ensure!(
-            new_nominated_collateral <= Self::get_max_nominatable_collateral(vault_backing_collateral)?,
+            new_nominated_collateral
+                <= ext::vault_registry::get_max_nominatable_collateral::<T>(vault_backing_collateral)?,
             Error::<T>::DepositViolatesMaxNominationRatio
         );
 
@@ -301,10 +302,6 @@ impl<T: Config> Pallet<T> {
     ) -> Result<Collateral<T>, DispatchError> {
         let collateral = ext::staking::compute_stake::<T>(vault_id, nominator_id)?;
         collateral.try_into().map_err(|_| Error::<T>::TryIntoIntError.into())
-    }
-
-    pub fn get_max_nominatable_collateral(vault_collateral: Collateral<T>) -> Result<Collateral<T>, DispatchError> {
-        ext::fee::collateral_for::<T>(vault_collateral, Self::get_max_nomination_ratio()?)
     }
 
     fn collateral_to_fixed(x: Collateral<T>) -> Result<SignedFixedPoint<T>, DispatchError> {

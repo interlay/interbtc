@@ -188,7 +188,7 @@ fn integration_test_maximum_nomination_ratio_calculation() {
             .checked_sub(&FixedU128::one())
             .unwrap();
         assert_eq!(
-            NominationPallet::get_max_nomination_ratio().unwrap(),
+            VaultRegistryPallet::get_max_nomination_ratio().unwrap(),
             expected_nomination_ratio
         );
     })
@@ -257,44 +257,23 @@ fn integration_test_banning_a_vault_force_refunds() {
 }
 
 #[test]
-fn integration_test_liquidating_a_vault_force_refunds() {
+fn integration_test_liquidating_a_vault_does_not_force_refund() {
     test_with_nomination_enabled_and_vault_opted_in(|| {
         assert_nominate_collateral(VAULT, USER, DEFAULT_NOMINATION);
-        assert_eq!(
-            VaultRewardsPallet::compute_reward(INTERBTC, &account_of(USER)).unwrap(),
-            0
-        );
         VaultRegistryPallet::liquidate_vault(&account_of(VAULT)).unwrap();
         let nonce: u32 = VaultStakingPallet::nonce(INTERBTC, &account_of(VAULT));
-        assert_eq!(nonce, 1);
-        assert_eq!(
-            NominationPallet::get_total_nominated_collateral(&account_of(VAULT)).unwrap(),
-            0
-        );
-        assert_eq!(
-            NominationPallet::get_nominator_collateral(&account_of(VAULT), &account_of(USER)).unwrap(),
-            0
-        );
-        assert!(
-            VaultStakingPallet::compute_reward_at_index(nonce - 1, INTERBTC, &account_of(VAULT), &account_of(USER))
-                .unwrap()
-                <= DEFAULT_NOMINATION as i128
-        );
-        assert!(
-            VaultStakingPallet::compute_reward_at_index(nonce - 1, INTERBTC, &account_of(VAULT), &account_of(USER))
-                .unwrap()
-                > 0
-        );
+        assert_eq!(nonce, 0);
     })
 }
 
 #[test]
 fn integration_test_vault_withdrawal_must_refund_to_preserve_max_nomination_taio() {
     test_with_nomination_enabled_and_vault_opted_in(|| {
-        let max_nomination = NominationPallet::get_max_nominatable_collateral(DEFAULT_BACKING_COLLATERAL).unwrap();
+        let max_nomination = VaultRegistryPallet::get_max_nominatable_collateral(DEFAULT_BACKING_COLLATERAL).unwrap();
         assert_nominate_collateral(VAULT, USER, max_nomination);
-        withdraw_vault_collateral(VAULT, 1);
-        let nonce: u32 = VaultStakingPallet::nonce(INTERBTC, &account_of(VAULT));
+
+        // Need to withdraw 10 units to account for rounding errors
+        withdraw_vault_collateral(VAULT, 10).unwrap();
         assert_eq!(
             NominationPallet::get_total_nominated_collateral(&account_of(VAULT)).unwrap(),
             0
@@ -303,11 +282,12 @@ fn integration_test_vault_withdrawal_must_refund_to_preserve_max_nomination_taio
             NominationPallet::get_nominator_collateral(&account_of(VAULT), &account_of(USER)).unwrap(),
             0
         );
+        let nonce: u32 = VaultStakingPallet::nonce(INTERBTC, &account_of(VAULT));
         assert_eq!(nonce, 1);
         assert_eq!(
             VaultStakingPallet::compute_reward_at_index(nonce - 1, INTERBTC, &account_of(VAULT), &account_of(USER))
                 .unwrap(),
-            DEFAULT_NOMINATION as i128
+            max_nomination as i128
         );
     })
 }

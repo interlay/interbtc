@@ -48,7 +48,7 @@ use frame_system::{
 };
 use sp_core::{H256, U256};
 #[cfg(feature = "std")]
-// use sp_runtime::traits::AccountIdConversion;
+use sp_runtime::traits::AtLeast32BitUnsigned;
 use sp_runtime::{
     traits::*,
     transaction_validity::{InvalidTransaction, TransactionSource, TransactionValidity, ValidTransaction},
@@ -522,7 +522,7 @@ pub mod pallet {
             PremiumRedeemThreshold::<T>::put(self.premium_redeem_threshold);
             LiquidationCollateralThreshold::<T>::put(self.liquidation_collateral_threshold);
             StorageVersion::<T>::put(Version::V1);
-            LiquidationVaultAccountId::<T>::put::<T::AccountId>(<T as pallet::Config>::PalletId::get().into_account());
+            LiquidationVaultAccountId::<T>::put::<T::AccountId>(T::PalletId::get().into_account());
         }
     }
 }
@@ -569,12 +569,6 @@ impl<T: Config> Pallet<T> {
 
     pub fn get_backing_collateral(vault_id: &T::AccountId) -> Result<Collateral<T>, DispatchError> {
         Ok(ext::staking::total_current_stake::<T>(vault_id)?
-            .try_into()
-            .map_err(|_| Error::<T>::TryIntoIntError)?)
-    }
-
-    pub fn get_vault_collateral(vault_id: &T::AccountId) -> Result<Collateral<T>, DispatchError> {
-        Ok(ext::staking::compute_stake::<T>(vault_id, vault_id)?
             .try_into()
             .map_err(|_| Error::<T>::TryIntoIntError)?)
     }
@@ -647,12 +641,15 @@ impl<T: Config> Pallet<T> {
             Self::is_allowed_to_withdraw_collateral(vault_id, amount)?,
             Error::<T>::InsufficientCollateral
         );
-        let new_collateral = Self::get_backing_collateral(vault_id)?
+        let vault_collateral = Self::compute_collateral(vault_id)?;
+        let backing_collateral = Self::get_backing_collateral(vault_id)?;
+        let current_nomination = backing_collateral
+            .checked_sub(&vault_collateral)
+            .ok_or(Error::<T>::ArithmeticUnderflow)?;
+        let new_vault_collateral = vault_collateral
             .checked_sub(&amount)
             .ok_or(Error::<T>::ArithmeticUnderflow)?;
-        let vault_collateral = Self::get_vault_collateral(vault_id)?;
-        let current_nomination = Self::get_max_nominatable_collateral(vault_collateral)?;
-        let max_nomination_after_withdrawal = Self::get_max_nominatable_collateral(new_collateral)?;
+        let max_nomination_after_withdrawal = Self::get_max_nominatable_collateral(new_vault_collateral)?;
         if current_nomination.gt(&max_nomination_after_withdrawal) {
             ext::staking::force_refund::<T>(&vault_id)?;
         }
@@ -1169,7 +1166,6 @@ impl<T: Config> Pallet<T> {
 
         let to_slash = vault.liquidate(status)?;
         ext::sla::event_update_vault_sla::<T>(&vault.id(), ext::sla::Action::Liquidate)?;
-        ext::staking::force_refund::<T>(&vault_id)?;
 
         Self::deposit_event(Event::<T>::LiquidateVault(
             vault_id.clone(),
