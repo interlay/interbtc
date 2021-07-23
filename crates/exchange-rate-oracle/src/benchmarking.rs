@@ -1,18 +1,22 @@
 use super::{Pallet as ExchangeRateOracle, *};
+use crate::{CurrencyId, OracleKey};
 use frame_benchmarking::{account, benchmarks};
 use frame_system::RawOrigin;
 use sp_runtime::FixedPointNumber;
 use sp_std::prelude::*;
 
 benchmarks! {
-    set_exchange_rate {
+    feed_values {
         let origin: T::AccountId = account("origin", 0, 0);
         <AuthorizedOracles<T>>::insert(origin.clone(), Vec::<u8>::new());
+
+        let key = OracleKey::ExchangeRate(CurrencyId::DOT);
         let rate = UnsignedFixedPoint::<T>::checked_from_rational(1, 1).unwrap();
-    }: _(RawOrigin::Signed(origin), rate)
+    }: _(RawOrigin::Signed(origin), vec![(key, rate)])
     verify {
+        let key = OracleKey::ExchangeRate(CurrencyId::DOT);
         crate::Pallet::<T>::begin_block(0u32.into());
-        assert_eq!(ExchangeRate::<T>::get().unwrap(), UnsignedFixedPoint::<T>::checked_from_rational(1, 1).unwrap());
+        assert_eq!(ExchangeRate::<T>::get(key).unwrap(), UnsignedFixedPoint::<T>::checked_from_rational(1, 1).unwrap());
     }
 
     set_btc_tx_fees_per_byte {
@@ -53,7 +57,7 @@ mod tests {
     #[test]
     fn test_benchmarks() {
         ExtBuilder::build().execute_with(|| {
-            assert_ok!(test_benchmark_set_exchange_rate::<Test>());
+            assert_ok!(test_benchmark_feed_values::<Test>());
             assert_ok!(test_benchmark_set_btc_tx_fees_per_byte::<Test>());
             assert_ok!(test_benchmark_insert_authorized_oracle::<Test>());
             assert_ok!(test_benchmark_remove_authorized_oracle::<Test>());

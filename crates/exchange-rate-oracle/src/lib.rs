@@ -38,6 +38,7 @@ use frame_support::{
     weights::Weight,
 };
 use frame_system::{ensure_root, ensure_signed};
+pub use primitives::{oracle::Key as OracleKey, CurrencyId};
 use security::{ErrorCode, StatusCode};
 use sp_runtime::{
     traits::{UniqueSaturatedInto, *},
@@ -87,7 +88,7 @@ pub mod pallet {
     #[pallet::metadata(T::AccountId = "AccountId", UnsignedFixedPoint<T> = "UnsignedFixedPoint")]
     pub enum Event<T: Config> {
         /// Event emitted when exchange rate is set
-        SetExchangeRate(T::AccountId, UnsignedFixedPoint<T>),
+        SetExchangeRate(T::AccountId, Vec<(OracleKey, T::UnsignedFixedPoint)>),
         /// Event emitted when the btc tx fees are set
         SetBtcTxFeesPerByte(T::AccountId, u32, u32, u32),
     }
@@ -117,18 +118,25 @@ pub mod pallet {
 
     /// Current exchange rate (i.e. Planck per Satoshi)
     #[pallet::storage]
-    pub type ExchangeRate<T: Config> = StorageValue<_, UnsignedFixedPoint<T>>;
+    pub type ExchangeRate<T: Config> = StorageMap<_, Blake2_128Concat, OracleKey, UnsignedFixedPoint<T>>;
 
     #[pallet::storage]
-    pub type RawValues<T: Config> =
-        StorageMap<_, Blake2_128Concat, T::AccountId, TimestampedValue<UnsignedFixedPoint<T>, T::Moment>>;
+    pub type RawValues<T: Config> = StorageDoubleMap<
+        _,
+        Blake2_128Concat,
+        OracleKey,
+        Blake2_128Concat,
+        T::AccountId,
+        TimestampedValue<UnsignedFixedPoint<T>, T::Moment>,
+    >;
 
     #[pallet::storage]
-    pub type RawValuesUpdated<T: Config> = StorageValue<_, bool, ValueQuery>;
+    /// if a key is present, it means the values have been updated
+    pub type RawValuesUpdated<T: Config> = StorageMap<_, Blake2_128Concat, OracleKey, bool>;
 
     /// Last exchange rate time
     #[pallet::storage]
-    pub type ValidUntil<T: Config> = StorageValue<_, T::Moment>;
+    pub type ValidUntil<T: Config> = StorageMap<_, Blake2_128Concat, OracleKey, T::Moment>;
 
     /// The estimated inclusion time for a Bitcoin transaction in Satoshis per byte
     #[pallet::storage]
@@ -190,15 +198,16 @@ pub mod pallet {
     // The pallet's dispatchable functions.
     #[pallet::call]
     impl<T: Config> Pallet<T> {
-        /// Sets the exchange rate.
+        /// Feeds data from the oracles, e.g., the exchange rates. This function
+        /// is intended to be API-compatible with orml-oracle.
         ///
         /// # Arguments
         ///
-        /// * `exchange_rate` - i.e. planck_per_satoshi = dot_per_btc * (10**10 / 10**8)
-        /// This is the same unit that is stored in the ExchangeRate storage item.
-        #[pallet::weight(<T as Config>::WeightInfo::set_exchange_rate())]
-        #[transactional]
-        pub fn set_exchange_rate(origin: OriginFor<T>, exchange_rate: UnsignedFixedPoint<T>) -> DispatchResult {
+        /// * `values` - a vector of (key, value) pairs to submit
+        // #[pallet::weight(T::WeightInfo::feed_values(values.len() as u32))]
+        // TODO!
+        #[pallet::weight(<T as Config>::WeightInfo::set_btc_tx_fees_per_byte())]
+        pub fn feed_values(origin: OriginFor<T>, values: Vec<(OracleKey, T::UnsignedFixedPoint)>) -> DispatchResult {
             // Check that Parachain is not in SHUTDOWN
             ext::security::ensure_parachain_status_not_shutdown::<T>()?;
 
@@ -207,14 +216,16 @@ pub mod pallet {
             // fail if the signer is not an authorized oracle
             ensure!(Self::is_authorized(&signer), Error::<T>::InvalidOracleSource);
 
-            let timestamped = TimestampedValue {
-                timestamp: Self::get_current_time(),
-                value: exchange_rate.clone(),
-            };
-            RawValues::<T>::insert(&signer, timestamped);
-            RawValuesUpdated::<T>::set(true);
+            for (key, value) in values.iter() {
+                let timestamped = TimestampedValue {
+                    timestamp: Self::get_current_time(),
+                    value: value.clone(),
+                };
+                RawValues::<T>::insert(key, &signer, timestamped);
+                RawValuesUpdated::<T>::insert(key, true);
+            }
 
-            Self::deposit_event(Event::<T>::SetExchangeRate(signer, exchange_rate));
+            Self::deposit_event(Event::<T>::SetExchangeRate(signer, values));
 
             Ok(())
         }
@@ -279,14 +290,23 @@ pub mod pallet {
 #[cfg_attr(test, mockable)]
 impl<T: Config> Pallet<T> {
     fn begin_block(_height: T::BlockNumber) {
-        if Self::is_invalidated() {
-            RawValuesUpdated::<T>::set(false);
+        // read to a temporary value, because we can't alter the map while we iterate over it
+        let raw_values_updated: Vec<_> = RawValuesUpdated::<T>::iter().collect();
 
-            let mut raw_values: Vec<_> = RawValues::<T>::iter().map(|(_key, value)| value).collect();
+        let current_time = Self::get_current_time();
+
+        for (ref key, is_updated) in raw_values_updated {
+            if !is_updated && !Self::is_outdated(key, current_time) {
+                continue;
+            }
+
+            RawValuesUpdated::<T>::insert(key, false);
+
+            let mut raw_values: Vec<_> = RawValues::<T>::iter_prefix(key).map(|(_, value)| value).collect();
             let min_timestamp = Self::get_current_time().saturating_sub(Self::get_max_delay());
             raw_values.retain(|value| value.timestamp >= min_timestamp);
             if raw_values.len() == 0 {
-                Self::report_oracle_offline();
+                Self::report_oracle_offline(key);
             } else {
                 let valid_until = raw_values
                     .iter()
@@ -298,12 +318,12 @@ impl<T: Config> Pallet<T> {
                 let mid_index = raw_values.len() / 2;
                 let (_, value, _) = raw_values.select_nth_unstable_by(mid_index as usize, |a, b| a.value.cmp(&b.value));
 
-                if ExchangeRate::<T>::get().is_none() {
+                if ExchangeRate::<T>::get(key).is_none() {
                     Self::recover_from_oracle_offline();
                 }
 
-                ExchangeRate::<T>::set(Some(value.value));
-                ValidUntil::<T>::set(Some(valid_until));
+                ExchangeRate::<T>::insert(key, value.value);
+                ValidUntil::<T>::insert(key, valid_until);
             }
         }
     }
@@ -311,19 +331,19 @@ impl<T: Config> Pallet<T> {
     /// Public getters
 
     /// Get the exchange rate in planck per satoshi
-    pub fn get_exchange_rate() -> Result<UnsignedFixedPoint<T>, DispatchError> {
-        ExchangeRate::<T>::get().ok_or(Error::<T>::MissingExchangeRate.into())
+    pub fn get_exchange_rate(key: OracleKey) -> Result<UnsignedFixedPoint<T>, DispatchError> {
+        ExchangeRate::<T>::get(key).ok_or(Error::<T>::MissingExchangeRate.into())
     }
 
     pub fn wrapped_to_collateral(amount: Wrapped<T>) -> Result<Collateral<T>, DispatchError> {
-        let rate = Self::get_exchange_rate()?;
+        let rate = Self::get_exchange_rate(OracleKey::ExchangeRate(CurrencyId::DOT))?;
         let converted = rate.checked_mul_int(amount).ok_or(Error::<T>::ArithmeticOverflow)?;
         let result = converted.try_into().map_err(|_e| Error::<T>::TryIntoIntError)?;
         Ok(result)
     }
 
     pub fn collateral_to_wrapped(amount: Collateral<T>) -> Result<Wrapped<T>, DispatchError> {
-        let rate = Self::get_exchange_rate()?;
+        let rate = Self::get_exchange_rate(OracleKey::ExchangeRate(CurrencyId::DOT))?;
         if amount.is_zero() {
             return Ok(Zero::zero());
         }
@@ -341,14 +361,9 @@ impl<T: Config> Pallet<T> {
 
     /// Private getters and setters
 
-    fn is_invalidated() -> bool {
-        if RawValuesUpdated::<T>::get() {
-            true
-        } else {
-            let valid_until = ValidUntil::<T>::get();
-            let current_time = Self::get_current_time();
-            matches!(valid_until, Some(t) if current_time > t)
-        }
+    fn is_outdated(key: &OracleKey, current_time: T::Moment) -> bool {
+        let valid_until = ValidUntil::<T>::get(key);
+        matches!(valid_until, Some(t) if current_time > t)
     }
 
     fn get_max_delay() -> T::Moment {
@@ -361,15 +376,15 @@ impl<T: Config> Pallet<T> {
     ///
     /// * `exchange_rate` - i.e. planck per satoshi
     pub fn _set_exchange_rate(exchange_rate: UnsignedFixedPoint<T>) -> DispatchResult {
-        ExchangeRate::<T>::set(Some(exchange_rate));
+        ExchangeRate::<T>::insert(OracleKey::ExchangeRate(CurrencyId::DOT), exchange_rate);
         Ok(())
     }
 
-    fn report_oracle_offline() {
+    fn report_oracle_offline(key: &OracleKey) {
         ext::security::set_status::<T>(StatusCode::Error);
         ext::security::insert_error::<T>(ErrorCode::OracleOffline);
-        ExchangeRate::<T>::kill();
-        ValidUntil::<T>::kill();
+        ExchangeRate::<T>::remove(key);
+        ValidUntil::<T>::remove(key);
     }
 
     fn recover_from_oracle_offline() {

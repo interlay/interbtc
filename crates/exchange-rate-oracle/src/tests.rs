@@ -1,6 +1,6 @@
 use crate::{
     mock::{run_test, ExchangeRateOracle, Origin, System, Test, TestError, TestEvent},
-    BtcTxFeesPerByte,
+    BtcTxFeesPerByte, CurrencyId, OracleKey,
 };
 use frame_support::{assert_err, assert_ok, dispatch::DispatchError};
 use mocktopus::mocking::*;
@@ -29,27 +29,29 @@ fn mine_block() {
 }
 
 #[test]
-fn set_exchange_rate_succeeds() {
+fn feed_values_succeeds() {
     run_test(|| {
+        let key = OracleKey::ExchangeRate(CurrencyId::DOT);
         let rate = FixedU128::checked_from_rational(100, 1).unwrap();
 
         ExchangeRateOracle::is_authorized.mock_safe(|_| MockResult::Return(true));
-        let result = ExchangeRateOracle::set_exchange_rate(Origin::signed(3), rate);
+        let result = ExchangeRateOracle::feed_values(Origin::signed(3), vec![(key.clone(), rate)]);
         assert_ok!(result);
 
         mine_block();
 
-        let exchange_rate = ExchangeRateOracle::get_exchange_rate().unwrap();
+        let exchange_rate = ExchangeRateOracle::get_exchange_rate(key.clone()).unwrap();
         assert_eq!(exchange_rate, rate);
 
-        assert_emitted!(Event::SetExchangeRate(3, rate));
+        assert_emitted!(Event::SetExchangeRate(3, vec![(key.clone(), rate)]));
     });
 }
 
 #[test]
-fn set_exchange_rate_recovers_from_oracle_offline() {
+fn feed_values_recovers_from_oracle_offline() {
     run_test(|| {
         let rate = FixedU128::checked_from_rational(1, 1).unwrap();
+        let key = OracleKey::ExchangeRate(CurrencyId::DOT);
 
         ExchangeRateOracle::is_authorized.mock_safe(|_| MockResult::Return(true));
 
@@ -60,47 +62,52 @@ fn set_exchange_rate_recovers_from_oracle_offline() {
                 MockResult::Return(())
             });
 
-            assert_ok!(ExchangeRateOracle::set_exchange_rate(Origin::signed(3), rate));
+            assert_ok!(ExchangeRateOracle::feed_values(Origin::signed(3), vec![(key, rate)]));
             mine_block();
             assert!(oracle_recovered, "Oracle should be recovered from offline");
         }
     });
 }
-//
+
 #[test]
-fn set_exchange_rate_fails_with_invalid_oracle_source() {
+fn feed_values_fails_with_invalid_oracle_source() {
     run_test(|| {
+        let key = OracleKey::ExchangeRate(CurrencyId::DOT);
         let successful_rate = FixedU128::checked_from_rational(20, 1).unwrap();
         let failed_rate = FixedU128::checked_from_rational(100, 1).unwrap();
 
         ExchangeRateOracle::is_authorized.mock_safe(|_| MockResult::Return(true));
-        assert_ok!(ExchangeRateOracle::set_exchange_rate(
+        assert_ok!(ExchangeRateOracle::feed_values(
             Origin::signed(4),
-            successful_rate
+            vec![(key.clone(), successful_rate)]
         ));
 
         mine_block();
 
         ExchangeRateOracle::is_authorized.mock_safe(|_| MockResult::Return(false));
         assert_err!(
-            ExchangeRateOracle::set_exchange_rate(Origin::signed(3), failed_rate),
+            ExchangeRateOracle::feed_values(Origin::signed(3), vec![(key.clone(), failed_rate)]),
             TestError::InvalidOracleSource
         );
 
         mine_block();
 
-        let exchange_rate = ExchangeRateOracle::get_exchange_rate().unwrap();
+        let exchange_rate = ExchangeRateOracle::get_exchange_rate(key.clone()).unwrap();
         assert_eq!(exchange_rate, successful_rate);
 
-        assert_not_emitted!(Event::SetExchangeRate(3, failed_rate));
-        assert_not_emitted!(Event::SetExchangeRate(4, failed_rate));
+        assert_not_emitted!(Event::SetExchangeRate(3, vec![(key.clone(), failed_rate)]));
+        assert_not_emitted!(Event::SetExchangeRate(4, vec![(key.clone(), failed_rate)]));
     });
 }
 
 #[test]
 fn getting_exchange_rate_fails_with_missing_exchange_rate() {
     run_test(|| {
-        assert_err!(ExchangeRateOracle::get_exchange_rate(), TestError::MissingExchangeRate);
+        let key = OracleKey::ExchangeRate(CurrencyId::DOT);
+        assert_err!(
+            ExchangeRateOracle::get_exchange_rate(key),
+            TestError::MissingExchangeRate
+        );
         assert_err!(
             ExchangeRateOracle::wrapped_to_collateral(0),
             TestError::MissingExchangeRate
@@ -116,7 +123,7 @@ fn getting_exchange_rate_fails_with_missing_exchange_rate() {
 fn wrapped_to_collateral() {
     run_test(|| {
         ExchangeRateOracle::get_exchange_rate
-            .mock_safe(|| MockResult::Return(Ok(FixedU128::checked_from_rational(2, 1).unwrap())));
+            .mock_safe(|_| MockResult::Return(Ok(FixedU128::checked_from_rational(2, 1).unwrap())));
         let test_cases = [(0, 0), (2, 4), (10, 20)];
         for (input, expected) in test_cases.iter() {
             let result = ExchangeRateOracle::wrapped_to_collateral(*input);
@@ -129,7 +136,7 @@ fn wrapped_to_collateral() {
 fn collateral_to_wrapped() {
     run_test(|| {
         ExchangeRateOracle::get_exchange_rate
-            .mock_safe(|| MockResult::Return(Ok(FixedU128::checked_from_rational(2, 1).unwrap())));
+            .mock_safe(|_| MockResult::Return(Ok(FixedU128::checked_from_rational(2, 1).unwrap())));
         let test_cases = [(0, 0), (4, 2), (20, 10), (21, 10)];
         for (input, expected) in test_cases.iter() {
             let result = ExchangeRateOracle::collateral_to_wrapped(*input);
@@ -146,22 +153,22 @@ fn test_is_invalidated() {
         ExchangeRateOracle::get_max_delay.mock_safe(|| MockResult::Return(3600));
         ExchangeRateOracle::is_authorized.mock_safe(|_| MockResult::Return(true));
 
-        assert_ok!(ExchangeRateOracle::set_exchange_rate(
+        let key = OracleKey::ExchangeRate(CurrencyId::DOT);
+        let rate = FixedU128::checked_from_rational(100, 1).unwrap();
+
+        ExchangeRateOracle::is_authorized.mock_safe(|_| MockResult::Return(true));
+        assert_ok!(ExchangeRateOracle::feed_values(
             Origin::signed(3),
-            FixedU128::from(2)
+            vec![(key.clone(), rate)]
         ));
         mine_block();
 
         // max delay is 60 minutes, 60+ passed
-        ExchangeRateOracle::get_current_time.mock_safe(move || MockResult::Return(now + 3601));
-        assert!(ExchangeRateOracle::is_invalidated());
+        assert!(ExchangeRateOracle::is_outdated(&key, now + 3601));
 
         // max delay is 60 minutes, 30 passed
         ExchangeRateOracle::get_current_time.mock_safe(move || MockResult::Return(now + 1800));
-        assert!(!ExchangeRateOracle::is_invalidated());
-
-        crate::RawValuesUpdated::<Test>::set(true);
-        assert!(ExchangeRateOracle::is_invalidated());
+        assert!(!ExchangeRateOracle::is_outdated(&key, now + 3599));
     });
 }
 
@@ -178,9 +185,10 @@ fn oracle_names_have_genesis_info() {
 fn insert_authorized_oracle_succeeds() {
     run_test(|| {
         let oracle = 1;
+        let key = OracleKey::ExchangeRate(CurrencyId::DOT);
         let rate = FixedU128::checked_from_rational(1, 1).unwrap();
         assert_err!(
-            ExchangeRateOracle::set_exchange_rate(Origin::signed(oracle), rate),
+            ExchangeRateOracle::feed_values(Origin::signed(oracle), vec![]),
             TestError::InvalidOracleSource
         );
         assert_err!(
@@ -191,6 +199,10 @@ fn insert_authorized_oracle_succeeds() {
             Origin::root(),
             oracle,
             Vec::<u8>::new()
+        ));
+        assert_ok!(ExchangeRateOracle::feed_values(
+            Origin::signed(oracle),
+            vec![(key, rate)]
         ));
     });
 }
@@ -248,23 +260,5 @@ fn set_btc_tx_fees_per_byte_succeeds() {
         );
 
         assert_emitted!(Event::SetBtcTxFeesPerByte(3, 1, 1, 1));
-    });
-}
-
-#[test]
-fn begin_block_set_oracle_offline_succeeds() {
-    run_test(|| {
-        ExchangeRateOracle::is_invalidated.mock_safe(|| MockResult::Return(true));
-
-        unsafe {
-            let mut oracle_reported = false;
-            ExchangeRateOracle::report_oracle_offline.mock_raw(|| {
-                oracle_reported = true;
-                MockResult::Return(())
-            });
-
-            ExchangeRateOracle::begin_block(0);
-            assert!(oracle_reported, "Oracle should be reported as offline");
-        }
     });
 }
