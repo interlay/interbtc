@@ -204,9 +204,7 @@ pub mod pallet {
         /// # Arguments
         ///
         /// * `values` - a vector of (key, value) pairs to submit
-        // #[pallet::weight(T::WeightInfo::feed_values(values.len() as u32))]
-        // TODO!
-        #[pallet::weight(<T as Config>::WeightInfo::set_btc_tx_fees_per_byte())]
+        #[pallet::weight(<T as Config>::WeightInfo::feed_values(values.len() as u32))]
         pub fn feed_values(origin: OriginFor<T>, values: Vec<(OracleKey, T::UnsignedFixedPoint)>) -> DispatchResult {
             // Check that Parachain is not in SHUTDOWN
             ext::security::ensure_parachain_status_not_shutdown::<T>()?;

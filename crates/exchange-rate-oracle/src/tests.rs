@@ -265,18 +265,14 @@ fn set_btc_tx_fees_per_byte_succeeds() {
 
 #[test]
 fn begin_block_set_oracle_offline_succeeds() {
-    run_test(|| {
-        ExchangeRateOracle::is_max_delay_passed.mock_safe(|| MockResult::Return(true));
+    run_test(|| unsafe {
+        let mut oracle_reported = false;
+        ExchangeRateOracle::report_oracle_offline.mock_raw(|_| {
+            oracle_reported = true;
+            MockResult::Return(())
+        });
 
-        unsafe {
-            let mut oracle_reported = false;
-            ExchangeRateOracle::report_oracle_offline.mock_raw(|| {
-                oracle_reported = true;
-                MockResult::Return(())
-            });
-
-            ExchangeRateOracle::begin_block(0);
-            assert!(oracle_reported, "Oracle should be reported as offline");
-        }
+        ExchangeRateOracle::begin_block(0);
+        assert!(oracle_reported, "Oracle should be reported as offline");
     });
 }
