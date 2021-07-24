@@ -23,9 +23,6 @@ mod mock;
 #[cfg(test)]
 extern crate mocktopus;
 
-#[doc(inline)]
-pub use crate::types::BtcTxFeesPerByte;
-
 use crate::types::{Collateral, UnsignedFixedPoint, Version, Wrapped};
 
 #[cfg(test)]
@@ -38,7 +35,10 @@ use frame_support::{
     weights::Weight,
 };
 use frame_system::{ensure_root, ensure_signed};
-pub use primitives::{oracle::Key as OracleKey, CurrencyId};
+pub use primitives::{
+    oracle::{BitcoinInclusionTime, Key as OracleKey},
+    CurrencyId,
+};
 use security::{ErrorCode, StatusCode};
 use sp_runtime::{
     traits::{UniqueSaturatedInto, *},
@@ -89,8 +89,6 @@ pub mod pallet {
     pub enum Event<T: Config> {
         /// Event emitted when exchange rate is set
         SetExchangeRate(T::AccountId, Vec<(OracleKey, T::UnsignedFixedPoint)>),
-        /// Event emitted when the btc tx fees are set
-        SetBtcTxFeesPerByte(T::AccountId, u32, u32, u32),
     }
 
     #[pallet::error]
@@ -137,11 +135,6 @@ pub mod pallet {
     /// Last exchange rate time
     #[pallet::storage]
     pub type ValidUntil<T: Config> = StorageMap<_, Blake2_128Concat, OracleKey, T::Moment>;
-
-    /// The estimated inclusion time for a Bitcoin transaction in Satoshis per byte
-    #[pallet::storage]
-    #[pallet::getter(fn satoshi_per_bytes)]
-    pub type SatoshiPerBytes<T: Config> = StorageValue<_, BtcTxFeesPerByte, ValueQuery>;
 
     /// Maximum delay (milliseconds) for the exchange rate to be used
     #[pallet::storage]
@@ -224,32 +217,6 @@ pub mod pallet {
             }
 
             Self::deposit_event(Event::<T>::SetExchangeRate(signer, values));
-
-            Ok(())
-        }
-
-        /// Sets the estimated transaction inclusion fees based on the estimated inclusion time
-        ///
-        /// # Arguments
-        /// * `fast` - The estimated Satoshis per bytes to get included in the next block (~10 min)
-        /// * `half` - The estimated Satoshis per bytes to get included in the next 3 blocks (~half hour)
-        /// * `hour` - The estimated Satoshis per bytes to get included in the next 6 blocks (~hour)
-        #[pallet::weight(<T as Config>::WeightInfo::set_btc_tx_fees_per_byte())]
-        #[transactional]
-        pub fn set_btc_tx_fees_per_byte(origin: OriginFor<T>, fast: u32, half: u32, hour: u32) -> DispatchResult {
-            // Check that Parachain is not in SHUTDOWN
-            ext::security::ensure_parachain_status_not_shutdown::<T>()?;
-
-            let signer = ensure_signed(origin)?;
-
-            // fail if the signer is not the authorized oracle
-            ensure!(Self::is_authorized(&signer), Error::<T>::InvalidOracleSource);
-
-            // write the new values to storage
-            let fees = BtcTxFeesPerByte { fast, half, hour };
-            <SatoshiPerBytes<T>>::put(fees);
-
-            Self::deposit_event(Event::<T>::SetBtcTxFeesPerByte(signer, fast, half, hour));
 
             Ok(())
         }

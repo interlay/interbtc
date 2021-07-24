@@ -1,6 +1,6 @@
 use crate::{
     mock::{run_test, ExchangeRateOracle, Origin, System, Test, TestError, TestEvent},
-    BtcTxFeesPerByte, CurrencyId, OracleKey,
+    BitcoinInclusionTime, CurrencyId, OracleKey,
 };
 use frame_support::{assert_err, assert_ok, dispatch::DispatchError};
 use mocktopus::mocking::*;
@@ -221,45 +221,28 @@ fn remove_authorized_oracle_succeeds() {
 }
 
 #[test]
-fn set_btc_tx_fees_per_byte_fails_with_invalid_oracle_source() {
-    run_test(|| {
-        ExchangeRateOracle::is_authorized.mock_safe(|_| MockResult::Return(false));
-
-        assert_err!(
-            ExchangeRateOracle::set_btc_tx_fees_per_byte(Origin::signed(3), 1, 1, 1),
-            TestError::InvalidOracleSource
-        );
-
-        assert_eq!(
-            ExchangeRateOracle::satoshi_per_bytes(),
-            BtcTxFeesPerByte {
-                fast: 0,
-                half: 0,
-                hour: 0,
-            }
-        );
-
-        assert_not_emitted!(Event::SetBtcTxFeesPerByte(3, 1, 1, 1));
-    });
-}
-
-#[test]
 fn set_btc_tx_fees_per_byte_succeeds() {
     run_test(|| {
         ExchangeRateOracle::is_authorized.mock_safe(|_| MockResult::Return(true));
 
-        assert_ok!(ExchangeRateOracle::set_btc_tx_fees_per_byte(Origin::signed(3), 1, 1, 1));
+        let keys = vec![
+            OracleKey::FeeEstimation(BitcoinInclusionTime::Fast),
+            OracleKey::FeeEstimation(BitcoinInclusionTime::Half),
+            OracleKey::FeeEstimation(BitcoinInclusionTime::Hour),
+        ];
 
-        assert_eq!(
-            ExchangeRateOracle::satoshi_per_bytes(),
-            BtcTxFeesPerByte {
-                fast: 1,
-                half: 1,
-                hour: 1,
-            }
-        );
+        let values: Vec<_> = keys
+            .iter()
+            .enumerate()
+            .map(|(idx, key)| (key.clone(), FixedU128::checked_from_rational(idx as u32, 1).unwrap()))
+            .collect();
 
-        assert_emitted!(Event::SetBtcTxFeesPerByte(3, 1, 1, 1));
+        assert_ok!(ExchangeRateOracle::feed_values(Origin::signed(3), values.clone()));
+        mine_block();
+
+        for (key, value) in values {
+            assert_eq!(ExchangeRateOracle::get_exchange_rate(key).unwrap(), value);
+        }
     });
 }
 

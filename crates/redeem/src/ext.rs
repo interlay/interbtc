@@ -227,16 +227,20 @@ pub(crate) mod security {
 
 #[cfg_attr(test, mockable)]
 pub(crate) mod oracle {
-    use crate::types::{Collateral, Wrapped};
-    use exchange_rate_oracle::BtcTxFeesPerByte;
+    use crate::{
+        types::{Collateral, Wrapped},
+        OracleKey,
+    };
     use frame_support::dispatch::DispatchError;
-
-    pub fn satoshi_per_bytes<T: crate::Config>() -> BtcTxFeesPerByte {
-        <exchange_rate_oracle::Pallet<T>>::satoshi_per_bytes()
-    }
 
     pub fn wrapped_to_collateral<T: crate::Config>(amount: Wrapped<T>) -> Result<Collateral<T>, DispatchError> {
         <exchange_rate_oracle::Pallet<T>>::wrapped_to_collateral(amount)
+    }
+
+    pub fn get_exchange_rate<T: crate::Config>(
+        key: OracleKey,
+    ) -> Result<<T as exchange_rate_oracle::Config>::UnsignedFixedPoint, DispatchError> {
+        <exchange_rate_oracle::Pallet<T>>::get_exchange_rate(key)
     }
 }
 
