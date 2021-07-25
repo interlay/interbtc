@@ -207,18 +207,7 @@ pub mod pallet {
             // fail if the signer is not an authorized oracle
             ensure!(Self::is_authorized(&signer), Error::<T>::InvalidOracleSource);
 
-            for (key, value) in values.iter() {
-                let timestamped = TimestampedValue {
-                    timestamp: Self::get_current_time(),
-                    value: value.clone(),
-                };
-                RawValues::<T>::insert(key, &signer, timestamped);
-                RawValuesUpdated::<T>::insert(key, true);
-            }
-
-            Self::deposit_event(Event::<T>::SetExchangeRate(signer, values));
-
-            Ok(())
+            Self::_feed_values(signer, values)
         }
 
         /// Adds an authorized oracle account (only executable by the Root account)
@@ -254,7 +243,8 @@ pub mod pallet {
 
 #[cfg_attr(test, mockable)]
 impl<T: Config> Pallet<T> {
-    fn begin_block(_height: T::BlockNumber) {
+    // public only for testing purposes
+    pub fn begin_block(_height: T::BlockNumber) {
         // read to a temporary value, because we can't alter the map while we iterate over it
         let raw_values_updated: Vec<_> = RawValuesUpdated::<T>::iter().collect();
 
@@ -295,6 +285,22 @@ impl<T: Config> Pallet<T> {
                 ValidUntil::<T>::insert(key, valid_until);
             }
         }
+    }
+
+    // public only for testing purposes
+    pub fn _feed_values(oracle: T::AccountId, values: Vec<(OracleKey, T::UnsignedFixedPoint)>) -> DispatchResult {
+        for (key, value) in values.iter() {
+            let timestamped = TimestampedValue {
+                timestamp: Self::get_current_time(),
+                value: value.clone(),
+            };
+            RawValues::<T>::insert(key, &oracle, timestamped);
+            RawValuesUpdated::<T>::insert(key, true);
+        }
+
+        Self::deposit_event(Event::<T>::SetExchangeRate(oracle, values));
+
+        Ok(())
     }
 
     /// Public getters

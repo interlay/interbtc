@@ -922,11 +922,13 @@ impl ExtBuilder {
                 .dispatch(root())
             );
             assert_ok!(Call::ExchangeRateOracle(ExchangeRateOracleCall::feed_values(vec![
+                (OracleKey::ExchangeRate(CurrencyId::DOT), FixedU128::from(1)),
                 (OracleKey::FeeEstimation(BitcoinInclusionTime::Fast), FixedU128::from(3)),
                 (OracleKey::FeeEstimation(BitcoinInclusionTime::Half), FixedU128::from(2)),
                 (OracleKey::FeeEstimation(BitcoinInclusionTime::Hour), FixedU128::from(1)),
             ]))
             .dispatch(origin_of(account_of(ALICE))));
+            ExchangeRateOraclePallet::begin_block(0);
 
             execute()
         })
