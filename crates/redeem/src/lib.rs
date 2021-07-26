@@ -325,20 +325,20 @@ impl<T: Config> Pallet<T> {
             .checked_sub(&fee_wrapped)
             .ok_or(Error::<T>::ArithmeticUnderflow)?;
 
+        // this can overflow for small requested values. As such return AmountBelowDustAmount when this happens
+        let user_to_be_received_btc = vault_to_be_burned_tokens
+            .checked_sub(&inclusion_fee)
+            .ok_or(Error::<T>::AmountBelowDustAmount)?;
+
+        ext::vault_registry::ensure_not_banned::<T>(&vault_id)?;
+
         // only allow requests of amount above above the minimum
         let dust_value = <RedeemBtcDustValue<T>>::get();
         ensure!(
             // this is the amount the vault will send (minus fee)
-            dust_value + inclusion_fee <= vault_to_be_burned_tokens,
+            user_to_be_received_btc >= dust_value,
             Error::<T>::AmountBelowDustAmount
         );
-
-        // this will not underflow if `dust_value + inclusion_fee <= vault_to_be_burned_tokens`
-        let user_to_be_received_btc = vault_to_be_burned_tokens
-            .checked_sub(&inclusion_fee)
-            .ok_or(Error::<T>::ArithmeticUnderflow)?;
-
-        ext::vault_registry::ensure_not_banned::<T>(&vault_id)?;
 
         // vault will get rid of the btc + btc_inclusion_fee
         ext::vault_registry::try_increase_to_be_redeemed_tokens::<T>(&vault_id, vault_to_be_burned_tokens)?;

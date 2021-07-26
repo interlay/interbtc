@@ -119,10 +119,7 @@ mod spec_based_tests {
 
     mod request_redeem {
         use frame_support::assert_ok;
-        use sp_runtime::{
-            traits::{CheckedDiv, CheckedSub},
-            FixedU128,
-        };
+        use sp_runtime::FixedU128;
 
         use super::*;
 
@@ -195,7 +192,7 @@ mod spec_based_tests {
         }
 
         #[test]
-        fn integration_test_redeen_cannot_request_from_liquidated_vault() {
+        fn integration_test_redeem_cannot_request_from_liquidated_vault() {
             // Checked PRECONDITION: The selected vault MUST NOT be liquidated.
             test_with(|| {
                 drop_exchange_rate_and_liquidate(VAULT);
@@ -212,7 +209,7 @@ mod spec_based_tests {
         }
 
         #[test]
-        fn integration_test_redeen_redeemer_free_tokens() {
+        fn integration_test_redeem_redeemer_free_tokens() {
             // Checked PRECONDITION: The redeemer MUST have at least `amountWrapped` free tokens.
             test_with(|| {
                 let free_tokens_to_redeem = 1500;
@@ -249,7 +246,7 @@ mod spec_based_tests {
         }
 
         #[test]
-        fn integration_test_redeen_vault_capacity_sufficient() {
+        fn integration_test_redeem_vault_capacity_sufficient() {
             // Checked PRECONDITION: The vault’s `issuedTokens` MUST be at least `vault.toBeRedeemedTokens +
             // burnedTokens`.
             // Checked POSTCONDITIONS:
@@ -287,7 +284,7 @@ mod spec_based_tests {
         }
 
         #[test]
-        fn integration_test_redeen_with_premium() {
+        fn integration_test_redeem_with_premium() {
             // Checked PRECONDITION: The vault’s `issuedTokens` MUST be at least `vault.toBeRedeemedTokens +
             // burnedTokens`.
             // Checked POSTCONDITIONS:
@@ -308,7 +305,7 @@ mod spec_based_tests {
         }
 
         #[test]
-        fn integration_test_redeen_vault_capacity_insufficient() {
+        fn integration_test_redeem_vault_capacity_insufficient() {
             // Checked PRECONDITION: The vault’s `issuedTokens` MUST be at least `vault.toBeRedeemedTokens +
             // burnedTokens`.
             test_with(|| {
@@ -336,7 +333,7 @@ mod spec_based_tests {
         }
 
         #[test]
-        fn integration_test_redeen_dust_value_succeeds() {
+        fn integration_test_redeem_dust_value() {
             // Checked PRECONDITION: `burnedTokens` minus the inclusion fee MUST be above the RedeemBtcDustValue,
             // where the inclusion fee is the multiplication of RedeemTransactionSize and the fee rate estimate
             // reported by the oracle.
@@ -347,39 +344,9 @@ mod spec_based_tests {
                 let redeem_dust_value = RedeemPallet::redeem_btc_dust_value();
                 let inclusion_fee = RedeemPallet::get_current_inclusion_fee().unwrap();
                 let redeem_fee_rate = FeePallet::redeem_fee();
-                let denominator = FixedU128::one().checked_sub(&redeem_fee_rate).expect("Division failed");
+                let denominator = FixedU128::one() - redeem_fee_rate;
                 let numerator = FixedU128::from_inner(redeem_dust_value + inclusion_fee);
-                let to_redeem = numerator
-                    .checked_div(&denominator)
-                    .expect("Division failed")
-                    .into_inner();
-                assert_ok!(Call::Redeem(RedeemCall::request_redeem(
-                    to_redeem,
-                    BtcAddress::P2PKH(H160([0u8; 20])),
-                    account_of(VAULT),
-                ))
-                .dispatch(origin_of(account_of(ALICE))));
-            });
-        }
-
-        #[test]
-        fn integration_test_redeen_dust_value_fails() {
-            // Checked PRECONDITION: `burnedTokens` minus the inclusion fee MUST be above the RedeemBtcDustValue,
-            // where the inclusion fee is the multiplication of RedeemTransactionSize and the fee rate estimate
-            // reported by the oracle.
-
-            test_with(|| {
-                // The formula for finding the threshold `to_redeem` for the dust amount error is
-                // `(redeem_dust_value + inclusion_fee) / (1 - redeem_fee_rate)`
-                let redeem_dust_value = RedeemPallet::redeem_btc_dust_value();
-                let inclusion_fee = RedeemPallet::get_current_inclusion_fee().unwrap();
-                let redeem_fee_rate = FeePallet::redeem_fee();
-                let denominator = FixedU128::one().checked_sub(&redeem_fee_rate).expect("Division failed");
-                let numerator = FixedU128::from_inner(redeem_dust_value + inclusion_fee);
-                let to_redeem = numerator
-                    .checked_div(&denominator)
-                    .expect("Division failed")
-                    .into_inner();
+                let to_redeem = (numerator / denominator).into_inner();
                 assert_noop!(
                     Call::Redeem(RedeemCall::request_redeem(
                         to_redeem - 1,
@@ -389,6 +356,12 @@ mod spec_based_tests {
                     .dispatch(origin_of(account_of(ALICE))),
                     RedeemError::AmountBelowDustAmount
                 );
+                assert_ok!(Call::Redeem(RedeemCall::request_redeem(
+                    to_redeem,
+                    BtcAddress::P2PKH(H160([0u8; 20])),
+                    account_of(VAULT),
+                ))
+                .dispatch(origin_of(account_of(ALICE))));
             });
         }
     }
