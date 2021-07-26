@@ -34,11 +34,11 @@ pub(crate) mod collateral {
 
 #[cfg_attr(test, mockable)]
 pub(crate) mod treasury {
-    use crate::types::Wrapped;
+    use crate::{types::Wrapped, Config};
     use currency::ParachainCurrency;
 
     pub fn total_issued<T: crate::Config>() -> Wrapped<T> {
-        T::Wrapped::get_total_supply()
+        <T as Config>::Wrapped::get_total_supply()
     }
 }
 

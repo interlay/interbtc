@@ -28,7 +28,7 @@ use frame_support::{
 };
 use frame_system::{ensure_root, ensure_signed};
 use sp_runtime::{
-    traits::{CheckedAdd, CheckedDiv, CheckedSub, One, Zero},
+    traits::{CheckedAdd, CheckedSub},
     FixedPointNumber,
 };
 use sp_std::convert::TryInto;
@@ -98,6 +98,7 @@ pub mod pallet {
         VaultNominationDisabled,
         DepositViolatesMaxNominationRatio,
         HasNominatedCollateral,
+        CollateralizationTooLow,
     }
 
     #[pallet::hooks]
@@ -243,7 +244,8 @@ impl<T: Config> Pallet<T> {
             .checked_add(&amount)
             .ok_or(Error::<T>::ArithmeticOverflow)?;
         ensure!(
-            new_nominated_collateral <= Self::get_max_nominatable_collateral(vault_backing_collateral)?,
+            new_nominated_collateral
+                <= ext::vault_registry::get_max_nominatable_collateral::<T>(vault_backing_collateral)?,
             Error::<T>::DepositViolatesMaxNominationRatio
         );
 
@@ -277,11 +279,12 @@ impl<T: Config> Pallet<T> {
     }
 
     fn _opt_out_of_nomination(vault_id: &T::AccountId) -> DispatchResult {
-        // TODO: force refund
+        let total_nominated_collateral = Self::get_total_nominated_collateral(&vault_id)?;
         ensure!(
-            Self::get_total_nominated_collateral(vault_id)?.is_zero(),
-            Error::<T>::HasNominatedCollateral
+            ext::vault_registry::is_allowed_to_withdraw_collateral::<T>(&vault_id, total_nominated_collateral)?,
+            Error::<T>::CollateralizationTooLow
         );
+        ext::staking::force_refund::<T>(vault_id)?;
         <Vaults<T>>::remove(vault_id);
         Self::deposit_event(Event::<T>::NominationOptOut(vault_id.clone()));
         Ok(())
@@ -299,26 +302,12 @@ impl<T: Config> Pallet<T> {
             .ok_or(Error::<T>::ArithmeticUnderflow)?)
     }
 
-    pub fn get_max_nomination_ratio() -> Result<UnsignedFixedPoint<T>, DispatchError> {
-        let secure_collateral_threshold = ext::vault_registry::get_secure_collateral_threshold::<T>();
-        let premium_redeem_threshold = ext::vault_registry::get_premium_redeem_threshold::<T>();
-        Ok(secure_collateral_threshold
-            .checked_div(&premium_redeem_threshold)
-            .ok_or(Error::<T>::ArithmeticUnderflow)?
-            .checked_sub(&UnsignedFixedPoint::<T>::one())
-            .ok_or(Error::<T>::ArithmeticUnderflow)?)
-    }
-
     pub fn get_nominator_collateral(
         vault_id: &T::AccountId,
         nominator_id: &T::AccountId,
     ) -> Result<Collateral<T>, DispatchError> {
         let collateral = ext::staking::compute_stake::<T>(vault_id, nominator_id)?;
         collateral.try_into().map_err(|_| Error::<T>::TryIntoIntError.into())
-    }
-
-    fn get_max_nominatable_collateral(vault_collateral: Collateral<T>) -> Result<Collateral<T>, DispatchError> {
-        ext::fee::collateral_for::<T>(vault_collateral, Self::get_max_nomination_ratio()?)
     }
 
     fn collateral_to_fixed(x: Collateral<T>) -> Result<SignedFixedPoint<T>, DispatchError> {

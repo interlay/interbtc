@@ -58,11 +58,8 @@ pub fn assert_nominate_collateral(vault: [u8; 32], nominator: [u8; 32], amount_c
 }
 
 pub fn withdraw_vault_collateral(vault: [u8; 32], amount_collateral: u128) -> DispatchResultWithPostInfo {
-    Call::Nomination(NominationCall::withdraw_collateral(
-        account_of(vault),
-        amount_collateral,
-    ))
-    .dispatch(origin_of(account_of(vault)))
+    Call::VaultRegistry(VaultRegistryCall::withdraw_collateral(amount_collateral))
+        .dispatch(origin_of(account_of(vault)))
 }
 
 pub fn assert_withdraw_vault_collateral(vault: [u8; 32], amount_dot: u128) {
