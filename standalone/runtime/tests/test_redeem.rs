@@ -534,7 +534,7 @@ fn integration_test_redeem_wrapped_cancel_reimburse_insufficient_collateral_for_
                 fee_pool.vault_rewards += redeem.fee;
 
                 vault.backing_collateral -=
-                    amount_without_fee_as_collateral + punishment_fee + amount_without_fee_as_collateral / 20 + 1;
+                    amount_without_fee_as_collateral + punishment_fee + amount_without_fee_as_collateral / 20;
                 // vault free tokens does not change, and issued tokens is reduced
                 vault.issued -= redeem.amount_btc + redeem.transfer_fee_btc;
 
@@ -542,7 +542,6 @@ fn integration_test_redeem_wrapped_cancel_reimburse_insufficient_collateral_for_
                 user.free_tokens -= amount_btc;
 
                 consume_to_be_replaced(vault, redeem.amount_btc + redeem.transfer_fee_btc);
-                vault.griefing_collateral += 1;
             })
         );
 

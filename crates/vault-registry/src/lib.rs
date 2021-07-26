@@ -405,6 +405,8 @@ pub mod pallet {
         VaultNotBelowLiquidationThreshold,
         /// Deposit address could not be generated with the given public key.
         InvalidPublicKey,
+        /// The Max Nomination Ratio would be exceeded.
+        MaxNominatioRatioViolation,
 
         // Errors used exclusively in RPC functions
         /// Collateralization is infinite if no tokens are issued
@@ -641,6 +643,17 @@ impl<T: Config> Pallet<T> {
             Self::is_allowed_to_withdraw_collateral(vault_id, amount)?,
             Error::<T>::InsufficientCollateral
         );
+        ensure!(
+            Self::is_max_nomination_ratio_preserved(vault_id, amount)?,
+            Error::<T>::MaxNominatioRatioViolation
+        );
+        Self::force_withdraw_collateral(vault_id, amount)
+    }
+
+    pub fn is_max_nomination_ratio_preserved(
+        vault_id: &T::AccountId,
+        amount: Collateral<T>,
+    ) -> Result<bool, DispatchError> {
         let vault_collateral = Self::compute_collateral(vault_id)?;
         let backing_collateral = Self::get_backing_collateral(vault_id)?;
         let current_nomination = backing_collateral
@@ -650,10 +663,7 @@ impl<T: Config> Pallet<T> {
             .checked_sub(&amount)
             .ok_or(Error::<T>::ArithmeticUnderflow)?;
         let max_nomination_after_withdrawal = Self::get_max_nominatable_collateral(new_vault_collateral)?;
-        if current_nomination.gt(&max_nomination_after_withdrawal) {
-            ext::staking::force_refund::<T>(&vault_id)?;
-        }
-        Self::force_withdraw_collateral(vault_id, amount)
+        Ok(current_nomination.le(&max_nomination_after_withdrawal))
     }
 
     /// Checks if the vault would be above the secure threshold after withdrawing collateral
@@ -1255,7 +1265,6 @@ impl<T: Config> Pallet<T> {
         let mut vault = Self::get_active_rich_vault_from_id(&vault_id)?;
         let banned_until = height + Self::punishment_delay();
         vault.ban_until(banned_until);
-        ext::staking::force_refund::<T>(&vault_id)?;
         Self::deposit_event(Event::<T>::BanVault(vault.id(), banned_until));
         Ok(())
     }

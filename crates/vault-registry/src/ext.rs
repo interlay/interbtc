@@ -134,10 +134,6 @@ pub(crate) mod staking {
         <staking::Pallet<T>>::unslash_stake(T::GetRewardsCurrencyId::get(), vault_id, amount)
     }
 
-    pub fn force_refund<T: crate::Config>(vault_id: &T::AccountId) -> Result<(), DispatchError> {
-        <staking::Pallet<T>>::force_refund(T::GetRewardsCurrencyId::get(), vault_id)
-    }
-
     pub fn compute_stake<T: crate::Config>(
         vault_id: &T::AccountId,
         nominator_id: &T::AccountId,
