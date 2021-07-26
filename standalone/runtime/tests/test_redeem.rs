@@ -119,7 +119,6 @@ mod spec_based_tests {
 
     mod request_redeem {
         use frame_support::assert_ok;
-        use redeem::RedeemRequestStatus;
         use sp_runtime::{
             traits::{CheckedDiv, CheckedSub},
             FixedU128,
@@ -256,57 +255,26 @@ mod spec_based_tests {
             // Checked POSTCONDITIONS:
             //  - The vault’s `toBeRedeemedTokens` MUST increase by `burnedTokens`.
             //  - `amountWrapped` of the redeemer’s tokens MUST be locked by this transaction.
+            //  - If the vault’s collateralization rate is above the PremiumRedeemThreshold, then `redeem.premium` MUST
+            //    be 0
             test_with(|| {
                 let vault_to_be_redeemed = 1500;
                 let user_to_redeem = 1500;
+                set_redeem_state(vault_to_be_redeemed, user_to_redeem, USER, VAULT);
                 let redeem_fee = FeePallet::get_redeem_fee(user_to_redeem).unwrap();
                 let burned_tokens = user_to_redeem - redeem_fee;
-                let vault_issued_tokens = vault_to_be_redeemed + burned_tokens;
-                let inclusion_fee = RedeemPallet::get_current_inclusion_fee().unwrap();
-                let redeem_period = RedeemPallet::redeem_period();
-                let btc_address = BtcAddress::P2PKH(H160([0u8; 20]));
-                let btc_height = BTCRelayPallet::get_best_block_height();
-                let opentime = SecurityPallet::active_block_number();
 
                 CoreVaultData::force_to(
                     VAULT,
                     CoreVaultData {
-                        issued: vault_issued_tokens,
-                        to_be_redeemed: vault_to_be_redeemed,
                         backing_collateral: DEFAULT_VAULT_BACKING_COLLATERAL,
-                        ..Default::default()
-                    },
-                );
-                UserData::force_to(
-                    ALICE,
-                    UserData {
-                        free_tokens: user_to_redeem,
-                        ..UserData::get(USER)
+                        ..CoreVaultData::vault(VAULT)
                     },
                 );
                 let parachain_state_before_request = ParachainState::get();
-                assert_ok!(Call::Redeem(RedeemCall::request_redeem(
-                    user_to_redeem,
-                    btc_address,
-                    account_of(VAULT),
-                ))
-                .dispatch(origin_of(account_of(ALICE))));
-                let redeem_id = assert_redeem_request_event();
+                let redeem_id = setup_redeem(user_to_redeem, USER, VAULT, 1_000_000);
                 let actual_redeem = RedeemPallet::get_open_redeem_request_from_id(&redeem_id).unwrap();
-                let expected_redeem = RedeemRequest {
-                    vault: account_of(VAULT),
-                    opentime,
-                    fee: redeem_fee,
-                    transfer_fee_btc: inclusion_fee,
-                    amount_btc: burned_tokens - inclusion_fee,
-                    premium: 0,
-                    period: redeem_period,
-                    redeemer: account_of(USER),
-                    btc_address,
-                    btc_height,
-                    status: RedeemRequestStatus::Pending,
-                };
-                assert_eq!(actual_redeem, expected_redeem);
+                assert_eq!(actual_redeem, default_redeem_request(user_to_redeem, VAULT, USER));
                 assert_eq!(
                     ParachainState::get(),
                     parachain_state_before_request.with_changes(|user, vault, _liquidation_vault, _fee_pool| {
@@ -325,56 +293,17 @@ mod spec_based_tests {
             // Checked POSTCONDITIONS:
             //  - The vault’s `toBeRedeemedTokens` MUST increase by `burnedTokens`.
             //  - `amountWrapped` of the redeemer’s tokens MUST be locked by this transaction.
+            //  - If the vault’s collateralization rate is below the PremiumRedeemThreshold, then `redeem.premium` MUST
+            //    be
+            // PremiumRedeemFee multiplied by the worth of `redeem.amountBtc`
             test_with(|| {
                 let vault_to_be_redeemed = 1500;
                 let user_to_redeem = 1500;
-                let redeem_fee = FeePallet::get_redeem_fee(user_to_redeem).unwrap();
-                let burned_tokens = user_to_redeem - redeem_fee;
-                let vault_issued_tokens = vault_to_be_redeemed + burned_tokens;
-                let inclusion_fee = RedeemPallet::get_current_inclusion_fee().unwrap();
-                let redeem_period = RedeemPallet::redeem_period();
-                let btc_address = BtcAddress::P2PKH(H160([0u8; 20]));
-                let btc_height = BTCRelayPallet::get_best_block_height();
-                let opentime = SecurityPallet::active_block_number();
-                let premium_redeem_fee = FeePallet::get_premium_redeem_fee(burned_tokens - inclusion_fee).unwrap();
-
-                CoreVaultData::force_to(
-                    VAULT,
-                    CoreVaultData {
-                        issued: vault_issued_tokens,
-                        to_be_redeemed: vault_to_be_redeemed,
-                        ..Default::default()
-                    },
-                );
-                UserData::force_to(
-                    ALICE,
-                    UserData {
-                        free_tokens: user_to_redeem,
-                        ..UserData::get(USER)
-                    },
-                );
-                assert_ok!(Call::Redeem(RedeemCall::request_redeem(
-                    user_to_redeem,
-                    btc_address,
-                    account_of(VAULT),
-                ))
-                .dispatch(origin_of(account_of(ALICE))));
+                set_redeem_state(vault_to_be_redeemed, user_to_redeem, USER, VAULT);
+                setup_redeem(user_to_redeem, USER, VAULT, 1_000_000);
                 let redeem_id = assert_redeem_request_event();
                 let actual_redeem = RedeemPallet::get_open_redeem_request_from_id(&redeem_id).unwrap();
-                let expected_redeem = RedeemRequest {
-                    vault: account_of(VAULT),
-                    opentime,
-                    fee: redeem_fee,
-                    transfer_fee_btc: inclusion_fee,
-                    amount_btc: burned_tokens - inclusion_fee,
-                    premium: premium_redeem_fee,
-                    period: redeem_period,
-                    redeemer: account_of(USER),
-                    btc_address,
-                    btc_height,
-                    status: RedeemRequestStatus::Pending,
-                };
-                assert_eq!(actual_redeem, expected_redeem);
+                assert_eq!(actual_redeem, premium_redeem_request(user_to_redeem, VAULT, USER));
             });
         }
 
@@ -385,21 +314,13 @@ mod spec_based_tests {
             test_with(|| {
                 let vault_to_be_redeemed = 1500;
                 let user_to_redeem = 1500;
-                let burned_tokens = user_to_redeem - FeePallet::get_redeem_fee(user_to_redeem).unwrap();
-                let vault_issued_tokens = vault_to_be_redeemed + burned_tokens - 1;
+                set_redeem_state(vault_to_be_redeemed, user_to_redeem, USER, VAULT);
+                let core_vault = CoreVaultData::vault(VAULT);
                 CoreVaultData::force_to(
                     VAULT,
                     CoreVaultData {
-                        issued: vault_issued_tokens,
-                        to_be_redeemed: vault_to_be_redeemed,
-                        ..Default::default()
-                    },
-                );
-                UserData::force_to(
-                    ALICE,
-                    UserData {
-                        free_tokens: user_to_redeem,
-                        ..UserData::get(USER)
+                        issued: core_vault.issued - 1,
+                        ..core_vault
                     },
                 );
                 assert_noop!(

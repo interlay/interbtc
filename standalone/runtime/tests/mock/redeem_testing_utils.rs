@@ -71,6 +71,26 @@ pub fn setup_cancelable_redeem(user: [u8; 32], vault: [u8; 32], collateral: u128
     redeem_id
 }
 
+pub fn set_redeem_state(vault_to_be_redeemed: u128, user_to_redeem: u128, user: [u8; 32], vault: [u8; 32]) -> () {
+    let burned_tokens = user_to_redeem - FeePallet::get_redeem_fee(user_to_redeem).unwrap();
+    let vault_issued_tokens = vault_to_be_redeemed + burned_tokens;
+    CoreVaultData::force_to(
+        vault,
+        CoreVaultData {
+            issued: vault_issued_tokens,
+            to_be_redeemed: vault_to_be_redeemed,
+            ..Default::default()
+        },
+    );
+    UserData::force_to(
+        ALICE,
+        UserData {
+            free_tokens: user_to_redeem,
+            ..UserData::get(user)
+        },
+    );
+}
+
 pub fn setup_redeem(issued_tokens: u128, user: [u8; 32], vault: [u8; 32], _collateral: u128) -> H256 {
     // alice requests to redeem issued_tokens from Bob
     assert_ok!(Call::Redeem(RedeemCall::request_redeem(
