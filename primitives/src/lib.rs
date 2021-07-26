@@ -234,8 +234,6 @@ pub mod oracle {
 
     #[derive(Encode, Decode, Clone, Eq, PartialEq, Debug)]
     pub enum Key {
-        // needs to be something that other pallets can pass. However, how can rust know
-        // how T is related to the other pallets?
         ExchangeRate(CurrencyId),
         FeeEstimation(BitcoinInclusionTime),
     }

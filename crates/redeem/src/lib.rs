@@ -635,7 +635,7 @@ impl<T: Config> Pallet<T> {
             fee.try_into().map_err(|_| Error::<T>::TryIntoIntError.into())
         }
     }
-
+    
     /// Fetch all redeem requests for the specified account.
     ///
     /// # Arguments

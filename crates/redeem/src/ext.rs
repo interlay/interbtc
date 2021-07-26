@@ -237,10 +237,10 @@ pub(crate) mod oracle {
         <exchange_rate_oracle::Pallet<T>>::wrapped_to_collateral(amount)
     }
 
-    pub fn get_exchange_rate<T: crate::Config>(
+    pub fn get_price<T: crate::Config>(
         key: OracleKey,
     ) -> Result<<T as exchange_rate_oracle::Config>::UnsignedFixedPoint, DispatchError> {
-        <exchange_rate_oracle::Pallet<T>>::get_exchange_rate(key)
+        <exchange_rate_oracle::Pallet<T>>::get_price(key)
     }
 }
 

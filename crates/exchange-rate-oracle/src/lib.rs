@@ -88,7 +88,7 @@ pub mod pallet {
     #[pallet::metadata(T::AccountId = "AccountId", UnsignedFixedPoint<T> = "UnsignedFixedPoint")]
     pub enum Event<T: Config> {
         /// Event emitted when exchange rate is set
-        SetExchangeRate(T::AccountId, Vec<(OracleKey, T::UnsignedFixedPoint)>),
+        FeedValues(T::AccountId, Vec<(OracleKey, T::UnsignedFixedPoint)>),
     }
 
     #[pallet::error]
@@ -114,9 +114,9 @@ pub mod pallet {
         }
     }
 
-    /// Current exchange rate (i.e. Planck per Satoshi)
+    /// Current medianized value for the given key
     #[pallet::storage]
-    pub type ExchangeRate<T: Config> = StorageMap<_, Blake2_128Concat, OracleKey, UnsignedFixedPoint<T>>;
+    pub type Aggregate<T: Config> = StorageMap<_, Blake2_128Concat, OracleKey, UnsignedFixedPoint<T>>;
 
     #[pallet::storage]
     pub type RawValues<T: Config> = StorageDoubleMap<
@@ -132,11 +132,11 @@ pub mod pallet {
     /// if a key is present, it means the values have been updated
     pub type RawValuesUpdated<T: Config> = StorageMap<_, Blake2_128Concat, OracleKey, bool>;
 
-    /// Last exchange rate time
+    /// Time until which the aggregate is valid
     #[pallet::storage]
     pub type ValidUntil<T: Config> = StorageMap<_, Blake2_128Concat, OracleKey, T::Moment>;
 
-    /// Maximum delay (milliseconds) for the exchange rate to be used
+    /// Maximum delay (milliseconds) for a reported value to be used
     #[pallet::storage]
     #[pallet::getter(fn max_delay)]
     pub type MaxDelay<T: Config> = StorageValue<_, T::Moment, ValueQuery>;
@@ -277,11 +277,11 @@ impl<T: Config> Pallet<T> {
                 let mid_index = raw_values.len() / 2;
                 let (_, value, _) = raw_values.select_nth_unstable_by(mid_index as usize, |a, b| a.value.cmp(&b.value));
 
-                if ExchangeRate::<T>::get(key).is_none() {
+                if Aggregate::<T>::get(key).is_none() {
                     Self::recover_from_oracle_offline();
                 }
 
-                ExchangeRate::<T>::insert(key, value.value);
+                Aggregate::<T>::insert(key, value.value);
                 ValidUntil::<T>::insert(key, valid_until);
             }
         }
@@ -298,7 +298,7 @@ impl<T: Config> Pallet<T> {
             RawValuesUpdated::<T>::insert(key, true);
         }
 
-        Self::deposit_event(Event::<T>::SetExchangeRate(oracle, values));
+        Self::deposit_event(Event::<T>::FeedValues(oracle, values));
 
         Ok(())
     }
@@ -306,19 +306,19 @@ impl<T: Config> Pallet<T> {
     /// Public getters
 
     /// Get the exchange rate in planck per satoshi
-    pub fn get_exchange_rate(key: OracleKey) -> Result<UnsignedFixedPoint<T>, DispatchError> {
-        ExchangeRate::<T>::get(key).ok_or(Error::<T>::MissingExchangeRate.into())
+    pub fn get_price(key: OracleKey) -> Result<UnsignedFixedPoint<T>, DispatchError> {
+        Aggregate::<T>::get(key).ok_or(Error::<T>::MissingExchangeRate.into())
     }
 
     pub fn wrapped_to_collateral(amount: Wrapped<T>) -> Result<Collateral<T>, DispatchError> {
-        let rate = Self::get_exchange_rate(OracleKey::ExchangeRate(CurrencyId::DOT))?;
+        let rate = Self::get_price(OracleKey::ExchangeRate(CurrencyId::DOT))?;
         let converted = rate.checked_mul_int(amount).ok_or(Error::<T>::ArithmeticOverflow)?;
         let result = converted.try_into().map_err(|_e| Error::<T>::TryIntoIntError)?;
         Ok(result)
     }
 
     pub fn collateral_to_wrapped(amount: Collateral<T>) -> Result<Wrapped<T>, DispatchError> {
-        let rate = Self::get_exchange_rate(OracleKey::ExchangeRate(CurrencyId::DOT))?;
+        let rate = Self::get_price(OracleKey::ExchangeRate(CurrencyId::DOT))?;
         if amount.is_zero() {
             return Ok(Zero::zero());
         }
@@ -351,7 +351,7 @@ impl<T: Config> Pallet<T> {
     ///
     /// * `exchange_rate` - i.e. planck per satoshi
     pub fn _set_exchange_rate(exchange_rate: UnsignedFixedPoint<T>) -> DispatchResult {
-        ExchangeRate::<T>::insert(OracleKey::ExchangeRate(CurrencyId::DOT), exchange_rate);
+        Aggregate::<T>::insert(OracleKey::ExchangeRate(CurrencyId::DOT), exchange_rate);
         Ok(())
     }
 
@@ -359,7 +359,7 @@ impl<T: Config> Pallet<T> {
         ext::security::set_status::<T>(StatusCode::Error);
         ext::security::insert_error::<T>(ErrorCode::OracleOffline);
         if let Some(key) = key {
-            ExchangeRate::<T>::remove(key);
+            Aggregate::<T>::remove(key);
             ValidUntil::<T>::remove(key);
         }
     }

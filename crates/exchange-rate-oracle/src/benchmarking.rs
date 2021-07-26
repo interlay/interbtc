@@ -18,7 +18,7 @@ benchmarks! {
     verify {
         let key = OracleKey::ExchangeRate(CurrencyId::DOT);
         crate::Pallet::<T>::begin_block(0u32.into());
-        assert!(ExchangeRate::<T>::get(key).is_some());
+        assert!(Aggregate::<T>::get(key).is_some());
     }
 
     insert_authorized_oracle {
