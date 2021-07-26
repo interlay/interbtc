@@ -258,7 +258,7 @@ fn integration_test_vault_withdrawal_cannot_exceed_max_nomination_taio() {
         // Need to withdraw 10 units to account for rounding errors
         assert_noop!(
             withdraw_vault_collateral(VAULT, 10),
-            VaultRegistryError::MaxNominatioRatioViolation
+            VaultRegistryError::MaxNominationRatioViolation
         );
     })
 }

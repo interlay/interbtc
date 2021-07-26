@@ -406,7 +406,7 @@ pub mod pallet {
         /// Deposit address could not be generated with the given public key.
         InvalidPublicKey,
         /// The Max Nomination Ratio would be exceeded.
-        MaxNominatioRatioViolation,
+        MaxNominationRatioViolation,
 
         // Errors used exclusively in RPC functions
         /// Collateralization is infinite if no tokens are issued
@@ -645,7 +645,7 @@ impl<T: Config> Pallet<T> {
         );
         ensure!(
             Self::is_max_nomination_ratio_preserved(vault_id, amount)?,
-            Error::<T>::MaxNominatioRatioViolation
+            Error::<T>::MaxNominationRatioViolation
         );
         Self::force_withdraw_collateral(vault_id, amount)
     }
@@ -684,7 +684,6 @@ impl<T: Config> Pallet<T> {
             .ok_or(Error::<T>::ArithmeticOverflow)?;
 
         let is_below_threshold = Pallet::<T>::is_collateral_below_secure_threshold(new_collateral, tokens)?;
-
         Ok(!is_below_threshold)
     }
 
