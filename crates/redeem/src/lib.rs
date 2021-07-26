@@ -53,11 +53,7 @@ pub mod pallet {
     /// The pallet's configuration trait.
     #[pallet::config]
     pub trait Config:
-        frame_system::Config
-        + vault_registry::Config
-        + btc_relay::Config
-        + fee::Config<UnsignedInner = BalanceOf<Self>>
-        + sla::Config<Balance = BalanceOf<Self>>
+        frame_system::Config + vault_registry::Config + btc_relay::Config + fee::Config<UnsignedInner = BalanceOf<Self>>
     {
         /// The overarching event type.
         type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
@@ -505,19 +501,25 @@ impl<T: Config> Pallet<T> {
         } else {
             // not liquidated
 
-            // calculate the amount to slash, a high SLA means we slash less
-            let punishment_fee_in_collateral =
-                ext::vault_registry::calculate_slashed_amount::<T>(&vault_id, amount_wrapped_in_collateral, reimburse)?;
+            // calculate the punishment fee (e.g. 10%)
+            let punishment_fee_in_collateral = ext::fee::get_punishment_fee::<T>(amount_wrapped_in_collateral)?;
+
+            let amount_to_slash = if reimburse {
+                // 100% + punishment fee on reimburse
+                amount_wrapped_in_collateral + punishment_fee_in_collateral
+            } else {
+                punishment_fee_in_collateral
+            };
 
             ext::vault_registry::transfer_funds_saturated::<T>(
                 CurrencySource::Collateral(vault_id.clone()),
                 CurrencySource::FreeBalance(redeemer.clone()),
-                punishment_fee_in_collateral,
+                amount_to_slash,
             )?;
 
             let _ = ext::vault_registry::ban_vault::<T>(vault_id.clone());
 
-            punishment_fee_in_collateral
+            amount_to_slash
         };
 
         // first update the issued tokens; this logic is the same regardless of whether or not the vault is liquidated
@@ -532,7 +534,7 @@ impl<T: Config> Pallet<T> {
             ext::fee::distribute_rewards::<T>(redeem.fee)?;
 
             if ext::vault_registry::is_vault_below_secure_threshold::<T>(&redeem.vault)? {
-                // vault can not afford to back the tokens that he would receive, so we burn it
+                // vault can not afford to back the tokens that it would receive, so we burn it
                 ext::treasury::burn::<T>(&redeemer, vault_to_be_burned_tokens)?;
                 ext::vault_registry::decrease_tokens::<T>(&redeem.vault, &redeem.redeemer, vault_to_be_burned_tokens)?;
                 Self::set_redeem_status(redeem_id, RedeemRequestStatus::Reimbursed(false))
@@ -555,7 +557,6 @@ impl<T: Config> Pallet<T> {
             Self::set_redeem_status(redeem_id, RedeemRequestStatus::Retried)
         };
 
-        ext::sla::event_update_vault_sla::<T>(&vault_id, ext::sla::Action::RedeemFailure)?;
         Self::deposit_event(<Event<T>>::CancelRedeem(
             redeem_id,
             redeemer,

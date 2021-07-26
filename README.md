@@ -72,7 +72,6 @@ The Substrate runtime makes use of various custom pallets that are found in the 
 - [refund](crates/refund) Handles refunds for when a vault receives more BTC than it can cover.
 - [replace](crates/replace) Handles replacing vaults.
 - [security](crates/security): Handles BTC Parachain status and error changes.
-- [sla](crates/sla): Participant scoring for reward & slashing calculations.
 - [relay](crates/relay): Handles block submission and theft reporting.
 - [vault-registry](crates/vault-registry): Handles registration, collateral and liquidation of vaults.
 

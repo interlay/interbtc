@@ -629,9 +629,11 @@ fn integration_test_issue_wrapped_execute_liquidated() {
 
         assert_eq!(
             ParachainState::get(),
-            post_liquidation_status.with_changes(|user, _vault, liquidation_vault, fee_pool| {
+            post_liquidation_status.with_changes(|user, _vault, liquidation_vault, _fee_pool| {
                 user.free_tokens += issue.amount;
-                fee_pool.vault_rewards += issue.fee;
+
+                // since the vault has been liquidated execute rewards
+                // are transferred to the treasury
 
                 user.free_balance += issue.griefing_collateral;
                 user.locked_balance -= issue.griefing_collateral;

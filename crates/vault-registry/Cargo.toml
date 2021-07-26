@@ -29,7 +29,6 @@ bitcoin = { path = "../bitcoin", default-features = false }
 exchange-rate-oracle = { path = "../exchange-rate-oracle", default-features = false }
 security = { path = "../security", default-features = false }
 currency = { path = "../currency", default-features = false }
-sla = { path = "../sla", default-features = false }
 reward = { path = "../reward", default-features = false }
 staking = { path = "../staking", default-features = false }
 
@@ -64,7 +63,6 @@ std = [
   "security/std",
   "currency/std",
   "reward/std",
-  "sla/std",
   "staking/std",
 ]
 runtime-benchmarks = [

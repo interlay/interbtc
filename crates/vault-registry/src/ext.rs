@@ -70,36 +70,6 @@ pub(crate) mod security {
 }
 
 #[cfg_attr(test, mockable)]
-pub(crate) mod sla {
-    use crate::types::{BalanceOf, UnsignedFixedPoint};
-    use frame_support::dispatch::DispatchError;
-    pub use sla::Action;
-
-    pub fn calculate_slashed_amount<T: crate::Config>(
-        vault_id: &T::AccountId,
-        stake: BalanceOf<T>,
-        reimburse: bool,
-        liquidation_threshold: UnsignedFixedPoint<T>,
-        premium_redeem_threshold: UnsignedFixedPoint<T>,
-    ) -> Result<BalanceOf<T>, DispatchError> {
-        <sla::Pallet<T>>::calculate_slashed_amount(
-            vault_id,
-            stake,
-            reimburse,
-            liquidation_threshold,
-            premium_redeem_threshold,
-        )
-    }
-
-    pub fn event_update_vault_sla<T: crate::Config>(
-        vault_id: &T::AccountId,
-        action: Action<BalanceOf<T>>,
-    ) -> Result<(), DispatchError> {
-        <sla::Pallet<T>>::event_update_vault_sla(vault_id, action)
-    }
-}
-
-#[cfg_attr(test, mockable)]
 pub(crate) mod staking {
     use crate::types::{SignedFixedPoint, SignedInner};
     use frame_support::{dispatch::DispatchError, traits::Get};

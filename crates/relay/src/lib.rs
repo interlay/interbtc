@@ -60,7 +60,6 @@ pub mod pallet {
         + redeem::Config
         + replace::Config
         + refund::Config
-        + sla::Config
         + fee::Config
     {
         /// The overarching event type.
@@ -183,8 +182,6 @@ pub mod pallet {
         ///     - One storage write to store best block height. O(1)
         /// - Notable Computation:
         /// 	- O(P) sort to reorg chains.
-        /// - External Module Operations:
-        /// 	- Updates relayer sla score.
         /// - Events:
         /// 	- One event for block stored (fork or extension).
         ///
@@ -200,7 +197,7 @@ pub mod pallet {
             let relayer = ensure_signed(origin)?;
 
             let block_header = ext::btc_relay::parse_raw_block_header::<T>(&raw_block_header)?;
-            Self::store_block_header_and_update_sla(&relayer, block_header)?;
+            ext::btc_relay::store_block_header::<T>(&relayer, block_header)?;
 
             // don't take tx fees on success
             Ok(Pays::No.into())
@@ -224,7 +221,7 @@ pub mod pallet {
             raw_tx: Vec<u8>,
         ) -> DispatchResultWithPostInfo {
             ext::security::ensure_parachain_status_not_shutdown::<T>()?;
-            let signer = ensure_signed(origin)?;
+            let _ = ensure_signed(origin)?;
 
             let merkle_proof = ext::btc_relay::parse_merkle_proof::<T>(&raw_merkle_proof)?;
             let transaction = parse_transaction(raw_tx.as_slice()).map_err(|_| Error::<T>::InvalidTransaction)?;
@@ -247,8 +244,7 @@ pub mod pallet {
                 reports.insert(vault_id.clone());
             });
 
-            // reward the reporter by increasing their SLA
-            ext::sla::event_update_vault_sla::<T>(&signer, ext::sla::Action::TheftReport)?;
+            // TODO: reward the reporter from slashed Vault
             Self::deposit_event(<Event<T>>::VaultTheft(vault_id, tx_id));
 
             // don't take tx fees on success
@@ -276,7 +272,7 @@ pub mod pallet {
             raw_txs: (Vec<u8>, Vec<u8>),
         ) -> DispatchResultWithPostInfo {
             ext::security::ensure_parachain_status_not_shutdown::<T>()?;
-            let signer = ensure_signed(origin)?;
+            let _ = ensure_signed(origin)?;
 
             // transactions must be unique
             ensure!(raw_txs.0 != raw_txs.1, Error::<T>::DuplicateTransaction);
@@ -322,8 +318,7 @@ pub mod pallet {
                         reports.insert(vault_id.clone());
                     });
 
-                    // reward the reporter by increasing their SLA
-                    ext::sla::event_update_vault_sla::<T>(&signer, ext::sla::Action::TheftReport)?;
+                    // TODO: reward the reporter from slashed Vault
                     Self::deposit_event(<Event<T>>::VaultDoublePayment(vault_id, left_tx_id, right_tx_id));
 
                     // don't take tx fees on success
@@ -338,13 +333,6 @@ pub mod pallet {
 // "Internal" functions, callable by code.
 #[cfg_attr(test, mockable)]
 impl<T: Config> Pallet<T> {
-    fn store_block_header_and_update_sla(relayer: &T::AccountId, block_header: BlockHeader) -> DispatchResult {
-        ext::btc_relay::store_block_header::<T>(&relayer, block_header)?;
-        // reward the participant by increasing their SLA
-        ext::sla::event_update_vault_sla::<T>(&relayer, ext::sla::Action::StoreBlock)?;
-        Ok(())
-    }
-
     pub(crate) fn has_input_from_wallet(transaction: &Transaction, wallet: &Wallet) -> bool {
         // collect all addresses that feature in the inputs of the transaction
         let input_addresses: Vec<Result<BtcAddress, _>> = transaction

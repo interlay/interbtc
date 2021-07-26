@@ -80,7 +80,6 @@ pub mod pallet {
         frame_system::Config
         + SendTransactionTypes<Call<Self>>
         + exchange_rate_oracle::Config<Balance = BalanceOf<Self>>
-        + sla::Config<Balance = BalanceOf<Self>>
         + security::Config
         + staking::Config<SignedInner = SignedInner<Self>, SignedFixedPoint = SignedFixedPoint<Self>>
     {
@@ -598,16 +597,16 @@ impl<T: Config> Pallet<T> {
     /// * `vault_id` - the id of the vault
     /// * `amount` - the amount of collateral
     pub fn try_deposit_collateral(vault_id: &T::AccountId, amount: Collateral<T>) -> DispatchResult {
-        let vault = Self::get_active_rich_vault_from_id(vault_id)?;
+        // ensure the vault is active
+        let _ = Self::get_active_rich_vault_from_id(vault_id)?;
 
         // will fail if free_balance is insufficient
         ext::collateral::lock::<T>(vault_id, amount)?;
         Self::increase_total_backing_collateral(amount)?;
 
         // Deposit `amount` of stake in the pool
-        ext::staking::deposit_stake::<T>(vault_id, vault_id, Self::collateral_to_fixed(amount)?)?;
+        ext::staking::deposit_stake::<T>(vault_id, vault_id, Self::currency_to_fixed(amount)?)?;
 
-        ext::sla::event_update_vault_sla::<T>(&vault.id(), ext::sla::Action::Deposit(amount))?;
         Ok(())
     }
 
@@ -617,16 +616,13 @@ impl<T: Config> Pallet<T> {
     /// * `vault_id` - the id of the vault
     /// * `amount` - the amount of collateral
     pub fn force_withdraw_collateral(vault_id: &T::AccountId, amount: Collateral<T>) -> DispatchResult {
-        let vault = Self::get_rich_vault_from_id(vault_id)?;
-
         // will fail if reserved_balance is insufficient
         ext::collateral::unlock::<T>(vault_id, amount)?;
         Self::decrease_total_backing_collateral(amount)?;
 
         // Withdraw `amount` of stake from the pool
-        ext::staking::withdraw_stake::<T>(vault_id, vault_id, Self::collateral_to_fixed(amount)?)?;
+        ext::staking::withdraw_stake::<T>(vault_id, vault_id, Self::currency_to_fixed(amount)?)?;
 
-        ext::sla::event_update_vault_sla::<T>(&vault.id(), ext::sla::Action::Withdraw(amount))?;
         Ok(())
     }
 
@@ -684,7 +680,7 @@ impl<T: Config> Pallet<T> {
 
     fn slash_backing_collateral(vault_id: &T::AccountId, amount: Collateral<T>) -> DispatchResult {
         ext::collateral::unlock::<T>(vault_id, amount)?;
-        ext::staking::slash_stake::<T>(vault_id, Self::collateral_to_fixed(amount)?)?;
+        ext::staking::slash_stake::<T>(vault_id, Self::currency_to_fixed(amount)?)?;
         Ok(())
     }
 
@@ -981,7 +977,7 @@ impl<T: Config> Pallet<T> {
             vault.decrease_liquidated_collateral(to_be_released)?;
 
             // release vault's collateral
-            ext::staking::unslash_stake::<T>(vault_id, Self::collateral_to_fixed(to_be_released)?)?;
+            ext::staking::unslash_stake::<T>(vault_id, Self::currency_to_fixed(to_be_released)?)?;
 
             Self::deposit_event(Event::<T>::RedeemTokensLiquidatedVault(
                 vault_id.clone(),
@@ -1067,7 +1063,7 @@ impl<T: Config> Pallet<T> {
             old_vault.decrease_liquidated_collateral(to_be_released)?;
 
             // release old-vault's collateral
-            ext::staking::unslash_stake::<T>(old_vault_id, Self::collateral_to_fixed(to_be_released)?)?;
+            ext::staking::unslash_stake::<T>(old_vault_id, Self::currency_to_fixed(to_be_released)?)?;
         }
 
         old_vault.decrease_tokens(tokens)?;
@@ -1154,7 +1150,6 @@ impl<T: Config> Pallet<T> {
         let vault_orig = vault.data.clone();
 
         let to_slash = vault.liquidate(status)?;
-        ext::sla::event_update_vault_sla::<T>(&vault.id(), ext::sla::Action::Liquidate)?;
 
         Self::deposit_event(Event::<T>::LiquidateVault(
             vault_id.clone(),
@@ -1167,27 +1162,6 @@ impl<T: Config> Pallet<T> {
             vault_orig.replace_collateral,
         ));
         Ok(to_slash)
-    }
-
-    /// Calculate the amount that is slashed when the the vault fails to execute.
-    ///
-    /// # Arguments
-    ///
-    /// * `vault_id` - account of the vault in question
-    /// * `stake` - the amount of collateral placed for the redeem/replace
-    /// * `reimburse` - if true, this function returns 110-130%. If false, it returns 10-30%
-    pub fn calculate_slashed_amount(
-        vault_id: &T::AccountId,
-        stake: Collateral<T>,
-        reimburse: bool,
-    ) -> Result<Collateral<T>, DispatchError> {
-        ext::sla::calculate_slashed_amount::<T>(
-            vault_id,
-            stake,
-            reimburse,
-            Self::liquidation_collateral_threshold(),
-            Self::premium_redeem_threshold(),
-        )
     }
 
     pub(crate) fn increase_total_backing_collateral(amount: Collateral<T>) -> DispatchResult {
@@ -1677,7 +1651,7 @@ impl<T: Config> Pallet<T> {
         Ok(btc_address)
     }
 
-    pub(crate) fn collateral_to_fixed(x: Collateral<T>) -> Result<SignedFixedPoint<T>, DispatchError> {
+    pub(crate) fn currency_to_fixed(x: Collateral<T>) -> Result<SignedFixedPoint<T>, DispatchError> {
         let signed_inner = TryInto::<SignedInner<T>>::try_into(x).map_err(|_| Error::<T>::TryIntoIntError)?;
         let signed_fixed_point = <T as pallet::Config>::SignedFixedPoint::checked_from_integer(signed_inner)
             .ok_or(Error::<T>::TryIntoIntError)?;
