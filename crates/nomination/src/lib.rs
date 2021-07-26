@@ -98,6 +98,7 @@ pub mod pallet {
         VaultNominationDisabled,
         DepositViolatesMaxNominationRatio,
         HasNominatedCollateral,
+        CollateralizationTooLow,
     }
 
     #[pallet::hooks]
@@ -278,6 +279,11 @@ impl<T: Config> Pallet<T> {
     }
 
     fn _opt_out_of_nomination(vault_id: &T::AccountId) -> DispatchResult {
+        let total_nominated_collateral = Self::get_total_nominated_collateral(&vault_id)?;
+        ensure!(
+            ext::vault_registry::is_allowed_to_withdraw_collateral::<T>(&vault_id, total_nominated_collateral)?,
+            Error::<T>::CollateralizationTooLow
+        );
         ext::staking::force_refund::<T>(vault_id)?;
         <Vaults<T>>::remove(vault_id);
         Self::deposit_event(Event::<T>::NominationOptOut(vault_id.clone()));

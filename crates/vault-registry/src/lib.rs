@@ -663,7 +663,7 @@ impl<T: Config> Pallet<T> {
             .checked_sub(&amount)
             .ok_or(Error::<T>::ArithmeticUnderflow)?;
         let max_nomination_after_withdrawal = Self::get_max_nominatable_collateral(new_vault_collateral)?;
-        Ok(current_nomination.le(&max_nomination_after_withdrawal))
+        Ok(current_nomination <= max_nomination_after_withdrawal)
     }
 
     /// Checks if the vault would be above the secure threshold after withdrawing collateral
@@ -1566,6 +1566,9 @@ impl<T: Config> Pallet<T> {
     }
 
     pub fn get_max_nomination_ratio() -> Result<UnsignedFixedPoint<T>, DispatchError> {
+        // MaxNominationRatio = (SecureCollateralThreshold / PremiumRedeemThreshold) - 1)
+        // It denotes the maximum amount of collateral that can be nominated to a particular Vault.
+        // Its effect is to minimise the impact on collateralization of nominator withdrawals.
         let secure_collateral_threshold = Self::secure_collateral_threshold();
         let premium_redeem_threshold = Self::premium_redeem_threshold();
         Ok(secure_collateral_threshold
@@ -1576,7 +1579,7 @@ impl<T: Config> Pallet<T> {
     }
 
     pub fn get_max_nominatable_collateral(vault_collateral: Collateral<T>) -> Result<Collateral<T>, DispatchError> {
-        Self::percentage_of_amount(vault_collateral, Self::get_max_nomination_ratio()?)
+        Self::fraction_of_amount(vault_collateral, Self::get_max_nomination_ratio()?)
     }
 
     /// Private getters and setters
@@ -1719,9 +1722,9 @@ impl<T: Config> Pallet<T> {
         Ok(signed_fixed_point)
     }
 
-    pub(crate) fn percentage_of_amount(
+    pub(crate) fn fraction_of_amount(
         amount: BalanceOf<T>,
-        percentage: UnsignedFixedPoint<T>,
+        fraction: UnsignedFixedPoint<T>,
     ) -> Result<BalanceOf<T>, DispatchError> {
         // we add 0.5 before we do the final integer division to round the result we return.
         // note that unwrapping is safe because we use a constant
@@ -1729,7 +1732,7 @@ impl<T: Config> Pallet<T> {
 
         UnsignedFixedPoint::<T>::checked_from_integer(amount)
             .ok_or(Error::<T>::ArithmeticOverflow)?
-            .checked_mul(&percentage)
+            .checked_mul(&fraction)
             .ok_or(Error::<T>::ArithmeticOverflow)?
             .checked_add(&rounding_addition)
             .ok_or(Error::<T>::ArithmeticOverflow)?
