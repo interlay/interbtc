@@ -272,7 +272,7 @@ impl<T: Config> Pallet<T> {
                     .map(|x| x.timestamp)
                     .min()
                     .map(|timestamp| timestamp + Self::get_max_delay())
-                    .unwrap(); // Won't panic as `values` ensured not empty.
+                    .unwrap_or_default(); // Unwrap will never fail, but if somehow it did, we retry next block
 
                 let mid_index = raw_values.len() / 2;
                 let (_, value, _) = raw_values.select_nth_unstable_by(mid_index as usize, |a, b| a.value.cmp(&b.value));
