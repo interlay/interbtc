@@ -536,34 +536,23 @@ mod spec_based_tests {
         // The returned `replaceCollateral` MUST be released by this function.
         run_test(|| {
             let amount_to_redeem = 100;
-            let to_be_replaced_tokens = 10;
             let replace_collateral = 100;
             assert_ok!(<Test as vault_registry::Config>::Wrapped::mint(
                 &ALICE,
                 amount_to_redeem
             ));
-            <vault_registry::Pallet<Test>>::insert_vault(
-                &BOB,
-                vault_registry::Vault {
-                    id: BOB,
-                    to_be_replaced_tokens: to_be_replaced_tokens,
-                    to_be_issued_tokens: 0,
-                    issued_tokens: amount_to_redeem,
-                    to_be_redeemed_tokens: 0,
-                    replace_collateral: replace_collateral,
-                    wallet: Wallet::new(dummy_public_key()),
-                    banned_until: None,
-                    status: VaultStatus::Active(true),
-                    ..Default::default()
-                },
-            );
+            ext::vault_registry::ensure_not_banned::<Test>.mock_safe(move |_vault_id| MockResult::Return(Ok(())));
+            ext::vault_registry::try_increase_to_be_redeemed_tokens::<Test>
+                .mock_safe(move |_vault_id, _amount| MockResult::Return(Ok(())));
+            ext::vault_registry::is_vault_below_premium_threshold::<Test>
+                .mock_safe(move |_vault_id| MockResult::Return(Ok(false)));
             let redeem_fee = Fee::get_redeem_fee(amount_to_redeem).unwrap();
             let burned_tokens = amount_to_redeem - redeem_fee;
 
             ext::vault_registry::decrease_to_be_replaced_tokens::<Test>.mock_safe(move |vault_id, tokens| {
                 assert_eq!(vault_id, &BOB);
                 assert_eq!(tokens, burned_tokens);
-                MockResult::Return(VaultRegistry::decrease_to_be_replaced_tokens(vault_id, tokens))
+                MockResult::Return(Ok((0, 0)))
             });
 
             // The returned `replaceCollateral` MUST be released
