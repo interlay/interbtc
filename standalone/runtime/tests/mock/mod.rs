@@ -827,7 +827,7 @@ impl ExtBuilder {
 
         issue::GenesisConfig::<Runtime> {
             issue_period: 10,
-            issue_btc_dust_value: 0,
+            issue_btc_dust_value: 2,
         }
         .assimilate_storage(&mut storage)
         .unwrap();
