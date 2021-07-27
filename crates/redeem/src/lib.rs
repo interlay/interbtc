@@ -626,8 +626,7 @@ impl<T: Config> Pallet<T> {
     pub fn get_current_inclusion_fee() -> Result<Wrapped<T>, DispatchError> {
         {
             let size: u32 = Self::redeem_transaction_size();
-            let satoshi_per_bytes =
-                ext::oracle::get_exchange_rate::<T>(OracleKey::FeeEstimation(BitcoinInclusionTime::Fast))?;
+            let satoshi_per_bytes = ext::oracle::get_price::<T>(OracleKey::FeeEstimation(BitcoinInclusionTime::Fast))?;
 
             let fee = satoshi_per_bytes
                 .checked_mul_int(size)

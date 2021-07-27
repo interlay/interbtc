@@ -494,7 +494,6 @@ fn test_cancel_redeem_succeeds() {
             MockResult::Return(Ok(()))
         });
         ext::treasury::unlock::<Test>.mock_safe(|_, _| MockResult::Return(Ok(())));
-        ext::vault_registry::calculate_slashed_amount::<Test>.mock_safe(move |_, _, _| MockResult::Return(Ok(0)));
         ext::vault_registry::transfer_funds_saturated::<Test>.mock_safe(move |_, _, _| MockResult::Return(Ok(0)));
         ext::vault_registry::get_vault_from_id::<Test>.mock_safe(|_| {
             MockResult::Return(Ok(vault_registry::types::Vault {
@@ -512,7 +511,7 @@ fn test_cancel_redeem_succeeds() {
             H256([0; 32]),
             ALICE,
             BOB,
-            0,
+            1,
             RedeemRequestStatus::Retried
         ));
     })
