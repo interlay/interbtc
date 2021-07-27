@@ -109,7 +109,7 @@ fn test_request_redeem_fails_with_amount_below_minimum() {
 fn test_request_redeem_fails_with_vault_not_found() {
     run_test(|| {
         assert_err!(
-            Redeem::request_redeem(Origin::signed(ALICE), 0, BtcAddress::default(), BOB),
+            Redeem::request_redeem(Origin::signed(ALICE), 1500, BtcAddress::default(), BOB),
             VaultRegistryError::VaultNotFound
         );
     })
@@ -122,7 +122,7 @@ fn test_request_redeem_fails_with_vault_banned() {
             .mock_safe(|_| MockResult::Return(Err(VaultRegistryError::VaultBanned.into())));
 
         assert_err!(
-            Redeem::request_redeem(Origin::signed(ALICE), 0, BtcAddress::default(), BOB),
+            Redeem::request_redeem(Origin::signed(ALICE), 1500, BtcAddress::default(), BOB),
             VaultRegistryError::VaultBanned
         );
     })
@@ -524,4 +524,49 @@ fn test_set_redeem_period_only_root() {
         );
         assert_ok!(Redeem::set_redeem_period(Origin::root(), 1));
     })
+}
+
+mod spec_based_tests {
+    use super::*;
+
+    #[test]
+    fn test_request_reduces_to_be_replaced() {
+        // Checked POSTCONDITION: `decreaseToBeReplacedTokens` MUST be called, supplying `vault` and `burnedTokens`.
+        // The returned `replaceCollateral` MUST be released by this function.
+        run_test(|| {
+            let amount_to_redeem = 100;
+            let replace_collateral = 100;
+            assert_ok!(<Test as vault_registry::Config>::Wrapped::mint(
+                &ALICE,
+                amount_to_redeem
+            ));
+            ext::vault_registry::ensure_not_banned::<Test>.mock_safe(move |_vault_id| MockResult::Return(Ok(())));
+            ext::vault_registry::try_increase_to_be_redeemed_tokens::<Test>
+                .mock_safe(move |_vault_id, _amount| MockResult::Return(Ok(())));
+            ext::vault_registry::is_vault_below_premium_threshold::<Test>
+                .mock_safe(move |_vault_id| MockResult::Return(Ok(false)));
+            let redeem_fee = Fee::get_redeem_fee(amount_to_redeem).unwrap();
+            let burned_tokens = amount_to_redeem - redeem_fee;
+
+            ext::vault_registry::decrease_to_be_replaced_tokens::<Test>.mock_safe(move |vault_id, tokens| {
+                assert_eq!(vault_id, &BOB);
+                assert_eq!(tokens, burned_tokens);
+                MockResult::Return(Ok((0, 0)))
+            });
+
+            // The returned `replaceCollateral` MUST be released
+            ext::collateral::release_collateral::<Test>.mock_safe(move |vault_id, collateral| {
+                assert_eq!(vault_id, &BOB);
+                assert_eq!(collateral, replace_collateral);
+                MockResult::Return(Ok(()))
+            });
+
+            assert_ok!(Redeem::request_redeem(
+                Origin::signed(ALICE),
+                amount_to_redeem,
+                BtcAddress::random(),
+                BOB
+            ));
+        })
+    }
 }

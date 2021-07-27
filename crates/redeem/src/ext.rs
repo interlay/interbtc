@@ -216,6 +216,10 @@ pub(crate) mod security {
         <security::Pallet<T>>::ensure_parachain_status_not_shutdown()
     }
 
+    pub fn ensure_parachain_status_running<T: crate::Config>() -> Result<(), DispatchError> {
+        <security::Pallet<T>>::ensure_parachain_status_running()
+    }
+
     pub fn active_block_number<T: crate::Config>() -> T::BlockNumber {
         <security::Pallet<T>>::active_block_number()
     }

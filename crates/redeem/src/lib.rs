@@ -309,7 +309,7 @@ impl<T: Config> Pallet<T> {
         btc_address: BtcAddress,
         vault_id: T::AccountId,
     ) -> Result<H256, DispatchError> {
-        ext::security::ensure_parachain_status_not_shutdown::<T>()?;
+        ext::security::ensure_parachain_status_running::<T>()?;
 
         let redeemer_balance = ext::treasury::get_balance::<T>(&redeemer);
         ensure!(amount_wrapped <= redeemer_balance, Error::<T>::AmountExceedsUserBalance);
@@ -452,7 +452,7 @@ impl<T: Config> Pallet<T> {
     }
 
     fn _cancel_redeem(redeemer: T::AccountId, redeem_id: H256, reimburse: bool) -> DispatchResult {
-        ext::security::ensure_parachain_status_not_shutdown::<T>()?;
+        ext::security::ensure_parachain_status_running::<T>()?;
 
         let redeem = Self::get_open_redeem_request_from_id(&redeem_id)?;
         ensure!(redeemer == redeem.redeemer, Error::<T>::UnauthorizedUser);
@@ -569,7 +569,7 @@ impl<T: Config> Pallet<T> {
     }
 
     fn _mint_tokens_for_reimbursed_redeem(vault_id: T::AccountId, redeem_id: H256) -> DispatchResult {
-        ext::security::ensure_parachain_status_not_shutdown::<T>()?;
+        ext::security::ensure_parachain_status_running::<T>()?;
         ensure!(
             <RedeemRequests<T>>::contains_key(&redeem_id),
             Error::<T>::RedeemIdNotFound
@@ -602,20 +602,6 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
-    /// get current inclusion fee based on the expected number of bytes in the transaction, and
-    /// the inclusion fee rate reported by the oracle
-    fn get_current_inclusion_fee() -> Result<Wrapped<T>, DispatchError> {
-        {
-            let size: u32 = Self::redeem_transaction_size();
-            let satoshi_per_bytes: u32 = ext::oracle::satoshi_per_bytes::<T>().fast;
-
-            let fee = (size as u64)
-                .checked_mul(satoshi_per_bytes as u64)
-                .ok_or(Error::<T>::ArithmeticOverflow)?;
-            fee.try_into().map_err(|_| Error::<T>::TryIntoIntError.into())
-        }
-    }
-
     /// Insert a new redeem request into state.
     ///
     /// # Arguments
@@ -632,6 +618,20 @@ impl<T: Config> Pallet<T> {
         });
 
         status
+    }
+
+    /// get current inclusion fee based on the expected number of bytes in the transaction, and
+    /// the inclusion fee rate reported by the oracle
+    pub fn get_current_inclusion_fee() -> Result<Wrapped<T>, DispatchError> {
+        {
+            let size: u32 = Self::redeem_transaction_size();
+            let satoshi_per_bytes: u32 = ext::oracle::satoshi_per_bytes::<T>().fast;
+
+            let fee = (size as u64)
+                .checked_mul(satoshi_per_bytes as u64)
+                .ok_or(Error::<T>::ArithmeticOverflow)?;
+            fee.try_into().map_err(|_| Error::<T>::TryIntoIntError.into())
+        }
     }
 
     /// Fetch all redeem requests for the specified account.

@@ -16,6 +16,7 @@ pub use interbtc_runtime_standalone::{
 };
 pub use mocktopus::mocking::*;
 pub use orml_tokens::CurrencyAdapter;
+use redeem::RedeemRequestStatus;
 pub use security::{ErrorCode, StatusCode};
 pub use sp_arithmetic::{FixedI128, FixedPointNumber, FixedU128};
 pub use sp_core::{H160, H256, U256};
@@ -31,6 +32,8 @@ pub use reward::Rewards;
 pub use sp_runtime::AccountId32;
 pub use std::convert::TryFrom;
 pub use vault_registry::{Vault, VaultStatus};
+
+use self::redeem_testing_utils::USER_BTC_ADDRESS;
 
 pub mod issue_testing_utils;
 pub mod nomination_testing_utils;
@@ -148,6 +151,49 @@ pub fn default_vault_state() -> CoreVaultData {
         liquidated_collateral: 0,
         replace_collateral: DEFAULT_VAULT_REPLACE_COLLATERAL,
         to_be_replaced: DEFAULT_VAULT_TO_BE_REPLACED,
+    }
+}
+
+pub fn premium_redeem_request(
+    user_to_redeem: u128,
+    vault: [u8; 32],
+    user: [u8; 32],
+) -> RedeemRequest<AccountId, BlockNumber, u128, u128> {
+    let redeem_fee = FeePallet::get_redeem_fee(user_to_redeem).unwrap();
+    let burned_tokens = user_to_redeem - redeem_fee;
+    let inclusion_fee = RedeemPallet::get_current_inclusion_fee().unwrap();
+    let premium_redeem_fee = FeePallet::get_premium_redeem_fee(burned_tokens - inclusion_fee).unwrap();
+
+    RedeemRequest {
+        premium: premium_redeem_fee,
+        ..default_redeem_request(user_to_redeem, vault, user)
+    }
+}
+
+pub fn default_redeem_request(
+    user_to_redeem: u128,
+    vault: [u8; 32],
+    user: [u8; 32],
+) -> RedeemRequest<AccountId, BlockNumber, u128, u128> {
+    let redeem_fee = FeePallet::get_redeem_fee(user_to_redeem).unwrap();
+    let burned_tokens = user_to_redeem - redeem_fee;
+    let inclusion_fee = RedeemPallet::get_current_inclusion_fee().unwrap();
+    let redeem_period = RedeemPallet::redeem_period();
+    let btc_height = BTCRelayPallet::get_best_block_height();
+    let opentime = SecurityPallet::active_block_number();
+
+    RedeemRequest {
+        vault: account_of(vault),
+        opentime,
+        fee: redeem_fee,
+        transfer_fee_btc: inclusion_fee,
+        amount_btc: burned_tokens - inclusion_fee,
+        premium: 0,
+        period: redeem_period,
+        redeemer: account_of(user),
+        btc_address: USER_BTC_ADDRESS,
+        btc_height,
+        status: RedeemRequestStatus::Pending,
     }
 }
 
