@@ -108,8 +108,7 @@ impl ExecuteIssueBuilder {
 
     #[transactional]
     pub fn execute(&mut self) -> DispatchResultWithPostInfo {
-        self.prepare_for_execution()
-            .execute_prepared()
+        self.prepare_for_execution().execute_prepared()
     }
 
     pub fn execute_prepared(&self) -> DispatchResultWithPostInfo {

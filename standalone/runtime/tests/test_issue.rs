@@ -175,11 +175,16 @@ mod request_issue_tests {
 
     #[test]
     fn integration_test_issue_request_precond_vault_registered() {
-        test_with(|| { //...out_initialized_vault
+        test_with(|| {
+            //...out_initialized_vault
             let amount = 1_000;
             assert_noop!(
-                Call::Issue(IssueCall::request_issue(amount, account_of(VAULT), DEFAULT_GRIEFING_COLLATERAL))
-                    .dispatch(origin_of(account_of(USER))),
+                Call::Issue(IssueCall::request_issue(
+                    amount,
+                    account_of(VAULT),
+                    DEFAULT_GRIEFING_COLLATERAL
+                ))
+                .dispatch(origin_of(account_of(USER))),
                 VaultRegistryError::VaultNotFound
             );
         });
@@ -225,8 +230,12 @@ mod request_issue_tests {
             let griefing_collateral = FeePallet::get_issue_griefing_collateral(amount_in_collateral).unwrap();
             // fails below minimum
             assert_noop!(
-                Call::Issue(IssueCall::request_issue(amount, account_of(VAULT), griefing_collateral - 1))
-                    .dispatch(origin_of(account_of(USER))),
+                Call::Issue(IssueCall::request_issue(
+                    amount,
+                    account_of(VAULT),
+                    griefing_collateral - 1
+                ))
+                .dispatch(origin_of(account_of(USER))),
                 IssueError::InsufficientCollateral
             );
             // succeeds at minimum
@@ -235,10 +244,12 @@ mod request_issue_tests {
                     .dispatch(origin_of(account_of(USER)))
             );
             // succeeds above minimum
-            assert_ok!(
-                Call::Issue(IssueCall::request_issue(amount, account_of(VAULT), griefing_collateral * 2))
-                    .dispatch(origin_of(account_of(USER)))
-            );
+            assert_ok!(Call::Issue(IssueCall::request_issue(
+                amount,
+                account_of(VAULT),
+                griefing_collateral * 2
+            ))
+            .dispatch(origin_of(account_of(USER))));
         });
     }
 
@@ -274,20 +285,20 @@ mod request_issue_tests {
             let griefing_collateral = 1_000_000;
             assert_noop!(
                 Call::Issue(IssueCall::request_issue(
-                        amount_btc,
-                        account_of(VAULT),
-                        griefing_collateral + 1,
-                )).dispatch(origin_of(account_of(USER))),
+                    amount_btc,
+                    account_of(VAULT),
+                    griefing_collateral + 1,
+                ))
+                .dispatch(origin_of(account_of(USER))),
                 TokensError::BalanceTooLow
             );
 
-            assert_ok!(
-                Call::Issue(IssueCall::request_issue(
-                        amount_btc,
-                        account_of(VAULT),
-                        griefing_collateral
-                )).dispatch(origin_of(account_of(USER))),
-            );
+            assert_ok!(Call::Issue(IssueCall::request_issue(
+                amount_btc,
+                account_of(VAULT),
+                griefing_collateral
+            ))
+            .dispatch(origin_of(account_of(USER))),);
         });
     }
 
@@ -297,14 +308,12 @@ mod request_issue_tests {
             let amount_btc = 10_000;
             let current_block = 500;
             SecurityPallet::set_active_block_number(current_block);
-            assert_ok!(
-                Call::Issue(IssueCall::request_issue(
-                    amount_btc,
-                    account_of(VAULT),
-                    DEFAULT_GRIEFING_COLLATERAL,
-                ))
-                .dispatch(origin_of(account_of(USER)))
-            );
+            assert_ok!(Call::Issue(IssueCall::request_issue(
+                amount_btc,
+                account_of(VAULT),
+                DEFAULT_GRIEFING_COLLATERAL,
+            ))
+            .dispatch(origin_of(account_of(USER))));
 
             assert_eq!(
                 ParachainState::get(),
@@ -318,8 +327,12 @@ mod request_issue_tests {
             let issue_id = assert_issue_request_event();
             let issue = IssuePallet::get_issue_request_from_id(&issue_id).unwrap();
 
-            let expected_btc_address = VaultRegistryPallet::register_deposit_address(&account_of(VAULT), issue_id).unwrap();
-            let expected_public_key = VaultRegistryPallet::get_vault_from_id(&account_of(VAULT)).unwrap().wallet.public_key;
+            let expected_btc_address =
+                VaultRegistryPallet::register_deposit_address(&account_of(VAULT), issue_id).unwrap();
+            let expected_public_key = VaultRegistryPallet::get_vault_from_id(&account_of(VAULT))
+                .unwrap()
+                .wallet
+                .public_key;
             let expected_fee = FeePallet::get_issue_fee(amount_btc).unwrap();
             let expected_height = BTCRelayPallet::get_best_block_height();
 
@@ -334,13 +347,10 @@ mod request_issue_tests {
                 btc_address: expected_btc_address,
                 btc_public_key: expected_public_key,
                 btc_height: expected_height,
-                status: IssueRequestStatus::Pending
+                status: IssueRequestStatus::Pending,
             };
 
-            assert_eq!(
-                issue,
-                expected_issue
-            );
+            assert_eq!(issue, expected_issue);
         });
     }
 }
@@ -571,10 +581,10 @@ mod execute_issue_tests {
 
             assert_noop!(
                 Call::Issue(IssueCall::execute_issue(
-                        Default::default(),
-                        Default::default(),
-                        Default::default()
-                        ))
+                    Default::default(),
+                    Default::default(),
+                    Default::default()
+                ))
                 .dispatch(origin_of(account_of(ALICE))),
                 SecurityError::ParachainShutdown,
             );
@@ -588,14 +598,12 @@ mod execute_issue_tests {
             let nonexistent_issue_id = H256::zero();
 
             let mut executor = ExecuteIssueBuilder::new(issue_id);
-            executor.with_submitter(PROOF_SUBMITTER, true)
+            executor
+                .with_submitter(PROOF_SUBMITTER, true)
                 .with_issue_id(nonexistent_issue_id)
                 .prepare_for_execution();
 
-            assert_noop!(
-                executor.execute_prepared(),
-                IssueError::IssueIdNotFound
-            );
+            assert_noop!(executor.execute_prepared(), IssueError::IssueIdNotFound);
         });
     }
 
@@ -610,10 +618,7 @@ mod execute_issue_tests {
             SecurityPallet::set_active_block_number(IssuePallet::issue_period() + 1 + 1);
             mine_blocks(issue.period + 99);
 
-            assert_noop!(
-                executor.execute_prepared(),
-                IssueError::CommitPeriodExpired
-            );
+            assert_noop!(executor.execute_prepared(), IssueError::CommitPeriodExpired);
         });
     }
 
@@ -668,14 +673,12 @@ mod execute_issue_tests {
             let (issue_id, issue) = request_issue(4_000);
 
             let mut executor = ExecuteIssueBuilder::new(issue_id);
-            executor.with_amount((issue.amount + issue.fee) / 4)
+            executor
+                .with_amount((issue.amount + issue.fee) / 4)
                 .with_submitter(PROOF_SUBMITTER, true)
                 .prepare_for_execution();
 
-            assert_noop!(
-                executor.execute_prepared(),
-                IssueError::InvalidExecutor
-            );
+            assert_noop!(executor.execute_prepared(), IssueError::InvalidExecutor);
         });
     }
 
@@ -686,8 +689,7 @@ mod execute_issue_tests {
             let (issue_id, issue) = request_issue(requested_btc);
             let post_request_state = ParachainState::get();
 
-            ExecuteIssueBuilder::new(issue_id)
-                .assert_execute();
+            ExecuteIssueBuilder::new(issue_id).assert_execute();
 
             assert_eq!(
                 ParachainState::get(),
@@ -703,11 +705,8 @@ mod execute_issue_tests {
             );
 
             let user_issues = IssuePallet::get_issue_requests_for_account(account_of(USER));
-            let (_, onchain_issue) = user_issues.iter().find(|(id, _)| {id == &issue_id}).unwrap();
-            assert_eq!(
-                onchain_issue.status,
-                IssueRequestStatus::Completed(None)
-            );
+            let (_, onchain_issue) = user_issues.iter().find(|(id, _)| id == &issue_id).unwrap();
+            assert_eq!(onchain_issue.status, IssueRequestStatus::Completed(None));
         });
     }
 
@@ -722,10 +721,10 @@ mod execute_issue_tests {
 
             // need stake for rewards to deposit
             assert_ok!(VaultRewardsPallet::deposit_stake(
-                    DOT,
-                    &account_of(VAULT),
-                    signed_fixed_point!(1)
-                ));
+                DOT,
+                &account_of(VAULT),
+                signed_fixed_point!(1)
+            ));
 
             ExecuteIssueBuilder::new(issue_id)
                 .with_amount(sent_btc)
@@ -747,7 +746,9 @@ mod execute_issue_tests {
                     user.free_tokens += issue.amount / 4;
                     fee_pool.vault_rewards += issue.fee / 4;
                     vault.issued += (issue.fee + issue.amount) / 4;
-                    vault.to_be_issued -= issue.fee + issue.amount; // decrease to sent_btc and then decrease to zero happens within execute_issue and adds up to full amount
+                    vault.to_be_issued -= issue.fee + issue.amount; // decrease to sent_btc and then decrease to zero
+                                                                    // happens within execute_issue and adds up to full
+                                                                    // amount
                 })
             );
 
@@ -759,11 +760,8 @@ mod execute_issue_tests {
             completed_issue.status = IssueRequestStatus::Completed(None);
 
             let user_issues = IssuePallet::get_issue_requests_for_account(account_of(USER));
-            let (_, onchain_issue) = user_issues.iter().find(|(id, _)| {id == &issue_id}).unwrap();
-            assert_eq!(
-                onchain_issue,
-                &completed_issue
-            );
+            let (_, onchain_issue) = user_issues.iter().find(|(id, _)| id == &issue_id).unwrap();
+            assert_eq!(onchain_issue, &completed_issue);
         });
     }
 
@@ -788,7 +786,8 @@ mod execute_issue_tests {
 
                     fee_pool.vault_rewards += 2 * issue.fee;
                     vault.issued += sent_btc;
-                    vault.to_be_issued -= requested_btc; // increase to sent_btc and decrease back to zero happens within execute_issue and cancels out
+                    vault.to_be_issued -= requested_btc; // increase to sent_btc and decrease back to zero happens
+                                                         // within execute_issue and cancels out
                 })
             );
 
@@ -800,11 +799,8 @@ mod execute_issue_tests {
             completed_issue.status = IssueRequestStatus::Completed(None);
 
             let user_issues = IssuePallet::get_issue_requests_for_account(account_of(USER));
-            let (_, onchain_issue) = user_issues.iter().find(|(id, _)| {id == &issue_id}).unwrap();
-            assert_eq!(
-                onchain_issue,
-                &completed_issue
-            );
+            let (_, onchain_issue) = user_issues.iter().find(|(id, _)| id == &issue_id).unwrap();
+            assert_eq!(onchain_issue, &completed_issue);
         });
     }
 
@@ -852,11 +848,8 @@ mod execute_issue_tests {
             assert_eq!(refund.issue_id, issue_id);
 
             let user_issues = IssuePallet::get_issue_requests_for_account(account_of(USER));
-            let (_, onchain_issue) = user_issues.iter().find(|(id, _)| {id == &issue_id}).unwrap();
-            assert_eq!(
-                onchain_issue.status,
-                IssueRequestStatus::Completed(Some(refund_id))
-            );
+            let (_, onchain_issue) = user_issues.iter().find(|(id, _)| id == &issue_id).unwrap();
+            assert_eq!(onchain_issue.status, IssueRequestStatus::Completed(Some(refund_id)));
         });
     }
 
@@ -951,11 +944,8 @@ mod cancel_issue_tests {
             );
 
             let user_issues = IssuePallet::get_issue_requests_for_account(account_of(USER));
-            let (_, onchain_issue) = user_issues.iter().find(|(id, _)| {id == &issue_id}).unwrap();
-            assert_eq!(
-                onchain_issue.status,
-                IssueRequestStatus::Cancelled
-            );
+            let (_, onchain_issue) = user_issues.iter().find(|(id, _)| id == &issue_id).unwrap();
+            assert_eq!(onchain_issue.status, IssueRequestStatus::Cancelled);
         });
     }
 
@@ -985,11 +975,8 @@ mod cancel_issue_tests {
             );
 
             let user_issues = IssuePallet::get_issue_requests_for_account(account_of(USER));
-            let (_, onchain_issue) = user_issues.iter().find(|(id, _)| {id == &issue_id}).unwrap();
-            assert_eq!(
-                onchain_issue.status,
-                IssueRequestStatus::Cancelled
-            );
+            let (_, onchain_issue) = user_issues.iter().find(|(id, _)| id == &issue_id).unwrap();
+            assert_eq!(onchain_issue.status, IssueRequestStatus::Cancelled);
         });
     }
 }

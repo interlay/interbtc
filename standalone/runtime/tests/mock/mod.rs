@@ -24,8 +24,8 @@ pub use sp_runtime::traits::{Dispatchable, One, Zero};
 pub use sp_std::convert::TryInto;
 pub use vault_registry::CurrencySource;
 
-pub use issue::{IssueRequest, IssueRequestStatus};
 pub use exchange_rate_oracle::{BitcoinInclusionTime, CurrencyId, OracleKey};
+pub use issue::{IssueRequest, IssueRequestStatus};
 pub use redeem::RedeemRequest;
 pub use refund::RefundRequest;
 pub use replace::ReplaceRequest;
