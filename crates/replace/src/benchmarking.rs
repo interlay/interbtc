@@ -103,6 +103,9 @@ benchmarks! {
             vault
         );
 
+        ExchangeRateOracle::<T>::_set_exchange_rate(
+            <T as exchange_rate_oracle::Config>::UnsignedFixedPoint::one()
+        ).unwrap();
     }: _(RawOrigin::Signed(vault_id), amount, griefing)
 
     withdraw_replace {
@@ -149,6 +152,10 @@ benchmarks! {
         replace_request.amount = amount.into();
         Replace::<T>::insert_replace_request(&replace_id, &replace_request);
 
+
+        ExchangeRateOracle::<T>::_set_exchange_rate(
+            <T as exchange_rate_oracle::Config>::UnsignedFixedPoint::one()
+        ).unwrap();
     }: _(RawOrigin::Signed(new_vault_id), old_vault_id, amount.into(), collateral.into(), new_vault_btc_address)
 
     execute_replace {

@@ -1,5 +1,5 @@
 use super::*;
-use crate::Pallet as Redeem;
+use crate::{mock::CurrencyId, Pallet as Redeem};
 use bitcoin::{
     formatter::{Formattable, TryFormattable},
     types::{
@@ -32,6 +32,34 @@ fn dummy_public_key() -> BtcPublicKey {
 
 fn mint_collateral<T: crate::Config>(account_id: &T::AccountId, amount: Collateral<T>) {
     assert_ok!(<T as vault_registry::Config>::Collateral::mint(account_id, amount));
+}
+
+fn initialize_oracle<T: crate::Config>() {
+    let oracle_id: T::AccountId = account("Oracle", 12, 0);
+
+    ExchangeRateOracle::<T>::_feed_values(
+        oracle_id,
+        vec![
+            (
+                OracleKey::ExchangeRate(CurrencyId::DOT),
+                <T as exchange_rate_oracle::Config>::UnsignedFixedPoint::checked_from_rational(1, 1).unwrap(),
+            ),
+            (
+                OracleKey::FeeEstimation(BitcoinInclusionTime::Fast),
+                <T as exchange_rate_oracle::Config>::UnsignedFixedPoint::checked_from_rational(3, 1).unwrap(),
+            ),
+            (
+                OracleKey::FeeEstimation(BitcoinInclusionTime::Half),
+                <T as exchange_rate_oracle::Config>::UnsignedFixedPoint::checked_from_rational(2, 1).unwrap(),
+            ),
+            (
+                OracleKey::FeeEstimation(BitcoinInclusionTime::Hour),
+                <T as exchange_rate_oracle::Config>::UnsignedFixedPoint::checked_from_rational(1, 1).unwrap(),
+            ),
+        ],
+    )
+    .unwrap();
+    ExchangeRateOracle::<T>::begin_block(0u32.into());
 }
 
 fn mine_blocks<T: crate::Config>() {
@@ -95,6 +123,8 @@ benchmarks! {
         let amount = Redeem::<T>::redeem_btc_dust_value() + 1000u32.into();
         let btc_address = BtcAddress::P2SH(H160::from([0; 20]));
 
+        initialize_oracle::<T>();
+
         let mut vault = Vault::default();
         vault.id = vault_id.clone();
         vault.wallet = Wallet::new(dummy_public_key());
@@ -106,12 +136,17 @@ benchmarks! {
 
         assert_ok!(Treasury::<T>::mint(&origin, amount));
 
+        assert_ok!(ExchangeRateOracle::<T>::_set_exchange_rate(
+            <T as exchange_rate_oracle::Config>::UnsignedFixedPoint::one()
+        ));
     }: _(RawOrigin::Signed(origin), amount, btc_address, vault_id.clone())
 
     execute_redeem {
         let origin: T::AccountId = account("Origin", 0, 0);
         let vault_id: T::AccountId = account("Vault", 0, 0);
         let relayer_id: T::AccountId = account("Relayer", 0, 0);
+
+        initialize_oracle::<T>();
 
         let origin_btc_address = BtcAddress::P2PKH(H160::zero());
 
@@ -184,11 +219,16 @@ benchmarks! {
         BtcRelay::<T>::store_block_header(&relayer_id, block_header).unwrap();
         Security::<T>::set_active_block_number(Security::<T>::active_block_number() + BtcRelay::<T>::parachain_confirmations() + 1u32.into());
 
+        assert_ok!(ExchangeRateOracle::<T>::_set_exchange_rate(
+            <T as exchange_rate_oracle::Config>::UnsignedFixedPoint::one()
+        ));
     }: _(RawOrigin::Signed(vault_id), redeem_id, proof, raw_tx)
 
     cancel_redeem_reimburse {
         let origin: T::AccountId = account("Origin", 0, 0);
         let vault_id: T::AccountId = account("Vault", 0, 0);
+
+        initialize_oracle::<T>();
 
         let redeem_id = H256::zero();
         let mut redeem_request = RedeemRequest::default();
@@ -217,6 +257,8 @@ benchmarks! {
         let origin: T::AccountId = account("Origin", 0, 0);
         let vault_id: T::AccountId = account("Vault", 0, 0);
 
+        initialize_oracle::<T>();
+
         let redeem_id = H256::zero();
         let mut redeem_request = RedeemRequest::default();
         redeem_request.vault = vault_id.clone();
@@ -235,6 +277,10 @@ benchmarks! {
         );
         mint_collateral::<T>(&vault_id, 1000u32.into());
         assert_ok!(VaultRegistry::<T>::try_deposit_collateral(&vault_id, 1000u32.into()));
+
+        assert_ok!(ExchangeRateOracle::<T>::_set_exchange_rate(
+            <T as exchange_rate_oracle::Config>::UnsignedFixedPoint::one()
+        ));
     }: cancel_redeem(RawOrigin::Signed(origin), redeem_id, false)
 
     set_redeem_period {

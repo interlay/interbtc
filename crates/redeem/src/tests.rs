@@ -133,7 +133,7 @@ fn test_request_redeem_fails_with_vault_liquidated() {
     run_test(|| {
         ext::vault_registry::ensure_not_banned::<Test>.mock_safe(|_| MockResult::Return(Ok(())));
         assert_err!(
-            Redeem::request_redeem(Origin::signed(ALICE), 3, BtcAddress::random(), BOB),
+            Redeem::request_redeem(Origin::signed(ALICE), 3000, BtcAddress::random(), BOB),
             VaultRegistryError::VaultNotFound
         );
     })
@@ -160,7 +160,7 @@ fn test_request_redeem_succeeds_with_normal_redeem() {
         );
 
         let redeemer = ALICE;
-        let amount = 9;
+        let amount = 90;
         let redeem_fee = 5;
 
         ext::vault_registry::try_increase_to_be_redeemed_tokens::<Test>.mock_safe(move |vault_id, amount_btc| {
@@ -178,8 +178,9 @@ fn test_request_redeem_succeeds_with_normal_redeem() {
         });
 
         ext::security::get_secure_id::<Test>.mock_safe(move |_| MockResult::Return(H256([0; 32])));
-
+        ext::vault_registry::is_vault_below_premium_threshold::<Test>.mock_safe(move |_| MockResult::Return(Ok(false)));
         ext::fee::get_redeem_fee::<Test>.mock_safe(move |_| MockResult::Return(Ok(redeem_fee)));
+        let btc_fee = Redeem::get_current_inclusion_fee().unwrap();
 
         assert_ok!(Redeem::request_redeem(
             Origin::signed(redeemer),
@@ -191,7 +192,7 @@ fn test_request_redeem_succeeds_with_normal_redeem() {
         assert_emitted!(Event::RequestRedeem(
             H256([0; 32]),
             redeemer,
-            amount - redeem_fee,
+            amount - redeem_fee - btc_fee,
             redeem_fee,
             0,
             BOB,
@@ -205,7 +206,7 @@ fn test_request_redeem_succeeds_with_normal_redeem() {
                 vault: BOB,
                 opentime: 1,
                 fee: redeem_fee,
-                amount_btc: amount - redeem_fee,
+                amount_btc: amount - redeem_fee - btc_fee,
                 premium: 0,
                 redeemer,
                 btc_address: BtcAddress::P2PKH(H160::zero()),
@@ -300,14 +301,14 @@ fn test_execute_redeem_succeeds_with_another_account() {
 
         ext::treasury::burn::<Test>.mock_safe(move |redeemer, amount_wrapped| {
             assert_eq!(redeemer, &ALICE);
-            assert_eq!(amount_wrapped, 100);
+            assert_eq!(amount_wrapped, 100 + btc_fee);
 
             MockResult::Return(Ok(()))
         });
 
         ext::vault_registry::redeem_tokens::<Test>.mock_safe(move |vault, amount_wrapped, premium, _| {
             assert_eq!(vault, &BOB);
-            assert_eq!(amount_wrapped, 100);
+            assert_eq!(amount_wrapped, 100 + btc_fee);
             assert_eq!(premium, 0);
 
             MockResult::Return(Ok(()))
@@ -373,14 +374,14 @@ fn test_execute_redeem_succeeds() {
 
         ext::treasury::burn::<Test>.mock_safe(move |redeemer, amount_wrapped| {
             assert_eq!(redeemer, &ALICE);
-            assert_eq!(amount_wrapped, 100);
+            assert_eq!(amount_wrapped, 100 + btc_fee);
 
             MockResult::Return(Ok(()))
         });
 
         ext::vault_registry::redeem_tokens::<Test>.mock_safe(move |vault, amount_wrapped, premium, _| {
             assert_eq!(vault, &BOB);
-            assert_eq!(amount_wrapped, 100);
+            assert_eq!(amount_wrapped, 100 + btc_fee);
             assert_eq!(premium, 0);
 
             MockResult::Return(Ok(()))
@@ -476,7 +477,7 @@ fn test_cancel_redeem_succeeds() {
                 vault: BOB,
                 opentime: 10,
                 fee: 0,
-                amount_btc: 0,
+                amount_btc: 10,
                 premium: 0,
                 redeemer: ALICE,
                 btc_address: BtcAddress::random(),
@@ -492,6 +493,7 @@ fn test_cancel_redeem_succeeds() {
             assert_eq!(vault, BOB);
             MockResult::Return(Ok(()))
         });
+        ext::treasury::unlock::<Test>.mock_safe(|_, _| MockResult::Return(Ok(())));
         ext::vault_registry::transfer_funds_saturated::<Test>.mock_safe(move |_, _, _| MockResult::Return(Ok(0)));
         ext::vault_registry::get_vault_from_id::<Test>.mock_safe(|_| {
             MockResult::Return(Ok(vault_registry::types::Vault {
@@ -509,7 +511,7 @@ fn test_cancel_redeem_succeeds() {
             H256([0; 32]),
             ALICE,
             BOB,
-            0,
+            1,
             RedeemRequestStatus::Retried
         ));
     })

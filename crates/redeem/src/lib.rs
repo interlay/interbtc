@@ -31,13 +31,14 @@ pub use crate::types::{RedeemRequest, RedeemRequestStatus};
 
 use crate::types::{BalanceOf, Collateral, Version, Wrapped};
 use btc_relay::BtcAddress;
+use exchange_rate_oracle::{BitcoinInclusionTime, OracleKey};
 use frame_support::{
     dispatch::{DispatchError, DispatchResult},
     ensure, transactional,
 };
 use frame_system::{ensure_root, ensure_signed};
 use sp_core::H256;
-use sp_runtime::traits::*;
+use sp_runtime::{traits::*, FixedPointNumber};
 use sp_std::{convert::TryInto, vec::Vec};
 use vault_registry::CurrencySource;
 
@@ -625,10 +626,10 @@ impl<T: Config> Pallet<T> {
     pub fn get_current_inclusion_fee() -> Result<Wrapped<T>, DispatchError> {
         {
             let size: u32 = Self::redeem_transaction_size();
-            let satoshi_per_bytes: u32 = ext::oracle::satoshi_per_bytes::<T>().fast;
+            let satoshi_per_bytes = ext::oracle::get_price::<T>(OracleKey::FeeEstimation(BitcoinInclusionTime::Fast))?;
 
-            let fee = (size as u64)
-                .checked_mul(satoshi_per_bytes as u64)
+            let fee = satoshi_per_bytes
+                .checked_mul_int(size)
                 .ok_or(Error::<T>::ArithmeticOverflow)?;
             fee.try_into().map_err(|_| Error::<T>::TryIntoIntError.into())
         }

@@ -29,6 +29,7 @@ exchange-rate-oracle = { path = "../exchange-rate-oracle", default-features = fa
 fee = { path = "../fee", default-features = false }
 security = { path = "../security", default-features = false }
 vault-registry = { path = "../vault-registry", default-features = false }
+primitives = { package = "interbtc-primitives", path = "../../primitives", default-features = false }
 
 [dev-dependencies]
 mocktopus = "0.7.0"
@@ -66,6 +67,7 @@ std = [
 	"fee/std",
 	"security/std",
 	"vault-registry/std",
+    "primitives/std",
 ]
 runtime-benchmarks = [
 	"frame-benchmarking",

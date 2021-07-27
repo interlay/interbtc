@@ -15,13 +15,3 @@ pub enum Version {
     /// BtcAddress type with script format.
     V1,
 }
-
-#[derive(Encode, Decode, Default, Eq, PartialEq, Debug)]
-pub struct BtcTxFeesPerByte {
-    /// The estimated Satoshis per bytes to get included in the next block (~10 min)
-    pub fast: u32,
-    /// The estimated Satoshis per bytes to get included in the next 3 blocks (~half hour)
-    pub half: u32,
-    /// The estimated Satoshis per bytes to get included in the next 6 blocks (~hour)
-    pub hour: u32,
-}
