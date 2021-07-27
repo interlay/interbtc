@@ -19,10 +19,6 @@ frame-system = { git = "https://github.com/paritytech/substrate", branch = "polk
 frame-benchmarking = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.8", default-features = false, optional = true }
 pallet-timestamp = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.8", default-features = false }
 
-# orml dependencies
-orml-oracle = { git = "https://github.com/interlay/open-runtime-module-library", rev = "2d6f7f0", default-features = false }
-orml-traits = { git = "https://github.com/interlay/open-runtime-module-library", rev = "2d6f7f0", default-features = false }
-
 # Parachain dependencies
 security = { path = "../security", default-features = false }
 primitives = { package = "interbtc-primitives", path = "../../primitives", default-features = false }
@@ -49,9 +45,6 @@ std = [
 
     "security/std",
     "primitives/std",
-    
-    "orml-oracle/std",
-    "orml-traits/std",
 ]
 runtime-benchmarks = [
 	"frame-benchmarking",

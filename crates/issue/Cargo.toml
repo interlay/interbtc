@@ -69,6 +69,7 @@ std = [
 	"currency/std",
 	"vault-registry/std",
 	"refund/std",
+    "primitives/std",
 ]
 runtime-benchmarks = [
 	"frame-benchmarking",

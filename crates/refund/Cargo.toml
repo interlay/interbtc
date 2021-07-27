@@ -64,4 +64,5 @@ std = [
 	"btc-relay/std",
 	"security/std",
 	"bitcoin/std",
+    "primitives/std",
 ]
