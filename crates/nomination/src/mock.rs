@@ -37,7 +37,6 @@ frame_support::construct_runtime!(
         Security: security::{Pallet, Call, Storage, Event<T>},
         VaultRegistry: vault_registry::{Pallet, Call, Config<T>, Storage, Event<T>},
         Fee: fee::{Pallet, Call, Config<T>, Storage},
-        Sla: sla::{Pallet, Call, Config<T>, Storage, Event<T>},
         ExchangeRateOracle: exchange_rate_oracle::{Pallet, Call, Config<T>, Storage, Event<T>},
         Nomination: nomination::{Pallet, Call, Config, Storage, Event<T>},
         Staking: staking::{Pallet, Storage, Event<T>},
@@ -148,7 +147,6 @@ impl vault_registry::Config for Test {
     type SignedFixedPoint = SignedFixedPoint;
     type UnsignedFixedPoint = UnsignedFixedPoint;
     type WeightInfo = ();
-    type VaultRewards = reward::RewardsCurrencyAdapter<Test, (), GetWrappedCurrencyId>;
     type Collateral = CurrencyAdapter<Test, GetCollateralCurrencyId>;
     type Wrapped = CurrencyAdapter<Test, GetWrappedCurrencyId>;
     type GetRewardsCurrencyId = GetWrappedCurrencyId;
@@ -191,14 +189,6 @@ impl fee::Config for Test {
     type VaultStaking = staking::StakingCurrencyAdapter<Test, GetWrappedCurrencyId>;
     type Wrapped = CurrencyAdapter<Test, GetWrappedCurrencyId>;
     type OnSweep = ();
-}
-
-impl sla::Config for Test {
-    type Event = TestEvent;
-    type SignedFixedPoint = SignedFixedPoint;
-    type SignedInner = SignedInner;
-    type Balance = Balance;
-    type VaultRewards = reward::RewardsCurrencyAdapter<Test, (), GetWrappedCurrencyId>;
 }
 
 impl exchange_rate_oracle::Config for Test {

@@ -59,7 +59,6 @@ pub mod pallet {
         + btc_relay::Config
         + exchange_rate_oracle::Config<Balance = BalanceOf<Self>>
         + fee::Config
-        + sla::Config<Balance = BalanceOf<Self>>
         + nomination::Config
     {
         /// The overarching event type.

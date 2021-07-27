@@ -27,8 +27,8 @@ extern crate mocktopus;
 use mocktopus::macros::mockable;
 
 use crate::types::{
-    BalanceOf, BtcAddress, Collateral, DefaultSystemVault, RichSystemVault, RichVault, SignedFixedPoint, SignedInner,
-    UnsignedFixedPoint, UpdatableVault, Version, Wrapped,
+    BalanceOf, BtcAddress, Collateral, CurrencyId, DefaultSystemVault, RichSystemVault, RichVault, SignedFixedPoint,
+    SignedInner, UnsignedFixedPoint, UpdatableVault, Version, Wrapped,
 };
 
 #[doc(inline)]
@@ -48,7 +48,7 @@ use frame_system::{
 };
 use sp_core::{H256, U256};
 #[cfg(feature = "std")]
-use sp_runtime::traits::AccountIdConversion;
+use sp_runtime::traits::AtLeast32BitUnsigned;
 use sp_runtime::{
     traits::*,
     transaction_validity::{InvalidTransaction, TransactionSource, TransactionValidity, ValidTransaction},
@@ -80,9 +80,9 @@ pub mod pallet {
         frame_system::Config
         + SendTransactionTypes<Call<Self>>
         + exchange_rate_oracle::Config<Balance = BalanceOf<Self>>
-        + sla::Config<Balance = BalanceOf<Self>>
         + security::Config
         + staking::Config<SignedInner = SignedInner<Self>, SignedFixedPoint = SignedFixedPoint<Self>>
+        + reward::Config<SignedFixedPoint = SignedFixedPoint<Self>, CurrencyId = CurrencyId<Self>>
     {
         /// The vault module id, used for deriving its sovereign account ID.
         #[pallet::constant] // put the constant in metadata
@@ -129,9 +129,6 @@ pub mod pallet {
         /// Weight information for the extrinsics in this module.
         type WeightInfo: WeightInfo;
 
-        /// Vault reward pool for the wrapped currency.
-        type VaultRewards: reward::Rewards<Self::AccountId, SignedFixedPoint = SignedFixedPoint<Self>>;
-
         /// Collateral currency, e.g. DOT/KSM.
         type Collateral: ParachainCurrency<Self::AccountId, Balance = BalanceOf<Self>>;
 
@@ -140,7 +137,7 @@ pub mod pallet {
 
         /// Rewards currency, e.g. INTERBTC.
         #[pallet::constant]
-        type GetRewardsCurrencyId: Get<Self::CurrencyId>;
+        type GetRewardsCurrencyId: Get<CurrencyId<Self>>;
     }
 
     #[pallet::hooks]
@@ -405,6 +402,8 @@ pub mod pallet {
         VaultNotBelowLiquidationThreshold,
         /// Deposit address could not be generated with the given public key.
         InvalidPublicKey,
+        /// The Max Nomination Ratio would be exceeded.
+        MaxNominationRatioViolation,
 
         // Errors used exclusively in RPC functions
         /// Collateralization is infinite if no tokens are issued
@@ -598,16 +597,16 @@ impl<T: Config> Pallet<T> {
     /// * `vault_id` - the id of the vault
     /// * `amount` - the amount of collateral
     pub fn try_deposit_collateral(vault_id: &T::AccountId, amount: Collateral<T>) -> DispatchResult {
-        let vault = Self::get_active_rich_vault_from_id(vault_id)?;
+        // ensure the vault is active
+        let _ = Self::get_active_rich_vault_from_id(vault_id)?;
 
         // will fail if free_balance is insufficient
         ext::collateral::lock::<T>(vault_id, amount)?;
         Self::increase_total_backing_collateral(amount)?;
 
         // Deposit `amount` of stake in the pool
-        ext::staking::deposit_stake::<T>(vault_id, vault_id, Self::collateral_to_fixed(amount)?)?;
+        ext::staking::deposit_stake::<T>(vault_id, vault_id, amount)?;
 
-        ext::sla::event_update_vault_sla::<T>(&vault.id(), ext::sla::Action::Deposit(amount))?;
         Ok(())
     }
 
@@ -617,16 +616,13 @@ impl<T: Config> Pallet<T> {
     /// * `vault_id` - the id of the vault
     /// * `amount` - the amount of collateral
     pub fn force_withdraw_collateral(vault_id: &T::AccountId, amount: Collateral<T>) -> DispatchResult {
-        let vault = Self::get_rich_vault_from_id(vault_id)?;
-
         // will fail if reserved_balance is insufficient
         ext::collateral::unlock::<T>(vault_id, amount)?;
         Self::decrease_total_backing_collateral(amount)?;
 
         // Withdraw `amount` of stake from the pool
-        ext::staking::withdraw_stake::<T>(vault_id, vault_id, Self::collateral_to_fixed(amount)?)?;
+        ext::staking::withdraw_stake::<T>(vault_id, vault_id, amount)?;
 
-        ext::sla::event_update_vault_sla::<T>(&vault.id(), ext::sla::Action::Withdraw(amount))?;
         Ok(())
     }
 
@@ -641,8 +637,27 @@ impl<T: Config> Pallet<T> {
             Self::is_allowed_to_withdraw_collateral(vault_id, amount)?,
             Error::<T>::InsufficientCollateral
         );
-
+        ensure!(
+            Self::is_max_nomination_ratio_preserved(vault_id, amount)?,
+            Error::<T>::MaxNominationRatioViolation
+        );
         Self::force_withdraw_collateral(vault_id, amount)
+    }
+
+    pub fn is_max_nomination_ratio_preserved(
+        vault_id: &T::AccountId,
+        amount: Collateral<T>,
+    ) -> Result<bool, DispatchError> {
+        let vault_collateral = Self::compute_collateral(vault_id)?;
+        let backing_collateral = Self::get_backing_collateral(vault_id)?;
+        let current_nomination = backing_collateral
+            .checked_sub(&vault_collateral)
+            .ok_or(Error::<T>::ArithmeticUnderflow)?;
+        let new_vault_collateral = vault_collateral
+            .checked_sub(&amount)
+            .ok_or(Error::<T>::ArithmeticUnderflow)?;
+        let max_nomination_after_withdrawal = Self::get_max_nominatable_collateral(new_vault_collateral)?;
+        Ok(current_nomination <= max_nomination_after_withdrawal)
     }
 
     /// Checks if the vault would be above the secure threshold after withdrawing collateral
@@ -663,7 +678,6 @@ impl<T: Config> Pallet<T> {
             .ok_or(Error::<T>::ArithmeticOverflow)?;
 
         let is_below_threshold = Pallet::<T>::is_collateral_below_secure_threshold(new_collateral, tokens)?;
-
         Ok(!is_below_threshold)
     }
 
@@ -684,7 +698,7 @@ impl<T: Config> Pallet<T> {
 
     fn slash_backing_collateral(vault_id: &T::AccountId, amount: Collateral<T>) -> DispatchResult {
         ext::collateral::unlock::<T>(vault_id, amount)?;
-        ext::staking::slash_stake::<T>(vault_id, Self::collateral_to_fixed(amount)?)?;
+        ext::staking::slash_stake::<T>(vault_id, amount)?;
         Ok(())
     }
 
@@ -981,7 +995,7 @@ impl<T: Config> Pallet<T> {
             vault.decrease_liquidated_collateral(to_be_released)?;
 
             // release vault's collateral
-            ext::staking::unslash_stake::<T>(vault_id, Self::collateral_to_fixed(to_be_released)?)?;
+            ext::staking::unslash_stake::<T>(vault_id, to_be_released)?;
 
             Self::deposit_event(Event::<T>::RedeemTokensLiquidatedVault(
                 vault_id.clone(),
@@ -1067,7 +1081,7 @@ impl<T: Config> Pallet<T> {
             old_vault.decrease_liquidated_collateral(to_be_released)?;
 
             // release old-vault's collateral
-            ext::staking::unslash_stake::<T>(old_vault_id, Self::collateral_to_fixed(to_be_released)?)?;
+            ext::staking::unslash_stake::<T>(old_vault_id, to_be_released)?;
         }
 
         old_vault.decrease_tokens(tokens)?;
@@ -1154,7 +1168,6 @@ impl<T: Config> Pallet<T> {
         let vault_orig = vault.data.clone();
 
         let to_slash = vault.liquidate(status)?;
-        ext::sla::event_update_vault_sla::<T>(&vault.id(), ext::sla::Action::Liquidate)?;
 
         Self::deposit_event(Event::<T>::LiquidateVault(
             vault_id.clone(),
@@ -1167,27 +1180,6 @@ impl<T: Config> Pallet<T> {
             vault_orig.replace_collateral,
         ));
         Ok(to_slash)
-    }
-
-    /// Calculate the amount that is slashed when the the vault fails to execute.
-    ///
-    /// # Arguments
-    ///
-    /// * `vault_id` - account of the vault in question
-    /// * `stake` - the amount of collateral placed for the redeem/replace
-    /// * `reimburse` - if true, this function returns 110-130%. If false, it returns 10-30%
-    pub fn calculate_slashed_amount(
-        vault_id: &T::AccountId,
-        stake: Collateral<T>,
-        reimburse: bool,
-    ) -> Result<Collateral<T>, DispatchError> {
-        ext::sla::calculate_slashed_amount::<T>(
-            vault_id,
-            stake,
-            reimburse,
-            Self::liquidation_collateral_threshold(),
-            Self::premium_redeem_threshold(),
-        )
     }
 
     pub(crate) fn increase_total_backing_collateral(amount: Collateral<T>) -> DispatchResult {
@@ -1544,6 +1536,23 @@ impl<T: Config> Pallet<T> {
         collateral.try_into().map_err(|_| Error::<T>::TryIntoIntError.into())
     }
 
+    pub fn get_max_nomination_ratio() -> Result<UnsignedFixedPoint<T>, DispatchError> {
+        // MaxNominationRatio = (SecureCollateralThreshold / PremiumRedeemThreshold) - 1)
+        // It denotes the maximum amount of collateral that can be nominated to a particular Vault.
+        // Its effect is to minimise the impact on collateralization of nominator withdrawals.
+        let secure_collateral_threshold = Self::secure_collateral_threshold();
+        let premium_redeem_threshold = Self::premium_redeem_threshold();
+        Ok(secure_collateral_threshold
+            .checked_div(&premium_redeem_threshold)
+            .ok_or(Error::<T>::ArithmeticUnderflow)?
+            .checked_sub(&UnsignedFixedPoint::<T>::one())
+            .ok_or(Error::<T>::ArithmeticUnderflow)?)
+    }
+
+    pub fn get_max_nominatable_collateral(vault_collateral: Collateral<T>) -> Result<Collateral<T>, DispatchError> {
+        Self::fraction_of_amount(vault_collateral, Self::get_max_nomination_ratio()?)
+    }
+
     /// Private getters and setters
 
     fn get_rich_vault_from_id(vault_id: &T::AccountId) -> Result<RichVault<T>, DispatchError> {
@@ -1677,11 +1686,30 @@ impl<T: Config> Pallet<T> {
         Ok(btc_address)
     }
 
-    pub(crate) fn collateral_to_fixed(x: Collateral<T>) -> Result<SignedFixedPoint<T>, DispatchError> {
+    pub(crate) fn currency_to_fixed(x: Collateral<T>) -> Result<SignedFixedPoint<T>, DispatchError> {
         let signed_inner = TryInto::<SignedInner<T>>::try_into(x).map_err(|_| Error::<T>::TryIntoIntError)?;
         let signed_fixed_point = <T as pallet::Config>::SignedFixedPoint::checked_from_integer(signed_inner)
             .ok_or(Error::<T>::TryIntoIntError)?;
         Ok(signed_fixed_point)
+    }
+
+    pub(crate) fn fraction_of_amount(
+        amount: BalanceOf<T>,
+        fraction: UnsignedFixedPoint<T>,
+    ) -> Result<BalanceOf<T>, DispatchError> {
+        // we add 0.5 before we do the final integer division to round the result we return.
+        // note that unwrapping is safe because we use a constant
+        let rounding_addition = UnsignedFixedPoint::<T>::checked_from_rational(1, 2).unwrap();
+
+        UnsignedFixedPoint::<T>::checked_from_integer(amount)
+            .ok_or(Error::<T>::ArithmeticOverflow)?
+            .checked_mul(&fraction)
+            .ok_or(Error::<T>::ArithmeticOverflow)?
+            .checked_add(&rounding_addition)
+            .ok_or(Error::<T>::ArithmeticOverflow)?
+            .into_inner()
+            .checked_div(&UnsignedFixedPoint::<T>::accuracy())
+            .ok_or(Error::<T>::ArithmeticUnderflow.into())
     }
 }
 

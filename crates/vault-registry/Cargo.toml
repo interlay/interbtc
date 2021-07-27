@@ -1,6 +1,6 @@
 [package]
 name = "vault-registry"
-version = "0.8.0"
+version = "0.9.0"
 authors = ["Interlay Ltd"]
 edition = "2018"
 
@@ -27,9 +27,9 @@ pallet-randomness-collective-flip = { git = "https://github.com/paritytech/subst
 # Parachain dependencies
 bitcoin = { path = "../bitcoin", default-features = false }
 exchange-rate-oracle = { path = "../exchange-rate-oracle", default-features = false }
+fee = { path = "../fee", default-features = false }
 security = { path = "../security", default-features = false }
 currency = { path = "../currency", default-features = false }
-sla = { path = "../sla", default-features = false }
 reward = { path = "../reward", default-features = false }
 staking = { path = "../staking", default-features = false }
 
@@ -61,10 +61,10 @@ std = [
 
   "bitcoin/std",
   "exchange-rate-oracle/std",
+  "fee/std",
   "security/std",
   "currency/std",
   "reward/std",
-  "sla/std",
   "staking/std",
 ]
 runtime-benchmarks = [

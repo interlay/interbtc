@@ -16,6 +16,7 @@ pub use interbtc_runtime_standalone::{
 };
 pub use mocktopus::mocking::*;
 pub use orml_tokens::CurrencyAdapter;
+use redeem::RedeemRequestStatus;
 pub use security::{ErrorCode, StatusCode};
 pub use sp_arithmetic::{FixedI128, FixedPointNumber, FixedU128};
 pub use sp_core::{H160, H256, U256};
@@ -24,6 +25,7 @@ pub use sp_std::convert::TryInto;
 pub use vault_registry::CurrencySource;
 
 pub use issue::{IssueRequest, IssueRequestStatus};
+pub use exchange_rate_oracle::{BitcoinInclusionTime, CurrencyId, OracleKey};
 pub use redeem::RedeemRequest;
 pub use refund::RefundRequest;
 pub use replace::ReplaceRequest;
@@ -31,6 +33,8 @@ pub use reward::Rewards;
 pub use sp_runtime::AccountId32;
 pub use std::convert::TryFrom;
 pub use vault_registry::{Vault, VaultStatus};
+
+use self::redeem_testing_utils::USER_BTC_ADDRESS;
 
 pub mod issue_testing_utils;
 pub mod nomination_testing_utils;
@@ -113,9 +117,6 @@ pub type ReplacePallet = replace::Pallet<Runtime>;
 pub type SecurityError = security::Error<Runtime>;
 pub type SecurityPallet = security::Pallet<Runtime>;
 
-pub type SlaPallet = sla::Pallet<Runtime>;
-pub type SlaCall = sla::Call<Runtime>;
-
 pub type RelayCall = relay::Call<Runtime>;
 pub type RelayPallet = relay::Pallet<Runtime>;
 
@@ -151,6 +152,49 @@ pub fn default_vault_state() -> CoreVaultData {
         liquidated_collateral: 0,
         replace_collateral: DEFAULT_VAULT_REPLACE_COLLATERAL,
         to_be_replaced: DEFAULT_VAULT_TO_BE_REPLACED,
+    }
+}
+
+pub fn premium_redeem_request(
+    user_to_redeem: u128,
+    vault: [u8; 32],
+    user: [u8; 32],
+) -> RedeemRequest<AccountId, BlockNumber, u128, u128> {
+    let redeem_fee = FeePallet::get_redeem_fee(user_to_redeem).unwrap();
+    let burned_tokens = user_to_redeem - redeem_fee;
+    let inclusion_fee = RedeemPallet::get_current_inclusion_fee().unwrap();
+    let premium_redeem_fee = FeePallet::get_premium_redeem_fee(burned_tokens - inclusion_fee).unwrap();
+
+    RedeemRequest {
+        premium: premium_redeem_fee,
+        ..default_redeem_request(user_to_redeem, vault, user)
+    }
+}
+
+pub fn default_redeem_request(
+    user_to_redeem: u128,
+    vault: [u8; 32],
+    user: [u8; 32],
+) -> RedeemRequest<AccountId, BlockNumber, u128, u128> {
+    let redeem_fee = FeePallet::get_redeem_fee(user_to_redeem).unwrap();
+    let burned_tokens = user_to_redeem - redeem_fee;
+    let inclusion_fee = RedeemPallet::get_current_inclusion_fee().unwrap();
+    let redeem_period = RedeemPallet::redeem_period();
+    let btc_height = BTCRelayPallet::get_best_block_height();
+    let opentime = SecurityPallet::active_block_number();
+
+    RedeemRequest {
+        vault: account_of(vault),
+        opentime,
+        fee: redeem_fee,
+        transfer_fee_btc: inclusion_fee,
+        amount_btc: burned_tokens - inclusion_fee,
+        premium: 0,
+        period: redeem_period,
+        redeemer: account_of(user),
+        btc_address: USER_BTC_ADDRESS,
+        btc_height,
+        status: RedeemRequestStatus::Pending,
     }
 }
 
@@ -859,20 +903,6 @@ impl ExtBuilder {
         .assimilate_storage(&mut storage)
         .unwrap();
 
-        sla::GenesisConfig::<Runtime> {
-            vault_target_sla: FixedI128::from(100),
-            vault_redeem_failure_sla_change: FixedI128::from(-100),
-            vault_execute_issue_max_sla_change: FixedI128::from(4),
-            vault_deposit_max_sla_change: FixedI128::from(4),
-            vault_withdraw_max_sla_change: FixedI128::from(-4),
-            vault_submit_issue_proof: FixedI128::from(1),
-            vault_refund: FixedI128::from(1),
-            relayer_store_block: FixedI128::from(1),
-            relayer_theft_report: FixedI128::from(1),
-        }
-        .assimilate_storage(&mut storage)
-        .unwrap();
-
         Self {
             test_externalities: sp_io::TestExternalities::from(storage),
         }
@@ -891,10 +921,14 @@ impl ExtBuilder {
                 ))
                 .dispatch(root())
             );
-            assert_ok!(
-                Call::ExchangeRateOracle(ExchangeRateOracleCall::set_btc_tx_fees_per_byte(3, 2, 1))
-                    .dispatch(origin_of(account_of(ALICE)))
-            );
+            assert_ok!(Call::ExchangeRateOracle(ExchangeRateOracleCall::feed_values(vec![
+                (OracleKey::ExchangeRate(CurrencyId::DOT), FixedU128::from(1)),
+                (OracleKey::FeeEstimation(BitcoinInclusionTime::Fast), FixedU128::from(3)),
+                (OracleKey::FeeEstimation(BitcoinInclusionTime::Half), FixedU128::from(2)),
+                (OracleKey::FeeEstimation(BitcoinInclusionTime::Hour), FixedU128::from(1)),
+            ]))
+            .dispatch(origin_of(account_of(ALICE))));
+            ExchangeRateOraclePallet::begin_block(0);
 
             execute()
         })

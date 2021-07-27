@@ -55,7 +55,6 @@ pub mod pallet {
         + btc_relay::Config
         + exchange_rate_oracle::Config<Balance = BalanceOf<Self>>
         + fee::Config<UnsignedInner = BalanceOf<Self>>
-        + sla::Config<Balance = BalanceOf<Self>>
         + refund::Config
     {
         /// The overarching event type.
@@ -442,20 +441,7 @@ impl<T: Config> Pallet<T> {
         // mint wrapped fees
         ext::treasury::mint::<T>(&ext::fee::fee_pool_account_id::<T>(), issue.fee)?;
 
-        if !ext::vault_registry::is_vault_liquidated::<T>(&issue.vault)? {
-            // reward the vault for having issued tokens by increasing its sla
-            ext::sla::event_update_vault_sla::<T>(&issue.vault, ext::sla::Action::ExecuteIssue(total))?;
-        }
-
-        // if it was a vault that did the execution on behalf of someone else, reward it by
-        // increasing its SLA score
-        if requester != executor {
-            if let Ok(vault) = ext::vault_registry::get_active_vault_from_id::<T>(&executor) {
-                ext::sla::event_update_vault_sla::<T>(&vault.id, ext::sla::Action::SubmitIssueProof)?;
-            }
-        }
-
-        // distribute rewards after sla increase
+        // distribute rewards
         ext::fee::distribute_rewards::<T>(issue.fee)?;
 
         Self::set_issue_status(issue_id, IssueRequestStatus::Completed(maybe_refund_id));

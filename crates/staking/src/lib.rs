@@ -262,7 +262,7 @@ impl<T: Config> Pallet<T> {
         <SlashTally<T>>::get(currency_id, (nonce, vault_id, nominator_id))
     }
 
-    pub(crate) fn nonce(currency_id: T::CurrencyId, vault_id: &T::AccountId) -> T::Index {
+    pub fn nonce(currency_id: T::CurrencyId, vault_id: &T::AccountId) -> T::Index {
         <Nonce<T>>::get(currency_id, vault_id)
     }
 

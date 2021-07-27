@@ -43,11 +43,7 @@ pub mod pallet {
     /// The pallet's configuration trait.
     #[pallet::config]
     pub trait Config:
-        frame_system::Config
-        + btc_relay::Config
-        + fee::Config<UnsignedInner = BalanceOf<Self>>
-        + sla::Config
-        + vault_registry::Config
+        frame_system::Config + btc_relay::Config + fee::Config<UnsignedInner = BalanceOf<Self>> + vault_registry::Config
     {
         /// The overarching event type.
         type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
@@ -228,9 +224,6 @@ impl<T: Config> Pallet<T> {
         ext::vault_registry::try_increase_to_be_issued_tokens::<T>(&request.vault, request.fee)?;
         ext::vault_registry::issue_tokens::<T>(&request.vault, request.fee)?;
         ext::treasury::mint::<T>(&request.vault, request.fee)?;
-
-        // reward vault for this refund by increasing its SLA
-        ext::sla::event_update_vault_sla::<T>(&request.vault, ext::sla::Action::Refund)?;
 
         // mark the request as completed
         <RefundRequests<T>>::mutate(refund_id, |request| {

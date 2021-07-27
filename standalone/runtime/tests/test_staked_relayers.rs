@@ -2,7 +2,6 @@ mod mock;
 
 use mock::*;
 use sp_core::H256;
-use sp_runtime::traits::CheckedMul;
 
 pub const RELAYER: [u8; 32] = ALICE;
 pub const VAULT: [u8; 32] = BOB;
@@ -31,23 +30,12 @@ fn test_vault_theft(submit_by_relayer: bool) {
             vault_btc_address
         ));
 
-        let initial_sla = SlaPallet::vault_sla(account_of(ALICE));
-
         let (_tx_id, _height, proof, raw_tx, _) = TransactionGenerator::new()
             .with_address(other_btc_address)
             .with_amount(amount)
             .with_confirmations(7)
             .with_relayer(Some(ALICE))
             .mine();
-
-        // check sla increase for the block submission. The call above will have submitted 7 blocks
-        // (the actual transaction, plus 6 confirmations)
-        let mut expected_sla = initial_sla
-            + FixedI128::checked_from_integer(7)
-                .unwrap()
-                .checked_mul(&SlaPallet::relayer_store_block())
-                .unwrap();
-        assert_eq!(SlaPallet::vault_sla(account_of(ALICE)), expected_sla);
 
         SecurityPallet::set_active_block_number(1000);
 
@@ -56,10 +44,6 @@ fn test_vault_theft(submit_by_relayer: bool) {
                 Call::Relay(RelayCall::report_vault_theft(account_of(vault), proof, raw_tx))
                     .dispatch(origin_of(account_of(user)))
             );
-
-            // check sla increase for the theft report
-            expected_sla = expected_sla + SlaPallet::relayer_theft_report();
-            assert_eq!(SlaPallet::vault_sla(account_of(ALICE)), expected_sla);
         } else {
             assert_ok!(
                 Call::Relay(RelayCall::report_vault_theft(account_of(vault), proof, raw_tx))

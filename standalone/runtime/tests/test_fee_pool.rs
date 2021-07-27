@@ -10,25 +10,9 @@ use staking::Staking;
 const VAULT_1: [u8; 32] = CAROL;
 const VAULT_2: [u8; 32] = DAVE;
 const ISSUE_RELAYER: [u8; 32] = EVE;
-const RELAYER_1: [u8; 32] = FRANK;
-const RELAYER_2: [u8; 32] = GRACE;
 
 // issue fee is 0.5%
 const ISSUE_FEE: f64 = 0.005;
-
-fn setup_relayer(relayer: [u8; 32], sla: u32, stake: u128) {
-    UserData::force_to(
-        relayer,
-        UserData {
-            free_balance: stake,
-            ..Default::default()
-        },
-    );
-    // increase sla for block submission
-    for _ in 0..sla {
-        SlaPallet::event_update_vault_sla(&account_of(relayer), sla::Action::StoreBlock).unwrap();
-    }
-}
 
 // assert that a and b differ by at most 1
 macro_rules! assert_eq_modulo_rounding {
@@ -89,11 +73,10 @@ fn distribute_global_pool(pool_id: [u8; 32]) {
     .unwrap();
 }
 
-fn get_vault_sla(account: [u8; 32]) -> i128 {
-    SlaPallet::vault_sla(account_of(account))
-        .into_inner()
-        .checked_div(FixedI128::accuracy())
+fn get_vault_issued_tokens(account: [u8; 32]) -> u128 {
+    VaultRegistryPallet::get_vault_from_id(&account_of(account))
         .unwrap()
+        .issued_tokens
 }
 
 fn get_vault_collateral(account: [u8; 32]) -> i128 {
@@ -122,10 +105,10 @@ fn test_vault_fee_pool_withdrawal() {
 
         let mut reward_pool = BasicRewardPool::default();
         reward_pool
-            .deposit_stake(VAULT_1, get_vault_sla(VAULT_1) as f64)
+            .deposit_stake(VAULT_1, get_vault_issued_tokens(VAULT_1) as f64)
             .deposit_stake(ISSUE_RELAYER, 7.0)
             .distribute(20000.0 * ISSUE_FEE)
-            .deposit_stake(VAULT_2, get_vault_sla(VAULT_2) as f64)
+            .deposit_stake(VAULT_2, get_vault_issued_tokens(VAULT_2) as f64)
             .deposit_stake(ISSUE_RELAYER, 7.0)
             .distribute(80000.0 * ISSUE_FEE);
 
@@ -153,7 +136,7 @@ fn test_new_nomination_withdraws_global_reward() {
 
         let mut reward_pool = BasicRewardPool::default();
         reward_pool
-            .deposit_stake(VAULT_1, get_vault_sla(VAULT_1) as f64)
+            .deposit_stake(VAULT_1, get_vault_issued_tokens(VAULT_1) as f64)
             .deposit_stake(ISSUE_RELAYER, 7.0)
             .distribute(10000.0 * ISSUE_FEE);
 
@@ -181,33 +164,31 @@ fn test_fee_nomination() {
 
         issue_with_relayer_and_vault(ISSUE_RELAYER, VAULT_1, 10000);
 
-        let vault_sla_1 = get_vault_sla(VAULT_1);
-        let relayer_sla_1 = get_vault_sla(ISSUE_RELAYER);
+        let vault_issued_tokens_1 = get_vault_issued_tokens(VAULT_1);
 
         assert_nomination_opt_in(VAULT_1);
         assert_nominate_collateral(VAULT_1, USER, DEFAULT_NOMINATION);
         issue_with_relayer_and_vault(ISSUE_RELAYER, VAULT_1, 100000);
 
-        let vault_sla_2 = get_vault_sla(VAULT_1);
-        let relayer_sla_2 = get_vault_sla(ISSUE_RELAYER);
+        let vault_issued_tokens_2 = get_vault_issued_tokens(VAULT_1);
 
         let mut global_reward_pool = BasicRewardPool::default();
         global_reward_pool
-            .deposit_stake(VAULT_1, vault_sla_1 as f64)
-            .deposit_stake(ISSUE_RELAYER, relayer_sla_1 as f64)
-            .distribute(100000.0 * ISSUE_FEE);
+            .deposit_stake(VAULT_1, vault_issued_tokens_1 as f64)
+            .distribute(10000.0 * ISSUE_FEE);
 
         let mut local_reward_pool = BasicRewardPool::default();
         local_reward_pool
             .deposit_stake(VAULT_1, get_vault_collateral(VAULT_1) as f64)
-            .deposit_stake(USER, DEFAULT_NOMINATION as f64)
-            .distribute(global_reward_pool.compute_reward(VAULT_1));
+            .distribute(global_reward_pool.compute_reward(VAULT_1))
+            .deposit_stake(USER, DEFAULT_NOMINATION as f64);
 
         global_reward_pool
             .withdraw_reward(VAULT_1)
-            .deposit_stake(VAULT_1, (vault_sla_2 - vault_sla_1) as f64)
-            .deposit_stake(ISSUE_RELAYER, (relayer_sla_2 - relayer_sla_1) as f64)
+            .deposit_stake(VAULT_1, (vault_issued_tokens_2 - vault_issued_tokens_1) as f64)
             .distribute(100000.0 * ISSUE_FEE);
+
+        local_reward_pool.distribute(global_reward_pool.compute_reward(VAULT_1));
 
         assert_eq_modulo_rounding!(
             get_vault_global_pool_rewards(VAULT_1),
@@ -254,8 +235,7 @@ fn test_fee_nomination_slashing() {
 
         let mut global_reward_pool = BasicRewardPool::default();
         global_reward_pool
-            .deposit_stake(VAULT_1, get_vault_sla(VAULT_1) as f64)
-            .deposit_stake(ISSUE_RELAYER, get_vault_sla(ISSUE_RELAYER) as f64)
+            .deposit_stake(VAULT_1, get_vault_issued_tokens(VAULT_1) as f64)
             .distribute(100000.0 * ISSUE_FEE);
 
         let vault_collateral = get_vault_collateral(VAULT_1) as f64;
@@ -300,8 +280,7 @@ fn test_fee_nomination_withdrawal() {
 
         let mut global_reward_pool = BasicRewardPool::default();
         global_reward_pool
-            .deposit_stake(VAULT_1, get_vault_sla(VAULT_1) as f64)
-            .deposit_stake(ISSUE_RELAYER, get_vault_sla(ISSUE_RELAYER) as f64)
+            .deposit_stake(VAULT_1, get_vault_issued_tokens(VAULT_1) as f64)
             .distribute(50000.0 * ISSUE_FEE);
 
         let mut local_reward_pool = BasicRewardPool::default();
@@ -316,38 +295,6 @@ fn test_fee_nomination_withdrawal() {
         assert_eq_modulo_rounding!(
             get_vault_global_pool_rewards(VAULT_1),
             local_reward_pool.compute_reward(VAULT_1) as i128 + local_reward_pool.compute_reward(USER) as i128,
-        );
-    });
-}
-
-#[test]
-fn test_relayer_fee_pool_withdrawal() {
-    ExtBuilder::build().execute_with(|| {
-        SecurityPallet::set_active_block_number(1);
-        assert_ok!(ExchangeRateOraclePallet::_set_exchange_rate(FixedU128::one()));
-
-        setup_relayer(RELAYER_1, 20, 100);
-        setup_relayer(RELAYER_2, 33, 200); // 33 + 7 = 40
-
-        // RELAYER_2 initializes the relay and submits 6 blocks
-        issue_with_relayer_and_vault(RELAYER_2, VAULT_1, 100000);
-
-        let mut reward_pool = BasicRewardPool::default();
-        reward_pool
-            .deposit_stake(VAULT_1, get_vault_sla(VAULT_1) as f64)
-            .deposit_stake(RELAYER_1, 20.0)
-            .deposit_stake(RELAYER_2, 40.0)
-            .distribute(100000.0 * ISSUE_FEE);
-
-        // first relayer gets 33% of the pool
-        assert_eq_modulo_rounding!(
-            withdraw_vault_global_pool_rewards(RELAYER_1),
-            reward_pool.compute_reward(RELAYER_1) as i128
-        );
-        // second relayer gets the remaining 66%
-        assert_eq_modulo_rounding!(
-            withdraw_vault_global_pool_rewards(RELAYER_2),
-            reward_pool.compute_reward(RELAYER_2) as i128
         );
     });
 }

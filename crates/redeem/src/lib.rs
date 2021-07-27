@@ -31,13 +31,14 @@ pub use crate::types::{RedeemRequest, RedeemRequestStatus};
 
 use crate::types::{BalanceOf, Collateral, Version, Wrapped};
 use btc_relay::BtcAddress;
+use exchange_rate_oracle::{BitcoinInclusionTime, OracleKey};
 use frame_support::{
     dispatch::{DispatchError, DispatchResult},
     ensure, transactional,
 };
 use frame_system::{ensure_root, ensure_signed};
 use sp_core::H256;
-use sp_runtime::traits::*;
+use sp_runtime::{traits::*, FixedPointNumber};
 use sp_std::{convert::TryInto, vec::Vec};
 use vault_registry::CurrencySource;
 
@@ -53,11 +54,7 @@ pub mod pallet {
     /// The pallet's configuration trait.
     #[pallet::config]
     pub trait Config:
-        frame_system::Config
-        + vault_registry::Config
-        + btc_relay::Config
-        + fee::Config<UnsignedInner = BalanceOf<Self>>
-        + sla::Config<Balance = BalanceOf<Self>>
+        frame_system::Config + vault_registry::Config + btc_relay::Config + fee::Config<UnsignedInner = BalanceOf<Self>>
     {
         /// The overarching event type.
         type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
@@ -313,7 +310,7 @@ impl<T: Config> Pallet<T> {
         btc_address: BtcAddress,
         vault_id: T::AccountId,
     ) -> Result<H256, DispatchError> {
-        ext::security::ensure_parachain_status_not_shutdown::<T>()?;
+        ext::security::ensure_parachain_status_running::<T>()?;
 
         let redeemer_balance = ext::treasury::get_balance::<T>(&redeemer);
         ensure!(amount_wrapped <= redeemer_balance, Error::<T>::AmountExceedsUserBalance);
@@ -456,7 +453,7 @@ impl<T: Config> Pallet<T> {
     }
 
     fn _cancel_redeem(redeemer: T::AccountId, redeem_id: H256, reimburse: bool) -> DispatchResult {
-        ext::security::ensure_parachain_status_not_shutdown::<T>()?;
+        ext::security::ensure_parachain_status_running::<T>()?;
 
         let redeem = Self::get_open_redeem_request_from_id(&redeem_id)?;
         ensure!(redeemer == redeem.redeemer, Error::<T>::UnauthorizedUser);
@@ -505,19 +502,25 @@ impl<T: Config> Pallet<T> {
         } else {
             // not liquidated
 
-            // calculate the amount to slash, a high SLA means we slash less
-            let punishment_fee_in_collateral =
-                ext::vault_registry::calculate_slashed_amount::<T>(&vault_id, amount_wrapped_in_collateral, reimburse)?;
+            // calculate the punishment fee (e.g. 10%)
+            let punishment_fee_in_collateral = ext::fee::get_punishment_fee::<T>(amount_wrapped_in_collateral)?;
+
+            let amount_to_slash = if reimburse {
+                // 100% + punishment fee on reimburse
+                amount_wrapped_in_collateral + punishment_fee_in_collateral
+            } else {
+                punishment_fee_in_collateral
+            };
 
             ext::vault_registry::transfer_funds_saturated::<T>(
                 CurrencySource::Collateral(vault_id.clone()),
                 CurrencySource::FreeBalance(redeemer.clone()),
-                punishment_fee_in_collateral,
+                amount_to_slash,
             )?;
 
             let _ = ext::vault_registry::ban_vault::<T>(vault_id.clone());
 
-            punishment_fee_in_collateral
+            amount_to_slash
         };
 
         // first update the issued tokens; this logic is the same regardless of whether or not the vault is liquidated
@@ -532,7 +535,7 @@ impl<T: Config> Pallet<T> {
             ext::fee::distribute_rewards::<T>(redeem.fee)?;
 
             if ext::vault_registry::is_vault_below_secure_threshold::<T>(&redeem.vault)? {
-                // vault can not afford to back the tokens that he would receive, so we burn it
+                // vault can not afford to back the tokens that it would receive, so we burn it
                 ext::treasury::burn::<T>(&redeemer, vault_to_be_burned_tokens)?;
                 ext::vault_registry::decrease_tokens::<T>(&redeem.vault, &redeem.redeemer, vault_to_be_burned_tokens)?;
                 Self::set_redeem_status(redeem_id, RedeemRequestStatus::Reimbursed(false))
@@ -555,7 +558,6 @@ impl<T: Config> Pallet<T> {
             Self::set_redeem_status(redeem_id, RedeemRequestStatus::Retried)
         };
 
-        ext::sla::event_update_vault_sla::<T>(&vault_id, ext::sla::Action::RedeemFailure)?;
         Self::deposit_event(<Event<T>>::CancelRedeem(
             redeem_id,
             redeemer,
@@ -568,7 +570,7 @@ impl<T: Config> Pallet<T> {
     }
 
     fn _mint_tokens_for_reimbursed_redeem(vault_id: T::AccountId, redeem_id: H256) -> DispatchResult {
-        ext::security::ensure_parachain_status_not_shutdown::<T>()?;
+        ext::security::ensure_parachain_status_running::<T>()?;
         ensure!(
             <RedeemRequests<T>>::contains_key(&redeem_id),
             Error::<T>::RedeemIdNotFound
@@ -601,20 +603,6 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
-    /// get current inclusion fee based on the expected number of bytes in the transaction, and
-    /// the inclusion fee rate reported by the oracle
-    fn get_current_inclusion_fee() -> Result<Wrapped<T>, DispatchError> {
-        {
-            let size: u32 = Self::redeem_transaction_size();
-            let satoshi_per_bytes: u32 = ext::oracle::satoshi_per_bytes::<T>().fast;
-
-            let fee = (size as u64)
-                .checked_mul(satoshi_per_bytes as u64)
-                .ok_or(Error::<T>::ArithmeticOverflow)?;
-            fee.try_into().map_err(|_| Error::<T>::TryIntoIntError.into())
-        }
-    }
-
     /// Insert a new redeem request into state.
     ///
     /// # Arguments
@@ -631,6 +619,20 @@ impl<T: Config> Pallet<T> {
         });
 
         status
+    }
+
+    /// get current inclusion fee based on the expected number of bytes in the transaction, and
+    /// the inclusion fee rate reported by the oracle
+    pub fn get_current_inclusion_fee() -> Result<Wrapped<T>, DispatchError> {
+        {
+            let size: u32 = Self::redeem_transaction_size();
+            let satoshi_per_bytes = ext::oracle::get_price::<T>(OracleKey::FeeEstimation(BitcoinInclusionTime::Fast))?;
+
+            let fee = satoshi_per_bytes
+                .checked_mul_int(size)
+                .ok_or(Error::<T>::ArithmeticOverflow)?;
+            fee.try_into().map_err(|_| Error::<T>::TryIntoIntError.into())
+        }
     }
 
     /// Fetch all redeem requests for the specified account.

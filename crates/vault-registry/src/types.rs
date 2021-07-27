@@ -90,6 +90,8 @@ pub(crate) type UnsignedFixedPoint<T> = <T as Config>::UnsignedFixedPoint;
 
 pub(crate) type SignedInner<T> = <T as Config>::SignedInner;
 
+pub(crate) type CurrencyId<T> = <T as staking::Config>::CurrencyId;
+
 #[derive(Encode, Decode, Clone, PartialEq, Debug, Default)]
 pub struct Wallet {
     // store all addresses for `report_vault_theft` checks
@@ -243,6 +245,7 @@ impl<T: Config> UpdatableVault<T> for RichVault<T> {
         if self.data.is_liquidated() {
             Pallet::<T>::get_rich_liquidation_vault().increase_issued(tokens)
         } else {
+            ext::reward::deposit_stake::<T>(&self.id(), tokens)?;
             self.update(|v| {
                 v.issued_tokens = v
                     .issued_tokens
@@ -283,6 +286,7 @@ impl<T: Config> UpdatableVault<T> for RichVault<T> {
         if self.data.is_liquidated() {
             Pallet::<T>::get_rich_liquidation_vault().decrease_issued(tokens)
         } else {
+            ext::reward::withdraw_stake::<T>(&self.id(), tokens)?;
             self.update(|v| {
                 v.issued_tokens = v
                     .issued_tokens
@@ -440,7 +444,7 @@ impl<T: Config> RichVault<T> {
     }
 
     pub(crate) fn slash_to_liquidation_vault(&mut self, amount: Collateral<T>) -> DispatchResult {
-        ext::staking::slash_stake::<T>(&self.id(), Pallet::<T>::collateral_to_fixed(amount)?)?;
+        ext::staking::slash_stake::<T>(&self.id(), amount)?;
         Pallet::<T>::transfer_funds(
             CurrencySource::ReservedBalance(self.id()),
             CurrencySource::LiquidationVault,
@@ -473,10 +477,7 @@ impl<T: Config> RichVault<T> {
         self.slash_to_liquidation_vault(liquidated_collateral_excluding_to_be_redeemed)?;
         // temporarily slash additional collateral for the to_be_redeemed tokens
         // this is re-distributed once the tokens are burned
-        ext::staking::slash_stake::<T>(
-            &self.id(),
-            Pallet::<T>::collateral_to_fixed(collateral_for_to_be_redeemed)?,
-        )?;
+        ext::staking::slash_stake::<T>(&self.id(), collateral_for_to_be_redeemed)?;
         self.increase_liquidated_collateral(collateral_for_to_be_redeemed)?;
 
         // Copy all tokens to the liquidation vault
@@ -484,6 +485,9 @@ impl<T: Config> RichVault<T> {
         liquidation_vault.increase_issued(self.data.issued_tokens)?;
         liquidation_vault.increase_to_be_issued(self.data.to_be_issued_tokens)?;
         liquidation_vault.increase_to_be_redeemed(self.data.to_be_redeemed_tokens)?;
+
+        // withdraw stake from the reward pool
+        ext::reward::withdraw_stake::<T>(&self.id(), self.data.issued_tokens)?;
 
         // Update vault: clear to_be_issued & issued_tokens, but don't touch to_be_redeemed
         let _ = self.update(|v| {

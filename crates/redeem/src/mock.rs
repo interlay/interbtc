@@ -1,15 +1,15 @@
 use crate as redeem;
 use crate::{Config, Error};
-use codec::{Decode, Encode};
+pub use exchange_rate_oracle::{BitcoinInclusionTime, CurrencyId, OracleKey};
 use frame_support::{assert_ok, parameter_types, traits::GenesisBuild, PalletId};
 use mocktopus::mocking::clear_mocks;
 use orml_tokens::CurrencyAdapter;
 use orml_traits::parameter_type_with_key;
-use sp_arithmetic::{FixedI128, FixedPointNumber, FixedU128};
+pub use sp_arithmetic::{FixedI128, FixedPointNumber, FixedU128};
 use sp_core::H256;
 use sp_runtime::{
     testing::{Header, TestXt},
-    traits::{BlakeTwo256, IdentityLookup, One, Zero},
+    traits::{BlakeTwo256, IdentityLookup, Zero},
 };
 
 type TestExtrinsic = TestXt<Call, ()>;
@@ -39,7 +39,6 @@ frame_support::construct_runtime!(
         ExchangeRateOracle: exchange_rate_oracle::{Pallet, Call, Config<T>, Storage, Event<T>},
         Redeem: redeem::{Pallet, Call, Config<T>, Storage, Event<T>},
         Fee: fee::{Pallet, Call, Config<T>, Storage},
-        Sla: sla::{Pallet, Call, Config<T>, Storage, Event<T>},
         Staking: staking::{Pallet, Storage, Event<T>},
     }
 );
@@ -88,13 +87,6 @@ impl frame_system::Config for Test {
 
 impl pallet_randomness_collective_flip::Config for Test {}
 
-#[derive(Encode, Decode, Debug, PartialEq, PartialOrd, Ord, Eq, Clone, Copy)]
-#[cfg_attr(feature = "std", derive(serde::Serialize, serde::Deserialize))]
-pub enum CurrencyId {
-    DOT,
-    INTERBTC,
-}
-
 pub const DOT: CurrencyId = CurrencyId::DOT;
 pub const INTERBTC: CurrencyId = CurrencyId::INTERBTC;
 
@@ -142,7 +134,6 @@ impl vault_registry::Config for Test {
     type SignedFixedPoint = SignedFixedPoint;
     type UnsignedFixedPoint = UnsignedFixedPoint;
     type WeightInfo = ();
-    type VaultRewards = reward::RewardsCurrencyAdapter<Test, (), GetWrappedCurrencyId>;
     type Collateral = CurrencyAdapter<Test, GetCollateralCurrencyId>;
     type Wrapped = CurrencyAdapter<Test, GetWrappedCurrencyId>;
     type GetRewardsCurrencyId = GetWrappedCurrencyId;
@@ -210,14 +201,6 @@ impl fee::Config for Test {
     type OnSweep = ();
 }
 
-impl sla::Config for Test {
-    type Event = TestEvent;
-    type SignedFixedPoint = SignedFixedPoint;
-    type SignedInner = SignedInner;
-    type Balance = Balance;
-    type VaultRewards = reward::RewardsCurrencyAdapter<Test, (), GetWrappedCurrencyId>;
-}
-
 impl Config for Test {
     type Event = TestEvent;
     type WeightInfo = ();
@@ -265,24 +248,17 @@ impl ExtBuilder {
         .assimilate_storage(&mut storage)
         .unwrap();
 
-        sla::GenesisConfig::<Test> {
-            vault_target_sla: SignedFixedPoint::from(100),
-            vault_redeem_failure_sla_change: SignedFixedPoint::from(-10),
-            vault_execute_issue_max_sla_change: SignedFixedPoint::from(4),
-            vault_deposit_max_sla_change: SignedFixedPoint::from(4),
-            vault_withdraw_max_sla_change: SignedFixedPoint::from(-4),
-            vault_submit_issue_proof: SignedFixedPoint::from(0),
-            vault_refund: SignedFixedPoint::from(1),
-            relayer_store_block: SignedFixedPoint::from(1),
-            relayer_theft_report: SignedFixedPoint::from(1),
+        redeem::GenesisConfig::<Test> {
+            redeem_transaction_size: 1,
+            redeem_period: 10,
+            redeem_btc_dust_value: 2,
         }
         .assimilate_storage(&mut storage)
         .unwrap();
 
-        redeem::GenesisConfig::<Test> {
-            redeem_transaction_size: 400,
-            redeem_period: 10,
-            redeem_btc_dust_value: 2,
+        exchange_rate_oracle::GenesisConfig::<Test> {
+            authorized_oracles: vec![(ALICE, "test".as_bytes().to_vec())],
+            max_delay: 0,
         }
         .assimilate_storage(&mut storage)
         .unwrap();
@@ -310,9 +286,16 @@ where
 {
     clear_mocks();
     ExtBuilder::build().execute_with(|| {
-        assert_ok!(<exchange_rate_oracle::Pallet<Test>>::_set_exchange_rate(
-            UnsignedFixedPoint::one()
+        assert_ok!(<exchange_rate_oracle::Pallet<Test>>::feed_values(
+            Origin::signed(ALICE),
+            vec![
+                (OracleKey::ExchangeRate(CurrencyId::DOT), FixedU128::from(1)),
+                (OracleKey::FeeEstimation(BitcoinInclusionTime::Fast), FixedU128::from(3)),
+                (OracleKey::FeeEstimation(BitcoinInclusionTime::Half), FixedU128::from(2)),
+                (OracleKey::FeeEstimation(BitcoinInclusionTime::Hour), FixedU128::from(1)),
+            ]
         ));
+        <exchange_rate_oracle::Pallet<Test>>::begin_block(0);
         Security::set_active_block_number(1);
         System::set_block_number(1);
         test();

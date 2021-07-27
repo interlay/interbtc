@@ -1,30 +1,24 @@
 use super::{Pallet as ExchangeRateOracle, *};
+use crate::{CurrencyId, OracleKey};
 use frame_benchmarking::{account, benchmarks};
 use frame_system::RawOrigin;
 use sp_runtime::FixedPointNumber;
 use sp_std::prelude::*;
 
 benchmarks! {
-    set_exchange_rate {
+    feed_values {
+        let u in 1 .. 1000u32;
+
         let origin: T::AccountId = account("origin", 0, 0);
         <AuthorizedOracles<T>>::insert(origin.clone(), Vec::<u8>::new());
-        let rate = UnsignedFixedPoint::<T>::checked_from_rational(1, 1).unwrap();
-    }: _(RawOrigin::Signed(origin), rate)
-    verify {
-        assert_eq!(ExchangeRate::<T>::get(), UnsignedFixedPoint::<T>::checked_from_rational(1, 1).unwrap());
-    }
 
-    set_btc_tx_fees_per_byte {
-        let u in 0 .. 1000u32;
-        let origin: T::AccountId = account("origin", 0, 0);
-        <AuthorizedOracles<T>>::insert(origin.clone(), Vec::<u8>::new());
-    }: _(RawOrigin::Signed(origin), 1 * u, 2 * u, 3 * u)
+        let key = OracleKey::ExchangeRate(CurrencyId::DOT);
+        let values:Vec<_> = (0 .. u).map(|x| (key.clone(), UnsignedFixedPoint::<T>::checked_from_rational(1, x+1).unwrap())).collect();
+    }: _(RawOrigin::Signed(origin), values)
     verify {
-        let readback = SatoshiPerBytes::<T>::get();
-
-        assert_eq!(readback.fast, 1 * u);
-        assert_eq!(readback.half, 2 * u);
-        assert_eq!(readback.hour, 3 * u);
+        let key = OracleKey::ExchangeRate(CurrencyId::DOT);
+        crate::Pallet::<T>::begin_block(0u32.into());
+        assert!(Aggregate::<T>::get(key).is_some());
     }
 
     insert_authorized_oracle {
@@ -52,8 +46,7 @@ mod tests {
     #[test]
     fn test_benchmarks() {
         ExtBuilder::build().execute_with(|| {
-            assert_ok!(test_benchmark_set_exchange_rate::<Test>());
-            assert_ok!(test_benchmark_set_btc_tx_fees_per_byte::<Test>());
+            assert_ok!(test_benchmark_feed_values::<Test>());
             assert_ok!(test_benchmark_insert_authorized_oracle::<Test>());
             assert_ok!(test_benchmark_remove_authorized_oracle::<Test>());
         });

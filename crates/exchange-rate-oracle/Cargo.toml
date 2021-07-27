@@ -1,6 +1,6 @@
 [package]
 name = "exchange-rate-oracle"
-version = "0.8.0"
+version = "0.9.0"
 authors = ["Interlay Ltd"]
 edition = "2018"
 
@@ -21,6 +21,7 @@ pallet-timestamp = { git = "https://github.com/paritytech/substrate", branch = "
 
 # Parachain dependencies
 security = { path = "../security", default-features = false }
+primitives = { package = "interbtc-primitives", path = "../../primitives", default-features = false }
 
 [dev-dependencies]
 mocktopus = "0.7.0"
@@ -43,6 +44,7 @@ std = [
     "pallet-timestamp/std",
 
     "security/std",
+    "primitives/std",
 ]
 runtime-benchmarks = [
 	"frame-benchmarking",

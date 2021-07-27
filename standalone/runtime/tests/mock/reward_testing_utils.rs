@@ -1,6 +1,3 @@
-use crate::SlaPallet;
-use sp_arithmetic::FixedI128;
-use sp_runtime::traits::{One, Zero};
 use std::collections::HashMap;
 
 type AccountId = [u8; 32];
@@ -52,52 +49,5 @@ impl BasicRewardPool {
         let stake = self.stake.get(&account).unwrap_or(&0.0);
         self.reward_tally.insert(account, self.reward_per_token * stake);
         self
-    }
-}
-
-pub struct SlaBuilder {
-    sla: FixedI128,
-    average_deposit: FixedI128,
-    average_deposit_count: FixedI128,
-    max_sla_deposit: FixedI128,
-}
-
-impl Default for SlaBuilder {
-    fn default() -> Self {
-        Self {
-            sla: FixedI128::from(0),
-            average_deposit: FixedI128::from(0),
-            average_deposit_count: FixedI128::from(0),
-            max_sla_deposit: SlaPallet::vault_deposit_max_sla_change(),
-        }
-    }
-}
-
-fn limit(min: FixedI128, value: FixedI128, max: FixedI128) -> FixedI128 {
-    if value < min {
-        min
-    } else if value > max {
-        max
-    } else {
-        value
-    }
-}
-
-impl SlaBuilder {
-    pub fn deposit_collateral(&mut self, amount: FixedI128) -> &mut Self {
-        // new_average = (old_average * (n-1) + new_value) / n
-        self.average_deposit_count = self.average_deposit_count + FixedI128::one();
-        let n = self.average_deposit_count;
-        self.average_deposit = (self.average_deposit * (n - FixedI128::one()) + amount) / n;
-
-        // increase = (amount / average) * max_sla_change
-        let increase = (amount / self.average_deposit) * self.max_sla_deposit;
-
-        self.sla = self.sla + limit(FixedI128::zero(), increase, self.max_sla_deposit);
-        self
-    }
-
-    pub fn get_sla(&mut self) -> FixedI128 {
-        self.sla.clone()
     }
 }

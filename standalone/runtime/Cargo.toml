@@ -2,7 +2,7 @@
 authors = ["Interlay Ltd"]
 edition = "2018"
 name = 'interbtc-runtime-standalone'
-version = "0.8.0"
+version = "0.9.0"
 
 [package.metadata.docs.rs]
 targets = ['x86_64-unknown-linux-gnu']
@@ -55,7 +55,6 @@ relay = { path = "../../crates/relay", default-features = false }
 vault-registry = { path = "../../crates/vault-registry", default-features = false }
 exchange-rate-oracle = { path = "../../crates/exchange-rate-oracle", default-features = false }
 fee = { path = "../../crates/fee", default-features = false }
-sla = { path = "../../crates/sla", default-features = false }
 issue = { path = "../../crates/issue", default-features = false }
 redeem = { path = "../../crates/redeem", default-features = false }
 replace = { path = "../../crates/replace", default-features = false }
@@ -78,7 +77,6 @@ module-refund-rpc-runtime-api = { path = "../../crates/refund/rpc/runtime-api", 
 # Orml dependencies
 orml-tokens = { git = "https://github.com/open-web3-stack/open-runtime-module-library", rev = "81511f1", default-features = false }
 orml-traits = { git = "https://github.com/open-web3-stack/open-runtime-module-library", rev = "81511f1", default-features = false }
-orml-oracle = { git = "https://github.com/open-web3-stack/open-runtime-module-library", rev = "81511f1", default-features = false }
 
 [dev-dependencies]
 hex = '0.4.2'
@@ -137,7 +135,6 @@ std = [
   "vault-registry/std",
   "exchange-rate-oracle/std",
   "fee/std",
-  "sla/std",
   "refund/std",
   "issue/std",
   "redeem/std",
@@ -159,7 +156,6 @@ std = [
 
   "orml-tokens/std",
   "orml-traits/std",
-  "orml-oracle/std",
 ]
 runtime-benchmarks = [
   "hex-literal",

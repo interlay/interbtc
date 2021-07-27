@@ -2,7 +2,7 @@
 authors = ["Interlay Ltd"]
 edition = "2018"
 name = "interbtc-primitives"
-version = "0.8.0"
+version = "0.9.0"
 
 [dependencies]
 bstringify = "0.1.2"
@@ -15,10 +15,6 @@ sp-runtime = { git = "https://github.com/paritytech/substrate", branch = "polkad
 
 # Parachain dependencies
 bitcoin = { path = "../crates/bitcoin", default-features = false }
-issue = { path = "../crates/issue", default-features = false }
-redeem = { path = "../crates/redeem", default-features = false }
-replace = { path = "../crates/replace", default-features = false }
-refund = { path = "../crates/refund", default-features = false }
 
 [features]
 default = ["std"]
@@ -31,8 +27,4 @@ std = [
     "sp-runtime/std",
 
     "bitcoin/std",
-    "issue/std",
-    "redeem/std",
-    "replace/std",
-    "refund/std",
 ]

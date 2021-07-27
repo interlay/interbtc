@@ -36,7 +36,6 @@ frame_support::construct_runtime!(
         Security: security::{Pallet, Call, Storage, Event<T>},
         VaultRegistry: vault_registry::{Pallet, Call, Config<T>, Storage, Event<T>, ValidateUnsigned},
         ExchangeRateOracle: exchange_rate_oracle::{Pallet, Call, Config<T>, Storage, Event<T>},
-        Sla: sla::{Pallet, Call, Config<T>, Storage, Event<T>},
         Staking: staking::{Pallet, Storage, Event<T>},
     }
 );
@@ -154,7 +153,6 @@ impl Config for Test {
     type SignedFixedPoint = SignedFixedPoint;
     type UnsignedFixedPoint = UnsignedFixedPoint;
     type WeightInfo = ();
-    type VaultRewards = reward::RewardsCurrencyAdapter<Test, (), GetWrappedCurrencyId>;
     type Collateral = CurrencyAdapter<Test, GetCollateralCurrencyId>;
     type Wrapped = CurrencyAdapter<Test, GetWrappedCurrencyId>;
     type GetRewardsCurrencyId = GetWrappedCurrencyId;
@@ -170,14 +168,6 @@ where
 
 impl security::Config for Test {
     type Event = TestEvent;
-}
-
-impl sla::Config for Test {
-    type Event = TestEvent;
-    type SignedFixedPoint = SignedFixedPoint;
-    type SignedInner = SignedInner;
-    type Balance = Balance;
-    type VaultRewards = reward::RewardsCurrencyAdapter<Test, (), GetWrappedCurrencyId>;
 }
 
 impl staking::Config for Test {

@@ -733,7 +733,6 @@ impl vault_registry::Config for Runtime {
     type SignedFixedPoint = SignedFixedPoint;
     type UnsignedFixedPoint = UnsignedFixedPoint;
     type WeightInfo = ();
-    type VaultRewards = reward::RewardsCurrencyAdapter<Runtime, (), GetWrappedCurrencyId>;
     type Collateral = orml_tokens::CurrencyAdapter<Runtime, GetCollateralCurrencyId>;
     type Wrapped = orml_tokens::CurrencyAdapter<Runtime, GetWrappedCurrencyId>;
     type GetRewardsCurrencyId = GetWrappedCurrencyId;
@@ -769,14 +768,6 @@ impl fee::Config for Runtime {
     type VaultStaking = staking::StakingCurrencyAdapter<Runtime, GetWrappedCurrencyId>;
     type Wrapped = orml_tokens::CurrencyAdapter<Runtime, GetWrappedCurrencyId>;
     type OnSweep = currency::SweepFunds<Runtime, FeeAccount, GetWrappedCurrencyId>;
-}
-
-impl sla::Config for Runtime {
-    type Event = Event;
-    type SignedFixedPoint = SignedFixedPoint;
-    type SignedInner = SignedInner;
-    type Balance = Balance;
-    type VaultRewards = reward::RewardsCurrencyAdapter<Runtime, (), GetWrappedCurrencyId>;
 }
 
 pub use refund::{Event as RefundEvent, RefundRequest};
@@ -846,7 +837,6 @@ construct_runtime! {
         Redeem: redeem::{Pallet, Call, Config<T>, Storage, Event<T>},
         Replace: replace::{Pallet, Call, Config<T>, Storage, Event<T>},
         Fee: fee::{Pallet, Call, Config<T>, Storage},
-        Sla: sla::{Pallet, Call, Config<T>, Storage, Event<T>},
         Refund: refund::{Pallet, Call, Config<T>, Storage, Event<T>},
         Nomination: nomination::{Pallet, Call, Config, Storage, Event<T>},
 

@@ -160,20 +160,6 @@ pub(crate) mod oracle {
 }
 
 #[cfg_attr(test, mockable)]
-pub(crate) mod sla {
-    use crate::types::BalanceOf;
-    use frame_support::dispatch::DispatchError;
-    pub use sla::Action;
-
-    pub fn event_update_vault_sla<T: crate::Config>(
-        vault_id: &T::AccountId,
-        action: Action<BalanceOf<T>>,
-    ) -> Result<(), DispatchError> {
-        <sla::Pallet<T>>::event_update_vault_sla(vault_id, action)
-    }
-}
-
-#[cfg_attr(test, mockable)]
 pub(crate) mod fee {
     use crate::types::{Collateral, Wrapped};
     use frame_support::dispatch::{DispatchError, DispatchResult};

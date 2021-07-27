@@ -3,11 +3,11 @@ use crate::{ext, mock::*};
 use bitcoin::{
     formatter::Formattable,
     types::{
-        BlockHeader, H256Le, MerkleProof, Transaction, TransactionBuilder, TransactionInputBuilder,
-        TransactionInputSource, TransactionOutput,
+        H256Le, MerkleProof, Transaction, TransactionBuilder, TransactionInputBuilder, TransactionInputSource,
+        TransactionOutput,
     },
 };
-use btc_relay::{BtcAddress, BtcPublicKey, Error as BtcRelayError, OpReturnPaymentData};
+use btc_relay::{BtcAddress, BtcPublicKey, OpReturnPaymentData};
 use frame_support::{assert_err, assert_ok};
 use mocktopus::mocking::*;
 use redeem::types::{RedeemRequest, RedeemRequestStatus};
@@ -616,23 +616,6 @@ fn test_is_transaction_invalid_succeeds_with_testnet_transaction() {
             .mock_safe(move |_| MockResult::Return(Ok(init_zero_vault(BOB, Some(btc_address)))));
 
         assert_ok!(Relay::is_transaction_invalid(&BOB, raw_tx));
-    })
-}
-
-#[test]
-fn test_store_block_header_and_update_sla_fails_with_invalid() {
-    run_test(|| {
-        ext::btc_relay::store_block_header::<Test>
-            .mock_safe(|_, _| MockResult::Return(Err(BtcRelayError::<Test>::DiffTargetHeader.into())));
-
-        ext::sla::event_update_vault_sla::<Test>.mock_safe(|_, _| {
-            panic!("Should not call sla update for invalid block");
-        });
-
-        assert_err!(
-            Relay::store_block_header_and_update_sla(&0, BlockHeader::default()),
-            BtcRelayError::<Test>::DiffTargetHeader
-        );
     })
 }
 
