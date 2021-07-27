@@ -305,7 +305,6 @@ impl vault_registry::Config for Runtime {
     type SignedFixedPoint = SignedFixedPoint;
     type UnsignedFixedPoint = UnsignedFixedPoint;
     type WeightInfo = ();
-    type VaultRewards = reward::RewardsCurrencyAdapter<Runtime, (), GetWrappedCurrencyId>;
     type Collateral = orml_tokens::CurrencyAdapter<Runtime, GetCollateralCurrencyId>;
     type Wrapped = orml_tokens::CurrencyAdapter<Runtime, GetWrappedCurrencyId>;
     type GetRewardsCurrencyId = GetWrappedCurrencyId;

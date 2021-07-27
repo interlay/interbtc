@@ -27,8 +27,8 @@ extern crate mocktopus;
 use mocktopus::macros::mockable;
 
 use crate::types::{
-    BalanceOf, BtcAddress, Collateral, DefaultSystemVault, RichSystemVault, RichVault, SignedFixedPoint, SignedInner,
-    UnsignedFixedPoint, UpdatableVault, Version, Wrapped,
+    BalanceOf, BtcAddress, Collateral, CurrencyId, DefaultSystemVault, RichSystemVault, RichVault, SignedFixedPoint,
+    SignedInner, UnsignedFixedPoint, UpdatableVault, Version, Wrapped,
 };
 
 #[doc(inline)]
@@ -82,6 +82,7 @@ pub mod pallet {
         + exchange_rate_oracle::Config<Balance = BalanceOf<Self>>
         + security::Config
         + staking::Config<SignedInner = SignedInner<Self>, SignedFixedPoint = SignedFixedPoint<Self>>
+        + reward::Config<SignedFixedPoint = SignedFixedPoint<Self>, CurrencyId = CurrencyId<Self>>
     {
         /// The vault module id, used for deriving its sovereign account ID.
         #[pallet::constant] // put the constant in metadata
@@ -128,9 +129,6 @@ pub mod pallet {
         /// Weight information for the extrinsics in this module.
         type WeightInfo: WeightInfo;
 
-        /// Vault reward pool for the wrapped currency.
-        type VaultRewards: reward::Rewards<Self::AccountId, SignedFixedPoint = SignedFixedPoint<Self>>;
-
         /// Collateral currency, e.g. DOT/KSM.
         type Collateral: ParachainCurrency<Self::AccountId, Balance = BalanceOf<Self>>;
 
@@ -139,7 +137,7 @@ pub mod pallet {
 
         /// Rewards currency, e.g. INTERBTC.
         #[pallet::constant]
-        type GetRewardsCurrencyId: Get<Self::CurrencyId>;
+        type GetRewardsCurrencyId: Get<CurrencyId<Self>>;
     }
 
     #[pallet::hooks]
@@ -607,7 +605,7 @@ impl<T: Config> Pallet<T> {
         Self::increase_total_backing_collateral(amount)?;
 
         // Deposit `amount` of stake in the pool
-        ext::staking::deposit_stake::<T>(vault_id, vault_id, Self::currency_to_fixed(amount)?)?;
+        ext::staking::deposit_stake::<T>(vault_id, vault_id, amount)?;
 
         Ok(())
     }
@@ -623,7 +621,7 @@ impl<T: Config> Pallet<T> {
         Self::decrease_total_backing_collateral(amount)?;
 
         // Withdraw `amount` of stake from the pool
-        ext::staking::withdraw_stake::<T>(vault_id, vault_id, Self::currency_to_fixed(amount)?)?;
+        ext::staking::withdraw_stake::<T>(vault_id, vault_id, amount)?;
 
         Ok(())
     }
@@ -700,7 +698,7 @@ impl<T: Config> Pallet<T> {
 
     fn slash_backing_collateral(vault_id: &T::AccountId, amount: Collateral<T>) -> DispatchResult {
         ext::collateral::unlock::<T>(vault_id, amount)?;
-        ext::staking::slash_stake::<T>(vault_id, Self::currency_to_fixed(amount)?)?;
+        ext::staking::slash_stake::<T>(vault_id, amount)?;
         Ok(())
     }
 
@@ -997,7 +995,7 @@ impl<T: Config> Pallet<T> {
             vault.decrease_liquidated_collateral(to_be_released)?;
 
             // release vault's collateral
-            ext::staking::unslash_stake::<T>(vault_id, Self::currency_to_fixed(to_be_released)?)?;
+            ext::staking::unslash_stake::<T>(vault_id, to_be_released)?;
 
             Self::deposit_event(Event::<T>::RedeemTokensLiquidatedVault(
                 vault_id.clone(),
@@ -1083,7 +1081,7 @@ impl<T: Config> Pallet<T> {
             old_vault.decrease_liquidated_collateral(to_be_released)?;
 
             // release old-vault's collateral
-            ext::staking::unslash_stake::<T>(old_vault_id, Self::currency_to_fixed(to_be_released)?)?;
+            ext::staking::unslash_stake::<T>(old_vault_id, to_be_released)?;
         }
 
         old_vault.decrease_tokens(tokens)?;

@@ -71,37 +71,52 @@ pub(crate) mod security {
 
 #[cfg_attr(test, mockable)]
 pub(crate) mod staking {
-    use crate::types::{SignedFixedPoint, SignedInner};
+    use crate::{
+        types::{BalanceOf, SignedInner},
+        Pallet,
+    };
     use frame_support::{dispatch::DispatchError, traits::Get};
 
     pub fn deposit_stake<T: crate::Config>(
         vault_id: &T::AccountId,
         nominator_id: &T::AccountId,
-        amount: SignedFixedPoint<T>,
+        amount: BalanceOf<T>,
     ) -> Result<(), DispatchError> {
-        <staking::Pallet<T>>::deposit_stake(T::GetRewardsCurrencyId::get(), vault_id, nominator_id, amount)
+        <staking::Pallet<T>>::deposit_stake(
+            T::GetRewardsCurrencyId::get(),
+            vault_id,
+            nominator_id,
+            Pallet::<T>::currency_to_fixed(amount)?,
+        )
     }
 
     pub fn withdraw_stake<T: crate::Config>(
         vault_id: &T::AccountId,
         nominator_id: &T::AccountId,
-        amount: SignedFixedPoint<T>,
+        amount: BalanceOf<T>,
     ) -> Result<(), DispatchError> {
-        <staking::Pallet<T>>::withdraw_stake(T::GetRewardsCurrencyId::get(), vault_id, nominator_id, amount)
+        <staking::Pallet<T>>::withdraw_stake(
+            T::GetRewardsCurrencyId::get(),
+            vault_id,
+            nominator_id,
+            Pallet::<T>::currency_to_fixed(amount)?,
+        )
     }
 
-    pub fn slash_stake<T: crate::Config>(
-        vault_id: &T::AccountId,
-        amount: SignedFixedPoint<T>,
-    ) -> Result<(), DispatchError> {
-        <staking::Pallet<T>>::slash_stake(T::GetRewardsCurrencyId::get(), vault_id, amount)
+    pub fn slash_stake<T: crate::Config>(vault_id: &T::AccountId, amount: BalanceOf<T>) -> Result<(), DispatchError> {
+        <staking::Pallet<T>>::slash_stake(
+            T::GetRewardsCurrencyId::get(),
+            vault_id,
+            Pallet::<T>::currency_to_fixed(amount)?,
+        )
     }
 
-    pub fn unslash_stake<T: crate::Config>(
-        vault_id: &T::AccountId,
-        amount: SignedFixedPoint<T>,
-    ) -> Result<(), DispatchError> {
-        <staking::Pallet<T>>::unslash_stake(T::GetRewardsCurrencyId::get(), vault_id, amount)
+    pub fn unslash_stake<T: crate::Config>(vault_id: &T::AccountId, amount: BalanceOf<T>) -> Result<(), DispatchError> {
+        <staking::Pallet<T>>::unslash_stake(
+            T::GetRewardsCurrencyId::get(),
+            vault_id,
+            Pallet::<T>::currency_to_fixed(amount)?,
+        )
     }
 
     pub fn compute_stake<T: crate::Config>(
@@ -113,5 +128,30 @@ pub(crate) mod staking {
 
     pub fn total_current_stake<T: crate::Config>(vault_id: &T::AccountId) -> Result<SignedInner<T>, DispatchError> {
         <staking::Pallet<T>>::total_current_stake(T::GetRewardsCurrencyId::get(), vault_id)
+    }
+}
+
+#[cfg_attr(test, mockable)]
+pub(crate) mod reward {
+    use crate::{types::BalanceOf, Pallet};
+    use frame_support::{dispatch::DispatchError, traits::Get};
+
+    pub fn deposit_stake<T: crate::Config>(vault_id: &T::AccountId, amount: BalanceOf<T>) -> Result<(), DispatchError> {
+        <reward::Pallet<T>>::deposit_stake(
+            T::GetRewardsCurrencyId::get(),
+            vault_id,
+            Pallet::<T>::currency_to_fixed(amount)?,
+        )
+    }
+
+    pub fn withdraw_stake<T: crate::Config>(
+        vault_id: &T::AccountId,
+        amount: BalanceOf<T>,
+    ) -> Result<(), DispatchError> {
+        <reward::Pallet<T>>::withdraw_stake(
+            T::GetRewardsCurrencyId::get(),
+            vault_id,
+            Pallet::<T>::currency_to_fixed(amount)?,
+        )
     }
 }
