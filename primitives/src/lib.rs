@@ -25,9 +25,11 @@ pub mod issue {
     #[derive(Encode, Decode, Clone, PartialEq)]
     #[cfg_attr(feature = "std", derive(Debug, Serialize, Deserialize))]
     pub enum IssueRequestStatus {
+        /// opened, but not yet executed or cancelled
         Pending,
-        /// optional refund ID
+        /// payment was received, optional refund ID on overpayment (when vault cannot back)
         Completed(Option<H256>),
+        /// payment was not received, vault may receive griefing collateral
         Cancelled,
     }
 
@@ -42,30 +44,39 @@ pub mod issue {
     #[derive(Encode, Decode, Default, Clone, PartialEq)]
     #[cfg_attr(feature = "std", derive(Debug, Serialize, Deserialize))]
     pub struct IssueRequest<AccountId, BlockNumber, Wrapped, Collateral> {
+        /// the vault associated with this issue request
         pub vault: AccountId,
+        /// the *active* block height when this request was opened
         pub opentime: BlockNumber,
+        /// the issue period when this request was opened
         pub period: BlockNumber,
         #[cfg_attr(feature = "std", serde(bound(deserialize = "Collateral: std::str::FromStr")))]
         #[cfg_attr(feature = "std", serde(deserialize_with = "deserialize_from_string"))]
         #[cfg_attr(feature = "std", serde(bound(serialize = "Collateral: std::fmt::Display")))]
         #[cfg_attr(feature = "std", serde(serialize_with = "serialize_as_string"))]
+        /// the collateral held for spam prevention
         pub griefing_collateral: Collateral,
         #[cfg_attr(feature = "std", serde(bound(deserialize = "Wrapped: std::str::FromStr")))]
         #[cfg_attr(feature = "std", serde(deserialize_with = "deserialize_from_string"))]
         #[cfg_attr(feature = "std", serde(bound(serialize = "Wrapped: std::fmt::Display")))]
         #[cfg_attr(feature = "std", serde(serialize_with = "serialize_as_string"))]
-        /// the number of tokens that will be transfered to the user (as such, this does not include the fee)
+        /// the number of tokens that will be transferred to the user (as such, this does not include the fee)
         pub amount: Wrapped,
         #[cfg_attr(feature = "std", serde(bound(deserialize = "Wrapped: std::str::FromStr")))]
         #[cfg_attr(feature = "std", serde(deserialize_with = "deserialize_from_string"))]
         #[cfg_attr(feature = "std", serde(bound(serialize = "Wrapped: std::fmt::Display")))]
         #[cfg_attr(feature = "std", serde(serialize_with = "serialize_as_string"))]
-        /// the number of tokens that will be tranferred to the fee pool
+        /// the number of tokens that will be transferred to the fee pool
         pub fee: Wrapped,
+        /// the account issuing tokens
         pub requester: AccountId,
+        /// the vault's Bitcoin deposit address
         pub btc_address: BtcAddress,
+        /// the vault's Bitcoin public key (when this request was made)
         pub btc_public_key: BtcPublicKey,
+        /// the highest recorded height in the BTC-Relay (at time of opening)
         pub btc_height: u32,
+        /// the status of this issue request
         pub status: IssueRequestStatus,
     }
 }
@@ -88,10 +99,13 @@ pub mod redeem {
     #[derive(Encode, Decode, Clone, Eq, PartialEq)]
     #[cfg_attr(feature = "std", derive(Debug, Serialize, Deserialize))]
     pub enum RedeemRequestStatus {
+        /// opened, but not yet executed or cancelled
         Pending,
+        /// successfully executed with a valid payment from the vault
         Completed,
         /// bool=true indicates that the vault minted tokens for the amount that the redeemer burned
         Reimbursed(bool),
+        /// user received compensation, but is retrying the redeem with another vault
         Retried,
     }
 
@@ -106,42 +120,43 @@ pub mod redeem {
     #[derive(Encode, Decode, Default, Clone, PartialEq)]
     #[cfg_attr(feature = "std", derive(Debug, Serialize, Deserialize))]
     pub struct RedeemRequest<AccountId, BlockNumber, Wrapped, Collateral> {
+        /// the vault associated with this redeem request
         pub vault: AccountId,
+        /// the *active* block height when this request was opened
         pub opentime: BlockNumber,
+        /// the redeem period when this request was opened
         pub period: BlockNumber,
-
         #[cfg_attr(feature = "std", serde(bound(deserialize = "Wrapped: std::str::FromStr")))]
         #[cfg_attr(feature = "std", serde(deserialize_with = "deserialize_from_string"))]
         #[cfg_attr(feature = "std", serde(bound(serialize = "Wrapped: std::fmt::Display")))]
         #[cfg_attr(feature = "std", serde(serialize_with = "serialize_as_string"))]
-        /// Total redeem fees in issuance - taken from request amount
+        /// total redeem fees - taken from request amount
         pub fee: Wrapped,
-
         #[cfg_attr(feature = "std", serde(bound(deserialize = "Wrapped: std::str::FromStr")))]
         #[cfg_attr(feature = "std", serde(deserialize_with = "deserialize_from_string"))]
         #[cfg_attr(feature = "std", serde(bound(serialize = "Wrapped: std::fmt::Display")))]
         #[cfg_attr(feature = "std", serde(serialize_with = "serialize_as_string"))]
-        /// Amount the vault should spend on the bitcoin inclusion fee - taken from request amount
+        /// amount the vault should spend on the bitcoin inclusion fee - taken from request amount
         pub transfer_fee_btc: Wrapped,
-
         #[cfg_attr(feature = "std", serde(bound(deserialize = "Wrapped: std::str::FromStr")))]
         #[cfg_attr(feature = "std", serde(deserialize_with = "deserialize_from_string"))]
         #[cfg_attr(feature = "std", serde(bound(serialize = "Wrapped: std::fmt::Display")))]
         #[cfg_attr(feature = "std", serde(serialize_with = "serialize_as_string"))]
-        /// Total amount of BTC for the vault to send
+        /// total amount of BTC for the vault to send
         pub amount_btc: Wrapped,
-
         #[cfg_attr(feature = "std", serde(bound(deserialize = "Collateral: std::str::FromStr")))]
         #[cfg_attr(feature = "std", serde(deserialize_with = "deserialize_from_string"))]
         #[cfg_attr(feature = "std", serde(bound(serialize = "Collateral: std::fmt::Display")))]
         #[cfg_attr(feature = "std", serde(serialize_with = "serialize_as_string"))]
-        /// Premium redeem amount in collateral
+        /// premium redeem amount in collateral
         pub premium: Collateral,
-
+        /// the account redeeming tokens (for BTC)
         pub redeemer: AccountId,
+        /// the user's Bitcoin address for payment verification
         pub btc_address: BtcAddress,
-        /// The latest Bitcoin height as reported by the BTC-Relay at time of opening.
+        /// the highest recorded height in the BTC-Relay (at time of opening)
         pub btc_height: u32,
+        /// the status of this redeem request
         pub status: RedeemRequestStatus,
     }
 }
@@ -154,24 +169,32 @@ pub mod refund {
     #[derive(Encode, Decode, Default, Clone, PartialEq)]
     #[cfg_attr(feature = "std", derive(Debug, Serialize, Deserialize))]
     pub struct RefundRequest<AccountId, Wrapped> {
+        /// the vault associated with this redeem request
         pub vault: AccountId,
         #[cfg_attr(feature = "std", serde(deserialize_with = "deserialize_from_string"))]
         #[cfg_attr(feature = "std", serde(bound(serialize = "Wrapped: std::fmt::Display")))]
         #[cfg_attr(feature = "std", serde(serialize_with = "serialize_as_string"))]
+        /// the total amount the vault should send
         pub amount_wrapped: Wrapped,
         #[cfg_attr(feature = "std", serde(bound(deserialize = "Wrapped: std::str::FromStr")))]
         #[cfg_attr(feature = "std", serde(deserialize_with = "deserialize_from_string"))]
         #[cfg_attr(feature = "std", serde(bound(serialize = "Wrapped: std::fmt::Display")))]
         #[cfg_attr(feature = "std", serde(serialize_with = "serialize_as_string"))]
+        /// total refund fees - taken from request amount
         pub fee: Wrapped,
         #[cfg_attr(feature = "std", serde(bound(deserialize = "Wrapped: std::str::FromStr")))]
         #[cfg_attr(feature = "std", serde(deserialize_with = "deserialize_from_string"))]
         #[cfg_attr(feature = "std", serde(bound(serialize = "Wrapped: std::fmt::Display")))]
         #[cfg_attr(feature = "std", serde(serialize_with = "serialize_as_string"))]
+        /// the total amount which was overpaid
         pub amount_btc: Wrapped,
+        /// the account on issue which overpaid
         pub issuer: AccountId,
+        /// the user's Bitcoin address for payment verification
         pub btc_address: BtcAddress,
+        /// the corresponding issue request identifier
         pub issue_id: H256,
+        /// whether the refund was executed or not
         pub completed: bool,
     }
 }
@@ -182,8 +205,11 @@ pub mod replace {
     #[derive(Encode, Decode, Clone, PartialEq)]
     #[cfg_attr(feature = "std", derive(Debug, Serialize, Deserialize))]
     pub enum ReplaceRequestStatus {
+        /// accepted, but not yet executed or cancelled
         Pending,
+        /// successfully executed with a valid payment from the old vault
         Completed,
+        /// payment was not received, new vault may receive griefing collateral
         Cancelled,
     }
 
@@ -197,27 +223,37 @@ pub mod replace {
     #[derive(Encode, Decode, Default, Clone, PartialEq)]
     #[cfg_attr(feature = "std", derive(Debug, Serialize, Deserialize))]
     pub struct ReplaceRequest<AccountId, BlockNumber, Wrapped, Collateral> {
+        /// the vault which has requested to be replaced
         pub old_vault: AccountId,
+        /// the vault which is replacing the old vault
         pub new_vault: AccountId,
         #[cfg_attr(feature = "std", serde(bound(deserialize = "Wrapped: std::str::FromStr")))]
         #[cfg_attr(feature = "std", serde(deserialize_with = "deserialize_from_string"))]
         #[cfg_attr(feature = "std", serde(bound(serialize = "Wrapped: std::fmt::Display")))]
         #[cfg_attr(feature = "std", serde(serialize_with = "serialize_as_string"))]
+        /// the amount of tokens to be replaced
         pub amount: Wrapped,
         #[cfg_attr(feature = "std", serde(bound(deserialize = "Collateral: std::str::FromStr")))]
         #[cfg_attr(feature = "std", serde(deserialize_with = "deserialize_from_string"))]
         #[cfg_attr(feature = "std", serde(bound(serialize = "Collateral: std::fmt::Display")))]
         #[cfg_attr(feature = "std", serde(serialize_with = "serialize_as_string"))]
+        /// the collateral held for spam prevention
         pub griefing_collateral: Collateral,
         #[cfg_attr(feature = "std", serde(bound(deserialize = "Collateral: std::str::FromStr")))]
         #[cfg_attr(feature = "std", serde(deserialize_with = "deserialize_from_string"))]
         #[cfg_attr(feature = "std", serde(bound(serialize = "Collateral: std::fmt::Display")))]
         #[cfg_attr(feature = "std", serde(serialize_with = "serialize_as_string"))]
+        /// additional collateral to cover replacement
         pub collateral: Collateral,
+        /// the *active* block height when this request was opened
         pub accept_time: BlockNumber,
+        /// the replace period when this request was opened
         pub period: BlockNumber,
+        /// the Bitcoin address of the new vault
         pub btc_address: BtcAddress,
+        /// the highest recorded height in the BTC-Relay (at time of opening)
         pub btc_height: u32,
+        /// the status of this replace request
         pub status: ReplaceRequestStatus,
     }
 }
@@ -227,8 +263,11 @@ pub mod oracle {
 
     #[derive(Encode, Decode, Clone, Eq, PartialEq, Debug)]
     pub enum BitcoinInclusionTime {
+        /// fee to include a BTC transaction within the next block
         Fast,
+        /// fee to include a BTC transaction within the next three blocks (~30 min)
         Half,
+        /// fee to include a BTC transaction within the six blocks (~60 min)
         Hour,
     }
 
