@@ -88,6 +88,7 @@ pub mod pallet {
 
     /// This mapping provides access from a unique hash refundId to a Refund struct.
     #[pallet::storage]
+    #[pallet::getter(fn refund_requests)]
     pub(super) type RefundRequests<T: Config> =
         StorageMap<_, Blake2_128Concat, H256, RefundRequest<T::AccountId, Wrapped<T>>, ValueQuery>;
 
