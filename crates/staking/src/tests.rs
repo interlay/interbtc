@@ -137,29 +137,3 @@ fn should_force_refund() {
         );
     })
 }
-
-#[test]
-fn should_slash_and_unslash_stake() {
-    run_test(|| {
-        assert_ok!(Staking::deposit_stake(DOT, &VAULT, &ALICE, fixed!(100)));
-        assert_ok!(Staking::deposit_stake(DOT, &VAULT, &BOB, fixed!(100)));
-        assert_ok!(Staking::slash_stake(DOT, &VAULT, fixed!(50)));
-        assert_ok!(Staking::compute_stake(DOT, &VAULT, &ALICE), 75);
-        assert_ok!(Staking::compute_stake(DOT, &VAULT, &BOB), 75);
-        assert_ok!(Staking::unslash_stake(DOT, &VAULT, fixed!(50)));
-        assert_ok!(Staking::compute_stake(DOT, &VAULT, &ALICE), 100);
-        assert_ok!(Staking::compute_stake(DOT, &VAULT, &BOB), 100);
-    })
-}
-
-#[test]
-fn unslash_should_not_affect_rewards() {
-    run_test(|| {
-        assert_ok!(Staking::deposit_stake(DOT, &VAULT, &ALICE, fixed!(100)));
-        assert_ok!(Staking::slash_stake(DOT, &VAULT, fixed!(50)));
-        assert_ok!(Staking::distribute_reward(DOT, &VAULT, fixed!(100)));
-        assert_ok!(Staking::compute_reward(DOT, &VAULT, &ALICE), 100);
-        assert_ok!(Staking::unslash_stake(DOT, &VAULT, fixed!(50)));
-        assert_ok!(Staking::compute_reward(DOT, &VAULT, &ALICE), 100);
-    })
-}

@@ -111,14 +111,6 @@ pub(crate) mod staking {
         )
     }
 
-    pub fn unslash_stake<T: crate::Config>(vault_id: &T::AccountId, amount: BalanceOf<T>) -> Result<(), DispatchError> {
-        <staking::Pallet<T>>::unslash_stake(
-            T::GetRewardsCurrencyId::get(),
-            vault_id,
-            Pallet::<T>::currency_to_fixed(amount)?,
-        )
-    }
-
     pub fn compute_stake<T: crate::Config>(
         vault_id: &T::AccountId,
         nominator_id: &T::AccountId,
