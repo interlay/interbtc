@@ -459,17 +459,12 @@ pub mod pallet {
 
     #[pallet::storage]
     #[pallet::getter(fn liquidation_vault)]
-    pub(super) type LiquidationVault<T: Config> = StorageValue<_, SystemVault<Wrapped<T>>, ValueQuery>;
+    pub(super) type LiquidationVault<T: Config> = StorageValue<_, SystemVault<BalanceOf<T>>, ValueQuery>;
 
     /// Mapping of Vaults, using the respective Vault account identifier as key.
     #[pallet::storage]
-    pub(super) type Vaults<T: Config> = StorageMap<
-        _,
-        Blake2_128Concat,
-        T::AccountId,
-        Vault<T::AccountId, T::BlockNumber, Wrapped<T>, Collateral<T>>,
-        ValueQuery,
-    >;
+    pub(super) type Vaults<T: Config> =
+        StorageMap<_, Blake2_128Concat, T::AccountId, Vault<T::AccountId, T::BlockNumber, BalanceOf<T>>, ValueQuery>;
 
     /// Mapping of reserved BTC addresses to the registered account
     #[pallet::storage]
@@ -1227,7 +1222,7 @@ impl<T: Config> Pallet<T> {
         Ok(total)
     }
 
-    pub fn insert_vault(id: &T::AccountId, vault: Vault<T::AccountId, T::BlockNumber, Wrapped<T>, Collateral<T>>) {
+    pub fn insert_vault(id: &T::AccountId, vault: Vault<T::AccountId, T::BlockNumber, BalanceOf<T>>) {
         Vaults::<T>::insert(id, vault)
     }
 
@@ -1260,7 +1255,7 @@ impl<T: Config> Pallet<T> {
 
     /// check if the vault is below the liquidation threshold.
     pub fn is_vault_below_liquidation_threshold(
-        vault: &Vault<T::AccountId, T::BlockNumber, Wrapped<T>, Collateral<T>>,
+        vault: &Vault<T::AccountId, T::BlockNumber, BalanceOf<T>>,
         liquidation_threshold: UnsignedFixedPoint<T>,
     ) -> Result<bool, DispatchError> {
         Self::is_collateral_below_threshold(

@@ -48,7 +48,7 @@ pub(crate) mod btc_relay {
 
 #[cfg_attr(test, mockable)]
 pub(crate) mod vault_registry {
-    use crate::types::{Collateral, Wrapped};
+    use crate::types::{BalanceOf, Collateral, Wrapped};
     use frame_support::dispatch::{DispatchError, DispatchResult};
     use vault_registry::types::{CurrencySource, Vault};
 
@@ -76,7 +76,7 @@ pub(crate) mod vault_registry {
 
     pub fn get_vault_from_id<T: crate::Config>(
         vault_id: &T::AccountId,
-    ) -> Result<Vault<T::AccountId, T::BlockNumber, Wrapped<T>, Collateral<T>>, DispatchError> {
+    ) -> Result<Vault<T::AccountId, T::BlockNumber, BalanceOf<T>>, DispatchError> {
         <vault_registry::Pallet<T>>::get_vault_from_id(vault_id)
     }
 

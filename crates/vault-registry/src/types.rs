@@ -138,7 +138,7 @@ impl Default for VaultStatus {
 
 #[derive(Encode, Decode, Default, Clone, PartialEq)]
 #[cfg_attr(feature = "std", derive(Debug))]
-pub struct Vault<AccountId, BlockNumber, Wrapped, Collateral> {
+pub struct Vault<AccountId, BlockNumber, Balance> {
     /// Account identifier of the Vault
     pub id: AccountId,
     /// Bitcoin address of this Vault (P2PKH, P2SH, P2WPKH, P2WSH)
@@ -149,41 +149,37 @@ pub struct Vault<AccountId, BlockNumber, Wrapped, Collateral> {
     /// Issue, Redeem (except during automatic liquidation) and Replace.
     pub banned_until: Option<BlockNumber>,
     /// Number of tokens pending issue
-    pub to_be_issued_tokens: Wrapped,
+    pub to_be_issued_tokens: Balance,
     /// Number of issued tokens
-    pub issued_tokens: Wrapped,
+    pub issued_tokens: Balance,
     /// Number of tokens pending redeem
-    pub to_be_redeemed_tokens: Wrapped,
+    pub to_be_redeemed_tokens: Balance,
     /// Number of tokens that have been requested for a replace through
     /// `request_replace`, but that have not been accepted yet by a new_vault.
-    pub to_be_replaced_tokens: Wrapped,
+    pub to_be_replaced_tokens: Balance,
     /// Amount of collateral that is locked as griefing collateral to be payed out if
     /// the old_vault fails to call execute_replace
-    pub replace_collateral: Collateral,
+    pub replace_collateral: Balance,
     /// Amount of collateral that is locked for remaining to_be_redeemed
     /// tokens upon liquidation.
-    pub liquidated_collateral: Collateral,
+    pub liquidated_collateral: Balance,
 }
 
 #[derive(Encode, Decode, Default, Clone, PartialEq)]
 #[cfg_attr(feature = "std", derive(Debug, serde::Serialize, serde::Deserialize))]
-pub struct SystemVault<Wrapped> {
+pub struct SystemVault<Balance> {
     // Number of tokens pending issue
-    pub to_be_issued_tokens: Wrapped,
+    pub to_be_issued_tokens: Balance,
     // Number of issued tokens
-    pub issued_tokens: Wrapped,
+    pub issued_tokens: Balance,
     // Number of tokens pending redeem
-    pub to_be_redeemed_tokens: Wrapped,
+    pub to_be_redeemed_tokens: Balance,
 }
 
-impl<
-        AccountId: Default + Ord,
-        BlockNumber: Default,
-        Wrapped: HasCompact + Default,
-        Collateral: HasCompact + Default,
-    > Vault<AccountId, BlockNumber, Wrapped, Collateral>
+impl<AccountId: Default + Ord, BlockNumber: Default, Balance: HasCompact + Default>
+    Vault<AccountId, BlockNumber, Balance>
 {
-    pub(crate) fn new(id: AccountId, public_key: BtcPublicKey) -> Vault<AccountId, BlockNumber, Wrapped, Collateral> {
+    pub(crate) fn new(id: AccountId, public_key: BtcPublicKey) -> Vault<AccountId, BlockNumber, Balance> {
         let wallet = Wallet::new(public_key);
         Vault {
             id,
@@ -200,9 +196,9 @@ impl<
 }
 
 pub type DefaultVault<T> =
-    Vault<<T as frame_system::Config>::AccountId, <T as frame_system::Config>::BlockNumber, Wrapped<T>, Collateral<T>>;
+    Vault<<T as frame_system::Config>::AccountId, <T as frame_system::Config>::BlockNumber, BalanceOf<T>>;
 
-pub type DefaultSystemVault<T> = SystemVault<Wrapped<T>>;
+pub type DefaultSystemVault<T> = SystemVault<BalanceOf<T>>;
 
 pub(crate) trait UpdatableVault<T: Config> {
     fn id(&self) -> T::AccountId;

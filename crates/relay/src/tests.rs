@@ -36,7 +36,7 @@ fn dummy_merkle_proof() -> MerkleProof {
 }
 
 /// Mocking functions
-fn init_zero_vault(id: AccountId, btc_address: Option<BtcAddress>) -> Vault<AccountId, BlockNumber, Balance, Balance> {
+fn init_zero_vault(id: AccountId, btc_address: Option<BtcAddress>) -> Vault<AccountId, BlockNumber, Balance> {
     let mut vault = Vault::default();
     vault.id = id;
     vault.wallet = Wallet::new(dummy_public_key());

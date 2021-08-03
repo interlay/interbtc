@@ -28,7 +28,7 @@ use mocktopus::macros::mockable;
 
 pub use security;
 
-use crate::types::{Collateral, Wrapped};
+use crate::types::Wrapped;
 use bitcoin::{parser::parse_transaction, types::*};
 
 use btc_relay::{types::OpReturnPaymentData, BtcAddress};
