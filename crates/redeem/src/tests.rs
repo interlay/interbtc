@@ -519,8 +519,8 @@ fn test_cancel_redeem_succeeds() {
 
 #[test]
 fn test_mint_tokens_for_reimbursed_redeem() {
-    // Checked PRECONDITION: The vault MUST NOT be banned.
-    // Checked POSTCONDITION: `tryIncreaseToBeIssuedTokens` and `issueTokens` MUST be called,
+    // PRECONDITION: The vault MUST NOT be banned.
+    // POSTCONDITION: `tryIncreaseToBeIssuedTokens` and `issueTokens` MUST be called,
     // both with the vault and `redeem.amountBtc + redeem.transferFeeBtc` as arguments.
     run_test(|| {
         let redeem_request = RedeemRequest {
@@ -589,7 +589,7 @@ mod spec_based_tests {
 
     #[test]
     fn test_request_reduces_to_be_replaced() {
-        // Checked POSTCONDITION: `decreaseToBeReplacedTokens` MUST be called, supplying `vault` and `burnedTokens`.
+        // POSTCONDITION: `decreaseToBeReplacedTokens` MUST be called, supplying `vault` and `burnedTokens`.
         // The returned `replaceCollateral` MUST be released by this function.
         run_test(|| {
             let amount_to_redeem = 100;
@@ -630,7 +630,7 @@ mod spec_based_tests {
 
     #[test]
     fn test_liquidation_redeem_succeeds() {
-        // Checked POSTCONDITION: `redeemTokensLiquidation` MUST be called with `redeemer`
+        // POSTCONDITION: `redeemTokensLiquidation` MUST be called with `redeemer`
         // and `amountWrapped` as arguments.
         run_test(|| {
             let total_amount = 10 * 100_000_000;
@@ -658,7 +658,7 @@ mod spec_based_tests {
 
     #[test]
     fn test_execute_redeem_succeeds_with_another_account() {
-        // Checked POSTCONDITION: `redeemTokens` MUST be called, supplying `redeemRequest.vault`,
+        // POSTCONDITION: `redeemTokens` MUST be called, supplying `redeemRequest.vault`,
         // `redeemRequest.amountBtc + redeemRequest.transferFeeBtc`, `redeemRequest.premium` and
         // `redeemRequest.redeemer` as arguments.
         run_test(|| {
@@ -730,7 +730,7 @@ mod spec_based_tests {
 
     #[test]
     fn test_cancel_redeem_above_secure_threshold_succeeds() {
-        // Checked POSTCONDITIONS:
+        // POSTCONDITIONS:
         // - If reimburse is true:
         //   - If after the loss of collateral the vault remains above the `SecureCollateralThreshold`:
         //       - `decreaseToBeRedeemedTokens` MUST be called, supplying the vault and amountIncludingParachainFee as
@@ -789,7 +789,7 @@ mod spec_based_tests {
 
     #[test]
     fn test_cancel_redeem_below_secure_threshold_succeeds() {
-        // Checked POSTCONDITIONS:
+        // POSTCONDITIONS:
         // - If reimburse is true:
         //   - If after the loss of collateral the vault is below the `SecureCollateralThreshold`:
         //       - `decreaseTokens` MUST be called, supplying the vault, the user, and amountIncludingParachainFee as

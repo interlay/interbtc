@@ -32,7 +32,7 @@ mod spec_based_tests {
     use super::*;
     #[test]
     fn integration_test_redeem_with_parachain_shutdown_status_fails() {
-        // Checked PRECONDITION: The BTC Parachain status in the Security component
+        // PRECONDITION: The BTC Parachain status in the Security component
         test_with(|| {
             SecurityPallet::set_status(StatusCode::Shutdown);
 
@@ -82,7 +82,7 @@ mod spec_based_tests {
 
     #[test]
     fn integration_test_redeem_with_parachain_error_status_fails() {
-        // Checked PRECONDITION: The BTC Parachain status in the Security component
+        // PRECONDITION: The BTC Parachain status in the Security component
         test_with(|| {
             // `liquidation_redeem` and `execute_redeem` are not tested here
             // because they only require the parachain status not to be `Shutdown`
@@ -144,7 +144,7 @@ mod spec_based_tests {
 
         #[test]
         fn integration_test_request_redeem_at_capacity_succeeds() {
-            // Checked PRECONDITION: The vault’s `issuedTokens` MUST be at least `vault.toBeRedeemedTokens +
+            // PRECONDITION: The vault’s `issuedTokens` MUST be at least `vault.toBeRedeemedTokens +
             // burnedTokens`
             test_with(|| {
                 let amount = calculate_vault_capacity();
@@ -175,7 +175,7 @@ mod spec_based_tests {
 
         #[test]
         fn integration_test_request_redeem_above_capacity_fails() {
-            // Checked PRECONDITION: The vault’s `issuedTokens` MUST be at least `vault.toBeRedeemedTokens +
+            // PRECONDITION: The vault’s `issuedTokens` MUST be at least `vault.toBeRedeemedTokens +
             // burnedTokens`
             test_with(|| {
                 let amount = calculate_vault_capacity() + 1;
@@ -193,7 +193,7 @@ mod spec_based_tests {
 
         #[test]
         fn integration_test_redeem_cannot_request_from_liquidated_vault() {
-            // Checked PRECONDITION: The selected vault MUST NOT be liquidated.
+            // PRECONDITION: The selected vault MUST NOT be liquidated.
             test_with(|| {
                 drop_exchange_rate_and_liquidate(VAULT);
                 assert_noop!(
@@ -210,7 +210,7 @@ mod spec_based_tests {
 
         #[test]
         fn integration_test_redeem_redeemer_free_tokens() {
-            // Checked PRECONDITION: The redeemer MUST have at least `amountWrapped` free tokens.
+            // PRECONDITION: The redeemer MUST have at least `amountWrapped` free tokens.
             test_with(|| {
                 let free_tokens_to_redeem = 1500;
                 UserData::force_to(
@@ -247,9 +247,9 @@ mod spec_based_tests {
 
         #[test]
         fn integration_test_redeem_vault_capacity_sufficient() {
-            // Checked PRECONDITION: The vault’s `issuedTokens` MUST be at least `vault.toBeRedeemedTokens +
+            // PRECONDITION: The vault’s `issuedTokens` MUST be at least `vault.toBeRedeemedTokens +
             // burnedTokens`.
-            // Checked POSTCONDITIONS:
+            // POSTCONDITIONS:
             //  - The vault’s `toBeRedeemedTokens` MUST increase by `burnedTokens`.
             //  - `amountWrapped` of the redeemer’s tokens MUST be locked by this transaction.
             //  - If the vault’s collateralization rate is above the PremiumRedeemThreshold, then `redeem.premium` MUST
@@ -285,9 +285,9 @@ mod spec_based_tests {
 
         #[test]
         fn integration_test_redeem_with_premium() {
-            // Checked PRECONDITION: The vault’s `issuedTokens` MUST be at least `vault.toBeRedeemedTokens +
+            // PRECONDITION: The vault’s `issuedTokens` MUST be at least `vault.toBeRedeemedTokens +
             // burnedTokens`.
-            // Checked POSTCONDITIONS:
+            // POSTCONDITIONS:
             //  - The vault’s `toBeRedeemedTokens` MUST increase by `burnedTokens`.
             //  - `amountWrapped` of the redeemer’s tokens MUST be locked by this transaction.
             //  - If the vault’s collateralization rate is below the PremiumRedeemThreshold, then `redeem.premium` MUST
@@ -306,7 +306,7 @@ mod spec_based_tests {
 
         #[test]
         fn integration_test_redeem_vault_capacity_insufficient() {
-            // Checked PRECONDITION: The vault’s `issuedTokens` MUST be at least `vault.toBeRedeemedTokens +
+            // PRECONDITION: The vault’s `issuedTokens` MUST be at least `vault.toBeRedeemedTokens +
             // burnedTokens`.
             test_with(|| {
                 let vault_to_be_redeemed = 1500;
@@ -334,7 +334,7 @@ mod spec_based_tests {
 
         #[test]
         fn integration_test_redeem_dust_value() {
-            // Checked PRECONDITION: `burnedTokens` minus the inclusion fee MUST be above the RedeemBtcDustValue,
+            // PRECONDITION: `burnedTokens` minus the inclusion fee MUST be above the RedeemBtcDustValue,
             // where the inclusion fee is the multiplication of RedeemTransactionSize and the fee rate estimate
             // reported by the oracle.
 
@@ -370,8 +370,8 @@ mod spec_based_tests {
         use super::*;
         #[test]
         fn integration_test_liquidation_redeem() {
-            // Checked PRECONDITION: The redeemer MUST have at least `amountWrapped` free tokens.
-            // Checked POSTCONDITION: `amountWrapped` tokens MUST be burned from the user.
+            // PRECONDITION: The redeemer MUST have at least `amountWrapped` free tokens.
+            // POSTCONDITION: `amountWrapped` tokens MUST be burned from the user.
             test_with(|| {
                 let free_tokens_to_redeem = 1500;
                 set_redeem_state(0, free_tokens_to_redeem, USER, VAULT);
@@ -401,7 +401,7 @@ mod spec_based_tests {
         use super::*;
         #[test]
         fn integration_test_redeem_wrapped_execute() {
-            // Checked PRECONDITIONS:
+            // PRECONDITIONS:
             // - A pending `RedeemRequest` MUST exist with an id equal to `redeemId`.
             // - The `rawTx` MUST decode to a valid transaction that transfers exactly the amount specified in the
             // `RedeemRequest` struct. It MUST be a transaction to the correct address, and provide the expected
@@ -409,7 +409,7 @@ mod spec_based_tests {
             // - The `merkleProof` MUST contain a valid proof of of `rawTX`.
             // - The bitcoin payment MUST have been submitted to the relay chain, and MUST have sufficient
             //   confirmations.
-            // Checked POSTCONDITIONS:
+            // POSTCONDITIONS:
             // - The user's `lockedTokens` MUST decrease by `redeemRequest.amountBtc + redeemRequest.transferFeeBtc`.
             // - The vault’s `toBeRedeemedTokens` MUST decrease by `redeemRequest.amountBtc +
             //   redeemRequest.transferFeeBtc`.
@@ -546,7 +546,7 @@ mod spec_based_tests {
 
         #[test]
         fn integration_test_redeem_expiry_only_parachain_blocks_expired() {
-            // Checked PRECONDITIONS:
+            // PRECONDITIONS:
             // - A pending `RedeemRequest` MUST exist with an id equal to `redeemId`.
             // - The request MUST be expired.
             test_with(|| {
@@ -564,7 +564,7 @@ mod spec_based_tests {
 
         #[test]
         fn integration_test_redeem_expiry_only_bitcoin_blocks_expired() {
-            // Checked PRECONDITION: The request MUST be expired.
+            // PRECONDITION: The request MUST be expired.
             test_with(|| {
                 set_redeem_period(1000);
                 let redeem_id = request_redeem();
@@ -579,7 +579,7 @@ mod spec_based_tests {
 
         #[test]
         fn integration_test_redeem_expiry_no_period_change_pre_expiry() {
-            // Checked PRECONDITION: The request MUST be expired.
+            // PRECONDITION: The request MUST be expired.
             test_with(|| {
                 set_redeem_period(1000);
                 let redeem_id = request_redeem();
@@ -593,7 +593,7 @@ mod spec_based_tests {
 
         #[test]
         fn integration_test_redeem_expiry_no_period_change_post_expiry() {
-            // Checked PRECONDITION: The request MUST be expired.
+            // PRECONDITION: The request MUST be expired.
 
             // can still execute after expiry
             test_with(|| {
@@ -616,7 +616,7 @@ mod spec_based_tests {
 
         #[test]
         fn integration_test_redeem_expiry_with_period_decrease() {
-            // Checked PRECONDITION: The request MUST be expired.
+            // PRECONDITION: The request MUST be expired.
             test_with(|| {
                 set_redeem_period(2000);
                 let redeem_id = request_redeem();
@@ -632,7 +632,7 @@ mod spec_based_tests {
 
         #[test]
         fn integration_test_redeem_expiry_with_period_increase() {
-            // Checked PRECONDITION: The request MUST be expired.
+            // PRECONDITION: The request MUST be expired.
             test_with(|| {
                 set_redeem_period(100);
                 let redeem_id = request_redeem();
@@ -648,7 +648,7 @@ mod spec_based_tests {
 
         #[test]
         fn integration_test_redeem_can_only_be_cancelled_by_redeemer() {
-            // Checked PRECONDITION: The function call MUST be signed by redeemRequest.redeemer,
+            // PRECONDITION: The function call MUST be signed by redeemRequest.redeemer,
             // i.e. this function can only be called by the account who made the redeem request.
             test_with(|| {
                 set_redeem_period(1000);
@@ -664,7 +664,7 @@ mod spec_based_tests {
 
         #[test]
         fn integration_test_redeem_wrapped_cancel_reimburse_sufficient_collateral_for_wrapped() {
-            // Checked POSTCONDITIONS:
+            // POSTCONDITIONS:
             // - If the vault is not liquidated, the following collateral changes are made:
             //     - If `reimburse` is true, the user SHOULD be reimbursed the worth of `amountIncludingParachainFee`
             //   in collateral. The transfer MUST be saturating, i.e. if the amount is not available, it should transfer
@@ -721,7 +721,7 @@ mod spec_based_tests {
 
         #[test]
         fn integration_test_redeem_wrapped_cancel_reimburse_insufficient_collateral_for_wrapped() {
-            // Checked POSTCONDITIONS:
+            // POSTCONDITIONS:
             // - If the vault is not liquidated, the following collateral changes are made:
             //     - If `reimburse` is true, the user SHOULD be reimbursed the worth of `amountIncludingParachainFee`
             //   in collateral. The transfer MUST be saturating, i.e. if the amount is not available, it should transfer
@@ -798,7 +798,7 @@ mod spec_based_tests {
 
         #[test]
         fn integration_test_redeem_wrapped_cancel_no_reimburse() {
-            // Checked POSTCONDITIONS:
+            // POSTCONDITIONS:
             // - If the vault is not liquidated, the following collateral changes are made:
             //     - A punishment fee MUST be tranferred from the vault’s backing collateral to the redeemer:
             //       `PunishmentFee`.
@@ -848,7 +848,7 @@ mod spec_based_tests {
 
         #[test]
         fn integration_test_redeem_wrapped_cancel_liquidated_no_reimburse() {
-            // Checked POSTCONDITIONS:
+            // POSTCONDITIONS:
             // - If the vault is liquidated:
             //    - If ``reimburse`` is false, an amount of ``confiscatedCollateral`` MUST be transferred from the vault
             //      to the redeemer.
@@ -907,7 +907,7 @@ mod spec_based_tests {
 
         #[test]
         fn integration_test_redeem_wrapped_cancel_liquidated_reimburse() {
-            // Checked POSTCONDITIONS:
+            // POSTCONDITIONS:
             // - If the vault is liquidated:
             //    - If ``reimburse`` is true:
             //       - an amount of ``confiscatedCollateral`` MUST be transferred from the vault to the redeemer.
@@ -1007,13 +1007,13 @@ mod spec_based_tests {
 
         #[test]
         fn integration_test_mint_tokens_for_reimbursed_redeem_equivalence_to_succesful_cancel() {
-            // Checked PRECONDITIONS:
+            // PRECONDITIONS:
             // - A pending `RedeemRequest` MUST exist with an id equal to `redeemId`.
             // - The vault MUST have sufficient collateral to remain above the `SecureCollateralThreshold` after
             // issuing `redeem.amountBtc + redeem.transferFeeBtc` tokens.
             // - The function call MUST be signed by `redeem.vault`, i.e. this function can only be called by the the
             //   vault.
-            // Checked POSTCONDITION: `redeem.amountBtc + redeem.transferFeeBtc` tokens MUST be minted to the vault.
+            // POSTCONDITION: `redeem.amountBtc + redeem.transferFeeBtc` tokens MUST be minted to the vault.
 
             // scenario 1: sufficient collateral
             let result1 = test_with(|| {
@@ -1066,8 +1066,8 @@ mod spec_based_tests {
 
         #[test]
         fn integration_test_mint_tokens_for_reimbursed_redeem_wrong_status() {
-            // Checked PRECONDITION: `redeem.status` MUST be `Reimbursed(false)`.
-            // Checked POSTCONDITION: redeem.amountBtc + redeem.transferFeeBtc tokens MUST be minted to the vault.
+            // PRECONDITION: `redeem.status` MUST be `Reimbursed(false)`.
+            // POSTCONDITION: redeem.amountBtc + redeem.transferFeeBtc tokens MUST be minted to the vault.
 
             // scenario 1: sufficient collateral
             test_with(|| {
