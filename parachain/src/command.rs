@@ -48,7 +48,7 @@ fn load_spec(id: &str, para_id: ParaId) -> std::result::Result<Box<dyn sc_servic
 
 impl SubstrateCli for Cli {
     fn impl_name() -> String {
-        "BTC Parachain".into()
+        "interBTC Parachain".into()
     }
 
     fn impl_version() -> String {
@@ -82,7 +82,7 @@ impl SubstrateCli for Cli {
 
 impl SubstrateCli for RelayChainCli {
     fn impl_name() -> String {
-        "BTC Parachain".into()
+        "interBTC Parachain".into()
     }
 
     fn impl_version() -> String {
