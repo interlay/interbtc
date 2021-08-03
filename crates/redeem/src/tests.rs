@@ -219,6 +219,83 @@ fn test_request_redeem_succeeds_with_normal_redeem() {
 }
 
 #[test]
+fn test_request_redeem_succeeds_with_self_redeem() {
+    run_test(|| {
+        ext::oracle::wrapped_to_collateral::<Test>.mock_safe(|x| MockResult::Return(btcdot_parity(x)));
+        <vault_registry::Pallet<Test>>::insert_vault(
+            &BOB,
+            vault_registry::Vault {
+                id: BOB,
+                to_be_replaced_tokens: 0,
+                to_be_issued_tokens: 0,
+                issued_tokens: 10,
+                to_be_redeemed_tokens: 0,
+                replace_collateral: 0,
+                wallet: Wallet::new(dummy_public_key()),
+                banned_until: None,
+                status: VaultStatus::Active(true),
+                ..Default::default()
+            },
+        );
+
+        let redeemer = BOB;
+        let amount = 90;
+
+        ext::vault_registry::try_increase_to_be_redeemed_tokens::<Test>.mock_safe(move |vault_id, amount_btc| {
+            assert_eq!(vault_id, &BOB);
+            assert_eq!(amount_btc, amount);
+
+            MockResult::Return(Ok(()))
+        });
+
+        ext::treasury::lock::<Test>.mock_safe(move |account, amount_wrapped| {
+            assert_eq!(account, &redeemer);
+            assert_eq!(amount_wrapped, amount);
+
+            MockResult::Return(Ok(()))
+        });
+
+        ext::security::get_secure_id::<Test>.mock_safe(move |_| MockResult::Return(H256::zero()));
+        ext::vault_registry::is_vault_below_premium_threshold::<Test>.mock_safe(move |_| MockResult::Return(Ok(false)));
+        let btc_fee = Redeem::get_current_inclusion_fee().unwrap();
+
+        assert_ok!(Redeem::request_redeem(
+            Origin::signed(redeemer),
+            amount,
+            BtcAddress::P2PKH(H160::zero()),
+            BOB
+        ));
+
+        assert_emitted!(Event::RequestRedeem(
+            H256::zero(),
+            redeemer,
+            amount - btc_fee,
+            0,
+            0,
+            BOB,
+            BtcAddress::P2PKH(H160::zero()),
+            Redeem::get_current_inclusion_fee().unwrap()
+        ));
+        assert_ok!(
+            Redeem::get_open_redeem_request_from_id(&H256::zero()),
+            RedeemRequest {
+                period: Redeem::redeem_period(),
+                vault: BOB,
+                opentime: 1,
+                fee: 0,
+                amount_btc: amount - btc_fee,
+                premium: 0,
+                redeemer,
+                btc_address: BtcAddress::P2PKH(H160::zero()),
+                btc_height: 0,
+                status: RedeemRequestStatus::Pending,
+                transfer_fee_btc: Redeem::get_current_inclusion_fee().unwrap(),
+            }
+        );
+    })
+}
+
+#[test]
 fn test_liquidation_redeem_succeeds() {
     run_test(|| {
         let total_amount = 10 * 100_000_000;
