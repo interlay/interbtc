@@ -989,8 +989,8 @@ impl<T: Config> Pallet<T> {
                 Self::calculate_collateral(vault.data.liquidated_collateral, tokens, to_be_redeemed_tokens)?;
             vault.decrease_liquidated_collateral(to_be_released)?;
 
-            // release vault's collateral
-            ext::staking::unslash_stake::<T>(vault_id, to_be_released)?;
+            // deposit vault's collateral (this was withdrawn on liquidation)
+            ext::staking::deposit_stake::<T>(vault_id, vault_id, to_be_released)?;
 
             Self::deposit_event(Event::<T>::RedeemTokensLiquidatedVault(
                 vault_id.clone(),
@@ -1075,8 +1075,8 @@ impl<T: Config> Pallet<T> {
             )?;
             old_vault.decrease_liquidated_collateral(to_be_released)?;
 
-            // release old-vault's collateral
-            ext::staking::unslash_stake::<T>(old_vault_id, to_be_released)?;
+            // deposit old-vault's collateral (this was withdrawn on liquidation)
+            ext::staking::deposit_stake::<T>(old_vault_id, old_vault_id, to_be_released)?;
         }
 
         old_vault.decrease_tokens(tokens)?;

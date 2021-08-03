@@ -364,10 +364,13 @@ impl<T: Config> RichVault<T> {
             return Ok(0u32.into());
         }
 
+        // used_collateral = (exchange_rate * (issued_tokens + to_be_issued_tokens)) * secure_collateral_threshold
+        // free_collateral = collateral - used_collateral
         let free_collateral = self.get_free_collateral()?;
 
         let secure_threshold = Pallet::<T>::secure_collateral_threshold();
 
+        // issuable_tokens = (free_collateral / exchange_rate) / secure_collateral_threshold
         let issuable =
             Pallet::<T>::calculate_max_wrapped_from_collateral_for_threshold(free_collateral, secure_threshold)?;
 
@@ -440,7 +443,20 @@ impl<T: Config> RichVault<T> {
     }
 
     pub(crate) fn slash_to_liquidation_vault(&mut self, amount: Collateral<T>) -> DispatchResult {
-        ext::staking::slash_stake::<T>(&self.id(), amount)?;
+        let vault_id = self.id();
+
+        // get the collateral supplied by the vault (i.e. excluding nomination)
+        let collateral = Pallet::<T>::compute_collateral(&vault_id)?;
+        let (to_withdraw, to_slash) = amount
+            .checked_sub(&collateral)
+            .and_then(|leftover| Some((collateral, leftover)))
+            .unwrap_or((amount, Zero::zero()));
+
+        // "slash" vault first
+        ext::staking::withdraw_stake::<T>(&vault_id, &vault_id, to_withdraw)?;
+        // take remainder from nominators
+        ext::staking::slash_stake::<T>(&vault_id, to_slash)?;
+
         Pallet::<T>::transfer_funds(
             CurrencySource::ReservedBalance(self.id()),
             CurrencySource::LiquidationVault,
@@ -471,6 +487,7 @@ impl<T: Config> RichVault<T> {
 
         // slash backing collateral used for issued + to_be_issued to the liquidation vault
         self.slash_to_liquidation_vault(liquidated_collateral_excluding_to_be_redeemed)?;
+
         // temporarily slash additional collateral for the to_be_redeemed tokens
         // this is re-distributed once the tokens are burned
         ext::staking::slash_stake::<T>(&self.id(), collateral_for_to_be_redeemed)?;

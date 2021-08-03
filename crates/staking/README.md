@@ -22,10 +22,6 @@ At this point in time, assuming we slash 50 DOT, we have the following stakes:
 - Alice may withdraw `100 - (100 * (50 / 150)) = ~66.66 DOT`.
 - Bob may withdraw `50 - (50 * (50 / 150)) = ~33.33 DOT`.
 
-### Unslashing
-
-It is reasonable to assume that stake may be re-distributed to participants after slashing. In this case we would want to "unslash" participant stake proportionally. Since we calculate the amount to slash dynamically we can handle this case by reducing `slash_per_token` by the amount to release. An example of where this might be useful is if the Vault is liquidated with open redeem requests, upon completion we should re-distribute collateral to the Vault and its Nominators.
-
 ## Rewards
 
 The proportionality of rewards is directly tied to the stake of a participant. Assuming stake may be slashed after reward distribution and prior to reward withdrawal, we must make slight adjustments to the [scalable reward distribution](https://solmaz.io/2019/02/24/scalable-reward-changing/). Rewards are calculated using the actual stake from the equation above, and upon slashing we increase `reward_per_token` by `(amount * reward_per_token) / total_stake` to account for lost rewards. 

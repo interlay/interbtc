@@ -317,7 +317,9 @@ impl<T: Config> Pallet<T> {
     ) -> Result<(), DispatchError> {
         let nonce = Self::nonce(currency_id, vault_id);
         let total_stake = Self::total_stake_at_index(currency_id, (nonce, vault_id));
-        if total_stake.is_zero() {
+        if amount.is_zero() {
+            return Ok(());
+        } else if total_stake.is_zero() {
             return Err(Error::<T>::InsufficientFunds.into());
         }
 
@@ -343,38 +345,6 @@ impl<T: Config> Pallet<T> {
                 .checked_mul(&amount)
                 .ok_or(Error::<T>::ArithmeticOverflow)?,
         )?;
-        Ok(())
-    }
-
-    /// Re-distribute previously slashed stake to the pool.
-    pub fn unslash_stake(
-        currency_id: T::CurrencyId,
-        vault_id: &T::AccountId,
-        amount: SignedFixedPoint<T>,
-    ) -> Result<(), DispatchError> {
-        let nonce = Self::nonce(currency_id, vault_id);
-        checked_add_mut!(TotalCurrentStake<T>, currency_id, (nonce, vault_id), &amount);
-
-        let total_stake = Self::total_stake_at_index(currency_id, (nonce, vault_id));
-        let amount_div_total_stake = amount
-            .checked_div(&total_stake)
-            .ok_or(Error::<T>::ArithmeticUnderflow)?;
-        checked_sub_mut!(
-            SlashPerToken<T>,
-            currency_id,
-            (nonce, vault_id),
-            &amount_div_total_stake
-        );
-
-        Self::decrease_rewards(
-            nonce,
-            currency_id,
-            vault_id,
-            Self::reward_per_token(currency_id, (nonce, vault_id))
-                .checked_mul(&amount)
-                .ok_or(Error::<T>::ArithmeticOverflow)?,
-        )?;
-
         Ok(())
     }
 
@@ -440,29 +410,6 @@ impl<T: Config> Pallet<T> {
             .checked_div(&total_current_stake)
             .ok_or(Error::<T>::ArithmeticUnderflow)?;
         checked_add_mut!(
-            RewardPerToken<T>,
-            currency_id,
-            (nonce, vault_id),
-            &reward_div_total_current_stake
-        );
-        Ok(reward)
-    }
-
-    fn decrease_rewards(
-        nonce: T::Index,
-        currency_id: T::CurrencyId,
-        vault_id: &T::AccountId,
-        reward: SignedFixedPoint<T>,
-    ) -> Result<SignedFixedPoint<T>, DispatchError> {
-        let total_current_stake = Self::total_current_stake_at_index(currency_id, (nonce, vault_id));
-        if total_current_stake.is_zero() {
-            return Ok(Zero::zero());
-        }
-
-        let reward_div_total_current_stake = reward
-            .checked_div(&total_current_stake)
-            .ok_or(Error::<T>::ArithmeticUnderflow)?;
-        checked_sub_mut!(
             RewardPerToken<T>,
             currency_id,
             (nonce, vault_id),
