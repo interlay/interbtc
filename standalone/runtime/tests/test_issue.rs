@@ -143,6 +143,7 @@ fn integration_test_issue_with_parachain_shutdown_fails() {
 mod request_issue_tests {
     use super::*;
 
+    /// Request fails if parachain is shutdown
     #[test]
     fn integration_test_issue_request_precond_not_shutdown() {
         test_with(|| {
@@ -154,6 +155,7 @@ mod request_issue_tests {
         });
     }
 
+    /// Request fails if relay is not initialized
     #[test]
     fn integration_test_issue_request_precond_relay_initialized() {
         ExtBuilder::build().execute_without_relay_init(|| {
@@ -173,10 +175,11 @@ mod request_issue_tests {
         });
     }
 
+    /// Request fails if attempted with an account that is not a registered vault
     #[test]
     fn integration_test_issue_request_precond_vault_registered() {
         test_with(|| {
-            //...out_initialized_vault
+            //test_with ...out_initialized_vault
             let amount = 1_000;
             assert_noop!(
                 Call::Issue(IssueCall::request_issue(
@@ -190,6 +193,7 @@ mod request_issue_tests {
         });
     }
 
+    /// Request fails if vault is not actively accepting new issues
     #[test]
     fn integration_test_issue_request_precond_vault_active() {
         test_with_initialized_vault(|| {
@@ -208,6 +212,7 @@ mod request_issue_tests {
         });
     }
 
+    /// Request fails if requested amount is below the BTC dust value
     #[test]
     fn integration_test_issue_request_precond_amount_above_dust() {
         test_with_initialized_vault(|| {
@@ -222,6 +227,7 @@ mod request_issue_tests {
         });
     }
 
+    /// Request fails if insufficient griefing collateral is provided
     #[test]
     fn integration_test_issue_request_precond_griefing_collateral_sufficient() {
         test_with_initialized_vault(|| {
@@ -253,6 +259,7 @@ mod request_issue_tests {
         });
     }
 
+    /// Request succeeds when issuing with a vault's entire capacity
     #[test]
     fn integration_test_issue_request_precond_succeeds_at_capacity() {
         test_with_initialized_vault(|| {
@@ -262,6 +269,7 @@ mod request_issue_tests {
         });
     }
 
+    /// Request fails when trying to issue above a vault's capacity
     #[test]
     fn integration_test_issue_request_precond_fails_above_capacity() {
         test_with_initialized_vault(|| {
@@ -278,25 +286,27 @@ mod request_issue_tests {
         });
     }
 
+    /// Request fails if the user can't pay the griefing collateral
     #[test]
     fn integration_test_issue_request_precond_sufficient_funds_for_collateral() {
         test_with_initialized_vault(|| {
             let amount_btc = 10_000;
-            let griefing_collateral = 1_000_000;
+            let user_free_balance = 1_000_000;
             assert_noop!(
                 Call::Issue(IssueCall::request_issue(
                     amount_btc,
                     account_of(VAULT),
-                    griefing_collateral + 1,
+                    user_free_balance + 1,
                 ))
                 .dispatch(origin_of(account_of(USER))),
                 TokensError::BalanceTooLow
             );
 
+            // succeeds when using entire balance but not exceeding
             assert_ok!(Call::Issue(IssueCall::request_issue(
                 amount_btc,
                 account_of(VAULT),
-                griefing_collateral
+                user_free_balance
             ))
             .dispatch(origin_of(account_of(USER))),);
         });
@@ -315,6 +325,7 @@ mod request_issue_tests {
             ))
             .dispatch(origin_of(account_of(USER))));
 
+            // lock griefing collateral and increase to_be_issued
             assert_eq!(
                 ParachainState::get(),
                 ParachainState::default().with_changes(|user, vault, _, _| {
@@ -327,6 +338,7 @@ mod request_issue_tests {
             let issue_id = assert_issue_request_event();
             let issue = IssuePallet::get_issue_request_from_id(&issue_id).unwrap();
 
+            // created issue request has expected values in all the fields
             let expected_btc_address =
                 VaultRegistryPallet::register_deposit_address(&account_of(VAULT), issue_id).unwrap();
             let expected_public_key = VaultRegistryPallet::get_vault_from_id(&account_of(VAULT))
@@ -574,6 +586,7 @@ mod execute_refund_payment_limits {
 
 mod execute_issue_tests {
     use super::*;
+    /// Execute fails if parachain is shut down
     #[test]
     fn integration_test_issue_execute_precond_not_shutdown() {
         test_with(|| {
@@ -591,6 +604,7 @@ mod execute_issue_tests {
         });
     }
 
+    /// Execute fails if corresponding request doesn't exist
     #[test]
     fn integration_test_issue_execute_precond_issue_exists() {
         test_with(|| {
@@ -607,7 +621,8 @@ mod execute_issue_tests {
         });
     }
 
-    /** cf. also mod expiry_test */
+    /// Execute fails if issue request has expired
+    /// cf. also mod expiry_test
     #[test]
     fn integration_test_issue_execute_precond_not_expired() {
         test_with(|| {
@@ -622,6 +637,7 @@ mod execute_issue_tests {
         });
     }
 
+    /// Execute fails if the execution BTC tx isn't a valid payment
     #[test]
     fn integration_test_issue_execute_precond_rawtx_valid() {
         test_with_initialized_vault(|| {
@@ -645,6 +661,7 @@ mod execute_issue_tests {
         })
     }
 
+    /// Execute fails if provided merkle proof of payment is not valid
     #[test]
     fn integration_test_issue_execute_precond_proof_valid() {
         test_with_initialized_vault(|| {
@@ -667,6 +684,8 @@ mod execute_issue_tests {
         })
     }
 
+    /// Execute fails if the BTC transaction underpaid, and someone other than the user is trying
+    /// to execute
     #[test]
     fn integration_test_issue_execute_precond_underpayment_executed_by_requester() {
         test_with(|| {
@@ -682,6 +701,7 @@ mod execute_issue_tests {
         });
     }
 
+    /// Test Execute postconditions when BTC payment is for the exact requested amount
     #[test]
     fn integration_test_issue_execute_postcond_exact_payment() {
         test_with_initialized_vault(|| {
@@ -691,6 +711,7 @@ mod execute_issue_tests {
 
             ExecuteIssueBuilder::new(issue_id).assert_execute();
 
+            // user balances are updated, tokens are minted and fees paid
             assert_eq!(
                 ParachainState::get(),
                 post_request_state.with_changes(|user, vault, _, fee_pool| {
@@ -704,12 +725,14 @@ mod execute_issue_tests {
                 })
             );
 
+            // issue request is updated: status is complete
             let user_issues = IssuePallet::get_issue_requests_for_account(account_of(USER));
             let (_, onchain_issue) = user_issues.iter().find(|(id, _)| id == &issue_id).unwrap();
             assert_eq!(onchain_issue.status, IssueRequestStatus::Completed(None));
         });
     }
 
+    /// Test Execute postconditions when BTC payment is less than the requested amount
     #[test]
     fn integration_test_issue_execute_postcond_underpayment() {
         test_with_initialized_vault(|| {
@@ -734,6 +757,7 @@ mod execute_issue_tests {
             let slashed_griefing_collateral = (issue.griefing_collateral * 3) / 4;
             let returned_griefing_collateral = issue.griefing_collateral - issue.griefing_collateral * 3 / 4;
 
+            // user balances are updated, tokens are minted and fees paid
             assert_eq!(
                 ParachainState::get(),
                 post_request_state.with_changes(|user, vault, _, fee_pool| {
@@ -754,6 +778,7 @@ mod execute_issue_tests {
 
             assert_issue_amount_change_event(issue_id, issue.amount / 4, issue.fee / 4, slashed_griefing_collateral);
 
+            // issue request is updated: status is complete, amounts have been adjusted
             let mut completed_issue = issue;
             completed_issue.amount /= 4;
             completed_issue.fee /= 4;
@@ -765,6 +790,8 @@ mod execute_issue_tests {
         });
     }
 
+    /// Test Execute postconditions when BTC payment is greater than the requested amount, and
+    /// vault can execute the greater amount
     #[test]
     fn integration_test_issue_execute_postcond_overpayment_succeeds() {
         test_with_initialized_vault(|| {
@@ -777,6 +804,7 @@ mod execute_issue_tests {
                 .with_amount(sent_btc)
                 .assert_execute();
 
+            // user balances are updated, tokens are minted and fees paid
             assert_eq!(
                 ParachainState::get(),
                 post_request_state.with_changes(|user, vault, _, fee_pool| {
@@ -793,6 +821,7 @@ mod execute_issue_tests {
 
             assert_issue_amount_change_event(issue_id, 2 * issue.amount, 2 * issue.fee, 0);
 
+            // issue request is updated: status is complete, amounts have been adjusted
             let mut completed_issue = issue;
             completed_issue.amount *= 2;
             completed_issue.fee *= 2;
@@ -804,6 +833,8 @@ mod execute_issue_tests {
         });
     }
 
+    /// Test Execute postconditions when BTC payment is greater than the requested amount, and
+    /// vault can not execute the greater amount
     #[test]
     fn integration_test_issue_execute_postcond_overpayment_creates_refund() {
         test_with_initialized_vault(|| {
@@ -828,6 +859,7 @@ mod execute_issue_tests {
                 .with_amount(sent_btc)
                 .assert_execute();
 
+            // user balances are updated, tokens are minted and fees paid
             // not enough collateral to back sent amount, so it's as if the user sent the correct amount
             assert_eq!(
                 ParachainState::get(),
@@ -843,16 +875,19 @@ mod execute_issue_tests {
                 })
             );
 
+            // refund requests exists for issue
             let refund_id = assert_refund_request_event();
             let refund = RefundPallet::get_open_refund_request_from_id(&refund_id).unwrap();
             assert_eq!(refund.issue_id, issue_id);
 
+            // issue request is updated: status is complete and references refund request
             let user_issues = IssuePallet::get_issue_requests_for_account(account_of(USER));
             let (_, onchain_issue) = user_issues.iter().find(|(id, _)| id == &issue_id).unwrap();
             assert_eq!(onchain_issue.status, IssueRequestStatus::Completed(Some(refund_id)));
         });
     }
 
+    /// Test Execute postconditions when vault has been liquidated
     #[test]
     fn integration_test_issue_execute_postcond_liquidated() {
         test_with_initialized_vault(|| {
@@ -863,12 +898,11 @@ mod execute_issue_tests {
 
             execute_issue(issue_id);
 
+            // user balances are updated, tokens are minted and fees paid
             assert_eq!(
                 ParachainState::get(),
                 post_liquidation_status.with_changes(|user, _vault, liquidation_vault, fee_pool| {
                     user.free_tokens += issue.amount;
-                    // fee_pool.vault_rewards += issue.fee; // this is not the case - verify that's
-                    // right?
 
                     user.free_balance += issue.griefing_collateral;
                     user.locked_balance -= issue.griefing_collateral;
@@ -884,6 +918,7 @@ mod execute_issue_tests {
 mod cancel_issue_tests {
     use super::*;
 
+    /// Cancel fails when parachain is shutdown
     #[test]
     fn integration_test_issue_cancel_precond_not_shutdown() {
         test_with(|| {
@@ -895,6 +930,7 @@ mod cancel_issue_tests {
         });
     }
 
+    /// Cancel fails if issue request does not exist
     #[test]
     fn integration_test_issue_cancel_precond_issue_exists() {
         test_with(|| {
@@ -910,6 +946,7 @@ mod cancel_issue_tests {
         });
     }
 
+    /// Cancel fails if issue request is not yet expired
     #[test]
     fn integration_test_issue_cancel_precond_issue_expired() {
         test_with(|| {
@@ -921,6 +958,7 @@ mod cancel_issue_tests {
         });
     }
 
+    /// Test Cancel preconditions for a non-liquidated vault
     #[test]
     fn integration_test_issue_cancel_postcond_vault_not_liquidated() {
         test_with_initialized_vault(|| {
@@ -934,6 +972,7 @@ mod cancel_issue_tests {
             // bob cancels issue request
             assert_ok!(Call::Issue(IssueCall::cancel_issue(issue_id)).dispatch(origin_of(account_of(VAULT))));
 
+            // balances and collaterals are updated
             assert_eq!(
                 ParachainState::get(),
                 post_request_state.with_changes(|user, vault, _, _| {
@@ -943,12 +982,14 @@ mod cancel_issue_tests {
                 })
             );
 
+            // issue request status is set to cancelled
             let user_issues = IssuePallet::get_issue_requests_for_account(account_of(USER));
             let (_, onchain_issue) = user_issues.iter().find(|(id, _)| id == &issue_id).unwrap();
             assert_eq!(onchain_issue.status, IssueRequestStatus::Cancelled);
         });
     }
 
+    /// Test Cancle preconditions in the case that the vault was liquidated
     #[test]
     fn integration_test_issue_cancel_postcond_vault_liquidated() {
         test_with_initialized_vault(|| {
@@ -963,6 +1004,7 @@ mod cancel_issue_tests {
             // bob cancels issue request
             assert_ok!(Call::Issue(IssueCall::cancel_issue(issue_id)).dispatch(origin_of(account_of(VAULT))));
 
+            // grieifing collateral released back to the user
             assert_eq!(
                 ParachainState::get(),
                 post_liquidation_status.with_changes(|user, _vault, liquidation_vault, _fee_pool| {
@@ -974,6 +1016,7 @@ mod cancel_issue_tests {
                 })
             );
 
+            // issue request status is set to cancelled
             let user_issues = IssuePallet::get_issue_requests_for_account(account_of(USER));
             let (_, onchain_issue) = user_issues.iter().find(|(id, _)| id == &issue_id).unwrap();
             assert_eq!(onchain_issue.status, IssueRequestStatus::Cancelled);
