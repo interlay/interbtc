@@ -205,10 +205,7 @@ impl<T: Config> Pallet<T> {
         amount: Collateral<T>,
     ) -> DispatchResult {
         ensure!(Self::is_nomination_enabled(), Error::<T>::VaultNominationDisabled);
-        ensure!(
-            Self::is_nominatable(&vault_id)?,
-            Error::<T>::VaultNotOptedInToNomination
-        );
+        ensure!(Self::is_opted_in(&vault_id)?, Error::<T>::VaultNotOptedInToNomination);
 
         // we can only withdraw nominated collateral if the vault is still
         // above the secure threshold for issued + to_be_issued tokens
@@ -233,10 +230,7 @@ impl<T: Config> Pallet<T> {
         amount: Collateral<T>,
     ) -> DispatchResult {
         ensure!(Self::is_nomination_enabled(), Error::<T>::VaultNominationDisabled);
-        ensure!(
-            Self::is_nominatable(&vault_id)?,
-            Error::<T>::VaultNotOptedInToNomination
-        );
+        ensure!(Self::is_opted_in(&vault_id)?, Error::<T>::VaultNotOptedInToNomination);
 
         let vault_backing_collateral = ext::vault_registry::get_backing_collateral::<T>(&vault_id)?;
         let total_nominated_collateral = Self::get_total_nominated_collateral(&vault_id)?;
@@ -279,6 +273,7 @@ impl<T: Config> Pallet<T> {
     }
 
     fn _opt_out_of_nomination(vault_id: &T::AccountId) -> DispatchResult {
+        ensure!(Self::is_opted_in(&vault_id)?, Error::<T>::VaultNotOptedInToNomination);
         let total_nominated_collateral = Self::get_total_nominated_collateral(&vault_id)?;
         ensure!(
             ext::vault_registry::is_allowed_to_withdraw_collateral::<T>(&vault_id, total_nominated_collateral)?,
@@ -290,7 +285,7 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
-    pub fn is_nominatable(vault_id: &T::AccountId) -> Result<bool, DispatchError> {
+    pub fn is_opted_in(vault_id: &T::AccountId) -> Result<bool, DispatchError> {
         Ok(<Vaults<T>>::contains_key(&vault_id))
     }
 
