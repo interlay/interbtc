@@ -315,7 +315,11 @@ impl<T: Config> Pallet<T> {
         let redeemer_balance = ext::treasury::get_balance::<T>(&redeemer);
         ensure!(amount_wrapped <= redeemer_balance, Error::<T>::AmountExceedsUserBalance);
 
-        let fee_wrapped = ext::fee::get_redeem_fee::<T>(amount_wrapped)?;
+        let fee_wrapped = if redeemer == vault_id {
+            Zero::zero()
+        } else {
+            ext::fee::get_redeem_fee::<T>(amount_wrapped)?
+        };
         let inclusion_fee = Self::get_current_inclusion_fee()?;
 
         let vault_to_be_burned_tokens = amount_wrapped
@@ -380,7 +384,6 @@ impl<T: Config> Pallet<T> {
             },
         );
 
-        // TODO: add fee to redeem event
         Self::deposit_event(<Event<T>>::RequestRedeem(
             redeem_id,
             redeemer,
