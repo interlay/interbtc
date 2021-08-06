@@ -1,5 +1,5 @@
 use crate as refund;
-use crate::Config;
+use crate::{Config, Error};
 use codec::{Decode, Encode};
 use frame_support::{assert_ok, parameter_types, PalletId};
 use mocktopus::mocking::clear_mocks;
@@ -217,6 +217,7 @@ impl pallet_timestamp::Config for Test {
 }
 
 pub type TestEvent = Event;
+pub type TestError = Error<Test>;
 
 pub struct ExtBuilder;
 

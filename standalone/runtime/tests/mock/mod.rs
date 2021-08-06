@@ -103,6 +103,7 @@ pub type IssueError = issue::Error<Runtime>;
 pub type RefundCall = refund::Call<Runtime>;
 pub type RefundPallet = refund::Pallet<Runtime>;
 pub type RefundEvent = refund::Event<Runtime>;
+pub type RefundError = refund::Error<Runtime>;
 
 pub type RedeemCall = redeem::Call<Runtime>;
 pub type RedeemPallet = redeem::Pallet<Runtime>;

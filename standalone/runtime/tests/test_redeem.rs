@@ -30,6 +30,7 @@ fn consume_to_be_replaced(vault: &mut CoreVaultData, amount_btc: u128) {
 
 mod spec_based_tests {
     use super::*;
+
     #[test]
     fn integration_test_redeem_with_parachain_shutdown_status_fails() {
         // PRECONDITION: The BTC Parachain status in the Security component
