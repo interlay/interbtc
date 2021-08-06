@@ -989,7 +989,7 @@ mod cancel_issue_tests {
         });
     }
 
-    /// Test Cancle preconditions in the case that the vault was liquidated
+    /// Test cancel preconditions in the case that the vault was liquidated
     #[test]
     fn integration_test_issue_cancel_postcond_vault_liquidated() {
         test_with_initialized_vault(|| {
