@@ -1,5 +1,6 @@
 mod mock;
 
+use frame_support::traits::Currency;
 use mock::*;
 
 fn test_with<R>(execute: impl FnOnce() -> R) -> R {
@@ -71,6 +72,7 @@ mod spec_based_tests {
 
             let refund_request = RefundPallet::refund_requests(refund_id);
             let refund_fee = refund_request.fee;
+            let total_supply = TreasuryPallet::total_issuance();
 
             // POSTCONDITION: refund.completed MUST be true
             assert!(refund_request.completed);
@@ -81,6 +83,9 @@ mod spec_based_tests {
                     .dispatch(origin_of(account_of(BOB))),
                 RefundError::RefundCompleted,
             );
+
+            // POSTCONDITION: total supply MUST increase by fee
+            assert_eq!(total_supply + refund_fee, TreasuryPallet::total_issuance());
 
             assert_eq!(
                 ParachainState::get(),
