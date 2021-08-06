@@ -1,5 +1,6 @@
 use crate::*;
 use frame_support::transactional;
+use redeem::RedeemRequestStatus;
 
 pub const USER: [u8; 32] = ALICE;
 pub const VAULT: [u8; 32] = BOB;
@@ -58,6 +59,10 @@ impl ExecuteRedeemBuilder {
 
     pub fn assert_execute(&self) {
         assert_ok!(self.execute());
+    }
+
+    pub fn assert_noop(&self, error: RedeemError) {
+        assert_noop!(self.execute(), error);
     }
 }
 
@@ -124,4 +129,33 @@ pub fn execute_redeem(redeem_id: H256) {
 
 pub fn cancel_redeem(redeem_id: H256, redeemer: [u8; 32], reimburse: bool) {
     assert_ok!(Call::Redeem(RedeemCall::cancel_redeem(redeem_id, reimburse)).dispatch(origin_of(account_of(redeemer))));
+}
+
+pub fn assert_redeem_error(
+    redeem_id: H256,
+    user_btc_address: BtcAddress,
+    amount: u128,
+    return_data: H256,
+    current_block_number: u32,
+    error: BTCRelayError,
+) -> u32 {
+    // send the btc from the vault to the user
+    let (_tx_id, _tx_block_height, merkle_proof, raw_tx) =
+        generate_transaction_and_mine(user_btc_address, amount, Some(return_data));
+
+    SecurityPallet::set_active_block_number(current_block_number + 1 + CONFIRMATIONS);
+
+    assert_noop!(
+        Call::Redeem(RedeemCall::execute_redeem(redeem_id, merkle_proof.clone(), raw_tx))
+            .dispatch(origin_of(account_of(VAULT))),
+        error
+    );
+    return current_block_number + 1 + CONFIRMATIONS;
+}
+
+pub fn check_redeem_status(user: [u8; 32], status: RedeemRequestStatus) {
+    let redeems = RedeemPallet::get_redeem_requests_for_account(account_of(user));
+    assert_eq!(redeems.len(), 1);
+    let (_, redeem) = redeems[0].clone();
+    assert_eq!(redeem.status, status);
 }
