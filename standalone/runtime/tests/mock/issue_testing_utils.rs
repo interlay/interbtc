@@ -15,6 +15,7 @@ pub struct RequestIssueBuilder {
     amount_btc: u128,
     vault: [u8; 32],
     user: [u8; 32],
+    griefing_collateral: u128,
 }
 
 impl RequestIssueBuilder {
@@ -23,11 +24,17 @@ impl RequestIssueBuilder {
             amount_btc,
             vault: VAULT,
             user: USER,
+            griefing_collateral: DEFAULT_COLLATERAL,
         }
     }
 
     pub fn with_vault(&mut self, vault: [u8; 32]) -> &mut Self {
         self.vault = vault;
+        self
+    }
+
+    pub fn with_collateral(&mut self, collateral: u128) -> &mut Self {
+        self.griefing_collateral = collateral;
         self
     }
 
@@ -43,7 +50,7 @@ impl RequestIssueBuilder {
         assert_ok!(Call::Issue(IssueCall::request_issue(
             self.amount_btc,
             account_of(self.vault),
-            DEFAULT_GRIEFING_COLLATERAL
+            self.griefing_collateral
         ))
         .dispatch(origin_of(account_of(self.user))));
 
@@ -61,6 +68,7 @@ pub struct ExecuteIssueBuilder {
     submitter: [u8; 32],
     register_submitter_as_vault: bool,
     relayer: Option<[u8; 32]>,
+    execution_tx: Option<(Vec<u8>, Vec<u8>)>,
 }
 
 impl ExecuteIssueBuilder {
@@ -73,6 +81,7 @@ impl ExecuteIssueBuilder {
             submitter: PROOF_SUBMITTER,
             register_submitter_as_vault: true,
             relayer: None,
+            execution_tx: None,
         }
     }
 
@@ -87,13 +96,32 @@ impl ExecuteIssueBuilder {
         self
     }
 
+    pub fn with_issue_id(&mut self, id: H256) -> &mut Self {
+        self.issue_id = id;
+        self
+    }
+
     pub fn with_relayer(&mut self, relayer: Option<[u8; 32]>) -> &mut Self {
         self.relayer = relayer;
         self
     }
 
     #[transactional]
-    pub fn execute(&self) -> DispatchResultWithPostInfo {
+    pub fn execute(&mut self) -> DispatchResultWithPostInfo {
+        self.prepare_for_execution().execute_prepared()
+    }
+
+    pub fn execute_prepared(&self) -> DispatchResultWithPostInfo {
+        if let Some((proof, raw_tx)) = &self.execution_tx {
+            // alice executes the issuerequest by confirming the btc transaction
+            Call::Issue(IssueCall::execute_issue(self.issue_id, proof.to_vec(), raw_tx.to_vec()))
+                .dispatch(origin_of(account_of(self.submitter)))
+        } else {
+            panic!("Backing transaction was not prepared prior to execution!");
+        }
+    }
+
+    pub fn prepare_for_execution(&mut self) -> &mut Self {
         // send the btc from the user to the vault
         let (_tx_id, _height, proof, raw_tx, _) = TransactionGenerator::new()
             .with_address(self.issue.btc_address)
@@ -108,12 +136,11 @@ impl ExecuteIssueBuilder {
             try_register_vault(DEFAULT_COLLATERAL, self.submitter);
         }
 
-        // alice executes the issuerequest by confirming the btc transaction
-        Call::Issue(IssueCall::execute_issue(self.issue_id, proof, raw_tx))
-            .dispatch(origin_of(account_of(self.submitter)))
+        self.execution_tx = Some((proof, raw_tx));
+        self
     }
 
-    pub fn assert_execute(&self) {
+    pub fn assert_execute(&mut self) {
         assert_ok!(self.execute());
     }
 }

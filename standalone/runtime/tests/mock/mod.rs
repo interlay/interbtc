@@ -25,7 +25,7 @@ pub use sp_std::convert::TryInto;
 pub use vault_registry::CurrencySource;
 
 pub use exchange_rate_oracle::{BitcoinInclusionTime, CurrencyId, OracleKey};
-pub use issue::IssueRequest;
+pub use issue::{IssueRequest, IssueRequestStatus};
 pub use redeem::RedeemRequest;
 pub use refund::RefundRequest;
 pub use replace::ReplaceRequest;
@@ -871,7 +871,7 @@ impl ExtBuilder {
 
         issue::GenesisConfig::<Runtime> {
             issue_period: 10,
-            issue_btc_dust_value: 0,
+            issue_btc_dust_value: 2,
         }
         .assimilate_storage(&mut storage)
         .unwrap();

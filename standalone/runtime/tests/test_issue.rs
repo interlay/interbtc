@@ -129,26 +129,6 @@ fn integration_test_issue_with_parachain_shutdown_fails() {
         SecurityPallet::set_status(StatusCode::Shutdown);
 
         assert_noop!(
-            Call::Issue(IssueCall::request_issue(0, account_of(BOB), 0)).dispatch(origin_of(account_of(ALICE))),
-            SecurityError::ParachainShutdown,
-        );
-
-        assert_noop!(
-            Call::Issue(IssueCall::cancel_issue(H256([0; 32]),)).dispatch(origin_of(account_of(ALICE))),
-            SecurityError::ParachainShutdown,
-        );
-
-        assert_noop!(
-            Call::Issue(IssueCall::execute_issue(
-                Default::default(),
-                Default::default(),
-                Default::default()
-            ))
-            .dispatch(origin_of(account_of(ALICE))),
-            SecurityError::ParachainShutdown,
-        );
-
-        assert_noop!(
             Call::Refund(RefundCall::execute_refund(
                 Default::default(),
                 Default::default(),
@@ -163,19 +143,44 @@ fn integration_test_issue_with_parachain_shutdown_fails() {
 mod request_issue_tests {
     use super::*;
 
+    /// Request fails if parachain is shutdown
     #[test]
-    fn integration_test_request_issue_at_capacity_succeeds() {
-        test_with_initialized_vault(|| {
-            let amount = VaultRegistryPallet::get_issuable_tokens_from_vault(account_of(VAULT)).unwrap();
-            let (issue_id, _) = request_issue(amount);
-            execute_issue(issue_id);
+    fn integration_test_issue_request_precond_not_shutdown() {
+        test_with(|| {
+            SecurityPallet::set_status(StatusCode::Shutdown);
+            assert_noop!(
+                Call::Issue(IssueCall::request_issue(0, account_of(BOB), 0)).dispatch(origin_of(account_of(ALICE))),
+                SecurityError::ParachainShutdown,
+            );
         });
     }
 
+    /// Request fails if relay is not initialized
     #[test]
-    fn integration_test_request_issue_above_capacity_fails() {
-        test_with_initialized_vault(|| {
-            let amount = 1 + VaultRegistryPallet::get_issuable_tokens_from_vault(account_of(VAULT)).unwrap();
+    fn integration_test_issue_request_precond_relay_initialized() {
+        ExtBuilder::build().execute_without_relay_init(|| {
+            assert_noop!(
+                Call::Issue(IssueCall::request_issue(0, Default::default(), 0)).dispatch(origin_of(account_of(USER))),
+                IssueError::WaitingForRelayerInitialization
+            );
+        });
+        ExtBuilder::build().execute_without_relay_init(|| {
+            // calls BTCRelay::initialize, but with insufficient confirmations
+            let _ = TransactionGenerator::new().with_confirmations(3).mine();
+
+            assert_noop!(
+                Call::Issue(IssueCall::request_issue(0, Default::default(), 0)).dispatch(origin_of(account_of(USER))),
+                IssueError::WaitingForRelayerInitialization
+            );
+        });
+    }
+
+    /// Request fails if attempted with an account that is not a registered vault
+    #[test]
+    fn integration_test_issue_request_precond_vault_registered() {
+        test_with(|| {
+            //test_with ...out_initialized_vault
+            let amount = 1_000;
             assert_noop!(
                 Call::Issue(IssueCall::request_issue(
                     amount,
@@ -183,26 +188,14 @@ mod request_issue_tests {
                     DEFAULT_GRIEFING_COLLATERAL
                 ))
                 .dispatch(origin_of(account_of(USER))),
-                VaultRegistryError::ExceedingVaultLimit
+                VaultRegistryError::VaultNotFound
             );
         });
     }
 
+    /// Request fails if vault is not actively accepting new issues
     #[test]
-    fn integration_test_request_with_griefing_collateral_at_minimum_succeeds() {
-        test_with_initialized_vault(|| {
-            let amount = 10_000;
-            let amount_in_collateral = ExchangeRateOraclePallet::wrapped_to_collateral(amount).unwrap();
-            let griefing_collateral = FeePallet::get_issue_griefing_collateral(amount_in_collateral).unwrap();
-            assert_ok!(
-                Call::Issue(IssueCall::request_issue(amount, account_of(VAULT), griefing_collateral))
-                    .dispatch(origin_of(account_of(USER)))
-            );
-        });
-    }
-
-    #[test]
-    fn integration_test_request_with_griefing_collateral_below_minimum_fails() {
+    fn integration_test_issue_request_precond_vault_active() {
         test_with_initialized_vault(|| {
             assert_ok!(
                 Call::VaultRegistry(VaultRegistryCall::accept_new_issues(false)).dispatch(origin_of(account_of(VAULT)))
@@ -219,38 +212,159 @@ mod request_issue_tests {
         });
     }
 
+    /// Request fails if requested amount is below the BTC dust value
     #[test]
-    fn integration_test_request_not_accepting_new_issues_fails() {
+    fn integration_test_issue_request_precond_amount_above_dust() {
         test_with_initialized_vault(|| {
-            let amount = 10_000;
+            let amount = 1; // dust is set to 2
             let amount_in_collateral = ExchangeRateOraclePallet::wrapped_to_collateral(amount).unwrap();
-            let griefing_collateral = FeePallet::get_issue_griefing_collateral(amount_in_collateral).unwrap() - 1;
+            let griefing_collateral = FeePallet::get_issue_griefing_collateral(amount_in_collateral).unwrap();
             assert_noop!(
                 Call::Issue(IssueCall::request_issue(amount, account_of(VAULT), griefing_collateral))
                     .dispatch(origin_of(account_of(USER))),
-                IssueError::InsufficientCollateral
+                IssueError::AmountBelowDustAmount
             );
         });
     }
-}
 
-#[test]
-fn integration_test_issue_fails_with_uninitialized_relay() {
-    ExtBuilder::build().execute_without_relay_init(|| {
-        assert_noop!(
-            Call::Issue(IssueCall::request_issue(0, Default::default(), 0)).dispatch(origin_of(account_of(USER))),
-            IssueError::WaitingForRelayerInitialization
-        );
-    });
-    ExtBuilder::build().execute_without_relay_init(|| {
-        // calls BTCRelay::initialize, but with insufficient confirmations
-        let _ = TransactionGenerator::new().with_confirmations(3).mine();
+    /// Request fails if insufficient griefing collateral is provided
+    #[test]
+    fn integration_test_issue_request_precond_griefing_collateral_sufficient() {
+        test_with_initialized_vault(|| {
+            let amount = 10_000;
+            let amount_in_collateral = ExchangeRateOraclePallet::wrapped_to_collateral(amount).unwrap();
+            let griefing_collateral = FeePallet::get_issue_griefing_collateral(amount_in_collateral).unwrap();
+            // fails below minimum
+            assert_noop!(
+                Call::Issue(IssueCall::request_issue(
+                    amount,
+                    account_of(VAULT),
+                    griefing_collateral - 1
+                ))
+                .dispatch(origin_of(account_of(USER))),
+                IssueError::InsufficientCollateral
+            );
+            // succeeds at minimum
+            assert_ok!(
+                Call::Issue(IssueCall::request_issue(amount, account_of(VAULT), griefing_collateral))
+                    .dispatch(origin_of(account_of(USER)))
+            );
+            // succeeds above minimum
+            assert_ok!(Call::Issue(IssueCall::request_issue(
+                amount,
+                account_of(VAULT),
+                griefing_collateral * 2
+            ))
+            .dispatch(origin_of(account_of(USER))));
+        });
+    }
 
-        assert_noop!(
-            Call::Issue(IssueCall::request_issue(0, Default::default(), 0)).dispatch(origin_of(account_of(USER))),
-            IssueError::WaitingForRelayerInitialization
-        );
-    });
+    /// Request succeeds when issuing with a vault's entire capacity
+    #[test]
+    fn integration_test_issue_request_precond_succeeds_at_capacity() {
+        test_with_initialized_vault(|| {
+            let amount = VaultRegistryPallet::get_issuable_tokens_from_vault(account_of(VAULT)).unwrap();
+            let (issue_id, _) = request_issue(amount);
+            execute_issue(issue_id);
+        });
+    }
+
+    /// Request fails when trying to issue above a vault's capacity
+    #[test]
+    fn integration_test_issue_request_precond_fails_above_capacity() {
+        test_with_initialized_vault(|| {
+            let amount = 1 + VaultRegistryPallet::get_issuable_tokens_from_vault(account_of(VAULT)).unwrap();
+            assert_noop!(
+                Call::Issue(IssueCall::request_issue(
+                    amount,
+                    account_of(VAULT),
+                    DEFAULT_GRIEFING_COLLATERAL
+                ))
+                .dispatch(origin_of(account_of(USER))),
+                VaultRegistryError::ExceedingVaultLimit
+            );
+        });
+    }
+
+    /// Request fails if the user can't pay the griefing collateral
+    #[test]
+    fn integration_test_issue_request_precond_sufficient_funds_for_collateral() {
+        test_with_initialized_vault(|| {
+            let amount_btc = 10_000;
+            let user_free_balance = 1_000_000;
+            assert_noop!(
+                Call::Issue(IssueCall::request_issue(
+                    amount_btc,
+                    account_of(VAULT),
+                    user_free_balance + 1,
+                ))
+                .dispatch(origin_of(account_of(USER))),
+                TokensError::BalanceTooLow
+            );
+
+            // succeeds when using entire balance but not exceeding
+            assert_ok!(Call::Issue(IssueCall::request_issue(
+                amount_btc,
+                account_of(VAULT),
+                user_free_balance
+            ))
+            .dispatch(origin_of(account_of(USER))),);
+        });
+    }
+
+    #[test]
+    fn integration_test_issue_request_postcond_succeeds() {
+        test_with_initialized_vault(|| {
+            let amount_btc = 10_000;
+            let current_block = 500;
+            SecurityPallet::set_active_block_number(current_block);
+            assert_ok!(Call::Issue(IssueCall::request_issue(
+                amount_btc,
+                account_of(VAULT),
+                DEFAULT_GRIEFING_COLLATERAL,
+            ))
+            .dispatch(origin_of(account_of(USER))));
+
+            // lock griefing collateral and increase to_be_issued
+            assert_eq!(
+                ParachainState::get(),
+                ParachainState::default().with_changes(|user, vault, _, _| {
+                    vault.to_be_issued += 10_000;
+                    user.free_balance -= DEFAULT_GRIEFING_COLLATERAL;
+                    user.locked_balance += DEFAULT_GRIEFING_COLLATERAL;
+                })
+            );
+
+            let issue_id = assert_issue_request_event();
+            let issue = IssuePallet::get_issue_request_from_id(&issue_id).unwrap();
+
+            // created issue request has expected values in all the fields
+            let expected_btc_address =
+                VaultRegistryPallet::register_deposit_address(&account_of(VAULT), issue_id).unwrap();
+            let expected_public_key = VaultRegistryPallet::get_vault_from_id(&account_of(VAULT))
+                .unwrap()
+                .wallet
+                .public_key;
+            let expected_fee = FeePallet::get_issue_fee(amount_btc).unwrap();
+            let expected_height = BTCRelayPallet::get_best_block_height();
+
+            let expected_issue = IssueRequest {
+                vault: account_of(VAULT),
+                opentime: current_block,
+                period: IssuePallet::issue_period(),
+                griefing_collateral: DEFAULT_GRIEFING_COLLATERAL,
+                amount: amount_btc - expected_fee,
+                fee: expected_fee,
+                requester: account_of(USER),
+                btc_address: expected_btc_address,
+                btc_public_key: expected_public_key,
+                btc_height: expected_height,
+                status: IssueRequestStatus::Pending,
+            };
+
+            assert_eq!(issue, expected_issue);
+        });
+    }
 }
 
 #[test]
@@ -363,30 +477,6 @@ fn integration_test_withdraw_after_request_issue() {
 }
 
 #[test]
-fn integration_test_issue_overpayment() {
-    test_with_initialized_vault(|| {
-        let requested_btc = 1000;
-        let (issue_id, issue) = request_issue(requested_btc);
-        let sent_btc = (issue.amount + issue.fee) * 2;
-
-        ExecuteIssueBuilder::new(issue_id)
-            .with_amount(sent_btc)
-            .assert_execute();
-
-        assert_eq!(
-            ParachainState::get(),
-            ParachainState::default().with_changes(|user, vault, _, fee_pool| {
-                user.free_tokens += 2 * issue.amount;
-                fee_pool.vault_rewards += 2 * issue.fee;
-                vault.issued += sent_btc;
-            })
-        );
-
-        assert_issue_amount_change_event(issue_id, 2 * issue.amount, 2 * issue.fee, 0);
-    });
-}
-
-#[test]
 /// overpay by a factor of 4
 fn integration_test_issue_refund() {
     test_with_initialized_vault(|| {
@@ -494,182 +584,442 @@ mod execute_refund_payment_limits {
     }
 }
 
-#[test]
-fn integration_test_issue_underpayment_succeeds() {
-    test_with_initialized_vault(|| {
-        let requested_btc = 4000;
-        let (issue_id, issue) = request_issue(requested_btc);
-        let sent_btc = (issue.amount + issue.fee) / 4;
+mod execute_issue_tests {
+    use super::*;
+    /// Execute fails if parachain is shut down
+    #[test]
+    fn integration_test_issue_execute_precond_not_shutdown() {
+        test_with(|| {
+            SecurityPallet::set_status(StatusCode::Shutdown);
 
-        // need stake for rewards to deposit
-        assert_ok!(VaultRewardsPallet::deposit_stake(
-            DOT,
-            &account_of(VAULT),
-            signed_fixed_point!(1)
-        ));
+            assert_noop!(
+                Call::Issue(IssueCall::execute_issue(
+                    Default::default(),
+                    Default::default(),
+                    Default::default()
+                ))
+                .dispatch(origin_of(account_of(ALICE))),
+                SecurityError::ParachainShutdown,
+            );
+        });
+    }
 
-        ExecuteIssueBuilder::new(issue_id)
-            .with_amount(sent_btc)
-            .with_submitter(USER, false)
-            .assert_execute();
+    /// Execute fails if corresponding request doesn't exist
+    #[test]
+    fn integration_test_issue_execute_precond_issue_exists() {
+        test_with(|| {
+            let (issue_id, _issue) = request_issue(4_000);
+            let nonexistent_issue_id = H256::zero();
 
-        let slashed_griefing_collateral = (issue.griefing_collateral * 3) / 4;
+            let mut executor = ExecuteIssueBuilder::new(issue_id);
+            executor
+                .with_submitter(PROOF_SUBMITTER, true)
+                .with_issue_id(nonexistent_issue_id)
+                .prepare_for_execution();
 
-        assert_eq!(
-            ParachainState::get(),
-            ParachainState::default().with_changes(|user, vault, _, fee_pool| {
-                // user loses 75% of griefing collateral for having only fulfilled 25%
-                user.free_balance -= slashed_griefing_collateral;
-                vault.free_balance += slashed_griefing_collateral;
+            assert_noop!(executor.execute_prepared(), IssueError::IssueIdNotFound);
+        });
+    }
 
-                // token updating as if only 25% was requested
-                user.free_tokens += issue.amount / 4;
-                fee_pool.vault_rewards += issue.fee / 4;
-                vault.issued += (issue.fee + issue.amount) / 4;
-            })
-        );
+    /// Execute fails if issue request has expired
+    /// cf. also mod expiry_test
+    #[test]
+    fn integration_test_issue_execute_precond_not_expired() {
+        test_with(|| {
+            let (issue_id, issue) = request_issue(4_000);
+            let mut executor = ExecuteIssueBuilder::new(issue_id);
+            executor.prepare_for_execution();
 
-        assert_issue_amount_change_event(issue_id, issue.amount / 4, issue.fee / 4, slashed_griefing_collateral);
-    });
-}
+            SecurityPallet::set_active_block_number(IssuePallet::issue_period() + 1 + 1);
+            mine_blocks(issue.period + 99);
 
-#[test]
-fn integration_test_issue_underpayment_executed_by_third_party_fails() {
-    test_with(|| {
-        let (issue_id, issue) = request_issue(4_000);
+            assert_noop!(executor.execute_prepared(), IssueError::CommitPeriodExpired);
+        });
+    }
 
-        // note: not doing assert_noop because the build does additional calls that change the storage
-        assert_err!(
-            ExecuteIssueBuilder::new(issue_id)
+    /// Execute fails if the execution BTC tx isn't a valid payment
+    #[test]
+    fn integration_test_issue_execute_precond_rawtx_valid() {
+        test_with_initialized_vault(|| {
+            let (issue_id, issue) = request_issue(1000);
+            let (_tx_id, _height, proof, _raw_tx, mut transaction) = TransactionGenerator::new()
+                .with_address(issue.btc_address)
+                .with_amount(1000)
+                .with_op_return(None)
+                .mine();
+
+            SecurityPallet::set_active_block_number(SecurityPallet::active_block_number() + CONFIRMATIONS);
+
+            // send to wrong address
+            let bogus_address = BtcAddress::P2WPKHv0(H160::zero());
+            transaction.outputs[0] = TransactionOutput::payment(1000, &bogus_address);
+            assert_noop!(
+                Call::Issue(IssueCall::execute_issue(issue_id, proof, transaction.format_with(true)))
+                    .dispatch(origin_of(account_of(CAROL))),
+                BTCRelayError::InvalidTxid
+            );
+        })
+    }
+
+    /// Execute fails if provided merkle proof of payment is not valid
+    #[test]
+    fn integration_test_issue_execute_precond_proof_valid() {
+        test_with_initialized_vault(|| {
+            let (issue_id, issue) = request_issue(1000);
+            let (_tx_id, _height, mut proof, _raw_tx, transaction) = TransactionGenerator::new()
+                .with_address(issue.btc_address)
+                .with_amount(1)
+                .with_op_return(None)
+                .mine();
+
+            SecurityPallet::set_active_block_number(SecurityPallet::active_block_number() + CONFIRMATIONS);
+
+            // mangle block header in merkle proof
+            proof[0] += 1;
+            assert_noop!(
+                Call::Issue(IssueCall::execute_issue(issue_id, proof, transaction.format_with(true)))
+                    .dispatch(origin_of(account_of(CAROL))),
+                BTCRelayError::BlockNotFound
+            );
+        })
+    }
+
+    /// Execute fails if the BTC transaction underpaid, and someone other than the user is trying
+    /// to execute
+    #[test]
+    fn integration_test_issue_execute_precond_underpayment_executed_by_requester() {
+        test_with(|| {
+            let (issue_id, issue) = request_issue(4_000);
+
+            let mut executor = ExecuteIssueBuilder::new(issue_id);
+            executor
                 .with_amount((issue.amount + issue.fee) / 4)
                 .with_submitter(PROOF_SUBMITTER, true)
-                .execute(),
-            IssueError::InvalidExecutor
-        );
-    });
+                .prepare_for_execution();
+
+            assert_noop!(executor.execute_prepared(), IssueError::InvalidExecutor);
+        });
+    }
+
+    /// Test Execute postconditions when BTC payment is for the exact requested amount
+    #[test]
+    fn integration_test_issue_execute_postcond_exact_payment() {
+        test_with_initialized_vault(|| {
+            let requested_btc = 1000;
+            let (issue_id, issue) = request_issue(requested_btc);
+            let post_request_state = ParachainState::get();
+
+            ExecuteIssueBuilder::new(issue_id).assert_execute();
+
+            // user balances are updated, tokens are minted and fees paid
+            assert_eq!(
+                ParachainState::get(),
+                post_request_state.with_changes(|user, vault, _, fee_pool| {
+                    user.locked_balance -= issue.griefing_collateral;
+                    user.free_balance += issue.griefing_collateral;
+                    user.free_tokens += issue.amount;
+
+                    fee_pool.vault_rewards += issue.fee;
+                    vault.issued += requested_btc;
+                    vault.to_be_issued -= requested_btc;
+                })
+            );
+
+            // issue request is updated: status is complete
+            let user_issues = IssuePallet::get_issue_requests_for_account(account_of(USER));
+            let (_, onchain_issue) = user_issues.iter().find(|(id, _)| id == &issue_id).unwrap();
+            assert_eq!(onchain_issue.status, IssueRequestStatus::Completed(None));
+        });
+    }
+
+    /// Test Execute postconditions when BTC payment is less than the requested amount
+    #[test]
+    fn integration_test_issue_execute_postcond_underpayment() {
+        test_with_initialized_vault(|| {
+            let requested_btc = 40_000;
+            let (issue_id, issue) = request_issue(requested_btc);
+            let sent_btc = (issue.amount + issue.fee) / 4;
+
+            let post_request_state = ParachainState::get();
+
+            // need stake for rewards to deposit
+            assert_ok!(VaultRewardsPallet::deposit_stake(
+                DOT,
+                &account_of(VAULT),
+                signed_fixed_point!(1)
+            ));
+
+            ExecuteIssueBuilder::new(issue_id)
+                .with_amount(sent_btc)
+                .with_submitter(USER, false)
+                .assert_execute();
+
+            let slashed_griefing_collateral = (issue.griefing_collateral * 3) / 4;
+            let returned_griefing_collateral = issue.griefing_collateral - issue.griefing_collateral * 3 / 4;
+
+            // user balances are updated, tokens are minted and fees paid
+            assert_eq!(
+                ParachainState::get(),
+                post_request_state.with_changes(|user, vault, _, fee_pool| {
+                    // user loses 75% of griefing collateral for having only fulfilled 25%
+                    user.locked_balance -= issue.griefing_collateral;
+                    user.free_balance += returned_griefing_collateral;
+                    vault.free_balance += slashed_griefing_collateral;
+
+                    // token updating as if only 25% was requested
+                    user.free_tokens += issue.amount / 4;
+                    fee_pool.vault_rewards += issue.fee / 4;
+                    vault.issued += (issue.fee + issue.amount) / 4;
+                    vault.to_be_issued -= issue.fee + issue.amount; // decrease to sent_btc and then decrease to zero
+                                                                    // happens within execute_issue and adds up to full
+                                                                    // amount
+                })
+            );
+
+            assert_issue_amount_change_event(issue_id, issue.amount / 4, issue.fee / 4, slashed_griefing_collateral);
+
+            // issue request is updated: status is complete, amounts have been adjusted
+            let mut completed_issue = issue;
+            completed_issue.amount /= 4;
+            completed_issue.fee /= 4;
+            completed_issue.status = IssueRequestStatus::Completed(None);
+
+            let user_issues = IssuePallet::get_issue_requests_for_account(account_of(USER));
+            let (_, onchain_issue) = user_issues.iter().find(|(id, _)| id == &issue_id).unwrap();
+            assert_eq!(onchain_issue, &completed_issue);
+        });
+    }
+
+    /// Test Execute postconditions when BTC payment is greater than the requested amount, and
+    /// vault can execute the greater amount
+    #[test]
+    fn integration_test_issue_execute_postcond_overpayment_succeeds() {
+        test_with_initialized_vault(|| {
+            let requested_btc = 1000;
+            let (issue_id, issue) = request_issue(requested_btc);
+            let sent_btc = (issue.amount + issue.fee) * 2;
+            let post_request_state = ParachainState::get();
+
+            ExecuteIssueBuilder::new(issue_id)
+                .with_amount(sent_btc)
+                .assert_execute();
+
+            // user balances are updated, tokens are minted and fees paid
+            assert_eq!(
+                ParachainState::get(),
+                post_request_state.with_changes(|user, vault, _, fee_pool| {
+                    user.locked_balance -= issue.griefing_collateral;
+                    user.free_balance += issue.griefing_collateral;
+                    user.free_tokens += 2 * issue.amount;
+
+                    fee_pool.vault_rewards += 2 * issue.fee;
+                    vault.issued += sent_btc;
+                    vault.to_be_issued -= requested_btc; // increase to sent_btc and decrease back to zero happens
+                                                         // within execute_issue and cancels out
+                })
+            );
+
+            assert_issue_amount_change_event(issue_id, 2 * issue.amount, 2 * issue.fee, 0);
+
+            // issue request is updated: status is complete, amounts have been adjusted
+            let mut completed_issue = issue;
+            completed_issue.amount *= 2;
+            completed_issue.fee *= 2;
+            completed_issue.status = IssueRequestStatus::Completed(None);
+
+            let user_issues = IssuePallet::get_issue_requests_for_account(account_of(USER));
+            let (_, onchain_issue) = user_issues.iter().find(|(id, _)| id == &issue_id).unwrap();
+            assert_eq!(onchain_issue, &completed_issue);
+        });
+    }
+
+    /// Test Execute postconditions when BTC payment is greater than the requested amount, and
+    /// vault can not execute the greater amount
+    #[test]
+    fn integration_test_issue_execute_postcond_overpayment_creates_refund() {
+        test_with_initialized_vault(|| {
+            let requested_btc = 1000;
+
+            // make sure we don't have enough collateral to fulfil the overpayment
+            let current_minimum_collateral =
+                VaultRegistryPallet::get_required_collateral_for_vault(account_of(VAULT)).unwrap();
+            CoreVaultData::force_to(
+                VAULT,
+                CoreVaultData {
+                    backing_collateral: current_minimum_collateral + requested_btc * 2,
+                    ..CoreVaultData::vault(VAULT)
+                },
+            );
+
+            let (issue_id, issue) = request_issue(requested_btc);
+            let sent_btc = (issue.amount + issue.fee) * 4;
+            let post_request_state = ParachainState::get();
+
+            ExecuteIssueBuilder::new(issue_id)
+                .with_amount(sent_btc)
+                .assert_execute();
+
+            // user balances are updated, tokens are minted and fees paid
+            // not enough collateral to back sent amount, so it's as if the user sent the correct amount
+            assert_eq!(
+                ParachainState::get(),
+                post_request_state.with_changes(|user, vault, _, fee_pool| {
+                    user.locked_balance -= issue.griefing_collateral;
+                    user.free_balance += issue.griefing_collateral;
+
+                    user.free_tokens += issue.amount;
+                    fee_pool.vault_rewards += issue.fee;
+
+                    vault.issued += issue.fee + issue.amount;
+                    vault.to_be_issued -= issue.fee + issue.amount;
+                })
+            );
+
+            // refund requests exists for issue
+            let refund_id = assert_refund_request_event();
+            let refund = RefundPallet::get_open_refund_request_from_id(&refund_id).unwrap();
+            assert_eq!(refund.issue_id, issue_id);
+
+            // issue request is updated: status is complete and references refund request
+            let user_issues = IssuePallet::get_issue_requests_for_account(account_of(USER));
+            let (_, onchain_issue) = user_issues.iter().find(|(id, _)| id == &issue_id).unwrap();
+            assert_eq!(onchain_issue.status, IssueRequestStatus::Completed(Some(refund_id)));
+        });
+    }
+
+    /// Test Execute postconditions when vault has been liquidated
+    #[test]
+    fn integration_test_issue_execute_postcond_liquidated() {
+        test_with_initialized_vault(|| {
+            let (issue_id, issue) = RequestIssueBuilder::new(10_000).request();
+
+            drop_exchange_rate_and_liquidate(VAULT);
+            let post_liquidation_status = ParachainState::get();
+
+            execute_issue(issue_id);
+
+            // user balances are updated, tokens are minted and fees paid
+            assert_eq!(
+                ParachainState::get(),
+                post_liquidation_status.with_changes(|user, _vault, liquidation_vault, fee_pool| {
+                    user.free_tokens += issue.amount;
+
+                    user.free_balance += issue.griefing_collateral;
+                    user.locked_balance -= issue.griefing_collateral;
+
+                    liquidation_vault.to_be_issued -= issue.amount + issue.fee;
+                    liquidation_vault.issued += issue.amount + issue.fee;
+                })
+            );
+        });
+    }
 }
 
-#[test]
-fn integration_test_issue_wrapped_cancel() {
-    test_with_initialized_vault(|| {
-        // random non-zero starting state
-        let (issue_id, issue) = RequestIssueBuilder::new(10_000).request();
+mod cancel_issue_tests {
+    use super::*;
 
-        SecurityPallet::set_active_block_number(IssuePallet::issue_period() + 1 + 1);
-        mine_blocks((IssuePallet::issue_period() + 99) / 100 + 1);
+    /// Cancel fails when parachain is shutdown
+    #[test]
+    fn integration_test_issue_cancel_precond_not_shutdown() {
+        test_with(|| {
+            SecurityPallet::set_status(StatusCode::Shutdown);
+            assert_noop!(
+                Call::Issue(IssueCall::cancel_issue(H256([0; 32]),)).dispatch(origin_of(account_of(ALICE))),
+                SecurityError::ParachainShutdown,
+            );
+        });
+    }
 
-        // alice cannot execute past expiry
-        assert_noop!(
-            Call::Issue(IssueCall::execute_issue(issue_id, vec![], vec![])).dispatch(origin_of(account_of(VAULT))),
-            IssueError::CommitPeriodExpired
-        );
+    /// Cancel fails if issue request does not exist
+    #[test]
+    fn integration_test_issue_cancel_precond_issue_exists() {
+        test_with(|| {
+            request_issue(4_000);
+            let nonexistent_issue_id = H256::zero();
+            SecurityPallet::set_active_block_number(IssuePallet::issue_period() + 1 + 1);
+            mine_blocks((IssuePallet::issue_period() + 99) / 100 + 1);
 
-        // need stake for rewards to deposit
-        assert_ok!(VaultRewardsPallet::deposit_stake(
-            DOT,
-            &account_of(VAULT),
-            signed_fixed_point!(1)
-        ));
+            assert_noop!(
+                Call::Issue(IssueCall::cancel_issue(nonexistent_issue_id)).dispatch(origin_of(account_of(VAULT))),
+                IssueError::IssueIdNotFound
+            );
+        });
+    }
 
-        // bob cancels issue request
-        assert_ok!(Call::Issue(IssueCall::cancel_issue(issue_id)).dispatch(origin_of(account_of(VAULT))));
+    /// Cancel fails if issue request is not yet expired
+    #[test]
+    fn integration_test_issue_cancel_precond_issue_expired() {
+        test_with(|| {
+            let (issue_id, _issue) = request_issue(4_000);
+            assert_noop!(
+                Call::Issue(IssueCall::cancel_issue(issue_id)).dispatch(origin_of(account_of(VAULT))),
+                IssueError::TimeNotExpired
+            );
+        });
+    }
 
-        assert_eq!(
-            ParachainState::get(),
-            ParachainState::default().with_changes(|user, vault, _, _| {
-                user.free_balance -= issue.griefing_collateral;
-                vault.free_balance += issue.griefing_collateral;
-            })
-        );
-    });
-}
+    /// Test Cancel preconditions for a non-liquidated vault
+    #[test]
+    fn integration_test_issue_cancel_postcond_vault_not_liquidated() {
+        test_with_initialized_vault(|| {
+            let (issue_id, issue) = RequestIssueBuilder::new(10_000).request();
 
-#[test]
-fn integration_test_issue_wrapped_cancel_liquidated() {
-    test_with_initialized_vault(|| {
-        let (issue_id, issue) = RequestIssueBuilder::new(10_000).request();
+            SecurityPallet::set_active_block_number(IssuePallet::issue_period() + 1 + 1);
+            mine_blocks((IssuePallet::issue_period() + 99) / 100 + 1);
 
-        SecurityPallet::set_active_block_number(IssuePallet::issue_period() + 1 + 1);
-        mine_blocks((IssuePallet::issue_period() + 99) / 100 + 1);
+            let post_request_state = ParachainState::get();
 
-        // alice cannot execute past expiry
-        assert_noop!(
-            Call::Issue(IssueCall::execute_issue(issue_id, vec![], vec![])).dispatch(origin_of(account_of(VAULT))),
-            IssueError::CommitPeriodExpired
-        );
+            // bob cancels issue request
+            assert_ok!(Call::Issue(IssueCall::cancel_issue(issue_id)).dispatch(origin_of(account_of(VAULT))));
 
-        drop_exchange_rate_and_liquidate(VAULT);
-        let post_liquidation_status = ParachainState::get();
+            // balances and collaterals are updated
+            assert_eq!(
+                ParachainState::get(),
+                post_request_state.with_changes(|user, vault, _, _| {
+                    user.locked_balance -= issue.griefing_collateral;
+                    vault.free_balance += issue.griefing_collateral;
+                    vault.to_be_issued -= issue.amount + issue.fee;
+                })
+            );
 
-        // bob cancels issue request
-        assert_ok!(Call::Issue(IssueCall::cancel_issue(issue_id)).dispatch(origin_of(account_of(VAULT))));
+            // issue request status is set to cancelled
+            let user_issues = IssuePallet::get_issue_requests_for_account(account_of(USER));
+            let (_, onchain_issue) = user_issues.iter().find(|(id, _)| id == &issue_id).unwrap();
+            assert_eq!(onchain_issue.status, IssueRequestStatus::Cancelled);
+        });
+    }
 
-        assert_eq!(
-            ParachainState::get(),
-            post_liquidation_status.with_changes(|user, _vault, liquidation_vault, _fee_pool| {
-                // griefing collateral released instead of slashed
-                user.locked_balance -= issue.griefing_collateral;
-                user.free_balance += issue.griefing_collateral;
+    /// Test cancel preconditions in the case that the vault was liquidated
+    #[test]
+    fn integration_test_issue_cancel_postcond_vault_liquidated() {
+        test_with_initialized_vault(|| {
+            let (issue_id, issue) = RequestIssueBuilder::new(10_000).request();
 
-                liquidation_vault.to_be_issued -= issue.amount + issue.fee;
-            })
-        );
-    });
-}
+            SecurityPallet::set_active_block_number(IssuePallet::issue_period() + 1 + 1);
+            mine_blocks((IssuePallet::issue_period() + 99) / 100 + 1);
 
-#[test]
-fn integration_test_issue_wrapped_execute_liquidated() {
-    test_with_initialized_vault(|| {
-        let (issue_id, issue) = RequestIssueBuilder::new(10_000).request();
+            drop_exchange_rate_and_liquidate(VAULT);
+            let post_liquidation_status = ParachainState::get();
 
-        drop_exchange_rate_and_liquidate(VAULT);
-        let post_liquidation_status = ParachainState::get();
+            // bob cancels issue request
+            assert_ok!(Call::Issue(IssueCall::cancel_issue(issue_id)).dispatch(origin_of(account_of(VAULT))));
 
-        execute_issue(issue_id);
+            // grieifing collateral released back to the user
+            assert_eq!(
+                ParachainState::get(),
+                post_liquidation_status.with_changes(|user, _vault, liquidation_vault, _fee_pool| {
+                    // griefing collateral released instead of slashed
+                    user.locked_balance -= issue.griefing_collateral;
+                    user.free_balance += issue.griefing_collateral;
 
-        assert_eq!(
-            ParachainState::get(),
-            post_liquidation_status.with_changes(|user, _vault, liquidation_vault, _fee_pool| {
-                user.free_tokens += issue.amount;
+                    liquidation_vault.to_be_issued -= issue.amount + issue.fee;
+                })
+            );
 
-                // since the vault has been liquidated execute rewards
-                // are transferred to the treasury
-
-                user.free_balance += issue.griefing_collateral;
-                user.locked_balance -= issue.griefing_collateral;
-
-                liquidation_vault.to_be_issued -= issue.amount + issue.fee;
-                liquidation_vault.issued += issue.amount + issue.fee;
-            })
-        );
-    });
-}
-
-#[test]
-fn integration_test_issue_with_unrelated_rawtx_and_txid_fails() {
-    test_with_initialized_vault(|| {
-        let (issue_id, issue) = request_issue(1000);
-        let (_tx_id, _height, proof, raw_tx, mut transaction) = TransactionGenerator::new()
-            .with_address(issue.btc_address)
-            .with_amount(1)
-            .with_op_return(None)
-            .mine();
-
-        SecurityPallet::set_active_block_number(SecurityPallet::active_block_number() + CONFIRMATIONS);
-
-        // fail due to insufficient amount
-        assert_noop!(
-            Call::Issue(IssueCall::execute_issue(issue_id, proof.clone(), raw_tx))
-                .dispatch(origin_of(account_of(CAROL))),
-            IssueError::InvalidExecutor
-        );
-
-        // increase the amount in the raw_tx, but not in the blockchain. This should definitely fail
-        transaction.outputs[0].value = 1000;
-        assert_noop!(
-            Call::Issue(IssueCall::execute_issue(issue_id, proof, transaction.format_with(true)))
-                .dispatch(origin_of(account_of(CAROL))),
-            BTCRelayError::InvalidTxid
-        );
-    })
+            // issue request status is set to cancelled
+            let user_issues = IssuePallet::get_issue_requests_for_account(account_of(USER));
+            let (_, onchain_issue) = user_issues.iter().find(|(id, _)| id == &issue_id).unwrap();
+            assert_eq!(onchain_issue.status, IssueRequestStatus::Cancelled);
+        });
+    }
 }
