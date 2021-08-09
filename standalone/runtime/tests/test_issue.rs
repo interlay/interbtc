@@ -901,7 +901,7 @@ mod execute_issue_tests {
             // user balances are updated, tokens are minted and fees paid
             assert_eq!(
                 ParachainState::get(),
-                post_liquidation_status.with_changes(|user, _vault, liquidation_vault, fee_pool| {
+                post_liquidation_status.with_changes(|user, _vault, liquidation_vault, _fee_pool| {
                     user.free_tokens += issue.amount;
 
                     user.free_balance += issue.griefing_collateral;
