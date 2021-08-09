@@ -505,3 +505,28 @@ fn integration_test_vault_withdrawal_cannot_exceed_max_nomination_taio() {
         );
     })
 }
+
+#[test]
+fn integration_test_rewards_are_preserved_on_collateral_withdrawal() {
+    test_with_nomination_enabled_and_vault_opted_in(|| {
+        UserData::force_to(USER, {
+            UserData {
+                free_balance: DEFAULT_USER_FREE_BALANCE + DEFAULT_NOMINATION,
+                ..default_user_state()
+            }
+        });
+        assert_nominate_collateral(VAULT, USER, DEFAULT_NOMINATION);
+
+        let (issue_id, _) = issue_testing_utils::request_issue(100000);
+        issue_testing_utils::execute_issue(issue_id);
+        FeePallet::withdraw_all_vault_rewards(&account_of(VAULT)).unwrap();
+        let reward_before_nomination_withdrawal =
+            VaultStakingPallet::compute_reward(INTERBTC, &account_of(VAULT), &account_of(USER)).unwrap();
+        assert_eq!(reward_before_nomination_withdrawal > 0, true);
+        assert_ok!(withdraw_nominator_collateral(USER, VAULT, DEFAULT_NOMINATION));
+        assert_eq!(
+            VaultStakingPallet::compute_reward(INTERBTC, &account_of(VAULT), &account_of(USER)).unwrap(),
+            reward_before_nomination_withdrawal
+        );
+    })
+}
