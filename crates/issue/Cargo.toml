@@ -3,7 +3,7 @@ authors = ["Interlay Ltd"]
 description = "Issue module"
 edition = "2018"
 name = "issue"
-version = "0.9.0"
+version = "0.10.0"
 
 [dependencies]
 serde = { version = "1.0.119", default-features = false, features = ['derive'], optional = true }

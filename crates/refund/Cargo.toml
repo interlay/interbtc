@@ -3,7 +3,7 @@ authors = ["Interlay Ltd"]
 description = "Refund module"
 edition = "2018"
 name = "refund"
-version = "0.9.0"
+version = "0.10.0"
 
 [dependencies]
 serde = { version = "1.0.119", default-features = false, features = ['derive'], optional = true }
