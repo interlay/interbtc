@@ -510,7 +510,10 @@ impl<T: Config> Pallet<T> {
     ) -> Result<(), DispatchError> {
         let nonce = Self::nonce(currency_id, vault_id);
         let stake = Self::apply_slash(currency_id, vault_id, nominator_id)?;
-        if amount > stake {
+
+        if amount.is_zero() {
+            return Ok(());
+        } else if amount > stake {
             return Err(Error::<T>::InsufficientFunds.into());
         }
 
