@@ -425,8 +425,6 @@ pub mod pallet {
         /// threshold was not found for the given currency
         ThresholdNotSet,
 
-        NotImplemented,
-
         // Unexpected errors that should never be thrown in normal operation
         ArithmeticOverflow,
         ArithmeticUnderflow,
@@ -1383,22 +1381,6 @@ impl<T: Config> Pallet<T> {
     }
 
     /// RPC
-
-    /// Get the total collateralization of the system.
-    pub fn get_total_collateralization() -> Result<UnsignedFixedPoint<T>, DispatchError> {
-        Err(Error::<T>::NotImplemented.into())
-        //         let issued_tokens = Self::get_total_issued_tokens(true)?;
-        //
-        //         let currency_id = Self::get_collateral_currency(vault_id)?;
-        //
-        //         let total_collateral = Self::get_total_backing_collateral(currency_id, true)?;
-        //
-        //         ensure!(!issued_tokens.is_zero(), Error::<T>::NoTokensIssued);
-        //
-        //         // convert the collateral to wrapped
-        //         let collateral_in_wrapped = ext::oracle::collateral_to_wrapped::<T>(total_collateral)?;
-        //         Self::get_collateralization(collateral_in_wrapped, issued_tokens)
-    }
 
     /// Get the first available vault with sufficient collateral to fulfil an issue request
     /// with the specified amount of issued tokens.

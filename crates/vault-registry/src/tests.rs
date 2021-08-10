@@ -1272,20 +1272,6 @@ mod get_vaults_with_redeemable_tokens_test {
     }
 }
 
-#[test]
-#[ignore] // we haven't decided yet how this should be implemented
-fn get_total_collateralization_with_tokens_issued() {
-    run_test(|| {
-        let issue_tokens: u128 = DEFAULT_COLLATERAL / 10 / 2; // = 5
-        let _id = create_sample_vault_and_issue_tokens(issue_tokens);
-
-        assert_eq!(
-            VaultRegistry::get_total_collateralization(),
-            Ok(FixedU128::checked_from_rational(200, 100).unwrap())
-        );
-    })
-}
-
 // #[test]
 // fn wallet_add_btc_address_succeeds() {
 //     run_test(|| {

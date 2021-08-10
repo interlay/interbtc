@@ -21,9 +21,6 @@ sp_api::decl_runtime_apis! {
         /// Get the vault's collateral (including nomination)
         fn get_vault_total_collateral(vault_id: AccountId) -> Result<BalanceWrapper<Collateral>, DispatchError>;
 
-        /// Get the total collateralization of the system
-        fn get_total_collateralization() -> Result<UnsignedFixedPoint, DispatchError>;
-
         /// Get the first available vault with sufficient collateral to fulfil an issue request
         /// with the specified amount of Wrapped.
         fn get_first_vault_with_sufficient_collateral(amount: BalanceWrapper<Wrapped>) -> Result<AccountId, DispatchError>;

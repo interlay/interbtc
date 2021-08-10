@@ -37,9 +37,6 @@ where
         at: Option<BlockHash>,
     ) -> JsonRpcResult<BalanceWrapper<Collateral>>;
 
-    #[rpc(name = "vaultRegistry_getTotalCollateralization")]
-    fn get_total_collateralization(&self, at: Option<BlockHash>) -> JsonRpcResult<UnsignedFixedPoint>;
-
     #[rpc(name = "vaultRegistry_getFirstVaultWithSufficientCollateral")]
     fn get_first_vault_with_sufficient_collateral(
         &self,
@@ -200,16 +197,6 @@ where
         handle_response(
             api.get_vault_total_collateral(&at, vault_id),
             "Unable to get the vault's collateral.".into(),
-        )
-    }
-
-    fn get_total_collateralization(&self, at: Option<<Block as BlockT>::Hash>) -> JsonRpcResult<UnsignedFixedPoint> {
-        let api = self.client.runtime_api();
-        let at = BlockId::hash(at.unwrap_or_else(|| self.client.info().best_hash));
-
-        handle_response(
-            api.get_total_collateralization(&at),
-            "Unable to get total collateralization.".into(),
         )
     }
 

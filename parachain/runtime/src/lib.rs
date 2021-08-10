@@ -1094,10 +1094,6 @@ impl_runtime_apis! {
             Ok(BalanceWrapper{amount:result})
         }
 
-        fn get_total_collateralization() -> Result<UnsignedFixedPoint, DispatchError> {
-            VaultRegistry::get_total_collateralization()
-        }
-
         fn get_first_vault_with_sufficient_collateral(amount: BalanceWrapper<Balance>) -> Result<AccountId, DispatchError> {
             VaultRegistry::get_first_vault_with_sufficient_collateral(amount.amount)
         }
