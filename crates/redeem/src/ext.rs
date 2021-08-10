@@ -48,9 +48,9 @@ pub(crate) mod btc_relay {
 
 #[cfg_attr(test, mockable)]
 pub(crate) mod vault_registry {
-    use crate::types::{BalanceOf, Collateral, Wrapped};
+    use crate::types::{Collateral, Wrapped};
     use frame_support::dispatch::{DispatchError, DispatchResult};
-    use vault_registry::types::{CurrencySource, Vault};
+    use vault_registry::types::{CurrencyId, CurrencySource, DefaultVault};
 
     pub fn get_liquidated_collateral<T: crate::Config>(
         vault_id: &T::AccountId,
@@ -59,24 +59,24 @@ pub(crate) mod vault_registry {
     }
 
     pub fn transfer_funds<T: crate::Config>(
+        currency_id: CurrencyId<T>,
         from: CurrencySource<T>,
         to: CurrencySource<T>,
         amount: Collateral<T>,
     ) -> DispatchResult {
-        <vault_registry::Pallet<T>>::transfer_funds(from, to, amount)
+        <vault_registry::Pallet<T>>::transfer_funds(currency_id, from, to, amount)
     }
 
     pub fn transfer_funds_saturated<T: crate::Config>(
+        currency_id: CurrencyId<T>,
         from: CurrencySource<T>,
         to: CurrencySource<T>,
         amount: Collateral<T>,
     ) -> Result<Collateral<T>, DispatchError> {
-        <vault_registry::Pallet<T>>::transfer_funds_saturated(from, to, amount)
+        <vault_registry::Pallet<T>>::transfer_funds_saturated(currency_id, from, to, amount)
     }
 
-    pub fn get_vault_from_id<T: crate::Config>(
-        vault_id: &T::AccountId,
-    ) -> Result<Vault<T::AccountId, T::BlockNumber, BalanceOf<T>>, DispatchError> {
+    pub fn get_vault_from_id<T: crate::Config>(vault_id: &T::AccountId) -> Result<DefaultVault<T>, DispatchError> {
         <vault_registry::Pallet<T>>::get_vault_from_id(vault_id)
     }
 
@@ -112,10 +112,11 @@ pub(crate) mod vault_registry {
     }
 
     pub fn redeem_tokens_liquidation<T: crate::Config>(
+        currency_id: CurrencyId<T>,
         redeemer_id: &T::AccountId,
         amount: Wrapped<T>,
     ) -> DispatchResult {
-        <vault_registry::Pallet<T>>::redeem_tokens_liquidation(redeemer_id, amount)
+        <vault_registry::Pallet<T>>::redeem_tokens_liquidation(currency_id, redeemer_id, amount)
     }
 
     pub fn ban_vault<T: crate::Config>(vault_id: T::AccountId) -> DispatchResult {
@@ -165,6 +166,10 @@ pub(crate) mod vault_registry {
         tokens: Wrapped<T>,
     ) -> Result<(Wrapped<T>, Collateral<T>), DispatchError> {
         <vault_registry::Pallet<T>>::decrease_to_be_replaced_tokens(vault_id, tokens)
+    }
+
+    pub fn get_collateral_currency<T: crate::Config>(vault_id: &T::AccountId) -> Result<CurrencyId<T>, DispatchError> {
+        <vault_registry::Pallet<T>>::get_collateral_currency(vault_id)
     }
 }
 
@@ -232,9 +237,13 @@ pub(crate) mod oracle {
         OracleKey,
     };
     use frame_support::dispatch::DispatchError;
+    use vault_registry::types::CurrencyId;
 
-    pub fn wrapped_to_collateral<T: crate::Config>(amount: Wrapped<T>) -> Result<Collateral<T>, DispatchError> {
-        <exchange_rate_oracle::Pallet<T>>::wrapped_to_collateral(amount)
+    pub fn wrapped_to_collateral<T: crate::Config>(
+        currency_id: CurrencyId<T>,
+        amount: Wrapped<T>,
+    ) -> Result<Collateral<T>, DispatchError> {
+        <exchange_rate_oracle::Pallet<T>>::wrapped_to_collateral(currency_id, amount)
     }
 
     pub fn get_price<T: crate::Config>(
@@ -271,12 +280,16 @@ pub(crate) mod fee {
 }
 
 #[cfg_attr(test, mockable)]
-pub(crate) mod collateral {
-    use crate::Collateral;
-    use currency::ParachainCurrency;
+pub(crate) mod currency {
+    use crate::types::Collateral;
     use frame_support::dispatch::DispatchResult;
+    use vault_registry::types::CurrencyId;
 
-    pub fn release_collateral<T: crate::Config>(sender: &T::AccountId, amount: Collateral<T>) -> DispatchResult {
-        <T as vault_registry::Config>::Collateral::unlock(sender, amount)
+    pub fn unlock<T: crate::Config>(
+        currency_id: CurrencyId<T>,
+        account: &T::AccountId,
+        amount: Collateral<T>,
+    ) -> DispatchResult {
+        currency::with_currency_id::unlock::<T>(currency_id, account, amount)
     }
 }

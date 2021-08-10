@@ -1,10 +1,10 @@
 use crate as vault_registry;
 use crate::{ext, Config, Error};
-use codec::{Decode, Encode};
 use frame_support::{parameter_types, traits::GenesisBuild, PalletId};
 use mocktopus::mocking::{clear_mocks, MockResult, Mockable};
 use orml_tokens::CurrencyAdapter;
 use orml_traits::parameter_type_with_key;
+pub use primitives::CurrencyId;
 use sp_arithmetic::{FixedI128, FixedPointNumber, FixedU128};
 use sp_core::H256;
 use sp_runtime::{
@@ -83,13 +83,7 @@ impl frame_system::Config for Test {
 
 impl pallet_randomness_collective_flip::Config for Test {}
 
-#[derive(Encode, Decode, Debug, PartialEq, PartialOrd, Ord, Eq, Clone, Copy)]
-#[cfg_attr(feature = "std", derive(serde::Serialize, serde::Deserialize))]
-pub enum CurrencyId {
-    DOT,
-    INTERBTC,
-}
-
+pub const DEFAULT_TESTING_CURRENCY: CurrencyId = CurrencyId::DOT;
 pub const DOT: CurrencyId = CurrencyId::DOT;
 pub const INTERBTC: CurrencyId = CurrencyId::INTERBTC;
 
@@ -153,9 +147,9 @@ impl Config for Test {
     type SignedFixedPoint = SignedFixedPoint;
     type UnsignedFixedPoint = UnsignedFixedPoint;
     type WeightInfo = ();
-    type Collateral = CurrencyAdapter<Test, GetCollateralCurrencyId>;
     type Wrapped = CurrencyAdapter<Test, GetWrappedCurrencyId>;
     type GetRewardsCurrencyId = GetWrappedCurrencyId;
+    type GetGriefingCollateralCurrencyId = GetCollateralCurrencyId;
 }
 
 impl<C> frame_system::offchain::SendTransactionTypes<C> for Test
@@ -200,11 +194,11 @@ impl ExtBuilder {
 
         // Parameters to be set in tests
         vault_registry::GenesisConfig::<Test> {
-            minimum_collateral_vault: 0,
+            minimum_collateral_vault: vec![(DEFAULT_TESTING_CURRENCY, 0)],
             punishment_delay: 0,
-            secure_collateral_threshold: UnsignedFixedPoint::one(),
-            premium_redeem_threshold: UnsignedFixedPoint::one(),
-            liquidation_collateral_threshold: UnsignedFixedPoint::one(),
+            secure_collateral_threshold: vec![(DEFAULT_TESTING_CURRENCY, UnsignedFixedPoint::one())],
+            premium_redeem_threshold: vec![(DEFAULT_TESTING_CURRENCY, UnsignedFixedPoint::one())],
+            liquidation_collateral_threshold: vec![(DEFAULT_TESTING_CURRENCY, UnsignedFixedPoint::one())],
         }
         .assimilate_storage(&mut storage)
         .unwrap();
@@ -231,9 +225,9 @@ pub(crate) fn set_default_thresholds() {
     let premium = UnsignedFixedPoint::checked_from_rational(120, 100).unwrap(); // 120%
     let liquidation = UnsignedFixedPoint::checked_from_rational(110, 100).unwrap(); // 110%
 
-    VaultRegistry::set_secure_collateral_threshold(secure);
-    VaultRegistry::set_premium_redeem_threshold(premium);
-    VaultRegistry::set_liquidation_collateral_threshold(liquidation);
+    VaultRegistry::set_secure_collateral_threshold(DEFAULT_TESTING_CURRENCY, secure);
+    VaultRegistry::set_premium_redeem_threshold(DEFAULT_TESTING_CURRENCY, premium);
+    VaultRegistry::set_liquidation_collateral_threshold(DEFAULT_TESTING_CURRENCY, liquidation);
 }
 
 pub fn run_test<T>(test: T)
@@ -241,8 +235,8 @@ where
     T: FnOnce(),
 {
     clear_mocks();
-    ext::oracle::collateral_to_wrapped::<Test>.mock_safe(|v| MockResult::Return(Ok(v)));
-    ext::oracle::wrapped_to_collateral::<Test>.mock_safe(|v| MockResult::Return(Ok(v)));
+    ext::oracle::collateral_to_wrapped::<Test>.mock_safe(|_, v| MockResult::Return(Ok(v)));
+    ext::oracle::wrapped_to_collateral::<Test>.mock_safe(|_, v| MockResult::Return(Ok(v)));
     ExtBuilder::build().execute_with(|| {
         System::set_block_number(1);
         Security::set_active_block_number(1);

@@ -19,6 +19,109 @@ use sp_runtime::{
 };
 use sp_std::{fmt::Debug, marker::PhantomData};
 
+pub mod with_currency_id {
+    use super::*;
+
+    pub fn get_free_balance<T: orml_tokens::Config>(currency_id: T::CurrencyId, account: &T::AccountId) -> T::Balance {
+        <orml_tokens::Pallet<T>>::free_balance(currency_id, account)
+    }
+
+    pub fn get_reserved_balance<T: orml_tokens::Config>(
+        currency_id: T::CurrencyId,
+        account: &T::AccountId,
+    ) -> T::Balance {
+        <orml_tokens::Pallet<T>>::reserved_balance(currency_id, account)
+    }
+
+    pub fn lock<T: orml_tokens::Config>(
+        currency_id: T::CurrencyId,
+        account: &T::AccountId,
+        amount: T::Balance,
+    ) -> DispatchResult {
+        <orml_tokens::Pallet<T>>::reserve(currency_id, account, amount)
+    }
+
+    pub fn unlock<T: orml_tokens::Config>(
+        currency_id: T::CurrencyId,
+        account: &T::AccountId,
+        amount: T::Balance,
+    ) -> DispatchResult {
+        ensure!(
+            <orml_tokens::Pallet<T>>::unreserve(currency_id, account, amount).is_zero(),
+            orml_tokens::Error::<T>::BalanceTooLow
+        );
+        Ok(())
+    }
+
+    pub fn slash<T: orml_tokens::Config>(
+        currency_id: T::CurrencyId,
+        from: &T::AccountId,
+        to: &T::AccountId,
+        amount: T::Balance,
+    ) -> DispatchResult {
+        ensure!(
+            <orml_tokens::Pallet<T>>::reserved_balance(currency_id, from) >= amount,
+            orml_tokens::Error::<T>::BalanceTooLow
+        );
+        slash_saturated::<T>(currency_id, from, to, amount)?;
+        Ok(())
+    }
+
+    pub fn slash_saturated<T: orml_tokens::Config>(
+        currency_id: T::CurrencyId,
+        from: &T::AccountId,
+        to: &T::AccountId,
+        amount: T::Balance,
+    ) -> Result<T::Balance, DispatchError> {
+        // slash the sender's currency
+        let remainder = <orml_tokens::Pallet<T>>::slash_reserved(currency_id, &from, amount);
+
+        // subtraction should not be able to fail since remainder <= amount
+        let slashed_amount = amount - remainder;
+
+        // add slashed amount to receiver and create account if it does not exist
+        <orml_tokens::Pallet<T>>::deposit(currency_id, &to, slashed_amount)?;
+
+        // reserve the created amount for the receiver. This should not be able to fail, since the
+        // call above will have created enough free balance to lock.
+        <orml_tokens::Pallet<T>>::reserve(currency_id, &to, slashed_amount)?;
+
+        Ok(slashed_amount)
+    }
+
+    pub fn transfer<T: orml_tokens::Config>(
+        currency_id: T::CurrencyId,
+        from: &T::AccountId,
+        to: &T::AccountId,
+        amount: T::Balance,
+    ) -> DispatchResult {
+        <orml_tokens::Pallet<T> as MultiCurrency<T::AccountId>>::transfer(currency_id, from, to, amount)
+    }
+
+    pub fn transfer_and_lock<T: orml_tokens::Config>(
+        currency_id: T::CurrencyId,
+        from: &T::AccountId,
+        to: &T::AccountId,
+        amount: T::Balance,
+    ) -> DispatchResult {
+        <orml_tokens::Pallet<T> as MultiCurrency<T::AccountId>>::transfer(currency_id, from, to, amount)?;
+        <orml_tokens::Pallet<T>>::reserve(currency_id, to, amount)
+    }
+
+    pub fn unlock_and_transfer<T: orml_tokens::Config>(
+        currency_id: T::CurrencyId,
+        from: &T::AccountId,
+        to: &T::AccountId,
+        amount: T::Balance,
+    ) -> DispatchResult {
+        ensure!(
+            <orml_tokens::Pallet<T>>::unreserve(currency_id, from, amount).is_zero(),
+            orml_tokens::Error::<T>::BalanceTooLow
+        );
+        <orml_tokens::Pallet<T> as MultiCurrency<T::AccountId>>::transfer(currency_id, from, to, amount)
+    }
+}
+
 pub trait ParachainCurrency<AccountId> {
     /// The balance of an account.
     type Balance: AtLeast32BitUnsigned + FullCodec + Copy + MaybeSerializeDeserialize + Debug + Default;

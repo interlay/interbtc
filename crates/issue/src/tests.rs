@@ -1,4 +1,4 @@
-use crate::{ext, mock::*, BalanceOf, Config, Event};
+use crate::{ext, mock::*, Event};
 
 use bitcoin::types::{MerkleProof, Transaction};
 use btc_relay::{BtcAddress, BtcPublicKey};
@@ -7,7 +7,7 @@ use mocktopus::mocking::*;
 use sp_arithmetic::FixedU128;
 use sp_core::{H160, H256};
 use sp_runtime::traits::One;
-use vault_registry::{Vault, VaultStatus, Wallet};
+use vault_registry::{DefaultVault, Vault, VaultStatus, Wallet};
 
 fn dummy_merkle_proof() -> MerkleProof {
     MerkleProof {
@@ -61,10 +61,8 @@ fn cancel_issue(origin: AccountId, issue_id: &H256) -> Result<(), DispatchError>
     Issue::_cancel_issue(origin, *issue_id)
 }
 
-fn init_zero_vault<T: Config>(id: T::AccountId) -> Vault<T::AccountId, T::BlockNumber, BalanceOf<T>> {
-    let mut vault = Vault::default();
-    vault.id = id;
-    vault
+fn init_zero_vault(id: <Test as frame_system::Config>::AccountId) -> DefaultVault<Test> {
+    Vault::new(id, Default::default(), DEFAULT_TESTING_CURRENCY)
 }
 
 fn get_dummy_request_id() -> H256 {
@@ -75,6 +73,7 @@ fn get_dummy_request_id() -> H256 {
 fn test_request_issue_banned_fails() {
     run_test(|| {
         assert_ok!(<exchange_rate_oracle::Pallet<Test>>::_set_exchange_rate(
+            DEFAULT_TESTING_CURRENCY,
             FixedU128::one()
         ));
         <vault_registry::Pallet<Test>>::insert_vault(
@@ -89,7 +88,8 @@ fn test_request_issue_banned_fails() {
                 wallet: Wallet::new(BtcPublicKey::default()),
                 banned_until: Some(1),
                 status: VaultStatus::Active(true),
-                ..Default::default()
+                currency_id: DEFAULT_TESTING_CURRENCY,
+                liquidated_collateral: 0,
             },
         );
         assert_noop!(request_issue(ALICE, 3, BOB, 0), VaultRegistryError::VaultBanned);
@@ -100,9 +100,9 @@ fn test_request_issue_banned_fails() {
 fn test_request_issue_insufficient_collateral_fails() {
     run_test(|| {
         ext::vault_registry::get_active_vault_from_id::<Test>
-            .mock_safe(|_| MockResult::Return(Ok(init_zero_vault::<Test>(BOB))));
+            .mock_safe(|_| MockResult::Return(Ok(init_zero_vault(BOB))));
         ext::vault_registry::ensure_not_banned::<Test>.mock_safe(|_| MockResult::Return(Ok(())));
-        ext::oracle::wrapped_to_collateral::<Test>.mock_safe(|_| MockResult::Return(Ok(10000000)));
+        ext::oracle::wrapped_to_collateral::<Test>.mock_safe(|_, _| MockResult::Return(Ok(10000000)));
 
         assert_noop!(request_issue(ALICE, 3, BOB, 0), TestError::InsufficientCollateral,);
     })
@@ -118,7 +118,7 @@ fn test_request_issue_succeeds() {
         let issue_griefing_collateral = 20;
 
         ext::vault_registry::get_active_vault_from_id::<Test>
-            .mock_safe(|_| MockResult::Return(Ok(init_zero_vault::<Test>(BOB))));
+            .mock_safe(|_| MockResult::Return(Ok(init_zero_vault(BOB))));
 
         ext::fee::get_issue_fee::<Test>.mock_safe(move |_| MockResult::Return(Ok(issue_fee)));
 
@@ -145,7 +145,7 @@ fn test_request_issue_succeeds() {
 fn test_execute_issue_not_found_fails() {
     run_test(|| {
         ext::vault_registry::get_active_vault_from_id::<Test>
-            .mock_safe(|_| MockResult::Return(Ok(init_zero_vault::<Test>(BOB))));
+            .mock_safe(|_| MockResult::Return(Ok(init_zero_vault(BOB))));
         assert_noop!(execute_issue(ALICE, &H256([0; 32])), TestError::IssueIdNotFound);
     })
 }
@@ -154,7 +154,7 @@ fn test_execute_issue_not_found_fails() {
 fn test_execute_issue_succeeds() {
     run_test(|| {
         ext::vault_registry::get_active_vault_from_id::<Test>
-            .mock_safe(|_| MockResult::Return(Ok(init_zero_vault::<Test>(BOB))));
+            .mock_safe(|_| MockResult::Return(Ok(init_zero_vault(BOB))));
         ext::vault_registry::issue_tokens::<Test>.mock_safe(|_, _| MockResult::Return(Ok(())));
 
         ext::vault_registry::is_vault_liquidated::<Test>.mock_safe(|_| MockResult::Return(Ok(false)));
@@ -183,7 +183,7 @@ fn test_execute_issue_succeeds() {
 fn test_execute_issue_overpayment_succeeds() {
     run_test(|| {
         ext::vault_registry::get_active_vault_from_id::<Test>
-            .mock_safe(|_| MockResult::Return(Ok(init_zero_vault::<Test>(BOB))));
+            .mock_safe(|_| MockResult::Return(Ok(init_zero_vault(BOB))));
         ext::vault_registry::issue_tokens::<Test>.mock_safe(|_, _| MockResult::Return(Ok(())));
 
         let issue_id = request_issue_ok(ALICE, 3, BOB, 20);
@@ -224,7 +224,7 @@ fn test_execute_issue_overpayment_succeeds() {
 fn test_execute_issue_refund_succeeds() {
     run_test(|| {
         ext::vault_registry::get_active_vault_from_id::<Test>
-            .mock_safe(|_| MockResult::Return(Ok(init_zero_vault::<Test>(BOB))));
+            .mock_safe(|_| MockResult::Return(Ok(init_zero_vault(BOB))));
         ext::vault_registry::issue_tokens::<Test>.mock_safe(|_, _| MockResult::Return(Ok(())));
 
         let issue_id = request_issue_ok(ALICE, 3, BOB, 20);
@@ -272,7 +272,7 @@ fn test_cancel_issue_not_found_fails() {
 fn test_cancel_issue_not_expired_fails() {
     run_test(|| {
         ext::vault_registry::get_active_vault_from_id::<Test>
-            .mock_safe(|_| MockResult::Return(Ok(init_zero_vault::<Test>(BOB))));
+            .mock_safe(|_| MockResult::Return(Ok(init_zero_vault(BOB))));
 
         let issue_id = request_issue_ok(ALICE, 3, BOB, 20);
         // issue period is 10, we issued at block 1, so at block 5 the cancel should fail

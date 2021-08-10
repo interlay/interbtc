@@ -11,25 +11,27 @@ pub(crate) mod security {
 }
 
 #[cfg_attr(test, mockable)]
-pub(crate) mod collateral {
+pub(crate) mod currency {
     use crate::types::Collateral;
-    use currency::ParachainCurrency;
     use frame_support::dispatch::DispatchResult;
+    use vault_registry::types::CurrencyId;
 
     pub fn transfer_and_lock<T: crate::Config>(
-        source: &T::AccountId,
-        destination: &T::AccountId,
+        currency_id: CurrencyId<T>,
+        from: &T::AccountId,
+        to: &T::AccountId,
         amount: Collateral<T>,
     ) -> DispatchResult {
-        <T as vault_registry::Config>::Collateral::transfer_and_lock(source, destination, amount)
+        currency::with_currency_id::transfer_and_lock::<T>(currency_id, from, to, amount)
     }
 
     pub fn unlock_and_transfer<T: crate::Config>(
-        source: &T::AccountId,
-        destination: &T::AccountId,
+        currency_id: CurrencyId<T>,
+        from: &T::AccountId,
+        to: &T::AccountId,
         amount: Collateral<T>,
     ) -> DispatchResult {
-        <T as vault_registry::Config>::Collateral::unlock_and_transfer(source, destination, amount)
+        currency::with_currency_id::unlock_and_transfer::<T>(currency_id, from, to, amount)
     }
 }
 
@@ -37,7 +39,7 @@ pub(crate) mod collateral {
 pub(crate) mod vault_registry {
     use crate::Collateral;
     pub use frame_support::dispatch::{DispatchError, DispatchResult};
-    pub use vault_registry::{DefaultVault, VaultStatus};
+    pub use vault_registry::{types::CurrencyId, DefaultVault, VaultStatus};
 
     pub fn get_backing_collateral<T: crate::Config>(vault_id: &T::AccountId) -> Result<Collateral<T>, DispatchError> {
         <vault_registry::Pallet<T>>::get_backing_collateral(vault_id)
@@ -59,9 +61,14 @@ pub(crate) mod vault_registry {
     }
 
     pub fn get_max_nominatable_collateral<T: crate::Config>(
+        currency_id: CurrencyId<T>,
         vault_collateral: Collateral<T>,
     ) -> Result<Collateral<T>, DispatchError> {
-        <vault_registry::Pallet<T>>::get_max_nominatable_collateral(vault_collateral)
+        <vault_registry::Pallet<T>>::get_max_nominatable_collateral(currency_id, vault_collateral)
+    }
+
+    pub fn get_collateral_currency<T: crate::Config>(vault_id: &T::AccountId) -> Result<CurrencyId<T>, DispatchError> {
+        <vault_registry::Pallet<T>>::get_collateral_currency(vault_id)
     }
 }
 
@@ -77,32 +84,39 @@ pub(crate) mod fee {
 #[cfg_attr(test, mockable)]
 pub(crate) mod staking {
     use crate::types::{SignedFixedPoint, SignedInner};
-    use frame_support::{dispatch::DispatchError, traits::Get};
+    use frame_support::dispatch::DispatchError;
+    use vault_registry::types::CurrencyId;
 
     pub fn deposit_stake<T: crate::Config>(
+        currency_id: CurrencyId<T>,
         vault_id: &T::AccountId,
         nominator_id: &T::AccountId,
         amount: SignedFixedPoint<T>,
     ) -> Result<(), DispatchError> {
-        <staking::Pallet<T>>::deposit_stake(T::GetRewardsCurrencyId::get(), vault_id, nominator_id, amount)
+        <staking::Pallet<T>>::deposit_stake(currency_id, vault_id, nominator_id, amount)
     }
 
     pub fn withdraw_stake<T: crate::Config>(
+        currency_id: CurrencyId<T>,
         vault_id: &T::AccountId,
         nominator_id: &T::AccountId,
         amount: SignedFixedPoint<T>,
     ) -> Result<(), DispatchError> {
-        <staking::Pallet<T>>::withdraw_stake(T::GetRewardsCurrencyId::get(), vault_id, nominator_id, amount)
+        <staking::Pallet<T>>::withdraw_stake(currency_id, vault_id, nominator_id, amount)
     }
 
     pub fn compute_stake<T: crate::Config>(
+        currency_id: CurrencyId<T>,
         vault_id: &T::AccountId,
         nominator_id: &T::AccountId,
     ) -> Result<SignedInner<T>, DispatchError> {
-        <staking::Pallet<T>>::compute_stake(T::GetRewardsCurrencyId::get(), vault_id, nominator_id)
+        <staking::Pallet<T>>::compute_stake(currency_id, vault_id, nominator_id)
     }
 
-    pub fn force_refund<T: crate::Config>(vault_id: &T::AccountId) -> Result<(), DispatchError> {
-        <staking::Pallet<T>>::force_refund(T::GetRewardsCurrencyId::get(), vault_id)
+    pub fn force_refund<T: crate::Config>(
+        currency_id: CurrencyId<T>,
+        vault_id: &T::AccountId,
+    ) -> Result<(), DispatchError> {
+        <staking::Pallet<T>>::force_refund(currency_id, vault_id)
     }
 }

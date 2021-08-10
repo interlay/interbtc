@@ -15,7 +15,7 @@ use replace::types::{ReplaceRequest, ReplaceRequestStatus};
 use sp_core::{H160, H256};
 use sp_std::convert::TryFrom;
 use std::{convert::TryInto, str::FromStr};
-use vault_registry::{Vault, VaultStatus, Wallet};
+use vault_registry::{types::DefaultVault, Vault, VaultStatus, Wallet};
 
 type Event = crate::Event<Test>;
 
@@ -36,10 +36,13 @@ fn dummy_merkle_proof() -> MerkleProof {
 }
 
 /// Mocking functions
-fn init_zero_vault(id: AccountId, btc_address: Option<BtcAddress>) -> Vault<AccountId, BlockNumber, Balance> {
-    let mut vault = Vault::default();
-    vault.id = id;
-    vault.wallet = Wallet::new(dummy_public_key());
+fn init_zero_vault(id: AccountId, btc_address: Option<BtcAddress>) -> DefaultVault<Test> {
+    let mut vault = Vault {
+        wallet: Wallet::new(dummy_public_key()),
+        id,
+        ..Vault::new(Default::default(), Default::default(), DEFAULT_TESTING_CURRENCY)
+    };
+
     match btc_address {
         Some(btc_address) => vault.wallet.add_btc_address(btc_address),
         None => {}
@@ -370,7 +373,8 @@ fn test_is_transaction_invalid_fails_with_valid_merge_transaction() {
                 wallet: wallet.clone(),
                 banned_until: None,
                 status: VaultStatus::Active(true),
-                ..Default::default()
+                currency_id: DEFAULT_TESTING_CURRENCY,
+                liquidated_collateral: 0,
             }))
         });
 
@@ -429,7 +433,8 @@ fn test_is_transaction_invalid_fails_with_valid_request_or_redeem() {
                 wallet: wallet.clone(),
                 banned_until: None,
                 status: VaultStatus::Active(true),
-                ..Default::default()
+                currency_id: DEFAULT_TESTING_CURRENCY,
+                liquidated_collateral: 0,
             }))
         });
 
@@ -588,7 +593,8 @@ fn test_is_transaction_invalid_fails_with_valid_merge_testnet_transaction() {
                 wallet: wallet.clone(),
                 banned_until: None,
                 status: VaultStatus::Active(true),
-                ..Default::default()
+                currency_id: DEFAULT_TESTING_CURRENCY,
+                liquidated_collateral: 0,
             }))
         });
 

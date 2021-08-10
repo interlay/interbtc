@@ -106,11 +106,11 @@ fn getting_exchange_rate_fails_with_missing_exchange_rate() {
         let key = OracleKey::ExchangeRate(CurrencyId::DOT);
         assert_err!(ExchangeRateOracle::get_price(key), TestError::MissingExchangeRate);
         assert_err!(
-            ExchangeRateOracle::wrapped_to_collateral(0),
+            ExchangeRateOracle::wrapped_to_collateral(CurrencyId::DOT, 0),
             TestError::MissingExchangeRate
         );
         assert_err!(
-            ExchangeRateOracle::collateral_to_wrapped(0),
+            ExchangeRateOracle::collateral_to_wrapped(CurrencyId::DOT, 0),
             TestError::MissingExchangeRate
         );
     });
@@ -123,7 +123,7 @@ fn wrapped_to_collateral() {
             .mock_safe(|_| MockResult::Return(Ok(FixedU128::checked_from_rational(2, 1).unwrap())));
         let test_cases = [(0, 0), (2, 4), (10, 20)];
         for (input, expected) in test_cases.iter() {
-            let result = ExchangeRateOracle::wrapped_to_collateral(*input);
+            let result = ExchangeRateOracle::wrapped_to_collateral(CurrencyId::DOT, *input);
             assert_ok!(result, *expected);
         }
     });
@@ -136,7 +136,7 @@ fn collateral_to_wrapped() {
             .mock_safe(|_| MockResult::Return(Ok(FixedU128::checked_from_rational(2, 1).unwrap())));
         let test_cases = [(0, 0), (4, 2), (20, 10), (21, 10)];
         for (input, expected) in test_cases.iter() {
-            let result = ExchangeRateOracle::collateral_to_wrapped(*input);
+            let result = ExchangeRateOracle::collateral_to_wrapped(CurrencyId::DOT, *input);
             assert_ok!(result, *expected);
         }
     });

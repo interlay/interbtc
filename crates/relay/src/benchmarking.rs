@@ -1,5 +1,5 @@
 use super::*;
-use crate::Pallet as Relay;
+use crate::{types::Collateral, Pallet as Relay};
 use bitcoin::{
     formatter::{Formattable, TryFormattable},
     types::{
@@ -8,11 +8,12 @@ use bitcoin::{
     },
 };
 use btc_relay::{BtcAddress, BtcPublicKey, Pallet as BtcRelay};
-use currency::ParachainCurrency;
 use exchange_rate_oracle::Pallet as ExchangeRateOracle;
 use frame_benchmarking::{account, benchmarks, impl_benchmark_test_suite};
-use frame_support::assert_ok;
+use frame_support::{assert_ok, traits::Get};
 use frame_system::RawOrigin;
+use orml_traits::MultiCurrency;
+use primitives::CurrencyId;
 use security::Pallet as Security;
 use sp_core::{H160, U256};
 use sp_runtime::traits::One;
@@ -22,11 +23,17 @@ use vault_registry::{
     Pallet as VaultRegistry,
 };
 
+pub const DEFAULT_TESTING_CURRENCY: CurrencyId = CurrencyId::DOT;
+
 fn dummy_public_key() -> BtcPublicKey {
     BtcPublicKey([
         2, 205, 114, 218, 156, 16, 235, 172, 106, 37, 18, 153, 202, 140, 176, 91, 207, 51, 187, 55, 18, 45, 222, 180,
         119, 54, 243, 97, 173, 150, 161, 169, 230,
     ])
+}
+
+fn mint_collateral<T: crate::Config>(account_id: &T::AccountId, amount: Collateral<T>) {
+    <orml_tokens::Pallet<T>>::deposit(DEFAULT_TESTING_CURRENCY, account_id, amount).unwrap();
 }
 
 benchmarks! {
@@ -89,16 +96,18 @@ benchmarks! {
         let address = BtcAddress::P2PKH(H160([0; 20]));
 
         let vault_id: T::AccountId = account("Vault", 0, 0);
-        let mut vault = Vault::default();
-        vault.id = vault_id.clone();
-        vault.wallet = Wallet::new(dummy_public_key());
+        let mut vault = Vault {
+            wallet: Wallet::new(dummy_public_key()),
+            id: vault_id.clone(),
+            ..Vault::new(Default::default(), Default::default(), T::GetGriefingCollateralCurrencyId::get())
+        };
         vault.wallet.add_btc_address(vault_address);
         VaultRegistry::<T>::insert_vault(
             &vault_id,
             vault
         );
 
-        assert_ok!(<T as vault_registry::Config>::Collateral::mint(&vault_id, 1000u32.into()));
+        mint_collateral::<T>(&vault_id, 1000u32.into());
         assert_ok!(VaultRegistry::<T>::try_deposit_collateral(&vault_id, 1000u32.into()));
 
         let height = 0;
@@ -157,10 +166,26 @@ benchmarks! {
         BtcRelay::<T>::store_block_header(&relayer_id, block_header).unwrap();
         Security::<T>::set_active_block_number(Security::<T>::active_block_number() + BtcRelay::<T>::parachain_confirmations() + 1u32.into());
 
-        ExchangeRateOracle::<T>::_set_exchange_rate(
+        ExchangeRateOracle::<T>::_set_exchange_rate(DEFAULT_TESTING_CURRENCY,
             <T as exchange_rate_oracle::Config>::UnsignedFixedPoint::one()
         ).unwrap();
     }: _(RawOrigin::Signed(origin), vault_id, proof, raw_tx)
 }
 
 impl_benchmark_test_suite!(Relay, crate::mock::ExtBuilder::build_with(|_| {}), crate::mock::Test);
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::mock::{ExtBuilder, Test};
+    use frame_support::assert_ok;
+
+    #[test]
+    fn test_benchmarks() {
+        ExtBuilder::build().execute_with(|| {
+            assert_ok!(test_benchmark_initialize::<Test>());
+            assert_ok!(test_benchmark_store_block_header::<Test>());
+            assert_ok!(test_benchmark_report_vault_theft::<Test>());
+        });
+    }
+}

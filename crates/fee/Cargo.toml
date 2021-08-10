@@ -36,6 +36,9 @@ pallet-timestamp = { git = "https://github.com/paritytech/substrate", branch = "
 orml-tokens = { git = "https://github.com/open-web3-stack/open-runtime-module-library", rev = "81511f1", default-features = false }
 orml-traits = { git = "https://github.com/open-web3-stack/open-runtime-module-library", rev = "81511f1", default-features = false }
 
+# Parachain dependencies
+primitives = { package = "interbtc-primitives", path = "../../primitives", default-features = false }
+
 [features]
 default = ["std"]
 std = [

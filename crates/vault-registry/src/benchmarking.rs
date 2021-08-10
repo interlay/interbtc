@@ -2,8 +2,13 @@ use super::*;
 use crate::{types::BtcPublicKey, Pallet as VaultRegistry};
 use exchange_rate_oracle::Pallet as ExchangeRateOracle;
 use frame_benchmarking::{account, benchmarks, impl_benchmark_test_suite};
+use frame_support::traits::Get;
 use frame_system::RawOrigin;
+use orml_traits::MultiCurrency;
+use primitives::CurrencyId;
 use sp_std::prelude::*;
+
+pub const DEFAULT_TESTING_CURRENCY: CurrencyId = CurrencyId::DOT;
 
 fn dummy_public_key() -> BtcPublicKey {
     BtcPublicKey([
@@ -13,7 +18,7 @@ fn dummy_public_key() -> BtcPublicKey {
 }
 
 fn mint_collateral<T: crate::Config>(account_id: &T::AccountId, amount: Collateral<T>) {
-    T::Collateral::mint(account_id, amount).unwrap();
+    <orml_tokens::Pallet<T>>::deposit(DEFAULT_TESTING_CURRENCY, account_id, amount).unwrap();
 }
 
 benchmarks! {
@@ -22,14 +27,16 @@ benchmarks! {
         mint_collateral::<T>(&origin, (1u32 << 31).into());
         let amount: u32 = 100;
         let public_key = BtcPublicKey::default();
-    }: _(RawOrigin::Signed(origin.clone()), amount.into(), public_key)
+        let currency_id = T::GetGriefingCollateralCurrencyId::get();
+    }: _(RawOrigin::Signed(origin.clone()), amount.into(), public_key, currency_id)
 
     deposit_collateral {
         let origin: T::AccountId = account("Origin", 0, 0);
         let u in 0 .. 100;
         mint_collateral::<T>(&origin, (1u32 << 31).into());
-        VaultRegistry::<T>::_register_vault(&origin, 1234u32.into(), dummy_public_key()).unwrap();
-        ExchangeRateOracle::<T>::_set_exchange_rate(
+        let currency_id = T::GetGriefingCollateralCurrencyId::get();
+        VaultRegistry::<T>::_register_vault(&origin, 1234u32.into(), dummy_public_key(), currency_id).unwrap();
+        ExchangeRateOracle::<T>::_set_exchange_rate(DEFAULT_TESTING_CURRENCY,
             <T as exchange_rate_oracle::Config>::UnsignedFixedPoint::one()
         ).unwrap();
     }: _(RawOrigin::Signed(origin), u.into())
@@ -38,8 +45,9 @@ benchmarks! {
         let origin: T::AccountId = account("Origin", 0, 0);
         let u in 0 .. 100;
         mint_collateral::<T>(&origin, (1u32 << 31).into());
-        VaultRegistry::<T>::_register_vault(&origin, u.into(), dummy_public_key()).unwrap();
-        ExchangeRateOracle::<T>::_set_exchange_rate(
+        let currency_id = T::GetGriefingCollateralCurrencyId::get();
+        VaultRegistry::<T>::_register_vault(&origin, u.into(), dummy_public_key(), currency_id).unwrap();
+        ExchangeRateOracle::<T>::_set_exchange_rate(DEFAULT_TESTING_CURRENCY,
             <T as exchange_rate_oracle::Config>::UnsignedFixedPoint::one()
         ).unwrap();
     }: _(RawOrigin::Signed(origin), u.into())
@@ -47,19 +55,22 @@ benchmarks! {
     update_public_key {
         let origin: T::AccountId = account("Origin", 0, 0);
         mint_collateral::<T>(&origin, (1u32 << 31).into());
-        VaultRegistry::<T>::_register_vault(&origin, 1234u32.into(), dummy_public_key()).unwrap();
+        let currency_id = T::GetGriefingCollateralCurrencyId::get();
+        VaultRegistry::<T>::_register_vault(&origin, 1234u32.into(), dummy_public_key(), currency_id).unwrap();
     }: _(RawOrigin::Signed(origin), BtcPublicKey::default())
 
     register_address {
         let origin: T::AccountId = account("Origin", 0, 0);
         mint_collateral::<T>(&origin, (1u32 << 31).into());
-        VaultRegistry::<T>::_register_vault(&origin, 1234u32.into(), dummy_public_key()).unwrap();
+        let currency_id = T::GetGriefingCollateralCurrencyId::get();
+        VaultRegistry::<T>::_register_vault(&origin, 1234u32.into(), dummy_public_key(), currency_id).unwrap();
     }: _(RawOrigin::Signed(origin), BtcAddress::default())
 
     accept_new_issues {
         let origin: T::AccountId = account("Origin", 0, 0);
         mint_collateral::<T>(&origin, (1u32 << 31).into());
-        VaultRegistry::<T>::_register_vault(&origin, 1234u32.into(), dummy_public_key()).unwrap();
+        let currency_id = T::GetGriefingCollateralCurrencyId::get();
+        VaultRegistry::<T>::_register_vault(&origin, 1234u32.into(), dummy_public_key(), currency_id).unwrap();
     }: _(RawOrigin::Signed(origin), true)
 
     report_undercollateralized_vault {
@@ -67,13 +78,16 @@ benchmarks! {
         let vault_id: T::AccountId = account("Vault", 0, 0);
         mint_collateral::<T>(&vault_id, (1u32 << 31).into());
 
-        VaultRegistry::<T>::_register_vault(&vault_id, 10_000u32.into(), dummy_public_key()).unwrap();
-        ExchangeRateOracle::<T>::_set_exchange_rate(<T as exchange_rate_oracle::Config>::UnsignedFixedPoint::one()).unwrap();
+        let currency_id = T::GetGriefingCollateralCurrencyId::get();
+        VaultRegistry::<T>::_register_vault(&vault_id, 10_000u32.into(), dummy_public_key(), currency_id).unwrap();
+        ExchangeRateOracle::<T>::_set_exchange_rate(DEFAULT_TESTING_CURRENCY, <T as
+exchange_rate_oracle::Config>::UnsignedFixedPoint::one()).unwrap();
 
         VaultRegistry::<T>::try_increase_to_be_issued_tokens(&vault_id, 5_000u32.into()).unwrap();
         VaultRegistry::<T>::issue_tokens(&vault_id, 5_000u32.into()).unwrap();
 
-        ExchangeRateOracle::<T>::_set_exchange_rate(<T as exchange_rate_oracle::Config>::UnsignedFixedPoint::checked_from_rational(10, 1).unwrap()).unwrap();
+        ExchangeRateOracle::<T>::_set_exchange_rate(DEFAULT_TESTING_CURRENCY, <T as
+exchange_rate_oracle::Config>::UnsignedFixedPoint::checked_from_rational(10, 1).unwrap()).unwrap();
     }: _(RawOrigin::Signed(origin), vault_id)
 }
 

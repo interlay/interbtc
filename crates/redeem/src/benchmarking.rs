@@ -1,5 +1,5 @@
 use super::*;
-use crate::{mock::CurrencyId, Pallet as Redeem};
+use crate::Pallet as Redeem;
 use bitcoin::{
     formatter::{Formattable, TryFormattable},
     types::{
@@ -11,8 +11,10 @@ use btc_relay::{BtcAddress, BtcPublicKey, Pallet as BtcRelay};
 use currency::ParachainCurrency;
 use exchange_rate_oracle::Pallet as ExchangeRateOracle;
 use frame_benchmarking::{account, benchmarks, impl_benchmark_test_suite};
-use frame_support::assert_ok;
+use frame_support::{assert_ok, traits::Get};
 use frame_system::RawOrigin;
+use orml_traits::MultiCurrency;
+use primitives::CurrencyId;
 use security::Pallet as Security;
 use sp_core::{H160, H256, U256};
 use sp_std::prelude::*;
@@ -20,6 +22,8 @@ use vault_registry::{
     types::{Vault, Wallet},
     Pallet as VaultRegistry,
 };
+
+pub const DEFAULT_TESTING_CURRENCY: CurrencyId = CurrencyId::DOT;
 
 type Treasury<T> = <T as vault_registry::Config>::Wrapped;
 
@@ -31,7 +35,7 @@ fn dummy_public_key() -> BtcPublicKey {
 }
 
 fn mint_collateral<T: crate::Config>(account_id: &T::AccountId, amount: Collateral<T>) {
-    assert_ok!(<T as vault_registry::Config>::Collateral::mint(account_id, amount));
+    <orml_tokens::Pallet<T>>::deposit(DEFAULT_TESTING_CURRENCY, account_id, amount).unwrap();
 }
 
 fn initialize_oracle<T: crate::Config>() {
@@ -125,10 +129,13 @@ benchmarks! {
 
         initialize_oracle::<T>();
 
-        let mut vault = Vault::default();
-        vault.id = vault_id.clone();
-        vault.wallet = Wallet::new(dummy_public_key());
-        vault.issued_tokens = amount;
+        let vault = Vault {
+            wallet: Wallet::new(dummy_public_key()),
+            issued_tokens: amount,
+            id: vault_id.clone(),
+            ..Vault::new(Default::default(), Default::default(), T::GetGriefingCollateralCurrencyId::get())
+        };
+
         VaultRegistry::<T>::insert_vault(
             &vault_id,
             vault
@@ -136,7 +143,7 @@ benchmarks! {
 
         assert_ok!(Treasury::<T>::mint(&origin, amount));
 
-        assert_ok!(ExchangeRateOracle::<T>::_set_exchange_rate(
+        assert_ok!(ExchangeRateOracle::<T>::_set_exchange_rate(DEFAULT_TESTING_CURRENCY,
             <T as exchange_rate_oracle::Config>::UnsignedFixedPoint::one()
         ));
     }: _(RawOrigin::Signed(origin), amount, btc_address, vault_id.clone())
@@ -156,9 +163,12 @@ benchmarks! {
         redeem_request.btc_address = origin_btc_address;
         Redeem::<T>::insert_redeem_request(redeem_id, redeem_request);
 
-        let mut vault = Vault::default();
-        vault.id = vault_id.clone();
-        vault.wallet = Wallet::new(dummy_public_key());
+        let vault = Vault {
+            wallet: Wallet::new(dummy_public_key()),
+            id: vault_id.clone(),
+            ..Vault::new(Default::default(), Default::default(), T::GetGriefingCollateralCurrencyId::get())
+        };
+
         VaultRegistry::<T>::insert_vault(
             &vault_id,
             vault
@@ -219,7 +229,7 @@ benchmarks! {
         BtcRelay::<T>::store_block_header(&relayer_id, block_header).unwrap();
         Security::<T>::set_active_block_number(Security::<T>::active_block_number() + BtcRelay::<T>::parachain_confirmations() + 1u32.into());
 
-        assert_ok!(ExchangeRateOracle::<T>::_set_exchange_rate(
+        assert_ok!(ExchangeRateOracle::<T>::_set_exchange_rate(DEFAULT_TESTING_CURRENCY,
             <T as exchange_rate_oracle::Config>::UnsignedFixedPoint::one()
         ));
     }: _(RawOrigin::Signed(vault_id), redeem_id, proof, raw_tx)
@@ -238,13 +248,15 @@ benchmarks! {
         Redeem::<T>::insert_redeem_request(redeem_id, redeem_request);
         mine_blocks::<T>();
         Security::<T>::set_active_block_number(Security::<T>::active_block_number() + Redeem::<T>::redeem_period() + 10u32.into());
-        assert_ok!(ExchangeRateOracle::<T>::_set_exchange_rate(
+        assert_ok!(ExchangeRateOracle::<T>::_set_exchange_rate(DEFAULT_TESTING_CURRENCY,
             <T as exchange_rate_oracle::Config>::UnsignedFixedPoint::one()
         ));
 
-        let mut vault = Vault::default();
-        vault.id = vault_id.clone();
-        vault.wallet = Wallet::new(dummy_public_key());
+        let vault = Vault {
+            wallet: Wallet::new(dummy_public_key()),
+            id: vault_id.clone(),
+            ..Vault::new(Default::default(), Default::default(), T::GetGriefingCollateralCurrencyId::get())
+        };
         VaultRegistry::<T>::insert_vault(
             &vault_id,
             vault
@@ -268,9 +280,11 @@ benchmarks! {
         mine_blocks::<T>();
         Security::<T>::set_active_block_number(Security::<T>::active_block_number() + Redeem::<T>::redeem_period() + 10u32.into());
 
-        let mut vault = Vault::default();
-        vault.id = vault_id.clone();
-        vault.wallet = Wallet::new(dummy_public_key());
+        let vault = Vault {
+            wallet: Wallet::new(dummy_public_key()),
+            id: vault_id.clone(),
+            ..Vault::new(Default::default(), Default::default(), T::GetGriefingCollateralCurrencyId::get())
+        };
         VaultRegistry::<T>::insert_vault(
             &vault_id,
             vault
@@ -278,7 +292,7 @@ benchmarks! {
         mint_collateral::<T>(&vault_id, 1000u32.into());
         assert_ok!(VaultRegistry::<T>::try_deposit_collateral(&vault_id, 1000u32.into()));
 
-        assert_ok!(ExchangeRateOracle::<T>::_set_exchange_rate(
+        assert_ok!(ExchangeRateOracle::<T>::_set_exchange_rate(DEFAULT_TESTING_CURRENCY,
             <T as exchange_rate_oracle::Config>::UnsignedFixedPoint::one()
         ));
     }: cancel_redeem(RawOrigin::Signed(origin), redeem_id, false)

@@ -23,7 +23,9 @@ mod default_weights;
 
 use frame_support::{
     dispatch::{DispatchError, DispatchResult},
-    ensure, transactional,
+    ensure,
+    traits::Get,
+    transactional,
     weights::Weight,
 };
 use frame_system::{ensure_root, ensure_signed};
@@ -217,8 +219,14 @@ impl<T: Config> Pallet<T> {
         // Withdraw all vault rewards first, to prevent the nominator from withdrawing past rewards
         ext::fee::withdraw_all_vault_rewards::<T>(&vault_id)?;
         // Withdraw `amount` of stake from the vault staking pool
-        ext::staking::withdraw_stake::<T>(&vault_id, &nominator_id, Self::collateral_to_fixed(amount)?)?;
-        ext::collateral::unlock_and_transfer::<T>(&vault_id, &nominator_id, amount)?;
+        ext::staking::withdraw_stake::<T>(
+            T::GetRewardsCurrencyId::get(),
+            &vault_id,
+            &nominator_id,
+            Self::collateral_to_fixed(amount)?,
+        )?;
+        let currency_id = ext::vault_registry::get_collateral_currency::<T>(&vault_id)?;
+        ext::currency::unlock_and_transfer::<T>(currency_id, &vault_id, &nominator_id, amount)?;
 
         Self::deposit_event(Event::<T>::WithdrawCollateral(vault_id, nominator_id, amount));
         Ok(())
@@ -232,6 +240,7 @@ impl<T: Config> Pallet<T> {
         ensure!(Self::is_nomination_enabled(), Error::<T>::VaultNominationDisabled);
         ensure!(Self::is_opted_in(&vault_id)?, Error::<T>::VaultNotOptedInToNomination);
 
+        let currency_id = ext::vault_registry::get_collateral_currency::<T>(&vault_id)?;
         let vault_backing_collateral = ext::vault_registry::get_backing_collateral::<T>(&vault_id)?;
         let total_nominated_collateral = Self::get_total_nominated_collateral(&vault_id)?;
         let new_nominated_collateral = total_nominated_collateral
@@ -239,15 +248,21 @@ impl<T: Config> Pallet<T> {
             .ok_or(Error::<T>::ArithmeticOverflow)?;
         ensure!(
             new_nominated_collateral
-                <= ext::vault_registry::get_max_nominatable_collateral::<T>(vault_backing_collateral)?,
+                <= ext::vault_registry::get_max_nominatable_collateral::<T>(currency_id, vault_backing_collateral)?,
             Error::<T>::DepositViolatesMaxNominationRatio
         );
 
         // Withdraw all vault rewards first, to prevent the nominator from withdrawing past rewards
         ext::fee::withdraw_all_vault_rewards::<T>(&vault_id)?;
+
         // Deposit `amount` of stake into the vault staking pool
-        ext::staking::deposit_stake::<T>(&vault_id, &nominator_id, Self::collateral_to_fixed(amount)?)?;
-        ext::collateral::transfer_and_lock::<T>(&nominator_id, &vault_id, amount)?;
+        ext::staking::deposit_stake::<T>(
+            T::GetRewardsCurrencyId::get(),
+            &vault_id,
+            &nominator_id,
+            Self::collateral_to_fixed(amount)?,
+        )?;
+        ext::currency::transfer_and_lock::<T>(currency_id, &nominator_id, &vault_id, amount)?;
 
         Self::deposit_event(Event::<T>::DepositCollateral(vault_id, nominator_id, amount));
         Ok(())
@@ -279,7 +294,7 @@ impl<T: Config> Pallet<T> {
             ext::vault_registry::is_allowed_to_withdraw_collateral::<T>(&vault_id, total_nominated_collateral)?,
             Error::<T>::CollateralizationTooLow
         );
-        ext::staking::force_refund::<T>(vault_id)?;
+        ext::staking::force_refund::<T>(T::GetRewardsCurrencyId::get(), vault_id)?;
         <Vaults<T>>::remove(vault_id);
         Self::deposit_event(Event::<T>::NominationOptOut(vault_id.clone()));
         Ok(())
@@ -301,7 +316,7 @@ impl<T: Config> Pallet<T> {
         vault_id: &T::AccountId,
         nominator_id: &T::AccountId,
     ) -> Result<Collateral<T>, DispatchError> {
-        let collateral = ext::staking::compute_stake::<T>(vault_id, nominator_id)?;
+        let collateral = ext::staking::compute_stake::<T>(T::GetRewardsCurrencyId::get(), vault_id, nominator_id)?;
         collateral.try_into().map_err(|_| Error::<T>::TryIntoIntError.into())
     }
 

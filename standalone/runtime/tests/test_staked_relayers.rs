@@ -6,8 +6,22 @@ use sp_core::H256;
 pub const RELAYER: [u8; 32] = ALICE;
 pub const VAULT: [u8; 32] = BOB;
 
+fn test_with<R>(execute: impl Fn(CurrencyId) -> R) {
+    let test_with = |currency_id| {
+        ExtBuilder::build().execute_with(|| {
+            assert_ok!(ExchangeRateOraclePallet::_set_exchange_rate(
+                currency_id,
+                FixedU128::one()
+            ));
+            execute(currency_id)
+        })
+    };
+    test_with(CurrencyId::DOT);
+    test_with(CurrencyId::KSM);
+}
+
 fn test_vault_theft(submit_by_relayer: bool) {
-    ExtBuilder::build().execute_with(|| {
+    test_with(|currency_id| {
         let user = ALICE;
         let vault = BOB;
         let amount = 100;
@@ -20,11 +34,12 @@ fn test_vault_theft(submit_by_relayer: bool) {
 
         SecurityPallet::set_active_block_number(1);
 
-        assert_ok!(ExchangeRateOraclePallet::_set_exchange_rate(FixedU128::one()));
-        assert_ok!(
-            Call::VaultRegistry(VaultRegistryCall::register_vault(collateral_vault, dummy_public_key()))
-                .dispatch(origin_of(account_of(vault)))
-        );
+        assert_ok!(Call::VaultRegistry(VaultRegistryCall::register_vault(
+            collateral_vault,
+            dummy_public_key(),
+            currency_id
+        ))
+        .dispatch(origin_of(account_of(vault))));
         assert_ok!(VaultRegistryPallet::insert_vault_deposit_address(
             &account_of(vault),
             vault_btc_address

@@ -76,7 +76,13 @@ pub fn setup_cancelable_redeem(user: [u8; 32], vault: [u8; 32], collateral: u128
     redeem_id
 }
 
-pub fn set_redeem_state(vault_to_be_redeemed: u128, user_to_redeem: u128, user: [u8; 32], vault: [u8; 32]) -> () {
+pub fn set_redeem_state(
+    currency_id: CurrencyId,
+    vault_to_be_redeemed: u128,
+    user_to_redeem: u128,
+    user: [u8; 32],
+    vault: [u8; 32],
+) -> () {
     let burned_tokens = user_to_redeem - FeePallet::get_redeem_fee(user_to_redeem).unwrap();
     let vault_issued_tokens = vault_to_be_redeemed + burned_tokens;
     CoreVaultData::force_to(
@@ -84,16 +90,14 @@ pub fn set_redeem_state(vault_to_be_redeemed: u128, user_to_redeem: u128, user: 
         CoreVaultData {
             issued: vault_issued_tokens,
             to_be_redeemed: vault_to_be_redeemed,
+            collateral_currency: currency_id,
             ..Default::default()
         },
     );
-    UserData::force_to(
-        ALICE,
-        UserData {
-            free_tokens: user_to_redeem,
-            ..UserData::get(user)
-        },
-    );
+    let mut user_state = UserData::get(user);
+    (*user_state.balances.get_mut(&INTERBTC).unwrap()).free = user_to_redeem;
+
+    UserData::force_to(ALICE, user_state);
 }
 
 pub fn setup_redeem(issued_tokens: u128, user: [u8; 32], vault: [u8; 32], _collateral: u128) -> H256 {

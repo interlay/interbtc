@@ -17,14 +17,16 @@ use sp_runtime::{
 use std::sync::Arc;
 
 #[rpc]
-pub trait ExchangeRateOracleApi<BlockHash, Wrapped, Collateral>
+pub trait ExchangeRateOracleApi<BlockHash, Wrapped, Collateral, CurrencyId>
 where
     Wrapped: Codec + MaybeDisplay + MaybeFromStr,
     Collateral: Codec + MaybeDisplay + MaybeFromStr,
+    CurrencyId: Codec,
 {
     #[rpc(name = "exchangeRateOracle_wrappedToCollateral")]
     fn wrapped_to_collateral(
         &self,
+        currency_id: CurrencyId,
         amount: BalanceWrapper<Wrapped>,
         at: Option<BlockHash>,
     ) -> JsonRpcResult<BalanceWrapper<Collateral>>;
@@ -32,6 +34,7 @@ where
     #[rpc(name = "exchangeRateOracle_collateralToWrapped")]
     fn collateral_to_wrapped(
         &self,
+        currency_id: CurrencyId,
         amount: BalanceWrapper<Collateral>,
         at: Option<BlockHash>,
     ) -> JsonRpcResult<BalanceWrapper<Wrapped>>;
@@ -87,17 +90,19 @@ fn handle_response<T, E: std::fmt::Debug>(
     )
 }
 
-impl<C, Block, Wrapped, Collateral> ExchangeRateOracleApi<<Block as BlockT>::Hash, Wrapped, Collateral>
-    for ExchangeRateOracle<C, Block>
+impl<C, Block, Wrapped, Collateral, CurrencyId>
+    ExchangeRateOracleApi<<Block as BlockT>::Hash, Wrapped, Collateral, CurrencyId> for ExchangeRateOracle<C, Block>
 where
     Block: BlockT,
     C: Send + Sync + 'static + ProvideRuntimeApi<Block> + HeaderBackend<Block>,
-    C::Api: ExchangeRateOracleRuntimeApi<Block, Wrapped, Collateral>,
+    C::Api: ExchangeRateOracleRuntimeApi<Block, Wrapped, Collateral, CurrencyId>,
     Wrapped: Codec + MaybeDisplay + MaybeFromStr,
     Collateral: Codec + MaybeDisplay + MaybeFromStr,
+    CurrencyId: Codec,
 {
     fn wrapped_to_collateral(
         &self,
+        currency_id: CurrencyId,
         amount: BalanceWrapper<Wrapped>,
         at: Option<<Block as BlockT>::Hash>,
     ) -> JsonRpcResult<BalanceWrapper<Collateral>> {
@@ -105,13 +110,14 @@ where
         let at = BlockId::hash(at.unwrap_or_else(|| self.client.info().best_hash));
 
         handle_response(
-            api.wrapped_to_collateral(&at, amount),
+            api.wrapped_to_collateral(&at, currency_id, amount),
             "Unable to convert Wrapped to Collateral.".into(),
         )
     }
 
     fn collateral_to_wrapped(
         &self,
+        currency_id: CurrencyId,
         amount: BalanceWrapper<Collateral>,
         at: Option<<Block as BlockT>::Hash>,
     ) -> JsonRpcResult<BalanceWrapper<Wrapped>> {
@@ -119,7 +125,7 @@ where
         let at = BlockId::hash(at.unwrap_or_else(|| self.client.info().best_hash));
 
         handle_response(
-            api.collateral_to_wrapped(&at, amount),
+            api.collateral_to_wrapped(&at, currency_id, amount),
             "Unable to convert Collateral to Wrapped.".into(),
         )
     }

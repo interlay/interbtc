@@ -15,15 +15,27 @@ const NEW_VAULT: [u8; 32] = CAROL;
 pub const DEFAULT_COLLATERAL: u128 = 1_000_000;
 pub const DEFAULT_GRIEFING_COLLATERAL: u128 = 5_000;
 
-fn test_with<R>(execute: impl FnOnce() -> R) -> R {
-    ExtBuilder::build().execute_with(|| {
-        assert_ok!(ExchangeRateOraclePallet::_set_exchange_rate(FixedU128::one()));
-        set_default_thresholds();
-        UserData::force_to(USER, default_user_state());
-        CoreVaultData::force_to(OLD_VAULT, default_vault_state());
-        CoreVaultData::force_to(NEW_VAULT, default_vault_state());
-        execute()
-    })
+fn test_with<R>(execute: impl Fn(CurrencyId) -> R) {
+    let test_with = |currency_id| {
+        ExtBuilder::build().execute_with(|| {
+            assert_ok!(ExchangeRateOraclePallet::_set_exchange_rate(
+                currency_id,
+                FixedU128::one()
+            ));
+            set_default_thresholds();
+            UserData::force_to(USER, default_user_state());
+            CoreVaultData::force_to(OLD_VAULT, default_vault_state(currency_id));
+            CoreVaultData::force_to(NEW_VAULT, default_vault_state(currency_id));
+            execute(currency_id)
+        })
+    };
+    test_with(CurrencyId::DOT);
+    test_with(CurrencyId::KSM);
+}
+
+fn test_without_initialization<R>(execute: impl Fn(CurrencyId) -> R) {
+    ExtBuilder::build().execute_with(|| execute(CurrencyId::DOT));
+    ExtBuilder::build().execute_with(|| execute(CurrencyId::KSM));
 }
 
 fn assert_request_event() {
@@ -64,11 +76,14 @@ fn accept_replace(amount_btc: u128, griefing_collateral: u128) -> (H256, Replace
 mod accept_replace_tests {
     use super::*;
 
-    fn assert_state_after_accept_replace_correct(replace: &ReplaceRequest<AccountId32, u32, u128, u128>) {
+    fn assert_state_after_accept_replace_correct(
+        currency_id: CurrencyId,
+        replace: &ReplaceRequest<AccountId32, u32, u128, u128>,
+    ) {
         assert_eq!(
             ParachainTwoVaultState::get(),
-            ParachainTwoVaultState::default().with_changes(|old_vault, new_vault, _| {
-                new_vault.free_balance -= replace.collateral;
+            ParachainTwoVaultState::get_default(currency_id).with_changes(|old_vault, new_vault, _| {
+                *new_vault.free_balance.get_mut(&currency_id).unwrap() -= replace.collateral;
                 new_vault.backing_collateral += replace.collateral;
 
                 old_vault.replace_collateral -=
@@ -83,7 +98,7 @@ mod accept_replace_tests {
 
     #[test]
     fn integration_test_replace_accept_replace_at_capacity_succeeds() {
-        test_with(|| {
+        test_with(|currency_id| {
             let accept_amount = DEFAULT_VAULT_TO_BE_REPLACED;
             let new_vault_additional_collateral = 10_000;
 
@@ -93,13 +108,13 @@ mod accept_replace_tests {
             assert_eq!(replace.collateral, new_vault_additional_collateral);
             assert_eq!(replace.griefing_collateral, DEFAULT_VAULT_REPLACE_COLLATERAL);
 
-            assert_state_after_accept_replace_correct(&replace);
+            assert_state_after_accept_replace_correct(currency_id, &replace);
         });
     }
 
     #[test]
     fn integration_test_replace_accept_replace_below_capacity_succeeds() {
-        test_with(|| {
+        test_with(|currency_id| {
             // accept only 25%
 
             let accept_amount = DEFAULT_VAULT_TO_BE_REPLACED / 4;
@@ -111,13 +126,13 @@ mod accept_replace_tests {
             assert_eq!(replace.collateral, new_vault_additional_collateral);
             assert_eq!(replace.griefing_collateral, DEFAULT_VAULT_REPLACE_COLLATERAL / 4);
 
-            assert_state_after_accept_replace_correct(&replace);
+            assert_state_after_accept_replace_correct(currency_id, &replace);
         });
     }
 
     #[test]
     fn integration_test_replace_accept_replace_above_capacity_succeeds() {
-        test_with(|| {
+        test_with(|currency_id| {
             // try to accept 400%
 
             let accept_amount = DEFAULT_VAULT_TO_BE_REPLACED * 4;
@@ -129,25 +144,25 @@ mod accept_replace_tests {
             assert_eq!(replace.collateral, new_vault_additional_collateral / 4);
             assert_eq!(replace.griefing_collateral, DEFAULT_VAULT_REPLACE_COLLATERAL);
 
-            assert_state_after_accept_replace_correct(&replace);
+            assert_state_after_accept_replace_correct(currency_id, &replace);
         });
     }
 
     #[test]
     fn integration_test_replace_accept_replace_by_vault_that_does_not_accept_issues_succeeds() {
-        test_with(|| {
+        test_with(|currency_id| {
             assert_ok!(Call::VaultRegistry(VaultRegistryCall::accept_new_issues(false))
                 .dispatch(origin_of(account_of(NEW_VAULT))));
 
             let (_, replace) = accept_replace(1000, 1000);
 
-            assert_state_after_accept_replace_correct(&replace);
+            assert_state_after_accept_replace_correct(currency_id, &replace);
         });
     }
 
     #[test]
     fn integration_test_replace_accept_replace_below_dust_fails() {
-        test_with(|| {
+        test_with(|currency_id| {
             // if the new_vault _asks_ for an amount below below DUST, it gets rejected
 
             assert_noop!(
@@ -166,7 +181,7 @@ mod accept_replace_tests {
                 OLD_VAULT,
                 CoreVaultData {
                     to_be_replaced: 1,
-                    ..default_vault_state()
+                    ..default_vault_state(currency_id)
                 },
             );
             assert_noop!(
@@ -184,7 +199,7 @@ mod accept_replace_tests {
 
     #[test]
     fn integration_test_replace_accept_replace_self_fails() {
-        test_with(|| {
+        test_with(|_currency_id| {
             assert_noop!(
                 Call::Replace(ReplaceCall::accept_replace(
                     account_of(OLD_VAULT),
@@ -203,7 +218,7 @@ mod request_replace_tests {
     use super::*;
     #[test]
     fn integration_test_replace_should_fail_if_not_running() {
-        ExtBuilder::build().execute_with(|| {
+        test_without_initialization(|_currency_id| {
             SecurityPallet::set_status(StatusCode::Shutdown);
 
             assert_noop!(
@@ -215,7 +230,7 @@ mod request_replace_tests {
 
     #[test]
     fn integration_test_replace_request_replace_at_capacity_succeeds() {
-        test_with(|| {
+        test_with(|currency_id| {
             let amount = DEFAULT_VAULT_ISSUED - DEFAULT_VAULT_TO_BE_REDEEMED - DEFAULT_VAULT_TO_BE_REPLACED;
             let griefing_collateral = 200;
 
@@ -226,11 +241,11 @@ mod request_replace_tests {
 
             assert_eq!(
                 ParachainTwoVaultState::get(),
-                ParachainTwoVaultState::default().with_changes(|old_vault, _, _| {
+                ParachainTwoVaultState::get_default(currency_id).with_changes(|old_vault, _, _| {
                     old_vault.to_be_replaced += amount;
                     old_vault.griefing_collateral += griefing_collateral;
                     old_vault.replace_collateral += griefing_collateral;
-                    old_vault.free_balance -= griefing_collateral;
+                    *old_vault.free_balance.get_mut(&GRIEFING_CURRENCY).unwrap() -= griefing_collateral;
                 })
             );
         });
@@ -238,7 +253,7 @@ mod request_replace_tests {
 
     #[test]
     fn integration_test_replace_request_replace_above_capacity_succeeds() {
-        test_with(|| {
+        test_with(|currency_id| {
             let amount = (DEFAULT_VAULT_ISSUED - DEFAULT_VAULT_TO_BE_REDEEMED - DEFAULT_VAULT_TO_BE_REPLACED) * 2;
             let griefing_collateral = 200;
 
@@ -250,11 +265,11 @@ mod request_replace_tests {
 
             assert_eq!(
                 ParachainTwoVaultState::get(),
-                ParachainTwoVaultState::default().with_changes(|old_vault, _, _| {
+                ParachainTwoVaultState::get_default(currency_id).with_changes(|old_vault, _, _| {
                     old_vault.to_be_replaced += amount / 2;
                     old_vault.griefing_collateral += griefing_collateral / 2;
                     old_vault.replace_collateral += griefing_collateral / 2;
-                    old_vault.free_balance -= griefing_collateral / 2;
+                    *old_vault.free_balance.get_mut(&GRIEFING_CURRENCY).unwrap() -= griefing_collateral / 2;
                 })
             );
         });
@@ -262,7 +277,7 @@ mod request_replace_tests {
 
     #[test]
     fn integration_test_replace_request_replace_below_capacity_succeeds() {
-        test_with(|| {
+        test_with(|currency_id| {
             let amount = (DEFAULT_VAULT_ISSUED - DEFAULT_VAULT_TO_BE_REDEEMED - DEFAULT_VAULT_TO_BE_REPLACED) / 2;
             let griefing_collateral = 200;
 
@@ -273,11 +288,11 @@ mod request_replace_tests {
 
             assert_eq!(
                 ParachainTwoVaultState::get(),
-                ParachainTwoVaultState::default().with_changes(|old_vault, _, _| {
+                ParachainTwoVaultState::get_default(currency_id).with_changes(|old_vault, _, _| {
                     old_vault.to_be_replaced += amount;
                     old_vault.griefing_collateral += griefing_collateral;
                     old_vault.replace_collateral += griefing_collateral;
-                    old_vault.free_balance -= griefing_collateral;
+                    *old_vault.free_balance.get_mut(&GRIEFING_CURRENCY).unwrap() -= griefing_collateral;
                 })
             );
         });
@@ -285,7 +300,7 @@ mod request_replace_tests {
 
     #[test]
     fn integration_test_replace_request_replace_with_zero_btc_succeeds() {
-        test_with(|| {
+        test_with(|currency_id| {
             let amount = 0;
             let griefing_collateral = 200;
 
@@ -295,10 +310,10 @@ mod request_replace_tests {
 
             assert_eq!(
                 ParachainTwoVaultState::get(),
-                ParachainTwoVaultState::default().with_changes(|old_vault, _, _| {
+                ParachainTwoVaultState::get_default(currency_id).with_changes(|old_vault, _, _| {
                     old_vault.griefing_collateral += griefing_collateral;
                     old_vault.replace_collateral += griefing_collateral;
-                    old_vault.free_balance -= griefing_collateral;
+                    *old_vault.free_balance.get_mut(&GRIEFING_CURRENCY).unwrap() -= griefing_collateral;
                 })
             );
         });
@@ -306,7 +321,7 @@ mod request_replace_tests {
 
     #[test]
     fn integration_test_replace_request_replace_with_zero_collateral_succeeds() {
-        test_with(|| {
+        test_with(|currency_id| {
             let amount = 1000;
             let griefing_collateral = 0;
 
@@ -316,7 +331,7 @@ mod request_replace_tests {
 
             assert_eq!(
                 ParachainTwoVaultState::get(),
-                ParachainTwoVaultState::default().with_changes(|old_vault, _, _| {
+                ParachainTwoVaultState::get_default(currency_id).with_changes(|old_vault, _, _| {
                     old_vault.to_be_replaced += amount;
                 })
             );
@@ -325,7 +340,7 @@ mod request_replace_tests {
 
     #[test]
     fn integration_test_replace_request_replace_with_insufficient_collateral() {
-        test_with(|| {
+        test_with(|currency_id| {
             let amount = 1000;
 
             CoreVaultData::force_to(
@@ -333,7 +348,7 @@ mod request_replace_tests {
                 CoreVaultData {
                     to_be_replaced: 5_000,
                     replace_collateral: 1,
-                    ..default_vault_state()
+                    ..default_vault_state(currency_id)
                 },
             );
 
@@ -356,7 +371,7 @@ mod request_replace_tests {
                     old_vault.to_be_replaced += amount;
                     old_vault.griefing_collateral += griefing_collateral;
                     old_vault.replace_collateral += griefing_collateral;
-                    old_vault.free_balance -= griefing_collateral;
+                    *old_vault.free_balance.get_mut(&GRIEFING_CURRENCY).unwrap() -= griefing_collateral;
                 })
             );
         });
@@ -368,7 +383,7 @@ mod withdraw_replace_tests {
 
     #[test]
     fn integration_test_replace_withdraw_replace_at_capacity_succeeds() {
-        test_with(|| {
+        test_with(|currency_id| {
             let amount = DEFAULT_VAULT_TO_BE_REPLACED;
 
             assert_ok!(Call::Replace(ReplaceCall::withdraw_replace(amount)).dispatch(origin_of(account_of(OLD_VAULT))));
@@ -377,10 +392,10 @@ mod withdraw_replace_tests {
 
             assert_eq!(
                 ParachainTwoVaultState::get(),
-                ParachainTwoVaultState::default().with_changes(|old_vault, _, _| {
+                ParachainTwoVaultState::get_default(currency_id).with_changes(|old_vault, _, _| {
                     old_vault.to_be_replaced -= amount;
 
-                    old_vault.free_balance += released_collateral;
+                    *old_vault.free_balance.get_mut(&GRIEFING_CURRENCY).unwrap() += released_collateral;
                     old_vault.griefing_collateral -= released_collateral;
                     old_vault.replace_collateral -= released_collateral;
                 })
@@ -390,7 +405,7 @@ mod withdraw_replace_tests {
 
     #[test]
     fn integration_test_replace_withdraw_replace_below_capacity_succeeds() {
-        test_with(|| {
+        test_with(|currency_id| {
             // withdraw 25%
             let amount = DEFAULT_VAULT_TO_BE_REPLACED / 4;
 
@@ -400,10 +415,10 @@ mod withdraw_replace_tests {
 
             assert_eq!(
                 ParachainTwoVaultState::get(),
-                ParachainTwoVaultState::default().with_changes(|old_vault, _, _| {
+                ParachainTwoVaultState::get_default(currency_id).with_changes(|old_vault, _, _| {
                     old_vault.to_be_replaced -= amount;
 
-                    old_vault.free_balance += released_collateral;
+                    *old_vault.free_balance.get_mut(&GRIEFING_CURRENCY).unwrap() += released_collateral;
                     old_vault.griefing_collateral -= released_collateral;
                     old_vault.replace_collateral -= released_collateral;
                 })
@@ -413,7 +428,7 @@ mod withdraw_replace_tests {
 
     #[test]
     fn integration_test_replace_withdraw_replace_above_capacity_succeeds() {
-        test_with(|| {
+        test_with(|currency_id| {
             // withdraw 200% - should just be capped to 100%
             let amount = DEFAULT_VAULT_TO_BE_REPLACED * 2;
 
@@ -423,10 +438,10 @@ mod withdraw_replace_tests {
 
             assert_eq!(
                 ParachainTwoVaultState::get(),
-                ParachainTwoVaultState::default().with_changes(|old_vault, _, _| {
+                ParachainTwoVaultState::get_default(currency_id).with_changes(|old_vault, _, _| {
                     old_vault.to_be_replaced -= amount / 2;
 
-                    old_vault.free_balance += released_collateral;
+                    *old_vault.free_balance.get_mut(&GRIEFING_CURRENCY).unwrap() += released_collateral;
                     old_vault.griefing_collateral -= released_collateral;
                     old_vault.replace_collateral -= released_collateral;
                 })
@@ -435,12 +450,12 @@ mod withdraw_replace_tests {
     }
     #[test]
     fn integration_test_replace_withdraw_replace_with_zero_to_be_replaced_tokens_fails() {
-        test_with(|| {
+        test_with(|currency_id| {
             CoreVaultData::force_to(
                 OLD_VAULT,
                 CoreVaultData {
                     to_be_replaced: 0,
-                    ..default_vault_state()
+                    ..default_vault_state(currency_id)
                 },
             );
 
@@ -459,7 +474,7 @@ mod expiry_test {
     fn test_with(initial_period: u32, execute: impl Fn(H256)) {
         let amount_btc = 5_000;
         let griefing_collateral = 1000;
-        super::test_with(|| {
+        super::test_with(|_currency_id| {
             set_replace_period(initial_period);
             let (replace_id, _replace) = accept_replace(amount_btc, griefing_collateral);
             execute(replace_id);
@@ -558,14 +573,14 @@ mod execute_replace_payment_limits {
 
     #[test]
     fn integration_test_execute_replace_with_exact_amount_succeeds() {
-        test_with(|| {
+        test_with(|_currency_id| {
             let (replace_id, replace) = accept_replace(1000000, DEFAULT_GRIEFING_COLLATERAL);
             assert_ok!(execute_replace_with_amount(replace_id, replace.amount));
         });
     }
     #[test]
     fn integration_test_execute_replace_with_overpayment_fails() {
-        test_with(|| {
+        test_with(|_currency_id| {
             let (replace_id, replace) = accept_replace(1000000, DEFAULT_GRIEFING_COLLATERAL);
             assert_err!(
                 execute_replace_with_amount(replace_id, replace.amount + 1),
@@ -575,7 +590,7 @@ mod execute_replace_payment_limits {
     }
     #[test]
     fn integration_test_execute_replace_with_underpayment_fails() {
-        test_with(|| {
+        test_with(|_currency_id| {
             let (replace_id, replace) = accept_replace(1000000, DEFAULT_GRIEFING_COLLATERAL);
             assert_err!(
                 execute_replace_with_amount(replace_id, replace.amount - 1),
@@ -587,7 +602,7 @@ mod execute_replace_payment_limits {
 
 #[test]
 fn integration_test_replace_with_parachain_shutdown_fails() {
-    test_with(|| {
+    test_with(|_currency_id| {
         SecurityPallet::set_status(StatusCode::Shutdown);
 
         assert_noop!(
@@ -628,8 +643,11 @@ fn integration_test_replace_with_parachain_shutdown_fails() {
 
 #[test]
 fn integration_test_replace_execute_replace() {
-    ExtBuilder::build().execute_with(|| {
-        assert_ok!(ExchangeRateOraclePallet::_set_exchange_rate(FixedU128::one()));
+    test_without_initialization(|currency_id| {
+        assert_ok!(ExchangeRateOraclePallet::_set_exchange_rate(
+            currency_id,
+            FixedU128::one()
+        ));
         set_default_thresholds();
         SecurityPallet::set_active_block_number(1);
 
@@ -644,13 +662,15 @@ fn integration_test_replace_execute_replace() {
         let new_vault_btc_address = BtcAddress::P2PKH(H160([2; 20]));
 
         // old vault has issued some tokens with the user
-        force_issue_tokens(user, old_vault, collateral, issued_tokens);
+        force_issue_tokens(currency_id, user, old_vault, collateral, issued_tokens);
 
         // new vault joins
-        assert_ok!(
-            Call::VaultRegistry(VaultRegistryCall::register_vault(collateral, dummy_public_key()))
-                .dispatch(origin_of(account_of(new_vault)))
-        );
+        assert_ok!(Call::VaultRegistry(VaultRegistryCall::register_vault(
+            collateral,
+            dummy_public_key(),
+            currency_id
+        ))
+        .dispatch(origin_of(account_of(new_vault))));
 
         assert_ok!(
             Call::Replace(ReplaceCall::request_replace(issued_tokens, griefing_collateral))
@@ -683,8 +703,11 @@ fn integration_test_replace_execute_replace() {
 
 #[test]
 fn integration_test_replace_cancel_replace() {
-    ExtBuilder::build().execute_with(|| {
-        assert_ok!(ExchangeRateOraclePallet::_set_exchange_rate(FixedU128::one()));
+    test_without_initialization(|currency_id| {
+        assert_ok!(ExchangeRateOraclePallet::_set_exchange_rate(
+            currency_id,
+            FixedU128::one()
+        ));
         set_default_thresholds();
         SecurityPallet::set_active_block_number(1);
 
@@ -694,12 +717,14 @@ fn integration_test_replace_cancel_replace() {
         let collateral = amount * 2;
 
         // alice creates a vault
-        assert_ok!(
-            Call::VaultRegistry(VaultRegistryCall::register_vault(amount, dummy_public_key()))
-                .dispatch(origin_of(account_of(ALICE)))
-        );
+        assert_ok!(Call::VaultRegistry(VaultRegistryCall::register_vault(
+            amount,
+            dummy_public_key(),
+            currency_id
+        ))
+        .dispatch(origin_of(account_of(ALICE))));
         // bob creates a vault
-        force_issue_tokens(ALICE, BOB, collateral, amount);
+        force_issue_tokens(currency_id, ALICE, BOB, collateral, amount);
         // bob requests a replace
         assert_ok!(Call::Replace(ReplaceCall::request_replace(amount, griefing_collateral))
             .dispatch(origin_of(account_of(BOB))));
@@ -725,37 +750,9 @@ fn integration_test_replace_cancel_replace() {
 
 // liquidation tests..
 
-fn setup_replace(issued_tokens: u128) -> H256 {
-    assert_ok!(ExchangeRateOraclePallet::_set_exchange_rate(FixedU128::one()));
-    set_default_thresholds();
-    SecurityPallet::set_active_block_number(1);
-
-    // burn surplus free balance to make checking easier
-    CollateralPallet::transfer(
-        &account_of(OLD_VAULT),
-        &account_of(FAUCET),
-        CollateralPallet::get_free_balance(&account_of(OLD_VAULT)) - DEFAULT_COLLATERAL - DEFAULT_GRIEFING_COLLATERAL,
-    )
-    .unwrap();
-    CollateralPallet::transfer(
-        &account_of(NEW_VAULT),
-        &account_of(FAUCET),
-        CollateralPallet::get_free_balance(&account_of(NEW_VAULT)) - DEFAULT_COLLATERAL,
-    )
-    .unwrap();
-
+fn setup_replace(issued_tokens: u128) -> (ReplaceRequest<AccountId32, u32, u128, u128>, H256) {
     // let old_vault_btc_address = BtcAddress::P2PKH(H160([1; 20]));
     let new_vault_btc_address = BtcAddress::P2PKH(H160([2; 20]));
-
-    // old vault has issued some tokens with the user
-    force_issue_tokens(USER, OLD_VAULT, DEFAULT_COLLATERAL, issued_tokens);
-
-    // new vault joins
-    assert_ok!(Call::VaultRegistry(VaultRegistryCall::register_vault(
-        DEFAULT_COLLATERAL / 2, // rest we do in accept_replacec
-        dummy_public_key()
-    ))
-    .dispatch(origin_of(account_of(NEW_VAULT))));
 
     assert_ok!(
         Call::Replace(ReplaceCall::request_replace(issued_tokens, DEFAULT_GRIEFING_COLLATERAL))
@@ -768,12 +765,14 @@ fn setup_replace(issued_tokens: u128) -> H256 {
     assert_ok!(Call::Replace(ReplaceCall::accept_replace(
         account_of(OLD_VAULT),
         issued_tokens,
-        DEFAULT_COLLATERAL / 2,
+        DEFAULT_COLLATERAL / 10,
         new_vault_btc_address
     ))
     .dispatch(origin_of(account_of(NEW_VAULT))));
 
-    assert_accept_event()
+    let replace_id = assert_accept_event();
+    let replace = ReplacePallet::get_open_replace_request(&replace_id).unwrap();
+    (replace, replace_id)
 }
 
 fn execute_replace(replace_id: H256) -> DispatchResultWithPostInfo {
@@ -804,531 +803,265 @@ fn cancel_replace(replace_id: H256) {
 
 #[test]
 fn integration_test_replace_execute_replace_success() {
-    ExtBuilder::build().execute_with(|| {
-        let replace_id = setup_replace(1000);
+    test_with(|_currency_id| {
+        let (replace, replace_id) = setup_replace(1000);
 
-        assert_eq!(
-            CoreVaultData::vault(OLD_VAULT),
-            CoreVaultData {
-                issued: 1000,
-                to_be_redeemed: 1000,
-                backing_collateral: DEFAULT_COLLATERAL,
-                griefing_collateral: DEFAULT_GRIEFING_COLLATERAL,
-                ..Default::default()
-            },
-        );
-        assert_eq!(
-            CoreVaultData::vault(NEW_VAULT),
-            CoreVaultData {
-                to_be_issued: 1000,
-                backing_collateral: DEFAULT_COLLATERAL,
-                ..Default::default()
-            }
-        );
+        let pre_execute_state = ParachainTwoVaultState::get();
 
         assert_ok!(execute_replace(replace_id));
 
         assert_eq!(
-            CoreVaultData::vault(OLD_VAULT),
-            CoreVaultData {
-                backing_collateral: DEFAULT_COLLATERAL,
-                free_balance: DEFAULT_GRIEFING_COLLATERAL,
-                ..Default::default()
-            }
-        );
-        assert_eq!(
-            CoreVaultData::vault(NEW_VAULT),
-            CoreVaultData {
-                issued: 1000,
-                backing_collateral: DEFAULT_COLLATERAL,
-                ..Default::default()
-            }
+            ParachainTwoVaultState::get(),
+            pre_execute_state.with_changes(|old_vault, new_vault, _| {
+                new_vault.to_be_issued -= 1000;
+                new_vault.issued += 1000;
+                old_vault.to_be_redeemed -= 1000;
+                old_vault.issued -= 1000;
+
+                old_vault.griefing_collateral -= replace.griefing_collateral;
+                *old_vault.free_balance.get_mut(&GRIEFING_CURRENCY).unwrap() += replace.griefing_collateral;
+            })
         );
     });
 }
 
 #[test]
 fn integration_test_replace_execute_replace_old_vault_liquidated() {
-    ExtBuilder::build().execute_with(|| {
+    test_with(|currency_id| {
         let replace_tokens = 1000;
-        let replace_id = setup_replace(replace_tokens);
+        let (replace, replace_id) = setup_replace(replace_tokens);
 
-        assert_eq!(
-            CoreVaultData::vault(OLD_VAULT),
-            CoreVaultData {
-                issued: replace_tokens,
-                to_be_redeemed: replace_tokens,
-                backing_collateral: DEFAULT_COLLATERAL,
-                griefing_collateral: DEFAULT_GRIEFING_COLLATERAL,
-                ..Default::default()
-            }
-        );
-        assert_eq!(
-            CoreVaultData::vault(NEW_VAULT),
-            CoreVaultData {
-                to_be_issued: replace_tokens,
-                backing_collateral: DEFAULT_COLLATERAL,
-                ..Default::default()
-            }
-        );
+        let old = CoreVaultData::vault(OLD_VAULT);
 
-        let old = CoreVaultData {
-            issued: 2500,
-            to_be_redeemed: 1250,
-            backing_collateral: DEFAULT_COLLATERAL,
-            griefing_collateral: DEFAULT_GRIEFING_COLLATERAL,
-            ..Default::default()
-        };
-        CoreVaultData::force_to(OLD_VAULT, old.clone());
+        liquidate_vault(currency_id, OLD_VAULT);
 
-        drop_exchange_rate_and_liquidate(OLD_VAULT);
+        let pre_execution_state = ParachainTwoVaultState::get();
+
         assert_ok!(execute_replace(replace_id));
 
-        let old_vault = CoreVaultData::vault(OLD_VAULT);
-        let new_vault = CoreVaultData::vault(NEW_VAULT);
-
-        let collateral_for_to_be_redeemed =
-            (old.backing_collateral * old.to_be_redeemed) / (old.issued + old.to_be_issued);
         let collateral_for_replace = (old.backing_collateral * replace_tokens) / (old.issued + old.to_be_issued);
+
         assert_eq!(
-            old_vault,
-            CoreVaultData {
-                to_be_redeemed: 250,
-                backing_collateral: collateral_for_replace,
-                liquidated_collateral: collateral_for_to_be_redeemed - collateral_for_replace,
-                free_balance: DEFAULT_GRIEFING_COLLATERAL,
-                ..Default::default()
-            }
+            ParachainTwoVaultState::get(),
+            pre_execution_state.with_changes(|old_vault, new_vault, liquidation_vault| {
+                liquidation_vault.issued -= 1000;
+                liquidation_vault.to_be_redeemed -= 1000;
+
+                new_vault.to_be_issued -= 1000;
+                new_vault.issued += 1000;
+
+                old_vault.to_be_redeemed -= 1000;
+                old_vault.liquidated_collateral -= collateral_for_replace;
+                old_vault.backing_collateral += collateral_for_replace; // TODO: probably should be free
+                *old_vault.free_balance.get_mut(&GRIEFING_CURRENCY).unwrap() += replace.griefing_collateral;
+                old_vault.griefing_collateral -= replace.griefing_collateral;
+            })
         );
-        assert_eq!(
-            new_vault,
-            CoreVaultData {
-                issued: replace_tokens,
-                backing_collateral: DEFAULT_COLLATERAL,
-                ..Default::default()
-            }
-        );
-        assert_liquidation_vault_ok(replace_tokens + 500, &old_vault, &new_vault);
     });
 }
 
 #[test]
 fn integration_test_replace_execute_replace_new_vault_liquidated() {
-    ExtBuilder::build().execute_with(|| {
+    test_with(|currency_id| {
         let replace_tokens = 1000;
-        let replace_id = setup_replace(replace_tokens);
-        assert_eq!(
-            CoreVaultData::vault(OLD_VAULT),
-            CoreVaultData {
-                issued: replace_tokens,
-                to_be_redeemed: replace_tokens,
-                backing_collateral: DEFAULT_COLLATERAL,
-                griefing_collateral: DEFAULT_GRIEFING_COLLATERAL,
-                ..Default::default()
-            },
-        );
-        assert_eq!(
-            CoreVaultData::vault(NEW_VAULT),
-            CoreVaultData {
-                to_be_issued: replace_tokens,
-                backing_collateral: DEFAULT_COLLATERAL,
-                ..Default::default()
-            }
-        );
+        let (replace, replace_id) = setup_replace(replace_tokens);
 
-        CoreVaultData::force_to(
-            NEW_VAULT,
-            CoreVaultData {
-                to_be_issued: replace_tokens,
-                backing_collateral: DEFAULT_COLLATERAL,
-                issued: 500,         // new
-                to_be_redeemed: 150, // new
-                ..Default::default()
-            },
-        );
+        liquidate_vault(currency_id, NEW_VAULT);
+        let pre_execution_state = ParachainTwoVaultState::get();
 
-        drop_exchange_rate_and_liquidate(NEW_VAULT);
         assert_ok!(execute_replace(replace_id));
 
-        let old_vault = CoreVaultData::vault(OLD_VAULT);
-        let new_vault = CoreVaultData::vault(NEW_VAULT);
         assert_eq!(
-            old_vault,
-            CoreVaultData {
-                backing_collateral: DEFAULT_COLLATERAL,
-                free_balance: DEFAULT_GRIEFING_COLLATERAL,
-                ..Default::default()
-            }
-        );
-        assert_eq!(
-            new_vault,
-            CoreVaultData {
-                to_be_redeemed: 150,
-                liquidated_collateral: (DEFAULT_COLLATERAL * 150) / (replace_tokens + 500),
-                ..Default::default()
-            }
-        );
+            ParachainTwoVaultState::get(),
+            pre_execution_state.with_changes(|old_vault, _new_vault, liquidation_vault| {
+                liquidation_vault.to_be_issued -= 1000;
+                liquidation_vault.issued += 1000;
 
-        assert_liquidation_vault_ok(replace_tokens + 500, &old_vault, &new_vault);
+                old_vault.to_be_redeemed -= 1000;
+                old_vault.issued -= 1000;
+
+                old_vault.griefing_collateral -= replace.griefing_collateral;
+                *old_vault.free_balance.get_mut(&GRIEFING_CURRENCY).unwrap() += replace.griefing_collateral;
+            })
+        );
     });
 }
 
 #[test]
 fn integration_test_replace_execute_replace_both_vaults_liquidated() {
-    ExtBuilder::build().execute_with(|| {
+    test_with(|currency_id| {
         let replace_tokens = 1000;
-        let replace_id = setup_replace(replace_tokens);
-        assert_eq!(
-            CoreVaultData::vault(OLD_VAULT),
-            CoreVaultData {
-                issued: replace_tokens,
-                to_be_redeemed: replace_tokens,
-                backing_collateral: DEFAULT_COLLATERAL,
-                griefing_collateral: DEFAULT_GRIEFING_COLLATERAL,
-                ..Default::default()
-            },
-        );
-        assert_eq!(
-            CoreVaultData::vault(NEW_VAULT),
-            CoreVaultData {
-                to_be_issued: replace_tokens,
-                backing_collateral: DEFAULT_COLLATERAL,
-                ..Default::default()
-            }
-        );
+        let (replace, replace_id) = setup_replace(replace_tokens);
 
-        let old = CoreVaultData {
-            backing_collateral: DEFAULT_COLLATERAL,
-            griefing_collateral: DEFAULT_GRIEFING_COLLATERAL,
-            issued: replace_tokens + 250,        // new
-            to_be_redeemed: replace_tokens + 50, // new
-            ..Default::default()
-        };
+        let old = CoreVaultData::vault(OLD_VAULT);
 
-        CoreVaultData::force_to(OLD_VAULT, old.clone());
-        CoreVaultData::force_to(
-            NEW_VAULT,
-            CoreVaultData {
-                to_be_issued: replace_tokens,
-                backing_collateral: DEFAULT_COLLATERAL,
-                issued: 500,         // new
-                to_be_redeemed: 150, // new
-                ..Default::default()
-            },
-        );
+        liquidate_vault(currency_id, OLD_VAULT);
+        liquidate_vault(currency_id, NEW_VAULT);
 
-        drop_exchange_rate_and_liquidate(OLD_VAULT);
-        drop_exchange_rate_and_liquidate(NEW_VAULT);
+        let pre_execution_state = ParachainTwoVaultState::get();
 
         assert_ok!(execute_replace(replace_id));
 
-        let collateral_for_to_be_redeemed =
-            (old.backing_collateral * old.to_be_redeemed) / (old.issued + old.to_be_issued);
         let collateral_for_replace = (old.backing_collateral * replace_tokens) / (old.issued + old.to_be_issued);
-        let old_vault = CoreVaultData::vault(OLD_VAULT);
+
         assert_eq!(
-            old_vault,
-            CoreVaultData {
-                to_be_redeemed: 50,
-                backing_collateral: collateral_for_replace,
-                liquidated_collateral: collateral_for_to_be_redeemed - collateral_for_replace,
-                free_balance: DEFAULT_GRIEFING_COLLATERAL,
-                ..Default::default()
-            }
+            ParachainTwoVaultState::get(),
+            pre_execution_state.with_changes(|old_vault, _new_vault, liquidation_vault| {
+                liquidation_vault.to_be_redeemed -= 1000;
+                liquidation_vault.to_be_issued -= 1000;
+
+                old_vault.to_be_redeemed -= 1000;
+                old_vault.liquidated_collateral -= collateral_for_replace;
+                old_vault.backing_collateral += collateral_for_replace; // TODO: probably should be free
+                *old_vault.free_balance.get_mut(&GRIEFING_CURRENCY).unwrap() += replace.griefing_collateral;
+                old_vault.griefing_collateral -= replace.griefing_collateral;
+            })
         );
-        let new_vault = CoreVaultData::vault(NEW_VAULT);
-        assert_eq!(
-            new_vault,
-            CoreVaultData {
-                to_be_redeemed: 150,
-                liquidated_collateral: (DEFAULT_COLLATERAL * 150) / (replace_tokens + 500),
-                ..Default::default()
-            }
-        );
-        assert_liquidation_vault_ok(replace_tokens + 250 + 500, &old_vault, &new_vault);
     });
 }
 
 #[test]
 fn integration_test_replace_cancel_replace_success() {
-    ExtBuilder::build().execute_with(|| {
-        let replace_id = setup_replace(1000);
+    test_with(|currency_id| {
+        let (replace, replace_id) = setup_replace(1000);
 
-        assert_eq!(
-            CoreVaultData::vault(OLD_VAULT),
-            CoreVaultData {
-                issued: 1000,
-                to_be_redeemed: 1000,
-                backing_collateral: DEFAULT_COLLATERAL,
-                griefing_collateral: DEFAULT_GRIEFING_COLLATERAL,
-                ..Default::default()
-            },
-        );
-        assert_eq!(
-            CoreVaultData::vault(NEW_VAULT),
-            CoreVaultData {
-                to_be_issued: 1000,
-                backing_collateral: DEFAULT_COLLATERAL,
-                ..Default::default()
-            }
-        );
+        let pre_cancellation_state = ParachainTwoVaultState::get();
 
         cancel_replace(replace_id);
 
-        let old_vault = CoreVaultData::vault(OLD_VAULT);
-        let new_vault = CoreVaultData::vault(NEW_VAULT);
-        // changes: the additional collateral (= DEFAULT_COLLATERAL / 2) that the
-        // new-vault locked for this replace gets unlocked. Also it receives the
-        // griefing collateral
         assert_eq!(
-            old_vault,
-            CoreVaultData {
-                issued: 1000,
-                backing_collateral: DEFAULT_COLLATERAL,
-                ..Default::default()
-            }
-        );
-        assert_eq!(
-            new_vault,
-            CoreVaultData {
-                backing_collateral: DEFAULT_COLLATERAL / 2 + DEFAULT_GRIEFING_COLLATERAL,
-                free_balance: DEFAULT_COLLATERAL / 2,
-                ..Default::default()
-            }
+            ParachainTwoVaultState::get(),
+            pre_cancellation_state.with_changes(|old_vault, new_vault, _| {
+                new_vault.to_be_issued -= 1000;
+                new_vault.backing_collateral -= replace.collateral;
+                *new_vault.free_balance.get_mut(&currency_id).unwrap() += replace.collateral;
+                *new_vault.free_balance.get_mut(&GRIEFING_CURRENCY).unwrap() += replace.griefing_collateral;
+
+                old_vault.to_be_redeemed -= 1000;
+
+                old_vault.griefing_collateral -= replace.griefing_collateral;
+            })
         );
     });
 }
 
-fn assert_liquidation_vault_ok(issued: u128, old_vault: &CoreVaultData, new_vault: &CoreVaultData) {
-    assert_eq!(
-        CoreVaultData::liquidation_vault(),
-        CoreVaultData {
-            issued,
-            to_be_redeemed: old_vault.to_be_redeemed + new_vault.to_be_redeemed,
-            backing_collateral: 2 * DEFAULT_COLLATERAL + DEFAULT_GRIEFING_COLLATERAL
-                - old_vault.backing_collateral
-                - new_vault.backing_collateral
-                - old_vault.liquidated_collateral
-                - new_vault.liquidated_collateral
-                - old_vault.griefing_collateral
-                - new_vault.griefing_collateral
-                - old_vault.free_balance
-                - new_vault.free_balance,
-            free_balance: INITIAL_LIQUIDATION_VAULT_BALANCE,
-            ..Default::default()
-        }
-    );
-}
-
+//
+// fn assert_liquidation_vault_ok(issued: u128, old_vault: &CoreVaultData, new_vault: &CoreVaultData) {
+//     let mut expected = default_liquidation_vault_state();
+//     expected.issued = issued;
+//     expected.to_be_redeemed = old_vault.to_be_redeemed + new_vault.to_be_redeemed;
+//     *expected.funds.get_mut(&currency_id).unwrap() = 2 * DEFAULT_COLLATERAL +
+// DEFAULT_GRIEFING_COLLATERAL
+//         - old_vault.backing_collateral
+//         - new_vault.backing_collateral
+//         - old_vault.liquidated_collateral
+//         - new_vault.liquidated_collateral
+//         - old_vault.griefing_collateral
+//         - new_vault.griefing_collateral
+//         - old_vault.free_balance
+//         - new_vault.free_balance;
+//     assert_eq!(LiquidationVaultData::get(), expected);
+// }
+//
 #[test]
 fn integration_test_replace_cancel_replace_old_vault_liquidated() {
-    ExtBuilder::build().execute_with(|| {
-        let replace_id = setup_replace(1000);
+    test_with(|currency_id| {
+        let (replace, replace_id) = setup_replace(1000);
 
-        assert_eq!(
-            CoreVaultData::vault(OLD_VAULT),
-            CoreVaultData {
-                issued: 1000,
-                to_be_redeemed: 1000,
-                backing_collateral: DEFAULT_COLLATERAL,
-                griefing_collateral: DEFAULT_GRIEFING_COLLATERAL,
-                ..Default::default()
-            },
-        );
-        assert_eq!(
-            CoreVaultData::vault(NEW_VAULT),
-            CoreVaultData {
-                to_be_issued: 1000,
-                backing_collateral: DEFAULT_COLLATERAL,
-                ..Default::default()
-            }
-        );
+        let old = CoreVaultData::vault(OLD_VAULT);
 
-        CoreVaultData::force_to(
-            OLD_VAULT,
-            CoreVaultData {
-                issued: 2500,
-                to_be_redeemed: 1250,
-                backing_collateral: DEFAULT_COLLATERAL,
-                griefing_collateral: DEFAULT_GRIEFING_COLLATERAL,
-                ..Default::default()
-            },
-        );
+        liquidate_vault(currency_id, OLD_VAULT);
 
-        drop_exchange_rate_and_liquidate(OLD_VAULT);
-
-        assert_eq!(
-            CoreVaultData::vault(OLD_VAULT),
-            CoreVaultData {
-                to_be_redeemed: 1250,
-                liquidated_collateral: (DEFAULT_COLLATERAL * 1250) / 2500,
-                griefing_collateral: DEFAULT_GRIEFING_COLLATERAL,
-                ..Default::default()
-            }
-        );
+        let pre_cancellation_state = ParachainTwoVaultState::get();
 
         cancel_replace(replace_id);
 
-        let old_vault = CoreVaultData::vault(OLD_VAULT);
-        let new_vault = CoreVaultData::vault(NEW_VAULT);
+        let collateral_for_replace = (old.backing_collateral * replace.amount) / (old.issued + old.to_be_issued);
+
         assert_eq!(
-            old_vault,
-            CoreVaultData {
-                to_be_redeemed: 250,
-                liquidated_collateral: (DEFAULT_COLLATERAL * 250) / 2500,
-                ..Default::default()
-            }
+            ParachainTwoVaultState::get(),
+            pre_cancellation_state.with_changes(|old_vault, new_vault, liquidation_vault| {
+                old_vault.to_be_redeemed -= 1000;
+                old_vault.griefing_collateral -= replace.griefing_collateral;
+                old_vault.liquidated_collateral -= collateral_for_replace;
+
+                new_vault.to_be_issued -= 1000;
+                new_vault.backing_collateral -= replace.collateral;
+                *new_vault.free_balance.get_mut(&currency_id).unwrap() += replace.collateral;
+                *new_vault.free_balance.get_mut(&GRIEFING_CURRENCY).unwrap() += replace.griefing_collateral;
+
+                liquidation_vault.to_be_redeemed -= 1000;
+                *liquidation_vault.funds.get_mut(&currency_id).unwrap() += collateral_for_replace;
+            })
         );
-        assert_eq!(
-            new_vault,
-            CoreVaultData {
-                backing_collateral: DEFAULT_COLLATERAL / 2 + DEFAULT_GRIEFING_COLLATERAL,
-                free_balance: DEFAULT_COLLATERAL / 2,
-                ..Default::default()
-            }
-        );
-        assert_liquidation_vault_ok(2500, &old_vault, &new_vault);
     });
 }
 
 #[test]
 fn integration_test_replace_cancel_replace_new_vault_liquidated() {
-    ExtBuilder::build().execute_with(|| {
-        let replace_tokens = 1000;
-        let replace_id = setup_replace(replace_tokens);
-        assert_eq!(
-            CoreVaultData::vault(OLD_VAULT),
-            CoreVaultData {
-                issued: replace_tokens,
-                to_be_redeemed: replace_tokens,
-                backing_collateral: DEFAULT_COLLATERAL,
-                griefing_collateral: DEFAULT_GRIEFING_COLLATERAL,
-                ..Default::default()
-            },
-        );
-        assert_eq!(
-            CoreVaultData::vault(NEW_VAULT),
-            CoreVaultData {
-                to_be_issued: replace_tokens,
-                backing_collateral: DEFAULT_COLLATERAL,
-                ..Default::default()
-            }
-        );
+    test_with(|currency_id| {
+        let (replace, replace_id) = setup_replace(1000);
 
-        CoreVaultData::force_to(
-            NEW_VAULT,
-            CoreVaultData {
-                to_be_issued: replace_tokens,
-                backing_collateral: DEFAULT_COLLATERAL,
-                issued: 500,         // new
-                to_be_redeemed: 150, // new
-                ..Default::default()
-            },
-        );
+        liquidate_vault(currency_id, NEW_VAULT);
 
-        drop_exchange_rate_and_liquidate(NEW_VAULT);
+        let pre_cancellation_state = ParachainTwoVaultState::get();
+
         cancel_replace(replace_id);
 
-        let old_vault = CoreVaultData::vault(OLD_VAULT);
-        let new_vault = CoreVaultData::vault(NEW_VAULT);
-        // griefing collateral is transfered to liquidation vault
         assert_eq!(
-            old_vault,
-            CoreVaultData {
-                issued: 1000,
-                backing_collateral: DEFAULT_COLLATERAL,
-                ..Default::default()
-            }
+            ParachainTwoVaultState::get(),
+            pre_cancellation_state.with_changes(|old_vault, new_vault, liquidation_vault| {
+                old_vault.to_be_redeemed -= 1000;
+                old_vault.griefing_collateral -= replace.griefing_collateral;
+
+                *new_vault.free_balance.get_mut(&GRIEFING_CURRENCY).unwrap() += replace.griefing_collateral;
+
+                liquidation_vault.to_be_issued -= 1000;
+            })
         );
-        assert_eq!(
-            new_vault,
-            CoreVaultData {
-                to_be_redeemed: 150,
-                liquidated_collateral: (DEFAULT_COLLATERAL * 150) / (500 + replace_tokens),
-                free_balance: DEFAULT_GRIEFING_COLLATERAL,
-                ..Default::default()
-            }
-        );
-        assert_liquidation_vault_ok(500, &old_vault, &new_vault);
     });
 }
 
 #[test]
 fn integration_test_replace_cancel_replace_both_vaults_liquidated() {
-    ExtBuilder::build().execute_with(|| {
-        let replace_tokens = 1000;
-        let replace_id = setup_replace(replace_tokens);
-        assert_eq!(
-            CoreVaultData::vault(OLD_VAULT),
-            CoreVaultData {
-                issued: replace_tokens,
-                to_be_redeemed: replace_tokens,
-                backing_collateral: DEFAULT_COLLATERAL,
-                griefing_collateral: DEFAULT_GRIEFING_COLLATERAL,
-                ..Default::default()
-            },
-        );
-        assert_eq!(
-            CoreVaultData::vault(NEW_VAULT),
-            CoreVaultData {
-                to_be_issued: replace_tokens,
-                backing_collateral: DEFAULT_COLLATERAL,
-                ..Default::default()
-            }
-        );
+    test_with(|currency_id| {
+        let (replace, replace_id) = setup_replace(1000);
 
-        CoreVaultData::force_to(
-            OLD_VAULT,
-            CoreVaultData {
-                backing_collateral: DEFAULT_COLLATERAL,
-                griefing_collateral: DEFAULT_GRIEFING_COLLATERAL,
-                issued: replace_tokens + 250,        // new
-                to_be_redeemed: replace_tokens + 50, // new
-                ..Default::default()
-            },
-        );
-        CoreVaultData::force_to(
-            NEW_VAULT,
-            CoreVaultData {
-                to_be_issued: replace_tokens,
-                backing_collateral: DEFAULT_COLLATERAL,
-                issued: 500,         // new
-                to_be_redeemed: 150, // new
-                ..Default::default()
-            },
-        );
+        let old = CoreVaultData::vault(OLD_VAULT);
 
-        drop_exchange_rate_and_liquidate(OLD_VAULT);
-        drop_exchange_rate_and_liquidate(NEW_VAULT);
+        liquidate_vault(currency_id, OLD_VAULT);
+        liquidate_vault(currency_id, NEW_VAULT);
+
+        let pre_cancellation_state = ParachainTwoVaultState::get();
+
         cancel_replace(replace_id);
 
-        let old_vault = CoreVaultData::vault(OLD_VAULT);
+        let collateral_for_replace = (old.backing_collateral * replace.amount) / (old.issued + old.to_be_issued);
+
         assert_eq!(
-            old_vault,
-            CoreVaultData {
-                to_be_redeemed: 50,
-                liquidated_collateral: (DEFAULT_COLLATERAL * 50) / (replace_tokens + 250),
-                ..Default::default()
-            }
+            ParachainTwoVaultState::get(),
+            pre_cancellation_state.with_changes(|old_vault, new_vault, liquidation_vault| {
+                old_vault.to_be_redeemed -= 1000;
+                old_vault.griefing_collateral -= replace.griefing_collateral;
+                old_vault.liquidated_collateral -= collateral_for_replace;
+
+                *new_vault.free_balance.get_mut(&GRIEFING_CURRENCY).unwrap() += replace.griefing_collateral;
+
+                liquidation_vault.to_be_redeemed -= 1000;
+                liquidation_vault.to_be_issued -= 1000;
+                *liquidation_vault.funds.get_mut(&currency_id).unwrap() += collateral_for_replace;
+            })
         );
-        let new_vault = CoreVaultData::vault(NEW_VAULT);
-        assert_eq!(
-            new_vault,
-            CoreVaultData {
-                to_be_redeemed: 150,
-                liquidated_collateral: (DEFAULT_COLLATERAL * 150) / (500 + replace_tokens),
-                free_balance: DEFAULT_GRIEFING_COLLATERAL,
-                ..Default::default()
-            }
-        );
-        assert_liquidation_vault_ok(replace_tokens + 250 + 500, &old_vault, &new_vault);
     });
 }
 
 #[test]
 fn integration_test_issue_using_griefing_collateral_fails() {
-    ExtBuilder::build().execute_with(|| {
-        assert_ok!(ExchangeRateOraclePallet::_set_exchange_rate(FixedU128::one()));
+    test_without_initialization(|currency_id| {
+        assert_ok!(ExchangeRateOraclePallet::_set_exchange_rate(
+            currency_id,
+            FixedU128::one()
+        ));
         set_default_thresholds();
         SecurityPallet::set_active_block_number(1);
 
@@ -1337,7 +1070,7 @@ fn integration_test_issue_using_griefing_collateral_fails() {
         let issue_amount = amount * 10;
         let griefing_collateral = 1_000_000;
         // bob creates a vault
-        force_issue_tokens(ALICE, BOB, collateral, amount);
+        force_issue_tokens(currency_id, ALICE, BOB, collateral, amount);
 
         assert_noop!(
             Call::Issue(IssueCall::request_issue(1000, account_of(OLD_VAULT), issue_amount))
@@ -1353,6 +1086,48 @@ fn integration_test_issue_using_griefing_collateral_fails() {
             Call::Issue(IssueCall::request_issue(1000, account_of(OLD_VAULT), issue_amount))
                 .dispatch(origin_of(account_of(USER))),
             VaultRegistryError::ExceedingVaultLimit,
+        );
+    });
+}
+
+#[test]
+fn integration_test_replace_vault_with_different_currency_succeeds() {
+    test_without_initialization(|currency_id| {
+        for currency_id in iter_collateral_currencies() {
+            assert_ok!(ExchangeRateOraclePallet::_set_exchange_rate(
+                currency_id,
+                FixedU128::one()
+            ));
+        }
+        set_default_thresholds();
+        SecurityPallet::set_active_block_number(1);
+
+        let other_currency = if let CurrencyId::DOT = currency_id {
+            CurrencyId::KSM
+        } else {
+            CurrencyId::DOT
+        };
+
+        CoreVaultData::force_to(OLD_VAULT, default_vault_state(currency_id));
+        CoreVaultData::force_to(NEW_VAULT, default_vault_state(other_currency));
+
+        let (replace, replace_id) = setup_replace(1000);
+
+        let pre_execute_state = ParachainTwoVaultState::get();
+
+        assert_ok!(execute_replace(replace_id));
+
+        assert_eq!(
+            ParachainTwoVaultState::get(),
+            pre_execute_state.with_changes(|old_vault, new_vault, _| {
+                new_vault.to_be_issued -= 1000;
+                new_vault.issued += 1000;
+                old_vault.to_be_redeemed -= 1000;
+                old_vault.issued -= 1000;
+
+                old_vault.griefing_collateral -= replace.griefing_collateral;
+                *old_vault.free_balance.get_mut(&GRIEFING_CURRENCY).unwrap() += replace.griefing_collateral;
+            })
         );
     });
 }

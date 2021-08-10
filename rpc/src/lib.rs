@@ -7,7 +7,7 @@
 
 use primitives::{
     issue::IssueRequest, redeem::RedeemRequest, refund::RefundRequest, replace::ReplaceRequest, AccountId, Balance,
-    Block, BlockNumber, H256Le, Nonce,
+    Block, BlockNumber, CurrencyId, H256Le, Nonce,
 };
 pub use sc_rpc_api::DenyUnsafe;
 use sp_api::ProvideRuntimeApi;
@@ -39,9 +39,10 @@ where
     C::Api: substrate_frame_rpc_system::AccountNonceApi<Block, AccountId, Nonce>,
     C::Api: pallet_transaction_payment_rpc::TransactionPaymentRuntimeApi<Block, Balance>,
     C::Api: module_btc_relay_rpc::BtcRelayRuntimeApi<Block, H256Le>,
-    C::Api: module_exchange_rate_oracle_rpc::ExchangeRateOracleRuntimeApi<Block, Balance, Balance>,
+    C::Api: module_exchange_rate_oracle_rpc::ExchangeRateOracleRuntimeApi<Block, Balance, Balance, CurrencyId>,
     C::Api: module_relay_rpc::RelayRuntimeApi<Block, AccountId>,
-    C::Api: module_vault_registry_rpc::VaultRegistryRuntimeApi<Block, AccountId, Balance, Balance, FixedU128>,
+    C::Api:
+        module_vault_registry_rpc::VaultRegistryRuntimeApi<Block, AccountId, Balance, Balance, FixedU128, CurrencyId>,
     C::Api: module_issue_rpc::IssueRuntimeApi<
         Block,
         AccountId,

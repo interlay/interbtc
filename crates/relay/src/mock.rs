@@ -1,10 +1,10 @@
 use crate as relay;
 use crate::{Config, Error};
-use codec::{Decode, Encode};
 use frame_support::{parameter_types, traits::GenesisBuild, PalletId};
 use mocktopus::mocking::clear_mocks;
 use orml_tokens::CurrencyAdapter;
 use orml_traits::parameter_type_with_key;
+pub use primitives::CurrencyId;
 use sp_arithmetic::{FixedI128, FixedPointNumber, FixedU128};
 use sp_core::H256;
 use sp_runtime::{
@@ -91,13 +91,8 @@ impl frame_system::Config for Test {
 
 impl pallet_randomness_collective_flip::Config for Test {}
 
-#[derive(Encode, Decode, Debug, PartialEq, PartialOrd, Ord, Eq, Clone, Copy)]
-#[cfg_attr(feature = "std", derive(serde::Serialize, serde::Deserialize))]
-pub enum CurrencyId {
-    DOT,
-    INTERBTC,
-}
-
+pub const DEFAULT_TESTING_CURRENCY: <Test as orml_tokens::Config>::CurrencyId =
+    <Test as orml_tokens::Config>::CurrencyId::DOT;
 pub const DOT: CurrencyId = CurrencyId::DOT;
 pub const INTERBTC: CurrencyId = CurrencyId::INTERBTC;
 
@@ -166,9 +161,9 @@ impl vault_registry::Config for Test {
     type SignedFixedPoint = SignedFixedPoint;
     type UnsignedFixedPoint = UnsignedFixedPoint;
     type WeightInfo = ();
-    type Collateral = CurrencyAdapter<Test, GetCollateralCurrencyId>;
     type Wrapped = CurrencyAdapter<Test, GetWrappedCurrencyId>;
     type GetRewardsCurrencyId = GetWrappedCurrencyId;
+    type GetGriefingCollateralCurrencyId = GetCollateralCurrencyId;
 }
 
 impl staking::Config for Test {
@@ -271,6 +266,25 @@ impl ExtBuilder {
             premium_redeem_fee: UnsignedFixedPoint::checked_from_rational(5, 100).unwrap(), // 5%
             punishment_fee: UnsignedFixedPoint::checked_from_rational(1, 10).unwrap(), // 10%
             replace_griefing_collateral: UnsignedFixedPoint::checked_from_rational(1, 10).unwrap(), // 10%
+        }
+        .assimilate_storage(&mut storage)
+        .unwrap();
+
+        vault_registry::GenesisConfig::<Test> {
+            minimum_collateral_vault: vec![(DEFAULT_TESTING_CURRENCY, 0)],
+            punishment_delay: 0,
+            secure_collateral_threshold: vec![(
+                DEFAULT_TESTING_CURRENCY,
+                UnsignedFixedPoint::checked_from_rational(200, 100).unwrap(),
+            )],
+            premium_redeem_threshold: vec![(
+                DEFAULT_TESTING_CURRENCY,
+                UnsignedFixedPoint::checked_from_rational(120, 100).unwrap(),
+            )],
+            liquidation_collateral_threshold: vec![(
+                DEFAULT_TESTING_CURRENCY,
+                UnsignedFixedPoint::checked_from_rational(110, 100).unwrap(),
+            )],
         }
         .assimilate_storage(&mut storage)
         .unwrap();

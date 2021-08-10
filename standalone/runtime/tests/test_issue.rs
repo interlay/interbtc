@@ -3,19 +3,28 @@ mod mock;
 use frame_support::assert_err;
 use mock::{issue_testing_utils::*, *};
 
-fn test_with<R>(execute: impl FnOnce() -> R) -> R {
-    ExtBuilder::build().execute_with(|| {
-        SecurityPallet::set_active_block_number(1);
-        assert_ok!(ExchangeRateOraclePallet::_set_exchange_rate(FixedU128::one()));
-        UserData::force_to(USER, default_user_state());
-        execute()
-    })
+fn test_with<R>(execute: impl Fn(CurrencyId) -> R) {
+    let test_with = |currency_id| {
+        ExtBuilder::build().execute_with(|| {
+            SecurityPallet::set_active_block_number(1);
+            for currency_id in iter_collateral_currencies() {
+                assert_ok!(ExchangeRateOraclePallet::_set_exchange_rate(
+                    currency_id,
+                    FixedU128::one()
+                ));
+            }
+            UserData::force_to(USER, default_user_state());
+            execute(currency_id)
+        });
+    };
+    test_with(CurrencyId::KSM);
+    test_with(CurrencyId::DOT);
 }
 
-fn test_with_initialized_vault<R>(execute: impl FnOnce() -> R) -> R {
-    test_with(|| {
-        CoreVaultData::force_to(VAULT, default_vault_state());
-        execute()
+fn test_with_initialized_vault<R>(execute: impl Fn(CurrencyId) -> R) {
+    test_with(|currency_id| {
+        CoreVaultData::force_to(VAULT, default_vault_state(currency_id));
+        execute(currency_id)
     })
 }
 
@@ -42,9 +51,9 @@ mod expiry_test {
 
     #[test]
     fn integration_test_issue_expiry_only_parachain_blocks_expired() {
-        test_with(|| {
+        test_with(|currency_id| {
             set_issue_period(1000);
-            let (issue_id, _) = request_issue(4_000);
+            let (issue_id, _) = request_issue(currency_id, 4_000);
             mine_blocks(1);
 
             // not expired until both parachain block and parachain block expired
@@ -55,9 +64,9 @@ mod expiry_test {
 
     #[test]
     fn integration_test_issue_expiry_only_bitcoin_blocks_expired() {
-        test_with(|| {
+        test_with(|currency_id| {
             set_issue_period(1000);
-            let (issue_id, _) = request_issue(4_000);
+            let (issue_id, _) = request_issue(currency_id, 4_000);
             SecurityPallet::set_active_block_number(750);
             mine_blocks(20);
 
@@ -68,9 +77,9 @@ mod expiry_test {
 
     #[test]
     fn integration_test_issue_expiry_no_period_change_pre_expiry() {
-        test_with(|| {
+        test_with(|currency_id| {
             set_issue_period(1000);
-            let (issue_id, _) = request_issue(4_000);
+            let (issue_id, _) = request_issue(currency_id, 4_000);
             SecurityPallet::set_active_block_number(750);
             mine_blocks(7);
 
@@ -81,9 +90,9 @@ mod expiry_test {
 
     #[test]
     fn integration_test_issue_expiry_no_period_change_post_expiry() {
-        test_with(|| {
+        test_with(|currency_id| {
             set_issue_period(1000);
-            let (issue_id, _) = request_issue(4_000);
+            let (issue_id, _) = request_issue(currency_id, 4_000);
             SecurityPallet::set_active_block_number(1100);
             mine_blocks(11);
 
@@ -94,9 +103,9 @@ mod expiry_test {
 
     #[test]
     fn integration_test_issue_expiry_with_period_decrease() {
-        test_with(|| {
+        test_with(|currency_id| {
             set_issue_period(2000);
-            let (issue_id, _) = request_issue(4_000);
+            let (issue_id, _) = request_issue(currency_id, 4_000);
             SecurityPallet::set_active_block_number(1100);
             mine_blocks(11);
             set_issue_period(1000);
@@ -109,9 +118,9 @@ mod expiry_test {
 
     #[test]
     fn integration_test_issue_expiry_with_period_increase() {
-        test_with(|| {
+        test_with(|currency_id| {
             set_issue_period(1000);
-            let (issue_id, _) = request_issue(4_000);
+            let (issue_id, _) = request_issue(currency_id, 4_000);
             SecurityPallet::set_active_block_number(1100);
             mine_blocks(11);
             set_issue_period(2000);
@@ -125,7 +134,7 @@ mod expiry_test {
 
 #[test]
 fn integration_test_issue_with_parachain_shutdown_fails() {
-    test_with(|| {
+    test_with(|_currency_id| {
         SecurityPallet::set_status(StatusCode::Shutdown);
 
         assert_noop!(
@@ -146,7 +155,7 @@ mod request_issue_tests {
     /// Request fails if parachain is shutdown
     #[test]
     fn integration_test_issue_request_precond_not_shutdown() {
-        test_with(|| {
+        test_with(|_currency_id| {
             SecurityPallet::set_status(StatusCode::Shutdown);
             assert_noop!(
                 Call::Issue(IssueCall::request_issue(0, account_of(BOB), 0)).dispatch(origin_of(account_of(ALICE))),
@@ -178,7 +187,7 @@ mod request_issue_tests {
     /// Request fails if attempted with an account that is not a registered vault
     #[test]
     fn integration_test_issue_request_precond_vault_registered() {
-        test_with(|| {
+        test_with(|_currency_id| {
             //test_with ...out_initialized_vault
             let amount = 1_000;
             assert_noop!(
@@ -196,7 +205,7 @@ mod request_issue_tests {
     /// Request fails if vault is not actively accepting new issues
     #[test]
     fn integration_test_issue_request_precond_vault_active() {
-        test_with_initialized_vault(|| {
+        test_with_initialized_vault(|_currency_id| {
             assert_ok!(
                 Call::VaultRegistry(VaultRegistryCall::accept_new_issues(false)).dispatch(origin_of(account_of(VAULT)))
             );
@@ -215,9 +224,9 @@ mod request_issue_tests {
     /// Request fails if requested amount is below the BTC dust value
     #[test]
     fn integration_test_issue_request_precond_amount_above_dust() {
-        test_with_initialized_vault(|| {
+        test_with_initialized_vault(|currency_id| {
             let amount = 1; // dust is set to 2
-            let amount_in_collateral = ExchangeRateOraclePallet::wrapped_to_collateral(amount).unwrap();
+            let amount_in_collateral = ExchangeRateOraclePallet::wrapped_to_collateral(currency_id, amount).unwrap();
             let griefing_collateral = FeePallet::get_issue_griefing_collateral(amount_in_collateral).unwrap();
             assert_noop!(
                 Call::Issue(IssueCall::request_issue(amount, account_of(VAULT), griefing_collateral))
@@ -230,9 +239,9 @@ mod request_issue_tests {
     /// Request fails if insufficient griefing collateral is provided
     #[test]
     fn integration_test_issue_request_precond_griefing_collateral_sufficient() {
-        test_with_initialized_vault(|| {
+        test_with_initialized_vault(|currency_id| {
             let amount = 10_000;
-            let amount_in_collateral = ExchangeRateOraclePallet::wrapped_to_collateral(amount).unwrap();
+            let amount_in_collateral = ExchangeRateOraclePallet::wrapped_to_collateral(currency_id, amount).unwrap();
             let griefing_collateral = FeePallet::get_issue_griefing_collateral(amount_in_collateral).unwrap();
             // fails below minimum
             assert_noop!(
@@ -262,9 +271,9 @@ mod request_issue_tests {
     /// Request succeeds when issuing with a vault's entire capacity
     #[test]
     fn integration_test_issue_request_precond_succeeds_at_capacity() {
-        test_with_initialized_vault(|| {
+        test_with_initialized_vault(|currency_id| {
             let amount = VaultRegistryPallet::get_issuable_tokens_from_vault(account_of(VAULT)).unwrap();
-            let (issue_id, _) = request_issue(amount);
+            let (issue_id, _) = request_issue(currency_id, amount);
             execute_issue(issue_id);
         });
     }
@@ -272,7 +281,7 @@ mod request_issue_tests {
     /// Request fails when trying to issue above a vault's capacity
     #[test]
     fn integration_test_issue_request_precond_fails_above_capacity() {
-        test_with_initialized_vault(|| {
+        test_with_initialized_vault(|_currency_id| {
             let amount = 1 + VaultRegistryPallet::get_issuable_tokens_from_vault(account_of(VAULT)).unwrap();
             assert_noop!(
                 Call::Issue(IssueCall::request_issue(
@@ -289,7 +298,7 @@ mod request_issue_tests {
     /// Request fails if the user can't pay the griefing collateral
     #[test]
     fn integration_test_issue_request_precond_sufficient_funds_for_collateral() {
-        test_with_initialized_vault(|| {
+        test_with_initialized_vault(|_currency_id| {
             let amount_btc = 10_000;
             let user_free_balance = 1_000_000;
             assert_noop!(
@@ -314,7 +323,7 @@ mod request_issue_tests {
 
     #[test]
     fn integration_test_issue_request_postcond_succeeds() {
-        test_with_initialized_vault(|| {
+        test_with_initialized_vault(|currency_id| {
             let amount_btc = 10_000;
             let current_block = 500;
             SecurityPallet::set_active_block_number(current_block);
@@ -328,10 +337,10 @@ mod request_issue_tests {
             // lock griefing collateral and increase to_be_issued
             assert_eq!(
                 ParachainState::get(),
-                ParachainState::default().with_changes(|user, vault, _, _| {
+                ParachainState::get_default(currency_id).with_changes(|user, vault, _, _| {
                     vault.to_be_issued += 10_000;
-                    user.free_balance -= DEFAULT_GRIEFING_COLLATERAL;
-                    user.locked_balance += DEFAULT_GRIEFING_COLLATERAL;
+                    (*user.balances.get_mut(&GRIEFING_CURRENCY).unwrap()).free -= DEFAULT_GRIEFING_COLLATERAL;
+                    (*user.balances.get_mut(&GRIEFING_CURRENCY).unwrap()).locked += DEFAULT_GRIEFING_COLLATERAL;
                 })
             );
 
@@ -369,21 +378,25 @@ mod request_issue_tests {
 
 #[test]
 fn integration_test_issue_wrapped_execute_succeeds() {
-    test_with(|| {
+    test_with(|currency_id| {
         let vault_proof_submitter = CAROL;
 
         let amount_btc = 1000000;
         let griefing_collateral = 100;
-        let collateral_vault = required_collateral_for_issue(amount_btc);
+        let collateral_vault = required_collateral_for_issue(amount_btc, currency_id);
 
-        assert_ok!(
-            Call::VaultRegistry(VaultRegistryCall::register_vault(collateral_vault, dummy_public_key()))
-                .dispatch(origin_of(account_of(VAULT)))
-        );
-        assert_ok!(
-            Call::VaultRegistry(VaultRegistryCall::register_vault(collateral_vault, dummy_public_key()))
-                .dispatch(origin_of(account_of(vault_proof_submitter)))
-        );
+        assert_ok!(Call::VaultRegistry(VaultRegistryCall::register_vault(
+            collateral_vault,
+            dummy_public_key(),
+            currency_id
+        ))
+        .dispatch(origin_of(account_of(VAULT))));
+        assert_ok!(Call::VaultRegistry(VaultRegistryCall::register_vault(
+            collateral_vault,
+            dummy_public_key(),
+            currency_id
+        ))
+        .dispatch(origin_of(account_of(vault_proof_submitter))));
 
         // alice requests wrapped by locking btc with bob
         assert_ok!(Call::Issue(IssueCall::request_issue(
@@ -412,9 +425,9 @@ fn integration_test_issue_wrapped_execute_succeeds() {
 
 #[test]
 fn integration_test_issue_wrapped_execute_bookkeeping() {
-    test_with_initialized_vault(|| {
+    test_with_initialized_vault(|currency_id| {
         let requested_btc = 1000;
-        let (issue_id, issue) = request_issue(requested_btc);
+        let (issue_id, issue) = request_issue(currency_id, requested_btc);
 
         assert_eq!(issue.fee + issue.amount, requested_btc);
 
@@ -422,8 +435,8 @@ fn integration_test_issue_wrapped_execute_bookkeeping() {
 
         assert_eq!(
             ParachainState::get(),
-            ParachainState::default().with_changes(|user, vault, _, fee_pool| {
-                user.free_tokens += issue.amount;
+            ParachainState::get_default(currency_id).with_changes(|user, vault, _, fee_pool| {
+                (*user.balances.get_mut(&INTERBTC).unwrap()).free += issue.amount;
                 fee_pool.vault_rewards += issue.fee;
                 vault.issued += issue.fee + issue.amount;
             })
@@ -433,22 +446,26 @@ fn integration_test_issue_wrapped_execute_bookkeeping() {
 
 #[test]
 fn integration_test_withdraw_after_request_issue() {
-    test_with(|| {
+    test_with(|currency_id| {
         let vault = BOB;
         let vault_proof_submitter = CAROL;
 
         let amount_btc = 1000000;
         let griefing_collateral = 100;
-        let collateral_vault = required_collateral_for_issue(amount_btc);
+        let collateral_vault = required_collateral_for_issue(amount_btc, currency_id);
 
-        assert_ok!(
-            Call::VaultRegistry(VaultRegistryCall::register_vault(collateral_vault, dummy_public_key()))
-                .dispatch(origin_of(account_of(vault)))
-        );
-        assert_ok!(
-            Call::VaultRegistry(VaultRegistryCall::register_vault(collateral_vault, dummy_public_key()))
-                .dispatch(origin_of(account_of(vault_proof_submitter)))
-        );
+        assert_ok!(Call::VaultRegistry(VaultRegistryCall::register_vault(
+            collateral_vault,
+            dummy_public_key(),
+            currency_id
+        ))
+        .dispatch(origin_of(account_of(vault))));
+        assert_ok!(Call::VaultRegistry(VaultRegistryCall::register_vault(
+            collateral_vault,
+            dummy_public_key(),
+            currency_id
+        ))
+        .dispatch(origin_of(account_of(vault_proof_submitter))));
 
         // alice requests wrapped by locking btc with bob
         assert_ok!(Call::Issue(IssueCall::request_issue(
@@ -479,7 +496,7 @@ fn integration_test_withdraw_after_request_issue() {
 #[test]
 /// overpay by a factor of 4
 fn integration_test_issue_refund() {
-    test_with_initialized_vault(|| {
+    test_with_initialized_vault(|currency_id| {
         let requested_btc = 1000;
 
         // make sure we don't have enough collateral to fulfil the overpayment
@@ -494,7 +511,7 @@ fn integration_test_issue_refund() {
         );
         let initial_state = ParachainState::get();
 
-        let (issue_id, issue) = request_issue(requested_btc);
+        let (issue_id, issue) = request_issue(currency_id, requested_btc);
         let sent_btc = (issue.amount + issue.fee) * 4;
 
         ExecuteIssueBuilder::new(issue_id)
@@ -506,7 +523,7 @@ fn integration_test_issue_refund() {
         assert_eq!(
             post_redeem_state,
             initial_state.with_changes(|user, vault, _, fee_pool| {
-                user.free_tokens += issue.amount;
+                (*user.balances.get_mut(&INTERBTC).unwrap()).free += issue.amount;
                 fee_pool.vault_rewards += issue.fee;
                 vault.issued += issue.fee + issue.amount;
             })
@@ -518,7 +535,7 @@ fn integration_test_issue_refund() {
         assert_eq!(
             ParachainState::get(),
             post_redeem_state.with_changes(|_user, vault, _, _fee_pool| {
-                vault.free_tokens += issue.fee * 3;
+                *vault.free_balance.get_mut(&INTERBTC).unwrap() += issue.fee * 3;
                 vault.issued += issue.fee * 3;
             })
         );
@@ -528,7 +545,7 @@ fn integration_test_issue_refund() {
 mod execute_refund_payment_limits {
     use super::*;
 
-    fn setup_refund() -> (H256, u128) {
+    fn setup_refund(currency_id: CurrencyId) -> (H256, u128) {
         let requested_btc = 1000;
 
         // make sure we don't have enough collateral to fulfil the overpayment
@@ -542,7 +559,7 @@ mod execute_refund_payment_limits {
             },
         );
 
-        let (issue_id, issue) = request_issue(requested_btc);
+        let (issue_id, issue) = request_issue(currency_id, requested_btc);
         let sent_btc = (issue.amount + issue.fee) * 4;
 
         ExecuteIssueBuilder::new(issue_id)
@@ -557,15 +574,15 @@ mod execute_refund_payment_limits {
 
     #[test]
     fn integration_test_execute_refund_with_exact_amount_succeeds() {
-        test_with_initialized_vault(|| {
-            let (_refund_id, amount) = setup_refund();
+        test_with_initialized_vault(|currency_id| {
+            let (_refund_id, amount) = setup_refund(currency_id);
             assert_ok!(execute_refund_with_amount(VAULT, amount));
         });
     }
     #[test]
     fn integration_test_execute_refund_with_overpayment_fails() {
-        test_with_initialized_vault(|| {
-            let (_refund_id, amount) = setup_refund();
+        test_with_initialized_vault(|currency_id| {
+            let (_refund_id, amount) = setup_refund(currency_id);
             assert_err!(
                 execute_refund_with_amount(VAULT, amount + 1),
                 BTCRelayError::InvalidPaymentAmount
@@ -574,8 +591,8 @@ mod execute_refund_payment_limits {
     }
     #[test]
     fn integration_test_execute_refund_with_underpayment_fails() {
-        test_with_initialized_vault(|| {
-            let (_refund_id, amount) = setup_refund();
+        test_with_initialized_vault(|currency_id| {
+            let (_refund_id, amount) = setup_refund(currency_id);
             assert_err!(
                 execute_refund_with_amount(VAULT, amount - 1),
                 BTCRelayError::InvalidPaymentAmount
@@ -589,7 +606,7 @@ mod execute_issue_tests {
     /// Execute fails if parachain is shut down
     #[test]
     fn integration_test_issue_execute_precond_not_shutdown() {
-        test_with(|| {
+        test_with(|_currency_id| {
             SecurityPallet::set_status(StatusCode::Shutdown);
 
             assert_noop!(
@@ -607,13 +624,13 @@ mod execute_issue_tests {
     /// Execute fails if corresponding request doesn't exist
     #[test]
     fn integration_test_issue_execute_precond_issue_exists() {
-        test_with(|| {
-            let (issue_id, _issue) = request_issue(4_000);
+        test_with(|currency_id| {
+            let (issue_id, _issue) = request_issue(currency_id, 4_000);
             let nonexistent_issue_id = H256::zero();
 
             let mut executor = ExecuteIssueBuilder::new(issue_id);
             executor
-                .with_submitter(PROOF_SUBMITTER, true)
+                .with_submitter(PROOF_SUBMITTER, Some(currency_id))
                 .with_issue_id(nonexistent_issue_id)
                 .prepare_for_execution();
 
@@ -625,8 +642,8 @@ mod execute_issue_tests {
     /// cf. also mod expiry_test
     #[test]
     fn integration_test_issue_execute_precond_not_expired() {
-        test_with(|| {
-            let (issue_id, issue) = request_issue(4_000);
+        test_with(|currency_id| {
+            let (issue_id, issue) = request_issue(currency_id, 4_000);
             let mut executor = ExecuteIssueBuilder::new(issue_id);
             executor.prepare_for_execution();
 
@@ -640,8 +657,8 @@ mod execute_issue_tests {
     /// Execute fails if the execution BTC tx isn't a valid payment
     #[test]
     fn integration_test_issue_execute_precond_rawtx_valid() {
-        test_with_initialized_vault(|| {
-            let (issue_id, issue) = request_issue(1000);
+        test_with_initialized_vault(|currency_id| {
+            let (issue_id, issue) = request_issue(currency_id, 1000);
             let (_tx_id, _height, proof, _raw_tx, mut transaction) = TransactionGenerator::new()
                 .with_address(issue.btc_address)
                 .with_amount(1000)
@@ -664,8 +681,8 @@ mod execute_issue_tests {
     /// Execute fails if provided merkle proof of payment is not valid
     #[test]
     fn integration_test_issue_execute_precond_proof_valid() {
-        test_with_initialized_vault(|| {
-            let (issue_id, issue) = request_issue(1000);
+        test_with_initialized_vault(|currency_id| {
+            let (issue_id, issue) = request_issue(currency_id, 1000);
             let (_tx_id, _height, mut proof, _raw_tx, transaction) = TransactionGenerator::new()
                 .with_address(issue.btc_address)
                 .with_amount(1)
@@ -688,13 +705,13 @@ mod execute_issue_tests {
     /// to execute
     #[test]
     fn integration_test_issue_execute_precond_underpayment_executed_by_requester() {
-        test_with(|| {
-            let (issue_id, issue) = request_issue(4_000);
+        test_with(|currency_id| {
+            let (issue_id, issue) = request_issue(currency_id, 4_000);
 
             let mut executor = ExecuteIssueBuilder::new(issue_id);
             executor
                 .with_amount((issue.amount + issue.fee) / 4)
-                .with_submitter(PROOF_SUBMITTER, true)
+                .with_submitter(PROOF_SUBMITTER, Some(currency_id))
                 .prepare_for_execution();
 
             assert_noop!(executor.execute_prepared(), IssueError::InvalidExecutor);
@@ -704,9 +721,9 @@ mod execute_issue_tests {
     /// Test Execute postconditions when BTC payment is for the exact requested amount
     #[test]
     fn integration_test_issue_execute_postcond_exact_payment() {
-        test_with_initialized_vault(|| {
+        test_with_initialized_vault(|currency_id| {
             let requested_btc = 1000;
-            let (issue_id, issue) = request_issue(requested_btc);
+            let (issue_id, issue) = request_issue(currency_id, requested_btc);
             let post_request_state = ParachainState::get();
 
             ExecuteIssueBuilder::new(issue_id).assert_execute();
@@ -715,9 +732,9 @@ mod execute_issue_tests {
             assert_eq!(
                 ParachainState::get(),
                 post_request_state.with_changes(|user, vault, _, fee_pool| {
-                    user.locked_balance -= issue.griefing_collateral;
-                    user.free_balance += issue.griefing_collateral;
-                    user.free_tokens += issue.amount;
+                    (*user.balances.get_mut(&GRIEFING_CURRENCY).unwrap()).locked -= issue.griefing_collateral;
+                    (*user.balances.get_mut(&GRIEFING_CURRENCY).unwrap()).free += issue.griefing_collateral;
+                    (*user.balances.get_mut(&INTERBTC).unwrap()).free += issue.amount;
 
                     fee_pool.vault_rewards += issue.fee;
                     vault.issued += requested_btc;
@@ -735,9 +752,9 @@ mod execute_issue_tests {
     /// Test Execute postconditions when BTC payment is less than the requested amount
     #[test]
     fn integration_test_issue_execute_postcond_underpayment() {
-        test_with_initialized_vault(|| {
+        test_with_initialized_vault(|currency_id| {
             let requested_btc = 40_000;
-            let (issue_id, issue) = request_issue(requested_btc);
+            let (issue_id, issue) = request_issue(currency_id, requested_btc);
             let sent_btc = (issue.amount + issue.fee) / 4;
 
             let post_request_state = ParachainState::get();
@@ -751,7 +768,7 @@ mod execute_issue_tests {
 
             ExecuteIssueBuilder::new(issue_id)
                 .with_amount(sent_btc)
-                .with_submitter(USER, false)
+                .with_submitter(USER, None)
                 .assert_execute();
 
             let slashed_griefing_collateral = (issue.griefing_collateral * 3) / 4;
@@ -762,12 +779,12 @@ mod execute_issue_tests {
                 ParachainState::get(),
                 post_request_state.with_changes(|user, vault, _, fee_pool| {
                     // user loses 75% of griefing collateral for having only fulfilled 25%
-                    user.locked_balance -= issue.griefing_collateral;
-                    user.free_balance += returned_griefing_collateral;
-                    vault.free_balance += slashed_griefing_collateral;
+                    (*user.balances.get_mut(&GRIEFING_CURRENCY).unwrap()).locked -= issue.griefing_collateral;
+                    (*user.balances.get_mut(&GRIEFING_CURRENCY).unwrap()).free += returned_griefing_collateral;
+                    *vault.free_balance.get_mut(&GRIEFING_CURRENCY).unwrap() += slashed_griefing_collateral;
 
                     // token updating as if only 25% was requested
-                    user.free_tokens += issue.amount / 4;
+                    (*user.balances.get_mut(&INTERBTC).unwrap()).free += issue.amount / 4;
                     fee_pool.vault_rewards += issue.fee / 4;
                     vault.issued += (issue.fee + issue.amount) / 4;
                     vault.to_be_issued -= issue.fee + issue.amount; // decrease to sent_btc and then decrease to zero
@@ -794,9 +811,9 @@ mod execute_issue_tests {
     /// vault can execute the greater amount
     #[test]
     fn integration_test_issue_execute_postcond_overpayment_succeeds() {
-        test_with_initialized_vault(|| {
+        test_with_initialized_vault(|currency_id| {
             let requested_btc = 1000;
-            let (issue_id, issue) = request_issue(requested_btc);
+            let (issue_id, issue) = request_issue(currency_id, requested_btc);
             let sent_btc = (issue.amount + issue.fee) * 2;
             let post_request_state = ParachainState::get();
 
@@ -808,9 +825,9 @@ mod execute_issue_tests {
             assert_eq!(
                 ParachainState::get(),
                 post_request_state.with_changes(|user, vault, _, fee_pool| {
-                    user.locked_balance -= issue.griefing_collateral;
-                    user.free_balance += issue.griefing_collateral;
-                    user.free_tokens += 2 * issue.amount;
+                    (*user.balances.get_mut(&GRIEFING_CURRENCY).unwrap()).locked -= issue.griefing_collateral;
+                    (*user.balances.get_mut(&GRIEFING_CURRENCY).unwrap()).free += issue.griefing_collateral;
+                    (*user.balances.get_mut(&INTERBTC).unwrap()).free += 2 * issue.amount;
 
                     fee_pool.vault_rewards += 2 * issue.fee;
                     vault.issued += sent_btc;
@@ -837,7 +854,7 @@ mod execute_issue_tests {
     /// vault can not execute the greater amount
     #[test]
     fn integration_test_issue_execute_postcond_overpayment_creates_refund() {
-        test_with_initialized_vault(|| {
+        test_with_initialized_vault(|currency_id| {
             let requested_btc = 1000;
 
             // make sure we don't have enough collateral to fulfil the overpayment
@@ -851,7 +868,7 @@ mod execute_issue_tests {
                 },
             );
 
-            let (issue_id, issue) = request_issue(requested_btc);
+            let (issue_id, issue) = request_issue(currency_id, requested_btc);
             let sent_btc = (issue.amount + issue.fee) * 4;
             let post_request_state = ParachainState::get();
 
@@ -864,10 +881,10 @@ mod execute_issue_tests {
             assert_eq!(
                 ParachainState::get(),
                 post_request_state.with_changes(|user, vault, _, fee_pool| {
-                    user.locked_balance -= issue.griefing_collateral;
-                    user.free_balance += issue.griefing_collateral;
+                    (*user.balances.get_mut(&GRIEFING_CURRENCY).unwrap()).locked -= issue.griefing_collateral;
+                    (*user.balances.get_mut(&GRIEFING_CURRENCY).unwrap()).free += issue.griefing_collateral;
 
-                    user.free_tokens += issue.amount;
+                    (*user.balances.get_mut(&INTERBTC).unwrap()).free += issue.amount;
                     fee_pool.vault_rewards += issue.fee;
 
                     vault.issued += issue.fee + issue.amount;
@@ -890,10 +907,10 @@ mod execute_issue_tests {
     /// Test Execute postconditions when vault has been liquidated
     #[test]
     fn integration_test_issue_execute_postcond_liquidated() {
-        test_with_initialized_vault(|| {
-            let (issue_id, issue) = RequestIssueBuilder::new(10_000).request();
+        test_with_initialized_vault(|currency_id| {
+            let (issue_id, issue) = RequestIssueBuilder::new(currency_id, 10_000).request();
 
-            drop_exchange_rate_and_liquidate(VAULT);
+            liquidate_vault(currency_id, VAULT);
             let post_liquidation_status = ParachainState::get();
 
             execute_issue(issue_id);
@@ -902,10 +919,10 @@ mod execute_issue_tests {
             assert_eq!(
                 ParachainState::get(),
                 post_liquidation_status.with_changes(|user, _vault, liquidation_vault, _fee_pool| {
-                    user.free_tokens += issue.amount;
+                    (*user.balances.get_mut(&INTERBTC).unwrap()).free += issue.amount;
 
-                    user.free_balance += issue.griefing_collateral;
-                    user.locked_balance -= issue.griefing_collateral;
+                    (*user.balances.get_mut(&GRIEFING_CURRENCY).unwrap()).free += issue.griefing_collateral;
+                    (*user.balances.get_mut(&GRIEFING_CURRENCY).unwrap()).locked -= issue.griefing_collateral;
 
                     liquidation_vault.to_be_issued -= issue.amount + issue.fee;
                     liquidation_vault.issued += issue.amount + issue.fee;
@@ -921,7 +938,7 @@ mod cancel_issue_tests {
     /// Cancel fails when parachain is shutdown
     #[test]
     fn integration_test_issue_cancel_precond_not_shutdown() {
-        test_with(|| {
+        test_with(|_currency_id| {
             SecurityPallet::set_status(StatusCode::Shutdown);
             assert_noop!(
                 Call::Issue(IssueCall::cancel_issue(H256([0; 32]),)).dispatch(origin_of(account_of(ALICE))),
@@ -933,8 +950,8 @@ mod cancel_issue_tests {
     /// Cancel fails if issue request does not exist
     #[test]
     fn integration_test_issue_cancel_precond_issue_exists() {
-        test_with(|| {
-            request_issue(4_000);
+        test_with(|currency_id| {
+            request_issue(currency_id, 4_000);
             let nonexistent_issue_id = H256::zero();
             SecurityPallet::set_active_block_number(IssuePallet::issue_period() + 1 + 1);
             mine_blocks((IssuePallet::issue_period() + 99) / 100 + 1);
@@ -949,8 +966,8 @@ mod cancel_issue_tests {
     /// Cancel fails if issue request is not yet expired
     #[test]
     fn integration_test_issue_cancel_precond_issue_expired() {
-        test_with(|| {
-            let (issue_id, _issue) = request_issue(4_000);
+        test_with(|currency_id| {
+            let (issue_id, _issue) = request_issue(currency_id, 4_000);
             assert_noop!(
                 Call::Issue(IssueCall::cancel_issue(issue_id)).dispatch(origin_of(account_of(VAULT))),
                 IssueError::TimeNotExpired
@@ -961,8 +978,8 @@ mod cancel_issue_tests {
     /// Test Cancel preconditions for a non-liquidated vault
     #[test]
     fn integration_test_issue_cancel_postcond_vault_not_liquidated() {
-        test_with_initialized_vault(|| {
-            let (issue_id, issue) = RequestIssueBuilder::new(10_000).request();
+        test_with_initialized_vault(|currency_id| {
+            let (issue_id, issue) = RequestIssueBuilder::new(currency_id, 10_000).request();
 
             SecurityPallet::set_active_block_number(IssuePallet::issue_period() + 1 + 1);
             mine_blocks((IssuePallet::issue_period() + 99) / 100 + 1);
@@ -976,8 +993,8 @@ mod cancel_issue_tests {
             assert_eq!(
                 ParachainState::get(),
                 post_request_state.with_changes(|user, vault, _, _| {
-                    user.locked_balance -= issue.griefing_collateral;
-                    vault.free_balance += issue.griefing_collateral;
+                    (*user.balances.get_mut(&GRIEFING_CURRENCY).unwrap()).locked -= issue.griefing_collateral;
+                    *vault.free_balance.get_mut(&GRIEFING_CURRENCY).unwrap() += issue.griefing_collateral;
                     vault.to_be_issued -= issue.amount + issue.fee;
                 })
             );
@@ -992,13 +1009,13 @@ mod cancel_issue_tests {
     /// Test cancel preconditions in the case that the vault was liquidated
     #[test]
     fn integration_test_issue_cancel_postcond_vault_liquidated() {
-        test_with_initialized_vault(|| {
-            let (issue_id, issue) = RequestIssueBuilder::new(10_000).request();
+        test_with_initialized_vault(|currency_id| {
+            let (issue_id, issue) = RequestIssueBuilder::new(currency_id, 10_000).request();
 
             SecurityPallet::set_active_block_number(IssuePallet::issue_period() + 1 + 1);
             mine_blocks((IssuePallet::issue_period() + 99) / 100 + 1);
 
-            drop_exchange_rate_and_liquidate(VAULT);
+            liquidate_vault(currency_id, VAULT);
             let post_liquidation_status = ParachainState::get();
 
             // bob cancels issue request
@@ -1009,8 +1026,8 @@ mod cancel_issue_tests {
                 ParachainState::get(),
                 post_liquidation_status.with_changes(|user, _vault, liquidation_vault, _fee_pool| {
                     // griefing collateral released instead of slashed
-                    user.locked_balance -= issue.griefing_collateral;
-                    user.free_balance += issue.griefing_collateral;
+                    (*user.balances.get_mut(&GRIEFING_CURRENCY).unwrap()).locked -= issue.griefing_collateral;
+                    (*user.balances.get_mut(&GRIEFING_CURRENCY).unwrap()).free += issue.griefing_collateral;
 
                     liquidation_vault.to_be_issued -= issue.amount + issue.fee;
                 })

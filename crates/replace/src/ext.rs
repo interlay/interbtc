@@ -51,14 +51,15 @@ pub(crate) mod vault_registry {
     use crate::{Collateral, Wrapped};
     use btc_relay::BtcAddress;
     use frame_support::dispatch::{DispatchError, DispatchResult};
-    use vault_registry::types::CurrencySource;
+    use vault_registry::types::{CurrencyId, CurrencySource};
 
     pub fn transfer_funds<T: crate::Config>(
+        currency_id: CurrencyId<T>,
         from: CurrencySource<T>,
         to: CurrencySource<T>,
         amount: Collateral<T>,
     ) -> DispatchResult {
-        <vault_registry::Pallet<T>>::transfer_funds(from, to, amount)
+        <vault_registry::Pallet<T>>::transfer_funds(currency_id, from, to, amount)
     }
     pub fn replace_tokens<T: crate::Config>(
         old_vault_id: T::AccountId,
@@ -155,20 +156,9 @@ pub(crate) mod vault_registry {
     ) -> Result<Collateral<T>, DispatchError> {
         <vault_registry::Pallet<T>>::calculate_collateral(collateral, numerator, denominator)
     }
-}
 
-#[cfg_attr(test, mockable)]
-pub(crate) mod collateral {
-    use crate::Collateral;
-    use currency::ParachainCurrency;
-    use frame_support::dispatch::DispatchResult;
-
-    pub fn release_collateral<T: crate::Config>(sender: &T::AccountId, amount: Collateral<T>) -> DispatchResult {
-        <T as vault_registry::Config>::Collateral::unlock(sender, amount)
-    }
-
-    pub fn lock_collateral<T: crate::Config>(sender: &T::AccountId, amount: Collateral<T>) -> DispatchResult {
-        <T as vault_registry::Config>::Collateral::lock(sender, amount)
+    pub fn get_collateral_currency<T: crate::Config>(vault_id: &T::AccountId) -> Result<CurrencyId<T>, DispatchError> {
+        <vault_registry::Pallet<T>>::get_collateral_currency(vault_id)
     }
 }
 
@@ -194,9 +184,13 @@ pub(crate) mod security {
 pub(crate) mod oracle {
     use crate::types::{Collateral, Wrapped};
     use frame_support::dispatch::DispatchError;
+    use vault_registry::types::CurrencyId;
 
-    pub fn wrapped_to_collateral<T: crate::Config>(amount: Wrapped<T>) -> Result<Collateral<T>, DispatchError> {
-        <exchange_rate_oracle::Pallet<T>>::wrapped_to_collateral(amount)
+    pub fn wrapped_to_collateral<T: crate::Config>(
+        currency_id: CurrencyId<T>,
+        amount: Wrapped<T>,
+    ) -> Result<Collateral<T>, DispatchError> {
+        <exchange_rate_oracle::Pallet<T>>::wrapped_to_collateral(currency_id, amount)
     }
 }
 
@@ -218,5 +212,28 @@ pub(crate) mod nomination {
 
     pub fn is_nominatable<T: crate::Config>(vault_id: &T::AccountId) -> Result<bool, DispatchError> {
         <nomination::Pallet<T>>::is_opted_in(vault_id)
+    }
+}
+
+#[cfg_attr(test, mockable)]
+pub(crate) mod currency {
+    use crate::types::Collateral;
+    use frame_support::dispatch::DispatchResult;
+    use vault_registry::types::CurrencyId;
+
+    pub fn lock<T: crate::Config>(
+        currency_id: CurrencyId<T>,
+        account: &T::AccountId,
+        amount: Collateral<T>,
+    ) -> DispatchResult {
+        currency::with_currency_id::lock::<T>(currency_id, account, amount)
+    }
+
+    pub fn unlock<T: crate::Config>(
+        currency_id: CurrencyId<T>,
+        account: &T::AccountId,
+        amount: Collateral<T>,
+    ) -> DispatchResult {
+        currency::with_currency_id::unlock::<T>(currency_id, account, amount)
     }
 }
