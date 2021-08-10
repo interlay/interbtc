@@ -81,8 +81,11 @@ pub mod pallet {
         + SendTransactionTypes<Call<Self>>
         + exchange_rate_oracle::Config<Balance = BalanceOf<Self>>
         + security::Config
-        + staking::Config<SignedInner = SignedInner<Self>, SignedFixedPoint = SignedFixedPoint<Self>>
-        + reward::Config<SignedFixedPoint = SignedFixedPoint<Self>, CurrencyId = CurrencyId<Self>>
+        + staking::Config<
+            SignedInner = SignedInner<Self>,
+            SignedFixedPoint = SignedFixedPoint<Self>,
+            CurrencyId = primitives::CurrencyId,
+        > + reward::Config<SignedFixedPoint = SignedFixedPoint<Self>, CurrencyId = CurrencyId<Self>>
         + orml_tokens::Config<Balance = BalanceOf<Self>, CurrencyId = CurrencyId<Self>>
     {
         /// The vault module id, used for deriving its sovereign account ID.

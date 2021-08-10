@@ -25,8 +25,6 @@ extern crate mocktopus;
 
 use crate::types::{Collateral, UnsignedFixedPoint, Version, Wrapped};
 
-pub type GenericCurrencyId<T> = <T as staking::Config>::CurrencyId;
-
 #[cfg(test)]
 use mocktopus::macros::mockable;
 
@@ -65,12 +63,7 @@ pub mod pallet {
     /// ## Configuration
     /// The pallet's configuration trait.
     #[pallet::config]
-    pub trait Config:
-        frame_system::Config
-        + pallet_timestamp::Config
-        + security::Config
-        + staking::Config<CurrencyId = primitives::CurrencyId>
-    {
+    pub trait Config: frame_system::Config + pallet_timestamp::Config + security::Config {
         /// The overarching event type.
         type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
 
@@ -317,20 +310,14 @@ impl<T: Config> Pallet<T> {
         Aggregate::<T>::get(key).ok_or(Error::<T>::MissingExchangeRate.into())
     }
 
-    pub fn wrapped_to_collateral(
-        currency_id: GenericCurrencyId<T>,
-        amount: Wrapped<T>,
-    ) -> Result<Collateral<T>, DispatchError> {
+    pub fn wrapped_to_collateral(currency_id: CurrencyId, amount: Wrapped<T>) -> Result<Collateral<T>, DispatchError> {
         let rate = Self::get_price(OracleKey::ExchangeRate(currency_id))?;
         let converted = rate.checked_mul_int(amount).ok_or(Error::<T>::ArithmeticOverflow)?;
         let result = converted.try_into().map_err(|_e| Error::<T>::TryIntoIntError)?;
         Ok(result)
     }
 
-    pub fn collateral_to_wrapped(
-        currency_id: GenericCurrencyId<T>,
-        amount: Collateral<T>,
-    ) -> Result<Wrapped<T>, DispatchError> {
+    pub fn collateral_to_wrapped(currency_id: CurrencyId, amount: Collateral<T>) -> Result<Wrapped<T>, DispatchError> {
         let rate = Self::get_price(OracleKey::ExchangeRate(currency_id))?;
         if amount.is_zero() {
             return Ok(Zero::zero());
@@ -363,10 +350,7 @@ impl<T: Config> Pallet<T> {
     /// # Arguments
     ///
     /// * `exchange_rate` - i.e. planck per satoshi
-    pub fn _set_exchange_rate(
-        currency_id: GenericCurrencyId<T>,
-        exchange_rate: UnsignedFixedPoint<T>,
-    ) -> DispatchResult {
+    pub fn _set_exchange_rate(currency_id: CurrencyId, exchange_rate: UnsignedFixedPoint<T>) -> DispatchResult {
         Aggregate::<T>::insert(OracleKey::ExchangeRate(currency_id), exchange_rate);
         Ok(())
     }

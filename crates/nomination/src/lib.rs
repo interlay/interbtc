@@ -60,7 +60,6 @@ pub mod pallet {
         + security::Config
         + vault_registry::Config
         + fee::Config<UnsignedFixedPoint = UnsignedFixedPoint<Self>, UnsignedInner = BalanceOf<Self>>
-        + staking::Config<SignedFixedPoint = SignedFixedPoint<Self>, SignedInner = SignedInner<Self>>
     {
         /// The overarching event type.
         type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
