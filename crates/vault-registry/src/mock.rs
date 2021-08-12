@@ -235,8 +235,8 @@ where
     T: FnOnce(),
 {
     clear_mocks();
-    ext::oracle::collateral_to_wrapped::<Test>.mock_safe(|_, v| MockResult::Return(Ok(v)));
-    ext::oracle::wrapped_to_collateral::<Test>.mock_safe(|_, v| MockResult::Return(Ok(v)));
+    ext::oracle::collateral_to_wrapped::<Test>.mock_safe(|v, _| MockResult::Return(Ok(v)));
+    ext::oracle::wrapped_to_collateral::<Test>.mock_safe(|v, _| MockResult::Return(Ok(v)));
     ExtBuilder::build().execute_with(|| {
         System::set_block_number(1);
         Security::set_active_block_number(1);

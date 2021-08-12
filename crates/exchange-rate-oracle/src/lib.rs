@@ -310,14 +310,14 @@ impl<T: Config> Pallet<T> {
         Aggregate::<T>::get(key).ok_or(Error::<T>::MissingExchangeRate.into())
     }
 
-    pub fn wrapped_to_collateral(currency_id: CurrencyId, amount: Wrapped<T>) -> Result<Collateral<T>, DispatchError> {
+    pub fn wrapped_to_collateral(amount: Wrapped<T>, currency_id: CurrencyId) -> Result<Collateral<T>, DispatchError> {
         let rate = Self::get_price(OracleKey::ExchangeRate(currency_id))?;
         let converted = rate.checked_mul_int(amount).ok_or(Error::<T>::ArithmeticOverflow)?;
         let result = converted.try_into().map_err(|_e| Error::<T>::TryIntoIntError)?;
         Ok(result)
     }
 
-    pub fn collateral_to_wrapped(currency_id: CurrencyId, amount: Collateral<T>) -> Result<Wrapped<T>, DispatchError> {
+    pub fn collateral_to_wrapped(amount: Collateral<T>, currency_id: CurrencyId) -> Result<Wrapped<T>, DispatchError> {
         let rate = Self::get_price(OracleKey::ExchangeRate(currency_id))?;
         if amount.is_zero() {
             return Ok(Zero::zero());

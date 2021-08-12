@@ -277,7 +277,7 @@ impl<T: Config> Pallet<T> {
         ext::vault_registry::ensure_not_banned::<T>(&vault_id)?;
 
         // calculate griefing collateral based on the total amount of tokens to be issued
-        let amount_collateral = ext::oracle::wrapped_to_collateral::<T>(vault.currency_id, amount_requested)?;
+        let amount_collateral = ext::oracle::wrapped_to_collateral::<T>(amount_requested, vault.currency_id)?;
         let expected_griefing_collateral = ext::fee::get_issue_griefing_collateral::<T>(amount_collateral)?;
 
         ensure!(

@@ -26,16 +26,16 @@ where
     #[rpc(name = "exchangeRateOracle_wrappedToCollateral")]
     fn wrapped_to_collateral(
         &self,
-        currency_id: CurrencyId,
         amount: BalanceWrapper<Wrapped>,
+        currency_id: CurrencyId,
         at: Option<BlockHash>,
     ) -> JsonRpcResult<BalanceWrapper<Collateral>>;
 
     #[rpc(name = "exchangeRateOracle_collateralToWrapped")]
     fn collateral_to_wrapped(
         &self,
-        currency_id: CurrencyId,
         amount: BalanceWrapper<Collateral>,
+        currency_id: CurrencyId,
         at: Option<BlockHash>,
     ) -> JsonRpcResult<BalanceWrapper<Wrapped>>;
 }
@@ -102,30 +102,30 @@ where
 {
     fn wrapped_to_collateral(
         &self,
-        currency_id: CurrencyId,
         amount: BalanceWrapper<Wrapped>,
+        currency_id: CurrencyId,
         at: Option<<Block as BlockT>::Hash>,
     ) -> JsonRpcResult<BalanceWrapper<Collateral>> {
         let api = self.client.runtime_api();
         let at = BlockId::hash(at.unwrap_or_else(|| self.client.info().best_hash));
 
         handle_response(
-            api.wrapped_to_collateral(&at, currency_id, amount),
+            api.wrapped_to_collateral(&at, amount, currency_id),
             "Unable to convert Wrapped to Collateral.".into(),
         )
     }
 
     fn collateral_to_wrapped(
         &self,
-        currency_id: CurrencyId,
         amount: BalanceWrapper<Collateral>,
+        currency_id: CurrencyId,
         at: Option<<Block as BlockT>::Hash>,
     ) -> JsonRpcResult<BalanceWrapper<Wrapped>> {
         let api = self.client.runtime_api();
         let at = BlockId::hash(at.unwrap_or_else(|| self.client.info().best_hash));
 
         handle_response(
-            api.collateral_to_wrapped(&at, currency_id, amount),
+            api.collateral_to_wrapped(&at, amount, currency_id),
             "Unable to convert Collateral to Wrapped.".into(),
         )
     }

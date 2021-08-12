@@ -686,8 +686,8 @@ mod spec_based_tests {
                 let redeem = RedeemPallet::get_open_redeem_request_from_id(&redeem_id).unwrap();
                 let parachain_state_before_cancellation = ParachainState::get();
                 let amount_without_fee_collateral = ExchangeRateOraclePallet::wrapped_to_collateral(
-                    currency_id,
                     redeem.amount_btc + redeem.transfer_fee_btc,
+                    currency_id,
                 )
                 .unwrap();
 
@@ -761,8 +761,8 @@ mod spec_based_tests {
                 let redeem = RedeemPallet::get_open_redeem_request_from_id(&redeem_id).unwrap();
                 let parachain_state_before_cancellation = ParachainState::get();
                 let amount_without_fee_as_collateral = ExchangeRateOraclePallet::wrapped_to_collateral(
-                    currency_id,
                     redeem.amount_btc + redeem.transfer_fee_btc,
+                    currency_id,
                 )
                 .unwrap();
 
@@ -823,8 +823,8 @@ mod spec_based_tests {
                 let redeem = RedeemPallet::get_open_redeem_request_from_id(&redeem_id).unwrap();
                 let parachain_state_before_cancellation = ParachainState::get();
                 let amount_without_fee_collateral = ExchangeRateOraclePallet::wrapped_to_collateral(
-                    currency_id,
                     redeem.amount_btc + redeem.transfer_fee_btc,
+                    currency_id,
                 )
                 .unwrap();
 
@@ -1278,8 +1278,8 @@ fn integration_test_redeem_wrapped_cancel_reimburse_sufficient_collateral_for_wr
         let redeem_id = setup_cancelable_redeem(USER, VAULT, 100000000, amount_btc);
         let redeem = RedeemPallet::get_open_redeem_request_from_id(&redeem_id).unwrap();
         let amount_without_fee_collateral = ExchangeRateOraclePallet::wrapped_to_collateral(
-            CurrencyId::DOT,
             redeem.amount_btc + redeem.transfer_fee_btc,
+            CurrencyId::DOT,
         )
         .unwrap();
 
@@ -1328,8 +1328,8 @@ fn integration_test_redeem_wrapped_cancel_reimburse_insufficient_collateral_for_
         let redeem_id = setup_cancelable_redeem(USER, VAULT, 100000000, amount_btc);
         let redeem = RedeemPallet::get_open_redeem_request_from_id(&redeem_id).unwrap();
         let amount_without_fee_as_collateral = ExchangeRateOraclePallet::wrapped_to_collateral(
-            CurrencyId::DOT,
             redeem.amount_btc + redeem.transfer_fee_btc,
+            CurrencyId::DOT,
         )
         .unwrap();
 
@@ -1387,8 +1387,8 @@ fn integration_test_redeem_wrapped_cancel_no_reimburse() {
         let redeem_id = setup_cancelable_redeem(USER, VAULT, 100000000, amount_btc);
         let redeem = RedeemPallet::get_open_redeem_request_from_id(&redeem_id).unwrap();
         let amount_without_fee_collateral = ExchangeRateOraclePallet::wrapped_to_collateral(
-            CurrencyId::DOT,
             redeem.amount_btc + redeem.transfer_fee_btc,
+            CurrencyId::DOT,
         )
         .unwrap();
 
@@ -1603,7 +1603,7 @@ fn setup_cancelable_redeem_with_insufficient_collateral_for_reimburse(currency_i
     let redeem_id = setup_cancelable_redeem(USER, VAULT, 100000000, amount_btc);
     let redeem = RedeemPallet::get_open_redeem_request_from_id(&redeem_id).unwrap();
     let amount_without_fee_as_collateral =
-        ExchangeRateOraclePallet::wrapped_to_collateral(CurrencyId::DOT, redeem.amount_btc + redeem.transfer_fee_btc)
+        ExchangeRateOraclePallet::wrapped_to_collateral(redeem.amount_btc + redeem.transfer_fee_btc, CurrencyId::DOT)
             .unwrap();
 
     let punishment_fee = FeePallet::get_punishment_fee(amount_without_fee_as_collateral).unwrap();

@@ -187,10 +187,10 @@ pub(crate) mod oracle {
     use vault_registry::types::CurrencyId;
 
     pub fn wrapped_to_collateral<T: crate::Config>(
-        currency_id: CurrencyId<T>,
         amount: Wrapped<T>,
+        currency_id: CurrencyId<T>,
     ) -> Result<Collateral<T>, DispatchError> {
-        <exchange_rate_oracle::Pallet<T>>::wrapped_to_collateral(currency_id, amount)
+        <exchange_rate_oracle::Pallet<T>>::wrapped_to_collateral(amount, currency_id)
     }
 }
 

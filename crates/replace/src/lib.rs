@@ -330,7 +330,7 @@ impl<T: Config> Pallet<T> {
         // check that that the total griefing collateral is sufficient to back the total to-be-replaced amount
         let currency_id = ext::vault_registry::get_collateral_currency::<T>(&vault_id)?;
         let required_collateral = ext::fee::get_replace_griefing_collateral::<T>(
-            ext::oracle::wrapped_to_collateral::<T>(currency_id, total_to_be_replaced)?,
+            ext::oracle::wrapped_to_collateral::<T>(total_to_be_replaced, currency_id)?,
         )?;
         ensure!(
             total_griefing_collateral >= required_collateral,

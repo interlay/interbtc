@@ -226,7 +226,7 @@ mod request_issue_tests {
     fn integration_test_issue_request_precond_amount_above_dust() {
         test_with_initialized_vault(|currency_id| {
             let amount = 1; // dust is set to 2
-            let amount_in_collateral = ExchangeRateOraclePallet::wrapped_to_collateral(currency_id, amount).unwrap();
+            let amount_in_collateral = ExchangeRateOraclePallet::wrapped_to_collateral(amount, currency_id).unwrap();
             let griefing_collateral = FeePallet::get_issue_griefing_collateral(amount_in_collateral).unwrap();
             assert_noop!(
                 Call::Issue(IssueCall::request_issue(amount, account_of(VAULT), griefing_collateral))
@@ -241,7 +241,7 @@ mod request_issue_tests {
     fn integration_test_issue_request_precond_griefing_collateral_sufficient() {
         test_with_initialized_vault(|currency_id| {
             let amount = 10_000;
-            let amount_in_collateral = ExchangeRateOraclePallet::wrapped_to_collateral(currency_id, amount).unwrap();
+            let amount_in_collateral = ExchangeRateOraclePallet::wrapped_to_collateral(amount, currency_id).unwrap();
             let griefing_collateral = FeePallet::get_issue_griefing_collateral(amount_in_collateral).unwrap();
             // fails below minimum
             assert_noop!(

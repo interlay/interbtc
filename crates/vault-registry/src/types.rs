@@ -373,7 +373,7 @@ impl<T: Config> RichVault<T> {
     pub fn get_used_collateral(&self) -> Result<Collateral<T>, DispatchError> {
         let issued_tokens = self.backed_tokens()?;
         let issued_tokens_in_collateral =
-            ext::oracle::wrapped_to_collateral::<T>(self.data.currency_id, issued_tokens)?;
+            ext::oracle::wrapped_to_collateral::<T>(issued_tokens, self.data.currency_id)?;
 
         let secure_threshold =
             Pallet::<T>::secure_collateral_threshold(self.data.currency_id).ok_or(Error::<T>::ThresholdNotSet)?;

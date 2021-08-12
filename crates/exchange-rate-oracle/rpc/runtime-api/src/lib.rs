@@ -39,13 +39,13 @@ sp_api::decl_runtime_apis! {
         CurrencyId: Codec,
     {
         fn wrapped_to_collateral(
+            amount: BalanceWrapper<Wrapped>,
             currency_id: CurrencyId,
-            amount: BalanceWrapper<Wrapped>
         ) -> Result<BalanceWrapper<Collateral>, DispatchError>;
 
         fn collateral_to_wrapped(
+            amount: BalanceWrapper<Collateral>,
             currency_id: CurrencyId,
-            amount: BalanceWrapper<Collateral>
         ) -> Result<BalanceWrapper<Wrapped>, DispatchError>;
     }
 }

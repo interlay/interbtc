@@ -87,7 +87,7 @@ fn test_request_redeem_fails_with_amount_exceeds_user_balance() {
 #[test]
 fn test_request_redeem_fails_with_amount_below_minimum() {
     run_test(|| {
-        ext::oracle::wrapped_to_collateral::<Test>.mock_safe(|_, x| MockResult::Return(btcdot_parity(x)));
+        ext::oracle::wrapped_to_collateral::<Test>.mock_safe(|x, _| MockResult::Return(btcdot_parity(x)));
         <vault_registry::Pallet<Test>>::insert_vault(
             &BOB,
             vault_registry::Vault {
@@ -159,7 +159,7 @@ fn test_request_redeem_fails_with_vault_liquidated() {
 #[test]
 fn test_request_redeem_succeeds_with_normal_redeem() {
     run_test(|| {
-        ext::oracle::wrapped_to_collateral::<Test>.mock_safe(|_, x| MockResult::Return(btcdot_parity(x)));
+        ext::oracle::wrapped_to_collateral::<Test>.mock_safe(|x, _| MockResult::Return(btcdot_parity(x)));
         <vault_registry::Pallet<Test>>::insert_vault(
             &BOB,
             vault_registry::Vault {
@@ -239,7 +239,7 @@ fn test_request_redeem_succeeds_with_normal_redeem() {
 #[test]
 fn test_request_redeem_succeeds_with_self_redeem() {
     run_test(|| {
-        ext::oracle::wrapped_to_collateral::<Test>.mock_safe(|_, x| MockResult::Return(btcdot_parity(x)));
+        ext::oracle::wrapped_to_collateral::<Test>.mock_safe(|x, _| MockResult::Return(btcdot_parity(x)));
         <vault_registry::Pallet<Test>>::insert_vault(
             &BOB,
             vault_registry::Vault {
@@ -347,7 +347,7 @@ fn test_liquidation_redeem_succeeds() {
 #[test]
 fn test_execute_redeem_fails_with_redeem_id_not_found() {
     run_test(|| {
-        ext::oracle::wrapped_to_collateral::<Test>.mock_safe(|_, x| MockResult::Return(btcdot_parity(x)));
+        ext::oracle::wrapped_to_collateral::<Test>.mock_safe(|x, _| MockResult::Return(btcdot_parity(x)));
         assert_err!(
             Redeem::execute_redeem(Origin::signed(BOB), H256([0u8; 32]), Vec::default(), Vec::default()),
             TestError::RedeemIdNotFound
@@ -358,7 +358,7 @@ fn test_execute_redeem_fails_with_redeem_id_not_found() {
 #[test]
 fn test_execute_redeem_succeeds_with_another_account() {
     run_test(|| {
-        ext::oracle::wrapped_to_collateral::<Test>.mock_safe(|_, x| MockResult::Return(btcdot_parity(x)));
+        ext::oracle::wrapped_to_collateral::<Test>.mock_safe(|x, _| MockResult::Return(btcdot_parity(x)));
         Security::<Test>::set_active_block_number(40);
         <vault_registry::Pallet<Test>>::insert_vault(
             &BOB,
@@ -432,7 +432,7 @@ fn test_execute_redeem_succeeds_with_another_account() {
 #[test]
 fn test_execute_redeem_succeeds() {
     run_test(|| {
-        ext::oracle::wrapped_to_collateral::<Test>.mock_safe(|_, x| MockResult::Return(btcdot_parity(x)));
+        ext::oracle::wrapped_to_collateral::<Test>.mock_safe(|x, _| MockResult::Return(btcdot_parity(x)));
         Security::<Test>::set_active_block_number(40);
         <vault_registry::Pallet<Test>>::insert_vault(
             &BOB,
@@ -766,7 +766,7 @@ mod spec_based_tests {
         // `redeemRequest.amountBtc + redeemRequest.transferFeeBtc`, `redeemRequest.premium` and
         // `redeemRequest.redeemer` as arguments.
         run_test(|| {
-            ext::oracle::wrapped_to_collateral::<Test>.mock_safe(|_, x| MockResult::Return(btcdot_parity(x)));
+            ext::oracle::wrapped_to_collateral::<Test>.mock_safe(|x, _| MockResult::Return(btcdot_parity(x)));
             Security::<Test>::set_active_block_number(40);
             <vault_registry::Pallet<Test>>::insert_vault(
                 &BOB,

@@ -1552,7 +1552,7 @@ impl<T: Config> Pallet<T> {
         ensure!(!issued_tokens.is_zero(), Error::<T>::NoTokensIssued);
 
         // convert the collateral to wrapped
-        let collateral_in_wrapped = ext::oracle::collateral_to_wrapped::<T>(vault.data.currency_id, collateral)?;
+        let collateral_in_wrapped = ext::oracle::collateral_to_wrapped::<T>(collateral, vault.data.currency_id)?;
 
         Self::get_collateralization(collateral_in_wrapped, issued_tokens)
     }
@@ -1708,7 +1708,7 @@ impl<T: Config> Pallet<T> {
             .ok_or(Error::<T>::ArithmeticUnderflow)?;
 
         // Step 2: convert the amount to collateral
-        let amount_in_collateral = ext::oracle::wrapped_to_collateral::<T>(currency_id, amount_in_wrapped)?;
+        let amount_in_collateral = ext::oracle::wrapped_to_collateral::<T>(amount_in_wrapped, currency_id)?;
         Ok(amount_in_collateral)
     }
 
@@ -1718,7 +1718,7 @@ impl<T: Config> Pallet<T> {
         currency_id: CurrencyId<T>,
     ) -> Result<Wrapped<T>, DispatchError> {
         // convert the collateral to wrapped
-        let collateral_in_wrapped = ext::oracle::collateral_to_wrapped::<T>(currency_id, collateral)?;
+        let collateral_in_wrapped = ext::oracle::collateral_to_wrapped::<T>(collateral, currency_id)?;
 
         // calculate how many tokens should be maximally issued given the threshold.
         let max_btc_as_inner = UnsignedFixedPoint::<T>::checked_from_integer(collateral_in_wrapped)

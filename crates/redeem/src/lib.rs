@@ -355,7 +355,7 @@ impl<T: Config> Pallet<T> {
         let premium_collateral = if below_premium_redeem {
             let currency_id = ext::vault_registry::get_collateral_currency::<T>(&vault_id)?;
             let redeem_amount_wrapped_in_collateral =
-                ext::oracle::wrapped_to_collateral::<T>(currency_id, user_to_be_received_btc)?;
+                ext::oracle::wrapped_to_collateral::<T>(user_to_be_received_btc, currency_id)?;
             ext::fee::get_premium_redeem_fee::<T>(redeem_amount_wrapped_in_collateral)?
         } else {
             Collateral::<T>::zero()
@@ -493,7 +493,7 @@ impl<T: Config> Pallet<T> {
             .ok_or(Error::<T>::ArithmeticOverflow)?;
 
         let amount_wrapped_in_collateral =
-            ext::oracle::wrapped_to_collateral::<T>(vault.currency_id, vault_to_be_burned_tokens)?;
+            ext::oracle::wrapped_to_collateral::<T>(vault_to_be_burned_tokens, vault.currency_id)?;
 
         let vault_currency = ext::vault_registry::get_collateral_currency::<T>(&vault_id)?;
 

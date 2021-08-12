@@ -1056,13 +1056,13 @@ impl_runtime_apis! {
         Balance,
         CurrencyId
     > for Runtime {
-        fn wrapped_to_collateral(currency_id: CurrencyId, amount: BalanceWrapper<Balance>) -> Result<BalanceWrapper<Balance>, DispatchError> {
-            let result = ExchangeRateOracle::wrapped_to_collateral(currency_id, amount.amount)?;
+        fn wrapped_to_collateral( amount: BalanceWrapper<Balance>, currency_id: CurrencyId) -> Result<BalanceWrapper<Balance>, DispatchError> {
+            let result = ExchangeRateOracle::wrapped_to_collateral(amount.amount, currency_id)?;
             Ok(BalanceWrapper{amount:result})
         }
 
-        fn collateral_to_wrapped(currency_id: CurrencyId, amount: BalanceWrapper<Balance>) -> Result<BalanceWrapper<Balance>, DispatchError> {
-            let result = ExchangeRateOracle::collateral_to_wrapped(currency_id, amount.amount)?;
+        fn collateral_to_wrapped(amount: BalanceWrapper<Balance>, currency_id: CurrencyId) -> Result<BalanceWrapper<Balance>, DispatchError> {
+            let result = ExchangeRateOracle::collateral_to_wrapped(amount.amount, currency_id)?;
             Ok(BalanceWrapper{amount:result})
         }
     }

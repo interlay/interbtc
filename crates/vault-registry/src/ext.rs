@@ -56,17 +56,17 @@ pub(crate) mod oracle {
     use frame_support::dispatch::DispatchError;
 
     pub fn wrapped_to_collateral<T: crate::Config>(
-        currency_id: CurrencyId<T>,
         amount: Wrapped<T>,
+        currency_id: CurrencyId<T>,
     ) -> Result<Collateral<T>, DispatchError> {
-        <exchange_rate_oracle::Pallet<T>>::wrapped_to_collateral(currency_id, amount)
+        <exchange_rate_oracle::Pallet<T>>::wrapped_to_collateral(amount, currency_id)
     }
 
     pub fn collateral_to_wrapped<T: crate::Config>(
-        currency_id: CurrencyId<T>,
         amount: Collateral<T>,
+        currency_id: CurrencyId<T>,
     ) -> Result<Wrapped<T>, DispatchError> {
-        <exchange_rate_oracle::Pallet<T>>::collateral_to_wrapped(currency_id, amount)
+        <exchange_rate_oracle::Pallet<T>>::collateral_to_wrapped(amount, currency_id)
     }
 }
 
