@@ -12,6 +12,7 @@ pub mod types;
 mod benchmarking;
 
 mod default_weights;
+
 pub use default_weights::WeightInfo;
 
 #[cfg(test)]
@@ -55,6 +56,7 @@ use sp_runtime::{
     FixedPointNumber, FixedPointOperand,
 };
 use sp_std::{
+    collections::btree_map::BTreeMap,
     convert::{TryFrom, TryInto},
     fmt::Debug,
     vec::Vec,
@@ -1195,9 +1197,13 @@ impl<T: Config> Pallet<T> {
     }
 
     fn undercollateralized_vaults() -> impl Iterator<Item = T::AccountId> {
-        <Vaults<T>>::iter().filter_map(|(vault_id, vault)| {
-            if let Some(liquidation_threshold) = Self::liquidation_collateral_threshold(vault.currency_id) {
-                if Self::is_vault_below_liquidation_threshold(&vault, liquidation_threshold).unwrap_or(false) {
+        // Cache the thresholds. Since we don't have a hashmap available in the no-std environment,
+        // use a binary tree map
+        let liquidation_thresholds: BTreeMap<_, _> = LiquidationCollateralThreshold::<T>::iter().collect();
+
+        <Vaults<T>>::iter().filter_map(move |(vault_id, vault)| {
+            if let Some(liquidation_threshold) = liquidation_thresholds.get(&vault.currency_id) {
+                if Self::is_vault_below_liquidation_threshold(&vault, *liquidation_threshold).unwrap_or(false) {
                     return Some(vault_id);
                 }
             }
