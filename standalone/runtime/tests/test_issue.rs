@@ -239,9 +239,16 @@ mod request_issue_tests {
     /// Request fails if insufficient griefing collateral is provided
     #[test]
     fn integration_test_issue_request_precond_griefing_collateral_sufficient() {
-        test_with_initialized_vault(|currency_id| {
+        test_with_initialized_vault(|_currency_id| {
             let amount = 10_000;
-            let amount_in_collateral = ExchangeRateOraclePallet::wrapped_to_collateral(amount, currency_id).unwrap();
+
+            assert_ok!(ExchangeRateOraclePallet::_set_exchange_rate(
+                DOT,
+                FixedU128::checked_from_integer(5).unwrap()
+            ));
+
+            // griefing collateral uses DOT
+            let amount_in_collateral = ExchangeRateOraclePallet::wrapped_to_collateral(amount, DOT).unwrap();
             let griefing_collateral = FeePallet::get_issue_griefing_collateral(amount_in_collateral).unwrap();
             // fails below minimum
             assert_noop!(
