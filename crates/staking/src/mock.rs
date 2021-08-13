@@ -1,7 +1,7 @@
 use crate as staking;
 use crate::{Config, Error};
-use codec::{Decode, Encode};
 use frame_support::parameter_types;
+pub use primitives::CurrencyId;
 use sp_arithmetic::FixedI128;
 use sp_core::H256;
 use sp_runtime::{
@@ -59,13 +59,6 @@ impl frame_system::Config for Test {
     type SystemWeightInfo = ();
     type SS58Prefix = SS58Prefix;
     type OnSetCode = ();
-}
-
-#[derive(Encode, Decode, Debug, PartialEq, PartialOrd, Ord, Eq, Clone, Copy)]
-#[cfg_attr(feature = "std", derive(serde::Serialize, serde::Deserialize))]
-pub enum CurrencyId {
-    DOT,
-    INTERBTC,
 }
 
 pub const DOT: CurrencyId = CurrencyId::DOT;

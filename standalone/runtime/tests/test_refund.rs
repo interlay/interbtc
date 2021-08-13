@@ -6,8 +6,11 @@ use mock::*;
 fn test_with<R>(execute: impl FnOnce() -> R) -> R {
     ExtBuilder::build().execute_with(|| {
         SecurityPallet::set_active_block_number(1);
-        assert_ok!(ExchangeRateOraclePallet::_set_exchange_rate(FixedU128::one()));
-        CoreVaultData::force_to(BOB, default_vault_state());
+        assert_ok!(ExchangeRateOraclePallet::_set_exchange_rate(
+            DEFAULT_TESTING_CURRENCY,
+            FixedU128::one()
+        ));
+        CoreVaultData::force_to(BOB, default_vault_state(DEFAULT_TESTING_CURRENCY));
         execute()
     })
 }
@@ -93,7 +96,7 @@ mod spec_based_tests {
                     // POSTCONDITION: vault.issued_tokens MUST increase by fee
                     vault.issued += refund_fee;
                     // POSTCONDITION: vault.free_balance MUST increase by fee
-                    vault.free_balance += refund_fee;
+                    *vault.free_balance.get_mut(&INTERBTC).unwrap() += refund_fee;
                 })
             );
         });

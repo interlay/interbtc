@@ -14,9 +14,12 @@ pub use default_weights::WeightInfo;
 #[cfg(test)]
 extern crate mocktopus;
 
+use btc_relay::BtcAddress;
 use frame_support::{
     dispatch::{DispatchError, DispatchResult},
-    ensure, transactional,
+    ensure,
+    traits::Get,
+    transactional,
 };
 use frame_system::{ensure_root, ensure_signed};
 #[cfg(test)]
@@ -24,8 +27,6 @@ use mocktopus::macros::mockable;
 use sp_core::H256;
 use sp_runtime::traits::Zero;
 use sp_std::vec::Vec;
-
-use btc_relay::BtcAddress;
 
 #[doc(inline)]
 pub use crate::types::{ReplaceRequest, ReplaceRequestStatus};
@@ -327,8 +328,9 @@ impl<T: Config> Pallet<T> {
         ensure!(total_to_be_replaced >= dust_value, Error::<T>::AmountBelowDustAmount);
 
         // check that that the total griefing collateral is sufficient to back the total to-be-replaced amount
+        let currency_id = ext::vault_registry::get_collateral_currency::<T>(&vault_id)?;
         let required_collateral = ext::fee::get_replace_griefing_collateral::<T>(
-            ext::oracle::wrapped_to_collateral::<T>(total_to_be_replaced)?,
+            ext::oracle::wrapped_to_collateral::<T>(total_to_be_replaced, currency_id)?,
         )?;
         ensure!(
             total_griefing_collateral >= required_collateral,
@@ -338,7 +340,11 @@ impl<T: Config> Pallet<T> {
         // Lock the oldVault’s griefing collateral. Note that this directly locks the amount
         // without going through the vault registry, so that this amount can not be used to
         // back issued tokens
-        ext::collateral::lock_collateral::<T>(&vault_id, replace_collateral_increase)?;
+        ext::currency::lock::<T>(
+            T::GetGriefingCollateralCurrencyId::get(),
+            &vault_id,
+            replace_collateral_increase,
+        )?;
 
         // Emit RequestReplace event
         Self::deposit_event(<Event<T>>::RequestReplace(
@@ -355,7 +361,11 @@ impl<T: Config> Pallet<T> {
             ext::vault_registry::decrease_to_be_replaced_tokens::<T>(&vault_id, amount)?;
 
         // release the used collateral
-        ext::collateral::release_collateral::<T>(&vault_id, to_withdraw_collateral)?;
+        ext::currency::unlock::<T>(
+            T::GetGriefingCollateralCurrencyId::get(),
+            &vault_id,
+            to_withdraw_collateral,
+        )?;
 
         if withdrawn_tokens.is_zero() {
             return Err(Error::<T>::NoPendingRequest.into());
@@ -466,7 +476,11 @@ impl<T: Config> Pallet<T> {
         )?;
 
         // if the old vault has not been liquidated, give it back its griefing collateral
-        ext::collateral::release_collateral::<T>(&old_vault_id, replace.griefing_collateral)?;
+        ext::currency::unlock::<T>(
+            T::GetGriefingCollateralCurrencyId::get(),
+            &old_vault_id,
+            replace.griefing_collateral,
+        )?;
 
         // Emit ExecuteReplace event.
         Self::deposit_event(<Event<T>>::ExecuteReplace(replace_id, old_vault_id, new_vault_id));
@@ -500,21 +514,12 @@ impl<T: Config> Pallet<T> {
         ext::vault_registry::cancel_replace_tokens::<T>(&replace.old_vault, &new_vault_id, replace.amount)?;
 
         // slash old-vault's griefing collateral
-        if !ext::vault_registry::is_vault_liquidated::<T>(&new_vault_id)? {
-            // new-vault is not liquidated - give it the griefing collateral
-            ext::vault_registry::transfer_funds::<T>(
-                CurrencySource::Griefing(replace.old_vault.clone()),
-                CurrencySource::Collateral(new_vault_id.clone()),
-                replace.griefing_collateral,
-            )?;
-        } else {
-            // new-vault is liquidated - slash to its free balance
-            ext::vault_registry::transfer_funds::<T>(
-                CurrencySource::Griefing(replace.old_vault.clone()),
-                CurrencySource::FreeBalance(new_vault_id.clone()),
-                replace.griefing_collateral,
-            )?;
-        }
+        ext::vault_registry::transfer_funds::<T>(
+            T::GetGriefingCollateralCurrencyId::get(),
+            CurrencySource::Griefing(replace.old_vault.clone()),
+            CurrencySource::FreeBalance(new_vault_id.clone()),
+            replace.griefing_collateral,
+        )?;
 
         // if the new_vault locked additional collateral especially for this replace,
         // release it if it does not cause him to be undercollateralized

@@ -3,6 +3,7 @@ use codec::{Decode, Encode, HasCompact};
 use frame_support::{
     dispatch::{DispatchError, DispatchResult},
     ensure,
+    traits::Get,
 };
 use sp_arithmetic::FixedPointNumber;
 use sp_core::H256;
@@ -50,7 +51,7 @@ impl<T: Config> CurrencySource<T> {
         }
     }
 
-    pub fn current_balance(&self) -> Result<Collateral<T>, DispatchError> {
+    pub fn current_balance(&self, currency_id: CurrencyId<T>) -> Result<Collateral<T>, DispatchError> {
         match self {
             CurrencySource::Collateral(x) => Pallet::<T>::get_backing_collateral(x),
             CurrencySource::Griefing(x) => {
@@ -66,14 +67,21 @@ impl<T: Config> CurrencySource<T> {
                     backing_collateral
                 };
 
-                let current = ext::collateral::get_reserved_balance::<T>(&x);
-                Ok(current
-                    .checked_sub(&backing_collateral)
-                    .ok_or(Error::<T>::ArithmeticUnderflow)?)
+                let current = ext::currency::get_reserved_balance::<T>(currency_id, &x);
+                if currency_id == vault.data.currency_id {
+                    Ok(current
+                        .checked_sub(&backing_collateral)
+                        .ok_or(Error::<T>::ArithmeticUnderflow)?)
+                } else {
+                    Ok(current)
+                }
             }
-            CurrencySource::FreeBalance(x) => Ok(ext::collateral::get_free_balance::<T>(x)),
-            CurrencySource::ReservedBalance(x) => Ok(ext::collateral::get_reserved_balance::<T>(x)),
-            CurrencySource::LiquidationVault => Ok(ext::collateral::get_reserved_balance::<T>(&self.account_id())),
+            CurrencySource::FreeBalance(x) => Ok(ext::currency::get_free_balance::<T>(currency_id, x)),
+            CurrencySource::ReservedBalance(x) => Ok(ext::currency::get_reserved_balance::<T>(currency_id, x)),
+            CurrencySource::LiquidationVault => Ok(ext::currency::get_reserved_balance::<T>(
+                currency_id,
+                &self.account_id(),
+            )),
         }
     }
 }
@@ -90,7 +98,7 @@ pub(crate) type UnsignedFixedPoint<T> = <T as Config>::UnsignedFixedPoint;
 
 pub(crate) type SignedInner<T> = <T as Config>::SignedInner;
 
-pub(crate) type CurrencyId<T> = <T as staking::Config>::CurrencyId;
+pub type CurrencyId<T> = <T as staking::Config>::CurrencyId;
 
 #[derive(Encode, Decode, Clone, PartialEq, Debug, Default)]
 pub struct Wallet {
@@ -136,9 +144,9 @@ impl Default for VaultStatus {
     }
 }
 
-#[derive(Encode, Decode, Default, Clone, PartialEq)]
+#[derive(Encode, Decode, Clone, PartialEq)]
 #[cfg_attr(feature = "std", derive(Debug))]
-pub struct Vault<AccountId, BlockNumber, Balance> {
+pub struct Vault<AccountId, BlockNumber, Balance, CurrencyId> {
     /// Account identifier of the Vault
     pub id: AccountId,
     /// Bitcoin address of this Vault (P2PKH, P2SH, P2WPKH, P2WSH)
@@ -163,6 +171,8 @@ pub struct Vault<AccountId, BlockNumber, Balance> {
     /// Amount of collateral that is locked for remaining to_be_redeemed
     /// tokens upon liquidation.
     pub liquidated_collateral: Balance,
+    /// the currency the vault uses for collateral
+    pub currency_id: CurrencyId,
 }
 
 #[derive(Encode, Decode, Default, Clone, PartialEq)]
@@ -176,17 +186,28 @@ pub struct SystemVault<Balance> {
     pub to_be_redeemed_tokens: Balance,
 }
 
-impl<AccountId: Default + Ord, BlockNumber: Default, Balance: HasCompact + Default>
-    Vault<AccountId, BlockNumber, Balance>
+impl<AccountId: Default + Ord, BlockNumber: Default, Balance: HasCompact + Default, CurrencyId>
+    Vault<AccountId, BlockNumber, Balance, CurrencyId>
 {
-    pub(crate) fn new(id: AccountId, public_key: BtcPublicKey) -> Vault<AccountId, BlockNumber, Balance> {
+    // note: public only for testing purposes
+    pub fn new(
+        id: AccountId,
+        public_key: BtcPublicKey,
+        currency_id: CurrencyId,
+    ) -> Vault<AccountId, BlockNumber, Balance, CurrencyId> {
         let wallet = Wallet::new(public_key);
         Vault {
             id,
             wallet,
             banned_until: None,
             status: VaultStatus::Active(true),
-            ..Default::default()
+            currency_id,
+            issued_tokens: Default::default(),
+            liquidated_collateral: Default::default(),
+            replace_collateral: Default::default(),
+            to_be_issued_tokens: Default::default(),
+            to_be_redeemed_tokens: Default::default(),
+            to_be_replaced_tokens: Default::default(),
         }
     }
 
@@ -195,8 +216,12 @@ impl<AccountId: Default + Ord, BlockNumber: Default, Balance: HasCompact + Defau
     }
 }
 
-pub type DefaultVault<T> =
-    Vault<<T as frame_system::Config>::AccountId, <T as frame_system::Config>::BlockNumber, BalanceOf<T>>;
+pub type DefaultVault<T> = Vault<
+    <T as frame_system::Config>::AccountId,
+    <T as frame_system::Config>::BlockNumber,
+    BalanceOf<T>,
+    CurrencyId<T>,
+>;
 
 pub type DefaultSystemVault<T> = SystemVault<BalanceOf<T>>;
 
@@ -347,9 +372,11 @@ impl<T: Config> RichVault<T> {
 
     pub fn get_used_collateral(&self) -> Result<Collateral<T>, DispatchError> {
         let issued_tokens = self.backed_tokens()?;
-        let issued_tokens_in_collateral = ext::oracle::wrapped_to_collateral::<T>(issued_tokens)?;
+        let issued_tokens_in_collateral =
+            ext::oracle::wrapped_to_collateral::<T>(issued_tokens, self.data.currency_id)?;
 
-        let secure_threshold = Pallet::<T>::secure_collateral_threshold();
+        let secure_threshold =
+            Pallet::<T>::secure_collateral_threshold(self.data.currency_id).ok_or(Error::<T>::ThresholdNotSet)?;
 
         let used_collateral = secure_threshold
             .checked_mul_int(issued_tokens_in_collateral)
@@ -368,11 +395,15 @@ impl<T: Config> RichVault<T> {
         // free_collateral = collateral - used_collateral
         let free_collateral = self.get_free_collateral()?;
 
-        let secure_threshold = Pallet::<T>::secure_collateral_threshold();
+        let secure_threshold =
+            Pallet::<T>::secure_collateral_threshold(self.data.currency_id).ok_or(Error::<T>::ThresholdNotSet)?;
 
         // issuable_tokens = (free_collateral / exchange_rate) / secure_collateral_threshold
-        let issuable =
-            Pallet::<T>::calculate_max_wrapped_from_collateral_for_threshold(free_collateral, secure_threshold)?;
+        let issuable = Pallet::<T>::calculate_max_wrapped_from_collateral_for_threshold(
+            free_collateral,
+            secure_threshold,
+            self.data.currency_id,
+        )?;
 
         Ok(issuable)
     }
@@ -453,11 +484,12 @@ impl<T: Config> RichVault<T> {
             .unwrap_or((amount, Zero::zero()));
 
         // "slash" vault first
-        ext::staking::withdraw_stake::<T>(&vault_id, &vault_id, to_withdraw)?;
+        ext::staking::withdraw_stake::<T>(T::GetRewardsCurrencyId::get(), &vault_id, &vault_id, to_withdraw)?;
         // take remainder from nominators
-        ext::staking::slash_stake::<T>(&vault_id, to_slash)?;
+        ext::staking::slash_stake::<T>(T::GetRewardsCurrencyId::get(), &vault_id, to_slash)?;
 
         Pallet::<T>::transfer_funds(
+            self.data.currency_id,
             CurrencySource::ReservedBalance(self.id()),
             CurrencySource::LiquidationVault,
             amount,
@@ -490,7 +522,11 @@ impl<T: Config> RichVault<T> {
 
         // temporarily slash additional collateral for the to_be_redeemed tokens
         // this is re-distributed once the tokens are burned
-        ext::staking::slash_stake::<T>(&self.id(), collateral_for_to_be_redeemed)?;
+        ext::staking::slash_stake::<T>(
+            T::GetRewardsCurrencyId::get(),
+            &self.id(),
+            collateral_for_to_be_redeemed,
+        )?;
         self.increase_liquidated_collateral(collateral_for_to_be_redeemed)?;
 
         // Copy all tokens to the liquidation vault
@@ -570,7 +606,7 @@ impl<T: Config> RichVault<T> {
         F: Fn(&mut DefaultVault<T>) -> DispatchResult,
     {
         func(&mut self.data)?;
-        <crate::Vaults<T>>::mutate(&self.data.id, func)?;
+        <crate::Vaults<T>>::insert(&self.data.id, &self.data);
         Ok(())
     }
 }

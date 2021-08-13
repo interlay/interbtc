@@ -20,16 +20,17 @@ pub fn disable_nomination() {
         .dispatch(<Runtime as frame_system::Config>::Origin::root()));
 }
 
-pub fn register_vault(vault: [u8; 32]) -> DispatchResultWithPostInfo {
+pub fn register_vault(currency_id: CurrencyId, vault: [u8; 32]) -> DispatchResultWithPostInfo {
     Call::VaultRegistry(VaultRegistryCall::register_vault(
         DEFAULT_BACKING_COLLATERAL,
         dummy_public_key(),
+        currency_id,
     ))
     .dispatch(origin_of(account_of(vault)))
 }
 
-pub fn assert_register_vault(vault: [u8; 32]) {
-    assert_ok!(register_vault(vault));
+pub fn assert_register_vault(currency_id: CurrencyId, vault: [u8; 32]) {
+    assert_ok!(register_vault(currency_id, vault));
 }
 
 pub fn nomination_opt_in(vault: [u8; 32]) -> DispatchResultWithPostInfo {

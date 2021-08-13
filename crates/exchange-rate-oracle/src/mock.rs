@@ -2,7 +2,7 @@ use crate as exchange_rate_oracle;
 use crate::{Config, Error};
 use frame_support::{parameter_types, traits::GenesisBuild};
 use mocktopus::mocking::clear_mocks;
-use sp_arithmetic::FixedU128;
+use sp_arithmetic::{FixedI128, FixedU128};
 use sp_core::H256;
 use sp_runtime::{
     testing::Header,
@@ -25,6 +25,7 @@ frame_support::construct_runtime!(
         // Operational
         Security: security::{Pallet, Call, Storage, Event<T>},
         ExchangeRateOracle: exchange_rate_oracle::{Pallet, Call, Config<T>, Storage, Event<T>},
+        Staking: staking::{Pallet, Storage, Event<T>},
     }
 );
 
@@ -32,6 +33,9 @@ pub type AccountId = u64;
 pub type Balance = u128;
 pub type BlockNumber = u64;
 pub type UnsignedFixedPoint = FixedU128;
+pub type SignedFixedPoint = FixedI128;
+pub type SignedInner = i128;
+pub type CurrencyId = primitives::CurrencyId;
 pub type Moment = u64;
 pub type Index = u64;
 
@@ -86,6 +90,13 @@ impl pallet_timestamp::Config for Test {
 
 impl security::Config for Test {
     type Event = TestEvent;
+}
+
+impl staking::Config for Test {
+    type Event = TestEvent;
+    type SignedFixedPoint = SignedFixedPoint;
+    type SignedInner = SignedInner;
+    type CurrencyId = CurrencyId;
 }
 
 pub type TestEvent = Event;

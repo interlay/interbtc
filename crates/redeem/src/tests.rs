@@ -9,7 +9,7 @@ use mocktopus::mocking::*;
 use security::Pallet as Security;
 use sp_core::{H160, H256};
 use sp_std::convert::TryInto;
-use vault_registry::{VaultStatus, Wallet};
+use vault_registry::{DefaultVault, VaultStatus, Wallet};
 
 type Event = crate::Event<Test>;
 
@@ -56,6 +56,22 @@ fn dummy_public_key() -> BtcPublicKey {
     ])
 }
 
+fn default_vault() -> DefaultVault<Test> {
+    vault_registry::Vault {
+        id: BOB,
+        to_be_replaced_tokens: 0,
+        to_be_issued_tokens: 0,
+        issued_tokens: 10,
+        replace_collateral: 0,
+        to_be_redeemed_tokens: 0,
+        wallet: Wallet::new(dummy_public_key()),
+        banned_until: None,
+        status: VaultStatus::Active(true),
+        currency_id: DEFAULT_TESTING_CURRENCY,
+        liquidated_collateral: 0,
+    }
+}
+
 #[test]
 fn test_request_redeem_fails_with_amount_exceeds_user_balance() {
     run_test(|| {
@@ -71,7 +87,7 @@ fn test_request_redeem_fails_with_amount_exceeds_user_balance() {
 #[test]
 fn test_request_redeem_fails_with_amount_below_minimum() {
     run_test(|| {
-        ext::oracle::wrapped_to_collateral::<Test>.mock_safe(|x| MockResult::Return(btcdot_parity(x)));
+        ext::oracle::wrapped_to_collateral::<Test>.mock_safe(|x, _| MockResult::Return(btcdot_parity(x)));
         <vault_registry::Pallet<Test>>::insert_vault(
             &BOB,
             vault_registry::Vault {
@@ -84,7 +100,8 @@ fn test_request_redeem_fails_with_amount_below_minimum() {
                 wallet: Wallet::new(dummy_public_key()),
                 banned_until: None,
                 status: VaultStatus::Active(true),
-                ..Default::default()
+                currency_id: DEFAULT_TESTING_CURRENCY,
+                liquidated_collateral: 0,
             },
         );
 
@@ -142,7 +159,7 @@ fn test_request_redeem_fails_with_vault_liquidated() {
 #[test]
 fn test_request_redeem_succeeds_with_normal_redeem() {
     run_test(|| {
-        ext::oracle::wrapped_to_collateral::<Test>.mock_safe(|x| MockResult::Return(btcdot_parity(x)));
+        ext::oracle::wrapped_to_collateral::<Test>.mock_safe(|x, _| MockResult::Return(btcdot_parity(x)));
         <vault_registry::Pallet<Test>>::insert_vault(
             &BOB,
             vault_registry::Vault {
@@ -155,7 +172,8 @@ fn test_request_redeem_succeeds_with_normal_redeem() {
                 wallet: Wallet::new(dummy_public_key()),
                 banned_until: None,
                 status: VaultStatus::Active(true),
-                ..Default::default()
+                currency_id: DEFAULT_TESTING_CURRENCY,
+                liquidated_collateral: 0,
             },
         );
 
@@ -221,7 +239,7 @@ fn test_request_redeem_succeeds_with_normal_redeem() {
 #[test]
 fn test_request_redeem_succeeds_with_self_redeem() {
     run_test(|| {
-        ext::oracle::wrapped_to_collateral::<Test>.mock_safe(|x| MockResult::Return(btcdot_parity(x)));
+        ext::oracle::wrapped_to_collateral::<Test>.mock_safe(|x, _| MockResult::Return(btcdot_parity(x)));
         <vault_registry::Pallet<Test>>::insert_vault(
             &BOB,
             vault_registry::Vault {
@@ -234,7 +252,8 @@ fn test_request_redeem_succeeds_with_self_redeem() {
                 wallet: Wallet::new(dummy_public_key()),
                 banned_until: None,
                 status: VaultStatus::Active(true),
-                ..Default::default()
+                currency_id: DEFAULT_TESTING_CURRENCY,
+                liquidated_collateral: 0,
             },
         );
 
@@ -310,21 +329,25 @@ fn test_liquidation_redeem_succeeds() {
             MockResult::Return(Ok(()))
         });
 
-        ext::vault_registry::redeem_tokens_liquidation::<Test>.mock_safe(move |redeemer_id, amount| {
+        ext::vault_registry::redeem_tokens_liquidation::<Test>.mock_safe(move |_, redeemer_id, amount| {
             assert_eq!(redeemer_id, &ALICE);
             assert_eq!(amount, total_amount);
 
             MockResult::Return(Ok(()))
         });
 
-        assert_ok!(Redeem::liquidation_redeem(Origin::signed(ALICE), total_amount,));
+        assert_ok!(Redeem::liquidation_redeem(
+            Origin::signed(ALICE),
+            total_amount,
+            DEFAULT_TESTING_CURRENCY
+        ));
     })
 }
 
 #[test]
 fn test_execute_redeem_fails_with_redeem_id_not_found() {
     run_test(|| {
-        ext::oracle::wrapped_to_collateral::<Test>.mock_safe(|x| MockResult::Return(btcdot_parity(x)));
+        ext::oracle::wrapped_to_collateral::<Test>.mock_safe(|x, _| MockResult::Return(btcdot_parity(x)));
         assert_err!(
             Redeem::execute_redeem(Origin::signed(BOB), H256([0u8; 32]), Vec::default(), Vec::default()),
             TestError::RedeemIdNotFound
@@ -335,7 +358,7 @@ fn test_execute_redeem_fails_with_redeem_id_not_found() {
 #[test]
 fn test_execute_redeem_succeeds_with_another_account() {
     run_test(|| {
-        ext::oracle::wrapped_to_collateral::<Test>.mock_safe(|x| MockResult::Return(btcdot_parity(x)));
+        ext::oracle::wrapped_to_collateral::<Test>.mock_safe(|x, _| MockResult::Return(btcdot_parity(x)));
         Security::<Test>::set_active_block_number(40);
         <vault_registry::Pallet<Test>>::insert_vault(
             &BOB,
@@ -349,7 +372,8 @@ fn test_execute_redeem_succeeds_with_another_account() {
                 wallet: Wallet::new(dummy_public_key()),
                 banned_until: None,
                 status: VaultStatus::Active(true),
-                ..Default::default()
+                currency_id: DEFAULT_TESTING_CURRENCY,
+                liquidated_collateral: 0,
             },
         );
         ext::btc_relay::parse_merkle_proof::<Test>.mock_safe(|_| MockResult::Return(Ok(dummy_merkle_proof())));
@@ -408,7 +432,7 @@ fn test_execute_redeem_succeeds_with_another_account() {
 #[test]
 fn test_execute_redeem_succeeds() {
     run_test(|| {
-        ext::oracle::wrapped_to_collateral::<Test>.mock_safe(|x| MockResult::Return(btcdot_parity(x)));
+        ext::oracle::wrapped_to_collateral::<Test>.mock_safe(|x, _| MockResult::Return(btcdot_parity(x)));
         Security::<Test>::set_active_block_number(40);
         <vault_registry::Pallet<Test>>::insert_vault(
             &BOB,
@@ -422,7 +446,8 @@ fn test_execute_redeem_succeeds() {
                 wallet: Wallet::new(dummy_public_key()),
                 banned_until: None,
                 status: VaultStatus::Active(true),
-                ..Default::default()
+                currency_id: DEFAULT_TESTING_CURRENCY,
+                liquidated_collateral: 0,
             },
         );
         ext::btc_relay::parse_merkle_proof::<Test>.mock_safe(|_| MockResult::Return(Ok(dummy_merkle_proof())));
@@ -571,14 +596,16 @@ fn test_cancel_redeem_succeeds() {
             MockResult::Return(Ok(()))
         });
         ext::treasury::unlock::<Test>.mock_safe(|_, _| MockResult::Return(Ok(())));
-        ext::vault_registry::transfer_funds_saturated::<Test>.mock_safe(move |_, _, _| MockResult::Return(Ok(0)));
+        ext::vault_registry::transfer_funds_saturated::<Test>.mock_safe(move |_, _, _, _| MockResult::Return(Ok(0)));
         ext::vault_registry::get_vault_from_id::<Test>.mock_safe(|_| {
             MockResult::Return(Ok(vault_registry::types::Vault {
                 status: VaultStatus::Active(true),
-                ..Default::default()
+                ..vault_registry::types::Vault::new(Default::default(), Default::default(), DEFAULT_TESTING_CURRENCY)
             }))
         });
         ext::vault_registry::decrease_to_be_redeemed_tokens::<Test>.mock_safe(|_, _| MockResult::Return(Ok(())));
+        ext::vault_registry::get_collateral_currency::<Test>
+            .mock_safe(|_| MockResult::Return(Ok(DEFAULT_TESTING_CURRENCY)));
         assert_ok!(Redeem::cancel_redeem(Origin::signed(ALICE), H256([0u8; 32]), false));
         assert_err!(
             Redeem::get_open_redeem_request_from_id(&H256([0u8; 32])),
@@ -621,7 +648,7 @@ fn test_mint_tokens_for_reimbursed_redeem() {
                 id: BOB,
                 banned_until: Some(100),
                 status: VaultStatus::Active(true),
-                ..Default::default()
+                ..default_vault()
             },
         );
         Security::<Test>::set_active_block_number(100);
@@ -690,7 +717,7 @@ mod spec_based_tests {
             });
 
             // The returned `replaceCollateral` MUST be released
-            ext::collateral::release_collateral::<Test>.mock_safe(move |vault_id, collateral| {
+            ext::currency::unlock::<Test>.mock_safe(move |_, vault_id, collateral| {
                 assert_eq!(vault_id, &BOB);
                 assert_eq!(collateral, replace_collateral);
                 MockResult::Return(Ok(()))
@@ -722,14 +749,14 @@ mod spec_based_tests {
                 MockResult::Return(Ok(()))
             });
 
-            ext::vault_registry::redeem_tokens_liquidation::<Test>.mock_safe(move |redeemer_id, amount| {
+            ext::vault_registry::redeem_tokens_liquidation::<Test>.mock_safe(move |_, redeemer_id, amount| {
                 assert_eq!(redeemer_id, &ALICE);
                 assert_eq!(amount, total_amount);
 
                 MockResult::Return(Ok(()))
             });
 
-            assert_ok!(Redeem::liquidation_redeem(Origin::signed(ALICE), total_amount,));
+            assert_ok!(Redeem::liquidation_redeem(Origin::signed(ALICE), total_amount, DOT));
         })
     }
 
@@ -739,7 +766,7 @@ mod spec_based_tests {
         // `redeemRequest.amountBtc + redeemRequest.transferFeeBtc`, `redeemRequest.premium` and
         // `redeemRequest.redeemer` as arguments.
         run_test(|| {
-            ext::oracle::wrapped_to_collateral::<Test>.mock_safe(|x| MockResult::Return(btcdot_parity(x)));
+            ext::oracle::wrapped_to_collateral::<Test>.mock_safe(|x, _| MockResult::Return(btcdot_parity(x)));
             Security::<Test>::set_active_block_number(40);
             <vault_registry::Pallet<Test>>::insert_vault(
                 &BOB,
@@ -753,7 +780,7 @@ mod spec_based_tests {
                     wallet: Wallet::new(dummy_public_key()),
                     banned_until: None,
                     status: VaultStatus::Active(true),
-                    ..Default::default()
+                    ..default_vault()
                 },
             );
             ext::btc_relay::parse_merkle_proof::<Test>.mock_safe(|_| MockResult::Return(Ok(dummy_merkle_proof())));
@@ -836,12 +863,14 @@ mod spec_based_tests {
             });
             ext::treasury::unlock::<Test>.mock_safe(|_, _| MockResult::Return(Ok(())));
             ext::treasury::unlock_and_transfer::<Test>.mock_safe(|_, _, _| MockResult::Return(Ok(())));
-
-            ext::vault_registry::transfer_funds_saturated::<Test>.mock_safe(move |_, _, _| MockResult::Return(Ok(0)));
+            ext::vault_registry::get_collateral_currency::<Test>
+                .mock_safe(|_| MockResult::Return(Ok(DEFAULT_TESTING_CURRENCY)));
+            ext::vault_registry::transfer_funds_saturated::<Test>
+                .mock_safe(move |_, _, _, _| MockResult::Return(Ok(0)));
             ext::vault_registry::get_vault_from_id::<Test>.mock_safe(|_| {
                 MockResult::Return(Ok(vault_registry::types::Vault {
                     status: VaultStatus::Active(true),
-                    ..Default::default()
+                    ..default_vault()
                 }))
             });
             ext::vault_registry::decrease_to_be_redeemed_tokens::<Test>.mock_safe(move |vault, amount| {
@@ -895,12 +924,14 @@ mod spec_based_tests {
             });
             ext::treasury::unlock::<Test>.mock_safe(|_, _| MockResult::Return(Ok(())));
             ext::treasury::burn::<Test>.mock_safe(|_, _| MockResult::Return(Ok(())));
-
-            ext::vault_registry::transfer_funds_saturated::<Test>.mock_safe(move |_, _, _| MockResult::Return(Ok(0)));
+            ext::vault_registry::get_collateral_currency::<Test>
+                .mock_safe(|_| MockResult::Return(Ok(DEFAULT_TESTING_CURRENCY)));
+            ext::vault_registry::transfer_funds_saturated::<Test>
+                .mock_safe(move |_, _, _, _| MockResult::Return(Ok(0)));
             ext::vault_registry::get_vault_from_id::<Test>.mock_safe(|_| {
                 MockResult::Return(Ok(vault_registry::types::Vault {
                     status: VaultStatus::Active(true),
-                    ..Default::default()
+                    ..default_vault()
                 }))
             });
             ext::vault_registry::decrease_tokens::<Test>.mock_safe(move |vault, user, amount| {

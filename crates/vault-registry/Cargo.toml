@@ -32,14 +32,15 @@ security = { path = "../security", default-features = false }
 currency = { path = "../currency", default-features = false }
 reward = { path = "../reward", default-features = false }
 staking = { path = "../staking", default-features = false }
-
-[dev-dependencies]
-mocktopus = "0.7.0"
-frame-benchmarking = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.8", default-features = false }
+primitives = { package = "interbtc-primitives", path = "../../primitives", default-features = false }
 
 # Orml dependencies
 orml-tokens = { git = "https://github.com/open-web3-stack/open-runtime-module-library", rev = "81511f1", default-features = false }
 orml-traits = { git = "https://github.com/open-web3-stack/open-runtime-module-library", rev = "81511f1", default-features = false }
+
+[dev-dependencies]
+mocktopus = "0.7.0"
+frame-benchmarking = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.8", default-features = false }
 
 [features]
 default = ["std"]
@@ -59,6 +60,9 @@ std = [
   "pallet-timestamp/std",
   "pallet-randomness-collective-flip/std",
 
+  "orml-tokens/std",
+  "orml-traits/std",
+
   "bitcoin/std",
   "exchange-rate-oracle/std",
   "fee/std",
@@ -66,6 +70,7 @@ std = [
   "currency/std",
   "reward/std",
   "staking/std",
+  "primitives/std",
 ]
 runtime-benchmarks = [
 	"frame-benchmarking",

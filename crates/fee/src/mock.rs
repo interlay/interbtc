@@ -1,10 +1,10 @@
 use crate as fee;
 use crate::{Config, Error};
-use codec::{Decode, Encode};
 use frame_support::{parameter_types, PalletId};
 use mocktopus::mocking::clear_mocks;
 use orml_tokens::CurrencyAdapter;
 use orml_traits::parameter_type_with_key;
+pub use primitives::CurrencyId;
 use sp_arithmetic::{FixedI128, FixedU128};
 use sp_core::H256;
 use sp_runtime::{
@@ -77,13 +77,6 @@ impl frame_system::Config for Test {
     type SystemWeightInfo = ();
     type SS58Prefix = SS58Prefix;
     type OnSetCode = ();
-}
-
-#[derive(Encode, Decode, Debug, PartialEq, PartialOrd, Ord, Eq, Clone, Copy)]
-#[cfg_attr(feature = "std", derive(serde::Serialize, serde::Deserialize))]
-pub enum CurrencyId {
-    DOT,
-    INTERBTC,
 }
 
 pub const DOT: CurrencyId = CurrencyId::DOT;

@@ -305,9 +305,9 @@ impl vault_registry::Config for Runtime {
     type SignedFixedPoint = SignedFixedPoint;
     type UnsignedFixedPoint = UnsignedFixedPoint;
     type WeightInfo = ();
-    type Collateral = orml_tokens::CurrencyAdapter<Runtime, GetCollateralCurrencyId>;
     type Wrapped = orml_tokens::CurrencyAdapter<Runtime, GetWrappedCurrencyId>;
     type GetRewardsCurrencyId = GetWrappedCurrencyId;
+    type GetGriefingCollateralCurrencyId = GetCollateralCurrencyId;
 }
 
 impl<C> frame_system::offchain::SendTransactionTypes<C> for Runtime
@@ -627,14 +627,15 @@ impl_runtime_apis! {
         Block,
         Balance,
         Balance,
+        CurrencyId
     > for Runtime {
-        fn wrapped_to_collateral(amount: BalanceWrapper<Balance>) -> Result<BalanceWrapper<Balance>, DispatchError> {
-            let result = ExchangeRateOracle::wrapped_to_collateral(amount.amount)?;
+        fn wrapped_to_collateral(amount: BalanceWrapper<Balance>, currency_id: CurrencyId) -> Result<BalanceWrapper<Balance>, DispatchError> {
+            let result = ExchangeRateOracle::wrapped_to_collateral(amount.amount,currency_id)?;
             Ok(BalanceWrapper{amount:result})
         }
 
-        fn collateral_to_wrapped(amount: BalanceWrapper<Balance>) -> Result<BalanceWrapper<Balance>, DispatchError> {
-            let result = ExchangeRateOracle::collateral_to_wrapped(amount.amount)?;
+        fn collateral_to_wrapped(amount: BalanceWrapper<Balance>, currency_id: CurrencyId) -> Result<BalanceWrapper<Balance>, DispatchError> {
+            let result = ExchangeRateOracle::collateral_to_wrapped(amount.amount, currency_id)?;
             Ok(BalanceWrapper{amount:result})
         }
     }
@@ -653,7 +654,8 @@ impl_runtime_apis! {
         AccountId,
         Balance,
         Balance,
-        UnsignedFixedPoint
+        UnsignedFixedPoint,
+        CurrencyId,
     > for Runtime {
         fn get_vault_collateral(vault_id: AccountId) -> Result<BalanceWrapper<Balance>, DispatchError> {
             let result = VaultRegistry::compute_collateral(&vault_id)?;
@@ -663,10 +665,6 @@ impl_runtime_apis! {
         fn get_vault_total_collateral(vault_id: AccountId) -> Result<BalanceWrapper<Balance>, DispatchError> {
             let result = VaultRegistry::get_backing_collateral(&vault_id)?;
             Ok(BalanceWrapper{amount:result})
-        }
-
-        fn get_total_collateralization() -> Result<UnsignedFixedPoint, DispatchError> {
-            VaultRegistry::get_total_collateralization()
         }
 
         fn get_first_vault_with_sufficient_collateral(amount: BalanceWrapper<Balance>) -> Result<AccountId, DispatchError> {
@@ -705,8 +703,8 @@ impl_runtime_apis! {
             VaultRegistry::get_collateralization_from_vault_and_collateral(vault, collateral.amount, only_issued)
         }
 
-        fn get_required_collateral_for_wrapped(amount_btc: BalanceWrapper<Balance>) -> Result<BalanceWrapper<Balance>, DispatchError> {
-            let result = VaultRegistry::get_required_collateral_for_wrapped(amount_btc.amount)?;
+        fn get_required_collateral_for_wrapped(amount_btc: BalanceWrapper<Balance>, currency_id: CurrencyId) -> Result<BalanceWrapper<Balance>, DispatchError> {
+            let result = VaultRegistry::get_required_collateral_for_wrapped(amount_btc.amount, currency_id)?;
             Ok(BalanceWrapper{amount:result})
         }
 

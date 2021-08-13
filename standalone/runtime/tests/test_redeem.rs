@@ -2,18 +2,25 @@ mod mock;
 
 use mock::{redeem_testing_utils::*, *};
 
-fn test_with<R>(execute: impl FnOnce() -> R) -> R {
-    ExtBuilder::build().execute_with(|| {
-        SecurityPallet::set_active_block_number(1);
-        assert_ok!(ExchangeRateOraclePallet::_set_exchange_rate(FixedU128::one()));
-        set_default_thresholds();
-        UserData::force_to(USER, default_user_state());
-        CoreVaultData::force_to(VAULT, default_vault_state());
-        // additional vault in order to prevent the edge case where the fee pool does not
-        // get additional funds because there are no non-liquidated vaults left
-        CoreVaultData::force_to(CAROL, default_vault_state());
-        execute()
-    })
+fn test_with<R>(execute: impl Fn(CurrencyId) -> R) {
+    let test_with = |currency_id| {
+        ExtBuilder::build().execute_with(|| {
+            SecurityPallet::set_active_block_number(1);
+            assert_ok!(ExchangeRateOraclePallet::_set_exchange_rate(
+                currency_id,
+                FixedU128::one()
+            ));
+            set_default_thresholds();
+            UserData::force_to(USER, default_user_state());
+            CoreVaultData::force_to(VAULT, default_vault_state(currency_id));
+            // additional vault in order to prevent the edge case where the fee pool does not
+            // get additional funds because there are no non-liquidated vaults left
+            CoreVaultData::force_to(CAROL, default_vault_state(currency_id));
+            execute(currency_id)
+        })
+    };
+    test_with(CurrencyId::DOT);
+    test_with(CurrencyId::KSM);
 }
 
 /// to-be-replaced & replace_collateral are decreased in request_redeem
@@ -23,18 +30,17 @@ fn consume_to_be_replaced(vault: &mut CoreVaultData, amount_btc: u128) {
 
     vault.replace_collateral -= released_replace_collateral;
     vault.griefing_collateral -= released_replace_collateral;
-    vault.free_balance += released_replace_collateral;
+    *vault.free_balance.get_mut(&GRIEFING_CURRENCY).unwrap() += released_replace_collateral;
 
     vault.to_be_replaced -= to_be_replaced_decrease;
 }
 
 mod spec_based_tests {
     use super::*;
-
     #[test]
     fn integration_test_redeem_with_parachain_shutdown_status_fails() {
         // PRECONDITION: The BTC Parachain status in the Security component
-        test_with(|| {
+        test_with(|currency_id| {
             SecurityPallet::set_status(StatusCode::Shutdown);
 
             assert_noop!(
@@ -69,7 +75,7 @@ mod spec_based_tests {
             );
 
             assert_noop!(
-                Call::Redeem(RedeemCall::liquidation_redeem(1000)).dispatch(origin_of(account_of(ALICE))),
+                Call::Redeem(RedeemCall::liquidation_redeem(1000, currency_id)).dispatch(origin_of(account_of(ALICE))),
                 SecurityError::ParachainShutdown,
             );
 
@@ -84,7 +90,7 @@ mod spec_based_tests {
     #[test]
     fn integration_test_redeem_with_parachain_error_status_fails() {
         // PRECONDITION: The BTC Parachain status in the Security component
-        test_with(|| {
+        test_with(|_currency_id| {
             // `liquidation_redeem` and `execute_redeem` are not tested here
             // because they only require the parachain status not to be `Shutdown`
             SecurityPallet::set_status(StatusCode::Error);
@@ -147,7 +153,7 @@ mod spec_based_tests {
         fn integration_test_request_redeem_at_capacity_succeeds() {
             // PRECONDITION: The vault’s `issuedTokens` MUST be at least `vault.toBeRedeemedTokens +
             // burnedTokens`
-            test_with(|| {
+            test_with(|currency_id| {
                 let amount = calculate_vault_capacity();
                 assert_ok!(Call::Redeem(RedeemCall::request_redeem(
                     amount,
@@ -164,10 +170,12 @@ mod spec_based_tests {
 
                 assert_eq!(
                     ParachainState::get(),
-                    ParachainState::default().with_changes(|user, vault, _, _| {
+                    ParachainState::get_default(currency_id).with_changes(|user, vault, _, _| {
                         vault.to_be_redeemed += redeem.amount_btc + redeem.transfer_fee_btc;
-                        user.free_tokens -= redeem.amount_btc + redeem.transfer_fee_btc + redeem.fee;
-                        user.locked_tokens += redeem.amount_btc + redeem.transfer_fee_btc + redeem.fee;
+                        (*user.balances.get_mut(&INTERBTC).unwrap()).free -=
+                            redeem.amount_btc + redeem.transfer_fee_btc + redeem.fee;
+                        (*user.balances.get_mut(&INTERBTC).unwrap()).locked +=
+                            redeem.amount_btc + redeem.transfer_fee_btc + redeem.fee;
                         consume_to_be_replaced(vault, redeem.amount_btc);
                     })
                 );
@@ -178,7 +186,7 @@ mod spec_based_tests {
         fn integration_test_request_redeem_above_capacity_fails() {
             // PRECONDITION: The vault’s `issuedTokens` MUST be at least `vault.toBeRedeemedTokens +
             // burnedTokens`
-            test_with(|| {
+            test_with(|_currency_id| {
                 let amount = calculate_vault_capacity() + 1;
                 assert_noop!(
                     Call::Redeem(RedeemCall::request_redeem(
@@ -195,8 +203,8 @@ mod spec_based_tests {
         #[test]
         fn integration_test_redeem_cannot_request_from_liquidated_vault() {
             // PRECONDITION: The selected vault MUST NOT be liquidated.
-            test_with(|| {
-                drop_exchange_rate_and_liquidate(VAULT);
+            test_with(|currency_id| {
+                liquidate_vault(currency_id, VAULT);
                 assert_noop!(
                     Call::Redeem(RedeemCall::request_redeem(
                         1500,
@@ -212,28 +220,22 @@ mod spec_based_tests {
         #[test]
         fn integration_test_redeem_redeemer_free_tokens() {
             // PRECONDITION: The redeemer MUST have at least `amountWrapped` free tokens.
-            test_with(|| {
+            test_with(|_currency_id| {
                 let free_tokens_to_redeem = 1500;
-                UserData::force_to(
-                    ALICE,
-                    UserData {
-                        free_tokens: free_tokens_to_redeem,
-                        ..UserData::get(USER)
-                    },
-                );
+                let mut good_state = default_user_state();
+                (*good_state.balances.get_mut(&INTERBTC).unwrap()).free = free_tokens_to_redeem;
+                UserData::force_to(ALICE, good_state);
                 assert_ok!(Call::Redeem(RedeemCall::request_redeem(
                     free_tokens_to_redeem,
                     BtcAddress::P2PKH(H160([0u8; 20])),
                     account_of(VAULT),
                 ))
                 .dispatch(origin_of(account_of(ALICE))));
-                UserData::force_to(
-                    ALICE,
-                    UserData {
-                        free_tokens: free_tokens_to_redeem - 1,
-                        ..UserData::get(USER)
-                    },
-                );
+
+                let mut bad_state = default_user_state();
+                (*bad_state.balances.get_mut(&INTERBTC).unwrap()).free = free_tokens_to_redeem - 1;
+
+                UserData::force_to(ALICE, bad_state);
                 assert_noop!(
                     Call::Redeem(RedeemCall::request_redeem(
                         free_tokens_to_redeem,
@@ -255,10 +257,10 @@ mod spec_based_tests {
             //  - `amountWrapped` of the redeemer’s tokens MUST be locked by this transaction.
             //  - If the vault’s collateralization rate is above the PremiumRedeemThreshold, then `redeem.premium` MUST
             //    be 0
-            test_with(|| {
+            test_with(|currency_id| {
                 let vault_to_be_redeemed = 1500;
                 let user_to_redeem = 1500;
-                set_redeem_state(vault_to_be_redeemed, user_to_redeem, USER, VAULT);
+                set_redeem_state(currency_id, vault_to_be_redeemed, user_to_redeem, USER, VAULT);
                 let redeem_fee = FeePallet::get_redeem_fee(user_to_redeem).unwrap();
                 let burned_tokens = user_to_redeem - redeem_fee;
 
@@ -276,8 +278,8 @@ mod spec_based_tests {
                 assert_eq!(
                     ParachainState::get(),
                     parachain_state_before_request.with_changes(|user, vault, _liquidation_vault, _fee_pool| {
-                        user.locked_tokens += user_to_redeem;
-                        user.free_tokens -= user_to_redeem;
+                        (*user.balances.get_mut(&INTERBTC).unwrap()).locked += user_to_redeem;
+                        (*user.balances.get_mut(&INTERBTC).unwrap()).free -= user_to_redeem;
                         vault.to_be_redeemed += burned_tokens;
                     })
                 );
@@ -294,10 +296,10 @@ mod spec_based_tests {
             //  - If the vault’s collateralization rate is below the PremiumRedeemThreshold, then `redeem.premium` MUST
             //    be
             // PremiumRedeemFee multiplied by the worth of `redeem.amountBtc`
-            test_with(|| {
+            test_with(|currency_id| {
                 let vault_to_be_redeemed = 1500;
                 let user_to_redeem = 1500;
-                set_redeem_state(vault_to_be_redeemed, user_to_redeem, USER, VAULT);
+                set_redeem_state(currency_id, vault_to_be_redeemed, user_to_redeem, USER, VAULT);
                 setup_redeem(user_to_redeem, USER, VAULT, 1_000_000);
                 let redeem_id = assert_redeem_request_event();
                 let actual_redeem = RedeemPallet::get_open_redeem_request_from_id(&redeem_id).unwrap();
@@ -309,10 +311,10 @@ mod spec_based_tests {
         fn integration_test_redeem_vault_capacity_insufficient() {
             // PRECONDITION: The vault’s `issuedTokens` MUST be at least `vault.toBeRedeemedTokens +
             // burnedTokens`.
-            test_with(|| {
+            test_with(|currency_id| {
                 let vault_to_be_redeemed = 1500;
                 let user_to_redeem = 1500;
-                set_redeem_state(vault_to_be_redeemed, user_to_redeem, USER, VAULT);
+                set_redeem_state(currency_id, vault_to_be_redeemed, user_to_redeem, USER, VAULT);
                 let core_vault = CoreVaultData::vault(VAULT);
                 CoreVaultData::force_to(
                     VAULT,
@@ -339,7 +341,7 @@ mod spec_based_tests {
             // where the inclusion fee is the multiplication of RedeemTransactionSize and the fee rate estimate
             // reported by the oracle.
 
-            test_with(|| {
+            test_with(|_currency_id| {
                 // The formula for finding the threshold `to_redeem` for the dust amount error is
                 // `(redeem_dust_value + inclusion_fee) / (1 - redeem_fee_rate)`
                 let redeem_dust_value = RedeemPallet::redeem_btc_dust_value();
@@ -373,19 +375,21 @@ mod spec_based_tests {
         fn integration_test_liquidation_redeem() {
             // PRECONDITION: The redeemer MUST have at least `amountWrapped` free tokens.
             // POSTCONDITION: `amountWrapped` tokens MUST be burned from the user.
-            test_with(|| {
+            test_with(|currency_id| {
                 let free_tokens_to_redeem = 1500;
-                set_redeem_state(0, free_tokens_to_redeem, USER, VAULT);
-                drop_exchange_rate_and_liquidate(VAULT);
+                set_redeem_state(currency_id, 0, free_tokens_to_redeem, USER, VAULT);
+                liquidate_vault(currency_id, VAULT);
                 assert_noop!(
-                    Call::Redeem(RedeemCall::liquidation_redeem(free_tokens_to_redeem + 1))
+                    Call::Redeem(RedeemCall::liquidation_redeem(free_tokens_to_redeem + 1, currency_id))
                         .dispatch(origin_of(account_of(ALICE))),
                     RedeemError::AmountExceedsUserBalance,
                 );
                 let user_tokens_before_redeem = TreasuryPallet::get_free_balance(&account_of(USER));
                 let tokens_to_liquidation_redeem = free_tokens_to_redeem - 10;
-                assert_ok!(Call::Redeem(RedeemCall::liquidation_redeem(free_tokens_to_redeem - 10))
-                    .dispatch(origin_of(account_of(ALICE))));
+                assert_ok!(
+                    Call::Redeem(RedeemCall::liquidation_redeem(free_tokens_to_redeem - 10, currency_id))
+                        .dispatch(origin_of(account_of(ALICE)))
+                );
                 let user_tokens_after_redeem = TreasuryPallet::get_free_balance(&account_of(USER));
 
                 assert_eq!(
@@ -417,7 +421,7 @@ mod spec_based_tests {
             // - The vault’s `issuedTokens` MUST decrease by `redeemRequest.amountBtc + redeemRequest.transferFeeBtc`.
             // - `redeemRequest.fee` MUST be unlocked and transferred from the redeemer’s account to the fee pool.
             // - `redeemRequest.status` MUST be set to `Completed`.
-            test_with(|| {
+            test_with(|_currency_id| {
                 let issued_tokens = 10_000;
                 let collateral_vault = 1_000_000;
 
@@ -505,7 +509,8 @@ mod spec_based_tests {
                         vault.issued -= redeem.amount_btc + redeem.transfer_fee_btc;
                         vault.to_be_redeemed -= redeem.amount_btc + redeem.transfer_fee_btc;
 
-                        user.locked_tokens -= redeem.amount_btc + redeem.transfer_fee_btc + redeem.fee;
+                        (*user.balances.get_mut(&INTERBTC).unwrap()).locked -=
+                            redeem.amount_btc + redeem.transfer_fee_btc + redeem.fee;
 
                         fee_pool.vault_rewards += redeem.fee;
                     })
@@ -547,10 +552,7 @@ mod spec_based_tests {
 
         #[test]
         fn integration_test_redeem_expiry_only_parachain_blocks_expired() {
-            // PRECONDITIONS:
-            // - A pending `RedeemRequest` MUST exist with an id equal to `redeemId`.
-            // - The request MUST be expired.
-            test_with(|| {
+            test_with(|_currency_id| {
                 set_redeem_period(1000);
                 let redeem_id = request_redeem();
                 mine_blocks(1);
@@ -565,8 +567,7 @@ mod spec_based_tests {
 
         #[test]
         fn integration_test_redeem_expiry_only_bitcoin_blocks_expired() {
-            // PRECONDITION: The request MUST be expired.
-            test_with(|| {
+            test_with(|_currency_id| {
                 set_redeem_period(1000);
                 let redeem_id = request_redeem();
                 SecurityPallet::set_active_block_number(100);
@@ -580,8 +581,7 @@ mod spec_based_tests {
 
         #[test]
         fn integration_test_redeem_expiry_no_period_change_pre_expiry() {
-            // PRECONDITION: The request MUST be expired.
-            test_with(|| {
+            test_with(|_currency_id| {
                 set_redeem_period(1000);
                 let redeem_id = request_redeem();
                 SecurityPallet::set_active_block_number(750);
@@ -597,7 +597,7 @@ mod spec_based_tests {
             // PRECONDITION: The request MUST be expired.
 
             // can still execute after expiry
-            test_with(|| {
+            test_with(|_currency_id| {
                 set_redeem_period(1000);
                 let redeem_id = request_redeem();
                 mine_blocks(12);
@@ -606,7 +606,7 @@ mod spec_based_tests {
             });
 
             // .. but user can also cancel. Whoever is first wins
-            test_with(|| {
+            test_with(|_currency_id| {
                 set_redeem_period(1000);
                 let redeem_id = request_redeem();
                 mine_blocks(12);
@@ -618,7 +618,7 @@ mod spec_based_tests {
         #[test]
         fn integration_test_redeem_expiry_with_period_decrease() {
             // PRECONDITION: The request MUST be expired.
-            test_with(|| {
+            test_with(|_currency_id| {
                 set_redeem_period(2000);
                 let redeem_id = request_redeem();
                 SecurityPallet::set_active_block_number(1100);
@@ -633,8 +633,7 @@ mod spec_based_tests {
 
         #[test]
         fn integration_test_redeem_expiry_with_period_increase() {
-            // PRECONDITION: The request MUST be expired.
-            test_with(|| {
+            test_with(|_currency_id| {
                 set_redeem_period(100);
                 let redeem_id = request_redeem();
                 SecurityPallet::set_active_block_number(110);
@@ -651,7 +650,7 @@ mod spec_based_tests {
         fn integration_test_redeem_can_only_be_cancelled_by_redeemer() {
             // PRECONDITION: The function call MUST be signed by redeemRequest.redeemer,
             // i.e. this function can only be called by the account who made the redeem request.
-            test_with(|| {
+            test_with(|_currency_id| {
                 set_redeem_period(1000);
                 let redeem_id = request_redeem();
                 mine_blocks(12);
@@ -680,15 +679,17 @@ mod spec_based_tests {
             //     - The `redeem.status` is set to `Reimbursed(true)`, where the true indicates that the vault has
             //       received the tokens.
             // - The vault MUST be banned.
-            test_with(|| {
+            test_with(|currency_id| {
                 let amount_btc = 10_000;
 
                 let redeem_id = setup_cancelable_redeem(USER, VAULT, 100000000, amount_btc);
                 let redeem = RedeemPallet::get_open_redeem_request_from_id(&redeem_id).unwrap();
                 let parachain_state_before_cancellation = ParachainState::get();
-                let amount_without_fee_collateral =
-                    ExchangeRateOraclePallet::wrapped_to_collateral(redeem.amount_btc + redeem.transfer_fee_btc)
-                        .unwrap();
+                let amount_without_fee_collateral = ExchangeRateOraclePallet::wrapped_to_collateral(
+                    redeem.amount_btc + redeem.transfer_fee_btc,
+                    currency_id,
+                )
+                .unwrap();
 
                 let punishment_fee = FeePallet::get_punishment_fee(amount_without_fee_collateral).unwrap();
                 assert!(punishment_fee > 0);
@@ -703,11 +704,12 @@ mod spec_based_tests {
                     parachain_state_before_cancellation.with_changes(|user, vault, _, fee_pool| {
                         // vault gets slashed for 110% to user
                         vault.backing_collateral -= amount_without_fee_collateral + punishment_fee;
-                        vault.free_tokens += redeem.amount_btc + redeem.transfer_fee_btc;
+                        *vault.free_balance.get_mut(&INTERBTC).unwrap() += redeem.amount_btc + redeem.transfer_fee_btc;
                         vault.to_be_redeemed -= redeem.amount_btc + redeem.transfer_fee_btc;
 
-                        user.free_balance += amount_without_fee_collateral + punishment_fee;
-                        user.locked_tokens -= amount_btc;
+                        (*user.balances.get_mut(&currency_id).unwrap()).free +=
+                            amount_without_fee_collateral + punishment_fee;
+                        (*user.balances.get_mut(&INTERBTC).unwrap()).locked -= amount_btc;
 
                         fee_pool.vault_rewards += redeem.fee;
                     })
@@ -739,13 +741,14 @@ mod spec_based_tests {
             //     - The `redeem.status` is set to `Reimbursed(false)`, where the `false` indicates that the vault has
             //       not yet received the tokens.
             // - The vault MUST be banned.
-            test_with(|| {
+            test_with(|currency_id| {
                 let amount_btc = 10_000;
 
                 // set collateral to the minimum amount required, such that the vault can not afford to both
                 // reimburse and keep collateral his current tokens
                 let required_collateral =
-                    VaultRegistryPallet::get_required_collateral_for_wrapped(DEFAULT_VAULT_ISSUED).unwrap();
+                    VaultRegistryPallet::get_required_collateral_for_wrapped(DEFAULT_VAULT_ISSUED, currency_id)
+                        .unwrap();
                 CoreVaultData::force_to(
                     VAULT,
                     CoreVaultData {
@@ -757,9 +760,11 @@ mod spec_based_tests {
                 let redeem_id = setup_cancelable_redeem(USER, VAULT, 100000000, amount_btc);
                 let redeem = RedeemPallet::get_open_redeem_request_from_id(&redeem_id).unwrap();
                 let parachain_state_before_cancellation = ParachainState::get();
-                let amount_without_fee_as_collateral =
-                    ExchangeRateOraclePallet::wrapped_to_collateral(redeem.amount_btc + redeem.transfer_fee_btc)
-                        .unwrap();
+                let amount_without_fee_as_collateral = ExchangeRateOraclePallet::wrapped_to_collateral(
+                    redeem.amount_btc + redeem.transfer_fee_btc,
+                    currency_id,
+                )
+                .unwrap();
 
                 let punishment_fee = FeePallet::get_punishment_fee(amount_without_fee_as_collateral).unwrap();
                 assert!(punishment_fee > 0);
@@ -778,8 +783,9 @@ mod spec_based_tests {
                         vault.issued -= redeem.amount_btc + redeem.transfer_fee_btc;
                         vault.to_be_redeemed -= redeem.amount_btc + redeem.transfer_fee_btc;
 
-                        user.free_balance += amount_without_fee_as_collateral + punishment_fee;
-                        user.locked_tokens -= amount_btc;
+                        (*user.balances.get_mut(&currency_id).unwrap()).free +=
+                            amount_without_fee_as_collateral + punishment_fee;
+                        (*user.balances.get_mut(&INTERBTC).unwrap()).locked -= amount_btc;
 
                         fee_pool.vault_rewards += redeem.fee;
                     })
@@ -810,15 +816,17 @@ mod spec_based_tests {
             // `redeem.amountBtc + redeem.fee + redeem.transferFeeBtc`.
             //     - The vault’s `toBeRedeemedTokens` MUST decrease by `amountIncludingParachainFee`.
             // - The vault MUST be banned.
-            test_with(|| {
+            test_with(|currency_id| {
                 let amount_btc = 10_000;
 
                 let redeem_id = setup_cancelable_redeem(USER, VAULT, 100000000, amount_btc);
                 let redeem = RedeemPallet::get_open_redeem_request_from_id(&redeem_id).unwrap();
                 let parachain_state_before_cancellation = ParachainState::get();
-                let amount_without_fee_collateral =
-                    ExchangeRateOraclePallet::wrapped_to_collateral(redeem.amount_btc + redeem.transfer_fee_btc)
-                        .unwrap();
+                let amount_without_fee_collateral = ExchangeRateOraclePallet::wrapped_to_collateral(
+                    redeem.amount_btc + redeem.transfer_fee_btc,
+                    currency_id,
+                )
+                .unwrap();
 
                 let punishment_fee = FeePallet::get_punishment_fee(amount_without_fee_collateral).unwrap();
                 assert!(punishment_fee > 0);
@@ -832,9 +840,11 @@ mod spec_based_tests {
                     ParachainState::get(),
                     parachain_state_before_cancellation.with_changes(|user, vault, _, _| {
                         // vault is slashed a punishment fee of 10%
-                        user.locked_tokens -= redeem.amount_btc + redeem.transfer_fee_btc + redeem.fee;
-                        user.free_balance += punishment_fee;
-                        user.free_tokens += redeem.amount_btc + redeem.transfer_fee_btc + redeem.fee;
+                        (*user.balances.get_mut(&INTERBTC).unwrap()).locked -=
+                            redeem.amount_btc + redeem.transfer_fee_btc + redeem.fee;
+                        (*user.balances.get_mut(&currency_id).unwrap()).free += punishment_fee;
+                        (*user.balances.get_mut(&INTERBTC).unwrap()).free +=
+                            redeem.amount_btc + redeem.transfer_fee_btc + redeem.fee;
 
                         vault.backing_collateral -= punishment_fee;
                         vault.to_be_redeemed -= redeem.amount_btc + redeem.transfer_fee_btc;
@@ -853,7 +863,7 @@ mod spec_based_tests {
             // - If the vault is liquidated:
             //    - If ``reimburse`` is false, an amount of ``confiscatedCollateral`` MUST be transferred from the vault
             //      to the redeemer.
-            test_with(|| {
+            test_with(|currency_id| {
                 let issued_tokens = 10_000;
                 let collateral_vault = 1_000_000;
                 let redeem_id = setup_cancelable_redeem(USER, VAULT, collateral_vault, issued_tokens);
@@ -870,11 +880,11 @@ mod spec_based_tests {
                         backing_collateral: collateral_vault,
                         to_be_replaced: 0,
                         replace_collateral: 0,
-                        ..default_vault_state()
+                        ..default_vault_state(currency_id)
                     },
                 );
 
-                drop_exchange_rate_and_liquidate(VAULT);
+                liquidate_vault(currency_id, VAULT);
 
                 let post_liquidation_state = ParachainState::get();
 
@@ -894,11 +904,13 @@ mod spec_based_tests {
                         // liquidation vault
                         let collateral_for_this_redeem = collateral_vault / 4;
                         vault.liquidated_collateral -= collateral_for_this_redeem;
-                        liquidation_vault.backing_collateral += collateral_for_this_redeem;
+                        *liquidation_vault.funds.get_mut(&currency_id).unwrap() += collateral_for_this_redeem;
 
                         // user's tokens get unlocked
-                        user.locked_tokens -= redeem.amount_btc + redeem.fee + redeem.transfer_fee_btc;
-                        user.free_tokens += redeem.amount_btc + redeem.fee + redeem.transfer_fee_btc;
+                        (*user.balances.get_mut(&INTERBTC).unwrap()).locked -=
+                            redeem.amount_btc + redeem.fee + redeem.transfer_fee_btc;
+                        (*user.balances.get_mut(&INTERBTC).unwrap()).free +=
+                            redeem.amount_btc + redeem.fee + redeem.transfer_fee_btc;
 
                         // Note that no punishment is taken from vault, because it's already liquidated
                     })
@@ -913,7 +925,7 @@ mod spec_based_tests {
             //    - If ``reimburse`` is true:
             //       - an amount of ``confiscatedCollateral`` MUST be transferred from the vault to the redeemer.
             //       - `redeem.fee` MUST be transferred from the vault to the fee pool if non-zero.
-            test_with(|| {
+            test_with(|currency_id| {
                 let issued_tokens = 10_000;
                 let collateral_vault = 1_000_000;
                 let redeem_id = setup_cancelable_redeem(USER, VAULT, collateral_vault, issued_tokens);
@@ -930,11 +942,11 @@ mod spec_based_tests {
                         backing_collateral: collateral_vault,
                         to_be_replaced: 0,
                         replace_collateral: 0,
-                        ..default_vault_state()
+                        ..default_vault_state(currency_id)
                     },
                 );
 
-                drop_exchange_rate_and_liquidate(VAULT);
+                liquidate_vault(currency_id, VAULT);
 
                 let post_liquidation_state = ParachainState::get();
 
@@ -957,11 +969,12 @@ mod spec_based_tests {
                         let collateral_for_this_redeem = collateral_vault / 4;
                         vault.liquidated_collateral -= collateral_for_this_redeem;
 
-                        vault.free_tokens += redeem.amount_btc + redeem.transfer_fee_btc;
+                        *vault.free_balance.get_mut(&INTERBTC).unwrap() += redeem.amount_btc + redeem.transfer_fee_btc;
 
                         // user's tokens get unlocked
-                        user.locked_tokens -= redeem.amount_btc + redeem.fee + redeem.transfer_fee_btc;
-                        user.free_balance += collateral_for_this_redeem;
+                        (*user.balances.get_mut(&INTERBTC).unwrap()).locked -=
+                            redeem.amount_btc + redeem.fee + redeem.transfer_fee_btc;
+                        (*user.balances.get_mut(&currency_id).unwrap()).free += collateral_for_this_redeem;
 
                         // Note that no punishment is taken from vault, because it's already liquidated
                     })
@@ -972,39 +985,6 @@ mod spec_based_tests {
 
     mod mint_tokens_for_reimbursed_redeem {
         use super::*;
-
-        fn setup_cancelable_redeem_with_insufficient_collateral_for_reimburse() -> H256 {
-            let amount_btc = 10_000;
-
-            // set collateral to the minimum amount required, such that the vault can not afford to both
-            // reimburse and keep collateral his current tokens
-            let required_collateral =
-                VaultRegistryPallet::get_required_collateral_for_wrapped(DEFAULT_VAULT_ISSUED).unwrap();
-            CoreVaultData::force_to(
-                VAULT,
-                CoreVaultData {
-                    backing_collateral: required_collateral,
-                    ..CoreVaultData::vault(VAULT)
-                },
-            );
-            let redeem_id = setup_cancelable_redeem(USER, VAULT, 100000000, amount_btc);
-            let redeem = RedeemPallet::get_open_redeem_request_from_id(&redeem_id).unwrap();
-            let amount_without_fee_as_collateral =
-                ExchangeRateOraclePallet::wrapped_to_collateral(redeem.amount_btc + redeem.transfer_fee_btc).unwrap();
-
-            let punishment_fee = FeePallet::get_punishment_fee(amount_without_fee_as_collateral).unwrap();
-            assert!(punishment_fee > 0);
-
-            redeem_id
-        }
-
-        fn get_additional_collateral() {
-            assert_ok!(VaultRegistryPallet::transfer_funds(
-                CurrencySource::FreeBalance(account_of(FAUCET)),
-                CurrencySource::Collateral(account_of(VAULT)),
-                100_000_000_000,
-            ));
-        }
 
         #[test]
         fn integration_test_mint_tokens_for_reimbursed_redeem_equivalence_to_succesful_cancel() {
@@ -1017,33 +997,33 @@ mod spec_based_tests {
             // POSTCONDITION: `redeem.amountBtc + redeem.transferFeeBtc` tokens MUST be minted to the vault.
 
             // scenario 1: sufficient collateral
-            let result1 = test_with(|| {
-                let redeem_id = setup_cancelable_redeem_with_insufficient_collateral_for_reimburse();
-                get_additional_collateral();
+            let result1 = test_with(|currency_id| {
+                let redeem_id = setup_cancelable_redeem_with_insufficient_collateral_for_reimburse(currency_id);
+                get_additional_collateral(currency_id);
                 assert_ok!(
                     Call::Redeem(RedeemCall::cancel_redeem(redeem_id, true)).dispatch(origin_of(account_of(USER)))
                 );
                 ParachainState::get()
             });
             // scenario 2: insufficient collateral
-            let result2 = test_with(|| {
-                let redeem_id = setup_cancelable_redeem_with_insufficient_collateral_for_reimburse();
+            let result2 = test_with(|currency_id| {
+                let redeem_id = setup_cancelable_redeem_with_insufficient_collateral_for_reimburse(currency_id);
                 assert_ok!(
                     Call::Redeem(RedeemCall::cancel_redeem(redeem_id, true)).dispatch(origin_of(account_of(USER)))
                 );
-                get_additional_collateral();
+                get_additional_collateral(currency_id);
                 SecurityPallet::set_active_block_number(100000000);
                 assert_noop!(
                     Call::Redeem(RedeemCall::mint_tokens_for_reimbursed_redeem(H256::random()))
                         .dispatch(origin_of(account_of(VAULT))),
                     RedeemError::RedeemIdNotFound
                 );
-                let core_vault = CoreVaultData::vault(VAULT);
+                let tmp = CoreVaultData::vault(VAULT);
                 CoreVaultData::force_to(
                     VAULT,
                     CoreVaultData {
                         backing_collateral: 0,
-                        ..core_vault
+                        ..CoreVaultData::vault(VAULT)
                     },
                 );
                 assert_noop!(
@@ -1051,7 +1031,7 @@ mod spec_based_tests {
                         .dispatch(origin_of(account_of(VAULT))),
                     VaultRegistryError::ExceedingVaultLimit
                 );
-                CoreVaultData::force_to(VAULT, CoreVaultData { ..core_vault });
+                CoreVaultData::force_to(VAULT, tmp);
                 assert_noop!(
                     Call::Redeem(RedeemCall::mint_tokens_for_reimbursed_redeem(redeem_id))
                         .dispatch(origin_of(account_of(USER))),
@@ -1071,12 +1051,12 @@ mod spec_based_tests {
             // POSTCONDITION: redeem.amountBtc + redeem.transferFeeBtc tokens MUST be minted to the vault.
 
             // scenario 1: sufficient collateral
-            test_with(|| {
-                let redeem_id = setup_cancelable_redeem_with_insufficient_collateral_for_reimburse();
+            test_with(|currency_id| {
+                let redeem_id = setup_cancelable_redeem_with_insufficient_collateral_for_reimburse(currency_id);
                 assert_ok!(
                     Call::Redeem(RedeemCall::cancel_redeem(redeem_id, false)).dispatch(origin_of(account_of(USER)))
                 );
-                get_additional_collateral();
+                get_additional_collateral(currency_id);
                 SecurityPallet::set_active_block_number(100000000);
                 assert_noop!(
                     Call::Redeem(RedeemCall::mint_tokens_for_reimbursed_redeem(redeem_id))
@@ -1090,7 +1070,7 @@ mod spec_based_tests {
 
 #[test]
 fn integration_test_redeem_parachain_status_shutdown_fails() {
-    test_with(|| {
+    test_with(|_currency_id| {
         SecurityPallet::set_status(StatusCode::Shutdown);
 
         assert_noop!(
@@ -1116,7 +1096,7 @@ mod execute_redeem_payment_limits {
 
     #[test]
     fn integration_test_redeem_polka_btc_execute_underpayment_fails() {
-        test_with(|| {
+        test_with(|_currency_id| {
             let redeem_id = setup_redeem(10_000, USER, VAULT, 1_000_000);
             let redeem = RedeemPallet::get_open_redeem_request_from_id(&redeem_id).unwrap();
 
@@ -1131,7 +1111,7 @@ mod execute_redeem_payment_limits {
 
     #[test]
     fn integration_test_redeem_polka_btc_execute_with_exact_amount_succeeds() {
-        test_with(|| {
+        test_with(|_currency_id| {
             let redeem_id = setup_redeem(10_000, USER, VAULT, 1_000_000);
             let redeem = RedeemPallet::get_open_redeem_request_from_id(&redeem_id).unwrap();
 
@@ -1143,7 +1123,7 @@ mod execute_redeem_payment_limits {
 
     #[test]
     fn integration_test_redeem_polka_btc_execute_overpayment_fails() {
-        test_with(|| {
+        test_with(|_currency_id| {
             let redeem_id = setup_redeem(10_000, USER, VAULT, 1_000_000);
             let redeem = RedeemPallet::get_open_redeem_request_from_id(&redeem_id).unwrap();
 
@@ -1158,8 +1138,8 @@ mod execute_redeem_payment_limits {
 }
 
 #[test]
-fn integration_test_redeem_wrapped_execute() {
-    test_with(|| {
+fn integration_test_redeem_execute_succeeds() {
+    test_with(|currency_id| {
         let issued_tokens = 10_000;
         let collateral_vault = 1_000_000;
 
@@ -1170,9 +1150,9 @@ fn integration_test_redeem_wrapped_execute() {
 
         assert_eq!(
             ParachainState::get(),
-            ParachainState::default().with_changes(|user, vault, _, fee_pool| {
+            ParachainState::get_default(currency_id).with_changes(|user, vault, _, fee_pool| {
                 vault.issued -= redeem.amount_btc + redeem.transfer_fee_btc;
-                user.free_tokens -= issued_tokens;
+                (*user.balances.get_mut(&INTERBTC).unwrap()).free -= issued_tokens;
                 fee_pool.vault_rewards += redeem.fee;
                 consume_to_be_replaced(vault, redeem.amount_btc + redeem.transfer_fee_btc);
             })
@@ -1182,14 +1162,17 @@ fn integration_test_redeem_wrapped_execute() {
 
 #[test]
 fn integration_test_premium_redeem_wrapped_execute() {
-    test_with(|| {
+    test_with(|currency_id| {
         let issued_tokens = 10_000;
 
         let user_btc_address = BtcAddress::P2PKH(H160([2; 20]));
 
         // make vault undercollateralized. Note that we place it under the liquidation threshold
         // as well, but as long as we don't call liquidate that's ok
-        assert_ok!(ExchangeRateOraclePallet::_set_exchange_rate(FixedU128::from(100)));
+        assert_ok!(ExchangeRateOraclePallet::_set_exchange_rate(
+            currency_id,
+            FixedU128::from(100)
+        ));
 
         // alice requests to redeem issued_tokens from Bob
         assert_ok!(Call::Redeem(RedeemCall::request_redeem(
@@ -1216,17 +1199,17 @@ fn integration_test_premium_redeem_wrapped_execute() {
 
         assert_eq!(
             ParachainState::get(),
-            ParachainState::default().with_changes(|user, vault, _, fee_pool| {
+            ParachainState::get_default(currency_id).with_changes(|user, vault, _, fee_pool| {
                 // fee moves from user to fee_pool
-                user.free_tokens -= redeem.fee;
+                (*user.balances.get_mut(&INTERBTC).unwrap()).free -= redeem.fee;
                 fee_pool.vault_rewards += redeem.fee;
                 // amount_btc is burned from user and decreased on vault
                 let burned_amount = redeem.amount_btc + redeem.transfer_fee_btc;
                 vault.issued -= burned_amount;
-                user.free_tokens -= burned_amount;
+                (*user.balances.get_mut(&INTERBTC).unwrap()).free -= burned_amount;
                 // premium is moved from vault to user
                 vault.backing_collateral -= redeem.premium;
-                user.free_balance += redeem.premium;
+                (*user.balances.get_mut(&currency_id).unwrap()).free += redeem.premium;
                 consume_to_be_replaced(vault, burned_amount);
             })
         );
@@ -1237,7 +1220,7 @@ fn integration_test_premium_redeem_wrapped_execute() {
 
 #[test]
 fn integration_test_redeem_wrapped_liquidation_redeem() {
-    test_with(|| {
+    test_with(|currency_id| {
         let issued = 400;
         let to_be_issued = 100;
         let to_be_redeemed = 50;
@@ -1250,35 +1233,38 @@ fn integration_test_redeem_wrapped_liquidation_redeem() {
                 to_be_issued,
                 to_be_redeemed,
                 backing_collateral: 10_000,
+                collateral_currency: currency_id,
                 ..Default::default()
             },
         );
 
         // create tokens for the vault and user
-        drop_exchange_rate_and_liquidate(VAULT);
+        liquidate_vault(currency_id, VAULT);
 
         let post_liquidation_state = ParachainState::get();
 
         assert_noop!(
-            Call::Redeem(RedeemCall::liquidation_redeem(351)).dispatch(origin_of(account_of(USER))),
+            Call::Redeem(RedeemCall::liquidation_redeem(351, currency_id)).dispatch(origin_of(account_of(USER))),
             VaultRegistryError::InsufficientTokensCommitted
         );
 
-        assert_ok!(Call::Redeem(RedeemCall::liquidation_redeem(liquidation_redeem_amount))
-            .dispatch(origin_of(account_of(USER))));
+        assert_ok!(
+            Call::Redeem(RedeemCall::liquidation_redeem(liquidation_redeem_amount, currency_id))
+                .dispatch(origin_of(account_of(USER)))
+        );
 
         // NOTE: changes are relative the the post liquidation state
         assert_eq!(
             ParachainState::get(),
             post_liquidation_state.with_changes(|user, _vault, liquidation_vault, _fee_pool| {
-                let reward = (liquidation_vault.backing_collateral * liquidation_redeem_amount)
+                let reward = (liquidation_vault.funds[&currency_id] * liquidation_redeem_amount)
                     / (liquidation_vault.issued + liquidation_vault.to_be_issued);
 
-                user.free_tokens -= liquidation_redeem_amount;
-                user.free_balance += reward;
+                (*user.balances.get_mut(&INTERBTC).unwrap()).free -= liquidation_redeem_amount;
+                (*user.balances.get_mut(&currency_id).unwrap()).free += reward;
 
                 liquidation_vault.issued -= liquidation_redeem_amount;
-                liquidation_vault.backing_collateral -= reward;
+                *liquidation_vault.funds.get_mut(&currency_id).unwrap() -= reward;
             })
         );
     });
@@ -1286,13 +1272,16 @@ fn integration_test_redeem_wrapped_liquidation_redeem() {
 
 #[test]
 fn integration_test_redeem_wrapped_cancel_reimburse_sufficient_collateral_for_wrapped() {
-    test_with(|| {
+    test_with(|currency_id| {
         let amount_btc = 10_000;
 
         let redeem_id = setup_cancelable_redeem(USER, VAULT, 100000000, amount_btc);
         let redeem = RedeemPallet::get_open_redeem_request_from_id(&redeem_id).unwrap();
-        let amount_without_fee_collateral =
-            ExchangeRateOraclePallet::wrapped_to_collateral(redeem.amount_btc + redeem.transfer_fee_btc).unwrap();
+        let amount_without_fee_collateral = ExchangeRateOraclePallet::wrapped_to_collateral(
+            redeem.amount_btc + redeem.transfer_fee_btc,
+            CurrencyId::DOT,
+        )
+        .unwrap();
 
         let punishment_fee = FeePallet::get_punishment_fee(amount_without_fee_collateral).unwrap();
         assert!(punishment_fee > 0);
@@ -1302,13 +1291,13 @@ fn integration_test_redeem_wrapped_cancel_reimburse_sufficient_collateral_for_wr
 
         assert_eq!(
             ParachainState::get(),
-            ParachainState::default().with_changes(|user, vault, _, fee_pool| {
+            ParachainState::get_default(currency_id).with_changes(|user, vault, _, fee_pool| {
                 // vault gets slashed for 110% to user
                 vault.backing_collateral -= amount_without_fee_collateral + punishment_fee;
-                vault.free_tokens += redeem.amount_btc + redeem.transfer_fee_btc;
+                *vault.free_balance.get_mut(&INTERBTC).unwrap() += redeem.amount_btc + redeem.transfer_fee_btc;
 
-                user.free_balance += amount_without_fee_collateral + punishment_fee;
-                user.free_tokens -= amount_btc;
+                (*user.balances.get_mut(&currency_id).unwrap()).free += amount_without_fee_collateral + punishment_fee;
+                (*user.balances.get_mut(&INTERBTC).unwrap()).free -= amount_btc;
 
                 fee_pool.vault_rewards += redeem.fee;
 
@@ -1320,13 +1309,13 @@ fn integration_test_redeem_wrapped_cancel_reimburse_sufficient_collateral_for_wr
 
 #[test]
 fn integration_test_redeem_wrapped_cancel_reimburse_insufficient_collateral_for_wrapped() {
-    test_with(|| {
+    test_with(|currency_id| {
         let amount_btc = 10_000;
 
         // set collateral to the minimum amount required, such that the vault can not afford to both
         // reimburse and keep collateral his current tokens
         let required_collateral =
-            VaultRegistryPallet::get_required_collateral_for_wrapped(DEFAULT_VAULT_ISSUED).unwrap();
+            VaultRegistryPallet::get_required_collateral_for_wrapped(DEFAULT_VAULT_ISSUED, currency_id).unwrap();
         CoreVaultData::force_to(
             VAULT,
             CoreVaultData {
@@ -1338,8 +1327,11 @@ fn integration_test_redeem_wrapped_cancel_reimburse_insufficient_collateral_for_
 
         let redeem_id = setup_cancelable_redeem(USER, VAULT, 100000000, amount_btc);
         let redeem = RedeemPallet::get_open_redeem_request_from_id(&redeem_id).unwrap();
-        let amount_without_fee_as_collateral =
-            ExchangeRateOraclePallet::wrapped_to_collateral(redeem.amount_btc + redeem.transfer_fee_btc).unwrap();
+        let amount_without_fee_as_collateral = ExchangeRateOraclePallet::wrapped_to_collateral(
+            redeem.amount_btc + redeem.transfer_fee_btc,
+            CurrencyId::DOT,
+        )
+        .unwrap();
 
         let punishment_fee = FeePallet::get_punishment_fee(amount_without_fee_as_collateral).unwrap();
         assert!(punishment_fee > 0);
@@ -1355,8 +1347,9 @@ fn integration_test_redeem_wrapped_cancel_reimburse_insufficient_collateral_for_
                 // vault free tokens does not change, and issued tokens is reduced
                 vault.issued -= redeem.amount_btc + redeem.transfer_fee_btc;
 
-                user.free_balance += amount_without_fee_as_collateral + punishment_fee;
-                user.free_tokens -= amount_btc;
+                (*user.balances.get_mut(&currency_id).unwrap()).free +=
+                    amount_without_fee_as_collateral + punishment_fee;
+                (*user.balances.get_mut(&INTERBTC).unwrap()).free -= amount_btc;
 
                 fee_pool.vault_rewards += redeem.fee;
 
@@ -1380,7 +1373,7 @@ fn integration_test_redeem_wrapped_cancel_reimburse_insufficient_collateral_for_
             ParachainState::get(),
             pre_minting_state.with_changes(|_user, vault, _, _fee_pool| {
                 vault.issued += redeem.amount_btc + redeem.transfer_fee_btc;
-                vault.free_tokens += redeem.amount_btc + redeem.transfer_fee_btc;
+                *vault.free_balance.get_mut(&INTERBTC).unwrap() += redeem.amount_btc + redeem.transfer_fee_btc;
             })
         );
     });
@@ -1388,13 +1381,16 @@ fn integration_test_redeem_wrapped_cancel_reimburse_insufficient_collateral_for_
 
 #[test]
 fn integration_test_redeem_wrapped_cancel_no_reimburse() {
-    test_with(|| {
+    test_with(|currency_id| {
         let amount_btc = 10_000;
 
         let redeem_id = setup_cancelable_redeem(USER, VAULT, 100000000, amount_btc);
         let redeem = RedeemPallet::get_open_redeem_request_from_id(&redeem_id).unwrap();
-        let amount_without_fee_collateral =
-            ExchangeRateOraclePallet::wrapped_to_collateral(redeem.amount_btc + redeem.transfer_fee_btc).unwrap();
+        let amount_without_fee_collateral = ExchangeRateOraclePallet::wrapped_to_collateral(
+            redeem.amount_btc + redeem.transfer_fee_btc,
+            CurrencyId::DOT,
+        )
+        .unwrap();
 
         let punishment_fee = FeePallet::get_punishment_fee(amount_without_fee_collateral).unwrap();
         assert!(punishment_fee > 0);
@@ -1404,10 +1400,10 @@ fn integration_test_redeem_wrapped_cancel_no_reimburse() {
 
         assert_eq!(
             ParachainState::get(),
-            ParachainState::default().with_changes(|user, vault, _, _| {
+            ParachainState::get_default(currency_id).with_changes(|user, vault, _, _| {
                 // vault is slashed a punishment fee of 10%
 
-                user.free_balance += punishment_fee;
+                (*user.balances.get_mut(&currency_id).unwrap()).free += punishment_fee;
 
                 vault.backing_collateral -= punishment_fee;
 
@@ -1419,7 +1415,7 @@ fn integration_test_redeem_wrapped_cancel_no_reimburse() {
 
 #[test]
 fn integration_test_redeem_wrapped_cancel_liquidated_no_reimburse() {
-    test_with(|| {
+    test_with(|currency_id| {
         let issued_tokens = 10_000;
         let collateral_vault = 1_000_000;
         let redeem_id = setup_cancelable_redeem(USER, VAULT, collateral_vault, issued_tokens);
@@ -1436,11 +1432,11 @@ fn integration_test_redeem_wrapped_cancel_liquidated_no_reimburse() {
                 backing_collateral: collateral_vault,
                 to_be_replaced: 0,
                 replace_collateral: 0,
-                ..default_vault_state()
+                ..default_vault_state(currency_id)
             },
         );
 
-        drop_exchange_rate_and_liquidate(VAULT);
+        liquidate_vault(currency_id, VAULT);
 
         let post_liquidation_state = ParachainState::get();
 
@@ -1458,11 +1454,13 @@ fn integration_test_redeem_wrapped_cancel_liquidated_no_reimburse() {
                 // vault
                 let collateral_for_this_redeem = collateral_vault / 4;
                 vault.liquidated_collateral -= collateral_for_this_redeem;
-                liquidation_vault.backing_collateral += collateral_for_this_redeem;
+                *liquidation_vault.funds.get_mut(&currency_id).unwrap() += collateral_for_this_redeem;
 
                 // user's tokens get unlocked
-                user.locked_tokens -= redeem.amount_btc + redeem.fee + redeem.transfer_fee_btc;
-                user.free_tokens += redeem.amount_btc + redeem.fee + redeem.transfer_fee_btc;
+                (*user.balances.get_mut(&INTERBTC).unwrap()).locked -=
+                    redeem.amount_btc + redeem.fee + redeem.transfer_fee_btc;
+                (*user.balances.get_mut(&INTERBTC).unwrap()).free +=
+                    redeem.amount_btc + redeem.fee + redeem.transfer_fee_btc;
 
                 // Note that no punishment is taken from vault, because it's already liquidated
             })
@@ -1472,7 +1470,7 @@ fn integration_test_redeem_wrapped_cancel_liquidated_no_reimburse() {
 
 #[test]
 fn integration_test_redeem_wrapped_cancel_liquidated_reimburse() {
-    test_with(|| {
+    test_with(|currency_id| {
         let issued_tokens = 10_000;
         let collateral_vault = 1_000_000;
         let redeem_id = setup_cancelable_redeem(USER, VAULT, collateral_vault, issued_tokens);
@@ -1489,11 +1487,11 @@ fn integration_test_redeem_wrapped_cancel_liquidated_reimburse() {
                 backing_collateral: collateral_vault,
                 to_be_replaced: 0,
                 replace_collateral: 0,
-                ..default_vault_state()
+                ..default_vault_state(currency_id)
             },
         );
 
-        drop_exchange_rate_and_liquidate(VAULT);
+        liquidate_vault(currency_id, VAULT);
 
         let post_liquidation_state = ParachainState::get();
 
@@ -1508,16 +1506,16 @@ fn integration_test_redeem_wrapped_cancel_liquidated_reimburse() {
                 liquidation_vault.to_be_redeemed -= redeem.amount_btc + redeem.transfer_fee_btc;
 
                 // tokens are given to the vault, minus a fee that is given to the fee pool
-                vault.free_tokens += redeem.amount_btc + redeem.transfer_fee_btc;
+                *vault.free_balance.get_mut(&INTERBTC).unwrap() += redeem.amount_btc + redeem.transfer_fee_btc;
                 fee_pool.vault_rewards += redeem.fee;
 
                 // the collateral that remained with the vault to back this redeem is transferred to the user
                 let collateral_for_this_redeem = collateral_vault / 4;
                 vault.liquidated_collateral -= collateral_for_this_redeem;
-                user.free_balance += collateral_for_this_redeem;
+                (*user.balances.get_mut(&currency_id).unwrap()).free += collateral_for_this_redeem;
 
                 // user's tokens get burned
-                user.locked_tokens -= issued_tokens;
+                (*user.balances.get_mut(&INTERBTC).unwrap()).locked -= issued_tokens;
 
                 // Note that no punishment is taken from vault, because it's already liquidated
             })
@@ -1527,7 +1525,7 @@ fn integration_test_redeem_wrapped_cancel_liquidated_reimburse() {
 
 #[test]
 fn integration_test_redeem_wrapped_execute_liquidated() {
-    test_with(|| {
+    test_with(|currency_id| {
         let issued_tokens = 10_000;
         let collateral_vault = 1_000_000;
 
@@ -1545,11 +1543,11 @@ fn integration_test_redeem_wrapped_execute_liquidated() {
                 backing_collateral: collateral_vault,
                 to_be_replaced: 0,
                 replace_collateral: 0,
-                ..default_vault_state()
+                ..default_vault_state(currency_id)
             },
         );
 
-        drop_exchange_rate_and_liquidate(VAULT);
+        liquidate_vault(currency_id, VAULT);
 
         let post_liquidation_state = ParachainState::get();
 
@@ -1563,7 +1561,7 @@ fn integration_test_redeem_wrapped_execute_liquidated() {
                 fee_pool.vault_rewards += redeem.fee;
 
                 // wrapped burned from user
-                user.locked_tokens -= issued_tokens;
+                (*user.balances.get_mut(&INTERBTC).unwrap()).locked -= issued_tokens;
 
                 // to-be-redeemed & issued decreased, forwarding to liquidation vault
                 vault.to_be_redeemed -= redeem.amount_btc + redeem.transfer_fee_btc;
@@ -1577,4 +1575,66 @@ fn integration_test_redeem_wrapped_execute_liquidated() {
             })
         );
     });
+}
+
+fn get_additional_collateral(currency_id: CurrencyId) {
+    assert_ok!(VaultRegistryPallet::transfer_funds(
+        currency_id,
+        CurrencySource::FreeBalance(account_of(FAUCET)),
+        CurrencySource::Collateral(account_of(VAULT)),
+        100_000_000_000,
+    ));
+}
+
+fn setup_cancelable_redeem_with_insufficient_collateral_for_reimburse(currency_id: CurrencyId) -> H256 {
+    let amount_btc = 10_000;
+
+    // set collateral to the minimum amount required, such that the vault can not afford to both
+    // reimburse and keep collateral his current tokens
+    let required_collateral =
+        VaultRegistryPallet::get_required_collateral_for_wrapped(DEFAULT_VAULT_ISSUED, currency_id).unwrap();
+    CoreVaultData::force_to(
+        VAULT,
+        CoreVaultData {
+            backing_collateral: required_collateral,
+            ..CoreVaultData::vault(VAULT)
+        },
+    );
+    let redeem_id = setup_cancelable_redeem(USER, VAULT, 100000000, amount_btc);
+    let redeem = RedeemPallet::get_open_redeem_request_from_id(&redeem_id).unwrap();
+    let amount_without_fee_as_collateral =
+        ExchangeRateOraclePallet::wrapped_to_collateral(redeem.amount_btc + redeem.transfer_fee_btc, CurrencyId::DOT)
+            .unwrap();
+
+    let punishment_fee = FeePallet::get_punishment_fee(amount_without_fee_as_collateral).unwrap();
+    assert!(punishment_fee > 0);
+
+    redeem_id
+}
+
+mod mint_tokens_for_reimbursed_redeem_equivalence_test {
+    use super::*;
+
+    #[test]
+    fn integration_test_mint_tokens_for_reimbursed_redeem_equivalence_to_succesful_cancel() {
+        // scenario 1: sufficient collateral
+        let result1 = test_with(|currency_id| {
+            let redeem_id = setup_cancelable_redeem_with_insufficient_collateral_for_reimburse(currency_id);
+            get_additional_collateral(currency_id);
+            assert_ok!(Call::Redeem(RedeemCall::cancel_redeem(redeem_id, true)).dispatch(origin_of(account_of(USER))));
+            ParachainState::get()
+        });
+        // scenario 2: insufficient collateral
+        let result2 = test_with(|currency_id| {
+            let redeem_id = setup_cancelable_redeem_with_insufficient_collateral_for_reimburse(currency_id);
+            assert_ok!(Call::Redeem(RedeemCall::cancel_redeem(redeem_id, true)).dispatch(origin_of(account_of(USER))));
+            get_additional_collateral(currency_id);
+            SecurityPallet::set_active_block_number(100000000);
+            assert_ok!(Call::Redeem(RedeemCall::mint_tokens_for_reimbursed_redeem(redeem_id))
+                .dispatch(origin_of(account_of(VAULT))));
+            ParachainState::get()
+        });
+        // the states should be identical
+        assert_eq!(result1, result2);
+    }
 }

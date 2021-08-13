@@ -31,7 +31,7 @@ pub use crate::types::{IssueRequest, IssueRequestStatus};
 
 use crate::types::{BalanceOf, Collateral, Version, Wrapped};
 use btc_relay::{BtcAddress, BtcPublicKey};
-use frame_support::{dispatch::DispatchError, ensure, transactional};
+use frame_support::{dispatch::DispatchError, ensure, traits::Get, transactional};
 use frame_system::{ensure_root, ensure_signed};
 use sp_core::H256;
 use sp_runtime::traits::*;
@@ -277,14 +277,19 @@ impl<T: Config> Pallet<T> {
         ext::vault_registry::ensure_not_banned::<T>(&vault_id)?;
 
         // calculate griefing collateral based on the total amount of tokens to be issued
-        let amount_collateral = ext::oracle::wrapped_to_collateral::<T>(amount_requested)?;
+        let amount_collateral =
+            ext::oracle::wrapped_to_collateral::<T>(amount_requested, T::GetGriefingCollateralCurrencyId::get())?;
         let expected_griefing_collateral = ext::fee::get_issue_griefing_collateral::<T>(amount_collateral)?;
 
         ensure!(
             griefing_collateral >= expected_griefing_collateral,
             Error::<T>::InsufficientCollateral
         );
-        ext::collateral::lock_collateral::<T>(&requester, griefing_collateral)?;
+        ext::currency::lock::<T>(
+            T::GetGriefingCollateralCurrencyId::get(),
+            &requester,
+            griefing_collateral,
+        )?;
 
         // only continue if the payment is above the dust value
         ensure!(
@@ -386,12 +391,17 @@ impl<T: Config> Pallet<T> {
                 amount_transferred,
                 expected_total_amount,
             )?;
-            ext::collateral::release_collateral::<T>(&requester, released_collateral)?;
+            ext::currency::unlock::<T>(
+                T::GetGriefingCollateralCurrencyId::get(),
+                &requester,
+                released_collateral,
+            )?;
             let slashed_collateral = issue
                 .griefing_collateral
                 .checked_sub(&released_collateral)
                 .ok_or(Error::<T>::ArithmeticUnderflow)?;
             ext::vault_registry::transfer_funds::<T>(
+                T::GetGriefingCollateralCurrencyId::get(),
                 CurrencySource::Griefing(issue.requester.clone()),
                 CurrencySource::FreeBalance(issue.vault.clone()),
                 slashed_collateral,
@@ -400,7 +410,11 @@ impl<T: Config> Pallet<T> {
             Self::update_issue_amount(&issue_id, &mut issue, amount_transferred, slashed_collateral)?;
         } else {
             // release griefing collateral
-            ext::collateral::release_collateral::<T>(&requester, issue.griefing_collateral)?;
+            ext::currency::unlock::<T>(
+                T::GetGriefingCollateralCurrencyId::get(),
+                &requester,
+                issue.griefing_collateral,
+            )?;
 
             if amount_transferred > expected_total_amount
                 && !ext::vault_registry::is_vault_liquidated::<T>(&issue.vault)?
@@ -482,9 +496,14 @@ impl<T: Config> Pallet<T> {
         ext::vault_registry::decrease_to_be_issued_tokens::<T>(&issue.vault, full_amount)?;
 
         if ext::vault_registry::is_vault_liquidated::<T>(&issue.vault)? {
-            ext::collateral::release_collateral::<T>(&issue.requester, issue.griefing_collateral)?;
+            ext::currency::unlock::<T>(
+                T::GetGriefingCollateralCurrencyId::get(),
+                &issue.requester,
+                issue.griefing_collateral,
+            )?;
         } else {
             ext::vault_registry::transfer_funds::<T>(
+                T::GetGriefingCollateralCurrencyId::get(),
                 CurrencySource::Griefing(issue.requester.clone()),
                 CurrencySource::FreeBalance(issue.vault.clone()),
                 issue.griefing_collateral,

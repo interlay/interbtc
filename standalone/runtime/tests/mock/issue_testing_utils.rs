@@ -7,8 +7,8 @@ pub const PROOF_SUBMITTER: [u8; 32] = CAROL;
 
 pub const DEFAULT_GRIEFING_COLLATERAL: u128 = 5_000;
 pub const DEFAULT_COLLATERAL: u128 = 1_000_000;
-pub fn request_issue(amount_btc: u128) -> (H256, IssueRequest<AccountId32, u32, u128, u128>) {
-    RequestIssueBuilder::new(amount_btc).request()
+pub fn request_issue(currency_id: CurrencyId, amount_btc: u128) -> (H256, IssueRequest<AccountId32, u32, u128, u128>) {
+    RequestIssueBuilder::new(currency_id, amount_btc).request()
 }
 
 pub struct RequestIssueBuilder {
@@ -16,12 +16,14 @@ pub struct RequestIssueBuilder {
     vault: [u8; 32],
     user: [u8; 32],
     griefing_collateral: u128,
+    currency_id: CurrencyId,
 }
 
 impl RequestIssueBuilder {
-    pub fn new(amount_btc: u128) -> Self {
+    pub fn new(currency_id: CurrencyId, amount_btc: u128) -> Self {
         Self {
             amount_btc,
+            currency_id,
             vault: VAULT,
             user: USER,
             griefing_collateral: DEFAULT_COLLATERAL,
@@ -44,7 +46,7 @@ impl RequestIssueBuilder {
     }
 
     pub fn request(&self) -> (H256, IssueRequest<AccountId32, u32, u128, u128>) {
-        try_register_vault(DEFAULT_COLLATERAL, self.vault);
+        try_register_vault(self.currency_id, DEFAULT_COLLATERAL, self.vault);
 
         // alice requests wrapped by locking btc with bob
         assert_ok!(Call::Issue(IssueCall::request_issue(
@@ -66,7 +68,7 @@ pub struct ExecuteIssueBuilder {
     issue: IssueRequest<AccountId32, u32, u128, u128>,
     amount: u128,
     submitter: [u8; 32],
-    register_submitter_as_vault: bool,
+    register_vault_with_currency_id: Option<CurrencyId>,
     relayer: Option<[u8; 32]>,
     execution_tx: Option<(Vec<u8>, Vec<u8>)>,
 }
@@ -79,7 +81,7 @@ impl ExecuteIssueBuilder {
             issue: issue.clone(),
             amount: issue.fee + issue.amount,
             submitter: PROOF_SUBMITTER,
-            register_submitter_as_vault: true,
+            register_vault_with_currency_id: None,
             relayer: None,
             execution_tx: None,
         }
@@ -90,9 +92,13 @@ impl ExecuteIssueBuilder {
         self
     }
 
-    pub fn with_submitter(&mut self, submitter: [u8; 32], register_as_vault: bool) -> &mut Self {
+    pub fn with_submitter(
+        &mut self,
+        submitter: [u8; 32],
+        register_vault_with_currency_id: Option<CurrencyId>,
+    ) -> &mut Self {
         self.submitter = submitter;
-        self.register_submitter_as_vault = register_as_vault;
+        self.register_vault_with_currency_id = register_vault_with_currency_id;
         self
     }
 
@@ -132,8 +138,8 @@ impl ExecuteIssueBuilder {
 
         SecurityPallet::set_active_block_number(SecurityPallet::active_block_number() + CONFIRMATIONS);
 
-        if self.register_submitter_as_vault {
-            try_register_vault(DEFAULT_COLLATERAL, self.submitter);
+        if let Some(currency_id) = self.register_vault_with_currency_id {
+            try_register_vault(currency_id, DEFAULT_COLLATERAL, self.submitter);
         }
 
         self.execution_tx = Some((proof, raw_tx));

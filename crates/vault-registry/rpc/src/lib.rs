@@ -16,11 +16,12 @@ use sp_runtime::{
 use std::sync::Arc;
 
 #[rpc]
-pub trait VaultRegistryApi<BlockHash, AccountId, Wrapped, Collateral, UnsignedFixedPoint>
+pub trait VaultRegistryApi<BlockHash, AccountId, Wrapped, Collateral, UnsignedFixedPoint, CurrencyId>
 where
     Wrapped: Codec + MaybeDisplay + MaybeFromStr,
     Collateral: Codec + MaybeDisplay + MaybeFromStr,
     UnsignedFixedPoint: Codec + MaybeDisplay + MaybeFromStr,
+    CurrencyId: Codec,
 {
     #[rpc(name = "vaultRegistry_getVaultCollateral")]
     fn get_vault_collateral(
@@ -35,9 +36,6 @@ where
         vault_id: AccountId,
         at: Option<BlockHash>,
     ) -> JsonRpcResult<BalanceWrapper<Collateral>>;
-
-    #[rpc(name = "vaultRegistry_getTotalCollateralization")]
-    fn get_total_collateralization(&self, at: Option<BlockHash>) -> JsonRpcResult<UnsignedFixedPoint>;
 
     #[rpc(name = "vaultRegistry_getFirstVaultWithSufficientCollateral")]
     fn get_first_vault_with_sufficient_collateral(
@@ -99,6 +97,7 @@ where
     fn get_required_collateral_for_wrapped(
         &self,
         amount_btc: BalanceWrapper<Wrapped>,
+        currency_id: CurrencyId,
         at: Option<BlockHash>,
     ) -> JsonRpcResult<BalanceWrapper<Collateral>>;
 
@@ -160,17 +159,18 @@ fn handle_response<T, E: std::fmt::Debug>(
     )
 }
 
-impl<C, Block, AccountId, Wrapped, Collateral, UnsignedFixedPoint>
-    VaultRegistryApi<<Block as BlockT>::Hash, AccountId, Wrapped, Collateral, UnsignedFixedPoint>
+impl<C, Block, AccountId, Wrapped, Collateral, UnsignedFixedPoint, CurrencyId>
+    VaultRegistryApi<<Block as BlockT>::Hash, AccountId, Wrapped, Collateral, UnsignedFixedPoint, CurrencyId>
     for VaultRegistry<C, Block>
 where
     Block: BlockT,
     C: Send + Sync + 'static + ProvideRuntimeApi<Block> + HeaderBackend<Block>,
-    C::Api: VaultRegistryRuntimeApi<Block, AccountId, Wrapped, Collateral, UnsignedFixedPoint>,
+    C::Api: VaultRegistryRuntimeApi<Block, AccountId, Wrapped, Collateral, UnsignedFixedPoint, CurrencyId>,
     AccountId: Codec,
     Wrapped: Codec + MaybeDisplay + MaybeFromStr,
     Collateral: Codec + MaybeDisplay + MaybeFromStr,
     UnsignedFixedPoint: Codec + MaybeDisplay + MaybeFromStr,
+    CurrencyId: Codec,
 {
     fn get_vault_collateral(
         &self,
@@ -197,16 +197,6 @@ where
         handle_response(
             api.get_vault_total_collateral(&at, vault_id),
             "Unable to get the vault's collateral.".into(),
-        )
-    }
-
-    fn get_total_collateralization(&self, at: Option<<Block as BlockT>::Hash>) -> JsonRpcResult<UnsignedFixedPoint> {
-        let api = self.client.runtime_api();
-        let at = BlockId::hash(at.unwrap_or_else(|| self.client.info().best_hash));
-
-        handle_response(
-            api.get_total_collateralization(&at),
-            "Unable to get total collateralization.".into(),
         )
     }
 
@@ -325,13 +315,14 @@ where
     fn get_required_collateral_for_wrapped(
         &self,
         amount_btc: BalanceWrapper<Wrapped>,
+        currency_id: CurrencyId,
         at: Option<<Block as BlockT>::Hash>,
     ) -> JsonRpcResult<BalanceWrapper<Collateral>> {
         let api = self.client.runtime_api();
         let at = BlockId::hash(at.unwrap_or_else(|| self.client.info().best_hash));
 
         handle_response(
-            api.get_required_collateral_for_wrapped(&at, amount_btc),
+            api.get_required_collateral_for_wrapped(&at, amount_btc, currency_id),
             "Unable to get required collateral for amount.".into(),
         )
     }

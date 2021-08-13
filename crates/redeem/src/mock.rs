@@ -87,6 +87,8 @@ impl frame_system::Config for Test {
 
 impl pallet_randomness_collective_flip::Config for Test {}
 
+pub const DEFAULT_TESTING_CURRENCY: <Test as orml_tokens::Config>::CurrencyId =
+    <Test as orml_tokens::Config>::CurrencyId::DOT;
 pub const DOT: CurrencyId = CurrencyId::DOT;
 pub const INTERBTC: CurrencyId = CurrencyId::INTERBTC;
 
@@ -134,9 +136,9 @@ impl vault_registry::Config for Test {
     type SignedFixedPoint = SignedFixedPoint;
     type UnsignedFixedPoint = UnsignedFixedPoint;
     type WeightInfo = ();
-    type Collateral = CurrencyAdapter<Test, GetCollateralCurrencyId>;
     type Wrapped = CurrencyAdapter<Test, GetWrappedCurrencyId>;
     type GetRewardsCurrencyId = GetWrappedCurrencyId;
+    type GetGriefingCollateralCurrencyId = GetCollateralCurrencyId;
 }
 
 impl staking::Config for Test {
@@ -239,11 +241,20 @@ impl ExtBuilder {
         .unwrap();
 
         vault_registry::GenesisConfig::<Test> {
-            minimum_collateral_vault: 0,
+            minimum_collateral_vault: vec![(DEFAULT_TESTING_CURRENCY, 0)],
             punishment_delay: 8,
-            secure_collateral_threshold: UnsignedFixedPoint::checked_from_rational(200, 100).unwrap(),
-            premium_redeem_threshold: UnsignedFixedPoint::checked_from_rational(120, 100).unwrap(),
-            liquidation_collateral_threshold: UnsignedFixedPoint::checked_from_rational(110, 100).unwrap(),
+            secure_collateral_threshold: vec![(
+                DEFAULT_TESTING_CURRENCY,
+                UnsignedFixedPoint::checked_from_rational(200, 100).unwrap(),
+            )],
+            premium_redeem_threshold: vec![(
+                DEFAULT_TESTING_CURRENCY,
+                UnsignedFixedPoint::checked_from_rational(120, 100).unwrap(),
+            )],
+            liquidation_collateral_threshold: vec![(
+                DEFAULT_TESTING_CURRENCY,
+                UnsignedFixedPoint::checked_from_rational(110, 100).unwrap(),
+            )],
         }
         .assimilate_storage(&mut storage)
         .unwrap();

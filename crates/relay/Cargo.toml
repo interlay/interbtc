@@ -39,6 +39,9 @@ frame-benchmarking = { git = "https://github.com/paritytech/substrate", branch =
 pallet-randomness-collective-flip = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.8", default-features = false }
 pallet-timestamp = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.8", default-features = false }
 
+
+# Parachain dependencies
+primitives = { package = "interbtc-primitives", path = "../../primitives", default-features = false }
 reward = { path = "../reward", default-features = false }
 staking = { path = "../staking", default-features = false }
 

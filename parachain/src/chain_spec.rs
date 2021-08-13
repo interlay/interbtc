@@ -2,10 +2,10 @@ use bitcoin::utils::{virtual_transaction_size, InputType, TransactionInputMetada
 use cumulus_primitives_core::ParaId;
 use hex_literal::hex;
 use interbtc_runtime::{
-    AccountId, AuraConfig, BTCRelayConfig, ExchangeRateOracleConfig, FeeConfig, GeneralCouncilConfig, GenesisConfig,
-    IssueConfig, NominationConfig, ParachainInfoConfig, RedeemConfig, RefundConfig, ReplaceConfig, Signature,
-    SudoConfig, SystemConfig, TechnicalCommitteeConfig, TokensConfig, VaultRegistryConfig, BITCOIN_BLOCK_SPACING, DAYS,
-    DOT, WASM_BINARY,
+    AccountId, AuraConfig, BTCRelayConfig, CurrencyId, ExchangeRateOracleConfig, FeeConfig, GeneralCouncilConfig,
+    GenesisConfig, IssueConfig, NominationConfig, ParachainInfoConfig, RedeemConfig, RefundConfig, ReplaceConfig,
+    Signature, SudoConfig, SystemConfig, TechnicalCommitteeConfig, TokensConfig, VaultRegistryConfig,
+    BITCOIN_BLOCK_SPACING, DAYS, DOT, WASM_BINARY,
 };
 use sc_chain_spec::{ChainSpecExtension, ChainSpecGroup};
 use serde::{Deserialize, Serialize};
@@ -292,11 +292,14 @@ fn testnet_genesis(
             replace_btc_dust_value: 1000,
         },
         vault_registry: VaultRegistryConfig {
-            minimum_collateral_vault: 0,
+            minimum_collateral_vault: vec![(CurrencyId::DOT, 0)],
             punishment_delay: DAYS,
-            secure_collateral_threshold: FixedU128::checked_from_rational(150, 100).unwrap(), // 150%
-            premium_redeem_threshold: FixedU128::checked_from_rational(135, 100).unwrap(),    // 135%
-            liquidation_collateral_threshold: FixedU128::checked_from_rational(110, 100).unwrap(), // 110%
+            secure_collateral_threshold: vec![(CurrencyId::DOT, FixedU128::checked_from_rational(150, 100).unwrap())], /* 150% */
+            premium_redeem_threshold: vec![(CurrencyId::DOT, FixedU128::checked_from_rational(135, 100).unwrap())], /* 135% */
+            liquidation_collateral_threshold: vec![(
+                CurrencyId::DOT,
+                FixedU128::checked_from_rational(110, 100).unwrap(),
+            )], /* 110% */
         },
         fee: FeeConfig {
             issue_fee: FixedU128::checked_from_rational(5, 1000).unwrap(), // 0.5%

@@ -53,6 +53,8 @@ mod request_replace_tests {
         ext::vault_registry::try_increase_to_be_replaced_tokens::<Test>
             .mock_safe(|_, _, _| MockResult::Return(Ok((2, 20))));
         ext::fee::get_replace_griefing_collateral::<Test>.mock_safe(move |_| MockResult::Return(Ok(20)));
+        ext::vault_registry::get_collateral_currency::<Test>
+            .mock_safe(|_| MockResult::Return(Ok(DEFAULT_TESTING_CURRENCY)));
     }
 
     #[test]
@@ -70,7 +72,8 @@ mod request_replace_tests {
             setup_mocks();
             ext::vault_registry::requestable_to_be_replaced_tokens::<Test>
                 .mock_safe(move |_| MockResult::Return(Ok(5)));
-
+            ext::vault_registry::get_collateral_currency::<Test>
+                .mock_safe(|_| MockResult::Return(Ok(DEFAULT_TESTING_CURRENCY)));
             assert_ok!(Replace::_request_replace(OLD_VAULT, 10, 20));
             assert_event_matches!(Event::RequestReplace(OLD_VAULT, 5, 10));
         })
@@ -180,7 +183,7 @@ mod execute_replace_test {
         ext::btc_relay::verify_and_validate_op_return_transaction::<Test, Balance>
             .mock_safe(|_, _, _, _, _| MockResult::Return(Ok(())));
         ext::vault_registry::replace_tokens::<Test>.mock_safe(|_, _, _, _| MockResult::Return(Ok(())));
-        ext::collateral::release_collateral::<Test>.mock_safe(|_, _| MockResult::Return(Ok(())));
+        ext::currency::unlock::<Test>.mock_safe(|_, _, _| MockResult::Return(Ok(())));
     }
 
     #[test]
@@ -208,7 +211,7 @@ mod cancel_replace_tests {
         ext::btc_relay::has_request_expired::<Test>.mock_safe(|_, _, _| MockResult::Return(Ok(true)));
         ext::vault_registry::is_vault_liquidated::<Test>.mock_safe(|_| MockResult::Return(Ok(false)));
         ext::vault_registry::cancel_replace_tokens::<Test>.mock_safe(|_, _, _| MockResult::Return(Ok(())));
-        ext::vault_registry::transfer_funds::<Test>.mock_safe(|_, _, _| MockResult::Return(Ok(())));
+        ext::vault_registry::transfer_funds::<Test>.mock_safe(|_, _, _, _| MockResult::Return(Ok(())));
         ext::vault_registry::is_allowed_to_withdraw_collateral::<Test>.mock_safe(|_, _| MockResult::Return(Ok(false)));
     }
 

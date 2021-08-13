@@ -34,13 +34,15 @@ use btc_relay::BtcAddress;
 use exchange_rate_oracle::{BitcoinInclusionTime, OracleKey};
 use frame_support::{
     dispatch::{DispatchError, DispatchResult},
-    ensure, transactional,
+    ensure,
+    traits::Get,
+    transactional,
 };
 use frame_system::{ensure_root, ensure_signed};
 use sp_core::H256;
 use sp_runtime::{traits::*, FixedPointNumber};
 use sp_std::{convert::TryInto, vec::Vec};
-use vault_registry::CurrencySource;
+use vault_registry::{types::CurrencyId, CurrencySource};
 
 pub use pallet::*;
 
@@ -214,9 +216,10 @@ pub mod pallet {
         pub fn liquidation_redeem(
             origin: OriginFor<T>,
             #[pallet::compact] amount_wrapped: Wrapped<T>,
+            currency_id: CurrencyId<T>,
         ) -> DispatchResultWithPostInfo {
             let redeemer = ensure_signed(origin)?;
-            Self::_liquidation_redeem(redeemer, amount_wrapped)?;
+            Self::_liquidation_redeem(redeemer, amount_wrapped, currency_id)?;
             Ok(().into())
         }
 
@@ -350,7 +353,9 @@ impl<T: Config> Pallet<T> {
 
         let below_premium_redeem = ext::vault_registry::is_vault_below_premium_threshold::<T>(&vault_id)?;
         let premium_collateral = if below_premium_redeem {
-            let redeem_amount_wrapped_in_collateral = ext::oracle::wrapped_to_collateral::<T>(user_to_be_received_btc)?;
+            let currency_id = ext::vault_registry::get_collateral_currency::<T>(&vault_id)?;
+            let redeem_amount_wrapped_in_collateral =
+                ext::oracle::wrapped_to_collateral::<T>(user_to_be_received_btc, currency_id)?;
             ext::fee::get_premium_redeem_fee::<T>(redeem_amount_wrapped_in_collateral)?
         } else {
             Collateral::<T>::zero()
@@ -364,7 +369,11 @@ impl<T: Config> Pallet<T> {
             ext::vault_registry::decrease_to_be_replaced_tokens::<T>(&vault_id, vault_to_be_burned_tokens)?;
         // release the griefing collateral that is locked for the replace request
         if !griefing_collateral.is_zero() {
-            ext::collateral::release_collateral::<T>(&vault_id, griefing_collateral)?;
+            ext::currency::unlock::<T>(
+                T::GetGriefingCollateralCurrencyId::get(),
+                &vault_id,
+                griefing_collateral,
+            )?;
         }
 
         Self::insert_redeem_request(
@@ -398,7 +407,11 @@ impl<T: Config> Pallet<T> {
         Ok(redeem_id)
     }
 
-    fn _liquidation_redeem(redeemer: T::AccountId, amount_wrapped: Wrapped<T>) -> Result<(), DispatchError> {
+    fn _liquidation_redeem(
+        redeemer: T::AccountId,
+        amount_wrapped: Wrapped<T>,
+        currency_id: CurrencyId<T>,
+    ) -> Result<(), DispatchError> {
         ext::security::ensure_parachain_status_not_shutdown::<T>()?;
 
         let redeemer_balance = ext::treasury::get_balance::<T>(&redeemer);
@@ -406,7 +419,7 @@ impl<T: Config> Pallet<T> {
 
         ext::treasury::lock::<T>(&redeemer, amount_wrapped)?;
         ext::treasury::burn::<T>(&redeemer, amount_wrapped)?;
-        ext::vault_registry::redeem_tokens_liquidation::<T>(&redeemer, amount_wrapped)?;
+        ext::vault_registry::redeem_tokens_liquidation::<T>(currency_id, &redeemer, amount_wrapped)?;
 
         // vault-registry emits `RedeemTokensLiquidation` with collateral amount
         Self::deposit_event(<Event<T>>::LiquidationRedeem(redeemer, amount_wrapped));
@@ -479,7 +492,10 @@ impl<T: Config> Pallet<T> {
             .checked_add(&redeem.transfer_fee_btc)
             .ok_or(Error::<T>::ArithmeticOverflow)?;
 
-        let amount_wrapped_in_collateral = ext::oracle::wrapped_to_collateral::<T>(vault_to_be_burned_tokens)?;
+        let amount_wrapped_in_collateral =
+            ext::oracle::wrapped_to_collateral::<T>(vault_to_be_burned_tokens, vault.currency_id)?;
+
+        let vault_currency = ext::vault_registry::get_collateral_currency::<T>(&vault_id)?;
 
         // now update the collateral; the logic is different for liquidated vaults.
         let slashed_amount = if vault.is_liquidated() {
@@ -496,6 +512,7 @@ impl<T: Config> Pallet<T> {
             };
             ext::vault_registry::decrease_liquidated_collateral::<T>(&vault_id, confiscated_collateral)?;
             ext::vault_registry::transfer_funds::<T>(
+                vault_currency,
                 CurrencySource::ReservedBalance(vault_id.clone()),
                 slashing_destination,
                 confiscated_collateral,
@@ -516,6 +533,7 @@ impl<T: Config> Pallet<T> {
             };
 
             ext::vault_registry::transfer_funds_saturated::<T>(
+                vault_currency,
                 CurrencySource::Collateral(vault_id.clone()),
                 CurrencySource::FreeBalance(redeemer.clone()),
                 amount_to_slash,

@@ -37,6 +37,14 @@ macro_rules! assert_eq_modulo_rounding {
     }};
 }
 
+fn test_with<R>(execute: impl Fn(CurrencyId) -> R) {
+    let test_with = |currency_id| {
+        ExtBuilder::build().execute_with(|| execute(currency_id));
+    };
+    test_with(CurrencyId::KSM);
+    test_with(CurrencyId::DOT);
+}
+
 fn withdraw_vault_global_pool_rewards(account: [u8; 32]) -> i128 {
     let amount = VaultRewardsPallet::compute_reward(INTERBTC, &account_of(account)).unwrap();
     assert_ok!(Call::Fee(FeeCall::withdraw_rewards(account_of(account))).dispatch(origin_of(account_of(account))));
@@ -86,22 +94,27 @@ fn get_vault_collateral(account: [u8; 32]) -> i128 {
         .unwrap()
 }
 
-fn issue_with_relayer_and_vault(relayer: [u8; 32], vault: [u8; 32], request_amount: u128) {
-    let (issue_id, _) = RequestIssueBuilder::new(request_amount).with_vault(vault).request();
+fn issue_with_relayer_and_vault(currency_id: CurrencyId, relayer: [u8; 32], vault: [u8; 32], request_amount: u128) {
+    let (issue_id, _) = RequestIssueBuilder::new(currency_id, request_amount)
+        .with_vault(vault)
+        .request();
     ExecuteIssueBuilder::new(issue_id)
-        .with_submitter(vault, true)
+        .with_submitter(vault, Some(currency_id))
         .with_relayer(Some(relayer))
         .assert_execute();
 }
 
 #[test]
 fn test_vault_fee_pool_withdrawal() {
-    ExtBuilder::build().execute_with(|| {
+    test_with(|currency_id| {
         SecurityPallet::set_active_block_number(1);
-        assert_ok!(ExchangeRateOraclePallet::_set_exchange_rate(FixedU128::one()));
+        assert_ok!(ExchangeRateOraclePallet::_set_exchange_rate(
+            currency_id,
+            FixedU128::one()
+        ));
 
-        issue_with_relayer_and_vault(ISSUE_RELAYER, VAULT_1, 20000);
-        issue_with_relayer_and_vault(ISSUE_RELAYER, VAULT_2, 80000);
+        issue_with_relayer_and_vault(currency_id, ISSUE_RELAYER, VAULT_1, 20000);
+        issue_with_relayer_and_vault(currency_id, ISSUE_RELAYER, VAULT_2, 80000);
 
         let mut reward_pool = BasicRewardPool::default();
         reward_pool
@@ -125,12 +138,15 @@ fn test_vault_fee_pool_withdrawal() {
 
 #[test]
 fn test_new_nomination_withdraws_global_reward() {
-    ExtBuilder::build().execute_with(|| {
+    test_with(|currency_id| {
         SecurityPallet::set_active_block_number(1);
         enable_nomination();
-        assert_ok!(ExchangeRateOraclePallet::_set_exchange_rate(FixedU128::one()));
+        assert_ok!(ExchangeRateOraclePallet::_set_exchange_rate(
+            currency_id,
+            FixedU128::one()
+        ));
 
-        issue_with_relayer_and_vault(ISSUE_RELAYER, VAULT_1, 10000);
+        issue_with_relayer_and_vault(currency_id, ISSUE_RELAYER, VAULT_1, 10000);
 
         assert_nomination_opt_in(VAULT_1);
 
@@ -157,18 +173,21 @@ fn test_new_nomination_withdraws_global_reward() {
 
 #[test]
 fn test_fee_nomination() {
-    ExtBuilder::build().execute_with(|| {
+    test_with(|currency_id| {
         SecurityPallet::set_active_block_number(1);
         enable_nomination();
-        assert_ok!(ExchangeRateOraclePallet::_set_exchange_rate(FixedU128::one()));
+        assert_ok!(ExchangeRateOraclePallet::_set_exchange_rate(
+            currency_id,
+            FixedU128::one()
+        ));
 
-        issue_with_relayer_and_vault(ISSUE_RELAYER, VAULT_1, 10000);
+        issue_with_relayer_and_vault(currency_id, ISSUE_RELAYER, VAULT_1, 10000);
 
         let vault_issued_tokens_1 = get_vault_issued_tokens(VAULT_1);
 
         assert_nomination_opt_in(VAULT_1);
         assert_nominate_collateral(VAULT_1, USER, DEFAULT_NOMINATION);
-        issue_with_relayer_and_vault(ISSUE_RELAYER, VAULT_1, 100000);
+        issue_with_relayer_and_vault(currency_id, ISSUE_RELAYER, VAULT_1, 100000);
 
         let vault_issued_tokens_2 = get_vault_issued_tokens(VAULT_1);
 
@@ -213,25 +232,29 @@ fn test_fee_nomination() {
 
 #[test]
 fn test_fee_nomination_slashing() {
-    ExtBuilder::build().execute_with(|| {
+    test_with(|currency_id| {
         SecurityPallet::set_active_block_number(1);
         enable_nomination();
-        assert_ok!(ExchangeRateOraclePallet::_set_exchange_rate(FixedU128::one()));
+        assert_ok!(ExchangeRateOraclePallet::_set_exchange_rate(
+            currency_id,
+            FixedU128::one()
+        ));
 
-        issue_with_relayer_and_vault(ISSUE_RELAYER, VAULT_1, 10000);
+        issue_with_relayer_and_vault(currency_id, ISSUE_RELAYER, VAULT_1, 10000);
 
         assert_nomination_opt_in(VAULT_1);
         assert_nominate_collateral(VAULT_1, USER, DEFAULT_NOMINATION);
 
         // Slash the vault and its nominator
         VaultRegistryPallet::transfer_funds(
+            VaultRegistryPallet::get_collateral_currency(&account_of(VAULT_1)).unwrap(),
             CurrencySource::Collateral(account_of(VAULT_1)),
             CurrencySource::FreeBalance(account_of(VAULT_2)),
             DEFAULT_NOMINATION,
         )
         .unwrap();
 
-        issue_with_relayer_and_vault(ISSUE_RELAYER, VAULT_1, 100000);
+        issue_with_relayer_and_vault(currency_id, ISSUE_RELAYER, VAULT_1, 100000);
 
         let mut global_reward_pool = BasicRewardPool::default();
         global_reward_pool
@@ -265,18 +288,21 @@ fn test_fee_nomination_slashing() {
 
 #[test]
 fn test_fee_nomination_withdrawal() {
-    ExtBuilder::build().execute_with(|| {
+    test_with(|currency_id| {
         SecurityPallet::set_active_block_number(1);
         enable_nomination();
-        assert_ok!(ExchangeRateOraclePallet::_set_exchange_rate(FixedU128::one()));
+        assert_ok!(ExchangeRateOraclePallet::_set_exchange_rate(
+            currency_id,
+            FixedU128::one()
+        ));
 
-        issue_with_relayer_and_vault(ISSUE_RELAYER, VAULT_1, 10000);
+        issue_with_relayer_and_vault(currency_id, ISSUE_RELAYER, VAULT_1, 10000);
 
         assert_nomination_opt_in(VAULT_1);
         assert_nominate_collateral(VAULT_1, USER, DEFAULT_NOMINATION);
-        issue_with_relayer_and_vault(ISSUE_RELAYER, VAULT_1, 50000);
+        issue_with_relayer_and_vault(currency_id, ISSUE_RELAYER, VAULT_1, 50000);
         assert_withdraw_nominator_collateral(USER, VAULT_1, DEFAULT_NOMINATION / 2);
-        issue_with_relayer_and_vault(ISSUE_RELAYER, VAULT_1, 50000);
+        issue_with_relayer_and_vault(currency_id, ISSUE_RELAYER, VAULT_1, 50000);
 
         let mut global_reward_pool = BasicRewardPool::default();
         global_reward_pool
@@ -301,7 +327,7 @@ fn test_fee_nomination_withdrawal() {
 
 #[test]
 fn integration_test_fee_with_parachain_shutdown_fails() {
-    ExtBuilder::build().execute_with(|| {
+    test_with(|_currency_id| {
         SecurityPallet::set_status(StatusCode::Shutdown);
 
         assert_noop!(

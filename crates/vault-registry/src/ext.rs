@@ -2,33 +2,41 @@
 use mocktopus::macros::mockable;
 
 #[cfg_attr(test, mockable)]
-pub(crate) mod collateral {
-    use crate::types::Collateral;
-    use currency::ParachainCurrency;
+pub(crate) mod currency {
+    use crate::types::{Collateral, CurrencyId};
     use frame_support::dispatch::DispatchResult;
 
+    pub fn lock<T: crate::Config>(
+        currency_id: CurrencyId<T>,
+        account: &T::AccountId,
+        amount: Collateral<T>,
+    ) -> DispatchResult {
+        currency::with_currency_id::lock::<T>(currency_id, account, amount)
+    }
+
+    pub fn unlock<T: crate::Config>(
+        currency_id: CurrencyId<T>,
+        account: &T::AccountId,
+        amount: Collateral<T>,
+    ) -> DispatchResult {
+        currency::with_currency_id::unlock::<T>(currency_id, account, amount)
+    }
+
+    pub fn get_free_balance<T: crate::Config>(currency_id: CurrencyId<T>, id: &T::AccountId) -> Collateral<T> {
+        currency::with_currency_id::get_free_balance::<T>(currency_id, id)
+    }
+
+    pub fn get_reserved_balance<T: crate::Config>(currency_id: CurrencyId<T>, id: &T::AccountId) -> Collateral<T> {
+        currency::with_currency_id::get_reserved_balance::<T>(currency_id, id)
+    }
+
     pub fn transfer<T: crate::Config>(
+        currency_id: CurrencyId<T>,
         source: &T::AccountId,
         destination: &T::AccountId,
         amount: Collateral<T>,
     ) -> DispatchResult {
-        T::Collateral::transfer(source, destination, amount)
-    }
-
-    pub fn lock<T: crate::Config>(sender: &T::AccountId, amount: Collateral<T>) -> DispatchResult {
-        T::Collateral::lock(sender, amount)
-    }
-
-    pub fn unlock<T: crate::Config>(sender: &T::AccountId, amount: Collateral<T>) -> DispatchResult {
-        T::Collateral::unlock(sender, amount)
-    }
-
-    pub fn get_reserved_balance<T: crate::Config>(id: &T::AccountId) -> Collateral<T> {
-        T::Collateral::get_reserved_balance(id)
-    }
-
-    pub fn get_free_balance<T: crate::Config>(id: &T::AccountId) -> Collateral<T> {
-        T::Collateral::get_free_balance(id)
+        currency::with_currency_id::transfer::<T>(currency_id, source, destination, amount)
     }
 }
 
@@ -44,15 +52,21 @@ pub(crate) mod treasury {
 
 #[cfg_attr(test, mockable)]
 pub(crate) mod oracle {
-    use crate::types::{Collateral, Wrapped};
+    use crate::types::{Collateral, CurrencyId, Wrapped};
     use frame_support::dispatch::DispatchError;
 
-    pub fn wrapped_to_collateral<T: crate::Config>(amount: Wrapped<T>) -> Result<Collateral<T>, DispatchError> {
-        <exchange_rate_oracle::Pallet<T>>::wrapped_to_collateral(amount)
+    pub fn wrapped_to_collateral<T: crate::Config>(
+        amount: Wrapped<T>,
+        currency_id: CurrencyId<T>,
+    ) -> Result<Collateral<T>, DispatchError> {
+        <exchange_rate_oracle::Pallet<T>>::wrapped_to_collateral(amount, currency_id)
     }
 
-    pub fn collateral_to_wrapped<T: crate::Config>(amount: Collateral<T>) -> Result<Wrapped<T>, DispatchError> {
-        <exchange_rate_oracle::Pallet<T>>::collateral_to_wrapped(amount)
+    pub fn collateral_to_wrapped<T: crate::Config>(
+        amount: Collateral<T>,
+        currency_id: CurrencyId<T>,
+    ) -> Result<Wrapped<T>, DispatchError> {
+        <exchange_rate_oracle::Pallet<T>>::collateral_to_wrapped(amount, currency_id)
     }
 }
 
@@ -72,18 +86,19 @@ pub(crate) mod security {
 #[cfg_attr(test, mockable)]
 pub(crate) mod staking {
     use crate::{
-        types::{BalanceOf, SignedInner},
+        types::{BalanceOf, CurrencyId, SignedInner},
         Pallet,
     };
-    use frame_support::{dispatch::DispatchError, traits::Get};
+    use frame_support::dispatch::DispatchError;
 
     pub fn deposit_stake<T: crate::Config>(
+        currency_id: CurrencyId<T>,
         vault_id: &T::AccountId,
         nominator_id: &T::AccountId,
         amount: BalanceOf<T>,
     ) -> Result<(), DispatchError> {
         <staking::Pallet<T>>::deposit_stake(
-            T::GetRewardsCurrencyId::get(),
+            currency_id,
             vault_id,
             nominator_id,
             Pallet::<T>::currency_to_fixed(amount)?,
@@ -91,35 +106,40 @@ pub(crate) mod staking {
     }
 
     pub fn withdraw_stake<T: crate::Config>(
+        currency_id: CurrencyId<T>,
         vault_id: &T::AccountId,
         nominator_id: &T::AccountId,
         amount: BalanceOf<T>,
     ) -> Result<(), DispatchError> {
         <staking::Pallet<T>>::withdraw_stake(
-            T::GetRewardsCurrencyId::get(),
+            currency_id,
             vault_id,
             nominator_id,
             Pallet::<T>::currency_to_fixed(amount)?,
         )
     }
 
-    pub fn slash_stake<T: crate::Config>(vault_id: &T::AccountId, amount: BalanceOf<T>) -> Result<(), DispatchError> {
-        <staking::Pallet<T>>::slash_stake(
-            T::GetRewardsCurrencyId::get(),
-            vault_id,
-            Pallet::<T>::currency_to_fixed(amount)?,
-        )
+    pub fn slash_stake<T: crate::Config>(
+        currency_id: CurrencyId<T>,
+        vault_id: &T::AccountId,
+        amount: BalanceOf<T>,
+    ) -> Result<(), DispatchError> {
+        <staking::Pallet<T>>::slash_stake(currency_id, vault_id, Pallet::<T>::currency_to_fixed(amount)?)
     }
 
     pub fn compute_stake<T: crate::Config>(
+        currency_id: CurrencyId<T>,
         vault_id: &T::AccountId,
         nominator_id: &T::AccountId,
     ) -> Result<SignedInner<T>, DispatchError> {
-        <staking::Pallet<T>>::compute_stake(T::GetRewardsCurrencyId::get(), vault_id, nominator_id)
+        <staking::Pallet<T>>::compute_stake(currency_id, vault_id, nominator_id)
     }
 
-    pub fn total_current_stake<T: crate::Config>(vault_id: &T::AccountId) -> Result<SignedInner<T>, DispatchError> {
-        <staking::Pallet<T>>::total_current_stake(T::GetRewardsCurrencyId::get(), vault_id)
+    pub fn total_current_stake<T: crate::Config>(
+        currency_id: CurrencyId<T>,
+        vault_id: &T::AccountId,
+    ) -> Result<SignedInner<T>, DispatchError> {
+        <staking::Pallet<T>>::total_current_stake(currency_id, vault_id)
     }
 }
 

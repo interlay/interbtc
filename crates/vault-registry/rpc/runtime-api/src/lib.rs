@@ -8,20 +8,18 @@ use module_exchange_rate_oracle_rpc_runtime_api::BalanceWrapper;
 use sp_std::vec::Vec;
 
 sp_api::decl_runtime_apis! {
-    pub trait VaultRegistryApi<AccountId, Wrapped, Collateral, UnsignedFixedPoint> where
+    pub trait VaultRegistryApi<AccountId, Wrapped, Collateral, UnsignedFixedPoint, CurrencyId> where
         AccountId: Codec,
         Wrapped: Codec,
         Collateral: Codec,
-        UnsignedFixedPoint: Codec
+        UnsignedFixedPoint: Codec,
+        CurrencyId: Codec
     {
         /// Get the vault's collateral (excluding nomination)
         fn get_vault_collateral(vault_id: AccountId) -> Result<BalanceWrapper<Collateral>, DispatchError>;
 
         /// Get the vault's collateral (including nomination)
         fn get_vault_total_collateral(vault_id: AccountId) -> Result<BalanceWrapper<Collateral>, DispatchError>;
-
-        /// Get the total collateralization of the system
-        fn get_total_collateralization() -> Result<UnsignedFixedPoint, DispatchError>;
 
         /// Get the first available vault with sufficient collateral to fulfil an issue request
         /// with the specified amount of Wrapped.
@@ -50,7 +48,7 @@ sp_api::decl_runtime_apis! {
 
         /// Get the minimum amount of collateral required for the given amount of btc
         /// with the current threshold and exchange rate
-        fn get_required_collateral_for_wrapped(amount_btc: BalanceWrapper<Wrapped>) -> Result<BalanceWrapper<Collateral>, DispatchError>;
+        fn get_required_collateral_for_wrapped(amount_btc: BalanceWrapper<Wrapped>, currency_id: CurrencyId) -> Result<BalanceWrapper<Collateral>, DispatchError>;
 
         /// Get the amount of collateral required for the given vault to be at the
         /// current SecureCollateralThreshold with the current exchange rate
