@@ -262,19 +262,9 @@ pub mod oracle {
     use super::*;
 
     #[derive(Encode, Decode, Clone, Eq, PartialEq, Debug)]
-    pub enum BitcoinInclusionTime {
-        /// fee to include a BTC transaction within the next block
-        Fast,
-        /// fee to include a BTC transaction within the next three blocks (~30 min)
-        Half,
-        /// fee to include a BTC transaction within the six blocks (~60 min)
-        Hour,
-    }
-
-    #[derive(Encode, Decode, Clone, Eq, PartialEq, Debug)]
     pub enum Key {
         ExchangeRate(CurrencyId),
-        FeeEstimation(BitcoinInclusionTime),
+        FeeEstimation,
     }
 }
 
