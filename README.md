@@ -7,7 +7,7 @@
   <p align="center">
     A trust-minimized bridge from Bitcoin to Polkadot.
     <br />
-    <a href="https://interlay.gitlab.io/polkabtc-spec/"><strong>Explore the specification »</strong></a>
+    <a href="https://spec.interlay.io/"><strong>Explore the specification »</strong></a>
     <br />
     <br />
     <a href="https://github.com/interlay/interbtc/issues">Report Bug</a>
@@ -17,8 +17,6 @@
 </p>
 
 This repository is hosted on GitHub: [https://github.com/interlay/interbtc](https://github.com/interlay/interbtc) with a mirror on [GitLab](https://gitlab.com/interlay/btc-parachain) and [radicle](rad:git:hnrkxrw3axafn8n5fwo8pspjgtbt6jj6qe6mo).
-
-This project is currently under active development.
 
 ## Table of Contents
 
@@ -49,14 +47,6 @@ The interBTC project is built with:
 - [Substrate](https://substrate.dev/)
 
     <img src="https://spec.interlay.io/_images/overview.png" alt="Logo" width="500">
-
-## Roadmap
-
-- **Alpha** - November 2020
-- **Beta** - February 2021
-- **Rococo** - Feburary 2021
-- **Kusama** - TBD
-- **Polkadot** - TBD
 
 ### Development Progess
 
@@ -168,7 +158,7 @@ The Substrate runtime configuration is in the [parachain](./parachain) folder.
 
 ### Javascript / Typescript
 
-When interacting via polkadot{.js} you will need to use our [custom types](https://github.com/interlay/polkabtc-types). Please also checkout [polkabtc-js](https://github.com/interlay/polkabtc-js) for a more complete (strongly-typed) library with [bitcoinjs-lib](https://github.com/bitcoinjs/bitcoinjs-lib) integration.
+When interacting via polkadot{.js} you will need to use our [custom types](https://github.com/interlay/interbtc-types). Please also checkout [interbtc-js](https://github.com/interlay/interbtc-js) for a more complete (strongly-typed) library.
 
 ## Contributing
 
@@ -176,13 +166,12 @@ If you would like to contribute, please file an issue on GitLab or reach out to 
 
 - [Discord](https://discord.gg/C8tjMbgVXh)
 - [Telegram](https://t.me/joinchat/G9FaYhNbJK9v-6DN3IyhJw)
-- [Riot](https://matrix.to/#/!nZablWWaicZyVTWyZk:matrix.org?via=matrix.org)
 
-We are [hiring](https://www.interlay.io/careers/)!
+We are [hiring](https://interlay.recruitee.com/)!
 
 ## License
 
-(C) Copyright 2020 [Interlay](https://www.interlay.io) Ltd
+(C) Copyright 2021 [Interlay](https://www.interlay.io) Ltd
 
 interBTC is currently licensed under the terms of the Apache License (Version 2.0). See LICENSE
 
