@@ -23,13 +23,13 @@ pub(crate) type Collateral<T> = BalanceOf<T>;
 pub(crate) type Wrapped<T> = BalanceOf<T>;
 
 #[derive(Encode, Decode, Default, Clone, PartialEq)]
-pub(crate) struct ReplaceRequestV0<AccountId, BlockNumber, Wrapped, Collateral> {
+pub(crate) struct ReplaceRequestV0<AccountId, BlockNumber, Balance> {
     pub old_vault: AccountId,
     pub open_time: BlockNumber,
-    pub amount: Wrapped,
-    pub griefing_collateral: Collateral,
+    pub amount: Balance,
+    pub griefing_collateral: Balance,
     pub new_vault: Option<AccountId>,
-    pub collateral: Collateral,
+    pub collateral: Balance,
     pub accept_time: Option<BlockNumber>,
     pub btc_address: H160,
     pub completed: bool,

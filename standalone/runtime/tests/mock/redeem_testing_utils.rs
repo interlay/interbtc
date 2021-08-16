@@ -8,7 +8,7 @@ pub const USER_BTC_ADDRESS: BtcAddress = BtcAddress::P2PKH(H160([2u8; 20]));
 
 pub struct ExecuteRedeemBuilder {
     redeem_id: H256,
-    redeem: RedeemRequest<AccountId32, u32, u128, u128>,
+    redeem: RedeemRequest<AccountId32, BlockNumber, Balance>,
     amount: u128,
     submitter: AccountId32,
     inclusion_fee: u128,

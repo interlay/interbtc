@@ -17,27 +17,26 @@ use sp_runtime::{
 use std::sync::Arc;
 
 #[rpc]
-pub trait ExchangeRateOracleApi<BlockHash, Wrapped, Collateral, CurrencyId>
+pub trait ExchangeRateOracleApi<BlockHash, Balance, CurrencyId>
 where
-    Wrapped: Codec + MaybeDisplay + MaybeFromStr,
-    Collateral: Codec + MaybeDisplay + MaybeFromStr,
+    Balance: Codec + MaybeDisplay + MaybeFromStr,
     CurrencyId: Codec,
 {
     #[rpc(name = "exchangeRateOracle_wrappedToCollateral")]
     fn wrapped_to_collateral(
         &self,
-        amount: BalanceWrapper<Wrapped>,
+        amount: BalanceWrapper<Balance>,
         currency_id: CurrencyId,
         at: Option<BlockHash>,
-    ) -> JsonRpcResult<BalanceWrapper<Collateral>>;
+    ) -> JsonRpcResult<BalanceWrapper<Balance>>;
 
     #[rpc(name = "exchangeRateOracle_collateralToWrapped")]
     fn collateral_to_wrapped(
         &self,
-        amount: BalanceWrapper<Collateral>,
+        amount: BalanceWrapper<Balance>,
         currency_id: CurrencyId,
         at: Option<BlockHash>,
-    ) -> JsonRpcResult<BalanceWrapper<Wrapped>>;
+    ) -> JsonRpcResult<BalanceWrapper<Balance>>;
 }
 
 /// A struct that implements the [`ExchangeRateOracleApi`].
@@ -90,22 +89,21 @@ fn handle_response<T, E: std::fmt::Debug>(
     )
 }
 
-impl<C, Block, Wrapped, Collateral, CurrencyId>
-    ExchangeRateOracleApi<<Block as BlockT>::Hash, Wrapped, Collateral, CurrencyId> for ExchangeRateOracle<C, Block>
+impl<C, Block, Balance, CurrencyId> ExchangeRateOracleApi<<Block as BlockT>::Hash, Balance, CurrencyId>
+    for ExchangeRateOracle<C, Block>
 where
     Block: BlockT,
     C: Send + Sync + 'static + ProvideRuntimeApi<Block> + HeaderBackend<Block>,
-    C::Api: ExchangeRateOracleRuntimeApi<Block, Wrapped, Collateral, CurrencyId>,
-    Wrapped: Codec + MaybeDisplay + MaybeFromStr,
-    Collateral: Codec + MaybeDisplay + MaybeFromStr,
+    C::Api: ExchangeRateOracleRuntimeApi<Block, Balance, CurrencyId>,
+    Balance: Codec + MaybeDisplay + MaybeFromStr,
     CurrencyId: Codec,
 {
     fn wrapped_to_collateral(
         &self,
-        amount: BalanceWrapper<Wrapped>,
+        amount: BalanceWrapper<Balance>,
         currency_id: CurrencyId,
         at: Option<<Block as BlockT>::Hash>,
-    ) -> JsonRpcResult<BalanceWrapper<Collateral>> {
+    ) -> JsonRpcResult<BalanceWrapper<Balance>> {
         let api = self.client.runtime_api();
         let at = BlockId::hash(at.unwrap_or_else(|| self.client.info().best_hash));
 
@@ -117,10 +115,10 @@ where
 
     fn collateral_to_wrapped(
         &self,
-        amount: BalanceWrapper<Collateral>,
+        amount: BalanceWrapper<Balance>,
         currency_id: CurrencyId,
         at: Option<<Block as BlockT>::Hash>,
-    ) -> JsonRpcResult<BalanceWrapper<Wrapped>> {
+    ) -> JsonRpcResult<BalanceWrapper<Balance>> {
         let api = self.client.runtime_api();
         let at = BlockId::hash(at.unwrap_or_else(|| self.client.info().best_hash));
 

@@ -116,13 +116,8 @@ pub mod pallet {
     /// Users create redeem requests to receive BTC in return for their previously issued tokens.
     /// This mapping provides access from a unique hash redeemId to a Redeem struct.
     #[pallet::storage]
-    pub(super) type RedeemRequests<T: Config> = StorageMap<
-        _,
-        Blake2_128Concat,
-        H256,
-        RedeemRequest<T::AccountId, T::BlockNumber, Wrapped<T>, Collateral<T>>,
-        ValueQuery,
-    >;
+    pub(super) type RedeemRequests<T: Config> =
+        StorageMap<_, Blake2_128Concat, H256, RedeemRequest<T::AccountId, T::BlockNumber, BalanceOf<T>>, ValueQuery>;
 
     /// The minimum amount of btc that is accepted for redeem requests; any lower values would
     /// risk the bitcoin client to reject the payment
@@ -630,7 +625,7 @@ impl<T: Config> Pallet<T> {
     ///
     /// * `key` - 256-bit identifier of the redeem request
     /// * `value` - the redeem request
-    fn insert_redeem_request(key: H256, value: RedeemRequest<T::AccountId, T::BlockNumber, Wrapped<T>, Collateral<T>>) {
+    fn insert_redeem_request(key: H256, value: RedeemRequest<T::AccountId, T::BlockNumber, BalanceOf<T>>) {
         <RedeemRequests<T>>::insert(key, value)
     }
 
@@ -663,10 +658,7 @@ impl<T: Config> Pallet<T> {
     /// * `account_id` - user account id
     pub fn get_redeem_requests_for_account(
         account_id: T::AccountId,
-    ) -> Vec<(
-        H256,
-        RedeemRequest<T::AccountId, T::BlockNumber, Wrapped<T>, Collateral<T>>,
-    )> {
+    ) -> Vec<(H256, RedeemRequest<T::AccountId, T::BlockNumber, BalanceOf<T>>)> {
         <RedeemRequests<T>>::iter()
             .filter(|(_, request)| request.redeemer == account_id)
             .collect::<Vec<_>>()
@@ -679,10 +671,7 @@ impl<T: Config> Pallet<T> {
     /// * `account_id` - vault account id
     pub fn get_redeem_requests_for_vault(
         account_id: T::AccountId,
-    ) -> Vec<(
-        H256,
-        RedeemRequest<T::AccountId, T::BlockNumber, Wrapped<T>, Collateral<T>>,
-    )> {
+    ) -> Vec<(H256, RedeemRequest<T::AccountId, T::BlockNumber, BalanceOf<T>>)> {
         <RedeemRequests<T>>::iter()
             .filter(|(_, request)| request.vault == account_id)
             .collect::<Vec<_>>()
@@ -696,7 +685,7 @@ impl<T: Config> Pallet<T> {
     /// * `redeem_id` - 256-bit identifier of the redeem request
     pub fn get_open_redeem_request_from_id(
         redeem_id: &H256,
-    ) -> Result<RedeemRequest<T::AccountId, T::BlockNumber, Wrapped<T>, Collateral<T>>, DispatchError> {
+    ) -> Result<RedeemRequest<T::AccountId, T::BlockNumber, BalanceOf<T>>, DispatchError> {
         ensure!(
             <RedeemRequests<T>>::contains_key(redeem_id),
             Error::<T>::RedeemIdNotFound
@@ -721,7 +710,7 @@ impl<T: Config> Pallet<T> {
     /// * `redeem_id` - 256-bit identifier of the redeem request
     pub fn get_open_or_completed_redeem_request_from_id(
         redeem_id: &H256,
-    ) -> Result<RedeemRequest<T::AccountId, T::BlockNumber, Wrapped<T>, Collateral<T>>, DispatchError> {
+    ) -> Result<RedeemRequest<T::AccountId, T::BlockNumber, BalanceOf<T>>, DispatchError> {
         ensure!(
             <RedeemRequests<T>>::contains_key(*redeem_id),
             Error::<T>::RedeemIdNotFound

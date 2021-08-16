@@ -43,31 +43,31 @@ pub mod issue {
     // See https://github.com/paritytech/substrate/issues/4641
     #[derive(Encode, Decode, Default, Clone, PartialEq)]
     #[cfg_attr(feature = "std", derive(Debug, Serialize, Deserialize))]
-    pub struct IssueRequest<AccountId, BlockNumber, Wrapped, Collateral> {
+    pub struct IssueRequest<AccountId, BlockNumber, Balance> {
         /// the vault associated with this issue request
         pub vault: AccountId,
         /// the *active* block height when this request was opened
         pub opentime: BlockNumber,
         /// the issue period when this request was opened
         pub period: BlockNumber,
-        #[cfg_attr(feature = "std", serde(bound(deserialize = "Collateral: std::str::FromStr")))]
+        #[cfg_attr(feature = "std", serde(bound(deserialize = "Balance: std::str::FromStr")))]
         #[cfg_attr(feature = "std", serde(deserialize_with = "deserialize_from_string"))]
-        #[cfg_attr(feature = "std", serde(bound(serialize = "Collateral: std::fmt::Display")))]
+        #[cfg_attr(feature = "std", serde(bound(serialize = "Balance: std::fmt::Display")))]
         #[cfg_attr(feature = "std", serde(serialize_with = "serialize_as_string"))]
         /// the collateral held for spam prevention
-        pub griefing_collateral: Collateral,
-        #[cfg_attr(feature = "std", serde(bound(deserialize = "Wrapped: std::str::FromStr")))]
+        pub griefing_collateral: Balance,
+        #[cfg_attr(feature = "std", serde(bound(deserialize = "Balance: std::str::FromStr")))]
         #[cfg_attr(feature = "std", serde(deserialize_with = "deserialize_from_string"))]
-        #[cfg_attr(feature = "std", serde(bound(serialize = "Wrapped: std::fmt::Display")))]
+        #[cfg_attr(feature = "std", serde(bound(serialize = "Balance: std::fmt::Display")))]
         #[cfg_attr(feature = "std", serde(serialize_with = "serialize_as_string"))]
         /// the number of tokens that will be transferred to the user (as such, this does not include the fee)
-        pub amount: Wrapped,
-        #[cfg_attr(feature = "std", serde(bound(deserialize = "Wrapped: std::str::FromStr")))]
+        pub amount: Balance,
+        #[cfg_attr(feature = "std", serde(bound(deserialize = "Balance: std::str::FromStr")))]
         #[cfg_attr(feature = "std", serde(deserialize_with = "deserialize_from_string"))]
-        #[cfg_attr(feature = "std", serde(bound(serialize = "Wrapped: std::fmt::Display")))]
+        #[cfg_attr(feature = "std", serde(bound(serialize = "Balance: std::fmt::Display")))]
         #[cfg_attr(feature = "std", serde(serialize_with = "serialize_as_string"))]
         /// the number of tokens that will be transferred to the fee pool
-        pub fee: Wrapped,
+        pub fee: Balance,
         /// the account issuing tokens
         pub requester: AccountId,
         /// the vault's Bitcoin deposit address
@@ -119,37 +119,37 @@ pub mod redeem {
     // See https://github.com/paritytech/substrate/issues/4641
     #[derive(Encode, Decode, Default, Clone, PartialEq)]
     #[cfg_attr(feature = "std", derive(Debug, Serialize, Deserialize))]
-    pub struct RedeemRequest<AccountId, BlockNumber, Wrapped, Collateral> {
+    pub struct RedeemRequest<AccountId, BlockNumber, Balance> {
         /// the vault associated with this redeem request
         pub vault: AccountId,
         /// the *active* block height when this request was opened
         pub opentime: BlockNumber,
         /// the redeem period when this request was opened
         pub period: BlockNumber,
-        #[cfg_attr(feature = "std", serde(bound(deserialize = "Wrapped: std::str::FromStr")))]
+        #[cfg_attr(feature = "std", serde(bound(deserialize = "Balance: std::str::FromStr")))]
         #[cfg_attr(feature = "std", serde(deserialize_with = "deserialize_from_string"))]
-        #[cfg_attr(feature = "std", serde(bound(serialize = "Wrapped: std::fmt::Display")))]
+        #[cfg_attr(feature = "std", serde(bound(serialize = "Balance: std::fmt::Display")))]
         #[cfg_attr(feature = "std", serde(serialize_with = "serialize_as_string"))]
         /// total redeem fees - taken from request amount
-        pub fee: Wrapped,
-        #[cfg_attr(feature = "std", serde(bound(deserialize = "Wrapped: std::str::FromStr")))]
+        pub fee: Balance,
+        #[cfg_attr(feature = "std", serde(bound(deserialize = "Balance: std::str::FromStr")))]
         #[cfg_attr(feature = "std", serde(deserialize_with = "deserialize_from_string"))]
-        #[cfg_attr(feature = "std", serde(bound(serialize = "Wrapped: std::fmt::Display")))]
+        #[cfg_attr(feature = "std", serde(bound(serialize = "Balance: std::fmt::Display")))]
         #[cfg_attr(feature = "std", serde(serialize_with = "serialize_as_string"))]
         /// amount the vault should spend on the bitcoin inclusion fee - taken from request amount
-        pub transfer_fee_btc: Wrapped,
-        #[cfg_attr(feature = "std", serde(bound(deserialize = "Wrapped: std::str::FromStr")))]
+        pub transfer_fee_btc: Balance,
+        #[cfg_attr(feature = "std", serde(bound(deserialize = "Balance: std::str::FromStr")))]
         #[cfg_attr(feature = "std", serde(deserialize_with = "deserialize_from_string"))]
-        #[cfg_attr(feature = "std", serde(bound(serialize = "Wrapped: std::fmt::Display")))]
+        #[cfg_attr(feature = "std", serde(bound(serialize = "Balance: std::fmt::Display")))]
         #[cfg_attr(feature = "std", serde(serialize_with = "serialize_as_string"))]
         /// total amount of BTC for the vault to send
-        pub amount_btc: Wrapped,
-        #[cfg_attr(feature = "std", serde(bound(deserialize = "Collateral: std::str::FromStr")))]
+        pub amount_btc: Balance,
+        #[cfg_attr(feature = "std", serde(bound(deserialize = "Balance: std::str::FromStr")))]
         #[cfg_attr(feature = "std", serde(deserialize_with = "deserialize_from_string"))]
-        #[cfg_attr(feature = "std", serde(bound(serialize = "Collateral: std::fmt::Display")))]
+        #[cfg_attr(feature = "std", serde(bound(serialize = "Balance: std::fmt::Display")))]
         #[cfg_attr(feature = "std", serde(serialize_with = "serialize_as_string"))]
         /// premium redeem amount in collateral
-        pub premium: Collateral,
+        pub premium: Balance,
         /// the account redeeming tokens (for BTC)
         pub redeemer: AccountId,
         /// the user's Bitcoin address for payment verification
@@ -168,26 +168,27 @@ pub mod refund {
     // See https://github.com/paritytech/substrate/issues/4641
     #[derive(Encode, Decode, Default, Clone, PartialEq)]
     #[cfg_attr(feature = "std", derive(Debug, Serialize, Deserialize))]
-    pub struct RefundRequest<AccountId, Wrapped> {
+    pub struct RefundRequest<AccountId, Balance> {
         /// the vault associated with this redeem request
         pub vault: AccountId,
+        #[cfg_attr(feature = "std", serde(bound(deserialize = "Balance: std::str::FromStr")))]
         #[cfg_attr(feature = "std", serde(deserialize_with = "deserialize_from_string"))]
-        #[cfg_attr(feature = "std", serde(bound(serialize = "Wrapped: std::fmt::Display")))]
+        #[cfg_attr(feature = "std", serde(bound(serialize = "Balance: std::fmt::Display")))]
         #[cfg_attr(feature = "std", serde(serialize_with = "serialize_as_string"))]
         /// the total amount the vault should send
-        pub amount_wrapped: Wrapped,
-        #[cfg_attr(feature = "std", serde(bound(deserialize = "Wrapped: std::str::FromStr")))]
+        pub amount_wrapped: Balance,
+        #[cfg_attr(feature = "std", serde(bound(deserialize = "Balance: std::str::FromStr")))]
         #[cfg_attr(feature = "std", serde(deserialize_with = "deserialize_from_string"))]
-        #[cfg_attr(feature = "std", serde(bound(serialize = "Wrapped: std::fmt::Display")))]
+        #[cfg_attr(feature = "std", serde(bound(serialize = "Balance: std::fmt::Display")))]
         #[cfg_attr(feature = "std", serde(serialize_with = "serialize_as_string"))]
         /// total refund fees - taken from request amount
-        pub fee: Wrapped,
-        #[cfg_attr(feature = "std", serde(bound(deserialize = "Wrapped: std::str::FromStr")))]
+        pub fee: Balance,
+        #[cfg_attr(feature = "std", serde(bound(deserialize = "Balance: std::str::FromStr")))]
         #[cfg_attr(feature = "std", serde(deserialize_with = "deserialize_from_string"))]
-        #[cfg_attr(feature = "std", serde(bound(serialize = "Wrapped: std::fmt::Display")))]
+        #[cfg_attr(feature = "std", serde(bound(serialize = "Balance: std::fmt::Display")))]
         #[cfg_attr(feature = "std", serde(serialize_with = "serialize_as_string"))]
         /// the total amount which was overpaid
-        pub amount_btc: Wrapped,
+        pub amount_btc: Balance,
         /// the account on issue which overpaid
         pub issuer: AccountId,
         /// the user's Bitcoin address for payment verification
@@ -222,29 +223,29 @@ pub mod replace {
     // See https://github.com/paritytech/substrate/issues/4641
     #[derive(Encode, Decode, Default, Clone, PartialEq)]
     #[cfg_attr(feature = "std", derive(Debug, Serialize, Deserialize))]
-    pub struct ReplaceRequest<AccountId, BlockNumber, Wrapped, Collateral> {
+    pub struct ReplaceRequest<AccountId, BlockNumber, Balance> {
         /// the vault which has requested to be replaced
         pub old_vault: AccountId,
         /// the vault which is replacing the old vault
         pub new_vault: AccountId,
-        #[cfg_attr(feature = "std", serde(bound(deserialize = "Wrapped: std::str::FromStr")))]
+        #[cfg_attr(feature = "std", serde(bound(deserialize = "Balance: std::str::FromStr")))]
         #[cfg_attr(feature = "std", serde(deserialize_with = "deserialize_from_string"))]
-        #[cfg_attr(feature = "std", serde(bound(serialize = "Wrapped: std::fmt::Display")))]
+        #[cfg_attr(feature = "std", serde(bound(serialize = "Balance: std::fmt::Display")))]
         #[cfg_attr(feature = "std", serde(serialize_with = "serialize_as_string"))]
         /// the amount of tokens to be replaced
-        pub amount: Wrapped,
-        #[cfg_attr(feature = "std", serde(bound(deserialize = "Collateral: std::str::FromStr")))]
+        pub amount: Balance,
+        #[cfg_attr(feature = "std", serde(bound(deserialize = "Balance: std::str::FromStr")))]
         #[cfg_attr(feature = "std", serde(deserialize_with = "deserialize_from_string"))]
-        #[cfg_attr(feature = "std", serde(bound(serialize = "Collateral: std::fmt::Display")))]
+        #[cfg_attr(feature = "std", serde(bound(serialize = "Balance: std::fmt::Display")))]
         #[cfg_attr(feature = "std", serde(serialize_with = "serialize_as_string"))]
         /// the collateral held for spam prevention
-        pub griefing_collateral: Collateral,
-        #[cfg_attr(feature = "std", serde(bound(deserialize = "Collateral: std::str::FromStr")))]
+        pub griefing_collateral: Balance,
+        #[cfg_attr(feature = "std", serde(bound(deserialize = "Balance: std::str::FromStr")))]
         #[cfg_attr(feature = "std", serde(deserialize_with = "deserialize_from_string"))]
-        #[cfg_attr(feature = "std", serde(bound(serialize = "Collateral: std::fmt::Display")))]
+        #[cfg_attr(feature = "std", serde(bound(serialize = "Balance: std::fmt::Display")))]
         #[cfg_attr(feature = "std", serde(serialize_with = "serialize_as_string"))]
         /// additional collateral to cover replacement
-        pub collateral: Collateral,
+        pub collateral: Balance,
         /// the *active* block height when this request was opened
         pub accept_time: BlockNumber,
         /// the replace period when this request was opened

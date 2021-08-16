@@ -7,7 +7,10 @@ pub const PROOF_SUBMITTER: [u8; 32] = CAROL;
 
 pub const DEFAULT_GRIEFING_COLLATERAL: u128 = 5_000;
 pub const DEFAULT_COLLATERAL: u128 = 1_000_000;
-pub fn request_issue(currency_id: CurrencyId, amount_btc: u128) -> (H256, IssueRequest<AccountId32, u32, u128, u128>) {
+pub fn request_issue(
+    currency_id: CurrencyId,
+    amount_btc: u128,
+) -> (H256, IssueRequest<AccountId32, BlockNumber, Balance>) {
     RequestIssueBuilder::new(currency_id, amount_btc).request()
 }
 
@@ -45,7 +48,7 @@ impl RequestIssueBuilder {
         self
     }
 
-    pub fn request(&self) -> (H256, IssueRequest<AccountId32, u32, u128, u128>) {
+    pub fn request(&self) -> (H256, IssueRequest<AccountId32, BlockNumber, Balance>) {
         try_register_vault(self.currency_id, DEFAULT_COLLATERAL, self.vault);
 
         // alice requests wrapped by locking btc with bob
@@ -65,7 +68,7 @@ impl RequestIssueBuilder {
 
 pub struct ExecuteIssueBuilder {
     issue_id: H256,
-    issue: IssueRequest<AccountId32, u32, u128, u128>,
+    issue: IssueRequest<AccountId32, BlockNumber, Balance>,
     amount: u128,
     submitter: [u8; 32],
     register_vault_with_currency_id: Option<CurrencyId>,

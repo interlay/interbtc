@@ -626,7 +626,6 @@ impl_runtime_apis! {
     impl module_exchange_rate_oracle_rpc_runtime_api::ExchangeRateOracleApi<
         Block,
         Balance,
-        Balance,
         CurrencyId
     > for Runtime {
         fn wrapped_to_collateral(amount: BalanceWrapper<Balance>, currency_id: CurrencyId) -> Result<BalanceWrapper<Balance>, DispatchError> {
@@ -652,7 +651,6 @@ impl_runtime_apis! {
     impl module_vault_registry_rpc_runtime_api::VaultRegistryApi<
         Block,
         AccountId,
-        Balance,
         Balance,
         UnsignedFixedPoint,
         CurrencyId,
@@ -718,13 +716,13 @@ impl_runtime_apis! {
         Block,
         AccountId,
         H256,
-        IssueRequest<AccountId, BlockNumber, Balance, Balance>
+        IssueRequest<AccountId, BlockNumber, Balance>
     > for Runtime {
-        fn get_issue_requests(account_id: AccountId) -> Vec<(H256, IssueRequest<AccountId, BlockNumber, Balance, Balance>)> {
+        fn get_issue_requests(account_id: AccountId) -> Vec<(H256, IssueRequest<AccountId, BlockNumber, Balance>)> {
             Issue::get_issue_requests_for_account(account_id)
         }
 
-        fn get_vault_issue_requests(account_id: AccountId) -> Vec<(H256, IssueRequest<AccountId, BlockNumber, Balance, Balance>)> {
+        fn get_vault_issue_requests(account_id: AccountId) -> Vec<(H256, IssueRequest<AccountId, BlockNumber, Balance>)> {
             Issue::get_issue_requests_for_vault(account_id)
         }
     }
@@ -733,13 +731,13 @@ impl_runtime_apis! {
         Block,
         AccountId,
         H256,
-        RedeemRequest<AccountId, BlockNumber, Balance, Balance>
+        RedeemRequest<AccountId, BlockNumber, Balance>
     > for Runtime {
-        fn get_redeem_requests(account_id: AccountId) -> Vec<(H256, RedeemRequest<AccountId, BlockNumber, Balance, Balance>)> {
+        fn get_redeem_requests(account_id: AccountId) -> Vec<(H256, RedeemRequest<AccountId, BlockNumber, Balance>)> {
             Redeem::get_redeem_requests_for_account(account_id)
         }
 
-        fn get_vault_redeem_requests(account_id: AccountId) -> Vec<(H256, RedeemRequest<AccountId, BlockNumber, Balance, Balance>)> {
+        fn get_vault_redeem_requests(account_id: AccountId) -> Vec<(H256, RedeemRequest<AccountId, BlockNumber, Balance>)> {
             Redeem::get_redeem_requests_for_vault(account_id)
         }
     }
@@ -767,13 +765,13 @@ impl_runtime_apis! {
         Block,
         AccountId,
         H256,
-        ReplaceRequest<AccountId, BlockNumber, Balance, Balance>
+        ReplaceRequest<AccountId, BlockNumber, Balance>
     > for Runtime {
-        fn get_old_vault_replace_requests(account_id: AccountId) -> Vec<(H256, ReplaceRequest<AccountId, BlockNumber, Balance, Balance>)> {
+        fn get_old_vault_replace_requests(account_id: AccountId) -> Vec<(H256, ReplaceRequest<AccountId, BlockNumber, Balance>)> {
             Replace::get_replace_requests_for_old_vault(account_id)
         }
 
-        fn get_new_vault_replace_requests(account_id: AccountId) -> Vec<(H256, ReplaceRequest<AccountId, BlockNumber, Balance, Balance>)> {
+        fn get_new_vault_replace_requests(account_id: AccountId) -> Vec<(H256, ReplaceRequest<AccountId, BlockNumber, Balance>)> {
             Replace::get_replace_requests_for_new_vault(account_id)
         }
     }

@@ -45,7 +45,7 @@ fn btcdot_parity(wrapped: Wrapped<Test>) -> Result<Collateral<Test>, DispatchErr
     convert_currency(collateral)
 }
 
-fn inject_redeem_request(key: H256, value: RedeemRequest<AccountId, BlockNumber, Balance, Balance>) {
+fn inject_redeem_request(key: H256, value: RedeemRequest<AccountId, BlockNumber, Balance>) {
     Redeem::insert_redeem_request(key, value)
 }
 

@@ -12,8 +12,8 @@ pub use currency::ParachainCurrency;
 use frame_support::traits::GenesisBuild;
 pub use frame_support::{assert_err, assert_noop, assert_ok, dispatch::DispatchResultWithPostInfo};
 pub use interbtc_runtime_standalone::{
-    AccountId, BlockNumber, Call, CurrencyId, Event, GetCollateralCurrencyId, GetWrappedCurrencyId, Runtime, DOT,
-    INTERBTC,
+    AccountId, Balance, BlockNumber, Call, CurrencyId, Event, GetCollateralCurrencyId, GetWrappedCurrencyId, Runtime,
+    DOT, INTERBTC,
 };
 pub use mocktopus::mocking::*;
 pub use orml_tokens::CurrencyAdapter;
@@ -143,7 +143,7 @@ pub fn default_user_state() -> UserData {
     for currency_id in iter_collateral_currencies() {
         balances.insert(
             currency_id,
-            Balance {
+            AccountBalance {
                 free: DEFAULT_USER_FREE_BALANCE,
                 locked: DEFAULT_USER_LOCKED_BALANCE,
             },
@@ -151,7 +151,7 @@ pub fn default_user_state() -> UserData {
     }
     balances.insert(
         CurrencyId::INTERBTC,
-        Balance {
+        AccountBalance {
             free: DEFAULT_USER_FREE_TOKENS,
             locked: DEFAULT_USER_LOCKED_TOKENS,
         },
@@ -185,7 +185,7 @@ pub fn premium_redeem_request(
     user_to_redeem: u128,
     vault: [u8; 32],
     user: [u8; 32],
-) -> RedeemRequest<AccountId, BlockNumber, u128, u128> {
+) -> RedeemRequest<AccountId, BlockNumber, Balance> {
     let redeem_fee = FeePallet::get_redeem_fee(user_to_redeem).unwrap();
     let burned_tokens = user_to_redeem - redeem_fee;
     let inclusion_fee = RedeemPallet::get_current_inclusion_fee().unwrap();
@@ -201,7 +201,7 @@ pub fn default_redeem_request(
     user_to_redeem: u128,
     vault: [u8; 32],
     user: [u8; 32],
-) -> RedeemRequest<AccountId, BlockNumber, u128, u128> {
+) -> RedeemRequest<AccountId, BlockNumber, Balance> {
     let redeem_fee = FeePallet::get_redeem_fee(user_to_redeem).unwrap();
     let burned_tokens = user_to_redeem - redeem_fee;
     let inclusion_fee = RedeemPallet::get_current_inclusion_fee().unwrap();
@@ -237,14 +237,14 @@ pub fn account_of(address: [u8; 32]) -> AccountId {
 }
 
 #[derive(Debug, PartialEq, Eq, Default, Clone)]
-pub struct Balance {
+pub struct AccountBalance {
     pub free: u128,
     pub locked: u128,
 }
 
 #[derive(Debug, PartialEq, Default, Clone)]
 pub struct UserData {
-    pub balances: HashMap<CurrencyId, Balance>,
+    pub balances: HashMap<CurrencyId, AccountBalance>,
 }
 
 pub fn iter_collateral_currencies() -> impl Iterator<Item = CurrencyId> {
@@ -264,7 +264,7 @@ impl UserData {
         for currency_id in iter_all_currencies() {
             let free = currency::with_currency_id::get_free_balance::<Runtime>(currency_id, &account_id);
             let locked = currency::with_currency_id::get_reserved_balance::<Runtime>(currency_id, &account_id);
-            hash_map.insert(currency_id, Balance { free, locked });
+            hash_map.insert(currency_id, AccountBalance { free, locked });
         }
 
         Self { balances: hash_map }

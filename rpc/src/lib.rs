@@ -39,29 +39,14 @@ where
     C::Api: substrate_frame_rpc_system::AccountNonceApi<Block, AccountId, Nonce>,
     C::Api: pallet_transaction_payment_rpc::TransactionPaymentRuntimeApi<Block, Balance>,
     C::Api: module_btc_relay_rpc::BtcRelayRuntimeApi<Block, H256Le>,
-    C::Api: module_exchange_rate_oracle_rpc::ExchangeRateOracleRuntimeApi<Block, Balance, Balance, CurrencyId>,
+    C::Api: module_exchange_rate_oracle_rpc::ExchangeRateOracleRuntimeApi<Block, Balance, CurrencyId>,
     C::Api: module_relay_rpc::RelayRuntimeApi<Block, AccountId>,
-    C::Api:
-        module_vault_registry_rpc::VaultRegistryRuntimeApi<Block, AccountId, Balance, Balance, FixedU128, CurrencyId>,
-    C::Api: module_issue_rpc::IssueRuntimeApi<
-        Block,
-        AccountId,
-        H256,
-        IssueRequest<AccountId, BlockNumber, Balance, Balance>,
-    >,
-    C::Api: module_redeem_rpc::RedeemRuntimeApi<
-        Block,
-        AccountId,
-        H256,
-        RedeemRequest<AccountId, BlockNumber, Balance, Balance>,
-    >,
+    C::Api: module_vault_registry_rpc::VaultRegistryRuntimeApi<Block, AccountId, Balance, FixedU128, CurrencyId>,
+    C::Api: module_issue_rpc::IssueRuntimeApi<Block, AccountId, H256, IssueRequest<AccountId, BlockNumber, Balance>>,
+    C::Api: module_redeem_rpc::RedeemRuntimeApi<Block, AccountId, H256, RedeemRequest<AccountId, BlockNumber, Balance>>,
     C::Api: module_refund_rpc::RefundRuntimeApi<Block, AccountId, H256, RefundRequest<AccountId, Balance>>,
-    C::Api: module_replace_rpc::ReplaceRuntimeApi<
-        Block,
-        AccountId,
-        H256,
-        ReplaceRequest<AccountId, BlockNumber, Balance, Balance>,
-    >,
+    C::Api:
+        module_replace_rpc::ReplaceRuntimeApi<Block, AccountId, H256, ReplaceRequest<AccountId, BlockNumber, Balance>>,
     C::Api: BlockBuilder<Block>,
     P: TransactionPool + 'static,
 {
