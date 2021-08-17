@@ -33,6 +33,8 @@ image: "registry.gitlab.com/interlay/containers/rust-base:nightly-2021-03-15"
       --build-arg BINARY=${ARTIFACT_BIN_PATH} \
       --context ${CI_PROJECT_DIR} \
       --dockerfile ${CI_PROJECT_DIR}/Dockerfile_release \
+      --destination ${DOCKER_REGISTRY_IMAGE}:${ARTIFACT_BIN_PATH}-${CI_COMMIT_REF_SLUG}-${CI_COMMIT_SHORT_SHA}-$(date +%s) \
+      --destination ${DOCKER_REGISTRY_IMAGE}:${ARTIFACT_BIN_PATH}-${CI_COMMIT_REF_SLUG} \
       --destination ${DOCKER_REGISTRY_IMAGE}:${ARTIFACT_BIN_PATH}-${CI_COMMIT_REF_NAME}-${CI_COMMIT_SHORT_SHA}-$(date +%s) \
       --destination ${DOCKER_REGISTRY_IMAGE}:${ARTIFACT_BIN_PATH}-${CI_COMMIT_REF_NAME}
   <<: *only_refs
