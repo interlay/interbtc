@@ -33,19 +33,18 @@ fn deserialize_from_string<'de, D: Deserializer<'de>, T: std::str::FromStr>(dese
 }
 
 sp_api::decl_runtime_apis! {
-    pub trait ExchangeRateOracleApi<Wrapped, Collateral, CurrencyId> where
-        Wrapped: Codec,
-        Collateral: Codec,
+    pub trait ExchangeRateOracleApi<Balance, CurrencyId> where
+        Balance: Codec,
         CurrencyId: Codec,
     {
         fn wrapped_to_collateral(
-            amount: BalanceWrapper<Wrapped>,
+            amount: BalanceWrapper<Balance>,
             currency_id: CurrencyId,
-        ) -> Result<BalanceWrapper<Collateral>, DispatchError>;
+        ) -> Result<BalanceWrapper<Balance>, DispatchError>;
 
         fn collateral_to_wrapped(
-            amount: BalanceWrapper<Collateral>,
+            amount: BalanceWrapper<Balance>,
             currency_id: CurrencyId,
-        ) -> Result<BalanceWrapper<Wrapped>, DispatchError>;
+        ) -> Result<BalanceWrapper<Balance>, DispatchError>;
     }
 }

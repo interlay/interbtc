@@ -73,28 +73,28 @@ pub(crate) mod btc_relay {
 
 #[cfg_attr(test, mockable)]
 pub(crate) mod redeem {
-    use crate::types::{Collateral, Wrapped};
+    use crate::types::BalanceOf;
     use frame_support::dispatch::DispatchError;
     use redeem::types::RedeemRequest;
     use sp_core::H256;
 
     pub(crate) fn get_open_or_completed_redeem_request_from_id<T: crate::Config>(
         id: &H256,
-    ) -> Result<RedeemRequest<T::AccountId, T::BlockNumber, Wrapped<T>, Collateral<T>>, DispatchError> {
+    ) -> Result<RedeemRequest<T::AccountId, T::BlockNumber, BalanceOf<T>>, DispatchError> {
         <redeem::Pallet<T>>::get_open_or_completed_redeem_request_from_id(id)
     }
 }
 
 #[cfg_attr(test, mockable)]
 pub(crate) mod replace {
-    use crate::types::{Collateral, Wrapped};
+    use crate::types::BalanceOf;
     use frame_support::dispatch::DispatchError;
     use replace::types::ReplaceRequest;
     use sp_core::H256;
 
     pub(crate) fn get_open_or_completed_replace_request<T: crate::Config>(
         id: &H256,
-    ) -> Result<ReplaceRequest<T::AccountId, T::BlockNumber, Wrapped<T>, Collateral<T>>, DispatchError> {
+    ) -> Result<ReplaceRequest<T::AccountId, T::BlockNumber, BalanceOf<T>>, DispatchError> {
         <replace::Pallet<T>>::get_open_or_completed_replace_request(id)
     }
 }

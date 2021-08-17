@@ -3,8 +3,6 @@ use sp_std::fmt::Debug;
 
 pub(crate) type BalanceOf<T> = <T as vault_registry::Config>::Balance;
 
-pub(crate) type Collateral<T> = BalanceOf<T>;
-
 pub(crate) type Wrapped<T> = BalanceOf<T>;
 
 /// Bonded participant which can suggest and vote on proposals.

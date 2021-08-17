@@ -1,5 +1,5 @@
 use super::*;
-use crate::{types::Collateral, Pallet as Relay};
+use crate::{types::BalanceOf, Pallet as Relay};
 use bitcoin::{
     formatter::{Formattable, TryFormattable},
     types::{
@@ -32,7 +32,7 @@ fn dummy_public_key() -> BtcPublicKey {
     ])
 }
 
-fn mint_collateral<T: crate::Config>(account_id: &T::AccountId, amount: Collateral<T>) {
+fn mint_collateral<T: crate::Config>(account_id: &T::AccountId, amount: BalanceOf<T>) {
     <orml_tokens::Pallet<T>>::deposit(DEFAULT_TESTING_CURRENCY, account_id, amount).unwrap();
 }
 

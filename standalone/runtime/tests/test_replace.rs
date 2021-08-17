@@ -58,7 +58,10 @@ pub fn assert_accept_event() -> H256 {
         .unwrap()
 }
 
-fn accept_replace(amount_btc: u128, griefing_collateral: u128) -> (H256, ReplaceRequest<AccountId32, u32, u128, u128>) {
+fn accept_replace(
+    amount_btc: u128,
+    griefing_collateral: u128,
+) -> (H256, ReplaceRequest<AccountId32, BlockNumber, Balance>) {
     assert_ok!(Call::Replace(ReplaceCall::accept_replace(
         account_of(OLD_VAULT),
         amount_btc,
@@ -78,7 +81,7 @@ mod accept_replace_tests {
 
     fn assert_state_after_accept_replace_correct(
         currency_id: CurrencyId,
-        replace: &ReplaceRequest<AccountId32, u32, u128, u128>,
+        replace: &ReplaceRequest<AccountId32, BlockNumber, Balance>,
     ) {
         assert_eq!(
             ParachainTwoVaultState::get(),
@@ -750,7 +753,7 @@ fn integration_test_replace_cancel_replace() {
 
 // liquidation tests..
 
-fn setup_replace(issued_tokens: u128) -> (ReplaceRequest<AccountId32, u32, u128, u128>, H256) {
+fn setup_replace(issued_tokens: u128) -> (ReplaceRequest<AccountId32, BlockNumber, Balance>, H256) {
     // let old_vault_btc_address = BtcAddress::P2PKH(H160([1; 20]));
     let new_vault_btc_address = BtcAddress::P2PKH(H160([2; 20]));
 
