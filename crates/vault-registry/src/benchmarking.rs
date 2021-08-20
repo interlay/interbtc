@@ -9,6 +9,11 @@ use primitives::CurrencyId;
 use sp_std::prelude::*;
 
 pub const DEFAULT_TESTING_CURRENCY: CurrencyId = CurrencyId::DOT;
+type UnsignedFixedPoint<T> = <T as currency::Config>::UnsignedFixedPoint;
+
+fn wrapped<T: crate::Config>(amount: u32) -> Amount<T> {
+    Amount::new(amount.into(), T::GetWrappedCurrencyId::get())
+}
 
 fn dummy_public_key() -> BtcPublicKey {
     BtcPublicKey([
@@ -37,7 +42,7 @@ benchmarks! {
         let currency_id = T::GetGriefingCollateralCurrencyId::get();
         VaultRegistry::<T>::_register_vault(&origin, 1234u32.into(), dummy_public_key(), currency_id).unwrap();
         ExchangeRateOracle::<T>::_set_exchange_rate(DEFAULT_TESTING_CURRENCY,
-            <T as exchange_rate_oracle::Config>::UnsignedFixedPoint::one()
+            UnsignedFixedPoint::<T>::one()
         ).unwrap();
     }: _(RawOrigin::Signed(origin), u.into())
 
@@ -48,7 +53,7 @@ benchmarks! {
         let currency_id = T::GetGriefingCollateralCurrencyId::get();
         VaultRegistry::<T>::_register_vault(&origin, u.into(), dummy_public_key(), currency_id).unwrap();
         ExchangeRateOracle::<T>::_set_exchange_rate(DEFAULT_TESTING_CURRENCY,
-            <T as exchange_rate_oracle::Config>::UnsignedFixedPoint::one()
+            UnsignedFixedPoint::<T>::one()
         ).unwrap();
     }: _(RawOrigin::Signed(origin), u.into())
 
@@ -80,14 +85,12 @@ benchmarks! {
 
         let currency_id = T::GetGriefingCollateralCurrencyId::get();
         VaultRegistry::<T>::_register_vault(&vault_id, 10_000u32.into(), dummy_public_key(), currency_id).unwrap();
-        ExchangeRateOracle::<T>::_set_exchange_rate(DEFAULT_TESTING_CURRENCY, <T as
-exchange_rate_oracle::Config>::UnsignedFixedPoint::one()).unwrap();
+        ExchangeRateOracle::<T>::_set_exchange_rate(DEFAULT_TESTING_CURRENCY, UnsignedFixedPoint::<T>::one()).unwrap();
 
-        VaultRegistry::<T>::try_increase_to_be_issued_tokens(&vault_id, 5_000u32.into()).unwrap();
-        VaultRegistry::<T>::issue_tokens(&vault_id, 5_000u32.into()).unwrap();
+        VaultRegistry::<T>::try_increase_to_be_issued_tokens(&vault_id, &wrapped(5_000)).unwrap();
+        VaultRegistry::<T>::issue_tokens(&vault_id, &wrapped(5_000)).unwrap();
 
-        ExchangeRateOracle::<T>::_set_exchange_rate(DEFAULT_TESTING_CURRENCY, <T as
-exchange_rate_oracle::Config>::UnsignedFixedPoint::checked_from_rational(10, 1).unwrap()).unwrap();
+        ExchangeRateOracle::<T>::_set_exchange_rate(DEFAULT_TESTING_CURRENCY, UnsignedFixedPoint::<T>::checked_from_rational(10, 1).unwrap()).unwrap();
     }: _(RawOrigin::Signed(origin), vault_id)
 }
 

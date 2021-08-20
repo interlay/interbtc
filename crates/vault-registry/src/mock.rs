@@ -1,7 +1,7 @@
 use crate as vault_registry;
-use crate::{ext, Config, Error};
+use crate::{Config, Error};
 use frame_support::{parameter_types, traits::GenesisBuild, PalletId};
-use mocktopus::mocking::{clear_mocks, MockResult, Mockable};
+use mocktopus::{macros::mockable, mocking::clear_mocks};
 use orml_tokens::CurrencyAdapter;
 use orml_traits::parameter_type_with_key;
 pub use primitives::CurrencyId;
@@ -38,12 +38,13 @@ frame_support::construct_runtime!(
         ExchangeRateOracle: exchange_rate_oracle::{Pallet, Call, Config<T>, Storage, Event<T>},
         Staking: staking::{Pallet, Storage, Event<T>},
         Fee: fee::{Pallet, Call, Config<T>, Storage},
+        Currency: currency::{Pallet},
     }
 );
 
 pub type AccountId = u64;
 pub type Balance = u128;
-pub type Amount = i128;
+pub type RawAmount = i128;
 pub type BlockNumber = u64;
 pub type Moment = u64;
 pub type Index = u64;
@@ -85,6 +86,7 @@ impl frame_system::Config for Test {
 impl pallet_randomness_collective_flip::Config for Test {}
 
 pub const DEFAULT_TESTING_CURRENCY: CurrencyId = CurrencyId::DOT;
+pub const GRIEFING_CURRENCY: CurrencyId = CurrencyId::DOT;
 pub const DOT: CurrencyId = CurrencyId::DOT;
 pub const INTERBTC: CurrencyId = CurrencyId::INTERBTC;
 
@@ -103,7 +105,7 @@ parameter_type_with_key! {
 impl orml_tokens::Config for Test {
     type Event = Event;
     type Balance = Balance;
-    type Amount = Amount;
+    type Amount = RawAmount;
     type CurrencyId = CurrencyId;
     type WeightInfo = ();
     type ExistentialDeposits = ExistentialDeposits;
@@ -130,9 +132,34 @@ impl pallet_timestamp::Config for Test {
 
 impl exchange_rate_oracle::Config for Test {
     type Event = TestEvent;
-    type Balance = Balance;
-    type UnsignedFixedPoint = UnsignedFixedPoint;
     type WeightInfo = ();
+}
+
+pub struct CurrencyConvert;
+impl currency::CurrencyConversion<currency::Amount<Test>, CurrencyId> for CurrencyConvert {
+    fn convert(
+        amount: &currency::Amount<Test>,
+        to: CurrencyId,
+    ) -> Result<currency::Amount<Test>, sp_runtime::DispatchError> {
+        convert_to(to, amount.clone())
+    }
+}
+
+#[cfg_attr(test, mockable)]
+pub fn convert_to(
+    to: CurrencyId,
+    amount: currency::Amount<Test>,
+) -> Result<currency::Amount<Test>, sp_runtime::DispatchError> {
+    <exchange_rate_oracle::Pallet<Test>>::convert(&amount, to)
+}
+
+impl currency::Config for Test {
+    type SignedInner = SignedInner;
+    type SignedFixedPoint = SignedFixedPoint;
+    type UnsignedFixedPoint = UnsignedFixedPoint;
+    type Balance = Balance;
+    type GetWrappedCurrencyId = GetWrappedCurrencyId;
+    type CurrencyConversion = CurrencyConvert;
 }
 
 parameter_types! {
@@ -160,13 +187,9 @@ impl Config for Test {
     type PalletId = VaultPalletId;
     type Event = TestEvent;
     type RandomnessSource = pallet_randomness_collective_flip::Pallet<Test>;
-    type SignedInner = SignedInner;
     type Balance = Balance;
-    type SignedFixedPoint = SignedFixedPoint;
-    type UnsignedFixedPoint = UnsignedFixedPoint;
     type WeightInfo = ();
     type Wrapped = CurrencyAdapter<Test, GetWrappedCurrencyId>;
-    type GetRewardsCurrencyId = GetWrappedCurrencyId;
     type GetGriefingCollateralCurrencyId = GetCollateralCurrencyId;
 }
 
@@ -192,6 +215,7 @@ impl staking::Config for Test {
 pub type TestEvent = Event;
 pub type TestError = Error<Test>;
 pub type SecurityError = security::Error<Test>;
+pub type CurrencyError = currency::Error<Test>;
 pub type TokensError = orml_tokens::Error<Test>;
 
 pub struct ExtBuilder;
@@ -253,12 +277,14 @@ where
     T: FnOnce(),
 {
     clear_mocks();
-    ext::oracle::collateral_to_wrapped::<Test>.mock_safe(|v, _| MockResult::Return(Ok(v)));
-    ext::oracle::wrapped_to_collateral::<Test>.mock_safe(|v, _| MockResult::Return(Ok(v)));
+    // ext::oracle::collateral_to_wrapped::<Test>.mock_safe(|_, v| MockResult::Return(Ok(v)));
+    // ext::oracle::wrapped_to_collateral::<Test>.mock_safe(|_, v| MockResult::Return(Ok(v)));
     ExtBuilder::build().execute_with(|| {
         System::set_block_number(1);
         Security::set_active_block_number(1);
         set_default_thresholds();
+        <exchange_rate_oracle::Pallet<Test>>::_set_exchange_rate(DEFAULT_TESTING_CURRENCY, UnsignedFixedPoint::one())
+            .unwrap();
         test()
     })
 }

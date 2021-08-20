@@ -11,37 +11,12 @@ pub(crate) mod security {
 }
 
 #[cfg_attr(test, mockable)]
-pub(crate) mod currency {
-    use crate::types::Collateral;
-    use frame_support::dispatch::DispatchResult;
-    use vault_registry::types::CurrencyId;
-
-    pub fn transfer_and_lock<T: crate::Config>(
-        currency_id: CurrencyId<T>,
-        from: &T::AccountId,
-        to: &T::AccountId,
-        amount: Collateral<T>,
-    ) -> DispatchResult {
-        currency::with_currency_id::transfer_and_lock::<T>(currency_id, from, to, amount)
-    }
-
-    pub fn unlock_and_transfer<T: crate::Config>(
-        currency_id: CurrencyId<T>,
-        from: &T::AccountId,
-        to: &T::AccountId,
-        amount: Collateral<T>,
-    ) -> DispatchResult {
-        currency::with_currency_id::unlock_and_transfer::<T>(currency_id, from, to, amount)
-    }
-}
-
-#[cfg_attr(test, mockable)]
 pub(crate) mod vault_registry {
-    use crate::Collateral;
+    use currency::Amount;
     pub use frame_support::dispatch::{DispatchError, DispatchResult};
     pub use vault_registry::{types::CurrencyId, DefaultVault, VaultStatus};
 
-    pub fn get_backing_collateral<T: crate::Config>(vault_id: &T::AccountId) -> Result<Collateral<T>, DispatchError> {
+    pub fn get_backing_collateral<T: crate::Config>(vault_id: &T::AccountId) -> Result<Amount<T>, DispatchError> {
         <vault_registry::Pallet<T>>::get_backing_collateral(vault_id)
     }
 
@@ -49,22 +24,21 @@ pub(crate) mod vault_registry {
         <vault_registry::Pallet<T>>::vault_exists(id)
     }
 
-    pub fn compute_collateral<T: crate::Config>(vault_id: &T::AccountId) -> Result<Collateral<T>, DispatchError> {
+    pub fn compute_collateral<T: crate::Config>(vault_id: &T::AccountId) -> Result<Amount<T>, DispatchError> {
         <vault_registry::Pallet<T>>::compute_collateral(vault_id)
     }
 
     pub fn is_allowed_to_withdraw_collateral<T: crate::Config>(
         vault_id: &T::AccountId,
-        amount: Collateral<T>,
+        amount: &Amount<T>,
     ) -> Result<bool, DispatchError> {
         <vault_registry::Pallet<T>>::is_allowed_to_withdraw_collateral(vault_id, amount)
     }
 
     pub fn get_max_nominatable_collateral<T: crate::Config>(
-        currency_id: CurrencyId<T>,
-        vault_collateral: Collateral<T>,
-    ) -> Result<Collateral<T>, DispatchError> {
-        <vault_registry::Pallet<T>>::get_max_nominatable_collateral(currency_id, vault_collateral)
+        vault_collateral: &Amount<T>,
+    ) -> Result<Amount<T>, DispatchError> {
+        <vault_registry::Pallet<T>>::get_max_nominatable_collateral(vault_collateral)
     }
 
     pub fn get_collateral_currency<T: crate::Config>(vault_id: &T::AccountId) -> Result<CurrencyId<T>, DispatchError> {
@@ -105,7 +79,7 @@ pub(crate) mod staking {
         <staking::Pallet<T>>::withdraw_stake(currency_id, vault_id, nominator_id, amount)
     }
 
-    pub fn compute_stake<T: crate::Config>(
+    pub fn compute_stake<T: vault_registry::Config>(
         currency_id: CurrencyId<T>,
         vault_id: &T::AccountId,
         nominator_id: &T::AccountId,

@@ -28,17 +28,17 @@ pub mod types;
 
 #[doc(inline)]
 pub use crate::types::{IssueRequest, IssueRequestStatus};
+use types::IssueRequestExt;
 
 use crate::types::{BalanceOf, Collateral, Version, Wrapped};
 use btc_relay::{BtcAddress, BtcPublicKey};
+use currency::Amount;
 use frame_support::{dispatch::DispatchError, ensure, traits::Get, transactional};
 use frame_system::{ensure_root, ensure_signed};
+pub use pallet::*;
 use sp_core::H256;
-use sp_runtime::traits::*;
 use sp_std::vec::Vec;
 use vault_registry::{CurrencySource, VaultStatus};
-
-pub use pallet::*;
 
 #[frame_support::pallet]
 pub mod pallet {
@@ -53,7 +53,7 @@ pub mod pallet {
         frame_system::Config
         + vault_registry::Config
         + btc_relay::Config
-        + exchange_rate_oracle::Config<Balance = BalanceOf<Self>>
+        + exchange_rate_oracle::Config
         + fee::Config<UnsignedInner = BalanceOf<Self>>
         + refund::Config
     {
@@ -123,7 +123,6 @@ pub mod pallet {
     /// The minimum amount of btc that is required for issue requests; lower values would
     /// risk the rejection of payment on Bitcoin.
     #[pallet::storage]
-    #[pallet::getter(fn issue_btc_dust_value)]
     pub(super) type IssueBtcDustValue<T: Config> = StorageValue<_, Wrapped<T>, ValueQuery>;
 
     #[pallet::type_value]
@@ -252,6 +251,9 @@ impl<T: Config> Pallet<T> {
         vault_id: T::AccountId,
         griefing_collateral: Collateral<T>,
     ) -> Result<H256, DispatchError> {
+        let amount_requested = Amount::new(amount_requested, T::GetWrappedCurrencyId::get());
+        let griefing_collateral = Amount::new(griefing_collateral, T::GetGriefingCollateralCurrencyId::get());
+
         // Check that Parachain is RUNNING
         ext::security::ensure_parachain_status_not_shutdown::<T>()?;
 
@@ -272,33 +274,26 @@ impl<T: Config> Pallet<T> {
         ext::vault_registry::ensure_not_banned::<T>(&vault_id)?;
 
         // calculate griefing collateral based on the total amount of tokens to be issued
-        let amount_collateral =
-            ext::oracle::wrapped_to_collateral::<T>(amount_requested, T::GetGriefingCollateralCurrencyId::get())?;
-        let expected_griefing_collateral = ext::fee::get_issue_griefing_collateral::<T>(amount_collateral)?;
+        let amount_collateral = amount_requested.convert_to(T::GetGriefingCollateralCurrencyId::get())?;
+        let expected_griefing_collateral = ext::fee::get_issue_griefing_collateral::<T>(&amount_collateral)?;
 
         ensure!(
-            griefing_collateral >= expected_griefing_collateral,
+            griefing_collateral.ge(&expected_griefing_collateral)?,
             Error::<T>::InsufficientCollateral
         );
-        ext::currency::lock::<T>(
-            T::GetGriefingCollateralCurrencyId::get(),
-            &requester,
-            griefing_collateral,
-        )?;
+        griefing_collateral.lock(&requester)?;
 
         // only continue if the payment is above the dust value
         ensure!(
-            amount_requested >= Self::issue_btc_dust_value(),
+            amount_requested.ge(&Self::issue_btc_dust_value())?,
             Error::<T>::AmountBelowDustAmount
         );
 
-        ext::vault_registry::try_increase_to_be_issued_tokens::<T>(&vault_id, amount_requested)?;
+        ext::vault_registry::try_increase_to_be_issued_tokens::<T>(&vault_id, &amount_requested)?;
 
-        let fee = ext::fee::get_issue_fee::<T>(amount_requested)?;
+        let fee = ext::fee::get_issue_fee::<T>(&amount_requested)?;
         // calculate the amount of tokens that will be transferred to the user upon execution
-        let amount_user = amount_requested
-            .checked_sub(&fee)
-            .ok_or(Error::<T>::ArithmeticUnderflow)?;
+        let amount_user = amount_requested.checked_sub(&fee)?;
 
         let issue_id = ext::security::get_secure_id::<T>(&requester);
         let btc_address = ext::vault_registry::register_deposit_address::<T>(&vault_id, issue_id)?;
@@ -309,9 +304,9 @@ impl<T: Config> Pallet<T> {
             requester,
             btc_address,
             btc_public_key: vault.wallet.public_key,
-            amount: amount_user,
-            fee,
-            griefing_collateral,
+            amount: amount_user.amount(),
+            fee: fee.amount(),
+            griefing_collateral: griefing_collateral.amount(),
             period: Self::issue_period(),
             btc_height: ext::btc_relay::get_best_block_height::<T>(),
             status: IssueRequestStatus::Pending,
@@ -363,72 +358,60 @@ impl<T: Config> Pallet<T> {
             transaction,
             issue.btc_address,
         )?;
+        let amount_transferred = Amount::new(amount_transferred, T::GetWrappedCurrencyId::get());
 
-        let expected_total_amount = issue
-            .amount
-            .checked_add(&issue.fee)
-            .ok_or(Error::<T>::ArithmeticOverflow)?;
+        let expected_total_amount = issue.amount().checked_add(&issue.fee())?;
 
         // check for unexpected bitcoin amounts, and update the issue struct
-        if amount_transferred < expected_total_amount {
+        if amount_transferred.lt(&expected_total_amount)? {
             // only the requester of the issue can execute payments with insufficient amounts
             ensure!(requester == executor, Error::<T>::InvalidExecutor);
 
             // decrease the to-be-issued tokens that will not be issued after all
-            let deficit = expected_total_amount
-                .checked_sub(&amount_transferred)
-                .ok_or(Error::<T>::ArithmeticUnderflow)?;
-            ext::vault_registry::decrease_to_be_issued_tokens::<T>(&issue.vault, deficit)?;
+            let deficit = expected_total_amount.checked_sub(&amount_transferred)?;
+            ext::vault_registry::decrease_to_be_issued_tokens::<T>(&issue.vault, &deficit)?;
 
             // slash/release griefing collateral proportionally to the amount sent
             let released_collateral = ext::vault_registry::calculate_collateral::<T>(
-                issue.griefing_collateral,
-                amount_transferred,
-                expected_total_amount,
+                &issue.griefing_collateral(),
+                &amount_transferred,
+                &expected_total_amount,
             )?;
-            ext::currency::unlock::<T>(
-                T::GetGriefingCollateralCurrencyId::get(),
-                &requester,
-                released_collateral,
-            )?;
-            let slashed_collateral = issue
-                .griefing_collateral
-                .checked_sub(&released_collateral)
-                .ok_or(Error::<T>::ArithmeticUnderflow)?;
+            released_collateral.unlock(&requester)?;
+            let slashed_collateral = issue.griefing_collateral().checked_sub(&released_collateral)?;
             ext::vault_registry::transfer_funds::<T>(
-                T::GetGriefingCollateralCurrencyId::get(),
                 CurrencySource::Griefing(issue.requester.clone()),
                 CurrencySource::FreeBalance(issue.vault.clone()),
-                slashed_collateral,
+                &slashed_collateral,
             )?;
 
             Self::update_issue_amount(&issue_id, &mut issue, amount_transferred, slashed_collateral)?;
         } else {
             // release griefing collateral
-            ext::currency::unlock::<T>(
-                T::GetGriefingCollateralCurrencyId::get(),
-                &requester,
-                issue.griefing_collateral,
-            )?;
+            let griefing_collateral: Amount<T> = issue.griefing_collateral();
+            griefing_collateral.unlock(&requester)?;
 
-            if amount_transferred > expected_total_amount
+            if amount_transferred.gt(&expected_total_amount)?
                 && !ext::vault_registry::is_vault_liquidated::<T>(&issue.vault)?
             {
-                let surplus_btc = amount_transferred
-                    .checked_sub(&expected_total_amount)
-                    .ok_or(Error::<T>::ArithmeticUnderflow)?;
+                let surplus_btc = amount_transferred.checked_sub(&expected_total_amount)?;
 
-                match ext::vault_registry::try_increase_to_be_issued_tokens::<T>(&issue.vault, surplus_btc) {
+                match ext::vault_registry::try_increase_to_be_issued_tokens::<T>(&issue.vault, &surplus_btc) {
                     Ok(_) => {
                         // Current vault can handle the surplus; update the issue request
-                        Self::update_issue_amount(&issue_id, &mut issue, amount_transferred, 0u32.into())?;
+                        Self::update_issue_amount(
+                            &issue_id,
+                            &mut issue,
+                            amount_transferred,
+                            Amount::zero(T::GetGriefingCollateralCurrencyId::get()),
+                        )?;
                     }
                     Err(_) => {
                         // vault does not have enough collateral to accept the over payment, so refund.
                         maybe_refund_id = ext::refund::request_refund::<T>(
-                            surplus_btc,
+                            &surplus_btc,
                             issue.vault.clone(),
-                            issue.requester,
+                            issue.requester.clone(),
                             refund_address,
                             issue_id,
                         )?;
@@ -438,27 +421,26 @@ impl<T: Config> Pallet<T> {
         };
 
         // issue struct may have been update above; recalculate the total
-        let total = issue
-            .amount
-            .checked_add(&issue.fee)
-            .ok_or(Error::<T>::ArithmeticOverflow)?;
-        ext::vault_registry::issue_tokens::<T>(&issue.vault, total)?;
+        let issue_amount = issue.amount();
+        let issue_fee = issue.fee();
+        let total = issue_amount.checked_add(&issue_fee)?;
+        ext::vault_registry::issue_tokens::<T>(&issue.vault, &total)?;
 
         // mint issued tokens
-        ext::treasury::mint::<T>(&requester, issue.amount)?;
+        issue_amount.mint(&requester)?;
 
         // mint wrapped fees
-        ext::treasury::mint::<T>(&ext::fee::fee_pool_account_id::<T>(), issue.fee)?;
+        issue_fee.mint(&ext::fee::fee_pool_account_id::<T>())?;
 
         // distribute rewards
-        ext::fee::distribute_rewards::<T>(issue.fee)?;
+        ext::fee::distribute_rewards::<T>(&issue_fee)?;
 
         Self::set_issue_status(issue_id, IssueRequestStatus::Completed(maybe_refund_id));
 
         Self::deposit_event(<Event<T>>::ExecuteIssue(
             issue_id,
             requester,
-            total,
+            total.amount(),
             issue.vault,
             issue.fee,
         ));
@@ -483,25 +465,18 @@ impl<T: Config> Pallet<T> {
         );
 
         // Decrease to-be-redeemed tokens:
-        let full_amount = issue
-            .amount
-            .checked_add(&issue.fee)
-            .ok_or(Error::<T>::ArithmeticOverflow)?;
+        let full_amount = issue.amount().checked_add(&issue.fee())?;
 
-        ext::vault_registry::decrease_to_be_issued_tokens::<T>(&issue.vault, full_amount)?;
+        ext::vault_registry::decrease_to_be_issued_tokens::<T>(&issue.vault, &full_amount)?;
 
+        let griefing_collateral = issue.griefing_collateral();
         if ext::vault_registry::is_vault_liquidated::<T>(&issue.vault)? {
-            ext::currency::unlock::<T>(
-                T::GetGriefingCollateralCurrencyId::get(),
-                &issue.requester,
-                issue.griefing_collateral,
-            )?;
+            griefing_collateral.unlock(&issue.requester)?;
         } else {
             ext::vault_registry::transfer_funds::<T>(
-                T::GetGriefingCollateralCurrencyId::get(),
                 CurrencySource::Griefing(issue.requester.clone()),
                 CurrencySource::FreeBalance(issue.vault.clone()),
-                issue.griefing_collateral,
+                &griefing_collateral,
             )?;
         }
         Self::set_issue_status(issue_id, IssueRequestStatus::Cancelled);
@@ -554,14 +529,12 @@ impl<T: Config> Pallet<T> {
     fn update_issue_amount(
         issue_id: &H256,
         issue: &mut IssueRequest<T::AccountId, T::BlockNumber, BalanceOf<T>>,
-        transferred_btc: Wrapped<T>,
-        confiscated_griefing_collateral: Collateral<T>,
+        transferred_btc: Amount<T>,
+        confiscated_griefing_collateral: Amount<T>,
     ) -> Result<(), DispatchError> {
         // Current vault can handle the surplus; update the issue request
-        issue.fee = ext::fee::get_issue_fee::<T>(transferred_btc)?;
-        issue.amount = transferred_btc
-            .checked_sub(&issue.fee)
-            .ok_or(Error::<T>::ArithmeticUnderflow)?;
+        issue.fee = ext::fee::get_issue_fee::<T>(&transferred_btc)?.amount();
+        issue.amount = transferred_btc.checked_sub(&issue.fee())?.amount();
 
         // update storage
         <IssueRequests<T>>::mutate(issue_id, |x| {
@@ -573,7 +546,7 @@ impl<T: Config> Pallet<T> {
             *issue_id,
             issue.amount,
             issue.fee,
-            confiscated_griefing_collateral,
+            confiscated_griefing_collateral.amount(),
         ));
 
         Ok(())
@@ -588,5 +561,9 @@ impl<T: Config> Pallet<T> {
         <IssueRequests<T>>::mutate(id, |request| {
             request.status = status;
         });
+    }
+
+    fn issue_btc_dust_value() -> Amount<T> {
+        Amount::new(IssueBtcDustValue::<T>::get(), T::GetWrappedCurrencyId::get())
     }
 }

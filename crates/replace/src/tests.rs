@@ -2,6 +2,7 @@ use crate::{ext, mock::*, ReplaceRequest, ReplaceRequestStatus};
 
 use bitcoin::types::{MerkleProof, Transaction};
 use btc_relay::BtcAddress;
+use currency::Amount;
 use frame_support::{assert_err, assert_ok};
 use mocktopus::mocking::*;
 use sp_core::H256;
@@ -43,16 +44,23 @@ fn test_request() -> ReplaceRequest<AccountId, BlockNumber, Balance> {
     }
 }
 
+fn griefing(amount: u128) -> Amount<Test> {
+    Amount::new(amount, GRIEFING_CURRENCY)
+}
+fn wrapped(amount: u128) -> Amount<Test> {
+    Amount::new(amount, INTERBTC)
+}
+
 mod request_replace_tests {
     use super::*;
 
     fn setup_mocks() {
         ext::vault_registry::ensure_not_banned::<Test>.mock_safe(|_| MockResult::Return(Ok(())));
         ext::vault_registry::requestable_to_be_replaced_tokens::<Test>
-            .mock_safe(move |_| MockResult::Return(Ok(1000000)));
+            .mock_safe(move |_| MockResult::Return(Ok(wrapped(1000000))));
         ext::vault_registry::try_increase_to_be_replaced_tokens::<Test>
-            .mock_safe(|_, _, _| MockResult::Return(Ok((2, 20))));
-        ext::fee::get_replace_griefing_collateral::<Test>.mock_safe(move |_| MockResult::Return(Ok(20)));
+            .mock_safe(|_, _, _| MockResult::Return(Ok((wrapped(2), griefing(20)))));
+        ext::fee::get_replace_griefing_collateral::<Test>.mock_safe(move |_| MockResult::Return(Ok(griefing(20))));
         ext::vault_registry::get_collateral_currency::<Test>
             .mock_safe(|_| MockResult::Return(Ok(DEFAULT_TESTING_CURRENCY)));
     }
@@ -71,7 +79,7 @@ mod request_replace_tests {
         run_test(|| {
             setup_mocks();
             ext::vault_registry::requestable_to_be_replaced_tokens::<Test>
-                .mock_safe(move |_| MockResult::Return(Ok(5)));
+                .mock_safe(move |_| MockResult::Return(Ok(wrapped(5))));
             ext::vault_registry::get_collateral_currency::<Test>
                 .mock_safe(|_| MockResult::Return(Ok(DEFAULT_TESTING_CURRENCY)));
             assert_ok!(Replace::_request_replace(OLD_VAULT, 10, 20));
@@ -84,7 +92,7 @@ mod request_replace_tests {
         run_test(|| {
             setup_mocks();
             ext::vault_registry::try_increase_to_be_replaced_tokens::<Test>
-                .mock_safe(|_, _, _| MockResult::Return(Ok((1, 10))));
+                .mock_safe(|_, _, _| MockResult::Return(Ok((wrapped(1), griefing(10)))));
             assert_err!(
                 Replace::_request_replace(OLD_VAULT, 1, 10),
                 TestError::AmountBelowDustAmount
@@ -96,7 +104,7 @@ mod request_replace_tests {
     fn test_request_replace_with_insufficient_griefing_collateral_fails() {
         run_test(|| {
             setup_mocks();
-            ext::fee::get_replace_griefing_collateral::<Test>.mock_safe(move |_| MockResult::Return(Ok(25)));
+            ext::fee::get_replace_griefing_collateral::<Test>.mock_safe(move |_| MockResult::Return(Ok(griefing(25))));
             assert_err!(
                 Replace::_request_replace(OLD_VAULT, 1, 10),
                 TestError::InsufficientCollateral
@@ -111,10 +119,13 @@ mod accept_replace_tests {
     fn setup_mocks() {
         ext::vault_registry::ensure_not_banned::<Test>.mock_safe(|_| MockResult::Return(Ok(())));
         ext::vault_registry::insert_vault_deposit_address::<Test>.mock_safe(|_, _| MockResult::Return(Ok(())));
-        ext::vault_registry::decrease_to_be_replaced_tokens::<Test>.mock_safe(|_, _| MockResult::Return(Ok((5, 10))));
+        ext::vault_registry::decrease_to_be_replaced_tokens::<Test>
+            .mock_safe(|_, _| MockResult::Return(Ok((wrapped(5), griefing(10)))));
         ext::vault_registry::try_deposit_collateral::<Test>.mock_safe(|_, _| MockResult::Return(Ok(())));
         ext::vault_registry::try_increase_to_be_redeemed_tokens::<Test>.mock_safe(|_, _| MockResult::Return(Ok(())));
         ext::vault_registry::try_increase_to_be_issued_tokens::<Test>.mock_safe(|_, _| MockResult::Return(Ok(())));
+        ext::vault_registry::get_collateral_currency::<Test>
+            .mock_safe(|_| MockResult::Return(Ok(DEFAULT_TESTING_CURRENCY)));
     }
 
     #[test]
@@ -138,7 +149,7 @@ mod accept_replace_tests {
             // call to replace (5, 10), when there is only (4, 8) actually used
             setup_mocks();
             ext::vault_registry::decrease_to_be_replaced_tokens::<Test>
-                .mock_safe(|_, _| MockResult::Return(Ok((4, 8))));
+                .mock_safe(|_, _| MockResult::Return(Ok((wrapped(4), griefing(8)))));
 
             assert_ok!(Replace::_accept_replace(
                 OLD_VAULT,
@@ -156,7 +167,7 @@ mod accept_replace_tests {
         run_test(|| {
             setup_mocks();
             ext::vault_registry::decrease_to_be_replaced_tokens::<Test>
-                .mock_safe(|_, _| MockResult::Return(Ok((1, 10))));
+                .mock_safe(|_, _| MockResult::Return(Ok((wrapped(1), griefing(10)))));
             assert_err!(
                 Replace::_accept_replace(OLD_VAULT, NEW_VAULT, 5, 10, BtcAddress::default()),
                 TestError::AmountBelowDustAmount
@@ -166,6 +177,8 @@ mod accept_replace_tests {
 }
 
 mod execute_replace_test {
+    use currency::Amount;
+
     use super::*;
 
     fn setup_mocks() {
@@ -183,7 +196,9 @@ mod execute_replace_test {
         ext::btc_relay::verify_and_validate_op_return_transaction::<Test, Balance>
             .mock_safe(|_, _, _, _, _| MockResult::Return(Ok(())));
         ext::vault_registry::replace_tokens::<Test>.mock_safe(|_, _, _, _| MockResult::Return(Ok(())));
-        ext::currency::unlock::<Test>.mock_safe(|_, _, _| MockResult::Return(Ok(())));
+        Amount::<Test>::unlock.mock_safe(|_, _| MockResult::Return(Ok(())));
+        ext::vault_registry::get_collateral_currency::<Test>
+            .mock_safe(|_| MockResult::Return(Ok(DEFAULT_TESTING_CURRENCY)));
     }
 
     #[test]
@@ -211,8 +226,10 @@ mod cancel_replace_tests {
         ext::btc_relay::has_request_expired::<Test>.mock_safe(|_, _, _| MockResult::Return(Ok(true)));
         ext::vault_registry::is_vault_liquidated::<Test>.mock_safe(|_| MockResult::Return(Ok(false)));
         ext::vault_registry::cancel_replace_tokens::<Test>.mock_safe(|_, _, _| MockResult::Return(Ok(())));
-        ext::vault_registry::transfer_funds::<Test>.mock_safe(|_, _, _, _| MockResult::Return(Ok(())));
+        ext::vault_registry::transfer_funds::<Test>.mock_safe(|_, _, _| MockResult::Return(Ok(())));
         ext::vault_registry::is_allowed_to_withdraw_collateral::<Test>.mock_safe(|_, _| MockResult::Return(Ok(false)));
+        ext::vault_registry::get_collateral_currency::<Test>
+            .mock_safe(|_| MockResult::Return(Ok(DEFAULT_TESTING_CURRENCY)));
     }
 
     #[test]

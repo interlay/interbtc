@@ -47,9 +47,10 @@ pub use sp_runtime::{Perbill, Permill};
 pub use btc_relay::{bitcoin, Call as RelayCall, TARGET_SPACING};
 pub use module_exchange_rate_oracle_rpc_runtime_api::BalanceWrapper;
 
+use currency::Amount;
 pub use primitives::{
-    self, AccountId, Amount, Balance, BlockNumber, CurrencyId, Hash, Moment, Nonce, Signature, SignedFixedPoint,
-    SignedInner, UnsignedFixedPoint, UnsignedInner, DOT, INTERBTC,
+    self, AccountId, Balance, BlockNumber, CurrencyId, Hash, Moment, Nonce, Signature, SignedFixedPoint, SignedInner,
+    UnsignedFixedPoint, UnsignedInner, DOT, INTERBTC,
 };
 
 use pallet_grandpa::{fg_primitives, AuthorityId as GrandpaId, AuthorityList as GrandpaAuthorityList};
@@ -260,7 +261,7 @@ parameter_types! {
 impl orml_tokens::Config for Runtime {
     type Event = Event;
     type Balance = Balance;
-    type Amount = Amount;
+    type Amount = primitives::Amount;
     type CurrencyId = CurrencyId;
     type WeightInfo = ();
     type ExistentialDeposits = ExistentialDeposits;
@@ -279,6 +280,22 @@ impl security::Config for Runtime {
 }
 
 pub use relay::Event as RelayEvent;
+
+pub struct CurrencyConvert;
+impl currency::CurrencyConversion<currency::Amount<Runtime>, CurrencyId> for CurrencyConvert {
+    fn convert(amount: &currency::Amount<Runtime>, to: CurrencyId) -> Result<currency::Amount<Runtime>, DispatchError> {
+        ExchangeRateOracle::convert(amount, to)
+    }
+}
+
+impl currency::Config for Runtime {
+    type SignedInner = SignedInner;
+    type SignedFixedPoint = SignedFixedPoint;
+    type UnsignedFixedPoint = UnsignedFixedPoint;
+    type Balance = Balance;
+    type GetWrappedCurrencyId = GetWrappedCurrencyId;
+    type CurrencyConversion = CurrencyConvert;
+}
 
 impl relay::Config for Runtime {
     type Event = Event;
@@ -300,13 +317,9 @@ impl vault_registry::Config for Runtime {
     type PalletId = VaultPalletId;
     type Event = Event;
     type RandomnessSource = RandomnessCollectiveFlip;
-    type SignedInner = SignedInner;
     type Balance = Balance;
-    type SignedFixedPoint = SignedFixedPoint;
-    type UnsignedFixedPoint = UnsignedFixedPoint;
     type WeightInfo = ();
     type Wrapped = orml_tokens::CurrencyAdapter<Runtime, GetWrappedCurrencyId>;
-    type GetRewardsCurrencyId = GetWrappedCurrencyId;
     type GetGriefingCollateralCurrencyId = GetCollateralCurrencyId;
 }
 
@@ -320,8 +333,6 @@ where
 
 impl exchange_rate_oracle::Config for Runtime {
     type Event = Event;
-    type Balance = Balance;
-    type UnsignedFixedPoint = UnsignedFixedPoint;
     type WeightInfo = ();
 }
 
@@ -339,7 +350,7 @@ impl fee::Config for Runtime {
     type VaultRewards = reward::RewardsCurrencyAdapter<Runtime, (), GetWrappedCurrencyId>;
     type VaultStaking = staking::StakingCurrencyAdapter<Runtime, GetWrappedCurrencyId>;
     type Wrapped = orml_tokens::CurrencyAdapter<Runtime, GetWrappedCurrencyId>;
-    type OnSweep = currency::SweepFunds<Runtime, FeeAccount, GetWrappedCurrencyId>;
+    type OnSweep = currency::SweepFunds<Runtime, FeeAccount>;
 }
 
 pub use refund::{Event as RefundEvent, RefundRequest};
@@ -411,6 +422,7 @@ construct_runtime! {
         Refund: refund::{Pallet, Call, Config<T>, Storage, Event<T>},
         Nomination: nomination::{Pallet, Call, Config, Storage, Event<T>},
         Staking: staking::{Pallet, Storage, Event<T>},
+        Currency: currency::{Pallet},
 
         Aura: pallet_aura::{Pallet, Config<T>},
         Grandpa: pallet_grandpa::{Pallet, Call, Storage, Config, Event},
@@ -657,40 +669,42 @@ impl_runtime_apis! {
     > for Runtime {
         fn get_vault_collateral(vault_id: AccountId) -> Result<BalanceWrapper<Balance>, DispatchError> {
             let result = VaultRegistry::compute_collateral(&vault_id)?;
-            Ok(BalanceWrapper{amount:result})
+            Ok(BalanceWrapper{amount:result.amount()})
         }
 
         fn get_vault_total_collateral(vault_id: AccountId) -> Result<BalanceWrapper<Balance>, DispatchError> {
             let result = VaultRegistry::get_backing_collateral(&vault_id)?;
-            Ok(BalanceWrapper{amount:result})
+            Ok(BalanceWrapper{amount:result.amount()})
         }
 
-        fn get_first_vault_with_sufficient_collateral(amount: BalanceWrapper<Balance>) -> Result<AccountId, DispatchError> {
-            VaultRegistry::get_first_vault_with_sufficient_collateral(amount.amount)
+        fn get_first_vault_with_sufficient_collateral(amount: BalanceWrapper<Balance>, currency_id: CurrencyId) -> Result<AccountId, DispatchError> {
+            let amount = Amount::new(amount.amount, currency_id);
+            VaultRegistry::get_first_vault_with_sufficient_collateral(&amount)
         }
 
         fn get_first_vault_with_sufficient_tokens(amount: BalanceWrapper<Balance>) -> Result<AccountId, DispatchError> {
-            VaultRegistry::get_first_vault_with_sufficient_tokens(amount.amount)
+            let amount = Amount::new(amount.amount, GetWrappedCurrencyId::get());
+            VaultRegistry::get_first_vault_with_sufficient_tokens(&amount)
         }
 
         fn get_premium_redeem_vaults() -> Result<Vec<(AccountId, BalanceWrapper<Balance>)>, DispatchError> {
             let result = VaultRegistry::get_premium_redeem_vaults()?;
-            Ok(result.iter().map(|v| (v.0.clone(), BalanceWrapper{amount:v.1})).collect())
+            Ok(result.iter().map(|v| (v.0.clone(), BalanceWrapper{amount:v.1.amount()})).collect())
         }
 
         fn get_vaults_with_issuable_tokens() -> Result<Vec<(AccountId, BalanceWrapper<Balance>)>, DispatchError> {
             let result = VaultRegistry::get_vaults_with_issuable_tokens()?;
-            Ok(result.into_iter().map(|v| (v.0, BalanceWrapper{amount:v.1})).collect())
+            Ok(result.into_iter().map(|v| (v.0, BalanceWrapper{amount:v.1.amount()})).collect())
         }
 
         fn get_vaults_with_redeemable_tokens() -> Result<Vec<(AccountId, BalanceWrapper<Balance>)>, DispatchError> {
             let result = VaultRegistry::get_vaults_with_redeemable_tokens()?;
-            Ok(result.into_iter().map(|v| (v.0, BalanceWrapper{amount:v.1})).collect())
+            Ok(result.into_iter().map(|v| (v.0, BalanceWrapper{amount:v.1.amount()})).collect())
         }
 
         fn get_issuable_tokens_from_vault(vault: AccountId) -> Result<BalanceWrapper<Balance>, DispatchError> {
             let result = VaultRegistry::get_issuable_tokens_from_vault(vault)?;
-            Ok(BalanceWrapper{amount:result})
+            Ok(BalanceWrapper{amount:result.amount()})
         }
 
         fn get_collateralization_from_vault(vault: AccountId, only_issued: bool) -> Result<UnsignedFixedPoint, DispatchError> {
@@ -698,17 +712,20 @@ impl_runtime_apis! {
         }
 
         fn get_collateralization_from_vault_and_collateral(vault: AccountId, collateral: BalanceWrapper<Balance>, only_issued: bool) -> Result<UnsignedFixedPoint, DispatchError> {
-            VaultRegistry::get_collateralization_from_vault_and_collateral(vault, collateral.amount, only_issued)
+            let currency_id = VaultRegistry::get_collateral_currency(&vault)?;
+            let amount = Amount::new(collateral.amount, currency_id);
+            VaultRegistry::get_collateralization_from_vault_and_collateral(vault, &amount, only_issued)
         }
 
         fn get_required_collateral_for_wrapped(amount_btc: BalanceWrapper<Balance>, currency_id: CurrencyId) -> Result<BalanceWrapper<Balance>, DispatchError> {
-            let result = VaultRegistry::get_required_collateral_for_wrapped(amount_btc.amount, currency_id)?;
-            Ok(BalanceWrapper{amount:result})
+            let amount_btc = Amount::new(amount_btc.amount, GetWrappedCurrencyId::get());
+            let result = VaultRegistry::get_required_collateral_for_wrapped(&amount_btc, currency_id)?;
+            Ok(BalanceWrapper{amount:result.amount()})
         }
 
         fn get_required_collateral_for_vault(vault_id: AccountId) -> Result<BalanceWrapper<Balance>, DispatchError> {
             let result = VaultRegistry::get_required_collateral_for_vault(vault_id)?;
-            Ok(BalanceWrapper{amount:result})
+            Ok(BalanceWrapper{amount:result.amount()})
         }
     }
 

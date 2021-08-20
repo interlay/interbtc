@@ -1,7 +1,8 @@
 use crate as replace;
 use crate::{Config, Error};
+use currency::Amount;
 use frame_support::{assert_ok, parameter_types, traits::GenesisBuild, PalletId};
-use mocktopus::mocking::clear_mocks;
+use mocktopus::{macros::mockable, mocking::clear_mocks};
 use orml_tokens::CurrencyAdapter;
 use orml_traits::parameter_type_with_key;
 pub use primitives::CurrencyId;
@@ -41,12 +42,13 @@ frame_support::construct_runtime!(
         Fee: fee::{Pallet, Call, Config<T>, Storage},
         Nomination: nomination::{Pallet, Call, Config, Storage, Event<T>},
         Staking: staking::{Pallet, Storage, Event<T>},
+        Currency: currency::{Pallet},
     }
 );
 
 pub type AccountId = u64;
 pub type Balance = u128;
-pub type Amount = i128;
+pub type RawAmount = i128;
 pub type BlockNumber = u64;
 pub type Moment = u64;
 pub type Index = u64;
@@ -89,6 +91,7 @@ impl frame_system::Config for Test {
 impl pallet_randomness_collective_flip::Config for Test {}
 
 pub const DEFAULT_TESTING_CURRENCY: CurrencyId = CurrencyId::DOT;
+pub const GRIEFING_CURRENCY: CurrencyId = CurrencyId::DOT;
 pub const DOT: CurrencyId = CurrencyId::DOT;
 pub const INTERBTC: CurrencyId = CurrencyId::INTERBTC;
 
@@ -107,7 +110,7 @@ parameter_type_with_key! {
 impl orml_tokens::Config for Test {
     type Event = Event;
     type Balance = Balance;
-    type Amount = Amount;
+    type Amount = RawAmount;
     type CurrencyId = CurrencyId;
     type WeightInfo = ();
     type ExistentialDeposits = ExistentialDeposits;
@@ -132,18 +135,38 @@ where
     type OverarchingCall = Call;
     type Extrinsic = TestExtrinsic;
 }
+pub struct CurrencyConvert;
+impl currency::CurrencyConversion<currency::Amount<Test>, CurrencyId> for CurrencyConvert {
+    fn convert(
+        amount: &currency::Amount<Test>,
+        to: CurrencyId,
+    ) -> Result<currency::Amount<Test>, sp_runtime::DispatchError> {
+        let amount = convert_to(to, amount.amount())?;
+        Ok(Amount::new(amount, to))
+    }
+}
+
+#[cfg_attr(test, mockable)]
+pub fn convert_to(to: CurrencyId, amount: Balance) -> Result<Balance, sp_runtime::DispatchError> {
+    Ok(amount) // default conversion 1:1 - overwritable with mocktopus
+}
+
+impl currency::Config for Test {
+    type SignedInner = SignedInner;
+    type SignedFixedPoint = SignedFixedPoint;
+    type UnsignedFixedPoint = UnsignedFixedPoint;
+    type Balance = Balance;
+    type GetWrappedCurrencyId = GetWrappedCurrencyId;
+    type CurrencyConversion = CurrencyConvert;
+}
 
 impl vault_registry::Config for Test {
     type PalletId = VaultPalletId;
     type Event = TestEvent;
     type RandomnessSource = pallet_randomness_collective_flip::Pallet<Test>;
-    type SignedInner = SignedInner;
     type Balance = Balance;
-    type SignedFixedPoint = SignedFixedPoint;
-    type UnsignedFixedPoint = UnsignedFixedPoint;
     type WeightInfo = ();
     type Wrapped = CurrencyAdapter<Test, GetWrappedCurrencyId>;
-    type GetRewardsCurrencyId = GetWrappedCurrencyId;
     type GetGriefingCollateralCurrencyId = GetCollateralCurrencyId;
 }
 
@@ -187,8 +210,6 @@ impl pallet_timestamp::Config for Test {
 
 impl exchange_rate_oracle::Config for Test {
     type Event = TestEvent;
-    type Balance = Balance;
-    type UnsignedFixedPoint = UnsignedFixedPoint;
     type WeightInfo = ();
 }
 

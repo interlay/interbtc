@@ -37,7 +37,7 @@ orml-tokens = { git = "https://github.com/open-web3-stack/open-runtime-module-li
 orml-traits = { git = "https://github.com/open-web3-stack/open-runtime-module-library", rev = "81511f1", default-features = false }
 
 # Parachain dependencies
-primitives = { package = "interbtc-primitives", path = "../../primitives", default-features = false }
+primitives = { package = "interbtc-primitives", path = "../../primitives"}
 
 [features]
 default = ["std"]

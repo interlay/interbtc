@@ -22,7 +22,7 @@ sp_api::decl_runtime_apis! {
 
         /// Get the first available vault with sufficient collateral to fulfil an issue request
         /// with the specified amount of Wrapped.
-        fn get_first_vault_with_sufficient_collateral(amount: BalanceWrapper<Balance>) -> Result<AccountId, DispatchError>;
+        fn get_first_vault_with_sufficient_collateral(amount: BalanceWrapper<Balance>, currency_id: CurrencyId) -> Result<AccountId, DispatchError>;
 
         /// Get the first available vault with sufficient tokens to fulfil a redeem request
         fn get_first_vault_with_sufficient_tokens(amount: BalanceWrapper<Balance>) -> Result<AccountId, DispatchError>;

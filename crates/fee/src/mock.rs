@@ -39,7 +39,7 @@ frame_support::construct_runtime!(
 
 pub type AccountId = u64;
 pub type Balance = u128;
-pub type Amount = i128;
+pub type RawAmount = i128;
 pub type BlockNumber = u64;
 pub type Moment = u64;
 pub type Index = u64;
@@ -97,7 +97,7 @@ parameter_type_with_key! {
 impl orml_tokens::Config for Test {
     type Event = Event;
     type Balance = Balance;
-    type Amount = Amount;
+    type Amount = RawAmount;
     type CurrencyId = CurrencyId;
     type WeightInfo = ();
     type ExistentialDeposits = ExistentialDeposits;
@@ -131,6 +131,25 @@ impl pallet_timestamp::Config for Test {
 
 impl security::Config for Test {
     type Event = TestEvent;
+}
+
+pub struct CurrencyConvert;
+impl currency::CurrencyConversion<currency::Amount<Test>, CurrencyId> for CurrencyConvert {
+    fn convert(
+        _amount: &currency::Amount<Test>,
+        _to: CurrencyId,
+    ) -> Result<currency::Amount<Test>, sp_runtime::DispatchError> {
+        unimplemented!()
+    }
+}
+
+impl currency::Config for Test {
+    type SignedInner = SignedInner;
+    type SignedFixedPoint = SignedFixedPoint;
+    type UnsignedFixedPoint = UnsignedFixedPoint;
+    type Balance = Balance;
+    type GetWrappedCurrencyId = GetWrappedCurrencyId;
+    type CurrencyConversion = CurrencyConvert;
 }
 
 parameter_types! {

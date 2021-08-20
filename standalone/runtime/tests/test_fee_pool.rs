@@ -1,4 +1,5 @@
 mod mock;
+use currency::Amount;
 use mock::{
     issue_testing_utils::{ExecuteIssueBuilder, RequestIssueBuilder},
     nomination_testing_utils::*,
@@ -13,6 +14,10 @@ const ISSUE_RELAYER: [u8; 32] = EVE;
 
 // issue fee is 0.5%
 const ISSUE_FEE: f64 = 0.005;
+
+fn default_nomination(currency_id: CurrencyId) -> Amount<Runtime> {
+    Amount::new(DEFAULT_NOMINATION, currency_id)
+}
 
 // assert that a and b differ by at most 1
 macro_rules! assert_eq_modulo_rounding {
@@ -81,20 +86,27 @@ fn distribute_global_pool(pool_id: [u8; 32]) {
     .unwrap();
 }
 
-fn get_vault_issued_tokens(account: [u8; 32]) -> u128 {
-    VaultRegistryPallet::get_vault_from_id(&account_of(account))
-        .unwrap()
-        .issued_tokens
+fn get_vault_issued_tokens(account: [u8; 32]) -> Amount<Runtime> {
+    wrapped(
+        VaultRegistryPallet::get_vault_from_id(&account_of(account))
+            .unwrap()
+            .issued_tokens,
+    )
 }
 
-fn get_vault_collateral(account: [u8; 32]) -> i128 {
+fn get_vault_collateral(account: [u8; 32]) -> Amount<Runtime> {
     VaultRegistryPallet::compute_collateral(&account_of(account))
         .unwrap()
         .try_into()
         .unwrap()
 }
 
-fn issue_with_relayer_and_vault(currency_id: CurrencyId, relayer: [u8; 32], vault: [u8; 32], request_amount: u128) {
+fn issue_with_relayer_and_vault(
+    currency_id: CurrencyId,
+    relayer: [u8; 32],
+    vault: [u8; 32],
+    request_amount: Amount<Runtime>,
+) {
     let (issue_id, _) = RequestIssueBuilder::new(currency_id, request_amount)
         .with_vault(vault)
         .request();
@@ -113,15 +125,15 @@ fn test_vault_fee_pool_withdrawal() {
             FixedU128::one()
         ));
 
-        issue_with_relayer_and_vault(currency_id, ISSUE_RELAYER, VAULT_1, 20000);
-        issue_with_relayer_and_vault(currency_id, ISSUE_RELAYER, VAULT_2, 80000);
+        issue_with_relayer_and_vault(currency_id, ISSUE_RELAYER, VAULT_1, wrapped(20000));
+        issue_with_relayer_and_vault(currency_id, ISSUE_RELAYER, VAULT_2, wrapped(80000));
 
         let mut reward_pool = BasicRewardPool::default();
         reward_pool
-            .deposit_stake(VAULT_1, get_vault_issued_tokens(VAULT_1) as f64)
+            .deposit_stake(VAULT_1, get_vault_issued_tokens(VAULT_1).amount() as f64)
             .deposit_stake(ISSUE_RELAYER, 7.0)
             .distribute(20000.0 * ISSUE_FEE)
-            .deposit_stake(VAULT_2, get_vault_issued_tokens(VAULT_2) as f64)
+            .deposit_stake(VAULT_2, get_vault_issued_tokens(VAULT_2).amount() as f64)
             .deposit_stake(ISSUE_RELAYER, 7.0)
             .distribute(80000.0 * ISSUE_FEE);
 
@@ -146,13 +158,13 @@ fn test_new_nomination_withdraws_global_reward() {
             FixedU128::one()
         ));
 
-        issue_with_relayer_and_vault(currency_id, ISSUE_RELAYER, VAULT_1, 10000);
+        issue_with_relayer_and_vault(currency_id, ISSUE_RELAYER, VAULT_1, wrapped(10000));
 
         assert_nomination_opt_in(VAULT_1);
 
         let mut reward_pool = BasicRewardPool::default();
         reward_pool
-            .deposit_stake(VAULT_1, get_vault_issued_tokens(VAULT_1) as f64)
+            .deposit_stake(VAULT_1, get_vault_issued_tokens(VAULT_1).amount() as f64)
             .deposit_stake(ISSUE_RELAYER, 7.0)
             .distribute(10000.0 * ISSUE_FEE);
 
@@ -160,7 +172,7 @@ fn test_new_nomination_withdraws_global_reward() {
             get_vault_global_pool_rewards(VAULT_1),
             reward_pool.compute_reward(VAULT_1) as i128,
         );
-        assert_nominate_collateral(VAULT_1, USER, DEFAULT_NOMINATION);
+        assert_nominate_collateral(VAULT_1, USER, default_nomination(currency_id));
 
         // Vault rewards are withdrawn when a new nominator joins
         assert_eq_modulo_rounding!(get_vault_global_pool_rewards(VAULT_1), 0 as i128);
@@ -181,30 +193,30 @@ fn test_fee_nomination() {
             FixedU128::one()
         ));
 
-        issue_with_relayer_and_vault(currency_id, ISSUE_RELAYER, VAULT_1, 10000);
+        issue_with_relayer_and_vault(currency_id, ISSUE_RELAYER, VAULT_1, wrapped(10000));
 
         let vault_issued_tokens_1 = get_vault_issued_tokens(VAULT_1);
 
         assert_nomination_opt_in(VAULT_1);
-        assert_nominate_collateral(VAULT_1, USER, DEFAULT_NOMINATION);
-        issue_with_relayer_and_vault(currency_id, ISSUE_RELAYER, VAULT_1, 100000);
+        assert_nominate_collateral(VAULT_1, USER, default_nomination(currency_id));
+        issue_with_relayer_and_vault(currency_id, ISSUE_RELAYER, VAULT_1, wrapped(100000));
 
         let vault_issued_tokens_2 = get_vault_issued_tokens(VAULT_1);
 
         let mut global_reward_pool = BasicRewardPool::default();
         global_reward_pool
-            .deposit_stake(VAULT_1, vault_issued_tokens_1 as f64)
+            .deposit_stake(VAULT_1, vault_issued_tokens_1.amount() as f64)
             .distribute(10000.0 * ISSUE_FEE);
 
         let mut local_reward_pool = BasicRewardPool::default();
         local_reward_pool
-            .deposit_stake(VAULT_1, get_vault_collateral(VAULT_1) as f64)
+            .deposit_stake(VAULT_1, get_vault_collateral(VAULT_1).amount() as f64)
             .distribute(global_reward_pool.compute_reward(VAULT_1))
             .deposit_stake(USER, DEFAULT_NOMINATION as f64);
 
         global_reward_pool
             .withdraw_reward(VAULT_1)
-            .deposit_stake(VAULT_1, (vault_issued_tokens_2 - vault_issued_tokens_1) as f64)
+            .deposit_stake(VAULT_1, (vault_issued_tokens_2 - vault_issued_tokens_1).amount() as f64)
             .distribute(100000.0 * ISSUE_FEE);
 
         local_reward_pool.distribute(global_reward_pool.compute_reward(VAULT_1));
@@ -240,28 +252,27 @@ fn test_fee_nomination_slashing() {
             FixedU128::one()
         ));
 
-        issue_with_relayer_and_vault(currency_id, ISSUE_RELAYER, VAULT_1, 10000);
+        issue_with_relayer_and_vault(currency_id, ISSUE_RELAYER, VAULT_1, wrapped(10000));
 
         assert_nomination_opt_in(VAULT_1);
-        assert_nominate_collateral(VAULT_1, USER, DEFAULT_NOMINATION);
+        assert_nominate_collateral(VAULT_1, USER, default_nomination(currency_id));
 
         // Slash the vault and its nominator
         VaultRegistryPallet::transfer_funds(
-            VaultRegistryPallet::get_collateral_currency(&account_of(VAULT_1)).unwrap(),
             CurrencySource::Collateral(account_of(VAULT_1)),
             CurrencySource::FreeBalance(account_of(VAULT_2)),
-            DEFAULT_NOMINATION,
+            &default_nomination(VaultRegistryPallet::get_collateral_currency(&account_of(VAULT_1)).unwrap()),
         )
         .unwrap();
 
-        issue_with_relayer_and_vault(currency_id, ISSUE_RELAYER, VAULT_1, 100000);
+        issue_with_relayer_and_vault(currency_id, ISSUE_RELAYER, VAULT_1, wrapped(100000));
 
         let mut global_reward_pool = BasicRewardPool::default();
         global_reward_pool
-            .deposit_stake(VAULT_1, get_vault_issued_tokens(VAULT_1) as f64)
+            .deposit_stake(VAULT_1, get_vault_issued_tokens(VAULT_1).amount() as f64)
             .distribute(100000.0 * ISSUE_FEE);
 
-        let vault_collateral = get_vault_collateral(VAULT_1) as f64;
+        let vault_collateral = get_vault_collateral(VAULT_1).amount() as f64;
         let nominator_collateral = DEFAULT_NOMINATION as f64;
         let slashed_amount = DEFAULT_NOMINATION as f64;
         // issue fee is 0.5%
@@ -296,22 +307,22 @@ fn test_fee_nomination_withdrawal() {
             FixedU128::one()
         ));
 
-        issue_with_relayer_and_vault(currency_id, ISSUE_RELAYER, VAULT_1, 10000);
+        issue_with_relayer_and_vault(currency_id, ISSUE_RELAYER, VAULT_1, wrapped(10000));
 
         assert_nomination_opt_in(VAULT_1);
-        assert_nominate_collateral(VAULT_1, USER, DEFAULT_NOMINATION);
-        issue_with_relayer_and_vault(currency_id, ISSUE_RELAYER, VAULT_1, 50000);
-        assert_withdraw_nominator_collateral(USER, VAULT_1, DEFAULT_NOMINATION / 2);
-        issue_with_relayer_and_vault(currency_id, ISSUE_RELAYER, VAULT_1, 50000);
+        assert_nominate_collateral(VAULT_1, USER, default_nomination(currency_id));
+        issue_with_relayer_and_vault(currency_id, ISSUE_RELAYER, VAULT_1, wrapped(50000));
+        assert_withdraw_nominator_collateral(USER, VAULT_1, default_nomination(currency_id) / 2);
+        issue_with_relayer_and_vault(currency_id, ISSUE_RELAYER, VAULT_1, wrapped(50000));
 
         let mut global_reward_pool = BasicRewardPool::default();
         global_reward_pool
-            .deposit_stake(VAULT_1, get_vault_issued_tokens(VAULT_1) as f64)
+            .deposit_stake(VAULT_1, get_vault_issued_tokens(VAULT_1).amount() as f64)
             .distribute(50000.0 * ISSUE_FEE);
 
         let mut local_reward_pool = BasicRewardPool::default();
         local_reward_pool
-            .deposit_stake(VAULT_1, get_vault_collateral(VAULT_1) as f64)
+            .deposit_stake(VAULT_1, get_vault_collateral(VAULT_1).amount() as f64)
             .deposit_stake(USER, DEFAULT_NOMINATION as f64)
             .distribute(global_reward_pool.compute_reward(VAULT_1))
             .withdraw_reward(VAULT_1)

@@ -26,7 +26,7 @@ extern crate mocktopus;
 use mocktopus::macros::mockable;
 
 use codec::{Decode, Encode, EncodeLike};
-use currency::{OnSweep, ParachainCurrency};
+use currency::{Amount, OnSweep, ParachainCurrency};
 use frame_support::{
     dispatch::{DispatchError, DispatchResult},
     ensure,
@@ -36,6 +36,7 @@ use frame_support::{
     PalletId,
 };
 use frame_system::ensure_signed;
+use reward::Rewards;
 use sp_arithmetic::{traits::*, FixedPointNumber, FixedPointOperand};
 use sp_runtime::traits::{AccountIdConversion, AtLeast32BitUnsigned};
 use sp_std::{
@@ -60,7 +61,11 @@ pub mod pallet {
     /// ## Configuration
     /// The pallet's configuration trait.
     #[pallet::config]
-    pub trait Config: frame_system::Config + security::Config {
+    pub trait Config:
+        frame_system::Config
+        + security::Config
+        + currency::Config<UnsignedFixedPoint = UnsignedFixedPoint<Self>, SignedFixedPoint = SignedFixedPoint<Self>>
+    {
         /// The fee module id, used for deriving its sovereign account ID.
         #[pallet::constant]
         type FeePalletId: Get<PalletId>;
@@ -69,7 +74,7 @@ pub mod pallet {
         type WeightInfo: WeightInfo;
 
         /// Signed fixed point type.
-        type SignedFixedPoint: FixedPointNumber<Inner = Self::SignedInner> + Encode + EncodeLike + Decode;
+        type SignedFixedPoint: FixedPointNumber<Inner = <Self as Config>::SignedInner> + Encode + EncodeLike + Decode;
 
         /// The `Inner` type of the `SignedFixedPoint`.
         type SignedInner: Debug
@@ -81,7 +86,7 @@ pub mod pallet {
             + MaybeSerializeDeserialize;
 
         /// Unsigned fixed point type.
-        type UnsignedFixedPoint: FixedPointNumber<Inner = Self::UnsignedInner>
+        type UnsignedFixedPoint: FixedPointNumber<Inner = <Self as Config>::UnsignedInner>
             + Encode
             + EncodeLike
             + Decode
@@ -110,7 +115,7 @@ pub mod pallet {
         type Wrapped: ParachainCurrency<Self::AccountId, Balance = Self::UnsignedInner>;
 
         /// Handler to transfer undistributed rewards.
-        type OnSweep: OnSweep<Self::AccountId, Self::UnsignedInner>;
+        type OnSweep: OnSweep<Self::AccountId, Amount<Self>>;
     }
 
     #[pallet::error]
@@ -286,9 +291,9 @@ impl<T: Config> Pallet<T> {
     /// # Arguments
     ///
     /// * `amount` - amount of rewards
-    pub fn distribute_rewards(amount: Wrapped<T>) -> Result<(), DispatchError> {
+    pub fn distribute_rewards(amount: &Amount<T>) -> Result<(), DispatchError> {
         // distribute vault rewards and return leftover
-        let remaining = Self::distribute::<_, _, T::SignedFixedPoint, T::VaultRewards>(amount)?;
+        let remaining = Self::distribute(amount)?;
         if !remaining.is_zero() {
             // sweep the remaining rewards to the treasury if non-zero
             T::OnSweep::on_sweep(&Self::fee_pool_account_id(), remaining)?;
@@ -301,8 +306,8 @@ impl<T: Config> Pallet<T> {
     /// # Arguments
     ///
     /// * `amount` - issue amount in tokens
-    pub fn get_issue_fee(amount: Wrapped<T>) -> Result<Wrapped<T>, DispatchError> {
-        Self::wrapped_for(amount, <IssueFee<T>>::get())
+    pub fn get_issue_fee(amount: &Amount<T>) -> Result<Amount<T>, DispatchError> {
+        amount.rounded_mul(<IssueFee<T>>::get())
     }
 
     /// Calculate the required issue griefing collateral.
@@ -310,8 +315,8 @@ impl<T: Config> Pallet<T> {
     /// # Arguments
     ///
     /// * `amount` - issue amount in collateral (at current exchange rate)
-    pub fn get_issue_griefing_collateral(amount: Collateral<T>) -> Result<Collateral<T>, DispatchError> {
-        Self::collateral_for(amount, <IssueGriefingCollateral<T>>::get())
+    pub fn get_issue_griefing_collateral(amount: &Amount<T>) -> Result<Amount<T>, DispatchError> {
+        amount.rounded_mul(<IssueGriefingCollateral<T>>::get())
     }
 
     /// Calculate the required redeem fee in tokens. Upon execution, the
@@ -320,8 +325,8 @@ impl<T: Config> Pallet<T> {
     /// # Arguments
     ///
     /// * `amount` - redeem amount in tokens
-    pub fn get_redeem_fee(amount: Wrapped<T>) -> Result<Wrapped<T>, DispatchError> {
-        Self::wrapped_for(amount, <RedeemFee<T>>::get())
+    pub fn get_redeem_fee(amount: &Amount<T>) -> Result<Amount<T>, DispatchError> {
+        amount.rounded_mul(<RedeemFee<T>>::get())
     }
 
     /// Calculate the premium redeem fee in collateral for a user to get if redeeming
@@ -330,8 +335,8 @@ impl<T: Config> Pallet<T> {
     /// # Arguments
     ///
     /// * `amount` - amount in collateral (at current exchange rate)
-    pub fn get_premium_redeem_fee(amount: Collateral<T>) -> Result<Collateral<T>, DispatchError> {
-        Self::collateral_for(amount, <PremiumRedeemFee<T>>::get())
+    pub fn get_premium_redeem_fee(amount: &Amount<T>) -> Result<Amount<T>, DispatchError> {
+        amount.rounded_mul(<PremiumRedeemFee<T>>::get())
     }
 
     /// Calculate punishment fee for a Vault that fails to execute a redeem
@@ -340,8 +345,8 @@ impl<T: Config> Pallet<T> {
     /// # Arguments
     ///
     /// * `amount` - amount in collateral (at current exchange rate)
-    pub fn get_punishment_fee(amount: Collateral<T>) -> Result<Collateral<T>, DispatchError> {
-        Self::collateral_for(amount, <PunishmentFee<T>>::get())
+    pub fn get_punishment_fee(amount: &Amount<T>) -> Result<Amount<T>, DispatchError> {
+        amount.rounded_mul(<PunishmentFee<T>>::get())
     }
 
     /// Calculate the required replace griefing collateral.
@@ -349,8 +354,8 @@ impl<T: Config> Pallet<T> {
     /// # Arguments
     ///
     /// * `amount` - replace amount in collateral (at current exchange rate)
-    pub fn get_replace_griefing_collateral(amount: Collateral<T>) -> Result<Collateral<T>, DispatchError> {
-        Self::collateral_for(amount, <ReplaceGriefingCollateral<T>>::get())
+    pub fn get_replace_griefing_collateral(amount: &Amount<T>) -> Result<Amount<T>, DispatchError> {
+        amount.rounded_mul(<ReplaceGriefingCollateral<T>>::get())
     }
 
     /// Calculate the fee taken from a liquidated Vault on theft.
@@ -358,8 +363,8 @@ impl<T: Config> Pallet<T> {
     /// # Arguments
     ///
     /// * `amount` - the vault's backing collateral
-    pub fn get_theft_fee(amount: Collateral<T>) -> Result<Collateral<T>, DispatchError> {
-        Self::collateral_for(amount, <TheftFee<T>>::get())
+    pub fn get_theft_fee(amount: &Amount<T>) -> Result<Amount<T>, DispatchError> {
+        amount.rounded_mul(<TheftFee<T>>::get())
     }
 
     /// Calculate the fee portion of a total amount. For `amount = fee + refund_amount`, this
@@ -368,7 +373,7 @@ impl<T: Config> Pallet<T> {
     /// # Arguments
     ///
     /// * `amount` - total amount in tokens
-    pub fn get_refund_fee_from_total(amount: Wrapped<T>) -> Result<Wrapped<T>, DispatchError> {
+    pub fn get_refund_fee_from_total(amount: &Amount<T>) -> Result<Amount<T>, DispatchError> {
         // calculate 'percentage' = x / (1+x)
         let percentage = <RefundFee<T>>::get()
             .checked_div(
@@ -377,18 +382,7 @@ impl<T: Config> Pallet<T> {
                     .ok_or(Error::<T>::ArithmeticOverflow)?,
             )
             .ok_or(Error::<T>::ArithmeticUnderflow)?;
-        Self::wrapped_for(amount, percentage)
-    }
-
-    pub fn wrapped_for(amount: Wrapped<T>, percentage: UnsignedFixedPoint<T>) -> Result<Wrapped<T>, DispatchError> {
-        Ok(Self::calculate_for(amount.into(), percentage)?.into())
-    }
-
-    pub fn collateral_for(
-        amount: Collateral<T>,
-        percentage: UnsignedFixedPoint<T>,
-    ) -> Result<Collateral<T>, DispatchError> {
-        Ok(Self::calculate_for(amount.into(), percentage)?.into())
+        amount.rounded_mul(percentage)
     }
 
     pub fn withdraw_all_vault_rewards(account_id: &T::AccountId) -> DispatchResult {
@@ -397,26 +391,6 @@ impl<T: Config> Pallet<T> {
     }
 
     // Private functions internal to this pallet
-
-    /// Take the `percentage` of an `amount`
-    fn calculate_for(
-        amount: UnsignedInner<T>,
-        percentage: UnsignedFixedPoint<T>,
-    ) -> Result<UnsignedInner<T>, DispatchError> {
-        // we add 0.5 before we do the final integer division to round the result we return.
-        // note that unwrapping is safe because we use a constant
-        let rounding_addition = UnsignedFixedPoint::<T>::checked_from_rational(1, 2).unwrap();
-
-        UnsignedFixedPoint::<T>::checked_from_integer(amount)
-            .ok_or(Error::<T>::ArithmeticOverflow)?
-            .checked_mul(&percentage)
-            .ok_or(Error::<T>::ArithmeticOverflow)?
-            .checked_add(&rounding_addition)
-            .ok_or(Error::<T>::ArithmeticOverflow)?
-            .into_inner()
-            .checked_div(&UnsignedFixedPoint::<T>::accuracy())
-            .ok_or(Error::<T>::ArithmeticUnderflow.into())
-    }
 
     #[allow(dead_code)]
     /// Helper for validating the `chain_spec` parameters
@@ -444,24 +418,9 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
-    fn distribute<
-        Currency: TryInto<SignedInner>,
-        SignedInner: TryInto<Currency> + CheckedDiv,
-        SignedFixedPoint: FixedPointNumber<Inner = SignedInner>,
-        Rewards: reward::Rewards<T::AccountId, SignedFixedPoint = SignedFixedPoint>,
-    >(
-        reward: Currency,
-    ) -> Result<Currency, DispatchError> {
-        let reward_as_inner = reward.try_into().ok().ok_or(Error::<T>::TryIntoIntError)?;
-        let reward_as_fixed =
-            SignedFixedPoint::checked_from_integer(reward_as_inner).ok_or(Error::<T>::TryIntoIntError)?;
-        Ok(Rewards::distribute_reward(reward_as_fixed)?
-            .into_inner()
-            .checked_div(&SignedFixedPoint::accuracy())
-            .ok_or(Error::<T>::ArithmeticUnderflow)?
-            .try_into()
-            .ok()
-            .ok_or(Error::<T>::TryIntoIntError)?)
+    fn distribute(reward: &Amount<T>) -> Result<Amount<T>, DispatchError> {
+        let leftover = T::VaultRewards::distribute_reward(reward.to_fixed()?)?;
+        Amount::from_fixed_point(leftover, reward.currency())
     }
 
     pub fn distribute_from_reward_pool<

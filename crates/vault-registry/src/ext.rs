@@ -3,70 +3,28 @@ use mocktopus::macros::mockable;
 
 #[cfg_attr(test, mockable)]
 pub(crate) mod currency {
-    use crate::types::{Collateral, CurrencyId};
-    use frame_support::dispatch::DispatchResult;
+    use crate::types::CurrencyId;
+    use currency::Amount;
 
-    pub fn lock<T: crate::Config>(
-        currency_id: CurrencyId<T>,
-        account: &T::AccountId,
-        amount: Collateral<T>,
-    ) -> DispatchResult {
-        currency::with_currency_id::lock::<T>(currency_id, account, amount)
-    }
-
-    pub fn unlock<T: crate::Config>(
-        currency_id: CurrencyId<T>,
-        account: &T::AccountId,
-        amount: Collateral<T>,
-    ) -> DispatchResult {
-        currency::with_currency_id::unlock::<T>(currency_id, account, amount)
-    }
-
-    pub fn get_free_balance<T: crate::Config>(currency_id: CurrencyId<T>, id: &T::AccountId) -> Collateral<T> {
+    pub fn get_free_balance<T: crate::Config>(currency_id: CurrencyId<T>, id: &T::AccountId) -> Amount<T> {
         currency::with_currency_id::get_free_balance::<T>(currency_id, id)
     }
 
-    pub fn get_reserved_balance<T: crate::Config>(currency_id: CurrencyId<T>, id: &T::AccountId) -> Collateral<T> {
+    pub fn get_reserved_balance<T: crate::Config>(currency_id: CurrencyId<T>, id: &T::AccountId) -> Amount<T> {
         currency::with_currency_id::get_reserved_balance::<T>(currency_id, id)
-    }
-
-    pub fn transfer<T: crate::Config>(
-        currency_id: CurrencyId<T>,
-        source: &T::AccountId,
-        destination: &T::AccountId,
-        amount: Collateral<T>,
-    ) -> DispatchResult {
-        currency::with_currency_id::transfer::<T>(currency_id, source, destination, amount)
     }
 }
 
 #[cfg_attr(test, mockable)]
 pub(crate) mod treasury {
-    use crate::{types::Wrapped, Config};
-    use currency::ParachainCurrency;
+    use currency::{Amount, ParachainCurrency};
+    use frame_support::traits::Get;
 
-    pub fn total_issued<T: crate::Config>() -> Wrapped<T> {
-        <T as Config>::Wrapped::get_total_supply()
-    }
-}
-
-#[cfg_attr(test, mockable)]
-pub(crate) mod oracle {
-    use crate::types::{Collateral, CurrencyId, Wrapped};
-    use frame_support::dispatch::DispatchError;
-
-    pub fn wrapped_to_collateral<T: crate::Config>(
-        amount: Wrapped<T>,
-        currency_id: CurrencyId<T>,
-    ) -> Result<Collateral<T>, DispatchError> {
-        <exchange_rate_oracle::Pallet<T>>::wrapped_to_collateral(amount, currency_id)
-    }
-
-    pub fn collateral_to_wrapped<T: crate::Config>(
-        amount: Collateral<T>,
-        currency_id: CurrencyId<T>,
-    ) -> Result<Wrapped<T>, DispatchError> {
-        <exchange_rate_oracle::Pallet<T>>::collateral_to_wrapped(amount, currency_id)
+    pub fn total_issued<T: crate::Config>() -> Amount<T> {
+        Amount::new(
+            <T as crate::Config>::Wrapped::get_total_supply(),
+            T::GetWrappedCurrencyId::get(),
+        )
     }
 }
 
@@ -85,46 +43,34 @@ pub(crate) mod security {
 
 #[cfg_attr(test, mockable)]
 pub(crate) mod staking {
-    use crate::{
-        types::{BalanceOf, CurrencyId, SignedInner},
-        Pallet,
-    };
+    use crate::types::{CurrencyId, SignedInner};
+    use currency::Amount;
     use frame_support::dispatch::DispatchError;
 
     pub fn deposit_stake<T: crate::Config>(
         currency_id: CurrencyId<T>,
         vault_id: &T::AccountId,
         nominator_id: &T::AccountId,
-        amount: BalanceOf<T>,
+        amount: &Amount<T>,
     ) -> Result<(), DispatchError> {
-        <staking::Pallet<T>>::deposit_stake(
-            currency_id,
-            vault_id,
-            nominator_id,
-            Pallet::<T>::currency_to_fixed(amount)?,
-        )
+        <staking::Pallet<T>>::deposit_stake(currency_id, vault_id, nominator_id, amount.to_fixed()?)
     }
 
     pub fn withdraw_stake<T: crate::Config>(
         currency_id: CurrencyId<T>,
         vault_id: &T::AccountId,
         nominator_id: &T::AccountId,
-        amount: BalanceOf<T>,
+        amount: &Amount<T>,
     ) -> Result<(), DispatchError> {
-        <staking::Pallet<T>>::withdraw_stake(
-            currency_id,
-            vault_id,
-            nominator_id,
-            Pallet::<T>::currency_to_fixed(amount)?,
-        )
+        <staking::Pallet<T>>::withdraw_stake(currency_id, vault_id, nominator_id, amount.to_fixed()?)
     }
 
     pub fn slash_stake<T: crate::Config>(
         currency_id: CurrencyId<T>,
         vault_id: &T::AccountId,
-        amount: BalanceOf<T>,
+        amount: &Amount<T>,
     ) -> Result<(), DispatchError> {
-        <staking::Pallet<T>>::slash_stake(currency_id, vault_id, Pallet::<T>::currency_to_fixed(amount)?)
+        <staking::Pallet<T>>::slash_stake(currency_id, vault_id, amount.to_fixed()?)
     }
 
     pub fn compute_stake<T: crate::Config>(
@@ -145,39 +91,28 @@ pub(crate) mod staking {
 
 #[cfg_attr(test, mockable)]
 pub(crate) mod reward {
-    use crate::{types::BalanceOf, Pallet};
+    use currency::Amount;
     use frame_support::{dispatch::DispatchError, traits::Get};
 
-    pub fn deposit_stake<T: crate::Config>(vault_id: &T::AccountId, amount: BalanceOf<T>) -> Result<(), DispatchError> {
-        <reward::Pallet<T>>::deposit_stake(
-            T::GetRewardsCurrencyId::get(),
-            vault_id,
-            Pallet::<T>::currency_to_fixed(amount)?,
-        )
+    pub fn deposit_stake<T: crate::Config>(vault_id: &T::AccountId, amount: &Amount<T>) -> Result<(), DispatchError> {
+        <reward::Pallet<T>>::deposit_stake(T::GetWrappedCurrencyId::get(), vault_id, amount.to_fixed()?)
     }
 
-    pub fn withdraw_stake<T: crate::Config>(
-        vault_id: &T::AccountId,
-        amount: BalanceOf<T>,
-    ) -> Result<(), DispatchError> {
-        <reward::Pallet<T>>::withdraw_stake(
-            T::GetRewardsCurrencyId::get(),
-            vault_id,
-            Pallet::<T>::currency_to_fixed(amount)?,
-        )
+    pub fn withdraw_stake<T: crate::Config>(vault_id: &T::AccountId, amount: &Amount<T>) -> Result<(), DispatchError> {
+        <reward::Pallet<T>>::withdraw_stake(T::GetWrappedCurrencyId::get(), vault_id, amount.to_fixed()?)
     }
 }
 
 #[cfg_attr(test, mockable)]
 pub(crate) mod fee {
-    use crate::{Collateral, Wrapped};
-    use frame_support::dispatch::DispatchError;
+    use currency::Amount;
+    use frame_support::{dispatch::DispatchError, traits::Get};
 
-    pub fn get_theft_fee<T: crate::Config>(amount: Collateral<T>) -> Result<Collateral<T>, DispatchError> {
+    pub fn get_theft_fee<T: crate::Config>(amount: &Amount<T>) -> Result<Amount<T>, DispatchError> {
         <fee::Pallet<T>>::get_theft_fee(amount)
     }
 
-    pub fn get_theft_fee_max<T: crate::Config>() -> Wrapped<T> {
-        <fee::Pallet<T>>::theft_fee_max()
+    pub fn get_theft_fee_max<T: crate::Config>() -> Amount<T> {
+        Amount::new(<fee::Pallet<T>>::theft_fee_max(), T::GetWrappedCurrencyId::get())
     }
 }

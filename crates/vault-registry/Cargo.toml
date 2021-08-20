@@ -41,6 +41,7 @@ orml-traits = { git = "https://github.com/open-web3-stack/open-runtime-module-li
 [dev-dependencies]
 mocktopus = "0.7.0"
 frame-benchmarking = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.8", default-features = false }
+currency = { path = "../currency", default-features = false, features = ["testing-utils"] }
 
 [features]
 default = ["std"]

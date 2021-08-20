@@ -35,7 +35,8 @@ use crate::types::{
 #[doc(inline)]
 pub use crate::types::{BtcPublicKey, CurrencySource, DefaultVault, SystemVault, Vault, VaultStatus, Wallet};
 use bitcoin::types::Value;
-use codec::{Decode, Encode, EncodeLike, FullCodec};
+use codec::FullCodec;
+pub use currency::Amount;
 use currency::ParachainCurrency;
 use frame_support::{
     dispatch::{DispatchError, DispatchResult},
@@ -56,7 +57,6 @@ use sp_runtime::{
     FixedPointNumber, FixedPointOperand,
 };
 use sp_std::{
-    collections::btree_map::BTreeMap,
     convert::{TryFrom, TryInto},
     fmt::Debug,
     vec::Vec,
@@ -81,15 +81,19 @@ pub mod pallet {
     pub trait Config:
         frame_system::Config
         + SendTransactionTypes<Call<Self>>
-        + exchange_rate_oracle::Config<Balance = BalanceOf<Self>>
+        + exchange_rate_oracle::Config
         + security::Config
         + staking::Config<
             SignedInner = SignedInner<Self>,
             SignedFixedPoint = SignedFixedPoint<Self>,
             CurrencyId = primitives::CurrencyId,
         > + reward::Config<SignedFixedPoint = SignedFixedPoint<Self>, CurrencyId = CurrencyId<Self>>
-        + orml_tokens::Config<Balance = BalanceOf<Self>, CurrencyId = CurrencyId<Self>>
-        + fee::Config<UnsignedInner = BalanceOf<Self>, UnsignedFixedPoint = UnsignedFixedPoint<Self>>
+        + fee::Config<UnsignedInner = BalanceOf<Self>>
+        + currency::Config<
+            Balance = BalanceOf<Self>,
+            CurrencyId = CurrencyId<Self>,
+            SignedInner = <Self as fee::Config>::SignedInner,
+        >
     {
         /// The vault module id, used for deriving its sovereign account ID.
         #[pallet::constant] // put the constant in metadata
@@ -102,9 +106,6 @@ pub mod pallet {
 
         /// The source of (pseudo) randomness. Set to collective flip
         type RandomnessSource: Randomness<H256, Self::BlockNumber>;
-
-        /// The `Inner` type of the `SignedFixedPoint`.
-        type SignedInner: Debug + TryFrom<BalanceOf<Self>> + TryInto<BalanceOf<Self>> + MaybeSerializeDeserialize;
 
         /// The primitive balance type.
         type Balance: AtLeast32BitUnsigned
@@ -119,29 +120,11 @@ pub mod pallet {
             + Default
             + Debug;
 
-        /// The type of signed fixed point to use for slashing calculations.
-        type SignedFixedPoint: FixedPointNumber<Inner = SignedInner<Self>>
-            + Encode
-            + EncodeLike
-            + Decode
-            + MaybeSerializeDeserialize;
-
-        /// The type of unsigned fixed point to use for the different thresholds.
-        type UnsignedFixedPoint: FixedPointNumber<Inner = BalanceOf<Self>>
-            + Encode
-            + EncodeLike
-            + Decode
-            + MaybeSerializeDeserialize;
-
         /// Weight information for the extrinsics in this module.
         type WeightInfo: WeightInfo;
 
         /// Wrapped currency, e.g. interBTC.
         type Wrapped: ParachainCurrency<Self::AccountId, Balance = BalanceOf<Self>>;
-
-        /// Rewards currency, e.g. INTERBTC.
-        #[pallet::constant]
-        type GetRewardsCurrencyId: Get<CurrencyId<Self>>;
 
         /// Currency used for griefing collateral, e.g. DOT.
         #[pallet::constant]
@@ -228,15 +211,17 @@ pub mod pallet {
 
             ext::security::ensure_parachain_status_not_shutdown::<T>()?;
 
-            Self::try_deposit_collateral(&sender, amount)?;
-
             let vault = Self::get_active_rich_vault_from_id(&sender)?;
+
+            let amount = Amount::new(amount, vault.data.currency_id);
+
+            Self::try_deposit_collateral(&sender, &amount)?;
 
             Self::deposit_event(Event::<T>::DepositCollateral(
                 vault.id(),
-                amount,
-                vault.get_collateral()?,
-                vault.get_free_collateral()?,
+                amount.amount(),
+                vault.get_collateral()?.amount(),
+                vault.get_free_collateral()?.amount(),
             ));
             Ok(().into())
         }
@@ -264,11 +249,16 @@ pub mod pallet {
             let sender = ensure_signed(origin)?;
             ext::security::ensure_parachain_status_not_shutdown::<T>()?;
 
-            Self::try_withdraw_collateral(&sender, amount)?;
-
             let vault = Self::get_rich_vault_from_id(&sender)?;
 
-            Self::deposit_event(Event::<T>::WithdrawCollateral(sender, amount, vault.get_collateral()?));
+            let amount = Amount::new(amount, vault.data.currency_id);
+            Self::try_withdraw_collateral(&sender, &amount)?;
+
+            Self::deposit_event(Event::<T>::WithdrawCollateral(
+                sender,
+                amount.amount(),
+                vault.get_collateral()?.amount(),
+            ));
             Ok(().into())
         }
 
@@ -565,8 +555,10 @@ impl<T: Config> Pallet<T> {
         public_key: BtcPublicKey,
         currency_id: CurrencyId<T>,
     ) -> DispatchResult {
+        let amount = Amount::new(collateral, currency_id);
+
         ensure!(
-            collateral >= Self::get_minimum_collateral_vault(currency_id),
+            amount.ge(&Self::get_minimum_collateral_vault(currency_id))?,
             Error::<T>::InsufficientVaultCollateralAmount
         );
         ensure!(!Self::vault_exists(vault_id), Error::<T>::VaultAlreadyRegistered);
@@ -574,7 +566,7 @@ impl<T: Config> Pallet<T> {
         let vault = Vault::new(vault_id.clone(), public_key, currency_id);
         Self::insert_vault(vault_id, vault);
 
-        Self::try_deposit_collateral(vault_id, collateral)?;
+        Self::try_deposit_collateral(vault_id, &amount)?;
 
         Self::deposit_event(Event::<T>::RegisterVault(vault_id.clone(), collateral));
 
@@ -585,17 +577,16 @@ impl<T: Config> Pallet<T> {
         Vaults::<T>::get(vault_id).ok_or(Error::<T>::VaultNotFound.into())
     }
 
-    pub fn get_backing_collateral(vault_id: &T::AccountId) -> Result<Collateral<T>, DispatchError> {
-        Ok(
-            ext::staking::total_current_stake::<T>(T::GetRewardsCurrencyId::get(), vault_id)?
-                .try_into()
-                .map_err(|_| Error::<T>::TryIntoIntError)?,
-        )
+    pub fn get_backing_collateral(vault_id: &T::AccountId) -> Result<Amount<T>, DispatchError> {
+        let stake = ext::staking::total_current_stake::<T>(T::GetWrappedCurrencyId::get(), vault_id)?
+            .try_into()
+            .map_err(|_| Error::<T>::TryIntoIntError)?;
+        Ok(Amount::new(stake, Self::get_collateral_currency(vault_id)?))
     }
 
-    pub fn get_liquidated_collateral(vault_id: &T::AccountId) -> Result<Collateral<T>, DispatchError> {
+    pub fn get_liquidated_collateral(vault_id: &T::AccountId) -> Result<Amount<T>, DispatchError> {
         let vault = Self::get_vault_from_id(vault_id)?;
-        Ok(vault.liquidated_collateral)
+        Ok(Amount::new(vault.liquidated_collateral, vault.currency_id))
     }
 
     /// Like get_vault_from_id, but additionally checks that the vault is active
@@ -617,16 +608,16 @@ impl<T: Config> Pallet<T> {
     /// # Arguments
     /// * `vault_id` - the id of the vault
     /// * `amount` - the amount of collateral
-    pub fn try_deposit_collateral(vault_id: &T::AccountId, amount: Collateral<T>) -> DispatchResult {
+    pub fn try_deposit_collateral(vault_id: &T::AccountId, amount: &Amount<T>) -> DispatchResult {
         // ensure the vault is active
-        let vault = Self::get_active_rich_vault_from_id(vault_id)?;
+        let _vault = Self::get_active_rich_vault_from_id(vault_id)?;
 
         // will fail if free_balance is insufficient
-        ext::currency::lock::<T>(vault.data.currency_id, vault_id, amount)?;
+        amount.lock(vault_id)?;
         Self::increase_total_backing_collateral(amount)?;
 
         // Deposit `amount` of stake in the pool
-        ext::staking::deposit_stake::<T>(T::GetRewardsCurrencyId::get(), vault_id, vault_id, amount)?;
+        ext::staking::deposit_stake::<T>(T::GetWrappedCurrencyId::get(), vault_id, vault_id, amount)?;
 
         Ok(())
     }
@@ -636,15 +627,15 @@ impl<T: Config> Pallet<T> {
     /// # Arguments
     /// * `vault_id` - the id of the vault
     /// * `amount` - the amount of collateral
-    pub fn force_withdraw_collateral(vault_id: &T::AccountId, amount: Collateral<T>) -> DispatchResult {
-        let currency_id = Self::get_collateral_currency(vault_id)?;
+    pub fn force_withdraw_collateral(vault_id: &T::AccountId, amount: &Amount<T>) -> DispatchResult {
+        let _currency_id = Self::get_collateral_currency(vault_id)?;
 
         // will fail if reserved_balance is insufficient
-        ext::currency::unlock::<T>(currency_id, vault_id, amount)?;
+        amount.unlock(vault_id)?;
         Self::decrease_total_backing_collateral(amount)?;
 
         // Withdraw `amount` of stake from the pool
-        ext::staking::withdraw_stake::<T>(T::GetRewardsCurrencyId::get(), vault_id, vault_id, amount)?;
+        ext::staking::withdraw_stake::<T>(T::GetWrappedCurrencyId::get(), vault_id, vault_id, amount)?;
 
         Ok(())
     }
@@ -655,7 +646,7 @@ impl<T: Config> Pallet<T> {
     /// # Arguments
     /// * `vault_id` - the id of the vault
     /// * `amount` - the amount of collateral
-    pub fn try_withdraw_collateral(vault_id: &T::AccountId, amount: Collateral<T>) -> DispatchResult {
+    pub fn try_withdraw_collateral(vault_id: &T::AccountId, amount: &Amount<T>) -> DispatchResult {
         ensure!(
             Self::is_allowed_to_withdraw_collateral(vault_id, amount)?,
             Error::<T>::InsufficientCollateral
@@ -669,84 +660,67 @@ impl<T: Config> Pallet<T> {
 
     pub fn is_max_nomination_ratio_preserved(
         vault_id: &T::AccountId,
-        amount: Collateral<T>,
+        amount: &Amount<T>,
     ) -> Result<bool, DispatchError> {
         let vault_collateral = Self::compute_collateral(vault_id)?;
         let backing_collateral = Self::get_backing_collateral(vault_id)?;
-        let current_nomination = backing_collateral
-            .checked_sub(&vault_collateral)
-            .ok_or(Error::<T>::ArithmeticUnderflow)?;
-        let new_vault_collateral = vault_collateral
-            .checked_sub(&amount)
-            .ok_or(Error::<T>::ArithmeticUnderflow)?;
-        let currency_id = Self::get_collateral_currency(&vault_id)?;
-        let max_nomination_after_withdrawal = Self::get_max_nominatable_collateral(currency_id, new_vault_collateral)?;
-        Ok(current_nomination <= max_nomination_after_withdrawal)
+        let current_nomination = backing_collateral.checked_sub(&vault_collateral)?;
+        let new_vault_collateral = vault_collateral.checked_sub(&amount)?;
+        let _currency_id = Self::get_collateral_currency(&vault_id)?;
+        let max_nomination_after_withdrawal = Self::get_max_nominatable_collateral(&new_vault_collateral)?;
+        Ok(current_nomination.le(&max_nomination_after_withdrawal)?)
     }
 
     /// Checks if the vault would be above the secure threshold after withdrawing collateral
     pub fn is_allowed_to_withdraw_collateral(
         vault_id: &T::AccountId,
-        amount: Collateral<T>,
+        amount: &Amount<T>,
     ) -> Result<bool, DispatchError> {
-        let vault = Self::get_vault_from_id(vault_id)?;
+        let vault = Self::get_rich_vault_from_id(vault_id)?;
 
         let new_collateral = match Self::get_backing_collateral(vault_id)?.checked_sub(&amount) {
-            Some(x) => x,
-            None => return Ok(false),
+            Ok(x) => x,
+            Err(x) if x == currency::Error::<T>::ArithmeticUnderflow.into() => return Ok(false),
+            Err(x) => return Err(x),
         };
 
-        let tokens = vault
-            .issued_tokens
-            .checked_add(&vault.to_be_issued_tokens)
-            .ok_or(Error::<T>::ArithmeticOverflow)?;
-
         let is_below_threshold =
-            Pallet::<T>::is_collateral_below_secure_threshold(new_collateral, tokens, vault.currency_id)?;
+            Pallet::<T>::is_collateral_below_secure_threshold(&new_collateral, &vault.backed_tokens()?)?;
         Ok(!is_below_threshold)
     }
 
     pub fn transfer_funds_saturated(
-        currency_id: CurrencyId<T>,
         from: CurrencySource<T>,
         to: CurrencySource<T>,
-        amount: Collateral<T>,
-    ) -> Result<Collateral<T>, DispatchError> {
-        let available_amount = from.current_balance(currency_id)?;
-        let amount = if available_amount < amount {
+        amount: &Amount<T>,
+    ) -> Result<Amount<T>, DispatchError> {
+        let available_amount = from.current_balance(amount.currency())?;
+        let amount = if available_amount.lt(&amount)? {
             available_amount
         } else {
-            amount
+            amount.clone()
         };
-        Self::transfer_funds(currency_id, from, to, amount)?;
+        Self::transfer_funds(from, to, &amount)?;
         Ok(amount)
     }
 
-    fn slash_backing_collateral(vault_id: &T::AccountId, amount: Collateral<T>) -> DispatchResult {
-        let vault = Self::get_vault_from_id(vault_id)?;
-        let currency_id = vault.currency_id;
-
-        ext::currency::unlock::<T>(currency_id, vault_id, amount)?;
-        ext::staking::slash_stake::<T>(T::GetRewardsCurrencyId::get(), vault_id, amount)?;
+    fn slash_backing_collateral(vault_id: &T::AccountId, amount: &Amount<T>) -> DispatchResult {
+        amount.unlock(vault_id)?;
+        ext::staking::slash_stake::<T>(T::GetWrappedCurrencyId::get(), vault_id, amount)?;
         Ok(())
     }
 
-    pub fn transfer_funds(
-        currency_id: CurrencyId<T>,
-        from: CurrencySource<T>,
-        to: CurrencySource<T>,
-        amount: Collateral<T>,
-    ) -> DispatchResult {
+    pub fn transfer_funds(from: CurrencySource<T>, to: CurrencySource<T>, amount: &Amount<T>) -> DispatchResult {
         match from {
             CurrencySource::Collateral(ref account) => {
                 ensure!(
-                    Self::get_collateral_currency(account)? == currency_id,
+                    Self::get_collateral_currency(account)? == amount.currency(),
                     Error::<T>::InvalidCurrency
                 );
                 Self::slash_backing_collateral(account, amount)?;
             }
             CurrencySource::Griefing(_) | CurrencySource::ReservedBalance(_) | CurrencySource::LiquidationVault => {
-                ext::currency::unlock::<T>(currency_id, &from.account_id(), amount)?;
+                amount.unlock(&from.account_id())?;
             }
             CurrencySource::FreeBalance(_) => {
                 // do nothing
@@ -754,20 +728,20 @@ impl<T: Config> Pallet<T> {
         };
 
         // move from sender's free balance to receiver's free balance
-        ext::currency::transfer::<T>(currency_id, &from.account_id(), &to.account_id(), amount)?;
+        amount.transfer(&from.account_id(), &to.account_id())?;
 
         // move receiver funds from free balance to specified currency source
         match to {
             CurrencySource::Collateral(ref account) => {
                 // todo: do we need to do this for griefing as well?
                 ensure!(
-                    Self::get_collateral_currency(account)? == currency_id,
+                    Self::get_collateral_currency(account)? == amount.currency(),
                     Error::<T>::InvalidCurrency
                 );
                 Self::try_deposit_collateral(account, amount)?;
             }
             CurrencySource::Griefing(_) | CurrencySource::ReservedBalance(_) | CurrencySource::LiquidationVault => {
-                ext::currency::lock::<T>(currency_id, &to.account_id(), amount)?;
+                amount.lock(&to.account_id())?;
             }
             CurrencySource::FreeBalance(_) => {
                 // do nothing
@@ -788,14 +762,14 @@ impl<T: Config> Pallet<T> {
     /// # Arguments
     /// * `vault_id` - the id of the vault from which to increase to-be-issued tokens
     /// * `tokens` - the amount of tokens to be reserved
-    pub fn try_increase_to_be_issued_tokens(vault_id: &T::AccountId, tokens: Wrapped<T>) -> Result<(), DispatchError> {
+    pub fn try_increase_to_be_issued_tokens(vault_id: &T::AccountId, tokens: &Amount<T>) -> Result<(), DispatchError> {
         let mut vault = Self::get_active_rich_vault_from_id(&vault_id)?;
 
         let issuable_tokens = vault.issuable_tokens()?;
-        ensure!(issuable_tokens >= tokens, Error::<T>::ExceedingVaultLimit);
+        ensure!(issuable_tokens.ge(&tokens)?, Error::<T>::ExceedingVaultLimit);
         vault.increase_to_be_issued(tokens)?;
 
-        Self::deposit_event(Event::<T>::IncreaseToBeIssuedTokens(vault.id(), tokens));
+        Self::deposit_event(Event::<T>::IncreaseToBeIssuedTokens(vault.id(), tokens.amount()));
         Ok(())
     }
 
@@ -812,81 +786,63 @@ impl<T: Config> Pallet<T> {
 
     /// returns the amount of tokens that a vault can request to be replaced on top of the
     /// current to-be-replaced tokens
-    pub fn requestable_to_be_replaced_tokens(vault_id: &T::AccountId) -> Result<Wrapped<T>, DispatchError> {
-        let vault = Self::get_active_vault_from_id(&vault_id)?;
+    pub fn requestable_to_be_replaced_tokens(vault_id: &T::AccountId) -> Result<Amount<T>, DispatchError> {
+        let vault = Self::get_active_rich_vault_from_id(&vault_id)?;
 
-        let requestable_increase = vault
-            .issued_tokens
-            .checked_sub(&vault.to_be_replaced_tokens)
-            .ok_or(Error::<T>::ArithmeticUnderflow)?
-            .checked_sub(&vault.to_be_redeemed_tokens)
-            .ok_or(Error::<T>::ArithmeticUnderflow)?;
-
-        Ok(requestable_increase)
+        vault
+            .issued_tokens()
+            .checked_sub(&vault.to_be_replaced_tokens())?
+            .checked_sub(&vault.to_be_redeemed_tokens())
     }
 
     /// returns the new total to-be-replaced and replace-collateral
     pub fn try_increase_to_be_replaced_tokens(
         vault_id: &T::AccountId,
-        tokens: Wrapped<T>,
-        griefing_collateral: Collateral<T>,
-    ) -> Result<(Wrapped<T>, Collateral<T>), DispatchError> {
+        tokens: &Amount<T>,
+        griefing_collateral: &Amount<T>,
+    ) -> Result<(Amount<T>, Amount<T>), DispatchError> {
         let mut vault = Self::get_active_rich_vault_from_id(&vault_id)?;
 
-        let new_to_be_replaced = vault
-            .data
-            .to_be_replaced_tokens
-            .checked_add(&tokens)
-            .ok_or(Error::<T>::ArithmeticOverflow)?;
-        let new_collateral = vault
-            .data
-            .replace_collateral
-            .checked_add(&griefing_collateral)
-            .ok_or(Error::<T>::ArithmeticOverflow)?;
-
-        let total_decreasing_tokens = new_to_be_replaced
-            .checked_add(&vault.data.to_be_redeemed_tokens)
-            .ok_or(Error::<T>::ArithmeticOverflow)?;
+        let new_to_be_replaced = vault.to_be_replaced_tokens().checked_add(&tokens)?;
+        let new_collateral = vault.replace_collateral().checked_add(&griefing_collateral)?;
+        let total_decreasing_tokens = new_to_be_replaced.checked_add(&vault.to_be_redeemed_tokens())?;
 
         ensure!(
-            total_decreasing_tokens <= vault.data.issued_tokens,
+            total_decreasing_tokens.le(&vault.issued_tokens())?,
             Error::<T>::InsufficientTokensCommitted
         );
 
-        vault.set_to_be_replaced_amount(new_to_be_replaced, new_collateral)?;
+        vault.set_to_be_replaced_amount(&new_to_be_replaced, &new_collateral)?;
 
-        Self::deposit_event(Event::<T>::IncreaseToBeReplacedTokens(vault.id(), tokens));
+        Self::deposit_event(Event::<T>::IncreaseToBeReplacedTokens(vault.id(), tokens.amount()));
 
         Ok((new_to_be_replaced, new_collateral))
     }
 
     pub fn decrease_to_be_replaced_tokens(
         vault_id: &T::AccountId,
-        tokens: Wrapped<T>,
-    ) -> Result<(Wrapped<T>, Collateral<T>), DispatchError> {
+        tokens: &Amount<T>,
+    ) -> Result<(Amount<T>, Amount<T>), DispatchError> {
         let mut vault = Self::get_rich_vault_from_id(&vault_id)?;
 
-        let initial_to_be_replaced = vault.data.to_be_replaced_tokens;
-        let initial_griefing_collateral = vault.data.replace_collateral;
+        let initial_to_be_replaced = Amount::new(vault.data.to_be_replaced_tokens, T::GetWrappedCurrencyId::get());
+        let initial_griefing_collateral =
+            Amount::new(vault.data.replace_collateral, T::GetGriefingCollateralCurrencyId::get());
 
-        let used_tokens = tokens.min(vault.data.to_be_replaced_tokens);
+        let used_tokens = tokens.min(&initial_to_be_replaced)?;
 
         let used_collateral =
-            Self::calculate_collateral(initial_griefing_collateral, used_tokens, initial_to_be_replaced)?;
+            Self::calculate_collateral(&initial_griefing_collateral, &used_tokens, &initial_to_be_replaced)?;
 
         // make sure we don't use too much if a rounding error occurs
-        let used_collateral = used_collateral.min(initial_griefing_collateral);
+        let used_collateral = used_collateral.min(&initial_griefing_collateral)?;
 
-        let new_to_be_replaced = initial_to_be_replaced
-            .checked_sub(&used_tokens)
-            .ok_or(Error::<T>::ArithmeticUnderflow)?;
-        let new_collateral = initial_griefing_collateral
-            .checked_sub(&used_collateral)
-            .ok_or(Error::<T>::ArithmeticUnderflow)?;
+        let new_to_be_replaced = initial_to_be_replaced.checked_sub(&used_tokens)?;
+        let new_collateral = initial_griefing_collateral.checked_sub(&used_collateral)?;
 
-        vault.set_to_be_replaced_amount(new_to_be_replaced, new_collateral)?;
+        vault.set_to_be_replaced_amount(&new_to_be_replaced, &new_collateral)?;
 
-        Self::deposit_event(Event::<T>::DecreaseToBeReplacedTokens(vault.id(), tokens));
+        Self::deposit_event(Event::<T>::DecreaseToBeReplacedTokens(vault.id(), tokens.amount()));
 
         Ok((used_tokens, used_collateral))
     }
@@ -897,11 +853,11 @@ impl<T: Config> Pallet<T> {
     /// # Arguments
     /// * `vault_id` - the id of the vault from which to decrease to-be-issued tokens
     /// * `tokens` - the amount of tokens to be unreserved
-    pub fn decrease_to_be_issued_tokens(vault_id: &T::AccountId, tokens: Wrapped<T>) -> DispatchResult {
+    pub fn decrease_to_be_issued_tokens(vault_id: &T::AccountId, tokens: &Amount<T>) -> DispatchResult {
         let mut vault = Self::get_rich_vault_from_id(vault_id)?;
         vault.decrease_to_be_issued(tokens)?;
 
-        Self::deposit_event(Event::<T>::DecreaseToBeIssuedTokens(vault_id.clone(), tokens));
+        Self::deposit_event(Event::<T>::DecreaseToBeIssuedTokens(vault_id.clone(), tokens.amount()));
         Ok(())
     }
 
@@ -916,10 +872,10 @@ impl<T: Config> Pallet<T> {
     /// # Errors
     /// * `VaultNotFound` - if no vault exists for the given `vault_id`
     /// * `InsufficientTokensCommitted` - if the amount of tokens reserved is too low
-    pub fn issue_tokens(vault_id: &T::AccountId, tokens: Wrapped<T>) -> DispatchResult {
+    pub fn issue_tokens(vault_id: &T::AccountId, tokens: &Amount<T>) -> DispatchResult {
         let mut vault = Self::get_rich_vault_from_id(&vault_id)?;
         vault.issue_tokens(tokens)?;
-        Self::deposit_event(Event::<T>::IssueTokens(vault.id(), tokens));
+        Self::deposit_event(Event::<T>::IssueTokens(vault.id(), tokens.amount()));
         Ok(())
     }
 
@@ -937,18 +893,14 @@ impl<T: Config> Pallet<T> {
     /// # Errors
     /// * `VaultNotFound` - if no vault exists for the given `vault_id`
     /// * `InsufficientTokensCommitted` - if the amount of redeemable tokens is too low
-    pub fn try_increase_to_be_redeemed_tokens(vault_id: &T::AccountId, tokens: Wrapped<T>) -> DispatchResult {
+    pub fn try_increase_to_be_redeemed_tokens(vault_id: &T::AccountId, tokens: &Amount<T>) -> DispatchResult {
         let mut vault = Self::get_active_rich_vault_from_id(&vault_id)?;
-        let redeemable = vault
-            .data
-            .issued_tokens
-            .checked_sub(&vault.data.to_be_redeemed_tokens)
-            .ok_or(Error::<T>::ArithmeticUnderflow)?;
-        ensure!(redeemable >= tokens, Error::<T>::InsufficientTokensCommitted);
+        let redeemable = vault.issued_tokens().checked_sub(&vault.to_be_redeemed_tokens())?;
+        ensure!(redeemable.ge(&tokens)?, Error::<T>::InsufficientTokensCommitted);
 
         vault.increase_to_be_redeemed(tokens)?;
 
-        Self::deposit_event(Event::<T>::IncreaseToBeRedeemedTokens(vault.id(), tokens));
+        Self::deposit_event(Event::<T>::IncreaseToBeRedeemedTokens(vault.id(), tokens.amount()));
         Ok(())
     }
 
@@ -961,11 +913,11 @@ impl<T: Config> Pallet<T> {
     /// # Errors
     /// * `VaultNotFound` - if no vault exists for the given `vault_id`
     /// * `InsufficientTokensCommitted` - if the amount of to-be-redeemed tokens is too low
-    pub fn decrease_to_be_redeemed_tokens(vault_id: &T::AccountId, tokens: Wrapped<T>) -> DispatchResult {
+    pub fn decrease_to_be_redeemed_tokens(vault_id: &T::AccountId, tokens: &Amount<T>) -> DispatchResult {
         let mut vault = Self::get_rich_vault_from_id(&vault_id)?;
         vault.decrease_to_be_redeemed(tokens)?;
 
-        Self::deposit_event(Event::<T>::DecreaseToBeRedeemedTokens(vault.id(), tokens));
+        Self::deposit_event(Event::<T>::DecreaseToBeRedeemedTokens(vault.id(), tokens.amount()));
         Ok(())
     }
 
@@ -978,12 +930,12 @@ impl<T: Config> Pallet<T> {
     /// * `vault_id` - the id of the vault from which to decrease tokens
     /// * `tokens` - the amount of tokens to be decreased
     /// * `user_id` - the id of the user making the redeem request
-    pub fn decrease_tokens(vault_id: &T::AccountId, user_id: &T::AccountId, tokens: Wrapped<T>) -> DispatchResult {
+    pub fn decrease_tokens(vault_id: &T::AccountId, user_id: &T::AccountId, tokens: &Amount<T>) -> DispatchResult {
         // decrease to-be-redeemed and issued
         let mut vault = Self::get_rich_vault_from_id(&vault_id)?;
         vault.decrease_tokens(tokens)?;
 
-        Self::deposit_event(Event::<T>::DecreaseTokens(vault.id(), user_id.clone(), tokens));
+        Self::deposit_event(Event::<T>::DecreaseTokens(vault.id(), user_id.clone(), tokens.amount()));
         Ok(())
     }
 
@@ -992,7 +944,7 @@ impl<T: Config> Pallet<T> {
     /// # Arguments
     /// * `vault_id` - the id of the vault
     /// * `amount` - the amount of collateral to decrement
-    pub fn decrease_liquidated_collateral(vault_id: &T::AccountId, amount: Collateral<T>) -> DispatchResult {
+    pub fn decrease_liquidated_collateral(vault_id: &T::AccountId, amount: &Amount<T>) -> DispatchResult {
         let mut vault = Self::get_rich_vault_from_id(vault_id)?;
         vault.decrease_liquidated_collateral(amount)?;
         Ok(())
@@ -1007,24 +959,23 @@ impl<T: Config> Pallet<T> {
     /// * `redeemer_id` - the id of the redeemer
     pub fn redeem_tokens(
         vault_id: &T::AccountId,
-        tokens: Wrapped<T>,
-        premium: Collateral<T>,
+        tokens: &Amount<T>,
+        premium: &Amount<T>,
         redeemer_id: &T::AccountId,
     ) -> DispatchResult {
         let mut vault = Self::get_rich_vault_from_id(&vault_id)?;
 
         // need to read before we decrease it
-        let to_be_redeemed_tokens = vault.data.to_be_redeemed_tokens;
+        let to_be_redeemed_tokens = vault.to_be_redeemed_tokens();
 
         vault.decrease_to_be_redeemed(tokens)?;
         vault.decrease_issued(tokens)?;
 
         if !vault.data.is_liquidated() {
             if premium.is_zero() {
-                Self::deposit_event(Event::<T>::RedeemTokens(vault.id(), tokens));
+                Self::deposit_event(Event::<T>::RedeemTokens(vault.id(), tokens.amount()));
             } else {
                 Self::transfer_funds(
-                    vault.data.currency_id,
                     CurrencySource::Collateral(vault_id.clone()),
                     CurrencySource::FreeBalance(redeemer_id.clone()),
                     premium,
@@ -1032,8 +983,8 @@ impl<T: Config> Pallet<T> {
 
                 Self::deposit_event(Event::<T>::RedeemTokensPremium(
                     vault_id.clone(),
-                    tokens,
-                    premium,
+                    tokens.amount(),
+                    premium.amount(),
                     redeemer_id.clone(),
                 ));
             }
@@ -1041,16 +992,16 @@ impl<T: Config> Pallet<T> {
             // NOTE: previously we calculated the amount to release based on the Vault's `backing_collateral`
             // but this may now be wrong in the pull-based approach if the Vault is left with excess collateral
             let to_be_released =
-                Self::calculate_collateral(vault.data.liquidated_collateral, tokens, to_be_redeemed_tokens)?;
-            vault.decrease_liquidated_collateral(to_be_released)?;
+                Self::calculate_collateral(&vault.liquidated_collateral(), tokens, &to_be_redeemed_tokens)?;
+            vault.decrease_liquidated_collateral(&to_be_released)?;
 
             // deposit vault's collateral (this was withdrawn on liquidation)
-            ext::staking::deposit_stake::<T>(T::GetRewardsCurrencyId::get(), vault_id, vault_id, to_be_released)?;
+            ext::staking::deposit_stake::<T>(T::GetWrappedCurrencyId::get(), vault_id, vault_id, &to_be_released)?;
 
             Self::deposit_event(Event::<T>::RedeemTokensLiquidatedVault(
                 vault_id.clone(),
-                tokens,
-                to_be_released,
+                tokens.amount(),
+                to_be_released.amount(),
             ));
         }
 
@@ -1072,35 +1023,34 @@ impl<T: Config> Pallet<T> {
     pub fn redeem_tokens_liquidation(
         currency_id: CurrencyId<T>,
         redeemer_id: &T::AccountId,
-        amount_btc: Wrapped<T>,
+        amount_btc: &Amount<T>, // todo: maybe change interface
     ) -> DispatchResult {
         let mut liquidation_vault = Self::get_rich_liquidation_vault();
 
         ensure!(
-            liquidation_vault.redeemable_tokens()? >= amount_btc,
+            liquidation_vault.redeemable_tokens()?.ge(&amount_btc)?,
             Error::<T>::InsufficientTokensCommitted
         );
 
         // transfer liquidated collateral to redeemer
         let to_transfer = Self::calculate_collateral(
-            CurrencySource::<T>::LiquidationVault.current_balance(currency_id)?,
+            &CurrencySource::<T>::LiquidationVault.current_balance(currency_id)?,
             amount_btc,
-            liquidation_vault.backed_tokens()?,
+            &liquidation_vault.backed_tokens()?,
         )?;
 
         Self::transfer_funds(
-            currency_id,
             CurrencySource::LiquidationVault,
             CurrencySource::FreeBalance(redeemer_id.clone()),
-            to_transfer,
+            &to_transfer,
         )?;
 
         liquidation_vault.decrease_issued(amount_btc)?;
 
         Self::deposit_event(Event::<T>::RedeemTokensLiquidation(
             redeemer_id.clone(),
-            amount_btc,
-            to_transfer,
+            amount_btc.amount(),
+            to_transfer.amount(),
         ));
 
         Ok(())
@@ -1122,26 +1072,26 @@ impl<T: Config> Pallet<T> {
     pub fn replace_tokens(
         old_vault_id: &T::AccountId,
         new_vault_id: &T::AccountId,
-        tokens: Wrapped<T>,
-        collateral: Collateral<T>,
+        tokens: &Amount<T>,
+        collateral: &Amount<T>,
     ) -> DispatchResult {
         let mut old_vault = Self::get_rich_vault_from_id(&old_vault_id)?;
         let mut new_vault = Self::get_rich_vault_from_id(&new_vault_id)?;
 
         if old_vault.data.is_liquidated() {
             let to_be_released = Self::calculate_collateral(
-                old_vault.data.liquidated_collateral,
+                &old_vault.liquidated_collateral(),
                 tokens,
-                old_vault.data.to_be_redeemed_tokens,
+                &old_vault.to_be_redeemed_tokens(),
             )?;
-            old_vault.decrease_liquidated_collateral(to_be_released)?;
+            old_vault.decrease_liquidated_collateral(&to_be_released)?;
 
             // deposit old-vault's collateral (this was withdrawn on liquidation)
             ext::staking::deposit_stake::<T>(
-                T::GetRewardsCurrencyId::get(),
+                T::GetWrappedCurrencyId::get(),
                 old_vault_id,
                 old_vault_id,
-                to_be_released,
+                &to_be_released,
             )?;
         }
 
@@ -1151,8 +1101,8 @@ impl<T: Config> Pallet<T> {
         Self::deposit_event(Event::<T>::ReplaceTokens(
             old_vault_id.clone(),
             new_vault_id.clone(),
-            tokens,
-            collateral,
+            tokens.amount(),
+            collateral.amount(),
         ));
         Ok(())
     }
@@ -1169,25 +1119,24 @@ impl<T: Config> Pallet<T> {
     pub fn cancel_replace_tokens(
         old_vault_id: &T::AccountId,
         new_vault_id: &T::AccountId,
-        tokens: Wrapped<T>,
+        tokens: &Amount<T>,
     ) -> DispatchResult {
         let mut old_vault = Self::get_rich_vault_from_id(&old_vault_id)?;
         let mut new_vault = Self::get_rich_vault_from_id(&new_vault_id)?;
 
         if old_vault.data.is_liquidated() {
             let to_be_transferred = Self::calculate_collateral(
-                old_vault.data.liquidated_collateral,
+                &old_vault.liquidated_collateral(),
                 tokens,
-                old_vault.data.to_be_redeemed_tokens,
+                &old_vault.to_be_redeemed_tokens(),
             )?;
-            old_vault.decrease_liquidated_collateral(to_be_transferred)?;
+            old_vault.decrease_liquidated_collateral(&to_be_transferred)?;
 
             // transfer old-vault's collateral to liquidation_vault
             Self::transfer_funds(
-                old_vault.data.currency_id,
                 CurrencySource::ReservedBalance(old_vault_id.clone()),
                 CurrencySource::LiquidationVault,
-                to_be_transferred,
+                &to_be_transferred,
             )?;
         }
 
@@ -1198,13 +1147,9 @@ impl<T: Config> Pallet<T> {
     }
 
     fn undercollateralized_vaults() -> impl Iterator<Item = T::AccountId> {
-        // Cache the thresholds. Since we don't have a hashmap available in the no-std environment,
-        // use a binary tree map
-        let liquidation_thresholds: BTreeMap<_, _> = LiquidationCollateralThreshold::<T>::iter().collect();
-
-        <Vaults<T>>::iter().filter_map(move |(vault_id, vault)| {
-            if let Some(liquidation_threshold) = liquidation_thresholds.get(&vault.currency_id) {
-                if Self::is_vault_below_liquidation_threshold(&vault, *liquidation_threshold).unwrap_or(false) {
+        <Vaults<T>>::iter().filter_map(|(vault_id, vault)| {
+            if let Some(liquidation_threshold) = Self::liquidation_collateral_threshold(vault.currency_id) {
+                if Self::is_vault_below_liquidation_threshold(&vault, liquidation_threshold).unwrap_or(false) {
                     return Some(vault_id);
                 }
             }
@@ -1214,7 +1159,7 @@ impl<T: Config> Pallet<T> {
 
     /// Liquidates a vault, transferring all of its token balances to the `LiquidationVault`.
     /// Delegates to `liquidate_vault_with_status`, using `Liquidated` status
-    pub fn liquidate_vault(vault_id: &T::AccountId) -> Result<Collateral<T>, DispatchError> {
+    pub fn liquidate_vault(vault_id: &T::AccountId) -> Result<Amount<T>, DispatchError> {
         Self::liquidate_vault_with_status(vault_id, VaultStatus::Liquidated, None)
     }
 
@@ -1228,7 +1173,7 @@ impl<T: Config> Pallet<T> {
         vault_id: &T::AccountId,
         status: VaultStatus,
         reporter: Option<T::AccountId>,
-    ) -> Result<Collateral<T>, DispatchError> {
+    ) -> Result<Amount<T>, DispatchError> {
         let mut vault = Self::get_active_rich_vault_from_id(&vault_id)?;
         let backing_collateral = vault.get_collateral()?;
         let vault_orig = vault.data.clone();
@@ -1241,16 +1186,16 @@ impl<T: Config> Pallet<T> {
             vault_orig.to_be_issued_tokens,
             vault_orig.to_be_redeemed_tokens,
             vault_orig.to_be_replaced_tokens,
-            backing_collateral,
+            backing_collateral.amount(),
             status,
             vault_orig.replace_collateral,
         ));
         Ok(to_slash)
     }
 
-    pub(crate) fn increase_total_backing_collateral(amount: Collateral<T>) -> DispatchResult {
+    pub(crate) fn increase_total_backing_collateral(amount: &Amount<T>) -> DispatchResult {
         let new = TotalUserVaultCollateral::<T>::get()
-            .checked_add(&amount)
+            .checked_add(&amount.amount())
             .ok_or(Error::<T>::ArithmeticOverflow)?;
 
         TotalUserVaultCollateral::<T>::set(new);
@@ -1258,9 +1203,9 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
-    pub(crate) fn decrease_total_backing_collateral(amount: Collateral<T>) -> DispatchResult {
+    pub(crate) fn decrease_total_backing_collateral(amount: &Amount<T>) -> DispatchResult {
         let new = TotalUserVaultCollateral::<T>::get()
-            .checked_sub(&amount)
+            .checked_sub(&amount.amount())
             .ok_or(Error::<T>::ArithmeticUnderflow)?;
 
         TotalUserVaultCollateral::<T>::set(new);
@@ -1269,13 +1214,11 @@ impl<T: Config> Pallet<T> {
     }
 
     /// returns the total number of issued tokens
-    pub fn get_total_issued_tokens(include_liquidation_vault: bool) -> Result<Wrapped<T>, DispatchError> {
+    pub fn get_total_issued_tokens(include_liquidation_vault: bool) -> Result<Amount<T>, DispatchError> {
         if include_liquidation_vault {
             Ok(ext::treasury::total_issued::<T>())
         } else {
-            ext::treasury::total_issued::<T>()
-                .checked_sub(&Self::get_liquidation_vault().issued_tokens)
-                .ok_or(Error::<T>::ArithmeticUnderflow.into())
+            ext::treasury::total_issued::<T>().checked_sub(&Self::get_rich_liquidation_vault().issued_tokens())
         }
     }
 
@@ -1287,7 +1230,7 @@ impl<T: Config> Pallet<T> {
         let liquidated_collateral = CurrencySource::<T>::LiquidationVault.current_balance(currency_id)?;
         let total = if include_liquidation_vault {
             TotalUserVaultCollateral::<T>::get()
-                .checked_add(&liquidated_collateral)
+                .checked_add(&liquidated_collateral.amount())
                 .ok_or(Error::<T>::ArithmeticOverflow)?
         } else {
             TotalUserVaultCollateral::<T>::get()
@@ -1337,20 +1280,18 @@ impl<T: Config> Pallet<T> {
         liquidation_threshold: UnsignedFixedPoint<T>,
     ) -> Result<bool, DispatchError> {
         Self::is_collateral_below_threshold(
-            Self::get_backing_collateral(&vault.id)?,
-            vault.issued_tokens,
+            &Self::get_backing_collateral(&vault.id)?,
+            &Amount::new(vault.issued_tokens, T::GetWrappedCurrencyId::get()),
             liquidation_threshold,
-            vault.currency_id,
         )
     }
 
     pub fn is_collateral_below_secure_threshold(
-        collateral: Collateral<T>,
-        btc_amount: Wrapped<T>,
-        currency_id: CurrencyId<T>,
+        collateral: &Amount<T>,
+        btc_amount: &Amount<T>,
     ) -> Result<bool, DispatchError> {
-        let threshold = Self::secure_collateral_threshold(currency_id).ok_or(Error::<T>::ThresholdNotSet)?;
-        Self::is_collateral_below_threshold(collateral, btc_amount, threshold, currency_id)
+        let threshold = Self::secure_collateral_threshold(collateral.currency()).ok_or(Error::<T>::ThresholdNotSet)?;
+        Self::is_collateral_below_threshold(collateral, btc_amount, threshold)
     }
 
     pub fn set_secure_collateral_threshold(currency_id: CurrencyId<T>, threshold: UnsignedFixedPoint<T>) {
@@ -1367,31 +1308,35 @@ impl<T: Config> Pallet<T> {
 
     /// return (collateral * Numerator) / denominator, used when dealing with liquidated vaults
     pub fn calculate_collateral(
-        collateral: Collateral<T>,
-        numerator: Wrapped<T>,
-        denominator: Wrapped<T>,
-    ) -> Result<Collateral<T>, DispatchError> {
+        collateral: &Amount<T>,
+        numerator: &Amount<T>,
+        denominator: &Amount<T>,
+    ) -> Result<Amount<T>, DispatchError> {
         if numerator.is_zero() && denominator.is_zero() {
-            return Ok(collateral);
+            return Ok(collateral.clone());
         }
 
-        let collateral: U256 = collateral.into();
-        let numerator: U256 = numerator.into();
-        let denominator: U256 = denominator.into();
+        let currency = collateral.currency();
+
+        let collateral: U256 = collateral.amount().into();
+        let numerator: U256 = numerator.amount().into();
+        let denominator: U256 = denominator.amount().into();
 
         let amount = collateral
             .checked_mul(numerator)
             .ok_or(Error::<T>::ArithmeticOverflow)?
             .checked_div(denominator)
-            .ok_or(Error::<T>::ArithmeticUnderflow)?;
-        Ok(amount.try_into().map_err(|_| Error::<T>::TryIntoIntError)?)
+            .ok_or(Error::<T>::ArithmeticUnderflow)?
+            .try_into()
+            .map_err(|_| Error::<T>::TryIntoIntError)?;
+        Ok(Amount::new(amount, currency))
     }
 
     /// RPC
 
     /// Get the first available vault with sufficient collateral to fulfil an issue request
     /// with the specified amount of issued tokens.
-    pub fn get_first_vault_with_sufficient_collateral(amount: Wrapped<T>) -> Result<T::AccountId, DispatchError> {
+    pub fn get_first_vault_with_sufficient_collateral(amount: &Amount<T>) -> Result<T::AccountId, DispatchError> {
         // find all vault accounts with sufficient collateral
         let suitable_vaults = Vaults::<T>::iter()
             .filter_map(|v| {
@@ -1402,7 +1347,7 @@ impl<T: Config> Pallet<T> {
                     return None;
                 }
                 let issuable_tokens = vault.issuable_tokens().ok()?;
-                if issuable_tokens >= amount {
+                if issuable_tokens.ge(&amount).ok()? {
                     Some(v.0)
                 } else {
                     None
@@ -1413,20 +1358,20 @@ impl<T: Config> Pallet<T> {
         if suitable_vaults.is_empty() {
             Err(Error::<T>::NoVaultWithSufficientCollateral.into())
         } else {
-            let idx = Self::pseudo_rand_index(amount, suitable_vaults.len());
+            let idx = Self::pseudo_rand_index(amount.amount(), suitable_vaults.len());
             Ok(suitable_vaults[idx].clone())
         }
     }
 
     /// Get the first available vault with sufficient locked tokens to fulfil a redeem request.
-    pub fn get_first_vault_with_sufficient_tokens(amount: Wrapped<T>) -> Result<T::AccountId, DispatchError> {
+    pub fn get_first_vault_with_sufficient_tokens(amount: &Amount<T>) -> Result<T::AccountId, DispatchError> {
         // find all vault accounts with sufficient collateral
         let suitable_vaults = Vaults::<T>::iter()
             .filter_map(|v| {
                 // iterator returns tuple of (AccountId, Vault<T>), we check the vault and return the accountid
                 let vault = Into::<RichVault<T>>::into(v.1);
                 let redeemable_tokens = vault.redeemable_tokens().ok()?;
-                if redeemable_tokens >= amount {
+                if redeemable_tokens.ge(&amount).ok()? {
                     Some(v.0)
                 } else {
                     None
@@ -1437,7 +1382,7 @@ impl<T: Config> Pallet<T> {
         if suitable_vaults.is_empty() {
             Err(Error::<T>::NoVaultWithSufficientTokens.into())
         } else {
-            let idx = Self::pseudo_rand_index(amount, suitable_vaults.len());
+            let idx = Self::pseudo_rand_index(amount.amount(), suitable_vaults.len());
             Ok(suitable_vaults[idx].clone())
         }
     }
@@ -1449,7 +1394,7 @@ impl<T: Config> Pallet<T> {
     ///
     /// Maybe returns a tuple of (VaultId, RedeemableTokens)
     /// The redeemable tokens are the currently vault.issued_tokens - the vault.to_be_redeemed_tokens
-    pub fn get_premium_redeem_vaults() -> Result<Vec<(T::AccountId, Wrapped<T>)>, DispatchError> {
+    pub fn get_premium_redeem_vaults() -> Result<Vec<(T::AccountId, Amount<T>)>, DispatchError> {
         let mut suitable_vaults = Vaults::<T>::iter()
             .filter_map(|(account_id, vault)| {
                 let rich_vault: RichVault<T> = vault.into();
@@ -1468,13 +1413,13 @@ impl<T: Config> Pallet<T> {
         if suitable_vaults.is_empty() {
             Err(Error::<T>::NoVaultUnderThePremiumRedeemThreshold.into())
         } else {
-            suitable_vaults.sort_by(|a, b| b.1.cmp(&a.1));
+            suitable_vaults.sort_by(|a, b| b.1.amount().cmp(&a.1.amount()));
             Ok(suitable_vaults)
         }
     }
 
     /// Get all vaults with non-zero issuable tokens, ordered in descending order of this amount
-    pub fn get_vaults_with_issuable_tokens() -> Result<Vec<(T::AccountId, Wrapped<T>)>, DispatchError> {
+    pub fn get_vaults_with_issuable_tokens() -> Result<Vec<(T::AccountId, Amount<T>)>, DispatchError> {
         let mut vaults_with_issuable_tokens = Vaults::<T>::iter()
             .filter_map(|(account_id, _vault)| {
                 // NOTE: we are not checking if the vault accepts new issues here - if not, then
@@ -1494,12 +1439,12 @@ impl<T: Config> Pallet<T> {
             })
             .collect::<Vec<(_, _)>>();
 
-        vaults_with_issuable_tokens.sort_by(|a, b| b.1.cmp(&a.1));
+        vaults_with_issuable_tokens.sort_by(|a, b| b.1.amount().cmp(&a.1.amount()));
         Ok(vaults_with_issuable_tokens)
     }
 
     /// Get all vaults with non-zero issued (thus redeemable) tokens, ordered in descending order of this amount
-    pub fn get_vaults_with_redeemable_tokens() -> Result<Vec<(T::AccountId, Wrapped<T>)>, DispatchError> {
+    pub fn get_vaults_with_redeemable_tokens() -> Result<Vec<(T::AccountId, Amount<T>)>, DispatchError> {
         // find all vault accounts with sufficient collateral
         let mut vaults_with_redeemable_tokens = Vaults::<T>::iter()
             .filter_map(|(account_id, vault)| {
@@ -1513,23 +1458,24 @@ impl<T: Config> Pallet<T> {
             })
             .collect::<Vec<(_, _)>>();
 
-        vaults_with_redeemable_tokens.sort_by(|a, b| b.1.cmp(&a.1));
+        vaults_with_redeemable_tokens.sort_by(|a, b| b.1.amount().cmp(&a.1.amount()));
         Ok(vaults_with_redeemable_tokens)
     }
 
     /// Get the amount of tokens a vault can issue
-    pub fn get_issuable_tokens_from_vault(vault_id: T::AccountId) -> Result<Wrapped<T>, DispatchError> {
+    pub fn get_issuable_tokens_from_vault(vault_id: T::AccountId) -> Result<Amount<T>, DispatchError> {
         let vault = Self::get_active_rich_vault_from_id(&vault_id)?;
         // make sure the vault accepts new issue requests.
         // NOTE: get_vaults_with_issuable_tokens depends on this check
         if vault.data.status != VaultStatus::Active(true) {
-            return Ok(0u32.into());
+            Ok(Amount::new(0u32.into(), vault.data.currency_id))
+        } else {
+            vault.issuable_tokens()
         }
-        vault.issuable_tokens()
     }
 
     /// Get the amount of tokens issued by a vault
-    pub fn get_to_be_issued_tokens_from_vault(vault_id: T::AccountId) -> Result<Wrapped<T>, DispatchError> {
+    pub fn get_to_be_issued_tokens_from_vault(vault_id: T::AccountId) -> Result<Amount<T>, DispatchError> {
         let vault = Self::get_active_rich_vault_from_id(&vault_id)?;
         Ok(vault.to_be_issued_tokens())
     }
@@ -1541,27 +1487,27 @@ impl<T: Config> Pallet<T> {
     ) -> Result<UnsignedFixedPoint<T>, DispatchError> {
         let vault = Self::get_active_rich_vault_from_id(&vault_id)?;
         let collateral = vault.get_collateral()?;
-        Self::get_collateralization_from_vault_and_collateral(vault_id, collateral, only_issued)
+        Self::get_collateralization_from_vault_and_collateral(vault_id, &collateral, only_issued)
     }
 
     pub fn get_collateralization_from_vault_and_collateral(
         vault_id: T::AccountId,
-        collateral: Collateral<T>,
+        collateral: &Amount<T>,
         only_issued: bool,
     ) -> Result<UnsignedFixedPoint<T>, DispatchError> {
         let vault = Self::get_active_rich_vault_from_id(&vault_id)?;
         let issued_tokens = if only_issued {
-            vault.data.issued_tokens
+            vault.issued_tokens()
         } else {
-            vault.data.issued_tokens + vault.data.to_be_issued_tokens
+            vault.backed_tokens()?
         };
 
         ensure!(!issued_tokens.is_zero(), Error::<T>::NoTokensIssued);
 
         // convert the collateral to wrapped
-        let collateral_in_wrapped = ext::oracle::collateral_to_wrapped::<T>(collateral, vault.data.currency_id)?;
+        let collateral_in_wrapped = collateral.convert_to(T::GetWrappedCurrencyId::get())?;
 
-        Self::get_collateralization(collateral_in_wrapped, issued_tokens)
+        Self::get_collateralization(&collateral_in_wrapped, &issued_tokens)
     }
 
     /// Gets the minimum amount of collateral required for the given amount of btc
@@ -1570,9 +1516,9 @@ impl<T: Config> Pallet<T> {
     /// # Arguments
     /// * `amount_btc` - the amount of wrapped
     pub fn get_required_collateral_for_wrapped(
-        amount_btc: Wrapped<T>,
+        amount_btc: &Amount<T>,
         currency_id: CurrencyId<T>,
-    ) -> Result<Collateral<T>, DispatchError> {
+    ) -> Result<Amount<T>, DispatchError> {
         let threshold = Self::secure_collateral_threshold(currency_id).ok_or(Error::<T>::ThresholdNotSet)?;
         let collateral = Self::get_required_collateral_for_wrapped_with_threshold(amount_btc, threshold, currency_id)?;
         Ok(collateral)
@@ -1580,11 +1526,11 @@ impl<T: Config> Pallet<T> {
 
     /// Get the amount of collateral required for the given vault to be at the
     /// current SecureCollateralThreshold with the current exchange rate
-    pub fn get_required_collateral_for_vault(vault_id: T::AccountId) -> Result<Collateral<T>, DispatchError> {
+    pub fn get_required_collateral_for_vault(vault_id: T::AccountId) -> Result<Amount<T>, DispatchError> {
         let vault = Self::get_active_rich_vault_from_id(&vault_id)?;
-        let issued_tokens = vault.data.issued_tokens + vault.data.to_be_issued_tokens;
+        let issued_tokens = vault.backed_tokens()?;
 
-        let required_collateral = Self::get_required_collateral_for_wrapped(issued_tokens, vault.data.currency_id)?;
+        let required_collateral = Self::get_required_collateral_for_wrapped(&issued_tokens, vault.data.currency_id)?;
 
         Ok(required_collateral)
     }
@@ -1593,9 +1539,10 @@ impl<T: Config> Pallet<T> {
         Vaults::<T>::contains_key(id)
     }
 
-    pub fn compute_collateral(vault_id: &T::AccountId) -> Result<Collateral<T>, DispatchError> {
-        let collateral = ext::staking::compute_stake::<T>(T::GetRewardsCurrencyId::get(), vault_id, vault_id)?;
-        collateral.try_into().map_err(|_| Error::<T>::TryIntoIntError.into())
+    pub fn compute_collateral(vault_id: &T::AccountId) -> Result<Amount<T>, DispatchError> {
+        let collateral = ext::staking::compute_stake::<T>(T::GetWrappedCurrencyId::get(), vault_id, vault_id)?;
+        let amount = collateral.try_into().map_err(|_| Error::<T>::TryIntoIntError)?;
+        Ok(Amount::new(amount, Self::get_collateral_currency(vault_id)?))
     }
 
     pub fn get_max_nomination_ratio(currency_id: CurrencyId<T>) -> Result<UnsignedFixedPoint<T>, DispatchError> {
@@ -1613,11 +1560,8 @@ impl<T: Config> Pallet<T> {
             .ok_or(Error::<T>::ArithmeticUnderflow)?)
     }
 
-    pub fn get_max_nominatable_collateral(
-        currency_id: CurrencyId<T>,
-        vault_collateral: Collateral<T>,
-    ) -> Result<Collateral<T>, DispatchError> {
-        Self::fraction_of_amount(vault_collateral, Self::get_max_nomination_ratio(currency_id)?)
+    pub fn get_max_nominatable_collateral(vault_collateral: &Amount<T>) -> Result<Amount<T>, DispatchError> {
+        vault_collateral.rounded_mul(Self::get_max_nomination_ratio(vault_collateral.currency())?)
     }
 
     /// Private getters and setters
@@ -1635,8 +1579,9 @@ impl<T: Config> Pallet<T> {
         Into::<RichSystemVault<T>>::into(Self::get_liquidation_vault())
     }
 
-    fn get_minimum_collateral_vault(currency_id: CurrencyId<T>) -> Collateral<T> {
-        MinimumCollateralVault::<T>::get(currency_id)
+    fn get_minimum_collateral_vault(currency_id: CurrencyId<T>) -> Amount<T> {
+        let amount = MinimumCollateralVault::<T>::get(currency_id);
+        Amount::new(amount, currency_id)
     }
 
     // Other helpers
@@ -1663,12 +1608,10 @@ impl<T: Config> Pallet<T> {
     /// calculate the collateralization as a ratio of the issued tokens to the
     /// amount of provided collateral at the current exchange rate.
     fn get_collateralization(
-        collateral_in_wrapped: Wrapped<T>,
-        issued_tokens: Wrapped<T>,
+        collateral_in_wrapped: &Amount<T>,
+        issued_tokens: &Amount<T>,
     ) -> Result<UnsignedFixedPoint<T>, DispatchError> {
-        let collateralization = UnsignedFixedPoint::<T>::checked_from_rational(collateral_in_wrapped, issued_tokens)
-            .ok_or(Error::<T>::TryIntoIntError)?;
-        Ok(collateralization)
+        collateral_in_wrapped.ratio(&issued_tokens)
     }
 
     fn is_vault_below_threshold(
@@ -1677,24 +1620,20 @@ impl<T: Config> Pallet<T> {
     ) -> Result<bool, DispatchError> {
         let vault = Self::get_rich_vault_from_id(&vault_id)?;
 
-        // the currently issued tokens
-        let issued_tokens = vault.data.issued_tokens;
-
         // the current locked backing collateral by the vault
         let collateral = Self::get_backing_collateral(vault_id)?;
 
-        Self::is_collateral_below_threshold(collateral, issued_tokens, threshold, vault.data.currency_id)
+        Self::is_collateral_below_threshold(&collateral, &vault.issued_tokens(), threshold)
     }
 
     fn is_collateral_below_threshold(
-        collateral: Collateral<T>,
-        btc_amount: Wrapped<T>,
+        collateral: &Amount<T>,
+        btc_amount: &Amount<T>,
         threshold: UnsignedFixedPoint<T>,
-        currency_id: CurrencyId<T>,
     ) -> Result<bool, DispatchError> {
-        let max_tokens = Self::calculate_max_wrapped_from_collateral_for_threshold(collateral, threshold, currency_id)?;
+        let max_tokens = Self::calculate_max_wrapped_from_collateral_for_threshold(collateral, threshold)?;
         // check if the max_tokens are below the issued tokens
-        Ok(max_tokens < btc_amount)
+        Ok(max_tokens.lt(&btc_amount)?)
     }
 
     /// Gets the minimum amount of collateral required for the given amount of btc
@@ -1705,38 +1644,22 @@ impl<T: Config> Pallet<T> {
     /// * `amount_btc` - the amount of wrapped
     /// * `threshold` - the required secure collateral threshold
     fn get_required_collateral_for_wrapped_with_threshold(
-        wrapped: Wrapped<T>,
+        wrapped: &Amount<T>,
         threshold: UnsignedFixedPoint<T>,
         currency_id: CurrencyId<T>,
-    ) -> Result<Collateral<T>, DispatchError> {
-        // Step 1: inverse of the scaling applied in calculate_max_wrapped_from_collateral_for_threshold
-        let amount_in_wrapped = threshold
-            .checked_mul_int_rounded_up(wrapped)
-            .ok_or(Error::<T>::ArithmeticUnderflow)?;
-
-        // Step 2: convert the amount to collateral
-        let amount_in_collateral = ext::oracle::wrapped_to_collateral::<T>(amount_in_wrapped, currency_id)?;
-        Ok(amount_in_collateral)
+    ) -> Result<Amount<T>, DispatchError> {
+        wrapped
+            .checked_fixed_point_mul_rounded_up(&threshold)?
+            .convert_to(currency_id)
     }
 
     fn calculate_max_wrapped_from_collateral_for_threshold(
-        collateral: Collateral<T>,
+        collateral: &Amount<T>,
         threshold: UnsignedFixedPoint<T>,
-        currency_id: CurrencyId<T>,
-    ) -> Result<Wrapped<T>, DispatchError> {
-        // convert the collateral to wrapped
-        let collateral_in_wrapped = ext::oracle::collateral_to_wrapped::<T>(collateral, currency_id)?;
-
-        // calculate how many tokens should be maximally issued given the threshold.
-        let max_btc_as_inner = UnsignedFixedPoint::<T>::checked_from_integer(collateral_in_wrapped)
-            .ok_or(Error::<T>::TryIntoIntError)?
+    ) -> Result<Amount<T>, DispatchError> {
+        collateral
+            .convert_to(T::GetWrappedCurrencyId::get())?
             .checked_div(&threshold)
-            .ok_or(Error::<T>::ArithmeticOverflow)?
-            .into_inner()
-            .checked_div(&UnsignedFixedPoint::<T>::accuracy())
-            .ok_or(Error::<T>::ArithmeticUnderflow)?;
-
-        Ok(max_btc_as_inner)
     }
 
     pub fn insert_vault_deposit_address(vault_id: &T::AccountId, btc_address: BtcAddress) -> DispatchResult {
@@ -1754,32 +1677,6 @@ impl<T: Config> Pallet<T> {
         let mut vault = Self::get_active_rich_vault_from_id(vault_id)?;
         let btc_address = vault.new_deposit_address(secure_id)?;
         Ok(btc_address)
-    }
-
-    pub(crate) fn currency_to_fixed(x: Collateral<T>) -> Result<SignedFixedPoint<T>, DispatchError> {
-        let signed_inner = TryInto::<SignedInner<T>>::try_into(x).map_err(|_| Error::<T>::TryIntoIntError)?;
-        let signed_fixed_point = <T as pallet::Config>::SignedFixedPoint::checked_from_integer(signed_inner)
-            .ok_or(Error::<T>::TryIntoIntError)?;
-        Ok(signed_fixed_point)
-    }
-
-    pub(crate) fn fraction_of_amount(
-        amount: BalanceOf<T>,
-        fraction: UnsignedFixedPoint<T>,
-    ) -> Result<BalanceOf<T>, DispatchError> {
-        // we add 0.5 before we do the final integer division to round the result we return.
-        // note that unwrapping is safe because we use a constant
-        let rounding_addition = UnsignedFixedPoint::<T>::checked_from_rational(1, 2).unwrap();
-
-        UnsignedFixedPoint::<T>::checked_from_integer(amount)
-            .ok_or(Error::<T>::ArithmeticOverflow)?
-            .checked_mul(&fraction)
-            .ok_or(Error::<T>::ArithmeticOverflow)?
-            .checked_add(&rounding_addition)
-            .ok_or(Error::<T>::ArithmeticOverflow)?
-            .into_inner()
-            .checked_div(&UnsignedFixedPoint::<T>::accuracy())
-            .ok_or(Error::<T>::ArithmeticUnderflow.into())
     }
 }
 

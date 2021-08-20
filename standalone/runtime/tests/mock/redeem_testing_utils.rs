@@ -1,4 +1,5 @@
 use crate::*;
+use currency::Amount;
 use frame_support::transactional;
 use redeem::RedeemRequestStatus;
 
@@ -8,10 +9,10 @@ pub const USER_BTC_ADDRESS: BtcAddress = BtcAddress::P2PKH(H160([2u8; 20]));
 
 pub struct ExecuteRedeemBuilder {
     redeem_id: H256,
-    redeem: RedeemRequest<AccountId32, BlockNumber, Balance>,
-    amount: u128,
+    redeem: RedeemRequest<AccountId32, u32, u128>,
+    amount: Amount<Runtime>,
     submitter: AccountId32,
-    inclusion_fee: u128,
+    inclusion_fee: Amount<Runtime>,
 }
 
 impl ExecuteRedeemBuilder {
@@ -20,13 +21,13 @@ impl ExecuteRedeemBuilder {
         Self {
             redeem_id,
             redeem: redeem.clone(),
-            amount: redeem.amount_btc,
+            amount: redeem.amount_btc(),
             submitter: redeem.redeemer,
-            inclusion_fee: 0,
+            inclusion_fee: wrapped(0),
         }
     }
 
-    pub fn with_amount(&mut self, amount: u128) -> &mut Self {
+    pub fn with_amount(&mut self, amount: Amount<Runtime>) -> &mut Self {
         self.amount = amount;
         self
     }
@@ -36,7 +37,7 @@ impl ExecuteRedeemBuilder {
         self
     }
 
-    pub fn with_inclusion_fee(&mut self, inclusion_fee: u128) -> &mut Self {
+    pub fn with_inclusion_fee(&mut self, inclusion_fee: Amount<Runtime>) -> &mut Self {
         self.inclusion_fee = inclusion_fee;
         self
     }
@@ -66,8 +67,8 @@ impl ExecuteRedeemBuilder {
     }
 }
 
-pub fn setup_cancelable_redeem(user: [u8; 32], vault: [u8; 32], collateral: u128, issued_tokens: u128) -> H256 {
-    let redeem_id = setup_redeem(issued_tokens, user, vault, collateral);
+pub fn setup_cancelable_redeem(user: [u8; 32], vault: [u8; 32], issued_tokens: Amount<Runtime>) -> H256 {
+    let redeem_id = setup_redeem(issued_tokens, user, vault);
 
     // expire request without transferring btc
     mine_blocks((RedeemPallet::redeem_period() + 99) / 100 + 1);
@@ -78,20 +79,19 @@ pub fn setup_cancelable_redeem(user: [u8; 32], vault: [u8; 32], collateral: u128
 
 pub fn set_redeem_state(
     currency_id: CurrencyId,
-    vault_to_be_redeemed: u128,
-    user_to_redeem: u128,
+    vault_to_be_redeemed: Amount<Runtime>,
+    user_to_redeem: Amount<Runtime>,
     user: [u8; 32],
     vault: [u8; 32],
 ) -> () {
-    let burned_tokens = user_to_redeem - FeePallet::get_redeem_fee(user_to_redeem).unwrap();
+    let burned_tokens = user_to_redeem - FeePallet::get_redeem_fee(&user_to_redeem).unwrap();
     let vault_issued_tokens = vault_to_be_redeemed + burned_tokens;
     CoreVaultData::force_to(
         vault,
         CoreVaultData {
             issued: vault_issued_tokens,
             to_be_redeemed: vault_to_be_redeemed,
-            collateral_currency: currency_id,
-            ..Default::default()
+            ..CoreVaultData::get_default(currency_id)
         },
     );
     let mut user_state = UserData::get(user);
@@ -100,10 +100,10 @@ pub fn set_redeem_state(
     UserData::force_to(ALICE, user_state);
 }
 
-pub fn setup_redeem(issued_tokens: u128, user: [u8; 32], vault: [u8; 32], _collateral: u128) -> H256 {
+pub fn setup_redeem(issued_tokens: Amount<Runtime>, user: [u8; 32], vault: [u8; 32]) -> H256 {
     // alice requests to redeem issued_tokens from Bob
     assert_ok!(Call::Redeem(RedeemCall::request_redeem(
-        issued_tokens,
+        issued_tokens.amount(),
         USER_BTC_ADDRESS,
         account_of(vault)
     ))
@@ -138,7 +138,7 @@ pub fn cancel_redeem(redeem_id: H256, redeemer: [u8; 32], reimburse: bool) {
 pub fn assert_redeem_error(
     redeem_id: H256,
     user_btc_address: BtcAddress,
-    amount: u128,
+    amount: Amount<Runtime>,
     return_data: H256,
     current_block_number: u32,
     error: BTCRelayError,

@@ -2,6 +2,7 @@ use crate as exchange_rate_oracle;
 use crate::{Config, Error};
 use frame_support::{parameter_types, traits::GenesisBuild};
 use mocktopus::mocking::clear_mocks;
+use orml_traits::parameter_type_with_key;
 use sp_arithmetic::{FixedI128, FixedU128};
 use sp_core::H256;
 use sp_runtime::{
@@ -19,6 +20,8 @@ frame_support::construct_runtime!(
         NodeBlock = Block,
         UncheckedExtrinsic = UncheckedExtrinsic,
     {
+        Tokens: orml_tokens::{Pallet, Storage, Config<T>, Event<T>},
+
         System: frame_system::{Pallet, Call, Storage, Config, Event<T>},
         Timestamp: pallet_timestamp::{Pallet, Call, Storage, Inherent},
 
@@ -26,6 +29,7 @@ frame_support::construct_runtime!(
         Security: security::{Pallet, Call, Storage, Event<T>},
         ExchangeRateOracle: exchange_rate_oracle::{Pallet, Call, Config<T>, Storage, Event<T>},
         Staking: staking::{Pallet, Storage, Event<T>},
+        Currency: currency::{Pallet},
     }
 );
 
@@ -70,10 +74,53 @@ impl frame_system::Config for Test {
     type OnSetCode = ();
 }
 
+pub const DOT: CurrencyId = CurrencyId::DOT;
+pub const INTERBTC: CurrencyId = CurrencyId::INTERBTC;
+
+parameter_types! {
+    pub const GetCollateralCurrencyId: CurrencyId = DOT;
+    pub const GetWrappedCurrencyId: CurrencyId = INTERBTC;
+    pub const MaxLocks: u32 = 50;
+}
+
+parameter_type_with_key! {
+    pub ExistentialDeposits: |_currency_id: CurrencyId| -> Balance {
+        0
+    };
+}
+
+impl orml_tokens::Config for Test {
+    type Event = Event;
+    type Balance = Balance;
+    type Amount = primitives::Amount;
+    type CurrencyId = CurrencyId;
+    type WeightInfo = ();
+    type ExistentialDeposits = ExistentialDeposits;
+    type OnDust = ();
+    type MaxLocks = MaxLocks;
+}
+
+pub struct CurrencyConvert;
+impl currency::CurrencyConversion<currency::Amount<Test>, CurrencyId> for CurrencyConvert {
+    fn convert(
+        _amount: &currency::Amount<Test>,
+        _to: CurrencyId,
+    ) -> Result<currency::Amount<Test>, sp_runtime::DispatchError> {
+        unimplemented!()
+    }
+}
+
+impl currency::Config for Test {
+    type SignedInner = SignedInner;
+    type SignedFixedPoint = SignedFixedPoint;
+    type UnsignedFixedPoint = UnsignedFixedPoint;
+    type Balance = Balance;
+    type GetWrappedCurrencyId = GetWrappedCurrencyId;
+    type CurrencyConversion = CurrencyConvert;
+}
+
 impl Config for Test {
     type Event = TestEvent;
-    type Balance = Balance;
-    type UnsignedFixedPoint = UnsignedFixedPoint;
     type WeightInfo = ();
 }
 

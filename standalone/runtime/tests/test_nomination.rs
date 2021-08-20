@@ -1,5 +1,6 @@
 mod mock;
 
+use currency::Amount;
 use mock::{nomination_testing_utils::*, *};
 use sp_runtime::traits::{CheckedDiv, CheckedSub};
 
@@ -32,6 +33,10 @@ fn test_with_nomination_enabled_and_vault_opted_in<R>(execute: impl Fn(CurrencyI
         assert_nomination_opt_in(VAULT);
         execute(currency_id)
     })
+}
+
+fn default_nomination(currency_id: CurrencyId) -> Amount<Runtime> {
+    Amount::new(DEFAULT_NOMINATION, currency_id)
 }
 
 mod spec_based_tests {
@@ -142,15 +147,15 @@ mod spec_based_tests {
         //   - Staking pallet `nonce` must be incremented by one.
         //   - `compute_reward_at_index(nonce - 1, INTERBTC, vault_id, user_id)` in the Staking pallet must be equal to
         //     the user’s nomination just before the vault opted out.
-        test_with_nomination_enabled_and_vault_opted_in(|_| {
-            assert_nominate_collateral(VAULT, USER, DEFAULT_NOMINATION);
+        test_with_nomination_enabled_and_vault_opted_in(|currency_id| {
+            assert_nominate_collateral(VAULT, USER, default_nomination(currency_id));
             assert_eq!(
                 NominationPallet::get_total_nominated_collateral(&account_of(VAULT)).unwrap(),
-                DEFAULT_NOMINATION
+                default_nomination(currency_id)
             );
             assert_eq!(
                 NominationPallet::get_nominator_collateral(&account_of(VAULT), &account_of(USER)).unwrap(),
-                DEFAULT_NOMINATION
+                default_nomination(currency_id)
             );
             assert_eq!(
                 VaultRewardsPallet::compute_reward(INTERBTC, &account_of(USER)).unwrap(),
@@ -166,11 +171,11 @@ mod spec_based_tests {
             );
             assert_eq!(
                 NominationPallet::get_total_nominated_collateral(&account_of(VAULT)).unwrap(),
-                0
+                Amount::new(0, currency_id)
             );
             assert_eq!(
                 NominationPallet::get_nominator_collateral(&account_of(VAULT), &account_of(USER)).unwrap(),
-                0
+                Amount::new(0, currency_id)
             );
             let nonce: u32 = VaultStakingPallet::nonce(INTERBTC, &account_of(VAULT));
             assert_eq!(nonce, 1);
@@ -237,23 +242,23 @@ mod spec_based_tests {
         // POSTCONDITIONS:
         //   - The Vault’s collateral MUST increase by the amount nominated.
         //   - The Nominator’s balance MUST decrease by the amount nominated.
-        test_with_nomination_enabled_and_vault_opted_in(|_| {
+        test_with_nomination_enabled_and_vault_opted_in(|currency_id| {
             let vault_backing_collateral_before_nomination =
                 VaultRegistryPallet::get_backing_collateral(&account_of(VAULT)).unwrap();
             let user_collateral_before_nomination =
                 NominationPallet::get_nominator_collateral(&account_of(VAULT), &account_of(USER)).unwrap();
-            assert_nominate_collateral(VAULT, USER, DEFAULT_NOMINATION);
+            assert_nominate_collateral(VAULT, USER, default_nomination(currency_id));
             let vault_backing_collateral_after_nomination =
                 VaultRegistryPallet::get_backing_collateral(&account_of(VAULT)).unwrap();
             let user_collateral_after_nomination =
                 NominationPallet::get_nominator_collateral(&account_of(VAULT), &account_of(USER)).unwrap();
             assert_eq!(
                 vault_backing_collateral_after_nomination,
-                vault_backing_collateral_before_nomination + DEFAULT_NOMINATION
+                vault_backing_collateral_before_nomination + default_nomination(currency_id)
             );
             assert_eq!(
                 user_collateral_after_nomination,
-                user_collateral_before_nomination + DEFAULT_NOMINATION
+                user_collateral_before_nomination + default_nomination(currency_id)
             );
         })
     }
@@ -310,13 +315,13 @@ mod spec_based_tests {
             assert_ok!(Call::VaultRegistry(VaultRegistryCall::withdraw_collateral(750000))
                 .dispatch(origin_of(account_of(VAULT))));
             assert_nomination_opt_in(VAULT);
-            assert_nominate_collateral(VAULT, USER, DEFAULT_NOMINATION);
+            assert_nominate_collateral(VAULT, USER, default_nomination(currency_id));
             assert_ok!(ExchangeRateOraclePallet::_set_exchange_rate(
                 currency_id,
                 FixedU128::checked_from_integer(3).unwrap()
             ));
             assert_noop!(
-                withdraw_nominator_collateral(USER, VAULT, DEFAULT_NOMINATION),
+                withdraw_nominator_collateral(USER, VAULT, default_nomination(currency_id)),
                 NominationError::InsufficientCollateral
             );
         });
@@ -327,24 +332,24 @@ mod spec_based_tests {
         // POSTCONDITIONS:
         //   - The Vault’s collateral MUST decrease by the amount nominated.
         //   - The Nominator’s balance MUST increase by the amount nominated.
-        test_with_nomination_enabled_and_vault_opted_in(|_| {
-            assert_nominate_collateral(VAULT, USER, DEFAULT_NOMINATION);
+        test_with_nomination_enabled_and_vault_opted_in(|currency_id| {
+            assert_nominate_collateral(VAULT, USER, default_nomination(currency_id));
             let vault_backing_collateral_before_withdrawal =
                 VaultRegistryPallet::get_backing_collateral(&account_of(VAULT)).unwrap();
             let user_collateral_before_withdrawal =
                 NominationPallet::get_nominator_collateral(&account_of(VAULT), &account_of(USER)).unwrap();
-            withdraw_nominator_collateral(USER, VAULT, DEFAULT_NOMINATION).unwrap();
+            withdraw_nominator_collateral(USER, VAULT, default_nomination(currency_id)).unwrap();
             let vault_backing_collateral_after_withdrawal =
                 VaultRegistryPallet::get_backing_collateral(&account_of(VAULT)).unwrap();
             let user_collateral_after_withdrawal =
                 NominationPallet::get_nominator_collateral(&account_of(VAULT), &account_of(USER)).unwrap();
             assert_eq!(
                 vault_backing_collateral_after_withdrawal,
-                vault_backing_collateral_before_withdrawal - DEFAULT_NOMINATION
+                vault_backing_collateral_before_withdrawal - default_nomination(currency_id)
             );
             assert_eq!(
                 user_collateral_after_withdrawal,
-                user_collateral_before_withdrawal - DEFAULT_NOMINATION
+                user_collateral_before_withdrawal - default_nomination(currency_id)
             );
         });
     }
@@ -397,20 +402,20 @@ fn integration_test_cannot_nominate_if_not_opted_in() {
 
 #[test]
 fn integration_test_can_nominate_if_opted_in() {
-    test_with_nomination_enabled_and_vault_opted_in(|_currency_id| {
-        assert_nominate_collateral(VAULT, USER, DEFAULT_NOMINATION);
+    test_with_nomination_enabled_and_vault_opted_in(|currency_id| {
+        assert_nominate_collateral(VAULT, USER, default_nomination(currency_id));
         let nominator_collateral = get_nominator_collateral(VAULT, USER);
-        assert_eq!(nominator_collateral, DEFAULT_NOMINATION);
-        assert_total_nominated_collateral_is(VAULT, DEFAULT_NOMINATION);
+        assert_eq!(nominator_collateral, default_nomination(currency_id));
+        assert_total_nominated_collateral_is(VAULT, default_nomination(currency_id));
     });
 }
 
 #[test]
 fn integration_test_vaults_cannot_withdraw_nominated_collateral() {
-    test_with_nomination_enabled_and_vault_opted_in(|_currency_id| {
-        assert_nominate_collateral(VAULT, USER, DEFAULT_NOMINATION);
+    test_with_nomination_enabled_and_vault_opted_in(|currency_id| {
+        assert_nominate_collateral(VAULT, USER, default_nomination(currency_id));
         assert_noop!(
-            withdraw_vault_collateral(VAULT, DEFAULT_BACKING_COLLATERAL + 1),
+            withdraw_vault_collateral(VAULT, default_backing_collateral(currency_id).with_amount(|x| x + 1)),
             VaultRegistryError::InsufficientCollateral
         );
     });
@@ -418,9 +423,9 @@ fn integration_test_vaults_cannot_withdraw_nominated_collateral() {
 
 #[test]
 fn integration_test_nominated_collateral_cannot_exceed_max_nomination_ratio() {
-    test_with_nomination_enabled_and_vault_opted_in(|_currency_id| {
+    test_with_nomination_enabled_and_vault_opted_in(|currency_id| {
         assert_noop!(
-            nominate_collateral(VAULT, USER, DEFAULT_BACKING_COLLATERAL),
+            nominate_collateral(VAULT, USER, default_backing_collateral(currency_id)),
             NominationError::DepositViolatesMaxNominationRatio
         );
     });
@@ -428,8 +433,8 @@ fn integration_test_nominated_collateral_cannot_exceed_max_nomination_ratio() {
 
 #[test]
 fn integration_test_nominated_collateral_prevents_replace_requests() {
-    test_with_nomination_enabled_and_vault_opted_in(|_currency_id| {
-        assert_nominate_collateral(VAULT, USER, DEFAULT_NOMINATION);
+    test_with_nomination_enabled_and_vault_opted_in(|currency_id| {
+        assert_nominate_collateral(VAULT, USER, default_nomination(currency_id));
         assert_noop!(
             Call::Replace(ReplaceCall::request_replace(0, DEFAULT_BACKING_COLLATERAL))
                 .dispatch(origin_of(account_of(VAULT))),
@@ -444,7 +449,7 @@ fn integration_test_vaults_with_zero_nomination_cannot_request_replacement() {
         let amount = DEFAULT_VAULT_ISSUED - DEFAULT_VAULT_TO_BE_REDEEMED - DEFAULT_VAULT_TO_BE_REPLACED;
         let griefing_collateral = 200;
         assert_noop!(
-            Call::Replace(ReplaceCall::request_replace(amount, griefing_collateral))
+            Call::Replace(ReplaceCall::request_replace(amount.amount(), griefing_collateral))
                 .dispatch(origin_of(account_of(VAULT))),
             ReplaceError::VaultHasEnabledNomination
         );
@@ -453,28 +458,32 @@ fn integration_test_vaults_with_zero_nomination_cannot_request_replacement() {
 
 #[test]
 fn integration_test_nomination_increases_issuable_tokens() {
-    test_with_nomination_enabled_and_vault_opted_in(|_currency_id| {
+    test_with_nomination_enabled_and_vault_opted_in(|currency_id| {
         let issuance_capacity_before_nomination =
             VaultRegistryPallet::get_issuable_tokens_from_vault(account_of(VAULT)).unwrap();
-        assert_eq!(issuance_capacity_before_nomination, 556666);
-        assert_nominate_collateral(VAULT, USER, DEFAULT_NOMINATION);
+        assert_eq!(issuance_capacity_before_nomination, wrapped(556666));
+        assert_nominate_collateral(VAULT, USER, default_nomination(currency_id));
         let issuance_capacity_after_nomination =
             VaultRegistryPallet::get_issuable_tokens_from_vault(account_of(VAULT)).unwrap();
-        assert_eq!(issuance_capacity_after_nomination, 570000);
+        assert_eq!(issuance_capacity_after_nomination, wrapped(570000));
     });
 }
 
 #[test]
 fn integration_test_nominator_withdrawal_request_reduces_issuable_tokens() {
-    test_with_nomination_enabled_and_vault_opted_in(|_currency_id| {
-        assert_nominate_collateral(VAULT, USER, DEFAULT_NOMINATION);
+    test_with_nomination_enabled_and_vault_opted_in(|currency_id| {
+        assert_nominate_collateral(VAULT, USER, default_nomination(currency_id));
         let issuance_capacity_before_withdrawal_request =
             VaultRegistryPallet::get_issuable_tokens_from_vault(account_of(VAULT)).unwrap();
-        assert_ok!(withdraw_nominator_collateral(USER, VAULT, DEFAULT_NOMINATION));
+        assert_ok!(withdraw_nominator_collateral(
+            USER,
+            VAULT,
+            default_nomination(currency_id)
+        ));
         let issuance_capacity_after_withdrawal_request =
             VaultRegistryPallet::get_issuable_tokens_from_vault(account_of(VAULT)).unwrap();
-        assert_eq!(issuance_capacity_before_withdrawal_request, 570000);
-        assert_eq!(issuance_capacity_after_withdrawal_request, 556666);
+        assert_eq!(issuance_capacity_before_withdrawal_request, wrapped(570000));
+        assert_eq!(issuance_capacity_after_withdrawal_request, wrapped(556666));
     });
 }
 
@@ -485,13 +494,13 @@ fn integration_test_nominator_withdrawal_below_collateralization_threshold_fails
             Call::VaultRegistry(VaultRegistryCall::withdraw_collateral(750000)).dispatch(origin_of(account_of(VAULT)))
         );
         assert_nomination_opt_in(VAULT);
-        assert_nominate_collateral(VAULT, USER, DEFAULT_NOMINATION);
+        assert_nominate_collateral(VAULT, USER, default_nomination(currency_id));
         assert_ok!(ExchangeRateOraclePallet::_set_exchange_rate(
             currency_id,
             FixedU128::checked_from_integer(3).unwrap()
         ));
         assert_noop!(
-            withdraw_nominator_collateral(USER, VAULT, DEFAULT_NOMINATION),
+            withdraw_nominator_collateral(USER, VAULT, default_nomination(currency_id)),
             NominationError::InsufficientCollateral
         );
     });
@@ -520,15 +529,15 @@ fn integration_test_maximum_nomination_ratio_calculation() {
 
 #[test]
 fn integration_test_vault_opt_out_must_refund_nomination() {
-    test_with_nomination_enabled_and_vault_opted_in(|_currency_id| {
-        assert_nominate_collateral(VAULT, USER, DEFAULT_NOMINATION);
+    test_with_nomination_enabled_and_vault_opted_in(|currency_id| {
+        assert_nominate_collateral(VAULT, USER, default_nomination(currency_id));
         assert_eq!(
             NominationPallet::get_total_nominated_collateral(&account_of(VAULT)).unwrap(),
-            DEFAULT_NOMINATION
+            default_nomination(currency_id)
         );
         assert_eq!(
             NominationPallet::get_nominator_collateral(&account_of(VAULT), &account_of(USER)).unwrap(),
-            DEFAULT_NOMINATION
+            default_nomination(currency_id)
         );
         assert_eq!(
             VaultRewardsPallet::compute_reward(INTERBTC, &account_of(USER)).unwrap(),
@@ -537,11 +546,11 @@ fn integration_test_vault_opt_out_must_refund_nomination() {
         assert_ok!(nomination_opt_out(VAULT));
         assert_eq!(
             NominationPallet::get_total_nominated_collateral(&account_of(VAULT)).unwrap(),
-            0
+            Amount::new(0, currency_id)
         );
         assert_eq!(
             NominationPallet::get_nominator_collateral(&account_of(VAULT), &account_of(USER)).unwrap(),
-            0
+            Amount::new(0, currency_id)
         );
         let nonce: u32 = VaultStakingPallet::nonce(INTERBTC, &account_of(VAULT));
         assert_eq!(nonce, 1);
@@ -555,8 +564,8 @@ fn integration_test_vault_opt_out_must_refund_nomination() {
 
 #[test]
 fn integration_test_banning_a_vault_does_not_force_refund() {
-    test_with_nomination_enabled_and_vault_opted_in(|_currency_id| {
-        assert_nominate_collateral(VAULT, USER, DEFAULT_NOMINATION);
+    test_with_nomination_enabled_and_vault_opted_in(|currency_id| {
+        assert_nominate_collateral(VAULT, USER, default_nomination(currency_id));
         VaultRegistryPallet::ban_vault(account_of(VAULT)).unwrap();
         let nonce: u32 = VaultStakingPallet::nonce(INTERBTC, &account_of(VAULT));
         assert_eq!(nonce, 0);
@@ -565,8 +574,8 @@ fn integration_test_banning_a_vault_does_not_force_refund() {
 
 #[test]
 fn integration_test_liquidating_a_vault_does_not_force_refund() {
-    test_with_nomination_enabled_and_vault_opted_in(|_currency_id| {
-        assert_nominate_collateral(VAULT, USER, DEFAULT_NOMINATION);
+    test_with_nomination_enabled_and_vault_opted_in(|currency_id| {
+        assert_nominate_collateral(VAULT, USER, default_nomination(currency_id));
         VaultRegistryPallet::liquidate_vault(&account_of(VAULT)).unwrap();
         let nonce: u32 = VaultStakingPallet::nonce(INTERBTC, &account_of(VAULT));
         assert_eq!(nonce, 0);
@@ -577,12 +586,12 @@ fn integration_test_liquidating_a_vault_does_not_force_refund() {
 fn integration_test_vault_withdrawal_cannot_exceed_max_nomination_taio() {
     test_with_nomination_enabled_and_vault_opted_in(|currency_id| {
         let max_nomination =
-            VaultRegistryPallet::get_max_nominatable_collateral(currency_id, DEFAULT_BACKING_COLLATERAL).unwrap();
+            VaultRegistryPallet::get_max_nominatable_collateral(&default_backing_collateral(currency_id)).unwrap();
         assert_nominate_collateral(VAULT, USER, max_nomination);
 
         // Need to withdraw 10 units to account for rounding errors
         assert_noop!(
-            withdraw_vault_collateral(VAULT, 10),
+            withdraw_vault_collateral(VAULT, Amount::new(10, currency_id)),
             VaultRegistryError::MaxNominationRatioViolation
         );
     })
@@ -592,18 +601,23 @@ fn integration_test_vault_withdrawal_cannot_exceed_max_nomination_taio() {
 fn integration_test_rewards_are_preserved_on_collateral_withdrawal() {
     test_with_nomination_enabled_and_vault_opted_in(|currency_id| {
         let mut user_data = default_user_state();
-        (*user_data.balances.get_mut(&currency_id).unwrap()).free = DEFAULT_USER_FREE_BALANCE + DEFAULT_NOMINATION;
+        (*user_data.balances.get_mut(&currency_id).unwrap()).free =
+            default_user_free_balance(currency_id) + default_nomination(currency_id);
 
         UserData::force_to(USER, user_data);
-        assert_nominate_collateral(VAULT, USER, DEFAULT_NOMINATION);
+        assert_nominate_collateral(VAULT, USER, default_nomination(currency_id));
 
-        let (issue_id, _) = issue_testing_utils::request_issue(currency_id, 100000);
+        let (issue_id, _) = issue_testing_utils::request_issue(currency_id, wrapped(100000));
         issue_testing_utils::execute_issue(issue_id);
         FeePallet::withdraw_all_vault_rewards(&account_of(VAULT)).unwrap();
         let reward_before_nomination_withdrawal =
             VaultStakingPallet::compute_reward(INTERBTC, &account_of(VAULT), &account_of(USER)).unwrap();
         assert_eq!(reward_before_nomination_withdrawal > 0, true);
-        assert_ok!(withdraw_nominator_collateral(USER, VAULT, DEFAULT_NOMINATION));
+        assert_ok!(withdraw_nominator_collateral(
+            USER,
+            VAULT,
+            default_nomination(currency_id)
+        ));
         assert_eq!(
             VaultStakingPallet::compute_reward(INTERBTC, &account_of(VAULT), &account_of(USER)).unwrap(),
             reward_before_nomination_withdrawal

@@ -3,10 +3,10 @@ use mocktopus::macros::mockable;
 
 #[cfg_attr(test, mockable)]
 pub(crate) mod fee {
-    use crate::types::Wrapped;
+    use currency::Amount;
     use frame_support::dispatch::DispatchError;
 
-    pub fn get_refund_fee_from_total<T: crate::Config>(amount: Wrapped<T>) -> Result<Wrapped<T>, DispatchError> {
+    pub fn get_refund_fee_from_total<T: crate::Config>(amount: &Amount<T>) -> Result<Amount<T>, DispatchError> {
         <fee::Pallet<T>>::get_refund_fee_from_total(amount)
     }
 }
@@ -59,29 +59,18 @@ pub(crate) mod security {
 }
 
 #[cfg_attr(test, mockable)]
-pub(crate) mod treasury {
-    use crate::types::Wrapped;
-    use currency::ParachainCurrency;
-    use frame_support::dispatch::DispatchResult;
-
-    pub fn mint<T: crate::Config>(requester: &T::AccountId, amount: Wrapped<T>) -> DispatchResult {
-        <T as vault_registry::Config>::Wrapped::mint(requester, amount)
-    }
-}
-
-#[cfg_attr(test, mockable)]
 pub(crate) mod vault_registry {
-    use crate::types::Wrapped;
+    use currency::Amount;
     use frame_support::dispatch::{DispatchError, DispatchResult};
 
     pub fn try_increase_to_be_issued_tokens<T: crate::Config>(
         vault_id: &T::AccountId,
-        amount: Wrapped<T>,
+        amount: &Amount<T>,
     ) -> Result<(), DispatchError> {
         <vault_registry::Pallet<T>>::try_increase_to_be_issued_tokens(vault_id, amount)
     }
 
-    pub fn issue_tokens<T: crate::Config>(vault_id: &T::AccountId, amount: Wrapped<T>) -> DispatchResult {
+    pub fn issue_tokens<T: crate::Config>(vault_id: &T::AccountId, amount: &Amount<T>) -> DispatchResult {
         <vault_registry::Pallet<T>>::issue_tokens(vault_id, amount)
     }
 }

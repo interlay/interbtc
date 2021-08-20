@@ -1,7 +1,11 @@
 pub use primitives::replace::{ReplaceRequest, ReplaceRequestStatus};
 
+use crate::{ext, Config};
 use codec::{Decode, Encode};
+use currency::Amount;
+use frame_support::traits::Get;
 use sp_core::H160;
+use sp_runtime::DispatchError;
 
 /// Storage version.
 #[derive(Encode, Decode, Eq, PartialEq)]
@@ -33,4 +37,23 @@ pub(crate) struct ReplaceRequestV0<AccountId, BlockNumber, Balance> {
     pub accept_time: Option<BlockNumber>,
     pub btc_address: H160,
     pub completed: bool,
+}
+
+pub trait ReplaceRequestExt<T: Config> {
+    fn amount(&self) -> Amount<T>;
+    fn griefing_collateral(&self) -> Amount<T>;
+    fn collateral(&self) -> Result<Amount<T>, DispatchError>;
+}
+
+impl<T: Config> ReplaceRequestExt<T> for ReplaceRequest<T::AccountId, T::BlockNumber, BalanceOf<T>> {
+    fn amount(&self) -> Amount<T> {
+        Amount::new(self.amount, T::GetWrappedCurrencyId::get())
+    }
+    fn griefing_collateral(&self) -> Amount<T> {
+        Amount::new(self.griefing_collateral, T::GetGriefingCollateralCurrencyId::get())
+    }
+    fn collateral(&self) -> Result<Amount<T>, DispatchError> {
+        let currency_id = ext::vault_registry::get_collateral_currency::<T>(&self.new_vault)?;
+        Ok(Amount::new(self.collateral, currency_id))
+    }
 }

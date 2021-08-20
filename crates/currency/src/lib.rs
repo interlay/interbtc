@@ -3,8 +3,9 @@
 #![deny(warnings)]
 #![cfg_attr(test, feature(proc_macro_hygiene))]
 #![cfg_attr(not(feature = "std"), no_std)]
+#![feature(const_fn)]
 
-use codec::FullCodec;
+use codec::{EncodeLike, FullCodec};
 use frame_support::{
     dispatch::{DispatchError, DispatchResult},
     ensure,
@@ -14,23 +15,419 @@ use frame_support::{
 use orml_traits::{MultiCurrency, MultiReservableCurrency};
 use pallet_transaction_payment::OnChargeTransaction;
 use sp_runtime::{
-    traits::{AtLeast32BitUnsigned, DispatchInfoOf, MaybeSerializeDeserialize, PostDispatchInfoOf, Saturating, Zero},
+    traits::{
+        AtLeast32BitUnsigned, CheckedAdd, CheckedDiv, CheckedMul, CheckedSub, DispatchInfoOf,
+        MaybeSerializeDeserialize, PostDispatchInfoOf, Saturating, UniqueSaturatedInto, Zero,
+    },
     transaction_validity::InvalidTransaction,
+    FixedPointNumber, FixedPointOperand,
 };
-use sp_std::{fmt::Debug, marker::PhantomData};
+use sp_std::{
+    convert::{TryFrom, TryInto},
+    fmt::Debug,
+    marker::PhantomData,
+};
+
+pub use monetary::Amount;
+pub use pallet::*;
+
+mod types;
+pub use types::CurrencyConversion;
+
+#[frame_support::pallet]
+pub mod pallet {
+    use super::*;
+    use frame_support::pallet_prelude::*;
+
+    /// ## Configuration
+    /// The pallet's configuration trait.
+    #[pallet::config]
+    pub trait Config: frame_system::Config + orml_tokens::Config<Balance = BalanceOf<Self>> {
+        type UnsignedFixedPoint: FixedPointNumber<Inner = BalanceOf<Self>>
+            + Encode
+            + EncodeLike
+            + Decode
+            + MaybeSerializeDeserialize;
+
+        type SignedInner: Debug
+            + CheckedDiv
+            + TryFrom<BalanceOf<Self>>
+            + TryInto<BalanceOf<Self>>
+            + MaybeSerializeDeserialize;
+
+        type SignedFixedPoint: FixedPointNumber<Inner = SignedInner<Self>>
+            + Encode
+            + EncodeLike
+            + Decode
+            + MaybeSerializeDeserialize;
+
+        type Balance: AtLeast32BitUnsigned
+            + FixedPointOperand
+            + MaybeSerializeDeserialize
+            + FullCodec
+            + Copy
+            + Default
+            + Debug;
+
+        /// Wrapped currency: INTERBTC.
+        #[pallet::constant]
+        type GetWrappedCurrencyId: Get<CurrencyId<Self>>;
+
+        type CurrencyConversion: types::CurrencyConversion<Amount<Self>, CurrencyId<Self>>;
+    }
+
+    #[pallet::error]
+    pub enum Error<T> {
+        ArithmeticOverflow,
+        ArithmeticUnderflow,
+        TryIntoIntError,
+        InvalidCurrency,
+    }
+
+    #[pallet::pallet]
+    pub struct Pallet<T>(_);
+}
+
+type CurrencyId<T> = <T as orml_tokens::Config>::CurrencyId;
+type BalanceOf<T> = <T as Config>::Balance;
+type SignedFixedPoint<T> = <T as Config>::SignedFixedPoint;
+type UnsignedFixedPoint<T> = <T as Config>::UnsignedFixedPoint;
+type SignedInner<T> = <T as Config>::SignedInner;
+
+#[cfg_attr(feature = "testing-utils", mocktopus::macros::mockable)]
+mod monetary {
+    use super::*;
+
+    #[cfg_attr(feature = "testing-utils", derive(Copy))]
+    #[derive(Clone, PartialEq, Eq, Debug)]
+    pub struct Amount<T: Config> {
+        amount: BalanceOf<T>,
+        currency_id: CurrencyId<T>,
+    }
+
+    impl<T: Config> Amount<T> {
+        pub const fn new(amount: BalanceOf<T>, currency_id: CurrencyId<T>) -> Self {
+            Self { amount, currency_id }
+        }
+
+        pub fn zero(currency_id: CurrencyId<T>) -> Self {
+            Self::new(0u32.into(), currency_id)
+        }
+
+        pub fn from_fixed_point(
+            amount: SignedFixedPoint<T>,
+            currency_id: CurrencyId<T>,
+        ) -> Result<Self, DispatchError> {
+            let amount = amount
+                .into_inner()
+                .checked_div(&SignedFixedPoint::<T>::accuracy())
+                .ok_or(Error::<T>::ArithmeticUnderflow)?
+                .try_into()
+                .map_err(|_| Error::<T>::TryIntoIntError)?;
+            Ok(Self::new(amount, currency_id))
+        }
+
+        pub fn amount(&self) -> BalanceOf<T> {
+            self.amount
+        }
+
+        pub fn currency(&self) -> CurrencyId<T> {
+            self.currency_id
+        }
+
+        fn checked_fn<F>(&self, other: &Self, f: F, err: Error<T>) -> Result<Self, DispatchError>
+        where
+            F: Fn(&BalanceOf<T>, &BalanceOf<T>) -> Option<BalanceOf<T>>,
+        {
+            if self.currency_id != other.currency_id {
+                return Err(Error::<T>::InvalidCurrency.into());
+            }
+            let amount = f(&self.amount, &other.amount).ok_or(err)?;
+
+            Ok(Self {
+                amount,
+                currency_id: self.currency_id,
+            })
+        }
+
+        pub fn checked_add(&self, other: &Self) -> Result<Self, DispatchError> {
+            self.checked_fn(
+                other,
+                <BalanceOf<T> as CheckedAdd>::checked_add,
+                Error::<T>::ArithmeticOverflow,
+            )
+        }
+
+        pub fn checked_sub(&self, other: &Self) -> Result<Self, DispatchError> {
+            self.checked_fn(
+                other,
+                <BalanceOf<T> as CheckedSub>::checked_sub,
+                Error::<T>::ArithmeticUnderflow,
+            )
+        }
+
+        pub fn saturating_sub(&self, other: &Self) -> Result<Self, DispatchError> {
+            ensure!(self.currency_id == other.currency_id, Error::<T>::InvalidCurrency);
+            self.checked_sub(other)
+                .or_else(|_| Ok(Self::new(0u32.into(), self.currency_id)))
+        }
+
+        pub fn checked_fixed_point_mul(&self, scalar: &UnsignedFixedPoint<T>) -> Result<Self, DispatchError> {
+            let amount = scalar
+                .checked_mul_int(self.amount)
+                .ok_or(Error::<T>::ArithmeticUnderflow)?;
+            Ok(Self {
+                amount,
+                currency_id: self.currency_id,
+            })
+        }
+
+        pub fn checked_fixed_point_mul_rounded_up(
+            &self,
+            scalar: &UnsignedFixedPoint<T>,
+        ) -> Result<Self, DispatchError> {
+            let self_fixed_point =
+                UnsignedFixedPoint::<T>::checked_from_integer(self.amount).ok_or(Error::<T>::TryIntoIntError)?;
+
+            // do the multiplication
+            let product = self_fixed_point
+                .checked_mul(&scalar)
+                .ok_or(Error::<T>::ArithmeticOverflow)?;
+
+            // convert to inner
+            let product_inner = UniqueSaturatedInto::<u128>::unique_saturated_into(product.into_inner());
+
+            // convert to u128 by dividing by a rounded up division by accuracy
+            let accuracy = UniqueSaturatedInto::<u128>::unique_saturated_into(UnsignedFixedPoint::<T>::accuracy());
+            let amount = product_inner
+                .checked_add(accuracy)
+                .ok_or(Error::<T>::ArithmeticOverflow)?
+                .checked_sub(1)
+                .ok_or(Error::<T>::ArithmeticUnderflow)?
+                .checked_div(accuracy)
+                .ok_or(Error::<T>::ArithmeticUnderflow)?
+                .try_into()
+                .map_err(|_| Error::<T>::TryIntoIntError)?;
+
+            Ok(Self {
+                amount,
+                currency_id: self.currency_id,
+            })
+        }
+
+        pub fn checked_div(&self, scalar: &UnsignedFixedPoint<T>) -> Result<Self, DispatchError> {
+            let amount = UnsignedFixedPoint::<T>::checked_from_integer(self.amount)
+                .ok_or(Error::<T>::TryIntoIntError)?
+                .checked_div(&scalar)
+                .ok_or(Error::<T>::ArithmeticOverflow)?
+                .into_inner()
+                .checked_div(&UnsignedFixedPoint::<T>::accuracy())
+                .ok_or(Error::<T>::ArithmeticUnderflow)?;
+            Ok(Self {
+                amount,
+                currency_id: self.currency_id,
+            })
+        }
+
+        pub fn ratio(&self, other: &Self) -> Result<UnsignedFixedPoint<T>, DispatchError> {
+            ensure!(self.currency_id == other.currency_id, Error::<T>::InvalidCurrency);
+            let ratio = UnsignedFixedPoint::<T>::checked_from_rational(self.amount, other.amount)
+                .ok_or(Error::<T>::TryIntoIntError)?;
+            Ok(ratio)
+        }
+
+        pub fn to_fixed(&self) -> Result<SignedFixedPoint<T>, DispatchError> {
+            let signed_inner =
+                TryInto::<SignedInner<T>>::try_into(self.amount).map_err(|_| Error::<T>::TryIntoIntError)?;
+            let signed_fixed_point = <T as pallet::Config>::SignedFixedPoint::checked_from_integer(signed_inner)
+                .ok_or(Error::<T>::TryIntoIntError)?;
+            Ok(signed_fixed_point)
+        }
+
+        pub fn min(&self, other: &Self) -> Result<Self, DispatchError> {
+            ensure!(self.currency_id == other.currency_id, Error::<T>::InvalidCurrency);
+            Ok(if self.le(other)? { self.clone() } else { other.clone() })
+        }
+
+        pub fn lt(&self, other: &Self) -> Result<bool, DispatchError> {
+            ensure!(self.currency_id == other.currency_id, Error::<T>::InvalidCurrency);
+            Ok(self.amount < other.amount)
+        }
+
+        pub fn le(&self, other: &Self) -> Result<bool, DispatchError> {
+            ensure!(self.currency_id == other.currency_id, Error::<T>::InvalidCurrency);
+            Ok(self.amount <= other.amount)
+        }
+
+        pub fn eq(&self, other: &Self) -> Result<bool, DispatchError> {
+            ensure!(self.currency_id == other.currency_id, Error::<T>::InvalidCurrency);
+            Ok(self.amount == other.amount)
+        }
+
+        pub fn ge(&self, other: &Self) -> Result<bool, DispatchError> {
+            ensure!(self.currency_id == other.currency_id, Error::<T>::InvalidCurrency);
+            Ok(self.amount >= other.amount)
+        }
+
+        pub fn gt(&self, other: &Self) -> Result<bool, DispatchError> {
+            ensure!(self.currency_id == other.currency_id, Error::<T>::InvalidCurrency);
+            Ok(self.amount > other.amount)
+        }
+
+        // todo: all other checked_ math operations
+
+        pub fn transfer(&self, source: &T::AccountId, destination: &T::AccountId) -> Result<(), DispatchError> {
+            with_currency_id::transfer::<T>(self.currency_id, source, destination, self.amount)
+        }
+
+        pub fn lock(&self, account_id: &T::AccountId) -> Result<(), DispatchError> {
+            with_currency_id::lock::<T>(self.currency_id, account_id, self.amount)
+        }
+
+        pub fn unlock(&self, account_id: &T::AccountId) -> Result<(), DispatchError> {
+            with_currency_id::unlock::<T>(self.currency_id, account_id, self.amount)
+        }
+
+        pub fn burn(&self, account_id: &T::AccountId) -> DispatchResult {
+            with_currency_id::burn::<T>(self.currency_id, account_id, self.amount)
+        }
+
+        pub fn mint(&self, account_id: &T::AccountId) -> DispatchResult {
+            with_currency_id::mint::<T>(self.currency_id, account_id, self.amount)
+        }
+
+        // lock, unlock, etc
+
+        pub fn convert_to(&self, currency_id: CurrencyId<T>) -> Result<Self, DispatchError> {
+            T::CurrencyConversion::convert(self, currency_id)
+        }
+
+        pub fn is_zero(&self) -> bool {
+            self.amount.is_zero()
+        }
+        pub fn rounded_mul(&self, fraction: UnsignedFixedPoint<T>) -> Result<Self, DispatchError> {
+            // we add 0.5 before we do the final integer division to round the result we return.
+            // note that unwrapping is safe because we use a constant
+            let rounding_addition = UnsignedFixedPoint::<T>::checked_from_rational(1, 2).unwrap();
+
+            let amount = UnsignedFixedPoint::<T>::checked_from_integer(self.amount)
+                .ok_or(Error::<T>::ArithmeticOverflow)?
+                .checked_mul(&fraction)
+                .ok_or(Error::<T>::ArithmeticOverflow)?
+                .checked_add(&rounding_addition)
+                .ok_or(Error::<T>::ArithmeticOverflow)?
+                .into_inner()
+                .checked_div(&UnsignedFixedPoint::<T>::accuracy())
+                .ok_or(Error::<T>::ArithmeticUnderflow)?;
+
+            Ok(Self {
+                amount,
+                currency_id: self.currency_id,
+            })
+        }
+    }
+
+    #[cfg(feature = "testing-utils")]
+    mod testing_utils {
+        use super::*;
+        use sp_std::{
+            cmp::{Ordering, PartialOrd},
+            ops::{Add, AddAssign, Div, Mul, Sub, SubAssign},
+        };
+
+        impl<T: Config> Amount<T> {
+            pub fn with_amount<F: FnOnce(BalanceOf<T>) -> BalanceOf<T>>(&self, f: F) -> Self {
+                Self {
+                    amount: f(self.amount),
+                    currency_id: self.currency_id,
+                }
+            }
+        }
+        impl<T: Config> AddAssign for Amount<T> {
+            fn add_assign(&mut self, other: Self) {
+                *self = self.clone() + other;
+            }
+        }
+
+        impl<T: Config> SubAssign for Amount<T> {
+            fn sub_assign(&mut self, other: Self) {
+                *self = self.clone() - other;
+            }
+        }
+
+        impl<T: Config> Add<Self> for Amount<T> {
+            type Output = Self;
+
+            fn add(self, other: Self) -> Self {
+                if self.currency_id != other.currency_id {
+                    panic!("Adding two different currencies")
+                }
+                Self {
+                    amount: self.amount + other.amount,
+                    currency_id: self.currency_id,
+                }
+            }
+        }
+
+        impl<T: Config> Sub for Amount<T> {
+            type Output = Self;
+
+            fn sub(self, other: Self) -> Self {
+                if self.currency_id != other.currency_id {
+                    panic!("Subtracting two different currencies")
+                }
+                Self {
+                    amount: self.amount - other.amount,
+                    currency_id: self.currency_id,
+                }
+            }
+        }
+
+        impl<T: Config> Mul<BalanceOf<T>> for Amount<T> {
+            type Output = Self;
+
+            fn mul(self, other: BalanceOf<T>) -> Self {
+                Self {
+                    amount: self.amount * other,
+                    currency_id: self.currency_id,
+                }
+            }
+        }
+
+        impl<T: Config> Div<BalanceOf<T>> for Amount<T> {
+            type Output = Self;
+
+            fn div(self, other: BalanceOf<T>) -> Self {
+                Self {
+                    amount: self.amount / other,
+                    currency_id: self.currency_id,
+                }
+            }
+        }
+
+        impl<T: Config> PartialOrd for Amount<T> {
+            fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+                if self.currency_id != other.currency_id {
+                    None
+                } else {
+                    Some(self.amount.cmp(&other.amount))
+                }
+            }
+        }
+    }
+}
 
 pub mod with_currency_id {
     use super::*;
 
-    pub fn get_free_balance<T: orml_tokens::Config>(currency_id: T::CurrencyId, account: &T::AccountId) -> T::Balance {
-        <orml_tokens::Pallet<T>>::free_balance(currency_id, account)
+    pub fn get_free_balance<T: Config>(currency_id: T::CurrencyId, account: &T::AccountId) -> Amount<T> {
+        let amount = <orml_tokens::Pallet<T>>::free_balance(currency_id, account);
+        Amount::new(amount, currency_id)
     }
 
-    pub fn get_reserved_balance<T: orml_tokens::Config>(
-        currency_id: T::CurrencyId,
-        account: &T::AccountId,
-    ) -> T::Balance {
-        <orml_tokens::Pallet<T>>::reserved_balance(currency_id, account)
+    pub fn get_reserved_balance<T: Config>(currency_id: T::CurrencyId, account: &T::AccountId) -> Amount<T> {
+        let amount = <orml_tokens::Pallet<T>>::reserved_balance(currency_id, account);
+        Amount::new(amount, currency_id)
     }
 
     pub fn lock<T: orml_tokens::Config>(
@@ -119,6 +516,26 @@ pub mod with_currency_id {
             orml_tokens::Error::<T>::BalanceTooLow
         );
         <orml_tokens::Pallet<T> as MultiCurrency<T::AccountId>>::transfer(currency_id, from, to, amount)
+    }
+
+    pub fn mint<T: orml_tokens::Config>(
+        currency_id: T::CurrencyId,
+        account: &T::AccountId,
+        amount: T::Balance,
+    ) -> DispatchResult {
+        <orml_tokens::Pallet<T>>::deposit(currency_id, account, amount)
+    }
+
+    pub fn burn<T: orml_tokens::Config>(
+        currency_id: T::CurrencyId,
+        account: &T::AccountId,
+        amount: T::Balance,
+    ) -> DispatchResult {
+        ensure!(
+            <orml_tokens::Pallet<T>>::slash_reserved(currency_id, account, amount).is_zero(),
+            orml_tokens::Error::<T>::BalanceTooLow
+        );
+        Ok(())
     }
 }
 
@@ -326,21 +743,15 @@ impl<AccountId, Balance> OnSweep<AccountId, Balance> for () {
     }
 }
 
-pub struct SweepFunds<T, GetAccountId, GetCurrencyId>(PhantomData<(T, GetAccountId, GetCurrencyId)>);
+pub struct SweepFunds<T, GetAccountId>(PhantomData<(T, GetAccountId)>);
 
-impl<T, GetAccountId, GetCurrencyId> OnSweep<T::AccountId, T::Balance> for SweepFunds<T, GetAccountId, GetCurrencyId>
+impl<T, GetAccountId> OnSweep<T::AccountId, Amount<T>> for SweepFunds<T, GetAccountId>
 where
-    T: orml_tokens::Config,
+    T: Config,
     GetAccountId: Get<T::AccountId>,
-    GetCurrencyId: Get<T::CurrencyId>,
 {
-    fn on_sweep(who: &T::AccountId, amount: T::Balance) -> DispatchResult {
+    fn on_sweep(who: &T::AccountId, amount: Amount<T>) -> DispatchResult {
         // transfer the funds to treasury account
-        <orml_tokens::Pallet<T> as MultiCurrency<T::AccountId>>::transfer(
-            GetCurrencyId::get(),
-            who,
-            &GetAccountId::get(),
-            amount,
-        )
+        amount.transfer(who, &GetAccountId::get())
     }
 }

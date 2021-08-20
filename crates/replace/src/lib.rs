@@ -14,6 +14,7 @@ pub use default_weights::WeightInfo;
 #[cfg(test)]
 extern crate mocktopus;
 
+use crate::types::ReplaceRequestExt;
 use btc_relay::BtcAddress;
 use frame_support::{
     dispatch::{DispatchError, DispatchResult},
@@ -25,13 +26,13 @@ use frame_system::{ensure_root, ensure_signed};
 #[cfg(test)]
 use mocktopus::macros::mockable;
 use sp_core::H256;
-use sp_runtime::traits::Zero;
 use sp_std::vec::Vec;
 
 #[doc(inline)]
 pub use crate::types::{ReplaceRequest, ReplaceRequestStatus};
 
 use crate::types::{BalanceOf, Collateral, Version, Wrapped};
+use currency::Amount;
 use vault_registry::CurrencySource;
 
 mod ext;
@@ -58,7 +59,7 @@ pub mod pallet {
         frame_system::Config
         + vault_registry::Config
         + btc_relay::Config
-        + exchange_rate_oracle::Config<Balance = BalanceOf<Self>>
+        + exchange_rate_oracle::Config
         + fee::Config
         + nomination::Config
     {
@@ -295,72 +296,69 @@ impl<T: Config> Pallet<T> {
         // check vault is not banned
         ext::vault_registry::ensure_not_banned::<T>(&vault_id)?;
 
+        let amount_btc = Amount::new(amount_btc, T::GetWrappedCurrencyId::get());
+        let griefing_collateral = Amount::new(griefing_collateral, T::GetGriefingCollateralCurrencyId::get());
+
         ensure!(
             !ext::nomination::is_nominatable::<T>(&vault_id)?,
             Error::<T>::VaultHasEnabledNomination
         );
 
         let requestable_tokens = ext::vault_registry::requestable_to_be_replaced_tokens::<T>(&vault_id)?;
-        let to_be_replaced_increase = amount_btc.min(requestable_tokens);
+        let to_be_replaced_increase = amount_btc.min(&requestable_tokens)?;
         let replace_collateral_increase = if amount_btc.is_zero() {
             griefing_collateral
         } else {
-            ext::vault_registry::calculate_collateral::<T>(griefing_collateral, to_be_replaced_increase, amount_btc)?
+            ext::vault_registry::calculate_collateral::<T>(&griefing_collateral, &to_be_replaced_increase, &amount_btc)?
         };
 
         // increase to-be-replaced tokens. This will fail if the vault does not have enough tokens available
         let (total_to_be_replaced, total_griefing_collateral) =
             ext::vault_registry::try_increase_to_be_replaced_tokens::<T>(
                 &vault_id,
-                to_be_replaced_increase,
-                replace_collateral_increase,
+                &to_be_replaced_increase,
+                &replace_collateral_increase,
             )?;
 
         // check that total-to-be-replaced is above the minimum. NOTE: this means that even
         // a request with amount=0 is valid, as long the _total_ is above DUST. This might
         // be the case if the vault just wants to increase the griefing collateral, for example.
-        let dust_value = <ReplaceBtcDustValue<T>>::get();
-        ensure!(total_to_be_replaced >= dust_value, Error::<T>::AmountBelowDustAmount);
+        ensure!(
+            total_to_be_replaced.ge(&Self::dust_value())?,
+            Error::<T>::AmountBelowDustAmount
+        );
 
-        // check that that the total griefing collateral is sufficient to back the total to-be-replaced amount
-        let currency_id = ext::vault_registry::get_collateral_currency::<T>(&vault_id)?;
+        // check that that the total griefing collateral is sufficient
         let required_collateral = ext::fee::get_replace_griefing_collateral::<T>(
-            ext::oracle::wrapped_to_collateral::<T>(total_to_be_replaced, currency_id)?,
+            &total_to_be_replaced.convert_to(T::GetGriefingCollateralCurrencyId::get())?,
         )?;
         ensure!(
-            total_griefing_collateral >= required_collateral,
+            total_griefing_collateral.ge(&required_collateral)?,
             Error::<T>::InsufficientCollateral
         );
 
         // Lock the oldVault’s griefing collateral. Note that this directly locks the amount
         // without going through the vault registry, so that this amount can not be used to
         // back issued tokens
-        ext::currency::lock::<T>(
-            T::GetGriefingCollateralCurrencyId::get(),
-            &vault_id,
-            replace_collateral_increase,
-        )?;
+        replace_collateral_increase.lock(&vault_id)?;
 
         // Emit RequestReplace event
         Self::deposit_event(<Event<T>>::RequestReplace(
             vault_id,
-            to_be_replaced_increase,
-            replace_collateral_increase,
+            to_be_replaced_increase.amount(),
+            replace_collateral_increase.amount(),
         ));
         Ok(())
     }
 
     fn _withdraw_replace_request(vault_id: T::AccountId, amount: Wrapped<T>) -> Result<(), DispatchError> {
+        let amount = Amount::new(amount, T::GetWrappedCurrencyId::get());
         // decrease to-be-replaced tokens, so that the vault is free to use its issued tokens again.
         let (withdrawn_tokens, to_withdraw_collateral) =
-            ext::vault_registry::decrease_to_be_replaced_tokens::<T>(&vault_id, amount)?;
+            ext::vault_registry::decrease_to_be_replaced_tokens::<T>(&vault_id, &amount)?;
 
         // release the used collateral
-        ext::currency::unlock::<T>(
-            T::GetGriefingCollateralCurrencyId::get(),
-            &vault_id,
-            to_withdraw_collateral,
-        )?;
+        to_withdraw_collateral.unlock(&vault_id)?;
 
         if withdrawn_tokens.is_zero() {
             return Err(Error::<T>::NoPendingRequest.into());
@@ -369,8 +367,8 @@ impl<T: Config> Pallet<T> {
         // Emit WithdrawReplaceRequest event.
         Self::deposit_event(<Event<T>>::WithdrawReplace(
             vault_id,
-            withdrawn_tokens,
-            to_withdraw_collateral,
+            withdrawn_tokens.amount(),
+            to_withdraw_collateral.amount(),
         ));
         Ok(())
     }
@@ -382,6 +380,10 @@ impl<T: Config> Pallet<T> {
         collateral: Collateral<T>,
         btc_address: BtcAddress,
     ) -> Result<(), DispatchError> {
+        let new_vault_currency_id = ext::vault_registry::get_collateral_currency::<T>(&new_vault_id)?;
+        let amount_btc = Amount::new(amount_btc, T::GetWrappedCurrencyId::get());
+        let collateral = Amount::new(collateral, new_vault_currency_id);
+
         // don't allow vaults to replace themselves
         ensure!(old_vault_id != new_vault_id, Error::<T>::ReplaceSelfNotAllowed);
 
@@ -394,23 +396,25 @@ impl<T: Config> Pallet<T> {
 
         // decrease old-vault's to-be-replaced tokens
         let (redeemable_tokens, griefing_collateral) =
-            ext::vault_registry::decrease_to_be_replaced_tokens::<T>(&old_vault_id, amount_btc)?;
+            ext::vault_registry::decrease_to_be_replaced_tokens::<T>(&old_vault_id, &amount_btc)?;
 
         // check amount_btc is above the minimum
-        let dust_value = <ReplaceBtcDustValue<T>>::get();
-        ensure!(redeemable_tokens >= dust_value, Error::<T>::AmountBelowDustAmount);
+        ensure!(
+            redeemable_tokens.ge(&Self::dust_value())?,
+            Error::<T>::AmountBelowDustAmount
+        );
 
         // Calculate and lock the new-vault's additional collateral
         let actual_new_vault_collateral =
-            ext::vault_registry::calculate_collateral::<T>(collateral, redeemable_tokens, amount_btc)?;
+            ext::vault_registry::calculate_collateral::<T>(&collateral, &redeemable_tokens, &amount_btc)?;
 
-        ext::vault_registry::try_deposit_collateral::<T>(&new_vault_id, actual_new_vault_collateral)?;
+        ext::vault_registry::try_deposit_collateral::<T>(&new_vault_id, &actual_new_vault_collateral)?;
 
         // increase old-vault's to-be-redeemed tokens - this should never fail
-        ext::vault_registry::try_increase_to_be_redeemed_tokens::<T>(&old_vault_id, redeemable_tokens)?;
+        ext::vault_registry::try_increase_to_be_redeemed_tokens::<T>(&old_vault_id, &redeemable_tokens)?;
 
         // increase new-vault's to-be-issued tokens - this will fail if there is insufficient collateral
-        ext::vault_registry::try_increase_to_be_issued_tokens::<T>(&new_vault_id, redeemable_tokens)?;
+        ext::vault_registry::try_increase_to_be_issued_tokens::<T>(&new_vault_id, &redeemable_tokens)?;
 
         let replace_id = ext::security::get_secure_id::<T>(&old_vault_id);
 
@@ -418,10 +422,10 @@ impl<T: Config> Pallet<T> {
             old_vault: old_vault_id,
             new_vault: new_vault_id,
             accept_time: ext::security::active_block_number::<T>(),
-            collateral: actual_new_vault_collateral,
+            collateral: actual_new_vault_collateral.amount(),
             btc_address,
-            griefing_collateral,
-            amount: redeemable_tokens,
+            griefing_collateral: griefing_collateral.amount(),
+            amount: redeemable_tokens.amount(),
             period: Self::replace_period(),
             btc_height: ext::btc_relay::get_best_block_height::<T>(),
             status: ReplaceRequestStatus::Pending,
@@ -446,6 +450,10 @@ impl<T: Config> Pallet<T> {
         // Retrieve the ReplaceRequest as per the replaceId parameter from Vaults in the VaultRegistry
         let replace = Self::get_open_replace_request(&replace_id)?;
 
+        let griefing_collateral: Amount<T> = replace.griefing_collateral();
+        let amount = replace.amount();
+        let collateral = replace.collateral()?;
+
         // NOTE: anyone can call this method provided the proof is correct
         let new_vault_id = replace.new_vault;
         let old_vault_id = replace.old_vault;
@@ -463,19 +471,10 @@ impl<T: Config> Pallet<T> {
 
         // decrease old-vault's issued & to-be-redeemed tokens, and
         // change new-vault's to-be-issued tokens to issued tokens
-        ext::vault_registry::replace_tokens::<T>(
-            old_vault_id.clone(),
-            new_vault_id.clone(),
-            replace.amount,
-            replace.collateral,
-        )?;
+        ext::vault_registry::replace_tokens::<T>(old_vault_id.clone(), new_vault_id.clone(), &amount, &collateral)?;
 
         // if the old vault has not been liquidated, give it back its griefing collateral
-        ext::currency::unlock::<T>(
-            T::GetGriefingCollateralCurrencyId::get(),
-            &old_vault_id,
-            replace.griefing_collateral,
-        )?;
+        griefing_collateral.unlock(&old_vault_id)?;
 
         // Emit ExecuteReplace event.
         Self::deposit_event(<Event<T>>::ExecuteReplace(replace_id, old_vault_id, new_vault_id));
@@ -488,6 +487,10 @@ impl<T: Config> Pallet<T> {
     fn _cancel_replace(caller: T::AccountId, replace_id: H256) -> Result<(), DispatchError> {
         // Retrieve the ReplaceRequest as per the replaceId parameter from Vaults in the VaultRegistry
         let replace = Self::get_open_replace_request(&replace_id)?;
+
+        let griefing_collateral: Amount<T> = replace.griefing_collateral();
+        let amount = replace.amount();
+        let collateral = replace.collateral()?;
 
         // only cancellable after the request has expired
         ensure!(
@@ -506,22 +509,21 @@ impl<T: Config> Pallet<T> {
 
         // decrease old-vault's to-be-redeemed tokens, and
         // decrease new-vault's to-be-issued tokens
-        ext::vault_registry::cancel_replace_tokens::<T>(&replace.old_vault, &new_vault_id, replace.amount)?;
+        ext::vault_registry::cancel_replace_tokens::<T>(&replace.old_vault, &new_vault_id, &amount)?;
 
         // slash old-vault's griefing collateral
         ext::vault_registry::transfer_funds::<T>(
-            T::GetGriefingCollateralCurrencyId::get(),
             CurrencySource::Griefing(replace.old_vault.clone()),
             CurrencySource::FreeBalance(new_vault_id.clone()),
-            replace.griefing_collateral,
+            &griefing_collateral,
         )?;
 
         // if the new_vault locked additional collateral especially for this replace,
         // release it if it does not cause him to be undercollateralized
         if !ext::vault_registry::is_vault_liquidated::<T>(&new_vault_id)?
-            && ext::vault_registry::is_allowed_to_withdraw_collateral::<T>(&new_vault_id, replace.collateral)?
+            && ext::vault_registry::is_allowed_to_withdraw_collateral::<T>(&new_vault_id, &collateral)?
         {
-            ext::vault_registry::force_withdraw_collateral::<T>(&new_vault_id, replace.collateral)?;
+            ext::vault_registry::force_withdraw_collateral::<T>(&new_vault_id, &collateral)?;
         }
 
         // Remove the ReplaceRequest from ReplaceRequests
@@ -602,5 +604,9 @@ impl<T: Config> Pallet<T> {
         <ReplaceRequests<T>>::mutate(key, |request| {
             request.status = status;
         });
+    }
+
+    pub fn dust_value() -> Amount<T> {
+        Amount::new(ReplaceBtcDustValue::<T>::get(), T::GetWrappedCurrencyId::get())
     }
 }
