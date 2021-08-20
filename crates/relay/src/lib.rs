@@ -221,7 +221,7 @@ pub mod pallet {
             raw_tx: Vec<u8>,
         ) -> DispatchResultWithPostInfo {
             ext::security::ensure_parachain_status_not_shutdown::<T>()?;
-            let _ = ensure_signed(origin)?;
+            let reporter_id = ensure_signed(origin)?;
 
             let merkle_proof = ext::btc_relay::parse_merkle_proof::<T>(&raw_merkle_proof)?;
             let transaction = parse_transaction(raw_tx.as_slice()).map_err(|_| Error::<T>::InvalidTransaction)?;
@@ -238,13 +238,12 @@ pub mod pallet {
             ext::btc_relay::verify_transaction_inclusion::<T>(tx_id, merkle_proof)?;
             Self::_is_parsed_transaction_invalid(&vault_id, transaction)?;
 
-            ext::vault_registry::liquidate_theft_vault::<T>(&vault_id)?;
+            ext::vault_registry::liquidate_theft_vault::<T>(&vault_id, reporter_id)?;
 
             <TheftReports<T>>::mutate(&tx_id, |reports| {
                 reports.insert(vault_id.clone());
             });
 
-            // TODO: reward the reporter from slashed Vault
             Self::deposit_event(<Event<T>>::VaultTheft(vault_id, tx_id));
 
             // don't take tx fees on success
@@ -272,7 +271,7 @@ pub mod pallet {
             raw_txs: (Vec<u8>, Vec<u8>),
         ) -> DispatchResultWithPostInfo {
             ext::security::ensure_parachain_status_not_shutdown::<T>()?;
-            let _ = ensure_signed(origin)?;
+            let reporter_id = ensure_signed(origin)?;
 
             // transactions must be unique
             ensure!(raw_txs.0 != raw_txs.1, Error::<T>::DuplicateTransaction);
@@ -309,7 +308,7 @@ pub mod pallet {
                     // might transfer any amount in the theft transaction
                     ensure!(left.op_return == right.op_return, Error::<T>::ExpectedDuplicate);
 
-                    ext::vault_registry::liquidate_theft_vault::<T>(&vault_id)?;
+                    ext::vault_registry::liquidate_theft_vault::<T>(&vault_id, reporter_id)?;
 
                     <TheftReports<T>>::mutate(&left_tx_id, |reports| {
                         reports.insert(vault_id.clone());
@@ -318,7 +317,6 @@ pub mod pallet {
                         reports.insert(vault_id.clone());
                     });
 
-                    // TODO: reward the reporter from slashed Vault
                     Self::deposit_event(<Event<T>>::VaultDoublePayment(vault_id, left_tx_id, right_tx_id));
 
                     // don't take tx fees on success

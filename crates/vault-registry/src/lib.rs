@@ -89,6 +89,7 @@ pub mod pallet {
             CurrencyId = primitives::CurrencyId,
         > + reward::Config<SignedFixedPoint = SignedFixedPoint<Self>, CurrencyId = CurrencyId<Self>>
         + orml_tokens::Config<Balance = BalanceOf<Self>, CurrencyId = CurrencyId<Self>>
+        + fee::Config<UnsignedInner = BalanceOf<Self>, UnsignedFixedPoint = UnsignedFixedPoint<Self>>
     {
         /// The vault module id, used for deriving its sovereign account ID.
         #[pallet::constant] // put the constant in metadata
@@ -540,7 +541,7 @@ pub mod pallet {
                 LiquidationCollateralThreshold::<T>::insert(currency_id, threshold);
             }
             StorageVersion::<T>::put(Version::V1);
-            LiquidationVaultAccountId::<T>::put::<T::AccountId>(T::PalletId::get().into_account());
+            LiquidationVaultAccountId::<T>::put::<T::AccountId>(<T as Config>::PalletId::get().into_account());
         }
     }
 }
@@ -1214,7 +1215,7 @@ impl<T: Config> Pallet<T> {
     /// Liquidates a vault, transferring all of its token balances to the `LiquidationVault`.
     /// Delegates to `liquidate_vault_with_status`, using `Liquidated` status
     pub fn liquidate_vault(vault_id: &T::AccountId) -> Result<Collateral<T>, DispatchError> {
-        Self::liquidate_vault_with_status(vault_id, VaultStatus::Liquidated)
+        Self::liquidate_vault_with_status(vault_id, VaultStatus::Liquidated, None)
     }
 
     /// Liquidates a vault, transferring all of its token balances to the
@@ -1223,16 +1224,16 @@ impl<T: Config> Pallet<T> {
     /// # Arguments
     /// * `vault_id` - the id of the vault to liquidate
     /// * `status` - status with which to liquidate the vault
-
     pub fn liquidate_vault_with_status(
         vault_id: &T::AccountId,
         status: VaultStatus,
+        reporter: Option<T::AccountId>,
     ) -> Result<Collateral<T>, DispatchError> {
         let mut vault = Self::get_active_rich_vault_from_id(&vault_id)?;
         let backing_collateral = vault.get_collateral()?;
         let vault_orig = vault.data.clone();
 
-        let to_slash = vault.liquidate(status)?;
+        let to_slash = vault.liquidate(status, reporter)?;
 
         Self::deposit_event(Event::<T>::LiquidateVault(
             vault_id.clone(),

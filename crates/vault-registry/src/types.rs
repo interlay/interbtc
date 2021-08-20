@@ -8,7 +8,7 @@ use frame_support::{
 use sp_arithmetic::FixedPointNumber;
 use sp_core::H256;
 use sp_runtime::traits::{CheckedAdd, CheckedSub, Saturating, Zero};
-use sp_std::collections::btree_set::BTreeSet;
+use sp_std::{cmp::min, collections::btree_set::BTreeSet};
 
 #[cfg(test)]
 use mocktopus::macros::mockable;
@@ -497,7 +497,29 @@ impl<T: Config> RichVault<T> {
         Ok(())
     }
 
-    pub(crate) fn liquidate(&mut self, status: VaultStatus) -> Result<Collateral<T>, DispatchError> {
+    pub(crate) fn get_theft_fee_max(&self) -> Result<Collateral<T>, DispatchError> {
+        let collateral = Pallet::<T>::compute_collateral(&self.id())?;
+        let theft_reward = ext::fee::get_theft_fee::<T>(collateral)?;
+
+        let theft_fee_max = ext::fee::get_theft_fee_max::<T>();
+        let max_theft_reward = ext::oracle::wrapped_to_collateral::<T>(theft_fee_max, self.data.currency_id)?;
+        Ok(min(theft_reward, max_theft_reward))
+    }
+
+    pub(crate) fn liquidate(
+        &mut self,
+        status: VaultStatus,
+        reporter: Option<T::AccountId>,
+    ) -> Result<Collateral<T>, DispatchError> {
+        let vault_id = &self.id();
+
+        // pay the theft report fee first
+        if let Some(ref reporter_id) = reporter {
+            let reward = self.get_theft_fee_max()?;
+            Pallet::<T>::force_withdraw_collateral(vault_id, reward)?;
+            ext::currency::transfer::<T>(self.data.currency_id, vault_id, reporter_id, reward)?;
+        }
+
         // we liquidate at most SECURE_THRESHOLD * collateral
         // this value is the amount of collateral held for the issued + to_be_issued
         let liquidated_collateral = self.get_used_collateral()?;
@@ -522,11 +544,7 @@ impl<T: Config> RichVault<T> {
 
         // temporarily slash additional collateral for the to_be_redeemed tokens
         // this is re-distributed once the tokens are burned
-        ext::staking::slash_stake::<T>(
-            T::GetRewardsCurrencyId::get(),
-            &self.id(),
-            collateral_for_to_be_redeemed,
-        )?;
+        ext::staking::slash_stake::<T>(T::GetRewardsCurrencyId::get(), vault_id, collateral_for_to_be_redeemed)?;
         self.increase_liquidated_collateral(collateral_for_to_be_redeemed)?;
 
         // Copy all tokens to the liquidation vault
@@ -536,7 +554,7 @@ impl<T: Config> RichVault<T> {
         liquidation_vault.increase_to_be_redeemed(self.data.to_be_redeemed_tokens)?;
 
         // withdraw stake from the reward pool
-        ext::reward::withdraw_stake::<T>(&self.id(), self.data.issued_tokens)?;
+        ext::reward::withdraw_stake::<T>(vault_id, self.data.issued_tokens)?;
 
         // Update vault: clear to_be_issued & issued_tokens, but don't touch to_be_redeemed
         let _ = self.update(|v| {

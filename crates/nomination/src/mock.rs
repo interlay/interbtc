@@ -173,7 +173,7 @@ parameter_types! {
 }
 
 impl fee::Config for Test {
-    type PalletId = FeePalletId;
+    type FeePalletId = FeePalletId;
     type WeightInfo = ();
     type SignedFixedPoint = SignedFixedPoint;
     type SignedInner = SignedInner;
@@ -236,6 +236,8 @@ impl ExtBuilder {
             premium_redeem_fee: UnsignedFixedPoint::checked_from_rational(5, 100).unwrap(), // 5%
             punishment_fee: UnsignedFixedPoint::checked_from_rational(1, 10).unwrap(), // 10%
             replace_griefing_collateral: UnsignedFixedPoint::checked_from_rational(1, 10).unwrap(), // 10%
+            theft_fee: UnsignedFixedPoint::checked_from_rational(5, 100).unwrap(),  // 5%
+            theft_fee_max: 10000000,                                                // 0.1 BTC
         }
         .assimilate_storage(&mut storage)
         .unwrap();

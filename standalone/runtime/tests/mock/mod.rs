@@ -1045,6 +1045,8 @@ impl ExtBuilder {
             premium_redeem_fee: FixedU128::checked_from_rational(5, 100).unwrap(), // 5%
             punishment_fee: FixedU128::checked_from_rational(1, 10).unwrap(), // 10%
             replace_griefing_collateral: FixedU128::checked_from_rational(1, 10).unwrap(), // 10%
+            theft_fee: FixedU128::checked_from_rational(5, 100).unwrap(),  // 5%
+            theft_fee_max: 10000000,                                       // 0.1 BTC
         }
         .assimilate_storage(&mut storage)
         .unwrap();

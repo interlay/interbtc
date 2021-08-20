@@ -758,7 +758,7 @@ parameter_types! {
 }
 
 impl fee::Config for Runtime {
-    type PalletId = FeePalletId;
+    type FeePalletId = FeePalletId;
     type WeightInfo = ();
     type SignedFixedPoint = SignedFixedPoint;
     type SignedInner = SignedInner;

@@ -133,7 +133,7 @@ parameter_types! {
 }
 
 impl fee::Config for Test {
-    type PalletId = FeePalletId;
+    type FeePalletId = FeePalletId;
     type WeightInfo = ();
     type SignedFixedPoint = SignedFixedPoint;
     type SignedInner = SignedInner;

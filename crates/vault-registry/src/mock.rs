@@ -37,6 +37,7 @@ frame_support::construct_runtime!(
         VaultRegistry: vault_registry::{Pallet, Call, Config<T>, Storage, Event<T>, ValidateUnsigned},
         ExchangeRateOracle: exchange_rate_oracle::{Pallet, Call, Config<T>, Storage, Event<T>},
         Staking: staking::{Pallet, Storage, Event<T>},
+        Fee: fee::{Pallet, Call, Config<T>, Storage},
     }
 );
 
@@ -132,6 +133,23 @@ impl exchange_rate_oracle::Config for Test {
     type Balance = Balance;
     type UnsignedFixedPoint = UnsignedFixedPoint;
     type WeightInfo = ();
+}
+
+parameter_types! {
+    pub const FeePalletId: PalletId = PalletId(*b"mod/fees");
+}
+
+impl fee::Config for Test {
+    type FeePalletId = FeePalletId;
+    type WeightInfo = ();
+    type SignedFixedPoint = SignedFixedPoint;
+    type SignedInner = SignedInner;
+    type UnsignedFixedPoint = UnsignedFixedPoint;
+    type UnsignedInner = Balance;
+    type VaultRewards = reward::RewardsCurrencyAdapter<Test, (), GetWrappedCurrencyId>;
+    type VaultStaking = staking::StakingCurrencyAdapter<Test, GetWrappedCurrencyId>;
+    type Wrapped = CurrencyAdapter<Test, GetWrappedCurrencyId>;
+    type OnSweep = ();
 }
 
 parameter_types! {
