@@ -63,7 +63,7 @@ pub mod pallet {
     pub trait Config: frame_system::Config + security::Config {
         /// The fee module id, used for deriving its sovereign account ID.
         #[pallet::constant]
-        type PalletId: Get<PalletId>;
+        type FeePalletId: Get<PalletId>;
 
         /// Weight information for the extrinsics in this module.
         type WeightInfo: WeightInfo;
@@ -88,7 +88,17 @@ pub mod pallet {
             + MaybeSerializeDeserialize;
 
         /// The `Inner` type of the `UnsignedFixedPoint`.
-        type UnsignedInner: Debug + One + CheckedMul + CheckedDiv + FixedPointOperand + AtLeast32BitUnsigned;
+        type UnsignedInner: Debug
+            + One
+            + CheckedMul
+            + CheckedDiv
+            + FixedPointOperand
+            + AtLeast32BitUnsigned
+            + Default
+            + Encode
+            + EncodeLike
+            + Decode
+            + MaybeSerializeDeserialize;
 
         /// Vault reward pool for the wrapped currency.
         type VaultRewards: reward::Rewards<Self::AccountId, SignedFixedPoint = SignedFixedPoint<Self>>;
@@ -165,6 +175,18 @@ pub mod pallet {
     #[pallet::getter(fn replace_griefing_collateral)]
     pub type ReplaceGriefingCollateral<T: Config> = StorageValue<_, UnsignedFixedPoint<T>, ValueQuery>;
 
+    /// # Relayer
+
+    /// Fee that is taken from a liquidated Vault on theft, used to pay the reporter.
+    #[pallet::storage]
+    #[pallet::getter(fn theft_fee)]
+    pub type TheftFee<T: Config> = StorageValue<_, UnsignedFixedPoint<T>, ValueQuery>;
+
+    /// Upper bound to the reward that can be payed to a reporter on success.
+    #[pallet::storage]
+    #[pallet::getter(fn theft_fee_max)]
+    pub type TheftFeeMax<T: Config> = StorageValue<_, UnsignedInner<T>, ValueQuery>;
+
     /// AccountId of the fee pool.
     #[pallet::storage]
     pub type FeePoolAccountId<T: Config> = StorageValue<_, T::AccountId, ValueQuery>;
@@ -188,6 +210,8 @@ pub mod pallet {
         pub premium_redeem_fee: UnsignedFixedPoint<T>,
         pub punishment_fee: UnsignedFixedPoint<T>,
         pub replace_griefing_collateral: UnsignedFixedPoint<T>,
+        pub theft_fee: UnsignedFixedPoint<T>,
+        pub theft_fee_max: UnsignedInner<T>,
     }
 
     #[cfg(feature = "std")]
@@ -201,6 +225,8 @@ pub mod pallet {
                 premium_redeem_fee: Default::default(),
                 punishment_fee: Default::default(),
                 replace_griefing_collateral: Default::default(),
+                theft_fee: Default::default(),
+                theft_fee_max: Default::default(),
             }
         }
     }
@@ -215,6 +241,8 @@ pub mod pallet {
             PremiumRedeemFee::<T>::put(self.premium_redeem_fee);
             PunishmentFee::<T>::put(self.punishment_fee);
             ReplaceGriefingCollateral::<T>::put(self.replace_griefing_collateral);
+            TheftFee::<T>::put(self.theft_fee);
+            TheftFeeMax::<T>::put(self.theft_fee_max);
         }
     }
 
@@ -248,7 +276,7 @@ impl<T: Config> Pallet<T> {
     /// This actually does computation. If you need to keep using it, then make sure you cache the
     /// value and only call this once.
     pub fn fee_pool_account_id() -> T::AccountId {
-        <T as Config>::PalletId::get().into_account()
+        <T as Config>::FeePalletId::get().into_account()
     }
 
     // Public functions exposed to other pallets
@@ -323,6 +351,15 @@ impl<T: Config> Pallet<T> {
     /// * `amount` - replace amount in collateral (at current exchange rate)
     pub fn get_replace_griefing_collateral(amount: Collateral<T>) -> Result<Collateral<T>, DispatchError> {
         Self::collateral_for(amount, <ReplaceGriefingCollateral<T>>::get())
+    }
+
+    /// Calculate the fee taken from a liquidated Vault on theft.
+    ///
+    /// # Arguments
+    ///
+    /// * `amount` - the vault's backing collateral
+    pub fn get_theft_fee(amount: Collateral<T>) -> Result<Collateral<T>, DispatchError> {
+        Self::collateral_for(amount, <TheftFee<T>>::get())
     }
 
     /// Calculate the fee portion of a total amount. For `amount = fee + refund_amount`, this

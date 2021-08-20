@@ -13,8 +13,15 @@ pub(crate) mod vault_registry {
         <vault_registry::Pallet<T>>::get_active_vault_from_id(vault_id)
     }
 
-    pub fn liquidate_theft_vault<T: crate::Config>(vault_id: &T::AccountId) -> DispatchResult {
-        let _ = <vault_registry::Pallet<T>>::liquidate_vault_with_status(vault_id, VaultStatus::CommittedTheft)?;
+    pub fn liquidate_theft_vault<T: crate::Config>(
+        vault_id: &T::AccountId,
+        reporter_id: T::AccountId,
+    ) -> DispatchResult {
+        let _ = <vault_registry::Pallet<T>>::liquidate_vault_with_status(
+            vault_id,
+            VaultStatus::CommittedTheft,
+            Some(reporter_id),
+        )?;
         Ok(())
     }
 }

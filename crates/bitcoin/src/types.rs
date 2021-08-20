@@ -13,7 +13,7 @@ use crate::{
 };
 use codec::{Decode, Encode};
 pub use sp_core::{H160, H256, U256};
-use sp_std::{convert::TryFrom, prelude::*};
+use sp_std::{convert::TryFrom, prelude::*, vec};
 
 #[cfg(feature = "std")]
 use codec::alloc::string::String;

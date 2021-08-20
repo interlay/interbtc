@@ -11,7 +11,7 @@ use mocktopus::macros::mockable;
 
 use crate::Error;
 use sp_core::U256;
-use sp_std::prelude::*;
+use sp_std::{prelude::*, vec};
 
 use crate::{address::Address, types::*};
 

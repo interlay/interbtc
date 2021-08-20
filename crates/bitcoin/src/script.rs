@@ -1,5 +1,5 @@
 use crate::{formatter::Formattable, parser::extract_op_return_data, types::*, Error};
-use sp_std::prelude::*;
+use sp_std::{prelude::*, vec};
 
 #[cfg(feature = "std")]
 use codec::alloc::string::String;

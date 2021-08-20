@@ -167,3 +167,17 @@ pub(crate) mod reward {
         )
     }
 }
+
+#[cfg_attr(test, mockable)]
+pub(crate) mod fee {
+    use crate::{Collateral, Wrapped};
+    use frame_support::dispatch::DispatchError;
+
+    pub fn get_theft_fee<T: crate::Config>(amount: Collateral<T>) -> Result<Collateral<T>, DispatchError> {
+        <fee::Pallet<T>>::get_theft_fee(amount)
+    }
+
+    pub fn get_theft_fee_max<T: crate::Config>() -> Wrapped<T> {
+        <fee::Pallet<T>>::theft_fee_max()
+    }
+}
