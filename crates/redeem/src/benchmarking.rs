@@ -49,16 +49,8 @@ fn initialize_oracle<T: crate::Config>() {
                 <T as exchange_rate_oracle::Config>::UnsignedFixedPoint::checked_from_rational(1, 1).unwrap(),
             ),
             (
-                OracleKey::FeeEstimation(BitcoinInclusionTime::Fast),
+                OracleKey::FeeEstimation,
                 <T as exchange_rate_oracle::Config>::UnsignedFixedPoint::checked_from_rational(3, 1).unwrap(),
-            ),
-            (
-                OracleKey::FeeEstimation(BitcoinInclusionTime::Half),
-                <T as exchange_rate_oracle::Config>::UnsignedFixedPoint::checked_from_rational(2, 1).unwrap(),
-            ),
-            (
-                OracleKey::FeeEstimation(BitcoinInclusionTime::Hour),
-                <T as exchange_rate_oracle::Config>::UnsignedFixedPoint::checked_from_rational(1, 1).unwrap(),
             ),
         ],
     )

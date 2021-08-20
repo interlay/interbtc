@@ -1,6 +1,6 @@
 use crate as redeem;
 use crate::{Config, Error};
-pub use exchange_rate_oracle::{BitcoinInclusionTime, CurrencyId, OracleKey};
+pub use exchange_rate_oracle::{CurrencyId, OracleKey};
 use frame_support::{assert_ok, parameter_types, traits::GenesisBuild, PalletId};
 use mocktopus::mocking::clear_mocks;
 use orml_tokens::CurrencyAdapter;
@@ -301,9 +301,7 @@ where
             Origin::signed(ALICE),
             vec![
                 (OracleKey::ExchangeRate(CurrencyId::DOT), FixedU128::from(1)),
-                (OracleKey::FeeEstimation(BitcoinInclusionTime::Fast), FixedU128::from(3)),
-                (OracleKey::FeeEstimation(BitcoinInclusionTime::Half), FixedU128::from(2)),
-                (OracleKey::FeeEstimation(BitcoinInclusionTime::Hour), FixedU128::from(1)),
+                (OracleKey::FeeEstimation, FixedU128::from(3)),
             ]
         ));
         <exchange_rate_oracle::Pallet<Test>>::begin_block(0);

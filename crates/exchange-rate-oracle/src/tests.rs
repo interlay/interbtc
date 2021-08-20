@@ -1,6 +1,6 @@
 use crate::{
     mock::{run_test, ExchangeRateOracle, Origin, System, Test, TestError, TestEvent},
-    BitcoinInclusionTime, CurrencyId, OracleKey,
+    CurrencyId, OracleKey,
 };
 use frame_support::{assert_err, assert_ok, dispatch::DispatchError};
 use mocktopus::mocking::*;
@@ -222,11 +222,7 @@ fn set_btc_tx_fees_per_byte_succeeds() {
     run_test(|| {
         ExchangeRateOracle::is_authorized.mock_safe(|_| MockResult::Return(true));
 
-        let keys = vec![
-            OracleKey::FeeEstimation(BitcoinInclusionTime::Fast),
-            OracleKey::FeeEstimation(BitcoinInclusionTime::Half),
-            OracleKey::FeeEstimation(BitcoinInclusionTime::Hour),
-        ];
+        let keys = vec![OracleKey::FeeEstimation];
 
         let values: Vec<_> = keys
             .iter()

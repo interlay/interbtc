@@ -31,7 +31,7 @@ pub use crate::types::{RedeemRequest, RedeemRequestStatus};
 
 use crate::types::{BalanceOf, Collateral, Version, Wrapped};
 use btc_relay::BtcAddress;
-use exchange_rate_oracle::{BitcoinInclusionTime, OracleKey};
+use exchange_rate_oracle::OracleKey;
 use frame_support::{
     dispatch::{DispatchError, DispatchResult},
     ensure,
@@ -642,7 +642,7 @@ impl<T: Config> Pallet<T> {
     pub fn get_current_inclusion_fee() -> Result<Wrapped<T>, DispatchError> {
         {
             let size: u32 = Self::redeem_transaction_size();
-            let satoshi_per_bytes = ext::oracle::get_price::<T>(OracleKey::FeeEstimation(BitcoinInclusionTime::Fast))?;
+            let satoshi_per_bytes = ext::oracle::get_price::<T>(OracleKey::FeeEstimation)?;
 
             let fee = satoshi_per_bytes
                 .checked_mul_int(size)

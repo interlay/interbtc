@@ -35,10 +35,7 @@ use frame_support::{
     weights::Weight,
 };
 use frame_system::{ensure_root, ensure_signed};
-pub use primitives::{
-    oracle::{BitcoinInclusionTime, Key as OracleKey},
-    CurrencyId,
-};
+pub use primitives::{oracle::Key as OracleKey, CurrencyId};
 use security::{ErrorCode, StatusCode};
 use sp_runtime::{
     traits::{UniqueSaturatedInto, *},
