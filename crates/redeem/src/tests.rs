@@ -654,7 +654,7 @@ fn test_mint_tokens_for_reimbursed_redeem() {
         Security::<Test>::set_active_block_number(100);
         assert_noop!(
             Redeem::mint_tokens_for_reimbursed_redeem(Origin::signed(BOB), H256([0u8; 32])),
-            VaultRegistryError::ExceedingVaultLimit
+            VaultRegistryError::VaultBanned
         );
         Security::<Test>::set_active_block_number(101);
         ext::vault_registry::try_increase_to_be_issued_tokens::<Test>.mock_safe(move |vault_id, amount| {

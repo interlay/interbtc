@@ -603,6 +603,7 @@ impl<T: Config> Pallet<T> {
         );
 
         ensure!(redeem.vault == vault_id, Error::<T>::UnauthorizedUser);
+        ext::vault_registry::ensure_not_banned::<T>(&vault_id)?;
 
         let reimbursed_amount = redeem
             .amount_btc
