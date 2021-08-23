@@ -20,10 +20,10 @@ frame_support::construct_runtime!(
         NodeBlock = Block,
         UncheckedExtrinsic = UncheckedExtrinsic,
     {
-        Tokens: orml_tokens::{Pallet, Storage, Config<T>, Event<T>},
-
+        // substrate pallets
         System: frame_system::{Pallet, Call, Storage, Config, Event<T>},
         Timestamp: pallet_timestamp::{Pallet, Call, Storage, Inherent},
+        Tokens: orml_tokens::{Pallet, Storage, Config<T>, Event<T>},
 
         // Operational
         Security: security::{Pallet, Call, Storage, Event<T>},
