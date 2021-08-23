@@ -8,6 +8,7 @@ use bitcoin::{
     },
 };
 use btc_relay::{BtcAddress, BtcPublicKey, Pallet as BtcRelay};
+use currency::Amount;
 use exchange_rate_oracle::Pallet as ExchangeRateOracle;
 use frame_benchmarking::{account, benchmarks, impl_benchmark_test_suite};
 use frame_support::{assert_ok, traits::Get};
@@ -108,7 +109,7 @@ benchmarks! {
         );
 
         mint_collateral::<T>(&vault_id, 1000u32.into());
-        assert_ok!(VaultRegistry::<T>::try_deposit_collateral(&vault_id, 1000u32.into()));
+        assert_ok!(VaultRegistry::<T>::try_deposit_collateral(&vault_id, &Amount::new(1000u32.into(), T::GetGriefingCollateralCurrencyId::get())));
 
         let height = 0;
         let block = BlockBuilder::new()
@@ -167,7 +168,7 @@ benchmarks! {
         Security::<T>::set_active_block_number(Security::<T>::active_block_number() + BtcRelay::<T>::parachain_confirmations() + 1u32.into());
 
         ExchangeRateOracle::<T>::_set_exchange_rate(DEFAULT_TESTING_CURRENCY,
-            <T as exchange_rate_oracle::Config>::UnsignedFixedPoint::one()
+            <T as currency::Config>::UnsignedFixedPoint::one()
         ).unwrap();
     }: _(RawOrigin::Signed(origin), vault_id, proof, raw_tx)
 }

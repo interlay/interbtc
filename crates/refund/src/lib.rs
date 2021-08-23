@@ -13,6 +13,7 @@ mod tests;
 #[cfg(test)]
 extern crate mocktopus;
 
+use currency::Amount;
 #[cfg(test)]
 use mocktopus::macros::mockable;
 
@@ -23,13 +24,12 @@ mod ext;
 pub mod types;
 
 use btc_relay::BtcAddress;
-use frame_support::{dispatch::DispatchError, ensure, transactional};
+use frame_support::{dispatch::DispatchError, ensure, traits::Get, transactional};
 use frame_system::ensure_signed;
 use sp_core::H256;
-use sp_runtime::traits::CheckedSub;
 use sp_std::vec::Vec;
 pub use types::RefundRequest;
-use types::{BalanceOf, Wrapped};
+use types::{BalanceOf, RefundRequestExt, Wrapped};
 
 pub use pallet::*;
 
@@ -152,7 +152,7 @@ impl<T: Config> Pallet<T> {
     /// * `issuer` - id of the user that made the issue request
     /// * `btc_address` - the btc address that should receive the refund
     pub fn request_refund(
-        total_amount_btc: Wrapped<T>,
+        total_amount_btc: &Amount<T>,
         vault_id: T::AccountId,
         issuer: T::AccountId,
         btc_address: BtcAddress,
@@ -161,13 +161,10 @@ impl<T: Config> Pallet<T> {
         ext::security::ensure_parachain_status_not_shutdown::<T>()?;
 
         let fee_wrapped = ext::fee::get_refund_fee_from_total::<T>(total_amount_btc)?;
-        let net_refund_amount_wrapped = total_amount_btc
-            .checked_sub(&fee_wrapped)
-            .ok_or(Error::<T>::ArithmeticUnderflow)?;
+        let net_refund_amount_wrapped = total_amount_btc.checked_sub(&fee_wrapped)?;
 
         // Only refund if the amount is above the dust value
-        let dust_amount = <RefundBtcDustValue<T>>::get();
-        if net_refund_amount_wrapped < dust_amount {
+        if net_refund_amount_wrapped.lt(&Self::get_dust_value())? {
             return Ok(None);
         }
 
@@ -175,9 +172,9 @@ impl<T: Config> Pallet<T> {
 
         let request = RefundRequest {
             vault: vault_id,
-            amount_wrapped: net_refund_amount_wrapped,
-            fee: fee_wrapped,
-            amount_btc: total_amount_btc,
+            amount_wrapped: net_refund_amount_wrapped.amount(),
+            fee: fee_wrapped.amount(),
+            amount_btc: total_amount_btc.amount(),
             issuer,
             btc_address,
             issue_id,
@@ -222,9 +219,10 @@ impl<T: Config> Pallet<T> {
             refund_id,
         )?;
         // mint issued tokens corresponding to the fee. Note that this can fail
-        ext::vault_registry::try_increase_to_be_issued_tokens::<T>(&request.vault, request.fee)?;
-        ext::vault_registry::issue_tokens::<T>(&request.vault, request.fee)?;
-        ext::treasury::mint::<T>(&request.vault, request.fee)?;
+        let fee = request.fee();
+        ext::vault_registry::try_increase_to_be_issued_tokens::<T>(&request.vault, &fee)?;
+        ext::vault_registry::issue_tokens::<T>(&request.vault, &fee)?;
+        fee.mint(&request.vault)?;
 
         // mark the request as completed
         <RefundRequests<T>>::mutate(refund_id, |request| {
@@ -312,5 +310,9 @@ impl<T: Config> Pallet<T> {
         <RefundRequests<T>>::iter()
             .filter(|(_, request)| request.vault == account_id)
             .collect::<Vec<_>>()
+    }
+
+    fn get_dust_value() -> Amount<T> {
+        Amount::new(<RefundBtcDustValue<T>>::get(), T::GetWrappedCurrencyId::get())
     }
 }

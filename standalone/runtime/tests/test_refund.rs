@@ -51,9 +51,9 @@ mod spec_based_tests {
 
             let user_btc_address = BtcAddress::P2PKH(H160([2; 20]));
 
-            let refund_amount = 100;
+            let refund_amount = wrapped(100);
             let refund_id = RefundPallet::request_refund(
-                refund_amount,
+                &refund_amount,
                 account_of(BOB),
                 account_of(ALICE),
                 user_btc_address,
@@ -74,8 +74,8 @@ mod spec_based_tests {
             .dispatch(origin_of(account_of(BOB))));
 
             let refund_request = RefundPallet::refund_requests(refund_id);
-            let refund_fee = refund_request.fee;
-            let total_supply = TreasuryPallet::total_issuance();
+            let refund_fee = wrapped(refund_request.fee);
+            let total_supply = wrapped(TreasuryPallet::total_issuance());
 
             // POSTCONDITION: refund.completed MUST be true
             assert!(refund_request.completed);
@@ -88,7 +88,7 @@ mod spec_based_tests {
             );
 
             // POSTCONDITION: total supply MUST increase by fee
-            assert_eq!(total_supply + refund_fee, TreasuryPallet::total_issuance());
+            assert_eq!(total_supply + refund_fee, wrapped(TreasuryPallet::total_issuance()));
 
             assert_eq!(
                 ParachainState::get(),

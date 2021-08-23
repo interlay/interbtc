@@ -6,13 +6,11 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 mod ext;
-mod types;
 
 #[cfg(any(feature = "runtime-benchmarks", test))]
 mod benchmarking;
 
 mod default_weights;
-pub use default_weights::WeightInfo;
 
 #[cfg(test)]
 mod tests;
@@ -20,30 +18,35 @@ mod tests;
 #[cfg(test)]
 mod mock;
 
+pub mod types;
+
 #[cfg(test)]
 extern crate mocktopus;
-
-use crate::types::{Collateral, UnsignedFixedPoint, Version, Wrapped};
 
 #[cfg(test)]
 use mocktopus::macros::mockable;
 
-use codec::{Decode, Encode, EncodeLike, FullCodec};
+use crate::types::{Collateral, UnsignedFixedPoint, Version, Wrapped};
+use codec::{Decode, Encode};
+use currency::Amount;
 use frame_support::{
     dispatch::{DispatchError, DispatchResult},
-    ensure, transactional,
+    ensure,
+    traits::Get,
+    transactional,
     weights::Weight,
 };
 use frame_system::{ensure_root, ensure_signed};
-pub use primitives::{oracle::Key as OracleKey, CurrencyId};
 use security::{ErrorCode, StatusCode};
 use sp_runtime::{
     traits::{UniqueSaturatedInto, *},
-    FixedPointNumber, FixedPointOperand,
+    FixedPointNumber,
 };
-use sp_std::{convert::TryInto, fmt::Debug, vec::Vec};
+use sp_std::{convert::TryInto, vec::Vec};
 
+pub use default_weights::WeightInfo;
 pub use pallet::*;
+pub use primitives::{oracle::Key as OracleKey, CurrencyId, TruncateFixedPointToInt};
 
 #[derive(Encode, Decode, Eq, PartialEq, Clone, Copy, Ord, PartialOrd)]
 pub struct TimestampedValue<Value, Moment> {
@@ -60,21 +63,11 @@ pub mod pallet {
     /// ## Configuration
     /// The pallet's configuration trait.
     #[pallet::config]
-    pub trait Config: frame_system::Config + pallet_timestamp::Config + security::Config {
+    pub trait Config:
+        frame_system::Config + pallet_timestamp::Config + security::Config + currency::Config<CurrencyId = CurrencyId>
+    {
         /// The overarching event type.
         type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
-
-        /// The primitive balance type.
-        type Balance: AtLeast32BitUnsigned
-            + FixedPointOperand
-            + MaybeSerializeDeserialize
-            + FullCodec
-            + Copy
-            + Default
-            + Debug;
-
-        /// The unsigned fixed point type.
-        type UnsignedFixedPoint: FixedPointNumber<Inner = <Self as Config>::Balance> + Encode + EncodeLike + Decode;
 
         /// Weight information for the extrinsics in this module.
         type WeightInfo: WeightInfo;
@@ -100,6 +93,8 @@ pub mod pallet {
         ArithmeticOverflow,
         /// Mathematical operation caused an underflow
         ArithmeticUnderflow,
+        /// conversion between different collateral types is not implemented
+        UnsupportedConversion,
     }
 
     #[pallet::hooks]
@@ -307,6 +302,21 @@ impl<T: Config> Pallet<T> {
         Aggregate::<T>::get(key).ok_or(Error::<T>::MissingExchangeRate.into())
     }
 
+    pub fn convert(amount: &Amount<T>, currency_id: T::CurrencyId) -> Result<Amount<T>, DispatchError> {
+        let converted = match (amount.currency(), currency_id) {
+            (x, _) if x == T::GetWrappedCurrencyId::get() => {
+                // convert interbtc to collateral
+                Self::wrapped_to_collateral(amount.amount(), currency_id)?
+            }
+            (from_currency, x) if x == T::GetWrappedCurrencyId::get() => {
+                // convert collateral to interbtc
+                Self::collateral_to_wrapped(amount.amount(), from_currency)?
+            }
+            _ => return Err(Error::<T>::UnsupportedConversion.into()),
+        };
+        Ok(Amount::new(converted, currency_id))
+    }
+
     pub fn wrapped_to_collateral(amount: Wrapped<T>, currency_id: CurrencyId) -> Result<Collateral<T>, DispatchError> {
         let rate = Self::get_price(OracleKey::ExchangeRate(currency_id))?;
         let converted = rate.checked_mul_int(amount).ok_or(Error::<T>::ArithmeticOverflow)?;
@@ -325,9 +335,8 @@ impl<T: Config> Pallet<T> {
             .ok_or(Error::<T>::TryIntoIntError)?
             .checked_div(&rate)
             .ok_or(Error::<T>::ArithmeticUnderflow)?
-            .into_inner()
-            .checked_div(&UnsignedFixedPoint::<T>::accuracy())
-            .ok_or(Error::<T>::ArithmeticUnderflow)?
+            .truncate_to_inner()
+            .ok_or(Error::<T>::TryIntoIntError)?
             .unique_saturated_into())
     }
 

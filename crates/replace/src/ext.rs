@@ -48,24 +48,24 @@ pub(crate) mod btc_relay {
 
 #[cfg_attr(test, mockable)]
 pub(crate) mod vault_registry {
-    use crate::{Collateral, Wrapped};
     use btc_relay::BtcAddress;
+    use currency::Amount;
     use frame_support::dispatch::{DispatchError, DispatchResult};
     use vault_registry::types::{CurrencyId, CurrencySource};
 
     pub fn transfer_funds<T: crate::Config>(
-        currency_id: CurrencyId<T>,
         from: CurrencySource<T>,
         to: CurrencySource<T>,
-        amount: Collateral<T>,
+        amount: &Amount<T>,
     ) -> DispatchResult {
-        <vault_registry::Pallet<T>>::transfer_funds(currency_id, from, to, amount)
+        <vault_registry::Pallet<T>>::transfer_funds(from, to, amount)
     }
+
     pub fn replace_tokens<T: crate::Config>(
         old_vault_id: T::AccountId,
         new_vault_id: T::AccountId,
-        tokens: Wrapped<T>,
-        collateral: Collateral<T>,
+        tokens: &Amount<T>,
+        collateral: &Amount<T>,
     ) -> DispatchResult {
         <vault_registry::Pallet<T>>::replace_tokens(&old_vault_id, &new_vault_id, tokens, collateral)
     }
@@ -73,7 +73,7 @@ pub(crate) mod vault_registry {
     pub fn cancel_replace_tokens<T: crate::Config>(
         old_vault_id: &T::AccountId,
         new_vault_id: &T::AccountId,
-        tokens: Wrapped<T>,
+        tokens: &Amount<T>,
     ) -> DispatchResult {
         <vault_registry::Pallet<T>>::cancel_replace_tokens(old_vault_id, new_vault_id, tokens)
     }
@@ -84,7 +84,7 @@ pub(crate) mod vault_registry {
 
     pub fn try_increase_to_be_redeemed_tokens<T: crate::Config>(
         vault_id: &T::AccountId,
-        tokens: Wrapped<T>,
+        tokens: &Amount<T>,
     ) -> DispatchResult {
         <vault_registry::Pallet<T>>::try_increase_to_be_redeemed_tokens(vault_id, tokens)
     }
@@ -102,58 +102,58 @@ pub(crate) mod vault_registry {
 
     pub fn try_increase_to_be_issued_tokens<T: crate::Config>(
         vault_id: &T::AccountId,
-        amount: Wrapped<T>,
+        amount: &Amount<T>,
     ) -> Result<(), DispatchError> {
         <vault_registry::Pallet<T>>::try_increase_to_be_issued_tokens(vault_id, amount)
     }
 
     pub fn requestable_to_be_replaced_tokens<T: crate::Config>(
         vault_id: &T::AccountId,
-    ) -> Result<Wrapped<T>, DispatchError> {
+    ) -> Result<Amount<T>, DispatchError> {
         <vault_registry::Pallet<T>>::requestable_to_be_replaced_tokens(vault_id)
     }
 
     pub fn try_increase_to_be_replaced_tokens<T: crate::Config>(
         vault_id: &T::AccountId,
-        amount: Wrapped<T>,
-        griefing_collateral: Collateral<T>,
-    ) -> Result<(Wrapped<T>, Collateral<T>), DispatchError> {
+        amount: &Amount<T>,
+        griefing_collateral: &Amount<T>,
+    ) -> Result<(Amount<T>, Amount<T>), DispatchError> {
         <vault_registry::Pallet<T>>::try_increase_to_be_replaced_tokens(vault_id, amount, griefing_collateral)
     }
 
     pub fn decrease_to_be_replaced_tokens<T: crate::Config>(
         vault_id: &T::AccountId,
-        tokens: Wrapped<T>,
-    ) -> Result<(Wrapped<T>, Collateral<T>), DispatchError> {
+        tokens: &Amount<T>,
+    ) -> Result<(Amount<T>, Amount<T>), DispatchError> {
         <vault_registry::Pallet<T>>::decrease_to_be_replaced_tokens(vault_id, tokens)
     }
 
     pub fn try_deposit_collateral<T: crate::Config>(
         vault_id: &T::AccountId,
-        amount: Collateral<T>,
+        amount: &Amount<T>,
     ) -> Result<(), DispatchError> {
         <vault_registry::Pallet<T>>::try_deposit_collateral(vault_id, amount)
     }
 
     pub fn force_withdraw_collateral<T: crate::Config>(
         vault_id: &T::AccountId,
-        amount: Collateral<T>,
+        amount: &Amount<T>,
     ) -> Result<(), DispatchError> {
         <vault_registry::Pallet<T>>::force_withdraw_collateral(vault_id, amount)
     }
 
     pub fn is_allowed_to_withdraw_collateral<T: crate::Config>(
         vault_id: &T::AccountId,
-        amount: Collateral<T>,
+        amount: &Amount<T>,
     ) -> Result<bool, DispatchError> {
         <vault_registry::Pallet<T>>::is_allowed_to_withdraw_collateral(vault_id, amount)
     }
 
     pub fn calculate_collateral<T: crate::Config>(
-        collateral: Collateral<T>,
-        numerator: Wrapped<T>,
-        denominator: Wrapped<T>,
-    ) -> Result<Collateral<T>, DispatchError> {
+        collateral: &Amount<T>,
+        numerator: &Amount<T>,
+        denominator: &Amount<T>,
+    ) -> Result<Amount<T>, DispatchError> {
         <vault_registry::Pallet<T>>::calculate_collateral(collateral, numerator, denominator)
     }
 
@@ -181,27 +181,11 @@ pub(crate) mod security {
 }
 
 #[cfg_attr(test, mockable)]
-pub(crate) mod oracle {
-    use crate::types::{Collateral, Wrapped};
-    use frame_support::dispatch::DispatchError;
-    use vault_registry::types::CurrencyId;
-
-    pub fn wrapped_to_collateral<T: crate::Config>(
-        amount: Wrapped<T>,
-        currency_id: CurrencyId<T>,
-    ) -> Result<Collateral<T>, DispatchError> {
-        <exchange_rate_oracle::Pallet<T>>::wrapped_to_collateral(amount, currency_id)
-    }
-}
-
-#[cfg_attr(test, mockable)]
 pub(crate) mod fee {
-    use crate::types::Collateral;
+    use currency::Amount;
     use frame_support::dispatch::DispatchError;
 
-    pub fn get_replace_griefing_collateral<T: crate::Config>(
-        amount: Collateral<T>,
-    ) -> Result<Collateral<T>, DispatchError> {
+    pub fn get_replace_griefing_collateral<T: crate::Config>(amount: &Amount<T>) -> Result<Amount<T>, DispatchError> {
         <fee::Pallet<T>>::get_replace_griefing_collateral(amount)
     }
 }
@@ -212,28 +196,5 @@ pub(crate) mod nomination {
 
     pub fn is_nominatable<T: crate::Config>(vault_id: &T::AccountId) -> Result<bool, DispatchError> {
         <nomination::Pallet<T>>::is_opted_in(vault_id)
-    }
-}
-
-#[cfg_attr(test, mockable)]
-pub(crate) mod currency {
-    use crate::types::Collateral;
-    use frame_support::dispatch::DispatchResult;
-    use vault_registry::types::CurrencyId;
-
-    pub fn lock<T: crate::Config>(
-        currency_id: CurrencyId<T>,
-        account: &T::AccountId,
-        amount: Collateral<T>,
-    ) -> DispatchResult {
-        currency::with_currency_id::lock::<T>(currency_id, account, amount)
-    }
-
-    pub fn unlock<T: crate::Config>(
-        currency_id: CurrencyId<T>,
-        account: &T::AccountId,
-        amount: Collateral<T>,
-    ) -> DispatchResult {
-        currency::with_currency_id::unlock::<T>(currency_id, account, amount)
     }
 }

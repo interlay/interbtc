@@ -1696,11 +1696,14 @@ version = "0.11.0"
 dependencies = [
  "frame-support",
  "frame-system",
+ "interbtc-primitives",
+ "mocktopus",
  "orml-tokens",
  "orml-traits",
  "pallet-transaction-payment",
  "parity-scale-codec",
  "serde",
+ "sp-arithmetic",
  "sp-core",
  "sp-io",
  "sp-runtime",
@@ -2056,11 +2059,14 @@ checksum = "f7531096570974c3a9dcf9e4b8e1cede1ec26cf5046219fb3b9d897503b9be59"
 name = "exchange-rate-oracle"
 version = "0.11.0"
 dependencies = [
+ "currency",
  "frame-benchmarking",
  "frame-support",
  "frame-system",
  "interbtc-primitives",
  "mocktopus",
+ "orml-tokens",
+ "orml-traits",
  "pallet-timestamp",
  "parity-scale-codec",
  "security",

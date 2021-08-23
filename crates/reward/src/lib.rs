@@ -13,6 +13,7 @@ mod tests;
 
 use codec::{Decode, Encode, EncodeLike};
 use frame_support::{dispatch::DispatchError, traits::Get};
+use primitives::TruncateFixedPointToInt;
 use sp_arithmetic::FixedPointNumber;
 use sp_runtime::traits::{CheckedAdd, CheckedDiv, CheckedMul, CheckedSub, MaybeSerializeDeserialize, Zero};
 use sp_std::{marker::PhantomData, vec::Vec};
@@ -37,7 +38,7 @@ pub mod pallet {
         type Event: From<Event<Self, I>> + IsType<<Self as frame_system::Config>::Event>;
 
         /// Signed fixed point type.
-        type SignedFixedPoint: FixedPointNumber + Encode + EncodeLike + Decode;
+        type SignedFixedPoint: FixedPointNumber + TruncateFixedPointToInt + Encode + EncodeLike + Decode;
 
         /// The currency ID type.
         type CurrencyId: Parameter + Member + Copy + MaybeSerializeDeserialize + Ord;
@@ -161,9 +162,8 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
         currency_id: T::CurrencyId,
     ) -> Result<<T::SignedFixedPoint as FixedPointNumber>::Inner, DispatchError> {
         Ok(Self::total_rewards(currency_id)
-            .into_inner()
-            .checked_div(&SignedFixedPoint::<T, I>::accuracy())
-            .ok_or(Error::<T, I>::ArithmeticUnderflow)?)
+            .truncate_to_inner()
+            .ok_or(Error::<T, I>::TryIntoIntError)?)
     }
 
     pub fn deposit_stake(
@@ -223,9 +223,8 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
         let reward = stake_mul_reward_per_token
             .checked_sub(&reward_tally)
             .ok_or(Error::<T, I>::ArithmeticUnderflow)?
-            .into_inner()
-            .checked_div(&SignedFixedPoint::<T, I>::accuracy())
-            .ok_or(Error::<T, I>::ArithmeticUnderflow)?;
+            .truncate_to_inner()
+            .ok_or(Error::<T, I>::TryIntoIntError)?;
         Ok(reward)
     }
 

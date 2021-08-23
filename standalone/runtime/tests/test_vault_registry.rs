@@ -1,5 +1,6 @@
 mod mock;
 
+use currency::Amount;
 use mock::*;
 
 pub const USER: [u8; 32] = ALICE;
@@ -27,16 +28,18 @@ mod deposit_collateral_test {
     #[test]
     fn integration_test_vault_registry_deposit_collateral_below_capacity_succeeds() {
         test_with(|currency_id| {
-            let amount = 1_000;
+            let amount = Amount::new(1_000, currency_id);
 
-            assert_ok!(Call::VaultRegistry(VaultRegistryCall::deposit_collateral(amount))
-                .dispatch(origin_of(account_of(VAULT))));
+            assert_ok!(
+                Call::VaultRegistry(VaultRegistryCall::deposit_collateral(amount.amount()))
+                    .dispatch(origin_of(account_of(VAULT)))
+            );
 
             assert_eq!(
                 ParachainState::get(),
                 ParachainState::get_default(currency_id).with_changes(|_, vault, _, _| {
                     vault.backing_collateral += amount;
-                    *vault.free_balance.get_mut(&vault.collateral_currency).unwrap() -= amount;
+                    *vault.free_balance.get_mut(&vault.collateral_currency()).unwrap() -= amount;
                 })
             );
         });
@@ -45,16 +48,18 @@ mod deposit_collateral_test {
     #[test]
     fn integration_test_vault_registry_lock_additional_at_capacity_succeeds() {
         test_with(|currency_id| {
-            let amount = DEFAULT_VAULT_FREE_BALANCE;
+            let amount = default_vault_free_balance(currency_id);
 
-            assert_ok!(Call::VaultRegistry(VaultRegistryCall::deposit_collateral(amount))
-                .dispatch(origin_of(account_of(VAULT))));
+            assert_ok!(
+                Call::VaultRegistry(VaultRegistryCall::deposit_collateral(amount.amount()))
+                    .dispatch(origin_of(account_of(VAULT)))
+            );
 
             assert_eq!(
                 ParachainState::get(),
                 ParachainState::get_default(currency_id).with_changes(|_, vault, _, _| {
                     vault.backing_collateral += amount;
-                    *vault.free_balance.get_mut(&vault.collateral_currency).unwrap() -= amount;
+                    *vault.free_balance.get_mut(&vault.collateral_currency()).unwrap() -= amount;
                 })
             );
         });
@@ -62,8 +67,8 @@ mod deposit_collateral_test {
 
     #[test]
     fn integration_test_vault_registry_lock_additional_above_capacity_fails() {
-        test_with(|_currency_id| {
-            let amount = DEFAULT_VAULT_FREE_BALANCE + 1;
+        test_with(|currency_id| {
+            let amount = default_vault_free_balance(currency_id).amount() + 1;
 
             assert_noop!(
                 Call::VaultRegistry(VaultRegistryCall::deposit_collateral(amount))
@@ -74,25 +79,28 @@ mod deposit_collateral_test {
     }
 }
 mod withdraw_collateral_test {
+
     use super::*;
 
-    fn required_collateral() -> u128 {
+    fn required_collateral() -> Amount<Runtime> {
         VaultRegistryPallet::get_required_collateral_for_vault(account_of(VAULT)).unwrap()
     }
 
     #[test]
     fn integration_test_vault_registry_withdraw_collateral_below_capacity_succeeds() {
         test_with(|currency_id| {
-            let amount = 1_000;
+            let amount = Amount::new(1_000, currency_id);
 
-            assert_ok!(Call::VaultRegistry(VaultRegistryCall::withdraw_collateral(amount))
-                .dispatch(origin_of(account_of(VAULT))));
+            assert_ok!(
+                Call::VaultRegistry(VaultRegistryCall::withdraw_collateral(amount.amount()))
+                    .dispatch(origin_of(account_of(VAULT)))
+            );
 
             assert_eq!(
                 ParachainState::get(),
                 ParachainState::get_default(currency_id).with_changes(|_, vault, _, _| {
                     vault.backing_collateral -= amount;
-                    *vault.free_balance.get_mut(&vault.collateral_currency).unwrap() += amount;
+                    *vault.free_balance.get_mut(&vault.collateral_currency()).unwrap() += amount;
                 })
             );
         });
@@ -101,16 +109,18 @@ mod withdraw_collateral_test {
     #[test]
     fn integration_test_vault_registry_lock_additional_at_capacity_succeeds() {
         test_with(|currency_id| {
-            let amount = DEFAULT_VAULT_BACKING_COLLATERAL - required_collateral();
+            let amount = default_vault_backing_collateral(currency_id) - required_collateral();
 
-            assert_ok!(Call::VaultRegistry(VaultRegistryCall::withdraw_collateral(amount))
-                .dispatch(origin_of(account_of(VAULT))));
+            assert_ok!(
+                Call::VaultRegistry(VaultRegistryCall::withdraw_collateral(amount.amount()))
+                    .dispatch(origin_of(account_of(VAULT)))
+            );
 
             assert_eq!(
                 ParachainState::get(),
                 ParachainState::get_default(currency_id).with_changes(|_, vault, _, _| {
                     vault.backing_collateral -= amount;
-                    *vault.free_balance.get_mut(&vault.collateral_currency).unwrap() += amount;
+                    *vault.free_balance.get_mut(&vault.collateral_currency()).unwrap() += amount;
                 })
             );
         });
@@ -118,8 +128,8 @@ mod withdraw_collateral_test {
 
     #[test]
     fn integration_test_vault_registry_lock_additional_above_capacity_fails() {
-        test_with(|_currency_id| {
-            let amount = DEFAULT_VAULT_BACKING_COLLATERAL - required_collateral() + 1;
+        test_with(|currency_id| {
+            let amount = default_vault_backing_collateral(currency_id).amount() - required_collateral().amount() + 1;
 
             assert_noop!(
                 Call::VaultRegistry(VaultRegistryCall::withdraw_collateral(amount))
@@ -173,17 +183,21 @@ fn integration_test_vault_registry_undercollateralization_liquidation() {
         assert_eq!(
             ParachainState::get(),
             ParachainState::get_default(currency_id).with_changes(|_, vault, liquidation_vault, _| {
-                *liquidation_vault.funds.get_mut(&currency_id).unwrap() = (DEFAULT_VAULT_BACKING_COLLATERAL
-                    * (DEFAULT_VAULT_ISSUED + DEFAULT_VAULT_TO_BE_ISSUED - DEFAULT_VAULT_TO_BE_REDEEMED))
-                    / (DEFAULT_VAULT_ISSUED + DEFAULT_VAULT_TO_BE_ISSUED);
+                *liquidation_vault.funds.get_mut(&currency_id).unwrap() = Amount::new(
+                    (default_vault_backing_collateral(currency_id).amount()
+                        * (DEFAULT_VAULT_ISSUED + DEFAULT_VAULT_TO_BE_ISSUED - DEFAULT_VAULT_TO_BE_REDEEMED).amount())
+                        / (DEFAULT_VAULT_ISSUED + DEFAULT_VAULT_TO_BE_ISSUED).amount(),
+                    currency_id,
+                );
                 liquidation_vault.to_be_issued = DEFAULT_VAULT_TO_BE_ISSUED;
                 liquidation_vault.issued = DEFAULT_VAULT_ISSUED;
                 liquidation_vault.to_be_redeemed = DEFAULT_VAULT_TO_BE_REDEEMED;
 
-                vault.issued = 0;
-                vault.to_be_issued = 0;
-                vault.backing_collateral = 0;
-                vault.liquidated_collateral = DEFAULT_VAULT_BACKING_COLLATERAL - liquidation_vault.funds[&currency_id];
+                vault.issued = wrapped(0);
+                vault.to_be_issued = wrapped(0);
+                vault.backing_collateral = Amount::new(0, currency_id);
+                vault.liquidated_collateral =
+                    default_vault_backing_collateral(currency_id) - liquidation_vault.funds[&currency_id];
             })
         );
     });

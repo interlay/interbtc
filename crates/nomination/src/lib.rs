@@ -29,12 +29,8 @@ use frame_support::{
     weights::Weight,
 };
 use frame_system::{ensure_root, ensure_signed};
-use sp_runtime::{
-    traits::{CheckedAdd, CheckedSub},
-    FixedPointNumber,
-};
 use sp_std::convert::TryInto;
-use types::{BalanceOf, Collateral, SignedFixedPoint, SignedInner, UnsignedFixedPoint};
+use types::{Collateral, SignedFixedPoint};
 
 pub trait WeightInfo {
     fn set_nomination_enabled() -> Weight;
@@ -44,6 +40,7 @@ pub trait WeightInfo {
     fn withdraw_collateral() -> Weight;
 }
 
+use currency::Amount;
 pub use pallet::*;
 
 #[frame_support::pallet]
@@ -55,12 +52,7 @@ pub mod pallet {
     /// ## Configuration
     /// The pallet's configuration trait.
     #[pallet::config]
-    pub trait Config:
-        frame_system::Config
-        + security::Config
-        + vault_registry::Config
-        + fee::Config<UnsignedFixedPoint = UnsignedFixedPoint<Self>, UnsignedInner = BalanceOf<Self>>
-    {
+    pub trait Config: frame_system::Config + security::Config + vault_registry::Config + fee::Config {
         /// The overarching event type.
         type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
 
@@ -208,10 +200,13 @@ impl<T: Config> Pallet<T> {
         ensure!(Self::is_nomination_enabled(), Error::<T>::VaultNominationDisabled);
         ensure!(Self::is_opted_in(&vault_id)?, Error::<T>::VaultNotOptedInToNomination);
 
+        let currency_id = ext::vault_registry::get_collateral_currency::<T>(&vault_id)?;
+        let amount = Amount::new(amount, currency_id);
+
         // we can only withdraw nominated collateral if the vault is still
         // above the secure threshold for issued + to_be_issued tokens
         ensure!(
-            ext::vault_registry::is_allowed_to_withdraw_collateral::<T>(&vault_id, amount)?,
+            ext::vault_registry::is_allowed_to_withdraw_collateral::<T>(&vault_id, &amount)?,
             Error::<T>::InsufficientCollateral
         );
 
@@ -219,15 +214,15 @@ impl<T: Config> Pallet<T> {
         ext::fee::withdraw_all_vault_rewards::<T>(&vault_id)?;
         // Withdraw `amount` of stake from the vault staking pool
         ext::staking::withdraw_stake::<T>(
-            T::GetRewardsCurrencyId::get(),
+            T::GetWrappedCurrencyId::get(),
             &vault_id,
             &nominator_id,
-            Self::collateral_to_fixed(amount)?,
+            amount.to_signed_fixed_point()?,
         )?;
-        let currency_id = ext::vault_registry::get_collateral_currency::<T>(&vault_id)?;
-        ext::currency::unlock_and_transfer::<T>(currency_id, &vault_id, &nominator_id, amount)?;
+        amount.unlock(&vault_id)?;
+        amount.transfer(&vault_id, &nominator_id)?;
 
-        Self::deposit_event(Event::<T>::WithdrawCollateral(vault_id, nominator_id, amount));
+        Self::deposit_event(Event::<T>::WithdrawCollateral(vault_id, nominator_id, amount.amount()));
         Ok(())
     }
 
@@ -240,14 +235,16 @@ impl<T: Config> Pallet<T> {
         ensure!(Self::is_opted_in(&vault_id)?, Error::<T>::VaultNotOptedInToNomination);
 
         let currency_id = ext::vault_registry::get_collateral_currency::<T>(&vault_id)?;
+
+        let amount = Amount::new(amount, currency_id);
+
         let vault_backing_collateral = ext::vault_registry::get_backing_collateral::<T>(&vault_id)?;
         let total_nominated_collateral = Self::get_total_nominated_collateral(&vault_id)?;
-        let new_nominated_collateral = total_nominated_collateral
-            .checked_add(&amount)
-            .ok_or(Error::<T>::ArithmeticOverflow)?;
+        let new_nominated_collateral = total_nominated_collateral.checked_add(&amount)?;
+        let max_nominatable_collateral =
+            ext::vault_registry::get_max_nominatable_collateral::<T>(&vault_backing_collateral)?;
         ensure!(
-            new_nominated_collateral
-                <= ext::vault_registry::get_max_nominatable_collateral::<T>(currency_id, vault_backing_collateral)?,
+            new_nominated_collateral.le(&max_nominatable_collateral)?,
             Error::<T>::DepositViolatesMaxNominationRatio
         );
 
@@ -256,14 +253,15 @@ impl<T: Config> Pallet<T> {
 
         // Deposit `amount` of stake into the vault staking pool
         ext::staking::deposit_stake::<T>(
-            T::GetRewardsCurrencyId::get(),
+            T::GetWrappedCurrencyId::get(),
             &vault_id,
             &nominator_id,
-            Self::collateral_to_fixed(amount)?,
+            amount.to_signed_fixed_point()?,
         )?;
-        ext::currency::transfer_and_lock::<T>(currency_id, &nominator_id, &vault_id, amount)?;
+        amount.transfer(&nominator_id, &vault_id)?;
+        amount.lock(&vault_id)?;
 
-        Self::deposit_event(Event::<T>::DepositCollateral(vault_id, nominator_id, amount));
+        Self::deposit_event(Event::<T>::DepositCollateral(vault_id, nominator_id, amount.amount()));
         Ok(())
     }
 
@@ -290,10 +288,10 @@ impl<T: Config> Pallet<T> {
         ensure!(Self::is_opted_in(&vault_id)?, Error::<T>::VaultNotOptedInToNomination);
         let total_nominated_collateral = Self::get_total_nominated_collateral(&vault_id)?;
         ensure!(
-            ext::vault_registry::is_allowed_to_withdraw_collateral::<T>(&vault_id, total_nominated_collateral)?,
+            ext::vault_registry::is_allowed_to_withdraw_collateral::<T>(&vault_id, &total_nominated_collateral)?,
             Error::<T>::CollateralizationTooLow
         );
-        ext::staking::force_refund::<T>(T::GetRewardsCurrencyId::get(), vault_id)?;
+        ext::staking::force_refund::<T>(T::GetWrappedCurrencyId::get(), vault_id)?;
         <Vaults<T>>::remove(vault_id);
         Self::deposit_event(Event::<T>::NominationOptOut(vault_id.clone()));
         Ok(())
@@ -303,26 +301,21 @@ impl<T: Config> Pallet<T> {
         Ok(<Vaults<T>>::contains_key(&vault_id))
     }
 
-    pub fn get_total_nominated_collateral(vault_id: &T::AccountId) -> Result<Collateral<T>, DispatchError> {
+    pub fn get_total_nominated_collateral(vault_id: &T::AccountId) -> Result<Amount<T>, DispatchError> {
         let vault_backing_collateral = ext::vault_registry::get_backing_collateral::<T>(vault_id)?;
         let vault_actual_collateral = ext::vault_registry::compute_collateral::<T>(vault_id)?;
-        Ok(vault_backing_collateral
-            .checked_sub(&vault_actual_collateral)
-            .ok_or(Error::<T>::ArithmeticUnderflow)?)
+        vault_backing_collateral.checked_sub(&vault_actual_collateral)
     }
 
     pub fn get_nominator_collateral(
         vault_id: &T::AccountId,
         nominator_id: &T::AccountId,
-    ) -> Result<Collateral<T>, DispatchError> {
-        let collateral = ext::staking::compute_stake::<T>(T::GetRewardsCurrencyId::get(), vault_id, nominator_id)?;
-        collateral.try_into().map_err(|_| Error::<T>::TryIntoIntError.into())
-    }
+    ) -> Result<Amount<T>, DispatchError> {
+        let collateral = ext::staking::compute_stake::<T>(T::GetWrappedCurrencyId::get(), vault_id, nominator_id)?;
 
-    fn collateral_to_fixed(x: Collateral<T>) -> Result<SignedFixedPoint<T>, DispatchError> {
-        let signed_inner = TryInto::<SignedInner<T>>::try_into(x).map_err(|_| Error::<T>::TryIntoIntError)?;
-        let signed_fixed_point =
-            SignedFixedPoint::<T>::checked_from_integer(signed_inner).ok_or(Error::<T>::TryIntoIntError)?;
-        Ok(signed_fixed_point)
+        let amount = collateral.try_into().map_err(|_| Error::<T>::TryIntoIntError)?;
+
+        let vault_currency_id = ext::vault_registry::get_collateral_currency::<T>(&vault_id)?;
+        Ok(Amount::new(amount, vault_currency_id))
     }
 }

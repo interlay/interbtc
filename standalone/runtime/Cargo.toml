@@ -156,6 +156,8 @@ std = [
 
   "orml-tokens/std",
   "orml-traits/std",
+
+  "currency/testing-utils",
 ]
 runtime-benchmarks = [
   "hex-literal",

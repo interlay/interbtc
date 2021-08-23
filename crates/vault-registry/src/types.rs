@@ -1,14 +1,15 @@
 use crate::{ext, Config, Error, Pallet};
 use codec::{Decode, Encode, HasCompact};
+use currency::Amount;
 use frame_support::{
     dispatch::{DispatchError, DispatchResult},
     ensure,
     traits::Get,
 };
-use sp_arithmetic::FixedPointNumber;
+
 use sp_core::H256;
-use sp_runtime::traits::{CheckedAdd, CheckedSub, Saturating, Zero};
-use sp_std::{cmp::min, collections::btree_set::BTreeSet};
+use sp_runtime::traits::{CheckedAdd, CheckedSub, Zero};
+use sp_std::collections::btree_set::BTreeSet;
 
 #[cfg(test)]
 use mocktopus::macros::mockable;
@@ -51,38 +52,32 @@ impl<T: Config> CurrencySource<T> {
         }
     }
 
-    pub fn current_balance(&self, currency_id: CurrencyId<T>) -> Result<Collateral<T>, DispatchError> {
-        match self {
-            CurrencySource::Collateral(x) => Pallet::<T>::get_backing_collateral(x),
+    pub fn current_balance(&self, currency_id: CurrencyId<T>) -> Result<crate::Amount<T>, DispatchError> {
+        let amount = match self {
+            CurrencySource::Collateral(x) => Pallet::<T>::get_backing_collateral(x)?,
             CurrencySource::Griefing(x) => {
                 let vault = Pallet::<T>::get_rich_vault_from_id(x)?;
                 let backing_collateral = Pallet::<T>::get_backing_collateral(x)?;
                 let backing_collateral = if vault.data.is_liquidated() {
-                    vault
-                        .data
-                        .liquidated_collateral
-                        .checked_add(&backing_collateral)
-                        .ok_or(Error::<T>::ArithmeticOverflow)?
+                    vault.liquidated_collateral().checked_add(&backing_collateral)?
                 } else {
                     backing_collateral
                 };
 
                 let current = ext::currency::get_reserved_balance::<T>(currency_id, &x);
                 if currency_id == vault.data.currency_id {
-                    Ok(current
-                        .checked_sub(&backing_collateral)
-                        .ok_or(Error::<T>::ArithmeticUnderflow)?)
+                    current.checked_sub(&backing_collateral)?
                 } else {
-                    Ok(current)
+                    current
                 }
             }
-            CurrencySource::FreeBalance(x) => Ok(ext::currency::get_free_balance::<T>(currency_id, x)),
-            CurrencySource::ReservedBalance(x) => Ok(ext::currency::get_reserved_balance::<T>(currency_id, x)),
-            CurrencySource::LiquidationVault => Ok(ext::currency::get_reserved_balance::<T>(
-                currency_id,
-                &self.account_id(),
-            )),
-        }
+            CurrencySource::FreeBalance(x) => ext::currency::get_free_balance::<T>(currency_id, x),
+            CurrencySource::ReservedBalance(x) => ext::currency::get_reserved_balance::<T>(currency_id, x),
+            CurrencySource::LiquidationVault => {
+                ext::currency::get_reserved_balance::<T>(currency_id, &self.account_id())
+            }
+        };
+        Ok(amount)
     }
 }
 
@@ -92,11 +87,11 @@ pub(crate) type Collateral<T> = BalanceOf<T>;
 
 pub(crate) type Wrapped<T> = BalanceOf<T>;
 
-pub(crate) type SignedFixedPoint<T> = <T as Config>::SignedFixedPoint;
+pub(crate) type SignedFixedPoint<T> = <T as currency::Config>::SignedFixedPoint;
 
-pub(crate) type UnsignedFixedPoint<T> = <T as Config>::UnsignedFixedPoint;
+pub(crate) type UnsignedFixedPoint<T> = <T as currency::Config>::UnsignedFixedPoint;
 
-pub(crate) type SignedInner<T> = <T as Config>::SignedInner;
+pub(crate) type SignedInner<T> = <T as currency::Config>::SignedInner;
 
 pub type CurrencyId<T> = <T as staking::Config>::CurrencyId;
 
@@ -228,21 +223,21 @@ pub type DefaultSystemVault<T> = SystemVault<BalanceOf<T>>;
 pub(crate) trait UpdatableVault<T: Config> {
     fn id(&self) -> T::AccountId;
 
-    fn issued_tokens(&self) -> Wrapped<T>;
+    fn issued_tokens(&self) -> Amount<T>;
 
-    fn to_be_issued_tokens(&self) -> Wrapped<T>;
+    fn to_be_issued_tokens(&self) -> Amount<T>;
 
-    fn increase_issued(&mut self, tokens: Wrapped<T>) -> DispatchResult;
+    fn increase_issued(&mut self, tokens: &Amount<T>) -> DispatchResult;
 
-    fn increase_to_be_issued(&mut self, tokens: Wrapped<T>) -> DispatchResult;
+    fn increase_to_be_issued(&mut self, tokens: &Amount<T>) -> DispatchResult;
 
-    fn increase_to_be_redeemed(&mut self, tokens: Wrapped<T>) -> DispatchResult;
+    fn increase_to_be_redeemed(&mut self, tokens: &Amount<T>) -> DispatchResult;
 
-    fn decrease_issued(&mut self, tokens: Wrapped<T>) -> DispatchResult;
+    fn decrease_issued(&mut self, tokens: &Amount<T>) -> DispatchResult;
 
-    fn decrease_to_be_issued(&mut self, tokens: Wrapped<T>) -> DispatchResult;
+    fn decrease_to_be_issued(&mut self, tokens: &Amount<T>) -> DispatchResult;
 
-    fn decrease_to_be_redeemed(&mut self, tokens: Wrapped<T>) -> DispatchResult;
+    fn decrease_to_be_redeemed(&mut self, tokens: &Amount<T>) -> DispatchResult;
 }
 
 pub struct RichVault<T: Config> {
@@ -254,95 +249,82 @@ impl<T: Config> UpdatableVault<T> for RichVault<T> {
         self.data.id.clone()
     }
 
-    fn issued_tokens(&self) -> Wrapped<T> {
-        self.data.issued_tokens
+    fn issued_tokens(&self) -> Amount<T> {
+        Amount::new(self.data.issued_tokens, T::GetWrappedCurrencyId::get())
     }
 
-    fn to_be_issued_tokens(&self) -> Wrapped<T> {
-        self.data.to_be_issued_tokens
+    fn to_be_issued_tokens(&self) -> Amount<T> {
+        Amount::new(self.data.to_be_issued_tokens, T::GetWrappedCurrencyId::get())
     }
 
-    fn increase_issued(&mut self, tokens: Wrapped<T>) -> DispatchResult {
+    fn increase_issued(&mut self, tokens: &Amount<T>) -> DispatchResult {
         if self.data.is_liquidated() {
             Pallet::<T>::get_rich_liquidation_vault().increase_issued(tokens)
         } else {
             ext::reward::deposit_stake::<T>(&self.id(), tokens)?;
+            let new_value = self.issued_tokens().checked_add(&tokens)?.amount();
             self.update(|v| {
-                v.issued_tokens = v
-                    .issued_tokens
-                    .checked_add(&tokens)
-                    .ok_or(Error::<T>::ArithmeticOverflow)?;
+                v.issued_tokens = new_value;
                 Ok(())
             })
         }
     }
 
-    fn increase_to_be_issued(&mut self, tokens: Wrapped<T>) -> DispatchResult {
+    fn increase_to_be_issued(&mut self, tokens: &Amount<T>) -> DispatchResult {
         // this function should never be called on liquidated vaults
         ensure!(!self.data.is_liquidated(), Error::<T>::VaultNotFound);
 
+        let new_value = self.to_be_issued_tokens().checked_add(&tokens)?.amount();
         self.update(|v| {
-            v.to_be_issued_tokens = v
-                .to_be_issued_tokens
-                .checked_add(&tokens)
-                .ok_or(Error::<T>::ArithmeticOverflow)?;
+            v.to_be_issued_tokens = new_value;
             Ok(())
         })
     }
 
-    fn increase_to_be_redeemed(&mut self, tokens: Wrapped<T>) -> DispatchResult {
+    fn increase_to_be_redeemed(&mut self, tokens: &Amount<T>) -> DispatchResult {
         // this function should never be called on liquidated vaults
         ensure!(!self.data.is_liquidated(), Error::<T>::VaultNotFound);
 
+        let new_value = self.to_be_redeemed_tokens().checked_add(&tokens)?.amount();
         self.update(|v| {
-            v.to_be_redeemed_tokens = v
-                .to_be_redeemed_tokens
-                .checked_add(&tokens)
-                .ok_or(Error::<T>::ArithmeticOverflow)?;
+            v.to_be_redeemed_tokens = new_value;
             Ok(())
         })
     }
 
-    fn decrease_issued(&mut self, tokens: Wrapped<T>) -> DispatchResult {
+    fn decrease_issued(&mut self, tokens: &Amount<T>) -> DispatchResult {
         if self.data.is_liquidated() {
             Pallet::<T>::get_rich_liquidation_vault().decrease_issued(tokens)
         } else {
             ext::reward::withdraw_stake::<T>(&self.id(), tokens)?;
+            let new_value = self.issued_tokens().checked_sub(&tokens)?.amount();
             self.update(|v| {
-                v.issued_tokens = v
-                    .issued_tokens
-                    .checked_sub(&tokens)
-                    .ok_or(Error::<T>::ArithmeticUnderflow)?;
+                v.issued_tokens = new_value;
                 Ok(())
             })
         }
     }
 
-    fn decrease_to_be_issued(&mut self, tokens: Wrapped<T>) -> DispatchResult {
+    fn decrease_to_be_issued(&mut self, tokens: &Amount<T>) -> DispatchResult {
         if self.data.is_liquidated() {
             Pallet::<T>::get_rich_liquidation_vault().decrease_to_be_issued(tokens)
         } else {
+            let new_value = self.to_be_issued_tokens().checked_sub(&tokens)?.amount();
             self.update(|v| {
-                v.to_be_issued_tokens = v
-                    .to_be_issued_tokens
-                    .checked_sub(&tokens)
-                    .ok_or(Error::<T>::ArithmeticUnderflow)?;
+                v.to_be_issued_tokens = new_value;
                 Ok(())
             })
         }
     }
 
-    fn decrease_to_be_redeemed(&mut self, tokens: Wrapped<T>) -> DispatchResult {
+    fn decrease_to_be_redeemed(&mut self, tokens: &Amount<T>) -> DispatchResult {
         // in addition to the change to this vault, _also_ change the liquidation vault
         if self.data.is_liquidated() {
             Pallet::<T>::get_rich_liquidation_vault().decrease_to_be_redeemed(tokens)?;
         }
-
+        let new_value = self.to_be_redeemed_tokens().checked_sub(&tokens)?.amount();
         self.update(|v| {
-            v.to_be_redeemed_tokens = v
-                .to_be_redeemed_tokens
-                .checked_sub(&tokens)
-                .ok_or(Error::<T>::ArithmeticUnderflow)?;
+            v.to_be_redeemed_tokens = new_value;
             Ok(())
         })
     }
@@ -350,45 +332,56 @@ impl<T: Config> UpdatableVault<T> for RichVault<T> {
 
 #[cfg_attr(test, mockable)]
 impl<T: Config> RichVault<T> {
-    pub(crate) fn backed_tokens(&self) -> Result<Wrapped<T>, DispatchError> {
-        Ok(self
+    pub(crate) fn backed_tokens(&self) -> Result<Amount<T>, DispatchError> {
+        let amount = self
             .data
             .issued_tokens
             .checked_add(&self.data.to_be_issued_tokens)
-            .ok_or(Error::<T>::ArithmeticOverflow)?)
+            .ok_or(Error::<T>::ArithmeticOverflow)?;
+        Ok(Amount::new(amount, T::GetWrappedCurrencyId::get()))
     }
 
-    pub fn get_collateral(&self) -> Result<Collateral<T>, DispatchError> {
+    pub(crate) fn to_be_replaced_tokens(&self) -> Amount<T> {
+        Amount::new(self.data.to_be_replaced_tokens, T::GetWrappedCurrencyId::get())
+    }
+
+    pub(crate) fn to_be_redeemed_tokens(&self) -> Amount<T> {
+        Amount::new(self.data.to_be_redeemed_tokens, T::GetWrappedCurrencyId::get())
+    }
+
+    pub(crate) fn liquidated_collateral(&self) -> Amount<T> {
+        Amount::new(self.data.liquidated_collateral, self.data.currency_id)
+    }
+
+    pub(crate) fn replace_collateral(&self) -> Amount<T> {
+        Amount::new(self.data.replace_collateral, T::GetGriefingCollateralCurrencyId::get())
+    }
+
+    pub fn get_collateral(&self) -> Result<Amount<T>, DispatchError> {
         Pallet::<T>::get_backing_collateral(&self.id())
     }
 
-    pub fn get_free_collateral(&self) -> Result<Collateral<T>, DispatchError> {
+    pub fn get_free_collateral(&self) -> Result<Amount<T>, DispatchError> {
         let used_collateral = self.get_used_collateral()?;
-        Ok(self
-            .get_collateral()?
-            .checked_sub(&used_collateral)
-            .ok_or(Error::<T>::ArithmeticUnderflow)?)
+        self.get_collateral()?.checked_sub(&used_collateral)
     }
 
-    pub fn get_used_collateral(&self) -> Result<Collateral<T>, DispatchError> {
+    pub fn get_used_collateral(&self) -> Result<Amount<T>, DispatchError> {
         let issued_tokens = self.backed_tokens()?;
-        let issued_tokens_in_collateral =
-            ext::oracle::wrapped_to_collateral::<T>(issued_tokens, self.data.currency_id)?;
+        let issued_tokens_in_collateral = issued_tokens.convert_to(self.data.currency_id)?;
 
         let secure_threshold =
             Pallet::<T>::secure_collateral_threshold(self.data.currency_id).ok_or(Error::<T>::ThresholdNotSet)?;
 
-        let used_collateral = secure_threshold
-            .checked_mul_int(issued_tokens_in_collateral)
-            .ok_or(Error::<T>::ArithmeticOverflow)?;
+        let used_collateral = issued_tokens_in_collateral.checked_fixed_point_mul(&secure_threshold)?;
 
-        Ok(self.get_collateral()?.min(used_collateral))
+        self.get_collateral()?.min(&used_collateral)
     }
 
-    pub fn issuable_tokens(&self) -> Result<Wrapped<T>, DispatchError> {
+    pub fn issuable_tokens(&self) -> Result<Amount<T>, DispatchError> {
         // unable to issue additional tokens when banned
         if self.is_banned() {
-            return Ok(0u32.into());
+            return Ok(Amount::new(0u32.into(), T::GetWrappedCurrencyId::get()));
         }
 
         // used_collateral = (exchange_rate * (issued_tokens + to_be_issued_tokens)) * secure_collateral_threshold
@@ -399,38 +392,29 @@ impl<T: Config> RichVault<T> {
             Pallet::<T>::secure_collateral_threshold(self.data.currency_id).ok_or(Error::<T>::ThresholdNotSet)?;
 
         // issuable_tokens = (free_collateral / exchange_rate) / secure_collateral_threshold
-        let issuable = Pallet::<T>::calculate_max_wrapped_from_collateral_for_threshold(
-            free_collateral,
-            secure_threshold,
-            self.data.currency_id,
-        )?;
+        let issuable =
+            Pallet::<T>::calculate_max_wrapped_from_collateral_for_threshold(&free_collateral, secure_threshold)?;
 
         Ok(issuable)
     }
 
-    pub fn redeemable_tokens(&self) -> Result<Wrapped<T>, DispatchError> {
+    pub fn redeemable_tokens(&self) -> Result<Amount<T>, DispatchError> {
         // unable to redeem additional tokens when banned
         if self.is_banned() {
-            return Ok(0u32.into());
+            return Ok(Amount::new(0u32.into(), T::GetWrappedCurrencyId::get()));
         }
 
-        let redeemable_tokens = self
-            .data
-            .issued_tokens
-            .checked_sub(&self.data.to_be_redeemed_tokens)
-            .ok_or(Error::<T>::ArithmeticUnderflow)?;
-
-        Ok(redeemable_tokens)
+        self.issued_tokens().checked_sub(&self.to_be_redeemed_tokens())
     }
 
     pub(crate) fn set_to_be_replaced_amount(
         &mut self,
-        tokens: Wrapped<T>,
-        griefing_collateral: Collateral<T>,
+        tokens: &Amount<T>,
+        griefing_collateral: &Amount<T>,
     ) -> DispatchResult {
         self.update(|v| {
-            v.to_be_replaced_tokens = tokens;
-            v.replace_collateral = griefing_collateral;
+            v.to_be_replaced_tokens = tokens.amount();
+            v.replace_collateral = griefing_collateral.amount();
             Ok(())
         })
     }
@@ -442,54 +426,55 @@ impl<T: Config> RichVault<T> {
         })
     }
 
-    pub(crate) fn issue_tokens(&mut self, tokens: Wrapped<T>) -> DispatchResult {
+    pub(crate) fn issue_tokens(&mut self, tokens: &Amount<T>) -> DispatchResult {
         self.decrease_to_be_issued(tokens)?;
         self.increase_issued(tokens)
     }
 
-    pub(crate) fn decrease_tokens(&mut self, tokens: Wrapped<T>) -> DispatchResult {
+    pub(crate) fn decrease_tokens(&mut self, tokens: &Amount<T>) -> DispatchResult {
         self.decrease_to_be_redeemed(tokens)?;
         self.decrease_issued(tokens)
         // Note: slashing of collateral must be called where this function is called (e.g. in Redeem)
     }
 
-    pub(crate) fn increase_liquidated_collateral(&mut self, amount: Collateral<T>) -> DispatchResult {
+    pub(crate) fn increase_liquidated_collateral(&mut self, amount: &Amount<T>) -> DispatchResult {
         self.update(|v| {
             v.liquidated_collateral = v
                 .liquidated_collateral
-                .checked_add(&amount)
+                .checked_add(&amount.amount())
                 .ok_or(Error::<T>::ArithmeticOverflow)?;
             Ok(())
         })
     }
 
-    pub(crate) fn decrease_liquidated_collateral(&mut self, amount: Collateral<T>) -> DispatchResult {
+    pub(crate) fn decrease_liquidated_collateral(&mut self, amount: &Amount<T>) -> DispatchResult {
         self.update(|v| {
             v.liquidated_collateral = v
                 .liquidated_collateral
-                .checked_sub(&amount)
+                .checked_sub(&amount.amount())
                 .ok_or(Error::<T>::ArithmeticUnderflow)?;
             Ok(())
         })
     }
 
-    pub(crate) fn slash_to_liquidation_vault(&mut self, amount: Collateral<T>) -> DispatchResult {
+    pub(crate) fn slash_to_liquidation_vault(&mut self, amount: &Amount<T>) -> DispatchResult {
         let vault_id = self.id();
 
         // get the collateral supplied by the vault (i.e. excluding nomination)
         let collateral = Pallet::<T>::compute_collateral(&vault_id)?;
         let (to_withdraw, to_slash) = amount
             .checked_sub(&collateral)
-            .and_then(|leftover| Some((collateral, leftover)))
-            .unwrap_or((amount, Zero::zero()));
+            .and_then(|leftover| Ok((collateral, Some(leftover))))
+            .unwrap_or((amount.clone(), None));
 
         // "slash" vault first
-        ext::staking::withdraw_stake::<T>(T::GetRewardsCurrencyId::get(), &vault_id, &vault_id, to_withdraw)?;
+        ext::staking::withdraw_stake::<T>(T::GetWrappedCurrencyId::get(), &vault_id, &vault_id, &to_withdraw)?;
         // take remainder from nominators
-        ext::staking::slash_stake::<T>(T::GetRewardsCurrencyId::get(), &vault_id, to_slash)?;
+        if let Some(to_slash) = to_slash {
+            ext::staking::slash_stake::<T>(T::GetWrappedCurrencyId::get(), &vault_id, &to_slash)?;
+        }
 
         Pallet::<T>::transfer_funds(
-            self.data.currency_id,
             CurrencySource::ReservedBalance(self.id()),
             CurrencySource::LiquidationVault,
             amount,
@@ -497,27 +482,31 @@ impl<T: Config> RichVault<T> {
         Ok(())
     }
 
-    pub(crate) fn get_theft_fee_max(&self) -> Result<Collateral<T>, DispatchError> {
+    pub(crate) fn get_theft_fee_max(&self) -> Result<Amount<T>, DispatchError> {
         let collateral = Pallet::<T>::compute_collateral(&self.id())?;
-        let theft_reward = ext::fee::get_theft_fee::<T>(collateral)?;
+        let theft_reward = ext::fee::get_theft_fee::<T>(&collateral)?;
 
         let theft_fee_max = ext::fee::get_theft_fee_max::<T>();
-        let max_theft_reward = ext::oracle::wrapped_to_collateral::<T>(theft_fee_max, self.data.currency_id)?;
-        Ok(min(theft_reward, max_theft_reward))
+        let max_theft_reward = theft_fee_max.convert_to(self.data.currency_id)?;
+        if theft_reward.le(&max_theft_reward)? {
+            Ok(theft_reward)
+        } else {
+            Ok(max_theft_reward)
+        }
     }
 
     pub(crate) fn liquidate(
         &mut self,
         status: VaultStatus,
         reporter: Option<T::AccountId>,
-    ) -> Result<Collateral<T>, DispatchError> {
+    ) -> Result<Amount<T>, DispatchError> {
         let vault_id = &self.id();
 
         // pay the theft report fee first
         if let Some(ref reporter_id) = reporter {
             let reward = self.get_theft_fee_max()?;
-            Pallet::<T>::force_withdraw_collateral(vault_id, reward)?;
-            ext::currency::transfer::<T>(self.data.currency_id, vault_id, reporter_id, reward)?;
+            Pallet::<T>::force_withdraw_collateral(vault_id, &reward)?;
+            reward.transfer(vault_id, reporter_id)?;
         }
 
         // we liquidate at most SECURE_THRESHOLD * collateral
@@ -529,32 +518,30 @@ impl<T: Config> RichVault<T> {
 
         // (liquidated_collateral * (collateral_tokens - to_be_redeemed_tokens)) / collateral_tokens
         let liquidated_collateral_excluding_to_be_redeemed = Pallet::<T>::calculate_collateral(
-            liquidated_collateral,
-            collateral_tokens
-                .checked_sub(&self.data.to_be_redeemed_tokens)
-                .ok_or(Error::<T>::ArithmeticUnderflow)?,
-            collateral_tokens,
+            &liquidated_collateral,
+            &collateral_tokens.checked_sub(&self.to_be_redeemed_tokens())?,
+            &collateral_tokens,
         )?;
 
         let collateral_for_to_be_redeemed =
-            liquidated_collateral.saturating_sub(liquidated_collateral_excluding_to_be_redeemed);
+            liquidated_collateral.saturating_sub(&liquidated_collateral_excluding_to_be_redeemed)?;
 
         // slash backing collateral used for issued + to_be_issued to the liquidation vault
-        self.slash_to_liquidation_vault(liquidated_collateral_excluding_to_be_redeemed)?;
+        self.slash_to_liquidation_vault(&liquidated_collateral_excluding_to_be_redeemed)?;
 
         // temporarily slash additional collateral for the to_be_redeemed tokens
         // this is re-distributed once the tokens are burned
-        ext::staking::slash_stake::<T>(T::GetRewardsCurrencyId::get(), vault_id, collateral_for_to_be_redeemed)?;
-        self.increase_liquidated_collateral(collateral_for_to_be_redeemed)?;
+        ext::staking::slash_stake::<T>(T::GetWrappedCurrencyId::get(), vault_id, &collateral_for_to_be_redeemed)?;
+        self.increase_liquidated_collateral(&collateral_for_to_be_redeemed)?;
 
         // Copy all tokens to the liquidation vault
         let mut liquidation_vault = Pallet::<T>::get_rich_liquidation_vault();
-        liquidation_vault.increase_issued(self.data.issued_tokens)?;
-        liquidation_vault.increase_to_be_issued(self.data.to_be_issued_tokens)?;
-        liquidation_vault.increase_to_be_redeemed(self.data.to_be_redeemed_tokens)?;
+        liquidation_vault.increase_issued(&self.issued_tokens())?;
+        liquidation_vault.increase_to_be_issued(&self.to_be_issued_tokens())?;
+        liquidation_vault.increase_to_be_redeemed(&self.to_be_redeemed_tokens())?;
 
         // withdraw stake from the reward pool
-        ext::reward::withdraw_stake::<T>(vault_id, self.data.issued_tokens)?;
+        ext::reward::withdraw_stake::<T>(vault_id, &self.issued_tokens())?;
 
         // Update vault: clear to_be_issued & issued_tokens, but don't touch to_be_redeemed
         let _ = self.update(|v| {
@@ -647,20 +634,16 @@ pub(crate) struct RichSystemVault<T: Config> {
 
 #[cfg_attr(test, mockable)]
 impl<T: Config> RichSystemVault<T> {
-    pub(crate) fn redeemable_tokens(&self) -> Result<Wrapped<T>, DispatchError> {
-        Ok(self
-            .data
-            .issued_tokens
-            .checked_sub(&self.data.to_be_redeemed_tokens)
-            .ok_or(Error::<T>::ArithmeticUnderflow)?)
+    pub(crate) fn redeemable_tokens(&self) -> Result<Amount<T>, DispatchError> {
+        self.issued_tokens().checked_sub(&self.to_be_redeemed_tokens())
     }
 
-    pub(crate) fn backed_tokens(&self) -> Result<Wrapped<T>, DispatchError> {
-        Ok(self
-            .data
-            .issued_tokens
-            .checked_add(&self.data.to_be_issued_tokens)
-            .ok_or(Error::<T>::ArithmeticOverflow)?)
+    pub(crate) fn backed_tokens(&self) -> Result<Amount<T>, DispatchError> {
+        self.issued_tokens().checked_add(&self.to_be_issued_tokens())
+    }
+
+    pub(crate) fn to_be_redeemed_tokens(&self) -> Amount<T> {
+        Amount::new(self.data.to_be_redeemed_tokens, T::GetWrappedCurrencyId::get())
     }
 }
 
@@ -669,70 +652,58 @@ impl<T: Config> UpdatableVault<T> for RichSystemVault<T> {
         Pallet::<T>::liquidation_vault_account_id()
     }
 
-    fn issued_tokens(&self) -> Wrapped<T> {
-        self.data.issued_tokens
+    fn issued_tokens(&self) -> Amount<T> {
+        Amount::new(self.data.issued_tokens, T::GetWrappedCurrencyId::get())
     }
 
-    fn to_be_issued_tokens(&self) -> Wrapped<T> {
-        self.data.to_be_issued_tokens
+    fn to_be_issued_tokens(&self) -> Amount<T> {
+        Amount::new(self.data.to_be_issued_tokens, T::GetWrappedCurrencyId::get())
     }
 
-    fn increase_issued(&mut self, tokens: Wrapped<T>) -> DispatchResult {
+    fn increase_issued(&mut self, tokens: &Amount<T>) -> DispatchResult {
+        let new_value = self.issued_tokens().checked_add(&tokens)?.amount();
         self.update(|v| {
-            v.issued_tokens = v
-                .issued_tokens
-                .checked_add(&tokens)
-                .ok_or(Error::<T>::ArithmeticOverflow)?;
+            v.issued_tokens = new_value;
             Ok(())
         })
     }
 
-    fn increase_to_be_issued(&mut self, tokens: Wrapped<T>) -> DispatchResult {
+    fn increase_to_be_issued(&mut self, tokens: &Amount<T>) -> DispatchResult {
+        let new_value = self.to_be_issued_tokens().checked_add(&tokens)?.amount();
         self.update(|v| {
-            v.to_be_issued_tokens = v
-                .to_be_issued_tokens
-                .checked_add(&tokens)
-                .ok_or(Error::<T>::ArithmeticOverflow)?;
+            v.to_be_issued_tokens = new_value;
             Ok(())
         })
     }
 
-    fn increase_to_be_redeemed(&mut self, tokens: Wrapped<T>) -> DispatchResult {
+    fn increase_to_be_redeemed(&mut self, tokens: &Amount<T>) -> DispatchResult {
+        let new_value = self.to_be_redeemed_tokens().checked_add(&tokens)?.amount();
         self.update(|v| {
-            v.to_be_redeemed_tokens = v
-                .to_be_redeemed_tokens
-                .checked_add(&tokens)
-                .ok_or(Error::<T>::ArithmeticOverflow)?;
+            v.to_be_redeemed_tokens = new_value;
             Ok(())
         })
     }
 
-    fn decrease_issued(&mut self, tokens: Wrapped<T>) -> DispatchResult {
+    fn decrease_issued(&mut self, tokens: &Amount<T>) -> DispatchResult {
+        let new_value = self.issued_tokens().checked_sub(&tokens)?.amount();
         self.update(|v| {
-            v.issued_tokens = v
-                .issued_tokens
-                .checked_sub(&tokens)
-                .ok_or(Error::<T>::ArithmeticUnderflow)?;
+            v.issued_tokens = new_value;
             Ok(())
         })
     }
 
-    fn decrease_to_be_issued(&mut self, tokens: Wrapped<T>) -> DispatchResult {
+    fn decrease_to_be_issued(&mut self, tokens: &Amount<T>) -> DispatchResult {
+        let new_value = self.to_be_issued_tokens().checked_sub(&tokens)?.amount();
         self.update(|v| {
-            v.to_be_issued_tokens = v
-                .to_be_issued_tokens
-                .checked_sub(&tokens)
-                .ok_or(Error::<T>::ArithmeticUnderflow)?;
+            v.to_be_issued_tokens = new_value;
             Ok(())
         })
     }
 
-    fn decrease_to_be_redeemed(&mut self, tokens: Wrapped<T>) -> DispatchResult {
+    fn decrease_to_be_redeemed(&mut self, tokens: &Amount<T>) -> DispatchResult {
+        let new_value = self.to_be_redeemed_tokens().checked_sub(&tokens)?.amount();
         self.update(|v| {
-            v.to_be_redeemed_tokens = v
-                .to_be_redeemed_tokens
-                .checked_sub(&tokens)
-                .ok_or(Error::<T>::ArithmeticUnderflow)?;
+            v.to_be_redeemed_tokens = new_value;
             Ok(())
         })
     }

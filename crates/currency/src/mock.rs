@@ -1,7 +1,4 @@
-use crate as exchange_rate_oracle;
-use crate::{Config, Error};
-use frame_support::{parameter_types, traits::GenesisBuild};
-use mocktopus::mocking::clear_mocks;
+use frame_support::parameter_types;
 use orml_traits::parameter_type_with_key;
 use sp_arithmetic::{FixedI128, FixedU128};
 use sp_core::H256;
@@ -22,14 +19,10 @@ frame_support::construct_runtime!(
     {
         // substrate pallets
         System: frame_system::{Pallet, Call, Storage, Config, Event<T>},
-        Timestamp: pallet_timestamp::{Pallet, Call, Storage, Inherent},
         Tokens: orml_tokens::{Pallet, Storage, Config<T>, Event<T>},
 
         // Operational
-        Security: security::{Pallet, Call, Storage, Event<T>},
-        ExchangeRateOracle: exchange_rate_oracle::{Pallet, Call, Config<T>, Storage, Event<T>},
-        Staking: staking::{Pallet, Storage, Event<T>},
-        Currency: currency::{Pallet},
+        Currency: crate::{Pallet},
     }
 );
 
@@ -101,16 +94,16 @@ impl orml_tokens::Config for Test {
 }
 
 pub struct CurrencyConvert;
-impl currency::CurrencyConversion<currency::Amount<Test>, CurrencyId> for CurrencyConvert {
+impl crate::CurrencyConversion<crate::Amount<Test>, CurrencyId> for CurrencyConvert {
     fn convert(
-        _amount: &currency::Amount<Test>,
+        _amount: &crate::Amount<Test>,
         _to: CurrencyId,
-    ) -> Result<currency::Amount<Test>, sp_runtime::DispatchError> {
+    ) -> Result<crate::Amount<Test>, sp_runtime::DispatchError> {
         unimplemented!()
     }
 }
 
-impl currency::Config for Test {
+impl crate::Config for Test {
     type SignedInner = SignedInner;
     type SignedFixedPoint = SignedFixedPoint;
     type UnsignedFixedPoint = UnsignedFixedPoint;
@@ -119,48 +112,17 @@ impl currency::Config for Test {
     type CurrencyConversion = CurrencyConvert;
 }
 
-impl Config for Test {
-    type Event = TestEvent;
-    type WeightInfo = ();
-}
-
 parameter_types! {
     pub const MinimumPeriod: Moment = 5;
 }
 
-impl pallet_timestamp::Config for Test {
-    type Moment = Moment;
-    type OnTimestampSet = ();
-    type MinimumPeriod = MinimumPeriod;
-    type WeightInfo = ();
-}
-
-impl security::Config for Test {
-    type Event = TestEvent;
-}
-
-impl staking::Config for Test {
-    type Event = TestEvent;
-    type SignedFixedPoint = SignedFixedPoint;
-    type SignedInner = SignedInner;
-    type CurrencyId = CurrencyId;
-}
-
 pub type TestEvent = Event;
-pub type TestError = Error<Test>;
 
 pub struct ExtBuilder;
 
 impl ExtBuilder {
     pub fn build() -> sp_io::TestExternalities {
-        let mut storage = frame_system::GenesisConfig::default().build_storage::<Test>().unwrap();
-
-        exchange_rate_oracle::GenesisConfig::<Test> {
-            authorized_oracles: vec![(0, "test".as_bytes().to_vec())],
-            max_delay: 0,
-        }
-        .assimilate_storage(&mut storage)
-        .unwrap();
+        let storage = frame_system::GenesisConfig::default().build_storage::<Test>().unwrap();
 
         sp_io::TestExternalities::from(storage)
     }
@@ -170,10 +132,7 @@ pub fn run_test<T>(test: T)
 where
     T: FnOnce(),
 {
-    clear_mocks();
     ExtBuilder::build().execute_with(|| {
-        Security::set_active_block_number(1);
-        System::set_block_number(1);
         test();
     });
 }

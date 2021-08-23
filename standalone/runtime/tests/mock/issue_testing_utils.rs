@@ -1,16 +1,17 @@
 use crate::*;
+use currency::Amount;
 use frame_support::transactional;
 
 pub const USER: [u8; 32] = ALICE;
 pub const VAULT: [u8; 32] = BOB;
 pub const PROOF_SUBMITTER: [u8; 32] = CAROL;
 
-pub const DEFAULT_GRIEFING_COLLATERAL: u128 = 5_000;
+pub const DEFAULT_GRIEFING_COLLATERAL: Amount<Runtime> = griefing(5_000);
 pub const DEFAULT_COLLATERAL: u128 = 1_000_000;
 pub fn request_issue(
     currency_id: CurrencyId,
-    amount_btc: u128,
-) -> (H256, IssueRequest<AccountId32, BlockNumber, Balance>) {
+    amount_btc: Amount<Runtime>,
+) -> (H256, IssueRequest<AccountId32, u32, u128>) {
     RequestIssueBuilder::new(currency_id, amount_btc).request()
 }
 
@@ -23,9 +24,9 @@ pub struct RequestIssueBuilder {
 }
 
 impl RequestIssueBuilder {
-    pub fn new(currency_id: CurrencyId, amount_btc: u128) -> Self {
+    pub fn new(currency_id: CurrencyId, amount_btc: Amount<Runtime>) -> Self {
         Self {
-            amount_btc,
+            amount_btc: amount_btc.amount(),
             currency_id,
             vault: VAULT,
             user: USER,
@@ -38,8 +39,8 @@ impl RequestIssueBuilder {
         self
     }
 
-    pub fn with_collateral(&mut self, collateral: u128) -> &mut Self {
-        self.griefing_collateral = collateral;
+    pub fn with_collateral(&mut self, collateral: Amount<Runtime>) -> &mut Self {
+        self.griefing_collateral = collateral.amount();
         self
     }
 
@@ -48,8 +49,8 @@ impl RequestIssueBuilder {
         self
     }
 
-    pub fn request(&self) -> (H256, IssueRequest<AccountId32, BlockNumber, Balance>) {
-        try_register_vault(self.currency_id, DEFAULT_COLLATERAL, self.vault);
+    pub fn request(&self) -> (H256, IssueRequest<AccountId32, u32, u128>) {
+        try_register_vault(Amount::new(DEFAULT_COLLATERAL, self.currency_id), self.vault);
 
         // alice requests wrapped by locking btc with bob
         assert_ok!(Call::Issue(IssueCall::request_issue(
@@ -68,8 +69,8 @@ impl RequestIssueBuilder {
 
 pub struct ExecuteIssueBuilder {
     issue_id: H256,
-    issue: IssueRequest<AccountId32, BlockNumber, Balance>,
-    amount: u128,
+    issue: IssueRequest<AccountId32, u32, u128>,
+    amount: Amount<Runtime>,
     submitter: [u8; 32],
     register_vault_with_currency_id: Option<CurrencyId>,
     relayer: Option<[u8; 32]>,
@@ -82,7 +83,7 @@ impl ExecuteIssueBuilder {
         Self {
             issue_id,
             issue: issue.clone(),
-            amount: issue.fee + issue.amount,
+            amount: issue.fee() + issue.amount(),
             submitter: PROOF_SUBMITTER,
             register_vault_with_currency_id: None,
             relayer: None,
@@ -90,7 +91,7 @@ impl ExecuteIssueBuilder {
         }
     }
 
-    pub fn with_amount(&mut self, amount: u128) -> &mut Self {
+    pub fn with_amount(&mut self, amount: Amount<Runtime>) -> &mut Self {
         self.amount = amount;
         self
     }
@@ -142,7 +143,7 @@ impl ExecuteIssueBuilder {
         SecurityPallet::set_active_block_number(SecurityPallet::active_block_number() + CONFIRMATIONS);
 
         if let Some(currency_id) = self.register_vault_with_currency_id {
-            try_register_vault(currency_id, DEFAULT_COLLATERAL, self.submitter);
+            try_register_vault(Amount::new(DEFAULT_COLLATERAL, currency_id), self.submitter);
         }
 
         self.execution_tx = Some((proof, raw_tx));
@@ -158,8 +159,14 @@ pub fn execute_issue(issue_id: H256) {
     ExecuteIssueBuilder::new(issue_id).assert_execute()
 }
 
-pub fn assert_issue_amount_change_event(issue_id: H256, amount: u128, fee: u128, confiscated_collateral: u128) {
-    let expected_event = IssueEvent::IssueAmountChange(issue_id, amount, fee, confiscated_collateral);
+pub fn assert_issue_amount_change_event(
+    issue_id: H256,
+    amount: Amount<Runtime>,
+    fee: Amount<Runtime>,
+    confiscated_collateral: Amount<Runtime>,
+) {
+    let expected_event =
+        IssueEvent::IssueAmountChange(issue_id, amount.amount(), fee.amount(), confiscated_collateral.amount());
     let events = SystemModule::events();
     let records: Vec<_> = events
         .iter()
@@ -197,11 +204,11 @@ pub fn assert_refund_request_event() -> H256 {
 pub fn execute_refund(vault_id: [u8; 32]) -> (H256, RefundRequest<AccountId, u128>) {
     let refund_id = assert_refund_request_event();
     let refund = RefundPallet::get_open_refund_request_from_id(&refund_id).unwrap();
-    assert_ok!(execute_refund_with_amount(vault_id, refund.amount_wrapped));
+    assert_ok!(execute_refund_with_amount(vault_id, wrapped(refund.amount_wrapped)));
     (refund_id, refund)
 }
 
-pub fn execute_refund_with_amount(vault_id: [u8; 32], amount: u128) -> DispatchResultWithPostInfo {
+pub fn execute_refund_with_amount(vault_id: [u8; 32], amount: Amount<Runtime>) -> DispatchResultWithPostInfo {
     let refund_address_script = bitcoin::Script::try_from("a914d7ff6d60ebf40a9b1886acce06653ba2224d8fea87").unwrap();
     let refund_address = BtcAddress::from_script_pub_key(&refund_address_script).unwrap();
 

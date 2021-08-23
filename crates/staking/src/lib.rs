@@ -16,6 +16,7 @@ use frame_support::{
     dispatch::{DispatchError, DispatchResult},
     traits::Get,
 };
+use primitives::TruncateFixedPointToInt;
 use sp_arithmetic::{FixedPointNumber, FixedPointOperand};
 use sp_runtime::traits::{CheckedAdd, CheckedDiv, CheckedMul, CheckedSub, MaybeSerializeDeserialize, One, Zero};
 use sp_std::{cmp, marker::PhantomData};
@@ -40,7 +41,11 @@ pub mod pallet {
         type SignedInner: CheckedDiv + Ord + FixedPointOperand;
 
         /// Signed fixed point type.
-        type SignedFixedPoint: FixedPointNumber<Inner = Self::SignedInner> + Encode + EncodeLike + Decode;
+        type SignedFixedPoint: FixedPointNumber<Inner = Self::SignedInner>
+            + TruncateFixedPointToInt
+            + Encode
+            + EncodeLike
+            + Decode;
 
         /// The currency ID type.
         type CurrencyId: Parameter + Member + Copy + MaybeSerializeDeserialize + Ord;
@@ -239,9 +244,8 @@ impl<T: Config> Pallet<T> {
     ) -> Result<<SignedFixedPoint<T> as FixedPointNumber>::Inner, DispatchError> {
         let nonce = Self::nonce(currency_id, vault_id);
         Self::total_current_stake_at_index(currency_id, (nonce, vault_id))
-            .into_inner()
-            .checked_div(&SignedFixedPoint::<T>::accuracy())
-            .ok_or(Error::<T>::ArithmeticUnderflow.into())
+            .truncate_to_inner()
+            .ok_or(Error::<T>::TryIntoIntError.into())
     }
 
     pub(crate) fn reward_tally(
@@ -389,9 +393,8 @@ impl<T: Config> Pallet<T> {
         let stake_sub_to_slash = stake
             .checked_sub(&to_slash)
             .ok_or(Error::<T>::ArithmeticUnderflow)?
-            .into_inner()
-            .checked_div(&SignedFixedPoint::<T>::accuracy())
-            .ok_or(Error::<T>::ArithmeticUnderflow)?;
+            .truncate_to_inner()
+            .ok_or(Error::<T>::TryIntoIntError)?;
         Ok(cmp::max(Zero::zero(), stake_sub_to_slash))
     }
 
@@ -470,9 +473,8 @@ impl<T: Config> Pallet<T> {
         let reward = stake_mul_reward_per_token
             .checked_sub(&reward_tally)
             .ok_or(Error::<T>::ArithmeticUnderflow)?
-            .into_inner()
-            .checked_div(&SignedFixedPoint::<T>::accuracy())
-            .ok_or(Error::<T>::ArithmeticUnderflow)?;
+            .truncate_to_inner()
+            .ok_or(Error::<T>::TryIntoIntError)?;
         Ok(cmp::max(Zero::zero(), reward))
     }
 

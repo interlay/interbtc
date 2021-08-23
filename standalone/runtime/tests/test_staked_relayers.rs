@@ -1,5 +1,6 @@
 mod mock;
 
+use currency::Amount;
 use mock::*;
 use sp_core::H256;
 
@@ -25,9 +26,9 @@ fn integration_test_report_vault_theft() {
     test_with(|currency_id| {
         let user = ALICE;
         let vault = BOB;
-        let theft_amount = 100;
+        let theft_amount = wrapped(100);
         let collateral_vault = 1000000;
-        let issued_tokens = 100;
+        let issued_tokens = wrapped(100);
 
         let vault_btc_address = BtcAddress::P2SH(H160([
             215, 255, 109, 96, 235, 244, 10, 155, 24, 134, 172, 206, 6, 101, 59, 162, 34, 77, 143, 234,
@@ -49,9 +50,9 @@ fn integration_test_report_vault_theft() {
 
         assert_ok!(VaultRegistryPallet::try_increase_to_be_issued_tokens(
             &account_of(vault),
-            issued_tokens,
+            &issued_tokens,
         ));
-        assert_ok!(VaultRegistryPallet::issue_tokens(&account_of(vault), issued_tokens));
+        assert_ok!(VaultRegistryPallet::issue_tokens(&account_of(vault), &issued_tokens));
 
         let (_tx_id, _height, proof, raw_tx, _) = TransactionGenerator::new()
             .with_address(other_btc_address)
@@ -63,24 +64,25 @@ fn integration_test_report_vault_theft() {
         SecurityPallet::set_active_block_number(1000);
 
         let pre_liquidation_state = ParachainState::get();
-        let theft_fee = FeePallet::get_theft_fee(collateral_vault).unwrap();
+        let theft_fee = FeePallet::get_theft_fee(&Amount::new(collateral_vault, currency_id)).unwrap();
 
         assert_ok!(
             Call::Relay(RelayCall::report_vault_theft(account_of(vault), proof, raw_tx))
                 .dispatch(origin_of(account_of(user)))
         );
 
+        let confiscated_collateral = Amount::new(150, currency_id);
         assert_eq!(
             ParachainState::get(),
             pre_liquidation_state.with_changes(|user, vault, liquidation_vault, _fee_pool| {
                 (*user.balances.get_mut(&currency_id).unwrap()).free += theft_fee;
 
                 vault.issued -= issued_tokens;
-                vault.backing_collateral -= 150;
+                vault.backing_collateral -= confiscated_collateral;
                 vault.backing_collateral -= theft_fee;
 
                 liquidation_vault.issued += issued_tokens;
-                *liquidation_vault.funds.get_mut(&currency_id).unwrap() += 150;
+                *liquidation_vault.funds.get_mut(&currency_id).unwrap() += confiscated_collateral;
             })
         );
     });

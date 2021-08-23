@@ -48,32 +48,28 @@ pub(crate) mod btc_relay {
 
 #[cfg_attr(test, mockable)]
 pub(crate) mod vault_registry {
-    use crate::types::{Collateral, Wrapped};
+    use currency::Amount;
     use frame_support::dispatch::{DispatchError, DispatchResult};
     use vault_registry::types::{CurrencyId, CurrencySource, DefaultVault};
 
-    pub fn get_liquidated_collateral<T: crate::Config>(
-        vault_id: &T::AccountId,
-    ) -> Result<Collateral<T>, DispatchError> {
+    pub fn get_liquidated_collateral<T: crate::Config>(vault_id: &T::AccountId) -> Result<Amount<T>, DispatchError> {
         <vault_registry::Pallet<T>>::get_liquidated_collateral(vault_id)
     }
 
     pub fn transfer_funds<T: crate::Config>(
-        currency_id: CurrencyId<T>,
         from: CurrencySource<T>,
         to: CurrencySource<T>,
-        amount: Collateral<T>,
+        amount: &Amount<T>,
     ) -> DispatchResult {
-        <vault_registry::Pallet<T>>::transfer_funds(currency_id, from, to, amount)
+        <vault_registry::Pallet<T>>::transfer_funds(from, to, amount)
     }
 
     pub fn transfer_funds_saturated<T: crate::Config>(
-        currency_id: CurrencyId<T>,
         from: CurrencySource<T>,
         to: CurrencySource<T>,
-        amount: Collateral<T>,
-    ) -> Result<Collateral<T>, DispatchError> {
-        <vault_registry::Pallet<T>>::transfer_funds_saturated(currency_id, from, to, amount)
+        amount: &Amount<T>,
+    ) -> Result<Amount<T>, DispatchError> {
+        <vault_registry::Pallet<T>>::transfer_funds_saturated(from, to, amount)
     }
 
     pub fn get_vault_from_id<T: crate::Config>(vault_id: &T::AccountId) -> Result<DefaultVault<T>, DispatchError> {
@@ -82,15 +78,15 @@ pub(crate) mod vault_registry {
 
     pub fn try_increase_to_be_redeemed_tokens<T: crate::Config>(
         vault_id: &T::AccountId,
-        amount: Wrapped<T>,
+        amount: &Amount<T>,
     ) -> DispatchResult {
         <vault_registry::Pallet<T>>::try_increase_to_be_redeemed_tokens(vault_id, amount)
     }
 
     pub fn redeem_tokens<T: crate::Config>(
         vault_id: &T::AccountId,
-        tokens: Wrapped<T>,
-        premium: Collateral<T>,
+        tokens: &Amount<T>,
+        premium: &Amount<T>,
         redeemer_id: &T::AccountId,
     ) -> DispatchResult {
         <vault_registry::Pallet<T>>::redeem_tokens(vault_id, tokens, premium, redeemer_id)
@@ -99,14 +95,14 @@ pub(crate) mod vault_registry {
     pub fn decrease_tokens<T: crate::Config>(
         vault_id: &T::AccountId,
         user_id: &T::AccountId,
-        tokens: Wrapped<T>,
+        tokens: &Amount<T>,
     ) -> DispatchResult {
         <vault_registry::Pallet<T>>::decrease_tokens(vault_id, user_id, tokens)
     }
 
     pub fn decrease_liquidated_collateral<T: crate::Config>(
         vault_id: &T::AccountId,
-        amount: Collateral<T>,
+        amount: &Amount<T>,
     ) -> DispatchResult {
         <vault_registry::Pallet<T>>::decrease_liquidated_collateral(vault_id, amount)
     }
@@ -114,7 +110,7 @@ pub(crate) mod vault_registry {
     pub fn redeem_tokens_liquidation<T: crate::Config>(
         currency_id: CurrencyId<T>,
         redeemer_id: &T::AccountId,
-        amount: Wrapped<T>,
+        amount: &Amount<T>,
     ) -> DispatchResult {
         <vault_registry::Pallet<T>>::redeem_tokens_liquidation(currency_id, redeemer_id, amount)
     }
@@ -137,34 +133,34 @@ pub(crate) mod vault_registry {
 
     pub fn decrease_to_be_redeemed_tokens<T: crate::Config>(
         vault_id: &T::AccountId,
-        tokens: Wrapped<T>,
+        tokens: &Amount<T>,
     ) -> DispatchResult {
         <vault_registry::Pallet<T>>::decrease_to_be_redeemed_tokens(vault_id, tokens)
     }
 
     pub fn calculate_collateral<T: crate::Config>(
-        collateral: Collateral<T>,
-        numerator: Wrapped<T>,
-        denominator: Wrapped<T>,
-    ) -> Result<Collateral<T>, DispatchError> {
+        collateral: &Amount<T>,
+        numerator: &Amount<T>,
+        denominator: &Amount<T>,
+    ) -> Result<Amount<T>, DispatchError> {
         <vault_registry::Pallet<T>>::calculate_collateral(collateral, numerator, denominator)
     }
 
     pub fn try_increase_to_be_issued_tokens<T: crate::Config>(
         vault_id: &T::AccountId,
-        amount: Wrapped<T>,
+        amount: &Amount<T>,
     ) -> Result<(), DispatchError> {
         <vault_registry::Pallet<T>>::try_increase_to_be_issued_tokens(vault_id, amount)
     }
 
-    pub fn issue_tokens<T: crate::Config>(vault_id: &T::AccountId, amount: Wrapped<T>) -> DispatchResult {
+    pub fn issue_tokens<T: crate::Config>(vault_id: &T::AccountId, amount: &Amount<T>) -> DispatchResult {
         <vault_registry::Pallet<T>>::issue_tokens(vault_id, amount)
     }
 
     pub fn decrease_to_be_replaced_tokens<T: crate::Config>(
         vault_id: &T::AccountId,
-        tokens: Wrapped<T>,
-    ) -> Result<(Wrapped<T>, Collateral<T>), DispatchError> {
+        tokens: &Amount<T>,
+    ) -> Result<(Amount<T>, Amount<T>), DispatchError> {
         <vault_registry::Pallet<T>>::decrease_to_be_replaced_tokens(vault_id, tokens)
     }
 
@@ -175,36 +171,12 @@ pub(crate) mod vault_registry {
 
 #[cfg_attr(test, mockable)]
 pub(crate) mod treasury {
-    use crate::types::Wrapped;
-    use currency::ParachainCurrency;
-    use frame_support::dispatch::DispatchResult;
+    use currency::{Amount, ParachainCurrency};
+    use frame_support::traits::Get;
 
-    pub fn get_balance<T: crate::Config>(account: &T::AccountId) -> Wrapped<T> {
-        <T as vault_registry::Config>::Wrapped::get_free_balance(account)
-    }
-
-    pub fn lock<T: crate::Config>(redeemer: &T::AccountId, amount: Wrapped<T>) -> DispatchResult {
-        <T as vault_registry::Config>::Wrapped::lock(redeemer, amount)
-    }
-
-    pub fn unlock<T: crate::Config>(account: &T::AccountId, amount: Wrapped<T>) -> DispatchResult {
-        <T as vault_registry::Config>::Wrapped::unlock(account, amount)
-    }
-
-    pub fn burn<T: crate::Config>(redeemer: &T::AccountId, amount: Wrapped<T>) -> DispatchResult {
-        <T as vault_registry::Config>::Wrapped::burn(redeemer, amount)
-    }
-
-    pub fn unlock_and_transfer<T: crate::Config>(
-        source: &T::AccountId,
-        destination: &T::AccountId,
-        amount: Wrapped<T>,
-    ) -> DispatchResult {
-        <T as vault_registry::Config>::Wrapped::unlock_and_transfer(source, destination, amount)
-    }
-
-    pub fn mint<T: crate::Config>(requester: &T::AccountId, amount: Wrapped<T>) -> DispatchResult {
-        <T as vault_registry::Config>::Wrapped::mint(requester, amount)
+    pub fn get_balance<T: crate::Config>(account: &T::AccountId) -> Amount<T> {
+        let amount = <T as vault_registry::Config>::Wrapped::get_free_balance(account);
+        Amount::new(amount, T::GetWrappedCurrencyId::get())
     }
 }
 
@@ -232,64 +204,37 @@ pub(crate) mod security {
 
 #[cfg_attr(test, mockable)]
 pub(crate) mod oracle {
-    use crate::{
-        types::{Collateral, Wrapped},
-        OracleKey,
-    };
+    use crate::OracleKey;
+    use exchange_rate_oracle::types::UnsignedFixedPoint;
     use frame_support::dispatch::DispatchError;
-    use vault_registry::types::CurrencyId;
 
-    pub fn wrapped_to_collateral<T: crate::Config>(
-        amount: Wrapped<T>,
-        currency_id: CurrencyId<T>,
-    ) -> Result<Collateral<T>, DispatchError> {
-        <exchange_rate_oracle::Pallet<T>>::wrapped_to_collateral(amount, currency_id)
-    }
-
-    pub fn get_price<T: crate::Config>(
-        key: OracleKey,
-    ) -> Result<<T as exchange_rate_oracle::Config>::UnsignedFixedPoint, DispatchError> {
+    pub fn get_price<T: crate::Config>(key: OracleKey) -> Result<UnsignedFixedPoint<T>, DispatchError> {
         <exchange_rate_oracle::Pallet<T>>::get_price(key)
     }
 }
 
 #[cfg_attr(test, mockable)]
 pub(crate) mod fee {
-    use crate::types::{Collateral, Wrapped};
+    use currency::Amount;
     use frame_support::dispatch::{DispatchError, DispatchResult};
 
     pub fn fee_pool_account_id<T: crate::Config>() -> T::AccountId {
         <fee::Pallet<T>>::fee_pool_account_id()
     }
 
-    pub fn get_redeem_fee<T: crate::Config>(amount: Wrapped<T>) -> Result<Wrapped<T>, DispatchError> {
+    pub fn get_redeem_fee<T: crate::Config>(amount: &Amount<T>) -> Result<Amount<T>, DispatchError> {
         <fee::Pallet<T>>::get_redeem_fee(amount)
     }
 
-    pub fn distribute_rewards<T: crate::Config>(amount: Wrapped<T>) -> DispatchResult {
+    pub fn distribute_rewards<T: crate::Config>(amount: &Amount<T>) -> DispatchResult {
         <fee::Pallet<T>>::distribute_rewards(amount)
     }
 
-    pub fn get_punishment_fee<T: crate::Config>(amount: Collateral<T>) -> Result<Collateral<T>, DispatchError> {
+    pub fn get_punishment_fee<T: crate::Config>(amount: &Amount<T>) -> Result<Amount<T>, DispatchError> {
         <fee::Pallet<T>>::get_punishment_fee(amount)
     }
 
-    pub fn get_premium_redeem_fee<T: crate::Config>(amount: Collateral<T>) -> Result<Collateral<T>, DispatchError> {
+    pub fn get_premium_redeem_fee<T: crate::Config>(amount: &Amount<T>) -> Result<Amount<T>, DispatchError> {
         <fee::Pallet<T>>::get_premium_redeem_fee(amount)
-    }
-}
-
-#[cfg_attr(test, mockable)]
-pub(crate) mod currency {
-    use crate::types::Collateral;
-    use frame_support::dispatch::DispatchResult;
-    use vault_registry::types::CurrencyId;
-
-    pub fn unlock<T: crate::Config>(
-        currency_id: CurrencyId<T>,
-        account: &T::AccountId,
-        amount: Collateral<T>,
-    ) -> DispatchResult {
-        currency::with_currency_id::unlock::<T>(currency_id, account, amount)
     }
 }

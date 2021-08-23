@@ -40,6 +40,7 @@ where
     fn get_first_vault_with_sufficient_collateral(
         &self,
         amount: BalanceWrapper<Balance>,
+        currency_id: CurrencyId,
         at: Option<BlockHash>,
     ) -> JsonRpcResult<AccountId>;
 
@@ -201,13 +202,14 @@ where
     fn get_first_vault_with_sufficient_collateral(
         &self,
         amount: BalanceWrapper<Balance>,
+        currency_id: CurrencyId,
         at: Option<<Block as BlockT>::Hash>,
     ) -> JsonRpcResult<AccountId> {
         let api = self.client.runtime_api();
         let at = BlockId::hash(at.unwrap_or_else(|| self.client.info().best_hash));
 
         handle_response(
-            api.get_first_vault_with_sufficient_collateral(&at, amount),
+            api.get_first_vault_with_sufficient_collateral(&at, amount, currency_id),
             "Unable to find a vault with sufficient collateral.".into(),
         )
     }

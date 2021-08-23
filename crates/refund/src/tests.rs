@@ -1,6 +1,7 @@
 use crate::{ext, mock::*, Event};
 use bitcoin::types::{MerkleProof, Transaction};
 use btc_relay::BtcAddress;
+use currency::Amount;
 use frame_support::{assert_err, assert_ok};
 use mocktopus::mocking::*;
 use sp_core::{H160, H256};
@@ -14,10 +15,14 @@ fn dummy_merkle_proof() -> MerkleProof {
     }
 }
 
+fn wrapped(amount: u128) -> Amount<Test> {
+    Amount::new(amount, INTERBTC)
+}
+
 #[test]
 fn test_refund_succeeds() {
     run_test(|| {
-        ext::fee::get_refund_fee_from_total::<Test>.mock_safe(|_| MockResult::Return(Ok(5)));
+        ext::fee::get_refund_fee_from_total::<Test>.mock_safe(|_| MockResult::Return(Ok(wrapped(5))));
         ext::vault_registry::try_increase_to_be_issued_tokens::<Test>.mock_safe(|_, _| MockResult::Return(Ok(())));
         ext::vault_registry::issue_tokens::<Test>.mock_safe(|_, _| MockResult::Return(Ok(())));
         ext::btc_relay::parse_merkle_proof::<Test>.mock_safe(|_| MockResult::Return(Ok(dummy_merkle_proof())));
@@ -27,7 +32,7 @@ fn test_refund_succeeds() {
 
         let issue_id = H256::zero();
         assert_ok!(Refund::request_refund(
-            1000,
+            &wrapped(1000),
             VAULT,
             USER,
             BtcAddress::P2SH(H160::zero()),

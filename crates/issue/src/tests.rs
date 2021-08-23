@@ -2,6 +2,7 @@ use crate::{ext, mock::*, Event};
 
 use bitcoin::types::{MerkleProof, Transaction};
 use btc_relay::{BtcAddress, BtcPublicKey};
+use currency::Amount;
 use frame_support::{assert_noop, assert_ok, dispatch::DispatchError};
 use mocktopus::mocking::*;
 use sp_arithmetic::FixedU128;
@@ -16,6 +17,14 @@ fn dummy_merkle_proof() -> MerkleProof {
         flag_bits: vec![],
         hashes: vec![],
     }
+}
+
+fn griefing(amount: u128) -> Amount<Test> {
+    Amount::new(amount, GRIEFING_CURRENCY)
+}
+
+fn wrapped(amount: u128) -> Amount<Test> {
+    Amount::new(amount, INTERBTC)
 }
 
 fn request_issue(
@@ -102,7 +111,7 @@ fn test_request_issue_insufficient_collateral_fails() {
         ext::vault_registry::get_active_vault_from_id::<Test>
             .mock_safe(|_| MockResult::Return(Ok(init_zero_vault(BOB))));
         ext::vault_registry::ensure_not_banned::<Test>.mock_safe(|_| MockResult::Return(Ok(())));
-        ext::oracle::wrapped_to_collateral::<Test>.mock_safe(|_, _| MockResult::Return(Ok(10000000)));
+        convert_to.mock_safe(|_, _| MockResult::Return(Ok(10000000)));
 
         assert_noop!(request_issue(ALICE, 3, BOB, 0), TestError::InsufficientCollateral,);
     })
@@ -120,10 +129,10 @@ fn test_request_issue_succeeds() {
         ext::vault_registry::get_active_vault_from_id::<Test>
             .mock_safe(|_| MockResult::Return(Ok(init_zero_vault(BOB))));
 
-        ext::fee::get_issue_fee::<Test>.mock_safe(move |_| MockResult::Return(Ok(issue_fee)));
+        ext::fee::get_issue_fee::<Test>.mock_safe(move |_| MockResult::Return(Ok(wrapped(issue_fee))));
 
         ext::fee::get_issue_griefing_collateral::<Test>
-            .mock_safe(move |_| MockResult::Return(Ok(issue_griefing_collateral)));
+            .mock_safe(move |_| MockResult::Return(Ok(griefing(issue_griefing_collateral))));
 
         let issue_id = request_issue_ok(origin, amount, vault, issue_griefing_collateral);
 
@@ -159,7 +168,7 @@ fn test_execute_issue_succeeds() {
 
         ext::vault_registry::is_vault_liquidated::<Test>.mock_safe(|_| MockResult::Return(Ok(false)));
 
-        ext::fee::get_issue_fee::<Test>.mock_safe(move |_| MockResult::Return(Ok(1)));
+        ext::fee::get_issue_fee::<Test>.mock_safe(move |_| MockResult::Return(Ok(wrapped(1))));
 
         let issue_id = request_issue_ok(ALICE, 3, BOB, 20);
         <security::Pallet<Test>>::set_active_block_number(5);
@@ -203,7 +212,7 @@ fn test_execute_issue_overpayment_succeeds() {
 
             ext::vault_registry::try_increase_to_be_issued_tokens::<Test>.mock_raw(|_, amount| {
                 increase_tokens_called = true;
-                assert_eq!(amount, 2);
+                assert_eq!(amount, &wrapped(2));
                 MockResult::Return(Ok(()))
             });
 
@@ -239,7 +248,7 @@ fn test_execute_issue_refund_succeeds() {
 
         // return some arbitrary error
         ext::vault_registry::try_increase_to_be_issued_tokens::<Test>.mock_safe(|_, amount| {
-            assert_eq!(amount, 100);
+            assert_eq!(amount, &wrapped(100));
             MockResult::Return(Err(TestError::IssueCompleted.into()))
         });
         ext::vault_registry::register_deposit_address::<Test>
@@ -253,7 +262,7 @@ fn test_execute_issue_refund_succeeds() {
             // check that a refund for amount=100 is requested
             ext::refund::request_refund::<Test>.mock_raw(|amount, _, _, _, _| {
                 refund_called = true;
-                assert_eq!(amount, 100);
+                assert_eq!(amount, &wrapped(100));
                 MockResult::Return(Ok(None))
             });
             assert_ok!(execute_issue(ALICE, &issue_id));

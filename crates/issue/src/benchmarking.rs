@@ -15,7 +15,7 @@ use orml_traits::MultiCurrency;
 use primitives::CurrencyId;
 use security::Pallet as Security;
 use sp_core::{H160, H256, U256};
-use sp_runtime::FixedPointNumber;
+use sp_runtime::{traits::One, FixedPointNumber};
 use sp_std::prelude::*;
 use vault_registry::Pallet as VaultRegistry;
 
@@ -98,8 +98,8 @@ benchmarks! {
         mint_collateral::<T>(&vault_id, (1u32 << 31).into());
         mint_collateral::<T>(&relayer_id, (1u32 << 31).into());
 
-        ExchangeRateOracle::<T>::_set_exchange_rate(DEFAULT_TESTING_CURRENCY, <T as exchange_rate_oracle::Config>::UnsignedFixedPoint::one()).unwrap();
-        VaultRegistry::<T>::set_secure_collateral_threshold(DEFAULT_TESTING_CURRENCY, <T as vault_registry::Config>::UnsignedFixedPoint::checked_from_rational(1, 100000).unwrap());// 0.001%
+        ExchangeRateOracle::<T>::_set_exchange_rate(DEFAULT_TESTING_CURRENCY, <T as currency::Config>::UnsignedFixedPoint::one()).unwrap();
+        VaultRegistry::<T>::set_secure_collateral_threshold(DEFAULT_TESTING_CURRENCY, <T as currency::Config>::UnsignedFixedPoint::checked_from_rational(1, 100000).unwrap());// 0.001%
         VaultRegistry::<T>::_register_vault(&vault_id, 100000000u32.into(), dummy_public_key(), T::GetGriefingCollateralCurrencyId::get()).unwrap();
 
         // initialize relay
@@ -165,14 +165,14 @@ benchmarks! {
         mint_collateral::<T>(&relayer_id, (1u32 << 31).into());
 
         let vault_btc_address = BtcAddress::P2SH(H160::zero());
-        let value: u32 = 2;
+        let value: Amount<T> = Amount::new(2u32.into(), T::GetWrappedCurrencyId::get());
 
         let issue_id = H256::zero();
         let mut issue_request = IssueRequest::default();
         issue_request.requester = origin.clone();
         issue_request.vault = vault_id.clone();
         issue_request.btc_address = vault_btc_address;
-        issue_request.amount = value.into();
+        issue_request.amount = value.amount();
         Issue::<T>::insert_issue_request(&issue_id, &issue_request);
 
         let height = 0;
@@ -207,7 +207,7 @@ benchmarks! {
                     ])
                     .build(),
             )
-            .add_output(TransactionOutput::payment(value.into(), &vault_btc_address))
+            .add_output(TransactionOutput::payment(2u32.into(), &vault_btc_address))
             .add_output(TransactionOutput::op_return(0, H256::zero().as_bytes()))
             .build();
 
@@ -229,11 +229,11 @@ benchmarks! {
         BtcRelay::<T>::store_block_header(&relayer_id, block_header).unwrap();
         Security::<T>::set_active_block_number(Security::<T>::active_block_number() + BtcRelay::<T>::parachain_confirmations());
 
-        VaultRegistry::<T>::set_secure_collateral_threshold(DEFAULT_TESTING_CURRENCY, <T as vault_registry::Config>::UnsignedFixedPoint::checked_from_rational(1, 100000).unwrap());
-        ExchangeRateOracle::<T>::_set_exchange_rate(DEFAULT_TESTING_CURRENCY, <T as exchange_rate_oracle::Config>::UnsignedFixedPoint::one()).unwrap();
+        VaultRegistry::<T>::set_secure_collateral_threshold(DEFAULT_TESTING_CURRENCY, <T as currency::Config>::UnsignedFixedPoint::checked_from_rational(1, 100000).unwrap());
+        ExchangeRateOracle::<T>::_set_exchange_rate(DEFAULT_TESTING_CURRENCY, <T as currency::Config>::UnsignedFixedPoint::one()).unwrap();
         VaultRegistry::<T>::_register_vault(&vault_id, 100000000u32.into(), dummy_public_key(), T::GetGriefingCollateralCurrencyId::get()).unwrap();
 
-        VaultRegistry::<T>::try_increase_to_be_issued_tokens(&vault_id, value.into()).unwrap();
+        VaultRegistry::<T>::try_increase_to_be_issued_tokens(&vault_id, &value).unwrap();
         let secure_id = Security::<T>::get_secure_id(&vault_id);
         VaultRegistry::<T>::register_deposit_address(&vault_id, secure_id).unwrap();
     }: _(RawOrigin::Signed(origin), issue_id, proof, raw_tx)
@@ -246,25 +246,25 @@ benchmarks! {
         mint_collateral::<T>(&vault_id, (1u32 << 31).into());
 
         let vault_btc_address = BtcAddress::P2SH(H160::zero());
-        let value: u32 = 2;
+        let value = Amount::new(2u32.into(), T::GetWrappedCurrencyId::get());
 
         let issue_id = H256::zero();
         let mut issue_request = IssueRequest::default();
         issue_request.requester = origin.clone();
         issue_request.vault = vault_id.clone();
         issue_request.btc_address = vault_btc_address;
-        issue_request.amount = value.into();
+        issue_request.amount = value.amount();
         Issue::<T>::insert_issue_request(&issue_id, &issue_request);
 
         mine_blocks::<T>();
 
         Security::<T>::set_active_block_number(Security::<T>::active_block_number() + Issue::<T>::issue_period() + 10u32.into());
 
-        VaultRegistry::<T>::set_secure_collateral_threshold(DEFAULT_TESTING_CURRENCY, <T as vault_registry::Config>::UnsignedFixedPoint::checked_from_rational(1, 100000).unwrap());
-        ExchangeRateOracle::<T>::_set_exchange_rate(DEFAULT_TESTING_CURRENCY, <T as exchange_rate_oracle::Config>::UnsignedFixedPoint::one()).unwrap();
+        VaultRegistry::<T>::set_secure_collateral_threshold(DEFAULT_TESTING_CURRENCY, <T as currency::Config>::UnsignedFixedPoint::checked_from_rational(1, 100000).unwrap());
+        ExchangeRateOracle::<T>::_set_exchange_rate(DEFAULT_TESTING_CURRENCY, <T as currency::Config>::UnsignedFixedPoint::one()).unwrap();
         VaultRegistry::<T>::_register_vault(&vault_id, 100000000u32.into(), dummy_public_key(), T::GetGriefingCollateralCurrencyId::get()).unwrap();
 
-        VaultRegistry::<T>::try_increase_to_be_issued_tokens(&vault_id, value.into()).unwrap();
+        VaultRegistry::<T>::try_increase_to_be_issued_tokens(&vault_id, &value).unwrap();
         let secure_id = Security::<T>::get_secure_id(&vault_id);
         VaultRegistry::<T>::register_deposit_address(&vault_id, secure_id).unwrap();
 
