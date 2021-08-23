@@ -283,8 +283,6 @@ mod monetary {
             Ok(self.amount > other.amount)
         }
 
-        // todo: all other checked_ math operations
-
         pub fn transfer(&self, source: &T::AccountId, destination: &T::AccountId) -> Result<(), DispatchError> {
             with_currency_id::transfer::<T>(self.currency_id, source, destination, self.amount)
         }
