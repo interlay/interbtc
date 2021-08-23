@@ -46,7 +46,7 @@ use sp_std::{convert::TryInto, vec::Vec};
 
 pub use default_weights::WeightInfo;
 pub use pallet::*;
-pub use primitives::{oracle::Key as OracleKey, CurrencyId};
+pub use primitives::{oracle::Key as OracleKey, CurrencyId, TruncateFixedPointToInt};
 
 #[derive(Encode, Decode, Eq, PartialEq, Clone, Copy, Ord, PartialOrd)]
 pub struct TimestampedValue<Value, Moment> {
@@ -335,9 +335,8 @@ impl<T: Config> Pallet<T> {
             .ok_or(Error::<T>::TryIntoIntError)?
             .checked_div(&rate)
             .ok_or(Error::<T>::ArithmeticUnderflow)?
-            .into_inner()
-            .checked_div(&UnsignedFixedPoint::<T>::accuracy())
-            .ok_or(Error::<T>::ArithmeticUnderflow)?
+            .truncate_to_inner()
+            .ok_or(Error::<T>::TryIntoIntError)?
             .unique_saturated_into())
     }
 

@@ -1696,6 +1696,7 @@ version = "0.10.0"
 dependencies = [
  "frame-support",
  "frame-system",
+ "interbtc-primitives",
  "mocktopus",
  "orml-tokens",
  "orml-traits",

@@ -14,6 +14,7 @@ use frame_support::{
 };
 use orml_traits::{MultiCurrency, MultiReservableCurrency};
 use pallet_transaction_payment::OnChargeTransaction;
+use primitives::TruncateFixedPointToInt;
 use sp_runtime::{
     traits::{
         AtLeast32BitUnsigned, CheckedAdd, CheckedDiv, CheckedMul, CheckedSub, DispatchInfoOf,
@@ -44,6 +45,7 @@ pub mod pallet {
     #[pallet::config]
     pub trait Config: frame_system::Config + orml_tokens::Config<Balance = BalanceOf<Self>> {
         type UnsignedFixedPoint: FixedPointNumber<Inner = BalanceOf<Self>>
+            + TruncateFixedPointToInt
             + Encode
             + EncodeLike
             + Decode
@@ -56,6 +58,7 @@ pub mod pallet {
             + MaybeSerializeDeserialize;
 
         type SignedFixedPoint: FixedPointNumber<Inner = SignedInner<Self>>
+            + TruncateFixedPointToInt
             + Encode
             + EncodeLike
             + Decode
@@ -114,14 +117,13 @@ mod monetary {
             Self::new(0u32.into(), currency_id)
         }
 
-        pub fn from_fixed_point(
+        pub fn from_signed_fixed_point(
             amount: SignedFixedPoint<T>,
             currency_id: CurrencyId<T>,
         ) -> Result<Self, DispatchError> {
             let amount = amount
-                .into_inner()
-                .checked_div(&SignedFixedPoint::<T>::accuracy())
-                .ok_or(Error::<T>::ArithmeticUnderflow)?
+                .truncate_to_inner()
+                .ok_or(Error::<T>::TryIntoIntError)?
                 .try_into()
                 .map_err(|_| Error::<T>::TryIntoIntError)?;
             Ok(Self::new(amount, currency_id))
@@ -220,9 +222,8 @@ mod monetary {
                 .ok_or(Error::<T>::TryIntoIntError)?
                 .checked_div(&scalar)
                 .ok_or(Error::<T>::ArithmeticOverflow)?
-                .into_inner()
-                .checked_div(&UnsignedFixedPoint::<T>::accuracy())
-                .ok_or(Error::<T>::ArithmeticUnderflow)?;
+                .truncate_to_inner()
+                .ok_or(Error::<T>::TryIntoIntError)?;
             Ok(Self {
                 amount,
                 currency_id: self.currency_id,
@@ -236,7 +237,7 @@ mod monetary {
             Ok(ratio)
         }
 
-        pub fn to_fixed(&self) -> Result<SignedFixedPoint<T>, DispatchError> {
+        pub fn to_signed_fixed_point(&self) -> Result<SignedFixedPoint<T>, DispatchError> {
             let signed_inner =
                 TryInto::<SignedInner<T>>::try_into(self.amount).map_err(|_| Error::<T>::TryIntoIntError)?;
             let signed_fixed_point = <T as pallet::Config>::SignedFixedPoint::checked_from_integer(signed_inner)
@@ -316,9 +317,8 @@ mod monetary {
                 .ok_or(Error::<T>::ArithmeticOverflow)?
                 .checked_add(&rounding_addition)
                 .ok_or(Error::<T>::ArithmeticOverflow)?
-                .into_inner()
-                .checked_div(&UnsignedFixedPoint::<T>::accuracy())
-                .ok_or(Error::<T>::ArithmeticUnderflow)?;
+                .truncate_to_inner()
+                .ok_or(Error::<T>::TryIntoIntError)?;
 
             Ok(Self {
                 amount,

@@ -10,7 +10,7 @@ pub use sp_runtime::OpaqueExtrinsic as UncheckedExtrinsic;
 use sp_runtime::{
     generic,
     traits::{BlakeTwo256, IdentifyAccount, Verify},
-    FixedI128, FixedU128, MultiSignature, RuntimeDebug,
+    FixedI128, FixedPointNumber, FixedU128, MultiSignature, RuntimeDebug,
 };
 use sp_std::{
     convert::{Into, TryFrom},
@@ -18,6 +18,24 @@ use sp_std::{
 };
 
 pub use bitcoin::types::H256Le;
+
+pub trait TruncateFixedPointToInt: FixedPointNumber {
+    /// take a fixed point number and turns it into the truncated inner representation,
+    /// e.g. FixedU128(1.23) -> 1u128
+    fn truncate_to_inner(&self) -> Option<<Self as FixedPointNumber>::Inner>;
+}
+
+impl TruncateFixedPointToInt for SignedFixedPoint {
+    fn truncate_to_inner(&self) -> Option<Self::Inner> {
+        self.into_inner().checked_div(SignedFixedPoint::accuracy())
+    }
+}
+
+impl TruncateFixedPointToInt for UnsignedFixedPoint {
+    fn truncate_to_inner(&self) -> Option<<Self as FixedPointNumber>::Inner> {
+        self.into_inner().checked_div(UnsignedFixedPoint::accuracy())
+    }
+}
 
 pub mod issue {
     use super::*;
