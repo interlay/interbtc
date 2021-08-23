@@ -5,6 +5,12 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 #![feature(const_fn)]
 
+#[cfg(test)]
+mod mock;
+
+#[cfg(test)]
+mod tests;
+
 use codec::{EncodeLike, FullCodec};
 use frame_support::{
     dispatch::{DispatchError, DispatchResult},
@@ -108,6 +114,8 @@ mod monetary {
         currency_id: CurrencyId<T>,
     }
 
+    // NOTE: all operations involving fixed point arguments operate on unsigned fixed point values,
+    // unless the function name explicitly indicates it works on signed values
     impl<T: Config> Amount<T> {
         pub const fn new(amount: BalanceOf<T>, currency_id: CurrencyId<T>) -> Self {
             Self { amount, currency_id }
