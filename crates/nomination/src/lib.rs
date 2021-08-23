@@ -217,7 +217,7 @@ impl<T: Config> Pallet<T> {
             T::GetWrappedCurrencyId::get(),
             &vault_id,
             &nominator_id,
-            amount.to_fixed()?,
+            amount.to_signed_fixed_point()?,
         )?;
         amount.unlock(&vault_id)?;
         amount.transfer(&vault_id, &nominator_id)?;
@@ -256,7 +256,7 @@ impl<T: Config> Pallet<T> {
             T::GetWrappedCurrencyId::get(),
             &vault_id,
             &nominator_id,
-            amount.to_fixed()?,
+            amount.to_signed_fixed_point()?,
         )?;
         amount.transfer(&nominator_id, &vault_id)?;
         amount.lock(&vault_id)?;

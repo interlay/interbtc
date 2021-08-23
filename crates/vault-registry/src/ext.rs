@@ -53,7 +53,7 @@ pub(crate) mod staking {
         nominator_id: &T::AccountId,
         amount: &Amount<T>,
     ) -> Result<(), DispatchError> {
-        <staking::Pallet<T>>::deposit_stake(currency_id, vault_id, nominator_id, amount.to_fixed()?)
+        <staking::Pallet<T>>::deposit_stake(currency_id, vault_id, nominator_id, amount.to_signed_fixed_point()?)
     }
 
     pub fn withdraw_stake<T: crate::Config>(
@@ -62,7 +62,7 @@ pub(crate) mod staking {
         nominator_id: &T::AccountId,
         amount: &Amount<T>,
     ) -> Result<(), DispatchError> {
-        <staking::Pallet<T>>::withdraw_stake(currency_id, vault_id, nominator_id, amount.to_fixed()?)
+        <staking::Pallet<T>>::withdraw_stake(currency_id, vault_id, nominator_id, amount.to_signed_fixed_point()?)
     }
 
     pub fn slash_stake<T: crate::Config>(
@@ -70,7 +70,7 @@ pub(crate) mod staking {
         vault_id: &T::AccountId,
         amount: &Amount<T>,
     ) -> Result<(), DispatchError> {
-        <staking::Pallet<T>>::slash_stake(currency_id, vault_id, amount.to_fixed()?)
+        <staking::Pallet<T>>::slash_stake(currency_id, vault_id, amount.to_signed_fixed_point()?)
     }
 
     pub fn compute_stake<T: crate::Config>(
@@ -95,11 +95,19 @@ pub(crate) mod reward {
     use frame_support::{dispatch::DispatchError, traits::Get};
 
     pub fn deposit_stake<T: crate::Config>(vault_id: &T::AccountId, amount: &Amount<T>) -> Result<(), DispatchError> {
-        <reward::Pallet<T>>::deposit_stake(T::GetWrappedCurrencyId::get(), vault_id, amount.to_fixed()?)
+        <reward::Pallet<T>>::deposit_stake(
+            T::GetWrappedCurrencyId::get(),
+            vault_id,
+            amount.to_signed_fixed_point()?,
+        )
     }
 
     pub fn withdraw_stake<T: crate::Config>(vault_id: &T::AccountId, amount: &Amount<T>) -> Result<(), DispatchError> {
-        <reward::Pallet<T>>::withdraw_stake(T::GetWrappedCurrencyId::get(), vault_id, amount.to_fixed()?)
+        <reward::Pallet<T>>::withdraw_stake(
+            T::GetWrappedCurrencyId::get(),
+            vault_id,
+            amount.to_signed_fixed_point()?,
+        )
     }
 }
 

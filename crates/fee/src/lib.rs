@@ -420,7 +420,7 @@ impl<T: Config> Pallet<T> {
 
     fn distribute(reward: &Amount<T>) -> Result<Amount<T>, DispatchError> {
         let leftover = T::VaultRewards::distribute_reward(reward.to_fixed()?)?;
-        Amount::from_fixed_point(leftover, reward.currency())
+        Amount::from_signed_fixed_point(leftover, reward.currency())
     }
 
     pub fn distribute_from_reward_pool<
