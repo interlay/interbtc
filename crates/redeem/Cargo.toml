@@ -3,7 +3,7 @@ authors = ["Interlay Ltd"]
 description = "Redeem module"
 edition = "2018"
 name = "redeem"
-version = "0.10.0"
+version = "0.11.0"
 
 [dependencies]
 serde = { version = "1.0.119", default-features = false, features = ['derive'], optional = true }

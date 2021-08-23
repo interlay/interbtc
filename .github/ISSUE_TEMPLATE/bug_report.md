@@ -19,7 +19,7 @@ Steps to reproduce the behavior:
 **Expected behavior**
 A clear and concise description of what you expected to happen.
 
-**Version / Commit (e.g. 0.10.0):**
+**Version / Commit (e.g. 0.11.0):**
 The version of the binary you have installed.
 
 **Additional context**
