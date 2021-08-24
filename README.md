@@ -175,24 +175,30 @@ cargo build --release
 ./target/release/interbtc-parachain export-genesis-wasm --chain rococo > genesis-wasm
 ```
 
-4. Start the collator node:
+4. Generate the rococo chain specifcation:
 
-FIXME: this is not a working command
+```shell
+polkadot build-spec --chain rococo > rococo.json
+```
+
+and then update the `para_id` in rococo.json to the `paraId` registered above.
+
+5. Start the collator node:
 
 ```shell
 ./target/release/interbtc-parachain \
 --name=interbtc-roc-dom \
---rococo
+--chain=rococo.json \
 --collator \
 --force-authoring \
 --parachain-id 2077 \
 --base-path /tmp/parachain/interbtc-roc \
 -- \
 --execution wasm \
---chain rococo \
+--chain rococo
 ```
 
-5. Register the parathread via [polkadot.js/apps](https://polkadot.js.org/apps/?rpc=wss%3A%2F%2Frococo-rpc.polkadot.io#/parachains/parathreads)
+6. Register the parathread via [polkadot.js/apps](https://polkadot.js.org/apps/?rpc=wss%3A%2F%2Frococo-rpc.polkadot.io#/parachains/parathreads)
   - parachain id: the `paraId`
   - code: the `genesis-wasm` file
   - initital state: the `genesis-state` file
