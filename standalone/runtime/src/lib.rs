@@ -395,37 +395,37 @@ construct_runtime! {
         NodeBlock = primitives::Block,
         UncheckedExtrinsic = UncheckedExtrinsic
     {
-        System: frame_system::{Pallet, Call, Storage, Config, Event<T>},
-        Timestamp: pallet_timestamp::{Pallet, Call, Storage, Inherent},
-        Sudo: pallet_sudo::{Pallet, Call, Storage, Config<T>, Event<T>},
-        Utility: pallet_utility::{Pallet, Call, Event},
-        RandomnessCollectiveFlip: pallet_randomness_collective_flip::{Pallet, Storage},
-        TransactionPayment: pallet_transaction_payment::{Pallet, Storage},
+        System: frame_system::{Pallet, Call, Storage, Config, Event<T>} = 0,
+        Timestamp: pallet_timestamp::{Pallet, Call, Storage, Inherent} = 1,
+        Sudo: pallet_sudo::{Pallet, Call, Storage, Config<T>, Event<T>} = 2,
+        Utility: pallet_utility::{Pallet, Call, Event} = 3,
+        RandomnessCollectiveFlip: pallet_randomness_collective_flip::{Pallet, Storage} = 4,
+        TransactionPayment: pallet_transaction_payment::{Pallet, Storage} = 5,
 
         // Tokens & Balances
-        Tokens: orml_tokens::{Pallet, Call, Storage, Config<T>, Event<T>},
-
-        Rewards: reward::{Pallet, Call, Storage, Event<T>},
+        Tokens: orml_tokens::{Pallet, Call, Storage, Config<T>, Event<T>} = 10,
+        Rewards: reward::{Pallet, Call, Storage, Event<T>} = 11,
+        Staking: staking::{Pallet, Storage, Event<T>} = 12,
 
         // Bitcoin SPV
-        BTCRelay: btc_relay::{Pallet, Call, Config<T>, Storage, Event<T>},
+        BTCRelay: btc_relay::{Pallet, Call, Config<T>, Storage, Event<T>} = 20,
+        Relay: relay::{Pallet, Call, Storage, Event<T>} = 21,
 
         // Operational
-        Security: security::{Pallet, Call, Storage, Event<T>},
-        Relay: relay::{Pallet, Call, Storage, Event<T>},
-        VaultRegistry: vault_registry::{Pallet, Call, Config<T>, Storage, Event<T>, ValidateUnsigned},
-        ExchangeRateOracle: exchange_rate_oracle::{Pallet, Call, Config<T>, Storage, Event<T>},
-        Issue: issue::{Pallet, Call, Config<T>, Storage, Event<T>},
-        Redeem: redeem::{Pallet, Call, Config<T>, Storage, Event<T>},
-        Replace: replace::{Pallet, Call, Config<T>, Storage, Event<T>},
-        Fee: fee::{Pallet, Call, Config<T>, Storage},
-        Refund: refund::{Pallet, Call, Config<T>, Storage, Event<T>},
-        Nomination: nomination::{Pallet, Call, Config, Storage, Event<T>},
-        Staking: staking::{Pallet, Storage, Event<T>},
-        Currency: currency::{Pallet},
+        Security: security::{Pallet, Call, Storage, Event<T>} = 30,
+        VaultRegistry: vault_registry::{Pallet, Call, Config<T>, Storage, Event<T>, ValidateUnsigned} = 31,
+        ExchangeRateOracle: exchange_rate_oracle::{Pallet, Call, Config<T>, Storage, Event<T>} = 32,
+        Issue: issue::{Pallet, Call, Config<T>, Storage, Event<T>} = 33,
+        Redeem: redeem::{Pallet, Call, Config<T>, Storage, Event<T>} = 34,
+        Replace: replace::{Pallet, Call, Config<T>, Storage, Event<T>} = 35,
+        Fee: fee::{Pallet, Call, Config<T>, Storage} = 36,
+        Refund: refund::{Pallet, Call, Config<T>, Storage, Event<T>} = 37,
+        Nomination: nomination::{Pallet, Call, Config, Storage, Event<T>} = 38,
+        Currency: currency::{Pallet} = 39,
 
-        Aura: pallet_aura::{Pallet, Config<T>},
-        Grandpa: pallet_grandpa::{Pallet, Call, Storage, Config, Event},
+        // Consensus
+        Aura: pallet_aura::{Pallet, Config<T>} = 60,
+        Grandpa: pallet_grandpa::{Pallet, Call, Storage, Config, Event} = 61,
     }
 }
 
