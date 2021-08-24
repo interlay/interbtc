@@ -68,7 +68,7 @@ pub fn local_config() -> ChainSpec {
         move || {
             testnet_genesis(
                 get_account_id_from_seed::<sr25519::Public>("Alice"),
-                vec![],
+                vec![authority_keys_from_seed("Alice")],
                 vec![
                     get_account_id_from_seed::<sr25519::Public>("Alice"),
                     get_account_id_from_seed::<sr25519::Public>("Bob"),
@@ -299,6 +299,10 @@ fn testnet_genesis(
                 (CurrencyId::DOT, FixedU128::checked_from_rational(110, 100).unwrap()),
                 (CurrencyId::KSM, FixedU128::checked_from_rational(110, 100).unwrap()),
             ], /* 110% */
+            secure_collateral_threshold: vec![
+                (CurrencyId::DOT, FixedU128::checked_from_rational(150, 100).unwrap()),
+                (CurrencyId::KSM, FixedU128::checked_from_rational(150, 100).unwrap()),
+            ], /* 150% */
         },
         fee: FeeConfig {
             issue_fee: FixedU128::checked_from_rational(5, 1000).unwrap(), // 0.5%
