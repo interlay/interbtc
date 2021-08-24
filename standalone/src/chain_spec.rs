@@ -299,10 +299,10 @@ fn testnet_genesis(
                 (CurrencyId::DOT, FixedU128::checked_from_rational(110, 100).unwrap()),
                 (CurrencyId::KSM, FixedU128::checked_from_rational(110, 100).unwrap()),
             ], /* 110% */
-            secure_collateral_threshold: vec![
-                (CurrencyId::DOT, FixedU128::checked_from_rational(150, 100).unwrap()),
-                (CurrencyId::KSM, FixedU128::checked_from_rational(150, 100).unwrap()),
-            ], /* 150% */
+            system_collateral_ceiling: vec![
+                (CurrencyId::DOT, 1_000_000_000_000_000),
+                (CurrencyId::KSM, 1_000_000_000_000_000),
+            ],
         },
         fee: FeeConfig {
             issue_fee: FixedU128::checked_from_rational(5, 1000).unwrap(), // 0.5%

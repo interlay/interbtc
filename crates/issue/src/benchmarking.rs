@@ -104,6 +104,7 @@ benchmarks! {
 
         Oracle::<T>::_set_exchange_rate(DEFAULT_TESTING_CURRENCY, <T as currency::Config>::UnsignedFixedPoint::one()).unwrap();
         VaultRegistry::<T>::set_secure_collateral_threshold(DEFAULT_TESTING_CURRENCY, <T as currency::Config>::UnsignedFixedPoint::checked_from_rational(1, 100000).unwrap());// 0.001%
+        VaultRegistry::<T>::set_collateral_ceiling(DEFAULT_TESTING_CURRENCY, 1_000_000_000u32.into());
         VaultRegistry::<T>::_register_vault(&vault_id, 100000000u32.into(), dummy_public_key(), T::GetGriefingCollateralCurrencyId::get()).unwrap();
 
         // initialize relay
@@ -233,6 +234,7 @@ benchmarks! {
         BtcRelay::<T>::store_block_header(&relayer_id, block_header).unwrap();
         Security::<T>::set_active_block_number(Security::<T>::active_block_number() + BtcRelay::<T>::parachain_confirmations());
 
+        VaultRegistry::<T>::set_collateral_ceiling(DEFAULT_TESTING_CURRENCY, 1_000_000_000u32.into());
         VaultRegistry::<T>::set_secure_collateral_threshold(DEFAULT_TESTING_CURRENCY, <T as currency::Config>::UnsignedFixedPoint::checked_from_rational(1, 100000).unwrap());
         Oracle::<T>::_set_exchange_rate(DEFAULT_TESTING_CURRENCY, <T as currency::Config>::UnsignedFixedPoint::one()).unwrap();
         VaultRegistry::<T>::_register_vault(&vault_id, 100000000u32.into(), dummy_public_key(), T::GetGriefingCollateralCurrencyId::get()).unwrap();
@@ -266,6 +268,7 @@ benchmarks! {
 
         Security::<T>::set_active_block_number(issue_request.opentime + Issue::<T>::issue_period() + 10u32.into());
 
+        VaultRegistry::<T>::set_collateral_ceiling(DEFAULT_TESTING_CURRENCY, 1_000_000_000u32.into());
         VaultRegistry::<T>::set_secure_collateral_threshold(DEFAULT_TESTING_CURRENCY, <T as currency::Config>::UnsignedFixedPoint::checked_from_rational(1, 100000).unwrap());
         Oracle::<T>::_set_exchange_rate(DEFAULT_TESTING_CURRENCY, <T as currency::Config>::UnsignedFixedPoint::one()).unwrap();
         VaultRegistry::<T>::_register_vault(&vault_id, 100000000u32.into(), dummy_public_key(), T::GetGriefingCollateralCurrencyId::get()).unwrap();

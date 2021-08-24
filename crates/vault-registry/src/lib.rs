@@ -693,10 +693,10 @@ impl<T: Config> Pallet<T> {
         // ensure the vault is active
         let _vault = Self::get_active_rich_vault_from_id(vault_id)?;
 
-        // will fail if free_balance is insufficient
-        amount.lock(vault_id)?;
         // will fail if collateral ceiling exceeded
         Self::try_increase_total_backing_collateral(amount)?;
+        // will fail if free_balance is insufficient
+        amount.lock(vault_id)?;
 
         // Deposit `amount` of stake in the pool
         ext::staking::deposit_stake::<T>(T::GetWrappedCurrencyId::get(), vault_id, vault_id, amount)?;

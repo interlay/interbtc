@@ -1071,6 +1071,10 @@ impl ExtBuilder {
         vault_registry::GenesisConfig::<Runtime> {
             minimum_collateral_vault: vec![(CurrencyId::DOT, 0), (CurrencyId::KSM, 0)],
             punishment_delay: 8,
+            system_collateral_ceiling: vec![
+                (CurrencyId::DOT, 1_000_000_000_000_000_000_000),
+                (CurrencyId::KSM, 1_000_000_000_000_000_000_000),
+            ],
             secure_collateral_threshold: vec![
                 (CurrencyId::DOT, FixedU128::checked_from_rational(150, 100).unwrap()),
                 (CurrencyId::KSM, FixedU128::checked_from_rational(150, 100).unwrap()),

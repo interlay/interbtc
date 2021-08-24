@@ -321,9 +321,9 @@ fn testnet_genesis(
         vault_registry: VaultRegistryConfig {
             minimum_collateral_vault: vec![(CurrencyId::KSM, 0)],
             punishment_delay: DAYS,
-            system_collateral_ceiling: vec![(CurrencyId::KSM, 1000000000)],
-            secure_collateral_threshold: vec![(CurrencyId::KSM, FixedU128::checked_from_rational(150, 100).unwrap())], /* 150% */
-            premium_redeem_threshold: vec![(CurrencyId::KSM, FixedU128::checked_from_rational(135, 100).unwrap())], /* 135% */
+            system_collateral_ceiling: vec![(CurrencyId::DOT, 1_000_000_000_000_000)],
+            secure_collateral_threshold: vec![(CurrencyId::DOT, FixedU128::checked_from_rational(150, 100).unwrap())], /* 150% */
+            premium_redeem_threshold: vec![(CurrencyId::DOT, FixedU128::checked_from_rational(135, 100).unwrap())], /* 135% */
             liquidation_collateral_threshold: vec![(
                 CurrencyId::KSM,
                 FixedU128::checked_from_rational(110, 100).unwrap(),
