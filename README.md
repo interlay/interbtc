@@ -140,6 +140,8 @@ Additional CLI usage options are available and may be shown by running `cargo ru
 
 ### Running - Parachain
 
+#### Local Development
+
 To run a local development node, use the `dev` chain spec.
 
 ```shell
@@ -147,6 +149,54 @@ cargo run --release --bin interbtc-parachain -- --dev
 ```
 
 To connect with a local relay-chain follow [these instructions](docs/rococo.md).
+
+#### Rococo
+
+This is a short summary of the full-fledged instructions here: https://wiki.polkadot.network/docs/build-parachains-rococo#how-to-connect-to-a-parachain
+
+To run a rococo development node:
+
+1. Register a `paraId` via [polkadot.js/apps](https://polkadot.js.org/apps/?rpc=wss%3A%2F%2Frococo-rpc.polkadot.io#/parachains/parathreads).
+2. Build the parachain version:
+
+```shell
+cargo build --release
+```
+
+3. Export the genesis state:
+
+```shell
+./target/release/interbtc-parachain export-genesis-state --chain rococo --parachain-id 2077 > genesis-state
+```
+
+3. Export the validation function:
+
+```shell
+./target/release/interbtc-parachain export-genesis-wasm --chain rococo > genesis-wasm
+```
+
+4. Start the collator node:
+
+FIXME: this is not a working command
+
+```shell
+./target/release/interbtc-parachain \
+--name=interbtc-roc-dom \
+--rococo
+--collator \
+--force-authoring \
+--parachain-id 2077 \
+--base-path /tmp/parachain/interbtc-roc \
+-- \
+--execution wasm \
+--chain rococo \
+```
+
+5. Register the parathread via [polkadot.js/apps](https://polkadot.js.org/apps/?rpc=wss%3A%2F%2Frococo-rpc.polkadot.io#/parachains/parathreads)
+  - parachain id: the `paraId`
+  - code: the `genesis-wasm` file
+  - initital state: the `genesis-state` file
+  - reserved deposit: leave default
 
 #### Test Coverage
 
