@@ -355,6 +355,14 @@ macro_rules! create_currency_id {
 
         $(pub const $symbol: CurrencyId = CurrencyId::$symbol;)*
 
+        impl CurrencyId {
+			pub fn get_info() -> Vec<(&'static str, u32)> {
+				vec![
+					$((stringify!($symbol), $deci),)*
+				]
+			}
+		}
+
 		impl TryFrom<Vec<u8>> for CurrencyId {
 			type Error = ();
 			fn try_from(v: Vec<u8>) -> Result<CurrencyId, ()> {
@@ -364,7 +372,6 @@ macro_rules! create_currency_id {
 				}
 			}
 		}
-
     }
 }
 
