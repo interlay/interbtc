@@ -5,7 +5,7 @@ use interbtc_runtime::{
     AccountId, AuraConfig, BTCRelayConfig, CurrencyId, FeeConfig, GeneralCouncilConfig, GenesisConfig, IssueConfig,
     NominationConfig, OracleConfig, ParachainInfoConfig, RedeemConfig, RefundConfig, ReplaceConfig, Signature,
     SudoConfig, SystemConfig, TechnicalCommitteeConfig, TokensConfig, VaultRegistryConfig, BITCOIN_BLOCK_SPACING, DAYS,
-    DOT, WASM_BINARY,
+    KSM, WASM_BINARY,
 };
 use sc_chain_spec::{ChainSpecExtension, ChainSpecGroup};
 use serde::{Deserialize, Serialize};
@@ -104,7 +104,7 @@ pub fn local_config(id: ParaId) -> ChainSpec {
             serde_json::from_value(json!({
                 "ss58Format": 42,
                 "tokenDecimals": [10, 8],
-                "tokenSymbol": ["DOT", "interBTC"]
+                "tokenSymbol": ["KSM", "kBTC"]
             }))
             .unwrap(),
         ),
@@ -155,7 +155,7 @@ pub fn rococo_testnet_config(id: ParaId) -> ChainSpec {
             serde_json::from_value(json!({
                 "ss58Format": 42,
                 "tokenDecimals": [10, 8],
-                "tokenSymbol": ["DOT", "interBTC"]
+                "tokenSymbol": ["KSM", "kBTC"]
             }))
             .unwrap(),
         ),
@@ -218,7 +218,7 @@ pub fn development_config(id: ParaId) -> ChainSpec {
             serde_json::from_value(json!({
                 "ss58Format": 42,
                 "tokenDecimals": [10, 8],
-                "tokenSymbol": ["DOT", "interBTC"]
+                "tokenSymbol": ["KSM", "kBTC"]
             }))
             .unwrap(),
         ),
@@ -254,7 +254,7 @@ fn testnet_genesis(
             key: root_key.clone(),
         },
         tokens: TokensConfig {
-            balances: endowed_accounts.iter().cloned().map(|k| (k, DOT, 1 << 60)).collect(),
+            balances: endowed_accounts.iter().cloned().map(|k| (k, KSM, 1 << 60)).collect(),
         },
         oracle: OracleConfig {
             authorized_oracles,
@@ -292,12 +292,12 @@ fn testnet_genesis(
             replace_btc_dust_value: 1000,
         },
         vault_registry: VaultRegistryConfig {
-            minimum_collateral_vault: vec![(CurrencyId::DOT, 0)],
+            minimum_collateral_vault: vec![(CurrencyId::KSM, 0)],
             punishment_delay: DAYS,
-            secure_collateral_threshold: vec![(CurrencyId::DOT, FixedU128::checked_from_rational(150, 100).unwrap())], /* 150% */
-            premium_redeem_threshold: vec![(CurrencyId::DOT, FixedU128::checked_from_rational(135, 100).unwrap())], /* 135% */
+            secure_collateral_threshold: vec![(CurrencyId::KSM, FixedU128::checked_from_rational(150, 100).unwrap())], /* 150% */
+            premium_redeem_threshold: vec![(CurrencyId::KSM, FixedU128::checked_from_rational(135, 100).unwrap())], /* 135% */
             liquidation_collateral_threshold: vec![(
-                CurrencyId::DOT,
+                CurrencyId::KSM,
                 FixedU128::checked_from_rational(110, 100).unwrap(),
             )], /* 110% */
         },
