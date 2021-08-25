@@ -59,7 +59,7 @@ pub mod pallet {
         frame_system::Config
         + vault_registry::Config
         + btc_relay::Config
-        + exchange_rate_oracle::Config
+        + oracle::Config
         + fee::Config
         + nomination::Config
     {

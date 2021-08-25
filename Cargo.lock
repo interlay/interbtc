@@ -2056,29 +2056,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f7531096570974c3a9dcf9e4b8e1cede1ec26cf5046219fb3b9d897503b9be59"
 
 [[package]]
-name = "exchange-rate-oracle"
-version = "0.11.0"
-dependencies = [
- "currency",
- "frame-benchmarking",
- "frame-support",
- "frame-system",
- "interbtc-primitives",
- "mocktopus",
- "orml-tokens",
- "orml-traits",
- "pallet-timestamp",
- "parity-scale-codec",
- "security",
- "sp-arithmetic",
- "sp-core",
- "sp-io",
- "sp-runtime",
- "sp-std",
- "staking",
-]
-
-[[package]]
 name = "exit-future"
 version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3317,8 +3294,8 @@ dependencies = [
  "interbtc-primitives",
  "jsonrpc-core",
  "module-btc-relay-rpc",
- "module-exchange-rate-oracle-rpc",
  "module-issue-rpc",
+ "module-oracle-rpc",
  "module-redeem-rpc",
  "module-refund-rpc",
  "module-relay-rpc",
@@ -3351,7 +3328,6 @@ dependencies = [
  "cumulus-primitives-timestamp",
  "cumulus-primitives-utility",
  "currency",
- "exchange-rate-oracle",
  "fee",
  "frame-benchmarking",
  "frame-executive",
@@ -3365,14 +3341,15 @@ dependencies = [
  "issue",
  "mocktopus",
  "module-btc-relay-rpc-runtime-api",
- "module-exchange-rate-oracle-rpc-runtime-api",
  "module-issue-rpc-runtime-api",
+ "module-oracle-rpc-runtime-api",
  "module-redeem-rpc-runtime-api",
  "module-refund-rpc-runtime-api",
  "module-relay-rpc-runtime-api",
  "module-replace-rpc-runtime-api",
  "module-vault-registry-rpc-runtime-api",
  "nomination",
+ "oracle",
  "orml-tokens",
  "orml-traits",
  "orml-unknown-tokens",
@@ -3432,7 +3409,6 @@ dependencies = [
  "bitcoin",
  "btc-relay",
  "currency",
- "exchange-rate-oracle",
  "fee",
  "frame-benchmarking",
  "frame-executive",
@@ -3446,14 +3422,15 @@ dependencies = [
  "issue",
  "mocktopus",
  "module-btc-relay-rpc-runtime-api",
- "module-exchange-rate-oracle-rpc-runtime-api",
  "module-issue-rpc-runtime-api",
+ "module-oracle-rpc-runtime-api",
  "module-redeem-rpc-runtime-api",
  "module-refund-rpc-runtime-api",
  "module-relay-rpc-runtime-api",
  "module-replace-rpc-runtime-api",
  "module-vault-registry-rpc-runtime-api",
  "nomination",
+ "oracle",
  "orml-tokens",
  "orml-traits",
  "pallet-aura",
@@ -3586,13 +3563,13 @@ dependencies = [
  "bitcoin",
  "btc-relay",
  "currency",
- "exchange-rate-oracle",
  "fee",
  "frame-benchmarking",
  "frame-support",
  "frame-system",
  "interbtc-primitives",
  "mocktopus",
+ "oracle",
  "orml-tokens",
  "orml-traits",
  "pallet-randomness-collective-flip",
@@ -4803,31 +4780,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "module-exchange-rate-oracle-rpc"
-version = "0.11.0"
-dependencies = [
- "jsonrpc-core",
- "jsonrpc-core-client",
- "jsonrpc-derive",
- "module-exchange-rate-oracle-rpc-runtime-api",
- "parity-scale-codec",
- "sp-api",
- "sp-blockchain",
- "sp-runtime",
-]
-
-[[package]]
-name = "module-exchange-rate-oracle-rpc-runtime-api"
-version = "0.11.0"
-dependencies = [
- "frame-support",
- "parity-scale-codec",
- "serde",
- "sp-api",
- "sp-std",
-]
-
-[[package]]
 name = "module-issue-rpc"
 version = "0.11.0"
 dependencies = [
@@ -4847,6 +4799,31 @@ version = "0.11.0"
 dependencies = [
  "frame-support",
  "parity-scale-codec",
+ "sp-api",
+ "sp-std",
+]
+
+[[package]]
+name = "module-oracle-rpc"
+version = "0.11.0"
+dependencies = [
+ "jsonrpc-core",
+ "jsonrpc-core-client",
+ "jsonrpc-derive",
+ "module-oracle-rpc-runtime-api",
+ "parity-scale-codec",
+ "sp-api",
+ "sp-blockchain",
+ "sp-runtime",
+]
+
+[[package]]
+name = "module-oracle-rpc-runtime-api"
+version = "0.11.0"
+dependencies = [
+ "frame-support",
+ "parity-scale-codec",
+ "serde",
  "sp-api",
  "sp-std",
 ]
@@ -4954,7 +4931,7 @@ dependencies = [
  "jsonrpc-core",
  "jsonrpc-core-client",
  "jsonrpc-derive",
- "module-exchange-rate-oracle-rpc-runtime-api",
+ "module-oracle-rpc-runtime-api",
  "module-vault-registry-rpc-runtime-api",
  "parity-scale-codec",
  "sp-api",
@@ -4967,7 +4944,7 @@ name = "module-vault-registry-rpc-runtime-api"
 version = "0.3.0"
 dependencies = [
  "frame-support",
- "module-exchange-rate-oracle-rpc-runtime-api",
+ "module-oracle-rpc-runtime-api",
  "parity-scale-codec",
  "sp-api",
  "sp-std",
@@ -5117,13 +5094,13 @@ name = "nomination"
 version = "0.5.0"
 dependencies = [
  "currency",
- "exchange-rate-oracle",
  "fee",
  "frame-benchmarking",
  "frame-support",
  "frame-system",
  "interbtc-primitives",
  "mocktopus",
+ "oracle",
  "orml-tokens",
  "orml-traits",
  "pallet-randomness-collective-flip",
@@ -5259,6 +5236,29 @@ name = "openssl-probe"
 version = "0.1.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "28988d872ab76095a6e6ac88d99b54fd267702734fd7ffe610ca27f533ddb95a"
+
+[[package]]
+name = "oracle"
+version = "0.11.0"
+dependencies = [
+ "currency",
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "interbtc-primitives",
+ "mocktopus",
+ "orml-tokens",
+ "orml-traits",
+ "pallet-timestamp",
+ "parity-scale-codec",
+ "security",
+ "sp-arithmetic",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-std",
+ "staking",
+]
 
 [[package]]
 name = "ordered-float"
@@ -7828,13 +7828,13 @@ dependencies = [
  "bitcoin",
  "btc-relay",
  "currency",
- "exchange-rate-oracle",
  "fee",
  "frame-benchmarking",
  "frame-support",
  "frame-system",
  "interbtc-primitives",
  "mocktopus",
+ "oracle",
  "orml-tokens",
  "orml-traits",
  "pallet-randomness-collective-flip",
@@ -7917,12 +7917,12 @@ dependencies = [
  "bitcoin",
  "btc-relay",
  "currency",
- "exchange-rate-oracle",
  "fee",
  "frame-support",
  "frame-system",
  "interbtc-primitives",
  "mocktopus",
+ "oracle",
  "orml-tokens",
  "orml-traits",
  "pallet-randomness-collective-flip",
@@ -7997,7 +7997,6 @@ dependencies = [
  "bitcoin",
  "btc-relay",
  "currency",
- "exchange-rate-oracle",
  "fee",
  "frame-benchmarking",
  "frame-support",
@@ -8006,6 +8005,7 @@ dependencies = [
  "interbtc-primitives",
  "mocktopus",
  "nomination",
+ "oracle",
  "orml-tokens",
  "orml-traits",
  "pallet-randomness-collective-flip",
@@ -8060,7 +8060,6 @@ dependencies = [
  "bitcoin",
  "btc-relay",
  "currency",
- "exchange-rate-oracle",
  "fee",
  "frame-benchmarking",
  "frame-support",
@@ -8068,6 +8067,7 @@ dependencies = [
  "interbtc-primitives",
  "mocktopus",
  "nomination",
+ "oracle",
  "orml-tokens",
  "orml-traits",
  "pallet-randomness-collective-flip",
@@ -11538,7 +11538,6 @@ version = "0.11.0"
 dependencies = [
  "bitcoin",
  "currency",
- "exchange-rate-oracle",
  "fee",
  "fixed-hash",
  "frame-benchmarking",
@@ -11547,6 +11546,7 @@ dependencies = [
  "interbtc-primitives",
  "log",
  "mocktopus",
+ "oracle",
  "orml-tokens",
  "orml-traits",
  "pallet-randomness-collective-flip",

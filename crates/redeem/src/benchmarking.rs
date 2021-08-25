@@ -9,10 +9,10 @@ use bitcoin::{
 };
 use btc_relay::{BtcAddress, BtcPublicKey, Pallet as BtcRelay};
 use currency::ParachainCurrency;
-use exchange_rate_oracle::Pallet as ExchangeRateOracle;
 use frame_benchmarking::{account, benchmarks, impl_benchmark_test_suite};
 use frame_support::{assert_ok, traits::Get};
 use frame_system::RawOrigin;
+use oracle::Pallet as Oracle;
 use orml_traits::MultiCurrency;
 use primitives::CurrencyId;
 use security::Pallet as Security;
@@ -47,7 +47,7 @@ fn mint_collateral<T: crate::Config>(account_id: &T::AccountId, amount: Collater
 fn initialize_oracle<T: crate::Config>() {
     let oracle_id: T::AccountId = account("Oracle", 12, 0);
 
-    ExchangeRateOracle::<T>::_feed_values(
+    Oracle::<T>::_feed_values(
         oracle_id,
         vec![
             (
@@ -61,7 +61,7 @@ fn initialize_oracle<T: crate::Config>() {
         ],
     )
     .unwrap();
-    ExchangeRateOracle::<T>::begin_block(0u32.into());
+    Oracle::<T>::begin_block(0u32.into());
 }
 
 fn mine_blocks<T: crate::Config>() {
@@ -141,7 +141,7 @@ benchmarks! {
 
         assert_ok!(Treasury::<T>::mint(&origin, amount));
 
-        assert_ok!(ExchangeRateOracle::<T>::_set_exchange_rate(DEFAULT_TESTING_CURRENCY,
+        assert_ok!(Oracle::<T>::_set_exchange_rate(DEFAULT_TESTING_CURRENCY,
             UnsignedFixedPoint::<T>::one()
         ));
     }: _(RawOrigin::Signed(origin), amount, btc_address, vault_id.clone())
@@ -227,7 +227,7 @@ benchmarks! {
         BtcRelay::<T>::store_block_header(&relayer_id, block_header).unwrap();
         Security::<T>::set_active_block_number(Security::<T>::active_block_number() + BtcRelay::<T>::parachain_confirmations() + 1u32.into());
 
-        assert_ok!(ExchangeRateOracle::<T>::_set_exchange_rate(DEFAULT_TESTING_CURRENCY,
+        assert_ok!(Oracle::<T>::_set_exchange_rate(DEFAULT_TESTING_CURRENCY,
             UnsignedFixedPoint::<T>::one()
         ));
     }: _(RawOrigin::Signed(vault_id), redeem_id, proof, raw_tx)
@@ -246,7 +246,7 @@ benchmarks! {
         Redeem::<T>::insert_redeem_request(redeem_id, redeem_request);
         mine_blocks::<T>();
         Security::<T>::set_active_block_number(Security::<T>::active_block_number() + Redeem::<T>::redeem_period() + 10u32.into());
-        assert_ok!(ExchangeRateOracle::<T>::_set_exchange_rate(DEFAULT_TESTING_CURRENCY,
+        assert_ok!(Oracle::<T>::_set_exchange_rate(DEFAULT_TESTING_CURRENCY,
             UnsignedFixedPoint::<T>::one()
         ));
 
@@ -290,7 +290,7 @@ benchmarks! {
         mint_collateral::<T>(&vault_id, 1000u32.into());
         assert_ok!(VaultRegistry::<T>::try_deposit_collateral(&vault_id, &collateral(1000)));
 
-        assert_ok!(ExchangeRateOracle::<T>::_set_exchange_rate(DEFAULT_TESTING_CURRENCY,
+        assert_ok!(Oracle::<T>::_set_exchange_rate(DEFAULT_TESTING_CURRENCY,
             UnsignedFixedPoint::<T>::one()
         ));
     }: cancel_redeem(RawOrigin::Signed(origin), redeem_id, false)

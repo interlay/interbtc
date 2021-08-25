@@ -1,4 +1,4 @@
-use super::{Pallet as ExchangeRateOracle, *};
+use super::{Pallet as Oracle, *};
 use crate::{CurrencyId, OracleKey};
 use frame_benchmarking::{account, benchmarks};
 use frame_system::RawOrigin;
@@ -25,15 +25,15 @@ benchmarks! {
         let origin: T::AccountId = account("origin", 0, 0);
     }: _(RawOrigin::Root, origin.clone(), "Origin".as_bytes().to_vec())
     verify {
-        assert_eq!(ExchangeRateOracle::<T>::is_authorized(&origin), true);
+        assert_eq!(Oracle::<T>::is_authorized(&origin), true);
     }
 
     remove_authorized_oracle {
         let origin: T::AccountId = account("origin", 0, 0);
-        ExchangeRateOracle::<T>::insert_oracle(origin.clone(), "Origin".as_bytes().to_vec());
+        Oracle::<T>::insert_oracle(origin.clone(), "Origin".as_bytes().to_vec());
     }: _(RawOrigin::Root, origin.clone())
     verify {
-        assert_eq!(ExchangeRateOracle::<T>::is_authorized(&origin), false);
+        assert_eq!(Oracle::<T>::is_authorized(&origin), false);
     }
 }
 

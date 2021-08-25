@@ -1,9 +1,9 @@
 use super::*;
 use crate::{types::BtcPublicKey, Pallet as VaultRegistry};
-use exchange_rate_oracle::Pallet as ExchangeRateOracle;
 use frame_benchmarking::{account, benchmarks, impl_benchmark_test_suite};
 use frame_support::traits::Get;
 use frame_system::RawOrigin;
+use oracle::Pallet as Oracle;
 use orml_traits::MultiCurrency;
 use primitives::CurrencyId;
 use sp_std::prelude::*;
@@ -41,7 +41,7 @@ benchmarks! {
         mint_collateral::<T>(&origin, (1u32 << 31).into());
         let currency_id = T::GetGriefingCollateralCurrencyId::get();
         VaultRegistry::<T>::_register_vault(&origin, 1234u32.into(), dummy_public_key(), currency_id).unwrap();
-        ExchangeRateOracle::<T>::_set_exchange_rate(DEFAULT_TESTING_CURRENCY,
+        Oracle::<T>::_set_exchange_rate(DEFAULT_TESTING_CURRENCY,
             UnsignedFixedPoint::<T>::one()
         ).unwrap();
     }: _(RawOrigin::Signed(origin), u.into())
@@ -52,7 +52,7 @@ benchmarks! {
         mint_collateral::<T>(&origin, (1u32 << 31).into());
         let currency_id = T::GetGriefingCollateralCurrencyId::get();
         VaultRegistry::<T>::_register_vault(&origin, u.into(), dummy_public_key(), currency_id).unwrap();
-        ExchangeRateOracle::<T>::_set_exchange_rate(DEFAULT_TESTING_CURRENCY,
+        Oracle::<T>::_set_exchange_rate(DEFAULT_TESTING_CURRENCY,
             UnsignedFixedPoint::<T>::one()
         ).unwrap();
     }: _(RawOrigin::Signed(origin), u.into())
@@ -85,12 +85,12 @@ benchmarks! {
 
         let currency_id = T::GetGriefingCollateralCurrencyId::get();
         VaultRegistry::<T>::_register_vault(&vault_id, 10_000u32.into(), dummy_public_key(), currency_id).unwrap();
-        ExchangeRateOracle::<T>::_set_exchange_rate(DEFAULT_TESTING_CURRENCY, UnsignedFixedPoint::<T>::one()).unwrap();
+        Oracle::<T>::_set_exchange_rate(DEFAULT_TESTING_CURRENCY, UnsignedFixedPoint::<T>::one()).unwrap();
 
         VaultRegistry::<T>::try_increase_to_be_issued_tokens(&vault_id, &wrapped(5_000)).unwrap();
         VaultRegistry::<T>::issue_tokens(&vault_id, &wrapped(5_000)).unwrap();
 
-        ExchangeRateOracle::<T>::_set_exchange_rate(DEFAULT_TESTING_CURRENCY, UnsignedFixedPoint::<T>::checked_from_rational(10, 1).unwrap()).unwrap();
+        Oracle::<T>::_set_exchange_rate(DEFAULT_TESTING_CURRENCY, UnsignedFixedPoint::<T>::checked_from_rational(10, 1).unwrap()).unwrap();
     }: _(RawOrigin::Signed(origin), vault_id)
 }
 

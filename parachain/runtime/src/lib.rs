@@ -50,7 +50,7 @@ pub use sp_runtime::{Perbill, Permill};
 
 // interBTC exports
 pub use btc_relay::{bitcoin, Call as RelayCall, TARGET_SPACING};
-pub use module_exchange_rate_oracle_rpc_runtime_api::BalanceWrapper;
+pub use module_oracle_rpc_runtime_api::BalanceWrapper;
 
 pub use primitives::{
     self, AccountId, Balance, BlockNumber, CurrencyId, Hash, Moment, Nonce, Signature, SignedFixedPoint, SignedInner,
@@ -712,7 +712,7 @@ pub use relay::Event as RelayEvent;
 pub struct CurrencyConvert;
 impl currency::CurrencyConversion<currency::Amount<Runtime>, CurrencyId> for CurrencyConvert {
     fn convert(amount: &currency::Amount<Runtime>, to: CurrencyId) -> Result<currency::Amount<Runtime>, DispatchError> {
-        ExchangeRateOracle::convert(amount, to)
+        Oracle::convert(amount, to)
     }
 }
 
@@ -759,7 +759,7 @@ where
     type Extrinsic = UncheckedExtrinsic;
 }
 
-impl exchange_rate_oracle::Config for Runtime {
+impl oracle::Config for Runtime {
     type Event = Event;
     type WeightInfo = ();
 }
@@ -843,7 +843,7 @@ construct_runtime! {
         // Operational
         Security: security::{Pallet, Call, Storage, Event<T>},
         VaultRegistry: vault_registry::{Pallet, Call, Config<T>, Storage, Event<T>, ValidateUnsigned},
-        ExchangeRateOracle: exchange_rate_oracle::{Pallet, Call, Config<T>, Storage, Event<T>},
+        Oracle: oracle::{Pallet, Call, Config<T>, Storage, Event<T>},
         Issue: issue::{Pallet, Call, Config<T>, Storage, Event<T>},
         Redeem: redeem::{Pallet, Call, Config<T>, Storage, Event<T>},
         Replace: replace::{Pallet, Call, Config<T>, Storage, Event<T>},
@@ -1039,7 +1039,7 @@ impl_runtime_apis! {
             let params = (&config, &whitelist);
 
             add_benchmark!(params, batches, btc_relay, BTCRelay);
-            add_benchmark!(params, batches, exchange_rate_oracle, ExchangeRateOracle);
+            add_benchmark!(params, batches, oracle, Oracle);
             add_benchmark!(params, batches, issue, Issue);
             add_benchmark!(params, batches, redeem, Redeem);
             add_benchmark!(params, batches, replace, Replace);
@@ -1062,18 +1062,18 @@ impl_runtime_apis! {
         }
     }
 
-    impl module_exchange_rate_oracle_rpc_runtime_api::ExchangeRateOracleApi<
+    impl module_oracle_rpc_runtime_api::OracleApi<
         Block,
         Balance,
         CurrencyId
     > for Runtime {
         fn wrapped_to_collateral( amount: BalanceWrapper<Balance>, currency_id: CurrencyId) -> Result<BalanceWrapper<Balance>, DispatchError> {
-            let result = ExchangeRateOracle::wrapped_to_collateral(amount.amount, currency_id)?;
+            let result = Oracle::wrapped_to_collateral(amount.amount, currency_id)?;
             Ok(BalanceWrapper{amount:result})
         }
 
         fn collateral_to_wrapped(amount: BalanceWrapper<Balance>, currency_id: CurrencyId) -> Result<BalanceWrapper<Balance>, DispatchError> {
-            let result = ExchangeRateOracle::collateral_to_wrapped(amount.amount, currency_id)?;
+            let result = Oracle::collateral_to_wrapped(amount.amount, currency_id)?;
             Ok(BalanceWrapper{amount:result})
         }
     }

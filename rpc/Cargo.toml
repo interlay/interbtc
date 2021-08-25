@@ -9,7 +9,7 @@ jsonrpc-core = "15.1.0"
 
 # Parachain dependencies
 module-btc-relay-rpc = { path = "../crates/btc-relay/rpc" }
-module-exchange-rate-oracle-rpc = { path = "../crates/exchange-rate-oracle/rpc" }
+module-oracle-rpc = { path = "../crates/oracle/rpc" }
 module-relay-rpc = { path = "../crates/relay/rpc" }
 module-vault-registry-rpc = { path = "../crates/vault-registry/rpc" }
 module-issue-rpc = { path = "../crates/issue/rpc" }

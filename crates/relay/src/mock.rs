@@ -38,7 +38,7 @@ frame_support::construct_runtime!(
         Security: security::{Pallet, Call, Storage, Event<T>},
         Relay: relay::{Pallet, Call, Storage, Event<T>},
         VaultRegistry: vault_registry::{Pallet, Call, Config<T>, Storage, Event<T>},
-        ExchangeRateOracle: exchange_rate_oracle::{Pallet, Call, Config<T>, Storage, Event<T>},
+        Oracle: oracle::{Pallet, Call, Config<T>, Storage, Event<T>},
         Redeem: redeem::{Pallet, Call, Config<T>, Storage, Event<T>},
         Replace: replace::{Pallet, Call, Config<T>, Storage, Event<T>},
         Fee: fee::{Pallet, Call, Config<T>, Storage},
@@ -196,7 +196,7 @@ impl staking::Config for Test {
     type CurrencyId = CurrencyId;
 }
 
-impl exchange_rate_oracle::Config for Test {
+impl oracle::Config for Test {
     type Event = TestEvent;
     type WeightInfo = ();
 }

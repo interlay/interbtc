@@ -18,10 +18,7 @@ pub const DEFAULT_GRIEFING_COLLATERAL: Amount<Runtime> = griefing(5_000);
 fn test_with<R>(execute: impl Fn(CurrencyId) -> R) {
     let test_with = |currency_id| {
         ExtBuilder::build().execute_with(|| {
-            assert_ok!(ExchangeRateOraclePallet::_set_exchange_rate(
-                currency_id,
-                FixedU128::one()
-            ));
+            assert_ok!(OraclePallet::_set_exchange_rate(currency_id, FixedU128::one()));
             set_default_thresholds();
             UserData::force_to(USER, default_user_state());
             CoreVaultData::force_to(OLD_VAULT, default_vault_state(currency_id));
@@ -670,10 +667,7 @@ fn integration_test_replace_with_parachain_shutdown_fails() {
 #[test]
 fn integration_test_replace_execute_replace() {
     test_without_initialization(|currency_id| {
-        assert_ok!(ExchangeRateOraclePallet::_set_exchange_rate(
-            currency_id,
-            FixedU128::one()
-        ));
+        assert_ok!(OraclePallet::_set_exchange_rate(currency_id, FixedU128::one()));
         set_default_thresholds();
         SecurityPallet::set_active_block_number(1);
 
@@ -731,10 +725,7 @@ fn integration_test_replace_execute_replace() {
 #[test]
 fn integration_test_replace_cancel_replace() {
     test_without_initialization(|currency_id| {
-        assert_ok!(ExchangeRateOraclePallet::_set_exchange_rate(
-            currency_id,
-            FixedU128::one()
-        ));
+        assert_ok!(OraclePallet::_set_exchange_rate(currency_id, FixedU128::one()));
         set_default_thresholds();
         SecurityPallet::set_active_block_number(1);
 
@@ -1083,10 +1074,7 @@ fn integration_test_replace_cancel_replace_both_vaults_liquidated() {
 #[test]
 fn integration_test_issue_using_griefing_collateral_fails() {
     test_without_initialization(|currency_id| {
-        assert_ok!(ExchangeRateOraclePallet::_set_exchange_rate(
-            currency_id,
-            FixedU128::one()
-        ));
+        assert_ok!(OraclePallet::_set_exchange_rate(currency_id, FixedU128::one()));
         set_default_thresholds();
         SecurityPallet::set_active_block_number(1);
 
@@ -1130,10 +1118,7 @@ fn integration_test_issue_using_griefing_collateral_fails() {
 fn integration_test_replace_vault_with_different_currency_succeeds() {
     test_without_initialization(|currency_id| {
         for currency_id in iter_collateral_currencies() {
-            assert_ok!(ExchangeRateOraclePallet::_set_exchange_rate(
-                currency_id,
-                FixedU128::one()
-            ));
+            assert_ok!(OraclePallet::_set_exchange_rate(currency_id, FixedU128::one()));
         }
         set_default_thresholds();
         SecurityPallet::set_active_block_number(1);

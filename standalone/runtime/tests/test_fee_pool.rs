@@ -120,10 +120,7 @@ fn issue_with_relayer_and_vault(
 fn test_vault_fee_pool_withdrawal() {
     test_with(|currency_id| {
         SecurityPallet::set_active_block_number(1);
-        assert_ok!(ExchangeRateOraclePallet::_set_exchange_rate(
-            currency_id,
-            FixedU128::one()
-        ));
+        assert_ok!(OraclePallet::_set_exchange_rate(currency_id, FixedU128::one()));
 
         issue_with_relayer_and_vault(currency_id, ISSUE_RELAYER, VAULT_1, wrapped(20000));
         issue_with_relayer_and_vault(currency_id, ISSUE_RELAYER, VAULT_2, wrapped(80000));
@@ -153,10 +150,7 @@ fn test_new_nomination_withdraws_global_reward() {
     test_with(|currency_id| {
         SecurityPallet::set_active_block_number(1);
         enable_nomination();
-        assert_ok!(ExchangeRateOraclePallet::_set_exchange_rate(
-            currency_id,
-            FixedU128::one()
-        ));
+        assert_ok!(OraclePallet::_set_exchange_rate(currency_id, FixedU128::one()));
 
         issue_with_relayer_and_vault(currency_id, ISSUE_RELAYER, VAULT_1, wrapped(10000));
 
@@ -188,10 +182,7 @@ fn test_fee_nomination() {
     test_with(|currency_id| {
         SecurityPallet::set_active_block_number(1);
         enable_nomination();
-        assert_ok!(ExchangeRateOraclePallet::_set_exchange_rate(
-            currency_id,
-            FixedU128::one()
-        ));
+        assert_ok!(OraclePallet::_set_exchange_rate(currency_id, FixedU128::one()));
 
         issue_with_relayer_and_vault(currency_id, ISSUE_RELAYER, VAULT_1, wrapped(10000));
 
@@ -247,10 +238,7 @@ fn test_fee_nomination_slashing() {
     test_with(|currency_id| {
         SecurityPallet::set_active_block_number(1);
         enable_nomination();
-        assert_ok!(ExchangeRateOraclePallet::_set_exchange_rate(
-            currency_id,
-            FixedU128::one()
-        ));
+        assert_ok!(OraclePallet::_set_exchange_rate(currency_id, FixedU128::one()));
 
         issue_with_relayer_and_vault(currency_id, ISSUE_RELAYER, VAULT_1, wrapped(10000));
 
@@ -302,10 +290,7 @@ fn test_fee_nomination_withdrawal() {
     test_with(|currency_id| {
         SecurityPallet::set_active_block_number(1);
         enable_nomination();
-        assert_ok!(ExchangeRateOraclePallet::_set_exchange_rate(
-            currency_id,
-            FixedU128::one()
-        ));
+        assert_ok!(OraclePallet::_set_exchange_rate(currency_id, FixedU128::one()));
 
         issue_with_relayer_and_vault(currency_id, ISSUE_RELAYER, VAULT_1, wrapped(10000));
 

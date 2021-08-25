@@ -26,7 +26,7 @@ currency = { path = "../currency", default-features = false }
 security = { path = "../security", default-features = false }
 vault-registry = { path = "../vault-registry", default-features = false }
 fee = { path = "../fee", default-features = false }
-exchange-rate-oracle = { path = "../exchange-rate-oracle", default-features = false }
+oracle = { path = "../oracle", default-features = false }
 reward = { path = "../reward", default-features = false }
 staking = { path = "../staking", default-features = false }
 
@@ -64,7 +64,7 @@ std = [
 	"vault-registry/std",
   "fee/std",
   "reward/std",
-  "exchange-rate-oracle/std",
+  "oracle/std",
   "staking/std",
 ]
 runtime-benchmarks = [

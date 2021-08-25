@@ -55,7 +55,7 @@ The Substrate runtime makes use of various custom pallets that are found in the 
 - [bitcoin](crates/bitcoin): Library for Bitcoin type, parsing and verification functions.
 - [btc-relay](crates/btc-relay): Stateful SPV client for Bitcoin. Stores Bitcoin main chain, tracks forks, verifies Merkle proofs and validates specific transaction formats.
 - [currency](crates/currency) Handles currencies used as backing collateral (e.g. DOT/KSM) and issued tokens (e.g. interBTC).
-- [exchange-rate-oracle](crates/exchange-rate-oracle): Exchange rate oracle. Integration with external provider pending.
+- [oracle](crates/oracle): Trusted providers use this to set exchange rates and Bitcoin fee estimates.
 - [fee](crates/fee): Participant reward calculation and distribution.
 - [issue](crates/issue): Handles issuing of interBTC for BTC on Bitcoin.
 - [redeem](crates/redeem) Handles redeeming of interBTC for BTC on Bitcoin.

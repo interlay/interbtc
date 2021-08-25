@@ -1,9 +1,9 @@
 use bitcoin::utils::{virtual_transaction_size, InputType, TransactionInputMetadata, TransactionOutputMetadata};
 use hex_literal::hex;
 use interbtc_runtime::{
-    AccountId, AuraConfig, BTCRelayConfig, CurrencyId, ExchangeRateOracleConfig, FeeConfig, GenesisConfig,
-    GrandpaConfig, IssueConfig, NominationConfig, RedeemConfig, RefundConfig, ReplaceConfig, Signature, SudoConfig,
-    SystemConfig, TokensConfig, VaultRegistryConfig, BITCOIN_BLOCK_SPACING, DAYS, DOT, WASM_BINARY,
+    AccountId, AuraConfig, BTCRelayConfig, CurrencyId, FeeConfig, GenesisConfig, GrandpaConfig, IssueConfig,
+    NominationConfig, OracleConfig, RedeemConfig, RefundConfig, ReplaceConfig, Signature, SudoConfig, SystemConfig,
+    TokensConfig, VaultRegistryConfig, BITCOIN_BLOCK_SPACING, DAYS, DOT, WASM_BINARY,
 };
 use sp_consensus_aura::sr25519::AuthorityId as AuraId;
 use sp_core::crypto::UncheckedInto;
@@ -251,7 +251,7 @@ fn testnet_genesis(
         tokens: TokensConfig {
             balances: endowed_accounts.iter().cloned().map(|k| (k, DOT, 1 << 60)).collect(),
         },
-        exchange_rate_oracle: ExchangeRateOracleConfig {
+        oracle: OracleConfig {
             authorized_oracles,
             max_delay: 3600000, // one hour
         },

@@ -6,7 +6,7 @@ use mock::*;
 fn test_with<R>(execute: impl FnOnce() -> R) -> R {
     ExtBuilder::build().execute_with(|| {
         SecurityPallet::set_active_block_number(1);
-        assert_ok!(ExchangeRateOraclePallet::_set_exchange_rate(
+        assert_ok!(OraclePallet::_set_exchange_rate(
             DEFAULT_TESTING_CURRENCY,
             FixedU128::one()
         ));

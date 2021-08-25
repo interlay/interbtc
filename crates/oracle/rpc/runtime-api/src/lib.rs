@@ -1,4 +1,4 @@
-//! Runtime API definition for the Exchange Rate Oracle.
+//! Runtime API definition for the Oracle.
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
@@ -33,7 +33,7 @@ fn deserialize_from_string<'de, D: Deserializer<'de>, T: std::str::FromStr>(dese
 }
 
 sp_api::decl_runtime_apis! {
-    pub trait ExchangeRateOracleApi<Balance, CurrencyId> where
+    pub trait OracleApi<Balance, CurrencyId> where
         Balance: Codec,
         CurrencyId: Codec,
     {

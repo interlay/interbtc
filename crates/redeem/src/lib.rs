@@ -32,7 +32,6 @@ pub use crate::types::{RedeemRequest, RedeemRequestStatus};
 use crate::types::{BalanceOf, Collateral, RedeemRequestExt, Version, Wrapped};
 use btc_relay::BtcAddress;
 use currency::Amount;
-use exchange_rate_oracle::OracleKey;
 use frame_support::{
     dispatch::{DispatchError, DispatchResult},
     ensure,
@@ -40,6 +39,7 @@ use frame_support::{
     transactional,
 };
 use frame_system::{ensure_root, ensure_signed};
+use oracle::OracleKey;
 use sp_core::H256;
 use sp_runtime::FixedPointNumber;
 use sp_std::{convert::TryInto, vec::Vec};

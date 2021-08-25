@@ -1,12 +1,10 @@
-//! RPC interface for the Exchange Rate Oracle.
+//! RPC interface for the Oracle.
 
-pub use self::gen_client::Client as ExchangeRateOracleClient;
+pub use self::gen_client::Client as OracleClient;
 use codec::Codec;
 use jsonrpc_core::{Error as RpcError, ErrorCode, Result as JsonRpcResult};
 use jsonrpc_derive::rpc;
-pub use module_exchange_rate_oracle_rpc_runtime_api::{
-    BalanceWrapper, ExchangeRateOracleApi as ExchangeRateOracleRuntimeApi,
-};
+pub use module_oracle_rpc_runtime_api::{BalanceWrapper, OracleApi as OracleRuntimeApi};
 use sp_api::ProvideRuntimeApi;
 use sp_blockchain::HeaderBackend;
 use sp_runtime::{
@@ -17,12 +15,12 @@ use sp_runtime::{
 use std::sync::Arc;
 
 #[rpc]
-pub trait ExchangeRateOracleApi<BlockHash, Balance, CurrencyId>
+pub trait OracleApi<BlockHash, Balance, CurrencyId>
 where
     Balance: Codec + MaybeDisplay + MaybeFromStr,
     CurrencyId: Codec,
 {
-    #[rpc(name = "exchangeRateOracle_wrappedToCollateral")]
+    #[rpc(name = "Oracle_wrappedToCollateral")]
     fn wrapped_to_collateral(
         &self,
         amount: BalanceWrapper<Balance>,
@@ -30,7 +28,7 @@ where
         at: Option<BlockHash>,
     ) -> JsonRpcResult<BalanceWrapper<Balance>>;
 
-    #[rpc(name = "exchangeRateOracle_collateralToWrapped")]
+    #[rpc(name = "Oracle_collateralToWrapped")]
     fn collateral_to_wrapped(
         &self,
         amount: BalanceWrapper<Balance>,
@@ -39,16 +37,16 @@ where
     ) -> JsonRpcResult<BalanceWrapper<Balance>>;
 }
 
-/// A struct that implements the [`ExchangeRateOracleApi`].
-pub struct ExchangeRateOracle<C, B> {
+/// A struct that implements the [`OracleApi`].
+pub struct Oracle<C, B> {
     client: Arc<C>,
     _marker: std::marker::PhantomData<B>,
 }
 
-impl<C, B> ExchangeRateOracle<C, B> {
-    /// Create new `ExchangeRateOracle` with the given reference to the client.
+impl<C, B> Oracle<C, B> {
+    /// Create new `Oracle` with the given reference to the client.
     pub fn new(client: Arc<C>) -> Self {
-        ExchangeRateOracle {
+        Oracle {
             client,
             _marker: Default::default(),
         }
@@ -89,12 +87,11 @@ fn handle_response<T, E: std::fmt::Debug>(
     )
 }
 
-impl<C, Block, Balance, CurrencyId> ExchangeRateOracleApi<<Block as BlockT>::Hash, Balance, CurrencyId>
-    for ExchangeRateOracle<C, Block>
+impl<C, Block, Balance, CurrencyId> OracleApi<<Block as BlockT>::Hash, Balance, CurrencyId> for Oracle<C, Block>
 where
     Block: BlockT,
     C: Send + Sync + 'static + ProvideRuntimeApi<Block> + HeaderBackend<Block>,
-    C::Api: ExchangeRateOracleRuntimeApi<Block, Balance, CurrencyId>,
+    C::Api: OracleRuntimeApi<Block, Balance, CurrencyId>,
     Balance: Codec + MaybeDisplay + MaybeFromStr,
     CurrencyId: Codec,
 {

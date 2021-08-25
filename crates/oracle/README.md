@@ -1,6 +1,6 @@
-# Exchange Rate Oracle
+# Oracle
 
-Based on the Exchange Rate Oracle specification [https://interlay.gitlab.io/polkabtc-spec/spec/oracle.html](https://interlay.gitlab.io/polkabtc-spec/spec/oracle.html).
+Based on the Oracle specification [https://interlay.gitlab.io/polkabtc-spec/spec/oracle.html](https://interlay.gitlab.io/polkabtc-spec/spec/oracle.html).
 
 ## Installation
 
@@ -19,7 +19,7 @@ To add this pallet to your runtime, simply include the following to your runtime
 ```TOML
 [dependencies.btc-relay]
 default_features = false
-git = '../creates/exchange-rate-oracle'
+git = '../creates/oracle'
 ```
 
 Update your runtime's `std` feature to include this pallet:
@@ -27,7 +27,7 @@ Update your runtime's `std` feature to include this pallet:
 ```TOML
 std = [
     # --snip--
-    'exchange-rate-oracle/std',
+    'oracle/std',
 ]
 ```
 
@@ -37,7 +37,7 @@ You should implement it's trait like so:
 
 ```rust
 /// Used for test_module
-impl exchange_rate_oracle::Config for Runtime {
+impl oracle::Config for Runtime {
     type Event = Event;
     type WeightInfo = ();
 }
@@ -46,7 +46,7 @@ impl exchange_rate_oracle::Config for Runtime {
 and include it in your `construct_runtime!` macro:
 
 ```rust
-ExchangeRateOracle: exchange_rate_oracle::{Module, Call, Config<T>, Storage, Event<T>},
+Oracle: oracle::{Module, Call, Config<T>, Storage, Event<T>},
 ```
 
 ## Reference Docs

@@ -37,7 +37,7 @@ frame_support::construct_runtime!(
         BTCRelay: btc_relay::{Pallet, Call, Config<T>, Storage, Event<T>},
         Security: security::{Pallet, Call, Storage, Event<T>},
         VaultRegistry: vault_registry::{Pallet, Call, Config<T>, Storage, Event<T>},
-        ExchangeRateOracle: exchange_rate_oracle::{Pallet, Call, Config<T>, Storage, Event<T>},
+        Oracle: oracle::{Pallet, Call, Config<T>, Storage, Event<T>},
         Issue: issue::{Pallet, Call, Config<T>, Storage, Event<T>},
         Fee: fee::{Pallet, Call, Config<T>, Storage},
         Refund: refund::{Pallet, Call, Config<T>, Storage, Event<T>},
@@ -209,7 +209,7 @@ impl pallet_timestamp::Config for Test {
     type WeightInfo = ();
 }
 
-impl exchange_rate_oracle::Config for Test {
+impl oracle::Config for Test {
     type Event = TestEvent;
     type WeightInfo = ();
 }
@@ -298,7 +298,7 @@ where
 {
     clear_mocks();
     ExtBuilder::build().execute_with(|| {
-        assert_ok!(<exchange_rate_oracle::Pallet<Test>>::_set_exchange_rate(
+        assert_ok!(<oracle::Pallet<Test>>::_set_exchange_rate(
             DEFAULT_TESTING_CURRENCY,
             UnsignedFixedPoint::one()
         ));

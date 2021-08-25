@@ -1,4 +1,4 @@
-use crate as exchange_rate_oracle;
+use crate as oracle;
 use crate::{Config, Error};
 use frame_support::{parameter_types, traits::GenesisBuild};
 use mocktopus::mocking::clear_mocks;
@@ -27,7 +27,7 @@ frame_support::construct_runtime!(
 
         // Operational
         Security: security::{Pallet, Call, Storage, Event<T>},
-        ExchangeRateOracle: exchange_rate_oracle::{Pallet, Call, Config<T>, Storage, Event<T>},
+        Oracle: oracle::{Pallet, Call, Config<T>, Storage, Event<T>},
         Staking: staking::{Pallet, Storage, Event<T>},
         Currency: currency::{Pallet},
     }
@@ -155,7 +155,7 @@ impl ExtBuilder {
     pub fn build() -> sp_io::TestExternalities {
         let mut storage = frame_system::GenesisConfig::default().build_storage::<Test>().unwrap();
 
-        exchange_rate_oracle::GenesisConfig::<Test> {
+        oracle::GenesisConfig::<Test> {
             authorized_oracles: vec![(0, "test".as_bytes().to_vec())],
             max_delay: 0,
         }
