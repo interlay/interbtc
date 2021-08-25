@@ -15,7 +15,7 @@ use sp_core::crypto::UncheckedInto;
 #[cfg(feature = "runtime-benchmarks")]
 use frame_benchmarking::account;
 
-use interbtc_rpc::jsonrpc_core::serde_json::{self, json};
+use interbtc_rpc::jsonrpc_core::serde_json::{map::Map, Value};
 use sc_service::ChainType;
 use sp_arithmetic::{FixedPointNumber, FixedU128};
 use sp_core::{sr25519, Pair, Public};
@@ -66,6 +66,19 @@ where
     AccountPublic::from(get_from_seed::<TPublic>(seed)).into_account()
 }
 
+fn get_properties() -> Map<String, Value> {
+    let mut properties = Map::new();
+    let mut token_symbol: Vec<String> = vec![];
+    let mut token_decimals: Vec<u32> = vec![];
+    CurrencyId::get_info().iter().for_each(|(symbol_name, decimals)| {
+        token_symbol.push(symbol_name.to_string());
+        token_decimals.push(*decimals);
+    });
+    properties.insert("tokenSymbol".into(), token_symbol.into());
+    properties.insert("tokenDecimals".into(), token_decimals.into());
+    properties
+}
+
 pub fn local_config(id: ParaId) -> ChainSpec {
     ChainSpec::from_genesis(
         "interBTC",
@@ -100,14 +113,7 @@ pub fn local_config(id: ParaId) -> ChainSpec {
         vec![],
         None,
         None,
-        Some(
-            serde_json::from_value(json!({
-                "ss58Format": 42,
-                "tokenDecimals": [10, 8],
-                "tokenSymbol": ["KSM", "kBTC"]
-            }))
-            .unwrap(),
-        ),
+        Some(get_properties()),
         Extensions {
             relay_chain: "local".into(),
             para_id: id.into(),
@@ -151,14 +157,7 @@ pub fn rococo_testnet_config(id: ParaId) -> ChainSpec {
         Vec::new(),
         None,
         None,
-        Some(
-            serde_json::from_value(json!({
-                "ss58Format": 42,
-                "tokenDecimals": [10, 8],
-                "tokenSymbol": ["KSM", "kBTC"]
-            }))
-            .unwrap(),
-        ),
+        Some(get_properties()),
         Extensions {
             relay_chain: "staging".into(),
             para_id: id.into(),
@@ -214,14 +213,7 @@ pub fn development_config(id: ParaId) -> ChainSpec {
         Vec::new(),
         None,
         None,
-        Some(
-            serde_json::from_value(json!({
-                "ss58Format": 42,
-                "tokenDecimals": [10, 8],
-                "tokenSymbol": ["KSM", "kBTC"]
-            }))
-            .unwrap(),
-        ),
+        Some(get_properties()),
         Extensions {
             relay_chain: "dev".into(),
             para_id: id.into(),
