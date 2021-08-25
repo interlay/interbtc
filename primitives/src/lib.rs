@@ -373,8 +373,11 @@ create_currency_id! {
     #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
     pub enum CurrencyId {
         DOT("Polkadot", 10),
-        KSM("Kusama", 12),
         INTERBTC("interBTC", 8),
         INTR("Interlay", 10),
+
+        KSM("Kusama", 12),
+        KBTC("kinBTC", 8),
+        KINT("Kintsugi", 12),
     }
 }

@@ -54,7 +54,7 @@ pub use module_oracle_rpc_runtime_api::BalanceWrapper;
 
 pub use primitives::{
     self, AccountId, Balance, BlockNumber, CurrencyId, Hash, Moment, Nonce, Signature, SignedFixedPoint, SignedInner,
-    UnsignedFixedPoint, UnsignedInner, DOT, INTERBTC, INTR,
+    UnsignedFixedPoint, UnsignedInner, KBTC, KINT, KSM,
 };
 
 // XCM imports
@@ -670,9 +670,9 @@ impl btc_relay::Config for Runtime {
 }
 
 parameter_types! {
-    pub const GetCollateralCurrencyId: CurrencyId = DOT;
-    pub const GetWrappedCurrencyId: CurrencyId = INTERBTC;
-    pub const GetNativeCurrencyId: CurrencyId = INTR;
+    pub const GetCollateralCurrencyId: CurrencyId = KSM;
+    pub const GetWrappedCurrencyId: CurrencyId = KBTC;
+    pub const GetNativeCurrencyId: CurrencyId = KINT;
     pub const MaxLocks: u32 = 50;
 }
 
