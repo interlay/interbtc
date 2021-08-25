@@ -14,5 +14,5 @@ sp-api = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v
 sp-blockchain = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.8" }
 module-vault-registry-rpc-runtime-api = { path = "runtime-api" }
 
-[dependencies.module-exchange-rate-oracle-rpc-runtime-api]
-path = '../../exchange-rate-oracle/rpc/runtime-api'
+[dependencies.module-oracle-rpc-runtime-api]
+path = '../../oracle/rpc/runtime-api'

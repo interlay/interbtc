@@ -205,11 +205,11 @@ pub(crate) mod security {
 #[cfg_attr(test, mockable)]
 pub(crate) mod oracle {
     use crate::OracleKey;
-    use exchange_rate_oracle::types::UnsignedFixedPoint;
     use frame_support::dispatch::DispatchError;
+    use oracle::types::UnsignedFixedPoint;
 
     pub fn get_price<T: crate::Config>(key: OracleKey) -> Result<UnsignedFixedPoint<T>, DispatchError> {
-        <exchange_rate_oracle::Pallet<T>>::get_price(key)
+        <oracle::Pallet<T>>::get_price(key)
     }
 }
 

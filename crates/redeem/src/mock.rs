@@ -1,9 +1,9 @@
 use crate as redeem;
 use crate::{Config, Error};
 use currency::Amount;
-pub use exchange_rate_oracle::{CurrencyId, OracleKey};
 use frame_support::{assert_ok, parameter_types, traits::GenesisBuild, PalletId};
 use mocktopus::{macros::mockable, mocking::clear_mocks};
+pub use oracle::{CurrencyId, OracleKey};
 use orml_tokens::CurrencyAdapter;
 use orml_traits::parameter_type_with_key;
 pub use sp_arithmetic::{FixedI128, FixedPointNumber, FixedU128};
@@ -37,7 +37,7 @@ frame_support::construct_runtime!(
         BTCRelay: btc_relay::{Pallet, Call, Config<T>, Storage, Event<T>},
         Security: security::{Pallet, Call, Storage, Event<T>},
         VaultRegistry: vault_registry::{Pallet, Call, Config<T>, Storage, Event<T>},
-        ExchangeRateOracle: exchange_rate_oracle::{Pallet, Call, Config<T>, Storage, Event<T>},
+        Oracle: oracle::{Pallet, Call, Config<T>, Storage, Event<T>},
         Redeem: redeem::{Pallet, Call, Config<T>, Storage, Event<T>},
         Fee: fee::{Pallet, Call, Config<T>, Storage},
         Staking: staking::{Pallet, Storage, Event<T>},
@@ -203,7 +203,7 @@ impl pallet_timestamp::Config for Test {
     type WeightInfo = ();
 }
 
-impl exchange_rate_oracle::Config for Test {
+impl oracle::Config for Test {
     type Event = TestEvent;
     type WeightInfo = ();
 }
@@ -291,7 +291,7 @@ impl ExtBuilder {
         .assimilate_storage(&mut storage)
         .unwrap();
 
-        exchange_rate_oracle::GenesisConfig::<Test> {
+        oracle::GenesisConfig::<Test> {
             authorized_oracles: vec![(ALICE, "test".as_bytes().to_vec())],
             max_delay: 0,
         }
@@ -321,14 +321,14 @@ where
 {
     clear_mocks();
     ExtBuilder::build().execute_with(|| {
-        assert_ok!(<exchange_rate_oracle::Pallet<Test>>::feed_values(
+        assert_ok!(<oracle::Pallet<Test>>::feed_values(
             Origin::signed(ALICE),
             vec![
                 (OracleKey::ExchangeRate(CurrencyId::DOT), FixedU128::from(1)),
                 (OracleKey::FeeEstimation, FixedU128::from(3)),
             ]
         ));
-        <exchange_rate_oracle::Pallet<Test>>::begin_block(0);
+        <oracle::Pallet<Test>>::begin_block(0);
         Security::set_active_block_number(1);
         System::set_block_number(1);
         test();

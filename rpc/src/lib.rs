@@ -39,7 +39,7 @@ where
     C::Api: substrate_frame_rpc_system::AccountNonceApi<Block, AccountId, Nonce>,
     C::Api: pallet_transaction_payment_rpc::TransactionPaymentRuntimeApi<Block, Balance>,
     C::Api: module_btc_relay_rpc::BtcRelayRuntimeApi<Block, H256Le>,
-    C::Api: module_exchange_rate_oracle_rpc::ExchangeRateOracleRuntimeApi<Block, Balance, CurrencyId>,
+    C::Api: module_oracle_rpc::OracleRuntimeApi<Block, Balance, CurrencyId>,
     C::Api: module_relay_rpc::RelayRuntimeApi<Block, AccountId>,
     C::Api: module_vault_registry_rpc::VaultRegistryRuntimeApi<Block, AccountId, Balance, FixedU128, CurrencyId>,
     C::Api: module_issue_rpc::IssueRuntimeApi<Block, AccountId, H256, IssueRequest<AccountId, BlockNumber, Balance>>,
@@ -51,8 +51,8 @@ where
     P: TransactionPool + 'static,
 {
     use module_btc_relay_rpc::{BtcRelay, BtcRelayApi};
-    use module_exchange_rate_oracle_rpc::{ExchangeRateOracle, ExchangeRateOracleApi};
     use module_issue_rpc::{Issue, IssueApi};
+    use module_oracle_rpc::{Oracle, OracleApi};
     use module_redeem_rpc::{Redeem, RedeemApi};
     use module_refund_rpc::{Refund, RefundApi};
     use module_relay_rpc::{Relay, RelayApi};
@@ -80,9 +80,7 @@ where
 
     io.extend_with(BtcRelayApi::to_delegate(BtcRelay::new(client.clone())));
 
-    io.extend_with(ExchangeRateOracleApi::to_delegate(ExchangeRateOracle::new(
-        client.clone(),
-    )));
+    io.extend_with(OracleApi::to_delegate(Oracle::new(client.clone())));
 
     io.extend_with(RelayApi::to_delegate(Relay::new(client.clone())));
 

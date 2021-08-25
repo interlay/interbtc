@@ -81,7 +81,7 @@ fn get_dummy_request_id() -> H256 {
 #[test]
 fn test_request_issue_banned_fails() {
     run_test(|| {
-        assert_ok!(<exchange_rate_oracle::Pallet<Test>>::_set_exchange_rate(
+        assert_ok!(<oracle::Pallet<Test>>::_set_exchange_rate(
             DEFAULT_TESTING_CURRENCY,
             FixedU128::one()
         ));

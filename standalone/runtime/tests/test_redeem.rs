@@ -7,10 +7,7 @@ fn test_with<R>(execute: impl Fn(CurrencyId) -> R) {
     let test_with = |currency_id| {
         ExtBuilder::build().execute_with(|| {
             SecurityPallet::set_active_block_number(1);
-            assert_ok!(ExchangeRateOraclePallet::_set_exchange_rate(
-                currency_id,
-                FixedU128::one()
-            ));
+            assert_ok!(OraclePallet::_set_exchange_rate(currency_id, FixedU128::one()));
             set_default_thresholds();
             UserData::force_to(USER, default_user_state());
             CoreVaultData::force_to(VAULT, default_vault_state(currency_id));
@@ -1174,10 +1171,7 @@ fn integration_test_premium_redeem_wrapped_execute() {
 
         // make vault undercollateralized. Note that we place it under the liquidation threshold
         // as well, but as long as we don't call liquidate that's ok
-        assert_ok!(ExchangeRateOraclePallet::_set_exchange_rate(
-            currency_id,
-            FixedU128::from(100)
-        ));
+        assert_ok!(OraclePallet::_set_exchange_rate(currency_id, FixedU128::from(100)));
 
         // alice requests to redeem issued_tokens from Bob
         assert_ok!(Call::Redeem(RedeemCall::request_redeem(

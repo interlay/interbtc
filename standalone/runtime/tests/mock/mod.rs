@@ -26,8 +26,8 @@ pub use sp_runtime::traits::{Dispatchable, One, Zero};
 pub use sp_std::convert::TryInto;
 pub use vault_registry::CurrencySource;
 
-pub use exchange_rate_oracle::OracleKey;
 pub use issue::{types::IssueRequestExt, IssueRequest, IssueRequestStatus};
+pub use oracle::OracleKey;
 pub use redeem::{types::RedeemRequestExt, RedeemRequest};
 pub use refund::RefundRequest;
 pub use replace::{types::ReplaceRequestExt, ReplaceRequest};
@@ -95,8 +95,8 @@ pub type TokensError = orml_tokens::Error<Runtime>;
 pub type CollateralPallet = CurrencyAdapter<Runtime, GetCollateralCurrencyId>;
 pub type TreasuryPallet = CurrencyAdapter<Runtime, GetWrappedCurrencyId>;
 
-pub type ExchangeRateOracleCall = exchange_rate_oracle::Call<Runtime>;
-pub type ExchangeRateOraclePallet = exchange_rate_oracle::Pallet<Runtime>;
+pub type OracleCall = oracle::Call<Runtime>;
+pub type OraclePallet = oracle::Pallet<Runtime>;
 
 pub type FeeCall = fee::Call<Runtime>;
 pub type FeeError = fee::Error<Runtime>;
@@ -705,12 +705,12 @@ impl ParachainTwoVaultState {
 }
 #[allow(dead_code)]
 pub fn liquidate_vault(currency_id: CurrencyId, vault: [u8; 32]) {
-    assert_ok!(ExchangeRateOraclePallet::_set_exchange_rate(
+    assert_ok!(OraclePallet::_set_exchange_rate(
         currency_id,
         FixedU128::checked_from_integer(10_000_000_000).unwrap()
     ));
     assert_ok!(VaultRegistryPallet::liquidate_vault(&account_of(vault)));
-    assert_ok!(ExchangeRateOraclePallet::_set_exchange_rate(
+    assert_ok!(OraclePallet::_set_exchange_rate(
         currency_id,
         FixedU128::checked_from_integer(1).unwrap()
     ));
@@ -1006,7 +1006,7 @@ impl ExtBuilder {
             .assimilate_storage(&mut storage)
             .unwrap();
 
-        exchange_rate_oracle::GenesisConfig::<Runtime> {
+        oracle::GenesisConfig::<Runtime> {
             authorized_oracles: vec![(account_of(BOB), BOB.to_vec())],
             max_delay: 3600000, // one hour
         }
@@ -1089,19 +1089,13 @@ impl ExtBuilder {
             // initialize btc relay
             let _ = TransactionGenerator::new().with_confirmations(7).mine();
 
-            assert_ok!(
-                Call::ExchangeRateOracle(ExchangeRateOracleCall::insert_authorized_oracle(
-                    account_of(ALICE),
-                    vec![]
-                ))
-                .dispatch(root())
-            );
-            assert_ok!(Call::ExchangeRateOracle(ExchangeRateOracleCall::feed_values(vec![
+            assert_ok!(Call::Oracle(OracleCall::insert_authorized_oracle(account_of(ALICE), vec![])).dispatch(root()));
+            assert_ok!(Call::Oracle(OracleCall::feed_values(vec![
                 (OracleKey::ExchangeRate(CurrencyId::DOT), FixedU128::from(1)),
                 (OracleKey::FeeEstimation, FixedU128::from(3)),
             ]))
             .dispatch(origin_of(account_of(ALICE))));
-            ExchangeRateOraclePallet::begin_block(0);
+            OraclePallet::begin_block(0);
 
             execute()
         })
@@ -1113,7 +1107,7 @@ impl ExtBuilder {
             SystemModule::set_block_number(1); // required to be able to dispatch functions
             SecurityPallet::set_active_block_number(1);
 
-            assert_ok!(ExchangeRateOraclePallet::_set_exchange_rate(
+            assert_ok!(OraclePallet::_set_exchange_rate(
                 DEFAULT_TESTING_CURRENCY,
                 FixedU128::one()
             ));

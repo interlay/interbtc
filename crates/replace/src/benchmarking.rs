@@ -8,10 +8,10 @@ use bitcoin::{
     },
 };
 use btc_relay::{BtcAddress, BtcPublicKey, Pallet as BtcRelay};
-use exchange_rate_oracle::Pallet as ExchangeRateOracle;
 use frame_benchmarking::{account, benchmarks, impl_benchmark_test_suite};
 use frame_support::traits::Get;
 use frame_system::RawOrigin;
+use oracle::Pallet as Oracle;
 use orml_traits::MultiCurrency;
 use primitives::CurrencyId;
 use security::Pallet as Security;
@@ -119,7 +119,7 @@ benchmarks! {
             vault
         );
 
-        ExchangeRateOracle::<T>::_set_exchange_rate(DEFAULT_TESTING_CURRENCY, UnsignedFixedPoint::<T>::one()
+        Oracle::<T>::_set_exchange_rate(DEFAULT_TESTING_CURRENCY, UnsignedFixedPoint::<T>::one()
         ).unwrap();
     }: _(RawOrigin::Signed(vault_id), amount, griefing)
 
@@ -131,7 +131,7 @@ benchmarks! {
 
         let threshold = UnsignedFixedPoint::<T>::one();
         VaultRegistry::<T>::set_secure_collateral_threshold(DEFAULT_TESTING_CURRENCY, threshold);
-        ExchangeRateOracle::<T>::_set_exchange_rate(DEFAULT_TESTING_CURRENCY, UnsignedFixedPoint::<T>::one()).unwrap();
+        Oracle::<T>::_set_exchange_rate(DEFAULT_TESTING_CURRENCY, UnsignedFixedPoint::<T>::one()).unwrap();
 
         VaultRegistry::<T>::try_increase_to_be_issued_tokens(&vault_id, &amount).unwrap();
         VaultRegistry::<T>::issue_tokens(&vault_id, &amount).unwrap();
@@ -152,7 +152,7 @@ benchmarks! {
         let new_vault_btc_address = BtcAddress::P2SH(H160([0; 20]));
 
         VaultRegistry::<T>::set_secure_collateral_threshold(DEFAULT_TESTING_CURRENCY, UnsignedFixedPoint::<T>::checked_from_rational(1, 100000).unwrap());
-        ExchangeRateOracle::<T>::_set_exchange_rate(DEFAULT_TESTING_CURRENCY, UnsignedFixedPoint::<T>::one()).unwrap();
+        Oracle::<T>::_set_exchange_rate(DEFAULT_TESTING_CURRENCY, UnsignedFixedPoint::<T>::one()).unwrap();
         VaultRegistry::<T>::_register_vault(&old_vault_id, 100000000u32.into(), dummy_public_key(), T::GetGriefingCollateralCurrencyId::get()).unwrap();
 
         VaultRegistry::<T>::try_increase_to_be_issued_tokens(&old_vault_id, &amount).unwrap();
@@ -168,7 +168,7 @@ benchmarks! {
         Replace::<T>::insert_replace_request(&replace_id, &replace_request);
 
 
-        ExchangeRateOracle::<T>::_set_exchange_rate(DEFAULT_TESTING_CURRENCY, UnsignedFixedPoint::<T>::one()
+        Oracle::<T>::_set_exchange_rate(DEFAULT_TESTING_CURRENCY, UnsignedFixedPoint::<T>::one()
         ).unwrap();
     }: _(RawOrigin::Signed(new_vault_id), old_vault_id, amount.amount(), collateral.amount(), new_vault_btc_address)
 
@@ -284,7 +284,7 @@ benchmarks! {
 
         VaultRegistry::<T>::set_secure_collateral_threshold(DEFAULT_TESTING_CURRENCY, UnsignedFixedPoint::<T>::checked_from_rational(1, 100000).unwrap());
 
-        ExchangeRateOracle:: <T>::_set_exchange_rate(DEFAULT_TESTING_CURRENCY, UnsignedFixedPoint::<T>::one()).unwrap();
+        Oracle:: <T>::_set_exchange_rate(DEFAULT_TESTING_CURRENCY, UnsignedFixedPoint::<T>::one()).unwrap();
 
         VaultRegistry::<T>::_register_vault(&old_vault_id, 100000000u32.into(), dummy_public_key(), T::GetGriefingCollateralCurrencyId::get()).unwrap();
         VaultRegistry::<T>::try_increase_to_be_issued_tokens(&old_vault_id, &amount).unwrap();

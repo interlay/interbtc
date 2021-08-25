@@ -1,4 +1,4 @@
-//! # Exchange Rate Oracle Module
+//! # Oracle Pallet
 //! Based on the [specification](https://interlay.gitlab.io/polkabtc-spec/spec/oracle.html).
 
 #![deny(warnings)]

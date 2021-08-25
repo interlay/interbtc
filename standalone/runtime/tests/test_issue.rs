@@ -9,10 +9,7 @@ fn test_with<R>(execute: impl Fn(CurrencyId) -> R) {
         ExtBuilder::build().execute_with(|| {
             SecurityPallet::set_active_block_number(1);
             for currency_id in iter_collateral_currencies() {
-                assert_ok!(ExchangeRateOraclePallet::_set_exchange_rate(
-                    currency_id,
-                    FixedU128::one()
-                ));
+                assert_ok!(OraclePallet::_set_exchange_rate(currency_id, FixedU128::one()));
             }
             UserData::force_to(USER, default_user_state());
             execute(currency_id)

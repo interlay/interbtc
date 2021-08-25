@@ -81,7 +81,7 @@ pub mod pallet {
     pub trait Config:
         frame_system::Config
         + SendTransactionTypes<Call<Self>>
-        + exchange_rate_oracle::Config
+        + oracle::Config
         + security::Config
         + staking::Config<
             SignedInner = SignedInner<Self>,

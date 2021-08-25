@@ -8,10 +8,7 @@ fn test_with<R>(execute: impl Fn(CurrencyId) -> R) {
     let test_with = |currency_id| {
         ExtBuilder::build().execute_with(|| {
             SecurityPallet::set_active_block_number(1);
-            assert_ok!(ExchangeRateOraclePallet::_set_exchange_rate(
-                currency_id,
-                FixedU128::one()
-            ));
+            assert_ok!(OraclePallet::_set_exchange_rate(currency_id, FixedU128::one()));
             UserData::force_to(USER, default_user_state());
             CoreVaultData::force_to(VAULT, default_vault_state(currency_id));
             execute(currency_id)
@@ -316,7 +313,7 @@ mod spec_based_tests {
                 .dispatch(origin_of(account_of(VAULT))));
             assert_nomination_opt_in(VAULT);
             assert_nominate_collateral(VAULT, USER, default_nomination(currency_id));
-            assert_ok!(ExchangeRateOraclePallet::_set_exchange_rate(
+            assert_ok!(OraclePallet::_set_exchange_rate(
                 currency_id,
                 FixedU128::checked_from_integer(3).unwrap()
             ));
@@ -495,7 +492,7 @@ fn integration_test_nominator_withdrawal_below_collateralization_threshold_fails
         );
         assert_nomination_opt_in(VAULT);
         assert_nominate_collateral(VAULT, USER, default_nomination(currency_id));
-        assert_ok!(ExchangeRateOraclePallet::_set_exchange_rate(
+        assert_ok!(OraclePallet::_set_exchange_rate(
             currency_id,
             FixedU128::checked_from_integer(3).unwrap()
         ));

@@ -9,10 +9,7 @@ pub const VAULT: [u8; 32] = BOB;
 fn test_with<R>(execute: impl Fn(CurrencyId) -> R) {
     let test_with = |currency_id| {
         ExtBuilder::build().execute_with(|| {
-            assert_ok!(ExchangeRateOraclePallet::_set_exchange_rate(
-                currency_id,
-                FixedU128::one()
-            ));
+            assert_ok!(OraclePallet::_set_exchange_rate(currency_id, FixedU128::one()));
             UserData::force_to(USER, default_user_state());
             CoreVaultData::force_to(VAULT, default_vault_state(currency_id));
             execute(currency_id)

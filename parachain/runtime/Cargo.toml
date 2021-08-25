@@ -76,7 +76,7 @@ currency = { path = "../../crates/currency", default-features = false }
 security = { path = "../../crates/security", default-features = false }
 relay = { path = "../../crates/relay", default-features = false }
 vault-registry = { path = "../../crates/vault-registry", default-features = false }
-exchange-rate-oracle = { path = "../../crates/exchange-rate-oracle", default-features = false }
+oracle = { path = "../../crates/oracle", default-features = false }
 fee = { path = "../../crates/fee", default-features = false }
 issue = { path = "../../crates/issue", default-features = false }
 redeem = { path = "../../crates/redeem", default-features = false }
@@ -91,7 +91,7 @@ primitives = { package = "interbtc-primitives", path = "../../primitives", defau
 parachain-info = { path = "../../crates/parachain-info", default-features = false }
 
 module-btc-relay-rpc-runtime-api = { path = "../../crates/btc-relay/rpc/runtime-api", default-features = false }
-module-exchange-rate-oracle-rpc-runtime-api = { path = "../../crates/exchange-rate-oracle/rpc/runtime-api", default-features = false }
+module-oracle-rpc-runtime-api = { path = "../../crates/oracle/rpc/runtime-api", default-features = false }
 module-relay-rpc-runtime-api = { path = "../../crates/relay/rpc/runtime-api", default-features = false }
 module-vault-registry-rpc-runtime-api = { path = "../../crates/vault-registry/rpc/runtime-api", default-features = false }
 module-issue-rpc-runtime-api = { path = "../../crates/issue/rpc/runtime-api", default-features = false }
@@ -185,7 +185,7 @@ std = [
   "security/std",
   "relay/std",
   "vault-registry/std",
-  "exchange-rate-oracle/std",
+  "oracle/std",
   "fee/std",
   "refund/std",
   "issue/std",
@@ -200,7 +200,7 @@ std = [
   "parachain-info/std",
 
   "module-btc-relay-rpc-runtime-api/std",
-  "module-exchange-rate-oracle-rpc-runtime-api/std",
+  "module-oracle-rpc-runtime-api/std",
   "module-relay-rpc-runtime-api/std",
   "module-vault-registry-rpc-runtime-api/std",
   "module-issue-rpc-runtime-api/std",
@@ -226,7 +226,7 @@ runtime-benchmarks = [
   "pallet-collective/runtime-benchmarks",
 
   "btc-relay/runtime-benchmarks",
-  "exchange-rate-oracle/runtime-benchmarks",
+  "oracle/runtime-benchmarks",
   "issue/runtime-benchmarks",
   "redeem/runtime-benchmarks",
   "replace/runtime-benchmarks",

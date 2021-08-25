@@ -10,9 +10,9 @@ frame-support = { git = "https://github.com/paritytech/substrate", branch = "pol
 sp-api = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.8", default-features = false }
 sp-std = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.8", default-features = false }
 
-[dependencies.module-exchange-rate-oracle-rpc-runtime-api]
+[dependencies.module-oracle-rpc-runtime-api]
 default-features = false
-path = '../../../exchange-rate-oracle/rpc/runtime-api'
+path = '../../../oracle/rpc/runtime-api'
 
 [features]
 default = ["std"]
@@ -21,5 +21,5 @@ std = [
   "frame-support/std",
   "sp-api/std",
   "sp-std/std",
-  "module-exchange-rate-oracle-rpc-runtime-api/std",
+  "module-oracle-rpc-runtime-api/std",
 ]

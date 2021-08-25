@@ -9,10 +9,10 @@ use bitcoin::{
 };
 use btc_relay::{BtcAddress, BtcPublicKey, Pallet as BtcRelay};
 use currency::Amount;
-use exchange_rate_oracle::Pallet as ExchangeRateOracle;
 use frame_benchmarking::{account, benchmarks, impl_benchmark_test_suite};
 use frame_support::{assert_ok, traits::Get};
 use frame_system::RawOrigin;
+use oracle::Pallet as Oracle;
 use orml_traits::MultiCurrency;
 use primitives::CurrencyId;
 use security::Pallet as Security;
@@ -167,7 +167,7 @@ benchmarks! {
         BtcRelay::<T>::store_block_header(&relayer_id, block_header).unwrap();
         Security::<T>::set_active_block_number(Security::<T>::active_block_number() + BtcRelay::<T>::parachain_confirmations() + 1u32.into());
 
-        ExchangeRateOracle::<T>::_set_exchange_rate(DEFAULT_TESTING_CURRENCY,
+        Oracle::<T>::_set_exchange_rate(DEFAULT_TESTING_CURRENCY,
             <T as currency::Config>::UnsignedFixedPoint::one()
         ).unwrap();
     }: _(RawOrigin::Signed(origin), vault_id, proof, raw_tx)

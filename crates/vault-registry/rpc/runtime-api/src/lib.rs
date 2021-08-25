@@ -4,7 +4,7 @@
 
 use codec::Codec;
 use frame_support::dispatch::DispatchError;
-use module_exchange_rate_oracle_rpc_runtime_api::BalanceWrapper;
+use module_oracle_rpc_runtime_api::BalanceWrapper;
 use sp_std::vec::Vec;
 
 sp_api::decl_runtime_apis! {

@@ -2,10 +2,10 @@ use bitcoin::utils::{virtual_transaction_size, InputType, TransactionInputMetada
 use cumulus_primitives_core::ParaId;
 use hex_literal::hex;
 use interbtc_runtime::{
-    AccountId, AuraConfig, BTCRelayConfig, CurrencyId, ExchangeRateOracleConfig, FeeConfig, GeneralCouncilConfig,
-    GenesisConfig, IssueConfig, NominationConfig, ParachainInfoConfig, RedeemConfig, RefundConfig, ReplaceConfig,
-    Signature, SudoConfig, SystemConfig, TechnicalCommitteeConfig, TokensConfig, VaultRegistryConfig,
-    BITCOIN_BLOCK_SPACING, DAYS, DOT, WASM_BINARY,
+    AccountId, AuraConfig, BTCRelayConfig, CurrencyId, FeeConfig, GeneralCouncilConfig, GenesisConfig, IssueConfig,
+    NominationConfig, OracleConfig, ParachainInfoConfig, RedeemConfig, RefundConfig, ReplaceConfig, Signature,
+    SudoConfig, SystemConfig, TechnicalCommitteeConfig, TokensConfig, VaultRegistryConfig, BITCOIN_BLOCK_SPACING, DAYS,
+    DOT, WASM_BINARY,
 };
 use sc_chain_spec::{ChainSpecExtension, ChainSpecGroup};
 use serde::{Deserialize, Serialize};
@@ -256,7 +256,7 @@ fn testnet_genesis(
         tokens: TokensConfig {
             balances: endowed_accounts.iter().cloned().map(|k| (k, DOT, 1 << 60)).collect(),
         },
-        exchange_rate_oracle: ExchangeRateOracleConfig {
+        oracle: OracleConfig {
             authorized_oracles,
             max_delay: 3600000, // one hour
         },

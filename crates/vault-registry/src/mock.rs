@@ -35,7 +35,7 @@ frame_support::construct_runtime!(
         // Operational
         Security: security::{Pallet, Call, Storage, Event<T>},
         VaultRegistry: vault_registry::{Pallet, Call, Config<T>, Storage, Event<T>, ValidateUnsigned},
-        ExchangeRateOracle: exchange_rate_oracle::{Pallet, Call, Config<T>, Storage, Event<T>},
+        Oracle: oracle::{Pallet, Call, Config<T>, Storage, Event<T>},
         Staking: staking::{Pallet, Storage, Event<T>},
         Fee: fee::{Pallet, Call, Config<T>, Storage},
         Currency: currency::{Pallet},
@@ -130,7 +130,7 @@ impl pallet_timestamp::Config for Test {
     type WeightInfo = ();
 }
 
-impl exchange_rate_oracle::Config for Test {
+impl oracle::Config for Test {
     type Event = TestEvent;
     type WeightInfo = ();
 }
@@ -150,7 +150,7 @@ pub fn convert_to(
     to: CurrencyId,
     amount: currency::Amount<Test>,
 ) -> Result<currency::Amount<Test>, sp_runtime::DispatchError> {
-    <exchange_rate_oracle::Pallet<Test>>::convert(&amount, to)
+    <oracle::Pallet<Test>>::convert(&amount, to)
 }
 
 impl currency::Config for Test {
@@ -281,8 +281,7 @@ where
         System::set_block_number(1);
         Security::set_active_block_number(1);
         set_default_thresholds();
-        <exchange_rate_oracle::Pallet<Test>>::_set_exchange_rate(DEFAULT_TESTING_CURRENCY, UnsignedFixedPoint::one())
-            .unwrap();
+        <oracle::Pallet<Test>>::_set_exchange_rate(DEFAULT_TESTING_CURRENCY, UnsignedFixedPoint::one()).unwrap();
         test()
     })
 }
