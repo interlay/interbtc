@@ -40,6 +40,7 @@ const DEFAULT_PARA_ID: u32 = 21;
 fn load_spec(id: &str, para_id: ParaId) -> std::result::Result<Box<dyn sc_service::ChainSpec>, String> {
     match id {
         "rococo" => Ok(Box::new(chain_spec::rococo_testnet_config(para_id))),
+        "rococo-local" => Ok(Box::new(chain_spec::rococo_local_testnet_config(para_id))),
         "dev" => Ok(Box::new(chain_spec::development_config(para_id))),
         "" => Ok(Box::new(chain_spec::local_config(para_id))),
         path => Ok(Box::new(chain_spec::ChainSpec::from_json_file(path.into())?)),

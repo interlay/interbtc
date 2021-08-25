@@ -78,6 +78,7 @@ polkadot-parachain = { git = "https://github.com/paritytech/polkadot", branch = 
 
 [features]
 default = []
+rococo-native = [ "polkadot-cli/rococo-native" ]
 runtime-benchmarks = [
     "interbtc-runtime/runtime-benchmarks",
 ]

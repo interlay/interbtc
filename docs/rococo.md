@@ -8,24 +8,24 @@ cd polkadot-launch
 yarn global add file:$(pwd)
 ```
 
-Compile and install [polkadot](https://github.com/paritytech/polkadot) with the `real-overseer` feature.
+Compile and install [polkadot](https://github.com/paritytech/polkadot).
 
 ```shell
 git clone git@github.com:paritytech/polkadot.git
 cd polkadot
 git checkout polkadot-v0.9.8
 
-cargo build --release --features=real-overseer
+cargo build --release
 sudo cp ./target/release/polkadot /usr/local/bin/
 ```
 
-Compile and install the [parachain](https://github.com/interlay/interbtc) with the `cumulus-polkadot` feature.
+Compile and install the [parachain](https://github.com/interlay/interbtc).
 
 ```shell
 git clone git@github.com:interlay/interbtc.git
 cd interbtc
 
-cargo build --release --bin interbtc-parachain
+cargo build --release --bin interbtc-parachain --features rococo-native
 sudo cp ./target/release/interbtc-parachain /usr/local/bin/
 ```
 
@@ -57,21 +57,38 @@ polkadot --chain rococo-local.json --bob --tmp --discover-local --port 30334
 Compile and install the parachain as above.
 
 ```shell
-# Export genesis state
-interbtc-parachain export-genesis-state --chain dev --parachain-id 21 > genesis-state
+# Export genesis state (using reserved paraid)
+interbtc-parachain export-genesis-state --chain rococo-local --parachain-id 2000 > genesis-state
 
 # Export genesis wasm
 interbtc-parachain export-genesis-wasm > genesis-wasm
 
 # Run parachain collator
-interbtc-parachain --collator --discover-local --tmp --parachain-id 200 --port 40335 --ws-port 9946 -- --execution wasm --chain ../polkadot/rococo-local.json --port 30335 --discover-local
+interbtc-parachain \
+    --alice \
+    --collator \
+    --force-authoring \
+    --parachain-id 2000 \
+    --port 40335 \
+    --ws-port 9946 \
+    --discover-local \
+    --tmp \
+    -- \
+    --execution wasm \
+    --chain rococo-local.json \
+    --port 30335 \
+    --discover-local
 ```
 
 ## Register
 
 To register the Parachain, you can use the [Polkadot JS Apps UI](https://polkadot.js.org/apps/#/?rpc=ws://localhost:9944).
 
-![Initialize Parachain](./img/sudoScheduleParaInitialize.png)
+![Reserve ParaId](./img/reserve-paraid.png)
+
+![Reserve Parathread](./img/reserve-parathread.png)
+
+![Schedule Parathread Upgrade](./img/sudoScheduleParathreadUpgrade.png)
 
 Add the [types](./types.json) to the developer settings if the app fails to decode any responses.
 
