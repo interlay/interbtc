@@ -91,11 +91,13 @@ impl SubstrateCli for RelayChainCli {
     }
 
     fn description() -> String {
-        "Cumulus test parachain collator\n\nThe command-line arguments provided first will be \
+        format!(
+            "Polkadot collator\n\nThe command-line arguments provided first will be \
 		passed to the parachain node, while the arguments provided after -- will be passed \
 		to the relaychain node.\n\n\
-		rococo-collator [parachain-args] -- [relaychain-args]"
-            .into()
+		{} [parachain-args] -- [relaychain-args]",
+            Self::executable_name()
+        )
     }
 
     fn author() -> String {
@@ -251,7 +253,7 @@ pub fn run() -> Result<()> {
             Ok(())
         }
         None => {
-            let runner = cli.create_runner(&*cli.run)?;
+            let runner = cli.create_runner(&cli.run.normalize())?;
 
             runner
                 .run_node_until_exit(|config| async move { start_node(cli, config).await })
