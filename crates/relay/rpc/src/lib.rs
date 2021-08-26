@@ -13,7 +13,7 @@ pub use module_relay_rpc_runtime_api::RelayApi as RelayRuntimeApi;
 
 #[rpc]
 pub trait RelayApi<BlockHash, AccountId> {
-    #[rpc(name = "stakedRelayers_isTransactionInvalid")]
+    #[rpc(name = "relay_isTransactionInvalid")]
     fn is_transaction_invalid(&self, vault_id: AccountId, raw_tx: Vec<u8>, at: Option<BlockHash>) -> Result<()>;
 }
 
