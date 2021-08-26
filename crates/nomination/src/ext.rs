@@ -44,6 +44,14 @@ pub(crate) mod vault_registry {
     pub fn get_collateral_currency<T: crate::Config>(vault_id: &T::AccountId) -> Result<CurrencyId<T>, DispatchError> {
         <vault_registry::Pallet<T>>::get_collateral_currency(vault_id)
     }
+
+    pub fn try_increase_total_backing_collateral<T: crate::Config>(amount: &Amount<T>) -> DispatchResult {
+        <vault_registry::Pallet<T>>::try_increase_total_backing_collateral(amount)
+    }
+
+    pub fn decrease_total_backing_collateral<T: crate::Config>(amount: &Amount<T>) -> DispatchResult {
+        <vault_registry::Pallet<T>>::decrease_total_backing_collateral(amount)
+    }
 }
 
 #[cfg_attr(test, mockable)]

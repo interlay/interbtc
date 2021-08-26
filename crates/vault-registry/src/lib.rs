@@ -788,6 +788,7 @@ impl<T: Config> Pallet<T> {
 
     fn slash_backing_collateral(vault_id: &T::AccountId, amount: &Amount<T>) -> DispatchResult {
         amount.unlock(vault_id)?;
+        Self::decrease_total_backing_collateral(amount)?;
         ext::staking::slash_stake::<T>(T::GetWrappedCurrencyId::get(), vault_id, amount)?;
         Ok(())
     }
@@ -1057,6 +1058,7 @@ impl<T: Config> Pallet<T> {
             if premium.is_zero() {
                 Self::deposit_event(Event::<T>::RedeemTokens(vault.id(), tokens.amount()));
             } else {
+                Self::decrease_total_backing_collateral(tokens)?;
                 Self::transfer_funds(
                     CurrencySource::Collateral(vault_id.clone()),
                     CurrencySource::FreeBalance(redeemer_id.clone()),
@@ -1075,6 +1077,7 @@ impl<T: Config> Pallet<T> {
             // but this may now be wrong in the pull-based approach if the Vault is left with excess collateral
             let to_be_released =
                 Self::calculate_collateral(&vault.liquidated_collateral(), tokens, &to_be_redeemed_tokens)?;
+            Self::decrease_total_backing_collateral(&to_be_released)?;
             vault.decrease_liquidated_collateral(&to_be_released)?;
 
             // deposit vault's collateral (this was withdrawn on liquidation)
@@ -1121,6 +1124,7 @@ impl<T: Config> Pallet<T> {
             &liquidation_vault.backed_tokens()?,
         )?;
 
+        Self::decrease_total_backing_collateral(amount_btc)?;
         Self::transfer_funds(
             CurrencySource::LiquidationVault,
             CurrencySource::FreeBalance(redeemer_id.clone()),
@@ -1275,7 +1279,7 @@ impl<T: Config> Pallet<T> {
         Ok(to_slash)
     }
 
-    pub(crate) fn try_increase_total_backing_collateral(amount: &Amount<T>) -> DispatchResult {
+    pub fn try_increase_total_backing_collateral(amount: &Amount<T>) -> DispatchResult {
         let new = TotalUserVaultCollateral::<T>::get(&amount.currency())
             .checked_add(&amount.amount())
             .ok_or(Error::<T>::ArithmeticOverflow)?;
@@ -1288,7 +1292,7 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
-    pub(crate) fn decrease_total_backing_collateral(amount: &Amount<T>) -> DispatchResult {
+    pub fn decrease_total_backing_collateral(amount: &Amount<T>) -> DispatchResult {
         let new = TotalUserVaultCollateral::<T>::get(&amount.currency())
             .checked_sub(&amount.amount())
             .ok_or(Error::<T>::ArithmeticUnderflow)?;

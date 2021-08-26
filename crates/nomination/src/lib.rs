@@ -221,6 +221,7 @@ impl<T: Config> Pallet<T> {
         )?;
         amount.unlock(&vault_id)?;
         amount.transfer(&vault_id, &nominator_id)?;
+        ext::vault_registry::decrease_total_backing_collateral(&amount)?;
 
         Self::deposit_event(Event::<T>::WithdrawCollateral(vault_id, nominator_id, amount.amount()));
         Ok(())
@@ -260,6 +261,7 @@ impl<T: Config> Pallet<T> {
         )?;
         amount.transfer(&nominator_id, &vault_id)?;
         amount.lock(&vault_id)?;
+        ext::vault_registry::try_increase_total_backing_collateral(&amount)?;
 
         Self::deposit_event(Event::<T>::DepositCollateral(vault_id, nominator_id, amount.amount()));
         Ok(())
