@@ -12,6 +12,7 @@ fn test_with<R>(execute: impl Fn(CurrencyId) -> R) {
                 assert_ok!(OraclePallet::_set_exchange_rate(currency_id, FixedU128::one()));
             }
             UserData::force_to(USER, default_user_state());
+            LiquidationVaultData::force_to(default_liquidation_vault_state(currency_id));
             execute(currency_id)
         });
     };
@@ -438,6 +439,13 @@ fn integration_test_issue_wrapped_execute_bookkeeping() {
         execute_issue(issue_id);
 
         assert_eq!(
+            ParachainState::get(),
+            ParachainState::get_default(currency_id).with_changes(|user, vault, _, fee_pool| {
+                (*user.balances.get_mut(&INTERBTC).unwrap()).free += issue.amount();
+                fee_pool.vault_rewards += issue.fee();
+                vault.issued += issue.fee() + issue.amount();
+            }),
+            "expected {:#?} but got {:#?}",
             ParachainState::get(),
             ParachainState::get_default(currency_id).with_changes(|user, vault, _, fee_pool| {
                 (*user.balances.get_mut(&INTERBTC).unwrap()).free += issue.amount();
@@ -935,6 +943,7 @@ mod execute_issue_tests {
                     (*user.balances.get_mut(&GRIEFING_CURRENCY).unwrap()).free += issue.griefing_collateral();
                     (*user.balances.get_mut(&GRIEFING_CURRENCY).unwrap()).locked -= issue.griefing_collateral();
 
+                    let liquidation_vault = liquidation_vault.with_currency(&currency_id);
                     liquidation_vault.to_be_issued -= issue.amount() + issue.fee();
                     liquidation_vault.issued += issue.amount() + issue.fee();
                 })
@@ -1040,6 +1049,7 @@ mod cancel_issue_tests {
                     (*user.balances.get_mut(&GRIEFING_CURRENCY).unwrap()).locked -= issue.griefing_collateral();
                     (*user.balances.get_mut(&GRIEFING_CURRENCY).unwrap()).free += issue.griefing_collateral();
 
+                    let liquidation_vault = liquidation_vault.with_currency(&currency_id);
                     liquidation_vault.to_be_issued -= issue.amount() + issue.fee();
                 })
             );

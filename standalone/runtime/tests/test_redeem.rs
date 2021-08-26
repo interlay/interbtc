@@ -9,6 +9,7 @@ fn test_with<R>(execute: impl Fn(CurrencyId) -> R) {
             SecurityPallet::set_active_block_number(1);
             assert_ok!(OraclePallet::_set_exchange_rate(currency_id, FixedU128::one()));
             set_default_thresholds();
+            LiquidationVaultData::force_to(default_liquidation_vault_state(currency_id));
             UserData::force_to(USER, default_user_state());
             CoreVaultData::force_to(VAULT, default_vault_state(currency_id));
             // additional vault in order to prevent the edge case where the fee pool does not
@@ -898,6 +899,8 @@ mod spec_based_tests {
                 assert_eq!(
                     ParachainState::get(),
                     post_liquidation_state.with_changes(|user, vault, liquidation_vault, _fee_pool| {
+                        let liquidation_vault = liquidation_vault.with_currency(&currency_id);
+
                         // to-be-redeemed decreased, forwarding to liquidation vault
                         vault.to_be_redeemed -= redeem.amount_btc() + redeem.transfer_fee_btc();
                         liquidation_vault.to_be_redeemed -= redeem.amount_btc() + redeem.transfer_fee_btc();
@@ -906,7 +909,7 @@ mod spec_based_tests {
                         // liquidation vault
                         let collateral_for_this_redeem = collateral_vault / 4;
                         vault.liquidated_collateral -= collateral_for_this_redeem;
-                        *liquidation_vault.funds.get_mut(&currency_id).unwrap() += collateral_for_this_redeem;
+                        liquidation_vault.collateral += collateral_for_this_redeem;
 
                         // user's tokens get unlocked
                         (*user.balances.get_mut(&INTERBTC).unwrap()).locked -=
@@ -960,6 +963,8 @@ mod spec_based_tests {
                 assert_eq!(
                     ParachainState::get(),
                     post_liquidation_state.with_changes(|user, vault, liquidation_vault, fee_pool| {
+                        let liquidation_vault = liquidation_vault.with_currency(&currency_id);
+
                         // to-be-redeemed decreased, forwarding to liquidation vault
                         vault.to_be_redeemed -= redeem.amount_btc() + redeem.transfer_fee_btc();
                         liquidation_vault.to_be_redeemed -= redeem.amount_btc() + redeem.transfer_fee_btc();
@@ -1257,7 +1262,8 @@ fn integration_test_redeem_wrapped_liquidation_redeem() {
         assert_eq!(
             ParachainState::get(),
             post_liquidation_state.with_changes(|user, _vault, liquidation_vault, _fee_pool| {
-                let reward = liquidation_vault.funds[&currency_id].with_amount(|x| {
+                let liquidation_vault = liquidation_vault.with_currency(&currency_id);
+                let reward = liquidation_vault.collateral.with_amount(|x| {
                     (x * liquidation_redeem_amount.amount())
                         / (liquidation_vault.issued + liquidation_vault.to_be_issued).amount()
                 });
@@ -1266,7 +1272,7 @@ fn integration_test_redeem_wrapped_liquidation_redeem() {
                 (*user.balances.get_mut(&currency_id).unwrap()).free += reward;
 
                 liquidation_vault.issued -= liquidation_redeem_amount;
-                *liquidation_vault.funds.get_mut(&currency_id).unwrap() -= reward;
+                liquidation_vault.collateral -= reward;
             })
         );
     });
@@ -1436,6 +1442,8 @@ fn integration_test_redeem_wrapped_cancel_liquidated_no_reimburse() {
         assert_eq!(
             ParachainState::get(),
             post_liquidation_state.with_changes(|user, vault, liquidation_vault, _fee_pool| {
+                let liquidation_vault = liquidation_vault.with_currency(&currency_id);
+
                 // to-be-redeemed decreased, forwarding to liquidation vault
                 vault.to_be_redeemed -= redeem.amount_btc() + redeem.transfer_fee_btc();
                 liquidation_vault.to_be_redeemed -= redeem.amount_btc() + redeem.transfer_fee_btc();
@@ -1444,7 +1452,7 @@ fn integration_test_redeem_wrapped_cancel_liquidated_no_reimburse() {
                 // vault
                 let collateral_for_this_redeem = collateral_vault / 4;
                 vault.liquidated_collateral -= collateral_for_this_redeem;
-                *liquidation_vault.funds.get_mut(&currency_id).unwrap() += collateral_for_this_redeem;
+                liquidation_vault.collateral += collateral_for_this_redeem;
 
                 // user's tokens get unlocked
                 (*user.balances.get_mut(&INTERBTC).unwrap()).locked -=
@@ -1491,6 +1499,8 @@ fn integration_test_redeem_wrapped_cancel_liquidated_reimburse() {
         assert_eq!(
             ParachainState::get(),
             post_liquidation_state.with_changes(|user, vault, liquidation_vault, fee_pool| {
+                let liquidation_vault = liquidation_vault.with_currency(&currency_id);
+
                 // to-be-redeemed decreased, forwarding to liquidation vault
                 vault.to_be_redeemed -= redeem.amount_btc() + redeem.transfer_fee_btc();
                 liquidation_vault.to_be_redeemed -= redeem.amount_btc() + redeem.transfer_fee_btc();
@@ -1547,6 +1557,8 @@ fn integration_test_redeem_wrapped_execute_liquidated() {
         assert_eq!(
             ParachainState::get(),
             post_liquidation_state.with_changes(|user, vault, liquidation_vault, fee_pool| {
+                let liquidation_vault = liquidation_vault.with_currency(&currency_id);
+
                 // fee given to fee pool
                 fee_pool.vault_rewards += redeem.fee();
 

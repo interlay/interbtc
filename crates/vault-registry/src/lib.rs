@@ -466,8 +466,11 @@ pub mod pallet {
     pub(super) type LiquidationVaultAccountId<T: Config> = StorageValue<_, T::AccountId, ValueQuery>;
 
     #[pallet::storage]
-    #[pallet::getter(fn liquidation_vault)]
-    pub(super) type LiquidationVault<T: Config> = StorageValue<_, SystemVault<BalanceOf<T>>, ValueQuery>;
+    pub(super) type LiquidationVault<T: Config> =
+        StorageMap<_, Blake2_128Concat, CurrencyId<T>, DefaultSystemVault<T>, OptionQuery>;
+
+    #[pallet::storage]
+    pub(super) type WrappedDebt<T: Config> = StorageValue<_, Wrapped<T>, ValueQuery>;
 
     /// Mapping of Vaults, using the respective Vault account identifier as key.
     #[pallet::storage]
@@ -599,8 +602,8 @@ impl<T: Config> Pallet<T> {
         Ok(vault)
     }
 
-    pub fn get_liquidation_vault() -> DefaultSystemVault<T> {
-        LiquidationVault::<T>::get()
+    fn get_wrapped_debt() -> Amount<T> {
+        Amount::new(WrappedDebt::<T>::get(), T::GetWrappedCurrencyId::get())
     }
 
     /// Deposit an `amount` of collateral to be used for collateral tokens
@@ -1025,7 +1028,7 @@ impl<T: Config> Pallet<T> {
         redeemer_id: &T::AccountId,
         amount_btc: &Amount<T>, // todo: maybe change interface
     ) -> DispatchResult {
-        let mut liquidation_vault = Self::get_rich_liquidation_vault();
+        let mut liquidation_vault = Self::get_rich_liquidation_vault(currency_id);
 
         ensure!(
             liquidation_vault.redeemable_tokens()?.ge(&amount_btc)?,
@@ -1218,7 +1221,7 @@ impl<T: Config> Pallet<T> {
         if include_liquidation_vault {
             Ok(ext::treasury::total_issued::<T>())
         } else {
-            ext::treasury::total_issued::<T>().checked_sub(&Self::get_rich_liquidation_vault().issued_tokens())
+            ext::treasury::total_issued::<T>().checked_sub(&Self::get_wrapped_debt())
         }
     }
 
@@ -1575,8 +1578,22 @@ impl<T: Config> Pallet<T> {
         Ok(Self::get_active_vault_from_id(vault_id)?.into())
     }
 
-    fn get_rich_liquidation_vault() -> RichSystemVault<T> {
-        Into::<RichSystemVault<T>>::into(Self::get_liquidation_vault())
+    pub fn get_liquidation_vault(currency_id: CurrencyId<T>) -> DefaultSystemVault<T> {
+        if let Some(liquidation_vault) = LiquidationVault::<T>::get(currency_id) {
+            liquidation_vault
+        } else {
+            DefaultSystemVault::<T> {
+                to_be_issued_tokens: 0u32.into(),
+                issued_tokens: 0u32.into(),
+                to_be_redeemed_tokens: 0u32.into(),
+                currency_id: currency_id,
+            }
+        }
+    }
+
+    #[cfg_attr(feature = "integration-tests", visibility::make(pub))]
+    fn get_rich_liquidation_vault(currency_id: CurrencyId<T>) -> RichSystemVault<T> {
+        Self::get_liquidation_vault(currency_id).into()
     }
 
     fn get_minimum_collateral_vault(currency_id: CurrencyId<T>) -> Amount<T> {
