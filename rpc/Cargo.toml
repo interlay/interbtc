@@ -2,7 +2,7 @@
 authors = ["Interlay Ltd"]
 edition = "2018"
 name = "interbtc-rpc"
-version = "0.11.0"
+version = "0.12.0"
 
 [dependencies]
 jsonrpc-core = "15.1.0"

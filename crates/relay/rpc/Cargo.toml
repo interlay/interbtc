@@ -1,6 +1,6 @@
 [package]
 name = "module-relay-rpc"
-version = "0.11.0"
+version = "0.12.0"
 authors = ["Interlay Ltd"]
 edition = "2018"
 

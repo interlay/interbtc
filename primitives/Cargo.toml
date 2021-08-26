@@ -2,7 +2,7 @@
 authors = ["Interlay Ltd"]
 edition = "2018"
 name = "interbtc-primitives"
-version = "0.11.0"
+version = "0.12.0"
 
 [dependencies]
 bstringify = "0.1.2"

@@ -554,7 +554,7 @@ dependencies = [
 
 [[package]]
 name = "bitcoin"
-version = "0.11.0"
+version = "0.12.0"
 dependencies = [
  "bitcoin_hashes",
  "frame-support",
@@ -735,7 +735,7 @@ checksum = "bd769563b4ea2953e2825c9e6b7470a5f55f67e0be00030bf3e390a2a6071f64"
 
 [[package]]
 name = "btc-relay"
-version = "0.11.0"
+version = "0.12.0"
 dependencies = [
  "bitcoin",
  "frame-benchmarking",
@@ -1692,7 +1692,7 @@ dependencies = [
 
 [[package]]
 name = "currency"
-version = "0.11.0"
+version = "0.12.0"
 dependencies = [
  "frame-support",
  "frame-system",
@@ -2118,7 +2118,7 @@ dependencies = [
 
 [[package]]
 name = "fee"
-version = "0.11.0"
+version = "0.12.0"
 dependencies = [
  "currency",
  "frame-benchmarking",
@@ -3220,7 +3220,7 @@ dependencies = [
 
 [[package]]
 name = "interbtc-parachain"
-version = "0.11.0"
+version = "0.12.0"
 dependencies = [
  "bitcoin",
  "cumulus-client-cli",
@@ -3276,7 +3276,7 @@ dependencies = [
 
 [[package]]
 name = "interbtc-primitives"
-version = "0.11.0"
+version = "0.12.0"
 dependencies = [
  "bitcoin",
  "bstringify",
@@ -3289,7 +3289,7 @@ dependencies = [
 
 [[package]]
 name = "interbtc-rpc"
-version = "0.11.0"
+version = "0.12.0"
 dependencies = [
  "interbtc-primitives",
  "jsonrpc-core",
@@ -3315,7 +3315,7 @@ dependencies = [
 
 [[package]]
 name = "interbtc-runtime-parachain"
-version = "0.11.0"
+version = "0.12.0"
 dependencies = [
  "bitcoin",
  "btc-relay",
@@ -3404,7 +3404,7 @@ dependencies = [
 
 [[package]]
 name = "interbtc-runtime-standalone"
-version = "0.11.0"
+version = "0.12.0"
 dependencies = [
  "bitcoin",
  "btc-relay",
@@ -3472,7 +3472,7 @@ dependencies = [
 
 [[package]]
 name = "interbtc-standalone"
-version = "0.11.0"
+version = "0.12.0"
 dependencies = [
  "bitcoin",
  "frame-benchmarking",
@@ -3558,7 +3558,7 @@ checksum = "68f2d64f2edebec4ce84ad108148e67e1064789bee435edc5b60ad398714a3a9"
 
 [[package]]
 name = "issue"
-version = "0.11.0"
+version = "0.12.0"
 dependencies = [
  "bitcoin",
  "btc-relay",
@@ -4757,7 +4757,7 @@ dependencies = [
 
 [[package]]
 name = "module-btc-relay-rpc"
-version = "0.11.0"
+version = "0.12.0"
 dependencies = [
  "jsonrpc-core",
  "jsonrpc-core-client",
@@ -4771,7 +4771,7 @@ dependencies = [
 
 [[package]]
 name = "module-btc-relay-rpc-runtime-api"
-version = "0.11.0"
+version = "0.12.0"
 dependencies = [
  "frame-support",
  "parity-scale-codec",
@@ -4781,7 +4781,7 @@ dependencies = [
 
 [[package]]
 name = "module-issue-rpc"
-version = "0.11.0"
+version = "0.12.0"
 dependencies = [
  "jsonrpc-core",
  "jsonrpc-core-client",
@@ -4795,7 +4795,7 @@ dependencies = [
 
 [[package]]
 name = "module-issue-rpc-runtime-api"
-version = "0.11.0"
+version = "0.12.0"
 dependencies = [
  "frame-support",
  "parity-scale-codec",
@@ -4805,7 +4805,7 @@ dependencies = [
 
 [[package]]
 name = "module-oracle-rpc"
-version = "0.11.0"
+version = "0.12.0"
 dependencies = [
  "jsonrpc-core",
  "jsonrpc-core-client",
@@ -4819,7 +4819,7 @@ dependencies = [
 
 [[package]]
 name = "module-oracle-rpc-runtime-api"
-version = "0.11.0"
+version = "0.12.0"
 dependencies = [
  "frame-support",
  "parity-scale-codec",
@@ -4830,7 +4830,7 @@ dependencies = [
 
 [[package]]
 name = "module-redeem-rpc"
-version = "0.11.0"
+version = "0.12.0"
 dependencies = [
  "jsonrpc-core",
  "jsonrpc-core-client",
@@ -4844,7 +4844,7 @@ dependencies = [
 
 [[package]]
 name = "module-redeem-rpc-runtime-api"
-version = "0.11.0"
+version = "0.12.0"
 dependencies = [
  "frame-support",
  "parity-scale-codec",
@@ -4854,7 +4854,7 @@ dependencies = [
 
 [[package]]
 name = "module-refund-rpc"
-version = "0.11.0"
+version = "0.12.0"
 dependencies = [
  "jsonrpc-core",
  "jsonrpc-core-client",
@@ -4868,7 +4868,7 @@ dependencies = [
 
 [[package]]
 name = "module-refund-rpc-runtime-api"
-version = "0.11.0"
+version = "0.12.0"
 dependencies = [
  "frame-support",
  "parity-scale-codec",
@@ -4878,7 +4878,7 @@ dependencies = [
 
 [[package]]
 name = "module-relay-rpc"
-version = "0.11.0"
+version = "0.12.0"
 dependencies = [
  "jsonrpc-core",
  "jsonrpc-core-client",
@@ -4892,7 +4892,7 @@ dependencies = [
 
 [[package]]
 name = "module-relay-rpc-runtime-api"
-version = "0.11.0"
+version = "0.12.0"
 dependencies = [
  "frame-support",
  "parity-scale-codec",
@@ -4902,7 +4902,7 @@ dependencies = [
 
 [[package]]
 name = "module-replace-rpc"
-version = "0.11.0"
+version = "0.12.0"
 dependencies = [
  "jsonrpc-core",
  "jsonrpc-core-client",
@@ -4916,7 +4916,7 @@ dependencies = [
 
 [[package]]
 name = "module-replace-rpc-runtime-api"
-version = "0.11.0"
+version = "0.12.0"
 dependencies = [
  "frame-support",
  "parity-scale-codec",
@@ -5239,7 +5239,7 @@ checksum = "28988d872ab76095a6e6ac88d99b54fd267702734fd7ffe610ca27f533ddb95a"
 
 [[package]]
 name = "oracle"
-version = "0.11.0"
+version = "0.12.0"
 dependencies = [
  "currency",
  "frame-benchmarking",
@@ -5982,7 +5982,7 @@ dependencies = [
 
 [[package]]
 name = "parachain-info"
-version = "0.11.0"
+version = "0.12.0"
 dependencies = [
  "cumulus-primitives-core",
  "frame-support",
@@ -7823,7 +7823,7 @@ dependencies = [
 
 [[package]]
 name = "redeem"
-version = "0.11.0"
+version = "0.12.0"
 dependencies = [
  "bitcoin",
  "btc-relay",
@@ -7912,7 +7912,7 @@ dependencies = [
 
 [[package]]
 name = "refund"
-version = "0.11.0"
+version = "0.12.0"
 dependencies = [
  "bitcoin",
  "btc-relay",
@@ -7992,7 +7992,7 @@ dependencies = [
 
 [[package]]
 name = "relay"
-version = "0.11.0"
+version = "0.12.0"
 dependencies = [
  "bitcoin",
  "btc-relay",
@@ -8055,7 +8055,7 @@ dependencies = [
 
 [[package]]
 name = "replace"
-version = "0.11.0"
+version = "0.12.0"
 dependencies = [
  "bitcoin",
  "btc-relay",
@@ -8103,7 +8103,7 @@ checksum = "e9c17925a9027d298a4603d286befe3f9dc0e8ed02523141914eb628798d6e5b"
 
 [[package]]
 name = "reward"
-version = "0.11.0"
+version = "0.12.0"
 dependencies = [
  "frame-benchmarking",
  "frame-support",
@@ -9421,7 +9421,7 @@ dependencies = [
 
 [[package]]
 name = "security"
-version = "0.11.0"
+version = "0.12.0"
 dependencies = [
  "frame-support",
  "frame-system",
@@ -10493,7 +10493,7 @@ checksum = "a8f112729512f8e442d81f95a8a7ddf2b7c6b8a1a6f509a95864142b30cab2d3"
 
 [[package]]
 name = "staking"
-version = "0.11.0"
+version = "0.12.0"
 dependencies = [
  "frame-benchmarking",
  "frame-support",
@@ -11534,7 +11534,7 @@ dependencies = [
 
 [[package]]
 name = "vault-registry"
-version = "0.11.0"
+version = "0.12.0"
 dependencies = [
  "bitcoin",
  "currency",
