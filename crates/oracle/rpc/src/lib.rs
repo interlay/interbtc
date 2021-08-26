@@ -20,7 +20,7 @@ where
     Balance: Codec + MaybeDisplay + MaybeFromStr,
     CurrencyId: Codec,
 {
-    #[rpc(name = "Oracle_wrappedToCollateral")]
+    #[rpc(name = "oracle_wrappedToCollateral")]
     fn wrapped_to_collateral(
         &self,
         amount: BalanceWrapper<Balance>,
@@ -28,7 +28,7 @@ where
         at: Option<BlockHash>,
     ) -> JsonRpcResult<BalanceWrapper<Balance>>;
 
-    #[rpc(name = "Oracle_collateralToWrapped")]
+    #[rpc(name = "oracle_collateralToWrapped")]
     fn collateral_to_wrapped(
         &self,
         amount: BalanceWrapper<Balance>,
