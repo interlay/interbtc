@@ -17,6 +17,9 @@ pub enum Subcommand {
     /// Build a chain specification.
     BuildSpec(sc_cli::BuildSpecCmd),
 
+    /// Build a chain specification with a parachain-id.
+    BuildSpecWithId(BuildSpecWithIdCmd),
+
     /// Validate blocks.
     CheckBlock(sc_cli::CheckBlockCmd),
 
@@ -74,6 +77,16 @@ pub struct ExportGenesisWasmCommand {
     /// The name of the chain for that the genesis wasm file should be exported.
     #[structopt(long)]
     pub chain: Option<String>,
+}
+
+#[derive(Debug, StructOpt)]
+pub struct BuildSpecWithIdCmd {
+    #[structopt(flatten)]
+    pub base: sc_cli::BuildSpecCmd,
+
+    /// Id of the parachain this collator collates for.
+    #[structopt(long)]
+    pub parachain_id: u32,
 }
 
 #[derive(Debug, StructOpt)]
