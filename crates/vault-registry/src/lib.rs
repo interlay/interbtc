@@ -1030,6 +1030,7 @@ impl<T: Config> Pallet<T> {
     pub fn decrease_liquidated_collateral(vault_id: &T::AccountId, amount: &Amount<T>) -> DispatchResult {
         let mut vault = Self::get_rich_vault_from_id(vault_id)?;
         vault.decrease_liquidated_collateral(amount)?;
+        Self::decrease_total_backing_collateral(amount)?;
         Ok(())
     }
 
