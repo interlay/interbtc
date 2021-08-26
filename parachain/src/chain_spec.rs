@@ -87,7 +87,7 @@ pub fn local_config(id: ParaId) -> ChainSpec {
         move || {
             testnet_genesis(
                 get_account_id_from_seed::<sr25519::Public>("Alice"),
-                vec![],
+                vec![get_from_seed::<AuraId>("Alice")],
                 vec![
                     get_account_id_from_seed::<sr25519::Public>("Alice"),
                     get_account_id_from_seed::<sr25519::Public>("Bob"),
@@ -165,6 +165,10 @@ pub fn rococo_testnet_config(id: ParaId) -> ChainSpec {
     )
 }
 
+pub fn rococo_local_testnet_config(id: ParaId) -> ChainSpec {
+    development_config(id)
+}
+
 pub fn development_config(id: ParaId) -> ChainSpec {
     ChainSpec::from_genesis(
         "interBTC",
@@ -240,6 +244,7 @@ fn testnet_genesis(
             authorities: initial_authorities,
         },
         aura_ext: Default::default(),
+        parachain_system: Default::default(),
         parachain_info: ParachainInfoConfig { parachain_id: id },
         sudo: SudoConfig {
             // Assign network admin rights.

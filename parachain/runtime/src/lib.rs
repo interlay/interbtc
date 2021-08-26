@@ -76,7 +76,9 @@ use xcm_executor::{Config, XcmExecutor};
 pub use sp_consensus_aura::sr25519::AuthorityId as AuraId;
 
 impl_opaque_keys! {
-    pub struct SessionKeys {}
+    pub struct SessionKeys {
+        pub aura: Aura,
+    }
 }
 
 /// This runtime version.
@@ -859,10 +861,10 @@ construct_runtime! {
         TechnicalMembership: pallet_membership::{Pallet, Call, Storage, Event<T>, Config<T>},
         Treasury: pallet_treasury::{Pallet, Call, Storage, Config, Event<T>},
 
-        ParachainSystem: cumulus_pallet_parachain_system::{Pallet, Call, Storage, Inherent, Event<T>},
+        ParachainSystem: cumulus_pallet_parachain_system::{Pallet, Call, Config, Storage, Inherent, Event<T>},
         ParachainInfo: parachain_info::{Pallet, Storage, Config},
 
-        Aura: pallet_aura::{Pallet, Config<T>},
+        Aura: pallet_aura::{Pallet, Storage, Config<T>},
         AuraExt: cumulus_pallet_aura_ext::{Pallet, Config},
 
         // XCM helpers.
