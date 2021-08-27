@@ -14,3 +14,16 @@ pub enum Version {
     /// BtcAddress type with script format.
     V1,
 }
+
+#[derive(Decode, Encode, PartialEq, Eq)]
+pub(crate) enum OracleStatus {
+    Uninitialized,
+    Offline,
+    Online,
+}
+
+impl Default for OracleStatus {
+    fn default() -> Self {
+        Self::Uninitialized
+    }
+}

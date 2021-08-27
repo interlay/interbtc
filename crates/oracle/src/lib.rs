@@ -26,7 +26,7 @@ extern crate mocktopus;
 #[cfg(test)]
 use mocktopus::macros::mockable;
 
-use crate::types::{Collateral, UnsignedFixedPoint, Version, Wrapped};
+use crate::types::{Collateral, OracleStatus, UnsignedFixedPoint, Version, Wrapped};
 use codec::{Decode, Encode};
 use currency::Amount;
 use frame_support::{
@@ -119,6 +119,10 @@ pub mod pallet {
         T::AccountId,
         TimestampedValue<UnsignedFixedPoint<T>, T::Moment>,
     >;
+
+    #[pallet::storage]
+    /// if a key is present, it means the values have been updated
+    pub(crate) type CurrentOracleStatus<T: Config> = StorageValue<_, OracleStatus, ValueQuery>;
 
     #[pallet::storage]
     /// if a key is present, it means the values have been updated
@@ -240,42 +244,30 @@ impl<T: Config> Pallet<T> {
         // read to a temporary value, because we can't alter the map while we iterate over it
         let raw_values_updated: Vec<_> = RawValuesUpdated::<T>::iter().collect();
 
-        if raw_values_updated.len() == 0 {
-            // this is only for the initial parachain state, before a single value has been fed
-            Self::report_oracle_offline(None);
-        }
         let current_time = Self::get_current_time();
 
-        for (ref key, is_updated) in raw_values_updated {
-            if !is_updated && !Self::is_outdated(key, current_time) {
-                continue;
+        for (key, is_updated) in raw_values_updated.iter() {
+            if *is_updated || Self::is_outdated(key, current_time) {
+                Self::update_aggregate(key);
             }
+        }
 
-            RawValuesUpdated::<T>::insert(key, false);
+        let new_status = if raw_values_updated.len() > 0
+            && raw_values_updated
+                .iter()
+                .all(|(key, _)| matches!(Aggregate::<T>::get(key), Some(_)))
+        {
+            OracleStatus::Online
+        } else {
+            OracleStatus::Offline
+        };
 
-            let mut raw_values: Vec<_> = RawValues::<T>::iter_prefix(key).map(|(_, value)| value).collect();
-            let min_timestamp = Self::get_current_time().saturating_sub(Self::get_max_delay());
-            raw_values.retain(|value| value.timestamp >= min_timestamp);
-            if raw_values.len() == 0 {
-                Self::report_oracle_offline(Some(key));
-            } else {
-                let valid_until = raw_values
-                    .iter()
-                    .map(|x| x.timestamp)
-                    .min()
-                    .map(|timestamp| timestamp + Self::get_max_delay())
-                    .unwrap_or_default(); // Unwrap will never fail, but if somehow it did, we retry next block
-
-                let mid_index = raw_values.len() / 2;
-                let (_, value, _) = raw_values.select_nth_unstable_by(mid_index as usize, |a, b| a.value.cmp(&b.value));
-
-                if Aggregate::<T>::get(key).is_none() {
-                    Self::recover_from_oracle_offline();
-                }
-
-                Aggregate::<T>::insert(key, value.value);
-                ValidUntil::<T>::insert(key, valid_until);
+        if CurrentOracleStatus::<T>::get() != new_status {
+            match new_status {
+                OracleStatus::Online => Self::recover_from_oracle_offline(),
+                _ => Self::report_oracle_offline(),
             }
+            CurrentOracleStatus::<T>::set(new_status);
         }
     }
 
@@ -299,6 +291,8 @@ impl<T: Config> Pallet<T> {
 
     /// Get the exchange rate in planck per satoshi
     pub fn get_price(key: OracleKey) -> Result<UnsignedFixedPoint<T>, DispatchError> {
+        ext::security::ensure_parachain_status_running::<T>()?;
+
         Aggregate::<T>::get(key).ok_or(Error::<T>::MissingExchangeRate.into())
     }
 
@@ -340,6 +334,30 @@ impl<T: Config> Pallet<T> {
             .unique_saturated_into())
     }
 
+    fn update_aggregate(key: &OracleKey) {
+        RawValuesUpdated::<T>::insert(key, false);
+        let mut raw_values: Vec<_> = RawValues::<T>::iter_prefix(key).map(|(_, value)| value).collect();
+        let min_timestamp = Self::get_current_time().saturating_sub(Self::get_max_delay());
+        raw_values.retain(|value| value.timestamp >= min_timestamp);
+        if raw_values.len() == 0 {
+            Aggregate::<T>::remove(key);
+            ValidUntil::<T>::remove(key);
+        } else {
+            let valid_until = raw_values
+                .iter()
+                .map(|x| x.timestamp)
+                .min()
+                .map(|timestamp| timestamp + Self::get_max_delay())
+                .unwrap_or_default(); // Unwrap will never fail, but if somehow it did, we retry next block
+
+            let mid_index = raw_values.len() / 2;
+            let (_, value, _) = raw_values.select_nth_unstable_by(mid_index as usize, |a, b| a.value.cmp(&b.value));
+
+            Aggregate::<T>::insert(key, value.value);
+            ValidUntil::<T>::insert(key, valid_until);
+        }
+    }
+
     /// Private getters and setters
 
     fn is_outdated(key: &OracleKey, current_time: T::Moment) -> bool {
@@ -361,13 +379,9 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
-    fn report_oracle_offline(key: Option<&OracleKey>) {
+    fn report_oracle_offline() {
         ext::security::set_status::<T>(StatusCode::Error);
         ext::security::insert_error::<T>(ErrorCode::OracleOffline);
-        if let Some(key) = key {
-            Aggregate::<T>::remove(key);
-            ValidUntil::<T>::remove(key);
-        }
     }
 
     fn recover_from_oracle_offline() {

@@ -10,6 +10,10 @@ pub(crate) mod security {
         <security::Pallet<T>>::ensure_parachain_status_not_shutdown()
     }
 
+    pub fn ensure_parachain_status_running<T: crate::Config>() -> DispatchResult {
+        <security::Pallet<T>>::ensure_parachain_status_running()
+    }
+
     pub fn recover_from_oracle_offline<T: crate::Config>() {
         <security::Pallet<T>>::recover_from_oracle_offline()
     }

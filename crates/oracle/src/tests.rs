@@ -47,26 +47,114 @@ fn feed_values_succeeds() {
     });
 }
 
-#[test]
-fn feed_values_recovers_from_oracle_offline() {
-    run_test(|| {
-        let rate = FixedU128::checked_from_rational(1, 1).unwrap();
-        let key = OracleKey::ExchangeRate(CurrencyId::DOT);
+mod oracle_offline_detection {
+    use super::*;
 
-        Oracle::is_authorized.mock_safe(|_| MockResult::Return(true));
+    type SecurityPallet = security::Pallet<Test>;
+    use security::StatusCode;
 
-        unsafe {
-            let mut oracle_recovered = false;
-            Oracle::recover_from_oracle_offline.mock_raw(|| {
-                oracle_recovered = true;
-                MockResult::Return(())
-            });
+    enum SubmittingOracle {
+        OracleA,
+        OracleB,
+    }
+    use SubmittingOracle::*;
 
-            assert_ok!(Oracle::feed_values(Origin::signed(3), vec![(key, rate)]));
-            mine_block();
-            assert!(oracle_recovered, "Oracle should be recovered from offline");
-        }
-    });
+    fn set_time(time: u64) {
+        Oracle::get_current_time.mock_safe(move || MockResult::Return(time));
+        mine_block();
+    }
+
+    fn feed_value(currency_id: CurrencyId, oracle: SubmittingOracle) {
+        assert_ok!(Oracle::feed_values(
+            Origin::signed(match oracle {
+                OracleA => 1,
+                OracleB => 2,
+            }),
+            vec![(OracleKey::ExchangeRate(currency_id), FixedU128::from(1))]
+        ));
+        mine_block();
+    }
+
+    #[test]
+    fn basic_oracle_offline_logic() {
+        run_test(|| {
+            Oracle::is_authorized.mock_safe(|_| MockResult::Return(true));
+            Oracle::get_max_delay.mock_safe(move || MockResult::Return(10));
+
+            set_time(0);
+            feed_value(CurrencyId::DOT, OracleA);
+            assert_eq!(SecurityPallet::get_parachain_status(), StatusCode::Running);
+
+            set_time(5);
+            feed_value(CurrencyId::KSM, OracleA);
+
+            // DOT expires after block 10
+            set_time(10);
+            assert_eq!(SecurityPallet::get_parachain_status(), StatusCode::Running);
+            set_time(11);
+            assert_eq!(SecurityPallet::get_parachain_status(), StatusCode::Error);
+
+            // feeding KSM makes no difference
+            feed_value(CurrencyId::KSM, OracleA);
+            assert_eq!(SecurityPallet::get_parachain_status(), StatusCode::Error);
+
+            // feeding DOT makes it running again
+            feed_value(CurrencyId::DOT, OracleA);
+            assert_eq!(SecurityPallet::get_parachain_status(), StatusCode::Running);
+
+            // KSM expires after t=21 (it was set at t=11)
+            set_time(21);
+            assert_eq!(SecurityPallet::get_parachain_status(), StatusCode::Running);
+            set_time(22);
+            assert_eq!(SecurityPallet::get_parachain_status(), StatusCode::Error);
+
+            // check that status remains ERROR until BOTH currencies have been updated
+            set_time(100);
+            assert_eq!(SecurityPallet::get_parachain_status(), StatusCode::Error);
+            feed_value(CurrencyId::DOT, OracleA);
+            assert_eq!(SecurityPallet::get_parachain_status(), StatusCode::Error);
+            feed_value(CurrencyId::KSM, OracleA);
+            assert_eq!(SecurityPallet::get_parachain_status(), StatusCode::Running);
+        });
+    }
+
+    #[test]
+    fn oracle_offline_logic_with_multiple_oracles() {
+        run_test(|| {
+            Oracle::is_authorized.mock_safe(|_| MockResult::Return(true));
+            Oracle::get_max_delay.mock_safe(move || MockResult::Return(10));
+
+            set_time(0);
+            feed_value(CurrencyId::DOT, OracleA);
+            assert_eq!(SecurityPallet::get_parachain_status(), StatusCode::Running);
+
+            set_time(5);
+            feed_value(CurrencyId::KSM, OracleA);
+
+            set_time(7);
+            feed_value(CurrencyId::DOT, OracleB);
+
+            // OracleA's DOT submission expires at 10, but OracleB's only at 17. However, KSM expires at 15:
+            set_time(15);
+            assert_eq!(SecurityPallet::get_parachain_status(), StatusCode::Running);
+            set_time(16);
+            assert_eq!(SecurityPallet::get_parachain_status(), StatusCode::Error);
+
+            // Feeding KSM brings it back online
+            feed_value(CurrencyId::KSM, OracleA);
+            assert_eq!(SecurityPallet::get_parachain_status(), StatusCode::Running);
+
+            // check that status is set of ERROR when both oracle's DOT submission expired
+            set_time(17);
+            assert_eq!(SecurityPallet::get_parachain_status(), StatusCode::Running);
+            set_time(18);
+            assert_eq!(SecurityPallet::get_parachain_status(), StatusCode::Error);
+
+            // A DOT submission by any oracle brings it back online
+            feed_value(CurrencyId::DOT, OracleA);
+            assert_eq!(SecurityPallet::get_parachain_status(), StatusCode::Running);
+        });
+    }
 }
 
 #[test]
@@ -235,7 +323,7 @@ fn set_btc_tx_fees_per_byte_succeeds() {
 fn begin_block_set_oracle_offline_succeeds() {
     run_test(|| unsafe {
         let mut oracle_reported = false;
-        Oracle::report_oracle_offline.mock_raw(|_| {
+        Oracle::report_oracle_offline.mock_raw(|| {
             oracle_reported = true;
             MockResult::Return(())
         });
