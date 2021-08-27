@@ -220,7 +220,7 @@ pub mod pallet {
             Self::deposit_event(Event::<T>::DepositCollateral(
                 vault.id(),
                 amount.amount(),
-                vault.get_collateral()?.amount(),
+                vault.get_total_collateral()?.amount(),
                 vault.get_free_collateral()?.amount(),
             ));
             Ok(().into())
@@ -257,7 +257,7 @@ pub mod pallet {
             Self::deposit_event(Event::<T>::WithdrawCollateral(
                 sender,
                 amount.amount(),
-                vault.get_collateral()?.amount(),
+                vault.get_total_collateral()?.amount(),
             ));
             Ok(().into())
         }
@@ -1175,7 +1175,7 @@ impl<T: Config> Pallet<T> {
         reporter: Option<T::AccountId>,
     ) -> Result<Amount<T>, DispatchError> {
         let mut vault = Self::get_active_rich_vault_from_id(&vault_id)?;
-        let backing_collateral = vault.get_collateral()?;
+        let backing_collateral = vault.get_total_collateral()?;
         let vault_orig = vault.data.clone();
 
         let to_slash = vault.liquidate(status, reporter)?;
@@ -1486,7 +1486,7 @@ impl<T: Config> Pallet<T> {
         only_issued: bool,
     ) -> Result<UnsignedFixedPoint<T>, DispatchError> {
         let vault = Self::get_active_rich_vault_from_id(&vault_id)?;
-        let collateral = vault.get_collateral()?;
+        let collateral = vault.get_total_collateral()?;
         Self::get_collateralization_from_vault_and_collateral(vault_id, &collateral, only_issued)
     }
 
