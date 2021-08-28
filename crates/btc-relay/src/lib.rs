@@ -807,10 +807,7 @@ impl<T: Config> Pallet<T> {
 
     /// Get a block header from its hash
     fn get_block_header_from_hash(block_hash: H256Le) -> Result<RichBlockHeader<T::BlockNumber>, DispatchError> {
-        if BlockHeaders::<T>::contains_key(block_hash) {
-            return Ok(BlockHeaders::<T>::get(block_hash));
-        }
-        Err(Error::<T>::BlockNotFound.into())
+        BlockHeaders::<T>::try_get(block_hash).or(Err(Error::<T>::BlockNotFound.into()))
     }
 
     /// Check if a block header exists

@@ -567,12 +567,10 @@ impl<T: Config> Pallet<T> {
 
     /// Get a replace request by id. Completed or cancelled requests are not returned.
     pub fn get_open_replace_request(
-        id: &H256,
+        replace_id: &H256,
     ) -> Result<ReplaceRequest<T::AccountId, T::BlockNumber, BalanceOf<T>>, DispatchError> {
-        if !<ReplaceRequests<T>>::contains_key(id) {
-            return Err(Error::<T>::ReplaceIdNotFound.into());
-        }
-        let request = <ReplaceRequests<T>>::get(id);
+        let request = ReplaceRequests::<T>::try_get(replace_id).or(Err(Error::<T>::ReplaceIdNotFound))?;
+
         // NOTE: temporary workaround until we delete
         match request.status {
             ReplaceRequestStatus::Pending => Ok(request),

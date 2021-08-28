@@ -514,14 +514,13 @@ impl<T: Config> Pallet<T> {
     pub fn get_issue_request_from_id(
         issue_id: &H256,
     ) -> Result<IssueRequest<T::AccountId, T::BlockNumber, BalanceOf<T>>, DispatchError> {
-        ensure!(<IssueRequests<T>>::contains_key(*issue_id), Error::<T>::IssueIdNotFound);
+        let request = IssueRequests::<T>::try_get(issue_id).or(Err(Error::<T>::IssueIdNotFound))?;
 
-        let issue_request = <IssueRequests<T>>::get(issue_id);
         // NOTE: temporary workaround until we delete
-        match issue_request.status {
+        match request.status {
             IssueRequestStatus::Completed(_) => Err(Error::<T>::IssueCompleted.into()),
             IssueRequestStatus::Cancelled => Err(Error::<T>::IssueCancelled.into()),
-            IssueRequestStatus::Pending => Ok(issue_request),
+            IssueRequestStatus::Pending => Ok(request),
         }
     }
 
