@@ -580,11 +580,8 @@ impl<T: Config> Pallet<T> {
 
     fn _mint_tokens_for_reimbursed_redeem(vault_id: T::AccountId, redeem_id: H256) -> DispatchResult {
         ext::security::ensure_parachain_status_running::<T>()?;
-        ensure!(
-            <RedeemRequests<T>>::contains_key(&redeem_id),
-            Error::<T>::RedeemIdNotFound
-        );
-        let redeem = <RedeemRequests<T>>::get(&redeem_id);
+
+        let redeem = RedeemRequests::<T>::try_get(&redeem_id).or(Err(Error::<T>::RedeemIdNotFound))?;
         ensure!(
             matches!(redeem.status, RedeemRequestStatus::Reimbursed(false)),
             Error::<T>::RedeemCancelled
@@ -678,13 +675,9 @@ impl<T: Config> Pallet<T> {
     pub fn get_open_redeem_request_from_id(
         redeem_id: &H256,
     ) -> Result<RedeemRequest<T::AccountId, T::BlockNumber, BalanceOf<T>>, DispatchError> {
-        ensure!(
-            <RedeemRequests<T>>::contains_key(redeem_id),
-            Error::<T>::RedeemIdNotFound
-        );
-        // NOTE: temporary workaround until we delete
+        let request = RedeemRequests::<T>::try_get(redeem_id).or(Err(Error::<T>::RedeemIdNotFound))?;
 
-        let request = <RedeemRequests<T>>::get(redeem_id);
+        // NOTE: temporary workaround until we delete
         match request.status {
             RedeemRequestStatus::Pending => Ok(request),
             RedeemRequestStatus::Completed => Err(Error::<T>::RedeemCompleted.into()),
@@ -703,12 +696,7 @@ impl<T: Config> Pallet<T> {
     pub fn get_open_or_completed_redeem_request_from_id(
         redeem_id: &H256,
     ) -> Result<RedeemRequest<T::AccountId, T::BlockNumber, BalanceOf<T>>, DispatchError> {
-        ensure!(
-            <RedeemRequests<T>>::contains_key(*redeem_id),
-            Error::<T>::RedeemIdNotFound
-        );
-
-        let request = <RedeemRequests<T>>::get(*redeem_id);
+        let request = RedeemRequests::<T>::try_get(redeem_id).or(Err(Error::<T>::RedeemIdNotFound))?;
 
         ensure!(
             matches!(
