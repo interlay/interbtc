@@ -2,10 +2,9 @@ use bitcoin::utils::{virtual_transaction_size, InputType, TransactionInputMetada
 use cumulus_primitives_core::ParaId;
 use hex_literal::hex;
 use interbtc_runtime::{
-    AccountId, AuraConfig, BTCRelayConfig, CurrencyId, FeeConfig, GeneralCouncilConfig, GenesisConfig, IssueConfig,
-    NominationConfig, OracleConfig, ParachainInfoConfig, RedeemConfig, RefundConfig, ReplaceConfig, Signature,
-    SudoConfig, SystemConfig, TechnicalCommitteeConfig, TokensConfig, VaultRegistryConfig, BITCOIN_BLOCK_SPACING, DAYS,
-    KSM, WASM_BINARY,
+    AccountId, AuraConfig, BTCRelayConfig, CurrencyId, FeeConfig, GenesisConfig, IssueConfig, NominationConfig,
+    OracleConfig, ParachainInfoConfig, RedeemConfig, RefundConfig, ReplaceConfig, Signature, SudoConfig, SystemConfig,
+    TokensConfig, VaultRegistryConfig, BITCOIN_BLOCK_SPACING, DAYS, KSM, WASM_BINARY,
 };
 use sc_chain_spec::{ChainSpecExtension, ChainSpecGroup};
 use serde::{Deserialize, Serialize};
@@ -121,54 +120,6 @@ pub fn local_config(id: ParaId) -> ChainSpec {
     )
 }
 
-pub fn rococo_testnet_config(id: ParaId) -> ChainSpec {
-    ChainSpec::from_genesis(
-        "interBTC",
-        "rococo_testnet",
-        ChainType::Live,
-        move || {
-            testnet_genesis(
-                get_account_id_from_string("5HeVGqvfpabwFqzV1DhiQmjaLQiFcTSmq2sH6f7atsXkgvtt"),
-                vec![
-                    // 5DJ3wbdicFSFFudXndYBuvZKjucTsyxtJX5WPzQM8HysSkFY
-                    hex!["366a092a27b4b28199a588b0155a2c9f3f0513d92481de4ee2138273926fa91c"].unchecked_into(),
-                ],
-                vec![
-                    get_account_id_from_string("5HeVGqvfpabwFqzV1DhiQmjaLQiFcTSmq2sH6f7atsXkgvtt"),
-                    get_account_id_from_string("5DNzULM1UJXDM7NUgDL4i8Hrhe9e3vZkB3ByM1eEXMGAs4Bv"),
-                    get_account_id_from_string("5F7Q9FqnGwJmjLtsFGymHZXPEx2dWRVE7NW4Sw2jzEhUB5WQ"),
-                    get_account_id_from_string("5H8zjSWfzMn86d1meeNrZJDj3QZSvRjKxpTfuVaZ46QJZ4qs"),
-                    get_account_id_from_string("5FPBT2BVVaLveuvznZ9A1TUtDcbxK5yvvGcMTJxgFmhcWGwj"),
-                ],
-                vec![
-                    (
-                        get_account_id_from_string("5H8zjSWfzMn86d1meeNrZJDj3QZSvRjKxpTfuVaZ46QJZ4qs"),
-                        "Interlay".as_bytes().to_vec(),
-                    ),
-                    (
-                        get_account_id_from_string("5FPBT2BVVaLveuvznZ9A1TUtDcbxK5yvvGcMTJxgFmhcWGwj"),
-                        "Band".as_bytes().to_vec(),
-                    ),
-                ],
-                id,
-                1,
-            )
-        },
-        Vec::new(),
-        None,
-        None,
-        Some(get_properties()),
-        Extensions {
-            relay_chain: "staging".into(),
-            para_id: id.into(),
-        },
-    )
-}
-
-pub fn rococo_local_testnet_config(id: ParaId) -> ChainSpec {
-    development_config(id)
-}
-
 pub fn development_config(id: ParaId) -> ChainSpec {
     ChainSpec::from_genesis(
         "interBTC",
@@ -220,6 +171,108 @@ pub fn development_config(id: ParaId) -> ChainSpec {
         Some(get_properties()),
         Extensions {
             relay_chain: "dev".into(),
+            para_id: id.into(),
+        },
+    )
+}
+
+pub fn rococo_testnet_config(id: ParaId) -> ChainSpec {
+    ChainSpec::from_genesis(
+        "interBTC",
+        "rococo_testnet",
+        ChainType::Live,
+        move || {
+            testnet_genesis(
+                get_account_id_from_string("5HeVGqvfpabwFqzV1DhiQmjaLQiFcTSmq2sH6f7atsXkgvtt"),
+                vec![
+                    // 5DJ3wbdicFSFFudXndYBuvZKjucTsyxtJX5WPzQM8HysSkFY
+                    hex!["366a092a27b4b28199a588b0155a2c9f3f0513d92481de4ee2138273926fa91c"].unchecked_into(),
+                    // 5HW7ApFamN6ovtDkFyj67tRLRhp8B2kVNjureRUWWYhkTg9j
+                    hex!["f08cc7cf45f88e6dbe312a63f6ce639061834b4208415b235f77a67b51435f63"].unchecked_into(),
+                    // 5FNbq8zGPZtinsfgyD4w2G3BMh75H3r2Qg3uKudTZkJtRru6
+                    hex!["925ad4bdf35945bea91baeb5419a7ffa07002c6a85ba334adfa7cb5b05623c1b"].unchecked_into(),
+                ],
+                vec![],
+                vec![
+                    (
+                        get_account_id_from_string("5H8zjSWfzMn86d1meeNrZJDj3QZSvRjKxpTfuVaZ46QJZ4qs"),
+                        "Interlay".as_bytes().to_vec(),
+                    ),
+                    (
+                        get_account_id_from_string("5FPBT2BVVaLveuvznZ9A1TUtDcbxK5yvvGcMTJxgFmhcWGwj"),
+                        "Band".as_bytes().to_vec(),
+                    ),
+                ],
+                id,
+                1,
+            )
+        },
+        Vec::new(),
+        None,
+        None,
+        Some(get_properties()),
+        Extensions {
+            relay_chain: "rococo".into(),
+            para_id: id.into(),
+        },
+    )
+}
+
+pub fn rococo_local_testnet_config(id: ParaId) -> ChainSpec {
+    development_config(id)
+}
+
+pub fn westend_testnet_config(id: ParaId) -> ChainSpec {
+    ChainSpec::from_genesis(
+        "interBTC",
+        "westend_testnet",
+        ChainType::Live,
+        move || {
+            testnet_genesis(
+                get_account_id_from_string("5H5wcrRsz7wjX6LNhh4ZeSKWGmSJjsEqgge6QbGk6n53QX7j"),
+                vec![
+                    // 5H75GkhA6TnyCW7fM4H8LyoTqmPJWf3JuZZPFR9Bpv26LGHA
+                    hex!["defbbf8f70964f6a4952bc168b6c1489b502e05d6b5ef57f8767589cf3813705"].unchecked_into(),
+                    // 5GdqW1xV8bpcJM1AVPWCdqrnUYJ9UQro1bWuPvmY2hoaQxWp
+                    hex!["ca35c3927b934b111acadfcf98e9b50846e7596beb7a355df1ab50b1c48e3017"].unchecked_into(),
+                    // 5CdNwrXY3mFMMTiVsxbNTmg3MMDXcyErhxkdLx7yUqhXKopt
+                    hex!["18eb708be158d0059d005da4188976caaa1aa24c8450ed3f4ad17e7a6a0cb85e"].unchecked_into(),
+                    // 5EcCjUzqBBpmf7E3gXFX3jFosY22yEL7iXYVFWZExPgF6YwD
+                    hex!["707e47b5a236b10cc8dcb52698ab41ee4e3a23063d999e81af5781b1e03f7048"].unchecked_into(),
+                    // 5DoegnR7GDewmsswNgGuhZZQ8KxTPeVNd9MF1ezhSKdztEPD
+                    hex!["4cfd1cfc3af74ef3189d6b92734eabae763ae86f1f6dfdf91b04e5d43a369175"].unchecked_into(),
+                    // 5GRKDYVdQ6AAS6xEQ85LzmxNwgP1u2YM81WAUjiD6YLbe69B
+                    hex!["c0a8dfbd58ed57758594841d3cc8e6a34c97ef75380fe3c3925b1dbddf988f6f"].unchecked_into(),
+                    // 5FKbkKSb9jft3KpZSJviG8EFmdcLanpr4mBj56NpvQ6uL3bQ
+                    hex!["9010d0a8a099505887e772417734ee94dc767b8ec00f42086dac9742f3b6e037"].unchecked_into(),
+                    // 5H8WaYthvpavtRmYkVkSBzCjbhHqYp9hnNhJXDDnVr2GJt6v
+                    hex!["e0142f20c1ad92ac9467a4e01ecc0572c45704a730b5337b23b68cb7279a6b49"].unchecked_into(),
+                    // 5ECnot77onJJrSGbKtvTaB7L9zKXB9VrS97vSqBx5bcy15G9
+                    hex!["5ea31992c7fb94695c225010b47daf82dd9a1db4751362ae30f299d8164b6c3e"].unchecked_into(),
+                    // 5HNEdfdAvhvAA67pqPgoctiUTCraXkscSv5wYQbUwrKNmpQq
+                    hex!["ea8bf097557a70b3c8beed5a95ecc127534f6fe00709c20352dcfb8bd073e240"].unchecked_into(),
+                ],
+                vec![],
+                vec![
+                    (
+                        get_account_id_from_string("5EPKc1xDF2V337FwgpMozdcZKS1rgFjY3rTudEysMPK7paef"),
+                        "Interlay".as_bytes().to_vec(),
+                    ),
+                    (
+                        get_account_id_from_string("5FPBT2BVVaLveuvznZ9A1TUtDcbxK5yvvGcMTJxgFmhcWGwj"),
+                        "Band".as_bytes().to_vec(),
+                    ),
+                ],
+                id,
+                6,
+            )
+        },
+        Vec::new(),
+        None,
+        None,
+        Some(get_properties()),
+        Extensions {
+            relay_chain: "westend".into(),
             para_id: id.into(),
         },
     )
@@ -315,14 +368,8 @@ fn testnet_genesis(
         nomination: NominationConfig {
             is_nomination_enabled: false,
         },
-        general_council: GeneralCouncilConfig {
-            members: vec![],
-            phantom: Default::default(),
-        },
-        technical_committee: TechnicalCommitteeConfig {
-            members: vec![],
-            phantom: Default::default(),
-        },
+        general_council: Default::default(),
+        technical_committee: Default::default(),
         treasury: Default::default(),
         technical_membership: Default::default(),
         democracy: Default::default(),
