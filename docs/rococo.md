@@ -86,7 +86,7 @@ To register the Parachain, you can use the [Polkadot JS Apps UI](https://polkado
 
 ![Reserve ParaId](./img/reserve-paraid.png)
 
-![Reserve Parathread](./img/reserve-parathread.png)
+![Register Parathread](./img/register-parathread.png)
 
 ![Schedule Parathread Upgrade](./img/sudoScheduleParathreadUpgrade.png)
 
