@@ -23,6 +23,7 @@ fn test_with<R>(execute: impl Fn(CurrencyId) -> R) {
             UserData::force_to(USER, default_user_state());
             CoreVaultData::force_to(OLD_VAULT, default_vault_state(currency_id));
             CoreVaultData::force_to(NEW_VAULT, default_vault_state(currency_id));
+            LiquidationVaultData::force_to(default_liquidation_vault_state(currency_id));
             execute(currency_id)
         })
     };
@@ -878,6 +879,8 @@ fn integration_test_replace_execute_replace_old_vault_liquidated() {
         assert_eq!(
             ParachainTwoVaultState::get(),
             pre_execution_state.with_changes(|old_vault, new_vault, liquidation_vault| {
+                let liquidation_vault = liquidation_vault.with_currency(&currency_id);
+
                 liquidation_vault.issued -= wrapped(1000);
                 liquidation_vault.to_be_redeemed -= wrapped(1000);
 
@@ -908,6 +911,8 @@ fn integration_test_replace_execute_replace_new_vault_liquidated() {
         assert_eq!(
             ParachainTwoVaultState::get(),
             pre_execution_state.with_changes(|old_vault, _new_vault, liquidation_vault| {
+                let liquidation_vault = liquidation_vault.with_currency(&currency_id);
+
                 liquidation_vault.to_be_issued -= wrapped(1000);
                 liquidation_vault.issued += wrapped(1000);
 
@@ -941,6 +946,8 @@ fn integration_test_replace_execute_replace_both_vaults_liquidated() {
         assert_eq!(
             ParachainTwoVaultState::get(),
             pre_execution_state.with_changes(|old_vault, _new_vault, liquidation_vault| {
+                let liquidation_vault = liquidation_vault.with_currency(&currency_id);
+
                 liquidation_vault.to_be_redeemed -= wrapped(1000);
                 liquidation_vault.to_be_issued -= wrapped(1000);
 
@@ -997,6 +1004,8 @@ fn integration_test_replace_cancel_replace_old_vault_liquidated() {
         assert_eq!(
             ParachainTwoVaultState::get(),
             pre_cancellation_state.with_changes(|old_vault, new_vault, liquidation_vault| {
+                let liquidation_vault = liquidation_vault.with_currency(&currency_id);
+
                 old_vault.to_be_redeemed -= wrapped(1000);
                 old_vault.griefing_collateral -= replace.griefing_collateral();
                 old_vault.liquidated_collateral -= collateral_for_replace;
@@ -1007,7 +1016,7 @@ fn integration_test_replace_cancel_replace_old_vault_liquidated() {
                 *new_vault.free_balance.get_mut(&GRIEFING_CURRENCY).unwrap() += replace.griefing_collateral();
 
                 liquidation_vault.to_be_redeemed -= wrapped(1000);
-                *liquidation_vault.funds.get_mut(&currency_id).unwrap() += collateral_for_replace;
+                liquidation_vault.collateral += collateral_for_replace;
             })
         );
     });
@@ -1027,6 +1036,8 @@ fn integration_test_replace_cancel_replace_new_vault_liquidated() {
         assert_eq!(
             ParachainTwoVaultState::get(),
             pre_cancellation_state.with_changes(|old_vault, new_vault, liquidation_vault| {
+                let liquidation_vault = liquidation_vault.with_currency(&currency_id);
+
                 old_vault.to_be_redeemed -= wrapped(1000);
                 old_vault.griefing_collateral -= replace.griefing_collateral();
 
@@ -1057,6 +1068,8 @@ fn integration_test_replace_cancel_replace_both_vaults_liquidated() {
         assert_eq!(
             ParachainTwoVaultState::get(),
             pre_cancellation_state.with_changes(|old_vault, new_vault, liquidation_vault| {
+                let liquidation_vault = liquidation_vault.with_currency(&currency_id);
+
                 old_vault.to_be_redeemed -= wrapped(1000);
                 old_vault.griefing_collateral -= replace.griefing_collateral();
                 old_vault.liquidated_collateral -= collateral_for_replace;
@@ -1065,7 +1078,7 @@ fn integration_test_replace_cancel_replace_both_vaults_liquidated() {
 
                 liquidation_vault.to_be_redeemed -= wrapped(1000);
                 liquidation_vault.to_be_issued -= wrapped(1000);
-                *liquidation_vault.funds.get_mut(&currency_id).unwrap() += collateral_for_replace;
+                liquidation_vault.collateral += collateral_for_replace;
             })
         );
     });

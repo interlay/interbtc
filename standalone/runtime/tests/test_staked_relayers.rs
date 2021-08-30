@@ -72,6 +72,8 @@ fn integration_test_report_vault_theft() {
         assert_eq!(
             ParachainState::get(),
             pre_liquidation_state.with_changes(|user, vault, liquidation_vault, _fee_pool| {
+                let liquidation_vault = liquidation_vault.with_currency(&currency_id);
+
                 (*user.balances.get_mut(&currency_id).unwrap()).free += theft_fee;
 
                 vault.issued -= issued_tokens;
@@ -79,7 +81,7 @@ fn integration_test_report_vault_theft() {
                 vault.backing_collateral -= theft_fee;
 
                 liquidation_vault.issued += issued_tokens;
-                *liquidation_vault.funds.get_mut(&currency_id).unwrap() += confiscated_collateral;
+                liquidation_vault.collateral += confiscated_collateral;
             })
         );
     });

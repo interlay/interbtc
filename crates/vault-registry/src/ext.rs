@@ -16,19 +16,6 @@ pub(crate) mod currency {
 }
 
 #[cfg_attr(test, mockable)]
-pub(crate) mod treasury {
-    use currency::{Amount, ParachainCurrency};
-    use frame_support::traits::Get;
-
-    pub fn total_issued<T: crate::Config>() -> Amount<T> {
-        Amount::new(
-            <T as crate::Config>::Wrapped::get_total_supply(),
-            T::GetWrappedCurrencyId::get(),
-        )
-    }
-}
-
-#[cfg_attr(test, mockable)]
 pub(crate) mod security {
     use frame_support::dispatch::DispatchResult;
 

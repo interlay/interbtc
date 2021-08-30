@@ -24,6 +24,7 @@ pub use sp_arithmetic::{FixedI128, FixedPointNumber, FixedU128};
 pub use sp_core::{H160, H256, U256};
 pub use sp_runtime::traits::{Dispatchable, One, Zero};
 pub use sp_std::convert::TryInto;
+use vault_registry::types::UpdatableVault;
 pub use vault_registry::CurrencySource;
 
 pub use issue::{types::IssueRequestExt, IssueRequest, IssueRequestStatus};
@@ -33,7 +34,7 @@ pub use refund::RefundRequest;
 pub use replace::{types::ReplaceRequestExt, ReplaceRequest};
 pub use reward::Rewards;
 pub use sp_runtime::AccountId32;
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 pub use std::convert::TryFrom;
 pub use vault_registry::{Vault, VaultStatus};
 
@@ -150,7 +151,7 @@ pub const WRAPPED_CURRENCY: <Runtime as orml_tokens::Config>::CurrencyId =
     <Runtime as orml_tokens::Config>::CurrencyId::INTERBTC;
 
 pub fn default_user_state() -> UserData {
-    let mut balances = HashMap::new();
+    let mut balances = BTreeMap::new();
     for currency_id in iter_collateral_currencies() {
         balances.insert(
             currency_id,
@@ -186,13 +187,8 @@ pub fn default_vault_state(currency_id: CurrencyId) -> CoreVaultData {
     }
 }
 
-pub fn default_liquidation_vault_state() -> LiquidationVaultData {
-    LiquidationVaultData {
-        funds: iter_all_currencies()
-            .map(|currency| (currency, Amount::new(0, currency)))
-            .collect(),
-        ..Default::default()
-    }
+pub fn default_liquidation_vault_state(currency_id: CurrencyId) -> LiquidationVaultData {
+    LiquidationVaultData::get_default(currency_id)
 }
 
 pub fn premium_redeem_request(
@@ -258,7 +254,8 @@ pub struct Balance {
 
 #[derive(Debug, PartialEq, Default, Clone)]
 pub struct UserData {
-    pub balances: HashMap<CurrencyId, Balance>,
+    // note: we use BTreeMap such that the debug print output is sorted, for easier diffing
+    pub balances: BTreeMap<CurrencyId, Balance>,
 }
 
 pub fn iter_collateral_currencies() -> impl Iterator<Item = CurrencyId> {
@@ -273,7 +270,7 @@ impl UserData {
     #[allow(dead_code)]
     pub fn get(id: [u8; 32]) -> Self {
         let account_id = account_of(id);
-        let mut hash_map = HashMap::new();
+        let mut hash_map = BTreeMap::new();
 
         for currency_id in iter_all_currencies() {
             let free = currency::with_currency_id::get_free_balance::<Runtime>(currency_id, &account_id);
@@ -366,7 +363,8 @@ pub struct CoreVaultData {
     pub backing_collateral: Amount<Runtime>,
     pub griefing_collateral: Amount<Runtime>,
     pub liquidated_collateral: Amount<Runtime>,
-    pub free_balance: HashMap<CurrencyId, Amount<Runtime>>,
+    // note: we use BTreeMap such that the debug print output is sorted, for easier diffing
+    pub free_balance: BTreeMap<CurrencyId, Amount<Runtime>>,
     pub to_be_replaced: Amount<Runtime>,
     pub replace_collateral: Amount<Runtime>,
 }
@@ -556,45 +554,103 @@ impl CoreVaultData {
 }
 
 #[derive(Debug, PartialEq, Clone)]
-pub struct LiquidationVaultData {
+pub struct SingleLiquidationVault {
     pub to_be_issued: Amount<Runtime>,
     pub issued: Amount<Runtime>,
     pub to_be_redeemed: Amount<Runtime>,
-    pub funds: HashMap<CurrencyId, Amount<Runtime>>,
+    pub collateral: Amount<Runtime>,
 }
 
-impl Default for LiquidationVaultData {
-    fn default() -> Self {
+impl SingleLiquidationVault {
+    fn zero(currency_id: CurrencyId) -> Self {
         Self {
-            to_be_issued: Amount::new(0, INTERBTC),
-            issued: Amount::new(0, INTERBTC),
-            to_be_redeemed: Amount::new(0, INTERBTC),
-            funds: Default::default(),
+            to_be_issued: wrapped(0),
+            issued: wrapped(0),
+            to_be_redeemed: wrapped(0),
+            collateral: Amount::new(0, currency_id),
+        }
+    }
+    fn get_default(currency_id: CurrencyId) -> Self {
+        Self {
+            to_be_issued: wrapped(123124),
+            issued: wrapped(2131231),
+            to_be_redeemed: wrapped(12323),
+            collateral: Amount::new(2451241, currency_id),
         }
     }
 }
+#[derive(Debug, PartialEq, Clone)]
+pub struct LiquidationVaultData {
+    // note: we use BTreeMap such that the debug print output is sorted, for easier diffing
+    liquidation_vaults: BTreeMap<CurrencyId, SingleLiquidationVault>,
+}
+
 impl LiquidationVaultData {
     #[allow(dead_code)]
     pub fn get() -> Self {
-        let vault = VaultRegistryPallet::get_liquidation_vault();
+        let liquidation_vaults = iter_collateral_currencies()
+            .map(|currency_id| {
+                let vault = VaultRegistryPallet::get_liquidation_vault(currency_id);
+                let data = SingleLiquidationVault {
+                    to_be_issued: Amount::new(vault.to_be_issued_tokens, INTERBTC),
+                    issued: Amount::new(vault.issued_tokens, INTERBTC),
+                    to_be_redeemed: Amount::new(vault.to_be_redeemed_tokens, INTERBTC),
+                    collateral: CurrencySource::<Runtime>::LiquidationVault
+                        .current_balance(currency_id)
+                        .unwrap(),
+                };
+                (currency_id, data)
+            })
+            .collect();
+        Self { liquidation_vaults }
+    }
 
+    pub fn with_currency(&mut self, currency_id: &CurrencyId) -> &mut SingleLiquidationVault {
+        self.liquidation_vaults.get_mut(&currency_id).unwrap()
+    }
+
+    pub fn get_default(currency_id: CurrencyId) -> Self {
         let mut ret = Self {
-            to_be_issued: Amount::new(vault.to_be_issued_tokens, INTERBTC),
-            issued: Amount::new(vault.issued_tokens, INTERBTC),
-            to_be_redeemed: Amount::new(vault.to_be_redeemed_tokens, INTERBTC),
-            funds: Default::default(),
+            liquidation_vaults: BTreeMap::new(),
         };
-
-        for currency_id in iter_all_currencies() {
-            ret.funds.insert(
-                currency_id,
-                CurrencySource::<Runtime>::LiquidationVault
-                    .current_balance(currency_id)
-                    .unwrap(),
-            );
+        for collateral_currency in iter_collateral_currencies() {
+            if collateral_currency == currency_id {
+                ret.liquidation_vaults
+                    .insert(collateral_currency, SingleLiquidationVault::zero(collateral_currency));
+            } else {
+                ret.liquidation_vaults.insert(
+                    collateral_currency,
+                    SingleLiquidationVault::get_default(collateral_currency),
+                );
+            }
         }
-
         ret
+    }
+
+    pub fn force_to(self) {
+        let current = Self::get();
+
+        for (currency_id, target) in self.liquidation_vaults.iter() {
+            let current = &current.liquidation_vaults[currency_id];
+            let mut liquidation_vault = VaultRegistryPallet::get_rich_liquidation_vault(*currency_id);
+            liquidation_vault
+                .increase_issued(&(target.issued - current.issued))
+                .unwrap();
+            liquidation_vault
+                .increase_to_be_issued(&(target.to_be_issued - current.to_be_issued))
+                .unwrap();
+            liquidation_vault
+                .increase_to_be_redeemed(&(target.to_be_redeemed - current.to_be_redeemed))
+                .unwrap();
+            VaultRegistryPallet::transfer_funds(
+                CurrencySource::FreeBalance(account_of(FAUCET)),
+                CurrencySource::LiquidationVault,
+                &target.collateral,
+            )
+            .unwrap();
+        }
+        let result = Self::get();
+        assert_eq!(result, self);
     }
 }
 
@@ -626,12 +682,7 @@ impl ParachainState {
         Self {
             user: default_user_state(),
             vault: default_vault_state(vault_currency),
-            liquidation_vault: LiquidationVaultData {
-                funds: iter_all_currencies()
-                    .map(|currency| (currency, Amount::new(0, currency)))
-                    .collect(),
-                ..Default::default()
-            },
+            liquidation_vault: default_liquidation_vault_state(vault_currency),
             fee_pool: Default::default(),
         }
     }
@@ -675,12 +726,7 @@ impl ParachainTwoVaultState {
         Self {
             vault1: default_vault_state(currency_id),
             vault2: default_vault_state(currency_id),
-            liquidation_vault: LiquidationVaultData {
-                funds: iter_all_currencies()
-                    .map(|currency| (currency, Amount::new(0, currency)))
-                    .collect(),
-                ..Default::default()
-            },
+            liquidation_vault: default_liquidation_vault_state(currency_id),
         }
     }
 }

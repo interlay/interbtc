@@ -10,6 +10,7 @@ fn test_with<R>(execute: impl Fn(CurrencyId) -> R) {
     let test_with = |currency_id| {
         ExtBuilder::build().execute_with(|| {
             assert_ok!(OraclePallet::_set_exchange_rate(currency_id, FixedU128::one()));
+            LiquidationVaultData::force_to(default_liquidation_vault_state(currency_id));
             UserData::force_to(USER, default_user_state());
             CoreVaultData::force_to(VAULT, default_vault_state(currency_id));
             execute(currency_id)
@@ -180,7 +181,9 @@ fn integration_test_vault_registry_undercollateralization_liquidation() {
         assert_eq!(
             ParachainState::get(),
             ParachainState::get_default(currency_id).with_changes(|_, vault, liquidation_vault, _| {
-                *liquidation_vault.funds.get_mut(&currency_id).unwrap() = Amount::new(
+                let liquidation_vault = liquidation_vault.with_currency(&currency_id);
+
+                liquidation_vault.collateral = Amount::new(
                     (default_vault_backing_collateral(currency_id).amount()
                         * (DEFAULT_VAULT_ISSUED + DEFAULT_VAULT_TO_BE_ISSUED - DEFAULT_VAULT_TO_BE_REDEEMED).amount())
                         / (DEFAULT_VAULT_ISSUED + DEFAULT_VAULT_TO_BE_ISSUED).amount(),
@@ -194,7 +197,7 @@ fn integration_test_vault_registry_undercollateralization_liquidation() {
                 vault.to_be_issued = wrapped(0);
                 vault.backing_collateral = Amount::new(0, currency_id);
                 vault.liquidated_collateral =
-                    default_vault_backing_collateral(currency_id) - liquidation_vault.funds[&currency_id];
+                    default_vault_backing_collateral(currency_id) - liquidation_vault.collateral;
             })
         );
     });

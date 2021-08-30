@@ -479,7 +479,7 @@ fn redeem_tokens_premium_fails_with_insufficient_tokens() {
 #[test]
 fn redeem_tokens_liquidation_succeeds() {
     run_test(|| {
-        let mut liquidation_vault = VaultRegistry::get_rich_liquidation_vault();
+        let mut liquidation_vault = VaultRegistry::get_rich_liquidation_vault(DEFAULT_TESTING_CURRENCY);
         let user_id = 5;
 
         // TODO: emulate assert_called
@@ -500,7 +500,7 @@ fn redeem_tokens_liquidation_succeeds() {
             &user_id,
             &wrapped(50)
         ));
-        let liquidation_vault = VaultRegistry::get_rich_liquidation_vault();
+        let liquidation_vault = VaultRegistry::get_rich_liquidation_vault(DEFAULT_TESTING_CURRENCY);
         assert_eq!(liquidation_vault.data.issued_tokens, 0);
         assert_emitted!(Event::RedeemTokensLiquidation(user_id, 50, 500));
     });
@@ -509,7 +509,7 @@ fn redeem_tokens_liquidation_succeeds() {
 #[test]
 fn redeem_tokens_liquidation_does_not_call_recover_when_unnecessary() {
     run_test(|| {
-        let mut liquidation_vault = VaultRegistry::get_rich_liquidation_vault();
+        let mut liquidation_vault = VaultRegistry::get_rich_liquidation_vault(DEFAULT_TESTING_CURRENCY);
         let user_id = 5;
 
         VaultRegistry::transfer_funds.mock_safe(move |sender, receiver, _amount| {
@@ -529,7 +529,7 @@ fn redeem_tokens_liquidation_does_not_call_recover_when_unnecessary() {
             &user_id,
             &wrapped(10)
         ));
-        let liquidation_vault = VaultRegistry::get_rich_liquidation_vault();
+        let liquidation_vault = VaultRegistry::get_rich_liquidation_vault(DEFAULT_TESTING_CURRENCY);
         assert_eq!(liquidation_vault.data.issued_tokens, 15);
         assert_emitted!(Event::RedeemTokensLiquidation(user_id, 10, (1000 * 10) / 50));
     });
@@ -625,7 +625,7 @@ fn liquidate_at_most_secure_threshold() {
             dummy_public_key(),
             CurrencyId::DOT
         ));
-        let liquidation_vault_before = VaultRegistry::get_rich_liquidation_vault();
+        let liquidation_vault_before = VaultRegistry::get_rich_liquidation_vault(DEFAULT_TESTING_CURRENCY);
 
         VaultRegistry::set_secure_collateral_threshold(
             DEFAULT_TESTING_CURRENCY,
@@ -668,7 +668,7 @@ fn liquidate_at_most_secure_threshold() {
             backing_collateral - liquidated_collateral
         ));
 
-        let liquidation_vault_after = VaultRegistry::get_rich_liquidation_vault();
+        let liquidation_vault_after = VaultRegistry::get_rich_liquidation_vault(DEFAULT_TESTING_CURRENCY);
         let liquidated_vault = <crate::Vaults<Test>>::get(&vault_id).unwrap();
         assert!(matches!(liquidated_vault.status, VaultStatus::Liquidated));
         assert_emitted!(Event::LiquidateVault(

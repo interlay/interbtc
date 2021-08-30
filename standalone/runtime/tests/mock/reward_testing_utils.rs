@@ -1,13 +1,14 @@
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 
 type AccountId = [u8; 32];
 type Balance = f64;
 
 #[derive(Debug, Default)]
 pub struct BasicRewardPool {
-    stake: HashMap<AccountId, Balance>,
+    // note: we use BTreeMaps such that the debug print output is sorted, for easier diffing
+    stake: BTreeMap<AccountId, Balance>,
+    reward_tally: BTreeMap<AccountId, Balance>,
     total_stake: Balance,
-    reward_tally: HashMap<AccountId, Balance>,
     reward_per_token: Balance,
 }
 

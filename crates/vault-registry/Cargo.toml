@@ -11,6 +11,8 @@ codec = { package = "parity-scale-codec", version = "2.0.0", default-features = 
 fixed-hash = { version = "0.7.0", default-features = false, features = ["byteorder"] }
 log = { version = "0.4.14", default-features = false }
 
+visibility = { version = "0.0.1", optional = true }
+
 # Substrate dependencies
 sp-runtime = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.8", default-features = false }
 sp-arithmetic = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.8", default-features = false }
@@ -77,4 +79,7 @@ runtime-benchmarks = [
 	"frame-benchmarking",
 	"frame-support/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
+]
+integration-tests = [
+  "visibility"
 ]
