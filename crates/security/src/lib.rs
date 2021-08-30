@@ -89,6 +89,18 @@ pub mod pallet {
         }
     }
 
+    #[pallet::genesis_config]
+    #[derive(Default)]
+    pub struct GenesisConfig;
+
+    #[pallet::genesis_build]
+    impl<T: Config> GenesisBuild<T> for GenesisConfig {
+        fn build(&self) {
+            Pallet::<T>::insert_error(ErrorCode::OracleOffline);
+            Pallet::<T>::set_status(StatusCode::Error);
+        }
+    }
+
     /// Integer/Enum defining the current state of the BTC-Parachain.
     #[pallet::storage]
     #[pallet::getter(fn status)]
