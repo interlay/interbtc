@@ -3,7 +3,7 @@ authors = ["Interlay Ltd"]
 build = "build.rs"
 edition = "2018"
 name = "interbtc-standalone"
-version = "0.12.0"
+version = "1.0.0"
 
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]
