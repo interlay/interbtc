@@ -2,8 +2,8 @@ use bitcoin::utils::{virtual_transaction_size, InputType, TransactionInputMetada
 use hex_literal::hex;
 use interbtc_runtime::{
     AccountId, AuraConfig, BTCRelayConfig, CurrencyId, FeeConfig, GenesisConfig, GrandpaConfig, IssueConfig,
-    NominationConfig, OracleConfig, RedeemConfig, RefundConfig, ReplaceConfig, Signature, SudoConfig, SystemConfig,
-    TokensConfig, VaultRegistryConfig, BITCOIN_BLOCK_SPACING, DAYS, DOT, WASM_BINARY,
+    NominationConfig, OracleConfig, RedeemConfig, RefundConfig, ReplaceConfig, SecurityConfig, Signature, StatusCode,
+    SudoConfig, SystemConfig, TokensConfig, VaultRegistryConfig, BITCOIN_BLOCK_SPACING, DAYS, DOT, WASM_BINARY,
 };
 use sp_consensus_aura::sr25519::AuthorityId as AuraId;
 use sp_core::crypto::UncheckedInto;
@@ -88,6 +88,7 @@ pub fn local_config() -> ChainSpec {
                     "Bob".as_bytes().to_vec(),
                 )],
                 0,
+                false,
             )
         },
         vec![],
@@ -151,6 +152,7 @@ pub fn beta_testnet_config() -> ChainSpec {
                     ),
                 ],
                 1,
+                false,
             )
         },
         Vec::new(),
@@ -199,6 +201,7 @@ pub fn development_config() -> ChainSpec {
                     ),
                 ],
                 1,
+                false,
             )
         },
         Vec::new(),
@@ -215,6 +218,7 @@ fn testnet_genesis(
     endowed_accounts: Vec<AccountId>,
     authorized_oracles: Vec<(AccountId, Vec<u8>)>,
     bitcoin_confirmations: u32,
+    start_shutdown: bool,
 ) -> GenesisConfig {
     GenesisConfig {
         system: SystemConfig {
@@ -228,6 +232,13 @@ fn testnet_genesis(
         },
         grandpa: GrandpaConfig {
             authorities: initial_authorities.iter().map(|x| (x.1.clone(), 1)).collect(),
+        },
+        security: SecurityConfig {
+            initial_status: if start_shutdown {
+                StatusCode::Shutdown
+            } else {
+                StatusCode::Error
+            },
         },
         sudo: SudoConfig {
             // Assign network admin rights.

@@ -2,7 +2,8 @@ use codec::{Decode, Encode};
 use sp_std::{cmp::Ord, fmt::Debug};
 
 /// Enum indicating the status of the BTC Parachain.
-#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug)]
+#[cfg_attr(feature = "std", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Encode, Decode, Clone, Copy, PartialEq, Eq, Debug)]
 pub enum StatusCode {
     /// BTC Parachain is fully operational.
     Running = 0,

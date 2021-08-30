@@ -51,6 +51,7 @@ pub use sp_runtime::{Perbill, Permill};
 // interBTC exports
 pub use btc_relay::{bitcoin, Call as RelayCall, TARGET_SPACING};
 pub use module_oracle_rpc_runtime_api::BalanceWrapper;
+pub use security::StatusCode;
 
 pub use primitives::{
     self, AccountId, Balance, BlockNumber, CurrencyId, Hash, Moment, Nonce, Signature, SignedFixedPoint, SignedInner,
@@ -843,7 +844,7 @@ construct_runtime! {
         Relay: relay::{Pallet, Call, Storage, Event<T>},
 
         // Operational
-        Security: security::{Pallet, Call, Storage, Event<T>},
+        Security: security::{Pallet, Call, Config, Storage, Event<T>},
         VaultRegistry: vault_registry::{Pallet, Call, Config<T>, Storage, Event<T>, ValidateUnsigned},
         Oracle: oracle::{Pallet, Call, Config<T>, Storage, Event<T>},
         Issue: issue::{Pallet, Call, Config<T>, Storage, Event<T>},

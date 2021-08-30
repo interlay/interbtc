@@ -90,14 +90,25 @@ pub mod pallet {
     }
 
     #[pallet::genesis_config]
-    #[derive(Default)]
-    pub struct GenesisConfig;
+    pub struct GenesisConfig {
+        pub initial_status: StatusCode,
+    }
+
+    #[cfg(feature = "std")]
+    impl Default for GenesisConfig {
+        fn default() -> Self {
+            Self {
+                initial_status: StatusCode::Error,
+            }
+        }
+    }
 
     #[pallet::genesis_build]
     impl<T: Config> GenesisBuild<T> for GenesisConfig {
         fn build(&self) {
+            Pallet::<T>::set_status(self.initial_status);
+
             Pallet::<T>::insert_error(ErrorCode::OracleOffline);
-            Pallet::<T>::set_status(StatusCode::Error);
         }
     }
 
