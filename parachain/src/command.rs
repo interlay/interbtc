@@ -44,6 +44,7 @@ fn load_spec(id: &str, para_id: ParaId) -> std::result::Result<Box<dyn sc_servic
         "rococo" => Ok(Box::new(chain_spec::rococo_testnet_config(para_id))),
         "rococo-local" => Ok(Box::new(chain_spec::rococo_local_testnet_config(para_id))),
         "westend" => Ok(Box::new(chain_spec::westend_testnet_config(para_id))),
+        "kusama" => Ok(Box::new(chain_spec::kusama_mainnet_config(para_id))),
         path => Ok(Box::new(chain_spec::ChainSpec::from_json_file(path.into())?)),
     }
 }
