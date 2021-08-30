@@ -375,11 +375,6 @@ pub mod pallet {
     #[pallet::getter(fn disable_inclusion_check)]
     pub(super) type DisableInclusionCheck<T: Config> = StorageValue<_, bool, ValueQuery>;
 
-    /// Whether the module should perform OP_RETURN checks.
-    #[pallet::storage]
-    #[pallet::getter(fn disable_op_return_check)]
-    pub(super) type DisableOpReturnCheck<T: Config> = StorageValue<_, bool, ValueQuery>;
-
     #[pallet::genesis_config]
     pub struct GenesisConfig<T: Config> {
         /// Global security parameter k for stable Bitcoin transactions
@@ -390,8 +385,6 @@ pub mod pallet {
         pub disable_difficulty_check: bool,
         /// Whether the module should perform inclusion checks.
         pub disable_inclusion_check: bool,
-        /// Whether the module should perform OP_RETURN checks.
-        pub disable_op_return_check: bool,
     }
 
     #[cfg(feature = "std")]
@@ -402,7 +395,6 @@ pub mod pallet {
                 parachain_confirmations: Default::default(),
                 disable_difficulty_check: Default::default(),
                 disable_inclusion_check: Default::default(),
-                disable_op_return_check: Default::default(),
             }
         }
     }
@@ -414,7 +406,6 @@ pub mod pallet {
             StableParachainConfirmations::<T>::put(self.parachain_confirmations);
             DisableDifficultyCheck::<T>::put(self.disable_difficulty_check);
             DisableInclusionCheck::<T>::put(self.disable_inclusion_check);
-            DisableOpReturnCheck::<T>::put(self.disable_op_return_check);
         }
     }
 }
