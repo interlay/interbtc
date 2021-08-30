@@ -411,7 +411,7 @@ construct_runtime! {
         BTCRelay: btc_relay::{Pallet, Call, Config<T>, Storage, Event<T>},
 
         // Operational
-        Security: security::{Pallet, Call, Storage, Event<T>},
+        Security: security::{Pallet, Call, Config, Storage, Event<T>},
         Relay: relay::{Pallet, Call, Storage, Event<T>},
         VaultRegistry: vault_registry::{Pallet, Call, Config<T>, Storage, Event<T>, ValidateUnsigned},
         Oracle: oracle::{Pallet, Call, Config<T>, Storage, Event<T>},

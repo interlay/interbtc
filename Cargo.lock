@@ -9628,6 +9628,7 @@ dependencies = [
  "frame-system",
  "mocktopus",
  "parity-scale-codec",
+ "serde",
  "sha2 0.8.2",
  "sp-core",
  "sp-io",
