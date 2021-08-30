@@ -469,9 +469,6 @@ pub mod pallet {
     pub(super) type LiquidationVault<T: Config> =
         StorageMap<_, Blake2_128Concat, CurrencyId<T>, DefaultSystemVault<T>, OptionQuery>;
 
-    #[pallet::storage]
-    pub(super) type WrappedDebt<T: Config> = StorageValue<_, Wrapped<T>, ValueQuery>;
-
     /// Mapping of Vaults, using the respective Vault account identifier as key.
     #[pallet::storage]
     pub(super) type Vaults<T: Config> = StorageMap<_, Blake2_128Concat, T::AccountId, DefaultVault<T>>;
@@ -600,10 +597,6 @@ impl<T: Config> Pallet<T> {
             Error::<T>::VaultNotFound
         );
         Ok(vault)
-    }
-
-    fn get_wrapped_debt() -> Amount<T> {
-        Amount::new(WrappedDebt::<T>::get(), T::GetWrappedCurrencyId::get())
     }
 
     /// Deposit an `amount` of collateral to be used for collateral tokens
@@ -1214,15 +1207,6 @@ impl<T: Config> Pallet<T> {
         TotalUserVaultCollateral::<T>::set(new);
 
         Ok(())
-    }
-
-    /// returns the total number of issued tokens
-    pub fn get_total_issued_tokens(include_liquidation_vault: bool) -> Result<Amount<T>, DispatchError> {
-        if include_liquidation_vault {
-            Ok(ext::treasury::total_issued::<T>())
-        } else {
-            ext::treasury::total_issued::<T>().checked_sub(&Self::get_wrapped_debt())
-        }
     }
 
     /// returns the total locked collateral, _

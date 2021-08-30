@@ -1,4 +1,4 @@
-use crate::{ext, Config, Error, Pallet, WrappedDebt};
+use crate::{ext, Config, Error, Pallet};
 use codec::{Decode, Encode, HasCompact};
 use currency::Amount;
 use frame_support::{
@@ -669,10 +669,6 @@ impl<T: Config> UpdatableVault<T> for RichSystemVault<T> {
         self.update(|v| {
             v.issued_tokens = new_value;
             Ok(())
-        })?;
-        WrappedDebt::<T>::try_mutate(|x| {
-            *x = x.checked_add(&tokens.amount()).ok_or(Error::<T>::ArithmeticOverflow)?;
-            Ok(())
         })
     }
 
@@ -696,10 +692,6 @@ impl<T: Config> UpdatableVault<T> for RichSystemVault<T> {
         let new_value = self.issued_tokens().checked_sub(&tokens)?.amount();
         self.update(|v| {
             v.issued_tokens = new_value;
-            Ok(())
-        })?;
-        WrappedDebt::<T>::try_mutate(|x| {
-            *x = x.checked_sub(&tokens.amount()).ok_or(Error::<T>::ArithmeticOverflow)?;
             Ok(())
         })
     }
