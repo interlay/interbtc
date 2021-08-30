@@ -140,6 +140,18 @@ pub fn run() -> Result<()> {
             let runner = cli.create_runner(cmd)?;
             runner.sync_run(|config| cmd.run(config.chain_spec, config.network))
         }
+        Some(Subcommand::BuildSpecWithId(cmd)) => {
+            let runner = cli.create_runner(&cmd.base)?;
+            runner.sync_run(|config| {
+                cmd.base.run(
+                    load_spec(
+                        &cmd.base.shared_params.chain.clone().unwrap_or_default(),
+                        cmd.parachain_id.into(),
+                    )?,
+                    config.network,
+                )
+            })
+        }
         Some(Subcommand::CheckBlock(cmd)) => {
             let runner = cli.create_runner(cmd)?;
             runner.async_run(|config| {
