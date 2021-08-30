@@ -178,5 +178,6 @@ runtime-benchmarks = [
   "relay/runtime-benchmarks",
   "vault-registry/runtime-benchmarks",
   "fee/runtime-benchmarks",
+  "nomination/runtime-benchmarks",
 ]
 disable-runtime-api = []

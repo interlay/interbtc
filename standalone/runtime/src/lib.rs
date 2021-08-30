@@ -619,7 +619,6 @@ impl_runtime_apis! {
             add_benchmark!(params, batches, relay, Relay);
             add_benchmark!(params, batches, vault_registry, VaultRegistry);
             add_benchmark!(params, batches, fee, Fee);
-            add_benchmark!(params, batches, nomination, Nomination);
 
             if batches.is_empty() { return Err("Benchmark not found for this pallet.".into()) }
             Ok(batches)

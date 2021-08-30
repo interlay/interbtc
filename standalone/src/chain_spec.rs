@@ -9,9 +9,6 @@ use sp_consensus_aura::sr25519::AuthorityId as AuraId;
 use sp_core::crypto::UncheckedInto;
 use sp_finality_grandpa::AuthorityId as GrandpaId;
 
-#[cfg(feature = "runtime-benchmarks")]
-use frame_benchmarking::account;
-
 use interbtc_rpc::jsonrpc_core::serde_json::{map::Map, Value};
 use sc_service::ChainType;
 use sp_arithmetic::{FixedPointNumber, FixedU128};
@@ -186,10 +183,6 @@ pub fn development_config() -> ChainSpec {
                     get_account_id_from_seed::<sr25519::Public>("Dave//stash"),
                     get_account_id_from_seed::<sr25519::Public>("Eve//stash"),
                     get_account_id_from_seed::<sr25519::Public>("Ferdie//stash"),
-                    #[cfg(feature = "runtime-benchmarks")]
-                    account("Origin", 0, 0),
-                    #[cfg(feature = "runtime-benchmarks")]
-                    account("Vault", 0, 0),
                 ],
                 vec![
                     (

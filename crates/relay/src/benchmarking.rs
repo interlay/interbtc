@@ -1,5 +1,5 @@
 use super::*;
-use crate::{types::BalanceOf, Pallet as Relay};
+use crate::types::BalanceOf;
 use bitcoin::{
     formatter::{Formattable, TryFormattable},
     types::{
@@ -23,6 +23,9 @@ use vault_registry::{
     types::{Vault, Wallet},
     Pallet as VaultRegistry,
 };
+
+#[cfg(test)]
+use crate::Pallet as Relay;
 
 pub const DEFAULT_TESTING_CURRENCY: CurrencyId = CurrencyId::DOT;
 
