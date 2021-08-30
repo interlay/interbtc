@@ -29,6 +29,7 @@ pub trait IssueRequestExt<T: Config> {
     fn fee(&self) -> Amount<T>;
     fn griefing_collateral(&self) -> Amount<T>;
 }
+
 impl<T: Config> IssueRequestExt<T> for IssueRequest<T::AccountId, T::BlockNumber, BalanceOf<T>> {
     fn amount(&self) -> Amount<T> {
         Amount::new(self.amount, T::GetWrappedCurrencyId::get())

@@ -360,13 +360,17 @@ impl<T: Config> RichVault<T> {
         Amount::new(self.data.replace_collateral, T::GetGriefingCollateralCurrencyId::get())
     }
 
-    pub fn get_collateral(&self) -> Result<Amount<T>, DispatchError> {
+    pub fn get_vault_collateral(&self) -> Result<Amount<T>, DispatchError> {
+        Pallet::<T>::compute_collateral(&self.id())
+    }
+
+    pub fn get_total_collateral(&self) -> Result<Amount<T>, DispatchError> {
         Pallet::<T>::get_backing_collateral(&self.id())
     }
 
     pub fn get_free_collateral(&self) -> Result<Amount<T>, DispatchError> {
         let used_collateral = self.get_used_collateral()?;
-        self.get_collateral()?.checked_sub(&used_collateral)
+        self.get_total_collateral()?.checked_sub(&used_collateral)
     }
 
     pub fn get_used_collateral(&self) -> Result<Amount<T>, DispatchError> {
@@ -378,7 +382,7 @@ impl<T: Config> RichVault<T> {
 
         let used_collateral = issued_tokens_in_collateral.checked_fixed_point_mul(&secure_threshold)?;
 
-        self.get_collateral()?.min(&used_collateral)
+        self.get_total_collateral()?.min(&used_collateral)
     }
 
     pub fn issuable_tokens(&self) -> Result<Amount<T>, DispatchError> {
@@ -460,11 +464,19 @@ impl<T: Config> RichVault<T> {
         })
     }
 
+    pub(crate) fn slash_for_to_be_redeemed(&mut self, amount: &Amount<T>) -> DispatchResult {
+        let vault_id = self.id();
+        let collateral = self.get_vault_collateral()?.min(amount)?;
+        ext::staking::withdraw_stake::<T>(T::GetWrappedCurrencyId::get(), &vault_id, &vault_id, &collateral)?;
+        self.increase_liquidated_collateral(&collateral)?;
+        Ok(())
+    }
+
     pub(crate) fn slash_to_liquidation_vault(&mut self, amount: &Amount<T>) -> DispatchResult {
         let vault_id = self.id();
 
         // get the collateral supplied by the vault (i.e. excluding nomination)
-        let collateral = Pallet::<T>::compute_collateral(&vault_id)?;
+        let collateral = self.get_vault_collateral()?;
         let (to_withdraw, to_slash) = amount
             .checked_sub(&collateral)
             .and_then(|leftover| Ok((collateral, Some(leftover))))
@@ -529,13 +541,12 @@ impl<T: Config> RichVault<T> {
         let collateral_for_to_be_redeemed =
             liquidated_collateral.saturating_sub(&liquidated_collateral_excluding_to_be_redeemed)?;
 
-        // slash backing collateral used for issued + to_be_issued to the liquidation vault
-        self.slash_to_liquidation_vault(&liquidated_collateral_excluding_to_be_redeemed)?;
+        // slash collateral for the to_be_redeemed tokens
+        // this is re-deposited once the tokens are burned
+        self.slash_for_to_be_redeemed(&collateral_for_to_be_redeemed)?;
 
-        // temporarily slash additional collateral for the to_be_redeemed tokens
-        // this is re-distributed once the tokens are burned
-        ext::staking::slash_stake::<T>(T::GetWrappedCurrencyId::get(), vault_id, &collateral_for_to_be_redeemed)?;
-        self.increase_liquidated_collateral(&collateral_for_to_be_redeemed)?;
+        // slash collateral used for issued + to_be_issued to the liquidation vault
+        self.slash_to_liquidation_vault(&liquidated_collateral_excluding_to_be_redeemed)?;
 
         // Copy all tokens to the liquidation vault
         let mut liquidation_vault = Pallet::<T>::get_rich_liquidation_vault(self.data.currency_id);

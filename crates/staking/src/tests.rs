@@ -57,10 +57,10 @@ fn should_stake_and_distribute_and_withdraw() {
         assert_ok!(Staking::distribute_reward(DOT, &VAULT, fixed!(1000)));
         assert_ok!(Staking::slash_stake(DOT, &VAULT, fixed!(10000)));
 
-        assert_ok!(Staking::compute_stake(DOT, &VAULT, &BOB), 9950);
+        assert_ok!(Staking::compute_stake(DOT, &VAULT, &BOB), 9949);
 
         assert_ok!(Staking::compute_reward(DOT, &VAULT, &ALICE), 1023);
-        assert_ok!(Staking::compute_reward(DOT, &VAULT, &BOB), 1976);
+        assert_ok!(Staking::compute_reward(DOT, &VAULT, &BOB), 1975);
     })
 }
 
@@ -135,5 +135,31 @@ fn should_force_refund() {
             alice_reward_post_refund,
             alice_stake_pre_refund + alice_reward_pre_refund
         );
+    })
+}
+
+#[test]
+fn should_compute_stake_after_adjustments() {
+    // this replicates a failing integration test due to repeated
+    // deposits and slashing which led to incorrect stake
+    run_test(|| {
+        assert_ok!(Staking::deposit_stake(DOT, &VAULT, &VAULT, fixed!(100)));
+        assert_ok!(Staking::deposit_stake(DOT, &VAULT, &VAULT, fixed!(1152923504604516976)));
+        assert_ok!(Staking::slash_stake(DOT, &VAULT, fixed!(1152923504604516976 + 100)));
+
+        assert_ok!(Staking::deposit_stake(DOT, &VAULT, &VAULT, fixed!(1_000_000)));
+
+        assert_ok!(Staking::deposit_stake(DOT, &VAULT, &VAULT, fixed!(1152924504603286976)));
+        assert_ok!(Staking::slash_stake(
+            DOT,
+            &VAULT,
+            fixed!(1152924504603286976 + 1_000_000)
+        ));
+
+        assert_ok!(Staking::compute_stake(DOT, &VAULT, &VAULT), 0);
+
+        assert_ok!(Staking::deposit_stake(DOT, &VAULT, &VAULT, fixed!(1_000_000)));
+
+        assert_ok!(Staking::compute_stake(DOT, &VAULT, &VAULT), 1_000_000);
     })
 }
