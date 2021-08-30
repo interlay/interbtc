@@ -106,7 +106,6 @@ impl ExtBuilder {
             parachain_confirmations: PARACHAIN_CONFIRMATIONS,
             disable_difficulty_check: false,
             disable_inclusion_check: false,
-            disable_op_return_check: false,
         }
         .assimilate_storage(&mut storage)
         .unwrap();

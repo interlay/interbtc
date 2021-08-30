@@ -313,7 +313,6 @@ fn testnet_genesis(
             parachain_confirmations: bitcoin_confirmations.saturating_mul(BITCOIN_BLOCK_SPACING),
             disable_difficulty_check: true,
             disable_inclusion_check: false,
-            disable_op_return_check: false,
         },
         issue: IssueConfig {
             issue_period: DAYS,
@@ -507,7 +506,6 @@ fn mainnet_genesis(
             parachain_confirmations: bitcoin_confirmations.saturating_mul(BITCOIN_BLOCK_SPACING),
             disable_difficulty_check: false,
             disable_inclusion_check: false,
-            disable_op_return_check: false,
         },
         issue: IssueConfig {
             issue_period: DAYS,
