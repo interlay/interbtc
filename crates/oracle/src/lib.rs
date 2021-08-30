@@ -26,7 +26,7 @@ extern crate mocktopus;
 #[cfg(test)]
 use mocktopus::macros::mockable;
 
-use crate::types::{Collateral, OracleStatus, UnsignedFixedPoint, Version, Wrapped};
+use crate::types::{Collateral, UnsignedFixedPoint, Version, Wrapped};
 use codec::{Decode, Encode};
 use currency::Amount;
 use frame_support::{
@@ -119,10 +119,6 @@ pub mod pallet {
         T::AccountId,
         TimestampedValue<UnsignedFixedPoint<T>, T::Moment>,
     >;
-
-    #[pallet::storage]
-    /// if a key is present, it means the values have been updated
-    pub(crate) type CurrentOracleStatus<T: Config> = StorageValue<_, OracleStatus, ValueQuery>;
 
     #[pallet::storage]
     /// if a key is present, it means the values have been updated
@@ -252,22 +248,18 @@ impl<T: Config> Pallet<T> {
             }
         }
 
-        let new_status = if raw_values_updated.len() > 0
+        let current_status_is_online = Self::is_oracle_online();
+        let new_status_is_online = raw_values_updated.len() > 0
             && raw_values_updated
                 .iter()
-                .all(|(key, _)| matches!(Aggregate::<T>::get(key), Some(_)))
-        {
-            OracleStatus::Online
-        } else {
-            OracleStatus::Offline
-        };
+                .all(|(key, _)| Aggregate::<T>::get(key).is_some());
 
-        if CurrentOracleStatus::<T>::get() != new_status {
-            match new_status {
-                OracleStatus::Online => Self::recover_from_oracle_offline(),
-                _ => Self::report_oracle_offline(),
+        if current_status_is_online != new_status_is_online {
+            if new_status_is_online {
+                Self::recover_from_oracle_offline();
+            } else {
+                Self::report_oracle_offline();
             }
-            CurrentOracleStatus::<T>::set(new_status);
         }
     }
 
@@ -377,6 +369,10 @@ impl<T: Config> Pallet<T> {
     pub fn _set_exchange_rate(currency_id: CurrencyId, exchange_rate: UnsignedFixedPoint<T>) -> DispatchResult {
         Aggregate::<T>::insert(OracleKey::ExchangeRate(currency_id), exchange_rate);
         Ok(())
+    }
+
+    fn is_oracle_online() -> bool {
+        !ext::security::get_errors::<T>().contains(&ErrorCode::OracleOffline)
     }
 
     fn report_oracle_offline() {

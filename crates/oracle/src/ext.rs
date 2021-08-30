@@ -5,6 +5,7 @@ use mocktopus::macros::mockable;
 pub(crate) mod security {
     use frame_support::dispatch::DispatchResult;
     use security::{ErrorCode, StatusCode};
+    use sp_std::collections::btree_set::BTreeSet;
 
     pub fn ensure_parachain_status_not_shutdown<T: crate::Config>() -> DispatchResult {
         <security::Pallet<T>>::ensure_parachain_status_not_shutdown()
@@ -24,5 +25,9 @@ pub(crate) mod security {
 
     pub(crate) fn insert_error<T: crate::Config>(error_code: ErrorCode) {
         <security::Pallet<T>>::insert_error(error_code)
+    }
+
+    pub(crate) fn get_errors<T: crate::Config>() -> BTreeSet<ErrorCode> {
+        <security::Pallet<T>>::get_errors()
     }
 }
