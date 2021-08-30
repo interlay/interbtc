@@ -146,7 +146,7 @@ benchmarks! {
         mint_collateral::<T>(&old_vault_id, (1u32 << 31).into());
         mint_collateral::<T>(&new_vault_id, (1u32 << 31).into());
         let dust_value =  Replace::<T>::dust_value();
-        let amount = dust_value + wrapped(100u32);
+        let amount = dust_value.checked_add(&wrapped(100u32)).unwrap();
         let collateral = collateral(1000);
 
         let new_vault_btc_address = BtcAddress::P2SH(H160([0; 20]));

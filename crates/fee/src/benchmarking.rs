@@ -1,7 +1,9 @@
 use super::*;
-use crate::Pallet as Fee;
 use frame_benchmarking::{account, benchmarks, impl_benchmark_test_suite};
 use frame_system::RawOrigin;
+
+#[cfg(test)]
+use crate::Pallet as Fee;
 
 const SEED: u32 = 0;
 

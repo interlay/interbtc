@@ -15,7 +15,10 @@ use orml_traits::MultiCurrency;
 use primitives::CurrencyId;
 use security::Pallet as Security;
 use sp_core::{H160, H256, U256};
-use sp_runtime::{traits::One, FixedPointNumber};
+use sp_runtime::{
+    traits::{One, Zero},
+    FixedPointNumber,
+};
 use sp_std::prelude::*;
 use vault_registry::Pallet as VaultRegistry;
 
@@ -68,7 +71,8 @@ fn mine_blocks<T: crate::Config>() {
         .build();
 
     let mut prev_hash = block.header.hash;
-    for _ in 0..100 {
+    // mine enough blocks to include issue
+    for _ in 0..600 {
         let block = BlockBuilder::new()
             .with_previous_hash(prev_hash)
             .with_version(4)
@@ -89,7 +93,7 @@ fn mine_blocks<T: crate::Config>() {
 benchmarks! {
     request_issue {
         let origin: T::AccountId = account("Origin", 0, 0);
-        let amount: u32 = 100;
+        let amount = Issue::<T>::issue_btc_dust_value().amount() + 1000u32.into();
         let vault_id: T::AccountId = account("Vault", 0, 0);
         let griefing: u32 = 100;
         let relayer_id: T::AccountId = account("Relayer", 0, 0);
@@ -153,7 +157,7 @@ benchmarks! {
         BtcRelay::<T>::store_block_header(&relayer_id, block_header).unwrap();
         Security::<T>::set_active_block_number(Security::<T>::active_block_number() + BtcRelay::<T>::parachain_confirmations());
 
-    }: _(RawOrigin::Signed(origin), amount.into(), vault_id, griefing.into())
+    }: _(RawOrigin::Signed(origin), amount, vault_id, griefing.into())
 
     execute_issue {
         let origin: T::AccountId = account("Origin", 0, 0);
@@ -254,11 +258,13 @@ benchmarks! {
         issue_request.vault = vault_id.clone();
         issue_request.btc_address = vault_btc_address;
         issue_request.amount = value.amount();
+        issue_request.opentime = Security::<T>::active_block_number();
+        issue_request.btc_height = Zero::zero();
         Issue::<T>::insert_issue_request(&issue_id, &issue_request);
 
         mine_blocks::<T>();
 
-        Security::<T>::set_active_block_number(Security::<T>::active_block_number() + Issue::<T>::issue_period() + 10u32.into());
+        Security::<T>::set_active_block_number(issue_request.opentime + Issue::<T>::issue_period() + 10u32.into());
 
         VaultRegistry::<T>::set_secure_collateral_threshold(DEFAULT_TESTING_CURRENCY, <T as currency::Config>::UnsignedFixedPoint::checked_from_rational(1, 100000).unwrap());
         Oracle::<T>::_set_exchange_rate(DEFAULT_TESTING_CURRENCY, <T as currency::Config>::UnsignedFixedPoint::one()).unwrap();

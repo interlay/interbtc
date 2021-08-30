@@ -32,17 +32,22 @@ vault-registry = { path = "../vault-registry", default-features = false }
 refund = { path = "../refund", default-features = false }
 primitives = { package = "interbtc-primitives", path = "../../primitives", default-features = false }
 
+# Orml dependencies
+orml-tokens = { git = "https://github.com/open-web3-stack/open-runtime-module-library", rev = "81511f1", default-features = false, optional = true }
+orml-traits = { git = "https://github.com/open-web3-stack/open-runtime-module-library", rev = "81511f1", default-features = false, optional = true }
+
 [dev-dependencies]
 mocktopus = "0.7.0"
-frame-benchmarking = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.8", default-features = false }
-pallet-randomness-collective-flip = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.8", default-features = false }
+frame-benchmarking = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.8" }
+pallet-randomness-collective-flip = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.8" }
 
-reward = { path = "../reward", default-features = false }
-staking = { path = "../staking", default-features = false }
+# Parachain dependencies
+reward = { path = "../reward" }
+staking = { path = "../staking" }
 
 # Orml dependencies
-orml-tokens = { git = "https://github.com/open-web3-stack/open-runtime-module-library", rev = "81511f1", default-features = false }
-orml-traits = { git = "https://github.com/open-web3-stack/open-runtime-module-library", rev = "81511f1", default-features = false }
+orml-tokens = { git = "https://github.com/open-web3-stack/open-runtime-module-library", rev = "81511f1" }
+orml-traits = { git = "https://github.com/open-web3-stack/open-runtime-module-library", rev = "81511f1" }
 
 [features]
 default = ["std"]
@@ -70,9 +75,15 @@ std = [
 	"vault-registry/std",
 	"refund/std",
     "primitives/std",
+
+	"orml-tokens/std",
+	"orml-traits/std",
 ]
 runtime-benchmarks = [
 	"frame-benchmarking",
 	"frame-support/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
+
+	"orml-tokens",
+	"orml-traits",
 ]
