@@ -3,8 +3,9 @@ use cumulus_primitives_core::ParaId;
 use hex_literal::hex;
 use interbtc_runtime::{
     AccountId, AuraConfig, BTCRelayConfig, Balance, CurrencyId, FeeConfig, GenesisConfig, IssueConfig,
-    NominationConfig, OracleConfig, ParachainInfoConfig, RedeemConfig, RefundConfig, ReplaceConfig, Signature,
-    SudoConfig, SystemConfig, TokensConfig, VaultRegistryConfig, BITCOIN_BLOCK_SPACING, DAYS, KSM, WASM_BINARY,
+    NominationConfig, OracleConfig, ParachainInfoConfig, RedeemConfig, RefundConfig, ReplaceConfig, SecurityConfig,
+    Signature, StatusCode, SudoConfig, SystemConfig, TokensConfig, VaultRegistryConfig, BITCOIN_BLOCK_SPACING, DAYS,
+    KSM, WASM_BINARY,
 };
 use sc_chain_spec::{ChainSpecExtension, ChainSpecGroup};
 use serde::{Deserialize, Serialize};
@@ -109,6 +110,7 @@ pub fn local_config(id: ParaId) -> ChainSpec {
                 )],
                 id,
                 DEFAULT_BITCOIN_CONFIRMATIONS,
+                false,
             )
         },
         vec![],
@@ -161,6 +163,7 @@ pub fn development_config(id: ParaId) -> ChainSpec {
                 ],
                 id,
                 DEFAULT_BITCOIN_CONFIRMATIONS,
+                false,
             )
         },
         Vec::new(),
@@ -203,6 +206,7 @@ pub fn rococo_testnet_config(id: ParaId) -> ChainSpec {
                 ],
                 id,
                 DEFAULT_BITCOIN_CONFIRMATIONS,
+                false,
             )
         },
         Vec::new(),
@@ -263,6 +267,7 @@ pub fn westend_testnet_config(id: ParaId) -> ChainSpec {
                 ],
                 id,
                 DEFAULT_BITCOIN_CONFIRMATIONS,
+                false,
             )
         },
         Vec::new(),
@@ -283,6 +288,7 @@ fn testnet_genesis(
     authorized_oracles: Vec<(AccountId, Vec<u8>)>,
     id: ParaId,
     bitcoin_confirmations: u32,
+    start_shutdown: bool,
 ) -> GenesisConfig {
     GenesisConfig {
         system: SystemConfig {
@@ -297,6 +303,13 @@ fn testnet_genesis(
         aura_ext: Default::default(),
         parachain_system: Default::default(),
         parachain_info: ParachainInfoConfig { parachain_id: id },
+        security: SecurityConfig {
+            initial_status: if start_shutdown {
+                StatusCode::Shutdown
+            } else {
+                StatusCode::Error
+            },
+        },
         sudo: SudoConfig {
             // Assign network admin rights.
             key: root_key.clone(),
@@ -491,6 +504,9 @@ fn mainnet_genesis(
         aura_ext: Default::default(),
         parachain_system: Default::default(),
         parachain_info: ParachainInfoConfig { parachain_id: id },
+        security: SecurityConfig {
+            initial_status: StatusCode::Shutdown,
+        },
         sudo: SudoConfig {
             // Assign network admin rights.
             key: root_key.clone(),

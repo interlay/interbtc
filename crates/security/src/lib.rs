@@ -91,7 +91,7 @@ pub mod pallet {
 
     #[pallet::genesis_config]
     pub struct GenesisConfig {
-        initial_status: StatusCode,
+        pub initial_status: StatusCode,
     }
 
     #[cfg(feature = "std")]
