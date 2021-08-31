@@ -343,6 +343,12 @@ pub type UnsignedFixedPoint = FixedU128;
 /// The `Inner` type of the `UnsignedFixedPoint`.
 pub type UnsignedInner = u128;
 
+pub trait CurrencyInfo {
+    fn name(&self) -> &str;
+    fn symbol(&self) -> &str;
+    fn decimals(&self) -> u8;
+}
+
 macro_rules! create_currency_id {
     ($(#[$meta:meta])*
 	$vis:vis enum CurrencyId {
@@ -360,6 +366,24 @@ macro_rules! create_currency_id {
 				vec![
 					$((stringify!($symbol), $deci),)*
 				]
+			}
+		}
+
+		impl CurrencyInfo for CurrencyId {
+			fn name(&self) -> &str {
+				match self {
+					$(CurrencyId::$symbol => $name,)*
+				}
+			}
+			fn symbol(&self) -> &str {
+				match self {
+					$(CurrencyId::$symbol => stringify!($symbol),)*
+				}
+			}
+			fn decimals(&self) -> u8 {
+				match self {
+					$(CurrencyId::$symbol => $deci,)*
+				}
 			}
 		}
 
