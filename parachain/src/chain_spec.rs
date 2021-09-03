@@ -5,7 +5,7 @@ use interbtc_runtime::{
     AccountId, AuraConfig, BTCRelayConfig, Balance, CurrencyId, FeeConfig, GenesisConfig, IssueConfig,
     NominationConfig, OracleConfig, ParachainInfoConfig, RedeemConfig, RefundConfig, ReplaceConfig, SecurityConfig,
     Signature, StatusCode, SudoConfig, SystemConfig, TokensConfig, VaultRegistryConfig, BITCOIN_BLOCK_SPACING, DAYS,
-    KSM, WASM_BINARY,
+    WASM_BINARY,
 };
 use sc_chain_spec::{ChainSpecExtension, ChainSpecGroup};
 use serde::{Deserialize, Serialize};
@@ -90,20 +90,6 @@ pub fn local_config(id: ParaId) -> ChainSpec {
             testnet_genesis(
                 get_account_id_from_seed::<sr25519::Public>("Alice"),
                 vec![get_from_seed::<AuraId>("Alice")],
-                vec![
-                    get_account_id_from_seed::<sr25519::Public>("Alice"),
-                    get_account_id_from_seed::<sr25519::Public>("Bob"),
-                    get_account_id_from_seed::<sr25519::Public>("Charlie"),
-                    get_account_id_from_seed::<sr25519::Public>("Dave"),
-                    get_account_id_from_seed::<sr25519::Public>("Eve"),
-                    get_account_id_from_seed::<sr25519::Public>("Ferdie"),
-                    get_account_id_from_seed::<sr25519::Public>("Alice//stash"),
-                    get_account_id_from_seed::<sr25519::Public>("Bob//stash"),
-                    get_account_id_from_seed::<sr25519::Public>("Charlie//stash"),
-                    get_account_id_from_seed::<sr25519::Public>("Dave//stash"),
-                    get_account_id_from_seed::<sr25519::Public>("Eve//stash"),
-                    get_account_id_from_seed::<sr25519::Public>("Ferdie//stash"),
-                ],
                 vec![(
                     get_account_id_from_seed::<sr25519::Public>("Bob"),
                     "Bob".as_bytes().to_vec(),
@@ -133,20 +119,6 @@ pub fn development_config(id: ParaId) -> ChainSpec {
             testnet_genesis(
                 get_account_id_from_seed::<sr25519::Public>("Alice"),
                 vec![get_from_seed::<AuraId>("Alice")],
-                vec![
-                    get_account_id_from_seed::<sr25519::Public>("Alice"),
-                    get_account_id_from_seed::<sr25519::Public>("Bob"),
-                    get_account_id_from_seed::<sr25519::Public>("Charlie"),
-                    get_account_id_from_seed::<sr25519::Public>("Dave"),
-                    get_account_id_from_seed::<sr25519::Public>("Eve"),
-                    get_account_id_from_seed::<sr25519::Public>("Ferdie"),
-                    get_account_id_from_seed::<sr25519::Public>("Alice//stash"),
-                    get_account_id_from_seed::<sr25519::Public>("Bob//stash"),
-                    get_account_id_from_seed::<sr25519::Public>("Charlie//stash"),
-                    get_account_id_from_seed::<sr25519::Public>("Dave//stash"),
-                    get_account_id_from_seed::<sr25519::Public>("Eve//stash"),
-                    get_account_id_from_seed::<sr25519::Public>("Ferdie//stash"),
-                ],
                 vec![
                     (
                         get_account_id_from_seed::<sr25519::Public>("Alice"),
@@ -193,7 +165,6 @@ pub fn rococo_testnet_config(id: ParaId) -> ChainSpec {
                     // 5FNbq8zGPZtinsfgyD4w2G3BMh75H3r2Qg3uKudTZkJtRru6
                     hex!["925ad4bdf35945bea91baeb5419a7ffa07002c6a85ba334adfa7cb5b05623c1b"].unchecked_into(),
                 ],
-                vec![],
                 vec![
                     (
                         get_account_id_from_string("5H8zjSWfzMn86d1meeNrZJDj3QZSvRjKxpTfuVaZ46QJZ4qs"),
@@ -254,7 +225,6 @@ pub fn westend_testnet_config(id: ParaId) -> ChainSpec {
                     // 5HNEdfdAvhvAA67pqPgoctiUTCraXkscSv5wYQbUwrKNmpQq
                     hex!["ea8bf097557a70b3c8beed5a95ecc127534f6fe00709c20352dcfb8bd073e240"].unchecked_into(),
                 ],
-                vec![],
                 vec![
                     (
                         get_account_id_from_string("5EPKc1xDF2V337FwgpMozdcZKS1rgFjY3rTudEysMPK7paef"),
@@ -284,7 +254,6 @@ pub fn westend_testnet_config(id: ParaId) -> ChainSpec {
 fn testnet_genesis(
     root_key: AccountId,
     initial_authorities: Vec<AuraId>,
-    endowed_accounts: Vec<AccountId>,
     authorized_oracles: Vec<(AccountId, Vec<u8>)>,
     id: ParaId,
     bitcoin_confirmations: u32,
@@ -314,9 +283,7 @@ fn testnet_genesis(
             // Assign network admin rights.
             key: root_key.clone(),
         },
-        tokens: TokensConfig {
-            balances: endowed_accounts.iter().cloned().map(|k| (k, KSM, 1 << 60)).collect(),
-        },
+        tokens: TokensConfig { balances: vec![] },
         oracle: OracleConfig {
             authorized_oracles,
             max_delay: DEFAULT_MAX_DELAY_MS,
@@ -456,7 +423,6 @@ pub fn kusama_mainnet_config(id: ParaId) -> ChainSpec {
                     // 5DcP4SrNPz366T8p9XbPLZuXtjRGBrmfKavkeCnyFFjeTLJ6
                     hex!["4464cf6dcc7b817df845816e87920fe5bffbc400334da6abd31d806ce0a34652"].unchecked_into(),
                 ],
-                vec![],
                 vec![
                     (
                         get_account_id_from_string("5DcrZv97CipkXni4aXcg98Nz9doT6nfs6t3THn7hhnRXTd6D"),
@@ -485,7 +451,6 @@ pub fn kusama_mainnet_config(id: ParaId) -> ChainSpec {
 fn mainnet_genesis(
     root_key: AccountId,
     initial_authorities: Vec<AuraId>,
-    endowed_accounts: Vec<AccountId>,
     authorized_oracles: Vec<(AccountId, Vec<u8>)>,
     id: ParaId,
     bitcoin_confirmations: u32,
@@ -510,9 +475,7 @@ fn mainnet_genesis(
             // Assign network admin rights.
             key: root_key.clone(),
         },
-        tokens: TokensConfig {
-            balances: endowed_accounts.iter().cloned().map(|k| (k, KSM, 1 << 60)).collect(),
-        },
+        tokens: TokensConfig { balances: vec![] },
         oracle: OracleConfig {
             authorized_oracles,
             max_delay: DEFAULT_MAX_DELAY_MS,
