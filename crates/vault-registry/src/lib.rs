@@ -458,12 +458,6 @@ pub mod pallet {
     #[pallet::getter(fn liquidation_collateral_threshold)]
     pub(super) type LiquidationCollateralThreshold<T: Config> =
         StorageMap<_, Blake2_128Concat, CurrencyId<T>, UnsignedFixedPoint<T>>;
-    /// Account identifier of an artificial Vault maintained by the VaultRegistry to handle issued balances
-    /// and collateral of liquidated Vaults. That is, when a Vault is liquidated, its balances are
-    /// transferred to LiquidationVault and claims are later handled via the LiquidationVault.
-    #[pallet::storage]
-    #[pallet::getter(fn liquidation_vault_account_id)]
-    pub(super) type LiquidationVaultAccountId<T: Config> = StorageValue<_, T::AccountId, ValueQuery>;
 
     #[pallet::storage]
     pub(super) type LiquidationVault<T: Config> =
