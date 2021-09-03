@@ -3,7 +3,7 @@ use hex_literal::hex;
 use interbtc_runtime::{
     AccountId, AuraConfig, BTCRelayConfig, CurrencyId, FeeConfig, GenesisConfig, GrandpaConfig, IssueConfig,
     NominationConfig, OracleConfig, RedeemConfig, RefundConfig, ReplaceConfig, SecurityConfig, Signature, StatusCode,
-    SudoConfig, SystemConfig, TokensConfig, VaultRegistryConfig, BITCOIN_BLOCK_SPACING, DAYS, DOT, WASM_BINARY,
+    SudoConfig, SystemConfig, TokensConfig, VaultRegistryConfig, BITCOIN_BLOCK_SPACING, DAYS, DOT, KSM, WASM_BINARY,
 };
 use sp_consensus_aura::sr25519::AuthorityId as AuraId;
 use sp_core::crypto::UncheckedInto;
@@ -245,7 +245,10 @@ fn testnet_genesis(
             key: root_key.clone(),
         },
         tokens: TokensConfig {
-            balances: endowed_accounts.iter().cloned().map(|k| (k, DOT, 1 << 60)).collect(),
+            balances: endowed_accounts
+                .iter()
+                .flat_map(|k| vec![(k.clone(), DOT, 1 << 60), (k.clone(), KSM, 1 << 60)])
+                .collect(),
         },
         oracle: OracleConfig {
             authorized_oracles,
@@ -282,14 +285,20 @@ fn testnet_genesis(
             replace_btc_dust_value: 1000,
         },
         vault_registry: VaultRegistryConfig {
-            minimum_collateral_vault: vec![(CurrencyId::DOT, 0)],
+            minimum_collateral_vault: vec![(CurrencyId::DOT, 0), (CurrencyId::KSM, 0)],
             punishment_delay: DAYS,
-            secure_collateral_threshold: vec![(CurrencyId::DOT, FixedU128::checked_from_rational(150, 100).unwrap())], /* 150% */
-            premium_redeem_threshold: vec![(CurrencyId::DOT, FixedU128::checked_from_rational(135, 100).unwrap())], /* 135% */
-            liquidation_collateral_threshold: vec![(
-                CurrencyId::DOT,
-                FixedU128::checked_from_rational(110, 100).unwrap(),
-            )], /* 110% */
+            secure_collateral_threshold: vec![
+                (CurrencyId::DOT, FixedU128::checked_from_rational(150, 100).unwrap()),
+                (CurrencyId::KSM, FixedU128::checked_from_rational(150, 100).unwrap()),
+            ], /* 150% */
+            premium_redeem_threshold: vec![
+                (CurrencyId::DOT, FixedU128::checked_from_rational(135, 100).unwrap()),
+                (CurrencyId::KSM, FixedU128::checked_from_rational(135, 100).unwrap()),
+            ], /* 135% */
+            liquidation_collateral_threshold: vec![
+                (CurrencyId::DOT, FixedU128::checked_from_rational(110, 100).unwrap()),
+                (CurrencyId::KSM, FixedU128::checked_from_rational(110, 100).unwrap()),
+            ], /* 110% */
         },
         fee: FeeConfig {
             issue_fee: FixedU128::checked_from_rational(5, 1000).unwrap(), // 0.5%
