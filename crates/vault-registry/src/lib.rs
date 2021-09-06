@@ -514,7 +514,6 @@ pub mod pallet {
     /// Determines the over-collateralization rate for collateral locked by Vaults, necessary for
     /// wrapped tokens. This threshold should be greater than the LiquidationCollateralThreshold.
     #[pallet::storage]
-    #[pallet::getter(fn system_collateral_ceiling)]
     pub(super) type SystemCollateralCeiling<T: Config> = StorageMap<_, Blake2_128Concat, CurrencyId<T>, Collateral<T>>;
 
     /// Determines the over-collateralization rate for collateral locked by Vaults, necessary for
@@ -1287,12 +1286,10 @@ impl<T: Config> Pallet<T> {
     }
 
     pub fn try_increase_total_backing_collateral(amount: &Amount<T>) -> DispatchResult {
-        let new = TotalUserVaultCollateral::<T>::get(&amount.currency())
-            .checked_add(&amount.amount())
-            .ok_or(Error::<T>::ArithmeticOverflow)?;
+        let new = Self::get_total_user_vault_collateral(&amount.currency()).checked_add(&amount)?;
 
-        let limit = Self::system_collateral_ceiling(&amount.currency()).ok_or(Error::<T>::CeilingNotSet)?;
-        ensure!(new.le(&limit), Error::<T>::CollateralCurrencyCeilingExceeded);
+        let limit = Self::system_collateral_ceiling(&amount.currency())?;
+        ensure!(new.le(&limit)?, Error::<T>::CollateralCurrencyCeilingExceeded);
 
         TotalUserVaultCollateral::<T>::insert(&amount.currency(), new);
 
@@ -1300,30 +1297,26 @@ impl<T: Config> Pallet<T> {
     }
 
     pub fn decrease_total_backing_collateral(amount: &Amount<T>) -> DispatchResult {
-        let new = TotalUserVaultCollateral::<T>::get(&amount.currency())
-            .checked_sub(&amount.amount())
-            .ok_or(Error::<T>::ArithmeticUnderflow)?;
+        let new = TotalUserVaultCollateral::<T>::get(&amount.currency()).checked_sub(&amount)?;
 
         TotalUserVaultCollateral::<T>::insert(&amount.currency(), new);
 
         Ok(())
     }
 
-    /// returns the total locked collateral, _
+    /// returns the total locked collateral. Unused for now, but might want to expose that as rpc
     pub fn get_total_backing_collateral(
         currency_id: CurrencyId<T>,
         include_liquidation_vault: bool,
     ) -> Result<Collateral<T>, DispatchError> {
-        let liquidated_collateral = CurrencySource::<T>::LiquidationVault.current_balance(currency_id)?;
-        let total = if include_liquidation_vault {
-            TotalUserVaultCollateral::<T>::get(currency_id)
-                .checked_add(&liquidated_collateral.amount())
-                .ok_or(Error::<T>::ArithmeticOverflow)?
-        } else {
-            TotalUserVaultCollateral::<T>::get(currency_id)
-        };
+        let total_collateral = Self::get_total_user_vault_collateral(currency_id);
 
-        Ok(total)
+        let total = if include_liquidation_vault {
+            Ok(total_collateral)
+        } else {
+            let liquidated_collateral = CurrencySource::<T>::LiquidationVault.current_balance(currency_id)?;
+            total_collateral.checked_sub(&liquidated_collateral)
+        };
     }
 
     pub fn insert_vault(id: &T::AccountId, vault: DefaultVault<T>) {
@@ -1656,6 +1649,19 @@ impl<T: Config> Pallet<T> {
     }
 
     /// Private getters and setters
+
+    fn get_collateral_ceiling(currency_id: &T::CurrencyId) -> Result<Amount<T>, DispatchError> {
+        let ceiling_amount = SystemCollateralCeiling::<T>::get(currency_id).ok_or(Error::<T>::CeilingNotSet)?;
+        Ok(Amount::new(ceiling_amount, currency_id))
+    }
+
+    fn get_total_user_vault_collateral(vault_id: &T::AccountId) -> Result<Amount<T>, DispatchError> {
+        let currency_id = Self::get_collateral_currency(vault_id)?;
+        Ok(Amount::new(
+            TotalUserVaultCollateral::<T>::get(currency_id),
+            currency_id,
+        ))
+    }
 
     fn get_rich_vault_from_id(vault_id: &T::AccountId) -> Result<RichVault<T>, DispatchError> {
         Ok(Self::get_vault_from_id(vault_id)?.into())
