@@ -45,7 +45,7 @@ pub fn new_partial(
         FullClient,
         FullBackend,
         (),
-        sp_consensus::DefaultImportQueue<Block, FullClient>,
+        sc_consensus::DefaultImportQueue<Block, FullClient>,
         sc_transaction_pool::FullPool<Block, FullClient>,
         (Option<Telemetry>, Option<TelemetryWorkerHandle>),
     >,
@@ -121,7 +121,7 @@ async fn start_node_impl<RB, BIC>(
 ) -> sc_service::error::Result<(TaskManager, Arc<FullClient>)>
 where
     sc_client_api::StateBackendFor<FullBackend, Block>: sp_api::StateBackend<BlakeTwo256>,
-    RB: Fn(Arc<FullClient>) -> jsonrpc_core::IoHandler<sc_rpc::Metadata> + Send + 'static,
+    RB: Fn(Arc<FullClient>) -> Result<jsonrpc_core::IoHandler<sc_rpc::Metadata>, sc_service::Error> + Send + 'static,
     BIC: FnOnce(
         Arc<FullClient>,
         Option<&Registry>,
@@ -174,6 +174,7 @@ where
         import_queue: import_queue.clone(),
         on_demand: None,
         block_announce_validator_builder: Some(Box::new(|_| block_announce_validator)),
+        warp_sync: None,
     })?;
 
     let rpc_client = client.clone();
@@ -250,7 +251,7 @@ fn parachain_build_import_queue(
     config: &Configuration,
     telemetry: Option<TelemetryHandle>,
     task_manager: &TaskManager,
-) -> Result<sp_consensus::DefaultImportQueue<Block, FullClient>, sc_service::Error> {
+) -> Result<sc_consensus::DefaultImportQueue<Block, FullClient>, sc_service::Error> {
     let slot_duration = cumulus_client_consensus_aura::slot_duration(&*client)?;
 
     cumulus_client_consensus_aura::import_queue::<sp_consensus_aura::sr25519::AuthorityPair, _, _, _, _, _, _>(
@@ -286,7 +287,7 @@ pub async fn start_node(
         parachain_config,
         polkadot_config,
         id,
-        |_| Default::default(),
+        |_| Ok(Default::default()),
         |client,
          prometheus_registry,
          telemetry,
