@@ -802,7 +802,11 @@ impl<T: Config> Pallet<T> {
                 );
                 Self::slash_backing_collateral(account, amount)?;
             }
-            CurrencySource::Griefing(_) | CurrencySource::ReservedBalance(_) | CurrencySource::LiquidationVault => {
+            CurrencySource::Griefing(_) | CurrencySource::ReservedBalance(_) => {
+                amount.unlock(&from.account_id())?;
+            }
+            CurrencySource::LiquidationVault => {
+                Self::decrease_total_backing_collateral(amount)?;
                 amount.unlock(&from.account_id())?;
             }
             CurrencySource::FreeBalance(_) => {
@@ -823,7 +827,11 @@ impl<T: Config> Pallet<T> {
                 );
                 Self::try_deposit_collateral(account, amount)?;
             }
-            CurrencySource::Griefing(_) | CurrencySource::ReservedBalance(_) | CurrencySource::LiquidationVault => {
+            CurrencySource::Griefing(_) | CurrencySource::ReservedBalance(_) => {
+                amount.lock(&to.account_id())?;
+            }
+            CurrencySource::LiquidationVault => {
+                Self::try_increase_total_backing_collateral(amount)?;
                 amount.lock(&to.account_id())?;
             }
             CurrencySource::FreeBalance(_) => {
@@ -1030,7 +1038,6 @@ impl<T: Config> Pallet<T> {
     pub fn decrease_liquidated_collateral(vault_id: &T::AccountId, amount: &Amount<T>) -> DispatchResult {
         let mut vault = Self::get_rich_vault_from_id(vault_id)?;
         vault.decrease_liquidated_collateral(amount)?;
-        Self::decrease_total_backing_collateral(amount)?;
         Ok(())
     }
 
@@ -1059,7 +1066,7 @@ impl<T: Config> Pallet<T> {
             if premium.is_zero() {
                 Self::deposit_event(Event::<T>::RedeemTokens(vault.id(), tokens.amount()));
             } else {
-                Self::decrease_total_backing_collateral(tokens)?;
+                Self::decrease_total_backing_collateral(premium)?;
                 Self::transfer_funds(
                     CurrencySource::Collateral(vault_id.clone()),
                     CurrencySource::FreeBalance(redeemer_id.clone()),
@@ -1125,7 +1132,6 @@ impl<T: Config> Pallet<T> {
             &liquidation_vault.backed_tokens()?,
         )?;
 
-        Self::decrease_total_backing_collateral(amount_btc)?;
         Self::transfer_funds(
             CurrencySource::LiquidationVault,
             CurrencySource::FreeBalance(redeemer_id.clone()),
