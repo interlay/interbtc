@@ -79,32 +79,17 @@ benchmarks! {
     }: _(RawOrigin::Signed(origin), true)
 
     adjust_collateral_ceiling {
-        let origin: T::AccountId = account("Origin", 0, 0);
-        mint_collateral::<T>(&origin, (1u32 << 31).into());
-        let currency_id = T::GetGriefingCollateralCurrencyId::get();
-        VaultRegistry::<T>::_register_vault(&origin, 1234u32.into(), dummy_public_key(), currency_id).unwrap();
-    }: _(RawOrigin::Signed(origin), currency_id, 1234u32.into())
+    }: _(RawOrigin::Root, T::GetGriefingCollateralCurrencyId::get(), 1234u32.into()
+)
 
     adjust_secure_collateral_threshold {
-        let origin: T::AccountId = account("Origin", 0, 0);
-        mint_collateral::<T>(&origin, (1u32 << 31).into());
-        let currency_id = T::GetGriefingCollateralCurrencyId::get();
-        VaultRegistry::<T>::_register_vault(&origin, 1234u32.into(), dummy_public_key(), currency_id).unwrap();
-    }: _(RawOrigin::Signed(origin), currency_id, UnsignedFixedPoint::<T>::one())
+    }: _(RawOrigin::Root, T::GetGriefingCollateralCurrencyId::get(), UnsignedFixedPoint::<T>::one())
 
     adjust_premium_redeem_threshold {
-        let origin: T::AccountId = account("Origin", 0, 0);
-        mint_collateral::<T>(&origin, (1u32 << 31).into());
-        let currency_id = T::GetGriefingCollateralCurrencyId::get();
-        VaultRegistry::<T>::_register_vault(&origin, 1234u32.into(), dummy_public_key(), currency_id).unwrap();
-    }: _(RawOrigin::Signed(origin), currency_id, UnsignedFixedPoint::<T>::one())
+    }: _(RawOrigin::Root, T::GetGriefingCollateralCurrencyId::get(), UnsignedFixedPoint::<T>::one())
 
     adjust_liquidation_collateral_threshold {
-        let origin: T::AccountId = account("Origin", 0, 0);
-        mint_collateral::<T>(&origin, (1u32 << 31).into());
-        let currency_id = T::GetGriefingCollateralCurrencyId::get();
-        VaultRegistry::<T>::_register_vault(&origin, 1234u32.into(), dummy_public_key(), currency_id).unwrap();
-    }: _(RawOrigin::Signed(origin), currency_id, UnsignedFixedPoint::<T>::one())
+    }: _(RawOrigin::Root, T::GetGriefingCollateralCurrencyId::get(), UnsignedFixedPoint::<T>::one())
 
     report_undercollateralized_vault {
         let origin: T::AccountId = account("Origin", 0, 0);
@@ -127,3 +112,16 @@ impl_benchmark_test_suite!(
     crate::mock::ExtBuilder::build_with(Default::default()),
     crate::mock::Test
 );
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::mock::{ExtBuilder, Test};
+    use frame_support::assert_ok;
+
+    #[test]
+    fn test_benchmarks() {
+        ExtBuilder::build().execute_with(|| {
+            assert_ok!(test_benchmark_adjust_secure_collateral_threshold::<Test>());
+        });
+    }
+}

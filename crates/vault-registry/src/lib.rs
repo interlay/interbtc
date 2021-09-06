@@ -1285,20 +1285,20 @@ impl<T: Config> Pallet<T> {
     }
 
     pub fn try_increase_total_backing_collateral(amount: &Amount<T>) -> DispatchResult {
-        let new = Self::get_total_user_vault_collateral(&amount.currency()).checked_add(&amount)?;
+        let new = Self::get_total_user_vault_collateral(amount.currency())?.checked_add(&amount)?;
 
-        let limit = Self::system_collateral_ceiling(&amount.currency())?;
+        let limit = Self::get_collateral_ceiling(amount.currency())?;
         ensure!(new.le(&limit)?, Error::<T>::CollateralCurrencyCeilingExceeded);
 
-        TotalUserVaultCollateral::<T>::insert(&amount.currency(), new);
+        TotalUserVaultCollateral::<T>::insert(&amount.currency(), new.amount());
 
         Ok(())
     }
 
     pub fn decrease_total_backing_collateral(amount: &Amount<T>) -> DispatchResult {
-        let new = TotalUserVaultCollateral::<T>::get(&amount.currency()).checked_sub(&amount)?;
+        let new = Self::get_total_user_vault_collateral(amount.currency())?.checked_sub(amount)?;
 
-        TotalUserVaultCollateral::<T>::insert(&amount.currency(), new);
+        TotalUserVaultCollateral::<T>::insert(&amount.currency(), new.amount());
 
         Ok(())
     }
@@ -1307,15 +1307,15 @@ impl<T: Config> Pallet<T> {
     pub fn get_total_backing_collateral(
         currency_id: CurrencyId<T>,
         include_liquidation_vault: bool,
-    ) -> Result<Collateral<T>, DispatchError> {
-        let total_collateral = Self::get_total_user_vault_collateral(currency_id);
+    ) -> Result<Amount<T>, DispatchError> {
+        let total_collateral = Self::get_total_user_vault_collateral(currency_id)?;
 
-        let total = if include_liquidation_vault {
+        if include_liquidation_vault {
             Ok(total_collateral)
         } else {
             let liquidated_collateral = CurrencySource::<T>::LiquidationVault.current_balance(currency_id)?;
             total_collateral.checked_sub(&liquidated_collateral)
-        };
+        }
     }
 
     pub fn insert_vault(id: &T::AccountId, vault: DefaultVault<T>) {
@@ -1649,13 +1649,12 @@ impl<T: Config> Pallet<T> {
 
     /// Private getters and setters
 
-    fn get_collateral_ceiling(currency_id: &T::CurrencyId) -> Result<Amount<T>, DispatchError> {
+    fn get_collateral_ceiling(currency_id: CurrencyId<T>) -> Result<Amount<T>, DispatchError> {
         let ceiling_amount = SystemCollateralCeiling::<T>::get(currency_id).ok_or(Error::<T>::CeilingNotSet)?;
         Ok(Amount::new(ceiling_amount, currency_id))
     }
 
-    fn get_total_user_vault_collateral(vault_id: &T::AccountId) -> Result<Amount<T>, DispatchError> {
-        let currency_id = Self::get_collateral_currency(vault_id)?;
+    fn get_total_user_vault_collateral(currency_id: CurrencyId<T>) -> Result<Amount<T>, DispatchError> {
         Ok(Amount::new(
             TotalUserVaultCollateral::<T>::get(currency_id),
             currency_id,
