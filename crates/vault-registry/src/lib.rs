@@ -1065,7 +1065,6 @@ impl<T: Config> Pallet<T> {
             if premium.is_zero() {
                 Self::deposit_event(Event::<T>::RedeemTokens(vault.id(), tokens.amount()));
             } else {
-                Self::decrease_total_backing_collateral(premium)?;
                 Self::transfer_funds(
                     CurrencySource::Collateral(vault_id.clone()),
                     CurrencySource::FreeBalance(redeemer_id.clone()),
