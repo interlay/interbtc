@@ -327,54 +327,55 @@ pub mod pallet {
 
     #[pallet::event]
     #[pallet::generate_deposit(pub(super) fn deposit_event)]
-    #[pallet::metadata(T::AccountId = "AccountId", T::BlockNumber = "BlockNumber", Collateral<T> = "Collateral", Wrapped<T> = "Wrapped")]
+    #[pallet::metadata(T::AccountId = "AccountId", T::BlockNumber = "BlockNumber", BalanceOf<T> = "Balance", CurrencyId<T> = "CurrencyId")]
     pub enum Event<T: Config> {
-        RegisterVault(T::AccountId, Collateral<T>),
+        /// vault_id, collateral, currency_id
+        RegisterVault(T::AccountId, BalanceOf<T>, CurrencyId<T>),
         /// vault_id, new collateral, total collateral, free collateral
-        DepositCollateral(T::AccountId, Collateral<T>, Collateral<T>, Collateral<T>),
+        DepositCollateral(T::AccountId, BalanceOf<T>, BalanceOf<T>, BalanceOf<T>),
         /// vault_id, withdrawn collateral, total collateral
-        WithdrawCollateral(T::AccountId, Collateral<T>, Collateral<T>),
+        WithdrawCollateral(T::AccountId, BalanceOf<T>, BalanceOf<T>),
         /// vault_id, new public key
         UpdatePublicKey(T::AccountId, BtcPublicKey),
         /// vault_id, new address
         RegisterAddress(T::AccountId, BtcAddress),
         /// vault_id, additional to-be-issued tokens
-        IncreaseToBeIssuedTokens(T::AccountId, Wrapped<T>),
+        IncreaseToBeIssuedTokens(T::AccountId, BalanceOf<T>),
         /// vault_id, decrease in to-be-issued tokens
-        DecreaseToBeIssuedTokens(T::AccountId, Wrapped<T>),
+        DecreaseToBeIssuedTokens(T::AccountId, BalanceOf<T>),
         /// vault_id, additional number of issued tokens
-        IssueTokens(T::AccountId, Wrapped<T>),
+        IssueTokens(T::AccountId, BalanceOf<T>),
         /// vault_id, additional to-be-redeemed tokens
-        IncreaseToBeRedeemedTokens(T::AccountId, Wrapped<T>),
+        IncreaseToBeRedeemedTokens(T::AccountId, BalanceOf<T>),
         /// vault_id, decrease in to-be-redeemed tokens
-        DecreaseToBeRedeemedTokens(T::AccountId, Wrapped<T>),
+        DecreaseToBeRedeemedTokens(T::AccountId, BalanceOf<T>),
         /// vault_id, additional to-be-replaced tokens
-        IncreaseToBeReplacedTokens(T::AccountId, Wrapped<T>),
+        IncreaseToBeReplacedTokens(T::AccountId, BalanceOf<T>),
         /// vault_id, decrease in to-be-replaced tokens
-        DecreaseToBeReplacedTokens(T::AccountId, Wrapped<T>),
+        DecreaseToBeReplacedTokens(T::AccountId, BalanceOf<T>),
         /// vault_id, user_id, amount of tokens reduced in issued & to-be-redeemed
-        DecreaseTokens(T::AccountId, T::AccountId, Wrapped<T>),
+        DecreaseTokens(T::AccountId, T::AccountId, BalanceOf<T>),
         /// vault_id, amount of newly redeemed tokens
-        RedeemTokens(T::AccountId, Wrapped<T>),
+        RedeemTokens(T::AccountId, BalanceOf<T>),
         /// vault_id, amount of newly redeemed tokens, amount of collateral transferred, user_id
-        RedeemTokensPremium(T::AccountId, Wrapped<T>, Collateral<T>, T::AccountId),
+        RedeemTokensPremium(T::AccountId, BalanceOf<T>, BalanceOf<T>, T::AccountId),
         /// vault_id, amount of newly redeemed tokens, slashed collateral
-        RedeemTokensLiquidatedVault(T::AccountId, Wrapped<T>, Collateral<T>),
+        RedeemTokensLiquidatedVault(T::AccountId, BalanceOf<T>, BalanceOf<T>),
         /// vault_id, amount of burned tokens, transferred collateral
-        RedeemTokensLiquidation(T::AccountId, Wrapped<T>, Collateral<T>),
+        RedeemTokensLiquidation(T::AccountId, BalanceOf<T>, BalanceOf<T>),
         /// old_vault_id, new_vault_id, transferred tokens, additional collateral locked by new_vault
-        ReplaceTokens(T::AccountId, T::AccountId, Wrapped<T>, Collateral<T>),
+        ReplaceTokens(T::AccountId, T::AccountId, BalanceOf<T>, BalanceOf<T>),
         /// vault_id, issued_tokens, to_be_issued_tokens, to_be_redeemed_tokens,
         /// to_be_replaced_tokens, backing_collateral, status, replace_collateral
         LiquidateVault(
-            T::AccountId,
-            Wrapped<T>,
-            Wrapped<T>,
-            Wrapped<T>,
-            Wrapped<T>,
-            Collateral<T>,
-            VaultStatus,
-            Collateral<T>,
+            T::AccountId, // vault_id
+            BalanceOf<T>, // issued_tokens
+            BalanceOf<T>, // to_be_issued_tokens
+            BalanceOf<T>, // to_be_redeemed_tokens
+            BalanceOf<T>, // to_be_replaced_tokens
+            BalanceOf<T>, // backing_collateral
+            VaultStatus,  // status
+            BalanceOf<T>, // replace_collateral
         ),
         /// vault_id, banned_until
         BanVault(T::AccountId, T::BlockNumber),
@@ -568,7 +569,7 @@ impl<T: Config> Pallet<T> {
 
         Self::try_deposit_collateral(vault_id, &amount)?;
 
-        Self::deposit_event(Event::<T>::RegisterVault(vault_id.clone(), collateral));
+        Self::deposit_event(Event::<T>::RegisterVault(vault_id.clone(), collateral, currency_id));
 
         Ok(())
     }
