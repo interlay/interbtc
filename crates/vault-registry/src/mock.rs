@@ -250,13 +250,29 @@ impl ExtBuilder {
     pub fn build() -> sp_io::TestExternalities {
         ExtBuilder::build_with(orml_tokens::GenesisConfig::<Test> {
             balances: vec![
-                (DEFAULT_ID, DOT, DEFAULT_COLLATERAL),
-                (OTHER_ID, DOT, DEFAULT_COLLATERAL),
-                (RICH_ID, DOT, RICH_COLLATERAL),
-                (MULTI_VAULT_TEST_IDS[0], DOT, MULTI_VAULT_TEST_COLLATERAL),
-                (MULTI_VAULT_TEST_IDS[1], DOT, MULTI_VAULT_TEST_COLLATERAL),
-                (MULTI_VAULT_TEST_IDS[2], DOT, MULTI_VAULT_TEST_COLLATERAL),
-                (MULTI_VAULT_TEST_IDS[3], DOT, MULTI_VAULT_TEST_COLLATERAL),
+                (DEFAULT_ID, DEFAULT_TESTING_CURRENCY, DEFAULT_COLLATERAL),
+                (OTHER_ID, DEFAULT_TESTING_CURRENCY, DEFAULT_COLLATERAL),
+                (RICH_ID, DEFAULT_TESTING_CURRENCY, RICH_COLLATERAL),
+                (
+                    MULTI_VAULT_TEST_IDS[0],
+                    DEFAULT_TESTING_CURRENCY,
+                    MULTI_VAULT_TEST_COLLATERAL,
+                ),
+                (
+                    MULTI_VAULT_TEST_IDS[1],
+                    DEFAULT_TESTING_CURRENCY,
+                    MULTI_VAULT_TEST_COLLATERAL,
+                ),
+                (
+                    MULTI_VAULT_TEST_IDS[2],
+                    DEFAULT_TESTING_CURRENCY,
+                    MULTI_VAULT_TEST_COLLATERAL,
+                ),
+                (
+                    MULTI_VAULT_TEST_IDS[3],
+                    DEFAULT_TESTING_CURRENCY,
+                    MULTI_VAULT_TEST_COLLATERAL,
+                ),
             ],
         })
     }

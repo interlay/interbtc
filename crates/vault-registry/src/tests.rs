@@ -124,7 +124,7 @@ fn create_sample_vault_and_issue_tokens(issue_tokens: u128) -> <Test as frame_sy
 fn register_vault_succeeds() {
     run_test(|| {
         let id = create_sample_vault();
-        assert_emitted!(Event::RegisterVault(id, DEFAULT_COLLATERAL));
+        assert_emitted!(Event::RegisterVault(id, DEFAULT_COLLATERAL, DEFAULT_TESTING_CURRENCY));
     });
 }
 
@@ -137,7 +137,7 @@ fn register_vault_fails_when_given_collateral_too_low() {
         let collateral = 100;
         let result = VaultRegistry::register_vault(Origin::signed(id), collateral, dummy_public_key(), CurrencyId::DOT);
         assert_err!(result, TestError::InsufficientVaultCollateralAmount);
-        assert_not_emitted!(Event::RegisterVault(id, collateral));
+        assert_not_emitted!(Event::RegisterVault(id, collateral, DEFAULT_TESTING_CURRENCY));
     });
 }
 
@@ -152,7 +152,7 @@ fn register_vault_fails_when_account_funds_too_low() {
             CurrencyId::DOT,
         );
         assert_err!(result, TokensError::BalanceTooLow);
-        assert_not_emitted!(Event::RegisterVault(DEFAULT_ID, collateral));
+        assert_not_emitted!(Event::RegisterVault(DEFAULT_ID, collateral, DEFAULT_TESTING_CURRENCY));
     });
 }
 
@@ -167,7 +167,10 @@ fn register_vault_fails_when_already_registered() {
             CurrencyId::DOT,
         );
         assert_err!(result, TestError::VaultAlreadyRegistered);
-        assert_emitted!(Event::RegisterVault(id, DEFAULT_COLLATERAL), 1);
+        assert_emitted!(
+            Event::RegisterVault(id, DEFAULT_COLLATERAL, DEFAULT_TESTING_CURRENCY),
+            1
+        );
     });
 }
 
