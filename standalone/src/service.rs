@@ -30,7 +30,7 @@ pub fn new_partial(
         FullClient,
         FullBackend,
         FullSelectChain,
-        sp_consensus::DefaultImportQueue<Block, FullClient>,
+        sc_consensus::DefaultImportQueue<Block, FullClient>,
         sc_transaction_pool::FullPool<Block, FullClient>,
         (
             sc_finality_grandpa::GrandpaBlockImport<FullBackend, Block, FullClient, FullSelectChain>,
@@ -163,6 +163,7 @@ pub fn new_full(mut config: Configuration) -> Result<(TaskManager, RpcHandlers),
         import_queue,
         on_demand: None,
         block_announce_validator_builder: None,
+        warp_sync: None,
     })?;
 
     if config.offchain_worker.enabled {
@@ -187,7 +188,7 @@ pub fn new_full(mut config: Configuration) -> Result<(TaskManager, RpcHandlers),
                 deny_unsafe,
             };
 
-            interbtc_rpc::create_full(deps)
+            Ok(interbtc_rpc::create_full(deps))
         })
     };
 
@@ -376,6 +377,7 @@ pub fn new_light(mut config: Configuration) -> Result<(TaskManager, RpcHandlers)
         import_queue,
         on_demand: Some(on_demand.clone()),
         block_announce_validator_builder: None,
+        warp_sync: None,
     })?;
 
     if config.offchain_worker.enabled {
@@ -387,7 +389,7 @@ pub fn new_light(mut config: Configuration) -> Result<(TaskManager, RpcHandlers)
         transaction_pool,
         task_manager: &mut task_manager,
         on_demand: Some(on_demand),
-        rpc_extensions_builder: Box::new(|_, _| ()),
+        rpc_extensions_builder: Box::new(|_, _| Ok(())),
         config,
         client,
         keystore: keystore_container.sync_keystore(),

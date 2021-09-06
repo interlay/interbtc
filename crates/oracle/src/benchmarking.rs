@@ -1,6 +1,6 @@
 use super::{Pallet as Oracle, *};
 use crate::{CurrencyId, OracleKey};
-use frame_benchmarking::{account, benchmarks};
+use frame_benchmarking::{account, benchmarks, impl_benchmark_test_suite};
 use frame_system::RawOrigin;
 use sp_runtime::FixedPointNumber;
 use sp_std::prelude::*;
@@ -37,18 +37,4 @@ benchmarks! {
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::mock::{ExtBuilder, Test};
-    use frame_support::assert_ok;
-
-    #[test]
-    fn test_benchmarks() {
-        ExtBuilder::build().execute_with(|| {
-            assert_ok!(test_benchmark_feed_values::<Test>());
-            assert_ok!(test_benchmark_insert_authorized_oracle::<Test>());
-            assert_ok!(test_benchmark_remove_authorized_oracle::<Test>());
-        });
-    }
-}
+impl_benchmark_test_suite!(Oracle, crate::mock::ExtBuilder::build(), crate::mock::Test);

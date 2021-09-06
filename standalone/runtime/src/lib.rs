@@ -12,7 +12,7 @@ use bitcoin::types::H256Le;
 use frame_support::dispatch::{DispatchError, DispatchResult};
 use sp_core::H256;
 
-use frame_support::PalletId;
+use frame_support::{traits::Contains, PalletId};
 use orml_traits::parameter_type_with_key;
 use sp_api::impl_runtime_apis;
 use sp_core::OpaqueMetadata;
@@ -30,7 +30,7 @@ use sp_version::RuntimeVersion;
 // A few exports that help ease life for downstream crates.
 pub use frame_support::{
     construct_runtime, parameter_types,
-    traits::{Get, KeyOwnerProofSystem, Randomness},
+    traits::{Everything, Get, KeyOwnerProofSystem, Randomness},
     weights::{
         constants::{BlockExecutionWeight, ExtrinsicBaseWeight, RocksDbWeight, WEIGHT_PER_SECOND},
         DispatchClass, IdentityFee, Weight,
@@ -175,7 +175,7 @@ impl frame_system::Config for Runtime {
     type OnNewAccount = ();
     type OnKilledAccount = ();
     type DbWeight = ();
-    type BaseCallFilter = ();
+    type BaseCallFilter = Everything;
     type SystemWeightInfo = ();
     type BlockWeights = RuntimeBlockWeights;
     type BlockLength = RuntimeBlockLength;
@@ -187,6 +187,7 @@ impl pallet_randomness_collective_flip::Config for Runtime {}
 
 impl pallet_aura::Config for Runtime {
     type AuthorityId = AuraId;
+    type DisabledValidators = ();
 }
 
 impl pallet_grandpa::Config for Runtime {
@@ -260,6 +261,17 @@ parameter_types! {
     pub FeeAccount: AccountId = FeePalletId::get().into_account();
 }
 
+pub fn get_all_module_accounts() -> Vec<AccountId> {
+    vec![FeePalletId::get().into_account(), VaultPalletId::get().into_account()]
+}
+
+pub struct DustRemovalWhitelist;
+impl Contains<AccountId> for DustRemovalWhitelist {
+    fn contains(a: &AccountId) -> bool {
+        get_all_module_accounts().contains(a)
+    }
+}
+
 impl orml_tokens::Config for Runtime {
     type Event = Event;
     type Balance = Balance;
@@ -269,6 +281,7 @@ impl orml_tokens::Config for Runtime {
     type ExistentialDeposits = ExistentialDeposits;
     type OnDust = orml_tokens::TransferDust<Runtime, FeeAccount>;
     type MaxLocks = MaxLocks;
+    type DustRemovalWhitelist = DustRemovalWhitelist;
 }
 
 impl reward::Config for Runtime {
@@ -533,6 +546,10 @@ impl_runtime_apis! {
     impl fg_primitives::GrandpaApi<Block> for Runtime {
         fn grandpa_authorities() -> GrandpaAuthorityList {
             Grandpa::grandpa_authorities()
+        }
+
+        fn current_set_id() -> fg_primitives::SetId {
+            Grandpa::current_set_id()
         }
 
         fn submit_report_equivocation_unsigned_extrinsic(
