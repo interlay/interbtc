@@ -200,13 +200,13 @@ macro_rules! checked_add_mut {
         <$storage>::mutate($currency, |value| {
             *value = value.checked_add($amount).ok_or(Error::<T>::ArithmeticOverflow)?;
             Ok::<_, Error<T>>(*value)
-        })?;
+        })?
     };
     ($storage:ty, $currency:expr, $account:expr, $amount:expr) => {
         <$storage>::mutate($currency, $account, |value| {
             *value = value.checked_add($amount).ok_or(Error::<T>::ArithmeticOverflow)?;
             Ok::<_, Error<T>>(*value)
-        })?;
+        })?
     };
 }
 
@@ -215,13 +215,13 @@ macro_rules! checked_sub_mut {
         <$storage>::mutate($currency, |value| {
             *value = value.checked_sub($amount).ok_or(Error::<T>::ArithmeticUnderflow)?;
             Ok::<_, Error<T>>(*value)
-        })?;
+        })?
     };
     ($storage:ty, $currency:expr, $account:expr, $amount:expr) => {
         <$storage>::mutate($currency, $account, |value| {
             *value = value.checked_sub($amount).ok_or(Error::<T>::ArithmeticUnderflow)?;
             Ok::<_, Error<T>>(*value)
-        })?;
+        })?
     };
 }
 
