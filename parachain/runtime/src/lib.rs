@@ -9,8 +9,11 @@
 include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 
 use bitcoin::types::H256Le;
-use frame_support::dispatch::{DispatchError, DispatchResult};
-use frame_system::{EnsureOneOf, EnsureRoot};
+use frame_support::{
+    dispatch::{DispatchError, DispatchResult},
+    traits::EnsureOrigin,
+};
+use frame_system::{EnsureOneOf, EnsureRoot, RawOrigin};
 use sp_core::{
     u32_trait::{_1, _2, _3, _4},
     H256,
@@ -64,7 +67,7 @@ use frame_support::match_type;
 use orml_xcm_support::{IsNativeConcrete, MultiCurrencyAdapter, MultiNativeAsset};
 use pallet_xcm::XcmPassthrough;
 use polkadot_parachain::primitives::Sibling;
-use sp_runtime::traits::Convert;
+use sp_runtime::traits::{BlockNumberProvider, Convert};
 use xcm::v0::{BodyId, Junction::*, MultiAsset, MultiLocation, MultiLocation::*, NetworkId};
 use xcm_builder::{
     AccountId32Aliases, AllowTopLevelPaidExecutionFrom, EnsureXcmOrigin, FixedWeightBounds, LocationInverter,
@@ -233,6 +236,64 @@ impl pallet_utility::Config for Runtime {
     type Call = Call;
     type Event = Event;
     type WeightInfo = ();
+}
+
+pub struct RelayChainBlockNumberProvider<T>(sp_std::marker::PhantomData<T>);
+
+impl<T: cumulus_pallet_parachain_system::Config> BlockNumberProvider for RelayChainBlockNumberProvider<T> {
+    type BlockNumber = BlockNumber;
+
+    fn current_block_number() -> Self::BlockNumber {
+        cumulus_pallet_parachain_system::Pallet::<T>::validation_data()
+            .map(|d| d.relay_parent_number)
+            .unwrap_or_default()
+    }
+}
+
+parameter_types! {
+    pub MinVestedTransfer: Balance = 0;
+    pub const MaxVestingSchedules: u32 = 100;
+}
+
+parameter_types! {
+    pub KintsugiLabsAccounts: Vec<AccountId> = vec![
+        hex_literal::hex!["249cf21ac84a06f2e1661e215e404530529f3932034abe9a5b8e3da5eee8b374"].into(),	// 5CtiCmFoHDSiLLoaBkqj9sGonciXgAvj2mnbZ8DZe4bpLLQ7
+        hex_literal::hex!["4aa5c577b4dcfcd72e78a728ca52707eed424b7bfa6c584b3ad9caa8087bdd20"].into(),	// 5DkaeN4Rpq4cfyExfopCSEDiJAEpKR8A4szT398p5271bVaa
+        hex_literal::hex!["accb25b6794d8efa88397ccc05017727f658494484525ae8a3bd4c0bc0316e16"].into(),	// 5FyGSWj5b6VcK7L9psiDE6RQBp1XC3SzbXNt5TU1Zqr56QGY
+    ];
+}
+
+pub struct EnsureKintsugiLabs;
+impl EnsureOrigin<Origin> for EnsureKintsugiLabs {
+    type Success = AccountId;
+
+    fn try_origin(o: Origin) -> Result<Self::Success, Origin> {
+        Into::<Result<RawOrigin<AccountId>, Origin>>::into(o).and_then(|o| match o {
+            RawOrigin::Signed(caller) => {
+                if KintsugiLabsAccounts::get().contains(&caller) {
+                    Ok(caller)
+                } else {
+                    Err(Origin::from(Some(caller)))
+                }
+            }
+            r => Err(Origin::from(r)),
+        })
+    }
+
+    #[cfg(feature = "runtime-benchmarks")]
+    fn successful_origin() -> Origin {
+        Origin::from(RawOrigin::Signed(Default::default()))
+    }
+}
+
+impl orml_vesting::Config for Runtime {
+    type Event = Event;
+    type Currency = orml_tokens::CurrencyAdapter<Runtime, GetNativeCurrencyId>;
+    type MinVestedTransfer = MinVestedTransfer;
+    type VestedTransferOrigin = EnsureKintsugiLabs;
+    type WeightInfo = ();
+    type MaxVestingSchedules = MaxVestingSchedules;
+    type BlockNumberProvider = RelayChainBlockNumberProvider<Runtime>;
 }
 
 parameter_types! {
@@ -846,6 +907,7 @@ construct_runtime! {
         Tokens: orml_tokens::{Pallet, Call, Storage, Config<T>, Event<T>},
         Rewards: reward::{Pallet, Call, Storage, Event<T>},
         Staking: staking::{Pallet, Storage, Event<T>},
+        Vesting: orml_vesting::{Pallet, Storage, Call, Event<T>, Config<T>},
 
         // Bitcoin SPV
         BTCRelay: btc_relay::{Pallet, Call, Config<T>, Storage, Event<T>},
