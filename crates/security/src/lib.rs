@@ -61,24 +61,9 @@ pub mod pallet {
 
     #[pallet::error]
     pub enum Error<T> {
-        NoDataBTCRelay,
-        InvalidBTCRelay,
         ParachainNotRunning,
         ParachainShutdown,
-        ParachainNotRunningOrLiquidation,
-        ParachainOracleOfflineError,
-        ParachainLiquidationError,
-        InvalidErrorCode,
         ArithmeticOverflow,
-    }
-
-    impl<T: Config> From<ErrorCode> for Error<T> {
-        fn from(error_code: ErrorCode) -> Self {
-            match error_code {
-                ErrorCode::OracleOffline => Error::ParachainOracleOfflineError,
-                _ => Error::InvalidErrorCode,
-            }
-        }
     }
 
     #[pallet::hooks]
