@@ -10,12 +10,12 @@ use primitives::{
     Block, BlockNumber, CurrencyId, H256Le, Nonce,
 };
 pub use sc_rpc_api::DenyUnsafe;
+use sc_transaction_pool_api::TransactionPool;
 use sp_api::ProvideRuntimeApi;
 use sp_arithmetic::FixedU128;
 use sp_block_builder::BlockBuilder;
 use sp_blockchain::{Error as BlockChainError, HeaderBackend, HeaderMetadata};
 use sp_core::H256;
-use sp_transaction_pool::TransactionPool;
 use std::sync::Arc;
 
 pub use jsonrpc_core;
