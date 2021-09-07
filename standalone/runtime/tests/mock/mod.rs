@@ -277,8 +277,8 @@ impl UserData {
         let mut hash_map = BTreeMap::new();
 
         for currency_id in iter_all_currencies() {
-            let free = currency::with_currency_id::get_free_balance::<Runtime>(currency_id, &account_id);
-            let locked = currency::with_currency_id::get_reserved_balance::<Runtime>(currency_id, &account_id);
+            let free = currency::get_free_balance::<Runtime>(currency_id, &account_id);
+            let locked = currency::get_reserved_balance::<Runtime>(currency_id, &account_id);
             hash_map.insert(currency_id, Balance { free, locked });
         }
 
@@ -292,14 +292,7 @@ impl UserData {
         // Clear collateral currencies:
         for (currency_id, balance) in old.balances.iter() {
             balance.free.transfer(&account_id, &account_of(FAUCET)).unwrap();
-
-            currency::with_currency_id::slash::<Runtime>(
-                *currency_id,
-                &account_id,
-                &account_of(FAUCET),
-                balance.locked.amount(),
-            )
-            .unwrap();
+            balance.locked.burn_from(&account_id).unwrap();
         }
 
         for (_, balance) in new.balances.iter() {
@@ -308,7 +301,7 @@ impl UserData {
 
             // set locked balance:
             balance.locked.transfer(&account_of(FAUCET), &account_id).unwrap();
-            balance.locked.lock(&account_id).unwrap();
+            balance.locked.lock_on(&account_id).unwrap();
         }
 
         // sanity check:
@@ -823,7 +816,7 @@ pub fn force_issue_tokens(user: [u8; 32], vault: [u8; 32], collateral: Amount<Ru
     assert_ok!(VaultRegistryPallet::issue_tokens(&account_of(vault), &tokens));
 
     // mint tokens to the user
-    assert_ok!(tokens.mint(&user.into()));
+    assert_ok!(tokens.mint_to(&user.into()));
 }
 
 #[allow(dead_code)]

@@ -7,11 +7,11 @@ pub(crate) mod currency {
     use currency::Amount;
 
     pub fn get_free_balance<T: crate::Config>(currency_id: CurrencyId<T>, id: &T::AccountId) -> Amount<T> {
-        currency::with_currency_id::get_free_balance::<T>(currency_id, id)
+        currency::get_free_balance::<T>(currency_id, id)
     }
 
     pub fn get_reserved_balance<T: crate::Config>(currency_id: CurrencyId<T>, id: &T::AccountId) -> Amount<T> {
-        currency::with_currency_id::get_reserved_balance::<T>(currency_id, id)
+        currency::get_reserved_balance::<T>(currency_id, id)
     }
 }
 

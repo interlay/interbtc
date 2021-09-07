@@ -224,7 +224,7 @@ impl<T: Config> Pallet<T> {
         let fee = request.fee();
         ext::vault_registry::try_increase_to_be_issued_tokens::<T>(&request.vault, &fee)?;
         ext::vault_registry::issue_tokens::<T>(&request.vault, &fee)?;
-        fee.mint(&request.vault)?;
+        fee.mint_to(&request.vault)?;
 
         // mark the request as completed
         <RefundRequests<T>>::mutate(refund_id, |request| {

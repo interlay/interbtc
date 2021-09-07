@@ -284,23 +284,36 @@ mod monetary {
         }
 
         pub fn transfer(&self, source: &T::AccountId, destination: &T::AccountId) -> Result<(), DispatchError> {
-            with_currency_id::transfer::<T>(self.currency_id, source, destination, self.amount)
+            <orml_tokens::Pallet<T> as MultiCurrency<T::AccountId>>::transfer(
+                self.currency_id,
+                source,
+                destination,
+                self.amount,
+            )
         }
 
-        pub fn lock(&self, account_id: &T::AccountId) -> Result<(), DispatchError> {
-            with_currency_id::lock::<T>(self.currency_id, account_id, self.amount)
+        pub fn lock_on(&self, account_id: &T::AccountId) -> Result<(), DispatchError> {
+            <orml_tokens::Pallet<T>>::reserve(self.currency_id, account_id, self.amount)
         }
 
-        pub fn unlock(&self, account_id: &T::AccountId) -> Result<(), DispatchError> {
-            with_currency_id::unlock::<T>(self.currency_id, account_id, self.amount)
+        pub fn unlock_on(&self, account_id: &T::AccountId) -> Result<(), DispatchError> {
+            ensure!(
+                <orml_tokens::Pallet<T>>::unreserve(self.currency_id, account_id, self.amount).is_zero(),
+                orml_tokens::Error::<T>::BalanceTooLow
+            );
+            Ok(())
         }
 
-        pub fn burn(&self, account_id: &T::AccountId) -> DispatchResult {
-            with_currency_id::burn::<T>(self.currency_id, account_id, self.amount)
+        pub fn burn_from(&self, account_id: &T::AccountId) -> DispatchResult {
+            ensure!(
+                <orml_tokens::Pallet<T>>::slash_reserved(self.currency_id, account_id, self.amount).is_zero(),
+                orml_tokens::Error::<T>::BalanceTooLow
+            );
+            Ok(())
         }
 
-        pub fn mint(&self, account_id: &T::AccountId) -> DispatchResult {
-            with_currency_id::mint::<T>(self.currency_id, account_id, self.amount)
+        pub fn mint_to(&self, account_id: &T::AccountId) -> DispatchResult {
+            <orml_tokens::Pallet<T>>::deposit(self.currency_id, account_id, self.amount)
         }
 
         // lock, unlock, etc
@@ -423,126 +436,14 @@ mod monetary {
     }
 }
 
-pub mod with_currency_id {
-    use super::*;
+pub fn get_free_balance<T: Config>(currency_id: T::CurrencyId, account: &T::AccountId) -> Amount<T> {
+    let amount = <orml_tokens::Pallet<T>>::free_balance(currency_id, account);
+    Amount::new(amount, currency_id)
+}
 
-    pub fn get_free_balance<T: Config>(currency_id: T::CurrencyId, account: &T::AccountId) -> Amount<T> {
-        let amount = <orml_tokens::Pallet<T>>::free_balance(currency_id, account);
-        Amount::new(amount, currency_id)
-    }
-
-    pub fn get_reserved_balance<T: Config>(currency_id: T::CurrencyId, account: &T::AccountId) -> Amount<T> {
-        let amount = <orml_tokens::Pallet<T>>::reserved_balance(currency_id, account);
-        Amount::new(amount, currency_id)
-    }
-
-    pub fn lock<T: orml_tokens::Config>(
-        currency_id: T::CurrencyId,
-        account: &T::AccountId,
-        amount: T::Balance,
-    ) -> DispatchResult {
-        <orml_tokens::Pallet<T>>::reserve(currency_id, account, amount)
-    }
-
-    pub fn unlock<T: orml_tokens::Config>(
-        currency_id: T::CurrencyId,
-        account: &T::AccountId,
-        amount: T::Balance,
-    ) -> DispatchResult {
-        ensure!(
-            <orml_tokens::Pallet<T>>::unreserve(currency_id, account, amount).is_zero(),
-            orml_tokens::Error::<T>::BalanceTooLow
-        );
-        Ok(())
-    }
-
-    pub fn slash<T: orml_tokens::Config>(
-        currency_id: T::CurrencyId,
-        from: &T::AccountId,
-        to: &T::AccountId,
-        amount: T::Balance,
-    ) -> DispatchResult {
-        ensure!(
-            <orml_tokens::Pallet<T>>::reserved_balance(currency_id, from) >= amount,
-            orml_tokens::Error::<T>::BalanceTooLow
-        );
-        slash_saturated::<T>(currency_id, from, to, amount)?;
-        Ok(())
-    }
-
-    pub fn slash_saturated<T: orml_tokens::Config>(
-        currency_id: T::CurrencyId,
-        from: &T::AccountId,
-        to: &T::AccountId,
-        amount: T::Balance,
-    ) -> Result<T::Balance, DispatchError> {
-        // slash the sender's currency
-        let remainder = <orml_tokens::Pallet<T>>::slash_reserved(currency_id, &from, amount);
-
-        // subtraction should not be able to fail since remainder <= amount
-        let slashed_amount = amount - remainder;
-
-        // add slashed amount to receiver and create account if it does not exist
-        <orml_tokens::Pallet<T>>::deposit(currency_id, &to, slashed_amount)?;
-
-        // reserve the created amount for the receiver. This should not be able to fail, since the
-        // call above will have created enough free balance to lock.
-        <orml_tokens::Pallet<T>>::reserve(currency_id, &to, slashed_amount)?;
-
-        Ok(slashed_amount)
-    }
-
-    pub fn transfer<T: orml_tokens::Config>(
-        currency_id: T::CurrencyId,
-        from: &T::AccountId,
-        to: &T::AccountId,
-        amount: T::Balance,
-    ) -> DispatchResult {
-        <orml_tokens::Pallet<T> as MultiCurrency<T::AccountId>>::transfer(currency_id, from, to, amount)
-    }
-
-    pub fn transfer_and_lock<T: orml_tokens::Config>(
-        currency_id: T::CurrencyId,
-        from: &T::AccountId,
-        to: &T::AccountId,
-        amount: T::Balance,
-    ) -> DispatchResult {
-        <orml_tokens::Pallet<T> as MultiCurrency<T::AccountId>>::transfer(currency_id, from, to, amount)?;
-        <orml_tokens::Pallet<T>>::reserve(currency_id, to, amount)
-    }
-
-    pub fn unlock_and_transfer<T: orml_tokens::Config>(
-        currency_id: T::CurrencyId,
-        from: &T::AccountId,
-        to: &T::AccountId,
-        amount: T::Balance,
-    ) -> DispatchResult {
-        ensure!(
-            <orml_tokens::Pallet<T>>::unreserve(currency_id, from, amount).is_zero(),
-            orml_tokens::Error::<T>::BalanceTooLow
-        );
-        <orml_tokens::Pallet<T> as MultiCurrency<T::AccountId>>::transfer(currency_id, from, to, amount)
-    }
-
-    pub fn mint<T: orml_tokens::Config>(
-        currency_id: T::CurrencyId,
-        account: &T::AccountId,
-        amount: T::Balance,
-    ) -> DispatchResult {
-        <orml_tokens::Pallet<T>>::deposit(currency_id, account, amount)
-    }
-
-    pub fn burn<T: orml_tokens::Config>(
-        currency_id: T::CurrencyId,
-        account: &T::AccountId,
-        amount: T::Balance,
-    ) -> DispatchResult {
-        ensure!(
-            <orml_tokens::Pallet<T>>::slash_reserved(currency_id, account, amount).is_zero(),
-            orml_tokens::Error::<T>::BalanceTooLow
-        );
-        Ok(())
-    }
+pub fn get_reserved_balance<T: Config>(currency_id: T::CurrencyId, account: &T::AccountId) -> Amount<T> {
+    let amount = <orml_tokens::Pallet<T>>::reserved_balance(currency_id, account);
+    Amount::new(amount, currency_id)
 }
 
 pub trait ParachainCurrency<AccountId> {

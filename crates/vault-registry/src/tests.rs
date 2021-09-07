@@ -554,7 +554,7 @@ fn replace_tokens_liquidation_succeeds() {
         let old_id = create_sample_vault();
         let new_id = create_vault(OTHER_ID);
 
-        currency::Amount::<Test>::lock.mock_safe(move |amount, sender| {
+        currency::Amount::<Test>::lock_on.mock_safe(move |amount, sender| {
             assert_eq!(sender, &new_id);
             assert_eq!(amount.amount(), 20);
             MockResult::Return(Ok(()))
@@ -587,7 +587,7 @@ fn cancel_replace_tokens_succeeds() {
         let old_id = create_sample_vault();
         let new_id = create_vault(OTHER_ID);
 
-        currency::Amount::<Test>::lock.mock_safe(move |amount, sender| {
+        currency::Amount::<Test>::lock_on.mock_safe(move |amount, sender| {
             assert_eq!(sender, &new_id);
             assert_eq!(amount.amount(), 20);
             MockResult::Return(Ok(()))

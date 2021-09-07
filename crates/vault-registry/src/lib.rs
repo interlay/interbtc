@@ -695,7 +695,7 @@ impl<T: Config> Pallet<T> {
         // will fail if collateral ceiling exceeded
         Self::try_increase_total_backing_collateral(amount)?;
         // will fail if free_balance is insufficient
-        amount.lock(vault_id)?;
+        amount.lock_on(vault_id)?;
 
         // Deposit `amount` of stake in the pool
         ext::staking::deposit_stake::<T>(T::GetWrappedCurrencyId::get(), vault_id, vault_id, amount)?;
@@ -712,7 +712,7 @@ impl<T: Config> Pallet<T> {
         let _currency_id = Self::get_collateral_currency(vault_id)?;
 
         // will fail if reserved_balance is insufficient
-        amount.unlock(vault_id)?;
+        amount.unlock_on(vault_id)?;
         Self::decrease_total_backing_collateral(amount)?;
 
         // Withdraw `amount` of stake from the pool
@@ -786,7 +786,7 @@ impl<T: Config> Pallet<T> {
     }
 
     fn slash_backing_collateral(vault_id: &T::AccountId, amount: &Amount<T>) -> DispatchResult {
-        amount.unlock(vault_id)?;
+        amount.unlock_on(vault_id)?;
         Self::decrease_total_backing_collateral(amount)?;
         ext::staking::slash_stake::<T>(T::GetWrappedCurrencyId::get(), vault_id, amount)?;
         Ok(())
@@ -802,11 +802,11 @@ impl<T: Config> Pallet<T> {
                 Self::slash_backing_collateral(account, amount)?;
             }
             CurrencySource::Griefing(_) => {
-                amount.unlock(&from.account_id())?;
+                amount.unlock_on(&from.account_id())?;
             }
             CurrencySource::LiquidatedCollateral(_) | CurrencySource::LiquidationVault => {
                 Self::decrease_total_backing_collateral(amount)?;
-                amount.unlock(&from.account_id())?;
+                amount.unlock_on(&from.account_id())?;
             }
             CurrencySource::FreeBalance(_) => {
                 // do nothing
@@ -827,11 +827,11 @@ impl<T: Config> Pallet<T> {
                 Self::try_deposit_collateral(account, amount)?;
             }
             CurrencySource::Griefing(_) => {
-                amount.lock(&to.account_id())?;
+                amount.lock_on(&to.account_id())?;
             }
             CurrencySource::LiquidationVault | CurrencySource::LiquidatedCollateral(_) => {
                 Self::try_increase_total_backing_collateral(amount)?;
-                amount.lock(&to.account_id())?;
+                amount.lock_on(&to.account_id())?;
             }
             CurrencySource::FreeBalance(_) => {
                 // do nothing
@@ -1087,7 +1087,7 @@ impl<T: Config> Pallet<T> {
             vault.decrease_liquidated_collateral(&to_be_released)?;
 
             // release the collateral back to the free balance of the vault
-            to_be_released.unlock(vault_id)?;
+            to_be_released.unlock_on(vault_id)?;
 
             Self::deposit_event(Event::<T>::RedeemTokensLiquidatedVault(
                 vault_id.clone(),

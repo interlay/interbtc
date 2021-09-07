@@ -340,7 +340,7 @@ impl<T: Config> Pallet<T> {
         // Lock the oldVault’s griefing collateral. Note that this directly locks the amount
         // without going through the vault registry, so that this amount can not be used to
         // back issued tokens
-        replace_collateral_increase.lock(&vault_id)?;
+        replace_collateral_increase.lock_on(&vault_id)?;
 
         // Emit RequestReplace event
         Self::deposit_event(<Event<T>>::RequestReplace(
@@ -358,7 +358,7 @@ impl<T: Config> Pallet<T> {
             ext::vault_registry::decrease_to_be_replaced_tokens::<T>(&vault_id, &amount)?;
 
         // release the used collateral
-        to_withdraw_collateral.unlock(&vault_id)?;
+        to_withdraw_collateral.unlock_on(&vault_id)?;
 
         if withdrawn_tokens.is_zero() {
             return Err(Error::<T>::NoPendingRequest.into());
@@ -474,7 +474,7 @@ impl<T: Config> Pallet<T> {
         ext::vault_registry::replace_tokens::<T>(old_vault_id.clone(), new_vault_id.clone(), &amount, &collateral)?;
 
         // if the old vault has not been liquidated, give it back its griefing collateral
-        griefing_collateral.unlock(&old_vault_id)?;
+        griefing_collateral.unlock_on(&old_vault_id)?;
 
         // Emit ExecuteReplace event.
         Self::deposit_event(<Event<T>>::ExecuteReplace(replace_id, old_vault_id, new_vault_id));
