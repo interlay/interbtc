@@ -514,6 +514,8 @@ fn mainnet_genesis(
         vault_registry: VaultRegistryConfig {
             minimum_collateral_vault: vec![(CurrencyId::KSM, 0)],
             punishment_delay: DAYS,
+            system_collateral_ceiling: vec![(CurrencyId::KSM, 5533_000_000_000_000)], /* 5533 ksm, about 2 mm USD at
+                                                                                       * time of writing */
             secure_collateral_threshold: vec![(CurrencyId::KSM, FixedU128::checked_from_rational(300, 100).unwrap())], /* 300% */
             premium_redeem_threshold: vec![(CurrencyId::KSM, FixedU128::checked_from_rational(175, 100).unwrap())], /* 175% */
             liquidation_collateral_threshold: vec![(
