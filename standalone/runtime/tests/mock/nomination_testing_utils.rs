@@ -1,6 +1,6 @@
 use currency::Amount;
 
-use crate::*;
+use crate::{assert_eq, *};
 
 pub const USER: [u8; 32] = ALICE;
 pub const VAULT: [u8; 32] = BOB;

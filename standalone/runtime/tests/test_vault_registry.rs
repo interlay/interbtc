@@ -1,7 +1,7 @@
 mod mock;
 
 use currency::Amount;
-use mock::*;
+use mock::{assert_eq, *};
 
 pub const USER: [u8; 32] = ALICE;
 pub const VAULT: [u8; 32] = BOB;
@@ -21,7 +21,7 @@ fn test_with<R>(execute: impl Fn(CurrencyId) -> R) {
 }
 
 mod deposit_collateral_test {
-    use super::*;
+    use super::{assert_eq, *};
 
     #[test]
     fn integration_test_vault_registry_deposit_collateral_below_capacity_succeeds() {
@@ -78,7 +78,7 @@ mod deposit_collateral_test {
 }
 mod withdraw_collateral_test {
 
-    use super::*;
+    use super::{assert_eq, *};
 
     fn required_collateral() -> Amount<Runtime> {
         VaultRegistryPallet::get_required_collateral_for_vault(account_of(VAULT)).unwrap()

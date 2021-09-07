@@ -112,16 +112,3 @@ impl_benchmark_test_suite!(
     crate::mock::ExtBuilder::build_with(Default::default()),
     crate::mock::Test
 );
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::mock::{ExtBuilder, Test};
-    use frame_support::assert_ok;
-
-    #[test]
-    fn test_benchmarks() {
-        ExtBuilder::build().execute_with(|| {
-            assert_ok!(test_benchmark_adjust_secure_collateral_threshold::<Test>());
-        });
-    }
-}

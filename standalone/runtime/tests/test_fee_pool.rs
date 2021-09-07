@@ -1,6 +1,7 @@
 mod mock;
 use currency::Amount;
 use mock::{
+    assert_eq,
     issue_testing_utils::{ExecuteIssueBuilder, RequestIssueBuilder},
     nomination_testing_utils::*,
     reward_testing_utils::BasicRewardPool,

@@ -2,7 +2,7 @@ mod mock;
 
 use currency::Amount;
 use frame_support::assert_err;
-use mock::{issue_testing_utils::*, *};
+use mock::{assert_eq, issue_testing_utils::*, *};
 
 fn test_with<R>(execute: impl Fn(CurrencyId) -> R) {
     let test_with = |currency_id| {
@@ -34,7 +34,7 @@ macro_rules! signed_fixed_point {
 }
 
 mod expiry_test {
-    use super::*;
+    use super::{assert_eq, *};
 
     fn set_issue_period(period: u32) {
         assert_ok!(Call::Issue(IssueCall::set_issue_period(period)).dispatch(root()));
@@ -149,7 +149,7 @@ fn integration_test_issue_with_parachain_shutdown_fails() {
 }
 
 mod request_issue_tests {
-    use super::*;
+    use super::{assert_eq, *};
 
     /// Request fails if parachain is shutdown
     #[test]
@@ -555,7 +555,7 @@ fn integration_test_issue_refund() {
 }
 
 mod execute_refund_payment_limits {
-    use super::*;
+    use super::{assert_eq, *};
 
     fn setup_refund(currency_id: CurrencyId) -> (H256, Amount<Runtime>) {
         let requested_btc = wrapped(1000);
@@ -614,7 +614,7 @@ mod execute_refund_payment_limits {
 }
 
 mod execute_issue_tests {
-    use super::*;
+    use super::{assert_eq, *};
     /// Execute fails if parachain is shut down
     #[test]
     fn integration_test_issue_execute_precond_not_shutdown() {
@@ -953,7 +953,7 @@ mod execute_issue_tests {
 }
 
 mod cancel_issue_tests {
-    use super::*;
+    use super::{assert_eq, *};
 
     /// Cancel fails when parachain is shutdown
     #[test]

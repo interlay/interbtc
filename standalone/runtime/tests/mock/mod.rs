@@ -45,6 +45,8 @@ pub mod nomination_testing_utils;
 pub mod redeem_testing_utils;
 pub mod reward_testing_utils;
 
+pub use pretty_assertions::assert_eq;
+
 pub const ALICE: [u8; 32] = [0u8; 32];
 pub const BOB: [u8; 32] = [1u8; 32];
 pub const CAROL: [u8; 32] = [2u8; 32];
@@ -1146,7 +1148,9 @@ impl ExtBuilder {
             .dispatch(origin_of(account_of(ALICE))));
             OraclePallet::begin_block(0);
 
-            execute()
+            let ret = execute();
+            VaultRegistryPallet::total_user_vault_collateral_integrity_check();
+            ret
         })
     }
 
@@ -1162,7 +1166,9 @@ impl ExtBuilder {
             ));
             set_default_thresholds();
 
-            execute()
+            let ret = execute();
+            VaultRegistryPallet::total_user_vault_collateral_integrity_check();
+            ret
         })
     }
 }

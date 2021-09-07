@@ -1,7 +1,7 @@
 mod mock;
 
 use currency::Amount;
-use mock::{nomination_testing_utils::*, *};
+use mock::{assert_eq, nomination_testing_utils::*, *};
 use sp_runtime::traits::{CheckedDiv, CheckedSub};
 
 fn test_with<R>(execute: impl Fn(CurrencyId) -> R) {
@@ -38,7 +38,7 @@ fn default_nomination(currency_id: CurrencyId) -> Amount<Runtime> {
 }
 
 mod spec_based_tests {
-    use super::*;
+    use super::{assert_eq, *};
     use sp_runtime::DispatchError;
 
     #[test]

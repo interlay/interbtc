@@ -1787,6 +1787,27 @@ impl<T: Config> Pallet<T> {
         let btc_address = vault.new_deposit_address(secure_id)?;
         Ok(btc_address)
     }
+
+    #[cfg(feature = "integration-tests")]
+    pub fn total_user_vault_collateral_integrity_check() {
+        for (currency_id, amount) in TotalUserVaultCollateral::<T>::iter() {
+            let total_in_vaults = Vaults::<T>::iter()
+                .filter_map(|(vault_id, vault)| {
+                    if vault.currency_id != currency_id {
+                        None
+                    } else {
+                        Some(Self::get_backing_collateral(&vault_id).unwrap().amount() + vault.liquidated_collateral)
+                    }
+                })
+                .fold(0u32.into(), |acc: BalanceOf<T>, elem| acc + elem);
+            let total = total_in_vaults
+                + CurrencySource::<T>::LiquidationVault
+                    .current_balance(currency_id)
+                    .unwrap()
+                    .amount();
+            assert_eq!(total, amount);
+        }
+    }
 }
 
 trait CheckedMulIntRoundedUp {
