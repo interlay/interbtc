@@ -1654,6 +1654,7 @@ impl<T: Config> Pallet<T> {
         Ok(Amount::new(ceiling_amount, currency_id))
     }
 
+    #[cfg_attr(feature = "integration-tests", visibility::make(pub))]
     fn get_total_user_vault_collateral(currency_id: CurrencyId<T>) -> Result<Amount<T>, DispatchError> {
         Ok(Amount::new(
             TotalUserVaultCollateral::<T>::get(currency_id),

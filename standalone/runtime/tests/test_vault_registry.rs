@@ -75,6 +75,28 @@ mod deposit_collateral_test {
             );
         });
     }
+
+    #[test]
+    fn integration_test_vault_registry_lock_additional_respects_fund_limit() {
+        test_with(|currency_id| {
+            let mut vault_data = CoreVaultData::vault(VAULT);
+            *vault_data.free_balance.get_mut(&currency_id).unwrap() = Amount::new(FUND_LIMIT_CEILING, currency_id);
+
+            CoreVaultData::force_to(VAULT, vault_data);
+
+            let current = VaultRegistryPallet::get_total_user_vault_collateral(currency_id).unwrap();
+            let remaining = FUND_LIMIT_CEILING - current.amount();
+
+            assert_noop!(
+                Call::VaultRegistry(VaultRegistryCall::deposit_collateral(remaining + 1))
+                    .dispatch(origin_of(account_of(VAULT))),
+                VaultRegistryError::CollateralCurrencyCeilingExceeded
+            );
+
+            assert_ok!(Call::VaultRegistry(VaultRegistryCall::deposit_collateral(remaining))
+                .dispatch(origin_of(account_of(VAULT))));
+        });
+    }
 }
 mod withdraw_collateral_test {
 
@@ -200,5 +222,38 @@ fn integration_test_vault_registry_undercollateralization_liquidation() {
                     default_vault_backing_collateral(currency_id) - liquidation_vault.collateral;
             })
         );
+    });
+}
+
+#[test]
+fn integration_test_vault_registry_register_respects_fund_limit() {
+    test_with(|currency_id| {
+        let mut vault_data = CoreVaultData::vault(VAULT);
+        *vault_data.free_balance.get_mut(&currency_id).unwrap() = Amount::new(FUND_LIMIT_CEILING, currency_id);
+
+        let mut user_data = default_user_state();
+        (*user_data.balances.get_mut(&currency_id).unwrap()).free = Amount::new(FUND_LIMIT_CEILING + 1, currency_id);
+
+        UserData::force_to(USER, user_data);
+
+        let current = VaultRegistryPallet::get_total_user_vault_collateral(currency_id).unwrap();
+        let remaining = FUND_LIMIT_CEILING - current.amount();
+
+        assert_noop!(
+            Call::VaultRegistry(VaultRegistryCall::register_vault(
+                remaining + 1,
+                Default::default(),
+                currency_id
+            ))
+            .dispatch(origin_of(account_of(USER))),
+            VaultRegistryError::CollateralCurrencyCeilingExceeded
+        );
+
+        assert_ok!(Call::VaultRegistry(VaultRegistryCall::register_vault(
+            remaining,
+            Default::default(),
+            currency_id
+        ))
+        .dispatch(origin_of(account_of(USER))),);
     });
 }

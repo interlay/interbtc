@@ -58,6 +58,8 @@ pub const GRACE: [u8; 32] = [13u8; 32];
 pub const FAUCET: [u8; 32] = [128u8; 32];
 pub const DUMMY: [u8; 32] = [255u8; 32];
 
+pub const FUND_LIMIT_CEILING: u128 = 1_000_000_000_000_000_000;
+
 pub const INITIAL_BALANCE: u128 = 1_000_000_000_000;
 
 pub const DEFAULT_USER_FREE_TOKENS: Amount<Runtime> = wrapped(10_000_000);
@@ -443,7 +445,7 @@ impl CoreVaultData {
         VaultRegistryPallet::transfer_funds(
             CurrencySource::FreeBalance(account_of(FAUCET)),
             CurrencySource::Collateral(account_of(vault)),
-            &currency::with_currency_id::get_free_balance::<Runtime>(currency_id, &account_of(FAUCET)),
+            &Amount::new(FUND_LIMIT_CEILING / 10, currency_id),
         )
         .unwrap();
 
@@ -1074,8 +1076,8 @@ impl ExtBuilder {
             minimum_collateral_vault: vec![(CurrencyId::DOT, 0), (CurrencyId::KSM, 0)],
             punishment_delay: 8,
             system_collateral_ceiling: vec![
-                (CurrencyId::DOT, 1_000_000_000_000_000_000_000),
-                (CurrencyId::KSM, 1_000_000_000_000_000_000_000),
+                (CurrencyId::DOT, FUND_LIMIT_CEILING),
+                (CurrencyId::KSM, FUND_LIMIT_CEILING),
             ],
             secure_collateral_threshold: vec![
                 (CurrencyId::DOT, FixedU128::checked_from_rational(150, 100).unwrap()),
