@@ -1086,8 +1086,8 @@ impl<T: Config> Pallet<T> {
             Self::decrease_total_backing_collateral(&to_be_released)?;
             vault.decrease_liquidated_collateral(&to_be_released)?;
 
-            // deposit vault's collateral (this was withdrawn on liquidation)
-            ext::staking::deposit_stake::<T>(T::GetWrappedCurrencyId::get(), vault_id, vault_id, &to_be_released)?;
+            // release the collateral back to the free balance of the vault
+            to_be_released.unlock(vault_id)?;
 
             Self::deposit_event(Event::<T>::RedeemTokensLiquidatedVault(
                 vault_id.clone(),
