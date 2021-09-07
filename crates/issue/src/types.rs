@@ -24,6 +24,9 @@ pub(crate) type Collateral<T> = BalanceOf<T>;
 
 pub(crate) type Wrapped<T> = BalanceOf<T>;
 
+pub type DefaultIssueRequest<T> =
+    IssueRequest<<T as frame_system::Config>::AccountId, <T as frame_system::Config>::BlockNumber, BalanceOf<T>>;
+
 pub trait IssueRequestExt<T: Config> {
     fn amount(&self) -> Amount<T>;
     fn fee(&self) -> Amount<T>;

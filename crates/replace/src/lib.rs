@@ -29,9 +29,9 @@ use sp_core::H256;
 use sp_std::vec::Vec;
 
 #[doc(inline)]
-pub use crate::types::{ReplaceRequest, ReplaceRequestStatus};
+pub use crate::types::{DefaultReplaceRequest, ReplaceRequest, ReplaceRequestStatus};
 
-use crate::types::{BalanceOf, Collateral, Version, Wrapped};
+use crate::types::{Collateral, Version, Wrapped};
 use currency::Amount;
 use vault_registry::CurrencySource;
 
@@ -112,7 +112,7 @@ pub mod pallet {
     /// This mapping provides access from a unique hash to a `ReplaceRequest`.
     #[pallet::storage]
     pub(super) type ReplaceRequests<T: Config> =
-        StorageMap<_, Blake2_128Concat, H256, ReplaceRequest<T::AccountId, T::BlockNumber, BalanceOf<T>>, ValueQuery>;
+        StorageMap<_, Blake2_128Concat, H256, DefaultReplaceRequest<T>, ValueQuery>;
 
     /// The time difference in number of blocks between when a replace request is created
     /// and required completion time by a vault. The replace period has an upper limit
@@ -544,9 +544,7 @@ impl<T: Config> Pallet<T> {
     /// # Arguments
     ///
     /// * `account_id` - user account id
-    pub fn get_replace_requests_for_old_vault(
-        account_id: T::AccountId,
-    ) -> Vec<(H256, ReplaceRequest<T::AccountId, T::BlockNumber, BalanceOf<T>>)> {
+    pub fn get_replace_requests_for_old_vault(account_id: T::AccountId) -> Vec<(H256, DefaultReplaceRequest<T>)> {
         <ReplaceRequests<T>>::iter()
             .filter(|(_, request)| request.old_vault == account_id)
             .collect::<Vec<_>>()
@@ -557,18 +555,14 @@ impl<T: Config> Pallet<T> {
     /// # Arguments
     ///
     /// * `account_id` - user account id
-    pub fn get_replace_requests_for_new_vault(
-        account_id: T::AccountId,
-    ) -> Vec<(H256, ReplaceRequest<T::AccountId, T::BlockNumber, BalanceOf<T>>)> {
+    pub fn get_replace_requests_for_new_vault(account_id: T::AccountId) -> Vec<(H256, DefaultReplaceRequest<T>)> {
         <ReplaceRequests<T>>::iter()
             .filter(|(_, request)| request.new_vault == account_id)
             .collect::<Vec<_>>()
     }
 
     /// Get a replace request by id. Completed or cancelled requests are not returned.
-    pub fn get_open_replace_request(
-        replace_id: &H256,
-    ) -> Result<ReplaceRequest<T::AccountId, T::BlockNumber, BalanceOf<T>>, DispatchError> {
+    pub fn get_open_replace_request(replace_id: &H256) -> Result<DefaultReplaceRequest<T>, DispatchError> {
         let request = ReplaceRequests::<T>::try_get(replace_id).or(Err(Error::<T>::ReplaceIdNotFound))?;
 
         // NOTE: temporary workaround until we delete
@@ -580,9 +574,7 @@ impl<T: Config> Pallet<T> {
     }
 
     /// Get a open or completed replace request by id. Cancelled requests are not returned.
-    pub fn get_open_or_completed_replace_request(
-        id: &H256,
-    ) -> Result<ReplaceRequest<T::AccountId, T::BlockNumber, BalanceOf<T>>, DispatchError> {
+    pub fn get_open_or_completed_replace_request(id: &H256) -> Result<DefaultReplaceRequest<T>, DispatchError> {
         if !<ReplaceRequests<T>>::contains_key(id) {
             return Err(Error::<T>::ReplaceIdNotFound.into());
         }
@@ -593,7 +585,7 @@ impl<T: Config> Pallet<T> {
         }
     }
 
-    fn insert_replace_request(key: &H256, value: &ReplaceRequest<T::AccountId, T::BlockNumber, BalanceOf<T>>) {
+    fn insert_replace_request(key: &H256, value: &DefaultReplaceRequest<T>) {
         <ReplaceRequests<T>>::insert(key, value)
     }
 

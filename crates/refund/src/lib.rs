@@ -23,13 +23,15 @@ pub use default_weights::WeightInfo;
 mod ext;
 pub mod types;
 
+#[doc(inline)]
+pub use crate::types::{DefaultRefundRequest, RefundRequest};
+use types::{BalanceOf, RefundRequestExt, Wrapped};
+
 use btc_relay::BtcAddress;
 use frame_support::{dispatch::DispatchError, ensure, traits::Get, transactional};
 use frame_system::ensure_signed;
 use sp_core::H256;
 use sp_std::vec::Vec;
-pub use types::RefundRequest;
-use types::{BalanceOf, RefundRequestExt, Wrapped};
 
 pub use pallet::*;
 
@@ -90,7 +92,7 @@ pub mod pallet {
     #[pallet::storage]
     #[pallet::getter(fn refund_requests)]
     pub(super) type RefundRequests<T: Config> =
-        StorageMap<_, Blake2_128Concat, H256, RefundRequest<T::AccountId, Wrapped<T>>, ValueQuery>;
+        StorageMap<_, Blake2_128Concat, H256, DefaultRefundRequest<T>, ValueQuery>;
 
     #[pallet::genesis_config]
     pub struct GenesisConfig<T: Config> {
@@ -246,9 +248,7 @@ impl<T: Config> Pallet<T> {
     /// # Arguments
     ///
     /// * `refund_id` - 256-bit identifier of the refund request
-    pub fn get_open_refund_request_from_id(
-        refund_id: &H256,
-    ) -> Result<RefundRequest<T::AccountId, Wrapped<T>>, DispatchError> {
+    pub fn get_open_refund_request_from_id(refund_id: &H256) -> Result<DefaultRefundRequest<T>, DispatchError> {
         ensure!(
             <RefundRequests<T>>::contains_key(*refund_id),
             Error::<T>::RefundIdNotFound
@@ -268,7 +268,7 @@ impl<T: Config> Pallet<T> {
     /// * `refund_id` - 256-bit identifier of the refund request
     pub fn get_open_or_completed_refund_request_from_id(
         refund_id: &H256,
-    ) -> Result<RefundRequest<T::AccountId, Wrapped<T>>, DispatchError> {
+    ) -> Result<DefaultRefundRequest<T>, DispatchError> {
         ensure!(
             <RefundRequests<T>>::contains_key(*refund_id),
             Error::<T>::RefundIdNotFound
@@ -281,9 +281,7 @@ impl<T: Config> Pallet<T> {
     /// # Arguments
     ///
     /// * `account_id` - user account id
-    pub fn get_refund_requests_for_account(
-        account_id: T::AccountId,
-    ) -> Vec<(H256, RefundRequest<T::AccountId, Wrapped<T>>)> {
+    pub fn get_refund_requests_for_account(account_id: T::AccountId) -> Vec<(H256, DefaultRefundRequest<T>)> {
         <RefundRequests<T>>::iter()
             .filter(|(_, request)| request.issuer == account_id)
             .collect::<Vec<_>>()
@@ -295,7 +293,7 @@ impl<T: Config> Pallet<T> {
     /// # Arguments
     ///
     /// * `issue_id` - The ID of an issue request
-    pub fn get_refund_requests_by_issue_id(issue_id: H256) -> Option<(H256, RefundRequest<T::AccountId, Wrapped<T>>)> {
+    pub fn get_refund_requests_by_issue_id(issue_id: H256) -> Option<(H256, DefaultRefundRequest<T>)> {
         <RefundRequests<T>>::iter().find(|(_, request)| request.issue_id == issue_id)
     }
 
@@ -304,9 +302,7 @@ impl<T: Config> Pallet<T> {
     /// # Arguments
     ///
     /// * `account_id` - vault account id
-    pub fn get_refund_requests_for_vault(
-        account_id: T::AccountId,
-    ) -> Vec<(H256, RefundRequest<T::AccountId, Wrapped<T>>)> {
+    pub fn get_refund_requests_for_vault(account_id: T::AccountId) -> Vec<(H256, DefaultRefundRequest<T>)> {
         <RefundRequests<T>>::iter()
             .filter(|(_, request)| request.vault == account_id)
             .collect::<Vec<_>>()

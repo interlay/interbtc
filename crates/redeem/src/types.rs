@@ -25,12 +25,16 @@ pub(crate) type Collateral<T> = BalanceOf<T>;
 
 pub(crate) type Wrapped<T> = BalanceOf<T>;
 
+pub type DefaultRedeemRequest<T> =
+    RedeemRequest<<T as frame_system::Config>::AccountId, <T as frame_system::Config>::BlockNumber, BalanceOf<T>>;
+
 pub trait RedeemRequestExt<T: Config> {
     fn amount_btc(&self) -> Amount<T>;
     fn fee(&self) -> Amount<T>;
     fn premium(&self) -> Result<Amount<T>, DispatchError>;
     fn transfer_fee_btc(&self) -> Amount<T>;
 }
+
 impl<T: Config> RedeemRequestExt<T> for RedeemRequest<T::AccountId, T::BlockNumber, BalanceOf<T>> {
     fn amount_btc(&self) -> Amount<T> {
         Amount::new(self.amount_btc, T::GetWrappedCurrencyId::get())
