@@ -98,7 +98,7 @@ pub(crate) mod staking {
     pub fn force_refund<T: crate::Config>(
         currency_id: CurrencyId<T>,
         vault_id: &T::AccountId,
-    ) -> Result<(), DispatchError> {
+    ) -> Result<SignedInner<T>, DispatchError> {
         <staking::Pallet<T>>::force_refund(currency_id, vault_id)
     }
 }
