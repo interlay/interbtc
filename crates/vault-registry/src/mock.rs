@@ -176,7 +176,6 @@ impl fee::Config for Test {
     type UnsignedInner = Balance;
     type VaultRewards = reward::RewardsCurrencyAdapter<Test, (), GetWrappedCurrencyId>;
     type VaultStaking = staking::StakingCurrencyAdapter<Test, GetWrappedCurrencyId>;
-    type Wrapped = CurrencyAdapter<Test, GetWrappedCurrencyId>;
     type OnSweep = ();
 }
 
@@ -190,7 +189,6 @@ impl Config for Test {
     type RandomnessSource = pallet_randomness_collective_flip::Pallet<Test>;
     type Balance = Balance;
     type WeightInfo = ();
-    type Wrapped = CurrencyAdapter<Test, GetWrappedCurrencyId>;
     type GetGriefingCollateralCurrencyId = GetCollateralCurrencyId;
 }
 

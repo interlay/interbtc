@@ -37,7 +37,6 @@ pub use crate::types::{BtcPublicKey, CurrencySource, DefaultVault, SystemVault, 
 use bitcoin::types::Value;
 use codec::FullCodec;
 pub use currency::Amount;
-use currency::ParachainCurrency;
 use frame_support::{
     dispatch::{DispatchError, DispatchResult},
     ensure,
@@ -122,9 +121,6 @@ pub mod pallet {
 
         /// Weight information for the extrinsics in this module.
         type WeightInfo: WeightInfo;
-
-        /// Wrapped currency, e.g. interBTC.
-        type Wrapped: ParachainCurrency<Self::AccountId, Balance = BalanceOf<Self>>;
 
         /// Currency used for griefing collateral, e.g. DOT.
         #[pallet::constant]

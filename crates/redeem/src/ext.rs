@@ -171,12 +171,11 @@ pub(crate) mod vault_registry {
 
 #[cfg_attr(test, mockable)]
 pub(crate) mod treasury {
-    use currency::{Amount, ParachainCurrency};
+    use currency::Amount;
     use frame_support::traits::Get;
 
     pub fn get_balance<T: crate::Config>(account: &T::AccountId) -> Amount<T> {
-        let amount = <T as vault_registry::Config>::Wrapped::get_free_balance(account);
-        Amount::new(amount, T::GetWrappedCurrencyId::get())
+        currency::get_free_balance::<T>(T::GetWrappedCurrencyId::get(), account)
     }
 }
 

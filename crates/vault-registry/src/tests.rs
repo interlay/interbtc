@@ -5,7 +5,7 @@ use crate::{
     BtcPublicKey, CurrencySource, DispatchError, Error, UpdatableVault, Vault, VaultStatus, Wallet, H256,
 };
 use codec::Decode;
-use currency::{Amount, ParachainCurrency};
+use currency::Amount;
 use frame_support::{assert_err, assert_noop, assert_ok, traits::OnInitialize};
 use mocktopus::mocking::*;
 use orml_tokens::CurrencyAdapter;

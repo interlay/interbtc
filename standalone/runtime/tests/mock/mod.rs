@@ -9,7 +9,6 @@ pub use bitcoin::{
 };
 pub use btc_relay::{BtcAddress, BtcPublicKey};
 use currency::Amount;
-pub use currency::ParachainCurrency;
 use frame_support::traits::GenesisBuild;
 pub use frame_support::{assert_err, assert_noop, assert_ok, dispatch::DispatchResultWithPostInfo};
 pub use interbtc_runtime_standalone::{

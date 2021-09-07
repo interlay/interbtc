@@ -6,6 +6,8 @@ pub(crate) type Collateral<T> = UnsignedInner<T>;
 
 pub(crate) type Wrapped<T> = UnsignedInner<T>;
 
+pub(crate) type BalanceOf<T> = <T as currency::Config>::Balance;
+
 pub(crate) type SignedFixedPoint<T> = <T as Config>::SignedFixedPoint;
 
 pub(crate) type UnsignedFixedPoint<T> = <T as Config>::UnsignedFixedPoint;

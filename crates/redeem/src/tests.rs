@@ -3,7 +3,7 @@ use crate::{ext, mock::*};
 use crate::types::{Collateral, RedeemRequest, RedeemRequestStatus, Wrapped};
 use bitcoin::types::{MerkleProof, Transaction};
 use btc_relay::{BtcAddress, BtcPublicKey};
-use currency::{Amount, ParachainCurrency};
+use currency::Amount;
 use frame_support::{assert_err, assert_noop, assert_ok, dispatch::DispatchError};
 use mocktopus::mocking::*;
 use security::Pallet as Security;
