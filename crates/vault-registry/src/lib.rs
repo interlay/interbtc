@@ -801,10 +801,10 @@ impl<T: Config> Pallet<T> {
                 );
                 Self::slash_backing_collateral(account, amount)?;
             }
-            CurrencySource::Griefing(_) | CurrencySource::ReservedBalance(_) => {
+            CurrencySource::Griefing(_) => {
                 amount.unlock(&from.account_id())?;
             }
-            CurrencySource::LiquidationVault => {
+            CurrencySource::ReservedBalance(_) | CurrencySource::LiquidationVault => {
                 Self::decrease_total_backing_collateral(amount)?;
                 amount.unlock(&from.account_id())?;
             }
