@@ -68,7 +68,7 @@ pub fn local_config() -> ChainSpec {
         move || {
             testnet_genesis(
                 get_account_id_from_seed::<sr25519::Public>("Alice"),
-                vec![authority_keys_from_seed("Alice")],
+                vec![],
                 vec![
                     get_account_id_from_seed::<sr25519::Public>("Alice"),
                     get_account_id_from_seed::<sr25519::Public>("Bob"),
