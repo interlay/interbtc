@@ -39,6 +39,9 @@ pub(crate) struct ReplaceRequestV0<AccountId, BlockNumber, Balance> {
     pub completed: bool,
 }
 
+pub type DefaultReplaceRequest<T> =
+    ReplaceRequest<<T as frame_system::Config>::AccountId, <T as frame_system::Config>::BlockNumber, BalanceOf<T>>;
+
 pub trait ReplaceRequestExt<T: Config> {
     fn amount(&self) -> Amount<T>;
     fn griefing_collateral(&self) -> Amount<T>;

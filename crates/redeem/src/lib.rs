@@ -27,7 +27,7 @@ mod ext;
 pub mod types;
 
 #[doc(inline)]
-pub use crate::types::{RedeemRequest, RedeemRequestStatus};
+pub use crate::types::{DefaultRedeemRequest, RedeemRequest, RedeemRequestStatus};
 
 use crate::types::{BalanceOf, Collateral, RedeemRequestExt, Version, Wrapped};
 use btc_relay::BtcAddress;
@@ -118,7 +118,7 @@ pub mod pallet {
     /// This mapping provides access from a unique hash redeemId to a Redeem struct.
     #[pallet::storage]
     pub(super) type RedeemRequests<T: Config> =
-        StorageMap<_, Blake2_128Concat, H256, RedeemRequest<T::AccountId, T::BlockNumber, BalanceOf<T>>, ValueQuery>;
+        StorageMap<_, Blake2_128Concat, H256, DefaultRedeemRequest<T>, ValueQuery>;
 
     /// The minimum amount of btc that is accepted for redeem requests; any lower values would
     /// risk the bitcoin client to reject the payment
@@ -612,7 +612,7 @@ impl<T: Config> Pallet<T> {
     ///
     /// * `key` - 256-bit identifier of the redeem request
     /// * `value` - the redeem request
-    fn insert_redeem_request(key: H256, value: RedeemRequest<T::AccountId, T::BlockNumber, BalanceOf<T>>) {
+    fn insert_redeem_request(key: H256, value: DefaultRedeemRequest<T>) {
         <RedeemRequests<T>>::insert(key, value)
     }
 
@@ -645,9 +645,7 @@ impl<T: Config> Pallet<T> {
     /// # Arguments
     ///
     /// * `account_id` - user account id
-    pub fn get_redeem_requests_for_account(
-        account_id: T::AccountId,
-    ) -> Vec<(H256, RedeemRequest<T::AccountId, T::BlockNumber, BalanceOf<T>>)> {
+    pub fn get_redeem_requests_for_account(account_id: T::AccountId) -> Vec<(H256, DefaultRedeemRequest<T>)> {
         <RedeemRequests<T>>::iter()
             .filter(|(_, request)| request.redeemer == account_id)
             .collect::<Vec<_>>()
@@ -658,9 +656,7 @@ impl<T: Config> Pallet<T> {
     /// # Arguments
     ///
     /// * `account_id` - vault account id
-    pub fn get_redeem_requests_for_vault(
-        account_id: T::AccountId,
-    ) -> Vec<(H256, RedeemRequest<T::AccountId, T::BlockNumber, BalanceOf<T>>)> {
+    pub fn get_redeem_requests_for_vault(account_id: T::AccountId) -> Vec<(H256, DefaultRedeemRequest<T>)> {
         <RedeemRequests<T>>::iter()
             .filter(|(_, request)| request.vault == account_id)
             .collect::<Vec<_>>()
@@ -672,9 +668,7 @@ impl<T: Config> Pallet<T> {
     /// # Arguments
     ///
     /// * `redeem_id` - 256-bit identifier of the redeem request
-    pub fn get_open_redeem_request_from_id(
-        redeem_id: &H256,
-    ) -> Result<RedeemRequest<T::AccountId, T::BlockNumber, BalanceOf<T>>, DispatchError> {
+    pub fn get_open_redeem_request_from_id(redeem_id: &H256) -> Result<DefaultRedeemRequest<T>, DispatchError> {
         let request = RedeemRequests::<T>::try_get(redeem_id).or(Err(Error::<T>::RedeemIdNotFound))?;
 
         // NOTE: temporary workaround until we delete
@@ -695,7 +689,7 @@ impl<T: Config> Pallet<T> {
     /// * `redeem_id` - 256-bit identifier of the redeem request
     pub fn get_open_or_completed_redeem_request_from_id(
         redeem_id: &H256,
-    ) -> Result<RedeemRequest<T::AccountId, T::BlockNumber, BalanceOf<T>>, DispatchError> {
+    ) -> Result<DefaultRedeemRequest<T>, DispatchError> {
         let request = RedeemRequests::<T>::try_get(redeem_id).or(Err(Error::<T>::RedeemIdNotFound))?;
 
         ensure!(

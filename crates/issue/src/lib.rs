@@ -27,7 +27,7 @@ mod ext;
 pub mod types;
 
 #[doc(inline)]
-pub use crate::types::{IssueRequest, IssueRequestStatus};
+pub use crate::types::{DefaultIssueRequest, IssueRequest, IssueRequestStatus};
 use types::IssueRequestExt;
 
 use crate::types::{BalanceOf, Collateral, Version, Wrapped};
@@ -111,7 +111,7 @@ pub mod pallet {
     /// from a unique hash `IssueId` to an `IssueRequest` struct.
     #[pallet::storage]
     pub(super) type IssueRequests<T: Config> =
-        StorageMap<_, Blake2_128Concat, H256, IssueRequest<T::AccountId, T::BlockNumber, BalanceOf<T>>, ValueQuery>;
+        StorageMap<_, Blake2_128Concat, H256, DefaultIssueRequest<T>, ValueQuery>;
 
     /// The time difference in number of blocks between an issue request is created
     /// and required completion time by a user. The issue period has an upper limit
@@ -490,9 +490,7 @@ impl<T: Config> Pallet<T> {
     /// # Arguments
     ///
     /// * `account_id` - user account id
-    pub fn get_issue_requests_for_account(
-        account_id: T::AccountId,
-    ) -> Vec<(H256, IssueRequest<T::AccountId, T::BlockNumber, BalanceOf<T>>)> {
+    pub fn get_issue_requests_for_account(account_id: T::AccountId) -> Vec<(H256, DefaultIssueRequest<T>)> {
         <IssueRequests<T>>::iter()
             .filter(|(_, request)| request.requester == account_id)
             .collect::<Vec<_>>()
@@ -503,17 +501,13 @@ impl<T: Config> Pallet<T> {
     /// # Arguments
     ///
     /// * `account_id` - vault account id
-    pub fn get_issue_requests_for_vault(
-        account_id: T::AccountId,
-    ) -> Vec<(H256, IssueRequest<T::AccountId, T::BlockNumber, BalanceOf<T>>)> {
+    pub fn get_issue_requests_for_vault(account_id: T::AccountId) -> Vec<(H256, DefaultIssueRequest<T>)> {
         <IssueRequests<T>>::iter()
             .filter(|(_, request)| request.vault == account_id)
             .collect::<Vec<_>>()
     }
 
-    pub fn get_issue_request_from_id(
-        issue_id: &H256,
-    ) -> Result<IssueRequest<T::AccountId, T::BlockNumber, BalanceOf<T>>, DispatchError> {
+    pub fn get_issue_request_from_id(issue_id: &H256) -> Result<DefaultIssueRequest<T>, DispatchError> {
         let request = IssueRequests::<T>::try_get(issue_id).or(Err(Error::<T>::IssueIdNotFound))?;
 
         // NOTE: temporary workaround until we delete
@@ -527,7 +521,7 @@ impl<T: Config> Pallet<T> {
     /// update the fee & amount in an issue request based on the actually transferred amount
     fn update_issue_amount(
         issue_id: &H256,
-        issue: &mut IssueRequest<T::AccountId, T::BlockNumber, BalanceOf<T>>,
+        issue: &mut DefaultIssueRequest<T>,
         transferred_btc: Amount<T>,
         confiscated_griefing_collateral: Amount<T>,
     ) -> Result<(), DispatchError> {
@@ -551,7 +545,7 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
-    fn insert_issue_request(key: &H256, value: &IssueRequest<T::AccountId, T::BlockNumber, BalanceOf<T>>) {
+    fn insert_issue_request(key: &H256, value: &DefaultIssueRequest<T>) {
         <IssueRequests<T>>::insert(key, value)
     }
 
