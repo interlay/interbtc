@@ -90,7 +90,7 @@ mod deposit_collateral_test {
             assert_noop!(
                 Call::VaultRegistry(VaultRegistryCall::deposit_collateral(remaining + 1))
                     .dispatch(origin_of(account_of(VAULT))),
-                VaultRegistryError::CollateralCurrencyCeilingExceeded
+                VaultRegistryError::CurrencyCeilingExceeded
             );
 
             assert_ok!(Call::VaultRegistry(VaultRegistryCall::deposit_collateral(remaining))
@@ -246,7 +246,7 @@ fn integration_test_vault_registry_register_respects_fund_limit() {
                 currency_id
             ))
             .dispatch(origin_of(account_of(USER))),
-            VaultRegistryError::CollateralCurrencyCeilingExceeded
+            VaultRegistryError::CurrencyCeilingExceeded
         );
 
         assert_ok!(Call::VaultRegistry(VaultRegistryCall::register_vault(

@@ -474,7 +474,7 @@ pub mod pallet {
         /// The Max Nomination Ratio would be exceeded.
         MaxNominationRatioViolation,
         /// The collateral ceiling would be exceeded for the vault's currency
-        CollateralCurrencyCeilingExceeded,
+        CurrencyCeilingExceeded,
 
         // Errors used exclusively in RPC functions
         /// Collateralization is infinite if no tokens are issued
@@ -1288,7 +1288,7 @@ impl<T: Config> Pallet<T> {
         let new = Self::get_total_user_vault_collateral(amount.currency())?.checked_add(&amount)?;
 
         let limit = Self::get_collateral_ceiling(amount.currency())?;
-        ensure!(new.le(&limit)?, Error::<T>::CollateralCurrencyCeilingExceeded);
+        ensure!(new.le(&limit)?, Error::<T>::CurrencyCeilingExceeded);
 
         TotalUserVaultCollateral::<T>::insert(&amount.currency(), new.amount());
 
