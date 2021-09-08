@@ -79,8 +79,7 @@ benchmarks! {
     }: _(RawOrigin::Signed(origin), true)
 
     adjust_collateral_ceiling {
-    }: _(RawOrigin::Root, T::GetGriefingCollateralCurrencyId::get(), 1234u32.into()
-)
+    }: _(RawOrigin::Root, T::GetGriefingCollateralCurrencyId::get(), 1234u32.into())
 
     adjust_secure_collateral_threshold {
     }: _(RawOrigin::Root, T::GetGriefingCollateralCurrencyId::get(), UnsignedFixedPoint::<T>::one())
