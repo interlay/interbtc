@@ -2,6 +2,7 @@ use crate::{ext, mock::*};
 use currency::Amount;
 use frame_support::{assert_err, assert_ok};
 use mocktopus::mocking::*;
+use vault_registry::Vault;
 
 #[test]
 fn should_not_deposit_against_invalid_vault() {
@@ -20,6 +21,12 @@ fn collateral(amount: u128) -> Amount<Test> {
 fn should_deposit_against_valid_vault() {
     run_test(|| {
         ext::vault_registry::vault_exists::<Test>.mock_safe(|_| MockResult::Return(true));
+        ext::vault_registry::get_active_vault_from_id::<Test>.mock_safe(|_| {
+            MockResult::Return(Ok(Vault {
+                issued_tokens: 100,
+                ..Vault::new(Default::default(), Default::default(), DEFAULT_TESTING_CURRENCY)
+            }))
+        });
         ext::vault_registry::get_backing_collateral::<Test>.mock_safe(|_| MockResult::Return(Ok(collateral(10000))));
         ext::vault_registry::compute_collateral::<Test>.mock_safe(|_| MockResult::Return(Ok(collateral(10000))));
         ext::vault_registry::get_collateral_currency::<Test>

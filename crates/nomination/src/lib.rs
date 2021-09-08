@@ -29,6 +29,7 @@ use frame_support::{
     weights::Weight,
 };
 use frame_system::{ensure_root, ensure_signed};
+use sp_runtime::traits::Zero;
 use sp_std::convert::TryInto;
 use types::{Collateral, SignedFixedPoint};
 
@@ -79,10 +80,6 @@ pub mod pallet {
 
     #[pallet::error]
     pub enum Error<T> {
-        /// Account has insufficient balance
-        InsufficientFunds,
-        ArithmeticOverflow,
-        ArithmeticUnderflow,
         VaultAlreadyOptedInToNomination,
         VaultNotOptedInToNomination,
         VaultNotFound,
@@ -90,8 +87,8 @@ pub mod pallet {
         InsufficientCollateral,
         VaultNominationDisabled,
         DepositViolatesMaxNominationRatio,
-        HasNominatedCollateral,
         CollateralizationTooLow,
+        VaultNoIssuedTokens,
     }
 
     #[pallet::hooks]
@@ -236,8 +233,11 @@ impl<T: Config> Pallet<T> {
         ensure!(Self::is_opted_in(&vault_id)?, Error::<T>::VaultNotOptedInToNomination);
 
         let currency_id = ext::vault_registry::get_collateral_currency::<T>(&vault_id)?;
-
         let amount = Amount::new(amount, currency_id);
+
+        // we're unable to maintain the max nomination ratio if the vault has no issued tokens
+        let vault = ext::vault_registry::get_active_vault_from_id::<T>(&vault_id)?;
+        ensure!(!vault.issued_tokens.is_zero(), Error::<T>::VaultNoIssuedTokens);
 
         let vault_backing_collateral = ext::vault_registry::get_backing_collateral::<T>(&vault_id)?;
         let total_nominated_collateral = Self::get_total_nominated_collateral(&vault_id)?;

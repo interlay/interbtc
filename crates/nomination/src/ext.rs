@@ -16,6 +16,12 @@ pub(crate) mod vault_registry {
     pub use frame_support::dispatch::{DispatchError, DispatchResult};
     pub use vault_registry::{types::CurrencyId, DefaultVault, VaultStatus};
 
+    pub fn get_active_vault_from_id<T: crate::Config>(
+        vault_id: &T::AccountId,
+    ) -> Result<DefaultVault<T>, DispatchError> {
+        <vault_registry::Pallet<T>>::get_active_vault_from_id(vault_id)
+    }
+
     pub fn get_backing_collateral<T: crate::Config>(vault_id: &T::AccountId) -> Result<Amount<T>, DispatchError> {
         <vault_registry::Pallet<T>>::get_backing_collateral(vault_id)
     }
