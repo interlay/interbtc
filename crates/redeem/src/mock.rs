@@ -268,6 +268,7 @@ impl ExtBuilder {
         vault_registry::GenesisConfig::<Test> {
             minimum_collateral_vault: vec![(DEFAULT_TESTING_CURRENCY, 0)],
             punishment_delay: 8,
+            system_collateral_ceiling: vec![(DEFAULT_TESTING_CURRENCY, 1_000_000_000_000)],
             secure_collateral_threshold: vec![(
                 DEFAULT_TESTING_CURRENCY,
                 UnsignedFixedPoint::checked_from_rational(200, 100).unwrap(),

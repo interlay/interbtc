@@ -1,7 +1,7 @@
 mod mock;
 
 use currency::Amount;
-use mock::*;
+use mock::{assert_eq, *};
 use sp_core::H256;
 
 pub const RELAYER: [u8; 32] = ALICE;

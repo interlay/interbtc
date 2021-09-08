@@ -1,7 +1,7 @@
 mod mock;
 
 use frame_support::traits::Currency;
-use mock::*;
+use mock::{assert_eq, *};
 
 fn test_with<R>(execute: impl FnOnce() -> R) -> R {
     ExtBuilder::build().execute_with(|| {
@@ -16,7 +16,7 @@ fn test_with<R>(execute: impl FnOnce() -> R) -> R {
 }
 
 mod spec_based_tests {
-    use super::*;
+    use super::{assert_eq, *};
 
     #[test]
     fn execute_refund_should_fail_when_parachain_has_shutdown() {

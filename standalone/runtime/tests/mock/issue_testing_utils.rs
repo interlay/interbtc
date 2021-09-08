@@ -1,4 +1,4 @@
-use crate::*;
+use crate::{assert_eq, *};
 use currency::Amount;
 use frame_support::transactional;
 

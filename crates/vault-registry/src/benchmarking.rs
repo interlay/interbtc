@@ -78,6 +78,18 @@ benchmarks! {
         VaultRegistry::<T>::_register_vault(&origin, 1234u32.into(), dummy_public_key(), currency_id).unwrap();
     }: _(RawOrigin::Signed(origin), true)
 
+    adjust_collateral_ceiling {
+    }: _(RawOrigin::Root, T::GetGriefingCollateralCurrencyId::get(), 1234u32.into())
+
+    adjust_secure_collateral_threshold {
+    }: _(RawOrigin::Root, T::GetGriefingCollateralCurrencyId::get(), UnsignedFixedPoint::<T>::one())
+
+    adjust_premium_redeem_threshold {
+    }: _(RawOrigin::Root, T::GetGriefingCollateralCurrencyId::get(), UnsignedFixedPoint::<T>::one())
+
+    adjust_liquidation_collateral_threshold {
+    }: _(RawOrigin::Root, T::GetGriefingCollateralCurrencyId::get(), UnsignedFixedPoint::<T>::one())
+
     report_undercollateralized_vault {
         let origin: T::AccountId = account("Origin", 0, 0);
         let vault_id: T::AccountId = account("Vault", 0, 0);

@@ -367,6 +367,10 @@ macro_rules! create_currency_id {
 					$((stringify!($symbol), $deci),)*
 				]
 			}
+
+            pub fn one(&self) -> Balance {
+                10u128.pow(self.decimals() as u32)
+            }
 		}
 
 		impl CurrencyInfo for CurrencyId {

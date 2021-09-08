@@ -632,8 +632,12 @@ impl<T: Config> Pallet<T> {
         Ok(reward)
     }
 
-    /// Force refund the entire nomination to `vault_id` by depositing it as reward.
-    pub fn force_refund(currency_id: T::CurrencyId, vault_id: &T::AccountId) -> Result<(), DispatchError> {
+    /// Force refund the entire nomination to `vault_id` by depositing it as reward. It
+    /// returns the amount of collateral that is refunded
+    pub fn force_refund(
+        currency_id: T::CurrencyId,
+        vault_id: &T::AccountId,
+    ) -> Result<<SignedFixedPoint<T> as FixedPointNumber>::Inner, DispatchError> {
         let nonce = Self::nonce(currency_id, vault_id);
         let total_current_stake = Self::total_current_stake_at_index(currency_id, (nonce, vault_id));
         // TODO: transfer `total_current_stake` from vault_id to `staking_pool(nonce)`
@@ -645,7 +649,14 @@ impl<T: Config> Pallet<T> {
         // in the new nonce's "pool".
         Self::deposit_stake(currency_id, vault_id, vault_id, reward_as_fixed)?;
         Self::deposit_event(Event::<T>::ForceRefund(currency_id, vault_id.clone()));
-        Ok(())
+
+        let refunded_collateral = total_current_stake
+            .checked_sub(&reward_as_fixed)
+            .ok_or(Error::<T>::ArithmeticUnderflow)?
+            .truncate_to_inner()
+            .ok_or(Error::<T>::TryIntoIntError)?;
+
+        Ok(refunded_collateral)
     }
 
     pub fn increment_nonce(currency_id: T::CurrencyId, vault_id: &T::AccountId) -> DispatchResult {

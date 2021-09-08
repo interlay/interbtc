@@ -1,7 +1,7 @@
 mod mock;
 
 use currency::Amount;
-use mock::{redeem_testing_utils::*, *};
+use mock::{assert_eq, redeem_testing_utils::*, *};
 
 fn test_with<R>(execute: impl Fn(CurrencyId) -> R) {
     let test_with = |currency_id| {
@@ -47,7 +47,7 @@ impl RedeemRequestTestExt for RedeemRequest<AccountId, BlockNumber, u128> {
 }
 
 mod spec_based_tests {
-    use super::*;
+    use super::{assert_eq, *};
     #[test]
     fn integration_test_redeem_with_parachain_shutdown_status_fails() {
         // PRECONDITION: The BTC Parachain status in the Security component
@@ -139,7 +139,7 @@ mod spec_based_tests {
         use frame_support::assert_ok;
         use sp_runtime::FixedU128;
 
-        use super::*;
+        use super::{assert_eq, *};
 
         fn calculate_vault_capacity() -> Amount<Runtime> {
             let redeemable_tokens = DEFAULT_VAULT_ISSUED - DEFAULT_VAULT_TO_BE_REDEEMED;
@@ -381,7 +381,7 @@ mod spec_based_tests {
     }
 
     mod liquidation_redeem {
-        use super::*;
+        use super::{assert_eq, *};
         #[test]
         fn integration_test_liquidation_redeem() {
             // PRECONDITION: The redeemer MUST have at least `amountWrapped` free tokens.
@@ -418,7 +418,7 @@ mod spec_based_tests {
     mod execute_redeem {
         use redeem::RedeemRequestStatus;
 
-        use super::*;
+        use super::{assert_eq, *};
         #[test]
         fn integration_test_redeem_wrapped_execute() {
             // PRECONDITIONS:
@@ -539,7 +539,7 @@ mod spec_based_tests {
     mod cancel_redeem {
         use redeem::RedeemRequestStatus;
 
-        use super::*;
+        use super::{assert_eq, *};
 
         fn set_redeem_period(period: u32) {
             assert_ok!(Call::Redeem(RedeemCall::set_redeem_period(period)).dispatch(root()));
@@ -992,7 +992,7 @@ mod spec_based_tests {
     }
 
     mod mint_tokens_for_reimbursed_redeem {
-        use super::*;
+        use super::{assert_eq, *};
 
         #[test]
         fn integration_test_mint_tokens_for_reimbursed_redeem_equivalence_to_succesful_cancel() {
@@ -1100,7 +1100,7 @@ fn integration_test_redeem_parachain_status_shutdown_fails() {
 }
 
 mod execute_redeem_payment_limits {
-    use super::*;
+    use super::{assert_eq, *};
 
     #[test]
     fn integration_test_redeem_polka_btc_execute_underpayment_fails() {
@@ -1573,7 +1573,7 @@ fn integration_test_redeem_wrapped_execute_liquidated() {
                 // collateral released
                 let released_collateral = vault.liquidated_collateral / 4;
                 vault.liquidated_collateral -= released_collateral;
-                vault.backing_collateral += released_collateral;
+                *vault.free_balance.get_mut(&currency_id).unwrap() += released_collateral;
             })
         );
     });
@@ -1611,7 +1611,7 @@ fn setup_cancelable_redeem_with_insufficient_collateral_for_reimburse(currency_i
 }
 
 mod mint_tokens_for_reimbursed_redeem_equivalence_test {
-    use super::*;
+    use super::{assert_eq, *};
 
     #[test]
     fn integration_test_mint_tokens_for_reimbursed_redeem_equivalence_to_succesful_cancel() {

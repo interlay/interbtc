@@ -36,7 +36,7 @@ pub enum CurrencySource<T: frame_system::Config> {
     /// Unlocked balance
     FreeBalance(<T as frame_system::Config>::AccountId),
     /// Locked balance (like collateral but doesn't slash)
-    ReservedBalance(<T as frame_system::Config>::AccountId),
+    LiquidatedCollateral(<T as frame_system::Config>::AccountId),
     /// Funds within the liquidation vault
     LiquidationVault,
 }
@@ -47,7 +47,7 @@ impl<T: Config> CurrencySource<T> {
             CurrencySource::Collateral(x)
             | CurrencySource::Griefing(x)
             | CurrencySource::FreeBalance(x)
-            | CurrencySource::ReservedBalance(x) => x.clone(),
+            | CurrencySource::LiquidatedCollateral(x) => x.clone(),
             CurrencySource::LiquidationVault => Pallet::<T>::liquidation_vault_account_id(),
         }
     }
@@ -72,7 +72,7 @@ impl<T: Config> CurrencySource<T> {
                 }
             }
             CurrencySource::FreeBalance(x) => ext::currency::get_free_balance::<T>(currency_id, x),
-            CurrencySource::ReservedBalance(x) => ext::currency::get_reserved_balance::<T>(currency_id, x),
+            CurrencySource::LiquidatedCollateral(x) => ext::currency::get_reserved_balance::<T>(currency_id, x),
             CurrencySource::LiquidationVault => {
                 ext::currency::get_reserved_balance::<T>(currency_id, &self.account_id())
             }
@@ -490,7 +490,7 @@ impl<T: Config> RichVault<T> {
         }
 
         Pallet::<T>::transfer_funds(
-            CurrencySource::ReservedBalance(self.id()),
+            CurrencySource::LiquidatedCollateral(self.id()),
             CurrencySource::LiquidationVault,
             amount,
         )?;

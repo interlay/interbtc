@@ -13,6 +13,10 @@ pub trait WeightInfo {
     fn register_address() -> Weight;
     fn accept_new_issues() -> Weight;
     fn report_undercollateralized_vault() -> Weight;
+    fn adjust_collateral_ceiling() -> Weight;
+    fn adjust_secure_collateral_threshold() -> Weight;
+    fn adjust_premium_redeem_threshold() -> Weight;
+    fn adjust_liquidation_collateral_threshold() -> Weight;
 }
 
 impl crate::WeightInfo for () {
@@ -50,5 +54,17 @@ impl crate::WeightInfo for () {
         (48_000_000 as Weight)
             .saturating_add(DbWeight::get().reads(1 as Weight))
             .saturating_add(DbWeight::get().writes(1 as Weight))
+    }
+    fn adjust_collateral_ceiling() -> Weight {
+        6_788_000_u64.saturating_add(DbWeight::get().writes(1 as Weight))
+    }
+    fn adjust_secure_collateral_threshold() -> Weight {
+        6_788_000_u64.saturating_add(DbWeight::get().writes(1 as Weight))
+    }
+    fn adjust_premium_redeem_threshold() -> Weight {
+        6_788_000_u64.saturating_add(DbWeight::get().writes(1 as Weight))
+    }
+    fn adjust_liquidation_collateral_threshold() -> Weight {
+        6_788_000_u64.saturating_add(DbWeight::get().writes(1 as Weight))
     }
 }

@@ -221,6 +221,7 @@ impl<T: Config> Pallet<T> {
         )?;
         amount.unlock(&vault_id)?;
         amount.transfer(&vault_id, &nominator_id)?;
+        ext::vault_registry::decrease_total_backing_collateral(&amount)?;
 
         Self::deposit_event(Event::<T>::WithdrawCollateral(vault_id, nominator_id, amount.amount()));
         Ok(())
@@ -260,6 +261,7 @@ impl<T: Config> Pallet<T> {
         )?;
         amount.transfer(&nominator_id, &vault_id)?;
         amount.lock(&vault_id)?;
+        ext::vault_registry::try_increase_total_backing_collateral(&amount)?;
 
         Self::deposit_event(Event::<T>::DepositCollateral(vault_id, nominator_id, amount.amount()));
         Ok(())
@@ -291,7 +293,16 @@ impl<T: Config> Pallet<T> {
             ext::vault_registry::is_allowed_to_withdraw_collateral::<T>(&vault_id, &total_nominated_collateral)?,
             Error::<T>::CollateralizationTooLow
         );
-        ext::staking::force_refund::<T>(T::GetWrappedCurrencyId::get(), vault_id)?;
+
+        let refunded_collateral = ext::staking::force_refund::<T>(T::GetWrappedCurrencyId::get(), vault_id)?
+            .try_into()
+            .map_err(|_| Error::<T>::TryIntoIntError)?;
+
+        // Update the system-wide total backing collateral
+        let vault_currency_id = ext::vault_registry::get_collateral_currency::<T>(&vault_id)?;
+        let refunded_collateral = Amount::<T>::new(refunded_collateral, vault_currency_id);
+        ext::vault_registry::decrease_total_backing_collateral(&refunded_collateral)?;
+
         <Vaults<T>>::remove(vault_id);
         Self::deposit_event(Event::<T>::NominationOptOut(vault_id.clone()));
         Ok(())

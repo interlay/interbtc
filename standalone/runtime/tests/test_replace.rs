@@ -1,7 +1,7 @@
 mod mock;
 
 use currency::Amount;
-use mock::*;
+use mock::{assert_eq, *};
 
 use sp_core::H256;
 
@@ -75,7 +75,7 @@ fn accept_replace(
 
 #[cfg(test)]
 mod accept_replace_tests {
-    use super::*;
+    use super::{assert_eq, *};
 
     fn assert_state_after_accept_replace_correct(
         currency_id: CurrencyId,
@@ -217,7 +217,7 @@ mod accept_replace_tests {
 }
 
 mod request_replace_tests {
-    use super::*;
+    use super::{assert_eq, *};
     #[test]
     fn integration_test_replace_should_fail_if_not_running() {
         test_without_initialization(|_currency_id| {
@@ -400,7 +400,7 @@ mod request_replace_tests {
 }
 
 mod withdraw_replace_tests {
-    use super::*;
+    use super::{assert_eq, *};
 
     #[test]
     fn integration_test_replace_withdraw_replace_at_capacity_succeeds() {
@@ -492,7 +492,7 @@ mod withdraw_replace_tests {
 }
 
 mod expiry_test {
-    use super::*;
+    use super::{assert_eq, *};
 
     /// test replace created by accept
     fn test_with(initial_period: u32, execute: impl Fn(H256)) {
@@ -593,7 +593,7 @@ mod expiry_test {
 }
 
 mod execute_replace_payment_limits {
-    use super::*;
+    use super::{assert_eq, *};
 
     #[test]
     fn integration_test_execute_replace_with_exact_amount_succeeds() {

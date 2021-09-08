@@ -1,5 +1,5 @@
 mod mock;
-use mock::*;
+use mock::{assert_eq, *};
 
 #[test]
 fn integration_test_oracle_with_parachain_shutdown_fails() {

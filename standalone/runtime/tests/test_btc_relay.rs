@@ -2,7 +2,7 @@ mod bitcoin_data;
 mod mock;
 
 use bitcoin_data::get_bitcoin_testdata;
-use mock::*;
+use mock::{assert_eq, *};
 
 type BTCRelayError = btc_relay::Error<Runtime>;
 
