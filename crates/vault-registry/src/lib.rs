@@ -1303,21 +1303,6 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
-    /// returns the total locked collateral. Unused for now, but might want to expose that as rpc
-    pub fn get_total_backing_collateral(
-        currency_id: CurrencyId<T>,
-        include_liquidation_vault: bool,
-    ) -> Result<Amount<T>, DispatchError> {
-        let total_collateral = Self::get_total_user_vault_collateral(currency_id)?;
-
-        if include_liquidation_vault {
-            Ok(total_collateral)
-        } else {
-            let liquidated_collateral = CurrencySource::<T>::LiquidationVault.current_balance(currency_id)?;
-            total_collateral.checked_sub(&liquidated_collateral)
-        }
-    }
-
     pub fn insert_vault(id: &T::AccountId, vault: DefaultVault<T>) {
         Vaults::<T>::insert(id, vault)
     }
