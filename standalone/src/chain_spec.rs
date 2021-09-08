@@ -300,8 +300,8 @@ fn testnet_genesis(
                 (CurrencyId::KSM, FixedU128::checked_from_rational(110, 100).unwrap()),
             ], /* 110% */
             system_collateral_ceiling: vec![
-                (CurrencyId::DOT, 1_000_000_000_000_000),
-                (CurrencyId::KSM, 1_000_000_000_000_000),
+                (CurrencyId::DOT, 1000 * CurrencyId::DOT.one()),
+                (CurrencyId::KSM, 1000 * CurrencyId::KSM.one()),
             ],
         },
         fee: FeeConfig {

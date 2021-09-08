@@ -2,7 +2,7 @@ use bitcoin::utils::{virtual_transaction_size, InputType, TransactionInputMetada
 use cumulus_primitives_core::ParaId;
 use hex_literal::hex;
 use interbtc_runtime::{
-    AccountId, AuraConfig, BTCRelayConfig, Balance, CurrencyId, CurrencyInfo, FeeConfig, GenesisConfig, IssueConfig,
+    AccountId, AuraConfig, BTCRelayConfig, Balance, CurrencyId, FeeConfig, GenesisConfig, IssueConfig,
     NominationConfig, OracleConfig, ParachainInfoConfig, RedeemConfig, RefundConfig, ReplaceConfig, SecurityConfig,
     Signature, StatusCode, SudoConfig, SystemConfig, TokensConfig, VaultRegistryConfig, BITCOIN_BLOCK_SPACING, DAYS,
     WASM_BINARY,
@@ -321,7 +321,7 @@ fn testnet_genesis(
         vault_registry: VaultRegistryConfig {
             minimum_collateral_vault: vec![(CurrencyId::KSM, 0)],
             punishment_delay: DAYS,
-            system_collateral_ceiling: vec![(CurrencyId::DOT, 1_000_000_000_000_000)],
+            system_collateral_ceiling: vec![(CurrencyId::KSM, 1000 * CurrencyId::KSM.one())],
             secure_collateral_threshold: vec![(CurrencyId::KSM, FixedU128::checked_from_rational(150, 100).unwrap())], /* 150% */
             premium_redeem_threshold: vec![(CurrencyId::KSM, FixedU128::checked_from_rational(135, 100).unwrap())], /* 135% */
             liquidation_collateral_threshold: vec![(
@@ -514,8 +514,9 @@ fn mainnet_genesis(
         vault_registry: VaultRegistryConfig {
             minimum_collateral_vault: vec![(CurrencyId::KSM, 0)],
             punishment_delay: DAYS,
-            system_collateral_ceiling: vec![(CurrencyId::KSM, 5533 * 10u128.pow(CurrencyId::KSM.decimals() as u32))], /* 5533 ksm, about 2 mm USD at
-                                                                                                                       * time of writing */
+            system_collateral_ceiling: vec![(CurrencyId::KSM, 5533 * CurrencyId::KSM.one())], /* 5533 ksm, about 2 mm
+                                                                                               * USD at
+                                                                                               * time of writing */
             secure_collateral_threshold: vec![(CurrencyId::KSM, FixedU128::checked_from_rational(300, 100).unwrap())], /* 300% */
             premium_redeem_threshold: vec![(CurrencyId::KSM, FixedU128::checked_from_rational(175, 100).unwrap())], /* 175% */
             liquidation_collateral_threshold: vec![(

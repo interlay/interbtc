@@ -50,8 +50,8 @@ pub use security::StatusCode;
 
 use currency::Amount;
 pub use primitives::{
-    self, AccountId, Balance, BlockNumber, CurrencyId, Hash, Moment, Nonce, Signature, SignedFixedPoint, SignedInner,
-    UnsignedFixedPoint, UnsignedInner, DOT, INTERBTC, KSM,
+    self, AccountId, Balance, BlockNumber, CurrencyId, CurrencyInfo, Hash, Moment, Nonce, Signature, SignedFixedPoint,
+    SignedInner, UnsignedFixedPoint, UnsignedInner, DOT, INTERBTC, KSM,
 };
 
 use pallet_grandpa::{fg_primitives, AuthorityId as GrandpaId, AuthorityList as GrandpaAuthorityList};
