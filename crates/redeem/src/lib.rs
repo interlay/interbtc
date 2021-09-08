@@ -505,7 +505,7 @@ impl<T: Config> Pallet<T> {
             };
             ext::vault_registry::decrease_liquidated_collateral::<T>(&vault_id, &confiscated_collateral)?;
             ext::vault_registry::transfer_funds::<T>(
-                CurrencySource::ReservedBalance(vault_id.clone()),
+                CurrencySource::LiquidatedCollateral(vault_id.clone()),
                 slashing_destination,
                 &confiscated_collateral,
             )?;

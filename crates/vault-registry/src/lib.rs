@@ -804,7 +804,7 @@ impl<T: Config> Pallet<T> {
             CurrencySource::Griefing(_) => {
                 amount.unlock(&from.account_id())?;
             }
-            CurrencySource::ReservedBalance(_) | CurrencySource::LiquidationVault => {
+            CurrencySource::LiquidatedCollateral(_) | CurrencySource::LiquidationVault => {
                 Self::decrease_total_backing_collateral(amount)?;
                 amount.unlock(&from.account_id())?;
             }
@@ -826,10 +826,10 @@ impl<T: Config> Pallet<T> {
                 );
                 Self::try_deposit_collateral(account, amount)?;
             }
-            CurrencySource::Griefing(_) | CurrencySource::ReservedBalance(_) => {
+            CurrencySource::Griefing(_) => {
                 amount.lock(&to.account_id())?;
             }
-            CurrencySource::LiquidationVault => {
+            CurrencySource::LiquidationVault | CurrencySource::LiquidatedCollateral(_) => {
                 Self::try_increase_total_backing_collateral(amount)?;
                 amount.lock(&to.account_id())?;
             }
@@ -1225,7 +1225,7 @@ impl<T: Config> Pallet<T> {
 
             // transfer old-vault's collateral to liquidation_vault
             Self::transfer_funds(
-                CurrencySource::ReservedBalance(old_vault_id.clone()),
+                CurrencySource::LiquidatedCollateral(old_vault_id.clone()),
                 CurrencySource::LiquidationVault,
                 &to_be_transferred,
             )?;
