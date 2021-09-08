@@ -54,8 +54,8 @@ pub use module_oracle_rpc_runtime_api::BalanceWrapper;
 pub use security::StatusCode;
 
 pub use primitives::{
-    self, AccountId, Balance, BlockNumber, CurrencyId, Hash, Moment, Nonce, Signature, SignedFixedPoint, SignedInner,
-    UnsignedFixedPoint, UnsignedInner, KBTC, KINT, KSM,
+    self, AccountId, Balance, BlockNumber, CurrencyId, CurrencyInfo, Hash, Moment, Nonce, Signature, SignedFixedPoint,
+    SignedInner, UnsignedFixedPoint, UnsignedInner, KBTC, KINT, KSM,
 };
 
 // XCM imports
