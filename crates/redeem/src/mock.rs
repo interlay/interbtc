@@ -4,7 +4,6 @@ use currency::Amount;
 use frame_support::{assert_ok, parameter_types, traits::GenesisBuild, PalletId};
 use mocktopus::{macros::mockable, mocking::clear_mocks};
 pub use oracle::{CurrencyId, OracleKey};
-use orml_tokens::CurrencyAdapter;
 use orml_traits::parameter_type_with_key;
 pub use sp_arithmetic::{FixedI128, FixedPointNumber, FixedU128};
 use sp_core::H256;

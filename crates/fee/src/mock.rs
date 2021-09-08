@@ -2,7 +2,6 @@ use crate as fee;
 use crate::{Config, Error};
 use frame_support::{parameter_types, PalletId};
 use mocktopus::mocking::clear_mocks;
-use orml_tokens::CurrencyAdapter;
 use orml_traits::parameter_type_with_key;
 pub use primitives::CurrencyId;
 use sp_arithmetic::{FixedI128, FixedU128};

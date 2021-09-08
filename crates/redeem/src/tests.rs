@@ -85,7 +85,8 @@ fn default_vault() -> DefaultVault<Test> {
 #[test]
 fn test_request_redeem_fails_with_amount_exceeds_user_balance() {
     run_test(|| {
-        assert_ok!(<Test as vault_registry::Config>::Wrapped::mint(&ALICE, 2));
+        let amount = Amount::<Test>::new(2, <Test as currency::Config>::GetWrappedCurrencyId::get());
+        amount.mint_to(&ALICE).unwrap();
         let amount = 10_000_000;
         assert_err!(
             Redeem::request_redeem(Origin::signed(ALICE), amount, BtcAddress::default(), BOB),
@@ -726,10 +727,11 @@ mod spec_based_tests {
         run_test(|| {
             let amount_to_redeem = 100;
             let replace_collateral = 100;
-            assert_ok!(<Test as vault_registry::Config>::Wrapped::mint(
-                &ALICE,
-                amount_to_redeem
-            ));
+            let amount = Amount::<Test>::new(
+                amount_to_redeem,
+                <Test as currency::Config>::GetWrappedCurrencyId::get(),
+            );
+            amount.mint_to(&ALICE).unwrap();
             ext::vault_registry::ensure_not_banned::<Test>.mock_safe(move |_vault_id| MockResult::Return(Ok(())));
             ext::vault_registry::try_increase_to_be_redeemed_tokens::<Test>
                 .mock_safe(move |_vault_id, _amount| MockResult::Return(Ok(())));

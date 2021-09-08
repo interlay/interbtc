@@ -2,7 +2,6 @@ use crate as vault_registry;
 use crate::{Config, Error};
 use frame_support::{parameter_types, traits::GenesisBuild, PalletId};
 use mocktopus::{macros::mockable, mocking::clear_mocks};
-use orml_tokens::CurrencyAdapter;
 use orml_traits::parameter_type_with_key;
 pub use primitives::CurrencyId;
 use sp_arithmetic::{FixedI128, FixedPointNumber, FixedU128};

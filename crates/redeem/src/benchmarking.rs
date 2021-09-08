@@ -25,7 +25,6 @@ use vault_registry::{
 
 pub const DEFAULT_TESTING_CURRENCY: CurrencyId = CurrencyId::DOT;
 
-type Treasury<T> = <T as vault_registry::Config>::Wrapped;
 type UnsignedFixedPoint<T> = <T as currency::Config>::UnsignedFixedPoint;
 
 fn collateral<T: crate::Config>(amount: u32) -> Amount<T> {
@@ -138,7 +137,8 @@ benchmarks! {
             vault
         );
 
-        assert_ok!(Treasury::<T>::mint(&origin, amount));
+        let rich_amount = Amount::<T>::new(amount,T::GetWrappedCurrencyId::get());
+        rich_amount.mint_to(&origin).unwrap();
 
         assert_ok!(Oracle::<T>::_set_exchange_rate(DEFAULT_TESTING_CURRENCY,
             UnsignedFixedPoint::<T>::one()
@@ -224,7 +224,8 @@ benchmarks! {
         let block_header = BtcRelay::<T>::parse_raw_block_header(&raw_block_header).unwrap();
 
         BtcRelay::<T>::store_block_header(&relayer_id, block_header).unwrap();
-        Security::<T>::set_active_block_number(Security::<T>::active_block_number() + BtcRelay::<T>::parachain_confirmations() + 1u32.into());
+        Security::<T>::set_active_block_number(Security::<T>::active_block_number() +
+BtcRelay::<T>::parachain_confirmations() + 1u32.into());
 
         assert_ok!(Oracle::<T>::_set_exchange_rate(DEFAULT_TESTING_CURRENCY,
             UnsignedFixedPoint::<T>::one()
@@ -244,8 +245,8 @@ benchmarks! {
         redeem_request.opentime = Security::<T>::active_block_number();
         Redeem::<T>::insert_redeem_request(redeem_id, redeem_request);
         mine_blocks::<T>();
-        Security::<T>::set_active_block_number(Security::<T>::active_block_number() + Redeem::<T>::redeem_period() + 10u32.into());
-        assert_ok!(Oracle::<T>::_set_exchange_rate(DEFAULT_TESTING_CURRENCY,
+        Security::<T>::set_active_block_number(Security::<T>::active_block_number() + Redeem::<T>::redeem_period() +
+10u32.into());         assert_ok!(Oracle::<T>::_set_exchange_rate(DEFAULT_TESTING_CURRENCY,
             UnsignedFixedPoint::<T>::one()
         ));
 
@@ -275,7 +276,8 @@ benchmarks! {
         redeem_request.opentime = Security::<T>::active_block_number();
         Redeem::<T>::insert_redeem_request(redeem_id, redeem_request);
         mine_blocks::<T>();
-        Security::<T>::set_active_block_number(Security::<T>::active_block_number() + Redeem::<T>::redeem_period() + 10u32.into());
+        Security::<T>::set_active_block_number(Security::<T>::active_block_number() + Redeem::<T>::redeem_period() +
+10u32.into());
 
         let vault = Vault {
             wallet: Wallet::new(dummy_public_key()),
