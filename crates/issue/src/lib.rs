@@ -281,7 +281,7 @@ impl<T: Config> Pallet<T> {
             griefing_collateral.ge(&expected_griefing_collateral)?,
             Error::<T>::InsufficientCollateral
         );
-        griefing_collateral.lock(&requester)?;
+        griefing_collateral.lock_on(&requester)?;
 
         // only continue if the payment is above the dust value
         ensure!(
@@ -377,7 +377,7 @@ impl<T: Config> Pallet<T> {
                 &amount_transferred,
                 &expected_total_amount,
             )?;
-            released_collateral.unlock(&requester)?;
+            released_collateral.unlock_on(&requester)?;
             let slashed_collateral = issue.griefing_collateral().checked_sub(&released_collateral)?;
             ext::vault_registry::transfer_funds::<T>(
                 CurrencySource::Griefing(issue.requester.clone()),
@@ -389,7 +389,7 @@ impl<T: Config> Pallet<T> {
         } else {
             // release griefing collateral
             let griefing_collateral: Amount<T> = issue.griefing_collateral();
-            griefing_collateral.unlock(&requester)?;
+            griefing_collateral.unlock_on(&requester)?;
 
             if amount_transferred.gt(&expected_total_amount)?
                 && !ext::vault_registry::is_vault_liquidated::<T>(&issue.vault)?
@@ -427,10 +427,10 @@ impl<T: Config> Pallet<T> {
         ext::vault_registry::issue_tokens::<T>(&issue.vault, &total)?;
 
         // mint issued tokens
-        issue_amount.mint(&requester)?;
+        issue_amount.mint_to(&requester)?;
 
         // mint wrapped fees
-        issue_fee.mint(&ext::fee::fee_pool_account_id::<T>())?;
+        issue_fee.mint_to(&ext::fee::fee_pool_account_id::<T>())?;
 
         // distribute rewards
         ext::fee::distribute_rewards::<T>(&issue_fee)?;
@@ -471,7 +471,7 @@ impl<T: Config> Pallet<T> {
 
         let griefing_collateral = issue.griefing_collateral();
         if ext::vault_registry::is_vault_liquidated::<T>(&issue.vault)? {
-            griefing_collateral.unlock(&issue.requester)?;
+            griefing_collateral.unlock_on(&issue.requester)?;
         } else {
             ext::vault_registry::transfer_funds::<T>(
                 CurrencySource::Griefing(issue.requester.clone()),

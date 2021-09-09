@@ -9,7 +9,6 @@ pub use bitcoin::{
 };
 pub use btc_relay::{BtcAddress, BtcPublicKey};
 use currency::Amount;
-pub use currency::ParachainCurrency;
 use frame_support::traits::GenesisBuild;
 pub use frame_support::{assert_err, assert_noop, assert_ok, dispatch::DispatchResultWithPostInfo};
 pub use interbtc_runtime_standalone::{
@@ -271,35 +270,27 @@ pub fn iter_all_currencies() -> impl Iterator<Item = CurrencyId> {
 }
 
 impl UserData {
-    #[allow(dead_code)]
     pub fn get(id: [u8; 32]) -> Self {
         let account_id = account_of(id);
         let mut hash_map = BTreeMap::new();
 
         for currency_id in iter_all_currencies() {
-            let free = currency::with_currency_id::get_free_balance::<Runtime>(currency_id, &account_id);
-            let locked = currency::with_currency_id::get_reserved_balance::<Runtime>(currency_id, &account_id);
+            let free = currency::get_free_balance::<Runtime>(currency_id, &account_id);
+            let locked = currency::get_reserved_balance::<Runtime>(currency_id, &account_id);
             hash_map.insert(currency_id, Balance { free, locked });
         }
 
         Self { balances: hash_map }
     }
-    #[allow(dead_code)]
+
     pub fn force_to(id: [u8; 32], new: Self) -> Self {
         let old = Self::get(id);
         let account_id = account_of(id);
 
         // Clear collateral currencies:
-        for (currency_id, balance) in old.balances.iter() {
+        for (_currency_id, balance) in old.balances.iter() {
             balance.free.transfer(&account_id, &account_of(FAUCET)).unwrap();
-
-            currency::with_currency_id::slash::<Runtime>(
-                *currency_id,
-                &account_id,
-                &account_of(FAUCET),
-                balance.locked.amount(),
-            )
-            .unwrap();
+            balance.locked.burn_from(&account_id).unwrap();
         }
 
         for (_, balance) in new.balances.iter() {
@@ -308,7 +299,7 @@ impl UserData {
 
             // set locked balance:
             balance.locked.transfer(&account_of(FAUCET), &account_id).unwrap();
-            balance.locked.lock(&account_id).unwrap();
+            balance.locked.lock_on(&account_id).unwrap();
         }
 
         // sanity check:
@@ -390,7 +381,6 @@ impl CoreVaultData {
 }
 
 impl CoreVaultData {
-    #[allow(dead_code)]
     pub fn vault(vault: [u8; 32]) -> Self {
         let account_id = account_of(vault);
         let vault = VaultRegistryPallet::get_vault_from_id(&account_id).unwrap();
@@ -427,7 +417,6 @@ impl CoreVaultData {
         self.backing_collateral.currency()
     }
 
-    #[allow(dead_code)]
     pub fn force_to(vault: [u8; 32], state: CoreVaultData) {
         // replace collateral is part of griefing collateral, so it needs to smaller or equal
         assert!(state.griefing_collateral >= state.replace_collateral);
@@ -590,7 +579,6 @@ pub struct LiquidationVaultData {
 }
 
 impl LiquidationVaultData {
-    #[allow(dead_code)]
     pub fn get() -> Self {
         let liquidation_vaults = iter_collateral_currencies()
             .map(|currency_id| {
@@ -753,7 +741,7 @@ impl ParachainTwoVaultState {
         state
     }
 }
-#[allow(dead_code)]
+
 pub fn liquidate_vault(currency_id: CurrencyId, vault: [u8; 32]) {
     assert_ok!(OraclePallet::_set_exchange_rate(
         currency_id,
@@ -766,7 +754,6 @@ pub fn liquidate_vault(currency_id: CurrencyId, vault: [u8; 32]) {
     ));
 }
 
-#[allow(dead_code)]
 pub fn set_default_thresholds() {
     let secure = FixedU128::checked_from_rational(150, 100).unwrap();
     let premium = FixedU128::checked_from_rational(135, 100).unwrap();
@@ -786,7 +773,6 @@ pub fn dummy_public_key() -> BtcPublicKey {
     ])
 }
 
-#[allow(dead_code)]
 pub fn try_register_vault(collateral: Amount<Runtime>, vault: [u8; 32]) {
     if VaultRegistryPallet::get_vault_from_id(&account_of(vault)).is_err() {
         assert_ok!(Call::VaultRegistry(VaultRegistryCall::register_vault(
@@ -798,12 +784,10 @@ pub fn try_register_vault(collateral: Amount<Runtime>, vault: [u8; 32]) {
     };
 }
 
-#[allow(dead_code)]
 pub fn try_register_operator(operator: [u8; 32]) {
     let _ = Call::Nomination(NominationCall::opt_in_to_nomination()).dispatch(origin_of(account_of(operator)));
 }
 
-#[allow(dead_code)]
 pub fn force_issue_tokens(user: [u8; 32], vault: [u8; 32], collateral: Amount<Runtime>, tokens: Amount<Runtime>) {
     // register the vault
     assert_ok!(Call::VaultRegistry(VaultRegistryCall::register_vault(
@@ -823,10 +807,9 @@ pub fn force_issue_tokens(user: [u8; 32], vault: [u8; 32], collateral: Amount<Ru
     assert_ok!(VaultRegistryPallet::issue_tokens(&account_of(vault), &tokens));
 
     // mint tokens to the user
-    assert_ok!(tokens.mint(&user.into()));
+    assert_ok!(tokens.mint_to(&user.into()));
 }
 
-#[allow(dead_code)]
 pub fn required_collateral_for_issue(issued_tokens: Amount<Runtime>, currency_id: CurrencyId) -> Amount<Runtime> {
     let fee_amount_btc = FeePallet::get_issue_fee(&issued_tokens).unwrap();
     let total_amount_btc = issued_tokens + fee_amount_btc;
@@ -1005,7 +988,6 @@ impl TransactionGenerator {
     }
 }
 
-#[allow(dead_code)]
 pub fn generate_transaction_and_mine(
     address: BtcAddress,
     amount: Amount<Runtime>,

@@ -3,7 +3,7 @@ use crate::{ext, mock::*};
 use crate::types::{Collateral, RedeemRequest, RedeemRequestStatus, Wrapped};
 use bitcoin::types::{MerkleProof, Transaction};
 use btc_relay::{BtcAddress, BtcPublicKey};
-use currency::{Amount, ParachainCurrency};
+use currency::Amount;
 use frame_support::{assert_err, assert_noop, assert_ok, dispatch::DispatchError};
 use mocktopus::mocking::*;
 use security::Pallet as Security;
@@ -85,7 +85,8 @@ fn default_vault() -> DefaultVault<Test> {
 #[test]
 fn test_request_redeem_fails_with_amount_exceeds_user_balance() {
     run_test(|| {
-        assert_ok!(<Test as vault_registry::Config>::Wrapped::mint(&ALICE, 2));
+        let amount = Amount::<Test>::new(2, <Test as currency::Config>::GetWrappedCurrencyId::get());
+        amount.mint_to(&ALICE).unwrap();
         let amount = 10_000_000;
         assert_err!(
             Redeem::request_redeem(Origin::signed(ALICE), amount, BtcAddress::default(), BOB),
@@ -198,7 +199,7 @@ fn test_request_redeem_succeeds_with_normal_redeem() {
             MockResult::Return(Ok(()))
         });
 
-        Amount::<Test>::lock.mock_safe(move |amount_wrapped, account| {
+        Amount::<Test>::lock_on.mock_safe(move |amount_wrapped, account| {
             assert_eq!(account, &redeemer);
             assert_eq!(amount_wrapped, &wrapped(amount));
 
@@ -277,7 +278,7 @@ fn test_request_redeem_succeeds_with_self_redeem() {
             MockResult::Return(Ok(()))
         });
 
-        Amount::<Test>::lock.mock_safe(move |amount_wrapped, account| {
+        Amount::<Test>::lock_on.mock_safe(move |amount_wrapped, account| {
             assert_eq!(account, &redeemer);
             assert_eq!(amount_wrapped, &wrapped(amount));
 
@@ -331,8 +332,8 @@ fn test_liquidation_redeem_succeeds() {
 
         ext::treasury::get_balance::<Test>.mock_safe(move |_| MockResult::Return(wrapped(total_amount)));
 
-        Amount::<Test>::lock.mock_safe(move |_, _| MockResult::Return(Ok(())));
-        Amount::<Test>::burn.mock_safe(move |amount, redeemer_id| {
+        Amount::<Test>::lock_on.mock_safe(move |_, _| MockResult::Return(Ok(())));
+        Amount::<Test>::burn_from.mock_safe(move |amount, redeemer_id| {
             assert_eq!(redeemer_id, &ALICE);
             assert_eq!(amount, &wrapped(total_amount));
 
@@ -410,7 +411,7 @@ fn test_execute_redeem_succeeds_with_another_account() {
             },
         );
 
-        Amount::<Test>::burn.mock_safe(move |amount_wrapped, redeemer| {
+        Amount::<Test>::burn_from.mock_safe(move |amount_wrapped, redeemer| {
             assert_eq!(redeemer, &ALICE);
             assert_eq!(amount_wrapped, &(wrapped(100) + btc_fee));
 
@@ -491,7 +492,7 @@ fn test_execute_redeem_succeeds() {
             },
         );
 
-        Amount::<Test>::burn.mock_safe(move |amount_wrapped, redeemer| {
+        Amount::<Test>::burn_from.mock_safe(move |amount_wrapped, redeemer| {
             assert_eq!(redeemer, &ALICE);
             assert_eq!(amount_wrapped, &(wrapped(100) + btc_fee));
 
@@ -619,7 +620,7 @@ fn test_cancel_redeem_succeeds() {
             assert_eq!(vault, BOB);
             MockResult::Return(Ok(()))
         });
-        Amount::<Test>::unlock.mock_safe(|_, _| MockResult::Return(Ok(())));
+        Amount::<Test>::unlock_on.mock_safe(|_, _| MockResult::Return(Ok(())));
         ext::vault_registry::transfer_funds_saturated::<Test>
             .mock_safe(move |_, _, amount| MockResult::Return(Ok(amount.clone())));
         ext::vault_registry::get_vault_from_id::<Test>.mock_safe(|_| {
@@ -726,10 +727,11 @@ mod spec_based_tests {
         run_test(|| {
             let amount_to_redeem = 100;
             let replace_collateral = 100;
-            assert_ok!(<Test as vault_registry::Config>::Wrapped::mint(
-                &ALICE,
-                amount_to_redeem
-            ));
+            let amount = Amount::<Test>::new(
+                amount_to_redeem,
+                <Test as currency::Config>::GetWrappedCurrencyId::get(),
+            );
+            amount.mint_to(&ALICE).unwrap();
             ext::vault_registry::ensure_not_banned::<Test>.mock_safe(move |_vault_id| MockResult::Return(Ok(())));
             ext::vault_registry::try_increase_to_be_redeemed_tokens::<Test>
                 .mock_safe(move |_vault_id, _amount| MockResult::Return(Ok(())));
@@ -747,7 +749,7 @@ mod spec_based_tests {
                 .mock_safe(|_| MockResult::Return(Ok(DEFAULT_TESTING_CURRENCY)));
 
             // The returned `replaceCollateral` MUST be released
-            currency::Amount::unlock.mock_safe(move |collateral_amount, vault_id| {
+            currency::Amount::unlock_on.mock_safe(move |collateral_amount, vault_id| {
                 assert_eq!(vault_id, &BOB);
                 assert_eq!(collateral_amount, &collateral(replace_collateral));
                 MockResult::Return(Ok(()))
@@ -771,8 +773,8 @@ mod spec_based_tests {
 
             ext::treasury::get_balance::<Test>.mock_safe(move |_| MockResult::Return(wrapped(total_amount)));
 
-            Amount::<Test>::lock.mock_safe(move |_, _| MockResult::Return(Ok(())));
-            Amount::<Test>::burn.mock_safe(move |amount, redeemer_id| {
+            Amount::<Test>::lock_on.mock_safe(move |_, _| MockResult::Return(Ok(())));
+            Amount::<Test>::burn_from.mock_safe(move |amount, redeemer_id| {
                 assert_eq!(redeemer_id, &ALICE);
                 assert_eq!(amount, &wrapped(total_amount));
 
@@ -838,7 +840,7 @@ mod spec_based_tests {
             };
             inject_redeem_request(H256([0u8; 32]), redeem_request.clone());
 
-            Amount::<Test>::burn.mock_safe(move |_, _| MockResult::Return(Ok(())));
+            Amount::<Test>::burn_from.mock_safe(move |_, _| MockResult::Return(Ok(())));
 
             ext::vault_registry::redeem_tokens::<Test>.mock_safe(move |vault, amount_wrapped, premium, redeemer| {
                 assert_eq!(vault, &redeem_request.vault);
@@ -902,7 +904,7 @@ mod spec_based_tests {
                 assert_eq!(vault, BOB);
                 MockResult::Return(Ok(()))
             });
-            Amount::<Test>::unlock.mock_safe(|_, _| MockResult::Return(Ok(())));
+            Amount::<Test>::unlock_on.mock_safe(|_, _| MockResult::Return(Ok(())));
             Amount::<Test>::transfer.mock_safe(|_, _, _| MockResult::Return(Ok(())));
             ext::vault_registry::get_collateral_currency::<Test>
                 .mock_safe(|_| MockResult::Return(Ok(DEFAULT_TESTING_CURRENCY)));
@@ -966,8 +968,8 @@ mod spec_based_tests {
                 assert_eq!(vault, BOB);
                 MockResult::Return(Ok(()))
             });
-            Amount::<Test>::unlock.mock_safe(|_, _| MockResult::Return(Ok(())));
-            Amount::<Test>::burn.mock_safe(|_, _| MockResult::Return(Ok(())));
+            Amount::<Test>::unlock_on.mock_safe(|_, _| MockResult::Return(Ok(())));
+            Amount::<Test>::burn_from.mock_safe(|_, _| MockResult::Return(Ok(())));
             ext::vault_registry::get_collateral_currency::<Test>
                 .mock_safe(|_| MockResult::Return(Ok(DEFAULT_TESTING_CURRENCY)));
             ext::vault_registry::transfer_funds_saturated::<Test>

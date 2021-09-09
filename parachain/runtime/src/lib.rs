@@ -758,7 +758,6 @@ impl vault_registry::Config for Runtime {
     type RandomnessSource = RandomnessCollectiveFlip;
     type Balance = Balance;
     type WeightInfo = ();
-    type Wrapped = orml_tokens::CurrencyAdapter<Runtime, GetWrappedCurrencyId>;
     type GetGriefingCollateralCurrencyId = GetCollateralCurrencyId;
 }
 
@@ -788,7 +787,6 @@ impl fee::Config for Runtime {
     type UnsignedInner = UnsignedInner;
     type VaultRewards = reward::RewardsCurrencyAdapter<Runtime, (), GetWrappedCurrencyId>;
     type VaultStaking = staking::StakingCurrencyAdapter<Runtime, GetWrappedCurrencyId>;
-    type Wrapped = orml_tokens::CurrencyAdapter<Runtime, GetWrappedCurrencyId>;
     type OnSweep = currency::SweepFunds<Runtime, FeeAccount>;
 }
 

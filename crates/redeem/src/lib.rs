@@ -346,7 +346,7 @@ impl<T: Config> Pallet<T> {
         ext::vault_registry::try_increase_to_be_redeemed_tokens::<T>(&vault_id, &vault_to_be_burned_tokens)?;
 
         // lock full amount (inc. fee)
-        amount_wrapped.lock(&redeemer)?;
+        amount_wrapped.lock_on(&redeemer)?;
         let redeem_id = ext::security::get_secure_id::<T>(&redeemer);
 
         let below_premium_redeem = ext::vault_registry::is_vault_below_premium_threshold::<T>(&vault_id)?;
@@ -367,7 +367,7 @@ impl<T: Config> Pallet<T> {
             ext::vault_registry::decrease_to_be_replaced_tokens::<T>(&vault_id, &vault_to_be_burned_tokens)?;
         // release the griefing collateral that is locked for the replace request
         if !griefing_collateral.is_zero() {
-            griefing_collateral.unlock(&vault_id)?;
+            griefing_collateral.unlock_on(&vault_id)?;
         }
 
         Self::insert_redeem_request(
@@ -416,8 +416,8 @@ impl<T: Config> Pallet<T> {
             Error::<T>::AmountExceedsUserBalance
         );
 
-        amount_wrapped.lock(&redeemer)?;
-        amount_wrapped.burn(&redeemer)?;
+        amount_wrapped.lock_on(&redeemer)?;
+        amount_wrapped.burn_from(&redeemer)?;
         ext::vault_registry::redeem_tokens_liquidation::<T>(currency_id, &redeemer, &amount_wrapped)?;
 
         // vault-registry emits `RedeemTokensLiquidation` with collateral amount
@@ -444,11 +444,11 @@ impl<T: Config> Pallet<T> {
 
         // burn amount (without parachain fee, but including transfer fee)
         let burn_amount = redeem.amount_btc().checked_add(&redeem.transfer_fee_btc())?;
-        burn_amount.burn(&redeem.redeemer)?;
+        burn_amount.burn_from(&redeem.redeemer)?;
 
         // send fees to pool
         let fee = redeem.fee();
-        fee.unlock(&redeem.redeemer)?;
+        fee.unlock_on(&redeem.redeemer)?;
         fee.transfer(&redeem.redeemer, &ext::fee::fee_pool_account_id::<T>())?;
         ext::fee::distribute_rewards::<T>(&fee)?;
 
@@ -540,18 +540,18 @@ impl<T: Config> Pallet<T> {
             // Transfer the transaction fee to the pool. Even though the redeem was not
             // successful, the user receives a premium in collateral, so it's OK to take the fee.
             let fee = redeem.fee();
-            fee.unlock(&redeem.redeemer)?;
+            fee.unlock_on(&redeem.redeemer)?;
             fee.transfer(&redeem.redeemer, &ext::fee::fee_pool_account_id::<T>())?;
             ext::fee::distribute_rewards::<T>(&fee)?;
 
             if ext::vault_registry::is_vault_below_secure_threshold::<T>(&redeem.vault)? {
                 // vault can not afford to back the tokens that it would receive, so we burn it
-                vault_to_be_burned_tokens.burn(&redeemer)?;
+                vault_to_be_burned_tokens.burn_from(&redeemer)?;
                 ext::vault_registry::decrease_tokens::<T>(&redeem.vault, &redeem.redeemer, &vault_to_be_burned_tokens)?;
                 Self::set_redeem_status(redeem_id, RedeemRequestStatus::Reimbursed(false))
             } else {
                 // Transfer the rest of the user's issued tokens (i.e. excluding fee) to the vault
-                vault_to_be_burned_tokens.unlock(&redeem.redeemer)?;
+                vault_to_be_burned_tokens.unlock_on(&redeem.redeemer)?;
                 vault_to_be_burned_tokens.transfer(&redeem.redeemer, &redeem.vault)?;
                 ext::vault_registry::decrease_to_be_redeemed_tokens::<T>(&vault_id, &vault_to_be_burned_tokens)?;
                 Self::set_redeem_status(redeem_id, RedeemRequestStatus::Reimbursed(true))
@@ -562,7 +562,7 @@ impl<T: Config> Pallet<T> {
                 .amount_btc()
                 .checked_add(&redeem.fee())?
                 .checked_add(&redeem.transfer_fee_btc())?;
-            total_wrapped.unlock(&redeemer)?;
+            total_wrapped.unlock_on(&redeemer)?;
             ext::vault_registry::decrease_to_be_redeemed_tokens::<T>(&vault_id, &vault_to_be_burned_tokens)?;
             Self::set_redeem_status(redeem_id, RedeemRequestStatus::Retried)
         };
@@ -593,7 +593,7 @@ impl<T: Config> Pallet<T> {
 
         ext::vault_registry::try_increase_to_be_issued_tokens::<T>(&vault_id, &reimbursed_amount)?;
         ext::vault_registry::issue_tokens::<T>(&vault_id, &reimbursed_amount)?;
-        reimbursed_amount.mint(&vault_id)?;
+        reimbursed_amount.mint_to(&vault_id)?;
 
         Self::set_redeem_status(redeem_id, RedeemRequestStatus::Reimbursed(true));
 

@@ -5,10 +5,9 @@ use crate::{
     BtcPublicKey, CurrencySource, DispatchError, Error, UpdatableVault, Vault, VaultStatus, Wallet, H256,
 };
 use codec::Decode;
-use currency::{Amount, ParachainCurrency};
+use currency::Amount;
 use frame_support::{assert_err, assert_noop, assert_ok, traits::OnInitialize};
 use mocktopus::mocking::*;
-use orml_tokens::CurrencyAdapter;
 use security::Pallet as Security;
 use sp_arithmetic::{traits::One, FixedPointNumber, FixedU128};
 use sp_core::U256;
@@ -111,7 +110,8 @@ fn create_vault_and_issue_tokens(
     assert_ok!(res);
 
     // mint tokens to the vault
-    assert_ok!(<CurrencyAdapter<Test, GetWrappedCurrencyId>>::mint(&id, issue_tokens));
+    let amount = Amount::<Test>::new(issue_tokens, <Test as currency::Config>::GetWrappedCurrencyId::get());
+    amount.mint_to(&id).unwrap();
 
     id
 }
@@ -554,7 +554,7 @@ fn replace_tokens_liquidation_succeeds() {
         let old_id = create_sample_vault();
         let new_id = create_vault(OTHER_ID);
 
-        currency::Amount::<Test>::lock.mock_safe(move |amount, sender| {
+        currency::Amount::<Test>::lock_on.mock_safe(move |amount, sender| {
             assert_eq!(sender, &new_id);
             assert_eq!(amount.amount(), 20);
             MockResult::Return(Ok(()))
@@ -587,7 +587,7 @@ fn cancel_replace_tokens_succeeds() {
         let old_id = create_sample_vault();
         let new_id = create_vault(OTHER_ID);
 
-        currency::Amount::<Test>::lock.mock_safe(move |amount, sender| {
+        currency::Amount::<Test>::lock_on.mock_safe(move |amount, sender| {
             assert_eq!(sender, &new_id);
             assert_eq!(amount.amount(), 20);
             MockResult::Return(Ok(()))

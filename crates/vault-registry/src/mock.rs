@@ -2,7 +2,6 @@ use crate as vault_registry;
 use crate::{Config, Error};
 use frame_support::{parameter_types, traits::GenesisBuild, PalletId};
 use mocktopus::{macros::mockable, mocking::clear_mocks};
-use orml_tokens::CurrencyAdapter;
 use orml_traits::parameter_type_with_key;
 pub use primitives::CurrencyId;
 use sp_arithmetic::{FixedI128, FixedPointNumber, FixedU128};
@@ -176,7 +175,6 @@ impl fee::Config for Test {
     type UnsignedInner = Balance;
     type VaultRewards = reward::RewardsCurrencyAdapter<Test, (), GetWrappedCurrencyId>;
     type VaultStaking = staking::StakingCurrencyAdapter<Test, GetWrappedCurrencyId>;
-    type Wrapped = CurrencyAdapter<Test, GetWrappedCurrencyId>;
     type OnSweep = ();
 }
 
@@ -190,7 +188,6 @@ impl Config for Test {
     type RandomnessSource = pallet_randomness_collective_flip::Pallet<Test>;
     type Balance = Balance;
     type WeightInfo = ();
-    type Wrapped = CurrencyAdapter<Test, GetWrappedCurrencyId>;
     type GetGriefingCollateralCurrencyId = GetCollateralCurrencyId;
 }
 

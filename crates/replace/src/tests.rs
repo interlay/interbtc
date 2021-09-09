@@ -196,7 +196,7 @@ mod execute_replace_test {
         ext::btc_relay::verify_and_validate_op_return_transaction::<Test, Balance>
             .mock_safe(|_, _, _, _, _| MockResult::Return(Ok(())));
         ext::vault_registry::replace_tokens::<Test>.mock_safe(|_, _, _, _| MockResult::Return(Ok(())));
-        Amount::<Test>::unlock.mock_safe(|_, _| MockResult::Return(Ok(())));
+        Amount::<Test>::unlock_on.mock_safe(|_, _| MockResult::Return(Ok(())));
         ext::vault_registry::get_collateral_currency::<Test>
             .mock_safe(|_| MockResult::Return(Ok(DEFAULT_TESTING_CURRENCY)));
     }

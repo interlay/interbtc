@@ -26,7 +26,7 @@ extern crate mocktopus;
 use mocktopus::macros::mockable;
 
 use codec::{Decode, Encode, EncodeLike};
-use currency::{Amount, OnSweep, ParachainCurrency};
+use currency::{Amount, OnSweep};
 use frame_support::{
     dispatch::{DispatchError, DispatchResult},
     ensure,
@@ -44,7 +44,7 @@ use sp_std::{
     fmt::Debug,
     vec::*,
 };
-use types::{Collateral, SignedFixedPoint, UnsignedFixedPoint, UnsignedInner, Version, Wrapped};
+use types::{BalanceOf, Collateral, SignedFixedPoint, UnsignedFixedPoint, UnsignedInner, Version, Wrapped};
 
 pub trait WeightInfo {
     fn withdraw_rewards() -> Weight;
@@ -83,7 +83,8 @@ pub mod pallet {
             + TryFrom<Wrapped<Self>>
             + TryInto<Collateral<Self>>
             + TryInto<Wrapped<Self>>
-            + MaybeSerializeDeserialize;
+            + MaybeSerializeDeserialize
+            + TryInto<BalanceOf<Self>>;
 
         /// Unsigned fixed point type.
         type UnsignedFixedPoint: FixedPointNumber<Inner = <Self as Config>::UnsignedInner>
@@ -110,9 +111,6 @@ pub mod pallet {
 
         /// Vault staking pool for the wrapped currency.
         type VaultStaking: staking::Staking<Self::AccountId, SignedFixedPoint = SignedFixedPoint<Self>>;
-
-        /// Wrapped currency, e.g. interBTC.
-        type Wrapped: ParachainCurrency<Self::AccountId, Balance = Self::UnsignedInner>;
 
         /// Handler to transfer undistributed rewards.
         type OnSweep: OnSweep<Self::AccountId, Amount<Self>>;
@@ -411,10 +409,13 @@ impl<T: Config> Pallet<T> {
         nominator_id: &T::AccountId,
     ) -> DispatchResult {
         Self::distribute_from_reward_pool::<Rewards, Staking>(&vault_id)?;
+
         let rewards = Staking::withdraw_reward(vault_id, nominator_id)?
             .try_into()
             .map_err(|_| Error::<T>::TryIntoIntError)?;
-        ext::treasury::transfer::<T>(&Self::fee_pool_account_id(), nominator_id, rewards)?;
+        let amount = Amount::<T>::new(rewards, T::GetWrappedCurrencyId::get());
+        amount.transfer(&Self::fee_pool_account_id(), nominator_id)?;
+
         Ok(())
     }
 
