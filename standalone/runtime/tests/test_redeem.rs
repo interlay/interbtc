@@ -1,6 +1,7 @@
 mod mock;
 
 use currency::Amount;
+use frame_support::traits::Currency;
 use mock::{assert_eq, redeem_testing_utils::*, *};
 
 fn test_with<R>(execute: impl Fn(CurrencyId) -> R) {
@@ -398,14 +399,14 @@ mod spec_based_tests {
                     .dispatch(origin_of(account_of(ALICE))),
                     RedeemError::AmountExceedsUserBalance,
                 );
-                let user_tokens_before_redeem = wrapped(TreasuryPallet::get_free_balance(&account_of(USER)));
+                let user_tokens_before_redeem = wrapped(TreasuryPallet::free_balance(&account_of(USER)));
                 let tokens_to_liquidation_redeem = free_tokens_to_redeem.with_amount(|x| x - 10);
                 assert_ok!(Call::Redeem(RedeemCall::liquidation_redeem(
                     free_tokens_to_redeem.amount() - 10,
                     currency_id
                 ))
                 .dispatch(origin_of(account_of(ALICE))));
-                let user_tokens_after_redeem = wrapped(TreasuryPallet::get_free_balance(&account_of(USER)));
+                let user_tokens_after_redeem = wrapped(TreasuryPallet::free_balance(&account_of(USER)));
 
                 assert_eq!(
                     user_tokens_before_redeem - tokens_to_liquidation_redeem,

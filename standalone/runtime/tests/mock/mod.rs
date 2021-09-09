@@ -288,7 +288,7 @@ impl UserData {
         let account_id = account_of(id);
 
         // Clear collateral currencies:
-        for (currency_id, balance) in old.balances.iter() {
+        for (_currency_id, balance) in old.balances.iter() {
             balance.free.transfer(&account_id, &account_of(FAUCET)).unwrap();
             balance.locked.burn_from(&account_id).unwrap();
         }
