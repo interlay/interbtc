@@ -1,7 +1,7 @@
 use crate as refund;
 use crate::{Config, Error};
 use currency::Amount;
-use frame_support::{assert_ok, parameter_types, PalletId};
+use frame_support::{assert_ok, parameter_types, traits::GenesisBuild, PalletId};
 use mocktopus::{macros::mockable, mocking::clear_mocks};
 use orml_traits::parameter_type_with_key;
 pub use primitives::CurrencyId;
@@ -9,7 +9,7 @@ use sp_core::H256;
 use sp_runtime::{
     testing::{Header, TestXt},
     traits::{BlakeTwo256, IdentityLookup, One, Zero},
-    FixedI128, FixedU128,
+    FixedI128, FixedPointNumber, FixedU128,
 };
 
 pub const VAULT: AccountId = 1;
@@ -236,7 +236,27 @@ pub struct ExtBuilder;
 
 impl ExtBuilder {
     pub fn build() -> sp_io::TestExternalities {
-        let storage = frame_system::GenesisConfig::default().build_storage::<Test>().unwrap();
+        let mut storage = frame_system::GenesisConfig::default().build_storage::<Test>().unwrap();
+
+        vault_registry::GenesisConfig::<Test> {
+            minimum_collateral_vault: vec![(DEFAULT_TESTING_CURRENCY, 0)],
+            punishment_delay: 8,
+            system_collateral_ceiling: vec![(DEFAULT_TESTING_CURRENCY, 1_000_000_000_000)],
+            secure_collateral_threshold: vec![(
+                DEFAULT_TESTING_CURRENCY,
+                UnsignedFixedPoint::checked_from_rational(200, 100).unwrap(),
+            )],
+            premium_redeem_threshold: vec![(
+                DEFAULT_TESTING_CURRENCY,
+                UnsignedFixedPoint::checked_from_rational(120, 100).unwrap(),
+            )],
+            liquidation_collateral_threshold: vec![(
+                DEFAULT_TESTING_CURRENCY,
+                UnsignedFixedPoint::checked_from_rational(110, 100).unwrap(),
+            )],
+        }
+        .assimilate_storage(&mut storage)
+        .unwrap();
 
         sp_io::TestExternalities::from(storage)
     }

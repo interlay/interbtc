@@ -37,25 +37,25 @@ benchmarks! {
 
     deposit_collateral {
         let origin: T::AccountId = account("Origin", 0, 0);
-        let u in 0 .. 100;
         mint_collateral::<T>(&origin, (1u32 << 31).into());
         let currency_id = T::GetGriefingCollateralCurrencyId::get();
-        VaultRegistry::<T>::_register_vault(&origin, 1234u32.into(), dummy_public_key(), currency_id).unwrap();
+        let amount = 100u32.into();
+        VaultRegistry::<T>::_register_vault(&origin, amount, dummy_public_key(), currency_id).unwrap();
         Oracle::<T>::_set_exchange_rate(DEFAULT_TESTING_CURRENCY,
             UnsignedFixedPoint::<T>::one()
         ).unwrap();
-    }: _(RawOrigin::Signed(origin), u.into())
+    }: _(RawOrigin::Signed(origin), amount)
 
     withdraw_collateral {
         let origin: T::AccountId = account("Origin", 0, 0);
-        let u in 0 .. 100;
         mint_collateral::<T>(&origin, (1u32 << 31).into());
         let currency_id = T::GetGriefingCollateralCurrencyId::get();
-        VaultRegistry::<T>::_register_vault(&origin, u.into(), dummy_public_key(), currency_id).unwrap();
+        let amount = 100u32.into();
+        VaultRegistry::<T>::_register_vault(&origin, amount, dummy_public_key(), currency_id).unwrap();
         Oracle::<T>::_set_exchange_rate(DEFAULT_TESTING_CURRENCY,
             UnsignedFixedPoint::<T>::one()
         ).unwrap();
-    }: _(RawOrigin::Signed(origin), u.into())
+    }: _(RawOrigin::Signed(origin), amount)
 
     update_public_key {
         let origin: T::AccountId = account("Origin", 0, 0);

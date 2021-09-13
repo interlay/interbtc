@@ -1,5 +1,4 @@
 use super::*;
-use crate::{types::ReplaceRequest, Pallet as Replace};
 use bitcoin::{
     formatter::{Formattable, TryFormattable},
     types::{
@@ -7,21 +6,23 @@ use bitcoin::{
         TransactionOutput,
     },
 };
-use btc_relay::{BtcAddress, BtcPublicKey, Pallet as BtcRelay};
+use btc_relay::{BtcAddress, BtcPublicKey};
 use frame_benchmarking::{account, benchmarks, impl_benchmark_test_suite};
 use frame_support::traits::Get;
 use frame_system::RawOrigin;
-use oracle::Pallet as Oracle;
 use orml_traits::MultiCurrency;
 use primitives::CurrencyId;
-use security::Pallet as Security;
 use sp_core::{H160, H256, U256};
 use sp_runtime::{traits::One, FixedPointNumber};
 use sp_std::prelude::*;
-use vault_registry::{
-    types::{Vault, Wallet},
-    Pallet as VaultRegistry,
-};
+use vault_registry::types::{Vault, Wallet};
+
+// Pallets
+use crate::Pallet as Replace;
+use btc_relay::Pallet as BtcRelay;
+use oracle::Pallet as Oracle;
+use security::Pallet as Security;
+use vault_registry::Pallet as VaultRegistry;
 
 pub const DEFAULT_TESTING_CURRENCY: CurrencyId = CurrencyId::DOT;
 type UnsignedFixedPoint<T> = <T as currency::Config>::UnsignedFixedPoint;
@@ -45,9 +46,16 @@ fn mint_collateral<T: crate::Config>(account_id: &T::AccountId, amount: Collater
     <orml_tokens::Pallet<T>>::deposit(DEFAULT_TESTING_CURRENCY, account_id, amount).unwrap();
 }
 
-fn mine_blocks<T: crate::Config>() {
+fn mine_blocks_until_expiry<T: crate::Config>(request: &DefaultReplaceRequest<T>) {
+    let period = Replace::<T>::replace_period().max(request.period);
+    let expiry_height = BtcRelay::<T>::bitcoin_expiry_height(request.btc_height, period).unwrap();
+    mine_blocks::<T>(expiry_height + 100);
+}
+
+fn mine_blocks<T: crate::Config>(end_height: u32) {
     let relayer_id: T::AccountId = account("Relayer", 0, 0);
     mint_collateral::<T>(&relayer_id, (1u32 << 31).into());
+
     let height = 0;
     let block = BlockBuilder::new()
         .with_version(4)
@@ -81,7 +89,7 @@ fn mine_blocks<T: crate::Config>() {
         .build();
 
     let mut prev_hash = block.header.hash;
-    for _ in 0..100 {
+    for _ in 0..end_height {
         let block = BlockBuilder::new()
             .with_previous_hash(prev_hash)
             .with_version(4)
@@ -169,7 +177,6 @@ benchmarks! {
         replace_request.old_vault = old_vault_id.clone();
         replace_request.amount = amount.amount();
         Replace::<T>::insert_replace_request(&replace_id, &replace_request);
-
 
         Oracle::<T>::_set_exchange_rate(DEFAULT_TESTING_CURRENCY, UnsignedFixedPoint::<T>::one()
         ).unwrap();
@@ -283,8 +290,10 @@ benchmarks! {
         replace_request.new_vault = new_vault_id.clone();
         replace_request.amount = amount.amount();
         Replace::<T>::insert_replace_request(&replace_id, &replace_request);
-        mine_blocks::<T>();
-        Security::<T>::set_active_block_number(Security::<T>::active_block_number() + Replace::<T>::replace_period() + 10u32.into());
+
+        // expire replace request
+        mine_blocks_until_expiry::<T>(&replace_request);
+        Security::<T>::set_active_block_number(Security::<T>::active_block_number() + Replace::<T>::replace_period() + 100u32.into());
 
         VaultRegistry::<T>::set_secure_collateral_threshold(DEFAULT_TESTING_CURRENCY, UnsignedFixedPoint::<T>::checked_from_rational(1, 100000).unwrap());
         VaultRegistry::<T>::set_collateral_ceiling(DEFAULT_TESTING_CURRENCY, 1_000_000_000u32.into());

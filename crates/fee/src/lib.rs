@@ -9,6 +9,7 @@
 mod benchmarking;
 
 mod default_weights;
+pub use default_weights::WeightInfo;
 
 #[cfg(test)]
 mod mock;
@@ -31,9 +32,7 @@ use frame_support::{
     dispatch::{DispatchError, DispatchResult},
     ensure,
     traits::Get,
-    transactional,
-    weights::Weight,
-    PalletId,
+    transactional, PalletId,
 };
 use frame_system::ensure_signed;
 use reward::Rewards;
@@ -45,10 +44,6 @@ use sp_std::{
     vec::*,
 };
 use types::{BalanceOf, Collateral, SignedFixedPoint, UnsignedFixedPoint, UnsignedInner, Version, Wrapped};
-
-pub trait WeightInfo {
-    fn withdraw_rewards() -> Weight;
-}
 
 pub use pallet::*;
 

@@ -1087,12 +1087,35 @@ impl_runtime_apis! {
 
     #[cfg(feature = "runtime-benchmarks")]
     impl frame_benchmarking::Benchmark<Block> for Runtime {
+        fn benchmark_metadata(extra: bool) -> (
+            Vec<frame_benchmarking::BenchmarkList>,
+            Vec<frame_support::traits::StorageInfo>,
+        ) {
+            use frame_benchmarking::{list_benchmark, Benchmarking, BenchmarkList};
+            use frame_support::traits::StorageInfoTrait;
+
+            let mut list = Vec::<BenchmarkList>::new();
+
+            list_benchmark!(list, extra, btc_relay, BTCRelay);
+            list_benchmark!(list, extra, fee, Fee);
+            list_benchmark!(list, extra, issue, Issue);
+            list_benchmark!(list, extra, nomination, Nomination);
+            list_benchmark!(list, extra, oracle, Oracle);
+            list_benchmark!(list, extra, redeem, Redeem);
+            list_benchmark!(list, extra, refund, Refund);
+            list_benchmark!(list, extra, relay, Relay);
+            list_benchmark!(list, extra, replace, Replace);
+            list_benchmark!(list, extra, vault_registry, VaultRegistry);
+
+            let storage_info = AllPalletsWithSystem::storage_info();
+
+            return (list, storage_info)
+        }
+
         fn dispatch_benchmark(
             config: frame_benchmarking::BenchmarkConfig
         ) -> Result<Vec<frame_benchmarking::BenchmarkBatch>, sp_runtime::RuntimeString> {
             use frame_benchmarking::{Benchmarking, BenchmarkBatch, add_benchmark, TrackedStorageKey};
-
-            impl frame_system_benchmarking::Config for Runtime {}
 
             let whitelist: Vec<TrackedStorageKey> = vec![
                 // Block Number
@@ -1111,13 +1134,15 @@ impl_runtime_apis! {
             let params = (&config, &whitelist);
 
             add_benchmark!(params, batches, btc_relay, BTCRelay);
-            add_benchmark!(params, batches, oracle, Oracle);
-            add_benchmark!(params, batches, issue, Issue);
-            add_benchmark!(params, batches, redeem, Redeem);
-            add_benchmark!(params, batches, replace, Replace);
-            add_benchmark!(params, batches, relay, Relay);
-            add_benchmark!(params, batches, vault_registry, VaultRegistry);
             add_benchmark!(params, batches, fee, Fee);
+            add_benchmark!(params, batches, issue, Issue);
+            add_benchmark!(params, batches, nomination, Nomination);
+            add_benchmark!(params, batches, oracle, Oracle);
+            add_benchmark!(params, batches, redeem, Redeem);
+            add_benchmark!(params, batches, refund, Refund);
+            add_benchmark!(params, batches, relay, Relay);
+            add_benchmark!(params, batches, replace, Replace);
+            add_benchmark!(params, batches, vault_registry, VaultRegistry);
 
             if batches.is_empty() { return Err("Benchmark not found for this pallet.".into()) }
             Ok(batches)

@@ -18,6 +18,7 @@ sp-arithmetic = { git = "https://github.com/paritytech/substrate", branch = "pol
 
 frame-support = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.9", default-features = false }
 frame-system = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.9", default-features = false }
+frame-benchmarking = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.9", default-features = false, optional = true }
 pallet-timestamp = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.9", default-features = false }
 
 # Parachain dependencies
@@ -30,8 +31,13 @@ security = { path = "../security", default-features = false }
 bitcoin = { path = "../bitcoin", default-features = false }
 primitives = { package = "interbtc-primitives", path = "../../primitives", default-features = false }
 
+# Orml dependencies
+orml-tokens = { git = "https://github.com/open-web3-stack/open-runtime-module-library", rev = "59df1df", default-features = false, optional = true }
+orml-traits = { git = "https://github.com/open-web3-stack/open-runtime-module-library", rev = "59df1df", default-features = false, optional = true }
+
 [dev-dependencies]
 mocktopus = "0.7.0"
+frame-benchmarking = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.9" }
 pallet-randomness-collective-flip = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.9", default-features = false }
 
 reward = { path = "../reward", default-features = false }
@@ -55,6 +61,7 @@ std = [
 
 	"frame-support/std",
 	"frame-system/std",
+	"frame-benchmarking/std",
 	"pallet-timestamp/std",
 
 	"currency/std",
@@ -65,4 +72,15 @@ std = [
 	"security/std",
 	"bitcoin/std",
     "primitives/std",
+
+	"orml-tokens/std",
+	"orml-traits/std",
+]
+runtime-benchmarks = [
+	"frame-benchmarking",
+	"frame-support/runtime-benchmarks",
+	"frame-system/runtime-benchmarks",
+
+	"orml-tokens",
+	"orml-traits",
 ]
