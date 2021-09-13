@@ -4,9 +4,10 @@ use hex_literal::hex;
 use interbtc_runtime::{
     AccountId, AuraConfig, BTCRelayConfig, Balance, CurrencyId, FeeConfig, GenesisConfig, IssueConfig,
     NominationConfig, OracleConfig, ParachainInfoConfig, RedeemConfig, RefundConfig, ReplaceConfig, SecurityConfig,
-    Signature, StatusCode, SudoConfig, SystemConfig, TokensConfig, VaultRegistryConfig, BITCOIN_BLOCK_SPACING, DAYS,
-    WASM_BINARY,
+    Signature, StatusCode, SudoConfig, SystemConfig, TokensConfig, VaultRegistryConfig, VestingConfig,
+    BITCOIN_BLOCK_SPACING, DAYS, WASM_BINARY,
 };
+use primitives::{BlockNumber, KINT};
 use sc_chain_spec::{ChainSpecExtension, ChainSpecGroup};
 use serde::{Deserialize, Serialize};
 use sp_consensus_aura::sr25519::AuthorityId as AuraId;
@@ -284,6 +285,7 @@ fn testnet_genesis(
             key: root_key.clone(),
         },
         tokens: TokensConfig { balances: vec![] },
+        vesting: Default::default(),
         oracle: OracleConfig {
             authorized_oracles,
             max_delay: DEFAULT_MAX_DELAY_MS,
@@ -436,6 +438,8 @@ pub fn kusama_mainnet_config(id: ParaId) -> ChainSpec {
                 ],
                 id,
                 SECURE_BITCOIN_CONFIRMATIONS,
+                vec![],
+                vec![],
             )
         },
         Vec::new(),
@@ -455,6 +459,14 @@ fn mainnet_genesis(
     authorized_oracles: Vec<(AccountId, Vec<u8>)>,
     id: ParaId,
     bitcoin_confirmations: u32,
+    initial_allocation: Vec<(AccountId, Balance)>,
+    vesting_list: Vec<(
+        AccountId,   // who
+        BlockNumber, // start
+        BlockNumber, // period
+        u32,         // period_count
+        Balance,     // per_period
+    )>,
 ) -> GenesisConfig {
     GenesisConfig {
         system: SystemConfig {
@@ -476,7 +488,13 @@ fn mainnet_genesis(
             // Assign network admin rights.
             key: root_key.clone(),
         },
-        tokens: TokensConfig { balances: vec![] },
+        tokens: TokensConfig {
+            balances: initial_allocation
+                .iter()
+                .map(|(who, amount)| (who.clone(), KINT, *amount))
+                .collect(),
+        },
+        vesting: VestingConfig { vesting: vesting_list },
         oracle: OracleConfig {
             authorized_oracles,
             max_delay: DEFAULT_MAX_DELAY_MS,

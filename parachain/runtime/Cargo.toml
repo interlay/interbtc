@@ -10,7 +10,7 @@ targets = ['x86_64-unknown-linux-gnu']
 [dependencies]
 serde = { version = "1.0.130", default-features = false, features = ["derive"], optional = true }
 codec = { package = "parity-scale-codec", version = "2.2.0", default-features = false, features = ["derive", "max-encoded-len"] }
-hex-literal = { version = "0.3.1", optional = true }
+hex-literal = { version = "0.3.1" }
 
 # Substrate dependencies
 sp-std = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.9", default-features = false }
@@ -102,6 +102,7 @@ module-refund-rpc-runtime-api = { path = "../../crates/refund/rpc/runtime-api", 
 # Orml dependencies
 orml-tokens = { git = "https://github.com/open-web3-stack/open-runtime-module-library", rev = "59df1df", default-features = false }
 orml-traits = { git = "https://github.com/open-web3-stack/open-runtime-module-library", rev = "59df1df", default-features = false }
+orml-vesting = { git = "https://github.com/open-web3-stack/open-runtime-module-library", rev = "59df1df", default-features = false }
 
 orml-xtokens = { git = "https://github.com/open-web3-stack/open-runtime-module-library", rev = "59df1df", default-features = false }
 orml-xcm-support = { git = "https://github.com/open-web3-stack/open-runtime-module-library", rev = "59df1df", default-features = false }
@@ -210,14 +211,13 @@ std = [
 
   "orml-tokens/std",
   "orml-traits/std",
+  "orml-vesting/std",
 
   "orml-xtokens/std",
   "orml-xcm-support/std",
   "orml-unknown-tokens/std",
 ]
 runtime-benchmarks = [
-  "hex-literal",
-
   "frame-benchmarking",
   "frame-system-benchmarking",
   "frame-support/runtime-benchmarks",
