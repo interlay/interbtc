@@ -252,7 +252,8 @@ impl<T: cumulus_pallet_parachain_system::Config> BlockNumberProvider for RelayCh
 
 parameter_types! {
     pub MinVestedTransfer: Balance = 0;
-    pub const MaxVestingSchedules: u32 = 100;
+    // NOTE: per account, airdrop only needs one
+    pub const MaxVestingSchedules: u32 = 1;
 }
 
 parameter_types! {
