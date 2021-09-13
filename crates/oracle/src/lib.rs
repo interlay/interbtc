@@ -11,6 +11,7 @@ mod ext;
 mod benchmarking;
 
 mod default_weights;
+pub use default_weights::WeightInfo;
 
 #[cfg(test)]
 mod tests;
@@ -44,7 +45,6 @@ use sp_runtime::{
 };
 use sp_std::{convert::TryInto, vec::Vec};
 
-pub use default_weights::WeightInfo;
 pub use pallet::*;
 pub use primitives::{oracle::Key as OracleKey, CurrencyId, TruncateFixedPointToInt};
 
@@ -368,6 +368,8 @@ impl<T: Config> Pallet<T> {
     /// * `exchange_rate` - i.e. planck per satoshi
     pub fn _set_exchange_rate(currency_id: CurrencyId, exchange_rate: UnsignedFixedPoint<T>) -> DispatchResult {
         Aggregate::<T>::insert(OracleKey::ExchangeRate(currency_id), exchange_rate);
+        // this is useful for benchmark tests
+        Self::recover_from_oracle_offline();
         Ok(())
     }
 

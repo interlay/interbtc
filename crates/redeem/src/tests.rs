@@ -56,7 +56,7 @@ fn btcdot_parity(wrapped: Wrapped<Test>) -> Result<Collateral<Test>, DispatchErr
 }
 
 fn inject_redeem_request(key: H256, value: RedeemRequest<AccountId, BlockNumber, Balance>) {
-    Redeem::insert_redeem_request(key, value)
+    Redeem::insert_redeem_request(&key, &value)
 }
 
 fn dummy_public_key() -> BtcPublicKey {

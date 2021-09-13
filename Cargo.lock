@@ -8425,6 +8425,7 @@ dependencies = [
  "btc-relay",
  "currency",
  "fee",
+ "frame-benchmarking",
  "frame-support",
  "frame-system",
  "interbtc-primitives",

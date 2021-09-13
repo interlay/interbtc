@@ -371,8 +371,8 @@ impl<T: Config> Pallet<T> {
         }
 
         Self::insert_redeem_request(
-            redeem_id,
-            RedeemRequest {
+            &redeem_id,
+            &RedeemRequest {
                 vault: vault_id.clone(),
                 opentime: ext::security::active_block_number::<T>(),
                 fee: fee_wrapped.amount(),
@@ -612,7 +612,7 @@ impl<T: Config> Pallet<T> {
     ///
     /// * `key` - 256-bit identifier of the redeem request
     /// * `value` - the redeem request
-    fn insert_redeem_request(key: H256, value: DefaultRedeemRequest<T>) {
+    fn insert_redeem_request(key: &H256, value: &DefaultRedeemRequest<T>) {
         <RedeemRequests<T>>::insert(key, value)
     }
 

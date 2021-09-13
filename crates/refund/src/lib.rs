@@ -13,9 +13,11 @@ mod tests;
 #[cfg(test)]
 extern crate mocktopus;
 
-use currency::Amount;
 #[cfg(test)]
 use mocktopus::macros::mockable;
+
+#[cfg(any(feature = "runtime-benchmarks", test))]
+mod benchmarking;
 
 mod default_weights;
 pub use default_weights::WeightInfo;
@@ -28,6 +30,7 @@ pub use crate::types::{DefaultRefundRequest, RefundRequest};
 use types::{BalanceOf, RefundRequestExt, Wrapped};
 
 use btc_relay::BtcAddress;
+use currency::Amount;
 use frame_support::{dispatch::DispatchError, ensure, traits::Get, transactional};
 use frame_system::ensure_signed;
 use sp_core::H256;
@@ -182,7 +185,7 @@ impl<T: Config> Pallet<T> {
             issue_id,
             completed: false,
         };
-        <RefundRequests<T>>::insert(refund_id, request.clone());
+        Self::insert_refund_request(&refund_id, &request);
 
         Self::deposit_event(<Event<T>>::RequestRefund(
             refund_id,
@@ -306,6 +309,10 @@ impl<T: Config> Pallet<T> {
         <RefundRequests<T>>::iter()
             .filter(|(_, request)| request.vault == account_id)
             .collect::<Vec<_>>()
+    }
+
+    fn insert_refund_request(key: &H256, value: &RefundRequest<T::AccountId, BalanceOf<T>>) {
+        <RefundRequests<T>>::insert(key, value)
     }
 
     fn get_dust_value() -> Amount<T> {

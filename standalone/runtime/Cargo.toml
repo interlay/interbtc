@@ -180,5 +180,6 @@ runtime-benchmarks = [
   "vault-registry/runtime-benchmarks",
   "fee/runtime-benchmarks",
   "nomination/runtime-benchmarks",
+  "refund/runtime-benchmarks",
 ]
 disable-runtime-api = []

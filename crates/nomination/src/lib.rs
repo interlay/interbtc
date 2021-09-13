@@ -19,26 +19,21 @@ mod tests;
 mod ext;
 mod types;
 
+#[cfg(any(feature = "runtime-benchmarks", test))]
+mod benchmarking;
+
 mod default_weights;
+pub use default_weights::WeightInfo;
 
 use frame_support::{
     dispatch::{DispatchError, DispatchResult},
     ensure,
     traits::Get,
     transactional,
-    weights::Weight,
 };
 use frame_system::{ensure_root, ensure_signed};
 use sp_std::convert::TryInto;
 use types::{Collateral, SignedFixedPoint};
-
-pub trait WeightInfo {
-    fn set_nomination_enabled() -> Weight;
-    fn opt_in_to_nomination() -> Weight;
-    fn opt_out_of_nomination() -> Weight;
-    fn deposit_collateral() -> Weight;
-    fn withdraw_collateral() -> Weight;
-}
 
 use currency::Amount;
 pub use pallet::*;

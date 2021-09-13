@@ -718,7 +718,7 @@ impl<T: Config> Pallet<T> {
             && Self::bitcoin_block_expired(btc_open_height, period)?)
     }
 
-    pub fn bitcoin_block_expired(btc_open_height: u32, period: T::BlockNumber) -> Result<bool, DispatchError> {
+    pub fn bitcoin_expiry_height(btc_open_height: u32, period: T::BlockNumber) -> Result<u32, DispatchError> {
         // calculate num_bitcoin_blocks as ceil(period / ParachainBlocksPerBitcoinBlock)
         let num_bitcoin_blocks: u32 = period
             .checked_add(&T::ParachainBlocksPerBitcoinBlock::get())
@@ -730,9 +730,13 @@ impl<T: Config> Pallet<T> {
             .try_into()
             .map_err(|_| Error::<T>::TryIntoIntError)?;
 
-        let expiration_height = btc_open_height
+        Ok(btc_open_height
             .checked_add(num_bitcoin_blocks)
-            .ok_or(Error::<T>::ArithmeticOverflow)?;
+            .ok_or(Error::<T>::ArithmeticOverflow)?)
+    }
+
+    pub fn bitcoin_block_expired(btc_open_height: u32, period: T::BlockNumber) -> Result<bool, DispatchError> {
+        let expiration_height = Self::bitcoin_expiry_height(btc_open_height, period)?;
 
         // Note that we check stictly greater than. This ensures that at least
         // `num_bitcoin_blocks` FULL periods have expired.
