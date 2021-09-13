@@ -175,7 +175,7 @@ mod spec_based_tests {
                 NominationPallet::get_nominator_collateral(&account_of(VAULT), &account_of(USER)).unwrap(),
                 Amount::new(0, currency_id)
             );
-            let nonce: u32 = VaultStakingPallet::nonce(INTERBTC, &account_of(VAULT));
+            let nonce: u32 = VaultStakingPallet::nonce(&account_of(VAULT));
             assert_eq!(nonce, 1);
             assert_eq!(
                 VaultStakingPallet::compute_reward_at_index(nonce - 1, INTERBTC, &account_of(VAULT), &account_of(USER))
@@ -550,7 +550,7 @@ fn integration_test_vault_opt_out_must_refund_nomination() {
             NominationPallet::get_nominator_collateral(&account_of(VAULT), &account_of(USER)).unwrap(),
             Amount::new(0, currency_id)
         );
-        let nonce: u32 = VaultStakingPallet::nonce(INTERBTC, &account_of(VAULT));
+        let nonce: u32 = VaultStakingPallet::nonce(&account_of(VAULT));
         assert_eq!(nonce, 1);
         assert_eq!(
             VaultStakingPallet::compute_reward_at_index(nonce - 1, INTERBTC, &account_of(VAULT), &account_of(USER))
@@ -565,7 +565,7 @@ fn integration_test_banning_a_vault_does_not_force_refund() {
     test_with_nomination_enabled_and_vault_opted_in(|currency_id| {
         assert_nominate_collateral(VAULT, USER, default_nomination(currency_id));
         VaultRegistryPallet::ban_vault(account_of(VAULT)).unwrap();
-        let nonce: u32 = VaultStakingPallet::nonce(INTERBTC, &account_of(VAULT));
+        let nonce: u32 = VaultStakingPallet::nonce(&account_of(VAULT));
         assert_eq!(nonce, 0);
     })
 }
@@ -575,7 +575,7 @@ fn integration_test_liquidating_a_vault_does_not_force_refund() {
     test_with_nomination_enabled_and_vault_opted_in(|currency_id| {
         assert_nominate_collateral(VAULT, USER, default_nomination(currency_id));
         VaultRegistryPallet::liquidate_vault(&account_of(VAULT)).unwrap();
-        let nonce: u32 = VaultStakingPallet::nonce(INTERBTC, &account_of(VAULT));
+        let nonce: u32 = VaultStakingPallet::nonce(&account_of(VAULT));
         assert_eq!(nonce, 0);
     })
 }

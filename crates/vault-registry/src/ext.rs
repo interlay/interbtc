@@ -61,18 +61,14 @@ pub(crate) mod staking {
     }
 
     pub fn compute_stake<T: crate::Config>(
-        currency_id: CurrencyId<T>,
         vault_id: &T::AccountId,
         nominator_id: &T::AccountId,
     ) -> Result<SignedInner<T>, DispatchError> {
-        <staking::Pallet<T>>::compute_stake(currency_id, vault_id, nominator_id)
+        <staking::Pallet<T>>::compute_stake(vault_id, nominator_id)
     }
 
-    pub fn total_current_stake<T: crate::Config>(
-        currency_id: CurrencyId<T>,
-        vault_id: &T::AccountId,
-    ) -> Result<SignedInner<T>, DispatchError> {
-        <staking::Pallet<T>>::total_current_stake(currency_id, vault_id)
+    pub fn total_current_stake<T: crate::Config>(vault_id: &T::AccountId) -> Result<SignedInner<T>, DispatchError> {
+        <staking::Pallet<T>>::total_current_stake(vault_id)
     }
 }
 
