@@ -37,6 +37,8 @@ impl TruncateFixedPointToInt for UnsignedFixedPoint {
     }
 }
 
+pub type VaultId<AccountId, CurrencyId> = (AccountId, CurrencyId);
+
 pub mod issue {
     use super::*;
 
@@ -61,9 +63,9 @@ pub mod issue {
     // See https://github.com/paritytech/substrate/issues/4641
     #[derive(Encode, Decode, Default, Clone, PartialEq)]
     #[cfg_attr(feature = "std", derive(Debug, Serialize, Deserialize))]
-    pub struct IssueRequest<AccountId, BlockNumber, Balance> {
+    pub struct IssueRequest<AccountId, BlockNumber, Balance, CurrencyId> {
         /// the vault associated with this issue request
-        pub vault: AccountId,
+        pub vault: VaultId<AccountId, CurrencyId>,
         /// the *active* block height when this request was opened
         pub opentime: BlockNumber,
         /// the issue period when this request was opened
@@ -137,9 +139,9 @@ pub mod redeem {
     // See https://github.com/paritytech/substrate/issues/4641
     #[derive(Encode, Decode, Default, Clone, PartialEq)]
     #[cfg_attr(feature = "std", derive(Debug, Serialize, Deserialize))]
-    pub struct RedeemRequest<AccountId, BlockNumber, Balance> {
+    pub struct RedeemRequest<AccountId, BlockNumber, Balance, CurrencyId> {
         /// the vault associated with this redeem request
-        pub vault: AccountId,
+        pub vault: VaultId<AccountId, CurrencyId>,
         /// the *active* block height when this request was opened
         pub opentime: BlockNumber,
         /// the redeem period when this request was opened
@@ -186,9 +188,9 @@ pub mod refund {
     // See https://github.com/paritytech/substrate/issues/4641
     #[derive(Encode, Decode, Default, Clone, PartialEq)]
     #[cfg_attr(feature = "std", derive(Debug, Serialize, Deserialize))]
-    pub struct RefundRequest<AccountId, Balance> {
+    pub struct RefundRequest<AccountId, Balance, CurrencyId> {
         /// the vault associated with this redeem request
-        pub vault: AccountId,
+        pub vault: VaultId<AccountId, CurrencyId>,
         #[cfg_attr(feature = "std", serde(bound(deserialize = "Balance: std::str::FromStr")))]
         #[cfg_attr(feature = "std", serde(deserialize_with = "deserialize_from_string"))]
         #[cfg_attr(feature = "std", serde(bound(serialize = "Balance: std::fmt::Display")))]
@@ -237,15 +239,16 @@ pub mod replace {
             ReplaceRequestStatus::Pending
         }
     }
+
     // Due to a known bug in serde we need to specify how u128 is (de)serialized.
     // See https://github.com/paritytech/substrate/issues/4641
     #[derive(Encode, Decode, Default, Clone, PartialEq)]
     #[cfg_attr(feature = "std", derive(Debug, Serialize, Deserialize))]
-    pub struct ReplaceRequest<AccountId, BlockNumber, Balance> {
+    pub struct ReplaceRequest<AccountId, BlockNumber, Balance, CurrencyId> {
         /// the vault which has requested to be replaced
-        pub old_vault: AccountId,
+        pub old_vault: VaultId<AccountId, CurrencyId>,
         /// the vault which is replacing the old vault
-        pub new_vault: AccountId,
+        pub new_vault: VaultId<AccountId, CurrencyId>,
         #[cfg_attr(feature = "std", serde(bound(deserialize = "Balance: std::str::FromStr")))]
         #[cfg_attr(feature = "std", serde(deserialize_with = "deserialize_from_string"))]
         #[cfg_attr(feature = "std", serde(bound(serialize = "Balance: std::fmt::Display")))]

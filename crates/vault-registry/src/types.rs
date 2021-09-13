@@ -7,6 +7,7 @@ use frame_support::{
     traits::Get,
 };
 
+pub use primitives::VaultId;
 use sp_core::H256;
 use sp_runtime::traits::{CheckedAdd, CheckedSub, Zero};
 use sp_std::collections::btree_set::BTreeSet;
@@ -28,15 +29,15 @@ pub enum Version {
 }
 
 #[derive(Debug, PartialEq)]
-pub enum CurrencySource<T: frame_system::Config> {
+pub enum CurrencySource<T: frame_system::Config + staking::Config> {
     /// Used by vault to back issued tokens
-    Collateral(<T as frame_system::Config>::AccountId),
+    Collateral(DefaultVaultId<T>),
     /// Collateral that is locked, but not used to back issued tokens (e.g. griefing collateral)
-    Griefing(<T as frame_system::Config>::AccountId),
+    Griefing(DefaultVaultId<T>),
     /// Unlocked balance
     FreeBalance(<T as frame_system::Config>::AccountId),
     /// Locked balance (like collateral but doesn't slash)
-    LiquidatedCollateral(<T as frame_system::Config>::AccountId),
+    LiquidatedCollateral(DefaultVaultId<T>),
     /// Funds within the liquidation vault
     LiquidationVault,
 }
@@ -44,10 +45,10 @@ pub enum CurrencySource<T: frame_system::Config> {
 impl<T: Config> CurrencySource<T> {
     pub fn account_id(&self) -> <T as frame_system::Config>::AccountId {
         match self {
-            CurrencySource::Collateral(x)
-            | CurrencySource::Griefing(x)
+            CurrencySource::Collateral((x, _))
+            | CurrencySource::Griefing((x, _))
             | CurrencySource::FreeBalance(x)
-            | CurrencySource::LiquidatedCollateral(x) => x.clone(),
+            | CurrencySource::LiquidatedCollateral((x, _)) => x.clone(),
             CurrencySource::LiquidationVault => Pallet::<T>::liquidation_vault_account_id(),
         }
     }
@@ -64,7 +65,7 @@ impl<T: Config> CurrencySource<T> {
                     backing_collateral
                 };
 
-                let current = ext::currency::get_reserved_balance::<T>(currency_id, &x);
+                let current = ext::currency::get_reserved_balance::<T>(currency_id, &x.0);
                 if currency_id == vault.data.currency_id {
                     current.checked_sub(&backing_collateral)?
                 } else {
@@ -72,7 +73,7 @@ impl<T: Config> CurrencySource<T> {
                 }
             }
             CurrencySource::FreeBalance(x) => ext::currency::get_free_balance::<T>(currency_id, x),
-            CurrencySource::LiquidatedCollateral(x) => ext::currency::get_reserved_balance::<T>(currency_id, x),
+            CurrencySource::LiquidatedCollateral(x) => ext::currency::get_reserved_balance::<T>(currency_id, &x.0),
             CurrencySource::LiquidationVault => {
                 ext::currency::get_reserved_balance::<T>(currency_id, &self.account_id())
             }
@@ -94,6 +95,8 @@ pub(crate) type UnsignedFixedPoint<T> = <T as currency::Config>::UnsignedFixedPo
 pub(crate) type SignedInner<T> = <T as currency::Config>::SignedInner;
 
 pub type CurrencyId<T> = <T as staking::Config>::CurrencyId;
+
+pub type DefaultVaultId<T> = VaultId<<T as frame_system::Config>::AccountId, CurrencyId<T>>;
 
 #[derive(Encode, Decode, Clone, PartialEq, Debug, Default)]
 pub struct Wallet {
@@ -224,7 +227,7 @@ pub type DefaultSystemVault<T> = SystemVault<BalanceOf<T>, CurrencyId<T>>;
 
 #[cfg_attr(feature = "integration-tests", visibility::make(pub))]
 pub(crate) trait UpdatableVault<T: Config> {
-    fn id(&self) -> T::AccountId;
+    fn id(&self) -> DefaultVaultId<T>;
 
     fn issued_tokens(&self) -> Amount<T>;
 
@@ -248,8 +251,8 @@ pub struct RichVault<T: Config> {
 }
 
 impl<T: Config> UpdatableVault<T> for RichVault<T> {
-    fn id(&self) -> T::AccountId {
-        self.data.id.clone()
+    fn id(&self) -> DefaultVaultId<T> {
+        (self.data.id.clone(), self.data.currency_id.clone())
     }
 
     fn issued_tokens(&self) -> Amount<T> {
@@ -264,7 +267,7 @@ impl<T: Config> UpdatableVault<T> for RichVault<T> {
         if self.data.is_liquidated() {
             Pallet::<T>::get_rich_liquidation_vault(self.data.currency_id).increase_issued(tokens)
         } else {
-            ext::reward::deposit_stake::<T>(&self.id(), tokens)?;
+            ext::reward::deposit_stake::<T>(&self.data.id, tokens)?;
             let new_value = self.issued_tokens().checked_add(&tokens)?.amount();
             self.update(|v| {
                 v.issued_tokens = new_value;
@@ -299,7 +302,7 @@ impl<T: Config> UpdatableVault<T> for RichVault<T> {
         if self.data.is_liquidated() {
             Pallet::<T>::get_rich_liquidation_vault(self.data.currency_id).decrease_issued(tokens)
         } else {
-            ext::reward::withdraw_stake::<T>(&self.id(), tokens)?;
+            ext::reward::withdraw_stake::<T>(&self.data.id, tokens)?;
             let new_value = self.issued_tokens().checked_sub(&tokens)?.amount();
             self.update(|v| {
                 v.issued_tokens = new_value;
@@ -465,7 +468,7 @@ impl<T: Config> RichVault<T> {
     }
 
     pub(crate) fn slash_for_to_be_redeemed(&mut self, amount: &Amount<T>) -> DispatchResult {
-        let vault_id = self.id();
+        let vault_id = &self.data.id;
         let collateral = self.get_vault_collateral()?.min(amount)?;
         ext::staking::withdraw_stake::<T>(T::GetWrappedCurrencyId::get(), &vault_id, &vault_id, &collateral)?;
         self.increase_liquidated_collateral(&collateral)?;
@@ -473,7 +476,7 @@ impl<T: Config> RichVault<T> {
     }
 
     pub(crate) fn slash_to_liquidation_vault(&mut self, amount: &Amount<T>) -> DispatchResult {
-        let vault_id = self.id();
+        let vault_id = &self.data.id;
 
         // get the collateral supplied by the vault (i.e. excluding nomination)
         let collateral = self.get_vault_collateral()?;
@@ -515,13 +518,14 @@ impl<T: Config> RichVault<T> {
         status: VaultStatus,
         reporter: Option<T::AccountId>,
     ) -> Result<Amount<T>, DispatchError> {
-        let vault_id = &self.id();
+        let vault_id = self.id();
+        let account_id = vault_id.0.clone();
 
         // pay the theft report fee first
         if let Some(ref reporter_id) = reporter {
             let reward = self.get_theft_fee_max()?;
-            Pallet::<T>::force_withdraw_collateral(vault_id, &reward)?;
-            reward.transfer(vault_id, reporter_id)?;
+            Pallet::<T>::force_withdraw_collateral(&vault_id, &reward)?;
+            reward.transfer(&account_id, reporter_id)?;
         }
 
         // we liquidate at most SECURE_THRESHOLD * collateral
@@ -555,7 +559,7 @@ impl<T: Config> RichVault<T> {
         liquidation_vault.increase_to_be_redeemed(&self.to_be_redeemed_tokens())?;
 
         // withdraw stake from the reward pool
-        ext::reward::withdraw_stake::<T>(vault_id, &self.issued_tokens())?;
+        ext::reward::withdraw_stake::<T>(&account_id, &self.issued_tokens())?;
 
         // Update vault: clear to_be_issued & issued_tokens, but don't touch to_be_redeemed
         let _ = self.update(|v| {
@@ -625,7 +629,7 @@ impl<T: Config> RichVault<T> {
         F: Fn(&mut DefaultVault<T>) -> DispatchResult,
     {
         func(&mut self.data)?;
-        <crate::Vaults<T>>::insert(&self.data.id, &self.data);
+        <crate::Vaults<T>>::insert(&self.id(), &self.data);
         Ok(())
     }
 }
@@ -663,8 +667,11 @@ impl<T: Config> RichSystemVault<T> {
 }
 
 impl<T: Config> UpdatableVault<T> for RichSystemVault<T> {
-    fn id(&self) -> T::AccountId {
-        Pallet::<T>::liquidation_vault_account_id()
+    fn id(&self) -> DefaultVaultId<T> {
+        (
+            Pallet::<T>::liquidation_vault_account_id(),
+            self.data.currency_id.clone(),
+        )
     }
 
     fn issued_tokens(&self) -> Amount<T> {
