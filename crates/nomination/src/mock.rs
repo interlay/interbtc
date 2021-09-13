@@ -201,7 +201,7 @@ impl fee::Config for Test {
     type SignedInner = SignedInner;
     type UnsignedFixedPoint = UnsignedFixedPoint;
     type UnsignedInner = UnsignedInner;
-    type VaultRewards = reward::RewardsCurrencyAdapter<Test, (), GetWrappedCurrencyId>;
+    type VaultRewards = reward::RewardsCurrencyAdapter<Test, GetWrappedCurrencyId>;
     type VaultStaking = staking::StakingCurrencyAdapter<Test, GetWrappedCurrencyId>;
     type OnSweep = ();
 }
@@ -214,7 +214,7 @@ impl oracle::Config for Test {
 impl Config for Test {
     type Event = TestEvent;
     type WeightInfo = ();
-    type VaultRewards = reward::RewardsCurrencyAdapter<Test, (), GetWrappedCurrencyId>;
+    type VaultRewards = reward::RewardsCurrencyAdapter<Test, GetWrappedCurrencyId>;
 }
 
 pub type TestEvent = Event;

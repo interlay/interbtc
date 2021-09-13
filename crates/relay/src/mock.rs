@@ -211,7 +211,7 @@ impl fee::Config for Test {
     type SignedInner = SignedInner;
     type UnsignedFixedPoint = UnsignedFixedPoint;
     type UnsignedInner = UnsignedInner;
-    type VaultRewards = reward::RewardsCurrencyAdapter<Test, (), GetWrappedCurrencyId>;
+    type VaultRewards = reward::RewardsCurrencyAdapter<Test, GetWrappedCurrencyId>;
     type VaultStaking = staking::StakingCurrencyAdapter<Test, GetWrappedCurrencyId>;
     type OnSweep = ();
 }
@@ -244,7 +244,7 @@ impl replace::Config for Test {
 impl nomination::Config for Test {
     type Event = TestEvent;
     type WeightInfo = ();
-    type VaultRewards = reward::RewardsCurrencyAdapter<Test, (), GetWrappedCurrencyId>;
+    type VaultRewards = reward::RewardsCurrencyAdapter<Test, GetWrappedCurrencyId>;
 }
 
 impl Config for Test {

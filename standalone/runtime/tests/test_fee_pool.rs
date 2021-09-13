@@ -81,7 +81,7 @@ fn get_local_pool_rewards(pool_id: [u8; 32], account: [u8; 32]) -> i128 {
 
 fn distribute_global_pool(pool_id: [u8; 32]) {
     FeePallet::distribute_from_reward_pool::<
-        reward::RewardsCurrencyAdapter<Runtime, (), GetWrappedCurrencyId>,
+        reward::RewardsCurrencyAdapter<Runtime, GetWrappedCurrencyId>,
         staking::StakingCurrencyAdapter<Runtime, GetWrappedCurrencyId>,
     >(&account_of(pool_id))
     .unwrap();

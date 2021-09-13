@@ -173,7 +173,7 @@ impl fee::Config for Test {
     type SignedInner = SignedInner;
     type UnsignedFixedPoint = UnsignedFixedPoint;
     type UnsignedInner = Balance;
-    type VaultRewards = reward::RewardsCurrencyAdapter<Test, (), GetWrappedCurrencyId>;
+    type VaultRewards = reward::RewardsCurrencyAdapter<Test, GetWrappedCurrencyId>;
     type VaultStaking = staking::StakingCurrencyAdapter<Test, GetWrappedCurrencyId>;
     type OnSweep = ();
 }

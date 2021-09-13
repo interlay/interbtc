@@ -847,7 +847,7 @@ impl fee::Config for Runtime {
     type SignedInner = SignedInner;
     type UnsignedFixedPoint = UnsignedFixedPoint;
     type UnsignedInner = UnsignedInner;
-    type VaultRewards = reward::RewardsCurrencyAdapter<Runtime, (), GetWrappedCurrencyId>;
+    type VaultRewards = reward::RewardsCurrencyAdapter<Runtime, GetWrappedCurrencyId>;
     type VaultStaking = staking::StakingCurrencyAdapter<Runtime, GetWrappedCurrencyId>;
     type OnSweep = currency::SweepFunds<Runtime, FeeAccount>;
 }
@@ -885,7 +885,7 @@ pub use nomination::Event as NominationEvent;
 impl nomination::Config for Runtime {
     type Event = Event;
     type WeightInfo = ();
-    type VaultRewards = reward::RewardsCurrencyAdapter<Runtime, (), GetWrappedCurrencyId>;
+    type VaultRewards = reward::RewardsCurrencyAdapter<Runtime, GetWrappedCurrencyId>;
 }
 
 construct_runtime! {
