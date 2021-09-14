@@ -35,7 +35,6 @@ use btc_relay::{types::OpReturnPaymentData, BtcAddress};
 use frame_support::{dispatch::DispatchResult, ensure, transactional, weights::Pays};
 use frame_system::ensure_signed;
 use sp_std::{
-    collections::btree_set::BTreeSet,
     convert::{TryFrom, TryInto},
     vec::Vec,
 };
@@ -106,7 +105,7 @@ pub mod pallet {
     #[pallet::storage]
     #[pallet::getter(fn theft_report)]
     pub(super) type TheftReports<T: Config> =
-        StorageMap<_, Blake2_128Concat, H256Le, BTreeSet<T::AccountId>, ValueQuery>;
+        StorageDoubleMap<_, Blake2_128Concat, T::AccountId, Blake2_128Concat, H256Le, Option<()>, ValueQuery>;
 
     #[pallet::hooks]
     impl<T: Config> Hooks<T::BlockNumber> for Pallet<T> {}
@@ -228,20 +227,18 @@ pub mod pallet {
             let tx_id = transaction.tx_id();
 
             // throw if already reported
-            if <TheftReports<T>>::contains_key(&tx_id) {
-                ensure!(
-                    !<TheftReports<T>>::get(&tx_id).contains(&vault_id),
-                    Error::<T>::VaultAlreadyReported,
-                );
-            }
+            ensure!(
+                !<TheftReports<T>>::contains_key(&vault_id, &tx_id),
+                Error::<T>::VaultAlreadyReported,
+            );
 
             ext::btc_relay::verify_transaction_inclusion::<T>(tx_id, merkle_proof)?;
             Self::_is_parsed_transaction_invalid(&vault_id, transaction)?;
 
             ext::vault_registry::liquidate_theft_vault::<T>(&vault_id, reporter_id)?;
 
-            <TheftReports<T>>::mutate(&tx_id, |reports| {
-                reports.insert(vault_id.clone());
+            <TheftReports<T>>::mutate(&vault_id, &tx_id, |inner| {
+                let _ = inner.insert(());
             });
 
             Self::deposit_event(<Event<T>>::VaultTheft(vault_id, tx_id));
@@ -310,11 +307,11 @@ pub mod pallet {
 
                     ext::vault_registry::liquidate_theft_vault::<T>(&vault_id, reporter_id)?;
 
-                    <TheftReports<T>>::mutate(&left_tx_id, |reports| {
-                        reports.insert(vault_id.clone());
+                    <TheftReports<T>>::mutate(&vault_id, &left_tx_id, |inner| {
+                        let _ = inner.insert(());
                     });
-                    <TheftReports<T>>::mutate(&right_tx_id, |reports| {
-                        reports.insert(vault_id.clone());
+                    <TheftReports<T>>::mutate(&vault_id, &right_tx_id, |inner| {
+                        let _ = inner.insert(());
                     });
 
                     Self::deposit_event(<Event<T>>::VaultDoublePayment(vault_id, left_tx_id, right_tx_id));
