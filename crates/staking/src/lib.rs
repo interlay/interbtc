@@ -61,12 +61,12 @@ pub mod pallet {
         T::Index = "Index"
     )]
     pub enum Event<T: Config> {
-        DepositStake(T::CurrencyId, T::AccountId, T::AccountId, T::SignedFixedPoint),
+        DepositStake(T::AccountId, T::AccountId, T::SignedFixedPoint),
         DistributeReward(T::CurrencyId, T::AccountId, T::SignedFixedPoint),
-        WithdrawStake(T::CurrencyId, T::AccountId, T::AccountId, T::SignedFixedPoint),
+        WithdrawStake(T::AccountId, T::AccountId, T::SignedFixedPoint),
         WithdrawReward(T::Index, T::CurrencyId, T::AccountId, T::AccountId, T::SignedFixedPoint),
-        ForceRefund(T::CurrencyId, T::AccountId),
-        IncreaseNonce(T::CurrencyId, T::AccountId, T::Index),
+        ForceRefund(T::AccountId),
+        IncreaseNonce(T::AccountId, T::Index),
     }
 
     #[pallet::error]
@@ -86,9 +86,9 @@ pub mod pallet {
     pub type TotalStake<T: Config> = StorageDoubleMap<
         _,
         Blake2_128Concat,
-        T::CurrencyId,
+        T::Index,
         Blake2_128Concat,
-        (T::Index, T::AccountId),
+        T::AccountId,
         SignedFixedPoint<T>,
         ValueQuery,
     >;
@@ -99,9 +99,9 @@ pub mod pallet {
     pub type TotalCurrentStake<T: Config> = StorageDoubleMap<
         _,
         Blake2_128Concat,
-        T::CurrencyId,
+        T::Index,
         Blake2_128Concat,
-        (T::Index, T::AccountId),
+        T::AccountId,
         SignedFixedPoint<T>,
         ValueQuery,
     >;
@@ -138,9 +138,9 @@ pub mod pallet {
     pub type SlashPerToken<T: Config> = StorageDoubleMap<
         _,
         Blake2_128Concat,
-        T::CurrencyId,
+        T::Index,
         Blake2_128Concat,
-        (T::Index, T::AccountId),
+        T::AccountId,
         SignedFixedPoint<T>,
         ValueQuery,
     >;
@@ -150,9 +150,9 @@ pub mod pallet {
     pub type Stake<T: Config> = StorageDoubleMap<
         _,
         Blake2_128Concat,
-        T::CurrencyId,
+        T::Index,
         Blake2_128Concat,
-        (T::Index, T::AccountId, T::AccountId),
+        (T::AccountId, T::AccountId),
         SignedFixedPoint<T>,
         ValueQuery,
     >;
@@ -174,9 +174,9 @@ pub mod pallet {
     pub type SlashTally<T: Config> = StorageDoubleMap<
         _,
         Blake2_128Concat,
-        T::CurrencyId,
+        T::Index,
         Blake2_128Concat,
-        (T::Index, T::AccountId, T::AccountId),
+        (T::AccountId, T::AccountId),
         SignedFixedPoint<T>,
         ValueQuery,
     >;
@@ -184,8 +184,7 @@ pub mod pallet {
     /// The nonce of the current staking pool, used in force refunds.
     /// This is a strictly increasing value.
     #[pallet::storage]
-    pub type Nonce<T: Config> =
-        StorageDoubleMap<_, Blake2_128Concat, T::CurrencyId, Blake2_128Concat, T::AccountId, T::Index, ValueQuery>;
+    pub type Nonce<T: Config> = StorageMap<_, Blake2_128Concat, T::AccountId, T::Index, ValueQuery>;
 
     #[pallet::pallet]
     pub struct Pallet<T>(_);
@@ -228,31 +227,21 @@ macro_rules! checked_sub_mut {
 // "Internal" functions, callable by code.
 impl<T: Config> Pallet<T> {
     /// Get the stake associated with a vault / nominator.
-    pub fn stake(
-        currency_id: T::CurrencyId,
-        vault_id: &T::AccountId,
-        nominator_id: &T::AccountId,
-    ) -> SignedFixedPoint<T> {
-        let nonce = Self::nonce(currency_id, vault_id);
-        Self::stake_at_index(nonce, currency_id, vault_id, nominator_id)
+    pub fn stake(vault_id: &T::AccountId, nominator_id: &T::AccountId) -> SignedFixedPoint<T> {
+        let nonce = Self::nonce(vault_id);
+        Self::stake_at_index(nonce, vault_id, nominator_id)
     }
 
-    fn stake_at_index(
-        nonce: T::Index,
-        currency_id: T::CurrencyId,
-        vault_id: &T::AccountId,
-        nominator_id: &T::AccountId,
-    ) -> SignedFixedPoint<T> {
-        <Stake<T>>::get(currency_id, (nonce, vault_id, nominator_id))
+    fn stake_at_index(nonce: T::Index, vault_id: &T::AccountId, nominator_id: &T::AccountId) -> SignedFixedPoint<T> {
+        <Stake<T>>::get(nonce, (vault_id, nominator_id))
     }
 
     /// Get the total stake *after* slashing.
     pub fn total_current_stake(
-        currency_id: T::CurrencyId,
         vault_id: &T::AccountId,
     ) -> Result<<SignedFixedPoint<T> as FixedPointNumber>::Inner, DispatchError> {
-        let nonce = Self::nonce(currency_id, vault_id);
-        let total = Self::total_current_stake_at_index(currency_id, (nonce, vault_id));
+        let nonce = Self::nonce(vault_id);
+        let total = Self::total_current_stake_at_index(nonce, vault_id);
         total.truncate_to_inner().ok_or(Error::<T>::TryIntoIntError.into())
     }
 
@@ -266,41 +255,32 @@ impl<T: Config> Pallet<T> {
     }
 
     /// Get the nominator's `slash_tally` for the staking pool.
-    pub fn slash_tally(
-        currency_id: T::CurrencyId,
-        vault_id: &T::AccountId,
-        nominator_id: &T::AccountId,
-    ) -> SignedFixedPoint<T> {
-        let nonce = Self::nonce(currency_id, vault_id);
-        Self::slash_tally_at_index(nonce, currency_id, vault_id, nominator_id)
+    pub fn slash_tally(vault_id: &T::AccountId, nominator_id: &T::AccountId) -> SignedFixedPoint<T> {
+        let nonce = Self::nonce(vault_id);
+        Self::slash_tally_at_index(nonce, vault_id, nominator_id)
     }
 
     fn slash_tally_at_index(
         nonce: T::Index,
-        currency_id: T::CurrencyId,
         vault_id: &T::AccountId,
         nominator_id: &T::AccountId,
     ) -> SignedFixedPoint<T> {
-        <SlashTally<T>>::get(currency_id, (nonce, vault_id, nominator_id))
+        <SlashTally<T>>::get(nonce, (vault_id, nominator_id))
     }
 
     /// Get the newest nonce for the staking pool.
-    pub fn nonce(currency_id: T::CurrencyId, vault_id: &T::AccountId) -> T::Index {
-        <Nonce<T>>::get(currency_id, vault_id)
+    pub fn nonce(vault_id: &T::AccountId) -> T::Index {
+        <Nonce<T>>::get(vault_id)
     }
 
     /// Get the vault's `slash_per_token` for the staking pool.
-    pub fn slash_per_token(currency_id: T::CurrencyId, vault_id: &T::AccountId) -> SignedFixedPoint<T> {
-        let nonce = Self::nonce(currency_id, vault_id);
-        Self::slash_per_token_at_index(nonce, currency_id, vault_id)
+    pub fn slash_per_token(vault_id: &T::AccountId) -> SignedFixedPoint<T> {
+        let nonce = Self::nonce(vault_id);
+        Self::slash_per_token_at_index(nonce, vault_id)
     }
 
-    fn slash_per_token_at_index(
-        nonce: T::Index,
-        currency_id: T::CurrencyId,
-        vault_id: &T::AccountId,
-    ) -> SignedFixedPoint<T> {
-        <SlashPerToken<T>>::get(currency_id, (nonce, vault_id))
+    fn slash_per_token_at_index(nonce: T::Index, vault_id: &T::AccountId) -> SignedFixedPoint<T> {
+        <SlashPerToken<T>>::get(nonce, vault_id)
     }
 
     /// Deposit an `amount` of stake to the `vault_id` for the `nominator_id`.
@@ -310,12 +290,23 @@ impl<T: Config> Pallet<T> {
         nominator_id: &T::AccountId,
         amount: SignedFixedPoint<T>,
     ) -> Result<(), DispatchError> {
-        let nonce = Self::nonce(currency_id, vault_id);
-        Self::apply_slash(currency_id, vault_id, nominator_id)?;
+        let nonce = Self::nonce(vault_id);
+        Self::apply_slash(vault_id, nominator_id)?;
 
-        checked_add_mut!(Stake<T>, currency_id, (nonce, vault_id, nominator_id), &amount);
-        checked_add_mut!(TotalStake<T>, currency_id, (nonce, vault_id), &amount);
-        checked_add_mut!(TotalCurrentStake<T>, currency_id, (nonce, vault_id), &amount);
+        checked_add_mut!(Stake<T>, nonce, (vault_id, nominator_id), &amount);
+        checked_add_mut!(TotalStake<T>, nonce, vault_id, &amount);
+        checked_add_mut!(TotalCurrentStake<T>, nonce, vault_id, &amount);
+
+        <SlashTally<T>>::mutate(nonce, (vault_id, nominator_id), |slash_tally| {
+            let slash_per_token = Self::slash_per_token_at_index(nonce, vault_id);
+            let slash_per_token_mul_amount = slash_per_token
+                .checked_mul(&amount)
+                .ok_or(Error::<T>::ArithmeticOverflow)?;
+            *slash_tally = slash_tally
+                .checked_add(&slash_per_token_mul_amount)
+                .ok_or(Error::<T>::ArithmeticOverflow)?;
+            Ok::<_, Error<T>>(())
+        })?;
 
         <RewardTally<T>>::mutate(currency_id, (nonce, vault_id, nominator_id), |reward_tally| {
             let reward_per_token = Self::reward_per_token(currency_id, (nonce, vault_id));
@@ -328,23 +319,7 @@ impl<T: Config> Pallet<T> {
             Ok::<_, Error<T>>(())
         })?;
 
-        <SlashTally<T>>::mutate(currency_id, (nonce, vault_id, nominator_id), |slash_tally| {
-            let slash_per_token = Self::slash_per_token_at_index(nonce, currency_id, vault_id);
-            let slash_per_token_mul_amount = slash_per_token
-                .checked_mul(&amount)
-                .ok_or(Error::<T>::ArithmeticOverflow)?;
-            *slash_tally = slash_tally
-                .checked_add(&slash_per_token_mul_amount)
-                .ok_or(Error::<T>::ArithmeticOverflow)?;
-            Ok::<_, Error<T>>(())
-        })?;
-
-        Self::deposit_event(Event::<T>::DepositStake(
-            currency_id,
-            vault_id.clone(),
-            nominator_id.clone(),
-            amount,
-        ));
+        Self::deposit_event(Event::<T>::DepositStake(vault_id.clone(), nominator_id.clone(), amount));
         Ok(())
     }
 
@@ -354,8 +329,8 @@ impl<T: Config> Pallet<T> {
         vault_id: &T::AccountId,
         amount: SignedFixedPoint<T>,
     ) -> Result<(), DispatchError> {
-        let nonce = Self::nonce(currency_id, vault_id);
-        let total_stake = Self::total_stake_at_index(currency_id, (nonce, vault_id));
+        let nonce = Self::nonce(vault_id);
+        let total_stake = Self::total_stake_at_index(nonce, vault_id);
         if amount.is_zero() {
             return Ok(());
         } else if total_stake.is_zero() {
@@ -365,14 +340,9 @@ impl<T: Config> Pallet<T> {
         let amount_div_total_stake = amount
             .checked_div(&total_stake)
             .ok_or(Error::<T>::ArithmeticUnderflow)?;
-        checked_add_mut!(
-            SlashPerToken<T>,
-            currency_id,
-            (nonce, vault_id),
-            &amount_div_total_stake
-        );
+        checked_add_mut!(SlashPerToken<T>, nonce, vault_id, &amount_div_total_stake);
 
-        checked_sub_mut!(TotalCurrentStake<T>, currency_id, (nonce, vault_id), &amount);
+        checked_sub_mut!(TotalCurrentStake<T>, nonce, vault_id, &amount);
         // A slash means reward per token is no longer representative of the rewards
         // since `amount * reward_per_token` will be lost from the system. As such,
         // replenish rewards by the amount of reward lost with this slash
@@ -405,24 +375,22 @@ impl<T: Config> Pallet<T> {
 
     /// Delegates to `compute_stake_at_index` with the current nonce.
     pub fn compute_stake(
-        currency_id: T::CurrencyId,
         vault_id: &T::AccountId,
         nominator_id: &T::AccountId,
     ) -> Result<<SignedFixedPoint<T> as FixedPointNumber>::Inner, DispatchError> {
-        let nonce = Self::nonce(currency_id, vault_id);
-        Self::compute_stake_at_index(nonce, currency_id, vault_id, nominator_id)
+        let nonce = Self::nonce(vault_id);
+        Self::compute_stake_at_index(nonce, vault_id, nominator_id)
     }
 
     /// Compute the stake in `vault_id` owned by `nominator_id`.
     pub fn compute_stake_at_index(
         nonce: T::Index,
-        currency_id: T::CurrencyId,
         vault_id: &T::AccountId,
         nominator_id: &T::AccountId,
     ) -> Result<<SignedFixedPoint<T> as FixedPointNumber>::Inner, DispatchError> {
-        let stake = Self::stake_at_index(nonce, currency_id, vault_id, nominator_id);
-        let slash_per_token = Self::slash_per_token_at_index(nonce, currency_id, vault_id);
-        let slash_tally = Self::slash_tally_at_index(nonce, currency_id, vault_id, nominator_id);
+        let stake = Self::stake_at_index(nonce, vault_id, nominator_id);
+        let slash_per_token = Self::slash_per_token_at_index(nonce, vault_id);
+        let slash_tally = Self::slash_tally_at_index(nonce, vault_id, nominator_id);
         let to_slash = Self::compute_amount_to_slash(stake, slash_per_token, slash_tally)?;
 
         let stake_sub_to_slash = stake
@@ -439,7 +407,7 @@ impl<T: Config> Pallet<T> {
         vault_id: &T::AccountId,
         reward: SignedFixedPoint<T>,
     ) -> Result<SignedFixedPoint<T>, DispatchError> {
-        let total_current_stake = Self::total_current_stake_at_index(currency_id, (nonce, vault_id));
+        let total_current_stake = Self::total_current_stake_at_index(nonce, vault_id);
         if total_current_stake.is_zero() {
             return Ok(Zero::zero());
         }
@@ -462,7 +430,7 @@ impl<T: Config> Pallet<T> {
         vault_id: &T::AccountId,
         reward: SignedFixedPoint<T>,
     ) -> Result<SignedFixedPoint<T>, DispatchError> {
-        let nonce = Self::nonce(currency_id, vault_id);
+        let nonce = Self::nonce(vault_id);
 
         let reward = Self::increase_rewards(nonce, currency_id, vault_id, reward)?;
         if reward.is_zero() {
@@ -480,7 +448,7 @@ impl<T: Config> Pallet<T> {
         vault_id: &T::AccountId,
         nominator_id: &T::AccountId,
     ) -> Result<<SignedFixedPoint<T> as FixedPointNumber>::Inner, DispatchError> {
-        let nonce = Self::nonce(currency_id, vault_id);
+        let nonce = Self::nonce(vault_id);
         Self::compute_reward_at_index(nonce, currency_id, vault_id, nominator_id)
     }
 
@@ -491,13 +459,9 @@ impl<T: Config> Pallet<T> {
         vault_id: &T::AccountId,
         nominator_id: &T::AccountId,
     ) -> Result<<SignedFixedPoint<T> as FixedPointNumber>::Inner, DispatchError> {
-        let stake = SignedFixedPoint::<T>::checked_from_integer(Self::compute_stake_at_index(
-            nonce,
-            currency_id,
-            vault_id,
-            nominator_id,
-        )?)
-        .ok_or(Error::<T>::TryIntoIntError)?;
+        let stake =
+            SignedFixedPoint::<T>::checked_from_integer(Self::compute_stake_at_index(nonce, vault_id, nominator_id)?)
+                .ok_or(Error::<T>::TryIntoIntError)?;
         let reward_per_token = Self::reward_per_token(currency_id, (nonce, vault_id));
         // FIXME: this can easily overflow with large numbers
         let stake_mul_reward_per_token = stake
@@ -513,23 +477,19 @@ impl<T: Config> Pallet<T> {
         Ok(cmp::max(Zero::zero(), reward))
     }
 
-    fn apply_slash(
-        currency_id: T::CurrencyId,
-        vault_id: &T::AccountId,
-        nominator_id: &T::AccountId,
-    ) -> Result<SignedFixedPoint<T>, DispatchError> {
-        let nonce = Self::nonce(currency_id, vault_id);
-        let stake = Self::stake_at_index(nonce, currency_id, vault_id, nominator_id);
-        let slash_per_token = Self::slash_per_token_at_index(nonce, currency_id, vault_id);
-        let slash_tally = Self::slash_tally_at_index(nonce, currency_id, vault_id, nominator_id);
+    fn apply_slash(vault_id: &T::AccountId, nominator_id: &T::AccountId) -> Result<SignedFixedPoint<T>, DispatchError> {
+        let nonce = Self::nonce(vault_id);
+        let stake = Self::stake_at_index(nonce, vault_id, nominator_id);
+        let slash_per_token = Self::slash_per_token_at_index(nonce, vault_id);
+        let slash_tally = Self::slash_tally_at_index(nonce, vault_id, nominator_id);
         let to_slash = Self::compute_amount_to_slash(stake, slash_per_token, slash_tally)?;
 
-        checked_sub_mut!(TotalStake<T>, currency_id, (nonce, vault_id), &to_slash);
+        checked_sub_mut!(TotalStake<T>, nonce, vault_id, &to_slash);
 
-        let stake = checked_sub_mut!(Stake<T>, currency_id, (nonce, vault_id, nominator_id), &to_slash);
+        let stake = checked_sub_mut!(Stake<T>, nonce, (vault_id, nominator_id), &to_slash);
         <SlashTally<T>>::insert(
-            currency_id,
-            (nonce, vault_id, nominator_id),
+            nonce,
+            (vault_id, nominator_id),
             stake
                 .checked_mul(&slash_per_token)
                 .ok_or(Error::<T>::ArithmeticOverflow)?,
@@ -545,8 +505,8 @@ impl<T: Config> Pallet<T> {
         nominator_id: &T::AccountId,
         amount: SignedFixedPoint<T>,
     ) -> Result<(), DispatchError> {
-        let nonce = Self::nonce(currency_id, vault_id);
-        let stake = Self::apply_slash(currency_id, vault_id, nominator_id)?;
+        let nonce = Self::nonce(vault_id);
+        let stake = Self::apply_slash(vault_id, nominator_id)?;
 
         if amount.is_zero() {
             return Ok(());
@@ -554,9 +514,21 @@ impl<T: Config> Pallet<T> {
             return Err(Error::<T>::InsufficientFunds.into());
         }
 
-        checked_sub_mut!(Stake<T>, currency_id, (nonce, vault_id, nominator_id), &amount);
-        checked_sub_mut!(TotalStake<T>, currency_id, (nonce, vault_id), &amount);
-        checked_sub_mut!(TotalCurrentStake<T>, currency_id, (nonce, vault_id), &amount);
+        checked_sub_mut!(Stake<T>, nonce, (vault_id, nominator_id), &amount);
+        checked_sub_mut!(TotalStake<T>, nonce, vault_id, &amount);
+        checked_sub_mut!(TotalCurrentStake<T>, nonce, vault_id, &amount);
+
+        <SlashTally<T>>::mutate(nonce, (vault_id, nominator_id), |slash_tally| {
+            let slash_per_token = Self::slash_per_token_at_index(nonce, vault_id);
+            let slash_per_token_mul_amount = slash_per_token
+                .checked_mul(&amount)
+                .ok_or(Error::<T>::ArithmeticOverflow)?;
+
+            *slash_tally = slash_tally
+                .checked_sub(&slash_per_token_mul_amount)
+                .ok_or(Error::<T>::ArithmeticUnderflow)?;
+            Ok::<_, Error<T>>(())
+        })?;
 
         <RewardTally<T>>::mutate(currency_id, (nonce, vault_id, nominator_id), |reward_tally| {
             let reward_per_token = Self::reward_per_token(currency_id, (nonce, vault_id));
@@ -570,20 +542,7 @@ impl<T: Config> Pallet<T> {
             Ok::<_, Error<T>>(())
         })?;
 
-        <SlashTally<T>>::mutate(currency_id, (nonce, vault_id, nominator_id), |slash_tally| {
-            let slash_per_token = Self::slash_per_token_at_index(nonce, currency_id, vault_id);
-            let slash_per_token_mul_amount = slash_per_token
-                .checked_mul(&amount)
-                .ok_or(Error::<T>::ArithmeticOverflow)?;
-
-            *slash_tally = slash_tally
-                .checked_sub(&slash_per_token_mul_amount)
-                .ok_or(Error::<T>::ArithmeticUnderflow)?;
-            Ok::<_, Error<T>>(())
-        })?;
-
         Self::deposit_event(Event::<T>::WithdrawStake(
-            currency_id,
             vault_id.clone(),
             nominator_id.clone(),
             amount,
@@ -597,7 +556,7 @@ impl<T: Config> Pallet<T> {
         vault_id: &T::AccountId,
         nominator_id: &T::AccountId,
     ) -> Result<<SignedFixedPoint<T> as FixedPointNumber>::Inner, DispatchError> {
-        let nonce = Self::nonce(currency_id, vault_id);
+        let nonce = Self::nonce(vault_id);
         Self::withdraw_reward_at_index(nonce, currency_id, vault_id, nominator_id)
     }
 
@@ -612,7 +571,7 @@ impl<T: Config> Pallet<T> {
         let reward_as_fixed = SignedFixedPoint::<T>::checked_from_integer(reward).ok_or(Error::<T>::TryIntoIntError)?;
         checked_sub_mut!(TotalRewards<T>, currency_id, (nonce, vault_id), &reward_as_fixed);
 
-        let stake = Self::stake_at_index(nonce, currency_id, vault_id, nominator_id);
+        let stake = Self::stake_at_index(nonce, vault_id, nominator_id);
         let reward_per_token = Self::reward_per_token(currency_id, (nonce, vault_id));
         <RewardTally<T>>::insert(
             currency_id,
@@ -638,17 +597,17 @@ impl<T: Config> Pallet<T> {
         currency_id: T::CurrencyId,
         vault_id: &T::AccountId,
     ) -> Result<<SignedFixedPoint<T> as FixedPointNumber>::Inner, DispatchError> {
-        let nonce = Self::nonce(currency_id, vault_id);
-        let total_current_stake = Self::total_current_stake_at_index(currency_id, (nonce, vault_id));
+        let nonce = Self::nonce(vault_id);
+        let total_current_stake = Self::total_current_stake_at_index(nonce, vault_id);
         // TODO: transfer `total_current_stake` from vault_id to `staking_pool(nonce)`
         Self::distribute_reward(currency_id, vault_id, total_current_stake)?;
         let reward = Self::withdraw_reward_at_index(nonce, currency_id, vault_id, vault_id)?;
         let reward_as_fixed = SignedFixedPoint::<T>::checked_from_integer(reward).ok_or(Error::<T>::TryIntoIntError)?;
-        Self::increment_nonce(currency_id, vault_id)?;
+        Self::increment_nonce(vault_id)?;
         // Only re-deposit vault stake after increasing the nonce, so that it goes
         // in the new nonce's "pool".
         Self::deposit_stake(currency_id, vault_id, vault_id, reward_as_fixed)?;
-        Self::deposit_event(Event::<T>::ForceRefund(currency_id, vault_id.clone()));
+        Self::deposit_event(Event::<T>::ForceRefund(vault_id.clone()));
 
         let refunded_collateral = total_current_stake
             .checked_sub(&reward_as_fixed)
@@ -659,18 +618,14 @@ impl<T: Config> Pallet<T> {
         Ok(refunded_collateral)
     }
 
-    pub fn increment_nonce(currency_id: T::CurrencyId, vault_id: &T::AccountId) -> DispatchResult {
-        <Nonce<T>>::mutate(currency_id, vault_id, |nonce| {
+    pub fn increment_nonce(vault_id: &T::AccountId) -> DispatchResult {
+        <Nonce<T>>::mutate(vault_id, |nonce| {
             *nonce = nonce
                 .checked_add(&T::Index::one())
                 .ok_or(Error::<T>::ArithmeticOverflow)?;
             Ok::<_, Error<T>>(())
         })?;
-        Self::deposit_event(Event::<T>::IncreaseNonce(
-            currency_id,
-            vault_id.clone(),
-            Self::nonce(currency_id, vault_id),
-        ));
+        Self::deposit_event(Event::<T>::IncreaseNonce(vault_id.clone(), Self::nonce(vault_id)));
         Ok(())
     }
 }
@@ -746,7 +701,7 @@ where
         vault_id: &T::AccountId,
         nominator_id: &T::AccountId,
     ) -> Result<<Self::SignedFixedPoint as FixedPointNumber>::Inner, DispatchError> {
-        Pallet::<T>::compute_stake(GetCurrencyId::get(), vault_id, nominator_id)
+        Pallet::<T>::compute_stake(vault_id, nominator_id)
     }
 
     fn distribute_reward(

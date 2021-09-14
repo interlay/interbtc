@@ -655,7 +655,7 @@ impl<T: Config> Pallet<T> {
     }
 
     pub fn get_backing_collateral(vault_id: &T::AccountId) -> Result<Amount<T>, DispatchError> {
-        let stake = ext::staking::total_current_stake::<T>(T::GetWrappedCurrencyId::get(), vault_id)?
+        let stake = ext::staking::total_current_stake::<T>(vault_id)?
             .try_into()
             .map_err(|_| Error::<T>::TryIntoIntError)?;
         Ok(Amount::new(stake, Self::get_collateral_currency(vault_id)?))
@@ -1548,7 +1548,7 @@ impl<T: Config> Pallet<T> {
     }
 
     pub fn compute_collateral(vault_id: &T::AccountId) -> Result<Amount<T>, DispatchError> {
-        let collateral = ext::staking::compute_stake::<T>(T::GetWrappedCurrencyId::get(), vault_id, vault_id)?;
+        let collateral = ext::staking::compute_stake::<T>(vault_id, vault_id)?;
         let amount = collateral.try_into().map_err(|_| Error::<T>::TryIntoIntError)?;
         Ok(Amount::new(amount, Self::get_collateral_currency(vault_id)?))
     }

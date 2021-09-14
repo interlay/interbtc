@@ -317,7 +317,7 @@ impl<T: Config> Pallet<T> {
         vault_id: &T::AccountId,
         nominator_id: &T::AccountId,
     ) -> Result<Amount<T>, DispatchError> {
-        let collateral = ext::staking::compute_stake::<T>(T::GetWrappedCurrencyId::get(), vault_id, nominator_id)?;
+        let collateral = ext::staking::compute_stake::<T>(vault_id, nominator_id)?;
 
         let amount = collateral.try_into().map_err(|_| Error::<T>::TryIntoIntError)?;
 

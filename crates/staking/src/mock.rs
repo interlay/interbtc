@@ -1,7 +1,7 @@
 use crate as staking;
 use crate::{Config, Error};
 use frame_support::parameter_types;
-pub use primitives::CurrencyId;
+pub use primitives::{CurrencyId, DOT};
 use sp_arithmetic::FixedI128;
 use sp_core::H256;
 use sp_runtime::{
@@ -60,9 +60,6 @@ impl frame_system::Config for Test {
     type SS58Prefix = SS58Prefix;
     type OnSetCode = ();
 }
-
-pub const DOT: CurrencyId = CurrencyId::DOT;
-// pub const INTERBTC: CurrencyId = CurrencyId::INTERBTC;
 
 impl Config for Test {
     type Event = TestEvent;
