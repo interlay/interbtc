@@ -39,7 +39,6 @@ You should implement it's trait like so:
 /// Used for test_module
 impl vault_registry::Config for Runtime {
     type Event = Event;
-    type RandomnessSource = RandomnessCollectiveFlip;
     type WeightInfo = ();
 }
 ```

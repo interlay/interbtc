@@ -29,7 +29,7 @@ use mocktopus::macros::mockable;
 
 use crate::types::{
     BalanceOf, BtcAddress, Collateral, CurrencyId, DefaultSystemVault, RichSystemVault, RichVault, SignedFixedPoint,
-    SignedInner, UnsignedFixedPoint, UpdatableVault, Version, Wrapped,
+    SignedInner, UnsignedFixedPoint, UpdatableVault, Version,
 };
 
 #[doc(inline)]
@@ -40,7 +40,7 @@ pub use currency::Amount;
 use frame_support::{
     dispatch::{DispatchError, DispatchResult},
     ensure,
-    traits::{Get, Randomness},
+    traits::Get,
     transactional, PalletId,
 };
 use frame_system::{
@@ -102,9 +102,6 @@ pub mod pallet {
         type Event: From<Event<Self>>
             + Into<<Self as frame_system::Config>::Event>
             + IsType<<Self as frame_system::Config>::Event>;
-
-        /// The source of (pseudo) randomness. Set to collective flip
-        type RandomnessSource: Randomness<H256, Self::BlockNumber>;
 
         /// The primitive balance type.
         type Balance: AtLeast32BitUnsigned
@@ -1398,59 +1395,6 @@ impl<T: Config> Pallet<T> {
 
     /// RPC
 
-    /// Get the first available vault with sufficient collateral to fulfil an issue request
-    /// with the specified amount of issued tokens.
-    pub fn get_first_vault_with_sufficient_collateral(amount: &Amount<T>) -> Result<T::AccountId, DispatchError> {
-        // find all vault accounts with sufficient collateral
-        let suitable_vaults = Vaults::<T>::iter()
-            .filter_map(|v| {
-                // iterator returns tuple of (AccountId, Vault<T>), we check the vault and return the accountid
-                let vault = Into::<RichVault<T>>::into(v.1);
-                // make sure the vault accepts new issues
-                if vault.data.status != VaultStatus::Active(true) {
-                    return None;
-                }
-                let issuable_tokens = vault.issuable_tokens().ok()?;
-                if issuable_tokens.ge(&amount).ok()? {
-                    Some(v.0)
-                } else {
-                    None
-                }
-            })
-            .collect::<Vec<_>>();
-
-        if suitable_vaults.is_empty() {
-            Err(Error::<T>::NoVaultWithSufficientCollateral.into())
-        } else {
-            let idx = Self::pseudo_rand_index(amount.amount(), suitable_vaults.len());
-            Ok(suitable_vaults[idx].clone())
-        }
-    }
-
-    /// Get the first available vault with sufficient locked tokens to fulfil a redeem request.
-    pub fn get_first_vault_with_sufficient_tokens(amount: &Amount<T>) -> Result<T::AccountId, DispatchError> {
-        // find all vault accounts with sufficient collateral
-        let suitable_vaults = Vaults::<T>::iter()
-            .filter_map(|v| {
-                // iterator returns tuple of (AccountId, Vault<T>), we check the vault and return the accountid
-                let vault = Into::<RichVault<T>>::into(v.1);
-                let redeemable_tokens = vault.redeemable_tokens().ok()?;
-                if redeemable_tokens.ge(&amount).ok()? {
-                    Some(v.0)
-                } else {
-                    None
-                }
-            })
-            .collect::<Vec<_>>();
-
-        if suitable_vaults.is_empty() {
-            Err(Error::<T>::NoVaultWithSufficientTokens.into())
-        } else {
-            let idx = Self::pseudo_rand_index(amount.amount(), suitable_vaults.len());
-            Ok(suitable_vaults[idx].clone())
-        }
-    }
-
     /// Get all vaults that:
     /// - are below the premium redeem threshold, and
     /// - have a non-zero amount of redeemable tokens, and thus
@@ -1676,25 +1620,6 @@ impl<T: Config> Pallet<T> {
     }
 
     // Other helpers
-
-    /// get a psuedorandom value between 0 (inclusive) and `limit` (exclusive), based on
-    /// the hashes of the last 81 blocks, and the given subject.
-    ///
-    /// # Arguments
-    ///
-    /// * `subject` - an extra value to feed into the pseudorandom number generator
-    /// * `limit` - the limit of the returned value
-    fn pseudo_rand_index(subject: Wrapped<T>, limit: usize) -> usize {
-        let raw_subject = TryInto::<u128>::try_into(subject).unwrap_or(0 as u128);
-
-        // convert into a slice. Endianness of the conversion function is arbitrary chosen
-        let bytes = &raw_subject.to_be_bytes();
-
-        let (rand_hash, _) = T::RandomnessSource::random(bytes);
-
-        let ret = rand_hash.to_low_u64_le() % (limit as u64);
-        ret as usize
-    }
 
     /// calculate the collateralization as a ratio of the issued tokens to the
     /// amount of provided collateral at the current exchange rate.

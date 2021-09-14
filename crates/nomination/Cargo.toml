@@ -19,7 +19,6 @@ frame-support = { git = "https://github.com/paritytech/substrate", branch = "pol
 frame-system = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.9", default-features = false }
 frame-benchmarking = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.9", default-features = false, optional = true }
 pallet-timestamp = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.9", default-features = false }
-pallet-randomness-collective-flip = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.9", default-features = false }
 
 # Parachain dependencies
 currency = { path = "../currency", default-features = false }
@@ -60,7 +59,6 @@ std = [
   "frame-system/std",
   "frame-benchmarking/std",
   "pallet-timestamp/std",
-  "pallet-randomness-collective-flip/std",
 
   "currency/std",
   "security/std",

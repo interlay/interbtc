@@ -85,8 +85,6 @@ pub(crate) type BalanceOf<T> = <T as Config>::Balance;
 
 pub(crate) type Collateral<T> = BalanceOf<T>;
 
-pub(crate) type Wrapped<T> = BalanceOf<T>;
-
 pub(crate) type SignedFixedPoint<T> = <T as currency::Config>::SignedFixedPoint;
 
 pub(crate) type UnsignedFixedPoint<T> = <T as currency::Config>::UnsignedFixedPoint;

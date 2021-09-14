@@ -32,7 +32,6 @@ frame-system = { git = "https://github.com/paritytech/substrate", branch = "polk
 frame-benchmarking = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.9", default-features = false, optional = true }
 frame-system-benchmarking = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.9", default-features = false, optional = true }
 pallet-balances = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.9", default-features = false }
-pallet-randomness-collective-flip = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.9", default-features = false }
 pallet-timestamp = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.9", default-features = false }
 pallet-sudo = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.9", default-features = false }
 pallet-utility = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.9", default-features = false }
@@ -147,7 +146,6 @@ std = [
   "frame-benchmarking/std",
   "frame-system-benchmarking/std",
   "pallet-balances/std",
-  "pallet-randomness-collective-flip/std",
   "pallet-timestamp/std",
   "pallet-sudo/std",
   "pallet-utility/std",

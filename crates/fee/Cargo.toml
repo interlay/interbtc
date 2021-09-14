@@ -29,7 +29,6 @@ staking = { path = "../staking", default-features = false }
 [dev-dependencies]
 mocktopus = "0.7.0"
 frame-benchmarking = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.9", default-features = false }
-pallet-randomness-collective-flip = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.9", default-features = false }
 pallet-timestamp = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.9", default-features = false }
 
 # Orml dependencies

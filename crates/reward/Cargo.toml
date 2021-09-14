@@ -27,7 +27,6 @@ frame-benchmarking = { git = "https://github.com/paritytech/substrate", branch =
 mocktopus = "0.7.0"
 rand = "0.8.3"
 frame-benchmarking = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.9", default-features = false }
-pallet-randomness-collective-flip = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.9", default-features = false }
 pallet-timestamp = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.9", default-features = false }
 
 primitives = { package = "interbtc-primitives", path = "../../primitives", default-features = false }

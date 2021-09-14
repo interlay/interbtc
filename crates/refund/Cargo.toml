@@ -38,7 +38,6 @@ orml-traits = { git = "https://github.com/open-web3-stack/open-runtime-module-li
 [dev-dependencies]
 mocktopus = "0.7.0"
 frame-benchmarking = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.9" }
-pallet-randomness-collective-flip = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.9", default-features = false }
 
 reward = { path = "../reward", default-features = false }
 staking = { path = "../staking", default-features = false }

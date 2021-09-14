@@ -20,13 +20,6 @@ sp_api::decl_runtime_apis! {
         /// Get the vault's collateral (including nomination)
         fn get_vault_total_collateral(vault_id: AccountId) -> Result<BalanceWrapper<Balance>, DispatchError>;
 
-        /// Get the first available vault with sufficient collateral to fulfil an issue request
-        /// with the specified amount of Wrapped.
-        fn get_first_vault_with_sufficient_collateral(amount: BalanceWrapper<Balance>, currency_id: CurrencyId) -> Result<AccountId, DispatchError>;
-
-        /// Get the first available vault with sufficient tokens to fulfil a redeem request
-        fn get_first_vault_with_sufficient_tokens(amount: BalanceWrapper<Balance>) -> Result<AccountId, DispatchError>;
-
         /// Get all vaults below the premium redeem threshold, ordered in descending order of this amount
         fn get_premium_redeem_vaults() -> Result<Vec<(AccountId, BalanceWrapper<Balance>)>, DispatchError>;
 
