@@ -38,7 +38,7 @@ use sp_version::RuntimeVersion;
 // A few exports that help ease life for downstream crates.
 pub use frame_support::{
     construct_runtime, parameter_types,
-    traits::{Everything, Get, KeyOwnerProofSystem, Randomness},
+    traits::{Everything, Get, KeyOwnerProofSystem},
     weights::{
         constants::{BlockExecutionWeight, ExtrinsicBaseWeight, RocksDbWeight, WEIGHT_PER_SECOND},
         DispatchClass, IdentityFee, Weight,
@@ -196,8 +196,6 @@ impl frame_system::Config for Runtime {
     type SS58Prefix = SS58Prefix;
     type OnSetCode = cumulus_pallet_parachain_system::ParachainSetCode<Self>;
 }
-
-impl pallet_randomness_collective_flip::Config for Runtime {}
 
 impl pallet_aura::Config for Runtime {
     type AuthorityId = AuraId;
@@ -817,7 +815,6 @@ parameter_types! {
 impl vault_registry::Config for Runtime {
     type PalletId = VaultPalletId;
     type Event = Event;
-    type RandomnessSource = RandomnessCollectiveFlip;
     type Balance = Balance;
     type WeightInfo = ();
     type GetGriefingCollateralCurrencyId = GetCollateralCurrencyId;
@@ -898,7 +895,6 @@ construct_runtime! {
         Timestamp: pallet_timestamp::{Pallet, Call, Storage, Inherent},
         Sudo: pallet_sudo::{Pallet, Call, Storage, Config<T>, Event<T>},
         Utility: pallet_utility::{Pallet, Call, Event},
-        RandomnessCollectiveFlip: pallet_randomness_collective_flip::{Pallet, Storage},
         TransactionPayment: pallet_transaction_payment::{Pallet, Storage},
         Scheduler: pallet_scheduler::{Pallet, Call, Storage, Event<T>},
 
@@ -1198,16 +1194,6 @@ impl_runtime_apis! {
         fn get_vault_total_collateral(vault_id: AccountId) -> Result<BalanceWrapper<Balance>, DispatchError> {
             let result = VaultRegistry::get_backing_collateral(&vault_id)?;
             Ok(BalanceWrapper{amount:result.amount()})
-        }
-
-        fn get_first_vault_with_sufficient_collateral(amount: BalanceWrapper<Balance>, currency_id: CurrencyId) -> Result<AccountId, DispatchError> {
-            let amount = Amount::new(amount.amount, currency_id);
-            VaultRegistry::get_first_vault_with_sufficient_collateral(&amount)
-        }
-
-        fn get_first_vault_with_sufficient_tokens(amount: BalanceWrapper<Balance>) -> Result<AccountId, DispatchError> {
-            let amount = Amount::new(amount.amount, GetWrappedCurrencyId::get());
-            VaultRegistry::get_first_vault_with_sufficient_tokens(&amount)
         }
 
         fn get_premium_redeem_vaults() -> Result<Vec<(AccountId, BalanceWrapper<Balance>)>, DispatchError> {

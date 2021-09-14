@@ -36,21 +36,6 @@ where
         at: Option<BlockHash>,
     ) -> JsonRpcResult<BalanceWrapper<Balance>>;
 
-    #[rpc(name = "vaultRegistry_getFirstVaultWithSufficientCollateral")]
-    fn get_first_vault_with_sufficient_collateral(
-        &self,
-        amount: BalanceWrapper<Balance>,
-        currency_id: CurrencyId,
-        at: Option<BlockHash>,
-    ) -> JsonRpcResult<AccountId>;
-
-    #[rpc(name = "vaultRegistry_getFirstVaultWithSufficientTokens")]
-    fn get_first_vault_with_sufficient_tokens(
-        &self,
-        amount: BalanceWrapper<Balance>,
-        at: Option<BlockHash>,
-    ) -> JsonRpcResult<AccountId>;
-
     #[rpc(name = "vaultRegistry_getPremiumRedeemVaults")]
     fn get_premium_redeem_vaults(
         &self,
@@ -196,35 +181,6 @@ where
         handle_response(
             api.get_vault_total_collateral(&at, vault_id),
             "Unable to get the vault's collateral.".into(),
-        )
-    }
-
-    fn get_first_vault_with_sufficient_collateral(
-        &self,
-        amount: BalanceWrapper<Balance>,
-        currency_id: CurrencyId,
-        at: Option<<Block as BlockT>::Hash>,
-    ) -> JsonRpcResult<AccountId> {
-        let api = self.client.runtime_api();
-        let at = BlockId::hash(at.unwrap_or_else(|| self.client.info().best_hash));
-
-        handle_response(
-            api.get_first_vault_with_sufficient_collateral(&at, amount, currency_id),
-            "Unable to find a vault with sufficient collateral.".into(),
-        )
-    }
-
-    fn get_first_vault_with_sufficient_tokens(
-        &self,
-        amount: BalanceWrapper<Balance>,
-        at: Option<<Block as BlockT>::Hash>,
-    ) -> JsonRpcResult<AccountId> {
-        let api = self.client.runtime_api();
-        let at = BlockId::hash(at.unwrap_or_else(|| self.client.info().best_hash));
-
-        handle_response(
-            api.get_first_vault_with_sufficient_tokens(&at, amount),
-            "Unable to find a vault with sufficient tokens.".into(),
         )
     }
 

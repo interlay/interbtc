@@ -26,7 +26,6 @@ frame_support::construct_runtime!(
     {
         System: frame_system::{Pallet, Call, Storage, Config, Event<T>},
         Timestamp: pallet_timestamp::{Pallet, Call, Storage, Inherent},
-        RandomnessCollectiveFlip: pallet_randomness_collective_flip::{Pallet, Storage},
 
         // Tokens & Balances
         Tokens: orml_tokens::{Pallet, Storage, Config<T>, Event<T>},
@@ -86,8 +85,6 @@ impl frame_system::Config for Test {
     type OnSetCode = ();
 }
 
-impl pallet_randomness_collective_flip::Config for Test {}
-
 pub const DEFAULT_TESTING_CURRENCY: CurrencyId = CurrencyId::DOT;
 pub const DOT: CurrencyId = CurrencyId::DOT;
 pub const INTERBTC: CurrencyId = CurrencyId::INTERBTC;
@@ -137,7 +134,6 @@ where
 impl vault_registry::Config for Test {
     type PalletId = VaultPalletId;
     type Event = TestEvent;
-    type RandomnessSource = pallet_randomness_collective_flip::Pallet<Test>;
     type Balance = Balance;
     type WeightInfo = ();
     type GetGriefingCollateralCurrencyId = GetCollateralCurrencyId;
