@@ -38,7 +38,7 @@ use sp_version::RuntimeVersion;
 // A few exports that help ease life for downstream crates.
 pub use frame_support::{
     construct_runtime, parameter_types,
-    traits::{Everything, Get, KeyOwnerProofSystem},
+    traits::{Everything, Get, KeyOwnerProofSystem, LockIdentifier},
     weights::{
         constants::{BlockExecutionWeight, ExtrinsicBaseWeight, RocksDbWeight, WEIGHT_PER_SECOND},
         DispatchClass, IdentityFee, Weight,
@@ -428,6 +428,50 @@ impl pallet_treasury::Config for Runtime {
     type MaxApprovals = MaxApprovals;
 }
 
+pub const UNITS: Balance = 1_000_000_000_000;
+pub const CENTS: Balance = UNITS / 30_000;
+pub const GRAND: Balance = CENTS * 100_000;
+pub const MILLICENTS: Balance = CENTS / 1_000;
+
+// deposit = VotingBondBase + VotingBondFactor * votes.len()
+pub const fn deposit(items: u32, bytes: u32) -> Balance {
+    items as Balance * 2_000 * CENTS + (bytes as Balance) * 100 * MILLICENTS
+}
+
+parameter_types! {
+    pub const CandidacyBond: Balance = 100 * CENTS;
+    // 1 storage item created, key size is 32 bytes, value size is 16+16.
+    pub const VotingBondBase: Balance = deposit(1, 64);
+    // additional data per vote is 32 bytes (account id).
+    pub const VotingBondFactor: Balance = deposit(0, 32);
+    pub const TermDuration: BlockNumber = 7 * DAYS;
+    pub const DesiredMembers: u32 = 13;
+    pub const DesiredRunnersUp: u32 = 7;
+    pub const ElectionsPhragmenPalletId: LockIdentifier = *b"phrelect";
+}
+
+impl pallet_elections_phragmen::Config for Runtime {
+    type PalletId = ElectionsPhragmenPalletId;
+    type Event = Event;
+    type Currency = orml_tokens::CurrencyAdapter<Runtime, GetNativeCurrencyId>;
+    type ChangeMembers = GeneralCouncil;
+    // NOTE: this implies that council's genesis members cannot be set directly and must come from
+    // this module.
+    type InitializeMembers = GeneralCouncil;
+    type CurrencyToVote = frame_support::traits::U128CurrencyToVote;
+    type CandidacyBond = CandidacyBond;
+    /// Base deposit associated with voting
+    type VotingBondBase = VotingBondBase;
+    /// The amount of bond that need to be locked for each vote (32 bytes).
+    type VotingBondFactor = VotingBondFactor;
+    type LoserCandidate = Treasury;
+    type KickedMember = Treasury;
+    type DesiredMembers = DesiredMembers;
+    type DesiredRunnersUp = DesiredRunnersUp;
+    type TermDuration = TermDuration;
+    type WeightInfo = ();
+}
+
 parameter_types! {
     pub const GeneralCouncilMotionDuration: BlockNumber = 3 * DAYS;
     pub const GeneralCouncilMaxProposals: u32 = 100;
@@ -746,7 +790,7 @@ pub fn get_all_module_accounts() -> Vec<AccountId> {
     vec![
         FeePalletId::get().into_account(),
         TreasuryPalletId::get().into_account(),
-        VaultPalletId::get().into_account(),
+        VaultRegistryPalletId::get().into_account(),
     ]
 }
 
@@ -810,11 +854,11 @@ impl staking::Config for Runtime {
 }
 
 parameter_types! {
-    pub const VaultPalletId: PalletId = PalletId(*b"mod/vreg");
+    pub const VaultRegistryPalletId: PalletId = PalletId(*b"mod/vreg");
 }
 
 impl vault_registry::Config for Runtime {
-    type PalletId = VaultPalletId;
+    type PalletId = VaultRegistryPalletId;
     type Event = Event;
     type Balance = Balance;
     type WeightInfo = ();
@@ -924,9 +968,10 @@ construct_runtime! {
         // Governance
         Democracy: pallet_democracy::{Pallet, Call, Storage, Config<T>, Event<T>},
         GeneralCouncil: pallet_collective::<Instance1>::{Pallet, Call, Storage, Origin<T>, Event<T>, Config<T>},
-        TechnicalCommittee: pallet_collective::<Instance2>::{Pallet, Call, Storage, Origin<T>, Event<T>, Config<T>} = 27,
+        TechnicalCommittee: pallet_collective::<Instance2>::{Pallet, Call, Storage, Origin<T>, Event<T>, Config<T>},
         TechnicalMembership: pallet_membership::{Pallet, Call, Storage, Event<T>, Config<T>},
         Treasury: pallet_treasury::{Pallet, Call, Storage, Config, Event<T>},
+        ElectionsPhragmen: pallet_elections_phragmen::{Pallet, Call, Storage, Event<T>, Config<T>},
 
         ParachainSystem: cumulus_pallet_parachain_system::{Pallet, Call, Config, Storage, Inherent, Event<T>},
         ParachainInfo: parachain_info::{Pallet, Storage, Config},

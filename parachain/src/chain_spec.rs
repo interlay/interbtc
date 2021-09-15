@@ -353,6 +353,7 @@ fn testnet_genesis(
         treasury: Default::default(),
         technical_membership: Default::default(),
         democracy: Default::default(),
+        elections_phragmen: Default::default(),
     }
 }
 
@@ -564,5 +565,6 @@ fn mainnet_genesis(
         treasury: Default::default(),
         technical_membership: Default::default(),
         democracy: Default::default(),
+        elections_phragmen: Default::default(),
     }
 }

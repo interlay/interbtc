@@ -3563,6 +3563,7 @@ dependencies = [
  "pallet-balances",
  "pallet-collective",
  "pallet-democracy",
+ "pallet-elections-phragmen",
  "pallet-membership",
  "pallet-scheduler",
  "pallet-society",

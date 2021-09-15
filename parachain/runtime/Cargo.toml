@@ -47,6 +47,7 @@ pallet-democracy = { git = "https://github.com/paritytech/substrate", branch = "
 pallet-collective = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.9", default-features = false }
 pallet-membership = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.9", default-features = false }
 pallet-society = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.9", default-features = false }
+pallet-elections-phragmen = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.9", default-features = false }
 
 # Aura & GRANDPA dependencies
 pallet-aura = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.9", default-features = false }
@@ -160,6 +161,7 @@ std = [
   "pallet-collective/std",
   "pallet-membership/std",
   "pallet-society/std",
+  "pallet-elections-phragmen/std",
 
   "pallet-aura/std",
   "sp-consensus-aura/std",
