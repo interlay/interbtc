@@ -368,9 +368,15 @@ macro_rules! create_currency_id {
 				]
 			}
 
-            pub fn one(&self) -> Balance {
+            pub const fn one(&self) -> Balance {
                 10u128.pow(self.decimals() as u32)
             }
+
+            const fn decimals(&self) -> u8 {
+				match self {
+					$(CurrencyId::$symbol => $deci,)*
+				}
+			}
 		}
 
 		impl CurrencyInfo for CurrencyId {
@@ -385,9 +391,7 @@ macro_rules! create_currency_id {
 				}
 			}
 			fn decimals(&self) -> u8 {
-				match self {
-					$(CurrencyId::$symbol => $deci,)*
-				}
+				self.decimals()
 			}
 		}
 
