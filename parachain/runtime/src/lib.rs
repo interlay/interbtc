@@ -312,6 +312,12 @@ impl pallet_scheduler::Config for Runtime {
     type WeightInfo = ();
 }
 
+type EnsureRootOrOneThirdGeneralCouncil = EnsureOneOf<
+    AccountId,
+    EnsureRoot<AccountId>,
+    pallet_collective::EnsureProportionMoreThan<_1, _3, AccountId, GeneralCouncilInstance>,
+>;
+
 type EnsureRootOrAllGeneralCouncil = EnsureOneOf<
     AccountId,
     EnsureRoot<AccountId>,
@@ -352,15 +358,19 @@ parameter_types! {
     pub const LaunchPeriod: BlockNumber = 2 * DAYS;
     pub const VotingPeriod: BlockNumber = 2 * DAYS;
     pub const FastTrackVotingPeriod: BlockNumber = 3 * HOURS;
-    pub MinimumDeposit: Balance = 1000; // TODO: adjust
+    pub const MinimumDeposit: Balance = 100 * CENTS;
     pub const EnactmentPeriod: BlockNumber = DAYS;
     pub const CooloffPeriod: BlockNumber = 7 * DAYS;
-    pub PreimageByteDeposit: Balance = 10;
+    pub const PreimageByteDeposit: Balance = 10 * MILLICENTS;
     pub const InstantAllowed: bool = true;
     pub const MaxVotes: u32 = 100;
     pub const MaxProposals: u32 = 100;
 }
 
+// https://github.com/paritytech/polkadot/wiki/Governance
+// majority-carries: simple comparison of votes, i.e. is aye > nay?
+// positive-turnout-bias: super-majority of aye votes is required to carry at low turnouts
+// negative-turnout-bias: super-majority of nay votes is required to reject at low turnouts
 impl pallet_democracy::Config for Runtime {
     type Proposal = Call;
     type Event = Event;
@@ -372,10 +382,10 @@ impl pallet_democracy::Config for Runtime {
     /// A straight majority of the council can decide what their next motion is.
     type ExternalOrigin = EnsureRootOrHalfGeneralCouncil;
     /// A majority can have the next scheduled referendum be a straight majority-carries vote.
-    type ExternalMajorityOrigin = EnsureRootOrHalfGeneralCouncil;
-    /// A unanimous council can have the next scheduled referendum be a straight default-carries
+    type ExternalMajorityOrigin = EnsureRootOrAllGeneralCouncil;
+    /// One third of the council can have the next scheduled referendum be a straight default-carries
     /// (NTB) vote.
-    type ExternalDefaultOrigin = EnsureRootOrAllGeneralCouncil;
+    type ExternalDefaultOrigin = EnsureRootOrOneThirdGeneralCouncil;
     /// Two thirds of the technical committee can have an ExternalMajority/ExternalDefault vote
     /// be tabled immediately and with a shorter voting/enactment period.
     type FastTrackOrigin = EnsureRootOrTwoThirdsTechnicalCommittee;
@@ -405,9 +415,9 @@ impl pallet_democracy::Config for Runtime {
 parameter_types! {
     pub const TreasuryPalletId: PalletId = PalletId(*b"mod/trsy");
     pub const ProposalBond: Permill = Permill::from_percent(5);
-    pub ProposalBondMinimum: Balance = 5;
+    pub const ProposalBondMinimum: Balance = 2000 * CENTS;
     pub const SpendPeriod: BlockNumber = 7 * DAYS;
-    pub const Burn: Permill = Permill::from_percent(0);
+    pub const Burn: Permill = Permill::from_perthousand(2);
     pub const MaxApprovals: u32 = 100;
 }
 
