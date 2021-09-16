@@ -204,7 +204,7 @@ pub fn assert_refund_request_event() -> H256 {
 pub fn execute_refund(vault_id: [u8; 32]) -> (H256, RefundRequest<AccountId, u128>) {
     let refund_id = assert_refund_request_event();
     let refund = RefundPallet::get_open_refund_request_from_id(&refund_id).unwrap();
-    assert_ok!(execute_refund_with_amount(vault_id, wrapped(refund.amount_wrapped)));
+    assert_ok!(execute_refund_with_amount(vault_id, wrapped(refund.amount_btc)));
     (refund_id, refund)
 }
 

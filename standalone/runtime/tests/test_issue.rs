@@ -581,7 +581,7 @@ mod execute_refund_payment_limits {
         let refund_id = assert_refund_request_event();
         let refund = RefundPallet::get_open_refund_request_from_id(&refund_id).unwrap();
 
-        (refund_id, wrapped(refund.amount_wrapped))
+        (refund_id, wrapped(refund.amount_btc))
     }
 
     #[test]

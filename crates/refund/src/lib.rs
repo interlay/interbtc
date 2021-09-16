@@ -177,9 +177,8 @@ impl<T: Config> Pallet<T> {
 
         let request = RefundRequest {
             vault: vault_id,
-            amount_wrapped: net_refund_amount_wrapped.amount(),
             fee: fee_wrapped.amount(),
-            amount_btc: total_amount_btc.amount(),
+            amount_btc: net_refund_amount_wrapped.amount(),
             issuer,
             btc_address,
             issue_id,
@@ -190,7 +189,7 @@ impl<T: Config> Pallet<T> {
         Self::deposit_event(<Event<T>>::RequestRefund(
             refund_id,
             request.issuer,
-            request.amount_wrapped,
+            request.amount_btc,
             request.vault,
             request.btc_address,
             request.issue_id,
@@ -220,7 +219,7 @@ impl<T: Config> Pallet<T> {
             merkle_proof,
             transaction,
             request.btc_address,
-            request.amount_wrapped,
+            request.amount_btc,
             refund_id,
         )?;
         // mint issued tokens corresponding to the fee. Note that this can fail
@@ -238,7 +237,7 @@ impl<T: Config> Pallet<T> {
             refund_id,
             request.issuer,
             request.vault,
-            request.amount_wrapped,
+            request.amount_btc,
             request.fee,
         ));
 

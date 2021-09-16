@@ -443,12 +443,7 @@ impl<T: Config> Pallet<T> {
             // refund requests
             if let Ok(req) = ext::refund::get_open_or_completed_refund_request_from_id::<T>(&payment_data.op_return) {
                 ensure!(
-                    !Self::is_valid_request_transaction(
-                        req.amount_wrapped,
-                        req.btc_address,
-                        &payment_data,
-                        &vault.wallet
-                    ),
+                    !Self::is_valid_request_transaction(req.amount_btc, req.btc_address, &payment_data, &vault.wallet),
                     Error::<T>::ValidRefundTransaction
                 );
             };
