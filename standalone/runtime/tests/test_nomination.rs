@@ -82,7 +82,7 @@ mod spec_based_tests {
             SecurityError::ParachainNotRunning,
         );
         assert_noop!(
-            Call::Nomination(NominationCall::withdraw_collateral(account_of(BOB), 100))
+            Call::Nomination(NominationCall::withdraw_collateral(account_of(BOB), 100, None))
                 .dispatch(origin_of(account_of(ALICE))),
             SecurityError::ParachainNotRunning,
         );
@@ -178,8 +178,7 @@ mod spec_based_tests {
             let nonce: u32 = VaultStakingPallet::nonce(&account_of(VAULT));
             assert_eq!(nonce, 1);
             assert_eq!(
-                VaultStakingPallet::compute_reward_at_index(nonce - 1, INTERBTC, &account_of(VAULT), &account_of(USER))
-                    .unwrap(),
+                VaultStakingPallet::compute_stake_at_index(nonce - 1, &account_of(VAULT), &account_of(USER)).unwrap(),
                 DEFAULT_NOMINATION as i128
             );
         })
@@ -272,7 +271,8 @@ mod spec_based_tests {
             assert_noop!(
                 Call::Nomination(NominationCall::withdraw_collateral(
                     account_of(VAULT),
-                    DEFAULT_BACKING_COLLATERAL
+                    DEFAULT_BACKING_COLLATERAL,
+                    None
                 ))
                 .dispatch(origin_of(account_of(USER))),
                 NominationError::VaultNominationDisabled
@@ -281,15 +281,17 @@ mod spec_based_tests {
             assert_noop!(
                 Call::Nomination(NominationCall::withdraw_collateral(
                     account_of(CAROL),
-                    DEFAULT_BACKING_COLLATERAL
+                    DEFAULT_BACKING_COLLATERAL,
+                    None
                 ))
                 .dispatch(origin_of(account_of(USER))),
-                NominationError::VaultNotOptedInToNomination
+                VaultRegistryError::VaultNotFound
             );
             assert_noop!(
                 Call::Nomination(NominationCall::withdraw_collateral(
                     account_of(VAULT),
-                    DEFAULT_BACKING_COLLATERAL
+                    DEFAULT_BACKING_COLLATERAL,
+                    None
                 ))
                 .dispatch(origin_of(account_of(USER))),
                 NominationError::VaultNotOptedInToNomination
@@ -298,7 +300,8 @@ mod spec_based_tests {
             assert_noop!(
                 Call::Nomination(NominationCall::withdraw_collateral(
                     account_of(VAULT),
-                    DEFAULT_BACKING_COLLATERAL
+                    DEFAULT_BACKING_COLLATERAL,
+                    None
                 ))
                 .dispatch(origin_of(account_of(USER))),
                 NominationError::InsufficientCollateral
@@ -553,8 +556,7 @@ fn integration_test_vault_opt_out_must_refund_nomination() {
         let nonce: u32 = VaultStakingPallet::nonce(&account_of(VAULT));
         assert_eq!(nonce, 1);
         assert_eq!(
-            VaultStakingPallet::compute_reward_at_index(nonce - 1, INTERBTC, &account_of(VAULT), &account_of(USER))
-                .unwrap(),
+            VaultStakingPallet::compute_stake_at_index(nonce - 1, &account_of(VAULT), &account_of(USER)).unwrap(),
             DEFAULT_NOMINATION as i128
         );
     })

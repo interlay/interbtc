@@ -49,7 +49,13 @@ pub(crate) mod staking {
         nominator_id: &T::AccountId,
         amount: &Amount<T>,
     ) -> Result<(), DispatchError> {
-        <staking::Pallet<T>>::withdraw_stake(currency_id, vault_id, nominator_id, amount.to_signed_fixed_point()?)
+        <staking::Pallet<T>>::withdraw_stake(
+            currency_id,
+            vault_id,
+            nominator_id,
+            amount.to_signed_fixed_point()?,
+            None,
+        )
     }
 
     pub fn slash_stake<T: crate::Config>(

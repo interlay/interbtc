@@ -45,10 +45,10 @@ fn should_stake_and_distribute_and_withdraw() {
         assert_ok!(Staking::compute_reward(DOT, &VAULT, &ALICE), 1023);
         assert_ok!(Staking::compute_reward(DOT, &VAULT, &BOB), 976);
 
-        assert_ok!(Staking::withdraw_stake(DOT, &VAULT, &ALICE, fixed!(10000)));
+        assert_ok!(Staking::withdraw_stake(DOT, &VAULT, &ALICE, fixed!(10000), None));
         assert_ok!(Staking::compute_stake(&VAULT, &ALICE), 950);
 
-        assert_ok!(Staking::withdraw_stake(DOT, &VAULT, &ALICE, fixed!(950)));
+        assert_ok!(Staking::withdraw_stake(DOT, &VAULT, &ALICE, fixed!(950), None));
         assert_ok!(Staking::compute_stake(&VAULT, &ALICE), 0);
 
         assert_ok!(Staking::deposit_stake(DOT, &VAULT, &BOB, fixed!(10000)));
@@ -81,7 +81,7 @@ fn should_not_withdraw_stake_if_balance_insufficient() {
         assert_ok!(Staking::deposit_stake(DOT, &VAULT, &ALICE, fixed!(100)));
         assert_ok!(Staking::compute_stake(&VAULT, &ALICE), 100);
         assert_err!(
-            Staking::withdraw_stake(DOT, &VAULT, &ALICE, fixed!(200)),
+            Staking::withdraw_stake(DOT, &VAULT, &ALICE, fixed!(200), None),
             TestError::InsufficientFunds
         );
     })
@@ -95,7 +95,7 @@ fn should_not_withdraw_stake_if_balance_insufficient_after_slashing() {
         assert_ok!(Staking::slash_stake(DOT, &VAULT, fixed!(100)));
         assert_ok!(Staking::compute_stake(&VAULT, &ALICE), 0);
         assert_err!(
-            Staking::withdraw_stake(DOT, &VAULT, &ALICE, fixed!(100)),
+            Staking::withdraw_stake(DOT, &VAULT, &ALICE, fixed!(100), None),
             TestError::InsufficientFunds
         );
     })
@@ -112,29 +112,30 @@ fn should_force_refund() {
         assert_ok!(Staking::deposit_stake(DOT, &VAULT, &ALICE, fixed!(10)));
         assert_ok!(Staking::distribute_reward(DOT, &VAULT, fixed!(100)));
 
-        let vault_stake_pre_refund = Staking::compute_stake_at_index(nonce, &VAULT, &VAULT).unwrap();
-        let vault_reward_pre_refund = Staking::compute_reward_at_index(nonce, DOT, &VAULT, &VAULT).unwrap();
-        let alice_stake_pre_refund = Staking::compute_stake_at_index(nonce, &VAULT, &ALICE).unwrap();
-        let alice_reward_pre_refund = Staking::compute_reward_at_index(nonce, DOT, &VAULT, &ALICE).unwrap();
+        // vault stake & rewards pre-refund
+        assert_ok!(Staking::compute_stake_at_index(nonce, &VAULT, &VAULT), 150);
+        assert_ok!(Staking::compute_reward_at_index(nonce, DOT, &VAULT, &VAULT), 71);
+
+        // alice stake & rewards pre-refund
+        assert_ok!(Staking::compute_stake_at_index(nonce, &VAULT, &ALICE), 60);
+        assert_ok!(Staking::compute_reward_at_index(nonce, DOT, &VAULT, &ALICE), 28);
 
         assert_ok!(Staking::force_refund(DOT, &VAULT));
 
         nonce = Staking::nonce(&VAULT);
-        let vault_stake_post_refund = Staking::compute_stake_at_index(nonce, &VAULT, &VAULT).unwrap();
-        let vault_reward_post_refund = Staking::compute_reward_at_index(nonce - 1, DOT, &VAULT, &VAULT).unwrap();
-        let alice_stake_post_refund = Staking::compute_stake_at_index(nonce - 1, &VAULT, &ALICE).unwrap();
-        let alice_reward_post_refund = Staking::compute_reward_at_index(nonce - 1, DOT, &VAULT, &ALICE).unwrap();
 
-        assert_eq!(
-            vault_stake_post_refund,
-            vault_stake_pre_refund + vault_reward_pre_refund
-        );
-        assert_eq!(vault_reward_post_refund, 0);
-        assert_eq!(alice_stake_post_refund, alice_stake_pre_refund);
-        assert_eq!(
-            alice_reward_post_refund,
-            alice_stake_pre_refund + alice_reward_pre_refund
-        );
+        // vault stake & rewards post-refund
+        assert_ok!(Staking::compute_stake_at_index(nonce, &VAULT, &VAULT), 150);
+        assert_ok!(Staking::compute_reward_at_index(nonce, DOT, &VAULT, &VAULT), 0);
+
+        assert_ok!(Staking::compute_reward_at_index(nonce - 1, DOT, &VAULT, &VAULT), 71);
+
+        // alice stake & rewards post-refund
+        assert_ok!(Staking::compute_stake_at_index(nonce, &VAULT, &ALICE), 0);
+        assert_ok!(Staking::compute_reward_at_index(nonce, DOT, &VAULT, &ALICE), 0);
+
+        assert_ok!(Staking::compute_stake_at_index(nonce - 1, &VAULT, &ALICE), 60);
+        assert_ok!(Staking::compute_reward_at_index(nonce - 1, DOT, &VAULT, &ALICE), 28);
     })
 }
 

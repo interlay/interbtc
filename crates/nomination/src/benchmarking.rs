@@ -89,9 +89,9 @@ benchmarks! {
         mint_collateral::<T>(&nominator, (1u32 << 31).into());
         let amount = 100u32.into();
 
-        assert_ok!(Nomination::<T>::_deposit_collateral(vault.clone(), nominator.clone(), amount));
+        assert_ok!(Nomination::<T>::_deposit_collateral(&vault, &nominator, amount));
 
-    }: _(RawOrigin::Signed(nominator), vault, amount)
+    }: _(RawOrigin::Signed(nominator), vault, amount, None)
 
 }
 
