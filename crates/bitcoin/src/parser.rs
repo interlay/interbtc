@@ -271,7 +271,7 @@ pub fn parse_block_header(raw_header: &RawBlockHeader) -> Result<BlockHeader, Er
         // 2015, and the genesis of the bridge will never be set to a genesis from
         // before that date.
         // see https://github.com/bitcoin/bips/blob/master/bip-0065.mediawiki#spv-clients
-        return Err(Error::MalformedHeader);
+        return Err(Error::BlockHeaderVersionBelow4);
     }
 
     Ok(block_header)
@@ -557,7 +557,7 @@ pub(crate) mod tests {
         ));
         assert_err!(
             parse_block_header(&RawBlockHeader::from_hex(&invalid_header_hex).unwrap()),
-            Error::MalformedHeader
+            Error::BlockHeaderVersionBelow4
         );
     }
 

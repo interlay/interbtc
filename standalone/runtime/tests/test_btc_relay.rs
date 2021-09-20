@@ -1,7 +1,8 @@
+#![feature(exclusive_range_pattern)]
 mod bitcoin_data;
 mod mock;
 
-use bitcoin_data::get_bitcoin_testdata;
+use bitcoin_data::{get_bitcoin_testdata, get_fork_testdata};
 use mock::*;
 
 type BTCRelayError = btc_relay::Error<Runtime>;
@@ -16,15 +17,17 @@ fn integration_test_submit_block_headers_and_verify_transaction_inclusion() {
 
         // store all block headers. parachain_genesis is the first block
         // known in the parachain. Any block before will be rejected
-        let parachain_genesis_height = test_data[0].height;
         let parachain_genesis_header = test_data[0].get_raw_header();
+        let parachain_genesis_height = test_data[0].height;
 
         assert_ok!(Call::Relay(RelayCall::initialize(
             parachain_genesis_header,
             parachain_genesis_height
         ))
         .dispatch(origin_of(account_of(ALICE))));
+
         for block in test_data.iter().skip(1) {
+            println!("Submitting block height {:?}", block.height);
             assert_ok!(Call::Relay(RelayCall::store_block_header(block.get_raw_header()))
                 .dispatch(origin_of(account_of(ALICE))));
 
@@ -93,5 +96,88 @@ fn integration_test_btc_relay_with_parachain_shutdown_fails() {
             .dispatch(origin_of(account_of(ALICE))),
             SecurityError::ParachainShutdown
         );
+    })
+}
+
+#[test]
+fn integration_test_submit_fork_headers() {
+    ExtBuilder::build().execute_without_relay_init(|| {
+        const NUM_FORK_HEADERS: u32 = 2;
+        const NUM_FORK_HEADERS_PLUS_ONE: u32 = NUM_FORK_HEADERS + 1;
+        const REORG_HEIGHT: u32 = NUM_FORK_HEADERS + CONFIRMATIONS;
+        const FORK_DEPTH: u32 = CONFIRMATIONS + 1;
+        const FORK_ID: u32 = 1;
+
+        // Load blocks with transactions
+        // First header in the set is testnet3 genesis
+        // Next two headers in the set are fork headers at height 1 and 2
+        // Remainder are headers in the canonical chain with height 1, 2, ...
+        // https://github.com/bitcoin/bitcoin/blob/d6a59166a1879c1dd5b3a301847961f4b3f17742/test/functional/p2p_dos_header_tree.py#L39
+        let test_data = get_fork_testdata();
+
+        SecurityPallet::set_active_block_number(1);
+
+        let genesis_height = 0;
+        let raw_genesis_header = test_data[0];
+
+        // Note: the testdata set is old and hence this is a block version below 4
+        // Therefore, this is stored directly from the parsed block in the `btc-relay` pallet
+        // without going through the `relay` pallet, which checks for the block version when parsing
+        let genesis_header = bitcoin::parser::parse_block_header_lenient(&raw_genesis_header).unwrap();
+
+        assert_ok!(BTCRelayPallet::initialize(
+            account_of(ALICE),
+            genesis_header,
+            genesis_height
+        ));
+
+        // submit the two fork headers first so that they become the main chain
+        // chains_index[0]: [0] -> [f1] -> [f2]
+        for (index, raw_header) in test_data.iter().enumerate().skip(1).take(NUM_FORK_HEADERS as usize) {
+            SecurityPallet::set_active_block_number(index as u32);
+            let header = bitcoin::parser::parse_block_header_lenient(raw_header).unwrap();
+
+            assert_ok!(BTCRelayPallet::store_block_header(&account_of(ALICE), header));
+            assert_store_main_chain_header_event(index as u32, header.hash, account_of(ALICE));
+        }
+
+        // submit future main chain without genesis
+        for (index, raw_header) in test_data.iter().enumerate().skip(1 + NUM_FORK_HEADERS as usize) {
+            SecurityPallet::set_active_block_number(index as u32);
+            let header = bitcoin::parser::parse_block_header_lenient(raw_header).unwrap();
+            let height: u32 = index as u32 - NUM_FORK_HEADERS;
+
+            assert_ok!(BTCRelayPallet::store_block_header(&account_of(ALICE), header));
+
+            // depending on the height and header, we expect different events and chain state
+            match height {
+                // store future main chain headers as fork to equal height
+                // chains_index[0]: [0] -> [f1] -> [f2]
+                //                      \
+                // chain_index[1]:       -> [1] -> [2]
+                0..=NUM_FORK_HEADERS => assert_store_fork_header_event(FORK_ID, height, header.hash, account_of(ALICE)),
+                // store CONFIRMATION - 1 more headers
+                // chains_index[0]: [0] -> [f1] -> [f2]
+                //                      \
+                // chain_index[1]:       -> [1] -> [2] -> [3] -> [4] -> [5] -> [6] -> [7]
+                NUM_FORK_HEADERS_PLUS_ONE..REORG_HEIGHT => {
+                    assert_store_fork_header_event(FORK_ID, height, header.hash, account_of(ALICE));
+                    assert_fork_ahead_of_main_chain_event(NUM_FORK_HEADERS, height, FORK_ID);
+                }
+                // store one more header to cause a reorg
+                // chain_index[0]: [0] -> [1] -> [2] -> [3] -> [4] -> [5] -> [6] -> [7] -> [8]
+                //                      \
+                // chains_index[1]:     -> [f1] -> [f2]
+                REORG_HEIGHT => {
+                    assert_chain_reorg_event(header.hash, height, FORK_DEPTH);
+                    assert_store_main_chain_header_event(height, header.hash, account_of(ALICE));
+                }
+                // store the remaining headers
+                // chain_index[0]: [0] -> [1] -> [2] -> [3] -> [4] -> [5] -> [6] -> [7] -> [8] -> [9] -> ...
+                //                      \
+                // chains_index[1]:     -> [f1] -> [f2]
+                _ => assert_store_main_chain_header_event(height, header.hash, account_of(ALICE)),
+            }
+        }
     })
 }

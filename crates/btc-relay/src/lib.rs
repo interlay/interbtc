@@ -288,6 +288,8 @@ pub mod pallet {
         EndOfFile,
         /// Format of the header is invalid
         MalformedHeader,
+        /// Block header versions before version 4 are not supported
+        BlockHeaderVersionBelow4,
         /// Format of the BIP141 witness transaction output is invalid
         MalformedWitnessOutput,
         // Format of the P2PKH transaction output is invalid
@@ -424,13 +426,16 @@ pub const TARGET_TIMESPAN: u32 = 14 * 24 * 60 * 60;
 // Used in Bitcoin's retarget algorithm
 pub const TARGET_TIMESPAN_DIVISOR: u32 = 4;
 
+// FIXME: Unused
 // Accepted minimum number of transaction outputs for okd validation
 pub const ACCEPTED_MIN_TRANSACTION_OUTPUTS: u32 = 1;
 
+// FIXME: Unused
 // Accepted minimum number of transaction outputs for op-return validation
 pub const ACCEPTED_MIN_TRANSACTION_OUTPUTS_WITH_OP_RETURN: usize = 2;
 
 // Accepted maximum number of transaction outputs for validation of redeem/replace/refund
+/// See: <https://spec.interlay.io/intro/accepted-format.html#accepted-bitcoin-transaction-format>
 pub const ACCEPTED_MAX_TRANSACTION_OUTPUTS: usize = 3;
 
 /// Unrounded Maximum Target
@@ -445,8 +450,10 @@ pub const UNROUNDED_MAX_TARGET: U256 = U256([
 /// Main chain id
 pub const MAIN_CHAIN_ID: u32 = 0;
 
+// FIXME: Unused
+// FIXME: not compatible with the spec, should be 3
 /// Number of outputs expected in the accepted transaction format
-/// See: <https://interlay.gitlab.io/polkabtc-spec/btcrelay-spec/intro/accepted-format.html>
+/// See: <https://spec.interlay.io/intro/accepted-format.html#accepted-bitcoin-transaction-format>
 pub const ACCEPTED_NO_TRANSACTION_OUTPUTS: u32 = 2;
 
 #[cfg_attr(test, mockable)]
@@ -788,7 +795,7 @@ impl<T: Config> Pallet<T> {
     /// # Arguments
     ///
     /// * `chain_id`: the id of the blockchain to search in
-    /// * `block_height`: the height if the block header
+    /// * `block_height`: the height of the block header
     fn get_block_hash(chain_id: u32, block_height: u32) -> Result<H256Le, DispatchError> {
         if !Self::block_exists(chain_id, block_height) {
             return Err(Error::<T>::MissingBlockHeight.into());
@@ -1383,6 +1390,7 @@ impl<T: Config> From<BitcoinError> for Error<T> {
             BitcoinError::InvalidMerkleProof => Self::InvalidMerkleProof,
             BitcoinError::EndOfFile => Self::EndOfFile,
             BitcoinError::MalformedHeader => Self::MalformedHeader,
+            BitcoinError::BlockHeaderVersionBelow4 => Self::BlockHeaderVersionBelow4,
             BitcoinError::MalformedTransaction => Self::MalformedTransaction,
             BitcoinError::UnsupportedInputFormat => Self::UnsupportedInputFormat,
             BitcoinError::MalformedWitnessOutput => Self::MalformedWitnessOutput,
