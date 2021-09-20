@@ -86,10 +86,14 @@ orml-tokens = { git = "https://github.com/open-web3-stack/open-runtime-module-li
 orml-traits = { git = "https://github.com/open-web3-stack/open-runtime-module-library", rev = "37e4293", default-features = false }
 
 [dev-dependencies]
-hex = '0.4.2'
-mocktopus = '0.7.0'
+hex = "0.4.2"
+mocktopus = "0.7.0"
 serde_json = "1.0"
+<<<<<<< HEAD
 pretty_assertions = "0.7.2"
+=======
+flate2= "1.0"
+>>>>>>> a00c2f56 (feat: add fork testing from bitcoin core and update bitcoin testdata set)
 
 bitcoin = { path = "../../crates/bitcoin", default-features = false }
 

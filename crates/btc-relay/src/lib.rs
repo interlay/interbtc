@@ -290,8 +290,13 @@ pub mod pallet {
         EndOfFile,
         /// Format of the header is invalid
         MalformedHeader,
+<<<<<<< HEAD
         /// Invalid block header version
         InvalidBlockVersion,
+=======
+        /// Block header versions before version 4 are not supported
+        BlockHeaderVersionBelow4,
+>>>>>>> a00c2f56 (feat: add fork testing from bitcoin core and update bitcoin testdata set)
         /// Format of the BIP141 witness transaction output is invalid
         MalformedWitnessOutput,
         // Format of the P2PKH transaction output is invalid
@@ -423,7 +428,26 @@ pub const DIFFICULTY_ADJUSTMENT_INTERVAL: u32 = 2016;
 // https://github.com/bitcoin/bitcoin/blob/5ba5becbb5d8c794efe579caeea7eea64f895a13/src/chainparams.cpp#L78
 pub const TARGET_SPACING: u32 = 10 * 60;
 
+<<<<<<< HEAD
 /// Accepted maximum number of transaction outputs for validation of redeem/replace/refund
+=======
+/// Target Timespan: 2 weeks (1209600 seconds)
+// https://github.com/bitcoin/bitcoin/blob/5ba5becbb5d8c794efe579caeea7eea64f895a13/src/chainparams.cpp#L77
+pub const TARGET_TIMESPAN: u32 = 14 * 24 * 60 * 60;
+
+// Used in Bitcoin's retarget algorithm
+pub const TARGET_TIMESPAN_DIVISOR: u32 = 4;
+
+// FIXME: Unused
+// Accepted minimum number of transaction outputs for okd validation
+pub const ACCEPTED_MIN_TRANSACTION_OUTPUTS: u32 = 1;
+
+// FIXME: Unused
+// Accepted minimum number of transaction outputs for op-return validation
+pub const ACCEPTED_MIN_TRANSACTION_OUTPUTS_WITH_OP_RETURN: usize = 2;
+
+// Accepted maximum number of transaction outputs for validation of redeem/replace/refund
+>>>>>>> a00c2f56 (feat: add fork testing from bitcoin core and update bitcoin testdata set)
 /// See: <https://spec.interlay.io/intro/accepted-format.html#accepted-bitcoin-transaction-format>
 pub const ACCEPTED_MAX_TRANSACTION_OUTPUTS: usize = 3;
 
@@ -439,6 +463,15 @@ pub const UNROUNDED_MAX_TARGET: U256 = U256([
 /// Main chain id
 pub const MAIN_CHAIN_ID: u32 = 0;
 
+<<<<<<< HEAD
+=======
+// FIXME: Unused
+// FIXME: not compatible with the spec, should be 3
+/// Number of outputs expected in the accepted transaction format
+/// See: <https://spec.interlay.io/intro/accepted-format.html#accepted-bitcoin-transaction-format>
+pub const ACCEPTED_NO_TRANSACTION_OUTPUTS: u32 = 2;
+
+>>>>>>> a00c2f56 (feat: add fork testing from bitcoin core and update bitcoin testdata set)
 #[cfg_attr(test, mockable)]
 impl<T: Config> Pallet<T> {
     pub fn initialize(relayer: T::AccountId, basic_block_header: BlockHeader, block_height: u32) -> DispatchResult {
@@ -1021,7 +1054,8 @@ impl<T: Config> Pallet<T> {
     ///
     /// * `chain_id` - BlockChain identifier
     /// * `block_height` - current block height
-    fn get_last_retarget_time(chain_id: u32, block_height: u32) -> Result<u64, DispatchError> {
+    // FIXME: made pub for testing
+    pub fn get_last_retarget_time(chain_id: u32, block_height: u32) -> Result<u64, DispatchError> {
         let block_chain = Self::get_block_chain_from_id(chain_id)?;
         let period_start_height = block_height - block_height % DIFFICULTY_ADJUSTMENT_INTERVAL;
         let last_retarget_header = Self::get_block_header_from_height(&block_chain, period_start_height)?;
@@ -1377,7 +1411,11 @@ impl<T: Config> From<BitcoinError> for Error<T> {
             BitcoinError::InvalidMerkleProof => Self::InvalidMerkleProof,
             BitcoinError::EndOfFile => Self::EndOfFile,
             BitcoinError::MalformedHeader => Self::MalformedHeader,
+<<<<<<< HEAD
             BitcoinError::InvalidBlockVersion => Self::InvalidBlockVersion,
+=======
+            BitcoinError::BlockHeaderVersionBelow4 => Self::BlockHeaderVersionBelow4,
+>>>>>>> a00c2f56 (feat: add fork testing from bitcoin core and update bitcoin testdata set)
             BitcoinError::MalformedTransaction => Self::MalformedTransaction,
             BitcoinError::UnsupportedInputFormat => Self::UnsupportedInputFormat,
             BitcoinError::MalformedWitnessOutput => Self::MalformedWitnessOutput,

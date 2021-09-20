@@ -267,7 +267,11 @@ pub fn parse_block_header(raw_header: &RawBlockHeader) -> Result<BlockHeader, Er
         // 2015, and the genesis of the bridge will never be set to a genesis from
         // before that date.
         // see https://github.com/bitcoin/bips/blob/master/bip-0065.mediawiki#spv-clients
+<<<<<<< HEAD
         return Err(Error::InvalidBlockVersion);
+=======
+        return Err(Error::BlockHeaderVersionBelow4);
+>>>>>>> a00c2f56 (feat: add fork testing from bitcoin core and update bitcoin testdata set)
     }
 
     Ok(block_header)
@@ -553,7 +557,11 @@ pub(crate) mod tests {
         ));
         assert_err!(
             parse_block_header(&RawBlockHeader::from_hex(&invalid_header_hex).unwrap()),
+<<<<<<< HEAD
             Error::InvalidBlockVersion
+=======
+            Error::BlockHeaderVersionBelow4
+>>>>>>> a00c2f56 (feat: add fork testing from bitcoin core and update bitcoin testdata set)
         );
     }
 
