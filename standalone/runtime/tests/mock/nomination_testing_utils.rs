@@ -1,4 +1,5 @@
 use currency::Amount;
+use vault_registry::DefaultVaultId;
 
 use crate::{assert_eq, *};
 
@@ -28,9 +29,10 @@ pub fn disable_nomination() {
 
 pub fn register_vault(currency_id: CurrencyId, vault: [u8; 32]) -> DispatchResultWithPostInfo {
     Call::VaultRegistry(VaultRegistryCall::register_vault(
+        currency_id,
+        DEFAULT_WRAPPED_CURRENCY,
         DEFAULT_BACKING_COLLATERAL,
         dummy_public_key(),
-        currency_id,
     ))
     .dispatch(origin_of(account_of(vault)))
 }
@@ -39,65 +41,84 @@ pub fn assert_register_vault(currency_id: CurrencyId, vault: [u8; 32]) {
     assert_ok!(register_vault(currency_id, vault));
 }
 
-pub fn nomination_opt_in(vault: [u8; 32]) -> DispatchResultWithPostInfo {
-    Call::Nomination(NominationCall::opt_in_to_nomination()).dispatch(origin_of(account_of(vault)))
+pub fn nomination_opt_in(vault_id: &DefaultVaultId<Runtime>) -> DispatchResultWithPostInfo {
+    Call::Nomination(NominationCall::opt_in_to_nomination(
+        vault_id.currencies.collateral,
+        vault_id.currencies.wrapped,
+    ))
+    .dispatch(origin_of(vault_id.account_id.clone()))
 }
 
-pub fn assert_nomination_opt_in(vault: [u8; 32]) {
-    assert_ok!(nomination_opt_in(vault));
+pub fn assert_nomination_opt_in(vault_id: &DefaultVaultId<Runtime>) {
+    assert_ok!(nomination_opt_in(vault_id));
 }
 
-pub fn nomination_opt_out(vault: [u8; 32]) -> DispatchResultWithPostInfo {
-    Call::Nomination(NominationCall::opt_out_of_nomination()).dispatch(origin_of(account_of(vault)))
+pub fn nomination_opt_out(vault_id: &DefaultVaultId<Runtime>) -> DispatchResultWithPostInfo {
+    Call::Nomination(NominationCall::opt_out_of_nomination(
+        vault_id.currencies.collateral,
+        vault_id.currencies.wrapped,
+    ))
+    .dispatch(origin_of(vault_id.account_id.clone()))
 }
 
 pub fn nominate_collateral(
-    vault: [u8; 32],
-    nominator: [u8; 32],
+    vault_id: &DefaultVaultId<Runtime>,
+    nominator_id: AccountId,
     amount_collateral: Amount<Runtime>,
 ) -> DispatchResultWithPostInfo {
     Call::Nomination(NominationCall::deposit_collateral(
-        account_of(vault),
+        vault_id.clone(),
         amount_collateral.amount(),
     ))
-    .dispatch(origin_of(account_of(nominator)))
+    .dispatch(origin_of(nominator_id))
 }
 
-pub fn assert_nominate_collateral(vault: [u8; 32], nominator: [u8; 32], amount_collateral: Amount<Runtime>) {
-    assert_ok!(nominate_collateral(vault, nominator, amount_collateral));
+pub fn assert_nominate_collateral(
+    vault_id: &DefaultVaultId<Runtime>,
+    nominator_id: AccountId,
+    amount_collateral: Amount<Runtime>,
+) {
+    assert_ok!(nominate_collateral(vault_id, nominator_id, amount_collateral));
 }
 
-pub fn withdraw_vault_collateral(vault: [u8; 32], amount_collateral: Amount<Runtime>) -> DispatchResultWithPostInfo {
-    Call::VaultRegistry(VaultRegistryCall::withdraw_collateral(amount_collateral.amount()))
-        .dispatch(origin_of(account_of(vault)))
-}
-
-pub fn assert_withdraw_vault_collateral(vault: [u8; 32], amount_dot: Amount<Runtime>) {
-    assert_ok!(withdraw_vault_collateral(vault, amount_dot));
+pub fn withdraw_vault_collateral(
+    vault_id: &DefaultVaultId<Runtime>,
+    amount_collateral: Amount<Runtime>,
+) -> DispatchResultWithPostInfo {
+    Call::VaultRegistry(VaultRegistryCall::withdraw_collateral(
+        vault_id.currencies.collateral,
+        vault_id.currencies.wrapped,
+        amount_collateral.amount(),
+    ))
+    .dispatch(origin_of(vault_id.account_id.clone()))
 }
 
 pub fn withdraw_nominator_collateral(
-    nominator: [u8; 32],
-    vault: [u8; 32],
+    nominator_id: AccountId,
+    vault_id: &DefaultVaultId<Runtime>,
     amount_collateral: Amount<Runtime>,
 ) -> DispatchResultWithPostInfo {
     Call::Nomination(NominationCall::withdraw_collateral(
-        account_of(vault),
+        vault_id.clone(),
         amount_collateral.amount(),
         None,
     ))
-    .dispatch(origin_of(account_of(nominator)))
+    .dispatch(origin_of(nominator_id))
 }
 
-pub fn assert_withdraw_nominator_collateral(nominator: [u8; 32], vault: [u8; 32], amount_dot: Amount<Runtime>) {
-    assert_ok!(withdraw_nominator_collateral(nominator, vault, amount_dot));
+pub fn assert_withdraw_nominator_collateral(
+    nominator_id: AccountId,
+    vault_id: &DefaultVaultId<Runtime>,
+    amount_dot: Amount<Runtime>,
+) {
+    assert_ok!(withdraw_nominator_collateral(nominator_id, vault_id, amount_dot));
 }
 
-pub fn assert_total_nominated_collateral_is(vault: [u8; 32], amount_collateral: Amount<Runtime>) {
-    let nominated_collateral = NominationPallet::get_total_nominated_collateral(&account_of(vault)).unwrap();
+pub fn assert_total_nominated_collateral_is(vault_id: &DefaultVaultId<Runtime>, amount_collateral: Amount<Runtime>) {
+    let nominated_collateral = NominationPallet::get_total_nominated_collateral(vault_id).unwrap();
     assert_eq!(nominated_collateral, amount_collateral);
 }
 
-pub fn get_nominator_collateral(vault: [u8; 32], nominator: [u8; 32]) -> Amount<Runtime> {
-    NominationPallet::get_nominator_collateral(&account_of(vault), &account_of(nominator)).unwrap()
+pub fn get_nominator_collateral(vault_id: &DefaultVaultId<Runtime>, nominator_id: AccountId) -> Amount<Runtime> {
+    NominationPallet::get_nominator_collateral(vault_id, &nominator_id).unwrap()
 }

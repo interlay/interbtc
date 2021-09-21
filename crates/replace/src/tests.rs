@@ -29,7 +29,7 @@ macro_rules! assert_event_matches {
         }));
     }
 }
-fn test_request() -> ReplaceRequest<AccountId, BlockNumber, Balance> {
+fn test_request() -> ReplaceRequest<AccountId, BlockNumber, Balance, CurrencyId> {
     ReplaceRequest {
         period: 0,
         new_vault: NEW_VAULT,
@@ -61,8 +61,6 @@ mod request_replace_tests {
         ext::vault_registry::try_increase_to_be_replaced_tokens::<Test>
             .mock_safe(|_, _, _| MockResult::Return(Ok((wrapped(2), griefing(20)))));
         ext::fee::get_replace_griefing_collateral::<Test>.mock_safe(move |_| MockResult::Return(Ok(griefing(20))));
-        ext::vault_registry::get_collateral_currency::<Test>
-            .mock_safe(|_| MockResult::Return(Ok(DEFAULT_TESTING_CURRENCY)));
     }
 
     #[test]
@@ -80,8 +78,6 @@ mod request_replace_tests {
             setup_mocks();
             ext::vault_registry::requestable_to_be_replaced_tokens::<Test>
                 .mock_safe(move |_| MockResult::Return(Ok(wrapped(5))));
-            ext::vault_registry::get_collateral_currency::<Test>
-                .mock_safe(|_| MockResult::Return(Ok(DEFAULT_TESTING_CURRENCY)));
             assert_ok!(Replace::_request_replace(OLD_VAULT, 10, 20));
             assert_event_matches!(Event::RequestReplace(OLD_VAULT, 5, 10));
         })
@@ -124,8 +120,6 @@ mod accept_replace_tests {
         ext::vault_registry::try_deposit_collateral::<Test>.mock_safe(|_, _| MockResult::Return(Ok(())));
         ext::vault_registry::try_increase_to_be_redeemed_tokens::<Test>.mock_safe(|_, _| MockResult::Return(Ok(())));
         ext::vault_registry::try_increase_to_be_issued_tokens::<Test>.mock_safe(|_, _| MockResult::Return(Ok(())));
-        ext::vault_registry::get_collateral_currency::<Test>
-            .mock_safe(|_| MockResult::Return(Ok(DEFAULT_TESTING_CURRENCY)));
     }
 
     #[test]
@@ -197,8 +191,6 @@ mod execute_replace_test {
             .mock_safe(|_, _, _, _, _| MockResult::Return(Ok(())));
         ext::vault_registry::replace_tokens::<Test>.mock_safe(|_, _, _, _| MockResult::Return(Ok(())));
         Amount::<Test>::unlock_on.mock_safe(|_, _| MockResult::Return(Ok(())));
-        ext::vault_registry::get_collateral_currency::<Test>
-            .mock_safe(|_| MockResult::Return(Ok(DEFAULT_TESTING_CURRENCY)));
     }
 
     #[test]
@@ -228,15 +220,13 @@ mod cancel_replace_tests {
         ext::vault_registry::cancel_replace_tokens::<Test>.mock_safe(|_, _, _| MockResult::Return(Ok(())));
         ext::vault_registry::transfer_funds::<Test>.mock_safe(|_, _, _| MockResult::Return(Ok(())));
         ext::vault_registry::is_allowed_to_withdraw_collateral::<Test>.mock_safe(|_, _| MockResult::Return(Ok(false)));
-        ext::vault_registry::get_collateral_currency::<Test>
-            .mock_safe(|_| MockResult::Return(Ok(DEFAULT_TESTING_CURRENCY)));
     }
 
     #[test]
     fn test_cancel_replace_succeeds() {
         run_test(|| {
             setup_mocks();
-            assert_ok!(Replace::_cancel_replace(NEW_VAULT, H256::zero(),));
+            assert_ok!(Replace::_cancel_replace(NEW_VAULT.account_id, H256::zero(),));
             assert_event_matches!(Event::CancelReplace(_, NEW_VAULT, OLD_VAULT, _));
         })
     }
@@ -247,7 +237,7 @@ mod cancel_replace_tests {
             setup_mocks();
 
             assert_err!(
-                Replace::_cancel_replace(OLD_VAULT, H256::zero(),),
+                Replace::_cancel_replace(OLD_VAULT.account_id, H256::zero(),),
                 TestError::UnauthorizedVault
             );
         })

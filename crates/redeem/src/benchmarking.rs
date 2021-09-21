@@ -11,7 +11,7 @@ use frame_benchmarking::{account, benchmarks, impl_benchmark_test_suite};
 use frame_support::{assert_ok, traits::Get};
 use frame_system::RawOrigin;
 use orml_traits::MultiCurrency;
-use primitives::CurrencyId;
+use primitives::{CurrencyId, VaultId};
 use sp_core::{H160, H256, U256};
 use sp_runtime::traits::One;
 use sp_std::prelude::*;
@@ -137,10 +137,30 @@ fn mine_blocks<T: crate::Config>(end_height: u32) {
     }
 }
 
+fn test_request<T: crate::Config>(vault_id: &DefaultVaultId<T>) -> DefaultRedeemRequest<T> {
+    RedeemRequest {
+        vault: vault_id.clone(),
+        opentime: Default::default(),
+        period: Default::default(),
+        fee: Default::default(),
+        transfer_fee_btc: Default::default(),
+        amount_btc: Default::default(),
+        premium: Default::default(),
+        redeemer: Default::default(),
+        btc_address: Default::default(),
+        btc_height: Default::default(),
+        status: Default::default(),
+    }
+}
+
 benchmarks! {
     request_redeem {
         let origin: T::AccountId = account("Origin", 0, 0);
-        let vault_id: T::AccountId = account("Vault", 0, 0);
+        let vault_id: VaultId<T::AccountId, _> = VaultId::new(
+            account("Vault", 0, 0),
+            T::GetGriefingCollateralCurrencyId::get(),
+            T::GetWrappedCurrencyId::get()
+        );
         let amount = Redeem::<T>::redeem_btc_dust_value() + 1000u32.into();
         let btc_address = BtcAddress::P2SH(H160::from([0; 20]));
 
@@ -150,7 +170,7 @@ benchmarks! {
             wallet: Wallet::new(dummy_public_key()),
             issued_tokens: amount,
             id: vault_id.clone(),
-            ..Vault::new(Default::default(), Default::default(), T::GetGriefingCollateralCurrencyId::get())
+            ..Vault::new(vault_id.clone(), Default::default())
         };
 
         VaultRegistry::<T>::insert_vault(
@@ -171,17 +191,21 @@ benchmarks! {
         ));
 
         let origin: T::AccountId = account("Origin", 0, 0);
-        let vault_id: T::AccountId = account("Vault", 0, 0);
+        let vault_id: VaultId<T::AccountId, _> = VaultId::new(
+            account("Vault", 0, 0),
+            T::GetGriefingCollateralCurrencyId::get(),
+            T::GetWrappedCurrencyId::get()
+        );
         let amount = 1000;
 
         VaultRegistry::<T>::insert_vault(
             &vault_id,
-            Vault::new(vault_id.clone(), dummy_public_key(), DEFAULT_TESTING_CURRENCY)
+            Vault::new(vault_id.clone(), dummy_public_key())
         );
 
         mint_wrapped::<T>(&origin, amount.into());
 
-        mint_collateral::<T>(&vault_id, 100_000u32.into());
+        mint_collateral::<T>(&vault_id.account_id, 100_000u32.into());
         assert_ok!(VaultRegistry::<T>::try_deposit_collateral(&vault_id, &collateral(100_000)));
 
         assert_ok!(VaultRegistry::<T>::try_increase_to_be_issued_tokens(&vault_id, &wrapped(amount)));
@@ -192,7 +216,11 @@ benchmarks! {
 
     execute_redeem {
         let origin: T::AccountId = account("Origin", 0, 0);
-        let vault_id: T::AccountId = account("Vault", 0, 0);
+        let vault_id: VaultId<T::AccountId, _> = VaultId::new(
+            account("Vault", 0, 0),
+            T::GetGriefingCollateralCurrencyId::get(),
+            T::GetWrappedCurrencyId::get()
+        );
         let relayer_id: T::AccountId = account("Relayer", 0, 0);
 
         initialize_oracle::<T>();
@@ -200,15 +228,14 @@ benchmarks! {
         let origin_btc_address = BtcAddress::P2PKH(H160::zero());
 
         let redeem_id = H256::zero();
-        let mut redeem_request = RedeemRequest::default();
-        redeem_request.vault = vault_id.clone();
+        let mut redeem_request = test_request::<T>(&vault_id);
         redeem_request.btc_address = origin_btc_address;
         Redeem::<T>::insert_redeem_request(&redeem_id, &redeem_request);
 
         let vault = Vault {
             wallet: Wallet::new(dummy_public_key()),
             id: vault_id.clone(),
-            ..Vault::new(Default::default(), Default::default(), T::GetGriefingCollateralCurrencyId::get())
+            ..Vault::new(vault_id.clone(), Default::default())
         };
 
         VaultRegistry::<T>::insert_vault(
@@ -275,17 +302,20 @@ BtcRelay::<T>::parachain_confirmations() + 1u32.into());
         assert_ok!(Oracle::<T>::_set_exchange_rate(DEFAULT_TESTING_CURRENCY,
             UnsignedFixedPoint::<T>::one()
         ));
-    }: _(RawOrigin::Signed(vault_id), redeem_id, proof, raw_tx)
+    }: _(RawOrigin::Signed(vault_id.account_id.clone()), redeem_id, proof, raw_tx)
 
     cancel_redeem_reimburse {
         let origin: T::AccountId = account("Origin", 0, 0);
-        let vault_id: T::AccountId = account("Vault", 0, 0);
+        let vault_id: VaultId<T::AccountId, _> = VaultId::new(
+            account("Vault", 0, 0),
+            T::GetGriefingCollateralCurrencyId::get(),
+            T::GetWrappedCurrencyId::get()
+        );
 
         initialize_oracle::<T>();
 
         let redeem_id = H256::zero();
-        let mut redeem_request = RedeemRequest::default();
-        redeem_request.vault = vault_id.clone();
+        let mut redeem_request = test_request::<T>(&vault_id);
         redeem_request.redeemer = origin.clone();
         redeem_request.opentime = Security::<T>::active_block_number();
         redeem_request.btc_height = BtcRelay::<T>::get_best_block_height();
@@ -298,13 +328,13 @@ BtcRelay::<T>::parachain_confirmations() + 1u32.into());
         let vault = Vault {
             wallet: Wallet::new(dummy_public_key()),
             id: vault_id.clone(),
-            ..Vault::new(Default::default(), Default::default(), T::GetGriefingCollateralCurrencyId::get())
+            ..Vault::new(vault_id.clone(), Default::default())
         };
         VaultRegistry::<T>::insert_vault(
             &vault_id,
             vault
         );
-        mint_collateral::<T>(&vault_id, 1000u32.into());
+        mint_collateral::<T>(&vault_id.account_id, 1000u32.into());
         assert_ok!(VaultRegistry::<T>::try_deposit_collateral(&vault_id, &collateral(1000)));
 
         assert_ok!(Oracle::<T>::_set_exchange_rate(DEFAULT_TESTING_CURRENCY,
@@ -314,13 +344,16 @@ BtcRelay::<T>::parachain_confirmations() + 1u32.into());
 
     cancel_redeem_retry {
         let origin: T::AccountId = account("Origin", 0, 0);
-        let vault_id: T::AccountId = account("Vault", 0, 0);
+        let vault_id: VaultId<T::AccountId, _> = VaultId::new(
+            account("Vault", 0, 0),
+            T::GetGriefingCollateralCurrencyId::get(),
+            T::GetWrappedCurrencyId::get()
+        );
 
         initialize_oracle::<T>();
 
         let redeem_id = H256::zero();
-        let mut redeem_request = RedeemRequest::default();
-        redeem_request.vault = vault_id.clone();
+        let mut redeem_request = test_request::<T>(&vault_id);
         redeem_request.redeemer = origin.clone();
         redeem_request.opentime = Security::<T>::active_block_number();
         Redeem::<T>::insert_redeem_request(&redeem_id, &redeem_request);
@@ -332,13 +365,13 @@ BtcRelay::<T>::parachain_confirmations() + 1u32.into());
         let vault = Vault {
             wallet: Wallet::new(dummy_public_key()),
             id: vault_id.clone(),
-            ..Vault::new(Default::default(), Default::default(), T::GetGriefingCollateralCurrencyId::get())
+            ..Vault::new(vault_id.clone(), Default::default())
         };
         VaultRegistry::<T>::insert_vault(
             &vault_id,
             vault
         );
-        mint_collateral::<T>(&vault_id, 1000u32.into());
+        mint_collateral::<T>(&vault_id.account_id, 1000u32.into());
         assert_ok!(VaultRegistry::<T>::try_deposit_collateral(&vault_id, &collateral(1000)));
 
         assert_ok!(Oracle::<T>::_set_exchange_rate(DEFAULT_TESTING_CURRENCY,

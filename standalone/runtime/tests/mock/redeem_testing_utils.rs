@@ -2,6 +2,7 @@ use crate::{assert_eq, *};
 use currency::Amount;
 use frame_support::transactional;
 use redeem::RedeemRequestStatus;
+use vault_registry::DefaultVaultId;
 
 pub const USER: [u8; 32] = ALICE;
 pub const VAULT: [u8; 32] = BOB;
@@ -9,7 +10,7 @@ pub const USER_BTC_ADDRESS: BtcAddress = BtcAddress::P2PKH(H160([2u8; 20]));
 
 pub struct ExecuteRedeemBuilder {
     redeem_id: H256,
-    redeem: RedeemRequest<AccountId32, u32, u128>,
+    redeem: RedeemRequest<AccountId32, u32, u128, CurrencyId>,
     amount: Amount<Runtime>,
     submitter: AccountId32,
     inclusion_fee: Amount<Runtime>,
@@ -67,7 +68,7 @@ impl ExecuteRedeemBuilder {
     }
 }
 
-pub fn setup_cancelable_redeem(user: [u8; 32], vault: [u8; 32], issued_tokens: Amount<Runtime>) -> H256 {
+pub fn setup_cancelable_redeem(user: [u8; 32], vault: DefaultVaultId<Runtime>, issued_tokens: Amount<Runtime>) -> H256 {
     let redeem_id = setup_redeem(issued_tokens, user, vault);
 
     // expire request without transferring btc
@@ -100,12 +101,12 @@ pub fn set_redeem_state(
     UserData::force_to(ALICE, user_state);
 }
 
-pub fn setup_redeem(issued_tokens: Amount<Runtime>, user: [u8; 32], vault: [u8; 32]) -> H256 {
+pub fn setup_redeem(issued_tokens: Amount<Runtime>, user: [u8; 32], vault: DefaultVaultId<Runtime>) -> H256 {
     // alice requests to redeem issued_tokens from Bob
     assert_ok!(Call::Redeem(RedeemCall::request_redeem(
         issued_tokens.amount(),
         USER_BTC_ADDRESS,
-        account_of(vault)
+        vault
     ))
     .dispatch(origin_of(account_of(user))));
 

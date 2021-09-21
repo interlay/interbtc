@@ -4,6 +4,7 @@ use frame_support::{parameter_types, traits::GenesisBuild, PalletId};
 use mocktopus::{macros::mockable, mocking::clear_mocks};
 use orml_traits::parameter_type_with_key;
 pub use primitives::CurrencyId;
+use primitives::{VaultCurrencyPair, VaultId};
 use sp_arithmetic::{FixedI128, FixedPointNumber, FixedU128};
 use sp_core::H256;
 use sp_runtime::{
@@ -82,6 +83,7 @@ impl frame_system::Config for Test {
 }
 
 pub const DEFAULT_TESTING_CURRENCY: CurrencyId = CurrencyId::DOT;
+pub const DEFAULT_WRAPPED_CURRENCY: CurrencyId = CurrencyId::DOT;
 pub const GRIEFING_CURRENCY: CurrencyId = CurrencyId::DOT;
 pub const DOT: CurrencyId = CurrencyId::DOT;
 pub const INTERBTC: CurrencyId = CurrencyId::INTERBTC;
@@ -214,9 +216,27 @@ pub type TokensError = orml_tokens::Error<Test>;
 
 pub struct ExtBuilder;
 
-pub const DEFAULT_ID: u64 = 3;
-pub const OTHER_ID: u64 = 4;
-pub const RICH_ID: u64 = 5;
+pub const DEFAULT_ID: VaultId<AccountId, CurrencyId> = VaultId {
+    account_id: 3,
+    currencies: VaultCurrencyPair {
+        collateral: DEFAULT_TESTING_CURRENCY,
+        wrapped: DEFAULT_WRAPPED_CURRENCY,
+    },
+};
+pub const OTHER_ID: VaultId<AccountId, CurrencyId> = VaultId {
+    account_id: 4,
+    currencies: VaultCurrencyPair {
+        collateral: DEFAULT_TESTING_CURRENCY,
+        wrapped: DEFAULT_WRAPPED_CURRENCY,
+    },
+};
+pub const RICH_ID: VaultId<AccountId, CurrencyId> = VaultId {
+    account_id: 5,
+    currencies: VaultCurrencyPair {
+        collateral: DEFAULT_TESTING_CURRENCY,
+        wrapped: DEFAULT_WRAPPED_CURRENCY,
+    },
+};
 pub const DEFAULT_COLLATERAL: u128 = 100000;
 pub const RICH_COLLATERAL: u128 = DEFAULT_COLLATERAL + 100000;
 pub const MULTI_VAULT_TEST_IDS: [u64; 4] = [100, 101, 102, 103];
@@ -245,9 +265,9 @@ impl ExtBuilder {
     pub fn build() -> sp_io::TestExternalities {
         ExtBuilder::build_with(orml_tokens::GenesisConfig::<Test> {
             balances: vec![
-                (DEFAULT_ID, DEFAULT_TESTING_CURRENCY, DEFAULT_COLLATERAL),
-                (OTHER_ID, DEFAULT_TESTING_CURRENCY, DEFAULT_COLLATERAL),
-                (RICH_ID, DEFAULT_TESTING_CURRENCY, RICH_COLLATERAL),
+                (DEFAULT_ID.account_id, DEFAULT_TESTING_CURRENCY, DEFAULT_COLLATERAL),
+                (OTHER_ID.account_id, DEFAULT_TESTING_CURRENCY, DEFAULT_COLLATERAL),
+                (RICH_ID.account_id, DEFAULT_TESTING_CURRENCY, RICH_COLLATERAL),
                 (
                     MULTI_VAULT_TEST_IDS[0],
                     DEFAULT_TESTING_CURRENCY,

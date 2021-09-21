@@ -203,8 +203,8 @@ pub mod pallet {
 #[cfg_attr(test, mockable)]
 impl<T: Config> Pallet<T> {
     pub fn _withdraw_collateral(
-        vault_id: DefaultVaultId<T>,
-        nominator_id: T::AccountId,
+        vault_id: &DefaultVaultId<T>,
+        nominator_id: &T::AccountId,
         amount: Collateral<T>,
         index: T::Index,
     ) -> DispatchResult {
@@ -241,13 +241,13 @@ impl<T: Config> Pallet<T> {
         amount.unlock_on(&vault_id.account_id)?;
         amount.transfer(&vault_id.account_id, &nominator_id)?;
 
-        Self::deposit_event(Event::<T>::WithdrawCollateral(vault_id, nominator_id, amount.amount()));
+        Self::deposit_event(Event::<T>::WithdrawCollateral(vault_id.clone(), nominator_id.clone(), amount.amount()));
         Ok(())
     }
 
     pub fn _deposit_collateral(
-        vault_id: DefaultVaultId<T>,
-        nominator_id: T::AccountId,
+        vault_id: &DefaultVaultId<T>,
+        nominator_id: &T::AccountId,
         amount: Collateral<T>,
     ) -> DispatchResult {
         ensure!(Self::is_nomination_enabled(), Error::<T>::VaultNominationDisabled);

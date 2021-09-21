@@ -5,6 +5,7 @@ use frame_support::{assert_ok, parameter_types, traits::GenesisBuild, PalletId};
 use mocktopus::{macros::mockable, mocking::*};
 use orml_traits::parameter_type_with_key;
 pub use primitives::CurrencyId;
+use primitives::{VaultCurrencyPair, VaultId};
 use sp_arithmetic::{FixedI128, FixedPointNumber, FixedU128};
 use sp_core::H256;
 use sp_runtime::{
@@ -88,6 +89,8 @@ impl frame_system::Config for Test {
 
 pub const DEFAULT_TESTING_CURRENCY: <Test as orml_tokens::Config>::CurrencyId =
     <Test as orml_tokens::Config>::CurrencyId::DOT;
+pub const DEFAULT_WRAPPED_CURRENCY: <Test as orml_tokens::Config>::CurrencyId =
+    <Test as orml_tokens::Config>::CurrencyId::INTERBTC;
 pub const GRIEFING_CURRENCY: CurrencyId = CurrencyId::DOT;
 pub const DOT: CurrencyId = CurrencyId::DOT;
 pub const INTERBTC: CurrencyId = CurrencyId::INTERBTC;
@@ -235,13 +238,17 @@ pub type TestError = Error<Test>;
 pub type SecurityError = security::Error<Test>;
 pub type VaultRegistryError = vault_registry::Error<Test>;
 
-pub const ALICE: AccountId = 1;
-pub const BOB: AccountId = 2;
-pub const CAROL: AccountId = 3;
+pub const USER: AccountId = 1;
+pub const VAULT: VaultId<AccountId, CurrencyId> = VaultId {
+    account_id: 2,
+    currencies: VaultCurrencyPair {
+        collateral: DEFAULT_TESTING_CURRENCY,
+        wrapped: DEFAULT_WRAPPED_CURRENCY,
+    },
+};
 
 pub const ALICE_BALANCE: u128 = 1_000_000;
 pub const BOB_BALANCE: u128 = 1_000_000;
-pub const CAROL_BALANCE: u128 = 1_000_000;
 
 pub struct ExtBuilder;
 
@@ -277,11 +284,7 @@ impl ExtBuilder {
 
     pub fn build() -> sp_io::TestExternalities {
         ExtBuilder::build_with(orml_tokens::GenesisConfig::<Test> {
-            balances: vec![
-                (ALICE, DOT, ALICE_BALANCE),
-                (BOB, DOT, BOB_BALANCE),
-                (CAROL, DOT, CAROL_BALANCE),
-            ],
+            balances: vec![(USER, DOT, ALICE_BALANCE), (VAULT.account_id, DOT, BOB_BALANCE)],
         })
     }
 }

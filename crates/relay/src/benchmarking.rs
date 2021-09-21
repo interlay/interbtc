@@ -14,7 +14,7 @@ use frame_support::{assert_ok, traits::Get};
 use frame_system::RawOrigin;
 use oracle::Pallet as Oracle;
 use orml_traits::MultiCurrency;
-use primitives::CurrencyId;
+use primitives::{CurrencyId, VaultId};
 use security::Pallet as Security;
 use sp_core::{H160, U256};
 use sp_runtime::traits::One;
@@ -99,11 +99,15 @@ benchmarks! {
 
         let address = BtcAddress::P2PKH(H160([0; 20]));
 
-        let vault_id: T::AccountId = account("Vault", 0, 0);
+        let vault_id: VaultId<T::AccountId, _> = VaultId::new(
+            account("Vault", 0, 0),
+            T::GetGriefingCollateralCurrencyId::get(),
+            T::GetWrappedCurrencyId::get()
+        );
         let mut vault = Vault {
             wallet: Wallet::new(dummy_public_key()),
             id: vault_id.clone(),
-            ..Vault::new(Default::default(), Default::default(), T::GetGriefingCollateralCurrencyId::get())
+            ..Vault::new(vault_id.clone(), Default::default())
         };
         vault.wallet.add_btc_address(vault_address);
         VaultRegistry::<T>::insert_vault(
@@ -111,8 +115,9 @@ benchmarks! {
             vault
         );
 
-        mint_collateral::<T>(&vault_id, 1000u32.into());
-        assert_ok!(VaultRegistry::<T>::try_deposit_collateral(&vault_id, &Amount::new(1000u32.into(), T::GetGriefingCollateralCurrencyId::get())));
+        mint_collateral::<T>(&vault_id.account_id, 1000u32.into());
+        assert_ok!(VaultRegistry::<T>::try_deposit_collateral(&vault_id, &Amount::new(1000u32.into(),
+T::GetGriefingCollateralCurrencyId::get())));
 
         let height = 0;
         let block = BlockBuilder::new()
@@ -168,7 +173,8 @@ benchmarks! {
         let block_header = BtcRelay::<T>::parse_raw_block_header(&raw_block_header).unwrap();
 
         BtcRelay::<T>::store_block_header(&relayer_id, block_header).unwrap();
-        Security::<T>::set_active_block_number(Security::<T>::active_block_number() + BtcRelay::<T>::parachain_confirmations() + 1u32.into());
+        Security::<T>::set_active_block_number(Security::<T>::active_block_number() +
+BtcRelay::<T>::parachain_confirmations() + 1u32.into());
 
         Oracle::<T>::_set_exchange_rate(DEFAULT_TESTING_CURRENCY,
             <T as currency::Config>::UnsignedFixedPoint::one()

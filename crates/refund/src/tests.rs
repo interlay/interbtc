@@ -1,9 +1,10 @@
-use crate::{ext, mock::*, Event};
+use crate::{ext, mock::*, DefaultRefundRequest, Event};
 use bitcoin::types::{MerkleProof, Transaction};
 use btc_relay::BtcAddress;
 use currency::Amount;
 use frame_support::{assert_err, assert_ok};
 use mocktopus::mocking::*;
+use primitives::refund::RefundRequest;
 use sp_core::{H160, H256};
 
 fn dummy_merkle_proof() -> MerkleProof {
@@ -61,6 +62,17 @@ fn test_refund_succeeds() {
     })
 }
 
+fn default_refund_request() -> DefaultRefundRequest<Test> {
+    RefundRequest {
+        completed: Default::default(),
+        amount_btc: Default::default(),
+        btc_address: Default::default(),
+        fee: Default::default(),
+        issue_id: Default::default(),
+        issuer: Default::default(),
+        vault: VAULT,
+    }
+}
 mod spec_based_tests {
     use crate::{RefundRequest, RefundRequests};
 
@@ -84,7 +96,12 @@ mod spec_based_tests {
                 redeem_id,
                 RefundRequest {
                     completed: true,
-                    ..Default::default()
+                    amount_btc: 0,
+                    btc_address: Default::default(),
+                    fee: Default::default(),
+                    issue_id: Default::default(),
+                    issuer: Default::default(),
+                    vault: VAULT,
                 },
             );
             assert_err!(
@@ -105,12 +122,12 @@ mod spec_based_tests {
             ext::vault_registry::issue_tokens::<Test>.mock_safe(|_, _| MockResult::Return(Ok(())));
 
             let redeem_id = H256::random();
-            <RefundRequests<Test>>::insert(redeem_id, RefundRequest { ..Default::default() });
+            <RefundRequests<Test>>::insert(redeem_id, default_refund_request());
 
             assert_ok!(Refund::_execute_refund(redeem_id, vec![0u8; 100], vec![0u8; 100]));
 
             assert!(
-                matches!(<RefundRequests<Test>>::get(redeem_id), refund if refund.completed),
+                matches!(<RefundRequests<Test>>::get(redeem_id), Some(refund) if refund.completed),
                 "refund request MUST be completed"
             )
         })

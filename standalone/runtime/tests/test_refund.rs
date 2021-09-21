@@ -3,16 +3,19 @@ mod mock;
 use frame_support::traits::Currency;
 use mock::{assert_eq, *};
 
-fn test_with<R>(execute: impl FnOnce() -> R) -> R {
-    ExtBuilder::build().execute_with(|| {
-        SecurityPallet::set_active_block_number(1);
-        assert_ok!(OraclePallet::_set_exchange_rate(
-            DEFAULT_TESTING_CURRENCY,
-            FixedU128::one()
-        ));
-        CoreVaultData::force_to(BOB, default_vault_state(DEFAULT_TESTING_CURRENCY));
-        execute()
-    })
+fn test_with<R>(execute: impl Fn(CurrencyId) -> R) {
+    let test_with = |currency_id| {
+        ExtBuilder::build().execute_with(|| {
+            SecurityPallet::set_active_block_number(1);
+            for currency_id in iter_collateral_currencies() {
+                assert_ok!(OraclePallet::_set_exchange_rate(currency_id, FixedU128::one()));
+            }
+            CoreVaultData::force_to(BOB, default_vault_state(currency_id));
+            execute(currency_id)
+        });
+    };
+    test_with(CurrencyId::KSM);
+    test_with(CurrencyId::DOT);
 }
 
 mod spec_based_tests {
@@ -21,7 +24,7 @@ mod spec_based_tests {
     #[test]
     fn execute_refund_should_fail_when_parachain_has_shutdown() {
         // PRECONDITION: The parachain status MUST NOT be shutdown
-        test_with(|| {
+        test_with(|_currency_id| {
             SecurityPallet::set_status(StatusCode::Shutdown);
 
             assert_noop!(
@@ -34,7 +37,7 @@ mod spec_based_tests {
 
     #[test]
     fn execute_refund_should_fail_when_no_request_exists() {
-        test_with(|| {
+        test_with(|_currency_id| {
             // PRECONDITION: A pending refund MUST exist
             assert_noop!(
                 Call::Refund(RefundCall::execute_refund(H256::zero(), vec![0u8; 32], vec![0u8; 32],))
@@ -46,15 +49,16 @@ mod spec_based_tests {
 
     #[test]
     fn execute_refund_should_succeed() {
-        test_with(|| {
-            let pre_refund_state = ParachainState::get();
+        test_with(|currency_id| {
+            let pre_refund_state = ParachainState::get(currency_id);
+            let vault_id = vault_id_of(BOB, currency_id);
 
             let user_btc_address = BtcAddress::P2PKH(H160([2; 20]));
 
             let refund_amount = wrapped(100);
             let refund_id = RefundPallet::request_refund(
                 &refund_amount,
-                account_of(BOB),
+                vault_id.clone(),
                 account_of(ALICE),
                 user_btc_address,
                 Default::default(),
@@ -71,9 +75,9 @@ mod spec_based_tests {
                 merkle_proof.clone(),
                 raw_tx.clone()
             ))
-            .dispatch(origin_of(account_of(BOB))));
+            .dispatch(origin_of(vault_id.account_id.clone())));
 
-            let refund_request = RefundPallet::refund_requests(refund_id);
+            let refund_request = RefundPallet::refund_requests(refund_id).unwrap();
             let refund_fee = wrapped(refund_request.fee);
             let total_supply = wrapped(TreasuryPallet::total_issuance());
 
@@ -83,7 +87,7 @@ mod spec_based_tests {
             // PRECONDITION: refund.completed MUST be false
             assert_noop!(
                 Call::Refund(RefundCall::execute_refund(refund_id, merkle_proof, raw_tx))
-                    .dispatch(origin_of(account_of(BOB))),
+                    .dispatch(origin_of(vault_id.account_id.clone())),
                 RefundError::RefundCompleted,
             );
 
@@ -91,7 +95,7 @@ mod spec_based_tests {
             assert_eq!(total_supply + refund_fee, wrapped(TreasuryPallet::total_issuance()));
 
             assert_eq!(
-                ParachainState::get(),
+                ParachainState::get(currency_id),
                 pre_refund_state.with_changes(|_, vault, _, _| {
                     // POSTCONDITION: vault.issued_tokens MUST increase by fee
                     vault.issued += refund_fee;

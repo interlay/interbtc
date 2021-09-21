@@ -5,6 +5,7 @@ use frame_support::{assert_ok, parameter_types, traits::GenesisBuild, PalletId};
 use mocktopus::{macros::mockable, mocking::clear_mocks};
 pub use oracle::{CurrencyId, OracleKey};
 use orml_traits::parameter_type_with_key;
+use primitives::{VaultCurrencyPair, VaultId};
 pub use sp_arithmetic::{FixedI128, FixedPointNumber, FixedU128};
 use sp_core::H256;
 use sp_runtime::{
@@ -87,6 +88,8 @@ impl frame_system::Config for Test {
 
 pub const DEFAULT_TESTING_CURRENCY: <Test as orml_tokens::Config>::CurrencyId =
     <Test as orml_tokens::Config>::CurrencyId::DOT;
+pub const DEFAULT_WRAPPED_CURRENCY: <Test as orml_tokens::Config>::CurrencyId =
+    <Test as orml_tokens::Config>::CurrencyId::INTERBTC;
 pub const GRIEFING_CURRENCY: CurrencyId = CurrencyId::DOT;
 pub const DOT: CurrencyId = CurrencyId::DOT;
 pub const INTERBTC: CurrencyId = CurrencyId::INTERBTC;
@@ -228,12 +231,18 @@ pub type TestEvent = Event;
 pub type TestError = Error<Test>;
 pub type VaultRegistryError = vault_registry::Error<Test>;
 
-pub const ALICE: AccountId = 1;
-pub const BOB: AccountId = 2;
+pub const USER: AccountId = 1;
+pub const VAULT: VaultId<AccountId, CurrencyId> = VaultId {
+    account_id: 2,
+    currencies: VaultCurrencyPair {
+        collateral: DEFAULT_TESTING_CURRENCY,
+        wrapped: DEFAULT_WRAPPED_CURRENCY,
+    },
+};
 pub const CAROL: AccountId = 3;
 
 pub const ALICE_BALANCE: u128 = 1_005_000;
-pub const BOB_BALANCE: u128 = 1_005_000;
+pub const VAULT_BALANCE: u128 = 1_005_000;
 pub const CAROL_BALANCE: u128 = 1_005_000;
 
 pub struct ExtBuilder;
@@ -287,7 +296,7 @@ impl ExtBuilder {
         .unwrap();
 
         oracle::GenesisConfig::<Test> {
-            authorized_oracles: vec![(ALICE, "test".as_bytes().to_vec())],
+            authorized_oracles: vec![(USER, "test".as_bytes().to_vec())],
             max_delay: 0,
         }
         .assimilate_storage(&mut storage)
@@ -299,11 +308,11 @@ impl ExtBuilder {
     pub fn build() -> sp_io::TestExternalities {
         ExtBuilder::build_with(orml_tokens::GenesisConfig::<Test> {
             balances: vec![
-                (ALICE, DOT, ALICE_BALANCE),
-                (BOB, DOT, BOB_BALANCE),
+                (USER, DOT, ALICE_BALANCE),
+                (VAULT.account_id, DOT, VAULT_BALANCE),
                 (CAROL, DOT, CAROL_BALANCE),
-                (ALICE, INTERBTC, ALICE_BALANCE),
-                (BOB, INTERBTC, BOB_BALANCE),
+                (USER, INTERBTC, ALICE_BALANCE),
+                (VAULT.account_id, INTERBTC, VAULT_BALANCE),
                 (CAROL, INTERBTC, CAROL_BALANCE),
             ],
         })
@@ -317,7 +326,7 @@ where
     clear_mocks();
     ExtBuilder::build().execute_with(|| {
         assert_ok!(<oracle::Pallet<Test>>::feed_values(
-            Origin::signed(ALICE),
+            Origin::signed(USER),
             vec![
                 (OracleKey::ExchangeRate(CurrencyId::DOT), FixedU128::from(1)),
                 (OracleKey::FeeEstimation, FixedU128::from(3)),

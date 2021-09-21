@@ -5,6 +5,7 @@ use frame_support::{assert_ok, parameter_types, traits::GenesisBuild, PalletId};
 use mocktopus::{macros::mockable, mocking::clear_mocks};
 use orml_traits::parameter_type_with_key;
 pub use primitives::CurrencyId;
+use primitives::{VaultCurrencyPair, VaultId};
 use sp_arithmetic::{FixedI128, FixedPointNumber, FixedU128};
 use sp_core::H256;
 use sp_runtime::{
@@ -87,6 +88,8 @@ impl frame_system::Config for Test {
 }
 
 pub const DEFAULT_TESTING_CURRENCY: CurrencyId = CurrencyId::DOT;
+pub const DEFAULT_WRAPPED_CURRENCY: CurrencyId = CurrencyId::INTERBTC;
+
 pub const GRIEFING_CURRENCY: CurrencyId = CurrencyId::DOT;
 pub const DOT: CurrencyId = CurrencyId::DOT;
 pub const INTERBTC: CurrencyId = CurrencyId::INTERBTC;
@@ -232,13 +235,23 @@ impl Config for Test {
 pub type TestEvent = Event;
 pub type TestError = Error<Test>;
 
-pub const OLD_VAULT: AccountId = 1;
-pub const NEW_VAULT: AccountId = 2;
-pub const CAROL: AccountId = 3;
+pub const OLD_VAULT: VaultId<AccountId, CurrencyId> = VaultId {
+    account_id: 1,
+    currencies: VaultCurrencyPair {
+        collateral: DEFAULT_TESTING_CURRENCY,
+        wrapped: DEFAULT_WRAPPED_CURRENCY,
+    },
+};
+pub const NEW_VAULT: VaultId<AccountId, CurrencyId> = VaultId {
+    account_id: 2,
+    currencies: VaultCurrencyPair {
+        collateral: DEFAULT_TESTING_CURRENCY,
+        wrapped: DEFAULT_WRAPPED_CURRENCY,
+    },
+};
 
 pub const OLD_VAULT_BALANCE: u128 = 1_000_000;
 pub const NEW_VAULT_BALANCE: u128 = 1_000_000;
-pub const CAROL_BALANCE: u128 = 1_000_000;
 
 pub struct ExtBuilder;
 
@@ -275,9 +288,8 @@ impl ExtBuilder {
     pub fn build() -> sp_io::TestExternalities {
         ExtBuilder::build_with(orml_tokens::GenesisConfig::<Test> {
             balances: vec![
-                (OLD_VAULT, DOT, OLD_VAULT_BALANCE),
-                (NEW_VAULT, DOT, NEW_VAULT_BALANCE),
-                (CAROL, DOT, CAROL_BALANCE),
+                (OLD_VAULT.account_id, DOT, OLD_VAULT_BALANCE),
+                (NEW_VAULT.account_id, DOT, NEW_VAULT_BALANCE),
             ],
         })
     }

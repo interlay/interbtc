@@ -2,6 +2,7 @@ use crate as reward;
 use crate::{Config, Error};
 use frame_support::parameter_types;
 pub use primitives::CurrencyId;
+use primitives::{VaultCurrencyPair, VaultId, INTERBTC};
 use sp_arithmetic::FixedI128;
 use sp_core::H256;
 use sp_runtime::{
@@ -72,9 +73,20 @@ impl Config for Test {
 pub type TestEvent = Event;
 pub type TestError = Error<Test>;
 
-pub const ALICE: AccountId = 1;
-pub const BOB: AccountId = 2;
-
+pub const ALICE: VaultId<AccountId, CurrencyId> = VaultId {
+    account_id: 1,
+    currencies: VaultCurrencyPair {
+        collateral: DOT,
+        wrapped: INTERBTC,
+    },
+};
+pub const BOB: VaultId<AccountId, CurrencyId> = VaultId {
+    account_id: 2,
+    currencies: VaultCurrencyPair {
+        collateral: DOT,
+        wrapped: INTERBTC,
+    },
+};
 pub struct ExtBuilder;
 
 impl ExtBuilder {

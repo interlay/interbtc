@@ -1,7 +1,8 @@
 use crate as staking;
 use crate::{Config, Error};
 use frame_support::parameter_types;
-pub use primitives::{CurrencyId, DOT};
+pub use primitives::{CurrencyId, DOT, INTERBTC};
+use primitives::{VaultCurrencyPair, VaultId};
 use sp_arithmetic::FixedI128;
 use sp_core::H256;
 use sp_runtime::{
@@ -71,9 +72,27 @@ impl Config for Test {
 pub type TestEvent = Event;
 pub type TestError = Error<Test>;
 
-pub const VAULT: AccountId = 1;
-pub const ALICE: AccountId = 2;
-pub const BOB: AccountId = 3;
+pub const VAULT: VaultId<AccountId, CurrencyId> = VaultId {
+    account_id: 1,
+    currencies: VaultCurrencyPair {
+        collateral: DOT,
+        wrapped: INTERBTC,
+    },
+};
+pub const ALICE: VaultId<AccountId, CurrencyId> = VaultId {
+    account_id: 2,
+    currencies: VaultCurrencyPair {
+        collateral: DOT,
+        wrapped: INTERBTC,
+    },
+};
+pub const BOB: VaultId<AccountId, CurrencyId> = VaultId {
+    account_id: 3,
+    currencies: VaultCurrencyPair {
+        collateral: DOT,
+        wrapped: INTERBTC,
+    },
+};
 
 pub struct ExtBuilder;
 

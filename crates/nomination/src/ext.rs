@@ -67,7 +67,7 @@ pub(crate) mod staking {
     use frame_support::dispatch::DispatchError;
     use vault_registry::{types::CurrencyId, DefaultVaultId};
 
-    pub fn nonce<T: crate::Config>(vault_id: &T::AccountId) -> T::Index {
+    pub fn nonce<T: crate::Config>(vault_id: &DefaultVaultId<T>) -> T::Index {
         <staking::Pallet<T>>::nonce(vault_id)
     }
 

@@ -55,7 +55,7 @@ fn btcdot_parity(wrapped: Wrapped<Test>) -> Result<Collateral<Test>, DispatchErr
     convert_currency(collateral)
 }
 
-fn inject_redeem_request(key: H256, value: RedeemRequest<AccountId, BlockNumber, Balance>) {
+fn inject_redeem_request(key: H256, value: RedeemRequest<AccountId, BlockNumber, Balance, CurrencyId>) {
     Redeem::insert_redeem_request(&key, &value)
 }
 
@@ -68,7 +68,7 @@ fn dummy_public_key() -> BtcPublicKey {
 
 fn default_vault() -> DefaultVault<Test> {
     vault_registry::Vault {
-        id: BOB,
+        id: VAULT,
         to_be_replaced_tokens: 0,
         to_be_issued_tokens: 0,
         issued_tokens: 10,
@@ -77,7 +77,6 @@ fn default_vault() -> DefaultVault<Test> {
         wallet: Wallet::new(dummy_public_key()),
         banned_until: None,
         status: VaultStatus::Active(true),
-        currency_id: DEFAULT_TESTING_CURRENCY,
         liquidated_collateral: 0,
     }
 }
@@ -86,10 +85,10 @@ fn default_vault() -> DefaultVault<Test> {
 fn test_request_redeem_fails_with_amount_exceeds_user_balance() {
     run_test(|| {
         let amount = Amount::<Test>::new(2, <Test as currency::Config>::GetWrappedCurrencyId::get());
-        amount.mint_to(&ALICE).unwrap();
+        amount.mint_to(&USER).unwrap();
         let amount = 10_000_000;
         assert_err!(
-            Redeem::request_redeem(Origin::signed(ALICE), amount, BtcAddress::default(), BOB),
+            Redeem::request_redeem(Origin::signed(USER), amount, BtcAddress::default(), VAULT),
             TestError::AmountExceedsUserBalance
         );
     })
@@ -100,9 +99,9 @@ fn test_request_redeem_fails_with_amount_below_minimum() {
     run_test(|| {
         convert_to.mock_safe(|_, x| MockResult::Return(btcdot_parity(x)));
         <vault_registry::Pallet<Test>>::insert_vault(
-            &BOB,
+            &VAULT,
             vault_registry::Vault {
-                id: BOB,
+                id: VAULT,
                 to_be_replaced_tokens: 0,
                 to_be_issued_tokens: 0,
                 issued_tokens: 10,
@@ -111,23 +110,22 @@ fn test_request_redeem_fails_with_amount_below_minimum() {
                 wallet: Wallet::new(dummy_public_key()),
                 banned_until: None,
                 status: VaultStatus::Active(true),
-                currency_id: DEFAULT_TESTING_CURRENCY,
                 liquidated_collateral: 0,
             },
         );
 
-        let redeemer = ALICE;
+        let redeemer = USER;
         let amount = 9;
 
         ext::vault_registry::try_increase_to_be_redeemed_tokens::<Test>.mock_safe(move |vault_id, amount_btc| {
-            assert_eq!(vault_id, &BOB);
+            assert_eq!(vault_id, &VAULT);
             assert_eq!(amount_btc, &wrapped(amount));
 
             MockResult::Return(Ok(()))
         });
 
         assert_err!(
-            Redeem::request_redeem(Origin::signed(redeemer), 1, BtcAddress::random(), BOB),
+            Redeem::request_redeem(Origin::signed(redeemer), 1, BtcAddress::random(), VAULT),
             TestError::AmountBelowDustAmount
         );
     })
@@ -137,7 +135,7 @@ fn test_request_redeem_fails_with_amount_below_minimum() {
 fn test_request_redeem_fails_with_vault_not_found() {
     run_test(|| {
         assert_err!(
-            Redeem::request_redeem(Origin::signed(ALICE), 1500, BtcAddress::default(), BOB),
+            Redeem::request_redeem(Origin::signed(USER), 1500, BtcAddress::default(), VAULT),
             VaultRegistryError::VaultNotFound
         );
     })
@@ -150,7 +148,7 @@ fn test_request_redeem_fails_with_vault_banned() {
             .mock_safe(|_| MockResult::Return(Err(VaultRegistryError::VaultBanned.into())));
 
         assert_err!(
-            Redeem::request_redeem(Origin::signed(ALICE), 1500, BtcAddress::default(), BOB),
+            Redeem::request_redeem(Origin::signed(USER), 1500, BtcAddress::default(), VAULT),
             VaultRegistryError::VaultBanned
         );
     })
@@ -161,7 +159,7 @@ fn test_request_redeem_fails_with_vault_liquidated() {
     run_test(|| {
         ext::vault_registry::ensure_not_banned::<Test>.mock_safe(|_| MockResult::Return(Ok(())));
         assert_err!(
-            Redeem::request_redeem(Origin::signed(ALICE), 3000, BtcAddress::random(), BOB),
+            Redeem::request_redeem(Origin::signed(USER), 3000, BtcAddress::random(), VAULT),
             VaultRegistryError::VaultNotFound
         );
     })
@@ -172,9 +170,9 @@ fn test_request_redeem_succeeds_with_normal_redeem() {
     run_test(|| {
         convert_to.mock_safe(|_, x| MockResult::Return(btcdot_parity(x)));
         <vault_registry::Pallet<Test>>::insert_vault(
-            &BOB,
+            &VAULT,
             vault_registry::Vault {
-                id: BOB,
+                id: VAULT,
                 to_be_replaced_tokens: 0,
                 to_be_issued_tokens: 0,
                 issued_tokens: 10,
@@ -183,17 +181,16 @@ fn test_request_redeem_succeeds_with_normal_redeem() {
                 wallet: Wallet::new(dummy_public_key()),
                 banned_until: None,
                 status: VaultStatus::Active(true),
-                currency_id: DEFAULT_TESTING_CURRENCY,
                 liquidated_collateral: 0,
             },
         );
 
-        let redeemer = ALICE;
+        let redeemer = USER;
         let amount = 90;
         let redeem_fee = 5;
 
         ext::vault_registry::try_increase_to_be_redeemed_tokens::<Test>.mock_safe(move |vault_id, amount_btc| {
-            assert_eq!(vault_id, &BOB);
+            assert_eq!(vault_id, &VAULT);
             assert_eq!(amount_btc, &wrapped(amount - redeem_fee));
 
             MockResult::Return(Ok(()))
@@ -215,7 +212,7 @@ fn test_request_redeem_succeeds_with_normal_redeem() {
             Origin::signed(redeemer),
             amount,
             BtcAddress::P2PKH(H160::zero()),
-            BOB
+            VAULT
         ));
 
         assert_emitted!(Event::RequestRedeem(
@@ -224,7 +221,7 @@ fn test_request_redeem_succeeds_with_normal_redeem() {
             amount - redeem_fee - btc_fee.amount(),
             redeem_fee,
             0,
-            BOB,
+            VAULT,
             BtcAddress::P2PKH(H160::zero()),
             Redeem::get_current_inclusion_fee().unwrap().amount()
         ));
@@ -232,7 +229,7 @@ fn test_request_redeem_succeeds_with_normal_redeem() {
             Redeem::get_open_redeem_request_from_id(&H256([0; 32])),
             RedeemRequest {
                 period: Redeem::redeem_period(),
-                vault: BOB,
+                vault: VAULT,
                 opentime: 1,
                 fee: redeem_fee,
                 amount_btc: amount - redeem_fee - btc_fee.amount(),
@@ -252,9 +249,9 @@ fn test_request_redeem_succeeds_with_self_redeem() {
     run_test(|| {
         convert_to.mock_safe(|_, x| MockResult::Return(btcdot_parity(x)));
         <vault_registry::Pallet<Test>>::insert_vault(
-            &BOB,
+            &VAULT,
             vault_registry::Vault {
-                id: BOB,
+                id: VAULT,
                 to_be_replaced_tokens: 0,
                 to_be_issued_tokens: 0,
                 issued_tokens: 10,
@@ -263,16 +260,15 @@ fn test_request_redeem_succeeds_with_self_redeem() {
                 wallet: Wallet::new(dummy_public_key()),
                 banned_until: None,
                 status: VaultStatus::Active(true),
-                currency_id: DEFAULT_TESTING_CURRENCY,
                 liquidated_collateral: 0,
             },
         );
 
-        let redeemer = BOB;
+        let redeemer = VAULT.account_id;
         let amount = 90;
 
         ext::vault_registry::try_increase_to_be_redeemed_tokens::<Test>.mock_safe(move |vault_id, amount_btc| {
-            assert_eq!(vault_id, &BOB);
+            assert_eq!(vault_id, &VAULT);
             assert_eq!(amount_btc, &wrapped(amount));
 
             MockResult::Return(Ok(()))
@@ -293,7 +289,7 @@ fn test_request_redeem_succeeds_with_self_redeem() {
             Origin::signed(redeemer),
             amount,
             BtcAddress::P2PKH(H160::zero()),
-            BOB
+            VAULT
         ));
 
         assert_emitted!(Event::RequestRedeem(
@@ -302,7 +298,7 @@ fn test_request_redeem_succeeds_with_self_redeem() {
             amount - btc_fee.amount(),
             0,
             0,
-            BOB,
+            VAULT,
             BtcAddress::P2PKH(H160::zero()),
             Redeem::get_current_inclusion_fee().unwrap().amount()
         ));
@@ -310,7 +306,7 @@ fn test_request_redeem_succeeds_with_self_redeem() {
             Redeem::get_open_redeem_request_from_id(&H256::zero()),
             RedeemRequest {
                 period: Redeem::redeem_period(),
-                vault: BOB,
+                vault: VAULT,
                 opentime: 1,
                 fee: 0,
                 amount_btc: amount - btc_fee.amount(),
@@ -334,21 +330,21 @@ fn test_liquidation_redeem_succeeds() {
 
         Amount::<Test>::lock_on.mock_safe(move |_, _| MockResult::Return(Ok(())));
         Amount::<Test>::burn_from.mock_safe(move |amount, redeemer_id| {
-            assert_eq!(redeemer_id, &ALICE);
+            assert_eq!(redeemer_id, &USER);
             assert_eq!(amount, &wrapped(total_amount));
 
             MockResult::Return(Ok(()))
         });
 
         ext::vault_registry::redeem_tokens_liquidation::<Test>.mock_safe(move |_, redeemer_id, amount| {
-            assert_eq!(redeemer_id, &ALICE);
+            assert_eq!(redeemer_id, &USER);
             assert_eq!(amount, &wrapped(total_amount));
 
             MockResult::Return(Ok(()))
         });
 
         assert_ok!(Redeem::liquidation_redeem(
-            Origin::signed(ALICE),
+            Origin::signed(USER),
             total_amount,
             DEFAULT_TESTING_CURRENCY
         ));
@@ -360,7 +356,12 @@ fn test_execute_redeem_fails_with_redeem_id_not_found() {
     run_test(|| {
         convert_to.mock_safe(|_, x| MockResult::Return(btcdot_parity(x)));
         assert_err!(
-            Redeem::execute_redeem(Origin::signed(BOB), H256([0u8; 32]), Vec::default(), Vec::default()),
+            Redeem::execute_redeem(
+                Origin::signed(VAULT.account_id),
+                H256([0u8; 32]),
+                Vec::default(),
+                Vec::default()
+            ),
             TestError::RedeemIdNotFound
         );
     })
@@ -372,9 +373,9 @@ fn test_execute_redeem_succeeds_with_another_account() {
         convert_to.mock_safe(|_, x| MockResult::Return(btcdot_parity(x)));
         Security::<Test>::set_active_block_number(40);
         <vault_registry::Pallet<Test>>::insert_vault(
-            &BOB,
+            &VAULT,
             vault_registry::Vault {
-                id: BOB,
+                id: VAULT,
                 to_be_replaced_tokens: 0,
                 to_be_issued_tokens: 0,
                 issued_tokens: 200,
@@ -383,7 +384,6 @@ fn test_execute_redeem_succeeds_with_another_account() {
                 wallet: Wallet::new(dummy_public_key()),
                 banned_until: None,
                 status: VaultStatus::Active(true),
-                currency_id: DEFAULT_TESTING_CURRENCY,
                 liquidated_collateral: 0,
             },
         );
@@ -398,12 +398,12 @@ fn test_execute_redeem_succeeds_with_another_account() {
             H256([0u8; 32]),
             RedeemRequest {
                 period: 0,
-                vault: BOB,
+                vault: VAULT,
                 opentime: 40,
                 fee: 0,
                 amount_btc: 100,
                 premium: 0,
-                redeemer: ALICE,
+                redeemer: USER,
                 btc_address: BtcAddress::random(),
                 btc_height: 0,
                 status: RedeemRequestStatus::Pending,
@@ -412,14 +412,14 @@ fn test_execute_redeem_succeeds_with_another_account() {
         );
 
         Amount::<Test>::burn_from.mock_safe(move |amount_wrapped, redeemer| {
-            assert_eq!(redeemer, &ALICE);
+            assert_eq!(redeemer, &USER);
             assert_eq!(amount_wrapped, &(wrapped(100) + btc_fee));
 
             MockResult::Return(Ok(()))
         });
 
         ext::vault_registry::redeem_tokens::<Test>.mock_safe(move |vault, amount_wrapped, premium, _| {
-            assert_eq!(vault, &BOB);
+            assert_eq!(vault, &VAULT);
             assert_eq!(amount_wrapped, &(wrapped(100) + btc_fee));
             assert_eq!(premium, &collateral(0));
 
@@ -427,17 +427,17 @@ fn test_execute_redeem_succeeds_with_another_account() {
         });
 
         assert_ok!(Redeem::execute_redeem(
-            Origin::signed(ALICE),
+            Origin::signed(USER),
             H256([0u8; 32]),
             Vec::default(),
             Vec::default()
         ));
         assert_emitted!(Event::ExecuteRedeem(
             H256([0; 32]),
-            ALICE,
+            USER,
             100,
             0,
-            BOB,
+            VAULT,
             btc_fee.amount(),
         ));
         assert_err!(
@@ -453,9 +453,9 @@ fn test_execute_redeem_succeeds() {
         convert_to.mock_safe(|_, x| MockResult::Return(btcdot_parity(x)));
         Security::<Test>::set_active_block_number(40);
         <vault_registry::Pallet<Test>>::insert_vault(
-            &BOB,
+            &VAULT,
             vault_registry::Vault {
-                id: BOB,
+                id: VAULT,
                 to_be_replaced_tokens: 0,
                 to_be_issued_tokens: 0,
                 issued_tokens: 200,
@@ -464,7 +464,6 @@ fn test_execute_redeem_succeeds() {
                 wallet: Wallet::new(dummy_public_key()),
                 banned_until: None,
                 status: VaultStatus::Active(true),
-                currency_id: DEFAULT_TESTING_CURRENCY,
                 liquidated_collateral: 0,
             },
         );
@@ -479,12 +478,12 @@ fn test_execute_redeem_succeeds() {
             H256([0u8; 32]),
             RedeemRequest {
                 period: 0,
-                vault: BOB,
+                vault: VAULT,
                 opentime: 40,
                 fee: 0,
                 amount_btc: 100,
                 premium: 0,
-                redeemer: ALICE,
+                redeemer: USER,
                 btc_address: BtcAddress::random(),
                 btc_height: 0,
                 status: RedeemRequestStatus::Pending,
@@ -493,14 +492,14 @@ fn test_execute_redeem_succeeds() {
         );
 
         Amount::<Test>::burn_from.mock_safe(move |amount_wrapped, redeemer| {
-            assert_eq!(redeemer, &ALICE);
+            assert_eq!(redeemer, &USER);
             assert_eq!(amount_wrapped, &(wrapped(100) + btc_fee));
 
             MockResult::Return(Ok(()))
         });
 
         ext::vault_registry::redeem_tokens::<Test>.mock_safe(move |vault, amount_wrapped, premium, _| {
-            assert_eq!(vault, &BOB);
+            assert_eq!(vault, &VAULT);
             assert_eq!(amount_wrapped, &(wrapped(100) + btc_fee));
             assert_eq!(premium, &collateral(0));
 
@@ -508,17 +507,17 @@ fn test_execute_redeem_succeeds() {
         });
 
         assert_ok!(Redeem::execute_redeem(
-            Origin::signed(BOB),
+            Origin::signed(VAULT.account_id),
             H256([0u8; 32]),
             Vec::default(),
             Vec::default()
         ));
         assert_emitted!(Event::ExecuteRedeem(
             H256([0; 32]),
-            ALICE,
+            USER,
             100,
             0,
-            BOB,
+            VAULT,
             btc_fee.amount(),
         ));
         assert_err!(
@@ -532,7 +531,7 @@ fn test_execute_redeem_succeeds() {
 fn test_cancel_redeem_fails_with_redeem_id_not_found() {
     run_test(|| {
         assert_err!(
-            Redeem::cancel_redeem(Origin::signed(ALICE), H256([0u8; 32]), false),
+            Redeem::cancel_redeem(Origin::signed(USER), H256([0u8; 32]), false),
             TestError::RedeemIdNotFound
         );
     })
@@ -546,12 +545,12 @@ fn test_cancel_redeem_fails_with_time_not_expired() {
         Redeem::get_open_redeem_request_from_id.mock_safe(|_| {
             MockResult::Return(Ok(RedeemRequest {
                 period: 0,
-                vault: BOB,
+                vault: VAULT,
                 opentime: 0,
                 fee: 0,
                 amount_btc: 0,
                 premium: 0,
-                redeemer: ALICE,
+                redeemer: USER,
                 btc_address: BtcAddress::random(),
                 btc_height: 0,
                 status: RedeemRequestStatus::Pending,
@@ -560,7 +559,7 @@ fn test_cancel_redeem_fails_with_time_not_expired() {
         });
 
         assert_err!(
-            Redeem::cancel_redeem(Origin::signed(ALICE), H256([0u8; 32]), false),
+            Redeem::cancel_redeem(Origin::signed(USER), H256([0u8; 32]), false),
             TestError::TimeNotExpired
         );
     })
@@ -574,12 +573,12 @@ fn test_cancel_redeem_fails_with_unauthorized_caller() {
         Redeem::get_open_redeem_request_from_id.mock_safe(|_| {
             MockResult::Return(Ok(RedeemRequest {
                 period: 0,
-                vault: BOB,
+                vault: VAULT,
                 opentime: 0,
                 fee: 0,
                 amount_btc: 0,
                 premium: 0,
-                redeemer: ALICE,
+                redeemer: USER,
                 btc_address: BtcAddress::random(),
                 btc_height: 0,
                 status: RedeemRequestStatus::Pending,
@@ -601,12 +600,12 @@ fn test_cancel_redeem_succeeds() {
             H256([0u8; 32]),
             RedeemRequest {
                 period: 0,
-                vault: BOB,
+                vault: VAULT,
                 opentime: 10,
                 fee: 0,
                 amount_btc: 10,
                 premium: 0,
-                redeemer: ALICE,
+                redeemer: USER,
                 btc_address: BtcAddress::random(),
                 btc_height: 0,
                 status: RedeemRequestStatus::Pending,
@@ -617,7 +616,7 @@ fn test_cancel_redeem_succeeds() {
         ext::btc_relay::has_request_expired::<Test>.mock_safe(|_, _, _| MockResult::Return(Ok(true)));
 
         ext::vault_registry::ban_vault::<Test>.mock_safe(move |vault| {
-            assert_eq!(vault, BOB);
+            assert_eq!(vault, &VAULT);
             MockResult::Return(Ok(()))
         });
         Amount::<Test>::unlock_on.mock_safe(|_, _| MockResult::Return(Ok(())));
@@ -626,21 +625,19 @@ fn test_cancel_redeem_succeeds() {
         ext::vault_registry::get_vault_from_id::<Test>.mock_safe(|_| {
             MockResult::Return(Ok(vault_registry::types::Vault {
                 status: VaultStatus::Active(true),
-                ..vault_registry::types::Vault::new(Default::default(), Default::default(), DEFAULT_TESTING_CURRENCY)
+                ..vault_registry::types::Vault::new(VAULT, Default::default())
             }))
         });
         ext::vault_registry::decrease_to_be_redeemed_tokens::<Test>.mock_safe(|_, _| MockResult::Return(Ok(())));
-        ext::vault_registry::get_collateral_currency::<Test>
-            .mock_safe(|_| MockResult::Return(Ok(DEFAULT_TESTING_CURRENCY)));
-        assert_ok!(Redeem::cancel_redeem(Origin::signed(ALICE), H256([0u8; 32]), false));
+        assert_ok!(Redeem::cancel_redeem(Origin::signed(USER), H256([0u8; 32]), false));
         assert_err!(
             Redeem::get_open_redeem_request_from_id(&H256([0u8; 32])),
             TestError::RedeemCancelled,
         );
         assert_emitted!(Event::CancelRedeem(
             H256([0; 32]),
-            ALICE,
-            BOB,
+            USER,
+            VAULT,
             1,
             RedeemRequestStatus::Retried
         ));
@@ -655,12 +652,12 @@ fn test_mint_tokens_for_reimbursed_redeem() {
     run_test(|| {
         let redeem_request = RedeemRequest {
             period: 0,
-            vault: BOB,
+            vault: VAULT,
             opentime: 40,
             fee: 0,
             amount_btc: 100,
             premium: 0,
-            redeemer: ALICE,
+            redeemer: USER,
             btc_address: BtcAddress::random(),
             btc_height: 0,
             status: RedeemRequestStatus::Reimbursed(false),
@@ -669,9 +666,9 @@ fn test_mint_tokens_for_reimbursed_redeem() {
         let redeem_request_clone = redeem_request.clone();
         inject_redeem_request(H256([0u8; 32]), redeem_request.clone());
         <vault_registry::Pallet<Test>>::insert_vault(
-            &BOB,
+            &VAULT,
             vault_registry::Vault {
-                id: BOB,
+                id: VAULT,
                 banned_until: Some(100),
                 status: VaultStatus::Active(true),
                 ..default_vault()
@@ -679,12 +676,17 @@ fn test_mint_tokens_for_reimbursed_redeem() {
         );
         Security::<Test>::set_active_block_number(100);
         assert_noop!(
-            Redeem::mint_tokens_for_reimbursed_redeem(Origin::signed(BOB), H256([0u8; 32])),
+            Redeem::mint_tokens_for_reimbursed_redeem(
+                Origin::signed(VAULT.account_id),
+                VAULT.currencies.collateral,
+                VAULT.currencies.wrapped,
+                H256([0u8; 32])
+            ),
             VaultRegistryError::ExceedingVaultLimit
         );
         Security::<Test>::set_active_block_number(101);
         ext::vault_registry::try_increase_to_be_issued_tokens::<Test>.mock_safe(move |vault_id, amount| {
-            assert_eq!(vault_id, &BOB);
+            assert_eq!(vault_id, &VAULT);
             assert_eq!(
                 amount,
                 &wrapped(redeem_request.amount_btc + redeem_request.transfer_fee_btc)
@@ -692,7 +694,7 @@ fn test_mint_tokens_for_reimbursed_redeem() {
             MockResult::Return(Ok(()))
         });
         ext::vault_registry::issue_tokens::<Test>.mock_safe(move |vault_id, amount| {
-            assert_eq!(vault_id, &BOB);
+            assert_eq!(vault_id, &VAULT);
             assert_eq!(
                 amount,
                 &wrapped(redeem_request_clone.amount_btc + redeem_request_clone.transfer_fee_btc)
@@ -700,7 +702,9 @@ fn test_mint_tokens_for_reimbursed_redeem() {
             MockResult::Return(Ok(()))
         });
         assert_ok!(Redeem::mint_tokens_for_reimbursed_redeem(
-            Origin::signed(BOB),
+            Origin::signed(VAULT.account_id),
+            VAULT.currencies.collateral,
+            VAULT.currencies.wrapped,
             H256([0u8; 32])
         ));
     });
@@ -710,7 +714,7 @@ fn test_mint_tokens_for_reimbursed_redeem() {
 fn test_set_redeem_period_only_root() {
     run_test(|| {
         assert_noop!(
-            Redeem::set_redeem_period(Origin::signed(ALICE), 1),
+            Redeem::set_redeem_period(Origin::signed(USER), 1),
             DispatchError::BadOrigin
         );
         assert_ok!(Redeem::set_redeem_period(Origin::root(), 1));
@@ -731,7 +735,7 @@ mod spec_based_tests {
                 amount_to_redeem,
                 <Test as currency::Config>::GetWrappedCurrencyId::get(),
             );
-            amount.mint_to(&ALICE).unwrap();
+            amount.mint_to(&USER).unwrap();
             ext::vault_registry::ensure_not_banned::<Test>.mock_safe(move |_vault_id| MockResult::Return(Ok(())));
             ext::vault_registry::try_increase_to_be_redeemed_tokens::<Test>
                 .mock_safe(move |_vault_id, _amount| MockResult::Return(Ok(())));
@@ -741,25 +745,23 @@ mod spec_based_tests {
             let burned_tokens = wrapped(amount_to_redeem) - redeem_fee;
 
             ext::vault_registry::decrease_to_be_replaced_tokens::<Test>.mock_safe(move |vault_id, tokens| {
-                assert_eq!(vault_id, &BOB);
+                assert_eq!(vault_id, &VAULT);
                 assert_eq!(tokens, &burned_tokens);
                 MockResult::Return(Ok((wrapped(0), griefing(0))))
             });
-            ext::vault_registry::get_collateral_currency::<Test>
-                .mock_safe(|_| MockResult::Return(Ok(DEFAULT_TESTING_CURRENCY)));
 
             // The returned `replaceCollateral` MUST be released
             currency::Amount::unlock_on.mock_safe(move |collateral_amount, vault_id| {
-                assert_eq!(vault_id, &BOB);
+                assert_eq!(vault_id, &VAULT.account_id);
                 assert_eq!(collateral_amount, &collateral(replace_collateral));
                 MockResult::Return(Ok(()))
             });
 
             assert_ok!(Redeem::request_redeem(
-                Origin::signed(ALICE),
+                Origin::signed(USER),
                 amount_to_redeem,
                 BtcAddress::random(),
-                BOB
+                VAULT
             ));
         })
     }
@@ -775,21 +777,21 @@ mod spec_based_tests {
 
             Amount::<Test>::lock_on.mock_safe(move |_, _| MockResult::Return(Ok(())));
             Amount::<Test>::burn_from.mock_safe(move |amount, redeemer_id| {
-                assert_eq!(redeemer_id, &ALICE);
+                assert_eq!(redeemer_id, &USER);
                 assert_eq!(amount, &wrapped(total_amount));
 
                 MockResult::Return(Ok(()))
             });
 
             ext::vault_registry::redeem_tokens_liquidation::<Test>.mock_safe(move |_, redeemer_id, amount| {
-                assert_eq!(redeemer_id, &ALICE);
+                assert_eq!(redeemer_id, &USER);
                 assert_eq!(amount, &wrapped(total_amount));
 
                 MockResult::Return(Ok(()))
             });
 
             assert_ok!(Redeem::liquidation_redeem(
-                Origin::signed(ALICE),
+                Origin::signed(USER),
                 total_amount.into(),
                 DOT
             ));
@@ -805,9 +807,9 @@ mod spec_based_tests {
             convert_to.mock_safe(|_, x| MockResult::Return(btcdot_parity(x)));
             Security::<Test>::set_active_block_number(40);
             <vault_registry::Pallet<Test>>::insert_vault(
-                &BOB,
+                &VAULT,
                 vault_registry::Vault {
-                    id: BOB,
+                    id: VAULT,
                     to_be_replaced_tokens: 0,
                     to_be_issued_tokens: 0,
                     issued_tokens: 200,
@@ -827,12 +829,12 @@ mod spec_based_tests {
             let btc_fee = Redeem::get_current_inclusion_fee().unwrap();
             let redeem_request = RedeemRequest {
                 period: 0,
-                vault: BOB,
+                vault: VAULT,
                 opentime: 40,
                 fee: 0,
                 amount_btc: 100,
                 premium: 0,
-                redeemer: ALICE,
+                redeemer: USER,
                 btc_address: BtcAddress::random(),
                 btc_height: 0,
                 status: RedeemRequestStatus::Pending,
@@ -855,17 +857,17 @@ mod spec_based_tests {
             });
 
             assert_ok!(Redeem::execute_redeem(
-                Origin::signed(ALICE),
+                Origin::signed(USER),
                 H256([0u8; 32]),
                 Vec::default(),
                 Vec::default()
             ));
             assert_emitted!(Event::ExecuteRedeem(
                 H256([0; 32]),
-                ALICE,
+                USER,
                 100,
                 0,
-                BOB,
+                VAULT,
                 btc_fee.amount(),
             ));
             assert_err!(
@@ -885,12 +887,12 @@ mod spec_based_tests {
         run_test(|| {
             let redeem_request = RedeemRequest {
                 period: 0,
-                vault: BOB,
+                vault: VAULT,
                 opentime: 10,
                 fee: 0,
                 amount_btc: 10,
                 premium: 0,
-                redeemer: ALICE,
+                redeemer: USER,
                 btc_address: BtcAddress::random(),
                 btc_height: 0,
                 status: RedeemRequestStatus::Pending,
@@ -901,13 +903,11 @@ mod spec_based_tests {
             ext::btc_relay::has_request_expired::<Test>.mock_safe(|_, _, _| MockResult::Return(Ok(true)));
             ext::vault_registry::is_vault_below_secure_threshold::<Test>.mock_safe(|_| MockResult::Return(Ok(false)));
             ext::vault_registry::ban_vault::<Test>.mock_safe(move |vault| {
-                assert_eq!(vault, BOB);
+                assert_eq!(vault, &VAULT);
                 MockResult::Return(Ok(()))
             });
             Amount::<Test>::unlock_on.mock_safe(|_, _| MockResult::Return(Ok(())));
             Amount::<Test>::transfer.mock_safe(|_, _, _| MockResult::Return(Ok(())));
-            ext::vault_registry::get_collateral_currency::<Test>
-                .mock_safe(|_| MockResult::Return(Ok(DEFAULT_TESTING_CURRENCY)));
             ext::vault_registry::transfer_funds_saturated::<Test>
                 .mock_safe(move |_, _, amount| MockResult::Return(Ok(amount.clone())));
             ext::vault_registry::get_vault_from_id::<Test>.mock_safe(|_| {
@@ -917,22 +917,22 @@ mod spec_based_tests {
                 }))
             });
             ext::vault_registry::decrease_to_be_redeemed_tokens::<Test>.mock_safe(move |vault, amount| {
-                assert_eq!(vault, &BOB);
+                assert_eq!(vault, &VAULT);
                 assert_eq!(
                     amount,
                     &wrapped(redeem_request.amount_btc + redeem_request.transfer_fee_btc)
                 );
                 MockResult::Return(Ok(()))
             });
-            assert_ok!(Redeem::cancel_redeem(Origin::signed(ALICE), H256([0u8; 32]), true));
+            assert_ok!(Redeem::cancel_redeem(Origin::signed(USER), H256([0u8; 32]), true));
             assert_err!(
                 Redeem::get_open_redeem_request_from_id(&H256([0u8; 32])),
                 TestError::RedeemCancelled,
             );
             assert_emitted!(Event::CancelRedeem(
                 H256([0; 32]),
-                ALICE,
-                BOB,
+                USER,
+                VAULT,
                 14,
                 RedeemRequestStatus::Reimbursed(true)
             ));
@@ -949,12 +949,12 @@ mod spec_based_tests {
         run_test(|| {
             let redeem_request = RedeemRequest {
                 period: 0,
-                vault: BOB,
+                vault: VAULT,
                 opentime: 10,
                 fee: 0,
                 amount_btc: 10,
                 premium: 0,
-                redeemer: ALICE,
+                redeemer: USER,
                 btc_address: BtcAddress::random(),
                 btc_height: 0,
                 status: RedeemRequestStatus::Pending,
@@ -965,13 +965,11 @@ mod spec_based_tests {
             ext::btc_relay::has_request_expired::<Test>.mock_safe(|_, _, _| MockResult::Return(Ok(true)));
             ext::vault_registry::is_vault_below_secure_threshold::<Test>.mock_safe(|_| MockResult::Return(Ok(true)));
             ext::vault_registry::ban_vault::<Test>.mock_safe(move |vault| {
-                assert_eq!(vault, BOB);
+                assert_eq!(vault, &VAULT);
                 MockResult::Return(Ok(()))
             });
             Amount::<Test>::unlock_on.mock_safe(|_, _| MockResult::Return(Ok(())));
             Amount::<Test>::burn_from.mock_safe(|_, _| MockResult::Return(Ok(())));
-            ext::vault_registry::get_collateral_currency::<Test>
-                .mock_safe(|_| MockResult::Return(Ok(DEFAULT_TESTING_CURRENCY)));
             ext::vault_registry::transfer_funds_saturated::<Test>
                 .mock_safe(move |_, _, amount| MockResult::Return(Ok(amount.clone())));
             ext::vault_registry::get_vault_from_id::<Test>.mock_safe(|_| {
@@ -981,23 +979,23 @@ mod spec_based_tests {
                 }))
             });
             ext::vault_registry::decrease_tokens::<Test>.mock_safe(move |vault, user, amount| {
-                assert_eq!(vault, &BOB);
-                assert_eq!(user, &ALICE);
+                assert_eq!(vault, &VAULT);
+                assert_eq!(user, &USER);
                 assert_eq!(
                     amount,
                     &wrapped(redeem_request.amount_btc + redeem_request.transfer_fee_btc)
                 );
                 MockResult::Return(Ok(()))
             });
-            assert_ok!(Redeem::cancel_redeem(Origin::signed(ALICE), H256([0u8; 32]), true));
+            assert_ok!(Redeem::cancel_redeem(Origin::signed(USER), H256([0u8; 32]), true));
             assert_err!(
                 Redeem::get_open_redeem_request_from_id(&H256([0u8; 32])),
                 TestError::RedeemCancelled,
             );
             assert_emitted!(Event::CancelRedeem(
                 H256([0; 32]),
-                ALICE,
-                BOB,
+                USER,
+                VAULT,
                 14,
                 RedeemRequestStatus::Reimbursed(false)
             ));

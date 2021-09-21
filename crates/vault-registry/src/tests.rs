@@ -2,19 +2,29 @@ use crate::{
     ext,
     mock::*,
     types::{BalanceOf, BtcAddress},
-    BtcPublicKey, CurrencySource, DispatchError, Error, UpdatableVault, Vault, VaultStatus, Wallet,
+    BtcPublicKey, CurrencySource, DefaultVaultId, DispatchError, Error, UpdatableVault, Vault, VaultStatus, Wallet,
 };
 use codec::Decode;
 use currency::Amount;
 use frame_support::{assert_err, assert_noop, assert_ok};
 use mocktopus::mocking::*;
+use primitives::{VaultCurrencyPair, VaultId};
 use security::Pallet as Security;
 use sp_arithmetic::{traits::One, FixedPointNumber, FixedU128};
 use sp_core::U256;
 use sp_runtime::offchain::{testing::TestTransactionPoolExt, TransactionPoolExt};
 use sp_std::convert::TryInto;
-
 type Event = crate::Event<Test>;
+
+fn vault_id(account_id: AccountId) -> VaultId<AccountId, CurrencyId> {
+    VaultId {
+        account_id,
+        currencies: VaultCurrencyPair {
+            collateral: DEFAULT_TESTING_CURRENCY,
+            wrapped: DEFAULT_WRAPPED_CURRENCY,
+        },
+    }
+}
 
 // use macro to avoid messing up stack trace
 macro_rules! assert_emitted {
@@ -58,20 +68,26 @@ fn convert_with_exchange_rate(
     }
 }
 
-fn create_vault_with_collateral(id: u64, collateral: u128) -> <Test as frame_system::Config>::AccountId {
+fn create_vault_with_collateral(id: &DefaultVaultId<Test>, collateral: u128) {
     VaultRegistry::get_minimum_collateral_vault
         .mock_safe(move |currency_id| MockResult::Return(Amount::new(collateral, currency_id)));
-    let origin = Origin::signed(id);
-    let result = VaultRegistry::register_vault(origin, collateral, dummy_public_key(), CurrencyId::DOT);
+    let origin = Origin::signed(id.account_id.clone());
+    let result = VaultRegistry::register_vault(
+        origin,
+        id.currencies.collateral,
+        id.currencies.wrapped,
+        collateral,
+        dummy_public_key(),
+    );
     assert_ok!(result);
+}
+
+fn create_vault(id: DefaultVaultId<Test>) -> DefaultVaultId<Test> {
+    create_vault_with_collateral(&id, DEFAULT_COLLATERAL);
     id
 }
 
-fn create_vault(id: u64) -> <Test as frame_system::Config>::AccountId {
-    create_vault_with_collateral(id, DEFAULT_COLLATERAL)
-}
-
-fn create_sample_vault() -> <Test as frame_system::Config>::AccountId {
+fn create_sample_vault() -> DefaultVaultId<Test> {
     create_vault(DEFAULT_ID)
 }
 
@@ -90,10 +106,10 @@ fn wrapped(amount: u128) -> Amount<Test> {
 fn create_vault_and_issue_tokens(
     issue_tokens: u128,
     collateral: u128,
-    id: u64,
-) -> <Test as frame_system::Config>::AccountId {
+    id: DefaultVaultId<Test>,
+) -> DefaultVaultId<Test> {
     // vault has no tokens issued yet
-    let id = create_vault_with_collateral(id, collateral);
+    create_vault_with_collateral(&id, collateral);
 
     // exchange rate 1 Satoshi = 10 Planck (smallest unit of DOT)
     convert_to.mock_safe(move |currency, x| MockResult::Return(Ok(Amount::new(x.amount() / 10, currency))));
@@ -108,12 +124,12 @@ fn create_vault_and_issue_tokens(
 
     // mint tokens to the vault
     let amount = Amount::<Test>::new(issue_tokens, <Test as currency::Config>::GetWrappedCurrencyId::get());
-    amount.mint_to(&id).unwrap();
+    amount.mint_to(&id.account_id).unwrap();
 
     id
 }
 
-fn create_sample_vault_and_issue_tokens(issue_tokens: u128) -> <Test as frame_system::Config>::AccountId {
+fn create_sample_vault_and_issue_tokens(issue_tokens: u128) -> DefaultVaultId<Test> {
     create_vault_and_issue_tokens(issue_tokens, DEFAULT_COLLATERAL, DEFAULT_ID)
 }
 
@@ -121,7 +137,7 @@ fn create_sample_vault_and_issue_tokens(issue_tokens: u128) -> <Test as frame_sy
 fn register_vault_succeeds() {
     run_test(|| {
         let id = create_sample_vault();
-        assert_emitted!(Event::RegisterVault(id, DEFAULT_COLLATERAL, DEFAULT_TESTING_CURRENCY));
+        assert_emitted!(Event::RegisterVault(id, DEFAULT_COLLATERAL));
     });
 }
 
@@ -130,11 +146,17 @@ fn register_vault_fails_when_given_collateral_too_low() {
     run_test(|| {
         VaultRegistry::get_minimum_collateral_vault
             .mock_safe(move |currency_id| MockResult::Return(Amount::new(200, currency_id)));
-        let id = 3;
+        let id = DEFAULT_ID;
         let collateral = 100;
-        let result = VaultRegistry::register_vault(Origin::signed(id), collateral, dummy_public_key(), CurrencyId::DOT);
+        let result = VaultRegistry::register_vault(
+            Origin::signed(id.account_id),
+            id.currencies.collateral,
+            id.currencies.wrapped,
+            collateral,
+            dummy_public_key(),
+        );
         assert_err!(result, TestError::InsufficientVaultCollateralAmount);
-        assert_not_emitted!(Event::RegisterVault(id, collateral, DEFAULT_TESTING_CURRENCY));
+        assert_not_emitted!(Event::RegisterVault(id, collateral));
     });
 }
 
@@ -143,13 +165,14 @@ fn register_vault_fails_when_account_funds_too_low() {
     run_test(|| {
         let collateral = DEFAULT_COLLATERAL + 1;
         let result = VaultRegistry::register_vault(
-            Origin::signed(DEFAULT_ID),
+            Origin::signed(DEFAULT_ID.account_id),
+            DEFAULT_ID.currencies.collateral,
+            DEFAULT_ID.currencies.wrapped,
             collateral,
             dummy_public_key(),
-            CurrencyId::DOT,
         );
         assert_err!(result, TokensError::BalanceTooLow);
-        assert_not_emitted!(Event::RegisterVault(DEFAULT_ID, collateral, DEFAULT_TESTING_CURRENCY));
+        assert_not_emitted!(Event::RegisterVault(DEFAULT_ID, collateral));
     });
 }
 
@@ -158,16 +181,14 @@ fn register_vault_fails_when_already_registered() {
     run_test(|| {
         let id = create_sample_vault();
         let result = VaultRegistry::register_vault(
-            Origin::signed(id),
+            Origin::signed(id.account_id),
+            DEFAULT_TESTING_CURRENCY,
+            DEFAULT_WRAPPED_CURRENCY,
             DEFAULT_COLLATERAL,
             dummy_public_key(),
-            CurrencyId::DOT,
         );
         assert_err!(result, TestError::VaultAlreadyRegistered);
-        assert_emitted!(
-            Event::RegisterVault(id, DEFAULT_COLLATERAL, DEFAULT_TESTING_CURRENCY),
-            1
-        );
+        assert_emitted!(Event::RegisterVault(id, DEFAULT_COLLATERAL), 1);
     });
 }
 
@@ -176,9 +197,14 @@ fn deposit_collateral_succeeds() {
     run_test(|| {
         let id = create_vault(RICH_ID);
         let additional = RICH_COLLATERAL - DEFAULT_COLLATERAL;
-        let res = VaultRegistry::deposit_collateral(Origin::signed(id), additional);
+        let res = VaultRegistry::deposit_collateral(
+            Origin::signed(id.account_id),
+            DEFAULT_TESTING_CURRENCY,
+            DEFAULT_WRAPPED_CURRENCY,
+            additional,
+        );
         assert_ok!(res);
-        let new_collateral = ext::currency::get_reserved_balance::<Test>(CurrencyId::DOT, &id);
+        let new_collateral = ext::currency::get_reserved_balance::<Test>(CurrencyId::DOT, &id.account_id);
         assert_eq!(new_collateral, amount(DEFAULT_COLLATERAL + additional));
         assert_emitted!(Event::DepositCollateral(
             id,
@@ -192,7 +218,12 @@ fn deposit_collateral_succeeds() {
 #[test]
 fn deposit_collateral_fails_when_vault_does_not_exist() {
     run_test(|| {
-        let res = VaultRegistry::deposit_collateral(Origin::signed(3), 50);
+        let res = VaultRegistry::deposit_collateral(
+            Origin::signed(3),
+            DEFAULT_TESTING_CURRENCY,
+            DEFAULT_WRAPPED_CURRENCY,
+            50,
+        );
         assert_err!(res, TestError::VaultNotFound);
     })
 }
@@ -201,9 +232,14 @@ fn deposit_collateral_fails_when_vault_does_not_exist() {
 fn withdraw_collateral_succeeds() {
     run_test(|| {
         let id = create_sample_vault();
-        let res = VaultRegistry::withdraw_collateral(Origin::signed(id), 50);
+        let res = VaultRegistry::withdraw_collateral(
+            Origin::signed(id.account_id),
+            id.currencies.collateral,
+            id.currencies.wrapped,
+            50,
+        );
         assert_ok!(res);
-        let new_collateral = ext::currency::get_reserved_balance::<Test>(CurrencyId::DOT, &id);
+        let new_collateral = ext::currency::get_reserved_balance::<Test>(CurrencyId::DOT, &id.account_id);
         assert_eq!(new_collateral, amount(DEFAULT_COLLATERAL - 50));
         assert_emitted!(Event::WithdrawCollateral(id, 50, DEFAULT_COLLATERAL - 50));
     });
@@ -212,7 +248,12 @@ fn withdraw_collateral_succeeds() {
 #[test]
 fn withdraw_collateral_fails_when_vault_does_not_exist() {
     run_test(|| {
-        let res = VaultRegistry::withdraw_collateral(Origin::signed(3), 50);
+        let res = VaultRegistry::withdraw_collateral(
+            Origin::signed(3),
+            DEFAULT_TESTING_CURRENCY,
+            DEFAULT_WRAPPED_CURRENCY,
+            50,
+        );
         assert_err!(res, TestError::VaultNotFound);
     })
 }
@@ -221,7 +262,12 @@ fn withdraw_collateral_fails_when_vault_does_not_exist() {
 fn withdraw_collateral_fails_when_not_enough_collateral() {
     run_test(|| {
         let id = create_sample_vault();
-        let res = VaultRegistry::withdraw_collateral(Origin::signed(id), DEFAULT_COLLATERAL + 1);
+        let res = VaultRegistry::withdraw_collateral(
+            Origin::signed(id.account_id),
+            id.currencies.collateral,
+            id.currencies.wrapped,
+            DEFAULT_COLLATERAL + 1,
+        );
         assert_err!(res, TestError::InsufficientCollateral);
     })
 }
@@ -384,7 +430,7 @@ fn decrease_to_be_redeemed_tokens_fails_with_insufficient_tokens() {
 }
 
 #[test]
-fn decrease_tokens_succeeds() {
+fn _succeeds() {
     run_test(|| {
         let id = create_sample_vault();
         let user_id = 5;
@@ -445,8 +491,9 @@ fn redeem_tokens_premium_succeeds() {
         let id = create_sample_vault();
         let user_id = 5;
         // TODO: emulate assert_called
+        let id_copy = id.clone();
         VaultRegistry::transfer_funds.mock_safe(move |sender, receiver, _amount| {
-            assert_eq!(sender, CurrencySource::Collateral(id));
+            assert_eq!(sender, CurrencySource::Collateral(id_copy.clone()));
             assert_eq!(receiver, CurrencySource::FreeBalance(user_id));
             MockResult::Return(Ok(()))
         });
@@ -550,9 +597,11 @@ fn replace_tokens_liquidation_succeeds() {
     run_test(|| {
         let old_id = create_sample_vault();
         let new_id = create_vault(OTHER_ID);
+        // let new_id_copy = new_id.clone();
 
+        let new_id_copy = new_id.clone();
         currency::Amount::<Test>::lock_on.mock_safe(move |amount, sender| {
-            assert_eq!(sender, &new_id);
+            assert_eq!(sender, &new_id_copy.account_id);
             assert_eq!(amount.amount(), 20);
             MockResult::Return(Ok(()))
         });
@@ -584,8 +633,9 @@ fn cancel_replace_tokens_succeeds() {
         let old_id = create_sample_vault();
         let new_id = create_vault(OTHER_ID);
 
+        let new_id_copy = new_id.clone();
         currency::Amount::<Test>::lock_on.mock_safe(move |amount, sender| {
-            assert_eq!(sender, &new_id);
+            assert_eq!(sender, &new_id_copy.account_id);
             assert_eq!(amount.amount(), 20);
             MockResult::Return(Ok(()))
         });
@@ -620,10 +670,11 @@ fn liquidate_at_most_secure_threshold() {
         let liquidated_for_issued = 1275; // 125 * 10 * 1.5
 
         assert_ok!(VaultRegistry::register_vault(
-            Origin::signed(vault_id),
+            Origin::signed(vault_id.account_id),
+            DEFAULT_TESTING_CURRENCY,
+            DEFAULT_WRAPPED_CURRENCY,
             backing_collateral,
             dummy_public_key(),
-            CurrencyId::DOT
         ));
         let liquidation_vault_before = VaultRegistry::get_rich_liquidation_vault(DEFAULT_TESTING_CURRENCY);
 
@@ -632,7 +683,7 @@ fn liquidate_at_most_secure_threshold() {
             FixedU128::checked_from_rational(150, 100).unwrap(), // 150%
         );
 
-        let collateral_before = ext::currency::get_reserved_balance::<Test>(CurrencyId::DOT, &vault_id);
+        let collateral_before = ext::currency::get_reserved_balance::<Test>(CurrencyId::DOT, &vault_id.account_id);
         assert_eq!(collateral_before, amount(backing_collateral)); // sanity check
 
         // required for `issue_tokens` to work
@@ -660,11 +711,18 @@ fn liquidate_at_most_secure_threshold() {
 
         // should only be able to withdraw excess above secure threshold
         assert_err!(
-            VaultRegistry::withdraw_collateral(Origin::signed(vault_id), backing_collateral),
+            VaultRegistry::withdraw_collateral(
+                Origin::signed(vault_id.account_id),
+                vault_id.currencies.collateral,
+                vault_id.currencies.wrapped,
+                backing_collateral
+            ),
             TestError::InsufficientCollateral
         );
         assert_ok!(VaultRegistry::withdraw_collateral(
-            Origin::signed(vault_id),
+            Origin::signed(vault_id.account_id),
+            vault_id.currencies.collateral,
+            vault_id.currencies.wrapped,
             backing_collateral - liquidated_collateral
         ));
 
@@ -672,7 +730,7 @@ fn liquidate_at_most_secure_threshold() {
         let liquidated_vault = <crate::Vaults<Test>>::get(&vault_id).unwrap();
         assert!(matches!(liquidated_vault.status, VaultStatus::Liquidated));
         assert_emitted!(Event::LiquidateVault(
-            vault_id,
+            vault_id.clone(),
             vault_orig.issued_tokens,
             vault_orig.to_be_issued_tokens,
             vault_orig.to_be_redeemed_tokens,
@@ -696,7 +754,7 @@ fn liquidate_at_most_secure_threshold() {
             liquidation_vault_before.data.to_be_redeemed_tokens + to_be_redeemed_tokens
         );
         assert_eq!(
-            ext::currency::get_reserved_balance::<Test>(CurrencyId::DOT, &liquidation_vault_before.id()),
+            ext::currency::get_reserved_balance::<Test>(CurrencyId::DOT, &liquidation_vault_before.id().account_id),
             amount(liquidated_for_issued)
         );
 
@@ -706,11 +764,11 @@ fn liquidate_at_most_secure_threshold() {
         assert_eq!(user_vault_after.data.to_be_issued_tokens, 0);
         assert_eq!(user_vault_after.data.to_be_redeemed_tokens, to_be_redeemed_tokens);
         assert_eq!(
-            ext::currency::get_reserved_balance::<Test>(CurrencyId::DOT, &vault_id),
+            ext::currency::get_reserved_balance::<Test>(CurrencyId::DOT, &vault_id.account_id),
             amount(liquidated_collateral - liquidated_for_issued)
         );
         assert_eq!(
-            ext::currency::get_free_balance::<Test>(CurrencyId::DOT, &vault_id),
+            ext::currency::get_free_balance::<Test>(CurrencyId::DOT, &vault_id.account_id),
             amount(DEFAULT_COLLATERAL - liquidated_collateral)
         );
     });
@@ -880,10 +938,11 @@ fn register_vault_parachain_not_running_fails() {
 
         assert_noop!(
             VaultRegistry::register_vault(
-                Origin::signed(DEFAULT_ID),
+                Origin::signed(DEFAULT_ID.account_id),
+                DEFAULT_TESTING_CURRENCY,
+                DEFAULT_WRAPPED_CURRENCY,
                 DEFAULT_COLLATERAL,
                 dummy_public_key(),
-                CurrencyId::DOT
             ),
             SecurityError::ParachainNotRunning
         );
@@ -899,7 +958,12 @@ fn deposit_collateral_parachain_not_running_fails() {
             .mock_safe(|| MockResult::Return(Err(SecurityError::ParachainShutdown.into())));
 
         assert_noop!(
-            VaultRegistry::deposit_collateral(Origin::signed(id), additional),
+            VaultRegistry::deposit_collateral(
+                Origin::signed(id.account_id),
+                id.currencies.collateral,
+                id.currencies.wrapped,
+                additional
+            ),
             SecurityError::ParachainShutdown
         );
     })
@@ -1030,8 +1094,8 @@ mod get_vaults_below_premium_collaterlization_tests {
         })
     }
 
-    fn add_vault(id: u64, issued_tokens: u128, collateral: u128) {
-        create_vault_with_collateral(id, collateral);
+    fn add_vault(id: DefaultVaultId<Test>, issued_tokens: u128, collateral: u128) {
+        create_vault_with_collateral(&id, collateral);
 
         VaultRegistry::try_increase_to_be_issued_tokens(&id, &wrapped(issued_tokens)).unwrap();
         assert_ok!(VaultRegistry::issue_tokens(&id, &wrapped(issued_tokens)));
@@ -1045,7 +1109,7 @@ mod get_vaults_below_premium_collaterlization_tests {
     #[test]
     fn get_vaults_below_premium_collateralization_fails() {
         run_test(|| {
-            add_vault(4, 50, 100);
+            add_vault(vault_id(4), 50, 100);
 
             assert_err!(
                 VaultRegistry::get_premium_redeem_vaults(),
@@ -1057,20 +1121,20 @@ mod get_vaults_below_premium_collaterlization_tests {
     #[test]
     fn get_vaults_below_premium_collateralization_succeeds() {
         run_test(|| {
-            let id1 = 3;
+            let id1 = vault_id(3);
             let issue_tokens1: u128 = 50;
             let collateral1 = 49;
 
-            let id2 = 4;
+            let id2 = vault_id(4);
             let issue_tokens2: u128 = 50;
             let collateral2 = 48;
 
-            add_vault(id1, issue_tokens1, collateral1);
-            add_vault(id2, issue_tokens2, collateral2);
+            add_vault(id1.clone(), issue_tokens1, collateral1);
+            add_vault(id2.clone(), issue_tokens2, collateral2);
 
             assert_eq!(
                 VaultRegistry::get_premium_redeem_vaults(),
-                Ok(vec!((id1, wrapped(issue_tokens1)), (id2, wrapped(issue_tokens2))))
+                Ok(vec!((id2, wrapped(issue_tokens2)), (id1, wrapped(issue_tokens1))))
             );
         })
     }
@@ -1079,22 +1143,22 @@ mod get_vaults_below_premium_collaterlization_tests {
     fn get_vaults_below_premium_collateralization_filters_banned_and_sufficiently_collateralized_vaults() {
         run_test(|| {
             // not returned, because is is not under premium threshold (which is set to 100% for this test)
-            let id1 = 3;
+            let id1 = vault_id(3);
             let issue_tokens1: u128 = 50;
             let collateral1 = 50;
-            add_vault(id1, issue_tokens1, collateral1);
+            add_vault(id1.clone(), issue_tokens1, collateral1);
 
             // returned
-            let id2 = 4;
+            let id2 = vault_id(4);
             let issue_tokens2: u128 = 50;
             let collateral2 = 49;
-            add_vault(id2, issue_tokens2, collateral2);
+            add_vault(id2.clone(), issue_tokens2, collateral2);
 
             // not returned because it's banned
-            let id3 = 5;
+            let id3 = vault_id(5);
             let issue_tokens3: u128 = 50;
             let collateral3 = 49;
-            add_vault(id3, issue_tokens3, collateral3);
+            add_vault(id3.clone(), issue_tokens3, collateral3);
             let mut vault3 = VaultRegistry::get_active_rich_vault_from_id(&id3).unwrap();
             vault3.ban_until(1000);
 
@@ -1112,17 +1176,17 @@ mod get_vaults_with_issuable_tokens_tests {
     #[test]
     fn get_vaults_with_issuable_tokens_succeeds() {
         run_test(|| {
-            let id1 = 3;
+            let id1 = vault_id(3);
             let collateral1 = 100;
-            create_vault_with_collateral(id1, collateral1);
+            create_vault_with_collateral(&id1, collateral1);
             let issuable_tokens1 =
-                VaultRegistry::get_issuable_tokens_from_vault(id1).expect("Sample vault is unable to issue tokens");
+                VaultRegistry::get_issuable_tokens_from_vault(&id1).expect("Sample vault is unable to issue tokens");
 
-            let id2 = 4;
+            let id2 = vault_id(4);
             let collateral2 = 50;
-            create_vault_with_collateral(id2, collateral2);
+            create_vault_with_collateral(&id2, collateral2);
             let issuable_tokens2 =
-                VaultRegistry::get_issuable_tokens_from_vault(id2).expect("Sample vault is unable to issue tokens");
+                VaultRegistry::get_issuable_tokens_from_vault(&id2).expect("Sample vault is unable to issue tokens");
 
             // Check result is ordered in descending order
             assert_eq!(issuable_tokens1.gt(&issuable_tokens2).unwrap(), true);
@@ -1135,15 +1199,15 @@ mod get_vaults_with_issuable_tokens_tests {
     #[test]
     fn get_vaults_with_issuable_tokens_succeeds_when_there_are_liquidated_vaults() {
         run_test(|| {
-            let id1 = 3;
+            let id1 = vault_id(3);
             let collateral1 = 100;
-            create_vault_with_collateral(id1, collateral1);
+            create_vault_with_collateral(&id1, collateral1);
             let issuable_tokens1 =
-                VaultRegistry::get_issuable_tokens_from_vault(id1).expect("Sample vault is unable to issue tokens");
+                VaultRegistry::get_issuable_tokens_from_vault(&id1).expect("Sample vault is unable to issue tokens");
 
-            let id2 = 4;
+            let id2 = vault_id(4);
             let collateral2 = 50;
-            create_vault_with_collateral(id2, collateral2);
+            create_vault_with_collateral(&id2, collateral2);
 
             // liquidate vault
             assert_ok!(VaultRegistry::liquidate_vault(&id2));
@@ -1158,22 +1222,22 @@ mod get_vaults_with_issuable_tokens_tests {
     #[test]
     fn get_vaults_with_issuable_tokens_filters_out_banned_vaults() {
         run_test(|| {
-            let id1 = 3;
+            let id1 = vault_id(3);
             let collateral1 = 100;
-            create_vault_with_collateral(id1, collateral1);
+            create_vault_with_collateral(&id1, collateral1);
             let issuable_tokens1 =
-                VaultRegistry::get_issuable_tokens_from_vault(id1).expect("Sample vault is unable to issue tokens");
+                VaultRegistry::get_issuable_tokens_from_vault(&id1).expect("Sample vault is unable to issue tokens");
 
-            let id2 = 4;
+            let id2 = vault_id(4);
             let collateral2 = 50;
-            create_vault_with_collateral(id2, collateral2);
+            create_vault_with_collateral(&id2, collateral2);
 
             // ban the vault
             let mut vault = VaultRegistry::get_rich_vault_from_id(&id2).unwrap();
             vault.ban_until(1000);
 
             let issuable_tokens2 =
-                VaultRegistry::get_issuable_tokens_from_vault(id2).expect("Sample vault is unable to issue tokens");
+                VaultRegistry::get_issuable_tokens_from_vault(&id2).expect("Sample vault is unable to issue tokens");
 
             assert!(issuable_tokens2.is_zero());
 
@@ -1188,16 +1252,21 @@ mod get_vaults_with_issuable_tokens_tests {
     #[test]
     fn get_vaults_with_issuable_tokens_filters_out_vault_that_do_not_accept_new_issues() {
         run_test(|| {
-            let id1 = 3;
+            let id1 = vault_id(3);
             let collateral1 = 100;
-            create_vault_with_collateral(id1, collateral1);
+            create_vault_with_collateral(&id1, collateral1);
             let issuable_tokens1 =
-                VaultRegistry::get_issuable_tokens_from_vault(id1).expect("Sample vault is unable to issue tokens");
+                VaultRegistry::get_issuable_tokens_from_vault(&id1).expect("Sample vault is unable to issue tokens");
 
-            let id2 = 4;
+            let id2 = vault_id(4);
             let collateral2 = 50;
-            create_vault_with_collateral(id2, collateral2);
-            assert_ok!(VaultRegistry::accept_new_issues(Origin::signed(id2), false));
+            create_vault_with_collateral(&id2, collateral2);
+            assert_ok!(VaultRegistry::accept_new_issues(
+                Origin::signed(id2.account_id),
+                id2.currencies.collateral,
+                id2.currencies.wrapped,
+                false
+            ));
 
             // Check that the vault that does not accept issues is not returned by get_vaults_with_issuable_tokens
             assert_eq!(
@@ -1235,8 +1304,8 @@ mod get_vaults_with_issuable_tokens_tests {
 mod get_vaults_with_redeemable_tokens_test {
     use super::*;
 
-    fn create_vault_with_issue(id: u64, to_issue: u128) {
-        create_vault(id);
+    fn create_vault_with_issue(id: DefaultVaultId<Test>, to_issue: u128) {
+        create_vault(id.clone());
         VaultRegistry::try_increase_to_be_issued_tokens(&id, &wrapped(to_issue)).unwrap();
         assert_ok!(VaultRegistry::issue_tokens(&id, &wrapped(to_issue)));
         let vault = VaultRegistry::get_active_rich_vault_from_id(&id).unwrap();
@@ -1257,13 +1326,13 @@ mod get_vaults_with_redeemable_tokens_test {
     #[test]
     fn get_vaults_with_redeemable_tokens_succeeds() {
         run_test(|| {
-            let id1 = 3;
+            let id1 = vault_id(3);
             let issued_tokens1: u128 = 10;
-            create_vault_with_issue(id1, issued_tokens1);
+            create_vault_with_issue(id1.clone(), issued_tokens1);
 
-            let id2 = 4;
+            let id2 = vault_id(4);
             let issued_tokens2: u128 = 20;
-            create_vault_with_issue(id2, issued_tokens2);
+            create_vault_with_issue(id2.clone(), issued_tokens2);
 
             // Check result is ordered in descending order
             assert_eq!(issued_tokens2.gt(&issued_tokens1), true);
@@ -1277,13 +1346,13 @@ mod get_vaults_with_redeemable_tokens_test {
     #[test]
     fn get_vaults_with_redeemable_tokens_filters_out_banned_vaults() {
         run_test(|| {
-            let id1 = 3;
+            let id1 = vault_id(3);
             let issued_tokens1: u128 = 10;
-            create_vault_with_issue(id1, issued_tokens1);
+            create_vault_with_issue(id1.clone(), issued_tokens1);
 
-            let id2 = 4;
+            let id2 = vault_id(4);
             let issued_tokens2: u128 = 20;
-            create_vault_with_issue(id2, issued_tokens2);
+            create_vault_with_issue(id2.clone(), issued_tokens2);
 
             // ban the vault
             let mut vault = VaultRegistry::get_rich_vault_from_id(&id2).unwrap();
@@ -1300,13 +1369,13 @@ mod get_vaults_with_redeemable_tokens_test {
     #[test]
     fn get_vaults_with_issuable_tokens_filters_out_liquidated_vaults() {
         run_test(|| {
-            let id1 = 3;
+            let id1 = vault_id(3);
             let issued_tokens1: u128 = 10;
-            create_vault_with_issue(id1, issued_tokens1);
+            create_vault_with_issue(id1.clone(), issued_tokens1);
 
-            let id2 = 4;
+            let id2 = vault_id(4);
             let issued_tokens2: u128 = 20;
-            create_vault_with_issue(id2, issued_tokens2);
+            create_vault_with_issue(id2.clone(), issued_tokens2);
 
             // liquidate vault
             assert_ok!(VaultRegistry::liquidate_vault(&id2));
@@ -1440,11 +1509,11 @@ fn test_offchain_worker_unsigned_transaction_submission() {
 
     externalities.execute_with(|| {
         // setup state:
-        let id = 7;
+        let id = vault_id(7);
         System::set_block_number(1);
         Security::<Test>::set_active_block_number(1);
         set_default_thresholds();
-        VaultRegistry::insert_vault(&id, Vault::new(id, Default::default(), CurrencyId::DOT));
+        VaultRegistry::insert_vault(&id, Vault::new(id.clone(), Default::default()));
 
         // mock that all vaults need to be liquidated
         VaultRegistry::is_vault_below_liquidation_threshold.mock_safe(move |_, _| MockResult::Return(Ok(true)));

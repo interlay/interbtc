@@ -8,7 +8,7 @@ use mocktopus::mocking::*;
 use sp_arithmetic::FixedU128;
 use sp_core::{H160, H256};
 use sp_runtime::traits::One;
-use vault_registry::{DefaultVault, Vault, VaultStatus, Wallet};
+use vault_registry::{DefaultVault, DefaultVaultId, Vault, VaultStatus, Wallet};
 
 fn dummy_merkle_proof() -> MerkleProof {
     MerkleProof {
@@ -30,7 +30,7 @@ fn wrapped(amount: u128) -> Amount<Test> {
 fn request_issue(
     origin: AccountId,
     amount: Balance,
-    vault: AccountId,
+    vault: DefaultVaultId<Test>,
     collateral: Balance,
 ) -> Result<H256, DispatchError> {
     // Default: Parachain status is "RUNNING". Set manually for failure testing
@@ -45,7 +45,7 @@ fn request_issue(
     Issue::_request_issue(origin, amount, vault, collateral)
 }
 
-fn request_issue_ok(origin: AccountId, amount: Balance, vault: AccountId, collateral: Balance) -> H256 {
+fn request_issue_ok(origin: AccountId, amount: Balance, vault: DefaultVaultId<Test>, collateral: Balance) -> H256 {
     ext::vault_registry::ensure_not_banned::<Test>.mock_safe(|_| MockResult::Return(Ok(())));
 
     // Default: Parachain status is "RUNNING". Set manually for failure testing
@@ -70,8 +70,8 @@ fn cancel_issue(origin: AccountId, issue_id: &H256) -> Result<(), DispatchError>
     Issue::_cancel_issue(origin, *issue_id)
 }
 
-fn init_zero_vault(id: <Test as frame_system::Config>::AccountId) -> DefaultVault<Test> {
-    Vault::new(id, Default::default(), DEFAULT_TESTING_CURRENCY)
+fn init_zero_vault(id: DefaultVaultId<Test>) -> DefaultVault<Test> {
+    Vault::new(id, Default::default())
 }
 
 fn get_dummy_request_id() -> H256 {
@@ -86,9 +86,9 @@ fn test_request_issue_banned_fails() {
             FixedU128::one()
         ));
         <vault_registry::Pallet<Test>>::insert_vault(
-            &BOB,
+            &VAULT,
             vault_registry::Vault {
-                id: BOB,
+                id: VAULT,
                 to_be_replaced_tokens: 0,
                 to_be_issued_tokens: 0,
                 issued_tokens: 0,
@@ -97,11 +97,10 @@ fn test_request_issue_banned_fails() {
                 wallet: Wallet::new(BtcPublicKey::default()),
                 banned_until: Some(1),
                 status: VaultStatus::Active(true),
-                currency_id: DEFAULT_TESTING_CURRENCY,
                 liquidated_collateral: 0,
             },
         );
-        assert_noop!(request_issue(ALICE, 3, BOB, 0), VaultRegistryError::VaultBanned);
+        assert_noop!(request_issue(USER, 3, VAULT, 0), VaultRegistryError::VaultBanned);
     })
 }
 
@@ -109,32 +108,32 @@ fn test_request_issue_banned_fails() {
 fn test_request_issue_insufficient_collateral_fails() {
     run_test(|| {
         ext::vault_registry::get_active_vault_from_id::<Test>
-            .mock_safe(|_| MockResult::Return(Ok(init_zero_vault(BOB))));
+            .mock_safe(|_| MockResult::Return(Ok(init_zero_vault(VAULT))));
         ext::vault_registry::ensure_not_banned::<Test>.mock_safe(|_| MockResult::Return(Ok(())));
         convert_to.mock_safe(|_, _| MockResult::Return(Ok(10000000)));
 
-        assert_noop!(request_issue(ALICE, 3, BOB, 0), TestError::InsufficientCollateral,);
+        assert_noop!(request_issue(USER, 3, VAULT, 0), TestError::InsufficientCollateral,);
     })
 }
 
 #[test]
 fn test_request_issue_succeeds() {
     run_test(|| {
-        let origin = ALICE;
-        let vault = BOB;
+        let origin = USER;
+        let vault = VAULT;
         let amount: Balance = 3;
         let issue_fee = 1;
         let issue_griefing_collateral = 20;
 
         ext::vault_registry::get_active_vault_from_id::<Test>
-            .mock_safe(|_| MockResult::Return(Ok(init_zero_vault(BOB))));
+            .mock_safe(|_| MockResult::Return(Ok(init_zero_vault(VAULT))));
 
         ext::fee::get_issue_fee::<Test>.mock_safe(move |_| MockResult::Return(Ok(wrapped(issue_fee))));
 
         ext::fee::get_issue_griefing_collateral::<Test>
             .mock_safe(move |_| MockResult::Return(Ok(griefing(issue_griefing_collateral))));
 
-        let issue_id = request_issue_ok(origin, amount, vault, issue_griefing_collateral);
+        let issue_id = request_issue_ok(origin, amount, vault.clone(), issue_griefing_collateral);
 
         let request_issue_event = TestEvent::Issue(Event::RequestIssue(
             issue_id,
@@ -154,8 +153,8 @@ fn test_request_issue_succeeds() {
 fn test_execute_issue_not_found_fails() {
     run_test(|| {
         ext::vault_registry::get_active_vault_from_id::<Test>
-            .mock_safe(|_| MockResult::Return(Ok(init_zero_vault(BOB))));
-        assert_noop!(execute_issue(ALICE, &H256([0; 32])), TestError::IssueIdNotFound);
+            .mock_safe(|_| MockResult::Return(Ok(init_zero_vault(VAULT))));
+        assert_noop!(execute_issue(USER, &H256([0; 32])), TestError::IssueIdNotFound);
     })
 }
 
@@ -163,14 +162,14 @@ fn test_execute_issue_not_found_fails() {
 fn test_execute_issue_succeeds() {
     run_test(|| {
         ext::vault_registry::get_active_vault_from_id::<Test>
-            .mock_safe(|_| MockResult::Return(Ok(init_zero_vault(BOB))));
+            .mock_safe(|_| MockResult::Return(Ok(init_zero_vault(VAULT))));
         ext::vault_registry::issue_tokens::<Test>.mock_safe(|_, _| MockResult::Return(Ok(())));
 
         ext::vault_registry::is_vault_liquidated::<Test>.mock_safe(|_| MockResult::Return(Ok(false)));
 
         ext::fee::get_issue_fee::<Test>.mock_safe(move |_| MockResult::Return(Ok(wrapped(1))));
 
-        let issue_id = request_issue_ok(ALICE, 3, BOB, 20);
+        let issue_id = request_issue_ok(USER, 3, VAULT, 20);
         <security::Pallet<Test>>::set_active_block_number(5);
 
         ext::security::ensure_parachain_status_not_shutdown::<Test>.mock_safe(|| MockResult::Return(Ok(())));
@@ -179,12 +178,12 @@ fn test_execute_issue_succeeds() {
         ext::btc_relay::get_and_verify_issue_payment::<Test, Balance>
             .mock_safe(|_, _, _| MockResult::Return(Ok((BtcAddress::P2SH(H160::zero()), 3))));
 
-        assert_ok!(execute_issue(ALICE, &issue_id));
+        assert_ok!(execute_issue(USER, &issue_id));
 
-        let execute_issue_event = TestEvent::Issue(Event::ExecuteIssue(issue_id, ALICE, 3, BOB, 1));
+        let execute_issue_event = TestEvent::Issue(Event::ExecuteIssue(issue_id, USER, 3, VAULT, 1));
         assert!(System::events().iter().any(|a| a.event == execute_issue_event));
 
-        assert_noop!(cancel_issue(ALICE, &issue_id), TestError::IssueCompleted);
+        assert_noop!(cancel_issue(USER, &issue_id), TestError::IssueCompleted);
     })
 }
 
@@ -192,10 +191,10 @@ fn test_execute_issue_succeeds() {
 fn test_execute_issue_overpayment_succeeds() {
     run_test(|| {
         ext::vault_registry::get_active_vault_from_id::<Test>
-            .mock_safe(|_| MockResult::Return(Ok(init_zero_vault(BOB))));
+            .mock_safe(|_| MockResult::Return(Ok(init_zero_vault(VAULT))));
         ext::vault_registry::issue_tokens::<Test>.mock_safe(|_, _| MockResult::Return(Ok(())));
 
-        let issue_id = request_issue_ok(ALICE, 3, BOB, 20);
+        let issue_id = request_issue_ok(USER, 3, VAULT, 20);
         <security::Pallet<Test>>::set_active_block_number(5);
         ext::security::ensure_parachain_status_not_shutdown::<Test>.mock_safe(|| MockResult::Return(Ok(())));
 
@@ -222,7 +221,7 @@ fn test_execute_issue_overpayment_succeeds() {
                 MockResult::Return(Ok(None))
             });
 
-            assert_ok!(execute_issue(ALICE, &issue_id));
+            assert_ok!(execute_issue(USER, &issue_id));
             assert_eq!(increase_tokens_called, true);
             assert_eq!(refund_called, false);
         }
@@ -233,10 +232,10 @@ fn test_execute_issue_overpayment_succeeds() {
 fn test_execute_issue_refund_succeeds() {
     run_test(|| {
         ext::vault_registry::get_active_vault_from_id::<Test>
-            .mock_safe(|_| MockResult::Return(Ok(init_zero_vault(BOB))));
+            .mock_safe(|_| MockResult::Return(Ok(init_zero_vault(VAULT))));
         ext::vault_registry::issue_tokens::<Test>.mock_safe(|_, _| MockResult::Return(Ok(())));
 
-        let issue_id = request_issue_ok(ALICE, 3, BOB, 20);
+        let issue_id = request_issue_ok(USER, 3, VAULT, 20);
         <security::Pallet<Test>>::set_active_block_number(5);
         ext::security::ensure_parachain_status_not_shutdown::<Test>.mock_safe(|| MockResult::Return(Ok(())));
 
@@ -265,7 +264,7 @@ fn test_execute_issue_refund_succeeds() {
                 assert_eq!(amount, &wrapped(100));
                 MockResult::Return(Ok(None))
             });
-            assert_ok!(execute_issue(ALICE, &issue_id));
+            assert_ok!(execute_issue(USER, &issue_id));
             assert_eq!(refund_called, true);
         }
     })
@@ -273,7 +272,7 @@ fn test_execute_issue_refund_succeeds() {
 #[test]
 fn test_cancel_issue_not_found_fails() {
     run_test(|| {
-        assert_noop!(cancel_issue(ALICE, &H256([0; 32])), TestError::IssueIdNotFound,);
+        assert_noop!(cancel_issue(USER, &H256([0; 32])), TestError::IssueIdNotFound,);
     })
 }
 
@@ -281,20 +280,20 @@ fn test_cancel_issue_not_found_fails() {
 fn test_cancel_issue_not_expired_fails() {
     run_test(|| {
         ext::vault_registry::get_active_vault_from_id::<Test>
-            .mock_safe(|_| MockResult::Return(Ok(init_zero_vault(BOB))));
+            .mock_safe(|_| MockResult::Return(Ok(init_zero_vault(VAULT))));
 
-        let issue_id = request_issue_ok(ALICE, 3, BOB, 20);
+        let issue_id = request_issue_ok(USER, 3, VAULT, 20);
         // issue period is 10, we issued at block 1, so at block 5 the cancel should fail
         <security::Pallet<Test>>::set_active_block_number(5);
-        assert_noop!(cancel_issue(ALICE, &issue_id), TestError::TimeNotExpired,);
+        assert_noop!(cancel_issue(USER, &issue_id), TestError::TimeNotExpired,);
     })
 }
 
 #[test]
 fn test_request_issue_parachain_not_running_fails() {
     run_test(|| {
-        let origin = ALICE;
-        let vault = BOB;
+        let origin = USER;
+        let vault = VAULT;
         let amount: Balance = 3;
 
         ext::security::ensure_parachain_status_not_shutdown::<Test>
@@ -310,7 +309,7 @@ fn test_request_issue_parachain_not_running_fails() {
 #[test]
 fn test_execute_issue_parachain_not_running_fails() {
     run_test(|| {
-        let origin = ALICE;
+        let origin = USER;
 
         ext::security::ensure_parachain_status_not_shutdown::<Test>
             .mock_safe(|| MockResult::Return(Err(SecurityError::ParachainNotRunning.into())));
@@ -326,7 +325,7 @@ fn test_execute_issue_parachain_not_running_fails() {
 fn test_set_issue_period_only_root() {
     run_test(|| {
         assert_noop!(
-            Issue::set_issue_period(Origin::signed(ALICE), 1),
+            Issue::set_issue_period(Origin::signed(USER), 1),
             DispatchError::BadOrigin
         );
         assert_ok!(Issue::set_issue_period(Origin::root(), 1));
