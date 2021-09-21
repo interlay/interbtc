@@ -9,33 +9,8 @@
 mod benchmarking;
 
 mod default_weights;
-pub use default_weights::WeightInfo;
-
-#[cfg(test)]
-extern crate mocktopus;
-
-use crate::types::ReplaceRequestExt;
-use btc_relay::BtcAddress;
-use frame_support::{
-    dispatch::{DispatchError, DispatchResult},
-    ensure,
-    traits::Get,
-    transactional,
-};
-use frame_system::{ensure_root, ensure_signed};
-#[cfg(test)]
-use mocktopus::macros::mockable;
-use sp_core::H256;
-use sp_std::vec::Vec;
-
-#[doc(inline)]
-pub use crate::types::{DefaultReplaceRequest, ReplaceRequest, ReplaceRequestStatus};
-
-use crate::types::{Collateral, Version, Wrapped};
-use currency::Amount;
-use vault_registry::CurrencySource;
-
 mod ext;
+
 pub mod types;
 
 #[cfg(test)]
@@ -44,6 +19,29 @@ mod mock;
 #[cfg(test)]
 mod tests;
 
+#[cfg(test)]
+extern crate mocktopus;
+
+#[cfg(test)]
+use mocktopus::macros::mockable;
+
+use crate::types::{Collateral, ReplaceRequestExt, Version, Wrapped};
+pub use crate::types::{DefaultReplaceRequest, ReplaceRequest, ReplaceRequestStatus};
+use btc_relay::BtcAddress;
+use currency::Amount;
+pub use default_weights::WeightInfo;
+use frame_support::{
+    dispatch::{DispatchError, DispatchResult},
+    ensure,
+    traits::Get,
+    transactional,
+};
+use frame_system::{ensure_root, ensure_signed};
+use sp_core::H256;
+use sp_std::vec::Vec;
+use types::DefaultVaultId;
+use vault_registry::{types::CurrencyId, CurrencySource};
+
 pub use pallet::*;
 
 #[frame_support::pallet]
@@ -51,6 +49,7 @@ pub mod pallet {
     use super::*;
     use frame_support::pallet_prelude::*;
     use frame_system::pallet_prelude::*;
+    use primitives::VaultId;
 
     /// ## Configuration
     /// The pallet's configuration trait.
@@ -72,18 +71,25 @@ pub mod pallet {
 
     #[pallet::event]
     #[pallet::generate_deposit(pub(super) fn deposit_event)]
-    #[pallet::metadata(T::AccountId = "AccountId", Wrapped<T> = "Wrapped", Collateral<T> = "Collateral")]
+    #[pallet::metadata(DefaultVaultId<T> = "VaultId", T::AccountId = "AccountId", Wrapped<T> = "Wrapped", Collateral<T> = "Collateral")]
     pub enum Event<T: Config> {
         // [old_vault_id, amount_btc, griefing_collateral]
-        RequestReplace(T::AccountId, Wrapped<T>, Collateral<T>),
+        RequestReplace(DefaultVaultId<T>, Wrapped<T>, Collateral<T>),
         // [old_vault_id, withdrawn_tokens, withdrawn_griefing_collateral]
-        WithdrawReplace(T::AccountId, Wrapped<T>, Collateral<T>),
+        WithdrawReplace(DefaultVaultId<T>, Wrapped<T>, Collateral<T>),
         // [replace_id, old_vault_id, new_vault_id, amount, collateral, btc_address]
-        AcceptReplace(H256, T::AccountId, T::AccountId, Wrapped<T>, Collateral<T>, BtcAddress),
+        AcceptReplace(
+            H256,
+            DefaultVaultId<T>,
+            DefaultVaultId<T>,
+            Wrapped<T>,
+            Collateral<T>,
+            BtcAddress,
+        ),
         // [replace_id, old_vault_id, new_vault_id]
-        ExecuteReplace(H256, T::AccountId, T::AccountId),
+        ExecuteReplace(H256, DefaultVaultId<T>, DefaultVaultId<T>),
         // [replace_id, new_vault_id, old_vault_id, griefing_collateral]
-        CancelReplace(H256, T::AccountId, T::AccountId, Collateral<T>),
+        CancelReplace(H256, DefaultVaultId<T>, DefaultVaultId<T>, Collateral<T>),
     }
 
     #[pallet::error]
@@ -112,7 +118,7 @@ pub mod pallet {
     /// This mapping provides access from a unique hash to a `ReplaceRequest`.
     #[pallet::storage]
     pub(super) type ReplaceRequests<T: Config> =
-        StorageMap<_, Blake2_128Concat, H256, DefaultReplaceRequest<T>, ValueQuery>;
+        StorageMap<_, Blake2_128Concat, H256, DefaultReplaceRequest<T>, OptionQuery>;
 
     /// The time difference in number of blocks between when a replace request is created
     /// and required completion time by a vault. The replace period has an upper limit
@@ -181,11 +187,13 @@ pub mod pallet {
         #[transactional]
         pub fn request_replace(
             origin: OriginFor<T>,
+            collateral_currency: CurrencyId<T>,
+            wrapped_currency: CurrencyId<T>,
             #[pallet::compact] amount: Wrapped<T>,
             #[pallet::compact] griefing_collateral: Collateral<T>,
         ) -> DispatchResultWithPostInfo {
             ext::security::ensure_parachain_status_not_shutdown::<T>()?;
-            let old_vault = ensure_signed(origin)?;
+            let old_vault = VaultId::new(ensure_signed(origin)?, collateral_currency, wrapped_currency);
             Self::_request_replace(old_vault, amount, griefing_collateral)?;
             Ok(().into())
         }
@@ -199,10 +207,12 @@ pub mod pallet {
         #[transactional]
         pub fn withdraw_replace(
             origin: OriginFor<T>,
+            collateral_currency: CurrencyId<T>,
+            wrapped_currency: CurrencyId<T>,
             #[pallet::compact] amount: Wrapped<T>,
         ) -> DispatchResultWithPostInfo {
             ext::security::ensure_parachain_status_not_shutdown::<T>()?;
-            let old_vault = ensure_signed(origin)?;
+            let old_vault = VaultId::new(ensure_signed(origin)?, collateral_currency, wrapped_currency);
             Self::_withdraw_replace_request(old_vault, amount)?;
             Ok(().into())
         }
@@ -219,13 +229,15 @@ pub mod pallet {
         #[transactional]
         pub fn accept_replace(
             origin: OriginFor<T>,
-            old_vault: T::AccountId,
+            collateral_currency: CurrencyId<T>,
+            wrapped_currency: CurrencyId<T>,
+            old_vault: DefaultVaultId<T>,
             #[pallet::compact] amount_btc: Wrapped<T>,
             #[pallet::compact] collateral: Collateral<T>,
             btc_address: BtcAddress,
         ) -> DispatchResultWithPostInfo {
             ext::security::ensure_parachain_status_not_shutdown::<T>()?;
-            let new_vault = ensure_signed(origin)?;
+            let new_vault = VaultId::new(ensure_signed(origin)?, collateral_currency, wrapped_currency);
             Self::_accept_replace(old_vault, new_vault, amount_btc, collateral, btc_address)?;
             Ok(().into())
         }
@@ -289,7 +301,7 @@ pub mod pallet {
 #[cfg_attr(test, mockable)]
 impl<T: Config> Pallet<T> {
     fn _request_replace(
-        vault_id: T::AccountId,
+        vault_id: DefaultVaultId<T>,
         amount_btc: Wrapped<T>,
         griefing_collateral: Collateral<T>,
     ) -> DispatchResult {
@@ -340,7 +352,7 @@ impl<T: Config> Pallet<T> {
         // Lock the oldVault’s griefing collateral. Note that this directly locks the amount
         // without going through the vault registry, so that this amount can not be used to
         // back issued tokens
-        replace_collateral_increase.lock_on(&vault_id)?;
+        replace_collateral_increase.lock_on(&vault_id.account_id)?;
 
         // Emit RequestReplace event
         Self::deposit_event(<Event<T>>::RequestReplace(
@@ -351,14 +363,14 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
-    fn _withdraw_replace_request(vault_id: T::AccountId, amount: Wrapped<T>) -> Result<(), DispatchError> {
+    fn _withdraw_replace_request(vault_id: DefaultVaultId<T>, amount: Wrapped<T>) -> Result<(), DispatchError> {
         let amount = Amount::new(amount, T::GetWrappedCurrencyId::get());
         // decrease to-be-replaced tokens, so that the vault is free to use its issued tokens again.
         let (withdrawn_tokens, to_withdraw_collateral) =
             ext::vault_registry::decrease_to_be_replaced_tokens::<T>(&vault_id, &amount)?;
 
         // release the used collateral
-        to_withdraw_collateral.unlock_on(&vault_id)?;
+        to_withdraw_collateral.unlock_on(&vault_id.account_id)?;
 
         if withdrawn_tokens.is_zero() {
             return Err(Error::<T>::NoPendingRequest.into());
@@ -374,13 +386,13 @@ impl<T: Config> Pallet<T> {
     }
 
     fn _accept_replace(
-        old_vault_id: T::AccountId,
-        new_vault_id: T::AccountId,
+        old_vault_id: DefaultVaultId<T>,
+        new_vault_id: DefaultVaultId<T>,
         amount_btc: Wrapped<T>,
         collateral: Collateral<T>,
         btc_address: BtcAddress,
     ) -> Result<(), DispatchError> {
-        let new_vault_currency_id = ext::vault_registry::get_collateral_currency::<T>(&new_vault_id)?;
+        let new_vault_currency_id = new_vault_id.collateral_currency();
         let amount_btc = Amount::new(amount_btc, T::GetWrappedCurrencyId::get());
         let collateral = Amount::new(collateral, new_vault_currency_id);
 
@@ -392,7 +404,7 @@ impl<T: Config> Pallet<T> {
 
         // Add the new replace address to the vault's wallet,
         // this should also verify that the vault exists
-        ext::vault_registry::insert_vault_deposit_address::<T>(&new_vault_id, btc_address)?;
+        ext::vault_registry::insert_vault_deposit_address::<T>(new_vault_id.clone(), btc_address)?;
 
         // decrease old-vault's to-be-replaced tokens
         let (redeemable_tokens, griefing_collateral) =
@@ -416,7 +428,7 @@ impl<T: Config> Pallet<T> {
         // increase new-vault's to-be-issued tokens - this will fail if there is insufficient collateral
         ext::vault_registry::try_increase_to_be_issued_tokens::<T>(&new_vault_id, &redeemable_tokens)?;
 
-        let replace_id = ext::security::get_secure_id::<T>(&old_vault_id);
+        let replace_id = ext::security::get_secure_id::<T>(&old_vault_id.account_id);
 
         let replace = ReplaceRequest {
             old_vault: old_vault_id,
@@ -471,10 +483,10 @@ impl<T: Config> Pallet<T> {
 
         // decrease old-vault's issued & to-be-redeemed tokens, and
         // change new-vault's to-be-issued tokens to issued tokens
-        ext::vault_registry::replace_tokens::<T>(old_vault_id.clone(), new_vault_id.clone(), &amount, &collateral)?;
+        ext::vault_registry::replace_tokens::<T>(&old_vault_id, &new_vault_id, &amount, &collateral)?;
 
         // if the old vault has not been liquidated, give it back its griefing collateral
-        griefing_collateral.unlock_on(&old_vault_id)?;
+        griefing_collateral.unlock_on(&old_vault_id.account_id)?;
 
         // Emit ExecuteReplace event.
         Self::deposit_event(<Event<T>>::ExecuteReplace(replace_id, old_vault_id, new_vault_id));
@@ -505,7 +517,7 @@ impl<T: Config> Pallet<T> {
         let new_vault_id = replace.new_vault;
 
         // only cancellable by new_vault
-        ensure!(caller == new_vault_id, Error::<T>::UnauthorizedVault);
+        ensure!(caller == new_vault_id.account_id, Error::<T>::UnauthorizedVault);
 
         // decrease old-vault's to-be-redeemed tokens, and
         // decrease new-vault's to-be-issued tokens
@@ -513,8 +525,8 @@ impl<T: Config> Pallet<T> {
 
         // slash old-vault's griefing collateral
         ext::vault_registry::transfer_funds::<T>(
-            CurrencySource::Griefing(replace.old_vault.clone()),
-            CurrencySource::FreeBalance(new_vault_id.clone()),
+            CurrencySource::VaultGriefing(replace.old_vault.clone()),
+            CurrencySource::FreeBalance(new_vault_id.account_id.clone()),
             &griefing_collateral,
         )?;
 
@@ -544,9 +556,9 @@ impl<T: Config> Pallet<T> {
     /// # Arguments
     ///
     /// * `account_id` - user account id
-    pub fn get_replace_requests_for_old_vault(account_id: T::AccountId) -> Vec<(H256, DefaultReplaceRequest<T>)> {
+    pub fn get_replace_requests_for_old_vault(vault_id: DefaultVaultId<T>) -> Vec<(H256, DefaultReplaceRequest<T>)> {
         <ReplaceRequests<T>>::iter()
-            .filter(|(_, request)| request.old_vault == account_id)
+            .filter(|(_, request)| request.old_vault == vault_id)
             .collect::<Vec<_>>()
     }
 
@@ -555,9 +567,9 @@ impl<T: Config> Pallet<T> {
     /// # Arguments
     ///
     /// * `account_id` - user account id
-    pub fn get_replace_requests_for_new_vault(account_id: T::AccountId) -> Vec<(H256, DefaultReplaceRequest<T>)> {
+    pub fn get_replace_requests_for_new_vault(vault_id: DefaultVaultId<T>) -> Vec<(H256, DefaultReplaceRequest<T>)> {
         <ReplaceRequests<T>>::iter()
-            .filter(|(_, request)| request.new_vault == account_id)
+            .filter(|(_, request)| request.new_vault == vault_id)
             .collect::<Vec<_>>()
     }
 
@@ -575,10 +587,7 @@ impl<T: Config> Pallet<T> {
 
     /// Get a open or completed replace request by id. Cancelled requests are not returned.
     pub fn get_open_or_completed_replace_request(id: &H256) -> Result<DefaultReplaceRequest<T>, DispatchError> {
-        if !<ReplaceRequests<T>>::contains_key(id) {
-            return Err(Error::<T>::ReplaceIdNotFound.into());
-        }
-        let request = <ReplaceRequests<T>>::get(id);
+        let request = <ReplaceRequests<T>>::get(id).ok_or(Error::<T>::ReplaceIdNotFound)?;
         match request.status {
             ReplaceRequestStatus::Pending | ReplaceRequestStatus::Completed => Ok(request),
             ReplaceRequestStatus::Cancelled => Err(Error::<T>::ReplaceCancelled.into()),
@@ -590,9 +599,11 @@ impl<T: Config> Pallet<T> {
     }
 
     fn set_replace_status(key: &H256, status: ReplaceRequestStatus) {
-        // TODO: delete old replace request from storage
-        <ReplaceRequests<T>>::mutate(key, |request| {
-            request.status = status;
+        <ReplaceRequests<T>>::mutate_exists(key, |request| {
+            *request = request.clone().map(|request| DefaultReplaceRequest::<T> {
+                status: status.clone(),
+                ..request
+            });
         });
     }
 

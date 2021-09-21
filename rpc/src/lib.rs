@@ -7,7 +7,7 @@
 
 use primitives::{
     issue::IssueRequest, redeem::RedeemRequest, refund::RefundRequest, replace::ReplaceRequest, AccountId, Balance,
-    Block, BlockNumber, CurrencyId, H256Le, Nonce,
+    Block, BlockNumber, CurrencyId, H256Le, Nonce, VaultId,
 };
 pub use sc_rpc_api::DenyUnsafe;
 use sc_transaction_pool_api::TransactionPool;
@@ -40,13 +40,41 @@ where
     C::Api: pallet_transaction_payment_rpc::TransactionPaymentRuntimeApi<Block, Balance>,
     C::Api: module_btc_relay_rpc::BtcRelayRuntimeApi<Block, H256Le>,
     C::Api: module_oracle_rpc::OracleRuntimeApi<Block, Balance, CurrencyId>,
-    C::Api: module_relay_rpc::RelayRuntimeApi<Block, AccountId>,
-    C::Api: module_vault_registry_rpc::VaultRegistryRuntimeApi<Block, AccountId, Balance, FixedU128, CurrencyId>,
-    C::Api: module_issue_rpc::IssueRuntimeApi<Block, AccountId, H256, IssueRequest<AccountId, BlockNumber, Balance>>,
-    C::Api: module_redeem_rpc::RedeemRuntimeApi<Block, AccountId, H256, RedeemRequest<AccountId, BlockNumber, Balance>>,
-    C::Api: module_refund_rpc::RefundRuntimeApi<Block, AccountId, H256, RefundRequest<AccountId, Balance>>,
-    C::Api:
-        module_replace_rpc::ReplaceRuntimeApi<Block, AccountId, H256, ReplaceRequest<AccountId, BlockNumber, Balance>>,
+    C::Api: module_relay_rpc::RelayRuntimeApi<Block, VaultId<AccountId, CurrencyId>>,
+    C::Api: module_vault_registry_rpc::VaultRegistryRuntimeApi<
+        Block,
+        VaultId<AccountId, CurrencyId>,
+        Balance,
+        FixedU128,
+        CurrencyId,
+    >,
+    C::Api: module_issue_rpc::IssueRuntimeApi<
+        Block,
+        AccountId,
+        VaultId<AccountId, CurrencyId>,
+        H256,
+        IssueRequest<AccountId, BlockNumber, Balance, CurrencyId>,
+    >,
+    C::Api: module_redeem_rpc::RedeemRuntimeApi<
+        Block,
+        AccountId,
+        VaultId<AccountId, CurrencyId>,
+        H256,
+        RedeemRequest<AccountId, BlockNumber, Balance, CurrencyId>,
+    >,
+    C::Api: module_refund_rpc::RefundRuntimeApi<
+        Block,
+        AccountId,
+        VaultId<AccountId, CurrencyId>,
+        H256,
+        RefundRequest<AccountId, Balance, CurrencyId>,
+    >,
+    C::Api: module_replace_rpc::ReplaceRuntimeApi<
+        Block,
+        VaultId<AccountId, CurrencyId>,
+        H256,
+        ReplaceRequest<AccountId, BlockNumber, Balance, CurrencyId>,
+    >,
     C::Api: BlockBuilder<Block>,
     P: TransactionPool + 'static,
 {

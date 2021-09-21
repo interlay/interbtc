@@ -38,6 +38,7 @@ use sp_std::{
     convert::{TryFrom, TryInto},
     vec::Vec,
 };
+use types::DefaultVaultId;
 use vault_registry::Wallet;
 
 pub use pallet::*;
@@ -70,10 +71,10 @@ pub mod pallet {
 
     #[pallet::event]
     #[pallet::generate_deposit(pub(super) fn deposit_event)]
-    #[pallet::metadata(T::AccountId = "AccountId")]
+    #[pallet::metadata(DefaultVaultId<T> = "VaultId")]
     pub enum Event<T: Config> {
-        VaultTheft(T::AccountId, H256Le),
-        VaultDoublePayment(T::AccountId, H256Le, H256Le),
+        VaultTheft(DefaultVaultId<T>, H256Le),
+        VaultDoublePayment(DefaultVaultId<T>, H256Le, H256Le),
     }
 
     #[pallet::error]
@@ -105,7 +106,7 @@ pub mod pallet {
     #[pallet::storage]
     #[pallet::getter(fn theft_report)]
     pub(super) type TheftReports<T: Config> =
-        StorageDoubleMap<_, Blake2_128Concat, T::AccountId, Blake2_128Concat, H256Le, Option<()>, ValueQuery>;
+        StorageDoubleMap<_, Blake2_128Concat, DefaultVaultId<T>, Blake2_128Concat, H256Le, Option<()>, ValueQuery>;
 
     #[pallet::hooks]
     impl<T: Config> Hooks<T::BlockNumber> for Pallet<T> {}
@@ -215,7 +216,7 @@ pub mod pallet {
         #[transactional]
         pub fn report_vault_theft(
             origin: OriginFor<T>,
-            vault_id: T::AccountId,
+            vault_id: DefaultVaultId<T>,
             raw_merkle_proof: Vec<u8>,
             raw_tx: Vec<u8>,
         ) -> DispatchResultWithPostInfo {
@@ -263,7 +264,7 @@ pub mod pallet {
         #[transactional]
         pub fn report_vault_double_payment(
             origin: OriginFor<T>,
-            vault_id: T::AccountId,
+            vault_id: DefaultVaultId<T>,
             raw_merkle_proofs: (Vec<u8>, Vec<u8>),
             raw_txs: (Vec<u8>, Vec<u8>),
         ) -> DispatchResultWithPostInfo {
@@ -392,13 +393,13 @@ impl<T: Config> Pallet<T> {
     ///
     /// `vault_id`: the vault.
     /// `raw_tx`: the BTC transaction by the vault.
-    pub fn is_transaction_invalid(vault_id: &T::AccountId, raw_tx: Vec<u8>) -> DispatchResult {
+    pub fn is_transaction_invalid(vault_id: &DefaultVaultId<T>, raw_tx: Vec<u8>) -> DispatchResult {
         let tx = parse_transaction(raw_tx.as_slice()).map_err(|_| Error::<T>::InvalidTransaction)?;
         Self::_is_parsed_transaction_invalid(vault_id, tx)
     }
 
     /// Check if a vault transaction is invalid. Returns `Ok` if invalid or `Err` otherwise.
-    pub fn _is_parsed_transaction_invalid(vault_id: &T::AccountId, tx: Transaction) -> DispatchResult {
+    pub fn _is_parsed_transaction_invalid(vault_id: &DefaultVaultId<T>, tx: Transaction) -> DispatchResult {
         let vault = ext::vault_registry::get_active_vault_from_id::<T>(vault_id)?;
 
         // check if vault's btc address features in an input of the transaction

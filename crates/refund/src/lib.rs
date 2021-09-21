@@ -20,23 +20,21 @@ use mocktopus::macros::mockable;
 mod benchmarking;
 
 mod default_weights;
-pub use default_weights::WeightInfo;
 
 mod ext;
 pub mod types;
 
-#[doc(inline)]
 pub use crate::types::{DefaultRefundRequest, RefundRequest};
-use types::{BalanceOf, RefundRequestExt, Wrapped};
-
 use btc_relay::BtcAddress;
 use currency::Amount;
+#[doc(inline)]
+use default_weights::WeightInfo;
 use frame_support::{dispatch::DispatchError, ensure, traits::Get, transactional};
 use frame_system::ensure_signed;
+pub use pallet::*;
 use sp_core::H256;
 use sp_std::vec::Vec;
-
-pub use pallet::*;
+use types::{BalanceOf, DefaultVaultId, RefundRequestExt, Wrapped};
 
 #[frame_support::pallet]
 pub mod pallet {
@@ -59,20 +57,20 @@ pub mod pallet {
 
     #[pallet::event]
     #[pallet::generate_deposit(pub(super) fn deposit_event)]
-    #[pallet::metadata(T::AccountId = "AccountId", Wrapped<T> = "Wrapped")]
+    #[pallet::metadata(DefaultVaultId<T> = "VaultId", T::AccountId = "AccountId", Wrapped<T> = "Wrapped")]
     pub enum Event<T: Config> {
         /// refund_id, issuer, amount_without_fee, vault, btc_address, issue_id, fee
         RequestRefund(
             H256,
             T::AccountId,
             Wrapped<T>,
-            T::AccountId,
+            DefaultVaultId<T>,
             BtcAddress,
             H256,
             Wrapped<T>,
         ),
         /// refund_id, issuer, vault, amount, fee
-        ExecuteRefund(H256, T::AccountId, T::AccountId, Wrapped<T>, Wrapped<T>),
+        ExecuteRefund(H256, T::AccountId, DefaultVaultId<T>, Wrapped<T>, Wrapped<T>),
     }
 
     #[pallet::error]
@@ -95,7 +93,7 @@ pub mod pallet {
     #[pallet::storage]
     #[pallet::getter(fn refund_requests)]
     pub(super) type RefundRequests<T: Config> =
-        StorageMap<_, Blake2_128Concat, H256, DefaultRefundRequest<T>, ValueQuery>;
+        StorageMap<_, Blake2_128Concat, H256, DefaultRefundRequest<T>, OptionQuery>;
 
     #[pallet::genesis_config]
     pub struct GenesisConfig<T: Config> {
@@ -158,7 +156,7 @@ impl<T: Config> Pallet<T> {
     /// * `btc_address` - the btc address that should receive the refund
     pub fn request_refund(
         total_amount_btc: &Amount<T>,
-        vault_id: T::AccountId,
+        vault_id: DefaultVaultId<T>,
         issuer: T::AccountId,
         btc_address: BtcAddress,
         issue_id: H256,
@@ -226,11 +224,14 @@ impl<T: Config> Pallet<T> {
         let fee = request.fee();
         ext::vault_registry::try_increase_to_be_issued_tokens::<T>(&request.vault, &fee)?;
         ext::vault_registry::issue_tokens::<T>(&request.vault, &fee)?;
-        fee.mint_to(&request.vault)?;
+        fee.mint_to(&request.vault.account_id)?;
 
         // mark the request as completed
-        <RefundRequests<T>>::mutate(refund_id, |request| {
-            request.completed = true;
+        <RefundRequests<T>>::mutate_exists(refund_id, |request| {
+            *request = request.clone().map(|request| DefaultRefundRequest::<T> {
+                completed: true,
+                ..request
+            });
         });
 
         Self::deposit_event(<Event<T>>::ExecuteRefund(
@@ -251,15 +252,11 @@ impl<T: Config> Pallet<T> {
     ///
     /// * `refund_id` - 256-bit identifier of the refund request
     pub fn get_open_refund_request_from_id(refund_id: &H256) -> Result<DefaultRefundRequest<T>, DispatchError> {
-        ensure!(
-            <RefundRequests<T>>::contains_key(*refund_id),
-            Error::<T>::RefundIdNotFound
-        );
-        ensure!(
-            !<RefundRequests<T>>::get(*refund_id).completed,
-            Error::<T>::RefundCompleted
-        );
-        Ok(<RefundRequests<T>>::get(*refund_id))
+        let request = <RefundRequests<T>>::get(*refund_id).ok_or(Error::<T>::RefundIdNotFound)?;
+
+        ensure!(!request.completed, Error::<T>::RefundCompleted);
+
+        Ok(request)
     }
 
     /// Fetch a pre-existing open or completed refund request or throw.
@@ -271,11 +268,7 @@ impl<T: Config> Pallet<T> {
     pub fn get_open_or_completed_refund_request_from_id(
         refund_id: &H256,
     ) -> Result<DefaultRefundRequest<T>, DispatchError> {
-        ensure!(
-            <RefundRequests<T>>::contains_key(*refund_id),
-            Error::<T>::RefundIdNotFound
-        );
-        Ok(<RefundRequests<T>>::get(*refund_id))
+        <RefundRequests<T>>::get(*refund_id).ok_or(Error::<T>::RefundIdNotFound.into())
     }
 
     /// Fetch all refund requests for the specified account. This function is exposed as RPC.
@@ -304,13 +297,13 @@ impl<T: Config> Pallet<T> {
     /// # Arguments
     ///
     /// * `account_id` - vault account id
-    pub fn get_refund_requests_for_vault(account_id: T::AccountId) -> Vec<(H256, DefaultRefundRequest<T>)> {
+    pub fn get_refund_requests_for_vault(vault_id: DefaultVaultId<T>) -> Vec<(H256, DefaultRefundRequest<T>)> {
         <RefundRequests<T>>::iter()
-            .filter(|(_, request)| request.vault == account_id)
+            .filter(|(_, request)| request.vault == vault_id)
             .collect::<Vec<_>>()
     }
 
-    fn insert_refund_request(key: &H256, value: &RefundRequest<T::AccountId, BalanceOf<T>>) {
+    fn insert_refund_request(key: &H256, value: &DefaultRefundRequest<T>) {
         <RefundRequests<T>>::insert(key, value)
     }
 

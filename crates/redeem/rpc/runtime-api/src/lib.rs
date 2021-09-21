@@ -6,8 +6,9 @@ use codec::Codec;
 use sp_std::vec::Vec;
 
 sp_api::decl_runtime_apis! {
-    pub trait RedeemApi<AccountId, H256, RedeemRequest> where
+    pub trait RedeemApi<AccountId, VaultId, H256, RedeemRequest> where
         AccountId: Codec,
+        VaultId: Codec,
         H256: Codec,
         RedeemRequest: Codec,
     {
@@ -15,6 +16,6 @@ sp_api::decl_runtime_apis! {
         fn get_redeem_requests(account_id: AccountId) -> Vec<(H256, RedeemRequest)>;
 
         /// Get all redeem requests for a particular vault
-        fn get_vault_redeem_requests(account_id: AccountId) -> Vec<(H256, RedeemRequest)>;
+        fn get_vault_redeem_requests(vault_id: VaultId) -> Vec<(H256, RedeemRequest)>;
     }
 }

@@ -40,8 +40,8 @@ pub use amount::Amount;
 pub use pallet::*;
 
 mod types;
-pub use types::CurrencyConversion;
 use types::*;
+pub use types::{CurrencyConversion, CurrencyId};
 
 #[frame_support::pallet]
 pub mod pallet {

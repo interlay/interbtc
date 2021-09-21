@@ -12,9 +12,9 @@ pub use self::gen_client::Client as RelayClient;
 pub use module_relay_rpc_runtime_api::RelayApi as RelayRuntimeApi;
 
 #[rpc]
-pub trait RelayApi<BlockHash, AccountId> {
+pub trait RelayApi<BlockHash, VaultId> {
     #[rpc(name = "relay_isTransactionInvalid")]
-    fn is_transaction_invalid(&self, vault_id: AccountId, raw_tx: Vec<u8>, at: Option<BlockHash>) -> Result<()>;
+    fn is_transaction_invalid(&self, vault_id: VaultId, raw_tx: Vec<u8>, at: Option<BlockHash>) -> Result<()>;
 }
 
 /// A struct that implements the [`RelayApi`].
@@ -45,16 +45,16 @@ impl From<Error> for i64 {
     }
 }
 
-impl<C, Block, AccountId> RelayApi<<Block as BlockT>::Hash, AccountId> for Relay<C, Block>
+impl<C, Block, VaultId> RelayApi<<Block as BlockT>::Hash, VaultId> for Relay<C, Block>
 where
     Block: BlockT,
     C: Send + Sync + 'static + ProvideRuntimeApi<Block> + HeaderBackend<Block>,
-    C::Api: RelayRuntimeApi<Block, AccountId>,
-    AccountId: Codec,
+    C::Api: RelayRuntimeApi<Block, VaultId>,
+    VaultId: Codec,
 {
     fn is_transaction_invalid(
         &self,
-        vault_id: AccountId,
+        vault_id: VaultId,
         raw_tx: Vec<u8>,
         at: Option<<Block as BlockT>::Hash>,
     ) -> Result<()> {

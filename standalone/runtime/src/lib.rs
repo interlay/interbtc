@@ -60,6 +60,8 @@ use sp_runtime::traits::NumberFor;
 
 pub use sp_consensus_aura::sr25519::AuthorityId as AuraId;
 
+type VaultId = primitives::VaultId<AccountId, CurrencyId>;
+
 impl_opaque_keys! {
     pub struct SessionKeys {
         pub aura: Aura,
@@ -690,57 +692,56 @@ impl_runtime_apis! {
 
     impl module_relay_rpc_runtime_api::RelayApi<
         Block,
-        AccountId,
+        VaultId,
     > for Runtime {
-        fn is_transaction_invalid(vault_id: AccountId, raw_tx: Vec<u8>) -> DispatchResult {
+        fn is_transaction_invalid(vault_id: VaultId, raw_tx: Vec<u8>) -> DispatchResult {
             Relay::is_transaction_invalid(&vault_id, raw_tx)
         }
     }
 
     impl module_vault_registry_rpc_runtime_api::VaultRegistryApi<
         Block,
-        AccountId,
+        VaultId,
         Balance,
         UnsignedFixedPoint,
         CurrencyId,
     > for Runtime {
-        fn get_vault_collateral(vault_id: AccountId) -> Result<BalanceWrapper<Balance>, DispatchError> {
+        fn get_vault_collateral(vault_id: VaultId) -> Result<BalanceWrapper<Balance>, DispatchError> {
             let result = VaultRegistry::compute_collateral(&vault_id)?;
             Ok(BalanceWrapper{amount:result.amount()})
         }
 
-        fn get_vault_total_collateral(vault_id: AccountId) -> Result<BalanceWrapper<Balance>, DispatchError> {
+        fn get_vault_total_collateral(vault_id: VaultId) -> Result<BalanceWrapper<Balance>, DispatchError> {
             let result = VaultRegistry::get_backing_collateral(&vault_id)?;
             Ok(BalanceWrapper{amount:result.amount()})
         }
 
-        fn get_premium_redeem_vaults() -> Result<Vec<(AccountId, BalanceWrapper<Balance>)>, DispatchError> {
+        fn get_premium_redeem_vaults() -> Result<Vec<(VaultId, BalanceWrapper<Balance>)>, DispatchError> {
             let result = VaultRegistry::get_premium_redeem_vaults()?;
             Ok(result.iter().map(|v| (v.0.clone(), BalanceWrapper{amount:v.1.amount()})).collect())
         }
 
-        fn get_vaults_with_issuable_tokens() -> Result<Vec<(AccountId, BalanceWrapper<Balance>)>, DispatchError> {
+        fn get_vaults_with_issuable_tokens() -> Result<Vec<(VaultId, BalanceWrapper<Balance>)>, DispatchError> {
             let result = VaultRegistry::get_vaults_with_issuable_tokens()?;
             Ok(result.into_iter().map(|v| (v.0, BalanceWrapper{amount:v.1.amount()})).collect())
         }
 
-        fn get_vaults_with_redeemable_tokens() -> Result<Vec<(AccountId, BalanceWrapper<Balance>)>, DispatchError> {
+        fn get_vaults_with_redeemable_tokens() -> Result<Vec<(VaultId, BalanceWrapper<Balance>)>, DispatchError> {
             let result = VaultRegistry::get_vaults_with_redeemable_tokens()?;
             Ok(result.into_iter().map(|v| (v.0, BalanceWrapper{amount:v.1.amount()})).collect())
         }
 
-        fn get_issuable_tokens_from_vault(vault: AccountId) -> Result<BalanceWrapper<Balance>, DispatchError> {
-            let result = VaultRegistry::get_issuable_tokens_from_vault(vault)?;
+        fn get_issuable_tokens_from_vault(vault: VaultId) -> Result<BalanceWrapper<Balance>, DispatchError> {
+            let result = VaultRegistry::get_issuable_tokens_from_vault(&vault)?;
             Ok(BalanceWrapper{amount:result.amount()})
         }
 
-        fn get_collateralization_from_vault(vault: AccountId, only_issued: bool) -> Result<UnsignedFixedPoint, DispatchError> {
+        fn get_collateralization_from_vault(vault: VaultId, only_issued: bool) -> Result<UnsignedFixedPoint, DispatchError> {
             VaultRegistry::get_collateralization_from_vault(vault, only_issued)
         }
 
-        fn get_collateralization_from_vault_and_collateral(vault: AccountId, collateral: BalanceWrapper<Balance>, only_issued: bool) -> Result<UnsignedFixedPoint, DispatchError> {
-            let currency_id = VaultRegistry::get_collateral_currency(&vault)?;
-            let amount = Amount::new(collateral.amount, currency_id);
+        fn get_collateralization_from_vault_and_collateral(vault: VaultId, collateral: BalanceWrapper<Balance>, only_issued: bool) -> Result<UnsignedFixedPoint, DispatchError> {
+            let amount = Amount::new(collateral.amount, vault.collateral_currency());
             VaultRegistry::get_collateralization_from_vault_and_collateral(vault, &amount, only_issued)
         }
 
@@ -750,7 +751,7 @@ impl_runtime_apis! {
             Ok(BalanceWrapper{amount:result.amount()})
         }
 
-        fn get_required_collateral_for_vault(vault_id: AccountId) -> Result<BalanceWrapper<Balance>, DispatchError> {
+        fn get_required_collateral_for_vault(vault_id: VaultId) -> Result<BalanceWrapper<Balance>, DispatchError> {
             let result = VaultRegistry::get_required_collateral_for_vault(vault_id)?;
             Ok(BalanceWrapper{amount:result.amount()})
         }
@@ -759,64 +760,67 @@ impl_runtime_apis! {
     impl module_issue_rpc_runtime_api::IssueApi<
         Block,
         AccountId,
+        VaultId,
         H256,
-        IssueRequest<AccountId, BlockNumber, Balance>
+        IssueRequest<AccountId, BlockNumber, Balance, CurrencyId>
     > for Runtime {
-        fn get_issue_requests(account_id: AccountId) -> Vec<(H256, IssueRequest<AccountId, BlockNumber, Balance>)> {
+        fn get_issue_requests(account_id: AccountId) -> Vec<(H256, IssueRequest<AccountId, BlockNumber, Balance, CurrencyId>)> {
             Issue::get_issue_requests_for_account(account_id)
         }
 
-        fn get_vault_issue_requests(account_id: AccountId) -> Vec<(H256, IssueRequest<AccountId, BlockNumber, Balance>)> {
-            Issue::get_issue_requests_for_vault(account_id)
+        fn get_vault_issue_requests(vault_id: VaultId) -> Vec<(H256, IssueRequest<AccountId, BlockNumber, Balance, CurrencyId>)> {
+            Issue::get_issue_requests_for_vault(vault_id)
         }
     }
 
     impl module_redeem_rpc_runtime_api::RedeemApi<
         Block,
         AccountId,
+        VaultId,
         H256,
-        RedeemRequest<AccountId, BlockNumber, Balance>
+        RedeemRequest<AccountId, BlockNumber, Balance, CurrencyId>
     > for Runtime {
-        fn get_redeem_requests(account_id: AccountId) -> Vec<(H256, RedeemRequest<AccountId, BlockNumber, Balance>)> {
+        fn get_redeem_requests(account_id: AccountId) -> Vec<(H256, RedeemRequest<AccountId, BlockNumber, Balance, CurrencyId>)> {
             Redeem::get_redeem_requests_for_account(account_id)
         }
 
-        fn get_vault_redeem_requests(account_id: AccountId) -> Vec<(H256, RedeemRequest<AccountId, BlockNumber, Balance>)> {
-            Redeem::get_redeem_requests_for_vault(account_id)
+        fn get_vault_redeem_requests(vault_id: VaultId) -> Vec<(H256, RedeemRequest<AccountId, BlockNumber, Balance, CurrencyId>)> {
+            Redeem::get_redeem_requests_for_vault(vault_id)
         }
     }
 
     impl module_refund_rpc_runtime_api::RefundApi<
         Block,
         AccountId,
+        VaultId,
         H256,
-        RefundRequest<AccountId, Balance>
+        RefundRequest<AccountId, Balance, CurrencyId>
     > for Runtime {
-        fn get_refund_requests(account_id: AccountId) -> Vec<(H256, RefundRequest<AccountId, Balance>)> {
+        fn get_refund_requests(account_id: AccountId) -> Vec<(H256, RefundRequest<AccountId, Balance, CurrencyId>)> {
             Refund::get_refund_requests_for_account(account_id)
         }
 
-        fn get_refund_requests_by_issue_id(issue_id: H256) -> Option<(H256, RefundRequest<AccountId, Balance>)> {
+        fn get_refund_requests_by_issue_id(issue_id: H256) -> Option<(H256, RefundRequest<AccountId, Balance, CurrencyId>)> {
             Refund::get_refund_requests_by_issue_id(issue_id)
         }
 
-        fn get_vault_refund_requests(account_id: AccountId) -> Vec<(H256, RefundRequest<AccountId, Balance>)> {
-            Refund::get_refund_requests_for_vault(account_id)
+        fn get_vault_refund_requests(vault_id: VaultId) -> Vec<(H256, RefundRequest<AccountId, Balance, CurrencyId>)> {
+            Refund::get_refund_requests_for_vault(vault_id)
         }
     }
 
     impl module_replace_rpc_runtime_api::ReplaceApi<
         Block,
-        AccountId,
+        VaultId,
         H256,
-        ReplaceRequest<AccountId, BlockNumber, Balance>
+        ReplaceRequest<AccountId, BlockNumber, Balance, CurrencyId>
     > for Runtime {
-        fn get_old_vault_replace_requests(account_id: AccountId) -> Vec<(H256, ReplaceRequest<AccountId, BlockNumber, Balance>)> {
-            Replace::get_replace_requests_for_old_vault(account_id)
+        fn get_old_vault_replace_requests(vault_id: VaultId) -> Vec<(H256, ReplaceRequest<AccountId, BlockNumber, Balance, CurrencyId>)> {
+            Replace::get_replace_requests_for_old_vault(vault_id)
         }
 
-        fn get_new_vault_replace_requests(account_id: AccountId) -> Vec<(H256, ReplaceRequest<AccountId, BlockNumber, Balance>)> {
-            Replace::get_replace_requests_for_new_vault(account_id)
+        fn get_new_vault_replace_requests(vault_id: VaultId) -> Vec<(H256, ReplaceRequest<AccountId, BlockNumber, Balance, CurrencyId>)> {
+            Replace::get_replace_requests_for_new_vault(vault_id)
         }
     }
 }

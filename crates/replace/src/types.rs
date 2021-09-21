@@ -1,11 +1,12 @@
-pub use primitives::replace::{ReplaceRequest, ReplaceRequestStatus};
-
-use crate::{ext, Config};
+use crate::Config;
 use codec::{Decode, Encode};
 use currency::Amount;
 use frame_support::traits::Get;
+pub use primitives::replace::{ReplaceRequest, ReplaceRequestStatus};
+use primitives::VaultId;
 use sp_core::H160;
 use sp_runtime::DispatchError;
+use vault_registry::types::CurrencyId;
 
 /// Storage version.
 #[derive(Encode, Decode, Eq, PartialEq)]
@@ -26,6 +27,8 @@ pub(crate) type Collateral<T> = BalanceOf<T>;
 
 pub(crate) type Wrapped<T> = BalanceOf<T>;
 
+pub(crate) type DefaultVaultId<T> = VaultId<<T as frame_system::Config>::AccountId, CurrencyId<T>>;
+
 #[derive(Encode, Decode, Default, Clone, PartialEq)]
 pub(crate) struct ReplaceRequestV0<AccountId, BlockNumber, Balance> {
     pub old_vault: AccountId,
@@ -39,8 +42,12 @@ pub(crate) struct ReplaceRequestV0<AccountId, BlockNumber, Balance> {
     pub completed: bool,
 }
 
-pub type DefaultReplaceRequest<T> =
-    ReplaceRequest<<T as frame_system::Config>::AccountId, <T as frame_system::Config>::BlockNumber, BalanceOf<T>>;
+pub type DefaultReplaceRequest<T> = ReplaceRequest<
+    <T as frame_system::Config>::AccountId,
+    <T as frame_system::Config>::BlockNumber,
+    BalanceOf<T>,
+    CurrencyId<T>,
+>;
 
 pub trait ReplaceRequestExt<T: Config> {
     fn amount(&self) -> Amount<T>;
@@ -48,7 +55,7 @@ pub trait ReplaceRequestExt<T: Config> {
     fn collateral(&self) -> Result<Amount<T>, DispatchError>;
 }
 
-impl<T: Config> ReplaceRequestExt<T> for ReplaceRequest<T::AccountId, T::BlockNumber, BalanceOf<T>> {
+impl<T: Config> ReplaceRequestExt<T> for ReplaceRequest<T::AccountId, T::BlockNumber, BalanceOf<T>, CurrencyId<T>> {
     fn amount(&self) -> Amount<T> {
         Amount::new(self.amount, T::GetWrappedCurrencyId::get())
     }
@@ -56,7 +63,6 @@ impl<T: Config> ReplaceRequestExt<T> for ReplaceRequest<T::AccountId, T::BlockNu
         Amount::new(self.griefing_collateral, T::GetGriefingCollateralCurrencyId::get())
     }
     fn collateral(&self) -> Result<Amount<T>, DispatchError> {
-        let currency_id = ext::vault_registry::get_collateral_currency::<T>(&self.new_vault)?;
-        Ok(Amount::new(self.collateral, currency_id))
+        Ok(Amount::new(self.collateral, self.new_vault.collateral_currency()))
     }
 }

@@ -28,9 +28,8 @@ pub mod types;
 
 #[doc(inline)]
 pub use crate::types::{DefaultIssueRequest, IssueRequest, IssueRequestStatus};
-use types::IssueRequestExt;
 
-use crate::types::{BalanceOf, Collateral, Version, Wrapped};
+use crate::types::{BalanceOf, Collateral, DefaultVaultId, Version, Wrapped};
 use btc_relay::{BtcAddress, BtcPublicKey};
 use currency::Amount;
 use frame_support::{dispatch::DispatchError, ensure, traits::Get, transactional};
@@ -38,6 +37,7 @@ use frame_system::{ensure_root, ensure_signed};
 pub use pallet::*;
 use sp_core::H256;
 use sp_std::vec::Vec;
+use types::IssueRequestExt;
 use vault_registry::{CurrencySource, VaultStatus};
 
 #[frame_support::pallet]
@@ -69,19 +69,19 @@ pub mod pallet {
     #[pallet::metadata(T::AccountId = "AccountId", Wrapped<T> = "Wrapped", Collateral<T> = "Collateral")]
     pub enum Event<T: Config> {
         RequestIssue(
-            H256,          // issue_id
-            T::AccountId,  // requester
-            Wrapped<T>,    // amount
-            Wrapped<T>,    // fee
-            Collateral<T>, // griefing_collateral
-            T::AccountId,  // vault_id
-            BtcAddress,    // vault deposit address
-            BtcPublicKey,  // vault public key
+            H256,              // issue_id
+            T::AccountId,      // requester
+            Wrapped<T>,        // amount
+            Wrapped<T>,        // fee
+            Collateral<T>,     // griefing_collateral
+            DefaultVaultId<T>, // vault_id
+            BtcAddress,        // vault deposit address
+            BtcPublicKey,      // vault public key
         ),
         // issue_id, amount, fee, confiscated_griefing_collateral
         IssueAmountChange(H256, Wrapped<T>, Wrapped<T>, Collateral<T>),
         // [issue_id, requester, executed_amount, vault, fee]
-        ExecuteIssue(H256, T::AccountId, Wrapped<T>, T::AccountId, Wrapped<T>),
+        ExecuteIssue(H256, T::AccountId, Wrapped<T>, DefaultVaultId<T>, Wrapped<T>),
         // [issue_id, requester, griefing_collateral]
         CancelIssue(H256, T::AccountId, Collateral<T>),
     }
@@ -111,7 +111,7 @@ pub mod pallet {
     /// from a unique hash `IssueId` to an `IssueRequest` struct.
     #[pallet::storage]
     pub(super) type IssueRequests<T: Config> =
-        StorageMap<_, Blake2_128Concat, H256, DefaultIssueRequest<T>, ValueQuery>;
+        StorageMap<_, Blake2_128Concat, H256, DefaultIssueRequest<T>, OptionQuery>;
 
     /// The time difference in number of blocks between an issue request is created
     /// and required completion time by a user. The issue period has an upper limit
@@ -179,7 +179,7 @@ pub mod pallet {
         pub fn request_issue(
             origin: OriginFor<T>,
             #[pallet::compact] amount: Wrapped<T>,
-            vault_id: T::AccountId,
+            vault_id: DefaultVaultId<T>,
             #[pallet::compact] griefing_collateral: Collateral<T>,
         ) -> DispatchResultWithPostInfo {
             let requester = ensure_signed(origin)?;
@@ -248,7 +248,7 @@ impl<T: Config> Pallet<T> {
     fn _request_issue(
         requester: T::AccountId,
         amount_requested: Wrapped<T>,
-        vault_id: T::AccountId,
+        vault_id: DefaultVaultId<T>,
         griefing_collateral: Collateral<T>,
     ) -> Result<H256, DispatchError> {
         let amount_requested = Amount::new(amount_requested, T::GetWrappedCurrencyId::get());
@@ -380,8 +380,8 @@ impl<T: Config> Pallet<T> {
             released_collateral.unlock_on(&requester)?;
             let slashed_collateral = issue.griefing_collateral().checked_sub(&released_collateral)?;
             ext::vault_registry::transfer_funds::<T>(
-                CurrencySource::Griefing(issue.requester.clone()),
-                CurrencySource::FreeBalance(issue.vault.clone()),
+                CurrencySource::UserGriefing(issue.requester.clone()),
+                CurrencySource::FreeBalance(issue.vault.account_id.clone()),
                 &slashed_collateral,
             )?;
 
@@ -474,8 +474,8 @@ impl<T: Config> Pallet<T> {
             griefing_collateral.unlock_on(&issue.requester)?;
         } else {
             ext::vault_registry::transfer_funds::<T>(
-                CurrencySource::Griefing(issue.requester.clone()),
-                CurrencySource::FreeBalance(issue.vault.clone()),
+                CurrencySource::UserGriefing(issue.requester.clone()),
+                CurrencySource::FreeBalance(issue.vault.account_id.clone()),
                 &griefing_collateral,
             )?;
         }
@@ -501,9 +501,9 @@ impl<T: Config> Pallet<T> {
     /// # Arguments
     ///
     /// * `account_id` - vault account id
-    pub fn get_issue_requests_for_vault(account_id: T::AccountId) -> Vec<(H256, DefaultIssueRequest<T>)> {
+    pub fn get_issue_requests_for_vault(vault_id: DefaultVaultId<T>) -> Vec<(H256, DefaultIssueRequest<T>)> {
         <IssueRequests<T>>::iter()
-            .filter(|(_, request)| request.vault == account_id)
+            .filter(|(_, request)| request.vault == vault_id)
             .collect::<Vec<_>>()
     }
 
@@ -530,9 +530,12 @@ impl<T: Config> Pallet<T> {
         issue.amount = transferred_btc.checked_sub(&issue.fee())?.amount();
 
         // update storage
-        <IssueRequests<T>>::mutate(issue_id, |x| {
-            x.fee = issue.fee;
-            x.amount = issue.amount;
+        <IssueRequests<T>>::mutate_exists(issue_id, |request| {
+            *request = request.clone().map(|request| DefaultIssueRequest::<T> {
+                fee: issue.fee,
+                amount: issue.amount,
+                ..request
+            });
         });
 
         Self::deposit_event(<Event<T>>::IssueAmountChange(
@@ -550,9 +553,10 @@ impl<T: Config> Pallet<T> {
     }
 
     fn set_issue_status(id: H256, status: IssueRequestStatus) {
-        // TODO: delete issue request from storage
-        <IssueRequests<T>>::mutate(id, |request| {
-            request.status = status;
+        <IssueRequests<T>>::mutate_exists(id, |request| {
+            *request = request
+                .clone()
+                .map(|request| DefaultIssueRequest::<T> { status, ..request });
         });
     }
 
