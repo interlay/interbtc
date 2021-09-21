@@ -43,6 +43,7 @@ pub(crate) mod btc_relay {
 
 #[cfg_attr(test, mockable)]
 pub(crate) mod vault_registry {
+    use crate::DefaultVaultId;
     use btc_relay::BtcAddress;
     use frame_support::dispatch::{DispatchError, DispatchResult};
     use sp_core::H256;
@@ -59,40 +60,40 @@ pub(crate) mod vault_registry {
         <vault_registry::Pallet<T>>::transfer_funds(from, to, amount)
     }
 
-    pub fn is_vault_liquidated<T: crate::Config>(vault_id: &T::AccountId) -> Result<bool, DispatchError> {
+    pub fn is_vault_liquidated<T: crate::Config>(vault_id: &DefaultVaultId<T>) -> Result<bool, DispatchError> {
         <vault_registry::Pallet<T>>::is_vault_liquidated(vault_id)
     }
 
     pub fn get_active_vault_from_id<T: crate::Config>(
-        vault_id: &T::AccountId,
+        vault_id: &DefaultVaultId<T>,
     ) -> Result<DefaultVault<T>, DispatchError> {
         <vault_registry::Pallet<T>>::get_active_vault_from_id(vault_id)
     }
 
     pub fn try_increase_to_be_issued_tokens<T: crate::Config>(
-        vault_id: &T::AccountId,
+        vault_id: &DefaultVaultId<T>,
         amount: &Amount<T>,
     ) -> Result<(), DispatchError> {
         <vault_registry::Pallet<T>>::try_increase_to_be_issued_tokens(vault_id, amount)
     }
 
     pub fn register_deposit_address<T: crate::Config>(
-        vault_id: &T::AccountId,
+        vault_id: &DefaultVaultId<T>,
         secure_id: H256,
     ) -> Result<BtcAddress, DispatchError> {
         <vault_registry::Pallet<T>>::register_deposit_address(vault_id, secure_id)
     }
 
-    pub fn issue_tokens<T: crate::Config>(vault_id: &T::AccountId, amount: &Amount<T>) -> DispatchResult {
+    pub fn issue_tokens<T: crate::Config>(vault_id: &DefaultVaultId<T>, amount: &Amount<T>) -> DispatchResult {
         <vault_registry::Pallet<T>>::issue_tokens(vault_id, amount)
     }
 
-    pub fn ensure_not_banned<T: crate::Config>(vault: &T::AccountId) -> DispatchResult {
-        <vault_registry::Pallet<T>>::_ensure_not_banned(vault)
+    pub fn ensure_not_banned<T: crate::Config>(vault_id: &DefaultVaultId<T>) -> DispatchResult {
+        <vault_registry::Pallet<T>>::_ensure_not_banned(vault_id)
     }
 
     pub fn decrease_to_be_issued_tokens<T: crate::Config>(
-        vault_id: &T::AccountId,
+        vault_id: &DefaultVaultId<T>,
         tokens: &Amount<T>,
     ) -> DispatchResult {
         <vault_registry::Pallet<T>>::decrease_to_be_issued_tokens(vault_id, tokens)
@@ -149,6 +150,7 @@ pub(crate) mod fee {
 
 #[cfg_attr(test, mockable)]
 pub(crate) mod refund {
+    use crate::DefaultVaultId;
     use btc_relay::BtcAddress;
     use currency::Amount;
     use frame_support::dispatch::DispatchError;
@@ -156,7 +158,7 @@ pub(crate) mod refund {
 
     pub fn request_refund<T: crate::Config>(
         total_amount_btc: &Amount<T>,
-        vault_id: T::AccountId,
+        vault_id: DefaultVaultId<T>,
         issuer: T::AccountId,
         btc_address: BtcAddress,
         issue_id: H256,

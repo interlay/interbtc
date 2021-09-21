@@ -48,11 +48,14 @@ pub(crate) mod btc_relay {
 
 #[cfg_attr(test, mockable)]
 pub(crate) mod vault_registry {
+    use crate::DefaultVaultId;
     use currency::Amount;
     use frame_support::dispatch::{DispatchError, DispatchResult};
     use vault_registry::types::{CurrencyId, CurrencySource, DefaultVault};
 
-    pub fn get_liquidated_collateral<T: crate::Config>(vault_id: &T::AccountId) -> Result<Amount<T>, DispatchError> {
+    pub fn get_liquidated_collateral<T: crate::Config>(
+        vault_id: &DefaultVaultId<T>,
+    ) -> Result<Amount<T>, DispatchError> {
         <vault_registry::Pallet<T>>::get_liquidated_collateral(vault_id)
     }
 
@@ -72,19 +75,19 @@ pub(crate) mod vault_registry {
         <vault_registry::Pallet<T>>::transfer_funds_saturated(from, to, amount)
     }
 
-    pub fn get_vault_from_id<T: crate::Config>(vault_id: &T::AccountId) -> Result<DefaultVault<T>, DispatchError> {
+    pub fn get_vault_from_id<T: crate::Config>(vault_id: &DefaultVaultId<T>) -> Result<DefaultVault<T>, DispatchError> {
         <vault_registry::Pallet<T>>::get_vault_from_id(vault_id)
     }
 
     pub fn try_increase_to_be_redeemed_tokens<T: crate::Config>(
-        vault_id: &T::AccountId,
+        vault_id: &DefaultVaultId<T>,
         amount: &Amount<T>,
     ) -> DispatchResult {
         <vault_registry::Pallet<T>>::try_increase_to_be_redeemed_tokens(vault_id, amount)
     }
 
     pub fn redeem_tokens<T: crate::Config>(
-        vault_id: &T::AccountId,
+        vault_id: &DefaultVaultId<T>,
         tokens: &Amount<T>,
         premium: &Amount<T>,
         redeemer_id: &T::AccountId,
@@ -93,7 +96,7 @@ pub(crate) mod vault_registry {
     }
 
     pub fn decrease_tokens<T: crate::Config>(
-        vault_id: &T::AccountId,
+        vault_id: &DefaultVaultId<T>,
         user_id: &T::AccountId,
         tokens: &Amount<T>,
     ) -> DispatchResult {
@@ -101,7 +104,7 @@ pub(crate) mod vault_registry {
     }
 
     pub fn decrease_liquidated_collateral<T: crate::Config>(
-        vault_id: &T::AccountId,
+        vault_id: &DefaultVaultId<T>,
         amount: &Amount<T>,
     ) -> DispatchResult {
         <vault_registry::Pallet<T>>::decrease_liquidated_collateral(vault_id, amount)
@@ -115,24 +118,28 @@ pub(crate) mod vault_registry {
         <vault_registry::Pallet<T>>::redeem_tokens_liquidation(currency_id, redeemer_id, amount)
     }
 
-    pub fn ban_vault<T: crate::Config>(vault_id: T::AccountId) -> DispatchResult {
+    pub fn ban_vault<T: crate::Config>(vault_id: &DefaultVaultId<T>) -> DispatchResult {
         <vault_registry::Pallet<T>>::ban_vault(vault_id)
     }
 
-    pub fn ensure_not_banned<T: crate::Config>(vault: &T::AccountId) -> DispatchResult {
-        <vault_registry::Pallet<T>>::_ensure_not_banned(vault)
+    pub fn ensure_not_banned<T: crate::Config>(vault_id: &DefaultVaultId<T>) -> DispatchResult {
+        <vault_registry::Pallet<T>>::_ensure_not_banned(vault_id)
     }
 
-    pub fn is_vault_below_premium_threshold<T: crate::Config>(vault_id: &T::AccountId) -> Result<bool, DispatchError> {
+    pub fn is_vault_below_premium_threshold<T: crate::Config>(
+        vault_id: &DefaultVaultId<T>,
+    ) -> Result<bool, DispatchError> {
         <vault_registry::Pallet<T>>::is_vault_below_premium_threshold(vault_id)
     }
 
-    pub fn is_vault_below_secure_threshold<T: crate::Config>(vault_id: &T::AccountId) -> Result<bool, DispatchError> {
+    pub fn is_vault_below_secure_threshold<T: crate::Config>(
+        vault_id: &DefaultVaultId<T>,
+    ) -> Result<bool, DispatchError> {
         <vault_registry::Pallet<T>>::is_vault_below_secure_threshold(vault_id)
     }
 
     pub fn decrease_to_be_redeemed_tokens<T: crate::Config>(
-        vault_id: &T::AccountId,
+        vault_id: &DefaultVaultId<T>,
         tokens: &Amount<T>,
     ) -> DispatchResult {
         <vault_registry::Pallet<T>>::decrease_to_be_redeemed_tokens(vault_id, tokens)
@@ -147,25 +154,21 @@ pub(crate) mod vault_registry {
     }
 
     pub fn try_increase_to_be_issued_tokens<T: crate::Config>(
-        vault_id: &T::AccountId,
+        vault_id: &DefaultVaultId<T>,
         amount: &Amount<T>,
     ) -> Result<(), DispatchError> {
         <vault_registry::Pallet<T>>::try_increase_to_be_issued_tokens(vault_id, amount)
     }
 
-    pub fn issue_tokens<T: crate::Config>(vault_id: &T::AccountId, amount: &Amount<T>) -> DispatchResult {
+    pub fn issue_tokens<T: crate::Config>(vault_id: &DefaultVaultId<T>, amount: &Amount<T>) -> DispatchResult {
         <vault_registry::Pallet<T>>::issue_tokens(vault_id, amount)
     }
 
     pub fn decrease_to_be_replaced_tokens<T: crate::Config>(
-        vault_id: &T::AccountId,
+        vault_id: &DefaultVaultId<T>,
         tokens: &Amount<T>,
     ) -> Result<(Amount<T>, Amount<T>), DispatchError> {
         <vault_registry::Pallet<T>>::decrease_to_be_replaced_tokens(vault_id, tokens)
-    }
-
-    pub fn get_collateral_currency<T: crate::Config>(vault_id: &T::AccountId) -> Result<CurrencyId<T>, DispatchError> {
-        <vault_registry::Pallet<T>>::get_collateral_currency(vault_id)
     }
 }
 
