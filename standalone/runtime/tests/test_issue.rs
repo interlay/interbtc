@@ -23,13 +23,15 @@ fn test_with<R>(execute: impl Fn(CurrencyId) -> R) {
 fn test_with_initialized_vault<R>(execute: impl Fn(CurrencyId) -> R) {
     test_with(|currency_id| {
         CoreVaultData::force_to(&vault_id_of(VAULT, currency_id), default_vault_state(currency_id));
-        //
-        // let other_currency = if let CurrencyId::DOT = currency_id {
-        //     CurrencyId::KSM
-        // } else {
-        //     CurrencyId::DOT
-        // };
-        // CoreVaultData::force_to(&vault_id_of(VAULT, other_currency), default_vault_state(other_currency));
+
+        // register a second vault with another currency id
+        let other_currency = if let CurrencyId::DOT = currency_id {
+            CurrencyId::KSM
+        } else {
+            CurrencyId::DOT
+        };
+        CoreVaultData::force_to(&vault_id_of(VAULT, other_currency), default_vault_state(other_currency));
+
         execute(currency_id)
     })
 }
@@ -466,13 +468,6 @@ fn integration_test_issue_wrapped_execute_bookkeeping() {
                 fee_pool.vault_rewards += issue.fee();
                 vault.issued += issue.fee() + issue.amount();
             }),
-            "expected {:#?} but got {:#?}",
-            ParachainState::get(currency_id),
-            ParachainState::get_default(currency_id).with_changes(|user, vault, _, fee_pool| {
-                (*user.balances.get_mut(&INTERBTC).unwrap()).free += issue.amount();
-                fee_pool.vault_rewards += issue.fee();
-                vault.issued += issue.fee() + issue.amount();
-            })
         );
     });
 }
@@ -962,7 +957,7 @@ mod execute_issue_tests {
             // user balances are updated, tokens are minted and fees paid
             assert_eq!(
                 ParachainState::get(currency_id),
-                post_liquidation_status.with_changes(|user, _vault, liquidation_vault, _fee_pool| {
+                post_liquidation_status.with_changes(|user, _vault, liquidation_vault, fee_pool| {
                     (*user.balances.get_mut(&INTERBTC).unwrap()).free += issue.amount();
 
                     (*user.balances.get_mut(&GRIEFING_CURRENCY).unwrap()).free += issue.griefing_collateral();
@@ -971,6 +966,8 @@ mod execute_issue_tests {
                     let liquidation_vault = liquidation_vault.with_currency(&currency_id);
                     liquidation_vault.to_be_issued -= issue.amount() + issue.fee();
                     liquidation_vault.issued += issue.amount() + issue.fee();
+
+                    fee_pool.vault_rewards += issue.fee();
                 })
             );
         });

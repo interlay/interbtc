@@ -16,22 +16,38 @@ const OLD_VAULT: [u8; 32] = BOB;
 const NEW_VAULT: [u8; 32] = CAROL;
 pub const DEFAULT_GRIEFING_COLLATERAL: Amount<Runtime> = griefing(5_000);
 
-fn test_with<R>(execute: impl Fn(CurrencyId, DefaultVaultId<Runtime>, DefaultVaultId<Runtime>) -> R) {
-    let test_with = |currency_id| {
+fn test_with<R>(execute: impl Fn(DefaultVaultId<Runtime>, DefaultVaultId<Runtime>) -> R) {
+    let test_with = |old_vault_currency, new_vault_currency, extra_vault_currency| {
         ExtBuilder::build().execute_with(|| {
-            assert_ok!(OraclePallet::_set_exchange_rate(currency_id, FixedU128::one()));
+            assert_ok!(OraclePallet::_set_exchange_rate(old_vault_currency, FixedU128::one()));
+            assert_ok!(OraclePallet::_set_exchange_rate(new_vault_currency, FixedU128::one()));
             set_default_thresholds();
             UserData::force_to(USER, default_user_state());
-            CoreVaultData::force_to(&vault_id_of(OLD_VAULT, currency_id), default_vault_state(currency_id));
-            CoreVaultData::force_to(&vault_id_of(NEW_VAULT, currency_id), default_vault_state(currency_id));
-            LiquidationVaultData::force_to(default_liquidation_vault_state(currency_id));
-            let old_vault_id = vault_id_of(OLD_VAULT, currency_id);
-            let new_vault_id = vault_id_of(NEW_VAULT, currency_id);
-            execute(currency_id, old_vault_id, new_vault_id)
+            let old_vault_id = vault_id_of(OLD_VAULT, old_vault_currency);
+            let new_vault_id = vault_id_of(NEW_VAULT, new_vault_currency);
+            CoreVaultData::force_to(&old_vault_id, default_vault_state(old_vault_currency));
+            CoreVaultData::force_to(&new_vault_id, default_vault_state(new_vault_currency));
+            LiquidationVaultData::force_to(default_liquidation_vault_state(old_vault_currency));
+
+            if let Some(other_currency) = extra_vault_currency {
+                assert_ok!(OraclePallet::_set_exchange_rate(other_currency, FixedU128::one()));
+                // check that having other vault with the same account id does not influence tests
+                CoreVaultData::force_to(
+                    &vault_id_of(OLD_VAULT, other_currency),
+                    default_vault_state(other_currency),
+                );
+                CoreVaultData::force_to(
+                    &vault_id_of(NEW_VAULT, other_currency),
+                    default_vault_state(other_currency),
+                );
+            }
+            execute(old_vault_id, new_vault_id)
         })
     };
-    test_with(CurrencyId::DOT);
-    test_with(CurrencyId::KSM);
+    test_with(CurrencyId::DOT, CurrencyId::DOT, None);
+    test_with(CurrencyId::DOT, CurrencyId::DOT, Some(CurrencyId::KSM));
+    test_with(CurrencyId::DOT, CurrencyId::KSM, None);
+    test_with(CurrencyId::KSM, CurrencyId::DOT, None);
 }
 
 fn test_without_initialization<R>(execute: impl Fn(CurrencyId) -> R) {
@@ -140,9 +156,9 @@ mod accept_replace_tests {
 
     #[test]
     fn integration_test_replace_accept_replace_at_capacity_succeeds() {
-        test_with(|currency_id, old_vault_id, new_vault_id| {
+        test_with(|old_vault_id, new_vault_id| {
             let accept_amount = DEFAULT_VAULT_TO_BE_REPLACED;
-            let new_vault_additional_collateral = Amount::new(10_000, currency_id);
+            let new_vault_additional_collateral = Amount::new(10_000, new_vault_id.collateral_currency());
 
             let (_, replace) = accept_replace(
                 &old_vault_id,
@@ -163,11 +179,11 @@ mod accept_replace_tests {
 
     #[test]
     fn integration_test_replace_accept_replace_below_capacity_succeeds() {
-        test_with(|currency_id, old_vault_id, new_vault_id| {
+        test_with(|old_vault_id, new_vault_id| {
             // accept only 25%
 
             let accept_amount = DEFAULT_VAULT_TO_BE_REPLACED / 4;
-            let new_vault_additional_collateral = Amount::new(10_000, currency_id);
+            let new_vault_additional_collateral = Amount::new(10_000, new_vault_id.collateral_currency());
 
             let (_, replace) = accept_replace(
                 &old_vault_id,
@@ -188,11 +204,11 @@ mod accept_replace_tests {
 
     #[test]
     fn integration_test_replace_accept_replace_above_capacity_succeeds() {
-        test_with(|currency_id, old_vault_id, new_vault_id| {
+        test_with(|old_vault_id, new_vault_id| {
             // try to accept 400%
 
             let accept_amount = DEFAULT_VAULT_TO_BE_REPLACED * 4;
-            let new_vault_additional_collateral = Amount::new(10_000, currency_id);
+            let new_vault_additional_collateral = Amount::new(10_000, new_vault_id.collateral_currency());
 
             let (_, replace) = accept_replace(
                 &old_vault_id,
@@ -213,13 +229,13 @@ mod accept_replace_tests {
 
     #[test]
     fn integration_test_replace_accept_replace_by_vault_that_does_not_accept_issues_succeeds() {
-        test_with(|currency_id, old_vault_id, new_vault_id| {
+        test_with(|old_vault_id, new_vault_id| {
             assert_ok!(Call::VaultRegistry(VaultRegistryCall::accept_new_issues(
-                currency_id,
-                DEFAULT_WRAPPED_CURRENCY,
+                new_vault_id.currencies.collateral,
+                new_vault_id.currencies.wrapped,
                 false
             ))
-            .dispatch(origin_of(account_of(NEW_VAULT))));
+            .dispatch(origin_of(new_vault_id.account_id.clone())));
 
             let (_, replace) = accept_replace(
                 &old_vault_id,
@@ -236,7 +252,7 @@ mod accept_replace_tests {
 
     #[test]
     fn integration_test_replace_accept_replace_below_dust_fails() {
-        test_with(|currency_id, old_vault_id, new_vault_id| {
+        test_with(|old_vault_id, new_vault_id| {
             // if the new_vault _asks_ for an amount below below DUST, it gets rejected
 
             assert_noop!(
@@ -255,7 +271,7 @@ mod accept_replace_tests {
                 &old_vault_id,
                 CoreVaultData {
                     to_be_replaced: wrapped(1),
-                    ..default_vault_state(currency_id)
+                    ..default_vault_state(old_vault_id.collateral_currency())
                 },
             );
             assert_noop!(
@@ -273,7 +289,7 @@ mod accept_replace_tests {
 
     #[test]
     fn integration_test_replace_accept_replace_self_fails() {
-        test_with(|_currency_id, old_vault_id, _new_vault_id| {
+        test_with(|old_vault_id, _new_vault_id| {
             assert_noop!(
                 accept_replace(
                     &old_vault_id,
@@ -304,7 +320,7 @@ mod request_replace_tests {
 
     #[test]
     fn integration_test_replace_request_replace_at_capacity_succeeds() {
-        test_with(|_currency_id, old_vault_id, new_vault_id| {
+        test_with(|old_vault_id, new_vault_id| {
             let amount = DEFAULT_VAULT_ISSUED - DEFAULT_VAULT_TO_BE_REDEEMED - DEFAULT_VAULT_TO_BE_REPLACED;
             let griefing_collateral = griefing(200);
 
@@ -326,7 +342,7 @@ mod request_replace_tests {
 
     #[test]
     fn integration_test_replace_request_replace_above_capacity_succeeds() {
-        test_with(|_currency_id, old_vault_id, new_vault_id| {
+        test_with(|old_vault_id, new_vault_id| {
             let amount = (DEFAULT_VAULT_ISSUED - DEFAULT_VAULT_TO_BE_REDEEMED - DEFAULT_VAULT_TO_BE_REPLACED) * 2;
             let griefing_collateral = griefing(200);
 
@@ -349,7 +365,7 @@ mod request_replace_tests {
 
     #[test]
     fn integration_test_replace_request_replace_below_capacity_succeeds() {
-        test_with(|_currency_id, old_vault_id, new_vault_id| {
+        test_with(|old_vault_id, new_vault_id| {
             let amount = (DEFAULT_VAULT_ISSUED - DEFAULT_VAULT_TO_BE_REDEEMED - DEFAULT_VAULT_TO_BE_REPLACED) / 2;
             let griefing_collateral = griefing(200);
 
@@ -371,7 +387,7 @@ mod request_replace_tests {
 
     #[test]
     fn integration_test_replace_request_replace_with_zero_btc_succeeds() {
-        test_with(|_currency_id, old_vault_id, new_vault_id| {
+        test_with(|old_vault_id, new_vault_id| {
             let amount = wrapped(0);
             let griefing_collateral = griefing(200);
 
@@ -391,7 +407,7 @@ mod request_replace_tests {
 
     #[test]
     fn integration_test_replace_request_replace_with_zero_collateral_succeeds() {
-        test_with(|_currency_id, old_vault_id, new_vault_id| {
+        test_with(|old_vault_id, new_vault_id| {
             let amount = wrapped(1000);
             let griefing_collateral = griefing(0);
 
@@ -409,7 +425,7 @@ mod request_replace_tests {
 
     #[test]
     fn integration_test_replace_request_replace_with_insufficient_collateral() {
-        test_with(|currency_id, old_vault_id, new_vault_id| {
+        test_with(|old_vault_id, new_vault_id| {
             let amount = wrapped(1000);
 
             CoreVaultData::force_to(
@@ -417,7 +433,7 @@ mod request_replace_tests {
                 CoreVaultData {
                     to_be_replaced: wrapped(5_000),
                     replace_collateral: griefing(1),
-                    ..default_vault_state(currency_id)
+                    ..default_vault_state(old_vault_id.collateral_currency())
                 },
             );
 
@@ -451,7 +467,7 @@ mod withdraw_replace_tests {
 
     #[test]
     fn integration_test_replace_withdraw_replace_at_capacity_succeeds() {
-        test_with(|_currency_id, old_vault_id, new_vault_id| {
+        test_with(|old_vault_id, new_vault_id| {
             let amount = DEFAULT_VAULT_TO_BE_REPLACED;
 
             assert_ok!(withdraw_replace(&old_vault_id, amount));
@@ -473,7 +489,7 @@ mod withdraw_replace_tests {
 
     #[test]
     fn integration_test_replace_withdraw_replace_below_capacity_succeeds() {
-        test_with(|_currency_id, old_vault_id, new_vault_id| {
+        test_with(|old_vault_id, new_vault_id| {
             // withdraw 25%
             let amount = DEFAULT_VAULT_TO_BE_REPLACED / 4;
 
@@ -496,7 +512,7 @@ mod withdraw_replace_tests {
 
     #[test]
     fn integration_test_replace_withdraw_replace_above_capacity_succeeds() {
-        test_with(|_currency_id, old_vault_id, new_vault_id| {
+        test_with(|old_vault_id, new_vault_id| {
             // withdraw 200% - should just be capped to 100%
             let amount = DEFAULT_VAULT_TO_BE_REPLACED * 2;
 
@@ -518,12 +534,12 @@ mod withdraw_replace_tests {
     }
     #[test]
     fn integration_test_replace_withdraw_replace_with_zero_to_be_replaced_tokens_fails() {
-        test_with(|currency_id, old_vault_id, _new_vault_id| {
+        test_with(|old_vault_id, _new_vault_id| {
             CoreVaultData::force_to(
                 &old_vault_id,
                 CoreVaultData {
                     to_be_replaced: wrapped(0),
-                    ..default_vault_state(currency_id)
+                    ..default_vault_state(old_vault_id.collateral_currency())
                 },
             );
 
@@ -542,7 +558,7 @@ mod expiry_test {
     fn test_with(initial_period: u32, execute: impl Fn(H256)) {
         let amount_btc = wrapped(5_000);
         let griefing_collateral = griefing(1000);
-        super::test_with(|_currency_id, old_vault_id, new_vault_id| {
+        super::test_with(|old_vault_id, new_vault_id| {
             set_replace_period(initial_period);
             let (replace_id, _replace) = accept_replace(
                 &old_vault_id,
@@ -648,7 +664,7 @@ mod execute_replace_payment_limits {
 
     #[test]
     fn integration_test_execute_replace_with_exact_amount_succeeds() {
-        test_with(|_currency_id, old_vault_id, new_vault_id| {
+        test_with(|old_vault_id, new_vault_id| {
             let (replace_id, replace) = accept_replace(
                 &old_vault_id,
                 &new_vault_id,
@@ -662,7 +678,7 @@ mod execute_replace_payment_limits {
     }
     #[test]
     fn integration_test_execute_replace_with_overpayment_fails() {
-        test_with(|_currency_id, old_vault_id, new_vault_id| {
+        test_with(|old_vault_id, new_vault_id| {
             let (replace_id, replace) = accept_replace(
                 &old_vault_id,
                 &new_vault_id,
@@ -679,7 +695,7 @@ mod execute_replace_payment_limits {
     }
     #[test]
     fn integration_test_execute_replace_with_underpayment_fails() {
-        test_with(|_currency_id, old_vault_id, new_vault_id| {
+        test_with(|old_vault_id, new_vault_id| {
             let (replace_id, replace) = accept_replace(
                 &old_vault_id,
                 &new_vault_id,
@@ -698,7 +714,7 @@ mod execute_replace_payment_limits {
 
 #[test]
 fn integration_test_replace_with_parachain_shutdown_fails() {
-    test_with(|_currency_id, old_vault_id, new_vault_id| {
+    test_with(|old_vault_id, new_vault_id| {
         SecurityPallet::set_status(StatusCode::Shutdown);
 
         assert_noop!(
@@ -739,8 +755,8 @@ fn integration_test_replace_with_parachain_shutdown_fails() {
 
 #[test]
 fn integration_test_replace_cancel_replace() {
-    test_with(|currency_id, old_vault_id, new_vault_id| {
-        let (_, replace_id) = setup_replace(&old_vault_id, &new_vault_id, currency_id, wrapped(1000));
+    test_with(|old_vault_id, new_vault_id| {
+        let (_, replace_id) = setup_replace(&old_vault_id, &new_vault_id, wrapped(1000));
 
         // set block height
         // new_vault cancels replacement
@@ -757,7 +773,6 @@ fn integration_test_replace_cancel_replace() {
 fn setup_replace(
     old_vault_id: &DefaultVaultId<Runtime>,
     new_vault_id: &DefaultVaultId<Runtime>,
-    _currency_id: CurrencyId,
     issued_tokens: Amount<Runtime>,
 ) -> (ReplaceRequest<AccountId32, u32, u128, CurrencyId>, H256) {
     let new_vault_btc_address = BtcAddress::P2PKH(H160([2; 20]));
@@ -806,8 +821,8 @@ fn cancel_replace(replace_id: H256) {
 
 #[test]
 fn integration_test_replace_execute_replace_success() {
-    test_with(|currency_id, old_vault_id, new_vault_id| {
-        let (replace, replace_id) = setup_replace(&old_vault_id, &new_vault_id, currency_id, wrapped(1000));
+    test_with(|old_vault_id, new_vault_id| {
+        let (replace, replace_id) = setup_replace(&old_vault_id, &new_vault_id, wrapped(1000));
 
         let pre_execute_state = ParachainTwoVaultState::get(&old_vault_id, &new_vault_id);
 
@@ -842,24 +857,25 @@ fn calculate_replace_collateral(
 
 #[test]
 fn integration_test_replace_execute_replace_old_vault_liquidated() {
-    test_with(|currency_id, old_vault_id, new_vault_id| {
+    test_with(|old_vault_id, new_vault_id| {
         let replace_tokens = wrapped(1000);
-        let (replace, replace_id) = setup_replace(&old_vault_id, &new_vault_id, currency_id, replace_tokens);
+        let (replace, replace_id) = setup_replace(&old_vault_id, &new_vault_id, replace_tokens);
 
         let old = CoreVaultData::vault(old_vault_id.clone());
 
-        liquidate_vault(&vault_id_of(OLD_VAULT, currency_id));
+        liquidate_vault(&old_vault_id);
 
         let pre_execution_state = ParachainTwoVaultState::get(&old_vault_id, &new_vault_id);
 
         assert_ok!(execute_replace(replace_id));
 
-        let collateral_for_replace = calculate_replace_collateral(&old, replace.amount(), currency_id);
+        let collateral_for_replace =
+            calculate_replace_collateral(&old, replace.amount(), old_vault_id.collateral_currency());
 
         assert_eq!(
             ParachainTwoVaultState::get(&old_vault_id, &new_vault_id),
             pre_execution_state.with_changes(|old_vault, new_vault, liquidation_vault| {
-                let liquidation_vault = liquidation_vault.with_currency(&currency_id);
+                let liquidation_vault = liquidation_vault.with_currency(&old_vault_id.collateral_currency());
 
                 liquidation_vault.issued -= wrapped(1000);
                 liquidation_vault.to_be_redeemed -= wrapped(1000);
@@ -879,11 +895,11 @@ fn integration_test_replace_execute_replace_old_vault_liquidated() {
 
 #[test]
 fn integration_test_replace_execute_replace_new_vault_liquidated() {
-    test_with(|currency_id, old_vault_id, new_vault_id| {
+    test_with(|old_vault_id, new_vault_id| {
         let replace_tokens = wrapped(1000);
-        let (replace, replace_id) = setup_replace(&old_vault_id, &new_vault_id, currency_id, replace_tokens);
+        let (replace, replace_id) = setup_replace(&old_vault_id, &new_vault_id, replace_tokens);
 
-        liquidate_vault(&vault_id_of(NEW_VAULT, currency_id));
+        liquidate_vault(&new_vault_id);
         let pre_execution_state = ParachainTwoVaultState::get(&old_vault_id, &new_vault_id);
 
         assert_ok!(execute_replace(replace_id));
@@ -891,10 +907,9 @@ fn integration_test_replace_execute_replace_new_vault_liquidated() {
         assert_eq!(
             ParachainTwoVaultState::get(&old_vault_id, &new_vault_id),
             pre_execution_state.with_changes(|old_vault, _new_vault, liquidation_vault| {
-                let liquidation_vault = liquidation_vault.with_currency(&currency_id);
-
-                liquidation_vault.to_be_issued -= wrapped(1000);
-                liquidation_vault.issued += wrapped(1000);
+                let new_liquidation_vault = liquidation_vault.with_currency(&new_vault_id.collateral_currency());
+                new_liquidation_vault.issued += wrapped(1000);
+                new_liquidation_vault.to_be_issued -= wrapped(1000);
 
                 old_vault.to_be_redeemed -= wrapped(1000);
                 old_vault.issued -= wrapped(1000);
@@ -908,28 +923,32 @@ fn integration_test_replace_execute_replace_new_vault_liquidated() {
 
 #[test]
 fn integration_test_replace_execute_replace_both_vaults_liquidated() {
-    test_with(|currency_id, old_vault_id, new_vault_id| {
+    test_with(|old_vault_id, new_vault_id| {
         let replace_tokens = wrapped(1000);
-        let (replace, replace_id) = setup_replace(&old_vault_id, &new_vault_id, currency_id, replace_tokens);
+        let (replace, replace_id) = setup_replace(&old_vault_id, &new_vault_id, replace_tokens);
 
         let old = CoreVaultData::vault(old_vault_id.clone());
 
-        liquidate_vault(&vault_id_of(OLD_VAULT, currency_id));
-        liquidate_vault(&vault_id_of(NEW_VAULT, currency_id));
+        liquidate_vault(&old_vault_id);
+        liquidate_vault(&new_vault_id);
 
         let pre_execution_state = ParachainTwoVaultState::get(&old_vault_id, &new_vault_id);
 
         assert_ok!(execute_replace(replace_id));
 
-        let collateral_for_replace = calculate_replace_collateral(&old, replace.amount(), currency_id);
+        let collateral_for_replace =
+            calculate_replace_collateral(&old, replace.amount(), old_vault_id.collateral_currency());
 
         assert_eq!(
             ParachainTwoVaultState::get(&old_vault_id, &new_vault_id),
             pre_execution_state.with_changes(|old_vault, _new_vault, liquidation_vault| {
-                let liquidation_vault = liquidation_vault.with_currency(&currency_id);
+                let old_liquidation_vault = liquidation_vault.with_currency(&old_vault_id.collateral_currency());
+                old_liquidation_vault.to_be_redeemed -= wrapped(1000);
+                old_liquidation_vault.issued -= wrapped(1000);
 
-                liquidation_vault.to_be_redeemed -= wrapped(1000);
-                liquidation_vault.to_be_issued -= wrapped(1000);
+                let new_liquidation_vault = liquidation_vault.with_currency(&new_vault_id.collateral_currency());
+                new_liquidation_vault.to_be_issued -= wrapped(1000);
+                new_liquidation_vault.issued += wrapped(1000);
 
                 old_vault.to_be_redeemed -= wrapped(1000);
                 old_vault.liquidated_collateral -= collateral_for_replace;
@@ -943,8 +962,8 @@ fn integration_test_replace_execute_replace_both_vaults_liquidated() {
 
 #[test]
 fn integration_test_replace_cancel_replace_success() {
-    test_with(|currency_id, old_vault_id, new_vault_id| {
-        let (replace, replace_id) = setup_replace(&old_vault_id, &new_vault_id, currency_id, wrapped(1000));
+    test_with(|old_vault_id, new_vault_id| {
+        let (replace, replace_id) = setup_replace(&old_vault_id, &new_vault_id, wrapped(1000));
 
         let pre_cancellation_state = ParachainTwoVaultState::get(&old_vault_id, &new_vault_id);
 
@@ -955,7 +974,10 @@ fn integration_test_replace_cancel_replace_success() {
             pre_cancellation_state.with_changes(|old_vault, new_vault, _| {
                 new_vault.to_be_issued -= wrapped(1000);
                 new_vault.backing_collateral -= replace.collateral().unwrap();
-                *new_vault.free_balance.get_mut(&currency_id).unwrap() += replace.collateral().unwrap();
+                *new_vault
+                    .free_balance
+                    .get_mut(&new_vault_id.collateral_currency())
+                    .unwrap() += replace.collateral().unwrap();
                 *new_vault.free_balance.get_mut(&GRIEFING_CURRENCY).unwrap() += replace.griefing_collateral();
 
                 old_vault.to_be_redeemed -= wrapped(1000);
@@ -968,23 +990,24 @@ fn integration_test_replace_cancel_replace_success() {
 
 #[test]
 fn integration_test_replace_cancel_replace_old_vault_liquidated() {
-    test_with(|currency_id, old_vault_id, new_vault_id| {
-        let (replace, replace_id) = setup_replace(&old_vault_id, &new_vault_id, currency_id, wrapped(1000));
+    test_with(|old_vault_id, new_vault_id| {
+        let (replace, replace_id) = setup_replace(&old_vault_id, &new_vault_id, wrapped(1000));
 
         let old = CoreVaultData::vault(old_vault_id.clone());
 
-        liquidate_vault(&vault_id_of(OLD_VAULT, currency_id));
+        liquidate_vault(&old_vault_id);
 
         let pre_cancellation_state = ParachainTwoVaultState::get(&old_vault_id, &new_vault_id);
 
         cancel_replace(replace_id);
 
-        let collateral_for_replace = calculate_replace_collateral(&old, replace.amount(), currency_id);
+        let collateral_for_replace =
+            calculate_replace_collateral(&old, replace.amount(), old_vault_id.collateral_currency());
 
         assert_eq!(
             ParachainTwoVaultState::get(&old_vault_id, &new_vault_id),
             pre_cancellation_state.with_changes(|old_vault, new_vault, liquidation_vault| {
-                let liquidation_vault = liquidation_vault.with_currency(&currency_id);
+                let liquidation_vault = liquidation_vault.with_currency(&old_vault_id.collateral_currency());
 
                 old_vault.to_be_redeemed -= wrapped(1000);
                 old_vault.griefing_collateral -= replace.griefing_collateral();
@@ -992,7 +1015,10 @@ fn integration_test_replace_cancel_replace_old_vault_liquidated() {
 
                 new_vault.to_be_issued -= wrapped(1000);
                 new_vault.backing_collateral -= replace.collateral().unwrap();
-                *new_vault.free_balance.get_mut(&currency_id).unwrap() += replace.collateral().unwrap();
+                *new_vault
+                    .free_balance
+                    .get_mut(&new_vault_id.collateral_currency())
+                    .unwrap() += replace.collateral().unwrap();
                 *new_vault.free_balance.get_mut(&GRIEFING_CURRENCY).unwrap() += replace.griefing_collateral();
 
                 liquidation_vault.to_be_redeemed -= wrapped(1000);
@@ -1004,10 +1030,10 @@ fn integration_test_replace_cancel_replace_old_vault_liquidated() {
 
 #[test]
 fn integration_test_replace_cancel_replace_new_vault_liquidated() {
-    test_with(|currency_id, old_vault_id, new_vault_id| {
-        let (replace, replace_id) = setup_replace(&old_vault_id, &new_vault_id, currency_id, wrapped(1000));
+    test_with(|old_vault_id, new_vault_id| {
+        let (replace, replace_id) = setup_replace(&old_vault_id, &new_vault_id, wrapped(1000));
 
-        liquidate_vault(&vault_id_of(NEW_VAULT, currency_id));
+        liquidate_vault(&new_vault_id);
 
         let pre_cancellation_state = ParachainTwoVaultState::get(&old_vault_id, &new_vault_id);
 
@@ -1016,14 +1042,13 @@ fn integration_test_replace_cancel_replace_new_vault_liquidated() {
         assert_eq!(
             ParachainTwoVaultState::get(&old_vault_id, &new_vault_id),
             pre_cancellation_state.with_changes(|old_vault, new_vault, liquidation_vault| {
-                let liquidation_vault = liquidation_vault.with_currency(&currency_id);
-
                 old_vault.to_be_redeemed -= wrapped(1000);
                 old_vault.griefing_collateral -= replace.griefing_collateral();
 
                 *new_vault.free_balance.get_mut(&GRIEFING_CURRENCY).unwrap() += replace.griefing_collateral();
 
-                liquidation_vault.to_be_issued -= wrapped(1000);
+                let new_liquidation_vault = liquidation_vault.with_currency(&new_vault_id.collateral_currency());
+                new_liquidation_vault.to_be_issued -= wrapped(1000);
             })
         );
     });
@@ -1031,34 +1056,36 @@ fn integration_test_replace_cancel_replace_new_vault_liquidated() {
 
 #[test]
 fn integration_test_replace_cancel_replace_both_vaults_liquidated() {
-    test_with(|currency_id, old_vault_id, new_vault_id| {
-        let (replace, replace_id) = setup_replace(&old_vault_id, &new_vault_id, currency_id, wrapped(1000));
+    test_with(|old_vault_id, new_vault_id| {
+        let (replace, replace_id) = setup_replace(&old_vault_id, &new_vault_id, wrapped(1000));
 
         let old = CoreVaultData::vault(old_vault_id.clone());
 
-        liquidate_vault(&vault_id_of(OLD_VAULT, currency_id));
-        liquidate_vault(&vault_id_of(NEW_VAULT, currency_id));
+        liquidate_vault(&old_vault_id);
+        liquidate_vault(&new_vault_id);
 
         let pre_cancellation_state = ParachainTwoVaultState::get(&old_vault_id, &new_vault_id);
 
         cancel_replace(replace_id);
 
-        let collateral_for_replace = calculate_replace_collateral(&old, replace.amount(), currency_id);
+        let collateral_for_replace =
+            calculate_replace_collateral(&old, replace.amount(), old_vault_id.collateral_currency());
 
         assert_eq!(
             ParachainTwoVaultState::get(&old_vault_id, &new_vault_id),
             pre_cancellation_state.with_changes(|old_vault, new_vault, liquidation_vault| {
-                let liquidation_vault = liquidation_vault.with_currency(&currency_id);
-
                 old_vault.to_be_redeemed -= wrapped(1000);
                 old_vault.griefing_collateral -= replace.griefing_collateral();
                 old_vault.liquidated_collateral -= collateral_for_replace;
 
                 *new_vault.free_balance.get_mut(&GRIEFING_CURRENCY).unwrap() += replace.griefing_collateral();
 
-                liquidation_vault.to_be_redeemed -= wrapped(1000);
-                liquidation_vault.to_be_issued -= wrapped(1000);
-                liquidation_vault.collateral += collateral_for_replace;
+                let old_liquidation_vault = liquidation_vault.with_currency(&old_vault_id.collateral_currency());
+                old_liquidation_vault.to_be_redeemed -= wrapped(1000);
+                old_liquidation_vault.collateral += collateral_for_replace;
+
+                let new_liquidation_vault = liquidation_vault.with_currency(&new_vault_id.collateral_currency());
+                new_liquidation_vault.to_be_issued -= wrapped(1000);
             })
         );
     });
@@ -1085,7 +1112,7 @@ fn integration_test_replace_vault_with_different_currency_succeeds() {
         CoreVaultData::force_to(&old_vault_id, default_vault_state(currency_id));
         CoreVaultData::force_to(&new_vault_id, default_vault_state(other_currency));
 
-        let (replace, replace_id) = setup_replace(&old_vault_id, &new_vault_id, currency_id, wrapped(1000));
+        let (replace, replace_id) = setup_replace(&old_vault_id, &new_vault_id, wrapped(1000));
 
         let pre_execute_state = ParachainTwoVaultState::get(&old_vault_id, &new_vault_id);
 

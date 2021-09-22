@@ -5,7 +5,7 @@ use frame_support::traits::Currency;
 use mock::{assert_eq, redeem_testing_utils::*, *};
 
 fn test_with<R>(execute: impl Fn(CurrencyId) -> R) {
-    let test_with = |currency_id| {
+    let test_with = |currency_id, extra_vault_currency| {
         ExtBuilder::build().execute_with(|| {
             SecurityPallet::set_active_block_number(1);
             assert_ok!(OraclePallet::_set_exchange_rate(currency_id, FixedU128::one()));
@@ -16,11 +16,18 @@ fn test_with<R>(execute: impl Fn(CurrencyId) -> R) {
             // additional vault in order to prevent the edge case where the fee pool does not
             // get additional funds because there are no non-liquidated vaults left
             CoreVaultData::force_to(&vault_id_of(CAROL, currency_id), default_vault_state(currency_id));
+
+            if let Some(other_currency) = extra_vault_currency {
+                assert_ok!(OraclePallet::_set_exchange_rate(other_currency, FixedU128::one()));
+                // check that having other vault with the same account id does not influence tests
+                CoreVaultData::force_to(&vault_id_of(VAULT, other_currency), default_vault_state(other_currency));
+            }
             execute(currency_id)
         })
     };
-    test_with(CurrencyId::DOT);
-    test_with(CurrencyId::KSM);
+    test_with(CurrencyId::DOT, None);
+    test_with(CurrencyId::DOT, Some(CurrencyId::KSM));
+    test_with(CurrencyId::KSM, None);
 }
 
 /// to-be-replaced & replace_collateral are decreased in request_redeem

@@ -1772,17 +1772,6 @@ impl<T: Config> Pallet<T> {
                     .ge(&backing_collateral)
                     .unwrap()
             );
-
-            let total_locked = if griefing_currency == vault_id.collateral_currency() {
-                backing_collateral + total_replace_collateral
-            } else {
-                backing_collateral
-            };
-            assert!(
-                ext::currency::get_reserved_balance(vault_id.collateral_currency(), &vault_id.account_id)
-                    .eq(&total_locked)
-                    .unwrap()
-            )
         }
     }
 
