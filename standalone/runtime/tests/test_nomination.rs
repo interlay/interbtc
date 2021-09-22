@@ -11,7 +11,7 @@ fn test_with<R>(execute: impl Fn(CurrencyId) -> R) {
             assert_ok!(OraclePallet::_set_exchange_rate(currency_id, FixedU128::one()));
             LiquidationVaultData::force_to(default_liquidation_vault_state(currency_id));
             UserData::force_to(USER, default_user_state());
-            CoreVaultData::force_to(VAULT, default_vault_state(currency_id));
+            CoreVaultData::force_to(&vault_id_of(VAULT, currency_id), default_vault_state(currency_id));
             execute(currency_id)
         })
     };

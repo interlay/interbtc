@@ -22,8 +22,8 @@ fn test_with<R>(execute: impl Fn(CurrencyId, DefaultVaultId<Runtime>, DefaultVau
             assert_ok!(OraclePallet::_set_exchange_rate(currency_id, FixedU128::one()));
             set_default_thresholds();
             UserData::force_to(USER, default_user_state());
-            CoreVaultData::force_to(OLD_VAULT, default_vault_state(currency_id));
-            CoreVaultData::force_to(NEW_VAULT, default_vault_state(currency_id));
+            CoreVaultData::force_to(&vault_id_of(OLD_VAULT, currency_id), default_vault_state(currency_id));
+            CoreVaultData::force_to(&vault_id_of(NEW_VAULT, currency_id), default_vault_state(currency_id));
             LiquidationVaultData::force_to(default_liquidation_vault_state(currency_id));
             let old_vault_id = vault_id_of(OLD_VAULT, currency_id);
             let new_vault_id = vault_id_of(NEW_VAULT, currency_id);
@@ -252,7 +252,7 @@ mod accept_replace_tests {
 
             // if the old_vault does not have sufficient to-be-replaced tokens, it gets rejected
             CoreVaultData::force_to(
-                OLD_VAULT,
+                &old_vault_id,
                 CoreVaultData {
                     to_be_replaced: wrapped(1),
                     ..default_vault_state(currency_id)
@@ -413,7 +413,7 @@ mod request_replace_tests {
             let amount = wrapped(1000);
 
             CoreVaultData::force_to(
-                OLD_VAULT,
+                &old_vault_id,
                 CoreVaultData {
                     to_be_replaced: wrapped(5_000),
                     replace_collateral: griefing(1),
@@ -520,7 +520,7 @@ mod withdraw_replace_tests {
     fn integration_test_replace_withdraw_replace_with_zero_to_be_replaced_tokens_fails() {
         test_with(|currency_id, old_vault_id, _new_vault_id| {
             CoreVaultData::force_to(
-                OLD_VAULT,
+                &old_vault_id,
                 CoreVaultData {
                     to_be_replaced: wrapped(0),
                     ..default_vault_state(currency_id)
@@ -1082,8 +1082,8 @@ fn integration_test_replace_vault_with_different_currency_succeeds() {
         let old_vault_id = vault_id_of(OLD_VAULT, currency_id);
         let new_vault_id = vault_id_of(NEW_VAULT, other_currency);
 
-        CoreVaultData::force_to(OLD_VAULT, default_vault_state(currency_id));
-        CoreVaultData::force_to(NEW_VAULT, default_vault_state(other_currency));
+        CoreVaultData::force_to(&old_vault_id, default_vault_state(currency_id));
+        CoreVaultData::force_to(&new_vault_id, default_vault_state(other_currency));
 
         let (replace, replace_id) = setup_replace(&old_vault_id, &new_vault_id, currency_id, wrapped(1000));
 

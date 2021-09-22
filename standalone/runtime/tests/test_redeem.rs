@@ -12,10 +12,10 @@ fn test_with<R>(execute: impl Fn(CurrencyId) -> R) {
             set_default_thresholds();
             LiquidationVaultData::force_to(default_liquidation_vault_state(currency_id));
             UserData::force_to(USER, default_user_state());
-            CoreVaultData::force_to(VAULT, default_vault_state(currency_id));
+            CoreVaultData::force_to(&vault_id_of(VAULT, currency_id), default_vault_state(currency_id));
             // additional vault in order to prevent the edge case where the fee pool does not
             // get additional funds because there are no non-liquidated vaults left
-            CoreVaultData::force_to(CAROL, default_vault_state(currency_id));
+            CoreVaultData::force_to(&vault_id_of(CAROL, currency_id), default_vault_state(currency_id));
             execute(currency_id)
         })
     };
@@ -288,7 +288,7 @@ mod spec_based_tests {
                 let burned_tokens = user_to_redeem - redeem_fee;
 
                 CoreVaultData::force_to(
-                    VAULT,
+                    &vault_id_of(VAULT, currency_id),
                     CoreVaultData {
                         backing_collateral: default_vault_backing_collateral(currency_id),
                         ..CoreVaultData::vault(vault_id_of(VAULT, currency_id))
@@ -341,7 +341,7 @@ mod spec_based_tests {
                 set_redeem_state(currency_id, vault_to_be_redeemed, user_to_redeem, USER, VAULT);
                 let core_vault = CoreVaultData::vault(vault_id_of(VAULT, currency_id));
                 CoreVaultData::force_to(
-                    VAULT,
+                    &vault_id_of(VAULT, currency_id),
                     CoreVaultData {
                         issued: core_vault.issued.with_amount(|x| x - 1),
                         ..core_vault
@@ -777,14 +777,14 @@ mod spec_based_tests {
                     VaultRegistryPallet::get_required_collateral_for_wrapped(&DEFAULT_VAULT_ISSUED, currency_id)
                         .unwrap();
                 CoreVaultData::force_to(
-                    VAULT,
+                    &vault_id,
                     CoreVaultData {
                         backing_collateral: required_collateral,
                         ..CoreVaultData::vault(vault_id_of(VAULT, currency_id))
                     },
                 );
 
-                let redeem_id = setup_cancelable_redeem(USER, vault_id, amount_btc);
+                let redeem_id = setup_cancelable_redeem(USER, vault_id.clone(), amount_btc);
                 let redeem = RedeemPallet::get_open_redeem_request_from_id(&redeem_id).unwrap();
                 let parachain_state_before_cancellation = ParachainState::get(currency_id);
                 let amount_without_fee_as_collateral = redeem.amount_without_fee_as_collateral(currency_id);
@@ -816,7 +816,7 @@ mod spec_based_tests {
 
                 SecurityPallet::set_active_block_number(100000000);
                 CoreVaultData::force_to(
-                    VAULT,
+                    &vault_id,
                     CoreVaultData {
                         backing_collateral: required_collateral + amount_btc.convert_to(currency_id).unwrap() * 2,
                         ..CoreVaultData::vault(vault_id_of(VAULT, currency_id))
@@ -887,13 +887,13 @@ mod spec_based_tests {
                 let vault_id = vault_id_of(VAULT, currency_id);
                 let issued_tokens = wrapped(10_000);
                 let collateral_vault = Amount::new(1_000_000, currency_id);
-                let redeem_id = setup_cancelable_redeem(USER, vault_id, issued_tokens);
+                let redeem_id = setup_cancelable_redeem(USER, vault_id.clone(), issued_tokens);
                 let redeem = RedeemPallet::get_open_redeem_request_from_id(&redeem_id).unwrap();
 
                 // setup vault state such that 1/4th of its collateral is freed after successful redeem
                 let consumed_issued_tokens = redeem.amount_btc() + redeem.transfer_fee_btc();
                 CoreVaultData::force_to(
-                    VAULT,
+                    &vault_id,
                     CoreVaultData {
                         issued: consumed_issued_tokens * 4,
                         to_be_issued: wrapped(0),
@@ -952,13 +952,13 @@ mod spec_based_tests {
                 let vault_id = vault_id_of(VAULT, currency_id);
                 let issued_tokens = wrapped(10_000);
                 let collateral_vault = Amount::new(1_000_000, currency_id);
-                let redeem_id = setup_cancelable_redeem(USER, vault_id, issued_tokens);
+                let redeem_id = setup_cancelable_redeem(USER, vault_id.clone(), issued_tokens);
                 let redeem = RedeemPallet::get_open_redeem_request_from_id(&redeem_id).unwrap();
 
                 // setup vault state such that 1/4th of its collateral is freed after successful redeem
                 let consumed_issued_tokens = redeem.amount_btc() + redeem.transfer_fee_btc();
                 CoreVaultData::force_to(
-                    VAULT,
+                    &vault_id,
                     CoreVaultData {
                         issued: consumed_issued_tokens * 4,
                         to_be_issued: wrapped(0),
@@ -1011,8 +1011,6 @@ mod spec_based_tests {
     }
 
     mod mint_tokens_for_reimbursed_redeem {
-        use primitives::{VaultCurrencyPair, VaultId};
-
         use super::{assert_eq, *};
 
         #[test]
@@ -1042,14 +1040,10 @@ mod spec_based_tests {
                 );
                 get_additional_collateral(currency_id);
                 SecurityPallet::set_active_block_number(100000000);
-                let VaultId {
-                    currencies:
-                        VaultCurrencyPair {
-                            collateral: collateral_currency,
-                            wrapped: wrapped_currency,
-                        },
-                    ..
-                } = vault_id_of(VAULT, currency_id);
+                let vault_id = vault_id_of(VAULT, currency_id);
+                let collateral_currency = vault_id.currencies.collateral;
+                let wrapped_currency = vault_id.currencies.wrapped;
+
                 assert_noop!(
                     Call::Redeem(RedeemCall::mint_tokens_for_reimbursed_redeem(
                         collateral_currency,
@@ -1061,7 +1055,7 @@ mod spec_based_tests {
                 );
                 let tmp = CoreVaultData::vault(vault_id_of(VAULT, currency_id));
                 CoreVaultData::force_to(
-                    VAULT,
+                    &vault_id,
                     CoreVaultData {
                         backing_collateral: Amount::new(0, currency_id),
                         ..CoreVaultData::vault(vault_id_of(VAULT, currency_id))
@@ -1076,7 +1070,7 @@ mod spec_based_tests {
                     .dispatch(origin_of(account_of(VAULT))),
                     VaultRegistryError::ExceedingVaultLimit
                 );
-                CoreVaultData::force_to(VAULT, tmp);
+                CoreVaultData::force_to(&vault_id, tmp);
                 assert_noop!(
                     Call::Redeem(RedeemCall::mint_tokens_for_reimbursed_redeem(
                         collateral_currency,
@@ -1286,8 +1280,9 @@ fn integration_test_redeem_wrapped_liquidation_redeem() {
         let to_be_redeemed = wrapped(50);
         let liquidation_redeem_amount = wrapped(325);
 
+        let vault_id = vault_id_of(VAULT, currency_id);
         CoreVaultData::force_to(
-            VAULT,
+            &vault_id,
             CoreVaultData {
                 issued,
                 to_be_issued,
@@ -1298,7 +1293,7 @@ fn integration_test_redeem_wrapped_liquidation_redeem() {
         );
 
         // create tokens for the vault and user
-        liquidate_vault(&vault_id_of(VAULT, currency_id));
+        liquidate_vault(&vault_id);
 
         let post_liquidation_state = ParachainState::get(currency_id);
 
@@ -1378,7 +1373,7 @@ fn integration_test_redeem_wrapped_cancel_reimburse_insufficient_collateral_for_
         let required_collateral =
             VaultRegistryPallet::get_required_collateral_for_wrapped(&DEFAULT_VAULT_ISSUED, currency_id).unwrap();
         CoreVaultData::force_to(
-            VAULT,
+            &vault_id,
             CoreVaultData {
                 backing_collateral: required_collateral,
                 ..CoreVaultData::vault(vault_id_of(VAULT, currency_id))
@@ -1386,7 +1381,7 @@ fn integration_test_redeem_wrapped_cancel_reimburse_insufficient_collateral_for_
         );
         let initial_state = ParachainState::get(currency_id);
 
-        let redeem_id = setup_cancelable_redeem(USER, vault_id, amount_btc);
+        let redeem_id = setup_cancelable_redeem(USER, vault_id.clone(), amount_btc);
         let redeem = RedeemPallet::get_open_redeem_request_from_id(&redeem_id).unwrap();
         let amount_without_fee_as_collateral = redeem.amount_without_fee_as_collateral(currency_id);
 
@@ -1416,7 +1411,7 @@ fn integration_test_redeem_wrapped_cancel_reimburse_insufficient_collateral_for_
 
         SecurityPallet::set_active_block_number(100000000);
         CoreVaultData::force_to(
-            VAULT,
+            &vault_id,
             CoreVaultData {
                 backing_collateral: required_collateral + amount_btc.convert_to(currency_id).unwrap() * 2,
                 ..CoreVaultData::vault(vault_id_of(VAULT, currency_id))
@@ -1475,16 +1470,22 @@ fn integration_test_redeem_wrapped_cancel_no_reimburse() {
 #[test]
 fn integration_test_redeem_wrapped_cancel_liquidated_no_reimburse() {
     test_with(|currency_id| {
+        VaultRegistryPallet::collateral_integrity_check();
         let vault_id = vault_id_of(VAULT, currency_id);
+        VaultRegistryPallet::collateral_integrity_check();
         let issued_tokens = wrapped(10_000);
+        VaultRegistryPallet::collateral_integrity_check();
         let collateral_vault = Amount::new(1_000_000, currency_id);
-        let redeem_id = setup_cancelable_redeem(USER, vault_id, issued_tokens);
+        VaultRegistryPallet::collateral_integrity_check();
+        let redeem_id = setup_cancelable_redeem(USER, vault_id.clone(), issued_tokens);
+        VaultRegistryPallet::collateral_integrity_check();
         let redeem = RedeemPallet::get_open_redeem_request_from_id(&redeem_id).unwrap();
+        VaultRegistryPallet::collateral_integrity_check();
 
         // setup vault state such that 1/4th of its collateral is freed after successful redeem
         let consumed_issued_tokens = redeem.amount_btc() + redeem.transfer_fee_btc();
         CoreVaultData::force_to(
-            VAULT,
+            &vault_id,
             CoreVaultData {
                 issued: consumed_issued_tokens * 4,
                 to_be_issued: wrapped(0),
@@ -1536,13 +1537,13 @@ fn integration_test_redeem_wrapped_cancel_liquidated_reimburse() {
         let vault_id = vault_id_of(VAULT, currency_id);
         let issued_tokens = wrapped(10_000);
         let collateral_vault = Amount::new(1_000_000, currency_id);
-        let redeem_id = setup_cancelable_redeem(USER, vault_id, issued_tokens);
+        let redeem_id = setup_cancelable_redeem(USER, vault_id.clone(), issued_tokens);
         let redeem = RedeemPallet::get_open_redeem_request_from_id(&redeem_id).unwrap();
 
         // setup vault state such that 1/4th of its collateral is freed after successful redeem
         let consumed_issued_tokens = redeem.amount_btc() + redeem.transfer_fee_btc();
         CoreVaultData::force_to(
-            VAULT,
+            &vault_id,
             CoreVaultData {
                 issued: consumed_issued_tokens * 4,
                 to_be_issued: wrapped(0),
@@ -1595,13 +1596,13 @@ fn integration_test_redeem_wrapped_execute_liquidated() {
         let collateral_vault = Amount::new(1_000_000, currency_id);
 
         let vault_id = vault_id_of(VAULT, currency_id);
-        let redeem_id = setup_redeem(issued_tokens, USER, vault_id);
+        let redeem_id = setup_redeem(issued_tokens, USER, vault_id.clone());
         let redeem = RedeemPallet::get_open_redeem_request_from_id(&redeem_id).unwrap();
 
         // setup vault state such that 1/4th of its collateral is freed after successful redeem
         let consumed_issued_tokens = redeem.amount_btc() + redeem.transfer_fee_btc();
         CoreVaultData::force_to(
-            VAULT,
+            &vault_id,
             CoreVaultData {
                 issued: consumed_issued_tokens * 4,
                 to_be_issued: wrapped(0),
@@ -1662,7 +1663,7 @@ fn setup_cancelable_redeem_with_insufficient_collateral_for_reimburse(currency_i
     let required_collateral =
         VaultRegistryPallet::get_required_collateral_for_wrapped(&DEFAULT_VAULT_ISSUED, currency_id).unwrap();
     CoreVaultData::force_to(
-        VAULT,
+        &vault_id,
         CoreVaultData {
             backing_collateral: required_collateral,
             ..CoreVaultData::vault(vault_id_of(VAULT, currency_id))

@@ -12,7 +12,7 @@ fn test_with<R>(execute: impl Fn(CurrencyId) -> R) {
             assert_ok!(OraclePallet::_set_exchange_rate(currency_id, FixedU128::one()));
             LiquidationVaultData::force_to(default_liquidation_vault_state(currency_id));
             UserData::force_to(USER, default_user_state());
-            CoreVaultData::force_to(VAULT, default_vault_state(currency_id));
+            CoreVaultData::force_to(&vault_id_of(VAULT, currency_id), default_vault_state(currency_id));
             execute(currency_id)
         })
     };
@@ -88,10 +88,10 @@ mod deposit_collateral_test {
     fn integration_test_vault_registry_lock_additional_respects_fund_limit() {
         test_with(|currency_id| {
             let vault_id = vault_id_of(VAULT, currency_id);
-            let mut vault_data = CoreVaultData::vault(vault_id);
+            let mut vault_data = CoreVaultData::vault(vault_id.clone());
             *vault_data.free_balance.get_mut(&currency_id).unwrap() = Amount::new(FUND_LIMIT_CEILING, currency_id);
 
-            CoreVaultData::force_to(VAULT, vault_data);
+            CoreVaultData::force_to(&vault_id, vault_data);
 
             let current = VaultRegistryPallet::get_total_user_vault_collateral(currency_id).unwrap();
             let remaining = FUND_LIMIT_CEILING - current.amount();

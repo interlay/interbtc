@@ -10,7 +10,7 @@ fn test_with<R>(execute: impl Fn(CurrencyId) -> R) {
             for currency_id in iter_collateral_currencies() {
                 assert_ok!(OraclePallet::_set_exchange_rate(currency_id, FixedU128::one()));
             }
-            CoreVaultData::force_to(BOB, default_vault_state(currency_id));
+            CoreVaultData::force_to(&vault_id_of(BOB, currency_id), default_vault_state(currency_id));
             execute(currency_id)
         });
     };

@@ -88,7 +88,7 @@ pub fn set_redeem_state(
     let burned_tokens = user_to_redeem - FeePallet::get_redeem_fee(&user_to_redeem).unwrap();
     let vault_issued_tokens = vault_to_be_redeemed + burned_tokens;
     CoreVaultData::force_to(
-        vault,
+        &vault_id_of(vault, currency_id),
         CoreVaultData {
             issued: vault_issued_tokens,
             to_be_redeemed: vault_to_be_redeemed,

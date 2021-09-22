@@ -22,7 +22,14 @@ fn test_with<R>(execute: impl Fn(CurrencyId) -> R) {
 
 fn test_with_initialized_vault<R>(execute: impl Fn(CurrencyId) -> R) {
     test_with(|currency_id| {
-        CoreVaultData::force_to(VAULT, default_vault_state(currency_id));
+        CoreVaultData::force_to(&vault_id_of(VAULT, currency_id), default_vault_state(currency_id));
+        //
+        // let other_currency = if let CurrencyId::DOT = currency_id {
+        //     CurrencyId::KSM
+        // } else {
+        //     CurrencyId::DOT
+        // };
+        // CoreVaultData::force_to(&vault_id_of(VAULT, other_currency), default_vault_state(other_currency));
         execute(currency_id)
     })
 }
@@ -298,7 +305,7 @@ mod request_issue_tests {
             let vault_id = vault_id_of(VAULT, currency_id);
             let mut vault_data = CoreVaultData::vault(vault_id.clone());
             vault_data.griefing_collateral += griefing(1000000);
-            CoreVaultData::force_to(VAULT, vault_data);
+            CoreVaultData::force_to(&vault_id, vault_data);
 
             assert_noop!(
                 Call::Issue(IssueCall::request_issue(
@@ -533,7 +540,7 @@ fn integration_test_issue_refund() {
         let current_minimum_collateral =
             VaultRegistryPallet::get_required_collateral_for_vault(vault_id_of(VAULT, currency_id)).unwrap();
         CoreVaultData::force_to(
-            VAULT,
+            &vault_id_of(VAULT, currency_id),
             CoreVaultData {
                 backing_collateral: current_minimum_collateral + requested_btc.convert_to(currency_id).unwrap() * 2,
                 ..CoreVaultData::vault(vault_id_of(VAULT, currency_id))
@@ -582,7 +589,7 @@ mod execute_refund_payment_limits {
         let current_minimum_collateral =
             VaultRegistryPallet::get_required_collateral_for_vault(vault_id_of(VAULT, currency_id)).unwrap();
         CoreVaultData::force_to(
-            VAULT,
+            &vault_id_of(VAULT, currency_id),
             CoreVaultData {
                 backing_collateral: current_minimum_collateral + requested_btc.convert_to(currency_id).unwrap() * 2,
                 ..CoreVaultData::vault(vault_id_of(VAULT, currency_id))
@@ -898,7 +905,7 @@ mod execute_issue_tests {
             let current_minimum_collateral =
                 VaultRegistryPallet::get_required_collateral_for_vault(vault_id_of(VAULT, currency_id)).unwrap();
             CoreVaultData::force_to(
-                VAULT,
+                &vault_id_of(VAULT, currency_id),
                 CoreVaultData {
                     backing_collateral: current_minimum_collateral + requested_btc.convert_to(currency_id).unwrap() * 2,
                     ..CoreVaultData::vault(vault_id_of(VAULT, currency_id))

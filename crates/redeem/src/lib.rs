@@ -388,7 +388,11 @@ impl<T: Config> Pallet<T> {
             ext::vault_registry::decrease_to_be_replaced_tokens::<T>(&vault_id, &vault_to_be_burned_tokens)?;
         // release the griefing collateral that is locked for the replace request
         if !griefing_collateral.is_zero() {
-            griefing_collateral.unlock_on(&vault_id.account_id)?;
+            ext::vault_registry::transfer_funds(
+                CurrencySource::AvailableReplaceCollateral(vault_id.clone()),
+                CurrencySource::FreeBalance(vault_id.account_id.clone()),
+                &griefing_collateral,
+            )?;
         }
 
         Self::insert_redeem_request(

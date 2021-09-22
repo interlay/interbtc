@@ -824,7 +824,17 @@ impl<T: Config> Pallet<T> {
                 );
                 Self::slash_backing_collateral(vault_id, amount)?;
             }
-            CurrencySource::VaultGriefing(_) | CurrencySource::UserGriefing(_) => {
+            CurrencySource::AvailableReplaceCollateral(ref vault_id) => {
+                let mut vault = Self::get_active_rich_vault_from_id(&vault_id)?;
+                vault.decrease_available_replace_collateral(amount)?;
+                amount.unlock_on(&from.account_id())?;
+            }
+            CurrencySource::ActiveReplaceCollateral(ref vault_id) => {
+                let mut vault = Self::get_rich_vault_from_id(&vault_id)?;
+                vault.decrease_active_replace_collateral(amount)?;
+                amount.unlock_on(&from.account_id())?;
+            }
+            CurrencySource::UserGriefing(_) => {
                 amount.unlock_on(&from.account_id())?;
             }
             CurrencySource::LiquidatedCollateral(_) | CurrencySource::LiquidationVault => {
@@ -849,7 +859,17 @@ impl<T: Config> Pallet<T> {
                 );
                 Self::try_deposit_collateral(vault_id, amount)?;
             }
-            CurrencySource::VaultGriefing(_) | CurrencySource::UserGriefing(_) => {
+            CurrencySource::AvailableReplaceCollateral(ref vault_id) => {
+                let mut vault = Self::get_active_rich_vault_from_id(&vault_id)?;
+                vault.increase_available_replace_collateral(amount)?;
+                amount.lock_on(&to.account_id())?;
+            }
+            CurrencySource::ActiveReplaceCollateral(ref vault_id) => {
+                let mut vault = Self::get_rich_vault_from_id(&vault_id)?;
+                vault.increase_active_replace_collateral(amount)?;
+                amount.lock_on(&to.account_id())?;
+            }
+            CurrencySource::UserGriefing(_) => {
                 amount.lock_on(&to.account_id())?;
             }
             CurrencySource::LiquidationVault | CurrencySource::LiquidatedCollateral(_) => {
@@ -923,7 +943,7 @@ impl<T: Config> Pallet<T> {
             Error::<T>::InsufficientTokensCommitted
         );
 
-        vault.set_to_be_replaced_amount(&new_to_be_replaced, &new_collateral)?;
+        vault.set_to_be_replaced_amount(&new_to_be_replaced)?;
 
         Self::deposit_event(Event::<T>::IncreaseToBeReplacedTokens(vault.id(), tokens.amount()));
 
@@ -949,9 +969,8 @@ impl<T: Config> Pallet<T> {
         let used_collateral = used_collateral.min(&initial_griefing_collateral)?;
 
         let new_to_be_replaced = initial_to_be_replaced.checked_sub(&used_tokens)?;
-        let new_collateral = initial_griefing_collateral.checked_sub(&used_collateral)?;
 
-        vault.set_to_be_replaced_amount(&new_to_be_replaced, &new_collateral)?;
+        vault.set_to_be_replaced_amount(&new_to_be_replaced)?;
 
         Self::deposit_event(Event::<T>::DecreaseToBeReplacedTokens(vault.id(), tokens.amount()));
 
@@ -1725,6 +1744,46 @@ impl<T: Config> Pallet<T> {
         let mut vault = Self::get_active_rich_vault_from_id(vault_id)?;
         let btc_address = vault.new_deposit_address(secure_id)?;
         Ok(btc_address)
+    }
+
+    #[cfg(feature = "integration-tests")]
+    pub fn collateral_integrity_check() {
+        let griefing_currency = T::GetGriefingCollateralCurrencyId::get();
+        for (vault_id, _) in Vaults::<T>::iter().filter(|(_, vault)| matches!(vault.status, VaultStatus::Active(_))) {
+            // check that there is enough griefing collateral
+            let active_griefing = CurrencySource::<T>::ActiveReplaceCollateral(vault_id.clone())
+                .current_balance(griefing_currency)
+                .unwrap();
+            let available_replace_collateral = CurrencySource::<T>::AvailableReplaceCollateral(vault_id.clone())
+                .current_balance(griefing_currency)
+                .unwrap();
+            let total_replace_collateral = active_griefing + available_replace_collateral;
+            assert!(
+                ext::currency::get_reserved_balance(griefing_currency, &vault_id.account_id)
+                    .ge(&total_replace_collateral)
+                    .unwrap()
+            );
+
+            let backing_collateral = CurrencySource::<T>::Collateral(vault_id.clone())
+                .current_balance(vault_id.collateral_currency())
+                .unwrap();
+            assert!(
+                ext::currency::get_reserved_balance(vault_id.collateral_currency(), &vault_id.account_id)
+                    .ge(&backing_collateral)
+                    .unwrap()
+            );
+
+            let total_locked = if griefing_currency == vault_id.collateral_currency() {
+                backing_collateral + total_replace_collateral
+            } else {
+                backing_collateral
+            };
+            assert!(
+                ext::currency::get_reserved_balance(vault_id.collateral_currency(), &vault_id.account_id)
+                    .eq(&total_locked)
+                    .unwrap()
+            )
+        }
     }
 
     #[cfg(feature = "integration-tests")]

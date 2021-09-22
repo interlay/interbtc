@@ -349,10 +349,12 @@ impl<T: Config> Pallet<T> {
             Error::<T>::InsufficientCollateral
         );
 
-        // Lock the oldVault’s griefing collateral. Note that this directly locks the amount
-        // without going through the vault registry, so that this amount can not be used to
-        // back issued tokens
-        replace_collateral_increase.lock_on(&vault_id.account_id)?;
+        // Lock the oldVault’s griefing collateral
+        ext::vault_registry::transfer_funds(
+            CurrencySource::FreeBalance(vault_id.account_id.clone()),
+            CurrencySource::AvailableReplaceCollateral(vault_id.clone()),
+            &replace_collateral_increase,
+        )?;
 
         // Emit RequestReplace event
         Self::deposit_event(<Event<T>>::RequestReplace(
@@ -370,7 +372,11 @@ impl<T: Config> Pallet<T> {
             ext::vault_registry::decrease_to_be_replaced_tokens::<T>(&vault_id, &amount)?;
 
         // release the used collateral
-        to_withdraw_collateral.unlock_on(&vault_id.account_id)?;
+        ext::vault_registry::transfer_funds(
+            CurrencySource::AvailableReplaceCollateral(vault_id.clone()),
+            CurrencySource::FreeBalance(vault_id.account_id.clone()),
+            &to_withdraw_collateral,
+        )?;
 
         if withdrawn_tokens.is_zero() {
             return Err(Error::<T>::NoPendingRequest.into());
@@ -427,6 +433,12 @@ impl<T: Config> Pallet<T> {
 
         // increase new-vault's to-be-issued tokens - this will fail if there is insufficient collateral
         ext::vault_registry::try_increase_to_be_issued_tokens::<T>(&new_vault_id, &redeemable_tokens)?;
+
+        ext::vault_registry::transfer_funds(
+            CurrencySource::AvailableReplaceCollateral(old_vault_id.clone()),
+            CurrencySource::ActiveReplaceCollateral(old_vault_id.clone()),
+            &griefing_collateral,
+        )?;
 
         let replace_id = ext::security::get_secure_id::<T>(&old_vault_id.account_id);
 
@@ -485,8 +497,12 @@ impl<T: Config> Pallet<T> {
         // change new-vault's to-be-issued tokens to issued tokens
         ext::vault_registry::replace_tokens::<T>(&old_vault_id, &new_vault_id, &amount, &collateral)?;
 
-        // if the old vault has not been liquidated, give it back its griefing collateral
-        griefing_collateral.unlock_on(&old_vault_id.account_id)?;
+        // Give oldvault back its griefing collateral
+        ext::vault_registry::transfer_funds(
+            CurrencySource::ActiveReplaceCollateral(old_vault_id.clone()),
+            CurrencySource::FreeBalance(old_vault_id.account_id.clone()),
+            &griefing_collateral,
+        )?;
 
         // Emit ExecuteReplace event.
         Self::deposit_event(<Event<T>>::ExecuteReplace(replace_id, old_vault_id, new_vault_id));
@@ -525,7 +541,7 @@ impl<T: Config> Pallet<T> {
 
         // slash old-vault's griefing collateral
         ext::vault_registry::transfer_funds::<T>(
-            CurrencySource::VaultGriefing(replace.old_vault.clone()),
+            CurrencySource::ActiveReplaceCollateral(replace.old_vault.clone()),
             CurrencySource::FreeBalance(new_vault_id.account_id.clone()),
             &griefing_collateral,
         )?;

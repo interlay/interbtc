@@ -411,9 +411,12 @@ impl CoreVaultData {
             backing_collateral: CurrencySource::<Runtime>::Collateral(vault_id.clone())
                 .current_balance(vault_id.currencies.collateral)
                 .unwrap(),
-            griefing_collateral: CurrencySource::<Runtime>::VaultGriefing(vault_id.clone())
+            griefing_collateral: CurrencySource::<Runtime>::ActiveReplaceCollateral(vault_id.clone())
                 .current_balance(<Runtime as vault_registry::Config>::GetGriefingCollateralCurrencyId::get())
-                .unwrap(),
+                .unwrap()
+                + CurrencySource::<Runtime>::AvailableReplaceCollateral(vault_id.clone())
+                    .current_balance(vault_id.currencies.collateral)
+                    .unwrap(),
             liquidated_collateral: Amount::new(vault.liquidated_collateral, vault_id.currencies.collateral),
             free_balance: iter_all_currencies()
                 .map(|currency_id| {
@@ -437,12 +440,13 @@ impl CoreVaultData {
         self.backing_collateral.currency()
     }
 
-    pub fn force_to(vault: [u8; 32], state: CoreVaultData) {
+    pub fn force_to(vault_id: &DefaultVaultId<Runtime>, state: CoreVaultData) {
+        VaultRegistryPallet::collateral_integrity_check();
+
         // replace collateral is part of griefing collateral, so it needs to smaller or equal
         assert!(state.griefing_collateral >= state.replace_collateral);
         assert!(state.to_be_replaced + state.to_be_redeemed <= state.issued);
 
-        let vault_id = VaultId::new(account_of(vault), state.collateral_currency(), DEFAULT_WRAPPED_CURRENCY);
         // register vault if not yet registered
         try_register_vault(Amount::new(100, state.collateral_currency()), &vault_id);
 
@@ -451,6 +455,7 @@ impl CoreVaultData {
             .unwrap()
             .id
             .collateral_currency();
+        VaultRegistryPallet::collateral_integrity_check();
 
         // temporarily give vault a lot of backing collateral so we can set issued & to-be-issued to whatever we want
         VaultRegistryPallet::transfer_funds(
@@ -459,6 +464,7 @@ impl CoreVaultData {
             &Amount::new(FUND_LIMIT_CEILING / 10, currency_id),
         )
         .unwrap();
+        VaultRegistryPallet::collateral_integrity_check();
 
         let current = CoreVaultData::vault(vault_id.clone());
 
@@ -507,13 +513,14 @@ impl CoreVaultData {
             &state.to_be_replaced,
             &state.replace_collateral
         ));
+        VaultRegistryPallet::collateral_integrity_check();
 
         // clear all balances
         for currency_id in iter_all_currencies() {
             VaultRegistryPallet::transfer_funds(
-                CurrencySource::FreeBalance(account_of(vault)),
+                CurrencySource::FreeBalance(vault_id.account_id.clone()),
                 CurrencySource::FreeBalance(account_of(FAUCET)),
-                &CurrencySource::<Runtime>::FreeBalance(account_of(vault))
+                &CurrencySource::<Runtime>::FreeBalance(vault_id.account_id.clone())
                     .current_balance(currency_id)
                     .unwrap(),
             )
@@ -521,7 +528,7 @@ impl CoreVaultData {
 
             VaultRegistryPallet::transfer_funds(
                 CurrencySource::FreeBalance(account_of(FAUCET)),
-                CurrencySource::FreeBalance(account_of(vault)),
+                CurrencySource::FreeBalance(vault_id.account_id.clone()),
                 &state
                     .free_balance
                     .get(&currency_id)
@@ -529,15 +536,30 @@ impl CoreVaultData {
                     .unwrap_or(Amount::zero(currency_id)),
             )
             .unwrap();
+            VaultRegistryPallet::collateral_integrity_check();
         }
+        VaultRegistryPallet::collateral_integrity_check();
+
         VaultRegistryPallet::transfer_funds(
-            CurrencySource::VaultGriefing(vault_id.clone()),
+            CurrencySource::ActiveReplaceCollateral(vault_id.clone()),
             CurrencySource::FreeBalance(account_of(FAUCET)),
-            &CurrencySource::<Runtime>::VaultGriefing(vault_id.clone())
+            &CurrencySource::<Runtime>::ActiveReplaceCollateral(vault_id.clone())
                 .current_balance(<Runtime as vault_registry::Config>::GetGriefingCollateralCurrencyId::get())
                 .unwrap(),
         )
         .unwrap();
+        VaultRegistryPallet::collateral_integrity_check();
+
+        VaultRegistryPallet::transfer_funds(
+            CurrencySource::AvailableReplaceCollateral(vault_id.clone()),
+            CurrencySource::FreeBalance(account_of(FAUCET)),
+            &CurrencySource::<Runtime>::AvailableReplaceCollateral(vault_id.clone())
+                .current_balance(<Runtime as vault_registry::Config>::GetGriefingCollateralCurrencyId::get())
+                .unwrap(),
+        )
+        .unwrap();
+
+        VaultRegistryPallet::collateral_integrity_check();
 
         // vault's backing collateral was temporarily increased - reset to 0
         VaultRegistryPallet::transfer_funds(
@@ -558,10 +580,19 @@ impl CoreVaultData {
         .unwrap();
         VaultRegistryPallet::transfer_funds(
             CurrencySource::FreeBalance(account_of(FAUCET)),
-            CurrencySource::VaultGriefing(vault_id.clone()),
-            &state.griefing_collateral,
+            CurrencySource::AvailableReplaceCollateral(vault_id.clone()),
+            &state.replace_collateral,
         )
         .unwrap();
+
+        VaultRegistryPallet::transfer_funds(
+            CurrencySource::FreeBalance(account_of(FAUCET)),
+            CurrencySource::ActiveReplaceCollateral(vault_id.clone()),
+            &(state.griefing_collateral - state.replace_collateral),
+        )
+        .unwrap();
+
+        VaultRegistryPallet::collateral_integrity_check();
 
         // check that we achieved the desired state
         assert_eq!(CoreVaultData::vault(vault_id.clone()), state);

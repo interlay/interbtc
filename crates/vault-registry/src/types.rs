@@ -32,8 +32,10 @@ pub enum Version {
 pub enum CurrencySource<T: frame_system::Config + staking::Config> {
     /// Used by vault to back issued tokens
     Collateral(DefaultVaultId<T>),
+    /// Collateral put down by request_replace, but that has not been accepted yet
+    AvailableReplaceCollateral(DefaultVaultId<T>),
     /// Collateral that is locked, but not used to back issued tokens (e.g. griefing collateral)
-    VaultGriefing(DefaultVaultId<T>),
+    ActiveReplaceCollateral(DefaultVaultId<T>),
     /// User's issue griefing collateral
     UserGriefing(<T as frame_system::Config>::AccountId),
     /// Unlocked balance
@@ -48,7 +50,8 @@ impl<T: Config> CurrencySource<T> {
     pub fn account_id(&self) -> <T as frame_system::Config>::AccountId {
         match self {
             CurrencySource::Collateral(DefaultVaultId::<T> { account_id: x, .. })
-            | CurrencySource::VaultGriefing(DefaultVaultId::<T> { account_id: x, .. })
+            | CurrencySource::AvailableReplaceCollateral(DefaultVaultId::<T> { account_id: x, .. })
+            | CurrencySource::ActiveReplaceCollateral(DefaultVaultId::<T> { account_id: x, .. })
             | CurrencySource::UserGriefing(x)
             | CurrencySource::FreeBalance(x)
             | CurrencySource::LiquidatedCollateral(DefaultVaultId::<T> { account_id: x, .. }) => x.clone(),
@@ -59,21 +62,16 @@ impl<T: Config> CurrencySource<T> {
     pub fn current_balance(&self, currency_id: CurrencyId<T>) -> Result<crate::Amount<T>, DispatchError> {
         let amount = match self {
             CurrencySource::Collateral(vault_id) => Pallet::<T>::get_backing_collateral(vault_id)?,
-            CurrencySource::VaultGriefing(vault_id) => {
-                let vault = Pallet::<T>::get_rich_vault_from_id(vault_id)?;
-                let backing_collateral = Pallet::<T>::get_backing_collateral(vault_id)?;
-                let backing_collateral = if vault.data.is_liquidated() {
-                    vault.liquidated_collateral().checked_add(&backing_collateral)?
-                } else {
-                    backing_collateral
-                };
-
-                let current = ext::currency::get_reserved_balance::<T>(currency_id, &vault_id.account_id);
-                if currency_id == vault_id.currencies.collateral {
-                    current.checked_sub(&backing_collateral)?
-                } else {
-                    current
-                }
+            CurrencySource::AvailableReplaceCollateral(vault_id) => {
+                let vault = Pallet::<T>::get_vault_from_id(vault_id)?;
+                Amount::new(vault.replace_collateral, T::GetGriefingCollateralCurrencyId::get())
+            }
+            CurrencySource::ActiveReplaceCollateral(vault_id) => {
+                let vault = Pallet::<T>::get_vault_from_id(vault_id)?;
+                Amount::new(
+                    vault.active_replace_collateral,
+                    T::GetGriefingCollateralCurrencyId::get(),
+                )
             }
             CurrencySource::UserGriefing(x) => ext::currency::get_reserved_balance::<T>(currency_id, x),
             CurrencySource::FreeBalance(x) => ext::currency::get_free_balance::<T>(currency_id, x),
@@ -169,9 +167,11 @@ pub struct Vault<AccountId, BlockNumber, Balance, CurrencyId: Copy> {
     /// Number of tokens that have been requested for a replace through
     /// `request_replace`, but that have not been accepted yet by a new_vault.
     pub to_be_replaced_tokens: Balance,
-    /// Amount of collateral that is locked as griefing collateral to be payed out if
-    /// the old_vault fails to call execute_replace
+    /// Amount of collateral that is available as griefing collateral to vaults accepting
+    /// a replace request. It is to be payed out if the old_vault fails to call execute_replace.
     pub replace_collateral: Balance,
+    /// Amount of collateral locked for accepted replace requests.
+    pub active_replace_collateral: Balance,
     /// Amount of collateral that is locked for remaining to_be_redeemed
     /// tokens upon liquidation.
     pub liquidated_collateral: Balance,
@@ -210,6 +210,7 @@ impl<AccountId: Default + Ord, BlockNumber: Default, Balance: HasCompact + Defau
             to_be_issued_tokens: Default::default(),
             to_be_redeemed_tokens: Default::default(),
             to_be_replaced_tokens: Default::default(),
+            active_replace_collateral: Default::default(),
         }
     }
 
@@ -420,14 +421,49 @@ impl<T: Config> RichVault<T> {
         self.issued_tokens().checked_sub(&self.to_be_redeemed_tokens())
     }
 
-    pub(crate) fn set_to_be_replaced_amount(
-        &mut self,
-        tokens: &Amount<T>,
-        griefing_collateral: &Amount<T>,
-    ) -> DispatchResult {
+    pub(crate) fn set_to_be_replaced_amount(&mut self, tokens: &Amount<T>) -> DispatchResult {
         self.update(|v| {
             v.to_be_replaced_tokens = tokens.amount();
-            v.replace_collateral = griefing_collateral.amount();
+            Ok(())
+        })
+    }
+
+    pub(crate) fn increase_available_replace_collateral(&mut self, amount: &Amount<T>) -> DispatchResult {
+        self.update(|v| {
+            v.replace_collateral = v
+                .replace_collateral
+                .checked_add(&amount.amount())
+                .ok_or(Error::<T>::ArithmeticOverflow)?;
+            Ok(())
+        })
+    }
+
+    pub(crate) fn decrease_available_replace_collateral(&mut self, amount: &Amount<T>) -> DispatchResult {
+        self.update(|v| {
+            v.replace_collateral = v
+                .replace_collateral
+                .checked_sub(&amount.amount())
+                .ok_or(Error::<T>::ArithmeticUnderflow)?;
+            Ok(())
+        })
+    }
+
+    pub(crate) fn increase_active_replace_collateral(&mut self, amount: &Amount<T>) -> DispatchResult {
+        self.update(|v| {
+            v.active_replace_collateral = v
+                .active_replace_collateral
+                .checked_add(&amount.amount())
+                .ok_or(Error::<T>::ArithmeticOverflow)?;
+            Ok(())
+        })
+    }
+
+    pub(crate) fn decrease_active_replace_collateral(&mut self, amount: &Amount<T>) -> DispatchResult {
+        self.update(|v| {
+            v.active_replace_collateral = v
+                .active_replace_collateral
+                .checked_sub(&amount.amount())
+                .ok_or(Error::<T>::ArithmeticUnderflow)?;
             Ok(())
         })
     }
@@ -569,7 +605,7 @@ impl<T: Config> RichVault<T> {
         liquidation_vault.increase_issued(&self.issued_tokens())?;
         liquidation_vault.increase_to_be_issued(&self.to_be_issued_tokens())?;
         liquidation_vault.increase_to_be_redeemed(&self.to_be_redeemed_tokens())?;
-
+        // todo: clear replace collateral?
         // withdraw stake from the reward pool
         ext::reward::withdraw_stake::<T>(&vault_id, &self.issued_tokens())?;
 
