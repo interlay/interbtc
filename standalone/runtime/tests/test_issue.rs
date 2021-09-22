@@ -808,7 +808,6 @@ mod execute_issue_tests {
 
             // need stake for rewards to deposit
             assert_ok!(VaultRewardsPallet::deposit_stake(
-                DOT,
                 &vault_id_of(VAULT, currency_id),
                 signed_fixed_point!(1)
             ));

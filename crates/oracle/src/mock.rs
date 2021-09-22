@@ -140,11 +140,16 @@ impl security::Config for Test {
     type Event = TestEvent;
 }
 
+parameter_types! {
+    pub GetRewardCurrencyIds: Vec<CurrencyId> = vec![INTERBTC];
+}
+
 impl staking::Config for Test {
     type Event = TestEvent;
     type SignedFixedPoint = SignedFixedPoint;
     type SignedInner = SignedInner;
     type CurrencyId = CurrencyId;
+    type GetRewardCurrencyIds = GetRewardCurrencyIds;
 }
 
 pub type TestEvent = Event;

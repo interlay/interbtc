@@ -62,11 +62,19 @@ impl frame_system::Config for Test {
     type OnSetCode = ();
 }
 
+pub const KINT: CurrencyId = CurrencyId::KINT;
+pub const KBTC: CurrencyId = CurrencyId::KBTC;
+
+parameter_types! {
+    pub GetRewardCurrencyIds: Vec<CurrencyId> = vec![KINT, KBTC];
+}
+
 impl Config for Test {
     type Event = TestEvent;
     type SignedInner = SignedInner;
     type SignedFixedPoint = SignedFixedPoint;
     type CurrencyId = CurrencyId;
+    type GetRewardCurrencyIds = GetRewardCurrencyIds;
 }
 
 pub type TestEvent = Event;

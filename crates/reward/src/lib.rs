@@ -12,11 +12,11 @@ mod mock;
 mod tests;
 
 use codec::{Decode, Encode, EncodeLike};
-use frame_support::{dispatch::DispatchError, traits::Get};
+use frame_support::{dispatch::DispatchError, ensure, traits::Get};
 use primitives::{TruncateFixedPointToInt, VaultId};
 use sp_arithmetic::FixedPointNumber;
 use sp_runtime::traits::{CheckedAdd, CheckedDiv, CheckedMul, CheckedSub, MaybeSerializeDeserialize, Zero};
-use sp_std::marker::PhantomData;
+use sp_std::{marker::PhantomData, vec::Vec};
 
 pub(crate) type SignedFixedPoint<T> = <T as Config>::SignedFixedPoint;
 
@@ -43,6 +43,10 @@ pub mod pallet {
 
         /// The currency ID type.
         type CurrencyId: Parameter + Member + Copy + MaybeSerializeDeserialize + Ord;
+
+        /// Supported reward currencies.
+        #[pallet::constant]
+        type GetRewardCurrencyIds: Get<Vec<Self::CurrencyId>>;
     }
 
     // The pallet's events
@@ -54,9 +58,9 @@ pub mod pallet {
         T::SignedFixedPoint = "SignedFixedPoint"
     )]
     pub enum Event<T: Config> {
-        DepositStake(T::CurrencyId, DefaultVaultId<T>, T::SignedFixedPoint),
+        DepositStake(DefaultVaultId<T>, T::SignedFixedPoint),
         DistributeReward(T::CurrencyId, T::SignedFixedPoint),
-        WithdrawStake(T::CurrencyId, DefaultVaultId<T>, T::SignedFixedPoint),
+        WithdrawStake(DefaultVaultId<T>, T::SignedFixedPoint),
         WithdrawReward(T::CurrencyId, DefaultVaultId<T>, T::SignedFixedPoint),
     }
 
@@ -66,6 +70,7 @@ pub mod pallet {
         ArithmeticUnderflow,
         TryIntoIntError,
         InsufficientFunds,
+        InvalidCurrencyId,
     }
 
     #[pallet::hooks]
@@ -74,7 +79,7 @@ pub mod pallet {
     /// The total stake deposited to this reward pool.
     #[pallet::storage]
     #[pallet::getter(fn total_stake)]
-    pub type TotalStake<T: Config> = StorageMap<_, Blake2_128Concat, T::CurrencyId, SignedFixedPoint<T>, ValueQuery>;
+    pub type TotalStake<T: Config> = StorageValue<_, SignedFixedPoint<T>, ValueQuery>;
 
     /// The total unclaimed rewards distributed to this reward pool.
     /// NOTE: this is currently only used for integration tests.
@@ -91,24 +96,16 @@ pub mod pallet {
     /// The stake of a participant in this reward pool.
     #[pallet::storage]
     #[pallet::getter(fn stake)]
-    pub type Stake<T: Config> = StorageDoubleMap<
-        _,
-        Blake2_128Concat,
-        T::CurrencyId,
-        Blake2_128Concat,
-        DefaultVaultId<T>,
-        SignedFixedPoint<T>,
-        ValueQuery,
-    >;
+    pub type Stake<T: Config> = StorageMap<_, Blake2_128Concat, DefaultVaultId<T>, SignedFixedPoint<T>, ValueQuery>;
 
     /// Accounts for previous changes in stake size.
     #[pallet::storage]
     pub type RewardTally<T: Config> = StorageDoubleMap<
         _,
         Blake2_128Concat,
-        T::CurrencyId,
-        Blake2_128Concat,
         DefaultVaultId<T>,
+        Blake2_128Concat,
+        T::CurrencyId,
         SignedFixedPoint<T>,
         ValueQuery,
     >;
@@ -122,6 +119,12 @@ pub mod pallet {
 }
 
 macro_rules! checked_add_mut {
+    ($storage:ty, $amount:expr) => {
+        <$storage>::mutate(|value| {
+            *value = value.checked_add($amount).ok_or(Error::<T>::ArithmeticOverflow)?;
+            Ok::<_, Error<T>>(())
+        })?;
+    };
     ($storage:ty, $currency:expr, $amount:expr) => {
         <$storage>::mutate($currency, |value| {
             *value = value.checked_add($amount).ok_or(Error::<T>::ArithmeticOverflow)?;
@@ -137,6 +140,12 @@ macro_rules! checked_add_mut {
 }
 
 macro_rules! checked_sub_mut {
+    ($storage:ty, $amount:expr) => {
+        <$storage>::mutate(|value| {
+            *value = value.checked_sub($amount).ok_or(Error::<T>::ArithmeticUnderflow)?;
+            Ok::<_, Error<T>>(())
+        })?;
+    };
     ($storage:ty, $currency:expr, $amount:expr) => {
         <$storage>::mutate($currency, |value| {
             *value = value.checked_sub($amount).ok_or(Error::<T>::ArithmeticUnderflow)?;
@@ -156,31 +165,34 @@ impl<T: Config> Pallet<T> {
     pub fn get_total_rewards(
         currency_id: T::CurrencyId,
     ) -> Result<<T::SignedFixedPoint as FixedPointNumber>::Inner, DispatchError> {
+        ensure!(
+            T::GetRewardCurrencyIds::get().contains(&currency_id),
+            Error::<T>::InvalidCurrencyId,
+        );
+
         Ok(Self::total_rewards(currency_id)
             .truncate_to_inner()
             .ok_or(Error::<T>::TryIntoIntError)?)
     }
 
-    pub fn deposit_stake(
-        currency_id: T::CurrencyId,
-        account_id: &DefaultVaultId<T>,
-        amount: SignedFixedPoint<T>,
-    ) -> Result<(), DispatchError> {
-        checked_add_mut!(Stake<T>, currency_id, account_id, &amount);
-        checked_add_mut!(TotalStake<T>, currency_id, &amount);
+    pub fn deposit_stake(account_id: &DefaultVaultId<T>, amount: SignedFixedPoint<T>) -> Result<(), DispatchError> {
+        checked_add_mut!(Stake<T>, account_id, &amount);
+        checked_add_mut!(TotalStake<T>, &amount);
 
-        <RewardTally<T>>::mutate(currency_id, account_id, |reward_tally| {
-            let reward_per_token = Self::reward_per_token(currency_id);
-            let reward_per_token_mul_amount = reward_per_token
-                .checked_mul(&amount)
-                .ok_or(Error::<T>::ArithmeticOverflow)?;
-            *reward_tally = reward_tally
-                .checked_add(&reward_per_token_mul_amount)
-                .ok_or(Error::<T>::ArithmeticOverflow)?;
-            Ok::<_, Error<T>>(())
-        })?;
+        for currency_id in T::GetRewardCurrencyIds::get() {
+            <RewardTally<T>>::mutate(account_id, currency_id, |reward_tally| {
+                let reward_per_token = Self::reward_per_token(currency_id);
+                let reward_per_token_mul_amount = reward_per_token
+                    .checked_mul(&amount)
+                    .ok_or(Error::<T>::ArithmeticOverflow)?;
+                *reward_tally = reward_tally
+                    .checked_add(&reward_per_token_mul_amount)
+                    .ok_or(Error::<T>::ArithmeticOverflow)?;
+                Ok::<_, Error<T>>(())
+            })?;
+        }
 
-        Self::deposit_event(Event::<T>::DepositStake(currency_id, account_id.clone(), amount));
+        Self::deposit_event(Event::<T>::DepositStake(account_id.clone(), amount));
         Ok(())
     }
 
@@ -188,7 +200,12 @@ impl<T: Config> Pallet<T> {
         currency_id: T::CurrencyId,
         reward: SignedFixedPoint<T>,
     ) -> Result<SignedFixedPoint<T>, DispatchError> {
-        let total_stake = Self::total_stake(currency_id);
+        ensure!(
+            T::GetRewardCurrencyIds::get().contains(&currency_id),
+            Error::<T>::InvalidCurrencyId,
+        );
+
+        let total_stake = Self::total_stake();
         if total_stake.is_zero() {
             return Ok(reward);
         }
@@ -207,13 +224,18 @@ impl<T: Config> Pallet<T> {
         currency_id: T::CurrencyId,
         account_id: &DefaultVaultId<T>,
     ) -> Result<<SignedFixedPoint<T> as FixedPointNumber>::Inner, DispatchError> {
-        let stake = Self::stake(currency_id, account_id);
+        ensure!(
+            T::GetRewardCurrencyIds::get().contains(&currency_id),
+            Error::<T>::InvalidCurrencyId,
+        );
+
+        let stake = Self::stake(account_id);
         let reward_per_token = Self::reward_per_token(currency_id);
         // FIXME: this can easily overflow with large numbers
         let stake_mul_reward_per_token = stake
             .checked_mul(&reward_per_token)
             .ok_or(Error::<T>::ArithmeticOverflow)?;
-        let reward_tally = <RewardTally<T>>::get(currency_id, account_id);
+        let reward_tally = <RewardTally<T>>::get(account_id, currency_id);
         // TODO: this can probably be saturated
         let reward = stake_mul_reward_per_token
             .checked_sub(&reward_tally)
@@ -223,31 +245,29 @@ impl<T: Config> Pallet<T> {
         Ok(reward)
     }
 
-    pub fn withdraw_stake(
-        currency_id: T::CurrencyId,
-        account_id: &DefaultVaultId<T>,
-        amount: SignedFixedPoint<T>,
-    ) -> Result<(), DispatchError> {
-        if amount > Self::stake(currency_id, account_id) {
+    pub fn withdraw_stake(account_id: &DefaultVaultId<T>, amount: SignedFixedPoint<T>) -> Result<(), DispatchError> {
+        if amount > Self::stake(account_id) {
             return Err(Error::<T>::InsufficientFunds.into());
         }
 
-        checked_sub_mut!(Stake<T>, currency_id, &account_id, &amount);
-        checked_sub_mut!(TotalStake<T>, currency_id, &amount);
+        checked_sub_mut!(Stake<T>, &account_id, &amount);
+        checked_sub_mut!(TotalStake<T>, &amount);
 
-        <RewardTally<T>>::mutate(currency_id, account_id, |reward_tally| {
-            let reward_per_token = Self::reward_per_token(currency_id);
-            let reward_per_token_mul_amount = reward_per_token
-                .checked_mul(&amount)
-                .ok_or(Error::<T>::ArithmeticOverflow)?;
+        for currency_id in T::GetRewardCurrencyIds::get() {
+            <RewardTally<T>>::mutate(account_id, currency_id, |reward_tally| {
+                let reward_per_token = Self::reward_per_token(currency_id);
+                let reward_per_token_mul_amount = reward_per_token
+                    .checked_mul(&amount)
+                    .ok_or(Error::<T>::ArithmeticOverflow)?;
 
-            *reward_tally = reward_tally
-                .checked_sub(&reward_per_token_mul_amount)
-                .ok_or(Error::<T>::ArithmeticUnderflow)?;
-            Ok::<_, Error<T>>(())
-        })?;
+                *reward_tally = reward_tally
+                    .checked_sub(&reward_per_token_mul_amount)
+                    .ok_or(Error::<T>::ArithmeticUnderflow)?;
+                Ok::<_, Error<T>>(())
+            })?;
+        }
 
-        Self::deposit_event(Event::<T>::WithdrawStake(currency_id, account_id.clone(), amount));
+        Self::deposit_event(Event::<T>::WithdrawStake(account_id.clone(), amount));
         Ok(())
     }
 
@@ -259,11 +279,11 @@ impl<T: Config> Pallet<T> {
         let reward_as_fixed = SignedFixedPoint::<T>::checked_from_integer(reward).ok_or(Error::<T>::TryIntoIntError)?;
         checked_sub_mut!(TotalRewards<T>, currency_id, &reward_as_fixed);
 
-        let stake = Self::stake(currency_id, account_id);
+        let stake = Self::stake(account_id);
         let reward_per_token = Self::reward_per_token(currency_id);
         <RewardTally<T>>::insert(
-            currency_id,
             account_id,
+            currency_id,
             stake
                 .checked_mul(&reward_per_token)
                 .ok_or(Error::<T>::ArithmeticOverflow)?,
@@ -315,11 +335,11 @@ where
     type SignedFixedPoint = SignedFixedPoint<T>;
 
     fn get_stake(account_id: &DefaultVaultId<T>) -> Self::SignedFixedPoint {
-        Pallet::<T>::stake(GetCurrencyId::get(), account_id)
+        Pallet::<T>::stake(account_id)
     }
 
     fn deposit_stake(account_id: &DefaultVaultId<T>, amount: Self::SignedFixedPoint) -> Result<(), DispatchError> {
-        Pallet::<T>::deposit_stake(GetCurrencyId::get(), account_id, amount)
+        Pallet::<T>::deposit_stake(account_id, amount)
     }
 
     fn distribute_reward(reward: Self::SignedFixedPoint) -> Result<Self::SignedFixedPoint, DispatchError> {
@@ -333,7 +353,7 @@ where
     }
 
     fn withdraw_stake(account_id: &DefaultVaultId<T>, amount: Self::SignedFixedPoint) -> Result<(), DispatchError> {
-        Pallet::<T>::withdraw_stake(GetCurrencyId::get(), account_id, amount)
+        Pallet::<T>::withdraw_stake(account_id, amount)
     }
 
     fn withdraw_reward(

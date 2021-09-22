@@ -28,9 +28,7 @@ pub use default_weights::WeightInfo;
 use currency::Amount;
 use frame_support::{
     dispatch::{DispatchError, DispatchResult},
-    ensure,
-    traits::Get,
-    transactional,
+    ensure, transactional,
 };
 use frame_system::{ensure_root, ensure_signed};
 pub use pallet::*;
@@ -230,13 +228,7 @@ impl<T: Config> Pallet<T> {
         // withdraw all vault rewards first, to prevent the nominator from withdrawing past rewards
         ext::fee::withdraw_all_vault_rewards::<T>(vault_id)?;
         // withdraw `amount` of stake from the vault staking pool
-        ext::staking::withdraw_stake::<T>(
-            T::GetWrappedCurrencyId::get(),
-            vault_id,
-            nominator_id,
-            amount.to_signed_fixed_point()?,
-            Some(index),
-        )?;
+        ext::staking::withdraw_stake::<T>(vault_id, nominator_id, amount.to_signed_fixed_point()?, Some(index))?;
         amount.unlock_on(&vault_id.account_id)?;
         amount.transfer(&vault_id.account_id, &nominator_id)?;
 
@@ -272,12 +264,7 @@ impl<T: Config> Pallet<T> {
         ext::fee::withdraw_all_vault_rewards::<T>(vault_id)?;
 
         // Deposit `amount` of stake into the vault staking pool
-        ext::staking::deposit_stake::<T>(
-            T::GetWrappedCurrencyId::get(),
-            vault_id,
-            nominator_id,
-            amount.to_signed_fixed_point()?,
-        )?;
+        ext::staking::deposit_stake::<T>(vault_id, nominator_id, amount.to_signed_fixed_point()?)?;
         amount.transfer(&nominator_id, &vault_id.account_id)?;
         amount.lock_on(&vault_id.account_id)?;
         ext::vault_registry::try_increase_total_backing_collateral(&amount)?;
@@ -317,7 +304,7 @@ impl<T: Config> Pallet<T> {
             Error::<T>::CollateralizationTooLow
         );
 
-        let refunded_collateral = ext::staking::force_refund::<T>(T::GetWrappedCurrencyId::get(), vault_id)?
+        let refunded_collateral = ext::staking::force_refund::<T>(vault_id)?
             .try_into()
             .map_err(|_| Error::<T>::TryIntoIntError)?;
 

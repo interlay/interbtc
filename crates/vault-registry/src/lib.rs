@@ -720,7 +720,7 @@ impl<T: Config> Pallet<T> {
         amount.lock_on(&vault_id.account_id)?;
 
         // Deposit `amount` of stake in the pool
-        ext::staking::deposit_stake::<T>(T::GetWrappedCurrencyId::get(), vault_id, &vault_id.account_id, amount)?;
+        ext::staking::deposit_stake::<T>(vault_id, &vault_id.account_id, amount)?;
 
         Ok(())
     }
@@ -736,7 +736,7 @@ impl<T: Config> Pallet<T> {
         Self::decrease_total_backing_collateral(amount)?;
 
         // Withdraw `amount` of stake from the pool
-        ext::staking::withdraw_stake::<T>(T::GetWrappedCurrencyId::get(), vault_id, &vault_id.account_id, amount)?;
+        ext::staking::withdraw_stake::<T>(vault_id, &vault_id.account_id, amount)?;
 
         Ok(())
     }
@@ -807,7 +807,7 @@ impl<T: Config> Pallet<T> {
     fn slash_backing_collateral(vault_id: &DefaultVaultId<T>, amount: &Amount<T>) -> DispatchResult {
         amount.unlock_on(&vault_id.account_id)?;
         Self::decrease_total_backing_collateral(amount)?;
-        ext::staking::slash_stake::<T>(T::GetWrappedCurrencyId::get(), vault_id, amount)?;
+        ext::staking::slash_stake::<T>(vault_id, amount)?;
         Ok(())
     }
 
@@ -1214,12 +1214,7 @@ impl<T: Config> Pallet<T> {
             old_vault.decrease_liquidated_collateral(&to_be_released)?;
 
             // deposit old-vault's collateral (this was withdrawn on liquidation)
-            ext::staking::deposit_stake::<T>(
-                T::GetWrappedCurrencyId::get(),
-                old_vault_id,
-                &old_vault_id.account_id,
-                &to_be_released,
-            )?;
+            ext::staking::deposit_stake::<T>(old_vault_id, &old_vault_id.account_id, &to_be_released)?;
         }
 
         old_vault.decrease_tokens(tokens)?;

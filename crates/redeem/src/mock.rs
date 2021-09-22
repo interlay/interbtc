@@ -168,12 +168,18 @@ impl staking::Config for Test {
     type SignedFixedPoint = SignedFixedPoint;
     type SignedInner = SignedInner;
     type CurrencyId = CurrencyId;
+    type GetRewardCurrencyIds = GetRewardCurrencyIds;
+}
+
+parameter_types! {
+    pub GetRewardCurrencyIds: Vec<CurrencyId> = vec![INTERBTC];
 }
 
 impl reward::Config for Test {
     type Event = TestEvent;
     type SignedFixedPoint = SignedFixedPoint;
     type CurrencyId = CurrencyId;
+    type GetRewardCurrencyIds = GetRewardCurrencyIds;
 }
 
 parameter_types! {

@@ -124,10 +124,15 @@ impl orml_tokens::Config for Test {
     type DustRemovalWhitelist = ();
 }
 
+parameter_types! {
+    pub GetRewardCurrencyIds: Vec<CurrencyId> = vec![INTERBTC];
+}
+
 impl reward::Config for Test {
     type Event = TestEvent;
     type SignedFixedPoint = SignedFixedPoint;
     type CurrencyId = CurrencyId;
+    type GetRewardCurrencyIds = GetRewardCurrencyIds;
 }
 
 impl Config for Test {
@@ -215,6 +220,7 @@ impl staking::Config for Test {
     type SignedFixedPoint = SignedFixedPoint;
     type SignedInner = SignedInner;
     type CurrencyId = CurrencyId;
+    type GetRewardCurrencyIds = GetRewardCurrencyIds;
 }
 
 impl oracle::Config for Test {

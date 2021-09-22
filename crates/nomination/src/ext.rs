@@ -65,29 +65,27 @@ pub(crate) mod fee {
 pub(crate) mod staking {
     use crate::types::{SignedFixedPoint, SignedInner};
     use frame_support::dispatch::DispatchError;
-    use vault_registry::{types::CurrencyId, DefaultVaultId};
+    use vault_registry::DefaultVaultId;
 
     pub fn nonce<T: crate::Config>(vault_id: &DefaultVaultId<T>) -> T::Index {
         <staking::Pallet<T>>::nonce(vault_id)
     }
 
     pub fn deposit_stake<T: crate::Config>(
-        currency_id: CurrencyId<T>,
         vault_id: &DefaultVaultId<T>,
         nominator_id: &T::AccountId,
         amount: SignedFixedPoint<T>,
     ) -> Result<(), DispatchError> {
-        <staking::Pallet<T>>::deposit_stake(currency_id, vault_id, nominator_id, amount)
+        <staking::Pallet<T>>::deposit_stake(vault_id, nominator_id, amount)
     }
 
     pub fn withdraw_stake<T: crate::Config>(
-        currency_id: CurrencyId<T>,
         vault_id: &DefaultVaultId<T>,
         nominator_id: &T::AccountId,
         amount: SignedFixedPoint<T>,
         index: Option<T::Index>,
     ) -> Result<(), DispatchError> {
-        <staking::Pallet<T>>::withdraw_stake(currency_id, vault_id, nominator_id, amount, index)
+        <staking::Pallet<T>>::withdraw_stake(vault_id, nominator_id, amount, index)
     }
 
     pub fn compute_stake<T: vault_registry::Config>(
@@ -97,10 +95,7 @@ pub(crate) mod staking {
         <staking::Pallet<T>>::compute_stake(vault_id, nominator_id)
     }
 
-    pub fn force_refund<T: crate::Config>(
-        currency_id: CurrencyId<T>,
-        vault_id: &DefaultVaultId<T>,
-    ) -> Result<SignedInner<T>, DispatchError> {
-        <staking::Pallet<T>>::force_refund(currency_id, vault_id)
+    pub fn force_refund<T: crate::Config>(vault_id: &DefaultVaultId<T>) -> Result<SignedInner<T>, DispatchError> {
+        <staking::Pallet<T>>::force_refund(vault_id)
     }
 }
