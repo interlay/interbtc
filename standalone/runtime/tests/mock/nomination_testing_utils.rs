@@ -84,6 +84,7 @@ pub fn withdraw_nominator_collateral(
     Call::Nomination(NominationCall::withdraw_collateral(
         account_of(vault),
         amount_collateral.amount(),
+        None,
     ))
     .dispatch(origin_of(account_of(nominator)))
 }

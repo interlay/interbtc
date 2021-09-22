@@ -53,7 +53,7 @@ fn test_with<R>(execute: impl Fn(CurrencyId) -> R) {
 
 fn withdraw_vault_global_pool_rewards(account: [u8; 32]) -> i128 {
     let amount = VaultRewardsPallet::compute_reward(INTERBTC, &account_of(account)).unwrap();
-    assert_ok!(Call::Fee(FeeCall::withdraw_rewards(account_of(account))).dispatch(origin_of(account_of(account))));
+    assert_ok!(Call::Fee(FeeCall::withdraw_rewards(account_of(account), None)).dispatch(origin_of(account_of(account))));
     amount
 }
 
@@ -63,7 +63,7 @@ fn withdraw_local_pool_rewards(pool_id: [u8; 32], account: [u8; 32]) -> i128 {
         &account_of(account),
     )
     .unwrap();
-    assert_ok!(Call::Fee(FeeCall::withdraw_rewards(account_of(pool_id))).dispatch(origin_of(account_of(account))));
+    assert_ok!(Call::Fee(FeeCall::withdraw_rewards(account_of(pool_id), None)).dispatch(origin_of(account_of(account))));
     amount
 }
 
@@ -328,7 +328,7 @@ fn integration_test_fee_with_parachain_shutdown_fails() {
         SecurityPallet::set_status(StatusCode::Shutdown);
 
         assert_noop!(
-            Call::Fee(FeeCall::withdraw_rewards(account_of(ALICE))).dispatch(origin_of(account_of(ALICE))),
+            Call::Fee(FeeCall::withdraw_rewards(account_of(ALICE), None)).dispatch(origin_of(account_of(ALICE))),
             SecurityError::ParachainShutdown
         );
     })

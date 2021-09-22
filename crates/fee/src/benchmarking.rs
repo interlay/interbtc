@@ -10,7 +10,7 @@ const SEED: u32 = 0;
 benchmarks! {
     withdraw_rewards {
         let recipient: T::AccountId = account("recipient", 0, SEED);
-    }: _(RawOrigin::Signed(recipient.clone()), recipient.clone())
+    }: _(RawOrigin::Signed(recipient.clone()), recipient.clone(), None)
 }
 
 impl_benchmark_test_suite!(Fee, crate::mock::ExtBuilder::build(), crate::mock::Test);

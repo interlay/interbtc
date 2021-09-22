@@ -69,6 +69,10 @@ pub(crate) mod staking {
     use frame_support::dispatch::DispatchError;
     use vault_registry::types::CurrencyId;
 
+    pub fn nonce<T: crate::Config>(vault_id: &T::AccountId) -> T::Index {
+        <staking::Pallet<T>>::nonce(vault_id)
+    }
+
     pub fn deposit_stake<T: crate::Config>(
         currency_id: CurrencyId<T>,
         vault_id: &T::AccountId,
@@ -83,8 +87,9 @@ pub(crate) mod staking {
         vault_id: &T::AccountId,
         nominator_id: &T::AccountId,
         amount: SignedFixedPoint<T>,
+        index: Option<T::Index>,
     ) -> Result<(), DispatchError> {
-        <staking::Pallet<T>>::withdraw_stake(currency_id, vault_id, nominator_id, amount)
+        <staking::Pallet<T>>::withdraw_stake(currency_id, vault_id, nominator_id, amount, index)
     }
 
     pub fn compute_stake<T: vault_registry::Config>(
