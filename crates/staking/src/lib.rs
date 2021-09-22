@@ -623,9 +623,12 @@ impl<T: Config> Pallet<T> {
 
         // only withdraw the vault's stake from the current pool
         // nominators must withdraw manually using the nonce
-        let stake =
-            SignedFixedPoint::<T>::checked_from_integer(Self::compute_stake_at_index(nonce, vault_id, &vault_id.account_id)?)
-                .ok_or(Error::<T>::TryIntoIntError)?;
+        let stake = SignedFixedPoint::<T>::checked_from_integer(Self::compute_stake_at_index(
+            nonce,
+            vault_id,
+            &vault_id.account_id,
+        )?)
+        .ok_or(Error::<T>::TryIntoIntError)?;
         Self::withdraw_stake(currency_id, vault_id, &vault_id.account_id, stake, Some(nonce))?;
         Self::increment_nonce(vault_id)?;
 
@@ -687,11 +690,8 @@ pub trait Staking<VaultId, NominatorId, Index> {
     ) -> Result<<Self::SignedFixedPoint as FixedPointNumber>::Inner, DispatchError>;
 
     /// Withdraw an `amount` of stake from the `vault_id` for the `nominator_id`.
-    fn withdraw_stake(
-        vault_id: &VaultId,
-        nominator_id: &NominatorId,
-        amount: Self::SignedFixedPoint,
-    ) -> DispatchResult;
+    fn withdraw_stake(vault_id: &VaultId, nominator_id: &NominatorId, amount: Self::SignedFixedPoint)
+        -> DispatchResult;
 
     /// Withdraw all rewards earned by `vault_id` for the `nominator_id`.
     fn withdraw_reward(

@@ -45,10 +45,22 @@ fn should_stake_and_distribute_and_withdraw() {
         assert_ok!(Staking::compute_reward(DOT, &VAULT, &ALICE.account_id), 1023);
         assert_ok!(Staking::compute_reward(DOT, &VAULT, &BOB.account_id), 976);
 
-        assert_ok!(Staking::withdraw_stake(DOT, &VAULT, &ALICE.account_id, fixed!(10000), None));
+        assert_ok!(Staking::withdraw_stake(
+            DOT,
+            &VAULT,
+            &ALICE.account_id,
+            fixed!(10000),
+            None
+        ));
         assert_ok!(Staking::compute_stake(&VAULT, &ALICE.account_id), 950);
 
-        assert_ok!(Staking::withdraw_stake(DOT, &VAULT, &ALICE.account_id, fixed!(950), None));
+        assert_ok!(Staking::withdraw_stake(
+            DOT,
+            &VAULT,
+            &ALICE.account_id,
+            fixed!(950),
+            None
+        ));
         assert_ok!(Staking::compute_stake(&VAULT, &ALICE.account_id), 0);
 
         assert_ok!(Staking::deposit_stake(DOT, &VAULT, &BOB.account_id, fixed!(10000)));
@@ -114,11 +126,17 @@ fn should_force_refund() {
 
         // vault stake & rewards pre-refund
         assert_ok!(Staking::compute_stake_at_index(nonce, &VAULT, &VAULT.account_id), 150);
-        assert_ok!(Staking::compute_reward_at_index(nonce, DOT, &VAULT, &VAULT.account_id), 71);
+        assert_ok!(
+            Staking::compute_reward_at_index(nonce, DOT, &VAULT, &VAULT.account_id),
+            71
+        );
 
         // alice stake & rewards pre-refund
         assert_ok!(Staking::compute_stake_at_index(nonce, &VAULT, &ALICE.account_id), 60);
-        assert_ok!(Staking::compute_reward_at_index(nonce, DOT, &VAULT, &ALICE.account_id), 28);
+        assert_ok!(
+            Staking::compute_reward_at_index(nonce, DOT, &VAULT, &ALICE.account_id),
+            28
+        );
 
         assert_ok!(Staking::force_refund(DOT, &VAULT));
 
@@ -126,16 +144,31 @@ fn should_force_refund() {
 
         // vault stake & rewards post-refund
         assert_ok!(Staking::compute_stake_at_index(nonce, &VAULT, &VAULT.account_id), 150);
-        assert_ok!(Staking::compute_reward_at_index(nonce, DOT, &VAULT, &VAULT.account_id), 0);
+        assert_ok!(
+            Staking::compute_reward_at_index(nonce, DOT, &VAULT, &VAULT.account_id),
+            0
+        );
 
-        assert_ok!(Staking::compute_reward_at_index(nonce - 1, DOT, &VAULT, &VAULT.account_id), 71);
+        assert_ok!(
+            Staking::compute_reward_at_index(nonce - 1, DOT, &VAULT, &VAULT.account_id),
+            71
+        );
 
         // alice stake & rewards post-refund
         assert_ok!(Staking::compute_stake_at_index(nonce, &VAULT, &ALICE.account_id), 0);
-        assert_ok!(Staking::compute_reward_at_index(nonce, DOT, &VAULT, &ALICE.account_id), 0);
+        assert_ok!(
+            Staking::compute_reward_at_index(nonce, DOT, &VAULT, &ALICE.account_id),
+            0
+        );
 
-        assert_ok!(Staking::compute_stake_at_index(nonce - 1, &VAULT, &ALICE.account_id), 60);
-        assert_ok!(Staking::compute_reward_at_index(nonce - 1, DOT, &VAULT, &ALICE.account_id), 28);
+        assert_ok!(
+            Staking::compute_stake_at_index(nonce - 1, &VAULT, &ALICE.account_id),
+            60
+        );
+        assert_ok!(
+            Staking::compute_reward_at_index(nonce - 1, DOT, &VAULT, &ALICE.account_id),
+            28
+        );
     })
 }
 

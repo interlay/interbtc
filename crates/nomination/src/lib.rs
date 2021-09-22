@@ -241,7 +241,11 @@ impl<T: Config> Pallet<T> {
         amount.unlock_on(&vault_id.account_id)?;
         amount.transfer(&vault_id.account_id, &nominator_id)?;
 
-        Self::deposit_event(Event::<T>::WithdrawCollateral(vault_id.clone(), nominator_id.clone(), amount.amount()));
+        Self::deposit_event(Event::<T>::WithdrawCollateral(
+            vault_id.clone(),
+            nominator_id.clone(),
+            amount.amount(),
+        ));
         Ok(())
     }
 
