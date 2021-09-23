@@ -66,7 +66,7 @@ pub mod pallet {
 
     #[pallet::event]
     #[pallet::generate_deposit(pub(super) fn deposit_event)]
-    #[pallet::metadata(T::AccountId = "AccountId", Wrapped<T> = "Wrapped", Collateral<T> = "Collateral")]
+    #[pallet::metadata(DefaultVaultId<T> = "VaultId", T::AccountId = "AccountId", Wrapped<T> = "Wrapped", Collateral<T> = "Collateral")]
     pub enum Event<T: Config> {
         RequestIssue(
             H256,              // issue_id
@@ -80,8 +80,8 @@ pub mod pallet {
         ),
         // issue_id, amount, fee, confiscated_griefing_collateral
         IssueAmountChange(H256, Wrapped<T>, Wrapped<T>, Collateral<T>),
-        // [issue_id, requester, executed_amount, vault, fee]
-        ExecuteIssue(H256, T::AccountId, Wrapped<T>, DefaultVaultId<T>, Wrapped<T>),
+        // [issue_id, requester, vault, executed_amount, fee]
+        ExecuteIssue(H256, T::AccountId, DefaultVaultId<T>, Wrapped<T>, Wrapped<T>),
         // [issue_id, requester, griefing_collateral]
         CancelIssue(H256, T::AccountId, Collateral<T>),
     }
@@ -440,8 +440,8 @@ impl<T: Config> Pallet<T> {
         Self::deposit_event(<Event<T>>::ExecuteIssue(
             issue_id,
             requester,
-            total.amount(),
             issue.vault,
+            total.amount(),
             issue.fee,
         ));
         Ok(())

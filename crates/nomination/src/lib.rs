@@ -215,15 +215,15 @@ impl<T: Config> Pallet<T> {
 
         // nominators are always allowed to withdraw from stale staking pools
         if index == nonce {
-            ensure!(Self::is_nomination_enabled(), Error::<T>::VaultNominationDisabled);
-            ensure!(Self::is_opted_in(vault_id)?, Error::<T>::VaultNotOptedInToNomination);
-
             // we can only withdraw nominated collateral if the vault is still
             // above the secure threshold for issued + to_be_issued tokens
             ensure!(
                 ext::vault_registry::is_allowed_to_withdraw_collateral::<T>(vault_id, &amount)?,
                 Error::<T>::InsufficientCollateral
             );
+
+            ensure!(Self::is_nomination_enabled(), Error::<T>::VaultNominationDisabled);
+            ensure!(Self::is_opted_in(vault_id)?, Error::<T>::VaultNotOptedInToNomination);
 
             ext::vault_registry::decrease_total_backing_collateral(&amount)?;
         }

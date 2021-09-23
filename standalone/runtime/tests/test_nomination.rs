@@ -183,7 +183,7 @@ mod spec_based_tests {
             let nonce: u32 = VaultStakingPallet::nonce(&vault_id);
             assert_eq!(nonce, 1);
             assert_eq!(
-                VaultStakingPallet::compute_stake_at_index(nonce - 1, vault_id, &account_of(USER)).unwrap(),
+                VaultStakingPallet::compute_stake_at_index(nonce - 1, &vault_id, &account_of(USER)).unwrap(),
                 DEFAULT_NOMINATION as i128
             );
         })
@@ -276,31 +276,23 @@ mod spec_based_tests {
         test_with(|currency_id| {
             let vault_id = vault_id_of(VAULT, currency_id);
             assert_noop!(
-                Call::Nomination(NominationCall::withdraw_collateral(
-                    vault_id.clone(),
-                    DEFAULT_BACKING_COLLATERAL,
-                    None
-                ))
-                .dispatch(origin_of(account_of(USER))),
+                Call::Nomination(NominationCall::withdraw_collateral(vault_id.clone(), 1, None))
+                    .dispatch(origin_of(account_of(USER))),
                 NominationError::VaultNominationDisabled
             );
             enable_nomination();
             assert_noop!(
                 Call::Nomination(NominationCall::withdraw_collateral(
                     vault_id_of(CAROL, currency_id),
-                    DEFAULT_BACKING_COLLATERAL,
+                    1,
                     None
                 ))
                 .dispatch(origin_of(account_of(USER))),
                 VaultRegistryError::VaultNotFound
             );
             assert_noop!(
-                Call::Nomination(NominationCall::withdraw_collateral(
-                    vault_id.clone(),
-                    DEFAULT_BACKING_COLLATERAL,
-                    None
-                ))
-                .dispatch(origin_of(account_of(USER))),
+                Call::Nomination(NominationCall::withdraw_collateral(vault_id.clone(), 1, None))
+                    .dispatch(origin_of(account_of(USER))),
                 NominationError::VaultNotOptedInToNomination
             );
             assert_nomination_opt_in(&vault_id);

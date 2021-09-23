@@ -94,6 +94,7 @@ fn test_request_issue_banned_fails() {
                 issued_tokens: 0,
                 to_be_redeemed_tokens: 0,
                 replace_collateral: 0,
+                active_replace_collateral: 0,
                 wallet: Wallet::new(BtcPublicKey::default()),
                 banned_until: Some(1),
                 status: VaultStatus::Active(true),
@@ -180,7 +181,7 @@ fn test_execute_issue_succeeds() {
 
         assert_ok!(execute_issue(USER, &issue_id));
 
-        let execute_issue_event = TestEvent::Issue(Event::ExecuteIssue(issue_id, USER, 3, VAULT, 1));
+        let execute_issue_event = TestEvent::Issue(Event::ExecuteIssue(issue_id, USER, VAULT, 3, 1));
         assert!(System::events().iter().any(|a| a.event == execute_issue_event));
 
         assert_noop!(cancel_issue(USER, &issue_id), TestError::IssueCompleted);

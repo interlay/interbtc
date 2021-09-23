@@ -15,7 +15,7 @@ use replace::types::{ReplaceRequest, ReplaceRequestStatus};
 use sp_core::{H160, H256};
 use sp_std::convert::TryFrom;
 use std::{convert::TryInto, str::FromStr};
-use vault_registry::{types::DefaultVault, DefaultVaultId, Vault, VaultStatus, Wallet};
+use vault_registry::{types::DefaultVault, DefaultVaultId, Vault, Wallet};
 
 type Event = crate::Event<Test>;
 
@@ -363,16 +363,8 @@ fn test_is_transaction_invalid_fails_with_valid_merge_transaction() {
 
         ext::vault_registry::get_active_vault_from_id::<Test>.mock_safe(move |_| {
             MockResult::Return(Ok(Vault {
-                id: BOB,
-                to_be_replaced_tokens: 0,
-                replace_collateral: 0,
-                to_be_issued_tokens: 0,
-                issued_tokens: 0,
-                to_be_redeemed_tokens: 0,
                 wallet: wallet.clone(),
-                banned_until: None,
-                status: VaultStatus::Active(true),
-                liquidated_collateral: 0,
+                ..Vault::new(BOB, dummy_public_key())
             }))
         });
 
@@ -422,16 +414,8 @@ fn test_is_transaction_invalid_fails_with_valid_request_or_redeem() {
 
         ext::vault_registry::get_active_vault_from_id::<Test>.mock_safe(move |_| {
             MockResult::Return(Ok(Vault {
-                id: BOB,
-                to_be_replaced_tokens: 0,
-                to_be_issued_tokens: 0,
-                issued_tokens: 0,
-                to_be_redeemed_tokens: 0,
-                replace_collateral: 0,
                 wallet: wallet.clone(),
-                banned_until: None,
-                status: VaultStatus::Active(true),
-                liquidated_collateral: 0,
+                ..Vault::new(BOB, dummy_public_key())
             }))
         });
 
@@ -581,16 +565,8 @@ fn test_is_transaction_invalid_fails_with_valid_merge_testnet_transaction() {
 
         ext::vault_registry::get_active_vault_from_id::<Test>.mock_safe(move |_| {
             MockResult::Return(Ok(Vault {
-                id: BOB,
-                to_be_replaced_tokens: 0,
-                replace_collateral: 0,
-                to_be_issued_tokens: 0,
-                issued_tokens: 0,
-                to_be_redeemed_tokens: 0,
                 wallet: wallet.clone(),
-                banned_until: None,
-                status: VaultStatus::Active(true),
-                liquidated_collateral: 0,
+                ..Vault::new(BOB, dummy_public_key())
             }))
         });
 

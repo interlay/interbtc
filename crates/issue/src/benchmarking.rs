@@ -38,6 +38,14 @@ fn mint_collateral<T: crate::Config>(account_id: &T::AccountId, amount: Collater
     <orml_tokens::Pallet<T>>::deposit(DEFAULT_TESTING_CURRENCY, account_id, amount).unwrap();
 }
 
+fn get_vault_id<T: crate::Config>() -> DefaultVaultId<T> {
+    VaultId::new(
+        account("Vault", 0, 0),
+        T::GetGriefingCollateralCurrencyId::get(),
+        T::GetWrappedCurrencyId::get(),
+    )
+}
+
 fn mine_blocks_until_expiry<T: crate::Config>(request: &DefaultIssueRequest<T>) {
     let period = Issue::<T>::issue_period().max(request.period);
     let expiry_height = BtcRelay::<T>::bitcoin_expiry_height(request.btc_height, period).unwrap();
@@ -103,11 +111,7 @@ benchmarks! {
     request_issue {
         let origin: T::AccountId = account("Origin", 0, 0);
         let amount = Issue::<T>::issue_btc_dust_value().amount() + 1000u32.into();
-        let vault_id: VaultId<T::AccountId, _> = VaultId::new(
-            account("Vault", 0, 0),
-            T::GetGriefingCollateralCurrencyId::get(),
-            T::GetWrappedCurrencyId::get()
-        );
+        let vault_id = get_vault_id::<T>();
         let griefing: u32 = 100;
         let relayer_id: T::AccountId = account("Relayer", 0, 0);
 
@@ -175,11 +179,7 @@ benchmarks! {
 
     execute_issue {
         let origin: T::AccountId = account("Origin", 0, 0);
-        let vault_id: VaultId<T::AccountId, _> = VaultId::new(
-            account("Vault", 0, 0),
-            T::GetGriefingCollateralCurrencyId::get(),
-            T::GetWrappedCurrencyId::get()
-        );
+        let vault_id = get_vault_id::<T>();
         let relayer_id: T::AccountId = account("Relayer", 0, 0);
 
         mint_collateral::<T>(&origin, (1u32 << 31).into());
@@ -271,11 +271,7 @@ benchmarks! {
 
     cancel_issue {
         let origin: T::AccountId = account("Origin", 0, 0);
-        let vault_id: VaultId<T::AccountId, _> = VaultId::new(
-            account("Vault", 0, 0),
-            T::GetGriefingCollateralCurrencyId::get(),
-            T::GetWrappedCurrencyId::get()
-        );
+        let vault_id = get_vault_id::<T>();
 
         mint_collateral::<T>(&origin, (1u32 << 31).into());
         mint_collateral::<T>(&vault_id.account_id.clone(), (1u32 << 31).into());
