@@ -535,6 +535,69 @@ mod spec_based_tests {
                 assert_eq!(completed_redeem.status, RedeemRequestStatus::Completed);
             });
         }
+
+        #[test]
+        fn integration_test_double_spend_op_return() {
+            test_with(|_currency_id| {
+                let issued_tokens = wrapped(10_000);
+                // Register vault with hardcoded public key so it counts as theft
+                let stealing_vault = CAROL;
+                let vault_btc_address = BtcAddress::P2SH(H160([
+                    215, 255, 109, 96, 235, 244, 10, 155, 24, 134, 172, 206, 6, 101, 59, 162, 34, 77, 143, 234,
+                ]));
+
+                assert_ok!(VaultRegistryPallet::insert_vault_deposit_address(
+                    &account_of(stealing_vault),
+                    vault_btc_address
+                ));
+
+                assert_ok!(VaultRegistryPallet::try_increase_to_be_issued_tokens(
+                    &account_of(stealing_vault),
+                    &issued_tokens,
+                ));
+                assert_ok!(VaultRegistryPallet::issue_tokens(
+                    &account_of(stealing_vault),
+                    &issued_tokens
+                ));
+
+                let redeem_id = setup_redeem(issued_tokens, USER, stealing_vault);
+                let redeem = RedeemPallet::get_open_redeem_request_from_id(&redeem_id).unwrap();
+                let user_btc_address = BtcAddress::P2PKH(H160([2; 20]));
+                let current_block_number = 1;
+
+                // Send the honest redeem transaction
+                let (_tx_id, _tx_block_height, merkle_proof, raw_tx) =
+                    { generate_transaction_and_mine(user_btc_address, redeem.amount_btc(), Some(redeem_id)) };
+
+                // Double-spend the redeem, so the redemeer gets twice the BTC
+                let (_theft_tx_id, _theft_tx_block_height, _theft_merkle_proof, _theft_raw_tx) =
+                    generate_transaction_and_mine(user_btc_address, redeem.amount_btc(), Some(redeem_id));
+                SecurityPallet::set_active_block_number(current_block_number + 1 + CONFIRMATIONS);
+
+                assert_ok!(
+                    Call::Redeem(RedeemCall::execute_redeem(redeem_id, merkle_proof.clone(), raw_tx))
+                        .dispatch(origin_of(account_of(stealing_vault)))
+                );
+                // Executing the theft tx should fail
+                assert_err!(
+                    Call::Redeem(RedeemCall::execute_redeem(
+                        redeem_id,
+                        _theft_merkle_proof.clone(),
+                        _theft_raw_tx.clone()
+                    ))
+                    .dispatch(origin_of(account_of(stealing_vault))),
+                    RedeemError::RedeemCompleted
+                );
+
+                // Reporting the double-spend transaction as theft should work
+                assert_ok!(Call::Relay(RelayCall::report_vault_theft(
+                    account_of(stealing_vault),
+                    _theft_merkle_proof,
+                    _theft_raw_tx,
+                ))
+                .dispatch(origin_of(account_of(USER))));
+            });
+        }
     }
 
     mod cancel_redeem {
