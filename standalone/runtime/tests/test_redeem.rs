@@ -574,10 +574,12 @@ mod spec_based_tests {
                     generate_transaction_and_mine(user_btc_address, redeem.amount_btc(), Some(redeem_id));
                 SecurityPallet::set_active_block_number(current_block_number + 1 + CONFIRMATIONS);
 
-                assert_ok!(
-                    Call::Redeem(RedeemCall::execute_redeem(redeem_id, merkle_proof.clone(), raw_tx))
-                        .dispatch(origin_of(account_of(stealing_vault)))
-                );
+                assert_ok!(Call::Redeem(RedeemCall::execute_redeem(
+                    redeem_id,
+                    merkle_proof.clone(),
+                    raw_tx.clone()
+                ))
+                .dispatch(origin_of(account_of(stealing_vault))));
                 // Executing the theft tx should fail
                 assert_err!(
                     Call::Redeem(RedeemCall::execute_redeem(
@@ -590,10 +592,10 @@ mod spec_based_tests {
                 );
 
                 // Reporting the double-spend transaction as theft should work
-                assert_ok!(Call::Relay(RelayCall::report_vault_theft(
+                assert_ok!(Call::Relay(RelayCall::report_vault_double_payment(
                     account_of(stealing_vault),
-                    _theft_merkle_proof,
-                    _theft_raw_tx,
+                    (merkle_proof, _theft_merkle_proof),
+                    (raw_tx, _theft_raw_tx),
                 ))
                 .dispatch(origin_of(account_of(USER))));
             });
