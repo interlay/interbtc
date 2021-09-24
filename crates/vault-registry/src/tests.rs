@@ -1453,15 +1453,17 @@ fn test_try_increase_to_be_replaced_tokens() {
             TestError::InsufficientTokensCommitted
         );
 
+        let mut vault = VaultRegistry::get_active_rich_vault_from_id(&vault_id).unwrap();
+        vault.increase_available_replace_collateral(&griefing(10)).unwrap();
+
         let (total_wrapped, total_collateral) =
             VaultRegistry::try_increase_to_be_replaced_tokens(&vault_id, &wrapped(1), &griefing(20)).unwrap();
-        assert!(total_wrapped == wrapped(3));
-        assert!(total_collateral == amount(30));
+        assert_eq!(total_wrapped, wrapped(3));
+        assert_eq!(total_collateral, amount(30));
 
-        // check that is was written to storage
+        // check that to_be_replaced_tokens is was written to storage
         let vault = VaultRegistry::get_active_vault_from_id(&vault_id).unwrap();
         assert_eq!(vault.to_be_replaced_tokens, 3);
-        assert_eq!(vault.replace_collateral, 30);
     })
 }
 
@@ -1476,6 +1478,8 @@ fn test_decrease_to_be_replaced_tokens_over_capacity() {
             &wrapped(4),
             &griefing(10)
         ));
+        let mut vault = VaultRegistry::get_active_rich_vault_from_id(&vault_id).unwrap();
+        vault.increase_available_replace_collateral(&griefing(10)).unwrap();
 
         let (tokens, collateral) = VaultRegistry::decrease_to_be_replaced_tokens(&vault_id, &wrapped(5)).unwrap();
         assert_eq!(tokens, wrapped(4));
@@ -1494,6 +1498,8 @@ fn test_decrease_to_be_replaced_tokens_below_capacity() {
             &wrapped(4),
             &griefing(10)
         ));
+        let mut vault = VaultRegistry::get_active_rich_vault_from_id(&vault_id).unwrap();
+        vault.increase_available_replace_collateral(&griefing(10)).unwrap();
 
         let (tokens, collateral) = VaultRegistry::decrease_to_be_replaced_tokens(&vault_id, &wrapped(3)).unwrap();
         assert_eq!(tokens, wrapped(3));

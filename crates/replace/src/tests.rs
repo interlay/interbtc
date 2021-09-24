@@ -61,6 +61,7 @@ mod request_replace_tests {
         ext::vault_registry::try_increase_to_be_replaced_tokens::<Test>
             .mock_safe(|_, _, _| MockResult::Return(Ok((wrapped(2), griefing(20)))));
         ext::fee::get_replace_griefing_collateral::<Test>.mock_safe(move |_| MockResult::Return(Ok(griefing(20))));
+        ext::vault_registry::transfer_funds::<Test>.mock_safe(|_, _, _| MockResult::Return(Ok(())));
     }
 
     #[test]
@@ -120,6 +121,7 @@ mod accept_replace_tests {
         ext::vault_registry::try_deposit_collateral::<Test>.mock_safe(|_, _| MockResult::Return(Ok(())));
         ext::vault_registry::try_increase_to_be_redeemed_tokens::<Test>.mock_safe(|_, _| MockResult::Return(Ok(())));
         ext::vault_registry::try_increase_to_be_issued_tokens::<Test>.mock_safe(|_, _| MockResult::Return(Ok(())));
+        ext::vault_registry::transfer_funds::<Test>.mock_safe(|_, _, _| MockResult::Return(Ok(())));
     }
 
     #[test]
@@ -191,6 +193,7 @@ mod execute_replace_test {
             .mock_safe(|_, _, _, _, _| MockResult::Return(Ok(())));
         ext::vault_registry::replace_tokens::<Test>.mock_safe(|_, _, _, _| MockResult::Return(Ok(())));
         Amount::<Test>::unlock_on.mock_safe(|_, _| MockResult::Return(Ok(())));
+        ext::vault_registry::transfer_funds::<Test>.mock_safe(|_, _, _| MockResult::Return(Ok(())));
     }
 
     #[test]
