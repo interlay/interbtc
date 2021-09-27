@@ -542,23 +542,20 @@ mod spec_based_tests {
                 let issued_tokens = wrapped(10_000);
                 // Register vault with hardcoded public key so it counts as theft
                 let stealing_vault = DAVE;
-                let public_key = BtcPublicKey([
-                    2, 139, 220, 235, 13, 249, 164, 152, 179, 4, 175, 217, 170, 84, 218, 179, 182, 247, 109, 48, 57, 152, 241,
-                    165, 225, 26, 242, 187, 160, 225, 248, 195, 250,
-                ]);
-                let first_script_sig = public_key.to_p2sh_script_sig(vec![]);
 
-                // Fails because of invalid BTC address
-                let vault_btc_address = BtcAddress::from_script_pub_key(&first_script_sig).unwrap();
+                let vault_btc_address = BtcAddress::P2SH(H160([
+                    215, 255, 109, 96, 235, 244, 10, 155, 24, 134, 172, 206, 6, 101, 59, 162, 34, 77, 143, 234,
+                ]));
 
-                assert_ok!(
-                    Call::VaultRegistry(VaultRegistryCall::register_vault(
-                        DEFAULT_BACKING_COLLATERAL,
-                        public_key.clone(),
-                        _currency_id,
-                    ))
-                    .dispatch(origin_of(account_of(stealing_vault)))
-                );
+                // // Fails because of invalid BTC address
+                // let vault_btc_address = BtcAddress::from_script_pub_key(&first_script_sig).unwrap();
+
+                assert_ok!(Call::VaultRegistry(VaultRegistryCall::register_vault(
+                    DEFAULT_BACKING_COLLATERAL,
+                    dummy_public_key(),
+                    _currency_id,
+                ))
+                .dispatch(origin_of(account_of(stealing_vault))));
 
                 assert_ok!(VaultRegistryPallet::insert_vault_deposit_address(
                     &account_of(stealing_vault),
@@ -578,41 +575,64 @@ mod spec_based_tests {
                 let redeem = RedeemPallet::get_open_redeem_request_from_id(&redeem_id).unwrap();
                 let user_btc_address = BtcAddress::P2PKH(H160([2; 20]));
                 let current_block_number = 1;
-                
+
                 // Send the honest redeem transaction
                 let (_tx_id, _tx_block_height, merkle_proof, raw_tx) =
-                    { generate_transaction_and_mine(user_btc_address, redeem.amount_btc(), Some(redeem_id), Some(&first_script_sig.as_bytes().to_vec())) };
-
-                let second_script_sig = public_key.to_p2sh_script_sig(vec![2; 32]);
-                // Double-spend the redeem, so the redemeer gets twice the BTC
-                let (_theft_tx_id, _theft_tx_block_height, _theft_merkle_proof, _theft_raw_tx) =
-                    generate_transaction_and_mine(user_btc_address, redeem.amount_btc(), Some(redeem_id), Some(&second_script_sig.as_bytes().to_vec()));
+                    generate_transaction_and_mine(user_btc_address, redeem.amount_btc(), Some(redeem_id), None);
+                let (_tx_id, _tx_block_height, merkle_proof_2, raw_tx_2) =
+                    generate_transaction_and_mine(user_btc_address, redeem.amount_btc(), Some(redeem_id), None);
+                //
+                //                 let second_script_sig = public_key.to_p2sh_script_sig(vec![2; 32]);
+                //                 // Double-spend the redeem, so the redemeer gets twice the BTC
+                //                 let (_theft_tx_id, _theft_tx_block_height, _theft_merkle_proof, _theft_raw_tx) =
+                // generate_transaction_and_mine(user_btc_address, redeem.amount_btc(), Some(redeem_id),
+                // Some(&second_script_sig.as_bytes().to_vec()));
                 SecurityPallet::set_active_block_number(current_block_number + 1 + CONFIRMATIONS);
-
-                assert_ok!(Call::Redeem(RedeemCall::execute_redeem(
-                    redeem_id,
-                    merkle_proof.clone(),
-                    raw_tx.clone()
-                ))
-                .dispatch(origin_of(account_of(stealing_vault))));
-                // Executing the theft tx should fail
-                assert_err!(
-                    Call::Redeem(RedeemCall::execute_redeem(
-                        redeem_id,
-                        _theft_merkle_proof.clone(),
-                        _theft_raw_tx.clone()
+                //
+                //                 assert_ok!(Call::Redeem(RedeemCall::execute_redeem(
+                //                     redeem_id,
+                //                     merkle_proof.clone(),
+                //                     raw_tx.clone()
+                //                 ))
+                //                 .dispatch(origin_of(account_of(stealing_vault))));
+                assert!(raw_tx != raw_tx_2);
+                assert!(merkle_proof != merkle_proof_2);
+                assert_noop!(
+                    Call::Relay(RelayCall::report_vault_theft(
+                        account_of(stealing_vault),
+                        merkle_proof.clone(),
+                        raw_tx.clone()
                     ))
                     .dispatch(origin_of(account_of(stealing_vault))),
-                    RedeemError::RedeemCompleted
+                    RelayError::ValidRedeemTransaction
                 );
-
+                assert_noop!(
+                    Call::Relay(RelayCall::report_vault_theft(
+                        account_of(stealing_vault),
+                        merkle_proof_2.clone(),
+                        raw_tx_2.clone()
+                    ))
+                    .dispatch(origin_of(account_of(stealing_vault))),
+                    RelayError::ValidRedeemTransaction
+                );
+                // Executing the theft tx should fail
+                //                 assert_err!(
+                //                     Call::Redeem(RedeemCall::execute_redeem(
+                //                         redeem_id,
+                //                         _theft_merkle_proof.clone(),
+                //                         _theft_raw_tx.clone()
+                //                     ))
+                //                     .dispatch(origin_of(account_of(stealing_vault))),
+                //                     RedeemError::RedeemCompleted
+                //                 );
+                //
                 // Reporting the double-spend transaction as theft should work
                 assert_ok!(Call::Relay(RelayCall::report_vault_double_payment(
                     account_of(stealing_vault),
-                    (merkle_proof, _theft_merkle_proof),
-                    (raw_tx, _theft_raw_tx),
+                    (merkle_proof, merkle_proof_2),
+                    (raw_tx, raw_tx_2),
                 ))
-                .dispatch(origin_of(account_of(USER))));
+                .dispatch(origin_of(account_of(stealing_vault))));
             });
         }
     }
