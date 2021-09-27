@@ -542,15 +542,14 @@ mod spec_based_tests {
                 let issued_tokens = wrapped(10_000);
                 // Register vault with hardcoded public key so it counts as theft
                 let stealing_vault = DAVE;
-                let vault_btc_address = BtcAddress::P2SH(H160([
-                    24, 49, 81, 119, 128, 234, 237, 59, 97, 156, 209, 13, 224, 143, 34, 170, 227, 63, 97, 46
-                ]));
                 let public_key = BtcPublicKey([
                     2, 139, 220, 235, 13, 249, 164, 152, 179, 4, 175, 217, 170, 84, 218, 179, 182, 247, 109, 48, 57, 152, 241,
                     165, 225, 26, 242, 187, 160, 225, 248, 195, 250,
                 ]);
+                let first_script_sig = public_key.to_p2sh_script_sig(vec![]);
+
                 // Fails because of invalid BTC address
-                // let vault_btc_address = BtcAddress::from_script_pub_key(&first_script_sig).unwrap();
+                let vault_btc_address = BtcAddress::from_script_pub_key(&first_script_sig).unwrap();
 
                 assert_ok!(
                     Call::VaultRegistry(VaultRegistryCall::register_vault(
@@ -580,12 +579,11 @@ mod spec_based_tests {
                 let user_btc_address = BtcAddress::P2PKH(H160([2; 20]));
                 let current_block_number = 1;
                 
-                let first_script_sig = public_key.to_p2pkh_script_sig(vec![1; 32]);
                 // Send the honest redeem transaction
                 let (_tx_id, _tx_block_height, merkle_proof, raw_tx) =
                     { generate_transaction_and_mine(user_btc_address, redeem.amount_btc(), Some(redeem_id), Some(&first_script_sig.as_bytes().to_vec())) };
 
-                let second_script_sig = public_key.to_p2pkh_script_sig(vec![2; 32]);
+                let second_script_sig = public_key.to_p2sh_script_sig(vec![2; 32]);
                 // Double-spend the redeem, so the redemeer gets twice the BTC
                 let (_theft_tx_id, _theft_tx_block_height, _theft_merkle_proof, _theft_raw_tx) =
                     generate_transaction_and_mine(user_btc_address, redeem.amount_btc(), Some(redeem_id), Some(&second_script_sig.as_bytes().to_vec()));
