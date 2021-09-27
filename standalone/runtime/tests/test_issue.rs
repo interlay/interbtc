@@ -418,7 +418,7 @@ fn integration_test_issue_wrapped_execute_succeeds() {
         let total_amount_btc = amount_btc + fee_amount_btc;
 
         // send the btc from the user to the vault
-        let (_tx_id, _height, proof, raw_tx) = generate_transaction_and_mine(vault_btc_address, total_amount_btc, None);
+        let (_tx_id, _height, proof, raw_tx) = generate_transaction_and_mine(vault_btc_address, total_amount_btc, None, None);
 
         SecurityPallet::set_active_block_number(1 + CONFIRMATIONS);
 

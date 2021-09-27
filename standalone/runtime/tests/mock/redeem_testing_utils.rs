@@ -145,7 +145,7 @@ pub fn assert_redeem_error(
 ) -> u32 {
     // send the btc from the vault to the user
     let (_tx_id, _tx_block_height, merkle_proof, raw_tx) =
-        generate_transaction_and_mine(user_btc_address, amount, Some(return_data));
+        generate_transaction_and_mine(user_btc_address, amount, Some(return_data), None);
 
     SecurityPallet::set_active_block_number(current_block_number + 1 + CONFIRMATIONS);
 

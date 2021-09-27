@@ -63,7 +63,7 @@ mod spec_based_tests {
             .unwrap();
 
             let (_tx_id, _tx_block_height, merkle_proof, raw_tx) =
-                generate_transaction_and_mine(user_btc_address, refund_amount, Some(refund_id));
+                generate_transaction_and_mine(user_btc_address, refund_amount, Some(refund_id), None);
             SecurityPallet::set_active_block_number(1 + CONFIRMATIONS);
 
             assert_ok!(Call::Refund(RefundCall::execute_refund(

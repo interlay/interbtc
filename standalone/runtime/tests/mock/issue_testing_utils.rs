@@ -214,7 +214,7 @@ pub fn execute_refund_with_amount(vault_id: [u8; 32], amount: Amount<Runtime>) -
 
     let refund_id = assert_refund_request_event();
 
-    let (_tx_id, _height, proof, raw_tx) = generate_transaction_and_mine(refund_address, amount, Some(refund_id));
+    let (_tx_id, _height, proof, raw_tx) = generate_transaction_and_mine(refund_address, amount, Some(refund_id), None);
 
     SecurityPallet::set_active_block_number((1 + CONFIRMATIONS) * 2);
 

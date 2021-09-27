@@ -69,6 +69,8 @@ pub const DEFAULT_VAULT_ISSUED: Amount<Runtime> = wrapped(100_000);
 pub const DEFAULT_VAULT_TO_BE_REDEEMED: Amount<Runtime> = wrapped(20_000);
 pub const DEFAULT_VAULT_TO_BE_REPLACED: Amount<Runtime> = wrapped(40_000);
 pub const DEFAULT_VAULT_FREE_TOKENS: Amount<Runtime> = wrapped(0);
+pub const DEFAULT_BACKING_COLLATERAL: u128 = 1_000_000;
+
 
 pub const DEFAULT_VAULT_GRIEFING_COLLATERAL: Amount<Runtime> = griefing(30_000);
 pub const DEFAULT_VAULT_REPLACE_COLLATERAL: Amount<Runtime> = griefing(20_000);
@@ -848,19 +850,6 @@ impl TransactionGenerator {
             relayer: None,
             confirmations: 7,
             amount: 100,
-            // The script spends from the following hardcoded address:
-            // `BtcAddress::P2SH(H160([
-            //     215, 255, 109, 96, 235, 244, 10, 155, 24, 134, 172, 206, 6, 101, 59, 162, 34, 77, 143, 234,
-            // ]));`
-            script: vec![
-                0, 71, 48, 68, 2, 32, 91, 128, 41, 150, 96, 53, 187, 63, 230, 129, 53, 234, 210, 186, 21, 187, 98, 38,
-                255, 112, 30, 27, 228, 29, 132, 140, 155, 62, 123, 216, 232, 168, 2, 32, 72, 126, 179, 207, 142, 8, 99,
-                8, 32, 78, 244, 166, 106, 160, 207, 227, 61, 210, 172, 234, 234, 93, 59, 159, 79, 12, 194, 240, 212, 3,
-                120, 50, 1, 71, 81, 33, 3, 113, 209, 131, 177, 9, 29, 242, 229, 15, 217, 247, 165, 78, 111, 80, 79, 50,
-                200, 117, 80, 30, 233, 210, 167, 133, 175, 62, 253, 134, 127, 212, 51, 33, 2, 128, 200, 184, 235, 148,
-                25, 43, 34, 28, 173, 55, 54, 189, 164, 187, 243, 243, 152, 7, 84, 210, 85, 156, 238, 77, 97, 188, 240,
-                162, 197, 105, 62, 82, 174,
-            ],
             return_data: Some(H256::zero()),
             ..Default::default()
         }
@@ -996,11 +985,27 @@ pub fn generate_transaction_and_mine(
     address: BtcAddress,
     amount: Amount<Runtime>,
     return_data: Option<H256>,
+    script: Option<&Vec<u8>>,
 ) -> (H256Le, u32, Vec<u8>, Vec<u8>) {
+    // The script spends from the following hardcoded address:
+    // `BtcAddress::P2SH(H160([
+    //     215, 255, 109, 96, 235, 244, 10, 155, 24, 134, 172, 206, 6, 101, 59, 162, 34, 77, 143, 234,
+    // ]));`
+    let default_script = vec![
+        0, 71, 48, 68, 2, 32, 91, 128, 41, 150, 96, 53, 187, 63, 230, 129, 53, 234, 210, 186, 21, 187, 98, 38,
+        255, 112, 30, 27, 228, 29, 132, 140, 155, 62, 123, 216, 232, 168, 2, 32, 72, 126, 179, 207, 142, 8, 99,
+        8, 32, 78, 244, 166, 106, 160, 207, 227, 61, 210, 172, 234, 234, 93, 59, 159, 79, 12, 194, 240, 212, 3,
+        120, 50, 1, 71, 81, 33, 3, 113, 209, 131, 177, 9, 29, 242, 229, 15, 217, 247, 165, 78, 111, 80, 79, 50,
+        200, 117, 80, 30, 233, 210, 167, 133, 175, 62, 253, 134, 127, 212, 51, 33, 2, 128, 200, 184, 235, 148,
+        25, 43, 34, 28, 173, 55, 54, 189, 164, 187, 243, 243, 152, 7, 84, 210, 85, 156, 238, 77, 97, 188, 240,
+        162, 197, 105, 62, 82, 174,
+    ];
+    let unwrapped_script = script.unwrap_or(&default_script);
     let (tx_id, height, proof, raw_tx, _) = TransactionGenerator::new()
         .with_address(address)
         .with_amount(amount)
         .with_op_return(return_data)
+        .with_script(unwrapped_script)
         .mine();
     (tx_id, height, proof, raw_tx)
 }

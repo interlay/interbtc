@@ -501,7 +501,7 @@ mod spec_based_tests {
 
                 // The `merkleProof` MUST contain a valid proof of of `rawTX`
                 let (_tx_id, _tx_block_height, _merkle_proof, raw_tx) =
-                    generate_transaction_and_mine(user_btc_address, redeem.amount_btc(), Some(redeem_id));
+                    generate_transaction_and_mine(user_btc_address, redeem.amount_btc(), Some(redeem_id), None);
                 let invalid_merkle_proof = hex::decode("00000020b0b3d77b97015b519553423c96642b33ca534c50ecefd133640000000000000029a0a725684aeca24af83e3ba0a3e3ee56adfdf032d19e5acba6d0a262e1580ca354915fd4c8001ac42a7b3a1000000005df41db041b26536b5b7fd7aeea4ea6bdb64f7039e4a566b1fa138a07ed2d3705932955c94ee4755abec003054128b10e0fbcf8dedbbc6236e23286843f1f82a018dc7f5f6fba31aa618fab4acad7df5a5046b6383595798758d30d68c731a14043a50d7cb8560d771fad70c5e52f6d7df26df13ca457655afca2cbab2e3b135c0383525b28fca31296c809641205962eb353fb88a9f3602e98a93b1e9ffd469b023d00").unwrap();
                 assert_noop!(
                     Call::Redeem(RedeemCall::execute_redeem(
@@ -541,10 +541,25 @@ mod spec_based_tests {
             test_with(|_currency_id| {
                 let issued_tokens = wrapped(10_000);
                 // Register vault with hardcoded public key so it counts as theft
-                let stealing_vault = CAROL;
+                let stealing_vault = DAVE;
                 let vault_btc_address = BtcAddress::P2SH(H160([
-                    215, 255, 109, 96, 235, 244, 10, 155, 24, 134, 172, 206, 6, 101, 59, 162, 34, 77, 143, 234,
+                    24, 49, 81, 119, 128, 234, 237, 59, 97, 156, 209, 13, 224, 143, 34, 170, 227, 63, 97, 46
                 ]));
+                let public_key = BtcPublicKey([
+                    2, 139, 220, 235, 13, 249, 164, 152, 179, 4, 175, 217, 170, 84, 218, 179, 182, 247, 109, 48, 57, 152, 241,
+                    165, 225, 26, 242, 187, 160, 225, 248, 195, 250,
+                ]);
+                // Fails because of invalid BTC address
+                // let vault_btc_address = BtcAddress::from_script_pub_key(&first_script_sig).unwrap();
+
+                assert_ok!(
+                    Call::VaultRegistry(VaultRegistryCall::register_vault(
+                        DEFAULT_BACKING_COLLATERAL,
+                        public_key.clone(),
+                        _currency_id,
+                    ))
+                    .dispatch(origin_of(account_of(stealing_vault)))
+                );
 
                 assert_ok!(VaultRegistryPallet::insert_vault_deposit_address(
                     &account_of(stealing_vault),
@@ -564,14 +579,16 @@ mod spec_based_tests {
                 let redeem = RedeemPallet::get_open_redeem_request_from_id(&redeem_id).unwrap();
                 let user_btc_address = BtcAddress::P2PKH(H160([2; 20]));
                 let current_block_number = 1;
-
+                
+                let first_script_sig = public_key.to_p2pkh_script_sig(vec![1; 32]);
                 // Send the honest redeem transaction
                 let (_tx_id, _tx_block_height, merkle_proof, raw_tx) =
-                    { generate_transaction_and_mine(user_btc_address, redeem.amount_btc(), Some(redeem_id)) };
+                    { generate_transaction_and_mine(user_btc_address, redeem.amount_btc(), Some(redeem_id), Some(&first_script_sig.as_bytes().to_vec())) };
 
+                let second_script_sig = public_key.to_p2pkh_script_sig(vec![2; 32]);
                 // Double-spend the redeem, so the redemeer gets twice the BTC
                 let (_theft_tx_id, _theft_tx_block_height, _theft_merkle_proof, _theft_raw_tx) =
-                    generate_transaction_and_mine(user_btc_address, redeem.amount_btc(), Some(redeem_id));
+                    generate_transaction_and_mine(user_btc_address, redeem.amount_btc(), Some(redeem_id), Some(&second_script_sig.as_bytes().to_vec()));
                 SecurityPallet::set_active_block_number(current_block_number + 1 + CONFIRMATIONS);
 
                 assert_ok!(Call::Redeem(RedeemCall::execute_redeem(
@@ -1258,7 +1275,7 @@ fn integration_test_premium_redeem_wrapped_execute() {
 
         // send the btc from the vault to the user
         let (_tx_id, _tx_block_height, merkle_proof, raw_tx) =
-            generate_transaction_and_mine(user_btc_address, redeem.amount_btc(), Some(redeem_id));
+            generate_transaction_and_mine(user_btc_address, redeem.amount_btc(), Some(redeem_id), None);
 
         SecurityPallet::set_active_block_number(1 + CONFIRMATIONS);
 

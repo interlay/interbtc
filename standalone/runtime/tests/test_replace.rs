@@ -714,7 +714,7 @@ fn integration_test_replace_execute_replace() {
 
         // send the btc from the old_vault to the new_vault
         let (_tx_id, _tx_block_height, merkle_proof, raw_tx) =
-            generate_transaction_and_mine(new_vault_btc_address, issued_tokens, Some(replace_id));
+            generate_transaction_and_mine(new_vault_btc_address, issued_tokens, Some(replace_id), None);
 
         SecurityPallet::set_active_block_number(1 + CONFIRMATIONS);
         let r = Call::Replace(ReplaceCall::execute_replace(replace_id, merkle_proof, raw_tx))
@@ -808,7 +808,7 @@ fn execute_replace_with_amount(replace_id: H256, amount: Amount<Runtime>) -> Dis
 
     // send the btc from the old_vault to the new_vault
     let (_tx_id, _tx_block_height, merkle_proof, raw_tx) =
-        generate_transaction_and_mine(replace.btc_address, amount, Some(replace_id));
+        generate_transaction_and_mine(replace.btc_address, amount, Some(replace_id), None);
 
     SecurityPallet::set_active_block_number(SecurityPallet::active_block_number() + CONFIRMATIONS);
 
