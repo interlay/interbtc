@@ -296,6 +296,25 @@ impl orml_vesting::Config for Runtime {
     type BlockNumberProvider = RelayChainBlockNumberProvider<Runtime>;
 }
 
+pub struct BlockNumberToBalance;
+
+impl Convert<BlockNumber, Balance> for BlockNumberToBalance {
+    fn convert(a: BlockNumber) -> Balance {
+        a.into()
+    }
+}
+
+parameter_types! {
+    pub const MaxPeriod: BlockNumber = 100;
+}
+
+impl escrow::Config for Runtime {
+    type Event = Event;
+    type BlockNumberToBalance = BlockNumberToBalance;
+    type Currency = orml_tokens::CurrencyAdapter<Runtime, GetNativeCurrencyId>;
+    type MaxPeriod = MaxPeriod;
+}
+
 parameter_types! {
     pub MaximumSchedulerWeight: Weight = Perbill::from_percent(10) * RuntimeBlockWeights::get().max_block;
     pub const MaxScheduledPerBlock: u32 = 30;
@@ -364,7 +383,7 @@ parameter_types! {
 impl pallet_democracy::Config for Runtime {
     type Proposal = Call;
     type Event = Event;
-    type Currency = orml_tokens::CurrencyAdapter<Runtime, GetNativeCurrencyId>;
+    type Currency = escrow::CurrencyAdapter<Runtime>;
     type EnactmentPeriod = EnactmentPeriod;
     type LaunchPeriod = LaunchPeriod;
     type VotingPeriod = VotingPeriod;
@@ -453,7 +472,7 @@ parameter_types! {
 impl pallet_elections_phragmen::Config for Runtime {
     type PalletId = ElectionsPhragmenPalletId;
     type Event = Event;
-    type Currency = orml_tokens::CurrencyAdapter<Runtime, GetNativeCurrencyId>;
+    type Currency = escrow::CurrencyAdapter<Runtime>;
     type ChangeMembers = GeneralCouncil;
     // NOTE: this implies that council's genesis members cannot be set directly and must come from
     // this module.
@@ -948,6 +967,7 @@ construct_runtime! {
         Rewards: reward::{Pallet, Call, Storage, Event<T>},
         Staking: staking::{Pallet, Storage, Event<T>},
         Vesting: orml_vesting::{Pallet, Storage, Call, Event<T>, Config<T>},
+        Escrow: escrow::{Pallet, Storage, Call, Event<T>},
 
         // Bitcoin SPV
         BTCRelay: btc_relay::{Pallet, Call, Config<T>, Storage, Event<T>},

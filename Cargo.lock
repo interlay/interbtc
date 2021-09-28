@@ -2224,6 +2224,26 @@ dependencies = [
 ]
 
 [[package]]
+name = "escrow"
+version = "1.0.0"
+dependencies = [
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "interbtc-primitives",
+ "mocktopus",
+ "pallet-balances",
+ "parity-scale-codec",
+ "rand 0.8.4",
+ "serde",
+ "sp-arithmetic",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-std",
+]
+
+[[package]]
 name = "ethbloom"
 version = "0.11.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3531,6 +3551,7 @@ dependencies = [
  "cumulus-primitives-timestamp",
  "cumulus-primitives-utility",
  "currency",
+ "escrow",
  "fee",
  "frame-benchmarking",
  "frame-executive",
