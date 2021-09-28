@@ -1,4 +1,5 @@
 use currency::Amount;
+use primitives::VaultCurrencyPair;
 use vault_registry::DefaultVaultId;
 
 use crate::{assert_eq, *};
@@ -29,8 +30,10 @@ pub fn disable_nomination() {
 
 pub fn register_vault(currency_id: CurrencyId, vault: [u8; 32]) -> DispatchResultWithPostInfo {
     Call::VaultRegistry(VaultRegistryCall::register_vault(
-        currency_id,
-        DEFAULT_WRAPPED_CURRENCY,
+        VaultCurrencyPair {
+            collateral: currency_id,
+            wrapped: DEFAULT_WRAPPED_CURRENCY,
+        },
         DEFAULT_BACKING_COLLATERAL,
         dummy_public_key(),
     ))
@@ -42,11 +45,8 @@ pub fn assert_register_vault(currency_id: CurrencyId, vault: [u8; 32]) {
 }
 
 pub fn nomination_opt_in(vault_id: &DefaultVaultId<Runtime>) -> DispatchResultWithPostInfo {
-    Call::Nomination(NominationCall::opt_in_to_nomination(
-        vault_id.currencies.collateral,
-        vault_id.currencies.wrapped,
-    ))
-    .dispatch(origin_of(vault_id.account_id.clone()))
+    Call::Nomination(NominationCall::opt_in_to_nomination(vault_id.currencies.clone()))
+        .dispatch(origin_of(vault_id.account_id.clone()))
 }
 
 pub fn assert_nomination_opt_in(vault_id: &DefaultVaultId<Runtime>) {
@@ -54,11 +54,8 @@ pub fn assert_nomination_opt_in(vault_id: &DefaultVaultId<Runtime>) {
 }
 
 pub fn nomination_opt_out(vault_id: &DefaultVaultId<Runtime>) -> DispatchResultWithPostInfo {
-    Call::Nomination(NominationCall::opt_out_of_nomination(
-        vault_id.currencies.collateral,
-        vault_id.currencies.wrapped,
-    ))
-    .dispatch(origin_of(vault_id.account_id.clone()))
+    Call::Nomination(NominationCall::opt_out_of_nomination(vault_id.currencies.clone()))
+        .dispatch(origin_of(vault_id.account_id.clone()))
 }
 
 pub fn nominate_collateral(
@@ -86,8 +83,7 @@ pub fn withdraw_vault_collateral(
     amount_collateral: Amount<Runtime>,
 ) -> DispatchResultWithPostInfo {
     Call::VaultRegistry(VaultRegistryCall::withdraw_collateral(
-        vault_id.currencies.collateral,
-        vault_id.currencies.wrapped,
+        vault_id.currencies.clone(),
         amount_collateral.amount(),
     ))
     .dispatch(origin_of(vault_id.account_id.clone()))

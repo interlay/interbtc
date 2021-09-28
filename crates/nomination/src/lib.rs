@@ -25,7 +25,7 @@ mod benchmarking;
 mod default_weights;
 pub use default_weights::WeightInfo;
 
-use currency::{Amount, CurrencyId};
+use currency::Amount;
 use frame_support::{
     dispatch::{DispatchError, DispatchResult},
     ensure,
@@ -43,6 +43,7 @@ pub mod pallet {
     use super::*;
     use frame_support::pallet_prelude::*;
     use frame_system::pallet_prelude::*;
+    use vault_registry::types::DefaultVaultCurrencyPair;
 
     /// ## Configuration
     /// The pallet's configuration trait.
@@ -143,12 +144,11 @@ pub mod pallet {
         #[transactional]
         pub fn opt_in_to_nomination(
             origin: OriginFor<T>,
-            collateral_currency: CurrencyId<T>,
-            wrapped_currency: CurrencyId<T>,
+            currency_pair: DefaultVaultCurrencyPair<T>,
         ) -> DispatchResultWithPostInfo {
             ext::security::ensure_parachain_status_running::<T>()?;
             let account_id = ensure_signed(origin)?;
-            let vault_id = VaultId::new(account_id, collateral_currency, wrapped_currency);
+            let vault_id = VaultId::new(account_id, currency_pair.collateral, currency_pair.wrapped);
 
             Self::_opt_in_to_nomination(&vault_id)?;
             Ok(().into())
@@ -159,13 +159,12 @@ pub mod pallet {
         #[transactional]
         pub fn opt_out_of_nomination(
             origin: OriginFor<T>,
-            collateral_currency: CurrencyId<T>,
-            wrapped_currency: CurrencyId<T>,
+            currency_pair: DefaultVaultCurrencyPair<T>,
         ) -> DispatchResultWithPostInfo {
             ext::security::ensure_parachain_status_running::<T>()?;
 
             let account_id = ensure_signed(origin)?;
-            let vault_id = VaultId::new(account_id, collateral_currency, wrapped_currency);
+            let vault_id = VaultId::new(account_id, currency_pair.collateral, currency_pair.wrapped);
             Self::_opt_out_of_nomination(&vault_id)?;
             Ok(().into())
         }

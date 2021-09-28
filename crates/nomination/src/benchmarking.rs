@@ -53,7 +53,7 @@ benchmarks! {
         mint_collateral::<T>(&vault_id.account_id, (1u32 << 31).into());
         assert_ok!(VaultRegistry::<T>::_register_vault(vault_id.clone(), 100000000u32.into(), dummy_public_key()));
 
-    }: _(RawOrigin::Signed(vault_id.account_id), vault_id.currencies.collateral, vault_id.currencies.wrapped)
+    }: _(RawOrigin::Signed(vault_id.account_id), vault_id.currencies.clone())
 
     opt_out_of_nomination {
         setup_exchange_rate::<T>();
@@ -65,7 +65,7 @@ benchmarks! {
 
         <Vaults<T>>::insert(&vault_id, true);
 
-    }: _(RawOrigin::Signed(vault_id.account_id), vault_id.currencies.collateral, vault_id.currencies.wrapped)
+    }: _(RawOrigin::Signed(vault_id.account_id), vault_id.currencies.clone())
 
     deposit_collateral {
         setup_exchange_rate::<T>();

@@ -84,6 +84,10 @@ impl frame_system::Config for Test {
 
 pub const DEFAULT_TESTING_CURRENCY: CurrencyId = CurrencyId::DOT;
 pub const DEFAULT_WRAPPED_CURRENCY: CurrencyId = CurrencyId::DOT;
+pub const DEFAULT_CURRENCY_PAIR: VaultCurrencyPair<CurrencyId> = VaultCurrencyPair {
+    collateral: DEFAULT_TESTING_CURRENCY,
+    wrapped: DEFAULT_WRAPPED_CURRENCY,
+};
 pub const GRIEFING_CURRENCY: CurrencyId = CurrencyId::DOT;
 pub const DOT: CurrencyId = CurrencyId::DOT;
 pub const INTERBTC: CurrencyId = CurrencyId::INTERBTC;

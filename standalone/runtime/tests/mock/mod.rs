@@ -17,7 +17,7 @@ pub use interbtc_runtime_standalone::{
 };
 pub use mocktopus::mocking::*;
 pub use orml_tokens::CurrencyAdapter;
-use primitives::VaultId;
+use primitives::{VaultCurrencyPair, VaultId};
 use redeem::RedeemRequestStatus;
 pub use security::{ErrorCode, StatusCode};
 pub use sp_arithmetic::{FixedI128, FixedPointNumber, FixedU128};
@@ -830,8 +830,7 @@ pub fn dummy_public_key() -> BtcPublicKey {
 pub fn try_register_vault(collateral: Amount<Runtime>, vault_id: &DefaultVaultId<Runtime>) {
     if VaultRegistryPallet::get_vault_from_id(vault_id).is_err() {
         assert_ok!(Call::VaultRegistry(VaultRegistryCall::register_vault(
-            vault_id.currencies.collateral,
-            vault_id.currencies.wrapped,
+            vault_id.currencies.clone(),
             collateral.amount(),
             dummy_public_key(),
         ))
@@ -841,8 +840,7 @@ pub fn try_register_vault(collateral: Amount<Runtime>, vault_id: &DefaultVaultId
 
 pub fn try_register_operator(operator: [u8; 32]) {
     let _ = Call::Nomination(NominationCall::opt_in_to_nomination(
-        default_vault_id_of(operator).currencies.collateral,
-        default_vault_id_of(operator).currencies.wrapped,
+        default_vault_id_of(operator).currencies.clone(),
     ))
     .dispatch(origin_of(account_of(operator)));
 }
@@ -850,8 +848,10 @@ pub fn try_register_operator(operator: [u8; 32]) {
 pub fn force_issue_tokens(user: [u8; 32], vault: [u8; 32], collateral: Amount<Runtime>, tokens: Amount<Runtime>) {
     // register the vault
     assert_ok!(Call::VaultRegistry(VaultRegistryCall::register_vault(
-        collateral.currency(),
-        DEFAULT_WRAPPED_CURRENCY,
+        VaultCurrencyPair {
+            collateral: collateral.currency(),
+            wrapped: DEFAULT_WRAPPED_CURRENCY,
+        },
         collateral.amount(),
         dummy_public_key(),
     ))

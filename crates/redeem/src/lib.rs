@@ -54,6 +54,7 @@ pub mod pallet {
     use frame_support::pallet_prelude::*;
     use frame_system::pallet_prelude::*;
     use primitives::VaultId;
+    use vault_registry::types::DefaultVaultCurrencyPair;
 
     /// ## Configuration
     /// The pallet's configuration trait.
@@ -309,11 +310,10 @@ pub mod pallet {
         #[transactional]
         pub fn mint_tokens_for_reimbursed_redeem(
             origin: OriginFor<T>,
-            collateral_currency: CurrencyId<T>,
-            wrapped_currency: CurrencyId<T>,
+            currency_pair: DefaultVaultCurrencyPair<T>,
             redeem_id: H256,
         ) -> DispatchResultWithPostInfo {
-            let vault_id = VaultId::new(ensure_signed(origin)?, collateral_currency, wrapped_currency);
+            let vault_id = VaultId::new(ensure_signed(origin)?, currency_pair.collateral, currency_pair.wrapped);
             Self::_mint_tokens_for_reimbursed_redeem(vault_id, redeem_id)?;
             Ok(().into())
         }

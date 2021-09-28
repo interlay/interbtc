@@ -684,8 +684,7 @@ fn test_mint_tokens_for_reimbursed_redeem() {
         assert_noop!(
             Redeem::mint_tokens_for_reimbursed_redeem(
                 Origin::signed(VAULT.account_id),
-                VAULT.currencies.collateral,
-                VAULT.currencies.wrapped,
+                VAULT.currencies.clone(),
                 H256([0u8; 32])
             ),
             VaultRegistryError::ExceedingVaultLimit
@@ -709,8 +708,7 @@ fn test_mint_tokens_for_reimbursed_redeem() {
         });
         assert_ok!(Redeem::mint_tokens_for_reimbursed_redeem(
             Origin::signed(VAULT.account_id),
-            VAULT.currencies.collateral,
-            VAULT.currencies.wrapped,
+            VAULT.currencies.clone(),
             H256([0u8; 32])
         ));
     });

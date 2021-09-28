@@ -61,8 +61,7 @@ pub fn request_replace(
     griefing_collateral: Amount<Runtime>,
 ) -> DispatchResultWithPostInfo {
     Call::Replace(ReplaceCall::request_replace(
-        old_vault_id.currencies.collateral,
-        old_vault_id.currencies.wrapped,
+        old_vault_id.currencies.clone(),
         amount.amount(),
         griefing_collateral.amount(),
     ))
@@ -71,8 +70,7 @@ pub fn request_replace(
 
 pub fn withdraw_replace(old_vault_id: &DefaultVaultId<Runtime>, amount: Amount<Runtime>) -> DispatchResultWithPostInfo {
     Call::Replace(ReplaceCall::withdraw_replace(
-        old_vault_id.currencies.collateral,
-        old_vault_id.currencies.wrapped,
+        old_vault_id.currencies.clone(),
         amount.amount(),
     ))
     .dispatch(origin_of(old_vault_id.account_id.clone()))
@@ -108,8 +106,7 @@ pub fn accept_replace(
     // assert_replace_request_event();
 
     Call::Replace(ReplaceCall::accept_replace(
-        new_vault_id.currencies.collateral,
-        new_vault_id.currencies.wrapped,
+        new_vault_id.currencies.clone(),
         old_vault_id.clone(),
         amount_btc.amount(),
         collateral.amount(),
@@ -231,8 +228,7 @@ mod accept_replace_tests {
     fn integration_test_replace_accept_replace_by_vault_that_does_not_accept_issues_succeeds() {
         test_with(|old_vault_id, new_vault_id| {
             assert_ok!(Call::VaultRegistry(VaultRegistryCall::accept_new_issues(
-                new_vault_id.currencies.collateral,
-                new_vault_id.currencies.wrapped,
+                new_vault_id.currencies.clone(),
                 false
             ))
             .dispatch(origin_of(new_vault_id.account_id.clone())));
@@ -305,6 +301,8 @@ mod accept_replace_tests {
 }
 
 mod request_replace_tests {
+    use primitives::VaultCurrencyPair;
+
     use super::{assert_eq, *};
     #[test]
     fn integration_test_replace_should_fail_if_not_running() {
@@ -312,7 +310,15 @@ mod request_replace_tests {
             SecurityPallet::set_status(StatusCode::Shutdown);
 
             assert_noop!(
-                Call::Replace(ReplaceCall::request_replace(DOT, DOT, 0, 0)).dispatch(origin_of(account_of(OLD_VAULT))),
+                Call::Replace(ReplaceCall::request_replace(
+                    VaultCurrencyPair {
+                        collateral: DOT,
+                        wrapped: DOT,
+                    },
+                    0,
+                    0
+                ))
+                .dispatch(origin_of(account_of(OLD_VAULT))),
                 SecurityError::ParachainShutdown,
             );
         });

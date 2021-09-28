@@ -3,6 +3,7 @@ mod mock;
 use currency::Amount;
 use frame_support::assert_err;
 use mock::{assert_eq, issue_testing_utils::*, *};
+use primitives::VaultCurrencyPair;
 
 fn test_with<R>(execute: impl Fn(CurrencyId) -> R) {
     let test_with = |currency_id| {
@@ -158,6 +159,8 @@ fn integration_test_issue_with_parachain_shutdown_fails() {
 }
 
 mod request_issue_tests {
+    use primitives::VaultCurrencyPair;
+
     use super::{assert_eq, *};
 
     /// Request fails if parachain is shutdown
@@ -216,8 +219,10 @@ mod request_issue_tests {
     fn integration_test_issue_request_precond_vault_active() {
         test_with_initialized_vault(|currency_id| {
             assert_ok!(Call::VaultRegistry(VaultRegistryCall::accept_new_issues(
-                currency_id,
-                DEFAULT_WRAPPED_CURRENCY,
+                VaultCurrencyPair {
+                    collateral: currency_id,
+                    wrapped: DEFAULT_WRAPPED_CURRENCY,
+                },
                 false
             ))
             .dispatch(origin_of(account_of(VAULT))));
@@ -412,15 +417,19 @@ fn integration_test_issue_wrapped_execute_succeeds() {
         let collateral_vault = required_collateral_for_issue(amount_btc, currency_id);
 
         assert_ok!(Call::VaultRegistry(VaultRegistryCall::register_vault(
-            currency_id,
-            DEFAULT_WRAPPED_CURRENCY,
+            VaultCurrencyPair {
+                collateral: currency_id,
+                wrapped: DEFAULT_WRAPPED_CURRENCY,
+            },
             collateral_vault.amount(),
             dummy_public_key(),
         ))
         .dispatch(origin_of(account_of(VAULT))));
         assert_ok!(Call::VaultRegistry(VaultRegistryCall::register_vault(
-            currency_id,
-            DEFAULT_WRAPPED_CURRENCY,
+            VaultCurrencyPair {
+                collateral: currency_id,
+                wrapped: DEFAULT_WRAPPED_CURRENCY,
+            },
             collateral_vault.amount(),
             dummy_public_key(),
         ))
@@ -483,15 +492,19 @@ fn integration_test_withdraw_after_request_issue() {
         let collateral_vault = required_collateral_for_issue(amount_btc, currency_id);
 
         assert_ok!(Call::VaultRegistry(VaultRegistryCall::register_vault(
-            currency_id,
-            DEFAULT_WRAPPED_CURRENCY,
+            VaultCurrencyPair {
+                collateral: currency_id,
+                wrapped: DEFAULT_WRAPPED_CURRENCY,
+            },
             collateral_vault.amount(),
             dummy_public_key(),
         ))
         .dispatch(origin_of(account_of(vault))));
         assert_ok!(Call::VaultRegistry(VaultRegistryCall::register_vault(
-            currency_id,
-            DEFAULT_WRAPPED_CURRENCY,
+            VaultCurrencyPair {
+                collateral: currency_id,
+                wrapped: DEFAULT_WRAPPED_CURRENCY,
+            },
             collateral_vault.amount(),
             dummy_public_key(),
         ))
@@ -516,8 +529,10 @@ fn integration_test_withdraw_after_request_issue() {
 
         // should not be possible to withdraw the collateral now
         assert!(Call::VaultRegistry(VaultRegistryCall::withdraw_collateral(
-            currency_id,
-            DEFAULT_WRAPPED_CURRENCY,
+            VaultCurrencyPair {
+                collateral: currency_id,
+                wrapped: DEFAULT_WRAPPED_CURRENCY,
+            },
             collateral_vault.amount()
         ))
         .dispatch(origin_of(account_of(vault)))

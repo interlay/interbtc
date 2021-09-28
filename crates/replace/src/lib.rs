@@ -40,7 +40,7 @@ use frame_system::{ensure_root, ensure_signed};
 use sp_core::H256;
 use sp_std::vec::Vec;
 use types::DefaultVaultId;
-use vault_registry::{types::CurrencyId, CurrencySource};
+use vault_registry::CurrencySource;
 
 pub use pallet::*;
 
@@ -50,6 +50,7 @@ pub mod pallet {
     use frame_support::pallet_prelude::*;
     use frame_system::pallet_prelude::*;
     use primitives::VaultId;
+    use vault_registry::types::DefaultVaultCurrencyPair;
 
     /// ## Configuration
     /// The pallet's configuration trait.
@@ -187,13 +188,12 @@ pub mod pallet {
         #[transactional]
         pub fn request_replace(
             origin: OriginFor<T>,
-            collateral_currency: CurrencyId<T>,
-            wrapped_currency: CurrencyId<T>,
+            currency_pair: DefaultVaultCurrencyPair<T>,
             #[pallet::compact] amount: Wrapped<T>,
             #[pallet::compact] griefing_collateral: Collateral<T>,
         ) -> DispatchResultWithPostInfo {
             ext::security::ensure_parachain_status_not_shutdown::<T>()?;
-            let old_vault = VaultId::new(ensure_signed(origin)?, collateral_currency, wrapped_currency);
+            let old_vault = VaultId::new(ensure_signed(origin)?, currency_pair.collateral, currency_pair.wrapped);
             Self::_request_replace(old_vault, amount, griefing_collateral)?;
             Ok(().into())
         }
@@ -207,12 +207,11 @@ pub mod pallet {
         #[transactional]
         pub fn withdraw_replace(
             origin: OriginFor<T>,
-            collateral_currency: CurrencyId<T>,
-            wrapped_currency: CurrencyId<T>,
+            currency_pair: DefaultVaultCurrencyPair<T>,
             #[pallet::compact] amount: Wrapped<T>,
         ) -> DispatchResultWithPostInfo {
             ext::security::ensure_parachain_status_not_shutdown::<T>()?;
-            let old_vault = VaultId::new(ensure_signed(origin)?, collateral_currency, wrapped_currency);
+            let old_vault = VaultId::new(ensure_signed(origin)?, currency_pair.collateral, currency_pair.wrapped);
             Self::_withdraw_replace_request(old_vault, amount)?;
             Ok(().into())
         }
@@ -229,15 +228,14 @@ pub mod pallet {
         #[transactional]
         pub fn accept_replace(
             origin: OriginFor<T>,
-            collateral_currency: CurrencyId<T>,
-            wrapped_currency: CurrencyId<T>,
+            currency_pair: DefaultVaultCurrencyPair<T>,
             old_vault: DefaultVaultId<T>,
             #[pallet::compact] amount_btc: Wrapped<T>,
             #[pallet::compact] collateral: Collateral<T>,
             btc_address: BtcAddress,
         ) -> DispatchResultWithPostInfo {
             ext::security::ensure_parachain_status_not_shutdown::<T>()?;
-            let new_vault = VaultId::new(ensure_signed(origin)?, collateral_currency, wrapped_currency);
+            let new_vault = VaultId::new(ensure_signed(origin)?, currency_pair.collateral, currency_pair.wrapped);
             Self::_accept_replace(old_vault, new_vault, amount_btc, collateral, btc_address)?;
             Ok(().into())
         }

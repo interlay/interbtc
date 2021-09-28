@@ -2,6 +2,7 @@ mod mock;
 
 use currency::Amount;
 use mock::{assert_eq, *};
+use primitives::VaultCurrencyPair;
 use sp_core::H256;
 
 pub const RELAYER: [u8; 32] = ALICE;
@@ -36,8 +37,10 @@ fn integration_test_report_vault_theft() {
         SecurityPallet::set_active_block_number(1);
 
         assert_ok!(Call::VaultRegistry(VaultRegistryCall::register_vault(
-            currency_id,
-            DEFAULT_WRAPPED_CURRENCY,
+            VaultCurrencyPair {
+                collateral: currency_id,
+                wrapped: DEFAULT_WRAPPED_CURRENCY,
+            },
             collateral_vault,
             dummy_public_key(),
         ))

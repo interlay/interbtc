@@ -2,6 +2,7 @@ mod mock;
 
 use currency::Amount;
 use mock::{assert_eq, nomination_testing_utils::*, *};
+use primitives::VaultCurrencyPair;
 use sp_runtime::traits::{CheckedDiv, CheckedSub};
 
 fn test_with<R>(execute: impl Fn(CurrencyId) -> R) {
@@ -39,6 +40,7 @@ fn default_nomination(currency_id: CurrencyId) -> Amount<Runtime> {
 
 mod spec_based_tests {
     use super::{assert_eq, *};
+    use primitives::VaultCurrencyPair;
     use sp_runtime::DispatchError;
 
     #[test]
@@ -70,11 +72,13 @@ mod spec_based_tests {
         SecurityPallet::set_status(status);
         let vault_id = vault_id_of(VAULT, DOT);
         assert_noop!(
-            Call::Nomination(NominationCall::opt_in_to_nomination(DOT, DOT)).dispatch(origin_of(account_of(ALICE))),
+            Call::Nomination(NominationCall::opt_in_to_nomination(vault_id.currencies.clone()))
+                .dispatch(origin_of(account_of(ALICE))),
             SecurityError::ParachainNotRunning,
         );
         assert_noop!(
-            Call::Nomination(NominationCall::opt_out_of_nomination(DOT, DOT)).dispatch(origin_of(account_of(ALICE))),
+            Call::Nomination(NominationCall::opt_out_of_nomination(vault_id.currencies.clone()))
+                .dispatch(origin_of(account_of(ALICE))),
             SecurityError::ParachainNotRunning,
         );
         assert_noop!(
@@ -315,8 +319,10 @@ mod spec_based_tests {
             let vault_id = vault_id_of(VAULT, currency_id);
 
             assert_ok!(Call::VaultRegistry(VaultRegistryCall::withdraw_collateral(
-                currency_id,
-                DEFAULT_WRAPPED_CURRENCY,
+                VaultCurrencyPair {
+                    collateral: currency_id,
+                    wrapped: DEFAULT_WRAPPED_CURRENCY,
+                },
                 750000
             ))
             .dispatch(origin_of(account_of(VAULT))));
@@ -457,8 +463,7 @@ fn integration_test_nominated_collateral_prevents_replace_requests() {
         assert_nominate_collateral(&vault_id, account_of(USER), default_nomination(currency_id));
         assert_noop!(
             Call::Replace(ReplaceCall::request_replace(
-                vault_id.currencies.collateral,
-                vault_id.currencies.wrapped,
+                vault_id.currencies.clone(),
                 0,
                 DEFAULT_BACKING_COLLATERAL
             ))
@@ -476,8 +481,7 @@ fn integration_test_vaults_with_zero_nomination_cannot_request_replacement() {
         let griefing_collateral = 200;
         assert_noop!(
             Call::Replace(ReplaceCall::request_replace(
-                vault_id.currencies.collateral,
-                vault_id.currencies.wrapped,
+                vault_id.currencies.clone(),
                 amount.amount(),
                 griefing_collateral
             ))
@@ -525,8 +529,10 @@ fn integration_test_nominator_withdrawal_below_collateralization_threshold_fails
     test_with_nomination_enabled(|currency_id| {
         let vault_id = vault_id_of(VAULT, currency_id);
         assert_ok!(Call::VaultRegistry(VaultRegistryCall::withdraw_collateral(
-            currency_id,
-            DEFAULT_WRAPPED_CURRENCY,
+            VaultCurrencyPair {
+                collateral: currency_id,
+                wrapped: DEFAULT_WRAPPED_CURRENCY,
+            },
             750000
         ))
         .dispatch(origin_of(account_of(VAULT))));

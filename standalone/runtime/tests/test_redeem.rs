@@ -55,6 +55,8 @@ impl RedeemRequestTestExt for RedeemRequest<AccountId, BlockNumber, u128, Curren
 }
 
 mod spec_based_tests {
+    use primitives::VaultCurrencyPair;
+
     use super::{assert_eq, *};
     #[test]
     fn integration_test_redeem_with_parachain_shutdown_status_fails() {
@@ -102,8 +104,7 @@ mod spec_based_tests {
 
             assert_noop!(
                 Call::Redeem(RedeemCall::mint_tokens_for_reimbursed_redeem(
-                    vault_id.currencies.collateral,
-                    vault_id.currencies.wrapped,
+                    vault_id.currencies.clone(),
                     Default::default()
                 ))
                 .dispatch(origin_of(account_of(ALICE))),
@@ -143,8 +144,10 @@ mod spec_based_tests {
 
             assert_noop!(
                 Call::Redeem(RedeemCall::mint_tokens_for_reimbursed_redeem(
-                    DEFAULT_TESTING_CURRENCY,
-                    DEFAULT_WRAPPED_CURRENCY,
+                    VaultCurrencyPair {
+                        collateral: DEFAULT_TESTING_CURRENCY,
+                        wrapped: DEFAULT_WRAPPED_CURRENCY
+                    },
                     Default::default()
                 ))
                 .dispatch(origin_of(account_of(ALICE))),
@@ -1048,13 +1051,10 @@ mod spec_based_tests {
                 get_additional_collateral(currency_id);
                 SecurityPallet::set_active_block_number(100000000);
                 let vault_id = vault_id_of(VAULT, currency_id);
-                let collateral_currency = vault_id.currencies.collateral;
-                let wrapped_currency = vault_id.currencies.wrapped;
 
                 assert_noop!(
                     Call::Redeem(RedeemCall::mint_tokens_for_reimbursed_redeem(
-                        collateral_currency,
-                        wrapped_currency,
+                        vault_id.currencies.clone(),
                         H256::random()
                     ))
                     .dispatch(origin_of(account_of(VAULT))),
@@ -1070,8 +1070,7 @@ mod spec_based_tests {
                 );
                 assert_noop!(
                     Call::Redeem(RedeemCall::mint_tokens_for_reimbursed_redeem(
-                        collateral_currency,
-                        wrapped_currency,
+                        vault_id.currencies.clone(),
                         redeem_id
                     ))
                     .dispatch(origin_of(account_of(VAULT))),
@@ -1080,16 +1079,21 @@ mod spec_based_tests {
                 CoreVaultData::force_to(&vault_id, tmp);
                 assert_noop!(
                     Call::Redeem(RedeemCall::mint_tokens_for_reimbursed_redeem(
-                        collateral_currency,
-                        if wrapped_currency == DOT { INTERBTC } else { DOT },
+                        VaultCurrencyPair {
+                            collateral: vault_id.currencies.collateral,
+                            wrapped: if vault_id.currencies.wrapped == DOT {
+                                INTERBTC
+                            } else {
+                                DOT
+                            },
+                        },
                         redeem_id
                     ))
                     .dispatch(origin_of(account_of(VAULT))),
                     RedeemError::UnauthorizedUser
                 );
                 assert_ok!(Call::Redeem(RedeemCall::mint_tokens_for_reimbursed_redeem(
-                    collateral_currency,
-                    wrapped_currency,
+                    vault_id.currencies.clone(),
                     redeem_id
                 ))
                 .dispatch(origin_of(account_of(VAULT))));
@@ -1115,8 +1119,7 @@ mod spec_based_tests {
                 let vault_id = vault_id_of(VAULT, currency_id);
                 assert_noop!(
                     Call::Redeem(RedeemCall::mint_tokens_for_reimbursed_redeem(
-                        vault_id.currencies.collateral,
-                        vault_id.currencies.wrapped,
+                        vault_id.currencies.clone(),
                         redeem_id
                     ))
                     .dispatch(origin_of(account_of(VAULT))),
@@ -1428,8 +1431,7 @@ fn integration_test_redeem_wrapped_cancel_reimburse_insufficient_collateral_for_
 
         let vault_id = vault_id_of(VAULT, currency_id);
         assert_ok!(Call::Redeem(RedeemCall::mint_tokens_for_reimbursed_redeem(
-            vault_id.currencies.collateral,
-            vault_id.currencies.wrapped,
+            vault_id.currencies.clone(),
             redeem_id
         ))
         .dispatch(origin_of(account_of(VAULT))));
@@ -1705,8 +1707,7 @@ mod mint_tokens_for_reimbursed_redeem_equivalence_test {
             SecurityPallet::set_active_block_number(100000000);
             let vault_id = vault_id_of(VAULT, currency_id);
             assert_ok!(Call::Redeem(RedeemCall::mint_tokens_for_reimbursed_redeem(
-                vault_id.currencies.collateral,
-                vault_id.currencies.wrapped,
+                vault_id.currencies.clone(),
                 redeem_id
             ))
             .dispatch(origin_of(account_of(VAULT))));
