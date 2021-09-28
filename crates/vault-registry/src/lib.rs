@@ -580,7 +580,7 @@ pub mod pallet {
     /// Mapping of reserved BTC addresses to the registered account
     #[pallet::storage]
     pub(super) type ReservedAddresses<T: Config> =
-        StorageMap<_, Blake2_128Concat, BtcAddress, Option<DefaultVaultId<T>>, ValueQuery>;
+        StorageMap<_, Blake2_128Concat, BtcAddress, DefaultVaultId<T>, OptionQuery>;
 
     /// Total collateral used for collateral tokens issued by active vaults, excluding the liquidation vault
     #[pallet::storage]
@@ -1733,7 +1733,7 @@ impl<T: Config> Pallet<T> {
         );
         let mut vault = Self::get_active_rich_vault_from_id(&vault_id)?;
         vault.insert_deposit_address(btc_address);
-        ReservedAddresses::<T>::insert(btc_address, Some(vault_id));
+        ReservedAddresses::<T>::insert(btc_address, vault_id);
         Ok(())
     }
 
