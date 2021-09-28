@@ -1,5 +1,6 @@
 mod mock;
 
+use crate::redeem_testing_utils::{setup_redeem, USER};
 use currency::Amount;
 use mock::{assert_eq, *};
 use primitives::VaultCurrencyPair;
@@ -12,6 +13,7 @@ fn test_with<R>(execute: impl Fn(CurrencyId) -> R) {
     let test_with = |currency_id| {
         ExtBuilder::build().execute_with(|| {
             assert_ok!(OraclePallet::_set_exchange_rate(currency_id, FixedU128::one()));
+            UserData::force_to(USER, default_user_state());
             execute(currency_id)
         })
     };
@@ -88,6 +90,97 @@ fn integration_test_report_vault_theft() {
                 liquidation_vault.collateral += confiscated_collateral;
             })
         );
+    });
+}
+
+#[test]
+fn integration_test_double_spend_op_return() {
+    test_with(|_currency_id| {
+        let issued_tokens = wrapped(10_000);
+        // Register vault with hardcoded public key so it counts as theft
+        let stealing_vault = DAVE;
+
+        let vault_public_key_one = BtcPublicKey([
+            2, 168, 49, 109, 0, 14, 227, 106, 112, 84, 59, 37, 153, 238, 121, 44, 66, 8, 181, 64, 248, 19, 137, 27, 47,
+            222, 50, 95, 187, 221, 152, 165, 69,
+        ]);
+
+        let vault_public_key_two = BtcPublicKey([
+            2, 139, 220, 235, 13, 249, 164, 152, 179, 4, 175, 217, 170, 84, 218, 179, 182, 247, 109, 48, 57, 152, 241,
+            165, 225, 26, 242, 187, 160, 225, 248, 195, 250,
+        ]);
+
+        assert_ok!(Call::VaultRegistry(VaultRegistryCall::register_vault(
+            VaultCurrencyPair {
+                collateral: DEFAULT_TESTING_CURRENCY,
+                wrapped: DEFAULT_WRAPPED_CURRENCY,
+            },
+            INITIAL_BALANCE,
+            vault_public_key_one.clone(),
+        ))
+        .dispatch(origin_of(account_of(stealing_vault))));
+
+        assert_ok!(VaultRegistryPallet::try_increase_to_be_issued_tokens(
+            &default_vault_id_of(stealing_vault),
+            &issued_tokens,
+        ));
+        assert_ok!(VaultRegistryPallet::issue_tokens(
+            &default_vault_id_of(stealing_vault),
+            &issued_tokens
+        ));
+
+        let redeem_id = setup_redeem(issued_tokens, USER, default_vault_id_of(stealing_vault));
+        let redeem = RedeemPallet::get_open_redeem_request_from_id(&redeem_id).unwrap();
+        let user_btc_address = BtcAddress::P2PKH(H160([2; 20]));
+        let current_block_number = 1;
+
+        // Send the honest redeem transaction
+        let (_tx_id, _tx_block_height, merkle_proof, raw_tx) = {
+            register_address_and_mine_transaction(
+                default_vault_id_of(stealing_vault),
+                vault_public_key_one,
+                user_btc_address,
+                redeem.amount_btc(),
+                Some(redeem_id),
+            )
+        };
+
+        // Double-spend the redeem, so the redeemer gets twice the BTC
+        let (_theft_tx_id, _theft_tx_block_height, theft_merkle_proof, theft_raw_tx) =
+            register_address_and_mine_transaction(
+                default_vault_id_of(stealing_vault),
+                vault_public_key_two,
+                user_btc_address,
+                redeem.amount_btc(),
+                Some(redeem_id),
+            );
+        SecurityPallet::set_active_block_number(current_block_number + 1 + CONFIRMATIONS);
+
+        assert_ok!(Call::Redeem(RedeemCall::execute_redeem(
+            redeem_id,
+            merkle_proof.clone(),
+            raw_tx.clone()
+        ))
+        .dispatch(origin_of(account_of(stealing_vault))));
+
+        // Executing the theft tx should fail
+        assert_err!(
+            Call::Redeem(RedeemCall::execute_redeem(
+                redeem_id,
+                theft_merkle_proof.clone(),
+                theft_raw_tx.clone()
+            ))
+            .dispatch(origin_of(account_of(stealing_vault))),
+            RedeemError::RedeemCompleted
+        );
+
+        // Reporting the double-spend transaction as theft should work
+        assert_ok!(Call::Relay(RelayCall::report_vault_double_payment(
+            default_vault_id_of(stealing_vault),
+            (merkle_proof, theft_merkle_proof),
+            (raw_tx, theft_raw_tx),
+        ))
+        .dispatch(origin_of(account_of(USER))));
     });
 }
 
