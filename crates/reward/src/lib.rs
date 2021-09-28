@@ -13,12 +13,16 @@ mod tests;
 
 use codec::{Decode, Encode, EncodeLike};
 use frame_support::{dispatch::DispatchError, traits::Get};
-use primitives::TruncateFixedPointToInt;
+use primitives::{TruncateFixedPointToInt, VaultId};
 use sp_arithmetic::FixedPointNumber;
 use sp_runtime::traits::{CheckedAdd, CheckedDiv, CheckedMul, CheckedSub, MaybeSerializeDeserialize, Zero};
-use sp_std::{marker::PhantomData, vec::Vec};
+use sp_std::marker::PhantomData;
 
 pub(crate) type SignedFixedPoint<T> = <T as Config>::SignedFixedPoint;
+
+pub use pallet::*;
+
+pub type DefaultVaultId<T> = VaultId<<T as frame_system::Config>::AccountId, <T as Config>::CurrencyId>;
 
 pub use pallet::*;
 
@@ -46,14 +50,14 @@ pub mod pallet {
     #[pallet::generate_deposit(pub(crate) fn deposit_event)]
     #[pallet::metadata(
         T::CurrencyId = "CurrencyId",
-        T::AccountId = "AccountId",
+        DefaultVaultId<T> = "VaultId",
         T::SignedFixedPoint = "SignedFixedPoint"
     )]
     pub enum Event<T: Config> {
-        DepositStake(T::CurrencyId, T::AccountId, T::SignedFixedPoint),
+        DepositStake(T::CurrencyId, DefaultVaultId<T>, T::SignedFixedPoint),
         DistributeReward(T::CurrencyId, T::SignedFixedPoint),
-        WithdrawStake(T::CurrencyId, T::AccountId, T::SignedFixedPoint),
-        WithdrawReward(T::CurrencyId, T::AccountId, T::SignedFixedPoint),
+        WithdrawStake(T::CurrencyId, DefaultVaultId<T>, T::SignedFixedPoint),
+        WithdrawReward(T::CurrencyId, DefaultVaultId<T>, T::SignedFixedPoint),
     }
 
     #[pallet::error]
@@ -92,7 +96,7 @@ pub mod pallet {
         Blake2_128Concat,
         T::CurrencyId,
         Blake2_128Concat,
-        T::AccountId,
+        DefaultVaultId<T>,
         SignedFixedPoint<T>,
         ValueQuery,
     >;
@@ -104,7 +108,7 @@ pub mod pallet {
         Blake2_128Concat,
         T::CurrencyId,
         Blake2_128Concat,
-        T::AccountId,
+        DefaultVaultId<T>,
         SignedFixedPoint<T>,
         ValueQuery,
     >;
@@ -149,10 +153,6 @@ macro_rules! checked_sub_mut {
 
 // "Internal" functions, callable by code.
 impl<T: Config> Pallet<T> {
-    pub fn participants() -> Vec<(T::CurrencyId, T::AccountId, T::SignedFixedPoint)> {
-        <Stake<T>>::iter().collect()
-    }
-
     pub fn get_total_rewards(
         currency_id: T::CurrencyId,
     ) -> Result<<T::SignedFixedPoint as FixedPointNumber>::Inner, DispatchError> {
@@ -163,7 +163,7 @@ impl<T: Config> Pallet<T> {
 
     pub fn deposit_stake(
         currency_id: T::CurrencyId,
-        account_id: &T::AccountId,
+        account_id: &DefaultVaultId<T>,
         amount: SignedFixedPoint<T>,
     ) -> Result<(), DispatchError> {
         checked_add_mut!(Stake<T>, currency_id, account_id, &amount);
@@ -205,7 +205,7 @@ impl<T: Config> Pallet<T> {
 
     pub fn compute_reward(
         currency_id: T::CurrencyId,
-        account_id: &T::AccountId,
+        account_id: &DefaultVaultId<T>,
     ) -> Result<<SignedFixedPoint<T> as FixedPointNumber>::Inner, DispatchError> {
         let stake = Self::stake(currency_id, account_id);
         let reward_per_token = Self::reward_per_token(currency_id);
@@ -225,7 +225,7 @@ impl<T: Config> Pallet<T> {
 
     pub fn withdraw_stake(
         currency_id: T::CurrencyId,
-        account_id: &T::AccountId,
+        account_id: &DefaultVaultId<T>,
         amount: SignedFixedPoint<T>,
     ) -> Result<(), DispatchError> {
         if amount > Self::stake(currency_id, account_id) {
@@ -253,7 +253,7 @@ impl<T: Config> Pallet<T> {
 
     pub fn withdraw_reward(
         currency_id: T::CurrencyId,
-        account_id: &T::AccountId,
+        account_id: &DefaultVaultId<T>,
     ) -> Result<<SignedFixedPoint<T> as FixedPointNumber>::Inner, DispatchError> {
         let reward = Self::compute_reward(currency_id, account_id)?;
         let reward_as_fixed = SignedFixedPoint::<T>::checked_from_integer(reward).ok_or(Error::<T>::TryIntoIntError)?;
@@ -278,47 +278,47 @@ impl<T: Config> Pallet<T> {
     }
 }
 
-pub trait Rewards<AccountId> {
+pub trait Rewards<VaultId> {
     /// Signed fixed point type.
     type SignedFixedPoint: FixedPointNumber;
 
     /// Return the stake associated with the `account_id`.
-    fn get_stake(account_id: &AccountId) -> Self::SignedFixedPoint;
+    fn get_stake(account_id: &VaultId) -> Self::SignedFixedPoint;
 
     /// Deposit an `amount` of stake to the `account_id`.
-    fn deposit_stake(account_id: &AccountId, amount: Self::SignedFixedPoint) -> Result<(), DispatchError>;
+    fn deposit_stake(account_id: &VaultId, amount: Self::SignedFixedPoint) -> Result<(), DispatchError>;
 
     /// Distribute the `reward` to all participants OR return the leftover.
     fn distribute_reward(reward: Self::SignedFixedPoint) -> Result<Self::SignedFixedPoint, DispatchError>;
 
     /// Compute the expected reward for the `account_id`.
     fn compute_reward(
-        account_id: &AccountId,
+        account_id: &VaultId,
     ) -> Result<<Self::SignedFixedPoint as FixedPointNumber>::Inner, DispatchError>;
 
     /// Withdraw an `amount` of stake from the `account_id`.
-    fn withdraw_stake(account_id: &AccountId, amount: Self::SignedFixedPoint) -> Result<(), DispatchError>;
+    fn withdraw_stake(account_id: &VaultId, amount: Self::SignedFixedPoint) -> Result<(), DispatchError>;
 
     /// Withdraw all rewards from the `account_id`.
     fn withdraw_reward(
-        account_id: &AccountId,
+        account_id: &VaultId,
     ) -> Result<<Self::SignedFixedPoint as FixedPointNumber>::Inner, DispatchError>;
 }
 
 pub struct RewardsCurrencyAdapter<T, GetCurrencyId>(PhantomData<(T, GetCurrencyId)>);
 
-impl<T, GetCurrencyId> Rewards<T::AccountId> for RewardsCurrencyAdapter<T, GetCurrencyId>
+impl<T, GetCurrencyId> Rewards<DefaultVaultId<T>> for RewardsCurrencyAdapter<T, GetCurrencyId>
 where
     T: Config,
     GetCurrencyId: Get<T::CurrencyId>,
 {
     type SignedFixedPoint = SignedFixedPoint<T>;
 
-    fn get_stake(account_id: &T::AccountId) -> Self::SignedFixedPoint {
+    fn get_stake(account_id: &DefaultVaultId<T>) -> Self::SignedFixedPoint {
         Pallet::<T>::stake(GetCurrencyId::get(), account_id)
     }
 
-    fn deposit_stake(account_id: &T::AccountId, amount: Self::SignedFixedPoint) -> Result<(), DispatchError> {
+    fn deposit_stake(account_id: &DefaultVaultId<T>, amount: Self::SignedFixedPoint) -> Result<(), DispatchError> {
         Pallet::<T>::deposit_stake(GetCurrencyId::get(), account_id, amount)
     }
 
@@ -327,17 +327,17 @@ where
     }
 
     fn compute_reward(
-        account_id: &T::AccountId,
+        account_id: &DefaultVaultId<T>,
     ) -> Result<<Self::SignedFixedPoint as FixedPointNumber>::Inner, DispatchError> {
         Pallet::<T>::compute_reward(GetCurrencyId::get(), account_id)
     }
 
-    fn withdraw_stake(account_id: &T::AccountId, amount: Self::SignedFixedPoint) -> Result<(), DispatchError> {
+    fn withdraw_stake(account_id: &DefaultVaultId<T>, amount: Self::SignedFixedPoint) -> Result<(), DispatchError> {
         Pallet::<T>::withdraw_stake(GetCurrencyId::get(), account_id, amount)
     }
 
     fn withdraw_reward(
-        account_id: &T::AccountId,
+        account_id: &DefaultVaultId<T>,
     ) -> Result<<Self::SignedFixedPoint as FixedPointNumber>::Inner, DispatchError> {
         Pallet::<T>::withdraw_reward(GetCurrencyId::get(), account_id)
     }

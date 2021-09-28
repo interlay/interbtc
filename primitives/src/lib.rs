@@ -37,6 +37,36 @@ impl TruncateFixedPointToInt for UnsignedFixedPoint {
     }
 }
 
+#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, PartialOrd, Ord)]
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+pub struct VaultCurrencyPair<CurrencyId: Copy> {
+    pub collateral: CurrencyId,
+    pub wrapped: CurrencyId,
+}
+
+#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, PartialOrd, Ord)]
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+pub struct VaultId<AccountId, CurrencyId: Copy> {
+    pub account_id: AccountId,
+    pub currencies: VaultCurrencyPair<CurrencyId>,
+}
+
+impl<AccountId, CurrencyId: Copy> VaultId<AccountId, CurrencyId> {
+    pub fn new(account_id: AccountId, collateral_currency: CurrencyId, wrapped_currency: CurrencyId) -> Self {
+        Self {
+            account_id,
+            currencies: VaultCurrencyPair::<CurrencyId> {
+                collateral: collateral_currency,
+                wrapped: wrapped_currency,
+            },
+        }
+    }
+
+    pub fn collateral_currency(&self) -> CurrencyId {
+        self.currencies.collateral
+    }
+}
+
 pub mod issue {
     use super::*;
 
@@ -59,11 +89,11 @@ pub mod issue {
 
     // Due to a known bug in serde we need to specify how u128 is (de)serialized.
     // See https://github.com/paritytech/substrate/issues/4641
-    #[derive(Encode, Decode, Default, Clone, PartialEq)]
+    #[derive(Encode, Decode, Clone, PartialEq)]
     #[cfg_attr(feature = "std", derive(Debug, Serialize, Deserialize))]
-    pub struct IssueRequest<AccountId, BlockNumber, Balance> {
+    pub struct IssueRequest<AccountId, BlockNumber, Balance, CurrencyId: Copy> {
         /// the vault associated with this issue request
-        pub vault: AccountId,
+        pub vault: VaultId<AccountId, CurrencyId>,
         /// the *active* block height when this request was opened
         pub opentime: BlockNumber,
         /// the issue period when this request was opened
@@ -135,11 +165,11 @@ pub mod redeem {
 
     // Due to a known bug in serde we need to specify how u128 is (de)serialized.
     // See https://github.com/paritytech/substrate/issues/4641
-    #[derive(Encode, Decode, Default, Clone, PartialEq)]
+    #[derive(Encode, Decode, Clone, PartialEq)]
     #[cfg_attr(feature = "std", derive(Debug, Serialize, Deserialize))]
-    pub struct RedeemRequest<AccountId, BlockNumber, Balance> {
+    pub struct RedeemRequest<AccountId, BlockNumber, Balance, CurrencyId: Copy> {
         /// the vault associated with this redeem request
-        pub vault: AccountId,
+        pub vault: VaultId<AccountId, CurrencyId>,
         /// the *active* block height when this request was opened
         pub opentime: BlockNumber,
         /// the redeem period when this request was opened
@@ -184,11 +214,11 @@ pub mod refund {
 
     // Due to a known bug in serde we need to specify how u128 is (de)serialized.
     // See https://github.com/paritytech/substrate/issues/4641
-    #[derive(Encode, Decode, Default, Clone, PartialEq)]
+    #[derive(Encode, Decode, Clone, PartialEq)]
     #[cfg_attr(feature = "std", derive(Debug, Serialize, Deserialize))]
-    pub struct RefundRequest<AccountId, Balance> {
+    pub struct RefundRequest<AccountId, Balance, CurrencyId: Copy> {
         /// the vault associated with this redeem request
-        pub vault: AccountId,
+        pub vault: VaultId<AccountId, CurrencyId>,
         #[cfg_attr(feature = "std", serde(bound(deserialize = "Balance: std::str::FromStr")))]
         #[cfg_attr(feature = "std", serde(deserialize_with = "deserialize_from_string"))]
         #[cfg_attr(feature = "std", serde(bound(serialize = "Balance: std::fmt::Display")))]
@@ -216,7 +246,7 @@ pub mod replace {
     use super::*;
 
     #[derive(Encode, Decode, Clone, PartialEq)]
-    #[cfg_attr(feature = "std", derive(Debug, Serialize, Deserialize))]
+    #[cfg_attr(feature = "std", derive(Debug, Serialize, Deserialize, Eq))]
     pub enum ReplaceRequestStatus {
         /// accepted, but not yet executed or cancelled
         Pending,
@@ -231,15 +261,16 @@ pub mod replace {
             ReplaceRequestStatus::Pending
         }
     }
+
     // Due to a known bug in serde we need to specify how u128 is (de)serialized.
     // See https://github.com/paritytech/substrate/issues/4641
-    #[derive(Encode, Decode, Default, Clone, PartialEq)]
-    #[cfg_attr(feature = "std", derive(Debug, Serialize, Deserialize))]
-    pub struct ReplaceRequest<AccountId, BlockNumber, Balance> {
+    #[derive(Encode, Decode, Clone, PartialEq)]
+    #[cfg_attr(feature = "std", derive(Debug, Serialize, Deserialize, Eq))]
+    pub struct ReplaceRequest<AccountId, BlockNumber, Balance, CurrencyId: Copy> {
         /// the vault which has requested to be replaced
-        pub old_vault: AccountId,
+        pub old_vault: VaultId<AccountId, CurrencyId>,
         /// the vault which is replacing the old vault
-        pub new_vault: AccountId,
+        pub new_vault: VaultId<AccountId, CurrencyId>,
         #[cfg_attr(feature = "std", serde(bound(deserialize = "Balance: std::str::FromStr")))]
         #[cfg_attr(feature = "std", serde(deserialize_with = "deserialize_from_string"))]
         #[cfg_attr(feature = "std", serde(bound(serialize = "Balance: std::fmt::Display")))]

@@ -60,17 +60,18 @@ pub(crate) mod security {
 
 #[cfg_attr(test, mockable)]
 pub(crate) mod vault_registry {
+    use crate::DefaultVaultId;
     use currency::Amount;
     use frame_support::dispatch::{DispatchError, DispatchResult};
 
     pub fn try_increase_to_be_issued_tokens<T: crate::Config>(
-        vault_id: &T::AccountId,
+        vault_id: &DefaultVaultId<T>,
         amount: &Amount<T>,
     ) -> Result<(), DispatchError> {
         <vault_registry::Pallet<T>>::try_increase_to_be_issued_tokens(vault_id, amount)
     }
 
-    pub fn issue_tokens<T: crate::Config>(vault_id: &T::AccountId, amount: &Amount<T>) -> DispatchResult {
+    pub fn issue_tokens<T: crate::Config>(vault_id: &DefaultVaultId<T>, amount: &Amount<T>) -> DispatchResult {
         <vault_registry::Pallet<T>>::issue_tokens(vault_id, amount)
     }
 }

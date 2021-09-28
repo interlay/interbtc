@@ -33,6 +33,14 @@ fn setup_exchange_rate<T: crate::Config>() {
     .unwrap();
 }
 
+fn get_vault_id<T: crate::Config>() -> DefaultVaultId<T> {
+    VaultId::new(
+        account("Vault", 0, 0),
+        T::GetGriefingCollateralCurrencyId::get(),
+        T::GetWrappedCurrencyId::get(),
+    )
+}
+
 benchmarks! {
     set_nomination_enabled {
     }: _(RawOrigin::Root, true)
@@ -41,58 +49,57 @@ benchmarks! {
         setup_exchange_rate::<T>();
         <NominationEnabled<T>>::set(true);
 
-        let vault: T::AccountId = account("Vault", 0, 0);
-        mint_collateral::<T>(&vault, (1u32 << 31).into());
-        assert_ok!(VaultRegistry::<T>::_register_vault(&vault, 100000000u32.into(), dummy_public_key(), DEFAULT_TESTING_CURRENCY));
+        let vault_id = get_vault_id::<T>();
+        mint_collateral::<T>(&vault_id.account_id, (1u32 << 31).into());
+        assert_ok!(VaultRegistry::<T>::_register_vault(vault_id.clone(), 100000000u32.into(), dummy_public_key()));
 
-    }: _(RawOrigin::Signed(vault))
+    }: _(RawOrigin::Signed(vault_id.account_id), vault_id.currencies.clone())
 
     opt_out_of_nomination {
         setup_exchange_rate::<T>();
         <NominationEnabled<T>>::set(true);
 
-        let vault: T::AccountId = account("Vault", 0, 0);
-        mint_collateral::<T>(&vault, (1u32 << 31).into());
-        assert_ok!(VaultRegistry::<T>::_register_vault(&vault, 100000000u32.into(), dummy_public_key(), DEFAULT_TESTING_CURRENCY));
+        let vault_id = get_vault_id::<T>();
+        mint_collateral::<T>(&vault_id.account_id, (1u32 << 31).into());
+        assert_ok!(VaultRegistry::<T>::_register_vault(vault_id.clone(), 100000000u32.into(), dummy_public_key()));
 
-        <Vaults<T>>::insert(&vault, true);
+        <Vaults<T>>::insert(&vault_id, true);
 
-    }: _(RawOrigin::Signed(vault))
+    }: _(RawOrigin::Signed(vault_id.account_id), vault_id.currencies.clone())
 
     deposit_collateral {
         setup_exchange_rate::<T>();
         <NominationEnabled<T>>::set(true);
 
-        let vault: T::AccountId = account("Vault", 0, 0);
-        mint_collateral::<T>(&vault, (1u32 << 31).into());
-        assert_ok!(VaultRegistry::<T>::_register_vault(&vault, 100000000u32.into(), dummy_public_key(), DEFAULT_TESTING_CURRENCY));
+        let vault_id = get_vault_id::<T>();
+        mint_collateral::<T>(&vault_id.account_id, (1u32 << 31).into());
+        assert_ok!(VaultRegistry::<T>::_register_vault(vault_id.clone(), 100000000u32.into(), dummy_public_key()));
 
-        <Vaults<T>>::insert(&vault, true);
+        <Vaults<T>>::insert(&vault_id, true);
 
         let nominator: T::AccountId = account("Nominator", 0, 0);
         mint_collateral::<T>(&nominator, (1u32 << 31).into());
         let amount = 100u32.into();
 
-    }: _(RawOrigin::Signed(nominator), vault, amount)
+    }: _(RawOrigin::Signed(nominator), vault_id, amount)
 
     withdraw_collateral {
         setup_exchange_rate::<T>();
         <NominationEnabled<T>>::set(true);
 
-        let vault: T::AccountId = account("Vault", 0, 0);
-        mint_collateral::<T>(&vault, (1u32 << 31).into());
-        assert_ok!(VaultRegistry::<T>::_register_vault(&vault, 100000000u32.into(), dummy_public_key(), DEFAULT_TESTING_CURRENCY));
+        let vault_id = get_vault_id::<T>();
+        mint_collateral::<T>(&vault_id.account_id, (1u32 << 31).into());
+        assert_ok!(VaultRegistry::<T>::_register_vault(vault_id.clone(), 100000000u32.into(), dummy_public_key()));
 
-        <Vaults<T>>::insert(&vault, true);
+        <Vaults<T>>::insert(&vault_id, true);
 
         let nominator: T::AccountId = account("Nominator", 0, 0);
         mint_collateral::<T>(&nominator, (1u32 << 31).into());
         let amount = 100u32.into();
 
-        assert_ok!(Nomination::<T>::_deposit_collateral(&vault, &nominator, amount));
+        assert_ok!(Nomination::<T>::_deposit_collateral(&vault_id, &nominator, amount));
 
-    }: _(RawOrigin::Signed(nominator), vault, amount, None)
-
+    }: _(RawOrigin::Signed(nominator), vault_id, amount, None)
 }
 
 impl_benchmark_test_suite!(

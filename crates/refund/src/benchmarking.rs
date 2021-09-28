@@ -10,7 +10,7 @@ use btc_relay::{BtcAddress, BtcPublicKey};
 use frame_benchmarking::{account, benchmarks, impl_benchmark_test_suite};
 use frame_support::assert_ok;
 use frame_system::RawOrigin;
-use primitives::CurrencyId;
+use primitives::{CurrencyId, VaultId};
 use sp_core::{H160, H256, U256};
 use sp_runtime::traits::One;
 use sp_std::prelude::*;
@@ -37,18 +37,28 @@ fn dummy_public_key() -> BtcPublicKey {
 benchmarks! {
     execute_refund {
         let origin: T::AccountId = account("Origin", 0, 0);
-        let vault_id: T::AccountId = account("Vault", 0, 0);
+        let vault_id: VaultId<T::AccountId, _> = VaultId::new(
+            account("Vault", 0, 0),
+            T::GetGriefingCollateralCurrencyId::get(),
+            T::GetWrappedCurrencyId::get()
+        );
         let relayer_id: T::AccountId = account("Relayer", 0, 0);
 
         let origin_btc_address = BtcAddress::P2PKH(H160::zero());
 
         let refund_id = H256::zero();
-        let mut refund_request = RefundRequest::default();
-        refund_request.vault = vault_id.clone();
-        refund_request.btc_address = origin_btc_address;
+        let refund_request = RefundRequest {
+            vault: vault_id.clone(),
+            btc_address: origin_btc_address,
+            completed: Default::default(),
+            amount_btc: Default::default(),
+            fee: Default::default(),
+            issue_id: Default::default(),
+            issuer: Default::default(),
+    };
         Refund::<T>::insert_refund_request(&refund_id, &refund_request);
 
-        let vault = Vault::new(vault_id.clone(), dummy_public_key(), DEFAULT_TESTING_CURRENCY);
+        let vault = Vault::new(vault_id.clone(), dummy_public_key());
 
         VaultRegistry::<T>::insert_vault(
             &vault_id,
@@ -108,12 +118,13 @@ benchmarks! {
         let block_header = BtcRelay::<T>::parse_raw_block_header(&raw_block_header).unwrap();
 
         BtcRelay::<T>::store_block_header(&relayer_id, block_header).unwrap();
-        Security::<T>::set_active_block_number(Security::<T>::active_block_number() + BtcRelay::<T>::parachain_confirmations() + 1u32.into());
+        Security::<T>::set_active_block_number(Security::<T>::active_block_number() +
+BtcRelay::<T>::parachain_confirmations() + 1u32.into());
 
         assert_ok!(Oracle::<T>::_set_exchange_rate(DEFAULT_TESTING_CURRENCY,
             UnsignedFixedPoint::<T>::one()
         ));
-    }: _(RawOrigin::Signed(vault_id), refund_id, proof, raw_tx)
+    }: _(RawOrigin::Signed(vault_id.account_id.clone()), refund_id, proof, raw_tx)
 }
 
 impl_benchmark_test_suite!(Refund, crate::mock::ExtBuilder::build(), crate::mock::Test);

@@ -5,6 +5,7 @@ use frame_support::{assert_ok, parameter_types, traits::GenesisBuild, PalletId};
 use mocktopus::{macros::mockable, mocking::clear_mocks};
 use orml_traits::parameter_type_with_key;
 pub use primitives::CurrencyId;
+use primitives::{VaultCurrencyPair, VaultId};
 use sp_arithmetic::{FixedI128, FixedU128};
 use sp_core::H256;
 use sp_runtime::{
@@ -85,7 +86,8 @@ impl frame_system::Config for Test {
     type OnSetCode = ();
 }
 
-pub const DEFAULT_TESTING_CURRENCY: CurrencyId = CurrencyId::DOT;
+pub const DEFAULT_TESTING_CURRENCY: CurrencyId = DOT;
+pub const DEFAULT_WRAPPED_CURRENCY: CurrencyId = INTERBTC;
 pub const DOT: CurrencyId = CurrencyId::DOT;
 pub const INTERBTC: CurrencyId = CurrencyId::INTERBTC;
 
@@ -216,16 +218,26 @@ impl Config for Test {
 pub type TestEvent = Event;
 pub type TestError = Error<Test>;
 
-pub const ALICE: AccountId = 1;
-pub const BOB: AccountId = 2;
-pub const CAROL: AccountId = 3;
+pub const ALICE: VaultId<AccountId, CurrencyId> = VaultId {
+    account_id: 1,
+    currencies: VaultCurrencyPair {
+        collateral: DEFAULT_TESTING_CURRENCY,
+        wrapped: DEFAULT_WRAPPED_CURRENCY,
+    },
+};
+pub const BOB: VaultId<AccountId, CurrencyId> = VaultId {
+    account_id: 2,
+    currencies: VaultCurrencyPair {
+        collateral: DEFAULT_TESTING_CURRENCY,
+        wrapped: DEFAULT_WRAPPED_CURRENCY,
+    },
+};
 
 #[allow(dead_code)]
 pub const DEFAULT_COLLATERAL: u128 = 100;
 
 pub const ALICE_BALANCE: u128 = 1_000_000;
 pub const BOB_BALANCE: u128 = 1_000_000;
-pub const CAROL_BALANCE: u128 = 1_000_000;
 
 pub struct ExtBuilder;
 
@@ -283,12 +295,10 @@ impl ExtBuilder {
     pub fn build() -> sp_io::TestExternalities {
         ExtBuilder::build_with(orml_tokens::GenesisConfig::<Test> {
             balances: vec![
-                (ALICE, DOT, ALICE_BALANCE),
-                (BOB, DOT, BOB_BALANCE),
-                (CAROL, DOT, CAROL_BALANCE),
-                (ALICE, INTERBTC, ALICE_BALANCE),
-                (BOB, INTERBTC, BOB_BALANCE),
-                (CAROL, INTERBTC, CAROL_BALANCE),
+                (ALICE.account_id, DOT, ALICE_BALANCE),
+                (BOB.account_id, DOT, BOB_BALANCE),
+                (ALICE.account_id, INTERBTC, ALICE_BALANCE),
+                (BOB.account_id, INTERBTC, BOB_BALANCE),
             ],
         })
     }

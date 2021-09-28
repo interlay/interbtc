@@ -1,7 +1,9 @@
 pub use primitives::redeem::{RedeemRequest, RedeemRequestStatus};
+use primitives::VaultId;
 use sp_runtime::DispatchError;
+use vault_registry::types::CurrencyId;
 
-use crate::{ext, Config};
+use crate::Config;
 use codec::{Decode, Encode};
 use currency::Amount;
 use frame_support::traits::Get;
@@ -25,8 +27,14 @@ pub(crate) type Collateral<T> = BalanceOf<T>;
 
 pub(crate) type Wrapped<T> = BalanceOf<T>;
 
-pub type DefaultRedeemRequest<T> =
-    RedeemRequest<<T as frame_system::Config>::AccountId, <T as frame_system::Config>::BlockNumber, BalanceOf<T>>;
+pub(crate) type DefaultVaultId<T> = VaultId<<T as frame_system::Config>::AccountId, CurrencyId<T>>;
+
+pub type DefaultRedeemRequest<T> = RedeemRequest<
+    <T as frame_system::Config>::AccountId,
+    <T as frame_system::Config>::BlockNumber,
+    BalanceOf<T>,
+    CurrencyId<T>,
+>;
 
 pub trait RedeemRequestExt<T: Config> {
     fn amount_btc(&self) -> Amount<T>;
@@ -35,7 +43,7 @@ pub trait RedeemRequestExt<T: Config> {
     fn transfer_fee_btc(&self) -> Amount<T>;
 }
 
-impl<T: Config> RedeemRequestExt<T> for RedeemRequest<T::AccountId, T::BlockNumber, BalanceOf<T>> {
+impl<T: Config> RedeemRequestExt<T> for RedeemRequest<T::AccountId, T::BlockNumber, BalanceOf<T>, CurrencyId<T>> {
     fn amount_btc(&self) -> Amount<T> {
         Amount::new(self.amount_btc, T::GetWrappedCurrencyId::get())
     }
@@ -43,8 +51,7 @@ impl<T: Config> RedeemRequestExt<T> for RedeemRequest<T::AccountId, T::BlockNumb
         Amount::new(self.fee, T::GetWrappedCurrencyId::get())
     }
     fn premium(&self) -> Result<Amount<T>, DispatchError> {
-        let currency_id = ext::vault_registry::get_collateral_currency::<T>(&self.vault)?;
-        Ok(Amount::new(self.premium, currency_id))
+        Ok(Amount::new(self.premium, self.vault.collateral_currency()))
     }
     fn transfer_fee_btc(&self) -> Amount<T> {
         Amount::new(self.transfer_fee_btc, T::GetWrappedCurrencyId::get())

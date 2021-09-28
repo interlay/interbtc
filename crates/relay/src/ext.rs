@@ -3,18 +3,19 @@ use mocktopus::macros::mockable;
 
 #[cfg_attr(test, mockable)]
 pub(crate) mod vault_registry {
+    use crate::DefaultVaultId;
     use ::vault_registry::VaultStatus;
     use frame_support::dispatch::{DispatchError, DispatchResult};
     use vault_registry::types::DefaultVault;
 
     pub fn get_active_vault_from_id<T: crate::Config>(
-        vault_id: &T::AccountId,
+        vault_id: &DefaultVaultId<T>,
     ) -> Result<DefaultVault<T>, DispatchError> {
         <vault_registry::Pallet<T>>::get_active_vault_from_id(vault_id)
     }
 
     pub fn liquidate_theft_vault<T: crate::Config>(
-        vault_id: &T::AccountId,
+        vault_id: &DefaultVaultId<T>,
         reporter_id: T::AccountId,
     ) -> DispatchResult {
         let _ = <vault_registry::Pallet<T>>::liquidate_vault_with_status(

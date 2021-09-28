@@ -5,6 +5,7 @@ use frame_support::{assert_ok, parameter_types, traits::GenesisBuild, PalletId};
 use mocktopus::{macros::mockable, mocking::clear_mocks};
 use orml_traits::parameter_type_with_key;
 pub use primitives::CurrencyId;
+use primitives::{VaultCurrencyPair, VaultId};
 use sp_core::H256;
 use sp_runtime::{
     testing::{Header, TestXt},
@@ -12,7 +13,13 @@ use sp_runtime::{
     FixedI128, FixedPointNumber, FixedU128,
 };
 
-pub const VAULT: AccountId = 1;
+pub const VAULT: VaultId<AccountId, CurrencyId> = VaultId {
+    account_id: 1,
+    currencies: VaultCurrencyPair {
+        collateral: DEFAULT_TESTING_CURRENCY,
+        wrapped: DEFAULT_WRAPPED_CURRENCY,
+    },
+};
 pub const USER: AccountId = 2;
 
 type TestExtrinsic = TestXt<Call, ()>;
@@ -89,6 +96,7 @@ impl frame_system::Config for Test {
 }
 
 pub const DEFAULT_TESTING_CURRENCY: CurrencyId = CurrencyId::DOT;
+pub const DEFAULT_WRAPPED_CURRENCY: CurrencyId = CurrencyId::INTERBTC;
 pub const DOT: CurrencyId = CurrencyId::DOT;
 pub const INTERBTC: CurrencyId = CurrencyId::INTERBTC;
 

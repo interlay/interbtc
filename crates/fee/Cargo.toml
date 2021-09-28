@@ -25,6 +25,7 @@ currency = { path = "../currency", default-features = false }
 security = { path = "../security", default-features = false }
 reward = { path = "../reward", default-features = false }
 staking = { path = "../staking", default-features = false }
+primitives = { package = "interbtc-primitives", path = "../../primitives", default-features = false }
 
 [dev-dependencies]
 mocktopus = "0.7.0"
@@ -58,6 +59,7 @@ std = [
 	"security/std",
 	"reward/std",
 	"staking/std",
+	"primitives/std",
 ]
 runtime-benchmarks = [
 	"frame-benchmarking",

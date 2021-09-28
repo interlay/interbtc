@@ -5,6 +5,7 @@ use frame_support::{parameter_types, traits::GenesisBuild, PalletId};
 use mocktopus::{macros::mockable, mocking::clear_mocks};
 use orml_traits::parameter_type_with_key;
 pub use primitives::CurrencyId;
+use primitives::{VaultCurrencyPair, VaultId};
 use sp_arithmetic::{FixedI128, FixedPointNumber, FixedU128};
 use sp_core::H256;
 use sp_runtime::{
@@ -90,6 +91,8 @@ impl frame_system::Config for Test {
 }
 
 pub const DEFAULT_TESTING_CURRENCY: <Test as orml_tokens::Config>::CurrencyId =
+    <Test as orml_tokens::Config>::CurrencyId::DOT;
+pub const DEFAULT_WRAPPED_CURRENCY: <Test as orml_tokens::Config>::CurrencyId =
     <Test as orml_tokens::Config>::CurrencyId::DOT;
 pub const DOT: CurrencyId = CurrencyId::DOT;
 pub const INTERBTC: CurrencyId = CurrencyId::INTERBTC;
@@ -253,8 +256,21 @@ pub type TestError = Error<Test>;
 pub type RedeemError = redeem::Error<Test>;
 
 pub const ALICE: AccountId = 1;
-pub const BOB: AccountId = 2;
-pub const CAROL: AccountId = 3;
+pub const BOB: VaultId<AccountId, CurrencyId> = VaultId {
+    account_id: 2,
+    currencies: VaultCurrencyPair {
+        collateral: DEFAULT_TESTING_CURRENCY,
+        wrapped: DEFAULT_WRAPPED_CURRENCY,
+    },
+};
+
+pub const CAROL: VaultId<AccountId, CurrencyId> = VaultId {
+    account_id: 3,
+    currencies: VaultCurrencyPair {
+        collateral: DEFAULT_TESTING_CURRENCY,
+        wrapped: DEFAULT_WRAPPED_CURRENCY,
+    },
+};
 pub const DAVE: AccountId = 4;
 pub const EVE: AccountId = 5;
 
@@ -317,8 +333,8 @@ impl ExtBuilder {
             orml_tokens::GenesisConfig::<Test> {
                 balances: vec![
                     (ALICE, DOT, ALICE_BALANCE),
-                    (BOB, DOT, BOB_BALANCE),
-                    (CAROL, DOT, CAROL_BALANCE),
+                    (BOB.account_id, DOT, BOB_BALANCE),
+                    (CAROL.account_id, DOT, CAROL_BALANCE),
                     (DAVE, DOT, DAVE_BALANCE),
                     (EVE, DOT, EVE_BALANCE),
                 ],
