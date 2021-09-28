@@ -84,13 +84,13 @@ pub mod pallet {
         ),
         // [redeemer, amount_wrapped]
         LiquidationRedeem(T::AccountId, Wrapped<T>),
-        // [redeem_id, redeemer, amount_wrapped, fee_wrapped, vault, transfer_fee_btc]
+        // [redeem_id, redeemer, vault_id, amount_wrapped, fee_wrapped, transfer_fee_btc]
         ExecuteRedeem(
             H256,
             T::AccountId,
-            Wrapped<T>,
-            Wrapped<T>,
             DefaultVaultId<T>,
+            Wrapped<T>,
+            Wrapped<T>,
             Wrapped<T>,
         ),
         // [redeem_id, redeemer, vault_id, slashing_amount_in_collateral, status]
@@ -483,9 +483,9 @@ impl<T: Config> Pallet<T> {
         Self::deposit_event(<Event<T>>::ExecuteRedeem(
             redeem_id,
             redeem.redeemer,
+            redeem.vault,
             redeem.amount_btc,
             redeem.fee,
-            redeem.vault,
             redeem.transfer_fee_btc,
         ));
         Ok(())

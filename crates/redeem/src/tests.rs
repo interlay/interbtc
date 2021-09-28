@@ -440,9 +440,9 @@ fn test_execute_redeem_succeeds_with_another_account() {
         assert_emitted!(Event::ExecuteRedeem(
             H256([0; 32]),
             USER,
+            VAULT,
             100,
             0,
-            VAULT,
             btc_fee.amount(),
         ));
         assert_err!(
@@ -521,9 +521,9 @@ fn test_execute_redeem_succeeds() {
         assert_emitted!(Event::ExecuteRedeem(
             H256([0; 32]),
             USER,
+            VAULT,
             100,
             0,
-            VAULT,
             btc_fee.amount(),
         ));
         assert_err!(
@@ -871,9 +871,9 @@ mod spec_based_tests {
             assert_emitted!(Event::ExecuteRedeem(
                 H256([0; 32]),
                 USER,
+                VAULT,
                 100,
                 0,
-                VAULT,
                 btc_fee.amount(),
             ));
             assert_err!(
