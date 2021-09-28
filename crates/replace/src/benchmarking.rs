@@ -125,13 +125,17 @@ fn test_request<T: crate::Config>(
     }
 }
 
+fn get_vault_id<T: crate::Config>(name: &'static str) -> DefaultVaultId<T> {
+    VaultId::new(
+        account(name, 0, 0),
+        T::GetGriefingCollateralCurrencyId::get(),
+        T::GetWrappedCurrencyId::get(),
+    )
+}
+
 benchmarks! {
     request_replace {
-        let vault_id: VaultId<T::AccountId, _> = VaultId::new(
-            account("Vault", 0, 0),
-            T::GetGriefingCollateralCurrencyId::get(),
-            T::GetWrappedCurrencyId::get()
-        );
+        let vault_id = get_vault_id::<T>("Vault");
         mint_collateral::<T>(&vault_id.account_id, (1u32 << 31).into());
         let amount = Replace::<T>::dust_value().amount() + 1000u32.into();
         // TODO: calculate from exchange rate
@@ -154,11 +158,7 @@ benchmarks! {
     }: _(RawOrigin::Signed(vault_id.account_id.clone()), vault_id.currencies.collateral, vault_id.currencies.wrapped, amount, griefing)
 
     withdraw_replace {
-        let vault_id: VaultId<T::AccountId, _> = VaultId::new(
-            account("Vault", 0, 0),
-            T::GetGriefingCollateralCurrencyId::get(),
-            T::GetWrappedCurrencyId::get()
-        );
+        let vault_id = get_vault_id::<T>("OldVault");
         mint_collateral::<T>(&vault_id.account_id, (1u32 << 31).into());
         let amount = wrapped(5);
 
@@ -177,16 +177,8 @@ benchmarks! {
     }: _(RawOrigin::Signed(vault_id.account_id.clone()), vault_id.currencies.collateral, vault_id.currencies.wrapped, amount.amount())
 
     accept_replace {
-        let new_vault_id: VaultId<T::AccountId, _> = VaultId::new(
-            account("Origin", 0, 0),
-            T::GetGriefingCollateralCurrencyId::get(),
-            T::GetWrappedCurrencyId::get()
-        );
-        let old_vault_id: VaultId<T::AccountId, _> = VaultId::new(
-            account("Vault", 0, 0),
-            T::GetGriefingCollateralCurrencyId::get(),
-            T::GetWrappedCurrencyId::get()
-        );
+        let new_vault_id = get_vault_id::<T>("NewVault");
+        let old_vault_id = get_vault_id::<T>("OldVault");
         mint_collateral::<T>(&old_vault_id.account_id, (1u32 << 31).into());
         mint_collateral::<T>(&new_vault_id.account_id, (1u32 << 31).into());
         let dust_value =  Replace::<T>::dust_value();
@@ -216,16 +208,8 @@ benchmarks! {
     }: _(RawOrigin::Signed(new_vault_id.account_id.clone()), new_vault_id.currencies.collateral, new_vault_id.currencies.wrapped, old_vault_id, amount.amount(), collateral.amount(), new_vault_btc_address)
 
     execute_replace {
-        let new_vault_id: VaultId<T::AccountId, _> = VaultId::new(
-            account("Origin", 0, 0),
-            T::GetGriefingCollateralCurrencyId::get(),
-            T::GetWrappedCurrencyId::get()
-        );
-        let old_vault_id: VaultId<T::AccountId, _> = VaultId::new(
-            account("Vault", 0, 0),
-            T::GetGriefingCollateralCurrencyId::get(),
-            T::GetWrappedCurrencyId::get()
-        );
+        let new_vault_id = get_vault_id::<T>("NewVault");
+        let old_vault_id = get_vault_id::<T>("OldVault");
         let relayer_id: T::AccountId = account("Relayer", 0, 0);
 
         let new_vault_btc_address = BtcAddress::P2SH(H160([0; 20]));
@@ -316,16 +300,8 @@ benchmarks! {
     }: _(RawOrigin::Signed(old_vault_id.account_id), replace_id, proof, raw_tx)
 
     cancel_replace {
-        let new_vault_id: VaultId<T::AccountId, _> = VaultId::new(
-            account("Origin", 0, 0),
-            T::GetGriefingCollateralCurrencyId::get(),
-            T::GetWrappedCurrencyId::get()
-        );
-        let old_vault_id: VaultId<T::AccountId, _> = VaultId::new(
-            account("Vault", 0, 0),
-            T::GetGriefingCollateralCurrencyId::get(),
-            T::GetWrappedCurrencyId::get()
-        );
+        let new_vault_id = get_vault_id::<T>("NewVault");
+        let old_vault_id = get_vault_id::<T>("OldVault");
         mint_collateral::<T>(&new_vault_id.account_id, (1u32 << 31).into());
         mint_collateral::<T>(&old_vault_id.account_id, (1u32 << 31).into());
 

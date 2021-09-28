@@ -33,6 +33,14 @@ fn setup_exchange_rate<T: crate::Config>() {
     .unwrap();
 }
 
+fn get_vault_id<T: crate::Config>() -> DefaultVaultId<T> {
+    VaultId::new(
+        account("Vault", 0, 0),
+        T::GetGriefingCollateralCurrencyId::get(),
+        T::GetWrappedCurrencyId::get(),
+    )
+}
+
 benchmarks! {
     set_nomination_enabled {
     }: _(RawOrigin::Root, true)
@@ -41,11 +49,7 @@ benchmarks! {
         setup_exchange_rate::<T>();
         <NominationEnabled<T>>::set(true);
 
-        let vault_id: VaultId<T::AccountId, _> = VaultId::new(
-            account("Vault", 0, 0),
-            T::GetGriefingCollateralCurrencyId::get(),
-            T::GetWrappedCurrencyId::get()
-        );
+        let vault_id = get_vault_id::<T>();
         mint_collateral::<T>(&vault_id.account_id, (1u32 << 31).into());
         assert_ok!(VaultRegistry::<T>::_register_vault(vault_id.clone(), 100000000u32.into(), dummy_public_key()));
 
@@ -55,11 +59,7 @@ benchmarks! {
         setup_exchange_rate::<T>();
         <NominationEnabled<T>>::set(true);
 
-        let vault_id: VaultId<T::AccountId, _> = VaultId::new(
-            account("Vault", 0, 0),
-            T::GetGriefingCollateralCurrencyId::get(),
-            T::GetWrappedCurrencyId::get()
-        );
+        let vault_id = get_vault_id::<T>();
         mint_collateral::<T>(&vault_id.account_id, (1u32 << 31).into());
         assert_ok!(VaultRegistry::<T>::_register_vault(vault_id.clone(), 100000000u32.into(), dummy_public_key()));
 
@@ -71,11 +71,7 @@ benchmarks! {
         setup_exchange_rate::<T>();
         <NominationEnabled<T>>::set(true);
 
-        let vault_id: VaultId<T::AccountId, _> = VaultId::new(
-            account("Vault", 0, 0),
-            T::GetGriefingCollateralCurrencyId::get(),
-            T::GetWrappedCurrencyId::get()
-        );
+        let vault_id = get_vault_id::<T>();
         mint_collateral::<T>(&vault_id.account_id, (1u32 << 31).into());
         assert_ok!(VaultRegistry::<T>::_register_vault(vault_id.clone(), 100000000u32.into(), dummy_public_key()));
 
@@ -91,11 +87,7 @@ benchmarks! {
         setup_exchange_rate::<T>();
         <NominationEnabled<T>>::set(true);
 
-        let vault_id: VaultId<T::AccountId, _> = VaultId::new(
-            account("Vault", 0, 0),
-            T::GetGriefingCollateralCurrencyId::get(),
-            T::GetWrappedCurrencyId::get()
-        );
+        let vault_id = get_vault_id::<T>();
         mint_collateral::<T>(&vault_id.account_id, (1u32 << 31).into());
         assert_ok!(VaultRegistry::<T>::_register_vault(vault_id.clone(), 100000000u32.into(), dummy_public_key()));
 

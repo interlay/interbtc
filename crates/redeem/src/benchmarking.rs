@@ -153,14 +153,18 @@ fn test_request<T: crate::Config>(vault_id: &DefaultVaultId<T>) -> DefaultRedeem
     }
 }
 
+fn get_vault_id<T: crate::Config>() -> DefaultVaultId<T> {
+    VaultId::new(
+        account("Vault", 0, 0),
+        T::GetGriefingCollateralCurrencyId::get(),
+        T::GetWrappedCurrencyId::get(),
+    )
+}
+
 benchmarks! {
     request_redeem {
         let origin: T::AccountId = account("Origin", 0, 0);
-        let vault_id: VaultId<T::AccountId, _> = VaultId::new(
-            account("Vault", 0, 0),
-            T::GetGriefingCollateralCurrencyId::get(),
-            T::GetWrappedCurrencyId::get()
-        );
+        let vault_id = get_vault_id::<T>();
         let amount = Redeem::<T>::redeem_btc_dust_value() + 1000u32.into();
         let btc_address = BtcAddress::P2SH(H160::from([0; 20]));
 
@@ -191,11 +195,7 @@ benchmarks! {
         ));
 
         let origin: T::AccountId = account("Origin", 0, 0);
-        let vault_id: VaultId<T::AccountId, _> = VaultId::new(
-            account("Vault", 0, 0),
-            T::GetGriefingCollateralCurrencyId::get(),
-            T::GetWrappedCurrencyId::get()
-        );
+        let vault_id = get_vault_id::<T>();
         let amount = 1000;
 
         VaultRegistry::<T>::insert_vault(
@@ -216,11 +216,7 @@ benchmarks! {
 
     execute_redeem {
         let origin: T::AccountId = account("Origin", 0, 0);
-        let vault_id: VaultId<T::AccountId, _> = VaultId::new(
-            account("Vault", 0, 0),
-            T::GetGriefingCollateralCurrencyId::get(),
-            T::GetWrappedCurrencyId::get()
-        );
+        let vault_id = get_vault_id::<T>();
         let relayer_id: T::AccountId = account("Relayer", 0, 0);
 
         initialize_oracle::<T>();
@@ -306,11 +302,7 @@ BtcRelay::<T>::parachain_confirmations() + 1u32.into());
 
     cancel_redeem_reimburse {
         let origin: T::AccountId = account("Origin", 0, 0);
-        let vault_id: VaultId<T::AccountId, _> = VaultId::new(
-            account("Vault", 0, 0),
-            T::GetGriefingCollateralCurrencyId::get(),
-            T::GetWrappedCurrencyId::get()
-        );
+        let vault_id = get_vault_id::<T>();
 
         initialize_oracle::<T>();
 
@@ -344,11 +336,7 @@ BtcRelay::<T>::parachain_confirmations() + 1u32.into());
 
     cancel_redeem_retry {
         let origin: T::AccountId = account("Origin", 0, 0);
-        let vault_id: VaultId<T::AccountId, _> = VaultId::new(
-            account("Vault", 0, 0),
-            T::GetGriefingCollateralCurrencyId::get(),
-            T::GetWrappedCurrencyId::get()
-        );
+        let vault_id = get_vault_id::<T>();
 
         initialize_oracle::<T>();
 

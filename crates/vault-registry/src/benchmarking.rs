@@ -26,24 +26,24 @@ fn mint_collateral<T: crate::Config>(account_id: &T::AccountId, amount: Collater
     <orml_tokens::Pallet<T>>::deposit(DEFAULT_TESTING_CURRENCY, account_id, amount).unwrap();
 }
 
+fn get_vault_id<T: crate::Config>() -> DefaultVaultId<T> {
+    VaultId::new(
+        account("Vault", 0, 0),
+        T::GetGriefingCollateralCurrencyId::get(),
+        T::GetWrappedCurrencyId::get(),
+    )
+}
+
 benchmarks! {
     register_vault {
-        let vault_id: VaultId<T::AccountId, _> = VaultId::new(
-            account("Vault", 0, 0),
-            T::GetGriefingCollateralCurrencyId::get(),
-            T::GetWrappedCurrencyId::get()
-        );
+        let vault_id = get_vault_id::<T>();
         mint_collateral::<T>(&vault_id.account_id, (1u32 << 31).into());
         let amount: u32 = 100;
         let public_key = BtcPublicKey::default();
     }: _(RawOrigin::Signed(vault_id.account_id.clone()), vault_id.currencies.collateral, vault_id.currencies.wrapped, amount.into(), public_key)
 
     deposit_collateral {
-        let vault_id: VaultId<T::AccountId, _> = VaultId::new(
-            account("Vault", 0, 0),
-            T::GetGriefingCollateralCurrencyId::get(),
-            T::GetWrappedCurrencyId::get()
-        );
+        let vault_id = get_vault_id::<T>();
         mint_collateral::<T>(&vault_id.account_id, (1u32 << 31).into());
         let amount = 100u32.into();
         VaultRegistry::<T>::_register_vault(vault_id.clone(), amount, dummy_public_key()).unwrap();
@@ -53,11 +53,7 @@ benchmarks! {
     }: _(RawOrigin::Signed(vault_id.account_id), vault_id.currencies.collateral, vault_id.currencies.wrapped, amount)
 
     withdraw_collateral {
-        let vault_id: VaultId<T::AccountId, _> = VaultId::new(
-            account("Vault", 0, 0),
-            T::GetGriefingCollateralCurrencyId::get(),
-            T::GetWrappedCurrencyId::get()
-        );
+        let vault_id = get_vault_id::<T>();
         mint_collateral::<T>(&vault_id.account_id, (1u32 << 31).into());
         let amount = 100u32.into();
         VaultRegistry::<T>::_register_vault(vault_id.clone(), amount, dummy_public_key()).unwrap();
@@ -67,31 +63,19 @@ benchmarks! {
     }: _(RawOrigin::Signed(vault_id.account_id), vault_id.currencies.collateral, vault_id.currencies.wrapped, amount)
 
     update_public_key {
-        let vault_id: VaultId<T::AccountId, _> = VaultId::new(
-            account("Vault", 0, 0),
-            T::GetGriefingCollateralCurrencyId::get(),
-            T::GetWrappedCurrencyId::get()
-        );
+        let vault_id = get_vault_id::<T>();
         mint_collateral::<T>(&vault_id.account_id, (1u32 << 31).into());
         VaultRegistry::<T>::_register_vault(vault_id.clone(), 1234u32.into(), dummy_public_key()).unwrap();
     }: _(RawOrigin::Signed(vault_id.account_id), vault_id.currencies.collateral, vault_id.currencies.wrapped, BtcPublicKey::default())
 
     register_address {
-        let vault_id: VaultId<T::AccountId, _> = VaultId::new(
-            account("Vault", 0, 0),
-            T::GetGriefingCollateralCurrencyId::get(),
-            T::GetWrappedCurrencyId::get()
-        );
+        let vault_id = get_vault_id::<T>();
         mint_collateral::<T>(&vault_id.account_id, (1u32 << 31).into());
         VaultRegistry::<T>::_register_vault(vault_id.clone(), 1234u32.into(), dummy_public_key()).unwrap();
     }: _(RawOrigin::Signed(vault_id.account_id), vault_id.currencies.collateral, vault_id.currencies.wrapped, BtcAddress::default())
 
     accept_new_issues {
-        let vault_id: VaultId<T::AccountId, _> = VaultId::new(
-            account("Vault", 0, 0),
-            T::GetGriefingCollateralCurrencyId::get(),
-            T::GetWrappedCurrencyId::get()
-        );
+        let vault_id = get_vault_id::<T>();
         mint_collateral::<T>(&vault_id.account_id, (1u32 << 31).into());
         VaultRegistry::<T>::_register_vault(vault_id.clone(), 1234u32.into(), dummy_public_key()).unwrap();
     }: _(RawOrigin::Signed(vault_id.account_id), vault_id.currencies.collateral, vault_id.currencies.wrapped, true)
@@ -109,11 +93,7 @@ benchmarks! {
     }: _(RawOrigin::Root, T::GetGriefingCollateralCurrencyId::get(), UnsignedFixedPoint::<T>::one())
 
     report_undercollateralized_vault {
-        let vault_id: VaultId<T::AccountId, _> = VaultId::new(
-            account("Vault", 0, 0),
-            T::GetGriefingCollateralCurrencyId::get(),
-            T::GetWrappedCurrencyId::get()
-        );
+        let vault_id = get_vault_id::<T>();
         let origin: T::AccountId = account("Origin", 0, 0);
         mint_collateral::<T>(&vault_id.account_id, (1u32 << 31).into());
 
