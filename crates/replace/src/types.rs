@@ -55,7 +55,7 @@ pub trait ReplaceRequestExt<T: Config> {
     fn collateral(&self) -> Result<Amount<T>, DispatchError>;
 }
 
-impl<T: Config> ReplaceRequestExt<T> for ReplaceRequest<T::AccountId, T::BlockNumber, BalanceOf<T>, CurrencyId<T>> {
+impl<T: Config> ReplaceRequestExt<T> for DefaultReplaceRequest<T> {
     fn amount(&self) -> Amount<T> {
         Amount::new(self.amount, T::GetWrappedCurrencyId::get())
     }
