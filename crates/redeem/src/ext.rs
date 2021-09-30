@@ -175,10 +175,10 @@ pub(crate) mod vault_registry {
 #[cfg_attr(test, mockable)]
 pub(crate) mod treasury {
     use currency::Amount;
-    use frame_support::traits::Get;
+    use vault_registry::types::CurrencyId;
 
-    pub fn get_balance<T: crate::Config>(account: &T::AccountId) -> Amount<T> {
-        currency::get_free_balance::<T>(T::GetWrappedCurrencyId::get(), account)
+    pub fn get_balance<T: crate::Config>(account: &T::AccountId, currency_id: CurrencyId<T>) -> Amount<T> {
+        currency::get_free_balance::<T>(currency_id, account)
     }
 }
 

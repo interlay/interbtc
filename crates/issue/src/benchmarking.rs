@@ -22,8 +22,9 @@ use sp_std::prelude::*;
 use crate::Pallet as Issue;
 use btc_relay::Pallet as BtcRelay;
 use oracle::Pallet as Oracle;
+use primitives::VaultCurrencyPair;
 use security::Pallet as Security;
-use vault_registry::Pallet as VaultRegistry;
+use vault_registry::{types::DefaultVaultCurrencyPair, Pallet as VaultRegistry};
 
 pub const DEFAULT_TESTING_CURRENCY: CurrencyId = CurrencyId::DOT;
 
@@ -36,6 +37,13 @@ fn dummy_public_key() -> BtcPublicKey {
 
 fn mint_collateral<T: crate::Config>(account_id: &T::AccountId, amount: Collateral<T>) {
     <orml_tokens::Pallet<T>>::deposit(DEFAULT_TESTING_CURRENCY, account_id, amount).unwrap();
+}
+
+fn get_currency_pair<T: crate::Config>() -> DefaultVaultCurrencyPair<T> {
+    VaultCurrencyPair {
+        collateral: T::GetGriefingCollateralCurrencyId::get(),
+        wrapped: T::GetWrappedCurrencyId::get(),
+    }
 }
 
 fn get_vault_id<T: crate::Config>() -> DefaultVaultId<T> {
@@ -110,7 +118,7 @@ fn mine_blocks<T: crate::Config>(end_height: u32) {
 benchmarks! {
     request_issue {
         let origin: T::AccountId = account("Origin", 0, 0);
-        let amount = Issue::<T>::issue_btc_dust_value().amount() + 1000u32.into();
+        let amount = Issue::<T>::issue_btc_dust_value(T::GetWrappedCurrencyId::get()).amount() + 1000u32.into();
         let vault_id = get_vault_id::<T>();
         let griefing: u32 = 100;
         let relayer_id: T::AccountId = account("Relayer", 0, 0);
@@ -120,8 +128,8 @@ benchmarks! {
         mint_collateral::<T>(&relayer_id, (1u32 << 31).into());
 
         Oracle::<T>::_set_exchange_rate(DEFAULT_TESTING_CURRENCY, <T as currency::Config>::UnsignedFixedPoint::one()).unwrap();
-        VaultRegistry::<T>::set_secure_collateral_threshold(DEFAULT_TESTING_CURRENCY, <T as currency::Config>::UnsignedFixedPoint::checked_from_rational(1, 100000).unwrap());// 0.001%
-        VaultRegistry::<T>::set_collateral_ceiling(DEFAULT_TESTING_CURRENCY, 1_000_000_000u32.into());
+        VaultRegistry::<T>::set_secure_collateral_threshold(get_currency_pair::<T>(), <T as currency::Config>::UnsignedFixedPoint::checked_from_rational(1, 100000).unwrap());// 0.001%
+        VaultRegistry::<T>::set_collateral_ceiling(get_currency_pair::<T>(), 1_000_000_000u32.into());
         VaultRegistry::<T>::_register_vault(vault_id.clone(), 100000000u32.into(), dummy_public_key()).unwrap();
 
         // initialize relay
@@ -259,8 +267,8 @@ benchmarks! {
         BtcRelay::<T>::store_block_header(&relayer_id, block_header).unwrap();
         Security::<T>::set_active_block_number(Security::<T>::active_block_number() + BtcRelay::<T>::parachain_confirmations());
 
-        VaultRegistry::<T>::set_collateral_ceiling(DEFAULT_TESTING_CURRENCY, 1_000_000_000u32.into());
-        VaultRegistry::<T>::set_secure_collateral_threshold(DEFAULT_TESTING_CURRENCY, <T as currency::Config>::UnsignedFixedPoint::checked_from_rational(1, 100000).unwrap());
+        VaultRegistry::<T>::set_collateral_ceiling(get_currency_pair::<T>(), 1_000_000_000u32.into());
+        VaultRegistry::<T>::set_secure_collateral_threshold(get_currency_pair::<T>(), <T as currency::Config>::UnsignedFixedPoint::checked_from_rational(1, 100000).unwrap());
         Oracle::<T>::_set_exchange_rate(DEFAULT_TESTING_CURRENCY, <T as currency::Config>::UnsignedFixedPoint::one()).unwrap();
         VaultRegistry::<T>::_register_vault(vault_id.clone(), 100000000u32.into(), dummy_public_key()).unwrap();
 
@@ -300,8 +308,8 @@ benchmarks! {
         mine_blocks_until_expiry::<T>(&issue_request);
         Security::<T>::set_active_block_number(issue_request.opentime + Issue::<T>::issue_period() + 100u32.into());
 
-        VaultRegistry::<T>::set_collateral_ceiling(DEFAULT_TESTING_CURRENCY, 1_000_000_000u32.into());
-        VaultRegistry::<T>::set_secure_collateral_threshold(DEFAULT_TESTING_CURRENCY, <T as currency::Config>::UnsignedFixedPoint::checked_from_rational(1, 100000).unwrap());
+        VaultRegistry::<T>::set_collateral_ceiling(get_currency_pair::<T>(), 1_000_000_000u32.into());
+        VaultRegistry::<T>::set_secure_collateral_threshold(get_currency_pair::<T>(), <T as currency::Config>::UnsignedFixedPoint::checked_from_rational(1, 100000).unwrap());
         Oracle::<T>::_set_exchange_rate(DEFAULT_TESTING_CURRENCY, <T as currency::Config>::UnsignedFixedPoint::one()).unwrap();
         VaultRegistry::<T>::_register_vault(vault_id.clone(), 100000000u32.into(), dummy_public_key()).unwrap();
 

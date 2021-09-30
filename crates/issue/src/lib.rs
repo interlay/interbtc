@@ -38,7 +38,7 @@ pub use pallet::*;
 use sp_core::H256;
 use sp_std::vec::Vec;
 use types::IssueRequestExt;
-use vault_registry::{CurrencySource, VaultStatus};
+use vault_registry::{types::CurrencyId, CurrencySource, VaultStatus};
 
 #[frame_support::pallet]
 pub mod pallet {
@@ -251,7 +251,7 @@ impl<T: Config> Pallet<T> {
         vault_id: DefaultVaultId<T>,
         griefing_collateral: Collateral<T>,
     ) -> Result<H256, DispatchError> {
-        let amount_requested = Amount::new(amount_requested, T::GetWrappedCurrencyId::get());
+        let amount_requested = Amount::new(amount_requested, vault_id.wrapped_currency());
         let griefing_collateral = Amount::new(griefing_collateral, T::GetGriefingCollateralCurrencyId::get());
 
         // Check that Parachain is RUNNING
@@ -285,7 +285,7 @@ impl<T: Config> Pallet<T> {
 
         // only continue if the payment is above the dust value
         ensure!(
-            amount_requested.ge(&Self::issue_btc_dust_value())?,
+            amount_requested.ge(&Self::issue_btc_dust_value(vault_id.wrapped_currency()))?,
             Error::<T>::AmountBelowDustAmount
         );
 
@@ -358,7 +358,7 @@ impl<T: Config> Pallet<T> {
             transaction,
             issue.btc_address,
         )?;
-        let amount_transferred = Amount::new(amount_transferred, T::GetWrappedCurrencyId::get());
+        let amount_transferred = Amount::new(amount_transferred, issue.vault.wrapped_currency());
 
         let expected_total_amount = issue.amount().checked_add(&issue.fee())?;
 
@@ -560,7 +560,7 @@ impl<T: Config> Pallet<T> {
         });
     }
 
-    fn issue_btc_dust_value() -> Amount<T> {
-        Amount::new(IssueBtcDustValue::<T>::get(), T::GetWrappedCurrencyId::get())
+    fn issue_btc_dust_value(currency_id: CurrencyId<T>) -> Amount<T> {
+        Amount::new(IssueBtcDustValue::<T>::get(), currency_id)
     }
 }

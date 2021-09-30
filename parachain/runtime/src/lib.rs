@@ -292,7 +292,7 @@ impl EnsureOrigin<Origin> for EnsureKintsugiLabs {
 
 impl orml_vesting::Config for Runtime {
     type Event = Event;
-    type Currency = orml_tokens::CurrencyAdapter<Runtime, GetNativeCurrencyId>;
+    type Currency = orml_tokens::CurrencyAdapter<Runtime, GetGovernanceTokenCurrency>;
     type MinVestedTransfer = MinVestedTransfer;
     type VestedTransferOrigin = EnsureKintsugiLabs;
     type WeightInfo = ();
@@ -368,7 +368,7 @@ parameter_types! {
 impl pallet_democracy::Config for Runtime {
     type Proposal = Call;
     type Event = Event;
-    type Currency = orml_tokens::CurrencyAdapter<Runtime, GetNativeCurrencyId>;
+    type Currency = orml_tokens::CurrencyAdapter<Runtime, GetGovernanceTokenCurrency>;
     type EnactmentPeriod = EnactmentPeriod;
     type LaunchPeriod = LaunchPeriod;
     type VotingPeriod = VotingPeriod;
@@ -417,7 +417,7 @@ parameter_types! {
 
 impl pallet_treasury::Config for Runtime {
     type PalletId = TreasuryPalletId;
-    type Currency = orml_tokens::CurrencyAdapter<Runtime, GetNativeCurrencyId>;
+    type Currency = orml_tokens::CurrencyAdapter<Runtime, GetGovernanceTokenCurrency>;
     type ApproveOrigin = EnsureRootOrHalfGeneralCouncil;
     type RejectOrigin = EnsureRootOrHalfGeneralCouncil;
     type Event = Event;
@@ -457,7 +457,7 @@ parameter_types! {
 impl pallet_elections_phragmen::Config for Runtime {
     type PalletId = ElectionsPhragmenPalletId;
     type Event = Event;
-    type Currency = orml_tokens::CurrencyAdapter<Runtime, GetNativeCurrencyId>;
+    type Currency = orml_tokens::CurrencyAdapter<Runtime, GetGovernanceTokenCurrency>;
     type ChangeMembers = GeneralCouncil;
     // NOTE: this implies that council's genesis members cannot be set directly and must come from
     // this module.
@@ -780,7 +780,7 @@ impl btc_relay::Config for Runtime {
 parameter_types! {
     pub const GetCollateralCurrencyId: CurrencyId = KSM;
     pub const GetWrappedCurrencyId: CurrencyId = KBTC;
-    pub const GetNativeCurrencyId: CurrencyId = KINT;
+    pub const GetGovernanceTokenCurrency: CurrencyId = KINT;
     pub const MaxLocks: u32 = 50;
 }
 
@@ -825,6 +825,7 @@ impl reward::Config for Runtime {
     type Event = Event;
     type SignedFixedPoint = SignedFixedPoint;
     type CurrencyId = CurrencyId;
+    type GetGovernanceTokenCurrency = GetGovernanceTokenCurrency;
 }
 
 impl security::Config for Runtime {
@@ -859,6 +860,7 @@ impl staking::Config for Runtime {
     type SignedFixedPoint = SignedFixedPoint;
     type SignedInner = SignedInner;
     type CurrencyId = CurrencyId;
+    type GetGovernanceTokenCurrency = GetGovernanceTokenCurrency;
 }
 
 parameter_types! {
@@ -897,8 +899,9 @@ impl fee::Config for Runtime {
     type SignedInner = SignedInner;
     type UnsignedFixedPoint = UnsignedFixedPoint;
     type UnsignedInner = UnsignedInner;
-    type VaultRewards = reward::RewardsCurrencyAdapter<Runtime, GetWrappedCurrencyId>;
-    type VaultStaking = staking::StakingCurrencyAdapter<Runtime, GetWrappedCurrencyId>;
+    type VaultRewards = reward::RewardsCurrencyAdapter<Runtime>;
+    type VaultStaking = staking::StakingCurrencyAdapter<Runtime>;
+    type GetGovernanceTokenCurrency = GetGovernanceTokenCurrency;
     type OnSweep = currency::SweepFunds<Runtime, FeeAccount>;
 }
 
@@ -935,7 +938,7 @@ pub use nomination::Event as NominationEvent;
 impl nomination::Config for Runtime {
     type Event = Event;
     type WeightInfo = ();
-    type VaultRewards = reward::RewardsCurrencyAdapter<Runtime, GetWrappedCurrencyId>;
+    type VaultRewards = reward::RewardsCurrencyAdapter<Runtime>;
 }
 
 construct_runtime! {

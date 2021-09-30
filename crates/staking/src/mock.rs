@@ -62,11 +62,16 @@ impl frame_system::Config for Test {
     type OnSetCode = ();
 }
 
+parameter_types! {
+    pub const GetGovernanceTokenCurrency: CurrencyId = CurrencyId::KINT;
+}
+
 impl Config for Test {
     type Event = TestEvent;
     type SignedInner = SignedInner;
     type SignedFixedPoint = SignedFixedPoint;
     type CurrencyId = CurrencyId;
+    type GetGovernanceTokenCurrency = GetGovernanceTokenCurrency;
 }
 
 pub type TestEvent = Event;

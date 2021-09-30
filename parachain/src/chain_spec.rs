@@ -7,7 +7,7 @@ use interbtc_runtime::{
     Signature, StatusCode, SudoConfig, SystemConfig, TokensConfig, VaultRegistryConfig, VestingConfig,
     BITCOIN_BLOCK_SPACING, DAYS, WASM_BINARY,
 };
-use primitives::{BlockNumber, KINT};
+use primitives::{BlockNumber, VaultCurrencyPair, KINT};
 use sc_chain_spec::{ChainSpecExtension, ChainSpecGroup};
 use serde::{Deserialize, Serialize};
 use sp_consensus_aura::sr25519::AuthorityId as AuraId;
@@ -252,6 +252,13 @@ pub fn westend_testnet_config(id: ParaId) -> ChainSpec {
     )
 }
 
+fn default_pair(currency_id: CurrencyId) -> VaultCurrencyPair<CurrencyId> {
+    VaultCurrencyPair {
+        collateral: currency_id,
+        wrapped: CurrencyId::INTERBTC,
+    }
+}
+
 fn testnet_genesis(
     root_key: AccountId,
     initial_authorities: Vec<AuraId>,
@@ -323,11 +330,17 @@ fn testnet_genesis(
         vault_registry: VaultRegistryConfig {
             minimum_collateral_vault: vec![(CurrencyId::KSM, 0)],
             punishment_delay: DAYS,
-            system_collateral_ceiling: vec![(CurrencyId::KSM, 1000 * CurrencyId::KSM.one())],
-            secure_collateral_threshold: vec![(CurrencyId::KSM, FixedU128::checked_from_rational(150, 100).unwrap())], /* 150% */
-            premium_redeem_threshold: vec![(CurrencyId::KSM, FixedU128::checked_from_rational(135, 100).unwrap())], /* 135% */
+            system_collateral_ceiling: vec![(default_pair(CurrencyId::KSM), 1000 * CurrencyId::KSM.one())],
+            secure_collateral_threshold: vec![(
+                default_pair(CurrencyId::KSM),
+                FixedU128::checked_from_rational(150, 100).unwrap(),
+            )], /* 150% */
+            premium_redeem_threshold: vec![(
+                default_pair(CurrencyId::KSM),
+                FixedU128::checked_from_rational(135, 100).unwrap(),
+            )], /* 135% */
             liquidation_collateral_threshold: vec![(
-                CurrencyId::KSM,
+                default_pair(CurrencyId::KSM),
                 FixedU128::checked_from_rational(110, 100).unwrap(),
             )], /* 110% */
         },
@@ -533,13 +546,19 @@ fn mainnet_genesis(
         vault_registry: VaultRegistryConfig {
             minimum_collateral_vault: vec![(CurrencyId::KSM, 0)],
             punishment_delay: DAYS,
-            system_collateral_ceiling: vec![(CurrencyId::KSM, 5533 * CurrencyId::KSM.one())], /* 5533 ksm, about 2 mm
-                                                                                               * USD at
-                                                                                               * time of writing */
-            secure_collateral_threshold: vec![(CurrencyId::KSM, FixedU128::checked_from_rational(300, 100).unwrap())], /* 300% */
-            premium_redeem_threshold: vec![(CurrencyId::KSM, FixedU128::checked_from_rational(175, 100).unwrap())], /* 175% */
+            system_collateral_ceiling: vec![(default_pair(CurrencyId::KSM), 5533 * CurrencyId::KSM.one())], /* 5533 ksm, about 2 mm
+                                                                                                             * USD at
+                                                                                                             * time of writing */
+            secure_collateral_threshold: vec![(
+                default_pair(CurrencyId::KSM),
+                FixedU128::checked_from_rational(300, 100).unwrap(),
+            )], /* 300% */
+            premium_redeem_threshold: vec![(
+                default_pair(CurrencyId::KSM),
+                FixedU128::checked_from_rational(175, 100).unwrap(),
+            )], /* 175% */
             liquidation_collateral_threshold: vec![(
-                CurrencyId::KSM,
+                default_pair(CurrencyId::KSM),
                 FixedU128::checked_from_rational(150, 100).unwrap(),
             )], /* 150% */
         },

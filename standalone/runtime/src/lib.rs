@@ -248,6 +248,7 @@ impl btc_relay::Config for Runtime {
 parameter_types! {
     pub const GetCollateralCurrencyId: CurrencyId = DOT;
     pub const GetWrappedCurrencyId: CurrencyId = INTERBTC;
+    pub const GetGovernanceTokenCurrency: CurrencyId = CurrencyId::KINT;
     pub const MaxLocks: u32 = 50;
 }
 
@@ -288,6 +289,7 @@ impl reward::Config for Runtime {
     type Event = Event;
     type SignedFixedPoint = SignedFixedPoint;
     type CurrencyId = CurrencyId;
+    type GetGovernanceTokenCurrency = GetGovernanceTokenCurrency;
 }
 
 impl security::Config for Runtime {
@@ -322,6 +324,7 @@ impl staking::Config for Runtime {
     type SignedFixedPoint = SignedFixedPoint;
     type SignedInner = SignedInner;
     type CurrencyId = CurrencyId;
+    type GetGovernanceTokenCurrency = GetGovernanceTokenCurrency;
 }
 
 parameter_types! {
@@ -360,8 +363,9 @@ impl fee::Config for Runtime {
     type SignedInner = SignedInner;
     type UnsignedFixedPoint = UnsignedFixedPoint;
     type UnsignedInner = UnsignedInner;
-    type VaultRewards = reward::RewardsCurrencyAdapter<Runtime, GetWrappedCurrencyId>;
-    type VaultStaking = staking::StakingCurrencyAdapter<Runtime, GetWrappedCurrencyId>;
+    type VaultRewards = reward::RewardsCurrencyAdapter<Runtime>;
+    type VaultStaking = staking::StakingCurrencyAdapter<Runtime>;
+    type GetGovernanceTokenCurrency = GetGovernanceTokenCurrency;
     type OnSweep = currency::SweepFunds<Runtime, FeeAccount>;
 }
 
@@ -398,7 +402,7 @@ pub use nomination::Event as NominationEvent;
 impl nomination::Config for Runtime {
     type Event = Event;
     type WeightInfo = ();
-    type VaultRewards = reward::RewardsCurrencyAdapter<Runtime, GetWrappedCurrencyId>;
+    type VaultRewards = reward::RewardsCurrencyAdapter<Runtime>;
 }
 
 construct_runtime! {

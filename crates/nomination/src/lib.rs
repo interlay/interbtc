@@ -28,9 +28,7 @@ pub use default_weights::WeightInfo;
 use currency::Amount;
 use frame_support::{
     dispatch::{DispatchError, DispatchResult},
-    ensure,
-    traits::Get,
-    transactional,
+    ensure, transactional,
 };
 use frame_system::{ensure_root, ensure_signed};
 pub use pallet::*;
@@ -43,7 +41,7 @@ pub mod pallet {
     use super::*;
     use frame_support::pallet_prelude::*;
     use frame_system::pallet_prelude::*;
-    use vault_registry::types::DefaultVaultCurrencyPair;
+    use vault_registry::types::{CurrencyId, DefaultVaultCurrencyPair};
 
     /// ## Configuration
     /// The pallet's configuration trait.
@@ -56,7 +54,11 @@ pub mod pallet {
         type WeightInfo: WeightInfo;
 
         /// Vault reward pool for the wrapped currency.
-        type VaultRewards: reward::Rewards<DefaultVaultId<Self>, SignedFixedPoint = SignedFixedPoint<Self>>;
+        type VaultRewards: reward::Rewards<
+            DefaultVaultId<Self>,
+            CurrencyId<Self>,
+            SignedFixedPoint = SignedFixedPoint<Self>,
+        >;
     }
 
     #[pallet::event]
@@ -224,19 +226,13 @@ impl<T: Config> Pallet<T> {
             ensure!(Self::is_nomination_enabled(), Error::<T>::VaultNominationDisabled);
             ensure!(Self::is_opted_in(vault_id)?, Error::<T>::VaultNotOptedInToNomination);
 
-            ext::vault_registry::decrease_total_backing_collateral(&amount)?;
+            ext::vault_registry::decrease_total_backing_collateral(&vault_id.currencies, &amount)?;
         }
 
         // withdraw all vault rewards first, to prevent the nominator from withdrawing past rewards
         ext::fee::withdraw_all_vault_rewards::<T>(vault_id)?;
         // withdraw `amount` of stake from the vault staking pool
-        ext::staking::withdraw_stake::<T>(
-            T::GetWrappedCurrencyId::get(),
-            vault_id,
-            nominator_id,
-            amount.to_signed_fixed_point()?,
-            Some(index),
-        )?;
+        ext::staking::withdraw_stake::<T>(vault_id, nominator_id, amount.to_signed_fixed_point()?, Some(index))?;
         amount.unlock_on(&vault_id.account_id)?;
         amount.transfer(&vault_id.account_id, &nominator_id)?;
 
@@ -262,7 +258,7 @@ impl<T: Config> Pallet<T> {
         let total_nominated_collateral = Self::get_total_nominated_collateral(vault_id)?;
         let new_nominated_collateral = total_nominated_collateral.checked_add(&amount)?;
         let max_nominatable_collateral =
-            ext::vault_registry::get_max_nominatable_collateral::<T>(&vault_backing_collateral)?;
+            ext::vault_registry::get_max_nominatable_collateral::<T>(&vault_backing_collateral, &vault_id.currencies)?;
         ensure!(
             new_nominated_collateral.le(&max_nominatable_collateral)?,
             Error::<T>::DepositViolatesMaxNominationRatio
@@ -272,15 +268,10 @@ impl<T: Config> Pallet<T> {
         ext::fee::withdraw_all_vault_rewards::<T>(vault_id)?;
 
         // Deposit `amount` of stake into the vault staking pool
-        ext::staking::deposit_stake::<T>(
-            T::GetWrappedCurrencyId::get(),
-            vault_id,
-            nominator_id,
-            amount.to_signed_fixed_point()?,
-        )?;
+        ext::staking::deposit_stake::<T>(vault_id, nominator_id, amount.to_signed_fixed_point()?)?;
         amount.transfer(&nominator_id, &vault_id.account_id)?;
         amount.lock_on(&vault_id.account_id)?;
-        ext::vault_registry::try_increase_total_backing_collateral(&amount)?;
+        ext::vault_registry::try_increase_total_backing_collateral(&vault_id.currencies, &amount)?;
 
         Self::deposit_event(Event::<T>::DepositCollateral(
             vault_id.clone(),
@@ -317,14 +308,14 @@ impl<T: Config> Pallet<T> {
             Error::<T>::CollateralizationTooLow
         );
 
-        let refunded_collateral = ext::staking::force_refund::<T>(T::GetWrappedCurrencyId::get(), vault_id)?
+        let refunded_collateral = ext::staking::force_refund::<T>(vault_id)?
             .try_into()
             .map_err(|_| Error::<T>::TryIntoIntError)?;
 
         // Update the system-wide total backing collateral
         let vault_currency_id = vault_id.collateral_currency();
         let refunded_collateral = Amount::<T>::new(refunded_collateral, vault_currency_id);
-        ext::vault_registry::decrease_total_backing_collateral(&refunded_collateral)?;
+        ext::vault_registry::decrease_total_backing_collateral(&vault_id.currencies, &refunded_collateral)?;
 
         <Vaults<T>>::remove(vault_id);
         Self::deposit_event(Event::<T>::NominationOptOut(vault_id.clone()));

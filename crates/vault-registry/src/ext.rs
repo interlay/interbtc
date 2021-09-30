@@ -38,27 +38,19 @@ pub(crate) mod staking {
     use frame_support::dispatch::DispatchError;
 
     pub fn deposit_stake<T: crate::Config>(
-        currency_id: CurrencyId<T>,
         vault_id: &DefaultVaultId<T>,
         nominator_id: &T::AccountId,
         amount: &Amount<T>,
     ) -> Result<(), DispatchError> {
-        <staking::Pallet<T>>::deposit_stake(currency_id, vault_id, nominator_id, amount.to_signed_fixed_point()?)
+        <staking::Pallet<T>>::deposit_stake(vault_id, nominator_id, amount.to_signed_fixed_point()?)
     }
 
     pub fn withdraw_stake<T: crate::Config>(
-        currency_id: CurrencyId<T>,
         vault_id: &DefaultVaultId<T>,
         nominator_id: &T::AccountId,
         amount: &Amount<T>,
     ) -> Result<(), DispatchError> {
-        <staking::Pallet<T>>::withdraw_stake(
-            currency_id,
-            vault_id,
-            nominator_id,
-            amount.to_signed_fixed_point()?,
-            None,
-        )
+        <staking::Pallet<T>>::withdraw_stake(vault_id, nominator_id, amount.to_signed_fixed_point()?, None)
     }
 
     pub fn slash_stake<T: crate::Config>(
@@ -87,28 +79,20 @@ pub(crate) mod staking {
 pub(crate) mod reward {
     use crate::DefaultVaultId;
     use currency::Amount;
-    use frame_support::{dispatch::DispatchError, traits::Get};
+    use frame_support::dispatch::DispatchError;
 
     pub fn deposit_stake<T: crate::Config>(
         vault_id: &DefaultVaultId<T>,
         amount: &Amount<T>,
     ) -> Result<(), DispatchError> {
-        <reward::Pallet<T>>::deposit_stake(
-            T::GetWrappedCurrencyId::get(),
-            vault_id,
-            amount.to_signed_fixed_point()?,
-        )
+        <reward::Pallet<T>>::deposit_stake(vault_id, amount.to_signed_fixed_point()?)
     }
 
     pub fn withdraw_stake<T: crate::Config>(
         vault_id: &DefaultVaultId<T>,
         amount: &Amount<T>,
     ) -> Result<(), DispatchError> {
-        <reward::Pallet<T>>::withdraw_stake(
-            T::GetWrappedCurrencyId::get(),
-            vault_id,
-            amount.to_signed_fixed_point()?,
-        )
+        <reward::Pallet<T>>::withdraw_stake(vault_id, amount.to_signed_fixed_point()?)
     }
 }
 

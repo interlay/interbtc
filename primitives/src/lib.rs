@@ -62,6 +62,10 @@ impl<AccountId, CurrencyId: Copy> VaultId<AccountId, CurrencyId> {
     pub fn collateral_currency(&self) -> CurrencyId {
         self.currencies.collateral
     }
+
+    pub fn wrapped_currency(&self) -> CurrencyId {
+        self.currencies.wrapped
+    }
 }
 
 pub mod issue {

@@ -1,5 +1,4 @@
 use currency::Amount;
-use frame_support::traits::Get;
 pub use primitives::refund::RefundRequest;
 use primitives::VaultId;
 use vault_registry::types::CurrencyId;
@@ -19,9 +18,9 @@ pub(crate) trait RefundRequestExt<T: crate::Config> {
 
 impl<T: crate::Config> RefundRequestExt<T> for RefundRequest<T::AccountId, BalanceOf<T>, CurrencyId<T>> {
     fn fee(&self) -> Amount<T> {
-        Amount::new(self.fee, T::GetWrappedCurrencyId::get())
+        Amount::new(self.fee, self.vault.wrapped_currency())
     }
     fn amount_btc(&self) -> Amount<T> {
-        Amount::new(self.amount_btc, T::GetWrappedCurrencyId::get())
+        Amount::new(self.amount_btc, self.vault.wrapped_currency())
     }
 }

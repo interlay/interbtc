@@ -15,6 +15,7 @@ extern crate mocktopus;
 
 #[cfg(test)]
 use mocktopus::macros::mockable;
+use vault_registry::types::CurrencyId;
 
 #[cfg(any(feature = "runtime-benchmarks", test))]
 mod benchmarking;
@@ -29,7 +30,7 @@ use btc_relay::BtcAddress;
 use currency::Amount;
 #[doc(inline)]
 use default_weights::WeightInfo;
-use frame_support::{dispatch::DispatchError, ensure, traits::Get, transactional};
+use frame_support::{dispatch::DispatchError, ensure, transactional};
 use frame_system::ensure_signed;
 pub use pallet::*;
 use sp_core::H256;
@@ -167,7 +168,7 @@ impl<T: Config> Pallet<T> {
         let net_refund_amount_wrapped = total_amount_btc.checked_sub(&fee_wrapped)?;
 
         // Only refund if the amount is above the dust value
-        if net_refund_amount_wrapped.lt(&Self::get_dust_value())? {
+        if net_refund_amount_wrapped.lt(&Self::get_dust_value(vault_id.wrapped_currency()))? {
             return Ok(None);
         }
 
@@ -307,7 +308,7 @@ impl<T: Config> Pallet<T> {
         <RefundRequests<T>>::insert(key, value)
     }
 
-    fn get_dust_value() -> Amount<T> {
-        Amount::new(<RefundBtcDustValue<T>>::get(), T::GetWrappedCurrencyId::get())
+    fn get_dust_value(currency_id: CurrencyId<T>) -> Amount<T> {
+        Amount::new(<RefundBtcDustValue<T>>::get(), currency_id)
     }
 }

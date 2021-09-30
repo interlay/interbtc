@@ -8,6 +8,7 @@ use codec::Decode;
 use currency::Amount;
 use frame_support::{assert_err, assert_noop, assert_ok};
 use mocktopus::mocking::*;
+use pretty_assertions::assert_eq;
 use primitives::{VaultCurrencyPair, VaultId};
 use security::Pallet as Security;
 use sp_arithmetic::{traits::One, FixedPointNumber, FixedU128};
@@ -493,18 +494,18 @@ fn redeem_tokens_premium_fails_with_insufficient_tokens() {
 #[test]
 fn redeem_tokens_liquidation_succeeds() {
     run_test(|| {
-        let mut liquidation_vault = VaultRegistry::get_rich_liquidation_vault(DEFAULT_TESTING_CURRENCY);
+        let mut liquidation_vault = VaultRegistry::get_rich_liquidation_vault(&DEFAULT_CURRENCY_PAIR);
         let user_id = 5;
 
         // TODO: emulate assert_called
         VaultRegistry::transfer_funds.mock_safe(move |sender, receiver, _amount| {
-            assert_eq!(sender, CurrencySource::LiquidationVault);
+            assert_eq!(sender, CurrencySource::LiquidationVault(DEFAULT_CURRENCY_PAIR));
             assert_eq!(receiver, CurrencySource::FreeBalance(user_id));
             MockResult::Return(Ok(()))
         });
 
         // liquidation vault collateral
-        ext::currency::get_reserved_balance::<Test>.mock_safe(|_, _| MockResult::Return(amount(1000)));
+        crate::types::CurrencySource::<Test>::current_balance.mock_safe(|_, _| MockResult::Return(Ok(amount(1000))));
 
         assert_ok!(liquidation_vault.increase_to_be_issued(&wrapped(50)));
         assert_ok!(liquidation_vault.increase_issued(&wrapped(50)));
@@ -514,7 +515,7 @@ fn redeem_tokens_liquidation_succeeds() {
             &user_id,
             &wrapped(50)
         ));
-        let liquidation_vault = VaultRegistry::get_rich_liquidation_vault(DEFAULT_TESTING_CURRENCY);
+        let liquidation_vault = VaultRegistry::get_rich_liquidation_vault(&DEFAULT_CURRENCY_PAIR);
         assert_eq!(liquidation_vault.data.issued_tokens, 0);
         assert_emitted!(Event::RedeemTokensLiquidation(user_id, 50, 500));
     });
@@ -523,17 +524,17 @@ fn redeem_tokens_liquidation_succeeds() {
 #[test]
 fn redeem_tokens_liquidation_does_not_call_recover_when_unnecessary() {
     run_test(|| {
-        let mut liquidation_vault = VaultRegistry::get_rich_liquidation_vault(DEFAULT_TESTING_CURRENCY);
+        let mut liquidation_vault = VaultRegistry::get_rich_liquidation_vault(&DEFAULT_CURRENCY_PAIR);
         let user_id = 5;
 
         VaultRegistry::transfer_funds.mock_safe(move |sender, receiver, _amount| {
-            assert_eq!(sender, CurrencySource::LiquidationVault);
+            assert_eq!(sender, CurrencySource::LiquidationVault(DEFAULT_CURRENCY_PAIR));
             assert_eq!(receiver, CurrencySource::FreeBalance(user_id));
             MockResult::Return(Ok(()))
         });
 
         // liquidation vault collateral
-        ext::currency::get_reserved_balance::<Test>.mock_safe(|_, _| MockResult::Return(amount(1000)));
+        crate::types::CurrencySource::<Test>::current_balance.mock_safe(|_, _| MockResult::Return(Ok(amount(1000))));
 
         assert_ok!(liquidation_vault.increase_to_be_issued(&wrapped(25)));
         assert_ok!(liquidation_vault.increase_issued(&wrapped(25)));
@@ -543,7 +544,7 @@ fn redeem_tokens_liquidation_does_not_call_recover_when_unnecessary() {
             &user_id,
             &wrapped(10)
         ));
-        let liquidation_vault = VaultRegistry::get_rich_liquidation_vault(DEFAULT_TESTING_CURRENCY);
+        let liquidation_vault = VaultRegistry::get_rich_liquidation_vault(&DEFAULT_CURRENCY_PAIR);
         assert_eq!(liquidation_vault.data.issued_tokens, 15);
         assert_emitted!(Event::RedeemTokensLiquidation(user_id, 10, (1000 * 10) / 50));
     });
@@ -642,10 +643,10 @@ fn liquidate_at_most_secure_threshold() {
             backing_collateral,
             dummy_public_key(),
         ));
-        let liquidation_vault_before = VaultRegistry::get_rich_liquidation_vault(DEFAULT_TESTING_CURRENCY);
+        let liquidation_vault_before = VaultRegistry::get_rich_liquidation_vault(&DEFAULT_CURRENCY_PAIR);
 
         VaultRegistry::set_secure_collateral_threshold(
-            DEFAULT_TESTING_CURRENCY,
+            DEFAULT_CURRENCY_PAIR,
             FixedU128::checked_from_rational(150, 100).unwrap(), // 150%
         );
 
@@ -690,7 +691,7 @@ fn liquidate_at_most_secure_threshold() {
             backing_collateral - liquidated_collateral
         ));
 
-        let liquidation_vault_after = VaultRegistry::get_rich_liquidation_vault(DEFAULT_TESTING_CURRENCY);
+        let liquidation_vault_after = VaultRegistry::get_rich_liquidation_vault(&DEFAULT_CURRENCY_PAIR);
         let liquidated_vault = <crate::Vaults<Test>>::get(&vault_id).unwrap();
         assert!(matches!(liquidated_vault.status, VaultStatus::Liquidated));
         assert_emitted!(Event::LiquidateVault(
@@ -779,7 +780,11 @@ fn calculate_max_wrapped_from_collateral_for_threshold_succeeds() {
         convert_to.mock_safe(move |_, _| MockResult::Return(Ok(wrapped(collateral))));
 
         assert_eq!(
-            VaultRegistry::calculate_max_wrapped_from_collateral_for_threshold(&amount(collateral), threshold),
+            VaultRegistry::calculate_max_wrapped_from_collateral_for_threshold(
+                &amount(collateral),
+                DEFAULT_WRAPPED_CURRENCY,
+                threshold
+            ),
             Ok(wrapped((u64::MAX / 2) as u128))
         );
     })
@@ -813,8 +818,12 @@ fn test_threshold_equivalent_to_legacy_calculation() {
         let random_start = 987529462328 as u128;
         for btc in random_start..random_start + 199999 {
             let old = legacy_calculate_max_wrapped_from_collateral_for_threshold(btc, 199999).unwrap();
-            let new =
-                VaultRegistry::calculate_max_wrapped_from_collateral_for_threshold(&amount(btc), threshold).unwrap();
+            let new = VaultRegistry::calculate_max_wrapped_from_collateral_for_threshold(
+                &amount(btc),
+                DEFAULT_WRAPPED_CURRENCY,
+                threshold,
+            )
+            .unwrap();
             assert_eq!(wrapped(old), new);
         }
     })
@@ -877,11 +886,16 @@ fn get_required_collateral_for_wrapped_with_threshold_succeeds() {
             )
             .unwrap();
 
-            let max_btc_for_min_collateral =
-                VaultRegistry::calculate_max_wrapped_from_collateral_for_threshold(&min_collateral, threshold).unwrap();
+            let max_btc_for_min_collateral = VaultRegistry::calculate_max_wrapped_from_collateral_for_threshold(
+                &min_collateral,
+                DEFAULT_WRAPPED_CURRENCY,
+                threshold,
+            )
+            .unwrap();
 
             let max_btc_for_below_min_collateral = VaultRegistry::calculate_max_wrapped_from_collateral_for_threshold(
                 &amount(min_collateral.amount() - 1),
+                DEFAULT_WRAPPED_CURRENCY,
                 threshold,
             )
             .unwrap();
@@ -930,7 +944,7 @@ fn deposit_collateral_parachain_not_running_fails() {
 mod liquidation_threshold_tests {
     use crate::mock::{AccountId, Balance, BlockNumber};
 
-    use super::*;
+    use super::{assert_eq, *};
 
     fn setup() -> Vault<AccountId, BlockNumber, Balance, CurrencyId> {
         let id = create_sample_vault();
@@ -1040,13 +1054,13 @@ fn get_settled_collateralization_from_vault_succeeds() {
 }
 
 mod get_vaults_below_premium_collaterlization_tests {
-    use super::*;
+    use super::{assert_eq, *};
 
     /// sets premium_redeem threshold to 1
     pub fn run_test(test: impl FnOnce()) {
         super::run_test(|| {
-            VaultRegistry::set_secure_collateral_threshold(DEFAULT_TESTING_CURRENCY, FixedU128::from_float(0.001));
-            VaultRegistry::set_premium_redeem_threshold(DEFAULT_TESTING_CURRENCY, FixedU128::one());
+            VaultRegistry::set_secure_collateral_threshold(DEFAULT_CURRENCY_PAIR, FixedU128::from_float(0.001));
+            VaultRegistry::set_premium_redeem_threshold(DEFAULT_CURRENCY_PAIR, FixedU128::one());
 
             test()
         })
@@ -1092,7 +1106,7 @@ mod get_vaults_below_premium_collaterlization_tests {
 
             assert_eq!(
                 VaultRegistry::get_premium_redeem_vaults(),
-                Ok(vec!((id2, wrapped(issue_tokens2)), (id1, wrapped(issue_tokens1))))
+                Ok(vec![(id1, wrapped(issue_tokens1)), (id2, wrapped(issue_tokens2))])
             );
         })
     }
@@ -1129,7 +1143,7 @@ mod get_vaults_below_premium_collaterlization_tests {
 }
 
 mod get_vaults_with_issuable_tokens_tests {
-    use super::*;
+    use super::{assert_eq, *};
 
     #[test]
     fn get_vaults_with_issuable_tokens_succeeds() {
@@ -1249,7 +1263,7 @@ mod get_vaults_with_issuable_tokens_tests {
             // update the exchange rate
             convert_to.mock_safe(convert_with_exchange_rate(2));
             VaultRegistry::set_secure_collateral_threshold(
-                DEFAULT_TESTING_CURRENCY,
+                DEFAULT_CURRENCY_PAIR,
                 FixedU128::checked_from_rational(150, 100).unwrap(), // 150%
             );
 
@@ -1259,7 +1273,7 @@ mod get_vaults_with_issuable_tokens_tests {
 }
 
 mod get_vaults_with_redeemable_tokens_test {
-    use super::*;
+    use super::{assert_eq, *};
 
     fn create_vault_with_issue(id: DefaultVaultId<Test>, to_issue: u128) {
         create_vault(id.clone());

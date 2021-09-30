@@ -34,6 +34,13 @@ fn get_vault_id<T: crate::Config>() -> DefaultVaultId<T> {
     )
 }
 
+fn get_currency_pair<T: crate::Config>() -> DefaultVaultCurrencyPair<T> {
+    VaultCurrencyPair {
+        collateral: T::GetGriefingCollateralCurrencyId::get(),
+        wrapped: T::GetWrappedCurrencyId::get(),
+    }
+}
+
 benchmarks! {
     register_vault {
         let vault_id = get_vault_id::<T>();
@@ -81,16 +88,16 @@ benchmarks! {
     }: _(RawOrigin::Signed(vault_id.account_id), vault_id.currencies.clone(), true)
 
     adjust_collateral_ceiling {
-    }: _(RawOrigin::Root, T::GetGriefingCollateralCurrencyId::get(), 1234u32.into())
+    }: _(RawOrigin::Root, get_currency_pair::<T>(), 1234u32.into())
 
     adjust_secure_collateral_threshold {
-    }: _(RawOrigin::Root, T::GetGriefingCollateralCurrencyId::get(), UnsignedFixedPoint::<T>::one())
+    }: _(RawOrigin::Root, get_currency_pair::<T>(), UnsignedFixedPoint::<T>::one())
 
     adjust_premium_redeem_threshold {
-    }: _(RawOrigin::Root, T::GetGriefingCollateralCurrencyId::get(), UnsignedFixedPoint::<T>::one())
+    }: _(RawOrigin::Root, get_currency_pair::<T>(), UnsignedFixedPoint::<T>::one())
 
     adjust_liquidation_collateral_threshold {
-    }: _(RawOrigin::Root, T::GetGriefingCollateralCurrencyId::get(), UnsignedFixedPoint::<T>::one())
+    }: _(RawOrigin::Root, get_currency_pair::<T>(), UnsignedFixedPoint::<T>::one())
 
     report_undercollateralized_vault {
         let vault_id = get_vault_id::<T>();

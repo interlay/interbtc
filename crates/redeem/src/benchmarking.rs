@@ -212,7 +212,7 @@ benchmarks! {
         assert_ok!(VaultRegistry::<T>::issue_tokens(&vault_id, &wrapped(amount)));
 
         VaultRegistry::<T>::liquidate_vault(&vault_id).unwrap();
-    }: _(RawOrigin::Signed(origin), amount.into(), DEFAULT_TESTING_CURRENCY)
+    }: _(RawOrigin::Signed(origin), DEFAULT_TESTING_CURRENCY, T::GetWrappedCurrencyId::get(), amount.into())
 
     execute_redeem {
         let origin: T::AccountId = account("Origin", 0, 0);

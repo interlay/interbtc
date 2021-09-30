@@ -98,6 +98,7 @@ pub const INTERBTC: CurrencyId = CurrencyId::INTERBTC;
 parameter_types! {
     pub const GetCollateralCurrencyId: CurrencyId = DOT;
     pub const GetWrappedCurrencyId: CurrencyId = INTERBTC;
+    pub const GetGovernanceTokenCurrency: CurrencyId = CurrencyId::KINT;
     pub const MaxLocks: u32 = 50;
 }
 
@@ -123,6 +124,7 @@ impl reward::Config for Test {
     type Event = TestEvent;
     type SignedFixedPoint = SignedFixedPoint;
     type CurrencyId = CurrencyId;
+    type GetGovernanceTokenCurrency = GetGovernanceTokenCurrency;
 }
 
 parameter_types! {
@@ -175,6 +177,7 @@ impl staking::Config for Test {
     type SignedFixedPoint = SignedFixedPoint;
     type SignedInner = SignedInner;
     type CurrencyId = CurrencyId;
+    type GetGovernanceTokenCurrency = GetGovernanceTokenCurrency;
 }
 
 parameter_types! {
@@ -223,8 +226,9 @@ impl fee::Config for Test {
     type SignedInner = SignedInner;
     type UnsignedFixedPoint = UnsignedFixedPoint;
     type UnsignedInner = UnsignedInner;
-    type VaultRewards = reward::RewardsCurrencyAdapter<Test, GetWrappedCurrencyId>;
-    type VaultStaking = staking::StakingCurrencyAdapter<Test, GetWrappedCurrencyId>;
+    type VaultRewards = reward::RewardsCurrencyAdapter<Test>;
+    type VaultStaking = staking::StakingCurrencyAdapter<Test>;
+    type GetGovernanceTokenCurrency = GetGovernanceTokenCurrency;
     type OnSweep = ();
 }
 

@@ -27,6 +27,8 @@ use vault_registry::{
 #[cfg(test)]
 use crate::Pallet as Relay;
 
+type UnsignedFixedPoint<T> = <T as currency::Config>::UnsignedFixedPoint;
+
 pub const DEFAULT_TESTING_CURRENCY: CurrencyId = CurrencyId::DOT;
 
 fn dummy_public_key() -> BtcPublicKey {
@@ -115,9 +117,11 @@ benchmarks! {
             vault
         );
 
+        VaultRegistry::<T>::set_secure_collateral_threshold(vault_id.currencies.clone(), UnsignedFixedPoint::<T>::one());
+        VaultRegistry::<T>::set_collateral_ceiling(vault_id.currencies.clone(), 1_000_000_000u32.into());
+
         mint_collateral::<T>(&vault_id.account_id, 1000u32.into());
-        assert_ok!(VaultRegistry::<T>::try_deposit_collateral(&vault_id, &Amount::new(1000u32.into(),
-T::GetGriefingCollateralCurrencyId::get())));
+        assert_ok!(VaultRegistry::<T>::try_deposit_collateral(&vault_id, &Amount::new(1000u32.into(), T::GetGriefingCollateralCurrencyId::get())));
 
         let height = 0;
         let block = BlockBuilder::new()

@@ -67,18 +67,19 @@ fn integration_test_report_vault_theft() {
 
         SecurityPallet::set_active_block_number(1000);
 
-        let pre_liquidation_state = ParachainState::get(currency_id);
+        let pre_liquidation_state = ParachainState::get(&vault_id);
         let theft_fee = FeePallet::get_theft_fee(&Amount::new(collateral_vault, currency_id)).unwrap();
 
         assert_ok!(
-            Call::Relay(RelayCall::report_vault_theft(vault_id, proof, raw_tx)).dispatch(origin_of(account_of(user)))
+            Call::Relay(RelayCall::report_vault_theft(vault_id.clone(), proof, raw_tx))
+                .dispatch(origin_of(account_of(user)))
         );
 
         let confiscated_collateral = Amount::new(150, currency_id);
         assert_eq!(
-            ParachainState::get(currency_id),
+            ParachainState::get(&vault_id),
             pre_liquidation_state.with_changes(|user, vault, liquidation_vault, _fee_pool| {
-                let liquidation_vault = liquidation_vault.with_currency(&currency_id);
+                let liquidation_vault = liquidation_vault.with_currency(&vault_id.currencies);
 
                 (*user.balances.get_mut(&currency_id).unwrap()).free += theft_fee;
 
@@ -129,7 +130,7 @@ fn integration_test_double_spend_op_return() {
             &issued_tokens
         ));
 
-        let redeem_id = setup_redeem(issued_tokens, USER, default_vault_id_of(stealing_vault));
+        let redeem_id = setup_redeem(issued_tokens, USER, &default_vault_id_of(stealing_vault));
         let redeem = RedeemPallet::get_open_redeem_request_from_id(&redeem_id).unwrap();
         let user_btc_address = BtcAddress::P2PKH(H160([2; 20]));
         let current_block_number = 1;

@@ -93,8 +93,6 @@ pub mod pallet {
         ArithmeticOverflow,
         /// Mathematical operation caused an underflow
         ArithmeticUnderflow,
-        /// conversion between different collateral types is not implemented
-        UnsupportedConversion,
     }
 
     #[pallet::hooks]
@@ -298,7 +296,11 @@ impl<T: Config> Pallet<T> {
                 // convert collateral to interbtc
                 Self::collateral_to_wrapped(amount.amount(), from_currency)?
             }
-            _ => return Err(Error::<T>::UnsupportedConversion.into()),
+            (_, _) => {
+                // first convert to btc, then convert the btc to the desired currency
+                let base = Self::collateral_to_wrapped(amount.amount(), amount.currency())?;
+                Self::wrapped_to_collateral(base, currency_id)?
+            }
         };
         Ok(Amount::new(converted, currency_id))
     }

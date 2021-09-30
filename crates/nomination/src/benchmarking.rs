@@ -1,6 +1,6 @@
 use super::*;
 use frame_benchmarking::{account, benchmarks, impl_benchmark_test_suite};
-use frame_support::assert_ok;
+use frame_support::{assert_ok, traits::Get};
 use frame_system::RawOrigin;
 use orml_traits::MultiCurrency;
 use primitives::CurrencyId;

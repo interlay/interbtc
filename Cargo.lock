@@ -12102,6 +12102,7 @@ dependencies = [
  "orml-traits",
  "pallet-timestamp",
  "parity-scale-codec",
+ "pretty_assertions",
  "reward",
  "security",
  "serde",

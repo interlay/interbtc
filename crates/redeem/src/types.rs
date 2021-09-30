@@ -6,7 +6,6 @@ use vault_registry::types::CurrencyId;
 use crate::Config;
 use codec::{Decode, Encode};
 use currency::Amount;
-use frame_support::traits::Get;
 
 /// Storage version.
 #[derive(Encode, Decode, Eq, PartialEq)]
@@ -45,15 +44,15 @@ pub trait RedeemRequestExt<T: Config> {
 
 impl<T: Config> RedeemRequestExt<T> for RedeemRequest<T::AccountId, T::BlockNumber, BalanceOf<T>, CurrencyId<T>> {
     fn amount_btc(&self) -> Amount<T> {
-        Amount::new(self.amount_btc, T::GetWrappedCurrencyId::get())
+        Amount::new(self.amount_btc, self.vault.wrapped_currency())
     }
     fn fee(&self) -> Amount<T> {
-        Amount::new(self.fee, T::GetWrappedCurrencyId::get())
+        Amount::new(self.fee, self.vault.wrapped_currency())
     }
     fn premium(&self) -> Result<Amount<T>, DispatchError> {
         Ok(Amount::new(self.premium, self.vault.collateral_currency()))
     }
     fn transfer_fee_btc(&self) -> Amount<T> {
-        Amount::new(self.transfer_fee_btc, T::GetWrappedCurrencyId::get())
+        Amount::new(self.transfer_fee_btc, self.vault.wrapped_currency())
     }
 }

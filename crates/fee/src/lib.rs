@@ -27,7 +27,7 @@ extern crate mocktopus;
 use mocktopus::macros::mockable;
 
 use codec::{Decode, Encode, EncodeLike};
-use currency::{Amount, OnSweep};
+use currency::{Amount, CurrencyId, OnSweep};
 use frame_support::{
     dispatch::{DispatchError, DispatchResult},
     ensure,
@@ -104,17 +104,25 @@ pub mod pallet {
             + MaybeSerializeDeserialize;
 
         /// Vault reward pool for the wrapped currency.
-        type VaultRewards: reward::Rewards<DefaultVaultId<Self>, SignedFixedPoint = SignedFixedPoint<Self>>;
+        type VaultRewards: reward::Rewards<
+            DefaultVaultId<Self>,
+            CurrencyId<Self>,
+            SignedFixedPoint = SignedFixedPoint<Self>,
+        >;
 
         /// Vault staking pool for the wrapped currency.
         type VaultStaking: staking::Staking<
             DefaultVaultId<Self>,
             Self::AccountId,
             Self::Index,
+            Self::CurrencyId,
             SignedFixedPoint = SignedFixedPoint<Self>,
         >;
         /// Handler to transfer undistributed rewards.
         type OnSweep: OnSweep<Self::AccountId, Amount<Self>>;
+
+        #[pallet::constant]
+        type GetGovernanceTokenCurrency: Get<Self::CurrencyId>;
     }
 
     #[pallet::error]
@@ -407,8 +415,14 @@ impl<T: Config> Pallet<T> {
 
     /// Withdraw rewards from a pool and transfer to `account_id`.
     fn withdraw_from_reward_pool<
-        Rewards: reward::Rewards<DefaultVaultId<T>, SignedFixedPoint = SignedFixedPoint<T>>,
-        Staking: staking::Staking<DefaultVaultId<T>, T::AccountId, T::Index, SignedFixedPoint = SignedFixedPoint<T>>,
+        Rewards: reward::Rewards<DefaultVaultId<T>, CurrencyId<T>, SignedFixedPoint = SignedFixedPoint<T>>,
+        Staking: staking::Staking<
+            DefaultVaultId<T>,
+            T::AccountId,
+            T::Index,
+            CurrencyId<T>,
+            SignedFixedPoint = SignedFixedPoint<T>,
+        >,
     >(
         vault_id: &DefaultVaultId<T>,
         nominator_id: &T::AccountId,
@@ -416,30 +430,40 @@ impl<T: Config> Pallet<T> {
     ) -> DispatchResult {
         Self::distribute_from_reward_pool::<Rewards, Staking>(&vault_id)?;
 
-        let rewards = Staking::withdraw_reward(vault_id, nominator_id, index)?
-            .try_into()
-            .map_err(|_| Error::<T>::TryIntoIntError)?;
-        let amount = Amount::<T>::new(rewards, T::GetWrappedCurrencyId::get());
-        amount.transfer(&Self::fee_pool_account_id(), nominator_id)?;
-
+        for currency_id in [vault_id.wrapped_currency(), T::GetGovernanceTokenCurrency::get()] {
+            let rewards = Staking::withdraw_reward(vault_id, nominator_id, index, currency_id)?
+                .try_into()
+                .map_err(|_| Error::<T>::TryIntoIntError)?;
+            let amount = Amount::<T>::new(rewards, currency_id);
+            amount.transfer(&Self::fee_pool_account_id(), nominator_id)?;
+        }
         Ok(())
     }
 
     fn distribute(reward: &Amount<T>) -> Result<Amount<T>, DispatchError> {
-        let leftover = T::VaultRewards::distribute_reward(reward.to_signed_fixed_point()?)?;
+        let leftover = T::VaultRewards::distribute_reward(reward.to_signed_fixed_point()?, reward.currency())?;
         Amount::from_signed_fixed_point(leftover, reward.currency())
     }
 
     pub fn distribute_from_reward_pool<
-        Rewards: reward::Rewards<DefaultVaultId<T>, SignedFixedPoint = SignedFixedPoint<T>>,
-        Staking: staking::Staking<DefaultVaultId<T>, T::AccountId, T::Index, SignedFixedPoint = SignedFixedPoint<T>>,
+        Rewards: reward::Rewards<DefaultVaultId<T>, CurrencyId<T>, SignedFixedPoint = SignedFixedPoint<T>>,
+        Staking: staking::Staking<
+            DefaultVaultId<T>,
+            T::AccountId,
+            T::Index,
+            CurrencyId<T>,
+            SignedFixedPoint = SignedFixedPoint<T>,
+        >,
     >(
         vault_id: &DefaultVaultId<T>,
     ) -> DispatchResult {
-        let reward_as_inner = Rewards::withdraw_reward(vault_id)?;
-        let reward_as_fixed =
-            Rewards::SignedFixedPoint::checked_from_integer(reward_as_inner).ok_or(Error::<T>::TryIntoIntError)?;
-        Staking::distribute_reward(vault_id, reward_as_fixed)?;
+        for currency_id in [vault_id.wrapped_currency(), T::GetGovernanceTokenCurrency::get()] {
+            let reward_as_inner = Rewards::withdraw_reward(vault_id, currency_id)?;
+            let reward_as_fixed =
+                Rewards::SignedFixedPoint::checked_from_integer(reward_as_inner).ok_or(Error::<T>::TryIntoIntError)?;
+            Staking::distribute_reward(vault_id, reward_as_fixed, currency_id)?;
+        }
+
         Ok(())
     }
 }

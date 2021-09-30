@@ -14,8 +14,8 @@ pub(crate) mod security {
 pub(crate) mod vault_registry {
     use currency::Amount;
     pub use frame_support::dispatch::{DispatchError, DispatchResult};
-    use vault_registry::DefaultVaultId;
     pub use vault_registry::{types::CurrencyId, DefaultVault, VaultStatus};
+    use vault_registry::{types::DefaultVaultCurrencyPair, DefaultVaultId};
 
     pub fn get_backing_collateral<T: crate::Config>(vault_id: &DefaultVaultId<T>) -> Result<Amount<T>, DispatchError> {
         <vault_registry::Pallet<T>>::get_backing_collateral(vault_id)
@@ -38,16 +38,23 @@ pub(crate) mod vault_registry {
 
     pub fn get_max_nominatable_collateral<T: crate::Config>(
         vault_collateral: &Amount<T>,
+        currency_pair: &DefaultVaultCurrencyPair<T>,
     ) -> Result<Amount<T>, DispatchError> {
-        <vault_registry::Pallet<T>>::get_max_nominatable_collateral(vault_collateral)
+        <vault_registry::Pallet<T>>::get_max_nominatable_collateral(vault_collateral, currency_pair)
     }
 
-    pub fn try_increase_total_backing_collateral<T: crate::Config>(amount: &Amount<T>) -> DispatchResult {
-        <vault_registry::Pallet<T>>::try_increase_total_backing_collateral(amount)
+    pub fn try_increase_total_backing_collateral<T: crate::Config>(
+        currency_pair: &DefaultVaultCurrencyPair<T>,
+        amount: &Amount<T>,
+    ) -> DispatchResult {
+        <vault_registry::Pallet<T>>::try_increase_total_backing_collateral(currency_pair, amount)
     }
 
-    pub fn decrease_total_backing_collateral<T: crate::Config>(amount: &Amount<T>) -> DispatchResult {
-        <vault_registry::Pallet<T>>::decrease_total_backing_collateral(amount)
+    pub fn decrease_total_backing_collateral<T: crate::Config>(
+        currency_pair: &DefaultVaultCurrencyPair<T>,
+        amount: &Amount<T>,
+    ) -> DispatchResult {
+        <vault_registry::Pallet<T>>::decrease_total_backing_collateral(currency_pair, amount)
     }
 }
 
@@ -65,29 +72,27 @@ pub(crate) mod fee {
 pub(crate) mod staking {
     use crate::types::{SignedFixedPoint, SignedInner};
     use frame_support::dispatch::DispatchError;
-    use vault_registry::{types::CurrencyId, DefaultVaultId};
+    use vault_registry::DefaultVaultId;
 
     pub fn nonce<T: crate::Config>(vault_id: &DefaultVaultId<T>) -> T::Index {
         <staking::Pallet<T>>::nonce(vault_id)
     }
 
     pub fn deposit_stake<T: crate::Config>(
-        currency_id: CurrencyId<T>,
         vault_id: &DefaultVaultId<T>,
         nominator_id: &T::AccountId,
         amount: SignedFixedPoint<T>,
     ) -> Result<(), DispatchError> {
-        <staking::Pallet<T>>::deposit_stake(currency_id, vault_id, nominator_id, amount)
+        <staking::Pallet<T>>::deposit_stake(vault_id, nominator_id, amount)
     }
 
     pub fn withdraw_stake<T: crate::Config>(
-        currency_id: CurrencyId<T>,
         vault_id: &DefaultVaultId<T>,
         nominator_id: &T::AccountId,
         amount: SignedFixedPoint<T>,
         index: Option<T::Index>,
     ) -> Result<(), DispatchError> {
-        <staking::Pallet<T>>::withdraw_stake(currency_id, vault_id, nominator_id, amount, index)
+        <staking::Pallet<T>>::withdraw_stake(vault_id, nominator_id, amount, index)
     }
 
     pub fn compute_stake<T: vault_registry::Config>(
@@ -97,10 +102,7 @@ pub(crate) mod staking {
         <staking::Pallet<T>>::compute_stake(vault_id, nominator_id)
     }
 
-    pub fn force_refund<T: crate::Config>(
-        currency_id: CurrencyId<T>,
-        vault_id: &DefaultVaultId<T>,
-    ) -> Result<SignedInner<T>, DispatchError> {
-        <staking::Pallet<T>>::force_refund(currency_id, vault_id)
+    pub fn force_refund<T: crate::Config>(vault_id: &DefaultVaultId<T>) -> Result<SignedInner<T>, DispatchError> {
+        <staking::Pallet<T>>::force_refund(vault_id)
     }
 }

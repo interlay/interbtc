@@ -34,9 +34,7 @@ use btc_relay::BtcAddress;
 use currency::Amount;
 use frame_support::{
     dispatch::{DispatchError, DispatchResult},
-    ensure,
-    traits::Get,
-    transactional,
+    ensure, transactional,
 };
 use frame_system::{ensure_root, ensure_signed};
 use oracle::OracleKey;
@@ -222,16 +220,19 @@ pub mod pallet {
         /// # Arguments
         ///
         /// * `origin` - sender of the transaction
+        /// * `collateral_currency` - currency to be received
+        /// * `wrapped_currency` - currency of the wrapped token to burn
         /// * `amount_wrapped` - amount of issued tokens to burn
         #[pallet::weight(<T as Config>::WeightInfo::liquidation_redeem())]
         #[transactional]
         pub fn liquidation_redeem(
             origin: OriginFor<T>,
+            collateral_currency: CurrencyId<T>,
+            wrapped_currency: CurrencyId<T>,
             #[pallet::compact] amount_wrapped: Wrapped<T>,
-            currency_id: CurrencyId<T>,
         ) -> DispatchResultWithPostInfo {
             let redeemer = ensure_signed(origin)?;
-            Self::_liquidation_redeem(redeemer, amount_wrapped, currency_id)?;
+            Self::_liquidation_redeem(redeemer, collateral_currency, wrapped_currency, amount_wrapped)?;
             Ok(().into())
         }
 
@@ -329,11 +330,11 @@ impl<T: Config> Pallet<T> {
         btc_address: BtcAddress,
         vault_id: DefaultVaultId<T>,
     ) -> Result<H256, DispatchError> {
-        let amount_wrapped = Amount::new(amount_wrapped, T::GetWrappedCurrencyId::get());
+        let amount_wrapped = Amount::new(amount_wrapped, vault_id.wrapped_currency());
 
         ext::security::ensure_parachain_status_running::<T>()?;
 
-        let redeemer_balance = ext::treasury::get_balance::<T>(&redeemer);
+        let redeemer_balance = ext::treasury::get_balance::<T>(&redeemer, vault_id.wrapped_currency());
         ensure!(
             amount_wrapped.le(&redeemer_balance)?,
             Error::<T>::AmountExceedsUserBalance
@@ -341,11 +342,11 @@ impl<T: Config> Pallet<T> {
 
         // todo: currently allowed to redeem from one currency to the other for free - decide if this is desirable
         let fee_wrapped = if redeemer == vault_id.account_id {
-            Amount::zero(T::GetWrappedCurrencyId::get())
+            Amount::zero(vault_id.wrapped_currency())
         } else {
             ext::fee::get_redeem_fee::<T>(&amount_wrapped)?
         };
-        let inclusion_fee = Self::get_current_inclusion_fee()?;
+        let inclusion_fee = Self::get_current_inclusion_fee(vault_id.wrapped_currency())?;
 
         let vault_to_be_burned_tokens = amount_wrapped.checked_sub(&fee_wrapped)?;
 
@@ -359,7 +360,7 @@ impl<T: Config> Pallet<T> {
         // only allow requests of amount above above the minimum
         ensure!(
             // this is the amount the vault will send (minus fee)
-            user_to_be_received_btc.ge(&Self::get_dust_value())?,
+            user_to_be_received_btc.ge(&Self::get_dust_value(vault_id.wrapped_currency()))?,
             Error::<T>::AmountBelowDustAmount
         );
 
@@ -428,14 +429,15 @@ impl<T: Config> Pallet<T> {
 
     fn _liquidation_redeem(
         redeemer: T::AccountId,
+        collateral_currency: CurrencyId<T>,
+        wrapped_currency: CurrencyId<T>,
         amount_wrapped: Wrapped<T>,
-        currency_id: CurrencyId<T>,
     ) -> Result<(), DispatchError> {
-        let amount_wrapped = Amount::new(amount_wrapped, T::GetWrappedCurrencyId::get());
+        let amount_wrapped = Amount::new(amount_wrapped, wrapped_currency);
 
         ext::security::ensure_parachain_status_not_shutdown::<T>()?;
 
-        let redeemer_balance = ext::treasury::get_balance::<T>(&redeemer);
+        let redeemer_balance = ext::treasury::get_balance::<T>(&redeemer, wrapped_currency);
         ensure!(
             amount_wrapped.le(&redeemer_balance)?,
             Error::<T>::AmountExceedsUserBalance
@@ -443,7 +445,7 @@ impl<T: Config> Pallet<T> {
 
         amount_wrapped.lock_on(&redeemer)?;
         amount_wrapped.burn_from(&redeemer)?;
-        ext::vault_registry::redeem_tokens_liquidation::<T>(currency_id, &redeemer, &amount_wrapped)?;
+        ext::vault_registry::redeem_tokens_liquidation::<T>(collateral_currency, &redeemer, &amount_wrapped)?;
 
         // vault-registry emits `RedeemTokensLiquidation` with collateral amount
         Self::deposit_event(<Event<T>>::LiquidationRedeem(redeemer, amount_wrapped.amount()));
@@ -508,7 +510,7 @@ impl<T: Config> Pallet<T> {
         );
 
         let vault = ext::vault_registry::get_vault_from_id::<T>(&redeem.vault)?;
-        let vault_to_be_redeemed_tokens = Amount::new(vault.to_be_redeemed_tokens, T::GetWrappedCurrencyId::get());
+        let vault_to_be_redeemed_tokens = Amount::new(vault.to_be_redeemed_tokens, redeem.vault.wrapped_currency());
         let vault_id = redeem.vault.clone();
 
         let vault_to_be_burned_tokens = redeem.amount_btc().checked_add(&redeem.transfer_fee_btc())?;
@@ -526,7 +528,7 @@ impl<T: Config> Pallet<T> {
             let slashing_destination = if reimburse {
                 CurrencySource::FreeBalance(redeemer.clone())
             } else {
-                CurrencySource::LiquidationVault
+                CurrencySource::LiquidationVault(vault_id.currencies.clone())
             };
             ext::vault_registry::decrease_liquidated_collateral::<T>(&vault_id, &confiscated_collateral)?;
             ext::vault_registry::transfer_funds::<T>(
@@ -654,7 +656,7 @@ impl<T: Config> Pallet<T> {
 
     /// get current inclusion fee based on the expected number of bytes in the transaction, and
     /// the inclusion fee rate reported by the oracle
-    pub fn get_current_inclusion_fee() -> Result<Amount<T>, DispatchError> {
+    pub fn get_current_inclusion_fee(wrapped_currency: CurrencyId<T>) -> Result<Amount<T>, DispatchError> {
         let size: u32 = Self::redeem_transaction_size();
         let satoshi_per_bytes = ext::oracle::get_price::<T>(OracleKey::FeeEstimation)?;
 
@@ -662,11 +664,11 @@ impl<T: Config> Pallet<T> {
             .checked_mul_int(size)
             .ok_or(Error::<T>::ArithmeticOverflow)?;
         let amount = fee.try_into().map_err(|_| Error::<T>::TryIntoIntError)?;
-        Ok(Amount::new(amount, T::GetWrappedCurrencyId::get()))
+        Ok(Amount::new(amount, wrapped_currency))
     }
 
-    pub fn get_dust_value() -> Amount<T> {
-        Amount::new(<RedeemBtcDustValue<T>>::get(), T::GetWrappedCurrencyId::get())
+    pub fn get_dust_value(currency_id: CurrencyId<T>) -> Amount<T> {
+        Amount::new(<RedeemBtcDustValue<T>>::get(), currency_id)
     }
     /// Fetch all redeem requests for the specified account.
     ///
