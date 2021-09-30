@@ -1048,13 +1048,30 @@ impl TransactionGenerator {
     }
 }
 
+pub fn register_address_and_mine_transaction(
+    vault_id: DefaultVaultId<Runtime>,
+    from: BtcPublicKey,
+    to: BtcAddress,
+    amount: Amount<Runtime>,
+    return_data: Option<H256>,
+) -> (H256Le, u32, Vec<u8>, Vec<u8>) {
+    assert_ok!(VaultRegistryPallet::insert_vault_deposit_address(
+        vault_id,
+        BtcAddress::P2PKH(from.to_hash())
+    ));
+
+    generate_transaction_and_mine(from, to, amount, return_data)
+}
+
 pub fn generate_transaction_and_mine(
-    address: BtcAddress,
+    from: BtcPublicKey,
+    to: BtcAddress,
     amount: Amount<Runtime>,
     return_data: Option<H256>,
 ) -> (H256Le, u32, Vec<u8>, Vec<u8>) {
     let (tx_id, height, proof, raw_tx, _) = TransactionGenerator::new()
-        .with_address(address)
+        .with_script(from.to_p2pkh_script_sig(vec![1; 32]).as_bytes())
+        .with_address(to)
         .with_amount(amount)
         .with_op_return(return_data)
         .mine();
