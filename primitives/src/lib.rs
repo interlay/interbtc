@@ -12,10 +12,7 @@ use sp_runtime::{
     traits::{BlakeTwo256, IdentifyAccount, Verify},
     FixedI128, FixedPointNumber, FixedU128, MultiSignature, RuntimeDebug,
 };
-use sp_std::{
-    convert::{Into, TryFrom},
-    prelude::*,
-};
+use sp_std::{convert::TryFrom, prelude::*};
 
 pub use bitcoin::types::H256Le;
 
