@@ -314,6 +314,35 @@ mod accept_replace_tests {
             );
         });
     }
+
+    #[test]
+    fn integration_test_replace_other_wrapped_currency_fails() {
+        test_with(|old_vault_id, new_vault_id| {
+            let other_currency = if let CurrencyId::INTERBTC = old_vault_id.wrapped_currency() {
+                CurrencyId::KBTC
+            } else {
+                CurrencyId::INTERBTC
+            };
+            assert_ok!(OraclePallet::_set_exchange_rate(other_currency, FixedU128::one()));
+
+            let new_vault_id = VaultId::new(
+                account_of(NEW_VAULT),
+                new_vault_id.collateral_currency(),
+                other_currency,
+            );
+            CoreVaultData::force_to(&new_vault_id, default_vault_state(&new_vault_id));
+            assert_noop!(
+                accept_replace(
+                    &old_vault_id,
+                    &new_vault_id,
+                    old_vault_id.wrapped(10000),
+                    griefing(10_000),
+                    BtcAddress::P2PKH(H160([1; 20]))
+                ),
+                ReplaceError::InvalidWrappedCurrency
+            );
+        })
+    }
 }
 
 mod request_replace_tests {
