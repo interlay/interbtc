@@ -87,7 +87,7 @@ fn should_deposit_stake() {
     run_test(|| {
         assert_ok!(Reward::deposit_stake(&ALICE, fixed!(25)));
         assert_ok!(Reward::deposit_stake(&ALICE, fixed!(25)));
-        assert_eq!(Reward::stake(INTERBTC, &ALICE), fixed!(50));
+        assert_eq!(Reward::stake(&ALICE), fixed!(50));
         assert_ok!(Reward::deposit_stake(&BOB, fixed!(50)));
         assert_ok!(Reward::distribute_reward(INTERBTC, fixed!(1000)));
         assert_ok!(Reward::compute_reward(INTERBTC, &ALICE), 500);
