@@ -102,12 +102,8 @@ mod spec_based_tests {
             );
 
             assert_noop!(
-                Call::Redeem(RedeemCall::liquidation_redeem(
-                    vault_id.collateral_currency(),
-                    vault_id.wrapped_currency(),
-                    1000
-                ))
-                .dispatch(origin_of(account_of(ALICE))),
+                Call::Redeem(RedeemCall::liquidation_redeem(vault_id.currencies.clone(), 1000))
+                    .dispatch(origin_of(account_of(ALICE))),
                 SecurityError::ParachainShutdown,
             );
 
@@ -425,8 +421,7 @@ mod spec_based_tests {
                 liquidate_vault(&vault_id.clone());
                 assert_noop!(
                     Call::Redeem(RedeemCall::liquidation_redeem(
-                        vault_id.collateral_currency(),
-                        vault_id.wrapped_currency(),
+                        vault_id.currencies.clone(),
                         free_tokens_to_redeem.amount() + 1,
                     ))
                     .dispatch(origin_of(account_of(ALICE))),
@@ -436,8 +431,7 @@ mod spec_based_tests {
                     currency::get_free_balance::<Runtime>(vault_id.wrapped_currency(), &account_of(USER));
                 let tokens_to_liquidation_redeem = free_tokens_to_redeem.with_amount(|x| x - 10);
                 assert_ok!(Call::Redeem(RedeemCall::liquidation_redeem(
-                    vault_id.collateral_currency(),
-                    vault_id.wrapped_currency(),
+                    vault_id.currencies.clone(),
                     free_tokens_to_redeem.amount() - 10,
                 ))
                 .dispatch(origin_of(account_of(ALICE))));
@@ -1324,18 +1318,13 @@ fn integration_test_redeem_wrapped_liquidation_redeem() {
         let post_liquidation_state = ParachainState::get(&vault_id);
 
         assert_noop!(
-            Call::Redeem(RedeemCall::liquidation_redeem(
-                vault_id.collateral_currency(),
-                vault_id.wrapped_currency(),
-                351
-            ))
-            .dispatch(origin_of(account_of(USER))),
+            Call::Redeem(RedeemCall::liquidation_redeem(vault_id.currencies.clone(), 351))
+                .dispatch(origin_of(account_of(USER))),
             VaultRegistryError::InsufficientTokensCommitted
         );
 
         assert_ok!(Call::Redeem(RedeemCall::liquidation_redeem(
-            vault_id.collateral_currency(),
-            vault_id.wrapped_currency(),
+            vault_id.currencies.clone(),
             liquidation_redeem_amount.amount()
         ))
         .dispatch(origin_of(account_of(USER))));

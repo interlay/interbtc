@@ -357,8 +357,7 @@ fn test_liquidation_redeem_succeeds() {
 
         assert_ok!(Redeem::liquidation_redeem(
             Origin::signed(USER),
-            DEFAULT_TESTING_CURRENCY,
-            DEFAULT_WRAPPED_CURRENCY,
+            DEFAULT_CURRENCY_PAIR,
             total_amount,
         ));
     })
@@ -811,8 +810,7 @@ mod spec_based_tests {
 
             assert_ok!(Redeem::liquidation_redeem(
                 Origin::signed(USER),
-                DEFAULT_TESTING_CURRENCY,
-                DEFAULT_WRAPPED_CURRENCY,
+                DEFAULT_CURRENCY_PAIR,
                 total_amount.into(),
             ));
         })

@@ -42,7 +42,10 @@ use sp_core::H256;
 use sp_runtime::FixedPointNumber;
 use sp_std::{convert::TryInto, vec::Vec};
 use types::DefaultVaultId;
-use vault_registry::{types::CurrencyId, CurrencySource};
+use vault_registry::{
+    types::{CurrencyId, DefaultVaultCurrencyPair},
+    CurrencySource,
+};
 
 pub use pallet::*;
 
@@ -227,12 +230,11 @@ pub mod pallet {
         #[transactional]
         pub fn liquidation_redeem(
             origin: OriginFor<T>,
-            collateral_currency: CurrencyId<T>,
-            wrapped_currency: CurrencyId<T>,
+            currencies: DefaultVaultCurrencyPair<T>,
             #[pallet::compact] amount_wrapped: Wrapped<T>,
         ) -> DispatchResultWithPostInfo {
             let redeemer = ensure_signed(origin)?;
-            Self::_liquidation_redeem(redeemer, collateral_currency, wrapped_currency, amount_wrapped)?;
+            Self::_liquidation_redeem(redeemer, currencies, amount_wrapped)?;
             Ok(().into())
         }
 
@@ -429,15 +431,14 @@ impl<T: Config> Pallet<T> {
 
     fn _liquidation_redeem(
         redeemer: T::AccountId,
-        collateral_currency: CurrencyId<T>,
-        wrapped_currency: CurrencyId<T>,
+        currencies: DefaultVaultCurrencyPair<T>,
         amount_wrapped: Wrapped<T>,
     ) -> Result<(), DispatchError> {
-        let amount_wrapped = Amount::new(amount_wrapped, wrapped_currency);
+        let amount_wrapped = Amount::new(amount_wrapped, currencies.wrapped);
 
         ext::security::ensure_parachain_status_not_shutdown::<T>()?;
 
-        let redeemer_balance = ext::treasury::get_balance::<T>(&redeemer, wrapped_currency);
+        let redeemer_balance = ext::treasury::get_balance::<T>(&redeemer, currencies.wrapped);
         ensure!(
             amount_wrapped.le(&redeemer_balance)?,
             Error::<T>::AmountExceedsUserBalance
@@ -445,7 +446,7 @@ impl<T: Config> Pallet<T> {
 
         amount_wrapped.lock_on(&redeemer)?;
         amount_wrapped.burn_from(&redeemer)?;
-        ext::vault_registry::redeem_tokens_liquidation::<T>(collateral_currency, &redeemer, &amount_wrapped)?;
+        ext::vault_registry::redeem_tokens_liquidation::<T>(currencies.collateral, &redeemer, &amount_wrapped)?;
 
         // vault-registry emits `RedeemTokensLiquidation` with collateral amount
         Self::deposit_event(<Event<T>>::LiquidationRedeem(redeemer, amount_wrapped.amount()));
