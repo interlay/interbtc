@@ -83,7 +83,7 @@ impl frame_system::Config for Test {
 }
 
 pub const DEFAULT_TESTING_CURRENCY: CurrencyId = CurrencyId::DOT;
-pub const DEFAULT_WRAPPED_CURRENCY: CurrencyId = CurrencyId::DOT;
+pub const DEFAULT_WRAPPED_CURRENCY: CurrencyId = CurrencyId::INTERBTC;
 pub const DEFAULT_CURRENCY_PAIR: VaultCurrencyPair<CurrencyId> = VaultCurrencyPair {
     collateral: DEFAULT_TESTING_CURRENCY,
     wrapped: DEFAULT_WRAPPED_CURRENCY,
@@ -95,6 +95,7 @@ pub const INTERBTC: CurrencyId = CurrencyId::INTERBTC;
 parameter_types! {
     pub const GetCollateralCurrencyId: CurrencyId = DOT;
     pub const GetWrappedCurrencyId: CurrencyId = INTERBTC;
+    pub const GetNativeCurrencyId: CurrencyId = CurrencyId::KINT;
     pub const MaxLocks: u32 = 50;
 }
 
@@ -120,6 +121,7 @@ impl reward::Config for Test {
     type Event = TestEvent;
     type SignedFixedPoint = SignedFixedPoint;
     type CurrencyId = CurrencyId;
+    type GetNativeCurrencyId = GetNativeCurrencyId;
 }
 
 parameter_types! {
@@ -176,8 +178,9 @@ impl fee::Config for Test {
     type SignedInner = SignedInner;
     type UnsignedFixedPoint = UnsignedFixedPoint;
     type UnsignedInner = Balance;
-    type VaultRewards = reward::RewardsCurrencyAdapter<Test, GetWrappedCurrencyId>;
-    type VaultStaking = staking::StakingCurrencyAdapter<Test, GetWrappedCurrencyId>;
+    type VaultRewards = reward::RewardsCurrencyAdapter<Test>;
+    type VaultStaking = staking::StakingCurrencyAdapter<Test>;
+    type GetNativeCurrencyId = GetNativeCurrencyId;
     type OnSweep = ();
 }
 
@@ -210,6 +213,7 @@ impl staking::Config for Test {
     type SignedFixedPoint = SignedFixedPoint;
     type SignedInner = SignedInner;
     type CurrencyId = CurrencyId;
+    type GetNativeCurrencyId = GetNativeCurrencyId;
 }
 
 pub type TestEvent = Event;
@@ -256,10 +260,10 @@ impl ExtBuilder {
         vault_registry::GenesisConfig::<Test> {
             minimum_collateral_vault: vec![(DEFAULT_TESTING_CURRENCY, 0)],
             punishment_delay: 0,
-            system_collateral_ceiling: vec![(DEFAULT_TESTING_CURRENCY, 1_000_000_000_000)],
-            secure_collateral_threshold: vec![(DEFAULT_TESTING_CURRENCY, UnsignedFixedPoint::one())],
-            premium_redeem_threshold: vec![(DEFAULT_TESTING_CURRENCY, UnsignedFixedPoint::one())],
-            liquidation_collateral_threshold: vec![(DEFAULT_TESTING_CURRENCY, UnsignedFixedPoint::one())],
+            system_collateral_ceiling: vec![(DEFAULT_CURRENCY_PAIR, 1_000_000_000_000)],
+            secure_collateral_threshold: vec![(DEFAULT_CURRENCY_PAIR, UnsignedFixedPoint::one())],
+            premium_redeem_threshold: vec![(DEFAULT_CURRENCY_PAIR, UnsignedFixedPoint::one())],
+            liquidation_collateral_threshold: vec![(DEFAULT_CURRENCY_PAIR, UnsignedFixedPoint::one())],
         }
         .assimilate_storage(&mut storage)
         .unwrap();
@@ -302,9 +306,9 @@ pub(crate) fn set_default_thresholds() {
     let premium = UnsignedFixedPoint::checked_from_rational(120, 100).unwrap(); // 120%
     let liquidation = UnsignedFixedPoint::checked_from_rational(110, 100).unwrap(); // 110%
 
-    VaultRegistry::set_secure_collateral_threshold(DEFAULT_TESTING_CURRENCY, secure);
-    VaultRegistry::set_premium_redeem_threshold(DEFAULT_TESTING_CURRENCY, premium);
-    VaultRegistry::set_liquidation_collateral_threshold(DEFAULT_TESTING_CURRENCY, liquidation);
+    VaultRegistry::set_secure_collateral_threshold(DEFAULT_CURRENCY_PAIR, secure);
+    VaultRegistry::set_premium_redeem_threshold(DEFAULT_CURRENCY_PAIR, premium);
+    VaultRegistry::set_liquidation_collateral_threshold(DEFAULT_CURRENCY_PAIR, liquidation);
 }
 
 pub fn run_test<T>(test: T)

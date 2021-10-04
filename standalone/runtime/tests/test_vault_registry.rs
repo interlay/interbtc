@@ -2,47 +2,51 @@ mod mock;
 
 use currency::Amount;
 use mock::{assert_eq, *};
-use primitives::VaultCurrencyPair;
 
 pub const USER: [u8; 32] = ALICE;
 pub const VAULT: [u8; 32] = BOB;
 
-fn test_with<R>(execute: impl Fn(CurrencyId) -> R) {
-    let test_with = |currency_id| {
+fn test_with<R>(execute: impl Fn(VaultId) -> R) {
+    let test_with = |currency_id, wrapped_id| {
         ExtBuilder::build().execute_with(|| {
-            assert_ok!(OraclePallet::_set_exchange_rate(currency_id, FixedU128::one()));
-            LiquidationVaultData::force_to(default_liquidation_vault_state(currency_id));
+            SecurityPallet::set_active_block_number(1);
+            for currency_id in iter_collateral_currencies() {
+                assert_ok!(OraclePallet::_set_exchange_rate(currency_id, FixedU128::one()));
+            }
+            if wrapped_id != INTERBTC {
+                assert_ok!(OraclePallet::_set_exchange_rate(wrapped_id, FixedU128::one()));
+            }
             UserData::force_to(USER, default_user_state());
-            CoreVaultData::force_to(&vault_id_of(VAULT, currency_id), default_vault_state(currency_id));
-            execute(currency_id)
-        })
+            let vault_id = PrimitiveVaultId::new(account_of(VAULT), currency_id, wrapped_id);
+            LiquidationVaultData::force_to(default_liquidation_vault_state(&vault_id.currencies));
+            CoreVaultData::force_to(&vault_id, default_vault_state(&vault_id));
+
+            execute(vault_id)
+        });
     };
-    test_with(CurrencyId::DOT);
-    test_with(CurrencyId::KSM);
+    test_with(CurrencyId::DOT, CurrencyId::KBTC);
+    test_with(CurrencyId::KSM, CurrencyId::INTERBTC);
+    test_with(CurrencyId::DOT, CurrencyId::INTERBTC);
 }
 
 mod deposit_collateral_test {
-    use primitives::VaultCurrencyPair;
-
     use super::{assert_eq, *};
 
     #[test]
     fn integration_test_vault_registry_deposit_collateral_below_capacity_succeeds() {
-        test_with(|currency_id| {
+        test_with(|vault_id| {
+            let currency_id = vault_id.collateral_currency();
             let amount = Amount::new(1_000, currency_id);
 
             assert_ok!(Call::VaultRegistry(VaultRegistryCall::deposit_collateral(
-                VaultCurrencyPair {
-                    collateral: currency_id,
-                    wrapped: DEFAULT_WRAPPED_CURRENCY,
-                },
+                vault_id.currencies.clone(),
                 amount.amount(),
             ))
             .dispatch(origin_of(account_of(VAULT))));
 
             assert_eq!(
-                ParachainState::get(currency_id),
-                ParachainState::get_default(currency_id).with_changes(|_, vault, _, _| {
+                ParachainState::get(&vault_id),
+                ParachainState::get_default(&vault_id).with_changes(|_, vault, _, _| {
                     vault.backing_collateral += amount;
                     *vault.free_balance.get_mut(&vault.collateral_currency()).unwrap() -= amount;
                 })
@@ -52,21 +56,19 @@ mod deposit_collateral_test {
 
     #[test]
     fn integration_test_vault_registry_lock_additional_at_capacity_succeeds() {
-        test_with(|currency_id| {
+        test_with(|vault_id| {
+            let currency_id = vault_id.collateral_currency();
             let amount = default_vault_free_balance(currency_id);
 
             assert_ok!(Call::VaultRegistry(VaultRegistryCall::deposit_collateral(
-                VaultCurrencyPair {
-                    collateral: currency_id,
-                    wrapped: DEFAULT_WRAPPED_CURRENCY,
-                },
+                vault_id.currencies.clone(),
                 amount.amount()
             ))
             .dispatch(origin_of(account_of(VAULT))));
 
             assert_eq!(
-                ParachainState::get(currency_id),
-                ParachainState::get_default(currency_id).with_changes(|_, vault, _, _| {
+                ParachainState::get(&vault_id),
+                ParachainState::get_default(&vault_id).with_changes(|_, vault, _, _| {
                     vault.backing_collateral += amount;
                     *vault.free_balance.get_mut(&vault.collateral_currency()).unwrap() -= amount;
                 })
@@ -76,15 +78,13 @@ mod deposit_collateral_test {
 
     #[test]
     fn integration_test_vault_registry_lock_additional_above_capacity_fails() {
-        test_with(|currency_id| {
+        test_with(|vault_id| {
+            let currency_id = vault_id.collateral_currency();
             let amount = default_vault_free_balance(currency_id).amount() + 1;
 
             assert_noop!(
                 Call::VaultRegistry(VaultRegistryCall::deposit_collateral(
-                    VaultCurrencyPair {
-                        collateral: currency_id,
-                        wrapped: DEFAULT_WRAPPED_CURRENCY,
-                    },
+                    vault_id.currencies.clone(),
                     amount
                 ))
                 .dispatch(origin_of(account_of(VAULT))),
@@ -95,22 +95,18 @@ mod deposit_collateral_test {
 
     #[test]
     fn integration_test_vault_registry_lock_additional_respects_fund_limit() {
-        test_with(|currency_id| {
-            let vault_id = vault_id_of(VAULT, currency_id);
+        test_with(|vault_id| {
+            let currency_id = vault_id.collateral_currency();
             let mut vault_data = CoreVaultData::vault(vault_id.clone());
             *vault_data.free_balance.get_mut(&currency_id).unwrap() = Amount::new(FUND_LIMIT_CEILING, currency_id);
 
             CoreVaultData::force_to(&vault_id, vault_data);
-
-            let current = VaultRegistryPallet::get_total_user_vault_collateral(currency_id).unwrap();
+            let current = VaultRegistryPallet::get_total_user_vault_collateral(&vault_id.currencies).unwrap();
             let remaining = FUND_LIMIT_CEILING - current.amount();
 
             assert_noop!(
                 Call::VaultRegistry(VaultRegistryCall::deposit_collateral(
-                    VaultCurrencyPair {
-                        collateral: currency_id,
-                        wrapped: DEFAULT_WRAPPED_CURRENCY,
-                    },
+                    vault_id.currencies.clone(),
                     remaining + 1
                 ))
                 .dispatch(origin_of(account_of(VAULT))),
@@ -118,10 +114,7 @@ mod deposit_collateral_test {
             );
 
             assert_ok!(Call::VaultRegistry(VaultRegistryCall::deposit_collateral(
-                VaultCurrencyPair {
-                    collateral: currency_id,
-                    wrapped: DEFAULT_WRAPPED_CURRENCY,
-                },
+                vault_id.currencies.clone(),
                 remaining,
             ))
             .dispatch(origin_of(account_of(VAULT))));
@@ -129,33 +122,27 @@ mod deposit_collateral_test {
     }
 }
 mod withdraw_collateral_test {
-
-    use primitives::VaultCurrencyPair;
-    use vault_registry::DefaultVaultId;
-
     use super::{assert_eq, *};
 
-    fn required_collateral(vault_id: DefaultVaultId<Runtime>) -> Amount<Runtime> {
+    fn required_collateral(vault_id: VaultId) -> Amount<Runtime> {
         VaultRegistryPallet::get_required_collateral_for_vault(vault_id).unwrap()
     }
 
     #[test]
     fn integration_test_vault_registry_withdraw_collateral_below_capacity_succeeds() {
-        test_with(|currency_id| {
+        test_with(|vault_id| {
+            let currency_id = vault_id.collateral_currency();
             let amount = Amount::new(1_000, currency_id);
 
             assert_ok!(Call::VaultRegistry(VaultRegistryCall::withdraw_collateral(
-                VaultCurrencyPair {
-                    collateral: currency_id,
-                    wrapped: DEFAULT_WRAPPED_CURRENCY,
-                },
+                vault_id.currencies.clone(),
                 amount.amount()
             ))
             .dispatch(origin_of(account_of(VAULT))));
 
             assert_eq!(
-                ParachainState::get(currency_id),
-                ParachainState::get_default(currency_id).with_changes(|_, vault, _, _| {
+                ParachainState::get(&vault_id),
+                ParachainState::get_default(&vault_id).with_changes(|_, vault, _, _| {
                     vault.backing_collateral -= amount;
                     *vault.free_balance.get_mut(&vault.collateral_currency()).unwrap() += amount;
                 })
@@ -165,22 +152,19 @@ mod withdraw_collateral_test {
 
     #[test]
     fn integration_test_vault_registry_withdraw_at_capacity_succeeds() {
-        test_with(|currency_id| {
-            let vault_id = vault_id_of(VAULT, currency_id);
-            let amount = default_vault_backing_collateral(currency_id) - required_collateral(vault_id);
+        test_with(|vault_id| {
+            let currency_id = vault_id.collateral_currency();
+            let amount = default_vault_backing_collateral(currency_id) - required_collateral(vault_id.clone());
 
             assert_ok!(Call::VaultRegistry(VaultRegistryCall::withdraw_collateral(
-                VaultCurrencyPair {
-                    collateral: currency_id,
-                    wrapped: DEFAULT_WRAPPED_CURRENCY,
-                },
+                vault_id.currencies.clone(),
                 amount.amount()
             ))
             .dispatch(origin_of(account_of(VAULT))));
 
             assert_eq!(
-                ParachainState::get(currency_id),
-                ParachainState::get_default(currency_id).with_changes(|_, vault, _, _| {
+                ParachainState::get(&vault_id),
+                ParachainState::get_default(&vault_id).with_changes(|_, vault, _, _| {
                     vault.backing_collateral -= amount;
                     *vault.free_balance.get_mut(&vault.collateral_currency()).unwrap() += amount;
                 })
@@ -190,17 +174,15 @@ mod withdraw_collateral_test {
 
     #[test]
     fn integration_test_vault_registry_withdraw_above_capacity_fails() {
-        test_with(|currency_id| {
-            let vault_id = vault_id_of(VAULT, currency_id);
-            let amount =
-                default_vault_backing_collateral(currency_id).amount() - required_collateral(vault_id).amount() + 1;
+        test_with(|vault_id| {
+            let currency_id = vault_id.collateral_currency();
+            let amount = default_vault_backing_collateral(currency_id).amount()
+                - required_collateral(vault_id.clone()).amount()
+                + 1;
 
             assert_noop!(
                 Call::VaultRegistry(VaultRegistryCall::withdraw_collateral(
-                    VaultCurrencyPair {
-                        collateral: currency_id,
-                        wrapped: DEFAULT_WRAPPED_CURRENCY,
-                    },
+                    vault_id.currencies.clone(),
                     amount
                 ))
                 .dispatch(origin_of(account_of(VAULT))),
@@ -212,15 +194,12 @@ mod withdraw_collateral_test {
 
 #[test]
 fn integration_test_vault_registry_with_parachain_shutdown_fails() {
-    test_with(|currency_id| {
+    test_with(|vault_id| {
         SecurityPallet::set_status(StatusCode::Shutdown);
 
         assert_noop!(
             Call::VaultRegistry(VaultRegistryCall::register_vault(
-                VaultCurrencyPair {
-                    collateral: currency_id,
-                    wrapped: DEFAULT_WRAPPED_CURRENCY,
-                },
+                vault_id.currencies.clone(),
                 0,
                 Default::default()
             ))
@@ -228,33 +207,18 @@ fn integration_test_vault_registry_with_parachain_shutdown_fails() {
             SecurityError::ParachainShutdown
         );
         assert_noop!(
-            Call::VaultRegistry(VaultRegistryCall::deposit_collateral(
-                VaultCurrencyPair {
-                    collateral: currency_id,
-                    wrapped: DEFAULT_WRAPPED_CURRENCY,
-                },
-                0
-            ))
-            .dispatch(origin_of(account_of(VAULT))),
+            Call::VaultRegistry(VaultRegistryCall::deposit_collateral(vault_id.currencies.clone(), 0))
+                .dispatch(origin_of(account_of(VAULT))),
             SecurityError::ParachainShutdown
         );
         assert_noop!(
-            Call::VaultRegistry(VaultRegistryCall::withdraw_collateral(
-                VaultCurrencyPair {
-                    collateral: currency_id,
-                    wrapped: DEFAULT_WRAPPED_CURRENCY,
-                },
-                0
-            ))
-            .dispatch(origin_of(account_of(VAULT))),
+            Call::VaultRegistry(VaultRegistryCall::withdraw_collateral(vault_id.currencies.clone(), 0))
+                .dispatch(origin_of(account_of(VAULT))),
             SecurityError::ParachainShutdown
         );
         assert_noop!(
             Call::VaultRegistry(VaultRegistryCall::update_public_key(
-                VaultCurrencyPair {
-                    collateral: currency_id,
-                    wrapped: DEFAULT_WRAPPED_CURRENCY,
-                },
+                vault_id.currencies.clone(),
                 Default::default()
             ))
             .dispatch(origin_of(account_of(VAULT))),
@@ -262,24 +226,15 @@ fn integration_test_vault_registry_with_parachain_shutdown_fails() {
         );
         assert_noop!(
             Call::VaultRegistry(VaultRegistryCall::register_address(
-                VaultCurrencyPair {
-                    collateral: currency_id,
-                    wrapped: DEFAULT_WRAPPED_CURRENCY,
-                },
+                vault_id.currencies.clone(),
                 Default::default()
             ))
             .dispatch(origin_of(account_of(VAULT))),
             SecurityError::ParachainShutdown
         );
         assert_noop!(
-            Call::VaultRegistry(VaultRegistryCall::accept_new_issues(
-                VaultCurrencyPair {
-                    collateral: currency_id,
-                    wrapped: DEFAULT_WRAPPED_CURRENCY,
-                },
-                false
-            ))
-            .dispatch(origin_of(account_of(VAULT))),
+            Call::VaultRegistry(VaultRegistryCall::accept_new_issues(vault_id.currencies.clone(), false))
+                .dispatch(origin_of(account_of(VAULT))),
             SecurityError::ParachainShutdown
         );
     });
@@ -287,14 +242,14 @@ fn integration_test_vault_registry_with_parachain_shutdown_fails() {
 
 #[test]
 fn integration_test_vault_registry_undercollateralization_liquidation() {
-    test_with(|currency_id| {
-        let vault_id = vault_id_of(VAULT, currency_id);
+    test_with(|vault_id| {
+        let currency_id = vault_id.collateral_currency();
         liquidate_vault(&vault_id);
 
         assert_eq!(
-            ParachainState::get(currency_id),
-            ParachainState::get_default(currency_id).with_changes(|_, vault, liquidation_vault, _| {
-                let liquidation_vault = liquidation_vault.with_currency(&currency_id);
+            ParachainState::get(&vault_id),
+            ParachainState::get_default(&vault_id).with_changes(|_, vault, liquidation_vault, _| {
+                let liquidation_vault = liquidation_vault.with_currency(&vault_id.currencies);
 
                 liquidation_vault.collateral = Amount::new(
                     (default_vault_backing_collateral(currency_id).amount()
@@ -302,12 +257,12 @@ fn integration_test_vault_registry_undercollateralization_liquidation() {
                         / (DEFAULT_VAULT_ISSUED + DEFAULT_VAULT_TO_BE_ISSUED).amount(),
                     currency_id,
                 );
-                liquidation_vault.to_be_issued = DEFAULT_VAULT_TO_BE_ISSUED;
-                liquidation_vault.issued = DEFAULT_VAULT_ISSUED;
-                liquidation_vault.to_be_redeemed = DEFAULT_VAULT_TO_BE_REDEEMED;
+                liquidation_vault.to_be_issued = vault_id.wrapped(DEFAULT_VAULT_TO_BE_ISSUED.amount());
+                liquidation_vault.issued = vault_id.wrapped(DEFAULT_VAULT_ISSUED.amount());
+                liquidation_vault.to_be_redeemed = vault_id.wrapped(DEFAULT_VAULT_TO_BE_REDEEMED.amount());
 
-                vault.issued = wrapped(0);
-                vault.to_be_issued = wrapped(0);
+                vault.issued = vault_id.wrapped(0);
+                vault.to_be_issued = vault_id.wrapped(0);
                 vault.backing_collateral = Amount::new(0, currency_id);
                 vault.liquidated_collateral =
                     default_vault_backing_collateral(currency_id) - liquidation_vault.collateral;
@@ -318,9 +273,9 @@ fn integration_test_vault_registry_undercollateralization_liquidation() {
 
 #[test]
 fn integration_test_vault_registry_register_respects_fund_limit() {
-    test_with(|currency_id| {
-        let vault_id = vault_id_of(VAULT, currency_id);
-        let mut vault_data = CoreVaultData::vault(vault_id);
+    test_with(|vault_id| {
+        let currency_id = vault_id.collateral_currency();
+        let mut vault_data = CoreVaultData::vault(vault_id.clone());
         *vault_data.free_balance.get_mut(&currency_id).unwrap() = Amount::new(FUND_LIMIT_CEILING, currency_id);
 
         let mut user_data = default_user_state();
@@ -328,15 +283,12 @@ fn integration_test_vault_registry_register_respects_fund_limit() {
 
         UserData::force_to(USER, user_data);
 
-        let current = VaultRegistryPallet::get_total_user_vault_collateral(currency_id).unwrap();
+        let current = VaultRegistryPallet::get_total_user_vault_collateral(&vault_id.currencies).unwrap();
         let remaining = FUND_LIMIT_CEILING - current.amount();
 
         assert_noop!(
             Call::VaultRegistry(VaultRegistryCall::register_vault(
-                VaultCurrencyPair {
-                    collateral: currency_id,
-                    wrapped: DEFAULT_WRAPPED_CURRENCY
-                },
+                vault_id.currencies.clone(),
                 remaining + 1,
                 Default::default(),
             ))
@@ -345,10 +297,7 @@ fn integration_test_vault_registry_register_respects_fund_limit() {
         );
 
         assert_ok!(Call::VaultRegistry(VaultRegistryCall::register_vault(
-            VaultCurrencyPair {
-                collateral: currency_id,
-                wrapped: DEFAULT_WRAPPED_CURRENCY
-            },
+            vault_id.currencies.clone(),
             remaining,
             Default::default(),
         ))

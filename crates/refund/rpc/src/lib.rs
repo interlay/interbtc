@@ -12,7 +12,7 @@ pub use self::gen_client::Client as RefundClient;
 pub use module_refund_rpc_runtime_api::RefundApi as RefundRuntimeApi;
 
 #[rpc]
-pub trait RefundApi<BlockHash, AccountId, VaultId, H256, RefundRequest> {
+pub trait RefundApi<BlockHash, AccountId, H256, RefundRequest> {
     #[rpc(name = "refund_getRefundRequests")]
     fn get_refund_requests(
         &self,
@@ -28,7 +28,7 @@ pub trait RefundApi<BlockHash, AccountId, VaultId, H256, RefundRequest> {
     #[rpc(name = "refund_getVaultRefundRequests")]
     fn get_vault_refund_requests(
         &self,
-        vault_id: VaultId,
+        vault_id: AccountId,
         at: Option<BlockHash>,
     ) -> JsonRpcResult<Vec<(H256, RefundRequest)>>;
 }
@@ -61,14 +61,13 @@ impl From<Error> for i64 {
     }
 }
 
-impl<C, Block, AccountId, VaultId, H256, RefundRequest>
-    RefundApi<<Block as BlockT>::Hash, AccountId, VaultId, H256, RefundRequest> for Refund<C, Block>
+impl<C, Block, AccountId, H256, RefundRequest> RefundApi<<Block as BlockT>::Hash, AccountId, H256, RefundRequest>
+    for Refund<C, Block>
 where
     Block: BlockT,
     C: Send + Sync + 'static + ProvideRuntimeApi<Block> + HeaderBackend<Block>,
-    C::Api: RefundRuntimeApi<Block, AccountId, VaultId, H256, RefundRequest>,
+    C::Api: RefundRuntimeApi<Block, AccountId, H256, RefundRequest>,
     AccountId: Codec,
-    VaultId: Codec,
     H256: Codec,
     RefundRequest: Codec,
 {
@@ -105,7 +104,7 @@ where
 
     fn get_vault_refund_requests(
         &self,
-        vault_id: VaultId,
+        vault_id: AccountId,
         at: Option<<Block as BlockT>::Hash>,
     ) -> JsonRpcResult<Vec<(H256, RefundRequest)>> {
         let api = self.client.runtime_api();

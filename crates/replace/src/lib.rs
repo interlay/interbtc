@@ -40,7 +40,7 @@ use frame_system::{ensure_root, ensure_signed};
 use sp_core::H256;
 use sp_std::vec::Vec;
 use types::DefaultVaultId;
-use vault_registry::CurrencySource;
+use vault_registry::{types::CurrencyId, CurrencySource};
 
 pub use pallet::*;
 
@@ -109,6 +109,7 @@ pub mod pallet {
         ReplaceCompleted,
         ReplaceCancelled,
         ReplaceIdNotFound,
+        InvalidWrappedCurrency,
         /// Unable to convert value
         TryIntoIntError,
         ArithmeticUnderflow,
@@ -306,7 +307,7 @@ impl<T: Config> Pallet<T> {
         // check vault is not banned
         ext::vault_registry::ensure_not_banned::<T>(&vault_id)?;
 
-        let amount_btc = Amount::new(amount_btc, T::GetWrappedCurrencyId::get());
+        let amount_btc = Amount::new(amount_btc, vault_id.wrapped_currency());
         let griefing_collateral = Amount::new(griefing_collateral, T::GetGriefingCollateralCurrencyId::get());
 
         ensure!(
@@ -334,7 +335,7 @@ impl<T: Config> Pallet<T> {
         // a request with amount=0 is valid, as long the _total_ is above DUST. This might
         // be the case if the vault just wants to increase the griefing collateral, for example.
         ensure!(
-            total_to_be_replaced.ge(&Self::dust_value())?,
+            total_to_be_replaced.ge(&Self::dust_value(vault_id.wrapped_currency()))?,
             Error::<T>::AmountBelowDustAmount
         );
 
@@ -364,7 +365,7 @@ impl<T: Config> Pallet<T> {
     }
 
     fn _withdraw_replace_request(vault_id: DefaultVaultId<T>, amount: Wrapped<T>) -> Result<(), DispatchError> {
-        let amount = Amount::new(amount, T::GetWrappedCurrencyId::get());
+        let amount = Amount::new(amount, vault_id.wrapped_currency());
         // decrease to-be-replaced tokens, so that the vault is free to use its issued tokens again.
         let (withdrawn_tokens, to_withdraw_collateral) =
             ext::vault_registry::decrease_to_be_replaced_tokens::<T>(&vault_id, &amount)?;
@@ -397,11 +398,18 @@ impl<T: Config> Pallet<T> {
         btc_address: BtcAddress,
     ) -> Result<(), DispatchError> {
         let new_vault_currency_id = new_vault_id.collateral_currency();
-        let amount_btc = Amount::new(amount_btc, T::GetWrappedCurrencyId::get());
+        let amount_btc = Amount::new(amount_btc, old_vault_id.wrapped_currency());
         let collateral = Amount::new(collateral, new_vault_currency_id);
 
         // don't allow vaults to replace themselves
         ensure!(old_vault_id != new_vault_id, Error::<T>::ReplaceSelfNotAllowed);
+
+        // probably this check is not strictly required, but it's better to give an
+        // explicit error rather than insufficient balance
+        ensure!(
+            old_vault_id.wrapped_currency() == new_vault_id.wrapped_currency(),
+            Error::<T>::InvalidWrappedCurrency
+        );
 
         // Check that new vault is not currently banned
         ext::vault_registry::ensure_not_banned::<T>(&new_vault_id)?;
@@ -416,7 +424,7 @@ impl<T: Config> Pallet<T> {
 
         // check amount_btc is above the minimum
         ensure!(
-            redeemable_tokens.ge(&Self::dust_value())?,
+            redeemable_tokens.ge(&Self::dust_value(old_vault_id.wrapped_currency()))?,
             Error::<T>::AmountBelowDustAmount
         );
 
@@ -570,9 +578,9 @@ impl<T: Config> Pallet<T> {
     /// # Arguments
     ///
     /// * `account_id` - user account id
-    pub fn get_replace_requests_for_old_vault(vault_id: DefaultVaultId<T>) -> Vec<(H256, DefaultReplaceRequest<T>)> {
+    pub fn get_replace_requests_for_old_vault(vault_id: T::AccountId) -> Vec<(H256, DefaultReplaceRequest<T>)> {
         <ReplaceRequests<T>>::iter()
-            .filter(|(_, request)| request.old_vault == vault_id)
+            .filter(|(_, request)| request.old_vault.account_id == vault_id)
             .collect::<Vec<_>>()
     }
 
@@ -581,9 +589,9 @@ impl<T: Config> Pallet<T> {
     /// # Arguments
     ///
     /// * `account_id` - user account id
-    pub fn get_replace_requests_for_new_vault(vault_id: DefaultVaultId<T>) -> Vec<(H256, DefaultReplaceRequest<T>)> {
+    pub fn get_replace_requests_for_new_vault(vault_id: T::AccountId) -> Vec<(H256, DefaultReplaceRequest<T>)> {
         <ReplaceRequests<T>>::iter()
-            .filter(|(_, request)| request.new_vault == vault_id)
+            .filter(|(_, request)| request.new_vault.account_id == vault_id)
             .collect::<Vec<_>>()
     }
 
@@ -621,7 +629,7 @@ impl<T: Config> Pallet<T> {
         });
     }
 
-    pub fn dust_value() -> Amount<T> {
-        Amount::new(ReplaceBtcDustValue::<T>::get(), T::GetWrappedCurrencyId::get())
+    pub fn dust_value(currency_id: CurrencyId<T>) -> Amount<T> {
+        Amount::new(ReplaceBtcDustValue::<T>::get(), currency_id)
     }
 }

@@ -53,6 +53,9 @@ pub mod pallet {
             + EncodeLike
             + Decode;
 
+        #[pallet::constant]
+        type GetNativeCurrencyId: Get<Self::CurrencyId>;
+
         /// The currency ID type.
         type CurrencyId: Parameter + Member + Copy + MaybeSerializeDeserialize + Ord;
     }
@@ -303,7 +306,6 @@ impl<T: Config> Pallet<T> {
 
     /// Deposit an `amount` of stake to the `vault_id` for the `nominator_id`.
     pub fn deposit_stake(
-        currency_id: T::CurrencyId,
         vault_id: &DefaultVaultId<T>,
         nominator_id: &T::AccountId,
         amount: SignedFixedPoint<T>,
@@ -326,16 +328,18 @@ impl<T: Config> Pallet<T> {
             Ok::<_, Error<T>>(())
         })?;
 
-        <RewardTally<T>>::mutate(currency_id, (nonce, vault_id, nominator_id), |reward_tally| {
-            let reward_per_token = Self::reward_per_token(currency_id, (nonce, vault_id));
-            let reward_per_token_mul_amount = reward_per_token
-                .checked_mul(&amount)
-                .ok_or(Error::<T>::ArithmeticOverflow)?;
-            *reward_tally = reward_tally
-                .checked_add(&reward_per_token_mul_amount)
-                .ok_or(Error::<T>::ArithmeticOverflow)?;
-            Ok::<_, Error<T>>(())
-        })?;
+        for currency_id in [vault_id.wrapped_currency(), T::GetNativeCurrencyId::get()] {
+            <RewardTally<T>>::mutate(currency_id, (nonce, vault_id, nominator_id), |reward_tally| {
+                let reward_per_token = Self::reward_per_token(currency_id, (nonce, vault_id));
+                let reward_per_token_mul_amount = reward_per_token
+                    .checked_mul(&amount)
+                    .ok_or(Error::<T>::ArithmeticOverflow)?;
+                *reward_tally = reward_tally
+                    .checked_add(&reward_per_token_mul_amount)
+                    .ok_or(Error::<T>::ArithmeticOverflow)?;
+                Ok::<_, Error<T>>(())
+            })?;
+        }
 
         Self::deposit_event(Event::<T>::DepositStake(vault_id.clone(), nominator_id.clone(), amount));
         Ok(())
@@ -521,7 +525,6 @@ impl<T: Config> Pallet<T> {
 
     /// Withdraw an `amount` of stake from the `vault_id` for the `nominator_id`.
     pub fn withdraw_stake(
-        currency_id: T::CurrencyId,
         vault_id: &DefaultVaultId<T>,
         nominator_id: &T::AccountId,
         amount: SignedFixedPoint<T>,
@@ -552,17 +555,19 @@ impl<T: Config> Pallet<T> {
             Ok::<_, Error<T>>(())
         })?;
 
-        <RewardTally<T>>::mutate(currency_id, (nonce, vault_id, nominator_id), |reward_tally| {
-            let reward_per_token = Self::reward_per_token(currency_id, (nonce, vault_id));
-            let reward_per_token_mul_amount = reward_per_token
-                .checked_mul(&amount)
-                .ok_or(Error::<T>::ArithmeticOverflow)?;
+        for currency_id in [vault_id.wrapped_currency(), T::GetNativeCurrencyId::get()] {
+            <RewardTally<T>>::mutate(currency_id, (nonce, vault_id, nominator_id), |reward_tally| {
+                let reward_per_token = Self::reward_per_token(currency_id, (nonce, vault_id));
+                let reward_per_token_mul_amount = reward_per_token
+                    .checked_mul(&amount)
+                    .ok_or(Error::<T>::ArithmeticOverflow)?;
 
-            *reward_tally = reward_tally
-                .checked_sub(&reward_per_token_mul_amount)
-                .ok_or(Error::<T>::ArithmeticUnderflow)?;
-            Ok::<_, Error<T>>(())
-        })?;
+                *reward_tally = reward_tally
+                    .checked_sub(&reward_per_token_mul_amount)
+                    .ok_or(Error::<T>::ArithmeticUnderflow)?;
+                Ok::<_, Error<T>>(())
+            })?;
+        }
 
         Self::deposit_event(Event::<T>::WithdrawStake(
             vault_id.clone(),
@@ -615,7 +620,6 @@ impl<T: Config> Pallet<T> {
     /// Force refund the entire nomination to `vault_id` by depositing it as reward. It
     /// returns the amount of collateral that is refunded
     pub fn force_refund(
-        currency_id: T::CurrencyId,
         vault_id: &DefaultVaultId<T>,
     ) -> Result<<SignedFixedPoint<T> as FixedPointNumber>::Inner, DispatchError> {
         let nonce = Self::nonce(vault_id);
@@ -629,11 +633,11 @@ impl<T: Config> Pallet<T> {
             &vault_id.account_id,
         )?)
         .ok_or(Error::<T>::TryIntoIntError)?;
-        Self::withdraw_stake(currency_id, vault_id, &vault_id.account_id, stake, Some(nonce))?;
+        Self::withdraw_stake(vault_id, &vault_id.account_id, stake, Some(nonce))?;
         Self::increment_nonce(vault_id)?;
 
         // only deposit vault stake after increasing the nonce
-        Self::deposit_stake(currency_id, vault_id, &vault_id.account_id, stake)?;
+        Self::deposit_stake(vault_id, &vault_id.account_id, stake)?;
         Self::deposit_event(Event::<T>::ForceRefund(vault_id.clone()));
 
         let refunded_collateral = total_current_stake
@@ -657,7 +661,7 @@ impl<T: Config> Pallet<T> {
     }
 }
 
-pub trait Staking<VaultId, NominatorId, Index> {
+pub trait Staking<VaultId, NominatorId, Index, CurrencyId> {
     /// Signed fixed point type.
     type SignedFixedPoint: FixedPointNumber;
 
@@ -669,7 +673,11 @@ pub trait Staking<VaultId, NominatorId, Index> {
     ) -> Result<(), DispatchError>;
 
     /// Slash an `amount` of stake from the `vault_id`.
-    fn slash_stake(vault_id: &VaultId, amount: Self::SignedFixedPoint) -> Result<(), DispatchError>;
+    fn slash_stake(
+        vault_id: &VaultId,
+        amount: Self::SignedFixedPoint,
+        currency_id: CurrencyId,
+    ) -> Result<(), DispatchError>;
 
     /// Compute the stake in `vault_id` owned by `nominator_id`.
     fn compute_stake(
@@ -681,12 +689,14 @@ pub trait Staking<VaultId, NominatorId, Index> {
     fn distribute_reward(
         vault_id: &VaultId,
         reward: Self::SignedFixedPoint,
+        currency_id: CurrencyId,
     ) -> Result<Self::SignedFixedPoint, DispatchError>;
 
     /// Compute the expected reward for `nominator_id` who is nominating `vault_id`.
     fn compute_reward(
         vault_id: &VaultId,
         nominator_id: &NominatorId,
+        currency_id: CurrencyId,
     ) -> Result<<Self::SignedFixedPoint as FixedPointNumber>::Inner, DispatchError>;
 
     /// Withdraw an `amount` of stake from the `vault_id` for the `nominator_id`.
@@ -698,15 +708,15 @@ pub trait Staking<VaultId, NominatorId, Index> {
         vault_id: &VaultId,
         nominator_id: &NominatorId,
         index: Option<Index>,
+        currency_id: CurrencyId,
     ) -> Result<<Self::SignedFixedPoint as FixedPointNumber>::Inner, DispatchError>;
 }
 
-pub struct StakingCurrencyAdapter<T, GetCurrencyId>(PhantomData<(T, GetCurrencyId)>);
+pub struct StakingCurrencyAdapter<T>(PhantomData<T>);
 
-impl<T, GetCurrencyId> Staking<DefaultVaultId<T>, T::AccountId, T::Index> for StakingCurrencyAdapter<T, GetCurrencyId>
+impl<T> Staking<DefaultVaultId<T>, T::AccountId, T::Index, T::CurrencyId> for StakingCurrencyAdapter<T>
 where
     T: Config,
-    GetCurrencyId: Get<T::CurrencyId>,
 {
     type SignedFixedPoint = SignedFixedPoint<T>;
 
@@ -715,11 +725,15 @@ where
         nominator_id: &T::AccountId,
         amount: Self::SignedFixedPoint,
     ) -> DispatchResult {
-        Pallet::<T>::deposit_stake(GetCurrencyId::get(), vault_id, nominator_id, amount)
+        Pallet::<T>::deposit_stake(vault_id, nominator_id, amount)
     }
 
-    fn slash_stake(vault_id: &DefaultVaultId<T>, amount: Self::SignedFixedPoint) -> DispatchResult {
-        Pallet::<T>::slash_stake(GetCurrencyId::get(), vault_id, amount)
+    fn slash_stake(
+        vault_id: &DefaultVaultId<T>,
+        amount: Self::SignedFixedPoint,
+        currency_id: T::CurrencyId,
+    ) -> DispatchResult {
+        Pallet::<T>::slash_stake(currency_id, vault_id, amount)
     }
 
     fn compute_stake(
@@ -732,15 +746,17 @@ where
     fn distribute_reward(
         vault_id: &DefaultVaultId<T>,
         reward: Self::SignedFixedPoint,
+        currency_id: T::CurrencyId,
     ) -> Result<Self::SignedFixedPoint, DispatchError> {
-        Pallet::<T>::distribute_reward(GetCurrencyId::get(), vault_id, reward)
+        Pallet::<T>::distribute_reward(currency_id, vault_id, reward)
     }
 
     fn compute_reward(
         vault_id: &DefaultVaultId<T>,
         nominator_id: &T::AccountId,
+        currency_id: T::CurrencyId,
     ) -> Result<<Self::SignedFixedPoint as FixedPointNumber>::Inner, DispatchError> {
-        Pallet::<T>::compute_reward(GetCurrencyId::get(), vault_id, nominator_id)
+        Pallet::<T>::compute_reward(currency_id, vault_id, nominator_id)
     }
 
     fn withdraw_stake(
@@ -748,15 +764,16 @@ where
         nominator_id: &T::AccountId,
         amount: Self::SignedFixedPoint,
     ) -> DispatchResult {
-        Pallet::<T>::withdraw_stake(GetCurrencyId::get(), vault_id, nominator_id, amount, None)
+        Pallet::<T>::withdraw_stake(vault_id, nominator_id, amount, None)
     }
 
     fn withdraw_reward(
         vault_id: &DefaultVaultId<T>,
         nominator_id: &T::AccountId,
         index: Option<T::Index>,
+        currency_id: T::CurrencyId,
     ) -> Result<<Self::SignedFixedPoint as FixedPointNumber>::Inner, DispatchError> {
         let nonce = index.unwrap_or(Pallet::<T>::nonce(vault_id));
-        Pallet::<T>::withdraw_reward_at_index(nonce, GetCurrencyId::get(), vault_id, nominator_id)
+        Pallet::<T>::withdraw_reward_at_index(nonce, currency_id, vault_id, nominator_id)
     }
 }

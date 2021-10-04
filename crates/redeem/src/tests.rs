@@ -209,7 +209,7 @@ fn test_request_redeem_succeeds_with_normal_redeem() {
         ext::security::get_secure_id::<Test>.mock_safe(move |_| MockResult::Return(H256([0; 32])));
         ext::vault_registry::is_vault_below_premium_threshold::<Test>.mock_safe(move |_| MockResult::Return(Ok(false)));
         ext::fee::get_redeem_fee::<Test>.mock_safe(move |_| MockResult::Return(Ok(wrapped(redeem_fee))));
-        let btc_fee = Redeem::get_current_inclusion_fee().unwrap();
+        let btc_fee = Redeem::get_current_inclusion_fee(DEFAULT_WRAPPED_CURRENCY).unwrap();
 
         assert_ok!(Redeem::request_redeem(
             Origin::signed(redeemer),
@@ -226,7 +226,9 @@ fn test_request_redeem_succeeds_with_normal_redeem() {
             0,
             VAULT,
             BtcAddress::P2PKH(H160::zero()),
-            Redeem::get_current_inclusion_fee().unwrap().amount()
+            Redeem::get_current_inclusion_fee(DEFAULT_WRAPPED_CURRENCY)
+                .unwrap()
+                .amount()
         ));
         assert_ok!(
             Redeem::get_open_redeem_request_from_id(&H256([0; 32])),
@@ -241,7 +243,9 @@ fn test_request_redeem_succeeds_with_normal_redeem() {
                 btc_address: BtcAddress::P2PKH(H160::zero()),
                 btc_height: 0,
                 status: RedeemRequestStatus::Pending,
-                transfer_fee_btc: Redeem::get_current_inclusion_fee().unwrap().amount(),
+                transfer_fee_btc: Redeem::get_current_inclusion_fee(DEFAULT_WRAPPED_CURRENCY)
+                    .unwrap()
+                    .amount(),
             }
         );
     })
@@ -287,7 +291,7 @@ fn test_request_redeem_succeeds_with_self_redeem() {
 
         ext::security::get_secure_id::<Test>.mock_safe(move |_| MockResult::Return(H256::zero()));
         ext::vault_registry::is_vault_below_premium_threshold::<Test>.mock_safe(move |_| MockResult::Return(Ok(false)));
-        let btc_fee = Redeem::get_current_inclusion_fee().unwrap();
+        let btc_fee = Redeem::get_current_inclusion_fee(DEFAULT_WRAPPED_CURRENCY).unwrap();
 
         assert_ok!(Redeem::request_redeem(
             Origin::signed(redeemer),
@@ -304,7 +308,9 @@ fn test_request_redeem_succeeds_with_self_redeem() {
             0,
             VAULT,
             BtcAddress::P2PKH(H160::zero()),
-            Redeem::get_current_inclusion_fee().unwrap().amount()
+            Redeem::get_current_inclusion_fee(DEFAULT_WRAPPED_CURRENCY)
+                .unwrap()
+                .amount()
         ));
         assert_ok!(
             Redeem::get_open_redeem_request_from_id(&H256::zero()),
@@ -319,7 +325,9 @@ fn test_request_redeem_succeeds_with_self_redeem() {
                 btc_address: BtcAddress::P2PKH(H160::zero()),
                 btc_height: 0,
                 status: RedeemRequestStatus::Pending,
-                transfer_fee_btc: Redeem::get_current_inclusion_fee().unwrap().amount(),
+                transfer_fee_btc: Redeem::get_current_inclusion_fee(DEFAULT_WRAPPED_CURRENCY)
+                    .unwrap()
+                    .amount(),
             }
         );
     })
@@ -330,7 +338,7 @@ fn test_liquidation_redeem_succeeds() {
     run_test(|| {
         let total_amount = 10 * 100_000_000;
 
-        ext::treasury::get_balance::<Test>.mock_safe(move |_| MockResult::Return(wrapped(total_amount)));
+        ext::treasury::get_balance::<Test>.mock_safe(move |_, _| MockResult::Return(wrapped(total_amount)));
 
         Amount::<Test>::lock_on.mock_safe(move |_, _| MockResult::Return(Ok(())));
         Amount::<Test>::burn_from.mock_safe(move |amount, redeemer_id| {
@@ -349,8 +357,8 @@ fn test_liquidation_redeem_succeeds() {
 
         assert_ok!(Redeem::liquidation_redeem(
             Origin::signed(USER),
+            DEFAULT_CURRENCY_PAIR,
             total_amount,
-            DEFAULT_TESTING_CURRENCY
         ));
     })
 }
@@ -397,7 +405,7 @@ fn test_execute_redeem_succeeds_with_another_account() {
         ext::btc_relay::verify_and_validate_op_return_transaction::<Test, Balance>
             .mock_safe(|_, _, _, _, _| MockResult::Return(Ok(())));
 
-        let btc_fee = Redeem::get_current_inclusion_fee().unwrap();
+        let btc_fee = Redeem::get_current_inclusion_fee(DEFAULT_WRAPPED_CURRENCY).unwrap();
 
         inject_redeem_request(
             H256([0u8; 32]),
@@ -478,7 +486,7 @@ fn test_execute_redeem_succeeds() {
         ext::btc_relay::verify_and_validate_op_return_transaction::<Test, Balance>
             .mock_safe(|_, _, _, _, _| MockResult::Return(Ok(())));
 
-        let btc_fee = Redeem::get_current_inclusion_fee().unwrap();
+        let btc_fee = Redeem::get_current_inclusion_fee(DEFAULT_WRAPPED_CURRENCY).unwrap();
 
         inject_redeem_request(
             H256([0u8; 32]),
@@ -560,7 +568,9 @@ fn test_cancel_redeem_fails_with_time_not_expired() {
                 btc_address: BtcAddress::random(),
                 btc_height: 0,
                 status: RedeemRequestStatus::Pending,
-                transfer_fee_btc: Redeem::get_current_inclusion_fee().unwrap().amount(),
+                transfer_fee_btc: Redeem::get_current_inclusion_fee(DEFAULT_WRAPPED_CURRENCY)
+                    .unwrap()
+                    .amount(),
             }))
         });
 
@@ -588,7 +598,9 @@ fn test_cancel_redeem_fails_with_unauthorized_caller() {
                 btc_address: BtcAddress::random(),
                 btc_height: 0,
                 status: RedeemRequestStatus::Pending,
-                transfer_fee_btc: Redeem::get_current_inclusion_fee().unwrap().amount(),
+                transfer_fee_btc: Redeem::get_current_inclusion_fee(DEFAULT_WRAPPED_CURRENCY)
+                    .unwrap()
+                    .amount(),
             }))
         });
 
@@ -615,7 +627,9 @@ fn test_cancel_redeem_succeeds() {
                 btc_address: BtcAddress::random(),
                 btc_height: 0,
                 status: RedeemRequestStatus::Pending,
-                transfer_fee_btc: Redeem::get_current_inclusion_fee().unwrap().amount(),
+                transfer_fee_btc: Redeem::get_current_inclusion_fee(DEFAULT_WRAPPED_CURRENCY)
+                    .unwrap()
+                    .amount(),
             },
         );
 
@@ -777,7 +791,7 @@ mod spec_based_tests {
         run_test(|| {
             let total_amount = 10 * 100_000_000;
 
-            ext::treasury::get_balance::<Test>.mock_safe(move |_| MockResult::Return(wrapped(total_amount)));
+            ext::treasury::get_balance::<Test>.mock_safe(move |_, _| MockResult::Return(wrapped(total_amount)));
 
             Amount::<Test>::lock_on.mock_safe(move |_, _| MockResult::Return(Ok(())));
             Amount::<Test>::burn_from.mock_safe(move |amount, redeemer_id| {
@@ -796,8 +810,8 @@ mod spec_based_tests {
 
             assert_ok!(Redeem::liquidation_redeem(
                 Origin::signed(USER),
+                DEFAULT_CURRENCY_PAIR,
                 total_amount.into(),
-                DOT
             ));
         })
     }
@@ -830,7 +844,7 @@ mod spec_based_tests {
             ext::btc_relay::verify_and_validate_op_return_transaction::<Test, Balance>
                 .mock_safe(|_, _, _, _, _| MockResult::Return(Ok(())));
 
-            let btc_fee = Redeem::get_current_inclusion_fee().unwrap();
+            let btc_fee = Redeem::get_current_inclusion_fee(DEFAULT_WRAPPED_CURRENCY).unwrap();
             let redeem_request = RedeemRequest {
                 period: 0,
                 vault: VAULT,
@@ -900,7 +914,9 @@ mod spec_based_tests {
                 btc_address: BtcAddress::random(),
                 btc_height: 0,
                 status: RedeemRequestStatus::Pending,
-                transfer_fee_btc: Redeem::get_current_inclusion_fee().unwrap().amount(),
+                transfer_fee_btc: Redeem::get_current_inclusion_fee(DEFAULT_WRAPPED_CURRENCY)
+                    .unwrap()
+                    .amount(),
             };
             inject_redeem_request(H256([0u8; 32]), redeem_request.clone());
 
@@ -962,7 +978,9 @@ mod spec_based_tests {
                 btc_address: BtcAddress::random(),
                 btc_height: 0,
                 status: RedeemRequestStatus::Pending,
-                transfer_fee_btc: Redeem::get_current_inclusion_fee().unwrap().amount(),
+                transfer_fee_btc: Redeem::get_current_inclusion_fee(DEFAULT_WRAPPED_CURRENCY)
+                    .unwrap()
+                    .amount(),
             };
             inject_redeem_request(H256([0u8; 32]), redeem_request.clone());
 

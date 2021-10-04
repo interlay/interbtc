@@ -57,7 +57,7 @@ pub trait ReplaceRequestExt<T: Config> {
 
 impl<T: Config> ReplaceRequestExt<T> for DefaultReplaceRequest<T> {
     fn amount(&self) -> Amount<T> {
-        Amount::new(self.amount, T::GetWrappedCurrencyId::get())
+        Amount::new(self.amount, self.old_vault.wrapped_currency())
     }
     fn griefing_collateral(&self) -> Amount<T> {
         Amount::new(self.griefing_collateral, T::GetGriefingCollateralCurrencyId::get())

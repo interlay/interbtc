@@ -1,11 +1,9 @@
+use crate::*;
 use std::collections::BTreeMap;
-
-use crate::Runtime;
-use vault_registry::DefaultVaultId;
 
 #[derive(Clone, PartialEq, Eq, Debug, PartialOrd, Ord)]
 pub enum StakeHolder {
-    Vault(DefaultVaultId<Runtime>),
+    Vault(VaultId),
     Nominator(crate::AccountId),
 }
 type Balance = f64;

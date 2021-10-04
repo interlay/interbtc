@@ -1,8 +1,6 @@
 use crate::{assert_eq, *};
 use currency::Amount;
 use frame_support::transactional;
-use primitives::VaultId;
-use vault_registry::DefaultVaultId;
 
 pub const USER: [u8; 32] = ALICE;
 pub const VAULT: [u8; 32] = BOB;
@@ -11,32 +9,30 @@ pub const PROOF_SUBMITTER: [u8; 32] = CAROL;
 pub const DEFAULT_GRIEFING_COLLATERAL: Amount<Runtime> = griefing(5_000);
 pub const DEFAULT_COLLATERAL: u128 = 1_000_000;
 pub fn request_issue(
-    currency_id: CurrencyId,
+    vault_id: &VaultId,
     amount_btc: Amount<Runtime>,
 ) -> (H256, IssueRequest<AccountId32, u32, u128, CurrencyId>) {
-    RequestIssueBuilder::new(currency_id, amount_btc).request()
+    RequestIssueBuilder::new(vault_id, amount_btc).request()
 }
 
 pub struct RequestIssueBuilder {
     amount_btc: u128,
-    vault_id: DefaultVaultId<Runtime>,
+    vault_id: VaultId,
     user: [u8; 32],
     griefing_collateral: u128,
-    currency_id: CurrencyId,
 }
 
 impl RequestIssueBuilder {
-    pub fn new(currency_id: CurrencyId, amount_btc: Amount<Runtime>) -> Self {
+    pub fn new(vault_id: &VaultId, amount_btc: Amount<Runtime>) -> Self {
         Self {
             amount_btc: amount_btc.amount(),
-            currency_id,
-            vault_id: vault_id_of(VAULT, currency_id),
+            vault_id: vault_id.clone(),
             user: USER,
             griefing_collateral: DEFAULT_COLLATERAL,
         }
     }
 
-    pub fn with_vault(&mut self, vault: DefaultVaultId<Runtime>) -> &mut Self {
+    pub fn with_vault(&mut self, vault: VaultId) -> &mut Self {
         self.vault_id = vault;
         self
     }
@@ -52,7 +48,10 @@ impl RequestIssueBuilder {
     }
 
     pub fn request(&self) -> (H256, IssueRequest<AccountId32, u32, u128, CurrencyId>) {
-        try_register_vault(Amount::new(DEFAULT_COLLATERAL, self.currency_id), &self.vault_id);
+        try_register_vault(
+            Amount::new(DEFAULT_COLLATERAL, self.vault_id.collateral_currency()),
+            &self.vault_id,
+        );
 
         // alice requests wrapped by locking btc with bob
         assert_ok!(Call::Issue(IssueCall::request_issue(
@@ -147,7 +146,7 @@ impl ExecuteIssueBuilder {
         if let Some(currency_id) = self.register_vault_with_currency_id {
             try_register_vault(
                 Amount::new(DEFAULT_COLLATERAL, currency_id),
-                &VaultId::new(self.submitter.clone(), currency_id, DEFAULT_WRAPPED_CURRENCY),
+                &PrimitiveVaultId::new(self.submitter.clone(), currency_id, DEFAULT_WRAPPED_CURRENCY),
             );
         }
 

@@ -3,19 +3,24 @@ mod mock;
 use frame_support::traits::Currency;
 use mock::{assert_eq, *};
 
-fn test_with<R>(execute: impl Fn(CurrencyId) -> R) {
-    let test_with = |currency_id| {
+fn test_with<R>(execute: impl Fn(VaultId) -> R) {
+    let test_with = |collateral_currency, wrapped_currency| {
         ExtBuilder::build().execute_with(|| {
             SecurityPallet::set_active_block_number(1);
             for currency_id in iter_collateral_currencies() {
                 assert_ok!(OraclePallet::_set_exchange_rate(currency_id, FixedU128::one()));
             }
-            CoreVaultData::force_to(&vault_id_of(BOB, currency_id), default_vault_state(currency_id));
-            execute(currency_id)
+            if wrapped_currency != INTERBTC {
+                assert_ok!(OraclePallet::_set_exchange_rate(wrapped_currency, FixedU128::one()));
+            }
+            let vault_id = VaultId::new(account_of(BOB), collateral_currency, wrapped_currency);
+            CoreVaultData::force_to(&vault_id, default_vault_state(&vault_id));
+            execute(vault_id)
         });
     };
-    test_with(CurrencyId::KSM);
-    test_with(CurrencyId::DOT);
+    test_with(CurrencyId::KSM, CurrencyId::INTERBTC);
+    test_with(CurrencyId::DOT, CurrencyId::INTERBTC);
+    test_with(CurrencyId::DOT, CurrencyId::KBTC);
 }
 
 mod spec_based_tests {
@@ -49,13 +54,12 @@ mod spec_based_tests {
 
     #[test]
     fn execute_refund_should_succeed() {
-        test_with(|currency_id| {
-            let pre_refund_state = ParachainState::get(currency_id);
-            let vault_id = vault_id_of(BOB, currency_id);
+        test_with(|vault_id| {
+            let pre_refund_state = ParachainState::get(&vault_id);
 
             let user_btc_address = BtcAddress::P2PKH(H160([2; 20]));
 
-            let refund_amount = wrapped(100);
+            let refund_amount = vault_id.wrapped(100);
             let refund_id = RefundPallet::request_refund(
                 &refund_amount,
                 vault_id.clone(),
@@ -78,8 +82,8 @@ mod spec_based_tests {
             .dispatch(origin_of(vault_id.account_id.clone())));
 
             let refund_request = RefundPallet::refund_requests(refund_id).unwrap();
-            let refund_fee = wrapped(refund_request.fee);
-            let total_supply = wrapped(TreasuryPallet::total_issuance());
+            let refund_fee = vault_id.wrapped(refund_request.fee);
+            let total_supply = vault_id.wrapped(TreasuryPallet::total_issuance());
 
             // POSTCONDITION: refund.completed MUST be true
             assert!(refund_request.completed);
@@ -92,15 +96,18 @@ mod spec_based_tests {
             );
 
             // POSTCONDITION: total supply MUST increase by fee
-            assert_eq!(total_supply + refund_fee, wrapped(TreasuryPallet::total_issuance()));
+            assert_eq!(
+                total_supply + refund_fee,
+                vault_id.wrapped(TreasuryPallet::total_issuance())
+            );
 
             assert_eq!(
-                ParachainState::get(currency_id),
+                ParachainState::get(&vault_id),
                 pre_refund_state.with_changes(|_, vault, _, _| {
                     // POSTCONDITION: vault.issued_tokens MUST increase by fee
                     vault.issued += refund_fee;
                     // POSTCONDITION: vault.free_balance MUST increase by fee
-                    *vault.free_balance.get_mut(&INTERBTC).unwrap() += refund_fee;
+                    *vault.free_balance.get_mut(&vault_id.wrapped_currency()).unwrap() += refund_fee;
                 })
             );
         });

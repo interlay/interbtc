@@ -825,6 +825,7 @@ impl reward::Config for Runtime {
     type Event = Event;
     type SignedFixedPoint = SignedFixedPoint;
     type CurrencyId = CurrencyId;
+    type GetNativeCurrencyId = GetNativeCurrencyId;
 }
 
 impl security::Config for Runtime {
@@ -859,6 +860,7 @@ impl staking::Config for Runtime {
     type SignedFixedPoint = SignedFixedPoint;
     type SignedInner = SignedInner;
     type CurrencyId = CurrencyId;
+    type GetNativeCurrencyId = GetNativeCurrencyId;
 }
 
 parameter_types! {
@@ -897,8 +899,9 @@ impl fee::Config for Runtime {
     type SignedInner = SignedInner;
     type UnsignedFixedPoint = UnsignedFixedPoint;
     type UnsignedInner = UnsignedInner;
-    type VaultRewards = reward::RewardsCurrencyAdapter<Runtime, GetWrappedCurrencyId>;
-    type VaultStaking = staking::StakingCurrencyAdapter<Runtime, GetWrappedCurrencyId>;
+    type VaultRewards = reward::RewardsCurrencyAdapter<Runtime>;
+    type VaultStaking = staking::StakingCurrencyAdapter<Runtime>;
+    type GetNativeCurrencyId = GetNativeCurrencyId;
     type OnSweep = currency::SweepFunds<Runtime, FeeAccount>;
 }
 
@@ -935,7 +938,7 @@ pub use nomination::Event as NominationEvent;
 impl nomination::Config for Runtime {
     type Event = Event;
     type WeightInfo = ();
-    type VaultRewards = reward::RewardsCurrencyAdapter<Runtime, GetWrappedCurrencyId>;
+    type VaultRewards = reward::RewardsCurrencyAdapter<Runtime>;
 }
 
 construct_runtime! {
@@ -1294,7 +1297,6 @@ impl_runtime_apis! {
     impl module_issue_rpc_runtime_api::IssueApi<
         Block,
         AccountId,
-        VaultId,
         H256,
         IssueRequest<AccountId, BlockNumber, Balance, CurrencyId>
     > for Runtime {
@@ -1302,7 +1304,7 @@ impl_runtime_apis! {
             Issue::get_issue_requests_for_account(account_id)
         }
 
-        fn get_vault_issue_requests(vault_id: VaultId) -> Vec<(H256, IssueRequest<AccountId, BlockNumber, Balance, CurrencyId>)> {
+        fn get_vault_issue_requests(vault_id: AccountId) -> Vec<(H256, IssueRequest<AccountId, BlockNumber, Balance, CurrencyId>)> {
             Issue::get_issue_requests_for_vault(vault_id)
         }
     }
@@ -1310,7 +1312,6 @@ impl_runtime_apis! {
     impl module_redeem_rpc_runtime_api::RedeemApi<
         Block,
         AccountId,
-        VaultId,
         H256,
         RedeemRequest<AccountId, BlockNumber, Balance, CurrencyId>
     > for Runtime {
@@ -1318,15 +1319,14 @@ impl_runtime_apis! {
             Redeem::get_redeem_requests_for_account(account_id)
         }
 
-        fn get_vault_redeem_requests(vault_id: VaultId) -> Vec<(H256, RedeemRequest<AccountId, BlockNumber, Balance, CurrencyId>)> {
-            Redeem::get_redeem_requests_for_vault(vault_id)
+        fn get_vault_redeem_requests(account_id: AccountId) -> Vec<(H256, RedeemRequest<AccountId, BlockNumber, Balance, CurrencyId>)> {
+            Redeem::get_redeem_requests_for_vault(account_id)
         }
     }
 
     impl module_refund_rpc_runtime_api::RefundApi<
         Block,
         AccountId,
-        VaultId,
         H256,
         RefundRequest<AccountId, Balance, CurrencyId>
     > for Runtime {
@@ -1338,22 +1338,22 @@ impl_runtime_apis! {
             Refund::get_refund_requests_by_issue_id(issue_id)
         }
 
-        fn get_vault_refund_requests(vault_id: VaultId) -> Vec<(H256, RefundRequest<AccountId, Balance, CurrencyId>)> {
+        fn get_vault_refund_requests(vault_id: AccountId) -> Vec<(H256, RefundRequest<AccountId, Balance, CurrencyId>)> {
             Refund::get_refund_requests_for_vault(vault_id)
         }
     }
 
     impl module_replace_rpc_runtime_api::ReplaceApi<
         Block,
-        VaultId,
+        AccountId,
         H256,
         ReplaceRequest<AccountId, BlockNumber, Balance, CurrencyId>
     > for Runtime {
-        fn get_old_vault_replace_requests(vault_id: VaultId) -> Vec<(H256, ReplaceRequest<AccountId, BlockNumber, Balance, CurrencyId>)> {
+        fn get_old_vault_replace_requests(vault_id: AccountId) -> Vec<(H256, ReplaceRequest<AccountId, BlockNumber, Balance, CurrencyId>)> {
             Replace::get_replace_requests_for_old_vault(vault_id)
         }
 
-        fn get_new_vault_replace_requests(vault_id: VaultId) -> Vec<(H256, ReplaceRequest<AccountId, BlockNumber, Balance, CurrencyId>)> {
+        fn get_new_vault_replace_requests(vault_id: AccountId) -> Vec<(H256, ReplaceRequest<AccountId, BlockNumber, Balance, CurrencyId>)> {
             Replace::get_replace_requests_for_new_vault(vault_id)
         }
     }

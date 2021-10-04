@@ -43,10 +43,10 @@ pub trait IssueRequestExt<T: Config> {
 
 impl<T: Config> IssueRequestExt<T> for DefaultIssueRequest<T> {
     fn amount(&self) -> Amount<T> {
-        Amount::new(self.amount, T::GetWrappedCurrencyId::get())
+        Amount::new(self.amount, self.vault.wrapped_currency())
     }
     fn fee(&self) -> Amount<T> {
-        Amount::new(self.fee, T::GetWrappedCurrencyId::get())
+        Amount::new(self.fee, self.vault.wrapped_currency())
     }
     fn griefing_collateral(&self) -> Amount<T> {
         Amount::new(self.griefing_collateral, T::GetGriefingCollateralCurrencyId::get())

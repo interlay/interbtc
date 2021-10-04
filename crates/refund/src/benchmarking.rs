@@ -8,7 +8,7 @@ use bitcoin::{
 };
 use btc_relay::{BtcAddress, BtcPublicKey};
 use frame_benchmarking::{account, benchmarks, impl_benchmark_test_suite};
-use frame_support::assert_ok;
+use frame_support::{assert_ok, traits::Get};
 use frame_system::RawOrigin;
 use primitives::{CurrencyId, VaultId};
 use sp_core::{H160, H256, U256};

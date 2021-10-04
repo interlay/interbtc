@@ -51,7 +51,7 @@ fn test_with<R>(execute: impl Fn(CurrencyId) -> R) {
     test_with(CurrencyId::DOT);
 }
 
-fn withdraw_vault_global_pool_rewards(vault_id: &DefaultVaultId<Runtime>) -> i128 {
+fn withdraw_vault_global_pool_rewards(vault_id: &VaultId) -> i128 {
     let amount = VaultRewardsPallet::compute_reward(INTERBTC, vault_id).unwrap();
     assert_ok!(
         Call::Fee(FeeCall::withdraw_rewards(vault_id.clone(), None)).dispatch(origin_of(vault_id.account_id.clone()))
@@ -59,43 +59,44 @@ fn withdraw_vault_global_pool_rewards(vault_id: &DefaultVaultId<Runtime>) -> i12
     amount
 }
 
-fn withdraw_local_pool_rewards(vault_id: &DefaultVaultId<Runtime>, nominator_id: &AccountId) -> i128 {
+fn withdraw_local_pool_rewards(vault_id: &VaultId, nominator_id: &AccountId) -> i128 {
     let amount =
-        staking::StakingCurrencyAdapter::<Runtime, GetWrappedCurrencyId>::compute_reward(vault_id, nominator_id)
+        staking::StakingCurrencyAdapter::<Runtime>::compute_reward(vault_id, nominator_id, vault_id.wrapped_currency())
             .unwrap();
     assert_ok!(Call::Fee(FeeCall::withdraw_rewards(vault_id.clone(), None)).dispatch(origin_of(nominator_id.clone())));
     amount
 }
 
-fn get_vault_global_pool_rewards(vault_id: &DefaultVaultId<Runtime>) -> i128 {
+fn get_vault_global_pool_rewards(vault_id: &VaultId) -> i128 {
     VaultRewardsPallet::compute_reward(INTERBTC, vault_id).unwrap()
 }
 
-fn get_local_pool_rewards(vault_id: &DefaultVaultId<Runtime>, nominator_id: &AccountId) -> i128 {
-    staking::StakingCurrencyAdapter::<Runtime, GetWrappedCurrencyId>::compute_reward(vault_id, nominator_id).unwrap()
+fn get_local_pool_rewards(vault_id: &VaultId, nominator_id: &AccountId) -> i128 {
+    staking::StakingCurrencyAdapter::<Runtime>::compute_reward(vault_id, nominator_id, vault_id.wrapped_currency())
+        .unwrap()
 }
 
-fn distribute_global_pool(vault_id: &DefaultVaultId<Runtime>) {
+fn distribute_global_pool(vault_id: &VaultId) {
     FeePallet::distribute_from_reward_pool::<
-        reward::RewardsCurrencyAdapter<Runtime, GetWrappedCurrencyId>,
-        staking::StakingCurrencyAdapter<Runtime, GetWrappedCurrencyId>,
+        reward::RewardsCurrencyAdapter<Runtime>,
+        staking::StakingCurrencyAdapter<Runtime>,
     >(vault_id)
     .unwrap();
 }
 
-fn get_vault_issued_tokens(vault_id: &DefaultVaultId<Runtime>) -> Amount<Runtime> {
+fn get_vault_issued_tokens(vault_id: &VaultId) -> Amount<Runtime> {
     wrapped(VaultRegistryPallet::get_vault_from_id(vault_id).unwrap().issued_tokens)
 }
 
-fn get_vault_collateral(vault_id: &DefaultVaultId<Runtime>) -> Amount<Runtime> {
+fn get_vault_collateral(vault_id: &VaultId) -> Amount<Runtime> {
     VaultRegistryPallet::compute_collateral(vault_id)
         .unwrap()
         .try_into()
         .unwrap()
 }
 
-fn issue_with_vault(currency_id: CurrencyId, vault_id: &DefaultVaultId<Runtime>, request_amount: Amount<Runtime>) {
-    let (issue_id, _) = RequestIssueBuilder::new(currency_id, request_amount)
+fn issue_with_vault(currency_id: CurrencyId, vault_id: &VaultId, request_amount: Amount<Runtime>) {
+    let (issue_id, _) = RequestIssueBuilder::new(vault_id, request_amount)
         .with_vault(vault_id.clone())
         .request();
     ExecuteIssueBuilder::new(issue_id)

@@ -80,6 +80,7 @@ pub const INTERBTC: CurrencyId = CurrencyId::INTERBTC;
 parameter_types! {
     pub const GetCollateralCurrencyId: CurrencyId = DOT;
     pub const GetWrappedCurrencyId: CurrencyId = INTERBTC;
+    pub const GetNativeCurrencyId: CurrencyId = CurrencyId::KINT;
     pub const MaxLocks: u32 = 50;
 }
 
@@ -145,6 +146,7 @@ impl staking::Config for Test {
     type SignedFixedPoint = SignedFixedPoint;
     type SignedInner = SignedInner;
     type CurrencyId = CurrencyId;
+    type GetNativeCurrencyId = GetNativeCurrencyId;
 }
 
 pub type TestEvent = Event;

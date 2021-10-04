@@ -17,16 +17,10 @@ pub use interbtc_runtime_standalone::{
 };
 pub use mocktopus::mocking::*;
 pub use orml_tokens::CurrencyAdapter;
-use primitives::{VaultCurrencyPair, VaultId};
+pub use primitives::{VaultCurrencyPair, VaultId as PrimitiveVaultId};
 use redeem::RedeemRequestStatus;
-pub use security::{ErrorCode, StatusCode};
-pub use sp_arithmetic::{FixedI128, FixedPointNumber, FixedU128};
-pub use sp_core::{H160, H256, U256};
-pub use sp_runtime::traits::{Dispatchable, One, Zero};
-pub use sp_std::convert::TryInto;
 use staking::DefaultVaultCurrencyPair;
-pub use vault_registry::CurrencySource;
-use vault_registry::{types::UpdatableVault, DefaultVaultId};
+use vault_registry::types::UpdatableVault;
 
 pub use issue::{types::IssueRequestExt, IssueRequest, IssueRequestStatus};
 pub use oracle::OracleKey;
@@ -34,10 +28,17 @@ pub use redeem::{types::RedeemRequestExt, RedeemRequest};
 pub use refund::RefundRequest;
 pub use replace::{types::ReplaceRequestExt, ReplaceRequest};
 pub use reward::Rewards;
-pub use sp_runtime::AccountId32;
+pub use security::{ErrorCode, StatusCode};
+pub use sp_arithmetic::{FixedI128, FixedPointNumber, FixedU128};
+pub use sp_core::{H160, H256, U256};
+pub use sp_runtime::{
+    traits::{Dispatchable, One, Zero},
+    AccountId32,
+};
+pub use sp_std::convert::TryInto;
 use std::collections::BTreeMap;
 pub use std::convert::TryFrom;
-pub use vault_registry::{Vault, VaultStatus};
+pub use vault_registry::{CurrencySource, DefaultVaultId, Vault, VaultStatus};
 
 use self::redeem_testing_utils::USER_BTC_ADDRESS;
 
@@ -47,6 +48,8 @@ pub mod redeem_testing_utils;
 pub mod reward_testing_utils;
 
 pub use pretty_assertions::assert_eq;
+
+pub type VaultId = DefaultVaultId<Runtime>;
 
 pub const ALICE: [u8; 32] = [0u8; 32];
 pub const BOB: [u8; 32] = [1u8; 32];
@@ -151,13 +154,13 @@ pub type NominationPallet = nomination::Pallet<Runtime>;
 pub const DEFAULT_TESTING_CURRENCY: <Runtime as orml_tokens::Config>::CurrencyId =
     <Runtime as orml_tokens::Config>::CurrencyId::DOT;
 pub const DEFAULT_WRAPPED_CURRENCY: <Runtime as orml_tokens::Config>::CurrencyId =
-    <Runtime as orml_tokens::Config>::CurrencyId::DOT;
+    <Runtime as orml_tokens::Config>::CurrencyId::INTERBTC;
 pub const GRIEFING_CURRENCY: <Runtime as orml_tokens::Config>::CurrencyId =
     <Runtime as orml_tokens::Config>::CurrencyId::DOT;
 pub const WRAPPED_CURRENCY: <Runtime as orml_tokens::Config>::CurrencyId =
     <Runtime as orml_tokens::Config>::CurrencyId::INTERBTC;
 
-pub fn default_vault_id_of(hash: [u8; 32]) -> DefaultVaultId<Runtime> {
+pub fn default_vault_id_of(hash: [u8; 32]) -> VaultId {
     VaultId {
         account_id: account_of(hash),
         currencies: DefaultVaultCurrencyPair::<Runtime> {
@@ -167,11 +170,11 @@ pub fn default_vault_id_of(hash: [u8; 32]) -> DefaultVaultId<Runtime> {
     }
 }
 
-pub fn dummy_vault_id_of() -> DefaultVaultId<Runtime> {
-    VaultId::new(account_of(BOB), DEFAULT_TESTING_CURRENCY, DEFAULT_WRAPPED_CURRENCY)
+pub fn dummy_vault_id_of() -> VaultId {
+    PrimitiveVaultId::new(account_of(BOB), DEFAULT_TESTING_CURRENCY, DEFAULT_WRAPPED_CURRENCY)
 }
-pub fn vault_id_of(id: [u8; 32], collateral_currency: CurrencyId) -> DefaultVaultId<Runtime> {
-    VaultId::new(account_of(id), collateral_currency, DEFAULT_WRAPPED_CURRENCY)
+pub fn vault_id_of(id: [u8; 32], collateral_currency: CurrencyId) -> VaultId {
+    PrimitiveVaultId::new(account_of(id), collateral_currency, DEFAULT_WRAPPED_CURRENCY)
 }
 
 pub fn default_user_state() -> UserData {
@@ -185,44 +188,46 @@ pub fn default_user_state() -> UserData {
             },
         );
     }
-    balances.insert(
-        CurrencyId::INTERBTC,
-        Balance {
-            free: DEFAULT_USER_FREE_TOKENS,
-            locked: DEFAULT_USER_LOCKED_TOKENS,
-        },
-    );
+    for currency_id in iter_wrapped_currencies() {
+        balances.insert(
+            currency_id,
+            Balance {
+                free: Amount::new(DEFAULT_USER_FREE_TOKENS.amount(), currency_id),
+                locked: Amount::new(DEFAULT_USER_LOCKED_TOKENS.amount(), currency_id),
+            },
+        );
+    }
     UserData { balances }
 }
 
-pub fn default_vault_state(currency_id: CurrencyId) -> CoreVaultData {
+pub fn default_vault_state(vault_id: &VaultId) -> CoreVaultData {
     CoreVaultData {
-        to_be_issued: DEFAULT_VAULT_TO_BE_ISSUED,
-        issued: DEFAULT_VAULT_ISSUED,
-        to_be_redeemed: DEFAULT_VAULT_TO_BE_REDEEMED,
-        to_be_replaced: DEFAULT_VAULT_TO_BE_REPLACED,
+        to_be_issued: vault_id.wrapped(DEFAULT_VAULT_TO_BE_ISSUED.amount()),
+        issued: vault_id.wrapped(DEFAULT_VAULT_ISSUED.amount()),
+        to_be_redeemed: vault_id.wrapped(DEFAULT_VAULT_TO_BE_REDEEMED.amount()),
+        to_be_replaced: vault_id.wrapped(DEFAULT_VAULT_TO_BE_REPLACED.amount()),
         griefing_collateral: DEFAULT_VAULT_GRIEFING_COLLATERAL,
         replace_collateral: DEFAULT_VAULT_REPLACE_COLLATERAL,
-        backing_collateral: default_vault_backing_collateral(currency_id),
+        backing_collateral: default_vault_backing_collateral(vault_id.collateral_currency()),
         free_balance: iter_all_currencies()
             .map(|x| (x, default_vault_free_balance(x)))
             .collect(),
-        liquidated_collateral: Amount::new(0, currency_id),
+        liquidated_collateral: Amount::new(0, vault_id.collateral_currency()),
     }
 }
 
-pub fn default_liquidation_vault_state(currency_id: CurrencyId) -> LiquidationVaultData {
-    LiquidationVaultData::get_default(currency_id)
+pub fn default_liquidation_vault_state(currency_pair: &DefaultVaultCurrencyPair<Runtime>) -> LiquidationVaultData {
+    LiquidationVaultData::get_default(currency_pair)
 }
 
 pub fn premium_redeem_request(
     user_to_redeem: Amount<Runtime>,
-    vault_id: DefaultVaultId<Runtime>,
+    vault_id: &VaultId,
     user: [u8; 32],
 ) -> RedeemRequest<AccountId, BlockNumber, u128, CurrencyId> {
     let redeem_fee = FeePallet::get_redeem_fee(&user_to_redeem).unwrap();
     let burned_tokens = user_to_redeem - redeem_fee;
-    let inclusion_fee = RedeemPallet::get_current_inclusion_fee().unwrap();
+    let inclusion_fee = RedeemPallet::get_current_inclusion_fee(vault_id.wrapped_currency()).unwrap();
     let premium_redeem_fee = FeePallet::get_premium_redeem_fee(&(burned_tokens - inclusion_fee)).unwrap();
 
     RedeemRequest {
@@ -233,18 +238,18 @@ pub fn premium_redeem_request(
 
 pub fn default_redeem_request(
     user_to_redeem: Amount<Runtime>,
-    vault_id: DefaultVaultId<Runtime>,
+    vault_id: &VaultId,
     user: [u8; 32],
 ) -> RedeemRequest<AccountId, BlockNumber, u128, CurrencyId> {
     let redeem_fee = FeePallet::get_redeem_fee(&user_to_redeem).unwrap();
     let burned_tokens = user_to_redeem - redeem_fee;
-    let inclusion_fee = RedeemPallet::get_current_inclusion_fee().unwrap();
+    let inclusion_fee = RedeemPallet::get_current_inclusion_fee(vault_id.wrapped_currency()).unwrap();
     let redeem_period = RedeemPallet::redeem_period();
     let btc_height = BTCRelayPallet::get_best_block_height();
     let opentime = SecurityPallet::active_block_number();
 
     RedeemRequest {
-        vault: vault_id,
+        vault: vault_id.clone(),
         opentime,
         fee: redeem_fee.amount(),
         transfer_fee_btc: inclusion_fee.amount(),
@@ -282,12 +287,35 @@ pub struct UserData {
     pub balances: BTreeMap<CurrencyId, Balance>,
 }
 
+pub trait Wrapped {
+    fn wrapped(&self, amount: u128) -> Amount<Runtime>;
+}
+
+impl Wrapped for VaultId {
+    fn wrapped(&self, amount: u128) -> Amount<Runtime> {
+        Amount::new(amount, self.wrapped_currency())
+    }
+}
+
+pub fn iter_currency_pairs() -> impl Iterator<Item = DefaultVaultCurrencyPair<Runtime>> {
+    iter_collateral_currencies().flat_map(|collateral_id| {
+        iter_wrapped_currencies().map(move |wrapped_id| VaultCurrencyPair {
+            collateral: collateral_id,
+            wrapped: wrapped_id,
+        })
+    })
+}
+
 pub fn iter_collateral_currencies() -> impl Iterator<Item = CurrencyId> {
     vec![CurrencyId::DOT, CurrencyId::KSM].into_iter()
 }
 
+pub fn iter_wrapped_currencies() -> impl Iterator<Item = CurrencyId> {
+    vec![CurrencyId::KBTC, CurrencyId::INTERBTC].into_iter()
+}
+
 pub fn iter_all_currencies() -> impl Iterator<Item = CurrencyId> {
-    iter_collateral_currencies().chain(vec![CurrencyId::INTERBTC].into_iter())
+    iter_collateral_currencies().chain(iter_wrapped_currencies())
 }
 
 impl UserData {
@@ -307,6 +335,24 @@ impl UserData {
     pub fn force_to(id: [u8; 32], new: Self) -> Self {
         let old = Self::get(id);
         let account_id = account_of(id);
+
+        // some sanity checks:
+        assert!(old
+            .balances
+            .iter()
+            .all(|(currency_id, _)| new.balances.contains_key(currency_id)));
+        assert!(new
+            .balances
+            .iter()
+            .all(|(currency_id, _)| old.balances.contains_key(currency_id)));
+        assert!(old
+            .balances
+            .iter()
+            .chain(new.balances.iter())
+            .all(
+                |(currency_id, Balance { free, locked })| free.currency() == *currency_id
+                    && locked.currency() == *currency_id
+            ));
 
         // Clear collateral currencies:
         for (_currency_id, balance) in old.balances.iter() {
@@ -332,13 +378,20 @@ impl UserData {
 
 #[derive(Debug, Clone)]
 pub struct FeePool {
-    pub vault_rewards: Amount<Runtime>,
+    pub vault_rewards: BTreeMap<CurrencyId, Amount<Runtime>>,
 }
 
+impl FeePool {
+    pub fn rewards_for(&mut self, vault_id: &VaultId) -> &mut Amount<Runtime> {
+        self.vault_rewards.get_mut(&vault_id.wrapped_currency()).unwrap()
+    }
+}
 impl Default for FeePool {
     fn default() -> Self {
         Self {
-            vault_rewards: Amount::zero(INTERBTC),
+            vault_rewards: iter_wrapped_currencies()
+                .map(|currency_id| (currency_id, Amount::zero(currency_id)))
+                .collect(),
         }
     }
 }
@@ -352,21 +405,38 @@ fn abs_difference<T: std::ops::Sub<Output = T> + PartialOrd>(x: T, y: T) -> T {
 
 impl PartialEq for FeePool {
     fn eq(&self, rhs: &Self) -> bool {
-        let currency = self.vault_rewards.currency();
-        abs_difference(self.vault_rewards, rhs.vault_rewards) <= Amount::new(1, currency)
+        assert!(self
+            .vault_rewards
+            .iter()
+            .all(|(currency_id, _)| rhs.vault_rewards.contains_key(currency_id)));
+        assert!(rhs
+            .vault_rewards
+            .iter()
+            .all(|(currency_id, _)| self.vault_rewards.contains_key(currency_id)));
+        self.vault_rewards.iter().all(|(currency_id, lhs)| {
+            abs_difference(lhs.clone(), rhs.vault_rewards.get(currency_id).unwrap().clone())
+                <= Amount::new(1, *currency_id)
+        })
     }
 }
 
 impl FeePool {
     pub fn get() -> Self {
         Self {
-            vault_rewards: Amount::new(
-                VaultRewardsPallet::get_total_rewards(INTERBTC)
-                    .unwrap()
-                    .try_into()
-                    .unwrap(),
-                INTERBTC,
-            ),
+            vault_rewards: iter_wrapped_currencies()
+                .map(|currency_id| {
+                    (
+                        currency_id,
+                        Amount::new(
+                            VaultRewardsPallet::get_total_rewards(currency_id)
+                                .unwrap()
+                                .try_into()
+                                .unwrap(),
+                            currency_id,
+                        ),
+                    )
+                })
+                .collect(),
         }
     }
 }
@@ -386,28 +456,29 @@ pub struct CoreVaultData {
 }
 
 impl CoreVaultData {
-    pub fn get_default(currency_id: CurrencyId) -> Self {
+    pub fn get_default(vault_id: &VaultId) -> Self {
         Self {
-            to_be_issued: wrapped(0),
-            issued: wrapped(0),
-            to_be_redeemed: wrapped(0),
-            to_be_replaced: wrapped(0),
+            to_be_issued: vault_id.wrapped(0),
+            issued: vault_id.wrapped(0),
+            to_be_redeemed: vault_id.wrapped(0),
+            to_be_replaced: vault_id.wrapped(0),
             griefing_collateral: griefing(0),
             replace_collateral: griefing(0),
-            backing_collateral: Amount::new(0, currency_id),
+            backing_collateral: Amount::new(0, vault_id.collateral_currency()),
             free_balance: iter_all_currencies().map(|x| (x, Amount::new(0, x))).collect(),
-            liquidated_collateral: Amount::new(0, currency_id),
+            liquidated_collateral: Amount::new(0, vault_id.collateral_currency()),
         }
     }
 }
 
 impl CoreVaultData {
-    pub fn vault(vault_id: DefaultVaultId<Runtime>) -> Self {
+    pub fn vault(vault_id: VaultId) -> Self {
         let vault = VaultRegistryPallet::get_vault_from_id(&vault_id).unwrap();
         Self {
-            to_be_issued: Amount::new(vault.to_be_issued_tokens, INTERBTC),
-            issued: Amount::new(vault.issued_tokens, INTERBTC),
-            to_be_redeemed: Amount::new(vault.to_be_redeemed_tokens, INTERBTC),
+            to_be_issued: Amount::new(vault.to_be_issued_tokens, vault_id.wrapped_currency()),
+            issued: Amount::new(vault.issued_tokens, vault_id.wrapped_currency()),
+            to_be_redeemed: Amount::new(vault.to_be_redeemed_tokens, vault_id.wrapped_currency()),
+            to_be_replaced: Amount::new(vault.to_be_replaced_tokens, vault_id.wrapped_currency()),
             backing_collateral: CurrencySource::<Runtime>::Collateral(vault_id.clone())
                 .current_balance(vault_id.currencies.collateral)
                 .unwrap(),
@@ -428,7 +499,6 @@ impl CoreVaultData {
                     )
                 })
                 .collect(),
-            to_be_replaced: Amount::new(vault.to_be_replaced_tokens, INTERBTC),
             replace_collateral: Amount::new(
                 vault.replace_collateral,
                 <Runtime as vault_registry::Config>::GetGriefingCollateralCurrencyId::get(),
@@ -440,8 +510,14 @@ impl CoreVaultData {
         self.backing_collateral.currency()
     }
 
-    pub fn force_to(vault_id: &DefaultVaultId<Runtime>, state: CoreVaultData) {
+    pub fn force_to(vault_id: &VaultId, state: CoreVaultData) {
         VaultRegistryPallet::collateral_integrity_check();
+
+        // check that all have same currency
+        assert_eq!(vault_id.wrapped_currency(), state.to_be_issued.currency());
+        assert_eq!(vault_id.wrapped_currency(), state.issued.currency());
+        assert_eq!(vault_id.wrapped_currency(), state.to_be_redeemed.currency());
+        assert_eq!(vault_id.wrapped_currency(), state.to_be_replaced.currency());
 
         // replace collateral is part of griefing collateral, so it needs to smaller or equal
         assert!(state.griefing_collateral >= state.replace_collateral);
@@ -608,65 +684,63 @@ pub struct SingleLiquidationVault {
 }
 
 impl SingleLiquidationVault {
-    fn zero(currency_id: CurrencyId) -> Self {
+    fn zero(currency_pair: &DefaultVaultCurrencyPair<Runtime>) -> Self {
         Self {
-            to_be_issued: wrapped(0),
-            issued: wrapped(0),
-            to_be_redeemed: wrapped(0),
-            collateral: Amount::new(0, currency_id),
+            to_be_issued: Amount::new(0, currency_pair.wrapped),
+            issued: Amount::new(0, currency_pair.wrapped),
+            to_be_redeemed: Amount::new(0, currency_pair.wrapped),
+            collateral: Amount::new(0, currency_pair.collateral),
         }
     }
-    fn get_default(currency_id: CurrencyId) -> Self {
+    fn get_default(currency_pair: &DefaultVaultCurrencyPair<Runtime>) -> Self {
         Self {
-            to_be_issued: wrapped(123124),
-            issued: wrapped(2131231),
-            to_be_redeemed: wrapped(12323),
-            collateral: Amount::new(2451241, currency_id),
+            to_be_issued: Amount::new(123124, currency_pair.wrapped),
+            issued: Amount::new(2131231, currency_pair.wrapped),
+            to_be_redeemed: Amount::new(12323, currency_pair.wrapped),
+            collateral: Amount::new(2451241, currency_pair.collateral),
         }
     }
 }
 #[derive(Debug, PartialEq, Clone)]
 pub struct LiquidationVaultData {
     // note: we use BTreeMap such that the debug print output is sorted, for easier diffing
-    liquidation_vaults: BTreeMap<CurrencyId, SingleLiquidationVault>,
+    liquidation_vaults: BTreeMap<DefaultVaultCurrencyPair<Runtime>, SingleLiquidationVault>,
 }
 
 impl LiquidationVaultData {
     pub fn get() -> Self {
-        let liquidation_vaults = iter_collateral_currencies()
-            .map(|currency_id| {
-                let vault = VaultRegistryPallet::get_liquidation_vault(currency_id);
+        let liquidation_vaults = iter_currency_pairs()
+            .map(|currency_pair| {
+                let vault = VaultRegistryPallet::get_liquidation_vault(&currency_pair);
                 let data = SingleLiquidationVault {
-                    to_be_issued: Amount::new(vault.to_be_issued_tokens, INTERBTC),
-                    issued: Amount::new(vault.issued_tokens, INTERBTC),
-                    to_be_redeemed: Amount::new(vault.to_be_redeemed_tokens, INTERBTC),
-                    collateral: CurrencySource::<Runtime>::LiquidationVault
-                        .current_balance(currency_id)
+                    to_be_issued: Amount::new(vault.to_be_issued_tokens, currency_pair.wrapped),
+                    issued: Amount::new(vault.issued_tokens, currency_pair.wrapped),
+                    to_be_redeemed: Amount::new(vault.to_be_redeemed_tokens, currency_pair.wrapped),
+                    collateral: CurrencySource::<Runtime>::LiquidationVault(currency_pair.clone())
+                        .current_balance(currency_pair.collateral)
                         .unwrap(),
                 };
-                (currency_id, data)
+                (currency_pair, data)
             })
             .collect();
         Self { liquidation_vaults }
     }
 
-    pub fn with_currency(&mut self, currency_id: &CurrencyId) -> &mut SingleLiquidationVault {
-        self.liquidation_vaults.get_mut(&currency_id).unwrap()
+    pub fn with_currency(&mut self, currency_pair: &DefaultVaultCurrencyPair<Runtime>) -> &mut SingleLiquidationVault {
+        self.liquidation_vaults.get_mut(currency_pair).unwrap()
     }
 
-    pub fn get_default(currency_id: CurrencyId) -> Self {
+    pub fn get_default(currency_pair: &DefaultVaultCurrencyPair<Runtime>) -> Self {
         let mut ret = Self {
             liquidation_vaults: BTreeMap::new(),
         };
-        for collateral_currency in iter_collateral_currencies() {
-            if collateral_currency == currency_id {
+        for pair in iter_currency_pairs() {
+            if &pair == currency_pair {
                 ret.liquidation_vaults
-                    .insert(collateral_currency, SingleLiquidationVault::zero(collateral_currency));
+                    .insert(pair.clone(), SingleLiquidationVault::zero(&pair));
             } else {
-                ret.liquidation_vaults.insert(
-                    collateral_currency,
-                    SingleLiquidationVault::get_default(collateral_currency),
-                );
+                ret.liquidation_vaults
+                    .insert(pair.clone(), SingleLiquidationVault::get_default(&pair));
             }
         }
         ret
@@ -675,9 +749,9 @@ impl LiquidationVaultData {
     pub fn force_to(self) {
         let current = Self::get();
 
-        for (currency_id, target) in self.liquidation_vaults.iter() {
-            let current = &current.liquidation_vaults[currency_id];
-            let mut liquidation_vault = VaultRegistryPallet::get_rich_liquidation_vault(*currency_id);
+        for (currency_pair, target) in self.liquidation_vaults.iter() {
+            let current = &current.liquidation_vaults[currency_pair];
+            let mut liquidation_vault = VaultRegistryPallet::get_rich_liquidation_vault(&currency_pair);
             liquidation_vault
                 .increase_issued(&(target.issued - current.issued))
                 .unwrap();
@@ -689,7 +763,7 @@ impl LiquidationVaultData {
                 .unwrap();
             VaultRegistryPallet::transfer_funds(
                 CurrencySource::FreeBalance(account_of(FAUCET)),
-                CurrencySource::LiquidationVault,
+                CurrencySource::LiquidationVault(currency_pair.clone()),
                 &target.collateral,
             )
             .unwrap();
@@ -723,22 +797,21 @@ pub struct ParachainState {
 }
 
 impl ParachainState {
-    pub fn get_default(vault_currency: CurrencyId) -> Self {
+    pub fn get_default(vault_id: &VaultId) -> Self {
         Self {
             user: default_user_state(),
-            vault: default_vault_state(vault_currency),
-            liquidation_vault: default_liquidation_vault_state(vault_currency),
+            vault: default_vault_state(vault_id),
+            liquidation_vault: default_liquidation_vault_state(&vault_id.currencies),
             fee_pool: Default::default(),
         }
     }
 }
 
 impl ParachainState {
-    pub fn get(vault_currency_id: CurrencyId) -> Self {
-        let vault_id = VaultId::new(account_of(BOB), vault_currency_id, DEFAULT_WRAPPED_CURRENCY);
+    pub fn get(vault_id: &VaultId) -> Self {
         Self {
             user: UserData::get(ALICE),
-            vault: CoreVaultData::vault(vault_id),
+            vault: CoreVaultData::vault(vault_id.clone()),
             liquidation_vault: LiquidationVaultData::get(),
             fee_pool: FeePool::get(),
         }
@@ -768,17 +841,17 @@ pub struct ParachainTwoVaultState {
 }
 
 impl ParachainTwoVaultState {
-    pub fn get_default(old_vault_id: &DefaultVaultId<Runtime>, new_vault_id: &DefaultVaultId<Runtime>) -> Self {
+    pub fn get_default(old_vault_id: &VaultId, new_vault_id: &VaultId) -> Self {
         Self {
-            vault1: default_vault_state(old_vault_id.currencies.collateral),
-            vault2: default_vault_state(new_vault_id.currencies.collateral),
-            liquidation_vault: default_liquidation_vault_state(old_vault_id.currencies.collateral),
+            vault1: default_vault_state(old_vault_id),
+            vault2: default_vault_state(new_vault_id),
+            liquidation_vault: default_liquidation_vault_state(&old_vault_id.currencies),
         }
     }
 }
 
 impl ParachainTwoVaultState {
-    pub fn get(old_vault_id: &DefaultVaultId<Runtime>, new_vault_id: &DefaultVaultId<Runtime>) -> Self {
+    pub fn get(old_vault_id: &VaultId, new_vault_id: &VaultId) -> Self {
         Self {
             vault1: CoreVaultData::vault(old_vault_id.clone()),
             vault2: CoreVaultData::vault(new_vault_id.clone()),
@@ -796,7 +869,7 @@ impl ParachainTwoVaultState {
     }
 }
 
-pub fn liquidate_vault(vault_id: &DefaultVaultId<Runtime>) {
+pub fn liquidate_vault(vault_id: &VaultId) {
     assert_ok!(OraclePallet::_set_exchange_rate(
         vault_id.currencies.collateral,
         FixedU128::checked_from_integer(10_000_000_000).unwrap()
@@ -813,10 +886,16 @@ pub fn set_default_thresholds() {
     let premium = FixedU128::checked_from_rational(135, 100).unwrap();
     let liquidation = FixedU128::checked_from_rational(110, 100).unwrap();
 
-    for currency_id in iter_collateral_currencies() {
-        VaultRegistryPallet::set_secure_collateral_threshold(currency_id, secure);
-        VaultRegistryPallet::set_premium_redeem_threshold(currency_id, premium);
-        VaultRegistryPallet::set_liquidation_collateral_threshold(currency_id, liquidation);
+    for collateral_id in iter_collateral_currencies() {
+        for wrapped_id in iter_wrapped_currencies() {
+            let currency_pair = VaultCurrencyPair {
+                collateral: collateral_id,
+                wrapped: wrapped_id,
+            };
+            VaultRegistryPallet::set_secure_collateral_threshold(currency_pair.clone(), secure);
+            VaultRegistryPallet::set_premium_redeem_threshold(currency_pair.clone(), premium);
+            VaultRegistryPallet::set_liquidation_collateral_threshold(currency_pair.clone(), liquidation);
+        }
     }
 }
 
@@ -827,7 +906,7 @@ pub fn dummy_public_key() -> BtcPublicKey {
     ])
 }
 
-pub fn try_register_vault(collateral: Amount<Runtime>, vault_id: &DefaultVaultId<Runtime>) {
+pub fn try_register_vault(collateral: Amount<Runtime>, vault_id: &VaultId) {
     if VaultRegistryPallet::get_vault_from_id(vault_id).is_err() {
         assert_ok!(Call::VaultRegistry(VaultRegistryCall::register_vault(
             vault_id.currencies.clone(),
@@ -1102,13 +1181,9 @@ impl ExtBuilder {
         let balances = balances
             .into_iter()
             .flat_map(|(account, balance)| {
-                vec![
-                    (account.clone(), CurrencyId::DOT, balance),
-                    (account.clone(), CurrencyId::KSM, balance),
-                ]
-                .into_iter()
+                iter_collateral_currencies().map(move |currency| (account.clone(), currency, balance))
             })
-            .chain(vec![(account_of(FAUCET), CurrencyId::INTERBTC, 1 << 60)].into_iter())
+            .chain(iter_wrapped_currencies().map(move |currency| (account_of(FAUCET), currency, 1 << 60)))
             .collect();
 
         orml_tokens::GenesisConfig::<Runtime> { balances }
@@ -1134,22 +1209,16 @@ impl ExtBuilder {
         vault_registry::GenesisConfig::<Runtime> {
             minimum_collateral_vault: vec![(CurrencyId::DOT, 0), (CurrencyId::KSM, 0)],
             punishment_delay: 8,
-            system_collateral_ceiling: vec![
-                (CurrencyId::DOT, FUND_LIMIT_CEILING),
-                (CurrencyId::KSM, FUND_LIMIT_CEILING),
-            ],
-            secure_collateral_threshold: vec![
-                (CurrencyId::DOT, FixedU128::checked_from_rational(150, 100).unwrap()),
-                (CurrencyId::KSM, FixedU128::checked_from_rational(150, 100).unwrap()),
-            ],
-            premium_redeem_threshold: vec![
-                (CurrencyId::DOT, FixedU128::checked_from_rational(135, 100).unwrap()),
-                (CurrencyId::KSM, FixedU128::checked_from_rational(135, 100).unwrap()),
-            ],
-            liquidation_collateral_threshold: vec![
-                (CurrencyId::DOT, FixedU128::checked_from_rational(110, 100).unwrap()),
-                (CurrencyId::KSM, FixedU128::checked_from_rational(110, 100).unwrap()),
-            ],
+            system_collateral_ceiling: iter_currency_pairs().map(|pair| (pair, FUND_LIMIT_CEILING)).collect(),
+            secure_collateral_threshold: iter_currency_pairs()
+                .map(|pair| (pair, FixedU128::checked_from_rational(150, 100).unwrap()))
+                .collect(),
+            premium_redeem_threshold: iter_currency_pairs()
+                .map(|pair| (pair, FixedU128::checked_from_rational(150, 100).unwrap()))
+                .collect(),
+            liquidation_collateral_threshold: iter_currency_pairs()
+                .map(|pair| (pair, FixedU128::checked_from_rational(110, 100).unwrap()))
+                .collect(),
         }
         .assimilate_storage(&mut storage)
         .unwrap();

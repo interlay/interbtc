@@ -11,7 +11,7 @@ use frame_benchmarking::{account, benchmarks, impl_benchmark_test_suite};
 use frame_support::{assert_ok, traits::Get};
 use frame_system::RawOrigin;
 use orml_traits::MultiCurrency;
-use primitives::{CurrencyId, VaultId};
+use primitives::{CurrencyId, VaultCurrencyPair, VaultId};
 use sp_core::{H160, H256, U256};
 use sp_runtime::traits::One;
 use sp_std::prelude::*;
@@ -212,7 +212,11 @@ benchmarks! {
         assert_ok!(VaultRegistry::<T>::issue_tokens(&vault_id, &wrapped(amount)));
 
         VaultRegistry::<T>::liquidate_vault(&vault_id).unwrap();
-    }: _(RawOrigin::Signed(origin), amount.into(), DEFAULT_TESTING_CURRENCY)
+        let currency_pair = VaultCurrencyPair {
+            collateral: DEFAULT_TESTING_CURRENCY,
+            wrapped: T::GetWrappedCurrencyId::get()
+        };
+    }: _(RawOrigin::Signed(origin), currency_pair, amount.into())
 
     execute_redeem {
         let origin: T::AccountId = account("Origin", 0, 0);

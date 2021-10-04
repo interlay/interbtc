@@ -2,7 +2,6 @@ use crate::{assert_eq, *};
 use currency::Amount;
 use frame_support::transactional;
 use redeem::RedeemRequestStatus;
-use vault_registry::DefaultVaultId;
 
 pub const USER: [u8; 32] = ALICE;
 pub const VAULT: [u8; 32] = BOB;
@@ -68,7 +67,7 @@ impl ExecuteRedeemBuilder {
     }
 }
 
-pub fn setup_cancelable_redeem(user: [u8; 32], vault: DefaultVaultId<Runtime>, issued_tokens: Amount<Runtime>) -> H256 {
+pub fn setup_cancelable_redeem(user: [u8; 32], vault: &VaultId, issued_tokens: Amount<Runtime>) -> H256 {
     let redeem_id = setup_redeem(issued_tokens, user, vault);
 
     // expire request without transferring btc
@@ -79,34 +78,33 @@ pub fn setup_cancelable_redeem(user: [u8; 32], vault: DefaultVaultId<Runtime>, i
 }
 
 pub fn set_redeem_state(
-    currency_id: CurrencyId,
     vault_to_be_redeemed: Amount<Runtime>,
     user_to_redeem: Amount<Runtime>,
     user: [u8; 32],
-    vault: [u8; 32],
+    vault_id: &VaultId,
 ) -> () {
     let burned_tokens = user_to_redeem - FeePallet::get_redeem_fee(&user_to_redeem).unwrap();
     let vault_issued_tokens = vault_to_be_redeemed + burned_tokens;
     CoreVaultData::force_to(
-        &vault_id_of(vault, currency_id),
+        vault_id,
         CoreVaultData {
             issued: vault_issued_tokens,
             to_be_redeemed: vault_to_be_redeemed,
-            ..CoreVaultData::get_default(currency_id)
+            ..CoreVaultData::get_default(&vault_id)
         },
     );
     let mut user_state = UserData::get(user);
-    (*user_state.balances.get_mut(&INTERBTC).unwrap()).free = user_to_redeem;
+    (*user_state.balances.get_mut(&vault_id.wrapped_currency()).unwrap()).free = user_to_redeem;
 
     UserData::force_to(ALICE, user_state);
 }
 
-pub fn setup_redeem(issued_tokens: Amount<Runtime>, user: [u8; 32], vault: DefaultVaultId<Runtime>) -> H256 {
+pub fn setup_redeem(issued_tokens: Amount<Runtime>, user: [u8; 32], vault: &VaultId) -> H256 {
     // alice requests to redeem issued_tokens from Bob
     assert_ok!(Call::Redeem(RedeemCall::request_redeem(
         issued_tokens.amount(),
         USER_BTC_ADDRESS,
-        vault
+        vault.clone()
     ))
     .dispatch(origin_of(account_of(user))));
 

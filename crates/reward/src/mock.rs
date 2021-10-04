@@ -1,8 +1,7 @@
 use crate as reward;
 use crate::{Config, Error};
 use frame_support::parameter_types;
-pub use primitives::CurrencyId;
-use primitives::{VaultCurrencyPair, VaultId, INTERBTC};
+pub use primitives::{CurrencyId, VaultCurrencyPair, VaultId, INTERBTC};
 use sp_arithmetic::FixedI128;
 use sp_core::H256;
 use sp_runtime::{
@@ -64,10 +63,15 @@ impl frame_system::Config for Test {
 pub const DOT: CurrencyId = CurrencyId::DOT;
 // pub const INTERBTC: CurrencyId = CurrencyId::INTERBTC;
 
+parameter_types! {
+    pub const GetNativeCurrencyId: CurrencyId = CurrencyId::KINT;
+}
+
 impl Config for Test {
     type Event = TestEvent;
     type SignedFixedPoint = SignedFixedPoint;
     type CurrencyId = CurrencyId;
+    type GetNativeCurrencyId = GetNativeCurrencyId;
 }
 
 pub type TestEvent = Event;
