@@ -12,13 +12,16 @@ pub use self::gen_client::Client as RedeemClient;
 pub use module_redeem_rpc_runtime_api::RedeemApi as RedeemRuntimeApi;
 
 #[rpc]
-pub trait RedeemApi<BlockHash, AccountId, VaultId, H256, RedeemRequest> {
+pub trait RedeemApi<BlockHash, AccountId, H256, RedeemRequest> {
     #[rpc(name = "redeem_getRedeemRequests")]
     fn get_redeem_requests(&self, account_id: AccountId, at: Option<BlockHash>) -> Result<Vec<(H256, RedeemRequest)>>;
 
     #[rpc(name = "redeem_getVaultRedeemRequests")]
-    fn get_vault_redeem_requests(&self, vault_id: VaultId, at: Option<BlockHash>)
-        -> Result<Vec<(H256, RedeemRequest)>>;
+    fn get_vault_redeem_requests(
+        &self,
+        vault_id: AccountId,
+        at: Option<BlockHash>,
+    ) -> Result<Vec<(H256, RedeemRequest)>>;
 }
 
 /// A struct that implements the [`RedeemApi`].
@@ -49,14 +52,13 @@ impl From<Error> for i64 {
     }
 }
 
-impl<C, Block, AccountId, VaultId, H256, RedeemRequest>
-    RedeemApi<<Block as BlockT>::Hash, AccountId, VaultId, H256, RedeemRequest> for Redeem<C, Block>
+impl<C, Block, AccountId, H256, RedeemRequest> RedeemApi<<Block as BlockT>::Hash, AccountId, H256, RedeemRequest>
+    for Redeem<C, Block>
 where
     Block: BlockT,
     C: Send + Sync + 'static + ProvideRuntimeApi<Block> + HeaderBackend<Block>,
-    C::Api: RedeemRuntimeApi<Block, AccountId, VaultId, H256, RedeemRequest>,
+    C::Api: RedeemRuntimeApi<Block, AccountId, H256, RedeemRequest>,
     AccountId: Codec,
-    VaultId: Codec,
     H256: Codec,
     RedeemRequest: Codec,
 {
@@ -77,7 +79,7 @@ where
 
     fn get_vault_redeem_requests(
         &self,
-        vault_id: VaultId,
+        vault_id: AccountId,
         at: Option<<Block as BlockT>::Hash>,
     ) -> Result<Vec<(H256, RedeemRequest)>> {
         let api = self.client.runtime_api();

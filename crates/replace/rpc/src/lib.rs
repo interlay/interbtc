@@ -12,18 +12,18 @@ pub use self::gen_client::Client as ReplaceClient;
 pub use module_replace_rpc_runtime_api::ReplaceApi as ReplaceRuntimeApi;
 
 #[rpc]
-pub trait ReplaceApi<BlockHash, VaultId, H256, ReplaceRequest> {
+pub trait ReplaceApi<BlockHash, AccountId, H256, ReplaceRequest> {
     #[rpc(name = "replace_getOldVaultReplaceRequests")]
     fn get_old_vault_replace_requests(
         &self,
-        vault_id: VaultId,
+        vault_id: AccountId,
         at: Option<BlockHash>,
     ) -> Result<Vec<(H256, ReplaceRequest)>>;
 
     #[rpc(name = "replace_getNewVaultReplaceRequests")]
     fn get_new_vault_replace_requests(
         &self,
-        vault_id: VaultId,
+        vault_id: AccountId,
         at: Option<BlockHash>,
     ) -> Result<Vec<(H256, ReplaceRequest)>>;
 }
@@ -56,19 +56,19 @@ impl From<Error> for i64 {
     }
 }
 
-impl<C, Block, VaultId, H256, ReplaceRequest> ReplaceApi<<Block as BlockT>::Hash, VaultId, H256, ReplaceRequest>
+impl<C, Block, AccountId, H256, ReplaceRequest> ReplaceApi<<Block as BlockT>::Hash, AccountId, H256, ReplaceRequest>
     for Replace<C, Block>
 where
     Block: BlockT,
     C: Send + Sync + 'static + ProvideRuntimeApi<Block> + HeaderBackend<Block>,
-    C::Api: ReplaceRuntimeApi<Block, VaultId, H256, ReplaceRequest>,
-    VaultId: Codec,
+    C::Api: ReplaceRuntimeApi<Block, AccountId, H256, ReplaceRequest>,
+    AccountId: Codec,
     H256: Codec,
     ReplaceRequest: Codec,
 {
     fn get_old_vault_replace_requests(
         &self,
-        vault_id: VaultId,
+        vault_id: AccountId,
         at: Option<<Block as BlockT>::Hash>,
     ) -> Result<Vec<(H256, ReplaceRequest)>> {
         let api = self.client.runtime_api();
@@ -83,7 +83,7 @@ where
 
     fn get_new_vault_replace_requests(
         &self,
-        vault_id: VaultId,
+        vault_id: AccountId,
         at: Option<<Block as BlockT>::Hash>,
     ) -> Result<Vec<(H256, ReplaceRequest)>> {
         let api = self.client.runtime_api();

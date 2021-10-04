@@ -501,9 +501,9 @@ impl<T: Config> Pallet<T> {
     /// # Arguments
     ///
     /// * `account_id` - vault account id
-    pub fn get_issue_requests_for_vault(vault_id: DefaultVaultId<T>) -> Vec<(H256, DefaultIssueRequest<T>)> {
+    pub fn get_issue_requests_for_vault(vault_id: T::AccountId) -> Vec<(H256, DefaultIssueRequest<T>)> {
         <IssueRequests<T>>::iter()
-            .filter(|(_, request)| request.vault == vault_id)
+            .filter(|(_, request)| request.vault.account_id == vault_id)
             .collect::<Vec<_>>()
     }
 

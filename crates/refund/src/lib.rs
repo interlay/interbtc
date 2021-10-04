@@ -298,9 +298,9 @@ impl<T: Config> Pallet<T> {
     /// # Arguments
     ///
     /// * `account_id` - vault account id
-    pub fn get_refund_requests_for_vault(vault_id: DefaultVaultId<T>) -> Vec<(H256, DefaultRefundRequest<T>)> {
+    pub fn get_refund_requests_for_vault(vault_id: T::AccountId) -> Vec<(H256, DefaultRefundRequest<T>)> {
         <RefundRequests<T>>::iter()
-            .filter(|(_, request)| request.vault == vault_id)
+            .filter(|(_, request)| request.vault.account_id == vault_id)
             .collect::<Vec<_>>()
     }
 

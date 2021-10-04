@@ -12,12 +12,13 @@ pub use self::gen_client::Client as IssueClient;
 pub use module_issue_rpc_runtime_api::IssueApi as IssueRuntimeApi;
 
 #[rpc]
-pub trait IssueApi<BlockHash, AccountId, VaultId, H256, IssueRequest> {
+pub trait IssueApi<BlockHash, AccountId, H256, IssueRequest> {
     #[rpc(name = "issue_getIssueRequests")]
     fn get_issue_requests(&self, account_id: AccountId, at: Option<BlockHash>) -> Result<Vec<(H256, IssueRequest)>>;
 
     #[rpc(name = "issue_getVaultIssueRequests")]
-    fn get_vault_issue_requests(&self, vault_id: VaultId, at: Option<BlockHash>) -> Result<Vec<(H256, IssueRequest)>>;
+    fn get_vault_issue_requests(&self, vault_id: AccountId, at: Option<BlockHash>)
+        -> Result<Vec<(H256, IssueRequest)>>;
 }
 
 /// A struct that implements the [`IssueApi`].
@@ -48,14 +49,13 @@ impl From<Error> for i64 {
     }
 }
 
-impl<C, Block, AccountId, VaultId, H256, IssueRequest>
-    IssueApi<<Block as BlockT>::Hash, AccountId, VaultId, H256, IssueRequest> for Issue<C, Block>
+impl<C, Block, AccountId, H256, IssueRequest> IssueApi<<Block as BlockT>::Hash, AccountId, H256, IssueRequest>
+    for Issue<C, Block>
 where
     Block: BlockT,
     C: Send + Sync + 'static + ProvideRuntimeApi<Block> + HeaderBackend<Block>,
-    C::Api: IssueRuntimeApi<Block, AccountId, VaultId, H256, IssueRequest>,
+    C::Api: IssueRuntimeApi<Block, AccountId, H256, IssueRequest>,
     AccountId: Codec,
-    VaultId: Codec,
     H256: Codec,
     IssueRequest: Codec,
 {
@@ -76,7 +76,7 @@ where
 
     fn get_vault_issue_requests(
         &self,
-        vault_id: VaultId,
+        vault_id: AccountId,
         at: Option<<Block as BlockT>::Hash>,
     ) -> Result<Vec<(H256, IssueRequest)>> {
         let api = self.client.runtime_api();
