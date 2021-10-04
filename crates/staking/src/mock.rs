@@ -63,7 +63,7 @@ impl frame_system::Config for Test {
 }
 
 parameter_types! {
-    pub const GetGovernanceTokenCurrency: CurrencyId = CurrencyId::KINT;
+    pub const GetNativeCurrencyId: CurrencyId = CurrencyId::KINT;
 }
 
 impl Config for Test {
@@ -71,7 +71,7 @@ impl Config for Test {
     type SignedInner = SignedInner;
     type SignedFixedPoint = SignedFixedPoint;
     type CurrencyId = CurrencyId;
-    type GetGovernanceTokenCurrency = GetGovernanceTokenCurrency;
+    type GetNativeCurrencyId = GetNativeCurrencyId;
 }
 
 pub type TestEvent = Event;

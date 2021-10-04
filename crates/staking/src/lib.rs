@@ -54,7 +54,7 @@ pub mod pallet {
             + Decode;
 
         #[pallet::constant]
-        type GetGovernanceTokenCurrency: Get<Self::CurrencyId>;
+        type GetNativeCurrencyId: Get<Self::CurrencyId>;
 
         /// The currency ID type.
         type CurrencyId: Parameter + Member + Copy + MaybeSerializeDeserialize + Ord;
@@ -328,7 +328,7 @@ impl<T: Config> Pallet<T> {
             Ok::<_, Error<T>>(())
         })?;
 
-        for currency_id in [vault_id.wrapped_currency(), T::GetGovernanceTokenCurrency::get()] {
+        for currency_id in [vault_id.wrapped_currency(), T::GetNativeCurrencyId::get()] {
             <RewardTally<T>>::mutate(currency_id, (nonce, vault_id, nominator_id), |reward_tally| {
                 let reward_per_token = Self::reward_per_token(currency_id, (nonce, vault_id));
                 let reward_per_token_mul_amount = reward_per_token
@@ -555,7 +555,7 @@ impl<T: Config> Pallet<T> {
             Ok::<_, Error<T>>(())
         })?;
 
-        for currency_id in [vault_id.wrapped_currency(), T::GetGovernanceTokenCurrency::get()] {
+        for currency_id in [vault_id.wrapped_currency(), T::GetNativeCurrencyId::get()] {
             <RewardTally<T>>::mutate(currency_id, (nonce, vault_id, nominator_id), |reward_tally| {
                 let reward_per_token = Self::reward_per_token(currency_id, (nonce, vault_id));
                 let reward_per_token_mul_amount = reward_per_token

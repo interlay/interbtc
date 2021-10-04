@@ -42,7 +42,7 @@ pub mod pallet {
         type SignedFixedPoint: FixedPointNumber + TruncateFixedPointToInt + Encode + EncodeLike + Decode;
 
         #[pallet::constant]
-        type GetGovernanceTokenCurrency: Get<Self::CurrencyId>;
+        type GetNativeCurrencyId: Get<Self::CurrencyId>;
 
         /// The currency ID type.
         type CurrencyId: Parameter + Member + Copy + MaybeSerializeDeserialize + Ord;
@@ -165,7 +165,7 @@ impl<T: Config> Pallet<T> {
     }
 
     pub fn deposit_stake(vault_id: &DefaultVaultId<T>, amount: SignedFixedPoint<T>) -> Result<(), DispatchError> {
-        for currency_id in [vault_id.wrapped_currency(), T::GetGovernanceTokenCurrency::get()] {
+        for currency_id in [vault_id.wrapped_currency(), T::GetNativeCurrencyId::get()] {
             checked_add_mut!(Stake<T>, currency_id, vault_id, &amount);
             checked_add_mut!(TotalStake<T>, currency_id, &amount);
 
@@ -225,7 +225,7 @@ impl<T: Config> Pallet<T> {
     }
 
     pub fn withdraw_stake(vault_id: &DefaultVaultId<T>, amount: SignedFixedPoint<T>) -> Result<(), DispatchError> {
-        for currency_id in [vault_id.wrapped_currency(), T::GetGovernanceTokenCurrency::get()] {
+        for currency_id in [vault_id.wrapped_currency(), T::GetNativeCurrencyId::get()] {
             if amount > Self::stake(currency_id, vault_id) {
                 return Err(Error::<T>::InsufficientFunds.into());
             }

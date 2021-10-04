@@ -64,14 +64,14 @@ pub const DOT: CurrencyId = CurrencyId::DOT;
 // pub const INTERBTC: CurrencyId = CurrencyId::INTERBTC;
 
 parameter_types! {
-    pub const GetGovernanceTokenCurrency: CurrencyId = CurrencyId::KINT;
+    pub const GetNativeCurrencyId: CurrencyId = CurrencyId::KINT;
 }
 
 impl Config for Test {
     type Event = TestEvent;
     type SignedFixedPoint = SignedFixedPoint;
     type CurrencyId = CurrencyId;
-    type GetGovernanceTokenCurrency = GetGovernanceTokenCurrency;
+    type GetNativeCurrencyId = GetNativeCurrencyId;
 }
 
 pub type TestEvent = Event;

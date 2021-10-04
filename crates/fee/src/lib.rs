@@ -122,7 +122,7 @@ pub mod pallet {
         type OnSweep: OnSweep<Self::AccountId, Amount<Self>>;
 
         #[pallet::constant]
-        type GetGovernanceTokenCurrency: Get<Self::CurrencyId>;
+        type GetNativeCurrencyId: Get<Self::CurrencyId>;
     }
 
     #[pallet::error]
@@ -430,7 +430,7 @@ impl<T: Config> Pallet<T> {
     ) -> DispatchResult {
         Self::distribute_from_reward_pool::<Rewards, Staking>(&vault_id)?;
 
-        for currency_id in [vault_id.wrapped_currency(), T::GetGovernanceTokenCurrency::get()] {
+        for currency_id in [vault_id.wrapped_currency(), T::GetNativeCurrencyId::get()] {
             let rewards = Staking::withdraw_reward(vault_id, nominator_id, index, currency_id)?
                 .try_into()
                 .map_err(|_| Error::<T>::TryIntoIntError)?;
@@ -457,7 +457,7 @@ impl<T: Config> Pallet<T> {
     >(
         vault_id: &DefaultVaultId<T>,
     ) -> DispatchResult {
-        for currency_id in [vault_id.wrapped_currency(), T::GetGovernanceTokenCurrency::get()] {
+        for currency_id in [vault_id.wrapped_currency(), T::GetNativeCurrencyId::get()] {
             let reward_as_inner = Rewards::withdraw_reward(vault_id, currency_id)?;
             let reward_as_fixed =
                 Rewards::SignedFixedPoint::checked_from_integer(reward_as_inner).ok_or(Error::<T>::TryIntoIntError)?;
