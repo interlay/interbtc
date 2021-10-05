@@ -1,5 +1,6 @@
 mod mock;
 
+use currency::Amount;
 use frame_support::traits::Currency;
 use mock::{assert_eq, *};
 
@@ -109,6 +110,54 @@ mod spec_based_tests {
                     // POSTCONDITION: vault.free_balance MUST increase by fee
                     *vault.free_balance.get_mut(&vault_id.wrapped_currency()).unwrap() += refund_fee;
                 })
+            );
+        });
+    }
+
+    #[test]
+    fn execute_refund_invalid_payment_should_fail() {
+        test_with(|currency_id| {
+            let user_btc_address = BtcAddress::P2PKH(H160([2; 20]));
+            let vault_id = vault_id_of(BOB, currency_id);
+
+            let raw_refund_amount = 100;
+            let refund_amount = wrapped(raw_refund_amount);
+            let refund_id = RefundPallet::request_refund(
+                &refund_amount,
+                vault_id,
+                account_of(ALICE),
+                user_btc_address,
+                Default::default(),
+            )
+            .unwrap()
+            .unwrap();
+
+            fn refund_invalid_amount(
+                user_btc_address: BtcAddress,
+                refund_id: H256,
+                invalid_refund_amount: Amount<Runtime>,
+            ) -> DispatchResultWithPostInfo {
+                let (_tx_id, _tx_block_height, merkle_proof, raw_tx) =
+                    generate_transaction_and_mine(user_btc_address, invalid_refund_amount, Some(refund_id));
+                SecurityPallet::set_active_block_number(SecurityPallet::active_block_number() + 1 + CONFIRMATIONS);
+
+                Call::Refund(RefundCall::execute_refund(
+                    refund_id,
+                    merkle_proof.clone(),
+                    raw_tx.clone(),
+                ))
+                .dispatch(origin_of(account_of(BOB)))
+            }
+            let underpayment_refund_amount = wrapped(raw_refund_amount - 1);
+            assert_err!(
+                refund_invalid_amount(user_btc_address, refund_id, underpayment_refund_amount),
+                BTCRelayError::InvalidPaymentAmount
+            );
+
+            let overpayment_refund_amount = wrapped(raw_refund_amount + 1);
+            assert_err!(
+                refund_invalid_amount(user_btc_address, refund_id, overpayment_refund_amount),
+                BTCRelayError::InvalidPaymentAmount
             );
         });
     }
