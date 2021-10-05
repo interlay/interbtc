@@ -357,10 +357,10 @@ parameter_types! {
     pub const LaunchPeriod: BlockNumber = 2 * DAYS;
     pub const VotingPeriod: BlockNumber = 2 * DAYS;
     pub const FastTrackVotingPeriod: BlockNumber = 3 * HOURS;
-    pub MinimumDeposit: Balance = 1000; // TODO: adjust
+    pub MinimumDeposit: Balance = 100 * CENTS;
     pub const EnactmentPeriod: BlockNumber = DAYS;
     pub const CooloffPeriod: BlockNumber = 7 * DAYS;
-    pub PreimageByteDeposit: Balance = 10;
+    pub PreimageByteDeposit: Balance = 10 * MILLICENTS;
     pub const InstantAllowed: bool = true;
     pub const MaxVotes: u32 = 100;
     pub const MaxProposals: u32 = 100;
@@ -433,6 +433,7 @@ impl pallet_treasury::Config for Runtime {
     type MaxApprovals = MaxApprovals;
 }
 
+// https://github.com/paritytech/polkadot/blob/c4ee9d463adccfa3bf436433e3e26d0de5a4abbc/runtime/kusama/src/constants.rs#L18
 pub const UNITS: Balance = 1_000_000_000_000;
 pub const CENTS: Balance = UNITS / 30_000;
 pub const GRAND: Balance = CENTS * 100_000;
@@ -956,6 +957,7 @@ construct_runtime! {
         Scheduler: pallet_scheduler::{Pallet, Call, Storage, Event<T>},
 
         // Tokens & Balances
+        Currency: currency::{Pallet},
         Tokens: orml_tokens::{Pallet, Call, Storage, Config<T>, Event<T>},
         Rewards: reward::{Pallet, Call, Storage, Event<T>},
         Staking: staking::{Pallet, Storage, Event<T>},
@@ -975,7 +977,6 @@ construct_runtime! {
         Fee: fee::{Pallet, Call, Config<T>, Storage},
         Refund: refund::{Pallet, Call, Config<T>, Storage, Event<T>},
         Nomination: nomination::{Pallet, Call, Config, Storage, Event<T>},
-        Currency: currency::{Pallet},
 
         // Governance
         Democracy: pallet_democracy::{Pallet, Call, Storage, Config<T>, Event<T>},
