@@ -288,6 +288,8 @@ pub mod pallet {
         EndOfFile,
         /// Format of the header is invalid
         MalformedHeader,
+        /// Invalid block header version
+        InvalidBlockVersion,
         /// Format of the BIP141 witness transaction output is invalid
         MalformedWitnessOutput,
         // Format of the P2PKH transaction output is invalid
@@ -1387,6 +1389,7 @@ impl<T: Config> From<BitcoinError> for Error<T> {
             BitcoinError::InvalidMerkleProof => Self::InvalidMerkleProof,
             BitcoinError::EndOfFile => Self::EndOfFile,
             BitcoinError::MalformedHeader => Self::MalformedHeader,
+            BitcoinError::InvalidBlockVersion => Self::InvalidBlockVersion,
             BitcoinError::MalformedTransaction => Self::MalformedTransaction,
             BitcoinError::UnsupportedInputFormat => Self::UnsupportedInputFormat,
             BitcoinError::MalformedWitnessOutput => Self::MalformedWitnessOutput,
