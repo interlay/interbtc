@@ -47,6 +47,7 @@ pub use sp_runtime::{Perbill, Permill};
 pub use btc_relay::{bitcoin, Call as RelayCall, TARGET_SPACING};
 pub use module_oracle_rpc_runtime_api::BalanceWrapper;
 pub use security::StatusCode;
+use vault_registry::Vault;
 
 use currency::Amount;
 pub use primitives::{
@@ -709,10 +710,16 @@ impl_runtime_apis! {
         Balance,
         UnsignedFixedPoint,
         CurrencyId,
+        AccountId,
+        Vault<AccountId, BlockNumber, Balance, CurrencyId>,
     > for Runtime {
         fn get_vault_collateral(vault_id: VaultId) -> Result<BalanceWrapper<Balance>, DispatchError> {
             let result = VaultRegistry::compute_collateral(&vault_id)?;
             Ok(BalanceWrapper{amount:result.amount()})
+        }
+
+        fn get_vaults_by_account_id(account_id: AccountId) -> Result<Vec<Vault<AccountId, BlockNumber, Balance, CurrencyId>>, DispatchError> {
+            VaultRegistry::get_vaults_by_account_id(account_id)
         }
 
         fn get_vault_total_collateral(vault_id: VaultId) -> Result<BalanceWrapper<Balance>, DispatchError> {

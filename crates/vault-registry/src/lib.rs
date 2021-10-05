@@ -1472,6 +1472,15 @@ impl<T: Config> Pallet<T> {
 
     /// RPC
 
+    /// get all vaults the are registered using the given account id. Note that one account id might be
+    /// used in multiple vault ids.
+    pub fn get_vaults_by_account_id(account_id: T::AccountId) -> Result<Vec<DefaultVault<T>>, DispatchError> {
+        let vaults = Vaults::<T>::iter()
+            .filter(|(vault_id, _)| vault_id.account_id == account_id)
+            .map(|(_, vault)| vault)
+            .collect();
+        Ok(vaults)
+    }
     /// Get all vaults that:
     /// - are below the premium redeem threshold, and
     /// - have a non-zero amount of redeemable tokens, and thus
