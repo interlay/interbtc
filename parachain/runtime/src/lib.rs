@@ -684,13 +684,12 @@ mod currency_id_convert {
 
     pub struct CurrencyIdConvert;
 
-    const RELAY_CHAIN_CURRENCY_ID: CurrencyId = CurrencyId::DOT;
-
     impl Convert<CurrencyId, Option<MultiLocation>> for CurrencyIdConvert {
         fn convert(id: CurrencyId) -> Option<MultiLocation> {
             match id {
                 RELAY_CHAIN_CURRENCY_ID => Some(MultiLocation::parent()),
-                CurrencyId::INTERBTC => Some(native_currency_location(id)),
+                WRAPPED_CURRENCY_ID => Some(native_currency_location(id)),
+                NATIVE_CURRENCY_ID => Some(native_currency_location(id)),
                 _ => None,
             }
         }
@@ -708,7 +707,8 @@ mod currency_id_convert {
                     if let Ok(currency_id) = CurrencyId::decode(&mut &key[..]) {
                         // check `currency_id` is cross-chain asset
                         match currency_id {
-                            CurrencyId::INTERBTC => Some(currency_id),
+                            WRAPPED_CURRENCY_ID => Some(currency_id),
+                            NATIVE_CURRENCY_ID => Some(currency_id),
                             _ => None,
                         }
                     } else {
@@ -777,10 +777,14 @@ impl btc_relay::Config for Runtime {
     type ParachainBlocksPerBitcoinBlock = ParachainBlocksPerBitcoinBlock;
 }
 
+const RELAY_CHAIN_CURRENCY_ID: CurrencyId = KSM;
+const WRAPPED_CURRENCY_ID: CurrencyId = KBTC;
+const NATIVE_CURRENCY_ID: CurrencyId = KINT;
+
 parameter_types! {
-    pub const GetCollateralCurrencyId: CurrencyId = KSM;
-    pub const GetWrappedCurrencyId: CurrencyId = KBTC;
-    pub const GetNativeCurrencyId: CurrencyId = KINT;
+    pub const GetCollateralCurrencyId: CurrencyId = RELAY_CHAIN_CURRENCY_ID;
+    pub const GetWrappedCurrencyId: CurrencyId = WRAPPED_CURRENCY_ID;
+    pub const GetNativeCurrencyId: CurrencyId = NATIVE_CURRENCY_ID;
     pub const MaxLocks: u32 = 50;
 }
 
