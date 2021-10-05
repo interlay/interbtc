@@ -4,6 +4,7 @@ pub enum Error {
     InvalidMerkleProof,
     EndOfFile,
     MalformedHeader,
+    InvalidBlockVersion,
     MalformedTransaction,
     UnsupportedInputFormat,
     MalformedWitnessOutput,
