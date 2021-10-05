@@ -16,14 +16,19 @@ use sp_runtime::{
 use std::sync::Arc;
 
 #[rpc]
-pub trait VaultRegistryApi<BlockHash, VaultId, Balance, UnsignedFixedPoint, CurrencyId>
+pub trait VaultRegistryApi<BlockHash, VaultId, Balance, UnsignedFixedPoint, CurrencyId, AccountId, Vault>
 where
     Balance: Codec + MaybeDisplay + MaybeFromStr,
     UnsignedFixedPoint: Codec + MaybeDisplay + MaybeFromStr,
     CurrencyId: Codec,
+    AccountId: Codec,
+    Vault: Codec,
 {
     #[rpc(name = "vaultRegistry_getVaultCollateral")]
     fn get_vault_collateral(&self, vault_id: VaultId, at: Option<BlockHash>) -> JsonRpcResult<BalanceWrapper<Balance>>;
+
+    #[rpc(name = "vaultRegistry_getVaultsByAccountId")]
+    fn get_vaults_by_account_id(&self, account_id: AccountId, at: Option<BlockHash>) -> JsonRpcResult<Vec<Vault>>;
 
     #[rpc(name = "vaultRegistry_getVaultTotalCollateral")]
     fn get_vault_total_collateral(
@@ -140,17 +145,19 @@ fn handle_response<T, E: std::fmt::Debug>(
     )
 }
 
-impl<C, Block, VaultId, Balance, UnsignedFixedPoint, CurrencyId>
-    VaultRegistryApi<<Block as BlockT>::Hash, VaultId, Balance, UnsignedFixedPoint, CurrencyId>
+impl<C, Block, VaultId, Balance, UnsignedFixedPoint, CurrencyId, AccountId, Vault>
+    VaultRegistryApi<<Block as BlockT>::Hash, VaultId, Balance, UnsignedFixedPoint, CurrencyId, AccountId, Vault>
     for VaultRegistry<C, Block>
 where
     Block: BlockT,
     C: Send + Sync + 'static + ProvideRuntimeApi<Block> + HeaderBackend<Block>,
-    C::Api: VaultRegistryRuntimeApi<Block, VaultId, Balance, UnsignedFixedPoint, CurrencyId>,
+    C::Api: VaultRegistryRuntimeApi<Block, VaultId, Balance, UnsignedFixedPoint, CurrencyId, AccountId, Vault>,
     VaultId: Codec,
     Balance: Codec + MaybeDisplay + MaybeFromStr,
     UnsignedFixedPoint: Codec + MaybeDisplay + MaybeFromStr,
     CurrencyId: Codec,
+    AccountId: Codec,
+    Vault: Codec,
 {
     fn get_vault_collateral(
         &self,
@@ -163,6 +170,20 @@ where
         handle_response(
             api.get_vault_collateral(&at, vault_id),
             "Unable to get the vault's collateral.".into(),
+        )
+    }
+
+    fn get_vaults_by_account_id(
+        &self,
+        account_id: AccountId,
+        at: Option<<Block as BlockT>::Hash>,
+    ) -> JsonRpcResult<Vec<Vault>> {
+        let api = self.client.runtime_api();
+        let at = BlockId::hash(at.unwrap_or_else(|| self.client.info().best_hash));
+
+        handle_response(
+            api.get_vaults_by_account_id(&at, account_id),
+            "Unable to get vault ids".into(),
         )
     }
 
