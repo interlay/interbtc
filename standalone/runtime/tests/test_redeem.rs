@@ -242,7 +242,7 @@ mod spec_based_tests {
         fn integration_test_redeem_cannot_request_from_liquidated_vault() {
             // PRECONDITION: The selected vault MUST NOT be liquidated.
             test_with(|vault_id| {
-                liquidate_vault(&vault_id.clone());
+                liquidate_vault(&vault_id);
                 assert_noop!(
                     Call::Redeem(RedeemCall::request_redeem(
                         1500,
@@ -305,7 +305,7 @@ mod spec_based_tests {
                 let burned_tokens = user_to_redeem - redeem_fee;
 
                 CoreVaultData::force_to(
-                    &vault_id.clone(),
+                    &vault_id,
                     CoreVaultData {
                         backing_collateral: default_vault_backing_collateral(currency_id),
                         ..CoreVaultData::vault(vault_id.clone())
@@ -357,7 +357,7 @@ mod spec_based_tests {
                 set_redeem_state(vault_to_be_redeemed, user_to_redeem, USER, &vault_id);
                 let core_vault = CoreVaultData::vault(vault_id.clone());
                 CoreVaultData::force_to(
-                    &vault_id.clone(),
+                    &vault_id,
                     CoreVaultData {
                         issued: core_vault.issued.with_amount(|x| x - 1),
                         ..core_vault
@@ -418,7 +418,7 @@ mod spec_based_tests {
             test_with(|vault_id| {
                 let free_tokens_to_redeem = vault_id.wrapped(1500);
                 set_redeem_state(vault_id.wrapped(0), free_tokens_to_redeem, USER, &vault_id);
-                liquidate_vault(&vault_id.clone());
+                liquidate_vault(&vault_id);
                 assert_noop!(
                     Call::Redeem(RedeemCall::liquidation_redeem(
                         vault_id.currencies.clone(),
@@ -763,7 +763,7 @@ mod spec_based_tests {
                 );
                 check_redeem_status(USER, RedeemRequestStatus::Reimbursed(true));
                 assert_noop!(
-                    VaultRegistryPallet::_ensure_not_banned(&vault_id.clone()),
+                    VaultRegistryPallet::_ensure_not_banned(&vault_id),
                     VaultRegistryError::VaultBanned
                 );
             });
@@ -892,7 +892,7 @@ mod spec_based_tests {
                     })
                 );
                 assert_noop!(
-                    VaultRegistryPallet::_ensure_not_banned(&vault_id.clone()),
+                    VaultRegistryPallet::_ensure_not_banned(&vault_id),
                     VaultRegistryError::VaultBanned
                 );
             });
@@ -926,7 +926,7 @@ mod spec_based_tests {
                     },
                 );
 
-                liquidate_vault(&vault_id.clone());
+                liquidate_vault(&vault_id);
 
                 let post_liquidation_state = ParachainState::get(&vault_id);
 
@@ -991,7 +991,7 @@ mod spec_based_tests {
                     },
                 );
 
-                liquidate_vault(&vault_id.clone());
+                liquidate_vault(&vault_id);
 
                 let post_liquidation_state = ParachainState::get(&vault_id);
 
@@ -1229,6 +1229,27 @@ fn integration_test_redeem_execute_succeeds() {
             })
         );
     });
+}
+
+#[test]
+fn integration_test_execute_redeem_on_banned_vault_succeeds() {
+    test_with(|vault_id| {
+        let amount_btc = vault_id.wrapped(10000);
+        let redeem_id_1 = setup_cancelable_redeem(USER, &vault_id, amount_btc);
+        let redeem_id_2 = setup_redeem(amount_btc, USER, &vault_id);
+
+        // cancel first
+        assert_ok!(Call::Redeem(RedeemCall::cancel_redeem(redeem_id_1, true)).dispatch(origin_of(account_of(USER))));
+
+        // should now be banned
+        assert_noop!(
+            VaultRegistryPallet::_ensure_not_banned(&vault_id),
+            VaultRegistryError::VaultBanned
+        );
+
+        // should still be able to execute despite being banned
+        assert_ok!(ExecuteRedeemBuilder::new(redeem_id_2).execute());
+    })
 }
 
 #[test]
@@ -1518,7 +1539,7 @@ fn integration_test_redeem_wrapped_cancel_liquidated_no_reimburse() {
             },
         );
 
-        liquidate_vault(&vault_id.clone());
+        liquidate_vault(&vault_id);
 
         let post_liquidation_state = ParachainState::get(&vault_id);
 
@@ -1576,7 +1597,7 @@ fn integration_test_redeem_wrapped_cancel_liquidated_reimburse() {
             },
         );
 
-        liquidate_vault(&vault_id.clone());
+        liquidate_vault(&vault_id);
 
         let post_liquidation_state = ParachainState::get(&vault_id);
 
@@ -1636,7 +1657,7 @@ fn integration_test_redeem_wrapped_execute_liquidated() {
             },
         );
 
-        liquidate_vault(&vault_id.clone());
+        liquidate_vault(&vault_id);
 
         let post_liquidation_state = ParachainState::get(&vault_id);
 
