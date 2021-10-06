@@ -3575,6 +3575,7 @@ dependencies = [
  "sp-version",
  "staking",
  "substrate-wasm-builder",
+ "supply",
  "vault-registry",
  "xcm",
  "xcm-builder",
@@ -11249,6 +11250,27 @@ name = "subtle"
 version = "2.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6bdef32e8150c2a081110b42772ffe7d7c9032b606bc226c8260fd97e0976601"
+
+[[package]]
+name = "supply"
+version = "1.0.0"
+dependencies = [
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "impl-trait-for-tuples",
+ "interbtc-primitives",
+ "mocktopus",
+ "pallet-balances",
+ "parity-scale-codec",
+ "rand 0.8.4",
+ "serde",
+ "sp-arithmetic",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-std",
+]
 
 [[package]]
 name = "syn"
