@@ -6,7 +6,6 @@ pub const USER: [u8; 32] = ALICE;
 pub const VAULT: [u8; 32] = BOB;
 pub const PROOF_SUBMITTER: [u8; 32] = CAROL;
 
-pub const DEFAULT_GRIEFING_COLLATERAL: Amount<Runtime> = griefing(5_000);
 pub const DEFAULT_COLLATERAL: u128 = 1_000_000;
 pub fn request_issue(
     vault_id: &VaultId,

@@ -1,7 +1,7 @@
 mod mock;
 
 use currency::Amount;
-use mock::{assert_eq, *};
+use mock::{assert_eq, replace_testing_utils::*, *};
 
 use sp_core::H256;
 use vault_registry::DefaultVaultId;

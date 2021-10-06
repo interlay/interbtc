@@ -2,7 +2,7 @@ mod mock;
 
 use crate::redeem_testing_utils::{setup_redeem, USER};
 use currency::Amount;
-use mock::{assert_eq, *};
+use mock::{assert_eq, replace_testing_utils::*, *};
 use primitives::VaultCurrencyPair;
 use sp_core::H256;
 
@@ -133,7 +133,7 @@ fn integration_test_report_vault_theft() {
 }
 
 #[test]
-fn integration_test_double_spend_redeem_op_return() {
+fn integration_test_double_spend_redeem() {
     test_with(|_currency_id| {
         let issued_tokens = wrapped(10_000);
         // Register vault with hardcoded public key so it counts as theft
@@ -197,7 +197,7 @@ fn integration_test_double_spend_redeem_op_return() {
 }
 
 #[test]
-fn integration_test_double_spend_refund_op_return() {
+fn integration_test_double_spend_refund() {
     test_with(|_currency_id| {
         let issued_tokens = wrapped(10_000);
         let stealing_vault = DAVE;
@@ -269,7 +269,7 @@ fn integration_test_double_spend_refund_op_return() {
 }
 
 #[test]
-fn integration_test_double_spend_replace_op_return() {
+fn integration_test_double_spend_replace() {
     test_with(|_currency_id| {
         let issued_tokens = wrapped(1000);
         let stealing_vault = BOB;
