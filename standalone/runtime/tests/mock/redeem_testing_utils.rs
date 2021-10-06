@@ -95,7 +95,7 @@ pub fn set_redeem_state(
         },
     );
     let mut user_state = UserData::get(user);
-    (*user_state.balances.get_mut(&INTERBTC).unwrap()).free = user_to_redeem;
+    (*user_state.balances.get_mut(&KBTC).unwrap()).free = user_to_redeem;
 
     UserData::force_to(ALICE, user_state);
 }

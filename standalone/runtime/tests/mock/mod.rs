@@ -13,8 +13,7 @@ pub use currency::ParachainCurrency;
 use frame_support::traits::GenesisBuild;
 pub use frame_support::{assert_err, assert_noop, assert_ok, dispatch::DispatchResultWithPostInfo};
 pub use interbtc_runtime_standalone::{
-    AccountId, BlockNumber, Call, CurrencyId, Event, GetCollateralCurrencyId, GetWrappedCurrencyId, Runtime, DOT,
-    INTERBTC,
+    AccountId, BlockNumber, Call, CurrencyId, Event, GetCollateralCurrencyId, GetWrappedCurrencyId, Runtime, KBTC, KSM,
 };
 pub use mocktopus::mocking::*;
 pub use orml_tokens::CurrencyAdapter;
@@ -144,11 +143,11 @@ pub type NominationEvent = nomination::Event<Runtime>;
 pub type NominationPallet = nomination::Pallet<Runtime>;
 
 pub const DEFAULT_TESTING_CURRENCY: <Runtime as orml_tokens::Config>::CurrencyId =
-    <Runtime as orml_tokens::Config>::CurrencyId::DOT;
+    <Runtime as orml_tokens::Config>::CurrencyId::KSM;
 pub const GRIEFING_CURRENCY: <Runtime as orml_tokens::Config>::CurrencyId =
-    <Runtime as orml_tokens::Config>::CurrencyId::DOT;
+    <Runtime as orml_tokens::Config>::CurrencyId::KSM;
 pub const WRAPPED_CURRENCY: <Runtime as orml_tokens::Config>::CurrencyId =
-    <Runtime as orml_tokens::Config>::CurrencyId::INTERBTC;
+    <Runtime as orml_tokens::Config>::CurrencyId::KBTC;
 
 pub fn default_user_state() -> UserData {
     let mut balances = BTreeMap::new();
@@ -162,7 +161,7 @@ pub fn default_user_state() -> UserData {
         );
     }
     balances.insert(
-        CurrencyId::INTERBTC,
+        CurrencyId::KBTC,
         Balance {
             free: DEFAULT_USER_FREE_TOKENS,
             locked: DEFAULT_USER_LOCKED_TOKENS,
@@ -263,7 +262,7 @@ pub fn iter_collateral_currencies() -> impl Iterator<Item = CurrencyId> {
 }
 
 pub fn iter_all_currencies() -> impl Iterator<Item = CurrencyId> {
-    iter_collateral_currencies().chain(vec![CurrencyId::INTERBTC].into_iter())
+    iter_collateral_currencies().chain(vec![CurrencyId::KBTC].into_iter())
 }
 
 impl UserData {
@@ -322,7 +321,7 @@ pub struct FeePool {
 impl Default for FeePool {
     fn default() -> Self {
         Self {
-            vault_rewards: Amount::zero(INTERBTC),
+            vault_rewards: Amount::zero(KBTC),
         }
     }
 }
@@ -345,11 +344,8 @@ impl FeePool {
     pub fn get() -> Self {
         Self {
             vault_rewards: Amount::new(
-                VaultRewardsPallet::get_total_rewards(INTERBTC)
-                    .unwrap()
-                    .try_into()
-                    .unwrap(),
-                INTERBTC,
+                VaultRewardsPallet::get_total_rewards(KBTC).unwrap().try_into().unwrap(),
+                KBTC,
             ),
         }
     }
@@ -391,9 +387,9 @@ impl CoreVaultData {
         let account_id = account_of(vault);
         let vault = VaultRegistryPallet::get_vault_from_id(&account_id).unwrap();
         Self {
-            to_be_issued: Amount::new(vault.to_be_issued_tokens, INTERBTC),
-            issued: Amount::new(vault.issued_tokens, INTERBTC),
-            to_be_redeemed: Amount::new(vault.to_be_redeemed_tokens, INTERBTC),
+            to_be_issued: Amount::new(vault.to_be_issued_tokens, KBTC),
+            issued: Amount::new(vault.issued_tokens, KBTC),
+            to_be_redeemed: Amount::new(vault.to_be_redeemed_tokens, KBTC),
             backing_collateral: CurrencySource::<Runtime>::Collateral(account_id.clone())
                 .current_balance(vault.currency_id)
                 .unwrap(),
@@ -411,7 +407,7 @@ impl CoreVaultData {
                     )
                 })
                 .collect(),
-            to_be_replaced: Amount::new(vault.to_be_replaced_tokens, INTERBTC),
+            to_be_replaced: Amount::new(vault.to_be_replaced_tokens, KBTC),
             replace_collateral: Amount::new(
                 vault.replace_collateral,
                 <Runtime as vault_registry::Config>::GetGriefingCollateralCurrencyId::get(),
@@ -592,9 +588,9 @@ impl LiquidationVaultData {
             .map(|currency_id| {
                 let vault = VaultRegistryPallet::get_liquidation_vault(currency_id);
                 let data = SingleLiquidationVault {
-                    to_be_issued: Amount::new(vault.to_be_issued_tokens, INTERBTC),
-                    issued: Amount::new(vault.issued_tokens, INTERBTC),
-                    to_be_redeemed: Amount::new(vault.to_be_redeemed_tokens, INTERBTC),
+                    to_be_issued: Amount::new(vault.to_be_issued_tokens, KBTC),
+                    issued: Amount::new(vault.issued_tokens, KBTC),
+                    to_be_redeemed: Amount::new(vault.to_be_redeemed_tokens, KBTC),
                     collateral: CurrencySource::<Runtime>::LiquidationVault
                         .current_balance(currency_id)
                         .unwrap(),
@@ -1045,7 +1041,7 @@ impl ExtBuilder {
                 ]
                 .into_iter()
             })
-            .chain(vec![(account_of(FAUCET), CurrencyId::INTERBTC, 1 << 60)].into_iter())
+            .chain(vec![(account_of(FAUCET), CurrencyId::KBTC, 1 << 60)].into_iter())
             .collect();
 
         orml_tokens::GenesisConfig::<Runtime> { balances }
@@ -1136,7 +1132,7 @@ impl ExtBuilder {
 
             assert_ok!(Call::Oracle(OracleCall::insert_authorized_oracle(account_of(ALICE), vec![])).dispatch(root()));
             assert_ok!(Call::Oracle(OracleCall::feed_values(vec![
-                (OracleKey::ExchangeRate(CurrencyId::DOT), FixedU128::from(1)),
+                (OracleKey::ExchangeRate(CurrencyId::KSM), FixedU128::from(1)),
                 (OracleKey::FeeEstimation, FixedU128::from(3)),
             ]))
             .dispatch(origin_of(account_of(ALICE))));
@@ -1164,9 +1160,9 @@ impl ExtBuilder {
 }
 
 pub const fn wrapped(amount: u128) -> Amount<Runtime> {
-    Amount::new(amount, INTERBTC)
+    Amount::new(amount, KBTC)
 }
 
 pub const fn griefing(amount: u128) -> Amount<Runtime> {
-    Amount::new(amount, DOT)
+    Amount::new(amount, KSM)
 }

@@ -183,9 +183,9 @@ mod spec_based_tests {
                     ParachainState::get(),
                     ParachainState::get_default(currency_id).with_changes(|user, vault, _, _| {
                         vault.to_be_redeemed += redeem.amount_btc() + redeem.transfer_fee_btc();
-                        (*user.balances.get_mut(&INTERBTC).unwrap()).free -=
+                        (*user.balances.get_mut(&KBTC).unwrap()).free -=
                             redeem.amount_btc() + redeem.transfer_fee_btc() + redeem.fee();
-                        (*user.balances.get_mut(&INTERBTC).unwrap()).locked +=
+                        (*user.balances.get_mut(&KBTC).unwrap()).locked +=
                             redeem.amount_btc() + redeem.transfer_fee_btc() + redeem.fee();
                         consume_to_be_replaced(vault, redeem.amount_btc());
                     })
@@ -234,7 +234,7 @@ mod spec_based_tests {
             test_with(|_currency_id| {
                 let free_tokens_to_redeem = wrapped(1500);
                 let mut good_state = default_user_state();
-                (*good_state.balances.get_mut(&INTERBTC).unwrap()).free = free_tokens_to_redeem;
+                (*good_state.balances.get_mut(&KBTC).unwrap()).free = free_tokens_to_redeem;
                 UserData::force_to(ALICE, good_state);
                 assert_ok!(Call::Redeem(RedeemCall::request_redeem(
                     free_tokens_to_redeem.amount(),
@@ -244,7 +244,7 @@ mod spec_based_tests {
                 .dispatch(origin_of(account_of(ALICE))));
 
                 let mut bad_state = default_user_state();
-                (*bad_state.balances.get_mut(&INTERBTC).unwrap()).free = free_tokens_to_redeem.with_amount(|x| x - 1);
+                (*bad_state.balances.get_mut(&KBTC).unwrap()).free = free_tokens_to_redeem.with_amount(|x| x - 1);
 
                 UserData::force_to(ALICE, bad_state);
                 assert_noop!(
@@ -289,8 +289,8 @@ mod spec_based_tests {
                 assert_eq!(
                     ParachainState::get(),
                     parachain_state_before_request.with_changes(|user, vault, _liquidation_vault, _fee_pool| {
-                        (*user.balances.get_mut(&INTERBTC).unwrap()).locked += user_to_redeem;
-                        (*user.balances.get_mut(&INTERBTC).unwrap()).free -= user_to_redeem;
+                        (*user.balances.get_mut(&KBTC).unwrap()).locked += user_to_redeem;
+                        (*user.balances.get_mut(&KBTC).unwrap()).free -= user_to_redeem;
                         vault.to_be_redeemed += burned_tokens;
                     })
                 );
@@ -523,7 +523,7 @@ mod spec_based_tests {
                         vault.issued -= redeem.amount_btc() + redeem.transfer_fee_btc();
                         vault.to_be_redeemed -= redeem.amount_btc() + redeem.transfer_fee_btc();
 
-                        (*user.balances.get_mut(&INTERBTC).unwrap()).locked -=
+                        (*user.balances.get_mut(&KBTC).unwrap()).locked -=
                             redeem.amount_btc() + redeem.transfer_fee_btc() + redeem.fee();
 
                         fee_pool.vault_rewards += redeem.fee();
@@ -714,13 +714,12 @@ mod spec_based_tests {
                     parachain_state_before_cancellation.with_changes(|user, vault, _, fee_pool| {
                         // vault gets slashed for 110% to user
                         vault.backing_collateral -= amount_without_fee_collateral + punishment_fee;
-                        *vault.free_balance.get_mut(&INTERBTC).unwrap() +=
-                            redeem.amount_btc() + redeem.transfer_fee_btc();
+                        *vault.free_balance.get_mut(&KBTC).unwrap() += redeem.amount_btc() + redeem.transfer_fee_btc();
                         vault.to_be_redeemed -= redeem.amount_btc() + redeem.transfer_fee_btc();
 
                         (*user.balances.get_mut(&currency_id).unwrap()).free +=
                             amount_without_fee_collateral + punishment_fee;
-                        (*user.balances.get_mut(&INTERBTC).unwrap()).locked -= amount_btc;
+                        (*user.balances.get_mut(&KBTC).unwrap()).locked -= amount_btc;
 
                         fee_pool.vault_rewards += redeem.fee();
                     })
@@ -792,7 +791,7 @@ mod spec_based_tests {
 
                         (*user.balances.get_mut(&currency_id).unwrap()).free +=
                             amount_without_fee_as_collateral + punishment_fee;
-                        (*user.balances.get_mut(&INTERBTC).unwrap()).locked -= amount_btc;
+                        (*user.balances.get_mut(&KBTC).unwrap()).locked -= amount_btc;
 
                         fee_pool.vault_rewards += redeem.fee();
                     })
@@ -843,10 +842,10 @@ mod spec_based_tests {
                     ParachainState::get(),
                     parachain_state_before_cancellation.with_changes(|user, vault, _, _| {
                         // vault is slashed a punishment fee of 10%
-                        (*user.balances.get_mut(&INTERBTC).unwrap()).locked -=
+                        (*user.balances.get_mut(&KBTC).unwrap()).locked -=
                             redeem.amount_btc() + redeem.transfer_fee_btc() + redeem.fee();
                         (*user.balances.get_mut(&currency_id).unwrap()).free += punishment_fee;
-                        (*user.balances.get_mut(&INTERBTC).unwrap()).free +=
+                        (*user.balances.get_mut(&KBTC).unwrap()).free +=
                             redeem.amount_btc() + redeem.transfer_fee_btc() + redeem.fee();
 
                         vault.backing_collateral -= punishment_fee;
@@ -912,9 +911,9 @@ mod spec_based_tests {
                         liquidation_vault.collateral += collateral_for_this_redeem;
 
                         // user's tokens get unlocked
-                        (*user.balances.get_mut(&INTERBTC).unwrap()).locked -=
+                        (*user.balances.get_mut(&KBTC).unwrap()).locked -=
                             redeem.amount_btc() + redeem.fee() + redeem.transfer_fee_btc();
-                        (*user.balances.get_mut(&INTERBTC).unwrap()).free +=
+                        (*user.balances.get_mut(&KBTC).unwrap()).free +=
                             redeem.amount_btc() + redeem.fee() + redeem.transfer_fee_btc();
 
                         // Note that no punishment is taken from vault, because it's already liquidated
@@ -976,11 +975,10 @@ mod spec_based_tests {
                         let collateral_for_this_redeem = collateral_vault / 4;
                         vault.liquidated_collateral -= collateral_for_this_redeem;
 
-                        *vault.free_balance.get_mut(&INTERBTC).unwrap() +=
-                            redeem.amount_btc() + redeem.transfer_fee_btc();
+                        *vault.free_balance.get_mut(&KBTC).unwrap() += redeem.amount_btc() + redeem.transfer_fee_btc();
 
                         // user's tokens get unlocked
-                        (*user.balances.get_mut(&INTERBTC).unwrap()).locked -=
+                        (*user.balances.get_mut(&KBTC).unwrap()).locked -=
                             redeem.amount_btc() + redeem.fee() + redeem.transfer_fee_btc();
                         (*user.balances.get_mut(&currency_id).unwrap()).free += collateral_for_this_redeem;
 
@@ -1159,7 +1157,7 @@ fn integration_test_redeem_execute_succeeds() {
             ParachainState::get(),
             ParachainState::get_default(currency_id).with_changes(|user, vault, _, fee_pool| {
                 vault.issued -= redeem.amount_btc() + redeem.transfer_fee_btc();
-                (*user.balances.get_mut(&INTERBTC).unwrap()).free -= issued_tokens;
+                (*user.balances.get_mut(&KBTC).unwrap()).free -= issued_tokens;
                 fee_pool.vault_rewards += redeem.fee();
                 consume_to_be_replaced(vault, redeem.amount_btc() + redeem.transfer_fee_btc());
             })
@@ -1205,12 +1203,12 @@ fn integration_test_premium_redeem_wrapped_execute() {
             ParachainState::get(),
             ParachainState::get_default(currency_id).with_changes(|user, vault, _, fee_pool| {
                 // fee moves from user to fee_pool
-                (*user.balances.get_mut(&INTERBTC).unwrap()).free -= redeem.fee();
+                (*user.balances.get_mut(&KBTC).unwrap()).free -= redeem.fee();
                 fee_pool.vault_rewards += redeem.fee();
                 // amount_btc is burned from user and decreased on vault
                 let burned_amount = redeem.amount_btc() + redeem.transfer_fee_btc();
                 vault.issued -= burned_amount;
-                (*user.balances.get_mut(&INTERBTC).unwrap()).free -= burned_amount;
+                (*user.balances.get_mut(&KBTC).unwrap()).free -= burned_amount;
                 // premium is moved from vault to user
                 vault.backing_collateral -= redeem.premium().unwrap();
                 (*user.balances.get_mut(&currency_id).unwrap()).free += redeem.premium().unwrap();
@@ -1268,7 +1266,7 @@ fn integration_test_redeem_wrapped_liquidation_redeem() {
                         / (liquidation_vault.issued + liquidation_vault.to_be_issued).amount()
                 });
 
-                (*user.balances.get_mut(&INTERBTC).unwrap()).free -= liquidation_redeem_amount;
+                (*user.balances.get_mut(&KBTC).unwrap()).free -= liquidation_redeem_amount;
                 (*user.balances.get_mut(&currency_id).unwrap()).free += reward;
 
                 liquidation_vault.issued -= liquidation_redeem_amount;
@@ -1298,10 +1296,10 @@ fn integration_test_redeem_wrapped_cancel_reimburse_sufficient_collateral_for_wr
             ParachainState::get_default(currency_id).with_changes(|user, vault, _, fee_pool| {
                 // vault gets slashed for 110% to user
                 vault.backing_collateral -= amount_without_fee_collateral + punishment_fee;
-                *vault.free_balance.get_mut(&INTERBTC).unwrap() += redeem.amount_btc() + redeem.transfer_fee_btc();
+                *vault.free_balance.get_mut(&KBTC).unwrap() += redeem.amount_btc() + redeem.transfer_fee_btc();
 
                 (*user.balances.get_mut(&currency_id).unwrap()).free += amount_without_fee_collateral + punishment_fee;
-                (*user.balances.get_mut(&INTERBTC).unwrap()).free -= amount_btc;
+                (*user.balances.get_mut(&KBTC).unwrap()).free -= amount_btc;
 
                 fee_pool.vault_rewards += redeem.fee();
 
@@ -1349,7 +1347,7 @@ fn integration_test_redeem_wrapped_cancel_reimburse_insufficient_collateral_for_
 
                 (*user.balances.get_mut(&currency_id).unwrap()).free +=
                     amount_without_fee_as_collateral + punishment_fee;
-                (*user.balances.get_mut(&INTERBTC).unwrap()).free -= amount_btc;
+                (*user.balances.get_mut(&KBTC).unwrap()).free -= amount_btc;
 
                 fee_pool.vault_rewards += redeem.fee();
 
@@ -1373,7 +1371,7 @@ fn integration_test_redeem_wrapped_cancel_reimburse_insufficient_collateral_for_
             ParachainState::get(),
             pre_minting_state.with_changes(|_user, vault, _, _fee_pool| {
                 vault.issued += redeem.amount_btc() + redeem.transfer_fee_btc();
-                *vault.free_balance.get_mut(&INTERBTC).unwrap() += redeem.amount_btc() + redeem.transfer_fee_btc();
+                *vault.free_balance.get_mut(&KBTC).unwrap() += redeem.amount_btc() + redeem.transfer_fee_btc();
             })
         );
     });
@@ -1455,9 +1453,9 @@ fn integration_test_redeem_wrapped_cancel_liquidated_no_reimburse() {
                 liquidation_vault.collateral += collateral_for_this_redeem;
 
                 // user's tokens get unlocked
-                (*user.balances.get_mut(&INTERBTC).unwrap()).locked -=
+                (*user.balances.get_mut(&KBTC).unwrap()).locked -=
                     redeem.amount_btc() + redeem.fee() + redeem.transfer_fee_btc();
-                (*user.balances.get_mut(&INTERBTC).unwrap()).free +=
+                (*user.balances.get_mut(&KBTC).unwrap()).free +=
                     redeem.amount_btc() + redeem.fee() + redeem.transfer_fee_btc();
 
                 // Note that no punishment is taken from vault, because it's already liquidated
@@ -1506,7 +1504,7 @@ fn integration_test_redeem_wrapped_cancel_liquidated_reimburse() {
                 liquidation_vault.to_be_redeemed -= redeem.amount_btc() + redeem.transfer_fee_btc();
 
                 // tokens are given to the vault, minus a fee that is given to the fee pool
-                *vault.free_balance.get_mut(&INTERBTC).unwrap() += redeem.amount_btc() + redeem.transfer_fee_btc();
+                *vault.free_balance.get_mut(&KBTC).unwrap() += redeem.amount_btc() + redeem.transfer_fee_btc();
                 fee_pool.vault_rewards += redeem.fee();
 
                 // the collateral that remained with the vault to back this redeem is transferred to the user
@@ -1515,7 +1513,7 @@ fn integration_test_redeem_wrapped_cancel_liquidated_reimburse() {
                 (*user.balances.get_mut(&currency_id).unwrap()).free += collateral_for_this_redeem;
 
                 // user's tokens get burned
-                (*user.balances.get_mut(&INTERBTC).unwrap()).locked -= issued_tokens;
+                (*user.balances.get_mut(&KBTC).unwrap()).locked -= issued_tokens;
 
                 // Note that no punishment is taken from vault, because it's already liquidated
             })
@@ -1563,7 +1561,7 @@ fn integration_test_redeem_wrapped_execute_liquidated() {
                 fee_pool.vault_rewards += redeem.fee();
 
                 // wrapped burned from user
-                (*user.balances.get_mut(&INTERBTC).unwrap()).locked -= issued_tokens;
+                (*user.balances.get_mut(&KBTC).unwrap()).locked -= issued_tokens;
 
                 // to-be-redeemed & issued decreased, forwarding to liquidation vault
                 vault.to_be_redeemed -= redeem.amount_btc() + redeem.transfer_fee_btc();

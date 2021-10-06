@@ -143,8 +143,8 @@ mod spec_based_tests {
         //   - `get_total_nominated_collateral(vault_id)` must return zero.
         //   - For all nominators, `get_nominator_collateral(vault_id, user_id)` must return zero.
         //   - Staking pallet `nonce` must be incremented by one.
-        //   - `compute_reward_at_index(nonce - 1, INTERBTC, vault_id, user_id)` in the Staking pallet must be equal to
-        //     the user’s nomination just before the vault opted out.
+        //   - `compute_reward_at_index(nonce - 1, KBTC, vault_id, user_id)` in the Staking pallet must be equal to the
+        //     user’s nomination just before the vault opted out.
         test_with_nomination_enabled_and_vault_opted_in(|currency_id| {
             assert_nominate_collateral(VAULT, USER, default_nomination(currency_id));
             assert_eq!(
@@ -155,10 +155,7 @@ mod spec_based_tests {
                 NominationPallet::get_nominator_collateral(&account_of(VAULT), &account_of(USER)).unwrap(),
                 default_nomination(currency_id)
             );
-            assert_eq!(
-                VaultRewardsPallet::compute_reward(INTERBTC, &account_of(USER)).unwrap(),
-                0
-            );
+            assert_eq!(VaultRewardsPallet::compute_reward(KBTC, &account_of(USER)).unwrap(), 0);
             assert_eq!(NominationPallet::is_opted_in(&account_of(VAULT)).unwrap(), true);
             assert_ok!(nomination_opt_out(VAULT));
             assert_eq!(NominationPallet::is_opted_in(&account_of(VAULT)).unwrap(), false);
@@ -175,10 +172,10 @@ mod spec_based_tests {
                 NominationPallet::get_nominator_collateral(&account_of(VAULT), &account_of(USER)).unwrap(),
                 Amount::new(0, currency_id)
             );
-            let nonce: u32 = VaultStakingPallet::nonce(INTERBTC, &account_of(VAULT));
+            let nonce: u32 = VaultStakingPallet::nonce(KBTC, &account_of(VAULT));
             assert_eq!(nonce, 1);
             assert_eq!(
-                VaultStakingPallet::compute_reward_at_index(nonce - 1, INTERBTC, &account_of(VAULT), &account_of(USER))
+                VaultStakingPallet::compute_reward_at_index(nonce - 1, KBTC, &account_of(VAULT), &account_of(USER))
                     .unwrap(),
                 DEFAULT_NOMINATION as i128
             );
@@ -537,10 +534,7 @@ fn integration_test_vault_opt_out_must_refund_nomination() {
             NominationPallet::get_nominator_collateral(&account_of(VAULT), &account_of(USER)).unwrap(),
             default_nomination(currency_id)
         );
-        assert_eq!(
-            VaultRewardsPallet::compute_reward(INTERBTC, &account_of(USER)).unwrap(),
-            0
-        );
+        assert_eq!(VaultRewardsPallet::compute_reward(KBTC, &account_of(USER)).unwrap(), 0);
         assert_ok!(nomination_opt_out(VAULT));
         assert_eq!(
             NominationPallet::get_total_nominated_collateral(&account_of(VAULT)).unwrap(),
@@ -550,10 +544,10 @@ fn integration_test_vault_opt_out_must_refund_nomination() {
             NominationPallet::get_nominator_collateral(&account_of(VAULT), &account_of(USER)).unwrap(),
             Amount::new(0, currency_id)
         );
-        let nonce: u32 = VaultStakingPallet::nonce(INTERBTC, &account_of(VAULT));
+        let nonce: u32 = VaultStakingPallet::nonce(KBTC, &account_of(VAULT));
         assert_eq!(nonce, 1);
         assert_eq!(
-            VaultStakingPallet::compute_reward_at_index(nonce - 1, INTERBTC, &account_of(VAULT), &account_of(USER))
+            VaultStakingPallet::compute_reward_at_index(nonce - 1, KBTC, &account_of(VAULT), &account_of(USER))
                 .unwrap(),
             DEFAULT_NOMINATION as i128
         );
@@ -565,7 +559,7 @@ fn integration_test_banning_a_vault_does_not_force_refund() {
     test_with_nomination_enabled_and_vault_opted_in(|currency_id| {
         assert_nominate_collateral(VAULT, USER, default_nomination(currency_id));
         VaultRegistryPallet::ban_vault(account_of(VAULT)).unwrap();
-        let nonce: u32 = VaultStakingPallet::nonce(INTERBTC, &account_of(VAULT));
+        let nonce: u32 = VaultStakingPallet::nonce(KBTC, &account_of(VAULT));
         assert_eq!(nonce, 0);
     })
 }
@@ -575,7 +569,7 @@ fn integration_test_liquidating_a_vault_does_not_force_refund() {
     test_with_nomination_enabled_and_vault_opted_in(|currency_id| {
         assert_nominate_collateral(VAULT, USER, default_nomination(currency_id));
         VaultRegistryPallet::liquidate_vault(&account_of(VAULT)).unwrap();
-        let nonce: u32 = VaultStakingPallet::nonce(INTERBTC, &account_of(VAULT));
+        let nonce: u32 = VaultStakingPallet::nonce(KBTC, &account_of(VAULT));
         assert_eq!(nonce, 0);
     })
 }
@@ -609,7 +603,7 @@ fn integration_test_rewards_are_preserved_on_collateral_withdrawal() {
         issue_testing_utils::execute_issue(issue_id);
         FeePallet::withdraw_all_vault_rewards(&account_of(VAULT)).unwrap();
         let reward_before_nomination_withdrawal =
-            VaultStakingPallet::compute_reward(INTERBTC, &account_of(VAULT), &account_of(USER)).unwrap();
+            VaultStakingPallet::compute_reward(KBTC, &account_of(VAULT), &account_of(USER)).unwrap();
         assert_eq!(reward_before_nomination_withdrawal > 0, true);
         assert_ok!(withdraw_nominator_collateral(
             USER,
@@ -617,7 +611,7 @@ fn integration_test_rewards_are_preserved_on_collateral_withdrawal() {
             default_nomination(currency_id)
         ));
         assert_eq!(
-            VaultStakingPallet::compute_reward(INTERBTC, &account_of(VAULT), &account_of(USER)).unwrap(),
+            VaultStakingPallet::compute_reward(KBTC, &account_of(VAULT), &account_of(USER)).unwrap(),
             reward_before_nomination_withdrawal
         );
     })
