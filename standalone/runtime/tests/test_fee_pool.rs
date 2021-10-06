@@ -51,7 +51,7 @@ fn test_with<R>(execute: impl Fn(CurrencyId) -> R) {
 }
 
 fn withdraw_vault_global_pool_rewards(account: [u8; 32]) -> i128 {
-    let amount = VaultRewardsPallet::compute_reward(INTERBTC, &account_of(account)).unwrap();
+    let amount = VaultRewardsPallet::compute_reward(KBTC, &account_of(account)).unwrap();
     assert_ok!(Call::Fee(FeeCall::withdraw_rewards(account_of(account))).dispatch(origin_of(account_of(account))));
     amount
 }
@@ -67,7 +67,7 @@ fn withdraw_local_pool_rewards(pool_id: [u8; 32], account: [u8; 32]) -> i128 {
 }
 
 fn get_vault_global_pool_rewards(account: [u8; 32]) -> i128 {
-    VaultRewardsPallet::compute_reward(INTERBTC, &account_of(account)).unwrap()
+    VaultRewardsPallet::compute_reward(KBTC, &account_of(account)).unwrap()
 }
 
 fn get_local_pool_rewards(pool_id: [u8; 32], account: [u8; 32]) -> i128 {

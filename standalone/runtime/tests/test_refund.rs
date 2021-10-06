@@ -96,7 +96,7 @@ mod spec_based_tests {
                     // POSTCONDITION: vault.issued_tokens MUST increase by fee
                     vault.issued += refund_fee;
                     // POSTCONDITION: vault.free_balance MUST increase by fee
-                    *vault.free_balance.get_mut(&INTERBTC).unwrap() += refund_fee;
+                    *vault.free_balance.get_mut(&KBTC).unwrap() += refund_fee;
                 })
             );
         });

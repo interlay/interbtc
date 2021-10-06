@@ -441,14 +441,14 @@ fn integration_test_issue_wrapped_execute_bookkeeping() {
         assert_eq!(
             ParachainState::get(),
             ParachainState::get_default(currency_id).with_changes(|user, vault, _, fee_pool| {
-                (*user.balances.get_mut(&INTERBTC).unwrap()).free += issue.amount();
+                (*user.balances.get_mut(&KBTC).unwrap()).free += issue.amount();
                 fee_pool.vault_rewards += issue.fee();
                 vault.issued += issue.fee() + issue.amount();
             }),
             "expected {:#?} but got {:#?}",
             ParachainState::get(),
             ParachainState::get_default(currency_id).with_changes(|user, vault, _, fee_pool| {
-                (*user.balances.get_mut(&INTERBTC).unwrap()).free += issue.amount();
+                (*user.balances.get_mut(&KBTC).unwrap()).free += issue.amount();
                 fee_pool.vault_rewards += issue.fee();
                 vault.issued += issue.fee() + issue.amount();
             })
@@ -535,7 +535,7 @@ fn integration_test_issue_refund() {
         assert_eq!(
             post_redeem_state,
             initial_state.with_changes(|user, vault, _, fee_pool| {
-                (*user.balances.get_mut(&INTERBTC).unwrap()).free += issue.amount();
+                (*user.balances.get_mut(&KBTC).unwrap()).free += issue.amount();
                 fee_pool.vault_rewards += issue.fee();
                 vault.issued += issue.fee() + issue.amount();
             })
@@ -547,7 +547,7 @@ fn integration_test_issue_refund() {
         assert_eq!(
             ParachainState::get(),
             post_redeem_state.with_changes(|_user, vault, _, _fee_pool| {
-                *vault.free_balance.get_mut(&INTERBTC).unwrap() += issue.fee() * 3;
+                *vault.free_balance.get_mut(&KBTC).unwrap() += issue.fee() * 3;
                 vault.issued += issue.fee() * 3;
             })
         );
@@ -746,7 +746,7 @@ mod execute_issue_tests {
                 post_request_state.with_changes(|user, vault, _, fee_pool| {
                     (*user.balances.get_mut(&GRIEFING_CURRENCY).unwrap()).locked -= issue.griefing_collateral();
                     (*user.balances.get_mut(&GRIEFING_CURRENCY).unwrap()).free += issue.griefing_collateral();
-                    (*user.balances.get_mut(&INTERBTC).unwrap()).free += issue.amount();
+                    (*user.balances.get_mut(&KBTC).unwrap()).free += issue.amount();
 
                     fee_pool.vault_rewards += issue.fee();
                     vault.issued += requested_btc;
@@ -773,7 +773,7 @@ mod execute_issue_tests {
 
             // need stake for rewards to deposit
             assert_ok!(VaultRewardsPallet::deposit_stake(
-                DOT,
+                KSM,
                 &account_of(VAULT),
                 signed_fixed_point!(1)
             ));
@@ -796,7 +796,7 @@ mod execute_issue_tests {
                     *vault.free_balance.get_mut(&GRIEFING_CURRENCY).unwrap() += slashed_griefing_collateral;
 
                     // token updating as if only 25% was requested
-                    (*user.balances.get_mut(&INTERBTC).unwrap()).free += issue.amount() / 4;
+                    (*user.balances.get_mut(&KBTC).unwrap()).free += issue.amount() / 4;
                     fee_pool.vault_rewards += issue.fee() / 4;
                     vault.issued += (issue.fee() + issue.amount()) / 4;
                     vault.to_be_issued -= issue.fee() + issue.amount(); // decrease to sent_btc and then decrease to
@@ -846,7 +846,7 @@ mod execute_issue_tests {
                 post_request_state.with_changes(|user, vault, _, fee_pool| {
                     (*user.balances.get_mut(&GRIEFING_CURRENCY).unwrap()).locked -= issue.griefing_collateral();
                     (*user.balances.get_mut(&GRIEFING_CURRENCY).unwrap()).free += issue.griefing_collateral();
-                    (*user.balances.get_mut(&INTERBTC).unwrap()).free += issue.amount() * 2;
+                    (*user.balances.get_mut(&KBTC).unwrap()).free += issue.amount() * 2;
 
                     fee_pool.vault_rewards += issue.fee() * 2;
                     vault.issued += sent_btc;
@@ -903,7 +903,7 @@ mod execute_issue_tests {
                     (*user.balances.get_mut(&GRIEFING_CURRENCY).unwrap()).locked -= issue.griefing_collateral();
                     (*user.balances.get_mut(&GRIEFING_CURRENCY).unwrap()).free += issue.griefing_collateral();
 
-                    (*user.balances.get_mut(&INTERBTC).unwrap()).free += issue.amount();
+                    (*user.balances.get_mut(&KBTC).unwrap()).free += issue.amount();
                     fee_pool.vault_rewards += issue.fee();
 
                     vault.issued += issue.fee() + issue.amount();
@@ -938,7 +938,7 @@ mod execute_issue_tests {
             assert_eq!(
                 ParachainState::get(),
                 post_liquidation_status.with_changes(|user, _vault, liquidation_vault, _fee_pool| {
-                    (*user.balances.get_mut(&INTERBTC).unwrap()).free += issue.amount();
+                    (*user.balances.get_mut(&KBTC).unwrap()).free += issue.amount();
 
                     (*user.balances.get_mut(&GRIEFING_CURRENCY).unwrap()).free += issue.griefing_collateral();
                     (*user.balances.get_mut(&GRIEFING_CURRENCY).unwrap()).locked -= issue.griefing_collateral();
