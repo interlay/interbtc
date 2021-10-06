@@ -21,6 +21,44 @@ fn test_with<R>(execute: impl Fn(CurrencyId) -> R) {
     test_with(CurrencyId::KSM);
 }
 
+fn setup_vault_for_double_spend(
+    issued_tokens: Amount<Runtime>,
+    stealing_vault: [u8; 32],
+    issue_tokens: bool,
+) -> (BtcPublicKey, BtcPublicKey) {
+    let vault_public_key_one = BtcPublicKey([
+        2, 168, 49, 109, 0, 14, 227, 106, 112, 84, 59, 37, 153, 238, 121, 44, 66, 8, 181, 64, 248, 19, 137, 27, 47,
+        222, 50, 95, 187, 221, 152, 165, 69,
+    ]);
+
+    let vault_public_key_two = BtcPublicKey([
+        2, 139, 220, 235, 13, 249, 164, 152, 179, 4, 175, 217, 170, 84, 218, 179, 182, 247, 109, 48, 57, 152, 241, 165,
+        225, 26, 242, 187, 160, 225, 248, 195, 250,
+    ]);
+
+    assert_ok!(Call::VaultRegistry(VaultRegistryCall::register_vault(
+        VaultCurrencyPair {
+            collateral: DEFAULT_TESTING_CURRENCY,
+            wrapped: DEFAULT_WRAPPED_CURRENCY,
+        },
+        INITIAL_BALANCE,
+        vault_public_key_one.clone(),
+    ))
+    .dispatch(origin_of(account_of(stealing_vault))));
+
+    if issue_tokens {
+        assert_ok!(VaultRegistryPallet::try_increase_to_be_issued_tokens(
+            &default_vault_id_of(stealing_vault),
+            &issued_tokens,
+        ));
+        assert_ok!(VaultRegistryPallet::issue_tokens(
+            &default_vault_id_of(stealing_vault),
+            &issued_tokens
+        ));
+    }
+    (vault_public_key_one, vault_public_key_two)
+}
+
 #[test]
 fn integration_test_report_vault_theft() {
     test_with(|currency_id| {
@@ -95,40 +133,13 @@ fn integration_test_report_vault_theft() {
 }
 
 #[test]
-fn integration_test_double_spend_op_return() {
+fn integration_test_double_spend_redeem_op_return() {
     test_with(|_currency_id| {
         let issued_tokens = wrapped(10_000);
         // Register vault with hardcoded public key so it counts as theft
         let stealing_vault = DAVE;
-
-        let vault_public_key_one = BtcPublicKey([
-            2, 168, 49, 109, 0, 14, 227, 106, 112, 84, 59, 37, 153, 238, 121, 44, 66, 8, 181, 64, 248, 19, 137, 27, 47,
-            222, 50, 95, 187, 221, 152, 165, 69,
-        ]);
-
-        let vault_public_key_two = BtcPublicKey([
-            2, 139, 220, 235, 13, 249, 164, 152, 179, 4, 175, 217, 170, 84, 218, 179, 182, 247, 109, 48, 57, 152, 241,
-            165, 225, 26, 242, 187, 160, 225, 248, 195, 250,
-        ]);
-
-        assert_ok!(Call::VaultRegistry(VaultRegistryCall::register_vault(
-            VaultCurrencyPair {
-                collateral: DEFAULT_TESTING_CURRENCY,
-                wrapped: DEFAULT_WRAPPED_CURRENCY,
-            },
-            INITIAL_BALANCE,
-            vault_public_key_one.clone(),
-        ))
-        .dispatch(origin_of(account_of(stealing_vault))));
-
-        assert_ok!(VaultRegistryPallet::try_increase_to_be_issued_tokens(
-            &default_vault_id_of(stealing_vault),
-            &issued_tokens,
-        ));
-        assert_ok!(VaultRegistryPallet::issue_tokens(
-            &default_vault_id_of(stealing_vault),
-            &issued_tokens
-        ));
+        let (vault_public_key_one, vault_public_key_two) =
+            setup_vault_for_double_spend(issued_tokens, stealing_vault, true);
 
         let redeem_id = setup_redeem(issued_tokens, USER, &default_vault_id_of(stealing_vault));
         let redeem = RedeemPallet::get_open_redeem_request_from_id(&redeem_id).unwrap();
@@ -178,6 +189,152 @@ fn integration_test_double_spend_op_return() {
         // Reporting the double-spend transaction as theft should work
         assert_ok!(Call::Relay(RelayCall::report_vault_double_payment(
             default_vault_id_of(stealing_vault),
+            (merkle_proof, theft_merkle_proof),
+            (raw_tx, theft_raw_tx),
+        ))
+        .dispatch(origin_of(account_of(USER))));
+    });
+}
+
+#[test]
+fn integration_test_double_spend_refund_op_return() {
+    test_with(|_currency_id| {
+        let issued_tokens = wrapped(10_000);
+        let stealing_vault = DAVE;
+        let (vault_public_key_one, vault_public_key_two) =
+            setup_vault_for_double_spend(issued_tokens, stealing_vault, true);
+
+        let user_btc_address = BtcAddress::P2PKH(H160([2; 20]));
+        let refund_amount = wrapped(100);
+        let refund_id = RefundPallet::request_refund(
+            &refund_amount,
+            default_vault_id_of(stealing_vault),
+            account_of(ALICE),
+            user_btc_address,
+            Default::default(),
+        )
+        .unwrap()
+        .unwrap();
+
+        let current_block_number = 1;
+
+        // Send the honest refund transaction
+        let (_tx_id, _tx_block_height, merkle_proof, raw_tx) = {
+            register_address_and_mine_transaction(
+                default_vault_id_of(stealing_vault),
+                vault_public_key_one,
+                user_btc_address,
+                refund_amount,
+                Some(refund_id),
+            )
+        };
+
+        // Double-spend the refund, so the payee gets twice the BTC
+        let (_theft_tx_id, _theft_tx_block_height, theft_merkle_proof, theft_raw_tx) =
+            register_address_and_mine_transaction(
+                default_vault_id_of(stealing_vault),
+                vault_public_key_two,
+                user_btc_address,
+                refund_amount,
+                Some(refund_id),
+            );
+        SecurityPallet::set_active_block_number(current_block_number + 1 + CONFIRMATIONS);
+
+        assert_ok!(Call::Refund(RefundCall::execute_refund(
+            refund_id,
+            merkle_proof.clone(),
+            raw_tx.clone()
+        ))
+        .dispatch(origin_of(account_of(stealing_vault))));
+
+        // Executing the theft tx should fail
+        assert_err!(
+            Call::Refund(RefundCall::execute_refund(
+                refund_id,
+                theft_merkle_proof.clone(),
+                theft_raw_tx.clone()
+            ))
+            .dispatch(origin_of(account_of(stealing_vault))),
+            RefundError::RefundCompleted
+        );
+
+        // Reporting the double-spend transaction as theft should work
+        assert_ok!(Call::Relay(RelayCall::report_vault_double_payment(
+            default_vault_id_of(stealing_vault),
+            (merkle_proof, theft_merkle_proof),
+            (raw_tx, theft_raw_tx),
+        ))
+        .dispatch(origin_of(account_of(USER))));
+    });
+}
+
+#[test]
+fn integration_test_double_spend_replace_op_return() {
+    test_with(|_currency_id| {
+        let issued_tokens = wrapped(1000);
+        let stealing_vault = BOB;
+        let stealing_vault_id = default_vault_id_of(stealing_vault);
+        let new_vault = CAROL;
+        let new_vault_id = default_vault_id_of(new_vault);
+        let replace_amount = wrapped(100);
+
+        let (vault_public_key_one, vault_public_key_two) =
+            setup_vault_for_double_spend(issued_tokens, stealing_vault, false);
+
+        CoreVaultData::force_to(&stealing_vault_id, default_vault_state(&stealing_vault_id));
+        CoreVaultData::force_to(&new_vault_id, default_vault_state(&new_vault_id));
+
+        assert_ok!(request_replace(
+            &stealing_vault_id,
+            issued_tokens,
+            DEFAULT_GRIEFING_COLLATERAL
+        ));
+        let (replace, replace_id) = setup_replace(&stealing_vault_id, &new_vault_id, replace_amount);
+        let current_block_number = 1;
+
+        // Send the honest replace transaction
+        let (_tx_id, _tx_block_height, merkle_proof, raw_tx) = {
+            register_address_and_mine_transaction(
+                stealing_vault_id.clone(),
+                vault_public_key_one,
+                replace.btc_address,
+                replace_amount,
+                Some(replace_id),
+            )
+        };
+
+        // // Double-spend the replace, so the payee gets twice the BTC
+        let (_theft_tx_id, _theft_tx_block_height, theft_merkle_proof, theft_raw_tx) =
+            register_address_and_mine_transaction(
+                stealing_vault_id.clone(),
+                vault_public_key_two,
+                replace.btc_address,
+                replace_amount,
+                Some(replace_id),
+            );
+
+        SecurityPallet::set_active_block_number(current_block_number + 1 + CONFIRMATIONS);
+        assert_ok!(Call::Replace(ReplaceCall::execute_replace(
+            replace_id,
+            merkle_proof.clone(),
+            raw_tx.clone()
+        ))
+        .dispatch(origin_of(account_of(stealing_vault))));
+
+        // Executing the theft tx should fail
+        assert_err!(
+            Call::Replace(ReplaceCall::execute_replace(
+                replace_id,
+                theft_merkle_proof.clone(),
+                theft_raw_tx.clone()
+            ))
+            .dispatch(origin_of(account_of(stealing_vault))),
+            ReplaceError::ReplaceCompleted
+        );
+
+        // Reporting the double-spend transaction as theft should work
+        assert_ok!(Call::Relay(RelayCall::report_vault_double_payment(
+            stealing_vault_id,
             (merkle_proof, theft_merkle_proof),
             (raw_tx, theft_raw_tx),
         ))
