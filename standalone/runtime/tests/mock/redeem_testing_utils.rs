@@ -122,8 +122,8 @@ pub fn assert_redeem_request_event() -> H256 {
             _ => None,
         })
         .collect::<Vec<H256>>();
-    assert_eq!(ids.len(), 1);
-    ids[0]
+    assert!(ids.len() >= 1);
+    ids.last().unwrap().clone()
 }
 
 pub fn execute_redeem(redeem_id: H256) {
