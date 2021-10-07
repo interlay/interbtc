@@ -5,7 +5,6 @@ use crate::{assert_eq, *};
 pub const USER: [u8; 32] = ALICE;
 pub const VAULT: [u8; 32] = BOB;
 
-pub const DEFAULT_GRIEFING_COLLATERAL: Amount<Runtime> = griefing(5_000);
 pub const DEFAULT_BACKING_COLLATERAL: u128 = 1_000_000;
 pub const DEFAULT_NOMINATION: u128 = 20_000;
 

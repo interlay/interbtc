@@ -45,6 +45,7 @@ use self::redeem_testing_utils::USER_BTC_ADDRESS;
 pub mod issue_testing_utils;
 pub mod nomination_testing_utils;
 pub mod redeem_testing_utils;
+pub mod replace_testing_utils;
 pub mod reward_testing_utils;
 
 pub use pretty_assertions::assert_eq;
@@ -77,6 +78,8 @@ pub const DEFAULT_VAULT_FREE_TOKENS: Amount<Runtime> = wrapped(0);
 
 pub const DEFAULT_VAULT_GRIEFING_COLLATERAL: Amount<Runtime> = griefing(30_000);
 pub const DEFAULT_VAULT_REPLACE_COLLATERAL: Amount<Runtime> = griefing(20_000);
+
+pub const DEFAULT_GRIEFING_COLLATERAL: Amount<Runtime> = griefing(5_000);
 
 pub fn default_user_free_balance(currency_id: CurrencyId) -> Amount<Runtime> {
     Amount::new(1_000_000, currency_id)
