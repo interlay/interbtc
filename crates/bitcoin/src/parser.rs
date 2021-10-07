@@ -9,7 +9,7 @@ use sha2::{Digest, Sha256};
 #[cfg(test)]
 use mocktopus::macros::mockable;
 
-use crate::Error;
+use crate::{Error, FromCompact};
 use sp_core::U256;
 use sp_std::{prelude::*, vec};
 
@@ -143,17 +143,12 @@ impl Parsable for U256 {
         if position + 4 > raw_bytes.len() {
             return Err(Error::EndOfFile);
         }
-        let raw_exponent = raw_bytes[position + 3];
-        if raw_exponent < 3 {
-            return Err(Error::MalformedHeader);
-        }
-        let exponent = raw_exponent - 3;
-        let mantissa_slice = raw_bytes.get(position..position + 3).ok_or(Error::EndOfFile)?;
-        let mantissa = U256::from_little_endian(mantissa_slice);
-        let offset = U256::from(256)
-            .checked_pow(U256::from(exponent))
-            .ok_or(Error::ArithmeticOverflow)?;
-        Ok((mantissa.checked_mul(offset).ok_or(Error::ArithmeticOverflow)?, 4))
+
+        let mut bytes: [u8; 4] = Default::default();
+        bytes.copy_from_slice(&raw_bytes[position..position + 4]);
+
+        let bits = u32::from_le_bytes(bytes);
+        Ok((U256::from_compact(bits), 4))
     }
 }
 
