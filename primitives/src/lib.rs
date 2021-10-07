@@ -35,14 +35,14 @@ impl TruncateFixedPointToInt for UnsignedFixedPoint {
 }
 
 #[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, PartialOrd, Ord)]
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize, std::hash::Hash))]
 pub struct VaultCurrencyPair<CurrencyId: Copy> {
     pub collateral: CurrencyId,
     pub wrapped: CurrencyId,
 }
 
 #[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, PartialOrd, Ord)]
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize, std::hash::Hash))]
 pub struct VaultId<AccountId, CurrencyId: Copy> {
     pub account_id: AccountId,
     pub currencies: VaultCurrencyPair<CurrencyId>,
