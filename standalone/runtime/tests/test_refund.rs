@@ -71,8 +71,13 @@ mod spec_based_tests {
             .unwrap()
             .unwrap();
 
-            let (_tx_id, _tx_block_height, merkle_proof, raw_tx) =
-                generate_transaction_and_mine(Default::default(), user_btc_address, refund_amount, Some(refund_id));
+            let (_tx_id, _tx_block_height, merkle_proof, raw_tx, _) = generate_transaction_and_mine(
+                Default::default(),
+                user_btc_address,
+                refund_amount,
+                Some(refund_id),
+                None,
+            );
             SecurityPallet::set_active_block_number(1 + CONFIRMATIONS);
 
             assert_ok!(Call::Refund(RefundCall::execute_refund(
@@ -136,11 +141,12 @@ mod spec_based_tests {
                 refund_id: H256,
                 invalid_refund_amount: Amount<Runtime>,
             ) -> DispatchResultWithPostInfo {
-                let (_tx_id, _tx_block_height, merkle_proof, raw_tx) = generate_transaction_and_mine(
+                let (_tx_id, _tx_block_height, merkle_proof, raw_tx, _) = generate_transaction_and_mine(
                     Default::default(),
                     user_btc_address,
                     invalid_refund_amount,
                     Some(refund_id),
+                    None,
                 );
                 SecurityPallet::set_active_block_number(SecurityPallet::active_block_number() + 1 + CONFIRMATIONS);
 

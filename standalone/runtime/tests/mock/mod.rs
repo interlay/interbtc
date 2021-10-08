@@ -142,6 +142,7 @@ pub type SecurityPallet = security::Pallet<Runtime>;
 
 pub type RelayCall = relay::Call<Runtime>;
 pub type RelayPallet = relay::Pallet<Runtime>;
+pub type RelayError = relay::Error<Runtime>;
 
 pub type SystemModule = frame_system::Pallet<Runtime>;
 
@@ -976,9 +977,10 @@ pub fn mine_blocks(blocks: u32) {
 
 #[derive(Default, Clone, Debug)]
 pub struct TransactionGenerator {
-    address: BtcAddress,
-    amount: u128,
-    return_data: Option<H256>,
+    coinbase_destination: BtcAddress,
+    inputs: Vec<(Transaction, u32)>,
+    outputs: Vec<(BtcAddress, u128)>,
+    return_data: Vec<H256>,
     script: Vec<u8>,
     confirmations: u32,
     relayer: Option<[u8; 32]>,
@@ -988,8 +990,9 @@ impl TransactionGenerator {
     pub fn new() -> Self {
         Self {
             relayer: None,
+            coinbase_destination: BtcAddress::P2PKH(H160::from([0; 20])),
             confirmations: 7,
-            amount: 100,
+            outputs: vec![(BtcAddress::P2PKH(H160::from([0; 20])), 100)],
             script: vec![
                 0, 71, 48, 68, 2, 32, 91, 128, 41, 150, 96, 53, 187, 63, 230, 129, 53, 234, 210, 186, 21, 187, 98, 38,
                 255, 112, 30, 27, 228, 29, 132, 140, 155, 62, 123, 216, 232, 168, 2, 32, 72, 126, 179, 207, 142, 8, 99,
@@ -999,22 +1002,33 @@ impl TransactionGenerator {
                 25, 43, 34, 28, 173, 55, 54, 189, 164, 187, 243, 243, 152, 7, 84, 210, 85, 156, 238, 77, 97, 188, 240,
                 162, 197, 105, 62, 82, 174,
             ],
-            return_data: Some(H256::zero()),
+            return_data: vec![],
             ..Default::default()
         }
     }
-    pub fn with_address(&mut self, address: BtcAddress) -> &mut Self {
-        self.address = address;
+
+    pub fn with_inputs(&mut self, inputs: Vec<(Transaction, u32)>) -> &mut Self {
+        self.inputs = inputs;
+        self
+    }
+    pub fn with_outputs(&mut self, outputs: Vec<(BtcAddress, Amount<Runtime>)>) -> &mut Self {
+        self.outputs = outputs
+            .iter()
+            .map(|output| {
+                let (address, amount) = output;
+                (*address, amount.amount())
+            })
+            .collect();
         self
     }
 
-    pub fn with_amount(&mut self, amount: Amount<Runtime>) -> &mut Self {
-        self.amount = amount.amount();
+    pub fn with_coinbase_destination(&mut self, coinbase_destination: BtcAddress) -> &mut Self {
+        self.coinbase_destination = coinbase_destination;
         self
     }
 
-    pub fn with_op_return(&mut self, op_return: Option<H256>) -> &mut Self {
-        self.return_data = op_return;
+    pub fn with_op_return(&mut self, op_returns: Vec<H256>) -> &mut Self {
+        self.return_data = op_returns;
         self
     }
     pub fn with_script(&mut self, script: &[u8]) -> &mut Self {
@@ -1030,41 +1044,60 @@ impl TransactionGenerator {
         self
     }
     pub fn mine(&self) -> (H256Le, u32, Vec<u8>, Vec<u8>, Transaction) {
-        let mut height = 1;
+        let mut height = BTCRelayPallet::get_best_block_height() + 1;
         let extra_confirmations = self.confirmations - 1;
 
-        // initialize BTC Relay with one block
-        let init_block = BlockBuilder::new()
-            .with_version(4)
-            .with_coinbase(&self.address, 50, 3)
-            .with_timestamp(1588813835)
-            .mine(U256::from(2).pow(254.into()))
-            .unwrap();
-
-        let raw_init_block_header = RawBlockHeader::from_bytes(&init_block.header.try_format().unwrap())
-            .expect("could not serialize block header");
-        let init_block_header = BTCRelayPallet::parse_raw_block_header(&raw_init_block_header).unwrap();
-
-        match BTCRelayPallet::initialize(account_of(ALICE), init_block_header, height) {
-            Ok(_) => {}
-            Err(e) if e == BTCRelayError::AlreadyInitialized.into() => {}
-            _ => panic!("Failed to initialize btc relay"),
-        }
-
-        height = BTCRelayPallet::get_best_block_height() + 1;
-
-        let value = self.amount as i64;
         let mut transaction_builder = TransactionBuilder::new();
         transaction_builder.with_version(2);
-        transaction_builder.add_input(
-            TransactionInputBuilder::new()
-                .with_script(&self.script)
-                .with_source(TransactionInputSource::FromOutput(init_block.transactions[0].hash(), 0))
-                .build(),
-        );
 
-        transaction_builder.add_output(TransactionOutput::payment(value, &self.address));
-        if let Some(op_return_data) = self.return_data {
+        if self.inputs.len() == 0 {
+            // initialize BTC Relay with one block
+            let init_block = BlockBuilder::new()
+                .with_version(4)
+                .with_coinbase(&self.coinbase_destination, 50, 3)
+                .with_timestamp(1588813835)
+                .mine(U256::from(2).pow(254.into()))
+                .unwrap();
+
+            let raw_init_block_header = RawBlockHeader::from_bytes(&init_block.header.try_format().unwrap())
+                .expect("could not serialize block header");
+            let init_block_header = BTCRelayPallet::parse_raw_block_header(&raw_init_block_header).unwrap();
+
+            match BTCRelayPallet::initialize(account_of(ALICE), init_block_header, height) {
+                Ok(_) => {}
+                Err(e) if e == BTCRelayError::AlreadyInitialized.into() => {}
+                _ => panic!("Failed to initialize btc relay"),
+            }
+
+            height = BTCRelayPallet::get_best_block_height() + 1;
+
+            transaction_builder.add_input(
+                TransactionInputBuilder::new()
+                    .with_script(&self.script)
+                    .with_source(TransactionInputSource::FromOutput(init_block.transactions[0].hash(), 0))
+                    .build(),
+            );
+        }
+
+        for input in self.inputs.iter() {
+            let (transaction, output_index) = input;
+            transaction_builder.add_input(
+                TransactionInputBuilder::new()
+                    .with_script(&self.script)
+                    .with_source(TransactionInputSource::FromOutput(
+                        transaction.hash(),
+                        output_index.clone(),
+                    ))
+                    .build(),
+            );
+        }
+
+        for output in self.outputs.iter() {
+            let (address, amount) = output;
+            transaction_builder.add_output(TransactionOutput::payment(amount.clone() as i64, &address));
+        }
+
+        for op_return_data in self.return_data.iter() {
             transaction_builder.add_output(TransactionOutput::op_return(0, op_return_data.as_bytes()));
         }
 
@@ -1074,7 +1107,7 @@ impl TransactionGenerator {
         let block = BlockBuilder::new()
             .with_previous_hash(prev_hash)
             .with_version(4)
-            .with_coinbase(&self.address, 50, 3)
+            .with_coinbase(&self.coinbase_destination, 50, 3)
             .with_timestamp(1588814835)
             .add_transaction(transaction.clone())
             .mine(U256::from(2).pow(254.into()))
@@ -1100,7 +1133,7 @@ impl TransactionGenerator {
             let conf_block = BlockBuilder::new()
                 .with_previous_hash(prev_block_hash)
                 .with_version(4)
-                .with_coinbase(&self.address, 50, 3)
+                .with_coinbase(&self.coinbase_destination, 50, 3)
                 .with_timestamp(timestamp)
                 .mine(U256::from(2).pow(254.into()))
                 .unwrap();
@@ -1132,32 +1165,35 @@ impl TransactionGenerator {
 
 pub fn register_address_and_mine_transaction(
     vault_id: DefaultVaultId<Runtime>,
-    from: BtcPublicKey,
-    to: BtcAddress,
-    amount: Amount<Runtime>,
-    return_data: Option<H256>,
-) -> (H256Le, u32, Vec<u8>, Vec<u8>) {
+    signer: BtcPublicKey,
+    inputs: Vec<(Transaction, u32)>,
+    outputs: Vec<(BtcAddress, Amount<Runtime>)>,
+    return_data: Vec<H256>,
+) -> (H256Le, u32, Vec<u8>, Vec<u8>, Transaction) {
+    register_vault_address(vault_id, signer.clone());
+    generate_transaction_and_mine(signer, inputs, outputs, return_data)
+}
+
+pub fn register_vault_address(vault_id: DefaultVaultId<Runtime>, from: BtcPublicKey) {
     assert_ok!(VaultRegistryPallet::insert_vault_deposit_address(
         vault_id,
         BtcAddress::P2PKH(from.to_hash())
     ));
-
-    generate_transaction_and_mine(from, to, amount, return_data)
 }
 
 pub fn generate_transaction_and_mine(
-    from: BtcPublicKey,
-    to: BtcAddress,
-    amount: Amount<Runtime>,
-    return_data: Option<H256>,
-) -> (H256Le, u32, Vec<u8>, Vec<u8>) {
-    let (tx_id, height, proof, raw_tx, _) = TransactionGenerator::new()
-        .with_script(from.to_p2pkh_script_sig(vec![1; 32]).as_bytes())
-        .with_address(to)
-        .with_amount(amount)
+    signer: BtcPublicKey,
+    inputs: Vec<(Transaction, u32)>,
+    outputs: Vec<(BtcAddress, Amount<Runtime>)>,
+    return_data: Vec<H256>,
+) -> (H256Le, u32, Vec<u8>, Vec<u8>, Transaction) {
+    let (tx_id, height, proof, raw_tx, tx) = TransactionGenerator::new()
+        .with_script(signer.to_p2pkh_script_sig(vec![1; 32]).as_bytes())
+        .with_inputs(inputs)
+        .with_outputs(outputs)
         .with_op_return(return_data)
         .mine();
-    (tx_id, height, proof, raw_tx)
+    (tx_id, height, proof, raw_tx, tx)
 }
 
 pub struct ExtBuilder {

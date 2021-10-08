@@ -46,9 +46,8 @@ impl ExecuteRedeemBuilder {
     pub fn execute(&self) -> DispatchResultWithPostInfo {
         // send the btc from the user to the vault
         let (_tx_id, _height, proof, raw_tx, _) = TransactionGenerator::new()
-            .with_address(self.redeem.btc_address)
-            .with_amount(self.amount)
-            .with_op_return(Some(self.redeem_id))
+            .with_outputs(vec![(self.redeem.btc_address, self.amount)])
+            .with_op_return(vec![self.redeem_id])
             .mine();
 
         SecurityPallet::set_active_block_number(SecurityPallet::active_block_number() + CONFIRMATIONS);
@@ -143,8 +142,12 @@ pub fn assert_redeem_error(
     error: BTCRelayError,
 ) -> u32 {
     // send the btc from the vault to the user
-    let (_tx_id, _tx_block_height, merkle_proof, raw_tx) =
-        generate_transaction_and_mine(Default::default(), user_btc_address, amount, Some(return_data));
+    let (_tx_id, _tx_block_height, merkle_proof, raw_tx, _) = generate_transaction_and_mine(
+        Default::default(),
+        vec![],
+        vec![(user_btc_address, amount)],
+        vec![return_data],
+    );
 
     SecurityPallet::set_active_block_number(current_block_number + 1 + CONFIRMATIONS);
 

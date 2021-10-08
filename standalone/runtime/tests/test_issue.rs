@@ -443,7 +443,7 @@ fn integration_test_issue_wrapped_execute_succeeds() {
 
         // send the btc from the user to the vault
         let (_tx_id, _height, proof, raw_tx) =
-            generate_transaction_and_mine(Default::default(), vault_btc_address, total_amount_btc, None);
+            generate_transaction_and_mine(Default::default(), vault_btc_address, total_amount_btc, None, None);
 
         SecurityPallet::set_active_block_number(1 + CONFIRMATIONS);
 
@@ -693,7 +693,7 @@ mod execute_issue_tests {
         test_with_initialized_vault(|vault_id| {
             let (issue_id, issue) = request_issue(&vault_id, vault_id.wrapped(1000));
             let (_tx_id, _height, proof, _raw_tx, mut transaction) = TransactionGenerator::new()
-                .with_address(issue.btc_address)
+                .with_outputs(issue.btc_address)
                 .with_amount(wrapped(1000))
                 .with_op_return(None)
                 .mine();
@@ -717,7 +717,7 @@ mod execute_issue_tests {
         test_with_initialized_vault(|vault_id| {
             let (issue_id, issue) = request_issue(&vault_id, vault_id.wrapped(1000));
             let (_tx_id, _height, mut proof, _raw_tx, transaction) = TransactionGenerator::new()
-                .with_address(issue.btc_address)
+                .with_outputs(issue.btc_address)
                 .with_amount(wrapped(1))
                 .with_op_return(None)
                 .mine();

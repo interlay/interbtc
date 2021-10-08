@@ -134,9 +134,7 @@ impl ExecuteIssueBuilder {
     pub fn prepare_for_execution(&mut self) -> &mut Self {
         // send the btc from the user to the vault
         let (_tx_id, _height, proof, raw_tx, _) = TransactionGenerator::new()
-            .with_address(self.issue.btc_address)
-            .with_amount(self.amount)
-            .with_op_return(None)
+            .with_outputs(vec![(self.issue.btc_address, self.amount)])
             .with_relayer(self.relayer)
             .mine();
 
@@ -217,8 +215,12 @@ pub fn execute_refund_with_amount(vault_id: [u8; 32], amount: Amount<Runtime>) -
 
     let refund_id = assert_refund_request_event();
 
-    let (_tx_id, _height, proof, raw_tx) =
-        generate_transaction_and_mine(Default::default(), refund_address, amount, Some(refund_id));
+    let (_tx_id, _height, proof, raw_tx, _) = generate_transaction_and_mine(
+        Default::default(),
+        vec![],
+        vec![(refund_address, amount)],
+        vec![refund_id],
+    );
 
     SecurityPallet::set_active_block_number((1 + CONFIRMATIONS) * 2);
 
