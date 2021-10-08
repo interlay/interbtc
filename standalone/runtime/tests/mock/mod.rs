@@ -1030,7 +1030,7 @@ impl TransactionGenerator {
         self
     }
     pub fn mine(&self) -> (H256Le, u32, Vec<u8>, Vec<u8>, Transaction) {
-        let mut height = 1;
+        let mut height = 0;
         let extra_confirmations = self.confirmations - 1;
 
         // initialize BTC Relay with one block
@@ -1203,7 +1203,7 @@ impl ExtBuilder {
         btc_relay::GenesisConfig::<Runtime> {
             bitcoin_confirmations: CONFIRMATIONS,
             parachain_confirmations: CONFIRMATIONS,
-            disable_difficulty_check: false,
+            disable_difficulty_check: true,
             disable_inclusion_check: false,
         }
         .assimilate_storage(&mut storage)
