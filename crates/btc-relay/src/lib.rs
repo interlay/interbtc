@@ -314,8 +314,8 @@ pub mod pallet {
         ArithmeticUnderflow,
         /// TryInto failed on integer
         TryIntoIntError,
-        /// Relayer is not registered
-        RelayerNotAuthorized,
+        /// Transaction does meet the requirements to be considered valid
+        InvalidTransaction,
         /// Transaction does meet the requirements to be a valid op-return payment
         InvalidOpReturnTransaction,
     }
@@ -587,6 +587,12 @@ impl<T: Config> Pallet<T> {
         transaction: Transaction,
         recipient_btc_address: BtcAddress,
     ) -> Result<(BtcAddress, V), DispatchError> {
+        // upper-bound the number of outputs to limit iteration
+        ensure!(
+            transaction.outputs.len() <= ACCEPTED_MAX_TRANSACTION_OUTPUTS,
+            Error::<T>::InvalidTransaction
+        );
+
         let input_address = transaction
             .inputs
             .get(0)
