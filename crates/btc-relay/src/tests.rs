@@ -1,7 +1,7 @@
 /// Tests for BTC-Relay
 use sp_core::U256;
 
-use crate::{ext, mock::*, types::*, BtcAddress, Error};
+use crate::{ext, mock::*, types::*, BtcAddress, Error, DIFFICULTY_ADJUSTMENT_INTERVAL};
 
 type Event = crate::Event<Test>;
 
@@ -102,29 +102,68 @@ fn test_get_block_chain_from_id_empty_chain_fails() {
 #[test]
 fn initialize_once_succeeds() {
     run_test(|| {
+        let relayer_id = 3;
         let block_height: u32 = 0;
         let block_header = sample_block_header();
         let block_header_hash = block_header.hash;
         BTCRelay::best_block_exists.mock_safe(|| MockResult::Return(false));
 
-        assert_ok!(BTCRelay::initialize(3, block_header, block_height));
+        assert_ok!(BTCRelay::initialize(relayer_id, block_header, block_height));
 
-        let init_event = TestEvent::BTCRelay(Event::Initialized(block_height, block_header_hash, 3));
-        assert!(System::events().iter().any(|a| a.event == init_event));
+        System::assert_has_event(TestEvent::BTCRelay(Event::Initialized(
+            block_height,
+            block_header_hash,
+            relayer_id,
+        )));
     })
 }
 
 #[test]
 fn initialize_best_block_already_set_fails() {
     run_test(|| {
+        let relayer_id = 3;
         let block_height: u32 = 1;
 
         BTCRelay::best_block_exists.mock_safe(|| MockResult::Return(true));
 
         assert_err!(
-            BTCRelay::initialize(3, sample_block_header(), block_height),
+            BTCRelay::initialize(relayer_id, sample_block_header(), block_height),
             TestError::AlreadyInitialized
         );
+    })
+}
+
+#[test]
+fn initialize_with_invalid_difficulty_period_should_fail() {
+    run_test(|| {
+        let relayer_id = 3;
+        let block_height: u32 = 2021;
+        let block_header = sample_block_header();
+        BTCRelay::best_block_exists.mock_safe(|| MockResult::Return(false));
+
+        assert_err!(
+            BTCRelay::initialize(relayer_id, block_header, block_height),
+            TestError::InvalidStartHeight
+        );
+    })
+}
+
+#[test]
+fn initialize_with_valid_difficulty_period_should_succeed() {
+    run_test(|| {
+        let relayer_id = 3;
+        let block_height: u32 = DIFFICULTY_ADJUSTMENT_INTERVAL;
+        let block_header = sample_block_header();
+        let block_header_hash = block_header.hash;
+        BTCRelay::best_block_exists.mock_safe(|| MockResult::Return(false));
+
+        assert_ok!(BTCRelay::initialize(relayer_id, block_header, block_height));
+
+        System::assert_has_event(TestEvent::BTCRelay(Event::Initialized(
+            block_height,
+            block_header_hash,
+            relayer_id,
+        )));
     })
 }
 

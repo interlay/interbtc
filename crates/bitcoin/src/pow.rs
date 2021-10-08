@@ -19,7 +19,7 @@ pub const UNROUNDED_MAX_TARGET: U256 = U256([
 
 // https://github.com/bitcoin/bitcoin/blob/89b910711c004c21b7d67baa888073742f7f94f0/src/pow.cpp#L49-L72
 pub fn calculate_next_work_required(previous_target: U256, first_block_time: u64, last_block_time: u64) -> u32 {
-    let mut actual_timespan = last_block_time - first_block_time;
+    let mut actual_timespan = last_block_time.saturating_sub(first_block_time);
 
     if actual_timespan < TARGET_TIMESPAN / TARGET_TIMESPAN_DIVISOR {
         actual_timespan = TARGET_TIMESPAN / TARGET_TIMESPAN_DIVISOR;
