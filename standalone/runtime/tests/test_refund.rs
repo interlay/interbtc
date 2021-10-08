@@ -73,10 +73,9 @@ mod spec_based_tests {
 
             let (_tx_id, _tx_block_height, merkle_proof, raw_tx, _) = generate_transaction_and_mine(
                 Default::default(),
-                user_btc_address,
-                refund_amount,
-                Some(refund_id),
-                None,
+                vec![],
+                vec![(user_btc_address, refund_amount)],
+                vec![refund_id],
             );
             SecurityPallet::set_active_block_number(1 + CONFIRMATIONS);
 
@@ -143,10 +142,9 @@ mod spec_based_tests {
             ) -> DispatchResultWithPostInfo {
                 let (_tx_id, _tx_block_height, merkle_proof, raw_tx, _) = generate_transaction_and_mine(
                     Default::default(),
-                    user_btc_address,
-                    invalid_refund_amount,
-                    Some(refund_id),
-                    None,
+                    vec![],
+                    vec![(user_btc_address, invalid_refund_amount)],
+                    vec![refund_id],
                 );
                 SecurityPallet::set_active_block_number(SecurityPallet::active_block_number() + 1 + CONFIRMATIONS);
 

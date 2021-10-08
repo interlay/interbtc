@@ -152,7 +152,7 @@ fn integration_test_double_spend_redeem() {
 
         // Send the honest redeem transaction
         let (_tx_id, _tx_block_height, merkle_proof, raw_tx, _) = {
-            register_address_and_mine_transaction(
+            register_addresses_and_mine_transaction(
                 default_vault_id_of(stealing_vault),
                 vault_public_key_one,
                 vec![],
@@ -163,7 +163,7 @@ fn integration_test_double_spend_redeem() {
 
         // Double-spend the redeem, so the redeemer gets twice the BTC
         let (_theft_tx_id, _theft_tx_block_height, theft_merkle_proof, theft_raw_tx, _) =
-            register_address_and_mine_transaction(
+            register_addresses_and_mine_transaction(
                 default_vault_id_of(stealing_vault),
                 vault_public_key_two,
                 vec![],
@@ -222,7 +222,7 @@ fn redeem_with_extra_utxo(use_unregistered_btc_address: bool) -> DispatchResultW
     let current_block_number = 1;
 
     let (_tx_id, _tx_block_height, merkle_proof, raw_tx, _) = {
-        register_address_and_mine_transaction(
+        register_addresses_and_mine_transaction(
             default_vault_id_of(vault),
             vault_public_key_one,
             vec![],
@@ -286,6 +286,9 @@ fn integration_test_merge_tx() {
         let vault_third_address = BtcAddress::P2PKH(vault_public_key_three.to_hash());
         let vault_fourth_address = BtcAddress::P2PKH(vault_public_key_four.to_hash());
 
+        // The first public key isn't added to the wallet automatically as a P2PKH address.
+        // Need to explicitly add it, otherwise the tx won't be considered a "merge"
+        register_vault_address(default_vault_id_of(vault), vault_public_key_one.clone());
         register_vault_address(default_vault_id_of(vault), vault_public_key_two.clone());
         register_vault_address(default_vault_id_of(vault), vault_public_key_three.clone());
         register_vault_address(default_vault_id_of(vault), vault_public_key_four.clone());
@@ -303,8 +306,13 @@ fn integration_test_merge_tx() {
         );
 
         let (_tx_id, _tx_block_height, merkle_proof, raw_tx, _) = generate_transaction_and_mine(
-            vault_public_key_one,
-            vec![(tx.clone(), 0), (tx.clone(), 1), (tx.clone(), 2), (tx, 3)],
+            vault_public_key_one.clone(),
+            vec![
+                (tx.clone(), 0, Some(vault_public_key_one)),
+                (tx.clone(), 1, Some(vault_public_key_two)),
+                (tx.clone(), 2, Some(vault_public_key_three)),
+                (tx, 3, Some(vault_public_key_four)),
+            ],
             vec![(vault_first_address, wrapped(4 * transfer_amount_raw))],
             vec![],
         );
@@ -349,7 +357,7 @@ fn integration_test_double_spend_refund() {
 
         // Send the honest refund transaction
         let (_tx_id, _tx_block_height, merkle_proof, raw_tx, _) = {
-            register_address_and_mine_transaction(
+            register_addresses_and_mine_transaction(
                 default_vault_id_of(stealing_vault),
                 vault_public_key_one,
                 vec![],
@@ -360,7 +368,7 @@ fn integration_test_double_spend_refund() {
 
         // Double-spend the refund, so the payee gets twice the BTC
         let (_theft_tx_id, _theft_tx_block_height, theft_merkle_proof, theft_raw_tx, _) =
-            register_address_and_mine_transaction(
+            register_addresses_and_mine_transaction(
                 default_vault_id_of(stealing_vault),
                 vault_public_key_two,
                 vec![],
@@ -423,7 +431,7 @@ fn integration_test_double_spend_replace() {
 
         // Send the honest replace transaction
         let (_tx_id, _tx_block_height, merkle_proof, raw_tx, _) = {
-            register_address_and_mine_transaction(
+            register_addresses_and_mine_transaction(
                 stealing_vault_id.clone(),
                 vault_public_key_one,
                 vec![],
@@ -434,7 +442,7 @@ fn integration_test_double_spend_replace() {
 
         // Double-spend the replace, so the payee gets twice the BTC
         let (_theft_tx_id, _theft_tx_block_height, theft_merkle_proof, theft_raw_tx, _) =
-            register_address_and_mine_transaction(
+            register_addresses_and_mine_transaction(
                 stealing_vault_id.clone(),
                 vault_public_key_two,
                 vec![],
