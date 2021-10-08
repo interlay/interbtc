@@ -416,7 +416,7 @@ pub mod pallet {
 
     #[pallet::event]
     #[pallet::generate_deposit(pub(super) fn deposit_event)]
-    #[pallet::metadata(T::AccountId = "AccountId", T::BlockNumber = "BlockNumber", BalanceOf<T> = "Balance", CurrencyId<T> = "CurrencyId")]
+    #[pallet::metadata(DefaultVaultId<T> = "VaultId", T::AccountId = "AccountId", T::BlockNumber = "BlockNumber", BalanceOf<T> = "Balance", CurrencyId<T> = "CurrencyId")]
     pub enum Event<T: Config> {
         /// vault_id, collateral, currency_id
         RegisterVault(DefaultVaultId<T>, BalanceOf<T>),
