@@ -1,4 +1,4 @@
-use crate::ToCompact;
+use crate::GetCompact;
 use sp_core::U256;
 
 /// Target Timespan: 2 weeks (1209600 seconds)
@@ -38,22 +38,22 @@ pub fn calculate_next_work_required(previous_target: U256, first_block_time: u64
     } else {
         target
     }
-    .to_compact()
+    .get_compact()
 }
 
 // https://github.com/bitcoin/bitcoin/blob/7fcf53f7b4524572d1d0c9a5fdc388e87eb02416/src/test/pow_tests.cpp
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::FromCompact;
+    use crate::SetCompact;
 
-    fn target_from_compact(bits: u32) -> U256 {
-        U256::from_compact(bits)
+    fn target_set_compact(bits: u32) -> U256 {
+        U256::set_compact(bits)
     }
 
     #[test]
     fn get_next_work() {
-        let previous_target = target_from_compact(0x1d00ffff);
+        let previous_target = target_set_compact(0x1d00ffff);
         let first_block_time = 1261130161; // Block #30240
         let last_block_time = 1262152739; // Block #32255
         assert_eq!(
@@ -64,7 +64,7 @@ mod tests {
 
     #[test]
     fn get_next_work_pow_limit() {
-        let previous_target = target_from_compact(0x1d00ffff);
+        let previous_target = target_set_compact(0x1d00ffff);
         let first_block_time = 1231006505; // Block #0
         let last_block_time = 1233061996; // Block #2015
         assert_eq!(
@@ -75,7 +75,7 @@ mod tests {
 
     #[test]
     fn get_next_work_lower_limit_actual() {
-        let previous_target = target_from_compact(0x1c05a3f4);
+        let previous_target = target_set_compact(0x1c05a3f4);
         let first_block_time = 1279008237; // Block #66528
         let last_block_time = 1279297671; // Block #68543
         assert_eq!(
@@ -86,7 +86,7 @@ mod tests {
 
     #[test]
     fn get_next_work_upper_limit_actual() {
-        let previous_target = target_from_compact(0x1c387f6f);
+        let previous_target = target_set_compact(0x1c387f6f);
         let first_block_time = 1263163443; // NOTE: Not an actual block time
         let last_block_time = 1269211443; // Block #46367
         assert_eq!(
@@ -98,7 +98,7 @@ mod tests {
     #[test]
     fn get_next_work_recent() {
         // this is the only test different from the bitcoin pow_tests
-        let previous_target = target_from_compact(0x170ed0eb);
+        let previous_target = target_set_compact(0x170ed0eb);
         let first_block_time = 1632234876; // Block #701568
         let last_block_time = 1633390031; // Block #703583
         assert_eq!(

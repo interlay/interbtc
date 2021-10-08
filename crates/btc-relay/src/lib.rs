@@ -71,7 +71,7 @@ use bitcoin::{
     merkle::{MerkleProof, ProofResult},
     parser::{parse_block_header, parse_transaction},
     types::{BlockChain, BlockHeader, H256Le, RawBlockHeader, Transaction, Value},
-    Error as BitcoinError, FromCompact,
+    Error as BitcoinError, SetCompact,
 };
 pub use types::{OpReturnPaymentData, RichBlockHeader};
 
@@ -1004,7 +1004,7 @@ impl<T: Config> Pallet<T> {
         let previous_target = prev_block_header.block_header.target;
 
         // compute new target
-        Ok(U256::from_compact(bitcoin::pow::calculate_next_work_required(
+        Ok(U256::set_compact(bitcoin::pow::calculate_next_work_required(
             previous_target,
             first_block_time,
             last_block_time,

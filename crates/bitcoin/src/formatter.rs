@@ -1,7 +1,7 @@
 use sp_core::U256;
 use sp_std::{prelude::*, vec, vec::Vec};
 
-use crate::{merkle::MerkleProof, script::*, types::*, Error, ToCompact};
+use crate::{merkle::MerkleProof, script::*, types::*, Error, GetCompact};
 
 const WITNESS_FLAG: u8 = 0x01;
 const WITNESS_MARKER: u8 = 0x00;
@@ -211,7 +211,7 @@ impl Formattable<bool> for Transaction {
 // https://developer.bitcoin.org/reference/block_chain.html#target-nbits
 impl TryFormattable<bool> for U256 {
     fn try_format(&self) -> Result<Vec<u8>, Error> {
-        let bits = self.clone().to_compact();
+        let bits = self.clone().get_compact();
         Ok(bits.to_le_bytes().to_vec())
     }
 }

@@ -9,7 +9,7 @@ use sha2::{Digest, Sha256};
 #[cfg(test)]
 use mocktopus::macros::mockable;
 
-use crate::{Error, FromCompact};
+use crate::{Error, SetCompact};
 use sp_core::U256;
 use sp_std::{prelude::*, vec};
 
@@ -148,7 +148,7 @@ impl Parsable for U256 {
         bytes.copy_from_slice(&raw_bytes[position..position + 4]);
 
         let bits = u32::from_le_bytes(bytes);
-        Ok((U256::from_compact(bits), 4))
+        Ok((U256::set_compact(bits), 4))
     }
 }
 
