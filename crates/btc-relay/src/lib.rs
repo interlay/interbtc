@@ -320,6 +320,8 @@ pub mod pallet {
         InvalidTransaction,
         /// Transaction does meet the requirements to be a valid op-return payment
         InvalidOpReturnTransaction,
+        /// Invalid compact value in header
+        InvalidCompact,
     }
 
     /// Store Bitcoin block headers
@@ -1004,11 +1006,11 @@ impl<T: Config> Pallet<T> {
         let previous_target = prev_block_header.block_header.target;
 
         // compute new target
-        Ok(U256::set_compact(bitcoin::pow::calculate_next_work_required(
-            previous_target,
-            first_block_time,
-            last_block_time,
-        )))
+        Ok(U256::set_compact(
+            bitcoin::pow::calculate_next_work_required(previous_target, first_block_time, last_block_time)
+                .map_err(Error::<T>::from)?,
+        )
+        .ok_or(Error::<T>::InvalidCompact)?)
     }
 
     /// Returns the timestamp of the last difficulty retarget on the specified BlockChain, given the current block
@@ -1388,6 +1390,7 @@ impl<T: Config> From<BitcoinError> for Error<T> {
             BitcoinError::InvalidBtcAddress => Self::InvalidBtcAddress,
             BitcoinError::ArithmeticOverflow => Self::ArithmeticOverflow,
             BitcoinError::ArithmeticUnderflow => Self::ArithmeticUnderflow,
+            BitcoinError::InvalidCompact => Self::InvalidCompact,
         }
     }
 }

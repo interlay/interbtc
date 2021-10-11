@@ -211,7 +211,7 @@ impl Formattable<bool> for Transaction {
 // https://developer.bitcoin.org/reference/block_chain.html#target-nbits
 impl TryFormattable<bool> for U256 {
     fn try_format(&self) -> Result<Vec<u8>, Error> {
-        let bits = self.clone().get_compact();
+        let bits = self.clone().get_compact().ok_or(Error::InvalidCompact)?;
         Ok(bits.to_le_bytes().to_vec())
     }
 }

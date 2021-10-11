@@ -148,7 +148,8 @@ impl Parsable for U256 {
         bytes.copy_from_slice(&raw_bytes[position..position + 4]);
 
         let bits = u32::from_le_bytes(bytes);
-        Ok((U256::set_compact(bits), 4))
+        let compact = U256::set_compact(bits).ok_or(Error::InvalidCompact)?;
+        Ok((compact, 4))
     }
 }
 

@@ -1,4 +1,4 @@
-use crate::GetCompact;
+use crate::{Error, GetCompact};
 use sp_core::U256;
 
 /// Target Timespan: 2 weeks (1209600 seconds)
@@ -18,7 +18,11 @@ pub const UNROUNDED_MAX_TARGET: U256 = U256([
 ]);
 
 // https://github.com/bitcoin/bitcoin/blob/89b910711c004c21b7d67baa888073742f7f94f0/src/pow.cpp#L49-L72
-pub fn calculate_next_work_required(previous_target: U256, first_block_time: u64, last_block_time: u64) -> u32 {
+pub fn calculate_next_work_required(
+    previous_target: U256,
+    first_block_time: u64,
+    last_block_time: u64,
+) -> Result<u32, Error> {
     let mut actual_timespan = last_block_time.saturating_sub(first_block_time);
 
     if actual_timespan < TARGET_TIMESPAN / TARGET_TIMESPAN_DIVISOR {
@@ -39,6 +43,7 @@ pub fn calculate_next_work_required(previous_target: U256, first_block_time: u64
         target
     }
     .get_compact()
+    .ok_or(Error::InvalidCompact)
 }
 
 // https://github.com/bitcoin/bitcoin/blob/7fcf53f7b4524572d1d0c9a5fdc388e87eb02416/src/test/pow_tests.cpp
@@ -46,9 +51,10 @@ pub fn calculate_next_work_required(previous_target: U256, first_block_time: u64
 mod tests {
     use super::*;
     use crate::SetCompact;
+    use frame_support::assert_ok;
 
     fn target_set_compact(bits: u32) -> U256 {
-        U256::set_compact(bits)
+        U256::set_compact(bits).unwrap()
     }
 
     #[test]
@@ -56,7 +62,7 @@ mod tests {
         let previous_target = target_set_compact(0x1d00ffff);
         let first_block_time = 1261130161; // Block #30240
         let last_block_time = 1262152739; // Block #32255
-        assert_eq!(
+        assert_ok!(
             calculate_next_work_required(previous_target, first_block_time, last_block_time),
             0x1d00d86a
         );
@@ -67,7 +73,7 @@ mod tests {
         let previous_target = target_set_compact(0x1d00ffff);
         let first_block_time = 1231006505; // Block #0
         let last_block_time = 1233061996; // Block #2015
-        assert_eq!(
+        assert_ok!(
             calculate_next_work_required(previous_target, first_block_time, last_block_time),
             0x1d00ffff
         );
@@ -78,7 +84,7 @@ mod tests {
         let previous_target = target_set_compact(0x1c05a3f4);
         let first_block_time = 1279008237; // Block #66528
         let last_block_time = 1279297671; // Block #68543
-        assert_eq!(
+        assert_ok!(
             calculate_next_work_required(previous_target, first_block_time, last_block_time),
             0x1c0168fd
         );
@@ -89,7 +95,7 @@ mod tests {
         let previous_target = target_set_compact(0x1c387f6f);
         let first_block_time = 1263163443; // NOTE: Not an actual block time
         let last_block_time = 1269211443; // Block #46367
-        assert_eq!(
+        assert_ok!(
             calculate_next_work_required(previous_target, first_block_time, last_block_time),
             0x1d00e1fd
         );
@@ -101,7 +107,7 @@ mod tests {
         let previous_target = target_set_compact(0x170ed0eb);
         let first_block_time = 1632234876; // Block #701568
         let last_block_time = 1633390031; // Block #703583
-        assert_eq!(
+        assert_ok!(
             calculate_next_work_required(previous_target, first_block_time, last_block_time),
             0x170e2632 // Block #703584
         );
