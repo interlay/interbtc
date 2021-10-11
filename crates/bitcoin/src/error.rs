@@ -18,4 +18,5 @@ pub enum Error {
     InvalidBtcAddress,
     ArithmeticOverflow,
     ArithmeticUnderflow,
+    InvalidCompact,
 }

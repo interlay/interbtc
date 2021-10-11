@@ -1,7 +1,7 @@
 use sp_core::U256;
 use sp_std::{prelude::*, vec, vec::Vec};
 
-use crate::{merkle::MerkleProof, script::*, types::*, Error};
+use crate::{merkle::MerkleProof, script::*, types::*, Error, GetCompact};
 
 const WITNESS_FLAG: u8 = 0x01;
 const WITNESS_MARKER: u8 = 0x00;
@@ -211,39 +211,8 @@ impl Formattable<bool> for Transaction {
 // https://developer.bitcoin.org/reference/block_chain.html#target-nbits
 impl TryFormattable<bool> for U256 {
     fn try_format(&self) -> Result<Vec<u8>, Error> {
-        let mut bytes: [u8; 4] = Default::default();
-        let mut exponent = self
-            .bits()
-            .checked_add(7)
-            .ok_or(Error::ArithmeticOverflow)?
-            .checked_div(8)
-            .ok_or(Error::ArithmeticUnderflow)?;
-        let mut mantissa = if exponent > 3 {
-            self.checked_div(
-                U256::from(256)
-                    .checked_pow(
-                        U256::from(exponent)
-                            .checked_sub(U256::from(3))
-                            .ok_or(Error::ArithmeticUnderflow)?,
-                    )
-                    .ok_or(Error::ArithmeticOverflow)?,
-            )
-            .ok_or(Error::ArithmeticUnderflow)?
-        } else {
-            *self
-        }
-        .as_u32();
-
-        // checks if nBits will be interpreted as negative
-        if (mantissa & 0x00800000) != 0 {
-            mantissa >>= 8;
-            exponent += 1;
-        }
-
-        let mantissa_bytes = mantissa.to_le_bytes();
-        bytes[3] = exponent as u8;
-        bytes[..2 + 1].clone_from_slice(&mantissa_bytes[..2 + 1]);
-        Ok(Vec::from(&bytes[..]))
+        let bits = self.clone().get_compact().ok_or(Error::InvalidCompact)?;
+        Ok(bits.to_le_bytes().to_vec())
     }
 }
 

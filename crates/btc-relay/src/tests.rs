@@ -1,7 +1,7 @@
 /// Tests for BTC-Relay
 use sp_core::U256;
 
-use crate::{ext, mock::*, types::*, BtcAddress, Error};
+use crate::{ext, mock::*, types::*, BtcAddress, Error, DIFFICULTY_ADJUSTMENT_INTERVAL};
 
 type Event = crate::Event<Test>;
 
@@ -13,6 +13,7 @@ use sp_std::{
     convert::{TryFrom, TryInto},
     str::FromStr,
 };
+
 /// # Getters and setters
 ///
 /// get_chain_position_from_chain_id
@@ -101,29 +102,68 @@ fn test_get_block_chain_from_id_empty_chain_fails() {
 #[test]
 fn initialize_once_succeeds() {
     run_test(|| {
-        let block_height: u32 = 1;
+        let relayer_id = 3;
+        let block_height: u32 = 0;
         let block_header = sample_block_header();
         let block_header_hash = block_header.hash;
         BTCRelay::best_block_exists.mock_safe(|| MockResult::Return(false));
 
-        assert_ok!(BTCRelay::initialize(3, block_header, block_height));
+        assert_ok!(BTCRelay::initialize(relayer_id, block_header, block_height));
 
-        let init_event = TestEvent::BTCRelay(Event::Initialized(block_height, block_header_hash, 3));
-        assert!(System::events().iter().any(|a| a.event == init_event));
+        System::assert_has_event(TestEvent::BTCRelay(Event::Initialized(
+            block_height,
+            block_header_hash,
+            relayer_id,
+        )));
     })
 }
 
 #[test]
 fn initialize_best_block_already_set_fails() {
     run_test(|| {
+        let relayer_id = 3;
         let block_height: u32 = 1;
 
         BTCRelay::best_block_exists.mock_safe(|| MockResult::Return(true));
 
         assert_err!(
-            BTCRelay::initialize(3, sample_block_header(), block_height),
+            BTCRelay::initialize(relayer_id, sample_block_header(), block_height),
             TestError::AlreadyInitialized
         );
+    })
+}
+
+#[test]
+fn initialize_with_invalid_difficulty_period_should_fail() {
+    run_test(|| {
+        let relayer_id = 3;
+        let block_height: u32 = 2021;
+        let block_header = sample_block_header();
+        BTCRelay::best_block_exists.mock_safe(|| MockResult::Return(false));
+
+        assert_err!(
+            BTCRelay::initialize(relayer_id, block_header, block_height),
+            TestError::InvalidStartHeight
+        );
+    })
+}
+
+#[test]
+fn initialize_with_valid_difficulty_period_should_succeed() {
+    run_test(|| {
+        let relayer_id = 3;
+        let block_height: u32 = DIFFICULTY_ADJUSTMENT_INTERVAL;
+        let block_header = sample_block_header();
+        let block_header_hash = block_header.hash;
+        BTCRelay::best_block_exists.mock_safe(|| MockResult::Return(false));
+
+        assert_ok!(BTCRelay::initialize(relayer_id, block_header, block_height));
+
+        System::assert_has_event(TestEvent::BTCRelay(Event::Initialized(
+            block_height,
+            block_header_hash,
+            relayer_id,
+        )));
     })
 }
 
@@ -314,7 +354,8 @@ mod store_block_header_tests {
             genesis.nonce = 11;
             genesis.update_hash().unwrap();
 
-            assert_ok!(BTCRelay::initialize(3, genesis, 10));
+            let block_height = 0;
+            assert_ok!(BTCRelay::initialize(3, genesis, block_height));
 
             // second block to the mainchain - otherwise we can't create a fork
             let a2 = from_prev(12, genesis.hash);
@@ -332,9 +373,9 @@ mod store_block_header_tests {
                 store_header_and_check_invariants(x);
             }
 
-            assert_is_block(10, &genesis);
+            assert_is_block(block_height, &genesis);
             for (idx, block) in blocks.iter().skip(1).enumerate() {
-                assert_is_block(11 + idx as u32, block);
+                assert_is_block(block_height + 1 + idx as u32, block);
             }
             // block a2 used to be in the mainchain, but is not anymore
             assert_err!(
@@ -384,8 +425,9 @@ mod store_block_header_tests {
                     .take(10)
                     .collect::<Vec<_>>();
 
-            assert_ok!(BTCRelay::initialize(3, final_chain[0].clone(), 10));
-            assert_best_block(&final_chain[0], 10);
+            let block_height = 0;
+            assert_ok!(BTCRelay::initialize(3, final_chain[0].clone(), block_height));
+            assert_best_block(&final_chain[0], block_height);
 
             // submit a temporary block such that final_chain[1] will be considered a fork
             let temp_fork_1 = from_prev(100, final_chain[0].hash);
@@ -406,7 +448,7 @@ mod store_block_header_tests {
                 .take(BTCRelay::get_stable_transaction_confirmations() as usize - 1)
             {
                 store_header_and_check_invariants(&block);
-                assert_is_block(11, &temp_fork_1);
+                assert_is_block(block_height + 1, &temp_fork_1);
             }
 
             // we did reorg, but temp_fork_2 has height of 12, so it is still considered an ongoing fork
@@ -423,7 +465,7 @@ mod store_block_header_tests {
             {
                 // all blocks in final chain that have been submitted so far must now be usable
                 for (idx, block) in final_chain.iter().enumerate().take(idx - 1) {
-                    assert_is_block(10 + idx as u32, block);
+                    assert_is_block(block_height + idx as u32, block);
                 }
 
                 store_header_and_check_invariants(block);
@@ -453,7 +495,7 @@ mod store_block_header_tests {
             BTCRelay::verify_block_header.mock_safe(|_, _, _| MockResult::Return(Ok(())));
 
             let genesis = sample_block_header();
-            assert_ok!(BTCRelay::initialize(3, genesis, 10));
+            assert_ok!(BTCRelay::initialize(3, genesis, 0));
 
             // store some blocks so that we don't get confirmation errors
             let blocks = successors(Some(genesis.clone()), |prev| Some(from_prev(0, prev.hash))).skip(1);
@@ -473,7 +515,7 @@ mod store_block_header_tests {
             let relayer_id = 3;
 
             let genesis = parse_from_hex("03000000e6a65096db85d2ed2dfab33dea50b338341e1aeb5d0ce411000000000000000098420532fa55a0bca5f043f8f8f16a2b73761e822178692cb99ced039e2a32a0ea3f97558e4116183a9cc34a");
-            assert_ok!(BTCRelay::initialize(relayer_id, genesis, 363730));
+            assert_ok!(BTCRelay::initialize(relayer_id, genesis, 0)); // 363730
 
             let fork_blocks: Vec<BlockHeader> = vec![
                 "020000009e576e5a71f5af67e4dac515f8f3c02e536bb452d720a3060000000000000000699ff8e92806063b23a2e70009ec8d10cfc97a9a8a9a508f1b6b189b06845c7d644097558e411618b943d647",
