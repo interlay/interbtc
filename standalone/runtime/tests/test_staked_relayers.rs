@@ -145,11 +145,6 @@ fn integration_test_double_spend_redeem() {
         let user_btc_address = BtcAddress::P2PKH(H160([2; 20]));
         let current_block_number = 1;
 
-        // vault_id: DefaultVaultId<Runtime>,
-        // from: BtcPublicKey,
-        // outputs: Vec<(BtcAddress, u128)>,
-        // return_data: Vec<H256>,
-
         // Send the honest redeem transaction
         let (_tx_id, _tx_block_height, merkle_proof, raw_tx, _) = {
             register_addresses_and_mine_transaction(
@@ -319,8 +314,8 @@ fn integration_test_merge_tx() {
 
         SecurityPallet::set_active_block_number(1 + CONFIRMATIONS);
 
-        // Reporting as theft should work, because the additional UTXO was sent to an
-        // address that wasn't the redeemer nor the vault's
+        // Reporting as theft should fail, because the transaction merged
+        // UTXOs sent to registered vault addresses
         assert_err!(
             Call::Relay(RelayCall::report_vault_theft(
                 default_vault_id_of(vault),
