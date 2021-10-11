@@ -55,7 +55,6 @@ pub use sp_runtime::{Perbill, Permill};
 pub use btc_relay::{bitcoin, Call as RelayCall, TARGET_SPACING};
 pub use module_oracle_rpc_runtime_api::BalanceWrapper;
 pub use security::StatusCode;
-use vault_registry::Vault;
 
 pub use primitives::{
     self, AccountId, Balance, BlockNumber, CurrencyId, CurrencyInfo, Hash, Moment, Nonce, Signature, SignedFixedPoint,
@@ -113,12 +112,20 @@ pub const EPOCH_DURATION_IN_BLOCKS: u32 = 10 * MINUTES;
 pub const MINUTES: BlockNumber = 60_000 / (MILLISECS_PER_BLOCK as BlockNumber);
 pub const HOURS: BlockNumber = MINUTES * 60;
 pub const DAYS: BlockNumber = HOURS * 24;
+pub const YEARS: BlockNumber = DAYS * 365;
 
 // 1 in 4 blocks (on average, not counting collisions) will be primary babe blocks.
 pub const PRIMARY_PROBABILITY: (u64, u64) = (1, 4);
 
 pub const BITCOIN_SPACING_MS: u32 = TARGET_SPACING * 1000;
 pub const BITCOIN_BLOCK_SPACING: BlockNumber = BITCOIN_SPACING_MS / MILLISECS_PER_BLOCK as BlockNumber;
+
+pub mod token_distribution {
+    use super::*;
+
+    // 10 million KINT distributed over 4 years
+    pub const INITIAL_ALLOCATION: Balance = 10_000_000_000_000_000_000;
+}
 
 /// The version information used to identify this runtime when compiled natively.
 #[cfg(feature = "std")]
@@ -827,6 +834,20 @@ impl orml_tokens::Config for Runtime {
     type DustRemovalWhitelist = DustRemovalWhitelist;
 }
 
+parameter_types! {
+    pub const SupplyPalletId: PalletId = PalletId(*b"mod/supl");
+    pub const InflationPeriod: BlockNumber = YEARS;
+}
+
+impl supply::Config for Runtime {
+    type SupplyPalletId = SupplyPalletId;
+    type Event = Event;
+    type UnsignedFixedPoint = UnsignedFixedPoint;
+    type Currency = orml_tokens::CurrencyAdapter<Runtime, GetNativeCurrencyId>;
+    type InflationPeriod = InflationPeriod;
+    type OnInflation = ();
+}
+
 impl reward::Config for Runtime {
     type Event = Event;
     type SignedFixedPoint = SignedFixedPoint;
@@ -966,6 +987,7 @@ construct_runtime! {
         Rewards: reward::{Pallet, Call, Storage, Event<T>},
         Staking: staking::{Pallet, Storage, Event<T>},
         Vesting: orml_vesting::{Pallet, Storage, Call, Event<T>, Config<T>},
+        Supply: supply::{Pallet, Storage, Call, Event<T>, Config<T>},
 
         // Bitcoin SPV
         BTCRelay: btc_relay::{Pallet, Call, Config<T>, Storage, Event<T>},
@@ -1249,14 +1271,13 @@ impl_runtime_apis! {
         UnsignedFixedPoint,
         CurrencyId,
         AccountId,
-        Vault<AccountId, BlockNumber, Balance, CurrencyId>
     > for Runtime {
         fn get_vault_collateral(vault_id: VaultId) -> Result<BalanceWrapper<Balance>, DispatchError> {
             let result = VaultRegistry::compute_collateral(&vault_id)?;
             Ok(BalanceWrapper{amount:result.amount()})
         }
 
-        fn get_vaults_by_account_id(account_id: AccountId) -> Result<Vec<Vault<AccountId, BlockNumber, Balance, CurrencyId>>, DispatchError> {
+        fn get_vaults_by_account_id(account_id: AccountId) -> Result<Vec<VaultId>, DispatchError> {
             VaultRegistry::get_vaults_by_account_id(account_id)
         }
 

@@ -71,7 +71,7 @@ use bitcoin::{
     merkle::{MerkleProof, ProofResult},
     parser::{parse_block_header, parse_transaction},
     types::{BlockChain, BlockHeader, H256Le, RawBlockHeader, Transaction, Value},
-    Error as BitcoinError,
+    Error as BitcoinError, SetCompact,
 };
 pub use types::{OpReturnPaymentData, RichBlockHeader};
 
@@ -224,6 +224,8 @@ pub mod pallet {
     pub enum Error<T> {
         /// Already initialized
         AlreadyInitialized,
+        /// Start height must be start of difficulty period
+        InvalidStartHeight,
         /// Missing the block at this height
         MissingBlockHeight,
         /// Invalid block header size
@@ -314,10 +316,12 @@ pub mod pallet {
         ArithmeticUnderflow,
         /// TryInto failed on integer
         TryIntoIntError,
-        /// Relayer is not registered
-        RelayerNotAuthorized,
+        /// Transaction does meet the requirements to be considered valid
+        InvalidTransaction,
         /// Transaction does meet the requirements to be a valid op-return payment
         InvalidOpReturnTransaction,
+        /// Invalid compact value in header
+        InvalidCompact,
     }
 
     /// Store Bitcoin block headers
@@ -419,20 +423,8 @@ pub const DIFFICULTY_ADJUSTMENT_INTERVAL: u32 = 2016;
 // https://github.com/bitcoin/bitcoin/blob/5ba5becbb5d8c794efe579caeea7eea64f895a13/src/chainparams.cpp#L78
 pub const TARGET_SPACING: u32 = 10 * 60;
 
-/// Target Timespan: 2 weeks (1209600 seconds)
-// https://github.com/bitcoin/bitcoin/blob/5ba5becbb5d8c794efe579caeea7eea64f895a13/src/chainparams.cpp#L77
-pub const TARGET_TIMESPAN: u32 = 14 * 24 * 60 * 60;
-
-// Used in Bitcoin's retarget algorithm
-pub const TARGET_TIMESPAN_DIVISOR: u32 = 4;
-
-// Accepted minimum number of transaction outputs for okd validation
-pub const ACCEPTED_MIN_TRANSACTION_OUTPUTS: u32 = 1;
-
-// Accepted minimum number of transaction outputs for op-return validation
-pub const ACCEPTED_MIN_TRANSACTION_OUTPUTS_WITH_OP_RETURN: usize = 2;
-
-// Accepted maximum number of transaction outputs for validation of redeem/replace/refund
+/// Accepted maximum number of transaction outputs for validation of redeem/replace/refund
+/// See: <https://spec.interlay.io/intro/accepted-format.html#accepted-bitcoin-transaction-format>
 pub const ACCEPTED_MAX_TRANSACTION_OUTPUTS: usize = 3;
 
 /// Unrounded Maximum Target
@@ -447,15 +439,17 @@ pub const UNROUNDED_MAX_TARGET: U256 = U256([
 /// Main chain id
 pub const MAIN_CHAIN_ID: u32 = 0;
 
-/// Number of outputs expected in the accepted transaction format
-/// See: <https://interlay.gitlab.io/polkabtc-spec/btcrelay-spec/intro/accepted-format.html>
-pub const ACCEPTED_NO_TRANSACTION_OUTPUTS: u32 = 2;
-
 #[cfg_attr(test, mockable)]
 impl<T: Config> Pallet<T> {
     pub fn initialize(relayer: T::AccountId, basic_block_header: BlockHeader, block_height: u32) -> DispatchResult {
         // Check if BTC-Relay was already initialized
         ensure!(!Self::best_block_exists(), Error::<T>::AlreadyInitialized);
+
+        // header must be the start of a difficulty period
+        ensure!(
+            Self::disable_difficulty_check() || block_height % DIFFICULTY_ADJUSTMENT_INTERVAL == 0,
+            Error::<T>::InvalidStartHeight
+        );
 
         // construct the BlockChain struct
         Self::create_and_store_blockchain(block_height, &basic_block_header)?;
@@ -596,6 +590,12 @@ impl<T: Config> Pallet<T> {
         transaction: Transaction,
         recipient_btc_address: BtcAddress,
     ) -> Result<(BtcAddress, V), DispatchError> {
+        // upper-bound the number of outputs to limit iteration
+        ensure!(
+            transaction.outputs.len() <= ACCEPTED_MAX_TRANSACTION_OUTPUTS,
+            Error::<T>::InvalidTransaction
+        );
+
         let input_address = transaction
             .inputs
             .get(0)
@@ -794,7 +794,7 @@ impl<T: Config> Pallet<T> {
     /// # Arguments
     ///
     /// * `chain_id`: the id of the blockchain to search in
-    /// * `block_height`: the height if the block header
+    /// * `block_height`: the height of the block header
     fn get_block_hash(chain_id: u32, block_height: u32) -> Result<H256Le, DispatchError> {
         if !Self::block_exists(chain_id, block_height) {
             return Err(Error::<T>::MissingBlockHeight.into());
@@ -1001,29 +1001,17 @@ impl<T: Config> Pallet<T> {
         prev_block_header: &RichBlockHeader<T::BlockNumber>,
         block_height: u32,
     ) -> Result<U256, DispatchError> {
-        // get time of last retarget
-        let last_retarget_time = Self::get_last_retarget_time(prev_block_header.chain_id, block_height)?;
-        // Compute new target
-        let actual_timespan = if ((prev_block_header.block_header.timestamp as u64 - last_retarget_time) as u32)
-            < (TARGET_TIMESPAN / TARGET_TIMESPAN_DIVISOR)
-        {
-            TARGET_TIMESPAN / TARGET_TIMESPAN_DIVISOR
-        } else {
-            TARGET_TIMESPAN * TARGET_TIMESPAN_DIVISOR
-        };
+        // time of last retarget (first block in current difficulty period)
+        let first_block_time = Self::get_last_retarget_time(prev_block_header.chain_id, block_height)?;
+        let last_block_time = prev_block_header.block_header.timestamp as u64;
+        let previous_target = prev_block_header.block_header.target;
 
-        let new_target = U256::from(actual_timespan)
-            .checked_mul(prev_block_header.block_header.target)
-            .ok_or(Error::<T>::ArithmeticOverflow)?
-            .checked_div(U256::from(TARGET_TIMESPAN))
-            .ok_or(Error::<T>::ArithmeticUnderflow)?;
-
-        // ensure target does not exceed max. target
-        Ok(if new_target > UNROUNDED_MAX_TARGET {
-            UNROUNDED_MAX_TARGET
-        } else {
-            new_target
-        })
+        // compute new target
+        Ok(U256::set_compact(
+            bitcoin::pow::calculate_next_work_required(previous_target, first_block_time, last_block_time)
+                .map_err(Error::<T>::from)?,
+        )
+        .ok_or(Error::<T>::InvalidCompact)?)
     }
 
     /// Returns the timestamp of the last difficulty retarget on the specified BlockChain, given the current block
@@ -1035,8 +1023,8 @@ impl<T: Config> Pallet<T> {
     /// * `block_height` - current block height
     fn get_last_retarget_time(chain_id: u32, block_height: u32) -> Result<u64, DispatchError> {
         let block_chain = Self::get_block_chain_from_id(chain_id)?;
-        let last_retarget_header =
-            Self::get_block_header_from_height(&block_chain, block_height - DIFFICULTY_ADJUSTMENT_INTERVAL)?;
+        let period_start_height = block_height - block_height % DIFFICULTY_ADJUSTMENT_INTERVAL;
+        let last_retarget_header = Self::get_block_header_from_height(&block_chain, period_start_height)?;
         Ok(last_retarget_header.block_header.timestamp as u64)
     }
 
@@ -1323,7 +1311,7 @@ impl<T: Config> Pallet<T> {
             .checked_add(required_confirmations)
             .ok_or(Error::<T>::ArithmeticOverflow)?
             .checked_sub(1)
-            .ok_or(Error::<T>::ArithmeticUnderflow)?;
+            .unwrap_or_default();
 
         if main_chain_height >= required_mainchain_height {
             Ok(())
@@ -1403,6 +1391,7 @@ impl<T: Config> From<BitcoinError> for Error<T> {
             BitcoinError::InvalidBtcAddress => Self::InvalidBtcAddress,
             BitcoinError::ArithmeticOverflow => Self::ArithmeticOverflow,
             BitcoinError::ArithmeticUnderflow => Self::ArithmeticUnderflow,
+            BitcoinError::InvalidCompact => Self::InvalidCompact,
         }
     }
 }

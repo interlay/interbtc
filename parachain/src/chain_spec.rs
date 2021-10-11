@@ -2,10 +2,10 @@ use bitcoin::utils::{virtual_transaction_size, InputType, TransactionInputMetada
 use cumulus_primitives_core::ParaId;
 use hex_literal::hex;
 use interbtc_runtime::{
-    AccountId, AuraConfig, BTCRelayConfig, Balance, CurrencyId, FeeConfig, GenesisConfig, IssueConfig,
-    NominationConfig, OracleConfig, ParachainInfoConfig, RedeemConfig, RefundConfig, ReplaceConfig, SecurityConfig,
-    Signature, StatusCode, SudoConfig, SystemConfig, TokensConfig, VaultRegistryConfig, VestingConfig,
-    BITCOIN_BLOCK_SPACING, DAYS, WASM_BINARY,
+    token_distribution, AccountId, AuraConfig, BTCRelayConfig, Balance, CurrencyId, FeeConfig, GenesisConfig,
+    IssueConfig, NominationConfig, OracleConfig, ParachainInfoConfig, RedeemConfig, RefundConfig, ReplaceConfig,
+    SecurityConfig, Signature, StatusCode, SudoConfig, SupplyConfig, SystemConfig, TokensConfig, VaultRegistryConfig,
+    VestingConfig, BITCOIN_BLOCK_SPACING, DAYS, WASM_BINARY, YEARS,
 };
 use primitives::{BlockNumber, VaultCurrencyPair, KINT};
 use sc_chain_spec::{ChainSpecExtension, ChainSpecGroup};
@@ -367,6 +367,11 @@ fn testnet_genesis(
         technical_membership: Default::default(),
         democracy: Default::default(),
         elections_phragmen: Default::default(),
+        supply: SupplyConfig {
+            initial_supply: token_distribution::INITIAL_ALLOCATION,
+            start_height: YEARS * 5,
+            inflation: FixedU128::checked_from_rational(2, 100).unwrap(), // 2%
+        },
     }
 }
 
@@ -585,5 +590,10 @@ fn mainnet_genesis(
         technical_membership: Default::default(),
         democracy: Default::default(),
         elections_phragmen: Default::default(),
+        supply: SupplyConfig {
+            initial_supply: token_distribution::INITIAL_ALLOCATION,
+            start_height: YEARS * 5,
+            inflation: FixedU128::checked_from_rational(2, 100).unwrap(), // 2%
+        },
     }
 }

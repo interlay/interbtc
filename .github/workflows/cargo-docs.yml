@@ -17,7 +17,7 @@ jobs:
             cmake pkg-config libssl-dev git clang curl libc6-dev
       - uses: actions-rs/toolchain@v1
         with:
-          toolchain: nightly-2021-03-15
+          toolchain: nightly-2021-08-01
 
       - name: build docs
         uses: actions-rs/cargo@v1
