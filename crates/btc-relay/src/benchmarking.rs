@@ -7,7 +7,7 @@ use bitcoin::{
         TransactionInputSource, TransactionOutput,
     },
 };
-use frame_benchmarking::{account, benchmarks};
+use frame_benchmarking::{account, benchmarks, impl_benchmark_test_suite};
 use frame_system::RawOrigin;
 use security::Pallet as Security;
 use sp_core::{H160, H256, U256};
@@ -132,18 +132,4 @@ benchmarks! {
 
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::mock::{ExtBuilder, Test};
-    use frame_support::assert_ok;
-
-    #[test]
-    fn test_benchmarks() {
-        ExtBuilder::build().execute_with(|| {
-            assert_ok!(test_benchmark_verify_and_validate_transaction::<Test>());
-            assert_ok!(test_benchmark_verify_transaction_inclusion::<Test>());
-            assert_ok!(test_benchmark_validate_transaction::<Test>());
-        });
-    }
-}
+impl_benchmark_test_suite!(BtcRelay, crate::mock::ExtBuilder::build(), crate::mock::Test);
