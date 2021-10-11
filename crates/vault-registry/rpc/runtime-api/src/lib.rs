@@ -8,19 +8,18 @@ use module_oracle_rpc_runtime_api::BalanceWrapper;
 use sp_std::vec::Vec;
 
 sp_api::decl_runtime_apis! {
-    pub trait VaultRegistryApi<VaultId, Balance, UnsignedFixedPoint, CurrencyId, AccountId, Vault> where
+    pub trait VaultRegistryApi<VaultId, Balance, UnsignedFixedPoint, CurrencyId, AccountId> where
         VaultId: Codec,
         Balance: Codec,
         UnsignedFixedPoint: Codec,
         CurrencyId: Codec,
         AccountId: Codec,
-        Vault: Codec,
     {
         /// Get the vault's collateral (excluding nomination)
         fn get_vault_collateral(vault_id: VaultId) -> Result<BalanceWrapper<Balance>, DispatchError>;
 
-        /// Get all the vaults registered by a vault's accountId (NOT vaultId)
-        fn get_vaults_by_account_id(account_id: AccountId) -> Result<Vec<Vault>, DispatchError>;
+        /// Get all the vaultIds registered by a vault's accountId
+        fn get_vaults_by_account_id(account_id: AccountId) -> Result<Vec<VaultId>, DispatchError>;
 
         /// Get the vault's collateral (including nomination)
         fn get_vault_total_collateral(vault_id: VaultId) -> Result<BalanceWrapper<Balance>, DispatchError>;

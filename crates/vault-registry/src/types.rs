@@ -106,7 +106,6 @@ pub type DefaultVaultId<T> = VaultId<<T as frame_system::Config>::AccountId, Cur
 pub type DefaultVaultCurrencyPair<T> = VaultCurrencyPair<CurrencyId<T>>;
 
 #[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, Default)]
-#[cfg_attr(feature = "std", derive(serde::Serialize, serde::Deserialize))]
 pub struct Wallet {
     // store all addresses for `report_vault_theft` checks
     pub addresses: BTreeSet<BtcAddress>,
@@ -133,7 +132,6 @@ impl Wallet {
 }
 
 #[derive(Encode, Decode, Clone, Copy, PartialEq, Eq, Debug)]
-#[cfg_attr(feature = "std", derive(serde::Serialize, serde::Deserialize))]
 pub enum VaultStatus {
     /// Vault is active - bool=true indicates that the vault accepts new issue requests
     Active(bool),
@@ -152,7 +150,7 @@ impl Default for VaultStatus {
 }
 
 #[derive(Encode, Decode, Clone, PartialEq, Eq)]
-#[cfg_attr(feature = "std", derive(Debug, serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "std", derive(Debug))]
 pub struct Vault<AccountId, BlockNumber, Balance, CurrencyId: Copy> {
     /// Account identifier of the Vault
     pub id: VaultId<AccountId, CurrencyId>,

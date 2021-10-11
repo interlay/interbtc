@@ -17,7 +17,6 @@ use sp_block_builder::BlockBuilder;
 use sp_blockchain::{Error as BlockChainError, HeaderBackend, HeaderMetadata};
 use sp_core::H256;
 use std::sync::Arc;
-use vault_registry::Vault;
 
 pub use jsonrpc_core;
 
@@ -49,7 +48,6 @@ where
         FixedU128,
         CurrencyId,
         AccountId,
-        Vault<AccountId, BlockNumber, Balance, CurrencyId>,
     >,
     C::Api: module_issue_rpc::IssueRuntimeApi<
         Block,
