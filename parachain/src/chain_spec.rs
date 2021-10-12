@@ -82,6 +82,21 @@ fn get_properties() -> Map<String, Value> {
     properties
 }
 
+fn expected_transaction_size() -> u32 {
+    virtual_transaction_size(
+        TransactionInputMetadata {
+            count: 2,
+            script_type: InputType::P2WPKHv0,
+        },
+        TransactionOutputMetadata {
+            num_op_return: 1,
+            num_p2pkh: 2,
+            num_p2sh: 0,
+            num_p2wpkh: 0,
+        },
+    )
+}
+
 pub fn local_config(id: ParaId) -> ChainSpec {
     ChainSpec::from_genesis(
         "interBTC",
@@ -308,18 +323,7 @@ fn testnet_genesis(
             issue_btc_dust_value: DEFAULT_DUST_VALUE,
         },
         redeem: RedeemConfig {
-            redeem_transaction_size: virtual_transaction_size(
-                TransactionInputMetadata {
-                    count: 2,
-                    script_type: InputType::P2WPKHv0,
-                },
-                TransactionOutputMetadata {
-                    num_op_return: 1,
-                    num_p2pkh: 2,
-                    num_p2sh: 0,
-                    num_p2wpkh: 0,
-                },
-            ),
+            redeem_transaction_size: expected_transaction_size(),
             redeem_period: DAYS,
             redeem_btc_dust_value: DEFAULT_DUST_VALUE,
         },
@@ -357,6 +361,7 @@ fn testnet_genesis(
         },
         refund: RefundConfig {
             refund_btc_dust_value: DEFAULT_DUST_VALUE,
+            refund_transaction_size: expected_transaction_size(),
         },
         nomination: NominationConfig {
             is_nomination_enabled: false,
@@ -529,18 +534,7 @@ fn mainnet_genesis(
             issue_btc_dust_value: DEFAULT_DUST_VALUE,
         },
         redeem: RedeemConfig {
-            redeem_transaction_size: virtual_transaction_size(
-                TransactionInputMetadata {
-                    count: 2,
-                    script_type: InputType::P2WPKHv0,
-                },
-                TransactionOutputMetadata {
-                    num_op_return: 1,
-                    num_p2pkh: 2,
-                    num_p2sh: 0,
-                    num_p2wpkh: 0,
-                },
-            ),
+            redeem_transaction_size: expected_transaction_size(),
             redeem_period: DAYS,
             redeem_btc_dust_value: DEFAULT_DUST_VALUE,
         },
@@ -580,6 +574,7 @@ fn mainnet_genesis(
         },
         refund: RefundConfig {
             refund_btc_dust_value: DEFAULT_DUST_VALUE,
+            refund_transaction_size: expected_transaction_size(),
         },
         nomination: NominationConfig {
             is_nomination_enabled: false,

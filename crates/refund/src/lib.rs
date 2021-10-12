@@ -30,11 +30,12 @@ use btc_relay::BtcAddress;
 use currency::Amount;
 #[doc(inline)]
 use default_weights::WeightInfo;
-use frame_support::{dispatch::DispatchError, ensure, transactional};
+use frame_support::{dispatch::DispatchError, ensure, sp_runtime::FixedPointNumber, transactional};
 use frame_system::ensure_signed;
+use oracle::OracleKey;
 pub use pallet::*;
 use sp_core::H256;
-use sp_std::vec::Vec;
+use sp_std::{convert::TryInto, vec::Vec};
 use types::{BalanceOf, DefaultVaultId, RefundRequestExt, Wrapped};
 
 #[frame_support::pallet]
@@ -60,7 +61,7 @@ pub mod pallet {
     #[pallet::generate_deposit(pub(super) fn deposit_event)]
     #[pallet::metadata(DefaultVaultId<T> = "VaultId", T::AccountId = "AccountId", Wrapped<T> = "Wrapped")]
     pub enum Event<T: Config> {
-        /// refund_id, issuer, amount_without_fee, vault, btc_address, issue_id, fee
+        /// refund_id, issuer, amount_without_fee, vault, btc_address, issue_id, fee, transfer_fee
         RequestRefund(
             H256,
             T::AccountId,
@@ -68,6 +69,7 @@ pub mod pallet {
             DefaultVaultId<T>,
             BtcAddress,
             H256,
+            Wrapped<T>,
             Wrapped<T>,
         ),
         /// refund_id, issuer, vault, amount, fee
@@ -77,6 +79,7 @@ pub mod pallet {
     #[pallet::error]
     pub enum Error<T> {
         ArithmeticUnderflow,
+        ArithmeticOverflow,
         NoRefundFoundForIssueId,
         RefundIdNotFound,
         RefundCompleted,
@@ -90,6 +93,11 @@ pub mod pallet {
     #[pallet::getter(fn refund_btc_dust_value)]
     pub(super) type RefundBtcDustValue<T: Config> = StorageValue<_, Wrapped<T>, ValueQuery>;
 
+    /// the expected size in bytes of the redeem bitcoin transfer
+    #[pallet::storage]
+    #[pallet::getter(fn refund_transaction_size)]
+    pub(super) type RefundTransactionSize<T: Config> = StorageValue<_, u32, ValueQuery>;
+
     /// This mapping provides access from a unique hash refundId to a Refund struct.
     #[pallet::storage]
     #[pallet::getter(fn refund_requests)]
@@ -99,6 +107,7 @@ pub mod pallet {
     #[pallet::genesis_config]
     pub struct GenesisConfig<T: Config> {
         pub refund_btc_dust_value: Wrapped<T>,
+        pub refund_transaction_size: u32,
     }
 
     #[cfg(feature = "std")]
@@ -106,6 +115,7 @@ pub mod pallet {
         fn default() -> Self {
             Self {
                 refund_btc_dust_value: Default::default(),
+                refund_transaction_size: Default::default(),
             }
         }
     }
@@ -114,6 +124,7 @@ pub mod pallet {
     impl<T: Config> GenesisBuild<T> for GenesisConfig<T> {
         fn build(&self) {
             RefundBtcDustValue::<T>::put(self.refund_btc_dust_value);
+            RefundTransactionSize::<T>::put(self.refund_transaction_size);
         }
     }
 
@@ -164,19 +175,24 @@ impl<T: Config> Pallet<T> {
     ) -> Result<Option<H256>, DispatchError> {
         ext::security::ensure_parachain_status_not_shutdown::<T>()?;
 
-        let fee_wrapped = ext::fee::get_refund_fee_from_total::<T>(total_amount_btc)?;
-        let net_refund_amount_wrapped = total_amount_btc.checked_sub(&fee_wrapped)?;
+        let vault_reward_fee = ext::fee::get_refund_fee_from_total::<T>(total_amount_btc)?;
+        let transfer_fee = Self::get_current_inclusion_fee(vault_id.wrapped_currency())?;
 
-        // Only refund if the amount is above the dust value
-        if net_refund_amount_wrapped.lt(&Self::get_dust_value(vault_id.wrapped_currency()))? {
-            return Ok(None);
-        }
+        let net_refund_amount_wrapped = match total_amount_btc
+            .checked_sub(&vault_reward_fee)?
+            .checked_sub(&transfer_fee)
+        {
+            // Only refund if the amount is above the dust value
+            Ok(x) if x.ge(&Self::get_dust_value(vault_id.wrapped_currency()))? => x,
+            _ => return Ok(None),
+        };
 
         let refund_id = ext::security::get_secure_id::<T>(&issuer);
 
         let request = RefundRequest {
             vault: vault_id,
-            fee: fee_wrapped.amount(),
+            fee: vault_reward_fee.amount(),
+            transfer_fee_btc: transfer_fee.amount(),
             amount_btc: net_refund_amount_wrapped.amount(),
             issuer,
             btc_address,
@@ -193,6 +209,7 @@ impl<T: Config> Pallet<T> {
             request.btc_address,
             request.issue_id,
             request.fee,
+            request.transfer_fee_btc,
         ));
 
         Ok(Some(refund_id))
@@ -281,6 +298,19 @@ impl<T: Config> Pallet<T> {
         <RefundRequests<T>>::iter()
             .filter(|(_, request)| request.issuer == account_id)
             .collect::<Vec<_>>()
+    }
+
+    /// get current inclusion fee based on the expected number of bytes in the transaction, and
+    /// the inclusion fee rate reported by the oracle
+    pub fn get_current_inclusion_fee(wrapped_currency: CurrencyId<T>) -> Result<Amount<T>, DispatchError> {
+        let size: u32 = Self::refund_transaction_size();
+        let satoshi_per_bytes = ext::oracle::get_price::<T>(OracleKey::FeeEstimation)?;
+
+        let fee = satoshi_per_bytes
+            .checked_mul_int(size)
+            .ok_or(Error::<T>::ArithmeticOverflow)?;
+        let amount = fee.try_into().map_err(|_| Error::<T>::TryIntoIntError)?;
+        Ok(Amount::new(amount, wrapped_currency))
     }
 
     /// Return the refund request corresponding to the specified issue ID, or return an error. This function is exposed

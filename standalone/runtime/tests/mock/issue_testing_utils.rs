@@ -198,7 +198,7 @@ pub fn assert_refund_request_event() -> H256 {
     SystemModule::events()
         .iter()
         .find_map(|record| match record.event {
-            Event::Refund(RefundEvent::RequestRefund(id, _, _, _, _, _, _)) => Some(id),
+            Event::Refund(RefundEvent::RequestRefund(id, _, _, _, _, _, _, _)) => Some(id),
             _ => None,
         })
         .expect("request refund event not found")

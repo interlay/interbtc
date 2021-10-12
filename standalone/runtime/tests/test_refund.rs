@@ -1,8 +1,8 @@
 mod mock;
 
 use currency::Amount;
-use frame_support::traits::Currency;
 use mock::{assert_eq, *};
+use refund::types::RefundRequestExt;
 
 fn test_with<R>(execute: impl Fn(VaultId) -> R) {
     let test_with = |collateral_currency, wrapped_currency| {
@@ -60,7 +60,7 @@ mod spec_based_tests {
 
             let user_btc_address = BtcAddress::P2PKH(H160([2; 20]));
 
-            let refund_amount = vault_id.wrapped(100);
+            let refund_amount = vault_id.wrapped(10000);
             let refund_id = RefundPallet::request_refund(
                 &refund_amount,
                 vault_id.clone(),
@@ -71,9 +71,20 @@ mod spec_based_tests {
             .unwrap()
             .unwrap();
 
-            let (_tx_id, _tx_block_height, merkle_proof, raw_tx) =
-                generate_transaction_and_mine(Default::default(), user_btc_address, refund_amount, Some(refund_id));
+            let refund_request = RefundPallet::refund_requests(refund_id).unwrap();
+
+            let (_tx_id, _tx_block_height, merkle_proof, raw_tx) = generate_transaction_and_mine(
+                Default::default(),
+                user_btc_address,
+                refund_request.amount_btc(),
+                Some(refund_id),
+            );
             SecurityPallet::set_active_block_number(1 + CONFIRMATIONS);
+
+            let refund_fee = vault_id.wrapped(refund_request.fee);
+            let total_supply = vault_id.wrapped(<orml_tokens::Pallet<Runtime>>::total_issuance(
+                vault_id.wrapped_currency(),
+            ));
 
             assert_ok!(Call::Refund(RefundCall::execute_refund(
                 refund_id,
@@ -83,8 +94,6 @@ mod spec_based_tests {
             .dispatch(origin_of(vault_id.account_id.clone())));
 
             let refund_request = RefundPallet::refund_requests(refund_id).unwrap();
-            let refund_fee = vault_id.wrapped(refund_request.fee);
-            let total_supply = vault_id.wrapped(TreasuryPallet::total_issuance());
 
             // POSTCONDITION: refund.completed MUST be true
             assert!(refund_request.completed);
@@ -99,7 +108,9 @@ mod spec_based_tests {
             // POSTCONDITION: total supply MUST increase by fee
             assert_eq!(
                 total_supply + refund_fee,
-                vault_id.wrapped(TreasuryPallet::total_issuance())
+                vault_id.wrapped(<orml_tokens::Pallet<Runtime>>::total_issuance(
+                    vault_id.wrapped_currency()
+                ))
             );
 
             assert_eq!(
@@ -119,7 +130,7 @@ mod spec_based_tests {
         test_with(|vault_id| {
             let user_btc_address = BtcAddress::P2PKH(H160([2; 20]));
 
-            let raw_refund_amount = 100;
+            let raw_refund_amount = 10000;
             let refund_amount = vault_id.wrapped(raw_refund_amount);
             let refund_id = RefundPallet::request_refund(
                 &refund_amount,
