@@ -1,9 +1,10 @@
 use bitcoin::utils::{virtual_transaction_size, InputType, TransactionInputMetadata, TransactionOutputMetadata};
 use hex_literal::hex;
 use interbtc_runtime::{
-    AccountId, AuraConfig, BTCRelayConfig, CurrencyId, FeeConfig, GenesisConfig, GrandpaConfig, IssueConfig,
-    NominationConfig, OracleConfig, RedeemConfig, RefundConfig, ReplaceConfig, SecurityConfig, Signature, StatusCode,
-    SudoConfig, SystemConfig, TokensConfig, VaultRegistryConfig, BITCOIN_BLOCK_SPACING, DAYS, DOT, KSM, WASM_BINARY,
+    AccountId, AuraConfig, BTCRelayConfig, CouncilConfig, CurrencyId, FeeConfig, GenesisConfig, GrandpaConfig,
+    IssueConfig, NominationConfig, OracleConfig, RedeemConfig, RefundConfig, ReplaceConfig, SecurityConfig, Signature,
+    StatusCode, SudoConfig, SystemConfig, TokensConfig, VaultRegistryConfig, BITCOIN_BLOCK_SPACING, DAYS, DOT, INTR,
+    KSM, WASM_BINARY,
 };
 use primitives::VaultCurrencyPair;
 use sp_consensus_aura::sr25519::AuthorityId as AuraId;
@@ -270,7 +271,7 @@ fn testnet_genesis(
         tokens: TokensConfig {
             balances: endowed_accounts
                 .iter()
-                .flat_map(|k| vec![(k.clone(), DOT, 1 << 60), (k.clone(), KSM, 1 << 60)])
+                .flat_map(|k| vec![(k.clone(), DOT, 1 << 60), (k.clone(), INTR, 1 << 60)])
                 .collect(),
         },
         oracle: OracleConfig {
@@ -352,7 +353,10 @@ fn testnet_genesis(
         nomination: NominationConfig {
             is_nomination_enabled: false,
         },
-        general_council: Default::default(),
+        council: CouncilConfig {
+            members: vec![get_account_id_from_seed::<sr25519::Public>("Alice")],
+            phantom: Default::default(),
+        },
         technical_committee: Default::default(),
         treasury: Default::default(),
         technical_membership: Default::default(),
