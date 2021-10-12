@@ -4,7 +4,7 @@ use interbtc_runtime::{
     AccountId, AuraConfig, BTCRelayConfig, CouncilConfig, CurrencyId, FeeConfig, GenesisConfig, GrandpaConfig,
     IssueConfig, NominationConfig, OracleConfig, RedeemConfig, RefundConfig, ReplaceConfig, SecurityConfig, Signature,
     StatusCode, SudoConfig, SystemConfig, TokensConfig, VaultRegistryConfig, BITCOIN_BLOCK_SPACING, DAYS, DOT, INTR,
-    KSM, WASM_BINARY,
+    WASM_BINARY,
 };
 use primitives::VaultCurrencyPair;
 use sp_consensus_aura::sr25519::AuthorityId as AuraId;
@@ -354,7 +354,11 @@ fn testnet_genesis(
             is_nomination_enabled: false,
         },
         council: CouncilConfig {
-            members: vec![get_account_id_from_seed::<sr25519::Public>("Alice")],
+            members: vec![
+                get_account_id_from_seed::<sr25519::Public>("Alice"),
+                get_account_id_from_seed::<sr25519::Public>("Bob"),
+                get_account_id_from_seed::<sr25519::Public>("Charlie"),
+            ],
             phantom: Default::default(),
         },
         technical_committee: Default::default(),
