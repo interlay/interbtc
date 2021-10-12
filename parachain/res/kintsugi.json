@@ -26,7 +26,6 @@
   "relay_chain": "kusama",
   "para_id": 2092,
   "consensusEngine": null,
-  "lightSyncState": null,
   "codeSubstitutes": {},
   "genesis": {
     "raw": {
