@@ -15,7 +15,7 @@ use frame_support::{
 };
 use frame_system::{EnsureOneOf, EnsureRoot, RawOrigin};
 use sp_core::{
-    u32_trait::{_1, _2, _3, _4},
+    u32_trait::{_1, _2, _3, _4, _5},
     H256,
 };
 
@@ -324,12 +324,6 @@ impl pallet_scheduler::Config for Runtime {
     type WeightInfo = ();
 }
 
-type EnsureRootOrAllCouncil = EnsureOneOf<
-    AccountId,
-    EnsureRoot<AccountId>,
-    pallet_collective::EnsureProportionMoreThan<_1, _1, AccountId, CouncilInstance>,
->;
-
 type EnsureRootOrHalfCouncil = EnsureOneOf<
     AccountId,
     EnsureRoot<AccountId>,
@@ -346,6 +340,12 @@ type EnsureRootOrThreeFourthsCouncil = EnsureOneOf<
     AccountId,
     EnsureRoot<AccountId>,
     pallet_collective::EnsureProportionAtLeast<_3, _4, AccountId, CouncilInstance>,
+>;
+
+type EnsureRootOrThreeFifthsCouncil = EnsureOneOf<
+    AccountId,
+    EnsureRoot<AccountId>,
+    pallet_collective::EnsureProportionMoreThan<_3, _5, AccountId, CouncilInstance>,
 >;
 
 type EnsureRootOrAllTechnicalCommittee = EnsureOneOf<
@@ -385,9 +385,8 @@ impl pallet_democracy::Config for Runtime {
     type ExternalOrigin = EnsureRootOrHalfCouncil;
     /// A majority can have the next scheduled referendum be a straight majority-carries vote.
     type ExternalMajorityOrigin = EnsureRootOrHalfCouncil;
-    /// A unanimous council can have the next scheduled referendum be a straight default-carries
-    /// (NTB) vote.
-    type ExternalDefaultOrigin = EnsureRootOrAllCouncil;
+    /// A majority can have the next scheduled referendum be a straight default-carries (NTB) vote.
+    type ExternalDefaultOrigin = EnsureRootOrThreeFifthsCouncil;
     /// Two thirds of the technical committee can have an ExternalMajority/ExternalDefault vote
     /// be tabled immediately and with a shorter voting/enactment period.
     type FastTrackOrigin = EnsureRootOrTwoThirdsTechnicalCommittee;
