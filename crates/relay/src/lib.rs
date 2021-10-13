@@ -410,7 +410,7 @@ impl<T: Config> Pallet<T> {
             Error::<T>::VaultNoInputToTransaction
         );
 
-        // Vaults are required to move funds for redeem and replace operations.
+        // Vaults are required to move funds for redeem, replace and refund operations.
         // Each transaction MUST feature at least two or three outputs as follows:
         // * recipient: the recipient of the redeem / replace
         // * op_return: the associated ID encoded in the OP_RETURN

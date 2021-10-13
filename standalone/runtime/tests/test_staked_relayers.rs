@@ -22,7 +22,7 @@ fn test_with<R>(execute: impl Fn(CurrencyId) -> R) {
     test_with(CurrencyId::KSM);
 }
 
-fn setup_vault_for_double_spend(
+fn setup_vault_for_potential_double_spend(
     issued_tokens: Amount<Runtime>,
     stealing_vault: [u8; 32],
     issue_tokens: bool,
@@ -98,8 +98,7 @@ fn integration_test_report_vault_theft() {
         assert_ok!(VaultRegistryPallet::issue_tokens(&vault_id, &issued_tokens));
 
         let (_tx_id, _height, proof, raw_tx, _) = TransactionGenerator::new()
-            .with_address(other_btc_address)
-            .with_amount(theft_amount)
+            .with_outputs(vec![(other_btc_address, theft_amount)])
             .with_confirmations(7)
             .with_relayer(Some(ALICE))
             .mine();
@@ -140,7 +139,7 @@ fn integration_test_double_spend_redeem() {
         // Register vault with hardcoded public key so it counts as theft
         let stealing_vault = DAVE;
         let (vault_public_key_one, vault_public_key_two) =
-            setup_vault_for_double_spend(issued_tokens, stealing_vault, true);
+            setup_vault_for_potential_double_spend(issued_tokens, stealing_vault, true);
 
         let redeem_id = setup_redeem(issued_tokens, USER, &default_vault_id_of(stealing_vault));
         let redeem = RedeemPallet::get_open_redeem_request_from_id(&redeem_id).unwrap();
@@ -148,24 +147,24 @@ fn integration_test_double_spend_redeem() {
         let current_block_number = 1;
 
         // Send the honest redeem transaction
-        let (_tx_id, _tx_block_height, merkle_proof, raw_tx) = {
-            register_address_and_mine_transaction(
+        let (_tx_id, _tx_block_height, merkle_proof, raw_tx, _) = {
+            register_addresses_and_mine_transaction(
                 default_vault_id_of(stealing_vault),
                 vault_public_key_one,
-                user_btc_address,
-                redeem.amount_btc(),
-                Some(redeem_id),
+                vec![],
+                vec![(user_btc_address, redeem.amount_btc())],
+                vec![redeem_id],
             )
         };
 
         // Double-spend the redeem, so the redeemer gets twice the BTC
-        let (_theft_tx_id, _theft_tx_block_height, theft_merkle_proof, theft_raw_tx) =
-            register_address_and_mine_transaction(
+        let (_theft_tx_id, _theft_tx_block_height, theft_merkle_proof, theft_raw_tx, _) =
+            register_addresses_and_mine_transaction(
                 default_vault_id_of(stealing_vault),
                 vault_public_key_two,
-                user_btc_address,
-                redeem.amount_btc(),
-                Some(redeem_id),
+                vec![],
+                vec![(user_btc_address, redeem.amount_btc())],
+                vec![redeem_id],
             );
         SecurityPallet::set_active_block_number(current_block_number + 1 + CONFIRMATIONS);
 
@@ -197,13 +196,146 @@ fn integration_test_double_spend_redeem() {
     });
 }
 
+fn redeem_with_extra_utxo(use_unregistered_btc_address: bool) -> DispatchResultWithPostInfo {
+    let issued_tokens = wrapped(10_000);
+    let vault = DAVE;
+    let (vault_public_key_one, vault_public_key_two) =
+        setup_vault_for_potential_double_spend(issued_tokens, vault, true);
+    let second_vault_btc_address = if use_unregistered_btc_address {
+        BtcAddress::P2PKH(H160([8; 20]))
+    } else {
+        let btc_address = BtcAddress::P2PKH(vault_public_key_two.to_hash());
+        assert_ok!(VaultRegistryPallet::insert_vault_deposit_address(
+            default_vault_id_of(vault),
+            btc_address
+        ));
+        btc_address
+    };
+
+    let redeem_id = setup_redeem(issued_tokens, USER, &default_vault_id_of(vault));
+    let redeem = RedeemPallet::get_open_redeem_request_from_id(&redeem_id).unwrap();
+    let user_btc_address = BtcAddress::P2PKH(H160([2; 20]));
+    let current_block_number = 1;
+
+    let (_tx_id, _tx_block_height, merkle_proof, raw_tx, _) = {
+        register_addresses_and_mine_transaction(
+            default_vault_id_of(vault),
+            vault_public_key_one,
+            vec![],
+            vec![
+                (user_btc_address, redeem.amount_btc()),
+                (second_vault_btc_address, redeem.amount_btc()),
+            ],
+            vec![redeem_id],
+        )
+    };
+
+    SecurityPallet::set_active_block_number(current_block_number + 1 + CONFIRMATIONS);
+
+    assert_ok!(Call::Redeem(RedeemCall::execute_redeem(
+        redeem_id,
+        merkle_proof.clone(),
+        raw_tx.clone()
+    ))
+    .dispatch(origin_of(account_of(vault))));
+
+    Call::Relay(RelayCall::report_vault_theft(
+        default_vault_id_of(vault),
+        merkle_proof,
+        raw_tx,
+    ))
+    .dispatch(origin_of(account_of(USER)))
+}
+
+#[test]
+fn integration_test_redeem_valid_change_utxo() {
+    test_with(|_currency_id| {
+        // Reporting as theft should fail, because the additional UTXO was a change (leftover) tx
+        assert_err!(redeem_with_extra_utxo(false), RelayError::ValidRedeemTransaction);
+    });
+}
+
+#[test]
+fn integration_test_redeem_utxo_to_foreign_address() {
+    test_with(|_currency_id| {
+        // Reporting as theft should work, because the additional UTXO was sent to an
+        // address that wasn't the redeemer not the vault's
+        assert_ok!(redeem_with_extra_utxo(true));
+    });
+}
+
+#[test]
+fn integration_test_merge_tx() {
+    test_with(|_currency_id| {
+        let vault = BOB;
+        let transfer_amount_raw = 100;
+        let transfer_amount = wrapped(transfer_amount_raw);
+
+        let (vault_public_key_one, vault_public_key_two) =
+            setup_vault_for_potential_double_spend(transfer_amount, vault, false);
+
+        let vault_public_key_three = BtcPublicKey([1u8; 33]);
+        let vault_public_key_four = BtcPublicKey([2u8; 33]);
+
+        let vault_first_address = BtcAddress::P2PKH(vault_public_key_one.to_hash());
+        let vault_second_address = BtcAddress::P2PKH(vault_public_key_two.to_hash());
+        let vault_third_address = BtcAddress::P2PKH(vault_public_key_three.to_hash());
+        let vault_fourth_address = BtcAddress::P2PKH(vault_public_key_four.to_hash());
+
+        // The first public key isn't added to the wallet automatically as a P2PKH address.
+        // Need to explicitly add it, otherwise the tx won't be considered a "merge"
+        register_vault_address(default_vault_id_of(vault), vault_public_key_one.clone());
+        register_vault_address(default_vault_id_of(vault), vault_public_key_two.clone());
+        register_vault_address(default_vault_id_of(vault), vault_public_key_three.clone());
+        register_vault_address(default_vault_id_of(vault), vault_public_key_four.clone());
+
+        let (_, _, _, _, tx) = generate_transaction_and_mine(
+            vault_public_key_one.clone(),
+            vec![],
+            vec![
+                (vault_first_address, transfer_amount),
+                (vault_second_address, transfer_amount),
+                (vault_third_address, transfer_amount),
+                (vault_fourth_address, transfer_amount),
+            ],
+            vec![],
+        );
+
+        let (_tx_id, _tx_block_height, merkle_proof, raw_tx, _) = generate_transaction_and_mine(
+            vault_public_key_one.clone(),
+            vec![
+                (tx.clone(), 0, Some(vault_public_key_one)),
+                (tx.clone(), 1, Some(vault_public_key_two)),
+                (tx.clone(), 2, Some(vault_public_key_three)),
+                (tx, 3, Some(vault_public_key_four)),
+            ],
+            vec![(vault_first_address, wrapped(4 * transfer_amount_raw))],
+            vec![],
+        );
+
+        SecurityPallet::set_active_block_number(1 + CONFIRMATIONS);
+
+        // Reporting as theft should fail, because the transaction merged
+        // UTXOs sent to registered vault addresses
+        assert_err!(
+            Call::Relay(RelayCall::report_vault_theft(
+                default_vault_id_of(vault),
+                merkle_proof,
+                raw_tx
+            ))
+            .dispatch(origin_of(account_of(USER))),
+            RelayError::ValidMergeTransaction
+        );
+    });
+}
+
 #[test]
 fn integration_test_double_spend_refund() {
     test_with(|_currency_id| {
         let issued_tokens = wrapped(10_000);
         let stealing_vault = DAVE;
         let (vault_public_key_one, vault_public_key_two) =
-            setup_vault_for_double_spend(issued_tokens, stealing_vault, true);
+            setup_vault_for_potential_double_spend(issued_tokens, stealing_vault, true);
 
         let user_btc_address = BtcAddress::P2PKH(H160([2; 20]));
         let refund_amount = wrapped(10_000);
@@ -221,24 +353,24 @@ fn integration_test_double_spend_refund() {
         let current_block_number = 1;
 
         // Send the honest refund transaction
-        let (_tx_id, _tx_block_height, merkle_proof, raw_tx) = {
-            register_address_and_mine_transaction(
+        let (_tx_id, _tx_block_height, merkle_proof, raw_tx, _) = {
+            register_addresses_and_mine_transaction(
                 default_vault_id_of(stealing_vault),
                 vault_public_key_one,
-                user_btc_address,
-                refund_request.amount_btc(),
-                Some(refund_id),
+                vec![],
+                vec![(user_btc_address, refund_request.amount_btc())],
+                vec![refund_id],
             )
         };
 
         // Double-spend the refund, so the payee gets twice the BTC
-        let (_theft_tx_id, _theft_tx_block_height, theft_merkle_proof, theft_raw_tx) =
-            register_address_and_mine_transaction(
+        let (_theft_tx_id, _theft_tx_block_height, theft_merkle_proof, theft_raw_tx, _) =
+            register_addresses_and_mine_transaction(
                 default_vault_id_of(stealing_vault),
                 vault_public_key_two,
-                user_btc_address,
-                refund_request.amount_btc(),
-                Some(refund_id),
+                vec![],
+                vec![(user_btc_address, refund_request.amount_btc())],
+                vec![refund_id],
             );
         SecurityPallet::set_active_block_number(current_block_number + 1 + CONFIRMATIONS);
 
@@ -281,7 +413,7 @@ fn integration_test_double_spend_replace() {
         let replace_amount = wrapped(100);
 
         let (vault_public_key_one, vault_public_key_two) =
-            setup_vault_for_double_spend(issued_tokens, stealing_vault, false);
+            setup_vault_for_potential_double_spend(issued_tokens, stealing_vault, false);
 
         CoreVaultData::force_to(&stealing_vault_id, default_vault_state(&stealing_vault_id));
         CoreVaultData::force_to(&new_vault_id, default_vault_state(&new_vault_id));
@@ -295,24 +427,24 @@ fn integration_test_double_spend_replace() {
         let current_block_number = 1;
 
         // Send the honest replace transaction
-        let (_tx_id, _tx_block_height, merkle_proof, raw_tx) = {
-            register_address_and_mine_transaction(
+        let (_tx_id, _tx_block_height, merkle_proof, raw_tx, _) = {
+            register_addresses_and_mine_transaction(
                 stealing_vault_id.clone(),
                 vault_public_key_one,
-                replace.btc_address,
-                replace_amount,
-                Some(replace_id),
+                vec![],
+                vec![(replace.btc_address, replace_amount)],
+                vec![replace_id],
             )
         };
 
-        // // Double-spend the replace, so the payee gets twice the BTC
-        let (_theft_tx_id, _theft_tx_block_height, theft_merkle_proof, theft_raw_tx) =
-            register_address_and_mine_transaction(
+        // Double-spend the replace, so the payee gets twice the BTC
+        let (_theft_tx_id, _theft_tx_block_height, theft_merkle_proof, theft_raw_tx, _) =
+            register_addresses_and_mine_transaction(
                 stealing_vault_id.clone(),
                 vault_public_key_two,
-                replace.btc_address,
-                replace_amount,
-                Some(replace_id),
+                vec![],
+                vec![(replace.btc_address, replace_amount)],
+                vec![replace_id],
             );
 
         SecurityPallet::set_active_block_number(current_block_number + 1 + CONFIRMATIONS);
