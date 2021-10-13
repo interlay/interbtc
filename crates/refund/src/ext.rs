@@ -75,3 +75,13 @@ pub(crate) mod vault_registry {
         <vault_registry::Pallet<T>>::issue_tokens(vault_id, amount)
     }
 }
+
+#[cfg_attr(test, mockable)]
+pub(crate) mod oracle {
+    use frame_support::dispatch::DispatchError;
+    use oracle::{types::UnsignedFixedPoint, OracleKey};
+
+    pub fn get_price<T: crate::Config>(key: OracleKey) -> Result<UnsignedFixedPoint<T>, DispatchError> {
+        <oracle::Pallet<T>>::get_price(key)
+    }
+}

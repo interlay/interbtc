@@ -224,7 +224,8 @@ pub mod refund {
         #[cfg_attr(feature = "std", serde(deserialize_with = "deserialize_from_string"))]
         #[cfg_attr(feature = "std", serde(bound(serialize = "Balance: std::fmt::Display")))]
         #[cfg_attr(feature = "std", serde(serialize_with = "serialize_as_string"))]
-        /// the total amount which was overpaid
+        /// the total amount to be transferred back to the user. Note that amount_btc + fee + transfer_fee_btc =
+        /// overpaid amount
         pub amount_btc: Balance,
         #[cfg_attr(feature = "std", serde(bound(deserialize = "Balance: std::str::FromStr")))]
         #[cfg_attr(feature = "std", serde(deserialize_with = "deserialize_from_string"))]
@@ -232,6 +233,8 @@ pub mod refund {
         #[cfg_attr(feature = "std", serde(serialize_with = "serialize_as_string"))]
         /// total refund fees - taken from request amount
         pub fee: Balance,
+        /// amount the vault should spend on the bitcoin inclusion fee - taken from request amount
+        pub transfer_fee_btc: Balance,
         /// the account on issue which overpaid
         pub issuer: AccountId,
         /// the user's Bitcoin address for payment verification
