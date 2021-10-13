@@ -4,7 +4,7 @@
   "chainType": "Live",
   "bootNodes": [
     "/ip4/64.225.82.241/tcp/30334/p2p/12D3KooWBrXv59QdJ3XKTUWcRa5zcDpWYCqCB77xPAKJqUGNnTGQ",
-    "/ip4/64.225.82.241/tcp/30335/p2p/12D3KooWCC7bcYLxCwPcU53FPGU3K4EmnffEMByRBVzC6GzkUnT5",
+    "/dns4/bootnodes.kintsugi.interlay.io/tcp/30335/p2p/12D3KooWCC7bcYLxCwPcU53FPGU3K4EmnffEMByRBVzC6GzkUnT5",
     "/ip4/65.21.205.49/tcp/30335/ws/p2p/12D3KooWGGUtQB1x7FZ6QRwsB7g6HSma8N9KYsxD84S7hd2rLwin",
     "/ip6/2a01:4f9:6a:13ce::2/tcp/30334/ws/p2p/12D3KooWGGUtQB1x7FZ6QRwsB7g6HSma8N9KYsxD84S7hd2rLwin"
   ],
