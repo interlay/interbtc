@@ -11,7 +11,7 @@ pub(crate) type DefaultVaultId<T> = VaultId<<T as frame_system::Config>::Account
 
 pub type DefaultRefundRequest<T> = RefundRequest<<T as frame_system::Config>::AccountId, BalanceOf<T>, CurrencyId<T>>;
 
-pub(crate) trait RefundRequestExt<T: crate::Config> {
+pub trait RefundRequestExt<T: crate::Config> {
     fn fee(&self) -> Amount<T>;
     fn amount_btc(&self) -> Amount<T>;
 }

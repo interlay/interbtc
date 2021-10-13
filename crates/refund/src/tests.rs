@@ -30,7 +30,7 @@ fn test_refund_succeeds() {
         ext::btc_relay::parse_transaction::<Test>.mock_safe(|_| MockResult::Return(Ok(Transaction::default())));
         ext::btc_relay::verify_and_validate_op_return_transaction::<Test, Balance>
             .mock_safe(|_, _, _, _, _| MockResult::Return(Ok(())));
-
+        Refund::get_current_inclusion_fee.mock_safe(|_| MockResult::Return(Ok(wrapped(1))));
         let issue_id = H256::zero();
         assert_ok!(Refund::request_refund(
             &wrapped(1000),
@@ -49,7 +49,7 @@ fn test_refund_succeeds() {
             })
             .unwrap();
         let refund_id = match captured_event {
-            Event::<Test>::RequestRefund(refund_id, issuer, 995, vault, _btc_address, issue, 5)
+            Event::<Test>::RequestRefund(refund_id, issuer, 994, vault, _btc_address, issue, 5, 1)
                 if issuer == USER && vault == VAULT && issue == issue_id =>
             {
                 Some(refund_id)
@@ -68,6 +68,7 @@ fn default_refund_request() -> DefaultRefundRequest<Test> {
         amount_btc: Default::default(),
         btc_address: Default::default(),
         fee: Default::default(),
+        transfer_fee_btc: Default::default(),
         issue_id: Default::default(),
         issuer: Default::default(),
         vault: VAULT,
@@ -96,12 +97,7 @@ mod spec_based_tests {
                 redeem_id,
                 RefundRequest {
                     completed: true,
-                    amount_btc: 0,
-                    btc_address: Default::default(),
-                    fee: Default::default(),
-                    issue_id: Default::default(),
-                    issuer: Default::default(),
-                    vault: VAULT,
+                    ..default_refund_request()
                 },
             );
             assert_err!(

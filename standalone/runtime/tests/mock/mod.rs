@@ -1311,6 +1311,13 @@ impl ExtBuilder {
         .assimilate_storage(&mut storage)
         .unwrap();
 
+        refund::GenesisConfig::<Runtime> {
+            refund_btc_dust_value: 3,
+            refund_transaction_size: 401,
+        }
+        .assimilate_storage(&mut storage)
+        .unwrap();
+
         Self {
             test_externalities: sp_io::TestExternalities::from(storage),
         }

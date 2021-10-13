@@ -4,6 +4,7 @@ use crate::redeem_testing_utils::{setup_redeem, USER};
 use currency::Amount;
 use mock::{assert_eq, replace_testing_utils::*, *};
 use primitives::VaultCurrencyPair;
+use refund::types::RefundRequestExt;
 use sp_core::H256;
 
 pub const RELAYER: [u8; 32] = ALICE;
@@ -337,7 +338,7 @@ fn integration_test_double_spend_refund() {
             setup_vault_for_potential_double_spend(issued_tokens, stealing_vault, true);
 
         let user_btc_address = BtcAddress::P2PKH(H160([2; 20]));
-        let refund_amount = wrapped(100);
+        let refund_amount = wrapped(10_000);
         let refund_id = RefundPallet::request_refund(
             &refund_amount,
             default_vault_id_of(stealing_vault),
@@ -347,6 +348,7 @@ fn integration_test_double_spend_refund() {
         )
         .unwrap()
         .unwrap();
+        let refund_request = RefundPallet::refund_requests(refund_id).unwrap();
 
         let current_block_number = 1;
 
@@ -356,7 +358,7 @@ fn integration_test_double_spend_refund() {
                 default_vault_id_of(stealing_vault),
                 vault_public_key_one,
                 vec![],
-                vec![(user_btc_address, refund_amount)],
+                vec![(user_btc_address, refund_request.amount_btc())],
                 vec![refund_id],
             )
         };
@@ -367,7 +369,7 @@ fn integration_test_double_spend_refund() {
                 default_vault_id_of(stealing_vault),
                 vault_public_key_two,
                 vec![],
-                vec![(user_btc_address, refund_amount)],
+                vec![(user_btc_address, refund_request.amount_btc())],
                 vec![refund_id],
             );
         SecurityPallet::set_active_block_number(current_block_number + 1 + CONFIRMATIONS);
