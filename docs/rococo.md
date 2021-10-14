@@ -13,7 +13,7 @@ Compile and install [polkadot](https://github.com/paritytech/polkadot).
 ```shell
 git clone git@github.com:paritytech/polkadot.git
 cd polkadot
-git checkout v0.9.8
+git checkout v0.9.11
 
 cargo build --release
 sudo cp ./target/release/polkadot /usr/local/bin/
