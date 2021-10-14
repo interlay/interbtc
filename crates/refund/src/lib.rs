@@ -59,7 +59,6 @@ pub mod pallet {
 
     #[pallet::event]
     #[pallet::generate_deposit(pub(super) fn deposit_event)]
-    #[pallet::metadata(DefaultVaultId<T> = "VaultId", T::AccountId = "AccountId", Wrapped<T> = "Wrapped")]
     pub enum Event<T: Config> {
         /// refund_id, issuer, amount_without_fee, vault, btc_address, issue_id, fee, transfer_fee
         RequestRefund(

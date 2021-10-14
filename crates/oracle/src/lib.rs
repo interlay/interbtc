@@ -38,6 +38,7 @@ use frame_support::{
     weights::Weight,
 };
 use frame_system::{ensure_root, ensure_signed};
+use scale_info::TypeInfo;
 use security::{ErrorCode, StatusCode};
 use sp_runtime::{
     traits::{UniqueSaturatedInto, *},
@@ -48,7 +49,7 @@ use sp_std::{convert::TryInto, vec::Vec};
 pub use pallet::*;
 pub use primitives::{oracle::Key as OracleKey, CurrencyId, TruncateFixedPointToInt};
 
-#[derive(Encode, Decode, Eq, PartialEq, Clone, Copy, Ord, PartialOrd)]
+#[derive(Encode, Decode, Eq, PartialEq, Clone, Copy, Ord, PartialOrd, TypeInfo)]
 pub struct TimestampedValue<Value, Moment> {
     pub value: Value,
     pub timestamp: Moment,
@@ -75,7 +76,6 @@ pub mod pallet {
 
     #[pallet::event]
     #[pallet::generate_deposit(pub(super) fn deposit_event)]
-    #[pallet::metadata(T::AccountId = "AccountId", T::UnsignedFixedPoint = "UnsignedFixedPoint")]
     pub enum Event<T: Config> {
         /// Event emitted when exchange rate is set
         FeedValues(T::AccountId, Vec<(OracleKey, T::UnsignedFixedPoint)>),

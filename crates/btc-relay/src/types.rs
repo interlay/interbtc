@@ -3,11 +3,12 @@ use bitcoin::types::{BlockHeader, H256Le, Transaction, Value};
 pub use bitcoin::Address as BtcAddress;
 use codec::{Decode, Encode};
 use frame_support::{dispatch::DispatchError, ensure};
+use scale_info::TypeInfo;
 use sp_core::H256;
 use sp_std::{convert::TryFrom, vec::Vec};
 
 /// Bitcoin Enriched Block Headers
-#[derive(Encode, Decode, Default, Clone, Copy, PartialEq, Eq, Debug)]
+#[derive(Encode, Decode, Default, Clone, Copy, PartialEq, Eq, Debug, TypeInfo)]
 pub struct RichBlockHeader<BlockNumber> {
     pub block_header: BlockHeader,
     /// height of the block in the bitcoin chain

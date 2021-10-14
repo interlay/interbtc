@@ -51,13 +51,12 @@ impl RequestIssueBuilder {
             Amount::new(DEFAULT_COLLATERAL, self.vault_id.collateral_currency()),
             &self.vault_id,
         );
-
         // alice requests wrapped by locking btc with bob
-        assert_ok!(Call::Issue(IssueCall::request_issue(
-            self.amount_btc,
-            self.vault_id.clone(),
-            self.griefing_collateral
-        ))
+        assert_ok!(Call::Issue(IssueCall::request_issue {
+            amount: self.amount_btc,
+            vault_id: self.vault_id.clone(),
+            griefing_collateral: self.griefing_collateral
+        })
         .dispatch(origin_of(account_of(self.user))));
 
         let issue_id = assert_issue_request_event();

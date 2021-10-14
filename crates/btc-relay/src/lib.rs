@@ -206,7 +206,6 @@ pub mod pallet {
 
     #[pallet::event]
     #[pallet::generate_deposit(pub(super) fn deposit_event)]
-    #[pallet::metadata(T::AccountId = "AccountId")]
     pub enum Event<T: Config> {
         /// block_height, block_header_hash, relayer_id
         Initialized(u32, H256Le, T::AccountId),

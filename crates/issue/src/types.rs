@@ -3,12 +3,13 @@ use currency::Amount;
 use frame_support::traits::Get;
 pub use primitives::issue::{IssueRequest, IssueRequestStatus};
 use primitives::VaultId;
+use scale_info::TypeInfo;
 use vault_registry::types::CurrencyId;
 
 use crate::Config;
 
 /// Storage version.
-#[derive(Encode, Decode, Eq, PartialEq)]
+#[derive(Encode, Decode, Eq, PartialEq, TypeInfo)]
 pub enum Version {
     /// Initial version.
     V0,

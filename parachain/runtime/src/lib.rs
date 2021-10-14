@@ -210,9 +210,14 @@ impl frame_system::Config for Runtime {
     type OnSetCode = cumulus_pallet_parachain_system::ParachainSetCode<Self>;
 }
 
+parameter_types! {
+    pub const MaxAuthorities: u32 = 32;
+}
+
 impl pallet_aura::Config for Runtime {
     type AuthorityId = AuraId;
     type DisabledValidators = ();
+    type MaxAuthorities = MaxAuthorities;
 }
 
 parameter_types! {
@@ -229,6 +234,7 @@ impl pallet_timestamp::Config for Runtime {
 
 parameter_types! {
     pub const TransactionByteFee: Balance = 0;  // TODO: this is 0 so that we can do runtime upgrade without fees. Restore value afterwards!
+    pub OperationalFeeMultiplier: u8 = 5;
 }
 
 impl pallet_transaction_payment::Config for Runtime {
@@ -236,6 +242,7 @@ impl pallet_transaction_payment::Config for Runtime {
     type TransactionByteFee = TransactionByteFee;
     type WeightToFee = IdentityFee<Balance>;
     type FeeMultiplierUpdate = ();
+    type OperationalFeeMultiplier = OperationalFeeMultiplier;
 }
 
 impl pallet_sudo::Config for Runtime {
@@ -366,6 +373,7 @@ parameter_types! {
     pub const FastTrackVotingPeriod: BlockNumber = 3 * HOURS;
     pub MinimumDeposit: Balance = 100 * CENTS;
     pub const EnactmentPeriod: BlockNumber = DAYS;
+    pub const VoteLockingPeriod: BlockNumber = 2 * DAYS;
     pub const CooloffPeriod: BlockNumber = 7 * DAYS;
     pub PreimageByteDeposit: Balance = 10 * MILLICENTS;
     pub const InstantAllowed: bool = true;
@@ -378,6 +386,7 @@ impl pallet_democracy::Config for Runtime {
     type Event = Event;
     type Currency = orml_tokens::CurrencyAdapter<Runtime, GetNativeCurrencyId>;
     type EnactmentPeriod = EnactmentPeriod;
+    type VoteLockingPeriod = VoteLockingPeriod;
     type LaunchPeriod = LaunchPeriod;
     type VotingPeriod = VotingPeriod;
     type MinimumDeposit = MinimumDeposit;
@@ -603,6 +612,10 @@ parameter_types! {
 
 pub type Barrier = (TakeWeightCredit, AllowTopLevelPaidExecutionFrom<Everything>);
 
+parameter_types! {
+    pub const MaxInstructions: u32 = 100;
+}
+
 pub struct XcmConfig;
 
 impl Config for XcmConfig {
@@ -615,7 +628,7 @@ impl Config for XcmConfig {
     type IsTeleporter = NativeAsset; // <- should be enough to allow teleportation
     type LocationInverter = LocationInverter<Ancestry>;
     type Barrier = Barrier;
-    type Weigher = FixedWeightBounds<UnitWeightCost, Call>;
+    type Weigher = FixedWeightBounds<UnitWeightCost, Call, MaxInstructions>;
     type Trader = UsingComponents<
         IdentityFee<Balance>,
         ParentLocation,
@@ -625,6 +638,8 @@ impl Config for XcmConfig {
     >;
     type ResponseHandler = (); // Don't handle responses for now.
     type SubscriptionService = PolkadotXcm;
+    type AssetTrap = PolkadotXcm;
+    type AssetClaims = PolkadotXcm;
 }
 
 /// No local origins on this chain are allowed to dispatch XCM sends/executions.
@@ -641,15 +656,19 @@ pub type XcmRouter = (
 
 impl pallet_xcm::Config for Runtime {
     type Event = Event;
+    type Call = Call;
+    type Origin = Origin;
     type SendXcmOrigin = EnsureXcmOrigin<Origin, LocalOriginToLocation>;
     type XcmRouter = XcmRouter;
     type ExecuteXcmOrigin = EnsureXcmOrigin<Origin, LocalOriginToLocation>;
     type XcmExecuteFilter = Nothing;
     type XcmExecutor = XcmExecutor<XcmConfig>;
-    type XcmTeleportFilter = ();
+    type XcmTeleportFilter = Everything;
     type XcmReserveTransferFilter = Everything;
-    type Weigher = FixedWeightBounds<UnitWeightCost, Call>;
+    type Weigher = FixedWeightBounds<UnitWeightCost, Call, MaxInstructions>;
     type LocationInverter = LocationInverter<Ancestry>;
+    type AdvertisedXcmVersion = pallet_xcm::CurrentXcmVersion;
+    const VERSION_DISCOVERY_QUEUE_SIZE: u32 = 100;
 }
 
 impl cumulus_pallet_xcm::Config for Runtime {
@@ -766,7 +785,7 @@ impl orml_xtokens::Config for Runtime {
     type AccountIdToMultiLocation = AccountIdToMultiLocation;
     type SelfLocation = SelfLocation;
     type XcmExecutor = XcmExecutor<XcmConfig>;
-    type Weigher = FixedWeightBounds<UnitWeightCost, Call>;
+    type Weigher = FixedWeightBounds<UnitWeightCost, Call, MaxInstructions>;
     type BaseXcmWeight = UnitWeightCost;
     type LocationInverter = <XcmConfig as Config>::LocationInverter;
 }
@@ -1074,7 +1093,7 @@ impl_runtime_apis! {
 
     impl sp_api::Metadata<Block> for Runtime {
         fn metadata() -> OpaqueMetadata {
-            Runtime::metadata().into()
+            OpaqueMetadata::new(Runtime::metadata().into())
         }
     }
 
@@ -1133,7 +1152,7 @@ impl_runtime_apis! {
         }
 
         fn authorities() -> Vec<AuraId> {
-            Aura::authorities()
+            Aura::authorities().into_inner()
         }
     }
 

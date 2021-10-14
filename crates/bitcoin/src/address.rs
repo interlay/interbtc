@@ -1,6 +1,7 @@
 use crate::{types::*, Error, Script};
 use bitcoin_hashes::{hash160::Hash as Hash160, Hash};
 use codec::{Decode, Encode};
+use scale_info::TypeInfo;
 use sha2::{Digest, Sha256};
 use sp_core::{H160, H256};
 use sp_std::vec::Vec;
@@ -10,7 +11,7 @@ use secp256k1::{constants::PUBLIC_KEY_SIZE, Error as Secp256k1Error, PublicKey a
 /// A Bitcoin address is a serialized identifier that represents the destination for a payment.
 /// Address prefixes are used to indicate the network as well as the format. Since the Parachain
 /// follows SPV assumptions we do not need to know which network a payment is included in.
-#[derive(Encode, Decode, Clone, Ord, PartialOrd, PartialEq, Eq, Debug, Copy)]
+#[derive(Encode, Decode, Clone, Ord, PartialOrd, PartialEq, Eq, Debug, Copy, TypeInfo)]
 #[cfg_attr(feature = "std", derive(serde::Serialize, serde::Deserialize, std::hash::Hash))]
 pub enum Address {
     // input: {signature} {pubkey}
@@ -109,7 +110,7 @@ impl Default for Address {
 }
 
 /// Compressed ECDSA (secp256k1 curve) Public Key
-#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug)]
+#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, TypeInfo)]
 pub struct PublicKey(pub [u8; PUBLIC_KEY_SIZE]);
 
 impl Default for PublicKey {

@@ -14,13 +14,12 @@ mod tests;
 use codec::{Decode, Encode, EncodeLike};
 use frame_support::{dispatch::DispatchError, traits::Get};
 use primitives::{TruncateFixedPointToInt, VaultId};
+use scale_info::TypeInfo;
 use sp_arithmetic::FixedPointNumber;
 use sp_runtime::traits::{CheckedAdd, CheckedDiv, CheckedMul, CheckedSub, MaybeSerializeDeserialize, Zero};
 use sp_std::marker::PhantomData;
 
 pub(crate) type SignedFixedPoint<T> = <T as Config>::SignedFixedPoint;
-
-pub use pallet::*;
 
 pub type DefaultVaultId<T> = VaultId<<T as frame_system::Config>::AccountId, <T as Config>::CurrencyId>;
 
@@ -39,7 +38,7 @@ pub mod pallet {
         type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
 
         /// Signed fixed point type.
-        type SignedFixedPoint: FixedPointNumber + TruncateFixedPointToInt + Encode + EncodeLike + Decode;
+        type SignedFixedPoint: FixedPointNumber + TruncateFixedPointToInt + Encode + EncodeLike + Decode + TypeInfo;
 
         #[pallet::constant]
         type GetNativeCurrencyId: Get<Self::CurrencyId>;
@@ -51,11 +50,6 @@ pub mod pallet {
     // The pallet's events
     #[pallet::event]
     #[pallet::generate_deposit(pub(crate) fn deposit_event)]
-    #[pallet::metadata(
-        T::CurrencyId = "CurrencyId",
-        DefaultVaultId<T> = "VaultId",
-        T::SignedFixedPoint = "SignedFixedPoint"
-    )]
     pub enum Event<T: Config> {
         DepositStake(DefaultVaultId<T>, T::SignedFixedPoint),
         DistributeReward(T::CurrencyId, T::SignedFixedPoint),

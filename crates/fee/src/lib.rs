@@ -36,6 +36,7 @@ use frame_support::{
 };
 use frame_system::ensure_signed;
 use reward::Rewards;
+use scale_info::TypeInfo;
 use sp_arithmetic::{traits::*, FixedPointNumber, FixedPointOperand};
 use sp_runtime::traits::{AccountIdConversion, AtLeast32BitUnsigned};
 use sp_std::{
@@ -88,7 +89,8 @@ pub mod pallet {
             + Encode
             + EncodeLike
             + Decode
-            + MaybeSerializeDeserialize;
+            + MaybeSerializeDeserialize
+            + TypeInfo;
 
         /// The `Inner` type of the `UnsignedFixedPoint`.
         type UnsignedInner: Debug
@@ -101,7 +103,8 @@ pub mod pallet {
             + Encode
             + EncodeLike
             + Decode
-            + MaybeSerializeDeserialize;
+            + MaybeSerializeDeserialize
+            + TypeInfo;
 
         /// Vault reward pool for the wrapped currency.
         type VaultRewards: reward::Rewards<

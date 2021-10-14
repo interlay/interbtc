@@ -5,7 +5,7 @@ name = "interbtc-rpc"
 version = "1.1.0"
 
 [dependencies]
-jsonrpc-core = "15.1.0"
+jsonrpc-core = "18.0.0"
 
 # Parachain dependencies
 module-btc-relay-rpc = { path = "../crates/btc-relay/rpc" }
@@ -21,14 +21,14 @@ vault-registry = { path = "../crates/vault-registry" }
 primitives = { package = "interbtc-primitives", path = "../primitives" }
 
 # Substrate dependencies
-sc-rpc = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.10" }
-sc-rpc-api = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.10" }
-sc-transaction-pool-api = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.10" }
-sp-api = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.10" }
-sp-core = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.10" }
-sp-arithmetic = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.10" }
-sp-block-builder = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.10" }
-sp-blockchain = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.10" }
+sc-rpc = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.11" }
+sc-rpc-api = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.11" }
+sc-transaction-pool-api = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.11" }
+sp-api = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.11" }
+sp-core = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.11" }
+sp-arithmetic = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.11" }
+sp-block-builder = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.11" }
+sp-blockchain = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.11" }
 
-pallet-transaction-payment-rpc = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.10" }
-substrate-frame-rpc-system = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.10" }
+pallet-transaction-payment-rpc = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.11" }
+substrate-frame-rpc-system = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.11" }

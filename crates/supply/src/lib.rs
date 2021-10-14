@@ -20,6 +20,7 @@ use frame_support::{
 };
 use frame_system::ensure_root;
 use primitives::TruncateFixedPointToInt;
+use scale_info::TypeInfo;
 use sp_runtime::{
     traits::{Saturating, Zero},
     FixedPointNumber,
@@ -52,7 +53,8 @@ pub mod pallet {
             + Encode
             + EncodeLike
             + Decode
-            + MaybeSerializeDeserialize;
+            + MaybeSerializeDeserialize
+            + TypeInfo;
 
         /// The native currency for emission.
         type Currency: ReservableCurrency<Self::AccountId>;
@@ -68,7 +70,6 @@ pub mod pallet {
     // The pallet's events
     #[pallet::event]
     #[pallet::generate_deposit(pub(crate) fn deposit_event)]
-    #[pallet::metadata(BalanceOf<T> = "Balance")]
     pub enum Event<T: Config> {
         Inflation(BalanceOf<T>),
     }

@@ -1146,7 +1146,10 @@ fn integration_test_redeem_parachain_status_shutdown_fails() {
         SecurityPallet::set_status(StatusCode::Shutdown);
 
         assert_noop!(
-            Call::Issue(IssueCall::request_issue(0, vault_id.clone(), 0)).dispatch(origin_of(account_of(ALICE))),
+            Call::Issue(IssueCall::request_issue{
+                amount: 0, 
+                vault_id: vault_id.clone(), 
+                griefing_collateral: 0}).dispatch(origin_of(account_of(ALICE))),
             SecurityError::ParachainShutdown,
         );
 

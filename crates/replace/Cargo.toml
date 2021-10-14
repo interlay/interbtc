@@ -8,18 +8,19 @@ version = "1.1.0"
 [dependencies]
 serde = { version = "1.0.130", default-features = false, features = ['derive'], optional = true }
 codec = { package = "parity-scale-codec", version = "2.2.0", default-features = false, features = ["derive", "max-encoded-len"] }
+scale-info = { version = "1.0.0", default-features = false, features = ["derive"] }
 
 # Substrate dependencies
-sp-io = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.10", default-features = false }
-sp-core = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.10", default-features = false }
-sp-std = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.10", default-features = false }
-sp-arithmetic = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.10", default-features = false }
-sp-runtime = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.10", default-features = false }
+sp-io = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.11", default-features = false }
+sp-core = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.11", default-features = false }
+sp-std = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.11", default-features = false }
+sp-arithmetic = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.11", default-features = false }
+sp-runtime = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.11", default-features = false }
 
-frame-support = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.10", default-features = false }
-frame-system = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.10", default-features = false }
-frame-benchmarking = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.10", default-features = false, optional = true }
-pallet-timestamp = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.10", default-features = false }
+frame-support = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.11", default-features = false }
+frame-system = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.11", default-features = false }
+frame-benchmarking = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.11", default-features = false, optional = true }
+pallet-timestamp = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.11", default-features = false }
 
 # Parachain dependencies
 bitcoin = { path = "../bitcoin", default-features = false }
@@ -33,12 +34,12 @@ nomination = { path = "../nomination", default-features = false }
 primitives = { package = "interbtc-primitives", path = "../../primitives", default-features = false }
 
 # Orml dependencies
-orml-tokens = { git = "https://github.com/open-web3-stack/open-runtime-module-library", rev = "37e4293", default-features = false, optional = true }
-orml-traits = { git = "https://github.com/open-web3-stack/open-runtime-module-library", rev = "37e4293", default-features = false, optional = true }
+orml-tokens = { git = "https://github.com/open-web3-stack/open-runtime-module-library", rev = "d847dbc", default-features = false, optional = true }
+orml-traits = { git = "https://github.com/open-web3-stack/open-runtime-module-library", rev = "d847dbc", default-features = false, optional = true }
 
 [dev-dependencies]
 mocktopus = "0.7.0"
-frame-benchmarking = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.10" }
+frame-benchmarking = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.11" }
 
 # Parachain dependencies
 reward = { path = "../reward" }
@@ -46,8 +47,8 @@ staking = { path = "../staking" }
 currency = { path = "../currency", features = ["testing-utils"] }
 
 # Orml dependencies
-orml-tokens = { git = "https://github.com/open-web3-stack/open-runtime-module-library", rev = "37e4293" }
-orml-traits = { git = "https://github.com/open-web3-stack/open-runtime-module-library", rev = "37e4293" }
+orml-tokens = { git = "https://github.com/open-web3-stack/open-runtime-module-library", rev = "d847dbc" }
+orml-traits = { git = "https://github.com/open-web3-stack/open-runtime-module-library", rev = "d847dbc" }
 
 [features]
 default = ["std"]

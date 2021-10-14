@@ -1,6 +1,6 @@
 use crate as staking;
 use crate::{Config, Error};
-use frame_support::parameter_types;
+use frame_support::{parameter_types, traits::Everything};
 pub use primitives::{CurrencyId, DOT, INTERBTC};
 use primitives::{VaultCurrencyPair, VaultId};
 use sp_arithmetic::FixedI128;
@@ -37,7 +37,7 @@ parameter_types! {
 }
 
 impl frame_system::Config for Test {
-    type BaseCallFilter = ();
+    type BaseCallFilter = Everything;
     type BlockWeights = ();
     type BlockLength = ();
     type DbWeight = ();

@@ -926,22 +926,22 @@ pub fn try_register_vault(collateral: Amount<Runtime>, vault_id: &VaultId) {
 }
 
 pub fn try_register_operator(operator: [u8; 32]) {
-    let _ = Call::Nomination(NominationCall::opt_in_to_nomination(
-        default_vault_id_of(operator).currencies.clone(),
-    ))
+    let _ = Call::Nomination(NominationCall::opt_in_to_nomination {
+        currency_pair: default_vault_id_of(operator).currencies.clone(),
+    })
     .dispatch(origin_of(account_of(operator)));
 }
 
 pub fn force_issue_tokens(user: [u8; 32], vault: [u8; 32], collateral: Amount<Runtime>, tokens: Amount<Runtime>) {
     // register the vault
-    assert_ok!(Call::VaultRegistry(VaultRegistryCall::register_vault(
-        VaultCurrencyPair {
+    assert_ok!(Call::VaultRegistry(VaultRegistryCall::register_vault {
+        currency_pair: VaultCurrencyPair {
             collateral: collateral.currency(),
             wrapped: DEFAULT_WRAPPED_CURRENCY,
         },
-        collateral.amount(),
-        dummy_public_key(),
-    ))
+        collateral: collateral.amount(),
+        public_key: dummy_public_key(),
+    })
     .dispatch(origin_of(account_of(vault))));
 
     // increase to be issued tokens
