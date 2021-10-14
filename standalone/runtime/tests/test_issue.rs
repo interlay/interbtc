@@ -54,7 +54,7 @@ mod expiry_test {
     use super::{assert_eq, *};
 
     fn set_issue_period(period: u32) {
-        assert_ok!(Call::Issue(IssueCall::set_issue_period(period)).dispatch(root()));
+        assert_ok!(Call::Issue(IssueCall::set_issue_period { period }).dispatch(root()));
     }
 
     fn execute_issue(issue_id: H256) -> DispatchResultWithPostInfo {
@@ -62,7 +62,7 @@ mod expiry_test {
     }
 
     fn cancel_issue(issue_id: H256) -> DispatchResultWithPostInfo {
-        Call::Issue(IssueCall::cancel_issue(issue_id)).dispatch(origin_of(account_of(USER)))
+        Call::Issue(IssueCall::cancel_issue { issue_id: issue_id }).dispatch(origin_of(account_of(USER)))
     }
 
     #[test]
@@ -154,11 +154,11 @@ fn integration_test_issue_with_parachain_shutdown_fails() {
         SecurityPallet::set_status(StatusCode::Shutdown);
 
         assert_noop!(
-            Call::Refund(RefundCall::execute_refund(
-                Default::default(),
-                Default::default(),
-                Default::default()
-            ))
+            Call::Refund(RefundCall::execute_refund {
+                refund_id: Default::default(),
+                merkle_proof: Default::default(),
+                raw_tx: Default::default()
+            })
             .dispatch(origin_of(account_of(ALICE))),
             SecurityError::ParachainShutdown,
         );
@@ -237,10 +237,11 @@ mod request_issue_tests {
     #[test]
     fn integration_test_issue_request_precond_vault_active() {
         test_with_initialized_vault(|vault_id| {
-            assert_ok!(
-                Call::VaultRegistry(VaultRegistryCall::accept_new_issues(vault_id.currencies.clone(), false))
-                    .dispatch(origin_of(account_of(VAULT)))
-            );
+            assert_ok!(Call::VaultRegistry(VaultRegistryCall::accept_new_issues {
+                currency_pair: vault_id.currencies.clone(),
+                accept_new_issues: false
+            })
+            .dispatch(origin_of(account_of(VAULT))));
             assert_noop!(
                 Call::Issue(IssueCall::request_issue {
                     amount: 1000,
@@ -429,17 +430,17 @@ fn integration_test_issue_wrapped_execute_succeeds() {
         let griefing_collateral = griefing(100);
         let collateral_vault = required_collateral_for_issue(amount_btc, vault_id.collateral_currency());
 
-        assert_ok!(Call::VaultRegistry(VaultRegistryCall::register_vault(
-            vault_id.currencies.clone(),
-            collateral_vault.amount(),
-            dummy_public_key(),
-        ))
+        assert_ok!(Call::VaultRegistry(VaultRegistryCall::register_vault {
+            currency_pair: vault_id.currencies.clone(),
+            collateral: collateral_vault.amount(),
+            public_key: dummy_public_key(),
+        })
         .dispatch(origin_of(account_of(VAULT))));
-        assert_ok!(Call::VaultRegistry(VaultRegistryCall::register_vault(
-            vault_id.currencies.clone(),
-            collateral_vault.amount(),
-            dummy_public_key(),
-        ))
+        assert_ok!(Call::VaultRegistry(VaultRegistryCall::register_vault {
+            currency_pair: vault_id.currencies.clone(),
+            collateral: collateral_vault.amount(),
+            public_key: dummy_public_key(),
+        })
         .dispatch(origin_of(account_of(vault_proof_submitter))));
 
         // alice requests wrapped by locking btc with bob
@@ -467,8 +468,12 @@ fn integration_test_issue_wrapped_execute_succeeds() {
         SecurityPallet::set_active_block_number(1 + CONFIRMATIONS);
 
         // alice executes the issue by confirming the btc transaction
-        assert_ok!(Call::Issue(IssueCall::execute_issue(issue_id, proof, raw_tx))
-            .dispatch(origin_of(account_of(vault_proof_submitter))));
+        assert_ok!(Call::Issue(IssueCall::execute_issue {
+            issue_id: issue_id,
+            merkle_proof: proof,
+            raw_tx: raw_tx
+        })
+        .dispatch(origin_of(account_of(vault_proof_submitter))));
     });
 }
 
@@ -503,17 +508,17 @@ fn integration_test_withdraw_after_request_issue() {
         let griefing_collateral = griefing(100);
         let collateral_vault = required_collateral_for_issue(amount_btc, vault_id.collateral_currency());
 
-        assert_ok!(Call::VaultRegistry(VaultRegistryCall::register_vault(
-            vault_id.currencies.clone(),
-            collateral_vault.amount(),
-            dummy_public_key(),
-        ))
+        assert_ok!(Call::VaultRegistry(VaultRegistryCall::register_vault {
+            currency_pair: vault_id.currencies.clone(),
+            collateral: collateral_vault.amount(),
+            public_key: dummy_public_key(),
+        })
         .dispatch(origin_of(account_of(vault))));
-        assert_ok!(Call::VaultRegistry(VaultRegistryCall::register_vault(
-            vault_id.currencies.clone(),
-            collateral_vault.amount(),
-            dummy_public_key(),
-        ))
+        assert_ok!(Call::VaultRegistry(VaultRegistryCall::register_vault {
+            currency_pair: vault_id.currencies.clone(),
+            collateral: collateral_vault.amount(),
+            public_key: dummy_public_key(),
+        })
         .dispatch(origin_of(account_of(vault_proof_submitter))));
 
         // alice requests wrapped by locking btc with bob
@@ -534,7 +539,7 @@ fn integration_test_withdraw_after_request_issue() {
         .is_err());
 
         // should not be possible to withdraw the collateral now
-        assert!(Call::VaultRegistry(VaultRegistryCall::withdraw_collateral{
+        assert!(Call::VaultRegistry(VaultRegistryCall::withdraw_collateral {
             currency_pair: vault_id.currencies.clone(),
             amount: collateral_vault.amount()
         })
@@ -662,11 +667,11 @@ mod execute_issue_tests {
             SecurityPallet::set_status(StatusCode::Shutdown);
 
             assert_noop!(
-                Call::Issue(IssueCall::execute_issue(
-                    Default::default(),
-                    Default::default(),
-                    Default::default()
-                ))
+                Call::Issue(IssueCall::execute_issue {
+                    issue_id: Default::default(),
+                    merkle_proof: Default::default(),
+                    raw_tx: Default::default()
+                })
                 .dispatch(origin_of(account_of(ALICE))),
                 SecurityError::ParachainShutdown,
             );
@@ -721,8 +726,12 @@ mod execute_issue_tests {
             let bogus_address = BtcAddress::P2WPKHv0(H160::zero());
             transaction.outputs[0] = TransactionOutput::payment(1000, &bogus_address);
             assert_noop!(
-                Call::Issue(IssueCall::execute_issue(issue_id, proof, transaction.format_with(true)))
-                    .dispatch(origin_of(account_of(CAROL))),
+                Call::Issue(IssueCall::execute_issue {
+                    issue_id: issue_id,
+                    merkle_proof: proof,
+                    raw_tx: transaction.format_with(true)
+                })
+                .dispatch(origin_of(account_of(CAROL))),
                 BTCRelayError::InvalidTxid
             );
         })
@@ -742,8 +751,12 @@ mod execute_issue_tests {
             // mangle block header in merkle proof
             proof[0] += 1;
             assert_noop!(
-                Call::Issue(IssueCall::execute_issue(issue_id, proof, transaction.format_with(true)))
-                    .dispatch(origin_of(account_of(CAROL))),
+                Call::Issue(IssueCall::execute_issue {
+                    issue_id: issue_id,
+                    merkle_proof: proof,
+                    raw_tx: transaction.format_with(true)
+                })
+                .dispatch(origin_of(account_of(CAROL))),
                 BTCRelayError::BlockNotFound
             );
         })
@@ -996,7 +1009,10 @@ mod cancel_issue_tests {
         test_with(|_currency_id| {
             SecurityPallet::set_status(StatusCode::Shutdown);
             assert_noop!(
-                Call::Issue(IssueCall::cancel_issue(H256([0; 32]),)).dispatch(origin_of(account_of(ALICE))),
+                Call::Issue(IssueCall::cancel_issue {
+                    issue_id: H256([0; 32]),
+                })
+                .dispatch(origin_of(account_of(ALICE))),
                 SecurityError::ParachainShutdown,
             );
         });
@@ -1012,7 +1028,10 @@ mod cancel_issue_tests {
             mine_blocks((IssuePallet::issue_period() + 99) / 100 + 1);
 
             assert_noop!(
-                Call::Issue(IssueCall::cancel_issue(nonexistent_issue_id)).dispatch(origin_of(account_of(VAULT))),
+                Call::Issue(IssueCall::cancel_issue {
+                    issue_id: nonexistent_issue_id
+                })
+                .dispatch(origin_of(account_of(VAULT))),
                 IssueError::IssueIdNotFound
             );
         });
@@ -1024,7 +1043,7 @@ mod cancel_issue_tests {
         test_with(|vault_id| {
             let (issue_id, _issue) = request_issue(&vault_id, vault_id.wrapped(4_000));
             assert_noop!(
-                Call::Issue(IssueCall::cancel_issue(issue_id)).dispatch(origin_of(account_of(VAULT))),
+                Call::Issue(IssueCall::cancel_issue { issue_id: issue_id }).dispatch(origin_of(account_of(VAULT))),
                 IssueError::TimeNotExpired
             );
         });
@@ -1042,7 +1061,9 @@ mod cancel_issue_tests {
             let post_request_state = ParachainState::get(&vault_id);
 
             // bob cancels issue request
-            assert_ok!(Call::Issue(IssueCall::cancel_issue(issue_id)).dispatch(origin_of(account_of(VAULT))));
+            assert_ok!(
+                Call::Issue(IssueCall::cancel_issue { issue_id: issue_id }).dispatch(origin_of(account_of(VAULT)))
+            );
 
             // balances and collaterals are updated
             assert_eq!(
@@ -1074,7 +1095,9 @@ mod cancel_issue_tests {
             let post_liquidation_status = ParachainState::get(&vault_id);
 
             // bob cancels issue request
-            assert_ok!(Call::Issue(IssueCall::cancel_issue(issue_id)).dispatch(origin_of(account_of(VAULT))));
+            assert_ok!(
+                Call::Issue(IssueCall::cancel_issue { issue_id: issue_id }).dispatch(origin_of(account_of(VAULT)))
+            );
 
             // grieifing collateral released back to the user
             assert_eq!(

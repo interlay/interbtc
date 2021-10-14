@@ -71,47 +71,56 @@ mod spec_based_tests {
         test_with(|vault_id| {
             SecurityPallet::set_status(StatusCode::Shutdown);
             assert_noop!(
-                Call::Redeem(RedeemCall::request_redeem(
-                    1500,
-                    BtcAddress::P2PKH(H160([0u8; 20])),
-                    vault_id.clone(),
-                ))
+                Call::Redeem(RedeemCall::request_redeem {
+                    amount_wrapped: 1500,
+                    btc_address: BtcAddress::P2PKH(H160([0u8; 20])),
+                    vault_id: vault_id.clone(),
+                })
                 .dispatch(origin_of(account_of(ALICE))),
                 SecurityError::ParachainNotRunning,
             );
 
             assert_noop!(
-                Call::Redeem(RedeemCall::execute_redeem(
-                    Default::default(),
-                    Default::default(),
-                    Default::default()
-                ))
+                Call::Redeem(RedeemCall::execute_redeem {
+                    redeem_id: Default::default(),
+                    merkle_proof: Default::default(),
+                    raw_tx: Default::default()
+                })
                 .dispatch(origin_of(account_of(ALICE))),
                 SecurityError::ParachainShutdown,
             );
 
             assert_noop!(
-                Call::Redeem(RedeemCall::cancel_redeem(Default::default(), false))
-                    .dispatch(origin_of(account_of(ALICE))),
+                Call::Redeem(RedeemCall::cancel_redeem {
+                    redeem_id: Default::default(),
+                    reimburse: false
+                })
+                .dispatch(origin_of(account_of(ALICE))),
                 SecurityError::ParachainNotRunning,
             );
             assert_noop!(
-                Call::Redeem(RedeemCall::cancel_redeem(Default::default(), true))
-                    .dispatch(origin_of(account_of(ALICE))),
+                Call::Redeem(RedeemCall::cancel_redeem {
+                    redeem_id: Default::default(),
+                    reimburse: true
+                })
+                .dispatch(origin_of(account_of(ALICE))),
                 SecurityError::ParachainNotRunning,
             );
 
             assert_noop!(
-                Call::Redeem(RedeemCall::liquidation_redeem(vault_id.currencies.clone(), 1000))
-                    .dispatch(origin_of(account_of(ALICE))),
+                Call::Redeem(RedeemCall::liquidation_redeem {
+                    currencies: vault_id.currencies.clone(),
+                    amount_wrapped: 1000
+                })
+                .dispatch(origin_of(account_of(ALICE))),
                 SecurityError::ParachainShutdown,
             );
 
             assert_noop!(
-                Call::Redeem(RedeemCall::mint_tokens_for_reimbursed_redeem(
-                    vault_id.currencies.clone(),
-                    Default::default()
-                ))
+                Call::Redeem(RedeemCall::mint_tokens_for_reimbursed_redeem {
+                    currency_pair: vault_id.currencies.clone(),
+                    redeem_id: Default::default()
+                })
                 .dispatch(origin_of(account_of(ALICE))),
                 SecurityError::ParachainNotRunning,
             );
@@ -127,34 +136,40 @@ mod spec_based_tests {
             SecurityPallet::set_status(StatusCode::Error);
 
             assert_noop!(
-                Call::Redeem(RedeemCall::request_redeem(
-                    1500,
-                    BtcAddress::P2PKH(H160([0u8; 20])),
-                    vault_id.clone(),
-                ))
+                Call::Redeem(RedeemCall::request_redeem {
+                    amount_wrapped: 1500,
+                    btc_address: BtcAddress::P2PKH(H160([0u8; 20])),
+                    vault_id: vault_id.clone(),
+                })
                 .dispatch(origin_of(account_of(ALICE))),
                 SecurityError::ParachainNotRunning,
             );
 
             assert_noop!(
-                Call::Redeem(RedeemCall::cancel_redeem(Default::default(), false))
-                    .dispatch(origin_of(account_of(ALICE))),
+                Call::Redeem(RedeemCall::cancel_redeem {
+                    redeem_id: Default::default(),
+                    reimburse: false
+                })
+                .dispatch(origin_of(account_of(ALICE))),
                 SecurityError::ParachainNotRunning,
             );
             assert_noop!(
-                Call::Redeem(RedeemCall::cancel_redeem(Default::default(), true))
-                    .dispatch(origin_of(account_of(ALICE))),
+                Call::Redeem(RedeemCall::cancel_redeem {
+                    redeem_id: Default::default(),
+                    reimburse: true
+                })
+                .dispatch(origin_of(account_of(ALICE))),
                 SecurityError::ParachainNotRunning,
             );
 
             assert_noop!(
-                Call::Redeem(RedeemCall::mint_tokens_for_reimbursed_redeem(
-                    VaultCurrencyPair {
+                Call::Redeem(RedeemCall::mint_tokens_for_reimbursed_redeem {
+                    currency_pair: VaultCurrencyPair {
                         collateral: DEFAULT_TESTING_CURRENCY,
                         wrapped: DEFAULT_WRAPPED_CURRENCY
                     },
-                    Default::default()
-                ))
+                    redeem_id: Default::default()
+                })
                 .dispatch(origin_of(account_of(ALICE))),
                 SecurityError::ParachainNotRunning,
             );
@@ -193,11 +208,11 @@ mod spec_based_tests {
             // burnedTokens`
             test_with(|vault_id| {
                 let amount = calculate_vault_capacity(&vault_id);
-                assert_ok!(Call::Redeem(RedeemCall::request_redeem(
-                    amount.amount(),
-                    BtcAddress::default(),
-                    vault_id.clone()
-                ))
+                assert_ok!(Call::Redeem(RedeemCall::request_redeem {
+                    amount_wrapped: amount.amount(),
+                    btc_address: BtcAddress::default(),
+                    vault_id: vault_id.clone()
+                })
                 .dispatch(origin_of(account_of(USER))));
 
                 let redeem_id = assert_redeem_request_event();
@@ -227,11 +242,11 @@ mod spec_based_tests {
             test_with(|vault_id| {
                 let amount = calculate_vault_capacity(&vault_id).amount() + 1;
                 assert_noop!(
-                    Call::Redeem(RedeemCall::request_redeem(
-                        amount,
-                        BtcAddress::default(),
-                        vault_id.clone()
-                    ))
+                    Call::Redeem(RedeemCall::request_redeem {
+                        amount_wrapped: amount,
+                        btc_address: BtcAddress::default(),
+                        vault_id: vault_id.clone()
+                    })
                     .dispatch(origin_of(account_of(USER))),
                     VaultRegistryError::InsufficientTokensCommitted
                 );
@@ -244,11 +259,11 @@ mod spec_based_tests {
             test_with(|vault_id| {
                 liquidate_vault(&vault_id);
                 assert_noop!(
-                    Call::Redeem(RedeemCall::request_redeem(
-                        1500,
-                        BtcAddress::P2PKH(H160([0u8; 20])),
-                        vault_id.clone(),
-                    ))
+                    Call::Redeem(RedeemCall::request_redeem {
+                        amount_wrapped: 1500,
+                        btc_address: BtcAddress::P2PKH(H160([0u8; 20])),
+                        vault_id: vault_id.clone(),
+                    })
                     .dispatch(origin_of(account_of(ALICE))),
                     VaultRegistryError::VaultNotFound,
                 );
@@ -263,11 +278,11 @@ mod spec_based_tests {
                 let mut good_state = default_user_state();
                 (*good_state.balances.get_mut(&vault_id.wrapped_currency()).unwrap()).free = free_tokens_to_redeem;
                 UserData::force_to(ALICE, good_state);
-                assert_ok!(Call::Redeem(RedeemCall::request_redeem(
-                    free_tokens_to_redeem.amount(),
-                    BtcAddress::P2PKH(H160([0u8; 20])),
-                    vault_id.clone(),
-                ))
+                assert_ok!(Call::Redeem(RedeemCall::request_redeem {
+                    amount_wrapped: free_tokens_to_redeem.amount(),
+                    btc_address: BtcAddress::P2PKH(H160([0u8; 20])),
+                    vault_id: vault_id.clone(),
+                })
                 .dispatch(origin_of(account_of(ALICE))));
 
                 let mut bad_state = default_user_state();
@@ -276,11 +291,11 @@ mod spec_based_tests {
 
                 UserData::force_to(ALICE, bad_state);
                 assert_noop!(
-                    Call::Redeem(RedeemCall::request_redeem(
-                        free_tokens_to_redeem.amount(),
-                        BtcAddress::P2PKH(H160([0u8; 20])),
-                        vault_id.clone(),
-                    ))
+                    Call::Redeem(RedeemCall::request_redeem {
+                        amount_wrapped: free_tokens_to_redeem.amount(),
+                        btc_address: BtcAddress::P2PKH(H160([0u8; 20])),
+                        vault_id: vault_id.clone(),
+                    })
                     .dispatch(origin_of(account_of(ALICE))),
                     RedeemError::AmountExceedsUserBalance,
                 );
@@ -364,11 +379,11 @@ mod spec_based_tests {
                     },
                 );
                 assert_noop!(
-                    Call::Redeem(RedeemCall::request_redeem(
-                        user_to_redeem.amount(),
-                        BtcAddress::P2PKH(H160([0u8; 20])),
-                        vault_id.clone(),
-                    ))
+                    Call::Redeem(RedeemCall::request_redeem {
+                        amount_wrapped: user_to_redeem.amount(),
+                        btc_address: BtcAddress::P2PKH(H160([0u8; 20])),
+                        vault_id: vault_id.clone(),
+                    })
                     .dispatch(origin_of(account_of(ALICE))),
                     VaultRegistryError::InsufficientTokensCommitted
                 );
@@ -391,19 +406,19 @@ mod spec_based_tests {
                 let numerator = FixedU128::from_inner((redeem_dust_value + inclusion_fee).amount());
                 let to_redeem = vault_id.wrapped((numerator / denominator).into_inner());
                 assert_noop!(
-                    Call::Redeem(RedeemCall::request_redeem(
-                        to_redeem.amount() - 1,
-                        BtcAddress::P2PKH(H160([0u8; 20])),
-                        vault_id.clone(),
-                    ))
+                    Call::Redeem(RedeemCall::request_redeem {
+                        amount_wrapped: to_redeem.amount() - 1,
+                        btc_address: BtcAddress::P2PKH(H160([0u8; 20])),
+                        vault_id: vault_id.clone(),
+                    })
                     .dispatch(origin_of(account_of(ALICE))),
                     RedeemError::AmountBelowDustAmount
                 );
-                assert_ok!(Call::Redeem(RedeemCall::request_redeem(
-                    to_redeem.amount(),
-                    BtcAddress::P2PKH(H160([0u8; 20])),
-                    vault_id.clone(),
-                ))
+                assert_ok!(Call::Redeem(RedeemCall::request_redeem {
+                    amount_wrapped: to_redeem.amount(),
+                    btc_address: BtcAddress::P2PKH(H160([0u8; 20])),
+                    vault_id: vault_id.clone(),
+                })
                 .dispatch(origin_of(account_of(ALICE))));
             });
         }
@@ -420,20 +435,20 @@ mod spec_based_tests {
                 set_redeem_state(vault_id.wrapped(0), free_tokens_to_redeem, USER, &vault_id);
                 liquidate_vault(&vault_id);
                 assert_noop!(
-                    Call::Redeem(RedeemCall::liquidation_redeem(
-                        vault_id.currencies.clone(),
-                        free_tokens_to_redeem.amount() + 1,
-                    ))
+                    Call::Redeem(RedeemCall::liquidation_redeem {
+                        currencies: vault_id.currencies.clone(),
+                        amount_wrapped: free_tokens_to_redeem.amount() + 1,
+                    })
                     .dispatch(origin_of(account_of(ALICE))),
                     RedeemError::AmountExceedsUserBalance,
                 );
                 let user_tokens_before_redeem =
                     currency::get_free_balance::<Runtime>(vault_id.wrapped_currency(), &account_of(USER));
                 let tokens_to_liquidation_redeem = free_tokens_to_redeem.with_amount(|x| x - 10);
-                assert_ok!(Call::Redeem(RedeemCall::liquidation_redeem(
-                    vault_id.currencies.clone(),
-                    free_tokens_to_redeem.amount() - 10,
-                ))
+                assert_ok!(Call::Redeem(RedeemCall::liquidation_redeem {
+                    currencies: vault_id.currencies.clone(),
+                    amount_wrapped: free_tokens_to_redeem.amount() - 10,
+                })
                 .dispatch(origin_of(account_of(ALICE))));
                 let user_tokens_after_redeem =
                     currency::get_free_balance::<Runtime>(vault_id.wrapped_currency(), &account_of(USER));
@@ -471,8 +486,12 @@ mod spec_based_tests {
                 let issued_tokens = vault_id.wrapped(10_000);
 
                 assert_noop!(
-                    Call::Redeem(RedeemCall::execute_redeem(H256::random(), vec![0; 240], vec![0; 240]))
-                        .dispatch(origin_of(account_of(VAULT))),
+                    Call::Redeem(RedeemCall::execute_redeem {
+                        redeem_id: H256::random(),
+                        merkle_proof: vec![0; 240],
+                        raw_tx: vec![0; 240]
+                    })
+                    .dispatch(origin_of(account_of(VAULT))),
                     RedeemError::RedeemIdNotFound
                 );
                 let redeem_id = setup_redeem(issued_tokens, USER, &vault_id);
@@ -538,11 +557,11 @@ mod spec_based_tests {
                 );
                 let invalid_merkle_proof = hex::decode("00000020b0b3d77b97015b519553423c96642b33ca534c50ecefd133640000000000000029a0a725684aeca24af83e3ba0a3e3ee56adfdf032d19e5acba6d0a262e1580ca354915fd4c8001ac42a7b3a1000000005df41db041b26536b5b7fd7aeea4ea6bdb64f7039e4a566b1fa138a07ed2d3705932955c94ee4755abec003054128b10e0fbcf8dedbbc6236e23286843f1f82a018dc7f5f6fba31aa618fab4acad7df5a5046b6383595798758d30d68c731a14043a50d7cb8560d771fad70c5e52f6d7df26df13ca457655afca2cbab2e3b135c0383525b28fca31296c809641205962eb353fb88a9f3602e98a93b1e9ffd469b023d00").unwrap();
                 assert_noop!(
-                    Call::Redeem(RedeemCall::execute_redeem(
-                        redeem_id,
-                        invalid_merkle_proof,
-                        raw_tx.clone()
-                    ))
+                    Call::Redeem(RedeemCall::execute_redeem {
+                        redeem_id: redeem_id,
+                        merkle_proof: invalid_merkle_proof,
+                        raw_tx: raw_tx.clone()
+                    })
                     .dispatch(origin_of(account_of(VAULT))),
                     BTCRelayError::BlockNotFound
                 );
@@ -577,15 +596,15 @@ mod spec_based_tests {
         use super::{assert_eq, *};
 
         fn set_redeem_period(period: u32) {
-            assert_ok!(Call::Redeem(RedeemCall::set_redeem_period(period)).dispatch(root()));
+            assert_ok!(Call::Redeem(RedeemCall::set_redeem_period { period }).dispatch(root()));
         }
 
         fn request_redeem(vault_id: &VaultId) -> H256 {
-            assert_ok!(Call::Redeem(RedeemCall::request_redeem(
-                4_000,
-                BtcAddress::default(),
-                vault_id.clone()
-            ))
+            assert_ok!(Call::Redeem(RedeemCall::request_redeem {
+                amount_wrapped: 4_000,
+                btc_address: BtcAddress::default(),
+                vault_id: vault_id.clone()
+            })
             .dispatch(origin_of(account_of(USER))));
             // get the redeem id
             assert_redeem_request_event()
@@ -596,7 +615,11 @@ mod spec_based_tests {
         }
 
         fn cancel_redeem(redeem_id: H256) -> DispatchResultWithPostInfo {
-            Call::Redeem(RedeemCall::cancel_redeem(redeem_id, true)).dispatch(origin_of(account_of(USER)))
+            Call::Redeem(RedeemCall::cancel_redeem {
+                redeem_id: redeem_id,
+                reimburse: true,
+            })
+            .dispatch(origin_of(account_of(USER)))
         }
 
         #[test]
@@ -705,7 +728,11 @@ mod spec_based_tests {
                 mine_blocks(12);
                 SecurityPallet::set_active_block_number(1100);
                 assert_noop!(
-                    Call::Redeem(RedeemCall::cancel_redeem(redeem_id, true)).dispatch(origin_of(account_of(VAULT))),
+                    Call::Redeem(RedeemCall::cancel_redeem {
+                        redeem_id: redeem_id,
+                        reimburse: true
+                    })
+                    .dispatch(origin_of(account_of(VAULT))),
                     RedeemError::UnauthorizedUser
                 );
             });
@@ -741,9 +768,11 @@ mod spec_based_tests {
                 assert!(punishment_fee.amount() > 0);
 
                 // alice cancels redeem request and chooses to reimburse
-                assert_ok!(
-                    Call::Redeem(RedeemCall::cancel_redeem(redeem_id, true)).dispatch(origin_of(account_of(USER)))
-                );
+                assert_ok!(Call::Redeem(RedeemCall::cancel_redeem {
+                    redeem_id: redeem_id,
+                    reimburse: true
+                })
+                .dispatch(origin_of(account_of(USER))));
 
                 assert_eq!(
                     ParachainState::get(&vault_id),
@@ -814,9 +843,11 @@ mod spec_based_tests {
                 assert!(punishment_fee.amount() > 0);
 
                 // alice cancels redeem request and chooses to reimburse
-                assert_ok!(
-                    Call::Redeem(RedeemCall::cancel_redeem(redeem_id, true)).dispatch(origin_of(account_of(USER)))
-                );
+                assert_ok!(Call::Redeem(RedeemCall::cancel_redeem {
+                    redeem_id: redeem_id,
+                    reimburse: true
+                })
+                .dispatch(origin_of(account_of(USER))));
 
                 assert_eq!(
                     ParachainState::get(&vault_id),
@@ -873,9 +904,11 @@ mod spec_based_tests {
                 assert!(punishment_fee.amount() > 0);
 
                 // alice cancels redeem request and chooses not to reimburse
-                assert_ok!(
-                    Call::Redeem(RedeemCall::cancel_redeem(redeem_id, false)).dispatch(origin_of(account_of(USER)))
-                );
+                assert_ok!(Call::Redeem(RedeemCall::cancel_redeem {
+                    redeem_id: redeem_id,
+                    reimburse: false
+                })
+                .dispatch(origin_of(account_of(USER))));
 
                 assert_eq!(
                     ParachainState::get(&vault_id),
@@ -930,9 +963,11 @@ mod spec_based_tests {
 
                 let post_liquidation_state = ParachainState::get(&vault_id);
 
-                assert_ok!(
-                    Call::Redeem(RedeemCall::cancel_redeem(redeem_id, false)).dispatch(origin_of(account_of(USER)))
-                );
+                assert_ok!(Call::Redeem(RedeemCall::cancel_redeem {
+                    redeem_id: redeem_id,
+                    reimburse: false
+                })
+                .dispatch(origin_of(account_of(USER))));
 
                 // NOTE: changes are relative the the post liquidation state
                 assert_eq!(
@@ -995,9 +1030,11 @@ mod spec_based_tests {
 
                 let post_liquidation_state = ParachainState::get(&vault_id);
 
-                assert_ok!(
-                    Call::Redeem(RedeemCall::cancel_redeem(redeem_id, true)).dispatch(origin_of(account_of(USER)))
-                );
+                assert_ok!(Call::Redeem(RedeemCall::cancel_redeem {
+                    redeem_id: redeem_id,
+                    reimburse: true
+                })
+                .dispatch(origin_of(account_of(USER))));
 
                 // NOTE: changes are relative the the post liquidation state
                 assert_eq!(
@@ -1048,26 +1085,30 @@ mod spec_based_tests {
             let result1 = test_with(|vault_id| {
                 let redeem_id = setup_cancelable_redeem_with_insufficient_collateral_for_reimburse(vault_id.clone());
                 get_additional_collateral(&vault_id);
-                assert_ok!(
-                    Call::Redeem(RedeemCall::cancel_redeem(redeem_id, true)).dispatch(origin_of(account_of(USER)))
-                );
+                assert_ok!(Call::Redeem(RedeemCall::cancel_redeem {
+                    redeem_id: redeem_id,
+                    reimburse: true
+                })
+                .dispatch(origin_of(account_of(USER))));
                 ParachainState::get(&vault_id)
             });
             // scenario 2: insufficient collateral
             let result2 = test_with(|vault_id| {
                 let currency_id = vault_id.collateral_currency();
                 let redeem_id = setup_cancelable_redeem_with_insufficient_collateral_for_reimburse(vault_id.clone());
-                assert_ok!(
-                    Call::Redeem(RedeemCall::cancel_redeem(redeem_id, true)).dispatch(origin_of(account_of(USER)))
-                );
+                assert_ok!(Call::Redeem(RedeemCall::cancel_redeem {
+                    redeem_id: redeem_id,
+                    reimburse: true
+                })
+                .dispatch(origin_of(account_of(USER))));
                 get_additional_collateral(&vault_id);
                 SecurityPallet::set_active_block_number(100000000);
 
                 assert_noop!(
-                    Call::Redeem(RedeemCall::mint_tokens_for_reimbursed_redeem(
-                        vault_id.currencies.clone(),
-                        H256::random()
-                    ))
+                    Call::Redeem(RedeemCall::mint_tokens_for_reimbursed_redeem {
+                        currency_pair: vault_id.currencies.clone(),
+                        redeem_id: H256::random()
+                    })
                     .dispatch(origin_of(account_of(VAULT))),
                     RedeemError::RedeemIdNotFound
                 );
@@ -1080,17 +1121,17 @@ mod spec_based_tests {
                     },
                 );
                 assert_noop!(
-                    Call::Redeem(RedeemCall::mint_tokens_for_reimbursed_redeem(
-                        vault_id.currencies.clone(),
-                        redeem_id
-                    ))
+                    Call::Redeem(RedeemCall::mint_tokens_for_reimbursed_redeem {
+                        currency_pair: vault_id.currencies.clone(),
+                        redeem_id: redeem_id
+                    })
                     .dispatch(origin_of(account_of(VAULT))),
                     VaultRegistryError::ExceedingVaultLimit
                 );
                 CoreVaultData::force_to(&vault_id, tmp);
                 assert_noop!(
-                    Call::Redeem(RedeemCall::mint_tokens_for_reimbursed_redeem(
-                        VaultCurrencyPair {
+                    Call::Redeem(RedeemCall::mint_tokens_for_reimbursed_redeem {
+                        currency_pair: VaultCurrencyPair {
                             collateral: vault_id.currencies.collateral,
                             wrapped: if vault_id.currencies.wrapped == DOT {
                                 INTERBTC
@@ -1098,15 +1139,15 @@ mod spec_based_tests {
                                 DOT
                             },
                         },
-                        redeem_id
-                    ))
+                        redeem_id: redeem_id
+                    })
                     .dispatch(origin_of(account_of(VAULT))),
                     RedeemError::UnauthorizedUser
                 );
-                assert_ok!(Call::Redeem(RedeemCall::mint_tokens_for_reimbursed_redeem(
-                    vault_id.currencies.clone(),
-                    redeem_id
-                ))
+                assert_ok!(Call::Redeem(RedeemCall::mint_tokens_for_reimbursed_redeem {
+                    currency_pair: vault_id.currencies.clone(),
+                    redeem_id: redeem_id
+                })
                 .dispatch(origin_of(account_of(VAULT))));
                 ParachainState::get(&vault_id)
             });
@@ -1122,16 +1163,18 @@ mod spec_based_tests {
             // scenario 1: sufficient collateral
             test_with(|vault_id| {
                 let redeem_id = setup_cancelable_redeem_with_insufficient_collateral_for_reimburse(vault_id.clone());
-                assert_ok!(
-                    Call::Redeem(RedeemCall::cancel_redeem(redeem_id, false)).dispatch(origin_of(account_of(USER)))
-                );
+                assert_ok!(Call::Redeem(RedeemCall::cancel_redeem {
+                    redeem_id: redeem_id,
+                    reimburse: false
+                })
+                .dispatch(origin_of(account_of(USER))));
                 get_additional_collateral(&vault_id);
                 SecurityPallet::set_active_block_number(100000000);
                 assert_noop!(
-                    Call::Redeem(RedeemCall::mint_tokens_for_reimbursed_redeem(
-                        vault_id.currencies.clone(),
-                        redeem_id
-                    ))
+                    Call::Redeem(RedeemCall::mint_tokens_for_reimbursed_redeem {
+                        currency_pair: vault_id.currencies.clone(),
+                        redeem_id: redeem_id
+                    })
                     .dispatch(origin_of(account_of(VAULT))),
                     RedeemError::RedeemCancelled
                 );
@@ -1146,21 +1189,30 @@ fn integration_test_redeem_parachain_status_shutdown_fails() {
         SecurityPallet::set_status(StatusCode::Shutdown);
 
         assert_noop!(
-            Call::Issue(IssueCall::request_issue{
-                amount: 0, 
-                vault_id: vault_id.clone(), 
-                griefing_collateral: 0}).dispatch(origin_of(account_of(ALICE))),
+            Call::Issue(IssueCall::request_issue {
+                amount: 0,
+                vault_id: vault_id.clone(),
+                griefing_collateral: 0
+            })
+            .dispatch(origin_of(account_of(ALICE))),
             SecurityError::ParachainShutdown,
         );
 
         assert_noop!(
-            Call::Issue(IssueCall::cancel_issue(H256([0; 32]),)).dispatch(origin_of(account_of(ALICE))),
+            Call::Issue(IssueCall::cancel_issue {
+                issue_id: H256([0; 32]),
+            })
+            .dispatch(origin_of(account_of(ALICE))),
             SecurityError::ParachainShutdown,
         );
 
         assert_noop!(
-            Call::Issue(IssueCall::execute_issue(H256([0; 32]), vec![0u8; 32], vec![0u8; 32]))
-                .dispatch(origin_of(account_of(ALICE))),
+            Call::Issue(IssueCall::execute_issue {
+                issue_id: H256([0; 32]),
+                merkle_proof: vec![0u8; 32],
+                raw_tx: vec![0u8; 32]
+            })
+            .dispatch(origin_of(account_of(ALICE))),
             SecurityError::ParachainShutdown,
         );
     });
@@ -1242,7 +1294,11 @@ fn integration_test_execute_redeem_on_banned_vault_succeeds() {
         let redeem_id_2 = setup_redeem(amount_btc, USER, &vault_id);
 
         // cancel first
-        assert_ok!(Call::Redeem(RedeemCall::cancel_redeem(redeem_id_1, true)).dispatch(origin_of(account_of(USER))));
+        assert_ok!(Call::Redeem(RedeemCall::cancel_redeem {
+            redeem_id: redeem_id_1,
+            reimburse: true
+        })
+        .dispatch(origin_of(account_of(USER))));
 
         // should now be banned
         assert_noop!(
@@ -1268,11 +1324,11 @@ fn integration_test_premium_redeem_wrapped_execute() {
         assert_ok!(OraclePallet::_set_exchange_rate(currency_id, FixedU128::from(100)));
 
         // alice requests to redeem issued_tokens from Bob
-        assert_ok!(Call::Redeem(RedeemCall::request_redeem(
-            issued_tokens.amount(),
-            user_btc_address,
-            vault_id.clone()
-        ))
+        assert_ok!(Call::Redeem(RedeemCall::request_redeem {
+            amount_wrapped: issued_tokens.amount(),
+            btc_address: user_btc_address,
+            vault_id: vault_id.clone()
+        })
         .dispatch(origin_of(account_of(USER))));
 
         // assert that request happened and extract the id
@@ -1289,10 +1345,12 @@ fn integration_test_premium_redeem_wrapped_execute() {
 
         SecurityPallet::set_active_block_number(1 + CONFIRMATIONS);
 
-        assert_ok!(
-            Call::Redeem(RedeemCall::execute_redeem(redeem_id, merkle_proof, raw_tx))
-                .dispatch(origin_of(account_of(VAULT)))
-        );
+        assert_ok!(Call::Redeem(RedeemCall::execute_redeem {
+            redeem_id: redeem_id,
+            merkle_proof: merkle_proof,
+            raw_tx: raw_tx
+        })
+        .dispatch(origin_of(account_of(VAULT))));
 
         assert_eq!(
             ParachainState::get(&vault_id),
@@ -1342,15 +1400,18 @@ fn integration_test_redeem_wrapped_liquidation_redeem() {
         let post_liquidation_state = ParachainState::get(&vault_id);
 
         assert_noop!(
-            Call::Redeem(RedeemCall::liquidation_redeem(vault_id.currencies.clone(), 351))
-                .dispatch(origin_of(account_of(USER))),
+            Call::Redeem(RedeemCall::liquidation_redeem {
+                currencies: vault_id.currencies.clone(),
+                amount_wrapped: 351
+            })
+            .dispatch(origin_of(account_of(USER))),
             VaultRegistryError::InsufficientTokensCommitted
         );
 
-        assert_ok!(Call::Redeem(RedeemCall::liquidation_redeem(
-            vault_id.currencies.clone(),
-            liquidation_redeem_amount.amount()
-        ))
+        assert_ok!(Call::Redeem(RedeemCall::liquidation_redeem {
+            currencies: vault_id.currencies.clone(),
+            amount_wrapped: liquidation_redeem_amount.amount()
+        })
         .dispatch(origin_of(account_of(USER))));
 
         // NOTE: changes are relative the the post liquidation state
@@ -1387,7 +1448,11 @@ fn integration_test_redeem_wrapped_cancel_reimburse_sufficient_collateral_for_wr
         assert!(punishment_fee.amount() > 0);
 
         // alice cancels redeem request and chooses to reimburse
-        assert_ok!(Call::Redeem(RedeemCall::cancel_redeem(redeem_id, true)).dispatch(origin_of(account_of(USER))));
+        assert_ok!(Call::Redeem(RedeemCall::cancel_redeem {
+            redeem_id: redeem_id,
+            reimburse: true
+        })
+        .dispatch(origin_of(account_of(USER))));
 
         assert_eq!(
             ParachainState::get(&vault_id),
@@ -1435,7 +1500,11 @@ fn integration_test_redeem_wrapped_cancel_reimburse_insufficient_collateral_for_
         assert!(punishment_fee.amount() > 0);
 
         // alice cancels redeem request and chooses to reimburse
-        assert_ok!(Call::Redeem(RedeemCall::cancel_redeem(redeem_id, true)).dispatch(origin_of(account_of(USER))));
+        assert_ok!(Call::Redeem(RedeemCall::cancel_redeem {
+            redeem_id: redeem_id,
+            reimburse: true
+        })
+        .dispatch(origin_of(account_of(USER))));
 
         assert_eq!(
             ParachainState::get(&vault_id),
@@ -1465,10 +1534,10 @@ fn integration_test_redeem_wrapped_cancel_reimburse_insufficient_collateral_for_
         );
         let pre_minting_state = ParachainState::get(&vault_id);
 
-        assert_ok!(Call::Redeem(RedeemCall::mint_tokens_for_reimbursed_redeem(
-            vault_id.currencies.clone(),
-            redeem_id
-        ))
+        assert_ok!(Call::Redeem(RedeemCall::mint_tokens_for_reimbursed_redeem {
+            currency_pair: vault_id.currencies.clone(),
+            redeem_id: redeem_id
+        })
         .dispatch(origin_of(account_of(VAULT))));
         assert_eq!(
             ParachainState::get(&vault_id),
@@ -1495,7 +1564,11 @@ fn integration_test_redeem_wrapped_cancel_no_reimburse() {
         assert!(punishment_fee.amount() > 0);
 
         // alice cancels redeem request and chooses not to reimburse
-        assert_ok!(Call::Redeem(RedeemCall::cancel_redeem(redeem_id, false)).dispatch(origin_of(account_of(USER))));
+        assert_ok!(Call::Redeem(RedeemCall::cancel_redeem {
+            redeem_id: redeem_id,
+            reimburse: false
+        })
+        .dispatch(origin_of(account_of(USER))));
 
         assert_eq!(
             ParachainState::get(&vault_id),
@@ -1546,7 +1619,11 @@ fn integration_test_redeem_wrapped_cancel_liquidated_no_reimburse() {
 
         let post_liquidation_state = ParachainState::get(&vault_id);
 
-        assert_ok!(Call::Redeem(RedeemCall::cancel_redeem(redeem_id, false)).dispatch(origin_of(account_of(USER))));
+        assert_ok!(Call::Redeem(RedeemCall::cancel_redeem {
+            redeem_id: redeem_id,
+            reimburse: false
+        })
+        .dispatch(origin_of(account_of(USER))));
 
         // NOTE: changes are relative the the post liquidation state
         assert_eq!(
@@ -1604,7 +1681,11 @@ fn integration_test_redeem_wrapped_cancel_liquidated_reimburse() {
 
         let post_liquidation_state = ParachainState::get(&vault_id);
 
-        assert_ok!(Call::Redeem(RedeemCall::cancel_redeem(redeem_id, true)).dispatch(origin_of(account_of(USER))));
+        assert_ok!(Call::Redeem(RedeemCall::cancel_redeem {
+            redeem_id: redeem_id,
+            reimburse: true
+        })
+        .dispatch(origin_of(account_of(USER))));
 
         // NOTE: changes are relative the the post liquidation state
         assert_eq!(
@@ -1733,19 +1814,27 @@ mod mint_tokens_for_reimbursed_redeem_equivalence_test {
         let result1 = test_with(|vault_id| {
             let redeem_id = setup_cancelable_redeem_with_insufficient_collateral_for_reimburse(vault_id.clone());
             get_additional_collateral(&vault_id);
-            assert_ok!(Call::Redeem(RedeemCall::cancel_redeem(redeem_id, true)).dispatch(origin_of(account_of(USER))));
+            assert_ok!(Call::Redeem(RedeemCall::cancel_redeem {
+                redeem_id: redeem_id,
+                reimburse: true
+            })
+            .dispatch(origin_of(account_of(USER))));
             ParachainState::get(&vault_id)
         });
         // scenario 2: insufficient collateral
         let result2 = test_with(|vault_id| {
             let redeem_id = setup_cancelable_redeem_with_insufficient_collateral_for_reimburse(vault_id.clone());
-            assert_ok!(Call::Redeem(RedeemCall::cancel_redeem(redeem_id, true)).dispatch(origin_of(account_of(USER))));
+            assert_ok!(Call::Redeem(RedeemCall::cancel_redeem {
+                redeem_id: redeem_id,
+                reimburse: true
+            })
+            .dispatch(origin_of(account_of(USER))));
             get_additional_collateral(&vault_id);
             SecurityPallet::set_active_block_number(100000000);
-            assert_ok!(Call::Redeem(RedeemCall::mint_tokens_for_reimbursed_redeem(
-                vault_id.currencies.clone(),
-                redeem_id
-            ))
+            assert_ok!(Call::Redeem(RedeemCall::mint_tokens_for_reimbursed_redeem {
+                currency_pair: vault_id.currencies.clone(),
+                redeem_id: redeem_id
+            })
             .dispatch(origin_of(account_of(VAULT))));
             ParachainState::get(&vault_id)
         });

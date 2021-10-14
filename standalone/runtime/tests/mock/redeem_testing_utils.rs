@@ -53,8 +53,12 @@ impl ExecuteRedeemBuilder {
         SecurityPallet::set_active_block_number(SecurityPallet::active_block_number() + CONFIRMATIONS);
 
         // alice executes the redeemrequest by confirming the btc transaction
-        Call::Redeem(RedeemCall::execute_redeem(self.redeem_id, proof, raw_tx))
-            .dispatch(origin_of(self.submitter.clone()))
+        Call::Redeem(RedeemCall::execute_redeem {
+            redeem_id: self.redeem_id,
+            merkle_proof: proof,
+            raw_tx: raw_tx,
+        })
+        .dispatch(origin_of(self.submitter.clone()))
     }
 
     pub fn assert_execute(&self) {
@@ -100,11 +104,11 @@ pub fn set_redeem_state(
 
 pub fn setup_redeem(issued_tokens: Amount<Runtime>, user: [u8; 32], vault: &VaultId) -> H256 {
     // alice requests to redeem issued_tokens from Bob
-    assert_ok!(Call::Redeem(RedeemCall::request_redeem(
-        issued_tokens.amount(),
-        USER_BTC_ADDRESS,
-        vault.clone()
-    ))
+    assert_ok!(Call::Redeem(RedeemCall::request_redeem {
+        amount_wrapped: issued_tokens.amount(),
+        btc_address: USER_BTC_ADDRESS,
+        vault_id: vault.clone()
+    })
     .dispatch(origin_of(account_of(user))));
 
     // assert that request happened and extract the id
@@ -130,7 +134,11 @@ pub fn execute_redeem(redeem_id: H256) {
 }
 
 pub fn cancel_redeem(redeem_id: H256, redeemer: [u8; 32], reimburse: bool) {
-    assert_ok!(Call::Redeem(RedeemCall::cancel_redeem(redeem_id, reimburse)).dispatch(origin_of(account_of(redeemer))));
+    assert_ok!(Call::Redeem(RedeemCall::cancel_redeem {
+        redeem_id: redeem_id,
+        reimburse: reimburse
+    })
+    .dispatch(origin_of(account_of(redeemer))));
 }
 
 pub fn assert_redeem_error(
@@ -152,8 +160,12 @@ pub fn assert_redeem_error(
     SecurityPallet::set_active_block_number(current_block_number + 1 + CONFIRMATIONS);
 
     assert_noop!(
-        Call::Redeem(RedeemCall::execute_redeem(redeem_id, merkle_proof.clone(), raw_tx))
-            .dispatch(origin_of(account_of(VAULT))),
+        Call::Redeem(RedeemCall::execute_redeem {
+            redeem_id: redeem_id,
+            merkle_proof: merkle_proof.clone(),
+            raw_tx: raw_tx
+        })
+        .dispatch(origin_of(account_of(VAULT))),
         error
     );
     return current_block_number + 1 + CONFIRMATIONS;

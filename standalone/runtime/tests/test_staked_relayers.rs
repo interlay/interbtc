@@ -37,14 +37,14 @@ fn setup_vault_for_potential_double_spend(
         225, 26, 242, 187, 160, 225, 248, 195, 250,
     ]);
 
-    assert_ok!(Call::VaultRegistry(VaultRegistryCall::register_vault(
-        VaultCurrencyPair {
+    assert_ok!(Call::VaultRegistry(VaultRegistryCall::register_vault {
+        currency_pair: VaultCurrencyPair {
             collateral: DEFAULT_TESTING_CURRENCY,
             wrapped: DEFAULT_WRAPPED_CURRENCY,
         },
-        INITIAL_BALANCE,
-        vault_public_key_one.clone(),
-    ))
+        collateral: INITIAL_BALANCE,
+        public_key: vault_public_key_one.clone(),
+    })
     .dispatch(origin_of(account_of(stealing_vault))));
 
     if issue_tokens {
@@ -77,14 +77,14 @@ fn integration_test_report_vault_theft() {
 
         SecurityPallet::set_active_block_number(1);
 
-        assert_ok!(Call::VaultRegistry(VaultRegistryCall::register_vault(
-            VaultCurrencyPair {
+        assert_ok!(Call::VaultRegistry(VaultRegistryCall::register_vault {
+            currency_pair: VaultCurrencyPair {
                 collateral: currency_id,
                 wrapped: DEFAULT_WRAPPED_CURRENCY,
             },
-            collateral_vault,
-            dummy_public_key(),
-        ))
+            collateral: collateral_vault,
+            public_key: dummy_public_key(),
+        })
         .dispatch(origin_of(account_of(vault))));
         assert_ok!(VaultRegistryPallet::insert_vault_deposit_address(
             vault_id.clone(),
@@ -108,10 +108,12 @@ fn integration_test_report_vault_theft() {
         let pre_liquidation_state = ParachainState::get(&vault_id);
         let theft_fee = FeePallet::get_theft_fee(&Amount::new(collateral_vault, currency_id)).unwrap();
 
-        assert_ok!(
-            Call::Relay(RelayCall::report_vault_theft(vault_id.clone(), proof, raw_tx))
-                .dispatch(origin_of(account_of(user)))
-        );
+        assert_ok!(Call::Relay(RelayCall::report_vault_theft {
+            vault_id: vault_id.clone(),
+            raw_merkle_proof: proof,
+            raw_tx: raw_tx
+        })
+        .dispatch(origin_of(account_of(user))));
 
         let confiscated_collateral = Amount::new(150, currency_id);
         assert_eq!(
@@ -168,30 +170,30 @@ fn integration_test_double_spend_redeem() {
             );
         SecurityPallet::set_active_block_number(current_block_number + 1 + CONFIRMATIONS);
 
-        assert_ok!(Call::Redeem(RedeemCall::execute_redeem(
-            redeem_id,
-            merkle_proof.clone(),
-            raw_tx.clone()
-        ))
+        assert_ok!(Call::Redeem(RedeemCall::execute_redeem {
+            redeem_id: redeem_id,
+            merkle_proof: merkle_proof.clone(),
+            raw_tx: raw_tx.clone()
+        })
         .dispatch(origin_of(account_of(stealing_vault))));
 
         // Executing the theft tx should fail
         assert_err!(
-            Call::Redeem(RedeemCall::execute_redeem(
-                redeem_id,
-                theft_merkle_proof.clone(),
-                theft_raw_tx.clone()
-            ))
+            Call::Redeem(RedeemCall::execute_redeem {
+                redeem_id: redeem_id,
+                merkle_proof: theft_merkle_proof.clone(),
+                raw_tx: theft_raw_tx.clone()
+            })
             .dispatch(origin_of(account_of(stealing_vault))),
             RedeemError::RedeemCompleted
         );
 
         // Reporting the double-spend transaction as theft should work
-        assert_ok!(Call::Relay(RelayCall::report_vault_double_payment(
-            default_vault_id_of(stealing_vault),
-            (merkle_proof, theft_merkle_proof),
-            (raw_tx, theft_raw_tx),
-        ))
+        assert_ok!(Call::Relay(RelayCall::report_vault_double_payment {
+            vault_id: default_vault_id_of(stealing_vault),
+            raw_merkle_proofs: (merkle_proof, theft_merkle_proof),
+            raw_txs: (raw_tx, theft_raw_tx),
+        })
         .dispatch(origin_of(account_of(USER))));
     });
 }
@@ -232,18 +234,18 @@ fn redeem_with_extra_utxo(use_unregistered_btc_address: bool) -> DispatchResultW
 
     SecurityPallet::set_active_block_number(current_block_number + 1 + CONFIRMATIONS);
 
-    assert_ok!(Call::Redeem(RedeemCall::execute_redeem(
-        redeem_id,
-        merkle_proof.clone(),
-        raw_tx.clone()
-    ))
+    assert_ok!(Call::Redeem(RedeemCall::execute_redeem {
+        redeem_id: redeem_id,
+        merkle_proof: merkle_proof.clone(),
+        raw_tx: raw_tx.clone()
+    })
     .dispatch(origin_of(account_of(vault))));
 
-    Call::Relay(RelayCall::report_vault_theft(
-        default_vault_id_of(vault),
-        merkle_proof,
-        raw_tx,
-    ))
+    Call::Relay(RelayCall::report_vault_theft {
+        vault_id: default_vault_id_of(vault),
+        raw_merkle_proof: merkle_proof,
+        raw_tx: raw_tx,
+    })
     .dispatch(origin_of(account_of(USER)))
 }
 
@@ -318,11 +320,11 @@ fn integration_test_merge_tx() {
         // Reporting as theft should fail, because the transaction merged
         // UTXOs sent to registered vault addresses
         assert_err!(
-            Call::Relay(RelayCall::report_vault_theft(
-                default_vault_id_of(vault),
-                merkle_proof,
-                raw_tx
-            ))
+            Call::Relay(RelayCall::report_vault_theft {
+                vault_id: default_vault_id_of(vault),
+                raw_merkle_proof: merkle_proof,
+                raw_tx: raw_tx
+            })
             .dispatch(origin_of(account_of(USER))),
             RelayError::ValidMergeTransaction
         );
@@ -374,30 +376,30 @@ fn integration_test_double_spend_refund() {
             );
         SecurityPallet::set_active_block_number(current_block_number + 1 + CONFIRMATIONS);
 
-        assert_ok!(Call::Refund(RefundCall::execute_refund(
-            refund_id,
-            merkle_proof.clone(),
-            raw_tx.clone()
-        ))
+        assert_ok!(Call::Refund(RefundCall::execute_refund {
+            refund_id: refund_id,
+            merkle_proof: merkle_proof.clone(),
+            raw_tx: raw_tx.clone()
+        })
         .dispatch(origin_of(account_of(stealing_vault))));
 
         // Executing the theft tx should fail
         assert_err!(
-            Call::Refund(RefundCall::execute_refund(
-                refund_id,
-                theft_merkle_proof.clone(),
-                theft_raw_tx.clone()
-            ))
+            Call::Refund(RefundCall::execute_refund {
+                refund_id: refund_id,
+                merkle_proof: theft_merkle_proof.clone(),
+                raw_tx: theft_raw_tx.clone()
+            })
             .dispatch(origin_of(account_of(stealing_vault))),
             RefundError::RefundCompleted
         );
 
         // Reporting the double-spend transaction as theft should work
-        assert_ok!(Call::Relay(RelayCall::report_vault_double_payment(
-            default_vault_id_of(stealing_vault),
-            (merkle_proof, theft_merkle_proof),
-            (raw_tx, theft_raw_tx),
-        ))
+        assert_ok!(Call::Relay(RelayCall::report_vault_double_payment {
+            vault_id: default_vault_id_of(stealing_vault),
+            raw_merkle_proofs: (merkle_proof, theft_merkle_proof),
+            raw_txs: (raw_tx, theft_raw_tx),
+        })
         .dispatch(origin_of(account_of(USER))));
     });
 }
@@ -448,30 +450,30 @@ fn integration_test_double_spend_replace() {
             );
 
         SecurityPallet::set_active_block_number(current_block_number + 1 + CONFIRMATIONS);
-        assert_ok!(Call::Replace(ReplaceCall::execute_replace(
-            replace_id,
-            merkle_proof.clone(),
-            raw_tx.clone()
-        ))
+        assert_ok!(Call::Replace(ReplaceCall::execute_replace {
+            replace_id: replace_id,
+            merkle_proof: merkle_proof.clone(),
+            raw_tx: raw_tx.clone()
+        })
         .dispatch(origin_of(account_of(stealing_vault))));
 
         // Executing the theft tx should fail
         assert_err!(
-            Call::Replace(ReplaceCall::execute_replace(
-                replace_id,
-                theft_merkle_proof.clone(),
-                theft_raw_tx.clone()
-            ))
+            Call::Replace(ReplaceCall::execute_replace {
+                replace_id: replace_id,
+                merkle_proof: theft_merkle_proof.clone(),
+                raw_tx: theft_raw_tx.clone()
+            })
             .dispatch(origin_of(account_of(stealing_vault))),
             ReplaceError::ReplaceCompleted
         );
 
         // Reporting the double-spend transaction as theft should work
-        assert_ok!(Call::Relay(RelayCall::report_vault_double_payment(
-            stealing_vault_id,
-            (merkle_proof, theft_merkle_proof),
-            (raw_tx, theft_raw_tx),
-        ))
+        assert_ok!(Call::Relay(RelayCall::report_vault_double_payment {
+            vault_id: stealing_vault_id,
+            raw_merkle_proofs: (merkle_proof, theft_merkle_proof),
+            raw_txs: (raw_tx, theft_raw_tx),
+        })
         .dispatch(origin_of(account_of(USER))));
     });
 }
@@ -482,19 +484,26 @@ fn integration_test_relay_parachain_status_check_fails() {
         SecurityPallet::set_status(StatusCode::Shutdown);
 
         assert_noop!(
-            Call::Relay(RelayCall::initialize(Default::default(), 0)).dispatch(origin_of(account_of(ALICE))),
+            Call::Relay(RelayCall::initialize {
+                raw_block_header: Default::default(),
+                block_height: 0
+            })
+            .dispatch(origin_of(account_of(ALICE))),
             SecurityError::ParachainShutdown
         );
         assert_noop!(
-            Call::Relay(RelayCall::store_block_header(Default::default())).dispatch(origin_of(account_of(ALICE))),
+            Call::Relay(RelayCall::store_block_header {
+                raw_block_header: Default::default()
+            })
+            .dispatch(origin_of(account_of(ALICE))),
             SecurityError::ParachainShutdown
         );
         assert_noop!(
-            Call::Relay(RelayCall::report_vault_theft(
-                vault_id_of(ALICE, DOT),
-                Default::default(),
-                Default::default()
-            ))
+            Call::Relay(RelayCall::report_vault_theft {
+                vault_id: vault_id_of(ALICE, DOT),
+                raw_merkle_proof: Default::default(),
+                raw_tx: Default::default()
+            })
             .dispatch(origin_of(account_of(ALICE))),
             SecurityError::ParachainShutdown
         );

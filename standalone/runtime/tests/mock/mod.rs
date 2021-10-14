@@ -916,11 +916,11 @@ pub fn dummy_public_key() -> BtcPublicKey {
 
 pub fn try_register_vault(collateral: Amount<Runtime>, vault_id: &VaultId) {
     if VaultRegistryPallet::get_vault_from_id(vault_id).is_err() {
-        assert_ok!(Call::VaultRegistry(VaultRegistryCall::register_vault(
-            vault_id.currencies.clone(),
-            collateral.amount(),
-            dummy_public_key(),
-        ))
+        assert_ok!(Call::VaultRegistry(VaultRegistryCall::register_vault {
+            currency_pair: vault_id.currencies.clone(),
+            collateral: collateral.amount(),
+            public_key: dummy_public_key(),
+        })
         .dispatch(origin_of(vault_id.account_id.clone())));
     };
 }
@@ -1162,9 +1162,10 @@ impl TransactionGenerator {
 
     fn relay(&self, height: u32, block: &Block, raw_block_header: RawBlockHeader) {
         if let Some(relayer) = self.relayer {
-            assert_ok!(
-                Call::Relay(RelayCall::store_block_header(raw_block_header)).dispatch(origin_of(account_of(relayer)))
-            );
+            assert_ok!(Call::Relay(RelayCall::store_block_header {
+                raw_block_header: raw_block_header
+            })
+            .dispatch(origin_of(account_of(relayer))));
             assert_store_main_chain_header_event(height, raw_block_header.hash(), account_of(relayer));
         } else {
             // bypass staked relayer module
@@ -1347,11 +1348,17 @@ impl ExtBuilder {
             // initialize btc relay
             let _ = TransactionGenerator::new().with_confirmations(7).mine();
 
-            assert_ok!(Call::Oracle(OracleCall::insert_authorized_oracle(account_of(ALICE), vec![])).dispatch(root()));
-            assert_ok!(Call::Oracle(OracleCall::feed_values(vec![
-                (OracleKey::ExchangeRate(CurrencyId::DOT), FixedU128::from(1)),
-                (OracleKey::FeeEstimation, FixedU128::from(3)),
-            ]))
+            assert_ok!(Call::Oracle(OracleCall::insert_authorized_oracle {
+                account_id: account_of(ALICE),
+                name: vec![]
+            })
+            .dispatch(root()));
+            assert_ok!(Call::Oracle(OracleCall::feed_values {
+                values: vec![
+                    (OracleKey::ExchangeRate(CurrencyId::DOT), FixedU128::from(1)),
+                    (OracleKey::FeeEstimation, FixedU128::from(3)),
+                ]
+            })
             .dispatch(origin_of(account_of(ALICE))));
             OraclePallet::begin_block(0);
 

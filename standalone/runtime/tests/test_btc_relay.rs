@@ -19,14 +19,16 @@ fn integration_test_submit_block_headers_and_verify_transaction_inclusion() {
         let parachain_genesis_height = test_data[0].height;
         let parachain_genesis_header = test_data[0].get_raw_header();
 
-        assert_ok!(Call::Relay(RelayCall::initialize(
-            parachain_genesis_header,
-            parachain_genesis_height
-        ))
+        assert_ok!(Call::Relay(RelayCall::initialize {
+            raw_block_header: parachain_genesis_header,
+            block_height: parachain_genesis_height
+        })
         .dispatch(origin_of(account_of(ALICE))));
         for block in test_data.iter().skip(1) {
-            assert_ok!(Call::Relay(RelayCall::store_block_header(block.get_raw_header()))
-                .dispatch(origin_of(account_of(ALICE))));
+            assert_ok!(Call::Relay(RelayCall::store_block_header {
+                raw_block_header: block.get_raw_header()
+            })
+            .dispatch(origin_of(account_of(ALICE))));
 
             assert_store_main_chain_header_event(block.height, block.get_block_hash(), account_of(ALICE));
         }
@@ -38,17 +40,21 @@ fn integration_test_submit_block_headers_and_verify_transaction_inclusion() {
                 let txid = tx.get_txid();
                 let raw_merkle_proof = tx.get_raw_merkle_proof();
                 if block.height <= current_height - CONFIRMATIONS + 1 {
-                    assert_ok!(Call::BTCRelay(BTCRelayCall::verify_transaction_inclusion(
-                        txid,
-                        raw_merkle_proof,
-                        None,
-                    ))
+                    assert_ok!(Call::BTCRelay(BTCRelayCall::verify_transaction_inclusion {
+                        tx_id: txid,
+                        raw_merkle_proof: raw_merkle_proof,
+                        confirmations: None,
+                    })
                     .dispatch(origin_of(account_of(ALICE))));
                 } else {
                     // expect to fail due to insufficient confirmations
                     assert_noop!(
-                        Call::BTCRelay(BTCRelayCall::verify_transaction_inclusion(txid, raw_merkle_proof, None,))
-                            .dispatch(origin_of(account_of(ALICE))),
+                        Call::BTCRelay(BTCRelayCall::verify_transaction_inclusion {
+                            tx_id: txid,
+                            raw_merkle_proof: raw_merkle_proof,
+                            confirmations: None,
+                        })
+                        .dispatch(origin_of(account_of(ALICE))),
                         BTCRelayError::BitcoinConfirmations
                     );
                 }
@@ -63,33 +69,33 @@ fn integration_test_btc_relay_with_parachain_shutdown_fails() {
         SecurityPallet::set_status(StatusCode::Shutdown);
 
         assert_noop!(
-            Call::BTCRelay(BTCRelayCall::verify_and_validate_transaction(
-                Default::default(),
-                Default::default(),
-                Default::default(),
-                Default::default(),
-                Default::default(),
-                Default::default()
-            ))
+            Call::BTCRelay(BTCRelayCall::verify_and_validate_transaction {
+                raw_merkle_proof: Default::default(),
+                confirmations: Default::default(),
+                raw_tx: Default::default(),
+                expected_btc: Default::default(),
+                recipient_btc_address: Default::default(),
+                op_return_id: Default::default()
+            })
             .dispatch(origin_of(account_of(ALICE))),
             SecurityError::ParachainShutdown
         );
         assert_noop!(
-            Call::BTCRelay(BTCRelayCall::verify_transaction_inclusion(
-                Default::default(),
-                Default::default(),
-                Default::default()
-            ))
+            Call::BTCRelay(BTCRelayCall::verify_transaction_inclusion {
+                tx_id: Default::default(),
+                raw_merkle_proof: Default::default(),
+                confirmations: Default::default()
+            })
             .dispatch(origin_of(account_of(ALICE))),
             SecurityError::ParachainShutdown
         );
         assert_noop!(
-            Call::BTCRelay(BTCRelayCall::validate_transaction(
-                Default::default(),
-                Default::default(),
-                Default::default(),
-                Default::default()
-            ))
+            Call::BTCRelay(BTCRelayCall::validate_transaction {
+                raw_tx: Default::default(),
+                expected_btc: Default::default(),
+                recipient_btc_address: Default::default(),
+                op_return_id: Default::default()
+            })
             .dispatch(origin_of(account_of(ALICE))),
             SecurityError::ParachainShutdown
         );
