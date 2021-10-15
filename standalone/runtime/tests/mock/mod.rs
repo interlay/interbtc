@@ -12,8 +12,8 @@ use currency::Amount;
 use frame_support::traits::GenesisBuild;
 pub use frame_support::{assert_err, assert_noop, assert_ok, dispatch::DispatchResultWithPostInfo};
 pub use interbtc_runtime_standalone::{
-    AccountId, BlockNumber, Call, CurrencyId, Event, GetCollateralCurrencyId, GetWrappedCurrencyId, Runtime, DOT,
-    INTERBTC,
+    AccountId, BlockNumber, Call, CouncilInstance, CurrencyId, Event, GetCollateralCurrencyId, GetWrappedCurrencyId,
+    Runtime, TechnicalCommitteeInstance, DOT, INTERBTC,
 };
 pub use mocktopus::mocking::*;
 pub use orml_tokens::CurrencyAdapter;
@@ -102,6 +102,7 @@ pub type BTCRelayPallet = btc_relay::Pallet<Runtime>;
 pub type BTCRelayError = btc_relay::Error<Runtime>;
 pub type BTCRelayEvent = btc_relay::Event<Runtime>;
 
+pub type TokensCall = orml_tokens::Call<Runtime>;
 pub type TokensError = orml_tokens::Error<Runtime>;
 
 pub type CollateralPallet = CurrencyAdapter<Runtime, GetCollateralCurrencyId>;
@@ -1314,6 +1315,20 @@ impl ExtBuilder {
         refund::GenesisConfig::<Runtime> {
             refund_btc_dust_value: 3,
             refund_transaction_size: 401,
+        }
+        .assimilate_storage(&mut storage)
+        .unwrap();
+
+        pallet_collective::GenesisConfig::<Runtime, CouncilInstance> {
+            members: vec![account_of(ALICE), account_of(BOB)],
+            phantom: Default::default(),
+        }
+        .assimilate_storage(&mut storage)
+        .unwrap();
+
+        pallet_collective::GenesisConfig::<Runtime, TechnicalCommitteeInstance> {
+            members: vec![account_of(ALICE), account_of(BOB)],
+            phantom: Default::default(),
         }
         .assimilate_storage(&mut storage)
         .unwrap();

@@ -293,11 +293,11 @@ type EnsureRootOrTwoThirdsTechnicalCommittee = EnsureOneOf<
 
 parameter_types! {
     pub const LaunchPeriod: BlockNumber = 2 * MINUTES;
-    pub const VotingPeriod: BlockNumber = 2 * MINUTES;
+    pub const VotingPeriod: BlockNumber = 5 * MINUTES;
     pub const FastTrackVotingPeriod: BlockNumber = 1 * MINUTES;
     pub MinimumDeposit: Balance = 100 * DOLLARS;
     pub const EnactmentPeriod: BlockNumber = 3 * MINUTES;
-    pub const CooloffPeriod: BlockNumber = 7 * DAYS;
+    pub const CooloffPeriod: BlockNumber = 1 * DAYS;
     pub PreimageByteDeposit: Balance = 1 * CENTS;
     pub const InstantAllowed: bool = true;
     pub const MaxVotes: u32 = 100;
@@ -416,12 +416,12 @@ impl pallet_elections_phragmen::Config for Runtime {
 }
 
 parameter_types! {
-    pub const CouncilMotionDuration: BlockNumber = 5 * MINUTES;
+    pub const CouncilMotionDuration: BlockNumber = 10 * MINUTES;
     pub const CouncilMaxProposals: u32 = 100;
     pub const CouncilMaxMembers: u32 = 100;
 }
 
-type CouncilInstance = pallet_collective::Instance1;
+pub type CouncilInstance = pallet_collective::Instance1;
 
 impl pallet_collective::Config<CouncilInstance> for Runtime {
     type Origin = Origin;
@@ -435,12 +435,12 @@ impl pallet_collective::Config<CouncilInstance> for Runtime {
 }
 
 parameter_types! {
-    pub const TechnicalCommitteeMotionDuration: BlockNumber = 3 * DAYS;
+    pub const TechnicalCommitteeMotionDuration: BlockNumber = 10 * MINUTES;
     pub const TechnicalCommitteeMaxProposals: u32 = 100;
     pub const TechnicalCommitteeMaxMembers: u32 = 100;
 }
 
-type TechnicalCommitteeInstance = pallet_collective::Instance2;
+pub type TechnicalCommitteeInstance = pallet_collective::Instance2;
 
 impl pallet_collective::Config<TechnicalCommitteeInstance> for Runtime {
     type Origin = Origin;
