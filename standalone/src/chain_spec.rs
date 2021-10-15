@@ -4,7 +4,7 @@ use interbtc_runtime::{
     AccountId, AuraConfig, BTCRelayConfig, CouncilConfig, CurrencyId, FeeConfig, GenesisConfig, GrandpaConfig,
     IssueConfig, NominationConfig, OracleConfig, RedeemConfig, RefundConfig, ReplaceConfig, SecurityConfig, Signature,
     StatusCode, SudoConfig, SystemConfig, TokensConfig, VaultRegistryConfig, BITCOIN_BLOCK_SPACING, DAYS, DOT, INTR,
-    WASM_BINARY,
+    KINT, KSM, WASM_BINARY,
 };
 use primitives::VaultCurrencyPair;
 use sp_consensus_aura::sr25519::AuthorityId as AuraId;
@@ -271,7 +271,14 @@ fn testnet_genesis(
         tokens: TokensConfig {
             balances: endowed_accounts
                 .iter()
-                .flat_map(|k| vec![(k.clone(), DOT, 1 << 60), (k.clone(), INTR, 1 << 60)])
+                .flat_map(|k| {
+                    vec![
+                        (k.clone(), DOT, 1 << 60),
+                        (k.clone(), INTR, 1 << 60),
+                        (k.clone(), KSM, 1 << 60),
+                        (k.clone(), KINT, 1 << 60),
+                    ]
+                })
                 .collect(),
         },
         oracle: OracleConfig {
