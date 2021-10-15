@@ -11,6 +11,7 @@ pub use btc_relay::{BtcAddress, BtcPublicKey};
 use currency::Amount;
 use frame_support::traits::GenesisBuild;
 pub use frame_support::{assert_err, assert_noop, assert_ok, dispatch::DispatchResultWithPostInfo};
+use interbtc_runtime_standalone::GetNativeCurrencyId;
 pub use interbtc_runtime_standalone::{
     AccountId, BlockNumber, Call, CouncilInstance, CurrencyId, Event, GetCollateralCurrencyId, GetWrappedCurrencyId,
     Runtime, TechnicalCommitteeInstance, DOT, INTERBTC,
@@ -105,8 +106,9 @@ pub type BTCRelayEvent = btc_relay::Event<Runtime>;
 pub type TokensCall = orml_tokens::Call<Runtime>;
 pub type TokensError = orml_tokens::Error<Runtime>;
 
-pub type CollateralPallet = CurrencyAdapter<Runtime, GetCollateralCurrencyId>;
-pub type TreasuryPallet = CurrencyAdapter<Runtime, GetWrappedCurrencyId>;
+pub type CollateralCurrency = CurrencyAdapter<Runtime, GetCollateralCurrencyId>;
+pub type WrappedCurrency = CurrencyAdapter<Runtime, GetWrappedCurrencyId>;
+pub type NativeCurrency = CurrencyAdapter<Runtime, GetNativeCurrencyId>;
 
 pub type OracleCall = oracle::Call<Runtime>;
 pub type OraclePallet = oracle::Pallet<Runtime>;

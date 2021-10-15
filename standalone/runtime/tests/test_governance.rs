@@ -18,11 +18,17 @@ type SchedulerPallet = pallet_scheduler::Pallet<Runtime>;
 type TechnicalCommitteeCall = pallet_collective::Call<Runtime, TechnicalCommitteeInstance>;
 type TechnicalCommitteeEvent = pallet_collective::Event<Runtime, TechnicalCommitteeInstance>;
 
+type TreasuryCall = pallet_treasury::Call<Runtime>;
+type TreasuryPallet = pallet_treasury::Pallet<Runtime>;
+
+const COLLATERAL_CURRENCY_ID: CurrencyId = CurrencyId::DOT;
+const NATIVE_CURRENCY_ID: CurrencyId = CurrencyId::INTR;
+
 fn test_with<R>(execute: impl Fn() -> R) {
     ExtBuilder::build().execute_with(|| {
         assert_ok!(Call::Tokens(TokensCall::set_balance(
             account_of(ALICE),
-            CurrencyId::INTR,
+            NATIVE_CURRENCY_ID,
             5_000_000_000_000,
             0,
         ))
@@ -33,7 +39,7 @@ fn test_with<R>(execute: impl Fn() -> R) {
 }
 
 fn set_balance_proposal(who: AccountId, value: u128) -> Vec<u8> {
-    Call::Tokens(TokensCall::set_balance(who, CurrencyId::DOT, value, 0)).encode()
+    Call::Tokens(TokensCall::set_balance(who, COLLATERAL_CURRENCY_ID, value, 0)).encode()
 }
 
 fn set_balance_proposal_hash(who: AccountId, value: u128) -> H256 {
@@ -68,20 +74,10 @@ fn assert_technical_committee_proposal_event() -> (u32, H256) {
     }
 }
 
-fn setup_council_proposal(amount_to_set: u128) {
-    assert_ok!(Call::Democracy(DemocracyCall::note_preimage(set_balance_proposal(
-        account_of(EVE),
-        amount_to_set
-    )))
-    .dispatch(origin_of(account_of(ALICE))));
-
-    // create motion to start simple-majority referendum
+fn propose_and_approve_motion(call: Box<Call>) {
     assert_ok!(Call::Council(CouncilCall::propose(
         2, // member count
-        Box::new(Call::Democracy(DemocracyCall::external_propose(
-            set_balance_proposal_hash(account_of(EVE), 1000)
-        ))),
-        100000 // length bound
+        call, 100000 // length bound
     ))
     .dispatch(origin_of(account_of(ALICE))));
 
@@ -98,6 +94,19 @@ fn setup_council_proposal(amount_to_set: u128) {
         100000       // length bound
     ))
     .dispatch(origin_of(account_of(ALICE))));
+}
+
+fn setup_council_proposal(amount_to_set: u128) {
+    assert_ok!(Call::Democracy(DemocracyCall::note_preimage(set_balance_proposal(
+        account_of(EVE),
+        amount_to_set
+    )))
+    .dispatch(origin_of(account_of(ALICE))));
+
+    // create motion to start simple-majority referendum
+    propose_and_approve_motion(Box::new(Call::Democracy(DemocracyCall::external_propose(
+        set_balance_proposal_hash(account_of(EVE), 1000),
+    ))));
 }
 
 #[test]
@@ -134,7 +143,7 @@ fn integration_test_governance_council() {
         SchedulerPallet::on_initialize(act_height);
 
         // balance is now set to amount above
-        assert_eq!(CollateralPallet::total_balance(&account_of(EVE)), amount_to_set);
+        assert_eq!(CollateralCurrency::total_balance(&account_of(EVE)), amount_to_set);
     });
 }
 
@@ -181,5 +190,41 @@ fn integration_test_governance_technical_committee() {
         let start_height = <Runtime as pallet_democracy::Config>::LaunchPeriod::get();
         DemocracyPallet::on_initialize(start_height);
         assert_eq!(DemocracyPallet::referendum_count(), 1);
+    });
+}
+
+#[test]
+fn integration_test_governance_treasury() {
+    test_with(|| {
+        let balance_before = NativeCurrency::total_balance(&account_of(BOB));
+
+        // fund treasury
+        let amount_to_fund = 10000;
+        assert_ok!(Call::Tokens(TokensCall::set_balance(
+            TreasuryPallet::account_id(),
+            NATIVE_CURRENCY_ID,
+            amount_to_fund,
+            0,
+        ))
+        .dispatch(root()));
+        assert_eq!(TreasuryPallet::pot(), amount_to_fund);
+
+        // proposals should increase by 1
+        assert_eq!(TreasuryPallet::proposal_count(), 0);
+        assert_ok!(
+            Call::Treasury(TreasuryCall::propose_spend(amount_to_fund, account_of(BOB)))
+                .dispatch(origin_of(account_of(ALICE)))
+        );
+        assert_eq!(TreasuryPallet::proposal_count(), 1);
+
+        // create motion to approve treasury spend
+        propose_and_approve_motion(Box::new(Call::Treasury(TreasuryCall::approve_proposal(0))));
+
+        // bob should receive funds
+        TreasuryPallet::spend_funds();
+        assert_eq!(
+            balance_before + amount_to_fund,
+            NativeCurrency::total_balance(&account_of(BOB))
+        )
     });
 }
