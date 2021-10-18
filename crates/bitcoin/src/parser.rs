@@ -837,6 +837,33 @@ pub(crate) mod tests {
         assert_eq!(actual, expected);
     }
 
+    #[test]
+    fn test_extract_address_hash_scriptsig_p2sh_segwit() {
+        let raw_tx = "02000000000101a1dcf3ca033463e346339642dd7305e33de4ce5ab179d1e19b1eb146534421660000000017160014a97a9058829417d4c581ad5004b6e46cc680063dfdffffff01b9010000000000001600143b05c08e224ddec538ac7aa2e3b6583b983807a302473044022051480b10ef40d12bce982d1d08176a403f176dd3e51189c07a0a9584ddb8e91602204a02134b2b892904a3519da0044e97da9ae78232f8f7678fea0b6531bf3104130121039dcac4d315739516bf5cea98bc6a9cfb49cb6269beb67c520bc5ecacc3c7d47206c70900";
+        let tx_bytes = hex::decode(&raw_tx).unwrap();
+        let transaction = parse_transaction(&tx_bytes).unwrap();
+
+        // 35PLQyoXs2sk9QDqMv7bBGowxP1pjwXAMe
+
+        // Without the network byte, last 4 bytes (checksum) dropped
+        // let address = Address::P2SH(H160::from_slice(&[
+        //     136, 135, 54, 52, 174, 36, 163, 201, 182, 121, 44, 199, 226, 160, 132, 236, 121, 239, 104, 190,
+        // ]));
+        // left:  `P2SH(0x288873634ae24a3c9b6792cc7e2a084ec79ef68b)`,
+        // right: `P2SH(0x88873634ae24a3c9b6792cc7e2a084ec79ef68be)`'
+
+        // With the network byte, last 5 bytes dropped
+        let address = Address::P2SH(H160::from_slice(&[
+            82, 136, 135, 54, 52, 174, 36, 163, 201, 182, 121, 44, 199, 226, 160, 132, 236, 121, 239, 104,
+        ]));
+        // left:  `P2SH(0x288873634ae24a3c9b6792cc7e2a084ec79ef68b)`,
+        // right: `P2SH(0x5288873634ae24a3c9b6792cc7e2a084ec79ef68)`',
+
+        let extr_address = extract_address_hash_scriptsig(&transaction.inputs[0].script).unwrap();
+
+        assert_eq!(&extr_address, &address);
+    }
+
     /*
     #[test]
     fn test_extract_address_invalid_p2pkh_fails() {

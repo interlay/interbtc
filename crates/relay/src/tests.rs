@@ -128,6 +128,32 @@ fn test_report_vault_succeeds_with_segwit_transaction() {
 }
 
 #[test]
+fn test_report_vault_succeeds_with_p2sh_segwit_transaction() {
+    run_test(|| {
+        // source: https://blockstream.info/tx/0a0d7b9ab879fbd7a096e856fa5461dbae959ac86d51451c211a65fb8e95f54b?expand
+        let raw_tx = "02000000000101a1dcf3ca033463e346339642dd7305e33de4ce5ab179d1e19b1eb146534421660000000017160014a97a9058829417d4c581ad5004b6e46cc680063dfdffffff01b9010000000000001600143b05c08e224ddec538ac7aa2e3b6583b983807a302473044022051480b10ef40d12bce982d1d08176a403f176dd3e51189c07a0a9584ddb8e91602204a02134b2b892904a3519da0044e97da9ae78232f8f7678fea0b6531bf3104130121039dcac4d315739516bf5cea98bc6a9cfb49cb6269beb67c520bc5ecacc3c7d47206c70900";
+
+        let vault = CAROL;
+        // 35PLQyoXs2sk9QDqMv7bBGowxP1pjwXAMe
+        let btc_address = BtcAddress::P2SH(H160::from_slice(&[
+            136, 135, 54, 52, 174, 36, 163, 201, 182, 121, 44, 199, 226, 160, 132, 236, 121, 239, 104, 190,
+        ]));
+        ext::vault_registry::get_active_vault_from_id::<Test>
+            .mock_safe(move |_| MockResult::Return(Ok(init_zero_vault(vault, Some(btc_address)))));
+        ext::btc_relay::parse_merkle_proof::<Test>.mock_safe(|_| MockResult::Return(Ok(dummy_merkle_proof())));
+        ext::btc_relay::verify_transaction_inclusion::<Test>.mock_safe(move |_, _| MockResult::Return(Ok(())));
+        ext::vault_registry::liquidate_theft_vault::<Test>.mock_safe(|_, _| MockResult::Return(Ok(())));
+
+        assert_ok!(Relay::report_vault_theft(
+            Origin::signed(ALICE),
+            CAROL,
+            vec![0u8; 32],
+            hex::decode(&raw_tx).unwrap()
+        ));
+    })
+}
+
+#[test]
 fn test_report_vault_theft_succeeds() {
     run_test(|| {
         let relayer = Origin::signed(ALICE);
