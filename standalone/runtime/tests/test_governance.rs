@@ -9,6 +9,7 @@ use sp_runtime::traits::BlakeTwo256;
 
 type DemocracyCall = pallet_democracy::Call<Runtime>;
 type DemocracyPallet = pallet_democracy::Pallet<Runtime>;
+type DemocracyEvent = pallet_democracy::Event<Runtime>;
 
 type CouncilCall = pallet_collective::Call<Runtime, CouncilInstance>;
 type CouncilEvent = pallet_collective::Event<Runtime, CouncilInstance>;
@@ -46,32 +47,54 @@ fn set_balance_proposal_hash(who: AccountId, value: u128) -> H256 {
     BlakeTwo256::hash(&set_balance_proposal(who, value)[..])
 }
 
-fn assert_council_proposal_event() -> (u32, H256) {
-    let events = SystemModule::events();
-    let record = events
+fn assert_democracy_started_event() -> u32 {
+    SystemModule::events()
         .iter()
         .rev()
-        .find(|record| matches!(record.event, Event::Council(CouncilEvent::Proposed(_, _, _, _))));
-    if let Event::Council(CouncilEvent::Proposed(_, index, hash, _)) = record.unwrap().event {
-        (index, hash)
-    } else {
-        panic!("proposal event not found")
-    }
+        .find_map(|record| {
+            if let Event::Democracy(DemocracyEvent::Started(index, _)) = record.event {
+                Some(index)
+            } else {
+                None
+            }
+        })
+        .expect("external referendum was not started")
+}
+
+fn assert_democracy_passed_event(index: u32) {
+    SystemModule::events()
+        .iter()
+        .rev()
+        .find(|record| matches!(record.event, Event::Democracy(DemocracyEvent::Passed(i)) if i == index))
+        .expect("external referendum was not passed");
+}
+
+fn assert_council_proposal_event() -> (u32, H256) {
+    SystemModule::events()
+        .iter()
+        .rev()
+        .find_map(|record| {
+            if let Event::Council(CouncilEvent::Proposed(_, index, hash, _)) = record.event {
+                Some((index, hash))
+            } else {
+                None
+            }
+        })
+        .expect("proposal event not found")
 }
 
 fn assert_technical_committee_proposal_event() -> (u32, H256) {
-    let events = SystemModule::events();
-    let record = events.iter().rev().find(|record| {
-        matches!(
-            record.event,
-            Event::TechnicalCommittee(TechnicalCommitteeEvent::Proposed(_, _, _, _))
-        )
-    });
-    if let Event::TechnicalCommittee(TechnicalCommitteeEvent::Proposed(_, index, hash, _)) = record.unwrap().event {
-        (index, hash)
-    } else {
-        panic!("proposal event not found")
-    }
+    SystemModule::events()
+        .iter()
+        .rev()
+        .find_map(|record| {
+            if let Event::TechnicalCommittee(TechnicalCommitteeEvent::Proposed(_, index, hash, _)) = record.event {
+                Some((index, hash))
+            } else {
+                None
+            }
+        })
+        .expect("proposal event not found")
 }
 
 fn propose_and_approve_motion(call: Box<Call>) {
@@ -96,6 +119,26 @@ fn propose_and_approve_motion(call: Box<Call>) {
     .dispatch(origin_of(account_of(ALICE))));
 }
 
+fn launch_and_approve_referendum() -> (BlockNumber, u32) {
+    let start_height = <Runtime as pallet_democracy::Config>::LaunchPeriod::get();
+    DemocracyPallet::on_initialize(start_height);
+    let index = assert_democracy_started_event();
+
+    // vote overwhelmingly in favour
+    assert_ok!(Call::Democracy(DemocracyCall::vote(
+        index,
+        AccountVote::Standard {
+            vote: Vote {
+                aye: true,
+                conviction: Conviction::Locked1x
+            },
+            balance: 30_000_000
+        }
+    ))
+    .dispatch(origin_of(account_of(ALICE))));
+    (start_height, index)
+}
+
 fn setup_council_proposal(amount_to_set: u128) {
     assert_ok!(Call::Democracy(DemocracyCall::note_preimage(set_balance_proposal(
         account_of(EVE),
@@ -104,7 +147,7 @@ fn setup_council_proposal(amount_to_set: u128) {
     .dispatch(origin_of(account_of(ALICE))));
 
     // create motion to start simple-majority referendum
-    propose_and_approve_motion(Box::new(Call::Democracy(DemocracyCall::external_propose(
+    propose_and_approve_motion(Box::new(Call::Democracy(DemocracyCall::external_propose_majority(
         set_balance_proposal_hash(account_of(EVE), 1000),
     ))));
 }
@@ -114,29 +157,12 @@ fn integration_test_governance_council() {
     test_with(|| {
         let amount_to_set = 1000;
         setup_council_proposal(amount_to_set);
-
-        // referenda should increase by 1 once launched
-        assert_eq!(DemocracyPallet::referendum_count(), 0);
-        let start_height = <Runtime as pallet_democracy::Config>::LaunchPeriod::get();
-        DemocracyPallet::on_initialize(start_height);
-        assert_eq!(DemocracyPallet::referendum_count(), 1);
-
-        // vote overwhelmingly in favour
-        assert_ok!(Call::Democracy(DemocracyCall::vote(
-            0,
-            AccountVote::Standard {
-                vote: Vote {
-                    aye: true,
-                    conviction: Conviction::Locked1x
-                },
-                balance: 30_000_000
-            }
-        ))
-        .dispatch(origin_of(account_of(ALICE))));
+        let (start_height, index) = launch_and_approve_referendum();
 
         // simulate end of voting period
         let end_height = start_height + <Runtime as pallet_democracy::Config>::VotingPeriod::get();
         DemocracyPallet::on_initialize(end_height);
+        assert_democracy_passed_event(index);
 
         // simulate end of enactment period
         let act_height = end_height + <Runtime as pallet_democracy::Config>::EnactmentPeriod::get();
@@ -185,11 +211,15 @@ fn integration_test_governance_technical_committee() {
         ))
         .dispatch(origin_of(account_of(ALICE))));
 
-        // referenda should increase by 1 once launched
-        assert_eq!(DemocracyPallet::referendum_count(), 0);
-        let start_height = <Runtime as pallet_democracy::Config>::LaunchPeriod::get();
-        DemocracyPallet::on_initialize(start_height);
-        assert_eq!(DemocracyPallet::referendum_count(), 1);
+        println!("{:?}", SystemModule::events());
+
+        let (_, index) = launch_and_approve_referendum();
+        let start_height = SystemModule::block_number();
+
+        // simulate end of voting period
+        let end_height = start_height + <Runtime as pallet_democracy::Config>::FastTrackVotingPeriod::get();
+        DemocracyPallet::on_initialize(end_height);
+        assert_democracy_passed_event(index);
     });
 }
 
