@@ -77,7 +77,7 @@ pub fn withdraw_replace(old_vault_id: &VaultId, amount: Amount<Runtime>) -> Disp
 }
 
 pub fn assert_replace_request_event() {
-    let events = SystemModule::events();
+    let events = SystemPallet::events();
     let ids = events.iter().filter_map(|r| match r.event {
         Event::Replace(ReplaceEvent::RequestReplace(_, _, _)) => Some(()),
         _ => None,

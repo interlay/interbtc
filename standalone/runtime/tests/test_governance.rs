@@ -3,7 +3,8 @@ use crate::assert_eq;
 use mock::*;
 
 use frame_support::traits::{Currency, Hooks};
-use pallet_democracy::{AccountVote, Conviction, Vote};
+use pallet_collective::ProposalIndex;
+use pallet_democracy::{AccountVote, Conviction, ReferendumIndex, Vote};
 use sp_core::{Encode, Hasher};
 use sp_runtime::traits::BlakeTwo256;
 
@@ -24,6 +25,8 @@ type TreasuryPallet = pallet_treasury::Pallet<Runtime>;
 
 const COLLATERAL_CURRENCY_ID: CurrencyId = CurrencyId::DOT;
 const NATIVE_CURRENCY_ID: CurrencyId = CurrencyId::INTR;
+
+const DEMOCRACY_VOTE_AMOUNT: u128 = 30_000_000;
 
 fn test_with<R>(execute: impl Fn() -> R) {
     ExtBuilder::build().execute_with(|| {
@@ -47,8 +50,8 @@ fn set_balance_proposal_hash(who: AccountId, value: u128) -> H256 {
     BlakeTwo256::hash(&set_balance_proposal(who, value)[..])
 }
 
-fn assert_democracy_started_event() -> u32 {
-    SystemModule::events()
+fn assert_democracy_started_event() -> ReferendumIndex {
+    SystemPallet::events()
         .iter()
         .rev()
         .find_map(|record| {
@@ -61,16 +64,16 @@ fn assert_democracy_started_event() -> u32 {
         .expect("external referendum was not started")
 }
 
-fn assert_democracy_passed_event(index: u32) {
-    SystemModule::events()
+fn assert_democracy_passed_event(index: ReferendumIndex) {
+    SystemPallet::events()
         .iter()
         .rev()
         .find(|record| matches!(record.event, Event::Democracy(DemocracyEvent::Passed(i)) if i == index))
         .expect("external referendum was not passed");
 }
 
-fn assert_council_proposal_event() -> (u32, H256) {
-    SystemModule::events()
+fn assert_council_proposal_event() -> (ProposalIndex, H256) {
+    SystemPallet::events()
         .iter()
         .rev()
         .find_map(|record| {
@@ -83,8 +86,8 @@ fn assert_council_proposal_event() -> (u32, H256) {
         .expect("proposal event not found")
 }
 
-fn assert_technical_committee_proposal_event() -> (u32, H256) {
-    SystemModule::events()
+fn assert_technical_committee_proposal_event() -> (ProposalIndex, H256) {
+    SystemPallet::events()
         .iter()
         .rev()
         .find_map(|record| {
@@ -95,6 +98,23 @@ fn assert_technical_committee_proposal_event() -> (u32, H256) {
             }
         })
         .expect("proposal event not found")
+}
+
+fn get_total_locked(account_id: AccountId) -> u128 {
+    TokensPallet::locks(&account_id, NATIVE_CURRENCY_ID)
+        .iter()
+        .map(|balance_lock| balance_lock.amount)
+        .reduce(|accum, item| accum + item)
+        .unwrap_or_default()
+}
+
+fn remove_vote_and_unlock(account_id: AccountId, index: ReferendumIndex, end_height: BlockNumber) {
+    assert_eq!(get_total_locked(account_of(ALICE)), DEMOCRACY_VOTE_AMOUNT);
+    // end height must be >= end + enactment * conviction
+    SystemPallet::set_block_number(end_height);
+    assert_ok!(Call::Democracy(DemocracyCall::remove_vote(index)).dispatch(origin_of(account_id.clone())));
+    assert_ok!(Call::Democracy(DemocracyCall::unlock(account_id.clone())).dispatch(origin_of(account_id.clone())));
+    assert_eq!(get_total_locked(account_of(ALICE)), Zero::zero());
 }
 
 fn propose_and_approve_motion(call: Box<Call>) {
@@ -119,7 +139,7 @@ fn propose_and_approve_motion(call: Box<Call>) {
     .dispatch(origin_of(account_of(ALICE))));
 }
 
-fn launch_and_approve_referendum() -> (BlockNumber, u32) {
+fn launch_and_approve_referendum() -> (BlockNumber, ReferendumIndex) {
     let start_height = <Runtime as pallet_democracy::Config>::LaunchPeriod::get();
     DemocracyPallet::on_initialize(start_height);
     let index = assert_democracy_started_event();
@@ -132,10 +152,12 @@ fn launch_and_approve_referendum() -> (BlockNumber, u32) {
                 aye: true,
                 conviction: Conviction::Locked1x
             },
-            balance: 30_000_000
+            balance: DEMOCRACY_VOTE_AMOUNT,
         }
     ))
     .dispatch(origin_of(account_of(ALICE))));
+    assert_eq!(get_total_locked(account_of(ALICE)), DEMOCRACY_VOTE_AMOUNT);
+
     (start_height, index)
 }
 
@@ -170,6 +192,9 @@ fn integration_test_governance_council() {
 
         // balance is now set to amount above
         assert_eq!(CollateralCurrency::total_balance(&account_of(EVE)), amount_to_set);
+
+        // alice gets voting balance back after enactment period
+        remove_vote_and_unlock(account_of(ALICE), index, act_height);
     });
 }
 
@@ -211,10 +236,8 @@ fn integration_test_governance_technical_committee() {
         ))
         .dispatch(origin_of(account_of(ALICE))));
 
-        println!("{:?}", SystemModule::events());
-
         let (_, index) = launch_and_approve_referendum();
-        let start_height = SystemModule::block_number();
+        let start_height = SystemPallet::block_number();
 
         // simulate end of voting period
         let end_height = start_height + <Runtime as pallet_democracy::Config>::FastTrackVotingPeriod::get();
