@@ -120,12 +120,15 @@ benchmarks! {
 
         BtcRelay::<T>::store_block_header(&relayer_id, block_header).unwrap();
         Security::<T>::set_active_block_number(Security::<T>::active_block_number() +
-BtcRelay::<T>::parachain_confirmations() + 1u32.into());
+        BtcRelay::<T>::parachain_confirmations() + 1u32.into());
 
         assert_ok!(Oracle::<T>::_set_exchange_rate(DEFAULT_TESTING_CURRENCY,
             UnsignedFixedPoint::<T>::one()
         ));
     }: _(RawOrigin::Signed(vault_id.account_id.clone()), refund_id, proof, raw_tx)
+
+    set_refund_transaction_size {
+    }: _(RawOrigin::Root, 1u32.into())
 }
 
 impl_benchmark_test_suite!(Refund, crate::mock::ExtBuilder::build(), crate::mock::Test);
