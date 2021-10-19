@@ -2,13 +2,8 @@
 mod bitcoin_data;
 mod mock;
 
-<<<<<<< HEAD
-use bitcoin_data::get_bitcoin_testdata;
-use mock::{assert_eq, *};
-=======
 use bitcoin_data::{get_bitcoin_testdata, get_fork_testdata};
 use mock::*;
->>>>>>> a00c2f56 (feat: add fork testing from bitcoin core and update bitcoin testdata set)
 
 type BTCRelayError = btc_relay::Error<Runtime>;
 
@@ -46,7 +41,7 @@ fn integration_test_submit_block_headers_and_verify_transaction_inclusion() {
             assert!(best_block_hash == prev_header_hash);
 
 
-            // FIXME: there is a bug in this function. The function get_last_retarget_time calls 
+            // FIXME: there is a bug in this function. The function get_last_retarget_time calls
             // Self::get_block_header_from_height(&block_chain, block_height - DIFFICULTY_ADJUSTMENT_INTERVAL)?;
             // the problem is that the block height and block_height - DIFFICULTY_ADJUSTMENT_INTERVAL does not exist
             const CHAIN_ID: u32 = 0;

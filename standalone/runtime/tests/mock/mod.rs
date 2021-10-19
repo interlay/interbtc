@@ -974,7 +974,7 @@ pub fn assert_store_main_chain_header_event(height: u32, hash: H256Le, relayer: 
 
 pub fn assert_store_fork_header_event(chain_id: u32, height: u32, hash: H256Le, relayer: AccountId) {
     let store_event = Event::BTCRelay(BTCRelayEvent::StoreForkHeader(chain_id, height, hash, relayer));
-    let events = SystemModule::events();
+    let events = SystemPallet::events();
     // store only fork header
     assert!(events.iter().any(|a| a.event == store_event));
     //TODO: add checks for actual chain state
@@ -986,7 +986,7 @@ pub fn assert_fork_ahead_of_main_chain_event(main_chain_height: u32, fork_height
         fork_height,
         fork_id,
     ));
-    let events = SystemModule::events();
+    let events = SystemPallet::events();
 
     // store only fork header
     assert!(events.iter().any(|a| a.event == store_event));
@@ -995,7 +995,7 @@ pub fn assert_fork_ahead_of_main_chain_event(main_chain_height: u32, fork_height
 
 pub fn assert_chain_reorg_event(new_chain_tip: H256Le, chain_height: u32, fork_depth: u32) {
     let store_event = Event::BTCRelay(BTCRelayEvent::ChainReorg(new_chain_tip, chain_height, fork_depth));
-    let events = SystemModule::events();
+    let events = SystemPallet::events();
 
     // ensure that chain reorg happened
     assert!(events.iter().any(|a| a.event == store_event));

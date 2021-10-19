@@ -4,11 +4,7 @@ pub enum Error {
     InvalidMerkleProof,
     EndOfFile,
     MalformedHeader,
-<<<<<<< HEAD
     InvalidBlockVersion,
-=======
-    BlockHeaderVersionBelow4,
->>>>>>> a00c2f56 (feat: add fork testing from bitcoin core and update bitcoin testdata set)
     MalformedTransaction,
     UnsupportedInputFormat,
     MalformedWitnessOutput,
