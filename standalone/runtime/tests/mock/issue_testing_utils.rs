@@ -168,7 +168,7 @@ pub fn assert_issue_amount_change_event(
 ) {
     let expected_event =
         IssueEvent::IssueAmountChange(issue_id, amount.amount(), fee.amount(), confiscated_collateral.amount());
-    let events = SystemModule::events();
+    let events = SystemPallet::events();
     let records: Vec<_> = events
         .iter()
         .rev()
@@ -178,7 +178,7 @@ pub fn assert_issue_amount_change_event(
 }
 
 pub fn assert_issue_request_event() -> H256 {
-    let events = SystemModule::events();
+    let events = SystemPallet::events();
     let record = events.iter().rev().find(|record| {
         matches!(
             record.event,
@@ -193,7 +193,7 @@ pub fn assert_issue_request_event() -> H256 {
 }
 
 pub fn assert_refund_request_event() -> H256 {
-    SystemModule::events()
+    SystemPallet::events()
         .iter()
         .find_map(|record| match record.event {
             Event::Refund(RefundEvent::RequestRefund(id, _, _, _, _, _, _, _)) => Some(id),

@@ -113,7 +113,7 @@ pub fn setup_redeem(issued_tokens: Amount<Runtime>, user: [u8; 32], vault: &Vaul
 
 // asserts redeem event happen and extracts its id for further testing
 pub fn assert_redeem_request_event() -> H256 {
-    let events = SystemModule::events();
+    let events = SystemPallet::events();
     let ids = events
         .iter()
         .filter_map(|r| match r.event {

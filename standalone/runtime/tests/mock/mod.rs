@@ -11,9 +11,10 @@ pub use btc_relay::{BtcAddress, BtcPublicKey};
 use currency::Amount;
 use frame_support::traits::GenesisBuild;
 pub use frame_support::{assert_err, assert_noop, assert_ok, dispatch::DispatchResultWithPostInfo};
+use interbtc_runtime_standalone::GetNativeCurrencyId;
 pub use interbtc_runtime_standalone::{
-    AccountId, BlockNumber, Call, CurrencyId, Event, GetCollateralCurrencyId, GetWrappedCurrencyId, Runtime, DOT,
-    INTERBTC,
+    AccountId, BlockNumber, Call, CouncilInstance, CurrencyId, Event, GetCollateralCurrencyId, GetWrappedCurrencyId,
+    Runtime, TechnicalCommitteeInstance, DOT, INTERBTC,
 };
 pub use mocktopus::mocking::*;
 pub use orml_tokens::CurrencyAdapter;
@@ -102,10 +103,13 @@ pub type BTCRelayPallet = btc_relay::Pallet<Runtime>;
 pub type BTCRelayError = btc_relay::Error<Runtime>;
 pub type BTCRelayEvent = btc_relay::Event<Runtime>;
 
+pub type TokensCall = orml_tokens::Call<Runtime>;
 pub type TokensError = orml_tokens::Error<Runtime>;
+pub type TokensPallet = orml_tokens::Pallet<Runtime>;
 
-pub type CollateralPallet = CurrencyAdapter<Runtime, GetCollateralCurrencyId>;
-pub type TreasuryPallet = CurrencyAdapter<Runtime, GetWrappedCurrencyId>;
+pub type CollateralCurrency = CurrencyAdapter<Runtime, GetCollateralCurrencyId>;
+pub type WrappedCurrency = CurrencyAdapter<Runtime, GetWrappedCurrencyId>;
+pub type NativeCurrency = CurrencyAdapter<Runtime, GetNativeCurrencyId>;
 
 pub type OracleCall = oracle::Call<Runtime>;
 pub type OraclePallet = oracle::Pallet<Runtime>;
@@ -144,7 +148,7 @@ pub type RelayCall = relay::Call<Runtime>;
 pub type RelayPallet = relay::Pallet<Runtime>;
 pub type RelayError = relay::Error<Runtime>;
 
-pub type SystemModule = frame_system::Pallet<Runtime>;
+pub type SystemPallet = frame_system::Pallet<Runtime>;
 
 pub type VaultRegistryCall = vault_registry::Call<Runtime>;
 pub type VaultRegistryError = vault_registry::Error<Runtime>;
@@ -961,7 +965,7 @@ pub fn required_collateral_for_issue(issued_tokens: Amount<Runtime>, currency_id
 
 pub fn assert_store_main_chain_header_event(height: u32, hash: H256Le, relayer: AccountId) {
     let store_event = Event::BTCRelay(BTCRelayEvent::StoreMainChainHeader(height, hash, relayer));
-    let events = SystemModule::events();
+    let events = SystemPallet::events();
 
     // store only main chain header
     assert!(events.iter().any(|a| a.event == store_event));
@@ -1318,6 +1322,20 @@ impl ExtBuilder {
         .assimilate_storage(&mut storage)
         .unwrap();
 
+        pallet_collective::GenesisConfig::<Runtime, CouncilInstance> {
+            members: vec![account_of(ALICE), account_of(BOB)],
+            phantom: Default::default(),
+        }
+        .assimilate_storage(&mut storage)
+        .unwrap();
+
+        pallet_collective::GenesisConfig::<Runtime, TechnicalCommitteeInstance> {
+            members: vec![account_of(ALICE), account_of(BOB)],
+            phantom: Default::default(),
+        }
+        .assimilate_storage(&mut storage)
+        .unwrap();
+
         Self {
             test_externalities: sp_io::TestExternalities::from(storage),
         }
@@ -1346,7 +1364,7 @@ impl ExtBuilder {
     /// used for btc-relay test
     pub fn execute_without_relay_init<R>(mut self, execute: impl FnOnce() -> R) -> R {
         self.test_externalities.execute_with(|| {
-            SystemModule::set_block_number(1); // required to be able to dispatch functions
+            SystemPallet::set_block_number(1); // required to be able to dispatch functions
             SecurityPallet::set_active_block_number(1);
 
             assert_ok!(OraclePallet::_set_exchange_rate(

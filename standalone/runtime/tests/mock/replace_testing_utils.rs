@@ -39,7 +39,7 @@ pub fn setup_replace(
 }
 
 pub fn assert_accept_replace_event() -> H256 {
-    SystemModule::events()
+    SystemPallet::events()
         .iter()
         .rev()
         .find_map(|record| match record.event {

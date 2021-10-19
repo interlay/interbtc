@@ -366,7 +366,7 @@ fn testnet_genesis(
         nomination: NominationConfig {
             is_nomination_enabled: false,
         },
-        general_council: Default::default(),
+        council: Default::default(),
         technical_committee: Default::default(),
         treasury: Default::default(),
         technical_membership: Default::default(),
@@ -579,7 +579,7 @@ fn mainnet_genesis(
         nomination: NominationConfig {
             is_nomination_enabled: false,
         },
-        general_council: Default::default(),
+        council: Default::default(),
         technical_committee: Default::default(),
         treasury: Default::default(),
         technical_membership: Default::default(),

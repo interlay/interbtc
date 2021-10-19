@@ -15,7 +15,7 @@ use frame_support::{
 };
 use frame_system::{EnsureOneOf, EnsureRoot, RawOrigin};
 use sp_core::{
-    u32_trait::{_1, _2, _3, _4},
+    u32_trait::{_1, _2, _3, _4, _5},
     H256,
 };
 
@@ -324,34 +324,34 @@ impl pallet_scheduler::Config for Runtime {
     type WeightInfo = ();
 }
 
-type EnsureRootOrAllGeneralCouncil = EnsureOneOf<
+type EnsureRootOrHalfCouncil = EnsureOneOf<
     AccountId,
     EnsureRoot<AccountId>,
-    pallet_collective::EnsureProportionMoreThan<_1, _1, AccountId, GeneralCouncilInstance>,
+    pallet_collective::EnsureProportionMoreThan<_1, _2, AccountId, CouncilInstance>,
 >;
 
-type EnsureRootOrHalfGeneralCouncil = EnsureOneOf<
+type EnsureRootOrTwoThirdsCouncil = EnsureOneOf<
     AccountId,
     EnsureRoot<AccountId>,
-    pallet_collective::EnsureProportionMoreThan<_1, _2, AccountId, GeneralCouncilInstance>,
+    pallet_collective::EnsureProportionMoreThan<_2, _3, AccountId, CouncilInstance>,
 >;
 
-type EnsureRootOrTwoThirdsGeneralCouncil = EnsureOneOf<
+type EnsureRootOrThreeFourthsCouncil = EnsureOneOf<
     AccountId,
     EnsureRoot<AccountId>,
-    pallet_collective::EnsureProportionMoreThan<_2, _3, AccountId, GeneralCouncilInstance>,
+    pallet_collective::EnsureProportionAtLeast<_3, _4, AccountId, CouncilInstance>,
 >;
 
-type EnsureRootOrThreeFourthsGeneralCouncil = EnsureOneOf<
+type EnsureRootOrThreeFifthsCouncil = EnsureOneOf<
     AccountId,
     EnsureRoot<AccountId>,
-    pallet_collective::EnsureProportionAtLeast<_3, _4, AccountId, GeneralCouncilInstance>,
+    pallet_collective::EnsureProportionMoreThan<_3, _5, AccountId, CouncilInstance>,
 >;
 
 type EnsureRootOrAllTechnicalCommittee = EnsureOneOf<
     AccountId,
     EnsureRoot<AccountId>,
-    pallet_collective::EnsureProportionMoreThan<_1, _1, AccountId, GeneralCouncilInstance>,
+    pallet_collective::EnsureProportionMoreThan<_1, _1, AccountId, CouncilInstance>,
 >;
 
 type EnsureRootOrTwoThirdsTechnicalCommittee = EnsureOneOf<
@@ -382,12 +382,11 @@ impl pallet_democracy::Config for Runtime {
     type VotingPeriod = VotingPeriod;
     type MinimumDeposit = MinimumDeposit;
     /// A straight majority of the council can decide what their next motion is.
-    type ExternalOrigin = EnsureRootOrHalfGeneralCouncil;
+    type ExternalOrigin = EnsureRootOrHalfCouncil;
     /// A majority can have the next scheduled referendum be a straight majority-carries vote.
-    type ExternalMajorityOrigin = EnsureRootOrHalfGeneralCouncil;
-    /// A unanimous council can have the next scheduled referendum be a straight default-carries
-    /// (NTB) vote.
-    type ExternalDefaultOrigin = EnsureRootOrAllGeneralCouncil;
+    type ExternalMajorityOrigin = EnsureRootOrHalfCouncil;
+    /// A majority can have the next scheduled referendum be a straight default-carries (NTB) vote.
+    type ExternalDefaultOrigin = EnsureRootOrThreeFifthsCouncil;
     /// Two thirds of the technical committee can have an ExternalMajority/ExternalDefault vote
     /// be tabled immediately and with a shorter voting/enactment period.
     type FastTrackOrigin = EnsureRootOrTwoThirdsTechnicalCommittee;
@@ -395,7 +394,7 @@ impl pallet_democracy::Config for Runtime {
     type InstantAllowed = InstantAllowed;
     type FastTrackVotingPeriod = FastTrackVotingPeriod;
     // To cancel a proposal which has been passed, 2/3 of the council must agree to it.
-    type CancellationOrigin = EnsureRootOrTwoThirdsGeneralCouncil;
+    type CancellationOrigin = EnsureRootOrTwoThirdsCouncil;
     type BlacklistOrigin = EnsureRoot<AccountId>;
     // To cancel a proposal before it has been passed, the technical committee must be unanimous or
     // Root must agree.
@@ -405,7 +404,7 @@ impl pallet_democracy::Config for Runtime {
     type VetoOrigin = pallet_collective::EnsureMember<AccountId, TechnicalCommitteeInstance>;
     type CooloffPeriod = CooloffPeriod;
     type PreimageByteDeposit = PreimageByteDeposit;
-    type OperationalPreimageOrigin = pallet_collective::EnsureMember<AccountId, GeneralCouncilInstance>;
+    type OperationalPreimageOrigin = pallet_collective::EnsureMember<AccountId, CouncilInstance>;
     type Slash = Treasury;
     type Scheduler = Scheduler;
     type PalletsOrigin = OriginCaller;
@@ -426,8 +425,8 @@ parameter_types! {
 impl pallet_treasury::Config for Runtime {
     type PalletId = TreasuryPalletId;
     type Currency = orml_tokens::CurrencyAdapter<Runtime, GetNativeCurrencyId>;
-    type ApproveOrigin = EnsureRootOrHalfGeneralCouncil;
-    type RejectOrigin = EnsureRootOrHalfGeneralCouncil;
+    type ApproveOrigin = EnsureRootOrHalfCouncil;
+    type RejectOrigin = EnsureRootOrHalfCouncil;
     type Event = Event;
     type OnSlash = Treasury;
     type ProposalBond = ProposalBond;
@@ -467,10 +466,10 @@ impl pallet_elections_phragmen::Config for Runtime {
     type PalletId = ElectionsPhragmenPalletId;
     type Event = Event;
     type Currency = orml_tokens::CurrencyAdapter<Runtime, GetNativeCurrencyId>;
-    type ChangeMembers = GeneralCouncil;
+    type ChangeMembers = Council;
     // NOTE: this implies that council's genesis members cannot be set directly and must come from
     // this module.
-    type InitializeMembers = GeneralCouncil;
+    type InitializeMembers = Council;
     type CurrencyToVote = frame_support::traits::U128CurrencyToVote;
     type CandidacyBond = CandidacyBond;
     /// Base deposit associated with voting
@@ -486,20 +485,20 @@ impl pallet_elections_phragmen::Config for Runtime {
 }
 
 parameter_types! {
-    pub const GeneralCouncilMotionDuration: BlockNumber = 3 * DAYS;
-    pub const GeneralCouncilMaxProposals: u32 = 100;
-    pub const GeneralCouncilMaxMembers: u32 = 100;
+    pub const CouncilMotionDuration: BlockNumber = 3 * DAYS;
+    pub const CouncilMaxProposals: u32 = 100;
+    pub const CouncilMaxMembers: u32 = 100;
 }
 
-type GeneralCouncilInstance = pallet_collective::Instance1;
+type CouncilInstance = pallet_collective::Instance1;
 
-impl pallet_collective::Config<GeneralCouncilInstance> for Runtime {
+impl pallet_collective::Config<CouncilInstance> for Runtime {
     type Origin = Origin;
     type Proposal = Call;
     type Event = Event;
-    type MotionDuration = GeneralCouncilMotionDuration;
-    type MaxProposals = GeneralCouncilMaxProposals;
-    type MaxMembers = GeneralCouncilMaxMembers;
+    type MotionDuration = CouncilMotionDuration;
+    type MaxProposals = CouncilMaxProposals;
+    type MaxMembers = CouncilMaxMembers;
     type DefaultVote = pallet_collective::PrimeDefaultVote;
     type WeightInfo = ();
 }
@@ -525,14 +524,14 @@ impl pallet_collective::Config<TechnicalCommitteeInstance> for Runtime {
 
 impl pallet_membership::Config for Runtime {
     type Event = Event;
-    type AddOrigin = EnsureRootOrThreeFourthsGeneralCouncil;
-    type RemoveOrigin = EnsureRootOrThreeFourthsGeneralCouncil;
-    type SwapOrigin = EnsureRootOrThreeFourthsGeneralCouncil;
-    type ResetOrigin = EnsureRootOrThreeFourthsGeneralCouncil;
-    type PrimeOrigin = EnsureRootOrThreeFourthsGeneralCouncil;
-    type MembershipInitialized = GeneralCouncil;
-    type MembershipChanged = GeneralCouncil;
-    type MaxMembers = GeneralCouncilMaxMembers;
+    type AddOrigin = EnsureRootOrThreeFourthsCouncil;
+    type RemoveOrigin = EnsureRootOrThreeFourthsCouncil;
+    type SwapOrigin = EnsureRootOrThreeFourthsCouncil;
+    type ResetOrigin = EnsureRootOrThreeFourthsCouncil;
+    type PrimeOrigin = EnsureRootOrThreeFourthsCouncil;
+    type MembershipInitialized = Council;
+    type MembershipChanged = Council;
+    type MaxMembers = CouncilMaxMembers;
     type WeightInfo = ();
 }
 
@@ -1006,7 +1005,7 @@ construct_runtime! {
 
         // Governance
         Democracy: pallet_democracy::{Pallet, Call, Storage, Config<T>, Event<T>},
-        GeneralCouncil: pallet_collective::<Instance1>::{Pallet, Call, Storage, Origin<T>, Event<T>, Config<T>},
+        Council: pallet_collective::<Instance1>::{Pallet, Call, Storage, Origin<T>, Event<T>, Config<T>},
         TechnicalCommittee: pallet_collective::<Instance2>::{Pallet, Call, Storage, Origin<T>, Event<T>, Config<T>},
         TechnicalMembership: pallet_membership::{Pallet, Call, Storage, Event<T>, Config<T>},
         Treasury: pallet_treasury::{Pallet, Call, Storage, Config, Event<T>},
