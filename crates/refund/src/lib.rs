@@ -31,7 +31,7 @@ use currency::Amount;
 #[doc(inline)]
 use default_weights::WeightInfo;
 use frame_support::{dispatch::DispatchError, ensure, sp_runtime::FixedPointNumber, transactional};
-use frame_system::ensure_signed;
+use frame_system::{ensure_root, ensure_signed};
 use oracle::OracleKey;
 pub use pallet::*;
 use sp_core::H256;
@@ -147,6 +147,14 @@ pub mod pallet {
         ) -> DispatchResultWithPostInfo {
             ensure_signed(origin)?;
             Self::_execute_refund(refund_id, merkle_proof, raw_tx)?;
+            Ok(().into())
+        }
+
+        #[pallet::weight(<T as Config>::WeightInfo::set_refund_transaction_size())]
+        #[transactional]
+        pub fn set_refund_transaction_size(origin: OriginFor<T>, size: u32) -> DispatchResultWithPostInfo {
+            ensure_root(origin)?;
+            RefundTransactionSize::<T>::put(size);
             Ok(().into())
         }
     }

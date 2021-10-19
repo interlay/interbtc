@@ -82,4 +82,5 @@ default = []
 rococo-native = [ "polkadot-cli/rococo-native" ]
 runtime-benchmarks = [
     "interbtc-runtime/runtime-benchmarks",
+    "polkadot-service/runtime-benchmarks",
 ]
