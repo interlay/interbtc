@@ -32,7 +32,6 @@ fn integration_test_submit_block_headers_and_verify_transaction_inclusion() {
             let parsed_block = bitcoin::parser::parse_block_header_lenient(&raw_header).unwrap();
             let prev_header_hash = parsed_block.hash_prev_block;
 
-
             // check that the previously submitted header and the current header are matching
             let best_block_hash = BTCRelayPallet::get_best_block();
             let best_height = BTCRelayPallet::get_best_block_height();

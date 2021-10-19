@@ -1,7 +1,11 @@
 use bitcoin::types::{H256Le, RawBlockHeader};
-use serde::Deserialize;
-use std::{fs, io::{BufReader, Read}, path::PathBuf};
 use flate2::read::GzDecoder;
+use serde::Deserialize;
+use std::{
+    fs,
+    io::{BufReader, Read},
+    path::PathBuf,
+};
 
 /// Bitcoin blocks and transaction from mainnet taken from blockstream.com
 const PATH_MAINNET_BLOCKS_AND_TRANSACTIONS: &str = "./tests/data/bitcoin-testdata.gzip";
@@ -69,7 +73,7 @@ fn read_data(data: &str) -> String {
             d.read_to_string(&mut s).unwrap();
             s
         }
-        _ => fs::read_to_string(&path_str).expect(&error_message)
+        _ => fs::read_to_string(&path_str).expect(&error_message),
     }
 }
 
