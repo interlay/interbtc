@@ -10,6 +10,9 @@ type BTCRelayError = btc_relay::Error<Runtime>;
 #[test]
 fn integration_test_submit_block_headers_and_verify_transaction_inclusion() {
     ExtBuilder::build().execute_without_relay_init(|| {
+        // reduce number of blocks to reduce testing time, but higher than 2016 blocks for difficulty adjustment
+        const BLOCKS_TO_TEST: usize = 2_100;
+
         // load blocks with transactions
         let test_data = get_bitcoin_testdata();
 
@@ -26,8 +29,7 @@ fn integration_test_submit_block_headers_and_verify_transaction_inclusion() {
         ))
         .dispatch(origin_of(account_of(ALICE))));
 
-        // reduce number of blocks to reduce testing time, but higher than 2016 blocks for difficulty adjustment
-        for block in test_data.iter().skip(1).take(2100) {
+        for block in test_data.iter().skip(1).take(BLOCKS_TO_TEST) {
             let raw_header = block.get_raw_header();
             let parsed_block = bitcoin::parser::parse_block_header_lenient(&raw_header).unwrap();
             let prev_header_hash = parsed_block.hash_prev_block;
@@ -48,9 +50,8 @@ fn integration_test_submit_block_headers_and_verify_transaction_inclusion() {
         SecurityPallet::set_active_block_number(1 + CONFIRMATIONS);
 
         // verify all transactions
-        // reduce number of blocks to reduce testing time, but higher than 2016 blocks for difficulty adjustment
         let current_height = btc_relay::Pallet::<Runtime>::get_best_block_height();
-        for block in test_data.iter().take(2100) {
+        for block in test_data.iter().take(BLOCKS_TO_TEST) {
             for tx in &block.test_txs {
                 let txid = tx.get_txid();
                 let raw_merkle_proof = tx.get_raw_merkle_proof();
