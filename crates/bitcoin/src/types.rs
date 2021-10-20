@@ -1040,13 +1040,13 @@ mod tests {
     }
 
     #[test]
-    fn extract_witness_address_native_p2ms() {
+    fn extract_witness_address_native_p2ms_output() {
         // source: https://www.blockstream.info/testnet/tx/219a49b6a376e8f4ef86866e93483552679b5157318f0e4085430a3cee24e3d8?expand
-        let raw_tx = "010000000145a5ca2debe0c50847403958fdb3eba43b960afbb5366bc8abfad1dd5eb15ac800000000920047304402203fa6520a6a8345603a03990ae99e7dd83a482f868f902d8f40298c44e8ea808902205e025a57c47af57892c2b616d3f92c679aefd8ac9cfd3e72f35fce6df96a0ffb01483045022100cebdb64fdc383bdbf88fe2820fe49e2e61642e9e94a3b58baa6efdde42fcf745022024a2a7a54a6c0e25b4e1580be62d336716c771dabd837430c58c392dc4c5afc501ffffffff01c05a8609000000001976a91400472c7ada0f94b832befcdd883501124305fe7b88ac00000000";
+        let raw_tx = "010000000125314e40cfc816ae562c10cc1855df21ff2ed2fad43046a4b6dabbb35c393c20000000006a47304402200cd7aa9166960f3374bf655a5c5ba0a47801ae22f8231baa2412e8f47941792e02206b21c44642887b32fd87fb82a052363605c109b31d971ce502322e8148caf1670121023f3b8d04b9fac2ac10b8b8e7a4d5f033f259d26a74d2b0b77313f41585b3d1b5ffffffff0160e18709000000006952210218597441c292cb6d73174c1662ac9d60b76688fd359f90e2d653d1a089c9aba921022bda026d6aee8133f0290449a282f8cfbccafdc064b0b47068854457f38af3bc21030a230982d9706247d5997df1aea7144266c33a2e6c64c6a3a44c5cdf9c0ff58a53ae00000000";
         let tx_bytes = hex::decode(&raw_tx).unwrap();
         let transaction = parse_transaction(&tx_bytes).unwrap();
 
-        assert_err!(transaction.inputs[0].extract_address(), Error::InvalidBtcAddress);
+        assert_err!(transaction.outputs[0].extract_address(), Error::InvalidBtcAddress);
     }
 
     #[test]

@@ -474,7 +474,6 @@ pub(crate) fn extract_address_hash_scriptsig(input_script: &[u8]) -> Result<Addr
 
     // P2WPKH-P2SH (SegWit)
     if parser.next()? == OpCode::Op0 as u8 {
-        // NOTE: we probably will not ever reach this as `witness_script` will be defined
         let sig = parser.read(sig_size as usize)?;
         return Ok(Address::P2SH(H160::from_slice(&Hash160::hash(&sig).to_vec())));
     }
