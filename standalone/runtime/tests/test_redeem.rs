@@ -1,5 +1,7 @@
 mod mock;
 
+use std::str::FromStr;
+
 use currency::Amount;
 use mock::{assert_eq, redeem_testing_utils::*, *};
 
@@ -1371,6 +1373,111 @@ fn integration_test_premium_redeem_wrapped_execute() {
 
         let premium: Amount<Runtime> = redeem.premium().unwrap();
         assert!(!premium.is_zero()); // sanity check that our test is useful
+    });
+}
+
+#[test]
+fn integration_test_multiple_redeems_multiple_op_returns() {
+    test_with(|vault_id| {
+        let issued_tokens = vault_id.wrapped(10_000);
+        let user_1_btc_address = BtcAddress::P2PKH(H160([2; 20]));
+        let user_2_btc_address = BtcAddress::P2PKH(H160([3; 20]));
+
+        assert_ok!(Call::Redeem(RedeemCall::request_redeem {
+            amount_wrapped: issued_tokens.amount(),
+            btc_address: user_1_btc_address,
+            vault_id: vault_id.clone()
+        })
+        .dispatch(origin_of(account_of(ALICE))));
+
+        // assert that request happened and extract the id
+        let redeem_1_id = assert_redeem_request_event();
+        let redeem_1 = RedeemPallet::get_open_redeem_request_from_id(&redeem_1_id).unwrap();
+
+        assert_ok!(Call::Redeem(RedeemCall::request_redeem {
+            amount_wrapped: issued_tokens.amount(),
+            btc_address: user_2_btc_address,
+            vault_id: vault_id.clone()
+        })
+        .dispatch(origin_of(account_of(CAROL))));
+
+        // assert that request happened and extract the id
+        let redeem_2_id = assert_redeem_request_event();
+        let redeem_2 = RedeemPallet::get_open_redeem_request_from_id(&redeem_2_id).unwrap();
+
+        // try to fulfill both redeem requests in a single transaction
+        let (_tx_id, _tx_block_height, merkle_proof, raw_tx, _) = generate_transaction_and_mine(
+            Default::default(),
+            vec![],
+            vec![
+                (user_1_btc_address, redeem_1.amount_btc()),
+                (user_2_btc_address, redeem_2.amount_btc()),
+            ],
+            vec![redeem_1_id, redeem_2_id],
+        );
+
+        SecurityPallet::set_active_block_number(1 + CONFIRMATIONS);
+
+        assert_err!(
+            Call::Redeem(RedeemCall::execute_redeem {
+                redeem_id: redeem_1_id,
+                merkle_proof: merkle_proof.clone(),
+                raw_tx: raw_tx.clone()
+            })
+            .dispatch(origin_of(account_of(VAULT))),
+            BTCRelayError::InvalidOpReturnTransaction
+        );
+
+        assert_err!(
+            Call::Redeem(RedeemCall::execute_redeem {
+                redeem_id: redeem_2_id,
+                merkle_proof: merkle_proof.clone(),
+                raw_tx: raw_tx.clone()
+            })
+            .dispatch(origin_of(account_of(VAULT))),
+            BTCRelayError::InvalidOpReturnTransaction
+        );
+    });
+}
+
+#[test]
+fn integration_test_single_redeem_multiple_op_returns() {
+    test_with(|vault_id| {
+        let issued_tokens = vault_id.wrapped(10_000);
+        let user_btc_address = BtcAddress::P2PKH(H160([2; 20]));
+
+        assert_ok!(Call::Redeem(RedeemCall::request_redeem {
+            amount_wrapped: issued_tokens.amount(),
+            btc_address: user_btc_address,
+            vault_id: vault_id.clone()
+        })
+        .dispatch(origin_of(account_of(ALICE))));
+
+        // assert that request happened and extract the id
+        let redeem_id = assert_redeem_request_event();
+        let redeem = RedeemPallet::get_open_redeem_request_from_id(&redeem_id).unwrap();
+
+        let (_tx_id, _tx_block_height, merkle_proof, raw_tx, _) = generate_transaction_and_mine(
+            Default::default(),
+            vec![],
+            vec![(user_btc_address, redeem.amount_btc())],
+            vec![
+                redeem_id,
+                H256::from_str(&"278e2f901256e2a7bab9071cea41da7b392c157aa50e70cae90f5e2a50c49e8d").unwrap(),
+            ],
+        );
+
+        SecurityPallet::set_active_block_number(1 + CONFIRMATIONS);
+
+        assert_err!(
+            Call::Redeem(RedeemCall::execute_redeem {
+                redeem_id: redeem_id,
+                merkle_proof: merkle_proof.clone(),
+                raw_tx: raw_tx.clone()
+            })
+            .dispatch(origin_of(account_of(VAULT))),
+            BTCRelayError::InvalidOpReturnTransaction
+        );
     });
 }
 
