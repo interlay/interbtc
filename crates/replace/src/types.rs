@@ -4,12 +4,13 @@ use currency::Amount;
 use frame_support::traits::Get;
 pub use primitives::replace::{ReplaceRequest, ReplaceRequestStatus};
 use primitives::VaultId;
+use scale_info::TypeInfo;
 use sp_core::H160;
 use sp_runtime::DispatchError;
 use vault_registry::types::CurrencyId;
 
 /// Storage version.
-#[derive(Encode, Decode, Eq, PartialEq)]
+#[derive(Encode, Decode, Eq, PartialEq, TypeInfo)]
 pub enum Version {
     /// Initial version.
     V0,

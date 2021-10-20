@@ -1505,7 +1505,7 @@ fn test_offchain_worker_unsigned_transaction_submission() {
         assert_eq!(tx.signature, None); // unsigned
         assert_eq!(
             tx.call,
-            crate::mock::Call::VaultRegistry(crate::Call::report_undercollateralized_vault(id))
+            crate::mock::Call::VaultRegistry(crate::Call::report_undercollateralized_vault { vault_id: id })
         );
     })
 }

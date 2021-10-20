@@ -51,13 +51,12 @@ impl RequestIssueBuilder {
             Amount::new(DEFAULT_COLLATERAL, self.vault_id.collateral_currency()),
             &self.vault_id,
         );
-
         // alice requests wrapped by locking btc with bob
-        assert_ok!(Call::Issue(IssueCall::request_issue(
-            self.amount_btc,
-            self.vault_id.clone(),
-            self.griefing_collateral
-        ))
+        assert_ok!(Call::Issue(IssueCall::request_issue {
+            amount: self.amount_btc,
+            vault_id: self.vault_id.clone(),
+            griefing_collateral: self.griefing_collateral
+        })
         .dispatch(origin_of(account_of(self.user))));
 
         let issue_id = assert_issue_request_event();
@@ -124,8 +123,12 @@ impl ExecuteIssueBuilder {
     pub fn execute_prepared(&self) -> DispatchResultWithPostInfo {
         if let Some((proof, raw_tx)) = &self.execution_tx {
             // alice executes the issuerequest by confirming the btc transaction
-            Call::Issue(IssueCall::execute_issue(self.issue_id, proof.to_vec(), raw_tx.to_vec()))
-                .dispatch(origin_of(self.submitter.clone()))
+            Call::Issue(IssueCall::execute_issue {
+                issue_id: self.issue_id,
+                merkle_proof: proof.to_vec(),
+                raw_tx: raw_tx.to_vec(),
+            })
+            .dispatch(origin_of(self.submitter.clone()))
         } else {
             panic!("Backing transaction was not prepared prior to execution!");
         }
@@ -224,7 +227,12 @@ pub fn execute_refund_with_amount(vault_id: [u8; 32], amount: Amount<Runtime>) -
 
     SecurityPallet::set_active_block_number((1 + CONFIRMATIONS) * 2);
 
-    Call::Refund(RefundCall::execute_refund(refund_id, proof, raw_tx)).dispatch(origin_of(account_of(vault_id)))
+    Call::Refund(RefundCall::execute_refund {
+        refund_id: refund_id,
+        merkle_proof: proof,
+        raw_tx: raw_tx,
+    })
+    .dispatch(origin_of(account_of(vault_id)))
 }
 
 pub fn cancel_issue(issue_id: H256, vault: [u8; 32]) {
@@ -232,5 +240,5 @@ pub fn cancel_issue(issue_id: H256, vault: [u8; 32]) {
     SecurityPallet::set_active_block_number(IssuePallet::issue_period() + 1 + 1);
 
     // cancel issue request
-    assert_ok!(Call::Issue(IssueCall::cancel_issue(issue_id)).dispatch(origin_of(account_of(vault))));
+    assert_ok!(Call::Issue(IssueCall::cancel_issue { issue_id: issue_id }).dispatch(origin_of(account_of(vault))));
 }

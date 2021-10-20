@@ -8,6 +8,7 @@ use frame_support::{
 };
 
 pub use primitives::{VaultCurrencyPair, VaultId};
+use scale_info::TypeInfo;
 use sp_core::H256;
 use sp_runtime::traits::{CheckedAdd, CheckedSub, Zero};
 use sp_std::collections::btree_set::BTreeSet;
@@ -18,7 +19,7 @@ use mocktopus::macros::mockable;
 pub use bitcoin::{Address as BtcAddress, PublicKey as BtcPublicKey};
 
 /// Storage version.
-#[derive(Encode, Decode, Eq, PartialEq)]
+#[derive(Encode, Decode, Eq, PartialEq, TypeInfo)]
 pub enum Version {
     /// Initial version.
     V0,
@@ -105,7 +106,7 @@ pub type DefaultVaultId<T> = VaultId<<T as frame_system::Config>::AccountId, Cur
 
 pub type DefaultVaultCurrencyPair<T> = VaultCurrencyPair<CurrencyId<T>>;
 
-#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, Default)]
+#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, Default, TypeInfo)]
 pub struct Wallet {
     // store all addresses for `report_vault_theft` checks
     pub addresses: BTreeSet<BtcAddress>,
@@ -131,7 +132,7 @@ impl Wallet {
     }
 }
 
-#[derive(Encode, Decode, Clone, Copy, PartialEq, Eq, Debug)]
+#[derive(Encode, Decode, Clone, Copy, PartialEq, Eq, Debug, TypeInfo)]
 pub enum VaultStatus {
     /// Vault is active - bool=true indicates that the vault accepts new issue requests
     Active(bool),
@@ -149,7 +150,7 @@ impl Default for VaultStatus {
     }
 }
 
-#[derive(Encode, Decode, Clone, PartialEq, Eq)]
+#[derive(Encode, Decode, Clone, PartialEq, Eq, TypeInfo)]
 #[cfg_attr(feature = "std", derive(Debug))]
 pub struct Vault<AccountId, BlockNumber, Balance, CurrencyId: Copy> {
     /// Account identifier of the Vault
@@ -180,7 +181,7 @@ pub struct Vault<AccountId, BlockNumber, Balance, CurrencyId: Copy> {
     pub liquidated_collateral: Balance,
 }
 
-#[derive(Encode, Decode, Clone, PartialEq)]
+#[derive(Encode, Decode, Clone, PartialEq, TypeInfo)]
 #[cfg_attr(feature = "std", derive(Debug, serde::Serialize, serde::Deserialize))]
 pub struct SystemVault<Balance, CurrencyId: Copy> {
     // Number of tokens pending issue

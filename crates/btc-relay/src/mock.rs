@@ -1,6 +1,9 @@
 use crate as btc_relay;
 use crate::{Config, Error};
-use frame_support::{parameter_types, traits::GenesisBuild};
+use frame_support::{
+    parameter_types,
+    traits::{Everything, GenesisBuild},
+};
 use mocktopus::mocking::clear_mocks;
 use sp_core::H256;
 use sp_runtime::{
@@ -41,7 +44,7 @@ parameter_types! {
 }
 
 impl frame_system::Config for Test {
-    type BaseCallFilter = ();
+    type BaseCallFilter = Everything;
     type BlockWeights = ();
     type BlockLength = ();
     type DbWeight = ();

@@ -16,24 +16,28 @@ pub fn default_backing_collateral(currency_id: CurrencyId) -> Amount<Runtime> {
 }
 
 pub fn enable_nomination() {
-    assert_ok!(Call::Nomination(NominationCall::set_nomination_enabled(true))
-        .dispatch(<Runtime as frame_system::Config>::Origin::root()));
+    assert_ok!(
+        Call::Nomination(NominationCall::set_nomination_enabled { enabled: true })
+            .dispatch(<Runtime as frame_system::Config>::Origin::root())
+    );
 }
 
 pub fn disable_nomination() {
-    assert_ok!(Call::Nomination(NominationCall::set_nomination_enabled(false))
-        .dispatch(<Runtime as frame_system::Config>::Origin::root()));
+    assert_ok!(
+        Call::Nomination(NominationCall::set_nomination_enabled { enabled: false })
+            .dispatch(<Runtime as frame_system::Config>::Origin::root())
+    );
 }
 
 pub fn register_vault(currency_id: CurrencyId, vault: [u8; 32]) -> DispatchResultWithPostInfo {
-    Call::VaultRegistry(VaultRegistryCall::register_vault(
-        VaultCurrencyPair {
+    Call::VaultRegistry(VaultRegistryCall::register_vault {
+        currency_pair: VaultCurrencyPair {
             collateral: currency_id,
             wrapped: DEFAULT_WRAPPED_CURRENCY,
         },
-        DEFAULT_BACKING_COLLATERAL,
-        dummy_public_key(),
-    ))
+        collateral: DEFAULT_BACKING_COLLATERAL,
+        public_key: dummy_public_key(),
+    })
     .dispatch(origin_of(account_of(vault)))
 }
 
@@ -42,8 +46,10 @@ pub fn assert_register_vault(currency_id: CurrencyId, vault: [u8; 32]) {
 }
 
 pub fn nomination_opt_in(vault_id: &DefaultVaultId<Runtime>) -> DispatchResultWithPostInfo {
-    Call::Nomination(NominationCall::opt_in_to_nomination(vault_id.currencies.clone()))
-        .dispatch(origin_of(vault_id.account_id.clone()))
+    Call::Nomination(NominationCall::opt_in_to_nomination {
+        currency_pair: vault_id.currencies.clone(),
+    })
+    .dispatch(origin_of(vault_id.account_id.clone()))
 }
 
 pub fn assert_nomination_opt_in(vault_id: &VaultId) {
@@ -51,8 +57,10 @@ pub fn assert_nomination_opt_in(vault_id: &VaultId) {
 }
 
 pub fn nomination_opt_out(vault_id: &DefaultVaultId<Runtime>) -> DispatchResultWithPostInfo {
-    Call::Nomination(NominationCall::opt_out_of_nomination(vault_id.currencies.clone()))
-        .dispatch(origin_of(vault_id.account_id.clone()))
+    Call::Nomination(NominationCall::opt_out_of_nomination {
+        currency_pair: vault_id.currencies.clone(),
+    })
+    .dispatch(origin_of(vault_id.account_id.clone()))
 }
 
 pub fn nominate_collateral(
@@ -60,10 +68,10 @@ pub fn nominate_collateral(
     nominator_id: AccountId,
     amount_collateral: Amount<Runtime>,
 ) -> DispatchResultWithPostInfo {
-    Call::Nomination(NominationCall::deposit_collateral(
-        vault_id.clone(),
-        amount_collateral.amount(),
-    ))
+    Call::Nomination(NominationCall::deposit_collateral {
+        vault_id: vault_id.clone(),
+        amount: amount_collateral.amount(),
+    })
     .dispatch(origin_of(nominator_id))
 }
 
@@ -72,10 +80,10 @@ pub fn assert_nominate_collateral(vault_id: &VaultId, nominator_id: AccountId, a
 }
 
 pub fn withdraw_vault_collateral(vault_id: &VaultId, amount_collateral: Amount<Runtime>) -> DispatchResultWithPostInfo {
-    Call::VaultRegistry(VaultRegistryCall::withdraw_collateral(
-        vault_id.currencies.clone(),
-        amount_collateral.amount(),
-    ))
+    Call::VaultRegistry(VaultRegistryCall::withdraw_collateral {
+        currency_pair: vault_id.currencies.clone(),
+        amount: amount_collateral.amount(),
+    })
     .dispatch(origin_of(vault_id.account_id.clone()))
 }
 
@@ -84,11 +92,11 @@ pub fn withdraw_nominator_collateral(
     vault_id: &VaultId,
     amount_collateral: Amount<Runtime>,
 ) -> DispatchResultWithPostInfo {
-    Call::Nomination(NominationCall::withdraw_collateral(
-        vault_id.clone(),
-        amount_collateral.amount(),
-        None,
-    ))
+    Call::Nomination(NominationCall::withdraw_collateral {
+        vault_id: vault_id.clone(),
+        amount: amount_collateral.amount(),
+        index: None,
+    })
     .dispatch(origin_of(nominator_id))
 }
 

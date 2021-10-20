@@ -51,6 +51,7 @@ use frame_system::{
     ensure_signed,
     offchain::{SendTransactionTypes, SubmitTransaction},
 };
+use scale_info::TypeInfo;
 use sp_core::{H256, U256};
 #[cfg(feature = "std")]
 use sp_runtime::traits::AtLeast32BitUnsigned;
@@ -120,7 +121,8 @@ pub mod pallet {
             + FullCodec
             + Copy
             + Default
-            + Debug;
+            + Debug
+            + TypeInfo;
 
         /// Weight information for the extrinsics in this module.
         type WeightInfo: WeightInfo;
@@ -162,7 +164,7 @@ pub mod pallet {
             };
 
             match call {
-                Call::report_undercollateralized_vault(_) => valid_tx(b"report_undercollateralized_vault".to_vec()),
+                Call::report_undercollateralized_vault { .. } => valid_tx(b"report_undercollateralized_vault".to_vec()),
                 _ => InvalidTransaction::Call.into(),
             }
         }
@@ -416,7 +418,6 @@ pub mod pallet {
 
     #[pallet::event]
     #[pallet::generate_deposit(pub(super) fn deposit_event)]
-    #[pallet::metadata(DefaultVaultId<T> = "VaultId", T::AccountId = "AccountId", T::BlockNumber = "BlockNumber", BalanceOf<T> = "Balance", CurrencyId<T> = "CurrencyId")]
     pub enum Event<T: Config> {
         /// vault_id, collateral, currency_id
         RegisterVault(DefaultVaultId<T>, BalanceOf<T>),
@@ -651,7 +652,7 @@ impl<T: Config> Pallet<T> {
     fn _offchain_worker() {
         for vault in Self::undercollateralized_vaults() {
             log::info!("Reporting vault {:?}", vault);
-            let call = Call::report_undercollateralized_vault(vault);
+            let call = Call::report_undercollateralized_vault { vault_id: vault };
             let _ = SubmitTransaction::<T, Call<T>>::submit_unsigned_transaction(call.into());
         }
     }

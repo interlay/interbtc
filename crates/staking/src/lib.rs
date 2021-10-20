@@ -17,6 +17,7 @@ use frame_support::{
     traits::Get,
 };
 use primitives::{TruncateFixedPointToInt, VaultCurrencyPair, VaultId};
+use scale_info::TypeInfo;
 use sp_arithmetic::{FixedPointNumber, FixedPointOperand};
 use sp_runtime::traits::{CheckedAdd, CheckedDiv, CheckedMul, CheckedSub, MaybeSerializeDeserialize, One, Zero};
 use sp_std::{cmp, marker::PhantomData};
@@ -51,7 +52,8 @@ pub mod pallet {
             + TruncateFixedPointToInt
             + Encode
             + EncodeLike
-            + Decode;
+            + Decode
+            + TypeInfo;
 
         #[pallet::constant]
         type GetNativeCurrencyId: Get<Self::CurrencyId>;
@@ -63,13 +65,6 @@ pub mod pallet {
     // The pallet's events
     #[pallet::event]
     #[pallet::generate_deposit(pub(crate) fn deposit_event)]
-    #[pallet::metadata(
-        T::CurrencyId = "CurrencyId",
-        T::AccountId = "AccountId",
-        T::SignedFixedPoint = "SignedFixedPoint",
-        T::Index = "Index",
-        DefaultVaultId<T> = "VaultId"
-    )]
     pub enum Event<T: Config> {
         DepositStake(DefaultVaultId<T>, T::AccountId, T::SignedFixedPoint),
         DistributeReward(T::CurrencyId, DefaultVaultId<T>, T::SignedFixedPoint),

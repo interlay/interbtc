@@ -6,11 +6,11 @@ pub fn request_replace(
     amount: Amount<Runtime>,
     griefing_collateral: Amount<Runtime>,
 ) -> DispatchResultWithPostInfo {
-    Call::Replace(ReplaceCall::request_replace(
-        old_vault_id.currencies.clone(),
-        amount.amount(),
-        griefing_collateral.amount(),
-    ))
+    Call::Replace(ReplaceCall::request_replace {
+        currency_pair: old_vault_id.currencies.clone(),
+        amount: amount.amount(),
+        griefing_collateral: griefing_collateral.amount(),
+    })
     .dispatch(origin_of(old_vault_id.account_id.clone()))
 }
 
@@ -58,13 +58,13 @@ pub fn accept_replace(
 ) -> Result<(H256, ReplaceRequest<AccountId32, u32, u128, CurrencyId>), sp_runtime::DispatchError> {
     // assert_replace_request_event();
 
-    Call::Replace(ReplaceCall::accept_replace(
-        new_vault_id.currencies.clone(),
-        old_vault_id.clone(),
-        amount_btc.amount(),
-        collateral.amount(),
-        btc_address,
-    ))
+    Call::Replace(ReplaceCall::accept_replace {
+        currency_pair: new_vault_id.currencies.clone(),
+        old_vault: old_vault_id.clone(),
+        amount_btc: amount_btc.amount(),
+        collateral: collateral.amount(),
+        btc_address: btc_address,
+    })
     .dispatch(origin_of(new_vault_id.account_id.clone()))
     .map_err(|err| err.error)?;
 

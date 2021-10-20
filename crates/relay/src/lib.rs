@@ -71,7 +71,6 @@ pub mod pallet {
 
     #[pallet::event]
     #[pallet::generate_deposit(pub(super) fn deposit_event)]
-    #[pallet::metadata(DefaultVaultId<T> = "VaultId")]
     pub enum Event<T: Config> {
         VaultTheft(DefaultVaultId<T>, H256Le),
         VaultDoublePayment(DefaultVaultId<T>, H256Le, H256Le),

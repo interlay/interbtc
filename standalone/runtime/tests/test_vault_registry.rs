@@ -38,10 +38,10 @@ mod deposit_collateral_test {
             let currency_id = vault_id.collateral_currency();
             let amount = Amount::new(1_000, currency_id);
 
-            assert_ok!(Call::VaultRegistry(VaultRegistryCall::deposit_collateral(
-                vault_id.currencies.clone(),
-                amount.amount(),
-            ))
+            assert_ok!(Call::VaultRegistry(VaultRegistryCall::deposit_collateral {
+                currency_pair: vault_id.currencies.clone(),
+                amount: amount.amount(),
+            })
             .dispatch(origin_of(account_of(VAULT))));
 
             assert_eq!(
@@ -60,10 +60,10 @@ mod deposit_collateral_test {
             let currency_id = vault_id.collateral_currency();
             let amount = default_vault_free_balance(currency_id);
 
-            assert_ok!(Call::VaultRegistry(VaultRegistryCall::deposit_collateral(
-                vault_id.currencies.clone(),
-                amount.amount()
-            ))
+            assert_ok!(Call::VaultRegistry(VaultRegistryCall::deposit_collateral {
+                currency_pair: vault_id.currencies.clone(),
+                amount: amount.amount()
+            })
             .dispatch(origin_of(account_of(VAULT))));
 
             assert_eq!(
@@ -83,10 +83,10 @@ mod deposit_collateral_test {
             let amount = default_vault_free_balance(currency_id).amount() + 1;
 
             assert_noop!(
-                Call::VaultRegistry(VaultRegistryCall::deposit_collateral(
-                    vault_id.currencies.clone(),
-                    amount
-                ))
+                Call::VaultRegistry(VaultRegistryCall::deposit_collateral {
+                    currency_pair: vault_id.currencies.clone(),
+                    amount: amount
+                })
                 .dispatch(origin_of(account_of(VAULT))),
                 TokensError::BalanceTooLow
             );
@@ -105,18 +105,18 @@ mod deposit_collateral_test {
             let remaining = FUND_LIMIT_CEILING - current.amount();
 
             assert_noop!(
-                Call::VaultRegistry(VaultRegistryCall::deposit_collateral(
-                    vault_id.currencies.clone(),
-                    remaining + 1
-                ))
+                Call::VaultRegistry(VaultRegistryCall::deposit_collateral {
+                    currency_pair: vault_id.currencies.clone(),
+                    amount: remaining + 1
+                })
                 .dispatch(origin_of(account_of(VAULT))),
                 VaultRegistryError::CurrencyCeilingExceeded
             );
 
-            assert_ok!(Call::VaultRegistry(VaultRegistryCall::deposit_collateral(
-                vault_id.currencies.clone(),
-                remaining,
-            ))
+            assert_ok!(Call::VaultRegistry(VaultRegistryCall::deposit_collateral {
+                currency_pair: vault_id.currencies.clone(),
+                amount: remaining,
+            })
             .dispatch(origin_of(account_of(VAULT))));
         });
     }
@@ -134,10 +134,10 @@ mod withdraw_collateral_test {
             let currency_id = vault_id.collateral_currency();
             let amount = Amount::new(1_000, currency_id);
 
-            assert_ok!(Call::VaultRegistry(VaultRegistryCall::withdraw_collateral(
-                vault_id.currencies.clone(),
-                amount.amount()
-            ))
+            assert_ok!(Call::VaultRegistry(VaultRegistryCall::withdraw_collateral {
+                currency_pair: vault_id.currencies.clone(),
+                amount: amount.amount()
+            })
             .dispatch(origin_of(account_of(VAULT))));
 
             assert_eq!(
@@ -156,10 +156,10 @@ mod withdraw_collateral_test {
             let currency_id = vault_id.collateral_currency();
             let amount = default_vault_backing_collateral(currency_id) - required_collateral(vault_id.clone());
 
-            assert_ok!(Call::VaultRegistry(VaultRegistryCall::withdraw_collateral(
-                vault_id.currencies.clone(),
-                amount.amount()
-            ))
+            assert_ok!(Call::VaultRegistry(VaultRegistryCall::withdraw_collateral {
+                currency_pair: vault_id.currencies.clone(),
+                amount: amount.amount()
+            })
             .dispatch(origin_of(account_of(VAULT))));
 
             assert_eq!(
@@ -181,10 +181,10 @@ mod withdraw_collateral_test {
                 + 1;
 
             assert_noop!(
-                Call::VaultRegistry(VaultRegistryCall::withdraw_collateral(
-                    vault_id.currencies.clone(),
-                    amount
-                ))
+                Call::VaultRegistry(VaultRegistryCall::withdraw_collateral {
+                    currency_pair: vault_id.currencies.clone(),
+                    amount: amount
+                })
                 .dispatch(origin_of(account_of(VAULT))),
                 VaultRegistryError::InsufficientCollateral
             );
@@ -198,43 +198,52 @@ fn integration_test_vault_registry_with_parachain_shutdown_fails() {
         SecurityPallet::set_status(StatusCode::Shutdown);
 
         assert_noop!(
-            Call::VaultRegistry(VaultRegistryCall::register_vault(
-                vault_id.currencies.clone(),
-                0,
-                Default::default()
-            ))
+            Call::VaultRegistry(VaultRegistryCall::register_vault {
+                currency_pair: vault_id.currencies.clone(),
+                collateral: 0,
+                public_key: Default::default()
+            })
             .dispatch(origin_of(account_of(VAULT))),
             SecurityError::ParachainShutdown
         );
         assert_noop!(
-            Call::VaultRegistry(VaultRegistryCall::deposit_collateral(vault_id.currencies.clone(), 0))
-                .dispatch(origin_of(account_of(VAULT))),
-            SecurityError::ParachainShutdown
-        );
-        assert_noop!(
-            Call::VaultRegistry(VaultRegistryCall::withdraw_collateral(vault_id.currencies.clone(), 0))
-                .dispatch(origin_of(account_of(VAULT))),
-            SecurityError::ParachainShutdown
-        );
-        assert_noop!(
-            Call::VaultRegistry(VaultRegistryCall::update_public_key(
-                vault_id.currencies.clone(),
-                Default::default()
-            ))
+            Call::VaultRegistry(VaultRegistryCall::deposit_collateral {
+                currency_pair: vault_id.currencies.clone(),
+                amount: 0
+            })
             .dispatch(origin_of(account_of(VAULT))),
             SecurityError::ParachainShutdown
         );
         assert_noop!(
-            Call::VaultRegistry(VaultRegistryCall::register_address(
-                vault_id.currencies.clone(),
-                Default::default()
-            ))
+            Call::VaultRegistry(VaultRegistryCall::withdraw_collateral {
+                currency_pair: vault_id.currencies.clone(),
+                amount: 0
+            })
             .dispatch(origin_of(account_of(VAULT))),
             SecurityError::ParachainShutdown
         );
         assert_noop!(
-            Call::VaultRegistry(VaultRegistryCall::accept_new_issues(vault_id.currencies.clone(), false))
-                .dispatch(origin_of(account_of(VAULT))),
+            Call::VaultRegistry(VaultRegistryCall::update_public_key {
+                currency_pair: vault_id.currencies.clone(),
+                public_key: Default::default()
+            })
+            .dispatch(origin_of(account_of(VAULT))),
+            SecurityError::ParachainShutdown
+        );
+        assert_noop!(
+            Call::VaultRegistry(VaultRegistryCall::register_address {
+                currency_pair: vault_id.currencies.clone(),
+                btc_address: Default::default()
+            })
+            .dispatch(origin_of(account_of(VAULT))),
+            SecurityError::ParachainShutdown
+        );
+        assert_noop!(
+            Call::VaultRegistry(VaultRegistryCall::accept_new_issues {
+                currency_pair: vault_id.currencies.clone(),
+                accept_new_issues: false
+            })
+            .dispatch(origin_of(account_of(VAULT))),
             SecurityError::ParachainShutdown
         );
     });
@@ -287,20 +296,20 @@ fn integration_test_vault_registry_register_respects_fund_limit() {
         let remaining = FUND_LIMIT_CEILING - current.amount();
 
         assert_noop!(
-            Call::VaultRegistry(VaultRegistryCall::register_vault(
-                vault_id.currencies.clone(),
-                remaining + 1,
-                Default::default(),
-            ))
+            Call::VaultRegistry(VaultRegistryCall::register_vault {
+                currency_pair: vault_id.currencies.clone(),
+                collateral: remaining + 1,
+                public_key: Default::default(),
+            })
             .dispatch(origin_of(account_of(USER))),
             VaultRegistryError::CurrencyCeilingExceeded
         );
 
-        assert_ok!(Call::VaultRegistry(VaultRegistryCall::register_vault(
-            vault_id.currencies.clone(),
-            remaining,
-            Default::default(),
-        ))
+        assert_ok!(Call::VaultRegistry(VaultRegistryCall::register_vault {
+            currency_pair: vault_id.currencies.clone(),
+            collateral: remaining,
+            public_key: Default::default(),
+        })
         .dispatch(origin_of(account_of(USER))),);
     });
 }

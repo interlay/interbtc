@@ -1,6 +1,9 @@
 use crate as oracle;
 use crate::{Config, Error};
-use frame_support::{parameter_types, traits::GenesisBuild};
+use frame_support::{
+    parameter_types,
+    traits::{Everything, GenesisBuild},
+};
 use mocktopus::mocking::clear_mocks;
 use orml_traits::parameter_type_with_key;
 use sp_arithmetic::{FixedI128, FixedU128};
@@ -49,7 +52,7 @@ parameter_types! {
 }
 
 impl frame_system::Config for Test {
-    type BaseCallFilter = ();
+    type BaseCallFilter = Everything;
     type BlockWeights = ();
     type BlockLength = ();
     type DbWeight = ();
@@ -99,7 +102,7 @@ impl orml_tokens::Config for Test {
     type ExistentialDeposits = ExistentialDeposits;
     type OnDust = ();
     type MaxLocks = MaxLocks;
-    type DustRemovalWhitelist = ();
+    type DustRemovalWhitelist = Everything;
 }
 
 pub struct CurrencyConvert;

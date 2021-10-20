@@ -3,6 +3,7 @@
 use bitcoin::{Address as BtcAddress, PublicKey as BtcPublicKey};
 use bstringify::bstringify;
 use codec::{Decode, Encode};
+use scale_info::TypeInfo;
 #[cfg(feature = "std")]
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 pub use sp_core::H256;
@@ -34,14 +35,14 @@ impl TruncateFixedPointToInt for UnsignedFixedPoint {
     }
 }
 
-#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, PartialOrd, Ord)]
+#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, PartialOrd, Ord, TypeInfo)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize, std::hash::Hash))]
 pub struct VaultCurrencyPair<CurrencyId: Copy> {
     pub collateral: CurrencyId,
     pub wrapped: CurrencyId,
 }
 
-#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, PartialOrd, Ord)]
+#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, PartialOrd, Ord, TypeInfo)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize, std::hash::Hash))]
 pub struct VaultId<AccountId, CurrencyId: Copy> {
     pub account_id: AccountId,
@@ -71,7 +72,7 @@ impl<AccountId, CurrencyId: Copy> VaultId<AccountId, CurrencyId> {
 pub mod issue {
     use super::*;
 
-    #[derive(Encode, Decode, Clone, PartialEq)]
+    #[derive(Encode, Decode, Clone, PartialEq, TypeInfo)]
     #[cfg_attr(feature = "std", derive(Debug, Serialize, Deserialize))]
     pub enum IssueRequestStatus {
         /// opened, but not yet executed or cancelled
@@ -90,7 +91,7 @@ pub mod issue {
 
     // Due to a known bug in serde we need to specify how u128 is (de)serialized.
     // See https://github.com/paritytech/substrate/issues/4641
-    #[derive(Encode, Decode, Clone, PartialEq)]
+    #[derive(Encode, Decode, Clone, PartialEq, TypeInfo)]
     #[cfg_attr(feature = "std", derive(Debug, Serialize, Deserialize))]
     pub struct IssueRequest<AccountId, BlockNumber, Balance, CurrencyId: Copy> {
         /// the vault associated with this issue request
@@ -145,7 +146,7 @@ fn deserialize_from_string<'de, D: Deserializer<'de>, T: std::str::FromStr>(dese
 pub mod redeem {
     use super::*;
 
-    #[derive(Encode, Decode, Clone, Eq, PartialEq)]
+    #[derive(Encode, Decode, Clone, Eq, PartialEq, TypeInfo)]
     #[cfg_attr(feature = "std", derive(Debug, Serialize, Deserialize))]
     pub enum RedeemRequestStatus {
         /// opened, but not yet executed or cancelled
@@ -166,7 +167,7 @@ pub mod redeem {
 
     // Due to a known bug in serde we need to specify how u128 is (de)serialized.
     // See https://github.com/paritytech/substrate/issues/4641
-    #[derive(Encode, Decode, Clone, PartialEq)]
+    #[derive(Encode, Decode, Clone, PartialEq, TypeInfo)]
     #[cfg_attr(feature = "std", derive(Debug, Serialize, Deserialize))]
     pub struct RedeemRequest<AccountId, BlockNumber, Balance, CurrencyId: Copy> {
         /// the vault associated with this redeem request
@@ -215,7 +216,7 @@ pub mod refund {
 
     // Due to a known bug in serde we need to specify how u128 is (de)serialized.
     // See https://github.com/paritytech/substrate/issues/4641
-    #[derive(Encode, Decode, Clone, PartialEq)]
+    #[derive(Encode, Decode, Clone, PartialEq, TypeInfo)]
     #[cfg_attr(feature = "std", derive(Debug, Serialize, Deserialize))]
     pub struct RefundRequest<AccountId, Balance, CurrencyId: Copy> {
         /// the vault associated with this redeem request
@@ -249,7 +250,7 @@ pub mod refund {
 pub mod replace {
     use super::*;
 
-    #[derive(Encode, Decode, Clone, PartialEq)]
+    #[derive(Encode, Decode, Clone, PartialEq, TypeInfo)]
     #[cfg_attr(feature = "std", derive(Debug, Serialize, Deserialize, Eq))]
     pub enum ReplaceRequestStatus {
         /// accepted, but not yet executed or cancelled
@@ -268,7 +269,7 @@ pub mod replace {
 
     // Due to a known bug in serde we need to specify how u128 is (de)serialized.
     // See https://github.com/paritytech/substrate/issues/4641
-    #[derive(Encode, Decode, Clone, PartialEq)]
+    #[derive(Encode, Decode, Clone, PartialEq, TypeInfo)]
     #[cfg_attr(feature = "std", derive(Debug, Serialize, Deserialize, Eq))]
     pub struct ReplaceRequest<AccountId, BlockNumber, Balance, CurrencyId: Copy> {
         /// the vault which has requested to be replaced
@@ -309,7 +310,7 @@ pub mod replace {
 pub mod oracle {
     use super::*;
 
-    #[derive(Encode, Decode, Clone, Eq, PartialEq, Debug)]
+    #[derive(Encode, Decode, Clone, Eq, PartialEq, Debug, TypeInfo)]
     pub enum Key {
         ExchangeRate(CurrencyId),
         FeeEstimation,
@@ -437,7 +438,7 @@ macro_rules! create_currency_id {
 }
 
 create_currency_id! {
-    #[derive(Encode, Decode, Eq, Hash, PartialEq, Copy, Clone, RuntimeDebug, PartialOrd, Ord)]
+    #[derive(Encode, Decode, Eq, Hash, PartialEq, Copy, Clone, RuntimeDebug, PartialOrd, Ord, TypeInfo)]
     #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
     pub enum CurrencyId {
         DOT("Polkadot", 10),

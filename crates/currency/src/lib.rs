@@ -22,6 +22,7 @@ use frame_support::{
 use orml_traits::{MultiCurrency, MultiReservableCurrency};
 use pallet_transaction_payment::OnChargeTransaction;
 use primitives::TruncateFixedPointToInt;
+use scale_info::TypeInfo;
 use sp_runtime::{
     traits::{
         AtLeast32BitUnsigned, CheckedDiv, DispatchInfoOf, MaybeSerializeDeserialize, PostDispatchInfoOf, Saturating,
@@ -57,7 +58,8 @@ pub mod pallet {
             + Encode
             + EncodeLike
             + Decode
-            + MaybeSerializeDeserialize;
+            + MaybeSerializeDeserialize
+            + TypeInfo;
 
         type SignedInner: Debug
             + CheckedDiv

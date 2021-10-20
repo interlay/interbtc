@@ -34,8 +34,12 @@ mod spec_based_tests {
             SecurityPallet::set_status(StatusCode::Shutdown);
 
             assert_noop!(
-                Call::Refund(RefundCall::execute_refund(H256::zero(), vec![0u8; 32], vec![0u8; 32],))
-                    .dispatch(origin_of(account_of(BOB))),
+                Call::Refund(RefundCall::execute_refund {
+                    refund_id: H256::zero(),
+                    merkle_proof: vec![0u8; 32],
+                    raw_tx: vec![0u8; 32],
+                })
+                .dispatch(origin_of(account_of(BOB))),
                 SecurityError::ParachainShutdown,
             );
         });
@@ -46,8 +50,12 @@ mod spec_based_tests {
         test_with(|_currency_id| {
             // PRECONDITION: A pending refund MUST exist
             assert_noop!(
-                Call::Refund(RefundCall::execute_refund(H256::zero(), vec![0u8; 32], vec![0u8; 32],))
-                    .dispatch(origin_of(account_of(BOB))),
+                Call::Refund(RefundCall::execute_refund {
+                    refund_id: H256::zero(),
+                    merkle_proof: vec![0u8; 32],
+                    raw_tx: vec![0u8; 32],
+                })
+                .dispatch(origin_of(account_of(BOB))),
                 RefundError::RefundIdNotFound,
             );
         });
@@ -85,11 +93,11 @@ mod spec_based_tests {
                 vault_id.wrapped_currency(),
             ));
 
-            assert_ok!(Call::Refund(RefundCall::execute_refund(
-                refund_id,
-                merkle_proof.clone(),
-                raw_tx.clone()
-            ))
+            assert_ok!(Call::Refund(RefundCall::execute_refund {
+                refund_id: refund_id,
+                merkle_proof: merkle_proof.clone(),
+                raw_tx: raw_tx.clone()
+            })
             .dispatch(origin_of(vault_id.account_id.clone())));
 
             let refund_request = RefundPallet::refund_requests(refund_id).unwrap();
@@ -99,8 +107,12 @@ mod spec_based_tests {
 
             // PRECONDITION: refund.completed MUST be false
             assert_noop!(
-                Call::Refund(RefundCall::execute_refund(refund_id, merkle_proof, raw_tx))
-                    .dispatch(origin_of(vault_id.account_id.clone())),
+                Call::Refund(RefundCall::execute_refund {
+                    refund_id: refund_id,
+                    merkle_proof: merkle_proof,
+                    raw_tx: raw_tx
+                })
+                .dispatch(origin_of(vault_id.account_id.clone())),
                 RefundError::RefundCompleted,
             );
 
@@ -154,11 +166,11 @@ mod spec_based_tests {
                 );
                 SecurityPallet::set_active_block_number(SecurityPallet::active_block_number() + 1 + CONFIRMATIONS);
 
-                Call::Refund(RefundCall::execute_refund(
-                    refund_id,
-                    merkle_proof.clone(),
-                    raw_tx.clone(),
-                ))
+                Call::Refund(RefundCall::execute_refund {
+                    refund_id: refund_id,
+                    merkle_proof: merkle_proof.clone(),
+                    raw_tx: raw_tx.clone(),
+                })
                 .dispatch(origin_of(account_of(BOB)))
             }
             let underpayment_refund_amount = wrapped(raw_refund_amount - 1);

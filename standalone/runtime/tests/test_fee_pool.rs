@@ -53,9 +53,11 @@ fn test_with<R>(execute: impl Fn(CurrencyId) -> R) {
 
 fn withdraw_vault_global_pool_rewards(vault_id: &VaultId) -> i128 {
     let amount = VaultRewardsPallet::compute_reward(INTERBTC, vault_id).unwrap();
-    assert_ok!(
-        Call::Fee(FeeCall::withdraw_rewards(vault_id.clone(), None)).dispatch(origin_of(vault_id.account_id.clone()))
-    );
+    assert_ok!(Call::Fee(FeeCall::withdraw_rewards {
+        vault_id: vault_id.clone(),
+        index: None
+    })
+    .dispatch(origin_of(vault_id.account_id.clone())));
     amount
 }
 
@@ -63,7 +65,11 @@ fn withdraw_local_pool_rewards(vault_id: &VaultId, nominator_id: &AccountId) -> 
     let amount =
         staking::StakingCurrencyAdapter::<Runtime>::compute_reward(vault_id, nominator_id, vault_id.wrapped_currency())
             .unwrap();
-    assert_ok!(Call::Fee(FeeCall::withdraw_rewards(vault_id.clone(), None)).dispatch(origin_of(nominator_id.clone())));
+    assert_ok!(Call::Fee(FeeCall::withdraw_rewards {
+        vault_id: vault_id.clone(),
+        index: None
+    })
+    .dispatch(origin_of(nominator_id.clone())));
     amount
 }
 
@@ -338,7 +344,11 @@ fn integration_test_fee_with_parachain_shutdown_fails() {
         let vault_id_1 = vault_id_of(VAULT_1, currency_id);
 
         assert_noop!(
-            Call::Fee(FeeCall::withdraw_rewards(vault_id_1.clone(), None)).dispatch(origin_of(vault_id_1.account_id)),
+            Call::Fee(FeeCall::withdraw_rewards {
+                vault_id: vault_id_1.clone(),
+                index: None
+            })
+            .dispatch(origin_of(vault_id_1.account_id)),
             SecurityError::ParachainShutdown
         );
     })

@@ -30,12 +30,12 @@ const DEMOCRACY_VOTE_AMOUNT: u128 = 30_000_000;
 
 fn test_with<R>(execute: impl Fn() -> R) {
     ExtBuilder::build().execute_with(|| {
-        assert_ok!(Call::Tokens(TokensCall::set_balance(
-            account_of(ALICE),
-            NATIVE_CURRENCY_ID,
-            5_000_000_000_000,
-            0,
-        ))
+        assert_ok!(Call::Tokens(TokensCall::set_balance {
+            who: account_of(ALICE),
+            currency_id: NATIVE_CURRENCY_ID,
+            new_free: 5_000_000_000_000,
+            new_reserved: 0,
+        })
         .dispatch(root()));
 
         execute()
@@ -43,7 +43,13 @@ fn test_with<R>(execute: impl Fn() -> R) {
 }
 
 fn set_balance_proposal(who: AccountId, value: u128) -> Vec<u8> {
-    Call::Tokens(TokensCall::set_balance(who, COLLATERAL_CURRENCY_ID, value, 0)).encode()
+    Call::Tokens(TokensCall::set_balance {
+        who: who,
+        currency_id: COLLATERAL_CURRENCY_ID,
+        new_free: value,
+        new_reserved: 0,
+    })
+    .encode()
 }
 
 fn set_balance_proposal_hash(who: AccountId, value: u128) -> H256 {
@@ -112,30 +118,44 @@ fn remove_vote_and_unlock(account_id: AccountId, index: ReferendumIndex, end_hei
     assert_eq!(get_total_locked(account_of(ALICE)), DEMOCRACY_VOTE_AMOUNT);
     // end height must be >= end + enactment * conviction
     SystemPallet::set_block_number(end_height);
-    assert_ok!(Call::Democracy(DemocracyCall::remove_vote(index)).dispatch(origin_of(account_id.clone())));
-    assert_ok!(Call::Democracy(DemocracyCall::unlock(account_id.clone())).dispatch(origin_of(account_id.clone())));
+    assert_ok!(Call::Democracy(DemocracyCall::remove_vote { index }).dispatch(origin_of(account_id.clone())));
+    assert_ok!(Call::Democracy(DemocracyCall::unlock {
+        target: account_id.clone()
+    })
+    .dispatch(origin_of(account_id.clone())));
     assert_eq!(get_total_locked(account_of(ALICE)), Zero::zero());
 }
 
 fn propose_and_approve_motion(call: Box<Call>) {
-    assert_ok!(Call::Council(CouncilCall::propose(
-        2, // member count
-        call, 100000 // length bound
-    ))
+    assert_ok!(Call::Council(CouncilCall::propose {
+        threshold: 2, // member count
+        proposal: call,
+        length_bound: 100000, // length bound
+    })
     .dispatch(origin_of(account_of(ALICE))));
 
     // unanimous council approves motion
     let (index, hash) = assert_council_proposal_event();
-    assert_ok!(Call::Council(CouncilCall::vote(hash, index, true)).dispatch(origin_of(account_of(ALICE))));
-    assert_ok!(Call::Council(CouncilCall::vote(hash, index, true)).dispatch(origin_of(account_of(BOB))));
+    assert_ok!(Call::Council(CouncilCall::vote {
+        proposal: hash,
+        index: index,
+        approve: true
+    })
+    .dispatch(origin_of(account_of(ALICE))));
+    assert_ok!(Call::Council(CouncilCall::vote {
+        proposal: hash,
+        index: index,
+        approve: true
+    })
+    .dispatch(origin_of(account_of(BOB))));
 
     // vote is approved, should dispatch to democracy
-    assert_ok!(Call::Council(CouncilCall::close(
-        hash,
-        index,
-        10000000000, // weight bound
-        100000       // length bound
-    ))
+    assert_ok!(Call::Council(CouncilCall::close {
+        proposal_hash: hash,
+        index: index,
+        proposal_weight_bound: 10000000000, // weight bound
+        length_bound: 100000                // length bound
+    })
     .dispatch(origin_of(account_of(ALICE))));
 }
 
@@ -145,16 +165,16 @@ fn launch_and_approve_referendum() -> (BlockNumber, ReferendumIndex) {
     let index = assert_democracy_started_event();
 
     // vote overwhelmingly in favour
-    assert_ok!(Call::Democracy(DemocracyCall::vote(
-        index,
-        AccountVote::Standard {
+    assert_ok!(Call::Democracy(DemocracyCall::vote {
+        ref_index: index,
+        vote: AccountVote::Standard {
             vote: Vote {
                 aye: true,
                 conviction: Conviction::Locked1x
             },
             balance: DEMOCRACY_VOTE_AMOUNT,
         }
-    ))
+    })
     .dispatch(origin_of(account_of(ALICE))));
     assert_eq!(get_total_locked(account_of(ALICE)), DEMOCRACY_VOTE_AMOUNT);
 
@@ -162,16 +182,15 @@ fn launch_and_approve_referendum() -> (BlockNumber, ReferendumIndex) {
 }
 
 fn setup_council_proposal(amount_to_set: u128) {
-    assert_ok!(Call::Democracy(DemocracyCall::note_preimage(set_balance_proposal(
-        account_of(EVE),
-        amount_to_set
-    )))
+    assert_ok!(Call::Democracy(DemocracyCall::note_preimage {
+        encoded_proposal: set_balance_proposal(account_of(EVE), amount_to_set)
+    })
     .dispatch(origin_of(account_of(ALICE))));
 
     // create motion to start simple-majority referendum
-    propose_and_approve_motion(Box::new(Call::Democracy(DemocracyCall::external_propose_majority(
-        set_balance_proposal_hash(account_of(EVE), 1000),
-    ))));
+    propose_and_approve_motion(Box::new(Call::Democracy(DemocracyCall::external_propose_majority {
+        proposal_hash: set_balance_proposal_hash(account_of(EVE), 1000),
+    })));
 }
 
 #[test]
@@ -205,35 +224,39 @@ fn integration_test_governance_technical_committee() {
         setup_council_proposal(amount_to_set);
 
         // create motion to fast-track simple-majority referendum
-        assert_ok!(Call::TechnicalCommittee(TechnicalCommitteeCall::propose(
-            2, // member count
-            Box::new(Call::Democracy(DemocracyCall::fast_track(
-                set_balance_proposal_hash(account_of(EVE), 1000),
-                <Runtime as pallet_democracy::Config>::FastTrackVotingPeriod::get(),
-                <Runtime as pallet_democracy::Config>::EnactmentPeriod::get()
-            ))),
-            100000 // length bound
-        ))
+        assert_ok!(Call::TechnicalCommittee(TechnicalCommitteeCall::propose {
+            threshold: 2, // member count
+            proposal: Box::new(Call::Democracy(DemocracyCall::fast_track {
+                proposal_hash: set_balance_proposal_hash(account_of(EVE), 1000),
+                voting_period: <Runtime as pallet_democracy::Config>::FastTrackVotingPeriod::get(),
+                delay: <Runtime as pallet_democracy::Config>::EnactmentPeriod::get()
+            })),
+            length_bound: 100000 // length bound
+        })
         .dispatch(origin_of(account_of(ALICE))));
 
         // unanimous committee approves motion
         let (index, hash) = assert_technical_committee_proposal_event();
-        assert_ok!(
-            Call::TechnicalCommittee(TechnicalCommitteeCall::vote(hash, index, true))
-                .dispatch(origin_of(account_of(ALICE)))
-        );
-        assert_ok!(
-            Call::TechnicalCommittee(TechnicalCommitteeCall::vote(hash, index, true))
-                .dispatch(origin_of(account_of(BOB)))
-        );
+        assert_ok!(Call::TechnicalCommittee(TechnicalCommitteeCall::vote {
+            proposal: hash,
+            index: index,
+            approve: true
+        })
+        .dispatch(origin_of(account_of(ALICE))));
+        assert_ok!(Call::TechnicalCommittee(TechnicalCommitteeCall::vote {
+            proposal: hash,
+            index: index,
+            approve: true
+        })
+        .dispatch(origin_of(account_of(BOB))));
 
         // vote is approved, should dispatch to democracy
-        assert_ok!(Call::TechnicalCommittee(TechnicalCommitteeCall::close(
-            hash,
-            index,
-            10000000000, // weight bound
-            100000       // length bound
-        ))
+        assert_ok!(Call::TechnicalCommittee(TechnicalCommitteeCall::close {
+            proposal_hash: hash,
+            index: index,
+            proposal_weight_bound: 10000000000, // weight bound
+            length_bound: 100000                // length bound
+        })
         .dispatch(origin_of(account_of(ALICE))));
 
         let (_, index) = launch_and_approve_referendum();
@@ -253,25 +276,28 @@ fn integration_test_governance_treasury() {
 
         // fund treasury
         let amount_to_fund = 10000;
-        assert_ok!(Call::Tokens(TokensCall::set_balance(
-            TreasuryPallet::account_id(),
-            NATIVE_CURRENCY_ID,
-            amount_to_fund,
-            0,
-        ))
+        assert_ok!(Call::Tokens(TokensCall::set_balance {
+            who: TreasuryPallet::account_id(),
+            currency_id: NATIVE_CURRENCY_ID,
+            new_free: amount_to_fund,
+            new_reserved: 0,
+        })
         .dispatch(root()));
         assert_eq!(TreasuryPallet::pot(), amount_to_fund);
 
         // proposals should increase by 1
         assert_eq!(TreasuryPallet::proposal_count(), 0);
-        assert_ok!(
-            Call::Treasury(TreasuryCall::propose_spend(amount_to_fund, account_of(BOB)))
-                .dispatch(origin_of(account_of(ALICE)))
-        );
+        assert_ok!(Call::Treasury(TreasuryCall::propose_spend {
+            value: amount_to_fund,
+            beneficiary: account_of(BOB)
+        })
+        .dispatch(origin_of(account_of(ALICE))));
         assert_eq!(TreasuryPallet::proposal_count(), 1);
 
         // create motion to approve treasury spend
-        propose_and_approve_motion(Box::new(Call::Treasury(TreasuryCall::approve_proposal(0))));
+        propose_and_approve_motion(Box::new(Call::Treasury(TreasuryCall::approve_proposal {
+            proposal_id: 0,
+        })));
 
         // bob should receive funds
         TreasuryPallet::spend_funds();
