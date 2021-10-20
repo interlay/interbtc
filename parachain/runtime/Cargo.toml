@@ -102,13 +102,13 @@ module-replace-rpc-runtime-api = { path = "../../crates/replace/rpc/runtime-api"
 module-refund-rpc-runtime-api = { path = "../../crates/refund/rpc/runtime-api", default-features = false }
 
 # Orml dependencies
-orml-tokens = { git = "https://github.com/open-web3-stack/open-runtime-module-library", rev = "d847dbc", default-features = false }
-orml-traits = { git = "https://github.com/open-web3-stack/open-runtime-module-library", rev = "d847dbc", default-features = false }
-orml-vesting = { git = "https://github.com/open-web3-stack/open-runtime-module-library", rev = "d847dbc", default-features = false }
+orml-tokens = { git = "https://github.com/open-web3-stack/open-runtime-module-library", rev = "60dd52aa288ee689da076d03ee72de628efa7ed3", default-features = false }
+orml-traits = { git = "https://github.com/open-web3-stack/open-runtime-module-library", rev = "60dd52aa288ee689da076d03ee72de628efa7ed3", default-features = false }
+orml-vesting = { git = "https://github.com/open-web3-stack/open-runtime-module-library", rev = "60dd52aa288ee689da076d03ee72de628efa7ed3", default-features = false }
 
-orml-xtokens = { git = "https://github.com/open-web3-stack/open-runtime-module-library", rev = "d847dbc", default-features = false }
-orml-xcm-support = { git = "https://github.com/open-web3-stack/open-runtime-module-library", rev = "d847dbc", default-features = false }
-orml-unknown-tokens = { git = "https://github.com/open-web3-stack/open-runtime-module-library", rev = "d847dbc", default-features = false }
+orml-xtokens = { git = "https://github.com/open-web3-stack/open-runtime-module-library", rev = "60dd52aa288ee689da076d03ee72de628efa7ed3", default-features = false }
+orml-xcm-support = { git = "https://github.com/open-web3-stack/open-runtime-module-library", rev = "60dd52aa288ee689da076d03ee72de628efa7ed3", default-features = false }
+orml-unknown-tokens = { git = "https://github.com/open-web3-stack/open-runtime-module-library", rev = "60dd52aa288ee689da076d03ee72de628efa7ed3", default-features = false }
 
 [dev-dependencies]
 hex = '0.4.2'
