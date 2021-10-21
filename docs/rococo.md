@@ -3,9 +3,13 @@
 Install [polkadot-launch](https://github.com/paritytech/polkadot-launch).
 
 ```
+## Manual
 git clone https://github.com/paritytech/polkadot-launch.git
 cd polkadot-launch
 yarn global add file:$(pwd)
+
+## Automatic
+yarn global add polkadot-launch
 ```
 
 Compile and install [polkadot](https://github.com/paritytech/polkadot).
@@ -68,6 +72,7 @@ interbtc-parachain \
     --alice \
     --collator \
     --force-authoring \
+    --chain rococo-local \
     --parachain-id 2000 \
     --port 40335 \
     --ws-port 9946 \
@@ -82,16 +87,12 @@ interbtc-parachain \
 
 ## Register
 
-To register the Parachain, you can use the [Polkadot JS Apps UI](https://polkadot.js.org/apps/#/?rpc=ws://localhost:9944).
+To register the parachain, you can use the [Polkadot JS Apps UI](https://polkadot.js.org/apps/#/?rpc=ws://localhost:9944).
 
-![Reserve ParaId](./img/reserve-paraid.png)
-
-![Register Parathread](./img/register-parathread.png)
-
-![Schedule Parathread Upgrade](./img/sudoScheduleParathreadUpgrade.png)
-
-Add the [types](./types.json) to the developer settings if the app fails to decode any responses.
+![Initialize Parachain](./img/sudoScheduleParaInitialize.png)
 
 Before sending messages between parachains you must first establish a channel.
 
 ![Establish Channel](./img/sudoEstablishHrmpChannel.png)
+
+Add the [types](https://github.com/interlay/interbtc-types) to the developer settings if the app fails to decode any responses.
