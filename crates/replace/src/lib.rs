@@ -73,23 +73,35 @@ pub mod pallet {
     #[pallet::event]
     #[pallet::generate_deposit(pub(super) fn deposit_event)]
     pub enum Event<T: Config> {
-        // [old_vault_id, amount_btc, griefing_collateral]
-        RequestReplace(DefaultVaultId<T>, Wrapped<T>, Collateral<T>),
-        // [old_vault_id, withdrawn_tokens, withdrawn_griefing_collateral]
-        WithdrawReplace(DefaultVaultId<T>, Wrapped<T>, Collateral<T>),
-        // [replace_id, old_vault_id, new_vault_id, amount, collateral, btc_address]
-        AcceptReplace(
-            H256,
-            DefaultVaultId<T>,
-            DefaultVaultId<T>,
-            Wrapped<T>,
-            Collateral<T>,
-            BtcAddress,
-        ),
-        // [replace_id, old_vault_id, new_vault_id]
-        ExecuteReplace(H256, DefaultVaultId<T>, DefaultVaultId<T>),
-        // [replace_id, new_vault_id, old_vault_id, griefing_collateral]
-        CancelReplace(H256, DefaultVaultId<T>, DefaultVaultId<T>, Collateral<T>),
+        RequestReplace {
+            old_vault_id: DefaultVaultId<T>,
+            amount: Wrapped<T>,
+            griefing_collateral: Collateral<T>,
+        },
+        WithdrawReplace {
+            old_vault_id: DefaultVaultId<T>,
+            withdrawn_tokens: Wrapped<T>,
+            withdrawn_griefing_collateral: Collateral<T>,
+        },
+        AcceptReplace {
+            replace_id: H256,
+            old_vault_id: DefaultVaultId<T>,
+            new_vault_id: DefaultVaultId<T>,
+            amount: Wrapped<T>,
+            collateral: Collateral<T>,
+            btc_address: BtcAddress,
+        },
+        ExecuteReplace {
+            replace_id: H256,
+            old_vault_id: DefaultVaultId<T>,
+            new_vault_id: DefaultVaultId<T>,
+        },
+        CancelReplace {
+            replace_id: H256,
+            new_vault_id: DefaultVaultId<T>,
+            old_vault_id: DefaultVaultId<T>,
+            griefing_collateral: Collateral<T>,
+        },
     }
 
     #[pallet::error]
@@ -355,11 +367,11 @@ impl<T: Config> Pallet<T> {
         )?;
 
         // Emit RequestReplace event
-        Self::deposit_event(<Event<T>>::RequestReplace(
-            vault_id,
-            to_be_replaced_increase.amount(),
-            replace_collateral_increase.amount(),
-        ));
+        Self::deposit_event(Event::<T>::RequestReplace {
+            old_vault_id: vault_id,
+            amount: to_be_replaced_increase.amount(),
+            griefing_collateral: replace_collateral_increase.amount(),
+        });
         Ok(())
     }
 
@@ -381,11 +393,11 @@ impl<T: Config> Pallet<T> {
         }
 
         // Emit WithdrawReplaceRequest event.
-        Self::deposit_event(<Event<T>>::WithdrawReplace(
-            vault_id,
-            withdrawn_tokens.amount(),
-            to_withdraw_collateral.amount(),
-        ));
+        Self::deposit_event(Event::<T>::WithdrawReplace {
+            old_vault_id: vault_id,
+            withdrawn_tokens: withdrawn_tokens.amount(),
+            withdrawn_griefing_collateral: to_withdraw_collateral.amount(),
+        });
         Ok(())
     }
 
@@ -463,14 +475,14 @@ impl<T: Config> Pallet<T> {
         Self::insert_replace_request(&replace_id, &replace);
 
         // Emit AcceptReplace event
-        Self::deposit_event(<Event<T>>::AcceptReplace(
-            replace_id,
-            replace.old_vault,
-            replace.new_vault,
-            replace.amount,
-            replace.collateral,
-            replace.btc_address,
-        ));
+        Self::deposit_event(Event::<T>::AcceptReplace {
+            replace_id: replace_id,
+            old_vault_id: replace.old_vault,
+            new_vault_id: replace.new_vault,
+            amount: replace.amount,
+            collateral: replace.collateral,
+            btc_address: replace.btc_address,
+        });
 
         Ok(())
     }
@@ -510,7 +522,11 @@ impl<T: Config> Pallet<T> {
         )?;
 
         // Emit ExecuteReplace event.
-        Self::deposit_event(<Event<T>>::ExecuteReplace(replace_id, old_vault_id, new_vault_id));
+        Self::deposit_event(Event::<T>::ExecuteReplace {
+            replace_id: replace_id,
+            old_vault_id: old_vault_id,
+            new_vault_id: new_vault_id,
+        });
 
         // Remove replace request
         Self::set_replace_status(&replace_id, ReplaceRequestStatus::Completed);
@@ -563,12 +579,12 @@ impl<T: Config> Pallet<T> {
         Self::set_replace_status(&replace_id, ReplaceRequestStatus::Cancelled);
 
         // Emit CancelReplace event.
-        Self::deposit_event(<Event<T>>::CancelReplace(
-            replace_id,
-            new_vault_id,
-            replace.old_vault,
-            replace.griefing_collateral,
-        ));
+        Self::deposit_event(Event::<T>::CancelReplace {
+            replace_id: replace_id,
+            new_vault_id: new_vault_id,
+            old_vault_id: replace.old_vault,
+            griefing_collateral: replace.griefing_collateral,
+        });
         Ok(())
     }
 

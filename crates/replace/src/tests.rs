@@ -69,7 +69,11 @@ mod request_replace_tests {
         run_test(|| {
             setup_mocks();
             assert_ok!(Replace::_request_replace(OLD_VAULT, 1, 10));
-            assert_event_matches!(Event::RequestReplace(OLD_VAULT, 1, 10));
+            assert_event_matches!(Event::RequestReplace {
+                old_vault_id: OLD_VAULT,
+                amount: 1,
+                griefing_collateral: 10
+            });
         })
     }
 
@@ -80,7 +84,11 @@ mod request_replace_tests {
             ext::vault_registry::requestable_to_be_replaced_tokens::<Test>
                 .mock_safe(move |_| MockResult::Return(Ok(wrapped(5))));
             assert_ok!(Replace::_request_replace(OLD_VAULT, 10, 20));
-            assert_event_matches!(Event::RequestReplace(OLD_VAULT, 5, 10));
+            assert_event_matches!(Event::RequestReplace {
+                old_vault_id: OLD_VAULT,
+                amount: 5,
+                griefing_collateral: 10
+            });
         })
     }
 
@@ -135,7 +143,13 @@ mod accept_replace_tests {
                 10,
                 BtcAddress::default()
             ));
-            assert_event_matches!(Event::AcceptReplace(_, OLD_VAULT, NEW_VAULT, 5, 10, addr) if addr == BtcAddress::default());
+            assert_event_matches!(Event::AcceptReplace{
+                replace_id: _, 
+                old_vault_id: OLD_VAULT, 
+                new_vault_id: NEW_VAULT, 
+                amount: 5, 
+                collateral: 10, 
+                btc_address: addr} if addr == BtcAddress::default());
         })
     }
 
@@ -154,7 +168,13 @@ mod accept_replace_tests {
                 10,
                 BtcAddress::default()
             ));
-            assert_event_matches!(Event::AcceptReplace(_, OLD_VAULT, NEW_VAULT, 4, 8, addr) if addr == BtcAddress::default());
+            assert_event_matches!(Event::AcceptReplace{
+                replace_id: _, 
+                old_vault_id: OLD_VAULT, 
+                new_vault_id: NEW_VAULT, 
+                amount: 4, 
+                collateral: 8, 
+                btc_address: addr} if addr == BtcAddress::default());
         })
     }
 
@@ -201,7 +221,11 @@ mod execute_replace_test {
         run_test(|| {
             setup_mocks();
             assert_ok!(Replace::_execute_replace(H256::zero(), Vec::new(), Vec::new()));
-            assert_event_matches!(Event::ExecuteReplace(_, OLD_VAULT, NEW_VAULT));
+            assert_event_matches!(Event::ExecuteReplace {
+                replace_id: _,
+                old_vault_id: OLD_VAULT,
+                new_vault_id: NEW_VAULT
+            });
         })
     }
 }
@@ -230,7 +254,12 @@ mod cancel_replace_tests {
         run_test(|| {
             setup_mocks();
             assert_ok!(Replace::_cancel_replace(NEW_VAULT.account_id, H256::zero(),));
-            assert_event_matches!(Event::CancelReplace(_, NEW_VAULT, OLD_VAULT, _));
+            assert_event_matches!(Event::CancelReplace {
+                replace_id: _,
+                new_vault_id: NEW_VAULT,
+                old_vault_id: OLD_VAULT,
+                griefing_collateral: _
+            });
         })
     }
 

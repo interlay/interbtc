@@ -43,7 +43,7 @@ pub fn assert_accept_replace_event() -> H256 {
         .iter()
         .rev()
         .find_map(|record| match record.event {
-            Event::Replace(ReplaceEvent::AcceptReplace(id, _, _, _, _, _)) => Some(id),
+            Event::Replace(ReplaceEvent::AcceptReplace { replace_id, .. }) => Some(replace_id),
             _ => None,
         })
         .unwrap()
