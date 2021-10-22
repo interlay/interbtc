@@ -78,7 +78,10 @@ pub mod pallet {
     #[pallet::generate_deposit(pub(super) fn deposit_event)]
     pub enum Event<T: Config> {
         /// Event emitted when exchange rate is set
-        FeedValues(T::AccountId, Vec<(OracleKey, T::UnsignedFixedPoint)>),
+        FeedValues {
+            oracle_id: T::AccountId,
+            values: Vec<(OracleKey, T::UnsignedFixedPoint)>,
+        },
     }
 
     #[pallet::error]
@@ -272,7 +275,10 @@ impl<T: Config> Pallet<T> {
             RawValuesUpdated::<T>::insert(key, true);
         }
 
-        Self::deposit_event(Event::<T>::FeedValues(oracle, values));
+        Self::deposit_event(Event::<T>::FeedValues {
+            oracle_id: oracle,
+            values,
+        });
 
         Ok(())
     }
