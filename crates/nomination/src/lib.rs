@@ -64,14 +64,22 @@ pub mod pallet {
     #[pallet::event]
     #[pallet::generate_deposit(pub(super) fn deposit_event)]
     pub enum Event<T: Config> {
-        // [vault_id]
-        NominationOptIn(DefaultVaultId<T>),
-        // [vault_id]
-        NominationOptOut(DefaultVaultId<T>),
-        // [vault_id, nominator_id, collateral]
-        DepositCollateral(DefaultVaultId<T>, T::AccountId, Collateral<T>),
-        // [vault_id, nominator_id, collateral]
-        WithdrawCollateral(DefaultVaultId<T>, T::AccountId, Collateral<T>),
+        NominationOptIn {
+            vault_id: DefaultVaultId<T>,
+        },
+        NominationOptOut {
+            vault_id: DefaultVaultId<T>,
+        },
+        DepositCollateral {
+            vault_id: DefaultVaultId<T>,
+            nominator_id: T::AccountId,
+            amount: Collateral<T>,
+        },
+        WithdrawCollateral {
+            vault_id: DefaultVaultId<T>,
+            nominator_id: T::AccountId,
+            amount: Collateral<T>,
+        },
     }
 
     #[pallet::error]
@@ -235,11 +243,11 @@ impl<T: Config> Pallet<T> {
         amount.unlock_on(&vault_id.account_id)?;
         amount.transfer(&vault_id.account_id, &nominator_id)?;
 
-        Self::deposit_event(Event::<T>::WithdrawCollateral(
-            vault_id.clone(),
-            nominator_id.clone(),
-            amount.amount(),
-        ));
+        Self::deposit_event(Event::<T>::WithdrawCollateral {
+            vault_id: vault_id.clone(),
+            nominator_id: nominator_id.clone(),
+            amount: amount.amount(),
+        });
         Ok(())
     }
 
@@ -272,11 +280,11 @@ impl<T: Config> Pallet<T> {
         amount.lock_on(&vault_id.account_id)?;
         ext::vault_registry::try_increase_total_backing_collateral(&vault_id.currencies, &amount)?;
 
-        Self::deposit_event(Event::<T>::DepositCollateral(
-            vault_id.clone(),
-            nominator_id.clone(),
-            amount.amount(),
-        ));
+        Self::deposit_event(Event::<T>::DepositCollateral {
+            vault_id: vault_id.clone(),
+            nominator_id: nominator_id.clone(),
+            amount: amount.amount(),
+        });
         Ok(())
     }
 
@@ -295,7 +303,9 @@ impl<T: Config> Pallet<T> {
             Error::<T>::VaultAlreadyOptedInToNomination
         );
         <Vaults<T>>::insert(vault_id, true);
-        Self::deposit_event(Event::<T>::NominationOptIn(vault_id.clone()));
+        Self::deposit_event(Event::<T>::NominationOptIn {
+            vault_id: vault_id.clone(),
+        });
         Ok(())
     }
 
@@ -317,7 +327,9 @@ impl<T: Config> Pallet<T> {
         ext::vault_registry::decrease_total_backing_collateral(&vault_id.currencies, &refunded_collateral)?;
 
         <Vaults<T>>::remove(vault_id);
-        Self::deposit_event(Event::<T>::NominationOptOut(vault_id.clone()));
+        Self::deposit_event(Event::<T>::NominationOptOut {
+            vault_id: vault_id.clone(),
+        });
         Ok(())
     }
 
