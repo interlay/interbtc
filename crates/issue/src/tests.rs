@@ -136,16 +136,16 @@ fn test_request_issue_succeeds() {
 
         let issue_id = request_issue_ok(origin, amount, vault.clone(), issue_griefing_collateral);
 
-        let request_issue_event = TestEvent::Issue(Event::RequestIssue(
+        let request_issue_event = TestEvent::Issue(Event::RequestIssue {
             issue_id,
-            origin,
-            amount - issue_fee,
-            issue_fee,
-            issue_griefing_collateral,
-            vault,
-            BtcAddress::default(),
-            BtcPublicKey::default(),
-        ));
+            requester: origin,
+            amount: amount - issue_fee,
+            fee: issue_fee,
+            griefing_collateral: issue_griefing_collateral,
+            vault_id: vault,
+            vault_address: BtcAddress::default(),
+            vault_public_key: BtcPublicKey::default(),
+        });
         assert!(System::events().iter().any(|a| a.event == request_issue_event));
     })
 }
@@ -181,7 +181,13 @@ fn test_execute_issue_succeeds() {
 
         assert_ok!(execute_issue(USER, &issue_id));
 
-        let execute_issue_event = TestEvent::Issue(Event::ExecuteIssue(issue_id, USER, VAULT, 3, 1));
+        let execute_issue_event = TestEvent::Issue(Event::ExecuteIssue {
+            issue_id,
+            requester: USER,
+            vault_id: VAULT,
+            amount: 3,
+            fee: 1,
+        });
         assert!(System::events().iter().any(|a| a.event == execute_issue_event));
 
         assert_noop!(cancel_issue(USER, &issue_id), TestError::IssueCompleted);
