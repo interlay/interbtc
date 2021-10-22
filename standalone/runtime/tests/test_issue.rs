@@ -419,6 +419,36 @@ mod request_issue_tests {
             assert_eq!(issue, expected_issue);
         });
     }
+
+    #[test]
+    fn integration_test_liquidating_one_collateral_currency_does_not_impact_other_currencies() {
+        test_with_initialized_vault(|vault_id| {
+            let amount_btc = vault_id.wrapped(10000);
+            let griefing_collateral = griefing(100);
+
+            let different_collateral = match vault_id.currencies.collateral {
+                CurrencyId::KSM => CurrencyId::DOT,
+                _ => CurrencyId::KSM,
+            };
+            let different_collateral_vault_id = PrimitiveVaultId::new(
+                vault_id.account_id.clone(),
+                different_collateral.clone(),
+                vault_id.currencies.wrapped.clone(),
+            );
+            CoreVaultData::force_to(
+                &different_collateral_vault_id,
+                default_vault_state(&different_collateral_vault_id),
+            );
+
+            liquidate_vault(&vault_id);
+            assert_ok!(Call::Issue(IssueCall::request_issue {
+                amount: amount_btc.amount(),
+                vault_id: different_collateral_vault_id.clone(),
+                griefing_collateral: griefing_collateral.amount()
+            })
+            .dispatch(origin_of(account_of(ALICE))));
+        });
+    }
 }
 
 #[test]
