@@ -207,16 +207,32 @@ pub mod pallet {
     #[pallet::event]
     #[pallet::generate_deposit(pub(super) fn deposit_event)]
     pub enum Event<T: Config> {
-        /// block_height, block_header_hash, relayer_id
-        Initialized(u32, H256Le, T::AccountId),
-        /// new chain height, block_header_hash, relayer_id
-        StoreMainChainHeader(u32, H256Le, T::AccountId),
-        /// chain_id, fork height, block_header_hash, relayer_id
-        StoreForkHeader(u32, u32, H256Le, T::AccountId),
-        /// new_chain_tip, chain height, fork_depth
-        ChainReorg(H256Le, u32, u32),
-        /// main chain height, fork height, fork id
-        ForkAheadOfMainChain(u32, u32, u32),
+        Initialized {
+            block_height: u32,
+            block_hash: H256Le,
+            relayer_id: T::AccountId,
+        },
+        StoreMainChainHeader {
+            block_height: u32,
+            block_hash: H256Le,
+            relayer_id: T::AccountId,
+        },
+        StoreForkHeader {
+            chain_id: u32,
+            fork_height: u32,
+            block_hash: H256Le,
+            relay_id: T::AccountId,
+        },
+        ChainReorg {
+            new_head_hash: H256Le,
+            new_height: u32,
+            fork_depth: u32,
+        },
+        ForkAheadOfMainChain {
+            main_chain_height: u32,
+            fork_height: u32,
+            fork_id: u32,
+        },
     }
 
     #[pallet::error]
@@ -459,7 +475,11 @@ impl<T: Config> Pallet<T> {
         StartBlockHeight::<T>::set(block_height);
 
         // Emit a Initialized Event
-        Self::deposit_event(<Event<T>>::Initialized(block_height, basic_block_header.hash, relayer));
+        Self::deposit_event(Event::<T>::Initialized {
+            block_height,
+            block_hash: basic_block_header.hash,
+            relayer_id: relayer,
+        });
 
         Ok(())
     }
@@ -531,19 +551,19 @@ impl<T: Config> Pallet<T> {
 
         if current_best_block == basic_block_header.hash {
             // extends the main chain
-            Self::deposit_event(<Event<T>>::StoreMainChainHeader(
-                current_block_height,
-                basic_block_header.hash,
-                relayer.clone(),
-            ));
+            Self::deposit_event(Event::<T>::StoreMainChainHeader {
+                block_height: current_block_height,
+                block_hash: basic_block_header.hash,
+                relayer_id: relayer.clone(),
+            });
         } else {
             // created a new fork or updated an existing one
-            Self::deposit_event(<Event<T>>::StoreForkHeader(
+            Self::deposit_event(Event::<T>::StoreForkHeader {
                 chain_id,
-                current_block_height,
-                basic_block_header.hash,
-                relayer.clone(),
-            ));
+                fork_height: current_block_height,
+                block_hash: basic_block_header.hash,
+                relay_id: relayer.clone(),
+            });
         };
 
         Ok(())
@@ -1214,13 +1234,17 @@ impl<T: Config> Pallet<T> {
 
                         // announce the new main chain
                         let fork_depth = fork.max_height - fork.start_height;
-                        Self::deposit_event(<Event<T>>::ChainReorg(new_chain_tip, block_height, fork_depth));
+                        Self::deposit_event(Event::<T>::ChainReorg {
+                            new_head_hash: new_chain_tip,
+                            new_height: block_height,
+                            fork_depth,
+                        });
                     } else {
-                        Self::deposit_event(<Event<T>>::ForkAheadOfMainChain(
-                            prev_height,     // main chain height
-                            fork.max_height, // fork height
-                            fork.chain_id,   // fork id
-                        ));
+                        Self::deposit_event(Event::<T>::ForkAheadOfMainChain {
+                            main_chain_height: prev_height,
+                            fork_height: fork.max_height,
+                            fork_id: fork.chain_id,
+                        });
                     }
                     // successful reorg
                     break;

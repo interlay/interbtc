@@ -963,8 +963,12 @@ pub fn required_collateral_for_issue(issued_tokens: Amount<Runtime>, currency_id
     VaultRegistryPallet::get_required_collateral_for_wrapped(&total_amount_btc, currency_id).unwrap()
 }
 
-pub fn assert_store_main_chain_header_event(height: u32, hash: H256Le, relayer: AccountId) {
-    let store_event = Event::BTCRelay(BTCRelayEvent::StoreMainChainHeader(height, hash, relayer));
+pub fn assert_store_main_chain_header_event(block_height: u32, block_hash: H256Le, relayer_id: AccountId) {
+    let store_event = Event::BTCRelay(BTCRelayEvent::StoreMainChainHeader {
+        block_height,
+        block_hash,
+        relayer_id,
+    });
     let events = SystemPallet::events();
 
     // store only main chain header
