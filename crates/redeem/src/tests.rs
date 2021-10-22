@@ -218,18 +218,18 @@ fn test_request_redeem_succeeds_with_normal_redeem() {
             VAULT
         ));
 
-        assert_emitted!(Event::RequestRedeem(
-            H256([0; 32]),
+        assert_emitted!(Event::RequestRedeem {
+            redeem_id: H256([0; 32]),
             redeemer,
-            amount - redeem_fee - btc_fee.amount(),
-            redeem_fee,
-            0,
-            VAULT,
-            BtcAddress::P2PKH(H160::zero()),
-            Redeem::get_current_inclusion_fee(DEFAULT_WRAPPED_CURRENCY)
+            amount: amount - redeem_fee - btc_fee.amount(),
+            fee: redeem_fee,
+            premium: 0,
+            vault_id: VAULT,
+            btc_address: BtcAddress::P2PKH(H160::zero()),
+            transfer_fee: Redeem::get_current_inclusion_fee(DEFAULT_WRAPPED_CURRENCY)
                 .unwrap()
                 .amount()
-        ));
+        });
         assert_ok!(
             Redeem::get_open_redeem_request_from_id(&H256([0; 32])),
             RedeemRequest {
@@ -300,18 +300,18 @@ fn test_request_redeem_succeeds_with_self_redeem() {
             VAULT
         ));
 
-        assert_emitted!(Event::RequestRedeem(
-            H256::zero(),
+        assert_emitted!(Event::RequestRedeem {
+            redeem_id: H256::zero(),
             redeemer,
-            amount - btc_fee.amount(),
-            0,
-            0,
-            VAULT,
-            BtcAddress::P2PKH(H160::zero()),
-            Redeem::get_current_inclusion_fee(DEFAULT_WRAPPED_CURRENCY)
+            amount: amount - btc_fee.amount(),
+            fee: 0,
+            premium: 0,
+            vault_id: VAULT,
+            btc_address: BtcAddress::P2PKH(H160::zero()),
+            transfer_fee: Redeem::get_current_inclusion_fee(DEFAULT_WRAPPED_CURRENCY)
                 .unwrap()
                 .amount()
-        ));
+        });
         assert_ok!(
             Redeem::get_open_redeem_request_from_id(&H256::zero()),
             RedeemRequest {
@@ -445,14 +445,14 @@ fn test_execute_redeem_succeeds_with_another_account() {
             Vec::default(),
             Vec::default()
         ));
-        assert_emitted!(Event::ExecuteRedeem(
-            H256([0; 32]),
-            USER,
-            VAULT,
-            100,
-            0,
-            btc_fee.amount(),
-        ));
+        assert_emitted!(Event::ExecuteRedeem {
+            redeem_id: H256([0; 32]),
+            redeemer: USER,
+            vault_id: VAULT,
+            amount: 100,
+            fee: 0,
+            transfer_fee: btc_fee.amount(),
+        });
         assert_err!(
             Redeem::get_open_redeem_request_from_id(&H256([0u8; 32])),
             TestError::RedeemCompleted,
@@ -526,14 +526,14 @@ fn test_execute_redeem_succeeds() {
             Vec::default(),
             Vec::default()
         ));
-        assert_emitted!(Event::ExecuteRedeem(
-            H256([0; 32]),
-            USER,
-            VAULT,
-            100,
-            0,
-            btc_fee.amount(),
-        ));
+        assert_emitted!(Event::ExecuteRedeem {
+            redeem_id: H256([0; 32]),
+            redeemer: USER,
+            vault_id: VAULT,
+            amount: 100,
+            fee: 0,
+            transfer_fee: btc_fee.amount(),
+        });
         assert_err!(
             Redeem::get_open_redeem_request_from_id(&H256([0u8; 32])),
             TestError::RedeemCompleted,
@@ -654,13 +654,13 @@ fn test_cancel_redeem_succeeds() {
             Redeem::get_open_redeem_request_from_id(&H256([0u8; 32])),
             TestError::RedeemCancelled,
         );
-        assert_emitted!(Event::CancelRedeem(
-            H256([0; 32]),
-            USER,
-            VAULT,
-            1,
-            RedeemRequestStatus::Retried
-        ));
+        assert_emitted!(Event::CancelRedeem {
+            redeem_id: H256([0; 32]),
+            redeemer: USER,
+            vault_id: VAULT,
+            slashed_amount: 1,
+            status: RedeemRequestStatus::Retried
+        });
     })
 }
 
@@ -880,14 +880,14 @@ mod spec_based_tests {
                 Vec::default(),
                 Vec::default()
             ));
-            assert_emitted!(Event::ExecuteRedeem(
-                H256([0; 32]),
-                USER,
-                VAULT,
-                100,
-                0,
-                btc_fee.amount(),
-            ));
+            assert_emitted!(Event::ExecuteRedeem {
+                redeem_id: H256([0; 32]),
+                redeemer: USER,
+                vault_id: VAULT,
+                amount: 100,
+                fee: 0,
+                transfer_fee: btc_fee.amount(),
+            });
             assert_err!(
                 Redeem::get_open_redeem_request_from_id(&H256([0u8; 32])),
                 TestError::RedeemCompleted,
@@ -949,13 +949,13 @@ mod spec_based_tests {
                 Redeem::get_open_redeem_request_from_id(&H256([0u8; 32])),
                 TestError::RedeemCancelled,
             );
-            assert_emitted!(Event::CancelRedeem(
-                H256([0; 32]),
-                USER,
-                VAULT,
-                14,
-                RedeemRequestStatus::Reimbursed(true)
-            ));
+            assert_emitted!(Event::CancelRedeem {
+                redeem_id: H256([0; 32]),
+                redeemer: USER,
+                vault_id: VAULT,
+                slashed_amount: 14,
+                status: RedeemRequestStatus::Reimbursed(true)
+            });
         })
     }
 
@@ -1014,13 +1014,13 @@ mod spec_based_tests {
                 Redeem::get_open_redeem_request_from_id(&H256([0u8; 32])),
                 TestError::RedeemCancelled,
             );
-            assert_emitted!(Event::CancelRedeem(
-                H256([0; 32]),
-                USER,
-                VAULT,
-                14,
-                RedeemRequestStatus::Reimbursed(false)
-            ));
+            assert_emitted!(Event::CancelRedeem {
+                redeem_id: H256([0; 32]),
+                redeemer: USER,
+                vault_id: VAULT,
+                slashed_amount: 14,
+                status: RedeemRequestStatus::Reimbursed(false)
+            });
         })
     }
 }
