@@ -66,18 +66,35 @@ pub mod pallet {
     #[pallet::event]
     #[pallet::generate_deposit(pub(crate) fn deposit_event)]
     pub enum Event<T: Config> {
-        DepositStake(DefaultVaultId<T>, T::AccountId, T::SignedFixedPoint),
-        DistributeReward(T::CurrencyId, DefaultVaultId<T>, T::SignedFixedPoint),
-        WithdrawStake(DefaultVaultId<T>, T::AccountId, T::SignedFixedPoint),
-        WithdrawReward(
-            T::Index,
-            T::CurrencyId,
-            DefaultVaultId<T>,
-            T::AccountId,
-            T::SignedFixedPoint,
-        ),
-        ForceRefund(DefaultVaultId<T>),
-        IncreaseNonce(DefaultVaultId<T>, T::Index),
+        DepositStake {
+            vault_id: DefaultVaultId<T>,
+            nominator_id: T::AccountId,
+            amount: T::SignedFixedPoint,
+        },
+        DistributeReward {
+            currency_id: T::CurrencyId,
+            vault_id: DefaultVaultId<T>,
+            amount: T::SignedFixedPoint,
+        },
+        WithdrawStake {
+            vault_id: DefaultVaultId<T>,
+            nominator_id: T::AccountId,
+            amount: T::SignedFixedPoint,
+        },
+        WithdrawReward {
+            nonce: T::Index,
+            currency_id: T::CurrencyId,
+            vault_id: DefaultVaultId<T>,
+            nominator_id: T::AccountId,
+            amount: T::SignedFixedPoint,
+        },
+        ForceRefund {
+            vault_id: DefaultVaultId<T>,
+        },
+        IncreaseNonce {
+            vault_id: DefaultVaultId<T>,
+            new_nonce: T::Index,
+        },
     }
 
     #[pallet::error]
@@ -336,7 +353,11 @@ impl<T: Config> Pallet<T> {
             })?;
         }
 
-        Self::deposit_event(Event::<T>::DepositStake(vault_id.clone(), nominator_id.clone(), amount));
+        Self::deposit_event(Event::<T>::DepositStake {
+            vault_id: vault_id.clone(),
+            nominator_id: nominator_id.clone(),
+            amount,
+        });
         Ok(())
     }
 
@@ -455,7 +476,11 @@ impl<T: Config> Pallet<T> {
         }
         checked_add_mut!(TotalRewards<T>, currency_id, (nonce, vault_id), &reward);
 
-        Self::deposit_event(Event::<T>::DistributeReward(currency_id, vault_id.clone(), reward));
+        Self::deposit_event(Event::<T>::DistributeReward {
+            currency_id,
+            vault_id: vault_id.clone(),
+            amount: reward,
+        });
         Ok(reward)
     }
 
@@ -564,11 +589,11 @@ impl<T: Config> Pallet<T> {
             })?;
         }
 
-        Self::deposit_event(Event::<T>::WithdrawStake(
-            vault_id.clone(),
-            nominator_id.clone(),
+        Self::deposit_event(Event::<T>::WithdrawStake {
+            vault_id: vault_id.clone(),
+            nominator_id: nominator_id.clone(),
             amount,
-        ));
+        });
         Ok(())
     }
 
@@ -602,13 +627,13 @@ impl<T: Config> Pallet<T> {
                 .checked_mul(&reward_per_token)
                 .ok_or(Error::<T>::ArithmeticOverflow)?,
         );
-        Self::deposit_event(Event::<T>::WithdrawReward(
+        Self::deposit_event(Event::<T>::WithdrawReward {
             nonce,
             currency_id,
-            vault_id.clone(),
-            nominator_id.clone(),
-            reward_as_fixed,
-        ));
+            vault_id: vault_id.clone(),
+            nominator_id: nominator_id.clone(),
+            amount: reward_as_fixed,
+        });
         Ok(reward)
     }
 
@@ -633,7 +658,9 @@ impl<T: Config> Pallet<T> {
 
         // only deposit vault stake after increasing the nonce
         Self::deposit_stake(vault_id, &vault_id.account_id, stake)?;
-        Self::deposit_event(Event::<T>::ForceRefund(vault_id.clone()));
+        Self::deposit_event(Event::<T>::ForceRefund {
+            vault_id: vault_id.clone(),
+        });
 
         let refunded_collateral = total_current_stake
             .checked_sub(&stake)
@@ -651,7 +678,10 @@ impl<T: Config> Pallet<T> {
                 .ok_or(Error::<T>::ArithmeticOverflow)?;
             Ok::<_, Error<T>>(())
         })?;
-        Self::deposit_event(Event::<T>::IncreaseNonce(vault_id.clone(), Self::nonce(vault_id)));
+        Self::deposit_event(Event::<T>::IncreaseNonce {
+            vault_id: vault_id.clone(),
+            new_nonce: Self::nonce(vault_id),
+        });
         Ok(())
     }
 }
