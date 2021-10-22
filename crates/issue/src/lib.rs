@@ -67,22 +67,34 @@ pub mod pallet {
     #[pallet::event]
     #[pallet::generate_deposit(pub(super) fn deposit_event)]
     pub enum Event<T: Config> {
-        RequestIssue(
-            H256,              // issue_id
-            T::AccountId,      // requester
-            Wrapped<T>,        // amount
-            Wrapped<T>,        // fee
-            Collateral<T>,     // griefing_collateral
-            DefaultVaultId<T>, // vault_id
-            BtcAddress,        // vault deposit address
-            BtcPublicKey,      // vault public key
-        ),
-        // issue_id, amount, fee, confiscated_griefing_collateral
-        IssueAmountChange(H256, Wrapped<T>, Wrapped<T>, Collateral<T>),
-        // [issue_id, requester, vault, executed_amount, fee]
-        ExecuteIssue(H256, T::AccountId, DefaultVaultId<T>, Wrapped<T>, Wrapped<T>),
-        // [issue_id, requester, griefing_collateral]
-        CancelIssue(H256, T::AccountId, Collateral<T>),
+        RequestIssue {
+            issue_id: H256,
+            requester: T::AccountId,
+            amount: Wrapped<T>,
+            fee: Wrapped<T>,
+            griefing_collateral: Collateral<T>,
+            vault_id: DefaultVaultId<T>,
+            vault_address: BtcAddress,
+            vault_public_key: BtcPublicKey,
+        },
+        IssueAmountChange {
+            issue_id: H256,
+            amount: Wrapped<T>,
+            fee: Wrapped<T>,
+            confiscated_griefing_collateral: Collateral<T>,
+        },
+        ExecuteIssue {
+            issue_id: H256,
+            requester: T::AccountId,
+            vault_id: DefaultVaultId<T>,
+            amount: Wrapped<T>,
+            fee: Wrapped<T>,
+        },
+        CancelIssue {
+            issue_id: H256,
+            requester: T::AccountId,
+            griefing_collateral: Collateral<T>,
+        },
     }
 
     #[pallet::error]
@@ -312,16 +324,16 @@ impl<T: Config> Pallet<T> {
         };
         Self::insert_issue_request(&issue_id, &request);
 
-        Self::deposit_event(<Event<T>>::RequestIssue(
+        Self::deposit_event(Event::RequestIssue {
             issue_id,
-            request.requester,
-            request.amount,
-            request.fee,
-            request.griefing_collateral,
-            request.vault,
-            request.btc_address,
-            request.btc_public_key,
-        ));
+            requester: request.requester,
+            amount: request.amount,
+            fee: request.fee,
+            griefing_collateral: request.griefing_collateral,
+            vault_id: request.vault,
+            vault_address: request.btc_address,
+            vault_public_key: request.btc_public_key,
+        });
         Ok(issue_id)
     }
 
@@ -436,13 +448,13 @@ impl<T: Config> Pallet<T> {
 
         Self::set_issue_status(issue_id, IssueRequestStatus::Completed(maybe_refund_id));
 
-        Self::deposit_event(<Event<T>>::ExecuteIssue(
+        Self::deposit_event(Event::ExecuteIssue {
             issue_id,
             requester,
-            issue.vault,
-            total.amount(),
-            issue.fee,
-        ));
+            vault_id: issue.vault,
+            amount: total.amount(),
+            fee: issue.fee,
+        });
         Ok(())
     }
 
@@ -480,7 +492,11 @@ impl<T: Config> Pallet<T> {
         }
         Self::set_issue_status(issue_id, IssueRequestStatus::Cancelled);
 
-        Self::deposit_event(<Event<T>>::CancelIssue(issue_id, requester, issue.griefing_collateral));
+        Self::deposit_event(Event::CancelIssue {
+            issue_id,
+            requester,
+            griefing_collateral: issue.griefing_collateral,
+        });
         Ok(())
     }
 
@@ -537,12 +553,12 @@ impl<T: Config> Pallet<T> {
             });
         });
 
-        Self::deposit_event(<Event<T>>::IssueAmountChange(
-            *issue_id,
-            issue.amount,
-            issue.fee,
-            confiscated_griefing_collateral.amount(),
-        ));
+        Self::deposit_event(Event::IssueAmountChange {
+            issue_id: *issue_id,
+            amount: issue.amount,
+            fee: issue.fee,
+            confiscated_griefing_collateral: confiscated_griefing_collateral.amount(),
+        });
 
         Ok(())
     }

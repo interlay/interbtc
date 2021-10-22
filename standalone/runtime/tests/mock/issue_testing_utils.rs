@@ -169,8 +169,12 @@ pub fn assert_issue_amount_change_event(
     fee: Amount<Runtime>,
     confiscated_collateral: Amount<Runtime>,
 ) {
-    let expected_event =
-        IssueEvent::IssueAmountChange(issue_id, amount.amount(), fee.amount(), confiscated_collateral.amount());
+    let expected_event = IssueEvent::IssueAmountChange {
+        issue_id,
+        amount: amount.amount(),
+        fee: fee.amount(),
+        confiscated_griefing_collateral: confiscated_collateral.amount(),
+    };
     let events = SystemPallet::events();
     let records: Vec<_> = events
         .iter()
@@ -182,14 +186,12 @@ pub fn assert_issue_amount_change_event(
 
 pub fn assert_issue_request_event() -> H256 {
     let events = SystemPallet::events();
-    let record = events.iter().rev().find(|record| {
-        matches!(
-            record.event,
-            Event::Issue(IssueEvent::RequestIssue(_, _, _, _, _, _, _, _))
-        )
-    });
-    if let Event::Issue(IssueEvent::RequestIssue(id, _, _, _, _, _, _, _)) = record.unwrap().event {
-        id
+    let record = events
+        .iter()
+        .rev()
+        .find(|record| matches!(record.event, Event::Issue(IssueEvent::RequestIssue { .. })));
+    if let Event::Issue(IssueEvent::RequestIssue { issue_id, .. }) = record.unwrap().event {
+        issue_id
     } else {
         panic!("request issue event not found")
     }
