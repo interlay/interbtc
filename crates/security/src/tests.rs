@@ -97,7 +97,10 @@ where
         assert_eq!(Security::get_errors().contains(&err), false);
     }
     assert_eq!(Security::get_parachain_status(), StatusCode::Running);
-    assert_emitted!(Event::RecoverFromErrors(StatusCode::Running, error_codes));
+    assert_emitted!(Event::RecoverFromErrors {
+        new_status: StatusCode::Running,
+        cleared_errors: error_codes
+    });
 }
 
 #[test]
