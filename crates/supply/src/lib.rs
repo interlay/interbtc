@@ -71,7 +71,7 @@ pub mod pallet {
     #[pallet::event]
     #[pallet::generate_deposit(pub(crate) fn deposit_event)]
     pub enum Event<T: Config> {
-        Inflation(BalanceOf<T>),
+        Inflation { total_inflation: BalanceOf<T> },
     }
 
     #[pallet::error]
@@ -170,7 +170,7 @@ impl<T: Config> Pallet<T> {
 
             <LastEmission<T>>::put(total_inflation);
             T::Currency::deposit_creating(&Self::supply_pallet_id(), total_inflation);
-            Self::deposit_event(<Event<T>>::Inflation(total_inflation));
+            Self::deposit_event(Event::<T>::Inflation { total_inflation });
         }
     }
 }
