@@ -49,11 +49,16 @@ fn test_refund_succeeds() {
             })
             .unwrap();
         let refund_id = match captured_event {
-            Event::<Test>::RequestRefund(refund_id, issuer, 994, vault, _btc_address, issue, 5, 1)
-                if issuer == USER && vault == VAULT && issue == issue_id =>
-            {
-                Some(refund_id)
-            }
+            Event::<Test>::RequestRefund {
+                refund_id,
+                issuer,
+                amount: 994,
+                vault_id,
+                btc_address: _,
+                issue_id: issue,
+                fee: 5,
+                transfer_fee: 1,
+            } if issuer == USER && vault_id == VAULT && issue == issue_id => Some(refund_id),
             _ => None,
         }
         .unwrap();

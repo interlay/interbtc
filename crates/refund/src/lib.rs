@@ -60,19 +60,23 @@ pub mod pallet {
     #[pallet::event]
     #[pallet::generate_deposit(pub(super) fn deposit_event)]
     pub enum Event<T: Config> {
-        /// refund_id, issuer, amount_without_fee, vault, btc_address, issue_id, fee, transfer_fee
-        RequestRefund(
-            H256,
-            T::AccountId,
-            Wrapped<T>,
-            DefaultVaultId<T>,
-            BtcAddress,
-            H256,
-            Wrapped<T>,
-            Wrapped<T>,
-        ),
-        /// refund_id, issuer, vault, amount, fee
-        ExecuteRefund(H256, T::AccountId, DefaultVaultId<T>, Wrapped<T>, Wrapped<T>),
+        RequestRefund {
+            refund_id: H256,
+            issuer: T::AccountId,
+            amount: Wrapped<T>,
+            vault_id: DefaultVaultId<T>,
+            btc_address: BtcAddress,
+            issue_id: H256,
+            fee: Wrapped<T>,
+            transfer_fee: Wrapped<T>,
+        },
+        ExecuteRefund {
+            refund_id: H256,
+            issuer: T::AccountId,
+            vault_id: DefaultVaultId<T>,
+            amount: Wrapped<T>,
+            fee: Wrapped<T>,
+        },
     }
 
     #[pallet::error]
@@ -208,16 +212,16 @@ impl<T: Config> Pallet<T> {
         };
         Self::insert_refund_request(&refund_id, &request);
 
-        Self::deposit_event(<Event<T>>::RequestRefund(
-            refund_id,
-            request.issuer,
-            request.amount_btc,
-            request.vault,
-            request.btc_address,
-            request.issue_id,
-            request.fee,
-            request.transfer_fee_btc,
-        ));
+        Self::deposit_event(Event::<T>::RequestRefund {
+            refund_id: refund_id,
+            issuer: request.issuer,
+            amount: request.amount_btc,
+            vault_id: request.vault,
+            btc_address: request.btc_address,
+            issue_id: request.issue_id,
+            fee: request.fee,
+            transfer_fee: request.transfer_fee_btc,
+        });
 
         Ok(Some(refund_id))
     }
@@ -259,13 +263,13 @@ impl<T: Config> Pallet<T> {
             });
         });
 
-        Self::deposit_event(<Event<T>>::ExecuteRefund(
-            refund_id,
-            request.issuer,
-            request.vault,
-            request.amount_btc,
-            request.fee,
-        ));
+        Self::deposit_event(Event::<T>::ExecuteRefund {
+            refund_id: refund_id,
+            issuer: request.issuer,
+            vault_id: request.vault,
+            amount: request.amount_btc,
+            fee: request.fee,
+        });
 
         Ok(())
     }
