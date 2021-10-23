@@ -143,7 +143,7 @@ fn test_report_vault_theft_succeeds() {
         // check that the event has been emitted
         assert!(System::events()
             .iter()
-            .any(|a| matches!(a.event, TestEvent::Relay(Event::VaultTheft(ref id, _)) if id == &BOB)));
+            .any(|a| matches!(a.event, TestEvent::Relay(Event::VaultTheft{ref vault_id,..}) if vault_id == &BOB)));
     })
 }
 

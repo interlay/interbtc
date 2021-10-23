@@ -72,8 +72,15 @@ pub mod pallet {
     #[pallet::event]
     #[pallet::generate_deposit(pub(super) fn deposit_event)]
     pub enum Event<T: Config> {
-        VaultTheft(DefaultVaultId<T>, H256Le),
-        VaultDoublePayment(DefaultVaultId<T>, H256Le, H256Le),
+        VaultTheft {
+            vault_id: DefaultVaultId<T>,
+            tx_id: H256Le,
+        },
+        VaultDoublePayment {
+            vault_id: DefaultVaultId<T>,
+            tx_id_1: H256Le,
+            tx_id_2: H256Le,
+        },
     }
 
     #[pallet::error]
@@ -241,7 +248,7 @@ pub mod pallet {
                 let _ = inner.insert(());
             });
 
-            Self::deposit_event(<Event<T>>::VaultTheft(vault_id, tx_id));
+            Self::deposit_event(Event::<T>::VaultTheft { vault_id, tx_id });
 
             // don't take tx fees on success
             Ok(Pays::No.into())
@@ -314,7 +321,11 @@ pub mod pallet {
                         let _ = inner.insert(());
                     });
 
-                    Self::deposit_event(<Event<T>>::VaultDoublePayment(vault_id, left_tx_id, right_tx_id));
+                    Self::deposit_event(Event::<T>::VaultDoublePayment {
+                        vault_id,
+                        tx_id_1: left_tx_id,
+                        tx_id_2: right_tx_id,
+                    });
 
                     // don't take tx fees on success
                     Ok(Pays::No.into())
