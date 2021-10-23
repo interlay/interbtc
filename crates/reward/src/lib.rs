@@ -51,10 +51,23 @@ pub mod pallet {
     #[pallet::event]
     #[pallet::generate_deposit(pub(crate) fn deposit_event)]
     pub enum Event<T: Config> {
-        DepositStake(DefaultVaultId<T>, T::SignedFixedPoint),
-        DistributeReward(T::CurrencyId, T::SignedFixedPoint),
-        WithdrawStake(DefaultVaultId<T>, T::SignedFixedPoint),
-        WithdrawReward(T::CurrencyId, DefaultVaultId<T>, T::SignedFixedPoint),
+        DepositStake {
+            vault_id: DefaultVaultId<T>,
+            amount: T::SignedFixedPoint,
+        },
+        DistributeReward {
+            currency_id: T::CurrencyId,
+            amount: T::SignedFixedPoint,
+        },
+        WithdrawStake {
+            vault_id: DefaultVaultId<T>,
+            amount: T::SignedFixedPoint,
+        },
+        WithdrawReward {
+            currency_id: T::CurrencyId,
+            vault_id: DefaultVaultId<T>,
+            amount: T::SignedFixedPoint,
+        },
     }
 
     #[pallet::error]
@@ -179,7 +192,10 @@ impl<T: Config> Pallet<T> {
             })?;
         }
 
-        Self::deposit_event(Event::<T>::DepositStake(vault_id.clone(), amount));
+        Self::deposit_event(Event::<T>::DepositStake {
+            vault_id: vault_id.clone(),
+            amount,
+        });
 
         Ok(())
     }
@@ -199,7 +215,10 @@ impl<T: Config> Pallet<T> {
         checked_add_mut!(RewardPerToken<T>, currency_id, &reward_div_total_stake);
         checked_add_mut!(TotalRewards<T>, currency_id, &reward);
 
-        Self::deposit_event(Event::<T>::DistributeReward(currency_id, reward));
+        Self::deposit_event(Event::<T>::DistributeReward {
+            currency_id,
+            amount: reward,
+        });
         Ok(Zero::zero())
     }
 
@@ -245,7 +264,10 @@ impl<T: Config> Pallet<T> {
             })?;
         }
 
-        Self::deposit_event(Event::<T>::WithdrawStake(vault_id.clone(), amount));
+        Self::deposit_event(Event::<T>::WithdrawStake {
+            vault_id: vault_id.clone(),
+            amount,
+        });
         Ok(())
     }
 
@@ -267,11 +289,11 @@ impl<T: Config> Pallet<T> {
                 .ok_or(Error::<T>::ArithmeticOverflow)?,
         );
 
-        Self::deposit_event(Event::<T>::WithdrawReward(
+        Self::deposit_event(Event::<T>::WithdrawReward {
             currency_id,
-            account_id.clone(),
-            reward_as_fixed,
-        ));
+            vault_id: account_id.clone(),
+            amount: reward_as_fixed,
+        });
         Ok(reward)
     }
 }
