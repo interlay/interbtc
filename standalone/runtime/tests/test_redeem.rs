@@ -424,6 +424,37 @@ mod spec_based_tests {
                 .dispatch(origin_of(account_of(ALICE))));
             });
         }
+
+        #[test]
+        fn integration_test_liquidating_one_collateral_currency_does_not_impact_other_currencies() {
+            test_with(|vault_id| {
+                let amount_btc = vault_id.wrapped(10000);
+
+                let different_collateral = match vault_id.currencies.collateral {
+                    CurrencyId::KSM => CurrencyId::DOT,
+                    _ => CurrencyId::KSM,
+                };
+                assert_ok!(OraclePallet::_set_exchange_rate(different_collateral, FixedU128::one()));
+
+                let different_collateral_vault_id = PrimitiveVaultId::new(
+                    vault_id.account_id.clone(),
+                    different_collateral.clone(),
+                    vault_id.currencies.wrapped.clone(),
+                );
+                CoreVaultData::force_to(
+                    &different_collateral_vault_id,
+                    default_vault_state(&different_collateral_vault_id),
+                );
+
+                liquidate_vault(&vault_id);
+                assert_ok!(Call::Redeem(RedeemCall::request_redeem {
+                    amount_wrapped: amount_btc.amount(),
+                    btc_address: BtcAddress::P2PKH(H160([0u8; 20])),
+                    vault_id: different_collateral_vault_id.clone(),
+                })
+                .dispatch(origin_of(account_of(ALICE))));
+            });
+        }
     }
 
     mod liquidation_redeem {
