@@ -54,8 +54,13 @@ pub mod pallet {
     #[pallet::event]
     #[pallet::generate_deposit(pub(super) fn deposit_event)]
     pub enum Event<T: Config> {
-        RecoverFromErrors(StatusCode, Vec<ErrorCode>),
-        UpdateActiveBlock(T::BlockNumber),
+        RecoverFromErrors {
+            new_status: StatusCode,
+            cleared_errors: Vec<ErrorCode>,
+        },
+        UpdateActiveBlock {
+            block_number: T::BlockNumber,
+        },
     }
 
     #[pallet::error]
@@ -257,7 +262,10 @@ impl<T: Config> Pallet<T> {
             Self::set_status(StatusCode::Running);
         }
 
-        Self::deposit_event(Event::RecoverFromErrors(Self::get_parachain_status(), error_codes));
+        Self::deposit_event(Event::RecoverFromErrors {
+            new_status: Self::get_parachain_status(),
+            cleared_errors: error_codes,
+        });
     }
 
     /// Recovers the BTC Parachain state from an `ORACLE_OFFLINE` error
@@ -281,7 +289,7 @@ impl<T: Config> Pallet<T> {
                 *n = n.saturating_add(1u32.into());
                 *n
             });
-            Self::deposit_event(Event::UpdateActiveBlock(height));
+            Self::deposit_event(Event::UpdateActiveBlock { block_number: height });
         }
     }
 
