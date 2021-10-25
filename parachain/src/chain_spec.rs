@@ -409,46 +409,6 @@ pub fn kusama_mainnet_config(id: ParaId) -> ChainSpec {
                     hex!["dc0c47c6f8fd81190d4fcee4ab2074db5d83eaf301f2cd795ec9b39b8e753f66"].unchecked_into(),
                     // 5ERqgB3mYvotBFu6vVf7fdnTgxHJvVidBpQL8W4yrpFL25mo
                     hex!["6896f1128f9a92c68f14713f0cbeb67a402621d7c80257ea3b246fcca5aede17"].unchecked_into(),
-                    // 5EhzXM7z194e7gdTPakHwS2EBMTM6yY3cgrqnitUkcTx3qvN
-                    hex!["74e8a70fa6dd5efdec0bc52d746a5cc72626baedbcfd93a32c06d686cde9fb6d"].unchecked_into(),
-                    // 5HdjLATUR3XwFfb2dqMHHPkUu3A43NHCFa3xY76t1WUxJeoG
-                    hex!["f65d3a4b8f7a0c251f4adeb1b6297f685278f345fd905f2e6d57403b6071d36a"].unchecked_into(),
-                    // 5EjxSnqDQpzm82TzArx6X5fWRn5qKCs5CpYBCisFLyMeH1cT
-                    hex!["76682575508fe8eacd79223ae11178b4a8425d90ca32c7812b3b389e7b506778"].unchecked_into(),
-                    // 5HgAJJT29LbcZKHyrrynT7E25hYvg8ox2axopoePj5vMv9GT
-                    hex!["f837c49801300e494af073b6df97d000620fc268f2d0ba5e66d31acd374af67b"].unchecked_into(),
-                    // 5Gs9J1mCewZs6oaXzM1m9DVwqkUA7xkk1UNhMZkket2mX3bH
-                    hex!["d45bd9d74b8511f1a2c26cb870ba13171248c23835abe81a7cd571162c521420"].unchecked_into(),
-                    // 5ELCC8nm2fpcx5pMdaHSH1k5PfE7X4CNwsoPMvkJumYWQ6JQ
-                    hex!["644888c0f310a452a7e3221f52cca64922e5f638f87ec17e8fc73bc45e32aa16"].unchecked_into(),
-                    // 5GrnkEi6wi9T5nPjoBhgjRCB4pfeHYCpNWvHNeknPDY3y2MM
-                    hex!["d416ae3d869ed826d90f366a8bbf1edd722edbe5954657d66449d82c7e0e5a41"].unchecked_into(),
-                    // 5CzNqQVuHu8EbtXryz8kcnBvrLnaKbPoFaFUgmRfvicCYB8Y
-                    hex!["28ef3806091fcb50df12003d4c62c81cdd28d2e152ea5bf01189d8cd8ecb0927"].unchecked_into(),
-                    // 5GN6a5uU6BNLTUZYYBMHDAj3UHnVbQcs5Hhoizi6K2FbnhbV
-                    hex!["be34916ea4a7175d211cf041550346800d798d88208b1cf507025a6ebed12247"].unchecked_into(),
-                    // 5HGvZ1WCyYarfPdws7qg6qdFY6i6jKEvUugtp3vmhCBvbcdY
-                    hex!["e67ed95d635b20c401be1ea8d682d28a09e1d32304cdaf1d87c47904d6f1bc38"].unchecked_into(),
-                    // 5E5LuHWr4Niv46MFfApqyf88Y1G9QRLTpVuSbDSRTUKoKwzm
-                    hex!["58f52c00c711897862f381de3a8f9be88bebfb2e37841d57215dd5aa5e51d438"].unchecked_into(),
-                    // 5FvDthRvXeUkSvNXscn8bNcHYtM9VBd78SjqZgzvxWWNoJo5
-                    hex!["aa78d4fa569bedde43d7b52b1237806b48074308eb841cea71d2b8e7e724012c"].unchecked_into(),
-                    // 5ECfNdJcAkEjt2kVB3P9BKx3ad1yGCNFFabhEYsLnUAetJud
-                    hex!["5e8a11eafe9312d6feaeff14430221ccbf4c7d85f418adfe4d7ce084ed637519"].unchecked_into(),
-                    // 5FhUeVMd3FEWfEVMddkZgoD7As8wQSekqzkKQHWYH3nL4oJN
-                    hex!["a0c04fc1d9bda258017ed3632afbd98228332f526e06ed485a6947b618ce6337"].unchecked_into(),
-                    // 5CqpnaqjVoZ8r4u3be5RuWUnAEznW7B1BXFJo7EPkXzAr3qz
-                    hex!["22695ec7b572198690d3f427df703dd53602aa2067e03c2272e38325489ab56e"].unchecked_into(),
-                    // 5G3wfLgP6GSE9kRVt5Nwi5NJ5HLznUujWo5rZQxWKpvckik7
-                    hex!["b05c28baa73f083a6ddc7dc9eb61bade0c78adc6e3c0b20d5d13a74c38eb7306"].unchecked_into(),
-                    // 5HEMPqyvfiMddVa4giN1N6mDYi2g8j4MuSzBVujmLyynvqBG
-                    hex!["e488bd0d526a384b9556f4c9200bce729863fbd9a6ec53d1812e745b136efd28"].unchecked_into(),
-                    // 5D2xyGox4gaGPczG9xK6SW46TPHByDW2JVXikDu1xNvdrvkE
-                    hex!["2ae89ed78cf10320cb59ab106cf8180f97a664d91b726bf69b5e01bd7d84060b"].unchecked_into(),
-                    // 5C5TSbMEJDFkppN4V1sCd17n25hLfXYzALM1UY3sbyBroiop
-                    hex!["0092b8488e09aaec7bca178c90a075a9fd6f2d70ecdc115dfc6fdbcb91c88876"].unchecked_into(),
-                    // 5DcP4SrNPz366T8p9XbPLZuXtjRGBrmfKavkeCnyFFjeTLJ6
-                    hex!["4464cf6dcc7b817df845816e87920fe5bffbc400334da6abd31d806ce0a34652"].unchecked_into(),
                 ],
                 vec![
                     (
@@ -479,6 +439,7 @@ pub fn kusama_mainnet_config(id: ParaId) -> ChainSpec {
 
 fn mainnet_genesis(
     root_key: AccountId,
+    // these are expected to be online
     initial_authorities: Vec<AuraId>,
     authorized_oracles: Vec<(AccountId, Vec<u8>)>,
     id: ParaId,
