@@ -978,40 +978,6 @@ fn get_required_collateral_for_wrapped_with_threshold_succeeds() {
     })
 }
 
-// Security integration tests
-#[test]
-fn register_vault_parachain_not_running_fails() {
-    run_test(|| {
-        ext::security::ensure_parachain_status_not_shutdown::<Test>
-            .mock_safe(|| MockResult::Return(Err(SecurityError::ParachainNotRunning.into())));
-
-        assert_noop!(
-            VaultRegistry::register_vault(
-                Origin::signed(DEFAULT_ID.account_id),
-                DEFAULT_CURRENCY_PAIR,
-                DEFAULT_COLLATERAL,
-                dummy_public_key(),
-            ),
-            SecurityError::ParachainNotRunning
-        );
-    });
-}
-
-#[test]
-fn deposit_collateral_parachain_not_running_fails() {
-    run_test(|| {
-        let id = create_vault(RICH_ID);
-        let additional = RICH_COLLATERAL - DEFAULT_COLLATERAL;
-        ext::security::ensure_parachain_status_not_shutdown::<Test>
-            .mock_safe(|| MockResult::Return(Err(SecurityError::ParachainShutdown.into())));
-
-        assert_noop!(
-            VaultRegistry::deposit_collateral(Origin::signed(id.account_id), id.currencies, additional),
-            SecurityError::ParachainShutdown
-        );
-    })
-}
-
 mod liquidation_threshold_tests {
     use crate::mock::{AccountId, Balance, BlockNumber};
 

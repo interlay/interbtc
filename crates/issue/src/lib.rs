@@ -265,9 +265,6 @@ impl<T: Config> Pallet<T> {
         let amount_requested = Amount::new(amount_requested, vault_id.wrapped_currency());
         let griefing_collateral = Amount::new(griefing_collateral, T::GetGriefingCollateralCurrencyId::get());
 
-        // Check that Parachain is RUNNING
-        ext::security::ensure_parachain_status_not_shutdown::<T>()?;
-
         ensure!(
             ext::btc_relay::is_fully_initialized::<T>()?,
             Error::<T>::WaitingForRelayerInitialization
@@ -344,9 +341,6 @@ impl<T: Config> Pallet<T> {
         raw_merkle_proof: Vec<u8>,
         raw_tx: Vec<u8>,
     ) -> Result<(), DispatchError> {
-        // Check that Parachain is RUNNING
-        ext::security::ensure_parachain_status_not_shutdown::<T>()?;
-
         let mut issue = Self::get_issue_request_from_id(&issue_id)?;
         let mut maybe_refund_id = None;
         // allow anyone to complete issue request
@@ -460,9 +454,6 @@ impl<T: Config> Pallet<T> {
 
     /// Cancels CBA issuance if time has expired and slashes collateral.
     fn _cancel_issue(requester: T::AccountId, issue_id: H256) -> Result<(), DispatchError> {
-        // Check that Parachain is RUNNING
-        ext::security::ensure_parachain_status_not_shutdown::<T>()?;
-
         let issue = Self::get_issue_request_from_id(&issue_id)?;
 
         // only cancellable after the request has expired

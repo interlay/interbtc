@@ -55,24 +55,16 @@ fn test_is_ensure_parachain_running_fails() {
 }
 
 #[test]
-fn test_is_ensure_parachain_not_shutdown_succeeds() {
+fn test_is_parachain_shutdown_succeeds() {
     run_test(|| {
         Security::set_status(StatusCode::Running);
-        assert_ok!(Security::ensure_parachain_status_not_shutdown());
+        assert!(!Security::is_parachain_shutdown());
 
         Security::set_status(StatusCode::Error);
-        assert_ok!(Security::ensure_parachain_status_not_shutdown());
-    })
-}
+        assert!(!Security::is_parachain_shutdown());
 
-#[test]
-fn test_is_ensure_parachain_not_shutdown_fails() {
-    run_test(|| {
         Security::set_status(StatusCode::Shutdown);
-        assert_noop!(
-            Security::ensure_parachain_status_not_shutdown(),
-            TestError::ParachainShutdown
-        );
+        assert!(Security::is_parachain_shutdown());
     })
 }
 

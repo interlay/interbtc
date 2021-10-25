@@ -110,15 +110,10 @@ pub(crate) mod vault_registry {
 
 #[cfg_attr(test, mockable)]
 pub(crate) mod security {
-    use frame_support::dispatch::DispatchResult;
     use sp_core::H256;
 
     pub fn get_secure_id<T: crate::Config>(id: &T::AccountId) -> H256 {
         <security::Pallet<T>>::get_secure_id(id)
-    }
-
-    pub fn ensure_parachain_status_not_shutdown<T: crate::Config>() -> DispatchResult {
-        <security::Pallet<T>>::ensure_parachain_status_not_shutdown()
     }
 
     pub fn active_block_number<T: crate::Config>() -> T::BlockNumber {

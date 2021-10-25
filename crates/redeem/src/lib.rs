@@ -438,8 +438,6 @@ impl<T: Config> Pallet<T> {
     ) -> Result<(), DispatchError> {
         let amount_wrapped = Amount::new(amount_wrapped, currencies.wrapped);
 
-        ext::security::ensure_parachain_status_not_shutdown::<T>()?;
-
         let redeemer_balance = ext::treasury::get_balance::<T>(&redeemer, currencies.wrapped);
         ensure!(
             amount_wrapped.le(&redeemer_balance)?,
@@ -460,8 +458,6 @@ impl<T: Config> Pallet<T> {
     }
 
     fn _execute_redeem(redeem_id: H256, raw_merkle_proof: Vec<u8>, raw_tx: Vec<u8>) -> Result<(), DispatchError> {
-        ext::security::ensure_parachain_status_not_shutdown::<T>()?;
-
         let redeem = Self::get_open_redeem_request_from_id(&redeem_id)?;
 
         // check the transaction inclusion and validity

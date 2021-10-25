@@ -193,15 +193,6 @@ impl<T: Config> Pallet<T> {
         }
     }
 
-    /// Ensures the Parachain is not SHUTDOWN
-    pub fn ensure_parachain_status_not_shutdown() -> DispatchResult {
-        if Self::parachain_status() != StatusCode::Shutdown {
-            Ok(())
-        } else {
-            Err(Error::<T>::ParachainShutdown.into())
-        }
-    }
-
     /// Checks if the Parachain has Shutdown
     pub fn is_parachain_shutdown() -> bool {
         Self::parachain_status() == StatusCode::Shutdown

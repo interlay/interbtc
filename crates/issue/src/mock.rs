@@ -243,7 +243,6 @@ impl Config for Test {
 
 pub type TestEvent = Event;
 pub type TestError = Error<Test>;
-pub type SecurityError = security::Error<Test>;
 pub type VaultRegistryError = vault_registry::Error<Test>;
 
 pub const USER: AccountId = 1;
