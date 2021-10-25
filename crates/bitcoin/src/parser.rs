@@ -474,7 +474,6 @@ pub(crate) fn extract_address_hash_scriptsig(input_script: &[u8]) -> Result<Addr
 
     // P2WPKH-P2SH (SegWit)
     if parser.next()? == OpCode::Op0 as u8 {
-        // NOTE: we probably will not ever reach this as `witness_script` will be defined
         let sig = parser.read(sig_size as usize)?;
         return Ok(Address::P2SH(H160::from_slice(&Hash160::hash(&sig).to_vec())));
     }
@@ -517,6 +516,8 @@ pub(crate) fn extract_op_return_data(output_script: &[u8]) -> Result<Vec<u8>, Er
 
 #[cfg(test)]
 pub(crate) mod tests {
+    use std::str::FromStr;
+
     use super::*;
     use crate::{Address, PublicKey, Script};
     use frame_support::{assert_err, assert_ok};
@@ -835,6 +836,19 @@ pub(crate) mod tests {
                 .unwrap();
 
         assert_eq!(actual, expected);
+    }
+
+    #[test]
+    fn test_extract_address_hash_scriptsig_p2sh_segwit() {
+        // source: https://blockstream.info/tx/0a0d7b9ab879fbd7a096e856fa5461dbae959ac86d51451c211a65fb8e95f54b?expand
+        let raw_tx = "02000000000101a1dcf3ca033463e346339642dd7305e33de4ce5ab179d1e19b1eb146534421660000000017160014a97a9058829417d4c581ad5004b6e46cc680063dfdffffff01b9010000000000001600143b05c08e224ddec538ac7aa2e3b6583b983807a302473044022051480b10ef40d12bce982d1d08176a403f176dd3e51189c07a0a9584ddb8e91602204a02134b2b892904a3519da0044e97da9ae78232f8f7678fea0b6531bf3104130121039dcac4d315739516bf5cea98bc6a9cfb49cb6269beb67c520bc5ecacc3c7d47206c70900";
+        let tx_bytes = hex::decode(&raw_tx).unwrap();
+        let transaction = parse_transaction(&tx_bytes).unwrap();
+
+        // 35PLQyoXs2sk9QDqMv7bBGowxP1pjwXAMe
+        let address = Address::P2SH(H160::from_str(&"288873634ae24a3c9b6792cc7e2a084ec79ef68b").unwrap());
+        let extr_address = extract_address_hash_scriptsig(&transaction.inputs[0].script).unwrap();
+        assert_eq!(&extr_address, &address);
     }
 
     /*
