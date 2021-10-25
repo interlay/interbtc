@@ -489,14 +489,14 @@ fn integration_test_relay_parachain_status_check_fails() {
                 block_height: 0
             })
             .dispatch(origin_of(account_of(ALICE))),
-            SecurityError::ParachainShutdown
+            DispatchError::BadOrigin
         );
         assert_noop!(
             Call::Relay(RelayCall::store_block_header {
                 raw_block_header: Default::default()
             })
             .dispatch(origin_of(account_of(ALICE))),
-            SecurityError::ParachainShutdown
+            DispatchError::BadOrigin
         );
         assert_noop!(
             Call::Relay(RelayCall::report_vault_theft {
@@ -505,7 +505,7 @@ fn integration_test_relay_parachain_status_check_fails() {
                 raw_tx: Default::default()
             })
             .dispatch(origin_of(account_of(ALICE))),
-            SecurityError::ParachainShutdown
+            DispatchError::BadOrigin
         );
     })
 }

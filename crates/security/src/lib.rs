@@ -103,7 +103,7 @@ pub mod pallet {
 
     /// Integer/Enum defining the current state of the BTC-Parachain.
     #[pallet::storage]
-    #[pallet::getter(fn status)]
+    #[pallet::getter(fn parachain_status)]
     pub type ParachainStatus<T: Config> = StorageValue<_, StatusCode, ValueQuery>;
 
     /// Set of ErrorCodes, indicating the reason for an "Error" ParachainStatus.
@@ -195,21 +195,21 @@ impl<T: Config> Pallet<T> {
 
     /// Ensures the Parachain is not SHUTDOWN
     pub fn ensure_parachain_status_not_shutdown() -> DispatchResult {
-        if <ParachainStatus<T>>::get() != StatusCode::Shutdown {
+        if Self::parachain_status() != StatusCode::Shutdown {
             Ok(())
         } else {
             Err(Error::<T>::ParachainShutdown.into())
         }
     }
 
-    /// Checks if the Parachain has a OracleOffline Error state
-    pub fn is_parachain_error_oracle_offline() -> bool {
-        <ParachainStatus<T>>::get() == StatusCode::Error && <Errors<T>>::get().contains(&ErrorCode::OracleOffline)
+    /// Checks if the Parachain has Shutdown
+    pub fn is_parachain_shutdown() -> bool {
+        Self::parachain_status() == StatusCode::Shutdown
     }
 
-    /// Gets the current `StatusCode`.
-    pub fn get_parachain_status() -> StatusCode {
-        <ParachainStatus<T>>::get()
+    /// Checks if the Parachain has a OracleOffline Error state
+    pub fn is_parachain_error_oracle_offline() -> bool {
+        Self::parachain_status() == StatusCode::Error && <Errors<T>>::get().contains(&ErrorCode::OracleOffline)
     }
 
     /// Sets the given `StatusCode`.
@@ -263,7 +263,7 @@ impl<T: Config> Pallet<T> {
         }
 
         Self::deposit_event(Event::RecoverFromErrors {
-            new_status: Self::get_parachain_status(),
+            new_status: Self::parachain_status(),
             cleared_errors: error_codes,
         });
     }
@@ -284,7 +284,7 @@ impl<T: Config> Pallet<T> {
     }
 
     fn increment_active_block() {
-        if Self::status() == StatusCode::Running {
+        if Self::parachain_status() == StatusCode::Running {
             let height = <ActiveBlockCount<T>>::mutate(|n| {
                 *n = n.saturating_add(1u32.into());
                 *n

@@ -21,10 +21,10 @@ macro_rules! assert_emitted {
 #[test]
 fn test_get_and_set_status() {
     run_test(|| {
-        let status_code = Security::get_parachain_status();
+        let status_code = Security::parachain_status();
         assert_eq!(status_code, StatusCode::Running);
         Security::set_status(StatusCode::Shutdown);
-        let status_code = Security::get_parachain_status();
+        let status_code = Security::parachain_status();
         assert_eq!(status_code, StatusCode::Shutdown);
     })
 }
@@ -96,7 +96,7 @@ where
     for err in &error_codes {
         assert_eq!(Security::get_errors().contains(&err), false);
     }
-    assert_eq!(Security::get_parachain_status(), StatusCode::Running);
+    assert_eq!(Security::parachain_status(), StatusCode::Running);
     assert_emitted!(Event::RecoverFromErrors {
         new_status: StatusCode::Running,
         cleared_errors: error_codes

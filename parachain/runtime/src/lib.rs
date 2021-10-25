@@ -171,6 +171,30 @@ parameter_types! {
     pub const SS58Prefix: u8 = 42;
 }
 
+pub struct BaseCallFilter;
+
+impl Contains<Call> for BaseCallFilter {
+    fn contains(call: &Call) -> bool {
+        if matches!(
+            call,
+            Call::System(_)
+                | Call::Timestamp(_)
+                | Call::ParachainSystem(_)
+                | Call::Sudo(_)
+                | Call::Democracy(_)
+                | Call::Council(_)
+                | Call::TechnicalCommittee(_)
+                | Call::Security(_) // to unset shutdown
+        ) {
+            // always allow core calls
+            true
+        } else {
+            // disallow everything if shutdown
+            !security::Pallet::<Runtime>::is_parachain_shutdown()
+        }
+    }
+}
+
 impl frame_system::Config for Runtime {
     /// The identifier used to distinguish between accounts.
     type AccountId = AccountId;
@@ -202,7 +226,7 @@ impl frame_system::Config for Runtime {
     type OnNewAccount = ();
     type OnKilledAccount = ();
     type DbWeight = ();
-    type BaseCallFilter = Everything;
+    type BaseCallFilter = BaseCallFilter;
     type SystemWeightInfo = ();
     type BlockWeights = RuntimeBlockWeights;
     type BlockLength = RuntimeBlockLength;

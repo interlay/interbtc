@@ -10,7 +10,10 @@ pub use bitcoin::{
 pub use btc_relay::{BtcAddress, BtcPublicKey};
 use currency::Amount;
 use frame_support::traits::GenesisBuild;
-pub use frame_support::{assert_err, assert_noop, assert_ok, dispatch::DispatchResultWithPostInfo};
+pub use frame_support::{
+    assert_err, assert_noop, assert_ok,
+    dispatch::{DispatchError, DispatchResultWithPostInfo},
+};
 use interbtc_runtime_standalone::GetNativeCurrencyId;
 pub use interbtc_runtime_standalone::{
     AccountId, BlockNumber, Call, CouncilInstance, CurrencyId, Event, GetCollateralCurrencyId, GetWrappedCurrencyId,
