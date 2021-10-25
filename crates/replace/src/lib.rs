@@ -204,7 +204,6 @@ pub mod pallet {
             #[pallet::compact] amount: Wrapped<T>,
             #[pallet::compact] griefing_collateral: Collateral<T>,
         ) -> DispatchResultWithPostInfo {
-            ext::security::ensure_parachain_status_not_shutdown::<T>()?;
             let old_vault = VaultId::new(ensure_signed(origin)?, currency_pair.collateral, currency_pair.wrapped);
             Self::_request_replace(old_vault, amount, griefing_collateral)?;
             Ok(().into())
@@ -222,7 +221,6 @@ pub mod pallet {
             currency_pair: DefaultVaultCurrencyPair<T>,
             #[pallet::compact] amount: Wrapped<T>,
         ) -> DispatchResultWithPostInfo {
-            ext::security::ensure_parachain_status_not_shutdown::<T>()?;
             let old_vault = VaultId::new(ensure_signed(origin)?, currency_pair.collateral, currency_pair.wrapped);
             Self::_withdraw_replace_request(old_vault, amount)?;
             Ok(().into())
@@ -246,7 +244,6 @@ pub mod pallet {
             #[pallet::compact] collateral: Collateral<T>,
             btc_address: BtcAddress,
         ) -> DispatchResultWithPostInfo {
-            ext::security::ensure_parachain_status_not_shutdown::<T>()?;
             let new_vault = VaultId::new(ensure_signed(origin)?, currency_pair.collateral, currency_pair.wrapped);
             Self::_accept_replace(old_vault, new_vault, amount_btc, collateral, btc_address)?;
             Ok(().into())
@@ -268,7 +265,6 @@ pub mod pallet {
             merkle_proof: Vec<u8>,
             raw_tx: Vec<u8>,
         ) -> DispatchResultWithPostInfo {
-            ext::security::ensure_parachain_status_not_shutdown::<T>()?;
             let _ = ensure_signed(origin)?;
             Self::_execute_replace(replace_id, merkle_proof, raw_tx)?;
             Ok(().into())
@@ -283,7 +279,6 @@ pub mod pallet {
         #[pallet::weight(<T as Config>::WeightInfo::cancel_replace())]
         #[transactional]
         pub fn cancel_replace(origin: OriginFor<T>, replace_id: H256) -> DispatchResultWithPostInfo {
-            ext::security::ensure_parachain_status_not_shutdown::<T>()?;
             let new_vault = ensure_signed(origin)?;
             Self::_cancel_replace(new_vault, replace_id)?;
             Ok(().into())

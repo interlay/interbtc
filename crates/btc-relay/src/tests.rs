@@ -589,23 +589,8 @@ mod store_block_header_tests {
 }
 
 #[test]
-fn store_block_header_parachain_shutdown_fails() {
-    run_test(|| {
-        ext::security::ensure_parachain_status_not_shutdown::<Test>
-            .mock_safe(|| MockResult::Return(Err(SecurityError::ParachainShutdown.into())));
-
-        assert_err!(
-            BTCRelay::store_block_header(&3, sample_block_header()),
-            SecurityError::ParachainShutdown,
-        );
-    })
-}
-
-#[test]
 fn store_block_header_no_prev_block_fails() {
     run_test(|| {
-        ext::security::ensure_parachain_status_not_shutdown::<Test>.mock_safe(|| MockResult::Return(Ok(())));
-
         assert_err!(
             BTCRelay::store_block_header(&3, sample_block_header()),
             TestError::BlockNotFound,

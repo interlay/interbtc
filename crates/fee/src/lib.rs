@@ -17,7 +17,6 @@ mod mock;
 #[cfg(test)]
 mod tests;
 
-mod ext;
 pub mod types;
 
 #[cfg(test)]
@@ -279,7 +278,6 @@ pub mod pallet {
             vault_id: DefaultVaultId<T>,
             index: Option<T::Index>,
         ) -> DispatchResultWithPostInfo {
-            ext::security::ensure_parachain_status_not_shutdown::<T>()?;
             let nominator_id = ensure_signed(origin)?;
             Self::withdraw_from_reward_pool::<T::VaultRewards, T::VaultStaking>(&vault_id, &nominator_id, index)?;
             Ok(().into())

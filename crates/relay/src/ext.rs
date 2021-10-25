@@ -29,17 +29,12 @@ pub(crate) mod vault_registry {
 
 #[cfg_attr(test, mockable)]
 pub(crate) mod security {
-    use frame_support::dispatch::DispatchResult;
     use security::types::ErrorCode;
     use sp_std::collections::btree_set::BTreeSet;
 
     #[allow(dead_code)]
     pub(crate) fn get_errors<T: crate::Config>() -> BTreeSet<ErrorCode> {
         <security::Pallet<T>>::get_errors()
-    }
-
-    pub fn ensure_parachain_status_not_shutdown<T: crate::Config>() -> DispatchResult {
-        <security::Pallet<T>>::ensure_parachain_status_not_shutdown()
     }
 }
 

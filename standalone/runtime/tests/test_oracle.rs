@@ -8,7 +8,7 @@ fn integration_test_oracle_with_parachain_shutdown_fails() {
 
         assert_noop!(
             Call::Oracle(OracleCall::feed_values { values: vec![] }).dispatch(origin_of(account_of(ALICE))),
-            SecurityError::ParachainShutdown
+            DispatchError::BadOrigin
         );
     })
 }

@@ -153,7 +153,6 @@ pub mod pallet {
             raw_block_header: RawBlockHeader,
             block_height: u32,
         ) -> DispatchResultWithPostInfo {
-            ext::security::ensure_parachain_status_not_shutdown::<T>()?;
             let relayer = ensure_signed(origin)?;
 
             let block_header = ext::btc_relay::parse_raw_block_header::<T>(&raw_block_header)?;
@@ -199,7 +198,6 @@ pub mod pallet {
             origin: OriginFor<T>,
             raw_block_header: RawBlockHeader,
         ) -> DispatchResultWithPostInfo {
-            ext::security::ensure_parachain_status_not_shutdown::<T>()?;
             let relayer = ensure_signed(origin)?;
 
             let block_header = ext::btc_relay::parse_raw_block_header::<T>(&raw_block_header)?;
@@ -226,7 +224,6 @@ pub mod pallet {
             raw_merkle_proof: Vec<u8>,
             raw_tx: Vec<u8>,
         ) -> DispatchResultWithPostInfo {
-            ext::security::ensure_parachain_status_not_shutdown::<T>()?;
             let reporter_id = ensure_signed(origin)?;
 
             let merkle_proof = ext::btc_relay::parse_merkle_proof::<T>(&raw_merkle_proof)?;
@@ -274,7 +271,6 @@ pub mod pallet {
             raw_merkle_proofs: (Vec<u8>, Vec<u8>),
             raw_txs: (Vec<u8>, Vec<u8>),
         ) -> DispatchResultWithPostInfo {
-            ext::security::ensure_parachain_status_not_shutdown::<T>()?;
             let reporter_id = ensure_signed(origin)?;
 
             // transactions must be unique

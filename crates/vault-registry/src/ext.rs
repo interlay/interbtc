@@ -17,12 +17,6 @@ pub(crate) mod currency {
 
 #[cfg_attr(test, mockable)]
 pub(crate) mod security {
-    use frame_support::dispatch::DispatchResult;
-
-    pub fn ensure_parachain_status_not_shutdown<T: crate::Config>() -> DispatchResult {
-        <security::Pallet<T>>::ensure_parachain_status_not_shutdown()
-    }
-
     pub fn active_block_number<T: crate::Config>() -> T::BlockNumber {
         <security::Pallet<T>>::active_block_number()
     }

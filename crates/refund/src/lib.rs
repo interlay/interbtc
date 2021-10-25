@@ -184,8 +184,6 @@ impl<T: Config> Pallet<T> {
         btc_address: BtcAddress,
         issue_id: H256,
     ) -> Result<Option<H256>, DispatchError> {
-        ext::security::ensure_parachain_status_not_shutdown::<T>()?;
-
         let vault_reward_fee = ext::fee::get_refund_fee_from_total::<T>(total_amount_btc)?;
         let transfer_fee = Self::get_current_inclusion_fee(vault_id.wrapped_currency())?;
 
@@ -235,8 +233,6 @@ impl<T: Config> Pallet<T> {
     /// * `merkle_proof` - raw bytes of the proof
     /// * `raw_tx` - raw bytes of the transaction
     fn _execute_refund(refund_id: H256, raw_merkle_proof: Vec<u8>, raw_tx: Vec<u8>) -> Result<(), DispatchError> {
-        ext::security::ensure_parachain_status_not_shutdown::<T>()?;
-
         let request = Self::get_open_refund_request_from_id(&refund_id)?;
 
         // check the transaction inclusion and validity

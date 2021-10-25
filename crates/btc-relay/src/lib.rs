@@ -129,7 +129,6 @@ pub mod pallet {
             recipient_btc_address: BtcAddress,
             op_return_id: Option<H256>,
         ) -> DispatchResultWithPostInfo {
-            ext::security::ensure_parachain_status_not_shutdown::<T>()?;
             let _ = ensure_signed(origin)?;
 
             let transaction = Self::parse_transaction(&raw_tx)?;
@@ -167,7 +166,6 @@ pub mod pallet {
             raw_merkle_proof: Vec<u8>,
             confirmations: Option<u32>,
         ) -> DispatchResultWithPostInfo {
-            ext::security::ensure_parachain_status_not_shutdown::<T>()?;
             let _ = ensure_signed(origin)?;
 
             let merkle_proof = Self::parse_merkle_proof(&raw_merkle_proof)?;
@@ -194,7 +192,6 @@ pub mod pallet {
             recipient_btc_address: BtcAddress,
             op_return_id: Option<H256>,
         ) -> DispatchResultWithPostInfo {
-            ext::security::ensure_parachain_status_not_shutdown::<T>()?;
             let _ = ensure_signed(origin)?;
 
             let transaction = Self::parse_transaction(&raw_tx)?;
@@ -500,9 +497,6 @@ impl<T: Config> Pallet<T> {
     }
 
     fn _store_block_header(relayer: &T::AccountId, basic_block_header: BlockHeader) -> DispatchResult {
-        // Make sure Parachain is not shutdown
-        ext::security::ensure_parachain_status_not_shutdown::<T>()?;
-
         let prev_header = Self::get_block_header_from_hash(basic_block_header.hash_prev_block)?;
 
         // check if the prev block is the highest block in the chain
@@ -683,8 +677,6 @@ impl<T: Config> Pallet<T> {
         block_hash: H256Le,
         confirmations: Option<u32>,
     ) -> Result<BlockHeader, DispatchError> {
-        ext::security::ensure_parachain_status_not_shutdown::<T>()?;
-
         let best_block_height = Self::get_best_block_height();
         Self::ensure_no_ongoing_fork(best_block_height)?;
 

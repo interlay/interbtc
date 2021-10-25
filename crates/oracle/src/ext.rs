@@ -7,10 +7,6 @@ pub(crate) mod security {
     use security::{ErrorCode, StatusCode};
     use sp_std::collections::btree_set::BTreeSet;
 
-    pub fn ensure_parachain_status_not_shutdown<T: crate::Config>() -> DispatchResult {
-        <security::Pallet<T>>::ensure_parachain_status_not_shutdown()
-    }
-
     pub fn ensure_parachain_status_running<T: crate::Config>() -> DispatchResult {
         <security::Pallet<T>>::ensure_parachain_status_running()
     }

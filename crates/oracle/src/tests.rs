@@ -86,38 +86,38 @@ mod oracle_offline_detection {
 
             set_time(0);
             feed_value(CurrencyId::DOT, OracleA);
-            assert_eq!(SecurityPallet::get_parachain_status(), StatusCode::Running);
+            assert_eq!(SecurityPallet::parachain_status(), StatusCode::Running);
 
             set_time(5);
             feed_value(CurrencyId::KSM, OracleA);
 
             // DOT expires after block 10
             set_time(10);
-            assert_eq!(SecurityPallet::get_parachain_status(), StatusCode::Running);
+            assert_eq!(SecurityPallet::parachain_status(), StatusCode::Running);
             set_time(11);
-            assert_eq!(SecurityPallet::get_parachain_status(), StatusCode::Error);
+            assert_eq!(SecurityPallet::parachain_status(), StatusCode::Error);
 
             // feeding KSM makes no difference
             feed_value(CurrencyId::KSM, OracleA);
-            assert_eq!(SecurityPallet::get_parachain_status(), StatusCode::Error);
+            assert_eq!(SecurityPallet::parachain_status(), StatusCode::Error);
 
             // feeding DOT makes it running again
             feed_value(CurrencyId::DOT, OracleA);
-            assert_eq!(SecurityPallet::get_parachain_status(), StatusCode::Running);
+            assert_eq!(SecurityPallet::parachain_status(), StatusCode::Running);
 
             // KSM expires after t=21 (it was set at t=11)
             set_time(21);
-            assert_eq!(SecurityPallet::get_parachain_status(), StatusCode::Running);
+            assert_eq!(SecurityPallet::parachain_status(), StatusCode::Running);
             set_time(22);
-            assert_eq!(SecurityPallet::get_parachain_status(), StatusCode::Error);
+            assert_eq!(SecurityPallet::parachain_status(), StatusCode::Error);
 
             // check that status remains ERROR until BOTH currencies have been updated
             set_time(100);
-            assert_eq!(SecurityPallet::get_parachain_status(), StatusCode::Error);
+            assert_eq!(SecurityPallet::parachain_status(), StatusCode::Error);
             feed_value(CurrencyId::DOT, OracleA);
-            assert_eq!(SecurityPallet::get_parachain_status(), StatusCode::Error);
+            assert_eq!(SecurityPallet::parachain_status(), StatusCode::Error);
             feed_value(CurrencyId::KSM, OracleA);
-            assert_eq!(SecurityPallet::get_parachain_status(), StatusCode::Running);
+            assert_eq!(SecurityPallet::parachain_status(), StatusCode::Running);
         });
     }
 
@@ -129,7 +129,7 @@ mod oracle_offline_detection {
 
             set_time(0);
             feed_value(CurrencyId::DOT, OracleA);
-            assert_eq!(SecurityPallet::get_parachain_status(), StatusCode::Running);
+            assert_eq!(SecurityPallet::parachain_status(), StatusCode::Running);
 
             set_time(5);
             feed_value(CurrencyId::KSM, OracleA);
@@ -139,23 +139,23 @@ mod oracle_offline_detection {
 
             // OracleA's DOT submission expires at 10, but OracleB's only at 17. However, KSM expires at 15:
             set_time(15);
-            assert_eq!(SecurityPallet::get_parachain_status(), StatusCode::Running);
+            assert_eq!(SecurityPallet::parachain_status(), StatusCode::Running);
             set_time(16);
-            assert_eq!(SecurityPallet::get_parachain_status(), StatusCode::Error);
+            assert_eq!(SecurityPallet::parachain_status(), StatusCode::Error);
 
             // Feeding KSM brings it back online
             feed_value(CurrencyId::KSM, OracleA);
-            assert_eq!(SecurityPallet::get_parachain_status(), StatusCode::Running);
+            assert_eq!(SecurityPallet::parachain_status(), StatusCode::Running);
 
             // check that status is set of ERROR when both oracle's DOT submission expired
             set_time(17);
-            assert_eq!(SecurityPallet::get_parachain_status(), StatusCode::Running);
+            assert_eq!(SecurityPallet::parachain_status(), StatusCode::Running);
             set_time(18);
-            assert_eq!(SecurityPallet::get_parachain_status(), StatusCode::Error);
+            assert_eq!(SecurityPallet::parachain_status(), StatusCode::Error);
 
             // A DOT submission by any oracle brings it back online
             feed_value(CurrencyId::DOT, OracleA);
-            assert_eq!(SecurityPallet::get_parachain_status(), StatusCode::Running);
+            assert_eq!(SecurityPallet::parachain_status(), StatusCode::Running);
         });
     }
 }

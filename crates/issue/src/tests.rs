@@ -33,9 +33,6 @@ fn request_issue(
     vault: DefaultVaultId<Test>,
     collateral: Balance,
 ) -> Result<H256, DispatchError> {
-    // Default: Parachain status is "RUNNING". Set manually for failure testing
-    ext::security::ensure_parachain_status_not_shutdown::<Test>.mock_safe(|| MockResult::Return(Ok(())));
-
     ext::security::get_secure_id::<Test>.mock_safe(|_| MockResult::Return(get_dummy_request_id()));
 
     ext::vault_registry::try_increase_to_be_issued_tokens::<Test>.mock_safe(|_, _| MockResult::Return(Ok(())));
@@ -48,9 +45,6 @@ fn request_issue(
 fn request_issue_ok(origin: AccountId, amount: Balance, vault: DefaultVaultId<Test>, collateral: Balance) -> H256 {
     ext::vault_registry::ensure_not_banned::<Test>.mock_safe(|_| MockResult::Return(Ok(())));
 
-    // Default: Parachain status is "RUNNING". Set manually for failure testing
-    ext::security::ensure_parachain_status_not_shutdown::<Test>.mock_safe(|| MockResult::Return(Ok(())));
-
     ext::security::get_secure_id::<Test>.mock_safe(|_| MockResult::Return(get_dummy_request_id()));
 
     ext::vault_registry::try_increase_to_be_issued_tokens::<Test>.mock_safe(|_, _| MockResult::Return(Ok(())));
@@ -61,8 +55,6 @@ fn request_issue_ok(origin: AccountId, amount: Balance, vault: DefaultVaultId<Te
 }
 
 fn execute_issue(origin: AccountId, issue_id: &H256) -> Result<(), DispatchError> {
-    ext::security::ensure_parachain_status_not_shutdown::<Test>.mock_safe(|| MockResult::Return(Ok(())));
-
     Issue::_execute_issue(origin, *issue_id, vec![0u8; 100], vec![0u8; 100])
 }
 
@@ -173,7 +165,6 @@ fn test_execute_issue_succeeds() {
         let issue_id = request_issue_ok(USER, 3, VAULT, 20);
         <security::Pallet<Test>>::set_active_block_number(5);
 
-        ext::security::ensure_parachain_status_not_shutdown::<Test>.mock_safe(|| MockResult::Return(Ok(())));
         ext::btc_relay::parse_merkle_proof::<Test>.mock_safe(|_| MockResult::Return(Ok(dummy_merkle_proof())));
         ext::btc_relay::parse_transaction::<Test>.mock_safe(|_| MockResult::Return(Ok(Transaction::default())));
         ext::btc_relay::get_and_verify_issue_payment::<Test, Balance>
@@ -203,7 +194,6 @@ fn test_execute_issue_overpayment_succeeds() {
 
         let issue_id = request_issue_ok(USER, 3, VAULT, 20);
         <security::Pallet<Test>>::set_active_block_number(5);
-        ext::security::ensure_parachain_status_not_shutdown::<Test>.mock_safe(|| MockResult::Return(Ok(())));
 
         ext::btc_relay::parse_merkle_proof::<Test>.mock_safe(|_| MockResult::Return(Ok(dummy_merkle_proof())));
         ext::btc_relay::parse_transaction::<Test>.mock_safe(|_| MockResult::Return(Ok(Transaction::default())));
@@ -244,7 +234,6 @@ fn test_execute_issue_refund_succeeds() {
 
         let issue_id = request_issue_ok(USER, 3, VAULT, 20);
         <security::Pallet<Test>>::set_active_block_number(5);
-        ext::security::ensure_parachain_status_not_shutdown::<Test>.mock_safe(|| MockResult::Return(Ok(())));
 
         // pay 103 instead of the expected 3
         ext::btc_relay::parse_merkle_proof::<Test>.mock_safe(|_| MockResult::Return(Ok(dummy_merkle_proof())));
@@ -293,38 +282,6 @@ fn test_cancel_issue_not_expired_fails() {
         // issue period is 10, we issued at block 1, so at block 5 the cancel should fail
         <security::Pallet<Test>>::set_active_block_number(5);
         assert_noop!(cancel_issue(USER, &issue_id), TestError::TimeNotExpired,);
-    })
-}
-
-#[test]
-fn test_request_issue_parachain_not_running_fails() {
-    run_test(|| {
-        let origin = USER;
-        let vault = VAULT;
-        let amount: Balance = 3;
-
-        ext::security::ensure_parachain_status_not_shutdown::<Test>
-            .mock_safe(|| MockResult::Return(Err(SecurityError::ParachainNotRunning.into())));
-
-        assert_noop!(
-            Issue::_request_issue(origin, amount, vault, 0),
-            SecurityError::ParachainNotRunning
-        );
-    })
-}
-
-#[test]
-fn test_execute_issue_parachain_not_running_fails() {
-    run_test(|| {
-        let origin = USER;
-
-        ext::security::ensure_parachain_status_not_shutdown::<Test>
-            .mock_safe(|| MockResult::Return(Err(SecurityError::ParachainNotRunning.into())));
-
-        assert_noop!(
-            Issue::_execute_issue(origin, H256::zero(), vec![0u8; 100], vec![0u8; 100],),
-            SecurityError::ParachainNotRunning
-        );
     })
 }
 

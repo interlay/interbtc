@@ -192,7 +192,6 @@ pub mod pallet {
             #[pallet::compact] collateral: Collateral<T>,
             public_key: BtcPublicKey,
         ) -> DispatchResultWithPostInfo {
-            ext::security::ensure_parachain_status_not_shutdown::<T>()?;
             let account_id = ensure_signed(origin)?;
             let vault_id = VaultId::new(account_id, currency_pair.collateral, currency_pair.wrapped);
             Self::_register_vault(vault_id, collateral, public_key)?;
@@ -212,8 +211,6 @@ pub mod pallet {
             #[pallet::compact] amount: Collateral<T>,
         ) -> DispatchResultWithPostInfo {
             let account_id = ensure_signed(origin)?;
-
-            ext::security::ensure_parachain_status_not_shutdown::<T>()?;
 
             let vault_id = VaultId::new(account_id, currency_pair.collateral, currency_pair.wrapped);
 
@@ -254,7 +251,6 @@ pub mod pallet {
             #[pallet::compact] amount: Collateral<T>,
         ) -> DispatchResultWithPostInfo {
             let account_id = ensure_signed(origin)?;
-            ext::security::ensure_parachain_status_not_shutdown::<T>()?;
 
             let vault_id = VaultId::new(account_id, currency_pair.collateral, currency_pair.wrapped);
             let vault = Self::get_rich_vault_from_id(&vault_id)?;
@@ -282,7 +278,6 @@ pub mod pallet {
             public_key: BtcPublicKey,
         ) -> DispatchResultWithPostInfo {
             let account_id = ensure_signed(origin)?;
-            ext::security::ensure_parachain_status_not_shutdown::<T>()?;
             let vault_id = VaultId::new(account_id, currency_pair.collateral, currency_pair.wrapped);
             let mut vault = Self::get_active_rich_vault_from_id(&vault_id)?;
             vault.update_public_key(public_key.clone());
@@ -302,7 +297,6 @@ pub mod pallet {
         ) -> DispatchResultWithPostInfo {
             let account_id = ensure_signed(origin)?;
             let vault_id = VaultId::new(account_id, currency_pair.collateral, currency_pair.wrapped);
-            ext::security::ensure_parachain_status_not_shutdown::<T>()?;
             Self::insert_vault_deposit_address(vault_id.clone(), btc_address)?;
             Self::deposit_event(Event::<T>::RegisterAddress {
                 vault_id,
@@ -326,7 +320,6 @@ pub mod pallet {
             currency_pair: DefaultVaultCurrencyPair<T>,
             accept_new_issues: bool,
         ) -> DispatchResultWithPostInfo {
-            ext::security::ensure_parachain_status_not_shutdown::<T>()?;
             let account_id = ensure_signed(origin)?;
             let vault_id = VaultId::new(account_id, currency_pair.collateral, currency_pair.wrapped);
             let mut vault = Self::get_active_rich_vault_from_id(&vault_id)?;
