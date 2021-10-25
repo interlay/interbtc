@@ -223,12 +223,12 @@ pub mod pallet {
 
             Self::try_deposit_collateral(&vault_id, &amount)?;
 
-            Self::deposit_event(Event::<T>::DepositCollateral(
-                vault.id(),
-                amount.amount(),
-                vault.get_total_collateral()?.amount(),
-                vault.get_free_collateral()?.amount(),
-            ));
+            Self::deposit_event(Event::<T>::DepositCollateral {
+                vault_id: vault.id(),
+                new_collateral: amount.amount(),
+                total_collateral: vault.get_total_collateral()?.amount(),
+                free_collateral: vault.get_free_collateral()?.amount(),
+            });
             Ok(().into())
         }
 
@@ -262,11 +262,11 @@ pub mod pallet {
             let amount = Amount::new(amount, currency_pair.collateral);
             Self::try_withdraw_collateral(&vault_id, &amount)?;
 
-            Self::deposit_event(Event::<T>::WithdrawCollateral(
-                vault.id(),
-                amount.amount(),
-                vault.get_total_collateral()?.amount(),
-            ));
+            Self::deposit_event(Event::<T>::WithdrawCollateral {
+                vault_id: vault.id(),
+                withdrawn_amount: amount.amount(),
+                total_collateral: vault.get_total_collateral()?.amount(),
+            });
             Ok(().into())
         }
 
@@ -286,7 +286,10 @@ pub mod pallet {
             let vault_id = VaultId::new(account_id, currency_pair.collateral, currency_pair.wrapped);
             let mut vault = Self::get_active_rich_vault_from_id(&vault_id)?;
             vault.update_public_key(public_key.clone());
-            Self::deposit_event(Event::<T>::UpdatePublicKey(vault.id(), public_key));
+            Self::deposit_event(Event::<T>::UpdatePublicKey {
+                vault_id: vault.id(),
+                public_key,
+            });
             Ok(().into())
         }
 
@@ -301,7 +304,10 @@ pub mod pallet {
             let vault_id = VaultId::new(account_id, currency_pair.collateral, currency_pair.wrapped);
             ext::security::ensure_parachain_status_not_shutdown::<T>()?;
             Self::insert_vault_deposit_address(vault_id.clone(), btc_address)?;
-            Self::deposit_event(Event::<T>::RegisterAddress(vault_id, btc_address));
+            Self::deposit_event(Event::<T>::RegisterAddress {
+                vault_id,
+                address: btc_address,
+            });
             Ok(().into())
         }
 
@@ -419,56 +425,102 @@ pub mod pallet {
     #[pallet::event]
     #[pallet::generate_deposit(pub(super) fn deposit_event)]
     pub enum Event<T: Config> {
-        /// vault_id, collateral, currency_id
-        RegisterVault(DefaultVaultId<T>, BalanceOf<T>),
-        /// vault_id, new collateral, total collateral, free collateral
-        DepositCollateral(DefaultVaultId<T>, BalanceOf<T>, BalanceOf<T>, BalanceOf<T>),
-        /// vault_id, withdrawn collateral, total collateral
-        WithdrawCollateral(DefaultVaultId<T>, BalanceOf<T>, BalanceOf<T>),
-        /// vault_id, new public key
-        UpdatePublicKey(DefaultVaultId<T>, BtcPublicKey),
-        /// vault_id, new address
-        RegisterAddress(DefaultVaultId<T>, BtcAddress),
-        /// vault_id, additional to-be-issued tokens
-        IncreaseToBeIssuedTokens(DefaultVaultId<T>, BalanceOf<T>),
-        /// vault_id, decrease in to-be-issued tokens
-        DecreaseToBeIssuedTokens(DefaultVaultId<T>, BalanceOf<T>),
-        /// vault_id, additional number of issued tokens
-        IssueTokens(DefaultVaultId<T>, BalanceOf<T>),
-        /// vault_id, additional to-be-redeemed tokens
-        IncreaseToBeRedeemedTokens(DefaultVaultId<T>, BalanceOf<T>),
-        /// vault_id, decrease in to-be-redeemed tokens
-        DecreaseToBeRedeemedTokens(DefaultVaultId<T>, BalanceOf<T>),
-        /// vault_id, additional to-be-replaced tokens
-        IncreaseToBeReplacedTokens(DefaultVaultId<T>, BalanceOf<T>),
-        /// vault_id, decrease in to-be-replaced tokens
-        DecreaseToBeReplacedTokens(DefaultVaultId<T>, BalanceOf<T>),
-        /// vault_id, user_id, amount of tokens reduced in issued & to-be-redeemed
-        DecreaseTokens(DefaultVaultId<T>, T::AccountId, BalanceOf<T>),
-        /// vault_id, amount of newly redeemed tokens
-        RedeemTokens(DefaultVaultId<T>, BalanceOf<T>),
-        /// vault_id, amount of newly redeemed tokens, amount of collateral transferred, user_id
-        RedeemTokensPremium(DefaultVaultId<T>, BalanceOf<T>, BalanceOf<T>, T::AccountId),
-        /// vault_id, amount of newly redeemed tokens, slashed collateral
-        RedeemTokensLiquidatedVault(DefaultVaultId<T>, BalanceOf<T>, BalanceOf<T>),
-        /// vault_id, amount of burned tokens, transferred collateral
-        RedeemTokensLiquidation(T::AccountId, BalanceOf<T>, BalanceOf<T>),
-        /// old_vault_id, new_vault_id, transferred tokens, additional collateral locked by new_vault
-        ReplaceTokens(DefaultVaultId<T>, DefaultVaultId<T>, BalanceOf<T>, BalanceOf<T>),
-        /// vault_id, issued_tokens, to_be_issued_tokens, to_be_redeemed_tokens,
-        /// to_be_replaced_tokens, backing_collateral, status, replace_collateral
-        LiquidateVault(
-            DefaultVaultId<T>, // vault_id
-            BalanceOf<T>,      // issued_tokens
-            BalanceOf<T>,      // to_be_issued_tokens
-            BalanceOf<T>,      // to_be_redeemed_tokens
-            BalanceOf<T>,      // to_be_replaced_tokens
-            BalanceOf<T>,      // backing_collateral
-            VaultStatus,       // status
-            BalanceOf<T>,      // replace_collateral
-        ),
-        /// vault_id, banned_until
-        BanVault(DefaultVaultId<T>, T::BlockNumber),
+        RegisterVault {
+            vault_id: DefaultVaultId<T>,
+            collateral: BalanceOf<T>,
+        },
+        DepositCollateral {
+            vault_id: DefaultVaultId<T>,
+            new_collateral: BalanceOf<T>,
+            total_collateral: BalanceOf<T>,
+            free_collateral: BalanceOf<T>,
+        },
+        WithdrawCollateral {
+            vault_id: DefaultVaultId<T>,
+            withdrawn_amount: BalanceOf<T>,
+            total_collateral: BalanceOf<T>,
+        },
+        UpdatePublicKey {
+            vault_id: DefaultVaultId<T>,
+            public_key: BtcPublicKey,
+        },
+        RegisterAddress {
+            vault_id: DefaultVaultId<T>,
+            address: BtcAddress,
+        },
+        IncreaseToBeIssuedTokens {
+            vault_id: DefaultVaultId<T>,
+            increase: BalanceOf<T>,
+        },
+        DecreaseToBeIssuedTokens {
+            vault_id: DefaultVaultId<T>,
+            decrease: BalanceOf<T>,
+        },
+        IssueTokens {
+            vault_id: DefaultVaultId<T>,
+            increase: BalanceOf<T>,
+        },
+        IncreaseToBeRedeemedTokens {
+            vault_id: DefaultVaultId<T>,
+            increase: BalanceOf<T>,
+        },
+        DecreaseToBeRedeemedTokens {
+            vault_id: DefaultVaultId<T>,
+            decrease: BalanceOf<T>,
+        },
+        IncreaseToBeReplacedTokens {
+            vault_id: DefaultVaultId<T>,
+            increase: BalanceOf<T>,
+        },
+        DecreaseToBeReplacedTokens {
+            vault_id: DefaultVaultId<T>,
+            decrease: BalanceOf<T>,
+        },
+        DecreaseTokens {
+            vault_id: DefaultVaultId<T>,
+            user_id: T::AccountId,
+            decrease: BalanceOf<T>,
+        },
+        RedeemTokens {
+            vault_id: DefaultVaultId<T>,
+            redeemed_amount: BalanceOf<T>,
+        },
+        RedeemTokensPremium {
+            vault_id: DefaultVaultId<T>,
+            redeemed_amount: BalanceOf<T>,
+            collateral: BalanceOf<T>,
+            user_id: T::AccountId,
+        },
+        RedeemTokensLiquidatedVault {
+            vault_id: DefaultVaultId<T>,
+            tokens: BalanceOf<T>,
+            collateral: BalanceOf<T>,
+        },
+        RedeemTokensLiquidation {
+            redeemer_id: T::AccountId,
+            burned_tokens: BalanceOf<T>,
+            transferred_collateral: BalanceOf<T>,
+        },
+        ReplaceTokens {
+            old_vault_id: DefaultVaultId<T>,
+            new_vault_id: DefaultVaultId<T>,
+            amount: BalanceOf<T>,
+            additional_collateral: BalanceOf<T>,
+        },
+        LiquidateVault {
+            vault_id: DefaultVaultId<T>,
+            issued_tokens: BalanceOf<T>,
+            to_be_issued_tokens: BalanceOf<T>,
+            to_be_redeemed_tokens: BalanceOf<T>,
+            to_be_replaced_tokens: BalanceOf<T>,
+            backing_collateral: BalanceOf<T>,
+            status: VaultStatus,
+            replace_collateral: BalanceOf<T>,
+        },
+        BanVault {
+            vault_id: DefaultVaultId<T>,
+            banned_until: T::BlockNumber,
+        },
     }
 
     #[pallet::error]
@@ -678,7 +730,10 @@ impl<T: Config> Pallet<T> {
 
         Self::try_deposit_collateral(&vault_id, &amount)?;
 
-        Self::deposit_event(Event::<T>::RegisterVault(vault_id.clone(), collateral));
+        Self::deposit_event(Event::<T>::RegisterVault {
+            vault_id: vault_id.clone(),
+            collateral,
+        });
 
         Ok(())
     }
@@ -913,7 +968,10 @@ impl<T: Config> Pallet<T> {
         ensure!(issuable_tokens.ge(&tokens)?, Error::<T>::ExceedingVaultLimit);
         vault.increase_to_be_issued(tokens)?;
 
-        Self::deposit_event(Event::<T>::IncreaseToBeIssuedTokens(vault.id(), tokens.amount()));
+        Self::deposit_event(Event::<T>::IncreaseToBeIssuedTokens {
+            vault_id: vault.id(),
+            increase: tokens.amount(),
+        });
         Ok(())
     }
 
@@ -924,7 +982,10 @@ impl<T: Config> Pallet<T> {
     pub fn register_deposit_address(vault_id: &DefaultVaultId<T>, issue_id: H256) -> Result<BtcAddress, DispatchError> {
         let mut vault = Self::get_active_rich_vault_from_id(&vault_id)?;
         let btc_address = vault.new_deposit_address(issue_id)?;
-        Self::deposit_event(Event::<T>::RegisterAddress(vault.id(), btc_address));
+        Self::deposit_event(Event::<T>::RegisterAddress {
+            vault_id: vault.id(),
+            address: btc_address,
+        });
         Ok(btc_address)
     }
 
@@ -958,7 +1019,10 @@ impl<T: Config> Pallet<T> {
 
         vault.set_to_be_replaced_amount(&new_to_be_replaced)?;
 
-        Self::deposit_event(Event::<T>::IncreaseToBeReplacedTokens(vault.id(), tokens.amount()));
+        Self::deposit_event(Event::<T>::IncreaseToBeReplacedTokens {
+            vault_id: vault.id(),
+            increase: tokens.amount(),
+        });
 
         Ok((new_to_be_replaced, new_collateral))
     }
@@ -985,7 +1049,10 @@ impl<T: Config> Pallet<T> {
 
         vault.set_to_be_replaced_amount(&new_to_be_replaced)?;
 
-        Self::deposit_event(Event::<T>::DecreaseToBeReplacedTokens(vault.id(), tokens.amount()));
+        Self::deposit_event(Event::<T>::DecreaseToBeReplacedTokens {
+            vault_id: vault.id(),
+            decrease: tokens.amount(),
+        });
 
         Ok((used_tokens, used_collateral))
     }
@@ -1000,7 +1067,10 @@ impl<T: Config> Pallet<T> {
         let mut vault = Self::get_rich_vault_from_id(vault_id)?;
         vault.decrease_to_be_issued(tokens)?;
 
-        Self::deposit_event(Event::<T>::DecreaseToBeIssuedTokens(vault_id.clone(), tokens.amount()));
+        Self::deposit_event(Event::<T>::DecreaseToBeIssuedTokens {
+            vault_id: vault_id.clone(),
+            decrease: tokens.amount(),
+        });
         Ok(())
     }
 
@@ -1018,7 +1088,10 @@ impl<T: Config> Pallet<T> {
     pub fn issue_tokens(vault_id: &DefaultVaultId<T>, tokens: &Amount<T>) -> DispatchResult {
         let mut vault = Self::get_rich_vault_from_id(&vault_id)?;
         vault.issue_tokens(tokens)?;
-        Self::deposit_event(Event::<T>::IssueTokens(vault.id(), tokens.amount()));
+        Self::deposit_event(Event::<T>::IssueTokens {
+            vault_id: vault.id(),
+            increase: tokens.amount(),
+        });
         Ok(())
     }
 
@@ -1043,7 +1116,10 @@ impl<T: Config> Pallet<T> {
 
         vault.increase_to_be_redeemed(tokens)?;
 
-        Self::deposit_event(Event::<T>::IncreaseToBeRedeemedTokens(vault.id(), tokens.amount()));
+        Self::deposit_event(Event::<T>::IncreaseToBeRedeemedTokens {
+            vault_id: vault.id(),
+            increase: tokens.amount(),
+        });
         Ok(())
     }
 
@@ -1060,7 +1136,10 @@ impl<T: Config> Pallet<T> {
         let mut vault = Self::get_rich_vault_from_id(&vault_id)?;
         vault.decrease_to_be_redeemed(tokens)?;
 
-        Self::deposit_event(Event::<T>::DecreaseToBeRedeemedTokens(vault.id(), tokens.amount()));
+        Self::deposit_event(Event::<T>::DecreaseToBeRedeemedTokens {
+            vault_id: vault.id(),
+            decrease: tokens.amount(),
+        });
         Ok(())
     }
 
@@ -1078,7 +1157,11 @@ impl<T: Config> Pallet<T> {
         let mut vault = Self::get_rich_vault_from_id(&vault_id)?;
         vault.decrease_tokens(tokens)?;
 
-        Self::deposit_event(Event::<T>::DecreaseTokens(vault.id(), user_id.clone(), tokens.amount()));
+        Self::deposit_event(Event::<T>::DecreaseTokens {
+            vault_id: vault.id(),
+            user_id: user_id.clone(),
+            decrease: tokens.amount(),
+        });
         Ok(())
     }
 
@@ -1116,7 +1199,10 @@ impl<T: Config> Pallet<T> {
 
         if !vault.data.is_liquidated() {
             if premium.is_zero() {
-                Self::deposit_event(Event::<T>::RedeemTokens(vault.id(), tokens.amount()));
+                Self::deposit_event(Event::<T>::RedeemTokens {
+                    vault_id: vault.id(),
+                    redeemed_amount: tokens.amount(),
+                });
             } else {
                 Self::transfer_funds(
                     CurrencySource::Collateral(vault_id.clone()),
@@ -1124,12 +1210,12 @@ impl<T: Config> Pallet<T> {
                     premium,
                 )?;
 
-                Self::deposit_event(Event::<T>::RedeemTokensPremium(
-                    vault_id.clone(),
-                    tokens.amount(),
-                    premium.amount(),
-                    redeemer_id.clone(),
-                ));
+                Self::deposit_event(Event::<T>::RedeemTokensPremium {
+                    vault_id: vault_id.clone(),
+                    redeemed_amount: tokens.amount(),
+                    collateral: premium.amount(),
+                    user_id: redeemer_id.clone(),
+                });
             }
         } else {
             // NOTE: previously we calculated the amount to release based on the Vault's `backing_collateral`
@@ -1142,11 +1228,11 @@ impl<T: Config> Pallet<T> {
             // release the collateral back to the free balance of the vault
             to_be_released.unlock_on(&vault_id.account_id)?;
 
-            Self::deposit_event(Event::<T>::RedeemTokensLiquidatedVault(
-                vault_id.clone(),
-                tokens.amount(),
-                to_be_released.amount(),
-            ));
+            Self::deposit_event(Event::<T>::RedeemTokensLiquidatedVault {
+                vault_id: vault_id.clone(),
+                tokens: tokens.amount(),
+                collateral: to_be_released.amount(),
+            });
         }
 
         Ok(())
@@ -1200,11 +1286,11 @@ impl<T: Config> Pallet<T> {
         let mut liquidation_vault = Self::get_rich_liquidation_vault(&currency_pair);
         liquidation_vault.decrease_issued(amount_wrapped)?;
 
-        Self::deposit_event(Event::<T>::RedeemTokensLiquidation(
-            redeemer_id.clone(),
-            amount_wrapped.amount(),
-            to_transfer.amount(),
-        ));
+        Self::deposit_event(Event::<T>::RedeemTokensLiquidation {
+            redeemer_id: redeemer_id.clone(),
+            burned_tokens: amount_wrapped.amount(),
+            transferred_collateral: to_transfer.amount(),
+        });
 
         Ok(())
     }
@@ -1246,12 +1332,12 @@ impl<T: Config> Pallet<T> {
         old_vault.decrease_tokens(tokens)?;
         new_vault.issue_tokens(tokens)?;
 
-        Self::deposit_event(Event::<T>::ReplaceTokens(
-            old_vault_id.clone(),
-            new_vault_id.clone(),
-            tokens.amount(),
-            collateral.amount(),
-        ));
+        Self::deposit_event(Event::<T>::ReplaceTokens {
+            old_vault_id: old_vault_id.clone(),
+            new_vault_id: new_vault_id.clone(),
+            amount: tokens.amount(),
+            additional_collateral: collateral.amount(),
+        });
         Ok(())
     }
 
@@ -1328,16 +1414,16 @@ impl<T: Config> Pallet<T> {
 
         let to_slash = vault.liquidate(status, reporter)?;
 
-        Self::deposit_event(Event::<T>::LiquidateVault(
-            vault_id.clone(),
-            vault_orig.issued_tokens,
-            vault_orig.to_be_issued_tokens,
-            vault_orig.to_be_redeemed_tokens,
-            vault_orig.to_be_replaced_tokens,
-            backing_collateral.amount(),
+        Self::deposit_event(Event::<T>::LiquidateVault {
+            vault_id: vault_id.clone(),
+            issued_tokens: vault_orig.issued_tokens,
+            to_be_issued_tokens: vault_orig.to_be_issued_tokens,
+            to_be_redeemed_tokens: vault_orig.to_be_redeemed_tokens,
+            to_be_replaced_tokens: vault_orig.to_be_replaced_tokens,
+            backing_collateral: backing_collateral.amount(),
             status,
-            vault_orig.replace_collateral,
-        ));
+            replace_collateral: vault_orig.replace_collateral,
+        });
         Ok(to_slash)
     }
 
@@ -1375,7 +1461,10 @@ impl<T: Config> Pallet<T> {
         let mut vault = Self::get_active_rich_vault_from_id(vault_id)?;
         let banned_until = height + Self::punishment_delay();
         vault.ban_until(banned_until);
-        Self::deposit_event(Event::<T>::BanVault(vault.id(), banned_until));
+        Self::deposit_event(Event::<T>::BanVault {
+            vault_id: vault.id(),
+            banned_until,
+        });
         Ok(())
     }
 

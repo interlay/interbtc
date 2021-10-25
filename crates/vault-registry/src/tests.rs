@@ -132,7 +132,10 @@ fn create_sample_vault_and_issue_tokens(issue_tokens: u128) -> DefaultVaultId<Te
 fn register_vault_succeeds() {
     run_test(|| {
         let id = create_sample_vault();
-        assert_emitted!(Event::RegisterVault(id, DEFAULT_COLLATERAL));
+        assert_emitted!(Event::RegisterVault {
+            vault_id: id,
+            collateral: DEFAULT_COLLATERAL
+        });
     });
 }
 
@@ -150,7 +153,10 @@ fn register_vault_fails_when_given_collateral_too_low() {
             dummy_public_key(),
         );
         assert_err!(result, TestError::InsufficientVaultCollateralAmount);
-        assert_not_emitted!(Event::RegisterVault(id, collateral));
+        assert_not_emitted!(Event::RegisterVault {
+            vault_id: id,
+            collateral
+        });
     });
 }
 
@@ -165,7 +171,10 @@ fn register_vault_fails_when_account_funds_too_low() {
             dummy_public_key(),
         );
         assert_err!(result, TokensError::BalanceTooLow);
-        assert_not_emitted!(Event::RegisterVault(DEFAULT_ID, collateral));
+        assert_not_emitted!(Event::RegisterVault {
+            vault_id: DEFAULT_ID,
+            collateral
+        });
     });
 }
 
@@ -180,7 +189,13 @@ fn register_vault_fails_when_already_registered() {
             dummy_public_key(),
         );
         assert_err!(result, TestError::VaultAlreadyRegistered);
-        assert_emitted!(Event::RegisterVault(id, DEFAULT_COLLATERAL), 1);
+        assert_emitted!(
+            Event::RegisterVault {
+                vault_id: id,
+                collateral: DEFAULT_COLLATERAL
+            },
+            1
+        );
     });
 }
 
@@ -193,12 +208,12 @@ fn deposit_collateral_succeeds() {
         assert_ok!(res);
         let new_collateral = ext::currency::get_reserved_balance::<Test>(CurrencyId::DOT, &id.account_id);
         assert_eq!(new_collateral, amount(DEFAULT_COLLATERAL + additional));
-        assert_emitted!(Event::DepositCollateral(
-            id,
-            additional,
-            RICH_COLLATERAL,
-            RICH_COLLATERAL
-        ));
+        assert_emitted!(Event::DepositCollateral {
+            vault_id: id,
+            new_collateral: additional,
+            total_collateral: RICH_COLLATERAL,
+            free_collateral: RICH_COLLATERAL
+        });
     });
 }
 
@@ -218,7 +233,11 @@ fn withdraw_collateral_succeeds() {
         assert_ok!(res);
         let new_collateral = ext::currency::get_reserved_balance::<Test>(CurrencyId::DOT, &id.account_id);
         assert_eq!(new_collateral, amount(DEFAULT_COLLATERAL - 50));
-        assert_emitted!(Event::WithdrawCollateral(id, 50, DEFAULT_COLLATERAL - 50));
+        assert_emitted!(Event::WithdrawCollateral {
+            vault_id: id,
+            withdrawn_amount: 50,
+            total_collateral: DEFAULT_COLLATERAL - 50
+        });
     });
 }
 
@@ -248,7 +267,10 @@ fn try_increase_to_be_issued_tokens_succeeds() {
         let vault = VaultRegistry::get_active_rich_vault_from_id(&id).unwrap();
         assert_ok!(res);
         assert_eq!(vault.data.to_be_issued_tokens, 50);
-        assert_emitted!(Event::IncreaseToBeIssuedTokens(id, 50));
+        assert_emitted!(Event::IncreaseToBeIssuedTokens {
+            vault_id: id,
+            increase: 50
+        });
     });
 }
 
@@ -275,7 +297,10 @@ fn decrease_to_be_issued_tokens_succeeds() {
         assert_ok!(res);
         let vault = VaultRegistry::get_active_rich_vault_from_id(&id).unwrap();
         assert_eq!(vault.data.to_be_issued_tokens, 0);
-        assert_emitted!(Event::DecreaseToBeIssuedTokens(id, 50));
+        assert_emitted!(Event::DecreaseToBeIssuedTokens {
+            vault_id: id,
+            decrease: 50
+        });
     });
 }
 
@@ -299,7 +324,10 @@ fn issue_tokens_succeeds() {
         let vault = VaultRegistry::get_active_rich_vault_from_id(&id).unwrap();
         assert_eq!(vault.data.to_be_issued_tokens, 0);
         assert_eq!(vault.data.issued_tokens, 50);
-        assert_emitted!(Event::IssueTokens(id, 50));
+        assert_emitted!(Event::IssueTokens {
+            vault_id: id,
+            increase: 50
+        });
     });
 }
 
@@ -327,7 +355,10 @@ fn try_increase_to_be_replaced_tokens_succeeds() {
         let vault = VaultRegistry::get_active_rich_vault_from_id(&id).unwrap();
         assert_eq!(vault.data.issued_tokens, 50);
         assert_eq!(vault.data.to_be_replaced_tokens, 50);
-        assert_emitted!(Event::IncreaseToBeReplacedTokens(id, 50));
+        assert_emitted!(Event::IncreaseToBeReplacedTokens {
+            vault_id: id,
+            increase: 50
+        });
     });
 }
 
@@ -355,7 +386,10 @@ fn try_increase_to_be_redeemed_tokens_succeeds() {
         let vault = VaultRegistry::get_active_rich_vault_from_id(&id).unwrap();
         assert_eq!(vault.data.issued_tokens, 50);
         assert_eq!(vault.data.to_be_redeemed_tokens, 50);
-        assert_emitted!(Event::IncreaseToBeRedeemedTokens(id, 50));
+        assert_emitted!(Event::IncreaseToBeRedeemedTokens {
+            vault_id: id,
+            increase: 50
+        });
     });
 }
 
@@ -383,7 +417,10 @@ fn decrease_to_be_redeemed_tokens_succeeds() {
         let vault = VaultRegistry::get_active_rich_vault_from_id(&id).unwrap();
         assert_eq!(vault.data.issued_tokens, 50);
         assert_eq!(vault.data.to_be_redeemed_tokens, 0);
-        assert_emitted!(Event::DecreaseToBeRedeemedTokens(id, 50));
+        assert_emitted!(Event::DecreaseToBeRedeemedTokens {
+            vault_id: id,
+            decrease: 50
+        });
     });
 }
 
@@ -410,7 +447,11 @@ fn _succeeds() {
         let vault = VaultRegistry::get_active_rich_vault_from_id(&id).unwrap();
         assert_eq!(vault.data.issued_tokens, 0);
         assert_eq!(vault.data.to_be_redeemed_tokens, 0);
-        assert_emitted!(Event::DecreaseTokens(id, user_id, 50));
+        assert_emitted!(Event::DecreaseTokens {
+            vault_id: id,
+            user_id: user_id,
+            decrease: 50
+        });
     });
 }
 
@@ -438,7 +479,10 @@ fn redeem_tokens_succeeds() {
         let vault = VaultRegistry::get_active_rich_vault_from_id(&id).unwrap();
         assert_eq!(vault.data.issued_tokens, 0);
         assert_eq!(vault.data.to_be_redeemed_tokens, 0);
-        assert_emitted!(Event::RedeemTokens(id, 50));
+        assert_emitted!(Event::RedeemTokens {
+            vault_id: id,
+            redeemed_amount: 50
+        });
     });
 }
 
@@ -474,7 +518,12 @@ fn redeem_tokens_premium_succeeds() {
         let vault = VaultRegistry::get_active_rich_vault_from_id(&id).unwrap();
         assert_eq!(vault.data.issued_tokens, 0);
         assert_eq!(vault.data.to_be_redeemed_tokens, 0);
-        assert_emitted!(Event::RedeemTokensPremium(id, 50, 30, user_id));
+        assert_emitted!(Event::RedeemTokensPremium {
+            vault_id: id,
+            redeemed_amount: 50,
+            collateral: 30,
+            user_id: user_id
+        });
     });
 }
 
@@ -487,7 +536,12 @@ fn redeem_tokens_premium_fails_with_insufficient_tokens() {
         assert_ok!(VaultRegistry::issue_tokens(&id, &wrapped(50)));
         let res = VaultRegistry::redeem_tokens(&id, &wrapped(50), &amount(30), &user_id);
         assert_err!(res, CurrencyError::ArithmeticUnderflow);
-        assert_not_emitted!(Event::RedeemTokensPremium(id, 50, 30, user_id));
+        assert_not_emitted!(Event::RedeemTokensPremium {
+            vault_id: id,
+            redeemed_amount: 50,
+            collateral: 30,
+            user_id: user_id
+        });
     });
 }
 
@@ -517,7 +571,11 @@ fn redeem_tokens_liquidation_succeeds() {
         ));
         let liquidation_vault = VaultRegistry::get_rich_liquidation_vault(&DEFAULT_CURRENCY_PAIR);
         assert_eq!(liquidation_vault.data.issued_tokens, 0);
-        assert_emitted!(Event::RedeemTokensLiquidation(user_id, 50, 500));
+        assert_emitted!(Event::RedeemTokensLiquidation {
+            redeemer_id: user_id,
+            burned_tokens: 50,
+            transferred_collateral: 500
+        });
     });
 }
 
@@ -546,7 +604,11 @@ fn redeem_tokens_liquidation_does_not_call_recover_when_unnecessary() {
         ));
         let liquidation_vault = VaultRegistry::get_rich_liquidation_vault(&DEFAULT_CURRENCY_PAIR);
         assert_eq!(liquidation_vault.data.issued_tokens, 15);
-        assert_emitted!(Event::RedeemTokensLiquidation(user_id, 10, (1000 * 10) / 50));
+        assert_emitted!(Event::RedeemTokensLiquidation {
+            redeemer_id: user_id,
+            burned_tokens: 10,
+            transferred_collateral: (1000 * 10) / 50
+        });
     });
 }
 
@@ -556,7 +618,11 @@ fn redeem_tokens_liquidation_fails_with_insufficient_tokens() {
         let user_id = 5;
         let res = VaultRegistry::redeem_tokens_liquidation(CurrencyId::DOT, &user_id, &wrapped(50));
         assert_err!(res, TestError::InsufficientTokensCommitted);
-        assert_not_emitted!(Event::RedeemTokensLiquidation(user_id, 50, 50));
+        assert_not_emitted!(Event::RedeemTokensLiquidation {
+            redeemer_id: user_id,
+            burned_tokens: 50,
+            transferred_collateral: 50
+        });
     });
 }
 
@@ -591,7 +657,12 @@ fn replace_tokens_liquidation_succeeds() {
         assert_eq!(old_vault.data.to_be_redeemed_tokens, 0);
         assert_eq!(new_vault.data.issued_tokens, 50);
         assert_eq!(new_vault.data.to_be_issued_tokens, 0);
-        assert_emitted!(Event::ReplaceTokens(old_id, new_id, 50, 20));
+        assert_emitted!(Event::ReplaceTokens {
+            old_vault_id: old_id,
+            new_vault_id: new_id,
+            amount: 50,
+            additional_collateral: 20
+        });
     });
 }
 
@@ -694,16 +765,16 @@ fn liquidate_at_most_secure_threshold() {
         let liquidation_vault_after = VaultRegistry::get_rich_liquidation_vault(&DEFAULT_CURRENCY_PAIR);
         let liquidated_vault = <crate::Vaults<Test>>::get(&vault_id).unwrap();
         assert!(matches!(liquidated_vault.status, VaultStatus::Liquidated));
-        assert_emitted!(Event::LiquidateVault(
-            vault_id.clone(),
-            vault_orig.issued_tokens,
-            vault_orig.to_be_issued_tokens,
-            vault_orig.to_be_redeemed_tokens,
-            vault_orig.to_be_replaced_tokens,
-            backing_collateral_orig.amount(),
-            VaultStatus::Liquidated,
-            vault_orig.replace_collateral,
-        ));
+        assert_emitted!(Event::LiquidateVault {
+            vault_id: vault_id.clone(),
+            issued_tokens: vault_orig.issued_tokens,
+            to_be_issued_tokens: vault_orig.to_be_issued_tokens,
+            to_be_redeemed_tokens: vault_orig.to_be_redeemed_tokens,
+            to_be_replaced_tokens: vault_orig.to_be_replaced_tokens,
+            backing_collateral: backing_collateral_orig.amount(),
+            status: VaultStatus::Liquidated,
+            replace_collateral: vault_orig.replace_collateral,
+        });
 
         // check liquidation_vault tokens & collateral
         assert_eq!(
