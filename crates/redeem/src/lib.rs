@@ -136,6 +136,7 @@ pub mod pallet {
     /// Users create redeem requests to receive BTC in return for their previously issued tokens.
     /// This mapping provides access from a unique hash redeemId to a Redeem struct.
     #[pallet::storage]
+    #[pallet::getter(fn redeem_requests)]
     pub(super) type RedeemRequests<T: Config> =
         StorageMap<_, Blake2_128Concat, H256, DefaultRedeemRequest<T>, OptionQuery>;
 

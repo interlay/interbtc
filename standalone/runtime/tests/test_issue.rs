@@ -834,9 +834,10 @@ mod execute_issue_tests {
             );
 
             // issue request is updated: status is complete
-            let user_issues = IssuePallet::get_issue_requests_for_account(account_of(USER));
-            let (_, onchain_issue) = user_issues.iter().find(|(id, _)| id == &issue_id).unwrap();
-            assert_eq!(onchain_issue.status, IssueRequestStatus::Completed(None));
+            assert_eq!(
+                IssuePallet::issue_requests(issue_id).unwrap().status,
+                IssueRequestStatus::Completed(None)
+            );
         });
     }
 
@@ -895,9 +896,17 @@ mod execute_issue_tests {
             completed_issue.fee /= 4;
             completed_issue.status = IssueRequestStatus::Completed(None);
 
+            assert_eq!(
+                IssuePallet::issue_requests(issue_id).unwrap().status,
+                IssueRequestStatus::Completed(None)
+            );
             let user_issues = IssuePallet::get_issue_requests_for_account(account_of(USER));
-            let (_, onchain_issue) = user_issues.iter().find(|(id, _)| id == &issue_id).unwrap();
-            assert_eq!(onchain_issue, &completed_issue);
+            let onchain_issue = user_issues
+                .into_iter()
+                .find(|id| id == &issue_id)
+                .map(|id| IssuePallet::issue_requests(id).unwrap())
+                .unwrap();
+            assert_eq!(onchain_issue, completed_issue);
         });
     }
 
@@ -939,8 +948,12 @@ mod execute_issue_tests {
             completed_issue.status = IssueRequestStatus::Completed(None);
 
             let user_issues = IssuePallet::get_issue_requests_for_account(account_of(USER));
-            let (_, onchain_issue) = user_issues.iter().find(|(id, _)| id == &issue_id).unwrap();
-            assert_eq!(onchain_issue, &completed_issue);
+            let onchain_issue = user_issues
+                .into_iter()
+                .find(|id| id == &issue_id)
+                .map(|id| IssuePallet::issue_requests(id).unwrap())
+                .unwrap();
+            assert_eq!(onchain_issue, completed_issue);
         });
     }
 
@@ -994,7 +1007,11 @@ mod execute_issue_tests {
 
             // issue request is updated: status is complete and references refund request
             let user_issues = IssuePallet::get_issue_requests_for_account(account_of(USER));
-            let (_, onchain_issue) = user_issues.iter().find(|(id, _)| id == &issue_id).unwrap();
+            let onchain_issue = user_issues
+                .into_iter()
+                .find(|id| id == &issue_id)
+                .map(|id| IssuePallet::issue_requests(id).unwrap())
+                .unwrap();
             assert_eq!(onchain_issue.status, IssueRequestStatus::Completed(Some(refund_id)));
         });
     }
@@ -1107,7 +1124,11 @@ mod cancel_issue_tests {
 
             // issue request status is set to cancelled
             let user_issues = IssuePallet::get_issue_requests_for_account(account_of(USER));
-            let (_, onchain_issue) = user_issues.iter().find(|(id, _)| id == &issue_id).unwrap();
+            let onchain_issue = user_issues
+                .into_iter()
+                .find(|id| id == &issue_id)
+                .map(|id| IssuePallet::issue_requests(id).unwrap())
+                .unwrap();
             assert_eq!(onchain_issue.status, IssueRequestStatus::Cancelled);
         });
     }
@@ -1144,7 +1165,11 @@ mod cancel_issue_tests {
 
             // issue request status is set to cancelled
             let user_issues = IssuePallet::get_issue_requests_for_account(account_of(USER));
-            let (_, onchain_issue) = user_issues.iter().find(|(id, _)| id == &issue_id).unwrap();
+            let onchain_issue = user_issues
+                .into_iter()
+                .find(|id| id == &issue_id)
+                .map(|id| IssuePallet::issue_requests(id).unwrap())
+                .unwrap();
             assert_eq!(onchain_issue.status, IssueRequestStatus::Cancelled);
         });
     }

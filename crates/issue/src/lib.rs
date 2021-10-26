@@ -121,6 +121,7 @@ pub mod pallet {
     /// Users create issue requests to issue tokens. This mapping provides access
     /// from a unique hash `IssueId` to an `IssueRequest` struct.
     #[pallet::storage]
+    #[pallet::getter(fn issue_requests)]
     pub(super) type IssueRequests<T: Config> =
         StorageMap<_, Blake2_128Concat, H256, DefaultIssueRequest<T>, OptionQuery>;
 
