@@ -14,18 +14,10 @@ pub use module_replace_rpc_runtime_api::ReplaceApi as ReplaceRuntimeApi;
 #[rpc]
 pub trait ReplaceApi<BlockHash, AccountId, H256, ReplaceRequest> {
     #[rpc(name = "replace_getOldVaultReplaceRequests")]
-    fn get_old_vault_replace_requests(
-        &self,
-        vault_id: AccountId,
-        at: Option<BlockHash>,
-    ) -> Result<Vec<(H256, ReplaceRequest)>>;
+    fn get_old_vault_replace_requests(&self, vault_id: AccountId, at: Option<BlockHash>) -> Result<Vec<H256>>;
 
     #[rpc(name = "replace_getNewVaultReplaceRequests")]
-    fn get_new_vault_replace_requests(
-        &self,
-        vault_id: AccountId,
-        at: Option<BlockHash>,
-    ) -> Result<Vec<(H256, ReplaceRequest)>>;
+    fn get_new_vault_replace_requests(&self, vault_id: AccountId, at: Option<BlockHash>) -> Result<Vec<H256>>;
 }
 
 /// A struct that implements the [`ReplaceApi`].
@@ -70,7 +62,7 @@ where
         &self,
         vault_id: AccountId,
         at: Option<<Block as BlockT>::Hash>,
-    ) -> Result<Vec<(H256, ReplaceRequest)>> {
+    ) -> Result<Vec<H256>> {
         let api = self.client.runtime_api();
         let at = BlockId::hash(at.unwrap_or_else(|| self.client.info().best_hash));
 
@@ -85,7 +77,7 @@ where
         &self,
         vault_id: AccountId,
         at: Option<<Block as BlockT>::Hash>,
-    ) -> Result<Vec<(H256, ReplaceRequest)>> {
+    ) -> Result<Vec<H256>> {
         let api = self.client.runtime_api();
         let at = BlockId::hash(at.unwrap_or_else(|| self.client.info().best_hash));
 

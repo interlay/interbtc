@@ -301,9 +301,10 @@ impl<T: Config> Pallet<T> {
     /// # Arguments
     ///
     /// * `account_id` - user account id
-    pub fn get_refund_requests_for_account(account_id: T::AccountId) -> Vec<(H256, DefaultRefundRequest<T>)> {
+    pub fn get_refund_requests_for_account(account_id: T::AccountId) -> Vec<H256> {
         <RefundRequests<T>>::iter()
             .filter(|(_, request)| request.issuer == account_id)
+            .map(|(key, _)| key)
             .collect::<Vec<_>>()
     }
 
@@ -326,8 +327,10 @@ impl<T: Config> Pallet<T> {
     /// # Arguments
     ///
     /// * `issue_id` - The ID of an issue request
-    pub fn get_refund_requests_by_issue_id(issue_id: H256) -> Option<(H256, DefaultRefundRequest<T>)> {
-        <RefundRequests<T>>::iter().find(|(_, request)| request.issue_id == issue_id)
+    pub fn get_refund_requests_by_issue_id(issue_id: H256) -> Option<H256> {
+        <RefundRequests<T>>::iter()
+            .find(|(_, request)| request.issue_id == issue_id)
+            .map(|(key, _)| key)
     }
 
     /// Fetch all refund requests for the specified vault. This function is exposed as RPC.
@@ -335,9 +338,10 @@ impl<T: Config> Pallet<T> {
     /// # Arguments
     ///
     /// * `account_id` - vault account id
-    pub fn get_refund_requests_for_vault(vault_id: T::AccountId) -> Vec<(H256, DefaultRefundRequest<T>)> {
+    pub fn get_refund_requests_for_vault(vault_id: T::AccountId) -> Vec<H256> {
         <RefundRequests<T>>::iter()
             .filter(|(_, request)| request.vault.account_id == vault_id)
+            .map(|(key, _)| key)
             .collect::<Vec<_>>()
     }
 

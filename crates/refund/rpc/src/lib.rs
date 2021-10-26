@@ -14,23 +14,11 @@ pub use module_refund_rpc_runtime_api::RefundApi as RefundRuntimeApi;
 #[rpc]
 pub trait RefundApi<BlockHash, AccountId, H256, RefundRequest> {
     #[rpc(name = "refund_getRefundRequests")]
-    fn get_refund_requests(
-        &self,
-        account_id: AccountId,
-        at: Option<BlockHash>,
-    ) -> JsonRpcResult<Vec<(H256, RefundRequest)>>;
+    fn get_refund_requests(&self, account_id: AccountId, at: Option<BlockHash>) -> JsonRpcResult<Vec<H256>>;
     #[rpc(name = "refund_getRefundRequestsByIssueId")]
-    fn get_refund_requests_by_issue_id(
-        &self,
-        issue_id: H256,
-        at: Option<BlockHash>,
-    ) -> JsonRpcResult<Option<(H256, RefundRequest)>>;
+    fn get_refund_requests_by_issue_id(&self, issue_id: H256, at: Option<BlockHash>) -> JsonRpcResult<Option<H256>>;
     #[rpc(name = "refund_getVaultRefundRequests")]
-    fn get_vault_refund_requests(
-        &self,
-        vault_id: AccountId,
-        at: Option<BlockHash>,
-    ) -> JsonRpcResult<Vec<(H256, RefundRequest)>>;
+    fn get_vault_refund_requests(&self, vault_id: AccountId, at: Option<BlockHash>) -> JsonRpcResult<Vec<H256>>;
 }
 
 /// A struct that implements the [`RefundApi`].
@@ -75,7 +63,7 @@ where
         &self,
         account_id: AccountId,
         at: Option<<Block as BlockT>::Hash>,
-    ) -> JsonRpcResult<Vec<(H256, RefundRequest)>> {
+    ) -> JsonRpcResult<Vec<H256>> {
         let api = self.client.runtime_api();
         let at = BlockId::hash(at.unwrap_or_else(|| self.client.info().best_hash));
 
@@ -90,7 +78,7 @@ where
         &self,
         issue_id: H256,
         at: Option<<Block as BlockT>::Hash>,
-    ) -> JsonRpcResult<Option<(H256, RefundRequest)>> {
+    ) -> JsonRpcResult<Option<H256>> {
         let api = self.client.runtime_api();
         let at = BlockId::hash(at.unwrap_or_else(|| self.client.info().best_hash));
 
@@ -106,7 +94,7 @@ where
         &self,
         vault_id: AccountId,
         at: Option<<Block as BlockT>::Hash>,
-    ) -> JsonRpcResult<Vec<(H256, RefundRequest)>> {
+    ) -> JsonRpcResult<Vec<H256>> {
         let api = self.client.runtime_api();
         let at = BlockId::hash(at.unwrap_or_else(|| self.client.info().best_hash));
 

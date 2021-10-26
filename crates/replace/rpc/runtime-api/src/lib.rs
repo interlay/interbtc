@@ -12,9 +12,9 @@ sp_api::decl_runtime_apis! {
         ReplaceRequest: Codec,
     {
         /// Get all replace requests from a particular vault
-        fn get_old_vault_replace_requests(vault_id: AccountId) -> Vec<(H256, ReplaceRequest)>;
+        fn get_old_vault_replace_requests(vault_id: AccountId) -> Vec<H256>;
 
         /// Get all replace requests to a particular vault
-        fn get_new_vault_replace_requests(vault_id: AccountId) -> Vec<(H256, ReplaceRequest)>;
+        fn get_new_vault_replace_requests(vault_id: AccountId) -> Vec<H256>;
     }
 }

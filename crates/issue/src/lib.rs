@@ -496,10 +496,11 @@ impl<T: Config> Pallet<T> {
     /// # Arguments
     ///
     /// * `account_id` - user account id
-    pub fn get_issue_requests_for_account(account_id: T::AccountId) -> Vec<(H256, DefaultIssueRequest<T>)> {
+    pub fn get_issue_requests_for_account(account_id: T::AccountId) -> Vec<H256> {
         <IssueRequests<T>>::iter()
             .filter(|(_, request)| request.requester == account_id)
-            .collect::<Vec<_>>()
+            .map(|(key, _)| key)
+            .collect()
     }
 
     /// Fetch all issue requests for the specified vault.
@@ -507,10 +508,11 @@ impl<T: Config> Pallet<T> {
     /// # Arguments
     ///
     /// * `account_id` - vault account id
-    pub fn get_issue_requests_for_vault(vault_id: T::AccountId) -> Vec<(H256, DefaultIssueRequest<T>)> {
+    pub fn get_issue_requests_for_vault(vault_id: T::AccountId) -> Vec<H256> {
         <IssueRequests<T>>::iter()
             .filter(|(_, request)| request.vault.account_id == vault_id)
-            .collect::<Vec<_>>()
+            .map(|(key, _)| key)
+            .collect()
     }
 
     pub fn get_issue_request_from_id(issue_id: &H256) -> Result<DefaultIssueRequest<T>, DispatchError> {

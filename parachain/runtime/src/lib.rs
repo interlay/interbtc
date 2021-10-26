@@ -1375,11 +1375,11 @@ impl_runtime_apis! {
         H256,
         IssueRequest<AccountId, BlockNumber, Balance, CurrencyId>
     > for Runtime {
-        fn get_issue_requests(account_id: AccountId) -> Vec<(H256, IssueRequest<AccountId, BlockNumber, Balance, CurrencyId>)> {
+        fn get_issue_requests(account_id: AccountId) -> Vec<H256> {
             Issue::get_issue_requests_for_account(account_id)
         }
 
-        fn get_vault_issue_requests(vault_id: AccountId) -> Vec<(H256, IssueRequest<AccountId, BlockNumber, Balance, CurrencyId>)> {
+        fn get_vault_issue_requests(vault_id: AccountId) -> Vec<H256> {
             Issue::get_issue_requests_for_vault(vault_id)
         }
     }
@@ -1390,11 +1390,11 @@ impl_runtime_apis! {
         H256,
         RedeemRequest<AccountId, BlockNumber, Balance, CurrencyId>
     > for Runtime {
-        fn get_redeem_requests(account_id: AccountId) -> Vec<(H256, RedeemRequest<AccountId, BlockNumber, Balance, CurrencyId>)> {
+        fn get_redeem_requests(account_id: AccountId) -> Vec<H256> {
             Redeem::get_redeem_requests_for_account(account_id)
         }
 
-        fn get_vault_redeem_requests(account_id: AccountId) -> Vec<(H256, RedeemRequest<AccountId, BlockNumber, Balance, CurrencyId>)> {
+        fn get_vault_redeem_requests(account_id: AccountId) -> Vec<H256> {
             Redeem::get_redeem_requests_for_vault(account_id)
         }
     }
@@ -1405,15 +1405,15 @@ impl_runtime_apis! {
         H256,
         RefundRequest<AccountId, Balance, CurrencyId>
     > for Runtime {
-        fn get_refund_requests(account_id: AccountId) -> Vec<(H256, RefundRequest<AccountId, Balance, CurrencyId>)> {
+        fn get_refund_requests(account_id: AccountId) -> Vec<H256> {
             Refund::get_refund_requests_for_account(account_id)
         }
 
-        fn get_refund_requests_by_issue_id(issue_id: H256) -> Option<(H256, RefundRequest<AccountId, Balance, CurrencyId>)> {
+        fn get_refund_requests_by_issue_id(issue_id: H256) -> Option<H256> {
             Refund::get_refund_requests_by_issue_id(issue_id)
         }
 
-        fn get_vault_refund_requests(vault_id: AccountId) -> Vec<(H256, RefundRequest<AccountId, Balance, CurrencyId>)> {
+        fn get_vault_refund_requests(vault_id: AccountId) -> Vec<H256> {
             Refund::get_refund_requests_for_vault(vault_id)
         }
     }
@@ -1424,11 +1424,11 @@ impl_runtime_apis! {
         H256,
         ReplaceRequest<AccountId, BlockNumber, Balance, CurrencyId>
     > for Runtime {
-        fn get_old_vault_replace_requests(vault_id: AccountId) -> Vec<(H256, ReplaceRequest<AccountId, BlockNumber, Balance, CurrencyId>)> {
+        fn get_old_vault_replace_requests(vault_id: AccountId) -> Vec<H256> {
             Replace::get_replace_requests_for_old_vault(vault_id)
         }
 
-        fn get_new_vault_replace_requests(vault_id: AccountId) -> Vec<(H256, ReplaceRequest<AccountId, BlockNumber, Balance, CurrencyId>)> {
+        fn get_new_vault_replace_requests(vault_id: AccountId) -> Vec<H256> {
             Replace::get_replace_requests_for_new_vault(vault_id)
         }
     }
