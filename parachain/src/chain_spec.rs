@@ -3,9 +3,9 @@ use cumulus_primitives_core::ParaId;
 use hex_literal::hex;
 use interbtc_runtime::{
     token_distribution, AccountId, AuraConfig, BTCRelayConfig, Balance, CurrencyId, FeeConfig, GenesisConfig,
-    IssueConfig, NominationConfig, OracleConfig, ParachainInfoConfig, RedeemConfig, RefundConfig, ReplaceConfig,
-    SecurityConfig, Signature, StatusCode, SudoConfig, SupplyConfig, SystemConfig, TokensConfig, VaultRegistryConfig,
-    VestingConfig, BITCOIN_BLOCK_SPACING, DAYS, WASM_BINARY, YEARS,
+    GetWrappedCurrencyId, IssueConfig, NominationConfig, OracleConfig, ParachainInfoConfig, RedeemConfig, RefundConfig,
+    ReplaceConfig, SecurityConfig, Signature, StatusCode, SudoConfig, SupplyConfig, SystemConfig, TokensConfig,
+    VaultRegistryConfig, VestingConfig, BITCOIN_BLOCK_SPACING, DAYS, WASM_BINARY, YEARS,
 };
 use primitives::{BlockNumber, VaultCurrencyPair, KINT};
 use sc_chain_spec::{ChainSpecExtension, ChainSpecGroup};
@@ -270,7 +270,7 @@ pub fn westend_testnet_config(id: ParaId) -> ChainSpec {
 fn default_pair(currency_id: CurrencyId) -> VaultCurrencyPair<CurrencyId> {
     VaultCurrencyPair {
         collateral: currency_id,
-        wrapped: CurrencyId::INTERBTC,
+        wrapped: GetWrappedCurrencyId::get(),
     }
 }
 

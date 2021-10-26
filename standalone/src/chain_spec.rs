@@ -1,10 +1,10 @@
 use bitcoin::utils::{virtual_transaction_size, InputType, TransactionInputMetadata, TransactionOutputMetadata};
 use hex_literal::hex;
 use interbtc_runtime::{
-    AccountId, AuraConfig, BTCRelayConfig, CouncilConfig, CurrencyId, FeeConfig, GenesisConfig, GrandpaConfig,
-    IssueConfig, NominationConfig, OracleConfig, RedeemConfig, RefundConfig, ReplaceConfig, SecurityConfig, Signature,
-    StatusCode, SudoConfig, SystemConfig, TokensConfig, VaultRegistryConfig, BITCOIN_BLOCK_SPACING, DAYS, DOT, INTR,
-    KINT, KSM, WASM_BINARY,
+    AccountId, AuraConfig, BTCRelayConfig, CouncilConfig, CurrencyId, FeeConfig, GenesisConfig, GetWrappedCurrencyId,
+    GrandpaConfig, IssueConfig, NominationConfig, OracleConfig, RedeemConfig, RefundConfig, ReplaceConfig,
+    SecurityConfig, Signature, StatusCode, SudoConfig, SystemConfig, TokensConfig, VaultRegistryConfig,
+    BITCOIN_BLOCK_SPACING, DAYS, DOT, INTR, KINT, KSM, WASM_BINARY,
 };
 use primitives::VaultCurrencyPair;
 use sp_consensus_aura::sr25519::AuthorityId as AuraId;
@@ -217,7 +217,7 @@ pub fn development_config() -> ChainSpec {
 fn default_pair(currency_id: CurrencyId) -> VaultCurrencyPair<CurrencyId> {
     VaultCurrencyPair {
         collateral: currency_id,
-        wrapped: CurrencyId::INTERBTC,
+        wrapped: GetWrappedCurrencyId::get(),
     }
 }
 
