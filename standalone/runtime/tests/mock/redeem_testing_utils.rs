@@ -174,6 +174,5 @@ pub fn assert_redeem_error(
 pub fn check_redeem_status(user: [u8; 32], status: RedeemRequestStatus) {
     let redeems = RedeemPallet::get_redeem_requests_for_account(account_of(user));
     assert_eq!(redeems.len(), 1);
-    let (_, redeem) = redeems[0].clone();
-    assert_eq!(redeem.status, status);
+    assert_eq!(RedeemPallet::redeem_requests(redeems[0]).unwrap().status, status);
 }

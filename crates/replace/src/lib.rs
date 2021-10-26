@@ -588,9 +588,10 @@ impl<T: Config> Pallet<T> {
     /// # Arguments
     ///
     /// * `account_id` - user account id
-    pub fn get_replace_requests_for_old_vault(vault_id: T::AccountId) -> Vec<(H256, DefaultReplaceRequest<T>)> {
+    pub fn get_replace_requests_for_old_vault(vault_id: T::AccountId) -> Vec<H256> {
         <ReplaceRequests<T>>::iter()
             .filter(|(_, request)| request.old_vault.account_id == vault_id)
+            .map(|(key, _)| key)
             .collect::<Vec<_>>()
     }
 
@@ -599,9 +600,10 @@ impl<T: Config> Pallet<T> {
     /// # Arguments
     ///
     /// * `account_id` - user account id
-    pub fn get_replace_requests_for_new_vault(vault_id: T::AccountId) -> Vec<(H256, DefaultReplaceRequest<T>)> {
+    pub fn get_replace_requests_for_new_vault(vault_id: T::AccountId) -> Vec<H256> {
         <ReplaceRequests<T>>::iter()
             .filter(|(_, request)| request.new_vault.account_id == vault_id)
+            .map(|(key, _)| key)
             .collect::<Vec<_>>()
     }
 
