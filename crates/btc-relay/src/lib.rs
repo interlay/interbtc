@@ -1032,8 +1032,7 @@ impl<T: Config> Pallet<T> {
     ///
     /// * `chain_id` - BlockChain identifier
     /// * `block_height` - current block height
-    // FIXME: made pub for testing
-    pub fn get_last_retarget_time(chain_id: u32, block_height: u32) -> Result<u64, DispatchError> {
+    fn get_last_retarget_time(chain_id: u32, block_height: u32) -> Result<u64, DispatchError> {
         let block_chain = Self::get_block_chain_from_id(chain_id)?;
         let period_start_height = block_height - block_height % DIFFICULTY_ADJUSTMENT_INTERVAL;
         let last_retarget_header = Self::get_block_header_from_height(&block_chain, period_start_height)?;
