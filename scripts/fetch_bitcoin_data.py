@@ -2,13 +2,21 @@ import requests
 import json
 import random
 import os
+import asyncio
+import gzip
 
 DIRNAME = os.path.dirname(__file__)
-TESTDATA_DIR = os.path.join(DIRNAME, "..", "runtime", "tests", "data")
+TESTDATA_DIR = os.path.join(DIRNAME, "..", "standalone", "runtime", "tests", "data")
 TESTDATA_FILE = os.path.join(TESTDATA_DIR, "bitcoin-testdata.json")
+TESTDATA_ZIPPED = os.path.join(TESTDATA_DIR, "bitcoin-testdata.gzip")
 BASE_URL = "https://blockstream.info/api"
+MAX_BITCOIN_BLOCKS = 10_000
+MAX_TXS_PER_BITCOIN_BLOCK = 20
 
-def query(uri):
+#######################
+# Blockstream queries #
+#######################
+async def query(uri):
     url = BASE_URL + uri
     response = requests.get(url)
 
@@ -17,21 +25,21 @@ def query(uri):
     else:
         response.raise_for_status()
 
-def query_text(uri):
-    response = query(uri)
+async def query_text(uri):
+    response = await query(uri)
     return response.text
 
-def query_json(uri):
-    response = query(uri)
+async def query_json(uri):
+    response = await query(uri)
     return response.json()
 
-def query_binary(uri):
+async def query_binary(uri):
     url = BASE_URL + uri
 
     with requests.get(url, stream=True) as response:
         if (response.ok):
             # hacky way to get only the 80 block header bytes
-            # the raw block heade endpoint gives the block header
+            # the raw block header endpoint gives the block header
             # plus the number of txs and the raw txs
             # see https://github.com/Blockstream/esplora/issues/171
             if '/block/' in url:
@@ -43,59 +51,51 @@ def query_binary(uri):
         else:
             response.raise_for_status()
 
-def get_tip_height():
+async def get_tip_height():
     uri = "/blocks/tip/height"
-    return query_json(uri)
+    return await query_json(uri)
 
-def get_raw_header(blockhash):
+async def get_raw_header(blockhash):
     uri = "/block/{}/raw".format(blockhash)
-    return query_binary(uri)
+    return await query_binary(uri)
 
-def get_block_hash(height):
+async def get_block_hash(height):
     uri = "/block-height/{}".format(height)
-    return query_text(uri)
+    return await query_text(uri)
 
-def get_block_txids(blockhash):
+async def get_block_txids(blockhash):
     uri = "/block/{}/txids".format(blockhash)
-    return query_json(uri)
+    return await query_json(uri)
 
-def get_raw_merkle_proof(txid):
+async def get_raw_merkle_proof(txid):
     uri = "/tx/{}/merkleblock-proof".format(txid)
-    return query_binary(uri)
+    return await query_binary(uri)
 
-def get_testdata(number, tip_height):
-    # query number of blocks
-    blocks = []
-    for i in range(tip_height - number, tip_height):
-        blockhash = get_block_hash(i)
-        print("Getting block at height {} with hash {}".format(i, blockhash))
-        raw_header = get_raw_header(blockhash)
-        # get the txids in the block
-        txids = get_block_txids(blockhash)
-        # select two txids randomly for testing
-        test_txids = random.sample(txids, 2)
-        test_txs = []
-        # get the tx merkle proof
-        for txid in test_txids:
-            raw_merkle_proof = get_raw_merkle_proof(txid)
-            tx = {
-                'txid': txid,
-                'raw_merkle_proof': raw_merkle_proof,
-            }
-            test_txs.append(tx)
-
-        block = {
-            'height': i,
-            'hash': blockhash,
-            'raw_header': raw_header,
-            'test_txs': test_txs,
+async def get_txid_with_proof(txid):
+    try:
+        return {
+            "txid": txid,
+            "raw_merkle_proof": await get_raw_merkle_proof(txid)
         }
-        blocks.append(block)
-    return blocks
+    except:
+        return
 
-def overwrite_testdata(blocks):
-    with open(TESTDATA_FILE, 'w', encoding='utf-8') as f:
-        json.dump(blocks, f, ensure_ascii=False, indent=4)
+
+#######################
+# JSON store and load #
+#######################
+def store_block(block):
+    blocks = read_testdata()
+    if len(blocks) == 0:
+        blocks.append(block)
+        with open(TESTDATA_FILE, 'w', encoding='utf-8') as f:
+            json.dump(blocks, f, ensure_ascii=False, indent=4)
+    else:
+        last_height = blocks[-1]["height"]
+        if not last_height >= block["height"]:
+            blocks.append(block)
+            with open(TESTDATA_FILE, 'w', encoding='utf-8') as f:
+                json.dump(blocks, f, ensure_ascii=False, indent=4)
 
 def read_testdata():
     blocks = []
@@ -106,26 +106,99 @@ def read_testdata():
         print("No existing testdata found")
     return blocks
 
-def main():
-    max_num_blocks = 100
-    number_blocks = max_num_blocks
-    # get current tip of Bitcoin blockchain
-    tip_height = get_tip_height()
+# note: got some unwanted `null` data in the set. Remove this.
+def clean_up_data():
     blocks = read_testdata()
-    if blocks:
-        if blocks[-1]['height'] == tip_height:
-            print("Latest blocks already downloaded")
-            return
-        else:
-            ## download new blocks
-            delta = tip_height - blocks[-1]["height"]
-            number_blocks = delta if delta <= max_num_blocks else max_num_blocks
+    cleaned_blocks = []
+    for block in blocks:
+        test_txs = list(filter(None, block["test_txs"]))
+        block["test_txs"] = test_txs
+        cleaned_blocks.append(block)
+    with open(TESTDATA_FILE, 'w', encoding='utf-8') as f:
+        json.dump(cleaned_blocks, f, ensure_ascii=False, indent=4)
 
-    new_blocks = get_testdata(number_blocks, tip_height)
-    blocks = blocks + new_blocks
-    # only store max_num_blocks
-    blocks = blocks[-max_num_blocks:]
-    overwrite_testdata(blocks)
+def unzip_file():
+    if not os.path.exists(TESTDATA_FILE):
+        with gzip.open(TESTDATA_ZIPPED, 'rt', encoding='utf-8') as zipfile:
+            blocks = json.load(zipfile)
+            with open(TESTDATA_FILE, 'w', encoding='utf-8') as f:
+                json.dump(blocks, f, ensure_ascii=False, indent=4)
+
+def zip_file():
+    blocks = read_testdata()
+    with gzip.open(TESTDATA_ZIPPED, 'wt', encoding='utf-8') as zipfile:
+        json.dump(blocks, zipfile, ensure_ascii=False, indent=4)
+
+#######################
+# Main functions      #
+#######################
+async def get_and_store_block(height):
+    blockhash = await get_block_hash(height)
+    print("Getting block at height {} with hash {}".format(height, blockhash))
+    [raw_header, txids] = await asyncio.gather(
+        get_raw_header(blockhash),
+        # get the txids in the block
+        get_block_txids(blockhash)
+    )
+    # select txids randomly for testing
+    max_to_sample = min(len(txids), MAX_TXS_PER_BITCOIN_BLOCK)
+    test_txids = random.sample(txids, max_to_sample)
+    # get the tx merkle proof
+    test_txs = []
+    test_txs = await asyncio.gather(
+        *map(get_txid_with_proof, test_txids)
+    )
+    test_txs = list(filter("null", test_txs))
+
+    block = {
+        'height': height,
+        'hash': blockhash,
+        'raw_header': raw_header,
+        'test_txs': test_txs,
+    }
+    store_block(block)
+
+
+async def get_testdata(number, tip_height):
+    # query number of blocks
+    # await asyncio.gather(*[
+    for i in range(tip_height - number, tip_height):
+        await get_and_store_block(i)
+    # ])
+
+async def main():
+    max_num_blocks = MAX_BITCOIN_BLOCKS
+    number_blocks = max_num_blocks
+    while number_blocks != 0:
+        try:
+            # get current tip of Bitcoin blockchain
+            tip_height = await get_tip_height()
+            print("Current Bitcoin height {}".format(tip_height))
+            blocks = read_testdata()
+            if blocks:
+                if blocks[-1]['height'] == tip_height:
+                    print("Latest blocks already downloaded")
+                    number_blocks = 0
+                    return
+                else:
+                    # determine how many block to download
+                    delta = tip_height - blocks[-1]["height"] - 1
+                    number_blocks = delta if delta <= max_num_blocks else max_num_blocks
+
+            # download new blocks and store them
+
+            print("Getting {} blocks".format(number_blocks))
+
+            await get_testdata(number_blocks, tip_height)
+        except KeyboardInterrupt:
+            break
+        except:
+            pass
+        else:
+            break
 
 if __name__ == "__main__":
-    main()
+    unzip_file()
+    asyncio.run(main())
+    clean_up_data()
+    zip_file()

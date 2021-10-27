@@ -972,10 +972,47 @@ pub fn assert_store_main_chain_header_event(block_height: u32, block_hash: H256L
         block_hash,
         relayer_id,
     });
-    let events = SystemPallet::events();
 
     // store only main chain header
-    assert!(events.iter().any(|a| a.event == store_event));
+    SystemPallet::assert_has_event(store_event);
+    //TODO: add checks for actual chain state
+}
+
+pub fn assert_store_fork_header_event(chain_id: u32, fork_height: u32, block_hash: H256Le, relayer_id: AccountId) {
+    let store_event = Event::BTCRelay(BTCRelayEvent::StoreForkHeader {
+        chain_id,
+        fork_height,
+        block_hash,
+        relayer_id,
+    });
+
+    // store only fork header
+    SystemPallet::assert_has_event(store_event);
+    //TODO: add checks for actual chain state
+}
+
+pub fn assert_fork_ahead_of_main_chain_event(main_chain_height: u32, fork_height: u32, fork_id: u32) {
+    let store_event = Event::BTCRelay(BTCRelayEvent::ForkAheadOfMainChain {
+        main_chain_height,
+        fork_height,
+        fork_id,
+    });
+
+    // store only fork header
+    SystemPallet::assert_has_event(store_event);
+    //TODO: add checks for actual chain state
+}
+
+pub fn assert_chain_reorg_event(new_chain_tip_hash: H256Le, new_chain_tip_height: u32, fork_depth: u32) {
+    let store_event = Event::BTCRelay(BTCRelayEvent::ChainReorg {
+        new_chain_tip_hash,
+        new_chain_tip_height,
+        fork_depth,
+    });
+
+    // ensure that chain reorg happened
+    SystemPallet::assert_has_event(store_event);
+    //TODO: add checks for actual chain state
 }
 
 pub fn mine_blocks(blocks: u32) {

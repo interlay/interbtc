@@ -87,10 +87,11 @@ orml-tokens = { git = "https://github.com/open-web3-stack/open-runtime-module-li
 orml-traits = { git = "https://github.com/open-web3-stack/open-runtime-module-library", rev = "60dd52aa288ee689da076d03ee72de628efa7ed3", default-features = false }
 
 [dev-dependencies]
-hex = '0.4.2'
-mocktopus = '0.7.0'
+hex = "0.4.2"
+mocktopus = "0.7.0"
 serde_json = "1.0"
 pretty_assertions = "0.7.2"
+flate2= "1.0"
 
 bitcoin = { path = "../../crates/bitcoin", default-features = false }
 
