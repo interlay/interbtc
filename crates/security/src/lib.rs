@@ -53,10 +53,14 @@ pub mod pallet {
 
     #[pallet::event]
     #[pallet::generate_deposit(pub(super) fn deposit_event)]
-    #[pallet::metadata(T::BlockNumber = "BlockNumber")]
     pub enum Event<T: Config> {
-        RecoverFromErrors(StatusCode, Vec<ErrorCode>),
-        UpdateActiveBlock(T::BlockNumber),
+        RecoverFromErrors {
+            new_status: StatusCode,
+            cleared_errors: Vec<ErrorCode>,
+        },
+        UpdateActiveBlock {
+            block_number: T::BlockNumber,
+        },
     }
 
     #[pallet::error]
@@ -99,7 +103,7 @@ pub mod pallet {
 
     /// Integer/Enum defining the current state of the BTC-Parachain.
     #[pallet::storage]
-    #[pallet::getter(fn status)]
+    #[pallet::getter(fn parachain_status)]
     pub type ParachainStatus<T: Config> = StorageValue<_, StatusCode, ValueQuery>;
 
     /// Set of ErrorCodes, indicating the reason for an "Error" ParachainStatus.
@@ -189,23 +193,14 @@ impl<T: Config> Pallet<T> {
         }
     }
 
-    /// Ensures the Parachain is not SHUTDOWN
-    pub fn ensure_parachain_status_not_shutdown() -> DispatchResult {
-        if <ParachainStatus<T>>::get() != StatusCode::Shutdown {
-            Ok(())
-        } else {
-            Err(Error::<T>::ParachainShutdown.into())
-        }
+    /// Checks if the Parachain has Shutdown
+    pub fn is_parachain_shutdown() -> bool {
+        Self::parachain_status() == StatusCode::Shutdown
     }
 
     /// Checks if the Parachain has a OracleOffline Error state
     pub fn is_parachain_error_oracle_offline() -> bool {
-        <ParachainStatus<T>>::get() == StatusCode::Error && <Errors<T>>::get().contains(&ErrorCode::OracleOffline)
-    }
-
-    /// Gets the current `StatusCode`.
-    pub fn get_parachain_status() -> StatusCode {
-        <ParachainStatus<T>>::get()
+        Self::parachain_status() == StatusCode::Error && <Errors<T>>::get().contains(&ErrorCode::OracleOffline)
     }
 
     /// Sets the given `StatusCode`.
@@ -258,7 +253,10 @@ impl<T: Config> Pallet<T> {
             Self::set_status(StatusCode::Running);
         }
 
-        Self::deposit_event(Event::RecoverFromErrors(Self::get_parachain_status(), error_codes));
+        Self::deposit_event(Event::RecoverFromErrors {
+            new_status: Self::parachain_status(),
+            cleared_errors: error_codes,
+        });
     }
 
     /// Recovers the BTC Parachain state from an `ORACLE_OFFLINE` error
@@ -277,12 +275,12 @@ impl<T: Config> Pallet<T> {
     }
 
     fn increment_active_block() {
-        if Self::status() == StatusCode::Running {
+        if Self::parachain_status() == StatusCode::Running {
             let height = <ActiveBlockCount<T>>::mutate(|n| {
                 *n = n.saturating_add(1u32.into());
                 *n
             });
-            Self::deposit_event(Event::UpdateActiveBlock(height));
+            Self::deposit_event(Event::UpdateActiveBlock { block_number: height });
         }
     }
 

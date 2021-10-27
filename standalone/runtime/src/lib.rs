@@ -150,6 +150,23 @@ parameter_types! {
     pub const SS58Prefix: u8 = 42;
 }
 
+pub struct BaseCallFilter;
+
+impl Contains<Call> for BaseCallFilter {
+    fn contains(call: &Call) -> bool {
+        if matches!(
+            call,
+            Call::System(_) | Call::Timestamp(_) | Call::Sudo(_) | Call::Security(_) // to unset shutdown
+        ) {
+            // always allow core calls
+            true
+        } else {
+            // disallow everything if shutdown
+            !security::Pallet::<Runtime>::is_parachain_shutdown()
+        }
+    }
+}
+
 impl frame_system::Config for Runtime {
     /// The identifier used to distinguish between accounts.
     type AccountId = AccountId;
@@ -181,7 +198,7 @@ impl frame_system::Config for Runtime {
     type OnNewAccount = ();
     type OnKilledAccount = ();
     type DbWeight = ();
-    type BaseCallFilter = Everything;
+    type BaseCallFilter = BaseCallFilter;
     type SystemWeightInfo = ();
     type BlockWeights = RuntimeBlockWeights;
     type BlockLength = RuntimeBlockLength;
@@ -189,9 +206,14 @@ impl frame_system::Config for Runtime {
     type OnSetCode = ();
 }
 
+parameter_types! {
+    pub const MaxAuthorities: u32 = 32;
+}
+
 impl pallet_aura::Config for Runtime {
     type AuthorityId = AuraId;
     type DisabledValidators = ();
+    type MaxAuthorities = MaxAuthorities;
 }
 
 impl pallet_grandpa::Config for Runtime {
@@ -203,6 +225,7 @@ impl pallet_grandpa::Config for Runtime {
         <Self::KeyOwnerProofSystem as KeyOwnerProofSystem<(KeyTypeId, GrandpaId)>>::IdentificationTuple;
     type HandleEquivocation = ();
     type WeightInfo = ();
+    type MaxAuthorities = MaxAuthorities;
 }
 
 parameter_types! {
@@ -219,6 +242,7 @@ impl pallet_timestamp::Config for Runtime {
 
 parameter_types! {
     pub const TransactionByteFee: Balance = 0;  // TODO: this is 0 so that we can do runtime upgrade without fees. Restore value afterwards!
+    pub OperationalFeeMultiplier: u8 = 5;
 }
 
 impl pallet_transaction_payment::Config for Runtime {
@@ -226,6 +250,7 @@ impl pallet_transaction_payment::Config for Runtime {
     type TransactionByteFee = TransactionByteFee;
     type WeightToFee = IdentityFee<Balance>;
     type FeeMultiplierUpdate = ();
+    type OperationalFeeMultiplier = OperationalFeeMultiplier;
 }
 
 impl pallet_sudo::Config for Runtime {
@@ -297,6 +322,7 @@ parameter_types! {
     pub const FastTrackVotingPeriod: BlockNumber = 1 * MINUTES;
     pub MinimumDeposit: Balance = 100 * DOLLARS;
     pub const EnactmentPeriod: BlockNumber = 3 * MINUTES;
+    pub const VoteLockingPeriod: BlockNumber = EnactmentPeriod::get();
     pub const CooloffPeriod: BlockNumber = 1 * DAYS;
     pub PreimageByteDeposit: Balance = 1 * CENTS;
     pub const InstantAllowed: bool = true;
@@ -309,6 +335,7 @@ impl pallet_democracy::Config for Runtime {
     type Event = Event;
     type Currency = orml_tokens::CurrencyAdapter<Runtime, GetNativeCurrencyId>;
     type EnactmentPeriod = EnactmentPeriod;
+    type VoteLockingPeriod = VoteLockingPeriod;
     type LaunchPeriod = LaunchPeriod;
     type VotingPeriod = VotingPeriod;
     type MinimumDeposit = MinimumDeposit;
@@ -729,7 +756,7 @@ impl_runtime_apis! {
 
     impl sp_api::Metadata<Block> for Runtime {
         fn metadata() -> OpaqueMetadata {
-            Runtime::metadata().into()
+            OpaqueMetadata::new(Runtime::metadata().into())
         }
     }
 
@@ -818,7 +845,7 @@ impl_runtime_apis! {
         }
 
         fn authorities() -> Vec<AuraId> {
-            Aura::authorities()
+            Aura::authorities().into_inner()
         }
     }
 
@@ -1011,11 +1038,11 @@ impl_runtime_apis! {
         H256,
         IssueRequest<AccountId, BlockNumber, Balance, CurrencyId>
     > for Runtime {
-        fn get_issue_requests(account_id: AccountId) -> Vec<(H256, IssueRequest<AccountId, BlockNumber, Balance, CurrencyId>)> {
+        fn get_issue_requests(account_id: AccountId) -> Vec<H256> {
             Issue::get_issue_requests_for_account(account_id)
         }
 
-        fn get_vault_issue_requests(vault_id: AccountId) -> Vec<(H256, IssueRequest<AccountId, BlockNumber, Balance, CurrencyId>)> {
+        fn get_vault_issue_requests(vault_id: AccountId) -> Vec<H256> {
             Issue::get_issue_requests_for_vault(vault_id)
         }
     }
@@ -1026,11 +1053,11 @@ impl_runtime_apis! {
         H256,
         RedeemRequest<AccountId, BlockNumber, Balance, CurrencyId>
     > for Runtime {
-        fn get_redeem_requests(account_id: AccountId) -> Vec<(H256, RedeemRequest<AccountId, BlockNumber, Balance, CurrencyId>)> {
+        fn get_redeem_requests(account_id: AccountId) -> Vec<H256> {
             Redeem::get_redeem_requests_for_account(account_id)
         }
 
-        fn get_vault_redeem_requests(vault_account_id: AccountId) -> Vec<(H256, RedeemRequest<AccountId, BlockNumber, Balance, CurrencyId>)> {
+        fn get_vault_redeem_requests(vault_account_id: AccountId) -> Vec<H256> {
             Redeem::get_redeem_requests_for_vault(vault_account_id)
         }
     }
@@ -1041,15 +1068,15 @@ impl_runtime_apis! {
         H256,
         RefundRequest<AccountId, Balance, CurrencyId>
     > for Runtime {
-        fn get_refund_requests(account_id: AccountId) -> Vec<(H256, RefundRequest<AccountId, Balance, CurrencyId>)> {
+        fn get_refund_requests(account_id: AccountId) -> Vec<H256> {
             Refund::get_refund_requests_for_account(account_id)
         }
 
-        fn get_refund_requests_by_issue_id(issue_id: H256) -> Option<(H256, RefundRequest<AccountId, Balance, CurrencyId>)> {
+        fn get_refund_requests_by_issue_id(issue_id: H256) -> Option<H256> {
             Refund::get_refund_requests_by_issue_id(issue_id)
         }
 
-        fn get_vault_refund_requests(vault_id: AccountId) -> Vec<(H256, RefundRequest<AccountId, Balance, CurrencyId>)> {
+        fn get_vault_refund_requests(vault_id: AccountId) -> Vec<H256> {
             Refund::get_refund_requests_for_vault(vault_id)
         }
     }
@@ -1060,11 +1087,11 @@ impl_runtime_apis! {
         H256,
         ReplaceRequest<AccountId, BlockNumber, Balance, CurrencyId>
     > for Runtime {
-        fn get_old_vault_replace_requests(vault_id: AccountId) -> Vec<(H256, ReplaceRequest<AccountId, BlockNumber, Balance, CurrencyId>)> {
+        fn get_old_vault_replace_requests(vault_id: AccountId) -> Vec<H256> {
             Replace::get_replace_requests_for_old_vault(vault_id)
         }
 
-        fn get_new_vault_replace_requests(vault_id: AccountId) -> Vec<(H256, ReplaceRequest<AccountId, BlockNumber, Balance, CurrencyId>)> {
+        fn get_new_vault_replace_requests(vault_id: AccountId) -> Vec<H256> {
             Replace::get_replace_requests_for_new_vault(vault_id)
         }
     }

@@ -1,6 +1,6 @@
 use crate as reward;
 use crate::{Config, Error};
-use frame_support::parameter_types;
+use frame_support::{parameter_types, traits::Everything};
 pub use primitives::{CurrencyId, VaultCurrencyPair, VaultId, INTERBTC};
 use sp_arithmetic::FixedI128;
 use sp_core::H256;
@@ -35,7 +35,7 @@ parameter_types! {
 }
 
 impl frame_system::Config for Test {
-    type BaseCallFilter = ();
+    type BaseCallFilter = Everything;
     type BlockWeights = ();
     type BlockLength = ();
     type DbWeight = ();

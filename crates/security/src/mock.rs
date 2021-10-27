@@ -1,9 +1,9 @@
 use crate as security;
 use crate::{Config, Error};
 use frame_support::parameter_types;
+pub use frame_support::traits::Everything;
 use mocktopus::mocking::clear_mocks;
 use sp_core::H256;
-
 use sp_runtime::{
     testing::Header,
     traits::{BlakeTwo256, IdentityLookup},
@@ -32,9 +32,8 @@ parameter_types! {
     pub const BlockHashCount: u64 = 250;
     pub const SS58Prefix: u8 = 42;
 }
-
 impl frame_system::Config for Test {
-    type BaseCallFilter = ();
+    type BaseCallFilter = Everything;
     type BlockWeights = ();
     type BlockLength = ();
     type DbWeight = ();

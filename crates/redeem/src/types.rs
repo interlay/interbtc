@@ -1,5 +1,6 @@
 pub use primitives::redeem::{RedeemRequest, RedeemRequestStatus};
 use primitives::VaultId;
+use scale_info::TypeInfo;
 use sp_runtime::DispatchError;
 use vault_registry::types::CurrencyId;
 
@@ -8,7 +9,7 @@ use codec::{Decode, Encode};
 use currency::Amount;
 
 /// Storage version.
-#[derive(Encode, Decode, Eq, PartialEq)]
+#[derive(Encode, Decode, Eq, PartialEq, TypeInfo)]
 pub enum Version {
     /// Initial version.
     V0,

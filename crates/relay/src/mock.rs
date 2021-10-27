@@ -1,7 +1,11 @@
 use crate as relay;
 use crate::{Config, Error};
 use currency::Amount;
-use frame_support::{parameter_types, traits::GenesisBuild, PalletId};
+use frame_support::{
+    parameter_types,
+    traits::{Everything, GenesisBuild},
+    PalletId,
+};
 use mocktopus::{macros::mockable, mocking::clear_mocks};
 use orml_traits::parameter_type_with_key;
 pub use primitives::CurrencyId;
@@ -65,7 +69,7 @@ parameter_types! {
 }
 
 impl frame_system::Config for Test {
-    type BaseCallFilter = ();
+    type BaseCallFilter = Everything;
     type BlockWeights = ();
     type BlockLength = ();
     type DbWeight = ();
@@ -123,7 +127,7 @@ impl orml_tokens::Config for Test {
     type ExistentialDeposits = ExistentialDeposits;
     type OnDust = ();
     type MaxLocks = MaxLocks;
-    type DustRemovalWhitelist = ();
+    type DustRemovalWhitelist = Everything;
 }
 
 impl reward::Config for Test {

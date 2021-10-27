@@ -2,6 +2,7 @@ use crate::Config;
 use codec::{Decode, Encode};
 use currency::CurrencyId;
 use primitives::VaultId;
+use scale_info::TypeInfo;
 use sp_arithmetic::FixedPointNumber;
 
 pub(crate) type Collateral<T> = UnsignedInner<T>;
@@ -19,7 +20,7 @@ pub(crate) type UnsignedInner<T> = <<T as Config>::UnsignedFixedPoint as FixedPo
 pub(crate) type DefaultVaultId<T> = VaultId<<T as frame_system::Config>::AccountId, CurrencyId<T>>;
 
 /// Storage version.
-#[derive(Encode, Decode, Eq, PartialEq)]
+#[derive(Encode, Decode, Eq, PartialEq, TypeInfo)]
 pub enum Version {
     /// Initial version.
     V0,

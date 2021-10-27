@@ -110,11 +110,11 @@ fn initialize_once_succeeds() {
 
         assert_ok!(BTCRelay::initialize(relayer_id, block_header, block_height));
 
-        System::assert_has_event(TestEvent::BTCRelay(Event::Initialized(
+        System::assert_has_event(TestEvent::BTCRelay(Event::Initialized {
             block_height,
-            block_header_hash,
+            block_hash: block_header_hash,
             relayer_id,
-        )));
+        }));
     })
 }
 
@@ -159,11 +159,11 @@ fn initialize_with_valid_difficulty_period_should_succeed() {
 
         assert_ok!(BTCRelay::initialize(relayer_id, block_header, block_height));
 
-        System::assert_has_event(TestEvent::BTCRelay(Event::Initialized(
+        System::assert_has_event(TestEvent::BTCRelay(Event::Initialized {
             block_height,
-            block_header_hash,
+            block_hash: block_header_hash,
             relayer_id,
-        )));
+        }));
     })
 }
 
@@ -193,7 +193,11 @@ fn store_block_header_on_mainchain_succeeds() {
         let block_header_hash = block_header.hash;
         assert_ok!(BTCRelay::store_block_header(&3, rich_header.block_header));
 
-        let store_main_event = TestEvent::BTCRelay(Event::StoreMainChainHeader(block_height + 1, block_header_hash, 3));
+        let store_main_event = TestEvent::BTCRelay(Event::StoreMainChainHeader {
+            block_height: block_height + 1,
+            block_hash: block_header_hash,
+            relayer_id: 3,
+        });
         assert!(System::events().iter().any(|a| a.event == store_main_event));
     })
 }
@@ -227,8 +231,12 @@ fn store_block_header_on_fork_succeeds() {
 
         assert_ok!(BTCRelay::store_block_header(&3, block_header));
 
-        let store_fork_event =
-            TestEvent::BTCRelay(Event::StoreForkHeader(chain_id, block_height, block_header_hash, 3));
+        let store_fork_event = TestEvent::BTCRelay(Event::StoreForkHeader {
+            chain_id,
+            fork_height: block_height,
+            block_hash: block_header_hash,
+            relay_id: 3,
+        });
         assert!(System::events().iter().any(|a| a.event == store_fork_event));
     })
 }
@@ -581,23 +589,8 @@ mod store_block_header_tests {
 }
 
 #[test]
-fn store_block_header_parachain_shutdown_fails() {
-    run_test(|| {
-        ext::security::ensure_parachain_status_not_shutdown::<Test>
-            .mock_safe(|| MockResult::Return(Err(SecurityError::ParachainShutdown.into())));
-
-        assert_err!(
-            BTCRelay::store_block_header(&3, sample_block_header()),
-            SecurityError::ParachainShutdown,
-        );
-    })
-}
-
-#[test]
 fn store_block_header_no_prev_block_fails() {
     run_test(|| {
-        ext::security::ensure_parachain_status_not_shutdown::<Test>.mock_safe(|| MockResult::Return(Ok(())));
-
         assert_err!(
             BTCRelay::store_block_header(&3, sample_block_header()),
             TestError::BlockNotFound,
@@ -698,11 +691,11 @@ fn check_and_do_reorg_new_fork_is_main_chain() {
 
         assert_ok!(BTCRelay::reorganize_chains(&fork));
         // assert that the new main chain is set
-        let reorg_event = TestEvent::BTCRelay(Event::ChainReorg(
-            best_block_hash,
-            fork_block_height,
-            fork.max_height - fork.start_height,
-        ));
+        let reorg_event = TestEvent::BTCRelay(Event::ChainReorg {
+            new_head_hash: best_block_hash,
+            new_height: fork_block_height,
+            fork_depth: fork.max_height - fork.start_height,
+        });
         assert!(System::events().iter().any(|a| a.event == reorg_event));
     })
 }
@@ -740,11 +733,11 @@ fn check_and_do_reorg_new_fork_below_stable_transaction_confirmations() {
 
         assert_ok!(BTCRelay::reorganize_chains(&fork));
         // assert that the fork has not overtaken the main chain
-        let ahead_event = TestEvent::BTCRelay(Event::ForkAheadOfMainChain(
-            main_block_height,
-            fork_block_height,
-            fork_chain_id,
-        ));
+        let ahead_event = TestEvent::BTCRelay(Event::ForkAheadOfMainChain {
+            main_chain_height: main_block_height,
+            fork_height: fork_block_height,
+            fork_id: fork_chain_id,
+        });
         assert!(System::events().iter().any(|a| a.event == ahead_event));
     })
 }

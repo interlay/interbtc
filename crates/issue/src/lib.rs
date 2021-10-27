@@ -66,24 +66,35 @@ pub mod pallet {
 
     #[pallet::event]
     #[pallet::generate_deposit(pub(super) fn deposit_event)]
-    #[pallet::metadata(DefaultVaultId<T> = "VaultId", T::AccountId = "AccountId", Wrapped<T> = "Wrapped", Collateral<T> = "Collateral")]
     pub enum Event<T: Config> {
-        RequestIssue(
-            H256,              // issue_id
-            T::AccountId,      // requester
-            Wrapped<T>,        // amount
-            Wrapped<T>,        // fee
-            Collateral<T>,     // griefing_collateral
-            DefaultVaultId<T>, // vault_id
-            BtcAddress,        // vault deposit address
-            BtcPublicKey,      // vault public key
-        ),
-        // issue_id, amount, fee, confiscated_griefing_collateral
-        IssueAmountChange(H256, Wrapped<T>, Wrapped<T>, Collateral<T>),
-        // [issue_id, requester, vault, executed_amount, fee]
-        ExecuteIssue(H256, T::AccountId, DefaultVaultId<T>, Wrapped<T>, Wrapped<T>),
-        // [issue_id, requester, griefing_collateral]
-        CancelIssue(H256, T::AccountId, Collateral<T>),
+        RequestIssue {
+            issue_id: H256,
+            requester: T::AccountId,
+            amount: Wrapped<T>,
+            fee: Wrapped<T>,
+            griefing_collateral: Collateral<T>,
+            vault_id: DefaultVaultId<T>,
+            vault_address: BtcAddress,
+            vault_public_key: BtcPublicKey,
+        },
+        IssueAmountChange {
+            issue_id: H256,
+            amount: Wrapped<T>,
+            fee: Wrapped<T>,
+            confiscated_griefing_collateral: Collateral<T>,
+        },
+        ExecuteIssue {
+            issue_id: H256,
+            requester: T::AccountId,
+            vault_id: DefaultVaultId<T>,
+            amount: Wrapped<T>,
+            fee: Wrapped<T>,
+        },
+        CancelIssue {
+            issue_id: H256,
+            requester: T::AccountId,
+            griefing_collateral: Collateral<T>,
+        },
     }
 
     #[pallet::error]
@@ -110,6 +121,7 @@ pub mod pallet {
     /// Users create issue requests to issue tokens. This mapping provides access
     /// from a unique hash `IssueId` to an `IssueRequest` struct.
     #[pallet::storage]
+    #[pallet::getter(fn issue_requests)]
     pub(super) type IssueRequests<T: Config> =
         StorageMap<_, Blake2_128Concat, H256, DefaultIssueRequest<T>, OptionQuery>;
 
@@ -254,9 +266,6 @@ impl<T: Config> Pallet<T> {
         let amount_requested = Amount::new(amount_requested, vault_id.wrapped_currency());
         let griefing_collateral = Amount::new(griefing_collateral, T::GetGriefingCollateralCurrencyId::get());
 
-        // Check that Parachain is RUNNING
-        ext::security::ensure_parachain_status_not_shutdown::<T>()?;
-
         ensure!(
             ext::btc_relay::is_fully_initialized::<T>()?,
             Error::<T>::WaitingForRelayerInitialization
@@ -313,16 +322,16 @@ impl<T: Config> Pallet<T> {
         };
         Self::insert_issue_request(&issue_id, &request);
 
-        Self::deposit_event(<Event<T>>::RequestIssue(
+        Self::deposit_event(Event::RequestIssue {
             issue_id,
-            request.requester,
-            request.amount,
-            request.fee,
-            request.griefing_collateral,
-            request.vault,
-            request.btc_address,
-            request.btc_public_key,
-        ));
+            requester: request.requester,
+            amount: request.amount,
+            fee: request.fee,
+            griefing_collateral: request.griefing_collateral,
+            vault_id: request.vault,
+            vault_address: request.btc_address,
+            vault_public_key: request.btc_public_key,
+        });
         Ok(issue_id)
     }
 
@@ -333,9 +342,6 @@ impl<T: Config> Pallet<T> {
         raw_merkle_proof: Vec<u8>,
         raw_tx: Vec<u8>,
     ) -> Result<(), DispatchError> {
-        // Check that Parachain is RUNNING
-        ext::security::ensure_parachain_status_not_shutdown::<T>()?;
-
         let mut issue = Self::get_issue_request_from_id(&issue_id)?;
         let mut maybe_refund_id = None;
         // allow anyone to complete issue request
@@ -437,21 +443,18 @@ impl<T: Config> Pallet<T> {
 
         Self::set_issue_status(issue_id, IssueRequestStatus::Completed(maybe_refund_id));
 
-        Self::deposit_event(<Event<T>>::ExecuteIssue(
+        Self::deposit_event(Event::ExecuteIssue {
             issue_id,
             requester,
-            issue.vault,
-            total.amount(),
-            issue.fee,
-        ));
+            vault_id: issue.vault,
+            amount: total.amount(),
+            fee: issue.fee,
+        });
         Ok(())
     }
 
     /// Cancels CBA issuance if time has expired and slashes collateral.
     fn _cancel_issue(requester: T::AccountId, issue_id: H256) -> Result<(), DispatchError> {
-        // Check that Parachain is RUNNING
-        ext::security::ensure_parachain_status_not_shutdown::<T>()?;
-
         let issue = Self::get_issue_request_from_id(&issue_id)?;
 
         // only cancellable after the request has expired
@@ -481,7 +484,11 @@ impl<T: Config> Pallet<T> {
         }
         Self::set_issue_status(issue_id, IssueRequestStatus::Cancelled);
 
-        Self::deposit_event(<Event<T>>::CancelIssue(issue_id, requester, issue.griefing_collateral));
+        Self::deposit_event(Event::CancelIssue {
+            issue_id,
+            requester,
+            griefing_collateral: issue.griefing_collateral,
+        });
         Ok(())
     }
 
@@ -490,10 +497,11 @@ impl<T: Config> Pallet<T> {
     /// # Arguments
     ///
     /// * `account_id` - user account id
-    pub fn get_issue_requests_for_account(account_id: T::AccountId) -> Vec<(H256, DefaultIssueRequest<T>)> {
+    pub fn get_issue_requests_for_account(account_id: T::AccountId) -> Vec<H256> {
         <IssueRequests<T>>::iter()
             .filter(|(_, request)| request.requester == account_id)
-            .collect::<Vec<_>>()
+            .map(|(key, _)| key)
+            .collect()
     }
 
     /// Fetch all issue requests for the specified vault.
@@ -501,10 +509,11 @@ impl<T: Config> Pallet<T> {
     /// # Arguments
     ///
     /// * `account_id` - vault account id
-    pub fn get_issue_requests_for_vault(vault_id: T::AccountId) -> Vec<(H256, DefaultIssueRequest<T>)> {
+    pub fn get_issue_requests_for_vault(vault_id: T::AccountId) -> Vec<H256> {
         <IssueRequests<T>>::iter()
             .filter(|(_, request)| request.vault.account_id == vault_id)
-            .collect::<Vec<_>>()
+            .map(|(key, _)| key)
+            .collect()
     }
 
     pub fn get_issue_request_from_id(issue_id: &H256) -> Result<DefaultIssueRequest<T>, DispatchError> {
@@ -538,12 +547,12 @@ impl<T: Config> Pallet<T> {
             });
         });
 
-        Self::deposit_event(<Event<T>>::IssueAmountChange(
-            *issue_id,
-            issue.amount,
-            issue.fee,
-            confiscated_griefing_collateral.amount(),
-        ));
+        Self::deposit_event(Event::IssueAmountChange {
+            issue_id: *issue_id,
+            amount: issue.amount,
+            fee: issue.fee,
+            confiscated_griefing_collateral: confiscated_griefing_collateral.amount(),
+        });
 
         Ok(())
     }

@@ -14,11 +14,10 @@ pub use module_issue_rpc_runtime_api::IssueApi as IssueRuntimeApi;
 #[rpc]
 pub trait IssueApi<BlockHash, AccountId, H256, IssueRequest> {
     #[rpc(name = "issue_getIssueRequests")]
-    fn get_issue_requests(&self, account_id: AccountId, at: Option<BlockHash>) -> Result<Vec<(H256, IssueRequest)>>;
+    fn get_issue_requests(&self, account_id: AccountId, at: Option<BlockHash>) -> Result<Vec<H256>>;
 
     #[rpc(name = "issue_getVaultIssueRequests")]
-    fn get_vault_issue_requests(&self, vault_id: AccountId, at: Option<BlockHash>)
-        -> Result<Vec<(H256, IssueRequest)>>;
+    fn get_vault_issue_requests(&self, vault_id: AccountId, at: Option<BlockHash>) -> Result<Vec<H256>>;
 }
 
 /// A struct that implements the [`IssueApi`].
@@ -59,11 +58,7 @@ where
     H256: Codec,
     IssueRequest: Codec,
 {
-    fn get_issue_requests(
-        &self,
-        account_id: AccountId,
-        at: Option<<Block as BlockT>::Hash>,
-    ) -> Result<Vec<(H256, IssueRequest)>> {
+    fn get_issue_requests(&self, account_id: AccountId, at: Option<<Block as BlockT>::Hash>) -> Result<Vec<H256>> {
         let api = self.client.runtime_api();
         let at = BlockId::hash(at.unwrap_or_else(|| self.client.info().best_hash));
 
@@ -74,11 +69,7 @@ where
         })
     }
 
-    fn get_vault_issue_requests(
-        &self,
-        vault_id: AccountId,
-        at: Option<<Block as BlockT>::Hash>,
-    ) -> Result<Vec<(H256, IssueRequest)>> {
+    fn get_vault_issue_requests(&self, vault_id: AccountId, at: Option<<Block as BlockT>::Hash>) -> Result<Vec<H256>> {
         let api = self.client.runtime_api();
         let at = BlockId::hash(at.unwrap_or_else(|| self.client.info().best_hash));
 

@@ -38,6 +38,7 @@ use frame_support::{
     weights::Weight,
 };
 use frame_system::{ensure_root, ensure_signed};
+use scale_info::TypeInfo;
 use security::{ErrorCode, StatusCode};
 use sp_runtime::{
     traits::{UniqueSaturatedInto, *},
@@ -48,7 +49,7 @@ use sp_std::{convert::TryInto, vec::Vec};
 pub use pallet::*;
 pub use primitives::{oracle::Key as OracleKey, CurrencyId, TruncateFixedPointToInt};
 
-#[derive(Encode, Decode, Eq, PartialEq, Clone, Copy, Ord, PartialOrd)]
+#[derive(Encode, Decode, Eq, PartialEq, Clone, Copy, Ord, PartialOrd, TypeInfo)]
 pub struct TimestampedValue<Value, Moment> {
     pub value: Value,
     pub timestamp: Moment,
@@ -75,10 +76,12 @@ pub mod pallet {
 
     #[pallet::event]
     #[pallet::generate_deposit(pub(super) fn deposit_event)]
-    #[pallet::metadata(T::AccountId = "AccountId", T::UnsignedFixedPoint = "UnsignedFixedPoint")]
     pub enum Event<T: Config> {
         /// Event emitted when exchange rate is set
-        FeedValues(T::AccountId, Vec<(OracleKey, T::UnsignedFixedPoint)>),
+        FeedValues {
+            oracle_id: T::AccountId,
+            values: Vec<(OracleKey, T::UnsignedFixedPoint)>,
+        },
     }
 
     #[pallet::error]
@@ -189,9 +192,6 @@ pub mod pallet {
         /// * `values` - a vector of (key, value) pairs to submit
         #[pallet::weight(<T as Config>::WeightInfo::feed_values(values.len() as u32))]
         pub fn feed_values(origin: OriginFor<T>, values: Vec<(OracleKey, T::UnsignedFixedPoint)>) -> DispatchResult {
-            // Check that Parachain is not in SHUTDOWN
-            ext::security::ensure_parachain_status_not_shutdown::<T>()?;
-
             let signer = ensure_signed(origin)?;
 
             // fail if the signer is not an authorized oracle
@@ -272,7 +272,10 @@ impl<T: Config> Pallet<T> {
             RawValuesUpdated::<T>::insert(key, true);
         }
 
-        Self::deposit_event(Event::<T>::FeedValues(oracle, values));
+        Self::deposit_event(Event::<T>::FeedValues {
+            oracle_id: oracle,
+            values,
+        });
 
         Ok(())
     }

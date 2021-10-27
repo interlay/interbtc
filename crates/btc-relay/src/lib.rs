@@ -129,7 +129,6 @@ pub mod pallet {
             recipient_btc_address: BtcAddress,
             op_return_id: Option<H256>,
         ) -> DispatchResultWithPostInfo {
-            ext::security::ensure_parachain_status_not_shutdown::<T>()?;
             let _ = ensure_signed(origin)?;
 
             let transaction = Self::parse_transaction(&raw_tx)?;
@@ -167,7 +166,6 @@ pub mod pallet {
             raw_merkle_proof: Vec<u8>,
             confirmations: Option<u32>,
         ) -> DispatchResultWithPostInfo {
-            ext::security::ensure_parachain_status_not_shutdown::<T>()?;
             let _ = ensure_signed(origin)?;
 
             let merkle_proof = Self::parse_merkle_proof(&raw_merkle_proof)?;
@@ -194,7 +192,6 @@ pub mod pallet {
             recipient_btc_address: BtcAddress,
             op_return_id: Option<H256>,
         ) -> DispatchResultWithPostInfo {
-            ext::security::ensure_parachain_status_not_shutdown::<T>()?;
             let _ = ensure_signed(origin)?;
 
             let transaction = Self::parse_transaction(&raw_tx)?;
@@ -206,18 +203,33 @@ pub mod pallet {
 
     #[pallet::event]
     #[pallet::generate_deposit(pub(super) fn deposit_event)]
-    #[pallet::metadata(T::AccountId = "AccountId")]
     pub enum Event<T: Config> {
-        /// block_height, block_header_hash, relayer_id
-        Initialized(u32, H256Le, T::AccountId),
-        /// new chain height, block_header_hash, relayer_id
-        StoreMainChainHeader(u32, H256Le, T::AccountId),
-        /// chain_id, fork height, block_header_hash, relayer_id
-        StoreForkHeader(u32, u32, H256Le, T::AccountId),
-        /// new_chain_tip, chain height, fork_depth
-        ChainReorg(H256Le, u32, u32),
-        /// main chain height, fork height, fork id
-        ForkAheadOfMainChain(u32, u32, u32),
+        Initialized {
+            block_height: u32,
+            block_hash: H256Le,
+            relayer_id: T::AccountId,
+        },
+        StoreMainChainHeader {
+            block_height: u32,
+            block_hash: H256Le,
+            relayer_id: T::AccountId,
+        },
+        StoreForkHeader {
+            chain_id: u32,
+            fork_height: u32,
+            block_hash: H256Le,
+            relay_id: T::AccountId,
+        },
+        ChainReorg {
+            new_head_hash: H256Le,
+            new_height: u32,
+            fork_depth: u32,
+        },
+        ForkAheadOfMainChain {
+            main_chain_height: u32,
+            fork_height: u32,
+            fork_id: u32,
+        },
     }
 
     #[pallet::error]
@@ -460,7 +472,11 @@ impl<T: Config> Pallet<T> {
         StartBlockHeight::<T>::set(block_height);
 
         // Emit a Initialized Event
-        Self::deposit_event(<Event<T>>::Initialized(block_height, basic_block_header.hash, relayer));
+        Self::deposit_event(Event::<T>::Initialized {
+            block_height,
+            block_hash: basic_block_header.hash,
+            relayer_id: relayer,
+        });
 
         Ok(())
     }
@@ -481,9 +497,6 @@ impl<T: Config> Pallet<T> {
     }
 
     fn _store_block_header(relayer: &T::AccountId, basic_block_header: BlockHeader) -> DispatchResult {
-        // Make sure Parachain is not shutdown
-        ext::security::ensure_parachain_status_not_shutdown::<T>()?;
-
         let prev_header = Self::get_block_header_from_hash(basic_block_header.hash_prev_block)?;
 
         // check if the prev block is the highest block in the chain
@@ -532,19 +545,19 @@ impl<T: Config> Pallet<T> {
 
         if current_best_block == basic_block_header.hash {
             // extends the main chain
-            Self::deposit_event(<Event<T>>::StoreMainChainHeader(
-                current_block_height,
-                basic_block_header.hash,
-                relayer.clone(),
-            ));
+            Self::deposit_event(Event::<T>::StoreMainChainHeader {
+                block_height: current_block_height,
+                block_hash: basic_block_header.hash,
+                relayer_id: relayer.clone(),
+            });
         } else {
             // created a new fork or updated an existing one
-            Self::deposit_event(<Event<T>>::StoreForkHeader(
+            Self::deposit_event(Event::<T>::StoreForkHeader {
                 chain_id,
-                current_block_height,
-                basic_block_header.hash,
-                relayer.clone(),
-            ));
+                fork_height: current_block_height,
+                block_hash: basic_block_header.hash,
+                relay_id: relayer.clone(),
+            });
         };
 
         Ok(())
@@ -664,8 +677,6 @@ impl<T: Config> Pallet<T> {
         block_hash: H256Le,
         confirmations: Option<u32>,
     ) -> Result<BlockHeader, DispatchError> {
-        ext::security::ensure_parachain_status_not_shutdown::<T>()?;
-
         let best_block_height = Self::get_best_block_height();
         Self::ensure_no_ongoing_fork(best_block_height)?;
 
@@ -1216,13 +1227,17 @@ impl<T: Config> Pallet<T> {
 
                         // announce the new main chain
                         let fork_depth = fork.max_height - fork.start_height;
-                        Self::deposit_event(<Event<T>>::ChainReorg(new_chain_tip, block_height, fork_depth));
+                        Self::deposit_event(Event::<T>::ChainReorg {
+                            new_head_hash: new_chain_tip,
+                            new_height: block_height,
+                            fork_depth,
+                        });
                     } else {
-                        Self::deposit_event(<Event<T>>::ForkAheadOfMainChain(
-                            prev_height,     // main chain height
-                            fork.max_height, // fork height
-                            fork.chain_id,   // fork id
-                        ));
+                        Self::deposit_event(Event::<T>::ForkAheadOfMainChain {
+                            main_chain_height: prev_height,
+                            fork_height: fork.max_height,
+                            fork_id: fork.chain_id,
+                        });
                     }
                     // successful reorg
                     break;

@@ -36,15 +36,14 @@ fn dummy_merkle_proof() -> MerkleProof {
 }
 
 /// Mocking functions
-fn init_zero_vault(id: DefaultVaultId<Test>, btc_address: Option<BtcAddress>) -> DefaultVault<Test> {
+fn init_zero_vault(id: DefaultVaultId<Test>, btc_addresses: Vec<BtcAddress>) -> DefaultVault<Test> {
     let mut vault = Vault {
         wallet: Wallet::new(dummy_public_key()),
         ..Vault::new(id, Default::default())
     };
 
-    match btc_address {
-        Some(btc_address) => vault.wallet.add_btc_address(btc_address),
-        None => {}
+    for btc_address in btc_addresses.iter() {
+        vault.wallet.add_btc_address(*btc_address)
     }
     vault
 }
@@ -60,7 +59,7 @@ fn test_report_vault_passes_with_vault_transaction() {
             126, 125, 148, 208, 221, 194, 29, 131, 191, 188, 252, 119, 152, 228, 84, 126, 223, 8, 50, 170,
         ]));
         ext::vault_registry::get_active_vault_from_id::<Test>
-            .mock_safe(move |_| MockResult::Return(Ok(init_zero_vault(vault.clone(), Some(btc_address)))));
+            .mock_safe(move |_| MockResult::Return(Ok(init_zero_vault(vault.clone(), vec![btc_address]))));
         ext::btc_relay::parse_merkle_proof::<Test>.mock_safe(|_| MockResult::Return(Ok(dummy_merkle_proof())));
         ext::btc_relay::verify_transaction_inclusion::<Test>.mock_safe(move |_, _| MockResult::Return(Ok(())));
         ext::vault_registry::liquidate_theft_vault::<Test>.mock_safe(|_, _| MockResult::Return(Ok(())));
@@ -86,7 +85,7 @@ fn test_report_vault_fails_with_non_vault_transaction() {
         ]));
 
         ext::vault_registry::get_active_vault_from_id::<Test>
-            .mock_safe(move |_| MockResult::Return(Ok(init_zero_vault(vault.clone(), Some(btc_address)))));
+            .mock_safe(move |_| MockResult::Return(Ok(init_zero_vault(vault.clone(), vec![btc_address]))));
         ext::btc_relay::parse_merkle_proof::<Test>.mock_safe(|_| MockResult::Return(Ok(dummy_merkle_proof())));
         ext::btc_relay::verify_transaction_inclusion::<Test>.mock_safe(move |_, _| MockResult::Return(Ok(())));
 
@@ -109,11 +108,33 @@ fn test_report_vault_succeeds_with_segwit_transaction() {
 
         let vault = CAROL;
 
-        let btc_address = BtcAddress::P2WPKHv0(H160::from_slice(&[
-            164, 180, 202, 72, 222, 11, 63, 255, 193, 84, 4, 161, 172, 220, 141, 186, 174, 34, 105, 85,
-        ]));
+        let btc_address = BtcAddress::P2SH(H160::from_str(&"2928f43af18d2d60e8a843540d8086b305341339").unwrap());
         ext::vault_registry::get_active_vault_from_id::<Test>
-            .mock_safe(move |_| MockResult::Return(Ok(init_zero_vault(vault.clone(), Some(btc_address)))));
+            .mock_safe(move |_| MockResult::Return(Ok(init_zero_vault(vault.clone(), vec![btc_address]))));
+        ext::btc_relay::parse_merkle_proof::<Test>.mock_safe(|_| MockResult::Return(Ok(dummy_merkle_proof())));
+        ext::btc_relay::verify_transaction_inclusion::<Test>.mock_safe(move |_, _| MockResult::Return(Ok(())));
+        ext::vault_registry::liquidate_theft_vault::<Test>.mock_safe(|_, _| MockResult::Return(Ok(())));
+
+        assert_ok!(Relay::report_vault_theft(
+            Origin::signed(ALICE),
+            CAROL,
+            vec![0u8; 32],
+            hex::decode(&raw_tx).unwrap()
+        ));
+    })
+}
+
+#[test]
+fn test_report_vault_succeeds_with_p2sh_segwit_transaction() {
+    run_test(|| {
+        // source: https://blockstream.info/tx/0a0d7b9ab879fbd7a096e856fa5461dbae959ac86d51451c211a65fb8e95f54b?expand
+        let raw_tx = "02000000000101a1dcf3ca033463e346339642dd7305e33de4ce5ab179d1e19b1eb146534421660000000017160014a97a9058829417d4c581ad5004b6e46cc680063dfdffffff01b9010000000000001600143b05c08e224ddec538ac7aa2e3b6583b983807a302473044022051480b10ef40d12bce982d1d08176a403f176dd3e51189c07a0a9584ddb8e91602204a02134b2b892904a3519da0044e97da9ae78232f8f7678fea0b6531bf3104130121039dcac4d315739516bf5cea98bc6a9cfb49cb6269beb67c520bc5ecacc3c7d47206c70900";
+
+        let vault = CAROL;
+        // 35PLQyoXs2sk9QDqMv7bBGowxP1pjwXAMe
+        let btc_address = BtcAddress::P2SH(H160::from_str(&"288873634ae24a3c9b6792cc7e2a084ec79ef68b").unwrap());
+        ext::vault_registry::get_active_vault_from_id::<Test>
+            .mock_safe(move |_| MockResult::Return(Ok(init_zero_vault(vault.clone(), vec![btc_address]))));
         ext::btc_relay::parse_merkle_proof::<Test>.mock_safe(|_| MockResult::Return(Ok(dummy_merkle_proof())));
         ext::btc_relay::verify_transaction_inclusion::<Test>.mock_safe(move |_, _| MockResult::Return(Ok(())));
         ext::vault_registry::liquidate_theft_vault::<Test>.mock_safe(|_, _| MockResult::Return(Ok(())));
@@ -143,7 +164,7 @@ fn test_report_vault_theft_succeeds() {
         // check that the event has been emitted
         assert!(System::events()
             .iter()
-            .any(|a| matches!(a.event, TestEvent::Relay(Event::VaultTheft(ref id, _)) if id == &BOB)));
+            .any(|a| matches!(a.event, TestEvent::Relay(Event::VaultTheft{ref vault_id,..}) if vault_id == &BOB)));
     })
 }
 
@@ -198,7 +219,7 @@ fn test_is_valid_merge_transaction_fails() {
     run_test(|| {
         let vault = BOB;
         ext::vault_registry::get_active_vault_from_id::<Test>
-            .mock_safe(move |_| MockResult::Return(Ok(init_zero_vault(vault.clone(), None))));
+            .mock_safe(move |_| MockResult::Return(Ok(init_zero_vault(vault.clone(), vec![]))));
 
         let address1 = BtcAddress::P2PKH(H160::from_str(&"66c7060feb882664ae62ffad0051fe843e318e85").unwrap());
         let transaction1 = build_dummy_transaction_with_output(vec![address1]);
@@ -223,7 +244,7 @@ fn test_is_valid_merge_transaction_succeeds() {
     run_test(|| {
         let vault = BOB;
         ext::vault_registry::get_active_vault_from_id::<Test>
-            .mock_safe(move |_| MockResult::Return(Ok(init_zero_vault(vault.clone(), None))));
+            .mock_safe(move |_| MockResult::Return(Ok(init_zero_vault(vault.clone(), vec![]))));
 
         let address = BtcAddress::P2PKH(H160::from_str(&"66c7060feb882664ae62ffad0051fe843e318e85").unwrap());
         let transaction = build_dummy_transaction_with_output(vec![address]);
@@ -268,7 +289,7 @@ fn test_is_valid_request_transaction_overpayment_fails() {
     run_test(|| {
         let vault = BOB;
         ext::vault_registry::get_active_vault_from_id::<Test>
-            .mock_safe(move |_| MockResult::Return(Ok(init_zero_vault(vault.clone(), None))));
+            .mock_safe(move |_| MockResult::Return(Ok(init_zero_vault(vault.clone(), vec![]))));
 
         let address1 = BtcAddress::P2PKH(H160::from_str(&"66c7060feb882664ae62ffad0051fe843e318e85").unwrap());
 
@@ -296,7 +317,7 @@ fn test_is_valid_request_transaction_underpayment_fails() {
     run_test(|| {
         let vault = BOB;
         ext::vault_registry::get_active_vault_from_id::<Test>
-            .mock_safe(move |_| MockResult::Return(Ok(init_zero_vault(vault.clone(), None))));
+            .mock_safe(move |_| MockResult::Return(Ok(init_zero_vault(vault.clone(), vec![]))));
 
         let address1 = BtcAddress::P2PKH(H160::from_str(&"66c7060feb882664ae62ffad0051fe843e318e85").unwrap());
 
@@ -403,8 +424,8 @@ fn test_is_transaction_invalid_fails_with_valid_merge_transaction() {
 #[test]
 fn test_is_transaction_invalid_fails_with_valid_request_or_redeem() {
     run_test(|| {
-        let vault_address = BtcAddress::P2WPKHv0(H160::from_slice(&[
-            164, 180, 202, 72, 222, 11, 63, 255, 193, 84, 4, 161, 172, 220, 141, 186, 174, 34, 105, 85,
+        let vault_address = BtcAddress::P2SH(H160::from_slice(&[
+            41, 40, 244, 58, 241, 141, 45, 96, 232, 168, 67, 84, 13, 128, 134, 179, 5, 52, 19, 57,
         ]));
 
         let mut wallet = Wallet::new(dummy_public_key());
@@ -504,7 +525,7 @@ fn test_is_transaction_invalid_succeeds() {
         let recipient_address = BtcAddress::P2PKH(H160::from_str(&"66c7060feb882664ae62ffad0051fe843e318e85").unwrap());
 
         ext::vault_registry::get_active_vault_from_id::<Test>
-            .mock_safe(move |_| MockResult::Return(Ok(init_zero_vault(BOB.clone(), Some(vault_address)))));
+            .mock_safe(move |_| MockResult::Return(Ok(init_zero_vault(BOB.clone(), vec![vault_address]))));
 
         let transaction = TransactionBuilder::new()
             .with_version(1)
@@ -544,8 +565,8 @@ fn test_is_transaction_invalid_fails_with_valid_merge_testnet_transaction() {
         let raw_tx = hex::decode(&raw_tx_hex).unwrap();
 
         // 2MsqorfMrsvXiVM8pD9bPWxGnccSWsj16XE (P2WPKH-P2SH)
-        let vault_btc_address_0 = BtcAddress::P2WPKHv0(H160::from_slice(
-            &hex::decode("473ca3f4d726ce9c21af7cdc3fcc13264f681b04").unwrap(),
+        let vault_btc_address_0 = BtcAddress::P2SH(H160::from_slice(
+            &hex::decode("068a6a2ec6be7d6e7aac1657445154c52db0cef8").unwrap(),
         ));
 
         // 2NGRwGkzypA4fEz9m4KhA2ZBs7fTg3B7Zjo
@@ -586,12 +607,12 @@ fn test_is_transaction_invalid_succeeds_with_testnet_transaction() {
         let raw_tx = hex::decode(&raw_tx_hex).unwrap();
 
         // 2MsqorfMrsvXiVM8pD9bPWxGnccSWsj16XE (P2WPKH-P2SH)
-        let btc_address = BtcAddress::P2WPKHv0(H160::from_slice(
-            &hex::decode("473ca3f4d726ce9c21af7cdc3fcc13264f681b04").unwrap(),
+        let btc_address = BtcAddress::P2SH(H160::from_slice(
+            &hex::decode("068a6a2ec6be7d6e7aac1657445154c52db0cef8").unwrap(),
         ));
 
         ext::vault_registry::get_active_vault_from_id::<Test>
-            .mock_safe(move |_| MockResult::Return(Ok(init_zero_vault(BOB.clone(), Some(btc_address)))));
+            .mock_safe(move |_| MockResult::Return(Ok(init_zero_vault(BOB.clone(), vec![btc_address]))));
 
         assert_ok!(Relay::is_transaction_invalid(&BOB, raw_tx));
     })
@@ -632,7 +653,7 @@ fn should_report_double_payment() {
         );
 
         ext::vault_registry::get_active_vault_from_id::<Test>
-            .mock_safe(move |_| MockResult::Return(Ok(init_zero_vault(CAROL.clone(), Some(input_address)))));
+            .mock_safe(move |_| MockResult::Return(Ok(init_zero_vault(CAROL.clone(), vec![input_address]))));
         ext::btc_relay::parse_merkle_proof::<Test>.mock_safe(|_| MockResult::Return(Ok(dummy_merkle_proof())));
         ext::btc_relay::verify_transaction_inclusion::<Test>.mock_safe(move |_, _| MockResult::Return(Ok(())));
         ext::vault_registry::liquidate_theft_vault::<Test>.mock_safe(|_, _| MockResult::Return(Ok(())));
@@ -666,7 +687,7 @@ fn should_not_report_double_payment_with_vault_no_input() {
         );
 
         ext::vault_registry::get_active_vault_from_id::<Test>
-            .mock_safe(move |_| MockResult::Return(Ok(init_zero_vault(CAROL.clone(), Some(input_address)))));
+            .mock_safe(move |_| MockResult::Return(Ok(init_zero_vault(CAROL.clone(), vec![input_address]))));
         ext::btc_relay::parse_merkle_proof::<Test>.mock_safe(|_| MockResult::Return(Ok(dummy_merkle_proof())));
         ext::btc_relay::verify_transaction_inclusion::<Test>.mock_safe(move |_, _| MockResult::Return(Ok(())));
         ext::vault_registry::liquidate_theft_vault::<Test>.mock_safe(|_, _| MockResult::Return(Ok(())));

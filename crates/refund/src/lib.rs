@@ -31,7 +31,7 @@ use currency::Amount;
 #[doc(inline)]
 use default_weights::WeightInfo;
 use frame_support::{dispatch::DispatchError, ensure, sp_runtime::FixedPointNumber, transactional};
-use frame_system::ensure_signed;
+use frame_system::{ensure_root, ensure_signed};
 use oracle::OracleKey;
 pub use pallet::*;
 use sp_core::H256;
@@ -59,21 +59,24 @@ pub mod pallet {
 
     #[pallet::event]
     #[pallet::generate_deposit(pub(super) fn deposit_event)]
-    #[pallet::metadata(DefaultVaultId<T> = "VaultId", T::AccountId = "AccountId", Wrapped<T> = "Wrapped")]
     pub enum Event<T: Config> {
-        /// refund_id, issuer, amount_without_fee, vault, btc_address, issue_id, fee, transfer_fee
-        RequestRefund(
-            H256,
-            T::AccountId,
-            Wrapped<T>,
-            DefaultVaultId<T>,
-            BtcAddress,
-            H256,
-            Wrapped<T>,
-            Wrapped<T>,
-        ),
-        /// refund_id, issuer, vault, amount, fee
-        ExecuteRefund(H256, T::AccountId, DefaultVaultId<T>, Wrapped<T>, Wrapped<T>),
+        RequestRefund {
+            refund_id: H256,
+            issuer: T::AccountId,
+            amount: Wrapped<T>,
+            vault_id: DefaultVaultId<T>,
+            btc_address: BtcAddress,
+            issue_id: H256,
+            fee: Wrapped<T>,
+            transfer_fee: Wrapped<T>,
+        },
+        ExecuteRefund {
+            refund_id: H256,
+            issuer: T::AccountId,
+            vault_id: DefaultVaultId<T>,
+            amount: Wrapped<T>,
+            fee: Wrapped<T>,
+        },
     }
 
     #[pallet::error]
@@ -149,6 +152,14 @@ pub mod pallet {
             Self::_execute_refund(refund_id, merkle_proof, raw_tx)?;
             Ok(().into())
         }
+
+        #[pallet::weight(<T as Config>::WeightInfo::set_refund_transaction_size())]
+        #[transactional]
+        pub fn set_refund_transaction_size(origin: OriginFor<T>, size: u32) -> DispatchResultWithPostInfo {
+            ensure_root(origin)?;
+            RefundTransactionSize::<T>::put(size);
+            Ok(().into())
+        }
     }
 }
 
@@ -173,8 +184,6 @@ impl<T: Config> Pallet<T> {
         btc_address: BtcAddress,
         issue_id: H256,
     ) -> Result<Option<H256>, DispatchError> {
-        ext::security::ensure_parachain_status_not_shutdown::<T>()?;
-
         let vault_reward_fee = ext::fee::get_refund_fee_from_total::<T>(total_amount_btc)?;
         let transfer_fee = Self::get_current_inclusion_fee(vault_id.wrapped_currency())?;
 
@@ -201,16 +210,16 @@ impl<T: Config> Pallet<T> {
         };
         Self::insert_refund_request(&refund_id, &request);
 
-        Self::deposit_event(<Event<T>>::RequestRefund(
-            refund_id,
-            request.issuer,
-            request.amount_btc,
-            request.vault,
-            request.btc_address,
-            request.issue_id,
-            request.fee,
-            request.transfer_fee_btc,
-        ));
+        Self::deposit_event(Event::<T>::RequestRefund {
+            refund_id: refund_id,
+            issuer: request.issuer,
+            amount: request.amount_btc,
+            vault_id: request.vault,
+            btc_address: request.btc_address,
+            issue_id: request.issue_id,
+            fee: request.fee,
+            transfer_fee: request.transfer_fee_btc,
+        });
 
         Ok(Some(refund_id))
     }
@@ -224,8 +233,6 @@ impl<T: Config> Pallet<T> {
     /// * `merkle_proof` - raw bytes of the proof
     /// * `raw_tx` - raw bytes of the transaction
     fn _execute_refund(refund_id: H256, raw_merkle_proof: Vec<u8>, raw_tx: Vec<u8>) -> Result<(), DispatchError> {
-        ext::security::ensure_parachain_status_not_shutdown::<T>()?;
-
         let request = Self::get_open_refund_request_from_id(&refund_id)?;
 
         // check the transaction inclusion and validity
@@ -252,13 +259,13 @@ impl<T: Config> Pallet<T> {
             });
         });
 
-        Self::deposit_event(<Event<T>>::ExecuteRefund(
-            refund_id,
-            request.issuer,
-            request.vault,
-            request.amount_btc,
-            request.fee,
-        ));
+        Self::deposit_event(Event::<T>::ExecuteRefund {
+            refund_id: refund_id,
+            issuer: request.issuer,
+            vault_id: request.vault,
+            amount: request.amount_btc,
+            fee: request.fee,
+        });
 
         Ok(())
     }
@@ -294,9 +301,10 @@ impl<T: Config> Pallet<T> {
     /// # Arguments
     ///
     /// * `account_id` - user account id
-    pub fn get_refund_requests_for_account(account_id: T::AccountId) -> Vec<(H256, DefaultRefundRequest<T>)> {
+    pub fn get_refund_requests_for_account(account_id: T::AccountId) -> Vec<H256> {
         <RefundRequests<T>>::iter()
             .filter(|(_, request)| request.issuer == account_id)
+            .map(|(key, _)| key)
             .collect::<Vec<_>>()
     }
 
@@ -319,8 +327,10 @@ impl<T: Config> Pallet<T> {
     /// # Arguments
     ///
     /// * `issue_id` - The ID of an issue request
-    pub fn get_refund_requests_by_issue_id(issue_id: H256) -> Option<(H256, DefaultRefundRequest<T>)> {
-        <RefundRequests<T>>::iter().find(|(_, request)| request.issue_id == issue_id)
+    pub fn get_refund_requests_by_issue_id(issue_id: H256) -> Option<H256> {
+        <RefundRequests<T>>::iter()
+            .find(|(_, request)| request.issue_id == issue_id)
+            .map(|(key, _)| key)
     }
 
     /// Fetch all refund requests for the specified vault. This function is exposed as RPC.
@@ -328,9 +338,10 @@ impl<T: Config> Pallet<T> {
     /// # Arguments
     ///
     /// * `account_id` - vault account id
-    pub fn get_refund_requests_for_vault(vault_id: T::AccountId) -> Vec<(H256, DefaultRefundRequest<T>)> {
+    pub fn get_refund_requests_for_vault(vault_id: T::AccountId) -> Vec<H256> {
         <RefundRequests<T>>::iter()
             .filter(|(_, request)| request.vault.account_id == vault_id)
+            .map(|(key, _)| key)
             .collect::<Vec<_>>()
     }
 

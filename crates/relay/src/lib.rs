@@ -71,10 +71,16 @@ pub mod pallet {
 
     #[pallet::event]
     #[pallet::generate_deposit(pub(super) fn deposit_event)]
-    #[pallet::metadata(DefaultVaultId<T> = "VaultId")]
     pub enum Event<T: Config> {
-        VaultTheft(DefaultVaultId<T>, H256Le),
-        VaultDoublePayment(DefaultVaultId<T>, H256Le, H256Le),
+        VaultTheft {
+            vault_id: DefaultVaultId<T>,
+            tx_id: H256Le,
+        },
+        VaultDoublePayment {
+            vault_id: DefaultVaultId<T>,
+            tx_id_1: H256Le,
+            tx_id_2: H256Le,
+        },
     }
 
     #[pallet::error]
@@ -147,7 +153,6 @@ pub mod pallet {
             raw_block_header: RawBlockHeader,
             block_height: u32,
         ) -> DispatchResultWithPostInfo {
-            ext::security::ensure_parachain_status_not_shutdown::<T>()?;
             let relayer = ensure_signed(origin)?;
 
             let block_header = ext::btc_relay::parse_raw_block_header::<T>(&raw_block_header)?;
@@ -193,7 +198,6 @@ pub mod pallet {
             origin: OriginFor<T>,
             raw_block_header: RawBlockHeader,
         ) -> DispatchResultWithPostInfo {
-            ext::security::ensure_parachain_status_not_shutdown::<T>()?;
             let relayer = ensure_signed(origin)?;
 
             let block_header = ext::btc_relay::parse_raw_block_header::<T>(&raw_block_header)?;
@@ -220,7 +224,6 @@ pub mod pallet {
             raw_merkle_proof: Vec<u8>,
             raw_tx: Vec<u8>,
         ) -> DispatchResultWithPostInfo {
-            ext::security::ensure_parachain_status_not_shutdown::<T>()?;
             let reporter_id = ensure_signed(origin)?;
 
             let merkle_proof = ext::btc_relay::parse_merkle_proof::<T>(&raw_merkle_proof)?;
@@ -242,7 +245,7 @@ pub mod pallet {
                 let _ = inner.insert(());
             });
 
-            Self::deposit_event(<Event<T>>::VaultTheft(vault_id, tx_id));
+            Self::deposit_event(Event::<T>::VaultTheft { vault_id, tx_id });
 
             // don't take tx fees on success
             Ok(Pays::No.into())
@@ -268,7 +271,6 @@ pub mod pallet {
             raw_merkle_proofs: (Vec<u8>, Vec<u8>),
             raw_txs: (Vec<u8>, Vec<u8>),
         ) -> DispatchResultWithPostInfo {
-            ext::security::ensure_parachain_status_not_shutdown::<T>()?;
             let reporter_id = ensure_signed(origin)?;
 
             // transactions must be unique
@@ -315,7 +317,11 @@ pub mod pallet {
                         let _ = inner.insert(());
                     });
 
-                    Self::deposit_event(<Event<T>>::VaultDoublePayment(vault_id, left_tx_id, right_tx_id));
+                    Self::deposit_event(Event::<T>::VaultDoublePayment {
+                        vault_id,
+                        tx_id_1: left_tx_id,
+                        tx_id_2: right_tx_id,
+                    });
 
                     // don't take tx fees on success
                     Ok(Pays::No.into())

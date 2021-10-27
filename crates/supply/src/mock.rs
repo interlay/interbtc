@@ -1,5 +1,9 @@
 use crate::{self as supply, Config};
-use frame_support::{parameter_types, traits::GenesisBuild, PalletId};
+use frame_support::{
+    parameter_types,
+    traits::{Everything, GenesisBuild},
+    PalletId,
+};
 pub use primitives::CurrencyId;
 use primitives::UnsignedFixedPoint;
 use sp_core::H256;
@@ -36,7 +40,7 @@ parameter_types! {
 }
 
 impl frame_system::Config for Test {
-    type BaseCallFilter = ();
+    type BaseCallFilter = Everything;
     type BlockWeights = ();
     type BlockLength = ();
     type DbWeight = ();

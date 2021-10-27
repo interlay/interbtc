@@ -72,39 +72,41 @@ pub mod pallet {
 
     #[pallet::event]
     #[pallet::generate_deposit(pub(super) fn deposit_event)]
-    #[pallet::metadata(DefaultVaultId<T> = "VaultId", T::AccountId = "AccountId", Wrapped<T> = "Wrapped", Collateral<T> = "Collateral")]
     pub enum Event<T: Config> {
-        RequestRedeem(
-            H256,              // redeem_id
-            T::AccountId,      // redeemer
-            Wrapped<T>,        // redeem_amount_wrapped
-            Wrapped<T>,        // fee_wrapped
-            Collateral<T>,     // premium
-            DefaultVaultId<T>, // vault_id
-            BtcAddress,        // user btc_address
-            Wrapped<T>,        // transfer_fee_btc
-        ),
-        // [redeemer, amount_wrapped]
-        LiquidationRedeem(T::AccountId, Wrapped<T>),
-        // [redeem_id, redeemer, vault_id, amount_wrapped, fee_wrapped, transfer_fee_btc]
-        ExecuteRedeem(
-            H256,
-            T::AccountId,
-            DefaultVaultId<T>,
-            Wrapped<T>,
-            Wrapped<T>,
-            Wrapped<T>,
-        ),
-        // [redeem_id, redeemer, vault_id, slashing_amount_in_collateral, status]
-        CancelRedeem(
-            H256,
-            T::AccountId,
-            DefaultVaultId<T>,
-            Collateral<T>,
-            RedeemRequestStatus,
-        ),
-        // [vault_id, redeem_id, amount_minted]
-        MintTokensForReimbursedRedeem(DefaultVaultId<T>, H256, Wrapped<T>),
+        RequestRedeem {
+            redeem_id: H256,
+            redeemer: T::AccountId,
+            vault_id: DefaultVaultId<T>,
+            amount: Wrapped<T>,
+            fee: Wrapped<T>,
+            premium: Collateral<T>,
+            btc_address: BtcAddress,
+            transfer_fee: Wrapped<T>,
+        },
+        LiquidationRedeem {
+            redeemer: T::AccountId,
+            amount: Wrapped<T>,
+        },
+        ExecuteRedeem {
+            redeem_id: H256,
+            redeemer: T::AccountId,
+            vault_id: DefaultVaultId<T>,
+            amount: Wrapped<T>,
+            fee: Wrapped<T>,
+            transfer_fee: Wrapped<T>,
+        },
+        CancelRedeem {
+            redeem_id: H256,
+            redeemer: T::AccountId,
+            vault_id: DefaultVaultId<T>,
+            slashed_amount: Collateral<T>,
+            status: RedeemRequestStatus,
+        },
+        MintTokensForReimbursedRedeem {
+            redeem_id: H256,
+            vault_id: DefaultVaultId<T>,
+            amount: Wrapped<T>,
+        },
     }
 
     #[pallet::error]
@@ -134,6 +136,7 @@ pub mod pallet {
     /// Users create redeem requests to receive BTC in return for their previously issued tokens.
     /// This mapping provides access from a unique hash redeemId to a Redeem struct.
     #[pallet::storage]
+    #[pallet::getter(fn redeem_requests)]
     pub(super) type RedeemRequests<T: Config> =
         StorageMap<_, Blake2_128Concat, H256, DefaultRedeemRequest<T>, OptionQuery>;
 
@@ -415,16 +418,16 @@ impl<T: Config> Pallet<T> {
             },
         );
 
-        Self::deposit_event(<Event<T>>::RequestRedeem(
+        Self::deposit_event(Event::<T>::RequestRedeem {
             redeem_id,
             redeemer,
-            user_to_be_received_btc.amount(),
-            fee_wrapped.amount(),
-            premium_collateral.amount(),
+            amount: user_to_be_received_btc.amount(),
+            fee: fee_wrapped.amount(),
+            premium: premium_collateral.amount(),
             vault_id,
             btc_address,
-            inclusion_fee.amount(),
-        ));
+            transfer_fee: inclusion_fee.amount(),
+        });
 
         Ok(redeem_id)
     }
@@ -435,8 +438,6 @@ impl<T: Config> Pallet<T> {
         amount_wrapped: Wrapped<T>,
     ) -> Result<(), DispatchError> {
         let amount_wrapped = Amount::new(amount_wrapped, currencies.wrapped);
-
-        ext::security::ensure_parachain_status_not_shutdown::<T>()?;
 
         let redeemer_balance = ext::treasury::get_balance::<T>(&redeemer, currencies.wrapped);
         ensure!(
@@ -449,14 +450,15 @@ impl<T: Config> Pallet<T> {
         ext::vault_registry::redeem_tokens_liquidation::<T>(currencies.collateral, &redeemer, &amount_wrapped)?;
 
         // vault-registry emits `RedeemTokensLiquidation` with collateral amount
-        Self::deposit_event(<Event<T>>::LiquidationRedeem(redeemer, amount_wrapped.amount()));
+        Self::deposit_event(Event::<T>::LiquidationRedeem {
+            redeemer,
+            amount: amount_wrapped.amount(),
+        });
 
         Ok(())
     }
 
     fn _execute_redeem(redeem_id: H256, raw_merkle_proof: Vec<u8>, raw_tx: Vec<u8>) -> Result<(), DispatchError> {
-        ext::security::ensure_parachain_status_not_shutdown::<T>()?;
-
         let redeem = Self::get_open_redeem_request_from_id(&redeem_id)?;
 
         // check the transaction inclusion and validity
@@ -483,14 +485,14 @@ impl<T: Config> Pallet<T> {
         ext::vault_registry::redeem_tokens::<T>(&redeem.vault, &burn_amount, &redeem.premium()?, &redeem.redeemer)?;
 
         Self::set_redeem_status(redeem_id, RedeemRequestStatus::Completed);
-        Self::deposit_event(<Event<T>>::ExecuteRedeem(
+        Self::deposit_event(Event::<T>::ExecuteRedeem {
             redeem_id,
-            redeem.redeemer,
-            redeem.vault,
-            redeem.amount_btc,
-            redeem.fee,
-            redeem.transfer_fee_btc,
-        ));
+            redeemer: redeem.redeemer,
+            vault_id: redeem.vault,
+            amount: redeem.amount_btc,
+            fee: redeem.fee,
+            transfer_fee: redeem.transfer_fee_btc,
+        });
         Ok(())
     }
 
@@ -595,13 +597,13 @@ impl<T: Config> Pallet<T> {
             Self::set_redeem_status(redeem_id, RedeemRequestStatus::Retried)
         };
 
-        Self::deposit_event(<Event<T>>::CancelRedeem(
+        Self::deposit_event(Event::<T>::CancelRedeem {
             redeem_id,
             redeemer,
-            redeem.vault,
-            slashed_amount.amount(),
-            new_status,
-        ));
+            vault_id: redeem.vault,
+            slashed_amount: slashed_amount.amount(),
+            status: new_status,
+        });
 
         Ok(())
     }
@@ -625,11 +627,11 @@ impl<T: Config> Pallet<T> {
 
         Self::set_redeem_status(redeem_id, RedeemRequestStatus::Reimbursed(true));
 
-        Self::deposit_event(<Event<T>>::MintTokensForReimbursedRedeem(
-            redeem.vault,
+        Self::deposit_event(Event::<T>::MintTokensForReimbursedRedeem {
             redeem_id,
-            reimbursed_amount.amount(),
-        ));
+            vault_id: redeem.vault,
+            amount: reimbursed_amount.amount(),
+        });
 
         Ok(())
     }
@@ -676,9 +678,10 @@ impl<T: Config> Pallet<T> {
     /// # Arguments
     ///
     /// * `account_id` - user account id
-    pub fn get_redeem_requests_for_account(account_id: T::AccountId) -> Vec<(H256, DefaultRedeemRequest<T>)> {
+    pub fn get_redeem_requests_for_account(account_id: T::AccountId) -> Vec<H256> {
         <RedeemRequests<T>>::iter()
             .filter(|(_, request)| request.redeemer == account_id)
+            .map(|(key, _)| key)
             .collect::<Vec<_>>()
     }
 
@@ -687,9 +690,10 @@ impl<T: Config> Pallet<T> {
     /// # Arguments
     ///
     /// * `vault_id` - vault account id
-    pub fn get_redeem_requests_for_vault(vault_id: T::AccountId) -> Vec<(H256, DefaultRedeemRequest<T>)> {
+    pub fn get_redeem_requests_for_vault(vault_id: T::AccountId) -> Vec<H256> {
         <RedeemRequests<T>>::iter()
             .filter(|(_, request)| request.vault.account_id == vault_id)
+            .map(|(key, _)| key)
             .collect::<Vec<_>>()
     }
 

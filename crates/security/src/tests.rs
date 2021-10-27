@@ -21,10 +21,10 @@ macro_rules! assert_emitted {
 #[test]
 fn test_get_and_set_status() {
     run_test(|| {
-        let status_code = Security::get_parachain_status();
+        let status_code = Security::parachain_status();
         assert_eq!(status_code, StatusCode::Running);
         Security::set_status(StatusCode::Shutdown);
-        let status_code = Security::get_parachain_status();
+        let status_code = Security::parachain_status();
         assert_eq!(status_code, StatusCode::Shutdown);
     })
 }
@@ -55,24 +55,16 @@ fn test_is_ensure_parachain_running_fails() {
 }
 
 #[test]
-fn test_is_ensure_parachain_not_shutdown_succeeds() {
+fn test_is_parachain_shutdown_succeeds() {
     run_test(|| {
         Security::set_status(StatusCode::Running);
-        assert_ok!(Security::ensure_parachain_status_not_shutdown());
+        assert!(!Security::is_parachain_shutdown());
 
         Security::set_status(StatusCode::Error);
-        assert_ok!(Security::ensure_parachain_status_not_shutdown());
-    })
-}
+        assert!(!Security::is_parachain_shutdown());
 
-#[test]
-fn test_is_ensure_parachain_not_shutdown_fails() {
-    run_test(|| {
         Security::set_status(StatusCode::Shutdown);
-        assert_noop!(
-            Security::ensure_parachain_status_not_shutdown(),
-            TestError::ParachainShutdown
-        );
+        assert!(Security::is_parachain_shutdown());
     })
 }
 
@@ -96,8 +88,11 @@ where
     for err in &error_codes {
         assert_eq!(Security::get_errors().contains(&err), false);
     }
-    assert_eq!(Security::get_parachain_status(), StatusCode::Running);
-    assert_emitted!(Event::RecoverFromErrors(StatusCode::Running, error_codes));
+    assert_eq!(Security::parachain_status(), StatusCode::Running);
+    assert_emitted!(Event::RecoverFromErrors {
+        new_status: StatusCode::Running,
+        cleared_errors: error_codes
+    });
 }
 
 #[test]

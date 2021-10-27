@@ -14,14 +14,10 @@ pub use module_redeem_rpc_runtime_api::RedeemApi as RedeemRuntimeApi;
 #[rpc]
 pub trait RedeemApi<BlockHash, AccountId, H256, RedeemRequest> {
     #[rpc(name = "redeem_getRedeemRequests")]
-    fn get_redeem_requests(&self, account_id: AccountId, at: Option<BlockHash>) -> Result<Vec<(H256, RedeemRequest)>>;
+    fn get_redeem_requests(&self, account_id: AccountId, at: Option<BlockHash>) -> Result<Vec<H256>>;
 
     #[rpc(name = "redeem_getVaultRedeemRequests")]
-    fn get_vault_redeem_requests(
-        &self,
-        vault_id: AccountId,
-        at: Option<BlockHash>,
-    ) -> Result<Vec<(H256, RedeemRequest)>>;
+    fn get_vault_redeem_requests(&self, vault_id: AccountId, at: Option<BlockHash>) -> Result<Vec<H256>>;
 }
 
 /// A struct that implements the [`RedeemApi`].
@@ -62,11 +58,7 @@ where
     H256: Codec,
     RedeemRequest: Codec,
 {
-    fn get_redeem_requests(
-        &self,
-        account_id: AccountId,
-        at: Option<<Block as BlockT>::Hash>,
-    ) -> Result<Vec<(H256, RedeemRequest)>> {
+    fn get_redeem_requests(&self, account_id: AccountId, at: Option<<Block as BlockT>::Hash>) -> Result<Vec<H256>> {
         let api = self.client.runtime_api();
         let at = BlockId::hash(at.unwrap_or_else(|| self.client.info().best_hash));
 
@@ -77,11 +69,7 @@ where
         })
     }
 
-    fn get_vault_redeem_requests(
-        &self,
-        vault_id: AccountId,
-        at: Option<<Block as BlockT>::Hash>,
-    ) -> Result<Vec<(H256, RedeemRequest)>> {
+    fn get_vault_redeem_requests(&self, vault_id: AccountId, at: Option<<Block as BlockT>::Hash>) -> Result<Vec<H256>> {
         let api = self.client.runtime_api();
         let at = BlockId::hash(at.unwrap_or_else(|| self.client.info().best_hash));
 

@@ -17,7 +17,6 @@ mod mock;
 #[cfg(test)]
 mod tests;
 
-mod ext;
 pub mod types;
 
 #[cfg(test)]
@@ -36,6 +35,7 @@ use frame_support::{
 };
 use frame_system::ensure_signed;
 use reward::Rewards;
+use scale_info::TypeInfo;
 use sp_arithmetic::{traits::*, FixedPointNumber, FixedPointOperand};
 use sp_runtime::traits::{AccountIdConversion, AtLeast32BitUnsigned};
 use sp_std::{
@@ -88,7 +88,8 @@ pub mod pallet {
             + Encode
             + EncodeLike
             + Decode
-            + MaybeSerializeDeserialize;
+            + MaybeSerializeDeserialize
+            + TypeInfo;
 
         /// The `Inner` type of the `UnsignedFixedPoint`.
         type UnsignedInner: Debug
@@ -101,7 +102,8 @@ pub mod pallet {
             + Encode
             + EncodeLike
             + Decode
-            + MaybeSerializeDeserialize;
+            + MaybeSerializeDeserialize
+            + TypeInfo;
 
         /// Vault reward pool for the wrapped currency.
         type VaultRewards: reward::Rewards<
@@ -276,7 +278,6 @@ pub mod pallet {
             vault_id: DefaultVaultId<T>,
             index: Option<T::Index>,
         ) -> DispatchResultWithPostInfo {
-            ext::security::ensure_parachain_status_not_shutdown::<T>()?;
             let nominator_id = ensure_signed(origin)?;
             Self::withdraw_from_reward_pool::<T::VaultRewards, T::VaultStaking>(&vault_id, &nominator_id, index)?;
             Ok(().into())
