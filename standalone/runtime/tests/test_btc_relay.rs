@@ -42,8 +42,10 @@ fn integration_test_submit_block_headers_and_verify_transaction_inclusion() {
             assert!(best_block_hash == prev_header_hash);
 
             // submit block hashes
-            assert_ok!(Call::Relay(RelayCall::store_block_header(block.get_raw_header()))
-                .dispatch(origin_of(account_of(ALICE))));
+            assert_ok!(Call::Relay(RelayCall::store_block_header {
+                raw_block_header: block.get_raw_header()
+            })
+            .dispatch(origin_of(account_of(ALICE))));
 
             assert_store_main_chain_header_event(block.height, block.get_block_hash(), account_of(ALICE));
         }

@@ -218,11 +218,11 @@ pub mod pallet {
             chain_id: u32,
             fork_height: u32,
             block_hash: H256Le,
-            relay_id: T::AccountId,
+            relayer_id: T::AccountId,
         },
         ChainReorg {
-            new_head_hash: H256Le,
-            new_height: u32,
+            new_chain_tip_hash: H256Le,
+            new_chain_tip_height: u32,
             fork_depth: u32,
         },
         ForkAheadOfMainChain {
@@ -556,7 +556,7 @@ impl<T: Config> Pallet<T> {
                 chain_id,
                 fork_height: current_block_height,
                 block_hash: basic_block_header.hash,
-                relay_id: relayer.clone(),
+                relayer_id: relayer.clone(),
             });
         };
 
@@ -1223,13 +1223,13 @@ impl<T: Config> Pallet<T> {
                     if prev_height + Self::get_stable_transaction_confirmations() <= current_height {
                         // Swap the mainchain. As an optimization, this function returns the
                         // new best block hash and its height
-                        let (new_chain_tip, block_height) = Self::swap_main_blockchain(&fork)?;
+                        let (new_chain_tip_hash, new_chain_tip_height) = Self::swap_main_blockchain(&fork)?;
 
                         // announce the new main chain
                         let fork_depth = fork.max_height - fork.start_height;
                         Self::deposit_event(Event::<T>::ChainReorg {
-                            new_head_hash: new_chain_tip,
-                            new_height: block_height,
+                            new_chain_tip_hash,
+                            new_chain_tip_height,
                             fork_depth,
                         });
                     } else {

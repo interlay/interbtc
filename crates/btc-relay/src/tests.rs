@@ -235,7 +235,7 @@ fn store_block_header_on_fork_succeeds() {
             chain_id,
             fork_height: block_height,
             block_hash: block_header_hash,
-            relay_id: 3,
+            relayer_id: 3,
         });
         assert!(System::events().iter().any(|a| a.event == store_fork_event));
     })
@@ -692,8 +692,8 @@ fn check_and_do_reorg_new_fork_is_main_chain() {
         assert_ok!(BTCRelay::reorganize_chains(&fork));
         // assert that the new main chain is set
         let reorg_event = TestEvent::BTCRelay(Event::ChainReorg {
-            new_head_hash: best_block_hash,
-            new_height: fork_block_height,
+            new_chain_tip_hash: best_block_hash,
+            new_chain_tip_height: fork_block_height,
             fork_depth: fork.max_height - fork.start_height,
         });
         assert!(System::events().iter().any(|a| a.event == reorg_event));
