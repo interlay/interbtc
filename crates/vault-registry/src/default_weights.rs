@@ -40,10 +40,10 @@ pub trait WeightInfo {
 	fn update_public_key() -> Weight;
 	fn register_address() -> Weight;
 	fn accept_new_issues() -> Weight;
-	fn adjust_collateral_ceiling() -> Weight;
-	fn adjust_secure_collateral_threshold() -> Weight;
-	fn adjust_premium_redeem_threshold() -> Weight;
-	fn adjust_liquidation_collateral_threshold() -> Weight;
+	fn set_system_collateral_ceiling() -> Weight;
+	fn set_secure_collateral_threshold() -> Weight;
+	fn set_premium_redeem_threshold() -> Weight;
+	fn set_liquidation_collateral_threshold() -> Weight;
 	fn report_undercollateralized_vault() -> Weight;
 }
 
@@ -132,22 +132,22 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(T::DbWeight::get().writes(1 as Weight))
 	}
 	// Storage: VaultRegistry SystemCollateralCeiling (r:0 w:1)
-	fn adjust_collateral_ceiling() -> Weight {
+	fn set_system_collateral_ceiling() -> Weight {
 		(4_577_000 as Weight)
 			.saturating_add(T::DbWeight::get().writes(1 as Weight))
 	}
 	// Storage: VaultRegistry SecureCollateralThreshold (r:0 w:1)
-	fn adjust_secure_collateral_threshold() -> Weight {
+	fn set_secure_collateral_threshold() -> Weight {
 		(4_321_000 as Weight)
 			.saturating_add(T::DbWeight::get().writes(1 as Weight))
 	}
 	// Storage: VaultRegistry PremiumRedeemThreshold (r:0 w:1)
-	fn adjust_premium_redeem_threshold() -> Weight {
+	fn set_premium_redeem_threshold() -> Weight {
 		(4_211_000 as Weight)
 			.saturating_add(T::DbWeight::get().writes(1 as Weight))
 	}
 	// Storage: VaultRegistry LiquidationCollateralThreshold (r:0 w:1)
-	fn adjust_liquidation_collateral_threshold() -> Weight {
+	fn set_liquidation_collateral_threshold() -> Weight {
 		(4_392_000 as Weight)
 			.saturating_add(T::DbWeight::get().writes(1 as Weight))
 	}
@@ -265,22 +265,22 @@ impl WeightInfo for () {
 			.saturating_add(RocksDbWeight::get().writes(1 as Weight))
 	}
 	// Storage: VaultRegistry SystemCollateralCeiling (r:0 w:1)
-	fn adjust_collateral_ceiling() -> Weight {
+	fn set_system_collateral_ceiling() -> Weight {
 		(4_577_000 as Weight)
 			.saturating_add(RocksDbWeight::get().writes(1 as Weight))
 	}
 	// Storage: VaultRegistry SecureCollateralThreshold (r:0 w:1)
-	fn adjust_secure_collateral_threshold() -> Weight {
+	fn set_secure_collateral_threshold() -> Weight {
 		(4_321_000 as Weight)
 			.saturating_add(RocksDbWeight::get().writes(1 as Weight))
 	}
 	// Storage: VaultRegistry PremiumRedeemThreshold (r:0 w:1)
-	fn adjust_premium_redeem_threshold() -> Weight {
+	fn set_premium_redeem_threshold() -> Weight {
 		(4_211_000 as Weight)
 			.saturating_add(RocksDbWeight::get().writes(1 as Weight))
 	}
 	// Storage: VaultRegistry LiquidationCollateralThreshold (r:0 w:1)
-	fn adjust_liquidation_collateral_threshold() -> Weight {
+	fn set_liquidation_collateral_threshold() -> Weight {
 		(4_392_000 as Weight)
 			.saturating_add(RocksDbWeight::get().writes(1 as Weight))
 	}
@@ -313,4 +313,3 @@ impl WeightInfo for () {
 			.saturating_add(RocksDbWeight::get().writes(14 as Weight))
 	}
 }
-

@@ -309,9 +309,9 @@ pub(crate) fn set_default_thresholds() {
     let premium = UnsignedFixedPoint::checked_from_rational(120, 100).unwrap(); // 120%
     let liquidation = UnsignedFixedPoint::checked_from_rational(110, 100).unwrap(); // 110%
 
-    VaultRegistry::set_secure_collateral_threshold(DEFAULT_CURRENCY_PAIR, secure);
-    VaultRegistry::set_premium_redeem_threshold(DEFAULT_CURRENCY_PAIR, premium);
-    VaultRegistry::set_liquidation_collateral_threshold(DEFAULT_CURRENCY_PAIR, liquidation);
+    VaultRegistry::_set_secure_collateral_threshold(DEFAULT_CURRENCY_PAIR, secure);
+    VaultRegistry::_set_premium_redeem_threshold(DEFAULT_CURRENCY_PAIR, premium);
+    VaultRegistry::_set_liquidation_collateral_threshold(DEFAULT_CURRENCY_PAIR, liquidation);
 }
 
 pub fn run_test<T>(test: T)
