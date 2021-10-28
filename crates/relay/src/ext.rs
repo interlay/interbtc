@@ -28,17 +28,6 @@ pub(crate) mod vault_registry {
 }
 
 #[cfg_attr(test, mockable)]
-pub(crate) mod security {
-    use security::types::ErrorCode;
-    use sp_std::collections::btree_set::BTreeSet;
-
-    #[allow(dead_code)]
-    pub(crate) fn get_errors<T: crate::Config>() -> BTreeSet<ErrorCode> {
-        <security::Pallet<T>>::get_errors()
-    }
-}
-
-#[cfg_attr(test, mockable)]
 pub(crate) mod btc_relay {
     use bitcoin::types::{BlockHeader, H256Le, MerkleProof, RawBlockHeader};
     use frame_support::dispatch::DispatchResult;
