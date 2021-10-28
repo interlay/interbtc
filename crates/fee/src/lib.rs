@@ -29,7 +29,6 @@ use codec::{Decode, Encode, EncodeLike};
 use currency::{Amount, CurrencyId, OnSweep};
 use frame_support::{
     dispatch::{DispatchError, DispatchResult},
-    ensure,
     traits::Get,
     transactional, PalletId,
 };
@@ -41,11 +40,8 @@ use sp_runtime::traits::{AccountIdConversion, AtLeast32BitUnsigned};
 use sp_std::{
     convert::{TryFrom, TryInto},
     fmt::Debug,
-    vec::*,
 };
-use types::{
-    BalanceOf, Collateral, DefaultVaultId, SignedFixedPoint, UnsignedFixedPoint, UnsignedInner, Version, Wrapped,
-};
+use types::{BalanceOf, DefaultVaultId, SignedFixedPoint, UnsignedFixedPoint, UnsignedInner, Version};
 
 pub use pallet::*;
 
@@ -76,12 +72,9 @@ pub mod pallet {
         /// The `Inner` type of the `SignedFixedPoint`.
         type SignedInner: Debug
             + CheckedDiv
-            + TryFrom<Collateral<Self>>
-            + TryFrom<Wrapped<Self>>
-            + TryInto<Collateral<Self>>
-            + TryInto<Wrapped<Self>>
-            + MaybeSerializeDeserialize
-            + TryInto<BalanceOf<Self>>;
+            + TryFrom<BalanceOf<Self>>
+            + TryInto<BalanceOf<Self>>
+            + MaybeSerializeDeserialize;
 
         /// Unsigned fixed point type.
         type UnsignedFixedPoint: FixedPointNumber<Inner = <Self as Config>::UnsignedInner>
@@ -120,6 +113,7 @@ pub mod pallet {
             Self::CurrencyId,
             SignedFixedPoint = SignedFixedPoint<Self>,
         >;
+
         /// Handler to transfer undistributed rewards.
         type OnSweep: OnSweep<Self::AccountId, Amount<Self>>;
 
@@ -200,10 +194,6 @@ pub mod pallet {
     #[pallet::storage]
     #[pallet::getter(fn theft_fee_max)]
     pub type TheftFeeMax<T: Config> = StorageValue<_, UnsignedInner<T>, ValueQuery>;
-
-    /// AccountId of the fee pool.
-    #[pallet::storage]
-    pub type FeePoolAccountId<T: Config> = StorageValue<_, T::AccountId, ValueQuery>;
 
     #[pallet::type_value]
     pub(super) fn DefaultForStorageVersion() -> Version {
@@ -403,16 +393,6 @@ impl<T: Config> Pallet<T> {
     }
 
     // Private functions internal to this pallet
-
-    #[allow(dead_code)]
-    /// Helper for validating the `chain_spec` parameters
-    fn ensure_rationals_sum_to_one(dist: Vec<UnsignedFixedPoint<T>>) -> DispatchResult {
-        let sum = dist.iter().fold(UnsignedFixedPoint::<T>::default(), |a, &b| a + b);
-        let one = UnsignedFixedPoint::<T>::checked_from_integer(UnsignedInner::<T>::one())
-            .ok_or(Error::<T>::ArithmeticOverflow)?;
-        ensure!(sum == one, Error::<T>::InvalidRewardDist);
-        Ok(())
-    }
 
     /// Withdraw rewards from a pool and transfer to `account_id`.
     fn withdraw_from_reward_pool<
