@@ -27,7 +27,7 @@ extern crate mocktopus;
 #[cfg(test)]
 use mocktopus::macros::mockable;
 
-use crate::types::{Collateral, UnsignedFixedPoint, Version, Wrapped};
+use crate::types::{BalanceOf, UnsignedFixedPoint, Version};
 use codec::{Decode, Encode};
 use currency::Amount;
 use frame_support::{
@@ -102,8 +102,7 @@ pub mod pallet {
     impl<T: Config> Hooks<T::BlockNumber> for Pallet<T> {
         fn on_initialize(n: T::BlockNumber) -> Weight {
             Self::begin_block(n);
-            // TODO: calculate weight
-            0
+            <T as Config>::WeightInfo::on_initialize()
         }
     }
 
@@ -308,14 +307,14 @@ impl<T: Config> Pallet<T> {
         Ok(Amount::new(converted, currency_id))
     }
 
-    pub fn wrapped_to_collateral(amount: Wrapped<T>, currency_id: CurrencyId) -> Result<Collateral<T>, DispatchError> {
+    pub fn wrapped_to_collateral(amount: BalanceOf<T>, currency_id: CurrencyId) -> Result<BalanceOf<T>, DispatchError> {
         let rate = Self::get_price(OracleKey::ExchangeRate(currency_id))?;
         let converted = rate.checked_mul_int(amount).ok_or(Error::<T>::ArithmeticOverflow)?;
         let result = converted.try_into().map_err(|_e| Error::<T>::TryIntoIntError)?;
         Ok(result)
     }
 
-    pub fn collateral_to_wrapped(amount: Collateral<T>, currency_id: CurrencyId) -> Result<Wrapped<T>, DispatchError> {
+    pub fn collateral_to_wrapped(amount: BalanceOf<T>, currency_id: CurrencyId) -> Result<BalanceOf<T>, DispatchError> {
         let rate = Self::get_price(OracleKey::ExchangeRate(currency_id))?;
         if amount.is_zero() {
             return Ok(Zero::zero());

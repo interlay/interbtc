@@ -1,9 +1,7 @@
 use codec::{Decode, Encode};
 use scale_info::TypeInfo;
 
-pub(crate) type Collateral<T> = <T as currency::Config>::Balance;
-
-pub(crate) type Wrapped<T> = <T as currency::Config>::Balance;
+pub(crate) type BalanceOf<T> = <T as currency::Config>::Balance;
 
 pub type UnsignedFixedPoint<T> = <T as currency::Config>::UnsignedFixedPoint;
 

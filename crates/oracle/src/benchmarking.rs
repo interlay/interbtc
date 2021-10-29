@@ -5,7 +5,20 @@ use frame_system::RawOrigin;
 use sp_runtime::FixedPointNumber;
 use sp_std::prelude::*;
 
+use pallet_timestamp::Pallet as Timestamp;
+
+type MomentOf<T> = <T as pallet_timestamp::Config>::Moment;
+
 benchmarks! {
+    on_initialize {}: {
+        RawValuesUpdated::<T>::insert(OracleKey::ExchangeRate(CurrencyId::DOT), true);
+
+        let valid_until: MomentOf<T> = 100u32.into();
+        ValidUntil::<T>::insert(OracleKey::ExchangeRate(CurrencyId::DOT), valid_until);
+
+        Timestamp::<T>::set_timestamp(1000u32.into());
+    }
+
     feed_values {
         let u in 1 .. 1000u32;
 
