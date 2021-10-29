@@ -248,43 +248,43 @@ pub fn westend_testnet_config(id: ParaId) -> ChainSpec {
             testnet_genesis(
                 get_account_id_from_string("5DUupBJSyBDcqQudgPR4gttFie3cLPRw3HwaUfq9H2D2mKiA"),
                 vec![
-                    // 5H75GkhA6TnyCW7fM4H8LyoTqmPJWf3JuZZPFR9Bpv26LGHA
+                    // 5H75GkhA6TnyCW7fM4H8LyoTqmPJWf3JuZZPFR9Bpv26LGHA (//authority/0)
                     get_authority_keys_from_public_key(hex!(
                         "defbbf8f70964f6a4952bc168b6c1489b502e05d6b5ef57f8767589cf3813705"
                     )),
-                    // 5GdqW1xV8bpcJM1AVPWCdqrnUYJ9UQro1bWuPvmY2hoaQxWp
+                    // 5GdqW1xV8bpcJM1AVPWCdqrnUYJ9UQro1bWuPvmY2hoaQxWp (//authority/1)
                     get_authority_keys_from_public_key(hex!(
                         "ca35c3927b934b111acadfcf98e9b50846e7596beb7a355df1ab50b1c48e3017"
                     )),
-                    // 5CdNwrXY3mFMMTiVsxbNTmg3MMDXcyErhxkdLx7yUqhXKopt
+                    // 5CdNwrXY3mFMMTiVsxbNTmg3MMDXcyErhxkdLx7yUqhXKopt (//authority/2)
                     get_authority_keys_from_public_key(hex!(
                         "18eb708be158d0059d005da4188976caaa1aa24c8450ed3f4ad17e7a6a0cb85e"
                     )),
-                    // 5EcCjUzqBBpmf7E3gXFX3jFosY22yEL7iXYVFWZExPgF6YwD
+                    // 5EcCjUzqBBpmf7E3gXFX3jFosY22yEL7iXYVFWZExPgF6YwD (//authority/3)
                     get_authority_keys_from_public_key(hex!(
                         "707e47b5a236b10cc8dcb52698ab41ee4e3a23063d999e81af5781b1e03f7048"
                     )),
-                    // 5DoegnR7GDewmsswNgGuhZZQ8KxTPeVNd9MF1ezhSKdztEPD
+                    // 5DoegnR7GDewmsswNgGuhZZQ8KxTPeVNd9MF1ezhSKdztEPD (//authority/4)
                     get_authority_keys_from_public_key(hex!(
                         "4cfd1cfc3af74ef3189d6b92734eabae763ae86f1f6dfdf91b04e5d43a369175"
                     )),
-                    // 5GRKDYVdQ6AAS6xEQ85LzmxNwgP1u2YM81WAUjiD6YLbe69B
+                    // 5GRKDYVdQ6AAS6xEQ85LzmxNwgP1u2YM81WAUjiD6YLbe69B (//authority/5)
                     get_authority_keys_from_public_key(hex!(
                         "c0a8dfbd58ed57758594841d3cc8e6a34c97ef75380fe3c3925b1dbddf988f6f"
                     )),
-                    // 5FKbkKSb9jft3KpZSJviG8EFmdcLanpr4mBj56NpvQ6uL3bQ
+                    // 5FKbkKSb9jft3KpZSJviG8EFmdcLanpr4mBj56NpvQ6uL3bQ (//authority/6)
                     get_authority_keys_from_public_key(hex!(
                         "9010d0a8a099505887e772417734ee94dc767b8ec00f42086dac9742f3b6e037"
                     )),
-                    // 5H8WaYthvpavtRmYkVkSBzCjbhHqYp9hnNhJXDDnVr2GJt6v
+                    // 5H8WaYthvpavtRmYkVkSBzCjbhHqYp9hnNhJXDDnVr2GJt6v (//authority/7)
                     get_authority_keys_from_public_key(hex!(
                         "e0142f20c1ad92ac9467a4e01ecc0572c45704a730b5337b23b68cb7279a6b49"
                     )),
-                    // 5ECnot77onJJrSGbKtvTaB7L9zKXB9VrS97vSqBx5bcy15G9
+                    // 5ECnot77onJJrSGbKtvTaB7L9zKXB9VrS97vSqBx5bcy15G9 (//authority/8)
                     get_authority_keys_from_public_key(hex!(
                         "5ea31992c7fb94695c225010b47daf82dd9a1db4751362ae30f299d8164b6c3e"
                     )),
-                    // 5HNEdfdAvhvAA67pqPgoctiUTCraXkscSv5wYQbUwrKNmpQq
+                    // 5HNEdfdAvhvAA67pqPgoctiUTCraXkscSv5wYQbUwrKNmpQq (//authority/9)
                     get_authority_keys_from_public_key(hex!(
                         "ea8bf097557a70b3c8beed5a95ecc127534f6fe00709c20352dcfb8bd073e240"
                     )),
@@ -455,43 +455,43 @@ pub fn kusama_mainnet_config(id: ParaId) -> ChainSpec {
             mainnet_genesis(
                 get_account_id_from_string("5G49RwnYdfHywAfEpsPRhP47XuznQHpaPuSoSdt6S1kyi69g"),
                 vec![
-                    // 5DyzufhT1Ynxk9uxrWHjrVuap8oB4Zz7uYdquZHxFxvYBovd
+                    // 5DyzufhT1Ynxk9uxrWHjrVuap8oB4Zz7uYdquZHxFxvYBovd (//authority/0)
                     get_authority_keys_from_public_key(hex!(
                         "54e1a41c9ba60ca45e911e8798ba9d81c22b04435b04816490ebddffe4dffc5c"
                     )),
-                    // 5EvgAvVBQXtFFbcN74rYR2HE8RsWsEJHqPHhrGX427cnbvY2
+                    // 5EvgAvVBQXtFFbcN74rYR2HE8RsWsEJHqPHhrGX427cnbvY2 (//authority/1)
                     get_authority_keys_from_public_key(hex!(
                         "7e951061df4d5b61b31a69d62233a5a3a2abdc3195902dd22bc062fadbf42e17"
                     )),
-                    // 5Hp2yfUMoA5uJM6DQpDJAuCHdzvhzn57gurH1Cxp4cUTzciB
+                    // 5Hp2yfUMoA5uJM6DQpDJAuCHdzvhzn57gurH1Cxp4cUTzciB (//authority/2)
                     get_authority_keys_from_public_key(hex!(
                         "fe3915da55703833883c8e0dc9a81bc5ab5e3b4099b23d810cd5d78c6598395b"
                     )),
-                    // 5FQzZEbc5CtF7gR1De449GtvDwpyVwWPZMqyq9yjJmxXKmgU
+                    // 5FQzZEbc5CtF7gR1De449GtvDwpyVwWPZMqyq9yjJmxXKmgU (//authority/3)
                     get_authority_keys_from_public_key(hex!(
                         "942dd2ded2896fa236c0f0df58dff88a04d7cf661a4676059d79dc54a271234a"
                     )),
-                    // 5EqmSYibeeyypp2YGtJdkZxiNjLKpQLCMpW5J3hNgWBfT9Gw
+                    // 5EqmSYibeeyypp2YGtJdkZxiNjLKpQLCMpW5J3hNgWBfT9Gw (//authority/4)
                     get_authority_keys_from_public_key(hex!(
                         "7ad693485d4d67a2112881347a553009f0c1de3b26e662aa3863085f536d0537"
                     )),
-                    // 5E1WeDF5L8xXLmMnLmJUCXo5xqLD6zzPP14T9vESydQmUA29
+                    // 5E1WeDF5L8xXLmMnLmJUCXo5xqLD6zzPP14T9vESydQmUA29 (//authority/5)
                     get_authority_keys_from_public_key(hex!(
                         "5608fa7874491c640d0420f5f44650a0b5b8b67411b2670b68440bb97e74ee1c"
                     )),
-                    // 5D7eFVnyAhcbEJAPAVENqoCr44zTbztsiragiYjz1ExDePja
+                    // 5D7eFVnyAhcbEJAPAVENqoCr44zTbztsiragiYjz1ExDePja (//authority/6)
                     get_authority_keys_from_public_key(hex!(
                         "2e79d45517532bc4b6b3359be9ea2aa8b711a0a5362880cfb6651bcb87fe1b05"
                     )),
-                    // 5FkCciu8zasoDoViTbAYpcHgitQgB5GHN64HWdXyy8kykXFK
+                    // 5FkCciu8zasoDoViTbAYpcHgitQgB5GHN64HWdXyy8kykXFK (//authority/7)
                     get_authority_keys_from_public_key(hex!(
                         "a2d4159da7f458f8140899f443b480199c65e75ffb755ea9e097aa5b18352001"
                     )),
-                    // 5H3E3GF1LUeyowgRx47n8AJsRCyzA4f2YNuTo4qEQy7fbbBo
+                    // 5H3E3GF1LUeyowgRx47n8AJsRCyzA4f2YNuTo4qEQy7fbbBo (//authority/8)
                     get_authority_keys_from_public_key(hex!(
                         "dc0c47c6f8fd81190d4fcee4ab2074db5d83eaf301f2cd795ec9b39b8e753f66"
                     )),
-                    // 5ERqgB3mYvotBFu6vVf7fdnTgxHJvVidBpQL8W4yrpFL25mo
+                    // 5ERqgB3mYvotBFu6vVf7fdnTgxHJvVidBpQL8W4yrpFL25mo (//authority/9)
                     get_authority_keys_from_public_key(hex!(
                         "6896f1128f9a92c68f14713f0cbeb67a402621d7c80257ea3b246fcca5aede17"
                     )),
