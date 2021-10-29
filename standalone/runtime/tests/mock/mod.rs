@@ -903,9 +903,9 @@ pub fn set_default_thresholds() {
                 collateral: collateral_id,
                 wrapped: wrapped_id,
             };
-            VaultRegistryPallet::set_secure_collateral_threshold(currency_pair.clone(), secure);
-            VaultRegistryPallet::set_premium_redeem_threshold(currency_pair.clone(), premium);
-            VaultRegistryPallet::set_liquidation_collateral_threshold(currency_pair.clone(), liquidation);
+            VaultRegistryPallet::_set_secure_collateral_threshold(currency_pair.clone(), secure);
+            VaultRegistryPallet::_set_premium_redeem_threshold(currency_pair.clone(), premium);
+            VaultRegistryPallet::_set_liquidation_collateral_threshold(currency_pair.clone(), liquidation);
         }
     }
 }

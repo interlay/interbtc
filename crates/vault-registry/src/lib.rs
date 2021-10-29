@@ -351,15 +351,15 @@ pub mod pallet {
         /// # Arguments
         /// * `currency_id` - the currency pair to change
         /// * `ceiling` - the new collateral ceiling
-        #[pallet::weight(<T as Config>::WeightInfo::adjust_collateral_ceiling())]
+        #[pallet::weight(<T as Config>::WeightInfo::set_system_collateral_ceiling())]
         #[transactional]
-        pub fn adjust_collateral_ceiling(
+        pub fn set_system_collateral_ceiling(
             origin: OriginFor<T>,
             currency_pair: DefaultVaultCurrencyPair<T>,
             ceiling: Collateral<T>,
         ) -> DispatchResult {
             ensure_root(origin)?;
-            Self::set_collateral_ceiling(currency_pair, ceiling);
+            Self::_set_system_collateral_ceiling(currency_pair, ceiling);
             Ok(())
         }
 
@@ -368,15 +368,15 @@ pub mod pallet {
         /// # Arguments
         /// * `currency_pair` - the currency pair to change
         /// * `threshold` - the new secure threshold
-        #[pallet::weight(<T as Config>::WeightInfo::adjust_secure_collateral_threshold())]
+        #[pallet::weight(<T as Config>::WeightInfo::set_secure_collateral_threshold())]
         #[transactional]
-        pub fn adjust_secure_collateral_threshold(
+        pub fn set_secure_collateral_threshold(
             origin: OriginFor<T>,
             currency_pair: DefaultVaultCurrencyPair<T>,
             threshold: UnsignedFixedPoint<T>,
         ) -> DispatchResult {
             ensure_root(origin)?;
-            Self::set_secure_collateral_threshold(currency_pair, threshold);
+            Self::_set_secure_collateral_threshold(currency_pair, threshold);
             Ok(())
         }
 
@@ -385,15 +385,15 @@ pub mod pallet {
         /// # Arguments
         /// * `currency_pair` - the currency pair to change
         /// * `ceiling` - the new collateral ceiling
-        #[pallet::weight(<T as Config>::WeightInfo::adjust_premium_redeem_threshold())]
+        #[pallet::weight(<T as Config>::WeightInfo::set_premium_redeem_threshold())]
         #[transactional]
-        pub fn adjust_premium_redeem_threshold(
+        pub fn set_premium_redeem_threshold(
             origin: OriginFor<T>,
             currency_pair: DefaultVaultCurrencyPair<T>,
             threshold: UnsignedFixedPoint<T>,
         ) -> DispatchResult {
             ensure_root(origin)?;
-            Self::set_premium_redeem_threshold(currency_pair, threshold);
+            Self::_set_premium_redeem_threshold(currency_pair, threshold);
             Ok(())
         }
 
@@ -402,15 +402,15 @@ pub mod pallet {
         /// # Arguments
         /// * `currency_pair` - the currency pair to change
         /// * `ceiling` - the new collateral ceiling
-        #[pallet::weight(<T as Config>::WeightInfo::adjust_liquidation_collateral_threshold())]
+        #[pallet::weight(<T as Config>::WeightInfo::set_liquidation_collateral_threshold())]
         #[transactional]
-        pub fn adjust_liquidation_collateral_threshold(
+        pub fn set_liquidation_collateral_threshold(
             origin: OriginFor<T>,
             currency_pair: DefaultVaultCurrencyPair<T>,
             threshold: UnsignedFixedPoint<T>,
         ) -> DispatchResult {
             ensure_root(origin)?;
-            Self::set_liquidation_collateral_threshold(currency_pair, threshold);
+            Self::_set_liquidation_collateral_threshold(currency_pair, threshold);
             Ok(())
         }
     }
@@ -1505,22 +1505,22 @@ impl<T: Config> Pallet<T> {
         Self::is_collateral_below_threshold(collateral, wrapped_amount, threshold)
     }
 
-    pub fn set_collateral_ceiling(currency_pair: DefaultVaultCurrencyPair<T>, ceiling: Collateral<T>) {
+    pub fn _set_system_collateral_ceiling(currency_pair: DefaultVaultCurrencyPair<T>, ceiling: Collateral<T>) {
         SystemCollateralCeiling::<T>::insert(currency_pair, ceiling);
     }
 
-    pub fn set_secure_collateral_threshold(
+    pub fn _set_secure_collateral_threshold(
         currency_pair: DefaultVaultCurrencyPair<T>,
         threshold: UnsignedFixedPoint<T>,
     ) {
         SecureCollateralThreshold::<T>::insert(currency_pair, threshold);
     }
 
-    pub fn set_premium_redeem_threshold(currency_pair: DefaultVaultCurrencyPair<T>, threshold: UnsignedFixedPoint<T>) {
+    pub fn _set_premium_redeem_threshold(currency_pair: DefaultVaultCurrencyPair<T>, threshold: UnsignedFixedPoint<T>) {
         PremiumRedeemThreshold::<T>::insert(currency_pair, threshold);
     }
 
-    pub fn set_liquidation_collateral_threshold(
+    pub fn _set_liquidation_collateral_threshold(
         currency_pair: DefaultVaultCurrencyPair<T>,
         threshold: UnsignedFixedPoint<T>,
     ) {

@@ -716,7 +716,7 @@ fn liquidate_at_most_secure_threshold() {
         ));
         let liquidation_vault_before = VaultRegistry::get_rich_liquidation_vault(&DEFAULT_CURRENCY_PAIR);
 
-        VaultRegistry::set_secure_collateral_threshold(
+        VaultRegistry::_set_secure_collateral_threshold(
             DEFAULT_CURRENCY_PAIR,
             FixedU128::checked_from_rational(150, 100).unwrap(), // 150%
         );
@@ -1096,8 +1096,8 @@ mod get_vaults_below_premium_collaterlization_tests {
     /// sets premium_redeem threshold to 1
     pub fn run_test(test: impl FnOnce()) {
         super::run_test(|| {
-            VaultRegistry::set_secure_collateral_threshold(DEFAULT_CURRENCY_PAIR, FixedU128::from_float(0.001));
-            VaultRegistry::set_premium_redeem_threshold(DEFAULT_CURRENCY_PAIR, FixedU128::one());
+            VaultRegistry::_set_secure_collateral_threshold(DEFAULT_CURRENCY_PAIR, FixedU128::from_float(0.001));
+            VaultRegistry::_set_premium_redeem_threshold(DEFAULT_CURRENCY_PAIR, FixedU128::one());
 
             test()
         })
@@ -1299,7 +1299,7 @@ mod get_vaults_with_issuable_tokens_tests {
 
             // update the exchange rate
             convert_to.mock_safe(convert_with_exchange_rate(2));
-            VaultRegistry::set_secure_collateral_threshold(
+            VaultRegistry::_set_secure_collateral_threshold(
                 DEFAULT_CURRENCY_PAIR,
                 FixedU128::checked_from_rational(150, 100).unwrap(), // 150%
             );
