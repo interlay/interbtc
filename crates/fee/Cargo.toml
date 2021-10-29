@@ -32,6 +32,7 @@ primitives = { package = "interbtc-primitives", path = "../../primitives", defau
 mocktopus = "0.7.0"
 frame-benchmarking = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.11", default-features = false }
 pallet-timestamp = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.11", default-features = false }
+currency = { path = "../currency", features = ["testing-utils"] }
 
 # Orml dependencies
 orml-tokens = { git = "https://github.com/open-web3-stack/open-runtime-module-library", rev = "60dd52aa288ee689da076d03ee72de628efa7ed3", default-features = false }
