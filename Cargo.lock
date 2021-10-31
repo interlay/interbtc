@@ -2819,6 +2819,29 @@ dependencies = [
 ]
 
 [[package]]
+name = "governance"
+version = "1.2.0"
+dependencies = [
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "impl-trait-for-tuples",
+ "interbtc-primitives",
+ "mocktopus",
+ "pallet-balances",
+ "pallet-scheduler",
+ "parity-scale-codec",
+ "rand 0.8.4",
+ "scale-info",
+ "serde",
+ "sp-arithmetic",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-std",
+]
+
+[[package]]
 name = "handlebars"
 version = "3.5.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
