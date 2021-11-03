@@ -1158,6 +1158,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "collator-setter"
+version = "1.2.0"
+dependencies = [
+ "frame-support",
+ "frame-system",
+ "pallet-aura",
+ "parity-scale-codec",
+ "scale-info",
+ "serde",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-std",
+]
+
+[[package]]
 name = "concurrent-queue"
 version = "1.2.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3278,6 +3294,7 @@ version = "1.2.0"
 dependencies = [
  "bitcoin",
  "btc-relay",
+ "collator-setter",
  "cumulus-pallet-aura-ext",
  "cumulus-pallet-dmp-queue",
  "cumulus-pallet-parachain-system",
