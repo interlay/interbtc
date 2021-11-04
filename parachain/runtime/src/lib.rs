@@ -95,7 +95,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     spec_name: create_runtime_str!("kintsugi-parachain"),
     impl_name: create_runtime_str!("kintsugi-parachain"),
     authoring_version: 1,
-    spec_version: 3,
+    spec_version: 4,
     impl_version: 1,
     transaction_version: 1,
     apis: RUNTIME_API_VERSIONS,
@@ -243,6 +243,8 @@ impl pallet_aura::Config for Runtime {
     type DisabledValidators = ();
     type MaxAuthorities = MaxAuthorities;
 }
+
+impl collator_setter::Config for Runtime {}
 
 parameter_types! {
     pub const MinimumPeriod: u64 = SLOT_DURATION / 2;
@@ -1059,6 +1061,7 @@ construct_runtime! {
 
         Aura: pallet_aura::{Pallet, Storage, Config<T>},
         AuraExt: cumulus_pallet_aura_ext::{Pallet, Config},
+        CollatorSetter: collator_setter::{Pallet, Call},
 
         // XCM helpers.
         XcmpQueue: cumulus_pallet_xcmp_queue::{Pallet, Call, Storage, Event<T>},
