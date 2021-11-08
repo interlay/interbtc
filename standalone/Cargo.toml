@@ -20,6 +20,8 @@ log = "0.4.8"
 codec = { package = "parity-scale-codec", version = "2.2.0" }
 serde = { version = "1.0.130", features = ["derive"] }
 hex-literal = "0.2.1"
+futures = "0.3.16"
+jsonrpc-core = "18.0"
 
 # Parachain dependencies
 interbtc-runtime = { package = "interbtc-runtime-standalone", path = "./runtime" }
