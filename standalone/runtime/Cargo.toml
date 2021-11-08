@@ -146,7 +146,6 @@ std = [
 
   "pallet-aura/std",
   "sp-consensus-aura/std",
-
   "btc-relay/std",
   "currency/std",
   "security/std",
