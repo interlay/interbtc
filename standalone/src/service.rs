@@ -1,18 +1,17 @@
+use futures::channel::mpsc;
 use interbtc_runtime::{primitives::Block, RuntimeApi};
-use sc_client_api::{ExecutorProvider, RemoteBackend};
-use sc_consensus_aura::{ImportQueueParams, SlotProportion, StartAuraParams};
-use sc_consensus_manual_seal::{InstantSealParams, ManualSealParams, consensus::babe::{BabeConsensusDataProvider, SlotTimestampProvider}, rpc::{ManualSeal, ManualSealApi}, run_manual_seal};
+use sc_client_api::RemoteBackend;
+use sc_consensus_aura::ImportQueueParams;
+use sc_consensus_manual_seal::{
+    rpc::{ManualSeal, ManualSealApi},
+    ManualSealParams,
+};
 use sc_executor::NativeElseWasmExecutor;
-use sc_finality_grandpa::SharedVoterState;
-use sc_keystore::LocalKeystore;
 use sc_service::{error::Error as ServiceError, Configuration, RpcHandlers, TFullBackend, TFullClient, TaskManager};
 use sc_telemetry::{Telemetry, TelemetryWorker};
 use sp_consensus::SlotData;
 use sp_consensus_aura::sr25519::AuthorityPair as AuraPair;
-use sc_consensus_babe::{self, AuthorityId};
-use std::{sync::Arc, time::Duration};
-use futures::channel::mpsc;
-
+use std::sync::Arc;
 
 // Native executor instance.
 pub struct Executor;
@@ -102,28 +101,11 @@ pub fn new_partial(
         telemetry.as_ref().map(|x| x.handle()),
     )?;
 
-    let slot_duration = sc_consensus_aura::slot_duration(&*client)?.slot_duration();
-
-    let import_queue = sc_consensus_aura::import_queue::<AuraPair, _, _, _, _, _, _>(ImportQueueParams {
-        block_import: grandpa_block_import.clone(),
-        justification_import: Some(Box::new(grandpa_block_import.clone())),
-        client: client.clone(),
-        create_inherent_data_providers: move |_, ()| async move {
-            let timestamp = sp_timestamp::InherentDataProvider::from_system_time();
-
-            let slot = sp_consensus_aura::inherents::InherentDataProvider::from_timestamp_and_duration(
-                *timestamp,
-                slot_duration,
-            );
-
-            Ok((timestamp, slot))
-        },
-        spawner: &task_manager.spawn_essential_handle(),
-        can_author_with: sp_consensus::CanAuthorWithNativeVersion::new(client.executor().clone()),
-        registry: config.prometheus_registry(),
-        check_for_equivocation: Default::default(),
-        telemetry: telemetry.as_ref().map(|x| x.handle()),
-    })?;
+    let import_queue = sc_consensus_manual_seal::import_queue(
+        Box::new(client.clone()),
+        &task_manager.spawn_essential_handle(),
+        config.prometheus_registry(),
+    );
 
     Ok(sc_service::PartialComponents {
         client,
@@ -137,40 +119,18 @@ pub fn new_partial(
     })
 }
 
-fn remote_keystore(_url: &String) -> Result<Arc<LocalKeystore>, &'static str> {
-    // FIXME: here would the concrete keystore be built,
-    //        must return a concrete type (NOT `LocalKeystore`) that
-    //        implements `CryptoStore` and `SyncCryptoStore`
-    Err("Remote Keystore not supported.")
-}
-
 /// Builds a new service for a full client.
-pub fn new_full(mut config: Configuration) -> Result<(TaskManager, RpcHandlers), ServiceError> {
+pub fn new_full(config: Configuration) -> Result<(TaskManager, RpcHandlers), ServiceError> {
     let sc_service::PartialComponents {
         client,
         backend,
         mut task_manager,
         import_queue,
-        mut keystore_container,
+        keystore_container,
         select_chain,
         transaction_pool,
-        other: (grandpa_block_import, grandpa_link, mut telemetry),
+        other: (_grandpa_block_import, _grandpa_link, mut telemetry),
     } = new_partial(&config)?;
-
-	let slot_duration = sc_consensus_babe::Config::get_or_compute(&*client)?;
-    let (block_import, babe_link) = sc_consensus_babe::block_import(
-		slot_duration.clone(),
-		grandpa_block_import,
-		client.clone(),
-	)?;
-
-	let consensus_data_provider = BabeConsensusDataProvider::new(
-		client.clone(),
-		keystore_container.sync_keystore(),
-		babe_link.epoch_changes().clone(),
-		vec![(AuthorityId::from(Alice.public()), 1000)],
-	)
-	.expect("failed to create ConsensusDataProvider");
 
     let (network, system_rpc_tx, network_starter) = sc_service::build_network(sc_service::BuildNetworkParams {
         config: &config,
@@ -188,18 +148,18 @@ pub fn new_full(mut config: Configuration) -> Result<(TaskManager, RpcHandlers),
     }
 
     // Proposer object for block authorship.
-	let env = sc_basic_authorship::ProposerFactory::new(
-		task_manager.spawn_handle(),
-		client.clone(),
-		transaction_pool.clone(),
-		config.prometheus_registry(),
-		None,
-	);
+    let env = sc_basic_authorship::ProposerFactory::new(
+        task_manager.spawn_handle(),
+        client.clone(),
+        transaction_pool.clone(),
+        config.prometheus_registry(),
+        None,
+    );
 
     // Channel for the rpc handler to communicate with the authorship task.
-	let (command_sink, commands_stream) = mpsc::channel(10);
+    let (command_sink, commands_stream) = mpsc::channel(10);
 
-	let rpc_sink = command_sink.clone();
+    let rpc_sink = command_sink.clone();
 
     let rpc_handlers = sc_service::spawn_tasks(sc_service::SpawnTasksParams {
         config,
@@ -220,34 +180,23 @@ pub fn new_full(mut config: Configuration) -> Result<(TaskManager, RpcHandlers),
         telemetry: telemetry.as_mut(),
     })?;
 
-	let cloned_client = client.clone();
-	let create_inherent_data_providers = Box::new(move |_, _| {
-		let client = cloned_client.clone();
-		async move {
-			let timestamp =
-				SlotTimestampProvider::new(client.clone()).map_err(|err| format!("{:?}", err))?;
-			let babe =
-				sp_consensus_babe::inherents::InherentDataProvider::new(timestamp.slot().into());
-			Ok((timestamp, babe))
-		}
-	});
-
-	// Background authorship future.
-	let authorship_future = run_manual_seal(ManualSealParams {
-		block_import,
-		env,
-		client: client.clone(),
-		pool: transaction_pool.clone(),
-		commands_stream,
-		select_chain,
-		consensus_data_provider: Some(Box::new(consensus_data_provider)),
-		create_inherent_data_providers,
-	});
-
-	// spawn the authorship task as an essential task.
-	task_manager.spawn_essential_handle().spawn("manual-seal", authorship_future);
-
-	let rpc_handler = rpc_handlers.io_handler();
+    // Background authorship future.
+    let authorship_future = sc_consensus_manual_seal::run_manual_seal(ManualSealParams {
+        block_import: client.clone(),
+        env,
+        client,
+        pool: transaction_pool.clone(),
+        commands_stream,
+        select_chain,
+        consensus_data_provider: None,
+        create_inherent_data_providers: move |_, ()| async move {
+            Ok(sp_timestamp::InherentDataProvider::from_system_time())
+        },
+    });
+    // spawn the authorship task as an essential task.
+    task_manager
+        .spawn_essential_handle()
+        .spawn("manual-seal", authorship_future);
 
     network_starter.start_network();
     Ok((task_manager, rpc_handlers))
