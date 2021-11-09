@@ -59,13 +59,10 @@ use pallet_grandpa::{fg_primitives, AuthorityId as GrandpaId, AuthorityList as G
 use sp_core::crypto::KeyTypeId;
 use sp_runtime::traits::NumberFor;
 
-pub use sp_consensus_aura::sr25519::AuthorityId as AuraId;
-
 type VaultId = primitives::VaultId<AccountId, CurrencyId>;
 
 impl_opaque_keys! {
     pub struct SessionKeys {
-        pub aura: Aura,
         pub grandpa: Grandpa,
     }
 }
@@ -206,12 +203,6 @@ impl frame_system::Config for Runtime {
 
 parameter_types! {
     pub const MaxAuthorities: u32 = 32;
-}
-
-impl pallet_aura::Config for Runtime {
-    type AuthorityId = AuraId;
-    type DisabledValidators = ();
-    type MaxAuthorities = MaxAuthorities;
 }
 
 impl pallet_grandpa::Config for Runtime {
@@ -639,7 +630,6 @@ construct_runtime! {
         TechnicalMembership: pallet_membership::{Pallet, Call, Storage, Event<T>, Config<T>},
         Treasury: pallet_treasury::{Pallet, Call, Storage, Config, Event<T>},
 
-        Aura: pallet_aura::{Pallet, Config<T>},
         Grandpa: pallet_grandpa::{Pallet, Call, Storage, Config, Event},
     }
 }
@@ -770,16 +760,6 @@ impl_runtime_apis! {
             // defined our key owner proof type as a bottom type (i.e. a type
             // with no values).
             None
-        }
-    }
-
-    impl sp_consensus_aura::AuraApi<Block, AuraId> for Runtime {
-        fn slot_duration() -> sp_consensus_aura::SlotDuration {
-            sp_consensus_aura::SlotDuration::from_millis(Aura::slot_duration())
-        }
-
-        fn authorities() -> Vec<AuraId> {
-            Aura::authorities().into_inner()
         }
     }
 

@@ -1,13 +1,18 @@
 use bitcoin::utils::{virtual_transaction_size, InputType, TransactionInputMetadata, TransactionOutputMetadata};
 use hex_literal::hex;
 use interbtc_runtime::{
+<<<<<<< HEAD
     AccountId, AuraConfig, BTCRelayConfig, CurrencyId, FeeConfig, GenesisConfig, GetWrappedCurrencyId, GrandpaConfig,
     IssueConfig, NominationConfig, OracleConfig, RedeemConfig, RefundConfig, ReplaceConfig, SecurityConfig, Signature,
     StatusCode, SudoConfig, SystemConfig, TechnicalCommitteeConfig, TokensConfig, VaultRegistryConfig,
+=======
+    AccountId, BTCRelayConfig, CouncilConfig, CurrencyId, FeeConfig, GenesisConfig, GetWrappedCurrencyId,
+    GrandpaConfig, IssueConfig, NominationConfig, OracleConfig, RedeemConfig, RefundConfig, ReplaceConfig,
+    SecurityConfig, Signature, StatusCode, SudoConfig, SystemConfig, TokensConfig, VaultRegistryConfig,
+>>>>>>> f8e384f9 (refactor(standalone): Remove unused dependencies)
     BITCOIN_BLOCK_SPACING, DAYS, DOT, INTR, KINT, KSM, WASM_BINARY,
 };
 use primitives::VaultCurrencyPair;
-use sp_consensus_aura::sr25519::AuthorityId as AuraId;
 use sp_core::crypto::UncheckedInto;
 use sp_finality_grandpa::AuthorityId as GrandpaId;
 
@@ -31,8 +36,8 @@ pub fn get_from_seed<TPublic: Public>(seed: &str) -> <TPublic::Pair as Pair>::Pu
 }
 
 /// Generate an Aura authority key.
-pub fn authority_keys_from_seed(s: &str) -> (AuraId, GrandpaId) {
-    (get_from_seed::<AuraId>(s), get_from_seed::<GrandpaId>(s))
+pub fn authority_keys_from_seed(s: &str) -> GrandpaId {
+    get_from_seed::<GrandpaId>(s)
 }
 
 fn get_account_id_from_string(account_id: &str) -> AccountId {
@@ -110,21 +115,12 @@ pub fn beta_testnet_config() -> ChainSpec {
             testnet_genesis(
                 get_account_id_from_string("5HeVGqvfpabwFqzV1DhiQmjaLQiFcTSmq2sH6f7atsXkgvtt"),
                 vec![
-                    (
-                        // 5DJ3wbdicFSFFudXndYBuvZKjucTsyxtJX5WPzQM8HysSkFY
-                        hex!["366a092a27b4b28199a588b0155a2c9f3f0513d92481de4ee2138273926fa91c"].unchecked_into(),
-                        hex!["dce82040dc0a90843897aee1cc1a96c205fe7c1165b8f46635c2547ed15a3013"].unchecked_into(),
-                    ),
-                    (
-                        // 5HW7ApFamN6ovtDkFyj67tRLRhp8B2kVNjureRUWWYhkTg9j
-                        hex!["f08cc7cf45f88e6dbe312a63f6ce639061834b4208415b235f77a67b51435f63"].unchecked_into(),
-                        hex!["5b4651cf045ddf55f0df7bfbb9bb4c45bbeb3c536c6ce4a98275781b8f0f0754"].unchecked_into(),
-                    ),
-                    (
-                        // 5FNbq8zGPZtinsfgyD4w2G3BMh75H3r2Qg3uKudTZkJtRru6
-                        hex!["925ad4bdf35945bea91baeb5419a7ffa07002c6a85ba334adfa7cb5b05623c1b"].unchecked_into(),
-                        hex!["8de3db7b51864804d2dd5c5905d571aa34d7161537d5a0045755b72d1ac2062e"].unchecked_into(),
-                    ),
+                    // 5DJ3wbdicFSFFudXndYBuvZKjucTsyxtJX5WPzQM8HysSkFY
+                    hex!["dce82040dc0a90843897aee1cc1a96c205fe7c1165b8f46635c2547ed15a3013"].unchecked_into(),
+                    // 5HW7ApFamN6ovtDkFyj67tRLRhp8B2kVNjureRUWWYhkTg9j
+                    hex!["5b4651cf045ddf55f0df7bfbb9bb4c45bbeb3c536c6ce4a98275781b8f0f0754"].unchecked_into(),
+                    // 5FNbq8zGPZtinsfgyD4w2G3BMh75H3r2Qg3uKudTZkJtRru6
+                    hex!["8de3db7b51864804d2dd5c5905d571aa34d7161537d5a0045755b72d1ac2062e"].unchecked_into(),
                 ],
                 vec![
                     // root key
@@ -238,7 +234,7 @@ fn expected_transaction_size() -> u32 {
 
 fn testnet_genesis(
     root_key: AccountId,
-    initial_authorities: Vec<(AuraId, GrandpaId)>,
+    initial_authorities: Vec<GrandpaId>,
     endowed_accounts: Vec<AccountId>,
     authorized_oracles: Vec<(AccountId, Vec<u8>)>,
     bitcoin_confirmations: u32,
@@ -251,11 +247,8 @@ fn testnet_genesis(
                 .to_vec(),
             changes_trie_config: Default::default(),
         },
-        aura: AuraConfig {
-            authorities: initial_authorities.iter().map(|x| (x.0.clone())).collect(),
-        },
         grandpa: GrandpaConfig {
-            authorities: initial_authorities.iter().map(|x| (x.1.clone(), 1)).collect(),
+            authorities: initial_authorities.iter().map(|x| (x.clone(), 1)).collect(),
         },
         security: SecurityConfig {
             initial_status: if start_shutdown {

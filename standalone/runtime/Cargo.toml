@@ -50,9 +50,13 @@ pallet-membership = { git = "https://github.com/paritytech/substrate", branch = 
 pallet-society = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.12", default-features = false }
 
 # Aura & GRANDPA dependencies
+<<<<<<< HEAD
 pallet-grandpa = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.12", default-features = false }
 pallet-aura = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.12", default-features = false }
 sp-consensus-aura = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.12", default-features = false }
+=======
+pallet-grandpa = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.11", default-features = false }
+>>>>>>> f8e384f9 (refactor(standalone): Remove unused dependencies)
 
 # Parachain dependencies
 btc-relay = { path = "../../crates/btc-relay", default-features = false }
@@ -143,8 +147,6 @@ std = [
 
   "pallet-grandpa/std",
 
-  "pallet-aura/std",
-  "sp-consensus-aura/std",
   "btc-relay/std",
   "currency/std",
   "security/std",

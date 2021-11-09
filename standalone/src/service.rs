@@ -1,7 +1,6 @@
 use futures::channel::mpsc;
 use interbtc_runtime::{primitives::Block, RuntimeApi};
 use sc_client_api::RemoteBackend;
-use sc_consensus_aura::ImportQueueParams;
 use sc_consensus_manual_seal::{
     rpc::{ManualSeal, ManualSealApi},
     ManualSealParams,
@@ -9,8 +8,6 @@ use sc_consensus_manual_seal::{
 use sc_executor::NativeElseWasmExecutor;
 use sc_service::{error::Error as ServiceError, Configuration, RpcHandlers, TFullBackend, TFullClient, TaskManager};
 use sc_telemetry::{Telemetry, TelemetryWorker};
-use sp_consensus::SlotData;
-use sp_consensus_aura::sr25519::AuthorityPair as AuraPair;
 use std::sync::Arc;
 
 // Native executor instance.
@@ -238,8 +235,6 @@ pub fn new_light(mut config: Configuration) -> Result<(TaskManager, RpcHandlers)
         .extra_sets
         .push(sc_finality_grandpa::grandpa_peers_set_config());
 
-    let select_chain = sc_consensus::LongestChain::new(backend.clone());
-
     let transaction_pool = Arc::new(sc_transaction_pool::BasicPool::new_light(
         config.transaction_pool.clone(),
         config.prometheus_registry(),
@@ -248,35 +243,11 @@ pub fn new_light(mut config: Configuration) -> Result<(TaskManager, RpcHandlers)
         on_demand.clone(),
     ));
 
-    let (grandpa_block_import, _) = sc_finality_grandpa::block_import(
-        client.clone(),
-        &(client.clone() as Arc<_>),
-        select_chain.clone(),
-        telemetry.as_ref().map(|x| x.handle()),
-    )?;
-
-    let slot_duration = sc_consensus_aura::slot_duration(&*client)?.slot_duration();
-
-    let import_queue = sc_consensus_aura::import_queue::<AuraPair, _, _, _, _, _, _>(ImportQueueParams {
-        block_import: grandpa_block_import.clone(),
-        justification_import: Some(Box::new(grandpa_block_import.clone())),
-        client: client.clone(),
-        create_inherent_data_providers: move |_, ()| async move {
-            let timestamp = sp_timestamp::InherentDataProvider::from_system_time();
-
-            let slot = sp_consensus_aura::inherents::InherentDataProvider::from_timestamp_and_duration(
-                *timestamp,
-                slot_duration,
-            );
-
-            Ok((timestamp, slot))
-        },
-        spawner: &task_manager.spawn_essential_handle(),
-        can_author_with: sp_consensus::NeverCanAuthor,
-        registry: config.prometheus_registry(),
-        check_for_equivocation: Default::default(),
-        telemetry: telemetry.as_ref().map(|x| x.handle()),
-    })?;
+    let import_queue = sc_consensus_manual_seal::import_queue(
+        Box::new(client.clone()),
+        &task_manager.spawn_essential_handle(),
+        config.prometheus_registry(),
+    );
 
     let (network, system_rpc_tx, network_starter) = sc_service::build_network(sc_service::BuildNetworkParams {
         config: &config,

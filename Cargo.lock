@@ -3416,7 +3416,6 @@ dependencies = [
  "oracle",
  "orml-tokens",
  "orml-traits",
- "pallet-aura",
  "pallet-balances",
  "pallet-collective",
  "pallet-grandpa",
@@ -3444,7 +3443,6 @@ dependencies = [
  "sp-api",
  "sp-arithmetic",
  "sp-block-builder",
- "sp-consensus-aura",
  "sp-core",
  "sp-inherents",
  "sp-io",
@@ -3478,7 +3476,12 @@ dependencies = [
  "sc-cli",
  "sc-client-api",
  "sc-consensus",
+<<<<<<< HEAD
  "sc-consensus-aura",
+=======
+ "sc-consensus-babe",
+ "sc-consensus-manual-seal",
+>>>>>>> f8e384f9 (refactor(standalone): Remove unused dependencies)
  "sc-executor",
  "sc-finality-grandpa",
  "sc-keystore",
@@ -3490,7 +3493,11 @@ dependencies = [
  "sp-arithmetic",
  "sp-block-builder",
  "sp-consensus",
+<<<<<<< HEAD
  "sp-consensus-aura",
+=======
+ "sp-consensus-babe",
+>>>>>>> f8e384f9 (refactor(standalone): Remove unused dependencies)
  "sp-core",
  "sp-finality-grandpa",
  "sp-inherents",
