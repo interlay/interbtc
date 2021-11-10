@@ -1,12 +1,14 @@
-use futures::channel::mpsc;
+use futures::{StreamExt, channel::mpsc, future};
 use interbtc_runtime::{primitives::Block, RuntimeApi};
 use sc_client_api::RemoteBackend;
 use sc_consensus_manual_seal::{
     rpc::{ManualSeal, ManualSealApi},
-    ManualSealParams,
+    EngineCommand, ManualSealParams,
 };
 use sc_executor::NativeElseWasmExecutor;
-use sc_service::{error::Error as ServiceError, Configuration, RpcHandlers, TFullBackend, TFullClient, TaskManager};
+use sc_service::{
+    error::Error as ServiceError, Configuration, RpcHandlers, TFullBackend, TFullClient, TaskManager, TransactionPool,
+};
 use sc_telemetry::{Telemetry, TelemetryWorker};
 use std::sync::Arc;
 
@@ -154,9 +156,23 @@ pub fn new_full(config: Configuration) -> Result<(TaskManager, RpcHandlers), Ser
     );
 
     // Channel for the rpc handler to communicate with the authorship task.
-    let (command_sink, commands_stream) = mpsc::channel(10);
+    let (mut command_sink, commands_stream) = mpsc::channel(10);
 
     let rpc_sink = command_sink.clone();
+
+    let fut = transaction_pool.import_notification_stream().map(
+            move |_| {
+            command_sink
+                .try_send(EngineCommand::SealNewBlock {
+                    create_empty: false,
+                    finalize: true,
+                    parent_hash: None,
+                    sender: None,
+                })
+                .unwrap();
+                // future::ok(())
+        }
+    );
 
     let rpc_handlers = sc_service::spawn_tasks(sc_service::SpawnTasksParams {
         config,
@@ -176,6 +192,8 @@ pub fn new_full(config: Configuration) -> Result<(TaskManager, RpcHandlers), Ser
         system_rpc_tx,
         telemetry: telemetry.as_mut(),
     })?;
+
+    
 
     // Background authorship future.
     let authorship_future = sc_consensus_manual_seal::run_manual_seal(ManualSealParams {
