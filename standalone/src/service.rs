@@ -11,6 +11,19 @@ use sc_service::{
 };
 use sc_telemetry::{Telemetry, TelemetryWorker};
 use std::sync::Arc;
+use module_btc_relay_rpc::{BtcRelay, BtcRelayApi};
+    use module_issue_rpc::{Issue, IssueApi};
+use module_oracle_rpc::{Oracle, OracleApi};
+use module_redeem_rpc::{Redeem, RedeemApi};
+use module_refund_rpc::{Refund, RefundApi};
+use module_relay_rpc::{Relay, RelayApi};
+use module_replace_rpc::{Replace, ReplaceApi};
+use module_vault_registry_rpc::{VaultRegistry, VaultRegistryApi};
+
+use pallet_transaction_payment_rpc::{TransactionPayment, TransactionPaymentApi};
+use substrate_frame_rpc_system::{FullSystem, SystemApi};
+
+use interbtc_runtime::Hash;
 
 // Native executor instance.
 pub struct Executor;
@@ -156,23 +169,53 @@ pub fn new_full(config: Configuration) -> Result<(TaskManager, RpcHandlers), Ser
     );
 
     // Channel for the rpc handler to communicate with the authorship task.
-    let (mut command_sink, commands_stream) = mpsc::channel(10);
+    let (command_sink, _commands_stream) = mpsc::channel::<EngineCommand<Hash>>(10);
 
     let rpc_sink = command_sink.clone();
 
-    let fut = transaction_pool.import_notification_stream().map(
-            move |_| {
-            command_sink
-                .try_send(EngineCommand::SealNewBlock {
-                    create_empty: false,
-                    finalize: true,
-                    parent_hash: None,
-                    sender: None,
-                })
-                .unwrap();
-                // future::ok(())
-        }
-    );
+    let commands_stream = transaction_pool.import_notification_stream().map(|_| EngineCommand::SealNewBlock {
+		create_empty: true,
+		finalize: true,
+		parent_hash: None,
+		sender: None,
+	});
+    let rpc_extensions_builder = {
+        let client = client.clone();
+        let pool = transaction_pool.clone();
+
+        Box::new(move |deny_unsafe, _| {
+            let mut io = jsonrpc_core::IoHandler::default();
+            io.extend_with(ManualSealApi::to_delegate(ManualSeal::new(rpc_sink.clone())));
+            
+            io.extend_with(SystemApi::to_delegate(FullSystem::new(
+                client.clone(),
+                pool.clone(),
+                deny_unsafe,
+            )));
+        
+            io.extend_with(TransactionPaymentApi::to_delegate(TransactionPayment::new(
+                client.clone(),
+            )));
+        
+            io.extend_with(BtcRelayApi::to_delegate(BtcRelay::new(client.clone())));
+        
+            io.extend_with(OracleApi::to_delegate(Oracle::new(client.clone())));
+        
+            io.extend_with(RelayApi::to_delegate(Relay::new(client.clone())));
+        
+            io.extend_with(VaultRegistryApi::to_delegate(VaultRegistry::new(client.clone())));
+        
+            io.extend_with(IssueApi::to_delegate(Issue::new(client.clone())));
+        
+            io.extend_with(RedeemApi::to_delegate(Redeem::new(client.clone())));
+        
+            io.extend_with(RefundApi::to_delegate(Refund::new(client.clone())));
+        
+            io.extend_with(ReplaceApi::to_delegate(Replace::new(client.clone())));
+
+            Ok(io)
+        })
+    };
 
     let rpc_handlers = sc_service::spawn_tasks(sc_service::SpawnTasksParams {
         config,
@@ -182,17 +225,12 @@ pub fn new_full(config: Configuration) -> Result<(TaskManager, RpcHandlers), Ser
         keystore: keystore_container.sync_keystore(),
         on_demand: None,
         transaction_pool: transaction_pool.clone(),
-        rpc_extensions_builder: Box::new(move |_, _| {
-            let mut io = jsonrpc_core::IoHandler::default();
-            io.extend_with(ManualSealApi::to_delegate(ManualSeal::new(rpc_sink.clone())));
-            Ok(io)
-        }),
+        rpc_extensions_builder,
         remote_blockchain: None,
         network,
         system_rpc_tx,
         telemetry: telemetry.as_mut(),
     })?;
-
     
 
     // Background authorship future.

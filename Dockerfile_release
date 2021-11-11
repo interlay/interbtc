@@ -1,6 +1,6 @@
 FROM docker.io/library/ubuntu:20.04
 
-ARG PROFILE=release
+ARG PROFILE=debug
 ARG BINARY=interbtc-standalone
 
 # install tools and dependencies
