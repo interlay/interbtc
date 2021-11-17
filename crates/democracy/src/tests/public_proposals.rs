@@ -1,20 +1,3 @@
-// This file is part of Substrate.
-
-// Copyright (C) 2017-2021 Parity Technologies (UK) Ltd.
-// SPDX-License-Identifier: Apache-2.0
-
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-// 	http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
-
 //! The tests for the public proposal queue.
 
 use super::*;
@@ -96,48 +79,6 @@ fn invalid_seconds_upper_bound_should_not_work() {
             Democracy::second(Origin::signed(2), 0, 0),
             Error::<Test>::WrongUpperBound
         );
-    });
-}
-
-#[test]
-fn cancel_proposal_should_work() {
-    new_test_ext().execute_with(|| {
-        System::set_block_number(0);
-        assert_ok!(propose_set_balance_and_note(1, 2, 2));
-        assert_ok!(propose_set_balance_and_note(1, 4, 4));
-        assert_noop!(Democracy::cancel_proposal(Origin::signed(1), 0), BadOrigin);
-        assert_ok!(Democracy::cancel_proposal(Origin::root(), 0));
-        assert_eq!(Democracy::backing_for(0), None);
-        assert_eq!(Democracy::backing_for(1), Some(4));
-    });
-}
-
-#[test]
-fn blacklisting_should_work() {
-    new_test_ext().execute_with(|| {
-        System::set_block_number(0);
-        let hash = set_balance_proposal_hash(2);
-
-        assert_ok!(propose_set_balance_and_note(1, 2, 2));
-        assert_ok!(propose_set_balance_and_note(1, 4, 4));
-
-        assert_noop!(Democracy::blacklist(Origin::signed(1), hash.clone(), None), BadOrigin);
-        assert_ok!(Democracy::blacklist(Origin::root(), hash, None));
-
-        assert_eq!(Democracy::backing_for(0), None);
-        assert_eq!(Democracy::backing_for(1), Some(4));
-
-        assert_noop!(
-            propose_set_balance_and_note(1, 2, 2),
-            Error::<Test>::ProposalBlacklisted
-        );
-
-        fast_forward_to(2);
-
-        let hash = set_balance_proposal_hash(4);
-        assert_ok!(Democracy::referendum_status(0));
-        assert_ok!(Democracy::blacklist(Origin::root(), hash, Some(0)));
-        assert_noop!(Democracy::referendum_status(0), Error::<Test>::ReferendumInvalid);
     });
 }
 

@@ -1,20 +1,3 @@
-// This file is part of Substrate.
-
-// Copyright (C) 2020-2021 Parity Technologies (UK) Ltd.
-// SPDX-License-Identifier: Apache-2.0
-
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-// 	http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
-
 //! Democracy pallet benchmarking.
 
 use super::*;
@@ -192,85 +175,8 @@ benchmarks! {
         assert_eq!(tally.nays, 1000u32.into(), "changed vote was not recorded");
     }
 
-    emergency_cancel {
-        let origin = T::CancellationOrigin::successful_origin();
-        let referendum_index = add_referendum::<T>(0)?;
-        assert_ok!(Democracy::<T>::referendum_status(referendum_index));
-    }: _<T::Origin>(origin, referendum_index)
-    verify {
-        // Referendum has been canceled
-        assert_noop!(
-            Democracy::<T>::referendum_status(referendum_index),
-            Error::<T>::ReferendumInvalid,
-        );
-    }
-
-    blacklist {
-        let p in 1 .. T::MaxProposals::get();
-
-        // Place our proposal at the end to make sure it's worst case.
-        for i in 0 .. p - 1 {
-            add_proposal::<T>(i)?;
-        }
-        // We should really add a lot of seconds here, but we're not doing it elsewhere.
-
-        // Place our proposal in the external queue, too.
-        let hash = T::Hashing::hash_of(&0);
-        assert_ok!(
-            Democracy::<T>::external_propose(T::ExternalOrigin::successful_origin(), hash.clone())
-        );
-        let origin = T::BlacklistOrigin::successful_origin();
-        // Add a referendum of our proposal.
-        let referendum_index = add_referendum::<T>(0)?;
-        assert_ok!(Democracy::<T>::referendum_status(referendum_index));
-    }: _<T::Origin>(origin, hash, Some(referendum_index))
-    verify {
-        // Referendum has been canceled
-        assert_noop!(
-            Democracy::<T>::referendum_status(referendum_index),
-            Error::<T>::ReferendumInvalid
-        );
-    }
-
-    // Worst case scenario, we external propose a previously blacklisted proposal
-    external_propose {
-        let v in 1 .. MAX_VETOERS as u32;
-
-        let origin = T::ExternalOrigin::successful_origin();
-        let proposal_hash = T::Hashing::hash_of(&0);
-        // Add proposal to blacklist with block number 0
-        Blacklist::<T>::insert(
-            proposal_hash,
-            (T::BlockNumber::zero(), vec![T::AccountId::default(); v as usize])
-        );
-    }: _<T::Origin>(origin, proposal_hash)
-    verify {
-        // External proposal created
-        ensure!(<NextExternal<T>>::exists(), "External proposal didn't work");
-    }
-
-    external_propose_majority {
-        let origin = T::ExternalMajorityOrigin::successful_origin();
-        let proposal_hash = T::Hashing::hash_of(&0);
-    }: _<T::Origin>(origin, proposal_hash)
-    verify {
-        // External proposal created
-        ensure!(<NextExternal<T>>::exists(), "External proposal didn't work");
-    }
-
-    external_propose_default {
-        let origin = T::ExternalDefaultOrigin::successful_origin();
-        let proposal_hash = T::Hashing::hash_of(&0);
-    }: _<T::Origin>(origin, proposal_hash)
-    verify {
-        // External proposal created
-        ensure!(<NextExternal<T>>::exists(), "External proposal didn't work");
-    }
-
     fast_track {
-        let origin_propose = T::ExternalDefaultOrigin::successful_origin();
-        let proposal_hash: T::Hash = T::Hashing::hash_of(&0);
-        Democracy::<T>::external_propose_default(origin_propose, proposal_hash.clone())?;
+        let proposal_hash = add_proposal::<T>(0)?;
 
         // NOTE: Instant origin may invoke a little bit more logic, but may not always succeed.
         let origin_fast_track = T::FastTrackOrigin::successful_origin();
@@ -279,31 +185,6 @@ benchmarks! {
     }: _<T::Origin>(origin_fast_track, proposal_hash, voting_period.into(), delay.into())
     verify {
         assert_eq!(Democracy::<T>::referendum_count(), 1, "referendum not created")
-    }
-
-    veto_external {
-        // Existing veto-ers
-        let v in 0 .. MAX_VETOERS as u32;
-
-        let proposal_hash: T::Hash = T::Hashing::hash_of(&v);
-
-        let origin_propose = T::ExternalDefaultOrigin::successful_origin();
-        Democracy::<T>::external_propose_default(origin_propose, proposal_hash.clone())?;
-
-        let mut vetoers: Vec<T::AccountId> = Vec::new();
-        for i in 0 .. v {
-            vetoers.push(account("vetoer", i, SEED));
-        }
-        vetoers.sort();
-        Blacklist::<T>::insert(proposal_hash, (T::BlockNumber::zero(), vetoers));
-
-        let origin = T::VetoOrigin::successful_origin();
-        ensure!(NextExternal::<T>::get().is_some(), "no external proposal");
-    }: _<T::Origin>(origin, proposal_hash)
-    verify {
-        assert!(NextExternal::<T>::get().is_none());
-        let (_, new_vetoers) = <Blacklist<T>>::get(&proposal_hash).ok_or("no blacklist")?;
-        assert_eq!(new_vetoers.len(), (v + 1) as usize, "vetoers not added");
     }
 
     cancel_proposal {
@@ -328,47 +209,6 @@ benchmarks! {
 
         let referendum_index = add_referendum::<T>(r)?;
     }: _(RawOrigin::Root, referendum_index)
-
-    // This measures the path of `launch_next` external. Not currently used as we simply
-    // assume the weight is `MaxBlockWeight` when executing.
-    #[extra]
-    on_initialize_external {
-        let r in 0 .. MAX_REFERENDUMS;
-
-        for i in 0..r {
-            add_referendum::<T>(i)?;
-        }
-
-        assert_eq!(Democracy::<T>::referendum_count(), r, "referenda not created");
-
-        // Launch external
-        LastTabledWasExternal::<T>::put(false);
-
-        let origin = T::ExternalMajorityOrigin::successful_origin();
-        let proposal_hash = T::Hashing::hash_of(&r);
-        let call = Call::<T>::external_propose_majority { proposal_hash };
-        call.dispatch_bypass_filter(origin)?;
-        // External proposal created
-        ensure!(<NextExternal<T>>::exists(), "External proposal didn't work");
-
-        let block_number = T::LaunchPeriod::get();
-
-    }: { Democracy::<T>::on_initialize(block_number) }
-    verify {
-        // One extra because of next external
-        assert_eq!(Democracy::<T>::referendum_count(), r + 1, "referenda not created");
-        ensure!(!<NextExternal<T>>::exists(), "External wasn't taken");
-
-        // All but the new next external should be finished
-        for i in 0 .. r {
-            if let Some(value) = ReferendumInfoOf::<T>::get(i) {
-                match value {
-                    ReferendumInfo::Finished { .. } => (),
-                    ReferendumInfo::Ongoing(_) => return Err("Referendum was not finished".into()),
-                }
-            }
-        }
-    }
 
     // This measures the path of `launch_next` public. Not currently used as we simply
     // assume the weight is `MaxBlockWeight` when executing.

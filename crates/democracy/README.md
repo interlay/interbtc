@@ -5,20 +5,12 @@
 
 ## Overview
 
-The Democracy pallet handles the administration of general stakeholder voting.
+The democracy pallet handles the administration of general stakeholder voting.
 
-There are two different queues that a proposal can be added to before it
-becomes a referendum, 1) the proposal queue consisting of all public proposals
-and 2) the external queue consisting of a single proposal that originates
-from one of the _external_ origins (such as a collective group).
+Proposals made by the community are added to a queue before they become a referendum.
 
-Every launch period - a length defined in the runtime - the Democracy pallet
-launches a referendum from a proposal that it takes from either the proposal
-queue or the external queue in turn. Any token holder in the system can vote
-on referenda. The voting system
-uses time-lock voting by allowing the token holder to set their _conviction_
-behind a vote. The conviction will dictate the length of time the tokens
-will be locked, as well as the multiplier that scales the vote power.
+Every launch period - a length defined in the runtime - this pallet will launch a
+referendum from the proposal queue. Any token holder in the system can vote on this.
 
 ### Terminology
 
@@ -85,46 +77,12 @@ Preimage actions:
   work under the condition that it's the same account that noted it and
   after the voting period, OR it's a different account after the enactment period.
 
-#### Cancellation Origin
-
-This call can only be made by the `CancellationOrigin`.
-
-- `emergency_cancel` - Schedules an emergency cancellation of a referendum.
-  Can only happen once to a specific referendum.
-
-#### ExternalOrigin
-
-This call can only be made by the `ExternalOrigin`.
-
-- `external_propose` - Schedules a proposal to become a referendum once it is is legal
-  for an externally proposed referendum.
-
-#### External Majority Origin
-
-This call can only be made by the `ExternalMajorityOrigin`.
-
-- `external_propose_majority` - Schedules a proposal to become a majority-carries
-	 referendum once it is legal for an externally proposed referendum.
-
-#### External Default Origin
-
-This call can only be made by the `ExternalDefaultOrigin`.
-
-- `external_propose_default` - Schedules a proposal to become a negative-turnout-bias
-  referendum once it is legal for an externally proposed referendum.
-
 #### Fast Track Origin
 
 This call can only be made by the `FastTrackOrigin`.
 
 - `fast_track` - Schedules the current externally proposed proposal that
   is "majority-carries" to become a referendum immediately.
-
-#### Veto Origin
-
-This call can only be made by the `VetoOrigin`.
-
-- `veto_external` - Vetoes and blacklists the external proposal hash.
 
 #### Root
 

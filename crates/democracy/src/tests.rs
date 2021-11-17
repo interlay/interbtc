@@ -1,20 +1,3 @@
-// This file is part of Substrate.
-
-// Copyright (C) 2017-2021 Parity Technologies (UK) Ltd.
-// SPDX-License-Identifier: Apache-2.0
-
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-// 	http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
-
 //! The crate's tests.
 
 use super::*;
@@ -34,10 +17,8 @@ use sp_runtime::{
     Perbill,
 };
 
-mod cancellation;
 mod decoders;
 mod delegation;
-mod external_proposing;
 mod fast_tracking;
 mod lock_voting;
 mod preimage;
@@ -153,11 +134,9 @@ parameter_types! {
     pub const MinimumDeposit: u64 = 1;
     pub const EnactmentPeriod: u64 = 2;
     pub const VoteLockingPeriod: u64 = 3;
-    pub const CooloffPeriod: u64 = 2;
     pub const MaxVotes: u32 = 100;
     pub const MaxProposals: u32 = MAX_PROPOSALS;
     pub static PreimageByteDeposit: u64 = 0;
-    pub static InstantAllowed: bool = false;
 }
 ord_parameter_types! {
     pub const One: u64 = 1;
@@ -186,19 +165,9 @@ impl Config for Test {
     type VoteLockingPeriod = VoteLockingPeriod;
     type FastTrackVotingPeriod = FastTrackVotingPeriod;
     type MinimumDeposit = MinimumDeposit;
-    type ExternalOrigin = EnsureSignedBy<Two, u64>;
-    type ExternalMajorityOrigin = EnsureSignedBy<Three, u64>;
-    type ExternalDefaultOrigin = EnsureSignedBy<One, u64>;
     type FastTrackOrigin = EnsureSignedBy<Five, u64>;
-    type CancellationOrigin = EnsureSignedBy<Four, u64>;
-    type BlacklistOrigin = EnsureRoot<u64>;
-    type CancelProposalOrigin = EnsureRoot<u64>;
-    type VetoOrigin = EnsureSignedBy<OneToFive, u64>;
-    type CooloffPeriod = CooloffPeriod;
     type PreimageByteDeposit = PreimageByteDeposit;
     type Slash = ();
-    type InstantOrigin = EnsureSignedBy<Six, u64>;
-    type InstantAllowed = InstantAllowed;
     type Scheduler = Scheduler;
     type MaxVotes = MaxVotes;
     type OperationalPreimageOrigin = EnsureSignedBy<Six, u64>;
