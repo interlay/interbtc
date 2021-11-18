@@ -18,7 +18,6 @@ use sp_runtime::{
 };
 
 mod decoders;
-mod delegation;
 mod fast_tracking;
 mod lock_voting;
 mod preimage;

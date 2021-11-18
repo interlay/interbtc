@@ -1,6 +1,6 @@
 //! The vote datatype.
 
-use crate::{Conviction, Delegations, ReferendumIndex};
+use crate::{Conviction, ReferendumIndex};
 use codec::{Decode, Encode, EncodeLike, Input, Output};
 use scale_info::TypeInfo;
 use sp_runtime::{
@@ -111,77 +111,40 @@ impl<BlockNumber: Ord + Copy + Zero, Balance: Ord + Copy + Zero> PriorLock<Block
     }
 }
 
-/// An indicator for what an account is doing; it can either be delegating or voting.
+/// The account is voting directly.
 #[derive(Encode, Decode, Clone, Eq, PartialEq, RuntimeDebug, TypeInfo)]
-pub enum Voting<Balance, AccountId, BlockNumber> {
-    /// The account is voting directly. `delegations` is the total amount of post-conviction voting
-    /// weight that it controls from those that have delegated to it.
-    Direct {
-        /// The current votes of the account.
-        votes: Vec<(ReferendumIndex, AccountVote<Balance>)>,
-        /// The total amount of delegations that this account has received.
-        delegations: Delegations<Balance>,
-        /// Any pre-existing locks from past voting/delegating activity.
-        prior: PriorLock<BlockNumber, Balance>,
-    },
-    /// The account is delegating `balance` of its balance to a `target` account with `conviction`.
-    Delegating {
-        balance: Balance,
-        target: AccountId,
-        conviction: Conviction,
-        /// The total amount of delegations that this account has received.
-        delegations: Delegations<Balance>,
-        /// Any pre-existing locks from past voting/delegating activity.
-        prior: PriorLock<BlockNumber, Balance>,
-    },
+pub struct Voting<Balance, BlockNumber> {
+    /// The current votes of the account.
+    pub(crate) votes: Vec<(ReferendumIndex, AccountVote<Balance>)>,
+    /// Any pre-existing locks from past voting activity.
+    pub(crate) prior: PriorLock<BlockNumber, Balance>,
 }
 
-impl<Balance: Default, AccountId, BlockNumber: Zero> Default for Voting<Balance, AccountId, BlockNumber> {
+impl<Balance: Default, BlockNumber: Zero> Default for Voting<Balance, BlockNumber> {
     fn default() -> Self {
-        Voting::Direct {
+        Voting {
             votes: Vec::new(),
-            delegations: Default::default(),
             prior: PriorLock(Zero::zero(), Default::default()),
         }
     }
 }
 
-impl<Balance: Saturating + Ord + Zero + Copy, BlockNumber: Ord + Copy + Zero, AccountId>
-    Voting<Balance, AccountId, BlockNumber>
-{
+impl<Balance: Saturating + Ord + Zero + Copy, BlockNumber: Ord + Copy + Zero> Voting<Balance, BlockNumber> {
     pub fn rejig(&mut self, now: BlockNumber) {
-        match self {
-            Voting::Direct { prior, .. } => prior,
-            Voting::Delegating { prior, .. } => prior,
-        }
-        .rejig(now);
+        self.prior.rejig(now);
     }
 
     /// The amount of this account's balance that much currently be locked due to voting.
     pub fn locked_balance(&self) -> Balance {
-        match self {
-            Voting::Direct { votes, prior, .. } => votes
-                .iter()
-                .map(|i| i.1.balance())
-                .fold(prior.locked(), |a, i| a.max(i)),
-            Voting::Delegating { balance, .. } => *balance,
-        }
+        let Voting { votes, prior, .. } = self;
+        votes
+            .iter()
+            .map(|i| i.1.balance())
+            .fold(prior.locked(), |a, i| a.max(i))
     }
 
-    pub fn set_common(&mut self, delegations: Delegations<Balance>, prior: PriorLock<BlockNumber, Balance>) {
-        let (d, p) = match self {
-            Voting::Direct {
-                ref mut delegations,
-                ref mut prior,
-                ..
-            } => (delegations, prior),
-            Voting::Delegating {
-                ref mut delegations,
-                ref mut prior,
-                ..
-            } => (delegations, prior),
-        };
-        *d = delegations;
-        *p = prior;
+    pub fn set_common(&mut self, p: PriorLock<BlockNumber, Balance>) {
+        let Voting { ref mut prior, .. } = self;
+        *prior = p;
     }
 }

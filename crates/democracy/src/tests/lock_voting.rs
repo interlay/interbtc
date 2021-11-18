@@ -142,37 +142,6 @@ fn no_locks_without_conviction_should_work() {
     });
 }
 
-#[test]
-fn lock_voting_should_work_with_delegation() {
-    new_test_ext().execute_with(|| {
-        let r = Democracy::inject_referendum(
-            2,
-            set_balance_proposal_hash_and_note(2),
-            VoteThreshold::SuperMajorityApprove,
-            0,
-        );
-        assert_ok!(Democracy::vote(Origin::signed(1), r, nay(5, 10)));
-        assert_ok!(Democracy::vote(Origin::signed(2), r, aye(4, 20)));
-        assert_ok!(Democracy::vote(Origin::signed(3), r, aye(3, 30)));
-        assert_ok!(Democracy::delegate(Origin::signed(4), 2, Conviction::Locked2x, 40));
-        assert_ok!(Democracy::vote(Origin::signed(5), r, nay(1, 50)));
-
-        assert_eq!(
-            tally(r),
-            Tally {
-                ayes: 250,
-                nays: 100,
-                turnout: 150
-            }
-        );
-
-        next_block();
-        next_block();
-
-        assert_eq!(Balances::free_balance(42), 2);
-    });
-}
-
 fn setup_three_referenda() -> (u32, u32, u32) {
     System::set_block_number(0);
     let r1 = Democracy::inject_referendum(
@@ -303,81 +272,6 @@ fn multi_consolidation_of_lockvotes_should_be_conservative() {
         assert!(Balances::locks(5)[0].amount >= 10);
 
         fast_forward_to(26);
-        assert_ok!(Democracy::unlock(Origin::signed(5), 5));
-        assert_eq!(Balances::locks(5), vec![]);
-    });
-}
-
-#[test]
-fn locks_should_persist_from_voting_to_delegation() {
-    new_test_ext().execute_with(|| {
-        System::set_block_number(0);
-        let r = Democracy::inject_referendum(
-            2,
-            set_balance_proposal_hash_and_note(2),
-            VoteThreshold::SimpleMajority,
-            0,
-        );
-        assert_ok!(Democracy::vote(Origin::signed(5), r, aye(4, 10)));
-        fast_forward_to(2);
-        assert_ok!(Democracy::remove_vote(Origin::signed(5), r));
-        // locked 10 until #26.
-
-        assert_ok!(Democracy::delegate(Origin::signed(5), 1, Conviction::Locked3x, 20));
-        // locked 20.
-        assert!(Balances::locks(5)[0].amount == 20);
-
-        assert_ok!(Democracy::undelegate(Origin::signed(5)));
-        // locked 20 until #14
-
-        fast_forward_to(13);
-        assert_ok!(Democracy::unlock(Origin::signed(5), 5));
-        assert!(Balances::locks(5)[0].amount == 20);
-
-        fast_forward_to(14);
-        assert_ok!(Democracy::unlock(Origin::signed(5), 5));
-        assert!(Balances::locks(5)[0].amount >= 10);
-
-        fast_forward_to(25);
-        assert_ok!(Democracy::unlock(Origin::signed(5), 5));
-        assert!(Balances::locks(5)[0].amount >= 10);
-
-        fast_forward_to(26);
-        assert_ok!(Democracy::unlock(Origin::signed(5), 5));
-        assert_eq!(Balances::locks(5), vec![]);
-    });
-}
-
-#[test]
-fn locks_should_persist_from_delegation_to_voting() {
-    new_test_ext().execute_with(|| {
-        System::set_block_number(0);
-        assert_ok!(Democracy::delegate(Origin::signed(5), 1, Conviction::Locked5x, 5));
-        assert_ok!(Democracy::undelegate(Origin::signed(5)));
-        // locked 5 until 16 * 3 = #48
-
-        let r = setup_three_referenda();
-        // r.0 locked 10 until 2 + 8 * 3 = #26
-        // r.1 locked 20 until 2 + 4 * 3 = #14
-        // r.2 locked 50 until 2 + 2 * 3 = #8
-
-        assert_ok!(Democracy::remove_vote(Origin::signed(5), r.2));
-        assert_ok!(Democracy::remove_vote(Origin::signed(5), r.1));
-        assert_ok!(Democracy::remove_vote(Origin::signed(5), r.0));
-
-        fast_forward_to(8);
-        assert_ok!(Democracy::unlock(Origin::signed(5), 5));
-        assert!(Balances::locks(5)[0].amount >= 20);
-
-        fast_forward_to(14);
-        assert_ok!(Democracy::unlock(Origin::signed(5), 5));
-        assert!(Balances::locks(5)[0].amount >= 10);
-
-        fast_forward_to(26);
-        assert_ok!(Democracy::unlock(Origin::signed(5), 5));
-        assert!(Balances::locks(5)[0].amount >= 5);
-
-        fast_forward_to(48);
         assert_ok!(Democracy::unlock(Origin::signed(5), 5));
         assert_eq!(Balances::locks(5), vec![]);
     });

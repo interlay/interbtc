@@ -27,8 +27,6 @@ as many lock periods after enactment.
 account or an external origin) suggests that the system adopt.
 - **Referendum:** A proposal that is in the process of being voted on for
   either acceptance or rejection as a change to the system.
-- **Delegation:** The act of granting your voting power to the decisions of another account for
-  up to a certain conviction.
 
 ### Adaptive Quorum Biasing
 
@@ -59,8 +57,6 @@ Basic actions:
 - `vote` - Votes in a referendum, either the vote is "Aye" to enact the proposal or "Nay" to
   keep the status quo.
 - `unvote` - Cancel a previous vote, this must be done by the voter before the vote ends.
-- `delegate` - Delegates the voting power (tokens * conviction) to another account.
-- `undelegate` - Stops the delegation of voting power to another account.
 
 Administration actions that can be done to any account:
 - `reap_vote` - Remove some account's expired votes.
