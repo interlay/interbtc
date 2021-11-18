@@ -70,6 +70,7 @@ refund = { path = "../../crates/refund", default-features = false }
 nomination = { path = "../../crates/nomination", default-features = false }
 reward = { path = "../../crates/reward", default-features = false }
 staking = { path = "../../crates/staking", default-features = false }
+escrow = { path = "../../crates/escrow", default-features = false }
 
 primitives = { package = "interbtc-primitives", path = "../../primitives", default-features = false }
 
@@ -161,6 +162,7 @@ std = [
   "nomination/std",
   "reward/std",
   "staking/std",
+  "escrow/std",
 
   "primitives/std",
 
@@ -199,5 +201,6 @@ runtime-benchmarks = [
   "fee/runtime-benchmarks",
   "nomination/runtime-benchmarks",
   "refund/runtime-benchmarks",
+  "escrow/runtime-benchmarks",
 ]
 disable-runtime-api = []
