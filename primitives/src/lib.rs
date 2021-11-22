@@ -446,7 +446,7 @@ create_currency_id! {
         INTR("Interlay", 10),
 
         KSM("Kusama", 12),
-        KBTC("kinBTC", 8),
+        KBTC("kBTC", 8),
         KINT("Kintsugi", 12),
     }
 }
