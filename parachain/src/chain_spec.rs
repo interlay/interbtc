@@ -387,30 +387,30 @@ pub fn polkadot_mainnet_config(id: ParaId) -> ChainSpec {
         ChainType::Live,
         move || {
             mainnet_genesis(
-                get_account_id_from_string("5HEZ1aHw1BuZdB1M8C4jWicDf8h4fM764AG1C7FczZ9TJUKW"),
+                get_account_id_from_string("5E4kVWCtww5YmkWTR8Pf5q4apDbb1Ei5nZJ29e9DP2HgLJWn"),
                 vec![
-                    // 5D746zhPo94atySQpbwe39zHi85ttPdgSVpoPtqxfz7FcTqR (//authority/1)
-                    hex!["2e06e1bcd451f2d3359d2e6baa508c57147a01f4c8349f8e1564271a54f34222"].unchecked_into(),
-                    // 5FxZdysW9sfrd4CqEtUa1ugRSqDivme5wVfHXJk1osaq1h3C (//authority/2)
-                    hex!["ac41cb6bb9bc7e9faae8252d061553f39dd2910cfd844a1b38db5a7ffc27d326"].unchecked_into(),
-                    // 5CfQehbAGRJbu2BHrG9P7yLy7KdkKyK5Z4QtahJvKKv9fpGu (//authority/3)
-                    hex!["1a77aadc65b9ec999ea42b1791c7bfc969b3f7699940bcc52fe8fb8cb8b98e1b"].unchecked_into(),
-                    // 5Gdk3EauhKd2h8DqmJ3F3HVJ74E6TeLNnByas75AZAqFS43p (//authority/4)
-                    hex!["ca2360c5e187af30aa462abd9ca3252ebfa55d14a768352a2a1256c3597f112a"].unchecked_into(),
-                    // 5GGztj6ZRUiuBRxbNqLm9Su17hvEuimkWTLRGr8k8xqAZ1aw (//authority/5)
-                    hex!["ba5139a6e34b52626e7a981d4a055fe508ff129c38662e93401078172d5ecb66"].unchecked_into(),
-                    // 5HWCYKviJefVJ69n3tTqQgrxEREJGpgvwnEGmTmCNvQzfsdL (//authority/6)
-                    hex!["f09edc4bfecc30393685a25b89ea4725ec24883a1910d2ce868cbb367881e45d"].unchecked_into(),
-                    // 5HHGDc1VBmRy9nhvhXKgsNx4g5nxPyrvCt7Uzr7DHwdMWiai (//authority/7)
-                    hex!["e6c10c7f568d13a620fdaddb74ba56ad6978e53d40551176c2979e282956753a"].unchecked_into(),
-                    // 5DFJikUKRbbKdPGSu1YZXKAi7YfCHQ8eZdfncpaskrsjyy1S (//authority/8)
-                    hex!["34520c64fd3db8d081a73906c178d7a29aeebb22307d5ceb8de5ded1b4b77270"].unchecked_into(),
-                    // 5FHprCFWM4eoxBfGP9QEu5tyP4G11ADFU59HQ29eyH1KJfUH (//authority/9)
-                    hex!["8eb66d5d742c1c808fd8b657b27ab805061a3d290df1c350fec1477bc2d6e222"].unchecked_into(),
+                    // 5CDEceADNMhAgHBCDnb7Ls1YZKgwe2z3qmcwNHTeAFr5dGrW (//authority/1)
+                    hex!["068181205488a5517460dd305c9ec781ddf6e68627609ec88cbb60d0b7647d0f"].unchecked_into(),
+                    // 5G6AgvRRkzFvs69SXY2Ah6PmjySswGFqHTgriqLohNMzfEsc (//authority/2)
+                    hex!["b20e80ecc31ce2ccb3487e7cc4447098417813cf7553f1f459662f782bbfd12a"].unchecked_into(),
+                    // 5EXCEev51P1KFkMQQdjT25KzMWMLG5EXw51uhaCQbDziPe8t (//authority/3)
+                    hex!["6cac613f09264c7397fa27dfc131d0c77a4dc8d5b5e22a22e3e1a6ac8e00d211"].unchecked_into(),
+                    // 5GH6mdEu56ku6ez26udZkaL9F5unbV7sUeJHnYbkLx4LTgiN (//authority/4)
+                    hex!["ba6502c812d5ece87390df7f955d50f1fc55adff99e4bc68fa7b58494bd0dc1e"].unchecked_into(),
+                    // 5H3X7DPUsnUUBqtRxCnSbrPX38jwsxg5pXcNyMabCf9QaU6i (//authority/5)
+                    hex!["dc45bc9ddeaacb1ffd04bfaf1366033f54640380a51a255448a639aa670d680c"].unchecked_into(),
+                    // 5Fy933qEzYeiN22fbWEU4RgJkvhVwXurPPZsrXstkoZFNcBS (//authority/6)
+                    hex!["acb238ad11721c943d8e43232efde998276179d7994aa2500b45d3adbe4ab90c"].unchecked_into(),
+                    // 5Ew8SA3y8jg4kfYAAatJ541EdZAmpyG8yCaZESJnE2nhsAE5 (//authority/7)
+                    hex!["7eed78d2af8350ddc6da7bafaeeac9df86f71ae0efcfd04e99a423b72003c007"].unchecked_into(),
+                    // 5EpntRydKc1AbGwPk7xt4aLnDoisQQ8dqY6zCYGFCxH9ex7M (//authority/8)
+                    hex!["7a1832d12c6ab761b9fbc7747d6a26601c42a68e2e3086cee64c7e84178d306d"].unchecked_into(),
+                    // 5Fjk4u3j4buQtf5YMU7Pj6AtSrvFaH5eGyKeUdQvyc41ipgY (//authority/9)
+                    hex!["a27ab6a94eb0d61f9e95adb45e68b5c71fd668070e664238bcbd51ca7515e168"].unchecked_into(),
                 ],
                 vec![
                     (
-                        get_account_id_from_string("5GeSHvqHaAz4eYfo3ViEbDLNjafJVxtKNaATv8Xuc6Gu8ho4"),
+                        get_account_id_from_string("5FyE5kCDSVtM1KmscBBa2Api8ZsF2DBT81QHf9RuS2NntUPw"),
                         "Interlay".as_bytes().to_vec(),
                     ),
                     (
