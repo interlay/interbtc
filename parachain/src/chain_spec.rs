@@ -380,10 +380,65 @@ fn testnet_genesis(
     }
 }
 
+pub fn polkadot_mainnet_config(id: ParaId) -> ChainSpec {
+    ChainSpec::from_genesis(
+        "Interlay",
+        "interlay",
+        ChainType::Live,
+        move || {
+            mainnet_genesis(
+                get_account_id_from_string("5E4kVWCtww5YmkWTR8Pf5q4apDbb1Ei5nZJ29e9DP2HgLJWn"),
+                vec![
+                    // 5CDEceADNMhAgHBCDnb7Ls1YZKgwe2z3qmcwNHTeAFr5dGrW (//authority/1)
+                    hex!["068181205488a5517460dd305c9ec781ddf6e68627609ec88cbb60d0b7647d0f"].unchecked_into(),
+                    // 5G6AgvRRkzFvs69SXY2Ah6PmjySswGFqHTgriqLohNMzfEsc (//authority/2)
+                    hex!["b20e80ecc31ce2ccb3487e7cc4447098417813cf7553f1f459662f782bbfd12a"].unchecked_into(),
+                    // 5EXCEev51P1KFkMQQdjT25KzMWMLG5EXw51uhaCQbDziPe8t (//authority/3)
+                    hex!["6cac613f09264c7397fa27dfc131d0c77a4dc8d5b5e22a22e3e1a6ac8e00d211"].unchecked_into(),
+                    // 5GH6mdEu56ku6ez26udZkaL9F5unbV7sUeJHnYbkLx4LTgiN (//authority/4)
+                    hex!["ba6502c812d5ece87390df7f955d50f1fc55adff99e4bc68fa7b58494bd0dc1e"].unchecked_into(),
+                    // 5H3X7DPUsnUUBqtRxCnSbrPX38jwsxg5pXcNyMabCf9QaU6i (//authority/5)
+                    hex!["dc45bc9ddeaacb1ffd04bfaf1366033f54640380a51a255448a639aa670d680c"].unchecked_into(),
+                    // 5Fy933qEzYeiN22fbWEU4RgJkvhVwXurPPZsrXstkoZFNcBS (//authority/6)
+                    hex!["acb238ad11721c943d8e43232efde998276179d7994aa2500b45d3adbe4ab90c"].unchecked_into(),
+                    // 5Ew8SA3y8jg4kfYAAatJ541EdZAmpyG8yCaZESJnE2nhsAE5 (//authority/7)
+                    hex!["7eed78d2af8350ddc6da7bafaeeac9df86f71ae0efcfd04e99a423b72003c007"].unchecked_into(),
+                    // 5EpntRydKc1AbGwPk7xt4aLnDoisQQ8dqY6zCYGFCxH9ex7M (//authority/8)
+                    hex!["7a1832d12c6ab761b9fbc7747d6a26601c42a68e2e3086cee64c7e84178d306d"].unchecked_into(),
+                    // 5Fjk4u3j4buQtf5YMU7Pj6AtSrvFaH5eGyKeUdQvyc41ipgY (//authority/9)
+                    hex!["a27ab6a94eb0d61f9e95adb45e68b5c71fd668070e664238bcbd51ca7515e168"].unchecked_into(),
+                ],
+                vec![
+                    (
+                        get_account_id_from_string("5FyE5kCDSVtM1KmscBBa2Api8ZsF2DBT81QHf9RuS2NntUPw"),
+                        "Interlay".as_bytes().to_vec(),
+                    ),
+                    (
+                        get_account_id_from_string("5FPBT2BVVaLveuvznZ9A1TUtDcbxK5yvvGcMTJxgFmhcWGwj"),
+                        "Band".as_bytes().to_vec(),
+                    ),
+                ],
+                id,
+                SECURE_BITCOIN_CONFIRMATIONS,
+                vec![],
+                vec![],
+            )
+        },
+        Vec::new(),
+        None,
+        None,
+        Some(get_properties()),
+        Extensions {
+            relay_chain: "polkadot".into(),
+            para_id: id.into(),
+        },
+    )
+}
+
 pub fn kusama_mainnet_config(id: ParaId) -> ChainSpec {
     ChainSpec::from_genesis(
+        "Kintsugi",
         "kintsugi",
-        "kusama",
         ChainType::Live,
         move || {
             mainnet_genesis(

@@ -23,7 +23,7 @@ generate_address_and_account_id() {
 		INTO="into"
 	fi
 
-	printf "//$ADDRESS\nhex![\"${ACCOUNT#'0x'}\"].$INTO(),"
+	printf "// $ADDRESS (//$1/$2)\nhex![\"${ACCOUNT#'0x'}\"].$INTO(),"
 }
 
 V_NUM=$1
