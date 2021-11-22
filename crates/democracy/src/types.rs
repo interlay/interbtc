@@ -1,6 +1,6 @@
 //! Miscellaneous additional datatypes.
 
-use crate::{AccountVote, Conviction, Vote, VoteThreshold};
+use crate::{AccountVote, Vote, VoteThreshold};
 use codec::{Decode, Encode};
 use scale_info::TypeInfo;
 use sp_runtime::{
@@ -11,11 +11,11 @@ use sp_runtime::{
 /// Info regarding an ongoing referendum.
 #[derive(Encode, Decode, Default, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo)]
 pub struct Tally<Balance> {
-    /// The number of aye votes, expressed in terms of post-conviction lock-vote.
+    /// The number of aye votes.
     pub ayes: Balance,
-    /// The number of nay votes, expressed in terms of post-conviction lock-vote.
+    /// The number of nay votes.
     pub nays: Balance,
-    /// The amount of funds currently expressing its opinion. Pre-conviction.
+    /// The amount of funds currently expressing its opinion.
     pub turnout: Balance,
 }
 
@@ -24,10 +24,9 @@ impl<Balance: From<u8> + Zero + Copy + CheckedAdd + CheckedSub + CheckedMul + Ch
 {
     /// Create a new tally.
     pub fn new(vote: Vote, balance: Balance) -> Self {
-        let votes = vote.conviction.votes(balance);
         Self {
-            ayes: if vote.aye { votes } else { Zero::zero() },
-            nays: if vote.aye { Zero::zero() } else { votes },
+            ayes: if vote.aye { balance } else { Zero::zero() },
+            nays: if vote.aye { Zero::zero() } else { balance },
             turnout: balance,
         }
     }
@@ -36,19 +35,16 @@ impl<Balance: From<u8> + Zero + Copy + CheckedAdd + CheckedSub + CheckedMul + Ch
     pub fn add(&mut self, vote: AccountVote<Balance>) -> Option<()> {
         match vote {
             AccountVote::Standard { vote, balance } => {
-                let votes = vote.conviction.votes(balance);
                 self.turnout = self.turnout.checked_add(&balance)?;
                 match vote.aye {
-                    true => self.ayes = self.ayes.checked_add(&votes)?,
-                    false => self.nays = self.nays.checked_add(&votes)?,
+                    true => self.ayes = self.ayes.checked_add(&balance)?,
+                    false => self.nays = self.nays.checked_add(&balance)?,
                 }
             }
             AccountVote::Split { aye, nay } => {
-                let aye_votes = Conviction::None.votes(aye);
-                let nay_votes = Conviction::None.votes(nay);
                 self.turnout = self.turnout.checked_add(&aye)?.checked_add(&nay)?;
-                self.ayes = self.ayes.checked_add(&aye_votes)?;
-                self.nays = self.nays.checked_add(&nay_votes)?;
+                self.ayes = self.ayes.checked_add(&aye)?;
+                self.nays = self.nays.checked_add(&nay)?;
             }
         }
         Some(())
@@ -58,19 +54,16 @@ impl<Balance: From<u8> + Zero + Copy + CheckedAdd + CheckedSub + CheckedMul + Ch
     pub fn remove(&mut self, vote: AccountVote<Balance>) -> Option<()> {
         match vote {
             AccountVote::Standard { vote, balance } => {
-                let votes = vote.conviction.votes(balance);
                 self.turnout = self.turnout.checked_sub(&balance)?;
                 match vote.aye {
-                    true => self.ayes = self.ayes.checked_sub(&votes)?,
-                    false => self.nays = self.nays.checked_sub(&votes)?,
+                    true => self.ayes = self.ayes.checked_sub(&balance)?,
+                    false => self.nays = self.nays.checked_sub(&balance)?,
                 }
             }
             AccountVote::Split { aye, nay } => {
-                let aye_votes = Conviction::None.votes(aye);
-                let nay_votes = Conviction::None.votes(nay);
                 self.turnout = self.turnout.checked_sub(&aye)?.checked_sub(&nay)?;
-                self.ayes = self.ayes.checked_sub(&aye_votes)?;
-                self.nays = self.nays.checked_sub(&nay_votes)?;
+                self.ayes = self.ayes.checked_sub(&aye)?;
+                self.nays = self.nays.checked_sub(&nay)?;
             }
         }
         Some(())

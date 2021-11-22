@@ -9,7 +9,7 @@ use frame_support::{
     weights::Weight,
 };
 use frame_system::{EnsureRoot, EnsureSignedBy};
-use pallet_balances::{BalanceLock, Error as BalancesError};
+use pallet_balances::Error as BalancesError;
 use sp_core::H256;
 use sp_runtime::{
     testing::Header,
@@ -19,28 +19,15 @@ use sp_runtime::{
 
 mod decoders;
 mod fast_tracking;
-mod lock_voting;
 mod preimage;
 mod public_proposals;
 mod scheduling;
 mod voting;
 
-const AYE: Vote = Vote {
-    aye: true,
-    conviction: Conviction::None,
-};
-const NAY: Vote = Vote {
-    aye: false,
-    conviction: Conviction::None,
-};
-const BIG_AYE: Vote = Vote {
-    aye: true,
-    conviction: Conviction::Locked1x,
-};
-const BIG_NAY: Vote = Vote {
-    aye: false,
-    conviction: Conviction::Locked1x,
-};
+const AYE: Vote = Vote { aye: true };
+const NAY: Vote = Vote { aye: false };
+const BIG_AYE: Vote = Vote { aye: true };
+const BIG_NAY: Vote = Vote { aye: false };
 
 const MAX_PROPOSALS: u32 = 100;
 
@@ -132,7 +119,6 @@ parameter_types! {
     pub const FastTrackVotingPeriod: u64 = 2;
     pub const MinimumDeposit: u64 = 1;
     pub const EnactmentPeriod: u64 = 2;
-    pub const VoteLockingPeriod: u64 = 3;
     pub const MaxVotes: u32 = 100;
     pub const MaxProposals: u32 = MAX_PROPOSALS;
     pub static PreimageByteDeposit: u64 = 0;
@@ -161,7 +147,6 @@ impl Config for Test {
     type EnactmentPeriod = EnactmentPeriod;
     type LaunchPeriod = LaunchPeriod;
     type VotingPeriod = VotingPeriod;
-    type VoteLockingPeriod = VoteLockingPeriod;
     type FastTrackVotingPeriod = FastTrackVotingPeriod;
     type MinimumDeposit = MinimumDeposit;
     type FastTrackOrigin = EnsureSignedBy<Five, u64>;

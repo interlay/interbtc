@@ -28,8 +28,8 @@ fn split_voting_should_work() {
         assert_eq!(
             tally(r),
             Tally {
-                ayes: 3,
-                nays: 2,
+                ayes: 30,
+                nays: 20,
                 turnout: 50
             }
         );
@@ -77,7 +77,7 @@ fn single_proposal_should_work() {
                 threshold: VoteThreshold::SuperMajorityApprove,
                 delay: 2,
                 tally: Tally {
-                    ayes: 1,
+                    ayes: 10,
                     nays: 0,
                     turnout: 10
                 },

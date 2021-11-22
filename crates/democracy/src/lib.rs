@@ -18,9 +18,6 @@
 //! approved and enacted.
 //! - **Lock Period:** A period of time after proposal enactment that the tokens of _winning_ voters
 //! will be locked.
-//! - **Conviction:** An indication of a voter's strength of belief in their vote. An increase
-//! of one in conviction indicates that a token holder is willing to lock their tokens for twice
-//! as many lock periods after enactment.
 //! - **Vote:** A value that can either be in approval ("Aye") or rejection ("Nay") of a particular referendum.
 //! - **Proposal:** A submission to the chain that represents an action that a proposer (either an
 //! account or an external origin) suggests that the system adopt.
@@ -103,12 +100,10 @@ use sp_runtime::{
 };
 use sp_std::prelude::*;
 
-mod conviction;
 mod types;
 mod vote;
 mod vote_threshold;
 pub mod weights;
-pub use conviction::Conviction;
 pub use pallet::*;
 pub use types::{ReferendumInfo, ReferendumStatus, Tally, UnvoteScope};
 pub use vote::{AccountVote, Vote, Voting};
@@ -206,13 +201,6 @@ pub mod pallet {
         /// How often (in blocks) to check for new votes.
         #[pallet::constant]
         type VotingPeriod: Get<Self::BlockNumber>;
-
-        /// The minimum period of vote locking.
-        ///
-        /// It should be no shorter than enactment period to ensure that in the case of an approval,
-        /// those successful voters are locked into the consequences that their votes entail.
-        #[pallet::constant]
-        type VoteLockingPeriod: Get<Self::BlockNumber>;
 
         /// The minimum amount to be used as a deposit for a public referendum proposal.
         #[pallet::constant]
@@ -929,10 +917,7 @@ impl<T: Config> Pallet<T> {
     fn try_remove_vote(who: &T::AccountId, ref_index: ReferendumIndex, scope: UnvoteScope) -> DispatchResult {
         let info = ReferendumInfoOf::<T>::get(ref_index);
         VotingOf::<T>::try_mutate(who, |voting| -> DispatchResult {
-            let Voting {
-                ref mut votes,
-                ref mut prior,
-            } = voting;
+            let Voting { ref mut votes, .. } = voting;
 
             let i = votes
                 .binary_search_by_key(&ref_index, |i| i.0)
@@ -944,16 +929,7 @@ impl<T: Config> Pallet<T> {
                     status.tally.remove(votes[i].1).ok_or(ArithmeticError::Underflow)?;
                     ReferendumInfoOf::<T>::insert(ref_index, ReferendumInfo::Ongoing(status));
                 }
-                Some(ReferendumInfo::Finished { end, approved }) => {
-                    if let Some((lock_periods, balance)) = votes[i].1.locked_if(approved) {
-                        let unlock_at = end + T::VoteLockingPeriod::get() * lock_periods.into();
-                        let now = frame_system::Pallet::<T>::block_number();
-                        if now < unlock_at {
-                            ensure!(matches!(scope, UnvoteScope::Any), Error::<T>::NoPermission);
-                            prior.accumulate(unlock_at, balance)
-                        }
-                    }
-                }
+                Some(ReferendumInfo::Finished { .. }) => {}
                 None => {} // Referendum was cancelled.
             }
             votes.remove(i);

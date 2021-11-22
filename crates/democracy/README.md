@@ -18,9 +18,6 @@ referendum from the proposal queue. Any token holder in the system can vote on t
 approved and enacted.
 - **Lock Period:** A period of time after proposal enactment that the tokens of _winning_ voters
 will be locked.
-- **Conviction:** An indication of a voter's strength of belief in their vote. An increase
-of one in conviction indicates that a token holder is willing to lock their tokens for twice
-as many lock periods after enactment.
 - **Vote:** A value that can either be in approval ("Aye") or rejection ("Nay")
   of a particular referendum.
 - **Proposal:** A submission to the chain that represents an action that a proposer (either an

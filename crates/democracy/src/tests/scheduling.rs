@@ -15,7 +15,7 @@ fn simple_passing_should_work() {
         assert_eq!(
             tally(r),
             Tally {
-                ayes: 1,
+                ayes: 10,
                 nays: 0,
                 turnout: 10
             }
@@ -40,7 +40,7 @@ fn simple_failing_should_work() {
             tally(r),
             Tally {
                 ayes: 0,
-                nays: 1,
+                nays: 10,
                 turnout: 10
             }
         );
@@ -72,7 +72,7 @@ fn ooo_inject_referendums_should_work() {
         assert_eq!(
             tally(r2),
             Tally {
-                ayes: 1,
+                ayes: 10,
                 nays: 0,
                 turnout: 10
             }
@@ -85,7 +85,7 @@ fn ooo_inject_referendums_should_work() {
         assert_eq!(
             tally(r1),
             Tally {
-                ayes: 1,
+                ayes: 10,
                 nays: 0,
                 turnout: 10
             }
@@ -115,7 +115,7 @@ fn delayed_enactment_should_work() {
         assert_eq!(
             tally(r),
             Tally {
-                ayes: 21,
+                ayes: 210,
                 nays: 0,
                 turnout: 210
             }

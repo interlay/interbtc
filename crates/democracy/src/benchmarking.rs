@@ -61,10 +61,7 @@ fn add_referendum<T: Config>(n: u32) -> Result<ReferendumIndex, &'static str> {
 }
 
 fn account_vote<T: Config>(b: BalanceOf<T>) -> AccountVote<BalanceOf<T>> {
-    let v = Vote {
-        aye: true,
-        conviction: Conviction::Locked1x,
-    };
+    let v = Vote { aye: true };
 
     AccountVote::Standard { vote: v, balance: b }
 }
@@ -153,7 +150,7 @@ benchmarks! {
         assert_eq!(votes.len(), (r + 1) as usize, "Votes were not recorded.");
 
         // Change vote from aye to nay
-        let nay = Vote { aye: false, conviction: Conviction::Locked1x };
+        let nay = Vote { aye: false };
         let new_vote = AccountVote::Standard { vote: nay, balance: 1000u32.into() };
         let referendum_index = Democracy::<T>::referendum_count() - 1;
 
