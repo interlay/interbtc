@@ -84,8 +84,7 @@ use frame_support::{
     ensure,
     traits::{
         schedule::{DispatchTime, Named as ScheduleNamed},
-        BalanceStatus, Currency, Get, LockIdentifier, LockableCurrency, OnUnbalanced, ReservableCurrency,
-        WithdrawReasons,
+        BalanceStatus, Currency, Get, LockIdentifier, OnUnbalanced, ReservableCurrency,
     },
     weights::Weight,
 };
@@ -179,8 +178,7 @@ pub mod pallet {
         type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
 
         /// Currency type for this pallet.
-        type Currency: ReservableCurrency<Self::AccountId>
-            + LockableCurrency<Self::AccountId, Moment = Self::BlockNumber>;
+        type Currency: ReservableCurrency<Self::AccountId>;
 
         /// The period between a proposal being approved and enacted.
         ///
@@ -242,8 +240,6 @@ pub mod pallet {
         type MaxProposals: Get<u32>;
     }
 
-    // TODO: Refactor public proposal queue into its own pallet.
-    // https://github.com/paritytech/substrate/issues/5322
     /// The number of (public) proposals that have been made so far.
     #[pallet::storage]
     #[pallet::getter(fn public_prop_count)]
@@ -520,7 +516,7 @@ pub mod pallet {
         #[pallet::weight(T::WeightInfo::fast_track())]
         pub fn fast_track(
             origin: OriginFor<T>,
-            #[pallet::compact] proposal: PropIndex,
+            #[pallet::compact] prop_index: PropIndex,
             delay: T::BlockNumber,
         ) -> DispatchResult {
             T::FastTrackOrigin::ensure_origin(origin)?;
@@ -529,7 +525,7 @@ pub mod pallet {
             let (winner_index, _) = public_props
                 .iter()
                 .enumerate()
-                .find(|(_, (i, ..))| *i == proposal)
+                .find(|(_, (i, ..))| *i == prop_index)
                 .ok_or(Error::<T>::ProposalMissing)?;
 
             let (_, proposal_hash, _) = public_props.swap_remove(winner_index);
@@ -832,9 +828,6 @@ impl<T: Config> Pallet<T> {
 
             Ok(())
         })?;
-        // Extend the lock to `balance` (rather than setting it) since we don't know what other
-        // votes are in place.
-        T::Currency::extend_lock(DEMOCRACY_ID, who, vote.balance(), WithdrawReasons::TRANSFER);
         ReferendumInfoOf::<T>::insert(ref_index, ReferendumInfo::Ongoing(status));
         Ok(())
     }
