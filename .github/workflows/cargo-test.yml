@@ -17,10 +17,14 @@ jobs:
         run: |
             sudo apt-get update && sudo apt-get install -y \
             cmake pkg-config libssl-dev git clang curl libc6-dev
+      - name: Set variables
+        run: |
+            echo "TOOLCHAIN=$(rustup show active-toolchain | cut -d " " -f1)" >> $GITHUB_ENV
       - uses: actions-rs/toolchain@v1
         with:
-          toolchain: nightly-2021-10-12
-      - run: rustup component add rustfmt
+          toolchain: ${{ env.TOOLCHAIN }}
+          override: true
+          components: rustfmt
       - name: fmt
         uses: actions-rs/cargo@v1
         with:
