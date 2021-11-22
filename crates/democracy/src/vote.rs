@@ -3,10 +3,7 @@
 use crate::ReferendumIndex;
 use codec::{Decode, Encode};
 use scale_info::TypeInfo;
-use sp_runtime::{
-    traits::{Saturating, Zero},
-    RuntimeDebug,
-};
+use sp_runtime::{traits::Saturating, RuntimeDebug};
 use sp_std::prelude::*;
 
 /// A number of lock periods, plus a vote, one way or the other.
@@ -54,58 +51,9 @@ impl<Balance: Saturating> AccountVote<Balance> {
     }
 }
 
-/// A "prior" lock, i.e. a lock for some now-forgotten reason.
-#[derive(Encode, Decode, Default, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, RuntimeDebug, TypeInfo)]
-pub struct PriorLock<BlockNumber, Balance>(BlockNumber, Balance);
-
-impl<BlockNumber: Ord + Copy + Zero, Balance: Ord + Copy + Zero> PriorLock<BlockNumber, Balance> {
-    /// Accumulates an additional lock.
-    pub fn accumulate(&mut self, until: BlockNumber, amount: Balance) {
-        self.0 = self.0.max(until);
-        self.1 = self.1.max(amount);
-    }
-
-    pub fn locked(&self) -> Balance {
-        self.1
-    }
-
-    pub fn rejig(&mut self, now: BlockNumber) {
-        if now >= self.0 {
-            self.0 = Zero::zero();
-            self.1 = Zero::zero();
-        }
-    }
-}
-
 /// The account is voting directly.
-#[derive(Encode, Decode, Clone, Eq, PartialEq, RuntimeDebug, TypeInfo)]
-pub struct Voting<Balance, BlockNumber> {
+#[derive(Encode, Decode, Clone, Eq, PartialEq, Default, RuntimeDebug, TypeInfo)]
+pub struct Voting<Balance> {
     /// The current votes of the account.
     pub(crate) votes: Vec<(ReferendumIndex, AccountVote<Balance>)>,
-    /// Any pre-existing locks from past voting activity.
-    pub(crate) prior: PriorLock<BlockNumber, Balance>,
-}
-
-impl<Balance: Default, BlockNumber: Zero> Default for Voting<Balance, BlockNumber> {
-    fn default() -> Self {
-        Voting {
-            votes: Vec::new(),
-            prior: PriorLock(Zero::zero(), Default::default()),
-        }
-    }
-}
-
-impl<Balance: Saturating + Ord + Zero + Copy, BlockNumber: Ord + Copy + Zero> Voting<Balance, BlockNumber> {
-    pub fn rejig(&mut self, now: BlockNumber) {
-        self.prior.rejig(now);
-    }
-
-    /// The amount of this account's balance that much currently be locked due to voting.
-    pub fn locked_balance(&self) -> Balance {
-        let Voting { votes, prior, .. } = self;
-        votes
-            .iter()
-            .map(|i| i.1.balance())
-            .fold(prior.locked(), |a, i| a.max(i))
-    }
 }

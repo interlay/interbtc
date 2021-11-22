@@ -371,74 +371,6 @@ benchmarks! {
         assert!(!Preimages::<T>::contains_key(proposal_hash));
     }
 
-    // Test when unlock will remove locks
-    unlock_remove {
-        let r in 1 .. MAX_REFERENDUMS;
-
-        let locker = funded_account::<T>("locker", 0);
-        // Populate votes so things are locked
-        let base_balance: BalanceOf<T> = 100u32.into();
-        let small_vote = account_vote::<T>(base_balance);
-        // Vote and immediately unvote
-        for i in 0 .. r {
-            let ref_idx = add_referendum::<T>(i)?;
-            Democracy::<T>::vote(RawOrigin::Signed(locker.clone()).into(), ref_idx, small_vote.clone())?;
-            Democracy::<T>::remove_vote(RawOrigin::Signed(locker.clone()).into(), ref_idx)?;
-        }
-
-        let caller = funded_account::<T>("caller", 0);
-        whitelist_account!(caller);
-    }: unlock(RawOrigin::Signed(caller), locker.clone())
-    verify {
-        // Note that we may want to add a `get_lock` api to actually verify
-        let voting = VotingOf::<T>::get(&locker);
-        assert_eq!(voting.locked_balance(), BalanceOf::<T>::zero());
-    }
-
-    // Test when unlock will set a new value
-    unlock_set {
-        let r in 1 .. MAX_REFERENDUMS;
-
-        let locker = funded_account::<T>("locker", 0);
-        // Populate votes so things are locked
-        let base_balance: BalanceOf<T> = 100u32.into();
-        let small_vote = account_vote::<T>(base_balance);
-        for i in 0 .. r {
-            let ref_idx = add_referendum::<T>(i)?;
-            Democracy::<T>::vote(RawOrigin::Signed(locker.clone()).into(), ref_idx, small_vote.clone())?;
-        }
-
-        // Create a big vote so lock increases
-        let big_vote = account_vote::<T>(base_balance * 10u32.into());
-        let referendum_index = add_referendum::<T>(r)?;
-        Democracy::<T>::vote(RawOrigin::Signed(locker.clone()).into(), referendum_index, big_vote)?;
-
-        let votes = match VotingOf::<T>::get(&locker) {
-            Voting::Direct { votes, .. } => votes,
-            _ => return Err("Votes are not direct".into()),
-        };
-        assert_eq!(votes.len(), (r + 1) as usize, "Votes were not recorded.");
-
-        let voting = VotingOf::<T>::get(&locker);
-        assert_eq!(voting.locked_balance(), base_balance * 10u32.into());
-
-        Democracy::<T>::remove_vote(RawOrigin::Signed(locker.clone()).into(), referendum_index)?;
-
-        let caller = funded_account::<T>("caller", 0);
-        whitelist_account!(caller);
-    }: unlock(RawOrigin::Signed(caller), locker.clone())
-    verify {
-        let votes = match VotingOf::<T>::get(&locker) {
-            Voting::Direct { votes, .. } => votes,
-            _ => return Err("Votes are not direct".into()),
-        };
-        assert_eq!(votes.len(), r as usize, "Vote was not removed");
-
-        let voting = VotingOf::<T>::get(&locker);
-        // Note that we may want to add a `get_lock` api to actually verify
-        assert_eq!(voting.locked_balance(), base_balance);
-    }
-
     remove_vote {
         let r in 1 .. MAX_REFERENDUMS;
 
@@ -459,35 +391,6 @@ benchmarks! {
         let referendum_index = r - 1;
         whitelist_account!(caller);
     }: _(RawOrigin::Signed(caller.clone()), referendum_index)
-    verify {
-        let votes = match VotingOf::<T>::get(&caller) {
-            Voting::Direct { votes, .. } => votes,
-            _ => return Err("Votes are not direct".into()),
-        };
-        assert_eq!(votes.len(), (r - 1) as usize, "Vote was not removed");
-    }
-
-    // Worst case is when target == caller and referendum is ongoing
-    remove_other_vote {
-        let r in 1 .. MAX_REFERENDUMS;
-
-        let caller = funded_account::<T>("caller", r);
-        let account_vote = account_vote::<T>(100u32.into());
-
-        for i in 0 .. r {
-            let ref_idx = add_referendum::<T>(i)?;
-            Democracy::<T>::vote(RawOrigin::Signed(caller.clone()).into(), ref_idx, account_vote.clone())?;
-        }
-
-        let votes = match VotingOf::<T>::get(&caller) {
-            Voting::Direct { votes, .. } => votes,
-            _ => return Err("Votes are not direct".into()),
-        };
-        assert_eq!(votes.len(), r as usize, "Votes not created");
-
-        let referendum_index = r - 1;
-        whitelist_account!(caller);
-    }: _(RawOrigin::Signed(caller.clone()), caller.clone(), referendum_index)
     verify {
         let votes = match VotingOf::<T>::get(&caller) {
             Voting::Direct { votes, .. } => votes,

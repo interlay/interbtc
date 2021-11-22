@@ -51,8 +51,6 @@ fn split_vote_cancellation_should_work() {
                 turnout: 0
             }
         );
-        assert_ok!(Democracy::unlock(Origin::signed(5), 5));
-        assert_eq!(Balances::locks(5), vec![]);
     });
 }
 

@@ -14,10 +14,7 @@
 //!
 //! ### Terminology
 //!
-//! - **Enactment Period:** The minimum period of locking and the period between a proposal being
-//! approved and enacted.
-//! - **Lock Period:** A period of time after proposal enactment that the tokens of _winning_ voters
-//! will be locked.
+//! - **Enactment Period:** The period between a proposal being approved and enacted.
 //! - **Vote:** A value that can either be in approval ("Aye") or rejection ("Nay") of a particular referendum.
 //! - **Proposal:** A submission to the chain that represents an action that a proposer (either an
 //! account or an external origin) suggests that the system adopt.
@@ -55,7 +52,6 @@
 //!
 //! Administration actions that can be done to any account:
 //! - `reap_vote` - Remove some account's expired votes.
-//! - `unlock` - Redetermine the account's balance lock, potentially making tokens available.
 //!
 //! Preimage actions:
 //! - `note_preimage` - Registers the preimage for an upcoming proposal, requires a deposit that is returned once the
@@ -297,8 +293,7 @@ pub mod pallet {
     ///
     /// TWOX-NOTE: SAFE as `AccountId`s are crypto hashes anyway.
     #[pallet::storage]
-    pub type VotingOf<T: Config> =
-        StorageMap<_, Twox64Concat, T::AccountId, Voting<BalanceOf<T>, T::BlockNumber>, ValueQuery>;
+    pub type VotingOf<T: Config> = StorageMap<_, Twox64Concat, T::AccountId, Voting<BalanceOf<T>>, ValueQuery>;
 
     /// Accounts for which there are locks in action which may be removed at some point in the
     /// future. The value is the block number at which the lock expires and may be removed.
@@ -402,9 +397,6 @@ pub mod pallet {
         NoPermission,
         /// Too high a balance was provided that the account cannot afford.
         InsufficientFunds,
-        /// The account currently has votes attached to it and the operation cannot succeed until
-        /// these are removed, either through `unvote` or `reap_vote`.
-        VotesExist,
         /// Delegation to oneself makes no sense.
         Nonsense,
         /// Invalid upper bound.
@@ -716,42 +708,7 @@ pub mod pallet {
             Ok(())
         }
 
-        /// Unlock tokens that have an expired lock.
-        ///
-        /// The dispatch origin of this call must be _Signed_.
-        ///
-        /// - `target`: The account to remove the lock on.
-        ///
-        /// Weight: `O(R)` with R number of vote of target.
-        #[pallet::weight(
-			T::WeightInfo::unlock_set(T::MaxVotes::get())
-				.max(T::WeightInfo::unlock_remove(T::MaxVotes::get()))
-		)]
-        pub fn unlock(origin: OriginFor<T>, target: T::AccountId) -> DispatchResult {
-            ensure_signed(origin)?;
-            Self::update_lock(&target);
-            Ok(())
-        }
-
-        /// Remove a vote for a referendum.
-        ///
-        /// If:
-        /// - the referendum was cancelled, or
-        /// - the referendum is ongoing, or
-        /// - the referendum has ended such that
-        ///   - the vote of the account was in opposition to the result; or
-        ///   - there was no conviction to the account's vote; or
-        ///   - the account made a split vote
-        /// ...then the vote is removed cleanly and a following call to `unlock` may result in more
-        /// funds being available.
-        ///
-        /// If, however, the referendum has ended and:
-        /// - it finished corresponding to the vote of the account, and
-        /// - the account made a standard vote with conviction, and
-        /// - the lock period of the conviction is not over
-        /// ...then the lock will be aggregated into the overall account's lock, which may involve
-        /// *overlocking* (where the two locks are combined into a single lock that is the maximum
-        /// of both the amount locked and the time is it locked for).
+        /// Remove a vote for an ongoing referendum.
         ///
         /// The dispatch origin of this call must be _Signed_, and the signer must have a vote
         /// registered for referendum `index`.
@@ -764,32 +721,6 @@ pub mod pallet {
         pub fn remove_vote(origin: OriginFor<T>, index: ReferendumIndex) -> DispatchResult {
             let who = ensure_signed(origin)?;
             Self::try_remove_vote(&who, index, UnvoteScope::Any)
-        }
-
-        /// Remove a vote for a referendum.
-        ///
-        /// If the `target` is equal to the signer, then this function is exactly equivalent to
-        /// `remove_vote`. If not equal to the signer, then the vote must have expired,
-        /// either because the referendum was cancelled, because the voter lost the referendum or
-        /// because the conviction period is over.
-        ///
-        /// The dispatch origin of this call must be _Signed_.
-        ///
-        /// - `target`: The account of the vote to be removed; this account must have voted for referendum `index`.
-        /// - `index`: The index of referendum of the vote to be removed.
-        ///
-        /// Weight: `O(R + log R)` where R is the number of referenda that `target` has voted on.
-        ///   Weight is calculated for the maximum number of vote.
-        #[pallet::weight(T::WeightInfo::remove_other_vote(T::MaxVotes::get()))]
-        pub fn remove_other_vote(origin: OriginFor<T>, target: T::AccountId, index: ReferendumIndex) -> DispatchResult {
-            let who = ensure_signed(origin)?;
-            let scope = if target == who {
-                UnvoteScope::Any
-            } else {
-                UnvoteScope::OnlyExpired
-            };
-            Self::try_remove_vote(&target, index, scope)?;
-            Ok(())
         }
 
         /// Enact a proposal from a referendum. For now we just make the weight be the maximum.
@@ -908,12 +839,7 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
-    /// Remove the account's vote for the given referendum if possible. This is possible when:
-    /// - The referendum has not finished.
-    /// - The referendum has finished and the voter lost their direction.
-    /// - The referendum has finished and the voter's lock period is up.
-    ///
-    /// This will generally be combined with a call to `unlock`.
+    /// Remove the account's vote for the given referendum.
     fn try_remove_vote(who: &T::AccountId, ref_index: ReferendumIndex, scope: UnvoteScope) -> DispatchResult {
         let info = ReferendumInfoOf::<T>::get(ref_index);
         VotingOf::<T>::try_mutate(who, |voting| -> DispatchResult {
@@ -937,20 +863,6 @@ impl<T: Config> Pallet<T> {
             Ok(())
         })?;
         Ok(())
-    }
-
-    /// Rejig the lock on an account. It will never get more stringent (since that would indicate
-    /// a security hole) but may be reduced from what they are currently.
-    fn update_lock(who: &T::AccountId) {
-        let lock_needed = VotingOf::<T>::mutate(who, |voting| {
-            voting.rejig(frame_system::Pallet::<T>::block_number());
-            voting.locked_balance()
-        });
-        if lock_needed.is_zero() {
-            T::Currency::remove_lock(DEMOCRACY_ID, who);
-        } else {
-            T::Currency::set_lock(DEMOCRACY_ID, who, lock_needed, WithdrawReasons::TRANSFER);
-        }
     }
 
     /// Start a referendum
