@@ -1,12 +1,26 @@
 //! Miscellaneous additional datatypes.
 
-use crate::{AccountVote, Vote, VoteThreshold};
+use crate::{ReferendumIndex, VoteThreshold};
 use codec::{Decode, Encode};
 use scale_info::TypeInfo;
 use sp_runtime::{
     traits::{Bounded, CheckedAdd, CheckedDiv, CheckedMul, CheckedSub, Saturating, Zero},
     RuntimeDebug,
 };
+
+/// A standard vote, one-way (approve or reject).
+#[derive(Encode, Decode, Copy, Clone, Eq, PartialEq, RuntimeDebug, TypeInfo)]
+pub struct Vote<Balance> {
+    pub aye: bool,
+    pub balance: Balance,
+}
+
+/// The account is voting directly.
+#[derive(Encode, Decode, Clone, Eq, PartialEq, Default, RuntimeDebug, TypeInfo)]
+pub struct Voting<Balance> {
+    /// The current votes of the account.
+    pub(crate) votes: Vec<(ReferendumIndex, Vote<Balance>)>,
+}
 
 /// Info regarding an ongoing referendum.
 #[derive(Encode, Decode, Default, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo)]
@@ -22,50 +36,25 @@ pub struct Tally<Balance> {
 impl<Balance: From<u8> + Zero + Copy + CheckedAdd + CheckedSub + CheckedMul + CheckedDiv + Bounded + Saturating>
     Tally<Balance>
 {
-    /// Create a new tally.
-    pub fn new(vote: Vote, balance: Balance) -> Self {
-        Self {
-            ayes: if vote.aye { balance } else { Zero::zero() },
-            nays: if vote.aye { Zero::zero() } else { balance },
-            turnout: balance,
-        }
-    }
-
     /// Add an account's vote into the tally.
-    pub fn add(&mut self, vote: AccountVote<Balance>) -> Option<()> {
-        match vote {
-            AccountVote::Standard { vote, balance } => {
-                self.turnout = self.turnout.checked_add(&balance)?;
-                match vote.aye {
-                    true => self.ayes = self.ayes.checked_add(&balance)?,
-                    false => self.nays = self.nays.checked_add(&balance)?,
-                }
-            }
-            AccountVote::Split { aye, nay } => {
-                self.turnout = self.turnout.checked_add(&aye)?.checked_add(&nay)?;
-                self.ayes = self.ayes.checked_add(&aye)?;
-                self.nays = self.nays.checked_add(&nay)?;
-            }
+    pub(crate) fn add(&mut self, vote: Vote<Balance>) -> Option<()> {
+        self.turnout = self.turnout.checked_add(&vote.balance)?;
+        match vote.aye {
+            true => self.ayes = self.ayes.checked_add(&vote.balance)?,
+            false => self.nays = self.nays.checked_add(&vote.balance)?,
         }
+
         Some(())
     }
 
     /// Remove an account's vote from the tally.
-    pub fn remove(&mut self, vote: AccountVote<Balance>) -> Option<()> {
-        match vote {
-            AccountVote::Standard { vote, balance } => {
-                self.turnout = self.turnout.checked_sub(&balance)?;
-                match vote.aye {
-                    true => self.ayes = self.ayes.checked_sub(&balance)?,
-                    false => self.nays = self.nays.checked_sub(&balance)?,
-                }
-            }
-            AccountVote::Split { aye, nay } => {
-                self.turnout = self.turnout.checked_sub(&aye)?.checked_sub(&nay)?;
-                self.ayes = self.ayes.checked_sub(&aye)?;
-                self.nays = self.nays.checked_sub(&nay)?;
-            }
+    pub(crate) fn remove(&mut self, vote: Vote<Balance>) -> Option<()> {
+        self.turnout = self.turnout.checked_sub(&vote.balance)?;
+        match vote.aye {
+            true => self.ayes = self.ayes.checked_sub(&vote.balance)?,
+            false => self.nays = self.nays.checked_sub(&vote.balance)?,
         }
+
         Some(())
     }
 }
@@ -92,18 +81,4 @@ pub enum ReferendumInfo<BlockNumber, Hash, Balance> {
     Ongoing(ReferendumStatus<BlockNumber, Hash, Balance>),
     /// Referendum finished at `end`, and has been `approved` or rejected.
     Finished { approved: bool, end: BlockNumber },
-}
-
-impl<BlockNumber, Hash, Balance: Default> ReferendumInfo<BlockNumber, Hash, Balance> {
-    /// Create a new instance.
-    pub fn new(end: BlockNumber, proposal_hash: Hash, threshold: VoteThreshold, delay: BlockNumber) -> Self {
-        let s = ReferendumStatus {
-            end,
-            proposal_hash,
-            threshold,
-            delay,
-            tally: Tally::default(),
-        };
-        ReferendumInfo::Ongoing(s)
-    }
 }

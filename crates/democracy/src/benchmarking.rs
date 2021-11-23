@@ -60,10 +60,8 @@ fn add_referendum<T: Config>(n: u32) -> Result<ReferendumIndex, &'static str> {
     Ok(referendum_index)
 }
 
-fn account_vote<T: Config>(b: BalanceOf<T>) -> AccountVote<BalanceOf<T>> {
-    let v = Vote { aye: true };
-
-    AccountVote::Standard { vote: v, balance: b }
+fn account_vote<T: Config>(b: BalanceOf<T>) -> Vote<BalanceOf<T>> {
+    Vote { aye: true, balance: b }
 }
 
 benchmarks! {
@@ -141,8 +139,7 @@ benchmarks! {
         assert_eq!(votes.len(), (r + 1) as usize, "Votes were not recorded.");
 
         // Change vote from aye to nay
-        let nay = Vote { aye: false };
-        let new_vote = AccountVote::Standard { vote: nay, balance: 1000u32.into() };
+        let new_vote = Vote { aye: false, balance: 1000u32.into() };
         let referendum_index = Democracy::<T>::referendum_count() - 1;
 
         // This tests when a user changes a vote

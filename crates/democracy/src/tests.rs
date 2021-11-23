@@ -24,9 +24,6 @@ mod public_proposals;
 mod scheduling;
 mod voting;
 
-const AYE: Vote = Vote { aye: true };
-const NAY: Vote = Vote { aye: false };
-
 const MAX_PROPOSALS: u32 = 100;
 
 type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
@@ -247,16 +244,16 @@ fn begin_referendum() -> ReferendumIndex {
     0
 }
 
-fn aye(who: u64) -> AccountVote<u64> {
-    AccountVote::Standard {
-        vote: AYE,
+fn aye(who: u64) -> Vote<u64> {
+    Vote {
+        aye: true,
         balance: Balances::free_balance(&who),
     }
 }
 
-fn nay(who: u64) -> AccountVote<u64> {
-    AccountVote::Standard {
-        vote: NAY,
+fn nay(who: u64) -> Vote<u64> {
+    Vote {
+        aye: false,
         balance: Balances::free_balance(&who),
     }
 }

@@ -14,47 +14,6 @@ fn overvoting_should_fail() {
 }
 
 #[test]
-fn split_voting_should_work() {
-    new_test_ext().execute_with(|| {
-        let r = begin_referendum();
-        let v = AccountVote::Split { aye: 40, nay: 20 };
-        assert_noop!(
-            Democracy::vote(Origin::signed(5), r, v),
-            Error::<Test>::InsufficientFunds
-        );
-        let v = AccountVote::Split { aye: 30, nay: 20 };
-        assert_ok!(Democracy::vote(Origin::signed(5), r, v));
-
-        assert_eq!(
-            tally(r),
-            Tally {
-                ayes: 30,
-                nays: 20,
-                turnout: 50
-            }
-        );
-    });
-}
-
-#[test]
-fn split_vote_cancellation_should_work() {
-    new_test_ext().execute_with(|| {
-        let r = begin_referendum();
-        let v = AccountVote::Split { aye: 30, nay: 20 };
-        assert_ok!(Democracy::vote(Origin::signed(5), r, v));
-        assert_ok!(Democracy::remove_vote(Origin::signed(5), r));
-        assert_eq!(
-            tally(r),
-            Tally {
-                ayes: 0,
-                nays: 0,
-                turnout: 0
-            }
-        );
-    });
-}
-
-#[test]
 fn single_proposal_should_work() {
     new_test_ext().execute_with(|| {
         System::set_block_number(0);

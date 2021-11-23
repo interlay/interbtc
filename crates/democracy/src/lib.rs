@@ -96,12 +96,10 @@ use sp_runtime::{
 use sp_std::prelude::*;
 
 mod types;
-mod vote;
 mod vote_threshold;
 pub mod weights;
 pub use pallet::*;
-pub use types::{ReferendumInfo, ReferendumStatus, Tally};
-pub use vote::{AccountVote, Vote, Voting};
+pub use types::{ReferendumInfo, ReferendumStatus, Tally, Vote, Voting};
 pub use vote_threshold::{Approved, VoteThreshold};
 pub use weights::WeightInfo;
 
@@ -482,7 +480,7 @@ pub mod pallet {
         pub fn vote(
             origin: OriginFor<T>,
             #[pallet::compact] ref_index: ReferendumIndex,
-            vote: AccountVote<BalanceOf<T>>,
+            vote: Vote<BalanceOf<T>>,
         ) -> DispatchResult {
             let who = ensure_signed(origin)?;
             Self::try_vote(&who, ref_index, vote)
@@ -791,10 +789,10 @@ impl<T: Config> Pallet<T> {
     }
 
     /// Actually enact a vote, if legit.
-    fn try_vote(who: &T::AccountId, ref_index: ReferendumIndex, vote: AccountVote<BalanceOf<T>>) -> DispatchResult {
+    fn try_vote(who: &T::AccountId, ref_index: ReferendumIndex, vote: Vote<BalanceOf<T>>) -> DispatchResult {
         let mut status = Self::referendum_status(ref_index)?;
         ensure!(
-            vote.balance() <= T::Currency::free_balance(who),
+            vote.balance <= T::Currency::free_balance(who),
             Error::<T>::InsufficientFunds
         );
         VotingOf::<T>::try_mutate(who, |voting| -> DispatchResult {
