@@ -41,7 +41,6 @@ type PositiveImbalanceOf<T> =
     <<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::PositiveImbalance;
 type NegativeImbalanceOf<T> =
     <<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::NegativeImbalance;
-type MaxLocksOf<T> = <<T as Config>::Currency as LockableCurrency<<T as frame_system::Config>::AccountId>>::MaxLocks;
 
 #[derive(Default, Encode, Decode, Debug, Clone, TypeInfo)]
 pub struct Point<Balance, BlockNumber> {
@@ -581,25 +580,5 @@ where
         status: BalanceStatus,
     ) -> sp_std::result::Result<Self::Balance, DispatchError> {
         T::Currency::repatriate_reserved(slashed, beneficiary, value, status)
-    }
-}
-
-impl<T> LockableCurrency<T::AccountId> for CurrencyAdapter<T>
-where
-    T: Config,
-{
-    type Moment = T::BlockNumber;
-    type MaxLocks = MaxLocksOf<T>;
-
-    fn set_lock(id: LockIdentifier, who: &T::AccountId, amount: Self::Balance, reasons: WithdrawReasons) {
-        T::Currency::set_lock(id, who, amount, reasons)
-    }
-
-    fn extend_lock(id: LockIdentifier, who: &T::AccountId, amount: Self::Balance, reasons: WithdrawReasons) {
-        T::Currency::extend_lock(id, who, amount, reasons)
-    }
-
-    fn remove_lock(id: LockIdentifier, who: &T::AccountId) {
-        T::Currency::remove_lock(id, who)
     }
 }
