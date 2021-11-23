@@ -22,7 +22,7 @@ use sp_api::impl_runtime_apis;
 use sp_core::OpaqueMetadata;
 use sp_runtime::{
     create_runtime_str, generic, impl_opaque_keys,
-    traits::{AccountIdConversion, BlakeTwo256, Block as BlockT, IdentityLookup, Zero},
+    traits::{AccountIdConversion, BlakeTwo256, Block as BlockT, Convert, IdentityLookup, Zero},
     transaction_validity::{TransactionSource, TransactionValidity},
     ApplyExtrinsicResult,
 };
@@ -95,6 +95,7 @@ pub const EPOCH_DURATION_IN_BLOCKS: u32 = 10 * MINUTES;
 pub const MINUTES: BlockNumber = 60_000 / (MILLISECS_PER_BLOCK as BlockNumber);
 pub const HOURS: BlockNumber = MINUTES * 60;
 pub const DAYS: BlockNumber = HOURS * 24;
+pub const WEEKS: BlockNumber = DAYS * 7;
 
 pub const ROC: Balance = 1_000_000_000_000;
 pub const MILLIROC: Balance = 1_000_000_000;
@@ -586,6 +587,28 @@ impl staking::Config for Runtime {
 }
 
 parameter_types! {
+    pub const Span: BlockNumber = WEEKS;
+    pub const MaxPeriod: BlockNumber = DAYS * 365 * 4;
+}
+
+pub struct BlockNumberToBalance;
+
+impl Convert<BlockNumber, Balance> for BlockNumberToBalance {
+    fn convert(a: BlockNumber) -> Balance {
+        a.into()
+    }
+}
+
+impl escrow::Config for Runtime {
+    type Event = Event;
+    type BlockNumberToBalance = BlockNumberToBalance;
+    type Currency = orml_tokens::CurrencyAdapter<Runtime, GetNativeCurrencyId>;
+    type Span = Span;
+    type MaxPeriod = MaxPeriod;
+    type WeightInfo = ();
+}
+
+parameter_types! {
     pub const VaultPalletId: PalletId = PalletId(*b"mod/vreg");
 }
 
@@ -681,6 +704,7 @@ construct_runtime! {
         Tokens: orml_tokens::{Pallet, Call, Storage, Config<T>, Event<T>},
         Rewards: reward::{Pallet, Call, Storage, Event<T>},
         Staking: staking::{Pallet, Storage, Event<T>},
+        Escrow: escrow::{Pallet, Call, Storage, Event<T>},
 
         // Bitcoin SPV
         BTCRelay: btc_relay::{Pallet, Call, Config<T>, Storage, Event<T>},
@@ -883,6 +907,7 @@ impl_runtime_apis! {
             let mut list = Vec::<BenchmarkList>::new();
 
             list_benchmark!(list, extra, btc_relay, BTCRelay);
+            list_benchmark!(list, extra, escrow, Escrow);
             list_benchmark!(list, extra, fee, Fee);
             list_benchmark!(list, extra, issue, Issue);
             list_benchmark!(list, extra, nomination, Nomination);
@@ -920,6 +945,7 @@ impl_runtime_apis! {
             let params = (&config, &whitelist);
 
             add_benchmark!(params, batches, btc_relay, BTCRelay);
+            add_benchmark!(params, batches, escrow, Escrow);
             add_benchmark!(params, batches, fee, Fee);
             add_benchmark!(params, batches, issue, Issue);
             add_benchmark!(params, batches, nomination, Nomination);
