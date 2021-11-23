@@ -31,7 +31,7 @@ fn single_proposal_should_work() {
             Ok(ReferendumStatus {
                 end: 4,
                 proposal_hash: set_balance_proposal_hash_and_note(2),
-                threshold: VoteThreshold::SuperMajorityApprove,
+                threshold: VoteThreshold::SuperMajorityAgainst,
                 delay: 2,
                 tally: Tally {
                     ayes: 10,

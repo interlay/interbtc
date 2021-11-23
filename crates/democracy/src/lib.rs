@@ -889,7 +889,7 @@ impl<T: Config> Pallet<T> {
                 Self::inject_referendum(
                     now + T::VotingPeriod::get(),
                     proposal,
-                    VoteThreshold::SuperMajorityApprove,
+                    VoteThreshold::SuperMajorityAgainst,
                     T::EnactmentPeriod::get(),
                 );
             }
