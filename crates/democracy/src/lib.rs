@@ -108,8 +108,8 @@ pub use weights::WeightInfo;
 #[cfg(test)]
 mod tests;
 
-#[cfg(feature = "runtime-benchmarks")]
-pub mod benchmarking;
+#[cfg(any(feature = "runtime-benchmarks", test))]
+mod benchmarking;
 
 const DEMOCRACY_ID: LockIdentifier = *b"democrac";
 
@@ -290,14 +290,6 @@ pub mod pallet {
     /// TWOX-NOTE: SAFE as `AccountId`s are crypto hashes anyway.
     #[pallet::storage]
     pub type VotingOf<T: Config> = StorageMap<_, Twox64Concat, T::AccountId, Voting<BalanceOf<T>>, ValueQuery>;
-
-    /// Accounts for which there are locks in action which may be removed at some point in the
-    /// future. The value is the block number at which the lock expires and may be removed.
-    ///
-    /// TWOX-NOTE: OK ― `AccountId` is a secure hash.
-    #[pallet::storage]
-    #[pallet::getter(fn locks)]
-    pub type Locks<T: Config> = StorageMap<_, Twox64Concat, T::AccountId, T::BlockNumber>;
 
     /// Storage version of the pallet.
     ///

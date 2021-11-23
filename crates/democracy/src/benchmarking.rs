@@ -4,9 +4,8 @@ use super::*;
 
 use frame_benchmarking::{account, benchmarks, whitelist_account};
 use frame_support::{
-    assert_noop, assert_ok,
     codec::Decode,
-    traits::{schedule::DispatchTime, Currency, EnsureOrigin, Get, OnInitialize, UnfilteredDispatchable},
+    traits::{schedule::DispatchTime, Currency, Get, OnInitialize, UnfilteredDispatchable},
 };
 use frame_system::{Pallet as System, RawOrigin};
 use sp_runtime::traits::{BadOrigin, Bounded, One};
@@ -28,14 +27,15 @@ fn funded_account<T: Config>(name: &'static str, index: u32) -> T::AccountId {
     caller
 }
 
-fn add_proposal<T: Config>(n: u32) -> Result<T::Hash, &'static str> {
+fn add_proposal<T: Config>(n: u32) -> Result<PropIndex, &'static str> {
     let other = funded_account::<T>("proposer", n);
     let value = T::MinimumDeposit::get();
     let proposal_hash: T::Hash = T::Hashing::hash_of(&n);
+    let prop_index: PropIndex = PublicPropCount::<T>::get();
 
     Democracy::<T>::propose(RawOrigin::Signed(other).into(), proposal_hash, value.into())?;
 
-    Ok(proposal_hash)
+    Ok(prop_index)
 }
 
 fn add_referendum<T: Config>(n: u32) -> Result<ReferendumIndex, &'static str> {
@@ -115,20 +115,14 @@ benchmarks! {
             let ref_idx = add_referendum::<T>(i)?;
             Democracy::<T>::vote(RawOrigin::Signed(caller.clone()).into(), ref_idx, account_vote.clone())?;
         }
-        let votes = match VotingOf::<T>::get(&caller) {
-            Voting::Direct { votes, .. } => votes,
-            _ => return Err("Votes are not direct".into()),
-        };
+        let Voting { votes, .. } = VotingOf::<T>::get(&caller);
         assert_eq!(votes.len(), r as usize, "Votes were not recorded.");
 
         let referendum_index = add_referendum::<T>(r)?;
         whitelist_account!(caller);
     }: vote(RawOrigin::Signed(caller.clone()), referendum_index, account_vote)
     verify {
-        let votes = match VotingOf::<T>::get(&caller) {
-            Voting::Direct { votes, .. } => votes,
-            _ => return Err("Votes are not direct".into()),
-        };
+        let Voting { votes, .. } = VotingOf::<T>::get(&caller);
         assert_eq!(votes.len(), (r + 1) as usize, "Vote was not recorded.");
     }
 
@@ -143,10 +137,7 @@ benchmarks! {
             let ref_idx = add_referendum::<T>(i)?;
             Democracy::<T>::vote(RawOrigin::Signed(caller.clone()).into(), ref_idx, account_vote.clone())?;
         }
-        let votes = match VotingOf::<T>::get(&caller) {
-            Voting::Direct { votes, .. } => votes,
-            _ => return Err("Votes are not direct".into()),
-        };
+        let Voting { votes, .. } = VotingOf::<T>::get(&caller);
         assert_eq!(votes.len(), (r + 1) as usize, "Votes were not recorded.");
 
         // Change vote from aye to nay
@@ -158,10 +149,7 @@ benchmarks! {
         whitelist_account!(caller);
     }: vote(RawOrigin::Signed(caller.clone()), referendum_index, new_vote)
     verify {
-        let votes = match VotingOf::<T>::get(&caller) {
-            Voting::Direct { votes, .. } => votes,
-            _ => return Err("Votes are not direct".into()),
-        };
+        let Voting { votes, .. } = VotingOf::<T>::get(&caller);
         assert_eq!(votes.len(), (r + 1) as usize, "Vote was incorrectly added");
         let referendum_info = Democracy::<T>::referendum_info(referendum_index)
             .ok_or("referendum doesn't exist")?;
@@ -172,26 +160,17 @@ benchmarks! {
         assert_eq!(tally.nays, 1000u32.into(), "changed vote was not recorded");
     }
 
-    fast_track {
-        let proposal_hash = add_proposal::<T>(0)?;
+    // TODO: successful_origin only available in runtime-benchmarks
+    // fast_track {
+    //     let prop_index = add_proposal::<T>(0)?;
 
-        // NOTE: Instant origin may invoke a little bit more logic, but may not always succeed.
-        let origin_fast_track = T::FastTrackOrigin::successful_origin();
-        let voting_period = T::FastTrackVotingPeriod::get();
-        let delay = 0u32;
-    }: _<T::Origin>(origin_fast_track, proposal_hash, voting_period.into(), delay.into())
-    verify {
-        assert_eq!(Democracy::<T>::referendum_count(), 1, "referendum not created")
-    }
-
-    cancel_proposal {
-        let p in 1 .. T::MaxProposals::get();
-
-        // Place our proposal at the end to make sure it's worst case.
-        for i in 0 .. p {
-            add_proposal::<T>(i)?;
-        }
-    }: _(RawOrigin::Root, 0)
+    //     let origin_fast_track = T::FastTrackOrigin::successful_origin();
+    //     let voting_period = T::FastTrackVotingPeriod::get();
+    //     let delay = 0u32;
+    // }: _<T::Origin>(origin_fast_track, prop_index, delay.into())
+    // verify {
+    //     assert_eq!(Democracy::<T>::referendum_count(), 1, "referendum not created")
+    // }
 
     cancel_referendum {
         let referendum_index = add_referendum::<T>(0)?;
@@ -221,7 +200,6 @@ benchmarks! {
 
         // Launch public
         assert!(add_proposal::<T>(r).is_ok(), "proposal not created");
-        LastTabledWasExternal::<T>::put(true);
 
         let block_number = T::LaunchPeriod::get();
 
@@ -382,20 +360,14 @@ benchmarks! {
             Democracy::<T>::vote(RawOrigin::Signed(caller.clone()).into(), ref_idx, account_vote.clone())?;
         }
 
-        let votes = match VotingOf::<T>::get(&caller) {
-            Voting::Direct { votes, .. } => votes,
-            _ => return Err("Votes are not direct".into()),
-        };
+        let Voting { votes, .. } = VotingOf::<T>::get(&caller);
         assert_eq!(votes.len(), r as usize, "Votes not created");
 
         let referendum_index = r - 1;
         whitelist_account!(caller);
     }: _(RawOrigin::Signed(caller.clone()), referendum_index)
     verify {
-        let votes = match VotingOf::<T>::get(&caller) {
-            Voting::Direct { votes, .. } => votes,
-            _ => return Err("Votes are not direct".into()),
-        };
+        let Voting { votes, .. } = VotingOf::<T>::get(&caller);
         assert_eq!(votes.len(), (r - 1) as usize, "Vote was not removed");
     }
 
