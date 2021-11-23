@@ -26,8 +26,6 @@ mod voting;
 
 const AYE: Vote = Vote { aye: true };
 const NAY: Vote = Vote { aye: false };
-const BIG_AYE: Vote = Vote { aye: true };
-const BIG_NAY: Vote = Vote { aye: false };
 
 const MAX_PROPOSALS: u32 = 100;
 
@@ -259,20 +257,6 @@ fn aye(who: u64) -> AccountVote<u64> {
 fn nay(who: u64) -> AccountVote<u64> {
     AccountVote::Standard {
         vote: NAY,
-        balance: Balances::free_balance(&who),
-    }
-}
-
-fn big_aye(who: u64) -> AccountVote<u64> {
-    AccountVote::Standard {
-        vote: BIG_AYE,
-        balance: Balances::free_balance(&who),
-    }
-}
-
-fn big_nay(who: u64) -> AccountVote<u64> {
-    AccountVote::Standard {
-        vote: BIG_NAY,
         balance: Balances::free_balance(&who),
     }
 }

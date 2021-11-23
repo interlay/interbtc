@@ -110,12 +110,12 @@ fn controversial_voting_should_work() {
             0,
         );
 
-        assert_ok!(Democracy::vote(Origin::signed(1), r, big_aye(1)));
-        assert_ok!(Democracy::vote(Origin::signed(2), r, big_nay(2)));
-        assert_ok!(Democracy::vote(Origin::signed(3), r, big_nay(3)));
-        assert_ok!(Democracy::vote(Origin::signed(4), r, big_aye(4)));
-        assert_ok!(Democracy::vote(Origin::signed(5), r, big_nay(5)));
-        assert_ok!(Democracy::vote(Origin::signed(6), r, big_aye(6)));
+        assert_ok!(Democracy::vote(Origin::signed(1), r, aye(1)));
+        assert_ok!(Democracy::vote(Origin::signed(2), r, nay(2)));
+        assert_ok!(Democracy::vote(Origin::signed(3), r, nay(3)));
+        assert_ok!(Democracy::vote(Origin::signed(4), r, aye(4)));
+        assert_ok!(Democracy::vote(Origin::signed(5), r, nay(5)));
+        assert_ok!(Democracy::vote(Origin::signed(6), r, aye(6)));
 
         assert_eq!(
             tally(r),
@@ -142,8 +142,8 @@ fn controversial_low_turnout_voting_should_work() {
             VoteThreshold::SuperMajorityApprove,
             0,
         );
-        assert_ok!(Democracy::vote(Origin::signed(5), r, big_nay(5)));
-        assert_ok!(Democracy::vote(Origin::signed(6), r, big_aye(6)));
+        assert_ok!(Democracy::vote(Origin::signed(5), r, nay(5)));
+        assert_ok!(Democracy::vote(Origin::signed(6), r, aye(6)));
 
         assert_eq!(
             tally(r),
@@ -173,9 +173,9 @@ fn passing_low_turnout_voting_should_work() {
             VoteThreshold::SuperMajorityApprove,
             0,
         );
-        assert_ok!(Democracy::vote(Origin::signed(4), r, big_aye(4)));
-        assert_ok!(Democracy::vote(Origin::signed(5), r, big_nay(5)));
-        assert_ok!(Democracy::vote(Origin::signed(6), r, big_aye(6)));
+        assert_ok!(Democracy::vote(Origin::signed(4), r, aye(4)));
+        assert_ok!(Democracy::vote(Origin::signed(5), r, nay(5)));
+        assert_ok!(Democracy::vote(Origin::signed(6), r, aye(6)));
         assert_eq!(
             tally(r),
             Tally {

@@ -100,7 +100,7 @@ mod vote;
 mod vote_threshold;
 pub mod weights;
 pub use pallet::*;
-pub use types::{ReferendumInfo, ReferendumStatus, Tally, UnvoteScope};
+pub use types::{ReferendumInfo, ReferendumStatus, Tally};
 pub use vote::{AccountVote, Vote, Voting};
 pub use vote_threshold::{Approved, VoteThreshold};
 pub use weights::WeightInfo;
@@ -381,12 +381,8 @@ pub mod pallet {
         NoneWaiting,
         /// The given account did not vote on the referendum.
         NotVoter,
-        /// The actor has no permission to conduct the action.
-        NoPermission,
         /// Too high a balance was provided that the account cannot afford.
         InsufficientFunds,
-        /// Delegation to oneself makes no sense.
-        Nonsense,
         /// Invalid upper bound.
         WrongUpperBound,
         /// Maximum number of votes reached.
@@ -708,7 +704,7 @@ pub mod pallet {
         #[pallet::weight(T::WeightInfo::remove_vote(T::MaxVotes::get()))]
         pub fn remove_vote(origin: OriginFor<T>, index: ReferendumIndex) -> DispatchResult {
             let who = ensure_signed(origin)?;
-            Self::try_remove_vote(&who, index, UnvoteScope::Any)
+            Self::try_remove_vote(&who, index)
         }
 
         /// Enact a proposal from a referendum. For now we just make the weight be the maximum.
@@ -825,7 +821,7 @@ impl<T: Config> Pallet<T> {
     }
 
     /// Remove the account's vote for the given referendum.
-    fn try_remove_vote(who: &T::AccountId, ref_index: ReferendumIndex, scope: UnvoteScope) -> DispatchResult {
+    fn try_remove_vote(who: &T::AccountId, ref_index: ReferendumIndex) -> DispatchResult {
         let info = ReferendumInfoOf::<T>::get(ref_index);
         VotingOf::<T>::try_mutate(who, |voting| -> DispatchResult {
             let Voting { ref mut votes, .. } = voting;
@@ -835,7 +831,6 @@ impl<T: Config> Pallet<T> {
                 .map_err(|_| Error::<T>::NotVoter)?;
             match info {
                 Some(ReferendumInfo::Ongoing(mut status)) => {
-                    ensure!(matches!(scope, UnvoteScope::Any), Error::<T>::NoPermission);
                     // Shouldn't be possible to fail, but we handle it gracefully.
                     status.tally.remove(votes[i].1).ok_or(ArithmeticError::Underflow)?;
                     ReferendumInfoOf::<T>::insert(ref_index, ReferendumInfo::Ongoing(status));

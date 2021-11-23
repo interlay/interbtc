@@ -107,12 +107,3 @@ impl<BlockNumber, Hash, Balance: Default> ReferendumInfo<BlockNumber, Hash, Bala
         ReferendumInfo::Ongoing(s)
     }
 }
-
-/// Whether an `unvote` operation is able to make actions that are not strictly always in the
-/// interest of an account.
-pub enum UnvoteScope {
-    /// Permitted to do everything.
-    Any,
-    /// Permitted to do only the changes that do not need the owner's permission.
-    OnlyExpired,
-}
