@@ -1,5 +1,6 @@
 //! # Escrow Module
 //! Receive vote-escrowed tokens for locking the native currency.
+//! Follows the specification at https://spec.interlay.io/spec/escrow.html
 
 #![deny(warnings)]
 #![cfg_attr(test, feature(proc_macro_hygiene))]
@@ -57,7 +58,7 @@ impl<Balance: AtLeast32BitUnsigned + Copy, BlockNumber: AtLeast32BitUnsigned + C
         max_period: BlockNumber,
     ) -> Self {
         let max_period = BlockNumberToBalance::convert(max_period);
-        let height_diff = BlockNumberToBalance::convert(end_height - start_height);
+        let height_diff = BlockNumberToBalance::convert(end_height.saturating_sub(start_height));
 
         let slope = amount / max_period;
         let bias = slope * height_diff;
@@ -70,8 +71,8 @@ impl<Balance: AtLeast32BitUnsigned + Copy, BlockNumber: AtLeast32BitUnsigned + C
     }
 
     fn balance_at<BlockNumberToBalance: Convert<BlockNumber, Balance>>(&self, height: BlockNumber) -> Balance {
-        let height_diff = BlockNumberToBalance::convert(height - self.ts);
-        self.bias - (self.slope * (height_diff))
+        let height_diff = BlockNumberToBalance::convert(height.saturating_sub(self.ts));
+        self.bias.saturating_sub(self.slope.saturating_mul(height_diff))
     }
 }
 
@@ -202,7 +203,7 @@ pub mod pallet {
 
             // height MUST NOT be greater than max
             let max_period = T::MaxPeriod::get();
-            let end_height = now + max_period;
+            let end_height = now.saturating_add(max_period);
             ensure!(unlock_height <= end_height, Error::<T>::InvalidHeight);
 
             Self::deposit_for(&who, amount, unlock_height)?;
@@ -258,7 +259,7 @@ pub mod pallet {
 
             // height MUST NOT be greater than max
             let max_period = T::MaxPeriod::get();
-            let end_height = now + max_period;
+            let end_height = now.saturating_add(max_period);
             ensure!(unlock_height <= end_height, Error::<T>::InvalidHeight);
 
             Self::deposit_for(&who, Zero::zero(), unlock_height)?;
@@ -330,7 +331,7 @@ impl<T: Config> Pallet<T> {
             } else {
                 <SlopeChanges<T>>::get(t_i)
             };
-            let height_diff = T::BlockNumberToBalance::convert(t_i - last_checkpoint);
+            let height_diff = T::BlockNumberToBalance::convert(t_i.saturating_sub(last_checkpoint));
             last_point.bias.saturating_reduce(last_point.slope * height_diff);
             last_point.slope.saturating_accrue(d_slope);
             last_checkpoint = t_i;
@@ -346,8 +347,10 @@ impl<T: Config> Pallet<T> {
 
         <Epoch<T>>::put(epoch);
 
-        last_point.slope.saturating_accrue(u_new.slope - u_old.slope);
-        last_point.bias.saturating_accrue(u_new.bias - u_old.bias);
+        last_point
+            .slope
+            .saturating_accrue(u_new.slope.saturating_sub(u_old.slope));
+        last_point.bias.saturating_accrue(u_new.bias.saturating_sub(u_old.bias));
         <PointHistory<T>>::insert(epoch, last_point);
 
         if old_locked.end > now {
@@ -438,7 +441,7 @@ impl<T: Config> Pallet<T> {
                 <SlopeChanges<T>>::get(t_i)
             };
 
-            let height_diff = T::BlockNumberToBalance::convert(t_i - last_point.ts);
+            let height_diff = T::BlockNumberToBalance::convert(t_i.saturating_sub(last_point.ts));
             last_point.bias.saturating_reduce(last_point.slope * height_diff);
 
             if t_i == height {
