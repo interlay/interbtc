@@ -149,7 +149,6 @@ impl Config for Test {
     type Slash = ();
     type Scheduler = Scheduler;
     type MaxVotes = MaxVotes;
-    type OperationalPreimageOrigin = EnsureSignedBy<Six, u64>;
     type PalletsOrigin = OriginCaller;
     type WeightInfo = ();
     type MaxProposals = MaxProposals;
@@ -168,12 +167,6 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
     let mut ext = sp_io::TestExternalities::new(t);
     ext.execute_with(|| System::set_block_number(1));
     ext
-}
-
-/// Execute the function two times, with `true` and with `false`.
-pub fn new_test_ext_execute_with_cond(execute: impl FnOnce(bool) -> () + Clone) {
-    new_test_ext().execute_with(|| (execute.clone())(false));
-    new_test_ext().execute_with(|| execute(true));
 }
 
 #[test]

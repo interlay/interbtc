@@ -56,10 +56,8 @@
 //! Preimage actions:
 //! - `note_preimage` - Registers the preimage for an upcoming proposal, requires a deposit that is returned once the
 //!   proposal is enacted.
-//! - `note_preimage_operational` - same but provided by `T::OperationalPreimageOrigin`.
 //! - `note_imminent_preimage` - Registers the preimage for an upcoming proposal. Does not require a deposit, but the
 //!   proposal must be in the dispatch queue.
-//! - `note_imminent_preimage_operational` - same but provided by `T::OperationalPreimageOrigin`.
 //! - `reap_preimage` - Removes the preimage for an expired proposal. Will only work under the condition that it's the
 //!   same account that noted it and after the voting period, OR it's a different account after the enactment period.
 //!
@@ -210,9 +208,6 @@ pub mod pallet {
         /// The amount of balance that must be deposited per byte of preimage stored.
         #[pallet::constant]
         type PreimageByteDeposit: Get<BalanceOf<Self>>;
-
-        /// An origin that can provide a preimage using operational extrinsics.
-        type OperationalPreimageOrigin: EnsureOrigin<Self::Origin, Success = Self::AccountId>;
 
         /// Handler for the unbalanced reduction when slashing a preimage deposit.
         type Slash: OnUnbalanced<NegativeImbalanceOf<Self>>;
@@ -587,17 +582,6 @@ pub mod pallet {
             Ok(())
         }
 
-        /// Same as `note_preimage` but origin is `OperationalPreimageOrigin`.
-        #[pallet::weight((
-			T::WeightInfo::note_preimage(encoded_proposal.len() as u32),
-			DispatchClass::Operational,
-		))]
-        pub fn note_preimage_operational(origin: OriginFor<T>, encoded_proposal: Vec<u8>) -> DispatchResult {
-            let who = T::OperationalPreimageOrigin::ensure_origin(origin)?;
-            Self::note_preimage_inner(who, encoded_proposal)?;
-            Ok(())
-        }
-
         /// Register the preimage for an upcoming proposal. This requires the proposal to be
         /// in the dispatch queue. No deposit is needed. When this call is successful, i.e.
         /// the preimage has not been uploaded before and matches some imminent proposal,
@@ -613,23 +597,6 @@ pub mod pallet {
         #[pallet::weight(T::WeightInfo::note_imminent_preimage(encoded_proposal.len() as u32))]
         pub fn note_imminent_preimage(origin: OriginFor<T>, encoded_proposal: Vec<u8>) -> DispatchResultWithPostInfo {
             Self::note_imminent_preimage_inner(ensure_signed(origin)?, encoded_proposal)?;
-            // We check that this preimage was not uploaded before in
-            // `note_imminent_preimage_inner`, thus this call can only be successful once. If
-            // successful, user does not pay a fee.
-            Ok(Pays::No.into())
-        }
-
-        /// Same as `note_imminent_preimage` but origin is `OperationalPreimageOrigin`.
-        #[pallet::weight((
-			T::WeightInfo::note_imminent_preimage(encoded_proposal.len() as u32),
-			DispatchClass::Operational,
-		))]
-        pub fn note_imminent_preimage_operational(
-            origin: OriginFor<T>,
-            encoded_proposal: Vec<u8>,
-        ) -> DispatchResultWithPostInfo {
-            let who = T::OperationalPreimageOrigin::ensure_origin(origin)?;
-            Self::note_imminent_preimage_inner(who, encoded_proposal)?;
             // We check that this preimage was not uploaded before in
             // `note_imminent_preimage_inner`, thus this call can only be successful once. If
             // successful, user does not pay a fee.

@@ -17,15 +17,11 @@ fn missing_preimage_should_fail() {
 
 #[test]
 fn preimage_deposit_should_be_required_and_returned() {
-    new_test_ext_execute_with_cond(|operational| {
+    new_test_ext().execute_with(|| {
         // fee of 100 is too much.
         PREIMAGE_BYTE_DEPOSIT.with(|v| *v.borrow_mut() = 100);
         assert_noop!(
-            if operational {
-                Democracy::note_preimage_operational(Origin::signed(6), vec![0; 500])
-            } else {
-                Democracy::note_preimage(Origin::signed(6), vec![0; 500])
-            },
+            Democracy::note_preimage(Origin::signed(6), vec![0; 500]),
             BalancesError::<Test, _>::InsufficientBalance,
         );
         // fee of 1 is reasonable.
@@ -51,13 +47,9 @@ fn preimage_deposit_should_be_required_and_returned() {
 
 #[test]
 fn preimage_deposit_should_be_reapable_earlier_by_owner() {
-    new_test_ext_execute_with_cond(|operational| {
+    new_test_ext().execute_with(|| {
         PREIMAGE_BYTE_DEPOSIT.with(|v| *v.borrow_mut() = 1);
-        assert_ok!(if operational {
-            Democracy::note_preimage_operational(Origin::signed(6), set_balance_proposal(2))
-        } else {
-            Democracy::note_preimage(Origin::signed(6), set_balance_proposal(2))
-        });
+        assert_ok!(Democracy::note_preimage(Origin::signed(6), set_balance_proposal(2)));
 
         assert_eq!(Balances::reserved_balance(6), 12);
 
@@ -80,18 +72,14 @@ fn preimage_deposit_should_be_reapable_earlier_by_owner() {
 
 #[test]
 fn preimage_deposit_should_be_reapable() {
-    new_test_ext_execute_with_cond(|operational| {
+    new_test_ext().execute_with(|| {
         assert_noop!(
             Democracy::reap_preimage(Origin::signed(5), set_balance_proposal_hash(2), u32::MAX),
             Error::<Test>::PreimageMissing
         );
 
         PREIMAGE_BYTE_DEPOSIT.with(|v| *v.borrow_mut() = 1);
-        assert_ok!(if operational {
-            Democracy::note_preimage_operational(Origin::signed(6), set_balance_proposal(2))
-        } else {
-            Democracy::note_preimage(Origin::signed(6), set_balance_proposal(2))
-        });
+        assert_ok!(Democracy::note_preimage(Origin::signed(6), set_balance_proposal(2)));
         assert_eq!(Balances::reserved_balance(6), 12);
 
         next_block();
@@ -116,18 +104,14 @@ fn preimage_deposit_should_be_reapable() {
 
 #[test]
 fn noting_imminent_preimage_for_free_should_work() {
-    new_test_ext_execute_with_cond(|operational| {
+    new_test_ext().execute_with(|| {
         PREIMAGE_BYTE_DEPOSIT.with(|v| *v.borrow_mut() = 1);
 
         let r = Democracy::inject_referendum(2, set_balance_proposal_hash(2), VoteThreshold::SuperMajorityApprove, 1);
         assert_ok!(Democracy::vote(Origin::signed(1), r, aye(1)));
 
         assert_noop!(
-            if operational {
-                Democracy::note_imminent_preimage_operational(Origin::signed(6), set_balance_proposal(2))
-            } else {
-                Democracy::note_imminent_preimage(Origin::signed(6), set_balance_proposal(2))
-            },
+            Democracy::note_imminent_preimage(Origin::signed(6), set_balance_proposal(2)),
             Error::<Test>::NotImminent
         );
 
