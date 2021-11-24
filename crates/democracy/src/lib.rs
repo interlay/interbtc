@@ -571,6 +571,27 @@ pub mod pallet {
             Ok(())
         }
 
+        /// Remove a proposal.
+        ///
+        /// The dispatch origin of this call must be _Root_.
+        ///
+        /// - `prop_index`: The index of the proposal to cancel.
+        ///
+        /// Weight: `O(p)` where `p = PublicProps::<T>::decode_len()`
+        #[pallet::weight(T::WeightInfo::cancel_proposal(T::MaxProposals::get()))]
+        pub fn cancel_proposal(origin: OriginFor<T>, #[pallet::compact] prop_index: PropIndex) -> DispatchResult {
+            ensure_root(origin)?;
+
+            PublicProps::<T>::mutate(|props| props.retain(|p| p.0 != prop_index));
+            if let Some((whos, amount)) = DepositOf::<T>::take(prop_index) {
+                for who in whos.into_iter() {
+                    T::Currency::unreserve(&who, amount);
+                }
+            }
+
+            Ok(())
+        }
+
         /// Register the preimage for an upcoming proposal. This doesn't require the proposal to be
         /// in the dispatch queue but does require a deposit, returned once enacted.
         ///
