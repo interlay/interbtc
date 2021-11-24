@@ -62,10 +62,8 @@ Administration actions that can be done to any account:
 Preimage actions:
 - `note_preimage` - Registers the preimage for an upcoming proposal, requires
   a deposit that is returned once the proposal is enacted.
-- `note_preimage_operational` - same but provided by `T::OperationalPreimageOrigin`.
 - `note_imminent_preimage` - Registers the preimage for an upcoming proposal.
   Does not require a deposit, but the proposal must be in the dispatch queue.
-- `note_imminent_preimage_operational` - same but provided by `T::OperationalPreimageOrigin`.
 - `reap_preimage` - Removes the preimage for an expired proposal. Will only
   work under the condition that it's the same account that noted it and
   after the voting period, OR it's a different account after the enactment period.
