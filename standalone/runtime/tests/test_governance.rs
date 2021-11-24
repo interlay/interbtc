@@ -194,6 +194,46 @@ fn setup_council_proposal(amount_to_set: u128) {
 }
 
 #[test]
+fn can_recover_from_shutdown() {
+    test_with(|| {
+        // use sudo to set parachain status
+        assert_ok!(Call::Sudo(SudoCall::sudo {
+            call: Box::new(Call::Security(SecurityCall::set_parachain_status {
+                status_code: StatusCode::Shutdown,
+            })),
+        })
+        .dispatch(origin_of(account_of(ALICE))));
+
+        // verify we cant execute normal calls
+        assert_noop!(
+            Call::Tokens(TokensCall::transfer {
+                dest: account_of(ALICE),
+                currency_id: NATIVE_CURRENCY_ID,
+                amount: 123,
+            })
+            .dispatch(origin_of(account_of(ALICE))),
+            DispatchError::BadOrigin
+        );
+
+        // use sudo to set parachain status back to running
+        assert_ok!(Call::Sudo(SudoCall::sudo {
+            call: Box::new(Call::Security(SecurityCall::set_parachain_status {
+                status_code: StatusCode::Running,
+            }))
+        })
+        .dispatch(origin_of(account_of(ALICE))));
+
+        // verify that we can execute normal calls again
+        assert_ok!(Call::Tokens(TokensCall::transfer {
+            dest: account_of(ALICE),
+            currency_id: NATIVE_CURRENCY_ID,
+            amount: 123,
+        })
+        .dispatch(origin_of(account_of(ALICE))));
+    });
+}
+
+#[test]
 fn integration_test_governance_council() {
     test_with(|| {
         let amount_to_set = 1000;
