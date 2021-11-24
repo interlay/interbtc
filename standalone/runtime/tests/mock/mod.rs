@@ -146,6 +146,9 @@ pub type ReplacePallet = replace::Pallet<Runtime>;
 
 pub type SecurityError = security::Error<Runtime>;
 pub type SecurityPallet = security::Pallet<Runtime>;
+pub type SecurityCall = security::Call<Runtime>;
+
+pub type SudoCall = pallet_sudo::Call<Runtime>;
 
 pub type RelayCall = relay::Call<Runtime>;
 pub type RelayPallet = relay::Pallet<Runtime>;
