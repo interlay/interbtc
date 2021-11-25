@@ -22,17 +22,16 @@ use codec::{Decode, Encode};
 use frame_support::{
     ensure,
     traits::{
-        BalanceStatus, Currency, ExistenceRequirement, Get, LockIdentifier, LockableCurrency, ReservableCurrency,
-        SignedImbalance, WithdrawReasons,
+        BalanceStatus, Currency, ExistenceRequirement, Get, Imbalance, LockIdentifier, LockableCurrency,
+        ReservableCurrency, SignedImbalance, WithdrawReasons,
     },
     transactional,
 };
 use scale_info::TypeInfo;
 use sp_runtime::{
-    traits::{AtLeast32BitUnsigned, Convert, Saturating, Zero},
+    traits::{AtLeast32BitUnsigned, CheckedSub, Convert, Saturating, Zero},
     DispatchError, DispatchResult,
 };
-use sp_std::marker::PhantomData;
 
 const LOCK_ID: LockIdentifier = *b"escrowed";
 
@@ -138,10 +137,15 @@ pub mod pallet {
         LockNotExpired,
         LockHasExpired,
         InsufficientFunds,
+        InvalidAction,
     }
 
     #[pallet::hooks]
     impl<T: Config> Hooks<T::BlockNumber> for Pallet<T> {}
+
+    #[pallet::storage]
+    #[pallet::getter(fn reserved_balance)]
+    pub type Reserved<T: Config> = StorageMap<_, Blake2_128Concat, T::AccountId, BalanceOf<T>, ValueQuery>;
 
     #[pallet::storage]
     #[pallet::getter(fn locked_balance)]
@@ -461,12 +465,7 @@ impl<T: Config> Pallet<T> {
     }
 }
 
-pub struct CurrencyAdapter<T>(PhantomData<T>);
-
-impl<T> Currency<T::AccountId> for CurrencyAdapter<T>
-where
-    T: Config,
-{
+impl<T: Config> Currency<T::AccountId> for Pallet<T> {
     type Balance = BalanceOf<T>;
     type PositiveImbalance = PositiveImbalanceOf<T>;
     type NegativeImbalance = NegativeImbalanceOf<T>;
@@ -475,70 +474,79 @@ where
         Pallet::<T>::balance_at(who, None)
     }
 
-    fn can_slash(who: &T::AccountId, value: Self::Balance) -> bool {
-        T::Currency::can_slash(who, value)
+    // NOT SUPPORTED
+    fn can_slash(_who: &T::AccountId, _value: Self::Balance) -> bool {
+        false
     }
 
     fn total_issuance() -> Self::Balance {
-        T::Currency::total_issuance()
+        Pallet::<T>::total_supply(None)
     }
 
     fn minimum_balance() -> Self::Balance {
         T::Currency::minimum_balance()
     }
 
-    fn burn(amount: Self::Balance) -> Self::PositiveImbalance {
-        T::Currency::burn(amount)
+    // NOT SUPPORTED
+    fn burn(_amount: Self::Balance) -> Self::PositiveImbalance {
+        Imbalance::zero()
     }
 
-    fn issue(amount: Self::Balance) -> Self::NegativeImbalance {
-        T::Currency::issue(amount)
+    // NOT SUPPORTED
+    fn issue(_amount: Self::Balance) -> Self::NegativeImbalance {
+        Imbalance::zero()
     }
 
     fn free_balance(who: &T::AccountId) -> Self::Balance {
-        T::Currency::free_balance(who)
+        Pallet::<T>::balance_at(who, None).saturating_sub(Pallet::<T>::reserved_balance(who))
     }
 
+    // NOT SUPPORTED
     fn ensure_can_withdraw(
-        who: &T::AccountId,
-        amount: Self::Balance,
-        reasons: WithdrawReasons,
-        new_balance: Self::Balance,
+        _who: &T::AccountId,
+        _amount: Self::Balance,
+        _reasons: WithdrawReasons,
+        _new_balance: Self::Balance,
     ) -> DispatchResult {
-        T::Currency::ensure_can_withdraw(who, amount, reasons, new_balance)
+        Err(Error::<T>::InvalidAction.into())
     }
 
+    // NOT SUPPORTED
     fn transfer(
-        source: &T::AccountId,
-        dest: &T::AccountId,
-        value: Self::Balance,
-        existence_requirement: ExistenceRequirement,
+        _source: &T::AccountId,
+        _dest: &T::AccountId,
+        _value: Self::Balance,
+        _existence_requirement: ExistenceRequirement,
     ) -> DispatchResult {
-        T::Currency::transfer(source, dest, value, existence_requirement)
+        Err(Error::<T>::InvalidAction.into())
     }
 
-    fn slash(who: &T::AccountId, value: Self::Balance) -> (Self::NegativeImbalance, Self::Balance) {
-        T::Currency::slash(who, value)
+    // NOT SUPPORTED
+    fn slash(_who: &T::AccountId, _value: Self::Balance) -> (Self::NegativeImbalance, Self::Balance) {
+        (Imbalance::zero(), Zero::zero())
     }
 
+    // NOT SUPPORTED
     fn deposit_into_existing(
-        who: &T::AccountId,
-        value: Self::Balance,
+        _who: &T::AccountId,
+        _value: Self::Balance,
     ) -> sp_std::result::Result<Self::PositiveImbalance, DispatchError> {
-        T::Currency::deposit_into_existing(who, value)
+        Err(Error::<T>::InvalidAction.into())
     }
 
-    fn deposit_creating(who: &T::AccountId, value: Self::Balance) -> Self::PositiveImbalance {
-        T::Currency::deposit_creating(who, value)
+    // NOT SUPPORTED
+    fn deposit_creating(_who: &T::AccountId, _value: Self::Balance) -> Self::PositiveImbalance {
+        Imbalance::zero()
     }
 
+    // NOT SUPPORTED
     fn withdraw(
-        who: &T::AccountId,
-        value: Self::Balance,
-        reasons: WithdrawReasons,
-        liveness: ExistenceRequirement,
+        _who: &T::AccountId,
+        _value: Self::Balance,
+        _reasons: WithdrawReasons,
+        _liveness: ExistenceRequirement,
     ) -> sp_std::result::Result<Self::NegativeImbalance, DispatchError> {
-        T::Currency::withdraw(who, value, reasons, liveness)
+        Err(Error::<T>::InvalidAction.into())
     }
 
     fn make_free_balance_be(
@@ -549,36 +557,48 @@ where
     }
 }
 
-impl<T> ReservableCurrency<T::AccountId> for CurrencyAdapter<T>
-where
-    T: Config,
-{
+impl<T: Config> ReservableCurrency<T::AccountId> for Pallet<T> {
     fn can_reserve(who: &T::AccountId, value: Self::Balance) -> bool {
-        T::Currency::can_reserve(who, value)
+        Pallet::<T>::free_balance(who).checked_sub(&value).is_some()
     }
 
-    fn slash_reserved(who: &T::AccountId, value: Self::Balance) -> (Self::NegativeImbalance, Self::Balance) {
-        T::Currency::slash_reserved(who, value)
+    // NOT SUPPORTED
+    fn slash_reserved(_who: &T::AccountId, _value: Self::Balance) -> (Self::NegativeImbalance, Self::Balance) {
+        (Imbalance::zero(), Zero::zero())
     }
 
     fn reserved_balance(who: &T::AccountId) -> Self::Balance {
-        T::Currency::reserved_balance(who)
+        Pallet::<T>::reserved_balance(who)
     }
 
     fn reserve(who: &T::AccountId, value: Self::Balance) -> DispatchResult {
-        T::Currency::reserve(who, value)
+        if !Pallet::<T>::can_reserve(who, value) {
+            return Err(Error::<T>::InsufficientFunds.into());
+        }
+        <Reserved<T>>::mutate(who, |previous| previous.saturating_accrue(value));
+        Ok(())
     }
 
     fn unreserve(who: &T::AccountId, value: Self::Balance) -> Self::Balance {
-        T::Currency::unreserve(who, value)
+        <Reserved<T>>::mutate(who, |previous| {
+            if value > *previous {
+                let remainder = value - *previous;
+                *previous = Zero::zero();
+                remainder
+            } else {
+                *previous -= value;
+                Zero::zero()
+            }
+        })
     }
 
+    // NOT SUPPORTED
     fn repatriate_reserved(
-        slashed: &T::AccountId,
-        beneficiary: &T::AccountId,
-        value: Self::Balance,
-        status: BalanceStatus,
+        _slashed: &T::AccountId,
+        _beneficiary: &T::AccountId,
+        _value: Self::Balance,
+        _status: BalanceStatus,
     ) -> sp_std::result::Result<Self::Balance, DispatchError> {
-        T::Currency::repatriate_reserved(slashed, beneficiary, value, status)
+        Err(Error::<T>::InvalidAction.into())
     }
 }

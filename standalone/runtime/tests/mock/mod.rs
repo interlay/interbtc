@@ -16,8 +16,8 @@ pub use frame_support::{
 };
 use interbtc_runtime_standalone::GetNativeCurrencyId;
 pub use interbtc_runtime_standalone::{
-    AccountId, BlockNumber, Call, CouncilInstance, CurrencyId, Event, GetCollateralCurrencyId, GetWrappedCurrencyId,
-    Runtime, TechnicalCommitteeInstance, DOT, INTERBTC,
+    AccountId, BlockNumber, Call, CurrencyId, Event, GetCollateralCurrencyId, GetWrappedCurrencyId, Runtime,
+    TechnicalCommitteeInstance, DOT, INTERBTC,
 };
 pub use mocktopus::mocking::*;
 pub use orml_tokens::CurrencyAdapter;
@@ -1366,13 +1366,6 @@ impl ExtBuilder {
         refund::GenesisConfig::<Runtime> {
             refund_btc_dust_value: 3,
             refund_transaction_size: 401,
-        }
-        .assimilate_storage(&mut storage)
-        .unwrap();
-
-        pallet_collective::GenesisConfig::<Runtime, CouncilInstance> {
-            members: vec![account_of(ALICE), account_of(BOB)],
-            phantom: Default::default(),
         }
         .assimilate_storage(&mut storage)
         .unwrap();

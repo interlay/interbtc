@@ -1,6 +1,9 @@
 /// Tests for Escrow
 use crate::mock::*;
-use frame_support::{assert_err, assert_ok, traits::Currency};
+use frame_support::{
+    assert_err, assert_ok,
+    traits::{Currency, ReservableCurrency},
+};
 
 fn create_lock(origin: AccountId, amount: Balance, end_time: BlockNumber) {
     <Balances as Currency<AccountId>>::make_free_balance_be(&origin, amount);
@@ -116,5 +119,21 @@ fn should_calculate_total_supply() {
         assert_eq!(Escrow::balance_at(&ALICE, Some(current_time)), 600);
         assert_eq!(Escrow::balance_at(&BOB, Some(current_time)), 2000);
         assert_eq!(Escrow::total_supply(Some(current_time)), 2600);
+    })
+}
+
+#[test]
+fn should_create_lock_and_reserve() {
+    run_test(|| {
+        let end_time = MaxPeriod::get();
+        let free_balance = 900;
+        let reserved_balance = 100;
+        let total_balance = free_balance + reserved_balance;
+
+        create_lock(ALICE, total_balance, end_time);
+        assert_eq!(Escrow::free_balance(&ALICE), total_balance);
+        assert_ok!(Escrow::reserve(&ALICE, reserved_balance));
+        assert_eq!(Escrow::free_balance(&ALICE), free_balance);
+        assert_eq!(Escrow::total_balance(&ALICE), total_balance);
     })
 }

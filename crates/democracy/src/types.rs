@@ -7,6 +7,7 @@ use sp_runtime::{
     traits::{Bounded, CheckedAdd, CheckedDiv, CheckedMul, CheckedSub, Saturating, Zero},
     RuntimeDebug,
 };
+use sp_std::prelude::*;
 
 /// A standard vote, one-way (approve or reject).
 #[derive(Encode, Decode, Copy, Clone, Eq, PartialEq, RuntimeDebug, TypeInfo)]

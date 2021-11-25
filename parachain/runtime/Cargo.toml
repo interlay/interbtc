@@ -44,11 +44,9 @@ frame-system-rpc-runtime-api = { git = "https://github.com/paritytech/substrate"
 pallet-transaction-payment-rpc-runtime-api = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.12", default-features = false }
 
 ## Governance
-pallet-democracy = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.12", default-features = false }
 pallet-collective = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.12", default-features = false }
 pallet-membership = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.12", default-features = false }
 pallet-society = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.12", default-features = false }
-pallet-elections-phragmen = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.12", default-features = false }
 
 # Aura & GRANDPA dependencies
 pallet-aura = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.12", default-features = false }
@@ -86,6 +84,9 @@ refund = { path = "../../crates/refund", default-features = false }
 nomination = { path = "../../crates/nomination", default-features = false }
 reward = { path = "../../crates/reward", default-features = false }
 staking = { path = "../../crates/staking", default-features = false }
+escrow = { path = "../../crates/escrow", default-features = false }
+democracy = { path = "../../crates/democracy", default-features = false }
+
 supply = { path = "../../crates/supply", default-features = false }
 collator-setter = { path = "../../crates/collator-setter", default-features = false }
 
@@ -160,11 +161,9 @@ std = [
   "frame-system-rpc-runtime-api/std",
   "pallet-transaction-payment-rpc-runtime-api/std",
 
-  "pallet-democracy/std",
   "pallet-collective/std",
   "pallet-membership/std",
   "pallet-society/std",
-  "pallet-elections-phragmen/std",
 
   "pallet-aura/std",
   "sp-consensus-aura/std",
@@ -198,6 +197,9 @@ std = [
   "nomination/std",
   "reward/std",
   "staking/std",
+  "escrow/std",
+  "democracy/std",
+
   "supply/std",
   "collator-setter/std",
 
