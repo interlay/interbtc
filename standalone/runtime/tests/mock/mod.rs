@@ -1371,7 +1371,7 @@ impl ExtBuilder {
         .unwrap();
 
         pallet_collective::GenesisConfig::<Runtime, TechnicalCommitteeInstance> {
-            members: vec![account_of(ALICE), account_of(BOB)],
+            members: vec![account_of(ALICE)],
             phantom: Default::default(),
         }
         .assimilate_storage(&mut storage)
