@@ -1,9 +1,9 @@
 use bitcoin::utils::{virtual_transaction_size, InputType, TransactionInputMetadata, TransactionOutputMetadata};
 use hex_literal::hex;
 use interbtc_runtime::{
-    AccountId, AuraConfig, BTCRelayConfig, CouncilConfig, CurrencyId, FeeConfig, GenesisConfig, GetWrappedCurrencyId,
-    GrandpaConfig, IssueConfig, NominationConfig, OracleConfig, RedeemConfig, RefundConfig, ReplaceConfig,
-    SecurityConfig, Signature, StatusCode, SudoConfig, SystemConfig, TokensConfig, VaultRegistryConfig,
+    AccountId, AuraConfig, BTCRelayConfig, CurrencyId, FeeConfig, GenesisConfig, GetWrappedCurrencyId, GrandpaConfig,
+    IssueConfig, NominationConfig, OracleConfig, RedeemConfig, RefundConfig, ReplaceConfig, SecurityConfig, Signature,
+    StatusCode, SudoConfig, SystemConfig, TechnicalCommitteeConfig, TokensConfig, VaultRegistryConfig,
     BITCOIN_BLOCK_SPACING, DAYS, DOT, INTR, KINT, KSM, WASM_BINARY,
 };
 use primitives::VaultCurrencyPair;
@@ -360,18 +360,12 @@ fn testnet_genesis(
         nomination: NominationConfig {
             is_nomination_enabled: false,
         },
-        council: CouncilConfig {
-            members: vec![
-                get_account_id_from_seed::<sr25519::Public>("Alice"),
-                get_account_id_from_seed::<sr25519::Public>("Bob"),
-                get_account_id_from_seed::<sr25519::Public>("Charlie"),
-            ],
+        technical_committee: TechnicalCommitteeConfig {
+            members: vec![get_account_id_from_seed::<sr25519::Public>("Alice")],
             phantom: Default::default(),
         },
-        technical_committee: Default::default(),
-        treasury: Default::default(),
         technical_membership: Default::default(),
+        treasury: Default::default(),
         democracy: Default::default(),
-        elections_phragmen: Default::default(),
     }
 }

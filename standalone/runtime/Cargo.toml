@@ -44,11 +44,9 @@ frame-system-rpc-runtime-api = { git = "https://github.com/paritytech/substrate"
 pallet-transaction-payment-rpc-runtime-api = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.12", default-features = false }
 
 ## Governance
-pallet-democracy = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.12", default-features = false }
 pallet-collective = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.12", default-features = false }
 pallet-membership = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.12", default-features = false }
 pallet-society = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.12", default-features = false }
-pallet-elections-phragmen = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.12", default-features = false }
 
 # Aura & GRANDPA dependencies
 pallet-grandpa = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.12", default-features = false }
@@ -71,6 +69,7 @@ nomination = { path = "../../crates/nomination", default-features = false }
 reward = { path = "../../crates/reward", default-features = false }
 staking = { path = "../../crates/staking", default-features = false }
 escrow = { path = "../../crates/escrow", default-features = false }
+democracy = { path = "../../crates/democracy", default-features = false }
 
 primitives = { package = "interbtc-primitives", path = "../../primitives", default-features = false }
 
@@ -97,7 +96,6 @@ flate2= "1.0"
 bitcoin = { path = "../../crates/bitcoin", default-features = false }
 
 vault-registry = { path = "../../crates/vault-registry", default-features = false, features = ["integration-tests"]}
-
 
 [build-dependencies]
 substrate-wasm-builder = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.12" }
@@ -134,11 +132,9 @@ std = [
   "pallet-treasury/std",
   "pallet-scheduler/std",
 
-  "pallet-democracy/std",
   "pallet-collective/std",
   "pallet-membership/std",
   "pallet-society/std",
-  "pallet-elections-phragmen/std",
 
   "frame-system-rpc-runtime-api/std",
   "pallet-transaction-payment-rpc-runtime-api/std",
@@ -163,6 +159,7 @@ std = [
   "reward/std",
   "staking/std",
   "escrow/std",
+  "democracy/std",
 
   "primitives/std",
 

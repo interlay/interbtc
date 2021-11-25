@@ -366,12 +366,10 @@ fn testnet_genesis(
         nomination: NominationConfig {
             is_nomination_enabled: false,
         },
-        council: Default::default(),
         technical_committee: Default::default(),
-        treasury: Default::default(),
         technical_membership: Default::default(),
+        treasury: Default::default(),
         democracy: Default::default(),
-        elections_phragmen: Default::default(),
         supply: SupplyConfig {
             initial_supply: token_distribution::INITIAL_ALLOCATION,
             start_height: YEARS * 5,
@@ -595,12 +593,10 @@ fn mainnet_genesis(
         nomination: NominationConfig {
             is_nomination_enabled: false,
         },
-        council: Default::default(),
         technical_committee: Default::default(),
-        treasury: Default::default(),
         technical_membership: Default::default(),
+        treasury: Default::default(),
         democracy: Default::default(),
-        elections_phragmen: Default::default(),
         supply: SupplyConfig {
             initial_supply: token_distribution::INITIAL_ALLOCATION,
             start_height: YEARS * 5,
