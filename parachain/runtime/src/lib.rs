@@ -364,7 +364,7 @@ pub const MILLICENTS: Balance = CENTS / 1_000;
 type EnsureRootOrAllTechnicalCommittee = EnsureOneOf<
     AccountId,
     EnsureRoot<AccountId>,
-    pallet_collective::EnsureProportionMoreThan<_1, _1, AccountId, TechnicalCommitteeInstance>,
+    pallet_collective::EnsureProportionAtLeast<_1, _1, AccountId, TechnicalCommitteeInstance>,
 >;
 
 parameter_types! {
