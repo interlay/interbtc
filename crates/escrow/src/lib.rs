@@ -1,6 +1,16 @@
-//! # Escrow Module
-//! Receive vote-escrowed tokens for locking the native currency.
-//! Follows the specification at https://spec.interlay.io/spec/escrow.html
+//! # Escrow Pallet
+//!
+//! - [`Config`]
+//! - [`Call`]
+//!
+//! ## Overview
+//!
+//! The escrow pallet allows accounts to lock the native currency and receive vote-escrowed tokens.
+//! This voting power linearly decreases per block and tends toward zero as the height approaches
+//! the max lockup period.
+//!
+//! This implementation is based in part on Curve's implementation, but explicitly follows
+//! the specification at <https://spec.interlay.io/spec/escrow.html>.
 
 #![deny(warnings)]
 #![cfg_attr(test, feature(proc_macro_hygiene))]
