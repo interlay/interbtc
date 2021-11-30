@@ -2,6 +2,7 @@ use bitcoin::utils::{virtual_transaction_size, InputType, TransactionInputMetada
 use hex_literal::hex;
 use interbtc_runtime::{
 <<<<<<< HEAD
+<<<<<<< HEAD
     AccountId, AuraConfig, BTCRelayConfig, CurrencyId, FeeConfig, GenesisConfig, GetWrappedCurrencyId, GrandpaConfig,
     IssueConfig, NominationConfig, OracleConfig, RedeemConfig, RefundConfig, ReplaceConfig, SecurityConfig, Signature,
     StatusCode, SudoConfig, SystemConfig, TechnicalCommitteeConfig, TokensConfig, VaultRegistryConfig,
@@ -11,10 +12,16 @@ use interbtc_runtime::{
     SecurityConfig, Signature, StatusCode, SudoConfig, SystemConfig, TokensConfig, VaultRegistryConfig,
 >>>>>>> f8e384f9 (refactor(standalone): Remove unused dependencies)
     BITCOIN_BLOCK_SPACING, DAYS, DOT, INTR, KINT, KSM, WASM_BINARY,
+=======
+    AccountId, AuraConfig, BTCRelayConfig, CurrencyId, FeeConfig, GenesisConfig, GetWrappedCurrencyId, IssueConfig,
+    NominationConfig, OracleConfig, RedeemConfig, RefundConfig, ReplaceConfig, SecurityConfig, Signature, StatusCode,
+    SudoConfig, SystemConfig, TechnicalCommitteeConfig, TokensConfig, VaultRegistryConfig, BITCOIN_BLOCK_SPACING, DAYS,
+    DOT, INTR, KINT, KSM, WASM_BINARY,
+>>>>>>> aa3bf583 (refactor: remove grandpa, telemetry and rpcs from standalone service)
 };
 use primitives::VaultCurrencyPair;
+use sp_consensus_aura::sr25519::AuthorityId as AuraId;
 use sp_core::crypto::UncheckedInto;
-use sp_finality_grandpa::AuthorityId as GrandpaId;
 
 use interbtc_rpc::jsonrpc_core::serde_json::{map::Map, Value};
 use sc_service::ChainType;
@@ -36,8 +43,8 @@ pub fn get_from_seed<TPublic: Public>(seed: &str) -> <TPublic::Pair as Pair>::Pu
 }
 
 /// Generate an Aura authority key.
-pub fn authority_keys_from_seed(s: &str) -> GrandpaId {
-    get_from_seed::<GrandpaId>(s)
+pub fn authority_keys_from_seed(s: &str) -> AuraId {
+    get_from_seed::<AuraId>(s)
 }
 
 fn get_account_id_from_string(account_id: &str) -> AccountId {
@@ -234,7 +241,7 @@ fn expected_transaction_size() -> u32 {
 
 fn testnet_genesis(
     root_key: AccountId,
-    initial_authorities: Vec<GrandpaId>,
+    initial_authorities: Vec<AuraId>,
     endowed_accounts: Vec<AccountId>,
     authorized_oracles: Vec<(AccountId, Vec<u8>)>,
     bitcoin_confirmations: u32,
@@ -247,8 +254,8 @@ fn testnet_genesis(
                 .to_vec(),
             changes_trie_config: Default::default(),
         },
-        grandpa: GrandpaConfig {
-            authorities: initial_authorities.iter().map(|x| (x.clone(), 1)).collect(),
+        aura: AuraConfig {
+            authorities: initial_authorities,
         },
         security: SecurityConfig {
             initial_status: if start_shutdown {

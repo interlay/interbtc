@@ -160,9 +160,5 @@ pub fn run() -> Result<()> {
 }
 
 async fn start_node(_: Cli, config: Configuration) -> sc_service::error::Result<TaskManager> {
-    match config.role {
-        Role::Light => interbtc_service::new_light(config),
-        _ => interbtc_service::new_full(config),
-    }
-    .map(|(task_manager, _)| task_manager)
+    interbtc_service::new_full(config).map(|(task_manager, _)| task_manager)
 }

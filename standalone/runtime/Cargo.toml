@@ -26,6 +26,7 @@ sp-block-builder = { git = "https://github.com/paritytech/substrate", branch = "
 sp-transaction-pool = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.12", default-features = false }
 sp-inherents = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.12", default-features = false }
 sp-arithmetic = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.12", default-features = false }
+sp-consensus-aura = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.12", default-features = false }
 
 frame-support = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.12", default-features = false }
 frame-executive = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.12", default-features = false }
@@ -49,6 +50,7 @@ pallet-collective = { git = "https://github.com/paritytech/substrate", branch = 
 pallet-membership = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.12", default-features = false }
 pallet-society = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.12", default-features = false }
 
+<<<<<<< HEAD
 # Aura & GRANDPA dependencies
 <<<<<<< HEAD
 pallet-grandpa = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.12", default-features = false }
@@ -57,6 +59,10 @@ sp-consensus-aura = { git = "https://github.com/paritytech/substrate", branch = 
 =======
 pallet-grandpa = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.11", default-features = false }
 >>>>>>> f8e384f9 (refactor(standalone): Remove unused dependencies)
+=======
+# Aura dependencies
+pallet-aura = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.12", default-features = false }
+>>>>>>> aa3bf583 (refactor: remove grandpa, telemetry and rpcs from standalone service)
 
 # Parachain dependencies
 btc-relay = { path = "../../crates/btc-relay", default-features = false }
@@ -123,6 +129,7 @@ std = [
   "sp-transaction-pool/std",
   "sp-inherents/std",
   "sp-arithmetic/std",
+  "sp-consensus-aura/std",
 
   "frame-support/std",
   "frame-executive/std",
@@ -145,7 +152,7 @@ std = [
   "frame-system-rpc-runtime-api/std",
   "pallet-transaction-payment-rpc-runtime-api/std",
 
-  "pallet-grandpa/std",
+  "pallet-aura/std",
 
   "btc-relay/std",
   "currency/std",

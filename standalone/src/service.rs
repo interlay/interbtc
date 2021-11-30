@@ -1,6 +1,5 @@
-use futures::{StreamExt, channel::mpsc, future};
+use futures::{channel::mpsc, stream, StreamExt};
 use interbtc_runtime::{primitives::Block, RuntimeApi};
-use sc_client_api::RemoteBackend;
 use sc_consensus_manual_seal::{
     rpc::{ManualSeal, ManualSealApi},
     EngineCommand, ManualSealParams,
@@ -9,19 +8,8 @@ use sc_executor::NativeElseWasmExecutor;
 use sc_service::{
     error::Error as ServiceError, Configuration, RpcHandlers, TFullBackend, TFullClient, TaskManager, TransactionPool,
 };
-use sc_telemetry::{Telemetry, TelemetryWorker};
+use sp_consensus::SlotData;
 use std::sync::Arc;
-use module_btc_relay_rpc::{BtcRelay, BtcRelayApi};
-    use module_issue_rpc::{Issue, IssueApi};
-use module_oracle_rpc::{Oracle, OracleApi};
-use module_redeem_rpc::{Redeem, RedeemApi};
-use module_refund_rpc::{Refund, RefundApi};
-use module_relay_rpc::{Relay, RelayApi};
-use module_replace_rpc::{Replace, ReplaceApi};
-use module_vault_registry_rpc::{VaultRegistry, VaultRegistryApi};
-
-use pallet_transaction_payment_rpc::{TransactionPayment, TransactionPaymentApi};
-use substrate_frame_rpc_system::{FullSystem, SystemApi};
 
 use interbtc_runtime::Hash;
 
@@ -54,11 +42,7 @@ pub fn new_partial(
         FullSelectChain,
         sc_consensus::DefaultImportQueue<Block, FullClient>,
         sc_transaction_pool::FullPool<Block, FullClient>,
-        (
-            sc_finality_grandpa::GrandpaBlockImport<FullBackend, Block, FullClient, FullSelectChain>,
-            sc_finality_grandpa::LinkHalf<Block, FullClient, FullSelectChain>,
-            Option<Telemetry>,
-        ),
+        (),
     >,
     ServiceError,
 > {
@@ -66,36 +50,23 @@ pub fn new_partial(
         return Err(ServiceError::Other(format!("Remote Keystores are not supported.")));
     }
 
-    let telemetry = config
-        .telemetry_endpoints
-        .clone()
-        .filter(|x| !x.is_empty())
-        .map(|endpoints| -> Result<_, sc_telemetry::Error> {
-            let worker = TelemetryWorker::new(16)?;
-            let telemetry = worker.handle().new_telemetry(endpoints);
-            Ok((worker, telemetry))
-        })
-        .transpose()?;
-
     let executor = NativeElseWasmExecutor::<Executor>::new(
         config.wasm_method,
         config.default_heap_pages,
         config.max_runtime_instances,
     );
 
-    let (client, backend, keystore_container, task_manager) = sc_service::new_full_parts::<Block, RuntimeApi, _>(
-        &config,
-        telemetry.as_ref().map(|(_, telemetry)| telemetry.handle()),
-        executor,
-    )?;
+    let (client, backend, keystore_container, task_manager) =
+        sc_service::new_full_parts::<Block, RuntimeApi, _>(&config, None, executor)?;
     let client = Arc::new(client);
 
-    let telemetry = telemetry.map(|(worker, telemetry)| {
-        task_manager.spawn_handle().spawn("telemetry", worker.run());
-        telemetry
-    });
-
     let select_chain = sc_consensus::LongestChain::new(backend.clone());
+
+    let import_queue = sc_consensus_manual_seal::import_queue(
+        Box::new(client.clone()),
+        &task_manager.spawn_essential_handle(),
+        config.prometheus_registry(),
+    );
 
     let transaction_pool = sc_transaction_pool::BasicPool::new_full(
         config.transaction_pool.clone(),
@@ -106,19 +77,6 @@ pub fn new_partial(
         client.clone(),
     );
 
-    let (grandpa_block_import, grandpa_link) = sc_finality_grandpa::block_import(
-        client.clone(),
-        &(client.clone() as Arc<_>),
-        select_chain.clone(),
-        telemetry.as_ref().map(|x| x.handle()),
-    )?;
-
-    let import_queue = sc_consensus_manual_seal::import_queue(
-        Box::new(client.clone()),
-        &task_manager.spawn_essential_handle(),
-        config.prometheus_registry(),
-    );
-
     Ok(sc_service::PartialComponents {
         client,
         backend,
@@ -127,7 +85,7 @@ pub fn new_partial(
         keystore_container,
         select_chain,
         transaction_pool,
-        other: (grandpa_block_import, grandpa_link, telemetry),
+        other: (),
     })
 }
 
@@ -141,7 +99,7 @@ pub fn new_full(config: Configuration) -> Result<(TaskManager, RpcHandlers), Ser
         keystore_container,
         select_chain,
         transaction_pool,
-        other: (_grandpa_block_import, _grandpa_link, mut telemetry),
+        other: _,
     } = new_partial(&config)?;
 
     let (network, system_rpc_tx, network_starter) = sc_service::build_network(sc_service::BuildNetworkParams {
@@ -169,49 +127,38 @@ pub fn new_full(config: Configuration) -> Result<(TaskManager, RpcHandlers), Ser
     );
 
     // Channel for the rpc handler to communicate with the authorship task.
-    let (command_sink, _commands_stream) = mpsc::channel::<EngineCommand<Hash>>(10);
+    let (command_sink, commands_stream) = mpsc::channel::<EngineCommand<Hash>>(10);
 
     let rpc_sink = command_sink.clone();
 
-    let commands_stream = transaction_pool.import_notification_stream().map(|_| EngineCommand::SealNewBlock {
-		create_empty: true,
-		finalize: true,
-		parent_hash: None,
-		sender: None,
-	});
+    let pool_import_stream = transaction_pool
+        .clone()
+        .pool()
+        .validated_pool()
+        .import_notification_stream();
+
+    let pool_stream = pool_import_stream.map(|_| EngineCommand::SealNewBlock {
+        create_empty: true,
+        finalize: true,
+        parent_hash: None,
+        sender: None,
+    });
+
+    let combined_stream = stream::select(pool_stream, commands_stream);
+
     let rpc_extensions_builder = {
         let client = client.clone();
         let pool = transaction_pool.clone();
 
         Box::new(move |deny_unsafe, _| {
-            let mut io = jsonrpc_core::IoHandler::default();
-            io.extend_with(ManualSealApi::to_delegate(ManualSeal::new(rpc_sink.clone())));
-            
-            io.extend_with(SystemApi::to_delegate(FullSystem::new(
-                client.clone(),
-                pool.clone(),
+            let deps = interbtc_rpc::FullDeps {
+                client: client.clone(),
+                pool: pool.clone(),
                 deny_unsafe,
-            )));
-        
-            io.extend_with(TransactionPaymentApi::to_delegate(TransactionPayment::new(
-                client.clone(),
-            )));
-        
-            io.extend_with(BtcRelayApi::to_delegate(BtcRelay::new(client.clone())));
-        
-            io.extend_with(OracleApi::to_delegate(Oracle::new(client.clone())));
-        
-            io.extend_with(RelayApi::to_delegate(Relay::new(client.clone())));
-        
-            io.extend_with(VaultRegistryApi::to_delegate(VaultRegistry::new(client.clone())));
-        
-            io.extend_with(IssueApi::to_delegate(Issue::new(client.clone())));
-        
-            io.extend_with(RedeemApi::to_delegate(Redeem::new(client.clone())));
-        
-            io.extend_with(RefundApi::to_delegate(Refund::new(client.clone())));
-        
-            io.extend_with(ReplaceApi::to_delegate(Replace::new(client.clone())));
+            };
+
+            let mut io = interbtc_rpc::create_full(deps);
+            io.extend_with(ManualSealApi::to_delegate(ManualSeal::new(rpc_sink.clone())));
 
             Ok(io)
         })
@@ -229,113 +176,37 @@ pub fn new_full(config: Configuration) -> Result<(TaskManager, RpcHandlers), Ser
         remote_blockchain: None,
         network,
         system_rpc_tx,
-        telemetry: telemetry.as_mut(),
+        telemetry: None,
     })?;
-    
+
+    let slot_duration = sc_consensus_aura::slot_duration(&*client)?.slot_duration();
 
     // Background authorship future.
     let authorship_future = sc_consensus_manual_seal::run_manual_seal(ManualSealParams {
         block_import: client.clone(),
         env,
-        client,
+        client: client.clone(),
         pool: transaction_pool.clone(),
-        commands_stream,
+        commands_stream: combined_stream,
         select_chain,
         consensus_data_provider: None,
         create_inherent_data_providers: move |_, ()| async move {
-            Ok(sp_timestamp::InherentDataProvider::from_system_time())
+            let timestamp = sp_timestamp::InherentDataProvider::from_system_time();
+
+            let slot = sp_consensus_aura::inherents::InherentDataProvider::from_timestamp_and_duration(
+                *timestamp,
+                slot_duration,
+            );
+
+            Ok((timestamp, slot))
         },
     });
+
     // spawn the authorship task as an essential task.
     task_manager
         .spawn_essential_handle()
         .spawn("manual-seal", authorship_future);
 
     network_starter.start_network();
-    Ok((task_manager, rpc_handlers))
-}
-
-/// Builds a new service for a light client.
-pub fn new_light(mut config: Configuration) -> Result<(TaskManager, RpcHandlers), ServiceError> {
-    let telemetry = config
-        .telemetry_endpoints
-        .clone()
-        .filter(|x| !x.is_empty())
-        .map(|endpoints| -> Result<_, sc_telemetry::Error> {
-            let worker = TelemetryWorker::new(16)?;
-            let telemetry = worker.handle().new_telemetry(endpoints);
-            Ok((worker, telemetry))
-        })
-        .transpose()?;
-
-    let executor = NativeElseWasmExecutor::<Executor>::new(
-        config.wasm_method,
-        config.default_heap_pages,
-        config.max_runtime_instances,
-    );
-
-    let (client, backend, keystore_container, mut task_manager, on_demand) =
-        sc_service::new_light_parts::<Block, RuntimeApi, _>(
-            &config,
-            telemetry.as_ref().map(|(_, telemetry)| telemetry.handle()),
-            executor,
-        )?;
-
-    let mut telemetry = telemetry.map(|(worker, telemetry)| {
-        task_manager.spawn_handle().spawn("telemetry", worker.run());
-        telemetry
-    });
-
-    config
-        .network
-        .extra_sets
-        .push(sc_finality_grandpa::grandpa_peers_set_config());
-
-    let transaction_pool = Arc::new(sc_transaction_pool::BasicPool::new_light(
-        config.transaction_pool.clone(),
-        config.prometheus_registry(),
-        task_manager.spawn_essential_handle(),
-        client.clone(),
-        on_demand.clone(),
-    ));
-
-    let import_queue = sc_consensus_manual_seal::import_queue(
-        Box::new(client.clone()),
-        &task_manager.spawn_essential_handle(),
-        config.prometheus_registry(),
-    );
-
-    let (network, system_rpc_tx, network_starter) = sc_service::build_network(sc_service::BuildNetworkParams {
-        config: &config,
-        client: client.clone(),
-        transaction_pool: transaction_pool.clone(),
-        spawn_handle: task_manager.spawn_handle(),
-        import_queue,
-        on_demand: Some(on_demand.clone()),
-        block_announce_validator_builder: None,
-        warp_sync: None,
-    })?;
-
-    if config.offchain_worker.enabled {
-        sc_service::build_offchain_workers(&config, task_manager.spawn_handle(), client.clone(), network.clone());
-    }
-
-    let rpc_handlers = sc_service::spawn_tasks(sc_service::SpawnTasksParams {
-        remote_blockchain: Some(backend.remote_blockchain()),
-        transaction_pool,
-        task_manager: &mut task_manager,
-        on_demand: Some(on_demand),
-        rpc_extensions_builder: Box::new(|_, _| Ok(())),
-        config,
-        client,
-        keystore: keystore_container.sync_keystore(),
-        backend,
-        network,
-        system_rpc_tx,
-        telemetry: telemetry.as_mut(),
-    })?;
-
-    network_starter.start_network();
-
     Ok((task_manager, rpc_handlers))
 }

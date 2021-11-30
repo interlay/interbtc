@@ -3416,9 +3416,9 @@ dependencies = [
  "oracle",
  "orml-tokens",
  "orml-traits",
+ "pallet-aura",
  "pallet-balances",
  "pallet-collective",
- "pallet-grandpa",
  "pallet-membership",
  "pallet-multisig",
  "pallet-scheduler",
@@ -3443,6 +3443,7 @@ dependencies = [
  "sp-api",
  "sp-arithmetic",
  "sp-block-builder",
+ "sp-consensus-aura",
  "sp-core",
  "sp-inherents",
  "sp-io",
@@ -3471,23 +3472,18 @@ dependencies = [
  "interbtc-runtime-standalone",
  "jsonrpc-core",
  "log",
- "module-btc-relay-rpc",
- "module-issue-rpc",
- "module-oracle-rpc",
- "module-redeem-rpc",
- "module-refund-rpc",
- "module-relay-rpc",
- "module-replace-rpc",
- "module-vault-registry-rpc",
- "pallet-transaction-payment-rpc",
  "parity-scale-codec",
  "sc-basic-authorship",
  "sc-cli",
  "sc-client-api",
  "sc-consensus",
 <<<<<<< HEAD
+<<<<<<< HEAD
  "sc-consensus-aura",
 =======
+=======
+ "sc-consensus-aura",
+>>>>>>> aa3bf583 (refactor: remove grandpa, telemetry and rpcs from standalone service)
  "sc-consensus-babe",
  "sc-consensus-manual-seal",
 >>>>>>> f8e384f9 (refactor(standalone): Remove unused dependencies)
@@ -3518,7 +3514,6 @@ dependencies = [
  "sp-transaction-pool",
  "structopt",
  "substrate-build-script-utils",
- "substrate-frame-rpc-system",
 ]
 
 [[package]]
