@@ -2,22 +2,22 @@ use bitcoin::utils::{virtual_transaction_size, InputType, TransactionInputMetada
 use cumulus_primitives_core::ParaId;
 use hex_literal::hex;
 use interbtc_runtime::{
-    token_distribution, AccountId, AuraConfig, BTCRelayConfig, Balance, CurrencyId, FeeConfig, GenesisConfig,
-    GetWrappedCurrencyId, IssueConfig, NominationConfig, OracleConfig, ParachainInfoConfig, RedeemConfig, RefundConfig,
-    ReplaceConfig, SecurityConfig, Signature, StatusCode, SudoConfig, SupplyConfig, SystemConfig, TokensConfig,
-    VaultRegistryConfig, VestingConfig, BITCOIN_BLOCK_SPACING, DAYS, WASM_BINARY, YEARS,
+    token_distribution, AccountId, BTCRelayConfig, Balance, CollatorSelectionConfig, CurrencyId, FeeConfig,
+    GenesisConfig, GetWrappedCurrencyId, IssueConfig, NominationConfig, OracleConfig, ParachainInfoConfig,
+    RedeemConfig, RefundConfig, ReplaceConfig, SecurityConfig, SessionConfig, SessionKeys, Signature, StatusCode,
+    SudoConfig, SupplyConfig, SystemConfig, TokensConfig, VaultRegistryConfig, VestingConfig, BITCOIN_BLOCK_SPACING,
+    DAYS, WASM_BINARY, YEARS,
 };
 use primitives::{BlockNumber, VaultCurrencyPair, KINT};
 use sc_chain_spec::{ChainSpecExtension, ChainSpecGroup};
 use serde::{Deserialize, Serialize};
 use sp_consensus_aura::sr25519::AuthorityId as AuraId;
-use sp_core::crypto::UncheckedInto;
 
 use interbtc_rpc::jsonrpc_core::serde_json::{map::Map, Value};
 use sc_service::ChainType;
 use sp_arithmetic::{FixedPointNumber, FixedU128};
-use sp_core::{sr25519, Pair, Public};
-use sp_runtime::traits::{IdentifyAccount, Verify};
+use sp_core::{crypto::UncheckedInto, sr25519, Pair, Public};
+use sp_runtime::traits::{IdentifyAccount, Verify, Zero};
 use std::str::FromStr;
 
 // The URL for the telemetry server.
@@ -25,17 +25,6 @@ use std::str::FromStr;
 
 /// Specialized `ChainSpec` for the normal parachain runtime.
 pub type ChainSpec = sc_service::GenericChainSpec<GenesisConfig, Extensions>;
-
-/// Helper function to generate a crypto pair from seed
-pub fn get_from_seed<TPublic: Public>(seed: &str) -> <TPublic::Pair as Pair>::Public {
-    TPublic::Pair::from_string(&format!("//{}", seed), None)
-        .expect("static values are valid; qed")
-        .public()
-}
-
-fn get_account_id_from_string(account_id: &str) -> AccountId {
-    AccountId::from_str(account_id).expect("account id is not valid")
-}
 
 /// The extensions for the [`ChainSpec`].
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, ChainSpecExtension, ChainSpecGroup)]
@@ -56,12 +45,45 @@ impl Extensions {
 
 type AccountPublic = <Signature as Verify>::Signer;
 
+fn get_from_string<TPublic: Public>(src: &str) -> <TPublic::Pair as Pair>::Public {
+    TPublic::Pair::from_string(src, None)
+        .expect("static values are valid; qed")
+        .public()
+}
+
+/// Helper function to generate a crypto pair from seed
+fn get_from_seed<TPublic: Public>(seed: &str) -> <TPublic::Pair as Pair>::Public {
+    get_from_string::<TPublic>(&format!("//{}", seed))
+}
+
+fn get_account_id_from_string(account_id: &str) -> AccountId {
+    AccountId::from_str(account_id).expect("account id is not valid")
+}
+
 /// Helper function to generate an account ID from seed
-pub fn get_account_id_from_seed<TPublic: Public>(seed: &str) -> AccountId
+fn get_account_id_from_seed<TPublic: Public>(seed: &str) -> AccountId
 where
     AccountPublic: From<<TPublic::Pair as Pair>::Public>,
 {
     AccountPublic::from(get_from_seed::<TPublic>(seed)).into_account()
+}
+
+fn get_authority_keys_from_seed(seed: &str) -> (AccountId, AuraId) {
+    (
+        get_account_id_from_seed::<sr25519::Public>(seed),
+        get_from_seed::<AuraId>(seed),
+    )
+}
+
+fn get_authority_keys_from_public_key(src: [u8; 32]) -> (AccountId, AuraId) {
+    (src.clone().into(), src.unchecked_into())
+}
+
+/// Generate the session keys from individual elements.
+///
+/// The input must be a tuple of individual keys (a single arg for now since we have just one key).
+fn get_session_keys(keys: AuraId) -> SessionKeys {
+    SessionKeys { aura: keys }
 }
 
 const DEFAULT_MAX_DELAY_MS: u32 = 60 * 60 * 1000; // one hour
@@ -105,7 +127,7 @@ pub fn local_config(id: ParaId) -> ChainSpec {
         move || {
             testnet_genesis(
                 get_account_id_from_seed::<sr25519::Public>("Alice"),
-                vec![get_from_seed::<AuraId>("Alice")],
+                vec![get_authority_keys_from_seed("Alice")],
                 vec![(
                     get_account_id_from_seed::<sr25519::Public>("Bob"),
                     "Bob".as_bytes().to_vec(),
@@ -134,7 +156,7 @@ pub fn development_config(id: ParaId) -> ChainSpec {
         move || {
             testnet_genesis(
                 get_account_id_from_seed::<sr25519::Public>("Alice"),
-                vec![get_from_seed::<AuraId>("Alice")],
+                vec![get_authority_keys_from_seed("Alice")],
                 vec![
                     (
                         get_account_id_from_seed::<sr25519::Public>("Alice"),
@@ -175,11 +197,17 @@ pub fn rococo_testnet_config(id: ParaId) -> ChainSpec {
                 get_account_id_from_string("5HeVGqvfpabwFqzV1DhiQmjaLQiFcTSmq2sH6f7atsXkgvtt"),
                 vec![
                     // 5DJ3wbdicFSFFudXndYBuvZKjucTsyxtJX5WPzQM8HysSkFY
-                    hex!["366a092a27b4b28199a588b0155a2c9f3f0513d92481de4ee2138273926fa91c"].unchecked_into(),
+                    get_authority_keys_from_public_key(hex!(
+                        "366a092a27b4b28199a588b0155a2c9f3f0513d92481de4ee2138273926fa91c"
+                    )),
                     // 5HW7ApFamN6ovtDkFyj67tRLRhp8B2kVNjureRUWWYhkTg9j
-                    hex!["f08cc7cf45f88e6dbe312a63f6ce639061834b4208415b235f77a67b51435f63"].unchecked_into(),
+                    get_authority_keys_from_public_key(hex!(
+                        "f08cc7cf45f88e6dbe312a63f6ce639061834b4208415b235f77a67b51435f63"
+                    )),
                     // 5FNbq8zGPZtinsfgyD4w2G3BMh75H3r2Qg3uKudTZkJtRru6
-                    hex!["925ad4bdf35945bea91baeb5419a7ffa07002c6a85ba334adfa7cb5b05623c1b"].unchecked_into(),
+                    get_authority_keys_from_public_key(hex!(
+                        "925ad4bdf35945bea91baeb5419a7ffa07002c6a85ba334adfa7cb5b05623c1b"
+                    )),
                 ],
                 vec![
                     (
@@ -220,26 +248,46 @@ pub fn westend_testnet_config(id: ParaId) -> ChainSpec {
             testnet_genesis(
                 get_account_id_from_string("5DUupBJSyBDcqQudgPR4gttFie3cLPRw3HwaUfq9H2D2mKiA"),
                 vec![
-                    // 5H75GkhA6TnyCW7fM4H8LyoTqmPJWf3JuZZPFR9Bpv26LGHA (//authority/0)
-                    hex!["defbbf8f70964f6a4952bc168b6c1489b502e05d6b5ef57f8767589cf3813705"].unchecked_into(),
-                    // 5GdqW1xV8bpcJM1AVPWCdqrnUYJ9UQro1bWuPvmY2hoaQxWp (//authority/1)
-                    hex!["ca35c3927b934b111acadfcf98e9b50846e7596beb7a355df1ab50b1c48e3017"].unchecked_into(),
-                    // 5CdNwrXY3mFMMTiVsxbNTmg3MMDXcyErhxkdLx7yUqhXKopt (//authority/2)
-                    hex!["18eb708be158d0059d005da4188976caaa1aa24c8450ed3f4ad17e7a6a0cb85e"].unchecked_into(),
-                    // 5EcCjUzqBBpmf7E3gXFX3jFosY22yEL7iXYVFWZExPgF6YwD (//authority/3)
-                    hex!["707e47b5a236b10cc8dcb52698ab41ee4e3a23063d999e81af5781b1e03f7048"].unchecked_into(),
-                    // 5DoegnR7GDewmsswNgGuhZZQ8KxTPeVNd9MF1ezhSKdztEPD (//authority/4)
-                    hex!["4cfd1cfc3af74ef3189d6b92734eabae763ae86f1f6dfdf91b04e5d43a369175"].unchecked_into(),
-                    // 5GRKDYVdQ6AAS6xEQ85LzmxNwgP1u2YM81WAUjiD6YLbe69B (//authority/5)
-                    hex!["c0a8dfbd58ed57758594841d3cc8e6a34c97ef75380fe3c3925b1dbddf988f6f"].unchecked_into(),
-                    // 5FKbkKSb9jft3KpZSJviG8EFmdcLanpr4mBj56NpvQ6uL3bQ (//authority/6)
-                    hex!["9010d0a8a099505887e772417734ee94dc767b8ec00f42086dac9742f3b6e037"].unchecked_into(),
-                    // 5H8WaYthvpavtRmYkVkSBzCjbhHqYp9hnNhJXDDnVr2GJt6v (//authority/7)
-                    hex!["e0142f20c1ad92ac9467a4e01ecc0572c45704a730b5337b23b68cb7279a6b49"].unchecked_into(),
-                    // 5ECnot77onJJrSGbKtvTaB7L9zKXB9VrS97vSqBx5bcy15G9 (//authority/8)
-                    hex!["5ea31992c7fb94695c225010b47daf82dd9a1db4751362ae30f299d8164b6c3e"].unchecked_into(),
-                    // 5HNEdfdAvhvAA67pqPgoctiUTCraXkscSv5wYQbUwrKNmpQq (//authority/9)
-                    hex!["ea8bf097557a70b3c8beed5a95ecc127534f6fe00709c20352dcfb8bd073e240"].unchecked_into(),
+                    // 5H75GkhA6TnyCW7fM4H8LyoTqmPJWf3JuZZPFR9Bpv26LGHA
+                    get_authority_keys_from_public_key(hex!(
+                        "defbbf8f70964f6a4952bc168b6c1489b502e05d6b5ef57f8767589cf3813705"
+                    )),
+                    // 5GdqW1xV8bpcJM1AVPWCdqrnUYJ9UQro1bWuPvmY2hoaQxWp
+                    get_authority_keys_from_public_key(hex!(
+                        "ca35c3927b934b111acadfcf98e9b50846e7596beb7a355df1ab50b1c48e3017"
+                    )),
+                    // 5CdNwrXY3mFMMTiVsxbNTmg3MMDXcyErhxkdLx7yUqhXKopt
+                    get_authority_keys_from_public_key(hex!(
+                        "18eb708be158d0059d005da4188976caaa1aa24c8450ed3f4ad17e7a6a0cb85e"
+                    )),
+                    // 5EcCjUzqBBpmf7E3gXFX3jFosY22yEL7iXYVFWZExPgF6YwD
+                    get_authority_keys_from_public_key(hex!(
+                        "707e47b5a236b10cc8dcb52698ab41ee4e3a23063d999e81af5781b1e03f7048"
+                    )),
+                    // 5DoegnR7GDewmsswNgGuhZZQ8KxTPeVNd9MF1ezhSKdztEPD
+                    get_authority_keys_from_public_key(hex!(
+                        "4cfd1cfc3af74ef3189d6b92734eabae763ae86f1f6dfdf91b04e5d43a369175"
+                    )),
+                    // 5GRKDYVdQ6AAS6xEQ85LzmxNwgP1u2YM81WAUjiD6YLbe69B
+                    get_authority_keys_from_public_key(hex!(
+                        "c0a8dfbd58ed57758594841d3cc8e6a34c97ef75380fe3c3925b1dbddf988f6f"
+                    )),
+                    // 5FKbkKSb9jft3KpZSJviG8EFmdcLanpr4mBj56NpvQ6uL3bQ
+                    get_authority_keys_from_public_key(hex!(
+                        "9010d0a8a099505887e772417734ee94dc767b8ec00f42086dac9742f3b6e037"
+                    )),
+                    // 5H8WaYthvpavtRmYkVkSBzCjbhHqYp9hnNhJXDDnVr2GJt6v
+                    get_authority_keys_from_public_key(hex!(
+                        "e0142f20c1ad92ac9467a4e01ecc0572c45704a730b5337b23b68cb7279a6b49"
+                    )),
+                    // 5ECnot77onJJrSGbKtvTaB7L9zKXB9VrS97vSqBx5bcy15G9
+                    get_authority_keys_from_public_key(hex!(
+                        "5ea31992c7fb94695c225010b47daf82dd9a1db4751362ae30f299d8164b6c3e"
+                    )),
+                    // 5HNEdfdAvhvAA67pqPgoctiUTCraXkscSv5wYQbUwrKNmpQq
+                    get_authority_keys_from_public_key(hex!(
+                        "ea8bf097557a70b3c8beed5a95ecc127534f6fe00709c20352dcfb8bd073e240"
+                    )),
                 ],
                 vec![
                     (
@@ -276,7 +324,7 @@ fn default_pair(currency_id: CurrencyId) -> VaultCurrencyPair<CurrencyId> {
 
 fn testnet_genesis(
     root_key: AccountId,
-    initial_authorities: Vec<AuraId>,
+    invulnerables: Vec<(AccountId, AuraId)>,
     authorized_oracles: Vec<(AccountId, Vec<u8>)>,
     id: ParaId,
     bitcoin_confirmations: u32,
@@ -289,9 +337,27 @@ fn testnet_genesis(
                 .to_vec(),
             changes_trie_config: Default::default(),
         },
-        aura: AuraConfig {
-            authorities: initial_authorities,
+        collator_selection: CollatorSelectionConfig {
+            invulnerables: invulnerables.iter().cloned().map(|(acc, _)| acc).collect(),
+            candidacy_bond: Zero::zero(),
+            ..Default::default()
         },
+        session: SessionConfig {
+            keys: invulnerables
+                .iter()
+                .cloned()
+                .map(|(acc, aura)| {
+                    (
+                        acc.clone(),            // account id
+                        acc.clone(),            // validator id
+                        get_session_keys(aura), // session keys
+                    )
+                })
+                .collect(),
+        },
+        // no need to pass anything to aura, in fact it will panic if we do.
+        // Session will take care of this.
+        aura: Default::default(),
         aura_ext: Default::default(),
         parachain_system: Default::default(),
         parachain_info: ParachainInfoConfig { parachain_id: id },
@@ -388,23 +454,41 @@ pub fn polkadot_mainnet_config(id: ParaId) -> ChainSpec {
                 get_account_id_from_string("5E4kVWCtww5YmkWTR8Pf5q4apDbb1Ei5nZJ29e9DP2HgLJWn"),
                 vec![
                     // 5CDEceADNMhAgHBCDnb7Ls1YZKgwe2z3qmcwNHTeAFr5dGrW (//authority/1)
-                    hex!["068181205488a5517460dd305c9ec781ddf6e68627609ec88cbb60d0b7647d0f"].unchecked_into(),
+                    get_authority_keys_from_public_key(hex![
+                        "068181205488a5517460dd305c9ec781ddf6e68627609ec88cbb60d0b7647d0f"
+                    ]),
                     // 5G6AgvRRkzFvs69SXY2Ah6PmjySswGFqHTgriqLohNMzfEsc (//authority/2)
-                    hex!["b20e80ecc31ce2ccb3487e7cc4447098417813cf7553f1f459662f782bbfd12a"].unchecked_into(),
+                    get_authority_keys_from_public_key(hex![
+                        "b20e80ecc31ce2ccb3487e7cc4447098417813cf7553f1f459662f782bbfd12a"
+                    ]),
                     // 5EXCEev51P1KFkMQQdjT25KzMWMLG5EXw51uhaCQbDziPe8t (//authority/3)
-                    hex!["6cac613f09264c7397fa27dfc131d0c77a4dc8d5b5e22a22e3e1a6ac8e00d211"].unchecked_into(),
+                    get_authority_keys_from_public_key(hex![
+                        "6cac613f09264c7397fa27dfc131d0c77a4dc8d5b5e22a22e3e1a6ac8e00d211"
+                    ]),
                     // 5GH6mdEu56ku6ez26udZkaL9F5unbV7sUeJHnYbkLx4LTgiN (//authority/4)
-                    hex!["ba6502c812d5ece87390df7f955d50f1fc55adff99e4bc68fa7b58494bd0dc1e"].unchecked_into(),
+                    get_authority_keys_from_public_key(hex![
+                        "ba6502c812d5ece87390df7f955d50f1fc55adff99e4bc68fa7b58494bd0dc1e"
+                    ]),
                     // 5H3X7DPUsnUUBqtRxCnSbrPX38jwsxg5pXcNyMabCf9QaU6i (//authority/5)
-                    hex!["dc45bc9ddeaacb1ffd04bfaf1366033f54640380a51a255448a639aa670d680c"].unchecked_into(),
+                    get_authority_keys_from_public_key(hex![
+                        "dc45bc9ddeaacb1ffd04bfaf1366033f54640380a51a255448a639aa670d680c"
+                    ]),
                     // 5Fy933qEzYeiN22fbWEU4RgJkvhVwXurPPZsrXstkoZFNcBS (//authority/6)
-                    hex!["acb238ad11721c943d8e43232efde998276179d7994aa2500b45d3adbe4ab90c"].unchecked_into(),
+                    get_authority_keys_from_public_key(hex![
+                        "acb238ad11721c943d8e43232efde998276179d7994aa2500b45d3adbe4ab90c"
+                    ]),
                     // 5Ew8SA3y8jg4kfYAAatJ541EdZAmpyG8yCaZESJnE2nhsAE5 (//authority/7)
-                    hex!["7eed78d2af8350ddc6da7bafaeeac9df86f71ae0efcfd04e99a423b72003c007"].unchecked_into(),
+                    get_authority_keys_from_public_key(hex![
+                        "7eed78d2af8350ddc6da7bafaeeac9df86f71ae0efcfd04e99a423b72003c007"
+                    ]),
                     // 5EpntRydKc1AbGwPk7xt4aLnDoisQQ8dqY6zCYGFCxH9ex7M (//authority/8)
-                    hex!["7a1832d12c6ab761b9fbc7747d6a26601c42a68e2e3086cee64c7e84178d306d"].unchecked_into(),
+                    get_authority_keys_from_public_key(hex![
+                        "7a1832d12c6ab761b9fbc7747d6a26601c42a68e2e3086cee64c7e84178d306d"
+                    ]),
                     // 5Fjk4u3j4buQtf5YMU7Pj6AtSrvFaH5eGyKeUdQvyc41ipgY (//authority/9)
-                    hex!["a27ab6a94eb0d61f9e95adb45e68b5c71fd668070e664238bcbd51ca7515e168"].unchecked_into(),
+                    get_authority_keys_from_public_key(hex![
+                        "a27ab6a94eb0d61f9e95adb45e68b5c71fd668070e664238bcbd51ca7515e168"
+                    ]),
                 ],
                 vec![
                     (
@@ -442,26 +526,46 @@ pub fn kusama_mainnet_config(id: ParaId) -> ChainSpec {
             mainnet_genesis(
                 get_account_id_from_string("5G49RwnYdfHywAfEpsPRhP47XuznQHpaPuSoSdt6S1kyi69g"),
                 vec![
-                    // 5DyzufhT1Ynxk9uxrWHjrVuap8oB4Zz7uYdquZHxFxvYBovd (//authority/0)
-                    hex!["54e1a41c9ba60ca45e911e8798ba9d81c22b04435b04816490ebddffe4dffc5c"].unchecked_into(),
-                    // 5EvgAvVBQXtFFbcN74rYR2HE8RsWsEJHqPHhrGX427cnbvY2 (//authority/1)
-                    hex!["7e951061df4d5b61b31a69d62233a5a3a2abdc3195902dd22bc062fadbf42e17"].unchecked_into(),
-                    // 5Hp2yfUMoA5uJM6DQpDJAuCHdzvhzn57gurH1Cxp4cUTzciB (//authority/2)
-                    hex!["fe3915da55703833883c8e0dc9a81bc5ab5e3b4099b23d810cd5d78c6598395b"].unchecked_into(),
-                    // 5FQzZEbc5CtF7gR1De449GtvDwpyVwWPZMqyq9yjJmxXKmgU (//authority/3)
-                    hex!["942dd2ded2896fa236c0f0df58dff88a04d7cf661a4676059d79dc54a271234a"].unchecked_into(),
-                    // 5EqmSYibeeyypp2YGtJdkZxiNjLKpQLCMpW5J3hNgWBfT9Gw (//authority/4)
-                    hex!["7ad693485d4d67a2112881347a553009f0c1de3b26e662aa3863085f536d0537"].unchecked_into(),
-                    // 5E1WeDF5L8xXLmMnLmJUCXo5xqLD6zzPP14T9vESydQmUA29 (//authority/5)
-                    hex!["5608fa7874491c640d0420f5f44650a0b5b8b67411b2670b68440bb97e74ee1c"].unchecked_into(),
-                    // 5D7eFVnyAhcbEJAPAVENqoCr44zTbztsiragiYjz1ExDePja (//authority/6)
-                    hex!["2e79d45517532bc4b6b3359be9ea2aa8b711a0a5362880cfb6651bcb87fe1b05"].unchecked_into(),
-                    // 5FkCciu8zasoDoViTbAYpcHgitQgB5GHN64HWdXyy8kykXFK (//authority/7)
-                    hex!["a2d4159da7f458f8140899f443b480199c65e75ffb755ea9e097aa5b18352001"].unchecked_into(),
-                    // 5H3E3GF1LUeyowgRx47n8AJsRCyzA4f2YNuTo4qEQy7fbbBo (//authority/8)
-                    hex!["dc0c47c6f8fd81190d4fcee4ab2074db5d83eaf301f2cd795ec9b39b8e753f66"].unchecked_into(),
-                    // 5ERqgB3mYvotBFu6vVf7fdnTgxHJvVidBpQL8W4yrpFL25mo (//authority/9)
-                    hex!["6896f1128f9a92c68f14713f0cbeb67a402621d7c80257ea3b246fcca5aede17"].unchecked_into(),
+                    // 5DyzufhT1Ynxk9uxrWHjrVuap8oB4Zz7uYdquZHxFxvYBovd
+                    get_authority_keys_from_public_key(hex!(
+                        "54e1a41c9ba60ca45e911e8798ba9d81c22b04435b04816490ebddffe4dffc5c"
+                    )),
+                    // 5EvgAvVBQXtFFbcN74rYR2HE8RsWsEJHqPHhrGX427cnbvY2
+                    get_authority_keys_from_public_key(hex!(
+                        "7e951061df4d5b61b31a69d62233a5a3a2abdc3195902dd22bc062fadbf42e17"
+                    )),
+                    // 5Hp2yfUMoA5uJM6DQpDJAuCHdzvhzn57gurH1Cxp4cUTzciB
+                    get_authority_keys_from_public_key(hex!(
+                        "fe3915da55703833883c8e0dc9a81bc5ab5e3b4099b23d810cd5d78c6598395b"
+                    )),
+                    // 5FQzZEbc5CtF7gR1De449GtvDwpyVwWPZMqyq9yjJmxXKmgU
+                    get_authority_keys_from_public_key(hex!(
+                        "942dd2ded2896fa236c0f0df58dff88a04d7cf661a4676059d79dc54a271234a"
+                    )),
+                    // 5EqmSYibeeyypp2YGtJdkZxiNjLKpQLCMpW5J3hNgWBfT9Gw
+                    get_authority_keys_from_public_key(hex!(
+                        "7ad693485d4d67a2112881347a553009f0c1de3b26e662aa3863085f536d0537"
+                    )),
+                    // 5E1WeDF5L8xXLmMnLmJUCXo5xqLD6zzPP14T9vESydQmUA29
+                    get_authority_keys_from_public_key(hex!(
+                        "5608fa7874491c640d0420f5f44650a0b5b8b67411b2670b68440bb97e74ee1c"
+                    )),
+                    // 5D7eFVnyAhcbEJAPAVENqoCr44zTbztsiragiYjz1ExDePja
+                    get_authority_keys_from_public_key(hex!(
+                        "2e79d45517532bc4b6b3359be9ea2aa8b711a0a5362880cfb6651bcb87fe1b05"
+                    )),
+                    // 5FkCciu8zasoDoViTbAYpcHgitQgB5GHN64HWdXyy8kykXFK
+                    get_authority_keys_from_public_key(hex!(
+                        "a2d4159da7f458f8140899f443b480199c65e75ffb755ea9e097aa5b18352001"
+                    )),
+                    // 5H3E3GF1LUeyowgRx47n8AJsRCyzA4f2YNuTo4qEQy7fbbBo
+                    get_authority_keys_from_public_key(hex!(
+                        "dc0c47c6f8fd81190d4fcee4ab2074db5d83eaf301f2cd795ec9b39b8e753f66"
+                    )),
+                    // 5ERqgB3mYvotBFu6vVf7fdnTgxHJvVidBpQL8W4yrpFL25mo
+                    get_authority_keys_from_public_key(hex!(
+                        "6896f1128f9a92c68f14713f0cbeb67a402621d7c80257ea3b246fcca5aede17"
+                    )),
                 ],
                 vec![
                     (
@@ -492,8 +596,7 @@ pub fn kusama_mainnet_config(id: ParaId) -> ChainSpec {
 
 fn mainnet_genesis(
     root_key: AccountId,
-    // these are expected to be online
-    initial_authorities: Vec<AuraId>,
+    invulnerables: Vec<(AccountId, AuraId)>,
     authorized_oracles: Vec<(AccountId, Vec<u8>)>,
     id: ParaId,
     bitcoin_confirmations: u32,
@@ -513,12 +616,30 @@ fn mainnet_genesis(
                 .to_vec(),
             changes_trie_config: Default::default(),
         },
-        aura: AuraConfig {
-            authorities: initial_authorities,
-        },
-        aura_ext: Default::default(),
         parachain_system: Default::default(),
         parachain_info: ParachainInfoConfig { parachain_id: id },
+        collator_selection: CollatorSelectionConfig {
+            invulnerables: invulnerables.iter().cloned().map(|(acc, _)| acc).collect(),
+            candidacy_bond: Zero::zero(),
+            ..Default::default()
+        },
+        session: SessionConfig {
+            keys: invulnerables
+                .iter()
+                .cloned()
+                .map(|(acc, aura)| {
+                    (
+                        acc.clone(),            // account id
+                        acc.clone(),            // validator id
+                        get_session_keys(aura), // session keys
+                    )
+                })
+                .collect(),
+        },
+        // no need to pass anything to aura, in fact it will panic if we do.
+        // Session will take care of this.
+        aura: Default::default(),
+        aura_ext: Default::default(),
         security: SecurityConfig {
             initial_status: StatusCode::Shutdown,
         },
