@@ -7,7 +7,7 @@ on: [pull_request]
 
 jobs:
   build:
-    name: Build Suite
+    name: Test Suite
     runs-on: [self-hosted, linux]
 
     steps:
@@ -26,23 +26,23 @@ jobs:
           toolchain: nightly-2021-10-12
       - run: rustup component add rustfmt
 
-      # - name: fmt
-      #   uses: actions-rs/cargo@v1
-      #   with:
-      #     command: fmt
-      #     args: --all -- --check
+      - name: fmt
+        uses: actions-rs/cargo@v1
+        with:
+          command: fmt
+          args: --all -- --check
 
-      # - name: check
-      #   uses: actions-rs/cargo@v1
-      #   with:
-      #     command: check
-      #     args: --release --workspace
+      - name: check
+        uses: actions-rs/cargo@v1
+        with:
+          command: check
+          args: --release --workspace
 
-      # - name: test
-      #   uses: actions-rs/cargo@v1
-      #   with:
-      #     command: test
-      #     args: --release --workspace
+      - name: test
+        uses: actions-rs/cargo@v1
+        with:
+          command: test
+          args: --release --workspace
 
       - name: build interbtc-standalone
         uses: actions-rs/cargo@v1
@@ -116,7 +116,7 @@ jobs:
         with:
           images: docker.io/interlayhq/interbtc
           tags: |
-            type=sha,prefix=interbtc-parachain-,prefix=${{ steps.prep.outputs.branch_name }}-,suffix=-${{ steps.prep.outputs.ts }}
+            type=sha,prefix=interbtc-parachain-${{ steps.prep.outputs.branch_name }}-,suffix=-${{ steps.prep.outputs.ts }}
             type=ref,prefix=interbtc-parachain-,event=branch
             type=ref,prefix=interbtc-parachain-,event=tag
 
