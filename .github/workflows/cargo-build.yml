@@ -119,20 +119,32 @@ jobs:
             type=ref,prefix=interbtc-parachain-,event=branch
             type=ref,prefix=interbtc-parachain-,event=tag
 
+      - uses: actions/download-artifact@v2
+        with:
+          name: interbtc-standalone
+          path: target/release/
+
       - name: Build and push standalone
         id: docker_build_standalone
         uses: docker/build-push-action@v2
         with:
           push: ${{ github.event_name != 'pull_request' }}
+          file: ./Dockerfile_release
           tags: ${{ steps.meta_standalone.outputs.tags }}
           labels: ${{ steps.meta_standalone.outputs.labels }}
           platforms: linux/amd64
+
+      - uses: actions/download-artifact@v2
+        with:
+          name: interbtc-parachain
+          path: target/release/
 
       - name: Build and push parachain
         id: docker_build_parachain
         uses: docker/build-push-action@v2
         with:
           push: ${{ github.event_name != 'pull_request' }}
+          file: ./Dockerfile_release
           tags: ${{ steps.meta_parachain.outputs.tags }}
           labels: ${{ steps.meta_parachain.outputs.labels }}
           platforms: linux/amd64
