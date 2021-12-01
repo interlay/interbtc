@@ -125,9 +125,6 @@ jobs:
           name: interbtc-standalone
           path: target/release/
 
-      - name: Display structure of downloaded files
-        run: ls -R
-
       - name: Build and push standalone
         id: docker_build_standalone
         uses: docker/build-push-action@v2
