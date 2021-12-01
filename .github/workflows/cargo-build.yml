@@ -25,21 +25,24 @@ jobs:
         with:
           toolchain: nightly-2021-10-12
       - run: rustup component add rustfmt
-      - name: fmt
-        uses: actions-rs/cargo@v1
-        with:
-          command: fmt
-          args: --all -- --check
-      - name: check
-        uses: actions-rs/cargo@v1
-        with:
-          command: check
-          args: --release --workspace
-      - name: test
-        uses: actions-rs/cargo@v1
-        with:
-          command: test
-          args: --release --workspace
+
+      # - name: fmt
+      #   uses: actions-rs/cargo@v1
+      #   with:
+      #     command: fmt
+      #     args: --all -- --check
+
+      # - name: check
+      #   uses: actions-rs/cargo@v1
+      #   with:
+      #     command: check
+      #     args: --release --workspace
+
+      # - name: test
+      #   uses: actions-rs/cargo@v1
+      #   with:
+      #     command: test
+      #     args: --release --workspace
 
       - name: build interbtc-standalone
         uses: actions-rs/cargo@v1
@@ -56,6 +59,7 @@ jobs:
         with:
           command: build
           args: --release --bin interbtc-parachain
+
       - uses: actions/upload-artifact@v2
         with:
           name: interbtc-parachain
@@ -124,6 +128,9 @@ jobs:
           name: interbtc-standalone
           path: target/release/
 
+      - name: Display structure of downloaded files
+        run: ls -R
+
       - name: Build and push standalone
         id: docker_build_standalone
         uses: docker/build-push-action@v2
@@ -138,13 +145,14 @@ jobs:
       - uses: actions/download-artifact@v2
         with:
           name: interbtc-parachain
-          path: target/release/
+          path: ./target/release/
 
       - name: Build and push parachain
         id: docker_build_parachain
         uses: docker/build-push-action@v2
         with:
           push: ${{ github.event_name != 'pull_request' }}
+          context: .
           file: ./Dockerfile_release
           build-args: BINARY=interbtc-parachain
           tags: ${{ steps.meta_parachain.outputs.tags }}
