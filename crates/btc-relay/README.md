@@ -1,6 +1,6 @@
 # BTC Relay
 
-Based on the BTC Relay specification [https://interlay.gitlab.io/polkabtc-spec/btcrelay-spec/index.html](https://interlay.gitlab.io/polkabtc-spec/btcrelay-spec/index.html).
+Based on the BTC Relay [specification](https://spec.interlay.io/spec/btc-relay/index.html).
 
 ## Installation
 

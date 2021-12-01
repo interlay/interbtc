@@ -1,6 +1,6 @@
 # Oracle
 
-Based on the Oracle specification [https://interlay.gitlab.io/polkabtc-spec/spec/oracle.html](https://interlay.gitlab.io/polkabtc-spec/spec/oracle.html).
+Based on the Oracle specification [https://spec.interlay.io/spec/oracle.html](https://spec.interlay.io/spec/oracle.html).
 
 ## Installation
 

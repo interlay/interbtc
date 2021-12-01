@@ -2,7 +2,7 @@
 authors = ["Interlay Ltd"]
 description = "Currency module"
 edition = "2018"
-homepage = "https://interlay.gitlab.io/polkabtc-spec/spec/collateral.html"
+homepage = "https://spec.interlay.io/spec/collateral.html"
 name = "currency"
 version = "1.2.0"
 
