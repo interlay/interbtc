@@ -1,0 +1,62 @@
+name: Cargo build
+
+permissions:
+  contents: read
+
+on: [pull_request, push]
+
+jobs:
+  test:
+    name: Test Suite
+    runs-on: [self-hosted, linux]
+
+    steps:
+      - uses: actions/checkout@v2
+      - run: git fetch --prune --unshallow
+      - name: Install System Dependencies
+        run: |
+            sudo apt-get update && sudo apt-get install -y \
+            cmake pkg-config libssl-dev git clang curl libc6-dev
+      - name: Update version in Cargo.toml
+        run: |
+          find ./ -name Cargo.toml -exec ./scripts/update_cargo_version.sh {} \;
+
+      - uses: actions-rs/toolchain@v1
+        with:
+          toolchain: nightly-2021-10-12
+      - run: rustup component add rustfmt
+      - name: fmt
+        uses: actions-rs/cargo@v1
+        with:
+          command: fmt
+          args: --all -- --check
+      - name: check
+        uses: actions-rs/cargo@v1
+        with:
+          command: check
+          args: --release --workspace
+      - name: test
+        uses: actions-rs/cargo@v1
+        with:
+          command: test
+          args: --release --workspace
+
+      - name: build interbtc-standalone
+        uses: actions-rs/cargo@v1
+        with:
+          command: build
+          args: --release --bin interbtc-standalone
+      - uses: actions/upload-artifact@v2
+        with:
+          name: interbtc-standalone
+          path: target/release/interbtc-standalone
+
+      - name: build interbtc-parachain
+        uses: actions-rs/cargo@v1
+        with:
+          command: build
+          args: --release --bin interbtc-parachain
+      - uses: actions/upload-artifact@v2
+        with:
+          name: interbtc-parachain
+          path: target/release/interbtc-parachain
