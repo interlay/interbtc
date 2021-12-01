@@ -130,7 +130,7 @@ jobs:
         with:
           push: ${{ github.event_name != 'pull_request' }}
           file: ./Dockerfile_release
-          args: BINARY=interbtc-standalone
+          build-args: BINARY=interbtc-standalone
           tags: ${{ steps.meta_standalone.outputs.tags }}
           labels: ${{ steps.meta_standalone.outputs.labels }}
           platforms: linux/amd64
@@ -146,7 +146,7 @@ jobs:
         with:
           push: ${{ github.event_name != 'pull_request' }}
           file: ./Dockerfile_release
-          args: BINARY=interbtc-parachain
+          build-args: BINARY=interbtc-parachain
           tags: ${{ steps.meta_parachain.outputs.tags }}
           labels: ${{ steps.meta_parachain.outputs.labels }}
           platforms: linux/amd64
