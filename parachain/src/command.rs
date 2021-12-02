@@ -48,6 +48,7 @@ fn load_spec(id: &str, para_id: ParaId) -> std::result::Result<Box<dyn sc_servic
         "kintsugi" => Ok(Box::new(chain_spec::ChainSpec::from_json_bytes(
             &include_bytes!("../res/kintsugi.json")[..],
         )?)),
+        "polkadot" => Ok(Box::new(chain_spec::polkadot_mainnet_config(para_id))),
         path => Ok(Box::new(chain_spec::ChainSpec::from_json_file(path.into())?)),
     }
 }

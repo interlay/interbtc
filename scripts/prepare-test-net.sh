@@ -17,13 +17,9 @@ generate_address() {
 generate_address_and_account_id() {
 	ACCOUNT=$(generate_account_id $1 $2 $3)
 	ADDRESS=$(generate_address $1 $2 $3)
-	if ${4:-false}; then
-		INTO="unchecked_into"
-	else
-		INTO="into"
-	fi
 
-	printf "//$ADDRESS\nhex![\"${ACCOUNT#'0x'}\"].$INTO(),"
+
+	printf "// $ADDRESS (//$1/$2)\nget_authority_keys_from_public_key(hex![\"${ACCOUNT#'0x'}\"]),"
 }
 
 V_NUM=$1
@@ -31,7 +27,7 @@ V_NUM=$1
 AUTHORITIES=""
 
 for i in $(seq 1 $V_NUM); do
-	AUTHORITIES+="$(generate_address_and_account_id authority $i '--scheme Sr25519' true)\n"
+	AUTHORITIES+="$(generate_address_and_account_id authority $i '--scheme Sr25519')\n"
 done
 
 printf "$AUTHORITIES"

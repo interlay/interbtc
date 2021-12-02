@@ -37,7 +37,7 @@ The interBTC runtime allows the creation of **interBTC**, a fungible token that 
 Each interBTC is backed by Bitcoin 1:1 and allows redeeming of the equivalent amount of Bitcoins by relying on a collateralized third-party.
 
 The project uses the concept of [Cryptocurrency-backed Assets](https://xclaim.io) to lock Bitcoin on the Bitcoin blockchain and issue BTC-backed tokens on the BTC Parachain.
-The implementation is based on the [interBTC specification](https://interlay.gitlab.io/interbtc-spec/).
+The implementation is based on the [interBTC specification](https://spec.interlay.io/).
 
 ### Built with
 
@@ -162,7 +162,7 @@ When interacting via polkadot{.js} you will need to use our [custom types](https
 
 ## Contributing
 
-If you would like to contribute, please file an issue on GitLab or reach out to us.
+If you would like to contribute, please file an issue on GitHub or reach out to us.
 
 - [Discord](https://discord.gg/C8tjMbgVXh)
 - [Telegram](https://t.me/joinchat/G9FaYhNbJK9v-6DN3IyhJw)

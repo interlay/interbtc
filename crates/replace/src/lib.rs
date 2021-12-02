@@ -1,5 +1,5 @@
 //! # Replace Pallet
-//! Based on the [specification](https://interlay.gitlab.io/polkabtc-spec/spec/replace.html).
+//! Based on the [specification](https://spec.interlay.io/spec/replace.html).
 
 #![deny(warnings)]
 #![cfg_attr(test, feature(proc_macro_hygiene))]

@@ -1,5 +1,5 @@
 //! # Vault Registry Module
-//! Based on the [specification](https://interlay.gitlab.io/polkabtc-spec/spec/vaultregistry.html).
+//! Based on the [specification](https://spec.interlay.io/spec/vault-registry.html).
 
 #![deny(warnings)]
 #![cfg_attr(test, feature(proc_macro_hygiene))]

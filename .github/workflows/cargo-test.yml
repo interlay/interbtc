@@ -37,15 +37,3 @@ jobs:
           command: test
           args: --release --workspace
 
-      - name: Run cargo-tarpaulin
-        uses: actions-rs/tarpaulin@v0.1
-        with:
-          version: latest
-          # --avoid-cfg-tarpaulin prevents this compilation error: 'Error: bitvec: cannot find attribute `skip` in this scope'
-          # --forward seems to prevent segfaults from occuring during test execution
-          args: "--exclude-files '/test,/mock.rs,/mock/mod.rs,/default_weights.rs,/weights.rs,/ext.rs,/runtime-api/,/benchmarking.rs,parachain/*' --avoid-cfg-tarpaulin --forward --timeout 300"
-
-      - name: Upload code coverage results
-        uses: codecov/codecov-action@v2
-        with:
-          token: ${{ secrets.CODECOV_TOKEN }}
