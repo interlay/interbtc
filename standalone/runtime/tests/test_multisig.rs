@@ -1,14 +1,12 @@
 mod mock;
 
-use currency::Amount;
 use frame_support::traits::Currency;
-use mock::{assert_eq, replace_testing_utils::*, *};
+use mock::{assert_eq, *};
 use primitives::VaultCurrencyPair;
-use refund::types::RefundRequestExt;
 use sp_core::{Encode, H256};
 
 #[test]
-fn integration_test_report_vault_theft() {
+fn integration_test_multisig() {
     ExtBuilder::build().execute_with(|| {
         // step 0: clear eve's balance for easier testing
         assert_ok!(Call::Tokens(TokensCall::set_balance {
@@ -16,8 +14,9 @@ fn integration_test_report_vault_theft() {
             currency_id: DOT,
             new_free: 0,
             new_reserved: 0,
-        }).dispatch(root()));
-        
+        })
+        .dispatch(root()));
+
         // step one: deposit funds to a shared account
         let multisig_account = MultiSigPallet::multi_account_id(&vec![account_of(ALICE), account_of(BOB)], 2);
         assert_ok!(Call::Tokens(TokensCall::set_balance {
@@ -25,7 +24,8 @@ fn integration_test_report_vault_theft() {
             currency_id: DOT,
             new_free: 20_000_000_000_001,
             new_reserved: 0,
-        }).dispatch(root()));
+        })
+        .dispatch(root()));
 
         // step 2: submit a call, to be executed from the shared account
         let call = Call::Tokens(TokensCall::transfer {

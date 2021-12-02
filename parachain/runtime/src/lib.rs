@@ -459,10 +459,10 @@ impl democracy::Config for Runtime {
 }
 
 parameter_types! {
-	// One storage item; key size is 32; value is size 4+4+16+32 bytes = 56 bytes.
-	pub const GetDepositBase: Balance = deposit(1, 88);
-	// Additional storage item size of 32 bytes.
-	pub const GetDepositFactor: Balance = deposit(0, 32);
+    // One storage item; key size is 32; value is size 4+4+16+32 bytes = 56 bytes.
+    pub const GetDepositBase: Balance = deposit(1, 88);
+    // Additional storage item size of 32 bytes.
+    pub const GetDepositFactor: Balance = deposit(0, 32);
     pub GetMaxSignatories: u16 = 100; // multisig of at most 100 accounts
 }
 
