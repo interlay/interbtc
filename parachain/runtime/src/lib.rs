@@ -17,7 +17,10 @@ use frame_system::{EnsureOneOf, EnsureRoot, RawOrigin};
 use sp_core::{u32_trait::_1, H256};
 
 use currency::Amount;
-use frame_support::{traits::Contains, PalletId};
+use frame_support::{
+    traits::{Contains, Currency as PalletCurrency, Imbalance, OnUnbalanced},
+    PalletId,
+};
 use orml_traits::parameter_type_with_key;
 use sp_api::impl_runtime_apis;
 use sp_core::OpaqueMetadata;
@@ -27,7 +30,7 @@ use sp_runtime::{
     transaction_validity::{TransactionSource, TransactionValidity},
     ApplyExtrinsicResult,
 };
-use sp_std::prelude::*;
+use sp_std::{marker::PhantomData, prelude::*};
 #[cfg(feature = "std")]
 use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
@@ -176,6 +179,8 @@ impl Contains<Call> for BaseCallFilter {
         if matches!(
             call,
             Call::System(_)
+                | Call::Authorship(_)
+                | Call::Session(_)
                 | Call::Timestamp(_)
                 | Call::ParachainSystem(_)
                 | Call::Sudo(_)
@@ -315,8 +320,33 @@ parameter_types! {
     pub OperationalFeeMultiplier: u8 = 5;
 }
 
+type NegativeImbalance<T, GetCurrencyId> = <orml_tokens::CurrencyAdapter<T, GetCurrencyId> as PalletCurrency<
+    <T as frame_system::Config>::AccountId,
+>>::NegativeImbalance;
+
+pub struct DealWithFees<T, GetCurrencyId>(PhantomData<(T, GetCurrencyId)>);
+
+impl<T, GetCurrencyId> OnUnbalanced<NegativeImbalance<T, GetCurrencyId>> for DealWithFees<T, GetCurrencyId>
+where
+    T: pallet_authorship::Config + orml_tokens::Config,
+    GetCurrencyId: Get<T::CurrencyId>,
+{
+    fn on_unbalanceds<B>(mut fees_then_tips: impl Iterator<Item = NegativeImbalance<T, GetCurrencyId>>) {
+        if let Some(mut fees) = fees_then_tips.next() {
+            if let Some(tips) = fees_then_tips.next() {
+                tips.merge_into(&mut fees);
+            }
+            let author = pallet_authorship::Pallet::<T>::author();
+            orml_tokens::CurrencyAdapter::<T, GetCurrencyId>::resolve_creating(&author, fees);
+        }
+    }
+}
+
 impl pallet_transaction_payment::Config for Runtime {
-    type OnChargeTransaction = currency::PaymentCurrencyAdapter<Runtime, GetCollateralCurrencyId, ()>;
+    type OnChargeTransaction = pallet_transaction_payment::CurrencyAdapter<
+        orml_tokens::CurrencyAdapter<Runtime, GetCollateralCurrencyId>,
+        DealWithFees<Runtime, GetCollateralCurrencyId>,
+    >;
     type TransactionByteFee = TransactionByteFee;
     type WeightToFee = IdentityFee<Balance>;
     type FeeMultiplierUpdate = ();

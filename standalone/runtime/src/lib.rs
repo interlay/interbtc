@@ -244,7 +244,9 @@ parameter_types! {
 }
 
 impl pallet_transaction_payment::Config for Runtime {
-    type OnChargeTransaction = currency::PaymentCurrencyAdapter<Runtime, GetCollateralCurrencyId, ()>;
+    // throwaway fees, not necessary for testing
+    type OnChargeTransaction =
+        pallet_transaction_payment::CurrencyAdapter<orml_tokens::CurrencyAdapter<Runtime, GetCollateralCurrencyId>, ()>;
     type TransactionByteFee = TransactionByteFee;
     type WeightToFee = IdentityFee<Balance>;
     type FeeMultiplierUpdate = ();
