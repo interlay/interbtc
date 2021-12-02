@@ -3,7 +3,7 @@ members = [
   "crates/*",
   "primitives",
   "parachain",
-  "parachain/runtime",
+  "parachain/runtime/*",
   "standalone",
   "standalone/runtime",
   "rpc",

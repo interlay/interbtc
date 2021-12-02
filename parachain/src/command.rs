@@ -17,11 +17,11 @@
 use crate::{
     chain_spec,
     cli::{Cli, Subcommand},
-    service as interbtc_service,
+    service::{new_partial, InterlayRuntimeExecutor, KintsugiRuntimeExecutor},
 };
-use interbtc_runtime::Block;
+use primitives::Block;
 use sc_cli::{ChainSpec, Result, RuntimeVersion, SubstrateCli};
-use sc_service::{Configuration, PartialComponents, TaskManager};
+use sc_service::{Configuration, TaskManager};
 
 use crate::cli::RelayChainCli;
 use codec::Encode;
@@ -37,20 +37,52 @@ use std::{io::Write, net::SocketAddr};
 
 const DEFAULT_PARA_ID: u32 = 2121;
 
-fn load_spec(id: &str, para_id: ParaId) -> std::result::Result<Box<dyn sc_service::ChainSpec>, String> {
-    match id {
-        "" => Ok(Box::new(chain_spec::local_config(para_id))),
-        "dev" => Ok(Box::new(chain_spec::development_config(para_id))),
-        "rococo" => Ok(Box::new(chain_spec::rococo_testnet_config(para_id))),
-        "rococo-local" => Ok(Box::new(chain_spec::rococo_local_testnet_config(para_id))),
-        "westend" => Ok(Box::new(chain_spec::westend_testnet_config(para_id))),
-        "kusama" => Ok(Box::new(chain_spec::kusama_mainnet_config(para_id))),
-        "kintsugi" => Ok(Box::new(chain_spec::ChainSpec::from_json_bytes(
-            &include_bytes!("../res/kintsugi.json")[..],
-        )?)),
-        "polkadot" => Ok(Box::new(chain_spec::polkadot_mainnet_config(para_id))),
-        path => Ok(Box::new(chain_spec::ChainSpec::from_json_file(path.into())?)),
+trait IdentifyChain {
+    fn is_interlay(&self) -> bool;
+    fn is_kintsugi(&self) -> bool;
+}
+
+impl IdentifyChain for dyn sc_service::ChainSpec {
+    fn is_interlay(&self) -> bool {
+        self.id().starts_with("interlay")
     }
+    fn is_kintsugi(&self) -> bool {
+        self.id().starts_with("kintsugi")
+    }
+}
+
+impl<T: sc_service::ChainSpec + 'static> IdentifyChain for T {
+    fn is_interlay(&self) -> bool {
+        <dyn sc_service::ChainSpec>::is_interlay(self)
+    }
+    fn is_kintsugi(&self) -> bool {
+        <dyn sc_service::ChainSpec>::is_kintsugi(self)
+    }
+}
+
+fn load_spec(id: &str, para_id: ParaId) -> std::result::Result<Box<dyn sc_service::ChainSpec>, String> {
+    Ok(match id {
+        "" => Box::new(chain_spec::local_config(para_id)),
+        "dev" => Box::new(chain_spec::development_config(para_id)),
+        "rococo" => Box::new(chain_spec::rococo_testnet_config(para_id)),
+        "rococo-local" => Box::new(chain_spec::rococo_local_testnet_config(para_id)),
+        "westend" => Box::new(chain_spec::westend_testnet_config(para_id)),
+        "kintsugi-latest" => Box::new(chain_spec::kintsugi_mainnet_config(para_id)),
+        "kintsugi" => Box::new(chain_spec::KintsugiChainSpec::from_json_bytes(
+            &include_bytes!("../res/kintsugi.json")[..],
+        )?),
+        "interlay-latest" => Box::new(chain_spec::interlay_mainnet_config(para_id)),
+        path => {
+            let chain_spec = chain_spec::DummyChainSpec::from_json_file(path.into())?;
+            if chain_spec.is_interlay() {
+                Box::new(chain_spec::InterlayChainSpec::from_json_file(path.into())?)
+            } else if chain_spec.is_kintsugi() {
+                Box::new(chain_spec::KintsugiChainSpec::from_json_file(path.into())?)
+            } else {
+                Box::new(chain_spec)
+            }
+        }
+    })
 }
 
 impl SubstrateCli for Cli {
@@ -82,8 +114,12 @@ impl SubstrateCli for Cli {
         load_spec(id, self.run.parachain_id.unwrap_or(DEFAULT_PARA_ID).into())
     }
 
-    fn native_runtime_version(_: &Box<dyn ChainSpec>) -> &'static RuntimeVersion {
-        &interbtc_runtime::VERSION
+    fn native_runtime_version(chain_spec: &Box<dyn ChainSpec>) -> &'static RuntimeVersion {
+        if chain_spec.is_interlay() {
+            &interlay_runtime::VERSION
+        } else {
+            &kintsugi_runtime::VERSION
+        }
     }
 }
 
@@ -136,6 +172,35 @@ fn extract_genesis_wasm(chain_spec: &Box<dyn sc_service::ChainSpec>) -> Result<V
         .ok_or_else(|| "Could not find wasm file in genesis state!".into())
 }
 
+macro_rules! construct_async_run {
+	(|$components:ident, $cli:ident, $cmd:ident, $config:ident| $( $code:tt )* ) => {{
+		let runner = $cli.create_runner($cmd)?;
+		if runner.config().chain_spec.is_interlay() {
+			runner.async_run(|$config| {
+				let $components = new_partial::<interlay_runtime::RuntimeApi, InterlayRuntimeExecutor, _>(
+					&$config,
+					crate::service::interlay_build_import_queue,
+				)?;
+				let task_manager = $components.task_manager;
+				{ $( $code )* }.map(|v| (v, task_manager))
+			})
+		} else {
+			runner.async_run(|$config| {
+				let $components = new_partial::<
+					kintsugi_runtime::RuntimeApi,
+					KintsugiRuntimeExecutor,
+					_
+				>(
+					&$config,
+					crate::service::kintsugi_build_import_queue,
+				)?;
+				let task_manager = $components.task_manager;
+				{ $( $code )* }.map(|v| (v, task_manager))
+			})
+		}
+	}}
+}
+
 /// Parse command line arguments into service configuration.
 pub fn run() -> Result<()> {
     let cli = Cli::from_args();
@@ -158,68 +223,52 @@ pub fn run() -> Result<()> {
             })
         }
         Some(Subcommand::CheckBlock(cmd)) => {
-            let runner = cli.create_runner(cmd)?;
-            runner.async_run(|config| {
-                let PartialComponents {
-                    client,
-                    task_manager,
-                    import_queue,
-                    ..
-                } = interbtc_service::new_partial(&config)?;
-                Ok((cmd.run(client, import_queue), task_manager))
+            construct_async_run!(|components, cli, cmd, config| {
+                Ok(cmd.run(components.client, components.import_queue))
             })
         }
         Some(Subcommand::ExportBlocks(cmd)) => {
-            let runner = cli.create_runner(cmd)?;
-            runner.async_run(|config| {
-                let PartialComponents {
-                    client, task_manager, ..
-                } = interbtc_service::new_partial(&config)?;
-                Ok((cmd.run(client, config.database), task_manager))
-            })
+            construct_async_run!(|components, cli, cmd, config| Ok(cmd.run(components.client, config.database)))
         }
         Some(Subcommand::ExportState(cmd)) => {
-            let runner = cli.create_runner(cmd)?;
-            runner.async_run(|config| {
-                let PartialComponents {
-                    client, task_manager, ..
-                } = interbtc_service::new_partial(&config)?;
-                Ok((cmd.run(client, config.chain_spec), task_manager))
-            })
+            construct_async_run!(|components, cli, cmd, config| Ok(cmd.run(components.client, config.chain_spec)))
         }
         Some(Subcommand::ImportBlocks(cmd)) => {
-            let runner = cli.create_runner(cmd)?;
-            runner.async_run(|config| {
-                let PartialComponents {
-                    client,
-                    task_manager,
-                    import_queue,
-                    ..
-                } = interbtc_service::new_partial(&config)?;
-                Ok((cmd.run(client, import_queue), task_manager))
+            construct_async_run!(|components, cli, cmd, config| {
+                Ok(cmd.run(components.client, components.import_queue))
             })
         }
         Some(Subcommand::PurgeChain(cmd)) => {
             let runner = cli.create_runner(cmd)?;
-            runner.sync_run(|config| cmd.run(config.database))
+
+            runner.sync_run(|config| {
+                let polkadot_cli = RelayChainCli::new(
+                    &config,
+                    [RelayChainCli::executable_name().to_string()]
+                        .iter()
+                        .chain(cli.relaychain_args.iter()),
+                );
+
+                let polkadot_config =
+                    SubstrateCli::create_configuration(&polkadot_cli, &polkadot_cli, config.tokio_handle.clone())
+                        .map_err(|err| format!("Relay chain argument error: {}", err))?;
+
+                cmd.run(config, polkadot_config)
+            })
         }
         Some(Subcommand::Revert(cmd)) => {
-            let runner = cli.create_runner(cmd)?;
-            runner.async_run(|config| {
-                let PartialComponents {
-                    client,
-                    task_manager,
-                    backend,
-                    ..
-                } = interbtc_service::new_partial(&config)?;
-                Ok((cmd.run(client, backend), task_manager))
-            })
+            construct_async_run!(|components, cli, cmd, config| Ok(cmd.run(components.client, components.backend)))
         }
         Some(Subcommand::Benchmark(cmd)) => {
             if cfg!(feature = "runtime-benchmarks") {
                 let runner = cli.create_runner(cmd)?;
-
-                runner.sync_run(|config| cmd.run::<Block, interbtc_service::Executor>(config))
+                if runner.config().chain_spec.is_interlay() {
+                    runner.sync_run(|config| cmd.run::<Block, InterlayRuntimeExecutor>(config))
+                } else if runner.config().chain_spec.is_kintsugi() {
+                    runner.sync_run(|config| cmd.run::<Block, KintsugiRuntimeExecutor>(config))
+                } else {
+                    Err("Chain doesn't support benchmarking".into())
+                }
             } else {
                 Err("Benchmarking wasn't enabled when building the node. \
 				You can enable it with `--features runtime-benchmarks`."
@@ -309,9 +358,17 @@ async fn start_node(cli: Cli, config: Configuration) -> sc_service::error::Resul
         if config.role.is_authority() { "yes" } else { "no" }
     );
 
-    interbtc_service::start_node(config, polkadot_config, id)
-        .await
-        .map(|srv| srv.0)
+    if config.chain_spec.is_interlay() {
+        crate::service::start_interlay_node(config, polkadot_config, id)
+            .await
+            .map(|r| r.0)
+            .map_err(Into::into)
+    } else {
+        crate::service::start_kintsugi_node(config, polkadot_config, id)
+            .await
+            .map(|r| r.0)
+            .map_err(Into::into)
+    }
 }
 
 impl DefaultConfigurationValues for RelayChainCli {
