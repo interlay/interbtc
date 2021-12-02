@@ -10,7 +10,7 @@ include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 
 use bitcoin::types::H256Le;
 use frame_support::dispatch::{DispatchError, DispatchResult};
-use frame_system::{EnsureOneOf, EnsureRoot};
+use frame_system::{EnsureOneOf, EnsureRoot, EnsureSigned};
 use sp_core::{u32_trait::_1, H256};
 
 use frame_support::{traits::Contains, PalletId};
@@ -262,6 +262,22 @@ impl pallet_utility::Config for Runtime {
     type Call = Call;
     type Event = Event;
     type WeightInfo = ();
+}
+
+parameter_types! {
+    pub MinVestedTransfer: Balance = 0;
+    pub const MaxVestingSchedules: u32 = 10;
+}
+
+impl orml_vesting::Config for Runtime {
+    type Event = Event;
+    type Currency = orml_tokens::CurrencyAdapter<Runtime, GetNativeCurrencyId>;
+    type MinVestedTransfer = MinVestedTransfer;
+    // anyone can transfer vested tokens
+    type VestedTransferOrigin = EnsureSigned<AccountId>;
+    type WeightInfo = ();
+    type MaxVestingSchedules = MaxVestingSchedules;
+    type BlockNumberProvider = frame_system::Pallet<Runtime>;
 }
 
 parameter_types! {
@@ -617,6 +633,7 @@ construct_runtime! {
         Rewards: reward::{Pallet, Call, Storage, Event<T>},
         Staking: staking::{Pallet, Storage, Event<T>},
         Escrow: escrow::{Pallet, Call, Storage, Event<T>},
+        Vesting: orml_vesting::{Pallet, Storage, Call, Event<T>, Config<T>},
 
         // Bitcoin SPV
         BTCRelay: btc_relay::{Pallet, Call, Config<T>, Storage, Event<T>},
