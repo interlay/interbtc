@@ -1,6 +1,6 @@
 # Vault Registry
 
-Based on the Vault Registry specification [https://interlay.gitlab.io/polkabtc-spec/spec/vaultregistry.html](https://interlay.gitlab.io/polkabtc-spec/spec/vaultregistry.html).
+Based on the Vault Registry [specification](https://spec.interlay.io/spec/vault-registry.html).
 
 ## Installation
 

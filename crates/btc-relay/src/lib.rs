@@ -1,6 +1,6 @@
 //! # BTC-Relay Pallet
 //!
-//! Based on the [specification](https://interlay.gitlab.io/polkabtc-spec/btcrelay-spec/).
+//! Based on the [specification](https://spec.interlay.io/spec/btc-relay/index.html).
 //!
 //! This pallet implements a Bitcoin light client to store and verify block headers in accordance
 //! with SPV assumptions - i.e. longest chain.
@@ -107,7 +107,7 @@ pub mod pallet {
     #[pallet::call]
     impl<T: Config> Pallet<T> {
         /// Verifies the inclusion of `tx_id` into the relay, and validates the given raw Bitcoin transaction, according
-        /// to the supported transaction format (see <https://interlay.gitlab.io/polkabtc-spec/btcrelay-spec/intro/accepted-format.html>)
+        /// to the supported transaction format (see <https://spec.interlay.io/intro/accepted-format.html>)
         ///
         /// # Arguments
         ///
@@ -174,7 +174,7 @@ pub mod pallet {
         }
 
         /// Validates a given raw Bitcoin transaction, according to the supported transaction
-        /// format (see <https://interlay.gitlab.io/polkabtc-spec/btcrelay-spec/intro/accepted-format.html>)
+        /// format (see <https://spec.interlay.io/intro/accepted-format.html>)
         /// This DOES NOT check if the transaction is included in a block, nor does it guarantee that the
         /// transaction is fully valid according to the consensus (needs full node).
         ///

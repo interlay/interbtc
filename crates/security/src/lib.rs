@@ -1,5 +1,5 @@
 //! # Security Module
-//! Based on the [specification](https://interlay.gitlab.io/polkabtc-spec/spec/security).
+//! Based on the [specification](https://spec.interlay.io/spec/security.html).
 
 #![deny(warnings)]
 #![cfg_attr(test, feature(proc_macro_hygiene))]
