@@ -1,23 +1,10 @@
 use bitcoin::utils::{virtual_transaction_size, InputType, TransactionInputMetadata, TransactionOutputMetadata};
 use hex_literal::hex;
 use interbtc_runtime::{
-<<<<<<< HEAD
-<<<<<<< HEAD
-    AccountId, AuraConfig, BTCRelayConfig, CurrencyId, FeeConfig, GenesisConfig, GetWrappedCurrencyId, GrandpaConfig,
-    IssueConfig, NominationConfig, OracleConfig, RedeemConfig, RefundConfig, ReplaceConfig, SecurityConfig, Signature,
-    StatusCode, SudoConfig, SystemConfig, TechnicalCommitteeConfig, TokensConfig, VaultRegistryConfig,
-=======
-    AccountId, BTCRelayConfig, CouncilConfig, CurrencyId, FeeConfig, GenesisConfig, GetWrappedCurrencyId,
-    GrandpaConfig, IssueConfig, NominationConfig, OracleConfig, RedeemConfig, RefundConfig, ReplaceConfig,
-    SecurityConfig, Signature, StatusCode, SudoConfig, SystemConfig, TokensConfig, VaultRegistryConfig,
->>>>>>> f8e384f9 (refactor(standalone): Remove unused dependencies)
-    BITCOIN_BLOCK_SPACING, DAYS, DOT, INTR, KINT, KSM, WASM_BINARY,
-=======
-    AccountId, AuraConfig, BTCRelayConfig, CurrencyId, FeeConfig, GenesisConfig, GetWrappedCurrencyId, IssueConfig,
-    NominationConfig, OracleConfig, RedeemConfig, RefundConfig, ReplaceConfig, SecurityConfig, Signature, StatusCode,
-    SudoConfig, SystemConfig, TechnicalCommitteeConfig, TokensConfig, VaultRegistryConfig, BITCOIN_BLOCK_SPACING, DAYS,
-    DOT, INTR, KINT, KSM, WASM_BINARY,
->>>>>>> aa3bf583 (refactor: remove grandpa, telemetry and rpcs from standalone service)
+    AccountId, AuraConfig, BTCRelayConfig, CurrencyId, FeeConfig, GenesisConfig, GetWrappedCurrencyId,
+     IssueConfig, NominationConfig, OracleConfig, RedeemConfig, RefundConfig, ReplaceConfig,
+    SecurityConfig, Signature, StatusCode, SudoConfig, SystemConfig, TechnicalCommitteeConfig, TokensConfig,
+    VaultRegistryConfig, BITCOIN_BLOCK_SPACING, DAYS, DOT, INTR, KINT, KSM, WASM_BINARY,
 };
 use primitives::VaultCurrencyPair;
 use sp_consensus_aura::sr25519::AuthorityId as AuraId;

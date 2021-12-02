@@ -3472,21 +3472,14 @@ dependencies = [
  "interbtc-runtime-standalone",
  "jsonrpc-core",
  "log",
+ "pallet-transaction-payment-rpc",
  "parity-scale-codec",
  "sc-basic-authorship",
  "sc-cli",
  "sc-client-api",
  "sc-consensus",
-<<<<<<< HEAD
-<<<<<<< HEAD
  "sc-consensus-aura",
-=======
-=======
- "sc-consensus-aura",
->>>>>>> aa3bf583 (refactor: remove grandpa, telemetry and rpcs from standalone service)
- "sc-consensus-babe",
  "sc-consensus-manual-seal",
->>>>>>> f8e384f9 (refactor(standalone): Remove unused dependencies)
  "sc-executor",
  "sc-finality-grandpa",
  "sc-keystore",
@@ -3498,11 +3491,7 @@ dependencies = [
  "sp-arithmetic",
  "sp-block-builder",
  "sp-consensus",
-<<<<<<< HEAD
  "sp-consensus-aura",
-=======
- "sp-consensus-babe",
->>>>>>> f8e384f9 (refactor(standalone): Remove unused dependencies)
  "sp-core",
  "sp-finality-grandpa",
  "sp-inherents",
@@ -3514,6 +3503,7 @@ dependencies = [
  "sp-transaction-pool",
  "structopt",
  "substrate-build-script-utils",
+ "substrate-frame-rpc-system",
 ]
 
 [[package]]
@@ -9239,6 +9229,40 @@ dependencies = [
 ]
 
 [[package]]
+name = "sc-consensus-manual-seal"
+version = "0.10.0-dev"
+source = "git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.12#d76f39995315ec36980908e4b99709bd14927044"
+dependencies = [
+ "assert_matches",
+ "async-trait",
+ "derive_more",
+ "futures 0.3.18",
+ "jsonrpc-core",
+ "jsonrpc-core-client",
+ "jsonrpc-derive",
+ "log",
+ "parity-scale-codec",
+ "sc-client-api",
+ "sc-consensus",
+ "sc-consensus-babe",
+ "sc-consensus-epochs",
+ "sc-transaction-pool",
+ "sc-transaction-pool-api",
+ "serde",
+ "sp-api",
+ "sp-blockchain",
+ "sp-consensus",
+ "sp-consensus-babe",
+ "sp-consensus-slots",
+ "sp-core",
+ "sp-inherents",
+ "sp-keystore",
+ "sp-runtime",
+ "sp-timestamp",
+ "substrate-prometheus-endpoint",
+]
+
+[[package]]
 name = "sc-consensus-slots"
 version = "0.10.0-dev"
 source = "git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.12#d76f39995315ec36980908e4b99709bd14927044"
@@ -11702,7 +11726,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1f559b464de2e2bdabcac6a210d12e9b5a5973c251e102c44c585c71d51bd78e"
 dependencies = [
  "cfg-if 1.0.0",
- "rand 0.8.4",
+ "rand 0.6.5",
  "static_assertions",
 ]
 

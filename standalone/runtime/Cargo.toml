@@ -41,6 +41,7 @@ pallet-transaction-payment = { git = "https://github.com/paritytech/substrate", 
 pallet-treasury = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.12", default-features = false }
 pallet-scheduler = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.12", default-features = false }
 pallet-multisig = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.12", default-features = false }
+pallet-aura = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.12", default-features = false }
 
 frame-system-rpc-runtime-api = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.12", default-features = false }
 pallet-transaction-payment-rpc-runtime-api = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.12", default-features = false }
@@ -49,20 +50,6 @@ pallet-transaction-payment-rpc-runtime-api = { git = "https://github.com/parityt
 pallet-collective = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.12", default-features = false }
 pallet-membership = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.12", default-features = false }
 pallet-society = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.12", default-features = false }
-
-<<<<<<< HEAD
-# Aura & GRANDPA dependencies
-<<<<<<< HEAD
-pallet-grandpa = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.12", default-features = false }
-pallet-aura = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.12", default-features = false }
-sp-consensus-aura = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.12", default-features = false }
-=======
-pallet-grandpa = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.11", default-features = false }
->>>>>>> f8e384f9 (refactor(standalone): Remove unused dependencies)
-=======
-# Aura dependencies
-pallet-aura = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.12", default-features = false }
->>>>>>> aa3bf583 (refactor: remove grandpa, telemetry and rpcs from standalone service)
 
 # Parachain dependencies
 btc-relay = { path = "../../crates/btc-relay", default-features = false }
@@ -129,7 +116,6 @@ std = [
   "sp-transaction-pool/std",
   "sp-inherents/std",
   "sp-arithmetic/std",
-  "sp-consensus-aura/std",
 
   "frame-support/std",
   "frame-executive/std",
