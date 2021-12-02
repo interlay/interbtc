@@ -281,6 +281,7 @@ fn testnet_genesis(
                 })
                 .collect(),
         },
+        vesting: Default::default(),
         oracle: OracleConfig {
             authorized_oracles,
             max_delay: 3600000, // one hour

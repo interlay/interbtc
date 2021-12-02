@@ -3427,6 +3427,7 @@ dependencies = [
  "oracle",
  "orml-tokens",
  "orml-traits",
+ "orml-vesting",
  "pallet-aura",
  "pallet-balances",
  "pallet-collective",
