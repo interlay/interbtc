@@ -445,6 +445,10 @@ pub const CENTS: Balance = UNITS / 30_000;
 pub const GRAND: Balance = CENTS * 100_000;
 pub const MILLICENTS: Balance = CENTS / 1_000;
 
+pub const fn deposit(items: u32, bytes: u32) -> Balance {
+    items as Balance * 2_000 * CENTS + (bytes as Balance) * 100 * MILLICENTS
+}
+
 type EnsureRootOrAllTechnicalCommittee = EnsureOneOf<
     AccountId,
     EnsureRoot<AccountId>,
@@ -482,6 +486,24 @@ impl democracy::Config for Runtime {
     type MaxVotes = MaxVotes;
     type WeightInfo = ();
     type MaxProposals = MaxProposals;
+}
+
+parameter_types! {
+    // One storage item; key size is 32; value is size 4+4+16+32 bytes = 56 bytes.
+    pub const GetDepositBase: Balance = deposit(1, 88);
+    // Additional storage item size of 32 bytes.
+    pub const GetDepositFactor: Balance = deposit(0, 32);
+    pub GetMaxSignatories: u16 = 100; // multisig of at most 100 accounts
+}
+
+impl pallet_multisig::Config for Runtime {
+    type Event = Event;
+    type Call = Call;
+    type Currency = orml_tokens::CurrencyAdapter<Runtime, GetCollateralCurrencyId>; // pay for execution in DOT/KSM
+    type DepositBase = GetDepositBase;
+    type DepositFactor = GetDepositFactor;
+    type MaxSignatories = GetMaxSignatories;
+    type WeightInfo = ();
 }
 
 parameter_types! {
@@ -1018,6 +1040,7 @@ construct_runtime! {
         Utility: pallet_utility::{Pallet, Call, Event},
         TransactionPayment: pallet_transaction_payment::{Pallet, Storage},
         Scheduler: pallet_scheduler::{Pallet, Call, Storage, Event<T>},
+        MultiSig: pallet_multisig::{Pallet, Call, Storage, Event<T>},
 
         // Tokens & Balances
         Currency: currency::{Pallet},

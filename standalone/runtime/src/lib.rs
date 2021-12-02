@@ -280,11 +280,33 @@ impl pallet_scheduler::Config for Runtime {
     type WeightInfo = ();
 }
 
+parameter_types! {
+    // One storage item; key size is 32; value is size 4+4+16+32 bytes = 56 bytes.
+    pub const GetDepositBase: Balance = deposit(1, 88);
+    // Additional storage item size of 32 bytes.
+    pub const GetDepositFactor: Balance = deposit(0, 32);
+    pub GetMaxSignatories: u16 = 100; // multisig of at most 100 accounts
+}
+
+impl pallet_multisig::Config for Runtime {
+    type Event = Event;
+    type Call = Call;
+    type Currency = orml_tokens::CurrencyAdapter<Runtime, GetCollateralCurrencyId>; // pay for execution in DOT/KSM
+    type DepositBase = GetDepositBase;
+    type DepositFactor = GetDepositFactor;
+    type MaxSignatories = GetMaxSignatories;
+    type WeightInfo = ();
+}
+
 // https://github.com/paritytech/polkadot/blob/ece7544b40d8b29897f5aa799f27840dcc32f24d/runtime/polkadot/src/constants.rs#L18
 pub const UNITS: Balance = 10_000_000_000;
 pub const DOLLARS: Balance = UNITS; // 10_000_000_000
 pub const CENTS: Balance = UNITS / 100; // 100_000_000
 pub const MILLICENTS: Balance = CENTS / 1_000; // 100_000
+
+pub const fn deposit(items: u32, bytes: u32) -> Balance {
+    items as Balance * 20 * DOLLARS + (bytes as Balance) * 100 * MILLICENTS
+}
 
 type EnsureRootOrAllTechnicalCommittee = EnsureOneOf<
     AccountId,
@@ -587,6 +609,7 @@ construct_runtime! {
         Utility: pallet_utility::{Pallet, Call, Event},
         TransactionPayment: pallet_transaction_payment::{Pallet, Storage},
         Scheduler: pallet_scheduler::{Pallet, Call, Storage, Event<T>},
+        MultiSig: pallet_multisig::{Pallet, Call, Storage, Event<T>},
 
         // Tokens & Balances
         Currency: currency::{Pallet},

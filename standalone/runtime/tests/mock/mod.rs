@@ -129,6 +129,9 @@ pub type IssuePallet = issue::Pallet<Runtime>;
 pub type IssueEvent = issue::Event<Runtime>;
 pub type IssueError = issue::Error<Runtime>;
 
+pub type MultiSigCall = pallet_multisig::Call<Runtime>;
+pub type MultiSigPallet = pallet_multisig::Pallet<Runtime>;
+
 pub type RefundCall = refund::Call<Runtime>;
 pub type RefundPallet = refund::Pallet<Runtime>;
 pub type RefundEvent = refund::Event<Runtime>;

@@ -1432,7 +1432,7 @@ dependencies = [
 [[package]]
 name = "cumulus-client-cli"
 version = "0.1.0"
-source = "git+https://github.com/paritytech/cumulus?branch=polkadot-v0.9.12#f5926c2f50df73bf36171b138241437131d76fff"
+source = "git+https://github.com/paritytech/cumulus?branch=polkadot-v0.9.12#c02514d8cb66d6860e597f75d53ca07119dbbf32"
 dependencies = [
  "sc-cli",
  "sc-service",
@@ -1442,7 +1442,7 @@ dependencies = [
 [[package]]
 name = "cumulus-client-collator"
 version = "0.1.0"
-source = "git+https://github.com/paritytech/cumulus?branch=polkadot-v0.9.12#f5926c2f50df73bf36171b138241437131d76fff"
+source = "git+https://github.com/paritytech/cumulus?branch=polkadot-v0.9.12#c02514d8cb66d6860e597f75d53ca07119dbbf32"
 dependencies = [
  "cumulus-client-consensus-common",
  "cumulus-client-network",
@@ -1465,7 +1465,7 @@ dependencies = [
 [[package]]
 name = "cumulus-client-consensus-aura"
 version = "0.1.0"
-source = "git+https://github.com/paritytech/cumulus?branch=polkadot-v0.9.12#f5926c2f50df73bf36171b138241437131d76fff"
+source = "git+https://github.com/paritytech/cumulus?branch=polkadot-v0.9.12#c02514d8cb66d6860e597f75d53ca07119dbbf32"
 dependencies = [
  "async-trait",
  "cumulus-client-consensus-common",
@@ -1495,7 +1495,7 @@ dependencies = [
 [[package]]
 name = "cumulus-client-consensus-common"
 version = "0.1.0"
-source = "git+https://github.com/paritytech/cumulus?branch=polkadot-v0.9.12#f5926c2f50df73bf36171b138241437131d76fff"
+source = "git+https://github.com/paritytech/cumulus?branch=polkadot-v0.9.12#c02514d8cb66d6860e597f75d53ca07119dbbf32"
 dependencies = [
  "async-trait",
  "dyn-clone",
@@ -1515,7 +1515,7 @@ dependencies = [
 [[package]]
 name = "cumulus-client-consensus-relay-chain"
 version = "0.1.0"
-source = "git+https://github.com/paritytech/cumulus?branch=polkadot-v0.9.12#f5926c2f50df73bf36171b138241437131d76fff"
+source = "git+https://github.com/paritytech/cumulus?branch=polkadot-v0.9.12#c02514d8cb66d6860e597f75d53ca07119dbbf32"
 dependencies = [
  "async-trait",
  "cumulus-client-consensus-common",
@@ -1539,7 +1539,7 @@ dependencies = [
 [[package]]
 name = "cumulus-client-network"
 version = "0.1.0"
-source = "git+https://github.com/paritytech/cumulus?branch=polkadot-v0.9.12#f5926c2f50df73bf36171b138241437131d76fff"
+source = "git+https://github.com/paritytech/cumulus?branch=polkadot-v0.9.12#c02514d8cb66d6860e597f75d53ca07119dbbf32"
 dependencies = [
  "derive_more",
  "futures 0.3.17",
@@ -1562,7 +1562,7 @@ dependencies = [
 [[package]]
 name = "cumulus-client-pov-recovery"
 version = "0.1.0"
-source = "git+https://github.com/paritytech/cumulus?branch=polkadot-v0.9.12#f5926c2f50df73bf36171b138241437131d76fff"
+source = "git+https://github.com/paritytech/cumulus?branch=polkadot-v0.9.12#c02514d8cb66d6860e597f75d53ca07119dbbf32"
 dependencies = [
  "cumulus-primitives-core",
  "futures 0.3.17",
@@ -1585,7 +1585,7 @@ dependencies = [
 [[package]]
 name = "cumulus-client-service"
 version = "0.1.0"
-source = "git+https://github.com/paritytech/cumulus?branch=polkadot-v0.9.12#f5926c2f50df73bf36171b138241437131d76fff"
+source = "git+https://github.com/paritytech/cumulus?branch=polkadot-v0.9.12#c02514d8cb66d6860e597f75d53ca07119dbbf32"
 dependencies = [
  "cumulus-client-collator",
  "cumulus-client-consensus-common",
@@ -1725,7 +1725,7 @@ dependencies = [
 [[package]]
 name = "cumulus-primitives-core"
 version = "0.1.0"
-source = "git+https://github.com/paritytech/cumulus?branch=polkadot-v0.9.12#f5926c2f50df73bf36171b138241437131d76fff"
+source = "git+https://github.com/paritytech/cumulus?branch=polkadot-v0.9.12#c02514d8cb66d6860e597f75d53ca07119dbbf32"
 dependencies = [
  "frame-support",
  "impl-trait-for-tuples",
@@ -1742,7 +1742,7 @@ dependencies = [
 [[package]]
 name = "cumulus-primitives-parachain-inherent"
 version = "0.1.0"
-source = "git+https://github.com/paritytech/cumulus?branch=polkadot-v0.9.12#f5926c2f50df73bf36171b138241437131d76fff"
+source = "git+https://github.com/paritytech/cumulus?branch=polkadot-v0.9.12#c02514d8cb66d6860e597f75d53ca07119dbbf32"
 dependencies = [
  "async-trait",
  "cumulus-primitives-core",
@@ -1792,7 +1792,7 @@ dependencies = [
 [[package]]
 name = "cumulus-test-relay-sproof-builder"
 version = "0.1.0"
-source = "git+https://github.com/paritytech/cumulus?branch=polkadot-v0.9.12#f5926c2f50df73bf36171b138241437131d76fff"
+source = "git+https://github.com/paritytech/cumulus?branch=polkadot-v0.9.12#c02514d8cb66d6860e597f75d53ca07119dbbf32"
 dependencies = [
  "cumulus-primitives-core",
  "parity-scale-codec",
@@ -3348,6 +3348,7 @@ dependencies = [
  "pallet-collator-selection",
  "pallet-collective",
  "pallet-membership",
+ "pallet-multisig",
  "pallet-scheduler",
  "pallet-session",
  "pallet-society",
@@ -3431,6 +3432,7 @@ dependencies = [
  "pallet-collective",
  "pallet-grandpa",
  "pallet-membership",
+ "pallet-multisig",
  "pallet-scheduler",
  "pallet-society",
  "pallet-sudo",
@@ -11680,7 +11682,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1f559b464de2e2bdabcac6a210d12e9b5a5973c251e102c44c585c71d51bd78e"
 dependencies = [
  "cfg-if 1.0.0",
- "rand 0.6.5",
+ "rand 0.8.4",
  "static_assertions",
 ]
 
