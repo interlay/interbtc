@@ -122,6 +122,7 @@ pub mod token_distribution {
     // 10 million INTR distributed over 4 years
     pub const INITIAL_ALLOCATION: Balance = 10_000_000_000_000_000_000;
 
+    // multiplication is non-overflow by default
     pub const VAULT_INFLATION_REWARDS: Permill = Permill::from_percent(40);
     pub const TREASURY_INFLATION_REWARDS: Permill = Permill::from_percent(60);
 }
@@ -1103,7 +1104,7 @@ construct_runtime! {
         // Tokens & Balances
         Currency: currency::{Pallet},
         Tokens: orml_tokens::{Pallet, Call, Storage, Config<T>, Event<T>},
-        Rewards: reward::{Pallet, Call, Storage, Event<T>},
+        Rewards: reward::{Pallet, Storage, Event<T>},
         Staking: staking::{Pallet, Storage, Event<T>},
         Escrow: escrow::{Pallet, Call, Storage, Event<T>},
         Vesting: orml_vesting::{Pallet, Storage, Call, Event<T>, Config<T>},
