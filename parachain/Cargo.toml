@@ -22,7 +22,8 @@ serde = { version = "1.0.130", features = ["derive"] }
 hex-literal = "0.2.1"
 
 # Parachain dependencies
-interbtc-runtime = { package = "interbtc-runtime-parachain", path = "./runtime" }
+interlay-runtime = { package = "interlay-runtime-parachain", path = "./runtime/interlay" }
+kintsugi-runtime = { package = "kintsugi-runtime-parachain", path = "./runtime/kintsugi" }
 interbtc-rpc = { path = "../rpc" }
 bitcoin = { path = "../crates/bitcoin" }
 primitives = { package = "interbtc-primitives", path = "../primitives" }
@@ -36,6 +37,7 @@ sc-rpc = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v
 sc-service = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.12" }
 sc-telemetry = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.12" }
 sc-transaction-pool = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.12" }
+sp-transaction-pool = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.12" }
 sc-network = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.12" }
 sc-basic-authorship = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.12" }
 sc-chain-spec = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.12" }
@@ -81,6 +83,6 @@ polkadot-parachain = { git = "https://github.com/paritytech/polkadot", branch = 
 default = []
 rococo-native = [ "polkadot-cli/rococo-native" ]
 runtime-benchmarks = [
-    "interbtc-runtime/runtime-benchmarks",
+    "interlay-runtime/runtime-benchmarks",
     "polkadot-service/runtime-benchmarks",
 ]
