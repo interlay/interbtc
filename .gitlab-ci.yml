@@ -29,7 +29,7 @@ image: "registry.gitlab.com/interlay/containers/rust-base:nightly-2021-03-15"
   script:
     - echo "{\"auths\":{\"https://index.docker.io/v1/\":{\"auth\":\"$DOCKER_HUB_TOKEN\"}}}" > /kaniko/.docker/config.json
     - |
-      /kaniko/executor \
+      /kaniko/executor --force \
       --build-arg BINARY=${ARTIFACT_BIN_PATH} \
       --context ${CI_PROJECT_DIR} \
       --dockerfile ${CI_PROJECT_DIR}/Dockerfile_release \
