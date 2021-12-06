@@ -17,7 +17,7 @@ pub use frame_support::{
 use interbtc_runtime_standalone::GetNativeCurrencyId;
 pub use interbtc_runtime_standalone::{
     AccountId, BlockNumber, Call, CurrencyId, Event, GetCollateralCurrencyId, GetWrappedCurrencyId, Runtime,
-    TechnicalCommitteeInstance, DOT, INTERBTC,
+    TechnicalCommitteeInstance, DOT, INTERBTC, INTR,
 };
 pub use mocktopus::mocking::*;
 pub use orml_tokens::CurrencyAdapter;
