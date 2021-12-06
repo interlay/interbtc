@@ -7,6 +7,7 @@ use primitives::VaultCurrencyPair;
 use sp_core::{Encode, H256};
 
 type VestingCall = orml_vesting::Call<Runtime>;
+type UtilityCall = pallet_utility::Call<Runtime>;
 
 #[test]
 fn integration_test_multisig_transfer() {
@@ -123,5 +124,85 @@ fn integration_test_multisig_vesting() {
                 .unwrap_or_default(),
             vesting_amount
         );
+    });
+}
+
+#[test]
+fn integration_test_batched_multisig_vesting() {
+    ExtBuilder::build().execute_with(|| {
+        // authorize and execute a batch of 1000 vesting schedules
+
+        let accounts: Vec<_> = (0u32..1000)
+            .map(|x| {
+                let mut byte_vec = x.to_be_bytes().to_vec();
+                byte_vec.extend(&[0; 28]);
+                let arr: [u8; 32] = byte_vec.try_into().unwrap();
+                AccountId::from(arr)
+            })
+            .collect();
+
+        // arbitrary amount for each account
+        let vesting_amounts: Vec<_> = (0u128..1000).map(|x| x * 100 + 100).collect();
+
+        let multisig_account = MultiSigPallet::multi_account_id(&vec![account_of(ALICE), account_of(BOB)], 2);
+
+        // vested transfer takes free balance of caller
+        assert_ok!(Call::Tokens(TokensCall::set_balance {
+            who: multisig_account.clone(),
+            currency_id: INTR,
+            new_free: vesting_amounts.iter().sum(),
+            new_reserved: 0,
+        })
+        .dispatch(root()));
+
+        // gradually release amount over 100 periods
+        let calls: Vec<_> = accounts
+            .iter()
+            .zip(vesting_amounts.iter())
+            .map(|(account, vesting_amount)| {
+                Call::Vesting(VestingCall::vested_transfer {
+                    dest: account.clone(),
+                    schedule: VestingSchedule {
+                        start: 0,
+                        period: 10,
+                        period_count: 100,
+                        per_period: vesting_amount / 100,
+                    },
+                })
+            })
+            .collect();
+
+        let batch = Call::Utility(UtilityCall::batch { calls }).encode();
+
+        assert_ok!(Call::MultiSig(MultiSigCall::as_multi {
+            threshold: 2,
+            other_signatories: vec![account_of(BOB)],
+            maybe_timepoint: None,
+            call: batch.clone(),
+            store_call: true,
+            max_weight: 1000000000000,
+        })
+        .dispatch(origin_of(account_of(ALICE))));
+
+        assert_ok!(Call::MultiSig(MultiSigCall::approve_as_multi {
+            threshold: 2,
+            other_signatories: vec![account_of(ALICE)],
+            maybe_timepoint: Some(MultiSigPallet::timepoint()),
+            call_hash: sp_core::blake2_256(&batch),
+            max_weight: 1000000000000,
+        })
+        .dispatch(origin_of(account_of(BOB))));
+
+        // max amount should be locked in vesting
+        for (account, vesting_amount) in accounts.iter().zip(vesting_amounts) {
+            assert_eq!(
+                TokensPallet::locks(&account, INTR)
+                    .iter()
+                    .map(|balance_lock| balance_lock.amount)
+                    .max()
+                    .unwrap_or_default(),
+                vesting_amount
+            );
+        }
     });
 }
