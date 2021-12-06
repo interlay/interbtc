@@ -4,6 +4,7 @@ use mock::*;
 
 use democracy::{PropIndex, ReferendumIndex, Vote};
 use frame_support::traits::{Currency, Hooks};
+use orml_vesting::VestingSchedule;
 use sp_core::{Encode, Hasher};
 use sp_runtime::traits::BlakeTwo256;
 
@@ -23,10 +24,18 @@ type TechnicalCommitteeEvent = pallet_collective::Event<Runtime, TechnicalCommit
 type TreasuryCall = pallet_treasury::Call<Runtime>;
 type TreasuryPallet = pallet_treasury::Pallet<Runtime>;
 
+type VestingCall = orml_vesting::Call<Runtime>;
+
 const COLLATERAL_CURRENCY_ID: CurrencyId = CurrencyId::DOT;
 const NATIVE_CURRENCY_ID: CurrencyId = CurrencyId::INTR;
 
-const DEMOCRACY_VOTE_AMOUNT: u128 = 30_000_000;
+fn get_max_locked(account_id: AccountId) -> Balance {
+    TokensPallet::locks(&account_id, NATIVE_CURRENCY_ID)
+        .iter()
+        .map(|balance_lock| balance_lock.amount)
+        .max()
+        .unwrap_or_default()
+}
 
 fn create_lock(account_id: AccountId, amount: Balance) {
     assert_ok!(Call::Escrow(EscrowCall::create_lock {
@@ -138,7 +147,7 @@ fn launch_and_approve_referendum() -> (BlockNumber, ReferendumIndex) {
         ref_index: index,
         vote: Vote {
             aye: true,
-            balance: DEMOCRACY_VOTE_AMOUNT,
+            balance: 30_000_000,
         }
     })
     .dispatch(origin_of(account_of(ALICE))));
@@ -275,5 +284,39 @@ fn integration_test_governance_treasury() {
             balance_before + amount_to_fund,
             NativeCurrency::total_balance(&account_of(BOB))
         )
+    });
+}
+
+#[test]
+fn integration_test_vested_escrow() {
+    test_with(|| {
+        // need free balance first to lock
+        let vesting_amount = 10_000_000_000_000;
+        assert_ok!(Call::Tokens(TokensCall::set_balance {
+            who: account_of(BOB),
+            currency_id: NATIVE_CURRENCY_ID,
+            new_free: vesting_amount,
+            new_reserved: 0,
+        })
+        .dispatch(root()));
+
+        // create vesting schedule to lock amount
+        let vesting_schedule = VestingSchedule {
+            start: 0,
+            period: 10,
+            period_count: 100,
+            per_period: vesting_amount / 100,
+        };
+        assert_eq!(vesting_schedule.total_amount(), Some(vesting_amount));
+        assert_ok!(Call::Vesting(VestingCall::update_vesting_schedules {
+            who: account_of(BOB),
+            vesting_schedules: vec![vesting_schedule]
+        })
+        .dispatch(root()));
+        assert_eq!(get_max_locked(account_of(BOB)), vesting_amount);
+
+        // re-lock vested balance in escrow
+        create_lock(account_of(BOB), vesting_amount);
+        assert_eq!(get_max_locked(account_of(BOB)), vesting_amount);
     });
 }
