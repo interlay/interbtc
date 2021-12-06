@@ -630,7 +630,7 @@ construct_runtime! {
         // Tokens & Balances
         Currency: currency::{Pallet},
         Tokens: orml_tokens::{Pallet, Call, Storage, Config<T>, Event<T>},
-        Rewards: reward::{Pallet, Call, Storage, Event<T>},
+        Rewards: reward::{Pallet, Storage, Event<T>},
         Staking: staking::{Pallet, Storage, Event<T>},
         Escrow: escrow::{Pallet, Call, Storage, Event<T>},
         Vesting: orml_vesting::{Pallet, Storage, Call, Event<T>, Config<T>},

@@ -122,6 +122,7 @@ pub mod token_distribution {
     // 10 million KINT distributed over 4 years
     pub const INITIAL_ALLOCATION: Balance = 10_000_000_000_000_000_000;
 
+    // multiplication is non-overflow by default
     pub const VAULT_INFLATION_REWARDS: Permill = Permill::from_percent(40);
     pub const TREASURY_INFLATION_REWARDS: Permill = Permill::from_percent(60);
 }
