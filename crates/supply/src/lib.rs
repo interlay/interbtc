@@ -64,7 +64,7 @@ pub mod pallet {
         type InflationPeriod: Get<Self::BlockNumber>;
 
         /// Handler for when the total supply has inflated.
-        type OnInflation: OnInflation<Self::AccountId, BalanceOf<Self>>;
+        type OnInflation: OnInflation<Self::AccountId, Currency = Self::Currency>;
     }
 
     // The pallet's events
@@ -170,13 +170,15 @@ impl<T: Config> Pallet<T> {
                 .unwrap_or(Zero::zero());
 
             <LastEmission<T>>::put(total_inflation);
-            T::Currency::deposit_creating(&Self::supply_pallet_id(), total_inflation);
+            let supply_pallet_id = Self::supply_pallet_id();
+            T::Currency::deposit_creating(&supply_pallet_id, total_inflation);
+            T::OnInflation::on_inflation(&supply_pallet_id, total_inflation);
             Self::deposit_event(Event::<T>::Inflation { total_inflation });
         }
     }
 }
 
-#[impl_trait_for_tuples::impl_for_tuples(30)]
-pub trait OnInflation<AccountId, Balance> {
-    fn on_inflation(from: &AccountId, amount: Balance);
+pub trait OnInflation<AccountId> {
+    type Currency: ReservableCurrency<AccountId>;
+    fn on_inflation(from: &AccountId, amount: <Self::Currency as Currency<AccountId>>::Balance);
 }

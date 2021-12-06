@@ -97,7 +97,10 @@ fn should_deposit_stake() {
 #[test]
 fn should_not_distribute_rewards_without_stake() {
     run_test(|| {
-        assert_ok!(Reward::distribute_reward(INTERBTC, fixed!(1000)), fixed!(1000));
+        assert_err!(
+            Reward::distribute_reward(INTERBTC, fixed!(1000)),
+            TestError::ZeroTotalStake
+        );
         assert_eq!(Reward::total_rewards(INTERBTC), fixed!(0));
     })
 }

@@ -1,17 +1,18 @@
-use crate::{self as supply, Config, OnInflation};
+use crate::{self as annuity, BlockRewardProvider, Config};
 use frame_support::{
     parameter_types,
     traits::{Everything, GenesisBuild},
     PalletId,
 };
 pub use primitives::CurrencyId;
-use primitives::UnsignedFixedPoint;
 use sp_core::H256;
 use sp_runtime::{
-    testing::Header,
-    traits::{BlakeTwo256, IdentityLookup},
-    FixedPointNumber,
+    generic::Header as GenericHeader,
+    traits::{BlakeTwo256, Identity, IdentityLookup},
+    DispatchResult,
 };
+
+type Header = GenericHeader<BlockNumber, BlakeTwo256>;
 
 type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
 type Block = frame_system::mocking::MockBlock<Test>;
@@ -25,13 +26,13 @@ frame_support::construct_runtime!(
     {
         System: frame_system::{Pallet, Call, Storage, Config, Event<T>},
         Balances: pallet_balances::{Pallet, Call, Storage, Event<T>},
-        Supply: supply::{Pallet, Call, Storage, Config<T>, Event<T>},
+        Annuity: annuity::{Pallet, Call, Storage, Config<T>, Event<T>},
     }
 );
 
 pub type AccountId = u64;
 pub type Balance = u128;
-pub type BlockNumber = u64;
+pub type BlockNumber = u128;
 pub type Index = u64;
 
 parameter_types! {
@@ -81,32 +82,35 @@ impl pallet_balances::Config for Test {
     type ReserveIdentifier = [u8; 8];
 }
 
-pub const MILLISECS_PER_BLOCK: u64 = 12000;
+pub const TOTAL_REWARDS: Balance = 10_000_000;
+const VAULT_REWARDS: Balance = TOTAL_REWARDS / 100 * 30;
 
-pub const MINUTES: BlockNumber = 60_000 / (MILLISECS_PER_BLOCK as BlockNumber);
-pub const HOURS: BlockNumber = MINUTES * 60;
-pub const DAYS: BlockNumber = HOURS * 24;
-pub const YEARS: BlockNumber = DAYS * 365;
+pub const YEAR_1_REWARDS: Balance = VAULT_REWARDS / 100 * 40;
+pub const YEAR_2_REWARDS: Balance = VAULT_REWARDS / 100 * 30;
+pub const YEAR_3_REWARDS: Balance = VAULT_REWARDS / 100 * 20;
+pub const YEAR_4_REWARDS: Balance = VAULT_REWARDS / 100 * 10;
 
-parameter_types! {
-    pub const SupplyPalletId: PalletId = PalletId(*b"mod/annu");
-    pub const InflationPeriod: BlockNumber = YEARS;
+pub struct MockBlockRewardProvider;
+
+impl BlockRewardProvider<AccountId> for MockBlockRewardProvider {
+    type Currency = Balances;
+    fn distribute_block_reward(_: &AccountId, _: Balance) -> DispatchResult {
+        Ok(())
+    }
 }
 
-pub struct MockOnInflation;
-
-impl OnInflation<AccountId> for MockOnInflation {
-    type Currency = Balances;
-    fn on_inflation(_: &AccountId, _: Balance) {}
+parameter_types! {
+    pub const AnnuityPalletId: PalletId = PalletId(*b"mod/annu");
+    pub const EmissionPeriod: BlockNumber = 100;
 }
 
 impl Config for Test {
-    type SupplyPalletId = SupplyPalletId;
+    type AnnuityPalletId = AnnuityPalletId;
     type Event = TestEvent;
-    type UnsignedFixedPoint = UnsignedFixedPoint;
     type Currency = Balances;
-    type InflationPeriod = InflationPeriod;
-    type OnInflation = MockOnInflation;
+    type BlockRewardProvider = MockBlockRewardProvider;
+    type BlockNumberToBalance = Identity;
+    type EmissionPeriod = EmissionPeriod;
 }
 
 pub type TestEvent = Event;
@@ -121,13 +125,9 @@ impl ExtBuilder {
     pub fn build() -> sp_io::TestExternalities {
         let mut storage = frame_system::GenesisConfig::default().build_storage::<Test>().unwrap();
 
-        supply::GenesisConfig::<Test> {
-            initial_supply: 10_000_000,
-            start_height: 100,
-            inflation: UnsignedFixedPoint::checked_from_rational(2, 100).unwrap(), // 2%
-        }
-        .assimilate_storage(&mut storage)
-        .unwrap();
+        annuity::GenesisConfig::<Test>::default()
+            .assimilate_storage(&mut storage)
+            .unwrap();
 
         storage.into()
     }

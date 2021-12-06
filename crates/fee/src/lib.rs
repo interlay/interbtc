@@ -293,7 +293,7 @@ impl<T: Config> Pallet<T> {
     /// # Arguments
     ///
     /// * `amount` - amount of rewards
-    pub fn distribute_rewards(amount: &Amount<T>) -> Result<(), DispatchError> {
+    pub fn distribute_rewards(amount: &Amount<T>) -> DispatchResult {
         // distribute vault rewards and return leftover
         let remaining = Self::distribute(amount)?;
         if !remaining.is_zero() {
@@ -422,8 +422,13 @@ impl<T: Config> Pallet<T> {
     }
 
     fn distribute(reward: &Amount<T>) -> Result<Amount<T>, DispatchError> {
-        let leftover = T::VaultRewards::distribute_reward(reward.to_signed_fixed_point()?, reward.currency())?;
-        Amount::from_signed_fixed_point(leftover, reward.currency())
+        Ok(
+            if let Err(_) = T::VaultRewards::distribute_reward(reward.to_signed_fixed_point()?, reward.currency()) {
+                reward.clone()
+            } else {
+                Amount::<T>::zero(reward.currency())
+            },
+        )
     }
 
     pub fn distribute_from_reward_pool<
