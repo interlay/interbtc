@@ -24,7 +24,7 @@ image: "registry.gitlab.com/interlay/containers/rust-base:nightly-2021-03-15"
 .docker-base-job:
   stage: publish
   image:
-    name: gcr.io/kaniko-project/executor:debug
+    name: gcr.io/kaniko-project/executor:v1.7.0-debug
     entrypoint: [""]
   script:
     - echo "{\"auths\":{\"https://index.docker.io/v1/\":{\"auth\":\"$DOCKER_HUB_TOKEN\"}}}" > /kaniko/.docker/config.json
@@ -37,7 +37,7 @@ image: "registry.gitlab.com/interlay/containers/rust-base:nightly-2021-03-15"
       --destination ${DOCKER_REGISTRY_IMAGE}:${ARTIFACT_BIN_PATH}-${CI_COMMIT_REF_SLUG} \
       --destination ${DOCKER_REGISTRY_IMAGE}:${ARTIFACT_BIN_PATH}-${CI_COMMIT_REF_NAME}-${CI_COMMIT_SHORT_SHA}-$(date +%s) \
       --destination ${DOCKER_REGISTRY_IMAGE}:${ARTIFACT_BIN_PATH}-${CI_COMMIT_REF_NAME}
-  <<: *only_refs
+#  <<: *only_refs
 
 stages:
   - test
