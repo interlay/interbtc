@@ -1,9 +1,9 @@
 [package]
 authors = ["Interlay Ltd"]
-description = "Supply module"
+description = "Annuity module"
 edition = "2018"
-name = "supply"
-version = "1.2.0"
+name = "annuity"
+version = "1.0.0"
 
 [dependencies]
 serde = { version = "1.0.130", default-features = false, features = ["derive"], optional = true }

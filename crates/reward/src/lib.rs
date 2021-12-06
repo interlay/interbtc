@@ -12,12 +12,16 @@ mod mock;
 mod tests;
 
 use codec::{Decode, Encode, EncodeLike};
-use frame_support::{dispatch::DispatchError, traits::Get};
+use frame_support::{
+    dispatch::{DispatchError, DispatchResult},
+    ensure,
+    traits::Get,
+};
 use primitives::{TruncateFixedPointToInt, VaultId};
 use scale_info::TypeInfo;
 use sp_arithmetic::FixedPointNumber;
 use sp_runtime::traits::{CheckedAdd, CheckedDiv, CheckedMul, CheckedSub, MaybeSerializeDeserialize, Zero};
-use sp_std::marker::PhantomData;
+use sp_std::{convert::TryInto, marker::PhantomData};
 
 pub(crate) type SignedFixedPoint<T, I = ()> = <T as Config<I>>::SignedFixedPoint;
 
@@ -76,6 +80,7 @@ pub mod pallet {
         ArithmeticUnderflow,
         TryIntoIntError,
         InsufficientFunds,
+        ZeroTotalStake,
     }
 
     #[pallet::hooks]
@@ -202,14 +207,9 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
         Ok(())
     }
 
-    pub fn distribute_reward(
-        currency_id: T::CurrencyId,
-        reward: SignedFixedPoint<T, I>,
-    ) -> Result<SignedFixedPoint<T, I>, DispatchError> {
+    pub fn distribute_reward(currency_id: T::CurrencyId, reward: SignedFixedPoint<T, I>) -> DispatchResult {
         let total_stake = Self::total_stake();
-        if total_stake.is_zero() {
-            return Ok(reward);
-        }
+        ensure!(!total_stake.is_zero(), Error::<T, I>::ZeroTotalStake);
 
         let reward_div_total_stake = reward
             .checked_div(&total_stake)
@@ -221,7 +221,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
             currency_id,
             amount: reward,
         });
-        Ok(Zero::zero())
+        Ok(())
     }
 
     pub fn compute_reward(
@@ -312,13 +312,10 @@ pub trait Rewards<VaultId, CurrencyId> {
     fn get_stake(account_id: &VaultId) -> Self::SignedFixedPoint;
 
     /// Deposit an `amount` of stake to the `account_id`.
-    fn deposit_stake(account_id: &VaultId, amount: Self::SignedFixedPoint) -> Result<(), DispatchError>;
+    fn deposit_stake(account_id: &VaultId, amount: Self::SignedFixedPoint) -> DispatchResult;
 
-    /// Distribute the `reward` to all participants OR return the leftover.
-    fn distribute_reward(
-        reward: Self::SignedFixedPoint,
-        currency_id: CurrencyId,
-    ) -> Result<Self::SignedFixedPoint, DispatchError>;
+    /// Distribute the `reward` to all participants OR error if zero total stake.
+    fn distribute_reward(reward: Self::SignedFixedPoint, currency_id: CurrencyId) -> DispatchResult;
 
     /// Compute the expected reward for the `account_id`.
     fn compute_reward(
@@ -327,7 +324,7 @@ pub trait Rewards<VaultId, CurrencyId> {
     ) -> Result<<Self::SignedFixedPoint as FixedPointNumber>::Inner, DispatchError>;
 
     /// Withdraw an `amount` of stake from the `account_id`.
-    fn withdraw_stake(account_id: &VaultId, amount: Self::SignedFixedPoint) -> Result<(), DispatchError>;
+    fn withdraw_stake(account_id: &VaultId, amount: Self::SignedFixedPoint) -> DispatchResult;
 
     /// Withdraw all rewards from the `account_id`.
     fn withdraw_reward(
@@ -349,14 +346,11 @@ where
         Pallet::<T, I>::stake(vault_id)
     }
 
-    fn deposit_stake(vault_id: &DefaultVaultId<T, I>, amount: Self::SignedFixedPoint) -> Result<(), DispatchError> {
+    fn deposit_stake(vault_id: &DefaultVaultId<T, I>, amount: Self::SignedFixedPoint) -> DispatchResult {
         Pallet::<T, I>::deposit_stake(vault_id, amount)
     }
 
-    fn distribute_reward(
-        reward: Self::SignedFixedPoint,
-        currency_id: T::CurrencyId,
-    ) -> Result<Self::SignedFixedPoint, DispatchError> {
+    fn distribute_reward(reward: Self::SignedFixedPoint, currency_id: T::CurrencyId) -> DispatchResult {
         Pallet::<T, I>::distribute_reward(currency_id, reward)
     }
 
@@ -367,7 +361,7 @@ where
         Pallet::<T, I>::compute_reward(currency_id, vault_id)
     }
 
-    fn withdraw_stake(vault_id: &DefaultVaultId<T, I>, amount: Self::SignedFixedPoint) -> Result<(), DispatchError> {
+    fn withdraw_stake(vault_id: &DefaultVaultId<T, I>, amount: Self::SignedFixedPoint) -> DispatchResult {
         Pallet::<T, I>::withdraw_stake(vault_id, amount)
     }
 
@@ -377,4 +371,17 @@ where
     ) -> Result<<Self::SignedFixedPoint as FixedPointNumber>::Inner, DispatchError> {
         Pallet::<T, I>::withdraw_reward(currency_id, vault_id)
     }
+}
+
+pub fn distribute_reward<T, I, Balance>(currency_id: T::CurrencyId, amount: Balance) -> DispatchResult
+where
+    T: Config<I>,
+    I: 'static,
+    Balance: TryInto<<SignedFixedPoint<T, I> as FixedPointNumber>::Inner>,
+{
+    let reward = amount.try_into().map_err(|_| Error::<T, I>::TryIntoIntError)?;
+    Pallet::<T, I>::distribute_reward(
+        currency_id,
+        SignedFixedPoint::<T, I>::checked_from_integer(reward).unwrap_or_default(),
+    )
 }

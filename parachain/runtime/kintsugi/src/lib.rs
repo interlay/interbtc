@@ -9,21 +9,16 @@
 include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 
 use bitcoin::types::H256Le;
-use frame_support::{
-    dispatch::{DispatchError, DispatchResult},
-    traits::EnsureOrigin,
-};
-use frame_system::{EnsureOneOf, EnsureRoot, RawOrigin};
-use sp_core::{u32_trait::_1, H256};
-
 use currency::Amount;
 use frame_support::{
-    traits::{Contains, Currency as PalletCurrency, Imbalance, OnUnbalanced},
+    dispatch::{DispatchError, DispatchResult},
+    traits::{Contains, Currency as PalletCurrency, EnsureOrigin, ExistenceRequirement, Imbalance, OnUnbalanced},
     PalletId,
 };
+use frame_system::{EnsureOneOf, EnsureRoot, RawOrigin};
 use orml_traits::parameter_type_with_key;
 use sp_api::impl_runtime_apis;
-use sp_core::OpaqueMetadata;
+use sp_core::{u32_trait::_1, OpaqueMetadata, H256};
 use sp_runtime::{
     create_runtime_str, generic, impl_opaque_keys,
     traits::{AccountIdConversion, BlakeTwo256, Block as BlockT, IdentityLookup, Zero},
@@ -126,6 +121,9 @@ pub mod token_distribution {
 
     // 10 million KINT distributed over 4 years
     pub const INITIAL_ALLOCATION: Balance = 10_000_000_000_000_000_000;
+
+    pub const VAULT_INFLATION_REWARDS: Permill = Permill::from_percent(40);
+    pub const TREASURY_INFLATION_REWARDS: Permill = Permill::from_percent(60);
 }
 
 /// The version information used to identify this runtime when compiled natively.
@@ -415,7 +413,7 @@ impl EnsureOrigin<Origin> for EnsureKintsugiLabs {
 
 impl orml_vesting::Config for Runtime {
     type Event = Event;
-    type Currency = orml_tokens::CurrencyAdapter<Runtime, GetNativeCurrencyId>;
+    type Currency = NativeCurrency;
     type MinVestedTransfer = MinVestedTransfer;
     type VestedTransferOrigin = EnsureKintsugiLabs;
     type WeightInfo = ();
@@ -832,24 +830,25 @@ parameter_types! {
     pub const GetCollateralCurrencyId: CurrencyId = RELAY_CHAIN_CURRENCY_ID;
     pub const GetWrappedCurrencyId: CurrencyId = WRAPPED_CURRENCY_ID;
     pub const GetNativeCurrencyId: CurrencyId = NATIVE_CURRENCY_ID;
-    pub const MaxLocks: u32 = 50;
 }
 
-parameter_type_with_key! {
-    pub ExistentialDeposits: |_currency_id: CurrencyId| -> Balance {
-        Zero::zero()
-    };
-}
+type NativeCurrency = orml_tokens::CurrencyAdapter<Runtime, GetNativeCurrencyId>;
 
 parameter_types! {
     pub FeeAccount: AccountId = FeePalletId::get().into_account();
+    pub SupplyAccount: AccountId = SupplyPalletId::get().into_account();
+    pub AnnuityAccount: AccountId = AnnuityPalletId::get().into_account();
+    pub TreasuryAccount: AccountId = TreasuryPalletId::get().into_account();
+    pub VaultRegistryAccount: AccountId = VaultRegistryPalletId::get().into_account();
 }
 
 pub fn get_all_module_accounts() -> Vec<AccountId> {
     vec![
-        FeePalletId::get().into_account(),
-        TreasuryPalletId::get().into_account(),
-        VaultRegistryPalletId::get().into_account(),
+        FeeAccount::get(),
+        SupplyAccount::get(),
+        AnnuityAccount::get(),
+        TreasuryAccount::get(),
+        VaultRegistryAccount::get(),
     ]
 }
 
@@ -858,6 +857,16 @@ impl Contains<AccountId> for DustRemovalWhitelist {
     fn contains(a: &AccountId) -> bool {
         get_all_module_accounts().contains(a)
     }
+}
+
+parameter_types! {
+    pub const MaxLocks: u32 = 50;
+}
+
+parameter_type_with_key! {
+    pub ExistentialDeposits: |_currency_id: CurrencyId| -> Balance {
+        Zero::zero()
+    };
 }
 
 impl orml_tokens::Config for Runtime {
@@ -877,13 +886,62 @@ parameter_types! {
     pub const InflationPeriod: BlockNumber = YEARS;
 }
 
+pub struct DealWithRewards;
+
+impl supply::OnInflation<AccountId> for DealWithRewards {
+    type Currency = NativeCurrency;
+    fn on_inflation(from: &AccountId, amount: Balance) {
+        // transfer will only fail if balance is too low
+        // existential deposit is not required due to whitelist
+        let _ = Self::Currency::transfer(
+            from,
+            &AnnuityAccount::get(),
+            token_distribution::VAULT_INFLATION_REWARDS * amount,
+            ExistenceRequirement::KeepAlive,
+        );
+
+        // TODO: split stake-to-vote rewards
+        let _ = Self::Currency::transfer(
+            from,
+            &VaultRegistryAccount::get(),
+            token_distribution::TREASURY_INFLATION_REWARDS * amount,
+            ExistenceRequirement::KeepAlive,
+        );
+    }
+}
+
 impl supply::Config for Runtime {
     type SupplyPalletId = SupplyPalletId;
     type Event = Event;
     type UnsignedFixedPoint = UnsignedFixedPoint;
-    type Currency = orml_tokens::CurrencyAdapter<Runtime, GetNativeCurrencyId>;
+    type Currency = NativeCurrency;
     type InflationPeriod = InflationPeriod;
-    type OnInflation = ();
+    type OnInflation = DealWithRewards;
+}
+
+pub struct VaultBlockRewardProvider;
+
+impl annuity::BlockRewardProvider<AccountId> for VaultBlockRewardProvider {
+    type Currency = NativeCurrency;
+    fn distribute_block_reward(from: &AccountId, amount: Balance) -> DispatchResult {
+        // TODO: remove fee pallet?
+        Self::Currency::transfer(from, &FeeAccount::get(), amount, ExistenceRequirement::KeepAlive)?;
+        reward::distribute_reward::<Runtime, (), _>(GetNativeCurrencyId::get(), amount)
+    }
+}
+
+parameter_types! {
+    pub const AnnuityPalletId: PalletId = PalletId(*b"mod/annu");
+    pub const EmissionPeriod: BlockNumber = YEARS;
+}
+
+impl annuity::Config for Runtime {
+    type AnnuityPalletId = AnnuityPalletId;
+    type Event = Event;
+    type Currency = NativeCurrency;
+    type BlockRewardProvider = VaultBlockRewardProvider;
+    type BlockNumberToBalance = BlockNumberToBalance;
+    type EmissionPeriod = EmissionPeriod;
 }
 
 impl reward::Config for Runtime {
@@ -1048,8 +1106,9 @@ construct_runtime! {
         Rewards: reward::{Pallet, Call, Storage, Event<T>},
         Staking: staking::{Pallet, Storage, Event<T>},
         Escrow: escrow::{Pallet, Call, Storage, Event<T>},
-
         Vesting: orml_vesting::{Pallet, Storage, Call, Event<T>, Config<T>},
+
+        Annuity: annuity::{Pallet, Storage, Call, Event<T>, Config<T>},
         Supply: supply::{Pallet, Storage, Call, Event<T>, Config<T>},
 
         // Bitcoin SPV
