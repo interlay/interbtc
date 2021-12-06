@@ -324,6 +324,8 @@ pub mod pallet {
         Tabled(PropIndex, BalanceOf<T>, Vec<T::AccountId>),
         /// A referendum has begun. \[ref_index, threshold\]
         Started(ReferendumIndex, VoteThreshold),
+        /// A referendum has been fast tracked. \[ref_index\]
+        FastTrack(ReferendumIndex),
         /// A proposal has been approved by referendum. \[ref_index\]
         Passed(ReferendumIndex),
         /// A proposal has been rejected by referendum. \[ref_index\]
@@ -514,12 +516,13 @@ pub mod pallet {
 
             let now = <frame_system::Pallet<T>>::block_number();
             let voting_period = T::FastTrackVotingPeriod::get();
-            Self::inject_referendum(
+            let ref_index = Self::inject_referendum(
                 now + voting_period,
                 proposal_hash.clone(),
                 VoteThreshold::SuperMajorityAgainst,
                 delay,
             );
+            Self::deposit_event(Event::<T>::FastTrack(ref_index));
             Ok(())
         }
 
