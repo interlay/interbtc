@@ -42,7 +42,7 @@ fn mint_collateral<T: crate::Config>(account_id: &T::AccountId, amount: Collater
 fn get_currency_pair<T: crate::Config>() -> DefaultVaultCurrencyPair<T> {
     VaultCurrencyPair {
         collateral: T::GetGriefingCollateralCurrencyId::get(),
-        wrapped: T::GetWrappedCurrencyId::get(),
+        wrapped: <T as currency::Config>::GetWrappedCurrencyId::get(),
     }
 }
 
@@ -50,7 +50,7 @@ fn get_vault_id<T: crate::Config>() -> DefaultVaultId<T> {
     VaultId::new(
         account("Vault", 0, 0),
         T::GetGriefingCollateralCurrencyId::get(),
-        T::GetWrappedCurrencyId::get(),
+        <T as currency::Config>::GetWrappedCurrencyId::get(),
     )
 }
 
@@ -118,7 +118,7 @@ fn mine_blocks<T: crate::Config>(end_height: u32) {
 benchmarks! {
     request_issue {
         let origin: T::AccountId = account("Origin", 0, 0);
-        let amount = Issue::<T>::issue_btc_dust_value(T::GetWrappedCurrencyId::get()).amount() + 1000u32.into();
+        let amount = Issue::<T>::issue_btc_dust_value(<T as currency::Config>::GetWrappedCurrencyId::get()).amount() + 1000u32.into();
         let vault_id = get_vault_id::<T>();
         let griefing: u32 = 100;
         let relayer_id: T::AccountId = account("Relayer", 0, 0);
@@ -195,7 +195,7 @@ benchmarks! {
         mint_collateral::<T>(&relayer_id, (1u32 << 31).into());
 
         let vault_btc_address = BtcAddress::P2SH(H160::zero());
-        let value: Amount<T> = Amount::new(2u32.into(), T::GetWrappedCurrencyId::get());
+        let value: Amount<T> = Amount::new(2u32.into(), <T as currency::Config>::GetWrappedCurrencyId::get());
 
         let issue_id = H256::zero();
         let issue_request = IssueRequest {
@@ -285,7 +285,7 @@ benchmarks! {
         mint_collateral::<T>(&vault_id.account_id.clone(), (1u32 << 31).into());
 
         let vault_btc_address = BtcAddress::P2SH(H160::zero());
-        let value = Amount::new(2u32.into(), T::GetWrappedCurrencyId::get());
+        let value = Amount::new(2u32.into(), <T as currency::Config>::GetWrappedCurrencyId::get());
 
         let issue_id = H256::zero();
         let issue_request = IssueRequest {

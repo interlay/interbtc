@@ -136,8 +136,10 @@ impl orml_tokens::Config for Test {
 impl reward::Config for Test {
     type Event = TestEvent;
     type SignedFixedPoint = SignedFixedPoint;
+    type RewardId = VaultId<AccountId, CurrencyId>;
     type CurrencyId = CurrencyId;
     type GetNativeCurrencyId = GetNativeCurrencyId;
+    type GetWrappedCurrencyId = GetWrappedCurrencyId;
 }
 
 impl Config for Test {

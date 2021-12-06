@@ -4,6 +4,7 @@ use frame_support::{parameter_types, traits::Everything, PalletId};
 use mocktopus::mocking::clear_mocks;
 use orml_traits::parameter_type_with_key;
 pub use primitives::CurrencyId;
+use primitives::VaultId;
 use sp_arithmetic::{FixedI128, FixedU128};
 use sp_core::H256;
 use sp_runtime::{
@@ -109,8 +110,10 @@ impl orml_tokens::Config for Test {
 impl reward::Config for Test {
     type Event = TestEvent;
     type SignedFixedPoint = SignedFixedPoint;
+    type RewardId = VaultId<AccountId, CurrencyId>;
     type CurrencyId = CurrencyId;
     type GetNativeCurrencyId = GetNativeCurrencyId;
+    type GetWrappedCurrencyId = GetWrappedCurrencyId;
 }
 
 impl staking::Config for Test {

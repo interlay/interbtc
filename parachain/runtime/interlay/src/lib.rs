@@ -948,8 +948,10 @@ impl annuity::Config for Runtime {
 impl reward::Config for Runtime {
     type Event = Event;
     type SignedFixedPoint = SignedFixedPoint;
+    type RewardId = VaultId;
     type CurrencyId = CurrencyId;
     type GetNativeCurrencyId = GetNativeCurrencyId;
+    type GetWrappedCurrencyId = GetWrappedCurrencyId;
 }
 
 impl security::Config for Runtime {

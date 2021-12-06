@@ -33,7 +33,7 @@ fn collateral<T: crate::Config>(amount: u32) -> Amount<T> {
 }
 
 fn wrapped<T: crate::Config>(amount: u32) -> Amount<T> {
-    Amount::new(amount.into(), T::GetWrappedCurrencyId::get())
+    Amount::new(amount.into(), <T as currency::Config>::GetWrappedCurrencyId::get())
 }
 
 fn dummy_public_key() -> BtcPublicKey {
@@ -52,7 +52,7 @@ fn mint_collateral<T: crate::Config>(account_id: &T::AccountId, amount: Collater
 }
 
 fn mint_wrapped<T: crate::Config>(account_id: &T::AccountId, amount: Wrapped<T>) {
-    let rich_amount = Amount::<T>::new(amount, T::GetWrappedCurrencyId::get());
+    let rich_amount = Amount::<T>::new(amount, <T as currency::Config>::GetWrappedCurrencyId::get());
     assert_ok!(rich_amount.mint_to(account_id));
 }
 
@@ -157,7 +157,7 @@ fn get_vault_id<T: crate::Config>() -> DefaultVaultId<T> {
     VaultId::new(
         account("Vault", 0, 0),
         T::GetGriefingCollateralCurrencyId::get(),
-        T::GetWrappedCurrencyId::get(),
+        <T as currency::Config>::GetWrappedCurrencyId::get(),
     )
 }
 
@@ -214,7 +214,7 @@ benchmarks! {
         VaultRegistry::<T>::liquidate_vault(&vault_id).unwrap();
         let currency_pair = VaultCurrencyPair {
             collateral: DEFAULT_TESTING_CURRENCY,
-            wrapped: T::GetWrappedCurrencyId::get()
+            wrapped: <T as currency::Config>::GetWrappedCurrencyId::get()
         };
     }: _(RawOrigin::Signed(origin), currency_pair, amount.into())
 

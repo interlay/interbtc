@@ -60,37 +60,26 @@ impl frame_system::Config for Test {
     type OnSetCode = ();
 }
 
-pub const DOT: CurrencyId = CurrencyId::DOT;
-// pub const INTERBTC: CurrencyId = CurrencyId::INTERBTC;
-
 parameter_types! {
-    pub const GetNativeCurrencyId: CurrencyId = CurrencyId::KINT;
+    pub const GetNativeCurrencyId: CurrencyId = CurrencyId::INTR;
+    pub const GetWrappedCurrencyId: CurrencyId = CurrencyId::INTERBTC;
 }
 
 impl Config for Test {
     type Event = TestEvent;
     type SignedFixedPoint = SignedFixedPoint;
+    type RewardId = AccountId;
     type CurrencyId = CurrencyId;
     type GetNativeCurrencyId = GetNativeCurrencyId;
+    type GetWrappedCurrencyId = GetWrappedCurrencyId;
 }
 
 pub type TestEvent = Event;
 pub type TestError = Error<Test>;
 
-pub const ALICE: VaultId<AccountId, CurrencyId> = VaultId {
-    account_id: 1,
-    currencies: VaultCurrencyPair {
-        collateral: DOT,
-        wrapped: INTERBTC,
-    },
-};
-pub const BOB: VaultId<AccountId, CurrencyId> = VaultId {
-    account_id: 2,
-    currencies: VaultCurrencyPair {
-        collateral: DOT,
-        wrapped: INTERBTC,
-    },
-};
+pub const ALICE: AccountId = 1;
+pub const BOB: AccountId = 2;
+
 pub struct ExtBuilder;
 
 impl ExtBuilder {

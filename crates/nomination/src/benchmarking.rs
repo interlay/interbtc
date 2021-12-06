@@ -37,7 +37,7 @@ fn get_vault_id<T: crate::Config>() -> DefaultVaultId<T> {
     VaultId::new(
         account("Vault", 0, 0),
         T::GetGriefingCollateralCurrencyId::get(),
-        T::GetWrappedCurrencyId::get(),
+        <T as currency::Config>::GetWrappedCurrencyId::get(),
     )
 }
 

@@ -93,8 +93,11 @@ pub mod pallet {
             SignedInner = SignedInner<Self>,
             SignedFixedPoint = SignedFixedPoint<Self>,
             CurrencyId = primitives::CurrencyId,
-        > + reward::Config<SignedFixedPoint = SignedFixedPoint<Self>, CurrencyId = CurrencyId<Self>>
-        + fee::Config<UnsignedInner = BalanceOf<Self>>
+        > + reward::Config<
+            SignedFixedPoint = SignedFixedPoint<Self>,
+            RewardId = DefaultVaultId<Self>,
+            CurrencyId = CurrencyId<Self>,
+        > + fee::Config<UnsignedInner = BalanceOf<Self>>
         + currency::Config<
             Balance = BalanceOf<Self>,
             CurrencyId = CurrencyId<Self>,

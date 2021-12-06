@@ -100,6 +100,9 @@ pub(crate) mod fee {
     }
 
     pub fn get_theft_fee_max<T: crate::Config>() -> Amount<T> {
-        Amount::new(<fee::Pallet<T>>::theft_fee_max(), T::GetWrappedCurrencyId::get())
+        Amount::new(
+            <fee::Pallet<T>>::theft_fee_max(),
+            <T as currency::Config>::GetWrappedCurrencyId::get(),
+        )
     }
 }
