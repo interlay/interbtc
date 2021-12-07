@@ -1,9 +1,11 @@
 /// Tests for Escrow
 use crate::mock::*;
+use crate::{Point, Restriction};
 use frame_support::{
     assert_err, assert_ok,
     traits::{Currency, ReservableCurrency},
 };
+use sp_runtime::traits::Identity;
 
 fn create_lock(origin: AccountId, amount: Balance, end_time: BlockNumber) {
     <Balances as Currency<AccountId>>::make_free_balance_be(&origin, amount);
@@ -135,5 +137,37 @@ fn should_create_lock_and_reserve() {
         assert_ok!(Escrow::reserve(&ALICE, reserved_balance));
         assert_eq!(Escrow::free_balance(&ALICE), free_balance);
         assert_eq!(Escrow::total_balance(&ALICE), total_balance);
+    })
+}
+
+#[test]
+fn should_reverse_escrow_free_balance() {
+    run_test(|| {
+        let free_balance: u32 = 1000;
+
+        let start_time = 0;
+        let end_time = 100;
+
+        for (current_time, balance) in [(0, 0), (50, 500), (100, 1000)] {
+            let point = Point::new::<Identity>(free_balance, start_time, end_time, end_time);
+            assert_eq!(point.reverse_balance_at::<Identity>(end_time, current_time), balance);
+        }
+    })
+}
+
+fn restrict_account(who: AccountId, amount: Balance, start: BlockNumber, end: BlockNumber) {
+    <Balances as Currency<AccountId>>::make_free_balance_be(&who, amount);
+    <Restriction<Test>>::insert(&who, (start, end));
+}
+
+#[test]
+fn should_get_free_balance() {
+    run_test(|| {
+        restrict_account(ALICE, 1000, 0, 100);
+        assert_eq!(Escrow::get_free_balance(&ALICE), 0);
+        System::set_block_number(100);
+        assert_eq!(Escrow::get_free_balance(&ALICE), 1000);
+        <Balances as Currency<AccountId>>::make_free_balance_be(&BOB, 2000);
+        assert_eq!(Escrow::get_free_balance(&BOB), 2000);
     })
 }

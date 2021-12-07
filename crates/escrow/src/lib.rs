@@ -82,6 +82,16 @@ impl<Balance: AtLeast32BitUnsigned + Copy, BlockNumber: AtLeast32BitUnsigned + C
         let height_diff = BlockNumberToBalance::convert(height.saturating_sub(self.ts));
         self.bias.saturating_sub(self.slope.saturating_mul(height_diff))
     }
+
+    // temporary function to limit stakeholder deposits
+    fn reverse_balance_at<BlockNumberToBalance: Convert<BlockNumber, Balance>>(
+        &self,
+        end: BlockNumber,
+        now: BlockNumber,
+    ) -> Balance {
+        let height_diff = BlockNumberToBalance::convert(end.saturating_sub(now));
+        self.bias.saturating_sub(self.slope.saturating_mul(height_diff))
+    }
 }
 
 #[derive(Default, Encode, Decode, Clone, TypeInfo)]
@@ -109,8 +119,7 @@ pub mod pallet {
         type BlockNumberToBalance: Convert<Self::BlockNumber, BalanceOf<Self>>;
 
         /// The currency trait.
-        type Currency: LockableCurrency<Self::AccountId, Moment = Self::BlockNumber>
-            + ReservableCurrency<Self::AccountId>;
+        type Currency: LockableCurrency<Self::AccountId, Moment = Self::BlockNumber>;
 
         /// All future times are rounded by this.
         #[pallet::constant]
@@ -185,6 +194,9 @@ pub mod pallet {
 
     #[pallet::storage]
     pub type SlopeChanges<T: Config> = StorageMap<_, Blake2_128Concat, T::BlockNumber, BalanceOf<T>, ValueQuery>;
+
+    #[pallet::storage]
+    pub type Restriction<T: Config> = StorageMap<_, Blake2_128Concat, T::AccountId, (T::BlockNumber, T::BlockNumber)>;
 
     #[pallet::pallet]
     pub struct Pallet<T>(_);
@@ -287,6 +299,19 @@ pub mod pallet {
             Self::remove_lock(&who)?;
             Ok(().into())
         }
+
+        #[pallet::weight(0)]
+        #[transactional]
+        pub fn set_account_restriction(
+            origin: OriginFor<T>,
+            who: T::AccountId,
+            start: T::BlockNumber,
+            end: T::BlockNumber,
+        ) -> DispatchResultWithPostInfo {
+            ensure_root(origin)?;
+            <Restriction<T>>::insert(&who, (start, end));
+            Ok(().into())
+        }
     }
 }
 
@@ -387,6 +412,18 @@ impl<T: Config> Pallet<T> {
         <UserPointHistory<T>>::insert(who, user_epoch, u_new);
     }
 
+    fn get_free_balance(who: &T::AccountId) -> BalanceOf<T> {
+        let free_balance = T::Currency::free_balance(who);
+        // limit total deposit of restricted accounts
+        if let Some((start, end)) = <Restriction<T>>::get(who) {
+            let current_height = Self::current_height();
+            let point = Point::new::<T::BlockNumberToBalance>(free_balance, start, end, end);
+            point.reverse_balance_at::<T::BlockNumberToBalance>(end, current_height)
+        } else {
+            free_balance
+        }
+    }
+
     fn deposit_for(who: &T::AccountId, amount: BalanceOf<T>, unlock_height: T::BlockNumber) -> DispatchResult {
         let old_locked = Self::locked_balance(who);
         let mut new_locked = old_locked.clone();
@@ -396,7 +433,7 @@ impl<T: Config> Pallet<T> {
         }
 
         ensure!(
-            T::Currency::free_balance(who) >= new_locked.amount,
+            Self::get_free_balance(who) >= new_locked.amount,
             Error::<T>::InsufficientFunds,
         );
         T::Currency::set_lock(LOCK_ID, &who, new_locked.amount, WithdrawReasons::all());
