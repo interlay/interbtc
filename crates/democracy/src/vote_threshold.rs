@@ -72,8 +72,9 @@ impl<
 {
     fn approved(&self, tally: Tally<Balance>, electorate: Balance) -> bool {
         let sqrt_voters = tally.turnout.integer_sqrt();
-        let sqrt_electorate = electorate.integer_sqrt();
-        if sqrt_voters.is_zero() {
+        // Since voting power decays, in rare cases the electorate can be less (even zero) than the sum of votes.
+        let sqrt_electorate = electorate.max(tally.turnout).integer_sqrt();
+        if sqrt_voters.is_zero() || sqrt_electorate.is_zero() {
             return false;
         }
         match *self {
