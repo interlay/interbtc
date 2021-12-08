@@ -517,7 +517,7 @@ impl staking::Config for Runtime {
 
 parameter_types! {
     pub const Span: BlockNumber = WEEKS;
-    pub const MaxPeriod: BlockNumber = DAYS * 365 * 4;
+    pub const MaxPeriod: BlockNumber = WEEKS * 52 * 4;
 }
 
 pub struct BlockNumberToBalance;
