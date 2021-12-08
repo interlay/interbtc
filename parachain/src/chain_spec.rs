@@ -407,16 +407,16 @@ fn testnet_genesis(
             system_collateral_ceiling: vec![(default_pair(CurrencyId::KSM), 1000 * CurrencyId::KSM.one())],
             secure_collateral_threshold: vec![(
                 default_pair(CurrencyId::KSM),
-                FixedU128::checked_from_rational(150, 100).unwrap(),
-            )], /* 150% */
+                FixedU128::checked_from_rational(360, 100).unwrap(),
+            )], /* 360% */
             premium_redeem_threshold: vec![(
                 default_pair(CurrencyId::KSM),
-                FixedU128::checked_from_rational(135, 100).unwrap(),
-            )], /* 135% */
+                FixedU128::checked_from_rational(280, 100).unwrap(),
+            )], /* 280% */
             liquidation_collateral_threshold: vec![(
                 default_pair(CurrencyId::KSM),
-                FixedU128::checked_from_rational(110, 100).unwrap(),
-            )], /* 110% */
+                FixedU128::checked_from_rational(220, 100).unwrap(),
+            )], /* 220% */
         },
         fee: kintsugi_runtime::FeeConfig {
             issue_fee: FixedU128::checked_from_rational(5, 1000).unwrap(), // 0.5%
@@ -618,16 +618,16 @@ fn kintsugi_mainnet_genesis(
                                                                                                             * time of writing */
             secure_collateral_threshold: vec![(
                 default_pair(CurrencyId::KSM),
-                FixedU128::checked_from_rational(260, 100).unwrap(),
-            )], /* 260% */
+                FixedU128::checked_from_rational(360, 100).unwrap(),
+            )], /* 360% */
             premium_redeem_threshold: vec![(
                 default_pair(CurrencyId::KSM),
-                FixedU128::checked_from_rational(200, 100).unwrap(),
-            )], /* 200% */
+                FixedU128::checked_from_rational(280, 100).unwrap(),
+            )], /* 280% */
             liquidation_collateral_threshold: vec![(
                 default_pair(CurrencyId::KSM),
-                FixedU128::checked_from_rational(150, 100).unwrap(),
-            )], /* 150% */
+                FixedU128::checked_from_rational(220, 100).unwrap(),
+            )], /* 220% */
         },
         fee: kintsugi_runtime::FeeConfig {
             issue_fee: FixedU128::checked_from_rational(5, 1000).unwrap(), // 0.5%
@@ -824,17 +824,17 @@ fn interlay_mainnet_genesis(
                                                                                                             * USD at
                                                                                                             * time of writing */
             secure_collateral_threshold: vec![(
-                default_pair(CurrencyId::KSM),
+                default_pair(CurrencyId::DOT),
+                FixedU128::checked_from_rational(330, 100).unwrap(),
+            )], /* 330% */
+            premium_redeem_threshold: vec![(
+                default_pair(CurrencyId::DOT),
                 FixedU128::checked_from_rational(260, 100).unwrap(),
             )], /* 260% */
-            premium_redeem_threshold: vec![(
-                default_pair(CurrencyId::KSM),
+            liquidation_collateral_threshold: vec![(
+                default_pair(CurrencyId::DOT),
                 FixedU128::checked_from_rational(200, 100).unwrap(),
             )], /* 200% */
-            liquidation_collateral_threshold: vec![(
-                default_pair(CurrencyId::KSM),
-                FixedU128::checked_from_rational(150, 100).unwrap(),
-            )], /* 150% */
         },
         fee: interlay_runtime::FeeConfig {
             issue_fee: FixedU128::checked_from_rational(5, 1000).unwrap(), // 0.5%
