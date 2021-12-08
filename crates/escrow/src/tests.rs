@@ -1,6 +1,6 @@
 /// Tests for Escrow
 use crate::mock::*;
-use crate::{Point, Restriction};
+use crate::{Limits, Point};
 use frame_support::{
     assert_err, assert_ok,
     traits::{Currency, ReservableCurrency},
@@ -155,15 +155,15 @@ fn should_reverse_escrow_free_balance() {
     })
 }
 
-fn restrict_account(who: AccountId, amount: Balance, start: BlockNumber, end: BlockNumber) {
+fn limit_account(who: AccountId, amount: Balance, start: BlockNumber, end: BlockNumber) {
     <Balances as Currency<AccountId>>::make_free_balance_be(&who, amount);
-    <Restriction<Test>>::insert(&who, (start, end));
+    <Limits<Test>>::insert(&who, (start, end));
 }
 
 #[test]
 fn should_get_free_balance() {
     run_test(|| {
-        restrict_account(ALICE, 1000, 0, 100);
+        limit_account(ALICE, 1000, 0, 100);
         assert_eq!(Escrow::get_free_balance(&ALICE), 0);
         System::set_block_number(100);
         assert_eq!(Escrow::get_free_balance(&ALICE), 1000);

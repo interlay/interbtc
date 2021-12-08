@@ -216,8 +216,13 @@ pub mod pallet {
     #[pallet::storage]
     pub type SlopeChanges<T: Config> = StorageMap<_, Blake2_128Concat, T::BlockNumber, BalanceOf<T>, ValueQuery>;
 
+    // Accounts that are limited in how much they can mint.
     #[pallet::storage]
-    pub type Restriction<T: Config> = StorageMap<_, Blake2_128Concat, T::AccountId, (T::BlockNumber, T::BlockNumber)>;
+    pub type Limits<T: Config> = StorageMap<_, Blake2_128Concat, T::AccountId, (T::BlockNumber, T::BlockNumber)>;
+
+    // Accounts that are prohibited from locking tokens for voting.
+    #[pallet::storage]
+    pub type Blocks<T: Config> = StorageMap<_, Blake2_128Concat, T::AccountId, bool, ValueQuery>;
 
     #[pallet::pallet]
     pub struct Pallet<T>(_);
@@ -323,14 +328,22 @@ pub mod pallet {
 
         #[pallet::weight(0)]
         #[transactional]
-        pub fn set_account_restriction(
+        pub fn set_account_limit(
             origin: OriginFor<T>,
             who: T::AccountId,
             start: T::BlockNumber,
             end: T::BlockNumber,
         ) -> DispatchResultWithPostInfo {
             ensure_root(origin)?;
-            <Restriction<T>>::insert(&who, (start, end));
+            <Limits<T>>::insert(&who, (start, end));
+            Ok(().into())
+        }
+
+        #[pallet::weight(0)]
+        #[transactional]
+        pub fn set_account_block(origin: OriginFor<T>, who: T::AccountId) -> DispatchResultWithPostInfo {
+            ensure_root(origin)?;
+            <Blocks<T>>::insert(&who, true);
             Ok(().into())
         }
     }
@@ -435,8 +448,12 @@ impl<T: Config> Pallet<T> {
 
     fn get_free_balance(who: &T::AccountId) -> BalanceOf<T> {
         let free_balance = T::Currency::free_balance(who);
+        // prevent blocked accounts from minting
+        if <Blocks<T>>::get(who) {
+            Zero::zero()
+        }
         // limit total deposit of restricted accounts
-        if let Some((start, end)) = <Restriction<T>>::get(who) {
+        else if let Some((start, end)) = <Limits<T>>::get(who) {
             // TODO: remove these restrictions in the future when the token distribution is complete
             let current_height = Self::current_height();
             let point = Point::new::<T::BlockNumberToBalance>(free_balance, start, end, end);
