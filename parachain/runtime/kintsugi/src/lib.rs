@@ -941,8 +941,10 @@ pub struct EscrowBlockRewardProvider;
 impl annuity::BlockRewardProvider<AccountId> for EscrowBlockRewardProvider {
     type Currency = NativeCurrency;
     fn distribute_block_reward(_from: &AccountId, amount: Balance) -> DispatchResult {
-        // TODO: withdraw from escrow_annuity
         reward::distribute_reward::<Runtime, EscrowRewardsInstance, _>(GetNativeCurrencyId::get(), amount)
+    }
+    fn withdraw_reward(who: &AccountId) -> Result<Balance, DispatchError> {
+        reward::withdraw_reward::<Runtime, EscrowRewardsInstance, _>(GetNativeCurrencyId::get(), who)
     }
 }
 
@@ -966,6 +968,9 @@ impl annuity::BlockRewardProvider<AccountId> for VaultBlockRewardProvider {
         Self::Currency::transfer(from, &FeeAccount::get(), amount, ExistenceRequirement::KeepAlive)?;
         reward::distribute_reward::<Runtime, VaultRewardsInstance, _>(GetNativeCurrencyId::get(), amount)
     }
+    fn withdraw_reward(_: &AccountId) -> Result<Balance, DispatchError> {
+        Ok(Zero::zero())
+    }
 }
 
 parameter_types! {
@@ -988,7 +993,7 @@ type EscrowRewardsInstance = reward::Instance1;
 impl reward::Config<EscrowRewardsInstance> for Runtime {
     type Event = Event;
     type SignedFixedPoint = SignedFixedPoint;
-    type RewardId = VaultId;
+    type RewardId = AccountId;
     type CurrencyId = CurrencyId;
     type GetNativeCurrencyId = GetNativeCurrencyId;
     type GetWrappedCurrencyId = GetWrappedCurrencyId;
@@ -1159,7 +1164,7 @@ construct_runtime! {
         Escrow: escrow::{Pallet, Call, Storage, Event<T>},
         Vesting: orml_vesting::{Pallet, Storage, Call, Event<T>, Config<T>},
 
-        EscrowAnnuity: annuity::<Instance1>::{Pallet, Storage, Event<T>, Config<T>},
+        EscrowAnnuity: annuity::<Instance1>::{Pallet, Call, Storage, Event<T>, Config<T>},
         EscrowRewards: reward::<Instance1>::{Pallet, Storage, Event<T>},
 
         VaultAnnuity: annuity::<Instance2>::{Pallet, Storage, Event<T>, Config<T>},

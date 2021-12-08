@@ -21,7 +21,11 @@ use primitives::TruncateFixedPointToInt;
 use scale_info::TypeInfo;
 use sp_arithmetic::FixedPointNumber;
 use sp_runtime::traits::{CheckedAdd, CheckedDiv, CheckedMul, CheckedSub, MaybeSerializeDeserialize, Zero};
-use sp_std::{convert::TryInto, fmt::Debug, marker::PhantomData};
+use sp_std::{
+    convert::{TryFrom, TryInto},
+    fmt::Debug,
+    marker::PhantomData,
+};
 
 pub(crate) type SignedFixedPoint<T, I = ()> = <T as Config<I>>::SignedFixedPoint;
 
@@ -385,4 +389,17 @@ where
         currency_id,
         SignedFixedPoint::<T, I>::checked_from_integer(reward).unwrap_or_default(),
     )
+}
+
+pub fn withdraw_reward<T, I, Balance>(
+    currency_id: T::CurrencyId,
+    reward_id: &T::RewardId,
+) -> Result<Balance, DispatchError>
+where
+    T: Config<I>,
+    I: 'static,
+    Balance: TryFrom<<SignedFixedPoint<T, I> as FixedPointNumber>::Inner>,
+{
+    Balance::try_from(Pallet::<T, I>::withdraw_reward(reward_id, currency_id)?)
+        .map_err(|_| Error::<T, I>::TryIntoIntError.into())
 }
