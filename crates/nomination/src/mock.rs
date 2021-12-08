@@ -226,7 +226,6 @@ impl oracle::Config for Test {
 impl Config for Test {
     type Event = TestEvent;
     type WeightInfo = ();
-    type VaultRewards = reward::RewardsCurrencyAdapter<Test>;
 }
 
 pub type TestEvent = Event;

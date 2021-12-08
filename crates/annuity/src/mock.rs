@@ -9,7 +9,7 @@ use sp_core::H256;
 use sp_runtime::{
     generic::Header as GenericHeader,
     traits::{BlakeTwo256, Identity, IdentityLookup},
-    DispatchResult,
+    DispatchError, DispatchResult,
 };
 
 type Header = GenericHeader<BlockNumber, BlakeTwo256>;
@@ -96,6 +96,9 @@ impl BlockRewardProvider<AccountId> for MockBlockRewardProvider {
     type Currency = Balances;
     fn distribute_block_reward(_: &AccountId, _: Balance) -> DispatchResult {
         Ok(())
+    }
+    fn withdraw_reward(_: &AccountId) -> Result<Balance, DispatchError> {
+        Ok(0)
     }
 }
 

@@ -8,4 +8,4 @@ pub(crate) type SignedFixedPoint<T> = <T as currency::Config>::SignedFixedPoint;
 
 pub(crate) type SignedInner<T> = <T as currency::Config>::SignedInner;
 
-pub(crate) type DefaultVaultId<T> = VaultId<<T as frame_system::Config>::AccountId, <T as staking::Config>::CurrencyId>;
+pub(crate) type DefaultVaultId<T> = VaultId<<T as frame_system::Config>::AccountId, currency::CurrencyId<T>>;

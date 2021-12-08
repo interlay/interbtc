@@ -12,8 +12,9 @@ mod mock;
 mod tests;
 
 use frame_support::{
-    dispatch::DispatchResult,
-    traits::{Currency, Get, ReservableCurrency},
+    dispatch::{DispatchError, DispatchResult},
+    traits::{Currency, ExistenceRequirement, Get, ReservableCurrency},
+    transactional,
     weights::Weight,
     PalletId,
 };
@@ -27,6 +28,7 @@ type BalanceOf<T, I> = <<T as Config<I>>::Currency as Currency<<T as frame_syste
 pub mod pallet {
     use super::*;
     use frame_support::pallet_prelude::*;
+    use frame_system::{ensure_signed, pallet_prelude::*};
 
     /// ## Configuration
     /// The pallet's configuration trait.
@@ -55,9 +57,9 @@ pub mod pallet {
 
     // The pallet's events
     #[pallet::event]
-    // #[pallet::generate_deposit(pub(crate) fn deposit_event)]
+    #[pallet::generate_deposit(pub(crate) fn deposit_event)]
     pub enum Event<T: Config<I>, I: 'static = ()> {
-        BlockReward(T::AccountId, BalanceOf<T, I>),
+        BlockReward(BalanceOf<T, I>),
     }
 
     #[pallet::error]
@@ -101,14 +103,30 @@ pub mod pallet {
 
     // The pallet's dispatchable functions.
     #[pallet::call]
-    impl<T: Config<I>, I: 'static> Pallet<T, I> {}
+    impl<T: Config<I>, I: 'static> Pallet<T, I> {
+        #[pallet::weight(0)]
+        #[transactional]
+        pub fn withdraw_reward(origin: OriginFor<T>) -> DispatchResultWithPostInfo {
+            let dest = ensure_signed(origin)?;
+            let value = T::BlockRewardProvider::withdraw_reward(&dest)?;
+            let _ = T::Currency::transfer(
+                &Self::annuity_pallet_id(),
+                &dest,
+                value,
+                ExistenceRequirement::KeepAlive,
+            );
+            Ok(().into())
+        }
+    }
 }
 
 // "Internal" functions, callable by code.
 impl<T: Config<I>, I: 'static> Pallet<T, I> {
     pub(crate) fn begin_block(_height: T::BlockNumber) -> DispatchResult {
         let annuity_pallet_id = Self::annuity_pallet_id();
-        T::BlockRewardProvider::distribute_block_reward(&annuity_pallet_id, Self::reward_per_block())
+        let reward_per_block = Self::reward_per_block();
+        Self::deposit_event(Event::<T, I>::BlockReward(reward_per_block));
+        T::BlockRewardProvider::distribute_block_reward(&annuity_pallet_id, reward_per_block)
     }
 
     fn reward_per_block() -> BalanceOf<T, I> {
@@ -125,4 +143,5 @@ pub trait BlockRewardProvider<AccountId> {
         from: &AccountId,
         amount: <Self::Currency as Currency<AccountId>>::Balance,
     ) -> DispatchResult;
+    fn withdraw_reward(who: &AccountId) -> Result<<Self::Currency as Currency<AccountId>>::Balance, DispatchError>;
 }

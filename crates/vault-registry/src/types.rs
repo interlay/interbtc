@@ -30,7 +30,7 @@ pub enum Version {
 }
 
 #[derive(Debug, PartialEq)]
-pub enum CurrencySource<T: frame_system::Config + staking::Config> {
+pub enum CurrencySource<T: frame_system::Config + orml_tokens::Config> {
     /// Used by vault to back issued tokens
     Collateral(DefaultVaultId<T>),
     /// Collateral put down by request_replace, but that has not been accepted yet
@@ -94,13 +94,11 @@ pub(crate) type BalanceOf<T> = <T as Config>::Balance;
 
 pub(crate) type Collateral<T> = BalanceOf<T>;
 
-pub(crate) type SignedFixedPoint<T> = <T as currency::Config>::SignedFixedPoint;
-
 pub(crate) type UnsignedFixedPoint<T> = <T as currency::Config>::UnsignedFixedPoint;
 
 pub(crate) type SignedInner<T> = <T as currency::Config>::SignedInner;
 
-pub type CurrencyId<T> = <T as staking::Config>::CurrencyId;
+pub type CurrencyId<T> = <T as orml_tokens::Config>::CurrencyId;
 
 pub type DefaultVaultId<T> = VaultId<<T as frame_system::Config>::AccountId, CurrencyId<T>>;
 

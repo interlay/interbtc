@@ -34,14 +34,14 @@ use frame_system::{ensure_root, ensure_signed};
 pub use pallet::*;
 use primitives::VaultId;
 use sp_std::convert::TryInto;
-use types::{Collateral, DefaultVaultId, SignedFixedPoint};
+use types::{Collateral, DefaultVaultId};
 
 #[frame_support::pallet]
 pub mod pallet {
     use super::*;
     use frame_support::pallet_prelude::*;
     use frame_system::pallet_prelude::*;
-    use vault_registry::types::{CurrencyId, DefaultVaultCurrencyPair};
+    use vault_registry::types::DefaultVaultCurrencyPair;
 
     /// ## Configuration
     /// The pallet's configuration trait.
@@ -52,13 +52,6 @@ pub mod pallet {
 
         /// Weight information for the extrinsics in this module.
         type WeightInfo: WeightInfo;
-
-        /// Vault reward pool for the wrapped currency.
-        type VaultRewards: reward::Rewards<
-            DefaultVaultId<Self>,
-            CurrencyId<Self>,
-            SignedFixedPoint = SignedFixedPoint<Self>,
-        >;
     }
 
     #[pallet::event]

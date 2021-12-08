@@ -257,7 +257,6 @@ impl replace::Config for Test {
 impl nomination::Config for Test {
     type Event = TestEvent;
     type WeightInfo = ();
-    type VaultRewards = reward::RewardsCurrencyAdapter<Test>;
 }
 
 impl Config for Test {

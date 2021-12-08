@@ -29,43 +29,44 @@ pub(crate) mod staking {
         DefaultVaultId,
     };
     use currency::Amount;
-    use frame_support::dispatch::DispatchError;
+    use frame_support::dispatch::{DispatchError, DispatchResult};
+    use staking::Staking;
 
     pub fn deposit_stake<T: crate::Config>(
         vault_id: &DefaultVaultId<T>,
         nominator_id: &T::AccountId,
         amount: &Amount<T>,
-    ) -> Result<(), DispatchError> {
-        <staking::Pallet<T>>::deposit_stake(vault_id, nominator_id, amount.to_signed_fixed_point()?)
+    ) -> DispatchResult {
+        T::VaultStaking::deposit_stake(vault_id, nominator_id, amount.to_signed_fixed_point()?)
     }
 
     pub fn withdraw_stake<T: crate::Config>(
         vault_id: &DefaultVaultId<T>,
         nominator_id: &T::AccountId,
         amount: &Amount<T>,
-    ) -> Result<(), DispatchError> {
-        <staking::Pallet<T>>::withdraw_stake(vault_id, nominator_id, amount.to_signed_fixed_point()?, None)
+    ) -> DispatchResult {
+        T::VaultStaking::withdraw_stake(vault_id, nominator_id, amount.to_signed_fixed_point()?, None)
     }
 
     pub fn slash_stake<T: crate::Config>(
         currency_id: CurrencyId<T>,
         vault_id: &DefaultVaultId<T>,
         amount: &Amount<T>,
-    ) -> Result<(), DispatchError> {
-        <staking::Pallet<T>>::slash_stake(currency_id, vault_id, amount.to_signed_fixed_point()?)
+    ) -> DispatchResult {
+        T::VaultStaking::slash_stake(vault_id, amount.to_signed_fixed_point()?, currency_id)
     }
 
     pub fn compute_stake<T: crate::Config>(
         vault_id: &DefaultVaultId<T>,
         nominator_id: &T::AccountId,
     ) -> Result<SignedInner<T>, DispatchError> {
-        <staking::Pallet<T>>::compute_stake(vault_id, nominator_id)
+        T::VaultStaking::compute_stake(vault_id, nominator_id)
     }
 
     pub fn total_current_stake<T: crate::Config>(
         vault_id: &DefaultVaultId<T>,
     ) -> Result<SignedInner<T>, DispatchError> {
-        <staking::Pallet<T>>::total_current_stake(vault_id)
+        T::VaultStaking::total_stake(vault_id)
     }
 }
 
@@ -74,19 +75,20 @@ pub(crate) mod reward {
     use crate::DefaultVaultId;
     use currency::Amount;
     use frame_support::dispatch::DispatchError;
+    use reward::Rewards;
 
     pub fn deposit_stake<T: crate::Config>(
         vault_id: &DefaultVaultId<T>,
         amount: &Amount<T>,
     ) -> Result<(), DispatchError> {
-        <reward::Pallet<T>>::deposit_stake(vault_id, amount.to_signed_fixed_point()?)
+        T::VaultRewards::deposit_stake(vault_id, amount.to_signed_fixed_point()?)
     }
 
     pub fn withdraw_stake<T: crate::Config>(
         vault_id: &DefaultVaultId<T>,
         amount: &Amount<T>,
     ) -> Result<(), DispatchError> {
-        <reward::Pallet<T>>::withdraw_stake(vault_id, amount.to_signed_fixed_point()?)
+        T::VaultRewards::withdraw_stake(vault_id, amount.to_signed_fixed_point()?)
     }
 }
 

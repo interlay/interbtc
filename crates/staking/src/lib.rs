@@ -690,6 +690,9 @@ pub trait Staking<VaultId, NominatorId, Index, CurrencyId> {
     /// Signed fixed point type.
     type SignedFixedPoint: FixedPointNumber;
 
+    /// Get the newest nonce for the staking pool.
+    fn nonce(vault_id: &VaultId) -> Index;
+
     /// Deposit an `amount` of stake to the `vault_id` for the `nominator_id`.
     fn deposit_stake(
         vault_id: &VaultId,
@@ -710,6 +713,9 @@ pub trait Staking<VaultId, NominatorId, Index, CurrencyId> {
         nominator_id: &NominatorId,
     ) -> Result<<Self::SignedFixedPoint as FixedPointNumber>::Inner, DispatchError>;
 
+    /// Compute the total stake in `vault_id` **after** slashing.
+    fn total_stake(vault_id: &VaultId) -> Result<<Self::SignedFixedPoint as FixedPointNumber>::Inner, DispatchError>;
+
     /// Distribute the `reward` to all participants.
     fn distribute_reward(
         vault_id: &VaultId,
@@ -725,8 +731,12 @@ pub trait Staking<VaultId, NominatorId, Index, CurrencyId> {
     ) -> Result<<Self::SignedFixedPoint as FixedPointNumber>::Inner, DispatchError>;
 
     /// Withdraw an `amount` of stake from the `vault_id` for the `nominator_id`.
-    fn withdraw_stake(vault_id: &VaultId, nominator_id: &NominatorId, amount: Self::SignedFixedPoint)
-        -> DispatchResult;
+    fn withdraw_stake(
+        vault_id: &VaultId,
+        nominator_id: &NominatorId,
+        amount: Self::SignedFixedPoint,
+        index: Option<Index>,
+    ) -> DispatchResult;
 
     /// Withdraw all rewards earned by `vault_id` for the `nominator_id`.
     fn withdraw_reward(
@@ -735,6 +745,9 @@ pub trait Staking<VaultId, NominatorId, Index, CurrencyId> {
         index: Option<Index>,
         currency_id: CurrencyId,
     ) -> Result<<Self::SignedFixedPoint as FixedPointNumber>::Inner, DispatchError>;
+
+    /// Force refund the entire nomination to `vault_id`.
+    fn force_refund(vault_id: &VaultId) -> Result<<Self::SignedFixedPoint as FixedPointNumber>::Inner, DispatchError>;
 }
 
 pub struct StakingCurrencyAdapter<T>(PhantomData<T>);
@@ -744,6 +757,10 @@ where
     T: Config,
 {
     type SignedFixedPoint = SignedFixedPoint<T>;
+
+    fn nonce(vault_id: &DefaultVaultId<T>) -> T::Index {
+        Pallet::<T>::nonce(vault_id)
+    }
 
     fn deposit_stake(
         vault_id: &DefaultVaultId<T>,
@@ -768,6 +785,12 @@ where
         Pallet::<T>::compute_stake(vault_id, nominator_id)
     }
 
+    fn total_stake(
+        vault_id: &DefaultVaultId<T>,
+    ) -> Result<<Self::SignedFixedPoint as FixedPointNumber>::Inner, DispatchError> {
+        Pallet::<T>::total_current_stake(vault_id)
+    }
+
     fn distribute_reward(
         vault_id: &DefaultVaultId<T>,
         reward: Self::SignedFixedPoint,
@@ -788,8 +811,9 @@ where
         vault_id: &DefaultVaultId<T>,
         nominator_id: &T::AccountId,
         amount: Self::SignedFixedPoint,
+        index: Option<T::Index>,
     ) -> DispatchResult {
-        Pallet::<T>::withdraw_stake(vault_id, nominator_id, amount, None)
+        Pallet::<T>::withdraw_stake(vault_id, nominator_id, amount, index)
     }
 
     fn withdraw_reward(
@@ -800,5 +824,11 @@ where
     ) -> Result<<Self::SignedFixedPoint as FixedPointNumber>::Inner, DispatchError> {
         let nonce = index.unwrap_or(Pallet::<T>::nonce(vault_id));
         Pallet::<T>::withdraw_reward_at_index(nonce, currency_id, vault_id, nominator_id)
+    }
+
+    fn force_refund(
+        vault_id: &DefaultVaultId<T>,
+    ) -> Result<<Self::SignedFixedPoint as FixedPointNumber>::Inner, DispatchError> {
+        Pallet::<T>::force_refund(vault_id)
     }
 }
