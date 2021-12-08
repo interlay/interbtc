@@ -2,7 +2,7 @@ mod mock;
 use crate::assert_eq;
 use mock::*;
 
-use democracy::{PropIndex, ReferendumIndex, Vote};
+use democracy::{PropIndex, ReferendumIndex, ReferendumInfo, Vote};
 use frame_support::traits::{Currency, Hooks};
 use orml_vesting::VestingSchedule;
 use sp_core::{Encode, Hasher};
@@ -28,6 +28,7 @@ type VestingCall = orml_vesting::Call<Runtime>;
 
 const COLLATERAL_CURRENCY_ID: CurrencyId = CurrencyId::DOT;
 const NATIVE_CURRENCY_ID: CurrencyId = CurrencyId::INTR;
+const INITIAL_VOTING_POWER: u128 = 5_000_000_000_000;
 
 fn get_max_locked(account_id: AccountId) -> Balance {
     TokensPallet::locks(&account_id, NATIVE_CURRENCY_ID)
@@ -54,7 +55,7 @@ fn test_with<R>(execute: impl Fn() -> R) {
             new_reserved: 0,
         })
         .dispatch(root()));
-        create_lock(account_of(ALICE), 5_000_000_000_000);
+        create_lock(account_of(ALICE), INITIAL_VOTING_POWER);
 
         execute()
     });
@@ -318,5 +319,258 @@ fn integration_test_vested_escrow() {
         // re-lock vested balance in escrow
         create_lock(account_of(BOB), vesting_amount);
         assert_eq!(get_max_locked(account_of(BOB)), vesting_amount);
+    });
+}
+
+#[test]
+fn integration_test_governance_voter_can_change_vote() {
+    test_with(|| {
+        let amount_to_set = 1000;
+        create_set_balance_proposal(amount_to_set);
+
+        let start_height = <Runtime as democracy::Config>::LaunchPeriod::get();
+        DemocracyPallet::on_initialize(start_height);
+        let index = assert_democracy_started_event();
+
+        assert_ok!(Call::Democracy(DemocracyCall::vote {
+            ref_index: index,
+            vote: Vote {
+                aye: true,
+                balance: 30_000_000,
+            }
+        })
+        .dispatch(origin_of(account_of(ALICE))));
+        assert!(
+            matches!(DemocracyPallet::referendum_info(index), Some(ReferendumInfo::Ongoing(status)) if status.tally.ayes == 30_000_000)
+        );
+
+        // can decrease vote amount
+        assert_ok!(Call::Democracy(DemocracyCall::vote {
+            ref_index: index,
+            vote: Vote {
+                aye: true,
+                balance: 20_000_000,
+            }
+        })
+        .dispatch(origin_of(account_of(ALICE))));
+        assert!(
+            matches!(DemocracyPallet::referendum_info(index), Some(ReferendumInfo::Ongoing(status)) if status.tally.ayes == 20_000_000)
+        );
+
+        // can increase vote amount
+        assert_ok!(Call::Democracy(DemocracyCall::vote {
+            ref_index: index,
+            vote: Vote {
+                aye: true,
+                balance: 40_000_000,
+            }
+        })
+        .dispatch(origin_of(account_of(ALICE))));
+        assert!(
+            matches!(DemocracyPallet::referendum_info(index), Some(ReferendumInfo::Ongoing(status)) if status.tally.ayes == 40_000_000)
+        );
+
+        // can change the vote direction
+        assert_ok!(Call::Democracy(DemocracyCall::vote {
+            ref_index: index,
+            vote: Vote {
+                aye: false,
+                balance: 20_000_000,
+            }
+        })
+        .dispatch(origin_of(account_of(ALICE))));
+        assert!(
+            matches!(DemocracyPallet::referendum_info(index), Some(ReferendumInfo::Ongoing(status)) if status.tally.ayes == 0)
+        );
+        assert!(
+            matches!(DemocracyPallet::referendum_info(index), Some(ReferendumInfo::Ongoing(status)) if status.tally.nays == 20_000_000)
+        );
+    });
+}
+
+#[test]
+fn integration_test_governance_voter_can_change_vote_with_limited_funds() {
+    test_with(|| {
+        let amount_to_set = 1000;
+        create_set_balance_proposal(amount_to_set);
+
+        let start_height = <Runtime as democracy::Config>::LaunchPeriod::get();
+        DemocracyPallet::on_initialize(start_height);
+        let index = assert_democracy_started_event();
+
+        let max_period = <Runtime as escrow::Config>::MaxPeriod::get() as u128;
+        let expected_voting_power = INITIAL_VOTING_POWER - INITIAL_VOTING_POWER % max_period;
+
+        assert_ok!(Call::Tokens(TokensCall::set_balance {
+            who: account_of(BOB),
+            currency_id: NATIVE_CURRENCY_ID,
+            new_free: expected_voting_power,
+            new_reserved: 0,
+        })
+        .dispatch(root()));
+
+        let start = <Runtime as escrow::Config>::Span::get();
+        SystemPallet::set_block_number(start);
+
+        let lock_duration = <Runtime as escrow::Config>::MaxPeriod::get();
+        assert_ok!(Call::Escrow(EscrowCall::create_lock {
+            amount: expected_voting_power - max_period,
+            unlock_height: start + lock_duration
+        })
+        .dispatch(origin_of(account_of(BOB))));
+
+        assert_ok!(Call::Democracy(DemocracyCall::vote {
+            ref_index: index,
+            vote: Vote {
+                aye: true,
+                balance: expected_voting_power - max_period,
+            }
+        })
+        .dispatch(origin_of(account_of(BOB))));
+
+        assert_ok!(
+            Call::Escrow(EscrowCall::increase_amount { amount: max_period }).dispatch(origin_of(account_of(BOB)))
+        );
+
+        assert_ok!(Call::Democracy(DemocracyCall::vote {
+            ref_index: index,
+            vote: Vote {
+                aye: true,
+                balance: expected_voting_power,
+            }
+        })
+        .dispatch(origin_of(account_of(BOB))));
+    })
+}
+#[test]
+fn integration_test_create_lock_half_max_period() {
+    ExtBuilder::build().execute_with(|| {
+        assert_ok!(Call::Tokens(TokensCall::set_balance {
+            who: account_of(ALICE),
+            currency_id: NATIVE_CURRENCY_ID,
+            new_free: 10_000_000_000_000,
+            new_reserved: 0,
+        })
+        .dispatch(root()));
+        let max_period = <Runtime as escrow::Config>::MaxPeriod::get() as u128;
+
+        let start = <Runtime as escrow::Config>::Span::get();
+        SystemPallet::set_block_number(start);
+
+        let lock_duration = <Runtime as escrow::Config>::MaxPeriod::get() / 2;
+
+        assert_ok!(Call::Escrow(EscrowCall::create_lock {
+            amount: INITIAL_VOTING_POWER,
+            unlock_height: start + lock_duration
+        })
+        .dispatch(origin_of(account_of(ALICE))));
+
+        // initial voting power is rounded down to a multiple of max_period. We get only 50% of voting power for locking
+        // half time
+        let expected_voting_power = (INITIAL_VOTING_POWER - INITIAL_VOTING_POWER % max_period) / 2;
+        assert_eq!(
+            <Runtime as democracy::Config>::Currency::total_issuance(),
+            expected_voting_power
+        );
+
+        SystemPallet::set_block_number(start + lock_duration / 2);
+        assert_eq!(
+            <Runtime as democracy::Config>::Currency::total_issuance(),
+            expected_voting_power / 2
+        );
+
+        SystemPallet::set_block_number(start + lock_duration);
+        assert_eq!(<Runtime as democracy::Config>::Currency::total_issuance(), 0);
+    })
+}
+
+#[test]
+fn integration_test_create_lock_halfway_span() {
+    ExtBuilder::build().execute_with(|| {
+        assert_ok!(Call::Tokens(TokensCall::set_balance {
+            who: account_of(ALICE),
+            currency_id: NATIVE_CURRENCY_ID,
+            new_free: 10_000_000_000_000,
+            new_reserved: 0,
+        })
+        .dispatch(root()));
+        let span = <Runtime as escrow::Config>::Span::get() as u128;
+        let max_period = <Runtime as escrow::Config>::MaxPeriod::get() as u128;
+        let num_spans = max_period / span;
+
+        let start = <Runtime as escrow::Config>::Span::get() / 2;
+        SystemPallet::set_block_number(start);
+
+        assert_ok!(Call::Escrow(EscrowCall::create_lock {
+            amount: INITIAL_VOTING_POWER,
+            unlock_height: <Runtime as escrow::Config>::MaxPeriod::get() + start
+        })
+        .dispatch(origin_of(account_of(ALICE))));
+
+        // initial voting power is rounded down to a multiple of max_period
+        let initial_voting_power = INITIAL_VOTING_POWER - INITIAL_VOTING_POWER % max_period;
+
+        // we are locking for a period of (max_period - span / 2), since our unlock_height got rounded down.
+        // We have to correct for the half-span worth of locking power that we lose out on
+        let expected_voting_power = initial_voting_power - initial_voting_power / (2 * num_spans);
+        assert_eq!(
+            <Runtime as democracy::Config>::Currency::total_issuance(),
+            expected_voting_power
+        );
+
+        SystemPallet::set_block_number(<Runtime as escrow::Config>::MaxPeriod::get() / 2);
+        assert_eq!(
+            <Runtime as democracy::Config>::Currency::total_issuance(),
+            initial_voting_power / 2
+        );
+    })
+}
+
+#[test]
+fn integration_test_vote_exceeds_total_voting_power() {
+    ExtBuilder::build().execute_with(|| {
+        assert_ok!(Call::Tokens(TokensCall::set_balance {
+            who: account_of(ALICE),
+            currency_id: NATIVE_CURRENCY_ID,
+            new_free: 10_000_000_000_000_000_000_000,
+            new_reserved: 0,
+        })
+        .dispatch(root()));
+
+        // we choose a referendum height that is both on a SPAN and LAUNCHPERIOD boundary
+        let referendum_height =
+            <Runtime as democracy::Config>::LaunchPeriod::get() * <Runtime as escrow::Config>::Span::get();
+        let start_height = referendum_height - <Runtime as democracy::Config>::LaunchPeriod::get();
+        let end_height = start_height + <Runtime as democracy::Config>::VotingPeriod::get();
+
+        SystemPallet::set_block_number(start_height);
+        assert_ok!(Call::Escrow(EscrowCall::create_lock {
+            amount: 10_000_000_000_000_000_000_000,
+            unlock_height: end_height
+        })
+        .dispatch(origin_of(account_of(ALICE))));
+
+        create_set_balance_proposal(1000);
+        DemocracyPallet::on_initialize(start_height);
+        let index = assert_democracy_started_event();
+
+        // vote in favour
+        assert_ok!(Call::Democracy(DemocracyCall::vote {
+            ref_index: index,
+            vote: Vote {
+                aye: true,
+                balance: 1000,
+            }
+        })
+        .dispatch(origin_of(account_of(ALICE))));
+
+        // simulate end of voting period
+        SystemPallet::set_block_number(end_height);
+        DemocracyPallet::on_initialize(end_height);
+
+        // total voting power should have decayed to zero
+        assert_eq!(<Runtime as democracy::Config>::Currency::total_issuance(), 0);
+        // but vote passed due to the vote in favour
+        assert_democracy_passed_event(index);
     });
 }
