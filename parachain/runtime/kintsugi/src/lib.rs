@@ -16,7 +16,7 @@ use frame_support::{
     PalletId,
 };
 use frame_system::{EnsureOneOf, EnsureRoot, RawOrigin};
-use orml_traits::parameter_type_with_key;
+use orml_traits::{parameter_type_with_key, MultiCurrency};
 use sp_api::impl_runtime_apis;
 use sp_core::{u32_trait::_1, OpaqueMetadata, H256};
 use sp_runtime::{
@@ -30,6 +30,7 @@ use sp_std::{marker::PhantomData, prelude::*};
 use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
 
+use codec::Encode;
 // A few exports that help ease life for downstream crates.
 pub use frame_support::{
     construct_runtime, parameter_types,
@@ -67,10 +68,10 @@ use xcm::{
     AlwaysV1,
 };
 use xcm_builder::{
-    AccountId32Aliases, AllowTopLevelPaidExecutionFrom, EnsureXcmOrigin, FixedWeightBounds, LocationInverter,
-    NativeAsset, ParentAsSuperuser, ParentIsDefault, RelayChainAsNative, SiblingParachainAsNative,
-    SiblingParachainConvertsVia, SignedAccountId32AsNative, SignedToAccountId32, SovereignSignedViaLocation,
-    TakeWeightCredit, UsingComponents,
+    AccountId32Aliases, AllowKnownQueryResponses, AllowSubscriptionsFrom, AllowTopLevelPaidExecutionFrom,
+    EnsureXcmOrigin, FixedRateOfFungible, FixedWeightBounds, LocationInverter, NativeAsset, ParentAsSuperuser,
+    ParentIsDefault, RelayChainAsNative, SiblingParachainAsNative, SiblingParachainConvertsVia,
+    SignedAccountId32AsNative, SignedToAccountId32, SovereignSignedViaLocation, TakeRevenue, TakeWeightCredit,
 };
 use xcm_executor::{Config, XcmExecutor};
 
@@ -631,13 +632,74 @@ parameter_types! {
     pub UnitWeightCost: Weight = 1_000_000;
 }
 
-pub type Barrier = (TakeWeightCredit, AllowTopLevelPaidExecutionFrom<Everything>);
+pub type Barrier = (
+    TakeWeightCredit,
+    AllowTopLevelPaidExecutionFrom<Everything>,
+    AllowKnownQueryResponses<PolkadotXcm>,
+    AllowSubscriptionsFrom<Everything>,
+); // required for others to keep track of our xcm version
 
 parameter_types! {
     pub const MaxInstructions: u32 = 100;
 }
-
 pub struct XcmConfig;
+
+// the ksm cost to to execute a no-op extrinsic
+fn base_tx_in_ksm() -> Balance {
+    CurrencyId::KSM.one() / 50_000
+}
+pub fn ksm_per_second() -> u128 {
+    let base_weight = Balance::from(ExtrinsicBaseWeight::get());
+    let base_tx_per_second = (WEIGHT_PER_SECOND as u128) / base_weight;
+    base_tx_per_second * base_tx_in_ksm()
+}
+
+parameter_types! {
+    pub KsmPerSecond: (AssetId, u128) = (MultiLocation::parent().into(), ksm_per_second());
+    pub KintPerSecond: (AssetId, u128) = (
+        MultiLocation::new(
+            1,
+            X2(Parachain(2092), GeneralKey(CurrencyId::KINT.encode())),
+        ).into(),
+        // KINT:KSM = 4:3
+        (ksm_per_second() * 4) / 3
+    );
+    pub KbtcPerSecond: (AssetId, u128) = (
+        MultiLocation::new(
+            1,
+            X2(Parachain(2092), GeneralKey(CurrencyId::KBTC.encode())),
+        ).into(),
+        // KBTC:KSM = 1:150 & Satoshi:Planck = 1:10_000
+        ksm_per_second() / 1_500_000
+    );
+}
+
+parameter_types! {
+    pub KintsugiTreasuryAccount: AccountId = TreasuryPalletId::get().into_account();
+}
+
+pub struct ToTreasury;
+impl TakeRevenue for ToTreasury {
+    fn take_revenue(revenue: MultiAsset) {
+        if let MultiAsset {
+            id: Concrete(location),
+            fun: Fungible(amount),
+        } = revenue
+        {
+            if let Some(currency_id) = CurrencyIdConvert::convert(location) {
+                // Note: we should ensure that treasury account has existenial deposit for all of the cross-chain asset.
+                // Ignore the result.
+                let _ = Tokens::deposit(currency_id, &KintsugiTreasuryAccount::get(), amount);
+            }
+        }
+    }
+}
+
+pub type Trader = (
+    FixedRateOfFungible<KsmPerSecond, ToTreasury>,
+    FixedRateOfFungible<KintPerSecond, ToTreasury>,
+    FixedRateOfFungible<KbtcPerSecond, ToTreasury>,
+);
 
 impl Config for XcmConfig {
     type Call = Call;
@@ -650,13 +712,7 @@ impl Config for XcmConfig {
     type LocationInverter = LocationInverter<Ancestry>;
     type Barrier = Barrier;
     type Weigher = FixedWeightBounds<UnitWeightCost, Call, MaxInstructions>;
-    type Trader = UsingComponents<
-        IdentityFee<Balance>,
-        ParentLocation,
-        AccountId,
-        orml_tokens::CurrencyAdapter<Runtime, GetCollateralCurrencyId>,
-        (),
-    >;
+    type Trader = Trader;
     type ResponseHandler = (); // Don't handle responses for now.
     type SubscriptionService = PolkadotXcm;
     type AssetTrap = PolkadotXcm;
