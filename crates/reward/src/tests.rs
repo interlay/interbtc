@@ -53,7 +53,7 @@ fn should_withdraw_reward() {
         assert_ok!(Reward::deposit_stake(&BOB, fixed!(55)));
         assert_ok!(Reward::distribute_reward(INTERBTC, fixed!(2344)));
         assert_ok!(Reward::compute_reward(INTERBTC, &BOB), 1289);
-        assert_ok!(Reward::withdraw_reward(INTERBTC, &ALICE), 1054);
+        assert_ok!(Reward::withdraw_reward(&ALICE, INTERBTC), 1054);
         assert_ok!(Reward::compute_reward(INTERBTC, &BOB), 1289);
     })
 }
@@ -117,8 +117,8 @@ fn should_distribute_with_many_rewards() {
             assert_ok!(Reward::distribute_reward(INTERBTC, fixed!(rng.gen::<u32>() as i128)));
         }
         let alice_reward = Reward::compute_reward(INTERBTC, &ALICE).unwrap();
-        assert_ok!(Reward::withdraw_reward(INTERBTC, &ALICE), alice_reward);
+        assert_ok!(Reward::withdraw_reward(&ALICE, INTERBTC), alice_reward);
         let bob_reward = Reward::compute_reward(INTERBTC, &BOB).unwrap();
-        assert_ok!(Reward::withdraw_reward(INTERBTC, &BOB), bob_reward);
+        assert_ok!(Reward::withdraw_reward(&BOB, INTERBTC), bob_reward);
     })
 }

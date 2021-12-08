@@ -104,7 +104,7 @@ benchmarks! {
         let vault_id: VaultId<T::AccountId, _> = VaultId::new(
             account("Vault", 0, 0),
             T::GetGriefingCollateralCurrencyId::get(),
-            T::GetWrappedCurrencyId::get()
+            <T as currency::Config>::GetWrappedCurrencyId::get()
         );
         let mut vault = Vault {
             wallet: Wallet::new(dummy_public_key()),

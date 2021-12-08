@@ -12,7 +12,7 @@ pub const DEFAULT_TESTING_CURRENCY: CurrencyId = CurrencyId::DOT;
 type UnsignedFixedPoint<T> = <T as currency::Config>::UnsignedFixedPoint;
 
 fn wrapped<T: crate::Config>(amount: u32) -> Amount<T> {
-    Amount::new(amount.into(), T::GetWrappedCurrencyId::get())
+    Amount::new(amount.into(), <T as currency::Config>::GetWrappedCurrencyId::get())
 }
 
 fn dummy_public_key() -> BtcPublicKey {
@@ -30,14 +30,14 @@ fn get_vault_id<T: crate::Config>() -> DefaultVaultId<T> {
     VaultId::new(
         account("Vault", 0, 0),
         T::GetGriefingCollateralCurrencyId::get(),
-        T::GetWrappedCurrencyId::get(),
+        <T as currency::Config>::GetWrappedCurrencyId::get(),
     )
 }
 
 fn get_currency_pair<T: crate::Config>() -> DefaultVaultCurrencyPair<T> {
     VaultCurrencyPair {
         collateral: T::GetGriefingCollateralCurrencyId::get(),
-        wrapped: T::GetWrappedCurrencyId::get(),
+        wrapped: <T as currency::Config>::GetWrappedCurrencyId::get(),
     }
 }
 
