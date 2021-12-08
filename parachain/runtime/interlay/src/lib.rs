@@ -894,21 +894,25 @@ pub struct DealWithRewards;
 
 impl supply::OnInflation<AccountId> for DealWithRewards {
     type Currency = NativeCurrency;
+    // transfer will only fail if balance is too low
+    // existential deposit is not required due to whitelist
     fn on_inflation(from: &AccountId, amount: Balance) {
-        // transfer will only fail if balance is too low
-        // existential deposit is not required due to whitelist
+        let vault_inflation = token_distribution::VAULT_INFLATION_REWARDS * amount;
+        let escrow_inflation = token_distribution::ESCROW_INFLATION_REWARDS * amount;
+
+        // vault block rewards
         let _ = Self::Currency::transfer(
             from,
             &VaultAnnuityAccount::get(),
-            token_distribution::VAULT_INFLATION_REWARDS * amount,
+            vault_inflation,
             ExistenceRequirement::KeepAlive,
         );
 
-        // stake-to-vote rewards
+        // stake-to-vote block rewards
         let _ = Self::Currency::transfer(
             from,
             &EscrowAnnuityAccount::get(),
-            token_distribution::ESCROW_INFLATION_REWARDS * amount,
+            escrow_inflation,
             ExistenceRequirement::KeepAlive,
         );
 
@@ -916,7 +920,7 @@ impl supply::OnInflation<AccountId> for DealWithRewards {
         let _ = Self::Currency::transfer(
             from,
             &TreasuryAccount::get(),
-            token_distribution::TREASURY_INFLATION_REWARDS * amount,
+            amount.saturating_sub(vault_inflation).saturating_sub(escrow_inflation),
             ExistenceRequirement::KeepAlive,
         );
     }
