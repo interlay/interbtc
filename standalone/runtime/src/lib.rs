@@ -336,7 +336,6 @@ parameter_types! {
     pub const FastTrackVotingPeriod: BlockNumber = 1 * MINUTES;
     pub MinimumDeposit: Balance = 100 * DOLLARS;
     pub const EnactmentPeriod: BlockNumber = 3 * MINUTES;
-    pub const CooloffPeriod: BlockNumber = 1 * DAYS;
     pub PreimageByteDeposit: Balance = 1 * CENTS;
     pub const MaxVotes: u32 = 100;
     pub const MaxProposals: u32 = 100;
@@ -351,7 +350,7 @@ impl democracy::Config for Runtime {
     type VotingPeriod = VotingPeriod;
     type MinimumDeposit = MinimumDeposit;
     /// The technical committee can have any proposal be tabled immediately
-    /// with a shorter voting/enactment period.
+    /// with a shorter voting period.
     type FastTrackOrigin = EnsureRootOrAllTechnicalCommittee;
     type FastTrackVotingPeriod = FastTrackVotingPeriod;
     type PreimageByteDeposit = PreimageByteDeposit;
