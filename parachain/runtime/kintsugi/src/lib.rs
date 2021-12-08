@@ -455,8 +455,8 @@ type EnsureRootOrAllTechnicalCommittee = EnsureOneOf<
 >;
 
 parameter_types! {
-    pub const LaunchPeriod: BlockNumber = 2 * DAYS;
-    pub const VotingPeriod: BlockNumber = 2 * DAYS;
+    pub const LaunchPeriod: BlockNumber = 7 * DAYS;
+    pub const VotingPeriod: BlockNumber = 7 * DAYS;
     pub const FastTrackVotingPeriod: BlockNumber = 3 * HOURS;
     // TODO: this needs to change before launch. First off, CENTS is for KSM, not for KINT. Second, needs to be sufficciently
     // high to prevent dos by making 100 proposals
