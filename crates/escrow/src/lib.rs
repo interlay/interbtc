@@ -78,17 +78,38 @@ impl<Balance: AtLeast32BitUnsigned + Copy, BlockNumber: AtLeast32BitUnsigned + C
         }
     }
 
+    // w ^
+    // 1 +
+    //   | *
+    //   |   *
+    //   |     *
+    //   |       *
+    // 0 +---------+--> t
+    //
+    // Calculates the balance at some point in the future,
+    // linearly **decreasing** since the start height.
     fn balance_at<BlockNumberToBalance: Convert<BlockNumber, Balance>>(&self, height: BlockNumber) -> Balance {
         let height_diff = BlockNumberToBalance::convert(height.saturating_sub(self.ts));
         self.bias.saturating_sub(self.slope.saturating_mul(height_diff))
     }
 
-    // temporary function to limit stakeholder deposits
+    // w ^
+    // 1 +
+    //   |       *
+    //   |     *
+    //   |   *
+    //   | *
+    // 0 +-------+----> t
+    //
+    // Calculates the balance at some point in the future,
+    // linearly **increasing** since the start height.
     fn reverse_balance_at<BlockNumberToBalance: Convert<BlockNumber, Balance>>(
         &self,
         end: BlockNumber,
         now: BlockNumber,
     ) -> Balance {
+        // NOTE: we could store the end height in `Point`, but this code is only
+        // temporary whilst we rollout governance voting via restricted accounts
         let height_diff = BlockNumberToBalance::convert(end.saturating_sub(now));
         self.bias.saturating_sub(self.slope.saturating_mul(height_diff))
     }
@@ -416,6 +437,7 @@ impl<T: Config> Pallet<T> {
         let free_balance = T::Currency::free_balance(who);
         // limit total deposit of restricted accounts
         if let Some((start, end)) = <Restriction<T>>::get(who) {
+            // TODO: remove these restrictions in the future when the token distribution is complete
             let current_height = Self::current_height();
             let point = Point::new::<T::BlockNumberToBalance>(free_balance, start, end, end);
             point.reverse_balance_at::<T::BlockNumberToBalance>(end, current_height)
