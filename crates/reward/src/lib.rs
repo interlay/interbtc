@@ -403,3 +403,39 @@ where
     Balance::try_from(Pallet::<T, I>::withdraw_reward(reward_id, currency_id)?)
         .map_err(|_| Error::<T, I>::TryIntoIntError.into())
 }
+
+pub trait AdjustRewardStake<AccountId, Balance> {
+    fn deposit_stake(account_id: &AccountId, amount: Balance) -> DispatchResult;
+    fn withdraw_stake(account_id: &AccountId, amount: Balance) -> DispatchResult;
+}
+
+impl<T, I, Balance> AdjustRewardStake<T::RewardId, Balance> for RewardsCurrencyAdapter<T, I>
+where
+    T: Config<I>,
+    I: 'static,
+    Balance: TryInto<<SignedFixedPoint<T, I> as FixedPointNumber>::Inner>
+        + TryFrom<<SignedFixedPoint<T, I> as FixedPointNumber>::Inner>,
+{
+    fn deposit_stake(reward_id: &T::RewardId, amount: Balance) -> DispatchResult {
+        // TODO: simplify conversion
+        let amount = amount.try_into().map_err(|_| Error::<T, I>::TryIntoIntError)?;
+        let amount = SignedFixedPoint::<T, I>::checked_from_integer(amount).unwrap_or_default();
+        Pallet::<T, I>::deposit_stake(reward_id, amount)
+    }
+
+    fn withdraw_stake(reward_id: &T::RewardId, amount: Balance) -> DispatchResult {
+        // TODO: simplify conversion
+        let amount = amount.try_into().map_err(|_| Error::<T, I>::TryIntoIntError)?;
+        let amount = SignedFixedPoint::<T, I>::checked_from_integer(amount).unwrap_or_default();
+        Pallet::<T, I>::withdraw_stake(reward_id, amount)
+    }
+}
+
+impl<AccountId, Balance> AdjustRewardStake<AccountId, Balance> for () {
+    fn deposit_stake(_: &AccountId, _: Balance) -> DispatchResult {
+        Ok(())
+    }
+    fn withdraw_stake(_: &AccountId, _: Balance) -> DispatchResult {
+        Ok(())
+    }
+}

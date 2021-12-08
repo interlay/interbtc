@@ -1069,6 +1069,7 @@ impl escrow::Config for Runtime {
     type Currency = orml_tokens::CurrencyAdapter<Runtime, GetNativeCurrencyId>;
     type Span = Span;
     type MaxPeriod = MaxPeriod;
+    type EscrowRewards = reward::RewardsCurrencyAdapter<Runtime, EscrowRewardsInstance>;
     type WeightInfo = ();
 }
 
