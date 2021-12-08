@@ -29,8 +29,8 @@ use mocktopus::macros::mockable;
 use primitives::VaultCurrencyPair;
 
 use crate::types::{
-    BalanceOf, BtcAddress, Collateral, CurrencyId, DefaultSystemVault, RichSystemVault, RichVault, SignedFixedPoint,
-    SignedInner, UnsignedFixedPoint, UpdatableVault, Version,
+    BalanceOf, BtcAddress, Collateral, CurrencyId, DefaultSystemVault, RichSystemVault, RichVault, SignedInner,
+    UnsignedFixedPoint, UpdatableVault, Version,
 };
 
 use crate::types::DefaultVaultCurrencyPair;
@@ -89,20 +89,8 @@ pub mod pallet {
         + SendTransactionTypes<Call<Self>>
         + oracle::Config
         + security::Config
-        + staking::Config<
-            SignedInner = SignedInner<Self>,
-            SignedFixedPoint = SignedFixedPoint<Self>,
-            CurrencyId = primitives::CurrencyId,
-        > + reward::Config<
-            SignedFixedPoint = SignedFixedPoint<Self>,
-            RewardId = DefaultVaultId<Self>,
-            CurrencyId = CurrencyId<Self>,
-        > + fee::Config<UnsignedInner = BalanceOf<Self>>
-        + currency::Config<
-            Balance = BalanceOf<Self>,
-            CurrencyId = CurrencyId<Self>,
-            SignedInner = <Self as fee::Config>::SignedInner,
-        >
+        + currency::Config<Balance = BalanceOf<Self>>
+        + fee::Config<UnsignedInner = BalanceOf<Self>, SignedInner = SignedInner<Self>>
     {
         /// The vault module id, used for deriving its sovereign account ID.
         #[pallet::constant] // put the constant in metadata

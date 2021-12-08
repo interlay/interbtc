@@ -201,7 +201,6 @@ impl security::Config for Test {
 impl nomination::Config for Test {
     type Event = TestEvent;
     type WeightInfo = ();
-    type VaultRewards = reward::RewardsCurrencyAdapter<Test>;
 }
 
 parameter_types! {

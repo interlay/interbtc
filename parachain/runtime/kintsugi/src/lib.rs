@@ -123,8 +123,9 @@ pub mod token_distribution {
     pub const INITIAL_ALLOCATION: Balance = 10_000_000_000_000_000_000;
 
     // multiplication is non-overflow by default
-    pub const VAULT_INFLATION_REWARDS: Permill = Permill::from_percent(40);
-    pub const TREASURY_INFLATION_REWARDS: Permill = Permill::from_percent(60);
+    pub const ESCROW_INFLATION_REWARDS: Permill = Permill::from_parts(67000); // 6.7%
+    pub const TREASURY_INFLATION_REWARDS: Permill = Permill::from_parts(533000); // 53.3%
+    pub const VAULT_INFLATION_REWARDS: Permill = Permill::from_percent(40); // 40%
 }
 
 /// The version information used to identify this runtime when compiled natively.
@@ -838,7 +839,8 @@ type NativeCurrency = orml_tokens::CurrencyAdapter<Runtime, GetNativeCurrencyId>
 parameter_types! {
     pub FeeAccount: AccountId = FeePalletId::get().into_account();
     pub SupplyAccount: AccountId = SupplyPalletId::get().into_account();
-    pub AnnuityAccount: AccountId = AnnuityPalletId::get().into_account();
+    pub EscrowAnnuityAccount: AccountId = EscrowAnnuityPalletId::get().into_account();
+    pub VaultAnnuityAccount: AccountId = VaultAnnuityPalletId::get().into_account();
     pub TreasuryAccount: AccountId = TreasuryPalletId::get().into_account();
     pub VaultRegistryAccount: AccountId = VaultRegistryPalletId::get().into_account();
 }
@@ -847,7 +849,8 @@ pub fn get_all_module_accounts() -> Vec<AccountId> {
     vec![
         FeeAccount::get(),
         SupplyAccount::get(),
-        AnnuityAccount::get(),
+        EscrowAnnuityAccount::get(),
+        VaultAnnuityAccount::get(),
         TreasuryAccount::get(),
         VaultRegistryAccount::get(),
     ]
@@ -896,15 +899,23 @@ impl supply::OnInflation<AccountId> for DealWithRewards {
         // existential deposit is not required due to whitelist
         let _ = Self::Currency::transfer(
             from,
-            &AnnuityAccount::get(),
+            &VaultAnnuityAccount::get(),
             token_distribution::VAULT_INFLATION_REWARDS * amount,
             ExistenceRequirement::KeepAlive,
         );
 
-        // TODO: split stake-to-vote rewards
+        // stake-to-vote rewards
         let _ = Self::Currency::transfer(
             from,
-            &VaultRegistryAccount::get(),
+            &EscrowAnnuityAccount::get(),
+            token_distribution::ESCROW_INFLATION_REWARDS * amount,
+            ExistenceRequirement::KeepAlive,
+        );
+
+        // remainder goes to treasury
+        let _ = Self::Currency::transfer(
+            from,
+            &TreasuryAccount::get(),
             token_distribution::TREASURY_INFLATION_REWARDS * amount,
             ExistenceRequirement::KeepAlive,
         );
@@ -920,24 +931,25 @@ impl supply::Config for Runtime {
     type OnInflation = DealWithRewards;
 }
 
-pub struct VaultBlockRewardProvider;
-
-impl annuity::BlockRewardProvider<AccountId> for VaultBlockRewardProvider {
-    type Currency = NativeCurrency;
-    fn distribute_block_reward(from: &AccountId, amount: Balance) -> DispatchResult {
-        // TODO: remove fee pallet?
-        Self::Currency::transfer(from, &FeeAccount::get(), amount, ExistenceRequirement::KeepAlive)?;
-        reward::distribute_reward::<Runtime, (), _>(GetNativeCurrencyId::get(), amount)
-    }
-}
-
 parameter_types! {
-    pub const AnnuityPalletId: PalletId = PalletId(*b"mod/annu");
+    pub const EscrowAnnuityPalletId: PalletId = PalletId(*b"esc/annu");
     pub const EmissionPeriod: BlockNumber = YEARS;
 }
 
-impl annuity::Config for Runtime {
-    type AnnuityPalletId = AnnuityPalletId;
+pub struct EscrowBlockRewardProvider;
+
+impl annuity::BlockRewardProvider<AccountId> for EscrowBlockRewardProvider {
+    type Currency = NativeCurrency;
+    fn distribute_block_reward(_from: &AccountId, amount: Balance) -> DispatchResult {
+        // TODO: withdraw from escrow_annuity
+        reward::distribute_reward::<Runtime, EscrowRewardsInstance, _>(GetNativeCurrencyId::get(), amount)
+    }
+}
+
+type EscrowAnnuityInstance = annuity::Instance1;
+
+impl annuity::Config<EscrowAnnuityInstance> for Runtime {
+    type AnnuityPalletId = EscrowAnnuityPalletId;
     type Event = Event;
     type Currency = NativeCurrency;
     type BlockRewardProvider = VaultBlockRewardProvider;
@@ -945,7 +957,46 @@ impl annuity::Config for Runtime {
     type EmissionPeriod = EmissionPeriod;
 }
 
-impl reward::Config for Runtime {
+pub struct VaultBlockRewardProvider;
+
+impl annuity::BlockRewardProvider<AccountId> for VaultBlockRewardProvider {
+    type Currency = NativeCurrency;
+    fn distribute_block_reward(from: &AccountId, amount: Balance) -> DispatchResult {
+        // TODO: remove fee pallet?
+        Self::Currency::transfer(from, &FeeAccount::get(), amount, ExistenceRequirement::KeepAlive)?;
+        reward::distribute_reward::<Runtime, VaultRewardsInstance, _>(GetNativeCurrencyId::get(), amount)
+    }
+}
+
+parameter_types! {
+    pub const VaultAnnuityPalletId: PalletId = PalletId(*b"vlt/annu");
+}
+
+type VaultAnnuityInstance = annuity::Instance2;
+
+impl annuity::Config<VaultAnnuityInstance> for Runtime {
+    type AnnuityPalletId = VaultAnnuityPalletId;
+    type Event = Event;
+    type Currency = NativeCurrency;
+    type BlockRewardProvider = VaultBlockRewardProvider;
+    type BlockNumberToBalance = BlockNumberToBalance;
+    type EmissionPeriod = EmissionPeriod;
+}
+
+type EscrowRewardsInstance = reward::Instance1;
+
+impl reward::Config<EscrowRewardsInstance> for Runtime {
+    type Event = Event;
+    type SignedFixedPoint = SignedFixedPoint;
+    type RewardId = VaultId;
+    type CurrencyId = CurrencyId;
+    type GetNativeCurrencyId = GetNativeCurrencyId;
+    type GetWrappedCurrencyId = GetWrappedCurrencyId;
+}
+
+type VaultRewardsInstance = reward::Instance2;
+
+impl reward::Config<VaultRewardsInstance> for Runtime {
     type Event = Event;
     type SignedFixedPoint = SignedFixedPoint;
     type RewardId = VaultId;
@@ -1047,7 +1098,7 @@ impl fee::Config for Runtime {
     type SignedInner = SignedInner;
     type UnsignedFixedPoint = UnsignedFixedPoint;
     type UnsignedInner = UnsignedInner;
-    type VaultRewards = reward::RewardsCurrencyAdapter<Runtime>;
+    type VaultRewards = reward::RewardsCurrencyAdapter<Runtime, VaultRewardsInstance>;
     type VaultStaking = staking::StakingCurrencyAdapter<Runtime>;
     type GetNativeCurrencyId = GetNativeCurrencyId;
     type OnSweep = currency::SweepFunds<Runtime, FeeAccount>;
@@ -1086,7 +1137,6 @@ pub use nomination::Event as NominationEvent;
 impl nomination::Config for Runtime {
     type Event = Event;
     type WeightInfo = ();
-    type VaultRewards = reward::RewardsCurrencyAdapter<Runtime>;
 }
 
 construct_runtime! {
@@ -1106,12 +1156,16 @@ construct_runtime! {
         // Tokens & Balances
         Currency: currency::{Pallet},
         Tokens: orml_tokens::{Pallet, Call, Storage, Config<T>, Event<T>},
-        Rewards: reward::{Pallet, Call, Storage, Event<T>},
-        Staking: staking::{Pallet, Storage, Event<T>},
         Escrow: escrow::{Pallet, Call, Storage, Event<T>},
         Vesting: orml_vesting::{Pallet, Storage, Call, Event<T>, Config<T>},
 
-        Annuity: annuity::{Pallet, Storage, Call, Event<T>, Config<T>},
+        EscrowAnnuity: annuity::<Instance1>::{Pallet, Storage, Event<T>, Config<T>},
+        EscrowRewards: reward::<Instance1>::{Pallet, Storage, Event<T>},
+
+        VaultAnnuity: annuity::<Instance2>::{Pallet, Storage, Event<T>, Config<T>},
+        VaultRewards: reward::<Instance2>::{Pallet, Storage, Event<T>},
+        VaultStaking: staking::{Pallet, Storage, Event<T>},
+
         Supply: supply::{Pallet, Storage, Call, Event<T>, Config<T>},
 
         // Bitcoin SPV

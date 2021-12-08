@@ -98,14 +98,14 @@ pub mod pallet {
             + MaybeSerializeDeserialize
             + TypeInfo;
 
-        /// Vault reward pool for the wrapped currency.
+        /// Vault reward pool.
         type VaultRewards: reward::Rewards<
             DefaultVaultId<Self>,
             CurrencyId<Self>,
             SignedFixedPoint = SignedFixedPoint<Self>,
         >;
 
-        /// Vault staking pool for the wrapped currency.
+        /// Vault staking pool.
         type VaultStaking: staking::Staking<
             DefaultVaultId<Self>,
             Self::AccountId,
