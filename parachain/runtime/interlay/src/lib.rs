@@ -117,8 +117,10 @@ pub const BITCOIN_BLOCK_SPACING: BlockNumber = BITCOIN_SPACING_MS / MILLISECS_PE
 pub mod token_distribution {
     use super::*;
 
-    // 10 million INTR distributed over 4 years
-    pub const INITIAL_ALLOCATION: Balance = 10_000_000_000_000_000_000;
+    // 1 billion INTR distributed over 4 years
+    // INTR has 10 decimal places, same as DOT
+    // See: https://wiki.polkadot.network/docs/learn-DOT#polkadot
+    pub const INITIAL_ALLOCATION: Balance = 1_000_000_000 * UNITS;
 
     // multiplication is non-overflow by default
     pub const ESCROW_INFLATION_REWARDS: Permill = Permill::from_parts(67000); // 6.7%
@@ -457,7 +459,9 @@ parameter_types! {
     pub const LaunchPeriod: BlockNumber = 7 * DAYS;
     pub const VotingPeriod: BlockNumber = 7 * DAYS;
     pub const FastTrackVotingPeriod: BlockNumber = 3 * HOURS;
-    pub MinimumDeposit: Balance = 100 * CENTS;
+    // TODO: update this once we have the crowdloan data in
+    // Require 1 vINTR for now
+    pub MinimumDeposit: Balance = 1 * UNITS;
     pub const EnactmentPeriod: BlockNumber = DAYS;
     pub PreimageByteDeposit: Balance = 10 * MILLICENTS;
     pub const MaxVotes: u32 = 100;
