@@ -79,6 +79,10 @@ pub mod pallet {
     #[pallet::getter(fn annuity_pallet_id)]
     pub type AnnuityPalletId<T: Config<I>, I: 'static = ()> = StorageValue<_, T::AccountId, ValueQuery>;
 
+    #[pallet::storage]
+    #[pallet::getter(fn reward_per_block)]
+    pub type RewardPerBlock<T: Config<I>, I: 'static = ()> = StorageValue<_, BalanceOf<T, I>, ValueQuery>;
+
     #[pallet::genesis_config]
     pub struct GenesisConfig<T: Config<I>, I: 'static = ()>(PhantomData<(T, I)>);
 
@@ -129,11 +133,11 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
         T::BlockRewardProvider::distribute_block_reward(&annuity_pallet_id, reward_per_block)
     }
 
-    fn reward_per_block() -> BalanceOf<T, I> {
+    pub fn update_reward_per_block() {
         let emission_period = T::BlockNumberToBalance::convert(T::EmissionPeriod::get());
         let total_balance = T::Currency::total_balance(&Self::annuity_pallet_id());
         let reward_per_block = total_balance.checked_div(&emission_period).unwrap_or_default();
-        reward_per_block
+        RewardPerBlock::<T, I>::put(reward_per_block);
     }
 }
 
