@@ -1,7 +1,7 @@
 use crate as staking;
 use crate::{Config, Error};
 use frame_support::{parameter_types, traits::Everything};
-pub use primitives::{CurrencyId, DOT, INTERBTC};
+pub use primitives::{CurrencyId, CurrencyId::Token, TokenSymbol::*};
 use primitives::{VaultCurrencyPair, VaultId};
 use sp_arithmetic::FixedI128;
 use sp_core::H256;
@@ -63,7 +63,7 @@ impl frame_system::Config for Test {
 }
 
 parameter_types! {
-    pub const GetNativeCurrencyId: CurrencyId = CurrencyId::KINT;
+    pub const GetNativeCurrencyId: CurrencyId = Token(KINT);
 }
 
 impl Config for Test {
@@ -80,22 +80,22 @@ pub type TestError = Error<Test>;
 pub const VAULT: VaultId<AccountId, CurrencyId> = VaultId {
     account_id: 1,
     currencies: VaultCurrencyPair {
-        collateral: DOT,
-        wrapped: INTERBTC,
+        collateral: Token(DOT),
+        wrapped: Token(INTERBTC),
     },
 };
 pub const ALICE: VaultId<AccountId, CurrencyId> = VaultId {
     account_id: 2,
     currencies: VaultCurrencyPair {
-        collateral: DOT,
-        wrapped: INTERBTC,
+        collateral: Token(DOT),
+        wrapped: Token(INTERBTC),
     },
 };
 pub const BOB: VaultId<AccountId, CurrencyId> = VaultId {
     account_id: 3,
     currencies: VaultCurrencyPair {
-        collateral: DOT,
-        wrapped: INTERBTC,
+        collateral: Token(DOT),
+        wrapped: Token(INTERBTC),
     },
 };
 

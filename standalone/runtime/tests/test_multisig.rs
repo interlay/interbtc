@@ -15,7 +15,7 @@ fn integration_test_multisig_transfer() {
         // step 0: clear eve's balance for easier testing
         assert_ok!(Call::Tokens(TokensCall::set_balance {
             who: account_of(EVE),
-            currency_id: DOT,
+            currency_id: Token(DOT),
             new_free: 0,
             new_reserved: 0,
         })
@@ -25,7 +25,7 @@ fn integration_test_multisig_transfer() {
         let multisig_account = MultiSigPallet::multi_account_id(&vec![account_of(ALICE), account_of(BOB)], 2);
         assert_ok!(Call::Tokens(TokensCall::set_balance {
             who: multisig_account.clone(),
-            currency_id: DOT,
+            currency_id: Token(DOT),
             new_free: 20_000_000_000_001,
             new_reserved: 0,
         })
@@ -34,7 +34,7 @@ fn integration_test_multisig_transfer() {
         // step 2: submit a call, to be executed from the shared account
         let call = Call::Tokens(TokensCall::transfer {
             dest: account_of(EVE),
-            currency_id: DOT,
+            currency_id: Token(DOT),
             amount: 20_000_000_000_001,
         })
         .encode();
@@ -78,7 +78,7 @@ fn integration_test_multisig_vesting() {
         // vested transfer takes free balance of caller
         assert_ok!(Call::Tokens(TokensCall::set_balance {
             who: multisig_account.clone(),
-            currency_id: INTR,
+            currency_id: Token(INTR),
             new_free: vesting_amount,
             new_reserved: 0,
         })
@@ -117,7 +117,7 @@ fn integration_test_multisig_vesting() {
 
         // max amount should be locked in vesting
         assert_eq!(
-            TokensPallet::locks(&account_of(EVE), INTR)
+            TokensPallet::locks(&account_of(EVE), Token(INTR))
                 .iter()
                 .map(|balance_lock| balance_lock.amount)
                 .max()
@@ -149,7 +149,7 @@ fn integration_test_batched_multisig_vesting() {
         // vested transfer takes free balance of caller
         assert_ok!(Call::Tokens(TokensCall::set_balance {
             who: multisig_account.clone(),
-            currency_id: INTR,
+            currency_id: Token(INTR),
             new_free: vesting_amounts.iter().sum(),
             new_reserved: 0,
         })
@@ -196,7 +196,7 @@ fn integration_test_batched_multisig_vesting() {
         // max amount should be locked in vesting
         for (account, vesting_amount) in accounts.iter().zip(vesting_amounts) {
             assert_eq!(
-                TokensPallet::locks(&account, INTR)
+                TokensPallet::locks(&account, Token(INTR))
                     .iter()
                     .map(|balance_lock| balance_lock.amount)
                     .max()

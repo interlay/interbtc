@@ -12,7 +12,7 @@ fn test_with<R>(execute: impl Fn(VaultId) -> R) {
             for currency_id in iter_collateral_currencies() {
                 assert_ok!(OraclePallet::_set_exchange_rate(currency_id, FixedU128::one()));
             }
-            if wrapped_id != INTERBTC {
+            if wrapped_id != Token(INTERBTC) {
                 assert_ok!(OraclePallet::_set_exchange_rate(wrapped_id, FixedU128::one()));
             }
             UserData::force_to(USER, default_user_state());
@@ -23,9 +23,9 @@ fn test_with<R>(execute: impl Fn(VaultId) -> R) {
             execute(vault_id)
         });
     };
-    test_with(CurrencyId::DOT, CurrencyId::KBTC);
-    test_with(CurrencyId::KSM, CurrencyId::INTERBTC);
-    test_with(CurrencyId::DOT, CurrencyId::INTERBTC);
+    test_with(Token(DOT), Token(KBTC));
+    test_with(Token(KSM), Token(INTERBTC));
+    test_with(Token(DOT), Token(INTERBTC));
 }
 
 fn test_with_nomination_enabled<R>(execute: impl Fn(VaultId) -> R) {
@@ -78,7 +78,7 @@ mod spec_based_tests {
 
     fn nomination_with_non_running_status_fails(status: StatusCode) {
         SecurityPallet::set_status(status);
-        let vault_id = vault_id_of(VAULT, DOT);
+        let vault_id = vault_id_of(VAULT, Token(DOT));
         assert_noop!(
             Call::Nomination(NominationCall::opt_in_to_nomination {
                 currency_pair: vault_id.currencies.clone()
@@ -156,11 +156,11 @@ mod spec_based_tests {
         //   - A Vault with id `vaultId` MUST exist in the Vaults mapping.
         test_with(|_| {
             assert_noop!(
-                nomination_opt_out(&vault_id_of(USER, DOT)),
+                nomination_opt_out(&vault_id_of(USER, Token(DOT))),
                 NominationError::VaultNotOptedInToNomination
             );
             assert_noop!(
-                nomination_opt_out(&vault_id_of(VAULT, DOT)),
+                nomination_opt_out(&vault_id_of(VAULT, Token(DOT))),
                 NominationError::VaultNotOptedInToNomination
             );
         })
@@ -174,8 +174,8 @@ mod spec_based_tests {
         //   - `get_total_nominated_collateral(vault_id)` must return zero.
         //   - For all nominators, `get_nominator_collateral(vault_id, user_id)` must return zero.
         //   - Staking pallet `nonce` must be incremented by one.
-        //   - `compute_reward_at_index(nonce - 1, INTERBTC, vault_id, user_id)` in the Staking pallet must be equal to
-        //     the user’s nomination just before the vault opted out.
+        //   - `compute_reward_at_index(nonce - 1, Token(INTERBTC), vault_id, user_id)` in the Staking pallet must be
+        //     equal to the user’s nomination just before the vault opted out.
         test_with_nomination_enabled_and_vault_opted_in(|vault_id| {
             assert_nominate_collateral(&vault_id, account_of(USER), default_nomination(&vault_id));
             assert_eq!(

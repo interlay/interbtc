@@ -17,11 +17,13 @@ pub use frame_support::{
 use interbtc_runtime_standalone::GetNativeCurrencyId;
 pub use interbtc_runtime_standalone::{
     AccountId, BlockNumber, Call, CurrencyId, Event, GetCollateralCurrencyId, GetWrappedCurrencyId, Runtime,
-    TechnicalCommitteeInstance, DOT, INTERBTC, INTR,
+    TechnicalCommitteeInstance,
 };
 pub use mocktopus::mocking::*;
 pub use orml_tokens::CurrencyAdapter;
-pub use primitives::{VaultCurrencyPair, VaultId as PrimitiveVaultId};
+pub use primitives::{
+    CurrencyId::Token, VaultCurrencyPair, VaultId as PrimitiveVaultId, DOT, INTERBTC, INTR, KBTC, KINT, KSM,
+};
 use redeem::RedeemRequestStatus;
 use staking::DefaultVaultCurrencyPair;
 use vault_registry::types::UpdatableVault;
@@ -168,14 +170,10 @@ pub type NominationError = nomination::Error<Runtime>;
 pub type NominationEvent = nomination::Event<Runtime>;
 pub type NominationPallet = nomination::Pallet<Runtime>;
 
-pub const DEFAULT_TESTING_CURRENCY: <Runtime as orml_tokens::Config>::CurrencyId =
-    <Runtime as orml_tokens::Config>::CurrencyId::DOT;
-pub const DEFAULT_WRAPPED_CURRENCY: <Runtime as orml_tokens::Config>::CurrencyId =
-    <Runtime as orml_tokens::Config>::CurrencyId::INTERBTC;
-pub const GRIEFING_CURRENCY: <Runtime as orml_tokens::Config>::CurrencyId =
-    <Runtime as orml_tokens::Config>::CurrencyId::DOT;
-pub const WRAPPED_CURRENCY: <Runtime as orml_tokens::Config>::CurrencyId =
-    <Runtime as orml_tokens::Config>::CurrencyId::INTERBTC;
+pub const DEFAULT_TESTING_CURRENCY: <Runtime as orml_tokens::Config>::CurrencyId = Token(DOT);
+pub const DEFAULT_WRAPPED_CURRENCY: <Runtime as orml_tokens::Config>::CurrencyId = Token(INTERBTC);
+pub const GRIEFING_CURRENCY: <Runtime as orml_tokens::Config>::CurrencyId = Token(DOT);
+pub const WRAPPED_CURRENCY: <Runtime as orml_tokens::Config>::CurrencyId = Token(INTERBTC);
 
 pub fn default_vault_id_of(hash: [u8; 32]) -> VaultId {
     VaultId {
@@ -324,11 +322,11 @@ pub fn iter_currency_pairs() -> impl Iterator<Item = DefaultVaultCurrencyPair<Ru
 }
 
 pub fn iter_collateral_currencies() -> impl Iterator<Item = CurrencyId> {
-    vec![CurrencyId::DOT, CurrencyId::KSM].into_iter()
+    vec![Token(DOT), Token(KSM)].into_iter()
 }
 
 pub fn iter_wrapped_currencies() -> impl Iterator<Item = CurrencyId> {
-    vec![CurrencyId::KBTC, CurrencyId::INTERBTC].into_iter()
+    vec![Token(KBTC), Token(INTERBTC)].into_iter()
 }
 
 pub fn iter_all_currencies() -> impl Iterator<Item = CurrencyId> {
@@ -1314,7 +1312,7 @@ impl ExtBuilder {
         .unwrap();
 
         vault_registry::GenesisConfig::<Runtime> {
-            minimum_collateral_vault: vec![(CurrencyId::DOT, 0), (CurrencyId::KSM, 0)],
+            minimum_collateral_vault: vec![(Token(DOT), 0), (Token(KSM), 0)],
             punishment_delay: 8,
             system_collateral_ceiling: iter_currency_pairs().map(|pair| (pair, FUND_LIMIT_CEILING)).collect(),
             secure_collateral_threshold: iter_currency_pairs()
@@ -1398,7 +1396,7 @@ impl ExtBuilder {
             .dispatch(root()));
             assert_ok!(Call::Oracle(OracleCall::feed_values {
                 values: vec![
-                    (OracleKey::ExchangeRate(CurrencyId::DOT), FixedU128::from(1)),
+                    (OracleKey::ExchangeRate(Token(DOT)), FixedU128::from(1)),
                     (OracleKey::FeeEstimation, FixedU128::from(3)),
                 ]
             })
@@ -1431,9 +1429,9 @@ impl ExtBuilder {
 }
 
 pub const fn wrapped(amount: u128) -> Amount<Runtime> {
-    Amount::new(amount, INTERBTC)
+    Amount::new(amount, Token(INTERBTC))
 }
 
 pub const fn griefing(amount: u128) -> Amount<Runtime> {
-    Amount::new(amount, DOT)
+    Amount::new(amount, Token(DOT))
 }

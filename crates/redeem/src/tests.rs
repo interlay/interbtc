@@ -20,7 +20,7 @@ fn griefing(amount: u128) -> Amount<Test> {
     Amount::new(amount, GRIEFING_CURRENCY)
 }
 fn wrapped(amount: u128) -> Amount<Test> {
-    Amount::new(amount, INTERBTC)
+    Amount::new(amount, Token(INTERBTC))
 }
 
 macro_rules! assert_emitted {

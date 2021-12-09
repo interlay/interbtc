@@ -8,7 +8,7 @@ use frame_support::{
 };
 use mocktopus::{macros::mockable, mocking::clear_mocks};
 use orml_traits::parameter_type_with_key;
-pub use primitives::CurrencyId;
+pub use primitives::{CurrencyId, CurrencyId::Token, TokenSymbol::*};
 use primitives::{VaultCurrencyPair, VaultId};
 use sp_arithmetic::{FixedI128, FixedU128};
 use sp_core::H256;
@@ -90,19 +90,17 @@ impl frame_system::Config for Test {
     type OnSetCode = ();
 }
 
-pub const DEFAULT_TESTING_CURRENCY: CurrencyId = DOT;
-pub const DEFAULT_WRAPPED_CURRENCY: CurrencyId = INTERBTC;
+pub const DEFAULT_TESTING_CURRENCY: CurrencyId = Token(DOT);
+pub const DEFAULT_WRAPPED_CURRENCY: CurrencyId = Token(INTERBTC);
 pub const DEFAULT_CURRENCY_PAIR: VaultCurrencyPair<CurrencyId> = VaultCurrencyPair {
     collateral: DEFAULT_TESTING_CURRENCY,
     wrapped: DEFAULT_WRAPPED_CURRENCY,
 };
-pub const DOT: CurrencyId = CurrencyId::DOT;
-pub const INTERBTC: CurrencyId = CurrencyId::INTERBTC;
 
 parameter_types! {
-    pub const GetCollateralCurrencyId: CurrencyId = DOT;
-    pub const GetWrappedCurrencyId: CurrencyId = INTERBTC;
-    pub const GetNativeCurrencyId: CurrencyId = CurrencyId::KINT;
+    pub const GetCollateralCurrencyId: CurrencyId = Token(DOT);
+    pub const GetWrappedCurrencyId: CurrencyId = Token(INTERBTC);
+    pub const GetNativeCurrencyId: CurrencyId = Token(KINT);
     pub const MaxLocks: u32 = 50;
 }
 
@@ -308,10 +306,10 @@ impl ExtBuilder {
     pub fn build() -> sp_io::TestExternalities {
         ExtBuilder::build_with(orml_tokens::GenesisConfig::<Test> {
             balances: vec![
-                (ALICE.account_id, DOT, ALICE_BALANCE),
-                (BOB.account_id, DOT, BOB_BALANCE),
-                (ALICE.account_id, INTERBTC, ALICE_BALANCE),
-                (BOB.account_id, INTERBTC, BOB_BALANCE),
+                (ALICE.account_id, Token(DOT), ALICE_BALANCE),
+                (BOB.account_id, Token(DOT), BOB_BALANCE),
+                (ALICE.account_id, Token(INTERBTC), ALICE_BALANCE),
+                (BOB.account_id, Token(INTERBTC), BOB_BALANCE),
             ],
         })
     }

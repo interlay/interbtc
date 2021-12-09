@@ -10,7 +10,7 @@ use btc_relay::{BtcAddress, BtcPublicKey};
 use frame_benchmarking::{account, benchmarks, impl_benchmark_test_suite};
 use frame_system::RawOrigin;
 use orml_traits::MultiCurrency;
-use primitives::{CurrencyId, VaultId};
+use primitives::{CurrencyId, CurrencyId::Token, TokenSymbol::*, VaultId};
 use sp_core::{H160, H256, U256};
 use sp_runtime::{
     traits::{One, Zero},
@@ -26,7 +26,7 @@ use primitives::VaultCurrencyPair;
 use security::Pallet as Security;
 use vault_registry::{types::DefaultVaultCurrencyPair, Pallet as VaultRegistry};
 
-pub const DEFAULT_TESTING_CURRENCY: CurrencyId = CurrencyId::DOT;
+pub const DEFAULT_TESTING_CURRENCY: CurrencyId = Token(DOT);
 
 fn dummy_public_key() -> BtcPublicKey {
     BtcPublicKey([

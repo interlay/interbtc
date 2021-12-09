@@ -26,8 +26,8 @@ type TreasuryPallet = pallet_treasury::Pallet<Runtime>;
 
 type VestingCall = orml_vesting::Call<Runtime>;
 
-const COLLATERAL_CURRENCY_ID: CurrencyId = CurrencyId::DOT;
-const NATIVE_CURRENCY_ID: CurrencyId = CurrencyId::INTR;
+const COLLATERAL_CURRENCY_ID: CurrencyId = Token(DOT);
+const NATIVE_CURRENCY_ID: CurrencyId = Token(INTR);
 const INITIAL_VOTING_POWER: u128 = 5_000_000_000_000;
 
 fn get_max_locked(account_id: AccountId) -> Balance {
