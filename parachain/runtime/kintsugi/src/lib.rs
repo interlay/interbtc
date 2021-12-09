@@ -91,7 +91,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     spec_name: create_runtime_str!("kintsugi-parachain"),
     impl_name: create_runtime_str!("kintsugi-parachain"),
     authoring_version: 1,
-    spec_version: 4,
+    spec_version: 6,
     impl_version: 1,
     transaction_version: 1,
     apis: RUNTIME_API_VERSIONS,
