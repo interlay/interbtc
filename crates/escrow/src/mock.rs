@@ -88,6 +88,7 @@ impl Config for Test {
     type Currency = Balances;
     type Span = Span;
     type MaxPeriod = MaxPeriod;
+    type EscrowRewards = ();
     type WeightInfo = ();
 }
 

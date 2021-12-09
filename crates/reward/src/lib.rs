@@ -17,15 +17,11 @@ use frame_support::{
     ensure,
     traits::Get,
 };
-use primitives::TruncateFixedPointToInt;
+use primitives::{BalanceToFixedPoint, TruncateFixedPointToInt};
 use scale_info::TypeInfo;
 use sp_arithmetic::FixedPointNumber;
 use sp_runtime::traits::{CheckedAdd, CheckedDiv, CheckedMul, CheckedSub, MaybeSerializeDeserialize, Zero};
-use sp_std::{
-    convert::{TryFrom, TryInto},
-    fmt::Debug,
-    marker::PhantomData,
-};
+use sp_std::{convert::TryFrom, fmt::Debug, marker::PhantomData};
 
 pub(crate) type SignedFixedPoint<T, I = ()> = <T as Config<I>>::SignedFixedPoint;
 
@@ -382,13 +378,9 @@ pub fn distribute_reward<T, I, Balance>(currency_id: T::CurrencyId, amount: Bala
 where
     T: Config<I>,
     I: 'static,
-    Balance: TryInto<<SignedFixedPoint<T, I> as FixedPointNumber>::Inner>,
+    Balance: BalanceToFixedPoint<SignedFixedPoint<T, I>>,
 {
-    let reward = amount.try_into().map_err(|_| Error::<T, I>::TryIntoIntError)?;
-    Pallet::<T, I>::distribute_reward(
-        currency_id,
-        SignedFixedPoint::<T, I>::checked_from_integer(reward).unwrap_or_default(),
-    )
+    Pallet::<T, I>::distribute_reward(currency_id, amount.to_fixed().ok_or(Error::<T, I>::TryIntoIntError)?)
 }
 
 pub fn withdraw_reward<T, I, Balance>(
@@ -402,4 +394,33 @@ where
 {
     Balance::try_from(Pallet::<T, I>::withdraw_reward(reward_id, currency_id)?)
         .map_err(|_| Error::<T, I>::TryIntoIntError.into())
+}
+
+pub trait AdjustRewardStake<AccountId, Balance> {
+    fn deposit_stake(account_id: &AccountId, amount: Balance) -> DispatchResult;
+    fn withdraw_stake(account_id: &AccountId, amount: Balance) -> DispatchResult;
+}
+
+impl<T, I, Balance> AdjustRewardStake<T::RewardId, Balance> for RewardsCurrencyAdapter<T, I>
+where
+    T: Config<I>,
+    I: 'static,
+    Balance: BalanceToFixedPoint<SignedFixedPoint<T, I>>,
+{
+    fn deposit_stake(reward_id: &T::RewardId, amount: Balance) -> DispatchResult {
+        Pallet::<T, I>::deposit_stake(reward_id, amount.to_fixed().ok_or(Error::<T, I>::TryIntoIntError)?)
+    }
+
+    fn withdraw_stake(reward_id: &T::RewardId, amount: Balance) -> DispatchResult {
+        Pallet::<T, I>::withdraw_stake(reward_id, amount.to_fixed().ok_or(Error::<T, I>::TryIntoIntError)?)
+    }
+}
+
+impl<AccountId, Balance> AdjustRewardStake<AccountId, Balance> for () {
+    fn deposit_stake(_: &AccountId, _: Balance) -> DispatchResult {
+        Ok(())
+    }
+    fn withdraw_stake(_: &AccountId, _: Balance) -> DispatchResult {
+        Ok(())
+    }
 }

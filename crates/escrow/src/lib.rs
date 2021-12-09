@@ -37,6 +37,7 @@ use frame_support::{
     },
     transactional,
 };
+use reward::AdjustRewardStake;
 use scale_info::TypeInfo;
 use sp_runtime::{
     traits::{AtLeast32BitUnsigned, CheckedSub, Convert, Saturating, Zero},
@@ -149,6 +150,9 @@ pub mod pallet {
         /// The maximum time for locks.
         #[pallet::constant]
         type MaxPeriod: Get<Self::BlockNumber>;
+
+        /// Escrow reward pool.
+        type EscrowRewards: reward::AdjustRewardStake<Self::AccountId, BalanceOf<Self>>;
 
         /// Weight information for the extrinsics in this module.
         type WeightInfo: WeightInfo;
@@ -471,6 +475,8 @@ impl<T: Config> Pallet<T> {
             new_locked.end = unlock_height;
         }
 
+        T::EscrowRewards::deposit_stake(who, amount)?;
+
         ensure!(
             Self::get_free_balance(who) >= new_locked.amount,
             Error::<T>::InsufficientFunds,
@@ -493,6 +499,8 @@ impl<T: Config> Pallet<T> {
         let old_locked = <Locked<T>>::take(who);
         let amount = old_locked.amount;
         let current_height = Self::current_height();
+
+        T::EscrowRewards::withdraw_stake(who, amount)?;
 
         // lock MUST have expired
         ensure!(current_height >= old_locked.end, Error::<T>::LockNotExpired);

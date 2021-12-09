@@ -13,9 +13,22 @@ use sp_runtime::{
     traits::{BlakeTwo256, IdentifyAccount, Verify},
     FixedI128, FixedPointNumber, FixedU128, MultiSignature, RuntimeDebug,
 };
-use sp_std::{convert::TryFrom, prelude::*};
+use sp_std::{
+    convert::{TryFrom, TryInto},
+    prelude::*,
+};
 
 pub use bitcoin::types::H256Le;
+
+pub trait BalanceToFixedPoint<FixedPoint> {
+    fn to_fixed(self) -> Option<FixedPoint>;
+}
+
+impl BalanceToFixedPoint<SignedFixedPoint> for Balance {
+    fn to_fixed(self) -> Option<SignedFixedPoint> {
+        SignedFixedPoint::checked_from_integer(self.try_into().ok()?)
+    }
+}
 
 pub trait TruncateFixedPointToInt: FixedPointNumber {
     /// take a fixed point number and turns it into the truncated inner representation,

@@ -11,6 +11,7 @@ codec = { package = "parity-scale-codec", version = "2.2.0", default-features = 
 scale-info = { version = "1.0.0", default-features = false, features = ["derive"] }
 
 # Parachain dependencies
+reward = { path = "../reward", default-features = false }
 primitives = { package = "interbtc-primitives", path = "../../primitives", default-features = false }
 
 # Substrate dependencies
@@ -38,6 +39,7 @@ std = [
 	"serde",
 	"codec/std",
 
+	"reward/std",
 	"primitives/std",
 
 	"sp-arithmetic/std",
