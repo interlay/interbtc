@@ -9,7 +9,10 @@
 include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 
 use bitcoin::types::H256Le;
-use frame_support::dispatch::{DispatchError, DispatchResult};
+use frame_support::{
+    dispatch::{DispatchError, DispatchResult},
+    traits::{Currency as PalletCurrency, ExistenceRequirement},
+};
 use frame_system::{EnsureOneOf, EnsureRoot, EnsureSigned};
 use sp_core::{u32_trait::_1, H256};
 
@@ -91,6 +94,7 @@ pub const MINUTES: BlockNumber = 60_000 / (MILLISECS_PER_BLOCK as BlockNumber);
 pub const HOURS: BlockNumber = MINUTES * 60;
 pub const DAYS: BlockNumber = HOURS * 24;
 pub const WEEKS: BlockNumber = DAYS * 7;
+pub const YEARS: BlockNumber = DAYS * 365;
 
 pub const ROC: Balance = 1_000_000_000_000;
 pub const MILLIROC: Balance = 1_000_000_000;
@@ -428,6 +432,8 @@ impl btc_relay::Config for Runtime {
     type ParachainBlocksPerBitcoinBlock = ParachainBlocksPerBitcoinBlock;
 }
 
+type NativeCurrency = orml_tokens::CurrencyAdapter<Runtime, GetNativeCurrencyId>;
+
 parameter_types! {
     pub const GetCollateralCurrencyId: CurrencyId = Token(DOT);
     pub const GetWrappedCurrencyId: CurrencyId = Token(INTERBTC);
@@ -564,6 +570,40 @@ parameter_types! {
     pub const FeePalletId: PalletId = PalletId(*b"mod/fees");
 }
 
+parameter_types! {
+    pub const EscrowAnnuityPalletId: PalletId = PalletId(*b"esc/annu");
+    pub const EmissionPeriod: BlockNumber = YEARS;
+}
+
+pub struct VaultBlockRewardProvider;
+
+impl annuity::BlockRewardProvider<AccountId> for VaultBlockRewardProvider {
+    type Currency = NativeCurrency;
+    fn distribute_block_reward(from: &AccountId, amount: Balance) -> DispatchResult {
+        // TODO: remove fee pallet?
+        Self::Currency::transfer(from, &FeeAccount::get(), amount, ExistenceRequirement::KeepAlive)?;
+        reward::distribute_reward::<Runtime, (), _>(GetNativeCurrencyId::get(), amount)
+    }
+    fn withdraw_reward(_: &AccountId) -> Result<Balance, DispatchError> {
+        Ok(Zero::zero())
+    }
+}
+
+parameter_types! {
+    pub const VaultAnnuityPalletId: PalletId = PalletId(*b"vlt/annu");
+}
+
+type VaultAnnuityInstance = annuity::Instance1;
+
+impl annuity::Config<VaultAnnuityInstance> for Runtime {
+    type AnnuityPalletId = VaultAnnuityPalletId;
+    type Event = Event;
+    type Currency = NativeCurrency;
+    type BlockRewardProvider = VaultBlockRewardProvider;
+    type BlockNumberToBalance = BlockNumberToBalance;
+    type EmissionPeriod = EmissionPeriod;
+}
+
 impl fee::Config for Runtime {
     type FeePalletId = FeePalletId;
     type WeightInfo = ();
@@ -633,6 +673,7 @@ construct_runtime! {
         Staking: staking::{Pallet, Storage, Event<T>},
         Escrow: escrow::{Pallet, Call, Storage, Event<T>},
         Vesting: orml_vesting::{Pallet, Storage, Call, Event<T>, Config<T>},
+        VaultAnnuity: annuity::<Instance1>::{Pallet, Storage, Event<T>, Config<T>},
 
         // Bitcoin SPV
         BTCRelay: btc_relay::{Pallet, Call, Config<T>, Storage, Event<T>},

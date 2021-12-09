@@ -908,6 +908,7 @@ impl supply::OnInflation<AccountId> for DealWithRewards {
             vault_inflation,
             ExistenceRequirement::KeepAlive,
         );
+        VaultAnnuity::update_reward_per_block();
 
         // stake-to-vote block rewards
         let _ = Self::Currency::transfer(
@@ -916,6 +917,7 @@ impl supply::OnInflation<AccountId> for DealWithRewards {
             escrow_inflation,
             ExistenceRequirement::KeepAlive,
         );
+        EscrowAnnuity::update_reward_per_block();
 
         // remainder goes to treasury
         let _ = Self::Currency::transfer(
