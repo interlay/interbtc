@@ -395,14 +395,33 @@ pub trait CurrencyInfo {
 macro_rules! create_currency_id {
     ($(#[$meta:meta])*
 	$vis:vis enum TokenSymbol {
-        $($(#[$vmeta:meta])* $symbol:ident($name:expr, $deci:literal),)*
+        $($(#[$vmeta:meta])* $symbol:ident($name:expr, $deci:literal) = $val:literal,)*
     }) => {
 		$(#[$meta])*
 		$vis enum TokenSymbol {
-			$($(#[$vmeta])* $symbol,)*
+			$($(#[$vmeta])* $symbol = $val,)*
 		}
 
         $(pub const $symbol: TokenSymbol = TokenSymbol::$symbol;)*
+
+        impl TryFrom<u8> for TokenSymbol {
+			type Error = ();
+
+			fn try_from(v: u8) -> Result<Self, Self::Error> {
+				match v {
+					$($val => Ok(TokenSymbol::$symbol),)*
+					_ => Err(()),
+				}
+			}
+		}
+
+		impl Into<u8> for TokenSymbol {
+			fn into(self) -> u8 {
+				match self {
+					$(TokenSymbol::$symbol => ($val),)*
+				}
+			}
+		}
 
         impl TokenSymbol {
 			pub fn get_info() -> Vec<(&'static str, u32)> {
@@ -453,14 +472,15 @@ macro_rules! create_currency_id {
 create_currency_id! {
     #[derive(Encode, Decode, Eq, Hash, PartialEq, Copy, Clone, RuntimeDebug, PartialOrd, Ord, TypeInfo)]
     #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+    #[repr(u8)]
     pub enum TokenSymbol {
-        DOT("Polkadot", 10),
-        INTERBTC("interBTC", 8),
-        INTR("Interlay", 10),
+        DOT("Polkadot", 10) = 0,
+        INTERBTC("interBTC", 8) = 1,
+        INTR("Interlay", 10) = 2,
 
-        KSM("Kusama", 12),
-        KBTC("kBTC", 8),
-        KINT("Kintsugi", 12),
+        KSM("Kusama", 12) = 10,
+        KBTC("kBTC", 8) = 11,
+        KINT("Kintsugi", 12) = 12,
     }
 }
 
