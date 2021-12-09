@@ -102,8 +102,6 @@ pub const MILLISECS_PER_BLOCK: u64 = 12000;
 
 pub const SLOT_DURATION: u64 = MILLISECS_PER_BLOCK;
 
-pub const EPOCH_DURATION_IN_BLOCKS: u32 = 10 * MINUTES;
-
 // These time units are defined in number of blocks.
 pub const MINUTES: BlockNumber = 60_000 / (MILLISECS_PER_BLOCK as BlockNumber);
 pub const HOURS: BlockNumber = MINUTES * 60;
