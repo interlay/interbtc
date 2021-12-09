@@ -48,7 +48,7 @@ fn griefing(amount: u128) -> Amount<Test> {
     Amount::new(amount, GRIEFING_CURRENCY)
 }
 fn wrapped(amount: u128) -> Amount<Test> {
-    Amount::new(amount, INTERBTC)
+    Amount::new(amount, Token(INTERBTC))
 }
 
 mod request_replace_tests {

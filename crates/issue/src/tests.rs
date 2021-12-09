@@ -24,7 +24,7 @@ fn griefing(amount: u128) -> Amount<Test> {
 }
 
 fn wrapped(amount: u128) -> Amount<Test> {
-    Amount::new(amount, INTERBTC)
+    Amount::new(amount, Token(INTERBTC))
 }
 
 fn request_issue(

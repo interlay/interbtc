@@ -51,8 +51,8 @@ pub use security::StatusCode;
 
 use currency::Amount;
 pub use primitives::{
-    self, AccountId, Balance, BlockNumber, CurrencyId, CurrencyInfo, Hash, Moment, Nonce, Signature, SignedFixedPoint,
-    SignedInner, UnsignedFixedPoint, UnsignedInner, DOT, INTERBTC, INTR, KINT, KSM,
+    self, AccountId, Balance, BlockNumber, CurrencyId, CurrencyId::Token, CurrencyInfo, Hash, Moment, Nonce, Signature,
+    SignedFixedPoint, SignedInner, TokenSymbol, UnsignedFixedPoint, UnsignedInner, DOT, INTERBTC, INTR, KINT, KSM,
 };
 
 use pallet_grandpa::{fg_primitives, AuthorityId as GrandpaId, AuthorityList as GrandpaAuthorityList};
@@ -429,9 +429,9 @@ impl btc_relay::Config for Runtime {
 }
 
 parameter_types! {
-    pub const GetCollateralCurrencyId: CurrencyId = DOT;
-    pub const GetWrappedCurrencyId: CurrencyId = INTERBTC;
-    pub const GetNativeCurrencyId: CurrencyId = INTR;
+    pub const GetCollateralCurrencyId: CurrencyId = Token(DOT);
+    pub const GetWrappedCurrencyId: CurrencyId = Token(INTERBTC);
+    pub const GetNativeCurrencyId: CurrencyId = Token(INTR);
     pub const MaxLocks: u32 = 50;
 }
 

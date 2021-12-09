@@ -4,7 +4,7 @@ use sp_runtime::FixedPointNumber;
 #[test]
 fn test_checked_fixed_point_mul() {
     run_test(|| {
-        let currency = DOT;
+        let currency = Token(DOT);
         let tests: Vec<(Amount<Test>, UnsignedFixedPoint, Amount<Test>)> = vec![
             (
                 Amount::new(1 * 10u128.pow(8), currency),                 // 1 BTC
@@ -43,7 +43,7 @@ fn test_checked_fixed_point_mul() {
 #[test]
 fn test_checked_fixed_point_mul_rounded_up() {
     run_test(|| {
-        let currency = DOT;
+        let currency = Token(DOT);
         let tests: Vec<(Amount<Test>, UnsignedFixedPoint, Amount<Test>)> = vec![
             (
                 Amount::new(10, currency),

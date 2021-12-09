@@ -3,7 +3,7 @@ use frame_benchmarking::{account, benchmarks, impl_benchmark_test_suite};
 use frame_support::{assert_ok, traits::Get};
 use frame_system::RawOrigin;
 use orml_traits::MultiCurrency;
-use primitives::CurrencyId;
+use primitives::{CurrencyId, CurrencyId::Token, TokenSymbol::*};
 use sp_runtime::traits::One;
 use vault_registry::BtcPublicKey;
 
@@ -12,7 +12,7 @@ use crate::Pallet as Nomination;
 use oracle::Pallet as Oracle;
 use vault_registry::Pallet as VaultRegistry;
 
-pub const DEFAULT_TESTING_CURRENCY: CurrencyId = CurrencyId::DOT;
+pub const DEFAULT_TESTING_CURRENCY: CurrencyId = Token(DOT);
 
 fn dummy_public_key() -> BtcPublicKey {
     BtcPublicKey([

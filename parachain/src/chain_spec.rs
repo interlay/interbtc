@@ -2,7 +2,10 @@ use bitcoin::utils::{virtual_transaction_size, InputType, TransactionInputMetada
 use cumulus_primitives_core::ParaId;
 use hex_literal::hex;
 use interbtc_rpc::jsonrpc_core::serde_json::{map::Map, Value};
-use primitives::{AccountId, Balance, BlockNumber, CurrencyId, Signature, VaultCurrencyPair, KINT};
+use primitives::{
+    AccountId, Balance, BlockNumber, CurrencyId, CurrencyId::Token, Signature, TokenSymbol, VaultCurrencyPair, DOT,
+    KINT, KSM,
+};
 use sc_chain_spec::{ChainSpecExtension, ChainSpecGroup};
 use sc_service::ChainType;
 use serde::{Deserialize, Serialize};
@@ -99,7 +102,7 @@ fn get_properties() -> Map<String, Value> {
     let mut properties = Map::new();
     let mut token_symbol: Vec<String> = vec![];
     let mut token_decimals: Vec<u32> = vec![];
-    CurrencyId::get_info().iter().for_each(|(symbol_name, decimals)| {
+    TokenSymbol::get_info().iter().for_each(|(symbol_name, decimals)| {
         token_symbol.push(symbol_name.to_string());
         token_decimals.push(*decimals);
     });
@@ -409,19 +412,19 @@ fn testnet_genesis(
             replace_btc_dust_value: DEFAULT_DUST_VALUE,
         },
         vault_registry: kintsugi_runtime::VaultRegistryConfig {
-            minimum_collateral_vault: vec![(CurrencyId::KSM, 0)],
+            minimum_collateral_vault: vec![(Token(KSM), 0)],
             punishment_delay: kintsugi_runtime::DAYS,
-            system_collateral_ceiling: vec![(default_pair_kintsugi(CurrencyId::KSM), 1000 * CurrencyId::KSM.one())],
+            system_collateral_ceiling: vec![(default_pair_kintsugi(Token(KSM)), 1000 * KSM.one())],
             secure_collateral_threshold: vec![(
-                default_pair_kintsugi(CurrencyId::KSM),
+                default_pair_kintsugi(Token(KSM)),
                 FixedU128::checked_from_rational(150, 100).unwrap(),
             )], /* 150% */
             premium_redeem_threshold: vec![(
-                default_pair_kintsugi(CurrencyId::KSM),
+                default_pair_kintsugi(Token(KSM)),
                 FixedU128::checked_from_rational(135, 100).unwrap(),
             )], /* 135% */
             liquidation_collateral_threshold: vec![(
-                default_pair_kintsugi(CurrencyId::KSM),
+                default_pair_kintsugi(Token(KSM)),
                 FixedU128::checked_from_rational(110, 100).unwrap(),
             )], /* 110% */
         },
@@ -590,7 +593,7 @@ fn kintsugi_mainnet_genesis(
         tokens: kintsugi_runtime::TokensConfig {
             balances: initial_allocation
                 .iter()
-                .map(|(who, amount)| (who.clone(), KINT, *amount))
+                .map(|(who, amount)| (who.clone(), Token(KINT), *amount))
                 .collect(),
         },
         vesting: kintsugi_runtime::VestingConfig { vesting: vesting_list },
@@ -618,21 +621,22 @@ fn kintsugi_mainnet_genesis(
             replace_btc_dust_value: DEFAULT_DUST_VALUE,
         },
         vault_registry: kintsugi_runtime::VaultRegistryConfig {
-            minimum_collateral_vault: vec![(CurrencyId::KSM, 0)],
+            minimum_collateral_vault: vec![(Token(KSM), 0)],
             punishment_delay: kintsugi_runtime::DAYS,
-            system_collateral_ceiling: vec![(default_pair_kintsugi(CurrencyId::KSM), 317 * CurrencyId::KSM.one())], /* 317 ksm, about 100k
-                                                                                                                     * USD at
-                                                                                                                     * time of writing */
+            system_collateral_ceiling: vec![(default_pair_kintsugi(Token(KSM)), 317 * KSM.one())], /* 317 ksm, about
+                                                                                                    * 100k
+                                                                                                    * USD at
+                                                                                                    * time of writing */
             secure_collateral_threshold: vec![(
-                default_pair_kintsugi(CurrencyId::KSM),
+                default_pair_kintsugi(Token(KSM)),
                 FixedU128::checked_from_rational(260, 100).unwrap(),
             )], /* 260% */
             premium_redeem_threshold: vec![(
-                default_pair_kintsugi(CurrencyId::KSM),
+                default_pair_kintsugi(Token(KSM)),
                 FixedU128::checked_from_rational(200, 100).unwrap(),
             )], /* 200% */
             liquidation_collateral_threshold: vec![(
-                default_pair_kintsugi(CurrencyId::KSM),
+                default_pair_kintsugi(Token(KSM)),
                 FixedU128::checked_from_rational(150, 100).unwrap(),
             )], /* 150% */
         },
@@ -797,7 +801,7 @@ fn interlay_mainnet_genesis(
         tokens: interlay_runtime::TokensConfig {
             balances: initial_allocation
                 .iter()
-                .map(|(who, amount)| (who.clone(), KINT, *amount))
+                .map(|(who, amount)| (who.clone(), Token(KINT), *amount))
                 .collect(),
         },
         vesting: interlay_runtime::VestingConfig { vesting: vesting_list },
@@ -825,21 +829,21 @@ fn interlay_mainnet_genesis(
             replace_btc_dust_value: DEFAULT_DUST_VALUE,
         },
         vault_registry: interlay_runtime::VaultRegistryConfig {
-            minimum_collateral_vault: vec![(CurrencyId::KSM, 0)],
+            minimum_collateral_vault: vec![(Token(KSM), 0)],
             punishment_delay: interlay_runtime::DAYS,
-            system_collateral_ceiling: vec![(default_pair_interlay(CurrencyId::DOT), 3333 * CurrencyId::DOT.one())], /* 3333 DOT, about 100k
-                                                                                                                      * USD at
-                                                                                                                      * time of writing */
+            system_collateral_ceiling: vec![(default_pair_interlay(Token(DOT)), 3333 * DOT.one())], /* 3333 DOT, about 100k
+                                                                                                     * USD at
+                                                                                                     * time of writing */
             secure_collateral_threshold: vec![(
-                default_pair_interlay(CurrencyId::DOT),
+                default_pair_interlay(Token(DOT)),
                 FixedU128::checked_from_rational(260, 100).unwrap(),
             )], /* 260% */
             premium_redeem_threshold: vec![(
-                default_pair_interlay(CurrencyId::DOT),
+                default_pair_interlay(Token(DOT)),
                 FixedU128::checked_from_rational(200, 100).unwrap(),
             )], /* 200% */
             liquidation_collateral_threshold: vec![(
-                default_pair_interlay(CurrencyId::DOT),
+                default_pair_interlay(Token(DOT)),
                 FixedU128::checked_from_rational(150, 100).unwrap(),
             )], /* 150% */
         },

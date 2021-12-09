@@ -1,7 +1,7 @@
 use crate as reward;
 use crate::{Config, Error};
 use frame_support::{parameter_types, traits::Everything};
-pub use primitives::{CurrencyId, VaultCurrencyPair, VaultId, INTERBTC};
+pub use primitives::{CurrencyId, CurrencyId::Token, TokenSymbol::*, VaultCurrencyPair, VaultId};
 use sp_arithmetic::FixedI128;
 use sp_core::H256;
 use sp_runtime::{
@@ -61,8 +61,8 @@ impl frame_system::Config for Test {
 }
 
 parameter_types! {
-    pub const GetNativeCurrencyId: CurrencyId = CurrencyId::INTR;
-    pub const GetWrappedCurrencyId: CurrencyId = CurrencyId::INTERBTC;
+    pub const GetNativeCurrencyId: CurrencyId = Token(INTR);
+    pub const GetWrappedCurrencyId: CurrencyId = Token(INTERBTC);
 }
 
 impl Config for Test {
