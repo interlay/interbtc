@@ -119,7 +119,9 @@ pub mod token_distribution {
     use super::*;
 
     // 10 million KINT distributed over 4 years
-    pub const INITIAL_ALLOCATION: Balance = 10_000_000_000_000_000_000;
+    // KINT has 12 decimal places, same as KSM
+    // See: https://wiki.polkadot.network/docs/learn-DOT#kusama
+    pub const INITIAL_ALLOCATION: Balance = 10_000_000_u128 * UNITS;
 
     // multiplication is non-overflow by default
     pub const ESCROW_INFLATION_REWARDS: Permill = Permill::from_parts(67000); // 6.7%
@@ -458,9 +460,10 @@ parameter_types! {
     pub const LaunchPeriod: BlockNumber = 7 * DAYS;
     pub const VotingPeriod: BlockNumber = 7 * DAYS;
     pub const FastTrackVotingPeriod: BlockNumber = 3 * HOURS;
-    // TODO: this needs to change before launch. First off, CENTS is for KSM, not for KINT. Second, needs to be sufficciently
-    // high to prevent dos by making 100 proposals
-    pub MinimumDeposit: Balance = 100 * CENTS;
+    // Require 5 vKINT to make a proposal. Given the crowdloan airdrop, this qualifies about 3500
+    // accounts to make a governance proposal. Only 2300 can do two proposals,
+    // and 700 accounts can do ten or more proposals.
+    pub MinimumDeposit: Balance = 5 * UNITS;
     pub const EnactmentPeriod: BlockNumber = DAYS;
     pub PreimageByteDeposit: Balance = 10 * MILLICENTS;
     pub const MaxVotes: u32 = 100;
