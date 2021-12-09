@@ -87,10 +87,10 @@ impl_opaque_keys! {
 /// This runtime version.
 #[sp_version::runtime_version]
 pub const VERSION: RuntimeVersion = RuntimeVersion {
-    spec_name: create_runtime_str!("kintsugi-parachain"),
-    impl_name: create_runtime_str!("kintsugi-parachain"),
+    spec_name: create_runtime_str!("interlay-parachain"),
+    impl_name: create_runtime_str!("interlay-parachain"),
     authoring_version: 1,
-    spec_version: 4,
+    spec_version: 1,
     impl_version: 1,
     transaction_version: 1,
     apis: RUNTIME_API_VERSIONS,
@@ -100,8 +100,6 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 pub const MILLISECS_PER_BLOCK: u64 = 12000;
 
 pub const SLOT_DURATION: u64 = MILLISECS_PER_BLOCK;
-
-pub const EPOCH_DURATION_IN_BLOCKS: u32 = 10 * MINUTES;
 
 // These time units are defined in number of blocks.
 pub const MINUTES: BlockNumber = 60_000 / (MILLISECS_PER_BLOCK as BlockNumber);
@@ -119,8 +117,10 @@ pub const BITCOIN_BLOCK_SPACING: BlockNumber = BITCOIN_SPACING_MS / MILLISECS_PE
 pub mod token_distribution {
     use super::*;
 
-    // 10 million INTR distributed over 4 years
-    pub const INITIAL_ALLOCATION: Balance = 10_000_000_000_000_000_000;
+    // 1 billion INTR distributed over 4 years
+    // INTR has 10 decimal places, same as DOT
+    // See: https://wiki.polkadot.network/docs/learn-DOT#polkadot
+    pub const INITIAL_ALLOCATION: Balance = 1_000_000_000 * UNITS;
 
     // multiplication is non-overflow by default
     pub const ESCROW_INFLATION_REWARDS: Permill = Permill::from_parts(67000); // 6.7%
@@ -459,7 +459,9 @@ parameter_types! {
     pub const LaunchPeriod: BlockNumber = 7 * DAYS;
     pub const VotingPeriod: BlockNumber = 7 * DAYS;
     pub const FastTrackVotingPeriod: BlockNumber = 3 * HOURS;
-    pub MinimumDeposit: Balance = 100 * CENTS;
+    // TODO: update this once we have the crowdloan data in
+    // Require 1 vINTR for now
+    pub MinimumDeposit: Balance = 1 * UNITS;
     pub const EnactmentPeriod: BlockNumber = DAYS;
     pub PreimageByteDeposit: Balance = 10 * MILLICENTS;
     pub const MaxVotes: u32 = 100;
