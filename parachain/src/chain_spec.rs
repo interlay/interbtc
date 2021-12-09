@@ -828,8 +828,8 @@ fn interlay_mainnet_genesis(
             minimum_collateral_vault: vec![(CurrencyId::KSM, 0)],
             punishment_delay: interlay_runtime::DAYS,
             system_collateral_ceiling: vec![(default_pair_interlay(CurrencyId::DOT), 3333 * CurrencyId::DOT.one())], /* 3333 DOT, about 100k
-                                                                                                                     * USD at
-                                                                                                                     * time of writing */
+                                                                                                                      * USD at
+                                                                                                                      * time of writing */
             secure_collateral_threshold: vec![(
                 default_pair_interlay(CurrencyId::DOT),
                 FixedU128::checked_from_rational(260, 100).unwrap(),
