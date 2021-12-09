@@ -17,15 +17,11 @@ use frame_support::{
     ensure,
     traits::Get,
 };
-use primitives::TruncateFixedPointToInt;
+use primitives::{BalanceToFixedPoint, TruncateFixedPointToInt};
 use scale_info::TypeInfo;
 use sp_arithmetic::FixedPointNumber;
 use sp_runtime::traits::{CheckedAdd, CheckedDiv, CheckedMul, CheckedSub, MaybeSerializeDeserialize, Zero};
-use sp_std::{
-    convert::{TryFrom, TryInto},
-    fmt::Debug,
-    marker::PhantomData,
-};
+use sp_std::{convert::TryFrom, fmt::Debug, marker::PhantomData};
 
 pub(crate) type SignedFixedPoint<T, I = ()> = <T as Config<I>>::SignedFixedPoint;
 
@@ -382,13 +378,9 @@ pub fn distribute_reward<T, I, Balance>(currency_id: T::CurrencyId, amount: Bala
 where
     T: Config<I>,
     I: 'static,
-    Balance: TryInto<<SignedFixedPoint<T, I> as FixedPointNumber>::Inner>,
+    Balance: BalanceToFixedPoint<SignedFixedPoint<T, I>>,
 {
-    let reward = amount.try_into().map_err(|_| Error::<T, I>::TryIntoIntError)?;
-    Pallet::<T, I>::distribute_reward(
-        currency_id,
-        SignedFixedPoint::<T, I>::checked_from_integer(reward).unwrap_or_default(),
-    )
+    Pallet::<T, I>::distribute_reward(currency_id, amount.to_fixed().ok_or(Error::<T, I>::TryIntoIntError)?)
 }
 
 pub fn withdraw_reward<T, I, Balance>(
@@ -413,21 +405,14 @@ impl<T, I, Balance> AdjustRewardStake<T::RewardId, Balance> for RewardsCurrencyA
 where
     T: Config<I>,
     I: 'static,
-    Balance: TryInto<<SignedFixedPoint<T, I> as FixedPointNumber>::Inner>
-        + TryFrom<<SignedFixedPoint<T, I> as FixedPointNumber>::Inner>,
+    Balance: BalanceToFixedPoint<SignedFixedPoint<T, I>>,
 {
     fn deposit_stake(reward_id: &T::RewardId, amount: Balance) -> DispatchResult {
-        // TODO: simplify conversion
-        let amount = amount.try_into().map_err(|_| Error::<T, I>::TryIntoIntError)?;
-        let amount = SignedFixedPoint::<T, I>::checked_from_integer(amount).unwrap_or_default();
-        Pallet::<T, I>::deposit_stake(reward_id, amount)
+        Pallet::<T, I>::deposit_stake(reward_id, amount.to_fixed().ok_or(Error::<T, I>::TryIntoIntError)?)
     }
 
     fn withdraw_stake(reward_id: &T::RewardId, amount: Balance) -> DispatchResult {
-        // TODO: simplify conversion
-        let amount = amount.try_into().map_err(|_| Error::<T, I>::TryIntoIntError)?;
-        let amount = SignedFixedPoint::<T, I>::checked_from_integer(amount).unwrap_or_default();
-        Pallet::<T, I>::withdraw_stake(reward_id, amount)
+        Pallet::<T, I>::withdraw_stake(reward_id, amount.to_fixed().ok_or(Error::<T, I>::TryIntoIntError)?)
     }
 }
 
