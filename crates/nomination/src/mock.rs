@@ -211,7 +211,7 @@ impl fee::Config for Test {
     type UnsignedFixedPoint = UnsignedFixedPoint;
     type UnsignedInner = UnsignedInner;
     type VaultRewards = Rewards;
-    type VaultStaking = staking::StakingCurrencyAdapter<Test>;
+    type VaultStaking = Staking;
     type GetNativeCurrencyId = GetNativeCurrencyId;
     type OnSweep = ();
 }

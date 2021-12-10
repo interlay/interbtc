@@ -17,7 +17,6 @@ use mocktopus::macros::mockable;
 mod tests;
 
 mod ext;
-mod types;
 
 #[cfg(any(feature = "runtime-benchmarks", test))]
 mod benchmarking;
@@ -33,8 +32,10 @@ use frame_support::{
 use frame_system::{ensure_root, ensure_signed};
 pub use pallet::*;
 use primitives::VaultId;
-use sp_std::convert::TryInto;
-use types::{Collateral, DefaultVaultId};
+
+pub(crate) type BalanceOf<T> = <T as vault_registry::Config>::Balance;
+
+pub(crate) type DefaultVaultId<T> = VaultId<<T as frame_system::Config>::AccountId, currency::CurrencyId<T>>;
 
 #[frame_support::pallet]
 pub mod pallet {
@@ -66,12 +67,12 @@ pub mod pallet {
         DepositCollateral {
             vault_id: DefaultVaultId<T>,
             nominator_id: T::AccountId,
-            amount: Collateral<T>,
+            amount: BalanceOf<T>,
         },
         WithdrawCollateral {
             vault_id: DefaultVaultId<T>,
             nominator_id: T::AccountId,
-            amount: Collateral<T>,
+            amount: BalanceOf<T>,
         },
     }
 
@@ -176,7 +177,7 @@ pub mod pallet {
         pub fn deposit_collateral(
             origin: OriginFor<T>,
             vault_id: DefaultVaultId<T>,
-            amount: Collateral<T>,
+            amount: BalanceOf<T>,
         ) -> DispatchResultWithPostInfo {
             let nominator_id = ensure_signed(origin)?;
             ext::security::ensure_parachain_status_running::<T>()?;
@@ -189,7 +190,7 @@ pub mod pallet {
         pub fn withdraw_collateral(
             origin: OriginFor<T>,
             vault_id: DefaultVaultId<T>,
-            amount: Collateral<T>,
+            amount: BalanceOf<T>,
             index: Option<T::Index>,
         ) -> DispatchResultWithPostInfo {
             let nominator_id = ensure_signed(origin)?;
@@ -206,7 +207,7 @@ impl<T: Config> Pallet<T> {
     pub fn _withdraw_collateral(
         vault_id: &DefaultVaultId<T>,
         nominator_id: &T::AccountId,
-        amount: Collateral<T>,
+        amount: BalanceOf<T>,
         index: T::Index,
     ) -> DispatchResult {
         let nonce = ext::staking::nonce::<T>(vault_id);
@@ -232,7 +233,7 @@ impl<T: Config> Pallet<T> {
         // withdraw all vault rewards first, to prevent the nominator from withdrawing past rewards
         ext::fee::withdraw_all_vault_rewards::<T>(vault_id)?;
         // withdraw `amount` of stake from the vault staking pool
-        ext::staking::withdraw_stake::<T>(vault_id, nominator_id, amount.to_signed_fixed_point()?, Some(index))?;
+        ext::staking::withdraw_stake::<T>(vault_id, nominator_id, amount.amount(), Some(index))?;
         amount.unlock_on(&vault_id.account_id)?;
         amount.transfer(&vault_id.account_id, &nominator_id)?;
 
@@ -247,7 +248,7 @@ impl<T: Config> Pallet<T> {
     pub fn _deposit_collateral(
         vault_id: &DefaultVaultId<T>,
         nominator_id: &T::AccountId,
-        amount: Collateral<T>,
+        amount: BalanceOf<T>,
     ) -> DispatchResult {
         ensure!(Self::is_nomination_enabled(), Error::<T>::VaultNominationDisabled);
         ensure!(Self::is_opted_in(vault_id)?, Error::<T>::VaultNotOptedInToNomination);
@@ -268,7 +269,7 @@ impl<T: Config> Pallet<T> {
         ext::fee::withdraw_all_vault_rewards::<T>(vault_id)?;
 
         // Deposit `amount` of stake into the vault staking pool
-        ext::staking::deposit_stake::<T>(vault_id, nominator_id, amount.to_signed_fixed_point()?)?;
+        ext::staking::deposit_stake::<T>(vault_id, nominator_id, amount.amount())?;
         amount.transfer(&nominator_id, &vault_id.account_id)?;
         amount.lock_on(&vault_id.account_id)?;
         ext::vault_registry::try_increase_total_backing_collateral(&vault_id.currencies, &amount)?;
@@ -310,9 +311,7 @@ impl<T: Config> Pallet<T> {
             Error::<T>::CollateralizationTooLow
         );
 
-        let refunded_collateral = ext::staking::force_refund::<T>(vault_id)?
-            .try_into()
-            .map_err(|_| Error::<T>::TryIntoIntError)?;
+        let refunded_collateral = ext::staking::force_refund::<T>(vault_id)?;
 
         // Update the system-wide total backing collateral
         let vault_currency_id = vault_id.collateral_currency();
@@ -340,10 +339,7 @@ impl<T: Config> Pallet<T> {
         vault_id: &DefaultVaultId<T>,
         nominator_id: &T::AccountId,
     ) -> Result<Amount<T>, DispatchError> {
-        let collateral = ext::staking::compute_stake::<T>(vault_id, nominator_id)?;
-
-        let amount = collateral.try_into().map_err(|_| Error::<T>::TryIntoIntError)?;
-
+        let amount = ext::staking::compute_stake::<T>(vault_id, nominator_id)?;
         Ok(Amount::new(amount, vault_id.collateral_currency()))
     }
 }

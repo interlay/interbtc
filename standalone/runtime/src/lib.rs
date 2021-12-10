@@ -615,7 +615,7 @@ impl fee::Config for Runtime {
     type UnsignedFixedPoint = UnsignedFixedPoint;
     type UnsignedInner = UnsignedInner;
     type VaultRewards = VaultRewards;
-    type VaultStaking = staking::StakingCurrencyAdapter<Runtime>;
+    type VaultStaking = VaultStaking;
     type GetNativeCurrencyId = GetNativeCurrencyId;
     type OnSweep = currency::SweepFunds<Runtime, FeeAccount>;
 }
@@ -673,7 +673,7 @@ construct_runtime! {
         Currency: currency::{Pallet},
         Tokens: orml_tokens::{Pallet, Call, Storage, Config<T>, Event<T>},
         VaultRewards: reward::{Pallet, Storage, Event<T>},
-        Staking: staking::{Pallet, Storage, Event<T>},
+        VaultStaking: staking::{Pallet, Storage, Event<T>},
         Escrow: escrow::{Pallet, Call, Storage, Event<T>},
         Vesting: orml_vesting::{Pallet, Storage, Call, Event<T>, Config<T>},
         VaultAnnuity: annuity::<Instance1>::{Pallet, Storage, Event<T>, Config<T>},

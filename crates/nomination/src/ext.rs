@@ -70,7 +70,7 @@ pub(crate) mod fee {
 
 #[cfg_attr(test, mockable)]
 pub(crate) mod staking {
-    use crate::types::{SignedFixedPoint, SignedInner};
+    use crate::BalanceOf;
     use frame_support::dispatch::DispatchError;
     use staking::Staking;
     use vault_registry::DefaultVaultId;
@@ -82,7 +82,7 @@ pub(crate) mod staking {
     pub fn deposit_stake<T: crate::Config>(
         vault_id: &DefaultVaultId<T>,
         nominator_id: &T::AccountId,
-        amount: SignedFixedPoint<T>,
+        amount: BalanceOf<T>,
     ) -> Result<(), DispatchError> {
         T::VaultStaking::deposit_stake(vault_id, nominator_id, amount)
     }
@@ -90,7 +90,7 @@ pub(crate) mod staking {
     pub fn withdraw_stake<T: crate::Config>(
         vault_id: &DefaultVaultId<T>,
         nominator_id: &T::AccountId,
-        amount: SignedFixedPoint<T>,
+        amount: BalanceOf<T>,
         index: Option<T::Index>,
     ) -> Result<(), DispatchError> {
         T::VaultStaking::withdraw_stake(vault_id, nominator_id, amount, index)
@@ -99,11 +99,11 @@ pub(crate) mod staking {
     pub fn compute_stake<T: vault_registry::Config>(
         vault_id: &DefaultVaultId<T>,
         nominator_id: &T::AccountId,
-    ) -> Result<SignedInner<T>, DispatchError> {
+    ) -> Result<BalanceOf<T>, DispatchError> {
         T::VaultStaking::compute_stake(vault_id, nominator_id)
     }
 
-    pub fn force_refund<T: crate::Config>(vault_id: &DefaultVaultId<T>) -> Result<SignedInner<T>, DispatchError> {
+    pub fn force_refund<T: crate::Config>(vault_id: &DefaultVaultId<T>) -> Result<BalanceOf<T>, DispatchError> {
         T::VaultStaking::force_refund(vault_id)
     }
 }
