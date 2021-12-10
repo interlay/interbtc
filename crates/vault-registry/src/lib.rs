@@ -602,7 +602,6 @@ pub mod pallet {
     /// transferred to LiquidationVault and claims are later handled via the LiquidationVault.
     #[pallet::storage]
     #[pallet::getter(fn liquidation_vault_account_id)]
-    // TODO: this will not work with multiple wrapped currencies
     pub(super) type LiquidationVaultAccountId<T: Config> = StorageValue<_, T::AccountId, ValueQuery>;
 
     #[pallet::storage]

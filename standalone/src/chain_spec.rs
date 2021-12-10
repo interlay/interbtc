@@ -268,7 +268,6 @@ fn testnet_genesis(
             // Assign network admin rights.
             key: root_key.clone(),
         },
-        vault_annuity: Default::default(),
         tokens: TokensConfig {
             balances: endowed_accounts
                 .iter()

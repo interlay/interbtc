@@ -676,7 +676,7 @@ construct_runtime! {
         VaultStaking: staking::{Pallet, Storage, Event<T>},
         Escrow: escrow::{Pallet, Call, Storage, Event<T>},
         Vesting: orml_vesting::{Pallet, Storage, Call, Event<T>, Config<T>},
-        VaultAnnuity: annuity::<Instance1>::{Pallet, Storage, Event<T>, Config<T>},
+        VaultAnnuity: annuity::<Instance1>::{Pallet, Storage, Event<T>},
 
         // Bitcoin SPV
         BTCRelay: btc_relay::{Pallet, Call, Config<T>, Storage, Event<T>},

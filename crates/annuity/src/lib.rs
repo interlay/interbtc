@@ -18,7 +18,7 @@ use frame_support::{
     weights::Weight,
     PalletId,
 };
-use sp_runtime::traits::{CheckedDiv, Convert};
+use sp_runtime::traits::{AccountIdConversion, CheckedDiv, Convert};
 
 pub use pallet::*;
 
@@ -76,31 +76,8 @@ pub mod pallet {
     }
 
     #[pallet::storage]
-    #[pallet::getter(fn annuity_pallet_id)]
-    pub type AnnuityPalletId<T: Config<I>, I: 'static = ()> = StorageValue<_, T::AccountId, ValueQuery>;
-
-    #[pallet::storage]
     #[pallet::getter(fn reward_per_block)]
     pub type RewardPerBlock<T: Config<I>, I: 'static = ()> = StorageValue<_, BalanceOf<T, I>, ValueQuery>;
-
-    #[pallet::genesis_config]
-    pub struct GenesisConfig<T: Config<I>, I: 'static = ()>(PhantomData<(T, I)>);
-
-    #[cfg(feature = "std")]
-    impl<T: Config<I>, I: 'static> Default for GenesisConfig<T, I> {
-        fn default() -> Self {
-            Self(PhantomData {})
-        }
-    }
-
-    #[pallet::genesis_build]
-    impl<T: Config<I>, I: 'static> GenesisBuild<T, I> for GenesisConfig<T, I> {
-        fn build(&self) {
-            let annuity_pallet_id =
-                sp_runtime::traits::AccountIdConversion::into_account(&<T as Config<I>>::AnnuityPalletId::get());
-            AnnuityPalletId::<T, I>::put::<T::AccountId>(annuity_pallet_id);
-        }
-    }
 
     #[pallet::pallet]
     pub struct Pallet<T, I = ()>(_);
@@ -113,12 +90,7 @@ pub mod pallet {
         pub fn withdraw_reward(origin: OriginFor<T>) -> DispatchResultWithPostInfo {
             let dest = ensure_signed(origin)?;
             let value = T::BlockRewardProvider::withdraw_reward(&dest)?;
-            let _ = T::Currency::transfer(
-                &Self::annuity_pallet_id(),
-                &dest,
-                value,
-                ExistenceRequirement::KeepAlive,
-            );
+            let _ = T::Currency::transfer(&Self::account_id(), &dest, value, ExistenceRequirement::KeepAlive);
             Ok(().into())
         }
     }
@@ -126,16 +98,19 @@ pub mod pallet {
 
 // "Internal" functions, callable by code.
 impl<T: Config<I>, I: 'static> Pallet<T, I> {
+    pub fn account_id() -> T::AccountId {
+        T::AnnuityPalletId::get().into_account()
+    }
+
     pub(crate) fn begin_block(_height: T::BlockNumber) -> DispatchResult {
-        let annuity_pallet_id = Self::annuity_pallet_id();
         let reward_per_block = Self::reward_per_block();
         Self::deposit_event(Event::<T, I>::BlockReward(reward_per_block));
-        T::BlockRewardProvider::distribute_block_reward(&annuity_pallet_id, reward_per_block)
+        T::BlockRewardProvider::distribute_block_reward(&Self::account_id(), reward_per_block)
     }
 
     pub fn update_reward_per_block() {
         let emission_period = T::BlockNumberToBalance::convert(T::EmissionPeriod::get());
-        let total_balance = T::Currency::total_balance(&Self::annuity_pallet_id());
+        let total_balance = T::Currency::total_balance(&Self::account_id());
         let reward_per_block = total_balance.checked_div(&emission_period).unwrap_or_default();
         RewardPerBlock::<T, I>::put(reward_per_block);
     }
