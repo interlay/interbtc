@@ -37,7 +37,7 @@ use frame_support::{
     },
     transactional,
 };
-use reward::AdjustRewardStake;
+use reward::ModifyStake;
 use scale_info::TypeInfo;
 use sp_runtime::{
     traits::{AtLeast32BitUnsigned, CheckedSub, Convert, Saturating, Zero},
@@ -152,7 +152,7 @@ pub mod pallet {
         type MaxPeriod: Get<Self::BlockNumber>;
 
         /// Escrow reward pool.
-        type EscrowRewards: reward::AdjustRewardStake<Self::AccountId, BalanceOf<Self>>;
+        type EscrowRewards: reward::ModifyStake<Self::AccountId, BalanceOf<Self>>;
 
         /// Weight information for the extrinsics in this module.
         type WeightInfo: WeightInfo;

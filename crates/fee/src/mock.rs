@@ -166,7 +166,7 @@ impl Config for Test {
     type SignedInner = SignedInner;
     type UnsignedFixedPoint = UnsignedFixedPoint;
     type UnsignedInner = UnsignedInner;
-    type VaultRewards = reward::RewardsCurrencyAdapter<Test>;
+    type VaultRewards = Rewards;
     type VaultStaking = staking::StakingCurrencyAdapter<Test>;
     type OnSweep = ();
     type GetNativeCurrencyId = GetNativeCurrencyId;

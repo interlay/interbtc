@@ -83,10 +83,9 @@ fn get_local_pool_rewards(vault_id: &VaultId, nominator_id: &AccountId) -> i128 
 }
 
 fn distribute_global_pool(vault_id: &VaultId) {
-    FeePallet::distribute_from_reward_pool::<
-        reward::RewardsCurrencyAdapter<Runtime>,
-        staking::StakingCurrencyAdapter<Runtime>,
-    >(vault_id)
+    FeePallet::distribute_from_reward_pool::<reward::Pallet<Runtime>, staking::StakingCurrencyAdapter<Runtime>>(
+        vault_id,
+    )
     .unwrap();
 }
 

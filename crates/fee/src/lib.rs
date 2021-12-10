@@ -99,11 +99,7 @@ pub mod pallet {
             + TypeInfo;
 
         /// Vault reward pool.
-        type VaultRewards: reward::Rewards<
-            DefaultVaultId<Self>,
-            CurrencyId<Self>,
-            SignedFixedPoint = SignedFixedPoint<Self>,
-        >;
+        type VaultRewards: reward::Rewards<DefaultVaultId<Self>, BalanceOf<Self>, CurrencyId<Self>>;
 
         /// Vault staking pool.
         type VaultStaking: staking::Staking<
@@ -396,7 +392,7 @@ impl<T: Config> Pallet<T> {
 
     /// Withdraw rewards from a pool and transfer to `account_id`.
     fn withdraw_from_reward_pool<
-        Rewards: reward::Rewards<DefaultVaultId<T>, CurrencyId<T>, SignedFixedPoint = SignedFixedPoint<T>>,
+        Rewards: reward::Rewards<DefaultVaultId<T>, BalanceOf<T>, CurrencyId<T>>,
         Staking: staking::Staking<
             DefaultVaultId<T>,
             T::AccountId,
@@ -423,7 +419,7 @@ impl<T: Config> Pallet<T> {
 
     fn distribute(reward: &Amount<T>) -> Result<Amount<T>, DispatchError> {
         Ok(
-            if let Err(_) = T::VaultRewards::distribute_reward(reward.to_signed_fixed_point()?, reward.currency()) {
+            if let Err(_) = T::VaultRewards::distribute_reward(reward.amount(), reward.currency()) {
                 reward.clone()
             } else {
                 Amount::<T>::zero(reward.currency())
@@ -432,7 +428,7 @@ impl<T: Config> Pallet<T> {
     }
 
     pub fn distribute_from_reward_pool<
-        Rewards: reward::Rewards<DefaultVaultId<T>, CurrencyId<T>, SignedFixedPoint = SignedFixedPoint<T>>,
+        Rewards: reward::Rewards<DefaultVaultId<T>, BalanceOf<T>, CurrencyId<T>>,
         Staking: staking::Staking<
             DefaultVaultId<T>,
             T::AccountId,
@@ -445,8 +441,10 @@ impl<T: Config> Pallet<T> {
     ) -> DispatchResult {
         for currency_id in [vault_id.wrapped_currency(), T::GetNativeCurrencyId::get()] {
             let reward_as_inner = Rewards::withdraw_reward(vault_id, currency_id)?;
-            let reward_as_fixed =
-                Rewards::SignedFixedPoint::checked_from_integer(reward_as_inner).ok_or(Error::<T>::TryIntoIntError)?;
+            let reward_as_fixed = Staking::SignedFixedPoint::checked_from_integer(
+                reward_as_inner.try_into().map_err(|_| Error::<T>::TryIntoIntError)?,
+            )
+            .ok_or(Error::<T>::TryIntoIntError)?;
             Staking::distribute_reward(vault_id, reward_as_fixed, currency_id)?;
         }
 
