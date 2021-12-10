@@ -22,7 +22,7 @@ use frame_system::ensure_root;
 use primitives::TruncateFixedPointToInt;
 use scale_info::TypeInfo;
 use sp_runtime::{
-    traits::{Saturating, Zero},
+    traits::{AccountIdConversion, Saturating, Zero},
     FixedPointNumber,
 };
 
@@ -87,10 +87,6 @@ pub mod pallet {
     }
 
     #[pallet::storage]
-    #[pallet::getter(fn supply_pallet_id)]
-    pub type SupplyPalletId<T: Config> = StorageValue<_, T::AccountId, ValueQuery>;
-
-    #[pallet::storage]
     #[pallet::getter(fn start_height)]
     pub type StartHeight<T: Config> = StorageValue<_, T::BlockNumber, OptionQuery>;
 
@@ -123,11 +119,7 @@ pub mod pallet {
     #[pallet::genesis_build]
     impl<T: Config> GenesisBuild<T> for GenesisConfig<T> {
         fn build(&self) {
-            let supply_pallet_id =
-                sp_runtime::traits::AccountIdConversion::into_account(&<T as Config>::SupplyPalletId::get());
-            T::Currency::deposit_creating(&supply_pallet_id, self.initial_supply);
-            SupplyPalletId::<T>::put::<T::AccountId>(supply_pallet_id);
-
+            T::Currency::deposit_creating(&T::SupplyPalletId::get().into_account(), self.initial_supply);
             StartHeight::<T>::put(self.start_height);
             Inflation::<T>::put(self.inflation);
         }
@@ -156,6 +148,10 @@ pub mod pallet {
 
 // "Internal" functions, callable by code.
 impl<T: Config> Pallet<T> {
+    pub fn account_id() -> T::AccountId {
+        T::SupplyPalletId::get().into_account()
+    }
+
     pub(crate) fn begin_block(height: T::BlockNumber) {
         // ignore if uninitialized or not start height
         if let Some(start_height) = <StartHeight<T>>::get().filter(|&start_height| height == start_height) {
@@ -170,9 +166,9 @@ impl<T: Config> Pallet<T> {
                 .unwrap_or(Zero::zero());
 
             <LastEmission<T>>::put(total_inflation);
-            let supply_pallet_id = Self::supply_pallet_id();
-            T::Currency::deposit_creating(&supply_pallet_id, total_inflation);
-            T::OnInflation::on_inflation(&supply_pallet_id, total_inflation);
+            let supply_account_id = Self::account_id();
+            T::Currency::deposit_creating(&supply_account_id, total_inflation);
+            T::OnInflation::on_inflation(&supply_account_id, total_inflation);
             Self::deposit_event(Event::<T>::Inflation { total_inflation });
         }
     }

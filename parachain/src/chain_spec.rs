@@ -392,8 +392,6 @@ fn testnet_genesis(
         technical_membership: Default::default(),
         treasury: Default::default(),
         democracy: Default::default(),
-        escrow_annuity: Default::default(),
-        vault_annuity: Default::default(),
         supply: kintsugi_runtime::SupplyConfig {
             initial_supply: kintsugi_runtime::token_distribution::INITIAL_ALLOCATION,
             start_height: kintsugi_runtime::YEARS * 5,
@@ -566,8 +564,6 @@ fn kintsugi_mainnet_genesis(
         technical_membership: Default::default(),
         treasury: Default::default(),
         democracy: Default::default(),
-        escrow_annuity: Default::default(),
-        vault_annuity: Default::default(),
         supply: kintsugi_runtime::SupplyConfig {
             initial_supply: kintsugi_runtime::token_distribution::INITIAL_ALLOCATION,
             start_height: kintsugi_runtime::YEARS * 5,
@@ -773,8 +769,6 @@ fn interlay_mainnet_genesis(
         technical_membership: Default::default(),
         treasury: Default::default(),
         democracy: Default::default(),
-        escrow_annuity: Default::default(),
-        vault_annuity: Default::default(),
         supply: interlay_runtime::SupplyConfig {
             initial_supply: interlay_runtime::token_distribution::INITIAL_ALLOCATION,
             start_height: interlay_runtime::YEARS * 5,

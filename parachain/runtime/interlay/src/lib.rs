@@ -1181,10 +1181,10 @@ construct_runtime! {
         Escrow: escrow::{Pallet, Call, Storage, Event<T>},
         Vesting: orml_vesting::{Pallet, Storage, Call, Event<T>, Config<T>},
 
-        EscrowAnnuity: annuity::<Instance1>::{Pallet, Call, Storage, Event<T>, Config<T>},
+        EscrowAnnuity: annuity::<Instance1>::{Pallet, Call, Storage, Event<T>},
         EscrowRewards: reward::<Instance1>::{Pallet, Storage, Event<T>},
 
-        VaultAnnuity: annuity::<Instance2>::{Pallet, Storage, Event<T>, Config<T>},
+        VaultAnnuity: annuity::<Instance2>::{Pallet, Storage, Event<T>},
         VaultRewards: reward::<Instance2>::{Pallet, Storage, Event<T>},
         VaultStaking: staking::{Pallet, Storage, Event<T>},
 

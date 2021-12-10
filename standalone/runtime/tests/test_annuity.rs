@@ -26,7 +26,7 @@ fn get_last_reward() -> u128 {
 fn integration_test_annuity() {
     ExtBuilder::build().execute_with(|| {
         assert_ok!(Call::Tokens(TokensCall::set_balance {
-            who: AnnuityPallet::annuity_pallet_id(),
+            who: AnnuityPallet::account_id(),
             currency_id: NATIVE_CURRENCY_ID,
             new_free: 10_000_000_000_000,
             new_reserved: 0,

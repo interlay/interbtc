@@ -1,9 +1,5 @@
 use crate::{self as annuity, BlockRewardProvider, Config};
-use frame_support::{
-    parameter_types,
-    traits::{Everything, GenesisBuild},
-    PalletId,
-};
+use frame_support::{parameter_types, traits::Everything, PalletId};
 pub use primitives::CurrencyId;
 use sp_core::H256;
 use sp_runtime::{
@@ -26,7 +22,7 @@ frame_support::construct_runtime!(
     {
         System: frame_system::{Pallet, Call, Storage, Config, Event<T>},
         Balances: pallet_balances::{Pallet, Call, Storage, Event<T>},
-        Annuity: annuity::{Pallet, Call, Storage, Config<T>, Event<T>},
+        Annuity: annuity::{Pallet, Call, Storage, Event<T>},
     }
 );
 
@@ -126,11 +122,7 @@ pub struct ExtBuilder;
 
 impl ExtBuilder {
     pub fn build() -> sp_io::TestExternalities {
-        let mut storage = frame_system::GenesisConfig::default().build_storage::<Test>().unwrap();
-
-        annuity::GenesisConfig::<Test>::default()
-            .assimilate_storage(&mut storage)
-            .unwrap();
+        let storage = frame_system::GenesisConfig::default().build_storage::<Test>().unwrap();
 
         storage.into()
     }
