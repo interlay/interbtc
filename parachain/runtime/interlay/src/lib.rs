@@ -187,7 +187,6 @@ impl Contains<Call> for BaseCallFilter {
                 | Call::Democracy(_)
                 | Call::Escrow(_)
                 | Call::TechnicalCommittee(_)
-                | Call::Security(_) // to unset shutdown
         ) {
             // always allow core calls
             true

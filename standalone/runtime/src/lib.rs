@@ -156,7 +156,12 @@ impl Contains<Call> for BaseCallFilter {
     fn contains(call: &Call) -> bool {
         if matches!(
             call,
-            Call::System(_) | Call::Timestamp(_) | Call::Sudo(_) | Call::Security(_) // to unset shutdown
+            Call::System(_)
+                | Call::Timestamp(_)
+                | Call::Sudo(_)
+                | Call::Democracy(_)
+                | Call::Escrow(_)
+                | Call::TechnicalCommittee(_)
         ) {
             // always allow core calls
             true

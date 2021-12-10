@@ -175,7 +175,30 @@ fn launch_and_execute_referendum() {
 }
 
 #[test]
-fn can_recover_from_shutdown() {
+fn can_recover_from_shutdown_using_governance() {
+    test_with(|| {
+        // use sudo to set parachain status
+        assert_ok!(Call::Sudo(SudoCall::sudo {
+            call: Box::new(Call::Security(SecurityCall::set_parachain_status {
+                status_code: StatusCode::Shutdown,
+            })),
+        })
+        .dispatch(origin_of(account_of(ALICE))));
+        assert!(SecurityPallet::is_parachain_shutdown());
+
+        create_proposal(
+            Call::Security(SecurityCall::set_parachain_status {
+                status_code: StatusCode::Running,
+            })
+            .encode(),
+        );
+        launch_and_execute_referendum();
+        assert!(!SecurityPallet::is_parachain_shutdown());
+    })
+}
+
+#[test]
+fn can_recover_from_shutdown_using_root() {
     test_with(|| {
         // use sudo to set parachain status
         assert_ok!(Call::Sudo(SudoCall::sudo {
