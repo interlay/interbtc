@@ -478,7 +478,6 @@ impl pallet_multisig::Config for Runtime {
 }
 
 parameter_types! {
-    pub const TreasuryPalletId: PalletId = PalletId(*b"mod/trsy");
     pub const ProposalBond: Permill = Permill::from_percent(5);
     pub ProposalBondMinimum: Balance = 5;
     pub const SpendPeriod: BlockNumber = 7 * DAYS;
@@ -862,6 +861,16 @@ parameter_types! {
 
 type NativeCurrency = orml_tokens::CurrencyAdapter<Runtime, GetNativeCurrencyId>;
 
+// Pallet accounts
+parameter_types! {
+    pub const FeePalletId: PalletId = PalletId(*b"mod/fees");
+    pub const SupplyPalletId: PalletId = PalletId(*b"mod/supl");
+    pub const EscrowAnnuityPalletId: PalletId = PalletId(*b"esc/annu");
+    pub const VaultAnnuityPalletId: PalletId = PalletId(*b"vlt/annu");
+    pub const TreasuryPalletId: PalletId = PalletId(*b"mod/trsy");
+    pub const VaultRegistryPalletId: PalletId = PalletId(*b"mod/vreg");
+}
+
 parameter_types! {
     pub FeeAccount: AccountId = FeePalletId::get().into_account();
     pub SupplyAccount: AccountId = SupplyPalletId::get().into_account();
@@ -912,7 +921,6 @@ impl orml_tokens::Config for Runtime {
 }
 
 parameter_types! {
-    pub const SupplyPalletId: PalletId = PalletId(*b"mod/supl");
     pub const InflationPeriod: BlockNumber = YEARS;
 }
 
@@ -964,7 +972,6 @@ impl supply::Config for Runtime {
 }
 
 parameter_types! {
-    pub const EscrowAnnuityPalletId: PalletId = PalletId(*b"esc/annu");
     pub const EmissionPeriod: BlockNumber = YEARS;
 }
 
@@ -1012,10 +1019,6 @@ impl annuity::BlockRewardProvider<AccountId> for VaultBlockRewardProvider {
     fn withdraw_reward(_: &AccountId) -> Result<Balance, DispatchError> {
         Ok(Zero::zero())
     }
-}
-
-parameter_types! {
-    pub const VaultAnnuityPalletId: PalletId = PalletId(*b"vlt/annu");
 }
 
 type VaultAnnuityInstance = annuity::Instance2;
@@ -1109,10 +1112,6 @@ impl escrow::Config for Runtime {
     type WeightInfo = ();
 }
 
-parameter_types! {
-    pub const VaultRegistryPalletId: PalletId = PalletId(*b"mod/vreg");
-}
-
 impl vault_registry::Config for Runtime {
     type PalletId = VaultRegistryPalletId;
     type Event = Event;
@@ -1132,10 +1131,6 @@ where
 impl oracle::Config for Runtime {
     type Event = Event;
     type WeightInfo = ();
-}
-
-parameter_types! {
-    pub const FeePalletId: PalletId = PalletId(*b"mod/fees");
 }
 
 impl fee::Config for Runtime {

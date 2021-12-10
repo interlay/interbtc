@@ -269,7 +269,6 @@ impl pallet_session::Config for Runtime {
 }
 
 parameter_types! {
-    pub const PotId: PalletId = PalletId(*b"PotStake");
     pub const MaxCandidates: u32 = 1000;
     pub const MinCandidates: u32 = 5;
     pub const SessionLength: BlockNumber = 6 * HOURS;
@@ -285,7 +284,7 @@ impl pallet_collator_selection::Config for Runtime {
     type Event = Event;
     type Currency = orml_tokens::CurrencyAdapter<Runtime, GetCollateralCurrencyId>;
     type UpdateOrigin = CollatorSelectionUpdateOrigin;
-    type PotId = PotId;
+    type PotId = CollatorPotId;
     type MaxCandidates = MaxCandidates;
     type MinCandidates = MinCandidates;
     type MaxInvulnerables = MaxInvulnerables;
@@ -508,7 +507,6 @@ impl pallet_multisig::Config for Runtime {
 }
 
 parameter_types! {
-    pub const TreasuryPalletId: PalletId = PalletId(*b"mod/trsy");
     pub const ProposalBond: Permill = Permill::from_percent(5);
     pub ProposalBondMinimum: Balance = 5;
     pub const SpendPeriod: BlockNumber = 7 * DAYS;
@@ -837,12 +835,24 @@ parameter_types! {
 
 type NativeCurrency = orml_tokens::CurrencyAdapter<Runtime, GetNativeCurrencyId>;
 
+// Pallet accounts
+parameter_types! {
+    pub const FeePalletId: PalletId = PalletId(*b"mod/fees");
+    pub const SupplyPalletId: PalletId = PalletId(*b"mod/supl");
+    pub const EscrowAnnuityPalletId: PalletId = PalletId(*b"esc/annu");
+    pub const VaultAnnuityPalletId: PalletId = PalletId(*b"vlt/annu");
+    pub const TreasuryPalletId: PalletId = PalletId(*b"mod/trsy");
+    pub const CollatorPotId: PalletId = PalletId(*b"col/slct");
+    pub const VaultRegistryPalletId: PalletId = PalletId(*b"mod/vreg");
+}
+
 parameter_types! {
     pub FeeAccount: AccountId = FeePalletId::get().into_account();
     pub SupplyAccount: AccountId = SupplyPalletId::get().into_account();
     pub EscrowAnnuityAccount: AccountId = EscrowAnnuityPalletId::get().into_account();
     pub VaultAnnuityAccount: AccountId = VaultAnnuityPalletId::get().into_account();
     pub TreasuryAccount: AccountId = TreasuryPalletId::get().into_account();
+    pub CollatorSelectionAccount: AccountId = CollatorPotId::get().into_account();
     pub VaultRegistryAccount: AccountId = VaultRegistryPalletId::get().into_account();
 }
 
@@ -853,6 +863,7 @@ pub fn get_all_module_accounts() -> Vec<AccountId> {
         EscrowAnnuityAccount::get(),
         VaultAnnuityAccount::get(),
         TreasuryAccount::get(),
+        CollatorSelectionAccount::get(),
         VaultRegistryAccount::get(),
     ]
 }
@@ -887,7 +898,6 @@ impl orml_tokens::Config for Runtime {
 }
 
 parameter_types! {
-    pub const SupplyPalletId: PalletId = PalletId(*b"mod/supl");
     pub const InflationPeriod: BlockNumber = YEARS;
 }
 
@@ -939,7 +949,6 @@ impl supply::Config for Runtime {
 }
 
 parameter_types! {
-    pub const EscrowAnnuityPalletId: PalletId = PalletId(*b"esc/annu");
     pub const EmissionPeriod: BlockNumber = YEARS;
 }
 
@@ -987,10 +996,6 @@ impl annuity::BlockRewardProvider<AccountId> for VaultBlockRewardProvider {
     fn withdraw_reward(_: &AccountId) -> Result<Balance, DispatchError> {
         Ok(Zero::zero())
     }
-}
-
-parameter_types! {
-    pub const VaultAnnuityPalletId: PalletId = PalletId(*b"vlt/annu");
 }
 
 type VaultAnnuityInstance = annuity::Instance2;
@@ -1084,10 +1089,6 @@ impl escrow::Config for Runtime {
     type WeightInfo = ();
 }
 
-parameter_types! {
-    pub const VaultRegistryPalletId: PalletId = PalletId(*b"mod/vreg");
-}
-
 impl vault_registry::Config for Runtime {
     type PalletId = VaultRegistryPalletId;
     type Event = Event;
@@ -1107,10 +1108,6 @@ where
 impl oracle::Config for Runtime {
     type Event = Event;
     type WeightInfo = ();
-}
-
-parameter_types! {
-    pub const FeePalletId: PalletId = PalletId(*b"mod/fees");
 }
 
 impl fee::Config for Runtime {
