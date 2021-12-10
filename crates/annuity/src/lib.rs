@@ -85,9 +85,10 @@ pub mod pallet {
     // The pallet's dispatchable functions.
     #[pallet::call]
     impl<T: Config<I>, I: 'static> Pallet<T, I> {
-        #[pallet::weight(0)]
+        // TODO: add proper benchmarks, maybe use reward pallet directly
+        #[pallet::weight(100_000_000)]
         #[transactional]
-        pub fn withdraw_reward(origin: OriginFor<T>) -> DispatchResultWithPostInfo {
+        pub fn withdraw_rewards(origin: OriginFor<T>) -> DispatchResultWithPostInfo {
             let dest = ensure_signed(origin)?;
             let value = T::BlockRewardProvider::withdraw_reward(&dest)?;
             let _ = T::Currency::transfer(&Self::account_id(), &dest, value, ExistenceRequirement::KeepAlive);
