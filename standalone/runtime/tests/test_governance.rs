@@ -13,8 +13,10 @@ type Balance = u128;
 type DemocracyCall = democracy::Call<Runtime>;
 type DemocracyPallet = democracy::Pallet<Runtime>;
 type DemocracyEvent = democracy::Event<Runtime>;
+type DemocracyError = democracy::Error<Runtime>;
 
 type EscrowCall = escrow::Call<Runtime>;
+type EscrowError = escrow::Error<Runtime>;
 
 type SchedulerPallet = pallet_scheduler::Pallet<Runtime>;
 
@@ -46,17 +48,20 @@ fn create_lock(account_id: AccountId, amount: Balance) {
     .dispatch(origin_of(account_id)));
 }
 
+fn set_free_balance(account: AccountId, amount: Balance) {
+    assert_ok!(Call::Tokens(TokensCall::set_balance {
+        who: account,
+        currency_id: NATIVE_CURRENCY_ID,
+        new_free: amount,
+        new_reserved: 0,
+    })
+    .dispatch(root()));
+}
+
 fn test_with<R>(execute: impl Fn() -> R) {
     ExtBuilder::build().execute_with(|| {
-        assert_ok!(Call::Tokens(TokensCall::set_balance {
-            who: account_of(ALICE),
-            currency_id: NATIVE_CURRENCY_ID,
-            new_free: 10_000_000_000_000,
-            new_reserved: 0,
-        })
-        .dispatch(root()));
+        set_free_balance(account_of(ALICE), 10_000_000_000_000);
         create_lock(account_of(ALICE), INITIAL_VOTING_POWER);
-
         execute()
     });
 }
@@ -257,13 +262,7 @@ fn integration_test_governance_treasury() {
 
         // fund treasury
         let amount_to_fund = 10000;
-        assert_ok!(Call::Tokens(TokensCall::set_balance {
-            who: TreasuryPallet::account_id(),
-            currency_id: NATIVE_CURRENCY_ID,
-            new_free: amount_to_fund,
-            new_reserved: 0,
-        })
-        .dispatch(root()));
+        set_free_balance(TreasuryPallet::account_id(), amount_to_fund);
         assert_eq!(TreasuryPallet::pot(), amount_to_fund);
 
         // proposals should increase by 1
@@ -293,13 +292,7 @@ fn integration_test_vested_escrow() {
     test_with(|| {
         // need free balance first to lock
         let vesting_amount = 10_000_000_000_000;
-        assert_ok!(Call::Tokens(TokensCall::set_balance {
-            who: account_of(BOB),
-            currency_id: NATIVE_CURRENCY_ID,
-            new_free: vesting_amount,
-            new_reserved: 0,
-        })
-        .dispatch(root()));
+        set_free_balance(account_of(BOB), vesting_amount);
 
         // create vesting schedule to lock amount
         let vesting_schedule = VestingSchedule {
@@ -401,13 +394,7 @@ fn integration_test_governance_voter_can_change_vote_with_limited_funds() {
         let max_period = <Runtime as escrow::Config>::MaxPeriod::get() as u128;
         let expected_voting_power = INITIAL_VOTING_POWER - INITIAL_VOTING_POWER % max_period;
 
-        assert_ok!(Call::Tokens(TokensCall::set_balance {
-            who: account_of(BOB),
-            currency_id: NATIVE_CURRENCY_ID,
-            new_free: expected_voting_power,
-            new_reserved: 0,
-        })
-        .dispatch(root()));
+        set_free_balance(account_of(BOB), expected_voting_power);
 
         let start = <Runtime as escrow::Config>::Span::get();
         SystemPallet::set_block_number(start);
@@ -445,13 +432,7 @@ fn integration_test_governance_voter_can_change_vote_with_limited_funds() {
 #[test]
 fn integration_test_create_lock_half_max_period() {
     ExtBuilder::build().execute_with(|| {
-        assert_ok!(Call::Tokens(TokensCall::set_balance {
-            who: account_of(ALICE),
-            currency_id: NATIVE_CURRENCY_ID,
-            new_free: 10_000_000_000_000,
-            new_reserved: 0,
-        })
-        .dispatch(root()));
+        set_free_balance(account_of(ALICE), 10_000_000_000_000);
         let max_period = <Runtime as escrow::Config>::MaxPeriod::get() as u128;
 
         let start = <Runtime as escrow::Config>::Span::get();
@@ -487,13 +468,8 @@ fn integration_test_create_lock_half_max_period() {
 #[test]
 fn integration_test_create_lock_halfway_span() {
     ExtBuilder::build().execute_with(|| {
-        assert_ok!(Call::Tokens(TokensCall::set_balance {
-            who: account_of(ALICE),
-            currency_id: NATIVE_CURRENCY_ID,
-            new_free: 10_000_000_000_000,
-            new_reserved: 0,
-        })
-        .dispatch(root()));
+        set_free_balance(account_of(ALICE), 10_000_000_000_000);
+
         let span = <Runtime as escrow::Config>::Span::get() as u128;
         let max_period = <Runtime as escrow::Config>::MaxPeriod::get() as u128;
         let num_spans = max_period / span;
@@ -529,13 +505,7 @@ fn integration_test_create_lock_halfway_span() {
 #[test]
 fn integration_test_vote_exceeds_total_voting_power() {
     ExtBuilder::build().execute_with(|| {
-        assert_ok!(Call::Tokens(TokensCall::set_balance {
-            who: account_of(ALICE),
-            currency_id: NATIVE_CURRENCY_ID,
-            new_free: 10_000_000_000_000_000_000_000,
-            new_reserved: 0,
-        })
-        .dispatch(root()));
+        set_free_balance(account_of(ALICE), 10_000_000_000_000_000_000_000);
 
         // we choose a referendum height that is both on a SPAN and LAUNCHPERIOD boundary
         let referendum_height =
@@ -572,5 +542,101 @@ fn integration_test_vote_exceeds_total_voting_power() {
         assert_eq!(<Runtime as democracy::Config>::Currency::total_issuance(), 0);
         // but vote passed due to the vote in favour
         assert_democracy_passed_event(index);
+    });
+}
+
+#[test]
+fn integration_test_proposing_and_voting_only_possible_with_staked_tokens() {
+    ExtBuilder::build().execute_with(|| {
+        let minimum_proposal_value = <Runtime as democracy::Config>::MinimumDeposit::get();
+        let start_height = <Runtime as democracy::Config>::LaunchPeriod::get();
+
+        // making a proposal to increase Eve's balance without having tokens staked fails
+        let amount_to_fund = 100_000;
+        let encoded_proposal = set_balance_proposal(account_of(EVE), amount_to_fund);
+        let proposal_hash = BlakeTwo256::hash(&encoded_proposal[..]);
+        assert_noop!(
+            Call::Democracy(DemocracyCall::propose {
+                proposal_hash,
+                value: minimum_proposal_value,
+            })
+            .dispatch(origin_of(account_of(BOB))),
+            EscrowError::InsufficientFunds
+        );
+
+        // Create free balance for Bob, Carol, and Dave
+        set_free_balance(account_of(BOB), 10 * minimum_proposal_value);
+        set_free_balance(account_of(CAROL), 10 * minimum_proposal_value);
+        set_free_balance(account_of(DAVE), 10 * minimum_proposal_value);
+
+        // Bob stakes 50% of tokens and proposes again
+        create_lock(account_of(BOB), 5 * minimum_proposal_value);
+        assert_ok!(
+            Call::Democracy(DemocracyCall::note_preimage { encoded_proposal }).dispatch(origin_of(account_of(BOB)))
+        );
+        assert_ok!(Call::Democracy(DemocracyCall::propose {
+            proposal_hash,
+            value: minimum_proposal_value,
+        })
+        .dispatch(origin_of(account_of(BOB))));
+
+        // Carol fails to second the proposal without having tokens staked
+        let prop_index = assert_democracy_proposed_event();
+        assert_noop!(
+            Call::Democracy(DemocracyCall::second {
+                proposal: prop_index,
+                seconds_upper_bound: 1000,
+            })
+            .dispatch(origin_of(account_of(CAROL))),
+            EscrowError::InsufficientFunds
+        );
+
+        // Carol succeeds to second the proposal with staking tokens beforehand
+        create_lock(account_of(CAROL), 5 * minimum_proposal_value);
+        assert_ok!(Call::Democracy(DemocracyCall::second {
+            proposal: prop_index,
+            seconds_upper_bound: 1000,
+        })
+        .dispatch(origin_of(account_of(CAROL))));
+
+        // Proceed proposal to a referendum
+        DemocracyPallet::on_initialize(start_height);
+        let ref_index = assert_democracy_started_event();
+
+        // Dave cannot vote since no tokens are staked
+        assert_noop!(
+            Call::Democracy(DemocracyCall::vote {
+                ref_index,
+                vote: Vote {
+                    aye: true,
+                    balance: 5 * minimum_proposal_value,
+                }
+            })
+            .dispatch(origin_of(account_of(DAVE))),
+            DemocracyError::InsufficientFunds
+        );
+
+        // Bob votes aye
+        assert_ok!(Call::Democracy(DemocracyCall::vote {
+            ref_index,
+            vote: Vote {
+                aye: true,
+                balance: 3 * minimum_proposal_value,
+            }
+        })
+        .dispatch(origin_of(account_of(BOB))));
+
+        // simulate end of voting period
+        let end_height = start_height + <Runtime as democracy::Config>::VotingPeriod::get();
+        DemocracyPallet::on_initialize(end_height);
+        assert_democracy_passed_event(ref_index);
+
+        // simulate end of enactment period
+        let act_height = end_height + <Runtime as democracy::Config>::EnactmentPeriod::get();
+        SchedulerPallet::on_initialize(act_height);
+
+        // Eve should receive funds
+        TreasuryPallet::spend_funds();
+        assert_eq!(amount_to_fund, CollateralCurrency::total_balance(&account_of(EVE)))
     });
 }
