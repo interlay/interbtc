@@ -25,7 +25,7 @@ pub(crate) mod security {
 #[cfg_attr(test, mockable)]
 pub(crate) mod staking {
     use crate::{
-        types::{CurrencyId, SignedInner},
+        types::{BalanceOf, CurrencyId},
         DefaultVaultId,
     };
     use currency::Amount;
@@ -37,7 +37,7 @@ pub(crate) mod staking {
         nominator_id: &T::AccountId,
         amount: &Amount<T>,
     ) -> DispatchResult {
-        T::VaultStaking::deposit_stake(vault_id, nominator_id, amount.to_signed_fixed_point()?)
+        T::VaultStaking::deposit_stake(vault_id, nominator_id, amount.amount())
     }
 
     pub fn withdraw_stake<T: crate::Config>(
@@ -45,7 +45,7 @@ pub(crate) mod staking {
         nominator_id: &T::AccountId,
         amount: &Amount<T>,
     ) -> DispatchResult {
-        T::VaultStaking::withdraw_stake(vault_id, nominator_id, amount.to_signed_fixed_point()?, None)
+        T::VaultStaking::withdraw_stake(vault_id, nominator_id, amount.amount(), None)
     }
 
     pub fn slash_stake<T: crate::Config>(
@@ -53,19 +53,17 @@ pub(crate) mod staking {
         vault_id: &DefaultVaultId<T>,
         amount: &Amount<T>,
     ) -> DispatchResult {
-        T::VaultStaking::slash_stake(vault_id, amount.to_signed_fixed_point()?, currency_id)
+        T::VaultStaking::slash_stake(vault_id, amount.amount(), currency_id)
     }
 
     pub fn compute_stake<T: crate::Config>(
         vault_id: &DefaultVaultId<T>,
         nominator_id: &T::AccountId,
-    ) -> Result<SignedInner<T>, DispatchError> {
+    ) -> Result<BalanceOf<T>, DispatchError> {
         T::VaultStaking::compute_stake(vault_id, nominator_id)
     }
 
-    pub fn total_current_stake<T: crate::Config>(
-        vault_id: &DefaultVaultId<T>,
-    ) -> Result<SignedInner<T>, DispatchError> {
+    pub fn total_current_stake<T: crate::Config>(vault_id: &DefaultVaultId<T>) -> Result<BalanceOf<T>, DispatchError> {
         T::VaultStaking::total_stake(vault_id)
     }
 }

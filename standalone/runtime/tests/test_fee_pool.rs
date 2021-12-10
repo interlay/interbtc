@@ -7,7 +7,6 @@ use mock::{
     reward_testing_utils::{BasicRewardPool, StakeHolder},
     *,
 };
-use staking::Staking;
 use vault_registry::DefaultVaultId;
 
 const VAULT_1: [u8; 32] = CAROL;
@@ -63,8 +62,7 @@ fn withdraw_vault_global_pool_rewards(vault_id: &VaultId) -> i128 {
 
 fn withdraw_local_pool_rewards(vault_id: &VaultId, nominator_id: &AccountId) -> i128 {
     let amount =
-        staking::StakingCurrencyAdapter::<Runtime>::compute_reward(vault_id, nominator_id, vault_id.wrapped_currency())
-            .unwrap();
+        staking::Pallet::<Runtime>::compute_reward(vault_id.wrapped_currency(), vault_id, nominator_id).unwrap();
     assert_ok!(Call::Fee(FeeCall::withdraw_rewards {
         vault_id: vault_id.clone(),
         index: None
@@ -78,15 +76,11 @@ fn get_vault_global_pool_rewards(vault_id: &VaultId) -> i128 {
 }
 
 fn get_local_pool_rewards(vault_id: &VaultId, nominator_id: &AccountId) -> i128 {
-    staking::StakingCurrencyAdapter::<Runtime>::compute_reward(vault_id, nominator_id, vault_id.wrapped_currency())
-        .unwrap()
+    staking::Pallet::<Runtime>::compute_reward(vault_id.wrapped_currency(), vault_id, nominator_id).unwrap()
 }
 
 fn distribute_global_pool(vault_id: &VaultId) {
-    FeePallet::distribute_from_reward_pool::<reward::Pallet<Runtime>, staking::StakingCurrencyAdapter<Runtime>>(
-        vault_id,
-    )
-    .unwrap();
+    FeePallet::distribute_from_reward_pool::<reward::Pallet<Runtime>, staking::Pallet<Runtime>>(vault_id).unwrap();
 }
 
 fn get_vault_issued_tokens(vault_id: &VaultId) -> Amount<Runtime> {

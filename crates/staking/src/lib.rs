@@ -16,11 +16,11 @@ use frame_support::{
     dispatch::{DispatchError, DispatchResult},
     traits::Get,
 };
-use primitives::{TruncateFixedPointToInt, VaultCurrencyPair, VaultId};
+use primitives::{BalanceToFixedPoint, TruncateFixedPointToInt, VaultCurrencyPair, VaultId};
 use scale_info::TypeInfo;
 use sp_arithmetic::{FixedPointNumber, FixedPointOperand};
 use sp_runtime::traits::{CheckedAdd, CheckedDiv, CheckedMul, CheckedSub, MaybeSerializeDeserialize, One, Zero};
-use sp_std::{cmp, marker::PhantomData};
+use sp_std::{cmp, convert::TryInto};
 
 pub(crate) type SignedFixedPoint<T> = <T as Config>::SignedFixedPoint;
 
@@ -686,55 +686,41 @@ impl<T: Config> Pallet<T> {
     }
 }
 
-pub trait Staking<VaultId, NominatorId, Index, CurrencyId> {
-    /// Signed fixed point type.
-    type SignedFixedPoint: FixedPointNumber;
-
+pub trait Staking<VaultId, NominatorId, Index, Balance, CurrencyId> {
     /// Get the newest nonce for the staking pool.
     fn nonce(vault_id: &VaultId) -> Index;
 
     /// Deposit an `amount` of stake to the `vault_id` for the `nominator_id`.
-    fn deposit_stake(
-        vault_id: &VaultId,
-        nominator_id: &NominatorId,
-        amount: Self::SignedFixedPoint,
-    ) -> Result<(), DispatchError>;
+    fn deposit_stake(vault_id: &VaultId, nominator_id: &NominatorId, amount: Balance) -> Result<(), DispatchError>;
 
     /// Slash an `amount` of stake from the `vault_id`.
-    fn slash_stake(
-        vault_id: &VaultId,
-        amount: Self::SignedFixedPoint,
-        currency_id: CurrencyId,
-    ) -> Result<(), DispatchError>;
+    fn slash_stake(vault_id: &VaultId, amount: Balance, currency_id: CurrencyId) -> Result<(), DispatchError>;
 
     /// Compute the stake in `vault_id` owned by `nominator_id`.
-    fn compute_stake(
-        vault_id: &VaultId,
-        nominator_id: &NominatorId,
-    ) -> Result<<Self::SignedFixedPoint as FixedPointNumber>::Inner, DispatchError>;
+    fn compute_stake(vault_id: &VaultId, nominator_id: &NominatorId) -> Result<Balance, DispatchError>;
 
     /// Compute the total stake in `vault_id` **after** slashing.
-    fn total_stake(vault_id: &VaultId) -> Result<<Self::SignedFixedPoint as FixedPointNumber>::Inner, DispatchError>;
+    fn total_stake(vault_id: &VaultId) -> Result<Balance, DispatchError>;
 
     /// Distribute the `reward` to all participants.
     fn distribute_reward(
         vault_id: &VaultId,
-        reward: Self::SignedFixedPoint,
+        reward: Balance,
         currency_id: CurrencyId,
-    ) -> Result<Self::SignedFixedPoint, DispatchError>;
+    ) -> Result<Balance, DispatchError>;
 
     /// Compute the expected reward for `nominator_id` who is nominating `vault_id`.
     fn compute_reward(
         vault_id: &VaultId,
         nominator_id: &NominatorId,
         currency_id: CurrencyId,
-    ) -> Result<<Self::SignedFixedPoint as FixedPointNumber>::Inner, DispatchError>;
+    ) -> Result<Balance, DispatchError>;
 
     /// Withdraw an `amount` of stake from the `vault_id` for the `nominator_id`.
     fn withdraw_stake(
         vault_id: &VaultId,
         nominator_id: &NominatorId,
-        amount: Self::SignedFixedPoint,
+        amount: Balance,
         index: Option<Index>,
     ) -> DispatchResult;
 
@@ -744,76 +730,89 @@ pub trait Staking<VaultId, NominatorId, Index, CurrencyId> {
         nominator_id: &NominatorId,
         index: Option<Index>,
         currency_id: CurrencyId,
-    ) -> Result<<Self::SignedFixedPoint as FixedPointNumber>::Inner, DispatchError>;
+    ) -> Result<Balance, DispatchError>;
 
     /// Force refund the entire nomination to `vault_id`.
-    fn force_refund(vault_id: &VaultId) -> Result<<Self::SignedFixedPoint as FixedPointNumber>::Inner, DispatchError>;
+    fn force_refund(vault_id: &VaultId) -> Result<Balance, DispatchError>;
 }
 
-pub struct StakingCurrencyAdapter<T>(PhantomData<T>);
-
-impl<T> Staking<DefaultVaultId<T>, T::AccountId, T::Index, T::CurrencyId> for StakingCurrencyAdapter<T>
+impl<T, Balance> Staking<DefaultVaultId<T>, T::AccountId, T::Index, Balance, T::CurrencyId> for Pallet<T>
 where
     T: Config,
-{
-    type SignedFixedPoint = SignedFixedPoint<T>;
 
+    Balance: BalanceToFixedPoint<SignedFixedPoint<T>>,
+    <T::SignedFixedPoint as FixedPointNumber>::Inner: TryInto<Balance>,
+{
     fn nonce(vault_id: &DefaultVaultId<T>) -> T::Index {
         Pallet::<T>::nonce(vault_id)
     }
 
-    fn deposit_stake(
-        vault_id: &DefaultVaultId<T>,
-        nominator_id: &T::AccountId,
-        amount: Self::SignedFixedPoint,
-    ) -> DispatchResult {
-        Pallet::<T>::deposit_stake(vault_id, nominator_id, amount)
+    fn deposit_stake(vault_id: &DefaultVaultId<T>, nominator_id: &T::AccountId, amount: Balance) -> DispatchResult {
+        Pallet::<T>::deposit_stake(
+            vault_id,
+            nominator_id,
+            amount.to_fixed().ok_or(Error::<T>::TryIntoIntError)?,
+        )
     }
 
-    fn slash_stake(
-        vault_id: &DefaultVaultId<T>,
-        amount: Self::SignedFixedPoint,
-        currency_id: T::CurrencyId,
-    ) -> DispatchResult {
-        Pallet::<T>::slash_stake(currency_id, vault_id, amount)
+    fn slash_stake(vault_id: &DefaultVaultId<T>, amount: Balance, currency_id: T::CurrencyId) -> DispatchResult {
+        Pallet::<T>::slash_stake(
+            currency_id,
+            vault_id,
+            amount.to_fixed().ok_or(Error::<T>::TryIntoIntError)?,
+        )
     }
 
-    fn compute_stake(
-        vault_id: &DefaultVaultId<T>,
-        nominator_id: &T::AccountId,
-    ) -> Result<<Self::SignedFixedPoint as FixedPointNumber>::Inner, DispatchError> {
-        Pallet::<T>::compute_stake(vault_id, nominator_id)
+    fn compute_stake(vault_id: &DefaultVaultId<T>, nominator_id: &T::AccountId) -> Result<Balance, DispatchError> {
+        Pallet::<T>::compute_stake(vault_id, nominator_id)?
+            .try_into()
+            .map_err(|_| Error::<T>::TryIntoIntError.into())
     }
 
-    fn total_stake(
-        vault_id: &DefaultVaultId<T>,
-    ) -> Result<<Self::SignedFixedPoint as FixedPointNumber>::Inner, DispatchError> {
-        Pallet::<T>::total_current_stake(vault_id)
+    fn total_stake(vault_id: &DefaultVaultId<T>) -> Result<Balance, DispatchError> {
+        Pallet::<T>::total_current_stake(vault_id)?
+            .try_into()
+            .map_err(|_| Error::<T>::TryIntoIntError.into())
     }
 
     fn distribute_reward(
         vault_id: &DefaultVaultId<T>,
-        reward: Self::SignedFixedPoint,
+        amount: Balance,
         currency_id: T::CurrencyId,
-    ) -> Result<Self::SignedFixedPoint, DispatchError> {
-        Pallet::<T>::distribute_reward(currency_id, vault_id, reward)
+    ) -> Result<Balance, DispatchError> {
+        Pallet::<T>::distribute_reward(
+            currency_id,
+            vault_id,
+            amount.to_fixed().ok_or(Error::<T>::TryIntoIntError)?,
+        )?
+        .truncate_to_inner()
+        .ok_or(Error::<T>::TryIntoIntError)?
+        .try_into()
+        .map_err(|_| Error::<T>::TryIntoIntError.into())
     }
 
     fn compute_reward(
         vault_id: &DefaultVaultId<T>,
         nominator_id: &T::AccountId,
         currency_id: T::CurrencyId,
-    ) -> Result<<Self::SignedFixedPoint as FixedPointNumber>::Inner, DispatchError> {
-        Pallet::<T>::compute_reward(currency_id, vault_id, nominator_id)
+    ) -> Result<Balance, DispatchError> {
+        Pallet::<T>::compute_reward(currency_id, vault_id, nominator_id)?
+            .try_into()
+            .map_err(|_| Error::<T>::TryIntoIntError.into())
     }
 
     fn withdraw_stake(
         vault_id: &DefaultVaultId<T>,
         nominator_id: &T::AccountId,
-        amount: Self::SignedFixedPoint,
+        amount: Balance,
         index: Option<T::Index>,
     ) -> DispatchResult {
-        Pallet::<T>::withdraw_stake(vault_id, nominator_id, amount, index)
+        Pallet::<T>::withdraw_stake(
+            vault_id,
+            nominator_id,
+            amount.to_fixed().ok_or(Error::<T>::TryIntoIntError)?,
+            index,
+        )
     }
 
     fn withdraw_reward(
@@ -821,14 +820,16 @@ where
         nominator_id: &T::AccountId,
         index: Option<T::Index>,
         currency_id: T::CurrencyId,
-    ) -> Result<<Self::SignedFixedPoint as FixedPointNumber>::Inner, DispatchError> {
+    ) -> Result<Balance, DispatchError> {
         let nonce = index.unwrap_or(Pallet::<T>::nonce(vault_id));
-        Pallet::<T>::withdraw_reward_at_index(nonce, currency_id, vault_id, nominator_id)
+        Pallet::<T>::withdraw_reward_at_index(nonce, currency_id, vault_id, nominator_id)?
+            .try_into()
+            .map_err(|_| Error::<T>::TryIntoIntError.into())
     }
 
-    fn force_refund(
-        vault_id: &DefaultVaultId<T>,
-    ) -> Result<<Self::SignedFixedPoint as FixedPointNumber>::Inner, DispatchError> {
-        Pallet::<T>::force_refund(vault_id)
+    fn force_refund(vault_id: &DefaultVaultId<T>) -> Result<Balance, DispatchError> {
+        Pallet::<T>::force_refund(vault_id)?
+            .try_into()
+            .map_err(|_| Error::<T>::TryIntoIntError.into())
     }
 }

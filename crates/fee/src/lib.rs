@@ -106,8 +106,8 @@ pub mod pallet {
             DefaultVaultId<Self>,
             Self::AccountId,
             Self::Index,
+            BalanceOf<Self>,
             Self::CurrencyId,
-            SignedFixedPoint = SignedFixedPoint<Self>,
         >;
 
         /// Handler to transfer undistributed rewards.
@@ -393,13 +393,7 @@ impl<T: Config> Pallet<T> {
     /// Withdraw rewards from a pool and transfer to `account_id`.
     fn withdraw_from_reward_pool<
         Rewards: reward::Rewards<DefaultVaultId<T>, BalanceOf<T>, CurrencyId<T>>,
-        Staking: staking::Staking<
-            DefaultVaultId<T>,
-            T::AccountId,
-            T::Index,
-            CurrencyId<T>,
-            SignedFixedPoint = SignedFixedPoint<T>,
-        >,
+        Staking: staking::Staking<DefaultVaultId<T>, T::AccountId, T::Index, BalanceOf<T>, CurrencyId<T>>,
     >(
         vault_id: &DefaultVaultId<T>,
         nominator_id: &T::AccountId,
@@ -429,23 +423,13 @@ impl<T: Config> Pallet<T> {
 
     pub fn distribute_from_reward_pool<
         Rewards: reward::Rewards<DefaultVaultId<T>, BalanceOf<T>, CurrencyId<T>>,
-        Staking: staking::Staking<
-            DefaultVaultId<T>,
-            T::AccountId,
-            T::Index,
-            CurrencyId<T>,
-            SignedFixedPoint = SignedFixedPoint<T>,
-        >,
+        Staking: staking::Staking<DefaultVaultId<T>, T::AccountId, T::Index, BalanceOf<T>, CurrencyId<T>>,
     >(
         vault_id: &DefaultVaultId<T>,
     ) -> DispatchResult {
         for currency_id in [vault_id.wrapped_currency(), T::GetNativeCurrencyId::get()] {
-            let reward_as_inner = Rewards::withdraw_reward(vault_id, currency_id)?;
-            let reward_as_fixed = Staking::SignedFixedPoint::checked_from_integer(
-                reward_as_inner.try_into().map_err(|_| Error::<T>::TryIntoIntError)?,
-            )
-            .ok_or(Error::<T>::TryIntoIntError)?;
-            Staking::distribute_reward(vault_id, reward_as_fixed, currency_id)?;
+            let reward = Rewards::withdraw_reward(vault_id, currency_id)?;
+            Staking::distribute_reward(vault_id, reward, currency_id)?;
         }
 
         Ok(())

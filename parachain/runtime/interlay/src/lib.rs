@@ -1121,7 +1121,7 @@ impl fee::Config for Runtime {
     type UnsignedFixedPoint = UnsignedFixedPoint;
     type UnsignedInner = UnsignedInner;
     type VaultRewards = VaultRewards;
-    type VaultStaking = staking::StakingCurrencyAdapter<Runtime>;
+    type VaultStaking = VaultStaking;
     type GetNativeCurrencyId = GetNativeCurrencyId;
     type OnSweep = currency::SweepFunds<Runtime, FeeAccount>;
 }
