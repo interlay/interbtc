@@ -48,21 +48,28 @@ The interBTC project is built with:
 
     <img src="https://spec.interlay.io/_images/overview.png" alt="Logo" width="500">
 
-### Development Progess
+### Development Progress
 
 The Substrate runtime makes use of various custom pallets that are found in the [crates](./crates) folder.
 
+- [annuity](crates/annuity): Block rewards for stake-to-vote and vaults.
 - [bitcoin](crates/bitcoin): Library for Bitcoin type, parsing and verification functions.
 - [btc-relay](crates/btc-relay): Stateful SPV client for Bitcoin. Stores Bitcoin main chain, tracks forks, verifies Merkle proofs and validates specific transaction formats.
 - [currency](crates/currency) Handles currencies used as backing collateral (e.g. DOT/KSM) and issued tokens (e.g. interBTC).
-- [oracle](crates/oracle): Trusted providers use this to set exchange rates and Bitcoin fee estimates.
+- [democracy](crates/democracy): Optimistic governance fork of `pallet-democracy`.
+- [escrow](crates/escrow): Rust implementation of Curve's Voting Escrow contract.
 - [fee](crates/fee): Participant reward calculation and distribution.
 - [issue](crates/issue): Handles issuing of interBTC for BTC on Bitcoin.
-- [redeem](crates/redeem) Handles redeeming of interBTC for BTC on Bitcoin.
-- [refund](crates/refund) Handles refunds for when a vault receives more BTC than it can cover.
-- [replace](crates/replace) Handles replacing vaults.
-- [security](crates/security): Handles BTC Parachain status and error changes.
+- [nomination](crates/nomination): Interface for vault nomination.
+- [oracle](crates/oracle): Trusted providers use this to set exchange rates and Bitcoin fee estimates.
+- [redeem](crates/redeem): Handles redeeming of interBTC for BTC on Bitcoin.
+- [refund](crates/refund): Handles refunds for when a vault receives more BTC than it can cover.
 - [relay](crates/relay): Handles block submission and theft reporting.
+- [replace](crates/replace): Handles replacing vaults.
+- [reward](crates/reward): Scalable reward distribution.
+- [security](crates/security): Handles status and error changes.
+- [staking](crates/staking): Core logic for vault nomination and slashing.
+- [supply](crates/supply): Token minting and inflation.
 - [vault-registry](crates/vault-registry): Handles registration, collateral and liquidation of vaults.
 
 ## Getting started
