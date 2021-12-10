@@ -3,8 +3,8 @@ mod mock;
 use frame_support::traits::OnInitialize;
 use mock::{assert_eq, *};
 
-type AnnuityPallet = annuity::Pallet<Runtime, annuity::Instance1>;
-type AnnuityEvent = annuity::Event<Runtime, annuity::Instance1>;
+type AnnuityPallet = annuity::Pallet<Runtime, VaultAnnuityInstance>;
+type AnnuityEvent = annuity::Event<Runtime, VaultAnnuityInstance>;
 
 const NATIVE_CURRENCY_ID: CurrencyId = Token(INTR);
 
@@ -35,7 +35,7 @@ fn integration_test_annuity() {
         AnnuityPallet::update_reward_per_block();
         AnnuityPallet::on_initialize(1);
 
-        let emission_period = <Runtime as annuity::Config<annuity::Instance1>>::EmissionPeriod::get() as u128;
+        let emission_period = <Runtime as annuity::Config<VaultAnnuityInstance>>::EmissionPeriod::get() as u128;
         let expected_reward = 10_000_000_000_000 / emission_period as u128;
         for i in 1..1000 {
             AnnuityPallet::on_initialize(i);

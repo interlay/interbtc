@@ -17,7 +17,7 @@ pub use frame_support::{
 use interbtc_runtime_standalone::GetNativeCurrencyId;
 pub use interbtc_runtime_standalone::{
     AccountId, BlockNumber, Call, CurrencyId, Event, GetCollateralCurrencyId, GetWrappedCurrencyId, Runtime,
-    TechnicalCommitteeInstance,
+    TechnicalCommitteeInstance, VaultAnnuityInstance, VaultRewardsInstance,
 };
 pub use mocktopus::mocking::*;
 pub use orml_tokens::CurrencyAdapter;
@@ -123,7 +123,7 @@ pub type FeeCall = fee::Call<Runtime>;
 pub type FeeError = fee::Error<Runtime>;
 pub type FeePallet = fee::Pallet<Runtime>;
 
-pub type VaultRewardsPallet = reward::Pallet<Runtime>;
+pub type VaultRewardsPallet = reward::Pallet<Runtime, VaultRewardsInstance>;
 pub type VaultStakingPallet = staking::Pallet<Runtime>;
 
 pub type IssueCall = issue::Call<Runtime>;
