@@ -80,7 +80,7 @@ fn get_local_pool_rewards(vault_id: &VaultId, nominator_id: &AccountId) -> i128 
 }
 
 fn distribute_global_pool(vault_id: &VaultId) {
-    FeePallet::distribute_from_reward_pool::<reward::Pallet<Runtime>, staking::Pallet<Runtime>>(vault_id).unwrap();
+    FeePallet::distribute_from_reward_pool::<VaultRewardsPallet, staking::Pallet<Runtime>>(vault_id).unwrap();
 }
 
 fn get_vault_issued_tokens(vault_id: &VaultId) -> Amount<Runtime> {
