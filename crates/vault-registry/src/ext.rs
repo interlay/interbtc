@@ -81,14 +81,14 @@ pub(crate) mod reward {
         vault_id: &DefaultVaultId<T>,
         amount: &Amount<T>,
     ) -> Result<(), DispatchError> {
-        T::VaultRewards::deposit_stake(vault_id, amount.to_signed_fixed_point()?)
+        T::VaultRewards::deposit_stake(vault_id, amount.amount())
     }
 
     pub fn withdraw_stake<T: crate::Config>(
         vault_id: &DefaultVaultId<T>,
         amount: &Amount<T>,
     ) -> Result<(), DispatchError> {
-        T::VaultRewards::withdraw_stake(vault_id, amount.to_signed_fixed_point()?)
+        T::VaultRewards::withdraw_stake(vault_id, amount.amount())
     }
 }
 

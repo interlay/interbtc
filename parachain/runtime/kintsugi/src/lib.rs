@@ -973,10 +973,16 @@ pub struct EscrowBlockRewardProvider;
 impl annuity::BlockRewardProvider<AccountId> for EscrowBlockRewardProvider {
     type Currency = NativeCurrency;
     fn distribute_block_reward(_from: &AccountId, amount: Balance) -> DispatchResult {
-        reward::distribute_reward::<Runtime, EscrowRewardsInstance, _>(GetNativeCurrencyId::get(), amount)
+        <EscrowRewards as reward::Rewards<AccountId, Balance, CurrencyId>>::distribute_reward(
+            amount,
+            GetNativeCurrencyId::get(),
+        )
     }
     fn withdraw_reward(who: &AccountId) -> Result<Balance, DispatchError> {
-        reward::withdraw_reward::<Runtime, EscrowRewardsInstance, _>(GetNativeCurrencyId::get(), who)
+        <EscrowRewards as reward::Rewards<AccountId, Balance, CurrencyId>>::withdraw_reward(
+            who,
+            GetNativeCurrencyId::get(),
+        )
     }
 }
 
@@ -998,7 +1004,10 @@ impl annuity::BlockRewardProvider<AccountId> for VaultBlockRewardProvider {
     fn distribute_block_reward(from: &AccountId, amount: Balance) -> DispatchResult {
         // TODO: remove fee pallet?
         Self::Currency::transfer(from, &FeeAccount::get(), amount, ExistenceRequirement::KeepAlive)?;
-        reward::distribute_reward::<Runtime, VaultRewardsInstance, _>(GetNativeCurrencyId::get(), amount)
+        <VaultRewards as reward::Rewards<VaultId, Balance, CurrencyId>>::distribute_reward(
+            amount,
+            GetNativeCurrencyId::get(),
+        )
     }
     fn withdraw_reward(_: &AccountId) -> Result<Balance, DispatchError> {
         Ok(Zero::zero())
@@ -1096,7 +1105,7 @@ impl escrow::Config for Runtime {
     type Currency = orml_tokens::CurrencyAdapter<Runtime, GetNativeCurrencyId>;
     type Span = Span;
     type MaxPeriod = MaxPeriod;
-    type EscrowRewards = reward::RewardsCurrencyAdapter<Runtime, EscrowRewardsInstance>;
+    type EscrowRewards = EscrowRewards;
     type WeightInfo = ();
 }
 
@@ -1136,7 +1145,7 @@ impl fee::Config for Runtime {
     type SignedInner = SignedInner;
     type UnsignedFixedPoint = UnsignedFixedPoint;
     type UnsignedInner = UnsignedInner;
-    type VaultRewards = reward::RewardsCurrencyAdapter<Runtime, VaultRewardsInstance>;
+    type VaultRewards = VaultRewards;
     type VaultStaking = staking::StakingCurrencyAdapter<Runtime>;
     type GetNativeCurrencyId = GetNativeCurrencyId;
     type OnSweep = currency::SweepFunds<Runtime, FeeAccount>;

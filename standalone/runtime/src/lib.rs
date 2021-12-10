@@ -582,7 +582,10 @@ impl annuity::BlockRewardProvider<AccountId> for VaultBlockRewardProvider {
     fn distribute_block_reward(from: &AccountId, amount: Balance) -> DispatchResult {
         // TODO: remove fee pallet?
         Self::Currency::transfer(from, &FeeAccount::get(), amount, ExistenceRequirement::KeepAlive)?;
-        reward::distribute_reward::<Runtime, (), _>(GetNativeCurrencyId::get(), amount)
+        <VaultRewards as reward::Rewards<VaultId, Balance, CurrencyId>>::distribute_reward(
+            amount,
+            GetNativeCurrencyId::get(),
+        )
     }
     fn withdraw_reward(_: &AccountId) -> Result<Balance, DispatchError> {
         Ok(Zero::zero())
@@ -611,7 +614,7 @@ impl fee::Config for Runtime {
     type SignedInner = SignedInner;
     type UnsignedFixedPoint = UnsignedFixedPoint;
     type UnsignedInner = UnsignedInner;
-    type VaultRewards = reward::RewardsCurrencyAdapter<Runtime>;
+    type VaultRewards = VaultRewards;
     type VaultStaking = staking::StakingCurrencyAdapter<Runtime>;
     type GetNativeCurrencyId = GetNativeCurrencyId;
     type OnSweep = currency::SweepFunds<Runtime, FeeAccount>;
@@ -669,7 +672,7 @@ construct_runtime! {
         // Tokens & Balances
         Currency: currency::{Pallet},
         Tokens: orml_tokens::{Pallet, Call, Storage, Config<T>, Event<T>},
-        Rewards: reward::{Pallet, Storage, Event<T>},
+        VaultRewards: reward::{Pallet, Storage, Event<T>},
         Staking: staking::{Pallet, Storage, Event<T>},
         Escrow: escrow::{Pallet, Call, Storage, Event<T>},
         Vesting: orml_vesting::{Pallet, Storage, Call, Event<T>, Config<T>},
