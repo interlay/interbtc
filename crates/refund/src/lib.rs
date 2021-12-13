@@ -36,7 +36,7 @@ use oracle::OracleKey;
 pub use pallet::*;
 use sp_core::H256;
 use sp_std::{convert::TryInto, vec::Vec};
-use types::{BalanceOf, DefaultVaultId, RefundRequestExt, Wrapped};
+use types::{BalanceOf, DefaultVaultId, RefundRequestExt};
 
 #[frame_support::pallet]
 pub mod pallet {
@@ -63,19 +63,19 @@ pub mod pallet {
         RequestRefund {
             refund_id: H256,
             issuer: T::AccountId,
-            amount: Wrapped<T>,
+            amount: BalanceOf<T>,
             vault_id: DefaultVaultId<T>,
             btc_address: BtcAddress,
             issue_id: H256,
-            fee: Wrapped<T>,
-            transfer_fee: Wrapped<T>,
+            fee: BalanceOf<T>,
+            transfer_fee: BalanceOf<T>,
         },
         ExecuteRefund {
             refund_id: H256,
             issuer: T::AccountId,
             vault_id: DefaultVaultId<T>,
-            amount: Wrapped<T>,
-            fee: Wrapped<T>,
+            amount: BalanceOf<T>,
+            fee: BalanceOf<T>,
         },
     }
 
@@ -94,7 +94,7 @@ pub mod pallet {
     /// values could result in the bitcoin client rejecting the payment)
     #[pallet::storage]
     #[pallet::getter(fn refund_btc_dust_value)]
-    pub(super) type RefundBtcDustValue<T: Config> = StorageValue<_, Wrapped<T>, ValueQuery>;
+    pub(super) type RefundBtcDustValue<T: Config> = StorageValue<_, BalanceOf<T>, ValueQuery>;
 
     /// the expected size in bytes of the redeem bitcoin transfer
     #[pallet::storage]
@@ -109,7 +109,7 @@ pub mod pallet {
 
     #[pallet::genesis_config]
     pub struct GenesisConfig<T: Config> {
-        pub refund_btc_dust_value: Wrapped<T>,
+        pub refund_btc_dust_value: BalanceOf<T>,
         pub refund_transaction_size: u32,
     }
 

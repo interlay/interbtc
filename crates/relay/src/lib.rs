@@ -28,9 +28,8 @@ use mocktopus::macros::mockable;
 
 pub use security;
 
-use crate::types::Wrapped;
+use crate::types::BalanceOf;
 use bitcoin::{parser::parse_transaction, types::*};
-
 use btc_relay::{types::OpReturnPaymentData, BtcAddress};
 use frame_support::{dispatch::DispatchResult, ensure, transactional, weights::Pays};
 use frame_system::ensure_signed;
@@ -375,7 +374,7 @@ impl<T: Config> Pallet<T> {
     /// * `payment_data` - all payment data extracted from tx
     /// * `wallet` - vault btc addresses
     pub(crate) fn is_valid_request_transaction(
-        request_value: Wrapped<T>,
+        request_value: BalanceOf<T>,
         request_address: BtcAddress,
         payment_data: &OpReturnPaymentData<T>,
         wallet: &Wallet,

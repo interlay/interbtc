@@ -29,7 +29,7 @@ pub mod types;
 #[doc(inline)]
 pub use crate::types::{DefaultIssueRequest, IssueRequest, IssueRequestStatus};
 
-use crate::types::{BalanceOf, Collateral, DefaultVaultId, Version, Wrapped};
+use crate::types::{BalanceOf, DefaultVaultId, Version};
 use btc_relay::{BtcAddress, BtcPublicKey};
 use currency::Amount;
 use frame_support::{dispatch::DispatchError, ensure, traits::Get, transactional};
@@ -70,30 +70,30 @@ pub mod pallet {
         RequestIssue {
             issue_id: H256,
             requester: T::AccountId,
-            amount: Wrapped<T>,
-            fee: Wrapped<T>,
-            griefing_collateral: Collateral<T>,
+            amount: BalanceOf<T>,
+            fee: BalanceOf<T>,
+            griefing_collateral: BalanceOf<T>,
             vault_id: DefaultVaultId<T>,
             vault_address: BtcAddress,
             vault_public_key: BtcPublicKey,
         },
         IssueAmountChange {
             issue_id: H256,
-            amount: Wrapped<T>,
-            fee: Wrapped<T>,
-            confiscated_griefing_collateral: Collateral<T>,
+            amount: BalanceOf<T>,
+            fee: BalanceOf<T>,
+            confiscated_griefing_collateral: BalanceOf<T>,
         },
         ExecuteIssue {
             issue_id: H256,
             requester: T::AccountId,
             vault_id: DefaultVaultId<T>,
-            amount: Wrapped<T>,
-            fee: Wrapped<T>,
+            amount: BalanceOf<T>,
+            fee: BalanceOf<T>,
         },
         CancelIssue {
             issue_id: H256,
             requester: T::AccountId,
-            griefing_collateral: Collateral<T>,
+            griefing_collateral: BalanceOf<T>,
         },
     }
 
@@ -135,7 +135,7 @@ pub mod pallet {
     /// The minimum amount of btc that is required for issue requests; lower values would
     /// risk the rejection of payment on Bitcoin.
     #[pallet::storage]
-    pub(super) type IssueBtcDustValue<T: Config> = StorageValue<_, Wrapped<T>, ValueQuery>;
+    pub(super) type IssueBtcDustValue<T: Config> = StorageValue<_, BalanceOf<T>, ValueQuery>;
 
     #[pallet::type_value]
     pub(super) fn DefaultForStorageVersion() -> Version {
@@ -150,7 +150,7 @@ pub mod pallet {
     #[pallet::genesis_config]
     pub struct GenesisConfig<T: Config> {
         pub issue_period: T::BlockNumber,
-        pub issue_btc_dust_value: Wrapped<T>,
+        pub issue_btc_dust_value: BalanceOf<T>,
     }
 
     #[cfg(feature = "std")]
@@ -190,9 +190,9 @@ pub mod pallet {
         #[transactional]
         pub fn request_issue(
             origin: OriginFor<T>,
-            #[pallet::compact] amount: Wrapped<T>,
+            #[pallet::compact] amount: BalanceOf<T>,
             vault_id: DefaultVaultId<T>,
-            #[pallet::compact] griefing_collateral: Collateral<T>,
+            #[pallet::compact] griefing_collateral: BalanceOf<T>,
         ) -> DispatchResultWithPostInfo {
             let requester = ensure_signed(origin)?;
             Self::_request_issue(requester, amount, vault_id, griefing_collateral)?;
@@ -259,9 +259,9 @@ impl<T: Config> Pallet<T> {
     /// Requests CBA issuance, returns unique tracking ID.
     fn _request_issue(
         requester: T::AccountId,
-        amount_requested: Wrapped<T>,
+        amount_requested: BalanceOf<T>,
         vault_id: DefaultVaultId<T>,
-        griefing_collateral: Collateral<T>,
+        griefing_collateral: BalanceOf<T>,
     ) -> Result<H256, DispatchError> {
         let amount_requested = Amount::new(amount_requested, vault_id.wrapped_currency());
         let griefing_collateral = Amount::new(griefing_collateral, T::GetGriefingCollateralCurrencyId::get());
@@ -359,7 +359,7 @@ impl<T: Config> Pallet<T> {
 
         let transaction = ext::btc_relay::parse_transaction::<T>(&raw_tx)?;
         let merkle_proof = ext::btc_relay::parse_merkle_proof::<T>(&raw_merkle_proof)?;
-        let (refund_address, amount_transferred) = ext::btc_relay::get_and_verify_issue_payment::<T, Wrapped<T>>(
+        let (refund_address, amount_transferred) = ext::btc_relay::get_and_verify_issue_payment::<T, BalanceOf<T>>(
             merkle_proof,
             transaction,
             issue.btc_address,

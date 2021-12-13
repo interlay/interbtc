@@ -29,8 +29,8 @@ use mocktopus::macros::mockable;
 use primitives::VaultCurrencyPair;
 
 use crate::types::{
-    BalanceOf, BtcAddress, Collateral, CurrencyId, DefaultSystemVault, RichSystemVault, RichVault, SignedInner,
-    UnsignedFixedPoint, UpdatableVault, Version,
+    BalanceOf, BtcAddress, CurrencyId, DefaultSystemVault, RichSystemVault, RichVault, SignedInner, UnsignedFixedPoint,
+    UpdatableVault, Version,
 };
 
 use crate::types::DefaultVaultCurrencyPair;
@@ -180,7 +180,7 @@ pub mod pallet {
         pub fn register_vault(
             origin: OriginFor<T>,
             currency_pair: DefaultVaultCurrencyPair<T>,
-            #[pallet::compact] collateral: Collateral<T>,
+            #[pallet::compact] collateral: BalanceOf<T>,
             public_key: BtcPublicKey,
         ) -> DispatchResultWithPostInfo {
             let account_id = ensure_signed(origin)?;
@@ -199,7 +199,7 @@ pub mod pallet {
         pub fn deposit_collateral(
             origin: OriginFor<T>,
             currency_pair: DefaultVaultCurrencyPair<T>,
-            #[pallet::compact] amount: Collateral<T>,
+            #[pallet::compact] amount: BalanceOf<T>,
         ) -> DispatchResultWithPostInfo {
             let account_id = ensure_signed(origin)?;
 
@@ -239,7 +239,7 @@ pub mod pallet {
         pub fn withdraw_collateral(
             origin: OriginFor<T>,
             currency_pair: DefaultVaultCurrencyPair<T>,
-            #[pallet::compact] amount: Collateral<T>,
+            #[pallet::compact] amount: BalanceOf<T>,
         ) -> DispatchResultWithPostInfo {
             let account_id = ensure_signed(origin)?;
 
@@ -365,7 +365,7 @@ pub mod pallet {
         pub fn set_system_collateral_ceiling(
             origin: OriginFor<T>,
             currency_pair: DefaultVaultCurrencyPair<T>,
-            ceiling: Collateral<T>,
+            ceiling: BalanceOf<T>,
         ) -> DispatchResult {
             ensure_root(origin)?;
             Self::_set_system_collateral_ceiling(currency_pair, ceiling);
@@ -578,7 +578,7 @@ pub mod pallet {
     #[pallet::storage]
     #[pallet::getter(fn minimum_collateral_vault)]
     pub(super) type MinimumCollateralVault<T: Config> =
-        StorageMap<_, Blake2_128Concat, CurrencyId<T>, Collateral<T>, ValueQuery>;
+        StorageMap<_, Blake2_128Concat, CurrencyId<T>, BalanceOf<T>, ValueQuery>;
 
     /// If a Vault fails to execute a correct redeem or replace, it is temporarily banned
     /// from further issue, redeem or replace requests. This value configures the duration
@@ -591,7 +591,7 @@ pub mod pallet {
     /// wrapped tokens. This threshold should be greater than the LiquidationCollateralThreshold.
     #[pallet::storage]
     pub(super) type SystemCollateralCeiling<T: Config> =
-        StorageMap<_, Blake2_128Concat, DefaultVaultCurrencyPair<T>, Collateral<T>>;
+        StorageMap<_, Blake2_128Concat, DefaultVaultCurrencyPair<T>, BalanceOf<T>>;
 
     /// Determines the over-collateralization rate for collateral locked by Vaults, necessary for
     /// wrapped tokens. This threshold should be greater than the LiquidationCollateralThreshold.
@@ -631,7 +631,7 @@ pub mod pallet {
     /// Total collateral used for collateral tokens issued by active vaults, excluding the liquidation vault
     #[pallet::storage]
     pub(super) type TotalUserVaultCollateral<T: Config> =
-        StorageMap<_, Blake2_128Concat, DefaultVaultCurrencyPair<T>, Collateral<T>, ValueQuery>;
+        StorageMap<_, Blake2_128Concat, DefaultVaultCurrencyPair<T>, BalanceOf<T>, ValueQuery>;
 
     #[pallet::type_value]
     pub(super) fn DefaultForStorageVersion() -> Version {
@@ -645,9 +645,9 @@ pub mod pallet {
 
     #[pallet::genesis_config]
     pub struct GenesisConfig<T: Config> {
-        pub minimum_collateral_vault: Vec<(CurrencyId<T>, Collateral<T>)>,
+        pub minimum_collateral_vault: Vec<(CurrencyId<T>, BalanceOf<T>)>,
         pub punishment_delay: T::BlockNumber,
-        pub system_collateral_ceiling: Vec<(DefaultVaultCurrencyPair<T>, Collateral<T>)>,
+        pub system_collateral_ceiling: Vec<(DefaultVaultCurrencyPair<T>, BalanceOf<T>)>,
         pub secure_collateral_threshold: Vec<(DefaultVaultCurrencyPair<T>, UnsignedFixedPoint<T>)>,
         pub premium_redeem_threshold: Vec<(DefaultVaultCurrencyPair<T>, UnsignedFixedPoint<T>)>,
         pub liquidation_collateral_threshold: Vec<(DefaultVaultCurrencyPair<T>, UnsignedFixedPoint<T>)>,
@@ -710,7 +710,7 @@ impl<T: Config> Pallet<T> {
 
     pub fn _register_vault(
         vault_id: DefaultVaultId<T>,
-        collateral: Collateral<T>,
+        collateral: BalanceOf<T>,
         public_key: BtcPublicKey,
     ) -> DispatchResult {
         let collateral_currency = vault_id.currencies.collateral;
@@ -1507,7 +1507,7 @@ impl<T: Config> Pallet<T> {
         Self::is_collateral_below_threshold(collateral, wrapped_amount, threshold)
     }
 
-    pub fn _set_system_collateral_ceiling(currency_pair: DefaultVaultCurrencyPair<T>, ceiling: Collateral<T>) {
+    pub fn _set_system_collateral_ceiling(currency_pair: DefaultVaultCurrencyPair<T>, ceiling: BalanceOf<T>) {
         SystemCollateralCeiling::<T>::insert(currency_pair, ceiling);
     }
 
