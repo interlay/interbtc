@@ -72,6 +72,9 @@ fn load_spec(id: &str, para_id: ParaId) -> std::result::Result<Box<dyn sc_servic
             &include_bytes!("../res/kintsugi.json")[..],
         )?),
         "interlay-latest" => Box::new(chain_spec::interlay_mainnet_config(para_id)),
+        "interlay" => Box::new(chain_spec::InterlayChainSpec::from_json_bytes(
+            &include_bytes!("../res/interlay.json")[..],
+        )?),
         path => {
             let chain_spec = chain_spec::DummyChainSpec::from_json_file(path.into())?;
             if chain_spec.is_interlay() {
