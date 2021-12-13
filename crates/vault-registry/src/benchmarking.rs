@@ -87,6 +87,9 @@ benchmarks! {
         VaultRegistry::<T>::_register_vault(vault_id.clone(), 1234u32.into(), dummy_public_key()).unwrap();
     }: _(RawOrigin::Signed(vault_id.account_id), vault_id.currencies.clone(), true)
 
+    set_minimum_collateral {
+    }: _(RawOrigin::Root, T::GetGriefingCollateralCurrencyId::get(), 1234u32.into())
+
     set_system_collateral_ceiling {
     }: _(RawOrigin::Root, get_currency_pair::<T>(), 1234u32.into())
 

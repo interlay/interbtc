@@ -337,10 +337,28 @@ pub mod pallet {
             }
         }
 
+        /// Changes the minimum amount of collateral required for registration
+        /// (only executable by the Root account)
+        ///
+        /// # Arguments
+        /// * `currency_id` - the collateral's currency id
+        /// * `minimum` - the new minimum collateral
+        #[pallet::weight(<T as Config>::WeightInfo::set_minimum_collateral())]
+        #[transactional]
+        pub fn set_minimum_collateral(
+            origin: OriginFor<T>,
+            currency_id: CurrencyId<T>,
+            minimum: BalanceOf<T>,
+        ) -> DispatchResult {
+            ensure_root(origin)?;
+            MinimumCollateralVault::<T>::insert(currency_id, minimum);
+            Ok(())
+        }
+
         /// Changes the collateral ceiling for a currency (only executable by the Root account)
         ///
         /// # Arguments
-        /// * `currency_id` - the currency pair to change
+        /// * `currency_pair` - the currency pair to change
         /// * `ceiling` - the new collateral ceiling
         #[pallet::weight(<T as Config>::WeightInfo::set_system_collateral_ceiling())]
         #[transactional]
