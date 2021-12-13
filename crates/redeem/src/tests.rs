@@ -1,6 +1,6 @@
 use crate::{ext, mock::*};
 
-use crate::types::{Collateral, RedeemRequest, RedeemRequestStatus, Wrapped};
+use crate::types::{RedeemRequest, RedeemRequestStatus};
 use bitcoin::types::{MerkleProof, Transaction};
 use btc_relay::{BtcAddress, BtcPublicKey};
 use currency::Amount;
@@ -8,7 +8,6 @@ use frame_support::{assert_err, assert_noop, assert_ok, dispatch::DispatchError}
 use mocktopus::mocking::*;
 use security::Pallet as Security;
 use sp_core::{H160, H256};
-use sp_std::convert::TryInto;
 use vault_registry::{DefaultVault, VaultStatus, Wallet};
 
 type Event = crate::Event<Test>;
@@ -44,15 +43,6 @@ fn dummy_merkle_proof() -> MerkleProof {
         flag_bits: vec![],
         hashes: vec![],
     }
-}
-
-fn convert_currency<I, O: std::convert::TryFrom<I>>(amount: I) -> Result<O, DispatchError> {
-    TryInto::<O>::try_into(amount).map_err(|_e| TestError::TryIntoIntError.into())
-}
-
-fn btcdot_parity(wrapped: Wrapped<Test>) -> Result<Collateral<Test>, DispatchError> {
-    let collateral: u128 = convert_currency(wrapped)?;
-    convert_currency(collateral)
 }
 
 fn inject_redeem_request(key: H256, value: RedeemRequest<AccountId, BlockNumber, Balance, CurrencyId>) {
@@ -98,7 +88,7 @@ fn test_request_redeem_fails_with_amount_exceeds_user_balance() {
 #[test]
 fn test_request_redeem_fails_with_amount_below_minimum() {
     run_test(|| {
-        convert_to.mock_safe(|_, x| MockResult::Return(btcdot_parity(x)));
+        convert_to.mock_safe(|_, x| MockResult::Return(Ok(x)));
         <vault_registry::Pallet<Test>>::insert_vault(
             &VAULT,
             vault_registry::Vault {
@@ -170,7 +160,7 @@ fn test_request_redeem_fails_with_vault_liquidated() {
 #[test]
 fn test_request_redeem_succeeds_with_normal_redeem() {
     run_test(|| {
-        convert_to.mock_safe(|_, x| MockResult::Return(btcdot_parity(x)));
+        convert_to.mock_safe(|_, x| MockResult::Return(Ok(x)));
         <vault_registry::Pallet<Test>>::insert_vault(
             &VAULT,
             vault_registry::Vault {
@@ -254,7 +244,7 @@ fn test_request_redeem_succeeds_with_normal_redeem() {
 #[test]
 fn test_request_redeem_succeeds_with_self_redeem() {
     run_test(|| {
-        convert_to.mock_safe(|_, x| MockResult::Return(btcdot_parity(x)));
+        convert_to.mock_safe(|_, x| MockResult::Return(Ok(x)));
         <vault_registry::Pallet<Test>>::insert_vault(
             &VAULT,
             vault_registry::Vault {
@@ -366,7 +356,7 @@ fn test_liquidation_redeem_succeeds() {
 #[test]
 fn test_execute_redeem_fails_with_redeem_id_not_found() {
     run_test(|| {
-        convert_to.mock_safe(|_, x| MockResult::Return(btcdot_parity(x)));
+        convert_to.mock_safe(|_, x| MockResult::Return(Ok(x)));
         assert_err!(
             Redeem::execute_redeem(
                 Origin::signed(VAULT.account_id),
@@ -382,7 +372,7 @@ fn test_execute_redeem_fails_with_redeem_id_not_found() {
 #[test]
 fn test_execute_redeem_succeeds_with_another_account() {
     run_test(|| {
-        convert_to.mock_safe(|_, x| MockResult::Return(btcdot_parity(x)));
+        convert_to.mock_safe(|_, x| MockResult::Return(Ok(x)));
         Security::<Test>::set_active_block_number(40);
         <vault_registry::Pallet<Test>>::insert_vault(
             &VAULT,
@@ -463,7 +453,7 @@ fn test_execute_redeem_succeeds_with_another_account() {
 #[test]
 fn test_execute_redeem_succeeds() {
     run_test(|| {
-        convert_to.mock_safe(|_, x| MockResult::Return(btcdot_parity(x)));
+        convert_to.mock_safe(|_, x| MockResult::Return(Ok(x)));
         Security::<Test>::set_active_block_number(40);
         <vault_registry::Pallet<Test>>::insert_vault(
             &VAULT,
@@ -822,7 +812,7 @@ mod spec_based_tests {
         // `redeemRequest.amountBtc + redeemRequest.transferFeeBtc`, `redeemRequest.premium` and
         // `redeemRequest.redeemer` as arguments.
         run_test(|| {
-            convert_to.mock_safe(|_, x| MockResult::Return(btcdot_parity(x)));
+            convert_to.mock_safe(|_, x| MockResult::Return(Ok(x)));
             Security::<Test>::set_active_block_number(40);
             <vault_registry::Pallet<Test>>::insert_vault(
                 &VAULT,

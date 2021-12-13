@@ -23,10 +23,6 @@ pub enum Version {
 
 pub(crate) type BalanceOf<T> = <T as vault_registry::Config>::Balance;
 
-pub(crate) type Collateral<T> = BalanceOf<T>;
-
-pub(crate) type Wrapped<T> = BalanceOf<T>;
-
 pub(crate) type DefaultVaultId<T> = VaultId<<T as frame_system::Config>::AccountId, CurrencyId<T>>;
 
 pub type DefaultIssueRequest<T> = IssueRequest<

@@ -43,7 +43,7 @@ fn dummy_public_key() -> BtcPublicKey {
     ])
 }
 
-fn mint_collateral<T: crate::Config>(account_id: &T::AccountId, amount: Collateral<T>) {
+fn mint_collateral<T: crate::Config>(account_id: &T::AccountId, amount: BalanceOf<T>) {
     assert_ok!(<orml_tokens::Pallet<T>>::deposit(
         DEFAULT_TESTING_CURRENCY,
         account_id,
@@ -51,7 +51,7 @@ fn mint_collateral<T: crate::Config>(account_id: &T::AccountId, amount: Collater
     ));
 }
 
-fn mint_wrapped<T: crate::Config>(account_id: &T::AccountId, amount: Wrapped<T>) {
+fn mint_wrapped<T: crate::Config>(account_id: &T::AccountId, amount: BalanceOf<T>) {
     let rich_amount = Amount::<T>::new(amount, <T as currency::Config>::GetWrappedCurrencyId::get());
     assert_ok!(rich_amount.mint_to(account_id));
 }

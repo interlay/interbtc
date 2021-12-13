@@ -29,7 +29,7 @@ pub mod types;
 #[doc(inline)]
 pub use crate::types::{DefaultRedeemRequest, RedeemRequest, RedeemRequestStatus};
 
-use crate::types::{BalanceOf, Collateral, RedeemRequestExt, Version, Wrapped};
+use crate::types::{BalanceOf, RedeemRequestExt, Version};
 use btc_relay::BtcAddress;
 use currency::Amount;
 use frame_support::{
@@ -77,35 +77,35 @@ pub mod pallet {
             redeem_id: H256,
             redeemer: T::AccountId,
             vault_id: DefaultVaultId<T>,
-            amount: Wrapped<T>,
-            fee: Wrapped<T>,
-            premium: Collateral<T>,
+            amount: BalanceOf<T>,
+            fee: BalanceOf<T>,
+            premium: BalanceOf<T>,
             btc_address: BtcAddress,
-            transfer_fee: Wrapped<T>,
+            transfer_fee: BalanceOf<T>,
         },
         LiquidationRedeem {
             redeemer: T::AccountId,
-            amount: Wrapped<T>,
+            amount: BalanceOf<T>,
         },
         ExecuteRedeem {
             redeem_id: H256,
             redeemer: T::AccountId,
             vault_id: DefaultVaultId<T>,
-            amount: Wrapped<T>,
-            fee: Wrapped<T>,
-            transfer_fee: Wrapped<T>,
+            amount: BalanceOf<T>,
+            fee: BalanceOf<T>,
+            transfer_fee: BalanceOf<T>,
         },
         CancelRedeem {
             redeem_id: H256,
             redeemer: T::AccountId,
             vault_id: DefaultVaultId<T>,
-            slashed_amount: Collateral<T>,
+            slashed_amount: BalanceOf<T>,
             status: RedeemRequestStatus,
         },
         MintTokensForReimbursedRedeem {
             redeem_id: H256,
             vault_id: DefaultVaultId<T>,
-            amount: Wrapped<T>,
+            amount: BalanceOf<T>,
         },
     }
 
@@ -144,7 +144,7 @@ pub mod pallet {
     /// risk the bitcoin client to reject the payment
     #[pallet::storage]
     #[pallet::getter(fn redeem_btc_dust_value)]
-    pub(super) type RedeemBtcDustValue<T: Config> = StorageValue<_, Wrapped<T>, ValueQuery>;
+    pub(super) type RedeemBtcDustValue<T: Config> = StorageValue<_, BalanceOf<T>, ValueQuery>;
 
     /// the expected size in bytes of the redeem bitcoin transfer
     #[pallet::storage]
@@ -164,7 +164,7 @@ pub mod pallet {
     #[pallet::genesis_config]
     pub struct GenesisConfig<T: Config> {
         pub redeem_period: T::BlockNumber,
-        pub redeem_btc_dust_value: Wrapped<T>,
+        pub redeem_btc_dust_value: BalanceOf<T>,
         pub redeem_transaction_size: u32,
     }
 
@@ -210,7 +210,7 @@ pub mod pallet {
         #[transactional]
         pub fn request_redeem(
             origin: OriginFor<T>,
-            #[pallet::compact] amount_wrapped: Wrapped<T>,
+            #[pallet::compact] amount_wrapped: BalanceOf<T>,
             btc_address: BtcAddress,
             vault_id: DefaultVaultId<T>,
         ) -> DispatchResultWithPostInfo {
@@ -234,7 +234,7 @@ pub mod pallet {
         pub fn liquidation_redeem(
             origin: OriginFor<T>,
             currencies: DefaultVaultCurrencyPair<T>,
-            #[pallet::compact] amount_wrapped: Wrapped<T>,
+            #[pallet::compact] amount_wrapped: BalanceOf<T>,
         ) -> DispatchResultWithPostInfo {
             let redeemer = ensure_signed(origin)?;
             Self::_liquidation_redeem(redeemer, currencies, amount_wrapped)?;
@@ -331,7 +331,7 @@ pub mod pallet {
 impl<T: Config> Pallet<T> {
     fn _request_redeem(
         redeemer: T::AccountId,
-        amount_wrapped: Wrapped<T>,
+        amount_wrapped: BalanceOf<T>,
         btc_address: BtcAddress,
         vault_id: DefaultVaultId<T>,
     ) -> Result<H256, DispatchError> {
@@ -435,7 +435,7 @@ impl<T: Config> Pallet<T> {
     fn _liquidation_redeem(
         redeemer: T::AccountId,
         currencies: DefaultVaultCurrencyPair<T>,
-        amount_wrapped: Wrapped<T>,
+        amount_wrapped: BalanceOf<T>,
     ) -> Result<(), DispatchError> {
         let amount_wrapped = Amount::new(amount_wrapped, currencies.wrapped);
 

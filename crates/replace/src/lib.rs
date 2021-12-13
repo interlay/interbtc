@@ -25,7 +25,7 @@ extern crate mocktopus;
 #[cfg(test)]
 use mocktopus::macros::mockable;
 
-use crate::types::{Collateral, ReplaceRequestExt, Version, Wrapped};
+use crate::types::{BalanceOf, ReplaceRequestExt, Version};
 pub use crate::types::{DefaultReplaceRequest, ReplaceRequest, ReplaceRequestStatus};
 use btc_relay::BtcAddress;
 use currency::Amount;
@@ -75,20 +75,20 @@ pub mod pallet {
     pub enum Event<T: Config> {
         RequestReplace {
             old_vault_id: DefaultVaultId<T>,
-            amount: Wrapped<T>,
-            griefing_collateral: Collateral<T>,
+            amount: BalanceOf<T>,
+            griefing_collateral: BalanceOf<T>,
         },
         WithdrawReplace {
             old_vault_id: DefaultVaultId<T>,
-            withdrawn_tokens: Wrapped<T>,
-            withdrawn_griefing_collateral: Collateral<T>,
+            withdrawn_tokens: BalanceOf<T>,
+            withdrawn_griefing_collateral: BalanceOf<T>,
         },
         AcceptReplace {
             replace_id: H256,
             old_vault_id: DefaultVaultId<T>,
             new_vault_id: DefaultVaultId<T>,
-            amount: Wrapped<T>,
-            collateral: Collateral<T>,
+            amount: BalanceOf<T>,
+            collateral: BalanceOf<T>,
             btc_address: BtcAddress,
         },
         ExecuteReplace {
@@ -100,7 +100,7 @@ pub mod pallet {
             replace_id: H256,
             new_vault_id: DefaultVaultId<T>,
             old_vault_id: DefaultVaultId<T>,
-            griefing_collateral: Collateral<T>,
+            griefing_collateral: BalanceOf<T>,
         },
     }
 
@@ -144,7 +144,7 @@ pub mod pallet {
     /// risk the bitcoin client to reject the payment
     #[pallet::storage]
     #[pallet::getter(fn replace_btc_dust_value)]
-    pub(super) type ReplaceBtcDustValue<T: Config> = StorageValue<_, Wrapped<T>, ValueQuery>;
+    pub(super) type ReplaceBtcDustValue<T: Config> = StorageValue<_, BalanceOf<T>, ValueQuery>;
 
     #[pallet::type_value]
     pub(super) fn DefaultForStorageVersion() -> Version {
@@ -159,7 +159,7 @@ pub mod pallet {
     #[pallet::genesis_config]
     pub struct GenesisConfig<T: Config> {
         pub replace_period: T::BlockNumber,
-        pub replace_btc_dust_value: Wrapped<T>,
+        pub replace_btc_dust_value: BalanceOf<T>,
     }
 
     #[cfg(feature = "std")]
@@ -201,8 +201,8 @@ pub mod pallet {
         pub fn request_replace(
             origin: OriginFor<T>,
             currency_pair: DefaultVaultCurrencyPair<T>,
-            #[pallet::compact] amount: Wrapped<T>,
-            #[pallet::compact] griefing_collateral: Collateral<T>,
+            #[pallet::compact] amount: BalanceOf<T>,
+            #[pallet::compact] griefing_collateral: BalanceOf<T>,
         ) -> DispatchResultWithPostInfo {
             let old_vault = VaultId::new(ensure_signed(origin)?, currency_pair.collateral, currency_pair.wrapped);
             Self::_request_replace(old_vault, amount, griefing_collateral)?;
@@ -219,7 +219,7 @@ pub mod pallet {
         pub fn withdraw_replace(
             origin: OriginFor<T>,
             currency_pair: DefaultVaultCurrencyPair<T>,
-            #[pallet::compact] amount: Wrapped<T>,
+            #[pallet::compact] amount: BalanceOf<T>,
         ) -> DispatchResultWithPostInfo {
             let old_vault = VaultId::new(ensure_signed(origin)?, currency_pair.collateral, currency_pair.wrapped);
             Self::_withdraw_replace_request(old_vault, amount)?;
@@ -240,8 +240,8 @@ pub mod pallet {
             origin: OriginFor<T>,
             currency_pair: DefaultVaultCurrencyPair<T>,
             old_vault: DefaultVaultId<T>,
-            #[pallet::compact] amount_btc: Wrapped<T>,
-            #[pallet::compact] collateral: Collateral<T>,
+            #[pallet::compact] amount_btc: BalanceOf<T>,
+            #[pallet::compact] collateral: BalanceOf<T>,
             btc_address: BtcAddress,
         ) -> DispatchResultWithPostInfo {
             let new_vault = VaultId::new(ensure_signed(origin)?, currency_pair.collateral, currency_pair.wrapped);
@@ -307,8 +307,8 @@ pub mod pallet {
 impl<T: Config> Pallet<T> {
     fn _request_replace(
         vault_id: DefaultVaultId<T>,
-        amount_btc: Wrapped<T>,
-        griefing_collateral: Collateral<T>,
+        amount_btc: BalanceOf<T>,
+        griefing_collateral: BalanceOf<T>,
     ) -> DispatchResult {
         // check vault is not banned
         ext::vault_registry::ensure_not_banned::<T>(&vault_id)?;
@@ -370,7 +370,7 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
-    fn _withdraw_replace_request(vault_id: DefaultVaultId<T>, amount: Wrapped<T>) -> Result<(), DispatchError> {
+    fn _withdraw_replace_request(vault_id: DefaultVaultId<T>, amount: BalanceOf<T>) -> Result<(), DispatchError> {
         let amount = Amount::new(amount, vault_id.wrapped_currency());
         // decrease to-be-replaced tokens, so that the vault is free to use its issued tokens again.
         let (withdrawn_tokens, to_withdraw_collateral) =
@@ -399,8 +399,8 @@ impl<T: Config> Pallet<T> {
     fn _accept_replace(
         old_vault_id: DefaultVaultId<T>,
         new_vault_id: DefaultVaultId<T>,
-        amount_btc: Wrapped<T>,
-        collateral: Collateral<T>,
+        amount_btc: BalanceOf<T>,
+        collateral: BalanceOf<T>,
         btc_address: BtcAddress,
     ) -> Result<(), DispatchError> {
         let new_vault_currency_id = new_vault_id.collateral_currency();
