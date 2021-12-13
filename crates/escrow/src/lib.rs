@@ -68,6 +68,7 @@ impl<Balance: AtLeast32BitUnsigned + Copy, BlockNumber: AtLeast32BitUnsigned + C
         let max_period = BlockNumberToBalance::convert(max_period);
         let height_diff = BlockNumberToBalance::convert(end_height.saturating_sub(start_height));
 
+// SBPM1 No overflow risks?
         let slope = amount / max_period;
         let bias = slope * height_diff;
 
@@ -245,6 +246,7 @@ pub mod pallet {
 
             Self::deposit_for(&who, amount, Zero::zero())?;
 
+//SBPM1 Can be simplified if returning DispatchResult
             Ok(().into())
         }
 
@@ -304,6 +306,7 @@ impl<T: Config> Pallet<T> {
         (height / span) * span
     }
 
+//SBP M1 Add some documentation?
     fn checkpoint(who: &T::AccountId, old_locked: DefaultLockedBalance<T>, new_locked: DefaultLockedBalance<T>) {
         let now = Self::current_height();
         let max_period = T::MaxPeriod::get();
@@ -390,6 +393,7 @@ impl<T: Config> Pallet<T> {
     fn deposit_for(who: &T::AccountId, amount: BalanceOf<T>, unlock_height: T::BlockNumber) -> DispatchResult {
         let old_locked = Self::locked_balance(who);
         let mut new_locked = old_locked.clone();
+// SBP M1 Overflow?
         new_locked.amount += amount;
         if unlock_height > Zero::zero() {
             new_locked.end = unlock_height;
@@ -592,10 +596,12 @@ impl<T: Config> ReservableCurrency<T::AccountId> for Pallet<T> {
     fn unreserve(who: &T::AccountId, value: Self::Balance) -> Self::Balance {
         <Reserved<T>>::mutate(who, |previous| {
             if value > *previous {
+// SBP M1 undeflow?
                 let remainder = value - *previous;
                 *previous = Zero::zero();
                 remainder
             } else {
+// SBP M1 undeflow?
                 *previous -= value;
                 Zero::zero()
             }

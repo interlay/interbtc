@@ -241,10 +241,11 @@ impl<T: Config> Pallet<T> {
 
         for (key, is_updated) in raw_values_updated.iter() {
             if *is_updated || Self::is_outdated(key, current_time) {
+// SBP M1 Probably clearer and safer to manipulate RawValuesUpdated only here and not inside update_aggregate
                 Self::update_aggregate(key);
             }
         }
-
+// SBP M1 Clarify that if prices are too old (more than max delay), oracle component is considered offline
         let current_status_is_online = Self::is_oracle_online();
         let new_status_is_online = raw_values_updated.len() > 0
             && raw_values_updated
@@ -267,6 +268,7 @@ impl<T: Config> Pallet<T> {
                 timestamp: Self::get_current_time(),
                 value: value.clone(),
             };
+// SBP M1 Grows forever?
             RawValues::<T>::insert(key, &oracle, timestamped);
             RawValuesUpdated::<T>::insert(key, true);
         }

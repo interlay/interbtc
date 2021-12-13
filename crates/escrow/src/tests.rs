@@ -101,6 +101,7 @@ fn should_increase_unlock_height() {
     })
 }
 
+// SBP M1 Add test combining total_supply and withdraw (that calls checkpoint)
 #[test]
 fn should_calculate_total_supply() {
     run_test(|| {

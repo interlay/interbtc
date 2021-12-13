@@ -680,6 +680,7 @@ fn mainnet_genesis(
         vault_registry: VaultRegistryConfig {
             minimum_collateral_vault: vec![(CurrencyId::KSM, 0)],
             punishment_delay: DAYS,
+/// SBP M1 You might want to consider removing explicit mentions of USD
             system_collateral_ceiling: vec![(default_pair(CurrencyId::KSM), 317 * CurrencyId::KSM.one())], /* 317 ksm, about 100k
                                                                                                             * USD at
                                                                                                             * time of writing */

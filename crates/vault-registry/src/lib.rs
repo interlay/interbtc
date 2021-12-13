@@ -163,6 +163,7 @@ pub mod pallet {
                     .build()
             };
 
+// SBPM1 Perform check earlier and merge logic with `source` check?
             match call {
                 Call::report_undercollateralized_vault { .. } => valid_tx(b"report_undercollateralized_vault".to_vec()),
                 _ => InvalidTransaction::Call.into(),
@@ -245,6 +246,7 @@ pub mod pallet {
         /// * `InsufficientCollateralAvailable` - if the vault does not own enough collateral
         #[pallet::weight(<T as Config>::WeightInfo::withdraw_collateral())]
         #[transactional]
+/// SBPM1 #[transactional] is consider alpha, use carefully. Also it introduces a cost so it might make sense to try to avoid its usage.
         pub fn withdraw_collateral(
             origin: OriginFor<T>,
             currency_pair: DefaultVaultCurrencyPair<T>,
@@ -721,6 +723,7 @@ impl<T: Config> Pallet<T> {
         let vault = Vault::new(vault_id.clone(), public_key);
         Self::insert_vault(&vault_id, vault);
 
+        // SBP M1 Impact of this potential failure on previously updated data?
         Self::try_deposit_collateral(&vault_id, &amount)?;
 
         Self::deposit_event(Event::<T>::RegisterVault {
@@ -772,6 +775,7 @@ impl<T: Config> Pallet<T> {
         amount.lock_on(&vault_id.account_id)?;
 
         // Deposit `amount` of stake in the pool
+// SBP M1 Impact of potential failures (including previously line) to updated data?
         ext::staking::deposit_stake::<T>(vault_id, &vault_id.account_id, amount)?;
 
         Ok(())
@@ -787,6 +791,7 @@ impl<T: Config> Pallet<T> {
         amount.unlock_on(&vault_id.account_id)?;
         Self::decrease_total_backing_collateral(&vault_id.currencies, amount)?;
 
+// SBP M1 Impact of potential failures to updated data?
         // Withdraw `amount` of stake from the pool
         ext::staking::withdraw_stake::<T>(vault_id, &vault_id.account_id, amount)?;
 
@@ -860,6 +865,7 @@ impl<T: Config> Pallet<T> {
     fn slash_backing_collateral(vault_id: &DefaultVaultId<T>, amount: &Amount<T>) -> DispatchResult {
         amount.unlock_on(&vault_id.account_id)?;
         Self::decrease_total_backing_collateral(&vault_id.currencies, amount)?;
+// SBP M1 Impact of potential failures to updated data?
         ext::staking::slash_stake::<T>(vault_id.wrapped_currency(), vault_id, amount)?;
         Ok(())
     }
@@ -901,6 +907,7 @@ impl<T: Config> Pallet<T> {
             }
         };
 
+    // SBP M1 Impact of potential failures to updated data?
         // move from sender's free balance to receiver's free balance
         amount.transfer(&from.account_id(), &to.account_id())?;
 
