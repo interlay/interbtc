@@ -6,7 +6,7 @@ use mock::{assert_eq, *};
 type AnnuityPallet = annuity::Pallet<Runtime, VaultAnnuityInstance>;
 type AnnuityEvent = annuity::Event<Runtime, VaultAnnuityInstance>;
 
-const NATIVE_CURRENCY_ID: CurrencyId = Token(INTR);
+const NATIVE_CURRENCY_ID: CurrencyId = INTR;
 
 fn get_last_reward() -> u128 {
     SystemPallet::events()
