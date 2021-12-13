@@ -72,6 +72,7 @@ staking = { path = "../../crates/staking", default-features = false }
 escrow = { path = "../../crates/escrow", default-features = false }
 democracy = { path = "../../crates/democracy", default-features = false }
 annuity = { path = "../../crates/annuity", default-features = false }
+supply = { path = "../../crates/supply", default-features = false }
 
 primitives = { package = "interbtc-primitives", path = "../../primitives", default-features = false }
 
@@ -165,6 +166,7 @@ std = [
   "escrow/std",
   "democracy/std",
   "annuity/std",
+  "supply/std",
 
   "primitives/std",
 

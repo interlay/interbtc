@@ -106,6 +106,20 @@ pub const PRIMARY_PROBABILITY: (u64, u64) = (1, 4);
 pub const BITCOIN_SPACING_MS: u32 = TARGET_SPACING * 1000;
 pub const BITCOIN_BLOCK_SPACING: BlockNumber = BITCOIN_SPACING_MS / MILLISECS_PER_BLOCK as BlockNumber;
 
+pub mod token_distribution {
+    use super::*;
+
+    // 1 billion INTR distributed over 4 years
+    // INTR has 10 decimal places, same as DOT
+    // See: https://wiki.polkadot.network/docs/learn-DOT#polkadot
+    pub const INITIAL_ALLOCATION: Balance = 1_000_000_000 * UNITS;
+
+    // multiplication is non-overflow by default
+    pub const ESCROW_INFLATION_REWARDS: Permill = Permill::from_parts(67000); // 6.7%
+    pub const TREASURY_INFLATION_REWARDS: Permill = Permill::from_parts(533000); // 53.3%
+    pub const VAULT_INFLATION_REWARDS: Permill = Permill::from_percent(40); // 40%
+}
+
 /// The version information used to identify this runtime when compiled natively.
 #[cfg(feature = "std")]
 pub fn native_version() -> NativeVersion {
@@ -447,6 +461,7 @@ type NativeCurrency = orml_tokens::CurrencyAdapter<Runtime, GetNativeCurrencyId>
 // Pallet accounts
 parameter_types! {
     pub const FeePalletId: PalletId = PalletId(*b"mod/fees");
+    pub const SupplyPalletId: PalletId = PalletId(*b"mod/supl");
     pub const EscrowAnnuityPalletId: PalletId = PalletId(*b"esc/annu");
     pub const VaultAnnuityPalletId: PalletId = PalletId(*b"vlt/annu");
     pub const TreasuryPalletId: PalletId = PalletId(*b"mod/trsy");
@@ -455,6 +470,7 @@ parameter_types! {
 
 parameter_types! {
     pub FeeAccount: AccountId = FeePalletId::get().into_account();
+    pub SupplyAccount: AccountId = SupplyPalletId::get().into_account();
     pub EscrowAnnuityAccount: AccountId = EscrowAnnuityPalletId::get().into_account();
     pub VaultAnnuityAccount: AccountId = VaultAnnuityPalletId::get().into_account();
     pub TreasuryAccount: AccountId = TreasuryPalletId::get().into_account();
@@ -464,6 +480,7 @@ parameter_types! {
 pub fn get_all_module_accounts() -> Vec<AccountId> {
     vec![
         FeeAccount::get(),
+        SupplyAccount::get(),
         EscrowAnnuityAccount::get(),
         VaultAnnuityAccount::get(),
         TreasuryAccount::get(),
@@ -498,6 +515,57 @@ impl orml_tokens::Config for Runtime {
     type OnDust = orml_tokens::TransferDust<Runtime, FeeAccount>;
     type MaxLocks = MaxLocks;
     type DustRemovalWhitelist = DustRemovalWhitelist;
+}
+
+parameter_types! {
+    pub const InflationPeriod: BlockNumber = YEARS;
+}
+
+pub struct DealWithRewards;
+
+impl supply::OnInflation<AccountId> for DealWithRewards {
+    type Currency = NativeCurrency;
+    // transfer will only fail if balance is too low
+    // existential deposit is not required due to whitelist
+    fn on_inflation(from: &AccountId, amount: Balance) {
+        let vault_inflation = token_distribution::VAULT_INFLATION_REWARDS * amount;
+        let escrow_inflation = token_distribution::ESCROW_INFLATION_REWARDS * amount;
+
+        // vault block rewards
+        let _ = Self::Currency::transfer(
+            from,
+            &VaultAnnuityAccount::get(),
+            vault_inflation,
+            ExistenceRequirement::KeepAlive,
+        );
+        VaultAnnuity::update_reward_per_block();
+
+        // stake-to-vote block rewards
+        let _ = Self::Currency::transfer(
+            from,
+            &EscrowAnnuityAccount::get(),
+            escrow_inflation,
+            ExistenceRequirement::KeepAlive,
+        );
+        EscrowAnnuity::update_reward_per_block();
+
+        // remainder goes to treasury
+        let _ = Self::Currency::transfer(
+            from,
+            &TreasuryAccount::get(),
+            amount.saturating_sub(vault_inflation).saturating_sub(escrow_inflation),
+            ExistenceRequirement::KeepAlive,
+        );
+    }
+}
+
+impl supply::Config for Runtime {
+    type SupplyPalletId = SupplyPalletId;
+    type Event = Event;
+    type UnsignedFixedPoint = UnsignedFixedPoint;
+    type Currency = NativeCurrency;
+    type InflationPeriod = InflationPeriod;
+    type OnInflation = DealWithRewards;
 }
 
 parameter_types! {
@@ -736,6 +804,8 @@ construct_runtime! {
         VaultAnnuity: annuity::<Instance2>::{Pallet, Storage, Event<T>},
         VaultRewards: reward::<Instance2>::{Pallet, Storage, Event<T>},
         VaultStaking: staking::{Pallet, Storage, Event<T>},
+
+        Supply: supply::{Pallet, Storage, Call, Event<T>, Config<T>},
 
         // Bitcoin SPV
         BTCRelay: btc_relay::{Pallet, Call, Config<T>, Storage, Event<T>},
