@@ -59,7 +59,9 @@ pub struct Point<Balance, BlockNumber> {
     ts: BlockNumber,
 }
 
-impl<Balance: AtLeast32BitUnsigned + Copy, BlockNumber: AtLeast32BitUnsigned + Copy> Point<Balance, BlockNumber> {
+impl<Balance: AtLeast32BitUnsigned + Default + Copy, BlockNumber: AtLeast32BitUnsigned + Copy>
+    Point<Balance, BlockNumber>
+{
     fn new<BlockNumberToBalance: Convert<BlockNumber, Balance>>(
         amount: Balance,
         start_height: BlockNumber,
@@ -69,8 +71,8 @@ impl<Balance: AtLeast32BitUnsigned + Copy, BlockNumber: AtLeast32BitUnsigned + C
         let max_period = BlockNumberToBalance::convert(max_period);
         let height_diff = BlockNumberToBalance::convert(end_height.saturating_sub(start_height));
 
-        let slope = amount / max_period;
-        let bias = slope * height_diff;
+        let slope = amount.checked_div(&max_period).unwrap_or_default();
+        let bias = slope.saturating_mul(height_diff);
 
         Self {
             bias,
@@ -127,7 +129,7 @@ pub use pallet::*;
 #[frame_support::pallet]
 pub mod pallet {
     use super::*;
-    use frame_support::pallet_prelude::*;
+    use frame_support::{dispatch::DispatchResult, pallet_prelude::*};
     use frame_system::pallet_prelude::*;
 
     /// ## Configuration
@@ -240,7 +242,7 @@ pub mod pallet {
             origin: OriginFor<T>,
             #[pallet::compact] amount: BalanceOf<T>,
             unlock_height: T::BlockNumber,
-        ) -> DispatchResultWithPostInfo {
+        ) -> DispatchResult {
             let who = ensure_signed(origin)?;
             let now = Self::current_height();
 
@@ -261,17 +263,12 @@ pub mod pallet {
             let end_height = now.saturating_add(max_period);
             ensure!(unlock_height <= end_height, Error::<T>::InvalidHeight);
 
-            Self::deposit_for(&who, amount, unlock_height)?;
-
-            Ok(().into())
+            Self::deposit_for(&who, amount, unlock_height)
         }
 
         #[pallet::weight(<T as Config>::WeightInfo::increase_amount())]
         #[transactional]
-        pub fn increase_amount(
-            origin: OriginFor<T>,
-            #[pallet::compact] amount: BalanceOf<T>,
-        ) -> DispatchResultWithPostInfo {
+        pub fn increase_amount(origin: OriginFor<T>, #[pallet::compact] amount: BalanceOf<T>) -> DispatchResult {
             let who = ensure_signed(origin)?;
             let locked_balance = Self::locked_balance(&who);
             let now = Self::current_height();
@@ -285,17 +282,12 @@ pub mod pallet {
             // lock MUST NOT be expired
             ensure!(locked_balance.end > now, Error::<T>::LockHasExpired);
 
-            Self::deposit_for(&who, amount, Zero::zero())?;
-
-            Ok(().into())
+            Self::deposit_for(&who, amount, Zero::zero()).into()
         }
 
         #[pallet::weight(<T as Config>::WeightInfo::increase_unlock_height())]
         #[transactional]
-        pub fn increase_unlock_height(
-            origin: OriginFor<T>,
-            unlock_height: T::BlockNumber,
-        ) -> DispatchResultWithPostInfo {
+        pub fn increase_unlock_height(origin: OriginFor<T>, unlock_height: T::BlockNumber) -> DispatchResult {
             let who = ensure_signed(origin)?;
             let locked_balance = Self::locked_balance(&who);
             let now = Self::current_height();
@@ -317,17 +309,14 @@ pub mod pallet {
             let end_height = now.saturating_add(max_period);
             ensure!(unlock_height <= end_height, Error::<T>::InvalidHeight);
 
-            Self::deposit_for(&who, Zero::zero(), unlock_height)?;
-
-            Ok(().into())
+            Self::deposit_for(&who, Zero::zero(), unlock_height)
         }
 
         #[pallet::weight(<T as Config>::WeightInfo::withdraw())]
         #[transactional]
-        pub fn withdraw(origin: OriginFor<T>) -> DispatchResultWithPostInfo {
+        pub fn withdraw(origin: OriginFor<T>) -> DispatchResult {
             let who = ensure_signed(origin)?;
-            Self::remove_lock(&who)?;
-            Ok(().into())
+            Self::remove_lock(&who)
         }
 
         #[pallet::weight(0)]
@@ -367,6 +356,9 @@ impl<T: Config> Pallet<T> {
         (height / span) * span
     }
 
+    // As in the Curve contract, we record global and per-user data, this
+    // may necessitate multiple writes if the global points are outdated.
+    // We do not interpret the zero-address as a global checkpoint.
     fn checkpoint(who: &T::AccountId, old_locked: DefaultLockedBalance<T>, new_locked: DefaultLockedBalance<T>) {
         let now = Self::current_height();
         let max_period = T::MaxPeriod::get();
@@ -429,6 +421,7 @@ impl<T: Config> Pallet<T> {
         last_point.bias.saturating_accrue(u_new.bias.saturating_sub(u_old.bias));
         <PointHistory<T>>::insert(epoch, last_point);
 
+        // schedule the slope change
         if old_locked.end > now {
             old_dslope.saturating_accrue(u_old.slope);
             if new_locked.end == old_locked.end {
@@ -443,6 +436,7 @@ impl<T: Config> Pallet<T> {
             <SlopeChanges<T>>::insert(new_locked.end, new_dslope);
         }
 
+        // finally update user history
         let user_epoch = <UserPointEpoch<T>>::mutate(who, |i| {
             i.saturating_inc();
             *i
@@ -470,7 +464,7 @@ impl<T: Config> Pallet<T> {
     fn deposit_for(who: &T::AccountId, amount: BalanceOf<T>, unlock_height: T::BlockNumber) -> DispatchResult {
         let old_locked = Self::locked_balance(who);
         let mut new_locked = old_locked.clone();
-        new_locked.amount += amount;
+        new_locked.amount.saturating_accrue(amount);
         if unlock_height > Zero::zero() {
             new_locked.end = unlock_height;
         }
@@ -676,11 +670,11 @@ impl<T: Config> ReservableCurrency<T::AccountId> for Pallet<T> {
     fn unreserve(who: &T::AccountId, value: Self::Balance) -> Self::Balance {
         <Reserved<T>>::mutate(who, |previous| {
             if value > *previous {
-                let remainder = value - *previous;
+                let remainder = value.saturating_sub(*previous);
                 *previous = Zero::zero();
                 remainder
             } else {
-                *previous -= value;
+                previous.saturating_reduce(value);
                 Zero::zero()
             }
         })
