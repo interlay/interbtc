@@ -55,8 +55,8 @@ pub use module_oracle_rpc_runtime_api::BalanceWrapper;
 pub use security::StatusCode;
 
 pub use primitives::{
-    self, AccountId, Balance, BlockNumber, CurrencyId, CurrencyId::Token, CurrencyInfo, Hash, Moment, Nonce, Signature,
-    SignedFixedPoint, SignedInner, UnsignedFixedPoint, UnsignedInner, KBTC, KINT, KSM,
+    self, AccountId, Balance, BlockNumber, CurrencyId, CurrencyInfo, Hash, Moment, Nonce, Signature, SignedFixedPoint,
+    SignedInner, UnsignedFixedPoint, UnsignedInner, KBTC, KINT, KSM,
 };
 
 // XCM imports
@@ -613,7 +613,7 @@ pub struct XcmConfig;
 
 // the ksm cost to to execute a no-op extrinsic
 fn base_tx_in_ksm() -> Balance {
-    KSM.one() / 50_000
+    CurrencyId::KSM.one() / 50_000
 }
 pub fn ksm_per_second() -> u128 {
     let base_weight = Balance::from(ExtrinsicBaseWeight::get());
@@ -626,7 +626,7 @@ parameter_types! {
     pub KintPerSecond: (AssetId, u128) = (
         MultiLocation::new(
             1,
-            X2(Parachain(2092), GeneralKey(Token(KINT).encode())),
+            X2(Parachain(2092), GeneralKey(CurrencyId::KINT.encode())),
         ).into(),
         // KINT:KSM = 4:3
         (ksm_per_second() * 4) / 3
@@ -634,7 +634,7 @@ parameter_types! {
     pub KbtcPerSecond: (AssetId, u128) = (
         MultiLocation::new(
             1,
-            X2(Parachain(2092), GeneralKey(Token(KBTC).encode())),
+            X2(Parachain(2092), GeneralKey(CurrencyId::KBTC.encode())),
         ).into(),
         // KBTC:KSM = 1:150 & Satoshi:Planck = 1:10_000
         ksm_per_second() / 1_500_000
@@ -848,9 +848,9 @@ impl btc_relay::Config for Runtime {
     type ParachainBlocksPerBitcoinBlock = ParachainBlocksPerBitcoinBlock;
 }
 
-const RELAY_CHAIN_CURRENCY_ID: CurrencyId = Token(KSM);
-const WRAPPED_CURRENCY_ID: CurrencyId = Token(KBTC);
-const NATIVE_CURRENCY_ID: CurrencyId = Token(KINT);
+const RELAY_CHAIN_CURRENCY_ID: CurrencyId = KSM;
+const WRAPPED_CURRENCY_ID: CurrencyId = KBTC;
+const NATIVE_CURRENCY_ID: CurrencyId = KINT;
 
 parameter_types! {
     pub const GetCollateralCurrencyId: CurrencyId = RELAY_CHAIN_CURRENCY_ID;

@@ -1,10 +1,10 @@
 use bitcoin::utils::{virtual_transaction_size, InputType, TransactionInputMetadata, TransactionOutputMetadata};
 use hex_literal::hex;
 use interbtc_runtime::{
-    AccountId, AuraConfig, BTCRelayConfig, CurrencyId, CurrencyId::Token, FeeConfig, GenesisConfig,
-    GetWrappedCurrencyId, GrandpaConfig, IssueConfig, NominationConfig, OracleConfig, RedeemConfig, RefundConfig,
-    ReplaceConfig, SecurityConfig, Signature, StatusCode, SudoConfig, SystemConfig, TechnicalCommitteeConfig,
-    TokenSymbol, TokensConfig, VaultRegistryConfig, BITCOIN_BLOCK_SPACING, DAYS, DOT, INTR, KINT, KSM, WASM_BINARY,
+    AccountId, AuraConfig, BTCRelayConfig, CurrencyId, FeeConfig, GenesisConfig, GetWrappedCurrencyId, GrandpaConfig,
+    IssueConfig, NominationConfig, OracleConfig, RedeemConfig, RefundConfig, ReplaceConfig, SecurityConfig, Signature,
+    StatusCode, SudoConfig, SystemConfig, TechnicalCommitteeConfig, TokensConfig, VaultRegistryConfig,
+    BITCOIN_BLOCK_SPACING, DAYS, DOT, INTR, KINT, KSM, WASM_BINARY,
 };
 use primitives::VaultCurrencyPair;
 use sp_consensus_aura::sr25519::AuthorityId as AuraId;
@@ -53,7 +53,7 @@ fn get_properties() -> Map<String, Value> {
     let mut properties = Map::new();
     let mut token_symbol: Vec<String> = vec![];
     let mut token_decimals: Vec<u32> = vec![];
-    TokenSymbol::get_info().iter().for_each(|(symbol_name, decimals)| {
+    CurrencyId::get_info().iter().for_each(|(symbol_name, decimals)| {
         token_symbol.push(symbol_name.to_string());
         token_decimals.push(*decimals);
     });
@@ -273,10 +273,10 @@ fn testnet_genesis(
                 .iter()
                 .flat_map(|k| {
                     vec![
-                        (k.clone(), Token(DOT), 1 << 60),
-                        (k.clone(), Token(INTR), 1 << 60),
-                        (k.clone(), Token(KSM), 1 << 60),
-                        (k.clone(), Token(KINT), 1 << 60),
+                        (k.clone(), DOT, 1 << 60),
+                        (k.clone(), INTR, 1 << 60),
+                        (k.clone(), KSM, 1 << 60),
+                        (k.clone(), KINT, 1 << 60),
                     ]
                 })
                 .collect(),
@@ -306,41 +306,41 @@ fn testnet_genesis(
             replace_btc_dust_value: 1000,
         },
         vault_registry: VaultRegistryConfig {
-            minimum_collateral_vault: vec![(Token(DOT), 0), (Token(KSM), 0)],
+            minimum_collateral_vault: vec![(CurrencyId::DOT, 0), (CurrencyId::KSM, 0)],
             punishment_delay: DAYS,
             secure_collateral_threshold: vec![
                 (
-                    default_pair(Token(DOT)),
+                    default_pair(CurrencyId::DOT),
                     FixedU128::checked_from_rational(150, 100).unwrap(),
                 ),
                 (
-                    default_pair(Token(KSM)),
+                    default_pair(CurrencyId::KSM),
                     FixedU128::checked_from_rational(150, 100).unwrap(),
                 ),
             ], /* 150% */
             premium_redeem_threshold: vec![
                 (
-                    default_pair(Token(DOT)),
+                    default_pair(CurrencyId::DOT),
                     FixedU128::checked_from_rational(135, 100).unwrap(),
                 ),
                 (
-                    default_pair(Token(KSM)),
+                    default_pair(CurrencyId::KSM),
                     FixedU128::checked_from_rational(135, 100).unwrap(),
                 ),
             ], /* 135% */
             liquidation_collateral_threshold: vec![
                 (
-                    default_pair(Token(DOT)),
+                    default_pair(CurrencyId::DOT),
                     FixedU128::checked_from_rational(110, 100).unwrap(),
                 ),
                 (
-                    default_pair(Token(KSM)),
+                    default_pair(CurrencyId::KSM),
                     FixedU128::checked_from_rational(110, 100).unwrap(),
                 ),
             ], /* 110% */
             system_collateral_ceiling: vec![
-                (default_pair(Token(DOT)), 1000 * DOT.one()),
-                (default_pair(Token(KSM)), 1000 * KSM.one()),
+                (default_pair(CurrencyId::DOT), 1000 * CurrencyId::DOT.one()),
+                (default_pair(CurrencyId::KSM), 1000 * CurrencyId::KSM.one()),
             ],
         },
         fee: FeeConfig {

@@ -394,17 +394,17 @@ pub trait CurrencyInfo {
 
 macro_rules! create_currency_id {
     ($(#[$meta:meta])*
-	$vis:vis enum TokenSymbol {
+	$vis:vis enum CurrencyId {
         $($(#[$vmeta:meta])* $symbol:ident($name:expr, $deci:literal),)*
     }) => {
 		$(#[$meta])*
-		$vis enum TokenSymbol {
+		$vis enum CurrencyId {
 			$($(#[$vmeta])* $symbol,)*
 		}
 
-        $(pub const $symbol: TokenSymbol = TokenSymbol::$symbol;)*
+        $(pub const $symbol: CurrencyId = CurrencyId::$symbol;)*
 
-        impl TokenSymbol {
+        impl CurrencyId {
 			pub fn get_info() -> Vec<(&'static str, u32)> {
 				vec![
 					$((stringify!($symbol), $deci),)*
@@ -417,20 +417,20 @@ macro_rules! create_currency_id {
 
             const fn decimals(&self) -> u8 {
 				match self {
-					$(TokenSymbol::$symbol => $deci,)*
+					$(CurrencyId::$symbol => $deci,)*
 				}
 			}
 		}
 
-		impl CurrencyInfo for TokenSymbol {
+		impl CurrencyInfo for CurrencyId {
 			fn name(&self) -> &str {
 				match self {
-					$(TokenSymbol::$symbol => $name,)*
+					$(CurrencyId::$symbol => $name,)*
 				}
 			}
 			fn symbol(&self) -> &str {
 				match self {
-					$(TokenSymbol::$symbol => stringify!($symbol),)*
+					$(CurrencyId::$symbol => stringify!($symbol),)*
 				}
 			}
 			fn decimals(&self) -> u8 {
@@ -438,11 +438,11 @@ macro_rules! create_currency_id {
 			}
 		}
 
-		impl TryFrom<Vec<u8>> for TokenSymbol {
+		impl TryFrom<Vec<u8>> for CurrencyId {
 			type Error = ();
-			fn try_from(v: Vec<u8>) -> Result<TokenSymbol, ()> {
+			fn try_from(v: Vec<u8>) -> Result<CurrencyId, ()> {
 				match v.as_slice() {
-					$(bstringify!($symbol) => Ok(TokenSymbol::$symbol),)*
+					$(bstringify!($symbol) => Ok(CurrencyId::$symbol),)*
 					_ => Err(()),
 				}
 			}
@@ -453,7 +453,7 @@ macro_rules! create_currency_id {
 create_currency_id! {
     #[derive(Encode, Decode, Eq, Hash, PartialEq, Copy, Clone, RuntimeDebug, PartialOrd, Ord, TypeInfo)]
     #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-    pub enum TokenSymbol {
+    pub enum CurrencyId {
         DOT("Polkadot", 10),
         INTERBTC("interBTC", 8),
         INTR("Interlay", 10),
@@ -462,10 +462,4 @@ create_currency_id! {
         KBTC("kBTC", 8),
         KINT("Kintsugi", 12),
     }
-}
-
-#[derive(Encode, Decode, Eq, Hash, PartialEq, Copy, Clone, RuntimeDebug, PartialOrd, Ord, TypeInfo)]
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-pub enum CurrencyId {
-    Token(TokenSymbol),
 }

@@ -52,8 +52,8 @@ pub use module_oracle_rpc_runtime_api::BalanceWrapper;
 pub use security::StatusCode;
 
 pub use primitives::{
-    self, AccountId, Balance, BlockNumber, CurrencyId, CurrencyId::Token, CurrencyInfo, Hash, Moment, Nonce, Signature,
-    SignedFixedPoint, SignedInner, UnsignedFixedPoint, UnsignedInner, DOT, INTERBTC, INTR,
+    self, AccountId, Balance, BlockNumber, CurrencyId, CurrencyInfo, Hash, Moment, Nonce, Signature, SignedFixedPoint,
+    SignedInner, UnsignedFixedPoint, UnsignedInner, DOT, INTERBTC, INTR,
 };
 
 // XCM imports
@@ -822,9 +822,9 @@ impl btc_relay::Config for Runtime {
     type ParachainBlocksPerBitcoinBlock = ParachainBlocksPerBitcoinBlock;
 }
 
-const RELAY_CHAIN_CURRENCY_ID: CurrencyId = Token(DOT);
-const WRAPPED_CURRENCY_ID: CurrencyId = Token(INTERBTC);
-const NATIVE_CURRENCY_ID: CurrencyId = Token(INTR);
+const RELAY_CHAIN_CURRENCY_ID: CurrencyId = DOT;
+const WRAPPED_CURRENCY_ID: CurrencyId = INTERBTC;
+const NATIVE_CURRENCY_ID: CurrencyId = INTR;
 
 parameter_types! {
     pub const GetCollateralCurrencyId: CurrencyId = RELAY_CHAIN_CURRENCY_ID;
