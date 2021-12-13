@@ -11,7 +11,7 @@ use frame_benchmarking::{account, benchmarks, impl_benchmark_test_suite};
 use frame_support::traits::Get;
 use frame_system::RawOrigin;
 use orml_traits::MultiCurrency;
-use primitives::{CurrencyId, CurrencyId::Token, TokenSymbol::*, VaultCurrencyPair, VaultId};
+use primitives::{CurrencyId, VaultCurrencyPair, VaultId};
 use sp_core::{H160, H256, U256};
 use sp_runtime::{traits::One, FixedPointNumber};
 use sp_std::prelude::*;
@@ -24,7 +24,7 @@ use oracle::Pallet as Oracle;
 use security::Pallet as Security;
 use vault_registry::Pallet as VaultRegistry;
 
-pub const DEFAULT_TESTING_CURRENCY: CurrencyId = Token(DOT);
+pub const DEFAULT_TESTING_CURRENCY: CurrencyId = CurrencyId::DOT;
 type UnsignedFixedPoint<T> = <T as currency::Config>::UnsignedFixedPoint;
 
 fn wrapped<T: crate::Config>(amount: u32) -> Amount<T> {

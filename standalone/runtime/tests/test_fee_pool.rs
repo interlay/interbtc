@@ -46,12 +46,12 @@ fn test_with<R>(execute: impl Fn(CurrencyId) -> R) {
     let test_with = |currency_id| {
         ExtBuilder::build().execute_with(|| execute(currency_id));
     };
-    test_with(Token(KSM));
-    test_with(Token(DOT));
+    test_with(CurrencyId::KSM);
+    test_with(CurrencyId::DOT);
 }
 
 fn withdraw_vault_global_pool_rewards(vault_id: &VaultId) -> i128 {
-    let amount = VaultRewardsPallet::compute_reward(Token(INTERBTC), vault_id).unwrap();
+    let amount = VaultRewardsPallet::compute_reward(INTERBTC, vault_id).unwrap();
     assert_ok!(Call::Fee(FeeCall::withdraw_rewards {
         vault_id: vault_id.clone(),
         index: None
@@ -72,7 +72,7 @@ fn withdraw_local_pool_rewards(vault_id: &VaultId, nominator_id: &AccountId) -> 
 }
 
 fn get_vault_global_pool_rewards(vault_id: &VaultId) -> i128 {
-    VaultRewardsPallet::compute_reward(Token(INTERBTC), vault_id).unwrap()
+    VaultRewardsPallet::compute_reward(INTERBTC, vault_id).unwrap()
 }
 
 fn get_local_pool_rewards(vault_id: &VaultId, nominator_id: &AccountId) -> i128 {

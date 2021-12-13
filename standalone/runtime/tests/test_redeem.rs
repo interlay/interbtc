@@ -11,7 +11,7 @@ fn test_with<R>(execute: impl Fn(VaultId) -> R) {
             let vault_id = PrimitiveVaultId::new(account_of(VAULT), collateral_id, wrapped_id);
             SecurityPallet::set_active_block_number(1);
             assert_ok!(OraclePallet::_set_exchange_rate(collateral_id, FixedU128::one()));
-            if wrapped_id != Token(INTERBTC) {
+            if wrapped_id != INTERBTC {
                 assert_ok!(OraclePallet::_set_exchange_rate(wrapped_id, FixedU128::one()));
             }
             set_default_thresholds();
@@ -33,10 +33,10 @@ fn test_with<R>(execute: impl Fn(VaultId) -> R) {
         })
     };
 
-    test_with(Token(DOT), Token(KBTC), None);
-    test_with(Token(DOT), Token(INTERBTC), None);
-    test_with(Token(DOT), Token(INTERBTC), Some(Token(KSM)));
-    test_with(Token(KSM), Token(INTERBTC), None);
+    test_with(CurrencyId::DOT, CurrencyId::KBTC, None);
+    test_with(CurrencyId::DOT, CurrencyId::INTERBTC, None);
+    test_with(CurrencyId::DOT, CurrencyId::INTERBTC, Some(CurrencyId::KSM));
+    test_with(CurrencyId::KSM, CurrencyId::INTERBTC, None);
 }
 
 /// to-be-replaced & replace_collateral are decreased in request_redeem
@@ -431,8 +431,8 @@ mod spec_based_tests {
                 let amount_btc = vault_id.wrapped(10000);
 
                 let different_collateral = match vault_id.currencies.collateral {
-                    Token(KSM) => Token(DOT),
-                    _ => Token(KSM),
+                    CurrencyId::KSM => CurrencyId::DOT,
+                    _ => CurrencyId::KSM,
                 };
                 assert_ok!(OraclePallet::_set_exchange_rate(different_collateral, FixedU128::one()));
 
@@ -1166,10 +1166,10 @@ mod spec_based_tests {
                     Call::Redeem(RedeemCall::mint_tokens_for_reimbursed_redeem {
                         currency_pair: VaultCurrencyPair {
                             collateral: vault_id.currencies.collateral,
-                            wrapped: if vault_id.currencies.wrapped == Token(DOT) {
-                                Token(INTERBTC)
+                            wrapped: if vault_id.currencies.wrapped == DOT {
+                                INTERBTC
                             } else {
-                                Token(DOT)
+                                DOT
                             },
                         },
                         redeem_id: redeem_id

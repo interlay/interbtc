@@ -21,7 +21,7 @@ fn test_with<R>(execute: impl Fn(VaultId, VaultId) -> R) {
             assert_ok!(OraclePallet::_set_exchange_rate(old_vault_currency, FixedU128::one()));
             assert_ok!(OraclePallet::_set_exchange_rate(new_vault_currency, FixedU128::one()));
 
-            if wrapped_currency != Token(INTERBTC) {
+            if wrapped_currency != INTERBTC {
                 assert_ok!(OraclePallet::_set_exchange_rate(wrapped_currency, FixedU128::one()));
             }
             set_default_thresholds();
@@ -51,16 +51,21 @@ fn test_with<R>(execute: impl Fn(VaultId, VaultId) -> R) {
             execute(old_vault_id, new_vault_id)
         })
     };
-    test_with(Token(DOT), Token(KSM), Token(KBTC), None);
-    test_with(Token(DOT), Token(DOT), Token(INTERBTC), None);
-    test_with(Token(DOT), Token(DOT), Token(INTERBTC), Some(Token(KSM)));
-    test_with(Token(DOT), Token(KSM), Token(INTERBTC), None);
-    test_with(Token(KSM), Token(DOT), Token(INTERBTC), None);
+    test_with(CurrencyId::DOT, CurrencyId::KSM, CurrencyId::KBTC, None);
+    test_with(CurrencyId::DOT, CurrencyId::DOT, CurrencyId::INTERBTC, None);
+    test_with(
+        CurrencyId::DOT,
+        CurrencyId::DOT,
+        CurrencyId::INTERBTC,
+        Some(CurrencyId::KSM),
+    );
+    test_with(CurrencyId::DOT, CurrencyId::KSM, CurrencyId::INTERBTC, None);
+    test_with(CurrencyId::KSM, CurrencyId::DOT, CurrencyId::INTERBTC, None);
 }
 
 fn test_without_initialization<R>(execute: impl Fn(CurrencyId) -> R) {
-    ExtBuilder::build().execute_with(|| execute(Token(DOT)));
-    ExtBuilder::build().execute_with(|| execute(Token(KSM)));
+    ExtBuilder::build().execute_with(|| execute(CurrencyId::DOT));
+    ExtBuilder::build().execute_with(|| execute(CurrencyId::KSM));
 }
 
 pub fn withdraw_replace(old_vault_id: &VaultId, amount: Amount<Runtime>) -> DispatchResultWithPostInfo {
@@ -264,10 +269,10 @@ mod accept_replace_tests {
     #[test]
     fn integration_test_replace_other_wrapped_currency_fails() {
         test_with(|old_vault_id, new_vault_id| {
-            let other_currency = if let Token(INTERBTC) = old_vault_id.wrapped_currency() {
-                Token(KBTC)
+            let other_currency = if let CurrencyId::INTERBTC = old_vault_id.wrapped_currency() {
+                CurrencyId::KBTC
             } else {
-                Token(INTERBTC)
+                CurrencyId::INTERBTC
             };
             assert_ok!(OraclePallet::_set_exchange_rate(other_currency, FixedU128::one()));
 
@@ -303,8 +308,8 @@ mod request_replace_tests {
             assert_noop!(
                 Call::Replace(ReplaceCall::request_replace {
                     currency_pair: VaultCurrencyPair {
-                        collateral: Token(DOT),
-                        wrapped: Token(DOT),
+                        collateral: DOT,
+                        wrapped: DOT,
                     },
                     amount: 0,
                     griefing_collateral: 0
@@ -1090,10 +1095,10 @@ fn integration_test_replace_vault_with_different_currency_succeeds() {
         set_default_thresholds();
         SecurityPallet::set_active_block_number(1);
 
-        let other_currency = if let Token(DOT) = currency_id {
-            Token(KSM)
+        let other_currency = if let CurrencyId::DOT = currency_id {
+            CurrencyId::KSM
         } else {
-            Token(DOT)
+            CurrencyId::DOT
         };
 
         let old_vault_id = vault_id_of(OLD_VAULT, currency_id);

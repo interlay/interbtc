@@ -5,10 +5,10 @@ use frame_support::traits::Get;
 use frame_system::RawOrigin;
 use oracle::Pallet as Oracle;
 use orml_traits::MultiCurrency;
-use primitives::{CurrencyId, CurrencyId::Token, TokenSymbol::*};
+use primitives::CurrencyId;
 use sp_std::prelude::*;
 
-pub const DEFAULT_TESTING_CURRENCY: CurrencyId = Token(DOT);
+pub const DEFAULT_TESTING_CURRENCY: CurrencyId = CurrencyId::DOT;
 type UnsignedFixedPoint<T> = <T as currency::Config>::UnsignedFixedPoint;
 
 fn wrapped<T: crate::Config>(amount: u32) -> Amount<T> {

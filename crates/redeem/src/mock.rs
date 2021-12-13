@@ -9,7 +9,6 @@ use frame_support::{
 use mocktopus::{macros::mockable, mocking::clear_mocks};
 pub use oracle::{CurrencyId, OracleKey};
 use orml_traits::parameter_type_with_key;
-pub use primitives::{CurrencyId::Token, TokenSymbol::*};
 use primitives::{VaultCurrencyPair, VaultId};
 pub use sp_arithmetic::{FixedI128, FixedPointNumber, FixedU128};
 use sp_core::H256;
@@ -91,18 +90,22 @@ impl frame_system::Config for Test {
     type OnSetCode = ();
 }
 
-pub const DEFAULT_TESTING_CURRENCY: <Test as orml_tokens::Config>::CurrencyId = Token(DOT);
-pub const DEFAULT_WRAPPED_CURRENCY: <Test as orml_tokens::Config>::CurrencyId = Token(INTERBTC);
+pub const DEFAULT_TESTING_CURRENCY: <Test as orml_tokens::Config>::CurrencyId =
+    <Test as orml_tokens::Config>::CurrencyId::DOT;
+pub const DEFAULT_WRAPPED_CURRENCY: <Test as orml_tokens::Config>::CurrencyId =
+    <Test as orml_tokens::Config>::CurrencyId::INTERBTC;
 pub const DEFAULT_CURRENCY_PAIR: VaultCurrencyPair<CurrencyId> = VaultCurrencyPair {
     collateral: DEFAULT_TESTING_CURRENCY,
     wrapped: DEFAULT_WRAPPED_CURRENCY,
 };
-pub const GRIEFING_CURRENCY: CurrencyId = Token(DOT);
+pub const GRIEFING_CURRENCY: CurrencyId = CurrencyId::DOT;
+pub const DOT: CurrencyId = CurrencyId::DOT;
+pub const INTERBTC: CurrencyId = CurrencyId::INTERBTC;
 
 parameter_types! {
-    pub const GetCollateralCurrencyId: CurrencyId = Token(DOT);
-    pub const GetWrappedCurrencyId: CurrencyId = Token(INTERBTC);
-    pub const GetNativeCurrencyId: CurrencyId = Token(KINT);
+    pub const GetCollateralCurrencyId: CurrencyId = DOT;
+    pub const GetWrappedCurrencyId: CurrencyId = INTERBTC;
+    pub const GetNativeCurrencyId: CurrencyId = CurrencyId::KINT;
     pub const MaxLocks: u32 = 50;
 }
 
@@ -319,12 +322,12 @@ impl ExtBuilder {
     pub fn build() -> sp_io::TestExternalities {
         ExtBuilder::build_with(orml_tokens::GenesisConfig::<Test> {
             balances: vec![
-                (USER, Token(DOT), ALICE_BALANCE),
-                (VAULT.account_id, Token(DOT), VAULT_BALANCE),
-                (CAROL, Token(DOT), CAROL_BALANCE),
-                (USER, Token(INTERBTC), ALICE_BALANCE),
-                (VAULT.account_id, Token(INTERBTC), VAULT_BALANCE),
-                (CAROL, Token(INTERBTC), CAROL_BALANCE),
+                (USER, DOT, ALICE_BALANCE),
+                (VAULT.account_id, DOT, VAULT_BALANCE),
+                (CAROL, DOT, CAROL_BALANCE),
+                (USER, INTERBTC, ALICE_BALANCE),
+                (VAULT.account_id, INTERBTC, VAULT_BALANCE),
+                (CAROL, INTERBTC, CAROL_BALANCE),
             ],
         })
     }
@@ -339,7 +342,7 @@ where
         assert_ok!(<oracle::Pallet<Test>>::feed_values(
             Origin::signed(USER),
             vec![
-                (OracleKey::ExchangeRate(Token(DOT)), FixedU128::from(1)),
+                (OracleKey::ExchangeRate(CurrencyId::DOT), FixedU128::from(1)),
                 (OracleKey::FeeEstimation, FixedU128::from(3)),
             ]
         ));

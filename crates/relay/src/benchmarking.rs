@@ -14,7 +14,7 @@ use frame_support::{assert_ok, traits::Get};
 use frame_system::RawOrigin;
 use oracle::Pallet as Oracle;
 use orml_traits::MultiCurrency;
-use primitives::{CurrencyId, CurrencyId::Token, TokenSymbol::*, VaultId};
+use primitives::{CurrencyId, VaultId};
 use security::Pallet as Security;
 use sp_core::{H160, U256};
 use sp_runtime::traits::One;
@@ -29,7 +29,7 @@ use crate::Pallet as Relay;
 
 type UnsignedFixedPoint<T> = <T as currency::Config>::UnsignedFixedPoint;
 
-pub const DEFAULT_TESTING_CURRENCY: CurrencyId = Token(DOT);
+pub const DEFAULT_TESTING_CURRENCY: CurrencyId = CurrencyId::DOT;
 
 fn dummy_public_key() -> BtcPublicKey {
     BtcPublicKey([

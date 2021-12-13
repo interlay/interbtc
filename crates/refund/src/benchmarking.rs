@@ -10,7 +10,7 @@ use btc_relay::{BtcAddress, BtcPublicKey};
 use frame_benchmarking::{account, benchmarks, impl_benchmark_test_suite};
 use frame_support::{assert_ok, traits::Get};
 use frame_system::RawOrigin;
-use primitives::{CurrencyId, CurrencyId::Token, TokenSymbol::*, VaultId};
+use primitives::{CurrencyId, VaultId};
 use sp_core::{H160, H256, U256};
 use sp_runtime::traits::One;
 use sp_std::prelude::*;
@@ -23,7 +23,7 @@ use oracle::Pallet as Oracle;
 use security::Pallet as Security;
 use vault_registry::Pallet as VaultRegistry;
 
-pub const DEFAULT_TESTING_CURRENCY: CurrencyId = Token(DOT);
+pub const DEFAULT_TESTING_CURRENCY: CurrencyId = CurrencyId::DOT;
 
 type UnsignedFixedPoint<T> = <T as currency::Config>::UnsignedFixedPoint;
 

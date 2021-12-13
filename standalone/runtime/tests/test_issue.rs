@@ -12,7 +12,7 @@ fn test_with<R>(execute: impl Fn(VaultId) -> R) {
             for currency_id in iter_collateral_currencies() {
                 assert_ok!(OraclePallet::_set_exchange_rate(currency_id, FixedU128::one()));
             }
-            if wrapped_id != Token(INTERBTC) {
+            if wrapped_id != INTERBTC {
                 assert_ok!(OraclePallet::_set_exchange_rate(wrapped_id, FixedU128::one()));
             }
             UserData::force_to(USER, default_user_state());
@@ -22,9 +22,9 @@ fn test_with<R>(execute: impl Fn(VaultId) -> R) {
             execute(vault_id)
         });
     };
-    test_with(Token(DOT), Token(KBTC));
-    test_with(Token(KSM), Token(INTERBTC));
-    test_with(Token(DOT), Token(INTERBTC));
+    test_with(CurrencyId::DOT, CurrencyId::KBTC);
+    test_with(CurrencyId::KSM, CurrencyId::INTERBTC);
+    test_with(CurrencyId::DOT, CurrencyId::INTERBTC);
 }
 
 fn test_with_initialized_vault<R>(execute: impl Fn(VaultId) -> R) {
@@ -33,10 +33,10 @@ fn test_with_initialized_vault<R>(execute: impl Fn(VaultId) -> R) {
 
         // register a second vault with another currency id
         let mut other_vault = vault_id.clone();
-        other_vault.currencies.collateral = if let Token(DOT) = vault_id.collateral_currency() {
-            Token(KSM)
+        other_vault.currencies.collateral = if let CurrencyId::DOT = vault_id.collateral_currency() {
+            CurrencyId::KSM
         } else {
-            Token(DOT)
+            CurrencyId::DOT
         };
         CoreVaultData::force_to(&other_vault, default_vault_state(&other_vault));
 
@@ -427,8 +427,8 @@ mod request_issue_tests {
             let griefing_collateral = griefing(100);
 
             let different_collateral = match vault_id.currencies.collateral {
-                Token(KSM) => Token(DOT),
-                _ => Token(KSM),
+                CurrencyId::KSM => CurrencyId::DOT,
+                _ => CurrencyId::KSM,
             };
             let different_collateral_vault_id = PrimitiveVaultId::new(
                 vault_id.account_id.clone(),

@@ -6,7 +6,6 @@ use frame_support::{
 };
 use mocktopus::mocking::clear_mocks;
 use orml_traits::parameter_type_with_key;
-pub use primitives::{CurrencyId::Token, TokenSymbol::*};
 use sp_arithmetic::{FixedI128, FixedU128};
 use sp_core::H256;
 use sp_runtime::{
@@ -78,10 +77,13 @@ impl frame_system::Config for Test {
     type OnSetCode = ();
 }
 
+pub const DOT: CurrencyId = CurrencyId::DOT;
+pub const INTERBTC: CurrencyId = CurrencyId::INTERBTC;
+
 parameter_types! {
-    pub const GetCollateralCurrencyId: CurrencyId = Token(DOT);
-    pub const GetWrappedCurrencyId: CurrencyId = Token(INTERBTC);
-    pub const GetNativeCurrencyId: CurrencyId = Token(KINT);
+    pub const GetCollateralCurrencyId: CurrencyId = DOT;
+    pub const GetWrappedCurrencyId: CurrencyId = INTERBTC;
+    pub const GetNativeCurrencyId: CurrencyId = CurrencyId::KINT;
     pub const MaxLocks: u32 = 50;
 }
 

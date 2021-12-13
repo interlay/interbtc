@@ -18,8 +18,8 @@ fn test_with<R>(execute: impl Fn(CurrencyId) -> R) {
             execute(currency_id)
         })
     };
-    test_with(Token(DOT));
-    test_with(Token(KSM));
+    test_with(CurrencyId::DOT);
+    test_with(CurrencyId::KSM);
 }
 
 fn setup_vault_for_potential_double_spend(
@@ -500,7 +500,7 @@ fn integration_test_relay_parachain_status_check_fails() {
         );
         assert_noop!(
             Call::Relay(RelayCall::report_vault_theft {
-                vault_id: vault_id_of(ALICE, Token(DOT)),
+                vault_id: vault_id_of(ALICE, DOT),
                 raw_merkle_proof: Default::default(),
                 raw_tx: Default::default()
             })
