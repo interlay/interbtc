@@ -1,10 +1,16 @@
 mod mock;
 
-use frame_support::traits::OnInitialize;
+use codec::Encode;
+use frame_support::traits::{Currency, OnInitialize};
 use mock::{assert_eq, *};
+use sp_runtime::Permill;
 
-type AnnuityPallet = annuity::Pallet<Runtime, VaultAnnuityInstance>;
-type AnnuityEvent = annuity::Event<Runtime, VaultAnnuityInstance>;
+type EscrowAnnuityPallet = annuity::Pallet<Runtime, EscrowAnnuityInstance>;
+
+type VaultAnnuityPallet = annuity::Pallet<Runtime, VaultAnnuityInstance>;
+type VaultAnnuityEvent = annuity::Event<Runtime, VaultAnnuityInstance>;
+
+type SupplyPallet = supply::Pallet<Runtime>;
 
 const NATIVE_CURRENCY_ID: CurrencyId = Token(INTR);
 
@@ -13,7 +19,7 @@ fn get_last_reward() -> u128 {
         .iter()
         .rev()
         .find_map(|record| {
-            if let Event::VaultAnnuity(AnnuityEvent::BlockReward(reward)) = record.event {
+            if let Event::VaultAnnuity(VaultAnnuityEvent::BlockReward(reward)) = record.event {
                 Some(reward)
             } else {
                 None
@@ -26,19 +32,19 @@ fn get_last_reward() -> u128 {
 fn integration_test_annuity() {
     ExtBuilder::build().execute_with(|| {
         assert_ok!(Call::Tokens(TokensCall::set_balance {
-            who: AnnuityPallet::account_id(),
+            who: VaultAnnuityPallet::account_id(),
             currency_id: NATIVE_CURRENCY_ID,
             new_free: 10_000_000_000_000,
             new_reserved: 0,
         })
         .dispatch(root()));
-        AnnuityPallet::update_reward_per_block();
-        AnnuityPallet::on_initialize(1);
+        VaultAnnuityPallet::update_reward_per_block();
+        VaultAnnuityPallet::on_initialize(1);
 
         let emission_period = <Runtime as annuity::Config<VaultAnnuityInstance>>::EmissionPeriod::get() as u128;
         let expected_reward = 10_000_000_000_000 / emission_period as u128;
         for i in 1..1000 {
-            AnnuityPallet::on_initialize(i);
+            VaultAnnuityPallet::on_initialize(i);
             assert_eq!(get_last_reward(), expected_reward);
         }
     })
@@ -47,48 +53,207 @@ fn integration_test_annuity() {
 #[test]
 fn rewards_are_not_distributed_if_annuity_has_no_balance() {
     ExtBuilder::build().execute_with(|| {
-        AnnuityPallet::update_reward_per_block();
-        AnnuityPallet::on_initialize(1);
+        VaultAnnuityPallet::update_reward_per_block();
+        VaultAnnuityPallet::on_initialize(1);
 
         let expected_reward = 0;
         for i in 1..1000 {
-            AnnuityPallet::on_initialize(i);
+            VaultAnnuityPallet::on_initialize(i);
             assert_eq!(get_last_reward(), expected_reward);
         }
     })
 }
 
 #[test]
-fn supply_vault_and_stake_to_vote_rewards_via_governance_from_supply_pallet() {
+fn should_distribute_vault_rewards_from_supply() {
     ExtBuilder::build().execute_with(|| {
-        // TODO: verify that initial supply is the token total supply
+        // full distribution is minted on genesis
+        assert_eq!(
+            NativeCurrency::total_balance(&SupplyPallet::account_id()),
+            token_distribution::INITIAL_ALLOCATION
+        );
 
-        // TODO: distribute the four year supply (300 million INTR) for the vault block rewards to
-        // the vault annuity pallet via a scheduled governance proposal such that:
+        // distribute the four year supply (300 million INTR) for the vault block rewards
+        let total_rewards = Permill::from_percent(30) * token_distribution::INITIAL_ALLOCATION;
+        // NOTE: start height cannot be the current height or in the past
+        let start_height = SystemPallet::block_number() + 1;
+        assert_ok!(Call::Utility(UtilityCall::batch {
+            calls: vec![
+                Call::Scheduler(SchedulerCall::schedule_named {
+                    id: "Year 1".encode(),
+                    when: start_height + YEARS * 0,
+                    maybe_periodic: None,
+                    priority: 63,
+                    call: Box::new(Call::Tokens(TokensCall::force_transfer {
+                        source: SupplyPallet::account_id(),
+                        dest: VaultAnnuityPallet::account_id(),
+                        currency_id: NATIVE_CURRENCY_ID,
+                        amount: Permill::from_percent(40) * total_rewards,
+                    })),
+                }),
+                Call::Scheduler(SchedulerCall::schedule_named {
+                    id: "Year 2".encode(),
+                    when: start_height + YEARS * 1,
+                    maybe_periodic: None,
+                    priority: 63,
+                    call: Box::new(Call::Tokens(TokensCall::force_transfer {
+                        source: SupplyPallet::account_id(),
+                        dest: VaultAnnuityPallet::account_id(),
+                        currency_id: NATIVE_CURRENCY_ID,
+                        amount: Permill::from_percent(30) * total_rewards,
+                    })),
+                }),
+                Call::Scheduler(SchedulerCall::schedule_named {
+                    id: "Year 3".encode(),
+                    when: start_height + YEARS * 2,
+                    maybe_periodic: None,
+                    priority: 63,
+                    call: Box::new(Call::Tokens(TokensCall::force_transfer {
+                        source: SupplyPallet::account_id(),
+                        dest: VaultAnnuityPallet::account_id(),
+                        currency_id: NATIVE_CURRENCY_ID,
+                        amount: Permill::from_percent(20) * total_rewards,
+                    })),
+                }),
+                Call::Scheduler(SchedulerCall::schedule_named {
+                    id: "Year 4".encode(),
+                    when: start_height + YEARS * 3,
+                    maybe_periodic: None,
+                    priority: 63,
+                    call: Box::new(Call::Tokens(TokensCall::force_transfer {
+                        source: SupplyPallet::account_id(),
+                        dest: VaultAnnuityPallet::account_id(),
+                        currency_id: NATIVE_CURRENCY_ID,
+                        amount: Permill::from_percent(10) * total_rewards,
+                    })),
+                })
+            ],
+        })
+        .dispatch(root()));
+
         // Year 1: 120 million INTR are distributed to the vault annuity pallet
+        SchedulerPallet::on_initialize(start_height + YEARS * 0);
+        assert_eq!(
+            NativeCurrency::total_balance(&VaultAnnuityPallet::account_id()),
+            Permill::from_percent(40) * total_rewards
+        );
+
         // Year 2: 90 million INTR are distributed to the vault annuity pallet
+        SchedulerPallet::on_initialize(start_height + YEARS * 1);
+        assert_eq!(
+            NativeCurrency::total_balance(&VaultAnnuityPallet::account_id()),
+            Permill::from_percent(70) * total_rewards
+        );
+
         // Year 3: 60 million INTR are distributed to the vault annuity pallet
+        SchedulerPallet::on_initialize(start_height + YEARS * 2);
+        assert_eq!(
+            NativeCurrency::total_balance(&VaultAnnuityPallet::account_id()),
+            Permill::from_percent(90) * total_rewards
+        );
+
         // Year 4: 30 million INTR are distributed to the vault annuity pallet
-        // The funds should come from the supply pallet and not be newly minted
+        SchedulerPallet::on_initialize(start_height + YEARS * 3);
+        assert_eq!(
+            NativeCurrency::total_balance(&VaultAnnuityPallet::account_id()),
+            Permill::from_percent(100) * total_rewards
+        );
+    })
+}
 
-        // TODO: distribute the four year supply (50 million INTR) for the stake to vote rewards to
-        // the stake to vote annuity pallet via a scheduled governance proposal such that:
-        // Year 1: 20 million INTR are distributed to the stake-to-vote annuity pallet
-        // Year 2: 15 million INTR are distributed to the stake-to-vote annuity pallet
-        // Year 3: 10 million INTR are distributed to the stake-to-vote annuity pallet
-        // Year 4: 5 million INTR are distributed to the stake-to-vote annuity pallet
-        // The funds should come from the supply pallet and not be newly minted
+#[test]
+fn should_distribute_escrow_rewards_from_supply() {
+    ExtBuilder::build().execute_with(|| {
+        // full distribution is minted on genesis
+        assert_eq!(
+            NativeCurrency::total_balance(&SupplyPallet::account_id()),
+            token_distribution::INITIAL_ALLOCATION
+        );
 
-        // TODO: initialize the annuity pallets
-        // TODO: verify the block rewards to vaults in year 1, 2, 3, and 4
-        // TODO: verify the block rewards for stake to vote in year 1, 2, 3, and 4
-        AnnuityPallet::update_reward_per_block();
-        AnnuityPallet::on_initialize(1);
+        // distribute the four year supply (50 million INTR) for the stake to vote rewards
+        let total_rewards = Permill::from_percent(5) * token_distribution::INITIAL_ALLOCATION;
+        // NOTE: start height cannot be the current height or in the past
+        let start_height = SystemPallet::block_number() + 1;
+        assert_ok!(Call::Utility(UtilityCall::batch {
+            calls: vec![
+                Call::Scheduler(SchedulerCall::schedule_named {
+                    id: "Year 1".encode(),
+                    when: start_height + YEARS * 0,
+                    maybe_periodic: None,
+                    priority: 63,
+                    call: Box::new(Call::Tokens(TokensCall::force_transfer {
+                        source: SupplyPallet::account_id(),
+                        dest: EscrowAnnuityPallet::account_id(),
+                        currency_id: NATIVE_CURRENCY_ID,
+                        amount: Permill::from_percent(25) * total_rewards,
+                    })),
+                }),
+                Call::Scheduler(SchedulerCall::schedule_named {
+                    id: "Year 2".encode(),
+                    when: start_height + YEARS * 1,
+                    maybe_periodic: None,
+                    priority: 63,
+                    call: Box::new(Call::Tokens(TokensCall::force_transfer {
+                        source: SupplyPallet::account_id(),
+                        dest: EscrowAnnuityPallet::account_id(),
+                        currency_id: NATIVE_CURRENCY_ID,
+                        amount: Permill::from_percent(25) * total_rewards,
+                    })),
+                }),
+                Call::Scheduler(SchedulerCall::schedule_named {
+                    id: "Year 3".encode(),
+                    when: start_height + YEARS * 2,
+                    maybe_periodic: None,
+                    priority: 63,
+                    call: Box::new(Call::Tokens(TokensCall::force_transfer {
+                        source: SupplyPallet::account_id(),
+                        dest: EscrowAnnuityPallet::account_id(),
+                        currency_id: NATIVE_CURRENCY_ID,
+                        amount: Permill::from_percent(25) * total_rewards,
+                    })),
+                }),
+                Call::Scheduler(SchedulerCall::schedule_named {
+                    id: "Year 4".encode(),
+                    when: start_height + YEARS * 3,
+                    maybe_periodic: None,
+                    priority: 63,
+                    call: Box::new(Call::Tokens(TokensCall::force_transfer {
+                        source: SupplyPallet::account_id(),
+                        dest: EscrowAnnuityPallet::account_id(),
+                        currency_id: NATIVE_CURRENCY_ID,
+                        amount: Permill::from_percent(25) * total_rewards,
+                    })),
+                })
+            ],
+        })
+        .dispatch(root()));
 
-        let expected_reward = 0;
-        for i in 1..1000 {
-            AnnuityPallet::on_initialize(i);
-            assert_eq!(get_last_reward(), expected_reward);
-        }
+        // Year 1: 12,500,000 INTR are distributed to the stake-to-vote annuity pallet
+        SchedulerPallet::on_initialize(start_height + YEARS * 0);
+        assert_eq!(
+            NativeCurrency::total_balance(&EscrowAnnuityPallet::account_id()),
+            Permill::from_percent(25) * total_rewards
+        );
+
+        // Year 2: 12,500,000 INTR are distributed to the stake-to-vote annuity pallet
+        SchedulerPallet::on_initialize(start_height + YEARS * 1);
+        assert_eq!(
+            NativeCurrency::total_balance(&EscrowAnnuityPallet::account_id()),
+            Permill::from_percent(50) * total_rewards
+        );
+
+        // Year 3: 12,500,000 INTR are distributed to the stake-to-vote annuity pallet
+        SchedulerPallet::on_initialize(start_height + YEARS * 2);
+        assert_eq!(
+            NativeCurrency::total_balance(&EscrowAnnuityPallet::account_id()),
+            Permill::from_percent(75) * total_rewards
+        );
+
+        // Year 4: 12,500,000 INTR are distributed to the stake-to-vote annuity pallet
+        SchedulerPallet::on_initialize(start_height + YEARS * 3);
+        assert_eq!(
+            NativeCurrency::total_balance(&EscrowAnnuityPallet::account_id()),
+            Permill::from_percent(100) * total_rewards
+        );
     })
 }
