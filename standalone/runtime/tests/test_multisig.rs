@@ -1,7 +1,7 @@
 mod mock;
 
-use frame_support::traits::Currency;
 use mock::{assert_eq, *};
+use orml_tokens::AccountData;
 use orml_vesting::VestingSchedule;
 use primitives::VaultCurrencyPair;
 use sp_core::{Encode, H256};
@@ -10,12 +10,12 @@ type VestingCall = orml_vesting::Call<Runtime>;
 type UtilityCall = pallet_utility::Call<Runtime>;
 
 #[test]
-fn integration_test_multisig_transfer() {
+fn integration_test_transfer_from_multisig_to_vested() {
     ExtBuilder::build().execute_with(|| {
         // step 0: clear eve's balance for easier testing
         assert_ok!(Call::Tokens(TokensCall::set_balance {
             who: account_of(EVE),
-            currency_id: Token(DOT),
+            currency_id: Token(INTR),
             new_free: 0,
             new_reserved: 0,
         })
@@ -25,7 +25,7 @@ fn integration_test_multisig_transfer() {
         let multisig_account = MultiSigPallet::multi_account_id(&vec![account_of(ALICE), account_of(BOB)], 2);
         assert_ok!(Call::Tokens(TokensCall::set_balance {
             who: multisig_account.clone(),
-            currency_id: Token(DOT),
+            currency_id: Token(INTR),
             new_free: 20_000_000_000_001,
             new_reserved: 0,
         })
@@ -34,7 +34,7 @@ fn integration_test_multisig_transfer() {
         // step 2: submit a call, to be executed from the shared account
         let call = Call::Tokens(TokensCall::transfer {
             dest: account_of(EVE),
-            currency_id: Token(DOT),
+            currency_id: Token(INTR),
             amount: 20_000_000_000_001,
         })
         .encode();
@@ -49,7 +49,14 @@ fn integration_test_multisig_transfer() {
         .dispatch(origin_of(account_of(ALICE))));
 
         // step 2a: balance should not have changed yet - the call is not executed yet
-        assert_eq!(CollateralCurrency::total_balance(&account_of(EVE)), 0);
+        assert_eq!(
+            TokensPallet::accounts(account_of(EVE), Token(INTR)),
+            AccountData {
+                free: 0,
+                reserved: 0,
+                frozen: 0,
+            }
+        );
 
         // step 3: get the timepoint at which the call was made. In production, you would get this
         // from the event metadata, or from storage
@@ -65,12 +72,19 @@ fn integration_test_multisig_transfer() {
         })
         .dispatch(origin_of(account_of(BOB))));
         // step 4a: check that the call is now executed
-        assert_eq!(CollateralCurrency::total_balance(&account_of(EVE)), 20_000_000_000_001);
+        assert_eq!(
+            TokensPallet::accounts(account_of(EVE), Token(INTR)),
+            AccountData {
+                free: 20_000_000_000_001,
+                reserved: 0,
+                frozen: 0,
+            }
+        );
     });
 }
 
 #[test]
-fn integration_test_multisig_vesting() {
+fn integration_test_transfer_from_multisig_to_unvested() {
     ExtBuilder::build().execute_with(|| {
         let vesting_amount = 30_000_000;
         let multisig_account = MultiSigPallet::multi_account_id(&vec![account_of(ALICE), account_of(BOB)], 2);
@@ -123,6 +137,88 @@ fn integration_test_multisig_vesting() {
                 .max()
                 .unwrap_or_default(),
             vesting_amount
+        );
+        assert_eq!(
+            TokensPallet::accounts(account_of(EVE), Token(INTR)),
+            AccountData {
+                free: vesting_amount,
+                reserved: 0,
+                frozen: vesting_amount,
+            }
+        );
+    });
+}
+
+#[test]
+fn integration_test_transfer_to_vested_multisig() {
+    ExtBuilder::build().execute_with(|| {
+        // step 0: setup eve's balance
+        assert_ok!(Call::Tokens(TokensCall::set_balance {
+            who: account_of(EVE),
+            currency_id: Token(INTR),
+            new_free: 20_000_000_000_001,
+            new_reserved: 0,
+        })
+        .dispatch(root()));
+
+        // calculate accountid for the multisig
+        let multisig_account = MultiSigPallet::multi_account_id(&vec![account_of(ALICE), account_of(BOB)], 2);
+
+        // transfer to the multisig
+        assert_ok!(Call::Tokens(TokensCall::transfer {
+            dest: multisig_account.clone(),
+            currency_id: Token(INTR),
+            amount: 20_000_000_000_001,
+        })
+        .dispatch(origin_of(account_of(EVE))));
+
+        assert_eq!(
+            TokensPallet::accounts(multisig_account, Token(INTR)),
+            AccountData {
+                free: 20_000_000_000_001,
+                reserved: 0,
+                frozen: 0,
+            }
+        );
+    });
+}
+
+#[test]
+fn integration_test_transfer_to_unvested_multisig() {
+    // not sure this case would ever be used, best we have a test for it anyway..
+    ExtBuilder::build().execute_with(|| {
+        let vesting_amount = 30_000_000;
+        // step 0: setup eve's balance
+        assert_ok!(Call::Tokens(TokensCall::set_balance {
+            who: account_of(EVE),
+            currency_id: Token(INTR),
+            new_free: vesting_amount * 2,
+            new_reserved: 0,
+        })
+        .dispatch(root()));
+
+        // calculate accountid for the multisig
+        let multisig_account = MultiSigPallet::multi_account_id(&vec![account_of(ALICE), account_of(BOB)], 2);
+
+        // transfer to the multisig
+        assert_ok!(Call::Vesting(VestingCall::vested_transfer {
+            dest: multisig_account.clone(),
+            schedule: VestingSchedule {
+                start: 0,
+                period: 10,
+                period_count: 100,
+                per_period: vesting_amount / 100,
+            },
+        })
+        .dispatch(origin_of(account_of(EVE))));
+
+        assert_eq!(
+            TokensPallet::accounts(multisig_account, Token(INTR)),
+            AccountData {
+                free: vesting_amount,
+                reserved: 0,
+                frozen: vesting_amount,
+            }
         );
     });
 }
