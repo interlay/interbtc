@@ -4,7 +4,8 @@ use frame_support::traits::Currency;
 use mock::{assert_eq, *};
 use orml_vesting::VestingSchedule;
 use primitives::VaultCurrencyPair;
-use sp_core::{Encode, H256};
+use sp_core::{crypto::Ss58Codec, Encode, H256};
+use sp_std::str::FromStr;
 
 type VestingCall = orml_vesting::Call<Runtime>;
 type UtilityCall = pallet_utility::Call<Runtime>;
@@ -205,4 +206,31 @@ fn integration_test_batched_multisig_vesting() {
             );
         }
     });
+}
+
+// multisig may produce an invalid address if inputs are not sorted
+fn sort_addresses(entries: Vec<AccountId>) -> Vec<AccountId> {
+    let mut signatories = entries.clone();
+    signatories.sort_by(|left, right| left.cmp(right));
+    signatories
+}
+
+#[test]
+fn should_calculate_sorted_multisig_address() {
+    ExtBuilder::build().execute_with(|| {
+        // 0xb42637741a394e89426e8026536090c23647fdc0cccd1156785d84ff87ed2eb0
+        let multisig_account = MultiSigPallet::multi_account_id(
+            &sort_addresses(vec![
+                AccountId::from_str("5Gn1vqSHnzz61gfXK1wRBcbKtPcSPmxKrpihApnTuvA7NJnj").unwrap(),
+                AccountId::from_str("5CyPQSfoHdb626qGyH16D1DJKjxQtZxbF4pbKzTRRGyCchEx").unwrap(),
+                AccountId::from_str("5EEj6K6FFDBuMwfS1DtxMDdumWGjqNq34nnbUsFH4vQRfjQi").unwrap(),
+                AccountId::from_str("5D2xxiX1ACobFxxD4gvD7pmQRg7q2yi94n4JjtGRHsnh3gns").unwrap(),
+            ]),
+            2,
+        );
+        assert_eq!(
+            "5DnWh2e4Fi2iDeEjNYMr5iU1RJ4cnG2X7tZcwcFgxJkBrBXX",
+            multisig_account.to_ss58check()
+        );
+    })
 }
