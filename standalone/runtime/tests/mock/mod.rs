@@ -16,8 +16,9 @@ pub use frame_support::{
 };
 use interbtc_runtime_standalone::GetNativeCurrencyId;
 pub use interbtc_runtime_standalone::{
-    AccountId, BlockNumber, Call, CurrencyId, Event, GetCollateralCurrencyId, GetWrappedCurrencyId, Runtime,
-    TechnicalCommitteeInstance, VaultAnnuityInstance, VaultRewardsInstance,
+    token_distribution, AccountId, BlockNumber, Call, CurrencyId, EscrowAnnuityInstance, Event,
+    GetCollateralCurrencyId, GetWrappedCurrencyId, Runtime, TechnicalCommitteeInstance, VaultAnnuityInstance,
+    VaultRewardsInstance, YEARS,
 };
 pub use mocktopus::mocking::*;
 pub use orml_tokens::CurrencyAdapter;
@@ -169,6 +170,11 @@ pub type NominationCall = nomination::Call<Runtime>;
 pub type NominationError = nomination::Error<Runtime>;
 pub type NominationEvent = nomination::Event<Runtime>;
 pub type NominationPallet = nomination::Pallet<Runtime>;
+
+pub type UtilityCall = pallet_utility::Call<Runtime>;
+
+pub type SchedulerCall = pallet_scheduler::Call<Runtime>;
+pub type SchedulerPallet = pallet_scheduler::Pallet<Runtime>;
 
 pub const DEFAULT_TESTING_CURRENCY: <Runtime as orml_tokens::Config>::CurrencyId = Token(DOT);
 pub const DEFAULT_WRAPPED_CURRENCY: <Runtime as orml_tokens::Config>::CurrencyId = Token(INTERBTC);
@@ -1374,6 +1380,14 @@ impl ExtBuilder {
         pallet_collective::GenesisConfig::<Runtime, TechnicalCommitteeInstance> {
             members: vec![account_of(ALICE)],
             phantom: Default::default(),
+        }
+        .assimilate_storage(&mut storage)
+        .unwrap();
+
+        supply::GenesisConfig::<Runtime> {
+            initial_supply: token_distribution::INITIAL_ALLOCATION,
+            start_height: YEARS * 5,
+            inflation: FixedU128::checked_from_rational(2, 100).unwrap(), // 2%
         }
         .assimilate_storage(&mut storage)
         .unwrap();

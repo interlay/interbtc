@@ -7,7 +7,6 @@ use primitives::VaultCurrencyPair;
 use sp_core::{Encode, H256};
 
 type VestingCall = orml_vesting::Call<Runtime>;
-type UtilityCall = pallet_utility::Call<Runtime>;
 
 #[test]
 fn integration_test_multisig_transfer() {

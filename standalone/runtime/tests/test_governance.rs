@@ -18,8 +18,6 @@ type DemocracyError = democracy::Error<Runtime>;
 type EscrowCall = escrow::Call<Runtime>;
 type EscrowError = escrow::Error<Runtime>;
 
-type SchedulerPallet = pallet_scheduler::Pallet<Runtime>;
-
 type TechnicalCommitteeCall = pallet_collective::Call<Runtime, TechnicalCommitteeInstance>;
 type TechnicalCommitteeEvent = pallet_collective::Event<Runtime, TechnicalCommitteeInstance>;
 
