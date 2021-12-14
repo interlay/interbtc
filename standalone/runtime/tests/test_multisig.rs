@@ -10,7 +10,7 @@ type VestingCall = orml_vesting::Call<Runtime>;
 type UtilityCall = pallet_utility::Call<Runtime>;
 
 #[test]
-fn integration_test_transfer_from_multisig_to_unvested() {
+fn integration_test_transfer_from_multisig_to_vested() {
     ExtBuilder::build().execute_with(|| {
         // step 0: clear eve's balance for easier testing
         assert_ok!(Call::Tokens(TokensCall::set_balance {
@@ -84,7 +84,7 @@ fn integration_test_transfer_from_multisig_to_unvested() {
 }
 
 #[test]
-fn integration_test_transfer_from_multisig_to_vested() {
+fn integration_test_transfer_from_multisig_to_unvested() {
     ExtBuilder::build().execute_with(|| {
         let vesting_amount = 30_000_000;
         let multisig_account = MultiSigPallet::multi_account_id(&vec![account_of(ALICE), account_of(BOB)], 2);
@@ -150,7 +150,7 @@ fn integration_test_transfer_from_multisig_to_vested() {
 }
 
 #[test]
-fn integration_test_transfer_to_unvested_multisig() {
+fn integration_test_transfer_to_vested_multisig() {
     ExtBuilder::build().execute_with(|| {
         // step 0: setup eve's balance
         assert_ok!(Call::Tokens(TokensCall::set_balance {
@@ -184,7 +184,7 @@ fn integration_test_transfer_to_unvested_multisig() {
 }
 
 #[test]
-fn integration_test_transfer_to_vested_multisig() {
+fn integration_test_transfer_to_unvested_multisig() {
     // not sure this case would ever be used, best we have a test for it anyway..
     ExtBuilder::build().execute_with(|| {
         let vesting_amount = 30_000_000;
