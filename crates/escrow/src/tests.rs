@@ -118,9 +118,33 @@ fn should_calculate_total_supply() {
         System::set_block_number(current_time);
         create_lock(BOB, amount_2, end_time_2);
 
-        assert_eq!(Escrow::balance_at(&ALICE, Some(current_time)), 600);
-        assert_eq!(Escrow::balance_at(&BOB, Some(current_time)), 2000);
-        assert_eq!(Escrow::total_supply(Some(current_time)), 2600);
+        assert_eq!(Escrow::balance_at(&ALICE, None), 600);
+        assert_eq!(Escrow::balance_at(&BOB, None), 2000);
+        assert_eq!(Escrow::total_supply(None), 2600);
+    })
+}
+
+#[test]
+fn should_calculate_total_supply_after_withdraw() {
+    run_test(|| {
+        let end_time_1 = 100;
+        let amount_1 = 1000;
+
+        create_lock(ALICE, amount_1, end_time_1);
+
+        let end_time_2 = 140;
+        let amount_2 = 2000;
+
+        let current_time = 40;
+        System::set_block_number(current_time);
+        create_lock(BOB, amount_2, end_time_2);
+
+        System::set_block_number(end_time_1);
+        assert_eq!(Escrow::balance_at(&ALICE, None), 0);
+        assert_ok!(Escrow::withdraw(Origin::signed(ALICE)));
+
+        assert_eq!(Escrow::balance_at(&BOB, None), 800);
+        assert_eq!(Escrow::total_supply(None), 800);
     })
 }
 
