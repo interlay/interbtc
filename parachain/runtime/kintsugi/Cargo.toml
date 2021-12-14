@@ -88,7 +88,6 @@ reward = { path = "../../../crates/reward", default-features = false }
 staking = { path = "../../../crates/staking", default-features = false }
 escrow = { path = "../../../crates/escrow", default-features = false }
 democracy = { path = "../../../crates/democracy", default-features = false }
-
 annuity = { path = "../../../crates/annuity", default-features = false }
 supply = { path = "../../../crates/supply", default-features = false }
 
@@ -203,7 +202,6 @@ std = [
   "staking/std",
   "escrow/std",
   "democracy/std",
-
   "annuity/std",
   "supply/std",
 

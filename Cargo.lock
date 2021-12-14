@@ -3397,6 +3397,7 @@ dependencies = [
  "sp-version",
  "staking",
  "substrate-wasm-builder",
+ "supply",
  "vault-registry",
 ]
 

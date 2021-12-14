@@ -1,10 +1,11 @@
 use bitcoin::utils::{virtual_transaction_size, InputType, TransactionInputMetadata, TransactionOutputMetadata};
 use hex_literal::hex;
 use interbtc_runtime::{
-    AccountId, AuraConfig, BTCRelayConfig, CurrencyId, CurrencyId::Token, FeeConfig, GenesisConfig,
+    token_distribution, AccountId, AuraConfig, BTCRelayConfig, CurrencyId, CurrencyId::Token, FeeConfig, GenesisConfig,
     GetWrappedCurrencyId, GrandpaConfig, IssueConfig, NominationConfig, OracleConfig, RedeemConfig, RefundConfig,
-    ReplaceConfig, SecurityConfig, Signature, StatusCode, SudoConfig, SystemConfig, TechnicalCommitteeConfig,
-    TokenSymbol, TokensConfig, VaultRegistryConfig, BITCOIN_BLOCK_SPACING, DAYS, DOT, INTR, KINT, KSM, WASM_BINARY,
+    ReplaceConfig, SecurityConfig, Signature, StatusCode, SudoConfig, SupplyConfig, SystemConfig,
+    TechnicalCommitteeConfig, TokenSymbol, TokensConfig, VaultRegistryConfig, BITCOIN_BLOCK_SPACING, DAYS, DOT, INTR,
+    KINT, KSM, WASM_BINARY, YEARS,
 };
 use primitives::VaultCurrencyPair;
 use sp_consensus_aura::sr25519::AuthorityId as AuraId;
@@ -368,5 +369,10 @@ fn testnet_genesis(
         technical_membership: Default::default(),
         treasury: Default::default(),
         democracy: Default::default(),
+        supply: SupplyConfig {
+            initial_supply: token_distribution::INITIAL_ALLOCATION,
+            start_height: YEARS * 5,
+            inflation: FixedU128::checked_from_rational(2, 100).unwrap(), // 2%
+        },
     }
 }
