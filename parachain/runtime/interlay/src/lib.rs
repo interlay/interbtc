@@ -975,7 +975,7 @@ impl annuity::Config<EscrowAnnuityInstance> for Runtime {
     type AnnuityPalletId = EscrowAnnuityPalletId;
     type Event = Event;
     type Currency = NativeCurrency;
-    type BlockRewardProvider = VaultBlockRewardProvider;
+    type BlockRewardProvider = EscrowBlockRewardProvider;
     type BlockNumberToBalance = BlockNumberToBalance;
     type EmissionPeriod = EmissionPeriod;
 }
