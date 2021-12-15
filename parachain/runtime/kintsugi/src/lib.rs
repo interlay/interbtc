@@ -62,9 +62,13 @@ pub use primitives::{
 // XCM imports
 use cumulus_primitives_core::ParaId;
 use orml_xcm_support::{IsNativeConcrete, MultiCurrencyAdapter, MultiNativeAsset};
+use pallet_transaction_payment::{Multiplier, TargetedFeeAdjustment};
 use pallet_xcm::XcmPassthrough;
 use polkadot_parachain::primitives::Sibling;
-use sp_runtime::traits::{BlockNumberProvider, Convert};
+use sp_runtime::{
+    traits::{BlockNumberProvider, Convert},
+    FixedPointNumber, Perquintill,
+};
 use xcm::{
     v1::{prelude::*, MultiAsset, MultiLocation, NetworkId},
     AlwaysV1,
@@ -283,9 +287,22 @@ impl pallet_timestamp::Config for Runtime {
     type WeightInfo = ();
 }
 
+pub type SlowAdjustingFeeUpdate<R> =
+    TargetedFeeAdjustment<R, TargetBlockFullness, AdjustmentVariable, MinimumMultiplier>;
+
 parameter_types! {
     pub const TransactionByteFee: Balance = 0;  // TODO: this is 0 so that we can do runtime upgrade without fees. Restore value afterwards!
     pub OperationalFeeMultiplier: u8 = 5;
+    /// The portion of the `NORMAL_DISPATCH_RATIO` that we adjust the fees with. Blocks filled less
+    /// than this will decrease the weight and more will increase.
+    pub const TargetBlockFullness: Perquintill = Perquintill::from_percent(25);
+    /// The adjustment variable of the runtime. Higher values will cause `TargetBlockFullness` to
+    /// change the fees more rapidly.
+    pub AdjustmentVariable: Multiplier = Multiplier::saturating_from_rational(3, 100_000);
+    /// Minimum amount of the multiplier. This value cannot be too low. A test case should ensure
+    /// that combined with `AdjustmentVariable`, we can recover from the minimum.
+    /// See `multiplier_can_grow_from_zero`.
+    pub MinimumMultiplier: Multiplier = Multiplier::saturating_from_rational(1u128, 1_000_000u128);
 }
 
 type NegativeImbalance<T, GetCurrencyId> = <orml_tokens::CurrencyAdapter<T, GetCurrencyId> as PalletCurrency<
@@ -317,7 +334,7 @@ impl pallet_transaction_payment::Config for Runtime {
     >;
     type TransactionByteFee = TransactionByteFee;
     type WeightToFee = IdentityFee<Balance>;
-    type FeeMultiplierUpdate = ();
+    type FeeMultiplierUpdate = SlowAdjustingFeeUpdate<Self>;
     type OperationalFeeMultiplier = OperationalFeeMultiplier;
 }
 
