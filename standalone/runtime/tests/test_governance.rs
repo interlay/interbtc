@@ -661,3 +661,96 @@ fn integration_test_proposing_and_voting_only_possible_with_staked_tokens() {
         assert_eq!(amount_to_fund, CollateralCurrency::total_balance(&account_of(EVE)))
     });
 }
+
+fn get_free_vkint(account: AccountId) -> Balance {
+    <Runtime as democracy::Config>::Currency::free_balance(&account)
+}
+
+#[test]
+fn integration_test_proposal_vkint_gets_released_on_regular_launch() {
+    test_with(|| {
+        let minimum_proposal_value = <Runtime as democracy::Config>::MinimumDeposit::get();
+        assert!(minimum_proposal_value > 0); // sanity check - the test would be useless otherwise
+
+        set_free_balance(account_of(CAROL), 10 * minimum_proposal_value);
+        create_lock(account_of(CAROL), 5 * minimum_proposal_value);
+
+        let start_vkint_alice = get_free_vkint(account_of(ALICE));
+        let start_vkint_carol = get_free_vkint(account_of(CAROL));
+
+        // making a proposal to increase Eve's balance without having tokens staked fails
+        let encoded_proposal = set_balance_proposal(account_of(EVE), 100_000);
+        let proposal_hash = BlakeTwo256::hash(&encoded_proposal[..]);
+        assert_ok!(Call::Democracy(DemocracyCall::propose {
+            proposal_hash,
+            value: minimum_proposal_value,
+        })
+        .dispatch(origin_of(account_of(ALICE))));
+
+        // alice should have locked some vkint
+        assert_eq!(
+            get_free_vkint(account_of(ALICE)),
+            start_vkint_alice - minimum_proposal_value
+        );
+
+        assert_ok!(Call::Democracy(DemocracyCall::second {
+            proposal: 0,
+            seconds_upper_bound: 1000,
+        })
+        .dispatch(origin_of(account_of(CAROL))));
+
+        // now both alice and carol should have locked some vkint
+        assert_eq!(
+            get_free_vkint(account_of(ALICE)),
+            start_vkint_alice - minimum_proposal_value
+        );
+        assert_eq!(
+            get_free_vkint(account_of(CAROL)),
+            start_vkint_carol - minimum_proposal_value
+        );
+
+        DemocracyPallet::on_initialize(<Runtime as democracy::Config>::LaunchPeriod::get());
+
+        // now that it's no longer a proposal, the deposit should be released
+        assert_eq!(get_free_vkint(account_of(ALICE)), start_vkint_alice);
+        assert_eq!(get_free_vkint(account_of(CAROL)), start_vkint_carol);
+    });
+}
+
+#[test]
+fn integration_test_proposal_vkint_gets_released_on_fast_track() {
+    test_with(|| {
+        let minimum_proposal_value = <Runtime as democracy::Config>::MinimumDeposit::get();
+        assert!(minimum_proposal_value > 0); // sanity check - the test would be useless otherwise
+
+        let start_vkint_alice = get_free_vkint(account_of(ALICE));
+
+        // making a proposal to increase Eve's balance without having tokens staked fails
+        let encoded_proposal = set_balance_proposal(account_of(EVE), 100_000);
+        let proposal_hash = BlakeTwo256::hash(&encoded_proposal[..]);
+        assert_ok!(Call::Democracy(DemocracyCall::propose {
+            proposal_hash,
+            value: minimum_proposal_value,
+        })
+        .dispatch(origin_of(account_of(ALICE))));
+
+        // alice should have locked some vkint
+        assert_eq!(
+            get_free_vkint(account_of(ALICE)),
+            start_vkint_alice - minimum_proposal_value
+        );
+
+        assert_ok!(Call::TechnicalCommittee(TechnicalCommitteeCall::propose {
+            threshold: 1, // member count
+            proposal: Box::new(Call::Democracy(DemocracyCall::fast_track {
+                prop_index: assert_democracy_proposed_event(),
+                delay: <Runtime as democracy::Config>::EnactmentPeriod::get()
+            })),
+            length_bound: 100000 // length bound
+        })
+        .dispatch(origin_of(account_of(ALICE))));
+
+        // now that it's no longer a proposal, the deposit should be released
+        assert_eq!(get_free_vkint(account_of(ALICE)), start_vkint_alice);
+    });
+}
