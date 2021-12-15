@@ -89,7 +89,7 @@ pub const DAYS: BlockNumber = HOURS * 24;
 pub const YEARS: BlockNumber = DAYS * 365;
 
 parameter_types! {
-    pub const SupplyPalletId: PalletId = PalletId(*b"mod/annu");
+    pub const SupplyPalletId: PalletId = PalletId(*b"mod/supl");
     pub const InflationPeriod: BlockNumber = YEARS;
 }
 
