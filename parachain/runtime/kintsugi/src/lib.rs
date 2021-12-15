@@ -352,10 +352,14 @@ parameter_types! {
 
 parameter_types! {
     pub KintsugiLabsAccounts: Vec<AccountId> = vec![
-        // 5FkEVjGhBDTUvuT8owzVnfSJs8MiuCG7h22ZprDABhr8ze1W
-        hex_literal::hex!["a2da693fe73a14147f52186c1e8386ac10ef77330b095cbd9f53c5b97e00a6c0"].into(),
         // 5Fhn5mX4JGeDxikaxkJZYRYjxxbZ7DjxS5f9hsAVAzGXUNyG
         hex_literal::hex!["a0fb017d4b777bc2be8ad9e9dfe7bdf0a3db060644de499685adacd19f84df71"].into(),
+        // 5GgS9vsF77Y7p2wZLEW1CW7vZpq8DSoXCf2sTdBoB51jpuan
+        hex_literal::hex!["cc30e8cd03a20ce00f7dab8451a1d43047a43f50cdd0bc9b14dbaa78ed66bd1e"].into(),
+        // 5GDzXqLxGiJV6A7mDp1SGRV6DB8xnnwauMEwR7PL4PW122FM
+        hex_literal::hex!["b80646c2c305d0e8f1e3df9cf515a3cf1f5fc7e24a8205202fce65dfb8198345"].into(),
+        // 5FgimgwW2s4V14NniQ6Nt145Sksb83xohW5LkMXYnMw3Racp
+        hex_literal::hex!["a02c9cba51b7ec7c1717cdf0fd9044fa5228d9e8217a5a904871ce47627d8743"].into(),
     ];
 }
 
