@@ -514,6 +514,13 @@ pub mod pallet {
             let (_, proposal_hash, _) = public_props.swap_remove(winner_index);
             <PublicProps<T>>::put(public_props);
 
+            if let Some((depositors, deposit)) = <DepositOf<T>>::take(prop_index) {
+                // refund depositors
+                for d in &depositors {
+                    T::Currency::unreserve(d, deposit);
+                }
+            }
+
             let now = <frame_system::Pallet<T>>::block_number();
             let voting_period = T::FastTrackVotingPeriod::get();
             let ref_index = Self::inject_referendum(
