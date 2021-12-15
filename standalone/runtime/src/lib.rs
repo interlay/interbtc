@@ -706,6 +706,7 @@ impl escrow::Config for Runtime {
     type Span = Span;
     type MaxPeriod = MaxPeriod;
     type EscrowRewards = ();
+    type BlockNumberProvider = System;
     type WeightInfo = ();
 }
 

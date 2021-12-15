@@ -111,6 +111,20 @@ pub const DAYS: BlockNumber = HOURS * 24;
 pub const WEEKS: BlockNumber = DAYS * 7;
 pub const YEARS: BlockNumber = DAYS * 365;
 
+/// More block times based on the relay chain.
+pub mod relay_time {
+    use primitives::BlockNumber;
+
+    pub const MILLISECS_PER_BLOCK: u64 = 6000;
+
+    // These time units are defined in number of blocks.
+    pub const MINUTES: BlockNumber = 60_000 / (MILLISECS_PER_BLOCK as BlockNumber);
+    pub const HOURS: BlockNumber = MINUTES * 60;
+    pub const DAYS: BlockNumber = HOURS * 24;
+    pub const WEEKS: BlockNumber = DAYS * 7;
+    pub const YEARS: BlockNumber = DAYS * 365;
+}
+
 // 1 in 4 blocks (on average, not counting collisions) will be primary babe blocks.
 pub const PRIMARY_PROBABILITY: (u64, u64) = (1, 4);
 
@@ -1094,8 +1108,8 @@ impl staking::Config for Runtime {
 }
 
 parameter_types! {
-    pub const Span: BlockNumber = WEEKS;
-    pub const MaxPeriod: BlockNumber = WEEKS * 96;
+    pub const Span: BlockNumber = relay_time::WEEKS;
+    pub const MaxPeriod: BlockNumber = relay_time::WEEKS * 96;
 }
 
 pub struct BlockNumberToBalance;
@@ -1113,6 +1127,7 @@ impl escrow::Config for Runtime {
     type Span = Span;
     type MaxPeriod = MaxPeriod;
     type EscrowRewards = EscrowRewards;
+    type BlockNumberProvider = RelayChainBlockNumberProvider<Runtime>;
     type WeightInfo = ();
 }
 

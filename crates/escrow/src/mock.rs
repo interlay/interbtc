@@ -89,6 +89,7 @@ impl Config for Test {
     type Span = Span;
     type MaxPeriod = MaxPeriod;
     type EscrowRewards = ();
+    type BlockNumberProvider = System;
     type WeightInfo = ();
 }
 

@@ -40,7 +40,7 @@ use frame_support::{
 use reward::ModifyStake;
 use scale_info::TypeInfo;
 use sp_runtime::{
-    traits::{AtLeast32BitUnsigned, CheckedSub, Convert, Saturating, Zero},
+    traits::{AtLeast32BitUnsigned, BlockNumberProvider, CheckedSub, Convert, Saturating, Zero},
     DispatchError, DispatchResult,
 };
 
@@ -155,6 +155,9 @@ pub mod pallet {
 
         /// Escrow reward pool.
         type EscrowRewards: reward::ModifyStake<Self::AccountId, BalanceOf<Self>>;
+
+        /// The block number provider.
+        type BlockNumberProvider: BlockNumberProvider<BlockNumber = Self::BlockNumber>;
 
         /// Weight information for the extrinsics in this module.
         type WeightInfo: WeightInfo;
