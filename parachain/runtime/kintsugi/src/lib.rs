@@ -115,9 +115,6 @@ pub const DAYS: BlockNumber = HOURS * 24;
 pub const WEEKS: BlockNumber = DAYS * 7;
 pub const YEARS: BlockNumber = DAYS * 365;
 
-// 1 in 4 blocks (on average, not counting collisions) will be primary babe blocks.
-pub const PRIMARY_PROBABILITY: (u64, u64) = (1, 4);
-
 pub const BITCOIN_SPACING_MS: u32 = TARGET_SPACING * 1000;
 pub const BITCOIN_BLOCK_SPACING: BlockNumber = BITCOIN_SPACING_MS / MILLISECS_PER_BLOCK as BlockNumber;
 
