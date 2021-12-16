@@ -469,6 +469,12 @@ impl<T: Config> Pallet<T> {
             new_locked.end = unlock_height;
         }
 
+        // total amount can't be less than the max period to prevent rounding errors
+        ensure!(
+            new_locked.amount >= T::BlockNumberToBalance::convert(T::MaxPeriod::get()),
+            Error::<T>::InvalidAmount
+        );
+
         T::EscrowRewards::deposit_stake(who, amount)?;
 
         ensure!(

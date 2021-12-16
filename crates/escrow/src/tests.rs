@@ -195,3 +195,28 @@ fn should_get_free_balance() {
         assert_eq!(Escrow::get_free_balance(&BOB), 2000);
     })
 }
+
+#[test]
+fn should_not_allow_amount_smaller_than_max_period() {
+    run_test(|| {
+        let end_time = MaxPeriod::get();
+        let amount = end_time / 2;
+
+        <Balances as Currency<AccountId>>::make_free_balance_be(&ALICE, amount);
+        assert_err!(
+            Escrow::create_lock(Origin::signed(ALICE), amount, end_time),
+            TestError::InvalidAmount
+        );
+    })
+}
+
+#[test]
+fn deposit_below_max_height_truncates_to_zero() {
+    run_test(|| {
+        let free_balance: u128 = 4_838_200;
+        assert_eq!(
+            Point::new::<Identity>(free_balance, 0, 4_838_400, 4_838_400).balance_at::<Identity>(0),
+            0
+        );
+    })
+}
