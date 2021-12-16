@@ -754,3 +754,61 @@ fn integration_test_proposal_vkint_gets_released_on_fast_track() {
         assert_eq!(get_free_vkint(account_of(ALICE)), start_vkint_alice);
     });
 }
+
+fn set_block_number(block_number: u32) {
+    SystemPallet::set_block_number(block_number);
+    DemocracyPallet::on_initialize(block_number);
+}
+
+#[test]
+fn integration_test_limiting_voting_power_works() {
+    let lock_time = <Runtime as escrow::Config>::MaxPeriod::get();
+    let kint_amount = <Runtime as escrow::Config>::MaxPeriod::get() as u128 * 1000;
+    let limit_start = 500;
+    let limit_end = 1500;
+    let limit_period = limit_end - limit_start;
+
+    let setup = || {
+        set_free_balance(account_of(BOB), kint_amount);
+
+        assert_ok!(Call::Escrow(EscrowCall::set_account_limit {
+            who: account_of(BOB),
+            start: 500,
+            end: 1500,
+        })
+        .dispatch(root()));
+
+        set_block_number(1);
+        assert_eq!(get_free_vkint(account_of(BOB)), 0);
+    };
+
+    let assert_minting_limit = |amount| {
+        assert_noop!(
+            Call::Escrow(EscrowCall::create_lock {
+                amount: amount + 1,
+                unlock_height: lock_time
+            })
+            .dispatch(origin_of(account_of(BOB))),
+            EscrowError::InsufficientFunds
+        );
+
+        assert_ok!(Call::Escrow(EscrowCall::create_lock {
+            amount,
+            unlock_height: lock_time
+        })
+        .dispatch(origin_of(account_of(BOB))));
+    };
+
+    let test_minting_limit_at = |block, limit| {
+        test_with(|| {
+            setup();
+            set_block_number(block);
+            assert_minting_limit(limit);
+        });
+    };
+
+    test_minting_limit_at(limit_start + limit_period / 4, kint_amount / 4);
+    test_minting_limit_at(limit_start + limit_period / 2, kint_amount / 2);
+    test_minting_limit_at(limit_start + limit_period, kint_amount);
+    test_minting_limit_at(limit_start + limit_period * 2, kint_amount);
+}
