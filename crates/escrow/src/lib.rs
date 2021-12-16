@@ -454,7 +454,7 @@ impl<T: Config> Pallet<T> {
         else if let Some((start, end)) = <Limits<T>>::get(who) {
             // TODO: remove these restrictions in the future when the token distribution is complete
             let current_height = Self::current_height();
-            let point = Point::new::<T::BlockNumberToBalance>(free_balance, start, end, end);
+            let point = Point::new::<T::BlockNumberToBalance>(free_balance, start, end, end.saturating_sub(start));
             point.reverse_balance_at::<T::BlockNumberToBalance>(end, current_height)
         } else {
             free_balance
