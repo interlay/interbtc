@@ -180,9 +180,8 @@ macro_rules! construct_async_run {
 		let runner = $cli.create_runner($cmd)?;
 		if runner.config().chain_spec.is_interlay() {
 			runner.async_run(|$config| {
-				let $components = new_partial::<interlay_runtime::RuntimeApi, InterlayRuntimeExecutor, _>(
+				let $components = new_partial::<interlay_runtime::RuntimeApi, InterlayRuntimeExecutor>(
 					&$config,
-					crate::service::interlay_build_import_queue,
 				)?;
 				let task_manager = $components.task_manager;
 				{ $( $code )* }.map(|v| (v, task_manager))
@@ -192,10 +191,8 @@ macro_rules! construct_async_run {
 				let $components = new_partial::<
 					kintsugi_runtime::RuntimeApi,
 					KintsugiRuntimeExecutor,
-					_
 				>(
 					&$config,
-					crate::service::kintsugi_build_import_queue,
 				)?;
 				let task_manager = $components.task_manager;
 				{ $( $code )* }.map(|v| (v, task_manager))
@@ -362,12 +359,12 @@ async fn start_node(cli: Cli, config: Configuration) -> sc_service::error::Resul
     );
 
     if config.chain_spec.is_interlay() {
-        crate::service::start_interlay_node(config, polkadot_config, id)
+        crate::service::start_node::<interlay_runtime::RuntimeApi, InterlayRuntimeExecutor>(config, polkadot_config, id)
             .await
             .map(|r| r.0)
             .map_err(Into::into)
     } else {
-        crate::service::start_kintsugi_node(config, polkadot_config, id)
+        crate::service::start_node::<kintsugi_runtime::RuntimeApi, KintsugiRuntimeExecutor>(config, polkadot_config, id)
             .await
             .map(|r| r.0)
             .map_err(Into::into)
