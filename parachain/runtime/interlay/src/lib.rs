@@ -62,7 +62,7 @@ use cumulus_primitives_core::ParaId;
 use orml_xcm_support::{IsNativeConcrete, MultiCurrencyAdapter, MultiNativeAsset};
 use pallet_xcm::{EnsureXcm, IsMajorityOfBody, XcmPassthrough};
 use polkadot_parachain::primitives::Sibling;
-use sp_runtime::traits::{BlockNumberProvider, Convert};
+use sp_runtime::traits::Convert;
 use xcm::{
     v1::{prelude::*, MultiAsset, MultiLocation, NetworkId},
     AlwaysV1,
@@ -376,18 +376,6 @@ impl pallet_utility::Config for Runtime {
     type WeightInfo = ();
 }
 
-pub struct RelayChainBlockNumberProvider<T>(sp_std::marker::PhantomData<T>);
-
-impl<T: cumulus_pallet_parachain_system::Config> BlockNumberProvider for RelayChainBlockNumberProvider<T> {
-    type BlockNumber = BlockNumber;
-
-    fn current_block_number() -> Self::BlockNumber {
-        cumulus_pallet_parachain_system::Pallet::<T>::validation_data()
-            .map(|d| d.relay_parent_number)
-            .unwrap_or_default()
-    }
-}
-
 parameter_types! {
     pub MinVestedTransfer: Balance = 0;
     // NOTE: per account, airdrop only needs one
@@ -432,7 +420,7 @@ impl orml_vesting::Config for Runtime {
     type VestedTransferOrigin = EnsureKintsugiLabs;
     type WeightInfo = ();
     type MaxVestingSchedules = MaxVestingSchedules;
-    type BlockNumberProvider = RelayChainBlockNumberProvider<Runtime>;
+    type BlockNumberProvider = System;
 }
 
 parameter_types! {
