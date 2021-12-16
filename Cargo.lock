@@ -3244,6 +3244,15 @@ dependencies = [
  "jsonrpc-core",
  "kintsugi-runtime-parachain",
  "log",
+ "module-btc-relay-rpc-runtime-api",
+ "module-issue-rpc-runtime-api",
+ "module-oracle-rpc-runtime-api",
+ "module-redeem-rpc-runtime-api",
+ "module-refund-rpc-runtime-api",
+ "module-relay-rpc-runtime-api",
+ "module-replace-rpc-runtime-api",
+ "module-vault-registry-rpc-runtime-api",
+ "pallet-transaction-payment-rpc",
  "parity-scale-codec",
  "polkadot-cli",
  "polkadot-parachain",
@@ -3277,6 +3286,7 @@ dependencies = [
  "sp-transaction-pool",
  "structopt",
  "substrate-build-script-utils",
+ "substrate-frame-rpc-system",
  "substrate-prometheus-endpoint",
 ]
 
