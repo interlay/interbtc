@@ -291,7 +291,7 @@ impl orml_vesting::Config for Runtime {
     type VestedTransferOrigin = EnsureSigned<AccountId>;
     type WeightInfo = ();
     type MaxVestingSchedules = MaxVestingSchedules;
-    type BlockNumberProvider = frame_system::Pallet<Runtime>;
+    type BlockNumberProvider = System;
 }
 
 parameter_types! {
