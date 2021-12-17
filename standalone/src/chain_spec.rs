@@ -371,7 +371,8 @@ fn testnet_genesis(
         democracy: Default::default(),
         supply: SupplyConfig {
             initial_supply: token_distribution::INITIAL_ALLOCATION,
-            start_height: YEARS * 5,
+            // start of year 5
+            start_height: YEARS * 4,
             inflation: FixedU128::checked_from_rational(2, 100).unwrap(), // 2%
         },
     }
