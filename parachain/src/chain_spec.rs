@@ -385,7 +385,8 @@ fn testnet_genesis(
         democracy: Default::default(),
         supply: kintsugi_runtime::SupplyConfig {
             initial_supply: kintsugi_runtime::token_distribution::INITIAL_ALLOCATION,
-            start_height: kintsugi_runtime::YEARS * 5,
+            // start of year 5
+            start_height: kintsugi_runtime::YEARS * 4,
             inflation: FixedU128::checked_from_rational(2, 100).unwrap(), // 2%
         },
     }
@@ -551,7 +552,8 @@ fn kintsugi_mainnet_genesis(
         democracy: Default::default(),
         supply: kintsugi_runtime::SupplyConfig {
             initial_supply: kintsugi_runtime::token_distribution::INITIAL_ALLOCATION,
-            start_height: kintsugi_runtime::YEARS * 5,
+            // start of year 5
+            start_height: kintsugi_runtime::YEARS * 4,
             inflation: FixedU128::checked_from_rational(2, 100).unwrap(), // 2%
         },
     }
@@ -756,7 +758,8 @@ fn interlay_mainnet_genesis(
         democracy: Default::default(),
         supply: interlay_runtime::SupplyConfig {
             initial_supply: interlay_runtime::token_distribution::INITIAL_ALLOCATION,
-            start_height: interlay_runtime::YEARS * 5,
+            // start of year 5
+            start_height: interlay_runtime::YEARS * 4,
             inflation: FixedU128::checked_from_rational(2, 100).unwrap(), // 2%
         },
     }
