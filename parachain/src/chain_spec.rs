@@ -94,6 +94,7 @@ fn get_properties() -> Map<String, Value> {
     });
     properties.insert("tokenSymbol".into(), token_symbol.into());
     properties.insert("tokenDecimals".into(), token_decimals.into());
+	properties.insert("ss58Format".into(), 2092u16.into());
     properties
 }
 
