@@ -119,6 +119,7 @@ pub fn local_config(id: ParaId) -> KintsugiChainSpec {
         ChainType::Local,
         move || {
             testnet_genesis(
+                get_account_id_from_seed::<sr25519::Public>("Alice"),
                 vec![get_from_seed::<AuraId>("Alice")],
                 vec![(
                     get_account_id_from_seed::<sr25519::Public>("Bob"),
@@ -147,6 +148,7 @@ pub fn development_config(id: ParaId) -> KintsugiChainSpec {
         ChainType::Development,
         move || {
             testnet_genesis(
+                get_account_id_from_seed::<sr25519::Public>("Alice"),
                 vec![get_from_seed::<AuraId>("Alice")],
                 vec![
                     (
@@ -185,6 +187,7 @@ pub fn rococo_testnet_config(id: ParaId) -> KintsugiChainSpec {
         ChainType::Live,
         move || {
             testnet_genesis(
+                get_account_id_from_string("5HeVGqvfpabwFqzV1DhiQmjaLQiFcTSmq2sH6f7atsXkgvtt"),
                 vec![
                     // 5DJ3wbdicFSFFudXndYBuvZKjucTsyxtJX5WPzQM8HysSkFY
                     hex!["366a092a27b4b28199a588b0155a2c9f3f0513d92481de4ee2138273926fa91c"].unchecked_into(),
@@ -230,6 +233,7 @@ pub fn westend_testnet_config(id: ParaId) -> KintsugiChainSpec {
         ChainType::Live,
         move || {
             testnet_genesis(
+                get_account_id_from_string("5DUupBJSyBDcqQudgPR4gttFie3cLPRw3HwaUfq9H2D2mKiA"),
                 vec![
                     // 5H75GkhA6TnyCW7fM4H8LyoTqmPJWf3JuZZPFR9Bpv26LGHA (//authority/0)
                     hex!["defbbf8f70964f6a4952bc168b6c1489b502e05d6b5ef57f8767589cf3813705"].unchecked_into(),
@@ -293,6 +297,7 @@ fn default_pair_kintsugi(currency_id: CurrencyId) -> VaultCurrencyPair<CurrencyI
 }
 
 fn testnet_genesis(
+    root_key: AccountId,
     initial_authorities: Vec<AuraId>,
     authorized_oracles: Vec<(AccountId, Vec<u8>)>,
     id: ParaId,
@@ -318,6 +323,10 @@ fn testnet_genesis(
             } else {
                 kintsugi_runtime::StatusCode::Error
             },
+        },
+        sudo: kintsugi_runtime::SudoConfig {
+            // Assign network admin rights.
+            key: root_key.clone(),
         },
         tokens: kintsugi_runtime::TokensConfig { balances: vec![] },
         vesting: Default::default(),
@@ -399,6 +408,7 @@ pub fn kintsugi_mainnet_config(id: ParaId) -> KintsugiChainSpec {
         ChainType::Live,
         move || {
             kintsugi_mainnet_genesis(
+                get_account_id_from_string("5G49RwnYdfHywAfEpsPRhP47XuznQHpaPuSoSdt6S1kyi69g"),
                 vec![
                     // 5DyzufhT1Ynxk9uxrWHjrVuap8oB4Zz7uYdquZHxFxvYBovd (//authority/0)
                     hex!["54e1a41c9ba60ca45e911e8798ba9d81c22b04435b04816490ebddffe4dffc5c"].unchecked_into(),
@@ -449,6 +459,7 @@ pub fn kintsugi_mainnet_config(id: ParaId) -> KintsugiChainSpec {
 }
 
 fn kintsugi_mainnet_genesis(
+    root_key: AccountId,
     initial_authorities: Vec<AuraId>,
     authorized_oracles: Vec<(AccountId, Vec<u8>)>,
     id: ParaId,
@@ -477,6 +488,10 @@ fn kintsugi_mainnet_genesis(
         aura_ext: Default::default(),
         security: kintsugi_runtime::SecurityConfig {
             initial_status: kintsugi_runtime::StatusCode::Shutdown,
+        },
+        sudo: kintsugi_runtime::SudoConfig {
+            // Assign network admin rights.
+            key: root_key.clone(),
         },
         tokens: kintsugi_runtime::TokensConfig {
             balances: initial_allocation
