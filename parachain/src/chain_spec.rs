@@ -4,7 +4,7 @@ use hex_literal::hex;
 use interbtc_rpc::jsonrpc_core::serde_json::{map::Map, Value};
 use primitives::{
     AccountId, Balance, BlockNumber, CurrencyId, CurrencyId::Token, Signature, TokenSymbol, VaultCurrencyPair, DOT,
-    KINT, KSM, INTR
+    INTR, KINT, KSM,
 };
 use sc_chain_spec::{ChainSpecExtension, ChainSpecGroup};
 use sc_service::ChainType;
@@ -502,8 +502,6 @@ pub fn kintsugi_mainnet_config(id: ParaId) -> KintsugiChainSpec {
                 ],
                 id,
                 SECURE_BITCOIN_CONFIRMATIONS,
-                vec![],
-                vec![],
             )
         },
         Vec::new(),
@@ -522,14 +520,6 @@ fn kintsugi_mainnet_genesis(
     authorized_oracles: Vec<(AccountId, Vec<u8>)>,
     id: ParaId,
     bitcoin_confirmations: u32,
-    initial_allocation: Vec<(AccountId, Balance)>,
-    vesting_list: Vec<(
-        AccountId,   // who
-        BlockNumber, // start
-        BlockNumber, // period
-        u32,         // period_count
-        Balance,     // per_period
-    )>,
 ) -> kintsugi_runtime::GenesisConfig {
     kintsugi_runtime::GenesisConfig {
         system: kintsugi_runtime::SystemConfig {
@@ -547,13 +537,8 @@ fn kintsugi_mainnet_genesis(
         security: kintsugi_runtime::SecurityConfig {
             initial_status: kintsugi_runtime::StatusCode::Shutdown,
         },
-        tokens: kintsugi_runtime::TokensConfig {
-            balances: initial_allocation
-                .iter()
-                .map(|(who, amount)| (who.clone(), Token(KINT), *amount))
-                .collect(),
-        },
-        vesting: kintsugi_runtime::VestingConfig { vesting: vesting_list },
+        tokens: Default::default(),
+        vesting: Default::default(),
         oracle: kintsugi_runtime::OracleConfig {
             authorized_oracles,
             max_delay: DEFAULT_MAX_DELAY_MS,
@@ -686,8 +671,6 @@ pub fn interlay_mainnet_config(id: ParaId) -> InterlayChainSpec {
                 ],
                 id,
                 SECURE_BITCOIN_CONFIRMATIONS,
-                vec![],
-                vec![],
             )
         },
         Vec::new(),
@@ -707,14 +690,6 @@ fn interlay_mainnet_genesis(
     authorized_oracles: Vec<(AccountId, Vec<u8>)>,
     id: ParaId,
     bitcoin_confirmations: u32,
-    initial_allocation: Vec<(AccountId, Balance)>,
-    vesting_list: Vec<(
-        AccountId,   // who
-        BlockNumber, // start
-        BlockNumber, // period
-        u32,         // period_count
-        Balance,     // per_period
-    )>,
 ) -> interlay_runtime::GenesisConfig {
     interlay_runtime::GenesisConfig {
         system: interlay_runtime::SystemConfig {
@@ -754,13 +729,8 @@ fn interlay_mainnet_genesis(
             // Assign network admin rights.
             key: root_key.clone(),
         },
-        tokens: interlay_runtime::TokensConfig {
-            balances: initial_allocation
-                .iter()
-                .map(|(who, amount)| (who.clone(), Token(KINT), *amount))
-                .collect(),
-        },
-        vesting: interlay_runtime::VestingConfig { vesting: vesting_list },
+        tokens: Default::default(),
+        vesting: Default::default(),
         oracle: interlay_runtime::OracleConfig {
             authorized_oracles,
             max_delay: DEFAULT_MAX_DELAY_MS,
