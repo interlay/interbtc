@@ -97,6 +97,18 @@ fn get_properties() -> Map<String, Value> {
     properties
 }
 
+fn kintsugi_properties() -> Map<String, Value> {
+    let mut properties = get_properties();
+    properties.insert("ss58Format".into(), kintsugi_runtime::SS58Prefix::get().into());
+    properties
+}
+
+fn interlay_properties() -> Map<String, Value> {
+    let mut properties = get_properties();
+    properties.insert("ss58Format".into(), interlay_runtime::SS58Prefix::get().into());
+    properties
+}
+
 fn expected_transaction_size() -> u32 {
     virtual_transaction_size(
         TransactionInputMetadata {
@@ -132,7 +144,7 @@ pub fn local_config(id: ParaId) -> KintsugiChainSpec {
         vec![],
         None,
         None,
-        Some(get_properties()),
+        Some(kintsugi_properties()),
         Extensions {
             relay_chain: "local".into(),
             para_id: id.into(),
@@ -170,7 +182,7 @@ pub fn development_config(id: ParaId) -> KintsugiChainSpec {
         Vec::new(),
         None,
         None,
-        Some(get_properties()),
+        Some(kintsugi_properties()),
         Extensions {
             relay_chain: "dev".into(),
             para_id: id.into(),
@@ -211,7 +223,7 @@ pub fn rococo_testnet_config(id: ParaId) -> KintsugiChainSpec {
         Vec::new(),
         None,
         None,
-        Some(get_properties()),
+        Some(kintsugi_properties()),
         Extensions {
             relay_chain: "rococo".into(),
             para_id: id.into(),
@@ -270,7 +282,7 @@ pub fn westend_testnet_config(id: ParaId) -> KintsugiChainSpec {
         Vec::new(),
         None,
         None,
-        Some(get_properties()),
+        Some(kintsugi_properties()),
         Extensions {
             relay_chain: "westend".into(),
             para_id: id.into(),
@@ -440,7 +452,7 @@ pub fn kintsugi_mainnet_config(id: ParaId) -> KintsugiChainSpec {
         Vec::new(),
         None,
         None,
-        Some(get_properties()),
+        Some(kintsugi_properties()),
         Extensions {
             relay_chain: "kusama".into(),
             para_id: id.into(),
@@ -624,7 +636,7 @@ pub fn interlay_mainnet_config(id: ParaId) -> InterlayChainSpec {
         Vec::new(),
         None,
         None,
-        Some(get_properties()),
+        Some(interlay_properties()),
         Extensions {
             relay_chain: "polkadot".into(),
             para_id: id.into(),
