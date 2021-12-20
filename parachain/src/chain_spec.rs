@@ -3,8 +3,7 @@ use cumulus_primitives_core::ParaId;
 use hex_literal::hex;
 use interbtc_rpc::jsonrpc_core::serde_json::{map::Map, Value};
 use primitives::{
-    AccountId, Balance, BlockNumber, CurrencyId, CurrencyId::Token, Signature, TokenSymbol, VaultCurrencyPair, DOT,
-    INTR, KINT, KSM,
+    AccountId, Balance, CurrencyId, CurrencyId::Token, Signature, TokenSymbol, VaultCurrencyPair, DOT, INTR, KINT, KSM,
 };
 use sc_chain_spec::{ChainSpecExtension, ChainSpecGroup};
 use sc_service::ChainType;
