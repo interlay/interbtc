@@ -4,7 +4,7 @@ use hex_literal::hex;
 use interbtc_rpc::jsonrpc_core::serde_json::{map::Map, Value};
 use primitives::{
     AccountId, Balance, BlockNumber, CurrencyId, CurrencyId::Token, Signature, TokenSymbol, VaultCurrencyPair, DOT,
-    KINT, KSM,
+    INTR, KINT, KSM,
 };
 use sc_chain_spec::{ChainSpecExtension, ChainSpecGroup};
 use sc_service::ChainType;
@@ -120,6 +120,20 @@ pub fn local_config(id: ParaId) -> KintsugiChainSpec {
         move || {
             testnet_genesis(
                 vec![get_from_seed::<AuraId>("Alice")],
+                vec![
+                    get_account_id_from_seed::<sr25519::Public>("Alice"),
+                    get_account_id_from_seed::<sr25519::Public>("Bob"),
+                    get_account_id_from_seed::<sr25519::Public>("Charlie"),
+                    get_account_id_from_seed::<sr25519::Public>("Dave"),
+                    get_account_id_from_seed::<sr25519::Public>("Eve"),
+                    get_account_id_from_seed::<sr25519::Public>("Ferdie"),
+                    get_account_id_from_seed::<sr25519::Public>("Alice//stash"),
+                    get_account_id_from_seed::<sr25519::Public>("Bob//stash"),
+                    get_account_id_from_seed::<sr25519::Public>("Charlie//stash"),
+                    get_account_id_from_seed::<sr25519::Public>("Dave//stash"),
+                    get_account_id_from_seed::<sr25519::Public>("Eve//stash"),
+                    get_account_id_from_seed::<sr25519::Public>("Ferdie//stash"),
+                ],
                 vec![(
                     get_account_id_from_seed::<sr25519::Public>("Bob"),
                     "Bob".as_bytes().to_vec(),
@@ -148,6 +162,20 @@ pub fn development_config(id: ParaId) -> KintsugiChainSpec {
         move || {
             testnet_genesis(
                 vec![get_from_seed::<AuraId>("Alice")],
+                vec![
+                    get_account_id_from_seed::<sr25519::Public>("Alice"),
+                    get_account_id_from_seed::<sr25519::Public>("Bob"),
+                    get_account_id_from_seed::<sr25519::Public>("Charlie"),
+                    get_account_id_from_seed::<sr25519::Public>("Dave"),
+                    get_account_id_from_seed::<sr25519::Public>("Eve"),
+                    get_account_id_from_seed::<sr25519::Public>("Ferdie"),
+                    get_account_id_from_seed::<sr25519::Public>("Alice//stash"),
+                    get_account_id_from_seed::<sr25519::Public>("Bob//stash"),
+                    get_account_id_from_seed::<sr25519::Public>("Charlie//stash"),
+                    get_account_id_from_seed::<sr25519::Public>("Dave//stash"),
+                    get_account_id_from_seed::<sr25519::Public>("Eve//stash"),
+                    get_account_id_from_seed::<sr25519::Public>("Ferdie//stash"),
+                ],
                 vec![
                     (
                         get_account_id_from_seed::<sr25519::Public>("Alice"),
@@ -192,6 +220,20 @@ pub fn rococo_testnet_config(id: ParaId) -> KintsugiChainSpec {
                     hex!["f08cc7cf45f88e6dbe312a63f6ce639061834b4208415b235f77a67b51435f63"].unchecked_into(),
                     // 5FNbq8zGPZtinsfgyD4w2G3BMh75H3r2Qg3uKudTZkJtRru6
                     hex!["925ad4bdf35945bea91baeb5419a7ffa07002c6a85ba334adfa7cb5b05623c1b"].unchecked_into(),
+                ],
+                vec![
+                    get_account_id_from_seed::<sr25519::Public>("Alice"),
+                    get_account_id_from_seed::<sr25519::Public>("Bob"),
+                    get_account_id_from_seed::<sr25519::Public>("Charlie"),
+                    get_account_id_from_seed::<sr25519::Public>("Dave"),
+                    get_account_id_from_seed::<sr25519::Public>("Eve"),
+                    get_account_id_from_seed::<sr25519::Public>("Ferdie"),
+                    get_account_id_from_seed::<sr25519::Public>("Alice//stash"),
+                    get_account_id_from_seed::<sr25519::Public>("Bob//stash"),
+                    get_account_id_from_seed::<sr25519::Public>("Charlie//stash"),
+                    get_account_id_from_seed::<sr25519::Public>("Dave//stash"),
+                    get_account_id_from_seed::<sr25519::Public>("Eve//stash"),
+                    get_account_id_from_seed::<sr25519::Public>("Ferdie//stash"),
                 ],
                 vec![
                     (
@@ -253,6 +295,20 @@ pub fn westend_testnet_config(id: ParaId) -> KintsugiChainSpec {
                     hex!["ea8bf097557a70b3c8beed5a95ecc127534f6fe00709c20352dcfb8bd073e240"].unchecked_into(),
                 ],
                 vec![
+                    get_account_id_from_seed::<sr25519::Public>("Alice"),
+                    get_account_id_from_seed::<sr25519::Public>("Bob"),
+                    get_account_id_from_seed::<sr25519::Public>("Charlie"),
+                    get_account_id_from_seed::<sr25519::Public>("Dave"),
+                    get_account_id_from_seed::<sr25519::Public>("Eve"),
+                    get_account_id_from_seed::<sr25519::Public>("Ferdie"),
+                    get_account_id_from_seed::<sr25519::Public>("Alice//stash"),
+                    get_account_id_from_seed::<sr25519::Public>("Bob//stash"),
+                    get_account_id_from_seed::<sr25519::Public>("Charlie//stash"),
+                    get_account_id_from_seed::<sr25519::Public>("Dave//stash"),
+                    get_account_id_from_seed::<sr25519::Public>("Eve//stash"),
+                    get_account_id_from_seed::<sr25519::Public>("Ferdie//stash"),
+                ],
+                vec![
                     (
                         get_account_id_from_string("5EPKc1xDF2V337FwgpMozdcZKS1rgFjY3rTudEysMPK7paef"),
                         "Interlay".as_bytes().to_vec(),
@@ -294,6 +350,7 @@ fn default_pair_kintsugi(currency_id: CurrencyId) -> VaultCurrencyPair<CurrencyI
 
 fn testnet_genesis(
     initial_authorities: Vec<AuraId>,
+    endowed_accounts: Vec<AccountId>,
     authorized_oracles: Vec<(AccountId, Vec<u8>)>,
     id: ParaId,
     bitcoin_confirmations: u32,
@@ -319,7 +376,19 @@ fn testnet_genesis(
                 kintsugi_runtime::StatusCode::Error
             },
         },
-        tokens: kintsugi_runtime::TokensConfig { balances: vec![] },
+        tokens: kintsugi_runtime::TokensConfig {
+            balances: endowed_accounts
+                .iter()
+                .flat_map(|k| {
+                    vec![
+                        (k.clone(), Token(DOT), 1 << 60),
+                        (k.clone(), Token(INTR), 1 << 60),
+                        (k.clone(), Token(KSM), 1 << 60),
+                        (k.clone(), Token(KINT), 1 << 60),
+                    ]
+                })
+                .collect(),
+        },
         vesting: Default::default(),
         oracle: kintsugi_runtime::OracleConfig {
             authorized_oracles,
@@ -433,8 +502,6 @@ pub fn kintsugi_mainnet_config(id: ParaId) -> KintsugiChainSpec {
                 ],
                 id,
                 SECURE_BITCOIN_CONFIRMATIONS,
-                vec![],
-                vec![],
             )
         },
         Vec::new(),
@@ -453,14 +520,6 @@ fn kintsugi_mainnet_genesis(
     authorized_oracles: Vec<(AccountId, Vec<u8>)>,
     id: ParaId,
     bitcoin_confirmations: u32,
-    initial_allocation: Vec<(AccountId, Balance)>,
-    vesting_list: Vec<(
-        AccountId,   // who
-        BlockNumber, // start
-        BlockNumber, // period
-        u32,         // period_count
-        Balance,     // per_period
-    )>,
 ) -> kintsugi_runtime::GenesisConfig {
     kintsugi_runtime::GenesisConfig {
         system: kintsugi_runtime::SystemConfig {
@@ -478,13 +537,8 @@ fn kintsugi_mainnet_genesis(
         security: kintsugi_runtime::SecurityConfig {
             initial_status: kintsugi_runtime::StatusCode::Shutdown,
         },
-        tokens: kintsugi_runtime::TokensConfig {
-            balances: initial_allocation
-                .iter()
-                .map(|(who, amount)| (who.clone(), Token(KINT), *amount))
-                .collect(),
-        },
-        vesting: kintsugi_runtime::VestingConfig { vesting: vesting_list },
+        tokens: Default::default(),
+        vesting: Default::default(),
         oracle: kintsugi_runtime::OracleConfig {
             authorized_oracles,
             max_delay: DEFAULT_MAX_DELAY_MS,
@@ -617,8 +671,6 @@ pub fn interlay_mainnet_config(id: ParaId) -> InterlayChainSpec {
                 ],
                 id,
                 SECURE_BITCOIN_CONFIRMATIONS,
-                vec![],
-                vec![],
             )
         },
         Vec::new(),
@@ -638,14 +690,6 @@ fn interlay_mainnet_genesis(
     authorized_oracles: Vec<(AccountId, Vec<u8>)>,
     id: ParaId,
     bitcoin_confirmations: u32,
-    initial_allocation: Vec<(AccountId, Balance)>,
-    vesting_list: Vec<(
-        AccountId,   // who
-        BlockNumber, // start
-        BlockNumber, // period
-        u32,         // period_count
-        Balance,     // per_period
-    )>,
 ) -> interlay_runtime::GenesisConfig {
     interlay_runtime::GenesisConfig {
         system: interlay_runtime::SystemConfig {
@@ -685,13 +729,8 @@ fn interlay_mainnet_genesis(
             // Assign network admin rights.
             key: root_key.clone(),
         },
-        tokens: interlay_runtime::TokensConfig {
-            balances: initial_allocation
-                .iter()
-                .map(|(who, amount)| (who.clone(), Token(KINT), *amount))
-                .collect(),
-        },
-        vesting: interlay_runtime::VestingConfig { vesting: vesting_list },
+        tokens: Default::default(),
+        vesting: Default::default(),
         oracle: interlay_runtime::OracleConfig {
             authorized_oracles,
             max_delay: DEFAULT_MAX_DELAY_MS,
