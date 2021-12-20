@@ -322,8 +322,8 @@ where
 
 impl pallet_transaction_payment::Config for Runtime {
     type OnChargeTransaction = pallet_transaction_payment::CurrencyAdapter<
-        orml_tokens::CurrencyAdapter<Runtime, GetCollateralCurrencyId>,
-        DealWithFees<Runtime, GetCollateralCurrencyId>,
+        orml_tokens::CurrencyAdapter<Runtime, GetNativeCurrencyId>,
+        DealWithFees<Runtime, GetNativeCurrencyId>,
     >;
     type TransactionByteFee = TransactionByteFee;
     type WeightToFee = IdentityFee<Balance>;
