@@ -94,9 +94,9 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     spec_name: create_runtime_str!("kintsugi-parachain"),
     impl_name: create_runtime_str!("kintsugi-parachain"),
     authoring_version: 1,
-    spec_version: 8,
+    spec_version: 9, // 1.5.9
     impl_version: 1,
-    transaction_version: 1,
+    transaction_version: 2, // 1.5.9
     apis: RUNTIME_API_VERSIONS,
 };
 
@@ -467,7 +467,7 @@ parameter_types! {
 impl pallet_multisig::Config for Runtime {
     type Event = Event;
     type Call = Call;
-    type Currency = orml_tokens::CurrencyAdapter<Runtime, GetCollateralCurrencyId>; // pay for execution in DOT/KSM
+    type Currency = orml_tokens::CurrencyAdapter<Runtime, GetNativeCurrencyId>; // pay for execution in INTR/KINT
     type DepositBase = GetDepositBase;
     type DepositFactor = GetDepositFactor;
     type MaxSignatories = GetMaxSignatories;
@@ -1120,7 +1120,7 @@ impl vault_registry::Config for Runtime {
     type Event = Event;
     type Balance = Balance;
     type WeightInfo = ();
-    type GetGriefingCollateralCurrencyId = GetCollateralCurrencyId;
+    type GetGriefingCollateralCurrencyId = GetNativeCurrencyId;
 }
 
 impl<C> frame_system::offchain::SendTransactionTypes<C> for Runtime
