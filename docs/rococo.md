@@ -61,23 +61,27 @@ polkadot --chain rococo-local.json --bob --tmp --discover-local --port 30334
 Compile and install the parachain as above.
 
 ```shell
+# Export the chain spec
+interbtc-parachain build-spec --chain rococo-local --disable-default-bootnode --raw > rococo-spec.json
+
 # Export genesis state (using reserved paraid)
-interbtc-parachain export-genesis-state --chain rococo-local --parachain-id 2000 > genesis-state
+interbtc-parachain export-genesis-state --chain rococo-spec.json --parachain-id 2121 > genesis-state
 
 # Export genesis wasm
-interbtc-parachain export-genesis-wasm > genesis-wasm
+interbtc-parachain export-genesis-wasm --chain rococo-spec.json > genesis-wasm
 
 # Run parachain collator
 interbtc-parachain \
     --alice \
     --collator \
     --force-authoring \
-    --chain rococo-local \
-    --parachain-id 2000 \
+    --chain=rococo-spec.json \
+    --parachain-id 2121 \
     --port 40335 \
     --ws-port 9946 \
     --discover-local \
     --tmp \
+    --execution wasm \
     -- \
     --execution wasm \
     --chain rococo-local.json \
