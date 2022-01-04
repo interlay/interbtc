@@ -6,6 +6,7 @@
   "telemetryEndpoints": null,
   "protocolId": null,
   "properties": {
+    "ss58Format": 2032,
     "tokenDecimals": [
       10,
       8,
@@ -15,12 +16,12 @@
       12
     ],
     "tokenSymbol": [
-      "DOT",
-      "INTERBTC",
       "INTR",
-      "KSM",
+      "INTERBTC",
+      "DOT",
+      "KINT",
       "KBTC",
-      "KINT"
+      "KSM"
     ]
   },
   "relay_chain": "polkadot",

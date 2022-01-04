@@ -11,21 +11,22 @@
   "telemetryEndpoints": null,
   "protocolId": null,
   "properties": {
+    "ss58Format": 2092,
     "tokenDecimals": [
-      10,
-      8,
-      10,
       12,
       8,
-      12
+      12,
+      10,
+      8,
+      10
     ],
     "tokenSymbol": [
-      "DOT",
-      "INTERBTC",
-      "INTR",
-      "KSM",
+      "KINT",
       "KBTC",
-      "KINT"
+      "KSM",
+      "INTR",
+      "INTERBTC",
+      "DOT"
     ]
   },
   "relay_chain": "kusama",

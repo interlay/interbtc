@@ -3,7 +3,8 @@ use cumulus_primitives_core::ParaId;
 use hex_literal::hex;
 use interbtc_rpc::jsonrpc_core::serde_json::{map::Map, Value};
 use primitives::{
-    AccountId, Balance, CurrencyId, CurrencyId::Token, Signature, TokenSymbol, VaultCurrencyPair, DOT, INTR, KINT, KSM,
+    AccountId, Balance, CurrencyId, CurrencyId::Token, CurrencyInfo, Signature, VaultCurrencyPair, DOT, INTERBTC, INTR,
+    KBTC, KINT, KSM,
 };
 use sc_chain_spec::{ChainSpecExtension, ChainSpecGroup};
 use sc_service::ChainType;
@@ -83,27 +84,30 @@ const DEFAULT_DUST_VALUE: Balance = 1000;
 const DEFAULT_BITCOIN_CONFIRMATIONS: u32 = 1;
 const SECURE_BITCOIN_CONFIRMATIONS: u32 = 6;
 
-fn get_properties() -> Map<String, Value> {
+fn kintsugi_properties() -> Map<String, Value> {
     let mut properties = Map::new();
     let mut token_symbol: Vec<String> = vec![];
     let mut token_decimals: Vec<u32> = vec![];
-    TokenSymbol::get_info().iter().for_each(|(symbol_name, decimals)| {
-        token_symbol.push(symbol_name.to_string());
-        token_decimals.push(*decimals);
+    [KINT, KBTC, KSM, INTR, INTERBTC, DOT].iter().for_each(|token| {
+        token_symbol.push(token.symbol().to_string());
+        token_decimals.push(token.decimals() as u32);
     });
     properties.insert("tokenSymbol".into(), token_symbol.into());
     properties.insert("tokenDecimals".into(), token_decimals.into());
-    properties
-}
-
-fn kintsugi_properties() -> Map<String, Value> {
-    let mut properties = get_properties();
     properties.insert("ss58Format".into(), kintsugi_runtime::SS58Prefix::get().into());
     properties
 }
 
 fn interlay_properties() -> Map<String, Value> {
-    let mut properties = get_properties();
+    let mut properties = Map::new();
+    let mut token_symbol: Vec<String> = vec![];
+    let mut token_decimals: Vec<u32> = vec![];
+    [INTR, INTERBTC, DOT, KINT, KBTC, KSM].iter().for_each(|token| {
+        token_symbol.push(token.symbol().to_string());
+        token_decimals.push(token.decimals() as u32);
+    });
+    properties.insert("tokenSymbol".into(), token_symbol.into());
+    properties.insert("tokenDecimals".into(), token_decimals.into());
     properties.insert("ss58Format".into(), interlay_runtime::SS58Prefix::get().into());
     properties
 }
