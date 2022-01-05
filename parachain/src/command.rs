@@ -17,7 +17,7 @@
 use crate::{
     chain_spec,
     cli::{Cli, Subcommand},
-    service::{new_partial, InterlayRuntimeExecutor, KintsugiRuntimeExecutor},
+    service::{new_partial, InterlayRuntimeExecutor, KintsugiRuntimeExecutor, TestnetRuntimeExecutor},
 };
 use primitives::Block;
 use sc_cli::{ChainSpec, Result, RuntimeVersion, SubstrateCli};
@@ -40,6 +40,7 @@ const DEFAULT_PARA_ID: u32 = 2121;
 trait IdentifyChain {
     fn is_interlay(&self) -> bool;
     fn is_kintsugi(&self) -> bool;
+    fn is_testnet(&self) -> bool;
 }
 
 impl IdentifyChain for dyn sc_service::ChainSpec {
@@ -49,6 +50,9 @@ impl IdentifyChain for dyn sc_service::ChainSpec {
     fn is_kintsugi(&self) -> bool {
         self.id().starts_with("kintsugi")
     }
+    fn is_testnet(&self) -> bool {
+        self.id().starts_with("testnet")
+    }
 }
 
 impl<T: sc_service::ChainSpec + 'static> IdentifyChain for T {
@@ -57,6 +61,9 @@ impl<T: sc_service::ChainSpec + 'static> IdentifyChain for T {
     }
     fn is_kintsugi(&self) -> bool {
         <dyn sc_service::ChainSpec>::is_kintsugi(self)
+    }
+    fn is_testnet(&self) -> bool {
+        <dyn sc_service::ChainSpec>::is_testnet(self)
     }
 }
 
@@ -81,6 +88,8 @@ fn load_spec(id: &str, para_id: ParaId) -> std::result::Result<Box<dyn sc_servic
                 Box::new(chain_spec::InterlayChainSpec::from_json_file(path.into())?)
             } else if chain_spec.is_kintsugi() {
                 Box::new(chain_spec::KintsugiChainSpec::from_json_file(path.into())?)
+            } else if chain_spec.is_testnet() {
+                Box::new(chain_spec::TestnetChainSpec::from_json_file(path.into())?)
             } else {
                 Box::new(chain_spec)
             }
@@ -120,8 +129,10 @@ impl SubstrateCli for Cli {
     fn native_runtime_version(chain_spec: &Box<dyn ChainSpec>) -> &'static RuntimeVersion {
         if chain_spec.is_interlay() {
             &interlay_runtime::VERSION
-        } else {
+        } else if chain_spec.is_kintsugi() {
             &kintsugi_runtime::VERSION
+        } else {
+            &testnet_runtime::VERSION
         }
     }
 }
@@ -186,11 +197,22 @@ macro_rules! construct_async_run {
 				let task_manager = $components.task_manager;
 				{ $( $code )* }.map(|v| (v, task_manager))
 			})
-		} else {
+		} else if runner.config().chain_spec.is_kintsugi() {
 			runner.async_run(|$config| {
 				let $components = new_partial::<
 					kintsugi_runtime::RuntimeApi,
 					KintsugiRuntimeExecutor,
+				>(
+					&$config,
+				)?;
+				let task_manager = $components.task_manager;
+				{ $( $code )* }.map(|v| (v, task_manager))
+			})
+		} else {
+			runner.async_run(|$config| {
+				let $components = new_partial::<
+					testnet_runtime::RuntimeApi,
+					TestnetRuntimeExecutor,
 				>(
 					&$config,
 				)?;
@@ -266,6 +288,8 @@ pub fn run() -> Result<()> {
                     runner.sync_run(|config| cmd.run::<Block, InterlayRuntimeExecutor>(config))
                 } else if runner.config().chain_spec.is_kintsugi() {
                     runner.sync_run(|config| cmd.run::<Block, KintsugiRuntimeExecutor>(config))
+                } else if runner.config().chain_spec.is_testnet() {
+                    runner.sync_run(|config| cmd.run::<Block, TestnetRuntimeExecutor>(config))
                 } else {
                     Err("Chain doesn't support benchmarking".into())
                 }
@@ -363,8 +387,13 @@ async fn start_node(cli: Cli, config: Configuration) -> sc_service::error::Resul
             .await
             .map(|r| r.0)
             .map_err(Into::into)
-    } else {
+    } else if config.chain_spec.is_kintsugi() {
         crate::service::start_node::<kintsugi_runtime::RuntimeApi, KintsugiRuntimeExecutor>(config, polkadot_config, id)
+            .await
+            .map(|r| r.0)
+            .map_err(Into::into)
+    } else {
+        crate::service::start_node::<testnet_runtime::RuntimeApi, TestnetRuntimeExecutor>(config, polkadot_config, id)
             .await
             .map(|r| r.0)
             .map_err(Into::into)

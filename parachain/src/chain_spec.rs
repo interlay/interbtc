@@ -26,6 +26,9 @@ pub type InterlayChainSpec = sc_service::GenericChainSpec<interlay_runtime::Gene
 /// Specialized `ChainSpec` for the kintsugi parachain runtime.
 pub type KintsugiChainSpec = sc_service::GenericChainSpec<kintsugi_runtime::GenesisConfig, Extensions>;
 
+/// Specialized `ChainSpec` for the testnet parachain runtime.
+pub type TestnetChainSpec = sc_service::GenericChainSpec<testnet_runtime::GenesisConfig, Extensions>;
+
 /// The extensions for the [`ChainSpec`].
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, ChainSpecExtension, ChainSpecGroup)]
 #[serde(deny_unknown_fields)]
@@ -84,6 +87,20 @@ const DEFAULT_DUST_VALUE: Balance = 1000;
 const DEFAULT_BITCOIN_CONFIRMATIONS: u32 = 1;
 const SECURE_BITCOIN_CONFIRMATIONS: u32 = 6;
 
+fn testnet_properties() -> Map<String, Value> {
+    let mut properties = Map::new();
+    let mut token_symbol: Vec<String> = vec![];
+    let mut token_decimals: Vec<u32> = vec![];
+    [KINT, KBTC, KSM, INTR, INTERBTC, DOT].iter().for_each(|token| {
+        token_symbol.push(token.symbol().to_string());
+        token_decimals.push(token.decimals() as u32);
+    });
+    properties.insert("tokenSymbol".into(), token_symbol.into());
+    properties.insert("tokenDecimals".into(), token_decimals.into());
+    properties.insert("ss58Format".into(), testnet_runtime::SS58Prefix::get().into());
+    properties
+}
+
 fn kintsugi_properties() -> Map<String, Value> {
     let mut properties = Map::new();
     let mut token_symbol: Vec<String> = vec![];
@@ -127,13 +144,14 @@ fn expected_transaction_size() -> u32 {
     )
 }
 
-pub fn local_config(id: ParaId) -> KintsugiChainSpec {
-    KintsugiChainSpec::from_genesis(
+pub fn local_config(id: ParaId) -> TestnetChainSpec {
+    TestnetChainSpec::from_genesis(
         "interBTC",
         "local_testnet",
         ChainType::Local,
         move || {
             testnet_genesis(
+                get_account_id_from_seed::<sr25519::Public>("Alice"),
                 vec![get_from_seed::<AuraId>("Alice")],
                 vec![
                     get_account_id_from_seed::<sr25519::Public>("Alice"),
@@ -161,7 +179,7 @@ pub fn local_config(id: ParaId) -> KintsugiChainSpec {
         vec![],
         None,
         None,
-        Some(kintsugi_properties()),
+        Some(testnet_properties()),
         Extensions {
             relay_chain: "local".into(),
             para_id: id.into(),
@@ -169,13 +187,14 @@ pub fn local_config(id: ParaId) -> KintsugiChainSpec {
     )
 }
 
-pub fn development_config(id: ParaId) -> KintsugiChainSpec {
-    KintsugiChainSpec::from_genesis(
+pub fn development_config(id: ParaId) -> TestnetChainSpec {
+    TestnetChainSpec::from_genesis(
         "interBTC",
         "dev_testnet",
         ChainType::Development,
         move || {
             testnet_genesis(
+                get_account_id_from_seed::<sr25519::Public>("Alice"),
                 vec![get_from_seed::<AuraId>("Alice")],
                 vec![
                     get_account_id_from_seed::<sr25519::Public>("Alice"),
@@ -213,7 +232,7 @@ pub fn development_config(id: ParaId) -> KintsugiChainSpec {
         Vec::new(),
         None,
         None,
-        Some(kintsugi_properties()),
+        Some(testnet_properties()),
         Extensions {
             relay_chain: "dev".into(),
             para_id: id.into(),
@@ -221,13 +240,14 @@ pub fn development_config(id: ParaId) -> KintsugiChainSpec {
     )
 }
 
-pub fn rococo_testnet_config(id: ParaId) -> KintsugiChainSpec {
-    KintsugiChainSpec::from_genesis(
+pub fn rococo_testnet_config(id: ParaId) -> TestnetChainSpec {
+    TestnetChainSpec::from_genesis(
         "interBTC",
         "rococo_testnet",
         ChainType::Live,
         move || {
             testnet_genesis(
+                get_account_id_from_string("5HeVGqvfpabwFqzV1DhiQmjaLQiFcTSmq2sH6f7atsXkgvtt"),
                 vec![
                     // 5DJ3wbdicFSFFudXndYBuvZKjucTsyxtJX5WPzQM8HysSkFY
                     hex!["366a092a27b4b28199a588b0155a2c9f3f0513d92481de4ee2138273926fa91c"].unchecked_into(),
@@ -268,7 +288,7 @@ pub fn rococo_testnet_config(id: ParaId) -> KintsugiChainSpec {
         Vec::new(),
         None,
         None,
-        Some(kintsugi_properties()),
+        Some(testnet_properties()),
         Extensions {
             relay_chain: "rococo".into(),
             para_id: id.into(),
@@ -276,17 +296,18 @@ pub fn rococo_testnet_config(id: ParaId) -> KintsugiChainSpec {
     )
 }
 
-pub fn rococo_local_testnet_config(id: ParaId) -> KintsugiChainSpec {
+pub fn rococo_local_testnet_config(id: ParaId) -> TestnetChainSpec {
     development_config(id)
 }
 
-pub fn westend_testnet_config(id: ParaId) -> KintsugiChainSpec {
-    KintsugiChainSpec::from_genesis(
+pub fn westend_testnet_config(id: ParaId) -> TestnetChainSpec {
+    TestnetChainSpec::from_genesis(
         "interBTC",
         "westend_testnet",
         ChainType::Live,
         move || {
             testnet_genesis(
+                get_account_id_from_string("5DUupBJSyBDcqQudgPR4gttFie3cLPRw3HwaUfq9H2D2mKiA"),
                 vec![
                     // 5H75GkhA6TnyCW7fM4H8LyoTqmPJWf3JuZZPFR9Bpv26LGHA (//authority/0)
                     hex!["defbbf8f70964f6a4952bc168b6c1489b502e05d6b5ef57f8767589cf3813705"].unchecked_into(),
@@ -341,7 +362,7 @@ pub fn westend_testnet_config(id: ParaId) -> KintsugiChainSpec {
         Vec::new(),
         None,
         None,
-        Some(kintsugi_properties()),
+        Some(testnet_properties()),
         Extensions {
             relay_chain: "westend".into(),
             para_id: id.into(),
@@ -364,34 +385,39 @@ fn default_pair_kintsugi(currency_id: CurrencyId) -> VaultCurrencyPair<CurrencyI
 }
 
 fn testnet_genesis(
+    root_key: AccountId,
     initial_authorities: Vec<AuraId>,
     endowed_accounts: Vec<AccountId>,
     authorized_oracles: Vec<(AccountId, Vec<u8>)>,
     id: ParaId,
     bitcoin_confirmations: u32,
     start_shutdown: bool,
-) -> kintsugi_runtime::GenesisConfig {
-    kintsugi_runtime::GenesisConfig {
-        system: kintsugi_runtime::SystemConfig {
-            code: kintsugi_runtime::WASM_BINARY
+) -> testnet_runtime::GenesisConfig {
+    testnet_runtime::GenesisConfig {
+        system: testnet_runtime::SystemConfig {
+            code: testnet_runtime::WASM_BINARY
                 .expect("WASM binary was not build, please build it!")
                 .to_vec(),
             changes_trie_config: Default::default(),
         },
-        aura: kintsugi_runtime::AuraConfig {
+        aura: testnet_runtime::AuraConfig {
             authorities: initial_authorities,
         },
         aura_ext: Default::default(),
         parachain_system: Default::default(),
-        parachain_info: kintsugi_runtime::ParachainInfoConfig { parachain_id: id },
-        security: kintsugi_runtime::SecurityConfig {
+        parachain_info: testnet_runtime::ParachainInfoConfig { parachain_id: id },
+        security: testnet_runtime::SecurityConfig {
             initial_status: if start_shutdown {
-                kintsugi_runtime::StatusCode::Shutdown
+                testnet_runtime::StatusCode::Shutdown
             } else {
-                kintsugi_runtime::StatusCode::Error
+                testnet_runtime::StatusCode::Error
             },
         },
-        tokens: kintsugi_runtime::TokensConfig {
+        sudo: testnet_runtime::SudoConfig {
+            // Assign network admin rights.
+            key: root_key.clone(),
+        },
+        tokens: testnet_runtime::TokensConfig {
             balances: endowed_accounts
                 .iter()
                 .flat_map(|k| {
@@ -405,32 +431,32 @@ fn testnet_genesis(
                 .collect(),
         },
         vesting: Default::default(),
-        oracle: kintsugi_runtime::OracleConfig {
+        oracle: testnet_runtime::OracleConfig {
             authorized_oracles,
             max_delay: DEFAULT_MAX_DELAY_MS,
         },
-        btc_relay: kintsugi_runtime::BTCRelayConfig {
+        btc_relay: testnet_runtime::BTCRelayConfig {
             bitcoin_confirmations,
-            parachain_confirmations: bitcoin_confirmations.saturating_mul(kintsugi_runtime::BITCOIN_BLOCK_SPACING),
+            parachain_confirmations: bitcoin_confirmations.saturating_mul(testnet_runtime::BITCOIN_BLOCK_SPACING),
             disable_difficulty_check: true,
             disable_inclusion_check: false,
         },
-        issue: kintsugi_runtime::IssueConfig {
-            issue_period: kintsugi_runtime::DAYS,
+        issue: testnet_runtime::IssueConfig {
+            issue_period: testnet_runtime::DAYS,
             issue_btc_dust_value: DEFAULT_DUST_VALUE,
         },
-        redeem: kintsugi_runtime::RedeemConfig {
+        redeem: testnet_runtime::RedeemConfig {
             redeem_transaction_size: expected_transaction_size(),
-            redeem_period: kintsugi_runtime::DAYS,
+            redeem_period: testnet_runtime::DAYS,
             redeem_btc_dust_value: DEFAULT_DUST_VALUE,
         },
-        replace: kintsugi_runtime::ReplaceConfig {
-            replace_period: kintsugi_runtime::DAYS,
+        replace: testnet_runtime::ReplaceConfig {
+            replace_period: testnet_runtime::DAYS,
             replace_btc_dust_value: DEFAULT_DUST_VALUE,
         },
-        vault_registry: kintsugi_runtime::VaultRegistryConfig {
+        vault_registry: testnet_runtime::VaultRegistryConfig {
             minimum_collateral_vault: vec![(Token(KSM), 0)],
-            punishment_delay: kintsugi_runtime::DAYS,
+            punishment_delay: testnet_runtime::DAYS,
             system_collateral_ceiling: vec![(default_pair_kintsugi(Token(KSM)), 1000 * KSM.one())],
             secure_collateral_threshold: vec![(
                 default_pair_kintsugi(Token(KSM)),
@@ -445,7 +471,7 @@ fn testnet_genesis(
                 FixedU128::checked_from_rational(110, 100).unwrap(),
             )], /* 110% */
         },
-        fee: kintsugi_runtime::FeeConfig {
+        fee: testnet_runtime::FeeConfig {
             issue_fee: FixedU128::checked_from_rational(5, 1000).unwrap(), // 0.5%
             issue_griefing_collateral: FixedU128::checked_from_rational(5, 100000).unwrap(), // 0.005%
             refund_fee: FixedU128::checked_from_rational(5, 1000).unwrap(), // 0.5%
@@ -456,21 +482,21 @@ fn testnet_genesis(
             theft_fee: FixedU128::checked_from_rational(5, 100).unwrap(),  // 5%
             theft_fee_max: 10000000,                                       // 0.1 BTC
         },
-        refund: kintsugi_runtime::RefundConfig {
+        refund: testnet_runtime::RefundConfig {
             refund_btc_dust_value: DEFAULT_DUST_VALUE,
             refund_transaction_size: expected_transaction_size(),
         },
-        nomination: kintsugi_runtime::NominationConfig {
+        nomination: testnet_runtime::NominationConfig {
             is_nomination_enabled: false,
         },
         technical_committee: Default::default(),
         technical_membership: Default::default(),
         treasury: Default::default(),
         democracy: Default::default(),
-        supply: kintsugi_runtime::SupplyConfig {
-            initial_supply: kintsugi_runtime::token_distribution::INITIAL_ALLOCATION,
+        supply: testnet_runtime::SupplyConfig {
+            initial_supply: testnet_runtime::token_distribution::INITIAL_ALLOCATION,
             // start of year 5
-            start_height: kintsugi_runtime::YEARS * 4,
+            start_height: testnet_runtime::YEARS * 4,
             inflation: FixedU128::checked_from_rational(2, 100).unwrap(), // 2%
         },
     }

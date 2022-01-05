@@ -20,35 +20,32 @@ use sp_runtime::traits::BlakeTwo256;
 use std::sync::Arc;
 use substrate_prometheus_endpoint::Registry;
 
-// Native kintsugi executor instance.
-pub struct KintsugiRuntimeExecutor;
+macro_rules! new_runtime_executor {
+    ($name:ident,$runtime:ident) => {
+        pub struct $name;
 
-impl sc_executor::NativeExecutionDispatch for KintsugiRuntimeExecutor {
-    type ExtendHostFunctions = frame_benchmarking::benchmarking::HostFunctions;
+        impl sc_executor::NativeExecutionDispatch for $name {
+            type ExtendHostFunctions = frame_benchmarking::benchmarking::HostFunctions;
 
-    fn dispatch(method: &str, data: &[u8]) -> Option<Vec<u8>> {
-        kintsugi_runtime::api::dispatch(method, data)
-    }
+            fn dispatch(method: &str, data: &[u8]) -> Option<Vec<u8>> {
+                $runtime::api::dispatch(method, data)
+            }
 
-    fn native_version() -> sc_executor::NativeVersion {
-        kintsugi_runtime::native_version()
-    }
+            fn native_version() -> sc_executor::NativeVersion {
+                $runtime::native_version()
+            }
+        }
+    };
 }
 
 // Native interlay executor instance.
-pub struct InterlayRuntimeExecutor;
+new_runtime_executor!(InterlayRuntimeExecutor, interlay_runtime);
 
-impl sc_executor::NativeExecutionDispatch for InterlayRuntimeExecutor {
-    type ExtendHostFunctions = frame_benchmarking::benchmarking::HostFunctions;
+// Native kintsugi executor instance.
+new_runtime_executor!(KintsugiRuntimeExecutor, kintsugi_runtime);
 
-    fn dispatch(method: &str, data: &[u8]) -> Option<Vec<u8>> {
-        interlay_runtime::api::dispatch(method, data)
-    }
-
-    fn native_version() -> sc_executor::NativeVersion {
-        interlay_runtime::native_version()
-    }
-}
+// Native testnet executor instance.
+new_runtime_executor!(TestnetRuntimeExecutor, testnet_runtime);
 
 pub trait RuntimeApiCollection:
     sp_transaction_pool::runtime_api::TaggedTransactionQueue<Block>
