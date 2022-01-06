@@ -310,7 +310,7 @@ mod request_replace_tests {
                     griefing_collateral: 0
                 })
                 .dispatch(origin_of(account_of(OLD_VAULT))),
-                DispatchError::BadOrigin,
+                SystemError::CallFiltered,
             );
         });
     }
@@ -722,11 +722,11 @@ fn integration_test_replace_with_parachain_shutdown_fails() {
 
         assert_noop!(
             request_replace(&old_vault_id, old_vault_id.wrapped(0), griefing(0)),
-            DispatchError::BadOrigin,
+            SystemError::CallFiltered,
         );
         assert_noop!(
             withdraw_replace(&old_vault_id, old_vault_id.wrapped(0)),
-            DispatchError::BadOrigin
+            SystemError::CallFiltered
         );
         assert_noop!(
             accept_replace(
@@ -736,7 +736,7 @@ fn integration_test_replace_with_parachain_shutdown_fails() {
                 griefing(0),
                 Default::default()
             ),
-            DispatchError::BadOrigin
+            SystemError::CallFiltered
         );
 
         assert_noop!(
@@ -746,7 +746,7 @@ fn integration_test_replace_with_parachain_shutdown_fails() {
                 raw_tx: Default::default()
             })
             .dispatch(origin_of(account_of(OLD_VAULT))),
-            DispatchError::BadOrigin
+            SystemError::CallFiltered
         );
 
         assert_noop!(
@@ -754,7 +754,7 @@ fn integration_test_replace_with_parachain_shutdown_fails() {
                 replace_id: Default::default()
             })
             .dispatch(origin_of(account_of(OLD_VAULT))),
-            DispatchError::BadOrigin
+            SystemError::CallFiltered
         );
     })
 }

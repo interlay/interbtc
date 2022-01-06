@@ -40,7 +40,7 @@ mod spec_based_tests {
                     raw_tx: vec![0u8; 32],
                 })
                 .dispatch(origin_of(account_of(BOB))),
-                DispatchError::BadOrigin,
+                SystemError::CallFiltered,
             );
         });
     }

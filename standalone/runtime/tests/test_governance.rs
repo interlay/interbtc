@@ -117,7 +117,7 @@ fn assert_technical_committee_executed_event() {
         .find(|record| {
             matches!(
                 record.event,
-                Event::TechnicalCommittee(TechnicalCommitteeEvent::Executed(_, Ok(())))
+                Event::TechnicalCommittee(TechnicalCommitteeEvent::Executed { result: Ok(()), .. })
             )
         })
         .expect("execution failed");
@@ -214,7 +214,7 @@ fn can_recover_from_shutdown_using_root() {
                 amount: 123,
             })
             .dispatch(origin_of(account_of(ALICE))),
-            DispatchError::BadOrigin
+            SystemError::CallFiltered
         );
 
         // use sudo to set parachain status back to running

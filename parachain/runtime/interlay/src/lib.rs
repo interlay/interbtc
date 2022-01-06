@@ -12,7 +12,10 @@ use bitcoin::types::H256Le;
 use currency::Amount;
 use frame_support::{
     dispatch::{DispatchError, DispatchResult},
-    traits::{Contains, Currency as PalletCurrency, EnsureOrigin, ExistenceRequirement, Imbalance, OnUnbalanced},
+    traits::{
+        Contains, Currency as PalletCurrency, EnsureOrigin, EqualPrivilegeOnly, ExistenceRequirement, Imbalance,
+        OnUnbalanced,
+    },
     PalletId,
 };
 use frame_system::{EnsureOneOf, EnsureRoot, RawOrigin};
@@ -371,6 +374,7 @@ impl pallet_utility::Config for Runtime {
     type Call = Call;
     type Event = Event;
     type WeightInfo = ();
+    type PalletsOrigin = OriginCaller;
 }
 
 parameter_types! {
@@ -434,6 +438,7 @@ impl pallet_scheduler::Config for Runtime {
     type ScheduleOrigin = EnsureRoot<AccountId>;
     type MaxScheduledPerBlock = MaxScheduledPerBlock;
     type WeightInfo = ();
+    type OriginPrivilegeCmp = EqualPrivilegeOnly;
 }
 
 // https://github.com/paritytech/polkadot/blob/c4ee9d463adccfa3bf436433e3e26d0de5a4abbc/runtime/polkadot/src/constants.rs#L18

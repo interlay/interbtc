@@ -398,7 +398,6 @@ fn testnet_genesis(
             code: testnet_runtime::WASM_BINARY
                 .expect("WASM binary was not build, please build it!")
                 .to_vec(),
-            changes_trie_config: Default::default(),
         },
         aura: testnet_runtime::AuraConfig {
             authorities: initial_authorities,
@@ -567,7 +566,6 @@ fn kintsugi_mainnet_genesis(
             code: kintsugi_runtime::WASM_BINARY
                 .expect("WASM binary was not build, please build it!")
                 .to_vec(),
-            changes_trie_config: Default::default(),
         },
         parachain_system: Default::default(),
         parachain_info: kintsugi_runtime::ParachainInfoConfig { parachain_id: id },
@@ -737,7 +735,6 @@ fn interlay_mainnet_genesis(
             code: interlay_runtime::WASM_BINARY
                 .expect("WASM binary was not build, please build it!")
                 .to_vec(),
-            changes_trie_config: Default::default(),
         },
         parachain_system: Default::default(),
         parachain_info: interlay_runtime::ParachainInfoConfig { parachain_id: id },

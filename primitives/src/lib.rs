@@ -362,9 +362,6 @@ pub type Hash = sp_core::H256;
 /// An instant or duration in time.
 pub type Moment = u64;
 
-/// Digest item type.
-pub type DigestItem = generic::DigestItem<Hash>;
-
 /// Opaque block header type.
 pub type Header = generic::Header<BlockNumber, BlakeTwo256>;
 

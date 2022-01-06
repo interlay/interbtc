@@ -13,7 +13,8 @@ use currency::Amount;
 use frame_support::{
     dispatch::{DispatchError, DispatchResult},
     traits::{
-        Contains, Currency as PalletCurrency, EnsureOrigin, ExistenceRequirement, FindAuthor, Imbalance, OnUnbalanced,
+        Contains, Currency as PalletCurrency, EnsureOrigin, EqualPrivilegeOnly, ExistenceRequirement, FindAuthor,
+        Imbalance, OnUnbalanced,
     },
     PalletId,
 };
@@ -253,7 +254,6 @@ impl FindAuthor<AccountId> for AuraAccountAdapter {
     where
         I: 'a + IntoIterator<Item = (sp_runtime::ConsensusEngineId, &'a [u8])>,
     {
-        use sp_std::convert::TryFrom;
         pallet_aura::AuraAuthorId::<Runtime>::find_author(digests).and_then(|k| AccountId::try_from(k.as_ref()).ok())
     }
 }
@@ -335,6 +335,7 @@ impl pallet_utility::Config for Runtime {
     type Call = Call;
     type Event = Event;
     type WeightInfo = ();
+    type PalletsOrigin = OriginCaller;
 }
 
 parameter_types! {
@@ -402,6 +403,7 @@ impl pallet_scheduler::Config for Runtime {
     type MaximumWeight = MaximumSchedulerWeight;
     type ScheduleOrigin = EnsureRoot<AccountId>;
     type MaxScheduledPerBlock = MaxScheduledPerBlock;
+    type OriginPrivilegeCmp = EqualPrivilegeOnly;
     type WeightInfo = ();
 }
 

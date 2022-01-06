@@ -204,7 +204,7 @@ fn integration_test_vault_registry_with_parachain_shutdown_fails() {
                 public_key: Default::default()
             })
             .dispatch(origin_of(account_of(VAULT))),
-            DispatchError::BadOrigin
+            SystemError::CallFiltered
         );
         assert_noop!(
             Call::VaultRegistry(VaultRegistryCall::deposit_collateral {
@@ -212,7 +212,7 @@ fn integration_test_vault_registry_with_parachain_shutdown_fails() {
                 amount: 0
             })
             .dispatch(origin_of(account_of(VAULT))),
-            DispatchError::BadOrigin
+            SystemError::CallFiltered
         );
         assert_noop!(
             Call::VaultRegistry(VaultRegistryCall::withdraw_collateral {
@@ -220,7 +220,7 @@ fn integration_test_vault_registry_with_parachain_shutdown_fails() {
                 amount: 0
             })
             .dispatch(origin_of(account_of(VAULT))),
-            DispatchError::BadOrigin
+            SystemError::CallFiltered
         );
         assert_noop!(
             Call::VaultRegistry(VaultRegistryCall::update_public_key {
@@ -228,7 +228,7 @@ fn integration_test_vault_registry_with_parachain_shutdown_fails() {
                 public_key: Default::default()
             })
             .dispatch(origin_of(account_of(VAULT))),
-            DispatchError::BadOrigin
+            SystemError::CallFiltered
         );
         assert_noop!(
             Call::VaultRegistry(VaultRegistryCall::register_address {
@@ -236,7 +236,7 @@ fn integration_test_vault_registry_with_parachain_shutdown_fails() {
                 btc_address: Default::default()
             })
             .dispatch(origin_of(account_of(VAULT))),
-            DispatchError::BadOrigin
+            SystemError::CallFiltered
         );
         assert_noop!(
             Call::VaultRegistry(VaultRegistryCall::accept_new_issues {
@@ -244,7 +244,7 @@ fn integration_test_vault_registry_with_parachain_shutdown_fails() {
                 accept_new_issues: false
             })
             .dispatch(origin_of(account_of(VAULT))),
-            DispatchError::BadOrigin
+            SystemError::CallFiltered
         );
     });
 }
