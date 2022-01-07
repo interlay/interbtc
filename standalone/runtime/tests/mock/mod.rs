@@ -161,6 +161,7 @@ pub type RelayPallet = relay::Pallet<Runtime>;
 pub type RelayError = relay::Error<Runtime>;
 
 pub type SystemPallet = frame_system::Pallet<Runtime>;
+pub type SystemError = frame_system::Error<Runtime>;
 
 pub type VaultRegistryCall = vault_registry::Call<Runtime>;
 pub type VaultRegistryError = vault_registry::Error<Runtime>;

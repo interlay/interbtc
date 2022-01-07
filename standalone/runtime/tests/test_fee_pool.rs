@@ -342,7 +342,7 @@ fn integration_test_fee_with_parachain_shutdown_fails() {
                 index: None
             })
             .dispatch(origin_of(vault_id_1.account_id)),
-            DispatchError::BadOrigin
+            SystemError::CallFiltered
         );
     })
 }

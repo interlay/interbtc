@@ -79,7 +79,7 @@ mod spec_based_tests {
                     vault_id: vault_id.clone(),
                 })
                 .dispatch(origin_of(account_of(ALICE))),
-                DispatchError::BadOrigin,
+                SystemError::CallFiltered,
             );
 
             assert_noop!(
@@ -89,7 +89,7 @@ mod spec_based_tests {
                     raw_tx: Default::default()
                 })
                 .dispatch(origin_of(account_of(ALICE))),
-                DispatchError::BadOrigin,
+                SystemError::CallFiltered,
             );
 
             assert_noop!(
@@ -98,7 +98,7 @@ mod spec_based_tests {
                     reimburse: false
                 })
                 .dispatch(origin_of(account_of(ALICE))),
-                DispatchError::BadOrigin,
+                SystemError::CallFiltered,
             );
             assert_noop!(
                 Call::Redeem(RedeemCall::cancel_redeem {
@@ -106,7 +106,7 @@ mod spec_based_tests {
                     reimburse: true
                 })
                 .dispatch(origin_of(account_of(ALICE))),
-                DispatchError::BadOrigin,
+                SystemError::CallFiltered,
             );
 
             assert_noop!(
@@ -115,7 +115,7 @@ mod spec_based_tests {
                     amount_wrapped: 1000
                 })
                 .dispatch(origin_of(account_of(ALICE))),
-                DispatchError::BadOrigin,
+                SystemError::CallFiltered,
             );
 
             assert_noop!(
@@ -124,7 +124,7 @@ mod spec_based_tests {
                     redeem_id: Default::default()
                 })
                 .dispatch(origin_of(account_of(ALICE))),
-                DispatchError::BadOrigin,
+                SystemError::CallFiltered,
             );
         });
     }
@@ -1228,7 +1228,7 @@ fn integration_test_redeem_parachain_status_shutdown_fails() {
                 griefing_collateral: 0
             })
             .dispatch(origin_of(account_of(ALICE))),
-            DispatchError::BadOrigin,
+            SystemError::CallFiltered,
         );
 
         assert_noop!(
@@ -1236,7 +1236,7 @@ fn integration_test_redeem_parachain_status_shutdown_fails() {
                 issue_id: H256([0; 32]),
             })
             .dispatch(origin_of(account_of(ALICE))),
-            DispatchError::BadOrigin,
+            SystemError::CallFiltered,
         );
 
         assert_noop!(
@@ -1246,7 +1246,7 @@ fn integration_test_redeem_parachain_status_shutdown_fails() {
                 raw_tx: vec![0u8; 32]
             })
             .dispatch(origin_of(account_of(ALICE))),
-            DispatchError::BadOrigin,
+            SystemError::CallFiltered,
         );
     });
 }

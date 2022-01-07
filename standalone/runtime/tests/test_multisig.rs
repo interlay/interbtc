@@ -1,5 +1,6 @@
 mod mock;
 
+use frame_support::traits::WrapperKeepOpaque;
 use mock::{assert_eq, *};
 use orml_tokens::AccountData;
 use orml_vesting::VestingSchedule;
@@ -42,7 +43,7 @@ fn integration_test_transfer_from_multisig_to_vested() {
             threshold: 2,
             other_signatories: vec![account_of(BOB)],
             maybe_timepoint: None,
-            call: call.clone(),
+            call: WrapperKeepOpaque::from_encoded(call.clone()),
             store_call: true,
             max_weight: 1000000000000,
         })
@@ -114,7 +115,7 @@ fn integration_test_transfer_from_multisig_to_unvested() {
             threshold: 2,
             other_signatories: vec![account_of(BOB)],
             maybe_timepoint: None,
-            call: call.clone(),
+            call: WrapperKeepOpaque::from_encoded(call.clone()),
             store_call: true,
             max_weight: 1000000000000,
         })
@@ -274,7 +275,7 @@ fn integration_test_batched_multisig_vesting() {
             threshold: 2,
             other_signatories: vec![account_of(BOB)],
             maybe_timepoint: None,
-            call: batch.clone(),
+            call: WrapperKeepOpaque::from_encoded(batch.clone()),
             store_call: true,
             max_weight: 1000000000000,
         })

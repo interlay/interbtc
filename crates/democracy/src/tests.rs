@@ -5,7 +5,7 @@ use crate as pallet_democracy;
 use codec::Encode;
 use frame_support::{
     assert_noop, assert_ok, ord_parameter_types, parameter_types,
-    traits::{Contains, GenesisBuild, OnInitialize, SortedMembers},
+    traits::{Contains, EqualPrivilegeOnly, GenesisBuild, OnInitialize, SortedMembers},
     weights::Weight,
 };
 use frame_system::{EnsureRoot, EnsureSignedBy};
@@ -91,6 +91,7 @@ impl pallet_scheduler::Config for Test {
     type MaximumWeight = MaximumSchedulerWeight;
     type ScheduleOrigin = EnsureRoot<u64>;
     type MaxScheduledPerBlock = ();
+    type OriginPrivilegeCmp = EqualPrivilegeOnly;
     type WeightInfo = ();
 }
 parameter_types! {

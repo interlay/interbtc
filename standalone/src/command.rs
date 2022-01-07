@@ -23,8 +23,6 @@ use interbtc_runtime::Block;
 use sc_cli::{ChainSpec, Result, RuntimeVersion, SubstrateCli};
 use sc_service::{Configuration, PartialComponents, TaskManager};
 
-use sc_cli::Role;
-
 fn load_spec(id: &str) -> std::result::Result<Box<dyn sc_service::ChainSpec>, String> {
     match id {
         "" => Ok(Box::new(chain_spec::local_config())),
@@ -160,9 +158,5 @@ pub fn run() -> Result<()> {
 }
 
 async fn start_node(_: Cli, config: Configuration) -> sc_service::error::Result<TaskManager> {
-    match config.role {
-        Role::Light => interbtc_service::new_light(config),
-        _ => interbtc_service::new_full(config),
-    }
-    .map(|(task_manager, _)| task_manager)
+    interbtc_service::new_full(config).map(|(task_manager, _)| task_manager)
 }

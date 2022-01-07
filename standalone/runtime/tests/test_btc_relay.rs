@@ -96,7 +96,7 @@ fn integration_test_btc_relay_with_parachain_shutdown_fails() {
                 op_return_id: Default::default()
             })
             .dispatch(origin_of(account_of(ALICE))),
-            DispatchError::BadOrigin
+            SystemError::CallFiltered
         );
         assert_noop!(
             Call::BTCRelay(BTCRelayCall::verify_transaction_inclusion {
@@ -105,7 +105,7 @@ fn integration_test_btc_relay_with_parachain_shutdown_fails() {
                 confirmations: Default::default()
             })
             .dispatch(origin_of(account_of(ALICE))),
-            DispatchError::BadOrigin
+            SystemError::CallFiltered
         );
         assert_noop!(
             Call::BTCRelay(BTCRelayCall::validate_transaction {
@@ -115,7 +115,7 @@ fn integration_test_btc_relay_with_parachain_shutdown_fails() {
                 op_return_id: Default::default()
             })
             .dispatch(origin_of(account_of(ALICE))),
-            DispatchError::BadOrigin
+            SystemError::CallFiltered
         );
     })
 }

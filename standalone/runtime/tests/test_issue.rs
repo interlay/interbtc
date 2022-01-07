@@ -160,7 +160,7 @@ fn integration_test_issue_with_parachain_shutdown_fails() {
                 raw_tx: Default::default()
             })
             .dispatch(origin_of(account_of(ALICE))),
-            DispatchError::BadOrigin,
+            SystemError::CallFiltered,
         );
     });
 }
@@ -180,7 +180,7 @@ mod request_issue_tests {
                     griefing_collateral: 0
                 })
                 .dispatch(origin_of(account_of(ALICE))),
-                DispatchError::BadOrigin,
+                SystemError::CallFiltered,
             );
         });
     }
@@ -703,7 +703,7 @@ mod execute_issue_tests {
                     raw_tx: Default::default()
                 })
                 .dispatch(origin_of(account_of(ALICE))),
-                DispatchError::BadOrigin,
+                SystemError::CallFiltered,
             );
         });
     }
@@ -1060,7 +1060,7 @@ mod cancel_issue_tests {
                     issue_id: H256([0; 32]),
                 })
                 .dispatch(origin_of(account_of(ALICE))),
-                DispatchError::BadOrigin,
+                SystemError::CallFiltered,
             );
         });
     }
