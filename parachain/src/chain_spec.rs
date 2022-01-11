@@ -75,11 +75,22 @@ fn get_authority_keys_from_public_key(src: [u8; 32]) -> (AccountId, AuraId) {
     (src.clone().into(), src.unchecked_into())
 }
 
+fn get_authority_keys_from_seed(seed: &str) -> (AccountId, AuraId) {
+    (
+        get_account_id_from_seed::<sr25519::Public>(seed),
+        get_from_seed::<AuraId>(seed),
+    )
+}
+
 /// Generate the session keys from individual elements.
 ///
 /// The input must be a tuple of individual keys (a single arg for now since we have just one key).
 fn get_interlay_session_keys(keys: AuraId) -> interlay_runtime::SessionKeys {
     interlay_runtime::SessionKeys { aura: keys }
+}
+
+fn get_testnet_session_keys(keys: AuraId) -> testnet_runtime::SessionKeys {
+    testnet_runtime::SessionKeys { aura: keys }
 }
 
 const DEFAULT_MAX_DELAY_MS: u32 = 60 * 60 * 1000; // one hour
@@ -152,7 +163,7 @@ pub fn local_config(id: ParaId) -> TestnetChainSpec {
         move || {
             testnet_genesis(
                 get_account_id_from_seed::<sr25519::Public>("Alice"),
-                vec![get_from_seed::<AuraId>("Alice")],
+                vec![get_authority_keys_from_seed("Alice")],
                 vec![
                     get_account_id_from_seed::<sr25519::Public>("Alice"),
                     get_account_id_from_seed::<sr25519::Public>("Bob"),
@@ -195,7 +206,7 @@ pub fn development_config(id: ParaId) -> TestnetChainSpec {
         move || {
             testnet_genesis(
                 get_account_id_from_seed::<sr25519::Public>("Alice"),
-                vec![get_from_seed::<AuraId>("Alice")],
+                vec![get_authority_keys_from_seed("Alice")],
                 vec![
                     get_account_id_from_seed::<sr25519::Public>("Alice"),
                     get_account_id_from_seed::<sr25519::Public>("Bob"),
@@ -247,14 +258,21 @@ pub fn rococo_testnet_config(id: ParaId) -> TestnetChainSpec {
         ChainType::Live,
         move || {
             testnet_genesis(
-                get_account_id_from_string("5HeVGqvfpabwFqzV1DhiQmjaLQiFcTSmq2sH6f7atsXkgvtt"),
+                // 5E4hDxbuLqzpAhcEsqaJKULgkTcEfzAqsbEQLV471cDC2Hhx (//sudo/1)
+                get_account_id_from_string("5E4hDxbuLqzpAhcEsqaJKULgkTcEfzAqsbEQLV471cDC2Hhx"),
                 vec![
-                    // 5DJ3wbdicFSFFudXndYBuvZKjucTsyxtJX5WPzQM8HysSkFY
-                    hex!["366a092a27b4b28199a588b0155a2c9f3f0513d92481de4ee2138273926fa91c"].unchecked_into(),
-                    // 5HW7ApFamN6ovtDkFyj67tRLRhp8B2kVNjureRUWWYhkTg9j
-                    hex!["f08cc7cf45f88e6dbe312a63f6ce639061834b4208415b235f77a67b51435f63"].unchecked_into(),
-                    // 5FNbq8zGPZtinsfgyD4w2G3BMh75H3r2Qg3uKudTZkJtRru6
-                    hex!["925ad4bdf35945bea91baeb5419a7ffa07002c6a85ba334adfa7cb5b05623c1b"].unchecked_into(),
+                    // 5GELfhX7eEeJfXuSe3NdfVyj13yKYegBtg8BLPQxeKDbAwzd (//authority/1)
+                    get_authority_keys_from_public_key(hex![
+                        "b84a0f13ef5eb4d7c1caf735081bd2c91667b84f4b18cd7fa176a73ffd36c133"
+                    ]),
+                    // 5Et1qfhf6zNmgZF7JWYApngE4HCxw2SxZTWKLEMZ73cFBnh6 (//authority/2)
+                    get_authority_keys_from_public_key(hex![
+                        "7c8d8946973c243888a4eba8f34288cc9f26a3b0f7114b932d6fde362ad67034"
+                    ]),
+                    // 5Cw1w8J8W8grtyWLUT8bs7GtjCm483pGT1ym8Q6K3HVaRcWb (//authority/3)
+                    get_authority_keys_from_public_key(hex![
+                        "265f1f526a9360030fcb0780ca597e398930cd9571f161b67d33d2bdd9957024"
+                    ]),
                 ],
                 vec![
                     get_account_id_from_seed::<sr25519::Public>("Alice"),
@@ -270,16 +288,11 @@ pub fn rococo_testnet_config(id: ParaId) -> TestnetChainSpec {
                     get_account_id_from_seed::<sr25519::Public>("Eve//stash"),
                     get_account_id_from_seed::<sr25519::Public>("Ferdie//stash"),
                 ],
-                vec![
-                    (
-                        get_account_id_from_string("5H8zjSWfzMn86d1meeNrZJDj3QZSvRjKxpTfuVaZ46QJZ4qs"),
-                        "Interlay".as_bytes().to_vec(),
-                    ),
-                    (
-                        get_account_id_from_string("5FPBT2BVVaLveuvznZ9A1TUtDcbxK5yvvGcMTJxgFmhcWGwj"),
-                        "Band".as_bytes().to_vec(),
-                    ),
-                ],
+                vec![(
+                    // 5FKuXEdswjda6EfXtWcTbdVH8vQbmNDWhK2qrPGx6GeHvvZh (//oracle/1)
+                    get_account_id_from_string("5FKuXEdswjda6EfXtWcTbdVH8vQbmNDWhK2qrPGx6GeHvvZh"),
+                    "Interlay".as_bytes().to_vec(),
+                )],
                 id,
                 DEFAULT_BITCOIN_CONFIRMATIONS,
                 false,
@@ -307,28 +320,21 @@ pub fn westend_testnet_config(id: ParaId) -> TestnetChainSpec {
         ChainType::Live,
         move || {
             testnet_genesis(
-                get_account_id_from_string("5DUupBJSyBDcqQudgPR4gttFie3cLPRw3HwaUfq9H2D2mKiA"),
+                // 5DjsgavDiY8xMcR4riDvs9JXYUpCMnHBe45xsA1rPeBD5woG (//sudo/1)
+                get_account_id_from_string("5DjsgavDiY8xMcR4riDvs9JXYUpCMnHBe45xsA1rPeBD5woG"),
                 vec![
-                    // 5H75GkhA6TnyCW7fM4H8LyoTqmPJWf3JuZZPFR9Bpv26LGHA (//authority/0)
-                    hex!["defbbf8f70964f6a4952bc168b6c1489b502e05d6b5ef57f8767589cf3813705"].unchecked_into(),
-                    // 5GdqW1xV8bpcJM1AVPWCdqrnUYJ9UQro1bWuPvmY2hoaQxWp (//authority/1)
-                    hex!["ca35c3927b934b111acadfcf98e9b50846e7596beb7a355df1ab50b1c48e3017"].unchecked_into(),
-                    // 5CdNwrXY3mFMMTiVsxbNTmg3MMDXcyErhxkdLx7yUqhXKopt (//authority/2)
-                    hex!["18eb708be158d0059d005da4188976caaa1aa24c8450ed3f4ad17e7a6a0cb85e"].unchecked_into(),
-                    // 5EcCjUzqBBpmf7E3gXFX3jFosY22yEL7iXYVFWZExPgF6YwD (//authority/3)
-                    hex!["707e47b5a236b10cc8dcb52698ab41ee4e3a23063d999e81af5781b1e03f7048"].unchecked_into(),
-                    // 5DoegnR7GDewmsswNgGuhZZQ8KxTPeVNd9MF1ezhSKdztEPD (//authority/4)
-                    hex!["4cfd1cfc3af74ef3189d6b92734eabae763ae86f1f6dfdf91b04e5d43a369175"].unchecked_into(),
-                    // 5GRKDYVdQ6AAS6xEQ85LzmxNwgP1u2YM81WAUjiD6YLbe69B (//authority/5)
-                    hex!["c0a8dfbd58ed57758594841d3cc8e6a34c97ef75380fe3c3925b1dbddf988f6f"].unchecked_into(),
-                    // 5FKbkKSb9jft3KpZSJviG8EFmdcLanpr4mBj56NpvQ6uL3bQ (//authority/6)
-                    hex!["9010d0a8a099505887e772417734ee94dc767b8ec00f42086dac9742f3b6e037"].unchecked_into(),
-                    // 5H8WaYthvpavtRmYkVkSBzCjbhHqYp9hnNhJXDDnVr2GJt6v (//authority/7)
-                    hex!["e0142f20c1ad92ac9467a4e01ecc0572c45704a730b5337b23b68cb7279a6b49"].unchecked_into(),
-                    // 5ECnot77onJJrSGbKtvTaB7L9zKXB9VrS97vSqBx5bcy15G9 (//authority/8)
-                    hex!["5ea31992c7fb94695c225010b47daf82dd9a1db4751362ae30f299d8164b6c3e"].unchecked_into(),
-                    // 5HNEdfdAvhvAA67pqPgoctiUTCraXkscSv5wYQbUwrKNmpQq (//authority/9)
-                    hex!["ea8bf097557a70b3c8beed5a95ecc127534f6fe00709c20352dcfb8bd073e240"].unchecked_into(),
+                    // 5FxMV7qEw3h5yJkrbxUtW18FzU7jhBzeCHfbLB1CDJ1ikyVY (//authority/1)
+                    get_authority_keys_from_public_key(hex![
+                        "ac18e27687e17fe0a7fc49e3c4bf22673b5beb4f38fa950e62ec4105e9842714"
+                    ]),
+                    // 5Cr6MMKUAbKSzhmLmi9RRNeMfkh7eMXS3Ya11mBTSTRQGBTu (//authority/2)
+                    get_authority_keys_from_public_key(hex![
+                        "229dc43a3b9647a4c8b1aa44b1655ea8655f00c44740ec6bb8e45a628fc99a7c"
+                    ]),
+                    // 5FHuLURhM4aDXy7Rd6e4Lbbg9H7fbQcUutMbRviaPjCi5SZt (//authority/3)
+                    get_authority_keys_from_public_key(hex![
+                        "8ec588a0de7ba6e877c676e2f276254f8033141df8ee9fad66f89090c6c3b376"
+                    ]),
                 ],
                 vec![
                     get_account_id_from_seed::<sr25519::Public>("Alice"),
@@ -344,16 +350,11 @@ pub fn westend_testnet_config(id: ParaId) -> TestnetChainSpec {
                     get_account_id_from_seed::<sr25519::Public>("Eve//stash"),
                     get_account_id_from_seed::<sr25519::Public>("Ferdie//stash"),
                 ],
-                vec![
-                    (
-                        get_account_id_from_string("5EPKc1xDF2V337FwgpMozdcZKS1rgFjY3rTudEysMPK7paef"),
-                        "Interlay".as_bytes().to_vec(),
-                    ),
-                    (
-                        get_account_id_from_string("5FPBT2BVVaLveuvznZ9A1TUtDcbxK5yvvGcMTJxgFmhcWGwj"),
-                        "Band".as_bytes().to_vec(),
-                    ),
-                ],
+                vec![(
+                    // 5DMALjH2zJXa4YgG33J2YFBHKeWeP6M7pHugEi5Bk8Qda6bs (//oracle/1)
+                    get_account_id_from_string("5DMALjH2zJXa4YgG33J2YFBHKeWeP6M7pHugEi5Bk8Qda6bs"),
+                    "Interlay".as_bytes().to_vec(),
+                )],
                 id,
                 DEFAULT_BITCOIN_CONFIRMATIONS,
                 false,
@@ -386,7 +387,7 @@ fn default_pair_kintsugi(currency_id: CurrencyId) -> VaultCurrencyPair<CurrencyI
 
 fn testnet_genesis(
     root_key: AccountId,
-    initial_authorities: Vec<AuraId>,
+    invulnerables: Vec<(AccountId, AuraId)>,
     endowed_accounts: Vec<AccountId>,
     authorized_oracles: Vec<(AccountId, Vec<u8>)>,
     id: ParaId,
@@ -399,12 +400,30 @@ fn testnet_genesis(
                 .expect("WASM binary was not build, please build it!")
                 .to_vec(),
         },
-        aura: testnet_runtime::AuraConfig {
-            authorities: initial_authorities,
-        },
-        aura_ext: Default::default(),
         parachain_system: Default::default(),
         parachain_info: testnet_runtime::ParachainInfoConfig { parachain_id: id },
+        collator_selection: testnet_runtime::CollatorSelectionConfig {
+            invulnerables: invulnerables.iter().cloned().map(|(acc, _)| acc).collect(),
+            candidacy_bond: Zero::zero(),
+            ..Default::default()
+        },
+        session: testnet_runtime::SessionConfig {
+            keys: invulnerables
+                .iter()
+                .cloned()
+                .map(|(acc, aura)| {
+                    (
+                        acc.clone(),                    // account id
+                        acc.clone(),                    // validator id
+                        get_testnet_session_keys(aura), // session keys
+                    )
+                })
+                .collect(),
+        },
+        // no need to pass anything to aura, in fact it will panic if we do.
+        // Session will take care of this.
+        aura: Default::default(),
+        aura_ext: Default::default(),
         security: testnet_runtime::SecurityConfig {
             initial_status: if start_shutdown {
                 testnet_runtime::StatusCode::Shutdown

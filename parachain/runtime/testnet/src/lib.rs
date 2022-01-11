@@ -13,8 +13,8 @@ use currency::Amount;
 use frame_support::{
     dispatch::{DispatchError, DispatchResult},
     traits::{
-        Contains, Currency as PalletCurrency, EnsureOrigin, EqualPrivilegeOnly, ExistenceRequirement, FindAuthor,
-        Imbalance, OnUnbalanced,
+        Contains, Currency as PalletCurrency, EnsureOrigin, EqualPrivilegeOnly, ExistenceRequirement, Imbalance,
+        OnUnbalanced,
     },
     PalletId,
 };
@@ -64,7 +64,7 @@ pub use primitives::{
 use cumulus_primitives_core::ParaId;
 use orml_xcm_support::{IsNativeConcrete, MultiCurrencyAdapter, MultiNativeAsset};
 use pallet_transaction_payment::{Multiplier, TargetedFeeAdjustment};
-use pallet_xcm::XcmPassthrough;
+use pallet_xcm::{EnsureXcm, IsMajorityOfBody, XcmPassthrough};
 use polkadot_parachain::primitives::Sibling;
 use sp_runtime::{traits::Convert, FixedPointNumber, Perquintill};
 use xcm::{
@@ -242,25 +242,58 @@ parameter_types! {
 }
 
 impl pallet_authorship::Config for Runtime {
-    type FindAuthor = AuraAccountAdapter;
+    type FindAuthor = pallet_session::FindAccountFromAuthorIndex<Self, Aura>;
     type UncleGenerations = UncleGenerations;
     type FilterUncle = ();
-    type EventHandler = ();
-}
-
-pub struct AuraAccountAdapter;
-
-impl FindAuthor<AccountId> for AuraAccountAdapter {
-    fn find_author<'a, I>(digests: I) -> Option<AccountId>
-    where
-        I: 'a + IntoIterator<Item = (sp_runtime::ConsensusEngineId, &'a [u8])>,
-    {
-        pallet_aura::AuraAuthorId::<Runtime>::find_author(digests).and_then(|k| AccountId::try_from(k.as_ref()).ok())
-    }
+    type EventHandler = (CollatorSelection,);
 }
 
 parameter_types! {
+    pub const Period: u32 = 6 * HOURS;
+    pub const Offset: u32 = 0;
     pub const MaxAuthorities: u32 = 32;
+}
+
+impl pallet_session::Config for Runtime {
+    type Event = Event;
+    type ValidatorId = <Self as frame_system::Config>::AccountId;
+    // we don't have stash and controller, thus we don't need the convert as well.
+    type ValidatorIdOf = pallet_collator_selection::IdentityCollator;
+    type ShouldEndSession = pallet_session::PeriodicSessions<Period, Offset>;
+    type NextSessionRotation = pallet_session::PeriodicSessions<Period, Offset>;
+    type SessionManager = CollatorSelection;
+    // Essentially just Aura, but lets be pedantic.
+    type SessionHandler = <SessionKeys as sp_runtime::traits::OpaqueKeys>::KeyTypeIdProviders;
+    type Keys = SessionKeys;
+    type WeightInfo = ();
+}
+
+parameter_types! {
+    pub const MaxCandidates: u32 = 1000;
+    pub const MinCandidates: u32 = 5;
+    pub const SessionLength: BlockNumber = 6 * HOURS;
+    pub const MaxInvulnerables: u32 = 100;
+    pub const ExecutiveBody: BodyId = BodyId::Executive;
+}
+
+/// We allow root and the Relay Chain council to execute privileged collator selection operations.
+pub type CollatorSelectionUpdateOrigin =
+    EnsureOneOf<AccountId, EnsureRoot<AccountId>, EnsureXcm<IsMajorityOfBody<ParentLocation, ExecutiveBody>>>;
+
+impl pallet_collator_selection::Config for Runtime {
+    type Event = Event;
+    type Currency = orml_tokens::CurrencyAdapter<Runtime, GetCollateralCurrencyId>;
+    type UpdateOrigin = CollatorSelectionUpdateOrigin;
+    type PotId = CollatorPotId;
+    type MaxCandidates = MaxCandidates;
+    type MinCandidates = MinCandidates;
+    type MaxInvulnerables = MaxInvulnerables;
+    // should be a multiple of session or things will get inconsistent
+    type KickThreshold = Period;
+    type ValidatorId = <Self as frame_system::Config>::AccountId;
+    type ValidatorIdOf = pallet_collator_selection::IdentityCollator;
+    type ValidatorRegistration = Session;
+    type WeightInfo = ();
 }
 
 impl pallet_aura::Config for Runtime {
@@ -873,21 +906,17 @@ parameter_types! {
     pub const EscrowAnnuityPalletId: PalletId = PalletId(*b"esc/annu");
     pub const VaultAnnuityPalletId: PalletId = PalletId(*b"vlt/annu");
     pub const TreasuryPalletId: PalletId = PalletId(*b"mod/trsy");
+    pub const CollatorPotId: PalletId = PalletId(*b"col/slct");
     pub const VaultRegistryPalletId: PalletId = PalletId(*b"mod/vreg");
 }
 
 parameter_types! {
-    // 5EYCAe5i8QbRr5WN1PvaAVqPbfXsqazk9ocaxuzcTjgXPM1e
     pub FeeAccount: AccountId = FeePalletId::get().into_account();
-    // 5EYCAe5i8QbRrUhwETaRvgif6H3HA84YQri7wjgLtKzRJCML
     pub SupplyAccount: AccountId = SupplyPalletId::get().into_account();
-    // 5EYCAe5gXcgF6fT7oVsD7E4bfnRZeovzMUD2wkdyvCHrYQQE
     pub EscrowAnnuityAccount: AccountId = EscrowAnnuityPalletId::get().into_account();
-    // 5EYCAe5jvsMTc6NLhunLTPVjJg5cZNweWKjNXKqz9RUqQJDY
     pub VaultAnnuityAccount: AccountId = VaultAnnuityPalletId::get().into_account();
-    // 5EYCAe5i8QbRrWTk2CHjZA79gSf1piYSGm2LQfxaw6id3M88
     pub TreasuryAccount: AccountId = TreasuryPalletId::get().into_account();
-    // 5EYCAe5i8QbRra1jndPz1WAuf1q1KHQNfu2cW1EXJ231emTd
+    pub CollatorSelectionAccount: AccountId = CollatorPotId::get().into_account();
     pub VaultRegistryAccount: AccountId = VaultRegistryPalletId::get().into_account();
 }
 
@@ -898,6 +927,7 @@ pub fn get_all_module_accounts() -> Vec<AccountId> {
         EscrowAnnuityAccount::get(),
         VaultAnnuityAccount::get(),
         TreasuryAccount::get(),
+        CollatorSelectionAccount::get(),
         VaultRegistryAccount::get(),
     ]
 }
@@ -1246,6 +1276,8 @@ construct_runtime! {
         ParachainInfo: parachain_info::{Pallet, Storage, Config},
 
         Authorship: pallet_authorship::{Pallet, Call, Storage},
+        CollatorSelection: pallet_collator_selection::{Pallet, Call, Storage, Event<T>, Config<T>},
+        Session: pallet_session::{Pallet, Call, Storage, Event, Config<T>},
         Aura: pallet_aura::{Pallet, Storage, Config<T>},
         AuraExt: cumulus_pallet_aura_ext::{Pallet, Storage, Config},
 
