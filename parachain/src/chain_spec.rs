@@ -251,6 +251,62 @@ pub fn development_config(id: ParaId) -> TestnetChainSpec {
     )
 }
 
+pub fn staging_testnet_config(id: ParaId) -> TestnetChainSpec {
+    TestnetChainSpec::from_genesis(
+        "interBTC",
+        "staging_testnet",
+        ChainType::Live,
+        move || {
+            testnet_genesis(
+                // 5Ec37KSdjSbGKoQN4evLXrZskjc7jxXYrowPHEtH2MzRC7mv (//sudo/1)
+                get_account_id_from_string("5Ec37KSdjSbGKoQN4evLXrZskjc7jxXYrowPHEtH2MzRC7mv"),
+                vec![
+                    // 5EqCiRZGFZ88JCK9FNmak2SkRHSohWpEFpx28vwo5c1m98Xe (//authority/1)
+                    get_authority_keys_from_public_key(hex![
+                        "7a6868acf544dc5c3f2f9f6f9a5952017bbefb51da41819307fc21cf3efb554d"
+                    ]),
+                    // 5DbwRgYTAtjJ8Mys8ta8RXxWPcSmiyx4dPRsvU1k4TYyk4jq (//authority/2)
+                    get_authority_keys_from_public_key(hex![
+                        "440e84dd3604be606f3110c21f93a0e981fb93b28288270dcdce8a43c68ff36e"
+                    ]),
+                    // 5GVtSRJmnFxVcFz7jejbCrY2SREhZJZUHuJkm2KS75bTqRF2 (//authority/3)
+                    get_authority_keys_from_public_key(hex![
+                        "c425b0d9fed64d3bd5be0a6d06053d2bfb72f4983146788f5684aec9f5eb0c7f"
+                    ]),
+                ],
+                vec![
+                    // 5FgWDuxgS8VasP6KtvESHUuuDn6L8BTCqbYyFW9mDwAaLtbY (//account/1)
+                    get_account_id_from_string("5FgWDuxgS8VasP6KtvESHUuuDn6L8BTCqbYyFW9mDwAaLtbY"),
+                    // 5H3n25VshwPeMzKhn4gnVEjCEndFsjt85ydW2Vvo8ysy7CnZ (//account/2)
+                    get_account_id_from_string("5H3n25VshwPeMzKhn4gnVEjCEndFsjt85ydW2Vvo8ysy7CnZ"),
+                    // 5GKciEHZWSGxtAihqGjXC6XpXSGNoudDxACuDLbYF1ipygZj (//account/3)
+                    get_account_id_from_string("5GKciEHZWSGxtAihqGjXC6XpXSGNoudDxACuDLbYF1ipygZj"),
+                    // 5GjJ26ffHApgUFLgxKWpWL5T5ppxWjSRJe42PjPNATLvjcJK (//account/4)
+                    get_account_id_from_string("5GjJ26ffHApgUFLgxKWpWL5T5ppxWjSRJe42PjPNATLvjcJK"),
+                    // 5DqzGaydetDXGya818gyuHA7GAjEWRsQN6UWNKpvfgq2KyM7 (//account/5)
+                    get_account_id_from_string("5DqzGaydetDXGya818gyuHA7GAjEWRsQN6UWNKpvfgq2KyM7"),
+                ],
+                vec![(
+                    // 5ECj4iBBi3h8kYzhqLFmzVLafC64UpsXvK7H4ZZyXoVQJdJq (//oracle/1)
+                    get_account_id_from_string("5ECj4iBBi3h8kYzhqLFmzVLafC64UpsXvK7H4ZZyXoVQJdJq"),
+                    "Interlay".as_bytes().to_vec(),
+                )],
+                id,
+                DEFAULT_BITCOIN_CONFIRMATIONS,
+                false,
+            )
+        },
+        Vec::new(),
+        None,
+        None,
+        Some(testnet_properties()),
+        Extensions {
+            relay_chain: "staging".into(),
+            para_id: id.into(),
+        },
+    )
+}
+
 pub fn rococo_testnet_config(id: ParaId) -> TestnetChainSpec {
     TestnetChainSpec::from_genesis(
         "interBTC",
