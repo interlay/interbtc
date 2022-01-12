@@ -53,6 +53,7 @@ pallet-society = { git = "https://github.com/paritytech/substrate", branch = "po
 pallet-grandpa = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.13", default-features = false }
 pallet-aura = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.13", default-features = false }
 sp-consensus-aura = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.13", default-features = false }
+pallet-authorship = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.13", default-features = false }
 
 # Parachain dependencies
 btc-relay = { path = "../../crates/btc-relay", default-features = false }
@@ -145,9 +146,9 @@ std = [
   "pallet-transaction-payment-rpc-runtime-api/std",
 
   "pallet-grandpa/std",
-
   "pallet-aura/std",
   "sp-consensus-aura/std",
+  "pallet-authorship/std",
 
   "btc-relay/std",
   "currency/std",

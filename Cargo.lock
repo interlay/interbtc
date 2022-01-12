@@ -3366,6 +3366,7 @@ dependencies = [
  "orml-traits",
  "orml-vesting",
  "pallet-aura",
+ "pallet-authorship",
  "pallet-balances",
  "pallet-collective",
  "pallet-grandpa",

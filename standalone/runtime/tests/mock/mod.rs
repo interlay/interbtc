@@ -14,11 +14,10 @@ pub use frame_support::{
     assert_err, assert_noop, assert_ok,
     dispatch::{DispatchError, DispatchResultWithPostInfo},
 };
-use interbtc_runtime_standalone::GetNativeCurrencyId;
 pub use interbtc_runtime_standalone::{
     token_distribution, AccountId, BlockNumber, Call, CurrencyId, EscrowAnnuityInstance, Event,
-    GetCollateralCurrencyId, GetWrappedCurrencyId, Runtime, TechnicalCommitteeInstance, VaultAnnuityInstance,
-    VaultRewardsInstance, YEARS,
+    GetCollateralCurrencyId, GetNativeCurrencyId, GetWrappedCurrencyId, Runtime, TechnicalCommitteeInstance,
+    VaultAnnuityInstance, VaultRewardsInstance, YEARS,
 };
 pub use mocktopus::mocking::*;
 pub use orml_tokens::CurrencyAdapter;
@@ -333,7 +332,7 @@ pub fn iter_collateral_currencies() -> impl Iterator<Item = CurrencyId> {
 }
 
 pub fn iter_wrapped_currencies() -> impl Iterator<Item = CurrencyId> {
-    vec![Token(KBTC), Token(INTERBTC)].into_iter()
+    vec![Token(INTERBTC), Token(KBTC)].into_iter()
 }
 
 pub fn iter_all_currencies() -> impl Iterator<Item = CurrencyId> {

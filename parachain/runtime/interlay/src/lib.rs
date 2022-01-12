@@ -18,7 +18,10 @@ use frame_support::{
     },
     PalletId,
 };
-use frame_system::{EnsureOneOf, EnsureRoot, RawOrigin};
+use frame_system::{
+    limits::{BlockLength, BlockWeights},
+    EnsureOneOf, EnsureRoot, RawOrigin,
+};
 use orml_traits::parameter_type_with_key;
 use pallet_transaction_payment::{Multiplier, TargetedFeeAdjustment};
 use sp_api::impl_runtime_apis;
@@ -44,8 +47,8 @@ pub use frame_support::{
     },
     StorageValue,
 };
-use frame_system::limits::{BlockLength, BlockWeights};
 pub use pallet_timestamp::Call as TimestampCall;
+pub use sp_consensus_aura::sr25519::AuthorityId as AuraId;
 #[cfg(any(feature = "std", test))]
 pub use sp_runtime::BuildStorage;
 pub use sp_runtime::{Perbill, Permill};
@@ -77,8 +80,6 @@ use xcm_builder::{
     TakeWeightCredit, UsingComponents,
 };
 use xcm_executor::{Config, XcmExecutor};
-
-pub use sp_consensus_aura::sr25519::AuthorityId as AuraId;
 
 type VaultId = primitives::VaultId<AccountId, CurrencyId>;
 
@@ -282,7 +283,7 @@ pub type CollatorSelectionUpdateOrigin =
 
 impl pallet_collator_selection::Config for Runtime {
     type Event = Event;
-    type Currency = orml_tokens::CurrencyAdapter<Runtime, GetCollateralCurrencyId>;
+    type Currency = NativeCurrency;
     type UpdateOrigin = CollatorSelectionUpdateOrigin;
     type PotId = CollatorPotId;
     type MaxCandidates = MaxCandidates;
@@ -318,7 +319,10 @@ pub type SlowAdjustingFeeUpdate<R> =
     TargetedFeeAdjustment<R, TargetBlockFullness, AdjustmentVariable, MinimumMultiplier>;
 
 parameter_types! {
-    pub const TransactionByteFee: Balance = 0;  // TODO: this is 0 so that we can do runtime upgrade without fees. Restore value afterwards!
+    // TODO: this is 0 so that we can do runtime upgrade without fees. Restore value afterwards!
+    pub const TransactionByteFee: Balance = 0;
+    /// This value increases the priority of `Operational` transactions by adding
+    /// a "virtual tip" that's equal to the `OperationalFeeMultiplier * final_fee`.
     pub OperationalFeeMultiplier: u8 = 5;
     /// The portion of the `NORMAL_DISPATCH_RATIO` that we adjust the fees with. Blocks filled less
     /// than this will decrease the weight and more will increase.
@@ -355,10 +359,8 @@ where
 }
 
 impl pallet_transaction_payment::Config for Runtime {
-    type OnChargeTransaction = pallet_transaction_payment::CurrencyAdapter<
-        orml_tokens::CurrencyAdapter<Runtime, GetNativeCurrencyId>,
-        DealWithFees<Runtime, GetNativeCurrencyId>,
-    >;
+    type OnChargeTransaction =
+        pallet_transaction_payment::CurrencyAdapter<NativeCurrency, DealWithFees<Runtime, GetNativeCurrencyId>>;
     type TransactionByteFee = TransactionByteFee;
     type WeightToFee = IdentityFee<Balance>;
     type FeeMultiplierUpdate = SlowAdjustingFeeUpdate<Self>;
@@ -416,7 +418,7 @@ impl EnsureOrigin<Origin> for EnsureKintsugiLabs {
 
 impl orml_vesting::Config for Runtime {
     type Event = Event;
-    type Currency = orml_tokens::CurrencyAdapter<Runtime, GetNativeCurrencyId>;
+    type Currency = NativeCurrency;
     type MinVestedTransfer = MinVestedTransfer;
     type VestedTransferOrigin = EnsureKintsugiLabs;
     type WeightInfo = ();
@@ -442,7 +444,7 @@ impl pallet_scheduler::Config for Runtime {
 }
 
 // https://github.com/paritytech/polkadot/blob/c4ee9d463adccfa3bf436433e3e26d0de5a4abbc/runtime/polkadot/src/constants.rs#L18
-pub const UNITS: Balance = 10_000_000_000;
+pub const UNITS: Balance = NATIVE_CURRENCY_ID.one();
 pub const DOLLARS: Balance = UNITS; // 10_000_000_000
 pub const CENTS: Balance = DOLLARS / 100; // 100_000_000
 pub const MILLICENTS: Balance = CENTS / 1_000; // 100_000
@@ -502,7 +504,7 @@ parameter_types! {
 impl pallet_multisig::Config for Runtime {
     type Event = Event;
     type Call = Call;
-    type Currency = orml_tokens::CurrencyAdapter<Runtime, GetCollateralCurrencyId>; // pay for execution in DOT/KSM
+    type Currency = NativeCurrency;
     type DepositBase = GetDepositBase;
     type DepositFactor = GetDepositFactor;
     type MaxSignatories = GetMaxSignatories;
@@ -519,7 +521,7 @@ parameter_types! {
 
 impl pallet_treasury::Config for Runtime {
     type PalletId = TreasuryPalletId;
-    type Currency = orml_tokens::CurrencyAdapter<Runtime, GetNativeCurrencyId>;
+    type Currency = NativeCurrency;
     type ApproveOrigin = EnsureRoot<AccountId>;
     type RejectOrigin = EnsureRoot<AccountId>;
     type Event = Event;
@@ -1085,7 +1087,7 @@ impl Convert<BlockNumber, Balance> for BlockNumberToBalance {
 impl escrow::Config for Runtime {
     type Event = Event;
     type BlockNumberToBalance = BlockNumberToBalance;
-    type Currency = orml_tokens::CurrencyAdapter<Runtime, GetNativeCurrencyId>;
+    type Currency = NativeCurrency;
     type Span = Span;
     type MaxPeriod = MaxPeriod;
     type EscrowRewards = EscrowRewards;
