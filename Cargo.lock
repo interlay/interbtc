@@ -3496,6 +3496,7 @@ dependencies = [
  "orml-traits",
  "orml-unknown-tokens",
  "orml-vesting",
+ "orml-xcm",
  "orml-xcm-support",
  "orml-xtokens",
  "pallet-aura",
@@ -3944,6 +3945,7 @@ dependencies = [
  "orml-traits",
  "orml-unknown-tokens",
  "orml-vesting",
+ "orml-xcm",
  "orml-xcm-support",
  "orml-xtokens",
  "pallet-aura",
@@ -5704,6 +5706,20 @@ dependencies = [
  "sp-io",
  "sp-runtime",
  "sp-std",
+]
+
+[[package]]
+name = "orml-xcm"
+version = "0.4.1-dev"
+source = "git+https://github.com/open-web3-stack/open-runtime-module-library?rev=1f520348f31b5e94b8a5dd7f8e6b8ec359df4177#1f520348f31b5e94b8a5dd7f8e6b8ec359df4177"
+dependencies = [
+ "frame-support",
+ "frame-system",
+ "pallet-xcm",
+ "parity-scale-codec",
+ "scale-info",
+ "sp-std",
+ "xcm",
 ]
 
 [[package]]
@@ -11458,6 +11474,7 @@ dependencies = [
  "orml-traits",
  "orml-unknown-tokens",
  "orml-vesting",
+ "orml-xcm",
  "orml-xcm-support",
  "orml-xtokens",
  "pallet-aura",
@@ -11779,7 +11796,7 @@ dependencies = [
  "chrono",
  "lazy_static",
  "matchers",
- "parking_lot 0.11.2",
+ "parking_lot 0.10.2",
  "regex",
  "serde",
  "serde_json",
@@ -11899,8 +11916,8 @@ version = "1.6.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4ee73e6e4924fe940354b8d4d98cad5231175d615cd855b758adc658c0aac6a0"
 dependencies = [
- "cfg-if 1.0.0",
- "rand 0.8.4",
+ "cfg-if 0.1.10",
+ "rand 0.6.5",
  "static_assertions",
 ]
 
