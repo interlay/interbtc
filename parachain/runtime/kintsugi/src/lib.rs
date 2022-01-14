@@ -745,7 +745,7 @@ pub use currency_id_convert::CurrencyIdConvert;
 
 impl orml_xcm::Config for Runtime {
     type Event = Event;
-    type SovereignOrigin = EnsureRoot;
+    type SovereignOrigin = EnsureRoot<AccountId>;
 }
 
 mod currency_id_convert {
