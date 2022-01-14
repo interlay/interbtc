@@ -275,6 +275,10 @@ pub fn staging_testnet_config(id: ParaId) -> TestnetChainSpec {
                     ]),
                 ],
                 vec![
+                    // 5Ec37KSdjSbGKoQN4evLXrZskjc7jxXYrowPHEtH2MzRC7mv (//sudo/1)
+                    get_account_id_from_string("5Ec37KSdjSbGKoQN4evLXrZskjc7jxXYrowPHEtH2MzRC7mv"),
+                    // 5ECj4iBBi3h8kYzhqLFmzVLafC64UpsXvK7H4ZZyXoVQJdJq (//oracle/1)
+                    get_account_id_from_string("5ECj4iBBi3h8kYzhqLFmzVLafC64UpsXvK7H4ZZyXoVQJdJq"),
                     // 5FgWDuxgS8VasP6KtvESHUuuDn6L8BTCqbYyFW9mDwAaLtbY (//account/1)
                     get_account_id_from_string("5FgWDuxgS8VasP6KtvESHUuuDn6L8BTCqbYyFW9mDwAaLtbY"),
                     // 5H3n25VshwPeMzKhn4gnVEjCEndFsjt85ydW2Vvo8ysy7CnZ (//account/2)
@@ -331,18 +335,20 @@ pub fn rococo_testnet_config(id: ParaId) -> TestnetChainSpec {
                     ]),
                 ],
                 vec![
-                    get_account_id_from_seed::<sr25519::Public>("Alice"),
-                    get_account_id_from_seed::<sr25519::Public>("Bob"),
-                    get_account_id_from_seed::<sr25519::Public>("Charlie"),
-                    get_account_id_from_seed::<sr25519::Public>("Dave"),
-                    get_account_id_from_seed::<sr25519::Public>("Eve"),
-                    get_account_id_from_seed::<sr25519::Public>("Ferdie"),
-                    get_account_id_from_seed::<sr25519::Public>("Alice//stash"),
-                    get_account_id_from_seed::<sr25519::Public>("Bob//stash"),
-                    get_account_id_from_seed::<sr25519::Public>("Charlie//stash"),
-                    get_account_id_from_seed::<sr25519::Public>("Dave//stash"),
-                    get_account_id_from_seed::<sr25519::Public>("Eve//stash"),
-                    get_account_id_from_seed::<sr25519::Public>("Ferdie//stash"),
+                    // 5E4hDxbuLqzpAhcEsqaJKULgkTcEfzAqsbEQLV471cDC2Hhx (//sudo/1)
+                    get_account_id_from_string("5E4hDxbuLqzpAhcEsqaJKULgkTcEfzAqsbEQLV471cDC2Hhx"),
+                    // 5FKuXEdswjda6EfXtWcTbdVH8vQbmNDWhK2qrPGx6GeHvvZh (//oracle/1)
+                    get_account_id_from_string("5FKuXEdswjda6EfXtWcTbdVH8vQbmNDWhK2qrPGx6GeHvvZh"),
+                    // 5CRrztZ1XYGBZ2asHJFD81W1vSpWiDqq8ndGJmLpRQboeMjM (//account/1)
+                    get_account_id_from_string("5CRrztZ1XYGBZ2asHJFD81W1vSpWiDqq8ndGJmLpRQboeMjM"),
+                    // 5GjX9J4w1QkfbzoeRL9Uv2JjLg7DkcJfFt4CnKYcPtgkXtmb (//account/2)
+                    get_account_id_from_string("5GjX9J4w1QkfbzoeRL9Uv2JjLg7DkcJfFt4CnKYcPtgkXtmb"),
+                    // 5GNTqNZL5ADeHRML85C5Y7tdDCZiiXbN3JJNEZvKJXVbyHUT (//account/3)
+                    get_account_id_from_string("5GNTqNZL5ADeHRML85C5Y7tdDCZiiXbN3JJNEZvKJXVbyHUT"),
+                    // 5HjPDnGAx3opfZtu3wKiZ7BYXXAjEgjwKiufXtZfesTCMgmP (//account/4)
+                    get_account_id_from_string("5HjPDnGAx3opfZtu3wKiZ7BYXXAjEgjwKiufXtZfesTCMgmP"),
+                    // 5GuXvbk5MaXvm9enTocGmzF8L7T6djzgt4T29SGAFDvLHmAL (//account/5)
+                    get_account_id_from_string("5GuXvbk5MaXvm9enTocGmzF8L7T6djzgt4T29SGAFDvLHmAL"),
                 ],
                 vec![(
                     // 5FKuXEdswjda6EfXtWcTbdVH8vQbmNDWhK2qrPGx6GeHvvZh (//oracle/1)
@@ -393,18 +399,20 @@ pub fn westend_testnet_config(id: ParaId) -> TestnetChainSpec {
                     ]),
                 ],
                 vec![
-                    get_account_id_from_seed::<sr25519::Public>("Alice"),
-                    get_account_id_from_seed::<sr25519::Public>("Bob"),
-                    get_account_id_from_seed::<sr25519::Public>("Charlie"),
-                    get_account_id_from_seed::<sr25519::Public>("Dave"),
-                    get_account_id_from_seed::<sr25519::Public>("Eve"),
-                    get_account_id_from_seed::<sr25519::Public>("Ferdie"),
-                    get_account_id_from_seed::<sr25519::Public>("Alice//stash"),
-                    get_account_id_from_seed::<sr25519::Public>("Bob//stash"),
-                    get_account_id_from_seed::<sr25519::Public>("Charlie//stash"),
-                    get_account_id_from_seed::<sr25519::Public>("Dave//stash"),
-                    get_account_id_from_seed::<sr25519::Public>("Eve//stash"),
-                    get_account_id_from_seed::<sr25519::Public>("Ferdie//stash"),
+                    // 5DjsgavDiY8xMcR4riDvs9JXYUpCMnHBe45xsA1rPeBD5woG (//sudo/1)
+                    get_account_id_from_string("5DjsgavDiY8xMcR4riDvs9JXYUpCMnHBe45xsA1rPeBD5woG"),
+                    // 5DMALjH2zJXa4YgG33J2YFBHKeWeP6M7pHugEi5Bk8Qda6bs (//oracle/1)
+                    get_account_id_from_string("5DMALjH2zJXa4YgG33J2YFBHKeWeP6M7pHugEi5Bk8Qda6bs"),
+                    // 5ENdYBBpnXWMcufn84g6zNevaKdsuFzyCPJu9zG8q6jqwZPu (//account/1)
+                    get_account_id_from_string("5ENdYBBpnXWMcufn84g6zNevaKdsuFzyCPJu9zG8q6jqwZPu"),
+                    // 5ECo5XVKPRwMu1Zue9deUChx4VmJiaUz5JY4fVFa7zWz555D (//account/2)
+                    get_account_id_from_string("5ECo5XVKPRwMu1Zue9deUChx4VmJiaUz5JY4fVFa7zWz555D"),
+                    // 5CDjUcujZfXmJv4cmP5cUS7N96yiJNfN9ScTE1QHDak3vEnD (//account/3)
+                    get_account_id_from_string("5CDjUcujZfXmJv4cmP5cUS7N96yiJNfN9ScTE1QHDak3vEnD"),
+                    // 5FRnXtLTLNbGuEF63YkqLwEeeDh1xtuaCy6Qp3VEUZErJa4M (//account/4)
+                    get_account_id_from_string("5FRnXtLTLNbGuEF63YkqLwEeeDh1xtuaCy6Qp3VEUZErJa4M"),
+                    // 5CAep2mugERSXpCQTWT5i9vLJXtF1L7CqwpKhVBrmwKsix4A (//account/5)
+                    get_account_id_from_string("5CAep2mugERSXpCQTWT5i9vLJXtF1L7CqwpKhVBrmwKsix4A"),
                 ],
                 vec![(
                     // 5DMALjH2zJXa4YgG33J2YFBHKeWeP6M7pHugEi5Bk8Qda6bs (//oracle/1)
