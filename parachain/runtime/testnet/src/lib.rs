@@ -67,10 +67,8 @@ use pallet_transaction_payment::{Multiplier, TargetedFeeAdjustment};
 use pallet_xcm::{EnsureXcm, IsMajorityOfBody, XcmPassthrough};
 use polkadot_parachain::primitives::Sibling;
 use sp_runtime::{traits::Convert, FixedPointNumber, Perquintill};
-use xcm::{
-    v1::{prelude::*, MultiAsset, MultiLocation, NetworkId},
-    AlwaysV1,
-};
+use xcm::latest::prelude::*;
+
 use xcm_builder::{
     AccountId32Aliases, AllowKnownQueryResponses, AllowSubscriptionsFrom, AllowTopLevelPaidExecutionFrom,
     EnsureXcmOrigin, FixedRateOfFungible, FixedWeightBounds, LocationInverter, NativeAsset, ParentAsSuperuser,
@@ -732,7 +730,7 @@ pub type LocalOriginToLocation = (SignedToAccountId32<Origin, AccountId, ParentN
 /// queues.
 pub type XcmRouter = (
     // Two routers - use UMP to communicate with the relay chain:
-    cumulus_primitives_utility::ParentAsUmp<ParachainSystem, AlwaysV1>,
+    cumulus_primitives_utility::ParentAsUmp<ParachainSystem, PolkadotXcm>,
     // ..and XCMP to communicate with the sibling chains.
     XcmpQueue,
 );
@@ -763,7 +761,7 @@ impl cumulus_pallet_xcmp_queue::Config for Runtime {
     type Event = Event;
     type XcmExecutor = XcmExecutor<XcmConfig>;
     type ChannelInfo = ParachainSystem;
-    type VersionWrapper = AlwaysV1;
+    type VersionWrapper = PolkadotXcm;
 }
 
 impl cumulus_pallet_dmp_queue::Config for Runtime {
@@ -1222,6 +1220,11 @@ impl nomination::Config for Runtime {
     type WeightInfo = ();
 }
 
+impl orml_xcm::Config for Runtime {
+    type Event = Event;
+    type SovereignOrigin = EnsureRoot;
+}
+
 construct_runtime! {
     pub enum Runtime where
         Block = Block,
@@ -1285,6 +1288,7 @@ construct_runtime! {
         XcmpQueue: cumulus_pallet_xcmp_queue::{Pallet, Call, Storage, Event<T>},
         PolkadotXcm: pallet_xcm::{Pallet, Call, Event<T>, Origin},
         CumulusXcm: cumulus_pallet_xcm::{Pallet, Call, Event<T>, Origin},
+        OrmlXcm: orml_xcm::{Pallet, Call, Event<T>},
         DmpQueue: cumulus_pallet_dmp_queue::{Pallet, Call, Storage, Event<T>},
 
         XTokens: orml_xtokens::{Pallet, Storage, Call, Event<T>},

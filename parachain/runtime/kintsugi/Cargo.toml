@@ -109,6 +109,7 @@ orml-traits = { git = "https://github.com/open-web3-stack/open-runtime-module-li
 orml-vesting = { git = "https://github.com/open-web3-stack/open-runtime-module-library", rev = "1f520348f31b5e94b8a5dd7f8e6b8ec359df4177", default-features = false }
 
 orml-xtokens = { git = "https://github.com/open-web3-stack/open-runtime-module-library", rev = "1f520348f31b5e94b8a5dd7f8e6b8ec359df4177", default-features = false }
+orml-xcm = { git = "https://github.com/open-web3-stack/open-runtime-module-library", rev = "1f520348f31b5e94b8a5dd7f8e6b8ec359df4177", default-features = false }
 orml-xcm-support = { git = "https://github.com/open-web3-stack/open-runtime-module-library", rev = "1f520348f31b5e94b8a5dd7f8e6b8ec359df4177", default-features = false }
 orml-unknown-tokens = { git = "https://github.com/open-web3-stack/open-runtime-module-library", rev = "1f520348f31b5e94b8a5dd7f8e6b8ec359df4177", default-features = false }
 
