@@ -1222,7 +1222,7 @@ impl nomination::Config for Runtime {
 
 impl orml_xcm::Config for Runtime {
     type Event = Event;
-    type SovereignOrigin = EnsureRoot;
+    type SovereignOrigin = EnsureRoot<AccountId>;
 }
 
 construct_runtime! {
