@@ -95,7 +95,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     authoring_version: 1,
     spec_version: 0,
     impl_version: 1,
-    transaction_version: 0,
+    transaction_version: 1, // added orml-xcm
     apis: RUNTIME_API_VERSIONS,
 };
 
