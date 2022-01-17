@@ -9,24 +9,26 @@
 include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 
 use bitcoin::types::H256Le;
+use currency::Amount;
 use frame_support::{
     dispatch::{DispatchError, DispatchResult},
-    traits::{Currency as PalletCurrency, ExistenceRequirement},
+    traits::{Contains, Currency as PalletCurrency, ExistenceRequirement, Imbalance, OnUnbalanced},
+    PalletId,
 };
-use frame_system::{EnsureOneOf, EnsureRoot, EnsureSigned};
-use sp_core::{u32_trait::_1, H256};
-
-use frame_support::{traits::Contains, PalletId};
+use frame_system::{
+    limits::{BlockLength, BlockWeights},
+    EnsureOneOf, EnsureRoot, EnsureSigned,
+};
 use orml_traits::parameter_type_with_key;
 use sp_api::impl_runtime_apis;
-use sp_core::OpaqueMetadata;
+use sp_core::{crypto::KeyTypeId, u32_trait::_1, OpaqueMetadata, H256};
 use sp_runtime::{
     create_runtime_str, generic, impl_opaque_keys,
-    traits::{AccountIdConversion, BlakeTwo256, Block as BlockT, Convert, IdentityLookup, Zero},
+    traits::{AccountIdConversion, BlakeTwo256, Block as BlockT, Convert, IdentityLookup, NumberFor, Zero},
     transaction_validity::{TransactionSource, TransactionValidity},
     ApplyExtrinsicResult,
 };
-use sp_std::prelude::*;
+use sp_std::{marker::PhantomData, prelude::*};
 #[cfg(feature = "std")]
 use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
@@ -34,35 +36,30 @@ use sp_version::RuntimeVersion;
 // A few exports that help ease life for downstream crates.
 pub use frame_support::{
     construct_runtime, parameter_types,
-    traits::{EqualPrivilegeOnly, Everything, Get, KeyOwnerProofSystem, LockIdentifier},
+    traits::{EqualPrivilegeOnly, Everything, FindAuthor, Get, KeyOwnerProofSystem, LockIdentifier},
     weights::{
         constants::{BlockExecutionWeight, ExtrinsicBaseWeight, RocksDbWeight, WEIGHT_PER_SECOND},
         DispatchClass, IdentityFee, Weight,
     },
     StorageValue,
 };
-use frame_system::limits::{BlockLength, BlockWeights};
 pub use pallet_timestamp::Call as TimestampCall;
 #[cfg(any(feature = "std", test))]
 pub use sp_runtime::BuildStorage;
 pub use sp_runtime::{Perbill, Permill};
+
+pub use pallet_grandpa::{fg_primitives, AuthorityId as GrandpaId, AuthorityList as GrandpaAuthorityList};
+pub use sp_consensus_aura::sr25519::AuthorityId as AuraId;
 
 // interBTC exports
 pub use btc_relay::{bitcoin, Call as RelayCall, TARGET_SPACING};
 pub use module_oracle_rpc_runtime_api::BalanceWrapper;
 pub use security::StatusCode;
 
-use currency::Amount;
 pub use primitives::{
     self, AccountId, Balance, BlockNumber, CurrencyId, CurrencyId::Token, CurrencyInfo, Hash, Moment, Nonce, Signature,
     SignedFixedPoint, SignedInner, TokenSymbol, UnsignedFixedPoint, UnsignedInner, DOT, INTERBTC, INTR, KINT, KSM,
 };
-
-use pallet_grandpa::{fg_primitives, AuthorityId as GrandpaId, AuthorityList as GrandpaAuthorityList};
-use sp_core::crypto::KeyTypeId;
-use sp_runtime::traits::NumberFor;
-
-pub use sp_consensus_aura::sr25519::AuthorityId as AuraId;
 
 type VaultId = primitives::VaultId<AccountId, CurrencyId>;
 
@@ -139,7 +136,7 @@ parameter_types! {
     pub RuntimeBlockWeights: BlockWeights = BlockWeights::builder()
         .base_block(BlockExecutionWeight::get())
         .for_class(DispatchClass::all(), |weights| {
-            weights.base_extrinsic = 0;  // TODO: this is 0 so that we can do runtime upgrade without fees. Restore value afterwards!
+            weights.base_extrinsic = ExtrinsicBaseWeight::get();
         })
         .for_class(DispatchClass::Normal, |weights| {
             weights.max_total = Some(NORMAL_DISPATCH_RATIO * MAXIMUM_BLOCK_WEIGHT);
@@ -219,6 +216,28 @@ impl frame_system::Config for Runtime {
 }
 
 parameter_types! {
+    pub const UncleGenerations: u32 = 0;
+}
+
+impl pallet_authorship::Config for Runtime {
+    type FindAuthor = AuraAccountAdapter;
+    type UncleGenerations = UncleGenerations;
+    type FilterUncle = ();
+    type EventHandler = ();
+}
+
+pub struct AuraAccountAdapter;
+
+impl FindAuthor<AccountId> for AuraAccountAdapter {
+    fn find_author<'a, I>(digests: I) -> Option<AccountId>
+    where
+        I: 'a + IntoIterator<Item = (sp_runtime::ConsensusEngineId, &'a [u8])>,
+    {
+        pallet_aura::AuraAuthorId::<Runtime>::find_author(digests).and_then(|k| AccountId::try_from(k.as_ref()).ok())
+    }
+}
+
+parameter_types! {
     pub const MaxAuthorities: u32 = 32;
 }
 
@@ -253,14 +272,37 @@ impl pallet_timestamp::Config for Runtime {
 }
 
 parameter_types! {
-    pub const TransactionByteFee: Balance = 0;  // TODO: this is 0 so that we can do runtime upgrade without fees. Restore value afterwards!
+    pub const TransactionByteFee: Balance = MILLICENTS;
+    /// This value increases the priority of `Operational` transactions by adding
+    /// a "virtual tip" that's equal to the `OperationalFeeMultiplier * final_fee`.
     pub OperationalFeeMultiplier: u8 = 5;
 }
 
+type NegativeImbalance<T, GetCurrencyId> = <orml_tokens::CurrencyAdapter<T, GetCurrencyId> as PalletCurrency<
+    <T as frame_system::Config>::AccountId,
+>>::NegativeImbalance;
+
+pub struct DealWithFees<T, GetCurrencyId>(PhantomData<(T, GetCurrencyId)>);
+
+impl<T, GetCurrencyId> OnUnbalanced<NegativeImbalance<T, GetCurrencyId>> for DealWithFees<T, GetCurrencyId>
+where
+    T: pallet_authorship::Config + orml_tokens::Config,
+    GetCurrencyId: Get<T::CurrencyId>,
+{
+    fn on_unbalanceds<B>(mut fees_then_tips: impl Iterator<Item = NegativeImbalance<T, GetCurrencyId>>) {
+        if let Some(mut fees) = fees_then_tips.next() {
+            if let Some(tips) = fees_then_tips.next() {
+                tips.merge_into(&mut fees);
+            }
+            let author = pallet_authorship::Pallet::<T>::author();
+            orml_tokens::CurrencyAdapter::<T, GetCurrencyId>::resolve_creating(&author, fees);
+        }
+    }
+}
+
 impl pallet_transaction_payment::Config for Runtime {
-    // throwaway fees, not necessary for testing
     type OnChargeTransaction =
-        pallet_transaction_payment::CurrencyAdapter<orml_tokens::CurrencyAdapter<Runtime, GetCollateralCurrencyId>, ()>;
+        pallet_transaction_payment::CurrencyAdapter<NativeCurrency, DealWithFees<Runtime, GetNativeCurrencyId>>;
     type TransactionByteFee = TransactionByteFee;
     type WeightToFee = IdentityFee<Balance>;
     type FeeMultiplierUpdate = ();
@@ -286,7 +328,7 @@ parameter_types! {
 
 impl orml_vesting::Config for Runtime {
     type Event = Event;
-    type Currency = orml_tokens::CurrencyAdapter<Runtime, GetNativeCurrencyId>;
+    type Currency = NativeCurrency;
     type MinVestedTransfer = MinVestedTransfer;
     // anyone can transfer vested tokens
     type VestedTransferOrigin = EnsureSigned<AccountId>;
@@ -323,7 +365,7 @@ parameter_types! {
 impl pallet_multisig::Config for Runtime {
     type Event = Event;
     type Call = Call;
-    type Currency = orml_tokens::CurrencyAdapter<Runtime, GetCollateralCurrencyId>; // pay for execution in DOT/KSM
+    type Currency = NativeCurrency;
     type DepositBase = GetDepositBase;
     type DepositFactor = GetDepositFactor;
     type MaxSignatories = GetMaxSignatories;
@@ -331,7 +373,7 @@ impl pallet_multisig::Config for Runtime {
 }
 
 // https://github.com/paritytech/polkadot/blob/ece7544b40d8b29897f5aa799f27840dcc32f24d/runtime/polkadot/src/constants.rs#L18
-pub const UNITS: Balance = 10_000_000_000;
+pub const UNITS: Balance = NATIVE_CURRENCY_ID.one();
 pub const DOLLARS: Balance = UNITS; // 10_000_000_000
 pub const CENTS: Balance = UNITS / 100; // 100_000_000
 pub const MILLICENTS: Balance = CENTS / 1_000; // 100_000
@@ -388,7 +430,7 @@ parameter_types! {
 
 impl pallet_treasury::Config for Runtime {
     type PalletId = TreasuryPalletId;
-    type Currency = orml_tokens::CurrencyAdapter<Runtime, GetNativeCurrencyId>;
+    type Currency = NativeCurrency;
     type ApproveOrigin = EnsureRoot<AccountId>;
     type RejectOrigin = EnsureRoot<AccountId>;
     type Event = Event;
@@ -445,10 +487,14 @@ impl btc_relay::Config for Runtime {
     type ParachainBlocksPerBitcoinBlock = ParachainBlocksPerBitcoinBlock;
 }
 
+const RELAY_CHAIN_CURRENCY_ID: CurrencyId = Token(DOT);
+const WRAPPED_CURRENCY_ID: CurrencyId = Token(INTERBTC);
+const NATIVE_CURRENCY_ID: CurrencyId = Token(INTR);
+
 parameter_types! {
-    pub const GetCollateralCurrencyId: CurrencyId = Token(DOT);
-    pub const GetWrappedCurrencyId: CurrencyId = Token(INTERBTC);
-    pub const GetNativeCurrencyId: CurrencyId = Token(INTR);
+    pub const GetCollateralCurrencyId: CurrencyId = RELAY_CHAIN_CURRENCY_ID;
+    pub const GetWrappedCurrencyId: CurrencyId = WRAPPED_CURRENCY_ID;
+    pub const GetNativeCurrencyId: CurrencyId = NATIVE_CURRENCY_ID;
 }
 
 type NativeCurrency = orml_tokens::CurrencyAdapter<Runtime, GetNativeCurrencyId>;
@@ -697,7 +743,7 @@ impl Convert<BlockNumber, Balance> for BlockNumberToBalance {
 impl escrow::Config for Runtime {
     type Event = Event;
     type BlockNumberToBalance = BlockNumberToBalance;
-    type Currency = orml_tokens::CurrencyAdapter<Runtime, GetNativeCurrencyId>;
+    type Currency = NativeCurrency;
     type Span = Span;
     type MaxPeriod = MaxPeriod;
     type EscrowRewards = ();
@@ -823,6 +869,7 @@ construct_runtime! {
         TechnicalMembership: pallet_membership::{Pallet, Call, Storage, Event<T>, Config<T>},
         Treasury: pallet_treasury::{Pallet, Call, Storage, Config, Event<T>},
 
+        Authorship: pallet_authorship::{Pallet, Call, Storage},
         Aura: pallet_aura::{Pallet, Config<T>},
         Grandpa: pallet_grandpa::{Pallet, Call, Storage, Config, Event},
     }

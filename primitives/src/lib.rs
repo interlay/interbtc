@@ -486,3 +486,11 @@ create_currency_id! {
 pub enum CurrencyId {
     Token(TokenSymbol),
 }
+
+impl CurrencyId {
+    pub const fn one(&self) -> Balance {
+        match self {
+            CurrencyId::Token(token) => token.one(),
+        }
+    }
+}

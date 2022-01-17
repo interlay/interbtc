@@ -10,6 +10,16 @@ use sp_std::str::FromStr;
 
 type VestingCall = orml_vesting::Call<Runtime>;
 
+fn set_balance(who: AccountId, currency_id: CurrencyId, new_free: u128) {
+    assert_ok!(Call::Tokens(TokensCall::set_balance {
+        who,
+        currency_id,
+        new_free,
+        new_reserved: 0,
+    })
+    .dispatch(root()));
+}
+
 #[test]
 fn integration_test_transfer_from_multisig_to_vested() {
     ExtBuilder::build().execute_with(|| {
@@ -24,13 +34,8 @@ fn integration_test_transfer_from_multisig_to_vested() {
 
         // step 1: deposit funds to a shared account
         let multisig_account = MultiSigPallet::multi_account_id(&vec![account_of(ALICE), account_of(BOB)], 2);
-        assert_ok!(Call::Tokens(TokensCall::set_balance {
-            who: multisig_account.clone(),
-            currency_id: Token(INTR),
-            new_free: 20_000_000_000_001,
-            new_reserved: 0,
-        })
-        .dispatch(root()));
+        set_balance(multisig_account.clone(), Token(INTR), 20_000_000_000_001);
+        set_balance(account_of(ALICE), Token(INTR), 1 << 60);
 
         // step 2: submit a call, to be executed from the shared account
         let call = Call::Tokens(TokensCall::transfer {
@@ -91,13 +96,8 @@ fn integration_test_transfer_from_multisig_to_unvested() {
         let multisig_account = MultiSigPallet::multi_account_id(&vec![account_of(ALICE), account_of(BOB)], 2);
 
         // vested transfer takes free balance of caller
-        assert_ok!(Call::Tokens(TokensCall::set_balance {
-            who: multisig_account.clone(),
-            currency_id: Token(INTR),
-            new_free: vesting_amount,
-            new_reserved: 0,
-        })
-        .dispatch(root()));
+        set_balance(multisig_account.clone(), Token(INTR), vesting_amount);
+        set_balance(account_of(ALICE), Token(INTR), 1 << 60);
 
         // gradually release amount over 100 periods
         let call = Call::Vesting(VestingCall::vested_transfer {
@@ -244,13 +244,8 @@ fn integration_test_batched_multisig_vesting() {
         let multisig_account = MultiSigPallet::multi_account_id(&vec![account_of(ALICE), account_of(BOB)], 2);
 
         // vested transfer takes free balance of caller
-        assert_ok!(Call::Tokens(TokensCall::set_balance {
-            who: multisig_account.clone(),
-            currency_id: Token(INTR),
-            new_free: vesting_amounts.iter().sum(),
-            new_reserved: 0,
-        })
-        .dispatch(root()));
+        set_balance(multisig_account.clone(), Token(INTR), vesting_amounts.iter().sum());
+        set_balance(account_of(ALICE), Token(INTR), 1 << 60);
 
         // gradually release amount over 100 periods
         let calls: Vec<_> = accounts
