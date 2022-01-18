@@ -65,7 +65,7 @@ pub use primitives::{
 
 // XCM imports
 use cumulus_primitives_core::ParaId;
-use orml_xcm_support::{IsNativeConcrete, MultiCurrencyAdapter, MultiNativeAsset};
+use orml_xcm_support::{DepositToAlternative, IsNativeConcrete, MultiCurrencyAdapter, MultiNativeAsset};
 use pallet_xcm::{EnsureXcm, IsMajorityOfBody, XcmPassthrough};
 use polkadot_parachain::primitives::Sibling;
 use sp_runtime::traits::Convert;
@@ -719,6 +719,7 @@ pub type LocalAssetTransactor = MultiCurrencyAdapter<
     LocationToAccountId,
     CurrencyId,
     CurrencyIdConvert,
+    DepositToAlternative<TreasuryAccount, Tokens, CurrencyId, AccountId, Balance>,
 >;
 
 pub use currency_id_convert::CurrencyIdConvert;
@@ -1263,7 +1264,7 @@ pub type UncheckedExtrinsic = generic::UncheckedExtrinsic<Address, Call, Signatu
 pub type CheckedExtrinsic = generic::CheckedExtrinsic<AccountId, Call, SignedExtra>;
 /// Executive: handles dispatch to the various modules.
 pub type Executive =
-    frame_executive::Executive<Runtime, Block, frame_system::ChainContext<Runtime>, Runtime, AllPallets>;
+    frame_executive::Executive<Runtime, Block, frame_system::ChainContext<Runtime>, Runtime, AllPalletsWithSystem>;
 
 #[cfg(not(feature = "disable-runtime-api"))]
 impl_runtime_apis! {
