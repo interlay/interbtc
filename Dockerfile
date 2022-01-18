@@ -15,7 +15,7 @@ RUN apt-get update && \
 
 RUN cargo build "--$PROFILE"
 
-FROM bitnami/minideb:buster
+FROM ubuntu:20.04
 
 ARG PROFILE=release
 ARG BINARY=interbtc-standalone
