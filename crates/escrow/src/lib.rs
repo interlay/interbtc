@@ -485,7 +485,7 @@ impl<T: Config> Pallet<T> {
         Self::checkpoint(who, old_locked, new_locked);
 
         // withdraw all stake and re-deposit escrow balance
-        T::EscrowRewards::withdraw_stake(who, None)?;
+        T::EscrowRewards::withdraw_stake(who)?;
         T::EscrowRewards::deposit_stake(who, Self::balance_at(who, None))?;
 
         Self::deposit_event(Event::<T>::Deposit {
@@ -506,7 +506,7 @@ impl<T: Config> Pallet<T> {
         ensure!(current_height >= old_locked.end, Error::<T>::LockNotExpired);
 
         // withdraw all stake
-        T::EscrowRewards::withdraw_stake(who, None)?;
+        T::EscrowRewards::withdraw_stake(who)?;
 
         Self::checkpoint(who, old_locked, Default::default());
 
