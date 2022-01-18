@@ -475,8 +475,6 @@ impl<T: Config> Pallet<T> {
             Error::<T>::InvalidAmount
         );
 
-        T::EscrowRewards::deposit_stake(who, amount)?;
-
         ensure!(
             Self::get_free_balance(who) >= new_locked.amount,
             Error::<T>::InsufficientFunds,
@@ -485,6 +483,10 @@ impl<T: Config> Pallet<T> {
         <Locked<T>>::insert(who, new_locked.clone());
 
         Self::checkpoint(who, old_locked, new_locked);
+
+        // withdraw all stake and re-deposit escrow balance
+        T::EscrowRewards::withdraw_stake(who, None)?;
+        T::EscrowRewards::deposit_stake(who, Self::balance_at(who, None))?;
 
         Self::deposit_event(Event::<T>::Deposit {
             who: who.clone(),
@@ -500,10 +502,11 @@ impl<T: Config> Pallet<T> {
         let amount = old_locked.amount;
         let current_height = Self::current_height();
 
-        T::EscrowRewards::withdraw_stake(who, amount)?;
-
         // lock MUST have expired
         ensure!(current_height >= old_locked.end, Error::<T>::LockNotExpired);
+
+        // withdraw all stake
+        T::EscrowRewards::withdraw_stake(who, None)?;
 
         Self::checkpoint(who, old_locked, Default::default());
 
