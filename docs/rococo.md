@@ -100,3 +100,12 @@ Before sending messages between parachains you must first establish a channel.
 ![Establish Channel](./img/sudoEstablishHrmpChannel.png)
 
 Add the [types](https://github.com/interlay/interbtc-types) to the developer settings if the app fails to decode any responses.
+
+
+## Extend the lease period
+
+By default the lease period of the parachain is a bit more than 1 day. For a longer running test network, we want to have longer lease periods otherwise the parachain is demoted to a parathread after 1 day.
+
+Use sudo to extend the lease period:
+
+![Extend Lease](./img/sudoExtendLease.png)
