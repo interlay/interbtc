@@ -366,8 +366,10 @@ where
 }
 
 pub trait ModifyStake<AccountId, Balance> {
+    /// Deposit stake for an account.
     fn deposit_stake(account_id: &AccountId, amount: Balance) -> DispatchResult;
-    fn withdraw_stake(account_id: &AccountId, amount: Balance) -> DispatchResult;
+    /// Withdraw all stake for an account.
+    fn withdraw_stake(account_id: &AccountId) -> DispatchResult;
 }
 
 impl<T, I, Balance> ModifyStake<T::RewardId, Balance> for Pallet<T, I>
@@ -380,8 +382,8 @@ where
         Pallet::<T, I>::deposit_stake(reward_id, amount.to_fixed().ok_or(Error::<T, I>::TryIntoIntError)?)
     }
 
-    fn withdraw_stake(reward_id: &T::RewardId, amount: Balance) -> DispatchResult {
-        Pallet::<T, I>::withdraw_stake(reward_id, amount.to_fixed().ok_or(Error::<T, I>::TryIntoIntError)?)
+    fn withdraw_stake(reward_id: &T::RewardId) -> DispatchResult {
+        Pallet::<T, I>::withdraw_stake(reward_id, Pallet::<T, I>::stake(reward_id))
     }
 }
 
@@ -389,7 +391,7 @@ impl<AccountId, Balance> ModifyStake<AccountId, Balance> for () {
     fn deposit_stake(_: &AccountId, _: Balance) -> DispatchResult {
         Ok(())
     }
-    fn withdraw_stake(_: &AccountId, _: Balance) -> DispatchResult {
+    fn withdraw_stake(_: &AccountId) -> DispatchResult {
         Ok(())
     }
 }
