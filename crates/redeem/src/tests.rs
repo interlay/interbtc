@@ -13,13 +13,13 @@ use vault_registry::{DefaultVault, VaultStatus, Wallet};
 type Event = crate::Event<Test>;
 
 fn collateral(amount: u128) -> Amount<Test> {
-    Amount::new(amount, DEFAULT_TESTING_CURRENCY)
+    Amount::new(amount, DEFAULT_COLLATERAL_CURRENCY)
 }
 fn griefing(amount: u128) -> Amount<Test> {
-    Amount::new(amount, GRIEFING_CURRENCY)
+    Amount::new(amount, DEFAULT_NATIVE_CURRENCY)
 }
 fn wrapped(amount: u128) -> Amount<Test> {
-    Amount::new(amount, Token(INTERBTC))
+    Amount::new(amount, DEFAULT_WRAPPED_CURRENCY)
 }
 
 macro_rules! assert_emitted {

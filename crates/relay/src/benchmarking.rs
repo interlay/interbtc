@@ -8,13 +8,16 @@ use bitcoin::{
     },
 };
 use btc_relay::{BtcAddress, BtcPublicKey, Pallet as BtcRelay};
-use currency::Amount;
+use currency::{
+    getters::{get_relay_chain_currency_id as get_collateral_currency_id, *},
+    Amount,
+};
 use frame_benchmarking::{account, benchmarks, impl_benchmark_test_suite};
 use frame_support::{assert_ok, traits::Get};
 use frame_system::RawOrigin;
 use oracle::Pallet as Oracle;
 use orml_traits::MultiCurrency;
-use primitives::{CurrencyId, CurrencyId::Token, TokenSymbol::*, VaultId};
+use primitives::{CurrencyId, VaultId};
 use security::Pallet as Security;
 use sp_core::{H160, U256};
 use sp_runtime::traits::One;
@@ -29,8 +32,6 @@ use crate::Pallet as Relay;
 
 type UnsignedFixedPoint<T> = <T as currency::Config>::UnsignedFixedPoint;
 
-pub const DEFAULT_TESTING_CURRENCY: CurrencyId = Token(DOT);
-
 fn dummy_public_key() -> BtcPublicKey {
     BtcPublicKey([
         2, 205, 114, 218, 156, 16, 235, 172, 106, 37, 18, 153, 202, 140, 176, 91, 207, 51, 187, 55, 18, 45, 222, 180,
@@ -38,8 +39,13 @@ fn dummy_public_key() -> BtcPublicKey {
     ])
 }
 
+fn deposit_tokens<T: crate::Config>(currency_id: CurrencyId, account_id: &T::AccountId, amount: BalanceOf<T>) {
+    assert_ok!(<orml_tokens::Pallet<T>>::deposit(currency_id, account_id, amount));
+}
+
 fn mint_collateral<T: crate::Config>(account_id: &T::AccountId, amount: BalanceOf<T>) {
-    <orml_tokens::Pallet<T>>::deposit(DEFAULT_TESTING_CURRENCY, account_id, amount).unwrap();
+    deposit_tokens::<T>(get_collateral_currency_id::<T>(), account_id, amount);
+    deposit_tokens::<T>(get_native_currency_id::<T>(), account_id, amount);
 }
 
 benchmarks! {
@@ -178,9 +184,10 @@ benchmarks! {
 
         BtcRelay::<T>::store_block_header(&relayer_id, block_header).unwrap();
         Security::<T>::set_active_block_number(Security::<T>::active_block_number() +
-BtcRelay::<T>::parachain_confirmations() + 1u32.into());
+        BtcRelay::<T>::parachain_confirmations() + 1u32.into());
 
-        Oracle::<T>::_set_exchange_rate(DEFAULT_TESTING_CURRENCY,
+        Oracle::<T>::_set_exchange_rate(
+            get_collateral_currency_id::<T>(),
             <T as currency::Config>::UnsignedFixedPoint::one()
         ).unwrap();
     }: _(RawOrigin::Signed(origin), vault_id, proof, raw_tx)

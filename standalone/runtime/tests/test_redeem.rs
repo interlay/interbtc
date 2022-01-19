@@ -48,7 +48,7 @@ fn consume_to_be_replaced(vault: &mut CoreVaultData, amount_btc: Amount<Runtime>
 
     vault.replace_collateral -= released_replace_collateral;
     vault.griefing_collateral -= released_replace_collateral;
-    *vault.free_balance.get_mut(&GRIEFING_CURRENCY).unwrap() += released_replace_collateral;
+    *vault.free_balance.get_mut(&DEFAULT_GRIEFING_CURRENCY).unwrap() += released_replace_collateral;
 
     vault.to_be_replaced -= to_be_replaced_decrease;
 }
@@ -167,7 +167,7 @@ mod spec_based_tests {
             assert_noop!(
                 Call::Redeem(RedeemCall::mint_tokens_for_reimbursed_redeem {
                     currency_pair: VaultCurrencyPair {
-                        collateral: DEFAULT_TESTING_CURRENCY,
+                        collateral: DEFAULT_COLLATERAL_CURRENCY,
                         wrapped: DEFAULT_WRAPPED_CURRENCY
                     },
                     redeem_id: Default::default()

@@ -78,10 +78,14 @@ impl frame_system::Config for Test {
     type OnSetCode = ();
 }
 
+pub const DEFAULT_COLLATERAL_CURRENCY: CurrencyId = Token(DOT);
+pub const DEFAULT_NATIVE_CURRENCY: CurrencyId = Token(INTR);
+pub const DEFAULT_WRAPPED_CURRENCY: CurrencyId = Token(INTERBTC);
+
 parameter_types! {
-    pub const GetCollateralCurrencyId: CurrencyId = Token(DOT);
-    pub const GetWrappedCurrencyId: CurrencyId = Token(INTERBTC);
-    pub const GetNativeCurrencyId: CurrencyId = Token(KINT);
+    pub const GetCollateralCurrencyId: CurrencyId = DEFAULT_COLLATERAL_CURRENCY;
+    pub const GetNativeCurrencyId: CurrencyId = DEFAULT_NATIVE_CURRENCY;
+    pub const GetWrappedCurrencyId: CurrencyId = DEFAULT_WRAPPED_CURRENCY;
     pub const MaxLocks: u32 = 50;
 }
 
@@ -118,6 +122,8 @@ impl currency::Config for Test {
     type SignedFixedPoint = SignedFixedPoint;
     type UnsignedFixedPoint = UnsignedFixedPoint;
     type Balance = Balance;
+    type GetNativeCurrencyId = GetNativeCurrencyId;
+    type GetRelayChainCurrencyId = GetCollateralCurrencyId;
     type GetWrappedCurrencyId = GetWrappedCurrencyId;
     type CurrencyConversion = CurrencyConvert;
 }

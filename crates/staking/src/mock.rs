@@ -63,7 +63,7 @@ impl frame_system::Config for Test {
 }
 
 parameter_types! {
-    pub const GetNativeCurrencyId: CurrencyId = Token(KINT);
+    pub const GetNativeCurrencyId: CurrencyId = Token(INTR);
 }
 
 impl Config for Test {

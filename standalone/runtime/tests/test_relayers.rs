@@ -39,7 +39,7 @@ fn setup_vault_for_potential_double_spend(
 
     assert_ok!(Call::VaultRegistry(VaultRegistryCall::register_vault {
         currency_pair: VaultCurrencyPair {
-            collateral: DEFAULT_TESTING_CURRENCY,
+            collateral: DEFAULT_COLLATERAL_CURRENCY,
             wrapped: DEFAULT_WRAPPED_CURRENCY,
         },
         collateral: INITIAL_BALANCE,

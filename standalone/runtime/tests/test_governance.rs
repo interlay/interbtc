@@ -26,12 +26,10 @@ type TreasuryPallet = pallet_treasury::Pallet<Runtime>;
 
 type VestingCall = orml_vesting::Call<Runtime>;
 
-const COLLATERAL_CURRENCY_ID: CurrencyId = Token(DOT);
-const NATIVE_CURRENCY_ID: CurrencyId = Token(INTR);
 const INITIAL_VOTING_POWER: u128 = 5_000_000_000_000;
 
 fn get_max_locked(account_id: AccountId) -> Balance {
-    TokensPallet::locks(&account_id, NATIVE_CURRENCY_ID)
+    TokensPallet::locks(&account_id, DEFAULT_NATIVE_CURRENCY)
         .iter()
         .map(|balance_lock| balance_lock.amount)
         .max()
@@ -49,7 +47,7 @@ fn create_lock(account_id: AccountId, amount: Balance) {
 fn set_free_balance(account: AccountId, amount: Balance) {
     assert_ok!(Call::Tokens(TokensCall::set_balance {
         who: account,
-        currency_id: NATIVE_CURRENCY_ID,
+        currency_id: DEFAULT_NATIVE_CURRENCY,
         new_free: amount,
         new_reserved: 0,
     })
@@ -67,7 +65,7 @@ fn test_with<R>(execute: impl Fn() -> R) {
 fn set_balance_proposal(who: AccountId, value: u128) -> Vec<u8> {
     Call::Tokens(TokensCall::set_balance {
         who: who,
-        currency_id: COLLATERAL_CURRENCY_ID,
+        currency_id: DEFAULT_COLLATERAL_CURRENCY,
         new_free: value,
         new_reserved: 0,
     })
@@ -210,7 +208,7 @@ fn can_recover_from_shutdown_using_root() {
         assert_noop!(
             Call::Tokens(TokensCall::transfer {
                 dest: account_of(ALICE),
-                currency_id: NATIVE_CURRENCY_ID,
+                currency_id: DEFAULT_NATIVE_CURRENCY,
                 amount: 123,
             })
             .dispatch(origin_of(account_of(ALICE))),
@@ -228,7 +226,7 @@ fn can_recover_from_shutdown_using_root() {
         // verify that we can execute normal calls again
         assert_ok!(Call::Tokens(TokensCall::transfer {
             dest: account_of(ALICE),
-            currency_id: NATIVE_CURRENCY_ID,
+            currency_id: DEFAULT_NATIVE_CURRENCY,
             amount: 123,
         })
         .dispatch(origin_of(account_of(ALICE))));

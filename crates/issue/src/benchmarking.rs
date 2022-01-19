@@ -7,10 +7,12 @@ use bitcoin::{
     },
 };
 use btc_relay::{BtcAddress, BtcPublicKey};
+use currency::getters::{get_relay_chain_currency_id as get_collateral_currency_id, *};
 use frame_benchmarking::{account, benchmarks, impl_benchmark_test_suite};
+use frame_support::assert_ok;
 use frame_system::RawOrigin;
 use orml_traits::MultiCurrency;
-use primitives::{CurrencyId, CurrencyId::Token, TokenSymbol::*, VaultId};
+use primitives::{CurrencyId, VaultId};
 use sp_core::{H160, H256, U256};
 use sp_runtime::{
     traits::{One, Zero},
@@ -26,8 +28,6 @@ use primitives::VaultCurrencyPair;
 use security::Pallet as Security;
 use vault_registry::{types::DefaultVaultCurrencyPair, Pallet as VaultRegistry};
 
-pub const DEFAULT_TESTING_CURRENCY: CurrencyId = Token(DOT);
-
 fn dummy_public_key() -> BtcPublicKey {
     BtcPublicKey([
         2, 205, 114, 218, 156, 16, 235, 172, 106, 37, 18, 153, 202, 140, 176, 91, 207, 51, 187, 55, 18, 45, 222, 180,
@@ -35,22 +35,27 @@ fn dummy_public_key() -> BtcPublicKey {
     ])
 }
 
+fn deposit_tokens<T: crate::Config>(currency_id: CurrencyId, account_id: &T::AccountId, amount: BalanceOf<T>) {
+    assert_ok!(<orml_tokens::Pallet<T>>::deposit(currency_id, account_id, amount));
+}
+
 fn mint_collateral<T: crate::Config>(account_id: &T::AccountId, amount: BalanceOf<T>) {
-    <orml_tokens::Pallet<T>>::deposit(DEFAULT_TESTING_CURRENCY, account_id, amount).unwrap();
+    deposit_tokens::<T>(get_collateral_currency_id::<T>(), account_id, amount);
+    deposit_tokens::<T>(get_native_currency_id::<T>(), account_id, amount);
 }
 
 fn get_currency_pair<T: crate::Config>() -> DefaultVaultCurrencyPair<T> {
     VaultCurrencyPair {
-        collateral: T::GetGriefingCollateralCurrencyId::get(),
-        wrapped: <T as currency::Config>::GetWrappedCurrencyId::get(),
+        collateral: get_collateral_currency_id::<T>(),
+        wrapped: get_wrapped_currency_id::<T>(),
     }
 }
 
 fn get_vault_id<T: crate::Config>() -> DefaultVaultId<T> {
     VaultId::new(
         account("Vault", 0, 0),
-        T::GetGriefingCollateralCurrencyId::get(),
-        <T as currency::Config>::GetWrappedCurrencyId::get(),
+        get_collateral_currency_id::<T>(),
+        get_wrapped_currency_id::<T>(),
     )
 }
 
@@ -118,7 +123,7 @@ fn mine_blocks<T: crate::Config>(end_height: u32) {
 benchmarks! {
     request_issue {
         let origin: T::AccountId = account("Origin", 0, 0);
-        let amount = Issue::<T>::issue_btc_dust_value(<T as currency::Config>::GetWrappedCurrencyId::get()).amount() + 1000u32.into();
+        let amount = Issue::<T>::issue_btc_dust_value(get_wrapped_currency_id::<T>()).amount() + 1000u32.into();
         let vault_id = get_vault_id::<T>();
         let griefing: u32 = 100;
         let relayer_id: T::AccountId = account("Relayer", 0, 0);
@@ -127,7 +132,7 @@ benchmarks! {
         mint_collateral::<T>(&vault_id.account_id.clone(), (1u32 << 31).into());
         mint_collateral::<T>(&relayer_id, (1u32 << 31).into());
 
-        Oracle::<T>::_set_exchange_rate(DEFAULT_TESTING_CURRENCY, <T as currency::Config>::UnsignedFixedPoint::one()).unwrap();
+        Oracle::<T>::_set_exchange_rate(get_collateral_currency_id::<T>(), <T as currency::Config>::UnsignedFixedPoint::one()).unwrap();
         VaultRegistry::<T>::_set_secure_collateral_threshold(get_currency_pair::<T>(), <T as currency::Config>::UnsignedFixedPoint::checked_from_rational(1, 100000).unwrap());// 0.001%
         VaultRegistry::<T>::_set_system_collateral_ceiling(get_currency_pair::<T>(), 1_000_000_000u32.into());
         VaultRegistry::<T>::_register_vault(vault_id.clone(), 100000000u32.into(), dummy_public_key()).unwrap();
@@ -195,7 +200,7 @@ benchmarks! {
         mint_collateral::<T>(&relayer_id, (1u32 << 31).into());
 
         let vault_btc_address = BtcAddress::P2SH(H160::zero());
-        let value: Amount<T> = Amount::new(2u32.into(), <T as currency::Config>::GetWrappedCurrencyId::get());
+        let value: Amount<T> = Amount::new(2u32.into(), get_wrapped_currency_id::<T>());
 
         let issue_id = H256::zero();
         let issue_request = IssueRequest {
@@ -269,7 +274,7 @@ benchmarks! {
 
         VaultRegistry::<T>::_set_system_collateral_ceiling(get_currency_pair::<T>(), 1_000_000_000u32.into());
         VaultRegistry::<T>::_set_secure_collateral_threshold(get_currency_pair::<T>(), <T as currency::Config>::UnsignedFixedPoint::checked_from_rational(1, 100000).unwrap());
-        Oracle::<T>::_set_exchange_rate(DEFAULT_TESTING_CURRENCY, <T as currency::Config>::UnsignedFixedPoint::one()).unwrap();
+        Oracle::<T>::_set_exchange_rate(get_collateral_currency_id::<T>(), <T as currency::Config>::UnsignedFixedPoint::one()).unwrap();
         VaultRegistry::<T>::_register_vault(vault_id.clone(), 100000000u32.into(), dummy_public_key()).unwrap();
 
         VaultRegistry::<T>::try_increase_to_be_issued_tokens(&vault_id, &value).unwrap();
@@ -285,7 +290,7 @@ benchmarks! {
         mint_collateral::<T>(&vault_id.account_id.clone(), (1u32 << 31).into());
 
         let vault_btc_address = BtcAddress::P2SH(H160::zero());
-        let value = Amount::new(2u32.into(), <T as currency::Config>::GetWrappedCurrencyId::get());
+        let value = Amount::new(2u32.into(), get_wrapped_currency_id::<T>());
 
         let issue_id = H256::zero();
         let issue_request = IssueRequest {
@@ -310,7 +315,7 @@ benchmarks! {
 
         VaultRegistry::<T>::_set_system_collateral_ceiling(get_currency_pair::<T>(), 1_000_000_000u32.into());
         VaultRegistry::<T>::_set_secure_collateral_threshold(get_currency_pair::<T>(), <T as currency::Config>::UnsignedFixedPoint::checked_from_rational(1, 100000).unwrap());
-        Oracle::<T>::_set_exchange_rate(DEFAULT_TESTING_CURRENCY, <T as currency::Config>::UnsignedFixedPoint::one()).unwrap();
+        Oracle::<T>::_set_exchange_rate(get_collateral_currency_id::<T>(), <T as currency::Config>::UnsignedFixedPoint::one()).unwrap();
         VaultRegistry::<T>::_register_vault(vault_id.clone(), 100000000u32.into(), dummy_public_key()).unwrap();
 
         VaultRegistry::<T>::try_increase_to_be_issued_tokens(&vault_id, &value).unwrap();

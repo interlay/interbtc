@@ -1,18 +1,18 @@
 use super::*;
 use crate::{types::BtcPublicKey, Pallet as VaultRegistry};
+use currency::getters::{get_relay_chain_currency_id as get_collateral_currency_id, *};
 use frame_benchmarking::{account, benchmarks, impl_benchmark_test_suite};
-use frame_support::traits::Get;
+use frame_support::assert_ok;
 use frame_system::RawOrigin;
 use oracle::Pallet as Oracle;
 use orml_traits::MultiCurrency;
-use primitives::{CurrencyId, CurrencyId::Token, TokenSymbol::*};
+use primitives::CurrencyId;
 use sp_std::prelude::*;
 
-pub const DEFAULT_TESTING_CURRENCY: CurrencyId = Token(DOT);
 type UnsignedFixedPoint<T> = <T as currency::Config>::UnsignedFixedPoint;
 
 fn wrapped<T: crate::Config>(amount: u32) -> Amount<T> {
-    Amount::new(amount.into(), <T as currency::Config>::GetWrappedCurrencyId::get())
+    Amount::new(amount.into(), get_wrapped_currency_id::<T>())
 }
 
 fn dummy_public_key() -> BtcPublicKey {
@@ -22,22 +22,27 @@ fn dummy_public_key() -> BtcPublicKey {
     ])
 }
 
+fn deposit_tokens<T: crate::Config>(currency_id: CurrencyId, account_id: &T::AccountId, amount: BalanceOf<T>) {
+    assert_ok!(<orml_tokens::Pallet<T>>::deposit(currency_id, account_id, amount));
+}
+
 fn mint_collateral<T: crate::Config>(account_id: &T::AccountId, amount: BalanceOf<T>) {
-    <orml_tokens::Pallet<T>>::deposit(DEFAULT_TESTING_CURRENCY, account_id, amount).unwrap();
+    deposit_tokens::<T>(get_collateral_currency_id::<T>(), account_id, amount);
+    deposit_tokens::<T>(get_native_currency_id::<T>(), account_id, amount);
 }
 
 fn get_vault_id<T: crate::Config>() -> DefaultVaultId<T> {
     VaultId::new(
         account("Vault", 0, 0),
-        T::GetGriefingCollateralCurrencyId::get(),
-        <T as currency::Config>::GetWrappedCurrencyId::get(),
+        get_collateral_currency_id::<T>(),
+        get_wrapped_currency_id::<T>(),
     )
 }
 
 fn get_currency_pair<T: crate::Config>() -> DefaultVaultCurrencyPair<T> {
     VaultCurrencyPair {
-        collateral: T::GetGriefingCollateralCurrencyId::get(),
-        wrapped: <T as currency::Config>::GetWrappedCurrencyId::get(),
+        collateral: get_collateral_currency_id::<T>(),
+        wrapped: get_wrapped_currency_id::<T>(),
     }
 }
 
@@ -54,7 +59,7 @@ benchmarks! {
         mint_collateral::<T>(&vault_id.account_id, (1u32 << 31).into());
         let amount = 100u32.into();
         VaultRegistry::<T>::_register_vault(vault_id.clone(), amount, dummy_public_key()).unwrap();
-        Oracle::<T>::_set_exchange_rate(DEFAULT_TESTING_CURRENCY,
+        Oracle::<T>::_set_exchange_rate(get_collateral_currency_id::<T>(),
             UnsignedFixedPoint::<T>::one()
         ).unwrap();
     }: _(RawOrigin::Signed(vault_id.account_id), vault_id.currencies.clone(), amount)
@@ -64,7 +69,7 @@ benchmarks! {
         mint_collateral::<T>(&vault_id.account_id, (1u32 << 31).into());
         let amount = 100u32.into();
         VaultRegistry::<T>::_register_vault(vault_id.clone(), amount, dummy_public_key()).unwrap();
-        Oracle::<T>::_set_exchange_rate(DEFAULT_TESTING_CURRENCY,
+        Oracle::<T>::_set_exchange_rate(get_collateral_currency_id::<T>(),
             UnsignedFixedPoint::<T>::one()
         ).unwrap();
     }: _(RawOrigin::Signed(vault_id.account_id), vault_id.currencies.clone(), amount)
@@ -88,7 +93,7 @@ benchmarks! {
     }: _(RawOrigin::Signed(vault_id.account_id), vault_id.currencies.clone(), true)
 
     set_minimum_collateral {
-    }: _(RawOrigin::Root, T::GetGriefingCollateralCurrencyId::get(), 1234u32.into())
+    }: _(RawOrigin::Root, get_collateral_currency_id::<T>(), 1234u32.into())
 
     set_system_collateral_ceiling {
     }: _(RawOrigin::Root, get_currency_pair::<T>(), 1234u32.into())
@@ -108,12 +113,12 @@ benchmarks! {
         mint_collateral::<T>(&vault_id.account_id, (1u32 << 31).into());
 
         VaultRegistry::<T>::_register_vault(vault_id.clone(), 10_000u32.into(), dummy_public_key()).unwrap();
-        Oracle::<T>::_set_exchange_rate(DEFAULT_TESTING_CURRENCY, UnsignedFixedPoint::<T>::one()).unwrap();
+        Oracle::<T>::_set_exchange_rate(get_collateral_currency_id::<T>(), UnsignedFixedPoint::<T>::one()).unwrap();
 
         VaultRegistry::<T>::try_increase_to_be_issued_tokens(&vault_id, &wrapped(5_000)).unwrap();
         VaultRegistry::<T>::issue_tokens(&vault_id, &wrapped(5_000)).unwrap();
 
-        Oracle::<T>::_set_exchange_rate(DEFAULT_TESTING_CURRENCY, UnsignedFixedPoint::<T>::checked_from_rational(10, 1).unwrap()).unwrap();
+        Oracle::<T>::_set_exchange_rate(get_collateral_currency_id::<T>(), UnsignedFixedPoint::<T>::checked_from_rational(10, 1).unwrap()).unwrap();
     }: _(RawOrigin::Signed(origin), vault_id.clone())
 }
 

@@ -1,9 +1,10 @@
 use super::*;
+use currency::getters::{get_relay_chain_currency_id as get_collateral_currency_id, *};
 use frame_benchmarking::{account, benchmarks, impl_benchmark_test_suite};
-use frame_support::{assert_ok, traits::Get};
+use frame_support::assert_ok;
 use frame_system::RawOrigin;
 use orml_traits::MultiCurrency;
-use primitives::{CurrencyId, CurrencyId::Token, TokenSymbol::*};
+use primitives::CurrencyId;
 use sp_runtime::traits::One;
 use vault_registry::BtcPublicKey;
 
@@ -12,8 +13,6 @@ use crate::Pallet as Nomination;
 use oracle::Pallet as Oracle;
 use vault_registry::Pallet as VaultRegistry;
 
-pub const DEFAULT_TESTING_CURRENCY: CurrencyId = Token(DOT);
-
 fn dummy_public_key() -> BtcPublicKey {
     BtcPublicKey([
         2, 205, 114, 218, 156, 16, 235, 172, 106, 37, 18, 153, 202, 140, 176, 91, 207, 51, 187, 55, 18, 45, 222, 180,
@@ -21,13 +20,18 @@ fn dummy_public_key() -> BtcPublicKey {
     ])
 }
 
+fn deposit_tokens<T: crate::Config>(currency_id: CurrencyId, account_id: &T::AccountId, amount: BalanceOf<T>) {
+    assert_ok!(<orml_tokens::Pallet<T>>::deposit(currency_id, account_id, amount));
+}
+
 fn mint_collateral<T: crate::Config>(account_id: &T::AccountId, amount: BalanceOf<T>) {
-    <orml_tokens::Pallet<T>>::deposit(DEFAULT_TESTING_CURRENCY, account_id, amount).unwrap();
+    deposit_tokens::<T>(get_collateral_currency_id::<T>(), account_id, amount);
+    deposit_tokens::<T>(get_native_currency_id::<T>(), account_id, amount);
 }
 
 fn setup_exchange_rate<T: crate::Config>() {
     Oracle::<T>::_set_exchange_rate(
-        DEFAULT_TESTING_CURRENCY,
+        get_collateral_currency_id::<T>(),
         <T as currency::Config>::UnsignedFixedPoint::one(),
     )
     .unwrap();
@@ -36,8 +40,8 @@ fn setup_exchange_rate<T: crate::Config>() {
 fn get_vault_id<T: crate::Config>() -> DefaultVaultId<T> {
     VaultId::new(
         account("Vault", 0, 0),
-        T::GetGriefingCollateralCurrencyId::get(),
-        <T as currency::Config>::GetWrappedCurrencyId::get(),
+        get_collateral_currency_id::<T>(),
+        get_wrapped_currency_id::<T>(),
     )
 }
 

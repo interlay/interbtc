@@ -20,11 +20,11 @@ fn dummy_merkle_proof() -> MerkleProof {
 }
 
 fn griefing(amount: u128) -> Amount<Test> {
-    Amount::new(amount, GRIEFING_CURRENCY)
+    Amount::new(amount, DEFAULT_NATIVE_CURRENCY)
 }
 
 fn wrapped(amount: u128) -> Amount<Test> {
-    Amount::new(amount, Token(INTERBTC))
+    Amount::new(amount, DEFAULT_WRAPPED_CURRENCY)
 }
 
 fn request_issue(
@@ -74,7 +74,7 @@ fn get_dummy_request_id() -> H256 {
 fn test_request_issue_banned_fails() {
     run_test(|| {
         assert_ok!(<oracle::Pallet<Test>>::_set_exchange_rate(
-            DEFAULT_TESTING_CURRENCY,
+            DEFAULT_COLLATERAL_CURRENCY,
             FixedU128::one()
         ));
         <vault_registry::Pallet<Test>>::insert_vault(

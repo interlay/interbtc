@@ -94,17 +94,19 @@ impl frame_system::Config for Test {
     type OnSetCode = ();
 }
 
-pub const DEFAULT_TESTING_CURRENCY: <Test as orml_tokens::Config>::CurrencyId = Token(DOT);
-pub const DEFAULT_WRAPPED_CURRENCY: <Test as orml_tokens::Config>::CurrencyId = Token(DOT);
+pub const DEFAULT_COLLATERAL_CURRENCY: CurrencyId = Token(DOT);
+pub const DEFAULT_NATIVE_CURRENCY: CurrencyId = Token(INTR);
+pub const DEFAULT_WRAPPED_CURRENCY: CurrencyId = Token(INTERBTC);
+
 pub const DEFAULT_CURRENCY_PAIR: VaultCurrencyPair<CurrencyId> = VaultCurrencyPair {
-    collateral: DEFAULT_TESTING_CURRENCY,
+    collateral: DEFAULT_COLLATERAL_CURRENCY,
     wrapped: DEFAULT_WRAPPED_CURRENCY,
 };
 
 parameter_types! {
-    pub const GetCollateralCurrencyId: CurrencyId = Token(DOT);
-    pub const GetWrappedCurrencyId: CurrencyId = Token(INTERBTC);
-    pub const GetNativeCurrencyId: CurrencyId = Token(KINT);
+    pub const GetCollateralCurrencyId: CurrencyId = DEFAULT_COLLATERAL_CURRENCY;
+    pub const GetNativeCurrencyId: CurrencyId = DEFAULT_NATIVE_CURRENCY;
+    pub const GetWrappedCurrencyId: CurrencyId = DEFAULT_WRAPPED_CURRENCY;
     pub const MaxLocks: u32 = 50;
 }
 
@@ -167,7 +169,7 @@ impl vault_registry::Config for Test {
     type Event = TestEvent;
     type Balance = Balance;
     type WeightInfo = ();
-    type GetGriefingCollateralCurrencyId = GetCollateralCurrencyId;
+    type GetGriefingCollateralCurrencyId = GetNativeCurrencyId;
 }
 
 pub struct CurrencyConvert;
@@ -191,6 +193,8 @@ impl currency::Config for Test {
     type SignedFixedPoint = SignedFixedPoint;
     type UnsignedFixedPoint = UnsignedFixedPoint;
     type Balance = Balance;
+    type GetNativeCurrencyId = GetNativeCurrencyId;
+    type GetRelayChainCurrencyId = GetCollateralCurrencyId;
     type GetWrappedCurrencyId = GetWrappedCurrencyId;
     type CurrencyConversion = CurrencyConvert;
 }
@@ -221,7 +225,6 @@ impl fee::Config for Test {
     type UnsignedInner = UnsignedInner;
     type VaultRewards = Rewards;
     type VaultStaking = Staking;
-    type GetNativeCurrencyId = GetNativeCurrencyId;
     type OnSweep = ();
 }
 
@@ -268,7 +271,7 @@ pub const ALICE: AccountId = 1;
 pub const BOB: VaultId<AccountId, CurrencyId> = VaultId {
     account_id: 2,
     currencies: VaultCurrencyPair {
-        collateral: DEFAULT_TESTING_CURRENCY,
+        collateral: DEFAULT_COLLATERAL_CURRENCY,
         wrapped: DEFAULT_WRAPPED_CURRENCY,
     },
 };
@@ -276,7 +279,7 @@ pub const BOB: VaultId<AccountId, CurrencyId> = VaultId {
 pub const CAROL: VaultId<AccountId, CurrencyId> = VaultId {
     account_id: 3,
     currencies: VaultCurrencyPair {
-        collateral: DEFAULT_TESTING_CURRENCY,
+        collateral: DEFAULT_COLLATERAL_CURRENCY,
         wrapped: DEFAULT_WRAPPED_CURRENCY,
     },
 };
@@ -313,7 +316,7 @@ impl ExtBuilder {
         .unwrap();
 
         vault_registry::GenesisConfig::<Test> {
-            minimum_collateral_vault: vec![(DEFAULT_TESTING_CURRENCY, 0)],
+            minimum_collateral_vault: vec![(DEFAULT_COLLATERAL_CURRENCY, 0)],
             punishment_delay: 0,
             system_collateral_ceiling: vec![(DEFAULT_CURRENCY_PAIR, 1_000_000_000_000)],
             secure_collateral_threshold: vec![(

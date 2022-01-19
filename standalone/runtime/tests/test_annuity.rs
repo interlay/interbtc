@@ -12,8 +12,6 @@ type VaultAnnuityEvent = annuity::Event<Runtime, VaultAnnuityInstance>;
 
 type SupplyPallet = supply::Pallet<Runtime>;
 
-const NATIVE_CURRENCY_ID: CurrencyId = Token(INTR);
-
 fn get_last_reward() -> u128 {
     SystemPallet::events()
         .iter()
@@ -33,7 +31,7 @@ fn integration_test_annuity() {
     ExtBuilder::build().execute_with(|| {
         assert_ok!(Call::Tokens(TokensCall::set_balance {
             who: VaultAnnuityPallet::account_id(),
-            currency_id: NATIVE_CURRENCY_ID,
+            currency_id: DEFAULT_NATIVE_CURRENCY,
             new_free: 10_000_000_000_000,
             new_reserved: 0,
         })
@@ -87,7 +85,7 @@ fn should_distribute_vault_rewards_from_supply() {
                     call: Box::new(Call::Tokens(TokensCall::force_transfer {
                         source: SupplyPallet::account_id(),
                         dest: VaultAnnuityPallet::account_id(),
-                        currency_id: NATIVE_CURRENCY_ID,
+                        currency_id: DEFAULT_NATIVE_CURRENCY,
                         amount: Permill::from_percent(40) * total_rewards,
                     })),
                 }),
@@ -99,7 +97,7 @@ fn should_distribute_vault_rewards_from_supply() {
                     call: Box::new(Call::Tokens(TokensCall::force_transfer {
                         source: SupplyPallet::account_id(),
                         dest: VaultAnnuityPallet::account_id(),
-                        currency_id: NATIVE_CURRENCY_ID,
+                        currency_id: DEFAULT_NATIVE_CURRENCY,
                         amount: Permill::from_percent(30) * total_rewards,
                     })),
                 }),
@@ -111,7 +109,7 @@ fn should_distribute_vault_rewards_from_supply() {
                     call: Box::new(Call::Tokens(TokensCall::force_transfer {
                         source: SupplyPallet::account_id(),
                         dest: VaultAnnuityPallet::account_id(),
-                        currency_id: NATIVE_CURRENCY_ID,
+                        currency_id: DEFAULT_NATIVE_CURRENCY,
                         amount: Permill::from_percent(20) * total_rewards,
                     })),
                 }),
@@ -123,7 +121,7 @@ fn should_distribute_vault_rewards_from_supply() {
                     call: Box::new(Call::Tokens(TokensCall::force_transfer {
                         source: SupplyPallet::account_id(),
                         dest: VaultAnnuityPallet::account_id(),
-                        currency_id: NATIVE_CURRENCY_ID,
+                        currency_id: DEFAULT_NATIVE_CURRENCY,
                         amount: Permill::from_percent(10) * total_rewards,
                     })),
                 })
@@ -184,7 +182,7 @@ fn should_distribute_escrow_rewards_from_supply() {
                     call: Box::new(Call::Tokens(TokensCall::force_transfer {
                         source: SupplyPallet::account_id(),
                         dest: EscrowAnnuityPallet::account_id(),
-                        currency_id: NATIVE_CURRENCY_ID,
+                        currency_id: DEFAULT_NATIVE_CURRENCY,
                         amount: Permill::from_percent(25) * total_rewards,
                     })),
                 }),
@@ -196,7 +194,7 @@ fn should_distribute_escrow_rewards_from_supply() {
                     call: Box::new(Call::Tokens(TokensCall::force_transfer {
                         source: SupplyPallet::account_id(),
                         dest: EscrowAnnuityPallet::account_id(),
-                        currency_id: NATIVE_CURRENCY_ID,
+                        currency_id: DEFAULT_NATIVE_CURRENCY,
                         amount: Permill::from_percent(25) * total_rewards,
                     })),
                 }),
@@ -208,7 +206,7 @@ fn should_distribute_escrow_rewards_from_supply() {
                     call: Box::new(Call::Tokens(TokensCall::force_transfer {
                         source: SupplyPallet::account_id(),
                         dest: EscrowAnnuityPallet::account_id(),
-                        currency_id: NATIVE_CURRENCY_ID,
+                        currency_id: DEFAULT_NATIVE_CURRENCY,
                         amount: Permill::from_percent(25) * total_rewards,
                     })),
                 }),
@@ -220,7 +218,7 @@ fn should_distribute_escrow_rewards_from_supply() {
                     call: Box::new(Call::Tokens(TokensCall::force_transfer {
                         source: SupplyPallet::account_id(),
                         dest: EscrowAnnuityPallet::account_id(),
-                        currency_id: NATIVE_CURRENCY_ID,
+                        currency_id: DEFAULT_NATIVE_CURRENCY,
                         amount: Permill::from_percent(25) * total_rewards,
                     })),
                 })

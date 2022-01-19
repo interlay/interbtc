@@ -69,7 +69,8 @@ impl frame_system::Config for Test {
 }
 
 parameter_types! {
-    pub const GetCollateralCurrencyId: CurrencyId = Token(DOT);
+    pub const GetNativeCurrencyId: CurrencyId = Token(INTR);
+    pub const GetRelayChainCurrencyId: CurrencyId = Token(DOT);
     pub const GetWrappedCurrencyId: CurrencyId = Token(INTERBTC);
     pub const MaxLocks: u32 = 50;
 }
@@ -107,6 +108,8 @@ impl crate::Config for Test {
     type SignedFixedPoint = SignedFixedPoint;
     type UnsignedFixedPoint = UnsignedFixedPoint;
     type Balance = Balance;
+    type GetNativeCurrencyId = GetNativeCurrencyId;
+    type GetRelayChainCurrencyId = GetRelayChainCurrencyId;
     type GetWrappedCurrencyId = GetWrappedCurrencyId;
     type CurrencyConversion = CurrencyConvert;
 }

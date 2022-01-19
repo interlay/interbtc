@@ -86,18 +86,19 @@ impl frame_system::Config for Test {
     type OnSetCode = ();
 }
 
-pub const DEFAULT_TESTING_CURRENCY: CurrencyId = Token(DOT);
+pub const DEFAULT_COLLATERAL_CURRENCY: CurrencyId = Token(DOT);
+pub const DEFAULT_NATIVE_CURRENCY: CurrencyId = Token(INTR);
 pub const DEFAULT_WRAPPED_CURRENCY: CurrencyId = Token(INTERBTC);
+
 pub const DEFAULT_CURRENCY_PAIR: VaultCurrencyPair<CurrencyId> = VaultCurrencyPair {
-    collateral: DEFAULT_TESTING_CURRENCY,
+    collateral: DEFAULT_COLLATERAL_CURRENCY,
     wrapped: DEFAULT_WRAPPED_CURRENCY,
 };
-pub const GRIEFING_CURRENCY: CurrencyId = Token(DOT);
 
 parameter_types! {
-    pub const GetCollateralCurrencyId: CurrencyId = Token(DOT);
-    pub const GetWrappedCurrencyId: CurrencyId = Token(INTERBTC);
-    pub const GetNativeCurrencyId: CurrencyId = Token(KINT);
+    pub const GetCollateralCurrencyId: CurrencyId = DEFAULT_COLLATERAL_CURRENCY;
+    pub const GetNativeCurrencyId: CurrencyId = DEFAULT_NATIVE_CURRENCY;
+    pub const GetWrappedCurrencyId: CurrencyId = DEFAULT_WRAPPED_CURRENCY;
     pub const MaxLocks: u32 = 50;
 }
 
@@ -167,6 +168,8 @@ impl currency::Config for Test {
     type SignedFixedPoint = SignedFixedPoint;
     type UnsignedFixedPoint = UnsignedFixedPoint;
     type Balance = Balance;
+    type GetNativeCurrencyId = GetNativeCurrencyId;
+    type GetRelayChainCurrencyId = GetCollateralCurrencyId;
     type GetWrappedCurrencyId = GetWrappedCurrencyId;
     type CurrencyConversion = CurrencyConvert;
 }
@@ -184,7 +187,6 @@ impl fee::Config for Test {
     type UnsignedInner = Balance;
     type VaultRewards = Rewards;
     type VaultStaking = Staking;
-    type GetNativeCurrencyId = GetNativeCurrencyId;
     type OnSweep = ();
 }
 
@@ -197,7 +199,7 @@ impl Config for Test {
     type Event = TestEvent;
     type Balance = Balance;
     type WeightInfo = ();
-    type GetGriefingCollateralCurrencyId = GetCollateralCurrencyId;
+    type GetGriefingCollateralCurrencyId = GetNativeCurrencyId;
 }
 
 impl<C> frame_system::offchain::SendTransactionTypes<C> for Test
@@ -230,21 +232,21 @@ pub struct ExtBuilder;
 pub const DEFAULT_ID: VaultId<AccountId, CurrencyId> = VaultId {
     account_id: 3,
     currencies: VaultCurrencyPair {
-        collateral: DEFAULT_TESTING_CURRENCY,
+        collateral: DEFAULT_COLLATERAL_CURRENCY,
         wrapped: DEFAULT_WRAPPED_CURRENCY,
     },
 };
 pub const OTHER_ID: VaultId<AccountId, CurrencyId> = VaultId {
     account_id: 4,
     currencies: VaultCurrencyPair {
-        collateral: DEFAULT_TESTING_CURRENCY,
+        collateral: DEFAULT_COLLATERAL_CURRENCY,
         wrapped: DEFAULT_WRAPPED_CURRENCY,
     },
 };
 pub const RICH_ID: VaultId<AccountId, CurrencyId> = VaultId {
     account_id: 5,
     currencies: VaultCurrencyPair {
-        collateral: DEFAULT_TESTING_CURRENCY,
+        collateral: DEFAULT_COLLATERAL_CURRENCY,
         wrapped: DEFAULT_WRAPPED_CURRENCY,
     },
 };
@@ -261,7 +263,7 @@ impl ExtBuilder {
 
         // Parameters to be set in tests
         vault_registry::GenesisConfig::<Test> {
-            minimum_collateral_vault: vec![(DEFAULT_TESTING_CURRENCY, 0)],
+            minimum_collateral_vault: vec![(DEFAULT_COLLATERAL_CURRENCY, 0)],
             punishment_delay: 0,
             system_collateral_ceiling: vec![(DEFAULT_CURRENCY_PAIR, 1_000_000_000_000)],
             secure_collateral_threshold: vec![(DEFAULT_CURRENCY_PAIR, UnsignedFixedPoint::one())],
@@ -276,27 +278,27 @@ impl ExtBuilder {
     pub fn build() -> sp_io::TestExternalities {
         ExtBuilder::build_with(orml_tokens::GenesisConfig::<Test> {
             balances: vec![
-                (DEFAULT_ID.account_id, DEFAULT_TESTING_CURRENCY, DEFAULT_COLLATERAL),
-                (OTHER_ID.account_id, DEFAULT_TESTING_CURRENCY, DEFAULT_COLLATERAL),
-                (RICH_ID.account_id, DEFAULT_TESTING_CURRENCY, RICH_COLLATERAL),
+                (DEFAULT_ID.account_id, DEFAULT_COLLATERAL_CURRENCY, DEFAULT_COLLATERAL),
+                (OTHER_ID.account_id, DEFAULT_COLLATERAL_CURRENCY, DEFAULT_COLLATERAL),
+                (RICH_ID.account_id, DEFAULT_COLLATERAL_CURRENCY, RICH_COLLATERAL),
                 (
                     MULTI_VAULT_TEST_IDS[0],
-                    DEFAULT_TESTING_CURRENCY,
+                    DEFAULT_COLLATERAL_CURRENCY,
                     MULTI_VAULT_TEST_COLLATERAL,
                 ),
                 (
                     MULTI_VAULT_TEST_IDS[1],
-                    DEFAULT_TESTING_CURRENCY,
+                    DEFAULT_COLLATERAL_CURRENCY,
                     MULTI_VAULT_TEST_COLLATERAL,
                 ),
                 (
                     MULTI_VAULT_TEST_IDS[2],
-                    DEFAULT_TESTING_CURRENCY,
+                    DEFAULT_COLLATERAL_CURRENCY,
                     MULTI_VAULT_TEST_COLLATERAL,
                 ),
                 (
                     MULTI_VAULT_TEST_IDS[3],
-                    DEFAULT_TESTING_CURRENCY,
+                    DEFAULT_COLLATERAL_CURRENCY,
                     MULTI_VAULT_TEST_COLLATERAL,
                 ),
             ],
@@ -323,7 +325,7 @@ where
         System::set_block_number(1);
         Security::set_active_block_number(1);
         set_default_thresholds();
-        <oracle::Pallet<Test>>::_set_exchange_rate(DEFAULT_TESTING_CURRENCY, UnsignedFixedPoint::one()).unwrap();
+        <oracle::Pallet<Test>>::_set_exchange_rate(DEFAULT_COLLATERAL_CURRENCY, UnsignedFixedPoint::one()).unwrap();
         test()
     })
 }

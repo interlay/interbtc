@@ -112,9 +112,6 @@ pub mod pallet {
 
         /// Handler to transfer undistributed rewards.
         type OnSweep: OnSweep<Self::AccountId, Amount<Self>>;
-
-        #[pallet::constant]
-        type GetNativeCurrencyId: Get<Self::CurrencyId>;
     }
 
     #[pallet::error]

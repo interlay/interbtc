@@ -98,6 +98,8 @@ fn integration_test_transfer_from_multisig_to_unvested() {
         // vested transfer takes free balance of caller
         set_balance(multisig_account.clone(), Token(INTR), vesting_amount);
         set_balance(account_of(ALICE), Token(INTR), 1 << 60);
+        // clear eve's balance
+        set_balance(account_of(EVE), Token(INTR), 0);
 
         // gradually release amount over 100 periods
         let call = Call::Vesting(VestingCall::vested_transfer {
