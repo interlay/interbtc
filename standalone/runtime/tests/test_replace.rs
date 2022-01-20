@@ -87,7 +87,7 @@ mod accept_replace_tests {
     fn assert_state_after_accept_replace_correct(
         old_vault_id: &VaultId,
         new_vault_id: &VaultId,
-        replace: &ReplaceRequest<AccountId32, u32, u128, CurrencyId>,
+        replace: &ReplaceRequest<AccountId32, BlockNumber, Balance, CurrencyId>,
     ) {
         assert_eq!(
             ParachainTwoVaultState::get(&old_vault_id, &new_vault_id),

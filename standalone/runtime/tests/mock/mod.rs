@@ -15,9 +15,9 @@ pub use frame_support::{
     dispatch::{DispatchError, DispatchResultWithPostInfo},
 };
 pub use interbtc_runtime_standalone::{
-    token_distribution, AccountId, BlockNumber, Call, CurrencyId, EscrowAnnuityInstance, Event, GetNativeCurrencyId,
-    GetRelayChainCurrencyId, GetWrappedCurrencyId, Runtime, TechnicalCommitteeInstance, VaultAnnuityInstance,
-    VaultRewardsInstance, YEARS,
+    token_distribution, AccountId, Balance, BlockNumber, Call, CurrencyId, EscrowAnnuityInstance,
+    EscrowRewardsInstance, Event, GetNativeCurrencyId, GetRelayChainCurrencyId, GetWrappedCurrencyId, Runtime,
+    TechnicalCommitteeInstance, VaultAnnuityInstance, VaultRewardsInstance, YEARS,
 };
 pub use mocktopus::mocking::*;
 pub use orml_tokens::CurrencyAdapter;
@@ -69,9 +69,9 @@ pub const GRACE: [u8; 32] = [13u8; 32];
 pub const FAUCET: [u8; 32] = [128u8; 32];
 pub const DUMMY: [u8; 32] = [255u8; 32];
 
-pub const FUND_LIMIT_CEILING: u128 = 1_000_000_000_000_000_000;
+pub const FUND_LIMIT_CEILING: Balance = 1_000_000_000_000_000_000;
 
-pub const INITIAL_BALANCE: u128 = 1_000_000_000_000;
+pub const INITIAL_BALANCE: Balance = 1_000_000_000_000;
 
 pub const DEFAULT_USER_FREE_TOKENS: Amount<Runtime> = wrapped(10_000_000);
 pub const DEFAULT_USER_LOCKED_TOKENS: Amount<Runtime> = wrapped(1000);
@@ -122,6 +122,8 @@ pub type OraclePallet = oracle::Pallet<Runtime>;
 pub type FeeCall = fee::Call<Runtime>;
 pub type FeeError = fee::Error<Runtime>;
 pub type FeePallet = fee::Pallet<Runtime>;
+
+pub type EscrowRewardsPallet = reward::Pallet<Runtime, EscrowRewardsInstance>;
 
 pub type VaultRewardsPallet = reward::Pallet<Runtime, VaultRewardsInstance>;
 pub type VaultStakingPallet = staking::Pallet<Runtime>;
@@ -258,7 +260,7 @@ pub fn premium_redeem_request(
     user_to_redeem: Amount<Runtime>,
     vault_id: &VaultId,
     user: [u8; 32],
-) -> RedeemRequest<AccountId, BlockNumber, u128, CurrencyId> {
+) -> RedeemRequest<AccountId, BlockNumber, Balance, CurrencyId> {
     let redeem_fee = FeePallet::get_redeem_fee(&user_to_redeem).unwrap();
     let burned_tokens = user_to_redeem - redeem_fee;
     let inclusion_fee = RedeemPallet::get_current_inclusion_fee(vault_id.wrapped_currency()).unwrap();
@@ -274,7 +276,7 @@ pub fn default_redeem_request(
     user_to_redeem: Amount<Runtime>,
     vault_id: &VaultId,
     user: [u8; 32],
-) -> RedeemRequest<AccountId, BlockNumber, u128, CurrencyId> {
+) -> RedeemRequest<AccountId, BlockNumber, Balance, CurrencyId> {
     let redeem_fee = FeePallet::get_redeem_fee(&user_to_redeem).unwrap();
     let burned_tokens = user_to_redeem - redeem_fee;
     let inclusion_fee = RedeemPallet::get_current_inclusion_fee(vault_id.wrapped_currency()).unwrap();
@@ -322,11 +324,11 @@ pub struct UserData {
 }
 
 pub trait Wrapped {
-    fn wrapped(&self, amount: u128) -> Amount<Runtime>;
+    fn wrapped(&self, amount: Balance) -> Amount<Runtime>;
 }
 
 impl Wrapped for VaultId {
-    fn wrapped(&self, amount: u128) -> Amount<Runtime> {
+    fn wrapped(&self, amount: Balance) -> Amount<Runtime> {
         Amount::new(amount, self.wrapped_currency())
     }
 }
@@ -957,13 +959,6 @@ pub fn try_register_vault(collateral: Amount<Runtime>, vault_id: &VaultId) {
     };
 }
 
-pub fn try_register_operator(operator: [u8; 32]) {
-    let _ = Call::Nomination(NominationCall::opt_in_to_nomination {
-        currency_pair: default_vault_id_of(operator).currencies.clone(),
-    })
-    .dispatch(origin_of(account_of(operator)));
-}
-
 pub fn force_issue_tokens(user: [u8; 32], vault: [u8; 32], collateral: Amount<Runtime>, tokens: Amount<Runtime>) {
     // register the vault
     assert_ok!(Call::VaultRegistry(VaultRegistryCall::register_vault {
@@ -1056,7 +1051,7 @@ pub fn mine_blocks(blocks: u32) {
 pub struct TransactionGenerator {
     coinbase_destination: BtcAddress,
     inputs: Vec<(Transaction, u32, Option<BtcPublicKey>)>,
-    outputs: Vec<(BtcAddress, u128)>,
+    outputs: Vec<(BtcAddress, Balance)>,
     return_data: Vec<H256>,
     script: Vec<u8>,
     confirmations: u32,
@@ -1464,10 +1459,10 @@ impl ExtBuilder {
     }
 }
 
-pub const fn wrapped(amount: u128) -> Amount<Runtime> {
+pub const fn wrapped(amount: Balance) -> Amount<Runtime> {
     Amount::new(amount, DEFAULT_WRAPPED_CURRENCY)
 }
 
-pub const fn griefing(amount: u128) -> Amount<Runtime> {
+pub const fn griefing(amount: Balance) -> Amount<Runtime> {
     Amount::new(amount, DEFAULT_GRIEFING_CURRENCY)
 }

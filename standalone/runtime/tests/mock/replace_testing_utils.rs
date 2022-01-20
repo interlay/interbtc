@@ -18,7 +18,7 @@ pub fn setup_replace(
     old_vault_id: &VaultId,
     new_vault_id: &VaultId,
     issued_tokens: Amount<Runtime>,
-) -> (ReplaceRequest<AccountId32, u32, u128, CurrencyId>, H256) {
+) -> (ReplaceRequest<AccountId32, BlockNumber, Balance, CurrencyId>, H256) {
     let new_vault_btc_address = BtcAddress::P2PKH(H160([2; 20]));
 
     assert_ok!(request_replace(
@@ -55,7 +55,7 @@ pub fn accept_replace(
     amount_btc: Amount<Runtime>,
     collateral: Amount<Runtime>,
     btc_address: BtcAddress,
-) -> Result<(H256, ReplaceRequest<AccountId32, u32, u128, CurrencyId>), sp_runtime::DispatchError> {
+) -> Result<(H256, ReplaceRequest<AccountId32, BlockNumber, Balance, CurrencyId>), sp_runtime::DispatchError> {
     // assert_replace_request_event();
 
     Call::Replace(ReplaceCall::accept_replace {

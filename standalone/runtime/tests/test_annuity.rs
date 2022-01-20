@@ -12,7 +12,7 @@ type VaultAnnuityEvent = annuity::Event<Runtime, VaultAnnuityInstance>;
 
 type SupplyPallet = supply::Pallet<Runtime>;
 
-fn get_last_reward() -> u128 {
+fn get_last_reward() -> Balance {
     SystemPallet::events()
         .iter()
         .rev()
