@@ -332,7 +332,7 @@ mod request_replace_tests {
                     old_vault.to_be_replaced += amount;
                     old_vault.griefing_collateral += griefing_collateral;
                     old_vault.replace_collateral += griefing_collateral;
-                    *old_vault.free_balance.get_mut(&GRIEFING_CURRENCY).unwrap() -= griefing_collateral;
+                    *old_vault.free_balance.get_mut(&DEFAULT_GRIEFING_CURRENCY).unwrap() -= griefing_collateral;
                 })
             );
         });
@@ -356,7 +356,7 @@ mod request_replace_tests {
                     old_vault.to_be_replaced += amount / 2;
                     old_vault.griefing_collateral += griefing_collateral / 2;
                     old_vault.replace_collateral += griefing_collateral / 2;
-                    *old_vault.free_balance.get_mut(&GRIEFING_CURRENCY).unwrap() -= griefing_collateral / 2;
+                    *old_vault.free_balance.get_mut(&DEFAULT_GRIEFING_CURRENCY).unwrap() -= griefing_collateral / 2;
                 })
             );
         });
@@ -379,7 +379,7 @@ mod request_replace_tests {
                     old_vault.to_be_replaced += amount;
                     old_vault.griefing_collateral += griefing_collateral;
                     old_vault.replace_collateral += griefing_collateral;
-                    *old_vault.free_balance.get_mut(&GRIEFING_CURRENCY).unwrap() -= griefing_collateral;
+                    *old_vault.free_balance.get_mut(&DEFAULT_GRIEFING_CURRENCY).unwrap() -= griefing_collateral;
                 })
             );
         });
@@ -399,7 +399,7 @@ mod request_replace_tests {
                 ParachainTwoVaultState::get_default(&old_vault_id, &new_vault_id).with_changes(|old_vault, _, _| {
                     old_vault.griefing_collateral += griefing_collateral;
                     old_vault.replace_collateral += griefing_collateral;
-                    *old_vault.free_balance.get_mut(&GRIEFING_CURRENCY).unwrap() -= griefing_collateral;
+                    *old_vault.free_balance.get_mut(&DEFAULT_GRIEFING_CURRENCY).unwrap() -= griefing_collateral;
                 })
             );
         });
@@ -455,7 +455,7 @@ mod request_replace_tests {
                     old_vault.to_be_replaced += amount;
                     old_vault.griefing_collateral += griefing_collateral;
                     old_vault.replace_collateral += griefing_collateral;
-                    *old_vault.free_balance.get_mut(&GRIEFING_CURRENCY).unwrap() -= griefing_collateral;
+                    *old_vault.free_balance.get_mut(&DEFAULT_GRIEFING_CURRENCY).unwrap() -= griefing_collateral;
                 })
             );
         });
@@ -480,7 +480,7 @@ mod withdraw_replace_tests {
                 ParachainTwoVaultState::get_default(&old_vault_id, &new_vault_id).with_changes(|old_vault, _, _| {
                     old_vault.to_be_replaced -= amount;
 
-                    *old_vault.free_balance.get_mut(&GRIEFING_CURRENCY).unwrap() += released_collateral;
+                    *old_vault.free_balance.get_mut(&DEFAULT_GRIEFING_CURRENCY).unwrap() += released_collateral;
                     old_vault.griefing_collateral -= released_collateral;
                     old_vault.replace_collateral -= released_collateral;
                 })
@@ -504,7 +504,7 @@ mod withdraw_replace_tests {
                 ParachainTwoVaultState::get_default(&old_vault_id, &new_vault_id).with_changes(|old_vault, _, _| {
                     old_vault.to_be_replaced -= amount;
 
-                    *old_vault.free_balance.get_mut(&GRIEFING_CURRENCY).unwrap() += released_collateral;
+                    *old_vault.free_balance.get_mut(&DEFAULT_GRIEFING_CURRENCY).unwrap() += released_collateral;
                     old_vault.griefing_collateral -= released_collateral;
                     old_vault.replace_collateral -= released_collateral;
                 })
@@ -528,7 +528,7 @@ mod withdraw_replace_tests {
                 ParachainTwoVaultState::get_default(&old_vault_id, &new_vault_id).with_changes(|old_vault, _, _| {
                     old_vault.to_be_replaced -= amount / 2;
 
-                    *old_vault.free_balance.get_mut(&GRIEFING_CURRENCY).unwrap() += released_collateral;
+                    *old_vault.free_balance.get_mut(&DEFAULT_GRIEFING_CURRENCY).unwrap() += released_collateral;
                     old_vault.griefing_collateral -= released_collateral;
                     old_vault.replace_collateral -= released_collateral;
                 })
@@ -827,7 +827,7 @@ fn integration_test_replace_execute_replace_success() {
                 old_vault.issued -= old_vault_id.wrapped(1000);
 
                 old_vault.griefing_collateral -= replace.griefing_collateral();
-                *old_vault.free_balance.get_mut(&GRIEFING_CURRENCY).unwrap() += replace.griefing_collateral();
+                *old_vault.free_balance.get_mut(&DEFAULT_GRIEFING_CURRENCY).unwrap() += replace.griefing_collateral();
             })
         );
     });
@@ -876,7 +876,7 @@ fn integration_test_replace_execute_replace_old_vault_liquidated() {
                 old_vault.to_be_redeemed -= old_vault_id.wrapped(1000);
                 old_vault.liquidated_collateral -= collateral_for_replace;
                 old_vault.backing_collateral += collateral_for_replace; // TODO: probably should be free
-                *old_vault.free_balance.get_mut(&GRIEFING_CURRENCY).unwrap() += replace.griefing_collateral();
+                *old_vault.free_balance.get_mut(&DEFAULT_GRIEFING_CURRENCY).unwrap() += replace.griefing_collateral();
                 old_vault.griefing_collateral -= replace.griefing_collateral();
             })
         );
@@ -905,7 +905,7 @@ fn integration_test_replace_execute_replace_new_vault_liquidated() {
                 old_vault.issued -= old_vault_id.wrapped(1000);
 
                 old_vault.griefing_collateral -= replace.griefing_collateral();
-                *old_vault.free_balance.get_mut(&GRIEFING_CURRENCY).unwrap() += replace.griefing_collateral();
+                *old_vault.free_balance.get_mut(&DEFAULT_GRIEFING_CURRENCY).unwrap() += replace.griefing_collateral();
             })
         );
     });
@@ -943,7 +943,7 @@ fn integration_test_replace_execute_replace_both_vaults_liquidated() {
                 old_vault.to_be_redeemed -= old_vault_id.wrapped(1000);
                 old_vault.liquidated_collateral -= collateral_for_replace;
                 old_vault.backing_collateral += collateral_for_replace; // TODO: probably should be free
-                *old_vault.free_balance.get_mut(&GRIEFING_CURRENCY).unwrap() += replace.griefing_collateral();
+                *old_vault.free_balance.get_mut(&DEFAULT_GRIEFING_CURRENCY).unwrap() += replace.griefing_collateral();
                 old_vault.griefing_collateral -= replace.griefing_collateral();
             })
         );
@@ -968,7 +968,7 @@ fn integration_test_replace_cancel_replace_success() {
                     .free_balance
                     .get_mut(&new_vault_id.collateral_currency())
                     .unwrap() += replace.collateral().unwrap();
-                *new_vault.free_balance.get_mut(&GRIEFING_CURRENCY).unwrap() += replace.griefing_collateral();
+                *new_vault.free_balance.get_mut(&DEFAULT_GRIEFING_CURRENCY).unwrap() += replace.griefing_collateral();
 
                 old_vault.to_be_redeemed -= old_vault_id.wrapped(1000);
 
@@ -1009,7 +1009,7 @@ fn integration_test_replace_cancel_replace_old_vault_liquidated() {
                     .free_balance
                     .get_mut(&new_vault_id.collateral_currency())
                     .unwrap() += replace.collateral().unwrap();
-                *new_vault.free_balance.get_mut(&GRIEFING_CURRENCY).unwrap() += replace.griefing_collateral();
+                *new_vault.free_balance.get_mut(&DEFAULT_GRIEFING_CURRENCY).unwrap() += replace.griefing_collateral();
 
                 liquidation_vault.to_be_redeemed -= old_vault_id.wrapped(1000);
                 liquidation_vault.collateral += collateral_for_replace;
@@ -1035,7 +1035,7 @@ fn integration_test_replace_cancel_replace_new_vault_liquidated() {
                 old_vault.to_be_redeemed -= old_vault_id.wrapped(1000);
                 old_vault.griefing_collateral -= replace.griefing_collateral();
 
-                *new_vault.free_balance.get_mut(&GRIEFING_CURRENCY).unwrap() += replace.griefing_collateral();
+                *new_vault.free_balance.get_mut(&DEFAULT_GRIEFING_CURRENCY).unwrap() += replace.griefing_collateral();
 
                 let new_liquidation_vault = liquidation_vault.with_currency(&new_vault_id.currencies);
                 new_liquidation_vault.to_be_issued -= old_vault_id.wrapped(1000);
@@ -1068,7 +1068,7 @@ fn integration_test_replace_cancel_replace_both_vaults_liquidated() {
                 old_vault.griefing_collateral -= replace.griefing_collateral();
                 old_vault.liquidated_collateral -= collateral_for_replace;
 
-                *new_vault.free_balance.get_mut(&GRIEFING_CURRENCY).unwrap() += replace.griefing_collateral();
+                *new_vault.free_balance.get_mut(&DEFAULT_GRIEFING_CURRENCY).unwrap() += replace.griefing_collateral();
 
                 let old_liquidation_vault = liquidation_vault.with_currency(&old_vault_id.currencies);
                 old_liquidation_vault.to_be_redeemed -= old_vault_id.wrapped(1000);
@@ -1117,7 +1117,7 @@ fn integration_test_replace_vault_with_different_currency_succeeds() {
                 old_vault.issued -= old_vault_id.wrapped(1000);
 
                 old_vault.griefing_collateral -= replace.griefing_collateral();
-                *old_vault.free_balance.get_mut(&GRIEFING_CURRENCY).unwrap() += replace.griefing_collateral();
+                *old_vault.free_balance.get_mut(&DEFAULT_GRIEFING_CURRENCY).unwrap() += replace.griefing_collateral();
             })
         );
     });

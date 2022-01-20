@@ -73,7 +73,15 @@ pub mod pallet {
             + Default
             + Debug;
 
-        /// Wrapped currency: INTERBTC.
+        /// Native currency e.g. INTR/KINT
+        #[pallet::constant]
+        type GetNativeCurrencyId: Get<CurrencyId<Self>>;
+
+        /// Relay chain currency e.g. DOT/KSM
+        #[pallet::constant]
+        type GetRelayChainCurrencyId: Get<CurrencyId<Self>>;
+
+        /// Wrapped currency e.g. INTERBTC/KBTC
         #[pallet::constant]
         type GetWrappedCurrencyId: Get<CurrencyId<Self>>;
 
@@ -90,6 +98,22 @@ pub mod pallet {
 
     #[pallet::pallet]
     pub struct Pallet<T>(_);
+}
+
+pub mod getters {
+    use super::*;
+
+    pub fn get_relay_chain_currency_id<T: Config>() -> CurrencyId<T> {
+        <T as Config>::GetRelayChainCurrencyId::get()
+    }
+
+    pub fn get_native_currency_id<T: Config>() -> CurrencyId<T> {
+        <T as Config>::GetNativeCurrencyId::get()
+    }
+
+    pub fn get_wrapped_currency_id<T: Config>() -> CurrencyId<T> {
+        <T as Config>::GetWrappedCurrencyId::get()
+    }
 }
 
 pub fn get_free_balance<T: Config>(currency_id: T::CurrencyId, account: &T::AccountId) -> Amount<T> {

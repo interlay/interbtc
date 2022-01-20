@@ -787,7 +787,7 @@ mod currency_id_convert {
     impl Convert<CurrencyId, Option<MultiLocation>> for CurrencyIdConvert {
         fn convert(id: CurrencyId) -> Option<MultiLocation> {
             match id {
-                RELAY_CHAIN_CURRENCY_ID => Some(MultiLocation::parent()),
+                PARENT_CURRENCY_ID => Some(MultiLocation::parent()),
                 WRAPPED_CURRENCY_ID => Some(native_currency_location(id)),
                 NATIVE_CURRENCY_ID => Some(native_currency_location(id)),
                 _ => None,
@@ -798,7 +798,7 @@ mod currency_id_convert {
     impl Convert<MultiLocation, Option<CurrencyId>> for CurrencyIdConvert {
         fn convert(location: MultiLocation) -> Option<CurrencyId> {
             match location {
-                x if x == MultiLocation::parent() => Some(RELAY_CHAIN_CURRENCY_ID),
+                x if x == MultiLocation::parent() => Some(PARENT_CURRENCY_ID),
                 MultiLocation {
                     parents: 1,
                     interior: X2(Parachain(id), GeneralKey(key)),
@@ -877,14 +877,14 @@ impl btc_relay::Config for Runtime {
     type ParachainBlocksPerBitcoinBlock = ParachainBlocksPerBitcoinBlock;
 }
 
-const RELAY_CHAIN_CURRENCY_ID: CurrencyId = Token(KSM);
-const WRAPPED_CURRENCY_ID: CurrencyId = Token(KBTC);
 const NATIVE_CURRENCY_ID: CurrencyId = Token(KINT);
+const PARENT_CURRENCY_ID: CurrencyId = Token(KSM);
+const WRAPPED_CURRENCY_ID: CurrencyId = Token(KBTC);
 
 parameter_types! {
-    pub const GetCollateralCurrencyId: CurrencyId = RELAY_CHAIN_CURRENCY_ID;
-    pub const GetWrappedCurrencyId: CurrencyId = WRAPPED_CURRENCY_ID;
     pub const GetNativeCurrencyId: CurrencyId = NATIVE_CURRENCY_ID;
+    pub const GetRelayChainCurrencyId: CurrencyId = PARENT_CURRENCY_ID;
+    pub const GetWrappedCurrencyId: CurrencyId = WRAPPED_CURRENCY_ID;
 }
 
 type NativeCurrency = orml_tokens::CurrencyAdapter<Runtime, GetNativeCurrencyId>;
@@ -1106,6 +1106,8 @@ impl currency::Config for Runtime {
     type SignedFixedPoint = SignedFixedPoint;
     type UnsignedFixedPoint = UnsignedFixedPoint;
     type Balance = Balance;
+    type GetNativeCurrencyId = GetNativeCurrencyId;
+    type GetRelayChainCurrencyId = GetRelayChainCurrencyId;
     type GetWrappedCurrencyId = GetWrappedCurrencyId;
     type CurrencyConversion = CurrencyConvert;
 }
@@ -1176,7 +1178,6 @@ impl fee::Config for Runtime {
     type UnsignedInner = UnsignedInner;
     type VaultRewards = VaultRewards;
     type VaultStaking = VaultStaking;
-    type GetNativeCurrencyId = GetNativeCurrencyId;
     type OnSweep = currency::SweepFunds<Runtime, FeeAccount>;
 }
 

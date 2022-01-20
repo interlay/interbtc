@@ -21,7 +21,7 @@ fn vault_id(account_id: AccountId) -> VaultId<AccountId, CurrencyId> {
     VaultId {
         account_id,
         currencies: VaultCurrencyPair {
-            collateral: DEFAULT_TESTING_CURRENCY,
+            collateral: DEFAULT_COLLATERAL_CURRENCY,
             wrapped: DEFAULT_WRAPPED_CURRENCY,
         },
     }
@@ -87,15 +87,15 @@ fn create_sample_vault() -> DefaultVaultId<Test> {
 }
 
 fn amount(amount: u128) -> Amount<Test> {
-    Amount::new(amount, DEFAULT_TESTING_CURRENCY)
+    Amount::new(amount, DEFAULT_COLLATERAL_CURRENCY)
 }
 
 fn griefing(amount: u128) -> Amount<Test> {
-    Amount::new(amount, GRIEFING_CURRENCY)
+    Amount::new(amount, DEFAULT_NATIVE_CURRENCY)
 }
 
 fn wrapped(amount: u128) -> Amount<Test> {
-    Amount::new(amount, Token(INTERBTC))
+    Amount::new(amount, DEFAULT_WRAPPED_CURRENCY)
 }
 
 fn create_vault_and_issue_tokens(
@@ -1438,10 +1438,10 @@ fn test_try_increase_to_be_replaced_tokens() {
             &wrapped(1)
         ));
 
-        let (total_wrapped, total_collateral) =
+        let (total_wrapped, total_griefing_collateral) =
             VaultRegistry::try_increase_to_be_replaced_tokens(&vault_id, &wrapped(2), &griefing(10)).unwrap();
         assert!(total_wrapped == wrapped(2));
-        assert!(total_collateral == amount(10));
+        assert!(total_griefing_collateral == griefing(10));
 
         // check that we can't request more than we have issued tokens
         assert_noop!(
@@ -1458,10 +1458,10 @@ fn test_try_increase_to_be_replaced_tokens() {
         let mut vault = VaultRegistry::get_active_rich_vault_from_id(&vault_id).unwrap();
         vault.increase_available_replace_collateral(&griefing(10)).unwrap();
 
-        let (total_wrapped, total_collateral) =
+        let (total_wrapped, total_griefing_collateral) =
             VaultRegistry::try_increase_to_be_replaced_tokens(&vault_id, &wrapped(1), &griefing(20)).unwrap();
         assert_eq!(total_wrapped, wrapped(3));
-        assert_eq!(total_collateral, amount(30));
+        assert_eq!(total_griefing_collateral, griefing(30));
 
         // check that to_be_replaced_tokens is was written to storage
         let vault = VaultRegistry::get_active_vault_from_id(&vault_id).unwrap();

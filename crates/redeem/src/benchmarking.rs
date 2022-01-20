@@ -7,8 +7,9 @@ use bitcoin::{
     },
 };
 use btc_relay::{BtcAddress, BtcPublicKey};
+use currency::getters::{get_relay_chain_currency_id as get_collateral_currency_id, *};
 use frame_benchmarking::{account, benchmarks, impl_benchmark_test_suite};
-use frame_support::{assert_ok, traits::Get};
+use frame_support::assert_ok;
 use frame_system::RawOrigin;
 use orml_traits::MultiCurrency;
 use primitives::{CurrencyId, CurrencyId::Token, TokenSymbol::*, VaultCurrencyPair, VaultId};
@@ -24,16 +25,14 @@ use oracle::Pallet as Oracle;
 use security::Pallet as Security;
 use vault_registry::Pallet as VaultRegistry;
 
-pub const DEFAULT_TESTING_CURRENCY: CurrencyId = Token(DOT);
-
 type UnsignedFixedPoint<T> = <T as currency::Config>::UnsignedFixedPoint;
 
 fn collateral<T: crate::Config>(amount: u32) -> Amount<T> {
-    Amount::new(amount.into(), DEFAULT_TESTING_CURRENCY)
+    Amount::new(amount.into(), get_collateral_currency_id::<T>())
 }
 
 fn wrapped<T: crate::Config>(amount: u32) -> Amount<T> {
-    Amount::new(amount.into(), <T as currency::Config>::GetWrappedCurrencyId::get())
+    Amount::new(amount.into(), get_wrapped_currency_id::<T>())
 }
 
 fn dummy_public_key() -> BtcPublicKey {
@@ -43,16 +42,17 @@ fn dummy_public_key() -> BtcPublicKey {
     ])
 }
 
+fn deposit_tokens<T: crate::Config>(currency_id: CurrencyId, account_id: &T::AccountId, amount: BalanceOf<T>) {
+    assert_ok!(<orml_tokens::Pallet<T>>::deposit(currency_id, account_id, amount));
+}
+
 fn mint_collateral<T: crate::Config>(account_id: &T::AccountId, amount: BalanceOf<T>) {
-    assert_ok!(<orml_tokens::Pallet<T>>::deposit(
-        DEFAULT_TESTING_CURRENCY,
-        account_id,
-        amount
-    ));
+    deposit_tokens::<T>(get_collateral_currency_id::<T>(), account_id, amount);
+    deposit_tokens::<T>(get_native_currency_id::<T>(), account_id, amount);
 }
 
 fn mint_wrapped<T: crate::Config>(account_id: &T::AccountId, amount: BalanceOf<T>) {
-    let rich_amount = Amount::<T>::new(amount, <T as currency::Config>::GetWrappedCurrencyId::get());
+    let rich_amount = Amount::<T>::new(amount, get_wrapped_currency_id::<T>());
     assert_ok!(rich_amount.mint_to(account_id));
 }
 
@@ -156,8 +156,8 @@ fn test_request<T: crate::Config>(vault_id: &DefaultVaultId<T>) -> DefaultRedeem
 fn get_vault_id<T: crate::Config>() -> DefaultVaultId<T> {
     VaultId::new(
         account("Vault", 0, 0),
-        T::GetGriefingCollateralCurrencyId::get(),
-        <T as currency::Config>::GetWrappedCurrencyId::get(),
+        get_collateral_currency_id::<T>(),
+        get_wrapped_currency_id::<T>(),
     )
 }
 
@@ -184,13 +184,13 @@ benchmarks! {
 
         mint_wrapped::<T>(&origin, amount);
 
-        assert_ok!(Oracle::<T>::_set_exchange_rate(DEFAULT_TESTING_CURRENCY,
+        assert_ok!(Oracle::<T>::_set_exchange_rate(get_collateral_currency_id::<T>(),
             UnsignedFixedPoint::<T>::one()
         ));
     }: _(RawOrigin::Signed(origin), amount, btc_address, vault_id.clone())
 
     liquidation_redeem {
-        assert_ok!(Oracle::<T>::_set_exchange_rate(DEFAULT_TESTING_CURRENCY,
+        assert_ok!(Oracle::<T>::_set_exchange_rate(get_collateral_currency_id::<T>(),
             UnsignedFixedPoint::<T>::one()
         ));
 
@@ -213,8 +213,8 @@ benchmarks! {
 
         VaultRegistry::<T>::liquidate_vault(&vault_id).unwrap();
         let currency_pair = VaultCurrencyPair {
-            collateral: DEFAULT_TESTING_CURRENCY,
-            wrapped: <T as currency::Config>::GetWrappedCurrencyId::get()
+            collateral: get_collateral_currency_id::<T>(),
+            wrapped: get_wrapped_currency_id::<T>()
         };
     }: _(RawOrigin::Signed(origin), currency_pair, amount.into())
 
@@ -299,7 +299,7 @@ benchmarks! {
         Security::<T>::set_active_block_number(Security::<T>::active_block_number() +
 BtcRelay::<T>::parachain_confirmations() + 1u32.into());
 
-        assert_ok!(Oracle::<T>::_set_exchange_rate(DEFAULT_TESTING_CURRENCY,
+        assert_ok!(Oracle::<T>::_set_exchange_rate(get_collateral_currency_id::<T>(),
             UnsignedFixedPoint::<T>::one()
         ));
     }: _(RawOrigin::Signed(vault_id.account_id.clone()), redeem_id, proof, raw_tx)
@@ -333,7 +333,7 @@ BtcRelay::<T>::parachain_confirmations() + 1u32.into());
         mint_collateral::<T>(&vault_id.account_id, 1000u32.into());
         assert_ok!(VaultRegistry::<T>::try_deposit_collateral(&vault_id, &collateral(1000)));
 
-        assert_ok!(Oracle::<T>::_set_exchange_rate(DEFAULT_TESTING_CURRENCY,
+        assert_ok!(Oracle::<T>::_set_exchange_rate(get_collateral_currency_id::<T>(),
             UnsignedFixedPoint::<T>::one()
         ));
     }: cancel_redeem(RawOrigin::Signed(origin), redeem_id, true)
@@ -366,7 +366,7 @@ BtcRelay::<T>::parachain_confirmations() + 1u32.into());
         mint_collateral::<T>(&vault_id.account_id, 1000u32.into());
         assert_ok!(VaultRegistry::<T>::try_deposit_collateral(&vault_id, &collateral(1000)));
 
-        assert_ok!(Oracle::<T>::_set_exchange_rate(DEFAULT_TESTING_CURRENCY,
+        assert_ok!(Oracle::<T>::_set_exchange_rate(get_collateral_currency_id::<T>(),
             UnsignedFixedPoint::<T>::one()
         ));
     }: cancel_redeem(RawOrigin::Signed(origin), redeem_id, false)

@@ -45,10 +45,10 @@ fn test_request() -> ReplaceRequest<AccountId, BlockNumber, Balance, CurrencyId>
 }
 
 fn griefing(amount: u128) -> Amount<Test> {
-    Amount::new(amount, GRIEFING_CURRENCY)
+    Amount::new(amount, DEFAULT_NATIVE_CURRENCY)
 }
 fn wrapped(amount: u128) -> Amount<Test> {
-    Amount::new(amount, Token(INTERBTC))
+    Amount::new(amount, DEFAULT_WRAPPED_CURRENCY)
 }
 
 mod request_replace_tests {

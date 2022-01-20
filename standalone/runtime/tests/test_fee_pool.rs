@@ -51,7 +51,7 @@ fn test_with<R>(execute: impl Fn(CurrencyId) -> R) {
 }
 
 fn withdraw_vault_global_pool_rewards(vault_id: &VaultId) -> i128 {
-    let amount = VaultRewardsPallet::compute_reward(Token(INTERBTC), vault_id).unwrap();
+    let amount = VaultRewardsPallet::compute_reward(vault_id.wrapped_currency(), vault_id).unwrap();
     assert_ok!(Call::Fee(FeeCall::withdraw_rewards {
         vault_id: vault_id.clone(),
         index: None

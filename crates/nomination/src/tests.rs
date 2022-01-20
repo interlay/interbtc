@@ -13,7 +13,7 @@ fn should_not_deposit_against_invalid_vault() {
     })
 }
 fn collateral(amount: u128) -> Amount<Test> {
-    Amount::new(amount, DEFAULT_TESTING_CURRENCY)
+    Amount::new(amount, DEFAULT_COLLATERAL_CURRENCY)
 }
 
 #[test]

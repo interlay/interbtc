@@ -15,9 +15,9 @@ pub use frame_support::{
     dispatch::{DispatchError, DispatchResultWithPostInfo},
 };
 pub use interbtc_runtime_standalone::{
-    token_distribution, AccountId, BlockNumber, Call, CurrencyId, EscrowAnnuityInstance, Event,
-    GetCollateralCurrencyId, GetNativeCurrencyId, GetWrappedCurrencyId, Runtime, TechnicalCommitteeInstance,
-    VaultAnnuityInstance, VaultRewardsInstance, YEARS,
+    token_distribution, AccountId, BlockNumber, Call, CurrencyId, EscrowAnnuityInstance, Event, GetNativeCurrencyId,
+    GetRelayChainCurrencyId, GetWrappedCurrencyId, Runtime, TechnicalCommitteeInstance, VaultAnnuityInstance,
+    VaultRewardsInstance, YEARS,
 };
 pub use mocktopus::mocking::*;
 pub use orml_tokens::CurrencyAdapter;
@@ -112,9 +112,9 @@ pub type TokensCall = orml_tokens::Call<Runtime>;
 pub type TokensError = orml_tokens::Error<Runtime>;
 pub type TokensPallet = orml_tokens::Pallet<Runtime>;
 
-pub type CollateralCurrency = CurrencyAdapter<Runtime, GetCollateralCurrencyId>;
-pub type WrappedCurrency = CurrencyAdapter<Runtime, GetWrappedCurrencyId>;
+pub type CollateralCurrency = CurrencyAdapter<Runtime, GetRelayChainCurrencyId>;
 pub type NativeCurrency = CurrencyAdapter<Runtime, GetNativeCurrencyId>;
+pub type WrappedCurrency = CurrencyAdapter<Runtime, GetWrappedCurrencyId>;
 
 pub type OracleCall = oracle::Call<Runtime>;
 pub type OraclePallet = oracle::Pallet<Runtime>;
@@ -180,23 +180,23 @@ pub type UtilityCall = pallet_utility::Call<Runtime>;
 pub type SchedulerCall = pallet_scheduler::Call<Runtime>;
 pub type SchedulerPallet = pallet_scheduler::Pallet<Runtime>;
 
-pub const DEFAULT_TESTING_CURRENCY: <Runtime as orml_tokens::Config>::CurrencyId = Token(DOT);
+pub const DEFAULT_COLLATERAL_CURRENCY: <Runtime as orml_tokens::Config>::CurrencyId = Token(DOT);
 pub const DEFAULT_WRAPPED_CURRENCY: <Runtime as orml_tokens::Config>::CurrencyId = Token(INTERBTC);
-pub const GRIEFING_CURRENCY: <Runtime as orml_tokens::Config>::CurrencyId = Token(DOT);
-pub const WRAPPED_CURRENCY: <Runtime as orml_tokens::Config>::CurrencyId = Token(INTERBTC);
+pub const DEFAULT_NATIVE_CURRENCY: <Runtime as orml_tokens::Config>::CurrencyId = Token(INTR);
+pub const DEFAULT_GRIEFING_CURRENCY: <Runtime as orml_tokens::Config>::CurrencyId = DEFAULT_NATIVE_CURRENCY;
 
 pub fn default_vault_id_of(hash: [u8; 32]) -> VaultId {
     VaultId {
         account_id: account_of(hash),
         currencies: DefaultVaultCurrencyPair::<Runtime> {
-            collateral: DEFAULT_TESTING_CURRENCY,
+            collateral: DEFAULT_COLLATERAL_CURRENCY,
             wrapped: DEFAULT_WRAPPED_CURRENCY,
         },
     }
 }
 
 pub fn dummy_vault_id_of() -> VaultId {
-    PrimitiveVaultId::new(account_of(BOB), DEFAULT_TESTING_CURRENCY, DEFAULT_WRAPPED_CURRENCY)
+    PrimitiveVaultId::new(account_of(BOB), DEFAULT_COLLATERAL_CURRENCY, DEFAULT_WRAPPED_CURRENCY)
 }
 pub fn vault_id_of(id: [u8; 32], collateral_currency: CurrencyId) -> VaultId {
     PrimitiveVaultId::new(account_of(id), collateral_currency, DEFAULT_WRAPPED_CURRENCY)
@@ -207,7 +207,16 @@ pub fn default_user_state() -> UserData {
     for currency_id in iter_collateral_currencies() {
         balances.insert(
             currency_id,
-            Balance {
+            AccountData {
+                free: default_user_free_balance(currency_id),
+                locked: default_user_locked_balance(currency_id),
+            },
+        );
+    }
+    for currency_id in iter_native_currencies() {
+        balances.insert(
+            currency_id,
+            AccountData {
                 free: default_user_free_balance(currency_id),
                 locked: default_user_locked_balance(currency_id),
             },
@@ -216,7 +225,7 @@ pub fn default_user_state() -> UserData {
     for currency_id in iter_wrapped_currencies() {
         balances.insert(
             currency_id,
-            Balance {
+            AccountData {
                 free: Amount::new(DEFAULT_USER_FREE_TOKENS.amount(), currency_id),
                 locked: Amount::new(DEFAULT_USER_LOCKED_TOKENS.amount(), currency_id),
             },
@@ -301,7 +310,7 @@ pub fn account_of(address: [u8; 32]) -> AccountId {
 }
 
 #[derive(Debug, PartialEq, Eq, Clone)]
-pub struct Balance {
+pub struct AccountData {
     pub free: Amount<Runtime>,
     pub locked: Amount<Runtime>,
 }
@@ -309,7 +318,7 @@ pub struct Balance {
 #[derive(Debug, PartialEq, Default, Clone)]
 pub struct UserData {
     // note: we use BTreeMap such that the debug print output is sorted, for easier diffing
-    pub balances: BTreeMap<CurrencyId, Balance>,
+    pub balances: BTreeMap<CurrencyId, AccountData>,
 }
 
 pub trait Wrapped {
@@ -335,12 +344,18 @@ pub fn iter_collateral_currencies() -> impl Iterator<Item = CurrencyId> {
     vec![Token(DOT), Token(KSM)].into_iter()
 }
 
+pub fn iter_native_currencies() -> impl Iterator<Item = CurrencyId> {
+    vec![Token(INTR), Token(KINT)].into_iter()
+}
+
 pub fn iter_wrapped_currencies() -> impl Iterator<Item = CurrencyId> {
     vec![Token(INTERBTC), Token(KBTC)].into_iter()
 }
 
 pub fn iter_all_currencies() -> impl Iterator<Item = CurrencyId> {
-    iter_collateral_currencies().chain(iter_wrapped_currencies())
+    iter_collateral_currencies()
+        .chain(iter_native_currencies())
+        .chain(iter_wrapped_currencies())
 }
 
 impl UserData {
@@ -351,7 +366,7 @@ impl UserData {
         for currency_id in iter_all_currencies() {
             let free = currency::get_free_balance::<Runtime>(currency_id, &account_id);
             let locked = currency::get_reserved_balance::<Runtime>(currency_id, &account_id);
-            hash_map.insert(currency_id, Balance { free, locked });
+            hash_map.insert(currency_id, AccountData { free, locked });
         }
 
         Self { balances: hash_map }
@@ -375,7 +390,7 @@ impl UserData {
             .iter()
             .chain(new.balances.iter())
             .all(
-                |(currency_id, Balance { free, locked })| free.currency() == *currency_id
+                |(currency_id, AccountData { free, locked })| free.currency() == *currency_id
                     && locked.currency() == *currency_id
             ));
 
@@ -1296,7 +1311,9 @@ impl ExtBuilder {
         let balances = balances
             .into_iter()
             .flat_map(|(account, balance)| {
-                iter_collateral_currencies().map(move |currency| (account.clone(), currency, balance))
+                iter_collateral_currencies()
+                    .chain(iter_native_currencies())
+                    .map(move |currency| (account.clone(), currency, balance))
             })
             .chain(iter_wrapped_currencies().map(move |currency| (account_of(FAUCET), currency, 1 << 60)))
             .collect();
@@ -1414,7 +1431,8 @@ impl ExtBuilder {
             .dispatch(root()));
             assert_ok!(Call::Oracle(OracleCall::feed_values {
                 values: vec![
-                    (OracleKey::ExchangeRate(Token(DOT)), FixedU128::from(1)),
+                    (OracleKey::ExchangeRate(DEFAULT_COLLATERAL_CURRENCY), FixedU128::from(1)),
+                    (OracleKey::ExchangeRate(DEFAULT_GRIEFING_CURRENCY), FixedU128::from(1)),
                     (OracleKey::FeeEstimation, FixedU128::from(3)),
                 ]
             })
@@ -1434,7 +1452,7 @@ impl ExtBuilder {
             SecurityPallet::set_active_block_number(1);
 
             assert_ok!(OraclePallet::_set_exchange_rate(
-                DEFAULT_TESTING_CURRENCY,
+                DEFAULT_COLLATERAL_CURRENCY,
                 FixedU128::one()
             ));
             set_default_thresholds();
@@ -1447,9 +1465,9 @@ impl ExtBuilder {
 }
 
 pub const fn wrapped(amount: u128) -> Amount<Runtime> {
-    Amount::new(amount, Token(INTERBTC))
+    Amount::new(amount, DEFAULT_WRAPPED_CURRENCY)
 }
 
 pub const fn griefing(amount: u128) -> Amount<Runtime> {
-    Amount::new(amount, Token(DOT))
+    Amount::new(amount, DEFAULT_GRIEFING_CURRENCY)
 }

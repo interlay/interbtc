@@ -7,10 +7,11 @@ use bitcoin::{
     },
 };
 use btc_relay::{BtcAddress, BtcPublicKey};
+use currency::getters::{get_relay_chain_currency_id as get_collateral_currency_id, *};
 use frame_benchmarking::{account, benchmarks, impl_benchmark_test_suite};
-use frame_support::{assert_ok, traits::Get};
+use frame_support::assert_ok;
 use frame_system::RawOrigin;
-use primitives::{CurrencyId, CurrencyId::Token, TokenSymbol::*, VaultId};
+use primitives::VaultId;
 use sp_core::{H160, H256, U256};
 use sp_runtime::traits::One;
 use sp_std::prelude::*;
@@ -22,8 +23,6 @@ use btc_relay::Pallet as BtcRelay;
 use oracle::Pallet as Oracle;
 use security::Pallet as Security;
 use vault_registry::Pallet as VaultRegistry;
-
-pub const DEFAULT_TESTING_CURRENCY: CurrencyId = Token(DOT);
 
 type UnsignedFixedPoint<T> = <T as currency::Config>::UnsignedFixedPoint;
 
@@ -39,8 +38,8 @@ benchmarks! {
         let origin: T::AccountId = account("Origin", 0, 0);
         let vault_id: VaultId<T::AccountId, _> = VaultId::new(
             account("Vault", 0, 0),
-            T::GetGriefingCollateralCurrencyId::get(),
-            <T as currency::Config>::GetWrappedCurrencyId::get()
+            get_collateral_currency_id::<T>(),
+            get_wrapped_currency_id::<T>(),
         );
         let relayer_id: T::AccountId = account("Relayer", 0, 0);
 
@@ -122,7 +121,8 @@ benchmarks! {
         Security::<T>::set_active_block_number(Security::<T>::active_block_number() +
         BtcRelay::<T>::parachain_confirmations() + 1u32.into());
 
-        assert_ok!(Oracle::<T>::_set_exchange_rate(DEFAULT_TESTING_CURRENCY,
+        assert_ok!(Oracle::<T>::_set_exchange_rate(
+            get_collateral_currency_id::<T>(),
             UnsignedFixedPoint::<T>::one()
         ));
     }: _(RawOrigin::Signed(vault_id.account_id.clone()), refund_id, proof, raw_tx)
