@@ -87,9 +87,9 @@ module-replace-rpc-runtime-api = { path = "../../crates/replace/rpc/runtime-api"
 module-refund-rpc-runtime-api = { path = "../../crates/refund/rpc/runtime-api", default-features = false }
 
 # Orml dependencies
-orml-tokens = { git = "https://github.com/open-web3-stack/open-runtime-module-library", rev = "63b32194e7b9aff6a6350d2d4434525de4eec7c1", default-features = false }
-orml-traits = { git = "https://github.com/open-web3-stack/open-runtime-module-library", rev = "63b32194e7b9aff6a6350d2d4434525de4eec7c1", default-features = false }
-orml-vesting = { git = "https://github.com/open-web3-stack/open-runtime-module-library", rev = "63b32194e7b9aff6a6350d2d4434525de4eec7c1", default-features = false }
+orml-tokens = { git = "https://github.com/open-web3-stack/open-runtime-module-library", rev = "213f743af2d6d2c94f235613d7e7ff21b093297c", default-features = false }
+orml-traits = { git = "https://github.com/open-web3-stack/open-runtime-module-library", rev = "213f743af2d6d2c94f235613d7e7ff21b093297c", default-features = false }
+orml-vesting = { git = "https://github.com/open-web3-stack/open-runtime-module-library", rev = "213f743af2d6d2c94f235613d7e7ff21b093297c", default-features = false }
 
 [dev-dependencies]
 hex = "0.4.2"
