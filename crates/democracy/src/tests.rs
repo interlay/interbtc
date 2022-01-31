@@ -37,7 +37,7 @@ frame_support::construct_runtime!(
     {
         System: frame_system::{Pallet, Call, Config, Storage, Event<T>},
         Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>},
-        Scheduler: pallet_scheduler::{Pallet, Call, Storage, Config, Event<T>},
+        Scheduler: pallet_scheduler::{Pallet, Call, Storage, Event<T>},
         Democracy: pallet_democracy::{Pallet, Call, Storage, Config<T>, Event<T>},
     }
 );
@@ -79,10 +79,12 @@ impl frame_system::Config for Test {
     type SystemWeightInfo = ();
     type SS58Prefix = ();
     type OnSetCode = ();
+    type MaxConsumers = frame_support::traits::ConstU32<16>;
 }
 parameter_types! {
     pub MaximumSchedulerWeight: Weight = Perbill::from_percent(80) * BlockWeights::get().max_block;
 }
+
 impl pallet_scheduler::Config for Test {
     type Event = Event;
     type Origin = Origin;
@@ -93,7 +95,10 @@ impl pallet_scheduler::Config for Test {
     type MaxScheduledPerBlock = ();
     type OriginPrivilegeCmp = EqualPrivilegeOnly;
     type WeightInfo = ();
+    type PreimageProvider = ();
+    type NoPreimagePostponement = ();
 }
+
 parameter_types! {
     pub const ExistentialDeposit: u64 = 1;
     pub const MaxLocks: u32 = 10;

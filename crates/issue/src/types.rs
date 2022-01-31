@@ -1,4 +1,4 @@
-use codec::{Decode, Encode};
+use codec::{Decode, Encode, MaxEncodedLen};
 use currency::Amount;
 use frame_support::traits::Get;
 pub use primitives::issue::{IssueRequest, IssueRequestStatus};
@@ -9,7 +9,7 @@ use vault_registry::types::CurrencyId;
 use crate::Config;
 
 /// Storage version.
-#[derive(Encode, Decode, Eq, PartialEq, TypeInfo)]
+#[derive(Encode, Decode, Eq, PartialEq, TypeInfo, MaxEncodedLen)]
 pub enum Version {
     /// Initial version.
     V0,

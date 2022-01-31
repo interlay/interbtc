@@ -13,12 +13,15 @@ use codec::Encode;
 use currency::Amount;
 use frame_support::{
     dispatch::{DispatchError, DispatchResult},
-    traits::{Contains, Currency as PalletCurrency, EqualPrivilegeOnly, ExistenceRequirement, Imbalance, OnUnbalanced},
+    traits::{
+        Contains, Currency as PalletCurrency, EnsureOneOf, EqualPrivilegeOnly, ExistenceRequirement, Imbalance,
+        OnUnbalanced,
+    },
     PalletId,
 };
 use frame_system::{
     limits::{BlockLength, BlockWeights},
-    EnsureOneOf, EnsureRoot, EnsureSigned,
+    EnsureRoot, EnsureSigned,
 };
 use orml_traits::{parameter_type_with_key, MultiCurrency};
 use sp_api::impl_runtime_apis;
@@ -95,6 +98,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     impl_version: 1,
     transaction_version: 1, // added orml-xcm
     apis: RUNTIME_API_VERSIONS,
+    state_version: 1,
 };
 
 // The relay chain is limited to 12s to include parachain blocks.
@@ -255,6 +259,7 @@ impl frame_system::Config for Runtime {
     type BlockLength = RuntimeBlockLength;
     type SS58Prefix = SS58Prefix;
     type OnSetCode = cumulus_pallet_parachain_system::ParachainSetCode<Self>;
+    type MaxConsumers = frame_support::traits::ConstU32<16>;
 }
 
 parameter_types! {
@@ -298,7 +303,7 @@ parameter_types! {
 
 /// We allow root and the Relay Chain council to execute privileged collator selection operations.
 pub type CollatorSelectionUpdateOrigin =
-    EnsureOneOf<AccountId, EnsureRoot<AccountId>, EnsureXcm<IsMajorityOfBody<ParentLocation, ExecutiveBody>>>;
+    EnsureOneOf<EnsureRoot<AccountId>, EnsureXcm<IsMajorityOfBody<ParentLocation, ExecutiveBody>>>;
 
 impl pallet_collator_selection::Config for Runtime {
     type Event = Event;
@@ -370,8 +375,9 @@ where
             if let Some(tips) = fees_then_tips.next() {
                 tips.merge_into(&mut fees);
             }
-            let author = pallet_authorship::Pallet::<T>::author();
-            orml_tokens::CurrencyAdapter::<T, GetCurrencyId>::resolve_creating(&author, fees);
+            if let Some(author) = pallet_authorship::Pallet::<T>::author() {
+                orml_tokens::CurrencyAdapter::<T, GetCurrencyId>::resolve_creating(&author, fees);
+            }
         }
     }
 }
@@ -417,6 +423,8 @@ impl orml_vesting::Config for Runtime {
 parameter_types! {
     pub MaximumSchedulerWeight: Weight = Perbill::from_percent(10) * RuntimeBlockWeights::get().max_block;
     pub const MaxScheduledPerBlock: u32 = 30;
+    // Retry a scheduled item every 25 blocks (5 minute) until the preimage exists.
+    pub const NoPreimagePostponement: Option<u32> = Some(5 * MINUTES);
 }
 
 impl pallet_scheduler::Config for Runtime {
@@ -429,6 +437,42 @@ impl pallet_scheduler::Config for Runtime {
     type MaxScheduledPerBlock = MaxScheduledPerBlock;
     type WeightInfo = ();
     type OriginPrivilegeCmp = EqualPrivilegeOnly;
+    type PreimageProvider = Preimage;
+    type NoPreimagePostponement = NoPreimagePostponement;
+}
+
+parameter_types! {
+    pub const PreimageMaxSize: u32 = 4096 * 1024;
+    pub PreimageBaseDepositz: Balance = deposit(2, 64); // todo: rename
+    pub PreimageByteDepositz: Balance = deposit(0, 1);
+}
+
+impl pallet_preimage::Config for Runtime {
+    type WeightInfo = ();
+    type Event = Event;
+    type Currency = NativeCurrency;
+    type ManagerOrigin = EnsureRoot<AccountId>;
+    type MaxSize = PreimageMaxSize;
+    type BaseDeposit = PreimageBaseDepositz;
+    type ByteDeposit = PreimageByteDepositz;
+}
+
+// Migration for scheduler pallet to move from a plain Call to a CallOrHash.
+pub struct SchedulerMigrationV3;
+impl frame_support::traits::OnRuntimeUpgrade for SchedulerMigrationV3 {
+    fn on_runtime_upgrade() -> frame_support::weights::Weight {
+        Scheduler::migrate_v2_to_v3()
+    }
+
+    #[cfg(feature = "try-runtime")]
+    fn pre_upgrade() -> Result<(), &'static str> {
+        Scheduler::pre_migrate_to_v3()
+    }
+
+    #[cfg(feature = "try-runtime")]
+    fn post_upgrade() -> Result<(), &'static str> {
+        Scheduler::post_migrate_to_v3()
+    }
 }
 
 // https://github.com/paritytech/polkadot/blob/c4ee9d463adccfa3bf436433e3e26d0de5a4abbc/runtime/kusama/src/constants.rs#L18
@@ -442,7 +486,6 @@ pub const fn deposit(items: u32, bytes: u32) -> Balance {
 }
 
 type EnsureRootOrAllTechnicalCommittee = EnsureOneOf<
-    AccountId,
     EnsureRoot<AccountId>,
     pallet_collective::EnsureProportionAtLeast<_1, _1, AccountId, TechnicalCommitteeInstance>,
 >;
@@ -503,6 +546,7 @@ impl pallet_multisig::Config for Runtime {
 parameter_types! {
     pub const ProposalBond: Permill = Permill::from_percent(5);
     pub ProposalBondMinimum: Balance = 5;
+    pub ProposalBondMaximum: Option<Balance> = None;
     pub const SpendPeriod: BlockNumber = 7 * DAYS;
     pub const Burn: Permill = Permill::from_percent(0);
     pub const MaxApprovals: u32 = 100;
@@ -517,6 +561,7 @@ impl pallet_treasury::Config for Runtime {
     type OnSlash = Treasury;
     type ProposalBond = ProposalBond;
     type ProposalBondMinimum = ProposalBondMinimum;
+    type ProposalBondMaximum = ProposalBondMaximum;
     type SpendPeriod = SpendPeriod;
     type Burn = Burn;
     type BurnDestination = ();
@@ -564,7 +609,7 @@ parameter_types! {
 
 impl cumulus_pallet_parachain_system::Config for Runtime {
     type Event = Event;
-    type OnValidationData = ();
+    type OnSystemEvent = ();
     type SelfParaId = parachain_info::Pallet<Runtime>;
     type OutboundXcmpMessageSource = XcmpQueue;
     type DmpMessageHandler = DmpQueue;
@@ -749,6 +794,7 @@ impl cumulus_pallet_xcmp_queue::Config for Runtime {
     type XcmExecutor = XcmExecutor<XcmConfig>;
     type ChannelInfo = ParachainSystem;
     type VersionWrapper = PolkadotXcm;
+    type ExecuteOverweightOrigin = EnsureRoot<AccountId>;
 }
 
 impl cumulus_pallet_dmp_queue::Config for Runtime {
@@ -793,24 +839,31 @@ mod currency_id_convert {
 
     impl Convert<MultiLocation, Option<CurrencyId>> for CurrencyIdConvert {
         fn convert(location: MultiLocation) -> Option<CurrencyId> {
+            fn decode_currency_id(key: Vec<u8>) -> Option<CurrencyId> {
+                // decode the general key
+                if let Ok(currency_id) = CurrencyId::decode(&mut &key[..]) {
+                    // check `currency_id` is cross-chain asset
+                    match currency_id {
+                        WRAPPED_CURRENCY_ID => Some(currency_id),
+                        NATIVE_CURRENCY_ID => Some(currency_id),
+                        _ => None,
+                    }
+                } else {
+                    None
+                }
+            }
+
             match location {
                 x if x == MultiLocation::parent() => Some(PARENT_CURRENCY_ID),
                 MultiLocation {
                     parents: 1,
                     interior: X2(Parachain(id), GeneralKey(key)),
-                } if ParaId::from(id) == ParachainInfo::get() => {
-                    // decode the general key
-                    if let Ok(currency_id) = CurrencyId::decode(&mut &key[..]) {
-                        // check `currency_id` is cross-chain asset
-                        match currency_id {
-                            WRAPPED_CURRENCY_ID => Some(currency_id),
-                            NATIVE_CURRENCY_ID => Some(currency_id),
-                            _ => None,
-                        }
-                    } else {
-                        None
-                    }
-                }
+                } if ParaId::from(id) == ParachainInfo::get() => decode_currency_id(key),
+                MultiLocation {
+                    // adapt for reanchor canonical location: https://github.com/paritytech/polkadot/pull/4470
+                    parents: 0,
+                    interior: X1(GeneralKey(key)),
+                } => decode_currency_id(key),
                 _ => None,
             }
         }
@@ -832,6 +885,7 @@ mod currency_id_convert {
 
 parameter_types! {
     pub SelfLocation: MultiLocation = MultiLocation::new(1, X1(Parachain(ParachainInfo::get().into())));
+    pub const MaxAssetsForTransfer: usize = 2; // potentially useful to send both kint and kbtc at once
 }
 
 pub struct AccountIdToMultiLocation;
@@ -857,6 +911,7 @@ impl orml_xtokens::Config for Runtime {
     type Weigher = FixedWeightBounds<UnitWeightCost, Call, MaxInstructions>;
     type BaseXcmWeight = UnitWeightCost;
     type LocationInverter = <XcmConfig as Config>::LocationInverter;
+    type MaxAssetsForTransfer = MaxAssetsForTransfer;
 }
 
 impl orml_unknown_tokens::Config for Runtime {
@@ -1226,6 +1281,7 @@ construct_runtime! {
         Utility: pallet_utility::{Pallet, Call, Event},
         TransactionPayment: pallet_transaction_payment::{Pallet, Storage},
         Scheduler: pallet_scheduler::{Pallet, Call, Storage, Event<T>},
+        Preimage: pallet_preimage::{Pallet, Call, Storage, Event<T>},
         MultiSig: pallet_multisig::{Pallet, Call, Storage, Event<T>},
 
         // Tokens & Balances
@@ -1310,8 +1366,14 @@ pub type UncheckedExtrinsic = generic::UncheckedExtrinsic<Address, Call, Signatu
 /// Extrinsic type that has already been checked.
 pub type CheckedExtrinsic = generic::CheckedExtrinsic<AccountId, Call, SignedExtra>;
 /// Executive: handles dispatch to the various modules.
-pub type Executive =
-    frame_executive::Executive<Runtime, Block, frame_system::ChainContext<Runtime>, Runtime, AllPalletsWithSystem>;
+pub type Executive = frame_executive::Executive<
+    Runtime,
+    Block,
+    frame_system::ChainContext<Runtime>,
+    Runtime,
+    AllPalletsWithSystem,
+    SchedulerMigrationV3,
+>;
 
 #[cfg(not(feature = "disable-runtime-api"))]
 impl_runtime_apis! {
@@ -1395,8 +1457,8 @@ impl_runtime_apis! {
     }
 
     impl cumulus_primitives_core::CollectCollationInfo<Block> for Runtime {
-        fn collect_collation_info() -> cumulus_primitives_core::CollationInfo {
-            ParachainSystem::collect_collation_info()
+        fn collect_collation_info(header: &<Block as BlockT>::Header) -> cumulus_primitives_core::CollationInfo {
+            ParachainSystem::collect_collation_info(header)
         }
     }
 

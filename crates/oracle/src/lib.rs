@@ -28,7 +28,7 @@ extern crate mocktopus;
 use mocktopus::macros::mockable;
 
 use crate::types::{BalanceOf, UnsignedFixedPoint, Version};
-use codec::{Decode, Encode};
+use codec::{Decode, Encode, MaxEncodedLen};
 use currency::Amount;
 use frame_support::{
     dispatch::{DispatchError, DispatchResult},
@@ -49,7 +49,7 @@ use sp_std::{convert::TryInto, vec::Vec};
 pub use pallet::*;
 pub use primitives::{oracle::Key as OracleKey, CurrencyId, TruncateFixedPointToInt};
 
-#[derive(Encode, Decode, Eq, PartialEq, Clone, Copy, Ord, PartialOrd, TypeInfo)]
+#[derive(Encode, Decode, Eq, PartialEq, Clone, Copy, Ord, PartialOrd, TypeInfo, MaxEncodedLen)]
 pub struct TimestampedValue<Value, Moment> {
     pub value: Value,
     pub timestamp: Moment,
@@ -178,6 +178,7 @@ pub mod pallet {
     }
 
     #[pallet::pallet]
+    #[pallet::without_storage_info] // MaxEncodedLen not implemented for vecs
     pub struct Pallet<T>(_);
 
     // The pallet's dispatchable functions.

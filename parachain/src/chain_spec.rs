@@ -190,6 +190,7 @@ pub fn local_config(id: ParaId) -> TestnetChainSpec {
         vec![],
         None,
         None,
+        None,
         Some(testnet_properties()),
         Extensions {
             relay_chain: "local".into(),
@@ -241,6 +242,7 @@ pub fn development_config(id: ParaId) -> TestnetChainSpec {
             )
         },
         Vec::new(),
+        None,
         None,
         None,
         Some(testnet_properties()),
@@ -303,6 +305,7 @@ pub fn staging_testnet_config(id: ParaId) -> TestnetChainSpec {
         Vec::new(),
         None,
         None,
+        None,
         Some(testnet_properties()),
         Extensions {
             relay_chain: "staging".into(),
@@ -361,6 +364,7 @@ pub fn rococo_testnet_config(id: ParaId) -> TestnetChainSpec {
             )
         },
         Vec::new(),
+        None,
         None,
         None,
         Some(testnet_properties()),
@@ -425,6 +429,7 @@ pub fn westend_testnet_config(id: ParaId) -> TestnetChainSpec {
             )
         },
         Vec::new(),
+        None,
         None,
         None,
         Some(testnet_properties()),
@@ -497,7 +502,7 @@ fn testnet_genesis(
         },
         sudo: testnet_runtime::SudoConfig {
             // Assign network admin rights.
-            key: root_key.clone(),
+            key: Some(root_key.clone()),
         },
         tokens: testnet_runtime::TokensConfig {
             balances: endowed_accounts
@@ -628,6 +633,7 @@ pub fn kintsugi_mainnet_config(id: ParaId) -> KintsugiChainSpec {
             )
         },
         Vec::new(),
+        None,
         None,
         None,
         Some(kintsugi_properties()),
@@ -798,6 +804,7 @@ pub fn interlay_mainnet_config(id: ParaId) -> InterlayChainSpec {
         Vec::new(),
         None,
         None,
+        None,
         Some(interlay_properties()),
         Extensions {
             relay_chain: "polkadot".into(),
@@ -848,7 +855,7 @@ fn interlay_mainnet_genesis(
         },
         sudo: interlay_runtime::SudoConfig {
             // Assign network admin rights.
-            key: root_key.clone(),
+            key: Some(root_key.clone()),
         },
         tokens: Default::default(),
         vesting: Default::default(),

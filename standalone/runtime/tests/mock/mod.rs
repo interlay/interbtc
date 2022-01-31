@@ -1329,6 +1329,12 @@ impl ExtBuilder {
         .assimilate_storage(&mut storage)
         .unwrap();
 
+        pallet_sudo::GenesisConfig::<Runtime> {
+            key: Some(account_of(ALICE)),
+        }
+        .assimilate_storage(&mut storage)
+        .unwrap();
+
         btc_relay::GenesisConfig::<Runtime> {
             bitcoin_confirmations: CONFIRMATIONS,
             parachain_confirmations: CONFIRMATIONS,

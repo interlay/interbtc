@@ -216,6 +216,7 @@ pub mod pallet {
     pub type Nonce<T: Config> = StorageMap<_, Blake2_128Concat, DefaultVaultId<T>, T::Index, ValueQuery>;
 
     #[pallet::pallet]
+    #[pallet::without_storage_info] // no MaxEncodedLen for <T as frame_system::Config>::Index
     pub struct Pallet<T>(_);
 
     // The pallet's dispatchable functions.

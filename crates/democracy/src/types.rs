@@ -1,7 +1,7 @@
 //! Miscellaneous additional datatypes.
 
 use crate::{ReferendumIndex, VoteThreshold};
-use codec::{Decode, Encode};
+use codec::{Decode, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;
 use sp_runtime::{
     traits::{Bounded, CheckedAdd, CheckedDiv, CheckedMul, CheckedSub, Saturating, Zero},
@@ -10,7 +10,7 @@ use sp_runtime::{
 use sp_std::prelude::*;
 
 /// A standard vote, one-way (approve or reject).
-#[derive(Encode, Decode, Copy, Clone, Eq, PartialEq, RuntimeDebug, TypeInfo)]
+#[derive(Encode, Decode, Copy, Clone, Eq, PartialEq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
 pub struct Vote<Balance> {
     pub aye: bool,
     pub balance: Balance,
@@ -24,7 +24,7 @@ pub struct Voting<Balance> {
 }
 
 /// Info regarding an ongoing referendum.
-#[derive(Encode, Decode, Default, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo)]
+#[derive(Encode, Decode, Default, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
 pub struct Tally<Balance> {
     /// The number of aye votes.
     pub ayes: Balance,
@@ -61,7 +61,7 @@ impl<Balance: From<u8> + Zero + Copy + CheckedAdd + CheckedSub + CheckedMul + Ch
 }
 
 /// Info regarding an ongoing referendum.
-#[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo)]
+#[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
 pub struct ReferendumStatus<BlockNumber, Hash, Balance> {
     /// When voting on this referendum will end.
     pub end: BlockNumber,
@@ -76,7 +76,7 @@ pub struct ReferendumStatus<BlockNumber, Hash, Balance> {
 }
 
 /// Info regarding a referendum, present or past.
-#[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo)]
+#[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
 pub enum ReferendumInfo<BlockNumber, Hash, Balance> {
     /// Referendum is happening, the arg is the block number at which it will end.
     Ongoing(ReferendumStatus<BlockNumber, Hash, Balance>),

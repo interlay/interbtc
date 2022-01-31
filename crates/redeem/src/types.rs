@@ -5,11 +5,11 @@ use sp_runtime::DispatchError;
 use vault_registry::types::CurrencyId;
 
 use crate::Config;
-use codec::{Decode, Encode};
+use codec::{Decode, Encode, MaxEncodedLen};
 use currency::Amount;
 
 /// Storage version.
-#[derive(Encode, Decode, Eq, PartialEq, TypeInfo)]
+#[derive(Encode, Decode, Eq, PartialEq, TypeInfo, MaxEncodedLen)]
 pub enum Version {
     /// Initial version.
     V0,

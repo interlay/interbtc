@@ -53,7 +53,7 @@ benchmarks! {
             amount_btc: Default::default(),
             fee: Default::default(),
             issue_id: Default::default(),
-            issuer: Default::default(),
+            issuer: account("Issuer", 0, 0),
             transfer_fee_btc: Default::default(),
     };
         Refund::<T>::insert_refund_request(&refund_id, &refund_request);

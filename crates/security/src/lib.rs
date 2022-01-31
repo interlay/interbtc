@@ -127,6 +127,7 @@ pub mod pallet {
     pub type ActiveBlockCount<T: Config> = StorageValue<_, T::BlockNumber, ValueQuery>;
 
     #[pallet::pallet]
+    #[pallet::without_storage_info]
     pub struct Pallet<T>(_);
 
     // The pallet's dispatchable functions.
