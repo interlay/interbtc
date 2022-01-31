@@ -82,7 +82,7 @@ use frame_support::{
     ensure,
     traits::{
         schedule::{DispatchTime, Named as ScheduleNamed},
-        BalanceStatus, Currency, Get, LockIdentifier, OnUnbalanced, ReservableCurrency,
+        BalanceStatus, Currency, Get, LockIdentifier, OnUnbalanced, ReservableCurrency, UnfilteredDispatchable,
     },
     weights::Weight,
 };
@@ -170,7 +170,7 @@ pub mod pallet {
 
     #[pallet::config]
     pub trait Config: frame_system::Config + Sized {
-        type Proposal: Parameter + Dispatchable<Origin = Self::Origin> + From<Call<Self>>;
+        type Proposal: Parameter + UnfilteredDispatchable<Origin = Self::Origin> + From<Call<Self>>;
         type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
 
         /// Currency type for this pallet.
@@ -912,7 +912,7 @@ impl<T: Config> Pallet<T> {
                 Self::deposit_event(Event::<T>::PreimageUsed(proposal_hash, provider, deposit));
 
                 let res = proposal
-                    .dispatch(frame_system::RawOrigin::Root.into())
+                    .dispatch_bypass_filter(frame_system::RawOrigin::Root.into())
                     .map(|_| ())
                     .map_err(|e| e.error);
                 Self::deposit_event(Event::<T>::Executed(index, res));
