@@ -797,24 +797,31 @@ mod currency_id_convert {
 
     impl Convert<MultiLocation, Option<CurrencyId>> for CurrencyIdConvert {
         fn convert(location: MultiLocation) -> Option<CurrencyId> {
+            fn decode_currency_id(key: Vec<u8>) -> Option<CurrencyId> {
+                // decode the general key
+                if let Ok(currency_id) = CurrencyId::decode(&mut &key[..]) {
+                    // check `currency_id` is cross-chain asset
+                    match currency_id {
+                        WRAPPED_CURRENCY_ID => Some(currency_id),
+                        NATIVE_CURRENCY_ID => Some(currency_id),
+                        _ => None,
+                    }
+                } else {
+                    None
+                }
+            }
+
             match location {
                 x if x == MultiLocation::parent() => Some(PARENT_CURRENCY_ID),
                 MultiLocation {
                     parents: 1,
                     interior: X2(Parachain(id), GeneralKey(key)),
-                } if ParaId::from(id) == ParachainInfo::get() => {
-                    // decode the general key
-                    if let Ok(currency_id) = CurrencyId::decode(&mut &key[..]) {
-                        // check `currency_id` is cross-chain asset
-                        match currency_id {
-                            WRAPPED_CURRENCY_ID => Some(currency_id),
-                            NATIVE_CURRENCY_ID => Some(currency_id),
-                            _ => None,
-                        }
-                    } else {
-                        None
-                    }
-                }
+                } if ParaId::from(id) == ParachainInfo::get() => decode_currency_id(key),
+                MultiLocation {
+                    // adapt for reanchor canonical location: https://github.com/paritytech/polkadot/pull/4470
+                    parents: 0,
+                    interior: X1(GeneralKey(key)),
+                } => decode_currency_id(key),
                 _ => None,
             }
         }
