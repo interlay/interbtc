@@ -190,28 +190,11 @@ impl Contains<Call> for BaseCallFilter {
         } else if security::Pallet::<Runtime>::is_parachain_shutdown() {
             // in shutdown mode, all non-core calls are disallowed
             false
-        } else if let Call::PolkadotXcm(xcm_method) = call {
-            // For security reasons, disallow all xcm functionality except for management functions.
-            // Users should only be using xtokens, and opening hrmp is done through orml_xcm.
-            match xcm_method {
-                pallet_xcm::Call::send { .. }
-                | pallet_xcm::Call::execute { .. }
-                | pallet_xcm::Call::teleport_assets { .. }
-                | pallet_xcm::Call::reserve_transfer_assets { .. }
-                | pallet_xcm::Call::limited_reserve_transfer_assets { .. }
-                | pallet_xcm::Call::limited_teleport_assets { .. } => {
-                    return false;
-                }
-                pallet_xcm::Call::force_xcm_version { .. }
-                | pallet_xcm::Call::force_default_xcm_version { .. }
-                | pallet_xcm::Call::force_subscribe_version_notify { .. }
-                | pallet_xcm::Call::force_unsubscribe_version_notify { .. } => {
-                    return true;
-                }
-                pallet_xcm::Call::__Ignore { .. } => {
-                    unimplemented!()
-                }
-            }
+        } else if let Call::PolkadotXcm(_) = call {
+            // For security reasons, disallow usage of the xcm package by users. Sudo and
+            // governance are still able to call these (sudo is explicitly white-listed, while
+            // governance bypasses this call filter).
+            false
         } else {
             true
         }
