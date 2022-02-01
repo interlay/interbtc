@@ -74,6 +74,7 @@
 //! - `cancel_queued` - Cancels a proposal that is queued for enactment.
 //! - `clear_public_proposal` - Removes all public proposals.
 
+#![deny(warnings)]
 #![recursion_limit = "256"]
 #![cfg_attr(not(feature = "std"), no_std)]
 
@@ -88,7 +89,7 @@ use frame_support::{
 };
 use scale_info::TypeInfo;
 use sp_runtime::{
-    traits::{Dispatchable, Hash, Saturating, Zero},
+    traits::{Hash, Saturating, Zero},
     ArithmeticError, DispatchError, DispatchResult, RuntimeDebug,
 };
 use sp_std::prelude::*;
