@@ -95,7 +95,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     authoring_version: 1,
     spec_version: 1,
     impl_version: 1,
-    transaction_version: 2, // added orml-xcm
+    transaction_version: 2, // added preimage
     apis: RUNTIME_API_VERSIONS,
     state_version: 1,
 };
@@ -1239,11 +1239,6 @@ impl nomination::Config for Runtime {
     type WeightInfo = ();
 }
 
-impl orml_xcm::Config for Runtime {
-    type Event = Event;
-    type SovereignOrigin = EnsureRoot<AccountId>;
-}
-
 construct_runtime! {
     pub enum Runtime where
         Block = Block,
@@ -1308,7 +1303,6 @@ construct_runtime! {
         XcmpQueue: cumulus_pallet_xcmp_queue::{Pallet, Call, Storage, Event<T>},
         PolkadotXcm: pallet_xcm::{Pallet, Call, Event<T>, Origin},
         CumulusXcm: cumulus_pallet_xcm::{Pallet, Call, Event<T>, Origin},
-        OrmlXcm: orml_xcm::{Pallet, Call, Event<T>},
         DmpQueue: cumulus_pallet_dmp_queue::{Pallet, Call, Storage, Event<T>},
 
         XTokens: orml_xtokens::{Pallet, Storage, Call, Event<T>},
