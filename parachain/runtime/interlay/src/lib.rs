@@ -694,8 +694,8 @@ pub type XcmOriginToTransactDispatchOrigin = (
 );
 
 parameter_types! {
-    // One XCM operation is 1_000_000 weight - almost certainly a conservative estimate.
-    pub UnitWeightCost: Weight = 1_000_000;
+    // One XCM operation is 200_000_000 weight, cross-chain transfer ~= 2x of transfer.
+    pub UnitWeightCost: Weight = 200_000_000;
 }
 
 pub type Barrier = (TakeWeightCredit, AllowTopLevelPaidExecutionFrom<Everything>);
@@ -724,7 +724,7 @@ impl Config for XcmConfig {
         orml_tokens::CurrencyAdapter<Runtime, GetRelayChainCurrencyId>,
         (),
     >;
-    type ResponseHandler = (); // Don't handle responses for now.
+    type ResponseHandler = PolkadotXcm;
     type SubscriptionService = PolkadotXcm;
     type AssetTrap = PolkadotXcm;
     type AssetClaims = PolkadotXcm;
