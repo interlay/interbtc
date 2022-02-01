@@ -868,54 +868,54 @@ construct_runtime! {
         NodeBlock = primitives::Block,
         UncheckedExtrinsic = UncheckedExtrinsic
     {
-        System: frame_system::{Pallet, Call, Storage, Config, Event<T>},
-        Timestamp: pallet_timestamp::{Pallet, Call, Storage, Inherent},
-        Sudo: pallet_sudo::{Pallet, Call, Storage, Config<T>, Event<T>},
-        Utility: pallet_utility::{Pallet, Call, Event},
-        TransactionPayment: pallet_transaction_payment::{Pallet, Storage},
-        Scheduler: pallet_scheduler::{Pallet, Call, Storage, Event<T>},
-        Preimage: pallet_preimage::{Pallet, Call, Storage, Event<T>},
-        MultiSig: pallet_multisig::{Pallet, Call, Storage, Event<T>},
+        System: frame_system::{Pallet, Call, Storage, Config, Event<T>} = 0,
+        Timestamp: pallet_timestamp::{Pallet, Call, Storage, Inherent} = 1,
+        Sudo: pallet_sudo::{Pallet, Call, Storage, Config<T>, Event<T>} = 2,
+        Utility: pallet_utility::{Pallet, Call, Event} = 3,
+        TransactionPayment: pallet_transaction_payment::{Pallet, Storage} = 4,
+        Scheduler: pallet_scheduler::{Pallet, Call, Storage, Event<T>} = 5,
+        Preimage: pallet_preimage::{Pallet, Call, Storage, Event<T>} = 6,
+        MultiSig: pallet_multisig::{Pallet, Call, Storage, Event<T>} = 7,
 
         // Tokens & Balances
-        Currency: currency::{Pallet},
-        Tokens: orml_tokens::{Pallet, Call, Storage, Config<T>, Event<T>},
-        Escrow: escrow::{Pallet, Call, Storage, Event<T>},
-        Vesting: orml_vesting::{Pallet, Storage, Call, Event<T>, Config<T>},
+        Currency: currency::{Pallet} = 8,
+        Tokens: orml_tokens::{Pallet, Call, Storage, Config<T>, Event<T>} = 9,
+        Escrow: escrow::{Pallet, Call, Storage, Event<T>} = 10,
+        Vesting: orml_vesting::{Pallet, Storage, Call, Event<T>, Config<T>} = 11,
 
-        EscrowAnnuity: annuity::<Instance1>::{Pallet, Call, Storage, Event<T>},
-        EscrowRewards: reward::<Instance1>::{Pallet, Storage, Event<T>},
+        EscrowAnnuity: annuity::<Instance1>::{Pallet, Call, Storage, Event<T>} = 12,
+        EscrowRewards: reward::<Instance1>::{Pallet, Storage, Event<T>} = 13,
 
-        VaultAnnuity: annuity::<Instance2>::{Pallet, Storage, Event<T>},
-        VaultRewards: reward::<Instance2>::{Pallet, Storage, Event<T>},
-        VaultStaking: staking::{Pallet, Storage, Event<T>},
+        VaultAnnuity: annuity::<Instance2>::{Pallet, Storage, Event<T>} = 14,
+        VaultRewards: reward::<Instance2>::{Pallet, Storage, Event<T>} = 15,
+        VaultStaking: staking::{Pallet, Storage, Event<T>} = 16,
 
-        Supply: supply::{Pallet, Storage, Call, Event<T>, Config<T>},
+        Supply: supply::{Pallet, Storage, Call, Event<T>, Config<T>} = 17,
 
         // Bitcoin SPV
-        BTCRelay: btc_relay::{Pallet, Call, Config<T>, Storage, Event<T>},
+        BTCRelay: btc_relay::{Pallet, Call, Config<T>, Storage, Event<T>} = 18,
 
         // Operational
-        Security: security::{Pallet, Call, Config, Storage, Event<T>},
-        Relay: relay::{Pallet, Call, Storage, Event<T>},
-        VaultRegistry: vault_registry::{Pallet, Call, Config<T>, Storage, Event<T>, ValidateUnsigned},
-        Oracle: oracle::{Pallet, Call, Config<T>, Storage, Event<T>},
-        Issue: issue::{Pallet, Call, Config<T>, Storage, Event<T>},
-        Redeem: redeem::{Pallet, Call, Config<T>, Storage, Event<T>},
-        Replace: replace::{Pallet, Call, Config<T>, Storage, Event<T>},
-        Fee: fee::{Pallet, Call, Config<T>, Storage},
-        Refund: refund::{Pallet, Call, Config<T>, Storage, Event<T>},
-        Nomination: nomination::{Pallet, Call, Config, Storage, Event<T>},
+        Security: security::{Pallet, Call, Config, Storage, Event<T>} = 19,
+        Relay: relay::{Pallet, Call, Storage, Event<T>} = 20,
+        VaultRegistry: vault_registry::{Pallet, Call, Config<T>, Storage, Event<T>, ValidateUnsigned} = 21,
+        Oracle: oracle::{Pallet, Call, Config<T>, Storage, Event<T>} = 22,
+        Issue: issue::{Pallet, Call, Config<T>, Storage, Event<T>} = 23,
+        Redeem: redeem::{Pallet, Call, Config<T>, Storage, Event<T>} = 24,
+        Replace: replace::{Pallet, Call, Config<T>, Storage, Event<T>} = 25,
+        Fee: fee::{Pallet, Call, Config<T>, Storage} = 26,
+        Refund: refund::{Pallet, Call, Config<T>, Storage, Event<T>} = 27,
+        Nomination: nomination::{Pallet, Call, Config, Storage, Event<T>} = 28,
 
         // Governance
-        Democracy: democracy::{Pallet, Call, Storage, Config<T>, Event<T>},
-        TechnicalCommittee: pallet_collective::<Instance1>::{Pallet, Call, Storage, Origin<T>, Event<T>, Config<T>},
-        TechnicalMembership: pallet_membership::{Pallet, Call, Storage, Event<T>, Config<T>},
-        Treasury: pallet_treasury::{Pallet, Call, Storage, Config, Event<T>},
+        Democracy: democracy::{Pallet, Call, Storage, Config<T>, Event<T>} = 29,
+        TechnicalCommittee: pallet_collective::<Instance1>::{Pallet, Call, Storage, Origin<T>, Event<T>, Config<T>} = 30,
+        TechnicalMembership: pallet_membership::{Pallet, Call, Storage, Event<T>, Config<T>} = 31,
+        Treasury: pallet_treasury::{Pallet, Call, Storage, Config, Event<T>} = 32,
 
-        Authorship: pallet_authorship::{Pallet, Call, Storage},
-        Aura: pallet_aura::{Pallet, Config<T>},
-        Grandpa: pallet_grandpa::{Pallet, Call, Storage, Config, Event},
+        Authorship: pallet_authorship::{Pallet, Call, Storage} = 33,
+        Aura: pallet_aura::{Pallet, Config<T>} = 34,
+        Grandpa: pallet_grandpa::{Pallet, Call, Storage, Config, Event} = 35,
     }
 }
 
