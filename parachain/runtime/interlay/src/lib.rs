@@ -682,7 +682,7 @@ impl Config for XcmConfig {
         orml_tokens::CurrencyAdapter<Runtime, GetRelayChainCurrencyId>,
         (),
     >;
-    type ResponseHandler = (); // Don't handle responses for now.
+    type ResponseHandler = PolkadotXcm;
     type SubscriptionService = PolkadotXcm;
     type AssetTrap = PolkadotXcm;
     type AssetClaims = PolkadotXcm;
