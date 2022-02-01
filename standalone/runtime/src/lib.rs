@@ -790,7 +790,7 @@ impl escrow::Config for Runtime {
     type Currency = NativeCurrency;
     type Span = Span;
     type MaxPeriod = MaxPeriod;
-    type EscrowRewards = ();
+    type EscrowRewards = EscrowRewards;
     type WeightInfo = ();
 }
 

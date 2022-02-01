@@ -6,19 +6,20 @@ pub const USER: [u8; 32] = ALICE;
 pub const VAULT: [u8; 32] = BOB;
 pub const PROOF_SUBMITTER: [u8; 32] = CAROL;
 
-pub const DEFAULT_COLLATERAL: u128 = 1_000_000;
+pub const DEFAULT_COLLATERAL: Balance = 1_000_000;
+
 pub fn request_issue(
     vault_id: &VaultId,
     amount_btc: Amount<Runtime>,
-) -> (H256, IssueRequest<AccountId32, u32, u128, CurrencyId>) {
+) -> (H256, IssueRequest<AccountId32, BlockNumber, Balance, CurrencyId>) {
     RequestIssueBuilder::new(vault_id, amount_btc).request()
 }
 
 pub struct RequestIssueBuilder {
-    amount_btc: u128,
+    amount_btc: Balance,
     vault_id: VaultId,
     user: [u8; 32],
-    griefing_collateral: u128,
+    griefing_collateral: Balance,
 }
 
 impl RequestIssueBuilder {
@@ -46,7 +47,7 @@ impl RequestIssueBuilder {
         self
     }
 
-    pub fn request(&self) -> (H256, IssueRequest<AccountId32, u32, u128, CurrencyId>) {
+    pub fn request(&self) -> (H256, IssueRequest<AccountId32, BlockNumber, Balance, CurrencyId>) {
         try_register_vault(
             Amount::new(DEFAULT_COLLATERAL, self.vault_id.collateral_currency()),
             &self.vault_id,
@@ -68,7 +69,7 @@ impl RequestIssueBuilder {
 
 pub struct ExecuteIssueBuilder {
     issue_id: H256,
-    issue: IssueRequest<AccountId32, u32, u128, CurrencyId>,
+    issue: IssueRequest<AccountId32, BlockNumber, Balance, CurrencyId>,
     amount: Amount<Runtime>,
     submitter: AccountId,
     register_vault_with_currency_id: Option<CurrencyId>,
@@ -207,7 +208,7 @@ pub fn assert_refund_request_event() -> H256 {
         .expect("request refund event not found")
 }
 
-pub fn execute_refund(vault_id: [u8; 32]) -> (H256, RefundRequest<AccountId, u128, CurrencyId>) {
+pub fn execute_refund(vault_id: [u8; 32]) -> (H256, RefundRequest<AccountId, Balance, CurrencyId>) {
     let refund_id = assert_refund_request_event();
     let refund = RefundPallet::get_open_refund_request_from_id(&refund_id).unwrap();
     assert_ok!(execute_refund_with_amount(vault_id, wrapped(refund.amount_btc)));

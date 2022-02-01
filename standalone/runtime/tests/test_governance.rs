@@ -8,8 +8,6 @@ use orml_vesting::VestingSchedule;
 use sp_core::{Encode, Hasher};
 use sp_runtime::traits::BlakeTwo256;
 
-type Balance = u128;
-
 type DemocracyCall = democracy::Call<Runtime>;
 type DemocracyPallet = democracy::Pallet<Runtime>;
 type DemocracyEvent = democracy::Event<Runtime>;
@@ -23,7 +21,7 @@ type TreasuryPallet = pallet_treasury::Pallet<Runtime>;
 
 type VestingCall = orml_vesting::Call<Runtime>;
 
-const INITIAL_VOTING_POWER: u128 = 5_000_000_000_000;
+const INITIAL_VOTING_POWER: Balance = 5_000_000_000_000;
 
 fn get_max_locked(account_id: AccountId) -> Balance {
     TokensPallet::locks(&account_id, DEFAULT_NATIVE_CURRENCY)
@@ -59,7 +57,7 @@ fn test_with<R>(execute: impl Fn() -> R) {
     });
 }
 
-fn set_balance_proposal(who: AccountId, value: u128) -> Vec<u8> {
+fn set_balance_proposal(who: AccountId, value: Balance) -> Vec<u8> {
     Call::Tokens(TokensCall::set_balance {
         who: who,
         currency_id: DEFAULT_COLLATERAL_CURRENCY,

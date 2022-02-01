@@ -5,8 +5,8 @@ use crate::{assert_eq, *};
 pub const USER: [u8; 32] = ALICE;
 pub const VAULT: [u8; 32] = BOB;
 
-pub const DEFAULT_BACKING_COLLATERAL: u128 = 1_000_000;
-pub const DEFAULT_NOMINATION: u128 = 20_000;
+pub const DEFAULT_BACKING_COLLATERAL: Balance = 1_000_000;
+pub const DEFAULT_NOMINATION: Balance = 20_000;
 
 pub const DEFAULT_VAULT_UNBONDING_PERIOD: u32 = 100;
 pub const DEFAULT_NOMINATOR_UNBONDING_PERIOD: u32 = 50;

@@ -56,7 +56,7 @@ fn consume_to_be_replaced(vault: &mut CoreVaultData, amount_btc: Amount<Runtime>
 pub trait RedeemRequestTestExt {
     fn amount_without_fee_as_collateral(&self, currency_id: CurrencyId) -> Amount<Runtime>;
 }
-impl RedeemRequestTestExt for RedeemRequest<AccountId, BlockNumber, u128, CurrencyId> {
+impl RedeemRequestTestExt for RedeemRequest<AccountId, BlockNumber, Balance, CurrencyId> {
     fn amount_without_fee_as_collateral(&self, currency_id: CurrencyId) -> Amount<Runtime> {
         let amount_without_fee = self.amount_btc() + self.transfer_fee_btc();
         amount_without_fee.convert_to(currency_id).unwrap()
