@@ -1,5 +1,5 @@
 use crate::{ext, Config, Error, Pallet};
-use codec::{Decode, Encode, HasCompact};
+use codec::{Decode, Encode, HasCompact, MaxEncodedLen};
 use currency::Amount;
 use frame_support::{
     dispatch::{DispatchError, DispatchResult},
@@ -19,7 +19,7 @@ use mocktopus::macros::mockable;
 pub use bitcoin::{Address as BtcAddress, PublicKey as BtcPublicKey};
 
 /// Storage version.
-#[derive(Encode, Decode, Eq, PartialEq, TypeInfo)]
+#[derive(Encode, Decode, Eq, PartialEq, TypeInfo, MaxEncodedLen)]
 pub enum Version {
     /// Initial version.
     V0,
@@ -128,7 +128,7 @@ impl Wallet {
     }
 }
 
-#[derive(Encode, Decode, Clone, Copy, PartialEq, Eq, Debug, TypeInfo)]
+#[derive(Encode, Decode, Clone, Copy, PartialEq, Eq, Debug, TypeInfo, MaxEncodedLen)]
 pub enum VaultStatus {
     /// Vault is active - bool=true indicates that the vault accepts new issue requests
     Active(bool),
@@ -177,7 +177,7 @@ pub struct Vault<AccountId, BlockNumber, Balance, CurrencyId: Copy> {
     pub liquidated_collateral: Balance,
 }
 
-#[derive(Encode, Decode, Clone, PartialEq, TypeInfo)]
+#[derive(Encode, Decode, Clone, PartialEq, TypeInfo, MaxEncodedLen)]
 #[cfg_attr(feature = "std", derive(Debug, serde::Serialize, serde::Deserialize))]
 pub struct SystemVault<Balance, CurrencyId: Copy> {
     // Number of tokens pending issue
@@ -192,7 +192,7 @@ pub struct SystemVault<Balance, CurrencyId: Copy> {
     pub currency_pair: VaultCurrencyPair<CurrencyId>,
 }
 
-impl<AccountId: Default + Ord, BlockNumber: Default, Balance: HasCompact + Default, CurrencyId: Copy>
+impl<AccountId: Ord, BlockNumber: Default, Balance: HasCompact + Default, CurrencyId: Copy>
     Vault<AccountId, BlockNumber, Balance, CurrencyId>
 {
     // note: public only for testing purposes

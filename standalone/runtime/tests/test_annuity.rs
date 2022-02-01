@@ -1,7 +1,7 @@
 mod mock;
 
 use codec::Encode;
-use frame_support::traits::{Currency, OnInitialize};
+use frame_support::traits::{schedule::MaybeHashed, Currency, OnInitialize};
 use mock::{assert_eq, *};
 use sp_runtime::Permill;
 
@@ -82,48 +82,48 @@ fn should_distribute_vault_rewards_from_supply() {
                     when: start_height + YEARS * 0,
                     maybe_periodic: None,
                     priority: 63,
-                    call: Box::new(Call::Tokens(TokensCall::force_transfer {
+                    call: Box::new(MaybeHashed::Value(Call::Tokens(TokensCall::force_transfer {
                         source: SupplyPallet::account_id(),
                         dest: VaultAnnuityPallet::account_id(),
                         currency_id: DEFAULT_NATIVE_CURRENCY,
                         amount: Permill::from_percent(40) * total_rewards,
-                    })),
+                    }))),
                 }),
                 Call::Scheduler(SchedulerCall::schedule_named {
                     id: "Year 2".encode(),
                     when: start_height + YEARS * 1,
                     maybe_periodic: None,
                     priority: 63,
-                    call: Box::new(Call::Tokens(TokensCall::force_transfer {
+                    call: Box::new(MaybeHashed::Value(Call::Tokens(TokensCall::force_transfer {
                         source: SupplyPallet::account_id(),
                         dest: VaultAnnuityPallet::account_id(),
                         currency_id: DEFAULT_NATIVE_CURRENCY,
                         amount: Permill::from_percent(30) * total_rewards,
-                    })),
+                    }))),
                 }),
                 Call::Scheduler(SchedulerCall::schedule_named {
                     id: "Year 3".encode(),
                     when: start_height + YEARS * 2,
                     maybe_periodic: None,
                     priority: 63,
-                    call: Box::new(Call::Tokens(TokensCall::force_transfer {
+                    call: Box::new(MaybeHashed::Value(Call::Tokens(TokensCall::force_transfer {
                         source: SupplyPallet::account_id(),
                         dest: VaultAnnuityPallet::account_id(),
                         currency_id: DEFAULT_NATIVE_CURRENCY,
                         amount: Permill::from_percent(20) * total_rewards,
-                    })),
+                    }))),
                 }),
                 Call::Scheduler(SchedulerCall::schedule_named {
                     id: "Year 4".encode(),
                     when: start_height + YEARS * 3,
                     maybe_periodic: None,
                     priority: 63,
-                    call: Box::new(Call::Tokens(TokensCall::force_transfer {
+                    call: Box::new(MaybeHashed::Value(Call::Tokens(TokensCall::force_transfer {
                         source: SupplyPallet::account_id(),
                         dest: VaultAnnuityPallet::account_id(),
                         currency_id: DEFAULT_NATIVE_CURRENCY,
                         amount: Permill::from_percent(10) * total_rewards,
-                    })),
+                    }))),
                 })
             ],
         })
@@ -179,48 +179,48 @@ fn should_distribute_escrow_rewards_from_supply() {
                     when: start_height + YEARS * 0,
                     maybe_periodic: None,
                     priority: 63,
-                    call: Box::new(Call::Tokens(TokensCall::force_transfer {
+                    call: Box::new(MaybeHashed::Value(Call::Tokens(TokensCall::force_transfer {
                         source: SupplyPallet::account_id(),
                         dest: EscrowAnnuityPallet::account_id(),
                         currency_id: DEFAULT_NATIVE_CURRENCY,
                         amount: Permill::from_percent(25) * total_rewards,
-                    })),
+                    }))),
                 }),
                 Call::Scheduler(SchedulerCall::schedule_named {
                     id: "Year 2".encode(),
                     when: start_height + YEARS * 1,
                     maybe_periodic: None,
                     priority: 63,
-                    call: Box::new(Call::Tokens(TokensCall::force_transfer {
+                    call: Box::new(MaybeHashed::Value(Call::Tokens(TokensCall::force_transfer {
                         source: SupplyPallet::account_id(),
                         dest: EscrowAnnuityPallet::account_id(),
                         currency_id: DEFAULT_NATIVE_CURRENCY,
                         amount: Permill::from_percent(25) * total_rewards,
-                    })),
+                    }))),
                 }),
                 Call::Scheduler(SchedulerCall::schedule_named {
                     id: "Year 3".encode(),
                     when: start_height + YEARS * 2,
                     maybe_periodic: None,
                     priority: 63,
-                    call: Box::new(Call::Tokens(TokensCall::force_transfer {
+                    call: Box::new(MaybeHashed::Value(Call::Tokens(TokensCall::force_transfer {
                         source: SupplyPallet::account_id(),
                         dest: EscrowAnnuityPallet::account_id(),
                         currency_id: DEFAULT_NATIVE_CURRENCY,
                         amount: Permill::from_percent(25) * total_rewards,
-                    })),
+                    }))),
                 }),
                 Call::Scheduler(SchedulerCall::schedule_named {
                     id: "Year 4".encode(),
                     when: start_height + YEARS * 3,
                     maybe_periodic: None,
                     priority: 63,
-                    call: Box::new(Call::Tokens(TokensCall::force_transfer {
+                    call: Box::new(MaybeHashed::Value(Call::Tokens(TokensCall::force_transfer {
                         source: SupplyPallet::account_id(),
                         dest: EscrowAnnuityPallet::account_id(),
                         currency_id: DEFAULT_NATIVE_CURRENCY,
                         amount: Permill::from_percent(25) * total_rewards,
-                    })),
+                    }))),
                 })
             ],
         })

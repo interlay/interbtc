@@ -97,6 +97,7 @@ pub fn local_config() -> ChainSpec {
         vec![],
         None,
         None,
+        None,
         Some(get_properties()),
         None,
     )
@@ -161,6 +162,7 @@ pub fn beta_testnet_config() -> ChainSpec {
         Vec::new(),
         None,
         None,
+        None,
         Some(get_properties()),
         None,
     )
@@ -208,6 +210,7 @@ pub fn development_config() -> ChainSpec {
             )
         },
         Vec::new(),
+        None,
         None,
         None,
         Some(get_properties()),
@@ -266,7 +269,7 @@ fn testnet_genesis(
         },
         sudo: SudoConfig {
             // Assign network admin rights.
-            key: root_key.clone(),
+            key: Some(root_key.clone()),
         },
         tokens: TokensConfig {
             balances: endowed_accounts

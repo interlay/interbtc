@@ -1,14 +1,14 @@
 use crate::{Error, ACCEPTED_MAX_TRANSACTION_OUTPUTS};
 use bitcoin::types::{BlockHeader, H256Le, Transaction, Value};
 pub use bitcoin::Address as BtcAddress;
-use codec::{Decode, Encode};
+use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::{dispatch::DispatchError, ensure};
 use scale_info::TypeInfo;
 use sp_core::H256;
 use sp_std::{convert::TryFrom, vec::Vec};
 
 /// Bitcoin Enriched Block Headers
-#[derive(Encode, Decode, Default, Clone, Copy, PartialEq, Eq, Debug, TypeInfo)]
+#[derive(Encode, Decode, Default, Clone, Copy, PartialEq, Eq, Debug, TypeInfo, MaxEncodedLen)]
 pub struct RichBlockHeader<BlockNumber> {
     pub block_header: BlockHeader,
     /// height of the block in the bitcoin chain

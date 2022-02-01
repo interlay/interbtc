@@ -43,10 +43,10 @@ pub mod pallet {
         type SignedFixedPoint: FixedPointNumber + TruncateFixedPointToInt + Encode + EncodeLike + Decode + TypeInfo;
 
         /// The reward identifier type.
-        type RewardId: Parameter + Member + MaybeSerializeDeserialize + Debug;
+        type RewardId: Parameter + Member + MaybeSerializeDeserialize + Debug + MaxEncodedLen;
 
         /// The currency ID type.
-        type CurrencyId: Parameter + Member + Copy + MaybeSerializeDeserialize + Ord;
+        type CurrencyId: Parameter + Member + Copy + MaybeSerializeDeserialize + Ord + MaxEncodedLen;
 
         #[pallet::constant]
         type GetNativeCurrencyId: Get<Self::CurrencyId>;
@@ -127,6 +127,7 @@ pub mod pallet {
     >;
 
     #[pallet::pallet]
+    #[pallet::without_storage_info]
     pub struct Pallet<T, I = ()>(_);
 
     // The pallet's dispatchable functions.

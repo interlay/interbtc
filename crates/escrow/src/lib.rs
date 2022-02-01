@@ -28,7 +28,7 @@ mod mock;
 #[cfg(test)]
 mod tests;
 
-use codec::{Decode, Encode};
+use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::{
     ensure,
     traits::{
@@ -52,7 +52,7 @@ type PositiveImbalanceOf<T> =
 type NegativeImbalanceOf<T> =
     <<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::NegativeImbalance;
 
-#[derive(Default, Encode, Decode, Debug, Clone, TypeInfo)]
+#[derive(Default, Encode, Decode, Debug, Clone, TypeInfo, MaxEncodedLen)]
 pub struct Point<Balance, BlockNumber> {
     bias: Balance,
     slope: Balance,
@@ -118,7 +118,7 @@ impl<Balance: AtLeast32BitUnsigned + Default + Copy, BlockNumber: AtLeast32BitUn
     }
 }
 
-#[derive(Default, Encode, Decode, Clone, TypeInfo)]
+#[derive(Default, Encode, Decode, Clone, TypeInfo, MaxEncodedLen)]
 pub struct LockedBalance<Balance, BlockNumber> {
     amount: Balance,
     end: BlockNumber,
@@ -231,6 +231,7 @@ pub mod pallet {
     pub type Blocks<T: Config> = StorageMap<_, Blake2_128Concat, T::AccountId, bool, ValueQuery>;
 
     #[pallet::pallet]
+    #[pallet::without_storage_info] // no MaxEncodedLen for <T as frame_system::Config>::Index
     pub struct Pallet<T>(_);
 
     // The pallet's dispatchable functions.

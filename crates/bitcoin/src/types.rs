@@ -11,7 +11,7 @@ use crate::{
     utils::{log2, reverse_endianness, sha256d_le},
     Address, Error, PublicKey, Script,
 };
-use codec::{Decode, Encode};
+use codec::{Decode, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;
 pub use sp_core::{H160, H256, U256};
 use sp_std::{convert::TryFrom, prelude::*, vec};
@@ -162,7 +162,7 @@ pub enum OpCode {
 /// Custom Types
 
 /// Bitcoin raw block header (80 bytes)
-#[derive(Encode, Decode, Copy, Clone, TypeInfo)]
+#[derive(Encode, Decode, Copy, Clone, TypeInfo, MaxEncodedLen)]
 pub struct RawBlockHeader([u8; 80]);
 
 impl Default for RawBlockHeader {
@@ -244,7 +244,7 @@ pub const MAX_OPRETURN_SIZE: usize = 83;
 
 /// Bitcoin Basic Block Headers
 // TODO: Figure out how to set a pointer to the ChainIndex mapping instead
-#[derive(Encode, Decode, Default, Copy, Clone, PartialEq, Eq, Debug, TypeInfo)]
+#[derive(Encode, Decode, Default, Copy, Clone, PartialEq, Eq, Debug, TypeInfo, MaxEncodedLen)]
 pub struct BlockHeader {
     pub merkle_root: H256Le,
     pub target: U256,
@@ -519,7 +519,7 @@ fn generate_coinbase_transaction(
 }
 
 /// Representation of a Bitcoin blockchain
-#[derive(Encode, Decode, Default, Clone, PartialEq, Debug, TypeInfo)]
+#[derive(Encode, Decode, Default, Clone, PartialEq, Debug, TypeInfo, MaxEncodedLen)]
 pub struct BlockChain {
     pub chain_id: u32,
     pub start_height: u32,
@@ -527,7 +527,7 @@ pub struct BlockChain {
 }
 
 /// Represents a bitcoin 32 bytes hash digest encoded in little-endian
-#[derive(Encode, Decode, Default, PartialEq, Eq, Clone, Copy, Debug, TypeInfo)]
+#[derive(Encode, Decode, Default, PartialEq, Eq, Clone, Copy, Debug, TypeInfo, MaxEncodedLen)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 pub struct H256Le {
     content: [u8; 32],

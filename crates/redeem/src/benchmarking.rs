@@ -146,7 +146,7 @@ fn test_request<T: crate::Config>(vault_id: &DefaultVaultId<T>) -> DefaultRedeem
         transfer_fee_btc: Default::default(),
         amount_btc: Default::default(),
         premium: Default::default(),
-        redeemer: Default::default(),
+        redeemer: account("Redeemer", 0, 0),
         btc_address: Default::default(),
         btc_height: Default::default(),
         status: Default::default(),
