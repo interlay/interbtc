@@ -589,7 +589,8 @@ fn testnet_genesis(
     }
 }
 
-pub fn kintsugi_mainnet_config(id: ParaId) -> KintsugiChainSpec {
+pub fn kintsugi_mainnet_config() -> KintsugiChainSpec {
+    let id: ParaId = 2029.into();
     KintsugiChainSpec::from_genesis(
         "Kintsugi",
         "kintsugi",
@@ -741,7 +742,8 @@ fn kintsugi_mainnet_genesis(
     }
 }
 
-pub fn interlay_mainnet_config(id: ParaId) -> InterlayChainSpec {
+pub fn interlay_mainnet_config() -> InterlayChainSpec {
+    let id: ParaId = 2032.into();
     InterlayChainSpec::from_genesis(
         "Interlay",
         "interlay",

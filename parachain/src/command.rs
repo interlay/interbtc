@@ -67,22 +67,24 @@ impl<T: sc_service::ChainSpec + 'static> IdentifyChain for T {
     }
 }
 
-fn load_spec(id: &str, para_id: ParaId) -> std::result::Result<Box<dyn sc_service::ChainSpec>, String> {
+fn load_spec(id: &str) -> std::result::Result<Box<dyn sc_service::ChainSpec>, String> {
     Ok(match id {
-        "" => Box::new(chain_spec::local_config(para_id)),
-        "dev" => Box::new(chain_spec::development_config(para_id)),
-        "rococo" => Box::new(chain_spec::rococo_testnet_config(para_id)),
-        "rococo-local" => Box::new(chain_spec::rococo_local_testnet_config(para_id)),
-        "westend" => Box::new(chain_spec::westend_testnet_config(para_id)),
-        "kintsugi-latest" => Box::new(chain_spec::kintsugi_mainnet_config(para_id)),
+        "" => Box::new(chain_spec::local_config(DEFAULT_PARA_ID.into())),
+        "dev" => Box::new(chain_spec::development_config(DEFAULT_PARA_ID.into())),
+        "rococo" => Box::new(chain_spec::rococo_testnet_config(DEFAULT_PARA_ID.into())),
+        "rococo-local-2000" => Box::new(chain_spec::rococo_local_testnet_config(2000.into())),
+        "rococo-local-3000" => Box::new(chain_spec::rococo_local_testnet_config(3000.into())),
+        "westend" => Box::new(chain_spec::westend_testnet_config(DEFAULT_PARA_ID.into())),
+        "kintsugi-latest" => Box::new(chain_spec::kintsugi_mainnet_config()),
         "kintsugi" => Box::new(chain_spec::KintsugiChainSpec::from_json_bytes(
             &include_bytes!("../res/kintsugi.json")[..],
         )?),
-        "interlay-latest" => Box::new(chain_spec::interlay_mainnet_config(para_id)),
+        "interlay-latest" => Box::new(chain_spec::interlay_mainnet_config()),
         "interlay" => Box::new(chain_spec::InterlayChainSpec::from_json_bytes(
             &include_bytes!("../res/interlay.json")[..],
         )?),
-        "staging-latest" => Box::new(chain_spec::staging_testnet_config(para_id)),
+        "staging-latest" => Box::new(chain_spec::staging_testnet_config(DEFAULT_PARA_ID.into())),
+        "moonbase-alpha" => Box::new(chain_spec::staging_testnet_config(1002.into())),
         path => {
             let chain_spec = chain_spec::DummyChainSpec::from_json_file(path.into())?;
             if chain_spec.is_interlay() {
@@ -124,7 +126,7 @@ impl SubstrateCli for Cli {
     }
 
     fn load_spec(&self, id: &str) -> std::result::Result<Box<dyn sc_service::ChainSpec>, String> {
-        load_spec(id, self.parachain_id.unwrap_or(DEFAULT_PARA_ID).into())
+        load_spec(id)
     }
 
     fn native_runtime_version(chain_spec: &Box<dyn ChainSpec>) -> &'static RuntimeVersion {
@@ -233,18 +235,6 @@ pub fn run() -> Result<()> {
             let runner = cli.create_runner(cmd)?;
             runner.sync_run(|config| cmd.run(config.chain_spec, config.network))
         }
-        Some(Subcommand::BuildSpecWithId(cmd)) => {
-            let runner = cli.create_runner(&cmd.base)?;
-            runner.sync_run(|config| {
-                cmd.base.run(
-                    load_spec(
-                        &cmd.base.shared_params.chain.clone().unwrap_or_default(),
-                        cmd.parachain_id.into(),
-                    )?,
-                    config.network,
-                )
-            })
-        }
         Some(Subcommand::CheckBlock(cmd)) => {
             construct_async_run!(|components, cli, cmd, config| {
                 Ok(cmd.run(components.client, components.import_queue))
@@ -305,7 +295,7 @@ pub fn run() -> Result<()> {
             builder.with_profiling(sc_tracing::TracingReceiver::Log, "");
             let _ = builder.init();
 
-            let chain_spec = load_spec(&params.chain.clone().unwrap_or_default(), params.parachain_id.into())?;
+            let chain_spec = load_spec(&params.chain.clone().unwrap_or_default())?;
             let state_version = Cli::native_runtime_version(&chain_spec).state_version();
             let block: Block = generate_genesis_block(&chain_spec, state_version)?;
             let raw_header = block.header().encode();
@@ -363,7 +353,7 @@ async fn start_node(cli: Cli, config: Configuration) -> sc_service::error::Resul
             .chain(cli.relaychain_args.iter()),
     );
 
-    let id = ParaId::from(cli.parachain_id.or(para_id).unwrap_or(DEFAULT_PARA_ID));
+    let id = ParaId::from(para_id.unwrap_or(DEFAULT_PARA_ID));
 
     let parachain_account = AccountIdConversion::<polkadot_primitives::v0::AccountId>::into_account(&id);
 
