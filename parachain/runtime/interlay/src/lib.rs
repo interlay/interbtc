@@ -97,7 +97,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     impl_version: 1,
     transaction_version: 2, // added preimage
     apis: RUNTIME_API_VERSIONS,
-    state_version: 1,
+    state_version: 0,
 };
 
 // The relay chain is limited to 12s to include parachain blocks.
