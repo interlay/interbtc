@@ -24,7 +24,7 @@
 				"runtime_genesis_config": {
 					"configuration": {
 						"config": {
-							"validation_upgrade_frequency": 1,
+							"validation_upgrade_cooldown": 1,
 							"validation_upgrade_delay": 20
 						}
 					}
@@ -35,7 +35,6 @@
 	"parachains": [
 		{
 			"bin": "/usr/local/bin/interbtc-parachain",
-			"id": "2000",
 			"balance": "1000000000000000000000",
 			"nodes": [
 				{
@@ -49,11 +48,10 @@
 					]
 				}
 			],
-			"chain": "rococo-local"
+			"chain": "rococo-local-2000"
 		},
 		{
 			"bin": "/usr/local/bin/interbtc-parachain",
-			"id": "3000",
 			"balance": "1000000000000000000000",
 			"nodes": [
 				{
@@ -67,7 +65,7 @@
 					]
 				}
 			],
-			"chain": "rococo-local"
+			"chain": "rococo-local-3000"
 		}
 	],
 	"simpleParachains": [],

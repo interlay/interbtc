@@ -27,7 +27,7 @@ RUN chmod +x /usr/local/bin/${BINARY} && \
     ldd /usr/local/bin/${BINARY} && \
     /usr/local/bin/${BINARY} --version
 
-RUN /usr/local/bin/${BINARY} export-genesis-state --chain staging --parachain-id 21 > /var/lib/genesis-state
+RUN /usr/local/bin/${BINARY} export-genesis-state --chain staging > /var/lib/genesis-state
 RUN /usr/local/bin/${BINARY} export-genesis-wasm --chain staging > /var/lib/genesis-wasm
 
 EXPOSE 30333 9933 9944

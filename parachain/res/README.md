@@ -13,7 +13,7 @@ The `kintsugi.json` file serves as the chain specification used together with th
 **Warning!** Create a chain specification only with tagged releases of the parachain!
 
 ```shell
-docker run interlayhq/interbtc:interbtc-parachain-1.0.2 interbtc-parachain build-spec-with-id --chain kusama --parachain-id 2092 --disable-default-bootnode --raw > parachain/res/kintsugi.json
+docker run interlayhq/interbtc:interbtc-parachain-1.0.2 interbtc-parachain build-spec-with-id --chain kusama --disable-default-bootnode --raw > parachain/res/kintsugi.json
 ```
 
 The raw chain spec contains all the same information, but it contains the encoded storage keys that the node will use to reference the data in its local storage.
