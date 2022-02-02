@@ -590,7 +590,7 @@ fn testnet_genesis(
 }
 
 pub fn kintsugi_mainnet_config() -> KintsugiChainSpec {
-    let id: ParaId = 2029.into();
+    let id: ParaId = 2092.into();
     KintsugiChainSpec::from_genesis(
         "Kintsugi",
         "kintsugi",

@@ -1,4 +1,4 @@
-# Rococo - Local (Automated Setup, recommended)
+# Rococo - Local (Automated Setup, Recommended)
 
 Install [polkadot-launch](https://github.com/paritytech/polkadot-launch).
 
@@ -33,7 +33,7 @@ cargo build --release --bin interbtc-parachain --features rococo-native
 sudo cp ./target/release/interbtc-parachain /usr/local/bin/
 ```
 
-Run polkadot-launch. We provide two configations: one to start a [single parachain](./rococo-local-single-chain.json), and one that sets up [two parachains](rococo-local-xcm-setup.json) that can be used for testing xcm communication.
+Run polkadot-launch. We provide two configurations: one to start a [single parachain](./rococo-local.json), and one that sets up [two parachains](rococo-local-xcm.json) that can be used for testing xcm communication.
 
 ```shell
 polkadot-launch ./docs/rococo-local-xcm-setup.json
@@ -41,7 +41,7 @@ polkadot-launch ./docs/rococo-local-xcm-setup.json
 polkadot-launch ./docs/rococo-local-single-chain.json
 ```
 
-# Rococo - Local (Manual Setup, not recommended)
+# Rococo - Local (Manual Setup, Not Recommended)
 
 ## Relay Chain
 
