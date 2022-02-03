@@ -36,9 +36,9 @@ sudo cp ./target/release/interbtc-parachain /usr/local/bin/
 Run polkadot-launch. We provide two configurations: one to start a [single parachain](./rococo-local.json), and one that sets up [two parachains](rococo-local-xcm.json) that can be used for testing xcm communication.
 
 ```shell
-polkadot-launch ./docs/rococo-local-xcm-setup.json
+polkadot-launch ./docs/rococo-local-xcm.json
 # or..
-polkadot-launch ./docs/rococo-local-single-chain.json
+polkadot-launch ./docs/rococo-local.json
 ```
 
 # Rococo - Local (Manual Setup, Not Recommended)
