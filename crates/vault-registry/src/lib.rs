@@ -444,6 +444,16 @@ pub mod pallet {
             withdrawn_amount: BalanceOf<T>,
             total_collateral: BalanceOf<T>,
         },
+        IncreaseLockedCollateral {
+            currency_pair: DefaultVaultCurrencyPair<T>,
+            delta: BalanceOf<T>,
+            new_collateral: BalanceOf<T>,
+        },
+        DecreaseLockedCollateral {
+            currency_pair: DefaultVaultCurrencyPair<T>,
+            delta: BalanceOf<T>,
+            new_collateral: BalanceOf<T>,
+        },
         UpdatePublicKey {
             vault_id: DefaultVaultId<T>,
             public_key: BtcPublicKey,
@@ -1435,6 +1445,11 @@ impl<T: Config> Pallet<T> {
 
         TotalUserVaultCollateral::<T>::insert(currency_pair, new.amount());
 
+        Self::deposit_event(Event::<T>::IncreaseLockedCollateral {
+            currency_pair: currency_pair.clone(),
+            delta: amount.amount(),
+            new_collateral: new.amount(),
+        });
         Ok(())
     }
 
@@ -1446,6 +1461,11 @@ impl<T: Config> Pallet<T> {
 
         TotalUserVaultCollateral::<T>::insert(currency_pair, new.amount());
 
+        Self::deposit_event(Event::<T>::DecreaseLockedCollateral {
+            currency_pair: currency_pair.clone(),
+            delta: amount.amount(),
+            new_collateral: new.amount(),
+        });
         Ok(())
     }
 
