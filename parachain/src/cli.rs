@@ -17,9 +17,6 @@ pub enum Subcommand {
     /// Build a chain specification.
     BuildSpec(sc_cli::BuildSpecCmd),
 
-    /// Build a chain specification with a parachain-id.
-    BuildSpecWithId(BuildSpecWithIdCmd),
-
     /// Validate blocks.
     CheckBlock(sc_cli::CheckBlockCmd),
 
@@ -50,10 +47,6 @@ pub struct ExportGenesisStateCommand {
     #[structopt(parse(from_os_str))]
     pub output: Option<PathBuf>,
 
-    /// Id of the parachain this state is for.
-    #[structopt(long, default_value = "100")]
-    pub parachain_id: u32,
-
     /// Write output in binary. Default is to write in hex.
     #[structopt(short, long)]
     pub raw: bool,
@@ -80,16 +73,6 @@ pub struct ExportGenesisWasmCommand {
 }
 
 #[derive(Debug, StructOpt)]
-pub struct BuildSpecWithIdCmd {
-    #[structopt(flatten)]
-    pub base: sc_cli::BuildSpecCmd,
-
-    /// Id of the parachain this collator collates for.
-    #[structopt(long)]
-    pub parachain_id: u32,
-}
-
-#[derive(Debug, StructOpt)]
 #[structopt(settings = &[
 	structopt::clap::AppSettings::GlobalVersion,
 	structopt::clap::AppSettings::ArgsNegateSubcommands,
@@ -101,9 +84,6 @@ pub struct Cli {
 
     #[structopt(flatten)]
     pub run: cumulus_client_cli::RunCmd,
-
-    #[structopt(long)]
-    pub parachain_id: Option<u32>,
 
     /// Relaychain arguments
     #[structopt(raw = true)]

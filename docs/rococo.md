@@ -1,4 +1,4 @@
-# Rococo - Local (Automated Setup)
+# Rococo - Local (Automated Setup, Recommended)
 
 Install [polkadot-launch](https://github.com/paritytech/polkadot-launch).
 
@@ -17,7 +17,7 @@ Compile and install [polkadot](https://github.com/paritytech/polkadot).
 ```shell
 git clone git@github.com:paritytech/polkadot.git
 cd polkadot
-git checkout v0.9.15
+git checkout release-v0.9.16
 
 cargo build --release
 sudo cp ./target/release/polkadot /usr/local/bin/
@@ -33,13 +33,15 @@ cargo build --release --bin interbtc-parachain --features rococo-native
 sudo cp ./target/release/interbtc-parachain /usr/local/bin/
 ```
 
-Run polkadot-launch with [this config](./xcm-config.json).
+Run polkadot-launch. We provide two configurations: one to start a [single parachain](./rococo-local.json), and one that sets up [two parachains](rococo-local-xcm.json) that can be used for testing xcm communication.
 
 ```shell
-polkadot-launch ./docs/xcm-config.json
+polkadot-launch ./docs/rococo-local-xcm.json
+# or..
+polkadot-launch ./docs/rococo-local.json
 ```
 
-# Rococo - Local (Manual Setup)
+# Rococo - Local (Manual Setup, Not Recommended)
 
 ## Relay Chain
 
@@ -65,7 +67,7 @@ Compile and install the parachain as above.
 interbtc-parachain build-spec --chain rococo-local --disable-default-bootnode --raw > rococo-spec.json
 
 # Export genesis state (using reserved paraid)
-interbtc-parachain export-genesis-state --chain rococo-spec.json --parachain-id 2121 > genesis-state
+interbtc-parachain export-genesis-state --chain rococo-spec.json > genesis-state
 
 # Export genesis wasm
 interbtc-parachain export-genesis-wasm --chain rococo-spec.json > genesis-wasm
@@ -76,7 +78,6 @@ interbtc-parachain \
     --collator \
     --force-authoring \
     --chain=rococo-spec.json \
-    --parachain-id 2121 \
     --port 40335 \
     --ws-port 9946 \
     --discover-local \
