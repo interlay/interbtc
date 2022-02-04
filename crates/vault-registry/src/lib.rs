@@ -447,12 +447,12 @@ pub mod pallet {
         IncreaseLockedCollateral {
             currency_pair: DefaultVaultCurrencyPair<T>,
             delta: BalanceOf<T>,
-            new_collateral: BalanceOf<T>,
+            total: BalanceOf<T>,
         },
         DecreaseLockedCollateral {
             currency_pair: DefaultVaultCurrencyPair<T>,
             delta: BalanceOf<T>,
-            new_collateral: BalanceOf<T>,
+            total: BalanceOf<T>,
         },
         UpdatePublicKey {
             vault_id: DefaultVaultId<T>,
