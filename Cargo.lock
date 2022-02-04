@@ -11625,6 +11625,7 @@ dependencies = [
  "hex-literal 0.3.4",
  "interbtc-primitives",
  "issue",
+ "log",
  "mocktopus",
  "module-btc-relay-rpc-runtime-api",
  "module-issue-rpc-runtime-api",

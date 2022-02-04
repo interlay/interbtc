@@ -36,6 +36,7 @@ use sp_std::{marker::PhantomData, prelude::*};
 #[cfg(feature = "std")]
 use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
+use xcm_executor::{traits::WeightTrader, Assets};
 
 // A few exports that help ease life for downstream crates.
 pub use frame_support::{
@@ -736,7 +737,28 @@ pub type Trader = (
     FixedRateOfFungible<KbtcPerSecond, ToTreasury>,
     FixedRateOfFungible<CanonicalizedKintPerSecond, ToTreasury>,
     FixedRateOfFungible<CanonicalizedKbtcPerSecond, ToTreasury>,
+    FreeTestExection,
 );
+
+// If all other trader items fail to apply, then execute for free. This is useful in in xcm
+// testing: it allows the sibling to place the assets in UnknownTokens so that it can send
+// them back. SHOULD NOT BE INCLUDED IN MAINNET
+pub struct FreeTestExection;
+impl WeightTrader for FreeTestExection {
+    fn new() -> Self {
+        Self
+    }
+
+    fn buy_weight(&mut self, _weight: Weight, payment: Assets) -> Result<Assets, XcmError> {
+        log::warn!("xcm trader fallthrough: allowing free execution (TESTING ONLY)");
+        Ok(payment)
+    }
+
+    fn refund_weight(&mut self, _weight: Weight) -> Option<MultiAsset> {
+        log::warn!("xcm trader refund fallthrough: giving no refund (TESTING ONLY)");
+        None
+    }
+}
 
 impl Config for XcmConfig {
     type Call = Call;
