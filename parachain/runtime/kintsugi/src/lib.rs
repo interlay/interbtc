@@ -671,18 +671,34 @@ pub fn ksm_per_second() -> u128 {
 
 parameter_types! {
     pub KsmPerSecond: (AssetId, u128) = (MultiLocation::parent().into(), ksm_per_second());
-    pub KintPerSecond: (AssetId, u128) = (
+    pub KintPerSecond: (AssetId, u128) = ( // can be removed once we no longer need to support polkadot < 0.9.16
         MultiLocation::new(
             1,
-            X2(Parachain(2092), GeneralKey(Token(KINT).encode())),
+            X2(Parachain(ParachainInfo::get().into()), GeneralKey(Token(KINT).encode())),
         ).into(),
         // KINT:KSM = 4:3
         (ksm_per_second() * 4) / 3
     );
-    pub KbtcPerSecond: (AssetId, u128) = (
+    pub KbtcPerSecond: (AssetId, u128) = ( // can be removed once we no longer need to support polkadot < 0.9.16
         MultiLocation::new(
             1,
-            X2(Parachain(2092), GeneralKey(Token(KBTC).encode())),
+            X2(Parachain(ParachainInfo::get().into()), GeneralKey(Token(KBTC).encode())),
+        ).into(),
+        // KBTC:KSM = 1:150 & Satoshi:Planck = 1:10_000
+        ksm_per_second() / 1_500_000
+    );
+    pub CanonicalizedKintPerSecond: (AssetId, u128) = (
+        MultiLocation::new(
+            0,
+            X1(GeneralKey(Token(KINT).encode())),
+        ).into(),
+        // KINT:KSM = 4:3
+        (ksm_per_second() * 4) / 3
+    );
+    pub CanonicalizedKbtcPerSecond: (AssetId, u128) = (
+        MultiLocation::new(
+            0,
+            X1(GeneralKey(Token(KBTC).encode())),
         ).into(),
         // KBTC:KSM = 1:150 & Satoshi:Planck = 1:10_000
         ksm_per_second() / 1_500_000
@@ -714,6 +730,8 @@ pub type Trader = (
     FixedRateOfFungible<KsmPerSecond, ToTreasury>,
     FixedRateOfFungible<KintPerSecond, ToTreasury>,
     FixedRateOfFungible<KbtcPerSecond, ToTreasury>,
+    FixedRateOfFungible<CanonicalizedKintPerSecond, ToTreasury>,
+    FixedRateOfFungible<CanonicalizedKbtcPerSecond, ToTreasury>,
 );
 
 impl Config for XcmConfig {
