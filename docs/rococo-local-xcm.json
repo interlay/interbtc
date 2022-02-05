@@ -75,6 +75,12 @@
 			"recipient": 3000,
 			"maxCapacity": 8,
 			"maxMessageSize": 512
+		},
+		{
+			"sender": 3000,
+			"recipient": 2000,
+			"maxCapacity": 8,
+			"maxMessageSize": 512
 		}
 	],
 	"types": {},
