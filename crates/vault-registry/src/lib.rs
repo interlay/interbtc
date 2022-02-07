@@ -1448,7 +1448,7 @@ impl<T: Config> Pallet<T> {
         Self::deposit_event(Event::<T>::IncreaseLockedCollateral {
             currency_pair: currency_pair.clone(),
             delta: amount.amount(),
-            new_collateral: new.amount(),
+            total: new.amount(),
         });
         Ok(())
     }
@@ -1464,7 +1464,7 @@ impl<T: Config> Pallet<T> {
         Self::deposit_event(Event::<T>::DecreaseLockedCollateral {
             currency_pair: currency_pair.clone(),
             delta: amount.amount(),
-            new_collateral: new.amount(),
+            total: new.amount(),
         });
         Ok(())
     }
