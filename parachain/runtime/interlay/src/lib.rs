@@ -28,7 +28,7 @@ use sp_api::impl_runtime_apis;
 use sp_core::{u32_trait::_1, OpaqueMetadata, H256};
 use sp_runtime::{
     create_runtime_str, generic, impl_opaque_keys,
-    traits::{AccountIdConversion, BlakeTwo256, Block as BlockT, IdentityLookup, Zero},
+    traits::{AccountIdConversion, BlakeTwo256, Block as BlockT, Convert, IdentityLookup, Zero},
     transaction_validity::{TransactionSource, TransactionValidity},
     ApplyExtrinsicResult, FixedPointNumber, Perquintill,
 };
@@ -68,7 +68,6 @@ use cumulus_primitives_core::ParaId;
 use orml_xcm_support::{DepositToAlternative, IsNativeConcrete, MultiCurrencyAdapter, MultiNativeAsset};
 use pallet_xcm::{EnsureXcm, IsMajorityOfBody, XcmPassthrough};
 use polkadot_parachain::primitives::Sibling;
-use sp_runtime::traits::Convert;
 use xcm::latest::prelude::*;
 
 use xcm_builder::{
