@@ -586,6 +586,9 @@ fn testnet_genesis(
             start_height: testnet_runtime::YEARS * 4,
             inflation: FixedU128::checked_from_rational(2, 100).unwrap(), // 2%
         },
+        polkadot_xcm: testnet_runtime::PolkadotXcmConfig {
+            safe_xcm_version: Some(2),
+        },
     }
 }
 
@@ -738,6 +741,9 @@ fn kintsugi_mainnet_genesis(
             // start of year 5
             start_height: kintsugi_runtime::YEARS * 4,
             inflation: FixedU128::checked_from_rational(2, 100).unwrap(), // 2%
+        },
+        polkadot_xcm: kintsugi_runtime::PolkadotXcmConfig {
+            safe_xcm_version: Some(2),
         },
     }
 }
@@ -930,6 +936,9 @@ fn interlay_mainnet_genesis(
             // start of year 5
             start_height: interlay_runtime::YEARS * 4,
             inflation: FixedU128::checked_from_rational(2, 100).unwrap(), // 2%
+        },
+        polkadot_xcm: interlay_runtime::PolkadotXcmConfig {
+            safe_xcm_version: Some(2),
         },
     }
 }
