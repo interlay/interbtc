@@ -212,7 +212,8 @@ where
     );
 
     let import_queue = {
-        let slot_duration = cumulus_client_consensus_aura::slot_duration(&*client)?;
+        let slot_duration =
+            cumulus_client_consensus_aura::SlotDuration::new(sp_consensus_aura::SlotDuration::from_millis(6000));
 
         cumulus_client_consensus_aura::import_queue::<AuraPair, _, _, _, _, _, _>(
             cumulus_client_consensus_aura::ImportQueueParams {
@@ -441,7 +442,8 @@ where
          sync_oracle,
          keystore,
          force_authoring| {
-            let slot_duration = cumulus_client_consensus_aura::slot_duration(&*client)?;
+            let slot_duration =
+                cumulus_client_consensus_aura::SlotDuration::new(sp_consensus_aura::SlotDuration::from_millis(6000));
 
             let proposer_factory = sc_basic_authorship::ProposerFactory::with_proof_recording(
                 task_manager.spawn_handle(),
