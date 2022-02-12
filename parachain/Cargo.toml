@@ -21,6 +21,12 @@ codec = { package = "parity-scale-codec", version = "2.2.0" }
 serde = { version = "1.0.130", features = ["derive"] }
 hex-literal = "0.2.1"
 
+# issues building
+
+secp256k1 = "0.21.2"
+secp256k1-sys = "0.4.2"
+rand = "0.8.4"
+
 # Parachain dependencies
 interlay-runtime = { package = "interlay-runtime-parachain", path = "./runtime/interlay" }
 kintsugi-runtime = { package = "kintsugi-runtime-parachain", path = "./runtime/kintsugi" }
