@@ -37,7 +37,7 @@ use std::{io::Write, net::SocketAddr};
 
 const DEFAULT_PARA_ID: u32 = 2121;
 
-trait IdentifyChain {
+pub trait IdentifyChain {
     fn is_interlay(&self) -> bool;
     fn is_kintsugi(&self) -> bool;
     fn is_testnet(&self) -> bool;
