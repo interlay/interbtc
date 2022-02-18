@@ -8,6 +8,7 @@ use cumulus_primitives_core::ParaId;
 use cumulus_relay_chain_interface::RelayChainInterface;
 use cumulus_relay_chain_local::build_relay_chain_interface;
 
+use crate::command::IdentifyChain;
 use primitives::*;
 use sc_client_api::ExecutorProvider;
 use sc_executor::NativeElseWasmExecutor;
@@ -211,23 +212,32 @@ where
         client.clone(),
     );
 
+    let client_clone = client.clone();
     let import_queue = {
-        let slot_duration =
-            cumulus_client_consensus_aura::SlotDuration::new(sp_consensus_aura::SlotDuration::from_millis(6000));
-
         cumulus_client_consensus_aura::import_queue::<AuraPair, _, _, _, _, _, _>(
             cumulus_client_consensus_aura::ImportQueueParams {
                 block_import: client.clone(),
                 client: client.clone(),
-                create_inherent_data_providers: move |_, _| async move {
-                    let time = sp_timestamp::InherentDataProvider::from_system_time();
+                create_inherent_data_providers: move |parent: sp_core::H256, _| {
+                    let client_clone = client_clone.clone();
+                    async move {
+                        let slot_ms = match client_clone.clone().runtime_version_at(&BlockId::Hash(parent.clone())) {
+                            Ok(x) if x.spec_name.starts_with("kintsugi") => 6000,
+                            _ => 12000,
+                        };
+                        let slot_duration = cumulus_client_consensus_aura::SlotDuration::new(
+                            sp_consensus_aura::SlotDuration::from_millis(slot_ms),
+                        );
 
-                    let slot = sp_consensus_aura::inherents::InherentDataProvider::from_timestamp_and_duration(
-                        *time,
-                        slot_duration.slot_duration(),
-                    );
+                        let time = sp_timestamp::InherentDataProvider::from_system_time();
 
-                    Ok((time, slot))
+                        let slot = sp_consensus_aura::inherents::InherentDataProvider::from_timestamp_and_duration(
+                            *time,
+                            slot_duration.slot_duration(),
+                        );
+
+                        Ok((time, slot))
+                    }
                 },
                 registry,
                 can_author_with: sp_consensus::CanAuthorWithNativeVersion::new(client.executor().clone()),
@@ -239,7 +249,7 @@ where
 
     let params = PartialComponents {
         backend,
-        client,
+        client: client.clone(),
         import_queue,
         keystore_container,
         task_manager,
@@ -428,6 +438,11 @@ where
     RuntimeApi::RuntimeApi: sp_consensus_aura::AuraApi<Block, AuraId>,
     Executor: sc_executor::NativeExecutionDispatch + 'static,
 {
+    let slot_ms = if parachain_config.chain_spec.is_kintsugi() {
+        6000
+    } else {
+        12000
+    };
     start_node_impl(
         parachain_config,
         polkadot_config,
@@ -443,7 +458,7 @@ where
          keystore,
          force_authoring| {
             let slot_duration =
-                cumulus_client_consensus_aura::SlotDuration::new(sp_consensus_aura::SlotDuration::from_millis(6000));
+                cumulus_client_consensus_aura::SlotDuration::new(sp_consensus_aura::SlotDuration::from_millis(slot_ms));
 
             let proposer_factory = sc_basic_authorship::ProposerFactory::with_proof_recording(
                 task_manager.spawn_handle(),
