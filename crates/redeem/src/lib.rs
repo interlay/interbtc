@@ -263,7 +263,11 @@ pub mod pallet {
         ) -> DispatchResultWithPostInfo {
             let _ = ensure_signed(origin)?;
             Self::_execute_redeem(redeem_id, merkle_proof, raw_tx)?;
-            Ok(().into())
+
+            // Don't take tx fees on success. If the vault had to pay for this function, it would
+            // have been vulnerable to a griefing attack where users would redeem amounts just
+            // above the dust value.
+            Ok(Pays::No.into())
         }
 
         /// If a redeem request is not completed on time, the redeem request can be cancelled.
