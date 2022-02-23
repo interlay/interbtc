@@ -1,0 +1,33 @@
+name: Publish draft release
+
+on:
+  push:
+    branches:
+      - "*"
+
+jobs:
+  build-runtimes:
+    runs-on: [self-hosted, linux]
+    strategy:
+      matrix:
+        runtime: ["interlay", "kintsugi", "testnet"]
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v2
+
+      - name: Build ${{ matrix.runtime }} runtime
+        id: srtool_build
+        uses: chevdor/srtool-actions@v0.3.0
+        with:
+          # This is the default with chevdor/srtool-actions@v0.3.0 but we make it clear
+          image: paritytech/srtool
+          package: ${{ matrix.runtime }}-runtime-parachain
+          runtime_dir: ./parachain/runtime/${{ matrix.runtime }}
+          chain: ${{ matrix.runtime }}
+
+      - name: Upload ${{ matrix.runtime }} runtime
+        uses: actions/upload-artifact@v2
+        with:
+          name: ${{ matrix.runtime }}-runtime
+          path: |
+            ${{ steps.srtool_build.outputs.wasm_compressed }}
