@@ -64,7 +64,7 @@ Compile and install the parachain as above.
 
 ```shell
 # Export the chain spec
-interbtc-parachain build-spec --chain rococo-local --disable-default-bootnode --raw > rococo-spec.json
+interbtc-parachain build-spec --chain rococo-local-2000 --raw > rococo-spec.json
 
 # Export genesis state (using reserved paraid)
 interbtc-parachain export-genesis-state --chain rococo-spec.json > genesis-state
