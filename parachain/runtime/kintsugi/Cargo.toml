@@ -62,6 +62,7 @@ cumulus-primitives-utility = { git = "https://github.com/paritytech/cumulus", br
 cumulus-pallet-dmp-queue = { git = "https://github.com/paritytech/cumulus", branch = "polkadot-v0.9.16", default-features = false }
 cumulus-pallet-xcmp-queue = { git = "https://github.com/paritytech/cumulus", branch = "polkadot-v0.9.16", default-features = false }
 cumulus-pallet-xcm = { git = "https://github.com/paritytech/cumulus", branch = "polkadot-v0.9.16", default-features = false }
+parachain-info = { git = "https://github.com/paritytech/cumulus", branch = "polkadot-v0.9.16", default-features = false }
 
 # Polkadot dependencies
 polkadot-parachain = { git = "https://github.com/paritytech/polkadot", branch = "release-v0.9.16", default-features = false }
@@ -92,8 +93,6 @@ supply = { path = "../../../crates/supply", default-features = false }
 
 primitives = { package = "interbtc-primitives", path = "../../../primitives", default-features = false }
 
-parachain-info = { path = "../../../crates/parachain-info", default-features = false }
-
 module-btc-relay-rpc-runtime-api = { path = "../../../crates/btc-relay/rpc/runtime-api", default-features = false }
 module-oracle-rpc-runtime-api = { path = "../../../crates/oracle/rpc/runtime-api", default-features = false }
 module-relay-rpc-runtime-api = { path = "../../../crates/relay/rpc/runtime-api", default-features = false }
@@ -104,13 +103,13 @@ module-replace-rpc-runtime-api = { path = "../../../crates/replace/rpc/runtime-a
 module-refund-rpc-runtime-api = { path = "../../../crates/refund/rpc/runtime-api", default-features = false }
 
 # Orml dependencies
-orml-tokens = { git = "https://github.com/open-web3-stack/open-runtime-module-library", rev = "63b32194e7b9aff6a6350d2d4434525de4eec7c1", default-features = false }
-orml-traits = { git = "https://github.com/open-web3-stack/open-runtime-module-library", rev = "63b32194e7b9aff6a6350d2d4434525de4eec7c1", default-features = false }
-orml-vesting = { git = "https://github.com/open-web3-stack/open-runtime-module-library", rev = "63b32194e7b9aff6a6350d2d4434525de4eec7c1", default-features = false }
+orml-tokens = { git = "https://github.com/open-web3-stack/open-runtime-module-library", rev = "213f743af2d6d2c94f235613d7e7ff21b093297c", default-features = false }
+orml-traits = { git = "https://github.com/open-web3-stack/open-runtime-module-library", rev = "213f743af2d6d2c94f235613d7e7ff21b093297c", default-features = false }
+orml-vesting = { git = "https://github.com/open-web3-stack/open-runtime-module-library", rev = "213f743af2d6d2c94f235613d7e7ff21b093297c", default-features = false }
 
-orml-xtokens = { git = "https://github.com/open-web3-stack/open-runtime-module-library", rev = "63b32194e7b9aff6a6350d2d4434525de4eec7c1", default-features = false }
-orml-xcm-support = { git = "https://github.com/open-web3-stack/open-runtime-module-library", rev = "63b32194e7b9aff6a6350d2d4434525de4eec7c1", default-features = false }
-orml-unknown-tokens = { git = "https://github.com/open-web3-stack/open-runtime-module-library", rev = "63b32194e7b9aff6a6350d2d4434525de4eec7c1", default-features = false }
+orml-xtokens = { git = "https://github.com/open-web3-stack/open-runtime-module-library", rev = "213f743af2d6d2c94f235613d7e7ff21b093297c", default-features = false }
+orml-xcm-support = { git = "https://github.com/open-web3-stack/open-runtime-module-library", rev = "213f743af2d6d2c94f235613d7e7ff21b093297c", default-features = false }
+orml-unknown-tokens = { git = "https://github.com/open-web3-stack/open-runtime-module-library", rev = "213f743af2d6d2c94f235613d7e7ff21b093297c", default-features = false }
 
 [dev-dependencies]
 hex = '0.4.2'
