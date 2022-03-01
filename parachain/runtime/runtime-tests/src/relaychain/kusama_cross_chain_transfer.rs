@@ -2,7 +2,9 @@ use crate::{relaychain::kusama_test_net::*, setup::*};
 use frame_support::assert_ok;
 use orml_traits::MultiCurrency;
 use primitives::CurrencyId::Token;
+use xcm_builder::ParentIsPreset;
 use xcm_emulator::TestExt;
+use xcm_executor::traits::Convert;
 
 #[test]
 fn transfer_from_relay_chain() {
@@ -331,13 +333,11 @@ fn trap_assets_works() {
     let (ksm_asset_amount, kint_asset_amount) = (KSM.one(), KINT.one());
     let trader_weight_to_treasury: u128 = 96_000_000;
 
+    let parent_account: AccountId = ParentIsPreset::<AccountId>::convert(Parent.into()).unwrap();
+
     Kintsugi::execute_with(|| {
-        assert_ok!(Tokens::deposit(Token(KSM), &AccountId::from(DEFAULT), 100 * KSM.one()));
-        assert_ok!(Tokens::deposit(
-            Token(KINT),
-            &AccountId::from(DEFAULT),
-            100 * KINT.one()
-        ));
+        assert_ok!(Tokens::deposit(Token(KSM), &parent_account, 100 * KSM.one()));
+        assert_ok!(Tokens::deposit(Token(KINT), &parent_account, 100 * KINT.one()));
 
         kint_treasury_amount = Tokens::free_balance(Token(KINT), &KintsugiTreasuryAccount::get());
     });

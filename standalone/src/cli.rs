@@ -1,8 +1,8 @@
+use clap::Parser;
 use std::path::PathBuf;
-use structopt::StructOpt;
 
 /// Sub-commands supported by the collator.
-#[derive(Debug, StructOpt)]
+#[derive(Debug, Parser)]
 pub enum Subcommand {
     /// Build a chain specification.
     BuildSpec(sc_cli::BuildSpecCmd),
@@ -26,45 +26,45 @@ pub enum Subcommand {
     Revert(sc_cli::RevertCmd),
 
     /// The custom benchmark subcommmand benchmarking runtime pallets.
-    #[structopt(name = "benchmark", about = "Benchmark runtime pallets.")]
+    #[clap(name = "benchmark", about = "Benchmark runtime pallets.")]
     Benchmark(frame_benchmarking_cli::BenchmarkCmd),
 }
 
 /// Command for exporting the genesis state of the parachain
-#[derive(Debug, StructOpt)]
+#[derive(Debug, Parser)]
 pub struct ExportGenesisStateCommand {
     /// Output file name or stdout if unspecified.
-    #[structopt(parse(from_os_str))]
+    #[clap(parse(from_os_str))]
     pub output: Option<PathBuf>,
 
     /// Write output in binary. Default is to write in hex.
-    #[structopt(short, long)]
+    #[clap(short, long)]
     pub raw: bool,
 
     /// The name of the chain for that the genesis state should be exported.
-    #[structopt(long)]
+    #[clap(long)]
     pub chain: Option<String>,
 }
 
 /// Command for exporting the genesis wasm file.
-#[derive(Debug, StructOpt)]
+#[derive(Debug, Parser)]
 pub struct ExportGenesisWasmCommand {
     /// Output file name or stdout if unspecified.
-    #[structopt(parse(from_os_str))]
+    #[clap(parse(from_os_str))]
     pub output: Option<PathBuf>,
 
     /// Write output in binary. Default is to write in hex.
-    #[structopt(short, long)]
+    #[clap(short, long)]
     pub raw: bool,
 
     /// The name of the chain for that the genesis wasm file should be exported.
-    #[structopt(long)]
+    #[clap(long)]
     pub chain: Option<String>,
 }
 
-#[derive(Debug, StructOpt)]
+#[derive(Debug, Parser)]
 pub struct RunCmd {
-    #[structopt(flatten)]
+    #[clap(flatten)]
     pub base: sc_cli::RunCmd,
 }
 
@@ -76,16 +76,16 @@ impl std::ops::Deref for RunCmd {
     }
 }
 
-#[derive(Debug, StructOpt)]
-#[structopt(settings = &[
-	structopt::clap::AppSettings::GlobalVersion,
-	structopt::clap::AppSettings::ArgsNegateSubcommands,
-	structopt::clap::AppSettings::SubcommandsNegateReqs,
-])]
+#[derive(Debug, Parser)]
+#[clap(
+    propagate_version = true,
+    args_conflicts_with_subcommands = true,
+    subcommand_negates_reqs = true
+)]
 pub struct Cli {
-    #[structopt(subcommand)]
+    #[clap(subcommand)]
     pub subcommand: Option<Subcommand>,
 
-    #[structopt(flatten)]
+    #[clap(flatten)]
     pub run: RunCmd,
 }
