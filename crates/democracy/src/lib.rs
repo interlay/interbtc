@@ -526,8 +526,8 @@ pub mod pallet {
             let now = <frame_system::Pallet<T>>::block_number();
             let voting_period = T::FastTrackVotingPeriod::get();
             let ref_index = Self::inject_referendum(
-                now + voting_period,
-                proposal_hash.clone(),
+                now.saturating_add(voting_period),
+                proposal_hash,
                 VoteThreshold::SuperMajorityAgainst,
                 delay,
             );
@@ -680,7 +680,10 @@ pub mod pallet {
             let now = <frame_system::Pallet<T>>::block_number();
             let (voting, enactment) = (T::VotingPeriod::get(), T::EnactmentPeriod::get());
             let additional = if who == provider { Zero::zero() } else { enactment };
-            ensure!(now >= since + voting + additional, Error::<T>::TooEarly);
+            ensure!(
+                now >= since.saturating_add(voting).saturating_add(additional),
+                Error::<T>::TooEarly
+            );
             ensure!(expiry.map_or(true, |e| now > e), Error::<T>::Imminent);
 
             let res = T::Currency::repatriate_reserved(&provider, &who, deposit, BalanceStatus::Free);
@@ -720,7 +723,7 @@ impl<T: Config> Pallet<T> {
     /// Get the amount locked in support of `proposal`; `None` if proposal isn't a valid proposal
     /// index.
     pub fn backing_for(proposal: PropIndex) -> Option<BalanceOf<T>> {
-        Self::deposit_of(proposal).map(|(l, d)| d * (l.len() as u32).into())
+        Self::deposit_of(proposal).map(|(l, d)| d.saturating_mul((l.len() as u32).into()))
     }
 
     /// Get all referenda ready for tally at block `n`.
@@ -756,7 +759,7 @@ impl<T: Config> Pallet<T> {
         delay: T::BlockNumber,
     ) -> ReferendumIndex {
         <Pallet<T>>::inject_referendum(
-            <frame_system::Pallet<T>>::block_number() + T::VotingPeriod::get(),
+            <frame_system::Pallet<T>>::block_number().saturating_add(T::VotingPeriod::get()),
             proposal_hash,
             threshold,
             delay,
@@ -887,7 +890,7 @@ impl<T: Config> Pallet<T> {
                 }
                 Self::deposit_event(Event::<T>::Tabled(prop_index, deposit, depositors));
                 Self::inject_referendum(
-                    now + T::VotingPeriod::get(),
+                    now.saturating_add(T::VotingPeriod::get()),
                     proposal,
                     VoteThreshold::SuperMajorityAgainst,
                     T::EnactmentPeriod::get(),
@@ -945,7 +948,7 @@ impl<T: Config> Pallet<T> {
             if status.delay.is_zero() {
                 let _ = Self::do_enact_proposal(status.proposal_hash, index);
             } else {
-                let when = now + status.delay;
+                let when = now.saturating_add(status.delay);
                 // Note that we need the preimage now.
                 Preimages::<T>::mutate_exists(&status.proposal_hash, |maybe_pre| match *maybe_pre {
                     Some(PreimageStatus::Available { ref mut expiry, .. }) => *expiry = Some(when),
