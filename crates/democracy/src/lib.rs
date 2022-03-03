@@ -78,7 +78,7 @@
 #![recursion_limit = "256"]
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use codec::{Decode, Encode, Input, MaxEncodedLen};
+use codec::{Decode, DecodeLimit, Encode, Input, MaxEncodedLen};
 use frame_support::{
     ensure,
     traits::{
@@ -172,7 +172,7 @@ pub mod pallet {
 
     #[pallet::config]
     pub trait Config: frame_system::Config + Sized {
-        type Proposal: Parameter + UnfilteredDispatchable<Origin = Self::Origin> + From<Call<Self>>;
+        type Proposal: DecodeLimit + Parameter + UnfilteredDispatchable<Origin = Self::Origin> + From<Call<Self>>;
         type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
 
         /// Currency type for this pallet.
@@ -911,7 +911,7 @@ impl<T: Config> Pallet<T> {
             ..
         }) = preimage
         {
-            if let Ok(proposal) = T::Proposal::decode(&mut &data[..]) {
+            if let Ok(proposal) = T::Proposal::decode_with_depth_limit(sp_api::MAX_EXTRINSIC_DEPTH, &mut &data[..]) {
                 let err_amount = T::Currency::unreserve(&provider, deposit);
                 debug_assert!(err_amount.is_zero());
                 Self::deposit_event(Event::<T>::PreimageUsed(proposal_hash, provider, deposit));
