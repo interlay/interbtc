@@ -284,22 +284,6 @@ benchmarks! {
 
     }: _(RawOrigin::Root)
 
-    note_preimage {
-        // Num of bytes in encoded proposal
-        let b in 0 .. MAX_BYTES;
-
-        let caller = funded_account::<T>("caller", 0);
-        let encoded_proposal = vec![1; b as usize];
-        whitelist_account!(caller);
-    }: _(RawOrigin::Signed(caller), encoded_proposal.clone())
-    verify {
-        let proposal_hash = T::Hashing::hash(&encoded_proposal[..]);
-        match Preimages::<T>::get(proposal_hash) {
-            Some(PreimageStatus::Available { .. }) => (),
-            _ => return Err("preimage not available".into())
-        }
-    }
-
     note_imminent_preimage {
         // Num of bytes in encoded proposal
         let b in 0 .. MAX_BYTES;
@@ -320,30 +304,6 @@ benchmarks! {
             Some(PreimageStatus::Available { .. }) => (),
             _ => return Err("preimage not available".into())
         }
-    }
-
-    reap_preimage {
-        // Num of bytes in encoded proposal
-        let b in 0 .. MAX_BYTES;
-
-        let encoded_proposal = vec![1; b as usize];
-        let proposal_hash = T::Hashing::hash(&encoded_proposal[..]);
-
-        let submitter = funded_account::<T>("submitter", b);
-        Democracy::<T>::note_preimage(RawOrigin::Signed(submitter.clone()).into(), encoded_proposal.clone())?;
-
-        // We need to set this otherwise we get `Early` error.
-        let block_number = T::VotingPeriod::get() + T::EnactmentPeriod::get() + T::BlockNumber::one();
-        System::<T>::set_block_number(block_number.into());
-
-        assert!(Preimages::<T>::contains_key(proposal_hash));
-
-        let caller = funded_account::<T>("caller", 0);
-        whitelist_account!(caller);
-    }: _(RawOrigin::Signed(caller), proposal_hash.clone(), u32::MAX)
-    verify {
-        let proposal_hash = T::Hashing::hash(&encoded_proposal[..]);
-        assert!(!Preimages::<T>::contains_key(proposal_hash));
     }
 
     remove_vote {

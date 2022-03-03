@@ -81,9 +81,11 @@
 use codec::{Decode, DecodeLimit, Encode, Input, MaxEncodedLen};
 use frame_support::{
     ensure,
+    storage::bounded_vec::BoundedVec,
     traits::{
         schedule::{DispatchTime, Named as ScheduleNamed},
-        BalanceStatus, Currency, Get, LockIdentifier, OnUnbalanced, ReservableCurrency, UnfilteredDispatchable,
+        BalanceStatus, Currency, Get, LockIdentifier, PreimageProvider, PreimageRecipient, ReservableCurrency,
+        UnfilteredDispatchable,
     },
     weights::Weight,
 };
@@ -152,6 +154,8 @@ enum Releases {
     V1,
 }
 
+type MaxSizeOf<T> = <<T as Config>::PreimageProvider as PreimageRecipient<<T as frame_system::Config>::Hash>>::MaxSize;
+
 #[frame_support::pallet]
 pub mod pallet {
     use super::*;
@@ -207,13 +211,6 @@ pub mod pallet {
         #[pallet::constant]
         type FastTrackVotingPeriod: Get<Self::BlockNumber>;
 
-        /// The amount of balance that must be deposited per byte of preimage stored.
-        #[pallet::constant]
-        type PreimageByteDeposit: Get<BalanceOf<Self>>;
-
-        /// Handler for the unbalanced reduction when slashing a preimage deposit.
-        type Slash: OnUnbalanced<NegativeImbalanceOf<Self>>;
-
         /// The Scheduler.
         type Scheduler: ScheduleNamed<Self::BlockNumber, Self::Proposal, Self::PalletsOrigin>;
 
@@ -233,6 +230,9 @@ pub mod pallet {
         /// The maximum number of public proposals that can exist at any time.
         #[pallet::constant]
         type MaxProposals: Get<u32>;
+
+        /// The preimage provider with which we look up call hashes to get the call.
+        type PreimageProvider: PreimageRecipient<Self::Hash>;
     }
 
     /// The number of (public) proposals that have been made so far.
@@ -599,22 +599,6 @@ pub mod pallet {
             Ok(())
         }
 
-        /// Register the preimage for an upcoming proposal. This doesn't require the proposal to be
-        /// in the dispatch queue but does require a deposit, returned once enacted.
-        ///
-        /// The dispatch origin of this call must be _Signed_.
-        ///
-        /// - `encoded_proposal`: The preimage of a proposal.
-        ///
-        /// Emits `PreimageNoted`.
-        ///
-        /// Weight: `O(E)` with E size of `encoded_proposal` (protected by a required deposit).
-        #[pallet::weight(T::WeightInfo::note_preimage(encoded_proposal.len() as u32))]
-        pub fn note_preimage(origin: OriginFor<T>, encoded_proposal: Vec<u8>) -> DispatchResult {
-            Self::note_preimage_inner(ensure_signed(origin)?, encoded_proposal)?;
-            Ok(())
-        }
-
         /// Register the preimage for an upcoming proposal. This requires the proposal to be
         /// in the dispatch queue. No deposit is needed. When this call is successful, i.e.
         /// the preimage has not been uploaded before and matches some imminent proposal,
@@ -634,63 +618,6 @@ pub mod pallet {
             // `note_imminent_preimage_inner`, thus this call can only be successful once. If
             // successful, user does not pay a fee.
             Ok(Pays::No.into())
-        }
-
-        /// Remove an expired proposal preimage and collect the deposit.
-        ///
-        /// The dispatch origin of this call must be _Signed_.
-        ///
-        /// - `proposal_hash`: The preimage hash of a proposal.
-        /// - `proposal_length_upper_bound`: an upper bound on length of the proposal. Extrinsic is weighted according
-        ///   to this value with no refund.
-        ///
-        /// This will only work after `VotingPeriod` blocks from the time that the preimage was
-        /// noted, if it's the same account doing it. If it's a different account, then it'll only
-        /// work an additional `EnactmentPeriod` later.
-        ///
-        /// Emits `PreimageReaped`.
-        ///
-        /// Weight: `O(D)` where D is length of proposal.
-        #[pallet::weight(T::WeightInfo::reap_preimage(*proposal_len_upper_bound))]
-        pub fn reap_preimage(
-            origin: OriginFor<T>,
-            proposal_hash: T::Hash,
-            #[pallet::compact] proposal_len_upper_bound: u32,
-        ) -> DispatchResult {
-            let who = ensure_signed(origin)?;
-
-            ensure!(
-                Self::pre_image_data_len(proposal_hash)? <= proposal_len_upper_bound,
-                Error::<T>::WrongUpperBound,
-            );
-
-            let (provider, deposit, since, expiry) = <Preimages<T>>::get(&proposal_hash)
-                .and_then(|m| match m {
-                    PreimageStatus::Available {
-                        provider,
-                        deposit,
-                        since,
-                        expiry,
-                        ..
-                    } => Some((provider, deposit, since, expiry)),
-                    _ => None,
-                })
-                .ok_or(Error::<T>::PreimageMissing)?;
-
-            let now = <frame_system::Pallet<T>>::block_number();
-            let (voting, enactment) = (T::VotingPeriod::get(), T::EnactmentPeriod::get());
-            let additional = if who == provider { Zero::zero() } else { enactment };
-            ensure!(
-                now >= since.saturating_add(voting).saturating_add(additional),
-                Error::<T>::TooEarly
-            );
-            ensure!(expiry.map_or(true, |e| now > e), Error::<T>::Imminent);
-
-            let res = T::Currency::repatriate_reserved(&provider, &who, deposit, BalanceStatus::Free);
-            debug_assert!(res.is_ok());
-            <Preimages<T>>::remove(&proposal_hash);
-            Self::deposit_event(Event::<T>::PreimageReaped(proposal_hash, provider, deposit, who));
-            Ok(())
         }
 
         /// Remove a vote for an ongoing referendum.
@@ -853,6 +780,9 @@ impl<T: Config> Pallet<T> {
         threshold: VoteThreshold,
         delay: T::BlockNumber,
     ) -> ReferendumIndex {
+        // unreserves preimage deposit
+        T::PreimageProvider::request_preimage(&proposal_hash);
+
         let ref_index = Self::referendum_count();
         ReferendumCount::<T>::put(ref_index + 1);
         let status = ReferendumStatus {
@@ -903,18 +833,10 @@ impl<T: Config> Pallet<T> {
     }
 
     fn do_enact_proposal(proposal_hash: T::Hash, index: ReferendumIndex) -> DispatchResult {
-        let preimage = <Preimages<T>>::take(&proposal_hash);
-        if let Some(PreimageStatus::Available {
-            data,
-            provider,
-            deposit,
-            ..
-        }) = preimage
-        {
+        if let Some(data) = T::PreimageProvider::get_preimage(&proposal_hash) {
             if let Ok(proposal) = T::Proposal::decode_with_depth_limit(sp_api::MAX_EXTRINSIC_DEPTH, &mut &data[..]) {
-                let err_amount = T::Currency::unreserve(&provider, deposit);
-                debug_assert!(err_amount.is_zero());
-                Self::deposit_event(Event::<T>::PreimageUsed(proposal_hash, provider, deposit));
+                // should delete preimage
+                T::PreimageProvider::unrequest_preimage(&proposal_hash);
 
                 let res = proposal
                     .dispatch_bypass_filter(frame_system::RawOrigin::Root.into())
@@ -924,7 +846,6 @@ impl<T: Config> Pallet<T> {
 
                 Ok(())
             } else {
-                T::Slash::on_unbalanced(T::Currency::slash_reserved(&provider, deposit).0);
                 Self::deposit_event(Event::<T>::PreimageInvalid(proposal_hash, index));
                 Err(Error::<T>::PreimageInvalid.into())
             }
@@ -948,12 +869,8 @@ impl<T: Config> Pallet<T> {
             if status.delay.is_zero() {
                 let _ = Self::do_enact_proposal(status.proposal_hash, index);
             } else {
-                let when = now.saturating_add(status.delay);
                 // Note that we need the preimage now.
-                Preimages::<T>::mutate_exists(&status.proposal_hash, |maybe_pre| match *maybe_pre {
-                    Some(PreimageStatus::Available { ref mut expiry, .. }) => *expiry = Some(when),
-                    ref mut a => *a = Some(PreimageStatus::Missing(when)),
-                });
+                let when = now.saturating_add(status.delay);
 
                 if T::Scheduler::schedule_named(
                     (DEMOCRACY_ID, index).encode(),
@@ -1030,28 +947,6 @@ impl<T: Config> Pallet<T> {
         decode_compact_u32_at(&<DepositOf<T>>::hashed_key_for(proposal))
     }
 
-    /// Check that pre image exists and its value is variant `PreimageStatus::Missing`.
-    ///
-    /// This check is done without getting the complete value in the runtime to avoid copying a big
-    /// value in the runtime.
-    fn check_pre_image_is_missing(proposal_hash: T::Hash) -> DispatchResult {
-        // To decode the enum variant we only need the first byte.
-        let mut buf = [0u8; 1];
-        let key = <Preimages<T>>::hashed_key_for(proposal_hash);
-        let bytes = sp_io::storage::read(&key, &mut buf, 0).ok_or_else(|| Error::<T>::NotImminent)?;
-        // The value may be smaller that 1 byte.
-        let mut input = &buf[0..buf.len().min(bytes as usize)];
-
-        match input.read_byte() {
-            Ok(0) => Ok(()), // PreimageStatus::Missing is variant 0
-            Ok(1) => Err(Error::<T>::DuplicatePreimage.into()),
-            _ => {
-                sp_runtime::print("Failed to decode `PreimageStatus` variant");
-                Err(Error::<T>::NotImminent.into())
-            }
-        }
-    }
-
     /// Check that pre image exists, its value is variant `PreimageStatus::Available` and decode
     /// the length of `data: Vec<u8>` fields.
     ///
@@ -1090,51 +985,17 @@ impl<T: Config> Pallet<T> {
         Ok(len)
     }
 
-    // See `note_preimage`
-    fn note_preimage_inner(who: T::AccountId, encoded_proposal: Vec<u8>) -> DispatchResult {
+    // See `note_imminent_preimage`
+    fn note_imminent_preimage_inner(
+        who: T::AccountId,
+        encoded_proposal: BoundedVec<u8, MaxSizeOf<T>>,
+    ) -> DispatchResult {
         let proposal_hash = T::Hashing::hash(&encoded_proposal[..]);
         ensure!(
-            !<Preimages<T>>::contains_key(&proposal_hash),
+            !T::PreimageProvider::have_preimage(&proposal_hash),
             Error::<T>::DuplicatePreimage
         );
-
-        let deposit = <BalanceOf<T>>::from(encoded_proposal.len() as u32).saturating_mul(T::PreimageByteDeposit::get());
-        T::Currency::reserve(&who, deposit)?;
-
-        let now = <frame_system::Pallet<T>>::block_number();
-        let a = PreimageStatus::Available {
-            data: encoded_proposal,
-            provider: who.clone(),
-            deposit,
-            since: now,
-            expiry: None,
-        };
-        <Preimages<T>>::insert(proposal_hash, a);
-
-        Self::deposit_event(Event::<T>::PreimageNoted(proposal_hash, who, deposit));
-
-        Ok(())
-    }
-
-    // See `note_imminent_preimage`
-    fn note_imminent_preimage_inner(who: T::AccountId, encoded_proposal: Vec<u8>) -> DispatchResult {
-        let proposal_hash = T::Hashing::hash(&encoded_proposal[..]);
-        Self::check_pre_image_is_missing(proposal_hash)?;
-        let status = Preimages::<T>::get(&proposal_hash).ok_or(Error::<T>::NotImminent)?;
-        let expiry = status.to_missing_expiry().ok_or(Error::<T>::DuplicatePreimage)?;
-
-        let now = <frame_system::Pallet<T>>::block_number();
-        let free = <BalanceOf<T>>::zero();
-        let a = PreimageStatus::Available {
-            data: encoded_proposal,
-            provider: who.clone(),
-            deposit: Zero::zero(),
-            since: now,
-            expiry: Some(expiry),
-        };
-        <Preimages<T>>::insert(proposal_hash, a);
-
-        Self::deposit_event(Event::<T>::PreimageNoted(proposal_hash, who, free));
+        T::PreimageProvider::note_preimage(encoded_proposal);
 
         Ok(())
     }

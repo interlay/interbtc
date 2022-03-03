@@ -5,7 +5,7 @@ use crate as pallet_democracy;
 use codec::Encode;
 use frame_support::{
     assert_noop, assert_ok, ord_parameter_types, parameter_types,
-    traits::{Contains, EqualPrivilegeOnly, GenesisBuild, OnInitialize, SortedMembers},
+    traits::{ConstU32, Contains, EqualPrivilegeOnly, GenesisBuild, OnInitialize, SortedMembers},
     weights::Weight,
 };
 use frame_system::{EnsureRoot, EnsureSignedBy};
@@ -38,6 +38,7 @@ frame_support::construct_runtime!(
         System: frame_system::{Pallet, Call, Config, Storage, Event<T>},
         Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>},
         Scheduler: pallet_scheduler::{Pallet, Call, Storage, Event<T>},
+        Preimage: pallet_preimage::{Pallet, Call, Storage, Event<T>},
         Democracy: pallet_democracy::{Pallet, Call, Storage, Config<T>, Event<T>},
     }
 );
@@ -55,6 +56,7 @@ parameter_types! {
     pub BlockWeights: frame_system::limits::BlockWeights =
         frame_system::limits::BlockWeights::simple_max(1_000_000);
 }
+
 impl frame_system::Config for Test {
     type BaseCallFilter = BaseFilter;
     type BlockWeights = ();
@@ -79,8 +81,9 @@ impl frame_system::Config for Test {
     type SystemWeightInfo = ();
     type SS58Prefix = ();
     type OnSetCode = ();
-    type MaxConsumers = frame_support::traits::ConstU32<16>;
+    type MaxConsumers = ConstU32<16>;
 }
+
 parameter_types! {
     pub MaximumSchedulerWeight: Weight = Perbill::from_percent(80) * BlockWeights::get().max_block;
 }
@@ -103,6 +106,7 @@ parameter_types! {
     pub const ExistentialDeposit: u64 = 1;
     pub const MaxLocks: u32 = 10;
 }
+
 impl pallet_balances::Config for Test {
     type MaxReserves = ();
     type ReserveIdentifier = [u8; 8];
@@ -114,6 +118,17 @@ impl pallet_balances::Config for Test {
     type AccountStore = System;
     type WeightInfo = ();
 }
+
+impl pallet_preimage::Config for Test {
+    type Event = Event;
+    type WeightInfo = ();
+    type Currency = Balances;
+    type ManagerOrigin = EnsureRoot<u64>;
+    type MaxSize = ConstU32<1024>;
+    type BaseDeposit = ();
+    type ByteDeposit = ();
+}
+
 parameter_types! {
     pub const LaunchPeriod: u64 = 2;
     pub const VotingPeriod: u64 = 2;
@@ -122,8 +137,8 @@ parameter_types! {
     pub const EnactmentPeriod: u64 = 2;
     pub const MaxVotes: u32 = 100;
     pub const MaxProposals: u32 = MAX_PROPOSALS;
-    pub static PreimageByteDeposit: u64 = 0;
 }
+
 ord_parameter_types! {
     pub const One: u64 = 1;
     pub const Two: u64 = 2;
@@ -144,20 +159,19 @@ impl SortedMembers<u64> for OneToFive {
 impl Config for Test {
     type Proposal = Call;
     type Event = Event;
-    type Currency = pallet_balances::Pallet<Self>;
+    type Currency = Balances;
     type EnactmentPeriod = EnactmentPeriod;
     type LaunchPeriod = LaunchPeriod;
     type VotingPeriod = VotingPeriod;
     type FastTrackVotingPeriod = FastTrackVotingPeriod;
     type MinimumDeposit = MinimumDeposit;
     type FastTrackOrigin = EnsureSignedBy<Five, u64>;
-    type PreimageByteDeposit = PreimageByteDeposit;
-    type Slash = ();
     type Scheduler = Scheduler;
     type MaxVotes = MaxVotes;
     type PalletsOrigin = OriginCaller;
     type WeightInfo = ();
     type MaxProposals = MaxProposals;
+    type PreimageProvider = Preimage;
 }
 
 pub fn new_test_ext() -> sp_io::TestExternalities {
