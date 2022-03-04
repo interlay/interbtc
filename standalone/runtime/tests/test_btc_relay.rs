@@ -10,8 +10,12 @@ type BTCRelayError = btc_relay::Error<Runtime>;
 #[test]
 fn integration_test_submit_block_headers_and_verify_transaction_inclusion() {
     ExtBuilder::build().execute_without_relay_init(|| {
+        // ensure that difficulty check is enabled
+        BTCRelayPallet::set_disable_difficulty_check(false);
+        assert!(!BTCRelayPallet::disable_difficulty_check());
+
         // reduce number of blocks to reduce testing time, but higher than 2016 blocks for difficulty adjustment
-        const BLOCKS_TO_TEST: usize = 2_100;
+        const BLOCKS_TO_TEST: usize = 5_000;
 
         // load blocks with transactions
         let test_data = get_bitcoin_testdata();
@@ -20,8 +24,16 @@ fn integration_test_submit_block_headers_and_verify_transaction_inclusion() {
 
         // store all block headers. parachain_genesis is the first block
         // known in the parachain. Any block before will be rejected
-        let parachain_genesis_header = test_data[0].get_raw_header();
-        let parachain_genesis_height = test_data[0].height;
+        // ensure that first block is at a difficulty interval
+        // NOTE: dataset starts at height 691451, first block where X % DIFFICULTY = 0
+        // is 691488, hence we skip the first 37 blocks
+        let skip_blocks = test_data
+            .iter()
+            .position(|d| d.height % DIFFICULTY_ADJUSTMENT_INTERVAL == 0)
+            .unwrap();
+        let parachain_genesis_header = test_data[skip_blocks].get_raw_header();
+        let parachain_genesis_height = test_data[skip_blocks].height;
+        assert_eq!(parachain_genesis_height % DIFFICULTY_ADJUSTMENT_INTERVAL, 0);
 
         assert_ok!(Call::Relay(RelayCall::initialize {
             raw_block_header: parachain_genesis_header,
@@ -29,7 +41,7 @@ fn integration_test_submit_block_headers_and_verify_transaction_inclusion() {
         })
         .dispatch(origin_of(account_of(ALICE))));
 
-        for block in test_data.iter().skip(1).take(BLOCKS_TO_TEST) {
+        for block in test_data.iter().skip(skip_blocks + 1).take(BLOCKS_TO_TEST) {
             let raw_header = block.get_raw_header();
             let parsed_block = bitcoin::parser::parse_block_header_lenient(&raw_header).unwrap();
             let prev_header_hash = parsed_block.hash_prev_block;
@@ -53,7 +65,7 @@ fn integration_test_submit_block_headers_and_verify_transaction_inclusion() {
 
         // verify all transactions
         let current_height = btc_relay::Pallet::<Runtime>::get_best_block_height();
-        for block in test_data.iter().take(BLOCKS_TO_TEST) {
+        for block in test_data.iter().skip(skip_blocks).take(BLOCKS_TO_TEST) {
             for tx in &block.test_txs {
                 let txid = tx.get_txid();
                 let raw_merkle_proof = tx.get_raw_merkle_proof();

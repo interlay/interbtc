@@ -1034,7 +1034,7 @@ impl<T: Config> Pallet<T> {
     /// * `block_height` - current block height
     fn get_last_retarget_time(chain_id: u32, block_height: u32) -> Result<u64, DispatchError> {
         let block_chain = Self::get_block_chain_from_id(chain_id)?;
-        let period_start_height = block_height - block_height % DIFFICULTY_ADJUSTMENT_INTERVAL;
+        let period_start_height = block_height - DIFFICULTY_ADJUSTMENT_INTERVAL;
         let last_retarget_header = Self::get_block_header_from_height(&block_chain, period_start_height)?;
         Ok(last_retarget_header.block_header.timestamp as u64)
     }
@@ -1382,6 +1382,11 @@ impl<T: Config> Pallet<T> {
     fn update_chain_head(basic_block_header: &BlockHeader, block_height: u32) {
         Self::set_best_block(basic_block_header.hash);
         Self::set_best_block_height(block_height);
+    }
+
+    /// For internal testing
+    pub fn set_disable_difficulty_check(disabled: bool) {
+        DisableDifficultyCheck::<T>::put(disabled);
     }
 }
 
