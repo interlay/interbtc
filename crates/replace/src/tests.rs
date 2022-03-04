@@ -59,7 +59,7 @@ mod request_replace_tests {
         ext::vault_registry::requestable_to_be_replaced_tokens::<Test>
             .mock_safe(move |_| MockResult::Return(Ok(wrapped(1000000))));
         ext::vault_registry::try_increase_to_be_replaced_tokens::<Test>
-            .mock_safe(|_, _, _| MockResult::Return(Ok((wrapped(2), griefing(20)))));
+            .mock_safe(|_, _| MockResult::Return(Ok((wrapped(2), griefing(20)))));
         ext::fee::get_replace_griefing_collateral::<Test>.mock_safe(move |_| MockResult::Return(Ok(griefing(20))));
         ext::vault_registry::transfer_funds::<Test>.mock_safe(|_, _, _| MockResult::Return(Ok(())));
     }
@@ -68,11 +68,11 @@ mod request_replace_tests {
     fn test_request_replace_total_to_be_replace_above_dust_succeeds() {
         run_test(|| {
             setup_mocks();
-            assert_ok!(Replace::_request_replace(OLD_VAULT, 1, 10));
+            assert_ok!(Replace::_request_replace(OLD_VAULT, 1));
             assert_event_matches!(Event::RequestReplace {
                 old_vault_id: OLD_VAULT,
                 amount: 1,
-                griefing_collateral: 10
+                ..
             });
         })
     }
@@ -83,11 +83,11 @@ mod request_replace_tests {
             setup_mocks();
             ext::vault_registry::requestable_to_be_replaced_tokens::<Test>
                 .mock_safe(move |_| MockResult::Return(Ok(wrapped(5))));
-            assert_ok!(Replace::_request_replace(OLD_VAULT, 10, 20));
+            assert_ok!(Replace::_request_replace(OLD_VAULT, 10));
             assert_event_matches!(Event::RequestReplace {
                 old_vault_id: OLD_VAULT,
                 amount: 5,
-                griefing_collateral: 10
+                ..
             });
         })
     }
@@ -97,22 +97,10 @@ mod request_replace_tests {
         run_test(|| {
             setup_mocks();
             ext::vault_registry::try_increase_to_be_replaced_tokens::<Test>
-                .mock_safe(|_, _, _| MockResult::Return(Ok((wrapped(1), griefing(10)))));
+                .mock_safe(|_, _| MockResult::Return(Ok((wrapped(1), griefing(10)))));
             assert_err!(
-                Replace::_request_replace(OLD_VAULT, 1, 10),
+                Replace::_request_replace(OLD_VAULT, 1),
                 TestError::AmountBelowDustAmount
-            );
-        })
-    }
-
-    #[test]
-    fn test_request_replace_with_insufficient_griefing_collateral_fails() {
-        run_test(|| {
-            setup_mocks();
-            ext::fee::get_replace_griefing_collateral::<Test>.mock_safe(move |_| MockResult::Return(Ok(griefing(25))));
-            assert_err!(
-                Replace::_request_replace(OLD_VAULT, 1, 10),
-                TestError::InsufficientCollateral
             );
         })
     }

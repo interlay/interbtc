@@ -99,8 +99,6 @@ pub mod pallet {
 
     #[pallet::error]
     pub enum Error<T> {
-        /// Not enough griefing collateral.
-        InsufficientCollateral,
         /// Issue request not found.
         IssueIdNotFound,
         /// Issue request has expired.
@@ -198,10 +196,9 @@ pub mod pallet {
             origin: OriginFor<T>,
             #[pallet::compact] amount: BalanceOf<T>,
             vault_id: DefaultVaultId<T>,
-            #[pallet::compact] griefing_collateral: BalanceOf<T>,
         ) -> DispatchResultWithPostInfo {
             let requester = ensure_signed(origin)?;
-            Self::_request_issue(requester, amount, vault_id, griefing_collateral)?;
+            Self::_request_issue(requester, amount, vault_id)?;
             Ok(().into())
         }
 
@@ -267,10 +264,8 @@ impl<T: Config> Pallet<T> {
         requester: T::AccountId,
         amount_requested: BalanceOf<T>,
         vault_id: DefaultVaultId<T>,
-        griefing_collateral: BalanceOf<T>,
     ) -> Result<H256, DispatchError> {
         let amount_requested = Amount::new(amount_requested, vault_id.wrapped_currency());
-        let griefing_collateral = Amount::new(griefing_collateral, T::GetGriefingCollateralCurrencyId::get());
 
         ensure!(
             ext::btc_relay::is_fully_initialized::<T>()?,
@@ -290,11 +285,9 @@ impl<T: Config> Pallet<T> {
 
         // calculate griefing collateral based on the total amount of tokens to be issued
         let amount_collateral = amount_requested.convert_to(T::GetGriefingCollateralCurrencyId::get())?;
-        let expected_griefing_collateral = ext::fee::get_issue_griefing_collateral::<T>(&amount_collateral)?;
-
-        ensure!(
-            griefing_collateral.ge(&expected_griefing_collateral)?,
-            Error::<T>::InsufficientCollateral
+        let griefing_collateral = Amount::<T>::new(
+            ext::fee::get_issue_griefing_collateral::<T>(&amount_collateral)?.amount(),
+            T::GetGriefingCollateralCurrencyId::get(),
         );
         griefing_collateral.lock_on(&requester)?;
 

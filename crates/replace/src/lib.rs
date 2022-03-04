@@ -108,8 +108,6 @@ pub mod pallet {
     pub enum Error<T> {
         /// Replace amount is too small.
         AmountBelowDustAmount,
-        /// Not enough griefing collateral.
-        InsufficientCollateral,
         /// No replace request found.
         NoPendingRequest,
         /// Unexpected vault account.
@@ -205,10 +203,9 @@ pub mod pallet {
             origin: OriginFor<T>,
             currency_pair: DefaultVaultCurrencyPair<T>,
             #[pallet::compact] amount: BalanceOf<T>,
-            #[pallet::compact] griefing_collateral: BalanceOf<T>,
         ) -> DispatchResultWithPostInfo {
             let old_vault = VaultId::new(ensure_signed(origin)?, currency_pair.collateral, currency_pair.wrapped);
-            Self::_request_replace(old_vault, amount, griefing_collateral)?;
+            Self::_request_replace(old_vault, amount)?;
             Ok(().into())
         }
 
@@ -308,16 +305,11 @@ pub mod pallet {
 // "Internal" functions, callable by code.
 #[cfg_attr(test, mockable)]
 impl<T: Config> Pallet<T> {
-    fn _request_replace(
-        vault_id: DefaultVaultId<T>,
-        amount_btc: BalanceOf<T>,
-        griefing_collateral: BalanceOf<T>,
-    ) -> DispatchResult {
+    fn _request_replace(vault_id: DefaultVaultId<T>, amount_btc: BalanceOf<T>) -> DispatchResult {
         // check vault is not banned
         ext::vault_registry::ensure_not_banned::<T>(&vault_id)?;
 
         let amount_btc = Amount::new(amount_btc, vault_id.wrapped_currency());
-        let griefing_collateral = Amount::new(griefing_collateral, T::GetGriefingCollateralCurrencyId::get());
 
         ensure!(
             !ext::nomination::is_nominatable::<T>(&vault_id)?,
@@ -326,19 +318,12 @@ impl<T: Config> Pallet<T> {
 
         let requestable_tokens = ext::vault_registry::requestable_to_be_replaced_tokens::<T>(&vault_id)?;
         let to_be_replaced_increase = amount_btc.min(&requestable_tokens)?;
-        let replace_collateral_increase = if amount_btc.is_zero() {
-            griefing_collateral
-        } else {
-            ext::vault_registry::calculate_collateral::<T>(&griefing_collateral, &to_be_replaced_increase, &amount_btc)?
-        };
+
+        ensure!(!amount_btc.is_zero(), Error::<T>::ReplaceAmountZero);
 
         // increase to-be-replaced tokens. This will fail if the vault does not have enough tokens available
-        let (total_to_be_replaced, total_griefing_collateral) =
-            ext::vault_registry::try_increase_to_be_replaced_tokens::<T>(
-                &vault_id,
-                &to_be_replaced_increase,
-                &replace_collateral_increase,
-            )?;
+        let (total_to_be_replaced, previous_griefing_collateral) =
+            ext::vault_registry::try_increase_to_be_replaced_tokens::<T>(&vault_id, &to_be_replaced_increase)?;
 
         // check that total-to-be-replaced is above the minimum. NOTE: this means that even
         // a request with amount=0 is valid, as long the _total_ is above DUST. This might
@@ -349,13 +334,10 @@ impl<T: Config> Pallet<T> {
         );
 
         // check that that the total griefing collateral is sufficient
-        let required_collateral = ext::fee::get_replace_griefing_collateral::<T>(
+        let griefing_collateral = ext::fee::get_replace_griefing_collateral::<T>(
             &total_to_be_replaced.convert_to(T::GetGriefingCollateralCurrencyId::get())?,
         )?;
-        ensure!(
-            total_griefing_collateral.ge(&required_collateral)?,
-            Error::<T>::InsufficientCollateral
-        );
+        let replace_collateral_increase = griefing_collateral.saturating_sub(&previous_griefing_collateral)?;
 
         // Lock the oldVault’s griefing collateral
         ext::vault_registry::transfer_funds(

@@ -125,7 +125,6 @@ benchmarks! {
         let origin: T::AccountId = account("Origin", 0, 0);
         let amount = Issue::<T>::issue_btc_dust_value(get_wrapped_currency_id::<T>()).amount() + 1000u32.into();
         let vault_id = get_vault_id::<T>();
-        let griefing: u32 = 100;
         let relayer_id: T::AccountId = account("Relayer", 0, 0);
 
         mint_collateral::<T>(&origin, (1u32 << 31).into());
@@ -188,7 +187,7 @@ benchmarks! {
         BtcRelay::<T>::store_block_header(&relayer_id, block_header).unwrap();
         Security::<T>::set_active_block_number(Security::<T>::active_block_number() + BtcRelay::<T>::parachain_confirmations());
 
-    }: _(RawOrigin::Signed(origin), amount, vault_id, griefing.into())
+    }: _(RawOrigin::Signed(origin), amount, vault_id)
 
     execute_issue {
         let origin: T::AccountId = account("Origin", 0, 0);
