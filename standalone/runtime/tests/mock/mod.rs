@@ -102,6 +102,7 @@ pub fn default_vault_free_balance(currency_id: CurrencyId) -> Amount<Runtime> {
 }
 
 pub const CONFIRMATIONS: u32 = 6;
+pub const DIFFICULTY_ADJUSTMENT_INTERVAL: u32 = 2016;
 
 pub type BTCRelayCall = btc_relay::Call<Runtime>;
 pub type BTCRelayPallet = btc_relay::Pallet<Runtime>;
