@@ -673,12 +673,19 @@ pub struct EscrowBlockRewardProvider;
 
 impl annuity::BlockRewardProvider<AccountId> for EscrowBlockRewardProvider {
     type Currency = NativeCurrency;
+
+    #[cfg(any(feature = "runtime-benchmarks"))]
+    fn deposit_stake(from: &AccountId, amount: Balance) -> DispatchResult {
+        <EscrowRewards as reward::Rewards<AccountId, Balance, CurrencyId>>::deposit_stake(from, amount)
+    }
+
     fn distribute_block_reward(_from: &AccountId, amount: Balance) -> DispatchResult {
         <EscrowRewards as reward::Rewards<AccountId, Balance, CurrencyId>>::distribute_reward(
             amount,
             GetNativeCurrencyId::get(),
         )
     }
+
     fn withdraw_reward(who: &AccountId) -> Result<Balance, DispatchError> {
         <EscrowRewards as reward::Rewards<AccountId, Balance, CurrencyId>>::withdraw_reward(
             who,
@@ -696,12 +703,20 @@ impl annuity::Config<EscrowAnnuityInstance> for Runtime {
     type BlockRewardProvider = EscrowBlockRewardProvider;
     type BlockNumberToBalance = BlockNumberToBalance;
     type EmissionPeriod = EmissionPeriod;
+    type WeightInfo = ();
 }
 
 pub struct VaultBlockRewardProvider;
 
 impl annuity::BlockRewardProvider<AccountId> for VaultBlockRewardProvider {
     type Currency = NativeCurrency;
+
+    #[cfg(any(feature = "runtime-benchmarks"))]
+    fn deposit_stake(_from: &AccountId, _amount: Balance) -> DispatchResult {
+        // TODO: fix for vault id
+        Ok(())
+    }
+
     fn distribute_block_reward(from: &AccountId, amount: Balance) -> DispatchResult {
         // TODO: remove fee pallet?
         Self::Currency::transfer(from, &FeeAccount::get(), amount, ExistenceRequirement::KeepAlive)?;
@@ -710,6 +725,7 @@ impl annuity::BlockRewardProvider<AccountId> for VaultBlockRewardProvider {
             GetNativeCurrencyId::get(),
         )
     }
+
     fn withdraw_reward(_: &AccountId) -> Result<Balance, DispatchError> {
         Ok(Zero::zero())
     }
@@ -724,6 +740,7 @@ impl annuity::Config<VaultAnnuityInstance> for Runtime {
     type BlockRewardProvider = VaultBlockRewardProvider;
     type BlockNumberToBalance = BlockNumberToBalance;
     type EmissionPeriod = EmissionPeriod;
+    type WeightInfo = ();
 }
 
 pub type EscrowRewardsInstance = reward::Instance1;
@@ -1105,6 +1122,7 @@ impl_runtime_apis! {
 
             let mut list = Vec::<BenchmarkList>::new();
 
+            list_benchmark!(list, extra, annuity, EscrowAnnuity);
             list_benchmark!(list, extra, btc_relay, BTCRelay);
             list_benchmark!(list, extra, escrow, Escrow);
             list_benchmark!(list, extra, fee, Fee);
@@ -1143,6 +1161,7 @@ impl_runtime_apis! {
             let mut batches = Vec::<BenchmarkBatch>::new();
             let params = (&config, &whitelist);
 
+            add_benchmark!(params, batches, annuity, EscrowAnnuity);
             add_benchmark!(params, batches, btc_relay, BTCRelay);
             add_benchmark!(params, batches, escrow, Escrow);
             add_benchmark!(params, batches, fee, Fee);

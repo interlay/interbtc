@@ -196,6 +196,7 @@ runtime-benchmarks = [
   "pallet-collective/runtime-benchmarks",
   "pallet-society/runtime-benchmarks",
 
+  "annuity/runtime-benchmarks",
   "btc-relay/runtime-benchmarks",
   "oracle/runtime-benchmarks",
   "issue/runtime-benchmarks",

@@ -91,6 +91,9 @@ pub struct MockBlockRewardProvider;
 
 impl BlockRewardProvider<AccountId> for MockBlockRewardProvider {
     type Currency = Balances;
+    fn deposit_stake(_: &AccountId, _: Balance) -> DispatchResult {
+        Ok(())
+    }
     fn distribute_block_reward(_: &AccountId, _: Balance) -> DispatchResult {
         Ok(())
     }
@@ -111,6 +114,7 @@ impl Config for Test {
     type BlockRewardProvider = MockBlockRewardProvider;
     type BlockNumberToBalance = Identity;
     type EmissionPeriod = EmissionPeriod;
+    type WeightInfo = ();
 }
 
 pub type TestEvent = Event;
