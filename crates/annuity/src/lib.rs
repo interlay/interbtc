@@ -5,6 +5,12 @@
 #![cfg_attr(test, feature(proc_macro_hygiene))]
 #![cfg_attr(not(feature = "std"), no_std)]
 
+#[cfg(any(feature = "runtime-benchmarks", test))]
+mod benchmarking;
+
+mod default_weights;
+pub use default_weights::WeightInfo;
+
 #[cfg(test)]
 mod mock;
 
@@ -28,7 +34,7 @@ type BalanceOf<T, I> = <<T as Config<I>>::Currency as Currency<<T as frame_syste
 pub mod pallet {
     use super::*;
     use frame_support::pallet_prelude::*;
-    use frame_system::{ensure_signed, pallet_prelude::*};
+    use frame_system::{ensure_root, ensure_signed, pallet_prelude::*};
 
     /// ## Configuration
     /// The pallet's configuration trait.
@@ -53,6 +59,9 @@ pub mod pallet {
         /// The emission period for block rewards.
         #[pallet::constant]
         type EmissionPeriod: Get<Self::BlockNumber>;
+
+        /// Weight information for the extrinsics in this module.
+        type WeightInfo: WeightInfo;
     }
 
     // The pallet's events
@@ -85,13 +94,20 @@ pub mod pallet {
     // The pallet's dispatchable functions.
     #[pallet::call]
     impl<T: Config<I>, I: 'static> Pallet<T, I> {
-        // TODO: add proper benchmarks, maybe use reward pallet directly
-        #[pallet::weight(100_000_000)]
+        #[pallet::weight(T::WeightInfo::withdraw_rewards())]
         #[transactional]
         pub fn withdraw_rewards(origin: OriginFor<T>) -> DispatchResultWithPostInfo {
             let dest = ensure_signed(origin)?;
             let value = T::BlockRewardProvider::withdraw_reward(&dest)?;
             let _ = T::Currency::transfer(&Self::account_id(), &dest, value, ExistenceRequirement::KeepAlive);
+            Ok(().into())
+        }
+
+        #[pallet::weight(T::WeightInfo::update_rewards())]
+        #[transactional]
+        pub fn update_rewards(origin: OriginFor<T>) -> DispatchResultWithPostInfo {
+            ensure_root(origin)?;
+            Self::update_reward_per_block();
             Ok(().into())
         }
     }
@@ -119,6 +135,8 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 
 pub trait BlockRewardProvider<AccountId> {
     type Currency: ReservableCurrency<AccountId>;
+    #[cfg(any(feature = "runtime-benchmarks", test))]
+    fn deposit_stake(from: &AccountId, amount: <Self::Currency as Currency<AccountId>>::Balance) -> DispatchResult;
     fn distribute_block_reward(
         from: &AccountId,
         amount: <Self::Currency as Currency<AccountId>>::Balance,

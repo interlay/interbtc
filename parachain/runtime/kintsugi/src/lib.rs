@@ -1079,6 +1079,7 @@ impl annuity::Config<EscrowAnnuityInstance> for Runtime {
     type BlockRewardProvider = EscrowBlockRewardProvider;
     type BlockNumberToBalance = BlockNumberToBalance;
     type EmissionPeriod = EmissionPeriod;
+    type WeightInfo = ();
 }
 
 pub struct VaultBlockRewardProvider;
@@ -1107,6 +1108,7 @@ impl annuity::Config<VaultAnnuityInstance> for Runtime {
     type BlockRewardProvider = VaultBlockRewardProvider;
     type BlockNumberToBalance = BlockNumberToBalance;
     type EmissionPeriod = EmissionPeriod;
+    type WeightInfo = ();
 }
 
 type EscrowRewardsInstance = reward::Instance1;
