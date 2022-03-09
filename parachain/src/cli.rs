@@ -14,6 +14,10 @@ pub enum Subcommand {
     #[clap(name = "export-genesis-wasm")]
     ExportGenesisWasm(ExportGenesisWasmCommand),
 
+    /// Export the metadata.
+    #[clap(name = "export-metadata")]
+    ExportMetadata(ExportMetadataCommand),
+
     /// Build a chain specification.
     BuildSpec(sc_cli::BuildSpecCmd),
 
@@ -70,6 +74,29 @@ pub struct ExportGenesisWasmCommand {
     /// The name of the chain for that the genesis wasm file should be exported.
     #[clap(long)]
     pub chain: Option<String>,
+}
+
+/// Command for exporting the metadata.
+#[derive(Debug, Parser)]
+pub struct ExportMetadataCommand {
+    /// Output file name or stdout if unspecified.
+    #[clap(parse(from_os_str))]
+    pub output: Option<PathBuf>,
+
+    /// Write output in binary. Default is to write in hex.
+    #[clap(short, long)]
+    pub raw: bool,
+
+    /// The name of the runtime to retrieve the metadata from.
+    #[clap(long, arg_enum)]
+    pub runtime: RuntimeName,
+}
+
+#[derive(clap::ArgEnum, Debug, Clone)]
+pub enum RuntimeName {
+    Interlay,
+    Kintsugi,
+    Testnet,
 }
 
 #[derive(Debug, Parser)]

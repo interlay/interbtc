@@ -22,6 +22,8 @@ use crate::{
 use interbtc_runtime::Block;
 use sc_cli::{ChainSpec, Result, RuntimeVersion, SubstrateCli};
 use sc_service::{Configuration, PartialComponents, TaskManager};
+use sp_core::hexdisplay::HexDisplay;
+use std::io::Write;
 
 fn load_spec(id: &str) -> std::result::Result<Box<dyn sc_service::ChainSpec>, String> {
     match id {
@@ -146,6 +148,28 @@ pub fn run() -> Result<()> {
 				You can enable it with `--features runtime-benchmarks`."
                     .into())
             }
+        }
+        Some(Subcommand::ExportMetadata(params)) => {
+            let mut ext = frame_support::BasicExternalities::default();
+            sc_executor::with_externalities_safe(&mut ext, move || {
+                let raw_meta_blob = interbtc_runtime::Runtime::metadata().into();
+                let output_buf = if params.raw {
+                    raw_meta_blob
+                } else {
+                    format!("0x{:?}", HexDisplay::from(&raw_meta_blob)).into_bytes()
+                };
+
+                if let Some(output) = &params.output {
+                    std::fs::write(output, output_buf)?;
+                } else {
+                    std::io::stdout().write_all(&output_buf)?;
+                }
+
+                Ok::<_, sc_cli::Error>(())
+            })
+            .map_err(|err| sc_cli::Error::Application(err.into()))??;
+
+            Ok(())
         }
         None => {
             let runner = cli.create_runner(&*cli.run)?;

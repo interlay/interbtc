@@ -16,7 +16,7 @@
 
 use crate::{
     chain_spec,
-    cli::{Cli, Subcommand},
+    cli::{Cli, RuntimeName, Subcommand},
     service::{new_partial, InterlayRuntimeExecutor, KintsugiRuntimeExecutor, TestnetRuntimeExecutor},
 };
 use primitives::Block;
@@ -33,7 +33,7 @@ use sc_cli::{CliConfiguration, DefaultConfigurationValues, ImportParams, Keystor
 use sc_service::config::{BasePath, PrometheusConfig};
 use sp_core::hexdisplay::HexDisplay;
 use sp_runtime::traits::Block as BlockT;
-use std::{io::Write, net::SocketAddr};
+use std::{io::Write, net::SocketAddr, path::PathBuf};
 
 const DEFAULT_PARA_ID: u32 = 2121;
 
@@ -189,6 +189,22 @@ fn extract_genesis_wasm(chain_spec: &Box<dyn sc_service::ChainSpec>) -> Result<V
         .ok_or_else(|| "Could not find wasm file in genesis state!".into())
 }
 
+fn write_to_file_or_stdout(raw: bool, output: &Option<PathBuf>, raw_bytes: Vec<u8>) -> Result<()> {
+    let output_buf = if raw {
+        raw_bytes
+    } else {
+        format!("0x{:?}", HexDisplay::from(&raw_bytes)).into_bytes()
+    };
+
+    if let Some(output) = output {
+        std::fs::write(output, output_buf)?;
+    } else {
+        std::io::stdout().write_all(&output_buf)?;
+    }
+
+    Ok(())
+}
+
 macro_rules! construct_async_run {
 	(|$components:ident, $cli:ident, $cmd:ident, $config:ident| $( $code:tt )* ) => {{
 		let runner = $cli.create_runner($cmd)?;
@@ -299,17 +315,7 @@ pub fn run() -> Result<()> {
             let state_version = Cli::native_runtime_version(&chain_spec).state_version();
             let block: Block = generate_genesis_block(&chain_spec, state_version)?;
             let raw_header = block.header().encode();
-            let output_buf = if params.raw {
-                raw_header
-            } else {
-                format!("0x{:?}", HexDisplay::from(&block.header().encode())).into_bytes()
-            };
-
-            if let Some(output) = &params.output {
-                std::fs::write(output, output_buf)?;
-            } else {
-                std::io::stdout().write_all(&output_buf)?;
-            }
+            write_to_file_or_stdout(params.raw, &params.output, raw_header)?;
 
             Ok(())
         }
@@ -319,17 +325,23 @@ pub fn run() -> Result<()> {
             let _ = builder.init();
 
             let raw_wasm_blob = extract_genesis_wasm(&cli.load_spec(&params.chain.clone().unwrap_or_default())?)?;
-            let output_buf = if params.raw {
-                raw_wasm_blob
-            } else {
-                format!("0x{:?}", HexDisplay::from(&raw_wasm_blob)).into_bytes()
-            };
+            write_to_file_or_stdout(params.raw, &params.output, raw_wasm_blob)?;
 
-            if let Some(output) = &params.output {
-                std::fs::write(output, output_buf)?;
-            } else {
-                std::io::stdout().write_all(&output_buf)?;
-            }
+            Ok(())
+        }
+        Some(Subcommand::ExportMetadata(params)) => {
+            let mut ext = frame_support::BasicExternalities::default();
+            sc_executor::with_externalities_safe(&mut ext, move || {
+                let raw_meta_blob = match params.runtime {
+                    RuntimeName::Interlay => interlay_runtime::Runtime::metadata().into(),
+                    RuntimeName::Kintsugi => kintsugi_runtime::Runtime::metadata().into(),
+                    RuntimeName::Testnet => testnet_runtime::Runtime::metadata().into(),
+                };
+
+                write_to_file_or_stdout(params.raw, &params.output, raw_meta_blob)?;
+                Ok::<_, sc_cli::Error>(())
+            })
+            .map_err(|err| sc_cli::Error::Application(err.into()))??;
 
             Ok(())
         }

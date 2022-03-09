@@ -54,6 +54,7 @@ sp-transaction-pool = { git = "https://github.com/paritytech/substrate", branch 
 sp-arithmetic = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.17" }
 sp-finality-grandpa = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.17" }
 
+frame-support = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.17" }
 frame-benchmarking = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.17" }
 frame-benchmarking-cli = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.17" }
 
