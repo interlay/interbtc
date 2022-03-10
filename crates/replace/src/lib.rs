@@ -106,25 +106,28 @@ pub mod pallet {
 
     #[pallet::error]
     pub enum Error<T> {
+        /// Replace amount is too small.
         AmountBelowDustAmount,
-        NoReplacement,
+        /// Not enough griefing collateral.
         InsufficientCollateral,
+        /// No replace request found.
         NoPendingRequest,
+        /// Unexpected vault account.
         UnauthorizedVault,
+        /// Cannot replace self.
         ReplaceSelfNotAllowed,
-        CancelAcceptedRequest,
-        CollateralBelowSecureThreshold,
+        /// Cannot replace with nominated collateral.
         VaultHasEnabledNomination,
-        ReplacePeriodExpired,
+        /// Replace request has not expired.
         ReplacePeriodNotExpired,
+        /// Replace request already completed.
         ReplaceCompleted,
+        /// Replace request already cancelled.
         ReplaceCancelled,
+        /// Replace request not found.
         ReplaceIdNotFound,
+        /// Vault cannot replace different currency.
         InvalidWrappedCurrency,
-        /// Unable to convert value
-        TryIntoIntError,
-        ArithmeticUnderflow,
-        ArithmeticOverflow,
     }
 
     /// Vaults create replace requests to transfer locked collateral.
