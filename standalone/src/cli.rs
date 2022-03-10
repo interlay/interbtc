@@ -4,6 +4,10 @@ use std::path::PathBuf;
 /// Sub-commands supported by the collator.
 #[derive(Debug, Parser)]
 pub enum Subcommand {
+    /// Export the metadata.
+    #[clap(name = "export-metadata")]
+    ExportMetadata(ExportMetadataCommand),
+
     /// Build a chain specification.
     BuildSpec(sc_cli::BuildSpecCmd),
 
@@ -30,9 +34,9 @@ pub enum Subcommand {
     Benchmark(frame_benchmarking_cli::BenchmarkCmd),
 }
 
-/// Command for exporting the genesis state of the parachain
+/// Command for exporting the metadata.
 #[derive(Debug, Parser)]
-pub struct ExportGenesisStateCommand {
+pub struct ExportMetadataCommand {
     /// Output file name or stdout if unspecified.
     #[clap(parse(from_os_str))]
     pub output: Option<PathBuf>,
@@ -40,26 +44,6 @@ pub struct ExportGenesisStateCommand {
     /// Write output in binary. Default is to write in hex.
     #[clap(short, long)]
     pub raw: bool,
-
-    /// The name of the chain for that the genesis state should be exported.
-    #[clap(long)]
-    pub chain: Option<String>,
-}
-
-/// Command for exporting the genesis wasm file.
-#[derive(Debug, Parser)]
-pub struct ExportGenesisWasmCommand {
-    /// Output file name or stdout if unspecified.
-    #[clap(parse(from_os_str))]
-    pub output: Option<PathBuf>,
-
-    /// Write output in binary. Default is to write in hex.
-    #[clap(short, long)]
-    pub raw: bool,
-
-    /// The name of the chain for that the genesis wasm file should be exported.
-    #[clap(long)]
-    pub chain: Option<String>,
 }
 
 #[derive(Debug, Parser)]

@@ -69,6 +69,7 @@ substrate-prometheus-endpoint = { git = "https://github.com/paritytech/substrate
 pallet-transaction-payment-rpc = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.17" }
 substrate-frame-rpc-system = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.17" }
 
+frame-support = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.17" }
 frame-benchmarking = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.17" }
 frame-benchmarking-cli = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.17" }
 
