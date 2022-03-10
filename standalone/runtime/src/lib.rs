@@ -59,7 +59,8 @@ pub use security::StatusCode;
 
 pub use primitives::{
     self, AccountId, Balance, BlockNumber, CurrencyId, CurrencyId::Token, CurrencyInfo, Hash, Moment, Nonce, Signature,
-    SignedFixedPoint, SignedInner, TokenSymbol, UnsignedFixedPoint, UnsignedInner, DOT, INTERBTC, INTR, KINT, KSM,
+    SignedFixedPoint, SignedInner, TokenSymbol, UnsignedFixedPoint, UnsignedInner, DOT, INTERBTC, INTR, KBTC, KINT,
+    KSM,
 };
 
 type VaultId = primitives::VaultId<AccountId, CurrencyId>;

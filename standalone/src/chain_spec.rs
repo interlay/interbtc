@@ -1,21 +1,19 @@
 use bitcoin::utils::{virtual_transaction_size, InputType, TransactionInputMetadata, TransactionOutputMetadata};
 use hex_literal::hex;
+use interbtc_rpc::jsonrpc_core::serde_json::{map::Map, Value};
 use interbtc_runtime::{
-    token_distribution, AccountId, AuraConfig, BTCRelayConfig, CurrencyId, CurrencyId::Token, FeeConfig, GenesisConfig,
-    GetWrappedCurrencyId, GrandpaConfig, IssueConfig, NominationConfig, OracleConfig, RedeemConfig, RefundConfig,
-    ReplaceConfig, SecurityConfig, Signature, StatusCode, SudoConfig, SupplyConfig, SystemConfig,
-    TechnicalCommitteeConfig, TokenSymbol, TokensConfig, VaultRegistryConfig, BITCOIN_BLOCK_SPACING, DAYS, DOT, INTR,
-    KINT, KSM, WASM_BINARY, YEARS,
+    token_distribution, AccountId, AuraConfig, BTCRelayConfig, CurrencyId, CurrencyId::Token, CurrencyInfo, FeeConfig,
+    GenesisConfig, GetWrappedCurrencyId, GrandpaConfig, IssueConfig, NominationConfig, OracleConfig, RedeemConfig,
+    RefundConfig, ReplaceConfig, SecurityConfig, Signature, StatusCode, SudoConfig, SupplyConfig, SystemConfig,
+    TechnicalCommitteeConfig, TokensConfig, VaultRegistryConfig, BITCOIN_BLOCK_SPACING, DAYS, DOT, INTERBTC, INTR,
+    KBTC, KINT, KSM, WASM_BINARY, YEARS,
 };
 use primitives::VaultCurrencyPair;
-use sp_consensus_aura::sr25519::AuthorityId as AuraId;
-use sp_core::crypto::UncheckedInto;
-use sp_finality_grandpa::AuthorityId as GrandpaId;
-
-use interbtc_rpc::jsonrpc_core::serde_json::{map::Map, Value};
 use sc_service::ChainType;
 use sp_arithmetic::{FixedPointNumber, FixedU128};
-use sp_core::{sr25519, Pair, Public};
+use sp_consensus_aura::sr25519::AuthorityId as AuraId;
+use sp_core::{crypto::UncheckedInto, sr25519, Pair, Public};
+use sp_finality_grandpa::AuthorityId as GrandpaId;
 use sp_runtime::traits::{IdentifyAccount, Verify};
 use std::str::FromStr;
 
@@ -54,12 +52,13 @@ fn get_properties() -> Map<String, Value> {
     let mut properties = Map::new();
     let mut token_symbol: Vec<String> = vec![];
     let mut token_decimals: Vec<u32> = vec![];
-    TokenSymbol::get_info().iter().for_each(|(symbol_name, decimals)| {
-        token_symbol.push(symbol_name.to_string());
-        token_decimals.push(*decimals);
+    [INTR, INTERBTC, DOT, KINT, KBTC, KSM].iter().for_each(|token| {
+        token_symbol.push(token.symbol().to_string());
+        token_decimals.push(token.decimals() as u32);
     });
     properties.insert("tokenSymbol".into(), token_symbol.into());
     properties.insert("tokenDecimals".into(), token_decimals.into());
+    properties.insert("ss58Format".into(), interbtc_runtime::SS58Prefix::get().into());
     properties
 }
 
