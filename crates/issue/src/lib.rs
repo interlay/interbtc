@@ -99,19 +99,25 @@ pub mod pallet {
 
     #[pallet::error]
     pub enum Error<T> {
+        /// Not enough griefing collateral.
         InsufficientCollateral,
+        /// Issue request not found.
         IssueIdNotFound,
+        /// Issue request has expired.
         CommitPeriodExpired,
+        /// Issue request has not expired.
         TimeNotExpired,
+        /// Issue request already completed.
         IssueCompleted,
+        /// Issue request already cancelled.
         IssueCancelled,
+        /// Vault is not active.
         VaultNotAcceptingNewIssues,
+        /// Relay is not initialized.
         WaitingForRelayerInitialization,
-        /// Unable to convert value
-        TryIntoIntError,
-        ArithmeticUnderflow,
-        ArithmeticOverflow,
+        /// Not expected origin.
         InvalidExecutor,
+        /// Issue amount is too small.
         AmountBelowDustAmount,
     }
 
