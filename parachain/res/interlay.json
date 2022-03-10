@@ -2,7 +2,14 @@
   "name": "Interlay",
   "id": "interlay",
   "chainType": "Live",
-  "bootNodes": [],
+  "bootNodes": [
+    "/dns4/bootnodes.interbtc.interlay.io/tcp/30335/p2p/12D3KooWGD9FgkiKWQTp5t6VLJgTKYqex7AY8CHTs7PGpARLTSZr",
+    "/dns4/bootnodes.interbtc.interlay.io/tcp/30336/p2p/12D3KooWJ8Ga38UfUWcBuKCVjJFNCyFAd5YrLnDikTvinE4QG8TG",
+    "/ip4/163.47.11.126/tcp/30333/p2p/12D3KooWQWUe64Cmqg3ygRNhxtZFaQHtoPBrCsJW6bUucuyiiR78",
+    "/ip6/2400:6180:0:d0::11a5:1/tcp/30333/p2p/12D3KooWQWUe64Cmqg3ygRNhxtZFaQHtoPBrCsJW6bUucuyiiR78",
+    "/ip4/45.55.122.85/tcp/30333/p2p/12D3KooWQsTnGMPF2uoHvF3p9yTxLsRiWfgVMQZvmq974ebkrqVX",
+    "/ip6/2604:a880:800:10::bbe:b001/tcp/30333/p2p/12D3KooWQsTnGMPF2uoHvF3p9yTxLsRiWfgVMQZvmq974ebkrqVX"
+  ],
   "telemetryEndpoints": null,
   "protocolId": null,
   "properties": {
