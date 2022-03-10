@@ -177,13 +177,30 @@ pub mod pallet {
 
     #[pallet::error]
     pub enum Error<T> {
-        InvalidAmount,
-        InvalidHeight,
+        /// Input amount must be non-zero.
+        InputAmountZero,
+        /// Lock already exists.
+        LockFound,
+        /// Lock does not exist.
         LockNotFound,
+        /// Unlock height is not in the future.
+        UnlockHeightNotInTheFuture,
+        /// Unlock height is greater than max period.
+        UnlockHeightTooFarInTheFuture,
+        /// Lock amount must be non-zero.
+        LockAmountZero,
+        /// Unlock height should be greater than lock.
+        UnlockHeightMustIncrease,
+        /// Previous lock has not expired.
         LockNotExpired,
+        /// Previous lock has expired.
         LockHasExpired,
+        /// Lock amount is too large.
+        LockAmountTooLarge,
+        /// Insufficient account balance.
         InsufficientFunds,
-        InvalidAction,
+        /// Not supported.
+        NotSupported,
     }
 
     #[pallet::hooks]
@@ -251,18 +268,18 @@ pub mod pallet {
             let unlock_height = Self::round_height(unlock_height);
 
             // value MUST be non-zero
-            ensure!(!amount.is_zero(), Error::<T>::InvalidAmount);
+            ensure!(!amount.is_zero(), Error::<T>::InputAmountZero);
 
             // user MUST withdraw first
-            ensure!(Self::locked_balance(&who).amount.is_zero(), Error::<T>::InvalidAmount);
+            ensure!(Self::locked_balance(&who).amount.is_zero(), Error::<T>::LockFound);
 
             // unlock MUST be in the future
-            ensure!(unlock_height > now, Error::<T>::InvalidHeight);
+            ensure!(unlock_height > now, Error::<T>::UnlockHeightNotInTheFuture);
 
             // height MUST NOT be greater than max
             let max_period = T::MaxPeriod::get();
             let end_height = now.saturating_add(max_period);
-            ensure!(unlock_height <= end_height, Error::<T>::InvalidHeight);
+            ensure!(unlock_height <= end_height, Error::<T>::UnlockHeightTooFarInTheFuture);
 
             Self::deposit_for(&who, amount, unlock_height)
         }
@@ -275,7 +292,7 @@ pub mod pallet {
             let now = Self::current_height();
 
             // value MUST be non-zero
-            ensure!(!amount.is_zero(), Error::<T>::InvalidAmount);
+            ensure!(!amount.is_zero(), Error::<T>::InputAmountZero);
 
             // lock MUST exist first
             ensure!(!locked_balance.amount.is_zero(), Error::<T>::LockNotFound);
@@ -300,15 +317,15 @@ pub mod pallet {
             ensure!(locked_balance.end > now, Error::<T>::LockHasExpired);
 
             // lock amount MUST be non-zero
-            ensure!(!locked_balance.amount.is_zero(), Error::<T>::InvalidAmount);
+            ensure!(!locked_balance.amount.is_zero(), Error::<T>::LockAmountZero);
 
             // lock duration MUST increase
-            ensure!(unlock_height > locked_balance.end, Error::<T>::InvalidHeight);
+            ensure!(unlock_height > locked_balance.end, Error::<T>::UnlockHeightMustIncrease);
 
             // height MUST NOT be greater than max
             let max_period = T::MaxPeriod::get();
             let end_height = now.saturating_add(max_period);
-            ensure!(unlock_height <= end_height, Error::<T>::InvalidHeight);
+            ensure!(unlock_height <= end_height, Error::<T>::UnlockHeightTooFarInTheFuture);
 
             Self::deposit_for(&who, Zero::zero(), unlock_height)
         }
@@ -473,7 +490,7 @@ impl<T: Config> Pallet<T> {
         // total amount can't be less than the max period to prevent rounding errors
         ensure!(
             new_locked.amount >= T::BlockNumberToBalance::convert(T::MaxPeriod::get()),
-            Error::<T>::InvalidAmount
+            Error::<T>::LockAmountTooLarge,
         );
 
         ensure!(
@@ -606,7 +623,7 @@ impl<T: Config> Currency<T::AccountId> for Pallet<T> {
         _reasons: WithdrawReasons,
         _new_balance: Self::Balance,
     ) -> DispatchResult {
-        Err(Error::<T>::InvalidAction.into())
+        Err(Error::<T>::NotSupported.into())
     }
 
     // NOT SUPPORTED
@@ -616,7 +633,7 @@ impl<T: Config> Currency<T::AccountId> for Pallet<T> {
         _value: Self::Balance,
         _existence_requirement: ExistenceRequirement,
     ) -> DispatchResult {
-        Err(Error::<T>::InvalidAction.into())
+        Err(Error::<T>::NotSupported.into())
     }
 
     // NOT SUPPORTED
@@ -629,7 +646,7 @@ impl<T: Config> Currency<T::AccountId> for Pallet<T> {
         _who: &T::AccountId,
         _value: Self::Balance,
     ) -> sp_std::result::Result<Self::PositiveImbalance, DispatchError> {
-        Err(Error::<T>::InvalidAction.into())
+        Err(Error::<T>::NotSupported.into())
     }
 
     // NOT SUPPORTED
@@ -644,7 +661,7 @@ impl<T: Config> Currency<T::AccountId> for Pallet<T> {
         _reasons: WithdrawReasons,
         _liveness: ExistenceRequirement,
     ) -> sp_std::result::Result<Self::NegativeImbalance, DispatchError> {
-        Err(Error::<T>::InvalidAction.into())
+        Err(Error::<T>::NotSupported.into())
     }
 
     fn make_free_balance_be(
@@ -697,6 +714,6 @@ impl<T: Config> ReservableCurrency<T::AccountId> for Pallet<T> {
         _value: Self::Balance,
         _status: BalanceStatus,
     ) -> sp_std::result::Result<Self::Balance, DispatchError> {
-        Err(Error::<T>::InvalidAction.into())
+        Err(Error::<T>::NotSupported.into())
     }
 }
