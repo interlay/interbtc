@@ -907,12 +907,19 @@ parameter_types! {
 }
 
 parameter_types! {
+    // wd9yNSwR5jsJWJNNuqYxifekh2dwu9u15Sr1tP5kmKTJBLc4R
     pub FeeAccount: AccountId = FeePalletId::get().into_account();
+    // wd9yNSwR5jsJWJmaV4ccaRqdxXFTJUS4shu7RMuSVk3c5F3f4
     pub SupplyAccount: AccountId = SupplyPalletId::get().into_account();
+    // wd9yNSwR495PKYxKfdeuMcNyu6kqay7wKeWcLMvQ8muuWVPYj
     pub EscrowAnnuityAccount: AccountId = EscrowAnnuityPalletId::get().into_account();
+    // wd9yNSwR7YL4Y4PEtY4pUxYR2jeVdsgwyoN8fwVc9196VMAt4
     pub VaultAnnuityAccount: AccountId = VaultAnnuityPalletId::get().into_account();
+    // wd9yNSwR5jsJWJoLHrMKt4K2T7R5392YmZoRdpqijnpLGzEcT
     pub TreasuryAccount: AccountId = TreasuryPalletId::get().into_account();
+    // wd9yNSwR3jeqTuo91k53PUAcfaqX5ZCK4gCPHa5G3h1y8kBEe
     pub CollatorSelectionAccount: AccountId = CollatorPotId::get().into_account();
+    // wd9yNSwR5jsJWJrtHcnS8Wf6D5zF2dbQhxwRuvAzg9jefbhuM
     pub VaultRegistryAccount: AccountId = VaultRegistryPalletId::get().into_account();
 }
 
