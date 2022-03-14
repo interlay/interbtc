@@ -144,16 +144,10 @@ pub fn beta_testnet_config() -> ChainSpec {
                     get_account_id_from_string("5H8zjSWfzMn86d1meeNrZJDj3QZSvRjKxpTfuVaZ46QJZ4qs"),
                     get_account_id_from_string("5FPBT2BVVaLveuvznZ9A1TUtDcbxK5yvvGcMTJxgFmhcWGwj"),
                 ],
-                vec![
-                    (
-                        get_account_id_from_string("5H8zjSWfzMn86d1meeNrZJDj3QZSvRjKxpTfuVaZ46QJZ4qs"),
-                        "Interlay".as_bytes().to_vec(),
-                    ),
-                    (
-                        get_account_id_from_string("5FPBT2BVVaLveuvznZ9A1TUtDcbxK5yvvGcMTJxgFmhcWGwj"),
-                        "Band".as_bytes().to_vec(),
-                    ),
-                ],
+                vec![(
+                    get_account_id_from_string("5H8zjSWfzMn86d1meeNrZJDj3QZSvRjKxpTfuVaZ46QJZ4qs"),
+                    "Interlay".as_bytes().to_vec(),
+                )],
                 1,
                 false,
             )
