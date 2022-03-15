@@ -8,7 +8,6 @@ use cumulus_primitives_core::ParaId;
 use cumulus_relay_chain_interface::RelayChainInterface;
 use cumulus_relay_chain_local::build_relay_chain_interface;
 
-use crate::command::IdentifyChain;
 use primitives::*;
 use sc_client_api::ExecutorProvider;
 use sc_executor::NativeElseWasmExecutor;
@@ -438,7 +437,7 @@ where
     RuntimeApi::RuntimeApi: sp_consensus_aura::AuraApi<Block, AuraId>,
     Executor: sc_executor::NativeExecutionDispatch + 'static,
 {
-    let slot_ms = if parachain_config.chain_spec.is_kintsugi() {
+    let slot_ms = if parachain_config.chain_spec.id() == "kusama" {
         6000
     } else {
         12000
