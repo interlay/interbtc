@@ -622,16 +622,10 @@ pub fn kintsugi_mainnet_config() -> KintsugiChainSpec {
                     // 5ERqgB3mYvotBFu6vVf7fdnTgxHJvVidBpQL8W4yrpFL25mo (//authority/9)
                     hex!["6896f1128f9a92c68f14713f0cbeb67a402621d7c80257ea3b246fcca5aede17"].unchecked_into(),
                 ],
-                vec![
-                    (
-                        get_account_id_from_string("5DcrZv97CipkXni4aXcg98Nz9doT6nfs6t3THn7hhnRXTd6D"),
-                        "Interlay".as_bytes().to_vec(),
-                    ),
-                    (
-                        get_account_id_from_string("5FPBT2BVVaLveuvznZ9A1TUtDcbxK5yvvGcMTJxgFmhcWGwj"),
-                        "Band".as_bytes().to_vec(),
-                    ),
-                ],
+                vec![(
+                    get_account_id_from_string("5DcrZv97CipkXni4aXcg98Nz9doT6nfs6t3THn7hhnRXTd6D"),
+                    "Interlay".as_bytes().to_vec(),
+                )],
                 id,
                 SECURE_BITCOIN_CONFIRMATIONS,
             )
@@ -795,16 +789,10 @@ pub fn interlay_mainnet_config() -> InterlayChainSpec {
                         "a27ab6a94eb0d61f9e95adb45e68b5c71fd668070e664238bcbd51ca7515e168"
                     ]),
                 ],
-                vec![
-                    (
-                        get_account_id_from_string("5FyE5kCDSVtM1KmscBBa2Api8ZsF2DBT81QHf9RuS2NntUPw"),
-                        "Interlay".as_bytes().to_vec(),
-                    ),
-                    (
-                        get_account_id_from_string("5FPBT2BVVaLveuvznZ9A1TUtDcbxK5yvvGcMTJxgFmhcWGwj"),
-                        "Band".as_bytes().to_vec(),
-                    ),
-                ],
+                vec![(
+                    get_account_id_from_string("5FyE5kCDSVtM1KmscBBa2Api8ZsF2DBT81QHf9RuS2NntUPw"),
+                    "Interlay".as_bytes().to_vec(),
+                )],
                 id,
                 SECURE_BITCOIN_CONFIRMATIONS,
             )
