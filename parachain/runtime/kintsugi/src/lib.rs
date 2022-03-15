@@ -943,17 +943,17 @@ parameter_types! {
 }
 
 parameter_types! {
-    // 5EYCAe5i8QbRr5WN1PvaAVqPbfXsqazk9ocaxuzcTjgXPM1e
+    // a3cgeH7D28bBsH77KFYdoMgyiXUHdk98XT5M2Wv5EgC45Kqya
     pub FeeAccount: AccountId = FeePalletId::get().into_account();
-    // 5EYCAe5i8QbRrUhwETaRvgif6H3HA84YQri7wjgLtKzRJCML
+    // a3cgeH7D28bBsHWJtUcHf7srz25o34gCKi8SZVjky6nMyEm83
     pub SupplyAccount: AccountId = SupplyPalletId::get().into_account();
-    // 5EYCAe5gXcgF6fT7oVsD7E4bfnRZeovzMUD2wkdyvCHrYQQE
+    // a3cgeH7CzXoGgXh453eaSJRCvbbBKZN4mejwUVkic8efQUi5R
     pub EscrowAnnuityAccount: AccountId = EscrowAnnuityPalletId::get().into_account();
-    // 5EYCAe5jvsMTc6NLhunLTPVjJg5cZNweWKjNXKqz9RUqQJDY
+    // a3cgeH7D3w3wu37yHx4VZeae4EUqNTw5RobTp5KvcMsrPLWJg
     pub VaultAnnuityAccount: AccountId = VaultAnnuityPalletId::get().into_account();
-    // 5EYCAe5i8QbRrWTk2CHjZA79gSf1piYSGm2LQfxaw6id3M88
+    // a3cgeH7D28bBsHY4hGLzxkMFUcFQmjGgDa2kmxg3D9Z6AyhtL
     pub TreasuryAccount: AccountId = TreasuryPalletId::get().into_account();
-    // 5EYCAe5i8QbRra1jndPz1WAuf1q1KHQNfu2cW1EXJ231emTd
+    // a3cgeH7D28bBsHbch2n7DChKEapamDqY9yAm441K9WUQZbBGJ
     pub VaultRegistryAccount: AccountId = VaultRegistryPalletId::get().into_account();
 }
 
