@@ -158,7 +158,7 @@ pub mod pallet {
     use frame_support::{
         dispatch::DispatchResultWithPostInfo,
         pallet_prelude::*,
-        traits::EnsureOrigin,
+        traits::{Contains, EnsureOrigin},
         weights::{DispatchClass, Pays},
         Parameter,
     };
@@ -172,7 +172,10 @@ pub mod pallet {
 
     #[pallet::config]
     pub trait Config: frame_system::Config + Sized {
+        /// The aggregated proposal / call type.
         type Proposal: DecodeLimit + Parameter + UnfilteredDispatchable<Origin = Self::Origin> + From<Call<Self>>;
+
+        /// The overarching event type.
         type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
 
         /// Currency type for this pallet.
@@ -233,6 +236,9 @@ pub mod pallet {
         /// The maximum number of public proposals that can exist at any time.
         #[pallet::constant]
         type MaxProposals: Get<u32>;
+
+        /// Origin for which proposals can be immediately fast-tracked.
+        type ImminentFilter: Contains<Self::Proposal>;
     }
 
     /// The number of (public) proposals that have been made so far.
@@ -433,6 +439,45 @@ pub mod pallet {
             <PublicProps<T>>::append((index, proposal_hash, who));
 
             Self::deposit_event(Event::<T>::Proposed(index, value));
+            Ok(())
+        }
+
+        /// Table any call allowed by `ImminentFilter` immediately.
+        ///
+        /// - `proposal`: The external proposal.
+        ///
+        /// Emits `Started` and `PreimageNoted`.
+        ///
+        /// Weight: `O(1)`
+        #[pallet::weight(T::WeightInfo::propose())]
+        pub fn propose_imminent(origin: OriginFor<T>, proposal: Box<T::Proposal>) -> DispatchResult {
+            let who = ensure_signed(origin)?;
+            ensure!(T::ImminentFilter::contains(&proposal), Error::<T>::NotImminent);
+
+            let encoded_proposal = proposal.encode();
+            let proposal_hash = T::Hashing::hash(&encoded_proposal[..]);
+            let now = <frame_system::Pallet<T>>::block_number();
+            let voting_period = T::VotingPeriod::get();
+            Self::inject_referendum(
+                now.saturating_add(voting_period),
+                proposal_hash,
+                VoteThreshold::SuperMajorityAgainst,
+                T::EnactmentPeriod::get(),
+            );
+
+            <Preimages<T>>::insert(
+                proposal_hash,
+                PreimageStatus::Available {
+                    data: encoded_proposal,
+                    provider: who.clone(),
+                    deposit: Zero::zero(),
+                    since: now,
+                    expiry: None,
+                },
+            );
+
+            Self::deposit_event(Event::<T>::PreimageNoted(proposal_hash, who, Zero::zero()));
+
             Ok(())
         }
 

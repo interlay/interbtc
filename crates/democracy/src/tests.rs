@@ -42,7 +42,7 @@ frame_support::construct_runtime!(
     }
 );
 
-// Test that a fitlered call can be dispatched.
+// Test that a filtered call can be dispatched.
 pub struct BaseFilter;
 impl Contains<Call> for BaseFilter {
     fn contains(call: &Call) -> bool {
@@ -55,6 +55,7 @@ parameter_types! {
     pub BlockWeights: frame_system::limits::BlockWeights =
         frame_system::limits::BlockWeights::simple_max(1_000_000);
 }
+
 impl frame_system::Config for Test {
     type BaseCallFilter = BaseFilter;
     type BlockWeights = ();
@@ -81,6 +82,7 @@ impl frame_system::Config for Test {
     type OnSetCode = ();
     type MaxConsumers = frame_support::traits::ConstU32<16>;
 }
+
 parameter_types! {
     pub MaximumSchedulerWeight: Weight = Perbill::from_percent(80) * BlockWeights::get().max_block;
 }
@@ -114,6 +116,14 @@ impl pallet_balances::Config for Test {
     type AccountStore = System;
     type WeightInfo = ();
 }
+
+pub struct ImminentFilter;
+impl Contains<Call> for ImminentFilter {
+    fn contains(call: &Call) -> bool {
+        matches!(call, &Call::Balances(pallet_balances::Call::set_balance { .. }))
+    }
+}
+
 parameter_types! {
     pub const LaunchPeriod: u64 = 2;
     pub const VotingPeriod: u64 = 2;
@@ -132,6 +142,7 @@ ord_parameter_types! {
     pub const Five: u64 = 5;
     pub const Six: u64 = 6;
 }
+
 pub struct OneToFive;
 impl SortedMembers<u64> for OneToFive {
     fn sorted_members() -> Vec<u64> {
@@ -158,6 +169,7 @@ impl Config for Test {
     type PalletsOrigin = OriginCaller;
     type WeightInfo = ();
     type MaxProposals = MaxProposals;
+    type ImminentFilter = ImminentFilter;
 }
 
 pub fn new_test_ext() -> sp_io::TestExternalities {
@@ -194,10 +206,13 @@ fn set_balance_proposal(value: u64) -> Vec<u8> {
 }
 
 #[test]
-fn set_balance_proposal_is_correctly_filtered_out() {
+fn set_balance_proposal_is_correctly_filtered() {
     for i in 0..10 {
         let call = Call::decode(&mut &set_balance_proposal(i)[..]).unwrap();
+        // should be ignored by BaseCallFilter
         assert!(!<Test as frame_system::Config>::BaseCallFilter::contains(&call));
+        // should be allowed by ImminentFilter
+        assert!(<Test as Config>::ImminentFilter::contains(&call));
     }
 }
 

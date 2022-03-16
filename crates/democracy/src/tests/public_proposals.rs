@@ -97,3 +97,39 @@ fn runners_up_should_come_after() {
         assert_ok!(Democracy::vote(Origin::signed(1), 2, aye(1)));
     });
 }
+
+#[test]
+fn propose_imminent_should_work() {
+    new_test_ext().execute_with(|| {
+        System::set_block_number(0);
+        assert_noop!(
+            Democracy::propose_imminent(
+                Origin::signed(5),
+                Box::new(Call::Balances(pallet_balances::Call::transfer { dest: 42, value: 100 }))
+            ),
+            Error::<Test>::NotImminent
+        );
+        assert_ok!(Democracy::propose_imminent(
+            Origin::signed(5),
+            Box::new(Call::Balances(pallet_balances::Call::set_balance {
+                who: 42,
+                new_free: 100,
+                new_reserved: 0,
+            }))
+        ));
+        assert_eq!(
+            Democracy::referendum_status(0),
+            Ok(ReferendumStatus {
+                end: VotingPeriod::get(),
+                proposal_hash: set_balance_proposal_hash_and_note(100),
+                threshold: VoteThreshold::SuperMajorityAgainst,
+                delay: EnactmentPeriod::get(),
+                tally: Tally {
+                    ayes: 0,
+                    nays: 0,
+                    turnout: 0
+                },
+            })
+        );
+    });
+}

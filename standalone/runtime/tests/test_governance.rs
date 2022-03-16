@@ -2,7 +2,7 @@ mod mock;
 use crate::assert_eq;
 use mock::*;
 
-use democracy::{PropIndex, ReferendumIndex, ReferendumInfo, Vote};
+use democracy::{PropIndex, ReferendumIndex, ReferendumInfo, ReferendumStatus, Vote};
 use frame_support::traits::{Currency, Hooks};
 use orml_vesting::VestingSchedule;
 use sp_core::{Encode, Hasher};
@@ -134,7 +134,7 @@ fn create_set_balance_proposal(amount_to_set: Balance) {
     create_proposal(set_balance_proposal(account_of(EVE), amount_to_set))
 }
 
-fn launch_and_approve_referendum() -> (BlockNumber, ReferendumIndex) {
+fn launch_and_approve_referendum() -> ReferendumIndex {
     let start_height = <Runtime as democracy::Config>::LaunchPeriod::get();
     DemocracyPallet::on_initialize(start_height);
     let index = assert_democracy_started_event();
@@ -149,20 +149,26 @@ fn launch_and_approve_referendum() -> (BlockNumber, ReferendumIndex) {
     })
     .dispatch(origin_of(account_of(ALICE))));
 
-    (start_height, index)
+    index
 }
 
-fn launch_and_execute_referendum() {
-    let (start_height, index) = launch_and_approve_referendum();
-
+fn execute_referendum(index: ReferendumIndex) {
     // simulate end of voting period
-    let end_height = start_height + <Runtime as democracy::Config>::VotingPeriod::get();
+    let (end_height, delay) = match DemocracyPallet::referendum_info(index) {
+        Some(ReferendumInfo::Ongoing(ReferendumStatus { end, delay, .. })) => (end, delay),
+        _ => panic!("expected ongoing referendum"),
+    };
     DemocracyPallet::on_initialize(end_height);
     assert_democracy_passed_event(index);
 
     // simulate end of enactment period
-    let act_height = end_height + <Runtime as democracy::Config>::EnactmentPeriod::get();
+    let act_height = end_height + delay;
     SchedulerPallet::on_initialize(act_height);
+}
+
+fn launch_and_execute_referendum() {
+    let index = launch_and_approve_referendum();
+    execute_referendum(index);
 }
 
 #[test]
@@ -259,7 +265,7 @@ fn integration_test_governance_fast_track() {
         // should be executed immediately with only one member
         assert_technical_committee_executed_event();
 
-        let (_, index) = launch_and_approve_referendum();
+        let index = launch_and_approve_referendum();
         let start_height = SystemPallet::block_number();
 
         // simulate end of voting period
@@ -289,8 +295,21 @@ fn integration_test_governance_treasury() {
         assert_eq!(TreasuryPallet::proposal_count(), 1);
 
         // create proposal to approve treasury spend
-        create_proposal(Call::Treasury(TreasuryCall::approve_proposal { proposal_id: 0 }).encode());
-        launch_and_execute_referendum();
+        assert_ok!(Call::Democracy(DemocracyCall::propose_imminent {
+            proposal: Box::new(Call::Treasury(TreasuryCall::approve_proposal { proposal_id: 0 })),
+        })
+        .dispatch(origin_of(account_of(ALICE))));
+
+        let index = assert_democracy_started_event();
+        assert_ok!(Call::Democracy(DemocracyCall::vote {
+            ref_index: index,
+            vote: Vote {
+                aye: true,
+                balance: 30_000_000,
+            }
+        })
+        .dispatch(origin_of(account_of(ALICE))));
+        execute_referendum(index);
 
         // bob should receive funds
         TreasuryPallet::spend_funds();

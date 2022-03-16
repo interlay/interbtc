@@ -473,6 +473,18 @@ type EnsureRootOrAllTechnicalCommittee = EnsureOneOf<
     pallet_collective::EnsureProportionAtLeast<_1, _1, AccountId, TechnicalCommitteeInstance>,
 >;
 
+pub struct ImminentFilter;
+impl Contains<Call> for ImminentFilter {
+    fn contains(call: &Call) -> bool {
+        matches!(
+            call,
+            Call::Treasury(
+                pallet_treasury::Call::approve_proposal { .. } | pallet_treasury::Call::reject_proposal { .. }
+            )
+        )
+    }
+}
+
 parameter_types! {
     pub const LaunchPeriod: BlockNumber = 7 * DAYS;
     pub const VotingPeriod: BlockNumber = 7 * DAYS;
@@ -506,6 +518,7 @@ impl democracy::Config for Runtime {
     type MaxVotes = MaxVotes;
     type WeightInfo = ();
     type MaxProposals = MaxProposals;
+    type ImminentFilter = ImminentFilter;
 }
 
 parameter_types! {
