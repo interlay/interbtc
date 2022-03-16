@@ -331,7 +331,7 @@ mod spec_based_tests {
                     index: None
                 })
                 .dispatch(origin_of(account_of(USER))),
-                NominationError::InsufficientCollateral
+                NominationError::CannotWithdrawCollateral
             );
         })
     }
@@ -353,7 +353,7 @@ mod spec_based_tests {
             ));
             assert_noop!(
                 withdraw_nominator_collateral(account_of(USER), &vault_id, default_nomination(&vault_id)),
-                NominationError::InsufficientCollateral
+                NominationError::CannotWithdrawCollateral
             );
         });
     }
@@ -549,7 +549,7 @@ fn integration_test_nominator_withdrawal_below_collateralization_threshold_fails
         ));
         assert_noop!(
             withdraw_nominator_collateral(account_of(USER), &vault_id, default_nomination(&vault_id)),
-            NominationError::InsufficientCollateral
+            NominationError::CannotWithdrawCollateral
         );
     });
 }
