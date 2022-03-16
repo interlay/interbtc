@@ -596,7 +596,7 @@ fn test_cancel_redeem_fails_with_unauthorized_caller() {
 
         assert_noop!(
             Redeem::cancel_redeem(Origin::signed(CAROL), H256([0u8; 32]), true),
-            TestError::UnauthorizedUser
+            TestError::UnauthorizedRedeemer
         );
     })
 }
