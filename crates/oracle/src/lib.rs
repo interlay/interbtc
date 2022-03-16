@@ -90,6 +90,8 @@ pub mod pallet {
         InvalidOracleSource,
         /// Exchange rate not specified or has expired
         MissingExchangeRate,
+        /// Feeder has already feeded at this block
+        AlreadyFeeded,
         /// Unable to convert value
         TryIntoIntError,
         /// Mathematical operation caused an overflow
@@ -103,6 +105,11 @@ pub mod pallet {
         fn on_initialize(n: T::BlockNumber) -> Weight {
             Self::begin_block(n);
             <T as Config>::WeightInfo::on_initialize()
+        }
+
+        fn on_finalize(_n: T::BlockNumber) {
+            // cleanup for next block
+            <HasDispatched<T>>::remove_all(None);
         }
     }
 
@@ -137,6 +144,10 @@ pub mod pallet {
     #[pallet::storage]
     #[pallet::getter(fn authorized_oracles)]
     pub type AuthorizedOracles<T: Config> = StorageMap<_, Blake2_128Concat, T::AccountId, Vec<u8>, ValueQuery>;
+
+    /// If an oracle operator has feed a value in this block
+    #[pallet::storage]
+    pub type HasDispatched<T: Config> = StorageMap<_, Twox64Concat, T::AccountId, bool, ValueQuery>;
 
     #[pallet::type_value]
     pub(super) fn DefaultForStorageVersion() -> Version {
@@ -199,6 +210,10 @@ pub mod pallet {
 
             // fail if the signer is not an authorized oracle
             ensure!(Self::is_authorized(&signer), Error::<T>::InvalidOracleSource);
+
+            // ensure account hasn't dispatched an updated yet
+            ensure!(!HasDispatched::<T>::get(&signer), Error::<T>::AlreadyFeeded);
+            HasDispatched::<T>::insert(&signer, true);
 
             Self::_feed_values(signer, values);
             Ok(Pays::No.into())
