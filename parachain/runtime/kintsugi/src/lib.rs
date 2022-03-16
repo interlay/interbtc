@@ -1095,7 +1095,7 @@ impl annuity::BlockRewardProvider<AccountId> for VaultBlockRewardProvider {
         )
     }
     fn withdraw_reward(_: &AccountId) -> Result<Balance, DispatchError> {
-        Ok(Zero::zero())
+        Err(sp_runtime::TokenError::Unsupported.into())
     }
 }
 
@@ -1284,7 +1284,7 @@ construct_runtime! {
         EscrowAnnuity: annuity::<Instance1>::{Pallet, Call, Storage, Event<T>} = 11,
         EscrowRewards: reward::<Instance1>::{Pallet, Storage, Event<T>} = 12,
 
-        VaultAnnuity: annuity::<Instance2>::{Pallet, Storage, Event<T>} = 13,
+        VaultAnnuity: annuity::<Instance2>::{Pallet, Call, Storage, Event<T>} = 13,
         VaultRewards: reward::<Instance2>::{Pallet, Storage, Event<T>} = 14,
         VaultStaking: staking::{Pallet, Storage, Event<T>} = 15,
 
