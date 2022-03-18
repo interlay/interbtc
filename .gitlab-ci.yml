@@ -1,18 +1,18 @@
-image: "registry.gitlab.com/interlay/containers/rust-base:nightly-2021-03-15"
-
+image: "registry.gitlab.com/interlay/containers/rust-base:nightly-2022-02-08"
 .only-refs: &only_refs
-    only:
-        - tags
-        - master
-        - dev
-        - beta
-        - rococo
-        - web
-
+  only:
+    - tags
+    - master
+    - dev
+    - beta
+    - rococo
+    - web
 .rust-base-job:
   variables:
     CARGO_HOME: $CI_PROJECT_DIR/.cargo
     RUSTC_WRAPPER: /usr/local/bin/sccache
+    CARGO_PROFILE_RELEASE_LTO: "true"
+    RUSTFLAGS: "-C codegen-units=1"
   before_script:
     - rustup show
     - rustc --version
