@@ -5,7 +5,7 @@
 #![cfg_attr(test, feature(proc_macro_hygiene))]
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use sp_runtime::traits::*;
+use sp_runtime::{traits::*, ArithmeticError};
 
 pub mod types;
 
@@ -65,9 +65,8 @@ pub mod pallet {
 
     #[pallet::error]
     pub enum Error<T> {
+        /// Parachain is not running.
         ParachainNotRunning,
-        ParachainShutdown,
-        ArithmeticOverflow,
     }
 
     #[pallet::hooks]
@@ -242,7 +241,7 @@ impl<T: Config> Pallet<T> {
     }
 
     pub fn parachain_block_expired(opentime: T::BlockNumber, period: T::BlockNumber) -> Result<bool, DispatchError> {
-        let expiration_block = opentime.checked_add(&period).ok_or(Error::<T>::ArithmeticOverflow)?;
+        let expiration_block = opentime.checked_add(&period).ok_or(ArithmeticError::Overflow)?;
         Ok(Self::active_block_number() > expiration_block)
     }
 
