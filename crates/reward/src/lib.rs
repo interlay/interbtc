@@ -20,7 +20,10 @@ use frame_support::{
 use primitives::{BalanceToFixedPoint, TruncateFixedPointToInt};
 use scale_info::TypeInfo;
 use sp_arithmetic::FixedPointNumber;
-use sp_runtime::traits::{CheckedAdd, CheckedDiv, CheckedMul, CheckedSub, MaybeSerializeDeserialize, Zero};
+use sp_runtime::{
+    traits::{CheckedAdd, CheckedDiv, CheckedMul, CheckedSub, MaybeSerializeDeserialize, Zero},
+    ArithmeticError,
+};
 use sp_std::{convert::TryInto, fmt::Debug};
 
 pub(crate) type SignedFixedPoint<T, I = ()> = <T as Config<I>>::SignedFixedPoint;
@@ -80,10 +83,11 @@ pub mod pallet {
 
     #[pallet::error]
     pub enum Error<T, I = ()> {
-        ArithmeticOverflow,
-        ArithmeticUnderflow,
+        /// Unable to convert value.
         TryIntoIntError,
+        /// Balance not sufficient to withdraw stake.
         InsufficientFunds,
+        /// Cannot distribute rewards without stake.
         ZeroTotalStake,
     }
 
@@ -138,19 +142,19 @@ pub mod pallet {
 macro_rules! checked_add_mut {
     ($storage:ty, $amount:expr) => {
         <$storage>::mutate(|value| {
-            *value = value.checked_add($amount).ok_or(Error::<T, I>::ArithmeticOverflow)?;
+            *value = value.checked_add($amount).ok_or(ArithmeticError::Overflow)?;
             Ok::<_, Error<T, I>>(())
         })?;
     };
     ($storage:ty, $currency:expr, $amount:expr) => {
         <$storage>::mutate($currency, |value| {
-            *value = value.checked_add($amount).ok_or(Error::<T, I>::ArithmeticOverflow)?;
+            *value = value.checked_add($amount).ok_or(ArithmeticError::Overflow)?;
             Ok::<_, Error<T, I>>(())
         })?;
     };
     ($storage:ty, $currency:expr, $account:expr, $amount:expr) => {
         <$storage>::mutate($currency, $account, |value| {
-            *value = value.checked_add($amount).ok_or(Error::<T, I>::ArithmeticOverflow)?;
+            *value = value.checked_add($amount).ok_or(ArithmeticError::Overflow)?;
             Ok::<_, Error<T, I>>(())
         })?;
     };
@@ -159,19 +163,19 @@ macro_rules! checked_add_mut {
 macro_rules! checked_sub_mut {
     ($storage:ty, $amount:expr) => {
         <$storage>::mutate(|value| {
-            *value = value.checked_sub($amount).ok_or(Error::<T, I>::ArithmeticUnderflow)?;
+            *value = value.checked_sub($amount).ok_or(ArithmeticError::Underflow)?;
             Ok::<_, Error<T, I>>(())
         })?;
     };
     ($storage:ty, $currency:expr, $amount:expr) => {
         <$storage>::mutate($currency, |value| {
-            *value = value.checked_sub($amount).ok_or(Error::<T, I>::ArithmeticUnderflow)?;
+            *value = value.checked_sub($amount).ok_or(ArithmeticError::Underflow)?;
             Ok::<_, Error<T, I>>(())
         })?;
     };
     ($storage:ty, $currency:expr, $account:expr, $amount:expr) => {
         <$storage>::mutate($currency, $account, |value| {
-            *value = value.checked_sub($amount).ok_or(Error::<T, I>::ArithmeticUnderflow)?;
+            *value = value.checked_sub($amount).ok_or(ArithmeticError::Underflow)?;
             Ok::<_, Error<T, I>>(())
         })?;
     };
@@ -194,12 +198,11 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
         for currency_id in [T::GetNativeCurrencyId::get(), T::GetWrappedCurrencyId::get()] {
             <RewardTally<T, I>>::mutate(currency_id, reward_id, |reward_tally| {
                 let reward_per_token = Self::reward_per_token(currency_id);
-                let reward_per_token_mul_amount = reward_per_token
-                    .checked_mul(&amount)
-                    .ok_or(Error::<T, I>::ArithmeticOverflow)?;
+                let reward_per_token_mul_amount =
+                    reward_per_token.checked_mul(&amount).ok_or(ArithmeticError::Overflow)?;
                 *reward_tally = reward_tally
                     .checked_add(&reward_per_token_mul_amount)
-                    .ok_or(Error::<T, I>::ArithmeticOverflow)?;
+                    .ok_or(ArithmeticError::Overflow)?;
                 Ok::<_, Error<T, I>>(())
             })?;
         }
@@ -216,9 +219,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
         let total_stake = Self::total_stake();
         ensure!(!total_stake.is_zero(), Error::<T, I>::ZeroTotalStake);
 
-        let reward_div_total_stake = reward
-            .checked_div(&total_stake)
-            .ok_or(Error::<T, I>::ArithmeticUnderflow)?;
+        let reward_div_total_stake = reward.checked_div(&total_stake).ok_or(ArithmeticError::Underflow)?;
         checked_add_mut!(RewardPerToken<T, I>, currency_id, &reward_div_total_stake);
         checked_add_mut!(TotalRewards<T, I>, currency_id, &reward);
 
@@ -236,14 +237,12 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
         let stake = Self::stake(account_id);
         let reward_per_token = Self::reward_per_token(currency_id);
         // FIXME: this can easily overflow with large numbers
-        let stake_mul_reward_per_token = stake
-            .checked_mul(&reward_per_token)
-            .ok_or(Error::<T, I>::ArithmeticOverflow)?;
+        let stake_mul_reward_per_token = stake.checked_mul(&reward_per_token).ok_or(ArithmeticError::Overflow)?;
         let reward_tally = <RewardTally<T, I>>::get(currency_id, account_id);
         // TODO: this can probably be saturated
         let reward = stake_mul_reward_per_token
             .checked_sub(&reward_tally)
-            .ok_or(Error::<T, I>::ArithmeticUnderflow)?
+            .ok_or(ArithmeticError::Underflow)?
             .truncate_to_inner()
             .ok_or(Error::<T, I>::TryIntoIntError)?;
         Ok(reward)
@@ -260,13 +259,12 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
         for currency_id in [T::GetNativeCurrencyId::get(), T::GetWrappedCurrencyId::get()] {
             <RewardTally<T, I>>::mutate(currency_id, reward_id, |reward_tally| {
                 let reward_per_token = Self::reward_per_token(currency_id);
-                let reward_per_token_mul_amount = reward_per_token
-                    .checked_mul(&amount)
-                    .ok_or(Error::<T, I>::ArithmeticOverflow)?;
+                let reward_per_token_mul_amount =
+                    reward_per_token.checked_mul(&amount).ok_or(ArithmeticError::Overflow)?;
 
                 *reward_tally = reward_tally
                     .checked_sub(&reward_per_token_mul_amount)
-                    .ok_or(Error::<T, I>::ArithmeticUnderflow)?;
+                    .ok_or(ArithmeticError::Underflow)?;
                 Ok::<_, Error<T, I>>(())
             })?;
         }
@@ -292,9 +290,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
         <RewardTally<T, I>>::insert(
             currency_id,
             reward_id,
-            stake
-                .checked_mul(&reward_per_token)
-                .ok_or(Error::<T, I>::ArithmeticOverflow)?,
+            stake.checked_mul(&reward_per_token).ok_or(ArithmeticError::Overflow)?,
         );
 
         Self::deposit_event(Event::<T, I>::WithdrawReward {
