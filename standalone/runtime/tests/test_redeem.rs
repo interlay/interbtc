@@ -766,7 +766,7 @@ mod spec_based_tests {
                         reimburse: true
                     })
                     .dispatch(origin_of(account_of(VAULT))),
-                    RedeemError::UnauthorizedUser
+                    RedeemError::UnauthorizedRedeemer
                 );
             });
         }
@@ -1175,7 +1175,7 @@ mod spec_based_tests {
                         redeem_id: redeem_id
                     })
                     .dispatch(origin_of(account_of(VAULT))),
-                    RedeemError::UnauthorizedUser
+                    RedeemError::UnauthorizedVault
                 );
                 assert_ok!(Call::Redeem(RedeemCall::mint_tokens_for_reimbursed_redeem {
                     currency_pair: vault_id.currencies.clone(),

@@ -39,7 +39,7 @@ use frame_support::{
 use frame_system::{ensure_root, ensure_signed};
 use oracle::OracleKey;
 use sp_core::H256;
-use sp_runtime::FixedPointNumber;
+use sp_runtime::{ArithmeticError, FixedPointNumber};
 use sp_std::{convert::TryInto, vec::Vec};
 use types::DefaultVaultId;
 use vault_registry::{
@@ -111,18 +111,23 @@ pub mod pallet {
 
     #[pallet::error]
     pub enum Error<T> {
+        /// Account has insufficient balance.
         AmountExceedsUserBalance,
-        AmountExceedsVaultBalance,
-        CommitPeriodExpired,
-        UnauthorizedUser,
+        /// Unexpected redeem account.
+        UnauthorizedRedeemer,
+        /// Unexpected vault account.
+        UnauthorizedVault,
+        /// Redeem request has not expired.
         TimeNotExpired,
+        /// Redeem request already cancelled.
         RedeemCancelled,
+        /// Redeem request already completed.
         RedeemCompleted,
+        /// Redeem request not found.
         RedeemIdNotFound,
-        /// Unable to convert value
+        /// Unable to convert value.
         TryIntoIntError,
-        ArithmeticOverflow,
-        ArithmeticUnderflow,
+        /// Redeem amount is too small.
         AmountBelowDustAmount,
     }
 
@@ -504,7 +509,7 @@ impl<T: Config> Pallet<T> {
         ext::security::ensure_parachain_status_running::<T>()?;
 
         let redeem = Self::get_open_redeem_request_from_id(&redeem_id)?;
-        ensure!(redeemer == redeem.redeemer, Error::<T>::UnauthorizedUser);
+        ensure!(redeemer == redeem.redeemer, Error::<T>::UnauthorizedRedeemer);
 
         // only cancellable after the request has expired
         ensure!(
@@ -621,7 +626,7 @@ impl<T: Config> Pallet<T> {
             Error::<T>::RedeemCancelled
         );
 
-        ensure!(redeem.vault == vault_id, Error::<T>::UnauthorizedUser);
+        ensure!(redeem.vault == vault_id, Error::<T>::UnauthorizedVault);
 
         let reimbursed_amount = redeem.amount_btc().checked_add(&redeem.transfer_fee_btc())?;
 
@@ -669,7 +674,7 @@ impl<T: Config> Pallet<T> {
 
         let fee = satoshi_per_bytes
             .checked_mul_int(size)
-            .ok_or(Error::<T>::ArithmeticOverflow)?;
+            .ok_or(ArithmeticError::Overflow)?;
         let amount = fee.try_into().map_err(|_| Error::<T>::TryIntoIntError)?;
         Ok(Amount::new(amount, wrapped_currency))
     }
