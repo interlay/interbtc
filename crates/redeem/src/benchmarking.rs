@@ -71,8 +71,7 @@ fn initialize_oracle<T: crate::Config>() {
                 UnsignedFixedPoint::<T>::checked_from_rational(3, 1).unwrap(),
             ),
         ],
-    )
-    .unwrap();
+    );
     Oracle::<T>::begin_block(0u32.into());
 }
 

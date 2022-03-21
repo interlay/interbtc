@@ -191,13 +191,17 @@ pub mod pallet {
         ///
         /// * `values` - a vector of (key, value) pairs to submit
         #[pallet::weight(<T as Config>::WeightInfo::feed_values(values.len() as u32))]
-        pub fn feed_values(origin: OriginFor<T>, values: Vec<(OracleKey, T::UnsignedFixedPoint)>) -> DispatchResult {
+        pub fn feed_values(
+            origin: OriginFor<T>,
+            values: Vec<(OracleKey, T::UnsignedFixedPoint)>,
+        ) -> DispatchResultWithPostInfo {
             let signer = ensure_signed(origin)?;
 
             // fail if the signer is not an authorized oracle
             ensure!(Self::is_authorized(&signer), Error::<T>::InvalidOracleSource);
 
-            Self::_feed_values(signer, values)
+            Self::_feed_values(signer, values);
+            Ok(Pays::No.into())
         }
 
         /// Adds an authorized oracle account (only executable by the Root account)
@@ -262,7 +266,7 @@ impl<T: Config> Pallet<T> {
     }
 
     // public only for testing purposes
-    pub fn _feed_values(oracle: T::AccountId, values: Vec<(OracleKey, T::UnsignedFixedPoint)>) -> DispatchResult {
+    pub fn _feed_values(oracle: T::AccountId, values: Vec<(OracleKey, T::UnsignedFixedPoint)>) {
         for (key, value) in values.iter() {
             let timestamped = TimestampedValue {
                 timestamp: Self::get_current_time(),
@@ -276,8 +280,6 @@ impl<T: Config> Pallet<T> {
             oracle_id: oracle,
             values,
         });
-
-        Ok(())
     }
 
     /// Public getters
