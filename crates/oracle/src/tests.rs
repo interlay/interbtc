@@ -1,5 +1,5 @@
 use crate::{mock::*, CurrencyId, OracleKey};
-use frame_support::{assert_err, assert_ok, dispatch::DispatchError, traits::Hooks};
+use frame_support::{assert_err, assert_ok, dispatch::DispatchError};
 use mocktopus::mocking::*;
 use sp_arithmetic::FixedU128;
 use sp_runtime::FixedPointNumber;
@@ -22,8 +22,7 @@ macro_rules! assert_not_emitted {
 }
 
 fn mine_block() {
-    Oracle::on_initialize(0);
-    Oracle::on_finalize(0);
+    crate::Pallet::<Test>::begin_block(0);
 }
 
 #[test]
