@@ -509,8 +509,8 @@ impl pallet_multisig::Config for Runtime {
 
 parameter_types! {
     pub const ProposalBond: Permill = Permill::from_percent(5);
-    pub ProposalBondMinimum: Balance = 5;
-    pub ProposalBondMaximum: Option<Balance> = None;
+    pub ProposalBondMinimum: Balance = 5 * UNITS;
+    pub ProposalBondMaximum: Balance = 25 * UNITS;
     pub const SpendPeriod: BlockNumber = 7 * DAYS;
     pub const Burn: Permill = Permill::from_percent(0);
     pub const MaxApprovals: u32 = 100;
