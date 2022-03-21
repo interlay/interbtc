@@ -78,18 +78,19 @@ pub mod pallet {
 
     #[pallet::error]
     pub enum Error<T> {
-        /// Account has insufficient balance
-        InsufficientFunds,
-        ArithmeticOverflow,
-        ArithmeticUnderflow,
+        /// Vault has already enabled nomination.
         VaultAlreadyOptedInToNomination,
+        /// Vault has not enabled nomination.
         VaultNotOptedInToNomination,
+        /// Vault not found.
         VaultNotFound,
-        TryIntoIntError,
-        InsufficientCollateral,
+        /// Account cannot withdraw.
+        CannotWithdrawCollateral,
+        /// Nomination is not enabled.
         VaultNominationDisabled,
+        /// Nomination would overburden Vault.
         DepositViolatesMaxNominationRatio,
-        HasNominatedCollateral,
+        /// Vault cannot withdraw.
         CollateralizationTooLow,
     }
 
@@ -221,7 +222,7 @@ impl<T: Config> Pallet<T> {
             // above the secure threshold for issued + to_be_issued tokens
             ensure!(
                 ext::vault_registry::is_allowed_to_withdraw_collateral::<T>(vault_id, &amount)?,
-                Error::<T>::InsufficientCollateral
+                Error::<T>::CannotWithdrawCollateral
             );
 
             ensure!(Self::is_nomination_enabled(), Error::<T>::VaultNominationDisabled);
