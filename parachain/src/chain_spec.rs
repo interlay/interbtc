@@ -143,7 +143,7 @@ fn interlay_properties() -> Map<String, Value> {
 fn expected_transaction_size() -> u32 {
     virtual_transaction_size(
         TransactionInputMetadata {
-            count: 2,
+            count: 4,
             script_type: InputType::P2WPKHv0,
         },
         TransactionOutputMetadata {
