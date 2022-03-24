@@ -4,19 +4,24 @@ info:
   title: CHANGELOG
   repository_url: https://github.com/interlay/interbtc
 options:
-  commits:
+    #commits:
     # filters:
     #   Type:
     #     - feat
     #     - fix
     #     - perf
     #     - refactor
-  commit_groups:
+    #commit_groups:
     # title_maps:
     #   feat: Features
     #   fix: Bug Fixes
     #   perf: Performance Improvements
     #   refactor: Code Refactoring
+  merges:
+    pattern: "^Merge pull request #(\\d+) from (.*)$"
+    pattern_maps:
+      - Source
+    #   - Ref
   header:
     pattern: "^(\\w*)\\:\\s(.*)$"
     pattern_maps:

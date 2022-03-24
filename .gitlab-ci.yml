@@ -100,12 +100,3 @@ docker-publish-parachain:
   extends:
     - .docker-base-job
 
-release-github:
-  stage: release
-  image: registry.gitlab.com/interlay/containers/github-publisher:master
-  script:
-    - gh auth status
-    - git-chglog --output CHANGELOG.md $CI_COMMIT_TAG
-    - gh release -R https://github.com/interlay/interbtc create $CI_COMMIT_TAG --title $CI_COMMIT_TAG -F CHANGELOG.md -d target/release/*
-  only:
-    - tags
