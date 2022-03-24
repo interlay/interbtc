@@ -23,7 +23,7 @@ options:
       - Source
     #   - Ref
   header:
-    pattern: "^(\\w*)\\:\\s(.*)$"
+    pattern: "^(\\w*)[!]?\\:\\s(.*)$"
     pattern_maps:
       - Type
       - Subject
