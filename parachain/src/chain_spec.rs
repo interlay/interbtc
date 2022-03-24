@@ -559,15 +559,15 @@ fn testnet_genesis(
             )], /* 110% */
         },
         fee: testnet_runtime::FeeConfig {
-            issue_fee: FixedU128::checked_from_rational(5, 1000).unwrap(), // 0.5%
+            issue_fee: FixedU128::checked_from_rational(15, 10000).unwrap(), // 0.15%
             issue_griefing_collateral: FixedU128::checked_from_rational(5, 100000).unwrap(), // 0.005%
-            refund_fee: FixedU128::checked_from_rational(5, 1000).unwrap(), // 0.5%
-            redeem_fee: FixedU128::checked_from_rational(5, 1000).unwrap(), // 0.5%
+            refund_fee: FixedU128::checked_from_rational(5, 1000).unwrap(),  // 0.5%
+            redeem_fee: FixedU128::checked_from_rational(5, 1000).unwrap(),  // 0.5%
             premium_redeem_fee: FixedU128::checked_from_rational(5, 100).unwrap(), // 5%
             punishment_fee: FixedU128::checked_from_rational(1, 10).unwrap(), // 10%
             replace_griefing_collateral: FixedU128::checked_from_rational(1, 10).unwrap(), // 10%
-            theft_fee: FixedU128::checked_from_rational(5, 100).unwrap(),  // 5%
-            theft_fee_max: 10000000,                                       // 0.1 BTC
+            theft_fee: FixedU128::checked_from_rational(5, 100).unwrap(),    // 5%
+            theft_fee_max: 10000000,                                         // 0.1 BTC
         },
         refund: testnet_runtime::RefundConfig {
             refund_btc_dust_value: DEFAULT_DUST_VALUE,
@@ -709,15 +709,15 @@ fn kintsugi_mainnet_genesis(
             )], /* 150% */
         },
         fee: kintsugi_runtime::FeeConfig {
-            issue_fee: FixedU128::checked_from_rational(5, 1000).unwrap(), // 0.5%
+            issue_fee: FixedU128::checked_from_rational(15, 10000).unwrap(), // 0.15%
             issue_griefing_collateral: FixedU128::checked_from_rational(5, 100000).unwrap(), // 0.005%
-            refund_fee: FixedU128::checked_from_rational(5, 1000).unwrap(), // 0.5%
-            redeem_fee: FixedU128::checked_from_rational(5, 1000).unwrap(), // 0.5%
+            refund_fee: FixedU128::checked_from_rational(5, 1000).unwrap(),  // 0.5%
+            redeem_fee: FixedU128::checked_from_rational(5, 1000).unwrap(),  // 0.5%
             premium_redeem_fee: FixedU128::checked_from_rational(5, 100).unwrap(), // 5%
             punishment_fee: FixedU128::checked_from_rational(1, 10).unwrap(), // 10%
             replace_griefing_collateral: FixedU128::checked_from_rational(1, 10).unwrap(), // 10%
-            theft_fee: FixedU128::checked_from_rational(5, 100).unwrap(),  // 5%
-            theft_fee_max: 10000000,                                       // 0.1 BTC
+            theft_fee: FixedU128::checked_from_rational(5, 100).unwrap(),    // 5%
+            theft_fee_max: 10000000,                                         // 0.1 BTC
         },
         refund: kintsugi_runtime::RefundConfig {
             refund_btc_dust_value: DEFAULT_DUST_VALUE,
@@ -898,15 +898,15 @@ fn interlay_mainnet_genesis(
             )], /* 150% */
         },
         fee: interlay_runtime::FeeConfig {
-            issue_fee: FixedU128::checked_from_rational(5, 1000).unwrap(), // 0.5%
+            issue_fee: FixedU128::checked_from_rational(15, 10000).unwrap(), // 0.15%
             issue_griefing_collateral: FixedU128::checked_from_rational(5, 100000).unwrap(), // 0.005%
-            refund_fee: FixedU128::checked_from_rational(5, 1000).unwrap(), // 0.5%
-            redeem_fee: FixedU128::checked_from_rational(5, 1000).unwrap(), // 0.5%
+            refund_fee: FixedU128::checked_from_rational(5, 1000).unwrap(),  // 0.5%
+            redeem_fee: FixedU128::checked_from_rational(5, 1000).unwrap(),  // 0.5%
             premium_redeem_fee: FixedU128::checked_from_rational(5, 100).unwrap(), // 5%
             punishment_fee: FixedU128::checked_from_rational(1, 10).unwrap(), // 10%
             replace_griefing_collateral: FixedU128::checked_from_rational(1, 10).unwrap(), // 10%
-            theft_fee: FixedU128::checked_from_rational(5, 100).unwrap(),  // 5%
-            theft_fee_max: 10000000,                                       // 0.1 BTC
+            theft_fee: FixedU128::checked_from_rational(5, 100).unwrap(),    // 5%
+            theft_fee_max: 10000000,                                         // 0.1 BTC
         },
         refund: interlay_runtime::RefundConfig {
             refund_btc_dust_value: DEFAULT_DUST_VALUE,
