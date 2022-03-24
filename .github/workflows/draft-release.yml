@@ -1,0 +1,89 @@
+name: Publish draft release
+
+on:
+  push:
+    tags:
+      - "v[0-9]+.[0-9]+.[0-9]+*"
+      - "[0-9]+.[0-9]+.[0-9]+*"
+
+jobs:
+  build-runtimes:
+    runs-on: [self-hosted, linux]
+    strategy:
+      matrix:
+        runtime: ["interlay", "kintsugi", "testnet"]
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v3
+
+      - name: Build ${{ matrix.runtime }} runtime
+        id: srtool_build
+        uses: chevdor/srtool-actions@v0.3.0
+        with:
+          image: paritytech/srtool
+          package: ${{ matrix.runtime }}-runtime-parachain
+          runtime_dir: ./parachain/runtime/${{ matrix.runtime }}
+          chain: ${{ matrix.runtime }}
+      - name: Store srtool digest to disk
+        run: |
+          echo '${{ steps.srtool_build.outputs.json }}' | jq > ${{ matrix.runtime }}_srtool_output.json
+      - name: Upload ${{ matrix.runtime }} srtool json
+        uses: actions/upload-artifact@v3
+        with:
+          name: ${{ matrix.runtime }}-srtool-json
+          path: ${{ matrix.runtime }}_srtool_output.json
+      - name: Upload ${{ matrix.runtime }} runtime
+        uses: actions/upload-artifact@v3
+        with:
+          name: ${{ matrix.runtime }}-runtime
+          path: |
+            ${{ steps.srtool_build.outputs.wasm_compressed }}
+  build-binary:
+    runs-on: [self-hosted, linux]
+    env:
+      RUSTFLAGS: "-C target-cpu=${{ matrix.cpu }}"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+      - run: git fetch --prune --unshallow
+      - uses: actions-rs/toolchain@v1
+        with:
+          toolchain: nightly-2021-10-12
+      - run: |
+          find ./ -name Cargo.toml -exec ./scripts/update_cargo_version.sh {} \;
+      - name: build
+        uses: actions-rs/cargo@v1
+        with:
+          command: build
+          args: --release --bin interbtc-parachain
+      - name: Upload binary
+        uses: actions/upload-artifact@v3
+        with:
+          name: interbtc
+          path: target/release/interbtc-parachain
+
+  publish-draft-release:
+    runs-on: [self-hosted, linux]
+    needs: ["build-runtimes", "build-binary"]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - uses: actions/download-artifact@v3
+        with:
+          path: artifacts
+
+      - run: |
+          find ./artifacts
+          bash scripts/release_notes.sh
+          rm -v ./artifacts/*/*.json
+
+      - name: Release
+        uses: softprops/action-gh-release@v1
+        with:
+          body_path: CHANGELOG.md
+          draft: true
+          files: |
+            artifacts/*/*
