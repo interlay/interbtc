@@ -12,8 +12,8 @@ use vault_registry::DefaultVaultId;
 const VAULT_1: [u8; 32] = CAROL;
 const VAULT_2: [u8; 32] = DAVE;
 
-// issue fee is 0.5%
-const ISSUE_FEE: f64 = 0.005;
+// issue fee is 0.15%
+const ISSUE_FEE: f64 = 0.0015;
 
 fn default_nomination(currency_id: CurrencyId) -> Amount<Runtime> {
     Amount::new(DEFAULT_NOMINATION, currency_id)
