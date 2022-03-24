@@ -143,19 +143,19 @@ macro_rules! checked_add_mut {
     ($storage:ty, $amount:expr) => {
         <$storage>::mutate(|value| {
             *value = value.checked_add($amount).ok_or(ArithmeticError::Overflow)?;
-            Ok::<_, Error<T, I>>(())
+            Ok::<_, DispatchError>(())
         })?;
     };
     ($storage:ty, $currency:expr, $amount:expr) => {
         <$storage>::mutate($currency, |value| {
             *value = value.checked_add($amount).ok_or(ArithmeticError::Overflow)?;
-            Ok::<_, Error<T, I>>(())
+            Ok::<_, DispatchError>(())
         })?;
     };
     ($storage:ty, $currency:expr, $account:expr, $amount:expr) => {
         <$storage>::mutate($currency, $account, |value| {
             *value = value.checked_add($amount).ok_or(ArithmeticError::Overflow)?;
-            Ok::<_, Error<T, I>>(())
+            Ok::<_, DispatchError>(())
         })?;
     };
 }
@@ -164,19 +164,19 @@ macro_rules! checked_sub_mut {
     ($storage:ty, $amount:expr) => {
         <$storage>::mutate(|value| {
             *value = value.checked_sub($amount).ok_or(ArithmeticError::Underflow)?;
-            Ok::<_, Error<T, I>>(())
+            Ok::<_, DispatchError>(())
         })?;
     };
     ($storage:ty, $currency:expr, $amount:expr) => {
         <$storage>::mutate($currency, |value| {
             *value = value.checked_sub($amount).ok_or(ArithmeticError::Underflow)?;
-            Ok::<_, Error<T, I>>(())
+            Ok::<_, DispatchError>(())
         })?;
     };
     ($storage:ty, $currency:expr, $account:expr, $amount:expr) => {
         <$storage>::mutate($currency, $account, |value| {
             *value = value.checked_sub($amount).ok_or(ArithmeticError::Underflow)?;
-            Ok::<_, Error<T, I>>(())
+            Ok::<_, DispatchError>(())
         })?;
     };
 }
@@ -203,7 +203,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
                 *reward_tally = reward_tally
                     .checked_add(&reward_per_token_mul_amount)
                     .ok_or(ArithmeticError::Overflow)?;
-                Ok::<_, Error<T, I>>(())
+                Ok::<_, DispatchError>(())
             })?;
         }
 
@@ -265,7 +265,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
                 *reward_tally = reward_tally
                     .checked_sub(&reward_per_token_mul_amount)
                     .ok_or(ArithmeticError::Underflow)?;
-                Ok::<_, Error<T, I>>(())
+                Ok::<_, DispatchError>(())
             })?;
         }
 
