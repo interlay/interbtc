@@ -233,13 +233,13 @@ macro_rules! checked_add_mut {
     ($storage:ty, $currency:expr, $amount:expr) => {
         <$storage>::mutate($currency, |value| {
             *value = value.checked_add($amount).ok_or(ArithmeticError::Overflow)?;
-            Ok::<_, Error<T>>(*value)
+            Ok::<_, DispatchError>(*value)
         })?
     };
     ($storage:ty, $currency:expr, $account:expr, $amount:expr) => {
         <$storage>::mutate($currency, $account, |value| {
             *value = value.checked_add($amount).ok_or(ArithmeticError::Overflow)?;
-            Ok::<_, Error<T>>(*value)
+            Ok::<_, DispatchError>(*value)
         })?
     };
 }
@@ -248,13 +248,13 @@ macro_rules! checked_sub_mut {
     ($storage:ty, $currency:expr, $amount:expr) => {
         <$storage>::mutate($currency, |value| {
             *value = value.checked_sub($amount).ok_or(ArithmeticError::Underflow)?;
-            Ok::<_, Error<T>>(*value)
+            Ok::<_, DispatchError>(*value)
         })?
     };
     ($storage:ty, $currency:expr, $account:expr, $amount:expr) => {
         <$storage>::mutate($currency, $account, |value| {
             *value = value.checked_sub($amount).ok_or(ArithmeticError::Underflow)?;
-            Ok::<_, Error<T>>(*value)
+            Ok::<_, DispatchError>(*value)
         })?
     };
 }
@@ -341,7 +341,7 @@ impl<T: Config> Pallet<T> {
             *slash_tally = slash_tally
                 .checked_add(&slash_per_token_mul_amount)
                 .ok_or(ArithmeticError::Overflow)?;
-            Ok::<_, Error<T>>(())
+            Ok::<_, DispatchError>(())
         })?;
 
         for currency_id in [vault_id.wrapped_currency(), T::GetNativeCurrencyId::get()] {
@@ -352,7 +352,7 @@ impl<T: Config> Pallet<T> {
                 *reward_tally = reward_tally
                     .checked_add(&reward_per_token_mul_amount)
                     .ok_or(ArithmeticError::Overflow)?;
-                Ok::<_, Error<T>>(())
+                Ok::<_, DispatchError>(())
             })?;
         }
 
@@ -565,7 +565,7 @@ impl<T: Config> Pallet<T> {
             *slash_tally = slash_tally
                 .checked_sub(&slash_per_token_mul_amount)
                 .ok_or(ArithmeticError::Underflow)?;
-            Ok::<_, Error<T>>(())
+            Ok::<_, DispatchError>(())
         })?;
 
         for currency_id in [vault_id.wrapped_currency(), T::GetNativeCurrencyId::get()] {
@@ -577,7 +577,7 @@ impl<T: Config> Pallet<T> {
                 *reward_tally = reward_tally
                     .checked_sub(&reward_per_token_mul_amount)
                     .ok_or(ArithmeticError::Underflow)?;
-                Ok::<_, Error<T>>(())
+                Ok::<_, DispatchError>(())
             })?;
         }
 
@@ -664,7 +664,7 @@ impl<T: Config> Pallet<T> {
     pub fn increment_nonce(vault_id: &DefaultVaultId<T>) -> DispatchResult {
         <Nonce<T>>::mutate(vault_id, |nonce| {
             *nonce = nonce.checked_add(&T::Index::one()).ok_or(ArithmeticError::Overflow)?;
-            Ok::<_, Error<T>>(())
+            Ok::<_, DispatchError>(())
         })?;
         Self::deposit_event(Event::<T>::IncreaseNonce {
             vault_id: vault_id.clone(),
