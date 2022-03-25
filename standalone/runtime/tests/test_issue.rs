@@ -582,7 +582,7 @@ fn integration_test_withdraw_after_request_issue() {
 /// overpay by a factor of 4
 fn integration_test_issue_refund() {
     test_with_initialized_vault(|vault_id| {
-        let requested_btc = vault_id.wrapped(1000);
+        let requested_btc = vault_id.wrapped(8000);
 
         // make sure we don't have enough collateral to fulfil the overpayment
         let current_minimum_collateral =
