@@ -915,7 +915,10 @@ mod execute_issue_tests {
     #[test]
     fn integration_test_issue_execute_postcond_overpayment_succeeds() {
         test_with_initialized_vault(|vault_id| {
-            let requested_btc = vault_id.wrapped(1000);
+            // 2000 so that 0.15% is a nice round number, otherwise we get rounding errors below. E.g. with 1000,
+            // 0.15% would be 1.5, which is rounded to 2. Then when we double the sent amount, the fee is 3 instead
+            // of 4, so we wouldn't quite get exactly double the expected amount.
+            let requested_btc = vault_id.wrapped(2000);
             let (issue_id, issue) = request_issue(&vault_id, requested_btc);
             let sent_btc = (issue.amount() + issue.fee()) * 2;
             let post_request_state = ParachainState::get(&vault_id);
