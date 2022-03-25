@@ -36,7 +36,10 @@ use frame_system::ensure_signed;
 use reward::Rewards;
 use scale_info::TypeInfo;
 use sp_arithmetic::{traits::*, FixedPointNumber, FixedPointOperand};
-use sp_runtime::traits::{AccountIdConversion, AtLeast32BitUnsigned};
+use sp_runtime::{
+    traits::{AccountIdConversion, AtLeast32BitUnsigned},
+    ArithmeticError,
+};
 use sp_std::{
     convert::{TryFrom, TryInto},
     fmt::Debug,
@@ -116,9 +119,7 @@ pub mod pallet {
 
     #[pallet::error]
     pub enum Error<T> {
-        ArithmeticOverflow,
-        ArithmeticUnderflow,
-        InvalidRewardDist,
+        /// Unable to convert value.
         TryIntoIntError,
     }
 
@@ -375,9 +376,9 @@ impl<T: Config> Pallet<T> {
             .checked_div(
                 &<RefundFee<T>>::get()
                     .checked_add(&UnsignedFixedPoint::<T>::one())
-                    .ok_or(Error::<T>::ArithmeticOverflow)?,
+                    .ok_or(ArithmeticError::Overflow)?,
             )
-            .ok_or(Error::<T>::ArithmeticUnderflow)?;
+            .ok_or(ArithmeticError::Underflow)?;
         amount.rounded_mul(percentage)
     }
 
