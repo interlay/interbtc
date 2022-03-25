@@ -603,12 +603,6 @@ impl<T: Config> Pallet<T> {
         transaction: Transaction,
         recipient_btc_address: BtcAddress,
     ) -> Result<(BtcAddress, V), DispatchError> {
-        // upper-bound the number of outputs to limit iteration
-        ensure!(
-            transaction.outputs.len() <= ACCEPTED_MAX_TRANSACTION_OUTPUTS,
-            Error::<T>::InvalidTransaction
-        );
-
         let input_address = transaction
             .inputs
             .get(0)
