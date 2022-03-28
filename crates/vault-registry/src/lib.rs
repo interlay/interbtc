@@ -563,6 +563,10 @@ pub mod pallet {
         MaxNominationRatioViolation,
         /// The collateral ceiling would be exceeded for the vault's currency
         CurrencyCeilingExceeded,
+        /// Vault is no longer usable as it was liquidated due to theft
+        VaultCommittedTheft,
+        /// Vault is no longer usable as it was liquidated due to undercollateralization
+        VaultLiquidated,
 
         // Errors used exclusively in RPC functions
         /// Collateralization is infinite if no tokens are issued
@@ -764,11 +768,11 @@ impl<T: Config> Pallet<T> {
     /// Like get_vault_from_id, but additionally checks that the vault is active
     pub fn get_active_vault_from_id(vault_id: &DefaultVaultId<T>) -> Result<DefaultVault<T>, DispatchError> {
         let vault = Self::get_vault_from_id(vault_id)?;
-        ensure!(
-            matches!(vault.status, VaultStatus::Active(_)),
-            Error::<T>::VaultNotFound
-        );
-        Ok(vault)
+        match vault.status {
+            VaultStatus::Active(_) => Ok(vault),
+            VaultStatus::Liquidated => Err(Error::<T>::VaultLiquidated.into()),
+            VaultStatus::CommittedTheft => Err(Error::<T>::VaultCommittedTheft.into()),
+        }
     }
 
     /// Deposit an `amount` of collateral to be used for collateral tokens

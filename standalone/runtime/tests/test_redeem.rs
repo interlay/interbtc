@@ -267,7 +267,7 @@ mod spec_based_tests {
                         vault_id: vault_id.clone(),
                     })
                     .dispatch(origin_of(account_of(ALICE))),
-                    VaultRegistryError::VaultNotFound,
+                    VaultRegistryError::VaultLiquidated,
                 );
             });
         }
