@@ -486,6 +486,7 @@ pub const DOLLARS: Balance = UNITS; // 10_000_000_000
 pub const CENTS: Balance = DOLLARS / 100; // 100_000_000
 pub const MILLICENTS: Balance = CENTS / 1_000; // 100_000
 
+// https://github.com/paritytech/polkadot/blob/be005938a64b9170a5d55887ce42004e1b086b7b/runtime/polkadot/constants/src/lib.rs#L35
 pub const fn deposit(items: u32, bytes: u32) -> Balance {
     items as Balance * 20 * DOLLARS + (bytes as Balance) * 100 * MILLICENTS
 }
@@ -917,6 +918,32 @@ impl escrow::Config for Runtime {
     type WeightInfo = ();
 }
 
+// https://github.com/paritytech/polkadot/blob/be005938a64b9170a5d55887ce42004e1b086b7b/runtime/polkadot/src/lib.rs#L584-L592
+parameter_types! {
+    // Minimum 4 CENTS/byte
+    pub const BasicDeposit: Balance = deposit(1, 258);
+    pub const FieldDeposit: Balance = deposit(0, 66);
+    pub const SubAccountDeposit: Balance = deposit(1, 53);
+    pub const MaxSubAccounts: u32 = 100;
+    pub const MaxAdditionalFields: u32 = 100;
+    pub const MaxRegistrars: u32 = 20;
+}
+
+impl pallet_identity::Config for Runtime {
+    type Event = Event;
+    type Currency = NativeCurrency;
+    type BasicDeposit = BasicDeposit;
+    type FieldDeposit = FieldDeposit;
+    type SubAccountDeposit = SubAccountDeposit;
+    type MaxSubAccounts = MaxSubAccounts;
+    type MaxAdditionalFields = MaxAdditionalFields;
+    type MaxRegistrars = MaxRegistrars;
+    type Slashed = Treasury;
+    type ForceOrigin = EnsureRoot<AccountId>;
+    type RegistrarOrigin = EnsureRoot<AccountId>;
+    type WeightInfo = ();
+}
+
 impl vault_registry::Config for Runtime {
     type PalletId = VaultRegistryPalletId;
     type Event = Event;
@@ -1029,6 +1056,8 @@ construct_runtime! {
         Fee: fee::{Pallet, Call, Config<T>, Storage} = 26,
         Refund: refund::{Pallet, Call, Config<T>, Storage, Event<T>} = 27,
         Nomination: nomination::{Pallet, Call, Config, Storage, Event<T>} = 28,
+
+        Identity: pallet_identity::{Pallet, Call, Storage, Event<T>} = 46,
 
         // Governance
         Democracy: democracy::{Pallet, Call, Storage, Config<T>, Event<T>} = 29,
