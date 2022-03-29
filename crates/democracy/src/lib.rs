@@ -589,12 +589,16 @@ pub mod pallet {
         #[pallet::weight(T::WeightInfo::cancel_proposal(T::MaxProposals::get()))]
         #[transactional]
         pub fn cancel_proposal(origin: OriginFor<T>, #[pallet::compact] prop_index: PropIndex) -> DispatchResult {
-            let who = ensure_signed(origin)?;
+            let who = ensure_signed(origin.clone())
+                .map(Some)
+                .or_else(|_| ensure_root(origin).map(|_| None))?;
 
             PublicProps::<T>::try_mutate(|props| {
                 if let Some(i) = props.iter().position(|p| p.0 == prop_index) {
                     let (_, _, proposer) = props.remove(i);
-                    ensure!(proposer == who, Error::<T>::NotProposer);
+                    if let Some(account_id) = who {
+                        ensure!(proposer == account_id, Error::<T>::NotProposer);
+                    }
                     Ok(())
                 } else {
                     Err(Error::<T>::ProposalMissing)
