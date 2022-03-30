@@ -33,7 +33,7 @@ fn integration_test_transfer_from_multisig_to_vested() {
         .dispatch(root()));
 
         // step 1: deposit funds to a shared account
-        let multisig_account = MultiSigPallet::multi_account_id(&vec![account_of(ALICE), account_of(BOB)], 2);
+        let multisig_account = MultisigPallet::multi_account_id(&vec![account_of(ALICE), account_of(BOB)], 2);
         set_balance(multisig_account.clone(), Token(INTR), 20_000_000_000_001);
         set_balance(account_of(ALICE), Token(INTR), 1 << 60);
 
@@ -44,7 +44,7 @@ fn integration_test_transfer_from_multisig_to_vested() {
             amount: 20_000_000_000_001,
         })
         .encode();
-        assert_ok!(Call::MultiSig(MultiSigCall::as_multi {
+        assert_ok!(Call::Multisig(MultisigCall::as_multi {
             threshold: 2,
             other_signatories: vec![account_of(BOB)],
             maybe_timepoint: None,
@@ -66,10 +66,10 @@ fn integration_test_transfer_from_multisig_to_vested() {
 
         // step 3: get the timepoint at which the call was made. In production, you would get this
         // from the event metadata, or from storage
-        let timepoint = MultiSigPallet::timepoint();
+        let timepoint = MultisigPallet::timepoint();
 
         // step 4: let the second account approve
-        assert_ok!(Call::MultiSig(MultiSigCall::approve_as_multi {
+        assert_ok!(Call::Multisig(MultisigCall::approve_as_multi {
             threshold: 2,
             other_signatories: vec![account_of(ALICE)],
             maybe_timepoint: Some(timepoint),
@@ -93,7 +93,7 @@ fn integration_test_transfer_from_multisig_to_vested() {
 fn integration_test_transfer_from_multisig_to_unvested() {
     ExtBuilder::build().execute_with(|| {
         let vesting_amount = 30_000_000;
-        let multisig_account = MultiSigPallet::multi_account_id(&vec![account_of(ALICE), account_of(BOB)], 2);
+        let multisig_account = MultisigPallet::multi_account_id(&vec![account_of(ALICE), account_of(BOB)], 2);
 
         // vested transfer takes free balance of caller
         set_balance(multisig_account.clone(), Token(INTR), vesting_amount);
@@ -113,7 +113,7 @@ fn integration_test_transfer_from_multisig_to_unvested() {
         })
         .encode();
 
-        assert_ok!(Call::MultiSig(MultiSigCall::as_multi {
+        assert_ok!(Call::Multisig(MultisigCall::as_multi {
             threshold: 2,
             other_signatories: vec![account_of(BOB)],
             maybe_timepoint: None,
@@ -123,10 +123,10 @@ fn integration_test_transfer_from_multisig_to_unvested() {
         })
         .dispatch(origin_of(account_of(ALICE))));
 
-        assert_ok!(Call::MultiSig(MultiSigCall::approve_as_multi {
+        assert_ok!(Call::Multisig(MultisigCall::approve_as_multi {
             threshold: 2,
             other_signatories: vec![account_of(ALICE)],
-            maybe_timepoint: Some(MultiSigPallet::timepoint()),
+            maybe_timepoint: Some(MultisigPallet::timepoint()),
             call_hash: sp_core::blake2_256(&call),
             max_weight: 1000000000000,
         })
@@ -165,7 +165,7 @@ fn integration_test_transfer_to_vested_multisig() {
         .dispatch(root()));
 
         // calculate accountid for the multisig
-        let multisig_account = MultiSigPallet::multi_account_id(&vec![account_of(ALICE), account_of(BOB)], 2);
+        let multisig_account = MultisigPallet::multi_account_id(&vec![account_of(ALICE), account_of(BOB)], 2);
 
         // transfer to the multisig
         assert_ok!(Call::Tokens(TokensCall::transfer {
@@ -201,7 +201,7 @@ fn integration_test_transfer_to_unvested_multisig() {
         .dispatch(root()));
 
         // calculate accountid for the multisig
-        let multisig_account = MultiSigPallet::multi_account_id(&vec![account_of(ALICE), account_of(BOB)], 2);
+        let multisig_account = MultisigPallet::multi_account_id(&vec![account_of(ALICE), account_of(BOB)], 2);
 
         // transfer to the multisig
         assert_ok!(Call::Vesting(VestingCall::vested_transfer {
@@ -243,7 +243,7 @@ fn integration_test_batched_multisig_vesting() {
         // arbitrary amount for each account
         let vesting_amounts: Vec<_> = (0u128..1000).map(|x| x * 100 + 100).collect();
 
-        let multisig_account = MultiSigPallet::multi_account_id(&vec![account_of(ALICE), account_of(BOB)], 2);
+        let multisig_account = MultisigPallet::multi_account_id(&vec![account_of(ALICE), account_of(BOB)], 2);
 
         // vested transfer takes free balance of caller
         set_balance(multisig_account.clone(), Token(INTR), vesting_amounts.iter().sum());
@@ -268,7 +268,7 @@ fn integration_test_batched_multisig_vesting() {
 
         let batch = Call::Utility(UtilityCall::batch { calls }).encode();
 
-        assert_ok!(Call::MultiSig(MultiSigCall::as_multi {
+        assert_ok!(Call::Multisig(MultisigCall::as_multi {
             threshold: 2,
             other_signatories: vec![account_of(BOB)],
             maybe_timepoint: None,
@@ -278,10 +278,10 @@ fn integration_test_batched_multisig_vesting() {
         })
         .dispatch(origin_of(account_of(ALICE))));
 
-        assert_ok!(Call::MultiSig(MultiSigCall::approve_as_multi {
+        assert_ok!(Call::Multisig(MultisigCall::approve_as_multi {
             threshold: 2,
             other_signatories: vec![account_of(ALICE)],
-            maybe_timepoint: Some(MultiSigPallet::timepoint()),
+            maybe_timepoint: Some(MultisigPallet::timepoint()),
             call_hash: sp_core::blake2_256(&batch),
             max_weight: 1000000000000,
         })
@@ -312,7 +312,7 @@ fn sort_addresses(entries: Vec<AccountId>) -> Vec<AccountId> {
 fn should_calculate_sorted_multisig_address() {
     ExtBuilder::build().execute_with(|| {
         // 0xb42637741a394e89426e8026536090c23647fdc0cccd1156785d84ff87ed2eb0
-        let multisig_account = MultiSigPallet::multi_account_id(
+        let multisig_account = MultisigPallet::multi_account_id(
             &sort_addresses(vec![
                 AccountId::from_str("5Gn1vqSHnzz61gfXK1wRBcbKtPcSPmxKrpihApnTuvA7NJnj").unwrap(),
                 AccountId::from_str("5CyPQSfoHdb626qGyH16D1DJKjxQtZxbF4pbKzTRRGyCchEx").unwrap(),

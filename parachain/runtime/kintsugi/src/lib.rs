@@ -1273,7 +1273,7 @@ construct_runtime! {
         TransactionPayment: pallet_transaction_payment::{Pallet, Storage} = 3,
         Scheduler: pallet_scheduler::{Pallet, Call, Storage, Event<T>} = 4,
         Preimage: pallet_preimage::{Pallet, Call, Storage, Event<T>} = 5,
-        MultiSig: pallet_multisig::{Pallet, Call, Storage, Event<T>} = 6,
+        Multisig: pallet_multisig::{Pallet, Call, Storage, Event<T>} = 6,
 
         // Tokens & Balances
         Currency: currency::{Pallet} = 7,
