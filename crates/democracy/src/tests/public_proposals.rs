@@ -47,6 +47,18 @@ fn only_author_should_cancel_proposal() {
 }
 
 #[test]
+fn root_can_cancel_any_proposal() {
+    new_test_ext().execute_with(|| {
+        assert_ok!(propose_set_balance_and_note(1, 2, 5));
+        assert_ok!(Democracy::cancel_proposal(Origin::root(), 0));
+        assert_noop!(
+            Democracy::cancel_proposal(Origin::root(), 0),
+            Error::<Test>::ProposalMissing
+        );
+    });
+}
+
+#[test]
 fn deposit_for_proposals_should_be_returned() {
     new_test_ext().execute_with(|| {
         assert_ok!(propose_set_balance_and_note(1, 2, 5));
