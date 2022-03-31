@@ -85,6 +85,7 @@ use frame_support::{
         schedule::{DispatchTime, Named as ScheduleNamed},
         BalanceStatus, Currency, Get, LockIdentifier, OnUnbalanced, ReservableCurrency, UnfilteredDispatchable,
     },
+    transactional,
     weights::Weight,
 };
 use scale_info::TypeInfo;
@@ -376,6 +377,8 @@ pub mod pallet {
         PreimageInvalid,
         /// No proposals waiting
         NoneWaiting,
+        /// The given account did not make this proposal.
+        NotProposer,
         /// The given account did not vote on the referendum.
         NotVoter,
         /// Too high a balance was provided that the account cannot afford.
@@ -580,16 +583,27 @@ pub mod pallet {
 
         /// Remove a proposal.
         ///
-        /// The dispatch origin of this call must be _Root_.
-        ///
         /// - `prop_index`: The index of the proposal to cancel.
         ///
         /// Weight: `O(p)` where `p = PublicProps::<T>::decode_len()`
         #[pallet::weight(T::WeightInfo::cancel_proposal(T::MaxProposals::get()))]
+        #[transactional]
         pub fn cancel_proposal(origin: OriginFor<T>, #[pallet::compact] prop_index: PropIndex) -> DispatchResult {
-            ensure_root(origin)?;
+            let who = ensure_signed(origin.clone())
+                .map(Some)
+                .or_else(|_| ensure_root(origin).map(|_| None))?;
 
-            PublicProps::<T>::mutate(|props| props.retain(|p| p.0 != prop_index));
+            PublicProps::<T>::try_mutate(|props| {
+                if let Some(i) = props.iter().position(|p| p.0 == prop_index) {
+                    let (_, _, proposer) = props.remove(i);
+                    if let Some(account_id) = who {
+                        ensure!(proposer == account_id, Error::<T>::NotProposer);
+                    }
+                    Ok(())
+                } else {
+                    Err(Error::<T>::ProposalMissing)
+                }
+            })?;
             if let Some((whos, amount)) = DepositOf::<T>::take(prop_index) {
                 for who in whos.into_iter() {
                     T::Currency::unreserve(&who, amount);

@@ -29,6 +29,36 @@ fn deposit_for_proposals_should_be_taken() {
 }
 
 #[test]
+fn only_author_should_cancel_proposal() {
+    new_test_ext().execute_with(|| {
+        assert_ok!(propose_set_balance_and_note(1, 2, 5));
+        assert_noop!(
+            Democracy::cancel_proposal(Origin::signed(2), 0),
+            Error::<Test>::NotProposer
+        );
+        assert_ok!(Democracy::cancel_proposal(Origin::signed(1), 0));
+        assert_noop!(
+            Democracy::cancel_proposal(Origin::signed(1), 0),
+            Error::<Test>::ProposalMissing
+        );
+        // deposit is returned if cancelled
+        assert_eq!(Balances::free_balance(1), 10);
+    });
+}
+
+#[test]
+fn root_can_cancel_any_proposal() {
+    new_test_ext().execute_with(|| {
+        assert_ok!(propose_set_balance_and_note(1, 2, 5));
+        assert_ok!(Democracy::cancel_proposal(Origin::root(), 0));
+        assert_noop!(
+            Democracy::cancel_proposal(Origin::root(), 0),
+            Error::<Test>::ProposalMissing
+        );
+    });
+}
+
+#[test]
 fn deposit_for_proposals_should_be_returned() {
     new_test_ext().execute_with(|| {
         assert_ok!(propose_set_balance_and_note(1, 2, 5));
