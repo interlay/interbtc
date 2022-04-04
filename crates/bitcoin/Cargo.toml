@@ -5,8 +5,8 @@ authors = ["Interlay Ltd"]
 edition = "2018"
 
 [dependencies]
-codec = { package = "parity-scale-codec", version = "2.2.0", default-features = false, features = ["derive", "max-encoded-len"] }
-scale-info = { version = "1.0.0", default-features = false, features = ["derive"] }
+codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = ["derive", "max-encoded-len"] }
+scale-info = { version = "2.0.0", default-features = false, features = ["derive"] }
 serde = { version = "1.0.130", default-features = false, features = ["derive"], optional = true }
 impl-serde = { version = "0.3.1", default-features = false, optional = true }
 sha2 = { version = "0.8.2", default-features = false }
@@ -16,9 +16,9 @@ secp256k1 = { package = "secp256k1", git = "https://github.com/rust-bitcoin/rust
 spin = { version = "0.7.1", default-features = false }
 
 # Substrate dependencies
-sp-core = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.17", default-features = false }
-sp-std = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.17", default-features = false }
-frame-support = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.17", default-features = false }
+sp-core = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.18", default-features = false }
+sp-std = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.18", default-features = false }
+frame-support = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.18", default-features = false }
 
 [dev-dependencies]
 mocktopus = "0.7.0"
@@ -28,6 +28,7 @@ secp256k1 = { package = "secp256k1", git = "https://github.com/rust-bitcoin/rust
 default = ["std"]
 std = [
 	"codec/std",
+	"scale-info/std",
 	"serde",
 	"impl-serde",
 	"sha2/std",

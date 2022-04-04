@@ -22,7 +22,7 @@ use frame_system::{
 use orml_traits::parameter_type_with_key;
 use pallet_transaction_payment::{Multiplier, TargetedFeeAdjustment};
 use sp_api::impl_runtime_apis;
-use sp_core::{crypto::KeyTypeId, u32_trait::_1, OpaqueMetadata, H256};
+use sp_core::{crypto::KeyTypeId, OpaqueMetadata, H256};
 use sp_runtime::{
     create_runtime_str, generic, impl_opaque_keys,
     traits::{AccountIdConversion, BlakeTwo256, Block as BlockT, Convert, IdentityLookup, NumberFor, Zero},
@@ -440,7 +440,7 @@ pub const fn deposit(items: u32, bytes: u32) -> Balance {
 
 type EnsureRootOrAllTechnicalCommittee = EnsureOneOf<
     EnsureRoot<AccountId>,
-    pallet_collective::EnsureProportionAtLeast<_1, _1, AccountId, TechnicalCommitteeInstance>,
+    pallet_collective::EnsureProportionAtLeast<AccountId, TechnicalCommitteeInstance, 1, 1>,
 >;
 
 parameter_types! {
