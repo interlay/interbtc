@@ -81,7 +81,7 @@ pub mod pallet {
         #[pallet::constant]
         type GetRelayChainCurrencyId: Get<CurrencyId<Self>>;
 
-        /// Wrapped currency e.g. INTERBTC/KBTC
+        /// Wrapped currency e.g. IBTC/KBTC
         #[pallet::constant]
         type GetWrappedCurrencyId: Get<CurrencyId<Self>>;
 

@@ -3,7 +3,7 @@ use cumulus_primitives_core::ParaId;
 use hex_literal::hex;
 use interbtc_rpc::jsonrpc_core::serde_json::{map::Map, Value};
 use primitives::{
-    AccountId, Balance, CurrencyId, CurrencyId::Token, CurrencyInfo, Signature, VaultCurrencyPair, DOT, INTERBTC, INTR,
+    AccountId, Balance, CurrencyId, CurrencyId::Token, CurrencyInfo, Signature, VaultCurrencyPair, DOT, IBTC, INTR,
     KBTC, KINT, KSM,
 };
 use sc_chain_spec::{ChainSpecExtension, ChainSpecGroup};
@@ -102,7 +102,7 @@ fn testnet_properties() -> Map<String, Value> {
     let mut properties = Map::new();
     let mut token_symbol: Vec<String> = vec![];
     let mut token_decimals: Vec<u32> = vec![];
-    [KINT, KBTC, KSM, INTR, INTERBTC, DOT].iter().for_each(|token| {
+    [KINT, KBTC, KSM, INTR, IBTC, DOT].iter().for_each(|token| {
         token_symbol.push(token.symbol().to_string());
         token_decimals.push(token.decimals() as u32);
     });
@@ -116,7 +116,7 @@ fn kintsugi_properties() -> Map<String, Value> {
     let mut properties = Map::new();
     let mut token_symbol: Vec<String> = vec![];
     let mut token_decimals: Vec<u32> = vec![];
-    [KINT, KBTC, KSM, INTR, INTERBTC, DOT].iter().for_each(|token| {
+    [KINT, KBTC, KSM, INTR, IBTC, DOT].iter().for_each(|token| {
         token_symbol.push(token.symbol().to_string());
         token_decimals.push(token.decimals() as u32);
     });
@@ -130,7 +130,7 @@ fn interlay_properties() -> Map<String, Value> {
     let mut properties = Map::new();
     let mut token_symbol: Vec<String> = vec![];
     let mut token_decimals: Vec<u32> = vec![];
-    [INTR, INTERBTC, DOT, KINT, KBTC, KSM].iter().for_each(|token| {
+    [INTR, IBTC, DOT, KINT, KBTC, KSM].iter().for_each(|token| {
         token_symbol.push(token.symbol().to_string());
         token_decimals.push(token.decimals() as u32);
     });

@@ -21,7 +21,7 @@ fn test_with<R>(execute: impl Fn(VaultId, VaultId) -> R) {
             assert_ok!(OraclePallet::_set_exchange_rate(old_vault_currency, FixedU128::one()));
             assert_ok!(OraclePallet::_set_exchange_rate(new_vault_currency, FixedU128::one()));
 
-            if wrapped_currency != Token(INTERBTC) {
+            if wrapped_currency != Token(IBTC) {
                 assert_ok!(OraclePallet::_set_exchange_rate(wrapped_currency, FixedU128::one()));
             }
             set_default_thresholds();
@@ -52,10 +52,10 @@ fn test_with<R>(execute: impl Fn(VaultId, VaultId) -> R) {
         })
     };
     test_with(Token(DOT), Token(KSM), Token(KBTC), None);
-    test_with(Token(DOT), Token(DOT), Token(INTERBTC), None);
-    test_with(Token(DOT), Token(DOT), Token(INTERBTC), Some(Token(KSM)));
-    test_with(Token(DOT), Token(KSM), Token(INTERBTC), None);
-    test_with(Token(KSM), Token(DOT), Token(INTERBTC), None);
+    test_with(Token(DOT), Token(DOT), Token(IBTC), None);
+    test_with(Token(DOT), Token(DOT), Token(IBTC), Some(Token(KSM)));
+    test_with(Token(DOT), Token(KSM), Token(IBTC), None);
+    test_with(Token(KSM), Token(DOT), Token(IBTC), None);
 }
 
 fn test_without_initialization<R>(execute: impl Fn(CurrencyId) -> R) {
@@ -264,10 +264,10 @@ mod accept_replace_tests {
     #[test]
     fn integration_test_replace_other_wrapped_currency_fails() {
         test_with(|old_vault_id, new_vault_id| {
-            let other_currency = if let Token(INTERBTC) = old_vault_id.wrapped_currency() {
+            let other_currency = if let Token(IBTC) = old_vault_id.wrapped_currency() {
                 Token(KBTC)
             } else {
-                Token(INTERBTC)
+                Token(IBTC)
             };
             assert_ok!(OraclePallet::_set_exchange_rate(other_currency, FixedU128::one()));
 

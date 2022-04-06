@@ -94,7 +94,7 @@ impl frame_system::Config for Test {
 
 pub const DEFAULT_COLLATERAL_CURRENCY: CurrencyId = Token(DOT);
 pub const DEFAULT_NATIVE_CURRENCY: CurrencyId = Token(INTR);
-pub const DEFAULT_WRAPPED_CURRENCY: CurrencyId = Token(INTERBTC);
+pub const DEFAULT_WRAPPED_CURRENCY: CurrencyId = Token(IBTC);
 
 parameter_types! {
     pub const GetCollateralCurrencyId: CurrencyId = DEFAULT_COLLATERAL_CURRENCY;

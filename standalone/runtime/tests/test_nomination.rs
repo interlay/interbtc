@@ -12,7 +12,7 @@ fn test_with<R>(execute: impl Fn(VaultId) -> R) {
             for currency_id in iter_collateral_currencies() {
                 assert_ok!(OraclePallet::_set_exchange_rate(currency_id, FixedU128::one()));
             }
-            if wrapped_id != Token(INTERBTC) {
+            if wrapped_id != Token(IBTC) {
                 assert_ok!(OraclePallet::_set_exchange_rate(wrapped_id, FixedU128::one()));
             }
             UserData::force_to(USER, default_user_state());
@@ -24,8 +24,8 @@ fn test_with<R>(execute: impl Fn(VaultId) -> R) {
         });
     };
     test_with(Token(DOT), Token(KBTC));
-    test_with(Token(KSM), Token(INTERBTC));
-    test_with(Token(DOT), Token(INTERBTC));
+    test_with(Token(KSM), Token(IBTC));
+    test_with(Token(DOT), Token(IBTC));
 }
 
 fn test_with_nomination_enabled<R>(execute: impl Fn(VaultId) -> R) {
@@ -174,8 +174,8 @@ mod spec_based_tests {
         //   - `get_total_nominated_collateral(vault_id)` must return zero.
         //   - For all nominators, `get_nominator_collateral(vault_id, user_id)` must return zero.
         //   - Staking pallet `nonce` must be incremented by one.
-        //   - `compute_reward_at_index(nonce - 1, Token(INTERBTC), vault_id, user_id)` in the Staking pallet must be
-        //     equal to the user’s nomination just before the vault opted out.
+        //   - `compute_reward_at_index(nonce - 1, Token(IBTC), vault_id, user_id)` in the Staking pallet must be equal
+        //     to the user’s nomination just before the vault opted out.
         test_with_nomination_enabled_and_vault_opted_in(|vault_id| {
             assert_nominate_collateral(&vault_id, account_of(USER), default_nomination(&vault_id));
             assert_eq!(

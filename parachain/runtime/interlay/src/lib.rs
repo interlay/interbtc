@@ -60,7 +60,7 @@ pub use security::StatusCode;
 
 pub use primitives::{
     self, AccountId, Balance, BlockNumber, CurrencyId, CurrencyId::Token, CurrencyInfo, Hash, Moment, Nonce, Signature,
-    SignedFixedPoint, SignedInner, UnsignedFixedPoint, UnsignedInner, DOT, INTERBTC, INTR,
+    SignedFixedPoint, SignedInner, UnsignedFixedPoint, UnsignedInner, DOT, IBTC, INTR,
 };
 
 // XCM imports
@@ -885,7 +885,7 @@ impl btc_relay::Config for Runtime {
 
 const NATIVE_CURRENCY_ID: CurrencyId = Token(INTR);
 const PARENT_CURRENCY_ID: CurrencyId = Token(DOT);
-const WRAPPED_CURRENCY_ID: CurrencyId = Token(INTERBTC);
+const WRAPPED_CURRENCY_ID: CurrencyId = Token(IBTC);
 
 parameter_types! {
     pub const GetNativeCurrencyId: CurrencyId = NATIVE_CURRENCY_ID;

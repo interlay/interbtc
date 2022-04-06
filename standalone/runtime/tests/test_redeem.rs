@@ -11,7 +11,7 @@ fn test_with<R>(execute: impl Fn(VaultId) -> R) {
             let vault_id = PrimitiveVaultId::new(account_of(VAULT), collateral_id, wrapped_id);
             SecurityPallet::set_active_block_number(1);
             assert_ok!(OraclePallet::_set_exchange_rate(collateral_id, FixedU128::one()));
-            if wrapped_id != Token(INTERBTC) {
+            if wrapped_id != Token(IBTC) {
                 assert_ok!(OraclePallet::_set_exchange_rate(wrapped_id, FixedU128::one()));
             }
             set_default_thresholds();
@@ -34,9 +34,9 @@ fn test_with<R>(execute: impl Fn(VaultId) -> R) {
     };
 
     test_with(Token(DOT), Token(KBTC), None);
-    test_with(Token(DOT), Token(INTERBTC), None);
-    test_with(Token(DOT), Token(INTERBTC), Some(Token(KSM)));
-    test_with(Token(KSM), Token(INTERBTC), None);
+    test_with(Token(DOT), Token(IBTC), None);
+    test_with(Token(DOT), Token(IBTC), Some(Token(KSM)));
+    test_with(Token(KSM), Token(IBTC), None);
 }
 
 /// to-be-replaced & replace_collateral are decreased in request_redeem
@@ -1167,7 +1167,7 @@ mod spec_based_tests {
                         currency_pair: VaultCurrencyPair {
                             collateral: vault_id.currencies.collateral,
                             wrapped: if vault_id.currencies.wrapped == Token(DOT) {
-                                Token(INTERBTC)
+                                Token(IBTC)
                             } else {
                                 Token(DOT)
                             },
