@@ -72,7 +72,7 @@ fn withdraw_local_pool_rewards(vault_id: &VaultId, nominator_id: &AccountId) -> 
 }
 
 fn get_vault_global_pool_rewards(vault_id: &VaultId) -> i128 {
-    VaultRewardsPallet::compute_reward(Token(INTERBTC), vault_id).unwrap()
+    VaultRewardsPallet::compute_reward(Token(IBTC), vault_id).unwrap()
 }
 
 fn get_local_pool_rewards(vault_id: &VaultId, nominator_id: &AccountId) -> i128 {

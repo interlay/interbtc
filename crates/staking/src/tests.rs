@@ -15,14 +15,14 @@ fn should_stake_and_earn_rewards() {
     run_test(|| {
         assert_ok!(Staking::deposit_stake(&VAULT, &ALICE.account_id, fixed!(50)));
         assert_ok!(Staking::deposit_stake(&VAULT, &BOB.account_id, fixed!(50)));
-        assert_ok!(Staking::distribute_reward(Token(INTERBTC), &VAULT, fixed!(100)));
-        assert_ok!(Staking::compute_reward(Token(INTERBTC), &VAULT, &ALICE.account_id), 50);
-        assert_ok!(Staking::compute_reward(Token(INTERBTC), &VAULT, &BOB.account_id), 50);
-        assert_ok!(Staking::slash_stake(Token(INTERBTC), &VAULT, fixed!(20)));
+        assert_ok!(Staking::distribute_reward(Token(IBTC), &VAULT, fixed!(100)));
+        assert_ok!(Staking::compute_reward(Token(IBTC), &VAULT, &ALICE.account_id), 50);
+        assert_ok!(Staking::compute_reward(Token(IBTC), &VAULT, &BOB.account_id), 50);
+        assert_ok!(Staking::slash_stake(Token(IBTC), &VAULT, fixed!(20)));
         assert_ok!(Staking::compute_stake(&VAULT, &ALICE.account_id), 40);
         assert_ok!(Staking::compute_stake(&VAULT, &BOB.account_id), 40);
-        assert_ok!(Staking::compute_reward(Token(INTERBTC), &VAULT, &ALICE.account_id), 50);
-        assert_ok!(Staking::compute_reward(Token(INTERBTC), &VAULT, &BOB.account_id), 50);
+        assert_ok!(Staking::compute_reward(Token(IBTC), &VAULT, &ALICE.account_id), 50);
+        assert_ok!(Staking::compute_reward(Token(IBTC), &VAULT, &BOB.account_id), 50);
     })
 }
 
@@ -32,21 +32,18 @@ fn should_stake_and_distribute_and_withdraw() {
         assert_ok!(Staking::deposit_stake(&VAULT, &ALICE.account_id, fixed!(10000)));
         assert_ok!(Staking::deposit_stake(&VAULT, &BOB.account_id, fixed!(10000)));
 
-        assert_ok!(Staking::distribute_reward(Token(INTERBTC), &VAULT, fixed!(1000)));
-        assert_ok!(Staking::compute_reward(Token(INTERBTC), &VAULT, &ALICE.account_id), 500);
-        assert_ok!(Staking::compute_reward(Token(INTERBTC), &VAULT, &BOB.account_id), 500);
+        assert_ok!(Staking::distribute_reward(Token(IBTC), &VAULT, fixed!(1000)));
+        assert_ok!(Staking::compute_reward(Token(IBTC), &VAULT, &ALICE.account_id), 500);
+        assert_ok!(Staking::compute_reward(Token(IBTC), &VAULT, &BOB.account_id), 500);
 
-        assert_ok!(Staking::slash_stake(Token(INTERBTC), &VAULT, fixed!(50)));
-        assert_ok!(Staking::slash_stake(Token(INTERBTC), &VAULT, fixed!(50)));
+        assert_ok!(Staking::slash_stake(Token(IBTC), &VAULT, fixed!(50)));
+        assert_ok!(Staking::slash_stake(Token(IBTC), &VAULT, fixed!(50)));
 
         assert_ok!(Staking::deposit_stake(&VAULT, &ALICE.account_id, fixed!(1000)));
-        assert_ok!(Staking::distribute_reward(Token(INTERBTC), &VAULT, fixed!(1000)));
+        assert_ok!(Staking::distribute_reward(Token(IBTC), &VAULT, fixed!(1000)));
 
-        assert_ok!(
-            Staking::compute_reward(Token(INTERBTC), &VAULT, &ALICE.account_id),
-            1023
-        );
-        assert_ok!(Staking::compute_reward(Token(INTERBTC), &VAULT, &BOB.account_id), 976);
+        assert_ok!(Staking::compute_reward(Token(IBTC), &VAULT, &ALICE.account_id), 1023);
+        assert_ok!(Staking::compute_reward(Token(IBTC), &VAULT, &BOB.account_id), 976);
 
         assert_ok!(Staking::withdraw_stake(&VAULT, &ALICE.account_id, fixed!(10000), None));
         assert_ok!(Staking::compute_stake(&VAULT, &ALICE.account_id), 950);
@@ -57,16 +54,13 @@ fn should_stake_and_distribute_and_withdraw() {
         assert_ok!(Staking::deposit_stake(&VAULT, &BOB.account_id, fixed!(10000)));
         assert_ok!(Staking::compute_stake(&VAULT, &BOB.account_id), 19950);
 
-        assert_ok!(Staking::distribute_reward(Token(INTERBTC), &VAULT, fixed!(1000)));
-        assert_ok!(Staking::slash_stake(Token(INTERBTC), &VAULT, fixed!(10000)));
+        assert_ok!(Staking::distribute_reward(Token(IBTC), &VAULT, fixed!(1000)));
+        assert_ok!(Staking::slash_stake(Token(IBTC), &VAULT, fixed!(10000)));
 
         assert_ok!(Staking::compute_stake(&VAULT, &BOB.account_id), 9949);
 
-        assert_ok!(
-            Staking::compute_reward(Token(INTERBTC), &VAULT, &ALICE.account_id),
-            1023
-        );
-        assert_ok!(Staking::compute_reward(Token(INTERBTC), &VAULT, &BOB.account_id), 1975);
+        assert_ok!(Staking::compute_reward(Token(IBTC), &VAULT, &ALICE.account_id), 1023);
+        assert_ok!(Staking::compute_reward(Token(IBTC), &VAULT, &BOB.account_id), 1975);
     })
 }
 
@@ -74,13 +68,10 @@ fn should_stake_and_distribute_and_withdraw() {
 fn should_stake_and_withdraw_rewards() {
     run_test(|| {
         assert_ok!(Staking::deposit_stake(&VAULT, &ALICE.account_id, fixed!(100)));
-        assert_ok!(Staking::distribute_reward(Token(INTERBTC), &VAULT, fixed!(100)));
-        assert_ok!(Staking::compute_reward(Token(INTERBTC), &VAULT, &ALICE.account_id), 100);
-        assert_ok!(
-            Staking::withdraw_reward(Token(INTERBTC), &VAULT, &ALICE.account_id),
-            100
-        );
-        assert_ok!(Staking::compute_reward(Token(INTERBTC), &VAULT, &ALICE.account_id), 0);
+        assert_ok!(Staking::distribute_reward(Token(IBTC), &VAULT, fixed!(100)));
+        assert_ok!(Staking::compute_reward(Token(IBTC), &VAULT, &ALICE.account_id), 100);
+        assert_ok!(Staking::withdraw_reward(Token(IBTC), &VAULT, &ALICE.account_id), 100);
+        assert_ok!(Staking::compute_reward(Token(IBTC), &VAULT, &ALICE.account_id), 0);
     })
 }
 
@@ -101,7 +92,7 @@ fn should_not_withdraw_stake_if_balance_insufficient_after_slashing() {
     run_test(|| {
         assert_ok!(Staking::deposit_stake(&VAULT, &ALICE.account_id, fixed!(100)));
         assert_ok!(Staking::compute_stake(&VAULT, &ALICE.account_id), 100);
-        assert_ok!(Staking::slash_stake(Token(INTERBTC), &VAULT, fixed!(100)));
+        assert_ok!(Staking::slash_stake(Token(IBTC), &VAULT, fixed!(100)));
         assert_ok!(Staking::compute_stake(&VAULT, &ALICE.account_id), 0);
         assert_err!(
             Staking::withdraw_stake(&VAULT, &ALICE.account_id, fixed!(100), None),
@@ -116,22 +107,22 @@ fn should_force_refund() {
         let mut nonce = Staking::nonce(&VAULT);
         assert_ok!(Staking::deposit_stake(&VAULT, &VAULT.account_id, fixed!(100)));
         assert_ok!(Staking::deposit_stake(&VAULT, &ALICE.account_id, fixed!(100)));
-        assert_ok!(Staking::slash_stake(Token(INTERBTC), &VAULT, fixed!(100)));
+        assert_ok!(Staking::slash_stake(Token(IBTC), &VAULT, fixed!(100)));
         assert_ok!(Staking::deposit_stake(&VAULT, &VAULT.account_id, fixed!(100)));
         assert_ok!(Staking::deposit_stake(&VAULT, &ALICE.account_id, fixed!(10)));
-        assert_ok!(Staking::distribute_reward(Token(INTERBTC), &VAULT, fixed!(100)));
+        assert_ok!(Staking::distribute_reward(Token(IBTC), &VAULT, fixed!(100)));
 
         // vault stake & rewards pre-refund
         assert_ok!(Staking::compute_stake_at_index(nonce, &VAULT, &VAULT.account_id), 150);
         assert_ok!(
-            Staking::compute_reward_at_index(nonce, Token(INTERBTC), &VAULT, &VAULT.account_id),
+            Staking::compute_reward_at_index(nonce, Token(IBTC), &VAULT, &VAULT.account_id),
             71
         );
 
         // alice stake & rewards pre-refund
         assert_ok!(Staking::compute_stake_at_index(nonce, &VAULT, &ALICE.account_id), 60);
         assert_ok!(
-            Staking::compute_reward_at_index(nonce, Token(INTERBTC), &VAULT, &ALICE.account_id),
+            Staking::compute_reward_at_index(nonce, Token(IBTC), &VAULT, &ALICE.account_id),
             28
         );
 
@@ -142,19 +133,19 @@ fn should_force_refund() {
         // vault stake & rewards post-refund
         assert_ok!(Staking::compute_stake_at_index(nonce, &VAULT, &VAULT.account_id), 150);
         assert_ok!(
-            Staking::compute_reward_at_index(nonce, Token(INTERBTC), &VAULT, &VAULT.account_id),
+            Staking::compute_reward_at_index(nonce, Token(IBTC), &VAULT, &VAULT.account_id),
             0
         );
 
         assert_ok!(
-            Staking::compute_reward_at_index(nonce - 1, Token(INTERBTC), &VAULT, &VAULT.account_id),
+            Staking::compute_reward_at_index(nonce - 1, Token(IBTC), &VAULT, &VAULT.account_id),
             71
         );
 
         // alice stake & rewards post-refund
         assert_ok!(Staking::compute_stake_at_index(nonce, &VAULT, &ALICE.account_id), 0);
         assert_ok!(
-            Staking::compute_reward_at_index(nonce, Token(INTERBTC), &VAULT, &ALICE.account_id),
+            Staking::compute_reward_at_index(nonce, Token(IBTC), &VAULT, &ALICE.account_id),
             0
         );
 
@@ -163,7 +154,7 @@ fn should_force_refund() {
             60
         );
         assert_ok!(
-            Staking::compute_reward_at_index(nonce - 1, Token(INTERBTC), &VAULT, &ALICE.account_id),
+            Staking::compute_reward_at_index(nonce - 1, Token(IBTC), &VAULT, &ALICE.account_id),
             28
         );
     })
@@ -181,7 +172,7 @@ fn should_compute_stake_after_adjustments() {
             fixed!(1152923504604516976)
         ));
         assert_ok!(Staking::slash_stake(
-            Token(INTERBTC),
+            Token(IBTC),
             &VAULT,
             fixed!(1152923504604516976 + 100)
         ));
@@ -194,7 +185,7 @@ fn should_compute_stake_after_adjustments() {
             fixed!(1152924504603286976)
         ));
         assert_ok!(Staking::slash_stake(
-            Token(INTERBTC),
+            Token(IBTC),
             &VAULT,
             fixed!(1152924504603286976 + 1_000_000)
         ));

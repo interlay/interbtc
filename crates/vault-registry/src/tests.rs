@@ -60,7 +60,7 @@ fn convert_with_exchange_rate(
     exchange_rate: u128,
 ) -> impl Fn(CurrencyId, Amount<Test>) -> MockResult<(CurrencyId, Amount<Test>), Result<Amount<Test>, DispatchError>> {
     move |currency_id, amount| {
-        let amount = if currency_id == Token(INTERBTC) {
+        let amount = if currency_id == Token(IBTC) {
             Amount::new(amount.amount() / exchange_rate, currency_id)
         } else {
             Amount::new(amount.amount() * exchange_rate, currency_id)

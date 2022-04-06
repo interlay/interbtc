@@ -11,7 +11,7 @@ fn test_with<R>(execute: impl Fn(VaultId) -> R) {
             for currency_id in iter_collateral_currencies() {
                 assert_ok!(OraclePallet::_set_exchange_rate(currency_id, FixedU128::one()));
             }
-            if wrapped_currency != Token(INTERBTC) {
+            if wrapped_currency != Token(IBTC) {
                 assert_ok!(OraclePallet::_set_exchange_rate(wrapped_currency, FixedU128::one()));
             }
             let vault_id = VaultId::new(account_of(BOB), collateral_currency, wrapped_currency);
@@ -19,8 +19,8 @@ fn test_with<R>(execute: impl Fn(VaultId) -> R) {
             execute(vault_id)
         });
     };
-    test_with(Token(KSM), Token(INTERBTC));
-    test_with(Token(DOT), Token(INTERBTC));
+    test_with(Token(KSM), Token(IBTC));
+    test_with(Token(DOT), Token(IBTC));
     test_with(Token(DOT), Token(KBTC));
 }
 

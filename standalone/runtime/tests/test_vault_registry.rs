@@ -13,7 +13,7 @@ fn test_with<R>(execute: impl Fn(VaultId) -> R) {
             for currency_id in iter_collateral_currencies() {
                 assert_ok!(OraclePallet::_set_exchange_rate(currency_id, FixedU128::one()));
             }
-            if wrapped_id != Token(INTERBTC) {
+            if wrapped_id != Token(IBTC) {
                 assert_ok!(OraclePallet::_set_exchange_rate(wrapped_id, FixedU128::one()));
             }
             UserData::force_to(USER, default_user_state());
@@ -25,8 +25,8 @@ fn test_with<R>(execute: impl Fn(VaultId) -> R) {
         });
     };
     test_with(Token(DOT), Token(KBTC));
-    test_with(Token(KSM), Token(INTERBTC));
-    test_with(Token(DOT), Token(INTERBTC));
+    test_with(Token(KSM), Token(IBTC));
+    test_with(Token(DOT), Token(IBTC));
 }
 
 mod deposit_collateral_test {

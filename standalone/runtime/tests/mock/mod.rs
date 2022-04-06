@@ -22,7 +22,7 @@ pub use interbtc_runtime_standalone::{
 pub use mocktopus::mocking::*;
 pub use orml_tokens::CurrencyAdapter;
 pub use primitives::{
-    CurrencyId::Token, VaultCurrencyPair, VaultId as PrimitiveVaultId, DOT, INTERBTC, INTR, KBTC, KINT, KSM,
+    CurrencyId::Token, VaultCurrencyPair, VaultId as PrimitiveVaultId, DOT, IBTC, INTR, KBTC, KINT, KSM,
 };
 use redeem::RedeemRequestStatus;
 use staking::DefaultVaultCurrencyPair;
@@ -184,7 +184,7 @@ pub type SchedulerCall = pallet_scheduler::Call<Runtime>;
 pub type SchedulerPallet = pallet_scheduler::Pallet<Runtime>;
 
 pub const DEFAULT_COLLATERAL_CURRENCY: <Runtime as orml_tokens::Config>::CurrencyId = Token(DOT);
-pub const DEFAULT_WRAPPED_CURRENCY: <Runtime as orml_tokens::Config>::CurrencyId = Token(INTERBTC);
+pub const DEFAULT_WRAPPED_CURRENCY: <Runtime as orml_tokens::Config>::CurrencyId = Token(IBTC);
 pub const DEFAULT_NATIVE_CURRENCY: <Runtime as orml_tokens::Config>::CurrencyId = Token(INTR);
 pub const DEFAULT_GRIEFING_CURRENCY: <Runtime as orml_tokens::Config>::CurrencyId = DEFAULT_NATIVE_CURRENCY;
 
@@ -352,7 +352,7 @@ pub fn iter_native_currencies() -> impl Iterator<Item = CurrencyId> {
 }
 
 pub fn iter_wrapped_currencies() -> impl Iterator<Item = CurrencyId> {
-    vec![Token(INTERBTC), Token(KBTC)].into_iter()
+    vec![Token(IBTC), Token(KBTC)].into_iter()
 }
 
 pub fn iter_all_currencies() -> impl Iterator<Item = CurrencyId> {

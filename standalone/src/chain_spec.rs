@@ -5,8 +5,8 @@ use interbtc_runtime::{
     token_distribution, AccountId, AuraConfig, BTCRelayConfig, CurrencyId, CurrencyId::Token, CurrencyInfo, FeeConfig,
     GenesisConfig, GetWrappedCurrencyId, GrandpaConfig, IssueConfig, NominationConfig, OracleConfig, RedeemConfig,
     RefundConfig, ReplaceConfig, SecurityConfig, Signature, StatusCode, SudoConfig, SupplyConfig, SystemConfig,
-    TechnicalCommitteeConfig, TokensConfig, VaultRegistryConfig, BITCOIN_BLOCK_SPACING, DAYS, DOT, INTERBTC, INTR,
-    KBTC, KINT, KSM, WASM_BINARY, YEARS,
+    TechnicalCommitteeConfig, TokensConfig, VaultRegistryConfig, BITCOIN_BLOCK_SPACING, DAYS, DOT, IBTC, INTR, KBTC,
+    KINT, KSM, WASM_BINARY, YEARS,
 };
 use primitives::VaultCurrencyPair;
 use sc_service::ChainType;
@@ -52,7 +52,7 @@ fn get_properties() -> Map<String, Value> {
     let mut properties = Map::new();
     let mut token_symbol: Vec<String> = vec![];
     let mut token_decimals: Vec<u32> = vec![];
-    [INTR, INTERBTC, DOT, KINT, KBTC, KSM].iter().for_each(|token| {
+    [INTR, IBTC, DOT, KINT, KBTC, KSM].iter().for_each(|token| {
         token_symbol.push(token.symbol().to_string());
         token_decimals.push(token.decimals() as u32);
     });

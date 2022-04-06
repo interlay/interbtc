@@ -17,7 +17,7 @@ fn dummy_merkle_proof() -> MerkleProof {
 }
 
 fn wrapped(amount: u128) -> Amount<Test> {
-    Amount::new(amount, Token(INTERBTC))
+    Amount::new(amount, Token(IBTC))
 }
 
 #[test]

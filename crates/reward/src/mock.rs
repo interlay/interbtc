@@ -63,7 +63,7 @@ impl frame_system::Config for Test {
 
 parameter_types! {
     pub const GetNativeCurrencyId: CurrencyId = Token(INTR);
-    pub const GetWrappedCurrencyId: CurrencyId = Token(INTERBTC);
+    pub const GetWrappedCurrencyId: CurrencyId = Token(IBTC);
 }
 
 impl Config for Test {

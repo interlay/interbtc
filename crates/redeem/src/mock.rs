@@ -94,7 +94,7 @@ impl frame_system::Config for Test {
 
 pub const DEFAULT_COLLATERAL_CURRENCY: CurrencyId = Token(DOT);
 pub const DEFAULT_NATIVE_CURRENCY: CurrencyId = Token(INTR);
-pub const DEFAULT_WRAPPED_CURRENCY: CurrencyId = Token(INTERBTC);
+pub const DEFAULT_WRAPPED_CURRENCY: CurrencyId = Token(IBTC);
 
 pub const DEFAULT_CURRENCY_PAIR: VaultCurrencyPair<CurrencyId> = VaultCurrencyPair {
     collateral: DEFAULT_COLLATERAL_CURRENCY,
@@ -325,9 +325,9 @@ impl ExtBuilder {
                 (USER, Token(DOT), ALICE_BALANCE),
                 (VAULT.account_id, Token(DOT), VAULT_BALANCE),
                 (CAROL, Token(DOT), CAROL_BALANCE),
-                (USER, Token(INTERBTC), ALICE_BALANCE),
-                (VAULT.account_id, Token(INTERBTC), VAULT_BALANCE),
-                (CAROL, Token(INTERBTC), CAROL_BALANCE),
+                (USER, Token(IBTC), ALICE_BALANCE),
+                (VAULT.account_id, Token(IBTC), VAULT_BALANCE),
+                (CAROL, Token(IBTC), CAROL_BALANCE),
             ],
         })
     }

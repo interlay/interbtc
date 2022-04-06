@@ -82,21 +82,21 @@ pub const VAULT: VaultId<AccountId, CurrencyId> = VaultId {
     account_id: 1,
     currencies: VaultCurrencyPair {
         collateral: Token(DOT),
-        wrapped: Token(INTERBTC),
+        wrapped: Token(IBTC),
     },
 };
 pub const ALICE: VaultId<AccountId, CurrencyId> = VaultId {
     account_id: 2,
     currencies: VaultCurrencyPair {
         collateral: Token(DOT),
-        wrapped: Token(INTERBTC),
+        wrapped: Token(IBTC),
     },
 };
 pub const BOB: VaultId<AccountId, CurrencyId> = VaultId {
     account_id: 3,
     currencies: VaultCurrencyPair {
         collateral: Token(DOT),
-        wrapped: Token(INTERBTC),
+        wrapped: Token(IBTC),
     },
 };
 
