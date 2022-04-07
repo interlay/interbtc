@@ -377,6 +377,8 @@ async fn start_node(cli: Cli, config: Configuration) -> sc_service::error::Resul
     let polkadot_config = SubstrateCli::create_configuration(&polkadot_cli, &polkadot_cli, tokio_handle)
         .map_err(|err| format!("Relay chain argument error: {}", err))?;
 
+    let collator_options = cli.run.collator_options();
+
     info!("Parachain id: {:?}", id);
     info!("Parachain Account: {}", parachain_account);
     info!("Parachain genesis state: {}", genesis_state);
@@ -386,20 +388,35 @@ async fn start_node(cli: Cli, config: Configuration) -> sc_service::error::Resul
     );
 
     if config.chain_spec.is_interlay() {
-        crate::service::start_node::<interlay_runtime::RuntimeApi, InterlayRuntimeExecutor>(config, polkadot_config, id)
-            .await
-            .map(|r| r.0)
-            .map_err(Into::into)
+        crate::service::start_node::<interlay_runtime::RuntimeApi, InterlayRuntimeExecutor>(
+            config,
+            polkadot_config,
+            collator_options,
+            id,
+        )
+        .await
+        .map(|r| r.0)
+        .map_err(Into::into)
     } else if config.chain_spec.is_kintsugi() {
-        crate::service::start_node::<kintsugi_runtime::RuntimeApi, KintsugiRuntimeExecutor>(config, polkadot_config, id)
-            .await
-            .map(|r| r.0)
-            .map_err(Into::into)
+        crate::service::start_node::<kintsugi_runtime::RuntimeApi, KintsugiRuntimeExecutor>(
+            config,
+            polkadot_config,
+            collator_options,
+            id,
+        )
+        .await
+        .map(|r| r.0)
+        .map_err(Into::into)
     } else {
-        crate::service::start_node::<testnet_runtime::RuntimeApi, TestnetRuntimeExecutor>(config, polkadot_config, id)
-            .await
-            .map(|r| r.0)
-            .map_err(Into::into)
+        crate::service::start_node::<testnet_runtime::RuntimeApi, TestnetRuntimeExecutor>(
+            config,
+            polkadot_config,
+            collator_options,
+            id,
+        )
+        .await
+        .map(|r| r.0)
+        .map_err(Into::into)
     }
 }
 
