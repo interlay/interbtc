@@ -31,10 +31,7 @@ fn transfer_from_relay_chain() {
             Tokens::free_balance(Token(KSM), &AccountId::from(BOB)),
             KSM.one() - xcm_fee
         );
-        assert_eq!(
-            Tokens::free_balance(Token(KSM), &KintsugiTreasuryAccount::get()),
-            xcm_fee
-        );
+        assert_eq!(Tokens::free_balance(Token(KSM), &TreasuryAccount::get()), xcm_fee);
     });
 }
 
@@ -151,10 +148,7 @@ fn transfer_to_sibling() {
             95_000_000_000_000 - xcm_fee
         );
 
-        assert_eq!(
-            Tokens::free_balance(Token(KINT), &KintsugiTreasuryAccount::get()),
-            xcm_fee
-        );
+        assert_eq!(Tokens::free_balance(Token(KINT), &TreasuryAccount::get()), xcm_fee);
 
         assert_eq!(
             Tokens::free_balance(Token(KINT), &sibling_sovereign_account()),
@@ -339,7 +333,7 @@ fn trap_assets_works() {
         assert_ok!(Tokens::deposit(Token(KSM), &parent_account, 100 * KSM.one()));
         assert_ok!(Tokens::deposit(Token(KINT), &parent_account, 100 * KINT.one()));
 
-        kint_treasury_amount = Tokens::free_balance(Token(KINT), &KintsugiTreasuryAccount::get());
+        kint_treasury_amount = Tokens::free_balance(Token(KINT), &TreasuryAccount::get());
     });
 
     let assets: MultiAsset = (Parent, ksm_asset_amount).into();
@@ -394,11 +388,11 @@ fn trap_assets_works() {
         // unchanged treasury amounts
         assert_eq!(
             trader_weight_to_treasury,
-            Tokens::free_balance(Token(KSM), &KintsugiTreasuryAccount::get())
+            Tokens::free_balance(Token(KSM), &TreasuryAccount::get())
         );
         assert_eq!(
             kint_treasury_amount,
-            Tokens::free_balance(Token(KINT), &KintsugiTreasuryAccount::get())
+            Tokens::free_balance(Token(KINT), &TreasuryAccount::get())
         );
     });
 
