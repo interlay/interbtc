@@ -14,14 +14,9 @@ pub use xcm_emulator::XcmExecutor;
 pub use kintsugi_imports::*;
 mod kintsugi_imports {
     pub use frame_support::{parameter_types, weights::Weight};
-    pub use kintsugi_runtime_parachain::*;
-    pub use sp_runtime::{traits::AccountIdConversion, FixedPointNumber};
-
-    parameter_types! {
-        pub TreasuryAccount: AccountId = TreasuryPalletId::get().into_account();
-    }
-
+    pub use kintsugi_runtime_parachain::{xcm_config::*, *};
     pub use primitives::{CurrencyId::Token, KINT, KSM};
+    pub use sp_runtime::{traits::AccountIdConversion, FixedPointNumber};
 }
 
 pub const KINTSUGI_PARA_ID: u32 = 2092;

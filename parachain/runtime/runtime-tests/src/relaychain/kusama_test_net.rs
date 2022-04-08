@@ -123,7 +123,7 @@ pub fn para_ext(parachain_id: u32) -> sp_io::TestExternalities {
     ExtBuilder::default()
         .balances(vec![
             (AccountId::from(ALICE), Token(KSM), 10 * KSM.one()),
-            // (kintsugi_runtime_parachain::KintsugiTreasuryAccount::get(), Token(KSM), KSM.one()),
+            // (kintsugi_runtime_parachain::TreasuryAccount::get(), Token(KSM), KSM.one()),
         ])
         .parachain_id(parachain_id)
         .build()
