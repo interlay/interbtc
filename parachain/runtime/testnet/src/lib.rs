@@ -518,12 +518,13 @@ impl pallet_multisig::Config for Runtime {
     type WeightInfo = ();
 }
 
+// https://github.com/paritytech/polkadot/blob/d7d75cef73b1294f5e5200f7e18f53d26a22eb63/runtime/kusama/src/lib.rs#L737-L754
 parameter_types! {
     pub const ProposalBond: Permill = Permill::from_percent(5);
-    pub ProposalBondMinimum: Balance = 5 * UNITS;
-    pub ProposalBondMaximum: Balance = 25 * UNITS;
-    pub const SpendPeriod: BlockNumber = 7 * DAYS;
-    pub const Burn: Permill = Permill::from_percent(0);
+    pub ProposalBondMinimum: Balance = 2000 * CENTS;
+    pub ProposalBondMaximum: Balance = 1 * GRAND;
+    pub const SpendPeriod: BlockNumber = 6 * DAYS;
+    pub const Burn: Permill = Permill::from_perthousand(2);
     pub const MaxApprovals: u32 = 100;
 }
 
