@@ -106,15 +106,12 @@ pub type DefaultVaultCurrencyPair<T> = VaultCurrencyPair<CurrencyId<T>>;
 pub struct Wallet {
     // store all addresses for `report_vault_theft` checks
     pub addresses: BTreeSet<BtcAddress>,
-    // we use this public key to generate new addresses
-    pub public_key: BtcPublicKey,
 }
 
 impl Wallet {
-    pub fn new(public_key: BtcPublicKey) -> Self {
+    pub fn new() -> Self {
         Self {
             addresses: BTreeSet::new(),
-            public_key,
         }
     }
 
@@ -196,11 +193,8 @@ impl<AccountId: Ord, BlockNumber: Default, Balance: HasCompact + Default, Curren
     Vault<AccountId, BlockNumber, Balance, CurrencyId>
 {
     // note: public only for testing purposes
-    pub fn new(
-        id: VaultId<AccountId, CurrencyId>,
-        public_key: BtcPublicKey,
-    ) -> Vault<AccountId, BlockNumber, Balance, CurrencyId> {
-        let wallet = Wallet::new(public_key);
+    pub fn new(id: VaultId<AccountId, CurrencyId>) -> Vault<AccountId, BlockNumber, Balance, CurrencyId> {
+        let wallet = Wallet::new();
         Vault {
             id,
             wallet,
@@ -641,7 +635,7 @@ impl<T: Config> RichVault<T> {
     }
 
     fn new_deposit_public_key(&self, secure_id: H256) -> Result<BtcPublicKey, DispatchError> {
-        let vault_public_key = self.data.wallet.public_key.clone();
+        let vault_public_key = Pallet::<T>::get_bitcoin_public_key(&self.data.id.account_id)?;
         let vault_public_key = vault_public_key
             .new_deposit_public_key(secure_id)
             .map_err(|_| Error::<T>::InvalidPublicKey)?;
@@ -661,13 +655,6 @@ impl<T: Config> RichVault<T> {
         let btc_address = BtcAddress::P2WPKHv0(public_key.to_hash());
         self.insert_deposit_address(btc_address);
         Ok(btc_address)
-    }
-
-    pub(crate) fn update_public_key(&mut self, public_key: BtcPublicKey) {
-        let _ = self.update(|v| {
-            v.wallet.public_key = public_key.clone();
-            Ok(())
-        });
     }
 
     fn update<F>(&mut self, func: F) -> DispatchResult

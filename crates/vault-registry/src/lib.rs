@@ -166,12 +166,8 @@ pub mod pallet {
     #[pallet::call]
     impl<T: Config> Pallet<T> {
         /// Initiates the registration procedure for a new Vault.
-        /// The Vault provides its BTC address and locks up collateral,
-        /// which is to be used in the issuing process.
+        /// The Vault locks up collateral, which is to be used in the issuing process.
         ///
-        /// # Arguments
-        /// * `collateral` - the amount of collateral to lock
-        /// * `public_key` - the BTC public key of the vault to register
         ///
         /// # Errors
         /// * `InsufficientVaultCollateralAmount` - if the collateral is below the minimum threshold
@@ -183,11 +179,10 @@ pub mod pallet {
             origin: OriginFor<T>,
             currency_pair: DefaultVaultCurrencyPair<T>,
             #[pallet::compact] collateral: BalanceOf<T>,
-            public_key: BtcPublicKey,
         ) -> DispatchResultWithPostInfo {
             let account_id = ensure_signed(origin)?;
             let vault_id = VaultId::new(account_id, currency_pair.collateral, currency_pair.wrapped);
-            Self::_register_vault(vault_id, collateral, public_key)?;
+            Self::_register_vault(vault_id, collateral)?;
             Ok(().into())
         }
 
@@ -265,19 +260,12 @@ pub mod pallet {
         /// * `public_key` - the BTC public key of the vault to update
         #[pallet::weight(<T as Config>::WeightInfo::update_public_key())]
         #[transactional]
-        pub fn update_public_key(
-            origin: OriginFor<T>,
-            currency_pair: DefaultVaultCurrencyPair<T>,
-            public_key: BtcPublicKey,
-        ) -> DispatchResultWithPostInfo {
+        pub fn update_public_key(origin: OriginFor<T>, public_key: BtcPublicKey) -> DispatchResultWithPostInfo {
             let account_id = ensure_signed(origin)?;
-            let vault_id = VaultId::new(account_id, currency_pair.collateral, currency_pair.wrapped);
-            let mut vault = Self::get_active_rich_vault_from_id(&vault_id)?;
-            vault.update_public_key(public_key.clone());
-            Self::deposit_event(Event::<T>::UpdatePublicKey {
-                vault_id: vault.id(),
-                public_key,
-            });
+
+            VaultBitcoinPublicKey::<T>::insert(&account_id, &public_key);
+
+            Self::deposit_event(Event::<T>::UpdatePublicKey { account_id, public_key });
             Ok(().into())
         }
 
@@ -455,7 +443,7 @@ pub mod pallet {
             total: BalanceOf<T>,
         },
         UpdatePublicKey {
-            vault_id: DefaultVaultId<T>,
+            account_id: T::AccountId,
             public_key: BtcPublicKey,
         },
         RegisterAddress {
@@ -561,12 +549,14 @@ pub mod pallet {
         InvalidPublicKey,
         /// The Max Nomination Ratio would be exceeded.
         MaxNominationRatioViolation,
-        /// The collateral ceiling would be exceeded for the vault's currency
+        /// The collateral ceiling would be exceeded for the vault's currency.
         CurrencyCeilingExceeded,
-        /// Vault is no longer usable as it was liquidated due to theft
+        /// Vault is no longer usable as it was liquidated due to theft.
         VaultCommittedTheft,
-        /// Vault is no longer usable as it was liquidated due to undercollateralization
+        /// Vault is no longer usable as it was liquidated due to undercollateralization.
         VaultLiquidated,
+        /// No bitcoin public key is registered for the vault.
+        NoBitcoinPublicKey,
 
         // Errors used exclusively in RPC functions
         /// Collateralization is infinite if no tokens are issued
@@ -638,6 +628,11 @@ pub mod pallet {
     /// Mapping of Vaults, using the respective Vault account identifier as key.
     #[pallet::storage]
     pub(super) type Vaults<T: Config> = StorageMap<_, Blake2_128Concat, DefaultVaultId<T>, DefaultVault<T>>;
+
+    /// Mapping of Vaults, using the respective Vault account identifier as key.
+    #[pallet::storage]
+    pub(super) type VaultBitcoinPublicKey<T: Config> =
+        StorageMap<_, Blake2_128Concat, T::AccountId, BtcPublicKey, OptionQuery>;
 
     /// Mapping of reserved BTC addresses to the registered account
     #[pallet::storage]
@@ -724,11 +719,10 @@ impl<T: Config> Pallet<T> {
         <T as Config>::PalletId::get().into_account()
     }
 
-    pub fn _register_vault(
-        vault_id: DefaultVaultId<T>,
-        collateral: BalanceOf<T>,
-        public_key: BtcPublicKey,
-    ) -> DispatchResult {
+    pub fn _register_vault(vault_id: DefaultVaultId<T>, collateral: BalanceOf<T>) -> DispatchResult {
+        // make sure a public key is registered
+        let _ = Self::get_bitcoin_public_key(&vault_id.account_id)?;
+
         let collateral_currency = vault_id.currencies.collateral;
         let amount = Amount::new(collateral, collateral_currency);
 
@@ -738,7 +732,7 @@ impl<T: Config> Pallet<T> {
         );
         ensure!(!Self::vault_exists(&vault_id), Error::<T>::VaultAlreadyRegistered);
 
-        let vault = Vault::new(vault_id.clone(), public_key);
+        let vault = Vault::new(vault_id.clone());
         Self::insert_vault(&vault_id, vault);
 
         Self::try_deposit_collateral(&vault_id, &amount)?;
@@ -749,6 +743,10 @@ impl<T: Config> Pallet<T> {
         });
 
         Ok(())
+    }
+
+    pub fn get_bitcoin_public_key(account_id: &T::AccountId) -> Result<BtcPublicKey, DispatchError> {
+        VaultBitcoinPublicKey::<T>::get(account_id).ok_or(Error::<T>::NoBitcoinPublicKey.into())
     }
 
     pub fn get_vault_from_id(vault_id: &DefaultVaultId<T>) -> Result<DefaultVault<T>, DispatchError> {
