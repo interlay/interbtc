@@ -131,6 +131,10 @@ pub mod pallet {
             log::info!("Off-chain worker started on block {:?}", n);
             Self::_offchain_worker();
         }
+
+        fn on_runtime_upgrade() -> Weight {
+            crate::types::v2::migrate_v2_to_v3::<T>()
+        }
     }
 
     #[pallet::validate_unsigned]
@@ -697,7 +701,7 @@ pub mod pallet {
             for (currency_pair, threshold) in self.liquidation_collateral_threshold.iter() {
                 LiquidationCollateralThreshold::<T>::insert(currency_pair, threshold);
             }
-            StorageVersion::<T>::put(Version::V1);
+            StorageVersion::<T>::put(Version::V3);
         }
     }
 }
