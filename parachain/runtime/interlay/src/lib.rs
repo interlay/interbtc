@@ -84,7 +84,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     spec_name: create_runtime_str!("interlay-parachain"),
     impl_name: create_runtime_str!("interlay-parachain"),
     authoring_version: 1,
-    spec_version: 1,
+    spec_version: 2, // 1.11.0
     impl_version: 1,
     transaction_version: 2, // added preimage
     apis: RUNTIME_API_VERSIONS,
