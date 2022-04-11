@@ -73,8 +73,9 @@ fn create_vault_with_collateral(id: &DefaultVaultId<Test>, collateral: u128) {
     VaultRegistry::get_minimum_collateral_vault
         .mock_safe(move |currency_id| MockResult::Return(Amount::new(collateral, currency_id)));
     let origin = Origin::signed(id.account_id.clone());
-    let result = VaultRegistry::register_vault(origin, id.currencies.clone(), collateral, dummy_public_key());
-    assert_ok!(result);
+
+    assert_ok!(VaultRegistry::update_public_key(origin.clone(), dummy_public_key()));
+    assert_ok!(VaultRegistry::register_vault(origin, id.currencies.clone(), collateral));
 }
 
 fn create_vault(id: DefaultVaultId<Test>) -> DefaultVaultId<Test> {
@@ -146,12 +147,11 @@ fn register_vault_fails_when_given_collateral_too_low() {
             .mock_safe(move |currency_id| MockResult::Return(Amount::new(200, currency_id)));
         let id = DEFAULT_ID;
         let collateral = 100;
-        let result = VaultRegistry::register_vault(
-            Origin::signed(id.account_id),
-            id.currencies.clone(),
-            collateral,
-            dummy_public_key(),
-        );
+
+        let origin = Origin::signed(id.account_id);
+        assert_ok!(VaultRegistry::update_public_key(origin.clone(), dummy_public_key()));
+
+        let result = VaultRegistry::register_vault(origin, id.currencies.clone(), collateral);
         assert_err!(result, TestError::InsufficientVaultCollateralAmount);
         assert_not_emitted!(Event::RegisterVault {
             vault_id: id,
@@ -164,12 +164,11 @@ fn register_vault_fails_when_given_collateral_too_low() {
 fn register_vault_fails_when_account_funds_too_low() {
     run_test(|| {
         let collateral = DEFAULT_COLLATERAL + 1;
-        let result = VaultRegistry::register_vault(
-            Origin::signed(DEFAULT_ID.account_id),
-            DEFAULT_ID.currencies,
-            collateral,
-            dummy_public_key(),
-        );
+
+        let origin = Origin::signed(DEFAULT_ID.account_id);
+        assert_ok!(VaultRegistry::update_public_key(origin.clone(), dummy_public_key()));
+
+        let result = VaultRegistry::register_vault(origin, DEFAULT_ID.currencies, collateral);
         assert_err!(result, TokensError::BalanceTooLow);
         assert_not_emitted!(Event::RegisterVault {
             vault_id: DEFAULT_ID,
@@ -182,12 +181,8 @@ fn register_vault_fails_when_account_funds_too_low() {
 fn register_vault_fails_when_already_registered() {
     run_test(|| {
         let id = create_sample_vault();
-        let result = VaultRegistry::register_vault(
-            Origin::signed(id.account_id),
-            DEFAULT_CURRENCY_PAIR,
-            DEFAULT_COLLATERAL,
-            dummy_public_key(),
-        );
+        let result =
+            VaultRegistry::register_vault(Origin::signed(id.account_id), DEFAULT_CURRENCY_PAIR, DEFAULT_COLLATERAL);
         assert_err!(result, TestError::VaultAlreadyRegistered);
         assert_emitted!(
             Event::RegisterVault {
@@ -708,12 +703,7 @@ fn liquidate_at_most_secure_threshold() {
         let liquidated_collateral = 1875; // 125 * 10 * 1.5
         let liquidated_for_issued = 1275; // 125 * 10 * 1.5
 
-        assert_ok!(VaultRegistry::register_vault(
-            Origin::signed(vault_id.account_id),
-            DEFAULT_CURRENCY_PAIR,
-            backing_collateral,
-            dummy_public_key(),
-        ));
+        create_vault_with_collateral(&vault_id, backing_collateral);
         let liquidation_vault_before = VaultRegistry::get_rich_liquidation_vault(&DEFAULT_CURRENCY_PAIR);
 
         VaultRegistry::_set_secure_collateral_threshold(
@@ -1419,10 +1409,7 @@ fn wallet_has_btc_address_succeeds() {
         let mut addresses = BTreeSet::new();
         addresses.insert(address1);
 
-        let wallet = Wallet {
-            addresses,
-            public_key: dummy_public_key(),
-        };
+        let wallet = Wallet { addresses };
         assert_eq!(wallet.has_btc_address(&address1), true);
         assert_eq!(wallet.has_btc_address(&address2), false);
     });
@@ -1521,7 +1508,7 @@ fn test_offchain_worker_unsigned_transaction_submission() {
         System::set_block_number(1);
         Security::<Test>::set_active_block_number(1);
         set_default_thresholds();
-        VaultRegistry::insert_vault(&id, Vault::new(id.clone(), Default::default()));
+        VaultRegistry::insert_vault(&id, Vault::new(id.clone()));
 
         // mock that all vaults need to be liquidated
         VaultRegistry::is_vault_below_liquidation_threshold.mock_safe(move |_, _| MockResult::Return(Ok(true)));

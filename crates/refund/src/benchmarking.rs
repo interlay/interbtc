@@ -58,7 +58,10 @@ benchmarks! {
     };
         Refund::<T>::insert_refund_request(&refund_id, &refund_request);
 
-        let vault = Vault::new(vault_id.clone(), dummy_public_key());
+        let origin = RawOrigin::Signed(vault_id.account_id.clone());
+        assert_ok!(VaultRegistry::<T>::update_public_key(origin.into(), dummy_public_key()));
+
+        let vault = Vault::new(vault_id.clone());
 
         VaultRegistry::<T>::insert_vault(
             &vault_id,

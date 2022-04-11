@@ -4,7 +4,6 @@ use frame_support::traits::WrapperKeepOpaque;
 use mock::{assert_eq, *};
 use orml_tokens::AccountData;
 use orml_vesting::VestingSchedule;
-use primitives::VaultCurrencyPair;
 use sp_core::{crypto::Ss58Codec, Encode, H256};
 use sp_std::str::FromStr;
 

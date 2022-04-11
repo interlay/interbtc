@@ -29,21 +29,21 @@ pub fn disable_nomination() {
     );
 }
 
-pub fn register_vault(currency_id: CurrencyId, vault: [u8; 32]) -> DispatchResultWithPostInfo {
-    Call::VaultRegistry(VaultRegistryCall::register_vault {
-        currency_pair: VaultCurrencyPair {
-            collateral: currency_id,
-            wrapped: DEFAULT_WRAPPED_CURRENCY,
-        },
-        collateral: DEFAULT_BACKING_COLLATERAL,
-        public_key: dummy_public_key(),
-    })
-    .dispatch(origin_of(account_of(vault)))
-}
-
-pub fn assert_register_vault(currency_id: CurrencyId, vault: [u8; 32]) {
-    assert_ok!(register_vault(currency_id, vault));
-}
+// pub fn register_vault(currency_id: CurrencyId, vault: [u8; 32]) -> DispatchResultWithPostInfo {
+//     Call::VaultRegistry(VaultRegistryCall::register_vault {
+//         currency_pair: VaultCurrencyPair {
+//             collateral: currency_id,
+//             wrapped: DEFAULT_WRAPPED_CURRENCY,
+//         },
+//         collateral: DEFAULT_BACKING_COLLATERAL,
+//         public_key: dummy_public_key(),
+//     })
+//     .dispatch(origin_of(account_of(vault)))
+// }
+//
+// pub fn assert_register_vault(currency_id: CurrencyId, vault: [u8; 32]) {
+//     assert_ok!(register_vault(currency_id, vault));
+// }
 
 pub fn nomination_opt_in(vault_id: &DefaultVaultId<Runtime>) -> DispatchResultWithPostInfo {
     Call::Nomination(NominationCall::opt_in_to_nomination {

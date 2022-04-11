@@ -2,7 +2,7 @@ use crate::{ext, mock::*};
 
 use crate::types::{RedeemRequest, RedeemRequestStatus};
 use bitcoin::types::{MerkleProof, Transaction};
-use btc_relay::{BtcAddress, BtcPublicKey};
+use btc_relay::BtcAddress;
 use currency::Amount;
 use frame_support::{assert_err, assert_noop, assert_ok, dispatch::DispatchError};
 use mocktopus::mocking::*;
@@ -49,13 +49,6 @@ fn inject_redeem_request(key: H256, value: RedeemRequest<AccountId, BlockNumber,
     Redeem::insert_redeem_request(&key, &value)
 }
 
-fn dummy_public_key() -> BtcPublicKey {
-    BtcPublicKey([
-        2, 205, 114, 218, 156, 16, 235, 172, 106, 37, 18, 153, 202, 140, 176, 91, 207, 51, 187, 55, 18, 45, 222, 180,
-        119, 54, 243, 97, 173, 150, 161, 169, 230,
-    ])
-}
-
 fn default_vault() -> DefaultVault<Test> {
     vault_registry::Vault {
         id: VAULT,
@@ -65,7 +58,7 @@ fn default_vault() -> DefaultVault<Test> {
         replace_collateral: 0,
         to_be_redeemed_tokens: 0,
         active_replace_collateral: 0,
-        wallet: Wallet::new(dummy_public_key()),
+        wallet: Wallet::new(),
         banned_until: None,
         status: VaultStatus::Active(true),
         liquidated_collateral: 0,
@@ -99,7 +92,7 @@ fn test_request_redeem_fails_with_amount_below_minimum() {
                 replace_collateral: 0,
                 to_be_redeemed_tokens: 0,
                 active_replace_collateral: 0,
-                wallet: Wallet::new(dummy_public_key()),
+                wallet: Wallet::new(),
                 banned_until: None,
                 status: VaultStatus::Active(true),
                 liquidated_collateral: 0,
@@ -171,7 +164,7 @@ fn test_request_redeem_succeeds_with_normal_redeem() {
                 to_be_redeemed_tokens: 0,
                 replace_collateral: 0,
                 active_replace_collateral: 0,
-                wallet: Wallet::new(dummy_public_key()),
+                wallet: Wallet::new(),
                 banned_until: None,
                 status: VaultStatus::Active(true),
                 liquidated_collateral: 0,
@@ -255,7 +248,7 @@ fn test_request_redeem_succeeds_with_self_redeem() {
                 to_be_redeemed_tokens: 0,
                 active_replace_collateral: 0,
                 replace_collateral: 0,
-                wallet: Wallet::new(dummy_public_key()),
+                wallet: Wallet::new(),
                 banned_until: None,
                 status: VaultStatus::Active(true),
                 liquidated_collateral: 0,
@@ -384,7 +377,7 @@ fn test_execute_redeem_succeeds_with_another_account() {
                 to_be_redeemed_tokens: 200,
                 replace_collateral: 0,
                 active_replace_collateral: 0,
-                wallet: Wallet::new(dummy_public_key()),
+                wallet: Wallet::new(),
                 banned_until: None,
                 status: VaultStatus::Active(true),
                 liquidated_collateral: 0,
@@ -465,7 +458,7 @@ fn test_execute_redeem_succeeds() {
                 to_be_redeemed_tokens: 200,
                 replace_collateral: 0,
                 active_replace_collateral: 0,
-                wallet: Wallet::new(dummy_public_key()),
+                wallet: Wallet::new(),
                 banned_until: None,
                 status: VaultStatus::Active(true),
                 liquidated_collateral: 0,
@@ -635,7 +628,7 @@ fn test_cancel_redeem_succeeds() {
         ext::vault_registry::get_vault_from_id::<Test>.mock_safe(|_| {
             MockResult::Return(Ok(vault_registry::types::Vault {
                 status: VaultStatus::Active(true),
-                ..vault_registry::types::Vault::new(VAULT, Default::default())
+                ..vault_registry::types::Vault::new(VAULT)
             }))
         });
         ext::vault_registry::decrease_to_be_redeemed_tokens::<Test>.mock_safe(|_, _| MockResult::Return(Ok(())));
@@ -823,7 +816,7 @@ mod spec_based_tests {
                     issued_tokens: 200,
                     to_be_redeemed_tokens: 200,
                     replace_collateral: 0,
-                    wallet: Wallet::new(dummy_public_key()),
+                    wallet: Wallet::new(),
                     banned_until: None,
                     status: VaultStatus::Active(true),
                     ..default_vault()

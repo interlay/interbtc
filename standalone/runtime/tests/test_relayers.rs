@@ -3,7 +3,6 @@ mod mock;
 use crate::redeem_testing_utils::{setup_redeem, USER};
 use currency::Amount;
 use mock::{assert_eq, replace_testing_utils::*, *};
-use primitives::VaultCurrencyPair;
 use refund::types::RefundRequestExt;
 use sp_core::H256;
 
@@ -37,15 +36,16 @@ fn setup_vault_for_potential_double_spend(
         225, 26, 242, 187, 160, 225, 248, 195, 250,
     ]);
 
-    assert_ok!(Call::VaultRegistry(VaultRegistryCall::register_vault {
-        currency_pair: VaultCurrencyPair {
-            collateral: DEFAULT_COLLATERAL_CURRENCY,
-            wrapped: DEFAULT_WRAPPED_CURRENCY,
-        },
-        collateral: INITIAL_BALANCE,
-        public_key: vault_public_key_one.clone(),
-    })
-    .dispatch(origin_of(account_of(stealing_vault))));
+    let vault_id = VaultId::new(
+        account_of(stealing_vault),
+        DEFAULT_COLLATERAL_CURRENCY,
+        DEFAULT_WRAPPED_CURRENCY,
+    );
+    register_vault_with_public_key(
+        &vault_id,
+        Amount::new(INITIAL_BALANCE, vault_id.collateral_currency()),
+        vault_public_key_one.clone(),
+    );
 
     if issue_tokens {
         assert_ok!(VaultRegistryPallet::try_increase_to_be_issued_tokens(
@@ -66,7 +66,7 @@ fn integration_test_report_vault_theft() {
         let user = ALICE;
         let vault = BOB;
         let theft_amount = wrapped(100);
-        let collateral_vault = 1000000;
+        let collateral_vault = Amount::new(1000000, currency_id);
         let issued_tokens = wrapped(100);
         let vault_id = vault_id_of(vault, currency_id);
 
@@ -77,15 +77,8 @@ fn integration_test_report_vault_theft() {
 
         SecurityPallet::set_active_block_number(1);
 
-        assert_ok!(Call::VaultRegistry(VaultRegistryCall::register_vault {
-            currency_pair: VaultCurrencyPair {
-                collateral: currency_id,
-                wrapped: DEFAULT_WRAPPED_CURRENCY,
-            },
-            collateral: collateral_vault,
-            public_key: dummy_public_key(),
-        })
-        .dispatch(origin_of(account_of(vault))));
+        register_vault(&vault_id, collateral_vault);
+
         assert_ok!(VaultRegistryPallet::insert_vault_deposit_address(
             vault_id.clone(),
             vault_btc_address
@@ -106,7 +99,7 @@ fn integration_test_report_vault_theft() {
         SecurityPallet::set_active_block_number(1000);
 
         let pre_liquidation_state = ParachainState::get(&vault_id);
-        let theft_fee = FeePallet::get_theft_fee(&Amount::new(collateral_vault, currency_id)).unwrap();
+        let theft_fee = FeePallet::get_theft_fee(&collateral_vault).unwrap();
 
         assert_ok!(Call::Relay(RelayCall::report_vault_theft {
             vault_id: vault_id.clone(),

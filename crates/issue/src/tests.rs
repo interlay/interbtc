@@ -48,6 +48,7 @@ fn request_issue_ok(origin: AccountId, amount: Balance, vault: DefaultVaultId<Te
     ext::security::get_secure_id::<Test>.mock_safe(|_| MockResult::Return(get_dummy_request_id()));
 
     ext::vault_registry::try_increase_to_be_issued_tokens::<Test>.mock_safe(|_, _| MockResult::Return(Ok(())));
+    ext::vault_registry::get_bitcoin_public_key::<Test>.mock_safe(|_| MockResult::Return(Ok(BtcPublicKey::default())));
     ext::vault_registry::register_deposit_address::<Test>
         .mock_safe(|_, _| MockResult::Return(Ok(BtcAddress::default())));
 
@@ -63,7 +64,7 @@ fn cancel_issue(origin: AccountId, issue_id: &H256) -> Result<(), DispatchError>
 }
 
 fn init_zero_vault(id: DefaultVaultId<Test>) -> DefaultVault<Test> {
-    Vault::new(id, Default::default())
+    Vault::new(id)
 }
 
 fn get_dummy_request_id() -> H256 {
@@ -87,7 +88,7 @@ fn test_request_issue_banned_fails() {
                 to_be_redeemed_tokens: 0,
                 replace_collateral: 0,
                 active_replace_collateral: 0,
-                wallet: Wallet::new(BtcPublicKey::default()),
+                wallet: Wallet::new(),
                 banned_until: Some(1),
                 status: VaultStatus::Active(true),
                 liquidated_collateral: 0,

@@ -45,6 +45,15 @@ fn get_vault_id<T: crate::Config>() -> DefaultVaultId<T> {
     )
 }
 
+fn register_vault<T: crate::Config>(vault_id: DefaultVaultId<T>) {
+    let origin = RawOrigin::Signed(vault_id.account_id.clone());
+    assert_ok!(VaultRegistry::<T>::update_public_key(origin.into(), dummy_public_key()));
+    assert_ok!(VaultRegistry::<T>::_register_vault(
+        vault_id.clone(),
+        100000000u32.into()
+    ));
+}
+
 benchmarks! {
     set_nomination_enabled {
     }: _(RawOrigin::Root, true)
@@ -55,7 +64,7 @@ benchmarks! {
 
         let vault_id = get_vault_id::<T>();
         mint_collateral::<T>(&vault_id.account_id, (1u32 << 31).into());
-        assert_ok!(VaultRegistry::<T>::_register_vault(vault_id.clone(), 100000000u32.into(), dummy_public_key()));
+        register_vault::<T>(vault_id.clone());
 
     }: _(RawOrigin::Signed(vault_id.account_id), vault_id.currencies.clone())
 
@@ -65,7 +74,7 @@ benchmarks! {
 
         let vault_id = get_vault_id::<T>();
         mint_collateral::<T>(&vault_id.account_id, (1u32 << 31).into());
-        assert_ok!(VaultRegistry::<T>::_register_vault(vault_id.clone(), 100000000u32.into(), dummy_public_key()));
+        register_vault::<T>(vault_id.clone());
 
         <Vaults<T>>::insert(&vault_id, true);
 
@@ -77,7 +86,7 @@ benchmarks! {
 
         let vault_id = get_vault_id::<T>();
         mint_collateral::<T>(&vault_id.account_id, (1u32 << 31).into());
-        assert_ok!(VaultRegistry::<T>::_register_vault(vault_id.clone(), 100000000u32.into(), dummy_public_key()));
+        register_vault::<T>(vault_id.clone());
 
         <Vaults<T>>::insert(&vault_id, true);
 
@@ -93,7 +102,7 @@ benchmarks! {
 
         let vault_id = get_vault_id::<T>();
         mint_collateral::<T>(&vault_id.account_id, (1u32 << 31).into());
-        assert_ok!(VaultRegistry::<T>::_register_vault(vault_id.clone(), 100000000u32.into(), dummy_public_key()));
+        register_vault::<T>(vault_id.clone());
 
         <Vaults<T>>::insert(&vault_id, true);
 

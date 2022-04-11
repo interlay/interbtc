@@ -1,7 +1,6 @@
 mod mock;
 
 use mock::{assert_eq, *};
-use primitives::VaultCurrencyPair;
 use reward::Rewards;
 use sp_core::H256;
 

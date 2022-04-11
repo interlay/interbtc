@@ -3,7 +3,6 @@ mod mock;
 use currency::Amount;
 use frame_support::assert_err;
 use mock::{assert_eq, issue_testing_utils::*, *};
-use primitives::VaultCurrencyPair;
 
 fn test_with<R>(execute: impl Fn(VaultId) -> R) {
     let test_with = |currency_id, wrapped_id| {
@@ -395,10 +394,8 @@ mod request_issue_tests {
 
             // created issue request has expected values in all the fields
             let expected_btc_address = VaultRegistryPallet::register_deposit_address(&vault_id, issue_id).unwrap();
-            let expected_public_key = VaultRegistryPallet::get_vault_from_id(&vault_id)
-                .unwrap()
-                .wallet
-                .public_key;
+            let expected_public_key = VaultRegistryPallet::get_bitcoin_public_key(&vault_id.account_id).unwrap();
+
             let expected_fee = FeePallet::get_issue_fee(&amount_btc).unwrap();
             let expected_height = BTCRelayPallet::get_best_block_height();
 
@@ -455,23 +452,17 @@ mod request_issue_tests {
 fn integration_test_issue_wrapped_execute_succeeds() {
     test_with(|vault_id| {
         let vault_proof_submitter = CAROL;
+        let vault_id_proof_submitter = VaultId {
+            account_id: account_of(vault_proof_submitter),
+            ..vault_id.clone()
+        };
 
         let amount_btc = vault_id.wrapped(1000000);
         let griefing_collateral = griefing(100);
         let collateral_vault = required_collateral_for_issue(amount_btc, vault_id.collateral_currency());
 
-        assert_ok!(Call::VaultRegistry(VaultRegistryCall::register_vault {
-            currency_pair: vault_id.currencies.clone(),
-            collateral: collateral_vault.amount(),
-            public_key: dummy_public_key(),
-        })
-        .dispatch(origin_of(account_of(VAULT))));
-        assert_ok!(Call::VaultRegistry(VaultRegistryCall::register_vault {
-            currency_pair: vault_id.currencies.clone(),
-            collateral: collateral_vault.amount(),
-            public_key: dummy_public_key(),
-        })
-        .dispatch(origin_of(account_of(vault_proof_submitter))));
+        register_vault(&vault_id, collateral_vault);
+        register_vault(&vault_id_proof_submitter, collateral_vault);
 
         // alice requests wrapped by locking btc with bob
         assert_ok!(Call::Issue(IssueCall::request_issue {
@@ -533,23 +524,16 @@ fn integration_test_withdraw_after_request_issue() {
     test_with(|vault_id| {
         let vault = VAULT;
         let vault_proof_submitter = CAROL;
-
+        let vault_id_proof_submitter = VaultId {
+            account_id: account_of(vault_proof_submitter),
+            ..vault_id.clone()
+        };
         let amount_btc = vault_id.wrapped(1000000);
         let griefing_collateral = griefing(100);
         let collateral_vault = required_collateral_for_issue(amount_btc, vault_id.collateral_currency());
 
-        assert_ok!(Call::VaultRegistry(VaultRegistryCall::register_vault {
-            currency_pair: vault_id.currencies.clone(),
-            collateral: collateral_vault.amount(),
-            public_key: dummy_public_key(),
-        })
-        .dispatch(origin_of(account_of(vault))));
-        assert_ok!(Call::VaultRegistry(VaultRegistryCall::register_vault {
-            currency_pair: vault_id.currencies.clone(),
-            collateral: collateral_vault.amount(),
-            public_key: dummy_public_key(),
-        })
-        .dispatch(origin_of(account_of(vault_proof_submitter))));
+        register_vault(&vault_id, collateral_vault);
+        register_vault(&vault_id_proof_submitter, collateral_vault);
 
         // alice requests wrapped by locking btc with bob
         assert_ok!(Call::Issue(IssueCall::request_issue {

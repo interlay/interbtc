@@ -949,28 +949,42 @@ pub fn dummy_public_key() -> BtcPublicKey {
     ])
 }
 
+pub fn register_vault_with_public_key(vault_id: &VaultId, collateral: Amount<Runtime>, public_key: BtcPublicKey) {
+    assert_ok!(Call::VaultRegistry(VaultRegistryCall::update_public_key { public_key })
+        .dispatch(origin_of(vault_id.account_id.clone())));
+    assert_ok!(Call::VaultRegistry(VaultRegistryCall::register_vault {
+        currency_pair: vault_id.currencies.clone(),
+        collateral: collateral.amount(),
+    })
+    .dispatch(origin_of(vault_id.account_id.clone())));
+}
+
+pub fn register_vault(vault_id: &VaultId, collateral: Amount<Runtime>) {
+    register_vault_with_public_key(vault_id, collateral, dummy_public_key());
+}
+
+pub fn get_register_vault_result(vault_id: &VaultId, collateral: Amount<Runtime>) -> DispatchResultWithPostInfo {
+    assert_eq!(vault_id.collateral_currency(), collateral.currency());
+    assert_ok!(Call::VaultRegistry(VaultRegistryCall::update_public_key {
+        public_key: dummy_public_key()
+    })
+    .dispatch(origin_of(vault_id.account_id.clone())));
+    Call::VaultRegistry(VaultRegistryCall::register_vault {
+        currency_pair: vault_id.currencies.clone(),
+        collateral: collateral.amount(),
+    })
+    .dispatch(origin_of(vault_id.account_id.clone()))
+}
+
 pub fn try_register_vault(collateral: Amount<Runtime>, vault_id: &VaultId) {
     if VaultRegistryPallet::get_vault_from_id(vault_id).is_err() {
-        assert_ok!(Call::VaultRegistry(VaultRegistryCall::register_vault {
-            currency_pair: vault_id.currencies.clone(),
-            collateral: collateral.amount(),
-            public_key: dummy_public_key(),
-        })
-        .dispatch(origin_of(vault_id.account_id.clone())));
+        register_vault(&vault_id, collateral);
     };
 }
 
 pub fn force_issue_tokens(user: [u8; 32], vault: [u8; 32], collateral: Amount<Runtime>, tokens: Amount<Runtime>) {
     // register the vault
-    assert_ok!(Call::VaultRegistry(VaultRegistryCall::register_vault {
-        currency_pair: VaultCurrencyPair {
-            collateral: collateral.currency(),
-            wrapped: DEFAULT_WRAPPED_CURRENCY,
-        },
-        collateral: collateral.amount(),
-        public_key: dummy_public_key(),
-    })
-    .dispatch(origin_of(account_of(vault))));
+    register_vault(&default_vault_id_of(vault), collateral);
 
     // increase to be issued tokens
     assert_ok!(VaultRegistryPallet::try_increase_to_be_issued_tokens(
