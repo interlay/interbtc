@@ -1,4 +1,4 @@
-//! The Substrate Node Template runtime. This can be compiled with `#[no_std]`, ready for Wasm.
+//! The interlay runtime. This can be compiled with `#[no_std]`, ready for Wasm.
 
 #![cfg_attr(not(feature = "std"), no_std)]
 // `construct_runtime!` does a lot of recursion and requires us to increase the limit to 256.
@@ -55,12 +55,13 @@ pub use sp_runtime::{Perbill, Permill};
 
 // interBTC exports
 pub use btc_relay::{bitcoin, Call as RelayCall, TARGET_SPACING};
+pub use constants::{currency::*, time::*};
 pub use module_oracle_rpc_runtime_api::BalanceWrapper;
 pub use security::StatusCode;
 
 pub use primitives::{
-    self, AccountId, Balance, BlockNumber, CurrencyId, CurrencyId::Token, CurrencyInfo, Hash, Moment, Nonce, Signature,
-    SignedFixedPoint, SignedInner, UnsignedFixedPoint, UnsignedInner, DOT, IBTC, INTR,
+    self, AccountId, Balance, BlockNumber, CurrencyInfo, Hash, Moment, Nonce, Signature, SignedFixedPoint, SignedInner,
+    UnsignedFixedPoint, UnsignedInner,
 };
 
 // XCM imports
@@ -68,6 +69,7 @@ use pallet_xcm::{EnsureXcm, IsMajorityOfBody};
 use xcm::opaque::latest::BodyId;
 use xcm_config::ParentLocation;
 
+pub mod constants;
 pub mod xcm_config;
 
 type VaultId = primitives::VaultId<AccountId, CurrencyId>;
@@ -90,21 +92,6 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     apis: RUNTIME_API_VERSIONS,
     state_version: 0,
 };
-
-// The relay chain is limited to 12s to include parachain blocks.
-pub const MILLISECS_PER_BLOCK: u64 = 12000;
-
-pub const SLOT_DURATION: u64 = MILLISECS_PER_BLOCK;
-
-// These time units are defined in number of blocks.
-pub const MINUTES: BlockNumber = 60_000 / (MILLISECS_PER_BLOCK as BlockNumber);
-pub const HOURS: BlockNumber = MINUTES * 60;
-pub const DAYS: BlockNumber = HOURS * 24;
-pub const WEEKS: BlockNumber = DAYS * 7;
-pub const YEARS: BlockNumber = DAYS * 365;
-
-pub const BITCOIN_SPACING_MS: u32 = TARGET_SPACING * 1000;
-pub const BITCOIN_BLOCK_SPACING: BlockNumber = BITCOIN_SPACING_MS / MILLISECS_PER_BLOCK as BlockNumber;
 
 pub mod token_distribution {
     use super::*;
@@ -485,17 +472,6 @@ impl frame_support::traits::OnRuntimeUpgrade for SchedulerMigrationV3 {
     }
 }
 
-// https://github.com/paritytech/polkadot/blob/c4ee9d463adccfa3bf436433e3e26d0de5a4abbc/runtime/polkadot/src/constants.rs#L18
-pub const UNITS: Balance = NATIVE_CURRENCY_ID.one();
-pub const DOLLARS: Balance = UNITS; // 10_000_000_000
-pub const CENTS: Balance = DOLLARS / 100; // 100_000_000
-pub const MILLICENTS: Balance = CENTS / 1_000; // 100_000
-
-// https://github.com/paritytech/polkadot/blob/be005938a64b9170a5d55887ce42004e1b086b7b/runtime/polkadot/constants/src/lib.rs#L35
-pub const fn deposit(items: u32, bytes: u32) -> Balance {
-    items as Balance * 20 * DOLLARS + (bytes as Balance) * 100 * MILLICENTS
-}
-
 type EnsureRootOrAllTechnicalCommittee = EnsureOneOf<
     EnsureRoot<AccountId>,
     pallet_collective::EnsureProportionAtLeast<AccountId, TechnicalCommitteeInstance, 1, 1>,
@@ -645,10 +621,6 @@ impl btc_relay::Config for Runtime {
     type WeightInfo = ();
     type ParachainBlocksPerBitcoinBlock = ParachainBlocksPerBitcoinBlock;
 }
-
-const NATIVE_CURRENCY_ID: CurrencyId = Token(INTR);
-const PARENT_CURRENCY_ID: CurrencyId = Token(DOT);
-const WRAPPED_CURRENCY_ID: CurrencyId = Token(IBTC);
 
 parameter_types! {
     pub const GetNativeCurrencyId: CurrencyId = NATIVE_CURRENCY_ID;
