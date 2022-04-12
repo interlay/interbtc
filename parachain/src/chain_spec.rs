@@ -689,7 +689,7 @@ fn kintsugi_mainnet_genesis(
             replace_btc_dust_value: DEFAULT_DUST_VALUE,
         },
         vault_registry: kintsugi_runtime::VaultRegistryConfig {
-            minimum_collateral_vault: vec![(Token(KSM), 0)],
+            minimum_collateral_vault: vec![(Token(KSM), 3 * KSM.one())],
             punishment_delay: kintsugi_runtime::DAYS,
             system_collateral_ceiling: vec![(default_pair_kintsugi(Token(KSM)), 317 * KSM.one())], /* 317 ksm, about
                                                                                                     * 100k
@@ -879,7 +879,7 @@ fn interlay_mainnet_genesis(
             replace_btc_dust_value: DEFAULT_DUST_VALUE,
         },
         vault_registry: interlay_runtime::VaultRegistryConfig {
-            minimum_collateral_vault: vec![(Token(KSM), 0)],
+            minimum_collateral_vault: vec![(Token(DOT), 30 * DOT.one())],
             punishment_delay: interlay_runtime::DAYS,
             system_collateral_ceiling: vec![(default_pair_interlay(Token(DOT)), 3333 * DOT.one())], /* 3333 DOT, about 100k
                                                                                                      * USD at
