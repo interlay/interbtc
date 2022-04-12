@@ -48,7 +48,7 @@ fn get_currency_pair<T: crate::Config>() -> DefaultVaultCurrencyPair<T> {
 
 fn register_vault_with_collateral<T: crate::Config>(vault_id: DefaultVaultId<T>, collateral: u32) {
     let origin = RawOrigin::Signed(vault_id.account_id.clone());
-    assert_ok!(VaultRegistry::<T>::update_public_key(origin.into(), dummy_public_key()));
+    assert_ok!(VaultRegistry::<T>::set_public_key(origin.into(), dummy_public_key()));
     assert_ok!(VaultRegistry::<T>::_register_vault(vault_id.clone(), collateral.into()));
 }
 
@@ -59,7 +59,7 @@ benchmarks! {
         let amount: u32 = 100;
         let origin = RawOrigin::Signed(vault_id.account_id.clone());
         let public_key = BtcPublicKey::default();
-        VaultRegistry::<T>::update_public_key(origin.clone().into(), public_key).unwrap();
+        VaultRegistry::<T>::set_public_key(origin.clone().into(), public_key).unwrap();
     }: _(origin, vault_id.currencies.clone(), amount.into())
 
     deposit_collateral {
@@ -82,7 +82,7 @@ benchmarks! {
         ).unwrap();
     }: _(RawOrigin::Signed(vault_id.account_id), vault_id.currencies.clone(), amount)
 
-    update_public_key {
+    set_public_key {
         let vault_id = get_vault_id::<T>();
         mint_collateral::<T>(&vault_id.account_id, (1u32 << 31).into());
     }: _(RawOrigin::Signed(vault_id.account_id), BtcPublicKey::default())

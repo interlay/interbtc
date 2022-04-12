@@ -37,7 +37,7 @@ pub trait WeightInfo {
 	fn register_vault() -> Weight;
 	fn deposit_collateral() -> Weight;
 	fn withdraw_collateral() -> Weight;
-	fn update_public_key() -> Weight;
+	fn set_public_key() -> Weight;
 	fn register_address() -> Weight;
 	fn accept_new_issues() -> Weight;
 	fn set_minimum_collateral() -> Weight;
@@ -110,7 +110,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(T::DbWeight::get().writes(8 as Weight))
 	}
 	// Storage: VaultRegistry Vaults (r:1 w:1)
-	fn update_public_key() -> Weight {
+	fn set_public_key() -> Weight {
 		(27_632_000 as Weight)
 			.saturating_add(T::DbWeight::get().reads(1 as Weight))
 			.saturating_add(T::DbWeight::get().writes(1 as Weight))
@@ -243,7 +243,7 @@ impl WeightInfo for () {
 			.saturating_add(RocksDbWeight::get().writes(8 as Weight))
 	}
 	// Storage: VaultRegistry Vaults (r:1 w:1)
-	fn update_public_key() -> Weight {
+	fn set_public_key() -> Weight {
 		(27_632_000 as Weight)
 			.saturating_add(RocksDbWeight::get().reads(1 as Weight))
 			.saturating_add(RocksDbWeight::get().writes(1 as Weight))

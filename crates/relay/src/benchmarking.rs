@@ -50,7 +50,7 @@ fn mint_collateral<T: crate::Config>(account_id: &T::AccountId, amount: BalanceO
 
 fn set_public_key<T: crate::Config>(vault_id: DefaultVaultId<T>) {
     let origin = RawOrigin::Signed(vault_id.account_id.clone());
-    assert_ok!(VaultRegistry::<T>::update_public_key(origin.into(), dummy_public_key()));
+    assert_ok!(VaultRegistry::<T>::set_public_key(origin.into(), dummy_public_key()));
 }
 
 benchmarks! {

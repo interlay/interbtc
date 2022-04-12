@@ -950,7 +950,7 @@ pub fn dummy_public_key() -> BtcPublicKey {
 }
 
 pub fn register_vault_with_public_key(vault_id: &VaultId, collateral: Amount<Runtime>, public_key: BtcPublicKey) {
-    assert_ok!(Call::VaultRegistry(VaultRegistryCall::update_public_key { public_key })
+    assert_ok!(Call::VaultRegistry(VaultRegistryCall::set_public_key { public_key })
         .dispatch(origin_of(vault_id.account_id.clone())));
     assert_ok!(Call::VaultRegistry(VaultRegistryCall::register_vault {
         currency_pair: vault_id.currencies.clone(),
@@ -965,7 +965,7 @@ pub fn register_vault(vault_id: &VaultId, collateral: Amount<Runtime>) {
 
 pub fn get_register_vault_result(vault_id: &VaultId, collateral: Amount<Runtime>) -> DispatchResultWithPostInfo {
     assert_eq!(vault_id.collateral_currency(), collateral.currency());
-    assert_ok!(Call::VaultRegistry(VaultRegistryCall::update_public_key {
+    assert_ok!(Call::VaultRegistry(VaultRegistryCall::set_public_key {
         public_key: dummy_public_key()
     })
     .dispatch(origin_of(vault_id.account_id.clone())));

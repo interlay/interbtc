@@ -147,7 +147,7 @@ fn get_vault_id<T: crate::Config>(name: &'static str) -> DefaultVaultId<T> {
 
 fn set_public_key<T: crate::Config>(vault_id: DefaultVaultId<T>) {
     let origin = RawOrigin::Signed(vault_id.account_id);
-    assert_ok!(VaultRegistry::<T>::update_public_key(origin.into(), dummy_public_key()));
+    assert_ok!(VaultRegistry::<T>::set_public_key(origin.into(), dummy_public_key()));
 }
 
 fn register_vault<T: crate::Config>(vault_id: DefaultVaultId<T>) {
