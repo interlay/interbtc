@@ -1,13 +1,21 @@
 use super::*;
+use codec::Encode;
 use cumulus_primitives_core::ParaId;
+use frame_support::{
+    parameter_types,
+    traits::{Everything, Get, Nothing},
+    weights::Weight,
+};
+use orml_traits::{location::AbsoluteReserveProvider, parameter_type_with_key, MultiCurrency};
 use orml_xcm_support::{DepositToAlternative, IsNativeConcrete, MultiCurrencyAdapter, MultiNativeAsset};
 use pallet_xcm::XcmPassthrough;
 use polkadot_parachain::primitives::Sibling;
 use xcm::latest::prelude::*;
 use xcm_builder::{
-    AccountId32Aliases, AllowTopLevelPaidExecutionFrom, EnsureXcmOrigin, FixedWeightBounds, LocationInverter,
-    NativeAsset, ParentIsPreset, RelayChainAsNative, SiblingParachainAsNative, SiblingParachainConvertsVia,
-    SignedAccountId32AsNative, SignedToAccountId32, SovereignSignedViaLocation, TakeWeightCredit, UsingComponents,
+    AccountId32Aliases, AllowKnownQueryResponses, AllowSubscriptionsFrom, AllowTopLevelPaidExecutionFrom,
+    EnsureXcmOrigin, FixedRateOfFungible, FixedWeightBounds, LocationInverter, NativeAsset, ParentIsPreset,
+    RelayChainAsNative, SiblingParachainAsNative, SiblingParachainConvertsVia, SignedAccountId32AsNative,
+    SignedToAccountId32, SovereignSignedViaLocation, TakeRevenue, TakeWeightCredit,
 };
 use xcm_executor::{Config, XcmExecutor};
 
@@ -49,18 +57,75 @@ pub type XcmOriginToTransactDispatchOrigin = (
     XcmPassthrough<Origin>,
 );
 
+pub type Barrier = (
+    TakeWeightCredit,
+    AllowTopLevelPaidExecutionFrom<Everything>,
+    AllowKnownQueryResponses<PolkadotXcm>,
+    AllowSubscriptionsFrom<Everything>,
+); // required for others to keep track of our xcm version
+
 parameter_types! {
     // One XCM operation is 200_000_000 weight, cross-chain transfer ~= 2x of transfer.
     pub UnitWeightCost: Weight = 200_000_000;
-}
-
-pub type Barrier = (TakeWeightCredit, AllowTopLevelPaidExecutionFrom<Everything>);
-
-parameter_types! {
     pub const MaxInstructions: u32 = 100;
 }
 
 pub struct XcmConfig;
+
+// the dot cost to to execute a no-op extrinsic
+fn base_tx_in_dot() -> Balance {
+    DOT.one() / 5706 // same worth as on kintsugi - we use 1/50_000 KSM there, and currently KSM:DOT = 1:8.763822.
+}
+
+pub fn dot_per_second() -> u128 {
+    let base_weight = Balance::from(ExtrinsicBaseWeight::get());
+    let base_tx_per_second = (WEIGHT_PER_SECOND as u128) / base_weight;
+    base_tx_per_second * base_tx_in_dot()
+}
+
+parameter_types! {
+    pub DotPerSecond: (AssetId, u128) = (MultiLocation::parent().into(), dot_per_second());
+    pub CanonicalizedIntrPerSecond: (AssetId, u128) = (
+        MultiLocation::new(
+            0,
+            X1(GeneralKey(Token(INTR).encode())),
+        ).into(),
+        // INTR:DOT = 4:3
+        (dot_per_second() * 4) / 3
+    );
+    pub CanonicalizedIbtcPerSecond: (AssetId, u128) = (
+        MultiLocation::new(
+            0,
+            X1(GeneralKey(Token(IBTC).encode())),
+        ).into(),
+        // (I)BTC:DOT = 1:2266 & Satoshi:Planck = 1:100
+        dot_per_second() / 226_600
+    );
+}
+
+pub struct ToAuthor;
+impl TakeRevenue for ToAuthor {
+    fn take_revenue(revenue: MultiAsset) {
+        if let MultiAsset {
+            id: Concrete(location),
+            fun: Fungible(amount),
+        } = revenue
+        {
+            if let Some(currency_id) = CurrencyIdConvert::convert(location) {
+                if let Some(author) = pallet_authorship::Pallet::<Runtime>::author() {
+                    // Note: will need rethinking once we have existential deposits. Ignore the result.
+                    let _ = Tokens::deposit(currency_id, &author, amount);
+                }
+            }
+        }
+    }
+}
+
+pub type Trader = (
+    FixedRateOfFungible<DotPerSecond, ToAuthor>,
+    FixedRateOfFungible<CanonicalizedIntrPerSecond, ToAuthor>,
+    FixedRateOfFungible<CanonicalizedIbtcPerSecond, ToAuthor>,
+);
 
 impl Config for XcmConfig {
     type Call = Call;
@@ -73,13 +138,7 @@ impl Config for XcmConfig {
     type LocationInverter = LocationInverter<Ancestry>;
     type Barrier = Barrier;
     type Weigher = FixedWeightBounds<UnitWeightCost, Call, MaxInstructions>;
-    type Trader = UsingComponents<
-        IdentityFee<Balance>,
-        ParentLocation,
-        AccountId,
-        orml_tokens::CurrencyAdapter<Runtime, GetRelayChainCurrencyId>,
-        (),
-    >;
+    type Trader = Trader;
     type ResponseHandler = PolkadotXcm;
     type SubscriptionService = PolkadotXcm;
     type AssetTrap = PolkadotXcm;
@@ -219,7 +278,7 @@ mod currency_id_convert {
 
 parameter_types! {
     pub SelfLocation: MultiLocation = MultiLocation::new(1, X1(Parachain(ParachainInfo::get().into())));
-    pub const MaxAssetsForTransfer: usize = 2;
+    pub const MaxAssetsForTransfer: usize = 2; // set to 2 so we can transfer intr and ibtc at once
 }
 
 parameter_type_with_key! {
