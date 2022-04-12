@@ -72,55 +72,39 @@ parameter_types! {
 
 pub struct XcmConfig;
 
-// the ksm cost to to execute a no-op extrinsic
-fn base_tx_in_ksm() -> Balance {
-    KSM.one() / 50_000
+// the dot cost to to execute a no-op extrinsic
+fn base_tx_in_dot() -> Balance {
+    DOT.one() / 5706 // same worth as on kintsugi - we use 1/50_000 KSM there, and currently KSM:DOT = 1:8.763822.
 }
 
-pub fn ksm_per_second() -> u128 {
+pub fn dot_per_second() -> u128 {
     let base_weight = Balance::from(ExtrinsicBaseWeight::get());
     let base_tx_per_second = (WEIGHT_PER_SECOND as u128) / base_weight;
-    base_tx_per_second * base_tx_in_ksm()
+    base_tx_per_second * base_tx_in_dot()
 }
 
 parameter_types! {
-    pub KsmPerSecond: (AssetId, u128) = (MultiLocation::parent().into(), ksm_per_second());
-    pub KintPerSecond: (AssetId, u128) = ( // can be removed once we no longer need to support polkadot < 0.9.16
-        MultiLocation::new(
-            1,
-            X2(Parachain(ParachainInfo::get().into()), GeneralKey(Token(KINT).encode())),
-        ).into(),
-        // KINT:KSM = 4:3
-        (ksm_per_second() * 4) / 3
-    );
-    pub KbtcPerSecond: (AssetId, u128) = ( // can be removed once we no longer need to support polkadot < 0.9.16
-        MultiLocation::new(
-            1,
-            X2(Parachain(ParachainInfo::get().into()), GeneralKey(Token(KBTC).encode())),
-        ).into(),
-        // KBTC:KSM = 1:150 & Satoshi:Planck = 1:10_000
-        ksm_per_second() / 1_500_000
-    );
-    pub CanonicalizedKintPerSecond: (AssetId, u128) = (
+    pub DotPerSecond: (AssetId, u128) = (MultiLocation::parent().into(), dot_per_second());
+    pub CanonicalizedIntrPerSecond: (AssetId, u128) = (
         MultiLocation::new(
             0,
-            X1(GeneralKey(Token(KINT).encode())),
+            X1(GeneralKey(Token(INTR).encode())),
         ).into(),
-        // KINT:KSM = 4:3
-        (ksm_per_second() * 4) / 3
+        // INTR:DOT = 4:3
+        (dot_per_second() * 4) / 3
     );
-    pub CanonicalizedKbtcPerSecond: (AssetId, u128) = (
+    pub CanonicalizedIbtcPerSecond: (AssetId, u128) = (
         MultiLocation::new(
             0,
-            X1(GeneralKey(Token(KBTC).encode())),
+            X1(GeneralKey(Token(IBTC).encode())),
         ).into(),
-        // KBTC:KSM = 1:150 & Satoshi:Planck = 1:10_000
-        ksm_per_second() / 1_500_000
+        // (I)BTC:DOT = 1:2266 & Satoshi:Planck = 1:100
+        dot_per_second() / 226_600
     );
 }
 
-pub struct ToTreasury;
-impl TakeRevenue for ToTreasury {
+pub struct ToAuthor;
+impl TakeRevenue for ToAuthor {
     fn take_revenue(revenue: MultiAsset) {
         if let MultiAsset {
             id: Concrete(location),
@@ -128,20 +112,19 @@ impl TakeRevenue for ToTreasury {
         } = revenue
         {
             if let Some(currency_id) = CurrencyIdConvert::convert(location) {
-                // Note: we should ensure that treasury account has existential deposit for all of the cross-chain
-                // asset. Ignore the result.
-                let _ = Tokens::deposit(currency_id, &TreasuryAccount::get(), amount);
+                if let Some(author) = pallet_authorship::Pallet::<Runtime>::author() {
+                    // Note: will need rethinking once we have existential deposits. Ignore the result.
+                    let _ = Tokens::deposit(currency_id, &author, amount);
+                }
             }
         }
     }
 }
 
 pub type Trader = (
-    FixedRateOfFungible<KsmPerSecond, ToTreasury>,
-    FixedRateOfFungible<KintPerSecond, ToTreasury>,
-    FixedRateOfFungible<KbtcPerSecond, ToTreasury>,
-    FixedRateOfFungible<CanonicalizedKintPerSecond, ToTreasury>,
-    FixedRateOfFungible<CanonicalizedKbtcPerSecond, ToTreasury>,
+    FixedRateOfFungible<DotPerSecond, ToAuthor>,
+    FixedRateOfFungible<CanonicalizedIntrPerSecond, ToAuthor>,
+    FixedRateOfFungible<CanonicalizedIbtcPerSecond, ToAuthor>,
 );
 
 impl Config for XcmConfig {
@@ -295,11 +278,11 @@ mod currency_id_convert {
 
 parameter_types! {
     pub SelfLocation: MultiLocation = MultiLocation::new(1, X1(Parachain(ParachainInfo::get().into())));
-    pub const MaxAssetsForTransfer: usize = 2; // potentially useful to send both kint and kbtc at once
+    pub const MaxAssetsForTransfer: usize = 2; // set to 2 so we can transfer intr and ibtc at once
 }
 
 parameter_type_with_key! {
-    // Only used for transferring parachain tokens to other parachains using KSM as fee currency. Currently we do not support this, hence return MAX.
+    // Only used for transferring parachain tokens to other parachains using DOT as fee currency. Currently we do not support this, hence return MAX.
     // See: https://github.com/open-web3-stack/open-runtime-module-library/blob/cadcc9fb10b8212f92668138fc8f83dc0c53acf5/xtokens/README.md#transfer-multiple-currencies
     pub ParachainMinFee: |location: MultiLocation| -> u128 {
         #[allow(clippy::match_ref_pats)] // false positive
