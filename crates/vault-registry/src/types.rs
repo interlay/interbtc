@@ -27,6 +27,8 @@ pub enum Version {
     V1,
     /// added replace_collateral to vault, changed vaultStatus enum
     V2,
+    /// moved public_key out of the vault struct
+    V3,
 }
 
 #[derive(Debug, PartialEq)]
@@ -102,19 +104,242 @@ pub type DefaultVaultId<T> = VaultId<<T as frame_system::Config>::AccountId, Cur
 
 pub type DefaultVaultCurrencyPair<T> = VaultCurrencyPair<CurrencyId<T>>;
 
+pub mod v2 {
+    use super::*;
+
+    #[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, Default, TypeInfo)]
+    struct WalletV2 {
+        // store all addresses for `report_vault_theft` checks
+        pub addresses: BTreeSet<BtcAddress>,
+        // we use this public key to generate new addresses
+        pub public_key: BtcPublicKey,
+    }
+
+    #[derive(Encode, Decode, Clone, PartialEq, Eq, TypeInfo)]
+    #[cfg_attr(feature = "std", derive(Debug))]
+    struct VaultV2<AccountId, BlockNumber, Balance, CurrencyId: Copy> {
+        /// Account identifier of the Vault
+        pub id: VaultId<AccountId, CurrencyId>,
+        /// Bitcoin address of this Vault (P2PKH, P2SH, P2WPKH, P2WSH)
+        pub wallet: WalletV2,
+        /// Current status of the vault
+        pub status: super::VaultStatus,
+        /// Block height until which this Vault is banned from being used for
+        /// Issue, Redeem (except during automatic liquidation) and Replace.
+        pub banned_until: Option<BlockNumber>,
+        /// Number of tokens pending issue
+        pub to_be_issued_tokens: Balance,
+        /// Number of issued tokens
+        pub issued_tokens: Balance,
+        /// Number of tokens pending redeem
+        pub to_be_redeemed_tokens: Balance,
+        /// Number of tokens that have been requested for a replace through
+        /// `request_replace`, but that have not been accepted yet by a new_vault.
+        pub to_be_replaced_tokens: Balance,
+        /// Amount of collateral that is available as griefing collateral to vaults accepting
+        /// a replace request. It is to be payed out if the old_vault fails to call execute_replace.
+        pub replace_collateral: Balance,
+        /// Amount of collateral locked for accepted replace requests.
+        pub active_replace_collateral: Balance,
+        /// Amount of collateral that is locked for remaining to_be_redeemed
+        /// tokens upon liquidation.
+        pub liquidated_collateral: Balance,
+    }
+
+    type DefaultVaultV2<T> = VaultV2<
+        <T as frame_system::Config>::AccountId,
+        <T as frame_system::Config>::BlockNumber,
+        BalanceOf<T>,
+        CurrencyId<T>,
+    >;
+
+    pub fn migrate_v2_to_v3<T: Config>() -> frame_support::weights::Weight {
+        use sp_runtime::traits::Saturating;
+
+        if !matches!(
+            crate::StorageVersion::<T>::get(),
+            Version::V0 | Version::V1 | Version::V2
+        ) {
+            log::info!("Not running vault storage migration");
+            return T::DbWeight::get().reads(1); // already upgraded; don't run migration
+        }
+        let mut num_migrated_vaults = 0u64;
+
+        crate::Vaults::<T>::translate::<DefaultVaultV2<T>, _>(|_key, vault_v2| {
+            num_migrated_vaults.saturating_inc();
+
+            crate::VaultBitcoinPublicKey::<T>::insert(
+                vault_v2.id.account_id.clone(),
+                vault_v2.wallet.public_key.clone(),
+            );
+            Some(Vault {
+                id: vault_v2.id,
+                wallet: Wallet {
+                    addresses: vault_v2.wallet.addresses,
+                },
+                status: vault_v2.status,
+                banned_until: vault_v2.banned_until,
+                to_be_issued_tokens: vault_v2.to_be_issued_tokens,
+                issued_tokens: vault_v2.issued_tokens,
+                to_be_redeemed_tokens: vault_v2.to_be_redeemed_tokens,
+                to_be_replaced_tokens: vault_v2.to_be_replaced_tokens,
+                replace_collateral: vault_v2.replace_collateral,
+                active_replace_collateral: vault_v2.active_replace_collateral,
+                liquidated_collateral: vault_v2.liquidated_collateral,
+            })
+        });
+        crate::StorageVersion::<T>::put(Version::V3);
+
+        log::info!("Migrated {num_migrated_vaults} vaults");
+
+        T::DbWeight::get().reads_writes(num_migrated_vaults, num_migrated_vaults)
+    }
+
+    #[cfg(test)]
+    #[test]
+    fn test_migration() {
+        use crate::mock::Test;
+        use bitcoin::types::H160;
+        use frame_support::{storage::migration, Blake2_128Concat, StorageHasher};
+        use primitives::{CurrencyId::Token, KBTC, KSM};
+        use sp_runtime::traits::TrailingZeroInput;
+
+        crate::mock::run_test(|| {
+            crate::StorageVersion::<Test>::put(Version::V2);
+
+            let vault1: DefaultVaultV2<Test> = VaultV2 {
+                id: VaultId {
+                    account_id: Decode::decode(&mut TrailingZeroInput::new(&[1u8; 32])).unwrap(),
+                    currencies: VaultCurrencyPair {
+                        collateral: Token(KSM),
+                        wrapped: Token(KBTC),
+                    },
+                },
+                wallet: WalletV2 {
+                    addresses: [
+                        BtcAddress::P2PKH(H160::from([1; 20])),
+                        BtcAddress::P2PKH(H160::from([2; 20])),
+                    ]
+                    .into(),
+                    public_key: BtcPublicKey::from([2u8; 33]),
+                },
+                banned_until: None,
+                status: VaultStatus::Active(true),
+                issued_tokens: Default::default(),
+                liquidated_collateral: Default::default(),
+                replace_collateral: Default::default(),
+                to_be_issued_tokens: Default::default(),
+                to_be_redeemed_tokens: Default::default(),
+                to_be_replaced_tokens: Default::default(),
+                active_replace_collateral: Default::default(),
+            };
+            let vault2: DefaultVaultV2<crate::mock::Test> = VaultV2 {
+                id: VaultId {
+                    account_id: Decode::decode(&mut TrailingZeroInput::new(&[2u8; 32])).unwrap(),
+                    currencies: VaultCurrencyPair {
+                        collateral: Token(KBTC),
+                        wrapped: Token(KBTC),
+                    },
+                },
+                wallet: WalletV2 {
+                    addresses: [
+                        BtcAddress::P2PKH(H160::from([3; 20])),
+                        BtcAddress::P2PKH(H160::from([4; 20])),
+                    ]
+                    .into(),
+                    public_key: BtcPublicKey::from([3u8; 33]),
+                },
+                banned_until: Some(123),
+                status: VaultStatus::Active(false),
+                issued_tokens: 1,
+                liquidated_collateral: 2,
+                replace_collateral: 3,
+                to_be_issued_tokens: 4,
+                to_be_redeemed_tokens: 5,
+                to_be_replaced_tokens: 6,
+                active_replace_collateral: 7,
+            };
+            migration::put_storage_value(
+                b"VaultRegistry",
+                b"Vaults",
+                &Blake2_128Concat::hash(&vault1.id.encode()),
+                &vault1,
+            );
+            migration::put_storage_value(
+                b"VaultRegistry",
+                b"Vaults",
+                &Blake2_128Concat::hash(&vault2.id.encode()),
+                &vault2,
+            );
+
+            migrate_v2_to_v3::<Test>();
+
+            let expected_migrated_vault1 = Vault {
+                id: vault1.id.clone(),
+                wallet: Wallet {
+                    addresses: vault1.wallet.addresses.clone(),
+                },
+                status: vault1.status.clone(),
+                banned_until: vault1.banned_until,
+                to_be_issued_tokens: vault1.to_be_issued_tokens,
+                issued_tokens: vault1.issued_tokens,
+                to_be_redeemed_tokens: vault1.to_be_redeemed_tokens,
+                to_be_replaced_tokens: vault1.to_be_replaced_tokens,
+                replace_collateral: vault1.replace_collateral,
+                active_replace_collateral: vault1.active_replace_collateral,
+                liquidated_collateral: vault1.liquidated_collateral,
+            };
+
+            let expected_migrated_vault2 = Vault {
+                id: vault2.id.clone(),
+                wallet: Wallet {
+                    addresses: vault2.wallet.addresses.clone(),
+                },
+                status: vault2.status.clone(),
+                banned_until: vault2.banned_until,
+                to_be_issued_tokens: vault2.to_be_issued_tokens,
+                issued_tokens: vault2.issued_tokens,
+                to_be_redeemed_tokens: vault2.to_be_redeemed_tokens,
+                to_be_replaced_tokens: vault2.to_be_replaced_tokens,
+                replace_collateral: vault2.replace_collateral,
+                active_replace_collateral: vault2.active_replace_collateral,
+                liquidated_collateral: vault2.liquidated_collateral,
+            };
+
+            // check that vault struct was migrated correctly
+            assert_eq!(
+                crate::Vaults::<Test>::iter().collect::<Vec<_>>(),
+                vec![
+                    (expected_migrated_vault2.id.clone(), expected_migrated_vault2),
+                    (expected_migrated_vault1.id.clone(), expected_migrated_vault1),
+                ]
+            );
+
+            // check that public key is set
+            assert_eq!(
+                crate::VaultBitcoinPublicKey::<Test>::iter().collect::<Vec<_>>(),
+                vec![
+                    (vault2.id.account_id.clone(), vault2.wallet.public_key),
+                    (vault1.id.account_id.clone(), vault1.wallet.public_key),
+                ]
+            );
+
+            // check that storage version is bumped
+            assert!(crate::StorageVersion::<Test>::get() == Version::V3);
+        });
+    }
+}
+
 #[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, Default, TypeInfo)]
 pub struct Wallet {
     // store all addresses for `report_vault_theft` checks
     pub addresses: BTreeSet<BtcAddress>,
-    // we use this public key to generate new addresses
-    pub public_key: BtcPublicKey,
 }
 
 impl Wallet {
-    pub fn new(public_key: BtcPublicKey) -> Self {
+    pub fn new() -> Self {
         Self {
             addresses: BTreeSet::new(),
-            public_key,
         }
     }
 
@@ -196,11 +421,8 @@ impl<AccountId: Ord, BlockNumber: Default, Balance: HasCompact + Default, Curren
     Vault<AccountId, BlockNumber, Balance, CurrencyId>
 {
     // note: public only for testing purposes
-    pub fn new(
-        id: VaultId<AccountId, CurrencyId>,
-        public_key: BtcPublicKey,
-    ) -> Vault<AccountId, BlockNumber, Balance, CurrencyId> {
-        let wallet = Wallet::new(public_key);
+    pub fn new(id: VaultId<AccountId, CurrencyId>) -> Vault<AccountId, BlockNumber, Balance, CurrencyId> {
+        let wallet = Wallet::new();
         Vault {
             id,
             wallet,
@@ -641,7 +863,7 @@ impl<T: Config> RichVault<T> {
     }
 
     fn new_deposit_public_key(&self, secure_id: H256) -> Result<BtcPublicKey, DispatchError> {
-        let vault_public_key = self.data.wallet.public_key.clone();
+        let vault_public_key = Pallet::<T>::get_bitcoin_public_key(&self.data.id.account_id)?;
         let vault_public_key = vault_public_key
             .new_deposit_public_key(secure_id)
             .map_err(|_| Error::<T>::InvalidPublicKey)?;
@@ -661,13 +883,6 @@ impl<T: Config> RichVault<T> {
         let btc_address = BtcAddress::P2WPKHv0(public_key.to_hash());
         self.insert_deposit_address(btc_address);
         Ok(btc_address)
-    }
-
-    pub(crate) fn update_public_key(&mut self, public_key: BtcPublicKey) {
-        let _ = self.update(|v| {
-            v.wallet.public_key = public_key.clone();
-            Ok(())
-        });
     }
 
     fn update<F>(&mut self, func: F) -> DispatchResult

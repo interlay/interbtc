@@ -201,7 +201,6 @@ fn integration_test_vault_registry_with_parachain_shutdown_fails() {
             Call::VaultRegistry(VaultRegistryCall::register_vault {
                 currency_pair: vault_id.currencies.clone(),
                 collateral: 0,
-                public_key: Default::default()
             })
             .dispatch(origin_of(account_of(VAULT))),
             SystemError::CallFiltered
@@ -223,8 +222,7 @@ fn integration_test_vault_registry_with_parachain_shutdown_fails() {
             SystemError::CallFiltered
         );
         assert_noop!(
-            Call::VaultRegistry(VaultRegistryCall::update_public_key {
-                currency_pair: vault_id.currencies.clone(),
+            Call::VaultRegistry(VaultRegistryCall::set_public_key {
                 public_key: Default::default()
             })
             .dispatch(origin_of(account_of(VAULT))),
@@ -291,25 +289,20 @@ fn integration_test_vault_registry_register_respects_fund_limit() {
         (*user_data.balances.get_mut(&currency_id).unwrap()).free = Amount::new(FUND_LIMIT_CEILING + 1, currency_id);
 
         UserData::force_to(USER, user_data);
+        let user_vault_id = VaultId {
+            account_id: account_of(USER),
+            ..vault_id.clone()
+        };
 
         let current = VaultRegistryPallet::get_total_user_vault_collateral(&vault_id.currencies).unwrap();
-        let remaining = FUND_LIMIT_CEILING - current.amount();
+        let remaining = Amount::new(FUND_LIMIT_CEILING, current.currency()) - current;
 
-        assert_noop!(
-            Call::VaultRegistry(VaultRegistryCall::register_vault {
-                currency_pair: vault_id.currencies.clone(),
-                collateral: remaining + 1,
-                public_key: Default::default(),
-            })
-            .dispatch(origin_of(account_of(USER))),
+        // not asserting noop since this func registers a public key first
+        assert_err!(
+            get_register_vault_result(&user_vault_id, remaining.with_amount(|x| x + 1)),
             VaultRegistryError::CurrencyCeilingExceeded
         );
 
-        assert_ok!(Call::VaultRegistry(VaultRegistryCall::register_vault {
-            currency_pair: vault_id.currencies.clone(),
-            collateral: remaining,
-            public_key: Default::default(),
-        })
-        .dispatch(origin_of(account_of(USER))),);
+        assert_ok!(get_register_vault_result(&user_vault_id, remaining));
     });
 }

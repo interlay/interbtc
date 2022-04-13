@@ -2,7 +2,6 @@ mod mock;
 
 use currency::Amount;
 use mock::{assert_eq, nomination_testing_utils::*, *};
-use primitives::VaultCurrencyPair;
 use sp_runtime::traits::{CheckedDiv, CheckedSub};
 
 fn test_with<R>(execute: impl Fn(VaultId) -> R) {
@@ -389,8 +388,12 @@ mod spec_based_tests {
 #[test]
 fn integration_test_regular_vaults_are_not_opted_in_to_nomination() {
     test_with_nomination_enabled(|vault_id| {
-        assert_register_vault(vault_id.collateral_currency(), CAROL);
-        assert_eq!(NominationPallet::is_opted_in(&vault_id).unwrap(), false);
+        let new_vault_id = VaultId {
+            account_id: account_of(CAROL),
+            ..vault_id
+        };
+        register_vault(&new_vault_id, Amount::new(1000000, new_vault_id.collateral_currency()));
+        assert_eq!(NominationPallet::is_opted_in(&new_vault_id).unwrap(), false);
     })
 }
 

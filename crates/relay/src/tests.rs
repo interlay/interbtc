@@ -38,8 +38,8 @@ fn dummy_merkle_proof() -> MerkleProof {
 /// Mocking functions
 fn init_zero_vault(id: DefaultVaultId<Test>, btc_addresses: Vec<BtcAddress>) -> DefaultVault<Test> {
     let mut vault = Vault {
-        wallet: Wallet::new(dummy_public_key()),
-        ..Vault::new(id, Default::default())
+        wallet: Wallet::new(),
+        ..Vault::new(id)
     };
 
     for btc_address in btc_addresses.iter() {
@@ -224,7 +224,7 @@ fn test_is_valid_merge_transaction_fails() {
         let address1 = BtcAddress::P2PKH(H160::from_str(&"66c7060feb882664ae62ffad0051fe843e318e85").unwrap());
         let transaction1 = build_dummy_transaction_with_output(vec![address1]);
         assert_eq!(
-            Relay::is_valid_merge_transaction(&transaction1, &Wallet::new(dummy_public_key())),
+            Relay::is_valid_merge_transaction(&transaction1, &Wallet::new()),
             false,
             "payment to unknown recipient"
         );
@@ -232,7 +232,7 @@ fn test_is_valid_merge_transaction_fails() {
         let address2 = BtcAddress::P2PKH(H160::from_str(&"5f69790b72c98041330644bbd50f2ebb5d073c36").unwrap());
         let transaction2 = build_dummy_transaction_with_output(vec![address2]);
         assert_eq!(
-            Relay::is_valid_merge_transaction(&transaction2, &Wallet::new(dummy_public_key())),
+            Relay::is_valid_merge_transaction(&transaction2, &Wallet::new()),
             false,
             "migration should not have op_returns"
         );
@@ -249,7 +249,7 @@ fn test_is_valid_merge_transaction_succeeds() {
         let address = BtcAddress::P2PKH(H160::from_str(&"66c7060feb882664ae62ffad0051fe843e318e85").unwrap());
         let transaction = build_dummy_transaction_with_output(vec![address]);
 
-        let mut wallet = Wallet::new(dummy_public_key());
+        let mut wallet = Wallet::new();
         wallet.add_btc_address(address);
 
         assert_eq!(Relay::is_valid_merge_transaction(&transaction, &wallet), true);
@@ -295,7 +295,7 @@ fn test_is_valid_request_transaction_overpayment_fails() {
 
         let address2 = BtcAddress::P2PKH(H160::from_str(&"5f69790b72c98041330644bbd50f2ebb5d073c36").unwrap());
 
-        let mut wallet = Wallet::new(dummy_public_key());
+        let mut wallet = Wallet::new();
         wallet.add_btc_address(address2);
 
         let actual_value = 101;
@@ -323,7 +323,7 @@ fn test_is_valid_request_transaction_underpayment_fails() {
 
         let address2 = BtcAddress::P2PKH(H160::from_str(&"5f69790b72c98041330644bbd50f2ebb5d073c36").unwrap());
 
-        let mut wallet = Wallet::new(dummy_public_key());
+        let mut wallet = Wallet::new();
         wallet.add_btc_address(address2);
 
         let actual_value = 99;
@@ -351,7 +351,7 @@ fn test_is_valid_request_transaction_succeeds() {
         let request_value = 100;
         let change_value = 50;
 
-        let mut wallet = Wallet::new(dummy_public_key());
+        let mut wallet = Wallet::new();
         wallet.add_btc_address(vault_address);
 
         let transaction = build_dummy2_transaction_with(
@@ -379,13 +379,13 @@ fn test_is_transaction_invalid_fails_with_valid_merge_transaction() {
             126, 125, 148, 208, 221, 194, 29, 131, 191, 188, 252, 119, 152, 228, 84, 126, 223, 8, 50, 170,
         ]));
 
-        let mut wallet = Wallet::new(dummy_public_key());
+        let mut wallet = Wallet::new();
         wallet.add_btc_address(address);
 
         ext::vault_registry::get_active_vault_from_id::<Test>.mock_safe(move |_| {
             MockResult::Return(Ok(Vault {
                 wallet: wallet.clone(),
-                ..Vault::new(BOB, dummy_public_key())
+                ..Vault::new(BOB)
             }))
         });
 
@@ -428,7 +428,7 @@ fn test_is_transaction_invalid_fails_with_valid_request_or_redeem() {
             41, 40, 244, 58, 241, 141, 45, 96, 232, 168, 67, 84, 13, 128, 134, 179, 5, 52, 19, 57,
         ]));
 
-        let mut wallet = Wallet::new(dummy_public_key());
+        let mut wallet = Wallet::new();
         wallet.add_btc_address(vault_address);
 
         let recipient_address = BtcAddress::P2PKH(H160::from_str(&"5f69790b72c98041330644bbd50f2ebb5d073c36").unwrap());
@@ -436,7 +436,7 @@ fn test_is_transaction_invalid_fails_with_valid_request_or_redeem() {
         ext::vault_registry::get_active_vault_from_id::<Test>.mock_safe(move |_| {
             MockResult::Return(Ok(Vault {
                 wallet: wallet.clone(),
-                ..Vault::new(BOB, dummy_public_key())
+                ..Vault::new(BOB)
             }))
         });
 
@@ -579,7 +579,7 @@ fn test_is_transaction_invalid_fails_with_valid_merge_testnet_transaction() {
             &hex::decode("d0a46d39dafa3012c2a7ed4d82d644b428e4586b").unwrap(),
         ));
 
-        let mut wallet = Wallet::new(dummy_public_key());
+        let mut wallet = Wallet::new();
         wallet.add_btc_address(vault_btc_address_0);
         wallet.add_btc_address(vault_btc_address_1);
         wallet.add_btc_address(vault_btc_address_2);
@@ -587,7 +587,7 @@ fn test_is_transaction_invalid_fails_with_valid_merge_testnet_transaction() {
         ext::vault_registry::get_active_vault_from_id::<Test>.mock_safe(move |_| {
             MockResult::Return(Ok(Vault {
                 wallet: wallet.clone(),
-                ..Vault::new(BOB, dummy_public_key())
+                ..Vault::new(BOB)
             }))
         });
 

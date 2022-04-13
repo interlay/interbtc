@@ -42,6 +42,11 @@ fn dummy_public_key() -> BtcPublicKey {
     ])
 }
 
+fn set_public_key<T: crate::Config>(vault_id: DefaultVaultId<T>) {
+    let origin = RawOrigin::Signed(vault_id.account_id.clone());
+    assert_ok!(VaultRegistry::<T>::set_public_key(origin.into(), dummy_public_key()));
+}
+
 fn deposit_tokens<T: crate::Config>(currency_id: CurrencyId, account_id: &T::AccountId, amount: BalanceOf<T>) {
     assert_ok!(<orml_tokens::Pallet<T>>::deposit(currency_id, account_id, amount));
 }
@@ -169,11 +174,13 @@ benchmarks! {
 
         initialize_oracle::<T>();
 
+        set_public_key::<T>(vault_id.clone());
+
         let vault = Vault {
-            wallet: Wallet::new(dummy_public_key()),
+            wallet: Wallet::new(),
             issued_tokens: amount,
             id: vault_id.clone(),
-            ..Vault::new(vault_id.clone(), Default::default())
+            ..Vault::new(vault_id.clone())
         };
 
         VaultRegistry::<T>::insert_vault(
@@ -197,9 +204,11 @@ benchmarks! {
         let vault_id = get_vault_id::<T>();
         let amount = 1000;
 
+        set_public_key::<T>(vault_id.clone());
+
         VaultRegistry::<T>::insert_vault(
             &vault_id,
-            Vault::new(vault_id.clone(), dummy_public_key())
+            Vault::new(vault_id.clone())
         );
 
         mint_wrapped::<T>(&origin, amount.into());
@@ -231,10 +240,12 @@ benchmarks! {
         redeem_request.btc_address = origin_btc_address;
         Redeem::<T>::insert_redeem_request(&redeem_id, &redeem_request);
 
+        set_public_key::<T>(vault_id.clone());
+
         let vault = Vault {
-            wallet: Wallet::new(dummy_public_key()),
+            wallet: Wallet::new(),
             id: vault_id.clone(),
-            ..Vault::new(vault_id.clone(), Default::default())
+            ..Vault::new(vault_id.clone())
         };
 
         VaultRegistry::<T>::insert_vault(
@@ -320,10 +331,12 @@ BtcRelay::<T>::parachain_confirmations() + 1u32.into());
         mine_blocks_until_expiry::<T>(&redeem_request);
         Security::<T>::set_active_block_number(Security::<T>::active_block_number() + Redeem::<T>::redeem_period() + 100u32.into());
 
+        set_public_key::<T>(vault_id.clone());
+
         let vault = Vault {
-            wallet: Wallet::new(dummy_public_key()),
+            wallet: Wallet::new(),
             id: vault_id.clone(),
-            ..Vault::new(vault_id.clone(), Default::default())
+            ..Vault::new(vault_id.clone())
         };
         VaultRegistry::<T>::insert_vault(
             &vault_id,
@@ -353,10 +366,12 @@ BtcRelay::<T>::parachain_confirmations() + 1u32.into());
         mine_blocks_until_expiry::<T>(&redeem_request);
         Security::<T>::set_active_block_number(Security::<T>::active_block_number() + Redeem::<T>::redeem_period() + 100u32.into());
 
+        set_public_key::<T>(vault_id.clone());
+
         let vault = Vault {
-            wallet: Wallet::new(dummy_public_key()),
+            wallet: Wallet::new(),
             id: vault_id.clone(),
-            ..Vault::new(vault_id.clone(), Default::default())
+            ..Vault::new(vault_id.clone())
         };
         VaultRegistry::<T>::insert_vault(
             &vault_id,

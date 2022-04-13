@@ -312,13 +312,14 @@ impl<T: Config> Pallet<T> {
 
         let issue_id = ext::security::get_secure_id::<T>(&requester);
         let btc_address = ext::vault_registry::register_deposit_address::<T>(&vault_id, issue_id)?;
+        let btc_public_key = ext::vault_registry::get_bitcoin_public_key::<T>(&vault_id.account_id)?;
 
         let request = IssueRequest {
             vault: vault_id,
             opentime: ext::security::active_block_number::<T>(),
             requester,
             btc_address,
-            btc_public_key: vault.wallet.public_key,
+            btc_public_key,
             amount: amount_user.amount(),
             fee: fee.amount(),
             griefing_collateral: griefing_collateral.amount(),
