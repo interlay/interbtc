@@ -74,7 +74,7 @@ fn create_vault_with_collateral(id: &DefaultVaultId<Test>, collateral: u128) {
         .mock_safe(move |currency_id| MockResult::Return(Amount::new(collateral, currency_id)));
     let origin = Origin::signed(id.account_id.clone());
 
-    assert_ok!(VaultRegistry::set_public_key(origin.clone(), dummy_public_key()));
+    assert_ok!(VaultRegistry::register_public_key(origin.clone(), dummy_public_key()));
     assert_ok!(VaultRegistry::register_vault(origin, id.currencies.clone(), collateral));
 }
 
@@ -141,6 +141,20 @@ fn register_vault_succeeds() {
 }
 
 #[test]
+fn registering_public_key_twice_fails() {
+    run_test(|| {
+        let origin = Origin::signed(DEFAULT_ID.account_id);
+        let public_key_1 = BtcPublicKey([0u8; 33]);
+        let public_key_2 = BtcPublicKey([1u8; 33]);
+        assert_ok!(VaultRegistry::register_public_key(origin.clone(), public_key_1));
+        assert_err!(
+            VaultRegistry::register_public_key(origin.clone(), public_key_2),
+            TestError::PublicKeyAlreadyRegistered
+        );
+    })
+}
+
+#[test]
 fn register_vault_fails_when_given_collateral_too_low() {
     run_test(|| {
         VaultRegistry::get_minimum_collateral_vault
@@ -149,7 +163,7 @@ fn register_vault_fails_when_given_collateral_too_low() {
         let collateral = 100;
 
         let origin = Origin::signed(id.account_id);
-        assert_ok!(VaultRegistry::set_public_key(origin.clone(), dummy_public_key()));
+        assert_ok!(VaultRegistry::register_public_key(origin.clone(), dummy_public_key()));
 
         let result = VaultRegistry::register_vault(origin, id.currencies.clone(), collateral);
         assert_err!(result, TestError::InsufficientVaultCollateralAmount);
@@ -166,7 +180,7 @@ fn register_vault_fails_when_account_funds_too_low() {
         let collateral = DEFAULT_COLLATERAL + 1;
 
         let origin = Origin::signed(DEFAULT_ID.account_id);
-        assert_ok!(VaultRegistry::set_public_key(origin.clone(), dummy_public_key()));
+        assert_ok!(VaultRegistry::register_public_key(origin.clone(), dummy_public_key()));
 
         let result = VaultRegistry::register_vault(origin, DEFAULT_ID.currencies, collateral);
         assert_err!(result, TokensError::BalanceTooLow);

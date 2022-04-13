@@ -48,9 +48,12 @@ fn mint_collateral<T: crate::Config>(account_id: &T::AccountId, amount: BalanceO
     deposit_tokens::<T>(get_native_currency_id::<T>(), account_id, amount);
 }
 
-fn set_public_key<T: crate::Config>(vault_id: DefaultVaultId<T>) {
+fn register_public_key<T: crate::Config>(vault_id: DefaultVaultId<T>) {
     let origin = RawOrigin::Signed(vault_id.account_id.clone());
-    assert_ok!(VaultRegistry::<T>::set_public_key(origin.into(), dummy_public_key()));
+    assert_ok!(VaultRegistry::<T>::register_public_key(
+        origin.into(),
+        dummy_public_key()
+    ));
 }
 
 benchmarks! {
@@ -118,7 +121,7 @@ benchmarks! {
             <T as currency::Config>::GetWrappedCurrencyId::get()
         );
 
-        set_public_key::<T>(vault_id.clone());
+        register_public_key::<T>(vault_id.clone());
 
         let mut vault = Vault {
             wallet: Wallet::new(),

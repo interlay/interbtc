@@ -222,7 +222,7 @@ fn integration_test_vault_registry_with_parachain_shutdown_fails() {
             SystemError::CallFiltered
         );
         assert_noop!(
-            Call::VaultRegistry(VaultRegistryCall::set_public_key {
+            Call::VaultRegistry(VaultRegistryCall::register_public_key {
                 public_key: Default::default()
             })
             .dispatch(origin_of(account_of(VAULT))),

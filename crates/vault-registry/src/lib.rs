@@ -262,10 +262,15 @@ pub mod pallet {
         ///
         /// # Arguments
         /// * `public_key` - the BTC public key of the vault to update
-        #[pallet::weight(<T as Config>::WeightInfo::set_public_key())]
+        #[pallet::weight(<T as Config>::WeightInfo::register_public_key())]
         #[transactional]
-        pub fn set_public_key(origin: OriginFor<T>, public_key: BtcPublicKey) -> DispatchResultWithPostInfo {
+        pub fn register_public_key(origin: OriginFor<T>, public_key: BtcPublicKey) -> DispatchResultWithPostInfo {
             let account_id = ensure_signed(origin)?;
+
+            ensure!(
+                !VaultBitcoinPublicKey::<T>::get(&account_id).is_some(),
+                Error::<T>::PublicKeyAlreadyRegistered
+            );
 
             VaultBitcoinPublicKey::<T>::insert(&account_id, &public_key);
 
@@ -561,6 +566,8 @@ pub mod pallet {
         VaultLiquidated,
         /// No bitcoin public key is registered for the vault.
         NoBitcoinPublicKey,
+        /// A bitcoin public key was already registered for this account.
+        PublicKeyAlreadyRegistered,
 
         // Errors used exclusively in RPC functions
         /// Collateralization is infinite if no tokens are issued
