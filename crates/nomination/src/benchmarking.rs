@@ -47,7 +47,10 @@ fn get_vault_id<T: crate::Config>() -> DefaultVaultId<T> {
 
 fn register_vault<T: crate::Config>(vault_id: DefaultVaultId<T>) {
     let origin = RawOrigin::Signed(vault_id.account_id.clone());
-    assert_ok!(VaultRegistry::<T>::set_public_key(origin.into(), dummy_public_key()));
+    assert_ok!(VaultRegistry::<T>::register_public_key(
+        origin.into(),
+        dummy_public_key()
+    ));
     assert_ok!(VaultRegistry::<T>::_register_vault(
         vault_id.clone(),
         100000000u32.into()

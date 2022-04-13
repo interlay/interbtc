@@ -145,13 +145,16 @@ fn get_vault_id<T: crate::Config>(name: &'static str) -> DefaultVaultId<T> {
     )
 }
 
-fn set_public_key<T: crate::Config>(vault_id: DefaultVaultId<T>) {
+fn register_public_key<T: crate::Config>(vault_id: DefaultVaultId<T>) {
     let origin = RawOrigin::Signed(vault_id.account_id);
-    assert_ok!(VaultRegistry::<T>::set_public_key(origin.into(), dummy_public_key()));
+    assert_ok!(VaultRegistry::<T>::register_public_key(
+        origin.into(),
+        dummy_public_key()
+    ));
 }
 
 fn register_vault<T: crate::Config>(vault_id: DefaultVaultId<T>) {
-    set_public_key::<T>(vault_id.clone());
+    register_public_key::<T>(vault_id.clone());
     assert_ok!(VaultRegistry::<T>::_register_vault(
         vault_id.clone(),
         100000000u32.into()
@@ -166,7 +169,7 @@ benchmarks! {
         // TODO: calculate from exchange rate
         let griefing = 1000u32.into();
 
-        set_public_key::<T>(vault_id.clone());
+        register_public_key::<T>(vault_id.clone());
 
         let vault = Vault {
             wallet: Wallet::new(),

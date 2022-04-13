@@ -262,9 +262,9 @@ pub mod pallet {
         ///
         /// # Arguments
         /// * `public_key` - the BTC public key of the vault to update
-        #[pallet::weight(<T as Config>::WeightInfo::set_public_key())]
+        #[pallet::weight(<T as Config>::WeightInfo::register_public_key())]
         #[transactional]
-        pub fn set_public_key(origin: OriginFor<T>, public_key: BtcPublicKey) -> DispatchResultWithPostInfo {
+        pub fn register_public_key(origin: OriginFor<T>, public_key: BtcPublicKey) -> DispatchResultWithPostInfo {
             let account_id = ensure_signed(origin)?;
 
             VaultBitcoinPublicKey::<T>::insert(&account_id, &public_key);

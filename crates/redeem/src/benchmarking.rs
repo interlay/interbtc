@@ -42,9 +42,12 @@ fn dummy_public_key() -> BtcPublicKey {
     ])
 }
 
-fn set_public_key<T: crate::Config>(vault_id: DefaultVaultId<T>) {
+fn register_public_key<T: crate::Config>(vault_id: DefaultVaultId<T>) {
     let origin = RawOrigin::Signed(vault_id.account_id.clone());
-    assert_ok!(VaultRegistry::<T>::set_public_key(origin.into(), dummy_public_key()));
+    assert_ok!(VaultRegistry::<T>::register_public_key(
+        origin.into(),
+        dummy_public_key()
+    ));
 }
 
 fn deposit_tokens<T: crate::Config>(currency_id: CurrencyId, account_id: &T::AccountId, amount: BalanceOf<T>) {
@@ -174,7 +177,7 @@ benchmarks! {
 
         initialize_oracle::<T>();
 
-        set_public_key::<T>(vault_id.clone());
+        register_public_key::<T>(vault_id.clone());
 
         let vault = Vault {
             wallet: Wallet::new(),
@@ -204,7 +207,7 @@ benchmarks! {
         let vault_id = get_vault_id::<T>();
         let amount = 1000;
 
-        set_public_key::<T>(vault_id.clone());
+        register_public_key::<T>(vault_id.clone());
 
         VaultRegistry::<T>::insert_vault(
             &vault_id,
@@ -240,7 +243,7 @@ benchmarks! {
         redeem_request.btc_address = origin_btc_address;
         Redeem::<T>::insert_redeem_request(&redeem_id, &redeem_request);
 
-        set_public_key::<T>(vault_id.clone());
+        register_public_key::<T>(vault_id.clone());
 
         let vault = Vault {
             wallet: Wallet::new(),
@@ -331,7 +334,7 @@ BtcRelay::<T>::parachain_confirmations() + 1u32.into());
         mine_blocks_until_expiry::<T>(&redeem_request);
         Security::<T>::set_active_block_number(Security::<T>::active_block_number() + Redeem::<T>::redeem_period() + 100u32.into());
 
-        set_public_key::<T>(vault_id.clone());
+        register_public_key::<T>(vault_id.clone());
 
         let vault = Vault {
             wallet: Wallet::new(),
@@ -366,7 +369,7 @@ BtcRelay::<T>::parachain_confirmations() + 1u32.into());
         mine_blocks_until_expiry::<T>(&redeem_request);
         Security::<T>::set_active_block_number(Security::<T>::active_block_number() + Redeem::<T>::redeem_period() + 100u32.into());
 
-        set_public_key::<T>(vault_id.clone());
+        register_public_key::<T>(vault_id.clone());
 
         let vault = Vault {
             wallet: Wallet::new(),
