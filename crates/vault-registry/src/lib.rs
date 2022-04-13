@@ -1015,7 +1015,7 @@ impl<T: Config> Pallet<T> {
     pub fn try_increase_to_be_replaced_tokens(
         vault_id: &DefaultVaultId<T>,
         tokens: &Amount<T>,
-    ) -> Result<(Amount<T>, Amount<T>), DispatchError> {
+    ) -> Result<Amount<T>, DispatchError> {
         let mut vault = Self::get_active_rich_vault_from_id(&vault_id)?;
 
         let new_to_be_replaced = vault.to_be_replaced_tokens().checked_add(&tokens)?;
@@ -1033,7 +1033,7 @@ impl<T: Config> Pallet<T> {
             increase: tokens.amount(),
         });
 
-        Ok((new_to_be_replaced, vault.replace_collateral()))
+        Ok(new_to_be_replaced)
     }
 
     pub fn decrease_to_be_replaced_tokens(

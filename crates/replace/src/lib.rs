@@ -319,38 +319,35 @@ impl<T: Config> Pallet<T> {
         let requestable_tokens = ext::vault_registry::requestable_to_be_replaced_tokens::<T>(&vault_id)?;
         let to_be_replaced_increase = amount_btc.min(&requestable_tokens)?;
 
-        ensure!(!amount_btc.is_zero(), Error::<T>::ReplaceAmountZero);
+        ensure!(!to_be_replaced_increase.is_zero(), Error::<T>::ReplaceAmountZero);
 
         // increase to-be-replaced tokens. This will fail if the vault does not have enough tokens available
-        let (total_to_be_replaced, previous_griefing_collateral) =
+        let total_to_be_replaced =
             ext::vault_registry::try_increase_to_be_replaced_tokens::<T>(&vault_id, &to_be_replaced_increase)?;
 
-        // check that total-to-be-replaced is above the minimum. NOTE: this means that even
-        // a request with amount=0 is valid, as long the _total_ is above DUST. This might
-        // be the case if the vault just wants to increase the griefing collateral, for example.
+        // check that total-to-be-replaced is above the minimum
         ensure!(
             total_to_be_replaced.ge(&Self::dust_value(vault_id.wrapped_currency()))?,
             Error::<T>::AmountBelowDustAmount
         );
 
-        // check that that the total griefing collateral is sufficient
+        // get the griefing collateral increase
         let griefing_collateral = ext::fee::get_replace_griefing_collateral::<T>(
-            &total_to_be_replaced.convert_to(T::GetGriefingCollateralCurrencyId::get())?,
+            &to_be_replaced_increase.convert_to(T::GetGriefingCollateralCurrencyId::get())?,
         )?;
-        let replace_collateral_increase = griefing_collateral.saturating_sub(&previous_griefing_collateral)?;
 
         // Lock the oldVault’s griefing collateral
         ext::vault_registry::transfer_funds(
             CurrencySource::FreeBalance(vault_id.account_id.clone()),
             CurrencySource::AvailableReplaceCollateral(vault_id.clone()),
-            &replace_collateral_increase,
+            &griefing_collateral,
         )?;
 
         // Emit RequestReplace event
         Self::deposit_event(Event::<T>::RequestReplace {
             old_vault_id: vault_id,
             amount: to_be_replaced_increase.amount(),
-            griefing_collateral: replace_collateral_increase.amount(),
+            griefing_collateral: griefing_collateral.amount(),
         });
         Ok(())
     }

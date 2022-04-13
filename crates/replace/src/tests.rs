@@ -59,7 +59,7 @@ mod request_replace_tests {
         ext::vault_registry::requestable_to_be_replaced_tokens::<Test>
             .mock_safe(move |_| MockResult::Return(Ok(wrapped(1000000))));
         ext::vault_registry::try_increase_to_be_replaced_tokens::<Test>
-            .mock_safe(|_, _| MockResult::Return(Ok((wrapped(2), griefing(20)))));
+            .mock_safe(|_, _| MockResult::Return(Ok(wrapped(2))));
         ext::fee::get_replace_griefing_collateral::<Test>.mock_safe(move |_| MockResult::Return(Ok(griefing(20))));
         ext::vault_registry::transfer_funds::<Test>.mock_safe(|_, _, _| MockResult::Return(Ok(())));
     }
@@ -97,11 +97,21 @@ mod request_replace_tests {
         run_test(|| {
             setup_mocks();
             ext::vault_registry::try_increase_to_be_replaced_tokens::<Test>
-                .mock_safe(|_, _| MockResult::Return(Ok((wrapped(1), griefing(10)))));
+                .mock_safe(|_, _| MockResult::Return(Ok(wrapped(1))));
             assert_err!(
                 Replace::_request_replace(OLD_VAULT, 1),
                 TestError::AmountBelowDustAmount
             );
+        })
+    }
+
+    #[test]
+    fn request_replace_should_fail_with_replace_amount_zero() {
+        run_test(|| {
+            setup_mocks();
+            ext::vault_registry::try_increase_to_be_replaced_tokens::<Test>
+                .mock_safe(|_, _| MockResult::Return(Ok(wrapped(1))));
+            assert_err!(Replace::_request_replace(OLD_VAULT, 0), TestError::ReplaceAmountZero);
         })
     }
 }
@@ -133,8 +143,8 @@ mod accept_replace_tests {
             ));
             assert_event_matches!(Event::AcceptReplace{
                 replace_id: _, 
-                old_vault_id: OLD_VAULT, 
-                new_vault_id: NEW_VAULT, 
+                old_vault_id: OLD_VAULT,
+                new_vault_id: NEW_VAULT,
                 amount: 5, 
                 collateral: 10, 
                 btc_address: addr} if addr == BtcAddress::default());
