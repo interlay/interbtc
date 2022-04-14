@@ -106,6 +106,8 @@ pub mod pallet {
 
     #[pallet::error]
     pub enum Error<T> {
+        /// Replace requires non-zero increase.
+        ReplaceAmountZero,
         /// Replace amount is too small.
         AmountBelowDustAmount,
         /// No replace request found.
