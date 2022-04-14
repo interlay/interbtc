@@ -307,7 +307,6 @@ mod request_replace_tests {
                         wrapped: Token(DOT),
                     },
                     amount: 0,
-                    griefing_collateral: 0
                 })
                 .dispatch(origin_of(account_of(OLD_VAULT))),
                 SystemError::CallFiltered,
@@ -320,11 +319,9 @@ mod request_replace_tests {
         test_with(|old_vault_id, new_vault_id| {
             let amount = DEFAULT_VAULT_ISSUED - DEFAULT_VAULT_TO_BE_REDEEMED - DEFAULT_VAULT_TO_BE_REPLACED;
             let amount = old_vault_id.wrapped(amount.amount());
-            let griefing_collateral = griefing(200);
-
-            assert_ok!(request_replace(&old_vault_id, amount, griefing_collateral));
+            let griefing_collateral = request_replace(&old_vault_id, amount);
             // assert request event
-            let _request_id = assert_replace_request_event();
+            assert_replace_request_event();
 
             assert_eq!(
                 ParachainTwoVaultState::get(&old_vault_id, &new_vault_id),
@@ -343,20 +340,19 @@ mod request_replace_tests {
         test_with(|old_vault_id, new_vault_id| {
             let amount = (DEFAULT_VAULT_ISSUED - DEFAULT_VAULT_TO_BE_REDEEMED - DEFAULT_VAULT_TO_BE_REPLACED) * 2;
             let amount = old_vault_id.wrapped(amount.amount());
-            let griefing_collateral = griefing(200);
 
-            assert_ok!(request_replace(&old_vault_id, amount, griefing_collateral));
+            let griefing_collateral = request_replace(&old_vault_id, amount);
 
             // assert request event
-            let _request_id = assert_replace_request_event();
+            assert_replace_request_event();
 
             assert_eq!(
                 ParachainTwoVaultState::get(&old_vault_id, &new_vault_id),
                 ParachainTwoVaultState::get_default(&old_vault_id, &new_vault_id).with_changes(|old_vault, _, _| {
                     old_vault.to_be_replaced += amount / 2;
-                    old_vault.griefing_collateral += griefing_collateral / 2;
-                    old_vault.replace_collateral += griefing_collateral / 2;
-                    *old_vault.free_balance.get_mut(&DEFAULT_GRIEFING_CURRENCY).unwrap() -= griefing_collateral / 2;
+                    old_vault.griefing_collateral += griefing_collateral;
+                    old_vault.replace_collateral += griefing_collateral;
+                    *old_vault.free_balance.get_mut(&DEFAULT_GRIEFING_CURRENCY).unwrap() -= griefing_collateral;
                 })
             );
         });
@@ -367,9 +363,8 @@ mod request_replace_tests {
         test_with(|old_vault_id, new_vault_id| {
             let amount = (DEFAULT_VAULT_ISSUED - DEFAULT_VAULT_TO_BE_REDEEMED - DEFAULT_VAULT_TO_BE_REPLACED) / 2;
             let amount = old_vault_id.wrapped(amount.amount());
-            let griefing_collateral = griefing(200);
+            let griefing_collateral = request_replace(&old_vault_id, amount);
 
-            assert_ok!(request_replace(&old_vault_id, amount, griefing_collateral));
             // assert request event
             let _request_id = assert_replace_request_event();
 
@@ -386,39 +381,15 @@ mod request_replace_tests {
     }
 
     #[test]
-    fn integration_test_replace_request_replace_with_zero_btc_succeeds() {
-        test_with(|old_vault_id, new_vault_id| {
-            let amount = old_vault_id.wrapped(0);
-            let griefing_collateral = griefing(200);
-
-            assert_ok!(request_replace(&old_vault_id, amount, griefing_collateral));
-            let _request_id = assert_replace_request_event();
-
-            assert_eq!(
-                ParachainTwoVaultState::get(&old_vault_id, &new_vault_id),
-                ParachainTwoVaultState::get_default(&old_vault_id, &new_vault_id).with_changes(|old_vault, _, _| {
-                    old_vault.griefing_collateral += griefing_collateral;
-                    old_vault.replace_collateral += griefing_collateral;
-                    *old_vault.free_balance.get_mut(&DEFAULT_GRIEFING_CURRENCY).unwrap() -= griefing_collateral;
+    fn integration_test_replace_request_replace_with_zero_btc_fails() {
+        test_with(|old_vault_id, _new_vault_id| {
+            assert_noop!(
+                Call::Replace(ReplaceCall::request_replace {
+                    currency_pair: old_vault_id.currencies.clone(),
+                    amount: 0,
                 })
-            );
-        });
-    }
-
-    #[test]
-    fn integration_test_replace_request_replace_with_zero_collateral_succeeds() {
-        test_with(|old_vault_id, new_vault_id| {
-            let amount = old_vault_id.wrapped(1000);
-            let griefing_collateral = griefing(0);
-
-            assert_ok!(request_replace(&old_vault_id, amount, griefing_collateral));
-            let _request_id = assert_replace_request_event();
-
-            assert_eq!(
-                ParachainTwoVaultState::get(&old_vault_id, &new_vault_id),
-                ParachainTwoVaultState::get_default(&old_vault_id, &new_vault_id).with_changes(|old_vault, _, _| {
-                    old_vault.to_be_replaced += amount;
-                })
+                .dispatch(origin_of(old_vault_id.account_id.clone())),
+                ReplaceError::ReplaceAmountZero
             );
         });
     }
@@ -437,17 +408,10 @@ mod request_replace_tests {
                 },
             );
 
-            // check that failing to lock sufficient collateral gives an error
-            assert_noop!(
-                request_replace(&old_vault_id, amount, griefing(0)),
-                ReplaceError::InsufficientCollateral
-            );
-
             let pre_request_state = ParachainTwoVaultState::get(&old_vault_id, &new_vault_id);
 
             // check that by locking sufficient collateral we can recover
-            let griefing_collateral = griefing(1000);
-            assert_ok!(request_replace(&old_vault_id, amount, griefing_collateral));
+            let griefing_collateral = request_replace(&old_vault_id, amount);
 
             assert_eq!(
                 ParachainTwoVaultState::get(&old_vault_id, &new_vault_id),
@@ -720,10 +684,10 @@ fn integration_test_replace_with_parachain_shutdown_fails() {
     test_with(|old_vault_id, new_vault_id| {
         SecurityPallet::set_status(StatusCode::Shutdown);
 
-        assert_noop!(
-            request_replace(&old_vault_id, old_vault_id.wrapped(0), griefing(0)),
-            SystemError::CallFiltered,
-        );
+        // assert_noop!(
+        //     request_replace(&old_vault_id, old_vault_id.wrapped(0), griefing(0)),
+        //     SystemError::CallFiltered,
+        // );
         assert_noop!(
             withdraw_replace(&old_vault_id, old_vault_id.wrapped(0)),
             SystemError::CallFiltered
