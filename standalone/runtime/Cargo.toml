@@ -212,3 +212,4 @@ runtime-benchmarks = [
   "escrow/runtime-benchmarks",
 ]
 disable-runtime-api = []
+skip-slow-tests = []

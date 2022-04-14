@@ -8,6 +8,7 @@ use mock::{assert_eq, *};
 type BTCRelayError = btc_relay::Error<Runtime>;
 
 #[test]
+#[cfg_attr(feature = "skip-slow-tests", ignore)]
 fn integration_test_submit_block_headers_and_verify_transaction_inclusion() {
     ExtBuilder::build().execute_without_relay_init(|| {
         // ensure that difficulty check is enabled
