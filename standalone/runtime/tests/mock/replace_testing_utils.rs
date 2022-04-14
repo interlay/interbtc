@@ -1,17 +1,13 @@
 use crate::*;
 use currency::Amount;
 
-pub fn request_replace(
-    old_vault_id: &VaultId,
-    amount: Amount<Runtime>,
-    griefing_collateral: Amount<Runtime>,
-) -> DispatchResultWithPostInfo {
-    Call::Replace(ReplaceCall::request_replace {
+pub fn request_replace(old_vault_id: &VaultId, amount: Amount<Runtime>) -> Amount<Runtime> {
+    assert_ok!(Call::Replace(ReplaceCall::request_replace {
         currency_pair: old_vault_id.currencies.clone(),
         amount: amount.amount(),
-        griefing_collateral: griefing_collateral.amount(),
     })
-    .dispatch(origin_of(old_vault_id.account_id.clone()))
+    .dispatch(origin_of(old_vault_id.account_id.clone())));
+    griefing(assert_request_replace_event())
 }
 
 pub fn setup_replace(
@@ -21,11 +17,7 @@ pub fn setup_replace(
 ) -> (ReplaceRequest<AccountId32, BlockNumber, Balance, CurrencyId>, H256) {
     let new_vault_btc_address = BtcAddress::P2PKH(H160([2; 20]));
 
-    assert_ok!(request_replace(
-        old_vault_id,
-        issued_tokens,
-        DEFAULT_GRIEFING_COLLATERAL
-    ));
+    request_replace(old_vault_id, issued_tokens);
 
     let (id, request) = accept_replace(
         &old_vault_id,
@@ -36,6 +28,19 @@ pub fn setup_replace(
     )
     .unwrap();
     (request, id)
+}
+
+pub fn assert_request_replace_event() -> Balance {
+    SystemPallet::events()
+        .iter()
+        .rev()
+        .find_map(|record| match record.event {
+            Event::Replace(ReplaceEvent::RequestReplace {
+                griefing_collateral, ..
+            }) => Some(griefing_collateral),
+            _ => None,
+        })
+        .unwrap()
 }
 
 pub fn assert_accept_replace_event() -> H256 {

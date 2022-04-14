@@ -590,10 +590,6 @@ impl<T: Config> RichVault<T> {
         Amount::new(self.data.liquidated_collateral, self.data.id.currencies.collateral)
     }
 
-    pub(crate) fn replace_collateral(&self) -> Amount<T> {
-        Amount::new(self.data.replace_collateral, T::GetGriefingCollateralCurrencyId::get())
-    }
-
     pub fn get_vault_collateral(&self) -> Result<Amount<T>, DispatchError> {
         Pallet::<T>::compute_collateral(&self.id())
     }

@@ -176,7 +176,6 @@ mod request_issue_tests {
                 Call::Issue(IssueCall::request_issue {
                     amount: 0,
                     vault_id: vault_id,
-                    griefing_collateral: 0
                 })
                 .dispatch(origin_of(account_of(ALICE))),
                 SystemError::CallFiltered,
@@ -192,7 +191,6 @@ mod request_issue_tests {
                 Call::Issue(IssueCall::request_issue {
                     amount: 0,
                     vault_id: dummy_vault_id_of(),
-                    griefing_collateral: 0
                 })
                 .dispatch(origin_of(account_of(USER))),
                 IssueError::WaitingForRelayerInitialization
@@ -206,7 +204,6 @@ mod request_issue_tests {
                 Call::Issue(IssueCall::request_issue {
                     amount: 0,
                     vault_id: dummy_vault_id_of(),
-                    griefing_collateral: 0
                 })
                 .dispatch(origin_of(account_of(USER))),
                 IssueError::WaitingForRelayerInitialization
@@ -224,7 +221,6 @@ mod request_issue_tests {
                 Call::Issue(IssueCall::request_issue {
                     amount: amount,
                     vault_id: vault_id,
-                    griefing_collateral: DEFAULT_GRIEFING_COLLATERAL.amount()
                 })
                 .dispatch(origin_of(account_of(USER))),
                 VaultRegistryError::VaultNotFound
@@ -245,7 +241,6 @@ mod request_issue_tests {
                 Call::Issue(IssueCall::request_issue {
                     amount: 1000,
                     vault_id: vault_id.clone(),
-                    griefing_collateral: DEFAULT_GRIEFING_COLLATERAL.amount()
                 })
                 .dispatch(origin_of(account_of(USER))),
                 IssueError::VaultNotAcceptingNewIssues
@@ -258,51 +253,14 @@ mod request_issue_tests {
     fn integration_test_issue_request_precond_amount_above_dust() {
         test_with_initialized_vault(|vault_id| {
             let amount = vault_id.wrapped(1); // dust is set to 2
-            let amount_in_collateral = amount.convert_to(vault_id.collateral_currency()).unwrap();
-            let griefing_collateral = FeePallet::get_issue_griefing_collateral(&amount_in_collateral).unwrap();
             assert_noop!(
                 Call::Issue(IssueCall::request_issue {
                     amount: amount.amount(),
                     vault_id: vault_id,
-                    griefing_collateral: griefing_collateral.amount()
                 })
                 .dispatch(origin_of(account_of(USER))),
                 IssueError::AmountBelowDustAmount
             );
-        });
-    }
-
-    /// Request fails if insufficient griefing collateral is provided
-    #[test]
-    fn integration_test_issue_request_precond_griefing_collateral_sufficient() {
-        test_with_initialized_vault(|vault_id| {
-            let amount = vault_id.wrapped(10_000);
-            let amount_in_collateral = amount.convert_to(vault_id.collateral_currency()).unwrap();
-            let griefing_collateral = FeePallet::get_issue_griefing_collateral(&amount_in_collateral).unwrap();
-            // fails below minimum
-            assert_noop!(
-                Call::Issue(IssueCall::request_issue {
-                    amount: amount.amount(),
-                    vault_id: vault_id.clone(),
-                    griefing_collateral: griefing_collateral.amount() - 1
-                })
-                .dispatch(origin_of(account_of(USER))),
-                IssueError::InsufficientCollateral
-            );
-            // succeeds at minimum
-            assert_ok!(Call::Issue(IssueCall::request_issue {
-                amount: amount.amount(),
-                vault_id: vault_id.clone(),
-                griefing_collateral: griefing_collateral.amount()
-            })
-            .dispatch(origin_of(account_of(USER))));
-            // succeeds above minimum
-            assert_ok!(Call::Issue(IssueCall::request_issue {
-                amount: amount.amount(),
-                vault_id: vault_id.clone(),
-                griefing_collateral: griefing_collateral.amount() * 2
-            })
-            .dispatch(origin_of(account_of(USER))));
         });
     }
 
@@ -332,7 +290,6 @@ mod request_issue_tests {
                 Call::Issue(IssueCall::request_issue {
                     amount: amount.amount(),
                     vault_id: vault_id,
-                    griefing_collateral: DEFAULT_GRIEFING_COLLATERAL.amount()
                 })
                 .dispatch(origin_of(account_of(USER))),
                 VaultRegistryError::ExceedingVaultLimit
@@ -340,52 +297,49 @@ mod request_issue_tests {
         });
     }
 
+    fn get_expected_griefing_collateral(amount_btc: Amount<Runtime>) -> Amount<Runtime> {
+        let amount_collateral = amount_btc.convert_to(DEFAULT_GRIEFING_CURRENCY).unwrap();
+        FeePallet::get_issue_griefing_collateral(&amount_collateral).unwrap()
+    }
+
     /// Request fails if the user can't pay the griefing collateral
     #[test]
     fn integration_test_issue_request_precond_sufficient_funds_for_collateral() {
         test_with_initialized_vault(|vault_id| {
             let amount_btc = vault_id.wrapped(10_000);
-            let user_free_balance = default_user_free_balance(vault_id.collateral_currency());
+            let expected_griefing_collateral = get_expected_griefing_collateral(amount_btc);
+            let mut user_state = default_user_state();
+            user_state.balances.get_mut(&DEFAULT_GRIEFING_CURRENCY).unwrap().free =
+                expected_griefing_collateral - Amount::new(1, DEFAULT_GRIEFING_CURRENCY);
+            UserData::force_to(USER, user_state);
+
+            // succeeds when using entire balance but not exceeding
             assert_noop!(
                 Call::Issue(IssueCall::request_issue {
                     amount: amount_btc.amount(),
                     vault_id: vault_id.clone(),
-                    griefing_collateral: user_free_balance.amount() + 1,
                 })
                 .dispatch(origin_of(account_of(USER))),
                 TokensError::BalanceTooLow
             );
-
-            // succeeds when using entire balance but not exceeding
-            assert_ok!(Call::Issue(IssueCall::request_issue {
-                amount: amount_btc.amount(),
-                vault_id: vault_id.clone(),
-                griefing_collateral: user_free_balance.amount()
-            })
-            .dispatch(origin_of(account_of(USER))),);
         });
     }
 
     #[test]
     fn integration_test_issue_request_postcond_succeeds() {
         test_with_initialized_vault(|vault_id| {
-            let amount_btc = vault_id.wrapped(10_000);
+            let amount_btc = vault_id.wrapped(100_000);
             let current_block = 500;
             SecurityPallet::set_active_block_number(current_block);
-            assert_ok!(Call::Issue(IssueCall::request_issue {
-                amount: amount_btc.amount(),
-                vault_id: vault_id.clone(),
-                griefing_collateral: DEFAULT_GRIEFING_COLLATERAL.amount(),
-            })
-            .dispatch(origin_of(account_of(USER))));
+            let (_issue_id, issue) = request_issue(&vault_id, amount_btc);
 
             // lock griefing collateral and increase to_be_issued
             assert_eq!(
                 ParachainState::get(&vault_id),
                 ParachainState::get_default(&vault_id).with_changes(|user, vault, _, _| {
-                    vault.to_be_issued += vault_id.wrapped(10_000);
-                    (*user.balances.get_mut(&DEFAULT_GRIEFING_CURRENCY).unwrap()).free -= DEFAULT_GRIEFING_COLLATERAL;
-                    (*user.balances.get_mut(&DEFAULT_GRIEFING_CURRENCY).unwrap()).locked += DEFAULT_GRIEFING_COLLATERAL;
+                    vault.to_be_issued += amount_btc;
+                    (*user.balances.get_mut(&DEFAULT_GRIEFING_CURRENCY).unwrap()).free -= issue.griefing_collateral();
+                    (*user.balances.get_mut(&DEFAULT_GRIEFING_CURRENCY).unwrap()).locked += issue.griefing_collateral();
                 })
             );
 
@@ -398,12 +352,13 @@ mod request_issue_tests {
 
             let expected_fee = FeePallet::get_issue_fee(&amount_btc).unwrap();
             let expected_height = BTCRelayPallet::get_best_block_height();
+            let expected_griefing_collateral = get_expected_griefing_collateral(amount_btc);
 
             let expected_issue = IssueRequest {
                 vault: vault_id,
                 opentime: current_block,
                 period: IssuePallet::issue_period(),
-                griefing_collateral: DEFAULT_GRIEFING_COLLATERAL.amount(),
+                griefing_collateral: expected_griefing_collateral.amount(),
                 amount: (amount_btc - expected_fee).amount(),
                 fee: expected_fee.amount(),
                 requester: account_of(USER),
@@ -421,7 +376,6 @@ mod request_issue_tests {
     fn integration_test_liquidating_one_collateral_currency_does_not_impact_other_currencies() {
         test_with_initialized_vault(|vault_id| {
             let amount_btc = vault_id.wrapped(10000);
-            let griefing_collateral = griefing(100);
 
             let different_collateral = match vault_id.currencies.collateral {
                 Token(KSM) => Token(DOT),
@@ -441,7 +395,6 @@ mod request_issue_tests {
             assert_ok!(Call::Issue(IssueCall::request_issue {
                 amount: amount_btc.amount(),
                 vault_id: different_collateral_vault_id.clone(),
-                griefing_collateral: griefing_collateral.amount()
             })
             .dispatch(origin_of(account_of(ALICE))));
         });
@@ -458,7 +411,6 @@ fn integration_test_issue_wrapped_execute_succeeds() {
         };
 
         let amount_btc = vault_id.wrapped(1000000);
-        let griefing_collateral = griefing(100);
         let collateral_vault = required_collateral_for_issue(amount_btc, vault_id.collateral_currency());
 
         register_vault(&vault_id, collateral_vault);
@@ -468,7 +420,6 @@ fn integration_test_issue_wrapped_execute_succeeds() {
         assert_ok!(Call::Issue(IssueCall::request_issue {
             amount: amount_btc.amount(),
             vault_id: vault_id,
-            griefing_collateral: griefing_collateral.amount()
         })
         .dispatch(origin_of(account_of(USER))));
 
@@ -529,7 +480,6 @@ fn integration_test_withdraw_after_request_issue() {
             ..vault_id.clone()
         };
         let amount_btc = vault_id.wrapped(1000000);
-        let griefing_collateral = griefing(100);
         let collateral_vault = required_collateral_for_issue(amount_btc, vault_id.collateral_currency());
 
         register_vault(&vault_id, collateral_vault);
@@ -539,7 +489,6 @@ fn integration_test_withdraw_after_request_issue() {
         assert_ok!(Call::Issue(IssueCall::request_issue {
             amount: amount_btc.amount(),
             vault_id: vault_id.clone(),
-            griefing_collateral: griefing_collateral.amount()
         })
         .dispatch(origin_of(account_of(ALICE))));
 
@@ -547,7 +496,6 @@ fn integration_test_withdraw_after_request_issue() {
         assert!(Call::Issue(IssueCall::request_issue {
             amount: amount_btc.amount(),
             vault_id: vault_id.clone(),
-            griefing_collateral: griefing_collateral.amount()
         })
         .dispatch(origin_of(account_of(ALICE)))
         .is_err());
@@ -830,7 +778,7 @@ mod execute_issue_tests {
     #[test]
     fn integration_test_issue_execute_postcond_underpayment() {
         test_with_initialized_vault(|vault_id| {
-            let requested_btc = vault_id.wrapped(40_000);
+            let requested_btc = vault_id.wrapped(400_000);
             let (issue_id, issue) = request_issue(&vault_id, requested_btc);
             let sent_btc = (issue.amount() + issue.fee()) / 4;
 
@@ -845,7 +793,7 @@ mod execute_issue_tests {
                 .assert_execute();
 
             let slashed_griefing_collateral = (issue.griefing_collateral() * 3) / 4;
-            let returned_griefing_collateral = issue.griefing_collateral() - issue.griefing_collateral() * 3 / 4;
+            let returned_griefing_collateral = issue.griefing_collateral() - slashed_griefing_collateral;
 
             // user balances are updated, tokens are minted and fees paid
             assert_eq!(

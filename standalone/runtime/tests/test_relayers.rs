@@ -413,11 +413,7 @@ fn integration_test_double_spend_replace() {
         CoreVaultData::force_to(&stealing_vault_id, default_vault_state(&stealing_vault_id));
         CoreVaultData::force_to(&new_vault_id, default_vault_state(&new_vault_id));
 
-        assert_ok!(request_replace(
-            &stealing_vault_id,
-            issued_tokens,
-            DEFAULT_GRIEFING_COLLATERAL
-        ));
+        request_replace(&stealing_vault_id, issued_tokens);
         let (replace, replace_id) = setup_replace(&stealing_vault_id, &new_vault_id, replace_amount);
         let current_block_number = 1;
 

@@ -117,9 +117,8 @@ pub(crate) mod vault_registry {
     pub fn try_increase_to_be_replaced_tokens<T: crate::Config>(
         vault_id: &DefaultVaultId<T>,
         amount: &Amount<T>,
-        griefing_collateral: &Amount<T>,
-    ) -> Result<(Amount<T>, Amount<T>), DispatchError> {
-        <vault_registry::Pallet<T>>::try_increase_to_be_replaced_tokens(vault_id, amount, griefing_collateral)
+    ) -> Result<Amount<T>, DispatchError> {
+        <vault_registry::Pallet<T>>::try_increase_to_be_replaced_tokens(vault_id, amount)
     }
 
     pub fn decrease_to_be_replaced_tokens<T: crate::Config>(

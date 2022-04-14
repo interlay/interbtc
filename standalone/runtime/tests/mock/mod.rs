@@ -630,7 +630,6 @@ impl CoreVaultData {
         assert_ok!(VaultRegistryPallet::try_increase_to_be_replaced_tokens(
             &vault_id,
             &state.to_be_replaced,
-            &state.replace_collateral
         ));
         VaultRegistryPallet::collateral_integrity_check();
 

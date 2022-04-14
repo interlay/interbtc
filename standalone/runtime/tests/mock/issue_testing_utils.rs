@@ -19,7 +19,6 @@ pub struct RequestIssueBuilder {
     amount_btc: Balance,
     vault_id: VaultId,
     user: [u8; 32],
-    griefing_collateral: Balance,
 }
 
 impl RequestIssueBuilder {
@@ -28,17 +27,11 @@ impl RequestIssueBuilder {
             amount_btc: amount_btc.amount(),
             vault_id: vault_id.clone(),
             user: USER,
-            griefing_collateral: DEFAULT_COLLATERAL,
         }
     }
 
     pub fn with_vault(&mut self, vault: VaultId) -> &mut Self {
         self.vault_id = vault;
-        self
-    }
-
-    pub fn with_collateral(&mut self, collateral: Amount<Runtime>) -> &mut Self {
-        self.griefing_collateral = collateral.amount();
         self
     }
 
@@ -56,7 +49,6 @@ impl RequestIssueBuilder {
         assert_ok!(Call::Issue(IssueCall::request_issue {
             amount: self.amount_btc,
             vault_id: self.vault_id.clone(),
-            griefing_collateral: self.griefing_collateral
         })
         .dispatch(origin_of(account_of(self.user))));
 
