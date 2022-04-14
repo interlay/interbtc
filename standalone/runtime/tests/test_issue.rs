@@ -298,6 +298,34 @@ mod request_issue_tests {
         });
     }
 
+    fn get_expected_griefing_collateral(amount_btc: Amount<Runtime>) -> Amount<Runtime> {
+        let amount_collateral = amount_btc.convert_to(DEFAULT_GRIEFING_CURRENCY).unwrap();
+        FeePallet::get_issue_griefing_collateral(&amount_collateral).unwrap()
+    }
+
+    /// Request fails if the user can't pay the griefing collateral
+    #[test]
+    fn integration_test_issue_request_precond_sufficient_funds_for_collateral() {
+        test_with_initialized_vault(|vault_id| {
+            let amount_btc = vault_id.wrapped(10_000);
+            let expected_griefing_collateral = get_expected_griefing_collateral(amount_btc);
+            let mut user_state = default_user_state();
+            user_state.balances.get_mut(&DEFAULT_GRIEFING_CURRENCY).unwrap().free =
+                expected_griefing_collateral - Amount::new(1, DEFAULT_GRIEFING_CURRENCY);
+            UserData::force_to(USER, user_state);
+
+            // succeeds when using entire balance but not exceeding
+            assert_noop!(
+                Call::Issue(IssueCall::request_issue {
+                    amount: amount_btc.amount(),
+                    vault_id: vault_id.clone(),
+                })
+                .dispatch(origin_of(account_of(USER))),
+                TokensError::BalanceTooLow
+            );
+        });
+    }
+
     #[test]
     fn integration_test_issue_request_postcond_succeeds() {
         test_with_initialized_vault(|vault_id| {
@@ -327,12 +355,13 @@ mod request_issue_tests {
                 .public_key;
             let expected_fee = FeePallet::get_issue_fee(&amount_btc).unwrap();
             let expected_height = BTCRelayPallet::get_best_block_height();
+            let expected_griefing_collateral = get_expected_griefing_collateral(amount_btc);
 
             let expected_issue = IssueRequest {
                 vault: vault_id,
                 opentime: current_block,
                 period: IssuePallet::issue_period(),
-                griefing_collateral: issue.griefing_collateral,
+                griefing_collateral: expected_griefing_collateral.amount(),
                 amount: (amount_btc - expected_fee).amount(),
                 fee: expected_fee.amount(),
                 requester: account_of(USER),

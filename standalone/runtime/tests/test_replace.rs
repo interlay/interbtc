@@ -684,10 +684,14 @@ fn integration_test_replace_with_parachain_shutdown_fails() {
     test_with(|old_vault_id, new_vault_id| {
         SecurityPallet::set_status(StatusCode::Shutdown);
 
-        // assert_noop!(
-        //     request_replace(&old_vault_id, old_vault_id.wrapped(0), griefing(0)),
-        //     SystemError::CallFiltered,
-        // );
+        assert_noop!(
+            Call::Replace(ReplaceCall::request_replace {
+                currency_pair: old_vault_id.currencies.clone(),
+                amount: old_vault_id.wrapped(0).amount(),
+            })
+            .dispatch(origin_of(old_vault_id.account_id.clone())),
+            SystemError::CallFiltered,
+        );
         assert_noop!(
             withdraw_replace(&old_vault_id, old_vault_id.wrapped(0)),
             SystemError::CallFiltered
