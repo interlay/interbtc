@@ -1002,62 +1002,60 @@ construct_runtime! {
         Scheduler: pallet_scheduler::{Pallet, Call, Storage, Event<T>} = 5,
         Preimage: pallet_preimage::{Pallet, Call, Storage, Event<T>} = 6,
         Multisig: pallet_multisig::{Pallet, Call, Storage, Event<T>} = 7,
+        Identity: pallet_identity::{Pallet, Call, Storage, Event<T>} = 8,
 
         // Tokens & Balances
-        Currency: currency::{Pallet} = 8,
-        Tokens: orml_tokens::{Pallet, Call, Storage, Config<T>, Event<T>} = 9,
-        Escrow: escrow::{Pallet, Call, Storage, Event<T>} = 10,
-        Vesting: orml_vesting::{Pallet, Storage, Call, Event<T>, Config<T>} = 11,
+        Currency: currency::{Pallet} = 20,
+        Tokens: orml_tokens::{Pallet, Call, Storage, Config<T>, Event<T>} = 21,
+        Supply: supply::{Pallet, Storage, Call, Event<T>, Config<T>} = 22,
+        Vesting: orml_vesting::{Pallet, Storage, Call, Event<T>, Config<T>} = 23,
 
-        EscrowAnnuity: annuity::<Instance1>::{Pallet, Call, Storage, Event<T>} = 12,
-        EscrowRewards: reward::<Instance1>::{Pallet, Storage, Event<T>} = 13,
+        Escrow: escrow::{Pallet, Call, Storage, Event<T>} = 30,
+        EscrowAnnuity: annuity::<Instance1>::{Pallet, Call, Storage, Event<T>} = 31,
+        EscrowRewards: reward::<Instance1>::{Pallet, Storage, Event<T>} = 32,
 
-        VaultAnnuity: annuity::<Instance2>::{Pallet, Call, Storage, Event<T>} = 14,
-        VaultRewards: reward::<Instance2>::{Pallet, Storage, Event<T>} = 15,
-        VaultStaking: staking::{Pallet, Storage, Event<T>} = 16,
+        VaultAnnuity: annuity::<Instance2>::{Pallet, Call, Storage, Event<T>} = 40,
+        VaultRewards: reward::<Instance2>::{Pallet, Storage, Event<T>} = 41,
+        VaultStaking: staking::{Pallet, Storage, Event<T>} = 42,
 
-        Supply: supply::{Pallet, Storage, Call, Event<T>, Config<T>} = 17,
 
         // Bitcoin SPV
-        BTCRelay: btc_relay::{Pallet, Call, Config<T>, Storage, Event<T>} = 18,
-        Relay: relay::{Pallet, Call, Storage, Event<T>} = 19,
+        BTCRelay: btc_relay::{Pallet, Call, Config<T>, Storage, Event<T>} = 50,
+        Relay: relay::{Pallet, Call, Storage, Event<T>} = 51,
 
         // Operational
-        Security: security::{Pallet, Call, Config, Storage, Event<T>} = 20,
-        VaultRegistry: vault_registry::{Pallet, Call, Config<T>, Storage, Event<T>, ValidateUnsigned} = 21,
-        Oracle: oracle::{Pallet, Call, Config<T>, Storage, Event<T>} = 22,
-        Issue: issue::{Pallet, Call, Config<T>, Storage, Event<T>} = 23,
-        Redeem: redeem::{Pallet, Call, Config<T>, Storage, Event<T>} = 24,
-        Replace: replace::{Pallet, Call, Config<T>, Storage, Event<T>} = 25,
-        Fee: fee::{Pallet, Call, Config<T>, Storage} = 26,
-        Refund: refund::{Pallet, Call, Config<T>, Storage, Event<T>} = 27,
-        Nomination: nomination::{Pallet, Call, Config, Storage, Event<T>} = 28,
-
-        Identity: pallet_identity::{Pallet, Call, Storage, Event<T>} = 46,
+        Security: security::{Pallet, Call, Config, Storage, Event<T>} = 60,
+        VaultRegistry: vault_registry::{Pallet, Call, Config<T>, Storage, Event<T>, ValidateUnsigned} = 61,
+        Oracle: oracle::{Pallet, Call, Config<T>, Storage, Event<T>} = 62,
+        Issue: issue::{Pallet, Call, Config<T>, Storage, Event<T>} = 63,
+        Redeem: redeem::{Pallet, Call, Config<T>, Storage, Event<T>} = 64,
+        Replace: replace::{Pallet, Call, Config<T>, Storage, Event<T>} = 65,
+        Fee: fee::{Pallet, Call, Config<T>, Storage} = 66,
+        Refund: refund::{Pallet, Call, Config<T>, Storage, Event<T>} = 67,
+        Nomination: nomination::{Pallet, Call, Config, Storage, Event<T>} = 68,
 
         // Governance
-        Democracy: democracy::{Pallet, Call, Storage, Config<T>, Event<T>} = 29,
-        TechnicalCommittee: pallet_collective::<Instance1>::{Pallet, Call, Storage, Origin<T>, Event<T>, Config<T>} = 30,
-        TechnicalMembership: pallet_membership::{Pallet, Call, Storage, Event<T>, Config<T>} = 31,
-        Treasury: pallet_treasury::{Pallet, Call, Storage, Config, Event<T>} = 32,
+        Democracy: democracy::{Pallet, Call, Storage, Config<T>, Event<T>} = 70,
+        TechnicalCommittee: pallet_collective::<Instance1>::{Pallet, Call, Storage, Origin<T>, Event<T>, Config<T>} = 71,
+        TechnicalMembership: pallet_membership::{Pallet, Call, Storage, Event<T>, Config<T>} = 72,
+        Treasury: pallet_treasury::{Pallet, Call, Storage, Config, Event<T>} = 73,
 
-        ParachainSystem: cumulus_pallet_parachain_system::{Pallet, Call, Config, Storage, Inherent, Event<T>} = 33,
-        ParachainInfo: parachain_info::{Pallet, Storage, Config} = 34,
+        Authorship: pallet_authorship::{Pallet, Call, Storage} = 80,
+        CollatorSelection: pallet_collator_selection::{Pallet, Call, Storage, Event<T>, Config<T>} = 81,
+        Session: pallet_session::{Pallet, Call, Storage, Event, Config<T>} = 82,
+        Aura: pallet_aura::{Pallet, Storage, Config<T>} = 83,
+        AuraExt: cumulus_pallet_aura_ext::{Pallet, Storage, Config} = 84,
+        ParachainSystem: cumulus_pallet_parachain_system::{Pallet, Call, Config, Storage, Inherent, Event<T>} = 85,
+        ParachainInfo: parachain_info::{Pallet, Storage, Config} = 86,
 
-        Authorship: pallet_authorship::{Pallet, Call, Storage} = 35,
-        CollatorSelection: pallet_collator_selection::{Pallet, Call, Storage, Event<T>, Config<T>} = 36,
-        Session: pallet_session::{Pallet, Call, Storage, Event, Config<T>} = 37,
-        Aura: pallet_aura::{Pallet, Storage, Config<T>} = 38,
-        AuraExt: cumulus_pallet_aura_ext::{Pallet, Storage, Config} = 39,
+        // XCM Helpers
+        XcmpQueue: cumulus_pallet_xcmp_queue::{Pallet, Call, Storage, Event<T>} = 90,
+        PolkadotXcm: pallet_xcm::{Pallet, Call, Storage, Event<T>, Origin, Config} = 91,
+        CumulusXcm: cumulus_pallet_xcm::{Pallet, Call, Event<T>, Origin} = 92,
+        DmpQueue: cumulus_pallet_dmp_queue::{Pallet, Call, Storage, Event<T>} = 93,
 
-        // XCM helpers.
-        XcmpQueue: cumulus_pallet_xcmp_queue::{Pallet, Call, Storage, Event<T>} = 40,
-        PolkadotXcm: pallet_xcm::{Pallet, Call, Storage, Event<T>, Origin, Config} = 41,
-        CumulusXcm: cumulus_pallet_xcm::{Pallet, Call, Event<T>, Origin} = 42,
-        DmpQueue: cumulus_pallet_dmp_queue::{Pallet, Call, Storage, Event<T>} = 43,
-
-        XTokens: orml_xtokens::{Pallet, Storage, Call, Event<T>} = 44,
-        UnknownTokens: orml_unknown_tokens::{Pallet, Storage, Event} = 45,
+        XTokens: orml_xtokens::{Pallet, Storage, Call, Event<T>} = 94,
+        UnknownTokens: orml_unknown_tokens::{Pallet, Storage, Event} = 95,
     }
 }
 
