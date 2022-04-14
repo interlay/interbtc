@@ -350,8 +350,7 @@ fn try_increase_to_be_replaced_tokens_succeeds() {
 
         assert_ok!(VaultRegistry::try_increase_to_be_issued_tokens(&id, &wrapped(50)),);
         assert_ok!(VaultRegistry::issue_tokens(&id, &wrapped(50)));
-        let res = VaultRegistry::try_increase_to_be_replaced_tokens(&id, &wrapped(50));
-        assert_ok!(res);
+        assert_ok!(VaultRegistry::try_increase_to_be_replaced_tokens(&id, &wrapped(50)));
         let vault = VaultRegistry::get_active_rich_vault_from_id(&id).unwrap();
         assert_eq!(vault.data.issued_tokens, 50);
         assert_eq!(vault.data.to_be_replaced_tokens, 50);
@@ -367,10 +366,11 @@ fn try_increase_to_be_replaced_tokens_fails_with_insufficient_tokens() {
     run_test(|| {
         let id = create_sample_vault();
 
-        let res = VaultRegistry::try_increase_to_be_replaced_tokens(&id, &wrapped(50));
-
         // important: should not change the storage state
-        assert_noop!(res, TestError::InsufficientTokensCommitted);
+        assert_noop!(
+            VaultRegistry::try_increase_to_be_replaced_tokens(&id, &wrapped(50)),
+            TestError::InsufficientTokensCommitted
+        );
     });
 }
 
@@ -1438,10 +1438,8 @@ fn test_try_increase_to_be_replaced_tokens() {
             &wrapped(1)
         ));
 
-        let (total_wrapped, previous_griefing_collateral) =
-            VaultRegistry::try_increase_to_be_replaced_tokens(&vault_id, &wrapped(2)).unwrap();
+        let total_wrapped = VaultRegistry::try_increase_to_be_replaced_tokens(&vault_id, &wrapped(2)).unwrap();
         assert!(total_wrapped == wrapped(2));
-        assert!(previous_griefing_collateral == griefing(0));
 
         // check that we can't request more than we have issued tokens
         assert_noop!(
@@ -1458,10 +1456,8 @@ fn test_try_increase_to_be_replaced_tokens() {
         let mut vault = VaultRegistry::get_active_rich_vault_from_id(&vault_id).unwrap();
         vault.increase_available_replace_collateral(&griefing(10)).unwrap();
 
-        let (total_wrapped, previous_griefing_collateral) =
-            VaultRegistry::try_increase_to_be_replaced_tokens(&vault_id, &wrapped(1)).unwrap();
+        let total_wrapped = VaultRegistry::try_increase_to_be_replaced_tokens(&vault_id, &wrapped(1)).unwrap();
         assert_eq!(total_wrapped, wrapped(3));
-        assert_eq!(previous_griefing_collateral, griefing(10));
 
         // check that to_be_replaced_tokens is was written to storage
         let vault = VaultRegistry::get_active_vault_from_id(&vault_id).unwrap();
