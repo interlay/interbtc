@@ -866,6 +866,7 @@ fn calculate_max_wrapped_from_collateral_for_threshold_succeeds() {
 }
 
 #[test]
+#[cfg_attr(feature = "skip-slow-tests", ignore)]
 fn test_threshold_equivalent_to_legacy_calculation() {
     /// old version
     fn legacy_calculate_max_wrapped_from_collateral_for_threshold(
@@ -905,6 +906,7 @@ fn test_threshold_equivalent_to_legacy_calculation() {
 }
 
 #[test]
+#[cfg_attr(feature = "skip-slow-tests", ignore)]
 fn test_get_required_collateral_threshold_equivalent_to_legacy_calculation_() {
     // old version
     fn legacy_get_required_collateral_for_wrapped_with_threshold(

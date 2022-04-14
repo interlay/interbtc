@@ -83,3 +83,4 @@ runtime-benchmarks = [
 integration-tests = [
   "visibility"
 ]
+skip-slow-tests = []
