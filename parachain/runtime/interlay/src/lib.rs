@@ -133,7 +133,7 @@ parameter_types! {
     pub RuntimeBlockWeights: BlockWeights = BlockWeights::builder()
         .base_block(BlockExecutionWeight::get())
         .for_class(DispatchClass::all(), |weights| {
-            weights.base_extrinsic = 0; // TODO: this is 0 so that we can do runtime upgrade without fees. Restore value afterwards!
+            weights.base_extrinsic = ExtrinsicBaseWeight::get();
         })
         .for_class(DispatchClass::Normal, |weights| {
             weights.max_total = Some(NORMAL_DISPATCH_RATIO * MAXIMUM_BLOCK_WEIGHT);
@@ -304,8 +304,7 @@ pub type SlowAdjustingFeeUpdate<R> =
     TargetedFeeAdjustment<R, TargetBlockFullness, AdjustmentVariable, MinimumMultiplier>;
 
 parameter_types! {
-    // TODO: this is 0 so that we can do runtime upgrade without fees. Restore value afterwards!
-    pub const TransactionByteFee: Balance = 0;
+    pub const TransactionByteFee: Balance = MILLICENTS;
     /// This value increases the priority of `Operational` transactions by adding
     /// a "virtual tip" that's equal to the `OperationalFeeMultiplier * final_fee`.
     pub OperationalFeeMultiplier: u8 = 5;
