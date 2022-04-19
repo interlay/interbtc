@@ -380,6 +380,20 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
+    fn accept_replace_tokens(
+        old_vault_id: &DefaultVaultId<T>,
+        new_vault_id: &DefaultVaultId<T>,
+        redeemable_tokens: &Amount<T>,
+    ) -> DispatchResult {
+        // increase old-vault's to-be-redeemed tokens - this should never fail
+        ext::vault_registry::try_increase_to_be_redeemed_tokens::<T>(old_vault_id, redeemable_tokens)?;
+
+        // increase new-vault's to-be-issued tokens - this will fail if there is insufficient collateral
+        ext::vault_registry::try_increase_to_be_issued_tokens::<T>(new_vault_id, redeemable_tokens)?;
+
+        Ok(())
+    }
+
     fn _accept_replace(
         old_vault_id: DefaultVaultId<T>,
         new_vault_id: DefaultVaultId<T>,
@@ -424,11 +438,7 @@ impl<T: Config> Pallet<T> {
 
         ext::vault_registry::try_deposit_collateral::<T>(&new_vault_id, &actual_new_vault_collateral)?;
 
-        // increase old-vault's to-be-redeemed tokens - this should never fail
-        ext::vault_registry::try_increase_to_be_redeemed_tokens::<T>(&old_vault_id, &redeemable_tokens)?;
-
-        // increase new-vault's to-be-issued tokens - this will fail if there is insufficient collateral
-        ext::vault_registry::try_increase_to_be_issued_tokens::<T>(&new_vault_id, &redeemable_tokens)?;
+        Self::accept_replace_tokens(&old_vault_id, &new_vault_id, &redeemable_tokens)?;
 
         ext::vault_registry::transfer_funds(
             CurrencySource::AvailableReplaceCollateral(old_vault_id.clone()),
@@ -466,9 +476,10 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
-    fn _execute_replace(replace_id: H256, raw_merkle_proof: Vec<u8>, raw_tx: Vec<u8>) -> Result<(), DispatchError> {
-        // Retrieve the ReplaceRequest as per the replaceId parameter from Vaults in the VaultRegistry
-        let replace = Self::get_open_replace_request(&replace_id)?;
+    fn _execute_replace(replace_id: H256, raw_merkle_proof: Vec<u8>, raw_tx: Vec<u8>) -> DispatchResult {
+        // retrieve the replace request using the id parameter
+        // we can still execute cancelled requests
+        let replace = Self::get_open_or_cancelled_replace_request(&replace_id)?;
 
         let griefing_collateral: Amount<T> = replace.griefing_collateral();
         let amount = replace.amount();
@@ -489,16 +500,22 @@ impl<T: Config> Pallet<T> {
             replace_id,
         )?;
 
+        // only return griefing collateral if not already slashed
+        if replace.status == ReplaceRequestStatus::Pending {
+            // give old-vault the griefing collateral
+            ext::vault_registry::transfer_funds(
+                CurrencySource::ActiveReplaceCollateral(old_vault_id.clone()),
+                CurrencySource::FreeBalance(old_vault_id.account_id.clone()),
+                &griefing_collateral,
+            )?;
+        } else if replace.status == ReplaceRequestStatus::Cancelled {
+            // we need to re-accept first, this will check that the vault is over the secure threshold
+            Self::accept_replace_tokens(&old_vault_id, &new_vault_id, &amount)?;
+        }
+
         // decrease old-vault's issued & to-be-redeemed tokens, and
         // change new-vault's to-be-issued tokens to issued tokens
         ext::vault_registry::replace_tokens::<T>(&old_vault_id, &new_vault_id, &amount, &collateral)?;
-
-        // Give oldvault back its griefing collateral
-        ext::vault_registry::transfer_funds(
-            CurrencySource::ActiveReplaceCollateral(old_vault_id.clone()),
-            CurrencySource::FreeBalance(old_vault_id.account_id.clone()),
-            &griefing_collateral,
-        )?;
 
         // Emit ExecuteReplace event.
         Self::deposit_event(Event::<T>::ExecuteReplace {
@@ -547,7 +564,7 @@ impl<T: Config> Pallet<T> {
         )?;
 
         // if the new_vault locked additional collateral especially for this replace,
-        // release it if it does not cause him to be undercollateralized
+        // release it if it does not cause them to be undercollateralized
         if !ext::vault_registry::is_vault_liquidated::<T>(&new_vault_id)?
             && ext::vault_registry::is_allowed_to_withdraw_collateral::<T>(&new_vault_id, &collateral)?
         {
@@ -609,6 +626,15 @@ impl<T: Config> Pallet<T> {
         match request.status {
             ReplaceRequestStatus::Pending | ReplaceRequestStatus::Completed => Ok(request),
             ReplaceRequestStatus::Cancelled => Err(Error::<T>::ReplaceCancelled.into()),
+        }
+    }
+
+    /// Get a open or cancelled replace request by id. Completed requests are not returned.
+    pub fn get_open_or_cancelled_replace_request(id: &H256) -> Result<DefaultReplaceRequest<T>, DispatchError> {
+        let request = <ReplaceRequests<T>>::get(id).ok_or(Error::<T>::ReplaceIdNotFound)?;
+        match request.status {
+            ReplaceRequestStatus::Pending | ReplaceRequestStatus::Cancelled => Ok(request),
+            ReplaceRequestStatus::Completed => Err(Error::<T>::ReplaceCompleted.into()),
         }
     }
 
