@@ -750,7 +750,6 @@ pub fn interlay_mainnet_config() -> InterlayChainSpec {
         ChainType::Live,
         move || {
             interlay_mainnet_genesis(
-                get_account_id_from_string("5E4kVWCtww5YmkWTR8Pf5q4apDbb1Ei5nZJ29e9DP2HgLJWn"),
                 vec![
                     // 5CDEceADNMhAgHBCDnb7Ls1YZKgwe2z3qmcwNHTeAFr5dGrW (//authority/1)
                     get_authority_keys_from_public_key(hex![
@@ -810,7 +809,6 @@ pub fn interlay_mainnet_config() -> InterlayChainSpec {
 }
 
 fn interlay_mainnet_genesis(
-    root_key: AccountId,
     invulnerables: Vec<(AccountId, AuraId)>,
     authorized_oracles: Vec<(AccountId, Vec<u8>)>,
     id: ParaId,
@@ -848,10 +846,6 @@ fn interlay_mainnet_genesis(
         aura_ext: Default::default(),
         security: interlay_runtime::SecurityConfig {
             initial_status: interlay_runtime::StatusCode::Shutdown,
-        },
-        sudo: interlay_runtime::SudoConfig {
-            // Assign network admin rights.
-            key: Some(root_key.clone()),
         },
         tokens: Default::default(),
         vesting: Default::default(),

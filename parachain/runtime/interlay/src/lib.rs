@@ -162,7 +162,6 @@ impl Contains<Call> for BaseCallFilter {
                 | Call::Session(_)
                 | Call::Timestamp(_)
                 | Call::ParachainSystem(_)
-                | Call::Sudo(_)
                 | Call::Democracy(_)
                 | Call::Escrow(_)
                 | Call::TechnicalCommittee(_)
@@ -350,11 +349,6 @@ impl pallet_transaction_payment::Config for Runtime {
     type WeightToFee = IdentityFee<Balance>;
     type FeeMultiplierUpdate = SlowAdjustingFeeUpdate<Self>;
     type OperationalFeeMultiplier = OperationalFeeMultiplier;
-}
-
-impl pallet_sudo::Config for Runtime {
-    type Call = Call;
-    type Event = Event;
 }
 
 impl pallet_utility::Config for Runtime {
@@ -996,7 +990,6 @@ construct_runtime! {
     {
         System: frame_system::{Pallet, Call, Storage, Config, Event<T>} = 0,
         Timestamp: pallet_timestamp::{Pallet, Call, Storage, Inherent} = 1,
-        Sudo: pallet_sudo::{Pallet, Call, Storage, Config<T>, Event<T>} = 2,
         Utility: pallet_utility::{Pallet, Call, Event} = 3,
         TransactionPayment: pallet_transaction_payment::{Pallet, Storage} = 4,
         Scheduler: pallet_scheduler::{Pallet, Call, Storage, Event<T>} = 5,
