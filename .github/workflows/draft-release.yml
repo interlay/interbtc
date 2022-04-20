@@ -20,7 +20,8 @@ jobs:
         id: srtool_build
         uses: chevdor/srtool-actions@v0.2.0
         with:
-          image: docker.io/interlayhq/srtool:nightly-2022-02-08
+          image: docker.io/interlayhq/srtool
+          tag: nightly-2022-02-08
           package: ${{ matrix.runtime }}-runtime-parachain
           runtime_dir: ./parachain/runtime/${{ matrix.runtime }}
           chain: ${{ matrix.runtime }}
@@ -45,7 +46,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v3
-      - run: git fetch --prune --unshallow
+        with:
+          fetch-depth: 0
       - uses: actions-rs/toolchain@v1
         with:
           toolchain: nightly-2021-10-12
