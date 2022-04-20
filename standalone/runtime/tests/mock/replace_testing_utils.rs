@@ -15,6 +15,15 @@ pub fn setup_replace(
     new_vault_id: &VaultId,
     issued_tokens: Amount<Runtime>,
 ) -> (ReplaceRequest<AccountId32, BlockNumber, Balance, CurrencyId>, H256) {
+    setup_replace_with_collateral(old_vault_id, new_vault_id, issued_tokens, old_vault_id.collateral(0))
+}
+
+pub fn setup_replace_with_collateral(
+    old_vault_id: &VaultId,
+    new_vault_id: &VaultId,
+    issued_tokens: Amount<Runtime>,
+    collateral: Amount<Runtime>,
+) -> (ReplaceRequest<AccountId32, BlockNumber, Balance, CurrencyId>, H256) {
     let new_vault_btc_address = BtcAddress::P2PKH(H160([2; 20]));
 
     request_replace(old_vault_id, issued_tokens);
@@ -23,7 +32,7 @@ pub fn setup_replace(
         &old_vault_id,
         &new_vault_id,
         issued_tokens,
-        griefing(0),
+        collateral,
         new_vault_btc_address,
     )
     .unwrap();

@@ -944,6 +944,41 @@ fn integration_test_replace_execute_replace_with_cancelled() {
 }
 
 #[test]
+fn integration_test_replace_execute_replace_with_additional_and_cancelled() {
+    test_with(|old_vault_id, new_vault_id| {
+        let issued_tokens = old_vault_id.wrapped(1000);
+        let collateral = old_vault_id.collateral(100000);
+        let (replace, replace_id) =
+            setup_replace_with_collateral(&old_vault_id, &new_vault_id, issued_tokens, collateral);
+
+        let before = ParachainTwoVaultState::get(&old_vault_id, &new_vault_id);
+        cancel_replace(replace_id);
+        assert_ok!(execute_replace(replace_id));
+
+        assert_eq!(
+            ParachainTwoVaultState::get(&old_vault_id, &new_vault_id),
+            before.with_changes(|old_vault, new_vault, _| {
+                new_vault.to_be_issued -= issued_tokens;
+                new_vault.issued += issued_tokens;
+                old_vault.to_be_redeemed -= issued_tokens;
+                old_vault.issued -= issued_tokens;
+
+                // griefing collateral is slashed
+                old_vault.griefing_collateral -= replace.griefing_collateral();
+                *new_vault.free_balance.get_mut(&DEFAULT_GRIEFING_CURRENCY).unwrap() += replace.griefing_collateral();
+
+                // backing collateral is returned
+                new_vault.backing_collateral -= replace.collateral().unwrap();
+                *new_vault
+                    .free_balance
+                    .get_mut(&new_vault_id.collateral_currency())
+                    .unwrap() += replace.collateral().unwrap();
+            })
+        );
+    });
+}
+
+#[test]
 fn integration_test_replace_cancel_replace_success() {
     test_with(|old_vault_id, new_vault_id| {
         let (replace, replace_id) = setup_replace(&old_vault_id, &new_vault_id, old_vault_id.wrapped(1000));

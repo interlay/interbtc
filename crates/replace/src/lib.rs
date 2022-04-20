@@ -501,17 +501,25 @@ impl<T: Config> Pallet<T> {
         )?;
 
         // only return griefing collateral if not already slashed
-        if replace.status == ReplaceRequestStatus::Pending {
+        let collateral = if replace.status == ReplaceRequestStatus::Pending {
             // give old-vault the griefing collateral
             ext::vault_registry::transfer_funds(
                 CurrencySource::ActiveReplaceCollateral(old_vault_id.clone()),
                 CurrencySource::FreeBalance(old_vault_id.account_id.clone()),
                 &griefing_collateral,
             )?;
+            // NOTE: this is just the additional collateral already locked on accept
+            // it is only used in the ReplaceTokens event
+            collateral
         } else if replace.status == ReplaceRequestStatus::Cancelled {
             // we need to re-accept first, this will check that the vault is over the secure threshold
             Self::accept_replace_tokens(&old_vault_id, &new_vault_id, &amount)?;
-        }
+            // no additional collateral locked for this
+            Amount::zero(collateral.currency())
+        } else {
+            // we never enter this branch as completed requests are filtered
+            Amount::zero(collateral.currency())
+        };
 
         // decrease old-vault's issued & to-be-redeemed tokens, and
         // change new-vault's to-be-issued tokens to issued tokens

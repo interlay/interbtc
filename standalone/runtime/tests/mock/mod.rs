@@ -324,6 +324,16 @@ pub struct UserData {
     pub balances: BTreeMap<CurrencyId, AccountData>,
 }
 
+pub trait Collateral {
+    fn collateral(&self, amount: Balance) -> Amount<Runtime>;
+}
+
+impl Collateral for VaultId {
+    fn collateral(&self, amount: Balance) -> Amount<Runtime> {
+        Amount::new(amount, self.collateral_currency())
+    }
+}
+
 pub trait Wrapped {
     fn wrapped(&self, amount: Balance) -> Amount<Runtime>;
 }
