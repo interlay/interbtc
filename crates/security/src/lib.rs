@@ -260,10 +260,16 @@ impl<T: Config> Pallet<T> {
         });
     }
 
-    /// Recovers the BTC Parachain state from an `ORACLE_OFFLINE` error
-    /// and sets ParachainStatus to `RUNNING` if there are no other errors.
+    /// Recovers from an `OracleOffline` error and sets the status
+    /// to `Running` if there are no other errors.
     pub fn recover_from_oracle_offline() {
         Self::recover_from_(vec![ErrorCode::OracleOffline])
+    }
+
+    /// Recovers from an `OngoingFork` error and sets the status
+    /// to `Running` if there are no other errors.
+    pub fn recover_from_ongoing_fork() {
+        Self::recover_from_(vec![ErrorCode::OngoingFork])
     }
 
     /// Increment and return the `Nonce`.

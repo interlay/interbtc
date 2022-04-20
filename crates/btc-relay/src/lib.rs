@@ -521,6 +521,10 @@ impl<T: Config> Pallet<T> {
         runtime_print!("Fork detected: {:?}", is_new_fork);
 
         let chain_id = if is_new_fork {
+            if current_block_height >= Self::get_best_block_height() {
+                ext::security::insert_ongoing_fork_error::<T>();
+            }
+
             // create new blockchain element
             Self::create_and_store_blockchain(current_block_height, &basic_block_header)?
         } else {
@@ -535,6 +539,7 @@ impl<T: Config> Pallet<T> {
                 // if we added a block to a fork, we may need to reorder the chains
                 Self::reorganize_chains(&blockchain)?;
             } else {
+                Self::update_no_ongoing_fork(current_block_height)?;
                 Self::update_chain_head(&basic_block_header, current_block_height);
             }
             blockchain.chain_id
@@ -1176,6 +1181,7 @@ impl<T: Config> Pallet<T> {
             Err(_) => None,
         })
     }
+
     /// Checks if a newly inserted fork results in an update to the sorted
     /// Chains mapping. This happens when the max height of the fork is greater
     /// than the max height of the previous element in the Chains mapping.
@@ -1213,19 +1219,21 @@ impl<T: Config> Pallet<T> {
                     // and the current height is more than the
                     // STABLE_TRANSACTION_CONFIRMATIONS ahead
                     // we are swapping the main chain
-                    if prev_height + Self::get_stable_transaction_confirmations() <= current_height {
+                    if prev_height.saturating_add(Self::get_stable_transaction_confirmations()) <= current_height {
                         // Swap the mainchain. As an optimization, this function returns the
                         // new best block hash and its height
                         let (new_chain_tip_hash, new_chain_tip_height) = Self::swap_main_blockchain(&fork)?;
+                        Self::update_no_ongoing_fork(new_chain_tip_height)?;
 
                         // announce the new main chain
-                        let fork_depth = fork.max_height - fork.start_height;
+                        let fork_depth = fork.max_height.saturating_sub(fork.start_height);
                         Self::deposit_event(Event::<T>::ChainReorg {
                             new_chain_tip_hash,
                             new_chain_tip_height,
                             fork_depth,
                         });
                     } else {
+                        ext::security::insert_ongoing_fork_error::<T>();
                         Self::deposit_event(Event::<T>::ForkAheadOfMainChain {
                             main_chain_height: prev_height,
                             fork_height: fork.max_height,
@@ -1343,6 +1351,22 @@ impl<T: Config> Pallet<T> {
             Error::<T>::ParachainConfirmations
         );
 
+        Ok(())
+    }
+
+    fn update_no_ongoing_fork(best_block_height: u32) -> Result<(), DispatchError> {
+        match Self::get_chain_id_from_position(1) {
+            Ok(id) => {
+                let next_best_fork_height = Self::get_block_chain_from_id(id)?.max_height;
+
+                if best_block_height < next_best_fork_height + Self::get_stable_transaction_confirmations() {
+                    ext::security::insert_ongoing_fork_error::<T>();
+                } else {
+                    ext::security::remove_ongoing_fork_error::<T>();
+                }
+            }
+            Err(_) => ext::security::remove_ongoing_fork_error::<T>(),
+        };
         Ok(())
     }
 

@@ -26,6 +26,7 @@ pub enum ErrorCode {
     /// No error. Used as default value
     None = 0,
     OracleOffline = 1,
+    OngoingFork = 2,
 }
 
 impl Default for ErrorCode {

@@ -9,6 +9,7 @@ use crate::{Chains, ChainsIndex};
 use bitcoin::{formatter::TryFormattable, merkle::*, parser::*, types::*};
 use frame_support::{assert_err, assert_ok};
 use mocktopus::mocking::*;
+use security::ErrorCode;
 use sp_std::{
     convert::{TryFrom, TryInto},
     str::FromStr,
@@ -403,6 +404,7 @@ mod store_block_header_tests {
             BTCRelay::ensure_no_ongoing_fork(BTCRelay::get_best_block_height()),
             TestError::OngoingFork
         );
+        assert!(Security::errors().contains(&ErrorCode::OngoingFork));
     }
 
     fn store_header_and_check_invariants(block: &BlockHeader) {
@@ -463,7 +465,6 @@ mod store_block_header_tests {
             store_header_and_check_invariants(
                 &final_chain[BTCRelay::get_stable_transaction_confirmations() as usize + 1],
             );
-
             assert_ongoing_fork();
 
             for (idx, block) in final_chain
@@ -478,6 +479,9 @@ mod store_block_header_tests {
 
                 store_header_and_check_invariants(block);
             }
+
+            // main chain is now sufficiently longer than next best fork
+            assert!(!Security::errors().contains(&ErrorCode::OngoingFork));
 
             // temp_fork_1 used to be in the mainchain, but is not anymore
             assert_err!(
