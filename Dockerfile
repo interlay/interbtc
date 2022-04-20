@@ -33,4 +33,4 @@ RUN /usr/local/bin/${BINARY} export-genesis-wasm --chain staging > /var/lib/gene
 EXPOSE 30333 9933 9944
 VOLUME ["/data"]
 
-CMD ["/usr/local/bin/${BINARY}"]
+ENTRYPOINT ["/usr/local/bin/${BINARY}"]
