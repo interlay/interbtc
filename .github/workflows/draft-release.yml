@@ -18,7 +18,7 @@ jobs:
 
       - name: Build ${{ matrix.runtime }} runtime
         id: srtool_build
-        uses: chevdor/srtool-actions@v0.3.0
+        uses: chevdor/srtool-actions@v0.2.0
         with:
           image: docker.io/interlayhq/srtool:nightly-2022-02-08
           package: ${{ matrix.runtime }}-runtime-parachain
