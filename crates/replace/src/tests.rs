@@ -1,4 +1,7 @@
-use crate::{ext, mock::*, ReplaceRequest, ReplaceRequestStatus};
+use crate::{
+    mock::{CurrencyId, *},
+    *,
+};
 
 use bitcoin::types::{MerkleProof, Transaction};
 use btc_relay::BtcAddress;
@@ -142,11 +145,11 @@ mod accept_replace_tests {
                 BtcAddress::default()
             ));
             assert_event_matches!(Event::AcceptReplace{
-                replace_id: _, 
+                replace_id: _,
                 old_vault_id: OLD_VAULT,
                 new_vault_id: NEW_VAULT,
-                amount: 5, 
-                collateral: 10, 
+                amount: 5,
+                collateral: 10,
                 btc_address: addr} if addr == BtcAddress::default());
         })
     }
@@ -171,7 +174,7 @@ mod accept_replace_tests {
                 old_vault_id: OLD_VAULT, 
                 new_vault_id: NEW_VAULT, 
                 amount: 4, 
-                collateral: 8, 
+                collateral: 8,
                 btc_address: addr} if addr == BtcAddress::default());
         })
     }
@@ -196,11 +199,11 @@ mod execute_replace_test {
     use super::*;
 
     fn setup_mocks() {
-        Replace::get_open_replace_request.mock_safe(move |_| {
+        ReplaceRequests::<Test>::insert(H256::zero(), {
             let mut replace = test_request();
             replace.old_vault = OLD_VAULT;
             replace.new_vault = NEW_VAULT;
-            MockResult::Return(Ok(replace))
+            replace
         });
 
         Replace::replace_period.mock_safe(|| MockResult::Return(20));
@@ -212,12 +215,37 @@ mod execute_replace_test {
         ext::vault_registry::replace_tokens::<Test>.mock_safe(|_, _, _, _| MockResult::Return(Ok(())));
         Amount::<Test>::unlock_on.mock_safe(|_, _| MockResult::Return(Ok(())));
         ext::vault_registry::transfer_funds::<Test>.mock_safe(|_, _, _| MockResult::Return(Ok(())));
+
+        ext::vault_registry::try_increase_to_be_redeemed_tokens::<Test>.mock_safe(|_, _| MockResult::Return(Ok(())));
+        ext::vault_registry::try_increase_to_be_issued_tokens::<Test>.mock_safe(|_, _| MockResult::Return(Ok(())));
     }
 
     #[test]
     fn test_execute_replace_succeeds() {
         run_test(|| {
             setup_mocks();
+            assert_ok!(Replace::_execute_replace(H256::zero(), Vec::new(), Vec::new()));
+            assert_event_matches!(Event::ExecuteReplace {
+                replace_id: _,
+                old_vault_id: OLD_VAULT,
+                new_vault_id: NEW_VAULT
+            });
+        })
+    }
+
+    #[test]
+    fn should_execute_cancelled_request() {
+        run_test(|| {
+            setup_mocks();
+
+            ReplaceRequests::<Test>::insert(H256::zero(), {
+                let mut replace = test_request();
+                replace.old_vault = OLD_VAULT;
+                replace.new_vault = NEW_VAULT;
+                replace.status = ReplaceRequestStatus::Cancelled;
+                replace
+            });
+
             assert_ok!(Replace::_execute_replace(H256::zero(), Vec::new(), Vec::new()));
             assert_event_matches!(Event::ExecuteReplace {
                 replace_id: _,
