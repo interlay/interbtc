@@ -3,26 +3,22 @@ FROM ubuntu:20.04
 ARG PROFILE=release
 ARG BINARY=interbtc-parachain
 
-# install tools and dependencies
-RUN apt-get update && \
-       DEBIAN_FRONTEND=noninteractive apt-get upgrade -y && \
-       DEBIAN_FRONTEND=noninteractive apt-get install -y \
-               libssl1.1 \
-               ca-certificates \
-               curl && \
-# apt cleanup
-       apt-get autoremove -y && \
-       apt-get clean && \
-       find /var/lib/apt/lists/ -type f -not -name lock -delete
+ENV DEBIAN_FRONTEND=noninteractive
 
-COPY target/${PROFILE}/${BINARY} /usr/local/bin
+# install tools and dependencies
+RUN apt-get update && apt-get upgrade -y && \
+      apt-get install -y libssl1.1 ca-certificates curl && \
+      apt-get autoremove -y &&  apt-get clean && \
+      find /var/lib/apt/lists/ -type f -not -name lock -delete
+
+COPY target/${PROFILE}/interbtc-parachain /usr/local/bin
 
 # Checks
-RUN chmod +x /usr/local/bin/${BINARY} && \
-    ldd /usr/local/bin/${BINARY} && \
-    /usr/local/bin/${BINARY} --version
+RUN chmod +x /usr/local/bin/interbtc-parachain && \
+    ldd /usr/local/bin/interbtc-parachain && \
+    /usr/local/bin/interbtc-parachain --version
 
 EXPOSE 30333 9933 9944
 VOLUME ["/data"]
 
-ENTRYPOINT ["/usr/local/bin/${BINARY}"]
+ENTRYPOINT ["/usr/local/bin/interbtc-parachain"]
