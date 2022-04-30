@@ -48,7 +48,7 @@ impl TruncateFixedPointToInt for UnsignedFixedPoint {
     }
 }
 
-#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, PartialOrd, Ord, TypeInfo, MaxEncodedLen)]
+#[derive(Encode, Decode, Copy, Clone, PartialEq, Eq, Debug, PartialOrd, Ord, TypeInfo, MaxEncodedLen)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize, std::hash::Hash))]
 pub struct VaultCurrencyPair<CurrencyId: Copy> {
     pub collateral: CurrencyId,
