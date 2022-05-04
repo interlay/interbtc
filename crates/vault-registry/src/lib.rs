@@ -1512,8 +1512,11 @@ impl<T: Config> Pallet<T> {
     }
 
     pub fn is_vault_below_premium_threshold(vault_id: &DefaultVaultId<T>) -> Result<bool, DispatchError> {
+        let vault = Self::get_rich_vault_from_id(&vault_id)?;
         let threshold = Self::premium_redeem_threshold(&vault_id.currencies).ok_or(Error::<T>::ThresholdNotSet)?;
-        Self::is_vault_below_threshold(vault_id, threshold)
+        let collateral = Self::get_backing_collateral(vault_id)?;
+
+        Self::is_collateral_below_threshold(&collateral, &vault.to_be_backed_tokens()?, threshold)
     }
 
     /// check if the vault is below the liquidation threshold.
@@ -1893,6 +1896,19 @@ impl<T: Config> Pallet<T> {
         threshold: UnsignedFixedPoint<T>,
     ) -> Result<Amount<T>, DispatchError> {
         collateral.convert_to(wrapped_currency)?.checked_div(&threshold)
+    }
+
+    pub fn vault_capacity_at_secure_threshold(vault_id: &DefaultVaultId<T>) -> Result<Amount<T>, DispatchError> {
+        let threshold = Self::secure_collateral_threshold(&vault_id.currencies).ok_or(Error::<T>::ThresholdNotSet)?;
+        let collateral = Self::get_backing_collateral(vault_id)?;
+        let wrapped_currency = vault_id.wrapped_currency();
+
+        Self::calculate_max_wrapped_from_collateral_for_threshold(&collateral, wrapped_currency, threshold)
+    }
+
+    pub fn vault_to_be_backed_tokens(vault_id: &DefaultVaultId<T>) -> Result<Amount<T>, DispatchError> {
+        let vault = Self::get_active_rich_vault_from_id(vault_id)?;
+        vault.to_be_backed_tokens()
     }
 
     pub fn insert_vault_deposit_address(vault_id: DefaultVaultId<T>, btc_address: BtcAddress) -> DispatchResult {

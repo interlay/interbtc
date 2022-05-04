@@ -334,6 +334,16 @@ impl Wrapped for VaultId {
     }
 }
 
+pub trait Collateral {
+    fn collateral(&self, amount: Balance) -> Amount<Runtime>;
+}
+
+impl Collateral for VaultId {
+    fn collateral(&self, amount: Balance) -> Amount<Runtime> {
+        Amount::new(amount, self.collateral_currency())
+    }
+}
+
 pub fn iter_currency_pairs() -> impl Iterator<Item = DefaultVaultCurrencyPair<Runtime>> {
     iter_collateral_currencies().flat_map(|collateral_id| {
         iter_wrapped_currencies().map(move |wrapped_id| VaultCurrencyPair {
