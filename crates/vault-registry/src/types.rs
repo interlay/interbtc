@@ -439,7 +439,7 @@ impl<AccountId: Ord, BlockNumber: Default, Balance: HasCompact + Default, Curren
     }
 
     pub fn is_liquidated(&self) -> bool {
-        matches!(self.status, VaultStatus::Liquidated)
+        matches!(self.status, VaultStatus::Liquidated | VaultStatus::CommittedTheft)
     }
 }
 
