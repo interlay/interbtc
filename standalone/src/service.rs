@@ -206,6 +206,7 @@ pub fn new_full(mut config: Configuration) -> Result<(TaskManager, RpcHandlers),
                 client: client.clone(),
                 pool: pool.clone(),
                 deny_unsafe,
+                command_sink: None,
             };
 
             Ok(interbtc_rpc::create_full(deps))

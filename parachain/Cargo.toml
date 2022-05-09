@@ -20,6 +20,7 @@ log = "0.4.8"
 codec = { package = "parity-scale-codec", version = "3.0.0" }
 serde = { version = "1.0.130", features = ["derive"] }
 hex-literal = "0.2.1"
+futures = "0.3.15"
 
 # Parachain dependencies
 interlay-runtime = { package = "interlay-runtime-parachain", path = "./runtime/interlay" }
@@ -42,6 +43,7 @@ module-refund-rpc-runtime-api = { path = "../crates/refund/rpc/runtime-api" }
 sc-cli = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.18", features = ["wasmtime"] }
 sc-client-api = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.18" }
 sc-consensus = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.18" }
+sc-consensus-manual-seal = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.18" }
 sc-executor = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.18", features = ["wasmtime"] }
 sc-rpc = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.18" }
 sc-service = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.18" }
