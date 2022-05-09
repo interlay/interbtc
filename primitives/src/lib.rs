@@ -20,6 +20,10 @@ use sp_std::{
 
 pub use bitcoin::types::H256Le;
 
+pub const BITCOIN_TESTNET: &str = "bitcoin-testnet";
+pub const BITCOIN_MAINNET: &str = "bitcoin-mainnet";
+pub const BITCOIN_REGTEST: &str = "bitcoin-regtest";
+
 pub trait BalanceToFixedPoint<FixedPoint> {
     fn to_fixed(self) -> Option<FixedPoint>;
 }

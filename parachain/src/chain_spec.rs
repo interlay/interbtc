@@ -3,8 +3,8 @@ use cumulus_primitives_core::ParaId;
 use hex_literal::hex;
 use interbtc_rpc::jsonrpc_core::serde_json::{map::Map, Value};
 use primitives::{
-    AccountId, Balance, CurrencyId, CurrencyId::Token, CurrencyInfo, Signature, VaultCurrencyPair, DOT, IBTC, INTR,
-    KBTC, KINT, KSM,
+    AccountId, Balance, CurrencyId, CurrencyId::Token, CurrencyInfo, Signature, VaultCurrencyPair, BITCOIN_MAINNET,
+    BITCOIN_TESTNET, DOT, IBTC, INTR, KBTC, KINT, KSM,
 };
 use sc_chain_spec::{ChainSpecExtension, ChainSpecGroup};
 use sc_service::ChainType;
@@ -109,6 +109,7 @@ fn testnet_properties() -> Map<String, Value> {
     properties.insert("tokenSymbol".into(), token_symbol.into());
     properties.insert("tokenDecimals".into(), token_decimals.into());
     properties.insert("ss58Format".into(), testnet_runtime::SS58Prefix::get().into());
+    properties.insert("bitcoinNetwork".into(), BITCOIN_TESTNET.into());
     properties
 }
 
@@ -123,6 +124,7 @@ fn kintsugi_properties() -> Map<String, Value> {
     properties.insert("tokenSymbol".into(), token_symbol.into());
     properties.insert("tokenDecimals".into(), token_decimals.into());
     properties.insert("ss58Format".into(), kintsugi_runtime::SS58Prefix::get().into());
+    properties.insert("bitcoinNetwork".into(), BITCOIN_MAINNET.into());
     properties
 }
 
@@ -137,6 +139,7 @@ fn interlay_properties() -> Map<String, Value> {
     properties.insert("tokenSymbol".into(), token_symbol.into());
     properties.insert("tokenDecimals".into(), token_decimals.into());
     properties.insert("ss58Format".into(), interlay_runtime::SS58Prefix::get().into());
+    properties.insert("bitcoinNetwork".into(), BITCOIN_MAINNET.into());
     properties
 }
 

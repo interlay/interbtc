@@ -8,7 +8,7 @@ use interbtc_runtime::{
     TechnicalCommitteeConfig, TokensConfig, VaultRegistryConfig, BITCOIN_BLOCK_SPACING, DAYS, DOT, IBTC, INTR, KBTC,
     KINT, KSM, WASM_BINARY, YEARS,
 };
-use primitives::VaultCurrencyPair;
+use primitives::{VaultCurrencyPair, BITCOIN_REGTEST};
 use sc_service::ChainType;
 use sp_arithmetic::{FixedPointNumber, FixedU128};
 use sp_consensus_aura::sr25519::AuthorityId as AuraId;
@@ -59,6 +59,7 @@ fn get_properties() -> Map<String, Value> {
     properties.insert("tokenSymbol".into(), token_symbol.into());
     properties.insert("tokenDecimals".into(), token_decimals.into());
     properties.insert("ss58Format".into(), interbtc_runtime::SS58Prefix::get().into());
+    properties.insert("bitcoinNetwork".into(), BITCOIN_REGTEST.into());
     properties
 }
 
