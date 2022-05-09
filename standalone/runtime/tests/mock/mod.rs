@@ -922,11 +922,17 @@ impl ParachainTwoVaultState {
 }
 
 pub fn liquidate_vault(vault_id: &VaultId) {
+    liquidate_vault_with_status(vault_id, VaultStatus::Liquidated);
+}
+
+pub fn liquidate_vault_with_status(vault_id: &VaultId, status: VaultStatus) {
     assert_ok!(OraclePallet::_set_exchange_rate(
         vault_id.currencies.collateral,
         FixedU128::checked_from_integer(10_000_000_000).unwrap()
     ));
-    assert_ok!(VaultRegistryPallet::liquidate_vault(&vault_id));
+    assert_ok!(VaultRegistryPallet::liquidate_vault_with_status(
+        &vault_id, status, None
+    ));
     assert_ok!(OraclePallet::_set_exchange_rate(
         vault_id.currencies.collateral,
         FixedU128::checked_from_integer(1).unwrap()
