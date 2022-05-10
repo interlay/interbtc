@@ -100,6 +100,27 @@ fn load_spec(id: &str) -> std::result::Result<Box<dyn sc_service::ChainSpec>, St
     })
 }
 
+macro_rules! with_runtime_or_err {
+	($chain_spec:expr, { $( $code:tt )* }) => {
+		if $chain_spec.is_interlay() {
+            #[allow(unused_imports)]
+			use { interlay_runtime::RuntimeApi, crate::service::InterlayRuntimeExecutor as Executor };
+			$( $code )*
+
+		} else if $chain_spec.is_kintsugi() {
+            #[allow(unused_imports)]
+			use { kintsugi_runtime::RuntimeApi, crate::service::KintsugiRuntimeExecutor as Executor };
+			$( $code )*
+
+		} else {
+            #[allow(unused_imports)]
+			use { testnet_runtime::RuntimeApi, crate::service::TestnetRuntimeExecutor as Executor };
+			$( $code )*
+
+		}
+	}
+}
+
 impl SubstrateCli for Cli {
     fn impl_name() -> String {
         "interBTC Parachain".into()
@@ -212,6 +233,7 @@ macro_rules! construct_async_run {
 			runner.async_run(|$config| {
 				let $components = new_partial::<interlay_runtime::RuntimeApi, InterlayRuntimeExecutor>(
 					&$config,
+                    true,
 				)?;
 				let task_manager = $components.task_manager;
 				{ $( $code )* }.map(|v| (v, task_manager))
@@ -223,6 +245,7 @@ macro_rules! construct_async_run {
 					KintsugiRuntimeExecutor,
 				>(
 					&$config,
+                    true,
 				)?;
 				let task_manager = $components.task_manager;
 				{ $( $code )* }.map(|v| (v, task_manager))
@@ -234,6 +257,7 @@ macro_rules! construct_async_run {
 					TestnetRuntimeExecutor,
 				>(
 					&$config,
+                    true,
 				)?;
 				let task_manager = $components.task_manager;
 				{ $( $code )* }.map(|v| (v, task_manager))
@@ -291,15 +315,11 @@ pub fn run() -> Result<()> {
         Some(Subcommand::Benchmark(cmd)) => {
             if cfg!(feature = "runtime-benchmarks") {
                 let runner = cli.create_runner(cmd)?;
-                if runner.config().chain_spec.is_interlay() {
-                    runner.sync_run(|config| cmd.run::<Block, InterlayRuntimeExecutor>(config))
-                } else if runner.config().chain_spec.is_kintsugi() {
-                    runner.sync_run(|config| cmd.run::<Block, KintsugiRuntimeExecutor>(config))
-                } else if runner.config().chain_spec.is_testnet() {
-                    runner.sync_run(|config| cmd.run::<Block, TestnetRuntimeExecutor>(config))
-                } else {
-                    Err("Chain doesn't support benchmarking".into())
-                }
+                let chain_spec = &runner.config().chain_spec;
+
+                with_runtime_or_err!(chain_spec, {
+                    return runner.sync_run(|config| cmd.run::<Block, Executor>(config));
+                })
             } else {
                 Err("Benchmarking wasn't enabled when building the node. \
 				You can enable it with `--features runtime-benchmarks`."
@@ -349,10 +369,27 @@ pub fn run() -> Result<()> {
             let runner = cli.create_runner(&cli.run.normalize())?;
 
             runner
-                .run_node_until_exit(|config| async move { start_node(cli, config).await })
+                .run_node_until_exit(|config| async move {
+                    if cli.instant_seal {
+                        start_instant(config).await
+                    } else {
+                        start_node(cli, config).await
+                    }
+                })
                 .map_err(Into::into)
         }
     }
+}
+
+async fn start_instant(config: Configuration) -> sc_service::error::Result<TaskManager> {
+    with_runtime_or_err!(config.chain_spec, {
+        {
+            crate::service::start_instant::<RuntimeApi, Executor>(config)
+                .await
+                .map(|r| r.0)
+                .map_err(Into::into)
+        }
+    })
 }
 
 async fn start_node(cli: Cli, config: Configuration) -> sc_service::error::Result<TaskManager> {
@@ -387,37 +424,14 @@ async fn start_node(cli: Cli, config: Configuration) -> sc_service::error::Resul
         if config.role.is_authority() { "yes" } else { "no" }
     );
 
-    if config.chain_spec.is_interlay() {
-        crate::service::start_node::<interlay_runtime::RuntimeApi, InterlayRuntimeExecutor>(
-            config,
-            polkadot_config,
-            collator_options,
-            id,
-        )
-        .await
-        .map(|r| r.0)
-        .map_err(Into::into)
-    } else if config.chain_spec.is_kintsugi() {
-        crate::service::start_node::<kintsugi_runtime::RuntimeApi, KintsugiRuntimeExecutor>(
-            config,
-            polkadot_config,
-            collator_options,
-            id,
-        )
-        .await
-        .map(|r| r.0)
-        .map_err(Into::into)
-    } else {
-        crate::service::start_node::<testnet_runtime::RuntimeApi, TestnetRuntimeExecutor>(
-            config,
-            polkadot_config,
-            collator_options,
-            id,
-        )
-        .await
-        .map(|r| r.0)
-        .map_err(Into::into)
-    }
+    with_runtime_or_err!(config.chain_spec, {
+        {
+            crate::service::start_node::<RuntimeApi, Executor>(config, polkadot_config, collator_options, id)
+                .await
+                .map(|r| r.0)
+                .map_err(Into::into)
+        }
+    })
 }
 
 impl DefaultConfigurationValues for RelayChainCli {
