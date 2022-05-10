@@ -19,7 +19,9 @@ use crate::{
     cli::{Cli, Subcommand},
     service as interbtc_service,
 };
+use frame_benchmarking_cli::BenchmarkCmd;
 use interbtc_runtime::Block;
+use interbtc_standalone::service::new_partial;
 use sc_cli::{ChainSpec, Result, RuntimeVersion, SubstrateCli};
 use sc_service::{Configuration, PartialComponents, TaskManager};
 use sp_core::hexdisplay::HexDisplay;
@@ -135,18 +137,33 @@ pub fn run() -> Result<()> {
                     backend,
                     ..
                 } = interbtc_service::new_partial(&config)?;
-                Ok((cmd.run(client, backend), task_manager))
+                Ok((cmd.run(client, backend, None), task_manager))
             })
         }
         Some(Subcommand::Benchmark(cmd)) => {
-            if cfg!(feature = "runtime-benchmarks") {
-                let runner = cli.create_runner(cmd)?;
+            let runner = cli.create_runner(cmd)?;
+            match cmd {
+                BenchmarkCmd::Pallet(cmd) => {
+                    if cfg!(feature = "runtime-benchmarks") {
+                        runner.sync_run(|config| cmd.run::<Block, interbtc_service::Executor>(config))
+                    } else {
+                        Err("Benchmarking wasn't enabled when building the node. \
+                You can enable it with `--features runtime-benchmarks`."
+                            .into())
+                    }
+                }
+                BenchmarkCmd::Block(cmd) => runner.sync_run(|config| {
+                    let partials = new_partial(&config)?;
+                    cmd.run(partials.client)
+                }),
+                BenchmarkCmd::Storage(cmd) => runner.sync_run(|config| {
+                    let partials = new_partial(&config)?;
+                    let db = partials.backend.expose_db();
+                    let storage = partials.backend.expose_storage();
 
-                runner.sync_run(|config| cmd.run::<Block, interbtc_service::Executor>(config))
-            } else {
-                Err("Benchmarking wasn't enabled when building the node. \
-				You can enable it with `--features runtime-benchmarks`."
-                    .into())
+                    cmd.run(config, partials.client.clone(), db, storage)
+                }),
+                BenchmarkCmd::Overhead(_) => Err("Unsupported benchmarking command".into()),
             }
         }
         Some(Subcommand::ExportMetadata(params)) => {

@@ -1,7 +1,7 @@
 use crate::setup::*;
 use cumulus_primitives_core::ParaId;
 use frame_support::traits::GenesisBuild;
-use polkadot_primitives::v1::{BlockNumber, MAX_CODE_SIZE, MAX_POV_SIZE};
+use polkadot_primitives::v2::{BlockNumber, MAX_CODE_SIZE, MAX_POV_SIZE};
 use polkadot_runtime_parachains::configuration::HostConfiguration;
 use primitives::CurrencyId::Token;
 use sp_runtime::traits::AccountIdConversion;

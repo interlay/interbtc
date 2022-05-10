@@ -6,6 +6,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use sp_runtime::{traits::*, ArithmeticError};
+use sp_std::convert::TryInto;
 
 pub mod types;
 

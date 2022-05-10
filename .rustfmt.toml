@@ -2,7 +2,7 @@
 
 hard_tabs = false
 max_width = 120
-edition = "2018"
+edition = "2021"
 wrap_comments = true
 comment_width = 120
 imports_granularity = "Crate"

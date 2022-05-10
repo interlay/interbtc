@@ -57,7 +57,13 @@ fn transfer_to_relay_chain() {
     });
 
     KusamaNet::execute_with(|| {
-        let xcm_fee = 106_666_660;
+        // xcm fee depends on the ExtrinsicBaseWeight. It's calculated as follows
+        // ExtrinsicBaseWeight = 80_350 * WEIGHT_PER_NANOS = 80_350_000
+        // PricePerBaseWeight = 1/10 cent = 10^12 / 30_000 / 10
+        // fee = (weight/ExtrinsicBaseWeight) * PricePerBaseWeight = (4_000_000_000 / 80_350_000) * (10^12 / 300_00 /
+        // 10) = 165940676.208 (theoretical)
+        // .. But due to rounding is actually 165940672
+        let xcm_fee = 165_940_672;
         assert_eq!(
             kusama_runtime::Balances::free_balance(&AccountId::from(BOB)),
             KSM.one() - xcm_fee
@@ -177,12 +183,15 @@ fn xcm_transfer_execution_barrier_trader_works() {
         },
     ]);
     KusamaNet::execute_with(|| {
-        let r = pallet_xcm::Pallet::<kusama_runtime::Runtime>::send(
-            kusama_runtime::Origin::signed(ALICE.into()),
-            Box::new(Parachain(KINTSUGI_PARA_ID).into().into()),
-            Box::new(xcm::VersionedXcm::from(message)),
-        );
-        assert_ok!(r);
+        // Kusama effectively disabled the `send` extrinsic in 0.9.19, so use send_xcm
+        assert_ok!(pallet_xcm::Pallet::<kusama_runtime::Runtime>::send_xcm(
+            X1(Junction::AccountId32 {
+                network: NetworkId::Any,
+                id: ALICE.into(),
+            }),
+            Parachain(KINTSUGI_PARA_ID).into(),
+            message
+        ));
     });
     Kintsugi::execute_with(|| {
         assert!(System::events().iter().any(|r| matches!(

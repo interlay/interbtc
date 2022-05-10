@@ -348,7 +348,7 @@ mod spec_based_tests {
             assert_nominate_collateral(&vault_id, account_of(USER), default_nomination(&vault_id));
             assert_ok!(OraclePallet::_set_exchange_rate(
                 vault_id.collateral_currency(),
-                FixedU128::checked_from_integer(3).unwrap()
+                FixedU128::checked_from_integer(3u128).unwrap()
             ));
             assert_noop!(
                 withdraw_nominator_collateral(account_of(USER), &vault_id, default_nomination(&vault_id)),
@@ -545,7 +545,7 @@ fn integration_test_nominator_withdrawal_below_collateralization_threshold_fails
         assert_nominate_collateral(&vault_id, account_of(USER), default_nomination(&vault_id));
         assert_ok!(OraclePallet::_set_exchange_rate(
             vault_id.collateral_currency(),
-            FixedU128::checked_from_integer(3).unwrap()
+            FixedU128::checked_from_integer(3u128).unwrap()
         ));
         assert_noop!(
             withdraw_nominator_collateral(account_of(USER), &vault_id, default_nomination(&vault_id)),

@@ -30,7 +30,9 @@ pub trait BalanceToFixedPoint<FixedPoint> {
 
 impl BalanceToFixedPoint<SignedFixedPoint> for Balance {
     fn to_fixed(self) -> Option<SignedFixedPoint> {
-        SignedFixedPoint::checked_from_integer(self.try_into().ok()?)
+        SignedFixedPoint::checked_from_integer(
+            TryInto::<<SignedFixedPoint as FixedPointNumber>::Inner>::try_into(self).ok()?,
+        )
     }
 }
 
