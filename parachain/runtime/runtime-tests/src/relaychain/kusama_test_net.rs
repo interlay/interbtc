@@ -1,10 +1,8 @@
 use crate::setup::*;
-use cumulus_primitives_core::ParaId;
 use frame_support::traits::GenesisBuild;
 use polkadot_primitives::v1::{BlockNumber, MAX_CODE_SIZE, MAX_POV_SIZE};
 use polkadot_runtime_parachains::configuration::HostConfiguration;
 use primitives::CurrencyId::Token;
-use sp_runtime::traits::AccountIdConversion;
 use xcm_emulator::{decl_test_network, decl_test_parachain, decl_test_relay_chain};
 
 decl_test_relay_chain! {
@@ -64,13 +62,13 @@ fn default_parachains_host_configuration() -> HostConfiguration<BlockNumber> {
         ump_service_total_weight: 4 * 1_000_000_000,
         max_upward_message_size: 50 * 1024,
         max_upward_message_num_per_candidate: 5,
-        hrmp_sender_deposit: 0,
-        hrmp_recipient_deposit: 0,
-        hrmp_channel_max_capacity: 8,
+        hrmp_sender_deposit: 5_000_000_000_000,
+        hrmp_recipient_deposit: 5_000_000_000_000,
+        hrmp_channel_max_capacity: 1000,
         hrmp_channel_max_total_size: 8 * 1024,
         hrmp_max_parachain_inbound_channels: 4,
         hrmp_max_parathread_inbound_channels: 4,
-        hrmp_channel_max_message_size: 1024 * 1024,
+        hrmp_channel_max_message_size: 102400,
         hrmp_max_parachain_outbound_channels: 4,
         hrmp_max_parathread_outbound_channels: 4,
         hrmp_max_message_num_per_candidate: 5,
@@ -86,6 +84,7 @@ fn default_parachains_host_configuration() -> HostConfiguration<BlockNumber> {
 
 pub fn kusama_ext() -> sp_io::TestExternalities {
     use kusama_runtime::{Runtime, System};
+    use polkadot_parachain::primitives::{HeadData, ValidationCode};
 
     let mut t = frame_system::GenesisConfig::default()
         .build_storage::<Runtime>()
@@ -94,10 +93,27 @@ pub fn kusama_ext() -> sp_io::TestExternalities {
     pallet_balances::GenesisConfig::<Runtime> {
         balances: vec![
             (AccountId::from(ALICE), 2002 * KSM.one()),
-            (ParaId::from(KINTSUGI_PARA_ID).into_account(), 2 * KSM.one()),
+            // (ParaId::from(KINTSUGI_PARA_ID).into_account(), 2 * KSM.one()),
         ],
     }
     .assimilate_storage(&mut t)
+    .unwrap();
+
+    // register a parachain so that we can test opening hrmp channel
+    let fake_para = polkadot_runtime_parachains::paras::ParaGenesisArgs {
+        genesis_head: HeadData(vec![]),
+        parachain: true,
+        validation_code: ValidationCode(vec![0]),
+    };
+    <polkadot_runtime_parachains::paras::GenesisConfig as GenesisBuild<Runtime>>::assimilate_storage(
+        &polkadot_runtime_parachains::paras::GenesisConfig {
+            paras: vec![
+                (KINTSUGI_PARA_ID.into(), fake_para.clone()),
+                (SIBLING_PARA_ID.into(), fake_para.clone()),
+            ],
+        },
+        &mut t,
+    )
     .unwrap();
 
     polkadot_runtime_parachains::configuration::GenesisConfig::<Runtime> {
