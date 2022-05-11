@@ -918,8 +918,10 @@ impl<T: Config> RichSystemVault<T> {
         self.issued_tokens().checked_sub(&self.to_be_redeemed_tokens())
     }
 
-    pub(crate) fn backed_tokens(&self) -> Result<Amount<T>, DispatchError> {
-        self.issued_tokens().checked_add(&self.to_be_issued_tokens())
+    pub(crate) fn to_be_backed_tokens(&self) -> Result<Amount<T>, DispatchError> {
+        self.issued_tokens()
+            .checked_add(&self.to_be_issued_tokens())?
+            .checked_sub(&self.to_be_redeemed_tokens())
     }
 
     pub(crate) fn to_be_redeemed_tokens(&self) -> Amount<T> {
