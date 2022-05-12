@@ -31,7 +31,8 @@
       "INTR",
       "IBTC",
       "DOT"
-    ]
+    ],
+    "bitcoinNetwork": "bitcoin-mainnet"
   },
   "relay_chain": "kusama",
   "para_id": 2092,
