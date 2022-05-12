@@ -1291,7 +1291,7 @@ impl<T: Config> Pallet<T> {
         let to_transfer = Self::calculate_collateral(
             &source_liquidation_vault.current_balance(currency_id)?,
             amount_wrapped,
-            &liquidation_vault.backed_tokens()?,
+            &liquidation_vault.to_be_backed_tokens()?,
         )?;
 
         Self::transfer_funds(
