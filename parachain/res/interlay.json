@@ -29,7 +29,8 @@
       "KINT",
       "KBTC",
       "KSM"
-    ]
+    ],
+    "bitcoinNetwork": "bitcoin-mainnet"
   },
   "relay_chain": "polkadot",
   "para_id": 2032,
