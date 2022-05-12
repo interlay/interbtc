@@ -408,21 +408,20 @@ impl pallet_scheduler::Config for Runtime {
     type NoPreimagePostponement = NoPreimagePostponement;
 }
 
-// Migration for scheduler pallet to move from a plain Call to a CallOrHash.
-pub struct SchedulerMigrationV3;
-impl frame_support::traits::OnRuntimeUpgrade for SchedulerMigrationV3 {
+pub struct LiquidationVaultFixMigration;
+impl frame_support::traits::OnRuntimeUpgrade for LiquidationVaultFixMigration {
     fn on_runtime_upgrade() -> frame_support::weights::Weight {
-        Scheduler::migrate_v2_to_v3()
-    }
-
-    #[cfg(feature = "try-runtime")]
-    fn pre_upgrade() -> Result<(), &'static str> {
-        Scheduler::pre_migrate_to_v3()
-    }
-
-    #[cfg(feature = "try-runtime")]
-    fn post_upgrade() -> Result<(), &'static str> {
-        Scheduler::post_migrate_to_v3()
+        use orml_traits::MultiReservableCurrency;
+        use sp_runtime::AccountId32;
+        if let Ok(weight) = vault_registry::types::liquidation_vault_fix::fix_liquidation_vault::<Runtime>() {
+            // a3b3EwCtmURY7K3d6aoWzouHriGfTsvCP2axuMVGpRpkPoxg8
+            let account_raw = hex_literal::hex!("24ac7fb5407f270d807425ecc6352305c0a21b9e7a1ba9812a1785a2af9b955a");
+            let account_id = AccountId32::from(account_raw);
+            Tokens::unreserve(Token(KSM), &account_id, 42335659763394);
+            weight
+        } else {
+            0
+        }
     }
 }
 
@@ -1041,7 +1040,7 @@ pub type Executive = frame_executive::Executive<
     frame_system::ChainContext<Runtime>,
     Runtime,
     AllPalletsWithSystem,
-    SchedulerMigrationV3,
+    LiquidationVaultFixMigration,
 >;
 
 #[cfg(not(feature = "disable-runtime-api"))]
