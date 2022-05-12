@@ -144,6 +144,8 @@ pub mod liquidation_vault_fix {
 
         log::info!("LiquidationVault migration finished");
 
+        crate::StorageVersion::<T>::put(Version::V4);
+
         Ok(T::DbWeight::get().reads_writes(2, 2))
     }
 
