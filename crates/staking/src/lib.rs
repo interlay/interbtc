@@ -606,6 +606,8 @@ impl<T: Config> Pallet<T> {
         vault_id: &DefaultVaultId<T>,
         nominator_id: &T::AccountId,
     ) -> Result<<SignedFixedPoint<T> as FixedPointNumber>::Inner, DispatchError> {
+        Self::apply_slash(vault_id, nominator_id)?;
+
         let reward = Self::compute_reward_at_index(nonce, currency_id, vault_id, nominator_id)?;
         let reward_as_fixed = SignedFixedPoint::<T>::checked_from_integer(reward).ok_or(Error::<T>::TryIntoIntError)?;
         checked_sub_mut!(TotalRewards<T>, currency_id, (nonce, vault_id), &reward_as_fixed);

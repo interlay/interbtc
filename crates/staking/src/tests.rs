@@ -27,6 +27,34 @@ fn should_stake_and_earn_rewards() {
 }
 
 #[test]
+fn continues_functioning_after_slash() {
+    run_test(|| {
+        // without the `apply_slash` in withdraw_rewards, the following sequence fails in the last step:
+        // [distribute_reward, slash_stake, withdraw_reward, distribute_reward, withdraw_reward]
+
+        // step 1: initial (normal) flow
+        assert_ok!(Staking::deposit_stake(&VAULT, &ALICE.account_id, fixed!(50)));
+        assert_ok!(Staking::distribute_reward(Token(IBTC), &VAULT, fixed!(10000)));
+        assert_ok!(Staking::compute_reward(Token(IBTC), &VAULT, &ALICE.account_id), 10000);
+
+        // step 2: slash
+        assert_ok!(Staking::slash_stake(Token(IBTC), &VAULT, fixed!(30)));
+        assert_ok!(Staking::compute_stake(&VAULT, &ALICE.account_id), 20);
+
+        // step 3: withdraw rewards
+        assert_ok!(Staking::compute_reward(Token(IBTC), &VAULT, &ALICE.account_id), 10000);
+        assert_ok!(Staking::withdraw_reward(Token(IBTC), &VAULT, &ALICE.account_id), 10000);
+
+        // Now distribute more rewards - behavior should be back to normal.
+        // The slash should not have any effect on this!
+        assert_ok!(Staking::distribute_reward(Token(IBTC), &VAULT, fixed!(10000)));
+        assert_ok!(Staking::compute_reward(Token(IBTC), &VAULT, &ALICE.account_id), 10000);
+        assert_ok!(Staking::withdraw_reward(Token(IBTC), &VAULT, &ALICE.account_id), 10000);
+        assert_ok!(Staking::compute_reward(Token(IBTC), &VAULT, &ALICE.account_id), 0);
+    })
+}
+
+#[test]
 fn should_stake_and_distribute_and_withdraw() {
     run_test(|| {
         assert_ok!(Staking::deposit_stake(&VAULT, &ALICE.account_id, fixed!(10000)));
