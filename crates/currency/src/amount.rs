@@ -197,6 +197,10 @@ mod math {
             Ok(self.amount == other.amount)
         }
 
+        pub fn ne(&self, other: &Self) -> Result<bool, DispatchError> {
+            Ok(!self.eq(other)?)
+        }
+
         pub fn ge(&self, other: &Self) -> Result<bool, DispatchError> {
             ensure!(self.currency_id == other.currency_id, Error::<T>::InvalidCurrency);
             Ok(self.amount >= other.amount)
@@ -265,6 +269,10 @@ mod actions {
 
         pub fn mint_to(&self, account_id: &T::AccountId) -> DispatchResult {
             <orml_tokens::Pallet<T>>::deposit(self.currency_id, account_id, self.amount)
+        }
+
+        pub fn map<F: Fn(BalanceOf<T>) -> BalanceOf<T>>(&self, f: F) -> Self {
+            Amount::new(f(self.amount), self.currency_id)
         }
     }
 }

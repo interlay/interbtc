@@ -106,7 +106,6 @@ mod expiry_test {
             SecurityPallet::set_active_block_number(1100);
             mine_blocks(11);
 
-            assert_noop!(execute_issue(issue_id), IssueError::CommitPeriodExpired);
             assert_ok!(cancel_issue(issue_id));
         });
     }
@@ -694,7 +693,7 @@ mod execute_refund_payment_limits {
     }
 }
 
-mod execute_issue_tests {
+mod execute_pending_issue_tests {
     use super::{assert_eq, *};
     /// Execute fails if parachain is shut down
     #[test]
@@ -731,10 +730,10 @@ mod execute_issue_tests {
         });
     }
 
-    /// Execute fails if issue request has expired
+    /// Execute succeeds if issue request has expired
     /// cf. also mod expiry_test
     #[test]
-    fn integration_test_issue_execute_precond_not_expired() {
+    fn integration_test_issue_execute_expired() {
         test_with(|vault_id| {
             let (issue_id, issue) = request_issue(&vault_id, vault_id.wrapped(4_000));
             let mut executor = ExecuteIssueBuilder::new(issue_id);
@@ -743,7 +742,7 @@ mod execute_issue_tests {
             SecurityPallet::set_active_block_number(IssuePallet::issue_period() + 1 + 1);
             mine_blocks(issue.period + 99);
 
-            assert_noop!(executor.execute_prepared(), IssueError::CommitPeriodExpired);
+            assert_ok!(executor.execute_prepared());
         });
     }
 
@@ -1052,6 +1051,123 @@ mod execute_issue_tests {
 
                     *fee_pool.rewards_for(&vault_id) += issue.fee();
                 })
+            );
+        });
+    }
+}
+
+mod execute_cancelled_issue_tests {
+    use super::{assert_eq, *};
+
+    fn setup_cancelled_issue(
+        vault_id: &VaultId,
+    ) -> (H256, IssueRequest<AccountId32, BlockNumber, Balance, CurrencyId>) {
+        let (issue_id, issue) = RequestIssueBuilder::new(vault_id, vault_id.wrapped(10_000)).request();
+
+        SecurityPallet::set_active_block_number(IssuePallet::issue_period() + 1 + 1);
+        mine_blocks((IssuePallet::issue_period() + 99) / 100 + 1);
+
+        assert_ok!(Call::Issue(IssueCall::cancel_issue { issue_id: issue_id }).dispatch(origin_of(account_of(VAULT))));
+
+        (issue_id, issue)
+    }
+
+    fn test_execute_cancelled_issue_with_scaled_amount(scale: impl Fn(Amount<Runtime>) -> Amount<Runtime>) {
+        test_with_initialized_vault(|vault_id| {
+            let (issue_id, issue) = setup_cancelled_issue(&vault_id);
+
+            let expected_amount = issue.amount() + issue.fee();
+            let sent_amount = scale(expected_amount);
+
+            let pre_execution_state = ParachainState::get(&vault_id);
+
+            ExecuteIssueBuilder::new(issue_id)
+                .with_amount(sent_amount)
+                .with_submitter(issue.requester.clone(), None)
+                .execute()
+                .unwrap();
+
+            // user balances are updated, tokens are minted and fees paid
+            assert_eq!(
+                ParachainState::get(&vault_id),
+                pre_execution_state.with_changes(|user, vault, _liquidation_vault, fee_pool| {
+                    vault.issued += sent_amount;
+                    (*user.balances.get_mut(&vault_id.wrapped_currency()).unwrap()).free += scale(issue.amount());
+                    *fee_pool.rewards_for(&vault_id) += scale(issue.fee());
+                })
+            );
+        });
+    }
+
+    fn can_be_executed_by_others(scale: impl Fn(Amount<Runtime>) -> Amount<Runtime>, can_be_executed: bool) {
+        test_with_initialized_vault(|vault_id| {
+            let (issue_id, issue) = setup_cancelled_issue(&vault_id);
+
+            let expected_amount = issue.amount() + issue.fee();
+
+            let call = ExecuteIssueBuilder::new(issue_id)
+                .with_amount(scale(expected_amount))
+                .execute();
+            if can_be_executed {
+                assert_ok!(call);
+            } else {
+                assert_noop!(call, IssueError::InvalidExecutor);
+            }
+        });
+    }
+
+    #[test]
+    fn execute_cancelled_issue_with_larger_amount() {
+        // underpayment
+        test_execute_cancelled_issue_with_scaled_amount(|x| x / 2);
+        // correct payment
+        test_execute_cancelled_issue_with_scaled_amount(|x| x);
+        // overpayment
+        test_execute_cancelled_issue_with_scaled_amount(|x| x * 2);
+    }
+
+    #[test]
+    fn execute_cancelled_issue_can_only_be_done_by_requester() {
+        // underpayment - only can be executed by requester
+        can_be_executed_by_others(|x| x / 2, false);
+        // correct payment: executable by anyone
+        can_be_executed_by_others(|x| x, true);
+        // overpayment: executable by anyone
+        can_be_executed_by_others(|x| x * 2, true);
+    }
+
+    #[test]
+    fn execute_cancelled_issue_respects_collateralization_limit() {
+        test_with_initialized_vault(|vault_id| {
+            let (issue_id, _issue) = setup_cancelled_issue(&vault_id);
+
+            // make the vault unable to handle the cancelled issue
+            CoreVaultData::force_mutate(&vault_id, |x| {
+                let capacity = VaultRegistryPallet::get_issuable_tokens_from_vault(&vault_id).unwrap();
+                x.issued += capacity;
+            });
+
+            assert_noop!(
+                ExecuteIssueBuilder::new(issue_id).execute(),
+                VaultRegistryError::ExceedingVaultLimit
+            );
+        });
+    }
+
+    #[test]
+    fn execute_cancelled_issue_respects_disabled_status() {
+        test_with_initialized_vault(|vault_id| {
+            let (issue_id, _issue) = setup_cancelled_issue(&vault_id);
+
+            assert_ok!(Call::VaultRegistry(VaultRegistryCall::accept_new_issues {
+                currency_pair: vault_id.currencies.clone(),
+                accept_new_issues: false
+            })
+            .dispatch(origin_of(account_of(VAULT))));
+
+            assert_noop!(
+                ExecuteIssueBuilder::new(issue_id).execute(),
+                VaultRegistryError::VaultNotAcceptingIssueRequests
             );
         });
     }

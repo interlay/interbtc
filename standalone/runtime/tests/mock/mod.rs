@@ -568,6 +568,12 @@ impl CoreVaultData {
         self.backing_collateral.currency()
     }
 
+    pub fn force_mutate(vault_id: &VaultId, f: impl Fn(&mut CoreVaultData)) {
+        let mut state = Self::vault(vault_id.clone());
+        f(&mut state);
+        Self::force_to(vault_id, state);
+    }
+
     pub fn force_to(vault_id: &VaultId, state: CoreVaultData) {
         VaultRegistryPallet::collateral_integrity_check();
 

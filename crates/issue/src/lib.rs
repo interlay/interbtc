@@ -351,15 +351,7 @@ impl<T: Config> Pallet<T> {
         // allow anyone to complete issue request
         let requester = issue.requester.clone();
 
-        // only executable before the request has expired
-        ensure!(
-            !ext::btc_relay::has_request_expired::<T>(
-                issue.opentime,
-                issue.btc_height,
-                Self::issue_period().max(issue.period)
-            )?,
-            Error::<T>::CommitPeriodExpired
-        );
+        // note: we allow execution after expiry as long at it has not been cancelled yet
 
         let transaction = ext::btc_relay::parse_transaction::<T>(&raw_tx)?;
         let merkle_proof = ext::btc_relay::parse_merkle_proof::<T>(&raw_merkle_proof)?;
@@ -372,67 +364,48 @@ impl<T: Config> Pallet<T> {
 
         let expected_total_amount = issue.amount().checked_add(&issue.fee())?;
 
-        // check for unexpected bitcoin amounts, and update the issue struct
-        if amount_transferred.lt(&expected_total_amount)? {
-            // only the requester of the issue can execute payments with insufficient amounts
-            ensure!(requester == executor, Error::<T>::InvalidExecutor);
+        match issue.status {
+            IssueRequestStatus::Completed(_) => return Err(Error::<T>::IssueCompleted.into()),
+            IssueRequestStatus::Cancelled => {
+                // if vault is not accepting new issues, we don't allow the execution of cancelled
+                // issues, since this would drop the collateralization rate unexpectedly
+                ext::vault_registry::ensure_accepting_new_issues::<T>(&issue.vault)?;
 
-            // decrease the to-be-issued tokens that will not be issued after all
-            let deficit = expected_total_amount.checked_sub(&amount_transferred)?;
-            ext::vault_registry::decrease_to_be_issued_tokens::<T>(&issue.vault, &deficit)?;
+                // first try to increase the to-be-issued tokens - if the vault does not
+                // have sufficient collateral then this aborts
+                ext::vault_registry::try_increase_to_be_issued_tokens::<T>(&issue.vault, &amount_transferred)?;
 
-            // slash/release griefing collateral proportionally to the amount sent
-            let released_collateral = ext::vault_registry::calculate_collateral::<T>(
-                &issue.griefing_collateral(),
-                &amount_transferred,
-                &expected_total_amount,
-            )?;
-            released_collateral.unlock_on(&requester)?;
-            let slashed_collateral = issue.griefing_collateral().checked_sub(&released_collateral)?;
-            ext::vault_registry::transfer_funds::<T>(
-                CurrencySource::UserGriefing(issue.requester.clone()),
-                CurrencySource::FreeBalance(issue.vault.account_id.clone()),
-                &slashed_collateral,
-            )?;
-
-            Self::update_issue_amount(&issue_id, &mut issue, amount_transferred, slashed_collateral)?;
-        } else {
-            // release griefing collateral
-            let griefing_collateral: Amount<T> = issue.griefing_collateral();
-            griefing_collateral.unlock_on(&requester)?;
-
-            if amount_transferred.gt(&expected_total_amount)?
-                && !ext::vault_registry::is_vault_liquidated::<T>(&issue.vault)?
-            {
-                let surplus_btc = amount_transferred.checked_sub(&expected_total_amount)?;
-
-                match ext::vault_registry::try_increase_to_be_issued_tokens::<T>(&issue.vault, &surplus_btc) {
-                    Ok(_) => {
-                        // Current vault can handle the surplus; update the issue request
-                        Self::update_issue_amount(
+                if amount_transferred.lt(&expected_total_amount)? {
+                    ensure!(requester == executor, Error::<T>::InvalidExecutor);
+                }
+                if amount_transferred.ne(&expected_total_amount)? {
+                    let slashed = Amount::zero(T::GetGriefingCollateralCurrencyId::get());
+                    Self::set_issue_amount(&issue_id, &mut issue, amount_transferred, slashed)?;
+                }
+            }
+            IssueRequestStatus::Pending => {
+                let to_release_griefing_collateral = if amount_transferred.lt(&expected_total_amount)? {
+                    // only the requester of the issue can execute payments with insufficient amounts
+                    ensure!(requester == executor, Error::<T>::InvalidExecutor);
+                    Self::decrease_issue_amount(&issue_id, &mut issue, amount_transferred, expected_total_amount)?
+                } else {
+                    if amount_transferred.gt(&expected_total_amount)?
+                        && !ext::vault_registry::is_vault_liquidated::<T>(&issue.vault)?
+                    {
+                        maybe_refund_id = Self::try_increase_issue_amount(
                             &issue_id,
                             &mut issue,
                             amount_transferred,
-                            Amount::zero(T::GetGriefingCollateralCurrencyId::get()),
+                            expected_total_amount,
+                            maybe_refund_address,
                         )?;
                     }
-                    Err(_) => {
-                        // vault does not have enough collateral to accept the over payment, so refund.
-                        maybe_refund_id = if let Some(refund_address) = maybe_refund_address {
-                            ext::refund::request_refund::<T>(
-                                &surplus_btc,
-                                issue.vault.clone(),
-                                issue.requester.clone(),
-                                refund_address,
-                                issue_id,
-                            )?
-                        } else {
-                            None
-                        }
-                    }
-                }
+                    issue.griefing_collateral()
+                };
+
+                to_release_griefing_collateral.unlock_on(&requester)?;
             }
-        };
+        }
 
         // issue struct may have been update above; recalculate the total
         let issue_amount = issue.amount();
@@ -500,6 +473,71 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
+    fn decrease_issue_amount(
+        issue_id: &H256,
+        issue: &mut DefaultIssueRequest<T>,
+        amount_transferred: Amount<T>,
+        expected_total_amount: Amount<T>,
+    ) -> Result<Amount<T>, DispatchError> {
+        // decrease the to-be-issued tokens that will not be issued after all
+        let deficit = expected_total_amount.checked_sub(&amount_transferred)?;
+        ext::vault_registry::decrease_to_be_issued_tokens::<T>(&issue.vault, &deficit)?;
+
+        // slash/release griefing collateral proportionally to the amount sent
+        let to_release_collateral = ext::vault_registry::calculate_collateral::<T>(
+            &issue.griefing_collateral(),
+            &amount_transferred,
+            &expected_total_amount,
+        )?;
+        let slashed_collateral = issue.griefing_collateral().checked_sub(&to_release_collateral)?;
+        ext::vault_registry::transfer_funds::<T>(
+            CurrencySource::UserGriefing(issue.requester.clone()),
+            CurrencySource::FreeBalance(issue.vault.account_id.clone()),
+            &slashed_collateral,
+        )?;
+
+        Self::set_issue_amount(&issue_id, issue, amount_transferred, slashed_collateral)?;
+
+        Ok(to_release_collateral)
+    }
+
+    fn try_increase_issue_amount(
+        issue_id: &H256,
+        issue: &mut DefaultIssueRequest<T>,
+        amount_transferred: Amount<T>,
+        expected_total_amount: Amount<T>,
+        maybe_refund_address: Option<BtcAddress>,
+    ) -> Result<Option<H256>, DispatchError> {
+        let surplus_btc = amount_transferred.checked_sub(&expected_total_amount)?;
+
+        match ext::vault_registry::try_increase_to_be_issued_tokens::<T>(&issue.vault, &surplus_btc) {
+            Ok(_) => {
+                // Current vault can handle the surplus; update the issue request
+                Self::set_issue_amount(
+                    &issue_id,
+                    issue,
+                    amount_transferred,
+                    Amount::zero(T::GetGriefingCollateralCurrencyId::get()),
+                )?;
+                Ok(None) // no refund
+            }
+            Err(_) => {
+                // vault does not have enough collateral to accept the over payment, so try refund.
+                if let Some(refund_address) = maybe_refund_address {
+                    ext::refund::request_refund::<T>(
+                        &surplus_btc,
+                        issue.vault.clone(),
+                        issue.requester.clone(),
+                        refund_address,
+                        issue_id.clone(),
+                    )
+                } else {
+                    Ok(None)
+                }
+            }
+        }
+    }
+
     /// Fetch all issue requests for the specified account.
     ///
     /// # Arguments
@@ -530,13 +568,12 @@ impl<T: Config> Pallet<T> {
         // NOTE: temporary workaround until we delete
         match request.status {
             IssueRequestStatus::Completed(_) => Err(Error::<T>::IssueCompleted.into()),
-            IssueRequestStatus::Cancelled => Err(Error::<T>::IssueCancelled.into()),
-            IssueRequestStatus::Pending => Ok(request),
+            _ => Ok(request),
         }
     }
 
     /// update the fee & amount in an issue request based on the actually transferred amount
-    fn update_issue_amount(
+    fn set_issue_amount(
         issue_id: &H256,
         issue: &mut DefaultIssueRequest<T>,
         transferred_btc: Amount<T>,
