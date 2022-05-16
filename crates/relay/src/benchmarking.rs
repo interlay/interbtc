@@ -134,7 +134,7 @@ benchmarks! {
             vault
         );
 
-        VaultRegistry::<T>::_set_secure_collateral_threshold(vault_id.currencies.clone(), UnsignedFixedPoint::<T>::one());
+        VaultRegistry::<T>::_set_liquidation_collateral_threshold(vault_id.currencies.clone(), UnsignedFixedPoint::<T>::one());
         VaultRegistry::<T>::_set_system_collateral_ceiling(vault_id.currencies.clone(), 1_000_000_000u32.into());
 
         mint_collateral::<T>(&vault_id.account_id, 1000u32.into());

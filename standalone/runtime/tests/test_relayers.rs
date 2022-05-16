@@ -108,7 +108,7 @@ fn integration_test_report_vault_theft() {
         })
         .dispatch(origin_of(account_of(user))));
 
-        let confiscated_collateral = Amount::new(150, currency_id);
+        let confiscated_collateral = Amount::new(110, currency_id);
         assert_eq!(
             ParachainState::get(&vault_id),
             pre_liquidation_state.with_changes(|user, vault, liquidation_vault, _fee_pool| {
