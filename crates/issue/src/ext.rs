@@ -12,7 +12,7 @@ pub(crate) mod btc_relay {
         merkle_proof: MerkleProof,
         transaction: Transaction,
         recipient_btc_address: BtcAddress,
-    ) -> Result<(BtcAddress, V), DispatchError> {
+    ) -> Result<(Option<BtcAddress>, V), DispatchError> {
         <btc_relay::Pallet<T>>::get_and_verify_issue_payment(merkle_proof, transaction, recipient_btc_address)
     }
 

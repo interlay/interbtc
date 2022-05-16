@@ -359,7 +359,7 @@ impl<T: Config> Pallet<T> {
 
         let transaction = ext::btc_relay::parse_transaction::<T>(&raw_tx)?;
         let merkle_proof = ext::btc_relay::parse_merkle_proof::<T>(&raw_merkle_proof)?;
-        let (refund_address, amount_transferred) = ext::btc_relay::get_and_verify_issue_payment::<T, BalanceOf<T>>(
+        let (maybe_refund_address, amount_transferred) = ext::btc_relay::get_and_verify_issue_payment::<T, BalanceOf<T>>(
             merkle_proof,
             transaction,
             issue.btc_address,
@@ -414,13 +414,17 @@ impl<T: Config> Pallet<T> {
                     }
                     Err(_) => {
                         // vault does not have enough collateral to accept the over payment, so refund.
-                        maybe_refund_id = ext::refund::request_refund::<T>(
-                            &surplus_btc,
-                            issue.vault.clone(),
-                            issue.requester.clone(),
-                            refund_address,
-                            issue_id,
-                        )?;
+                        maybe_refund_id = if let Some(refund_address) = maybe_refund_address {
+                            ext::refund::request_refund::<T>(
+                                &surplus_btc,
+                                issue.vault.clone(),
+                                issue.requester.clone(),
+                                refund_address,
+                                issue_id,
+                            )?
+                        } else {
+                            None
+                        }
                     }
                 }
             }
