@@ -725,6 +725,16 @@ fn liquidate_at_most_liquidation_threshold() {
             FixedU128::checked_from_rational(150, 100).unwrap(), // 150%
         );
 
+        VaultRegistry::_set_premium_redeem_threshold(
+            DEFAULT_CURRENCY_PAIR,
+            FixedU128::checked_from_rational(175, 100).unwrap(), // 175%
+        );
+
+        VaultRegistry::_set_secure_collateral_threshold(
+            DEFAULT_CURRENCY_PAIR,
+            FixedU128::checked_from_rational(200, 100).unwrap(), // 200%
+        );
+
         let collateral_before = ext::currency::get_reserved_balance::<Test>(Token(DOT), &vault_id.account_id);
         assert_eq!(collateral_before, amount(backing_collateral)); // sanity check
 
