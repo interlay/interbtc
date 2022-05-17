@@ -1,7 +1,7 @@
 //! # Staking Module
 //! Based on the [Scalable Reward Distribution](https://solmaz.io/2019/02/24/scalable-reward-changing/) algorithm.
 
-#![deny(warnings)]
+// #![deny(warnings)]
 #![cfg_attr(test, feature(proc_macro_hygiene))]
 #![cfg_attr(not(feature = "std"), no_std)]
 
@@ -382,6 +382,15 @@ impl<T: Config> Pallet<T> {
         checked_add_mut!(SlashPerToken<T>, nonce, vault_id, &amount_div_total_stake);
 
         checked_sub_mut!(TotalCurrentStake<T>, nonce, vault_id, &amount);
+
+        // before slash:
+        // reward = stake * RewardPerToken - RewardTally
+        // after slash:
+        // reward = (stake - amount) * RewardPerToken - RewardTally
+
+        // reward = (stake - amount) * (RewardPerToken + amount * RewardPerToken/(stake-amount)) - RewardTally
+        // reward = (stake - amount) * (RewardPerToken + amount * RewardPerToken/(stake-amount)) - RewardTally
+
         // A slash means reward per token is no longer representative of the rewards
         // since `amount * reward_per_token` will be lost from the system. As such,
         // replenish rewards by the amount of reward lost with this slash
@@ -821,5 +830,260 @@ where
         Pallet::<T>::force_refund(vault_id)?
             .try_into()
             .map_err(|_| Error::<T>::TryIntoIntError.into())
+    }
+}
+
+pub mod migration {
+    use super::*;
+    use frame_support::transactional;
+    use orml_traits::MultiCurrency;
+
+    #[cfg(test)]
+    mod tests {
+        use super::*;
+        use frame_support::assert_ok;
+        use sp_arithmetic::FixedI128;
+
+        /// The code as implemented befor the fix
+        fn legacy_withdraw_reward_at_index<T: Config>(
+            nonce: T::Index,
+            currency_id: T::CurrencyId,
+            vault_id: &DefaultVaultId<T>,
+            nominator_id: &T::AccountId,
+        ) -> Result<<SignedFixedPoint<T> as FixedPointNumber>::Inner, DispatchError> {
+            let reward = Pallet::<T>::compute_reward_at_index(nonce, currency_id, vault_id, nominator_id)?;
+            let reward_as_fixed =
+                SignedFixedPoint::<T>::checked_from_integer(reward).ok_or(Error::<T>::TryIntoIntError)?;
+            checked_sub_mut!(TotalRewards<T>, currency_id, (nonce, vault_id), &reward_as_fixed);
+
+            let stake = Pallet::<T>::stake_at_index(nonce, vault_id, nominator_id);
+            let reward_per_token = Pallet::<T>::reward_per_token(currency_id, (nonce, vault_id));
+            <RewardTally<T>>::insert(
+                currency_id,
+                (nonce, vault_id, nominator_id),
+                stake.checked_mul(&reward_per_token).ok_or(ArithmeticError::Overflow)?,
+            );
+            Pallet::<T>::deposit_event(Event::<T>::WithdrawReward {
+                nonce,
+                currency_id,
+                vault_id: vault_id.clone(),
+                nominator_id: nominator_id.clone(),
+                amount: reward_as_fixed,
+            });
+            Ok(reward)
+        }
+
+        fn setup_broken_state() {
+            use mock::*;
+            // without the `apply_slash` in withdraw_rewards, the following sequence fails in the last step:
+            // [distribute_reward, slash_stake, withdraw_reward, distribute_reward, withdraw_reward]
+
+            // step 1: initial (normal) flow
+            assert_ok!(Staking::deposit_stake(&VAULT, &VAULT.account_id, fixed!(50)));
+            assert_ok!(Staking::distribute_reward(Token(IBTC), &VAULT, fixed!(10000)));
+            assert_ok!(Staking::compute_reward(Token(IBTC), &VAULT, &VAULT.account_id), 10000);
+
+            // step 2: slash
+            assert_ok!(Staking::slash_stake(Token(IBTC), &VAULT, fixed!(30)));
+            assert_ok!(Staking::compute_stake(&VAULT, &VAULT.account_id), 20);
+
+            // step 3: withdraw rewards
+            assert_ok!(Staking::compute_reward(Token(IBTC), &VAULT, &VAULT.account_id), 10000);
+            assert_ok!(
+                legacy_withdraw_reward_at_index::<Test>(0, Token(IBTC), &VAULT, &VAULT.account_id),
+                10000
+            );
+
+            assert_ok!(Staking::distribute_reward(Token(IBTC), &VAULT, fixed!(10000)));
+            assert_ok!(
+                legacy_withdraw_reward_at_index::<Test>(0, Token(IBTC), &VAULT, &VAULT.account_id),
+                0
+            );
+            // check that we keep track of the tokens we're still owed
+            assert_total_rewards(10000);
+
+            assert_ok!(Staking::distribute_reward(Token(IBTC), &VAULT, fixed!(2000)));
+            assert_eq!(
+                Staking::total_rewards(Token(IBTC), (0, VAULT.clone())),
+                FixedI128::from(12000)
+            );
+            assert_ok!(
+                legacy_withdraw_reward_at_index::<Test>(0, Token(IBTC), &VAULT, &VAULT.account_id),
+                0
+            );
+            assert_total_rewards(12000);
+        }
+
+        fn assert_total_rewards(amount: i128) {
+            use mock::*;
+            assert_eq!(
+                Staking::total_rewards(Token(IBTC), (0, VAULT.clone())),
+                FixedI128::from(amount)
+            );
+        }
+
+        #[test]
+        fn test_total_rewards_tracking_in_buggy_code() {
+            use mock::*;
+            run_test(|| {
+                setup_broken_state();
+
+                assert_total_rewards(12000);
+
+                // now simulate that we deploy the fix, but don't the migration.
+                assert_ok!(Staking::distribute_reward(Token(IBTC), &VAULT, fixed!(3000)));
+                assert_total_rewards(15000);
+
+                // the first withdraw are still incorrect: we need a sequence [withdraw_reward, distribute_reward]
+                // to start working correctly again
+                assert_ok!(Staking::withdraw_reward(Token(IBTC), &VAULT, &VAULT.account_id), 0);
+                assert_ok!(Staking::withdraw_reward(Token(IBTC), &VAULT, &VAULT.account_id), 0);
+                assert_total_rewards(15000);
+
+                // distribute 500 more - we should actually receive that now.
+                assert_ok!(Staking::distribute_reward(Token(IBTC), &VAULT, fixed!(500)));
+                assert_total_rewards(15500);
+                assert_ok!(Staking::withdraw_reward(Token(IBTC), &VAULT, &VAULT.account_id), 500);
+                assert_total_rewards(15000);
+            })
+        }
+
+        #[test]
+        fn test_migration() {
+            use mock::*;
+            run_test(|| {
+                let fee_pool_account_id = 23;
+
+                assert_ok!(<orml_tokens::Pallet<Test> as MultiCurrency<
+                    <Test as frame_system::Config>::AccountId,
+                >>::deposit(Token(IBTC), &fee_pool_account_id, 100_000,));
+
+                setup_broken_state();
+                assert_total_rewards(12000);
+
+                // now simulate that we deploy the fix and do the migration
+
+                assert_ok!(fix_broken_state::<Test, _>(fee_pool_account_id));
+                assert_total_rewards(0);
+                assert_eq!(
+                <orml_tokens::Pallet<Test> as MultiCurrency<<Test as frame_system::Config>::AccountId>>::free_balance(
+                    Token(IBTC),
+                    &VAULT.account_id
+                ),
+                12000
+            );
+
+                // check that we can't withdraw any additional amount
+                assert_ok!(Staking::withdraw_reward(Token(IBTC), &VAULT, &VAULT.account_id), 0);
+
+                // check that behavior is back to normal
+                assert_ok!(Staking::distribute_reward(Token(IBTC), &VAULT, fixed!(3000)));
+                assert_total_rewards(3000);
+                assert_ok!(Staking::withdraw_reward(Token(IBTC), &VAULT, &VAULT.account_id), 3000);
+                assert_total_rewards(0);
+            });
+        }
+
+        /// like setup_broken_state, but after depositing such a large sum that you can withdraw
+        /// despite the slash bug (it will withdraw an incorrect but non-zero amount)
+        fn setup_broken_state_with_withdrawable_reward() {
+            use mock::*;
+
+            setup_broken_state();
+            assert_total_rewards(12000);
+            assert_ok!(Staking::distribute_reward(Token(IBTC), &VAULT, fixed!(1_000_000)));
+            assert_total_rewards(1_012_000);
+        }
+
+        #[test]
+        fn test_broken_state_with_withdrawable_amount() {
+            use mock::*;
+            run_test(|| {
+                setup_broken_state_with_withdrawable_reward();
+                assert_total_rewards(1_012_000);
+
+                // check that we can indeed withdraw some non-zero amount
+                assert_ok!(
+                    Staking::withdraw_reward(Token(IBTC), &VAULT, &VAULT.account_id),
+                    967_000
+                );
+                assert_total_rewards(1_012_000 - 967_000);
+
+                assert_ok!(Staking::withdraw_reward(Token(IBTC), &VAULT, &VAULT.account_id), 0);
+            });
+        }
+
+        #[test]
+        fn test_migration_of_account_with_withdrawable_amount() {
+            use mock::*;
+            run_test(|| {
+                let fee_pool_account_id = 23;
+
+                assert_ok!(<orml_tokens::Pallet<Test> as MultiCurrency<
+                    <Test as frame_system::Config>::AccountId,
+                >>::deposit(
+                    Token(IBTC), &fee_pool_account_id, 10_000_000,
+                ));
+
+                setup_broken_state_with_withdrawable_reward();
+                assert_total_rewards(1_012_000);
+
+                // now simulate that we deploy the fix and do the migration
+
+                assert_ok!(fix_broken_state::<Test, _>(fee_pool_account_id));
+                assert_total_rewards(0);
+                assert_eq!(
+                <orml_tokens::Pallet<Test> as MultiCurrency<<Test as frame_system::Config>::AccountId>>::free_balance(
+                    Token(IBTC),
+                    &VAULT.account_id
+                ),
+                1_012_000
+            );
+
+                // check that we can't withdraw any additional amount
+                assert_ok!(Staking::withdraw_reward(Token(IBTC), &VAULT, &VAULT.account_id), 0);
+
+                // check that behavior is back to normal
+                assert_ok!(Staking::distribute_reward(Token(IBTC), &VAULT, fixed!(3000)));
+                assert_total_rewards(3000);
+                assert_ok!(Staking::withdraw_reward(Token(IBTC), &VAULT, &VAULT.account_id), 3000);
+                assert_total_rewards(0);
+            });
+        }
+    }
+
+    #[transactional]
+    pub fn fix_broken_state<T, U>(fee_pool_account_id: T::AccountId) -> DispatchResult
+    where
+        T: Config<SignedInner = U> + orml_tokens::Config<CurrencyId = <T as Config>::CurrencyId>,
+        U: TryInto<<T as orml_tokens::Config>::Balance>,
+    {
+        use sp_std::vec::Vec;
+
+        // first collect to a vec - for safety we won't modify this map while we iterate over it
+        let total_rewards: Vec<_> = TotalRewards::<T>::drain().collect();
+
+        for (currency_id, (_idx, vault_id), value) in total_rewards {
+            let missed_reward = value
+                .truncate_to_inner()
+                .ok_or(Error::<T>::TryIntoIntError)?
+                .try_into()
+                .map_err(|_| Error::<T>::TryIntoIntError)?;
+
+            <orml_tokens::Pallet<T> as MultiCurrency<T::AccountId>>::transfer(
+                currency_id,
+                &fee_pool_account_id,
+                &vault_id.account_id,
+                missed_reward,
+            )?;
+
+            Pallet::<T>::withdraw_reward(currency_id, &vault_id, &vault_id.account_id)?;
+        }
+
+        // an additional drain is required to pass the `test_migration_of_account_with_withdrawable_amount`
+        // test - otherwise TotalRewards are set to zero
+        let _: Vec<_> = TotalRewards::<T>::drain().collect();
+
+        Ok(())
     }
 }

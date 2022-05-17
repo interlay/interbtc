@@ -4,6 +4,7 @@ use frame_support::{assert_err, assert_ok};
 
 // type Event = crate::Event<Test>;
 
+#[macro_export]
 macro_rules! fixed {
     ($amount:expr) => {
         sp_arithmetic::FixedI128::from($amount)
