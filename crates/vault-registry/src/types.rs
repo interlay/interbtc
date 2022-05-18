@@ -454,19 +454,16 @@ impl<T: Config> RichVault<T> {
     }
 
     pub fn get_free_collateral(&self) -> Result<Amount<T>, DispatchError> {
-        let used_collateral = self.get_used_collateral()?;
+        let used_collateral = self.get_used_collateral(
+            Pallet::<T>::secure_collateral_threshold(&self.data.id.currencies).ok_or(Error::<T>::ThresholdNotSet)?,
+        )?;
         self.get_total_collateral()?.checked_sub(&used_collateral)
     }
 
-    pub fn get_used_collateral(&self) -> Result<Amount<T>, DispatchError> {
+    pub fn get_used_collateral(&self, threshold: UnsignedFixedPoint<T>) -> Result<Amount<T>, DispatchError> {
         let issued_tokens = self.backed_tokens()?;
         let issued_tokens_in_collateral = issued_tokens.convert_to(self.data.id.currencies.collateral)?;
-
-        let secure_threshold =
-            Pallet::<T>::secure_collateral_threshold(&self.data.id.currencies).ok_or(Error::<T>::ThresholdNotSet)?;
-
-        let used_collateral = issued_tokens_in_collateral.checked_fixed_point_mul(&secure_threshold)?;
-
+        let used_collateral = issued_tokens_in_collateral.checked_fixed_point_mul(&threshold)?;
         self.get_total_collateral()?.min(&used_collateral)
     }
 
@@ -647,9 +644,12 @@ impl<T: Config> RichVault<T> {
             reward.transfer(&vault_id.account_id, reporter_id)?;
         }
 
-        // we liquidate at most SECURE_THRESHOLD * collateral
+        // we liquidate at most LIQUIDATION_THRESHOLD * collateral
         // this value is the amount of collateral held for the issued + to_be_issued
-        let liquidated_collateral = self.get_used_collateral()?;
+        let liquidated_collateral = self.get_used_collateral(
+            Pallet::<T>::liquidation_collateral_threshold(&self.data.id.currencies)
+                .ok_or(Error::<T>::ThresholdNotSet)?,
+        )?;
 
         // amount of tokens being backed
         let collateral_tokens = self.backed_tokens()?;

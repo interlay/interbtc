@@ -705,7 +705,7 @@ fn cancel_replace_tokens_succeeds() {
 }
 
 #[test]
-fn liquidate_at_most_secure_threshold() {
+fn liquidate_at_most_liquidation_threshold() {
     run_test(|| {
         let vault_id = DEFAULT_ID;
 
@@ -720,9 +720,19 @@ fn liquidate_at_most_secure_threshold() {
         create_vault_with_collateral(&vault_id, backing_collateral);
         let liquidation_vault_before = VaultRegistry::get_rich_liquidation_vault(&DEFAULT_CURRENCY_PAIR);
 
-        VaultRegistry::_set_secure_collateral_threshold(
+        VaultRegistry::_set_liquidation_collateral_threshold(
             DEFAULT_CURRENCY_PAIR,
             FixedU128::checked_from_rational(150, 100).unwrap(), // 150%
+        );
+
+        VaultRegistry::_set_premium_redeem_threshold(
+            DEFAULT_CURRENCY_PAIR,
+            FixedU128::checked_from_rational(175, 100).unwrap(), // 175%
+        );
+
+        VaultRegistry::_set_secure_collateral_threshold(
+            DEFAULT_CURRENCY_PAIR,
+            FixedU128::checked_from_rational(200, 100).unwrap(), // 200%
         );
 
         let collateral_before = ext::currency::get_reserved_balance::<Test>(Token(DOT), &vault_id.account_id);
