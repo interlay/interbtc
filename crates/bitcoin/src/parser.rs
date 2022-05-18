@@ -9,7 +9,7 @@ use sha2::{Digest, Sha256};
 #[cfg(test)]
 use mocktopus::macros::mockable;
 
-use crate::{Error, SetCompact};
+use crate::{Error, Script, SetCompact};
 use sp_core::U256;
 use sp_std::{prelude::*, vec};
 
@@ -434,6 +434,41 @@ fn parse_transaction_output(raw_output: &[u8]) -> Result<(TransactionOutput, usi
         },
         parser.position,
     ))
+}
+
+#[allow(dead_code)]
+pub(crate) fn extract_witness_standard(witness_stack: Vec<Vec<u8>>, prev_script: Script) -> Result<Address, Error> {
+    let witness_last = witness_stack.last().cloned().unwrap_or_default();
+    if prev_script.is_p2wpkh_v0() {
+        // https://github.com/bitcoin/bitcoin/blob/d492dc1cdaabdc52b0766bf4cba4bd73178325d0/src/script/standard.cpp#L187
+        // TODO: verify input
+        extract_address_hash_witness(&witness_last)
+    } else if prev_script.is_p2wsh_v0() {
+        // https://github.com/bitcoin/bitcoin/blob/623745ca74cf3f54b474dac106f5802b7929503f/src/policy/policy.cpp#L237
+        if witness_last.len() > MAX_STANDARD_P2WSH_SCRIPT_SIZE || witness_stack.len() > MAX_STANDARD_P2WSH_STACK_ITEMS {
+            Err(Error::MalformedTransaction)
+        } else {
+            // TODO: verify input
+            extract_address_hash_witness(&witness_last)
+        }
+    } else if prev_script.is_p2tr_v1() {
+        // https://github.com/bitcoin/bitcoin/blob/623745ca74cf3f54b474dac106f5802b7929503f/src/policy/policy.cpp#L252
+        if witness_last.get(0).map(|i| i == &ANNEX_TAG).unwrap_or_default() {
+            Err(Error::MalformedTransaction)
+        } else if witness_stack.len() >= 2 {
+            // script path spend
+            // TODO: verify Q = tweak(P,S)
+            Address::from_script_pub_key(&prev_script)
+        } else if witness_stack.len() == 1 {
+            // key path spend
+            // TODO: Verify(pk, m, sig)
+            Address::from_script_pub_key(&prev_script)
+        } else {
+            Err(Error::MalformedTransaction)
+        }
+    } else {
+        Err(Error::MalformedTransaction)
+    }
 }
 
 pub(crate) fn extract_address_hash_witness<B: AsRef<[u8]>>(witness_script: B) -> Result<Address, Error> {
@@ -861,6 +896,62 @@ pub(crate) mod tests {
         let address = Address::P2SH(H160::from_str(&"288873634ae24a3c9b6792cc7e2a084ec79ef68b").unwrap());
         let extr_address = extract_address_hash_scriptsig(&transaction.inputs[0].script).unwrap();
         assert_eq!(&extr_address, &address);
+    }
+
+    #[test]
+    fn test_extract_witness_standard_taproot() {
+        // key path
+        assert_ok!(
+            extract_witness_standard(
+                vec![vec![
+                    19, 72, 150, 196, 44, 217, 86, 128, 176, 72, 132, 88, 71, 200, 5, 71, 86, 134, 31, 250, 183, 212,
+                    171, 171, 114, 246, 80, 141, 103, 209, 236, 12, 89, 2, 135, 236, 33, 97, 221, 120, 132, 152, 50,
+                    134, 225, 205, 86, 206, 101, 192, 138, 36, 238, 4, 118, 237, 233, 38, 120, 169, 59, 27, 24, 12,
+                ]],
+                Script {
+                    bytes: vec![
+                        81, 32, 95, 66, 55, 189, 125, 174, 87, 107, 52, 171, 200, 169, 198, 250, 79, 14, 71, 135, 192,
+                        66, 52, 202, 150, 62, 158, 150, 200, 249, 182, 123, 86, 209
+                    ]
+                }
+            ),
+            Address::P2TRv1(H256::from_slice(
+                &hex::decode("5f4237bd7dae576b34abc8a9c6fa4f0e4787c04234ca963e9e96c8f9b67b56d1").unwrap()
+            ))
+        );
+
+        // script path
+        assert_ok!(
+            extract_witness_standard(
+                vec![
+                    vec![
+                        123, 93, 97, 74, 70, 16, 191, 145, 150, 119, 87, 145, 252, 197, 137, 89, 124, 160, 102, 220,
+                        209, 0, 72, 224, 4, 205, 76, 115, 65, 187, 75, 185, 12, 238, 71, 5, 25, 47, 63, 125, 181, 36,
+                        232, 6, 122, 82, 34, 199, 240, 155, 175, 41, 239, 107, 128, 91, 131, 39, 236, 209, 229, 171,
+                        131, 202
+                    ],
+                    vec![
+                        32, 245, 176, 89, 185, 167, 34, 152, 204, 190, 255, 245, 157, 155, 148, 63, 126, 15, 201, 29,
+                        138, 59, 148, 74, 149, 231, 182, 57, 12, 201, 158, 181, 244, 172
+                    ],
+                    vec![
+                        192, 217, 223, 223, 15, 227, 200, 62, 152, 112, 9, 93, 103, 255, 245, 154, 128, 86, 218, 210,
+                        140, 109, 251, 148, 75, 183, 28, 246, 75, 144, 172, 233, 167, 119, 107, 34, 161, 24, 95, 178,
+                        220, 149, 36, 246, 177, 120, 226, 105, 49, 137, 191, 1, 101, 93, 127, 56, 240, 67, 146, 54,
+                        104, 220, 90, 244, 91
+                    ]
+                ],
+                Script {
+                    bytes: vec![
+                        81, 32, 95, 66, 55, 189, 127, 147, 198, 148, 3, 163, 12, 107, 100, 31, 39, 204, 245, 32, 16,
+                        144, 21, 47, 207, 21, 150, 71, 66, 33, 48, 120, 49, 195
+                    ]
+                }
+            ),
+            Address::P2TRv1(H256::from_slice(
+                &hex::decode("5f4237bd7f93c69403a30c6b641f27ccf5201090152fcf1596474221307831c3").unwrap()
+            ))
+        );
     }
 
     /*

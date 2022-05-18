@@ -14,8 +14,8 @@ use secp256k1::{constants::PUBLIC_KEY_SIZE, Error as Secp256k1Error, PublicKey a
 #[derive(Encode, Decode, Clone, Ord, PartialOrd, PartialEq, Eq, Debug, Copy, TypeInfo, MaxEncodedLen)]
 #[cfg_attr(feature = "std", derive(serde::Serialize, serde::Deserialize, std::hash::Hash))]
 pub enum Address {
-    // input: {signature} {pubkey}
-    // output: OP_DUP OP_HASH160 {hash160(pubkey)} OP_EQUALVERIFY OP_CHECKSIG
+    // input: {signature} {pub_key}
+    // output: OP_DUP OP_HASH160 {hash160(pub_key)} OP_EQUALVERIFY OP_CHECKSIG
     // witness: <>
     P2PKH(H160),
     // input: [redeem_script_sig ...] {redeem_script}
@@ -23,13 +23,19 @@ pub enum Address {
     // witness: <?>
     P2SH(H160),
     // input: <>
-    // output: OP_0 {hash160(pubkey)}
-    // witness: {signature} {pubkey}
+    // output: OP_0 {hash160(pub_key)}
+    // witness: {signature} {pub_key}
     P2WPKHv0(H160),
     // input: <>
     // output: OP_0 {sha256(redeem_script)}
     // witness: [redeem_script_sig ...] {redeem_script}
     P2WSHv0(H256),
+    // input: <>
+    // output: OP_1 {tweaked_pub_key}
+    // witness:
+    // - key path: {signature}
+    // - script path: [arguments ...] {script} {untweaked_pub_key}
+    P2TRv1(H256),
 }
 
 impl Address {
@@ -40,6 +46,7 @@ impl Address {
         const OP_CHECK_SIG: u8 = OpCode::OpCheckSig as u8;
         const OP_EQUAL: u8 = OpCode::OpEqual as u8;
         const OP_0: u8 = OpCode::Op0 as u8;
+        const OP_1: u8 = OpCode::Op1 as u8;
 
         match script.as_bytes() {
             &[OP_DUP, OP_HASH_160, HASH160_SIZE_HEX, ref addr @ .., OP_EQUAL_VERIFY, OP_CHECK_SIG]
@@ -55,6 +62,9 @@ impl Address {
             }
             &[OP_0, HASH160_SIZE_HEX, ref addr @ ..] if addr.len() == HASH160_SIZE_HEX as usize => {
                 Ok(Self::P2WPKHv0(H160::from_slice(addr)))
+            }
+            &[OP_1, HASH256_SIZE_HEX, ref addr @ ..] if addr.len() == HASH256_SIZE_HEX as usize => {
+                Ok(Self::P2TRv1(H256::from_slice(addr)))
             }
             _ => Err(Error::InvalidBtcAddress),
         }
@@ -92,6 +102,13 @@ impl Address {
                 script.append(OpCode::Op0);
                 script.append(HASH256_SIZE_HEX);
                 script.append(script_hash);
+                script
+            }
+            Self::P2TRv1(tweaked_pub_key) => {
+                let mut script = Script::new();
+                script.append(OpCode::Op1);
+                script.append(HASH256_SIZE_HEX);
+                script.append(tweaked_pub_key);
                 script
             }
         }

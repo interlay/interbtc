@@ -39,15 +39,22 @@ impl Script {
 
     pub fn is_p2wpkh_v0(&self) -> bool {
         // first byte is version
-        self.len() == P2WPKH_V0_SCRIPT_SIZE as usize
+        self.len() == WITNESS_V0_KEYHASH_SIZE + 2 as usize
             && self.bytes[0] == OpCode::Op0 as u8
             && self.bytes[1] == HASH160_SIZE_HEX
     }
 
     pub fn is_p2wsh_v0(&self) -> bool {
         // first byte is version
-        self.len() == P2WSH_V0_SCRIPT_SIZE as usize
+        self.len() == WITNESS_V0_SCRIPTHASH_SIZE + 2 as usize
             && self.bytes[0] == OpCode::Op0 as u8
+            && self.bytes[1] == HASH256_SIZE_HEX
+    }
+
+    pub fn is_p2tr_v1(&self) -> bool {
+        // first byte is version
+        self.len() == WITNESS_V1_TAPROOT_SIZE + 2 as usize
+            && self.bytes[0] == OpCode::Op1 as u8
             && self.bytes[1] == HASH256_SIZE_HEX
     }
 
