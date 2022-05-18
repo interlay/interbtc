@@ -414,6 +414,12 @@ impl frame_support::traits::OnRuntimeUpgrade for LiquidationVaultFixMigration {
         use orml_traits::MultiReservableCurrency;
         use sp_runtime::AccountId32;
         if let Ok(weight) = vault_registry::types::liquidation_vault_fix::fix_liquidation_vault::<Runtime>() {
+            // piggy back on vault migration do do some other migrations:
+
+            // try to do the staking migration. Technically we should add weight here
+            // but I think we'll be ok without
+            let _ = staking::migration::fix_broken_state::<Runtime, _>(Fee::fee_pool_account_id());
+
             // a3b3EwCtmURY7K3d6aoWzouHriGfTsvCP2axuMVGpRpkPoxg8
             let account_raw = hex_literal::hex!("24ac7fb5407f270d807425ecc6352305c0a21b9e7a1ba9812a1785a2af9b955a");
             let account_id = AccountId32::from(account_raw);

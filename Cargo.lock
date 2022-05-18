@@ -12088,6 +12088,8 @@ dependencies = [
  "frame-system",
  "interbtc-primitives",
  "mocktopus",
+ "orml-tokens",
+ "orml-traits",
  "pallet-timestamp",
  "parity-scale-codec",
  "rand 0.8.5",

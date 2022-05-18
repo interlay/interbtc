@@ -1,6 +1,7 @@
 use crate as staking;
 use crate::{Config, Error};
 use frame_support::{parameter_types, traits::Everything};
+use orml_traits::parameter_type_with_key;
 pub use primitives::{CurrencyId, CurrencyId::Token, TokenSymbol::*};
 use primitives::{VaultCurrencyPair, VaultId};
 use sp_arithmetic::FixedI128;
@@ -22,6 +23,7 @@ frame_support::construct_runtime!(
     {
         System: frame_system::{Pallet, Call, Storage, Config, Event<T>},
         Staking: staking::{Pallet, Call, Storage, Event<T>},
+        Tokens: orml_tokens::{Pallet, Call, Storage, Event<T>},
     }
 );
 
@@ -73,6 +75,28 @@ impl Config for Test {
     type SignedFixedPoint = SignedFixedPoint;
     type CurrencyId = CurrencyId;
     type GetNativeCurrencyId = GetNativeCurrencyId;
+}
+
+pub type Balance = u128;
+pub type RawAmount = i128;
+parameter_types! {
+    pub const MaxLocks: u32 = 50;
+}
+parameter_type_with_key! {
+    pub ExistentialDeposits: |_currency_id: CurrencyId| -> Balance {
+        0
+    };
+}
+impl orml_tokens::Config for Test {
+    type Event = TestEvent;
+    type Balance = Balance;
+    type Amount = RawAmount;
+    type CurrencyId = CurrencyId;
+    type WeightInfo = ();
+    type ExistentialDeposits = ExistentialDeposits;
+    type OnDust = ();
+    type MaxLocks = MaxLocks;
+    type DustRemovalWhitelist = Everything;
 }
 
 pub type TestEvent = Event;
