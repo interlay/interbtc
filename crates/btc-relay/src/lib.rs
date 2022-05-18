@@ -592,7 +592,7 @@ impl<T: Config> Pallet<T> {
         merkle_proof: MerkleProof,
         transaction: Transaction,
         recipient_btc_address: BtcAddress,
-    ) -> Result<(BtcAddress, V), DispatchError> {
+    ) -> Result<(Option<BtcAddress>, V), DispatchError> {
         // Verify that the transaction is indeed included in the main chain
         Self::_verify_transaction_inclusion(transaction.tx_id(), merkle_proof, None)?;
 
@@ -602,13 +602,14 @@ impl<T: Config> Pallet<T> {
     fn get_issue_payment<V: TryFrom<i64>>(
         transaction: Transaction,
         recipient_btc_address: BtcAddress,
-    ) -> Result<(BtcAddress, V), DispatchError> {
+    ) -> Result<(Option<BtcAddress>, V), DispatchError> {
+        // only return BTC address if we can decode it
         let input_address = transaction
             .inputs
             .get(0)
             .ok_or(Error::<T>::MalformedTransaction)?
             .extract_address()
-            .map_err(|_| Error::<T>::MalformedTransaction)?;
+            .ok();
 
         // using the on-chain key derivation scheme we only expect a simple
         // payment to the vault's new deposit address

@@ -457,6 +457,7 @@ pub(crate) fn extract_address_hash_witness<B: AsRef<[u8]>>(witness_script: B) ->
     // https://github.com/bitcoin/bips/blob/master/bip-0141.mediawiki#p2wsh
     let mut hasher = Sha256::default();
     hasher.input(witness_script);
+    // WARNING: this will decode P2TR inputs incorrectly
     Ok(Address::P2WSHv0(H256::from_slice(&hasher.result()[..])))
 }
 

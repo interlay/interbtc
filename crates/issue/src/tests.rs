@@ -152,7 +152,7 @@ fn test_execute_issue_succeeds() {
         ext::btc_relay::parse_merkle_proof::<Test>.mock_safe(|_| MockResult::Return(Ok(dummy_merkle_proof())));
         ext::btc_relay::parse_transaction::<Test>.mock_safe(|_| MockResult::Return(Ok(Transaction::default())));
         ext::btc_relay::get_and_verify_issue_payment::<Test, Balance>
-            .mock_safe(|_, _, _| MockResult::Return(Ok((BtcAddress::P2SH(H160::zero()), 3))));
+            .mock_safe(|_, _, _| MockResult::Return(Ok((Some(BtcAddress::P2SH(H160::zero())), 3))));
 
         assert_ok!(execute_issue(USER, &issue_id));
 
@@ -182,7 +182,7 @@ fn test_execute_issue_overpayment_succeeds() {
         ext::btc_relay::parse_merkle_proof::<Test>.mock_safe(|_| MockResult::Return(Ok(dummy_merkle_proof())));
         ext::btc_relay::parse_transaction::<Test>.mock_safe(|_| MockResult::Return(Ok(Transaction::default())));
         ext::btc_relay::get_and_verify_issue_payment::<Test, Balance>
-            .mock_safe(|_, _, _| MockResult::Return(Ok((BtcAddress::P2SH(H160::zero()), 5))));
+            .mock_safe(|_, _, _| MockResult::Return(Ok((Some(BtcAddress::P2SH(H160::zero())), 5))));
 
         ext::vault_registry::is_vault_liquidated::<Test>.mock_safe(|_| MockResult::Return(Ok(false)));
 
@@ -223,7 +223,7 @@ fn test_execute_issue_refund_succeeds() {
         ext::btc_relay::parse_merkle_proof::<Test>.mock_safe(|_| MockResult::Return(Ok(dummy_merkle_proof())));
         ext::btc_relay::parse_transaction::<Test>.mock_safe(|_| MockResult::Return(Ok(Transaction::default())));
         ext::btc_relay::get_and_verify_issue_payment::<Test, Balance>
-            .mock_safe(|_, _, _| MockResult::Return(Ok((BtcAddress::P2SH(H160::zero()), 103))));
+            .mock_safe(|_, _, _| MockResult::Return(Ok((Some(BtcAddress::P2SH(H160::zero())), 103))));
 
         // return some arbitrary error
         ext::vault_registry::try_increase_to_be_issued_tokens::<Test>.mock_safe(|_, amount| {
