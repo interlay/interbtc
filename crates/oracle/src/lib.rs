@@ -324,7 +324,7 @@ impl<T: Config> Pallet<T> {
         }
 
         // The code below performs `amount/rate`, plus necessary type conversions
-        Ok(T::UnsignedFixedPoint::checked_from_integer(amount.into())
+        Ok(T::UnsignedFixedPoint::checked_from_integer(amount)
             .ok_or(Error::<T>::TryIntoIntError)?
             .checked_div(&rate)
             .ok_or(Error::<T>::ArithmeticUnderflow)?

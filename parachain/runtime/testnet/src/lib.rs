@@ -17,6 +17,7 @@ use frame_support::{
         Contains, Currency as PalletCurrency, EnsureOneOf, EqualPrivilegeOnly, ExistenceRequirement, Imbalance,
         OnUnbalanced,
     },
+    weights::ConstantMultiplier,
     PalletId,
 };
 use frame_system::{
@@ -347,7 +348,7 @@ where
 impl pallet_transaction_payment::Config for Runtime {
     type OnChargeTransaction =
         pallet_transaction_payment::CurrencyAdapter<NativeCurrency, DealWithFees<Runtime, GetNativeCurrencyId>>;
-    type TransactionByteFee = TransactionByteFee;
+    type LengthToFee = ConstantMultiplier<Balance, TransactionByteFee>;
     type WeightToFee = IdentityFee<Balance>;
     type FeeMultiplierUpdate = SlowAdjustingFeeUpdate<Self>;
     type OperationalFeeMultiplier = OperationalFeeMultiplier;

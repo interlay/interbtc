@@ -19,6 +19,7 @@ use crate::{
     cli::{Cli, RuntimeName, Subcommand},
     service::{new_partial, InterlayRuntimeExecutor, KintsugiRuntimeExecutor, TestnetRuntimeExecutor},
 };
+use frame_benchmarking_cli::BenchmarkCmd;
 use primitives::Block;
 use sc_cli::{ChainSpec, Result, RuntimeVersion, SubstrateCli};
 use sc_service::{Configuration, TaskManager};
@@ -310,20 +311,69 @@ pub fn run() -> Result<()> {
             })
         }
         Some(Subcommand::Revert(cmd)) => {
-            construct_async_run!(|components, cli, cmd, config| Ok(cmd.run(components.client, components.backend)))
+            construct_async_run!(|components, cli, cmd, config| Ok(cmd.run(
+                components.client,
+                components.backend,
+                None
+            )))
         }
         Some(Subcommand::Benchmark(cmd)) => {
-            if cfg!(feature = "runtime-benchmarks") {
-                let runner = cli.create_runner(cmd)?;
-                let chain_spec = &runner.config().chain_spec;
+            let runner = cli.create_runner(cmd)?;
+            match cmd {
+                BenchmarkCmd::Pallet(cmd) => {
+                    if cfg!(feature = "runtime-benchmarks") {
+                        if runner.config().chain_spec.is_interlay() {
+                            runner.sync_run(|config| cmd.run::<Block, InterlayRuntimeExecutor>(config))
+                        } else if runner.config().chain_spec.is_kintsugi() {
+                            runner.sync_run(|config| cmd.run::<Block, KintsugiRuntimeExecutor>(config))
+                        } else if runner.config().chain_spec.is_testnet() {
+                            runner.sync_run(|config| cmd.run::<Block, TestnetRuntimeExecutor>(config))
+                        } else {
+                            Err("Chain doesn't support benchmarking".into())
+                        }
+                    } else {
+                        Err("Benchmarking wasn't enabled when building the node. \
+                You can enable it with `--features runtime-benchmarks`."
+                            .into())
+                    }
+                }
+                BenchmarkCmd::Block(cmd) => {
+                    if cfg!(feature = "runtime-benchmarks") {
+                        let runner = cli.create_runner(cmd)?;
+                        let chain_spec = &runner.config().chain_spec;
 
-                with_runtime_or_err!(chain_spec, {
-                    return runner.sync_run(|config| cmd.run::<Block, Executor>(config));
-                })
-            } else {
-                Err("Benchmarking wasn't enabled when building the node. \
-				You can enable it with `--features runtime-benchmarks`."
-                    .into())
+                        with_runtime_or_err!(chain_spec, {
+                            runner.sync_run(|config| {
+                                let partials = new_partial::<RuntimeApi, Executor>(&config, false)?;
+                                cmd.run(partials.client)
+                            })
+                        })
+                    } else {
+                        Err("Benchmarking wasn't enabled when building the node. \
+                        You can enable it with `--features runtime-benchmarks`."
+                            .into())
+                    }
+                }
+                BenchmarkCmd::Storage(cmd) => {
+                    if cfg!(feature = "runtime-benchmarks") {
+                        let runner = cli.create_runner(cmd)?;
+                        let chain_spec = &runner.config().chain_spec;
+
+                        with_runtime_or_err!(chain_spec, {
+                            runner.sync_run(|config| {
+                                let partials = new_partial::<RuntimeApi, Executor>(&config, false)?;
+                                let db = partials.backend.expose_db();
+                                let storage = partials.backend.expose_storage();
+                                cmd.run(config, partials.client.clone(), db, storage)
+                            })
+                        })
+                    } else {
+                        Err("Benchmarking wasn't enabled when building the node. \
+                        You can enable it with `--features runtime-benchmarks`."
+                            .into())
+                    }
+                }
+                BenchmarkCmd::Overhead(_) => Err("Unsupported benchmarking command".into()),
             }
         }
         Some(Subcommand::ExportGenesisState(params)) => {
@@ -404,7 +454,7 @@ async fn start_node(cli: Cli, config: Configuration) -> sc_service::error::Resul
 
     let id = ParaId::from(para_id.unwrap_or(DEFAULT_PARA_ID));
 
-    let parachain_account = AccountIdConversion::<polkadot_primitives::v0::AccountId>::into_account(&id);
+    let parachain_account = AccountIdConversion::<polkadot_primitives::v2::AccountId>::into_account(&id);
 
     let state_version = Cli::native_runtime_version(&config.chain_spec).state_version();
     let block: Block = generate_genesis_block(&config.chain_spec, state_version).map_err(|e| format!("{:?}", e))?;

@@ -22,7 +22,7 @@ fn dummy_merkle_proof() -> MerkleProof {
 }
 
 macro_rules! assert_event_matches {
-    ($( $pattern:pat )|+ $( if $guard: expr )? $(,)?) => {
+    ($( $pattern:pat_param )|+ $( if $guard: expr )? $(,)?) => {
 
         assert!(System::events().iter().any(|a| {
             match a.event {
