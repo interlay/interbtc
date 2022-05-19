@@ -95,6 +95,9 @@ pub mod pallet {
             requester: T::AccountId,
             griefing_collateral: BalanceOf<T>,
         },
+        IssuePeriodChange {
+            period: T::BlockNumber,
+        },
     }
 
     #[pallet::error]
@@ -251,6 +254,7 @@ pub mod pallet {
         pub fn set_issue_period(origin: OriginFor<T>, period: T::BlockNumber) -> DispatchResultWithPostInfo {
             ensure_root(origin)?;
             <IssuePeriod<T>>::set(period);
+            Self::deposit_event(Event::IssuePeriodChange { period });
             Ok(().into())
         }
     }

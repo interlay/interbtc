@@ -107,6 +107,9 @@ pub mod pallet {
             vault_id: DefaultVaultId<T>,
             amount: BalanceOf<T>,
         },
+        RedeemPeriodChange {
+            period: T::BlockNumber,
+        },
     }
 
     #[pallet::error]
@@ -307,6 +310,7 @@ pub mod pallet {
         pub fn set_redeem_period(origin: OriginFor<T>, period: T::BlockNumber) -> DispatchResultWithPostInfo {
             ensure_root(origin)?;
             <RedeemPeriod<T>>::set(period);
+            Self::deposit_event(Event::RedeemPeriodChange { period });
             Ok(().into())
         }
 

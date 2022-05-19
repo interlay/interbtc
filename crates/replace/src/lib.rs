@@ -102,6 +102,9 @@ pub mod pallet {
             old_vault_id: DefaultVaultId<T>,
             griefing_collateral: BalanceOf<T>,
         },
+        ReplacePeriodChange {
+            period: T::BlockNumber,
+        },
     }
 
     #[pallet::error]
@@ -299,6 +302,7 @@ pub mod pallet {
         pub fn set_replace_period(origin: OriginFor<T>, period: T::BlockNumber) -> DispatchResultWithPostInfo {
             ensure_root(origin)?;
             <ReplacePeriod<T>>::set(period);
+            Self::deposit_event(Event::ReplacePeriodChange { period });
             Ok(().into())
         }
     }
