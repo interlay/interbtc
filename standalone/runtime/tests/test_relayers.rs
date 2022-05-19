@@ -260,7 +260,8 @@ fn integration_test_redeem_utxo_to_foreign_address() {
 }
 
 #[test]
-fn integration_test_merge_tx() {
+/// we used to allow merge transactions, but not anymore. Specifically test that we disallow it
+fn integration_test_merge_tx_is_disallowed() {
     test_with(|_currency_id| {
         let vault = BOB;
         let transfer_amount_raw = 100;
@@ -310,17 +311,14 @@ fn integration_test_merge_tx() {
 
         SecurityPallet::set_active_block_number(1 + CONFIRMATIONS);
 
-        // Reporting as theft should fail, because the transaction merged
-        // UTXOs sent to registered vault addresses
-        assert_err!(
-            Call::Relay(RelayCall::report_vault_theft {
-                vault_id: default_vault_id_of(vault),
-                raw_merkle_proof: merkle_proof,
-                raw_tx: raw_tx
-            })
-            .dispatch(origin_of(account_of(USER))),
-            RelayError::ValidMergeTransaction
-        );
+        // Reporting as theft should succeed, because we no longer
+        // allow merge transactions
+        assert_ok!(Call::Relay(RelayCall::report_vault_theft {
+            vault_id: default_vault_id_of(vault),
+            raw_merkle_proof: merkle_proof,
+            raw_tx: raw_tx
+        })
+        .dispatch(origin_of(account_of(USER))));
     });
 }
 

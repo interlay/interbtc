@@ -351,20 +351,6 @@ impl<T: Config> Pallet<T> {
         })
     }
 
-    /// Checks if the vault is doing a valid merge transaction to move funds between
-    /// addresses.
-    ///
-    /// # Arguments
-    ///
-    /// * `transaction` - the tx
-    /// * `wallet` - vault btc addresses
-    pub(crate) fn is_valid_merge_transaction(transaction: &Transaction, wallet: &Wallet) -> bool {
-        return transaction
-            .outputs
-            .iter()
-            .all(|output| matches!(output.extract_address(), Ok(addr) if wallet.has_btc_address(&addr)));
-    }
-
     /// Checks if the vault is sending a valid request transaction.
     ///
     /// # Arguments
@@ -420,11 +406,6 @@ impl<T: Config> Pallet<T> {
         // * recipient: the recipient of the redeem / replace
         // * op_return: the associated ID encoded in the OP_RETURN
         // * vault: any "spare change" the vault is transferring
-
-        ensure!(
-            !Self::is_valid_merge_transaction(&tx, &vault.wallet),
-            Error::<T>::ValidMergeTransaction
-        );
 
         if let Ok(payment_data) = OpReturnPaymentData::<T>::try_from(tx) {
             // redeem requests
