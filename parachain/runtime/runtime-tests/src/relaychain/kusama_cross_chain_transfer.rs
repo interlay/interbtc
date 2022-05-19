@@ -6,6 +6,134 @@ use xcm_builder::ParentIsPreset;
 use xcm_emulator::TestExt;
 use xcm_executor::traits::Convert;
 
+mod hrmp {
+    use super::*;
+
+    use polkadot_runtime_parachains::hrmp;
+    fn construct_xcm(call: hrmp::Call<kusama_runtime::Runtime>) -> Xcm<()> {
+        Xcm(vec![
+            WithdrawAsset((Here, 410000000000).into()),
+            BuyExecution {
+                fees: (Here, 400000000000).into(),
+                weight_limit: Unlimited,
+            },
+            Transact {
+                require_weight_at_most: 10000000000,
+                origin_type: OriginKind::Native,
+                call: kusama_runtime::Call::Hrmp(call).encode().into(),
+            },
+            RefundSurplus,
+            DepositAsset {
+                assets: All.into(),
+                max_assets: 1,
+                beneficiary: Junction::AccountId32 {
+                    id: BOB,
+                    network: NetworkId::Any,
+                }
+                .into(),
+            },
+        ])
+    }
+
+    fn has_open_channel_requested_event(sender: u32, recipient: u32) -> bool {
+        KusamaNet::execute_with(|| {
+            kusama_runtime::System::events().iter().any(|r| {
+                matches!(
+                    r.event,
+                    kusama_runtime::Event::Hrmp(hrmp::Event::OpenChannelRequested(
+                        actual_sender,
+                        actual_recipient,
+                        1000,
+                        102400
+                    )) if actual_sender == sender.into() && actual_recipient == recipient.into()
+                )
+            })
+        })
+    }
+
+    fn has_open_channel_accepted_event(sender: u32, recipient: u32) -> bool {
+        KusamaNet::execute_with(|| {
+            kusama_runtime::System::events().iter().any(|r| {
+                matches!(
+                    r.event,
+                    kusama_runtime::Event::Hrmp(hrmp::Event::OpenChannelAccepted(
+                        actual_sender,
+                        actual_recipient
+                    )) if actual_sender == sender.into() && actual_recipient == recipient.into()
+                )
+            })
+        })
+    }
+
+    fn init_open_channel<T>(sender: u32, recipient: u32)
+    where
+        T: TestExt,
+    {
+        // do hrmp_init_open_channel
+        assert!(!has_open_channel_requested_event(sender, recipient)); // just a sanity check
+        T::execute_with(|| {
+            let message = construct_xcm(hrmp::Call::<kusama_runtime::Runtime>::hrmp_init_open_channel {
+                recipient: recipient.into(),
+                proposed_max_capacity: 1000,
+                proposed_max_message_size: 102400,
+            });
+            assert_ok!(pallet_xcm::Pallet::<kintsugi_runtime_parachain::Runtime>::send_xcm(
+                Here, Parent, message
+            ));
+        });
+        assert!(has_open_channel_requested_event(sender, recipient));
+    }
+
+    fn accept_open_channel<T>(sender: u32, recipient: u32)
+    where
+        T: TestExt,
+    {
+        // do hrmp_accept_open_channel
+        assert!(!has_open_channel_accepted_event(sender, recipient)); // just a sanity check
+        T::execute_with(|| {
+            let message = construct_xcm(hrmp::Call::<kusama_runtime::Runtime>::hrmp_accept_open_channel {
+                sender: sender.into(),
+            });
+            assert_ok!(pallet_xcm::Pallet::<kintsugi_runtime_parachain::Runtime>::send_xcm(
+                Here, Parent, message
+            ));
+        });
+        assert!(has_open_channel_accepted_event(sender, recipient));
+    }
+    #[test]
+    fn open_hrmp_channel() {
+        // setup sovereign account balances
+        KusamaNet::execute_with(|| {
+            assert_ok!(kusama_runtime::Balances::transfer(
+                kusama_runtime::Origin::signed(ALICE.into()),
+                sp_runtime::MultiAddress::Id(kintsugi_sovereign_account_on_kusama()),
+                10_820_000_000_000
+            ));
+            assert_ok!(kusama_runtime::Balances::transfer(
+                kusama_runtime::Origin::signed(ALICE.into()),
+                sp_runtime::MultiAddress::Id(sibling_sovereign_account_on_kusama()),
+                10_820_000_000_000
+            ));
+        });
+
+        // open channel kintsugi -> sibling
+        init_open_channel::<Kintsugi>(KINTSUGI_PARA_ID, SIBLING_PARA_ID);
+        accept_open_channel::<Sibling>(KINTSUGI_PARA_ID, SIBLING_PARA_ID);
+
+        // open channel sibling -> kintsugi
+        init_open_channel::<Sibling>(SIBLING_PARA_ID, KINTSUGI_PARA_ID);
+        accept_open_channel::<Kintsugi>(SIBLING_PARA_ID, KINTSUGI_PARA_ID);
+
+        // check that Bob received left-over funds (from both Kintsugi and Sibling):
+        KusamaNet::execute_with(|| {
+            assert_eq!(
+                kusama_runtime::Balances::free_balance(&AccountId::from(BOB)),
+                1_638_400_000_100
+            );
+        });
+    }
+}
+
 #[test]
 fn transfer_from_relay_chain() {
     KusamaNet::execute_with(|| {
@@ -37,6 +165,14 @@ fn transfer_from_relay_chain() {
 
 #[test]
 fn transfer_to_relay_chain() {
+    KusamaNet::execute_with(|| {
+        assert_ok!(kusama_runtime::Balances::transfer(
+            kusama_runtime::Origin::signed(ALICE.into()),
+            sp_runtime::MultiAddress::Id(kintsugi_sovereign_account_on_kusama()),
+            2 * KSM.one()
+        ));
+    });
+
     Kintsugi::execute_with(|| {
         assert_ok!(XTokens::transfer(
             Origin::signed(ALICE.into()),
