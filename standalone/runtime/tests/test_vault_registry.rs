@@ -244,6 +244,14 @@ fn integration_test_vault_registry_with_parachain_shutdown_fails() {
             .dispatch(origin_of(account_of(VAULT))),
             SystemError::CallFiltered
         );
+        assert_noop!(
+            Call::VaultRegistry(VaultRegistryCall::set_control_account {
+                currency_pair: vault_id.currencies.clone(),
+                control_id: account_of(USER)
+            })
+            .dispatch(origin_of(account_of(VAULT))),
+            SystemError::CallFiltered
+        );
     });
 }
 
@@ -304,5 +312,24 @@ fn integration_test_vault_registry_register_respects_fund_limit() {
         );
 
         assert_ok!(get_register_vault_result(&user_vault_id, remaining));
+    });
+}
+
+#[test]
+fn integration_test_set_control_account() {
+    test_with_initialized_vault(|vault_id| {
+        assert_ok!(Call::VaultRegistry(VaultRegistryCall::set_control_account {
+            currency_pair: vault_id.currencies.clone(),
+            control_id: account_of(USER)
+        })
+        .dispatch(origin_of(account_of(VAULT))));
+        assert_noop!(
+            Call::Issue(IssueCall::accept_new_issues {
+                currency_pair: vault_id.currencies.clone(),
+                accept_new_issues: false
+            })
+            .dispatch(origin_of(account_of(VAULT))),
+            VaultRegistryError::InvalidControlKey
+        );
     });
 }

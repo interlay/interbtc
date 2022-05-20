@@ -226,6 +226,7 @@ pub mod pallet {
         /// is used for a redeem request (full release can take multiple redeem requests).
         ///
         /// # Arguments
+        /// * `currency_pair` - the currency pair of the vault ID
         /// * `amount` - the amount of collateral to withdraw
         ///
         /// # Errors
@@ -278,11 +279,13 @@ pub mod pallet {
         #[transactional]
         pub fn register_address(
             origin: OriginFor<T>,
+            stash_id: T::AccountId,
             currency_pair: DefaultVaultCurrencyPair<T>,
             btc_address: BtcAddress,
         ) -> DispatchResultWithPostInfo {
-            let account_id = ensure_signed(origin)?;
-            let vault_id = VaultId::new(account_id, currency_pair.collateral, currency_pair.wrapped);
+            let control_id = ensure_signed(origin)?;
+            let vault_id = VaultId::new(stash_id, currency_pair.collateral, currency_pair.wrapped);
+            Self::ensure_valid_control_id(&vault_id, control_id)?;
             Self::insert_vault_deposit_address(vault_id.clone(), btc_address)?;
             Self::deposit_event(Event::<T>::RegisterAddress {
                 vault_id,
@@ -303,11 +306,13 @@ pub mod pallet {
         #[transactional]
         pub fn accept_new_issues(
             origin: OriginFor<T>,
+            stash_id: T::AccountId,
             currency_pair: DefaultVaultCurrencyPair<T>,
             accept_new_issues: bool,
         ) -> DispatchResultWithPostInfo {
-            let account_id = ensure_signed(origin)?;
-            let vault_id = VaultId::new(account_id, currency_pair.collateral, currency_pair.wrapped);
+            let control_id = ensure_signed(origin)?;
+            let vault_id = VaultId::new(stash_id, currency_pair.collateral, currency_pair.wrapped);
+            Self::ensure_valid_control_id(&vault_id, control_id)?;
             let mut vault = Self::get_active_rich_vault_from_id(&vault_id)?;
             vault.set_accept_new_issues(accept_new_issues)?;
             Ok(().into())
@@ -416,6 +421,31 @@ pub mod pallet {
             ensure_root(origin)?;
             Self::_set_liquidation_collateral_threshold(currency_pair, threshold);
             Ok(())
+        }
+
+        /// Set a control account, that make certain transactions on behalf of a stash account, which is used to manage
+        /// a Vault's collateral.
+        ///
+        /// # Arguments
+        /// * `currency_pair` - the currency pair of the vault ID
+        /// * `control_id` - the control account
+        #[pallet::weight(<T as Config>::WeightInfo::set_control_account())]
+        #[transactional]
+        pub fn set_control_account(
+            origin: OriginFor<T>,
+            currency_pair: DefaultVaultCurrencyPair<T>,
+            control_id: T::AccountId,
+        ) -> DispatchResultWithPostInfo {
+            let account_id = ensure_signed(origin)?;
+            let vault_id = VaultId::new(account_id, currency_pair.collateral, currency_pair.wrapped);
+            let mut vault = Self::get_active_rich_vault_from_id(&vault_id)?;
+            vault.set_control_account(control_id.clone())?;
+
+            Self::deposit_event(Event::<T>::NewControlAccount {
+                vault_id: vault.id(),
+                control_id,
+            });
+            Ok(().into())
         }
     }
 
@@ -528,6 +558,10 @@ pub mod pallet {
             vault_id: DefaultVaultId<T>,
             banned_until: T::BlockNumber,
         },
+        NewControlAccount {
+            vault_id: DefaultVaultId<T>,
+            control_id: T::AccountId,
+        },
     }
 
     #[pallet::error]
@@ -564,6 +598,9 @@ pub mod pallet {
         NoBitcoinPublicKey,
         /// A bitcoin public key was already registered for this account.
         PublicKeyAlreadyRegistered,
+        /// The signing account does not control the vault ID associated with the
+        /// stash key.
+        InvalidControlKey,
 
         // Errors used exclusively in RPC functions
         /// Collateralization is infinite if no tokens are issued
@@ -863,6 +900,17 @@ impl<T: Config> Pallet<T> {
         let is_below_threshold =
             Pallet::<T>::is_collateral_below_secure_threshold(&new_collateral, &vault.backed_tokens()?)?;
         Ok(!is_below_threshold)
+    }
+
+    /// Checks if the signing account controls the vault ID associated with the
+    /// stash key.
+    pub fn ensure_valid_control_id(
+        vault_id: &DefaultVaultId<T>,
+        control_id: T::AccountId,
+    ) -> Result<(), DispatchError> {
+        let vault = Self::get_rich_vault_from_id(&vault_id)?;
+        ensure!(vault.control() == control_id, Error::<T>::InvalidControlKey);
+        Ok(())
     }
 
     pub fn transfer_funds_saturated(

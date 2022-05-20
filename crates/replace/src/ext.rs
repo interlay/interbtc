@@ -149,6 +149,13 @@ pub(crate) mod vault_registry {
         <vault_registry::Pallet<T>>::is_allowed_to_withdraw_collateral(vault_id, amount)
     }
 
+    pub fn ensure_valid_control_id<T: crate::Config>(
+        vault_id: &DefaultVaultId<T>,
+        control_id: T::AccountId,
+    ) -> Result<(), DispatchError> {
+        <vault_registry::Pallet<T>>::ensure_valid_control_id(vault_id, control_id)
+    }
+
     pub fn calculate_collateral<T: crate::Config>(
         collateral: &Amount<T>,
         numerator: &Amount<T>,

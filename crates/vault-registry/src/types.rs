@@ -231,6 +231,9 @@ impl Default for VaultStatus {
 pub struct Vault<AccountId, BlockNumber, Balance, CurrencyId: Copy> {
     /// Account identifier of the Vault
     pub id: VaultId<AccountId, CurrencyId>,
+    /// The Control account can transact on behalf of the Stash account, which is the
+    /// `AccountId` comprising the `VaultId`.
+    pub control: AccountId,
     /// Bitcoin address of this Vault (P2PKH, P2SH, P2WPKH, P2WSH)
     pub wallet: Wallet,
     /// Current status of the vault
@@ -272,14 +275,15 @@ pub struct SystemVault<Balance, CurrencyId: Copy> {
     pub currency_pair: VaultCurrencyPair<CurrencyId>,
 }
 
-impl<AccountId: Ord, BlockNumber: Default, Balance: HasCompact + Default, CurrencyId: Copy>
+impl<AccountId: Ord + Clone, BlockNumber: Default, Balance: HasCompact + Default, CurrencyId: Copy>
     Vault<AccountId, BlockNumber, Balance, CurrencyId>
 {
     // note: public only for testing purposes
     pub fn new(id: VaultId<AccountId, CurrencyId>) -> Vault<AccountId, BlockNumber, Balance, CurrencyId> {
         let wallet = Wallet::new();
         Vault {
-            id,
+            id: id.clone(),
+            control: id.account_id,
             wallet,
             banned_until: None,
             status: VaultStatus::Active(true),
@@ -311,6 +315,8 @@ pub type DefaultSystemVault<T> = SystemVault<BalanceOf<T>, CurrencyId<T>>;
 pub(crate) trait UpdatableVault<T: Config> {
     fn id(&self) -> DefaultVaultId<T>;
 
+    fn control(&self) -> T::AccountId;
+
     fn issued_tokens(&self) -> Amount<T>;
 
     fn to_be_issued_tokens(&self) -> Amount<T>;
@@ -335,6 +341,10 @@ pub struct RichVault<T: Config> {
 impl<T: Config> UpdatableVault<T> for RichVault<T> {
     fn id(&self) -> DefaultVaultId<T> {
         self.data.id.clone()
+    }
+
+    fn control(&self) -> T::AccountId {
+        self.data.control.clone()
     }
 
     fn issued_tokens(&self) -> Amount<T> {
@@ -549,6 +559,13 @@ impl<T: Config> RichVault<T> {
     pub(crate) fn set_accept_new_issues(&mut self, accept_new_issues: bool) -> DispatchResult {
         self.update(|v| {
             v.status = VaultStatus::Active(accept_new_issues);
+            Ok(())
+        })
+    }
+
+    pub(crate) fn set_control_account(&mut self, control_id: T::AccountId) -> DispatchResult {
+        self.update(|v| {
+            v.control = control_id.clone();
             Ok(())
         })
     }
@@ -812,6 +829,10 @@ impl<T: Config> UpdatableVault<T> for RichSystemVault<T> {
             self.data.currency_pair.collateral,
             self.data.currency_pair.wrapped,
         )
+    }
+
+    fn control(&self) -> T::AccountId {
+        Pallet::<T>::liquidation_vault_account_id()
     }
 
     fn issued_tokens(&self) -> Amount<T> {

@@ -206,10 +206,13 @@ pub mod pallet {
         #[transactional]
         pub fn request_replace(
             origin: OriginFor<T>,
+            stash_id: T::AccountId,
             currency_pair: DefaultVaultCurrencyPair<T>,
             #[pallet::compact] amount: BalanceOf<T>,
         ) -> DispatchResultWithPostInfo {
-            let old_vault = VaultId::new(ensure_signed(origin)?, currency_pair.collateral, currency_pair.wrapped);
+            let control_id = ensure_signed(origin)?;
+            let old_vault = VaultId::new(stash_id, currency_pair.collateral, currency_pair.wrapped);
+            ext::vault_registry::ensure_valid_control_id::<T>(&old_vault, control_id)?;
             Self::_request_replace(old_vault, amount)?;
             Ok(().into())
         }
@@ -223,10 +226,13 @@ pub mod pallet {
         #[transactional]
         pub fn withdraw_replace(
             origin: OriginFor<T>,
+            stash_id: T::AccountId,
             currency_pair: DefaultVaultCurrencyPair<T>,
             #[pallet::compact] amount: BalanceOf<T>,
         ) -> DispatchResultWithPostInfo {
-            let old_vault = VaultId::new(ensure_signed(origin)?, currency_pair.collateral, currency_pair.wrapped);
+            let control_id = ensure_signed(origin)?;
+            let old_vault = VaultId::new(stash_id, currency_pair.collateral, currency_pair.wrapped);
+            ext::vault_registry::ensure_valid_control_id::<T>(&old_vault, control_id)?;
             Self::_withdraw_replace_request(old_vault, amount)?;
             Ok(().into())
         }
@@ -243,13 +249,16 @@ pub mod pallet {
         #[transactional]
         pub fn accept_replace(
             origin: OriginFor<T>,
+            stash_id: T::AccountId,
             currency_pair: DefaultVaultCurrencyPair<T>,
             old_vault: DefaultVaultId<T>,
             #[pallet::compact] amount_btc: BalanceOf<T>,
             #[pallet::compact] collateral: BalanceOf<T>,
             btc_address: BtcAddress,
         ) -> DispatchResultWithPostInfo {
-            let new_vault = VaultId::new(ensure_signed(origin)?, currency_pair.collateral, currency_pair.wrapped);
+            let control_id = ensure_signed(origin)?;
+            let new_vault = VaultId::new(stash_id, currency_pair.collateral, currency_pair.wrapped);
+            ext::vault_registry::ensure_valid_control_id::<T>(&old_vault, control_id)?;
             Self::_accept_replace(old_vault, new_vault, amount_btc, collateral, btc_address)?;
             Ok(().into())
         }
@@ -258,7 +267,7 @@ pub mod pallet {
         ///
         /// # Arguments
         ///
-        /// * `origin` - sender of the transaction: the new vault
+        /// * `origin` - sender of the transaction: can be anyone
         /// * `replace_id` - the ID of the replacement request
         /// * 'merkle_proof' - the merkle root of the block
         /// * `raw_tx` - the transaction id in bytes
@@ -283,9 +292,13 @@ pub mod pallet {
         /// * `replace_id` - the ID of the replacement request
         #[pallet::weight(<T as Config>::WeightInfo::cancel_replace())]
         #[transactional]
-        pub fn cancel_replace(origin: OriginFor<T>, replace_id: H256) -> DispatchResultWithPostInfo {
+        pub fn cancel_replace(
+            origin: OriginFor<T>,
+            stash_id: T::AccountId,
+            replace_id: H256,
+        ) -> DispatchResultWithPostInfo {
             let new_vault = ensure_signed(origin)?;
-            Self::_cancel_replace(new_vault, replace_id)?;
+            Self::_cancel_replace(stash_id, new_vault, replace_id)?;
             Ok(().into())
         }
 
@@ -545,7 +558,7 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
-    fn _cancel_replace(caller: T::AccountId, replace_id: H256) -> Result<(), DispatchError> {
+    fn _cancel_replace(stash_id: T::AccountId, caller: T::AccountId, replace_id: H256) -> Result<(), DispatchError> {
         // Retrieve the ReplaceRequest as per the replaceId parameter from Vaults in the VaultRegistry
         let replace = Self::get_open_replace_request(&replace_id)?;
 
@@ -566,7 +579,8 @@ impl<T: Config> Pallet<T> {
         let new_vault_id = replace.new_vault;
 
         // only cancellable by new_vault
-        ensure!(caller == new_vault_id.account_id, Error::<T>::UnauthorizedVault);
+        ext::vault_registry::ensure_valid_control_id::<T>(&new_vault_id, caller)?;
+        ensure!(new_vault_id.account_id == stash_id, Error::<T>::UnauthorizedVault);
 
         // decrease old-vault's to-be-redeemed tokens, and
         // decrease new-vault's to-be-issued tokens
