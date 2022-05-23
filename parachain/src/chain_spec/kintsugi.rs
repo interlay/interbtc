@@ -1,5 +1,7 @@
 use super::*;
 
+pub const PARA_ID: u32 = 2092;
+
 fn kintsugi_properties() -> Map<String, Value> {
     let mut properties = Map::new();
     let mut token_symbol: Vec<String> = vec![];
@@ -22,8 +24,37 @@ fn default_pair_kintsugi(currency_id: CurrencyId) -> VaultCurrencyPair<CurrencyI
     }
 }
 
+pub fn kintsugi_dev_config() -> KintsugiChainSpec {
+    let id: ParaId = PARA_ID.into();
+    KintsugiChainSpec::from_genesis(
+        "Kintsugi",
+        "kintsugi",
+        ChainType::Live,
+        move || {
+            kintsugi_mainnet_genesis(
+                vec![get_from_seed::<AuraId>("Alice")],
+                vec![(
+                    get_account_id_from_seed::<sr25519::Public>("Bob"),
+                    "Bob".as_bytes().to_vec(),
+                )],
+                id,
+                1,
+            )
+        },
+        Vec::new(),
+        None,
+        None,
+        None,
+        Some(kintsugi_properties()),
+        Extensions {
+            relay_chain: "kusama".into(),
+            para_id: id.into(),
+        },
+    )
+}
+
 pub fn kintsugi_mainnet_config() -> KintsugiChainSpec {
-    let id: ParaId = 2092.into();
+    let id: ParaId = PARA_ID.into();
     KintsugiChainSpec::from_genesis(
         "Kintsugi",
         "kintsugi",

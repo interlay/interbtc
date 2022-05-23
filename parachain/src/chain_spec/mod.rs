@@ -20,7 +20,7 @@ pub mod kintsugi;
 pub mod testnet;
 
 // The URL for the telemetry server.
-pub const TELEMETRY_URL: &str = "wss://telemetry.polkadot.io/submit/";
+// pub const TELEMETRY_URL: &str = "wss://telemetry.polkadot.io/submit/";
 
 pub type DummyChainSpec = sc_service::GenericChainSpec<(), Extensions>;
 

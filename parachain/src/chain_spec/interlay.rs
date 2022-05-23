@@ -1,5 +1,7 @@
 use super::*;
 
+pub const PARA_ID: u32 = 2032;
+
 fn interlay_properties() -> Map<String, Value> {
     let mut properties = Map::new();
     let mut token_symbol: Vec<String> = vec![];
@@ -22,8 +24,37 @@ fn default_pair_interlay(currency_id: CurrencyId) -> VaultCurrencyPair<CurrencyI
     }
 }
 
+pub fn interlay_dev_config() -> InterlayChainSpec {
+    let id: ParaId = PARA_ID.into();
+    InterlayChainSpec::from_genesis(
+        "Interlay",
+        "interlay",
+        ChainType::Live,
+        move || {
+            interlay_mainnet_genesis(
+                vec![get_authority_keys_from_seed("Alice")],
+                vec![(
+                    get_account_id_from_seed::<sr25519::Public>("Bob"),
+                    "Bob".as_bytes().to_vec(),
+                )],
+                id,
+                1,
+            )
+        },
+        Vec::new(),
+        None,
+        None,
+        None,
+        Some(interlay_properties()),
+        Extensions {
+            relay_chain: "polkadot".into(),
+            para_id: id.into(),
+        },
+    )
+}
+
 pub fn interlay_mainnet_config() -> InterlayChainSpec {
-    let id: ParaId = 2032.into();
+    let id: ParaId = PARA_ID.into();
     InterlayChainSpec::from_genesis(
         "Interlay",
         "interlay",

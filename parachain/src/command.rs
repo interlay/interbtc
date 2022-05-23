@@ -76,10 +76,12 @@ fn load_spec(id: &str) -> std::result::Result<Box<dyn sc_service::ChainSpec>, St
         "rococo-local-2000" => Box::new(chain_spec::testnet::rococo_local_testnet_config(2000.into())),
         "rococo-local-3000" => Box::new(chain_spec::testnet::rococo_local_testnet_config(3000.into())),
         "westend" => Box::new(chain_spec::testnet::westend_testnet_config(DEFAULT_PARA_ID.into())),
+        "kintsugi-dev" => Box::new(chain_spec::kintsugi::kintsugi_dev_config()),
         "kintsugi-latest" => Box::new(chain_spec::kintsugi::kintsugi_mainnet_config()),
         "kintsugi" => Box::new(chain_spec::KintsugiChainSpec::from_json_bytes(
             &include_bytes!("../res/kintsugi.json")[..],
         )?),
+        "interlay-dev" => Box::new(chain_spec::interlay::interlay_dev_config()),
         "interlay-latest" => Box::new(chain_spec::interlay::interlay_mainnet_config()),
         "interlay" => Box::new(chain_spec::InterlayChainSpec::from_json_bytes(
             &include_bytes!("../res/interlay.json")[..],
