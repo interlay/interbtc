@@ -299,6 +299,8 @@ pub mod pallet {
         /// # Arguments
         ///
         /// * `origin` - sender of the transaction (i.e. the vault)
+        /// * `stash_id` - the stash account, controlling the vault's collateral
+        /// * `currency_pair` - the currency pair of the vault ID
         /// * `accept_new_issues` - true indicates that the vault accepts new issues
         ///
         /// # Weight: `O(1)`

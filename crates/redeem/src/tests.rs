@@ -52,6 +52,7 @@ fn inject_redeem_request(key: H256, value: RedeemRequest<AccountId, BlockNumber,
 fn default_vault() -> DefaultVault<Test> {
     vault_registry::Vault {
         id: VAULT,
+        control: VAULT.account_id,
         to_be_replaced_tokens: 0,
         to_be_issued_tokens: 0,
         issued_tokens: 10,
@@ -86,6 +87,7 @@ fn test_request_redeem_fails_with_amount_below_minimum() {
             &VAULT,
             vault_registry::Vault {
                 id: VAULT,
+                control: VAULT.account_id,
                 to_be_replaced_tokens: 0,
                 to_be_issued_tokens: 0,
                 issued_tokens: 10,
@@ -158,6 +160,7 @@ fn test_request_redeem_succeeds_with_normal_redeem() {
             &VAULT,
             vault_registry::Vault {
                 id: VAULT,
+                control: VAULT.account_id,
                 to_be_replaced_tokens: 0,
                 to_be_issued_tokens: 0,
                 issued_tokens: 10,
@@ -242,6 +245,7 @@ fn test_request_redeem_succeeds_with_self_redeem() {
             &VAULT,
             vault_registry::Vault {
                 id: VAULT,
+                control: VAULT.account_id,
                 to_be_replaced_tokens: 0,
                 to_be_issued_tokens: 0,
                 issued_tokens: 10,
@@ -371,6 +375,7 @@ fn test_execute_redeem_succeeds_with_another_account() {
             &VAULT,
             vault_registry::Vault {
                 id: VAULT,
+                control: VAULT.account_id,
                 to_be_replaced_tokens: 0,
                 to_be_issued_tokens: 0,
                 issued_tokens: 200,
@@ -452,6 +457,7 @@ fn test_execute_redeem_succeeds() {
             &VAULT,
             vault_registry::Vault {
                 id: VAULT,
+                control: VAULT.account_id,
                 to_be_replaced_tokens: 0,
                 to_be_issued_tokens: 0,
                 issued_tokens: 200,

@@ -478,6 +478,7 @@ fn integration_test_nominated_collateral_prevents_replace_requests() {
         assert_nominate_collateral(&vault_id, account_of(USER), default_nomination(&vault_id));
         assert_noop!(
             Call::Replace(ReplaceCall::request_replace {
+                stash_id: vault_id.account_id.clone(),
                 currency_pair: vault_id.currencies.clone(),
                 amount: 0,
             })
@@ -493,6 +494,7 @@ fn integration_test_vaults_with_zero_nomination_cannot_request_replacement() {
         let amount = DEFAULT_VAULT_ISSUED - DEFAULT_VAULT_TO_BE_REDEEMED - DEFAULT_VAULT_TO_BE_REPLACED;
         assert_noop!(
             Call::Replace(ReplaceCall::request_replace {
+                stash_id: vault_id.account_id.clone(),
                 currency_pair: vault_id.currencies.clone(),
                 amount: amount.amount(),
             })

@@ -233,6 +233,7 @@ mod request_issue_tests {
     fn integration_test_issue_request_precond_vault_active() {
         test_with_initialized_vault(|vault_id| {
             assert_ok!(Call::VaultRegistry(VaultRegistryCall::accept_new_issues {
+                stash_id: vault_id.account_id.clone(),
                 currency_pair: vault_id.currencies.clone(),
                 accept_new_issues: false
             })

@@ -3,6 +3,7 @@ use currency::Amount;
 
 pub fn request_replace(old_vault_id: &VaultId, amount: Amount<Runtime>) -> Amount<Runtime> {
     assert_ok!(Call::Replace(ReplaceCall::request_replace {
+        stash_id: old_vault_id.account_id.clone(),
         currency_pair: old_vault_id.currencies.clone(),
         amount: amount.amount(),
     })
@@ -73,6 +74,7 @@ pub fn accept_replace(
     // assert_replace_request_event();
 
     Call::Replace(ReplaceCall::accept_replace {
+        stash_id: new_vault_id.account_id.clone(),
         currency_pair: new_vault_id.currencies.clone(),
         old_vault: old_vault_id.clone(),
         amount_btc: amount_btc.amount(),

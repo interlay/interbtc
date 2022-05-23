@@ -77,6 +77,7 @@ fn test_request_issue_banned_fails() {
             &VAULT,
             vault_registry::Vault {
                 id: VAULT,
+                control: VAULT.account_id,
                 to_be_replaced_tokens: 0,
                 to_be_issued_tokens: 0,
                 issued_tokens: 0,

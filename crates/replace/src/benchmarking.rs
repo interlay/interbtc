@@ -179,7 +179,7 @@ benchmarks! {
 
         Oracle::<T>::_set_exchange_rate(get_collateral_currency_id::<T>(), UnsignedFixedPoint::<T>::one()).unwrap();
         VaultRegistry::<T>::_set_system_collateral_ceiling(vault_id.currencies.clone(), 1_000_000_000u32.into());
-    }: _(RawOrigin::Signed(vault_id.account_id.clone()), vault_id.currencies.clone(), amount)
+    }: _(RawOrigin::Signed(vault_id.account_id.clone()), vault_id.account_id.clone(), vault_id.currencies.clone(), amount)
 
     withdraw_replace {
         let vault_id = get_vault_id::<T>("OldVault");
@@ -198,7 +198,7 @@ benchmarks! {
         VaultRegistry::<T>::try_increase_to_be_replaced_tokens(&vault_id, &amount).unwrap();
 
         // TODO: check that an amount was actually withdrawn
-    }: _(RawOrigin::Signed(vault_id.account_id.clone()), vault_id.currencies.clone(), amount.amount())
+    }: _(RawOrigin::Signed(vault_id.account_id.clone()), vault_id.account_id.clone(), vault_id.currencies.clone(), amount.amount())
 
     accept_replace {
         let new_vault_id = get_vault_id::<T>("NewVault");
@@ -229,7 +229,7 @@ benchmarks! {
 
         Oracle::<T>::_set_exchange_rate(get_collateral_currency_id::<T>(), UnsignedFixedPoint::<T>::one()
         ).unwrap();
-    }: _(RawOrigin::Signed(new_vault_id.account_id.clone()), new_vault_id.currencies.clone(), old_vault_id, amount.amount(), griefing, new_vault_btc_address)
+    }: _(RawOrigin::Signed(new_vault_id.account_id.clone()), new_vault_id.account_id.clone(), new_vault_id.currencies.clone(), old_vault_id, amount.amount(), griefing, new_vault_btc_address)
 
     execute_replace {
         let new_vault_id = get_vault_id::<T>("NewVault");
@@ -353,7 +353,7 @@ benchmarks! {
         register_vault::<T>(new_vault_id.clone());
         VaultRegistry::<T>::try_increase_to_be_issued_tokens(&new_vault_id, &amount).unwrap();
 
-    }: _(RawOrigin::Signed(new_vault_id.account_id), replace_id)
+    }: _(RawOrigin::Signed(new_vault_id.account_id.clone()), new_vault_id.account_id.clone(), replace_id)
 
     set_replace_period {
     }: _(RawOrigin::Root, 1u32.into())

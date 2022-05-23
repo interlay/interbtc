@@ -1282,6 +1282,7 @@ mod get_vaults_with_issuable_tokens_tests {
             create_vault_with_collateral(&id2, collateral2);
             assert_ok!(VaultRegistry::accept_new_issues(
                 Origin::signed(id2.account_id),
+                id2.account_id,
                 id2.currencies,
                 false
             ));

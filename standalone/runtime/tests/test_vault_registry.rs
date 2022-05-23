@@ -230,6 +230,7 @@ fn integration_test_vault_registry_with_parachain_shutdown_fails() {
         );
         assert_noop!(
             Call::VaultRegistry(VaultRegistryCall::register_address {
+                stash_id: vault_id.account_id.clone(),
                 currency_pair: vault_id.currencies.clone(),
                 btc_address: Default::default()
             })
@@ -238,6 +239,7 @@ fn integration_test_vault_registry_with_parachain_shutdown_fails() {
         );
         assert_noop!(
             Call::VaultRegistry(VaultRegistryCall::accept_new_issues {
+                stash_id: vault_id.account_id.clone(),
                 currency_pair: vault_id.currencies.clone(),
                 accept_new_issues: false
             })
@@ -315,21 +317,197 @@ fn integration_test_vault_registry_register_respects_fund_limit() {
     });
 }
 
-#[test]
-fn integration_test_set_control_account() {
-    test_with_initialized_vault(|vault_id| {
-        assert_ok!(Call::VaultRegistry(VaultRegistryCall::set_control_account {
-            currency_pair: vault_id.currencies.clone(),
-            control_id: account_of(USER)
-        })
-        .dispatch(origin_of(account_of(VAULT))));
-        assert_noop!(
-            Call::Issue(IssueCall::accept_new_issues {
+mod stash_control_key_split_test {
+    use super::{assert_eq, *};
+
+    #[test]
+    fn integration_test_set_control_account() {
+        test_with(|vault_id| {
+            assert_ok!(Call::VaultRegistry(VaultRegistryCall::set_control_account {
+                currency_pair: vault_id.currencies.clone(),
+                control_id: account_of(USER)
+            })
+            .dispatch(origin_of(account_of(VAULT))));
+
+            // Control account should still be unable to set a new control account.
+            assert_noop!(
+                Call::VaultRegistry(VaultRegistryCall::set_control_account {
+                    currency_pair: vault_id.currencies.clone(),
+                    control_id: account_of(VAULT)
+                })
+                .dispatch(origin_of(account_of(USER))),
+                VaultRegistryError::VaultNotFound
+            );
+        });
+    }
+
+    #[test]
+    fn integration_test_register_address_with_control_account() {
+        test_with(|vault_id| {
+            assert_ok!(Call::VaultRegistry(VaultRegistryCall::set_control_account {
+                currency_pair: vault_id.currencies.clone(),
+                control_id: account_of(USER)
+            })
+            .dispatch(origin_of(account_of(VAULT))));
+
+            // Should fail if called from an origin different
+            // from the control account.
+            assert_noop!(
+                Call::VaultRegistry(VaultRegistryCall::register_address {
+                    stash_id: vault_id.account_id.clone(),
+                    currency_pair: vault_id.currencies.clone(),
+                    btc_address: Default::default()
+                })
+                .dispatch(origin_of(account_of(VAULT))),
+                VaultRegistryError::InvalidControlKey
+            );
+
+            assert_ok!(Call::VaultRegistry(VaultRegistryCall::register_address {
+                stash_id: vault_id.account_id.clone(),
+                currency_pair: vault_id.currencies.clone(),
+                btc_address: Default::default()
+            })
+            .dispatch(origin_of(account_of(USER))));
+        });
+    }
+
+    #[test]
+    fn integration_test_accept_new_issues_with_control_account() {
+        test_with(|vault_id| {
+            assert_ok!(Call::VaultRegistry(VaultRegistryCall::set_control_account {
+                currency_pair: vault_id.currencies.clone(),
+                control_id: account_of(USER)
+            })
+            .dispatch(origin_of(account_of(VAULT))));
+
+            // Should fail if called from an origin different
+            // from the control account.
+            assert_noop!(
+                Call::VaultRegistry(VaultRegistryCall::accept_new_issues {
+                    stash_id: vault_id.account_id.clone(),
+                    currency_pair: vault_id.currencies.clone(),
+                    accept_new_issues: false
+                })
+                .dispatch(origin_of(account_of(VAULT))),
+                VaultRegistryError::InvalidControlKey
+            );
+
+            assert_ok!(Call::VaultRegistry(VaultRegistryCall::accept_new_issues {
+                stash_id: vault_id.account_id.clone(),
                 currency_pair: vault_id.currencies.clone(),
                 accept_new_issues: false
             })
-            .dispatch(origin_of(account_of(VAULT))),
-            VaultRegistryError::InvalidControlKey
-        );
-    });
+            .dispatch(origin_of(account_of(USER))));
+        });
+    }
+
+    #[test]
+    fn integration_test_request_replace_with_control_account() {
+        test_with(|vault_id| {
+
+            assert_ok!(Call::VaultRegistry(VaultRegistryCall::set_control_account {
+                currency_pair: vault_id.currencies.clone(),
+                control_id: account_of(USER)
+            })
+            .dispatch(origin_of(vault_id.account_id.clone())));
+
+            // Should fail if called from an origin different
+            // from the control account.
+            assert_noop!(
+                Call::Replace(ReplaceCall::request_replace {
+                    stash_id: vault_id.account_id.clone(),
+                    currency_pair: vault_id.currencies.clone(),
+                    amount: 1,
+                })
+                .dispatch(origin_of(vault_id.account_id.clone())),
+                VaultRegistryError::InvalidControlKey
+            );
+
+            assert_ok!(
+                Call::Replace(ReplaceCall::request_replace {
+                    stash_id: vault_id.account_id.clone(),
+                    currency_pair: vault_id.currencies.clone(),
+                    amount: 1,
+                })
+                .dispatch(origin_of(account_of(USER)))
+            );
+        });
+    }
+
+    #[test]
+    fn integration_test_withdraw_replace_with_control_account() {
+        test_with(|vault_id| {
+
+            assert_ok!(Call::VaultRegistry(VaultRegistryCall::set_control_account {
+                currency_pair: vault_id.currencies.clone(),
+                control_id: account_of(USER)
+            })
+            .dispatch(origin_of(vault_id.account_id.clone())));
+
+            // Should fail if called from an origin different
+            // from the control account.
+            assert_noop!(
+                Call::Replace(ReplaceCall::withdraw_replace {
+                    stash_id: vault_id.account_id.clone(),
+                    currency_pair: vault_id.currencies.clone(),
+                    amount: 1,
+                })
+                .dispatch(origin_of(vault_id.account_id.clone())),
+                VaultRegistryError::InvalidControlKey
+            );
+
+            assert_ok!(
+                Call::Replace(ReplaceCall::withdraw_replace {
+                    stash_id: vault_id.account_id.clone(),
+                    currency_pair: vault_id.currencies.clone(),
+                    amount: 1,
+                })
+                .dispatch(origin_of(account_of(USER)))
+            );
+        });
+    }
+
+    #[test]
+    fn integration_test_accept_replace_with_control_account() {
+        test_with(|vault_id| {
+
+            assert_ok!(Call::VaultRegistry(VaultRegistryCall::set_control_account {
+                currency_pair: vault_id.currencies.clone(),
+                control_id: account_of(USER)
+            })
+            .dispatch(origin_of(vault_id.account_id.clone())));
+
+            // Should fail if called from an origin different
+            // from the control account.
+            assert_noop!(
+                Call::Replace(ReplaceCall::accept_replace {
+                    stash_id: vault_id.account_id.clone(),
+                    currency_pair: vault_id.currencies.clone(),
+                    old_vault: vault_id.clone(),
+                    amount_btc: 1,
+                    collateral: 1,
+                    btc_address: Default::default()
+
+                })
+                .dispatch(origin_of(vault_id.account_id.clone())),
+                VaultRegistryError::InvalidControlKey
+            );
+
+            // Error should be different, indicating that execution moved past
+            // the control account check.
+            assert_noop!(
+                Call::Replace(ReplaceCall::accept_replace {
+                    stash_id: vault_id.account_id.clone(),
+                    currency_pair: vault_id.currencies.clone(),
+                    old_vault: vault_id.clone(),
+                    amount_btc: 1,
+                    collateral: 1,
+                    btc_address: Default::default()
+                })
+                .dispatch(origin_of(account_of(USER))),
+                ReplaceError::ReplaceSelfNotAllowed
+            );
+        });
+    }
+
 }

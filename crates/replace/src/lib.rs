@@ -200,8 +200,9 @@ pub mod pallet {
         /// # Arguments
         ///
         /// * `origin` - sender of the transaction
+        /// * `stash_id` - the stash account, controlling the vault's collateral
+        /// * `currency_pair` - the currency pair of the vault ID
         /// * `amount` - amount of issued tokens
-        /// * `griefing_collateral` - amount of collateral
         #[pallet::weight(<T as Config>::WeightInfo::request_replace())]
         #[transactional]
         pub fn request_replace(
@@ -222,6 +223,9 @@ pub mod pallet {
         /// # Arguments
         ///
         /// * `origin` - sender of the transaction: the old vault
+        /// * `stash_id` - the stash account, controlling the vault's collateral
+        /// * `currency_pair` - the currency pair of the vault ID
+        /// * `amount` - amount of issued tokens
         #[pallet::weight(<T as Config>::WeightInfo::withdraw_replace())]
         #[transactional]
         pub fn withdraw_replace(
@@ -242,7 +246,10 @@ pub mod pallet {
         /// # Arguments
         ///
         /// * `origin` - the initiator of the transaction: the new vault
+        /// * `stash_id` - the stash account, controlling the vault's collateral
+        /// * `currency_pair` - the currency pair of the vault ID
         /// * `old_vault` - id of the old vault that we are (possibly partially) replacing
+        /// * `amount_btc` - amount of issued tokens
         /// * `collateral` - the collateral for replacement
         /// * `btc_address` - the address that old-vault should transfer the btc to
         #[pallet::weight(<T as Config>::WeightInfo::accept_replace())]
@@ -258,7 +265,7 @@ pub mod pallet {
         ) -> DispatchResultWithPostInfo {
             let control_id = ensure_signed(origin)?;
             let new_vault = VaultId::new(stash_id, currency_pair.collateral, currency_pair.wrapped);
-            ext::vault_registry::ensure_valid_control_id::<T>(&old_vault, control_id)?;
+            ext::vault_registry::ensure_valid_control_id::<T>(&new_vault, control_id)?;
             Self::_accept_replace(old_vault, new_vault, amount_btc, collateral, btc_address)?;
             Ok(().into())
         }
@@ -289,6 +296,7 @@ pub mod pallet {
         /// # Arguments
         ///
         /// * `origin` - sender of the transaction: the new vault
+        /// * `stash_id` - the stash account, controlling the vault's collateral
         /// * `replace_id` - the ID of the replacement request
         #[pallet::weight(<T as Config>::WeightInfo::cancel_replace())]
         #[transactional]

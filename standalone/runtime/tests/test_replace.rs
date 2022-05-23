@@ -65,6 +65,7 @@ fn test_without_initialization<R>(execute: impl Fn(CurrencyId) -> R) {
 
 pub fn withdraw_replace(old_vault_id: &VaultId, amount: Amount<Runtime>) -> DispatchResultWithPostInfo {
     Call::Replace(ReplaceCall::withdraw_replace {
+        stash_id: old_vault_id.account_id.clone(),
         currency_pair: old_vault_id.currencies.clone(),
         amount: amount.amount(),
     })
@@ -190,6 +191,7 @@ mod accept_replace_tests {
     fn integration_test_replace_accept_replace_by_vault_that_does_not_accept_issues_succeeds() {
         test_with(|old_vault_id, new_vault_id| {
             assert_ok!(Call::VaultRegistry(VaultRegistryCall::accept_new_issues {
+                stash_id: new_vault_id.account_id.clone(),
                 currency_pair: new_vault_id.currencies.clone(),
                 accept_new_issues: false
             })
@@ -302,6 +304,7 @@ mod request_replace_tests {
 
             assert_noop!(
                 Call::Replace(ReplaceCall::request_replace {
+                    stash_id: account_of(OLD_VAULT),
                     currency_pair: VaultCurrencyPair {
                         collateral: Token(DOT),
                         wrapped: Token(DOT),
@@ -385,6 +388,7 @@ mod request_replace_tests {
         test_with(|old_vault_id, _new_vault_id| {
             assert_noop!(
                 Call::Replace(ReplaceCall::request_replace {
+                    stash_id: old_vault_id.account_id.clone(),
                     currency_pair: old_vault_id.currencies.clone(),
                     amount: 0,
                 })
@@ -544,7 +548,11 @@ mod expiry_test {
     }
 
     fn cancel_replace(replace_id: H256) -> DispatchResultWithPostInfo {
-        Call::Replace(ReplaceCall::cancel_replace { replace_id: replace_id }).dispatch(origin_of(account_of(NEW_VAULT)))
+        Call::Replace(ReplaceCall::cancel_replace {
+            stash_id: account_of(NEW_VAULT),
+            replace_id: replace_id,
+        })
+        .dispatch(origin_of(account_of(NEW_VAULT)))
     }
 
     #[test]
@@ -686,6 +694,7 @@ fn integration_test_replace_with_parachain_shutdown_fails() {
 
         assert_noop!(
             Call::Replace(ReplaceCall::request_replace {
+                stash_id: old_vault_id.account_id.clone(),
                 currency_pair: old_vault_id.currencies.clone(),
                 amount: old_vault_id.wrapped(0).amount(),
             })
@@ -719,6 +728,7 @@ fn integration_test_replace_with_parachain_shutdown_fails() {
 
         assert_noop!(
             Call::Replace(ReplaceCall::cancel_replace {
+                stash_id: account_of(OLD_VAULT),
                 replace_id: Default::default()
             })
             .dispatch(origin_of(account_of(OLD_VAULT))),
@@ -736,8 +746,11 @@ fn integration_test_replace_cancel_replace() {
         // new_vault cancels replacement
         mine_blocks(2);
         SecurityPallet::set_active_block_number(30);
-        assert_ok!(Call::Replace(ReplaceCall::cancel_replace { replace_id: replace_id })
-            .dispatch(origin_of(new_vault_id.account_id.clone())));
+        assert_ok!(Call::Replace(ReplaceCall::cancel_replace {
+            stash_id: new_vault_id.account_id.clone(),
+            replace_id: replace_id
+        })
+        .dispatch(origin_of(new_vault_id.account_id.clone())));
     });
 }
 
@@ -773,8 +786,11 @@ fn cancel_replace(replace_id: H256) {
     // set block height
     mine_blocks(2);
     SecurityPallet::set_active_block_number(30);
-    assert_ok!(Call::Replace(ReplaceCall::cancel_replace { replace_id: replace_id })
-        .dispatch(origin_of(account_of(NEW_VAULT))));
+    assert_ok!(Call::Replace(ReplaceCall::cancel_replace {
+        stash_id: account_of(NEW_VAULT),
+        replace_id: replace_id
+    })
+    .dispatch(origin_of(account_of(NEW_VAULT))));
 }
 
 #[test]
@@ -1148,5 +1164,40 @@ fn integration_test_replace_vault_with_different_currency_succeeds() {
                 *old_vault.free_balance.get_mut(&DEFAULT_GRIEFING_CURRENCY).unwrap() += replace.griefing_collateral();
             })
         );
+    });
+}
+
+#[test]
+fn integration_test_cancel_replace_with_control_account() {
+    test_with(|old_vault_id, new_vault_id| {
+        let (_, replace_id) = setup_replace(&old_vault_id, &new_vault_id, old_vault_id.wrapped(1000));
+
+        // set block height
+        // new_vault cancels replacement
+        mine_blocks(2);
+        SecurityPallet::set_active_block_number(30);
+
+        assert_ok!(Call::VaultRegistry(VaultRegistryCall::set_control_account {
+            currency_pair: new_vault_id.currencies.clone(),
+            control_id: account_of(USER)
+        })
+        .dispatch(origin_of(new_vault_id.account_id.clone())));
+
+        // Should fail if called from an origin different
+        // from the control account.
+        assert_noop!(
+            Call::Replace(ReplaceCall::cancel_replace {
+                stash_id: new_vault_id.account_id.clone(),
+                replace_id
+            })
+            .dispatch(origin_of(new_vault_id.account_id.clone())),
+            VaultRegistryError::InvalidControlKey
+        );
+
+        assert_ok!(Call::Replace(ReplaceCall::cancel_replace {
+            stash_id: new_vault_id.account_id.clone(),
+            replace_id
+        })
+        .dispatch(origin_of(account_of(USER))));
     });
 }
