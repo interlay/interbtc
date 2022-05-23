@@ -70,22 +70,22 @@ impl<T: sc_service::ChainSpec + 'static> IdentifyChain for T {
 
 fn load_spec(id: &str) -> std::result::Result<Box<dyn sc_service::ChainSpec>, String> {
     Ok(match id {
-        "" => Box::new(chain_spec::local_config(DEFAULT_PARA_ID.into())),
-        "dev" => Box::new(chain_spec::development_config(DEFAULT_PARA_ID.into())),
-        "rococo" => Box::new(chain_spec::rococo_testnet_config(DEFAULT_PARA_ID.into())),
-        "rococo-local-2000" => Box::new(chain_spec::rococo_local_testnet_config(2000.into())),
-        "rococo-local-3000" => Box::new(chain_spec::rococo_local_testnet_config(3000.into())),
-        "westend" => Box::new(chain_spec::westend_testnet_config(DEFAULT_PARA_ID.into())),
-        "kintsugi-latest" => Box::new(chain_spec::kintsugi_mainnet_config()),
+        "" => Box::new(chain_spec::testnet::local_config(DEFAULT_PARA_ID.into())),
+        "dev" => Box::new(chain_spec::testnet::development_config(DEFAULT_PARA_ID.into())),
+        "rococo" => Box::new(chain_spec::testnet::rococo_testnet_config(DEFAULT_PARA_ID.into())),
+        "rococo-local-2000" => Box::new(chain_spec::testnet::rococo_local_testnet_config(2000.into())),
+        "rococo-local-3000" => Box::new(chain_spec::testnet::rococo_local_testnet_config(3000.into())),
+        "westend" => Box::new(chain_spec::testnet::westend_testnet_config(DEFAULT_PARA_ID.into())),
+        "kintsugi-latest" => Box::new(chain_spec::kintsugi::kintsugi_mainnet_config()),
         "kintsugi" => Box::new(chain_spec::KintsugiChainSpec::from_json_bytes(
             &include_bytes!("../res/kintsugi.json")[..],
         )?),
-        "interlay-latest" => Box::new(chain_spec::interlay_mainnet_config()),
+        "interlay-latest" => Box::new(chain_spec::interlay::interlay_mainnet_config()),
         "interlay" => Box::new(chain_spec::InterlayChainSpec::from_json_bytes(
             &include_bytes!("../res/interlay.json")[..],
         )?),
-        "staging-latest" => Box::new(chain_spec::staging_testnet_config(DEFAULT_PARA_ID.into())),
-        "moonbase-alpha" => Box::new(chain_spec::staging_testnet_config(1002.into())),
+        "staging-latest" => Box::new(chain_spec::testnet::staging_testnet_config(DEFAULT_PARA_ID.into())),
+        "moonbase-alpha" => Box::new(chain_spec::testnet::staging_testnet_config(1002.into())),
         path => {
             let chain_spec = chain_spec::DummyChainSpec::from_json_file(path.into())?;
             if chain_spec.is_interlay() {
