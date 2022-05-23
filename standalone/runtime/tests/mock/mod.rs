@@ -756,7 +756,7 @@ impl SingleLiquidationVault {
 #[derive(Debug, PartialEq, Clone)]
 pub struct LiquidationVaultData {
     // note: we use BTreeMap such that the debug print output is sorted, for easier diffing
-    liquidation_vaults: BTreeMap<DefaultVaultCurrencyPair<Runtime>, SingleLiquidationVault>,
+    pub liquidation_vaults: BTreeMap<DefaultVaultCurrencyPair<Runtime>, SingleLiquidationVault>,
 }
 
 impl LiquidationVaultData {
@@ -813,6 +813,16 @@ impl LiquidationVaultData {
             liquidation_vault
                 .increase_to_be_redeemed(&(target.to_be_redeemed - current.to_be_redeemed))
                 .unwrap();
+
+            // reset collateral to 0
+            VaultRegistryPallet::transfer_funds(
+                CurrencySource::LiquidationVault(currency_pair.clone()),
+                CurrencySource::FreeBalance(account_of(FAUCET)),
+                &liquidation_vault.collateral(),
+            )
+            .unwrap();
+
+            // set to desired amount
             VaultRegistryPallet::transfer_funds(
                 CurrencySource::FreeBalance(account_of(FAUCET)),
                 CurrencySource::LiquidationVault(currency_pair.clone()),
