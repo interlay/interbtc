@@ -783,6 +783,7 @@ impl<T: Config> RichSystemVault<T> {
         Amount::new(self.data.to_be_redeemed_tokens, self.wrapped_currency())
     }
 
+    #[cfg_attr(feature = "integration-tests", visibility::make(pub))]
     pub(crate) fn collateral(&self) -> Amount<T> {
         Amount::new(self.data.collateral, self.data.currency_pair.collateral)
     }
