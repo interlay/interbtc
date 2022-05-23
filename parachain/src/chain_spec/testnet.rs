@@ -397,19 +397,46 @@ fn testnet_genesis(
         vault_registry: testnet_runtime::VaultRegistryConfig {
             minimum_collateral_vault: vec![(Token(KSM), 0)],
             punishment_delay: testnet_runtime::DAYS,
-            system_collateral_ceiling: vec![(default_pair_testnet(Token(KSM)), 1000 * KSM.one())],
-            secure_collateral_threshold: vec![(
-                default_pair_testnet(Token(KSM)),
-                FixedU128::checked_from_rational(150, 100).unwrap(),
-            )], /* 150% */
-            premium_redeem_threshold: vec![(
-                default_pair_testnet(Token(KSM)),
-                FixedU128::checked_from_rational(135, 100).unwrap(),
-            )], /* 135% */
-            liquidation_collateral_threshold: vec![(
-                default_pair_testnet(Token(KSM)),
-                FixedU128::checked_from_rational(110, 100).unwrap(),
-            )], /* 110% */
+            system_collateral_ceiling: vec![
+                (default_pair_testnet(Token(KSM)), 1_000_000_000 * KSM.one()),
+                (default_pair_testnet(Token(KINT)), 1_000_000_000 * KINT.one()),
+            ],
+            secure_collateral_threshold: vec![
+                (
+                    // 150%
+                    default_pair_testnet(Token(KSM)),
+                    FixedU128::checked_from_rational(150, 100).unwrap(),
+                ),
+                (
+                    // 400%
+                    default_pair_testnet(Token(KINT)),
+                    FixedU128::checked_from_rational(400, 100).unwrap(),
+                ),
+            ],
+            premium_redeem_threshold: vec![
+                (
+                    // 135%
+                    default_pair_testnet(Token(KSM)),
+                    FixedU128::checked_from_rational(135, 100).unwrap(),
+                ),
+                (
+                    // 300%
+                    default_pair_testnet(Token(KINT)),
+                    FixedU128::checked_from_rational(300, 100).unwrap(),
+                ),
+            ],
+            liquidation_collateral_threshold: vec![
+                (
+                    // 110%
+                    default_pair_testnet(Token(KSM)),
+                    FixedU128::checked_from_rational(110, 100).unwrap(),
+                ),
+                (
+                    // 200%
+                    default_pair_testnet(Token(KINT)),
+                    FixedU128::checked_from_rational(200, 100).unwrap(),
+                ),
+            ],
         },
         fee: testnet_runtime::FeeConfig {
             issue_fee: FixedU128::checked_from_rational(15, 10000).unwrap(), // 0.15%
