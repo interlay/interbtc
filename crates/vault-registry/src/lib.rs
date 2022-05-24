@@ -279,12 +279,10 @@ pub mod pallet {
         #[transactional]
         pub fn register_address(
             origin: OriginFor<T>,
-            stash_id: T::AccountId,
-            currency_pair: DefaultVaultCurrencyPair<T>,
+            vault_id: DefaultVaultId<T>,
             btc_address: BtcAddress,
         ) -> DispatchResultWithPostInfo {
             let control_id = ensure_signed(origin)?;
-            let vault_id = VaultId::new(stash_id, currency_pair.collateral, currency_pair.wrapped);
             Self::ensure_valid_control_id(&vault_id, control_id)?;
             Self::insert_vault_deposit_address(vault_id.clone(), btc_address)?;
             Self::deposit_event(Event::<T>::RegisterAddress {
@@ -299,8 +297,7 @@ pub mod pallet {
         /// # Arguments
         ///
         /// * `origin` - sender of the transaction (i.e. the vault)
-        /// * `stash_id` - the stash account, controlling the vault's collateral
-        /// * `currency_pair` - the currency pair of the vault ID
+        /// * `vault_id` - Vault ID
         /// * `accept_new_issues` - true indicates that the vault accepts new issues
         ///
         /// # Weight: `O(1)`
@@ -308,12 +305,10 @@ pub mod pallet {
         #[transactional]
         pub fn accept_new_issues(
             origin: OriginFor<T>,
-            stash_id: T::AccountId,
-            currency_pair: DefaultVaultCurrencyPair<T>,
+            vault_id: DefaultVaultId<T>,
             accept_new_issues: bool,
         ) -> DispatchResultWithPostInfo {
             let control_id = ensure_signed(origin)?;
-            let vault_id = VaultId::new(stash_id, currency_pair.collateral, currency_pair.wrapped);
             Self::ensure_valid_control_id(&vault_id, control_id)?;
             let mut vault = Self::get_active_rich_vault_from_id(&vault_id)?;
             vault.set_accept_new_issues(accept_new_issues)?;

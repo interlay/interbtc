@@ -65,8 +65,7 @@ fn test_without_initialization<R>(execute: impl Fn(CurrencyId) -> R) {
 
 pub fn withdraw_replace(old_vault_id: &VaultId, amount: Amount<Runtime>) -> DispatchResultWithPostInfo {
     Call::Replace(ReplaceCall::withdraw_replace {
-        stash_id: old_vault_id.account_id.clone(),
-        currency_pair: old_vault_id.currencies.clone(),
+        old_vault_id: old_vault_id.clone(),
         amount: amount.amount(),
     })
     .dispatch(origin_of(old_vault_id.account_id.clone()))
@@ -191,8 +190,7 @@ mod accept_replace_tests {
     fn integration_test_replace_accept_replace_by_vault_that_does_not_accept_issues_succeeds() {
         test_with(|old_vault_id, new_vault_id| {
             assert_ok!(Call::VaultRegistry(VaultRegistryCall::accept_new_issues {
-                stash_id: new_vault_id.account_id.clone(),
-                currency_pair: new_vault_id.currencies.clone(),
+                vault_id: new_vault_id.clone(),
                 accept_new_issues: false
             })
             .dispatch(origin_of(new_vault_id.account_id.clone())));
@@ -304,10 +302,12 @@ mod request_replace_tests {
 
             assert_noop!(
                 Call::Replace(ReplaceCall::request_replace {
-                    stash_id: account_of(OLD_VAULT),
-                    currency_pair: VaultCurrencyPair {
-                        collateral: Token(DOT),
-                        wrapped: Token(DOT),
+                    old_vault_id: VaultId {
+                        account_id: account_of(OLD_VAULT),
+                        currencies: VaultCurrencyPair {
+                            collateral: Token(DOT),
+                            wrapped: Token(DOT),
+                        },
                     },
                     amount: 0,
                 })
@@ -388,8 +388,7 @@ mod request_replace_tests {
         test_with(|old_vault_id, _new_vault_id| {
             assert_noop!(
                 Call::Replace(ReplaceCall::request_replace {
-                    stash_id: old_vault_id.account_id.clone(),
-                    currency_pair: old_vault_id.currencies.clone(),
+                    old_vault_id: old_vault_id.clone(),
                     amount: 0,
                 })
                 .dispatch(origin_of(old_vault_id.account_id.clone())),
@@ -694,8 +693,7 @@ fn integration_test_replace_with_parachain_shutdown_fails() {
 
         assert_noop!(
             Call::Replace(ReplaceCall::request_replace {
-                stash_id: old_vault_id.account_id.clone(),
-                currency_pair: old_vault_id.currencies.clone(),
+                old_vault_id: old_vault_id.clone(),
                 amount: old_vault_id.wrapped(0).amount(),
             })
             .dispatch(origin_of(old_vault_id.account_id.clone())),

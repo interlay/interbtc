@@ -49,8 +49,6 @@ pub mod pallet {
     use super::*;
     use frame_support::pallet_prelude::*;
     use frame_system::pallet_prelude::*;
-    use primitives::VaultId;
-    use vault_registry::types::DefaultVaultCurrencyPair;
 
     /// ## Configuration
     /// The pallet's configuration trait.
@@ -200,21 +198,18 @@ pub mod pallet {
         /// # Arguments
         ///
         /// * `origin` - sender of the transaction
-        /// * `stash_id` - the stash account, controlling the vault's collateral
-        /// * `currency_pair` - the currency pair of the vault ID
+        /// * `old_vault_id` - Vault ID of the old vault
         /// * `amount` - amount of issued tokens
         #[pallet::weight(<T as Config>::WeightInfo::request_replace())]
         #[transactional]
         pub fn request_replace(
             origin: OriginFor<T>,
-            stash_id: T::AccountId,
-            currency_pair: DefaultVaultCurrencyPair<T>,
+            old_vault_id: DefaultVaultId<T>,
             #[pallet::compact] amount: BalanceOf<T>,
         ) -> DispatchResultWithPostInfo {
             let control_id = ensure_signed(origin)?;
-            let old_vault = VaultId::new(stash_id, currency_pair.collateral, currency_pair.wrapped);
-            ext::vault_registry::ensure_valid_control_id::<T>(&old_vault, control_id)?;
-            Self::_request_replace(old_vault, amount)?;
+            ext::vault_registry::ensure_valid_control_id::<T>(&old_vault_id, control_id)?;
+            Self::_request_replace(old_vault_id, amount)?;
             Ok(().into())
         }
 
@@ -223,21 +218,18 @@ pub mod pallet {
         /// # Arguments
         ///
         /// * `origin` - sender of the transaction: the old vault
-        /// * `stash_id` - the stash account, controlling the vault's collateral
-        /// * `currency_pair` - the currency pair of the vault ID
+        /// * `old_vault_id` - Vault ID of the old vault
         /// * `amount` - amount of issued tokens
         #[pallet::weight(<T as Config>::WeightInfo::withdraw_replace())]
         #[transactional]
         pub fn withdraw_replace(
             origin: OriginFor<T>,
-            stash_id: T::AccountId,
-            currency_pair: DefaultVaultCurrencyPair<T>,
+            old_vault_id: DefaultVaultId<T>,
             #[pallet::compact] amount: BalanceOf<T>,
         ) -> DispatchResultWithPostInfo {
             let control_id = ensure_signed(origin)?;
-            let old_vault = VaultId::new(stash_id, currency_pair.collateral, currency_pair.wrapped);
-            ext::vault_registry::ensure_valid_control_id::<T>(&old_vault, control_id)?;
-            Self::_withdraw_replace_request(old_vault, amount)?;
+            ext::vault_registry::ensure_valid_control_id::<T>(&old_vault_id, control_id)?;
+            Self::_withdraw_replace_request(old_vault_id, amount)?;
             Ok(().into())
         }
 
@@ -246,9 +238,8 @@ pub mod pallet {
         /// # Arguments
         ///
         /// * `origin` - the initiator of the transaction: the new vault
-        /// * `stash_id` - the stash account, controlling the vault's collateral
-        /// * `currency_pair` - the currency pair of the vault ID
-        /// * `old_vault` - id of the old vault that we are (possibly partially) replacing
+        /// * `new_vault_id` - id of the new vault that  is (possibly partially) replacing the old vault
+        /// * `old_vault_id` - id of the old vault that we are (possibly partially) replacing
         /// * `amount_btc` - amount of issued tokens
         /// * `collateral` - the collateral for replacement
         /// * `btc_address` - the address that old-vault should transfer the btc to
@@ -256,17 +247,15 @@ pub mod pallet {
         #[transactional]
         pub fn accept_replace(
             origin: OriginFor<T>,
-            stash_id: T::AccountId,
-            currency_pair: DefaultVaultCurrencyPair<T>,
-            old_vault: DefaultVaultId<T>,
+            new_vault_id: DefaultVaultId<T>,
+            old_vault_id: DefaultVaultId<T>,
             #[pallet::compact] amount_btc: BalanceOf<T>,
             #[pallet::compact] collateral: BalanceOf<T>,
             btc_address: BtcAddress,
         ) -> DispatchResultWithPostInfo {
             let control_id = ensure_signed(origin)?;
-            let new_vault = VaultId::new(stash_id, currency_pair.collateral, currency_pair.wrapped);
-            ext::vault_registry::ensure_valid_control_id::<T>(&new_vault, control_id)?;
-            Self::_accept_replace(old_vault, new_vault, amount_btc, collateral, btc_address)?;
+            ext::vault_registry::ensure_valid_control_id::<T>(&new_vault_id, control_id)?;
+            Self::_accept_replace(old_vault_id, new_vault_id, amount_btc, collateral, btc_address)?;
             Ok(().into())
         }
 

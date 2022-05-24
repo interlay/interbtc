@@ -315,8 +315,6 @@ pub type DefaultSystemVault<T> = SystemVault<BalanceOf<T>, CurrencyId<T>>;
 pub(crate) trait UpdatableVault<T: Config> {
     fn id(&self) -> DefaultVaultId<T>;
 
-    fn control(&self) -> T::AccountId;
-
     fn issued_tokens(&self) -> Amount<T>;
 
     fn to_be_issued_tokens(&self) -> Amount<T>;
@@ -341,10 +339,6 @@ pub struct RichVault<T: Config> {
 impl<T: Config> UpdatableVault<T> for RichVault<T> {
     fn id(&self) -> DefaultVaultId<T> {
         self.data.id.clone()
-    }
-
-    fn control(&self) -> T::AccountId {
-        self.data.control.clone()
     }
 
     fn issued_tokens(&self) -> Amount<T> {
@@ -753,6 +747,10 @@ impl<T: Config> RichVault<T> {
         Ok(btc_address)
     }
 
+    pub(crate) fn control(&self) -> T::AccountId {
+        self.data.control.clone()
+    }
+
     fn update<F>(&mut self, func: F) -> DispatchResult
     where
         F: Fn(&mut DefaultVault<T>) -> DispatchResult,
@@ -829,10 +827,6 @@ impl<T: Config> UpdatableVault<T> for RichSystemVault<T> {
             self.data.currency_pair.collateral,
             self.data.currency_pair.wrapped,
         )
-    }
-
-    fn control(&self) -> T::AccountId {
-        Pallet::<T>::liquidation_vault_account_id()
     }
 
     fn issued_tokens(&self) -> Amount<T> {

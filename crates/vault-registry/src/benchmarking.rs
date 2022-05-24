@@ -94,13 +94,13 @@ benchmarks! {
         let vault_id = get_vault_id::<T>();
         mint_collateral::<T>(&vault_id.account_id, (1u32 << 31).into());
         register_vault_with_collateral::<T>(vault_id.clone(), 100000000);
-    }: _(RawOrigin::Signed(vault_id.account_id.clone()), vault_id.account_id.clone(), vault_id.currencies.clone(), BtcAddress::default())
+    }: _(RawOrigin::Signed(vault_id.account_id.clone()), vault_id.clone(), BtcAddress::default())
 
     accept_new_issues {
         let vault_id = get_vault_id::<T>();
         mint_collateral::<T>(&vault_id.account_id, (1u32 << 31).into());
         register_vault_with_collateral::<T>(vault_id.clone(), 100000000);
-    }: _(RawOrigin::Signed(vault_id.account_id.clone()), vault_id.account_id.clone(), vault_id.currencies.clone(), true)
+    }: _(RawOrigin::Signed(vault_id.account_id.clone()), vault_id.clone(), true)
 
     set_minimum_collateral {
     }: _(RawOrigin::Root, get_collateral_currency_id::<T>(), 1234u32.into())
