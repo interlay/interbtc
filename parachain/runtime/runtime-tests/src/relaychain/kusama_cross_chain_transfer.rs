@@ -124,11 +124,12 @@ mod hrmp {
         init_open_channel::<Sibling>(SIBLING_PARA_ID, KINTSUGI_PARA_ID);
         accept_open_channel::<Kintsugi>(SIBLING_PARA_ID, KINTSUGI_PARA_ID);
 
-        // check that Bob received left-over funds (from both Kintsugi and Sibling):
+        // check that Bob received left-over funds (from both Kintsugi and Sibling).
+        // We expect slightly less than 4 * 0.41 KSM
         KusamaNet::execute_with(|| {
             assert_eq!(
                 kusama_runtime::Balances::free_balance(&AccountId::from(BOB)),
-                1_638_400_000_100
+                1_637_510_889_920
             );
         });
     }

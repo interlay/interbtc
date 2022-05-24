@@ -2087,3 +2087,40 @@ mod mint_tokens_for_reimbursed_redeem_equivalence_test {
         assert_eq!(result1, result2);
     }
 }
+
+#[test]
+fn liquidation_redeem_should_be_possible_with_zero_collateral() {
+    test_with(|vault_id| {
+        let redeem_amount = Amount::new(1000, vault_id.wrapped_currency());
+
+        let mut liquidation_vault_data = LiquidationVaultData::get();
+        let liquidation_vault = liquidation_vault_data
+            .liquidation_vaults
+            .get_mut(&vault_id.currencies)
+            .unwrap();
+        (*liquidation_vault).collateral = Amount::new(0, vault_id.collateral_currency());
+        (*liquidation_vault).issued = redeem_amount;
+        (*liquidation_vault).to_be_issued = Amount::new(0, vault_id.wrapped_currency());
+        (*liquidation_vault).to_be_redeemed = Amount::new(0, vault_id.wrapped_currency());
+
+        LiquidationVaultData::force_to(liquidation_vault_data);
+
+        let post_liquidation_state = ParachainState::get(&vault_id);
+
+        assert_ok!(Call::Redeem(RedeemCall::liquidation_redeem {
+            currencies: vault_id.currencies.clone(),
+            amount_wrapped: redeem_amount.amount(),
+        })
+        .dispatch(origin_of(account_of(USER))));
+
+        assert_eq!(
+            ParachainState::get(&vault_id),
+            post_liquidation_state.with_changes(|user, _vault, liquidation_vault, _fee_pool| {
+                let liquidation_vault = liquidation_vault.with_currency(&vault_id.currencies);
+                liquidation_vault.issued -= redeem_amount;
+
+                (*user.balances.get_mut(&vault_id.wrapped_currency()).unwrap()).free -= redeem_amount;
+            })
+        );
+    })
+}

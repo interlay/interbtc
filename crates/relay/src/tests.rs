@@ -187,75 +187,6 @@ fn build_dummy_transaction_from_input_with_output_and_op_return(
     builder.build()
 }
 
-fn build_dummy_transaction_with_output(addresses: Vec<BtcAddress>) -> Transaction {
-    let mut builder = TransactionBuilder::new();
-    builder.with_version(1).add_input(
-        TransactionInputBuilder::new()
-            .with_sequence(4294967295)
-            .with_source(TransactionInputSource::FromOutput(
-                H256Le::from_bytes_le(&[
-                    193, 80, 65, 160, 109, 235, 107, 56, 24, 176, 34, 250, 197, 88, 218, 76, 226, 9, 127, 8, 96, 200,
-                    246, 66, 16, 91, 186, 217, 210, 155, 224, 42,
-                ]),
-                1,
-            ))
-            .with_script(&[
-                73, 48, 70, 2, 33, 0, 207, 210, 162, 211, 50, 178, 154, 220, 225, 25, 197, 90, 159, 173, 211, 192, 115,
-                51, 32, 36, 183, 226, 114, 81, 62, 81, 98, 60, 161, 89, 147, 72, 2, 33, 0, 155, 72, 45, 127, 123, 77,
-                71, 154, 255, 98, 189, 205, 174, 165, 70, 103, 115, 125, 86, 248, 212, 214, 61, 208, 62, 195, 239, 101,
-                30, 217, 162, 84, 1, 33, 3, 37, 248, 176, 57, 161, 24, 97, 101, 156, 155, 240, 63, 67, 252, 78, 160,
-                85, 243, 167, 28, 214, 12, 123, 31, 212, 116, 171, 87, 143, 153, 119, 250,
-            ])
-            .build(),
-    );
-    for address in addresses {
-        builder.add_output(TransactionOutput::payment(100, &address));
-    }
-    builder.build()
-}
-
-#[test]
-fn test_is_valid_merge_transaction_fails() {
-    run_test(|| {
-        let vault = BOB;
-        ext::vault_registry::get_active_vault_from_id::<Test>
-            .mock_safe(move |_| MockResult::Return(Ok(init_zero_vault(vault.clone(), vec![]))));
-
-        let address1 = BtcAddress::P2PKH(H160::from_str(&"66c7060feb882664ae62ffad0051fe843e318e85").unwrap());
-        let transaction1 = build_dummy_transaction_with_output(vec![address1]);
-        assert_eq!(
-            Relay::is_valid_merge_transaction(&transaction1, &Wallet::new()),
-            false,
-            "payment to unknown recipient"
-        );
-
-        let address2 = BtcAddress::P2PKH(H160::from_str(&"5f69790b72c98041330644bbd50f2ebb5d073c36").unwrap());
-        let transaction2 = build_dummy_transaction_with_output(vec![address2]);
-        assert_eq!(
-            Relay::is_valid_merge_transaction(&transaction2, &Wallet::new()),
-            false,
-            "migration should not have op_returns"
-        );
-    })
-}
-
-#[test]
-fn test_is_valid_merge_transaction_succeeds() {
-    run_test(|| {
-        let vault = BOB;
-        ext::vault_registry::get_active_vault_from_id::<Test>
-            .mock_safe(move |_| MockResult::Return(Ok(init_zero_vault(vault.clone(), vec![]))));
-
-        let address = BtcAddress::P2PKH(H160::from_str(&"66c7060feb882664ae62ffad0051fe843e318e85").unwrap());
-        let transaction = build_dummy_transaction_with_output(vec![address]);
-
-        let mut wallet = Wallet::new();
-        wallet.add_btc_address(address);
-
-        assert_eq!(Relay::is_valid_merge_transaction(&transaction, &wallet), true);
-    })
-}
-
 fn build_dummy2_transaction_with(output_addresses: Vec<(i64, BtcAddress)>, op_return: H256) -> Transaction {
     let mut builder = TransactionBuilder::new();
     builder.with_version(1).add_input(
@@ -368,55 +299,6 @@ fn test_is_valid_request_transaction_succeeds() {
                 &wallet
             ),
             true
-        );
-    })
-}
-
-#[test]
-fn test_is_transaction_invalid_fails_with_valid_merge_transaction() {
-    run_test(|| {
-        let address = BtcAddress::P2PKH(H160::from_slice(&[
-            126, 125, 148, 208, 221, 194, 29, 131, 191, 188, 252, 119, 152, 228, 84, 126, 223, 8, 50, 170,
-        ]));
-
-        let mut wallet = Wallet::new();
-        wallet.add_btc_address(address);
-
-        ext::vault_registry::get_active_vault_from_id::<Test>.mock_safe(move |_| {
-            MockResult::Return(Ok(Vault {
-                wallet: wallet.clone(),
-                ..Vault::new(BOB)
-            }))
-        });
-
-        let transaction = TransactionBuilder::new()
-            .with_version(1)
-            .add_input(
-                TransactionInputBuilder::new()
-                    .with_sequence(4294967295)
-                    .with_source(TransactionInputSource::FromOutput(
-                        H256Le::from_bytes_le(&[
-                            193, 80, 65, 160, 109, 235, 107, 56, 24, 176, 34, 250, 197, 88, 218, 76, 226, 9, 127, 8,
-                            96, 200, 246, 66, 16, 91, 186, 217, 210, 155, 224, 42,
-                        ]),
-                        1,
-                    ))
-                    .with_script(&[
-                        73, 48, 70, 2, 33, 0, 207, 210, 162, 211, 50, 178, 154, 220, 225, 25, 197, 90, 159, 173, 211,
-                        192, 115, 51, 32, 36, 183, 226, 114, 81, 62, 81, 98, 60, 161, 89, 147, 72, 2, 33, 0, 155, 72,
-                        45, 127, 123, 77, 71, 154, 255, 98, 189, 205, 174, 165, 70, 103, 115, 125, 86, 248, 212, 214,
-                        61, 208, 62, 195, 239, 101, 30, 217, 162, 84, 1, 33, 3, 37, 248, 176, 57, 161, 24, 97, 101,
-                        156, 155, 240, 63, 67, 252, 78, 160, 85, 243, 167, 28, 214, 12, 123, 31, 212, 116, 171, 87,
-                        143, 153, 119, 250,
-                    ])
-                    .build(),
-            )
-            .add_output(TransactionOutput::payment(100, &address))
-            .build();
-
-        assert_err!(
-            Relay::is_transaction_invalid(&BOB, transaction.format()),
-            TestError::ValidMergeTransaction
         );
     })
 }
@@ -553,48 +435,6 @@ fn test_is_transaction_invalid_succeeds() {
             .build();
 
         assert_ok!(Relay::is_transaction_invalid(&BOB, transaction.format()));
-    })
-}
-
-#[test]
-fn test_is_transaction_invalid_fails_with_valid_merge_testnet_transaction() {
-    run_test(|| {
-        // bitcoin-cli -testnet getrawtransaction "3453e52ebab8ac96159d6b19114b492a05cce05a8fdfdaf5dea266ac10601ce4" 0
-        // "00000000000000398849cc9d67261ec2d5fea07db87ab66a8ea47bc05acfb194"
-        let raw_tx_hex = "0200000000010108ce8e8943edbbf09d070bb893e09c0de12c0cf3704fe8a9b0f8b8d1a4a7a4760000000017160014473ca3f4d726ce9c21af7cdc3fcc13264f681b04feffffff02b377413f0000000017a914fe5183ccb89d98beaa6908c7cf1bd109029482cf87142e1a00000000001976a914d0a46d39dafa3012c2a7ed4d82d644b428e4586b88ac02473044022069484377c6627ccca566d4c4ac2cb84d1b0662f5ffbd384815c5e98b072759fc022061de3b77b4543ef43bb969d3f97fbbbdcddc008438720e7026181d99c455b2410121034172c29d3da8279f71adda48db8281d65b794e73cf04ea91fac4293030f0fe91a3ee1c00";
-        let raw_tx = hex::decode(&raw_tx_hex).unwrap();
-
-        // 2MsqorfMrsvXiVM8pD9bPWxGnccSWsj16XE (P2WPKH-P2SH)
-        let vault_btc_address_0 = BtcAddress::P2SH(H160::from_slice(
-            &hex::decode("068a6a2ec6be7d6e7aac1657445154c52db0cef8").unwrap(),
-        ));
-
-        // 2NGRwGkzypA4fEz9m4KhA2ZBs7fTg3B7Zjo
-        let vault_btc_address_1 = BtcAddress::P2SH(H160::from_slice(
-            &hex::decode("fe5183ccb89d98beaa6908c7cf1bd109029482cf").unwrap(),
-        ));
-
-        // mzY9pX6NA3cBmiC4umbBzf1NdwrmjS7MS8
-        let vault_btc_address_2 = BtcAddress::P2PKH(H160::from_slice(
-            &hex::decode("d0a46d39dafa3012c2a7ed4d82d644b428e4586b").unwrap(),
-        ));
-
-        let mut wallet = Wallet::new();
-        wallet.add_btc_address(vault_btc_address_0);
-        wallet.add_btc_address(vault_btc_address_1);
-        wallet.add_btc_address(vault_btc_address_2);
-
-        ext::vault_registry::get_active_vault_from_id::<Test>.mock_safe(move |_| {
-            MockResult::Return(Ok(Vault {
-                wallet: wallet.clone(),
-                ..Vault::new(BOB)
-            }))
-        });
-
-        assert_err!(
-            Relay::is_transaction_invalid(&BOB, raw_tx),
-            TestError::ValidMergeTransaction
-        );
     })
 }
 
