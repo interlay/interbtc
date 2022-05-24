@@ -2,7 +2,7 @@ use crate as oracle;
 use crate::{Config, Error};
 use frame_support::{
     parameter_types,
-    traits::{Everything, GenesisBuild},
+    traits::{ConstU32, Everything, GenesisBuild},
 };
 use mocktopus::mocking::clear_mocks;
 use orml_traits::parameter_type_with_key;
@@ -106,6 +106,8 @@ impl orml_tokens::Config for Test {
     type OnDust = ();
     type MaxLocks = MaxLocks;
     type DustRemovalWhitelist = Everything;
+    type MaxReserves = ConstU32<0>; // we don't use named reserves
+    type ReserveIdentifier = (); // we don't use named reserves
 }
 
 pub struct CurrencyConvert;
