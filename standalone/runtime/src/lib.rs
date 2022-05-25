@@ -22,6 +22,7 @@ use frame_system::{
     limits::{BlockLength, BlockWeights},
     EnsureRoot, EnsureSigned,
 };
+use orml_asset_registry::SequentialId;
 use orml_traits::parameter_type_with_key;
 use pallet_transaction_payment::{Multiplier, TargetedFeeAdjustment};
 use sp_api::impl_runtime_apis;
@@ -33,6 +34,7 @@ use sp_runtime::{
     ApplyExtrinsicResult, FixedPointNumber, Perquintill,
 };
 use sp_std::{marker::PhantomData, prelude::*};
+
 #[cfg(feature = "std")]
 use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
@@ -431,7 +433,7 @@ impl pallet_multisig::Config for Runtime {
 }
 
 // https://github.com/paritytech/polkadot/blob/ece7544b40d8b29897f5aa799f27840dcc32f24d/runtime/polkadot/src/constants.rs#L18
-pub const UNITS: Balance = NATIVE_CURRENCY_ID.one();
+pub const UNITS: Balance = NATIVE_TOKEN_ID.one();
 pub const DOLLARS: Balance = UNITS; // 10_000_000_000
 pub const CENTS: Balance = UNITS / 100; // 100_000_000
 pub const MILLICENTS: Balance = CENTS / 1_000; // 100_000
@@ -546,7 +548,8 @@ impl btc_relay::Config for Runtime {
     type ParachainBlocksPerBitcoinBlock = ParachainBlocksPerBitcoinBlock;
 }
 
-const NATIVE_CURRENCY_ID: CurrencyId = Token(INTR);
+const NATIVE_TOKEN_ID: TokenSymbol = INTR;
+const NATIVE_CURRENCY_ID: CurrencyId = Token(NATIVE_TOKEN_ID);
 const PARENT_CURRENCY_ID: CurrencyId = Token(DOT);
 const WRAPPED_CURRENCY_ID: CurrencyId = Token(IBTC);
 
@@ -928,6 +931,16 @@ impl nomination::Config for Runtime {
     type WeightInfo = ();
 }
 
+impl orml_asset_registry::Config for Runtime {
+    type Event = Event;
+    type Balance = Balance;
+    type CustomMetadata = primitives::CustomMetadata;
+    type AssetProcessor = SequentialId<Runtime>;
+    type AssetId = primitives::ForeignAssetId;
+    type AuthorityOrigin = EnsureRoot<AccountId>;
+    type WeightInfo = ();
+}
+
 construct_runtime! {
     pub enum Runtime where
         Block = Block,
@@ -948,6 +961,7 @@ construct_runtime! {
         Tokens: orml_tokens::{Pallet, Call, Storage, Config<T>, Event<T>} = 9,
         Escrow: escrow::{Pallet, Call, Storage, Event<T>} = 10,
         Vesting: orml_vesting::{Pallet, Storage, Call, Event<T>, Config<T>} = 11,
+        AssetRegistry: orml_asset_registry::{Pallet, Storage, Call, Event<T>, Config<T>} = 37,
 
         EscrowAnnuity: annuity::<Instance1>::{Pallet, Call, Storage, Event<T>} = 12,
         EscrowRewards: reward::<Instance1>::{Pallet, Storage, Event<T>} = 13,

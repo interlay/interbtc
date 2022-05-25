@@ -91,6 +91,7 @@ module-refund-rpc-runtime-api = { path = "../../crates/refund/rpc/runtime-api", 
 orml-tokens = { git = "https://github.com/open-web3-stack/open-runtime-module-library", rev = "78f2d4521856e100d625336692befcc10819e856", default-features = false }
 orml-traits = { git = "https://github.com/open-web3-stack/open-runtime-module-library", rev = "78f2d4521856e100d625336692befcc10819e856", default-features = false }
 orml-vesting = { git = "https://github.com/open-web3-stack/open-runtime-module-library", rev = "78f2d4521856e100d625336692befcc10819e856", default-features = false }
+orml-asset-registry= { git = "https://github.com/open-web3-stack/open-runtime-module-library", rev = "78f2d4521856e100d625336692befcc10819e856", default-features = false }
 
 [dev-dependencies]
 hex = "0.4.2"
@@ -182,6 +183,7 @@ std = [
   "module-replace-rpc-runtime-api/std",
   "module-refund-rpc-runtime-api/std",
 
+  "orml-asset-registry/std",
   "orml-tokens/std",
   "orml-traits/std",
   "orml-vesting/std",

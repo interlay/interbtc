@@ -48,6 +48,7 @@ fn test_with<R>(execute: impl Fn(CurrencyId) -> R) {
     };
     test_with(Token(KSM));
     test_with(Token(DOT));
+    test_with(ForeignAsset(1));
 }
 
 fn withdraw_vault_global_pool_rewards(vault_id: &VaultId) -> i128 {

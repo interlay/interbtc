@@ -491,12 +491,12 @@ create_currency_id! {
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 pub enum CurrencyId {
     Token(TokenSymbol),
+    ForeignAsset(ForeignAssetId),
 }
 
-impl CurrencyId {
-    pub const fn one(&self) -> Balance {
-        match self {
-            CurrencyId::Token(token) => token.one(),
-        }
-    }
+pub type ForeignAssetId = u32;
+
+#[derive(scale_info::TypeInfo, Encode, Decode, Clone, Eq, PartialEq, Debug)]
+pub struct CustomMetadata {
+    pub fee_per_second: u128,
 }

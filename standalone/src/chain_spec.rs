@@ -371,5 +371,6 @@ fn testnet_genesis(
             start_height: YEARS * 4,
             inflation: FixedU128::checked_from_rational(2, 100).unwrap(), // 2%
         },
+        asset_registry: Default::default(),
     }
 }

@@ -24,6 +24,7 @@ fn test_with<R>(execute: impl Fn(VaultId) -> R) {
     test_with(Token(DOT), Token(KBTC));
     test_with(Token(KSM), Token(IBTC));
     test_with(Token(DOT), Token(IBTC));
+    test_with(ForeignAsset(1), Token(IBTC));
 }
 
 fn test_with_initialized_vault<R>(execute: impl Fn(VaultId) -> R) {

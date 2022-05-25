@@ -23,6 +23,7 @@ use frame_system::{
     limits::{BlockLength, BlockWeights},
     EnsureRoot, RawOrigin,
 };
+use orml_asset_registry::SequentialId;
 use orml_traits::parameter_type_with_key;
 use pallet_transaction_payment::{Multiplier, TargetedFeeAdjustment};
 use sp_api::impl_runtime_apis;
@@ -695,6 +696,16 @@ impl orml_tokens::Config for Runtime {
     type ReserveIdentifier = (); // we don't use named reserves
 }
 
+impl orml_asset_registry::Config for Runtime {
+    type Event = Event;
+    type Balance = Balance;
+    type CustomMetadata = primitives::CustomMetadata;
+    type AssetProcessor = SequentialId<Runtime>;
+    type AssetId = primitives::ForeignAssetId;
+    type AuthorityOrigin = EnsureRoot<AccountId>;
+    type WeightInfo = ();
+}
+
 parameter_types! {
     pub const InflationPeriod: BlockNumber = YEARS;
 }
@@ -1005,6 +1016,7 @@ construct_runtime! {
         Tokens: orml_tokens::{Pallet, Call, Storage, Config<T>, Event<T>} = 21,
         Supply: supply::{Pallet, Storage, Call, Event<T>, Config<T>} = 22,
         Vesting: orml_vesting::{Pallet, Storage, Call, Event<T>, Config<T>} = 23,
+        AssetRegistry: orml_asset_registry::{Pallet, Storage, Call, Event<T>, Config<T>} = 24,
 
         Escrow: escrow::{Pallet, Call, Storage, Event<T>} = 30,
         EscrowAnnuity: annuity::<Instance1>::{Pallet, Call, Storage, Event<T>} = 31,

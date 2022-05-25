@@ -158,6 +158,7 @@ fn interlay_mainnet_genesis(
         security: interlay_runtime::SecurityConfig {
             initial_status: interlay_runtime::StatusCode::Shutdown,
         },
+        asset_registry: Default::default(),
         tokens: Default::default(),
         vesting: Default::default(),
         oracle: interlay_runtime::OracleConfig {

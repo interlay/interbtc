@@ -1,5 +1,7 @@
 use super::*;
 use cumulus_primitives_core::ParaId;
+use orml_asset_registry::{AssetRegistryTrader, FixedRateAssetRegistryTrader};
+use orml_traits::FixedConversionRateProvider;
 use orml_xcm_support::{DepositToAlternative, IsNativeConcrete, MultiCurrencyAdapter, MultiNativeAsset};
 use pallet_xcm::XcmPassthrough;
 use polkadot_parachain::primitives::Sibling;
@@ -11,6 +13,7 @@ use xcm_builder::{
     SignedToAccountId32, SovereignSignedViaLocation, TakeRevenue, TakeWeightCredit,
 };
 use xcm_executor::{Config, XcmExecutor};
+use CurrencyId::ForeignAsset;
 
 parameter_types! {
     pub const ParentLocation: MultiLocation = MultiLocation::parent();
@@ -137,8 +140,16 @@ pub type Trader = (
     FixedRateOfFungible<KbtcPerSecond, ToTreasury>,
     FixedRateOfFungible<CanonicalizedKintPerSecond, ToTreasury>,
     FixedRateOfFungible<CanonicalizedKbtcPerSecond, ToTreasury>,
-    FreeTestExection,
+    AssetRegistryTrader<FixedRateAssetRegistryTrader<MyFixedConversionRateProvider>, ToTreasury>,
 );
+
+pub struct MyFixedConversionRateProvider;
+impl FixedConversionRateProvider for MyFixedConversionRateProvider {
+    fn get_fee_per_second(location: &MultiLocation) -> Option<u128> {
+        let metadata = AssetRegistry::fetch_metadata_by_location(location)?;
+        Some(metadata.additional.fee_per_second)
+    }
+}
 
 // If all other trader items fail to apply, then execute for free. This is useful in in xcm
 // testing: it allows the sibling to place the assets in UnknownTokens so that it can send
@@ -258,6 +269,7 @@ mod currency_id_convert {
                 PARENT_CURRENCY_ID => Some(MultiLocation::parent()),
                 WRAPPED_CURRENCY_ID => Some(native_currency_location(id)),
                 NATIVE_CURRENCY_ID => Some(native_currency_location(id)),
+                ForeignAsset(id) => AssetRegistry::multilocation(&id).unwrap_or_default(),
                 _ => None,
             }
         }
@@ -279,7 +291,7 @@ mod currency_id_convert {
                 }
             }
 
-            match location {
+            match location.clone() {
                 x if x == MultiLocation::parent() => Some(PARENT_CURRENCY_ID),
                 MultiLocation {
                     parents: 1,
@@ -292,6 +304,7 @@ mod currency_id_convert {
                 } => decode_currency_id(key),
                 _ => None,
             }
+            .or_else(|| AssetRegistry::location_to_asset_id(&location).map(|id| CurrencyId::ForeignAsset(id)))
         }
     }
 
@@ -316,7 +329,7 @@ parameter_types! {
 
 parameter_type_with_key! {
     // Only used for transferring parachain tokens to other parachains using KSM as fee currency. Currently we do not support this, hence return MAX.
-    // See: https://github.com/open-web3-stack/open-runtime-module-library/blob/cadcc9fb10b8212f92668138fc8f83dc0c53acf5/xtokens/README.md#transfer-multiple-currencies
+    // See: https://github.com/interlay/open-runtime-module-library/blob/cadcc9fb10b8212f92668138fc8f83dc0c53acf5/xtokens/README.md#transfer-multiple-currencies
     pub ParachainMinFee: |location: MultiLocation| -> u128 {
         #[allow(clippy::match_ref_pats)] // false positive
         match (location.parents, location.first_interior()) {
