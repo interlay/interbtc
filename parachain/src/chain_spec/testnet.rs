@@ -1,6 +1,6 @@
 use super::*;
 
-fn testnet_properties() -> Map<String, Value> {
+fn testnet_properties(bitcoin_network: &str) -> Map<String, Value> {
     let mut properties = Map::new();
     let mut token_symbol: Vec<String> = vec![];
     let mut token_decimals: Vec<u32> = vec![];
@@ -11,7 +11,7 @@ fn testnet_properties() -> Map<String, Value> {
     properties.insert("tokenSymbol".into(), token_symbol.into());
     properties.insert("tokenDecimals".into(), token_decimals.into());
     properties.insert("ss58Format".into(), testnet_runtime::SS58Prefix::get().into());
-    properties.insert("bitcoinNetwork".into(), BITCOIN_TESTNET.into());
+    properties.insert("bitcoinNetwork".into(), bitcoin_network.into());
     properties
 }
 
@@ -58,7 +58,7 @@ pub fn local_config(id: ParaId) -> TestnetChainSpec {
         None,
         None,
         None,
-        Some(testnet_properties()),
+        Some(testnet_properties(BITCOIN_REGTEST)),
         Extensions {
             relay_chain: "local".into(),
             para_id: id.into(),
@@ -112,7 +112,7 @@ pub fn development_config(id: ParaId) -> TestnetChainSpec {
         None,
         None,
         None,
-        Some(testnet_properties()),
+        Some(testnet_properties(BITCOIN_REGTEST)),
         Extensions {
             relay_chain: "dev".into(),
             para_id: id.into(),
@@ -173,7 +173,7 @@ pub fn staging_testnet_config(id: ParaId) -> TestnetChainSpec {
         None,
         None,
         None,
-        Some(testnet_properties()),
+        Some(testnet_properties(BITCOIN_TESTNET)),
         Extensions {
             relay_chain: "staging".into(),
             para_id: id.into(),
@@ -234,7 +234,7 @@ pub fn rococo_testnet_config(id: ParaId) -> TestnetChainSpec {
         None,
         None,
         None,
-        Some(testnet_properties()),
+        Some(testnet_properties(BITCOIN_TESTNET)),
         Extensions {
             relay_chain: "rococo".into(),
             para_id: id.into(),
@@ -299,7 +299,7 @@ pub fn westend_testnet_config(id: ParaId) -> TestnetChainSpec {
         None,
         None,
         None,
-        Some(testnet_properties()),
+        Some(testnet_properties(BITCOIN_TESTNET)),
         Extensions {
             relay_chain: "westend".into(),
             para_id: id.into(),
