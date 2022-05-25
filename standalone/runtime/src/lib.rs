@@ -12,7 +12,9 @@ use bitcoin::types::H256Le;
 use currency::Amount;
 use frame_support::{
     dispatch::{DispatchError, DispatchResult},
-    traits::{Contains, Currency as PalletCurrency, EnsureOneOf, ExistenceRequirement, Imbalance, OnUnbalanced},
+    traits::{
+        ConstU32, Contains, Currency as PalletCurrency, EnsureOneOf, ExistenceRequirement, Imbalance, OnUnbalanced,
+    },
     weights::ConstantMultiplier,
     PalletId,
 };
@@ -619,6 +621,8 @@ impl orml_tokens::Config for Runtime {
     type OnDust = orml_tokens::TransferDust<Runtime, FeeAccount>;
     type MaxLocks = MaxLocks;
     type DustRemovalWhitelist = DustRemovalWhitelist;
+    type MaxReserves = ConstU32<0>; // we don't use named reserves
+    type ReserveIdentifier = (); // we don't use named reserves
 }
 
 parameter_types! {
