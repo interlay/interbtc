@@ -22,6 +22,7 @@ fn test_with<R>(execute: impl Fn(VaultId) -> R) {
     test_with(Token(KSM), Token(IBTC));
     test_with(Token(DOT), Token(IBTC));
     test_with(Token(DOT), Token(KBTC));
+    test_with(ForeignAsset(1), Token(KBTC));
 }
 
 mod spec_based_tests {

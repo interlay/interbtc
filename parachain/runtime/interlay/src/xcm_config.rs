@@ -1,4 +1,5 @@
 use super::*;
+use crate::CurrencyId::ForeignAsset;
 use codec::Encode;
 use cumulus_primitives_core::ParaId;
 use frame_support::{
@@ -6,7 +7,10 @@ use frame_support::{
     traits::{Everything, Get, Nothing},
     weights::Weight,
 };
-use orml_traits::{location::AbsoluteReserveProvider, parameter_type_with_key, MultiCurrency};
+use orml_asset_registry::{AssetRegistryTrader, FixedRateAssetRegistryTrader};
+use orml_traits::{
+    location::AbsoluteReserveProvider, parameter_type_with_key, FixedConversionRateProvider, MultiCurrency,
+};
 use orml_xcm_support::{DepositToAlternative, IsNativeConcrete, MultiCurrencyAdapter, MultiNativeAsset};
 use pallet_xcm::XcmPassthrough;
 use polkadot_parachain::primitives::Sibling;
@@ -125,7 +129,16 @@ pub type Trader = (
     FixedRateOfFungible<DotPerSecond, ToAuthor>,
     FixedRateOfFungible<CanonicalizedIntrPerSecond, ToAuthor>,
     FixedRateOfFungible<CanonicalizedIbtcPerSecond, ToAuthor>,
+    AssetRegistryTrader<FixedRateAssetRegistryTrader<MyFixedConversionRateProvider>, ToAuthor>,
 );
+
+pub struct MyFixedConversionRateProvider;
+impl FixedConversionRateProvider for MyFixedConversionRateProvider {
+    fn get_fee_per_second(location: &MultiLocation) -> Option<u128> {
+        let metadata = AssetRegistry::fetch_metadata_by_location(location)?;
+        Some(metadata.additional.fee_per_second)
+    }
+}
 
 impl Config for XcmConfig {
     type Call = Call;
@@ -225,6 +238,7 @@ mod currency_id_convert {
                 PARENT_CURRENCY_ID => Some(MultiLocation::parent()),
                 WRAPPED_CURRENCY_ID => Some(native_currency_location(id)),
                 NATIVE_CURRENCY_ID => Some(native_currency_location(id)),
+                ForeignAsset(id) => AssetRegistry::multilocation(&id).unwrap_or_default(),
                 _ => None,
             }
         }
@@ -246,7 +260,7 @@ mod currency_id_convert {
                 }
             }
 
-            match location {
+            match location.clone() {
                 x if x == MultiLocation::parent() => Some(PARENT_CURRENCY_ID),
                 MultiLocation {
                     parents: 1,
@@ -259,6 +273,7 @@ mod currency_id_convert {
                 } => decode_currency_id(key),
                 _ => None,
             }
+            .or_else(|| AssetRegistry::location_to_asset_id(&location).map(|id| CurrencyId::ForeignAsset(id)))
         }
     }
 

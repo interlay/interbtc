@@ -357,6 +357,7 @@ fn testnet_genesis(
             // Assign network admin rights.
             key: Some(root_key.clone()),
         },
+        asset_registry: Default::default(),
         tokens: testnet_runtime::TokensConfig {
             balances: endowed_accounts
                 .iter()
