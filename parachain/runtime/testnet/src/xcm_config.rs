@@ -68,52 +68,49 @@ pub type Barrier = (
 parameter_types! {
     pub const MaxInstructions: u32 = 100;
 }
+
 pub struct XcmConfig;
 
-// the ksm cost to to execute a no-op extrinsic
-fn base_tx_in_ksm() -> Balance {
-    KSM.one() / 50_000
+// the cost to to execute a no-op extrinsic
+fn base_tx_in_xcm() -> Balance {
+    PARENT_TOKEN_ID.one() / 50_000
 }
 
-pub fn ksm_per_second() -> u128 {
+pub fn xcm_per_second() -> u128 {
     let base_weight = Balance::from(ExtrinsicBaseWeight::get());
     let base_tx_per_second = (WEIGHT_PER_SECOND as u128) / base_weight;
-    base_tx_per_second * base_tx_in_ksm()
+    base_tx_per_second * base_tx_in_xcm()
 }
 
 parameter_types! {
-    pub KsmPerSecond: (AssetId, u128) = (MultiLocation::parent().into(), ksm_per_second());
+    pub KsmPerSecond: (AssetId, u128) = (MultiLocation::parent().into(), xcm_per_second());
     pub KintPerSecond: (AssetId, u128) = ( // can be removed once we no longer need to support polkadot < 0.9.16
         MultiLocation::new(
             1,
             X2(Parachain(ParachainInfo::get().into()), GeneralKey(Token(KINT).encode())),
         ).into(),
-        // KINT:KSM = 4:3
-        (ksm_per_second() * 4) / 3
+        (xcm_per_second() * 4) / 3
     );
     pub KbtcPerSecond: (AssetId, u128) = ( // can be removed once we no longer need to support polkadot < 0.9.16
         MultiLocation::new(
             1,
             X2(Parachain(ParachainInfo::get().into()), GeneralKey(Token(KBTC).encode())),
         ).into(),
-        // KBTC:KSM = 1:150 & Satoshi:Planck = 1:10_000
-        ksm_per_second() / 1_500_000
+        xcm_per_second() / 1_500_000
     );
     pub CanonicalizedKintPerSecond: (AssetId, u128) = (
         MultiLocation::new(
             0,
             X1(GeneralKey(Token(KINT).encode())),
         ).into(),
-        // KINT:KSM = 4:3
-        (ksm_per_second() * 4) / 3
+        (xcm_per_second() * 4) / 3
     );
     pub CanonicalizedKbtcPerSecond: (AssetId, u128) = (
         MultiLocation::new(
             0,
             X1(GeneralKey(Token(KBTC).encode())),
         ).into(),
-        // KBTC:KSM = 1:150 & Satoshi:Planck = 1:10_000
-        ksm_per_second() / 1_500_000
+        xcm_per_second() / 1_500_000
     );
 }
 
@@ -328,7 +325,7 @@ parameter_types! {
 }
 
 parameter_type_with_key! {
-    // Only used for transferring parachain tokens to other parachains using KSM as fee currency. Currently we do not support this, hence return MAX.
+    // Only used for transferring parachain tokens to other parachains using DOT/KSM as fee currency. Currently we do not support this, hence return MAX.
     // See: https://github.com/interlay/open-runtime-module-library/blob/cadcc9fb10b8212f92668138fc8f83dc0c53acf5/xtokens/README.md#transfer-multiple-currencies
     pub ParachainMinFee: |location: MultiLocation| -> u128 {
         #[allow(clippy::match_ref_pats)] // false positive
