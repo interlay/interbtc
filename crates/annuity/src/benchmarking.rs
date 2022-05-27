@@ -22,6 +22,12 @@ benchmarks_instance_pallet! {
     verify {
         assert_eq!(RewardPerBlock::<T, I>::get(), One::one());
     }
+
+    set_reward_per_wrapped {
+    }: _(RawOrigin::Root, One::one())
+    verify {
+        assert_eq!(RewardPerWrapped::<T, I>::get(), Some(One::one()));
+    }
 }
 
 impl_benchmark_test_suite!(Annuity, crate::mock::ExtBuilder::build(), crate::mock::Test);

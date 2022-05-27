@@ -721,6 +721,13 @@ impl supply::Config for Runtime {
     type OnInflation = DealWithRewards;
 }
 
+pub struct TotalWrapped;
+impl Get<Balance> for TotalWrapped {
+    fn get() -> Balance {
+        orml_tokens::CurrencyAdapter::<Runtime, GetWrappedCurrencyId>::total_issuance()
+    }
+}
+
 parameter_types! {
     pub const EmissionPeriod: BlockNumber = YEARS;
 }
@@ -752,6 +759,7 @@ impl annuity::Config<EscrowAnnuityInstance> for Runtime {
     type BlockRewardProvider = EscrowBlockRewardProvider;
     type BlockNumberToBalance = BlockNumberToBalance;
     type EmissionPeriod = EmissionPeriod;
+    type TotalWrapped = TotalWrapped;
     type WeightInfo = ();
 }
 
@@ -781,6 +789,7 @@ impl annuity::Config<VaultAnnuityInstance> for Runtime {
     type BlockRewardProvider = VaultBlockRewardProvider;
     type BlockNumberToBalance = BlockNumberToBalance;
     type EmissionPeriod = EmissionPeriod;
+    type TotalWrapped = TotalWrapped;
     type WeightInfo = ();
 }
 
