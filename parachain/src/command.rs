@@ -41,7 +41,8 @@ const DEFAULT_PARA_ID: u32 = 2121;
 pub trait IdentifyChain {
     fn is_interlay(&self) -> bool;
     fn is_kintsugi(&self) -> bool;
-    fn is_testnet(&self) -> bool;
+    fn is_kintsugi_testnet(&self) -> bool;
+    fn is_kintsugi_testnet(&self) -> bool;
 }
 
 impl IdentifyChain for dyn sc_service::ChainSpec {
@@ -51,7 +52,10 @@ impl IdentifyChain for dyn sc_service::ChainSpec {
     fn is_kintsugi(&self) -> bool {
         self.id().starts_with("kintsugi")
     }
-    fn is_testnet(&self) -> bool {
+    fn is_kintsugi_testnet(&self) -> bool {
+        self.id().starts_with("testnet")
+    }
+    fn is_interlay_testnet(&self) -> bool {
         self.id().starts_with("testnet")
     }
 }
@@ -117,7 +121,7 @@ macro_rules! with_runtime_or_err {
 
 		} else {
             #[allow(unused_imports)]
-			use { testnet_runtime::RuntimeApi, crate::service::TestnetRuntimeExecutor as Executor };
+			use { testnet_kintsugi_runtime::RuntimeApi, crate::service::TestnetRuntimeExecutor as Executor };
 			$( $code )*
 
 		}
@@ -159,7 +163,7 @@ impl SubstrateCli for Cli {
         } else if chain_spec.is_kintsugi() {
             &kintsugi_runtime::VERSION
         } else {
-            &testnet_runtime::VERSION
+            &testnet_kintsugi_runtime::VERSION
         }
     }
 }
@@ -256,7 +260,7 @@ macro_rules! construct_async_run {
 		} else {
 			runner.async_run(|$config| {
 				let $components = new_partial::<
-					testnet_runtime::RuntimeApi,
+					testnet_kintsugi_runtime::RuntimeApi,
 					TestnetRuntimeExecutor,
 				>(
 					&$config,
@@ -408,7 +412,7 @@ pub fn run() -> Result<()> {
                 let raw_meta_blob = match params.runtime {
                     RuntimeName::Interlay => interlay_runtime::Runtime::metadata().into(),
                     RuntimeName::Kintsugi => kintsugi_runtime::Runtime::metadata().into(),
-                    RuntimeName::Testnet => testnet_runtime::Runtime::metadata().into(),
+                    RuntimeName::Testnet => testnet_kintsugi_runtime::Runtime::metadata().into(),
                 };
 
                 write_to_file_or_stdout(params.raw, &params.output, raw_meta_blob)?;

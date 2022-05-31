@@ -10,7 +10,7 @@ fn testnet_properties(bitcoin_network: &str) -> Map<String, Value> {
     });
     properties.insert("tokenSymbol".into(), token_symbol.into());
     properties.insert("tokenDecimals".into(), token_decimals.into());
-    properties.insert("ss58Format".into(), testnet_runtime::SS58Prefix::get().into());
+    properties.insert("ss58Format".into(), testnet_kintsugi_runtime::SS58Prefix::get().into());
     properties.insert("bitcoinNetwork".into(), bitcoin_network.into());
     properties
 }
@@ -18,7 +18,7 @@ fn testnet_properties(bitcoin_network: &str) -> Map<String, Value> {
 fn default_pair_testnet(currency_id: CurrencyId) -> VaultCurrencyPair<CurrencyId> {
     VaultCurrencyPair {
         collateral: currency_id,
-        wrapped: testnet_runtime::GetWrappedCurrencyId::get(),
+        wrapped: testnet_kintsugi_runtime::GetWrappedCurrencyId::get(),
     }
 }
 
@@ -315,21 +315,21 @@ fn testnet_genesis(
     id: ParaId,
     bitcoin_confirmations: u32,
     start_shutdown: bool,
-) -> testnet_runtime::GenesisConfig {
-    testnet_runtime::GenesisConfig {
-        system: testnet_runtime::SystemConfig {
-            code: testnet_runtime::WASM_BINARY
+) -> testnet_kintsugi_runtime::GenesisConfig {
+    testnet_kintsugi_runtime::GenesisConfig {
+        system: testnet_kintsugi_runtime::SystemConfig {
+            code: testnet_kintsugi_runtime::WASM_BINARY
                 .expect("WASM binary was not build, please build it!")
                 .to_vec(),
         },
         parachain_system: Default::default(),
-        parachain_info: testnet_runtime::ParachainInfoConfig { parachain_id: id },
-        collator_selection: testnet_runtime::CollatorSelectionConfig {
+        parachain_info: testnet_kintsugi_runtime::ParachainInfoConfig { parachain_id: id },
+        collator_selection: testnet_kintsugi_runtime::CollatorSelectionConfig {
             invulnerables: invulnerables.iter().cloned().map(|(acc, _)| acc).collect(),
             candidacy_bond: Zero::zero(),
             ..Default::default()
         },
-        session: testnet_runtime::SessionConfig {
+        session: testnet_kintsugi_runtime::SessionConfig {
             keys: invulnerables
                 .iter()
                 .cloned()
@@ -337,7 +337,7 @@ fn testnet_genesis(
                     (
                         acc.clone(),                           // account id
                         acc.clone(),                           // validator id
-                        testnet_runtime::SessionKeys { aura }, // session keys
+                        testnet_kintsugi_runtime::SessionKeys { aura }, // session keys
                     )
                 })
                 .collect(),
@@ -346,19 +346,19 @@ fn testnet_genesis(
         // Session will take care of this.
         aura: Default::default(),
         aura_ext: Default::default(),
-        security: testnet_runtime::SecurityConfig {
+        security: testnet_kintsugi_runtime::SecurityConfig {
             initial_status: if start_shutdown {
-                testnet_runtime::StatusCode::Shutdown
+                testnet_kintsugi_runtime::StatusCode::Shutdown
             } else {
-                testnet_runtime::StatusCode::Error
+                testnet_kintsugi_runtime::StatusCode::Error
             },
         },
-        sudo: testnet_runtime::SudoConfig {
+        sudo: testnet_kintsugi_runtime::SudoConfig {
             // Assign network admin rights.
             key: Some(root_key.clone()),
         },
         asset_registry: Default::default(),
-        tokens: testnet_runtime::TokensConfig {
+        tokens: testnet_kintsugi_runtime::TokensConfig {
             balances: endowed_accounts
                 .iter()
                 .flat_map(|k| {
@@ -372,32 +372,32 @@ fn testnet_genesis(
                 .collect(),
         },
         vesting: Default::default(),
-        oracle: testnet_runtime::OracleConfig {
+        oracle: testnet_kintsugi_runtime::OracleConfig {
             authorized_oracles,
             max_delay: DEFAULT_MAX_DELAY_MS,
         },
-        btc_relay: testnet_runtime::BTCRelayConfig {
+        btc_relay: testnet_kintsugi_runtime::BTCRelayConfig {
             bitcoin_confirmations,
-            parachain_confirmations: bitcoin_confirmations.saturating_mul(testnet_runtime::BITCOIN_BLOCK_SPACING),
+            parachain_confirmations: bitcoin_confirmations.saturating_mul(testnet_kintsugi_runtime::BITCOIN_BLOCK_SPACING),
             disable_difficulty_check: true,
             disable_inclusion_check: false,
         },
-        issue: testnet_runtime::IssueConfig {
-            issue_period: testnet_runtime::DAYS,
+        issue: testnet_kintsugi_runtime::IssueConfig {
+            issue_period: testnet_kintsugi_runtime::DAYS,
             issue_btc_dust_value: DEFAULT_DUST_VALUE,
         },
-        redeem: testnet_runtime::RedeemConfig {
+        redeem: testnet_kintsugi_runtime::RedeemConfig {
             redeem_transaction_size: expected_transaction_size(),
-            redeem_period: testnet_runtime::DAYS,
+            redeem_period: testnet_kintsugi_runtime::DAYS,
             redeem_btc_dust_value: DEFAULT_DUST_VALUE,
         },
-        replace: testnet_runtime::ReplaceConfig {
-            replace_period: testnet_runtime::DAYS,
+        replace: testnet_kintsugi_runtime::ReplaceConfig {
+            replace_period: testnet_kintsugi_runtime::DAYS,
             replace_btc_dust_value: DEFAULT_DUST_VALUE,
         },
-        vault_registry: testnet_runtime::VaultRegistryConfig {
+        vault_registry: testnet_kintsugi_runtime::VaultRegistryConfig {
             minimum_collateral_vault: vec![(Token(KSM), 0)],
-            punishment_delay: testnet_runtime::DAYS,
+            punishment_delay: testnet_kintsugi_runtime::DAYS,
             system_collateral_ceiling: vec![
                 (default_pair_testnet(Token(KSM)), 1_000_000_000 * KSM.one()),
                 (default_pair_testnet(Token(KINT)), 1_000_000_000 * KINT.one()),
@@ -439,7 +439,7 @@ fn testnet_genesis(
                 ),
             ],
         },
-        fee: testnet_runtime::FeeConfig {
+        fee: testnet_kintsugi_runtime::FeeConfig {
             issue_fee: FixedU128::checked_from_rational(15, 10000).unwrap(), // 0.15%
             issue_griefing_collateral: FixedU128::checked_from_rational(5, 100000).unwrap(), // 0.005%
             refund_fee: FixedU128::checked_from_rational(5, 1000).unwrap(),  // 0.5%
@@ -450,24 +450,24 @@ fn testnet_genesis(
             theft_fee: FixedU128::checked_from_rational(5, 100).unwrap(),    // 5%
             theft_fee_max: 10000000,                                         // 0.1 BTC
         },
-        refund: testnet_runtime::RefundConfig {
+        refund: testnet_kintsugi_runtime::RefundConfig {
             refund_btc_dust_value: DEFAULT_DUST_VALUE,
             refund_transaction_size: expected_transaction_size(),
         },
-        nomination: testnet_runtime::NominationConfig {
+        nomination: testnet_kintsugi_runtime::NominationConfig {
             is_nomination_enabled: false,
         },
         technical_committee: Default::default(),
         technical_membership: Default::default(),
         treasury: Default::default(),
         democracy: Default::default(),
-        supply: testnet_runtime::SupplyConfig {
-            initial_supply: testnet_runtime::token_distribution::INITIAL_ALLOCATION,
+        supply: testnet_kintsugi_runtime::SupplyConfig {
+            initial_supply: testnet_kintsugi_runtime::token_distribution::INITIAL_ALLOCATION,
             // start of year 5
-            start_height: testnet_runtime::YEARS * 4,
+            start_height: testnet_kintsugi_runtime::YEARS * 4,
             inflation: FixedU128::checked_from_rational(2, 100).unwrap(), // 2%
         },
-        polkadot_xcm: testnet_runtime::PolkadotXcmConfig {
+        polkadot_xcm: testnet_kintsugi_runtime::PolkadotXcmConfig {
             safe_xcm_version: Some(2),
         },
     }
