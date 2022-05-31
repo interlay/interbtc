@@ -15,7 +15,10 @@ pub use kintsugi_imports::*;
 mod kintsugi_imports {
     pub use frame_support::{parameter_types, weights::Weight};
     pub use kintsugi_runtime_parachain::{xcm_config::*, *};
-    pub use primitives::{CurrencyId::Token, KINT, KSM};
+    pub use primitives::{
+        CurrencyId::{ForeignAsset, Token},
+        CustomMetadata, KINT, KSM,
+    };
     pub use sp_runtime::{traits::AccountIdConversion, FixedPointNumber};
 }
 

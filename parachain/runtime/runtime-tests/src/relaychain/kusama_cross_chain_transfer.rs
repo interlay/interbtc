@@ -1,5 +1,5 @@
 use crate::{relaychain::kusama_test_net::*, setup::*};
-use frame_support::assert_ok;
+use frame_support::{assert_ok, weights::WeightToFeePolynomial};
 use orml_traits::MultiCurrency;
 use primitives::CurrencyId::Token;
 use xcm_builder::ParentIsPreset;
@@ -127,10 +127,8 @@ mod hrmp {
         // check that Bob received left-over funds (from both Kintsugi and Sibling).
         // We expect slightly less than 4 * 0.41 KSM
         KusamaNet::execute_with(|| {
-            assert_eq!(
-                kusama_runtime::Balances::free_balance(&AccountId::from(BOB)),
-                1_637_510_889_920
-            );
+            let free_balance = kusama_runtime::Balances::free_balance(&AccountId::from(BOB));
+            assert!(free_balance > 1_600_000_000_000 && free_balance < 1_640_000_000_000);
         });
     }
 }
@@ -189,31 +187,36 @@ fn transfer_to_relay_chain() {
                 )
                 .into()
             ),
-            4_000_000_000
+            4_000_000_000 // The value used in UI - very conservative: actually used at time of writing = 298_368_000
         ));
     });
 
     KusamaNet::execute_with(|| {
-        // xcm fee depends on the ExtrinsicBaseWeight. It's calculated as follows
-        // ExtrinsicBaseWeight = 80_350 * WEIGHT_PER_NANOS = 80_350_000
-        // PricePerBaseWeight = 1/10 cent = 10^12 / 30_000 / 10
-        // fee = (weight/ExtrinsicBaseWeight) * PricePerBaseWeight = (4_000_000_000 / 80_350_000) * (10^12 / 300_00 /
-        // 10) = 165940676.208 (theoretical)
-        // .. But due to rounding is actually 165940672
-        let xcm_fee = 165_940_672;
+        let used_weight = 298_368_000; // the actual weight of the sent message
+        let fee = <kusama_runtime::Runtime as pallet_transaction_payment::Config>::WeightToFee::calc(&used_weight);
         assert_eq!(
             kusama_runtime::Balances::free_balance(&AccountId::from(BOB)),
-            KSM.one() - xcm_fee
+            KSM.one() - fee
         );
+
+        // UI uses 165940672 - make sure that that's an overestimation
+        assert!(fee < 165940672);
     });
 }
 
+/// Send KINT to sibling. On the sibling, it will be registered as a foreign asset.
+/// By also transferring it back, we test that the asset-registry has been properly
+/// integrated.
 #[test]
-fn transfer_to_sibling() {
+fn transfer_to_sibling_and_back() {
     fn sibling_sovereign_account() -> AccountId {
         use sp_runtime::traits::AccountIdConversion;
         polkadot_parachain::primitives::Sibling::from(SIBLING_PARA_ID).into_account()
     }
+
+    Sibling::execute_with(|| {
+        register_kint_as_foreign_asset();
+    });
 
     Kintsugi::execute_with(|| {
         assert_ok!(Tokens::deposit(
@@ -256,17 +259,19 @@ fn transfer_to_sibling() {
     });
 
     Sibling::execute_with(|| {
-        assert_ok!(XTokens::transfer_multiasset(
+        let xcm_fee = 800_000_000;
+
+        // check reception
+        assert_eq!(
+            Tokens::free_balance(ForeignAsset(1), &AccountId::from(BOB)),
+            10_000_000_000_000 - xcm_fee
+        );
+
+        // return some back to kintsugi
+        assert_ok!(XTokens::transfer(
             Origin::signed(BOB.into()),
-            Box::new(
-                MultiAsset {
-                    id: Concrete(
-                        MultiLocation::new(1, X2(Parachain(KINTSUGI_PARA_ID), GeneralKey(Token(KINT).encode()))).into()
-                    ),
-                    fun: Fungibility::Fungible(5_000_000_000_000),
-                }
-                .into()
-            ),
+            ForeignAsset(1),
+            5_000_000_000_000,
             Box::new(
                 MultiLocation::new(
                     1,
@@ -284,6 +289,7 @@ fn transfer_to_sibling() {
         ));
     });
 
+    // check reception
     Kintsugi::execute_with(|| {
         let xcm_fee = 170666666;
         assert_eq!(
@@ -590,4 +596,18 @@ fn trap_assets_works() {
             ksm_asset_amount - ksm_xcm_fee
         );
     });
+}
+
+fn register_kint_as_foreign_asset() {
+    let metadata = AssetMetadata {
+        decimals: 12,
+        name: "Kintsugi native".as_bytes().to_vec(),
+        symbol: "extKINT".as_bytes().to_vec(),
+        existential_deposit: 0,
+        location: Some(MultiLocation::new(1, X2(Parachain(KINTSUGI_PARA_ID), GeneralKey(Token(KINT).encode()))).into()),
+        additional: CustomMetadata {
+            fee_per_second: 1_000_000_000_000,
+        },
+    };
+    AssetRegistry::register_asset(Origin::root(), metadata, None).unwrap();
 }

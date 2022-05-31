@@ -2,7 +2,7 @@ use crate as vault_registry;
 use crate::{Config, Error};
 use frame_support::{
     parameter_types,
-    traits::{Everything, GenesisBuild},
+    traits::{ConstU32, Everything, GenesisBuild},
     PalletId,
 };
 use mocktopus::{macros::mockable, mocking::clear_mocks};
@@ -119,6 +119,8 @@ impl orml_tokens::Config for Test {
     type OnDust = ();
     type MaxLocks = MaxLocks;
     type DustRemovalWhitelist = Everything;
+    type MaxReserves = ConstU32<0>; // we don't use named reserves
+    type ReserveIdentifier = (); // we don't use named reserves
 }
 
 impl reward::Config for Test {

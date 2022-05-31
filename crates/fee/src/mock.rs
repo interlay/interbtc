@@ -1,6 +1,10 @@
 use crate as fee;
 use crate::{Config, Error};
-use frame_support::{parameter_types, traits::Everything, PalletId};
+use frame_support::{
+    parameter_types,
+    traits::{ConstU32, Everything},
+    PalletId,
+};
 use mocktopus::mocking::clear_mocks;
 use orml_traits::parameter_type_with_key;
 use primitives::VaultId;
@@ -103,6 +107,8 @@ impl orml_tokens::Config for Test {
     type OnDust = ();
     type MaxLocks = MaxLocks;
     type DustRemovalWhitelist = Everything;
+    type MaxReserves = ConstU32<0>; // we don't use named reserves
+    type ReserveIdentifier = (); // we don't use named reserves
 }
 
 impl reward::Config for Test {

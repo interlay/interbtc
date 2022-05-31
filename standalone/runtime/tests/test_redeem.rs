@@ -37,6 +37,7 @@ fn test_with<R>(execute: impl Fn(VaultId) -> R) {
     test_with(Token(DOT), Token(IBTC), None);
     test_with(Token(DOT), Token(IBTC), Some(Token(KSM)));
     test_with(Token(KSM), Token(IBTC), None);
+    test_with(ForeignAsset(1), Token(IBTC), None);
 }
 
 /// to-be-replaced & replace_collateral are decreased in request_redeem

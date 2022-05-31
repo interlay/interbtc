@@ -22,7 +22,8 @@ pub use interbtc_runtime_standalone::{
 pub use mocktopus::mocking::*;
 pub use orml_tokens::CurrencyAdapter;
 pub use primitives::{
-    CurrencyId::Token, VaultCurrencyPair, VaultId as PrimitiveVaultId, DOT, IBTC, INTR, KBTC, KINT, KSM,
+    CurrencyId::{ForeignAsset, Token},
+    VaultCurrencyPair, VaultId as PrimitiveVaultId, DOT, IBTC, INTR, KBTC, KINT, KSM,
 };
 use redeem::RedeemRequestStatus;
 use staking::DefaultVaultCurrencyPair;
@@ -354,7 +355,7 @@ pub fn iter_currency_pairs() -> impl Iterator<Item = DefaultVaultCurrencyPair<Ru
 }
 
 pub fn iter_collateral_currencies() -> impl Iterator<Item = CurrencyId> {
-    vec![Token(DOT), Token(KSM)].into_iter()
+    vec![Token(DOT), Token(KSM), ForeignAsset(1)].into_iter()
 }
 
 pub fn iter_native_currencies() -> impl Iterator<Item = CurrencyId> {

@@ -1,4 +1,7 @@
-use frame_support::{parameter_types, traits::Everything};
+use frame_support::{
+    parameter_types,
+    traits::{ConstU32, Everything},
+};
 use orml_traits::parameter_type_with_key;
 pub use primitives::{CurrencyId::Token, TokenSymbol::*};
 use sp_arithmetic::{FixedI128, FixedU128};
@@ -92,6 +95,8 @@ impl orml_tokens::Config for Test {
     type OnDust = ();
     type MaxLocks = MaxLocks;
     type DustRemovalWhitelist = Everything;
+    type MaxReserves = ConstU32<0>; // we don't use named reserves
+    type ReserveIdentifier = (); // we don't use named reserves
 }
 
 pub struct CurrencyConvert;

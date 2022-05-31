@@ -124,6 +124,7 @@ fn kintsugi_mainnet_genesis(
         security: kintsugi_runtime::SecurityConfig {
             initial_status: kintsugi_runtime::StatusCode::Shutdown,
         },
+        asset_registry: Default::default(),
         tokens: Default::default(),
         vesting: Default::default(),
         oracle: kintsugi_runtime::OracleConfig {

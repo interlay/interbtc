@@ -19,6 +19,7 @@ fn test_with<R>(execute: impl Fn(CurrencyId) -> R) {
     };
     test_with(Token(DOT));
     test_with(Token(KSM));
+    test_with(ForeignAsset(1));
 }
 
 fn setup_vault_for_potential_double_spend(

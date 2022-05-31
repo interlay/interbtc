@@ -4,7 +4,7 @@ use hex_literal::hex;
 use interbtc_rpc::jsonrpc_core::serde_json::{map::Map, Value};
 use primitives::{
     AccountId, Balance, CurrencyId, CurrencyId::Token, CurrencyInfo, Signature, VaultCurrencyPair, BITCOIN_MAINNET,
-    BITCOIN_TESTNET, DOT, IBTC, INTR, KBTC, KINT, KSM,
+    BITCOIN_REGTEST, BITCOIN_TESTNET, DOT, IBTC, INTR, KBTC, KINT, KSM,
 };
 use sc_chain_spec::{ChainSpecExtension, ChainSpecGroup};
 use sc_service::ChainType;

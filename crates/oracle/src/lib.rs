@@ -293,6 +293,7 @@ impl<T: Config> Pallet<T> {
 
     pub fn convert(amount: &Amount<T>, currency_id: T::CurrencyId) -> Result<Amount<T>, DispatchError> {
         let converted = match (amount.currency(), currency_id) {
+            (x, y) if x == y => amount.amount(),
             (x, _) if x == T::GetWrappedCurrencyId::get() => {
                 // convert interbtc to collateral
                 Self::wrapped_to_collateral(amount.amount(), currency_id)?
