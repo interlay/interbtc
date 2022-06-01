@@ -267,6 +267,159 @@ pub mod pallet {
             Self::withdraw_from_reward_pool::<T::VaultRewards, T::VaultStaking>(&vault_id, &nominator_id, index)?;
             Ok(().into())
         }
+
+        /// Changes the issue fee percentage (only executable by the Root account)
+        ///
+        /// # Arguments
+        ///
+        /// * `origin` - signing account
+        /// * `fee` - the new fee
+        #[pallet::weight(<T as Config>::WeightInfo::set_issue_fee())]
+        #[transactional]
+        pub fn set_issue_fee(
+            origin: OriginFor<T>,
+            fee: UnsignedFixedPoint<T>,
+        ) -> DispatchResultWithPostInfo {
+            ensure_root(origin)?;
+            Self::_set_issue_fee(fee);
+            Ok(().into())
+        }
+
+        /// Changes the issue griefing collateral percentage (only executable by the Root account)
+        ///
+        /// # Arguments
+        ///
+        /// * `origin` - signing account
+        /// * `griefing_collateral` - the new griefing collateral
+        #[pallet::weight(<T as Config>::WeightInfo::set_issue_griefing_collateral())]
+        #[transactional]
+        pub fn set_issue_griefing_collateral(
+            origin: OriginFor<T>,
+            griefing_collateral: UnsignedFixedPoint<T>,
+        ) -> DispatchResultWithPostInfo {
+            ensure_root(origin)?;
+            Self::_set_issue_griefing_collateral(griefing_collateral);
+            Ok(().into())
+        }
+
+        /// Changes the redeem fee percentage (only executable by the Root account)
+        ///
+        /// # Arguments
+        ///
+        /// * `origin` - signing account
+        /// * `fee` - the new fee
+        #[pallet::weight(<T as Config>::WeightInfo::set_redeem_fee())]
+        #[transactional]
+        pub fn set_redeem_fee(
+            origin: OriginFor<T>,
+            fee: UnsignedFixedPoint<T>,
+        ) -> DispatchResultWithPostInfo {
+            ensure_root(origin)?;
+            Self::_set_redeem_fee(fee);
+            Ok(().into())
+        }
+
+        /// Changes the refund fee percentage (only executable by the Root account)
+        ///
+        /// # Arguments
+        ///
+        /// * `origin` - signing account
+        /// * `fee` - the new fee
+        #[pallet::weight(<T as Config>::WeightInfo::set_refund_fee())]
+        #[transactional]
+        pub fn set_refund_fee(
+            origin: OriginFor<T>,
+            fee: UnsignedFixedPoint<T>,
+        ) -> DispatchResultWithPostInfo {
+            ensure_root(origin)?;
+            Self::_set_refund_fee(fee);
+            Ok(().into())
+        }
+
+        /// Changes the premium redeem fee percentage (only executable by the Root account)
+        ///
+        /// # Arguments
+        ///
+        /// * `origin` - signing account
+        /// * `fee` - the new fee
+        #[pallet::weight(<T as Config>::WeightInfo::set_premium_redeem_fee())]
+        #[transactional]
+        pub fn set_premium_redeem_fee(
+            origin: OriginFor<T>,
+            fee: UnsignedFixedPoint<T>,
+        ) -> DispatchResultWithPostInfo {
+            ensure_root(origin)?;
+            Self::_set_premium_redeem_fee(fee);
+            Ok(().into())
+        }
+
+        /// Changes the punishment fee percentage (only executable by the Root account)
+        ///
+        /// # Arguments
+        ///
+        /// * `origin` - signing account
+        /// * `fee` - the new fee
+        #[pallet::weight(<T as Config>::WeightInfo::set_punishment_fee())]
+        #[transactional]
+        pub fn set_punishment_fee(
+            origin: OriginFor<T>,
+            fee: UnsignedFixedPoint<T>,
+        ) -> DispatchResultWithPostInfo {
+            ensure_root(origin)?;
+            Self::_set_punishment_fee(fee);
+            Ok(().into())
+        }
+
+        /// Changes the replace griefing collateral percentage (only executable by the Root account)
+        ///
+        /// # Arguments
+        ///
+        /// * `origin` - signing account
+        /// * `griefing_collateral` - the new griefing collateral
+        #[pallet::weight(<T as Config>::WeightInfo::set_replace_griefing_collateral())]
+        #[transactional]
+        pub fn set_replace_griefing_collateral(
+            origin: OriginFor<T>,
+            griefing_collateral: UnsignedFixedPoint<T>,
+        ) -> DispatchResultWithPostInfo {
+            ensure_root(origin)?;
+            Self::_set_replace_griefing_collateral(griefing_collateral);
+            Ok(().into())
+        }
+
+        /// Changes the theft fee percentage (only executable by the Root account)
+        ///
+        /// # Arguments
+        ///
+        /// * `origin` - signing account
+        /// * `fee` - the new fee
+        #[pallet::weight(<T as Config>::WeightInfo::set_theft_fee())]
+        #[transactional]
+        pub fn set_theft_fee(
+            origin: OriginFor<T>,
+            fee: UnsignedFixedPoint<T>,
+        ) -> DispatchResultWithPostInfo {
+            ensure_root(origin)?;
+            Self::_set_theft_fee(fee);
+            Ok(().into())
+        }
+
+        /// Changes the theft fee max (only executable by the Root account)
+        ///
+        /// # Arguments
+        ///
+        /// * `origin` - signing account
+        /// * `fee_max` - the new maximum fee
+        #[pallet::weight(<T as Config>::WeightInfo::set_theft_fee_max())]
+        #[transactional]
+        pub fn set_theft_fee_max(
+            origin: OriginFor<T>,
+            fee_max: UnsignedInner<T>,
+        ) -> DispatchResultWithPostInfo {
+            ensure_root(origin)?;
+            Self::_set_theft_fee_max(fee_max);
+            Ok(().into())
+        }
     }
 }
 
@@ -385,6 +538,60 @@ impl<T: Config> Pallet<T> {
     pub fn withdraw_all_vault_rewards(vault_id: &DefaultVaultId<T>) -> DispatchResult {
         Self::distribute_from_reward_pool::<T::VaultRewards, T::VaultStaking>(vault_id)?;
         Ok(())
+    }
+
+    pub fn _set_issue_fee(
+        fee: UnsignedFixedPoint<T>,
+    ) {
+        IssueFee::<T>::put(fee);
+    }
+
+    pub fn _set_issue_griefing_collateral(
+        griefing_collateral: UnsignedFixedPoint<T>,
+    ) {
+        IssueGriefingCollateral::<T>::put(griefing_collateral);
+    }
+
+    pub fn _set_redeem_fee(
+        fee: UnsignedFixedPoint<T>,
+    ) {
+        RedeemFee::<T>::put(fee);
+    }
+
+    pub fn _set_refund_fee(
+        fee: UnsignedFixedPoint<T>,
+    ) {
+        RefundFee::<T>::put(fee);
+    }
+
+    pub fn _set_premium_redeem_fee(
+        fee: UnsignedFixedPoint<T>,
+    ) {
+        PremiumRedeemFee::<T>::put(fee);
+    }
+
+    pub fn _set_punishment_fee(
+        fee: UnsignedFixedPoint<T>,
+    ) {
+        PunishmentFee::<T>::put(fee);
+    }
+
+    pub fn _set_replace_griefing_collateral(
+        griefing_collateral: UnsignedFixedPoint<T>,
+    ) {
+        ReplaceGriefingCollateral::<T>::put(griefing_collateral);
+    }
+
+    pub fn _set_theft_fee(
+        fee: UnsignedFixedPoint<T>,
+    ) {
+        TheftFee::<T>::put(fee);
+    }
+
+    pub fn _set_theft_fee_max(
+        fee_max: UnsignedInner<T>,
+    ) {
+        TheftFeeMax::<T>::put(fee_max);
     }
 
     // Private functions internal to this pallet
