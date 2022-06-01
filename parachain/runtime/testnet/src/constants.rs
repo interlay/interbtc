@@ -2,14 +2,13 @@
 
 /// Money matters.
 pub mod currency {
-    #[cfg(feature = "dev-kintsugi")]
+    #[cfg(not(feature = "dev-interlay"))]
     pub use dev_kintsugi::*;
 
-    #[cfg(feature = "dev-kintsugi")]
+    #[cfg(not(feature = "dev-interlay"))]
     pub mod dev_kintsugi {
         use primitives::TokenSymbol;
         pub use primitives::{Balance, CurrencyId, CurrencyId::Token, KBTC, KINT, KSM};
-
         pub const NATIVE_TOKEN_ID: TokenSymbol = KINT;
         pub const NATIVE_CURRENCY_ID: CurrencyId = Token(NATIVE_TOKEN_ID);
         pub const PARENT_TOKEN_ID: TokenSymbol = KSM;

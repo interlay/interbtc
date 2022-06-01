@@ -107,5 +107,4 @@ runtime-benchmarks = [
     "interlay-runtime/runtime-benchmarks",
     "polkadot-service/runtime-benchmarks",
 ]
-dev-kintsugi = ["testnet-runtime/dev-kintsugi"]
 dev-interlay = ["testnet-runtime/dev-interlay"]
