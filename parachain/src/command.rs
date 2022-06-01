@@ -72,7 +72,9 @@ fn load_spec(id: &str) -> std::result::Result<Box<dyn sc_service::ChainSpec>, St
     Ok(match id {
         "" => Box::new(chain_spec::testnet::local_config(DEFAULT_PARA_ID.into())),
         "dev" => Box::new(chain_spec::testnet::development_config(DEFAULT_PARA_ID.into())),
-        "rococo" => Box::new(chain_spec::testnet::rococo_testnet_config(DEFAULT_PARA_ID.into())),
+        "rococo" => Box::new(chain_spec::testnet::rococo_testnet_config(
+            chain_spec::kintsugi::PARA_ID.into(),
+        )),
         "rococo-local-2000" => Box::new(chain_spec::testnet::rococo_local_testnet_config(2000.into())),
         "rococo-local-3000" => Box::new(chain_spec::testnet::rococo_local_testnet_config(3000.into())),
         "westend" => Box::new(chain_spec::testnet::westend_testnet_config(DEFAULT_PARA_ID.into())),
