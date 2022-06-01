@@ -196,7 +196,7 @@ pub mod pallet {
         /// Previous lock has expired.
         LockHasExpired,
         /// Lock amount is too large.
-        LockAmountTooLarge,
+        LockAmountTooLow,
         /// Insufficient account balance.
         InsufficientFunds,
         /// Not supported.
@@ -490,7 +490,7 @@ impl<T: Config> Pallet<T> {
         // total amount can't be less than the max period to prevent rounding errors
         ensure!(
             new_locked.amount >= T::BlockNumberToBalance::convert(T::MaxPeriod::get()),
-            Error::<T>::LockAmountTooLarge,
+            Error::<T>::LockAmountTooLow,
         );
 
         ensure!(

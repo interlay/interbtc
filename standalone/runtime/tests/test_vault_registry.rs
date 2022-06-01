@@ -95,6 +95,42 @@ mod deposit_collateral_test {
     }
 
     #[test]
+    fn integration_test_vault_registry_lock_additional_using_locked_tokens_fails() {
+        ExtBuilder::build().execute_with(|| {
+            let vault_id = VaultId::new(account_of(VAULT), DEFAULT_NATIVE_CURRENCY, DEFAULT_WRAPPED_CURRENCY);
+
+            let currency_id = vault_id.collateral_currency();
+
+            let amount_1 = 1000_000_000_000_000;
+
+            let mut vault_data = default_vault_state(&vault_id);
+            *vault_data.free_balance.get_mut(&currency_id).unwrap() = Amount::new(amount_1, currency_id);
+            CoreVaultData::force_to(&vault_id, vault_data);
+
+            let q = currency::get_free_balance::<Runtime>(currency_id, &vault_id.account_id);
+            assert_eq!(q.amount(), amount_1);
+
+            let span = <Runtime as escrow::Config>::Span::get();
+            let current_height = SystemPallet::block_number();
+
+            assert_ok!(Call::Escrow(EscrowCall::create_lock {
+                amount: amount_1 / 2,
+                unlock_height: current_height + span
+            })
+            .dispatch(origin_of(vault_id.account_id.clone())));
+
+            assert_noop!(
+                Call::VaultRegistry(VaultRegistryCall::deposit_collateral {
+                    currency_pair: vault_id.currencies.clone(),
+                    amount: amount_1
+                })
+                .dispatch(origin_of(vault_id.account_id.clone())),
+                TokensError::LiquidityRestrictions
+            );
+        });
+    }
+
+    #[test]
     fn integration_test_vault_registry_lock_additional_respects_fund_limit() {
         test_with(|vault_id| {
             let currency_id = vault_id.collateral_currency();

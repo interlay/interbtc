@@ -52,6 +52,37 @@ fn integration_test_individual_balance_and_total_supply() {
     });
 }
 
+#[test]
+fn integration_test_lock_reserved() {
+    // check that locking does not touch the reserved balance
+    ExtBuilder::build().execute_with(|| {
+        let span = <Runtime as escrow::Config>::Span::get();
+        let current_height = SystemPallet::block_number();
+        let lock_amount = 1000_000_000_000_000;
+        let initial_free = 1500_000_000_000_000;
+        let initial_reserved = 500_000_000_000_000;
+
+        assert_ok!(Call::Tokens(TokensCall::set_balance {
+            who: account_of(ALICE),
+            currency_id: DEFAULT_NATIVE_CURRENCY,
+            new_free: initial_free,
+            new_reserved: initial_reserved,
+        })
+        .dispatch(root()));
+
+        assert_ok!(Call::Escrow(EscrowCall::create_lock {
+            amount: lock_amount,
+            unlock_height: current_height + span
+        })
+        .dispatch(origin_of(account_of(ALICE))));
+
+        let account = orml_tokens::Pallet::<Runtime>::accounts(account_of(ALICE), DEFAULT_NATIVE_CURRENCY);
+        assert_eq!(account.free, initial_free);
+        assert_eq!(account.reserved, initial_reserved);
+        assert_eq!(account.frozen, lock_amount);
+    });
+}
+
 fn ensure_reward_stake_is_escrow_balance(height: BlockNumber) {
     assert_ok!(
         <EscrowRewardsPallet as Rewards<AccountId, Balance, CurrencyId>>::get_stake(&account_of(ALICE)),
