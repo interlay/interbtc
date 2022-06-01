@@ -13,7 +13,7 @@ use frame_support::assert_ok;
 use frame_system::RawOrigin;
 use orml_traits::MultiCurrency;
 use primitives::{CurrencyId, CurrencyId::Token, TokenSymbol::*, VaultCurrencyPair, VaultId};
-use sp_core::{H160, H256, U256};
+use sp_core::{H256, U256};
 use sp_runtime::traits::One;
 use sp_std::prelude::*;
 use vault_registry::types::{Vault, Wallet};
@@ -96,7 +96,7 @@ fn mine_blocks<T: crate::Config>(end_height: u32) {
     let height = 0;
     let block = BlockBuilder::new()
         .with_version(4)
-        .with_coinbase(&BtcAddress::P2SH(H160::zero()), 50, 3)
+        .with_coinbase(&BtcAddress::random(), 50, 3)
         .with_timestamp(1588813835)
         .mine(U256::from(2).pow(254.into()))
         .unwrap();
@@ -130,7 +130,7 @@ fn mine_blocks<T: crate::Config>(end_height: u32) {
         let block = BlockBuilder::new()
             .with_previous_hash(prev_hash)
             .with_version(4)
-            .with_coinbase(&BtcAddress::P2SH(H160::zero()), 50, 3)
+            .with_coinbase(&BtcAddress::random(), 50, 3)
             .with_timestamp(1588813835)
             .add_transaction(transaction.clone())
             .mine(U256::from(2).pow(254.into()))
@@ -173,7 +173,7 @@ benchmarks! {
         let origin: T::AccountId = account("Origin", 0, 0);
         let vault_id = get_vault_id::<T>();
         let amount = Redeem::<T>::redeem_btc_dust_value() + 1000u32.into();
-        let btc_address = BtcAddress::P2SH(H160::from([0; 20]));
+        let btc_address = BtcAddress::random();
 
         initialize_oracle::<T>();
 
@@ -236,7 +236,7 @@ benchmarks! {
 
         initialize_oracle::<T>();
 
-        let origin_btc_address = BtcAddress::P2PKH(H160::zero());
+        let origin_btc_address = BtcAddress::random();
 
         let redeem_id = H256::zero();
         let mut redeem_request = test_request::<T>(&vault_id);

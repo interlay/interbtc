@@ -40,7 +40,7 @@ fn test_request() -> ReplaceRequest<AccountId, BlockNumber, Balance, CurrencyId>
         accept_time: 1,
         amount: 10,
         griefing_collateral: 0,
-        btc_address: BtcAddress::default(),
+        btc_address: BtcAddress::random(),
         collateral: 20,
         btc_height: 0,
         status: ReplaceRequestStatus::Pending,
@@ -137,20 +137,15 @@ mod accept_replace_tests {
     fn test_accept_replace_succeeds() {
         run_test(|| {
             setup_mocks();
-            assert_ok!(Replace::_accept_replace(
-                OLD_VAULT,
-                NEW_VAULT,
-                5,
-                10,
-                BtcAddress::default()
-            ));
+            let btc_address = BtcAddress::random();
+            assert_ok!(Replace::_accept_replace(OLD_VAULT, NEW_VAULT, 5, 10, btc_address));
             assert_event_matches!(Event::AcceptReplace{
                 replace_id: _,
                 old_vault_id: OLD_VAULT,
                 new_vault_id: NEW_VAULT,
                 amount: 5,
                 collateral: 10,
-                btc_address: addr} if addr == BtcAddress::default());
+                btc_address: addr} if addr == btc_address);
         })
     }
 
@@ -162,20 +157,16 @@ mod accept_replace_tests {
             ext::vault_registry::decrease_to_be_replaced_tokens::<Test>
                 .mock_safe(|_, _| MockResult::Return(Ok((wrapped(4), griefing(8)))));
 
-            assert_ok!(Replace::_accept_replace(
-                OLD_VAULT,
-                NEW_VAULT,
-                5,
-                10,
-                BtcAddress::default()
-            ));
+            let btc_address = BtcAddress::random();
+
+            assert_ok!(Replace::_accept_replace(OLD_VAULT, NEW_VAULT, 5, 10, btc_address));
             assert_event_matches!(Event::AcceptReplace{
                 replace_id: _, 
                 old_vault_id: OLD_VAULT, 
                 new_vault_id: NEW_VAULT, 
                 amount: 4, 
                 collateral: 8,
-                btc_address: addr} if addr == BtcAddress::default());
+                btc_address: addr} if addr == btc_address);
         })
     }
 
@@ -186,7 +177,7 @@ mod accept_replace_tests {
             ext::vault_registry::decrease_to_be_replaced_tokens::<Test>
                 .mock_safe(|_, _| MockResult::Return(Ok((wrapped(1), griefing(10)))));
             assert_err!(
-                Replace::_accept_replace(OLD_VAULT, NEW_VAULT, 5, 10, BtcAddress::default()),
+                Replace::_accept_replace(OLD_VAULT, NEW_VAULT, 5, 10, BtcAddress::random()),
                 TestError::AmountBelowDustAmount
             );
         })

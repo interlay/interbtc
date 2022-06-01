@@ -6,7 +6,7 @@ use currency::Amount;
 use frame_support::{assert_noop, assert_ok, dispatch::DispatchError};
 use mocktopus::mocking::*;
 use sp_arithmetic::FixedU128;
-use sp_core::{H160, H256};
+use sp_core::H256;
 use sp_runtime::traits::One;
 use vault_registry::{DefaultVault, DefaultVaultId, Vault, VaultStatus, Wallet};
 
@@ -32,20 +32,31 @@ fn request_issue(origin: AccountId, amount: Balance, vault: DefaultVaultId<Test>
 
     ext::vault_registry::try_increase_to_be_issued_tokens::<Test>.mock_safe(|_, _| MockResult::Return(Ok(())));
     ext::vault_registry::register_deposit_address::<Test>
-        .mock_safe(|_, _| MockResult::Return(Ok(BtcAddress::default())));
+        .mock_safe(|_, _| MockResult::Return(Ok(BtcAddress::random())));
 
     Issue::_request_issue(origin, amount, vault)
 }
 
 fn request_issue_ok(origin: AccountId, amount: Balance, vault: DefaultVaultId<Test>) -> H256 {
+    request_issue_ok_with_address(origin, amount, vault, BtcAddress::random())
+}
+
+fn request_issue_ok_with_address(
+    origin: AccountId,
+    amount: Balance,
+    vault: DefaultVaultId<Test>,
+    address: BtcAddress,
+) -> H256 {
     ext::vault_registry::ensure_not_banned::<Test>.mock_safe(|_| MockResult::Return(Ok(())));
 
     ext::security::get_secure_id::<Test>.mock_safe(|_| MockResult::Return(get_dummy_request_id()));
 
     ext::vault_registry::try_increase_to_be_issued_tokens::<Test>.mock_safe(|_, _| MockResult::Return(Ok(())));
     ext::vault_registry::get_bitcoin_public_key::<Test>.mock_safe(|_| MockResult::Return(Ok(BtcPublicKey::default())));
-    ext::vault_registry::register_deposit_address::<Test>
-        .mock_safe(|_, _| MockResult::Return(Ok(BtcAddress::default())));
+
+    unsafe {
+        ext::vault_registry::register_deposit_address::<Test>.mock_raw(|_, _| MockResult::Return(Ok(address)));
+    }
 
     Issue::_request_issue(origin, amount, vault).unwrap()
 }
@@ -101,6 +112,7 @@ fn test_request_issue_succeeds() {
         let amount: Balance = 3;
         let issue_fee = 1;
         let issue_griefing_collateral = 20;
+        let address = BtcAddress::random();
 
         ext::vault_registry::get_active_vault_from_id::<Test>
             .mock_safe(|_| MockResult::Return(Ok(init_zero_vault(VAULT))));
@@ -110,7 +122,7 @@ fn test_request_issue_succeeds() {
         ext::fee::get_issue_griefing_collateral::<Test>
             .mock_safe(move |_| MockResult::Return(Ok(griefing(issue_griefing_collateral))));
 
-        let issue_id = request_issue_ok(origin, amount, vault.clone());
+        let issue_id = request_issue_ok_with_address(origin, amount, vault.clone(), address.clone());
 
         let request_issue_event = TestEvent::Issue(Event::RequestIssue {
             issue_id,
@@ -119,7 +131,7 @@ fn test_request_issue_succeeds() {
             fee: issue_fee,
             griefing_collateral: issue_griefing_collateral,
             vault_id: vault,
-            vault_address: BtcAddress::default(),
+            vault_address: address,
             vault_public_key: BtcPublicKey::default(),
         });
         assert!(System::events().iter().any(|a| a.event == request_issue_event));
@@ -152,7 +164,7 @@ fn test_execute_issue_succeeds() {
         ext::btc_relay::parse_merkle_proof::<Test>.mock_safe(|_| MockResult::Return(Ok(dummy_merkle_proof())));
         ext::btc_relay::parse_transaction::<Test>.mock_safe(|_| MockResult::Return(Ok(Transaction::default())));
         ext::btc_relay::get_and_verify_issue_payment::<Test, Balance>
-            .mock_safe(|_, _, _| MockResult::Return(Ok((Some(BtcAddress::P2SH(H160::zero())), 3))));
+            .mock_safe(|_, _, _| MockResult::Return(Ok((Some(BtcAddress::random()), 3))));
 
         assert_ok!(execute_issue(USER, &issue_id));
 
@@ -182,7 +194,7 @@ fn test_execute_issue_overpayment_succeeds() {
         ext::btc_relay::parse_merkle_proof::<Test>.mock_safe(|_| MockResult::Return(Ok(dummy_merkle_proof())));
         ext::btc_relay::parse_transaction::<Test>.mock_safe(|_| MockResult::Return(Ok(Transaction::default())));
         ext::btc_relay::get_and_verify_issue_payment::<Test, Balance>
-            .mock_safe(|_, _, _| MockResult::Return(Ok((Some(BtcAddress::P2SH(H160::zero())), 5))));
+            .mock_safe(|_, _, _| MockResult::Return(Ok((Some(BtcAddress::random()), 5))));
 
         ext::vault_registry::is_vault_liquidated::<Test>.mock_safe(|_| MockResult::Return(Ok(false)));
 
@@ -223,7 +235,7 @@ fn test_execute_issue_refund_succeeds() {
         ext::btc_relay::parse_merkle_proof::<Test>.mock_safe(|_| MockResult::Return(Ok(dummy_merkle_proof())));
         ext::btc_relay::parse_transaction::<Test>.mock_safe(|_| MockResult::Return(Ok(Transaction::default())));
         ext::btc_relay::get_and_verify_issue_payment::<Test, Balance>
-            .mock_safe(|_, _, _| MockResult::Return(Ok((Some(BtcAddress::P2SH(H160::zero())), 103))));
+            .mock_safe(|_, _, _| MockResult::Return(Ok((Some(BtcAddress::random()), 103))));
 
         // return some arbitrary error
         ext::vault_registry::try_increase_to_be_issued_tokens::<Test>.mock_safe(|_, amount| {
@@ -231,7 +243,7 @@ fn test_execute_issue_refund_succeeds() {
             MockResult::Return(Err(TestError::IssueCompleted.into()))
         });
         ext::vault_registry::register_deposit_address::<Test>
-            .mock_safe(|_, _| MockResult::Return(Ok(BtcAddress::default())));
+            .mock_safe(|_, _| MockResult::Return(Ok(BtcAddress::random())));
 
         ext::vault_registry::is_vault_liquidated::<Test>.mock_safe(|_| MockResult::Return(Ok(false)));
 

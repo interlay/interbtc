@@ -76,7 +76,7 @@ mod spec_based_tests {
             assert_noop!(
                 Call::Redeem(RedeemCall::request_redeem {
                     amount_wrapped: 1500,
-                    btc_address: BtcAddress::P2PKH(H160([0u8; 20])),
+                    btc_address: BtcAddress::random(),
                     vault_id: vault_id.clone(),
                 })
                 .dispatch(origin_of(account_of(ALICE))),
@@ -141,7 +141,7 @@ mod spec_based_tests {
             assert_noop!(
                 Call::Redeem(RedeemCall::request_redeem {
                     amount_wrapped: 1500,
-                    btc_address: BtcAddress::P2PKH(H160([0u8; 20])),
+                    btc_address: BtcAddress::random(),
                     vault_id: vault_id.clone(),
                 })
                 .dispatch(origin_of(account_of(ALICE))),
@@ -213,7 +213,7 @@ mod spec_based_tests {
                 let amount = calculate_vault_capacity(&vault_id);
                 assert_ok!(Call::Redeem(RedeemCall::request_redeem {
                     amount_wrapped: amount.amount(),
-                    btc_address: BtcAddress::default(),
+                    btc_address: BtcAddress::random(),
                     vault_id: vault_id.clone()
                 })
                 .dispatch(origin_of(account_of(USER))));
@@ -247,7 +247,7 @@ mod spec_based_tests {
                 assert_noop!(
                     Call::Redeem(RedeemCall::request_redeem {
                         amount_wrapped: amount,
-                        btc_address: BtcAddress::default(),
+                        btc_address: BtcAddress::random(),
                         vault_id: vault_id.clone()
                     })
                     .dispatch(origin_of(account_of(USER))),
@@ -264,7 +264,7 @@ mod spec_based_tests {
                 assert_noop!(
                     Call::Redeem(RedeemCall::request_redeem {
                         amount_wrapped: 1500,
-                        btc_address: BtcAddress::P2PKH(H160([0u8; 20])),
+                        btc_address: BtcAddress::random(),
                         vault_id: vault_id.clone(),
                     })
                     .dispatch(origin_of(account_of(ALICE))),
@@ -283,7 +283,7 @@ mod spec_based_tests {
                 UserData::force_to(ALICE, good_state);
                 assert_ok!(Call::Redeem(RedeemCall::request_redeem {
                     amount_wrapped: free_tokens_to_redeem.amount(),
-                    btc_address: BtcAddress::P2PKH(H160([0u8; 20])),
+                    btc_address: BtcAddress::random(),
                     vault_id: vault_id.clone(),
                 })
                 .dispatch(origin_of(account_of(ALICE))));
@@ -296,7 +296,7 @@ mod spec_based_tests {
                 assert_noop!(
                     Call::Redeem(RedeemCall::request_redeem {
                         amount_wrapped: free_tokens_to_redeem.amount(),
-                        btc_address: BtcAddress::P2PKH(H160([0u8; 20])),
+                        btc_address: BtcAddress::random(),
                         vault_id: vault_id.clone(),
                     })
                     .dispatch(origin_of(account_of(ALICE))),
@@ -384,7 +384,7 @@ mod spec_based_tests {
                 assert_noop!(
                     Call::Redeem(RedeemCall::request_redeem {
                         amount_wrapped: user_to_redeem.amount(),
-                        btc_address: BtcAddress::P2PKH(H160([0u8; 20])),
+                        btc_address: BtcAddress::random(),
                         vault_id: vault_id.clone(),
                     })
                     .dispatch(origin_of(account_of(ALICE))),
@@ -411,7 +411,7 @@ mod spec_based_tests {
                 assert_noop!(
                     Call::Redeem(RedeemCall::request_redeem {
                         amount_wrapped: to_redeem.amount() - 1,
-                        btc_address: BtcAddress::P2PKH(H160([0u8; 20])),
+                        btc_address: BtcAddress::random(),
                         vault_id: vault_id.clone(),
                     })
                     .dispatch(origin_of(account_of(ALICE))),
@@ -419,7 +419,7 @@ mod spec_based_tests {
                 );
                 assert_ok!(Call::Redeem(RedeemCall::request_redeem {
                     amount_wrapped: to_redeem.amount(),
-                    btc_address: BtcAddress::P2PKH(H160([0u8; 20])),
+                    btc_address: BtcAddress::random(),
                     vault_id: vault_id.clone(),
                 })
                 .dispatch(origin_of(account_of(ALICE))));
@@ -450,7 +450,7 @@ mod spec_based_tests {
                 liquidate_vault(&vault_id);
                 assert_ok!(Call::Redeem(RedeemCall::request_redeem {
                     amount_wrapped: amount_btc.amount(),
-                    btc_address: BtcAddress::P2PKH(H160([0u8; 20])),
+                    btc_address: BtcAddress::random(),
                     vault_id: different_collateral_vault_id.clone(),
                 })
                 .dispatch(origin_of(account_of(ALICE))));
@@ -636,7 +636,7 @@ mod spec_based_tests {
         fn request_redeem(vault_id: &VaultId) -> H256 {
             assert_ok!(Call::Redeem(RedeemCall::request_redeem {
                 amount_wrapped: 4_000,
-                btc_address: BtcAddress::default(),
+                btc_address: BtcAddress::random(),
                 vault_id: vault_id.clone()
             })
             .dispatch(origin_of(account_of(USER))));

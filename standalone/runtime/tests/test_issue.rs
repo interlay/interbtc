@@ -687,7 +687,7 @@ mod execute_issue_tests {
             SecurityPallet::set_active_block_number(SecurityPallet::active_block_number() + CONFIRMATIONS);
 
             // send to wrong address
-            let bogus_address = BtcAddress::P2WPKHv0(H160::zero());
+            let bogus_address = BtcAddress::P2WPKHv0(H160::random());
             transaction.outputs[0] = TransactionOutput::payment(1000, &bogus_address);
             assert_noop!(
                 Call::Issue(IssueCall::execute_issue {

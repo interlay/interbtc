@@ -478,7 +478,7 @@ fn should_report_double_payment() {
     run_test(|| {
         let public_key = dummy_public_key();
         let input_address = BtcAddress::P2PKH(public_key.to_hash());
-        let output_address = BtcAddress::P2PKH(H160::random());
+        let output_address = BtcAddress::random();
         let left_tx = build_dummy_transaction_from_input_with_output_and_op_return(
             H256Le::from_bytes_le(&vec![1u8; 32]),
             &public_key,
@@ -511,8 +511,8 @@ fn should_report_double_payment() {
 fn should_not_report_double_payment_with_vault_no_input() {
     run_test(|| {
         let public_key = dummy_public_key();
-        let input_address = BtcAddress::P2PKH(H160::random());
-        let output_address = BtcAddress::P2PKH(H160::random());
+        let input_address = BtcAddress::random();
+        let output_address = BtcAddress::random();
         let left_tx = build_dummy_transaction_from_input_with_output_and_op_return(
             H256Le::from_bytes_le(&vec![1u8; 32]),
             &public_key,

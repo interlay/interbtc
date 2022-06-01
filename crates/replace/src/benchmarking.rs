@@ -67,7 +67,7 @@ fn mine_blocks<T: crate::Config>(end_height: u32) {
     let height = 0;
     let block = BlockBuilder::new()
         .with_version(4)
-        .with_coinbase(&BtcAddress::P2SH(H160::zero()), 50, 3)
+        .with_coinbase(&BtcAddress::random(), 50, 3)
         .with_timestamp(1588813835)
         .mine(U256::from(2).pow(254.into()))
         .unwrap();
@@ -101,7 +101,7 @@ fn mine_blocks<T: crate::Config>(end_height: u32) {
         let block = BlockBuilder::new()
             .with_previous_hash(prev_hash)
             .with_version(4)
-            .with_coinbase(&BtcAddress::P2SH(H160::zero()), 50, 3)
+            .with_coinbase(&BtcAddress::random(), 50, 3)
             .with_timestamp(1588813835)
             .add_transaction(transaction.clone())
             .mine(U256::from(2).pow(254.into()))
