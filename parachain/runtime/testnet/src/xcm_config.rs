@@ -5,6 +5,7 @@ use orml_traits::FixedConversionRateProvider;
 use orml_xcm_support::{DepositToAlternative, IsNativeConcrete, MultiCurrencyAdapter, MultiNativeAsset};
 use pallet_xcm::XcmPassthrough;
 use polkadot_parachain::primitives::Sibling;
+use primitives::{Balance, CurrencyId, CurrencyId::ForeignAsset};
 use xcm::latest::prelude::*;
 use xcm_builder::{
     AccountId32Aliases, AllowKnownQueryResponses, AllowSubscriptionsFrom, AllowTopLevelPaidExecutionFrom,
@@ -13,7 +14,6 @@ use xcm_builder::{
     SignedToAccountId32, SovereignSignedViaLocation, TakeRevenue, TakeWeightCredit,
 };
 use xcm_executor::{Config, XcmExecutor};
-use CurrencyId::ForeignAsset;
 
 parameter_types! {
     pub const ParentLocation: MultiLocation = MultiLocation::parent();

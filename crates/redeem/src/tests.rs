@@ -72,7 +72,7 @@ fn test_request_redeem_fails_with_amount_exceeds_user_balance() {
         amount.mint_to(&USER).unwrap();
         let amount = 10_000_000;
         assert_err!(
-            Redeem::request_redeem(Origin::signed(USER), amount, BtcAddress::default(), VAULT),
+            Redeem::request_redeem(Origin::signed(USER), amount, BtcAddress::random(), VAULT),
             TestError::AmountExceedsUserBalance
         );
     })
@@ -120,7 +120,7 @@ fn test_request_redeem_fails_with_amount_below_minimum() {
 fn test_request_redeem_fails_with_vault_not_found() {
     run_test(|| {
         assert_err!(
-            Redeem::request_redeem(Origin::signed(USER), 1500, BtcAddress::default(), VAULT),
+            Redeem::request_redeem(Origin::signed(USER), 1500, BtcAddress::random(), VAULT),
             VaultRegistryError::VaultNotFound
         );
     })
@@ -133,7 +133,7 @@ fn test_request_redeem_fails_with_vault_banned() {
             .mock_safe(|_| MockResult::Return(Err(VaultRegistryError::VaultBanned.into())));
 
         assert_err!(
-            Redeem::request_redeem(Origin::signed(USER), 1500, BtcAddress::default(), VAULT),
+            Redeem::request_redeem(Origin::signed(USER), 1500, BtcAddress::random(), VAULT),
             VaultRegistryError::VaultBanned
         );
     })
@@ -174,6 +174,7 @@ fn test_request_redeem_succeeds_with_normal_redeem() {
         let redeemer = USER;
         let amount = 90;
         let redeem_fee = 5;
+        let btc_address = BtcAddress::random();
 
         ext::vault_registry::try_increase_to_be_redeemed_tokens::<Test>.mock_safe(move |vault_id, amount_btc| {
             assert_eq!(vault_id, &VAULT);
@@ -197,7 +198,7 @@ fn test_request_redeem_succeeds_with_normal_redeem() {
         assert_ok!(Redeem::request_redeem(
             Origin::signed(redeemer),
             amount,
-            BtcAddress::P2PKH(H160::zero()),
+            btc_address,
             VAULT
         ));
 
@@ -208,7 +209,7 @@ fn test_request_redeem_succeeds_with_normal_redeem() {
             fee: redeem_fee,
             premium: 0,
             vault_id: VAULT,
-            btc_address: BtcAddress::P2PKH(H160::zero()),
+            btc_address,
             transfer_fee: Redeem::get_current_inclusion_fee(DEFAULT_WRAPPED_CURRENCY)
                 .unwrap()
                 .amount()
@@ -223,13 +224,28 @@ fn test_request_redeem_succeeds_with_normal_redeem() {
                 amount_btc: amount - redeem_fee - btc_fee.amount(),
                 premium: 0,
                 redeemer,
-                btc_address: BtcAddress::P2PKH(H160::zero()),
+                btc_address,
                 btc_height: 0,
                 status: RedeemRequestStatus::Pending,
                 transfer_fee_btc: Redeem::get_current_inclusion_fee(DEFAULT_WRAPPED_CURRENCY)
                     .unwrap()
                     .amount(),
             }
+        );
+    })
+}
+
+#[test]
+fn test_request_redeem_fails_with_default_btc_address() {
+    run_test(|| {
+        let redeemer = USER;
+        let amount = 90;
+
+        ext::treasury::get_balance::<Test>.mock_safe(move |_, _| MockResult::Return(wrapped(100)));
+
+        assert_err!(
+            Redeem::request_redeem(Origin::signed(redeemer), amount, BtcAddress::P2PKH(H160::zero()), VAULT),
+            btc_relay::Error::<Test>::InvalidBtcHash
         );
     })
 }
@@ -257,6 +273,7 @@ fn test_request_redeem_succeeds_with_self_redeem() {
 
         let redeemer = VAULT.account_id;
         let amount = 90;
+        let btc_address = BtcAddress::random();
 
         ext::vault_registry::try_increase_to_be_redeemed_tokens::<Test>.mock_safe(move |vault_id, amount_btc| {
             assert_eq!(vault_id, &VAULT);
@@ -279,7 +296,7 @@ fn test_request_redeem_succeeds_with_self_redeem() {
         assert_ok!(Redeem::request_redeem(
             Origin::signed(redeemer),
             amount,
-            BtcAddress::P2PKH(H160::zero()),
+            btc_address,
             VAULT
         ));
 
@@ -290,7 +307,7 @@ fn test_request_redeem_succeeds_with_self_redeem() {
             fee: 0,
             premium: 0,
             vault_id: VAULT,
-            btc_address: BtcAddress::P2PKH(H160::zero()),
+            btc_address,
             transfer_fee: Redeem::get_current_inclusion_fee(DEFAULT_WRAPPED_CURRENCY)
                 .unwrap()
                 .amount()
@@ -305,7 +322,7 @@ fn test_request_redeem_succeeds_with_self_redeem() {
                 amount_btc: amount - btc_fee.amount(),
                 premium: 0,
                 redeemer,
-                btc_address: BtcAddress::P2PKH(H160::zero()),
+                btc_address,
                 btc_height: 0,
                 status: RedeemRequestStatus::Pending,
                 transfer_fee_btc: Redeem::get_current_inclusion_fee(DEFAULT_WRAPPED_CURRENCY)

@@ -12,7 +12,7 @@ use frame_benchmarking::{account, benchmarks, impl_benchmark_test_suite};
 use frame_support::assert_ok;
 use frame_system::RawOrigin;
 use primitives::VaultId;
-use sp_core::{H160, H256, U256};
+use sp_core::{H256, U256};
 use sp_runtime::traits::One;
 use sp_std::prelude::*;
 use vault_registry::types::Vault;
@@ -43,7 +43,7 @@ benchmarks! {
         );
         let relayer_id: T::AccountId = account("Relayer", 0, 0);
 
-        let origin_btc_address = BtcAddress::P2PKH(H160::zero());
+        let origin_btc_address = BtcAddress::random();
 
         let refund_id = H256::zero();
         let refund_request = RefundRequest {

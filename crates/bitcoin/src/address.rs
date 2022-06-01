@@ -101,6 +101,13 @@ impl Address {
     pub fn random() -> Self {
         Address::P2PKH(H160::random())
     }
+
+    pub fn is_zero(&self) -> bool {
+        match self {
+            Self::P2PKH(hash) | Self::P2SH(hash) | Self::P2WPKHv0(hash) => hash.is_zero(),
+            Self::P2WSHv0(hash) => hash.is_zero(),
+        }
+    }
 }
 
 impl Default for Address {

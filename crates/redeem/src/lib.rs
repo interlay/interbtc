@@ -358,6 +358,10 @@ impl<T: Config> Pallet<T> {
             Error::<T>::AmountExceedsUserBalance
         );
 
+        // We saw a user lose bitcoin when he forgot to enter the address in the polkadotjs ui.
+        // Make sure this can't happen again.
+        ensure!(!btc_address.is_zero(), btc_relay::Error::<T>::InvalidBtcHash);
+
         // todo: currently allowed to redeem from one currency to the other for free - decide if this is desirable
         let fee_wrapped = if redeemer == vault_id.account_id {
             Amount::zero(vault_id.wrapped_currency())

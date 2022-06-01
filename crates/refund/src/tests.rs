@@ -5,7 +5,7 @@ use currency::Amount;
 use frame_support::{assert_err, assert_ok};
 use mocktopus::mocking::*;
 use primitives::refund::RefundRequest;
-use sp_core::{H160, H256};
+use sp_core::H256;
 
 fn dummy_merkle_proof() -> MerkleProof {
     MerkleProof {
@@ -36,7 +36,7 @@ fn test_refund_succeeds() {
             &wrapped(1000),
             VAULT,
             USER,
-            BtcAddress::P2SH(H160::zero()),
+            BtcAddress::random(),
             issue_id
         ));
 
