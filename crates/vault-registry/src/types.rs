@@ -31,6 +31,8 @@ pub enum Version {
     V3,
     /// Fixed liquidation vault
     V4,
+    /// Vault key split
+    V5,
 }
 
 #[derive(Debug, PartialEq)]
@@ -184,6 +186,123 @@ pub mod liquidation_vault_fix {
         })
     }
 }
+
+pub mod vault_key_split {
+    use super::*;
+
+    use crate::types::Version;
+
+    #[derive(Encode, Decode, Clone, PartialEq, Eq, TypeInfo)]
+    #[cfg_attr(feature = "std", derive(Debug))]
+    pub struct VaultV4<AccountId, BlockNumber, Balance, CurrencyId: Copy> {
+        /// Account identifier of the Vault
+        pub id: VaultId<AccountId, CurrencyId>,
+        /// Bitcoin address of this Vault (P2PKH, P2SH, P2WPKH, P2WSH)
+        pub wallet: Wallet,
+        /// Current status of the vault
+        pub status: VaultStatus,
+        /// Block height until which this Vault is banned from being used for
+        /// Issue, Redeem (except during automatic liquidation) and Replace.
+        pub banned_until: Option<BlockNumber>,
+        /// Number of tokens pending issue
+        pub to_be_issued_tokens: Balance,
+        /// Number of issued tokens
+        pub issued_tokens: Balance,
+        /// Number of tokens pending redeem
+        pub to_be_redeemed_tokens: Balance,
+        /// Number of tokens that have been requested for a replace through
+        /// `request_replace`, but that have not been accepted yet by a new_vault.
+        pub to_be_replaced_tokens: Balance,
+        /// Amount of collateral that is available as griefing collateral to vaults accepting
+        /// a replace request. It is to be payed out if the old_vault fails to call execute_replace.
+        pub replace_collateral: Balance,
+        /// Amount of collateral locked for accepted replace requests.
+        pub active_replace_collateral: Balance,
+        /// Amount of collateral that is locked for remaining to_be_redeemed
+        /// tokens upon liquidation.
+        pub liquidated_collateral: Balance,
+    }
+
+    pub type DefaultVaultV4<T> = VaultV4<
+        <T as frame_system::Config>::AccountId,
+        <T as frame_system::Config>::BlockNumber,
+        BalanceOf<T>,
+        CurrencyId<T>,
+    >;
+
+    pub fn migrate_v4_to_v5<T: Config>() -> Result<frame_support::weights::Weight, ()> {
+        use sp_runtime::traits::Saturating;
+
+        if !matches!(crate::StorageVersion::<T>::get(), Version::V4) {
+            log::info!("Not running vault key split migration");
+            return Err(());
+        }
+
+        let mut num_migrated_vaults = 0u64;
+        <crate::Vaults<T>>::translate::<DefaultVaultV4<T>, _>(|_key, vault_v4| {
+            num_migrated_vaults.saturating_inc();
+            Some({
+                Vault {
+                    id: vault_v4.id.clone(),
+                    control: vault_v4.id.account_id,
+                    wallet: vault_v4.wallet,
+                    status: vault_v4.status,
+                    banned_until: vault_v4.banned_until,
+                    to_be_issued_tokens: vault_v4.to_be_issued_tokens,
+                    issued_tokens: vault_v4.issued_tokens,
+                    to_be_redeemed_tokens: vault_v4.to_be_redeemed_tokens,
+                    to_be_replaced_tokens: vault_v4.to_be_replaced_tokens,
+                    replace_collateral: vault_v4.replace_collateral,
+                    active_replace_collateral: vault_v4.active_replace_collateral,
+                    liquidated_collateral: vault_v4.liquidated_collateral,
+                }
+            })
+        });
+
+
+        log::info!("Vault key split migration finished");
+
+        crate::StorageVersion::<T>::put(Version::V5);
+
+        Ok(T::DbWeight::get().reads_writes(num_migrated_vaults, num_migrated_vaults))
+    }
+
+    // #[cfg(test)]
+    // #[test]
+    // fn test_migration() {
+    //     use crate::mock::Test;
+
+    //     crate::mock::run_test(|| {
+    //         crate::StorageVersion::<Test>::put(Version::V3);
+
+    //         let currency_pair = VaultCurrencyPair {
+    //             collateral: Token(KSM),
+    //             wrapped: Token(KBTC),
+    //         };
+
+    //         let test_liquidaiton_vault = DefaultSystemVault::<Test> {
+    //             to_be_issued_tokens: 123,
+    //             issued_tokens: 234,
+    //             to_be_redeemed_tokens: TO_BE_REDEEMED_DECREASE.into(),
+    //             collateral: 345,
+    //             currency_pair: currency_pair.clone(),
+    //         };
+
+    //         crate::LiquidationVault::<Test>::insert(&currency_pair, &test_liquidaiton_vault);
+
+    //         fix_liquidation_vault::<Test>().unwrap();
+
+    //         assert_eq!(
+    //             crate::LiquidationVault::<Test>::get(&currency_pair).unwrap(),
+    //             DefaultSystemVault::<Test> {
+    //                 to_be_redeemed_tokens: 0,
+    //                 ..test_liquidaiton_vault
+    //             }
+    //         );
+    //     })
+    // }
+}
+
 
 #[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, Default, TypeInfo)]
 pub struct Wallet {
