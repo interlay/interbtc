@@ -46,6 +46,7 @@ pub trait WeightInfo {
 	fn set_premium_redeem_threshold() -> Weight;
 	fn set_liquidation_collateral_threshold() -> Weight;
 	fn report_undercollateralized_vault() -> Weight;
+	fn set_vault_client_version() -> Weight;
 }
 
 /// Weights for vault_registry using the Substrate node and recommended hardware.
@@ -152,6 +153,11 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	fn set_liquidation_collateral_threshold() -> Weight {
 		(4_130_000 as Weight)
 			.saturating_add(T::DbWeight::get().writes(1 as Weight))
+	}
+	// Storage: VaultRegistry VaultClientVersion (r:0 w:1)
+	fn set_vault_client_version() -> Weight {
+		(4_130_000 as Weight)
+		.saturating_add(T::DbWeight::get().writes(1 as Weight))
 	}
 	// Storage: VaultRegistry Vaults (r:1 w:1)
 	// Storage: VaultRegistry LiquidationCollateralThreshold (r:1 w:0)
@@ -283,6 +289,11 @@ impl WeightInfo for () {
 	}
 	// Storage: VaultRegistry LiquidationCollateralThreshold (r:0 w:1)
 	fn set_liquidation_collateral_threshold() -> Weight {
+		(4_130_000 as Weight)
+			.saturating_add(RocksDbWeight::get().writes(1 as Weight))
+	}
+	// Storage: VaultRegistry VaultClientVersion (r:0 w:1)
+	fn set_vault_client_version() -> Weight {
 		(4_130_000 as Weight)
 			.saturating_add(RocksDbWeight::get().writes(1 as Weight))
 	}

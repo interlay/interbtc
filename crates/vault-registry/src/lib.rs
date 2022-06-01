@@ -417,6 +417,26 @@ pub mod pallet {
             Self::_set_liquidation_collateral_threshold(currency_pair, threshold);
             Ok(())
         }
+
+        /// Records the vault client version. Setting to None will remove the entry from storage.
+        #[pallet::weight(<T as Config>::WeightInfo::set_vault_client_version())]
+        #[transactional]
+        pub fn set_vault_client_version(origin: OriginFor<T>, version: Option<u32>) -> DispatchResult {
+            let account_id = ensure_signed(origin)?;
+
+            // Make sure the signer is a vault
+            ensure!(
+                !VaultBitcoinPublicKey::<T>::get(&account_id).is_some(),
+                Error::<T>::VaultNotFound
+            );
+
+            match version {
+                None => VaultClientVersion::<T>::remove(account_id),
+                Some(version) => VaultClientVersion::<T>::insert(account_id, version),
+            };
+
+            Ok(())
+        }
     }
 
     #[pallet::event]
@@ -650,6 +670,10 @@ pub mod pallet {
     #[pallet::storage]
     pub(super) type TotalUserVaultCollateral<T: Config> =
         StorageMap<_, Blake2_128Concat, DefaultVaultCurrencyPair<T>, BalanceOf<T>, ValueQuery>;
+
+    /// Mapping of Vaults, using the respective Vault account identifier as key.
+    #[pallet::storage]
+    pub(super) type VaultClientVersion<T: Config> = StorageMap<_, Blake2_128Concat, T::AccountId, u32, OptionQuery>;
 
     #[pallet::type_value]
     pub(super) fn DefaultForStorageVersion() -> Version {
