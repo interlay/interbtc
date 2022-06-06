@@ -99,6 +99,7 @@ mocktopus = "0.7.0"
 serde_json = "1.0"
 pretty_assertions = "0.7.2"
 flate2= "1.0"
+itertools = "0.10.0"
 
 bitcoin = { path = "../../crates/bitcoin", default-features = false }
 

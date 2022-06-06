@@ -205,7 +205,7 @@ fn should_not_allow_amount_smaller_than_max_period() {
         <Balances as Currency<AccountId>>::make_free_balance_be(&ALICE, amount);
         assert_err!(
             Escrow::create_lock(Origin::signed(ALICE), amount, end_time),
-            TestError::LockAmountTooLarge
+            TestError::LockAmountTooLow
         );
     })
 }

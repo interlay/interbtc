@@ -55,6 +55,7 @@ pub mod redeem_testing_utils;
 pub mod replace_testing_utils;
 pub mod reward_testing_utils;
 
+pub use itertools::Itertools;
 pub use pretty_assertions::assert_eq;
 
 pub type VaultId = DefaultVaultId<Runtime>;
@@ -355,7 +356,7 @@ pub fn iter_currency_pairs() -> impl Iterator<Item = DefaultVaultCurrencyPair<Ru
 }
 
 pub fn iter_collateral_currencies() -> impl Iterator<Item = CurrencyId> {
-    vec![Token(DOT), Token(KSM), ForeignAsset(1)].into_iter()
+    vec![Token(DOT), Token(KSM), Token(INTR), ForeignAsset(1)].into_iter()
 }
 
 pub fn iter_native_currencies() -> impl Iterator<Item = CurrencyId> {
@@ -1355,6 +1356,7 @@ impl ExtBuilder {
             .flat_map(|(account, balance)| {
                 iter_collateral_currencies()
                     .chain(iter_native_currencies())
+                    .unique()
                     .map(move |currency| (account.clone(), currency, balance))
             })
             .chain(iter_wrapped_currencies().map(move |currency| (account_of(FAUCET), currency, 1 << 60)))
