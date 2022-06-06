@@ -179,6 +179,7 @@ impl currency::Config for Test {
 
 parameter_types! {
     pub const FeePalletId: PalletId = PalletId(*b"mod/fees");
+    pub const MaxExpectedPercent: u128 = 100;
 }
 
 impl fee::Config for Test {
@@ -191,6 +192,7 @@ impl fee::Config for Test {
     type VaultRewards = Rewards;
     type VaultStaking = Staking;
     type OnSweep = ();
+    type MaxExpectedPercent = MaxExpectedPercent;
 }
 
 parameter_types! {

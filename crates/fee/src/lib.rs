@@ -115,12 +115,21 @@ pub mod pallet {
 
         /// Handler to transfer undistributed rewards.
         type OnSweep: OnSweep<Self::AccountId, Amount<Self>>;
+
+        /// Maximum expected value to set the storage fields to.
+        #[pallet::constant]
+        type MaxExpectedPercent: Get<u128>;
     }
 
     #[pallet::error]
     pub enum Error<T> {
         /// Unable to convert value.
         TryIntoIntError,
+        /// Value exceeds the expected upper bound for storage fields in this pallet.
+        AboveMaxExpectedValue,
+
+        // Unexpected errors that should never be thrown in normal operation
+        CheckedFromRationalError,
     }
 
     #[pallet::hooks]
@@ -276,12 +285,10 @@ pub mod pallet {
         /// * `fee` - the new fee
         #[pallet::weight(<T as Config>::WeightInfo::set_issue_fee())]
         #[transactional]
-        pub fn set_issue_fee(
-            origin: OriginFor<T>,
-            fee: UnsignedFixedPoint<T>,
-        ) -> DispatchResultWithPostInfo {
+        pub fn set_issue_fee(origin: OriginFor<T>, fee: UnsignedFixedPoint<T>) -> DispatchResultWithPostInfo {
             ensure_root(origin)?;
-            Self::_set_issue_fee(fee);
+            ensure!(fee <= Self::max_expected_value()?, Error::<T>::AboveMaxExpectedValue);
+            IssueFee::<T>::put(fee);
             Ok(().into())
         }
 
@@ -298,7 +305,11 @@ pub mod pallet {
             griefing_collateral: UnsignedFixedPoint<T>,
         ) -> DispatchResultWithPostInfo {
             ensure_root(origin)?;
-            Self::_set_issue_griefing_collateral(griefing_collateral);
+            ensure!(
+                griefing_collateral <= Self::max_expected_value()?,
+                Error::<T>::AboveMaxExpectedValue
+            );
+            IssueGriefingCollateral::<T>::put(griefing_collateral);
             Ok(().into())
         }
 
@@ -310,12 +321,10 @@ pub mod pallet {
         /// * `fee` - the new fee
         #[pallet::weight(<T as Config>::WeightInfo::set_redeem_fee())]
         #[transactional]
-        pub fn set_redeem_fee(
-            origin: OriginFor<T>,
-            fee: UnsignedFixedPoint<T>,
-        ) -> DispatchResultWithPostInfo {
+        pub fn set_redeem_fee(origin: OriginFor<T>, fee: UnsignedFixedPoint<T>) -> DispatchResultWithPostInfo {
             ensure_root(origin)?;
-            Self::_set_redeem_fee(fee);
+            ensure!(fee <= Self::max_expected_value()?, Error::<T>::AboveMaxExpectedValue);
+            RedeemFee::<T>::put(fee);
             Ok(().into())
         }
 
@@ -327,12 +336,10 @@ pub mod pallet {
         /// * `fee` - the new fee
         #[pallet::weight(<T as Config>::WeightInfo::set_refund_fee())]
         #[transactional]
-        pub fn set_refund_fee(
-            origin: OriginFor<T>,
-            fee: UnsignedFixedPoint<T>,
-        ) -> DispatchResultWithPostInfo {
+        pub fn set_refund_fee(origin: OriginFor<T>, fee: UnsignedFixedPoint<T>) -> DispatchResultWithPostInfo {
             ensure_root(origin)?;
-            Self::_set_refund_fee(fee);
+            ensure!(fee <= Self::max_expected_value()?, Error::<T>::AboveMaxExpectedValue);
+            RefundFee::<T>::put(fee);
             Ok(().into())
         }
 
@@ -344,12 +351,10 @@ pub mod pallet {
         /// * `fee` - the new fee
         #[pallet::weight(<T as Config>::WeightInfo::set_premium_redeem_fee())]
         #[transactional]
-        pub fn set_premium_redeem_fee(
-            origin: OriginFor<T>,
-            fee: UnsignedFixedPoint<T>,
-        ) -> DispatchResultWithPostInfo {
+        pub fn set_premium_redeem_fee(origin: OriginFor<T>, fee: UnsignedFixedPoint<T>) -> DispatchResultWithPostInfo {
             ensure_root(origin)?;
-            Self::_set_premium_redeem_fee(fee);
+            ensure!(fee <= Self::max_expected_value()?, Error::<T>::AboveMaxExpectedValue);
+            PremiumRedeemFee::<T>::put(fee);
             Ok(().into())
         }
 
@@ -361,12 +366,10 @@ pub mod pallet {
         /// * `fee` - the new fee
         #[pallet::weight(<T as Config>::WeightInfo::set_punishment_fee())]
         #[transactional]
-        pub fn set_punishment_fee(
-            origin: OriginFor<T>,
-            fee: UnsignedFixedPoint<T>,
-        ) -> DispatchResultWithPostInfo {
+        pub fn set_punishment_fee(origin: OriginFor<T>, fee: UnsignedFixedPoint<T>) -> DispatchResultWithPostInfo {
             ensure_root(origin)?;
-            Self::_set_punishment_fee(fee);
+            ensure!(fee <= Self::max_expected_value()?, Error::<T>::AboveMaxExpectedValue);
+            PunishmentFee::<T>::put(fee);
             Ok(().into())
         }
 
@@ -383,7 +386,11 @@ pub mod pallet {
             griefing_collateral: UnsignedFixedPoint<T>,
         ) -> DispatchResultWithPostInfo {
             ensure_root(origin)?;
-            Self::_set_replace_griefing_collateral(griefing_collateral);
+            ensure!(
+                griefing_collateral <= Self::max_expected_value()?,
+                Error::<T>::AboveMaxExpectedValue
+            );
+            ReplaceGriefingCollateral::<T>::put(griefing_collateral);
             Ok(().into())
         }
 
@@ -395,12 +402,10 @@ pub mod pallet {
         /// * `fee` - the new fee
         #[pallet::weight(<T as Config>::WeightInfo::set_theft_fee())]
         #[transactional]
-        pub fn set_theft_fee(
-            origin: OriginFor<T>,
-            fee: UnsignedFixedPoint<T>,
-        ) -> DispatchResultWithPostInfo {
+        pub fn set_theft_fee(origin: OriginFor<T>, fee: UnsignedFixedPoint<T>) -> DispatchResultWithPostInfo {
             ensure_root(origin)?;
-            Self::_set_theft_fee(fee);
+            ensure!(fee <= Self::max_expected_value()?, Error::<T>::AboveMaxExpectedValue);
+            TheftFee::<T>::put(fee);
             Ok(().into())
         }
 
@@ -412,12 +417,9 @@ pub mod pallet {
         /// * `fee_max` - the new maximum fee
         #[pallet::weight(<T as Config>::WeightInfo::set_theft_fee_max())]
         #[transactional]
-        pub fn set_theft_fee_max(
-            origin: OriginFor<T>,
-            fee_max: UnsignedInner<T>,
-        ) -> DispatchResultWithPostInfo {
+        pub fn set_theft_fee_max(origin: OriginFor<T>, fee_max: UnsignedInner<T>) -> DispatchResultWithPostInfo {
             ensure_root(origin)?;
-            Self::_set_theft_fee_max(fee_max);
+            TheftFeeMax::<T>::put(fee_max);
             Ok(().into())
         }
     }
@@ -432,6 +434,17 @@ impl<T: Config> Pallet<T> {
     /// value and only call this once.
     pub fn fee_pool_account_id() -> T::AccountId {
         <T as Config>::FeePalletId::get().into_account()
+    }
+
+    pub fn get_max_expected_percent() -> u128 {
+        <T as Config>::MaxExpectedPercent::get()
+    }
+
+    pub fn max_expected_value() -> Result<UnsignedFixedPoint<T>, DispatchError> {
+        let max_expected_value =
+            UnsignedFixedPoint::<T>::checked_from_rational::<u128, u128>(Self::get_max_expected_percent(), 100)
+                .ok_or(Error::<T>::CheckedFromRationalError)?;
+        Ok(max_expected_value)
     }
 
     // Public functions exposed to other pallets
@@ -538,60 +551,6 @@ impl<T: Config> Pallet<T> {
     pub fn withdraw_all_vault_rewards(vault_id: &DefaultVaultId<T>) -> DispatchResult {
         Self::distribute_from_reward_pool::<T::VaultRewards, T::VaultStaking>(vault_id)?;
         Ok(())
-    }
-
-    pub fn _set_issue_fee(
-        fee: UnsignedFixedPoint<T>,
-    ) {
-        IssueFee::<T>::put(fee);
-    }
-
-    pub fn _set_issue_griefing_collateral(
-        griefing_collateral: UnsignedFixedPoint<T>,
-    ) {
-        IssueGriefingCollateral::<T>::put(griefing_collateral);
-    }
-
-    pub fn _set_redeem_fee(
-        fee: UnsignedFixedPoint<T>,
-    ) {
-        RedeemFee::<T>::put(fee);
-    }
-
-    pub fn _set_refund_fee(
-        fee: UnsignedFixedPoint<T>,
-    ) {
-        RefundFee::<T>::put(fee);
-    }
-
-    pub fn _set_premium_redeem_fee(
-        fee: UnsignedFixedPoint<T>,
-    ) {
-        PremiumRedeemFee::<T>::put(fee);
-    }
-
-    pub fn _set_punishment_fee(
-        fee: UnsignedFixedPoint<T>,
-    ) {
-        PunishmentFee::<T>::put(fee);
-    }
-
-    pub fn _set_replace_griefing_collateral(
-        griefing_collateral: UnsignedFixedPoint<T>,
-    ) {
-        ReplaceGriefingCollateral::<T>::put(griefing_collateral);
-    }
-
-    pub fn _set_theft_fee(
-        fee: UnsignedFixedPoint<T>,
-    ) {
-        TheftFee::<T>::put(fee);
-    }
-
-    pub fn _set_theft_fee_max(
-        fee_max: UnsignedInner<T>,
-    ) {
-        TheftFeeMax::<T>::put(fee_max);
     }
 
     // Private functions internal to this pallet

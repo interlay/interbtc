@@ -922,6 +922,10 @@ impl oracle::Config for Runtime {
     type WeightInfo = ();
 }
 
+parameter_types! {
+    pub const MaxExpectedPercent: u128 = 100;
+}
+
 impl fee::Config for Runtime {
     type FeePalletId = FeePalletId;
     type WeightInfo = ();
@@ -932,6 +936,7 @@ impl fee::Config for Runtime {
     type VaultRewards = VaultRewards;
     type VaultStaking = VaultStaking;
     type OnSweep = currency::SweepFunds<Runtime, FeeAccount>;
+    type MaxExpectedPercent = MaxExpectedPercent;
 }
 
 pub use refund::{Event as RefundEvent, RefundRequest};
