@@ -82,6 +82,13 @@ pub mod pallet {
             oracle_id: T::AccountId,
             values: Vec<(OracleKey, T::UnsignedFixedPoint)>,
         },
+        OracleAdded {
+            oracle_id: T::AccountId,
+            name: Vec<u8>,
+        },
+        OracleRemoved {
+            oracle_id: T::AccountId,
+        },
     }
 
     #[pallet::error]
@@ -217,7 +224,11 @@ pub mod pallet {
             name: Vec<u8>,
         ) -> DispatchResult {
             ensure_root(origin)?;
-            Self::insert_oracle(account_id, name);
+            Self::insert_oracle(account_id.clone(), name.clone());
+            Self::deposit_event(Event::OracleAdded {
+                oracle_id: account_id,
+                name,
+            });
             Ok(())
         }
 
@@ -229,7 +240,8 @@ pub mod pallet {
         #[transactional]
         pub fn remove_authorized_oracle(origin: OriginFor<T>, account_id: T::AccountId) -> DispatchResult {
             ensure_root(origin)?;
-            <AuthorizedOracles<T>>::remove(account_id);
+            <AuthorizedOracles<T>>::remove(account_id.clone());
+            Self::deposit_event(Event::OracleRemoved { oracle_id: account_id });
             Ok(())
         }
     }

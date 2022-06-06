@@ -273,19 +273,20 @@ fn insert_authorized_oracle_succeeds() {
         let oracle = 1;
         let key = OracleKey::ExchangeRate(Token(DOT));
         let rate = FixedU128::checked_from_rational(1, 1).unwrap();
+        let name = Vec::<u8>::new();
         assert_err!(
             Oracle::feed_values(Origin::signed(oracle), vec![]),
             TestError::InvalidOracleSource
         );
         assert_err!(
-            Oracle::insert_authorized_oracle(Origin::signed(oracle), oracle, Vec::<u8>::new()),
+            Oracle::insert_authorized_oracle(Origin::signed(oracle), oracle, name.clone()),
             DispatchError::BadOrigin
         );
-        assert_ok!(Oracle::insert_authorized_oracle(
-            Origin::root(),
-            oracle,
-            Vec::<u8>::new()
-        ));
+        assert_ok!(Oracle::insert_authorized_oracle(Origin::root(), oracle, name.clone()));
+        assert_emitted!(Event::OracleAdded {
+            oracle_id: 1,
+            name: name
+        });
         assert_ok!(Oracle::feed_values(Origin::signed(oracle), vec![(key, rate)]));
     });
 }
@@ -300,6 +301,7 @@ fn remove_authorized_oracle_succeeds() {
             DispatchError::BadOrigin
         );
         assert_ok!(Oracle::remove_authorized_oracle(Origin::root(), oracle,));
+        assert_emitted!(Event::OracleRemoved { oracle_id: 1 });
     });
 }
 
