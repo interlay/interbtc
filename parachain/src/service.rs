@@ -18,7 +18,7 @@ use sc_client_api::{ExecutorProvider, HeaderBackend};
 use sc_consensus::LongestChain;
 use sc_executor::NativeElseWasmExecutor;
 use sc_network::NetworkService;
-use sc_service::{Configuration, PartialComponents, Role, TFullBackend, TFullClient, TaskManager};
+use sc_service::{Configuration, PartialComponents, Role, RpcHandlers, TFullBackend, TFullClient, TaskManager};
 use sc_telemetry::{Telemetry, TelemetryHandle, TelemetryWorker, TelemetryWorkerHandle};
 use sp_api::ConstructRuntimeApi;
 use sp_consensus_aura::sr25519::{AuthorityId as AuraId, AuthorityPair as AuraPair};
@@ -565,7 +565,7 @@ where
 
 pub async fn start_instant<RuntimeApi, Executor>(
     config: Configuration,
-) -> sc_service::error::Result<(TaskManager, Arc<FullClient<RuntimeApi, Executor>>)>
+) -> sc_service::error::Result<(TaskManager, RpcHandlers)>
 where
     RuntimeApi: ConstructRuntimeApi<Block, FullClient<RuntimeApi, Executor>> + Send + Sync + 'static,
     RuntimeApi::RuntimeApi: RuntimeApiCollection<StateBackend = sc_client_api::StateBackendFor<FullBackend, Block>>,
@@ -681,7 +681,7 @@ where
         })
     };
 
-    sc_service::spawn_tasks(sc_service::SpawnTasksParams {
+    let rpc_handlers = sc_service::spawn_tasks(sc_service::SpawnTasksParams {
         rpc_extensions_builder,
         client: client.clone(),
         transaction_pool,
@@ -696,5 +696,5 @@ where
 
     network_starter.start_network();
 
-    Ok((task_manager, client))
+    Ok((task_manager, rpc_handlers))
 }
