@@ -8,13 +8,15 @@ where
     F1: Fn(Origin, UnsignedFixedPoint) -> DispatchResultWithPostInfo,
     F2: Fn() -> UnsignedFixedPoint,
 {
-    let large_value = UnsignedFixedPoint::checked_from_rational::<u128, u128>(101, 100).unwrap(); // 101%
-    assert_noop!(f(Origin::root(), large_value), TestError::AboveMaxExpectedValue);
+    run_test(|| {
+        let large_value = UnsignedFixedPoint::checked_from_rational::<u128, u128>(101, 100).unwrap(); // 101%
+        assert_noop!(f(Origin::root(), large_value), TestError::AboveMaxExpectedValue);
 
-    let valid_value = UnsignedFixedPoint::checked_from_rational::<u128, u128>(100, 100).unwrap(); // 100%
-    assert_noop!(f(Origin::signed(6), valid_value), DispatchError::BadOrigin);
-    assert_ok!(f(Origin::root(), valid_value));
-    assert_eq!(get_storage_value(), valid_value);
+        let valid_value = UnsignedFixedPoint::checked_from_rational::<u128, u128>(100, 100).unwrap(); // 100%
+        assert_noop!(f(Origin::signed(6), valid_value), DispatchError::BadOrigin);
+        assert_ok!(f(Origin::root(), valid_value));
+        assert_eq!(get_storage_value(), valid_value);
+    })
 }
 
 #[test]
@@ -30,58 +32,42 @@ fn should_get_issue_fee() {
 
 #[test]
 fn should_set_issue_fee() {
-    run_test(|| {
-        test_setter(Fee::set_issue_fee, Fee::issue_fee);
-    })
+    test_setter(Fee::set_issue_fee, Fee::issue_fee);
 }
 
 #[test]
 fn should_set_issue_griefing_collateral() {
-    run_test(|| {
-        test_setter(Fee::set_issue_griefing_collateral, Fee::issue_griefing_collateral);
-    })
+    test_setter(Fee::set_issue_griefing_collateral, Fee::issue_griefing_collateral);
 }
 
 #[test]
 fn should_set_redeem_fee() {
-    run_test(|| {
-        test_setter(Fee::set_redeem_fee, Fee::redeem_fee);
-    })
+    test_setter(Fee::set_redeem_fee, Fee::redeem_fee);
 }
 
 #[test]
 fn should_set_refund_fee() {
-    run_test(|| {
-        test_setter(Fee::set_refund_fee, Fee::refund_fee);
-    })
+    test_setter(Fee::set_refund_fee, Fee::refund_fee);
 }
 
 #[test]
 fn should_set_premium_redeem_fee() {
-    run_test(|| {
-        test_setter(Fee::set_premium_redeem_fee, Fee::premium_redeem_fee);
-    })
+    test_setter(Fee::set_premium_redeem_fee, Fee::premium_redeem_fee);
 }
 
 #[test]
 fn should_set_punishment_fee() {
-    run_test(|| {
-        test_setter(Fee::set_punishment_fee, Fee::punishment_fee);
-    })
+    test_setter(Fee::set_punishment_fee, Fee::punishment_fee);
 }
 
 #[test]
 fn should_set_replace_griefing_collateral() {
-    run_test(|| {
-        test_setter(Fee::set_replace_griefing_collateral, Fee::replace_griefing_collateral);
-    })
+    test_setter(Fee::set_replace_griefing_collateral, Fee::replace_griefing_collateral);
 }
 
 #[test]
 fn should_set_theft_fee() {
-    run_test(|| {
-        test_setter(Fee::set_theft_fee, Fee::theft_fee);
-    })
+    test_setter(Fee::set_theft_fee, Fee::theft_fee);
 }
 
 #[test]

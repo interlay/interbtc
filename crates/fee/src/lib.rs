@@ -127,9 +127,6 @@ pub mod pallet {
         TryIntoIntError,
         /// Value exceeds the expected upper bound for storage fields in this pallet.
         AboveMaxExpectedValue,
-
-        // Unexpected errors that should never be thrown in normal operation
-        CheckedFromRationalError,
     }
 
     #[pallet::hooks]
