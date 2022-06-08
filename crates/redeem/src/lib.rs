@@ -386,22 +386,34 @@ impl<T: Config> Pallet<T> {
             Error::<T>::AmountBelowDustAmount
         );
 
+        let below_premium_redeem = ext::vault_registry::is_vault_below_premium_threshold::<T>(&vault_id)?;
+        let currency_id = vault_id.collateral_currency();
+
+        let premium_collateral = if below_premium_redeem {
+            // we only award a premium on the amount ok tokens required to bring
+            // `issued + to_be_issued - to_be_redeemed` back to the secure threshold
+
+            let capacity = ext::vault_registry::vault_capacity_at_secure_threshold(&vault_id)?;
+            let to_be_backed_tokens = ext::vault_registry::vault_to_be_backed_tokens(&vault_id)?;
+
+            // the amount of tokens that we can give a premium for
+            let max_premium_tokens = to_be_backed_tokens.saturating_sub(&capacity)?;
+            // the actual amount of tokens redeemed that we give a premium for
+            let actual_premium_tokens = max_premium_tokens.min(&user_to_be_received_btc)?;
+            // converted to collateral..
+            let premium_tokens_in_collateral = actual_premium_tokens.convert_to(currency_id)?;
+
+            ext::fee::get_premium_redeem_fee::<T>(&premium_tokens_in_collateral)?
+        } else {
+            Amount::zero(currency_id)
+        };
+
         // vault will get rid of the btc + btc_inclusion_fee
         ext::vault_registry::try_increase_to_be_redeemed_tokens::<T>(&vault_id, &vault_to_be_burned_tokens)?;
 
         // lock full amount (inc. fee)
         amount_wrapped.lock_on(&redeemer)?;
         let redeem_id = ext::security::get_secure_id::<T>(&redeemer);
-
-        let below_premium_redeem = ext::vault_registry::is_vault_below_premium_threshold::<T>(&vault_id)?;
-        let currency_id = vault_id.collateral_currency();
-
-        let premium_collateral = if below_premium_redeem {
-            let redeem_amount_wrapped_in_collateral = user_to_be_received_btc.convert_to(currency_id)?;
-            ext::fee::get_premium_redeem_fee::<T>(&redeem_amount_wrapped_in_collateral)?
-        } else {
-            Amount::zero(currency_id)
-        };
 
         // decrease to-be-replaced tokens - when the vault requests tokens to be replaced, it
         // want to get rid of tokens, and it does not matter whether this is through a redeem,
