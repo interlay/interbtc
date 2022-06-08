@@ -88,7 +88,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     spec_name: create_runtime_str!("interlay-parachain"),
     impl_name: create_runtime_str!("interlay-parachain"),
     authoring_version: 1,
-    spec_version: 3, // 1.14.0
+    spec_version: 3, // 1.14.1
     impl_version: 1,
     transaction_version: 2, // added preimage
     apis: RUNTIME_API_VERSIONS,
@@ -476,9 +476,9 @@ parameter_types! {
     pub const LaunchPeriod: BlockNumber = 7 * DAYS;
     pub const VotingPeriod: BlockNumber = 7 * DAYS;
     pub const FastTrackVotingPeriod: BlockNumber = 3 * HOURS;
-    // TODO: update this once we have the crowdloan data in
-    // Require 1 vINTR for now
-    pub MinimumDeposit: Balance = 1 * UNITS;
+    // Require 250 vINTR to make a proposal. Given the crowdloan airdrop, this qualifies about 7500
+    // accounts to make a governance proposal if they lock their tokens for 2 years.
+    pub MinimumDeposit: Balance = 250 * UNITS;
     pub const EnactmentPeriod: BlockNumber = DAYS;
     pub PreimageByteDeposit: Balance = 10 * MILLICENTS;
     pub const MaxVotes: u32 = 100;
@@ -881,7 +881,7 @@ impl staking::Config for Runtime {
 
 parameter_types! {
     pub const Span: BlockNumber = WEEKS;
-    pub const MaxPeriod: BlockNumber = WEEKS * 96;
+    pub const MaxPeriod: BlockNumber = WEEKS * 192;
 }
 
 pub struct BlockNumberToBalance;
