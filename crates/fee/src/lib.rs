@@ -118,7 +118,7 @@ pub mod pallet {
 
         /// Maximum expected value to set the storage fields to.
         #[pallet::constant]
-        type MaxExpectedPercent: Get<u128>;
+        type MaxExpectedValue: Get<UnsignedFixedPoint<Self>>;
     }
 
     #[pallet::error]
@@ -287,7 +287,7 @@ pub mod pallet {
         #[transactional]
         pub fn set_issue_fee(origin: OriginFor<T>, fee: UnsignedFixedPoint<T>) -> DispatchResultWithPostInfo {
             ensure_root(origin)?;
-            ensure!(fee <= Self::max_expected_value()?, Error::<T>::AboveMaxExpectedValue);
+            ensure!(fee <= Self::get_max_expected_value(), Error::<T>::AboveMaxExpectedValue);
             IssueFee::<T>::put(fee);
             Ok(().into())
         }
@@ -306,7 +306,7 @@ pub mod pallet {
         ) -> DispatchResultWithPostInfo {
             ensure_root(origin)?;
             ensure!(
-                griefing_collateral <= Self::max_expected_value()?,
+                griefing_collateral <= Self::get_max_expected_value(),
                 Error::<T>::AboveMaxExpectedValue
             );
             IssueGriefingCollateral::<T>::put(griefing_collateral);
@@ -323,7 +323,7 @@ pub mod pallet {
         #[transactional]
         pub fn set_redeem_fee(origin: OriginFor<T>, fee: UnsignedFixedPoint<T>) -> DispatchResultWithPostInfo {
             ensure_root(origin)?;
-            ensure!(fee <= Self::max_expected_value()?, Error::<T>::AboveMaxExpectedValue);
+            ensure!(fee <= Self::get_max_expected_value(), Error::<T>::AboveMaxExpectedValue);
             RedeemFee::<T>::put(fee);
             Ok(().into())
         }
@@ -338,7 +338,7 @@ pub mod pallet {
         #[transactional]
         pub fn set_refund_fee(origin: OriginFor<T>, fee: UnsignedFixedPoint<T>) -> DispatchResultWithPostInfo {
             ensure_root(origin)?;
-            ensure!(fee <= Self::max_expected_value()?, Error::<T>::AboveMaxExpectedValue);
+            ensure!(fee <= Self::get_max_expected_value(), Error::<T>::AboveMaxExpectedValue);
             RefundFee::<T>::put(fee);
             Ok(().into())
         }
@@ -353,7 +353,7 @@ pub mod pallet {
         #[transactional]
         pub fn set_premium_redeem_fee(origin: OriginFor<T>, fee: UnsignedFixedPoint<T>) -> DispatchResultWithPostInfo {
             ensure_root(origin)?;
-            ensure!(fee <= Self::max_expected_value()?, Error::<T>::AboveMaxExpectedValue);
+            ensure!(fee <= Self::get_max_expected_value(), Error::<T>::AboveMaxExpectedValue);
             PremiumRedeemFee::<T>::put(fee);
             Ok(().into())
         }
@@ -368,7 +368,7 @@ pub mod pallet {
         #[transactional]
         pub fn set_punishment_fee(origin: OriginFor<T>, fee: UnsignedFixedPoint<T>) -> DispatchResultWithPostInfo {
             ensure_root(origin)?;
-            ensure!(fee <= Self::max_expected_value()?, Error::<T>::AboveMaxExpectedValue);
+            ensure!(fee <= Self::get_max_expected_value(), Error::<T>::AboveMaxExpectedValue);
             PunishmentFee::<T>::put(fee);
             Ok(().into())
         }
@@ -387,7 +387,7 @@ pub mod pallet {
         ) -> DispatchResultWithPostInfo {
             ensure_root(origin)?;
             ensure!(
-                griefing_collateral <= Self::max_expected_value()?,
+                griefing_collateral <= Self::get_max_expected_value(),
                 Error::<T>::AboveMaxExpectedValue
             );
             ReplaceGriefingCollateral::<T>::put(griefing_collateral);
@@ -404,7 +404,7 @@ pub mod pallet {
         #[transactional]
         pub fn set_theft_fee(origin: OriginFor<T>, fee: UnsignedFixedPoint<T>) -> DispatchResultWithPostInfo {
             ensure_root(origin)?;
-            ensure!(fee <= Self::max_expected_value()?, Error::<T>::AboveMaxExpectedValue);
+            ensure!(fee <= Self::get_max_expected_value(), Error::<T>::AboveMaxExpectedValue);
             TheftFee::<T>::put(fee);
             Ok(().into())
         }
@@ -436,15 +436,8 @@ impl<T: Config> Pallet<T> {
         <T as Config>::FeePalletId::get().into_account()
     }
 
-    pub fn get_max_expected_percent() -> u128 {
-        <T as Config>::MaxExpectedPercent::get()
-    }
-
-    pub fn max_expected_value() -> Result<UnsignedFixedPoint<T>, DispatchError> {
-        let max_expected_value =
-            UnsignedFixedPoint::<T>::checked_from_rational::<u128, u128>(Self::get_max_expected_percent(), 100)
-                .ok_or(Error::<T>::CheckedFromRationalError)?;
-        Ok(max_expected_value)
+    pub fn get_max_expected_value() -> UnsignedFixedPoint<T> {
+        <T as Config>::MaxExpectedValue::get()
     }
 
     // Public functions exposed to other pallets

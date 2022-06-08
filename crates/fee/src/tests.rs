@@ -1,10 +1,21 @@
-use crate::{
-    mock::*, IssueFee, IssueGriefingCollateral, PremiumRedeemFee, PunishmentFee, RedeemFee, RefundFee,
-    ReplaceGriefingCollateral, TheftFee, TheftFeeMax,
-};
+use crate::{mock::*, IssueFee, TheftFeeMax};
 use currency::Amount;
-use frame_support::{assert_noop, assert_ok};
+use frame_support::{assert_noop, assert_ok, dispatch::DispatchResultWithPostInfo};
 use sp_runtime::{DispatchError, FixedPointNumber};
+
+fn test_setter<F1, F2>(f: F1, get_storage_value: F2)
+where
+    F1: Fn(Origin, UnsignedFixedPoint) -> DispatchResultWithPostInfo,
+    F2: Fn() -> UnsignedFixedPoint,
+{
+    let large_value = UnsignedFixedPoint::checked_from_rational::<u128, u128>(101, 100).unwrap(); // 101%
+    assert_noop!(f(Origin::root(), large_value), TestError::AboveMaxExpectedValue);
+
+    let valid_value = UnsignedFixedPoint::checked_from_rational::<u128, u128>(100, 100).unwrap(); // 100%
+    assert_noop!(f(Origin::signed(6), valid_value), DispatchError::BadOrigin);
+    assert_ok!(f(Origin::root(), valid_value));
+    assert_eq!(get_storage_value(), valid_value);
+}
 
 #[test]
 fn should_get_issue_fee() {
@@ -20,148 +31,62 @@ fn should_get_issue_fee() {
 #[test]
 fn should_set_issue_fee() {
     run_test(|| {
-        let large_fee = UnsignedFixedPoint::checked_from_rational::<u128, u128>(101, 100).unwrap(); // 101%
-        assert_noop!(
-            Fee::set_issue_fee(Origin::root(), large_fee),
-            TestError::AboveMaxExpectedValue
-        );
-
-        let fee = UnsignedFixedPoint::checked_from_rational(100, 100).unwrap(); // 100%
-        assert_noop!(Fee::set_issue_fee(Origin::signed(6), fee), DispatchError::BadOrigin);
-        assert_ok!(Fee::set_issue_fee(Origin::root(), fee));
-        assert_eq!(<IssueFee<Test>>::get(), fee);
+        test_setter(Fee::set_issue_fee, Fee::issue_fee);
     })
 }
 
 #[test]
 fn should_set_issue_griefing_collateral() {
     run_test(|| {
-        let large_griefing_collateral = UnsignedFixedPoint::checked_from_rational::<u128, u128>(101, 100).unwrap(); // 101%
-        assert_noop!(
-            Fee::set_issue_griefing_collateral(Origin::root(), large_griefing_collateral),
-            TestError::AboveMaxExpectedValue
-        );
-
-        let griefing_collateral = UnsignedFixedPoint::checked_from_rational(100, 100).unwrap(); // 100%
-        assert_noop!(
-            Fee::set_issue_griefing_collateral(Origin::signed(6), griefing_collateral),
-            DispatchError::BadOrigin
-        );
-        assert_ok!(Fee::set_issue_griefing_collateral(Origin::root(), griefing_collateral));
-        assert_eq!(<IssueGriefingCollateral<Test>>::get(), griefing_collateral);
+        test_setter(Fee::set_issue_griefing_collateral, Fee::issue_griefing_collateral);
     })
 }
 
 #[test]
 fn should_set_redeem_fee() {
     run_test(|| {
-        let large_fee = UnsignedFixedPoint::checked_from_rational::<u128, u128>(101, 100).unwrap(); // 101%
-        assert_noop!(
-            Fee::set_redeem_fee(Origin::root(), large_fee),
-            TestError::AboveMaxExpectedValue
-        );
-
-        let fee = UnsignedFixedPoint::checked_from_rational(100, 100).unwrap(); // 100%
-        assert_noop!(Fee::set_redeem_fee(Origin::signed(6), fee), DispatchError::BadOrigin);
-        assert_ok!(Fee::set_redeem_fee(Origin::root(), fee));
-        assert_eq!(<RedeemFee<Test>>::get(), fee);
+        test_setter(Fee::set_redeem_fee, Fee::redeem_fee);
     })
 }
 
 #[test]
 fn should_set_refund_fee() {
     run_test(|| {
-        let large_fee = UnsignedFixedPoint::checked_from_rational::<u128, u128>(101, 100).unwrap(); // 101%
-        assert_noop!(
-            Fee::set_refund_fee(Origin::root(), large_fee),
-            TestError::AboveMaxExpectedValue
-        );
-
-        let fee = UnsignedFixedPoint::checked_from_rational(100, 100).unwrap(); // 100%
-        assert_noop!(Fee::set_refund_fee(Origin::signed(6), fee), DispatchError::BadOrigin);
-        assert_ok!(Fee::set_refund_fee(Origin::root(), fee));
-        assert_eq!(<RefundFee<Test>>::get(), fee);
+        test_setter(Fee::set_refund_fee, Fee::refund_fee);
     })
 }
 
 #[test]
 fn should_set_premium_redeem_fee() {
     run_test(|| {
-        let large_fee = UnsignedFixedPoint::checked_from_rational::<u128, u128>(101, 100).unwrap(); // 101%
-        assert_noop!(
-            Fee::set_premium_redeem_fee(Origin::root(), large_fee),
-            TestError::AboveMaxExpectedValue
-        );
-
-        let fee = UnsignedFixedPoint::checked_from_rational(100, 100).unwrap(); // 100%
-        assert_noop!(
-            Fee::set_premium_redeem_fee(Origin::signed(6), fee),
-            DispatchError::BadOrigin
-        );
-        assert_ok!(Fee::set_premium_redeem_fee(Origin::root(), fee));
-        assert_eq!(<PremiumRedeemFee<Test>>::get(), fee);
+        test_setter(Fee::set_premium_redeem_fee, Fee::premium_redeem_fee);
     })
 }
 
 #[test]
 fn should_set_punishment_fee() {
     run_test(|| {
-        let large_fee = UnsignedFixedPoint::checked_from_rational::<u128, u128>(101, 100).unwrap(); // 101%
-        assert_noop!(
-            Fee::set_punishment_fee(Origin::root(), large_fee),
-            TestError::AboveMaxExpectedValue
-        );
-
-        let fee = UnsignedFixedPoint::checked_from_rational(100, 100).unwrap(); // 100%
-        assert_noop!(
-            Fee::set_punishment_fee(Origin::signed(6), fee),
-            DispatchError::BadOrigin
-        );
-        assert_ok!(Fee::set_punishment_fee(Origin::root(), fee));
-        assert_eq!(<PunishmentFee<Test>>::get(), fee);
+        test_setter(Fee::set_punishment_fee, Fee::punishment_fee);
     })
 }
 
 #[test]
 fn should_set_replace_griefing_collateral() {
     run_test(|| {
-        let large_griefing_collateral = UnsignedFixedPoint::checked_from_rational::<u128, u128>(101, 100).unwrap(); // 10100%
-        assert_noop!(
-            Fee::set_replace_griefing_collateral(Origin::root(), large_griefing_collateral),
-            TestError::AboveMaxExpectedValue
-        );
-
-        let griefing_collateral = UnsignedFixedPoint::checked_from_rational(100, 100).unwrap(); // 100%
-        assert_noop!(
-            Fee::set_replace_griefing_collateral(Origin::signed(6), griefing_collateral),
-            DispatchError::BadOrigin
-        );
-        assert_ok!(Fee::set_replace_griefing_collateral(
-            Origin::root(),
-            griefing_collateral
-        ));
-        assert_eq!(<ReplaceGriefingCollateral<Test>>::get(), griefing_collateral);
+        test_setter(Fee::set_replace_griefing_collateral, Fee::replace_griefing_collateral);
     })
 }
 
 #[test]
 fn should_set_theft_fee() {
     run_test(|| {
-        let large_fee = UnsignedFixedPoint::checked_from_rational::<u128, u128>(101, 100).unwrap(); // 101%
-        assert_noop!(
-            Fee::set_theft_fee(Origin::root(), large_fee),
-            TestError::AboveMaxExpectedValue
-        );
-
-        let fee = UnsignedFixedPoint::checked_from_rational(100, 100).unwrap(); // 100%
-        assert_noop!(Fee::set_theft_fee(Origin::signed(6), fee), DispatchError::BadOrigin);
-        assert_ok!(Fee::set_theft_fee(Origin::root(), fee));
-        assert_eq!(<TheftFee<Test>>::get(), fee);
+        test_setter(Fee::set_theft_fee, Fee::theft_fee);
     })
 }
 
 #[test]
 fn should_set_theft_fee_max() {
+    // Cannot reuse `test_setter` because this storage field has a different type
     run_test(|| {
         let fee_max = 1;
         assert_noop!(

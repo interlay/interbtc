@@ -950,7 +950,7 @@ impl oracle::Config for Runtime {
 }
 
 parameter_types! {
-    pub const MaxExpectedPercent: u128 = 100;
+    pub const MaxExpectedValue: UnsignedFixedPoint = UnsignedFixedPoint::from_inner(<UnsignedFixedPoint as FixedPointNumber>::DIV);
 }
 
 impl fee::Config for Runtime {
@@ -963,7 +963,7 @@ impl fee::Config for Runtime {
     type VaultRewards = VaultRewards;
     type VaultStaking = VaultStaking;
     type OnSweep = currency::SweepFunds<Runtime, FeeAccount>;
-    type MaxExpectedPercent = MaxExpectedPercent;
+    type MaxExpectedValue = MaxExpectedValue;
 }
 
 pub use refund::{Event as RefundEvent, RefundRequest};
