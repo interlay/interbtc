@@ -3838,6 +3838,7 @@ dependencies = [
  "substrate-wasm-builder",
  "supply",
  "vault-registry",
+ "xcm-builder",
 ]
 
 [[package]]

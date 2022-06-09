@@ -27,6 +27,10 @@ use vault_registry::Pallet as VaultRegistry;
 
 type UnsignedFixedPoint<T> = <T as currency::Config>::UnsignedFixedPoint;
 
+const DUMMY_BTC_ADDRESS: BtcAddress = BtcAddress::P2PKH(H160([
+    149, 83, 39, 14, 55, 21, 215, 67, 152, 46, 157, 24, 82, 192, 192, 150, 62, 190, 160, 90,
+]));
+
 fn wrapped<T: crate::Config>(amount: u32) -> Amount<T> {
     Amount::new(amount.into(), get_wrapped_currency_id::<T>())
 }
@@ -67,7 +71,7 @@ fn mine_blocks<T: crate::Config>(end_height: u32) {
     let height = 0;
     let block = BlockBuilder::new()
         .with_version(4)
-        .with_coinbase(&BtcAddress::random(), 50, 3)
+        .with_coinbase(&DUMMY_BTC_ADDRESS, 50, 3)
         .with_timestamp(1588813835)
         .mine(U256::from(2).pow(254.into()))
         .unwrap();
@@ -101,7 +105,7 @@ fn mine_blocks<T: crate::Config>(end_height: u32) {
         let block = BlockBuilder::new()
             .with_previous_hash(prev_hash)
             .with_version(4)
-            .with_coinbase(&BtcAddress::random(), 50, 3)
+            .with_coinbase(&DUMMY_BTC_ADDRESS, 50, 3)
             .with_timestamp(1588813835)
             .add_transaction(transaction.clone())
             .mine(U256::from(2).pow(254.into()))
