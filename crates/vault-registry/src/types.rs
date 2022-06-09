@@ -228,7 +228,7 @@ impl Default for VaultStatus {
 
 #[derive(Encode, Decode, Clone, PartialEq, Eq, TypeInfo)]
 #[cfg_attr(feature = "std", derive(Debug))]
-pub struct Vault<AccountId, BlockNumber, Balance, CurrencyId: Copy> {
+pub struct Vault<AccountId, BlockNumber, Balance, CurrencyId: Copy, UnsignedFixedPoint> {
     /// Account identifier of the Vault
     pub id: VaultId<AccountId, CurrencyId>,
     /// Bitcoin address of this Vault (P2PKH, P2SH, P2WPKH, P2WSH)
@@ -238,6 +238,8 @@ pub struct Vault<AccountId, BlockNumber, Balance, CurrencyId: Copy> {
     /// Block height until which this Vault is banned from being used for
     /// Issue, Redeem (except during automatic liquidation) and Replace.
     pub banned_until: Option<BlockNumber>,
+    /// Custom secure collateral threshold
+    pub secure_collateral_threshold: Option<UnsignedFixedPoint>,
     /// Number of tokens pending issue
     pub to_be_issued_tokens: Balance,
     /// Number of issued tokens
@@ -272,17 +274,25 @@ pub struct SystemVault<Balance, CurrencyId: Copy> {
     pub currency_pair: VaultCurrencyPair<CurrencyId>,
 }
 
-impl<AccountId: Ord, BlockNumber: Default, Balance: HasCompact + Default, CurrencyId: Copy>
-    Vault<AccountId, BlockNumber, Balance, CurrencyId>
+impl<
+        AccountId: Ord,
+        BlockNumber: Default,
+        Balance: HasCompact + Default,
+        CurrencyId: Copy,
+        UnsignedFixedPoint: Default,
+    > Vault<AccountId, BlockNumber, Balance, CurrencyId, UnsignedFixedPoint>
 {
     // note: public only for testing purposes
-    pub fn new(id: VaultId<AccountId, CurrencyId>) -> Vault<AccountId, BlockNumber, Balance, CurrencyId> {
+    pub fn new(
+        id: VaultId<AccountId, CurrencyId>,
+    ) -> Vault<AccountId, BlockNumber, Balance, CurrencyId, UnsignedFixedPoint> {
         let wallet = Wallet::new();
         Vault {
             id,
             wallet,
             banned_until: None,
             status: VaultStatus::Active(true),
+            secure_collateral_threshold: Default::default(),
             issued_tokens: Default::default(),
             liquidated_collateral: Default::default(),
             replace_collateral: Default::default(),
@@ -303,6 +313,7 @@ pub type DefaultVault<T> = Vault<
     <T as frame_system::Config>::BlockNumber,
     BalanceOf<T>,
     CurrencyId<T>,
+    UnsignedFixedPoint<T>,
 >;
 
 pub type DefaultSystemVault<T> = SystemVault<BalanceOf<T>, CurrencyId<T>>;
@@ -453,10 +464,18 @@ impl<T: Config> RichVault<T> {
         Pallet::<T>::get_backing_collateral(&self.id())
     }
 
+    pub fn get_personal_secure_threshold(&self) -> Result<UnsignedFixedPoint<T>, DispatchError> {
+        let global_threshold =
+            Pallet::<T>::secure_collateral_threshold(&self.id().currencies).ok_or(Error::<T>::ThresholdNotSet)?;
+        Ok(self
+            .data
+            .secure_collateral_threshold
+            .unwrap_or(UnsignedFixedPoint::<T>::zero())
+            .max(global_threshold))
+    }
+
     pub fn get_free_collateral(&self) -> Result<Amount<T>, DispatchError> {
-        let used_collateral = self.get_used_collateral(
-            Pallet::<T>::secure_collateral_threshold(&self.data.id.currencies).ok_or(Error::<T>::ThresholdNotSet)?,
-        )?;
+        let used_collateral = self.get_used_collateral(self.get_personal_secure_threshold()?)?;
         self.get_total_collateral()?.checked_sub(&used_collateral)
     }
 
@@ -477,8 +496,7 @@ impl<T: Config> RichVault<T> {
         // free_collateral = collateral - used_collateral
         let free_collateral = self.get_free_collateral()?;
 
-        let secure_threshold =
-            Pallet::<T>::secure_collateral_threshold(&self.data.id.currencies).ok_or(Error::<T>::ThresholdNotSet)?;
+        let secure_threshold = self.get_personal_secure_threshold()?;
 
         // issuable_tokens = (free_collateral / exchange_rate) / secure_collateral_threshold
         let issuable = Pallet::<T>::calculate_max_wrapped_from_collateral_for_threshold(
@@ -542,6 +560,13 @@ impl<T: Config> RichVault<T> {
                 .active_replace_collateral
                 .checked_sub(&amount.amount())
                 .ok_or(Error::<T>::ArithmeticUnderflow)?;
+            Ok(())
+        })
+    }
+
+    pub(crate) fn set_custom_secure_threshold(&mut self, threshold: Option<UnsignedFixedPoint<T>>) -> DispatchResult {
+        self.update(|v| {
+            v.secure_collateral_threshold = threshold;
             Ok(())
         })
     }

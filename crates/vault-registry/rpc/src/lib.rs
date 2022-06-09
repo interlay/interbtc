@@ -92,6 +92,13 @@ where
         vault_id: VaultId,
         at: Option<BlockHash>,
     ) -> JsonRpcResult<BalanceWrapper<Balance>>;
+
+    #[rpc(name = "vaultRegistry_getRequiredCollateralForVaultWithCustomThreshold")]
+    fn get_required_collateral_for_vault_with_custom_threshold(
+        &self,
+        vault_id: VaultId,
+        at: Option<BlockHash>,
+    ) -> JsonRpcResult<BalanceWrapper<Balance>>;
 }
 
 /// A struct that implements the [`VaultRegistryApi`].
@@ -305,21 +312,23 @@ where
     ) -> JsonRpcResult<BalanceWrapper<Balance>> {
         let api = self.client.runtime_api();
         let at = BlockId::hash(at.unwrap_or_else(|| self.client.info().best_hash));
-        api.get_required_collateral_for_vault(&at, vault_id).map_or_else(
-            |e| {
-                Err(RpcError {
-                    code: ErrorCode::ServerError(Error::RuntimeError.into()),
-                    message: "Unable to get required collateral for vault.".into(),
-                    data: Some(format!("{:?}", e).into()),
-                })
-            },
-            |result| {
-                result.map_err(|e| RpcError {
-                    code: ErrorCode::ServerError(Error::RuntimeError.into()),
-                    message: "Unable to get required collateral for vault.".into(),
-                    data: Some(format!("{:?}", e).into()),
-                })
-            },
+        handle_response(
+            api.get_required_collateral_for_vault(&at, vault_id),
+            "Unable to get required collateral for vault.".into(),
+        )
+    }
+
+    fn get_required_collateral_for_vault_with_custom_threshold(
+        &self,
+        vault_id: VaultId,
+        at: Option<<Block as BlockT>::Hash>,
+    ) -> JsonRpcResult<BalanceWrapper<Balance>> {
+        let api = self.client.runtime_api();
+        let at = BlockId::hash(at.unwrap_or_else(|| self.client.info().best_hash));
+
+        handle_response(
+            api.get_required_collateral_for_vault_with_custom_threshold(&at, vault_id),
+            "Unable to get required collateral for vault.".into(),
         )
     }
 }

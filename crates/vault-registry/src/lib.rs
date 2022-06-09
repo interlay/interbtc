@@ -313,6 +313,27 @@ pub mod pallet {
             Ok(().into())
         }
 
+        /// Configures a custom, higher secure collateral threshold for the vault.
+        ///
+        /// # Arguments
+        ///
+        /// * `origin` - sender of the transaction (i.e. the vault)
+        /// * `custom_threshold` - either the threshold, or None to use the systemwide default
+        ///
+        /// # Weight: `O(1)`
+        #[pallet::weight(<T as Config>::WeightInfo::set_custom_secure_threshold())]
+        #[transactional]
+        pub fn set_custom_secure_threshold(
+            origin: OriginFor<T>,
+            currency_pair: DefaultVaultCurrencyPair<T>,
+            custom_threshold: Option<UnsignedFixedPoint<T>>,
+        ) -> DispatchResultWithPostInfo {
+            let account_id = ensure_signed(origin)?;
+            let vault_id = VaultId::new(account_id, currency_pair.collateral, currency_pair.wrapped);
+            Self::try_set_vault_custom_secure_threshold(&vault_id, custom_threshold)?;
+            Ok(().into())
+        }
+
         #[pallet::weight(<T as Config>::WeightInfo::report_undercollateralized_vault())]
         #[transactional]
         pub fn report_undercollateralized_vault(
@@ -579,6 +600,8 @@ pub mod pallet {
         ThresholdNotSet,
         /// Ceiling was not found for the given currency
         CeilingNotSet,
+        /// Vault attempted to set secure threshold below the global secure threshold
+        ThresholdNotAboveGlobalThreshold,
 
         // Unexpected errors that should never be thrown in normal operation
         ArithmeticOverflow,
@@ -750,6 +773,32 @@ impl<T: Config> Pallet<T> {
         });
 
         Ok(())
+    }
+
+    pub fn try_set_vault_custom_secure_threshold(
+        vault_id: &DefaultVaultId<T>,
+        new_threshold: Option<UnsignedFixedPoint<T>>,
+    ) -> DispatchResult {
+        if let Some(some_new_threshold) = new_threshold {
+            let global_threshold =
+                Self::secure_collateral_threshold(&vault_id.currencies).ok_or(Error::<T>::ThresholdNotSet)?;
+            ensure!(
+                some_new_threshold.gt(&global_threshold),
+                Error::<T>::ThresholdNotAboveGlobalThreshold
+            );
+        }
+        let mut vault = Self::get_rich_vault_from_id(&vault_id)?;
+        vault.set_custom_secure_threshold(new_threshold)
+    }
+
+    pub fn get_custom_secure_threshold(vault_id: &DefaultVaultId<T>) -> Result<UnsignedFixedPoint<T>, DispatchError> {
+        let global_threshold =
+            Self::secure_collateral_threshold(&vault_id.currencies).ok_or(Error::<T>::ThresholdNotSet)?;
+        let vault = Self::get_vault_from_id(&vault_id)?;
+        Ok(vault
+            .secure_collateral_threshold
+            .unwrap_or(UnsignedFixedPoint::<T>::zero())
+            .max(global_threshold))
     }
 
     pub fn get_bitcoin_public_key(account_id: &T::AccountId) -> Result<BtcPublicKey, DispatchError> {
@@ -1745,6 +1794,24 @@ impl<T: Config> Pallet<T> {
 
         let required_collateral =
             Self::get_required_collateral_for_wrapped(&issued_tokens, vault_id.currencies.collateral)?;
+
+        Ok(required_collateral)
+    }
+
+    /// Get the amount of collateral required for the given vault to be at its
+    /// custom SecureCollateralThreshold with the current exchange rate
+    pub fn get_required_collateral_for_vault_with_custom_threshold(
+        vault_id: DefaultVaultId<T>,
+    ) -> Result<Amount<T>, DispatchError> {
+        let vault = Self::get_active_rich_vault_from_id(&vault_id)?;
+        let issued_tokens = vault.backed_tokens()?;
+
+        let threshold = vault.get_personal_secure_threshold()?;
+        let required_collateral = Self::get_required_collateral_for_wrapped_with_threshold(
+            &issued_tokens,
+            threshold,
+            vault_id.currencies.collateral,
+        )?;
 
         Ok(required_collateral)
     }
