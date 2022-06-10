@@ -7,6 +7,7 @@ use sp_runtime::Permill;
 
 type EscrowAnnuityPallet = annuity::Pallet<Runtime, EscrowAnnuityInstance>;
 
+type VaultAnnuityCall = annuity::Call<Runtime, VaultAnnuityInstance>;
 type VaultAnnuityPallet = annuity::Pallet<Runtime, VaultAnnuityInstance>;
 type VaultAnnuityEvent = annuity::Event<Runtime, VaultAnnuityInstance>;
 
@@ -45,6 +46,57 @@ fn integration_test_annuity() {
             VaultAnnuityPallet::on_initialize(i);
             assert_eq!(get_last_reward(), expected_reward);
         }
+    })
+}
+
+#[test]
+fn integration_test_annuity_capped() {
+    ExtBuilder::build().execute_with(|| {
+        let reward_per_wrapped = 1;
+        assert_ok!(
+            Call::VaultAnnuity(VaultAnnuityCall::set_reward_per_wrapped { reward_per_wrapped }).dispatch(root())
+        );
+
+        let wrapped_issuance = 100_000; // 0.001 BTC
+        let native_issuance = 10_000_000_000_000; // 1000 INTR
+
+        assert_ok!(Call::Tokens(TokensCall::set_balance {
+            who: account_of(FAUCET),
+            currency_id: DEFAULT_WRAPPED_CURRENCY,
+            new_free: wrapped_issuance,
+            new_reserved: 0,
+        })
+        .dispatch(root()));
+
+        assert_ok!(Call::Tokens(TokensCall::set_balance {
+            who: VaultAnnuityPallet::account_id(),
+            currency_id: DEFAULT_NATIVE_CURRENCY,
+            new_free: native_issuance,
+            new_reserved: 0,
+        })
+        .dispatch(root()));
+
+        let emission_period = <Runtime as annuity::Config<VaultAnnuityInstance>>::EmissionPeriod::get() as u128;
+
+        VaultAnnuityPallet::update_reward_per_block();
+
+        // reward should be capped to wrapped_issuance
+        VaultAnnuityPallet::on_initialize(1);
+        assert_eq!(get_last_reward(), reward_per_wrapped * wrapped_issuance);
+
+        // issuance is increased
+        let wrapped_issuance = 100_000_000; // 1 BTC
+        assert_ok!(Call::Tokens(TokensCall::set_balance {
+            who: account_of(FAUCET),
+            currency_id: DEFAULT_WRAPPED_CURRENCY,
+            new_free: wrapped_issuance,
+            new_reserved: 0,
+        })
+        .dispatch(root()));
+
+        // now the cap is the original rewards_per_block
+        VaultAnnuityPallet::on_initialize(2);
+        assert_eq!(get_last_reward(), native_issuance / emission_period);
     })
 }
 

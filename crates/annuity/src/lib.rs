@@ -138,7 +138,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
         T::AnnuityPalletId::get().into_account()
     }
 
-    fn min_reward_per_block() -> BalanceOf<T, I> {
+    pub fn min_reward_per_block() -> BalanceOf<T, I> {
         let reward_per_block = Self::reward_per_block();
         match Self::reward_per_wrapped() {
             Some(reward_per_wrapped) => min(
