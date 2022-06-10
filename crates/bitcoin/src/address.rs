@@ -102,6 +102,13 @@ impl Address {
         Address::P2PKH(H160::random())
     }
 
+    #[cfg(feature = "runtime-benchmarks")]
+    pub const fn dummy() -> Self {
+        Address::P2PKH(H160([
+            149, 83, 39, 14, 55, 21, 215, 67, 152, 46, 157, 24, 82, 192, 192, 150, 62, 190, 160, 90,
+        ]))
+    }
+
     pub fn is_zero(&self) -> bool {
         match self {
             Self::P2PKH(hash) | Self::P2SH(hash) | Self::P2WPKHv0(hash) => hash.is_zero(),

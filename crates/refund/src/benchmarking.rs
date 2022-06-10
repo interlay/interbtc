@@ -12,7 +12,7 @@ use frame_benchmarking::{account, benchmarks, impl_benchmark_test_suite};
 use frame_support::assert_ok;
 use frame_system::RawOrigin;
 use primitives::VaultId;
-use sp_core::{H160, H256, U256};
+use sp_core::{H256, U256};
 use sp_runtime::traits::One;
 use sp_std::prelude::*;
 use vault_registry::types::Vault;
@@ -25,10 +25,6 @@ use security::Pallet as Security;
 use vault_registry::Pallet as VaultRegistry;
 
 type UnsignedFixedPoint<T> = <T as currency::Config>::UnsignedFixedPoint;
-
-const DUMMY_BTC_ADDRESS: BtcAddress = BtcAddress::P2PKH(H160([
-    149, 83, 39, 14, 55, 21, 215, 67, 152, 46, 157, 24, 82, 192, 192, 150, 62, 190, 160, 90,
-]));
 
 fn dummy_public_key() -> BtcPublicKey {
     BtcPublicKey([
@@ -47,7 +43,7 @@ benchmarks! {
         );
         let relayer_id: T::AccountId = account("Relayer", 0, 0);
 
-        let origin_btc_address = DUMMY_BTC_ADDRESS;
+        let origin_btc_address = BtcAddress::dummy();
 
         let refund_id = H256::zero();
         let refund_request = RefundRequest {

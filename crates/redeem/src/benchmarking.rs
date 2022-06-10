@@ -13,7 +13,7 @@ use frame_support::assert_ok;
 use frame_system::RawOrigin;
 use orml_traits::MultiCurrency;
 use primitives::{CurrencyId, CurrencyId::Token, TokenSymbol::*, VaultCurrencyPair, VaultId};
-use sp_core::{H160, H256, U256};
+use sp_core::{H256, U256};
 use sp_runtime::traits::One;
 use sp_std::prelude::*;
 use vault_registry::types::{Vault, Wallet};
@@ -26,10 +26,6 @@ use security::Pallet as Security;
 use vault_registry::Pallet as VaultRegistry;
 
 type UnsignedFixedPoint<T> = <T as currency::Config>::UnsignedFixedPoint;
-
-const DUMMY_BTC_ADDRESS: BtcAddress = BtcAddress::P2PKH(H160([
-    149, 83, 39, 14, 55, 21, 215, 67, 152, 46, 157, 24, 82, 192, 192, 150, 62, 190, 160, 90,
-]));
 
 fn collateral<T: crate::Config>(amount: u32) -> Amount<T> {
     Amount::new(amount.into(), get_collateral_currency_id::<T>())
@@ -100,7 +96,7 @@ fn mine_blocks<T: crate::Config>(end_height: u32) {
     let height = 0;
     let block = BlockBuilder::new()
         .with_version(4)
-        .with_coinbase(&DUMMY_BTC_ADDRESS, 50, 3)
+        .with_coinbase(&BtcAddress::dummy(), 50, 3)
         .with_timestamp(1588813835)
         .mine(U256::from(2).pow(254.into()))
         .unwrap();
@@ -134,7 +130,7 @@ fn mine_blocks<T: crate::Config>(end_height: u32) {
         let block = BlockBuilder::new()
             .with_previous_hash(prev_hash)
             .with_version(4)
-            .with_coinbase(&DUMMY_BTC_ADDRESS, 50, 3)
+            .with_coinbase(&BtcAddress::dummy(), 50, 3)
             .with_timestamp(1588813835)
             .add_transaction(transaction.clone())
             .mine(U256::from(2).pow(254.into()))
@@ -177,7 +173,7 @@ benchmarks! {
         let origin: T::AccountId = account("Origin", 0, 0);
         let vault_id = get_vault_id::<T>();
         let amount = Redeem::<T>::redeem_btc_dust_value() + 1000u32.into();
-        let btc_address = DUMMY_BTC_ADDRESS;
+        let btc_address = BtcAddress::dummy();
 
         initialize_oracle::<T>();
 
@@ -240,7 +236,7 @@ benchmarks! {
 
         initialize_oracle::<T>();
 
-        let origin_btc_address = DUMMY_BTC_ADDRESS;
+        let origin_btc_address = BtcAddress::dummy();
 
         let redeem_id = H256::zero();
         let mut redeem_request = test_request::<T>(&vault_id);

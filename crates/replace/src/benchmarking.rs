@@ -13,7 +13,7 @@ use frame_support::assert_ok;
 use frame_system::RawOrigin;
 use orml_traits::MultiCurrency;
 use primitives::{CurrencyId, VaultCurrencyPair, VaultId};
-use sp_core::{H160, H256, U256};
+use sp_core::{H256, U256};
 use sp_runtime::{traits::One, FixedPointNumber};
 use sp_std::prelude::*;
 use vault_registry::types::{DefaultVaultCurrencyPair, Vault, Wallet};
@@ -26,10 +26,6 @@ use security::Pallet as Security;
 use vault_registry::Pallet as VaultRegistry;
 
 type UnsignedFixedPoint<T> = <T as currency::Config>::UnsignedFixedPoint;
-
-const DUMMY_BTC_ADDRESS: BtcAddress = BtcAddress::P2PKH(H160([
-    149, 83, 39, 14, 55, 21, 215, 67, 152, 46, 157, 24, 82, 192, 192, 150, 62, 190, 160, 90,
-]));
 
 fn wrapped<T: crate::Config>(amount: u32) -> Amount<T> {
     Amount::new(amount.into(), get_wrapped_currency_id::<T>())
@@ -71,7 +67,7 @@ fn mine_blocks<T: crate::Config>(end_height: u32) {
     let height = 0;
     let block = BlockBuilder::new()
         .with_version(4)
-        .with_coinbase(&DUMMY_BTC_ADDRESS, 50, 3)
+        .with_coinbase(&BtcAddress::dummy(), 50, 3)
         .with_timestamp(1588813835)
         .mine(U256::from(2).pow(254.into()))
         .unwrap();
@@ -105,7 +101,7 @@ fn mine_blocks<T: crate::Config>(end_height: u32) {
         let block = BlockBuilder::new()
             .with_previous_hash(prev_hash)
             .with_version(4)
-            .with_coinbase(&DUMMY_BTC_ADDRESS, 50, 3)
+            .with_coinbase(&BtcAddress::dummy(), 50, 3)
             .with_timestamp(1588813835)
             .add_transaction(transaction.clone())
             .mine(U256::from(2).pow(254.into()))
@@ -213,7 +209,7 @@ benchmarks! {
         let amount = dust_value.checked_add(&wrapped(100u32)).unwrap();
         let griefing = 1000u32.into();
 
-        let new_vault_btc_address = BtcAddress::P2SH(H160([0; 20]));
+        let new_vault_btc_address = BtcAddress::dummy();
 
         VaultRegistry::<T>::_set_secure_collateral_threshold(get_currency_pair::<T>(), UnsignedFixedPoint::<T>::checked_from_rational(1, 100000).unwrap());
         Oracle::<T>::_set_exchange_rate(get_collateral_currency_id::<T>(), UnsignedFixedPoint::<T>::one()).unwrap();
@@ -240,8 +236,8 @@ benchmarks! {
         let old_vault_id = get_vault_id::<T>("OldVault");
         let relayer_id: T::AccountId = account("Relayer", 0, 0);
 
-        let new_vault_btc_address = BtcAddress::P2SH(H160([0; 20]));
-        let old_vault_btc_address = BtcAddress::P2SH(H160([1; 20]));
+        let new_vault_btc_address = BtcAddress::dummy();
+        let old_vault_btc_address = BtcAddress::dummy();
 
         let replace_id = H256::zero();
         let mut replace_request = test_request::<T>(&new_vault_id, &old_vault_id);
