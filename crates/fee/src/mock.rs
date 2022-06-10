@@ -14,6 +14,7 @@ use sp_core::H256;
 use sp_runtime::{
     testing::Header,
     traits::{BlakeTwo256, IdentityLookup, Zero},
+    FixedPointNumber,
 };
 
 type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
@@ -166,6 +167,7 @@ impl currency::Config for Test {
 
 parameter_types! {
     pub const FeePalletId: PalletId = PalletId(*b"mod/fees");
+    pub const MaxExpectedValue: UnsignedFixedPoint = UnsignedFixedPoint::from_inner(<UnsignedFixedPoint as FixedPointNumber>::DIV);
 }
 
 impl Config for Test {
@@ -178,6 +180,7 @@ impl Config for Test {
     type VaultRewards = Rewards;
     type VaultStaking = Staking;
     type OnSweep = ();
+    type MaxExpectedValue = MaxExpectedValue;
 }
 
 pub type TestEvent = Event;
