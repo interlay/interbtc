@@ -79,7 +79,11 @@ impl pallet_balances::Config for Test {
     type ReserveIdentifier = [u8; 8];
 }
 
-pub const TOTAL_REWARDS: Balance = 10_000_000;
+pub const fn unit(amount: Balance) -> Balance {
+    amount * 10u128.pow(12)
+}
+
+pub const TOTAL_REWARDS: Balance = unit(10_000_000);
 const VAULT_REWARDS: Balance = TOTAL_REWARDS / 100 * 30;
 
 pub const YEAR_1_REWARDS: Balance = VAULT_REWARDS / 100 * 40;
@@ -105,6 +109,7 @@ impl BlockRewardProvider<AccountId> for MockBlockRewardProvider {
 parameter_types! {
     pub const AnnuityPalletId: PalletId = PalletId(*b"mod/annu");
     pub const EmissionPeriod: BlockNumber = 100;
+    pub const TotalWrapped: Balance = 100000000; // 1 BTC
 }
 
 impl Config for Test {
@@ -114,6 +119,7 @@ impl Config for Test {
     type BlockRewardProvider = MockBlockRewardProvider;
     type BlockNumberToBalance = Identity;
     type EmissionPeriod = EmissionPeriod;
+    type TotalWrapped = TotalWrapped;
     type WeightInfo = ();
 }
 
