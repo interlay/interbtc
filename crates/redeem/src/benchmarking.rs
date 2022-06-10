@@ -35,18 +35,11 @@ fn wrapped<T: crate::Config>(amount: u32) -> Amount<T> {
     Amount::new(amount.into(), get_wrapped_currency_id::<T>())
 }
 
-fn dummy_public_key() -> BtcPublicKey {
-    BtcPublicKey([
-        2, 205, 114, 218, 156, 16, 235, 172, 106, 37, 18, 153, 202, 140, 176, 91, 207, 51, 187, 55, 18, 45, 222, 180,
-        119, 54, 243, 97, 173, 150, 161, 169, 230,
-    ])
-}
-
 fn register_public_key<T: crate::Config>(vault_id: DefaultVaultId<T>) {
     let origin = RawOrigin::Signed(vault_id.account_id.clone());
     assert_ok!(VaultRegistry::<T>::register_public_key(
         origin.into(),
-        dummy_public_key()
+        BtcPublicKey::dummy()
     ));
 }
 

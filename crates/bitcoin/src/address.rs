@@ -283,6 +283,14 @@ impl PublicKey {
         script.append(self.to_redeem_script());
         script
     }
+
+    #[cfg(feature = "runtime-benchmarks")]
+    pub const fn dummy() -> Self {
+        PublicKey([
+            2, 205, 114, 218, 156, 16, 235, 172, 106, 37, 18, 153, 202, 140, 176, 91, 207, 51, 187, 55, 18, 45, 222,
+            180, 119, 54, 243, 97, 173, 150, 161, 169, 230,
+        ])
+    }
 }
 
 #[cfg(test)]

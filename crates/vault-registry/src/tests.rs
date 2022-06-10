@@ -49,13 +49,6 @@ macro_rules! assert_not_emitted {
     };
 }
 
-fn dummy_public_key() -> BtcPublicKey {
-    BtcPublicKey([
-        2, 205, 114, 218, 156, 16, 235, 172, 106, 37, 18, 153, 202, 140, 176, 91, 207, 51, 187, 55, 18, 45, 222, 180,
-        119, 54, 243, 97, 173, 150, 161, 169, 230,
-    ])
-}
-
 fn convert_with_exchange_rate(
     exchange_rate: u128,
 ) -> impl Fn(CurrencyId, Amount<Test>) -> MockResult<(CurrencyId, Amount<Test>), Result<Amount<Test>, DispatchError>> {
@@ -74,7 +67,10 @@ fn create_vault_with_collateral(id: &DefaultVaultId<Test>, collateral: u128) {
         .mock_safe(move |currency_id| MockResult::Return(Amount::new(collateral, currency_id)));
     let origin = Origin::signed(id.account_id.clone());
 
-    assert_ok!(VaultRegistry::register_public_key(origin.clone(), dummy_public_key()));
+    assert_ok!(VaultRegistry::register_public_key(
+        origin.clone(),
+        BtcPublicKey::dummy()
+    ));
     assert_ok!(VaultRegistry::register_vault(origin, id.currencies.clone(), collateral));
 }
 
@@ -163,7 +159,10 @@ fn register_vault_fails_when_given_collateral_too_low() {
         let collateral = 100;
 
         let origin = Origin::signed(id.account_id);
-        assert_ok!(VaultRegistry::register_public_key(origin.clone(), dummy_public_key()));
+        assert_ok!(VaultRegistry::register_public_key(
+            origin.clone(),
+            BtcPublicKey::dummy()
+        ));
 
         let result = VaultRegistry::register_vault(origin, id.currencies.clone(), collateral);
         assert_err!(result, TestError::InsufficientVaultCollateralAmount);
@@ -180,7 +179,10 @@ fn register_vault_fails_when_account_funds_too_low() {
         let collateral = DEFAULT_COLLATERAL + 1;
 
         let origin = Origin::signed(DEFAULT_ID.account_id);
-        assert_ok!(VaultRegistry::register_public_key(origin.clone(), dummy_public_key()));
+        assert_ok!(VaultRegistry::register_public_key(
+            origin.clone(),
+            BtcPublicKey::dummy()
+        ));
 
         let result = VaultRegistry::register_vault(origin, DEFAULT_ID.currencies, collateral);
         assert_err!(result, TokensError::BalanceTooLow);
