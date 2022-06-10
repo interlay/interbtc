@@ -245,6 +245,9 @@ runtime-benchmarks = [
   "pallet-society/runtime-benchmarks",
   "pallet-collective/runtime-benchmarks",
 
+  "xcm-builder/runtime-benchmarks",
+  "pallet-xcm/runtime-benchmarks",
+
   "btc-relay/runtime-benchmarks",
   "oracle/runtime-benchmarks",
   "issue/runtime-benchmarks",

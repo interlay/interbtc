@@ -106,7 +106,7 @@ pub use weights::WeightInfo;
 #[cfg(test)]
 mod tests;
 
-#[cfg(any(feature = "runtime-benchmarks", test))]
+#[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;
 
 const DEMOCRACY_ID: LockIdentifier = *b"democrac";

@@ -738,12 +738,19 @@ pub struct EscrowBlockRewardProvider;
 
 impl annuity::BlockRewardProvider<AccountId> for EscrowBlockRewardProvider {
     type Currency = NativeCurrency;
+
+    #[cfg(feature = "runtime-benchmarks")]
+    fn deposit_stake(from: &AccountId, amount: Balance) -> DispatchResult {
+        <EscrowRewards as reward::Rewards<AccountId, Balance, CurrencyId>>::deposit_stake(from, amount)
+    }
+
     fn distribute_block_reward(_from: &AccountId, amount: Balance) -> DispatchResult {
         <EscrowRewards as reward::Rewards<AccountId, Balance, CurrencyId>>::distribute_reward(
             amount,
             GetNativeCurrencyId::get(),
         )
     }
+
     fn withdraw_reward(who: &AccountId) -> Result<Balance, DispatchError> {
         <EscrowRewards as reward::Rewards<AccountId, Balance, CurrencyId>>::withdraw_reward(
             who,
@@ -768,6 +775,13 @@ pub struct VaultBlockRewardProvider;
 
 impl annuity::BlockRewardProvider<AccountId> for VaultBlockRewardProvider {
     type Currency = NativeCurrency;
+
+    #[cfg(feature = "runtime-benchmarks")]
+    fn deposit_stake(_from: &AccountId, _amount: Balance) -> DispatchResult {
+        // TODO: fix for vault id
+        Ok(())
+    }
+
     fn distribute_block_reward(from: &AccountId, amount: Balance) -> DispatchResult {
         // TODO: remove fee pallet?
         Self::Currency::transfer(from, &FeeAccount::get(), amount, ExistenceRequirement::KeepAlive)?;
@@ -776,6 +790,7 @@ impl annuity::BlockRewardProvider<AccountId> for VaultBlockRewardProvider {
             GetNativeCurrencyId::get(),
         )
     }
+
     fn withdraw_reward(_: &AccountId) -> Result<Balance, DispatchError> {
         Err(sp_runtime::TokenError::Unsupported.into())
     }

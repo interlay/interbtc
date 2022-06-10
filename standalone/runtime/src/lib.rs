@@ -688,7 +688,7 @@ pub struct EscrowBlockRewardProvider;
 impl annuity::BlockRewardProvider<AccountId> for EscrowBlockRewardProvider {
     type Currency = NativeCurrency;
 
-    #[cfg(any(feature = "runtime-benchmarks"))]
+    #[cfg(feature = "runtime-benchmarks")]
     fn deposit_stake(from: &AccountId, amount: Balance) -> DispatchResult {
         <EscrowRewards as reward::Rewards<AccountId, Balance, CurrencyId>>::deposit_stake(from, amount)
     }
@@ -725,7 +725,7 @@ pub struct VaultBlockRewardProvider;
 impl annuity::BlockRewardProvider<AccountId> for VaultBlockRewardProvider {
     type Currency = NativeCurrency;
 
-    #[cfg(any(feature = "runtime-benchmarks"))]
+    #[cfg(feature = "runtime-benchmarks")]
     fn deposit_stake(_from: &AccountId, _amount: Balance) -> DispatchResult {
         // TODO: fix for vault id
         Ok(())

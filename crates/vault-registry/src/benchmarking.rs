@@ -15,13 +15,6 @@ fn wrapped<T: crate::Config>(amount: u32) -> Amount<T> {
     Amount::new(amount.into(), get_wrapped_currency_id::<T>())
 }
 
-fn dummy_public_key() -> BtcPublicKey {
-    BtcPublicKey([
-        2, 205, 114, 218, 156, 16, 235, 172, 106, 37, 18, 153, 202, 140, 176, 91, 207, 51, 187, 55, 18, 45, 222, 180,
-        119, 54, 243, 97, 173, 150, 161, 169, 230,
-    ])
-}
-
 fn deposit_tokens<T: crate::Config>(currency_id: CurrencyId, account_id: &T::AccountId, amount: BalanceOf<T>) {
     assert_ok!(<orml_tokens::Pallet<T>>::deposit(currency_id, account_id, amount));
 }
@@ -50,7 +43,7 @@ fn register_vault_with_collateral<T: crate::Config>(vault_id: DefaultVaultId<T>,
     let origin = RawOrigin::Signed(vault_id.account_id.clone());
     assert_ok!(VaultRegistry::<T>::register_public_key(
         origin.into(),
-        dummy_public_key()
+        BtcPublicKey::dummy()
     ));
     assert_ok!(VaultRegistry::<T>::_register_vault(vault_id.clone(), collateral.into()));
 }
@@ -94,7 +87,7 @@ benchmarks! {
         let vault_id = get_vault_id::<T>();
         mint_collateral::<T>(&vault_id.account_id, (1u32 << 31).into());
         register_vault_with_collateral::<T>(vault_id.clone(), 100000000);
-    }: _(RawOrigin::Signed(vault_id.account_id), vault_id.currencies.clone(), BtcAddress::random())
+    }: _(RawOrigin::Signed(vault_id.account_id), vault_id.currencies.clone(), BtcAddress::default())
 
     accept_new_issues {
         let vault_id = get_vault_id::<T>();

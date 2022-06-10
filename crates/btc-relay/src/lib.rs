@@ -33,7 +33,7 @@ mod ext;
 
 pub mod types;
 
-#[cfg(any(feature = "runtime-benchmarks", test))]
+#[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;
 
 mod default_weights;

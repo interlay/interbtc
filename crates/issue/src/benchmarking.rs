@@ -28,13 +28,6 @@ use primitives::VaultCurrencyPair;
 use security::Pallet as Security;
 use vault_registry::{types::DefaultVaultCurrencyPair, Pallet as VaultRegistry};
 
-fn dummy_public_key() -> BtcPublicKey {
-    BtcPublicKey([
-        2, 205, 114, 218, 156, 16, 235, 172, 106, 37, 18, 153, 202, 140, 176, 91, 207, 51, 187, 55, 18, 45, 222, 180,
-        119, 54, 243, 97, 173, 150, 161, 169, 230,
-    ])
-}
-
 fn deposit_tokens<T: crate::Config>(currency_id: CurrencyId, account_id: &T::AccountId, amount: BalanceOf<T>) {
     assert_ok!(<orml_tokens::Pallet<T>>::deposit(currency_id, account_id, amount));
 }
@@ -63,7 +56,7 @@ fn register_vault<T: crate::Config>(vault_id: DefaultVaultId<T>) {
     let origin = RawOrigin::Signed(vault_id.account_id.clone());
     assert_ok!(VaultRegistry::<T>::register_public_key(
         origin.into(),
-        dummy_public_key()
+        BtcPublicKey::dummy()
     ));
     assert_ok!(VaultRegistry::<T>::_register_vault(
         vault_id.clone(),
@@ -84,7 +77,7 @@ fn mine_blocks<T: crate::Config>(end_height: u32) {
     let height = 0;
     let block = BlockBuilder::new()
         .with_version(4)
-        .with_coinbase(&BtcAddress::random(), 50, 3)
+        .with_coinbase(&BtcAddress::dummy(), 50, 3)
         .with_timestamp(1588813835)
         .mine(U256::from(2).pow(254.into()))
         .unwrap();
@@ -118,7 +111,7 @@ fn mine_blocks<T: crate::Config>(end_height: u32) {
         let block = BlockBuilder::new()
             .with_previous_hash(prev_hash)
             .with_version(4)
-            .with_coinbase(&BtcAddress::random(), 50, 3)
+            .with_coinbase(&BtcAddress::dummy(), 50, 3)
             .with_timestamp(1588813835)
             .add_transaction(transaction.clone())
             .mine(U256::from(2).pow(254.into()))
@@ -153,7 +146,7 @@ benchmarks! {
         let height = 0;
         let block = BlockBuilder::new()
             .with_version(4)
-            .with_coinbase(&BtcAddress::random(), 50, 3)
+            .with_coinbase(&BtcAddress::dummy(), 50, 3)
             .with_timestamp(1588813835)
             .mine(U256::from(2).pow(254.into())).unwrap();
         let block_hash = block.header.hash;
@@ -163,7 +156,7 @@ benchmarks! {
         Security::<T>::set_active_block_number(1u32.into());
         BtcRelay::<T>::initialize(relayer_id.clone(), block_header, height).unwrap();
 
-        let vault_btc_address = BtcAddress::random();
+        let vault_btc_address = BtcAddress::dummy();
 
         let transaction = TransactionBuilder::new()
         .with_version(2)
@@ -210,7 +203,7 @@ benchmarks! {
         mint_collateral::<T>(&vault_id.account_id.clone(), (1u32 << 31).into());
         mint_collateral::<T>(&relayer_id, (1u32 << 31).into());
 
-        let vault_btc_address = BtcAddress::random();
+        let vault_btc_address = BtcAddress::dummy();
         let value: Amount<T> = Amount::new(2u32.into(), get_wrapped_currency_id::<T>());
 
         let issue_id = H256::zero();
@@ -300,7 +293,7 @@ benchmarks! {
         mint_collateral::<T>(&origin, (1u32 << 31).into());
         mint_collateral::<T>(&vault_id.account_id.clone(), (1u32 << 31).into());
 
-        let vault_btc_address = BtcAddress::random();
+        let vault_btc_address = BtcAddress::dummy();
         let value = Amount::new(2u32.into(), get_wrapped_currency_id::<T>());
 
         let issue_id = H256::zero();
