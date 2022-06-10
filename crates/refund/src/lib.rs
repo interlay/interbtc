@@ -17,7 +17,7 @@ extern crate mocktopus;
 use mocktopus::macros::mockable;
 use vault_registry::types::CurrencyId;
 
-#[cfg(any(feature = "runtime-benchmarks", test))]
+#[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;
 
 mod default_weights;

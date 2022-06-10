@@ -52,7 +52,7 @@ test:
   script:
     - cargo fmt -- --check
     - cargo check --workspace --release
-    - cargo test --workspace --release
+    - cargo test --workspace --release --features runtime-benchmarks
 
 build-standalone:
   stage: build

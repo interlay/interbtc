@@ -5,7 +5,7 @@
 #![cfg_attr(test, feature(proc_macro_hygiene))]
 #![cfg_attr(not(feature = "std"), no_std)]
 
-#[cfg(any(feature = "runtime-benchmarks", test))]
+#[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;
 
 mod default_weights;
@@ -135,7 +135,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 
 pub trait BlockRewardProvider<AccountId> {
     type Currency: ReservableCurrency<AccountId>;
-    #[cfg(any(feature = "runtime-benchmarks", test))]
+    #[cfg(feature = "runtime-benchmarks")]
     fn deposit_stake(from: &AccountId, amount: <Self::Currency as Currency<AccountId>>::Balance) -> DispatchResult;
     fn distribute_block_reward(
         from: &AccountId,
