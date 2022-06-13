@@ -98,7 +98,7 @@ annuity = { path = "../../../crates/annuity", default-features = false }
 supply = { path = "../../../crates/supply", default-features = false }
 
 kintsugi-runtime-parachain = { path = "../kintsugi", default-features = false }
-testnet-runtime-parachain = { path = "../testnet", default-features = false }
+testnet-kintsugi-runtime-parachain = { path = "../testnet-kintsugi", default-features = false }
 
 primitives = { package = "interbtc-primitives", path = "../../../primitives", default-features = false }
 
@@ -194,7 +194,7 @@ std = [
   "pallet-xcm/std",
 
   "kintsugi-runtime-parachain/std",
-  "testnet-runtime-parachain/std",
+  "testnet-kintsugi-runtime-parachain/std",
   
   "btc-relay/std",
   "btc-relay/std",

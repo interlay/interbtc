@@ -3710,7 +3710,7 @@ dependencies = [
  "substrate-build-script-utils",
  "substrate-frame-rpc-system",
  "substrate-prometheus-endpoint",
- "testnet-runtime-parachain",
+ "testnet-kintsugi-runtime-parachain",
 ]
 
 [[package]]
@@ -7371,7 +7371,7 @@ dependencies = [
  "sp-version",
  "staking",
  "supply",
- "testnet-runtime-parachain",
+ "testnet-kintsugi-runtime-parachain",
  "vault-registry",
  "xcm",
  "xcm-builder",
@@ -12498,7 +12498,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "testnet-runtime-parachain"
+name = "testnet-kintsugi-runtime-parachain"
 version = "1.2.0"
 dependencies = [
  "annuity",

@@ -70,14 +70,14 @@ impl<T: sc_service::ChainSpec + 'static> IdentifyChain for T {
 
 fn load_spec(id: &str) -> std::result::Result<Box<dyn sc_service::ChainSpec>, String> {
     Ok(match id {
-        "" => Box::new(chain_spec::testnet::local_config(DEFAULT_PARA_ID.into())),
-        "dev" => Box::new(chain_spec::testnet::development_config(DEFAULT_PARA_ID.into())),
-        "rococo" => Box::new(chain_spec::testnet::rococo_testnet_config(
+        "" => Box::new(chain_spec::testnet_kintsugi::local_config(DEFAULT_PARA_ID.into())),
+        "dev" => Box::new(chain_spec::testnet_kintsugi::development_config(DEFAULT_PARA_ID.into())),
+        "rococo" => Box::new(chain_spec::testnet_kintsugi::rococo_testnet_config(
             chain_spec::kintsugi::PARA_ID.into(),
         )),
-        "rococo-local-2000" => Box::new(chain_spec::testnet::rococo_local_testnet_config(2000.into())),
-        "rococo-local-3000" => Box::new(chain_spec::testnet::rococo_local_testnet_config(3000.into())),
-        "westend" => Box::new(chain_spec::testnet::westend_testnet_config(DEFAULT_PARA_ID.into())),
+        "rococo-local-2000" => Box::new(chain_spec::testnet_kintsugi::rococo_local_testnet_config(2000.into())),
+        "rococo-local-3000" => Box::new(chain_spec::testnet_kintsugi::rococo_local_testnet_config(3000.into())),
+        "westend" => Box::new(chain_spec::testnet_kintsugi::westend_testnet_config(DEFAULT_PARA_ID.into())),
         "kintsugi-dev" => Box::new(chain_spec::kintsugi::kintsugi_dev_config()),
         "kintsugi-latest" => Box::new(chain_spec::kintsugi::kintsugi_mainnet_config()),
         "kintsugi" => Box::new(chain_spec::KintsugiChainSpec::from_json_bytes(
@@ -88,8 +88,8 @@ fn load_spec(id: &str) -> std::result::Result<Box<dyn sc_service::ChainSpec>, St
         "interlay" => Box::new(chain_spec::InterlayChainSpec::from_json_bytes(
             &include_bytes!("../res/interlay.json")[..],
         )?),
-        "staging-latest" => Box::new(chain_spec::testnet::staging_testnet_config(DEFAULT_PARA_ID.into())),
-        "moonbase-alpha" => Box::new(chain_spec::testnet::staging_testnet_config(1002.into())),
+        "staging-latest" => Box::new(chain_spec::testnet_kintsugi::staging_testnet_config(DEFAULT_PARA_ID.into())),
+        "moonbase-alpha" => Box::new(chain_spec::testnet_kintsugi::staging_testnet_config(1002.into())),
         path => {
             let chain_spec = chain_spec::DummyChainSpec::from_json_file(path.into())?;
             if chain_spec.is_interlay() {
@@ -119,7 +119,7 @@ macro_rules! with_runtime_or_err {
 
 		} else {
             #[allow(unused_imports)]
-			use { testnet_runtime::RuntimeApi, crate::service::TestnetRuntimeExecutor as Executor };
+			use { testnet_kintsugi_runtime::RuntimeApi, crate::service::TestnetRuntimeExecutor as Executor };
 			$( $code )*
 
 		}
@@ -161,7 +161,7 @@ impl SubstrateCli for Cli {
         } else if chain_spec.is_kintsugi() {
             &kintsugi_runtime::VERSION
         } else {
-            &testnet_runtime::VERSION
+            &testnet_kintsugi_runtime::VERSION
         }
     }
 }
@@ -258,7 +258,7 @@ macro_rules! construct_async_run {
 		} else {
 			runner.async_run(|$config| {
 				let $components = new_partial::<
-					testnet_runtime::RuntimeApi,
+					testnet_kintsugi_runtime::RuntimeApi,
 					TestnetRuntimeExecutor,
 				>(
 					&$config,
@@ -410,7 +410,7 @@ pub fn run() -> Result<()> {
                 let raw_meta_blob = match params.runtime {
                     RuntimeName::Interlay => interlay_runtime::Runtime::metadata().into(),
                     RuntimeName::Kintsugi => kintsugi_runtime::Runtime::metadata().into(),
-                    RuntimeName::Testnet => testnet_runtime::Runtime::metadata().into(),
+                    RuntimeName::Testnet => testnet_kintsugi_runtime::Runtime::metadata().into(),
                 };
 
                 write_to_file_or_stdout(params.raw, &params.output, raw_meta_blob)?;
