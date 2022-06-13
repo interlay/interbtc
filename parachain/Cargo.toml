@@ -26,6 +26,7 @@ futures = "0.3.15"
 interlay-runtime = { package = "interlay-runtime-parachain", path = "./runtime/interlay" }
 kintsugi-runtime = { package = "kintsugi-runtime-parachain", path = "./runtime/kintsugi" }
 testnet-kintsugi-runtime = { package = "testnet-kintsugi-runtime-parachain", path = "./runtime/testnet-kintsugi" }
+testnet-interlay-runtime = { package = "testnet-interlay-runtime-parachain", path = "./runtime/testnet-interlay" }
 interbtc-rpc = { path = "../rpc" }
 bitcoin = { path = "../crates/bitcoin" }
 primitives = { package = "interbtc-primitives", path = "../primitives" }

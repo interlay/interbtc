@@ -1,7 +1,7 @@
 [package]
 authors = ["Interlay Ltd"]
 edition = "2021"
-name = 'parachain-tests'
+name = 'testnet-interlay-runtime-parachain'
 version = "1.2.0"
 
 [package.metadata.docs.rs]
@@ -12,7 +12,7 @@ serde = { version = "1.0.130", default-features = false, features = ["derive"], 
 codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = ["derive", "max-encoded-len"] }
 hex-literal = { version = "0.3.1" }
 scale-info = { version = "2.0.0", default-features = false, features = ["derive"] }
-libsecp256k1 = { version = "0.6" }
+log = { version = "0.4.14", default-features = false }
 
 # Substrate dependencies
 sp-std = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.20", default-features = false }
@@ -32,14 +32,16 @@ frame-support = { git = "https://github.com/paritytech/substrate", branch = "pol
 frame-executive = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.20", default-features = false }
 frame-system = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.20", default-features = false }
 frame-benchmarking = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.20", default-features = false, optional = true }
-frame-system-benchmarking = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.20", default-features = false, optional = true }
 pallet-balances = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.20", default-features = false }
 pallet-timestamp = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.20", default-features = false }
+pallet-sudo = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.20", default-features = false }
 pallet-utility = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.20", default-features = false }
 pallet-transaction-payment = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.20", default-features = false }
 pallet-treasury = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.20", default-features = false }
 pallet-scheduler = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.20", default-features = false }
 pallet-multisig = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.20", default-features = false }
+pallet-preimage = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.20", default-features = false }
+pallet-identity = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.20", default-features = false }
 
 frame-system-rpc-runtime-api = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.20", default-features = false }
 pallet-transaction-payment-rpc-runtime-api = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.20", default-features = false }
@@ -51,6 +53,7 @@ pallet-society = { git = "https://github.com/paritytech/substrate", branch = "po
 
 # Aura dependencies
 pallet-authorship = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.20", default-features = false }
+pallet-session = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.20", default-features = false }
 pallet-aura = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.20", default-features = false }
 sp-consensus-aura = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.20", default-features = false }
 
@@ -63,15 +66,11 @@ cumulus-primitives-utility = { git = "https://github.com/paritytech/cumulus", br
 cumulus-pallet-dmp-queue = { git = "https://github.com/paritytech/cumulus", branch = "polkadot-v0.9.20", default-features = false }
 cumulus-pallet-xcmp-queue = { git = "https://github.com/paritytech/cumulus", branch = "polkadot-v0.9.20", default-features = false }
 cumulus-pallet-xcm = { git = "https://github.com/paritytech/cumulus", branch = "polkadot-v0.9.20", default-features = false }
-cumulus-test-relay-sproof-builder = { git = "https://github.com/paritytech/cumulus", branch = "polkadot-v0.9.20", default-features = false  }
-cumulus-primitives-parachain-inherent = { git = "https://github.com/paritytech/cumulus", branch = "polkadot-v0.9.20", default-features = false  }
+pallet-collator-selection = { git = "https://github.com/paritytech/cumulus", branch = "polkadot-v0.9.20", default-features = false }
 parachain-info = { git = "https://github.com/paritytech/cumulus", branch = "polkadot-v0.9.20", default-features = false }
 
 # Polkadot dependencies
 polkadot-parachain = { git = "https://github.com/paritytech/polkadot", branch = "release-v0.9.20", default-features = false }
-polkadot-primitives = { git = "https://github.com/paritytech/polkadot", branch = "release-v0.9.20", default-features = false }
-polkadot-runtime-parachains = { git = "https://github.com/paritytech/polkadot", branch = "release-v0.9.20", default-features = false }
-kusama-runtime = { git = "https://github.com/paritytech/polkadot", branch = "release-v0.9.20", default-features = false  }
 xcm = { git = "https://github.com/paritytech/polkadot", branch = "release-v0.9.20", default-features = false }
 xcm-builder = { git = "https://github.com/paritytech/polkadot", branch = "release-v0.9.20", default-features = false }
 xcm-executor = { git = "https://github.com/paritytech/polkadot", branch = "release-v0.9.20", default-features = false }
@@ -97,10 +96,6 @@ democracy = { path = "../../../crates/democracy", default-features = false }
 annuity = { path = "../../../crates/annuity", default-features = false }
 supply = { path = "../../../crates/supply", default-features = false }
 
-kintsugi-runtime-parachain = { path = "../kintsugi", default-features = false }
-testnet-kintsugi-runtime-parachain = { path = "../testnet-kintsugi", default-features = false }
-testnet-interlay-runtime-parachain = { path = "../testnet-interlay", default-features = false }
-
 primitives = { package = "interbtc-primitives", path = "../../../primitives", default-features = false }
 
 module-btc-relay-rpc-runtime-api = { path = "../../../crates/btc-relay/rpc/runtime-api", default-features = false }
@@ -118,11 +113,9 @@ orml-traits = { git = "https://github.com/open-web3-stack/open-runtime-module-li
 orml-vesting = { git = "https://github.com/open-web3-stack/open-runtime-module-library", rev = "78f2d4521856e100d625336692befcc10819e856", default-features = false }
 
 orml-xtokens = { git = "https://github.com/open-web3-stack/open-runtime-module-library", rev = "78f2d4521856e100d625336692befcc10819e856", default-features = false }
-orml-xcm = { git = "https://github.com/open-web3-stack/open-runtime-module-library", rev = "78f2d4521856e100d625336692befcc10819e856", default-features = false }
 orml-xcm-support = { git = "https://github.com/open-web3-stack/open-runtime-module-library", rev = "78f2d4521856e100d625336692befcc10819e856", default-features = false }
 orml-unknown-tokens = { git = "https://github.com/open-web3-stack/open-runtime-module-library", rev = "78f2d4521856e100d625336692befcc10819e856", default-features = false }
-
-xcm-emulator = { git = "https://github.com/shaunxw/xcm-simulator", rev = "65cdc715c4927b75285a09897e8cdafd793d02b7" }
+orml-asset-registry= { git = "https://github.com/open-web3-stack/open-runtime-module-library", rev = "78f2d4521856e100d625336692befcc10819e856", default-features = false }
 
 [dev-dependencies]
 hex = '0.4.2'
@@ -130,6 +123,13 @@ mocktopus = '0.7.0'
 serde_json = "1.0"
 
 bitcoin = { path = "../../../crates/bitcoin", default-features = false }
+
+[build-dependencies]
+substrate-wasm-builder = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.20" }
+
+# TODO: enable weak dependency activation when available
+# https://github.com/rust-lang/cargo/issues/8832
+# https://github.com/paritytech/substrate/issues/8161
 
 [features]
 default = ["std"]
@@ -154,14 +154,16 @@ std = [
   "frame-executive/std",
   "frame-system/std",
   "frame-benchmarking/std",
-  "frame-system-benchmarking/std",
   "pallet-balances/std",
   "pallet-timestamp/std",
+  "pallet-sudo/std",
   "pallet-utility/std",
   "pallet-transaction-payment/std",
   "pallet-treasury/std",
   "pallet-scheduler/std",
   "pallet-multisig/std",
+  "pallet-preimage/std",
+  "pallet-identity/std",
 
   "frame-system-rpc-runtime-api/std",
   "pallet-transaction-payment-rpc-runtime-api/std",
@@ -171,6 +173,7 @@ std = [
   "pallet-society/std",
 
   "pallet-authorship/std",
+  "pallet-session/std",
   "pallet-aura/std",
   "sp-consensus-aura/std",
 
@@ -179,26 +182,17 @@ std = [
   "cumulus-pallet-parachain-system/std",
   "cumulus-pallet-xcmp-queue/std",
   "cumulus-pallet-xcm/std",
-  "cumulus-test-relay-sproof-builder/std",
-  "cumulus-primitives-parachain-inherent/std",
   "cumulus-primitives-core/std",
   "cumulus-primitives-timestamp/std",
   "cumulus-primitives-utility/std",
+  "pallet-collator-selection/std",
 
   "polkadot-parachain/std",
-  "polkadot-primitives/std",
-  "polkadot-runtime-parachains/std",
-  "kusama-runtime/std",
   "xcm/std",
   "xcm-builder/std",
   "xcm-executor/std",
   "pallet-xcm/std",
 
-  "kintsugi-runtime-parachain/std",
-  "testnet-kintsugi-runtime-parachain/std",
-  "testnet-interlay-runtime-parachain/std",
-  
-  "btc-relay/std",
   "btc-relay/std",
   "currency/std",
   "security/std",
@@ -234,6 +228,7 @@ std = [
   "orml-tokens/std",
   "orml-traits/std",
   "orml-vesting/std",
+  "orml-asset-registry/std",
 
   "orml-xtokens/std",
   "orml-xcm-support/std",
@@ -241,7 +236,6 @@ std = [
 ]
 runtime-benchmarks = [
   "frame-benchmarking",
-  "frame-system-benchmarking",
   "frame-support/runtime-benchmarks",
   "frame-system/runtime-benchmarks",
   "pallet-society/runtime-benchmarks",
@@ -250,13 +244,18 @@ runtime-benchmarks = [
   "xcm-builder/runtime-benchmarks",
   "pallet-xcm/runtime-benchmarks",
 
+  "annuity/runtime-benchmarks",
   "btc-relay/runtime-benchmarks",
-  "oracle/runtime-benchmarks",
-  "issue/runtime-benchmarks",
-  "redeem/runtime-benchmarks",
-  "replace/runtime-benchmarks",
-  "relay/runtime-benchmarks",
-  "vault-registry/runtime-benchmarks",
+  "escrow/runtime-benchmarks",
   "fee/runtime-benchmarks",
+  "issue/runtime-benchmarks",
+  "nomination/runtime-benchmarks",
+  "oracle/runtime-benchmarks",
+  "redeem/runtime-benchmarks",
+  "refund/runtime-benchmarks",
+  "relay/runtime-benchmarks",
+  "replace/runtime-benchmarks",
+  "vault-registry/runtime-benchmarks",
 ]
 disable-runtime-api = []
+dev-interlay = []

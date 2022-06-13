@@ -22,8 +22,8 @@ fn default_pair_testnet(currency_id: CurrencyId) -> VaultCurrencyPair<CurrencyId
     }
 }
 
-pub fn local_config(id: ParaId) -> TestnetChainSpec {
-    TestnetChainSpec::from_genesis(
+pub fn local_config(id: ParaId) -> KintsugiTestnetChainSpec {
+    KintsugiTestnetChainSpec::from_genesis(
         "interBTC",
         "local_testnet",
         ChainType::Local,
@@ -66,8 +66,8 @@ pub fn local_config(id: ParaId) -> TestnetChainSpec {
     )
 }
 
-pub fn development_config(id: ParaId) -> TestnetChainSpec {
-    TestnetChainSpec::from_genesis(
+pub fn development_config(id: ParaId) -> KintsugiTestnetChainSpec {
+    KintsugiTestnetChainSpec::from_genesis(
         "interBTC",
         "dev_testnet",
         ChainType::Development,
@@ -120,8 +120,8 @@ pub fn development_config(id: ParaId) -> TestnetChainSpec {
     )
 }
 
-pub fn staging_testnet_config(id: ParaId) -> TestnetChainSpec {
-    TestnetChainSpec::from_genesis(
+pub fn staging_testnet_config(id: ParaId) -> KintsugiTestnetChainSpec {
+    KintsugiTestnetChainSpec::from_genesis(
         "interBTC",
         "staging_testnet",
         ChainType::Live,
@@ -181,8 +181,8 @@ pub fn staging_testnet_config(id: ParaId) -> TestnetChainSpec {
     )
 }
 
-pub fn rococo_testnet_config(id: ParaId) -> TestnetChainSpec {
-    TestnetChainSpec::from_genesis(
+pub fn rococo_testnet_config(id: ParaId) -> KintsugiTestnetChainSpec {
+    KintsugiTestnetChainSpec::from_genesis(
         "interBTC",
         "rococo_testnet",
         ChainType::Live,
@@ -242,12 +242,12 @@ pub fn rococo_testnet_config(id: ParaId) -> TestnetChainSpec {
     )
 }
 
-pub fn rococo_local_testnet_config(id: ParaId) -> TestnetChainSpec {
+pub fn rococo_local_testnet_config(id: ParaId) -> KintsugiTestnetChainSpec {
     development_config(id)
 }
 
-pub fn westend_testnet_config(id: ParaId) -> TestnetChainSpec {
-    TestnetChainSpec::from_genesis(
+pub fn westend_testnet_config(id: ParaId) -> KintsugiTestnetChainSpec {
+    KintsugiTestnetChainSpec::from_genesis(
         "interBTC",
         "westend_testnet",
         ChainType::Live,
@@ -335,8 +335,8 @@ fn testnet_genesis(
                 .cloned()
                 .map(|(acc, aura)| {
                     (
-                        acc.clone(),                           // account id
-                        acc.clone(),                           // validator id
+                        acc.clone(),                                    // account id
+                        acc.clone(),                                    // validator id
                         testnet_kintsugi_runtime::SessionKeys { aura }, // session keys
                     )
                 })
@@ -378,7 +378,8 @@ fn testnet_genesis(
         },
         btc_relay: testnet_kintsugi_runtime::BTCRelayConfig {
             bitcoin_confirmations,
-            parachain_confirmations: bitcoin_confirmations.saturating_mul(testnet_kintsugi_runtime::BITCOIN_BLOCK_SPACING),
+            parachain_confirmations: bitcoin_confirmations
+                .saturating_mul(testnet_kintsugi_runtime::BITCOIN_BLOCK_SPACING),
             disable_difficulty_check: true,
             disable_inclusion_check: false,
         },

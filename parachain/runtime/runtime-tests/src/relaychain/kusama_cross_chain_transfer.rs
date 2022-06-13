@@ -465,11 +465,16 @@ fn subscribe_version_notify_works() {
         )));
     });
     Sibling::execute_with(|| {
-        assert!(testnet_kintsugi_runtime_parachain::System::events().iter().any(|r| matches!(
-            r.event,
-            testnet_kintsugi_runtime_parachain::Event::XcmpQueue(cumulus_pallet_xcmp_queue::Event::XcmpMessageSent(Some(_)))
-                | testnet_kintsugi_runtime_parachain::Event::XcmpQueue(cumulus_pallet_xcmp_queue::Event::Success(Some(_)))
-        )));
+        assert!(testnet_kintsugi_runtime_parachain::System::events()
+            .iter()
+            .any(|r| matches!(
+                r.event,
+                testnet_kintsugi_runtime_parachain::Event::XcmpQueue(
+                    cumulus_pallet_xcmp_queue::Event::XcmpMessageSent(Some(_))
+                ) | testnet_kintsugi_runtime_parachain::Event::XcmpQueue(cumulus_pallet_xcmp_queue::Event::Success(
+                    Some(_)
+                ))
+            )));
     });
 }
 

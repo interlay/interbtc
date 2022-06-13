@@ -3,21 +3,22 @@
 /// Money matters.
 pub mod currency {
     use primitives::TokenSymbol;
-    pub use primitives::{Balance, CurrencyId, CurrencyId::Token, KBTC, KINT, KSM};
-    pub const NATIVE_TOKEN_ID: TokenSymbol = KINT;
-    pub const NATIVE_CURRENCY_ID: CurrencyId = Token(NATIVE_TOKEN_ID);
-    pub const PARENT_TOKEN_ID: TokenSymbol = KSM;
-    pub const PARENT_CURRENCY_ID: CurrencyId = Token(PARENT_TOKEN_ID);
-    pub const WRAPPED_CURRENCY_ID: CurrencyId = Token(KBTC);
+    pub use primitives::{Balance, CurrencyId, CurrencyId::Token, DOT, IBTC, INTR};
 
-    // https://github.com/paritytech/polkadot/blob/c4ee9d463adccfa3bf436433e3e26d0de5a4abbc/runtime/kusama/src/constants.rs#L18
+    pub const NATIVE_TOKEN_ID: TokenSymbol = INTR;
+    pub const NATIVE_CURRENCY_ID: CurrencyId = Token(NATIVE_TOKEN_ID);
+    pub const PARENT_TOKEN_ID: TokenSymbol = DOT;
+    pub const PARENT_CURRENCY_ID: CurrencyId = Token(PARENT_TOKEN_ID);
+    pub const WRAPPED_CURRENCY_ID: CurrencyId = Token(IBTC);
+
+    // https://github.com/paritytech/polkadot/blob/c4ee9d463adccfa3bf436433e3e26d0de5a4abbc/runtime/polkadot/src/constants.rs#L18
     pub const UNITS: Balance = NATIVE_TOKEN_ID.one();
-    pub const CENTS: Balance = UNITS / 30_000;
-    pub const GRAND: Balance = CENTS * 100_000;
-    pub const MILLICENTS: Balance = CENTS / 1_000;
+    pub const DOLLARS: Balance = UNITS; // 10_000_000_000
+    pub const CENTS: Balance = DOLLARS / 100; // 100_000_000
+    pub const MILLICENTS: Balance = CENTS / 1_000; // 100_000
 
     pub const fn deposit(items: u32, bytes: u32) -> Balance {
-        items as Balance * 2_000 * CENTS + (bytes as Balance) * 100 * MILLICENTS
+        items as Balance * 20 * DOLLARS + (bytes as Balance) * 100 * MILLICENTS
     }
 }
 

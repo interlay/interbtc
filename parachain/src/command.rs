@@ -17,7 +17,10 @@
 use crate::{
     chain_spec,
     cli::{Cli, RuntimeName, Subcommand},
-    service::{new_partial, InterlayRuntimeExecutor, KintsugiRuntimeExecutor, TestnetRuntimeExecutor},
+    service::{
+        new_partial, InterlayRuntimeExecutor, KintsugiRuntimeExecutor, TestnetInterlayRuntimeExecutor,
+        TestnetKintsugiRuntimeExecutor,
+    },
 };
 use frame_benchmarking_cli::BenchmarkCmd;
 use primitives::Block;
@@ -41,7 +44,8 @@ const DEFAULT_PARA_ID: u32 = 2121;
 pub trait IdentifyChain {
     fn is_interlay(&self) -> bool;
     fn is_kintsugi(&self) -> bool;
-    fn is_testnet(&self) -> bool;
+    fn is_interlay_testnet(&self) -> bool;
+    fn is_kintsugi_testnet(&self) -> bool;
 }
 
 impl IdentifyChain for dyn sc_service::ChainSpec {
@@ -51,8 +55,12 @@ impl IdentifyChain for dyn sc_service::ChainSpec {
     fn is_kintsugi(&self) -> bool {
         self.id().starts_with("kintsugi")
     }
-    fn is_testnet(&self) -> bool {
-        self.id().starts_with("testnet")
+    fn is_interlay_testnet(&self) -> bool {
+        self.id().starts_with("testnet-interlay")
+    }
+    fn is_kintsugi_testnet(&self) -> bool {
+        // for backwards compatibility reasons testnet-parachain is also assumed to be testnet-kintsugi
+        self.id().starts_with("testnet-kintsugi") || self.id().starts_with("testnet-parachain")
     }
 }
 
@@ -63,8 +71,11 @@ impl<T: sc_service::ChainSpec + 'static> IdentifyChain for T {
     fn is_kintsugi(&self) -> bool {
         <dyn sc_service::ChainSpec>::is_kintsugi(self)
     }
-    fn is_testnet(&self) -> bool {
-        <dyn sc_service::ChainSpec>::is_testnet(self)
+    fn is_interlay_testnet(&self) -> bool {
+        <dyn sc_service::ChainSpec>::is_interlay_testnet(self)
+    }
+    fn is_kintsugi_testnet(&self) -> bool {
+        <dyn sc_service::ChainSpec>::is_kintsugi_testnet(self)
     }
 }
 
@@ -76,8 +87,13 @@ fn load_spec(id: &str) -> std::result::Result<Box<dyn sc_service::ChainSpec>, St
             chain_spec::kintsugi::PARA_ID.into(),
         )),
         "rococo-local-2000" => Box::new(chain_spec::testnet_kintsugi::rococo_local_testnet_config(2000.into())),
+        "rococo-local-interlay-2000" => {
+            Box::new(chain_spec::testnet_interlay::rococo_local_testnet_config(2000.into()))
+        }
         "rococo-local-3000" => Box::new(chain_spec::testnet_kintsugi::rococo_local_testnet_config(3000.into())),
-        "westend" => Box::new(chain_spec::testnet_kintsugi::westend_testnet_config(DEFAULT_PARA_ID.into())),
+        "westend" => Box::new(chain_spec::testnet_kintsugi::westend_testnet_config(
+            DEFAULT_PARA_ID.into(),
+        )),
         "kintsugi-dev" => Box::new(chain_spec::kintsugi::kintsugi_dev_config()),
         "kintsugi-latest" => Box::new(chain_spec::kintsugi::kintsugi_mainnet_config()),
         "kintsugi" => Box::new(chain_spec::KintsugiChainSpec::from_json_bytes(
@@ -88,7 +104,12 @@ fn load_spec(id: &str) -> std::result::Result<Box<dyn sc_service::ChainSpec>, St
         "interlay" => Box::new(chain_spec::InterlayChainSpec::from_json_bytes(
             &include_bytes!("../res/interlay.json")[..],
         )?),
-        "staging-latest" => Box::new(chain_spec::testnet_kintsugi::staging_testnet_config(DEFAULT_PARA_ID.into())),
+        "staging-interlay-latest" => Box::new(chain_spec::testnet_interlay::staging_testnet_config(
+            DEFAULT_PARA_ID.into(),
+        )),
+        "staging-latest" => Box::new(chain_spec::testnet_kintsugi::staging_testnet_config(
+            DEFAULT_PARA_ID.into(),
+        )),
         "moonbase-alpha" => Box::new(chain_spec::testnet_kintsugi::staging_testnet_config(1002.into())),
         path => {
             let chain_spec = chain_spec::DummyChainSpec::from_json_file(path.into())?;
@@ -96,8 +117,10 @@ fn load_spec(id: &str) -> std::result::Result<Box<dyn sc_service::ChainSpec>, St
                 Box::new(chain_spec::InterlayChainSpec::from_json_file(path.into())?)
             } else if chain_spec.is_kintsugi() {
                 Box::new(chain_spec::KintsugiChainSpec::from_json_file(path.into())?)
-            } else if chain_spec.is_testnet() {
-                Box::new(chain_spec::TestnetChainSpec::from_json_file(path.into())?)
+            } else if chain_spec.is_kintsugi_testnet() {
+                Box::new(chain_spec::KintsugiTestnetChainSpec::from_json_file(path.into())?)
+            } else if chain_spec.is_interlay_testnet() {
+                Box::new(chain_spec::InterlayTestnetChainSpec::from_json_file(path.into())?)
             } else {
                 Box::new(chain_spec)
             }
@@ -117,9 +140,14 @@ macro_rules! with_runtime_or_err {
 			use { kintsugi_runtime::RuntimeApi, crate::service::KintsugiRuntimeExecutor as Executor };
 			$( $code )*
 
+		} else if $chain_spec.is_interlay_testnet() {
+            #[allow(unused_imports)]
+			use { testnet_interlay_runtime::RuntimeApi, crate::service::TestnetInterlayRuntimeExecutor as Executor };
+			$( $code )*
+
 		} else {
             #[allow(unused_imports)]
-			use { testnet_kintsugi_runtime::RuntimeApi, crate::service::TestnetRuntimeExecutor as Executor };
+			use { testnet_kintsugi_runtime::RuntimeApi, crate::service::TestnetKintsugiRuntimeExecutor as Executor };
 			$( $code )*
 
 		}
@@ -255,11 +283,23 @@ macro_rules! construct_async_run {
 				let task_manager = $components.task_manager;
 				{ $( $code )* }.map(|v| (v, task_manager))
 			})
+		} else if runner.config().chain_spec.is_interlay_testnet() {
+			runner.async_run(|$config| {
+				let $components = new_partial::<
+					interlay_runtime::RuntimeApi,
+					TestnetInterlayRuntimeExecutor,
+				>(
+					&$config,
+                    true,
+				)?;
+				let task_manager = $components.task_manager;
+				{ $( $code )* }.map(|v| (v, task_manager))
+			})
 		} else {
 			runner.async_run(|$config| {
 				let $components = new_partial::<
 					testnet_kintsugi_runtime::RuntimeApi,
-					TestnetRuntimeExecutor,
+					TestnetKintsugiRuntimeExecutor,
 				>(
 					&$config,
                     true,
@@ -330,8 +370,10 @@ pub fn run() -> Result<()> {
                             runner.sync_run(|config| cmd.run::<Block, InterlayRuntimeExecutor>(config))
                         } else if runner.config().chain_spec.is_kintsugi() {
                             runner.sync_run(|config| cmd.run::<Block, KintsugiRuntimeExecutor>(config))
-                        } else if runner.config().chain_spec.is_testnet() {
-                            runner.sync_run(|config| cmd.run::<Block, TestnetRuntimeExecutor>(config))
+                        } else if runner.config().chain_spec.is_kintsugi_testnet() {
+                            runner.sync_run(|config| cmd.run::<Block, TestnetKintsugiRuntimeExecutor>(config))
+                        } else if runner.config().chain_spec.is_interlay_testnet() {
+                            runner.sync_run(|config| cmd.run::<Block, TestnetInterlayRuntimeExecutor>(config))
                         } else {
                             Err("Chain doesn't support benchmarking".into())
                         }
@@ -410,7 +452,8 @@ pub fn run() -> Result<()> {
                 let raw_meta_blob = match params.runtime {
                     RuntimeName::Interlay => interlay_runtime::Runtime::metadata().into(),
                     RuntimeName::Kintsugi => kintsugi_runtime::Runtime::metadata().into(),
-                    RuntimeName::Testnet => testnet_kintsugi_runtime::Runtime::metadata().into(),
+                    RuntimeName::InterlayTestnet => testnet_interlay_runtime::Runtime::metadata().into(),
+                    RuntimeName::KintsugiTestnet => testnet_kintsugi_runtime::Runtime::metadata().into(),
                 };
 
                 write_to_file_or_stdout(params.raw, &params.output, raw_meta_blob)?;
