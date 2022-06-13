@@ -279,13 +279,13 @@ pub mod pallet {
         ///
         /// # Arguments
         ///
-        /// * `origin` - sender of the transaction: the new vault
+        /// * `origin` - sender of the transaction: anyone
         /// * `replace_id` - the ID of the replacement request
         #[pallet::weight(<T as Config>::WeightInfo::cancel_replace())]
         #[transactional]
         pub fn cancel_replace(origin: OriginFor<T>, replace_id: H256) -> DispatchResultWithPostInfo {
-            let new_vault = ensure_signed(origin)?;
-            Self::_cancel_replace(new_vault, replace_id)?;
+            let _ = ensure_signed(origin)?;
+            Self::_cancel_replace(replace_id)?;
             Ok(().into())
         }
 
@@ -545,7 +545,7 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
-    fn _cancel_replace(caller: T::AccountId, replace_id: H256) -> Result<(), DispatchError> {
+    fn _cancel_replace(replace_id: H256) -> Result<(), DispatchError> {
         // Retrieve the ReplaceRequest as per the replaceId parameter from Vaults in the VaultRegistry
         let replace = Self::get_open_replace_request(&replace_id)?;
 
@@ -564,9 +564,6 @@ impl<T: Config> Pallet<T> {
         );
 
         let new_vault_id = replace.new_vault;
-
-        // only cancellable by new_vault
-        ensure!(caller == new_vault_id.account_id, Error::<T>::UnauthorizedVault);
 
         // decrease old-vault's to-be-redeemed tokens, and
         // decrease new-vault's to-be-issued tokens
