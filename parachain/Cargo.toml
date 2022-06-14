@@ -25,7 +25,8 @@ futures = "0.3.15"
 # Parachain dependencies
 interlay-runtime = { package = "interlay-runtime-parachain", path = "./runtime/interlay" }
 kintsugi-runtime = { package = "kintsugi-runtime-parachain", path = "./runtime/kintsugi" }
-testnet-runtime = { package = "testnet-runtime-parachain", path = "./runtime/testnet" }
+testnet-kintsugi-runtime = { package = "testnet-kintsugi-runtime-parachain", path = "./runtime/testnet-kintsugi" }
+testnet-interlay-runtime = { package = "testnet-interlay-runtime-parachain", path = "./runtime/testnet-interlay" }
 interbtc-rpc = { path = "../rpc" }
 bitcoin = { path = "../crates/bitcoin" }
 primitives = { package = "interbtc-primitives", path = "../primitives" }
@@ -107,4 +108,3 @@ runtime-benchmarks = [
     "interlay-runtime/runtime-benchmarks",
     "polkadot-service/runtime-benchmarks",
 ]
-dev-interlay = ["testnet-runtime/dev-interlay"]

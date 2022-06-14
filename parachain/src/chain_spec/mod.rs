@@ -17,7 +17,8 @@ use std::str::FromStr;
 
 pub mod interlay;
 pub mod kintsugi;
-pub mod testnet;
+pub mod testnet_interlay;
+pub mod testnet_kintsugi;
 
 // The URL for the telemetry server.
 // pub const TELEMETRY_URL: &str = "wss://telemetry.polkadot.io/submit/";
@@ -30,8 +31,11 @@ pub type InterlayChainSpec = sc_service::GenericChainSpec<interlay_runtime::Gene
 /// Specialized `ChainSpec` for the kintsugi parachain runtime.
 pub type KintsugiChainSpec = sc_service::GenericChainSpec<kintsugi_runtime::GenesisConfig, Extensions>;
 
-/// Specialized `ChainSpec` for the testnet parachain runtime.
-pub type TestnetChainSpec = sc_service::GenericChainSpec<testnet_runtime::GenesisConfig, Extensions>;
+/// Specialized `ChainSpec` for the kintsugi testnet parachain runtime.
+pub type KintsugiTestnetChainSpec = sc_service::GenericChainSpec<testnet_kintsugi_runtime::GenesisConfig, Extensions>;
+
+/// Specialized `ChainSpec` for the interlay testnet parachain runtime.
+pub type InterlayTestnetChainSpec = sc_service::GenericChainSpec<testnet_interlay_runtime::GenesisConfig, Extensions>;
 
 /// The extensions for the [`ChainSpec`].
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, ChainSpecExtension, ChainSpecGroup)]

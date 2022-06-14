@@ -25,10 +25,10 @@ decl_test_parachain! {
 
 decl_test_parachain! {
     pub struct Sibling {
-        Runtime = testnet_runtime_parachain::Runtime,
-        Origin = testnet_runtime_parachain::Origin,
-        XcmpMessageHandler = testnet_runtime_parachain::XcmpQueue,
-        DmpMessageHandler = testnet_runtime_parachain::DmpQueue,
+        Runtime = testnet_kintsugi_runtime_parachain::Runtime,
+        Origin = testnet_kintsugi_runtime_parachain::Origin,
+        XcmpMessageHandler = testnet_kintsugi_runtime_parachain::XcmpQueue,
+        DmpMessageHandler = testnet_kintsugi_runtime_parachain::DmpQueue,
         new_ext = para_ext(SIBLING_PARA_ID),
     }
 }
