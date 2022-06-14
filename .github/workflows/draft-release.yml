@@ -11,7 +11,7 @@ jobs:
     runs-on: [self-hosted, linux]
     strategy:
       matrix:
-        runtime: ["interlay", "kintsugi", "testnet"]
+        runtime: ["interlay", "kintsugi", "testnet-kintsugi", "testnet-interlay"]
     steps:
       - name: Checkout sources
         uses: actions/checkout@v3
