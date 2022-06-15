@@ -21,6 +21,7 @@ use xcm_builder::{
     RelayChainAsNative, SiblingParachainAsNative, SiblingParachainConvertsVia, SignedAccountId32AsNative,
     SignedToAccountId32, SovereignSignedViaLocation, TakeRevenue, TakeWeightCredit,
 };
+pub use xcm_executor;
 use xcm_executor::{Config, XcmExecutor};
 
 parameter_types! {
@@ -105,6 +106,22 @@ parameter_types! {
         // (I)BTC:DOT = 1:2266 & Satoshi:Planck = 1:100
         dot_per_second() / 226_600
     );
+    pub IntrPerSecond: (AssetId, u128) = ( // can be removed once we no longer need to support polkadot < 0.9.16
+        MultiLocation::new(
+            1,
+            X2(Parachain(ParachainInfo::get().into()), GeneralKey(Token(INTR).encode())),
+        ).into(),
+        // KINT:KSM = 4:3
+        (dot_per_second() * 4) / 3
+    );
+    pub IbtcPerSecond: (AssetId, u128) = (
+        MultiLocation::new(
+            1,
+            X2(Parachain(ParachainInfo::get().into()), GeneralKey(Token(IBTC).encode())),
+        ).into(),
+        // (I)BTC:DOT = 1:2266 & Satoshi:Planck = 1:100
+        dot_per_second() / 226_600
+    );
 }
 
 pub struct ToAuthor;
@@ -119,6 +136,10 @@ impl TakeRevenue for ToAuthor {
                 if let Some(author) = pallet_authorship::Pallet::<Runtime>::author() {
                     // Note: will need rethinking once we have existential deposits. Ignore the result.
                     let _ = Tokens::deposit(currency_id, &author, amount);
+                } else {
+                    // should only happen in tests. In the tests it helps us ensure that the fee are
+                    // dealt with.
+                    let _ = Tokens::deposit(currency_id, &TreasuryAccount::get(), amount);
                 }
             }
         }
@@ -129,6 +150,11 @@ pub type Trader = (
     FixedRateOfFungible<DotPerSecond, ToAuthor>,
     FixedRateOfFungible<CanonicalizedIntrPerSecond, ToAuthor>,
     FixedRateOfFungible<CanonicalizedIbtcPerSecond, ToAuthor>,
+    // The xcm-executor ensures no non-canonicalized versions will be used in transfers to our chain
+    // when execute_xcm_in_credit is used. However, there are still cases where it can appear, e.g.
+    // when reclaiming trapped tokens.
+    FixedRateOfFungible<IntrPerSecond, ToAuthor>,
+    FixedRateOfFungible<IbtcPerSecond, ToAuthor>,
     AssetRegistryTrader<FixedRateAssetRegistryTrader<MyFixedConversionRateProvider>, ToAuthor>,
 );
 

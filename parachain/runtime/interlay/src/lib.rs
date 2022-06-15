@@ -23,6 +23,7 @@ use frame_system::{
     limits::{BlockLength, BlockWeights},
     EnsureRoot, RawOrigin,
 };
+pub use orml_asset_registry::AssetMetadata;
 use orml_asset_registry::SequentialId;
 use orml_traits::parameter_type_with_key;
 use pallet_transaction_payment::{Multiplier, TargetedFeeAdjustment};
