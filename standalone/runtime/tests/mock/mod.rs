@@ -252,6 +252,7 @@ pub fn default_vault_state(vault_id: &VaultId) -> CoreVaultData {
             .map(|x| (x, default_vault_free_balance(x)))
             .collect(),
         liquidated_collateral: Amount::new(0, vault_id.collateral_currency()),
+        status: VaultStatus::Active(true),
     }
 }
 
@@ -508,6 +509,7 @@ pub struct CoreVaultData {
     pub free_balance: BTreeMap<CurrencyId, Amount<Runtime>>,
     pub to_be_replaced: Amount<Runtime>,
     pub replace_collateral: Amount<Runtime>,
+    pub status: VaultStatus,
 }
 
 impl CoreVaultData {
@@ -522,6 +524,7 @@ impl CoreVaultData {
             backing_collateral: Amount::new(0, vault_id.collateral_currency()),
             free_balance: iter_all_currencies().map(|x| (x, Amount::new(0, x))).collect(),
             liquidated_collateral: Amount::new(0, vault_id.collateral_currency()),
+            status: VaultStatus::Active(true),
         }
     }
 }
@@ -558,6 +561,7 @@ impl CoreVaultData {
                 vault.replace_collateral,
                 <Runtime as vault_registry::Config>::GetGriefingCollateralCurrencyId::get(),
             ),
+            status: vault.status,
         }
     }
 

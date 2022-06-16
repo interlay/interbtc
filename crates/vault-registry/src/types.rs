@@ -651,6 +651,9 @@ impl<T: Config> RichVault<T> {
                 .ok_or(Error::<T>::ThresholdNotSet)?,
         )?;
 
+        // Clear `to_be_replaced` tokens, since the vault will have no more `issued` or `to_be_issued` tokens.
+        let _ = Pallet::<T>::withdraw_replace_request(&self.data.id, &self.to_be_replaced_tokens())?;
+
         // amount of tokens being backed
         let collateral_tokens = self.backed_tokens()?;
 
@@ -697,6 +700,15 @@ impl<T: Config> RichVault<T> {
         } else {
             Ok(())
         }
+    }
+
+    /// `to_be_replaced` tokens are not included in this amount, because they are only
+    /// bookkeeping for how many tokens the vault asked to be replaced for. They are not
+    /// backed by collateral.
+    pub fn has_outstanding_wrapped_tokens(&self) -> Result<bool, DispatchError> {
+        let total_wrapped_tokens = self.backed_tokens()?.checked_add(&self.to_be_redeemed_tokens())?;
+        // `total_wrapped_tokens` is unsigned so is greater than or equal to zero.
+        Ok(!total_wrapped_tokens.is_zero())
     }
 
     pub(crate) fn is_banned(&self) -> bool {

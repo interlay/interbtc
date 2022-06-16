@@ -3,6 +3,8 @@ mod mock;
 use currency::Amount;
 use mock::{assert_eq, *};
 
+use crate::mock::issue_testing_utils::{execute_issue, request_issue};
+
 pub const USER: [u8; 32] = ALICE;
 pub const VAULT: [u8; 32] = BOB;
 
@@ -28,6 +30,18 @@ fn test_with<R>(execute: impl Fn(VaultId) -> R) {
     test_with(Token(KSM), Token(IBTC));
     test_with(Token(DOT), Token(IBTC));
     test_with(ForeignAsset(1), Token(IBTC));
+}
+
+fn deposit_collateral_and_issue(vault_id: VaultId) {
+    let new_collateral = 10_000;
+    assert_ok!(Call::VaultRegistry(VaultRegistryCall::deposit_collateral {
+        currency_pair: vault_id.currencies.clone(),
+        amount: new_collateral,
+    })
+    .dispatch(origin_of(account_of(VAULT))));
+
+    let (issue_id, _) = request_issue(&vault_id, vault_id.wrapped(4_000));
+    execute_issue(issue_id);
 }
 
 mod deposit_collateral_test {
@@ -288,6 +302,7 @@ fn integration_test_vault_registry_with_parachain_shutdown_fails() {
 fn integration_test_vault_registry_undercollateralization_liquidation() {
     test_with(|vault_id| {
         let currency_id = vault_id.collateral_currency();
+        let vault_data = default_vault_state(&vault_id);
         liquidate_vault(&vault_id);
 
         assert_eq!(
@@ -310,6 +325,11 @@ fn integration_test_vault_registry_undercollateralization_liquidation() {
                 vault.backing_collateral = Amount::new(0, currency_id);
                 vault.liquidated_collateral =
                     default_vault_backing_collateral(currency_id) - liquidation_vault.collateral;
+                vault.status = VaultStatus::Liquidated;
+                *vault
+                    .free_balance
+                    .get_mut(&vault_data.replace_collateral.currency())
+                    .unwrap() += vault_data.replace_collateral;
             })
         );
     });
@@ -341,5 +361,146 @@ fn integration_test_vault_registry_register_respects_fund_limit() {
         );
 
         assert_ok!(get_register_vault_result(&user_vault_id, remaining));
+    });
+}
+
+#[test]
+fn integration_test_vault_registry_cannot_recover_active_vault() {
+    test_with(|vault_id| {
+        assert_noop!(
+            Call::VaultRegistry(VaultRegistryCall::recover_vault_id {
+                currency_pair: vault_id.currencies.clone(),
+            })
+            .dispatch(origin_of(account_of(VAULT))),
+            VaultRegistryError::VaultNotRecoverable
+        );
+    });
+}
+
+#[test]
+fn integration_test_vault_registry_nonexistent_vault_cannot_be_recovered() {
+    test_with(|vault_id| {
+        assert_noop!(
+            Call::VaultRegistry(VaultRegistryCall::recover_vault_id {
+                currency_pair: vault_id.currencies.clone(),
+            })
+            .dispatch(origin_of(account_of(USER))),
+            VaultRegistryError::VaultNotFound
+        );
+    });
+}
+
+#[test]
+fn integration_test_vault_registry_undercollateralization_recovery_fails() {
+    test_with(|vault_id| {
+        liquidate_vault_with_status(&vault_id, VaultStatus::Liquidated);
+        // `to_be_redeemeded` tokens are non-zero
+        assert_err!(
+            Call::VaultRegistry(VaultRegistryCall::recover_vault_id {
+                currency_pair: vault_id.currencies.clone(),
+            })
+            .dispatch(origin_of(account_of(VAULT))),
+            VaultRegistryError::VaultNotRecoverable
+        );
+    });
+}
+
+#[test]
+fn integration_test_vault_registry_undercollateralization_recovery_works() {
+    test_with(|vault_id| {
+        let currency_id = vault_id.collateral_currency();
+        let mut vault_data = default_vault_state(&vault_id);
+        vault_data.to_be_redeemed = vault_id.wrapped(0);
+        vault_data.to_be_replaced = vault_id.wrapped(0);
+        CoreVaultData::force_to(&vault_id, vault_data.clone());
+        liquidate_vault_with_status(&vault_id, VaultStatus::Liquidated);
+
+        assert_ok!(Call::VaultRegistry(VaultRegistryCall::recover_vault_id {
+            currency_pair: vault_id.currencies.clone(),
+        })
+        .dispatch(origin_of(account_of(VAULT))));
+
+        assert_eq!(
+            ParachainState::get(&vault_id),
+            ParachainState::get_default(&vault_id).with_changes(|_, vault, liquidation_vault, _| {
+                let liquidation_vault = liquidation_vault.with_currency(&vault_id.currencies);
+
+                liquidation_vault.collateral =
+                    Amount::new(default_vault_backing_collateral(currency_id).amount(), currency_id);
+                liquidation_vault.to_be_issued = vault_id.wrapped(DEFAULT_VAULT_TO_BE_ISSUED.amount());
+                liquidation_vault.issued = vault_id.wrapped(DEFAULT_VAULT_ISSUED.amount());
+                liquidation_vault.to_be_redeemed = vault_id.wrapped(0);
+
+                vault.issued = vault_id.wrapped(0);
+                vault.to_be_issued = vault_id.wrapped(0);
+                vault.to_be_redeemed = vault_id.wrapped(0);
+                vault.to_be_replaced = vault_id.wrapped(0);
+                vault.backing_collateral = Amount::new(0, currency_id);
+                vault.liquidated_collateral = Amount::new(0, currency_id);
+                *vault
+                    .free_balance
+                    .get_mut(&vault_data.replace_collateral.currency())
+                    .unwrap() += vault_data.replace_collateral;
+            })
+        );
+        deposit_collateral_and_issue(vault_id);
+    });
+}
+
+#[test]
+fn integration_test_vault_registry_theft_recovery_fails() {
+    test_with(|vault_id| {
+        liquidate_vault_with_status(&vault_id, VaultStatus::CommittedTheft);
+        // `to_be_redeemeded` tokens are non-zero
+        assert_err!(
+            Call::VaultRegistry(VaultRegistryCall::recover_vault_id {
+                currency_pair: vault_id.currencies.clone(),
+            })
+            .dispatch(origin_of(account_of(VAULT))),
+            VaultRegistryError::VaultNotRecoverable
+        );
+    });
+}
+
+#[test]
+fn integration_test_vault_registry_theft_recovery_works() {
+    test_with(|vault_id| {
+        let currency_id = vault_id.collateral_currency();
+        let mut vault_data = default_vault_state(&vault_id);
+        vault_data.to_be_redeemed = vault_id.wrapped(0);
+        vault_data.to_be_replaced = vault_id.wrapped(0);
+        CoreVaultData::force_to(&vault_id, vault_data.clone());
+
+        liquidate_vault_with_status(&vault_id, VaultStatus::CommittedTheft);
+
+        assert_ok!(Call::VaultRegistry(VaultRegistryCall::recover_vault_id {
+            currency_pair: vault_id.currencies.clone(),
+        })
+        .dispatch(origin_of(account_of(VAULT))));
+
+        assert_eq!(
+            ParachainState::get(&vault_id),
+            ParachainState::get_default(&vault_id).with_changes(|_, vault, liquidation_vault, _| {
+                let liquidation_vault = liquidation_vault.with_currency(&vault_id.currencies);
+
+                liquidation_vault.collateral =
+                    Amount::new(default_vault_backing_collateral(currency_id).amount(), currency_id);
+                liquidation_vault.to_be_issued = vault_id.wrapped(DEFAULT_VAULT_TO_BE_ISSUED.amount());
+                liquidation_vault.issued = vault_id.wrapped(DEFAULT_VAULT_ISSUED.amount());
+                liquidation_vault.to_be_redeemed = vault_id.wrapped(0);
+
+                vault.issued = vault_id.wrapped(0);
+                vault.to_be_issued = vault_id.wrapped(0);
+                vault.to_be_redeemed = vault_id.wrapped(0);
+                vault.to_be_replaced = vault_id.wrapped(0);
+                vault.backing_collateral = Amount::new(0, currency_id);
+                vault.liquidated_collateral = Amount::new(0, currency_id);
+                *vault
+                    .free_balance
+                    .get_mut(&vault_data.replace_collateral.currency())
+                    .unwrap() += vault_data.replace_collateral;
+            })
+        );
+        deposit_collateral_and_issue(vault_id);
     });
 }
