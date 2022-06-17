@@ -883,7 +883,7 @@ impl<T: Config> Pallet<T> {
     fn slash_backing_collateral(vault_id: &DefaultVaultId<T>, amount: &Amount<T>) -> DispatchResult {
         amount.unlock_on(&vault_id.account_id)?;
         Self::decrease_total_backing_collateral(&vault_id.currencies, amount)?;
-        ext::staking::slash_stake::<T>(vault_id.wrapped_currency(), vault_id, amount)?;
+        ext::staking::slash_stake::<T>(vault_id, amount)?;
         Ok(())
     }
 

@@ -364,8 +364,9 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
-    /// Slash an `amount` of stake from the `vault_id`.
-    pub fn slash_stake(
+    #[cfg(test)]
+    // will be used to test migration
+    fn broken_slash_stake_do_not_use(
         currency_id: T::CurrencyId,
         vault_id: &DefaultVaultId<T>,
         amount: SignedFixedPoint<T>,
@@ -383,17 +384,6 @@ impl<T: Config> Pallet<T> {
 
         checked_sub_mut!(TotalCurrentStake<T>, nonce, vault_id, &amount);
 
-        // before slash:
-        // reward = stake * RewardPerToken - RewardTally
-        // after slash:
-        // reward = (stake - amount) * RewardPerToken - RewardTally
-
-        // reward = (stake - amount) * (RewardPerToken + amount * RewardPerToken/(stake-amount)) - RewardTally
-        // reward = (stake - amount) * (RewardPerToken + amount * RewardPerToken/(stake-amount)) - RewardTally
-
-        // A slash means reward per token is no longer representative of the rewards
-        // since `amount * reward_per_token` will be lost from the system. As such,
-        // replenish rewards by the amount of reward lost with this slash
         Self::increase_rewards(
             nonce,
             currency_id,
@@ -402,6 +392,37 @@ impl<T: Config> Pallet<T> {
                 .checked_mul(&amount)
                 .ok_or(ArithmeticError::Overflow)?,
         )?;
+        Ok(())
+    }
+
+    /// Slash an `amount` of stake from the `vault_id`.
+    pub fn slash_stake(vault_id: &DefaultVaultId<T>, amount: SignedFixedPoint<T>) -> DispatchResult {
+        let nonce = Self::nonce(vault_id);
+        let total_stake = Self::total_stake_at_index(nonce, vault_id);
+        if amount.is_zero() {
+            return Ok(());
+        } else if total_stake.is_zero() {
+            return Err(Error::<T>::SlashZeroTotalStake.into());
+        }
+
+        let amount_div_total_stake = amount.checked_div(&total_stake).ok_or(ArithmeticError::Underflow)?;
+        checked_add_mut!(SlashPerToken<T>, nonce, vault_id, &amount_div_total_stake);
+
+        checked_sub_mut!(TotalCurrentStake<T>, nonce, vault_id, &amount);
+
+        // A slash means reward per token is no longer representative of the rewards
+        // since `amount * reward_per_token` will be lost from the system. As such,
+        // replenish rewards by the amount of reward lost with this slash
+        for currency_id in [vault_id.wrapped_currency(), T::GetNativeCurrencyId::get()] {
+            Self::increase_rewards(
+                nonce,
+                currency_id,
+                vault_id,
+                Self::reward_per_token(currency_id, (nonce, vault_id))
+                    .checked_mul(&amount)
+                    .ok_or(ArithmeticError::Overflow)?,
+            )?;
+        }
         Ok(())
     }
 
@@ -693,7 +714,7 @@ pub trait Staking<VaultId, NominatorId, Index, Balance, CurrencyId> {
     fn deposit_stake(vault_id: &VaultId, nominator_id: &NominatorId, amount: Balance) -> Result<(), DispatchError>;
 
     /// Slash an `amount` of stake from the `vault_id`.
-    fn slash_stake(vault_id: &VaultId, amount: Balance, currency_id: CurrencyId) -> Result<(), DispatchError>;
+    fn slash_stake(vault_id: &VaultId, amount: Balance) -> Result<(), DispatchError>;
 
     /// Compute the stake in `vault_id` owned by `nominator_id`.
     fn compute_stake(vault_id: &VaultId, nominator_id: &NominatorId) -> Result<Balance, DispatchError>;
@@ -754,12 +775,8 @@ where
         )
     }
 
-    fn slash_stake(vault_id: &DefaultVaultId<T>, amount: Balance, currency_id: T::CurrencyId) -> DispatchResult {
-        Pallet::<T>::slash_stake(
-            currency_id,
-            vault_id,
-            amount.to_fixed().ok_or(Error::<T>::TryIntoIntError)?,
-        )
+    fn slash_stake(vault_id: &DefaultVaultId<T>, amount: Balance) -> DispatchResult {
+        Pallet::<T>::slash_stake(vault_id, amount.to_fixed().ok_or(Error::<T>::TryIntoIntError)?)
     }
 
     fn compute_stake(vault_id: &DefaultVaultId<T>, nominator_id: &T::AccountId) -> Result<Balance, DispatchError> {
@@ -884,7 +901,7 @@ pub mod migration {
             assert_ok!(Staking::compute_reward(Token(IBTC), &VAULT, &VAULT.account_id), 10000);
 
             // step 2: slash
-            assert_ok!(Staking::slash_stake(Token(IBTC), &VAULT, fixed!(30)));
+            assert_ok!(Staking::slash_stake(&VAULT, fixed!(30)));
             assert_ok!(Staking::compute_stake(&VAULT, &VAULT.account_id), 20);
 
             // step 3: withdraw rewards
