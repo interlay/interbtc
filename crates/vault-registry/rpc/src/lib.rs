@@ -1,11 +1,12 @@
 //! RPC interface for the Vault Registry.
 
-pub use self::gen_client::Client as VaultRegistryClient;
 use codec::Codec;
-use jsonrpc_core::{Error as RpcError, ErrorCode, Result as JsonRpcResult};
-use jsonrpc_derive::rpc;
+use jsonrpsee::{
+    core::{async_trait, Error as JsonRpseeError, RpcResult},
+    proc_macros::rpc,
+    types::error::{CallError, ErrorCode, ErrorObject},
+};
 use module_oracle_rpc_runtime_api::BalanceWrapper;
-pub use module_vault_registry_rpc_runtime_api::VaultRegistryApi as VaultRegistryRuntimeApi;
 use sp_api::ProvideRuntimeApi;
 use sp_blockchain::HeaderBackend;
 use sp_runtime::{
@@ -15,7 +16,9 @@ use sp_runtime::{
 };
 use std::sync::Arc;
 
-#[rpc]
+pub use module_vault_registry_rpc_runtime_api::VaultRegistryApi as VaultRegistryRuntimeApi;
+
+#[rpc(client, server)]
 pub trait VaultRegistryApi<BlockHash, VaultId, Balance, UnsignedFixedPoint, CurrencyId, AccountId>
 where
     Balance: Codec + MaybeDisplay + MaybeFromStr,
@@ -23,75 +26,80 @@ where
     CurrencyId: Codec,
     AccountId: Codec,
 {
-    #[rpc(name = "vaultRegistry_getVaultCollateral")]
-    fn get_vault_collateral(&self, vault_id: VaultId, at: Option<BlockHash>) -> JsonRpcResult<BalanceWrapper<Balance>>;
+    #[method(name = "vaultRegistry_getVaultCollateral")]
+    fn get_vault_collateral(&self, vault_id: VaultId, at: Option<BlockHash>) -> RpcResult<BalanceWrapper<Balance>>;
 
-    #[rpc(name = "vaultRegistry_getVaultsByAccountId")]
-    fn get_vaults_by_account_id(&self, account_id: AccountId, at: Option<BlockHash>) -> JsonRpcResult<Vec<VaultId>>;
+    #[method(name = "vaultRegistry_getVaultsByAccountId")]
+    fn get_vaults_by_account_id(&self, account_id: AccountId, at: Option<BlockHash>) -> RpcResult<Vec<VaultId>>;
 
-    #[rpc(name = "vaultRegistry_getVaultTotalCollateral")]
+    #[method(name = "vaultRegistry_getVaultTotalCollateral")]
     fn get_vault_total_collateral(
         &self,
         vault_id: VaultId,
         at: Option<BlockHash>,
-    ) -> JsonRpcResult<BalanceWrapper<Balance>>;
+    ) -> RpcResult<BalanceWrapper<Balance>>;
 
-    #[rpc(name = "vaultRegistry_getPremiumRedeemVaults")]
-    fn get_premium_redeem_vaults(
-        &self,
-        at: Option<BlockHash>,
-    ) -> JsonRpcResult<Vec<(VaultId, BalanceWrapper<Balance>)>>;
+    #[method(name = "vaultRegistry_getPremiumRedeemVaults")]
+    fn get_premium_redeem_vaults(&self, at: Option<BlockHash>) -> RpcResult<Vec<(VaultId, BalanceWrapper<Balance>)>>;
 
-    #[rpc(name = "vaultRegistry_getVaultsWithIssuableTokens")]
+    #[method(name = "vaultRegistry_getVaultsWithIssuableTokens")]
     fn get_vaults_with_issuable_tokens(
         &self,
         at: Option<BlockHash>,
-    ) -> JsonRpcResult<Vec<(VaultId, BalanceWrapper<Balance>)>>;
+    ) -> RpcResult<Vec<(VaultId, BalanceWrapper<Balance>)>>;
 
-    #[rpc(name = "vaultRegistry_getVaultsWithRedeemableTokens")]
+    #[method(name = "vaultRegistry_getVaultsWithRedeemableTokens")]
     fn get_vaults_with_redeemable_tokens(
         &self,
         at: Option<BlockHash>,
-    ) -> JsonRpcResult<Vec<(VaultId, BalanceWrapper<Balance>)>>;
+    ) -> RpcResult<Vec<(VaultId, BalanceWrapper<Balance>)>>;
 
-    #[rpc(name = "vaultRegistry_getIssueableTokensFromVault")]
+    #[method(name = "vaultRegistry_getIssueableTokensFromVault")]
     fn get_issuable_tokens_from_vault(
         &self,
         vault: VaultId,
         at: Option<BlockHash>,
-    ) -> JsonRpcResult<BalanceWrapper<Balance>>;
+    ) -> RpcResult<BalanceWrapper<Balance>>;
 
-    #[rpc(name = "vaultRegistry_getCollateralizationFromVault")]
+    #[method(name = "vaultRegistry_getCollateralizationFromVault")]
     fn get_collateralization_from_vault(
         &self,
         vault: VaultId,
         only_issued: bool,
         at: Option<BlockHash>,
-    ) -> JsonRpcResult<UnsignedFixedPoint>;
+    ) -> RpcResult<UnsignedFixedPoint>;
 
-    #[rpc(name = "vaultRegistry_getCollateralizationFromVaultAndCollateral")]
+    #[method(name = "vaultRegistry_getCollateralizationFromVaultAndCollateral")]
     fn get_collateralization_from_vault_and_collateral(
         &self,
         vault: VaultId,
         collateral: BalanceWrapper<Balance>,
         only_issued: bool,
         at: Option<BlockHash>,
-    ) -> JsonRpcResult<UnsignedFixedPoint>;
+    ) -> RpcResult<UnsignedFixedPoint>;
 
-    #[rpc(name = "vaultRegistry_getRequiredCollateralForWrapped")]
+    #[method(name = "vaultRegistry_getRequiredCollateralForWrapped")]
     fn get_required_collateral_for_wrapped(
         &self,
         amount_btc: BalanceWrapper<Balance>,
         currency_id: CurrencyId,
         at: Option<BlockHash>,
-    ) -> JsonRpcResult<BalanceWrapper<Balance>>;
+    ) -> RpcResult<BalanceWrapper<Balance>>;
 
-    #[rpc(name = "vaultRegistry_getRequiredCollateralForVault")]
+    #[method(name = "vaultRegistry_getRequiredCollateralForVault")]
     fn get_required_collateral_for_vault(
         &self,
         vault_id: VaultId,
         at: Option<BlockHash>,
-    ) -> JsonRpcResult<BalanceWrapper<Balance>>;
+    ) -> RpcResult<BalanceWrapper<Balance>>;
+}
+
+fn internal_err<T: ToString>(message: T) -> JsonRpseeError {
+    JsonRpseeError::Call(CallError::Custom(ErrorObject::owned(
+        ErrorCode::InternalError.code(),
+        message.to_string(),
+        None::<()>,
+    )))
 }
 
 /// A struct that implements the [`VaultRegistryApi`].
@@ -110,42 +118,15 @@ impl<C, B> VaultRegistry<C, B> {
     }
 }
 
-pub enum Error {
-    RuntimeError,
+fn handle_response<T, E: std::fmt::Debug>(result: Result<Result<T, DispatchError>, E>, msg: String) -> RpcResult<T> {
+    result
+        .map_err(|err| internal_err(format!("Runtime error: {:?}: {:?}", msg, err)))?
+        .map_err(|err| internal_err(format!("Execution error: {:?}: {:?}", msg, err)))
 }
 
-impl From<Error> for i64 {
-    fn from(e: Error) -> i64 {
-        match e {
-            Error::RuntimeError => 1,
-        }
-    }
-}
-
-fn handle_response<T, E: std::fmt::Debug>(
-    result: Result<Result<T, DispatchError>, E>,
-    msg: String,
-) -> JsonRpcResult<T> {
-    result.map_or_else(
-        |e| {
-            Err(RpcError {
-                code: ErrorCode::ServerError(Error::RuntimeError.into()),
-                message: msg.clone(),
-                data: Some(format!("{:?}", e).into()),
-            })
-        },
-        |result| {
-            result.map_err(|e| RpcError {
-                code: ErrorCode::ServerError(Error::RuntimeError.into()),
-                message: msg.clone(),
-                data: Some(format!("{:?}", e).into()),
-            })
-        },
-    )
-}
-
+#[async_trait]
 impl<C, Block, VaultId, Balance, UnsignedFixedPoint, CurrencyId, AccountId>
-    VaultRegistryApi<<Block as BlockT>::Hash, VaultId, Balance, UnsignedFixedPoint, CurrencyId, AccountId>
+    VaultRegistryApiServer<<Block as BlockT>::Hash, VaultId, Balance, UnsignedFixedPoint, CurrencyId, AccountId>
     for VaultRegistry<C, Block>
 where
     Block: BlockT,
@@ -161,13 +142,13 @@ where
         &self,
         vault_id: VaultId,
         at: Option<<Block as BlockT>::Hash>,
-    ) -> JsonRpcResult<BalanceWrapper<Balance>> {
+    ) -> RpcResult<BalanceWrapper<Balance>> {
         let api = self.client.runtime_api();
         let at = BlockId::hash(at.unwrap_or_else(|| self.client.info().best_hash));
 
         handle_response(
             api.get_vault_collateral(&at, vault_id),
-            "Unable to get the vault's collateral.".into(),
+            "Unable to get the vault's collateral".into(),
         )
     }
 
@@ -175,7 +156,7 @@ where
         &self,
         account_id: AccountId,
         at: Option<<Block as BlockT>::Hash>,
-    ) -> JsonRpcResult<Vec<VaultId>> {
+    ) -> RpcResult<Vec<VaultId>> {
         let api = self.client.runtime_api();
         let at = BlockId::hash(at.unwrap_or_else(|| self.client.info().best_hash));
 
@@ -189,52 +170,52 @@ where
         &self,
         vault_id: VaultId,
         at: Option<<Block as BlockT>::Hash>,
-    ) -> JsonRpcResult<BalanceWrapper<Balance>> {
+    ) -> RpcResult<BalanceWrapper<Balance>> {
         let api = self.client.runtime_api();
         let at = BlockId::hash(at.unwrap_or_else(|| self.client.info().best_hash));
 
         handle_response(
             api.get_vault_total_collateral(&at, vault_id),
-            "Unable to get the vault's collateral.".into(),
+            "Unable to get the vault's collateral".into(),
         )
     }
 
     fn get_premium_redeem_vaults(
         &self,
         at: Option<<Block as BlockT>::Hash>,
-    ) -> JsonRpcResult<Vec<(VaultId, BalanceWrapper<Balance>)>> {
+    ) -> RpcResult<Vec<(VaultId, BalanceWrapper<Balance>)>> {
         let api = self.client.runtime_api();
         let at = BlockId::hash(at.unwrap_or_else(|| self.client.info().best_hash));
 
         handle_response(
             api.get_premium_redeem_vaults(&at),
-            "Unable to find a vault below the premium redeem threshold.".into(),
+            "Unable to find a vault below the premium redeem threshold".into(),
         )
     }
 
     fn get_vaults_with_issuable_tokens(
         &self,
         at: Option<<Block as BlockT>::Hash>,
-    ) -> JsonRpcResult<Vec<(VaultId, BalanceWrapper<Balance>)>> {
+    ) -> RpcResult<Vec<(VaultId, BalanceWrapper<Balance>)>> {
         let api = self.client.runtime_api();
         let at = BlockId::hash(at.unwrap_or_else(|| self.client.info().best_hash));
 
         handle_response(
             api.get_vaults_with_issuable_tokens(&at),
-            "Unable to find a vault with issuable tokens.".into(),
+            "Unable to find a vault with issuable tokens".into(),
         )
     }
 
     fn get_vaults_with_redeemable_tokens(
         &self,
         at: Option<<Block as BlockT>::Hash>,
-    ) -> JsonRpcResult<Vec<(VaultId, BalanceWrapper<Balance>)>> {
+    ) -> RpcResult<Vec<(VaultId, BalanceWrapper<Balance>)>> {
         let api = self.client.runtime_api();
         let at = BlockId::hash(at.unwrap_or_else(|| self.client.info().best_hash));
 
         handle_response(
             api.get_vaults_with_redeemable_tokens(&at),
-            "Unable to find a vault with redeemable tokens.".into(),
+            "Unable to find a vault with redeemable tokens".into(),
         )
     }
 
@@ -242,13 +223,13 @@ where
         &self,
         vault: VaultId,
         at: Option<<Block as BlockT>::Hash>,
-    ) -> JsonRpcResult<BalanceWrapper<Balance>> {
+    ) -> RpcResult<BalanceWrapper<Balance>> {
         let api = self.client.runtime_api();
         let at = BlockId::hash(at.unwrap_or_else(|| self.client.info().best_hash));
 
         handle_response(
             api.get_issuable_tokens_from_vault(&at, vault),
-            "Unable to get issuable tokens from vault.".into(),
+            "Unable to get issuable tokens from vault".into(),
         )
     }
 
@@ -257,13 +238,13 @@ where
         vault: VaultId,
         only_issued: bool,
         at: Option<<Block as BlockT>::Hash>,
-    ) -> JsonRpcResult<UnsignedFixedPoint> {
+    ) -> RpcResult<UnsignedFixedPoint> {
         let api = self.client.runtime_api();
         let at = BlockId::hash(at.unwrap_or_else(|| self.client.info().best_hash));
 
         handle_response(
             api.get_collateralization_from_vault(&at, vault, only_issued),
-            "Unable to get collateralization from vault.".into(),
+            "Unable to get collateralization from vault".into(),
         )
     }
 
@@ -273,13 +254,13 @@ where
         collateral: BalanceWrapper<Balance>,
         only_issued: bool,
         at: Option<<Block as BlockT>::Hash>,
-    ) -> JsonRpcResult<UnsignedFixedPoint> {
+    ) -> RpcResult<UnsignedFixedPoint> {
         let api = self.client.runtime_api();
         let at = BlockId::hash(at.unwrap_or_else(|| self.client.info().best_hash));
 
         handle_response(
             api.get_collateralization_from_vault_and_collateral(&at, vault, collateral, only_issued),
-            "Unable to get collateralization from vault.".into(),
+            "Unable to get collateralization from vault".into(),
         )
     }
 
@@ -288,13 +269,13 @@ where
         amount_btc: BalanceWrapper<Balance>,
         currency_id: CurrencyId,
         at: Option<<Block as BlockT>::Hash>,
-    ) -> JsonRpcResult<BalanceWrapper<Balance>> {
+    ) -> RpcResult<BalanceWrapper<Balance>> {
         let api = self.client.runtime_api();
         let at = BlockId::hash(at.unwrap_or_else(|| self.client.info().best_hash));
 
         handle_response(
             api.get_required_collateral_for_wrapped(&at, amount_btc, currency_id),
-            "Unable to get required collateral for amount.".into(),
+            "Unable to get required collateral for amount".into(),
         )
     }
 
@@ -302,24 +283,13 @@ where
         &self,
         vault_id: VaultId,
         at: Option<<Block as BlockT>::Hash>,
-    ) -> JsonRpcResult<BalanceWrapper<Balance>> {
+    ) -> RpcResult<BalanceWrapper<Balance>> {
         let api = self.client.runtime_api();
         let at = BlockId::hash(at.unwrap_or_else(|| self.client.info().best_hash));
-        api.get_required_collateral_for_vault(&at, vault_id).map_or_else(
-            |e| {
-                Err(RpcError {
-                    code: ErrorCode::ServerError(Error::RuntimeError.into()),
-                    message: "Unable to get required collateral for vault.".into(),
-                    data: Some(format!("{:?}", e).into()),
-                })
-            },
-            |result| {
-                result.map_err(|e| RpcError {
-                    code: ErrorCode::ServerError(Error::RuntimeError.into()),
-                    message: "Unable to get required collateral for vault.".into(),
-                    data: Some(format!("{:?}", e).into()),
-                })
-            },
+
+        handle_response(
+            api.get_required_collateral_for_vault(&at, vault_id),
+            "Unable to get required collateral for vault".into(),
         )
     }
 }

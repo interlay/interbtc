@@ -110,6 +110,8 @@ impl orml_tokens::Config for Test {
     type DustRemovalWhitelist = Everything;
     type MaxReserves = ConstU32<0>; // we don't use named reserves
     type ReserveIdentifier = (); // we don't use named reserves
+    type OnNewTokenAccount = ();
+    type OnKilledTokenAccount = ();
 }
 
 impl reward::Config for Test {

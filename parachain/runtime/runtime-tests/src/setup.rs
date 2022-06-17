@@ -99,9 +99,9 @@ impl ExtBuilder {
 }
 
 pub(crate) fn kintsugi_sovereign_account_on_kusama() -> AccountId {
-    polkadot_parachain::primitives::Id::from(KINTSUGI_PARA_ID).into_account()
+    polkadot_parachain::primitives::Id::from(KINTSUGI_PARA_ID).into_account_truncating()
 }
 
 pub(crate) fn sibling_sovereign_account_on_kusama() -> AccountId {
-    polkadot_parachain::primitives::Id::from(SIBLING_PARA_ID).into_account()
+    polkadot_parachain::primitives::Id::from(SIBLING_PARA_ID).into_account_truncating()
 }

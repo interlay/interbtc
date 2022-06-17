@@ -1,10 +1,11 @@
 //! RPC interface for the Oracle.
 
-pub use self::gen_client::Client as OracleClient;
 use codec::Codec;
-use jsonrpc_core::{Error as RpcError, ErrorCode, Result as JsonRpcResult};
-use jsonrpc_derive::rpc;
-pub use module_oracle_rpc_runtime_api::{BalanceWrapper, OracleApi as OracleRuntimeApi};
+use jsonrpsee::{
+    core::{async_trait, Error as JsonRpseeError, RpcResult},
+    proc_macros::rpc,
+    types::error::{CallError, ErrorCode, ErrorObject},
+};
 use sp_api::ProvideRuntimeApi;
 use sp_blockchain::HeaderBackend;
 use sp_runtime::{
@@ -14,27 +15,37 @@ use sp_runtime::{
 };
 use std::sync::Arc;
 
-#[rpc]
+pub use module_oracle_rpc_runtime_api::{BalanceWrapper, OracleApi as OracleRuntimeApi};
+
+#[rpc(client, server)]
 pub trait OracleApi<BlockHash, Balance, CurrencyId>
 where
     Balance: Codec + MaybeDisplay + MaybeFromStr,
     CurrencyId: Codec,
 {
-    #[rpc(name = "oracle_wrappedToCollateral")]
+    #[method(name = "oracle_wrappedToCollateral")]
     fn wrapped_to_collateral(
         &self,
         amount: BalanceWrapper<Balance>,
         currency_id: CurrencyId,
         at: Option<BlockHash>,
-    ) -> JsonRpcResult<BalanceWrapper<Balance>>;
+    ) -> RpcResult<BalanceWrapper<Balance>>;
 
-    #[rpc(name = "oracle_collateralToWrapped")]
+    #[method(name = "oracle_collateralToWrapped")]
     fn collateral_to_wrapped(
         &self,
         amount: BalanceWrapper<Balance>,
         currency_id: CurrencyId,
         at: Option<BlockHash>,
-    ) -> JsonRpcResult<BalanceWrapper<Balance>>;
+    ) -> RpcResult<BalanceWrapper<Balance>>;
+}
+
+fn internal_err<T: ToString>(message: T) -> JsonRpseeError {
+    JsonRpseeError::Call(CallError::Custom(ErrorObject::owned(
+        ErrorCode::InternalError.code(),
+        message.to_string(),
+        None::<()>,
+    )))
 }
 
 /// A struct that implements the [`OracleApi`].
@@ -53,41 +64,14 @@ impl<C, B> Oracle<C, B> {
     }
 }
 
-pub enum Error {
-    RuntimeError,
+fn handle_response<T, E: std::fmt::Debug>(result: Result<Result<T, DispatchError>, E>) -> RpcResult<T> {
+    result
+        .map_err(|err| internal_err(format!("Runtime error: {:?}", err)))?
+        .map_err(|err| internal_err(format!("Execution error: {:?}", err)))
 }
 
-impl From<Error> for i64 {
-    fn from(e: Error) -> i64 {
-        match e {
-            Error::RuntimeError => 1,
-        }
-    }
-}
-
-fn handle_response<T, E: std::fmt::Debug>(
-    result: Result<Result<T, DispatchError>, E>,
-    msg: String,
-) -> JsonRpcResult<T> {
-    result.map_or_else(
-        |e| {
-            Err(RpcError {
-                code: ErrorCode::ServerError(Error::RuntimeError.into()),
-                message: msg.clone(),
-                data: Some(format!("{:?}", e).into()),
-            })
-        },
-        |result| {
-            result.map_err(|e| RpcError {
-                code: ErrorCode::ServerError(Error::RuntimeError.into()),
-                message: msg.clone(),
-                data: Some(format!("{:?}", e).into()),
-            })
-        },
-    )
-}
-
-impl<C, Block, Balance, CurrencyId> OracleApi<<Block as BlockT>::Hash, Balance, CurrencyId> for Oracle<C, Block>
+#[async_trait]
+impl<C, Block, Balance, CurrencyId> OracleApiServer<<Block as BlockT>::Hash, Balance, CurrencyId> for Oracle<C, Block>
 where
     Block: BlockT,
     C: Send + Sync + 'static + ProvideRuntimeApi<Block> + HeaderBackend<Block>,
@@ -100,14 +84,11 @@ where
         amount: BalanceWrapper<Balance>,
         currency_id: CurrencyId,
         at: Option<<Block as BlockT>::Hash>,
-    ) -> JsonRpcResult<BalanceWrapper<Balance>> {
+    ) -> RpcResult<BalanceWrapper<Balance>> {
         let api = self.client.runtime_api();
         let at = BlockId::hash(at.unwrap_or_else(|| self.client.info().best_hash));
 
-        handle_response(
-            api.wrapped_to_collateral(&at, amount, currency_id),
-            "Unable to convert Wrapped to Collateral.".into(),
-        )
+        handle_response(api.wrapped_to_collateral(&at, amount, currency_id))
     }
 
     fn collateral_to_wrapped(
@@ -115,13 +96,10 @@ where
         amount: BalanceWrapper<Balance>,
         currency_id: CurrencyId,
         at: Option<<Block as BlockT>::Hash>,
-    ) -> JsonRpcResult<BalanceWrapper<Balance>> {
+    ) -> RpcResult<BalanceWrapper<Balance>> {
         let api = self.client.runtime_api();
         let at = BlockId::hash(at.unwrap_or_else(|| self.client.info().best_hash));
 
-        handle_response(
-            api.collateral_to_wrapped(&at, amount, currency_id),
-            "Unable to convert Collateral to Wrapped.".into(),
-        )
+        handle_response(api.collateral_to_wrapped(&at, amount, currency_id))
     }
 }
