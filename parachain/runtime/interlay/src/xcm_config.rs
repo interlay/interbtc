@@ -302,7 +302,7 @@ parameter_type_with_key! {
     pub ParachainMinFee: |location: MultiLocation| -> Option<u128> {
         #[allow(clippy::match_ref_pats)] // false positive
         match (location.parents, location.first_interior()) {
-            _ => Some(u128::MAX),
+            _ => None,
         }
     };
 }
