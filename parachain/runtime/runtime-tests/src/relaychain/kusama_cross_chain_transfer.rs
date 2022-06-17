@@ -152,8 +152,12 @@ fn transfer_from_relay_chain() {
         ));
     });
 
+    // ksm_per_second = (WEIGHT_PER_SECOND / ExtrinsicBaseWeight * WEIGHT_PER_NANOS) * (KSM.one() / 50_000)
+    // ksm_per_second = (10**12 / (85_795 * 1_000)) * (10**12 / 50_000)
+    // amount = ksm_per_second * weight / WEIGHT_PER_SECOND
+    // 186_480_000 = 233_100_000_000 * 800_000_000 / 10**12
     Kintsugi::execute_with(|| {
-        let xcm_fee = 128_000_000;
+        let xcm_fee = 186_480_000;
         assert_eq!(
             Tokens::free_balance(Token(KSM), &AccountId::from(BOB)),
             KSM.one() - xcm_fee
@@ -292,7 +296,7 @@ fn transfer_to_sibling_and_back() {
 
     // check reception
     Kintsugi::execute_with(|| {
-        let xcm_fee = 170666666;
+        let xcm_fee = 248640000;
         assert_eq!(
             Tokens::free_balance(Token(KINT), &AccountId::from(ALICE)),
             95_000_000_000_000 - xcm_fee
@@ -369,11 +373,11 @@ fn xcm_transfer_execution_barrier_trader_works() {
     });
 
     // trader inside BuyExecution have TooExpensive error if payment less than calculated weight amount.
-    // the minimum of calculated weight amount(`FixedRateOfFungible<KsmPerSecond>`) is 96_000_000
+    // the minimum of calculated weight amount(`FixedRateOfFungible<KsmPerSecond>`) is 139_860_000
     let message = Xcm::<kintsugi_runtime_parachain::Call>(vec![
-        ReserveAssetDeposited((Parent, 95_999_999).into()),
+        ReserveAssetDeposited((Parent, 139_859_999).into()),
         BuyExecution {
-            fees: (Parent, 95_999_999).into(),
+            fees: (Parent, 139_859_999).into(),
             weight_limit: Limited(expect_weight_limit),
         },
         DepositAsset {
@@ -392,9 +396,9 @@ fn xcm_transfer_execution_barrier_trader_works() {
 
     // all situation fulfilled, execute success
     let message = Xcm::<kintsugi_runtime_parachain::Call>(vec![
-        ReserveAssetDeposited((Parent, 96_000_000).into()),
+        ReserveAssetDeposited((Parent, 139_860_000).into()),
         BuyExecution {
-            fees: (Parent, 96_000_000).into(),
+            fees: (Parent, 139_860_000).into(),
             weight_limit: Limited(expect_weight_limit),
         },
         DepositAsset {
@@ -483,7 +487,7 @@ fn subscribe_version_notify_works() {
 fn trap_assets_works() {
     let mut kint_treasury_amount = 0;
     let (ksm_asset_amount, kint_asset_amount) = (KSM.one(), KINT.one());
-    let trader_weight_to_treasury: u128 = 96_000_000;
+    let trader_weight_to_treasury: u128 = 139_860_000;
 
     let parent_account: AccountId = ParentIsPreset::<AccountId>::convert(Parent.into()).unwrap();
 
@@ -591,8 +595,8 @@ fn trap_assets_works() {
 
     // verify that assets were claimed successfully (deposited into Bob's account)
     Kintsugi::execute_with(|| {
-        let kint_xcm_fee = 127_999_999;
-        let ksm_xcm_fee = 96_000_000;
+        let kint_xcm_fee = 186_480_000;
+        let ksm_xcm_fee = 139_860_000;
         assert_eq!(
             Tokens::free_balance(Token(KINT), &AccountId::from(BOB)),
             kint_asset_amount - kint_xcm_fee
