@@ -430,7 +430,7 @@ impl<T: Config> Pallet<T> {
     /// This actually does computation. If you need to keep using it, then make sure you cache the
     /// value and only call this once.
     pub fn fee_pool_account_id() -> T::AccountId {
-        <T as Config>::FeePalletId::get().into_account()
+        <T as Config>::FeePalletId::get().into_account_truncating()
     }
 
     pub fn get_max_expected_value() -> UnsignedFixedPoint<T> {

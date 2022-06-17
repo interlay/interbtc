@@ -1,6 +1,5 @@
 use bitcoin::utils::{virtual_transaction_size, InputType, TransactionInputMetadata, TransactionOutputMetadata};
 use hex_literal::hex;
-use interbtc_rpc::jsonrpc_core::serde_json::{map::Map, Value};
 use interbtc_runtime::{
     token_distribution, AccountId, AuraConfig, BTCRelayConfig, CurrencyId, CurrencyId::Token, CurrencyInfo, FeeConfig,
     GenesisConfig, GetWrappedCurrencyId, GrandpaConfig, IssueConfig, NominationConfig, OracleConfig, RedeemConfig,
@@ -10,6 +9,7 @@ use interbtc_runtime::{
 };
 use primitives::{VaultCurrencyPair, BITCOIN_REGTEST};
 use sc_service::ChainType;
+use serde_json::{map::Map, Value};
 use sp_arithmetic::{FixedPointNumber, FixedU128};
 use sp_consensus_aura::sr25519::AuthorityId as AuraId;
 use sp_core::{crypto::UncheckedInto, sr25519, Pair, Public};

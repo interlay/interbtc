@@ -723,7 +723,7 @@ impl<T: Config> Pallet<T> {
     /// Public functions
 
     pub fn liquidation_vault_account_id() -> T::AccountId {
-        <T as Config>::PalletId::get().into_account()
+        <T as Config>::PalletId::get().into_account_truncating()
     }
 
     pub fn _register_vault(vault_id: DefaultVaultId<T>, collateral: BalanceOf<T>) -> DispatchResult {

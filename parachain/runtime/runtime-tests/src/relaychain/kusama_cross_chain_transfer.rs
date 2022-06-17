@@ -1,5 +1,5 @@
 use crate::{relaychain::kusama_test_net::*, setup::*};
-use frame_support::{assert_ok, weights::WeightToFeePolynomial};
+use frame_support::{assert_ok, weights::WeightToFee};
 use orml_traits::MultiCurrency;
 use primitives::CurrencyId::Token;
 use xcm_builder::ParentIsPreset;
@@ -193,7 +193,8 @@ fn transfer_to_relay_chain() {
 
     KusamaNet::execute_with(|| {
         let used_weight = 298_368_000; // the actual weight of the sent message
-        let fee = <kusama_runtime::Runtime as pallet_transaction_payment::Config>::WeightToFee::calc(&used_weight);
+        let fee =
+            <kusama_runtime::Runtime as pallet_transaction_payment::Config>::WeightToFee::weight_to_fee(&used_weight);
         assert_eq!(
             kusama_runtime::Balances::free_balance(&AccountId::from(BOB)),
             KSM.one() - fee
@@ -211,7 +212,7 @@ fn transfer_to_relay_chain() {
 fn transfer_to_sibling_and_back() {
     fn sibling_sovereign_account() -> AccountId {
         use sp_runtime::traits::AccountIdConversion;
-        polkadot_parachain::primitives::Sibling::from(SIBLING_PARA_ID).into_account()
+        polkadot_parachain::primitives::Sibling::from(SIBLING_PARA_ID).into_account_truncating()
     }
 
     Sibling::execute_with(|| {
@@ -339,10 +340,10 @@ fn xcm_transfer_execution_barrier_trader_works() {
     Kintsugi::execute_with(|| {
         assert!(System::events().iter().any(|r| matches!(
             r.event,
-            Event::DmpQueue(cumulus_pallet_dmp_queue::Event::ExecutedDownward(
-                _,
-                Outcome::Error(XcmError::Barrier)
-            ))
+            Event::DmpQueue(cumulus_pallet_dmp_queue::Event::ExecutedDownward {
+                outcome: Outcome::Error(XcmError::Barrier),
+                ..
+            })
         )));
     });
 

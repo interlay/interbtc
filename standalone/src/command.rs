@@ -19,7 +19,7 @@ use crate::{
     cli::{Cli, Subcommand},
     service as interbtc_service,
 };
-use frame_benchmarking_cli::BenchmarkCmd;
+use frame_benchmarking_cli::{BenchmarkCmd, SUBSTRATE_REFERENCE_HARDWARE};
 use interbtc_runtime::Block;
 use interbtc_standalone::service::new_partial;
 use sc_cli::{ChainSpec, Result, RuntimeVersion, SubstrateCli};
@@ -164,7 +164,9 @@ pub fn run() -> Result<()> {
                     cmd.run(config, partials.client.clone(), db, storage)
                 }),
                 BenchmarkCmd::Overhead(_) => Err("Unsupported benchmarking command".into()),
-                BenchmarkCmd::Machine(cmd) => runner.sync_run(|config| cmd.run(&config)),
+                BenchmarkCmd::Machine(cmd) => {
+                    runner.sync_run(|config| cmd.run(&config, SUBSTRATE_REFERENCE_HARDWARE.clone()))
+                }
             }
         }
         Some(Subcommand::ExportMetadata(params)) => {

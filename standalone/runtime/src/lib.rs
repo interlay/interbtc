@@ -13,7 +13,8 @@ use currency::Amount;
 use frame_support::{
     dispatch::{DispatchError, DispatchResult},
     traits::{
-        ConstU32, Contains, Currency as PalletCurrency, EnsureOneOf, ExistenceRequirement, Imbalance, OnUnbalanced,
+        ConstU32, Contains, Currency as PalletCurrency, EnsureOneOf, EnsureOrigin, EnsureOriginWithArg,
+        ExistenceRequirement, Imbalance, OnUnbalanced,
     },
     weights::ConstantMultiplier,
     PalletId,
@@ -573,17 +574,17 @@ parameter_types! {
 
 parameter_types! {
     // 5EYCAe5i8QbRr5WN1PvaAVqPbfXsqazk9ocaxuzcTjgXPM1e
-    pub FeeAccount: AccountId = FeePalletId::get().into_account();
+    pub FeeAccount: AccountId = FeePalletId::get().into_account_truncating();
     // 5EYCAe5i8QbRrUhwETaRvgif6H3HA84YQri7wjgLtKzRJCML
-    pub SupplyAccount: AccountId = SupplyPalletId::get().into_account();
+    pub SupplyAccount: AccountId = SupplyPalletId::get().into_account_truncating();
     // 5EYCAe5gXcgF6fT7oVsD7E4bfnRZeovzMUD2wkdyvCHrYQQE
-    pub EscrowAnnuityAccount: AccountId = EscrowAnnuityPalletId::get().into_account();
+    pub EscrowAnnuityAccount: AccountId = EscrowAnnuityPalletId::get().into_account_truncating();
     // 5EYCAe5jvsMTc6NLhunLTPVjJg5cZNweWKjNXKqz9RUqQJDY
-    pub VaultAnnuityAccount: AccountId = VaultAnnuityPalletId::get().into_account();
+    pub VaultAnnuityAccount: AccountId = VaultAnnuityPalletId::get().into_account_truncating();
     // 5EYCAe5i8QbRrWTk2CHjZA79gSf1piYSGm2LQfxaw6id3M88
-    pub TreasuryAccount: AccountId = TreasuryPalletId::get().into_account();
+    pub TreasuryAccount: AccountId = TreasuryPalletId::get().into_account_truncating();
     // 5EYCAe5i8QbRra1jndPz1WAuf1q1KHQNfu2cW1EXJ231emTd
-    pub VaultRegistryAccount: AccountId = VaultRegistryPalletId::get().into_account();
+    pub VaultRegistryAccount: AccountId = VaultRegistryPalletId::get().into_account_truncating();
 }
 
 pub fn get_all_module_accounts() -> Vec<AccountId> {
@@ -626,6 +627,8 @@ impl orml_tokens::Config for Runtime {
     type DustRemovalWhitelist = DustRemovalWhitelist;
     type MaxReserves = ConstU32<0>; // we don't use named reserves
     type ReserveIdentifier = (); // we don't use named reserves
+    type OnNewTokenAccount = ();
+    type OnKilledTokenAccount = ();
 }
 
 parameter_types! {
@@ -945,13 +948,27 @@ impl nomination::Config for Runtime {
     type WeightInfo = ();
 }
 
+pub struct AssetAuthority;
+impl EnsureOriginWithArg<Origin, Option<u32>> for AssetAuthority {
+    type Success = ();
+
+    fn try_origin(origin: Origin, _asset_id: &Option<u32>) -> Result<Self::Success, Origin> {
+        EnsureRoot::try_origin(origin)
+    }
+
+    #[cfg(feature = "runtime-benchmarks")]
+    fn successful_origin(_asset_id: &Option<u32>) -> Origin {
+        EnsureRoot::successful_origin()
+    }
+}
+
 impl orml_asset_registry::Config for Runtime {
     type Event = Event;
     type Balance = Balance;
     type CustomMetadata = primitives::CustomMetadata;
     type AssetProcessor = SequentialId<Runtime>;
     type AssetId = primitives::ForeignAssetId;
-    type AuthorityOrigin = EnsureRoot<AccountId>;
+    type AuthorityOrigin = AssetAuthority;
     type WeightInfo = ();
 }
 

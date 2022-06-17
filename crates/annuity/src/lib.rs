@@ -135,7 +135,7 @@ pub mod pallet {
 // "Internal" functions, callable by code.
 impl<T: Config<I>, I: 'static> Pallet<T, I> {
     pub fn account_id() -> T::AccountId {
-        T::AnnuityPalletId::get().into_account()
+        T::AnnuityPalletId::get().into_account_truncating()
     }
 
     pub fn min_reward_per_block() -> BalanceOf<T, I> {

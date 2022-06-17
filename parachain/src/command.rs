@@ -22,7 +22,7 @@ use crate::{
         TestnetKintsugiRuntimeExecutor,
     },
 };
-use frame_benchmarking_cli::BenchmarkCmd;
+use frame_benchmarking_cli::{BenchmarkCmd, SUBSTRATE_REFERENCE_HARDWARE};
 use primitives::Block;
 use sc_cli::{ChainSpec, Result, RuntimeVersion, SubstrateCli};
 use sc_service::{Configuration, TaskManager};
@@ -32,11 +32,10 @@ use codec::Encode;
 use cumulus_client_service::genesis::generate_genesis_block;
 use cumulus_primitives_core::ParaId;
 use log::info;
-use polkadot_parachain::primitives::AccountIdConversion;
 use sc_cli::{CliConfiguration, DefaultConfigurationValues, ImportParams, KeystoreParams, NetworkParams, SharedParams};
 use sc_service::config::{BasePath, PrometheusConfig};
 use sp_core::hexdisplay::HexDisplay;
-use sp_runtime::traits::Block as BlockT;
+use sp_runtime::traits::{AccountIdConversion, Block as BlockT};
 use std::{io::Write, net::SocketAddr, path::PathBuf};
 
 const DEFAULT_PARA_ID: u32 = 2121;
@@ -420,7 +419,9 @@ pub fn run() -> Result<()> {
                     }
                 }
                 BenchmarkCmd::Overhead(_) => Err("Unsupported benchmarking command".into()),
-                BenchmarkCmd::Machine(cmd) => runner.sync_run(|config| cmd.run(&config)),
+                BenchmarkCmd::Machine(cmd) => {
+                    runner.sync_run(|config| cmd.run(&config, SUBSTRATE_REFERENCE_HARDWARE.clone()))
+                }
             }
         }
         Some(Subcommand::ExportGenesisState(params)) => {
@@ -502,7 +503,7 @@ async fn start_node(cli: Cli, config: Configuration) -> sc_service::error::Resul
 
     let id = ParaId::from(para_id.unwrap_or(DEFAULT_PARA_ID));
 
-    let parachain_account = AccountIdConversion::<polkadot_primitives::v2::AccountId>::into_account(&id);
+    let parachain_account = AccountIdConversion::<polkadot_primitives::v2::AccountId>::into_account_truncating(&id);
 
     let state_version = Cli::native_runtime_version(&config.chain_spec).state_version();
     let block: Block = generate_genesis_block(&config.chain_spec, state_version).map_err(|e| format!("{:?}", e))?;
@@ -515,7 +516,7 @@ async fn start_node(cli: Cli, config: Configuration) -> sc_service::error::Resul
     let collator_options = cli.run.collator_options();
 
     info!("Parachain id: {:?}", id);
-    info!("Parachain Account: {}", parachain_account);
+    info!("Parachain account: {}", parachain_account);
     info!("Parachain genesis state: {}", genesis_state);
     info!(
         "Is collating: {}",
