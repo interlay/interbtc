@@ -27,7 +27,7 @@ pub use primitives::{
 };
 use redeem::RedeemRequestStatus;
 use staking::DefaultVaultCurrencyPair;
-use vault_registry::types::UpdatableVault;
+use vault_registry::types::{DefaultVaultStatus, UpdatableVault};
 
 pub use issue::{types::IssueRequestExt, IssueRequest, IssueRequestStatus};
 pub use oracle::OracleKey;
@@ -45,7 +45,7 @@ pub use sp_runtime::{
 pub use sp_std::convert::TryInto;
 use std::collections::BTreeMap;
 pub use std::convert::TryFrom;
-pub use vault_registry::{CurrencySource, DefaultVaultId, Vault, VaultStatus};
+pub use vault_registry::{CurrencySource, DefaultVaultId, Vault};
 
 use self::redeem_testing_utils::USER_BTC_ADDRESS;
 
@@ -59,6 +59,7 @@ pub use itertools::Itertools;
 pub use pretty_assertions::assert_eq;
 
 pub type VaultId = DefaultVaultId<Runtime>;
+pub type VaultStatus = DefaultVaultStatus<Runtime>;
 
 pub const ALICE: [u8; 32] = [0u8; 32];
 pub const BOB: [u8; 32] = [1u8; 32];

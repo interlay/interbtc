@@ -106,6 +106,8 @@ pub type DefaultVaultId<T> = VaultId<<T as frame_system::Config>::AccountId, Cur
 
 pub type DefaultVaultCurrencyPair<T> = VaultCurrencyPair<CurrencyId<T>>;
 
+pub type DefaultVaultStatus<T> = VaultStatus<<T as frame_system::Config>::BlockNumber, BalanceOf<T>>;
+
 pub mod liquidation_vault_fix {
     use super::*;
     use primitives::{
@@ -209,18 +211,25 @@ impl Wallet {
 }
 
 #[derive(Encode, Decode, Clone, Copy, PartialEq, Eq, Debug, TypeInfo, MaxEncodedLen)]
-pub enum VaultStatus {
+pub enum VaultStatus<BlockNumber, Balance> {
     /// Vault is active - bool=true indicates that the vault accepts new issue requests
     Active(bool),
 
     /// Vault has been liquidated
     Liquidated,
 
-    /// Vault theft has been reported
+    /// Vault theft has been reported and the vault is in a liquidation grace period
+    /// until `recovery_deadline_block`.
+    PendingTheft {
+        amount: Balance,
+        recovery_deadline_block: BlockNumber,
+    },
+
+    /// Vault theft has been confirmed
     CommittedTheft,
 }
 
-impl Default for VaultStatus {
+impl<BlockNumber, Balance> Default for VaultStatus<BlockNumber, Balance> {
     fn default() -> Self {
         VaultStatus::Active(true)
     }
@@ -234,7 +243,7 @@ pub struct Vault<AccountId, BlockNumber, Balance, CurrencyId: Copy> {
     /// Bitcoin address of this Vault (P2PKH, P2SH, P2WPKH, P2WSH)
     pub wallet: Wallet,
     /// Current status of the vault
-    pub status: VaultStatus,
+    pub status: VaultStatus<BlockNumber, Balance>,
     /// Block height until which this Vault is banned from being used for
     /// Issue, Redeem (except during automatic liquidation) and Replace.
     pub banned_until: Option<BlockNumber>,
@@ -295,6 +304,10 @@ impl<AccountId: Ord, BlockNumber: Default, Balance: HasCompact + Default, Curren
 
     pub fn is_liquidated(&self) -> bool {
         matches!(self.status, VaultStatus::Liquidated | VaultStatus::CommittedTheft)
+    }
+
+    pub fn is_pending_theft(&self) -> bool {
+        matches!(self.status, VaultStatus::PendingTheft { .. })
     }
 }
 
@@ -431,6 +444,10 @@ impl<T: Config> RichVault<T> {
             .checked_add(&self.data.to_be_issued_tokens)
             .ok_or(Error::<T>::ArithmeticOverflow)?;
         Ok(Amount::new(amount, self.wrapped_currency()))
+    }
+
+    pub fn get_status(&self) -> DefaultVaultStatus<T> {
+        self.data.status
     }
 
     pub(crate) fn to_be_replaced_tokens(&self) -> Amount<T> {
@@ -632,7 +649,7 @@ impl<T: Config> RichVault<T> {
 
     pub(crate) fn liquidate(
         &mut self,
-        status: VaultStatus,
+        status: DefaultVaultStatus<T>,
         reporter: Option<T::AccountId>,
     ) -> Result<Amount<T>, DispatchError> {
         let vault_id = self.id();

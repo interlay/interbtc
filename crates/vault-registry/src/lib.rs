@@ -29,8 +29,8 @@ use mocktopus::macros::mockable;
 use primitives::VaultCurrencyPair;
 
 use crate::types::{
-    BalanceOf, BtcAddress, CurrencyId, DefaultSystemVault, RichSystemVault, RichVault, SignedInner, UnsignedFixedPoint,
-    UpdatableVault, Version,
+    BalanceOf, BtcAddress, CurrencyId, DefaultSystemVault, DefaultVaultStatus, RichSystemVault, RichVault, SignedInner,
+    UnsignedFixedPoint, UpdatableVault, Version,
 };
 
 use crate::types::DefaultVaultCurrencyPair;
@@ -521,7 +521,7 @@ pub mod pallet {
             to_be_redeemed_tokens: BalanceOf<T>,
             to_be_replaced_tokens: BalanceOf<T>,
             backing_collateral: BalanceOf<T>,
-            status: VaultStatus,
+            status: DefaultVaultStatus<T>,
             replace_collateral: BalanceOf<T>,
         },
         BanVault {
@@ -777,6 +777,7 @@ impl<T: Config> Pallet<T> {
             VaultStatus::Active(_) => Ok(vault),
             VaultStatus::Liquidated => Err(Error::<T>::VaultLiquidated.into()),
             VaultStatus::CommittedTheft => Err(Error::<T>::VaultCommittedTheft.into()),
+            VaultStatus::PendingTheft { .. } => Err(Error::<T>::VaultCommittedTheft.into()),
         }
     }
 
@@ -1419,7 +1420,7 @@ impl<T: Config> Pallet<T> {
     /// * `status` - status with which to liquidate the vault
     pub fn liquidate_vault_with_status(
         vault_id: &DefaultVaultId<T>,
-        status: VaultStatus,
+        status: DefaultVaultStatus<T>,
         reporter: Option<T::AccountId>,
     ) -> Result<Amount<T>, DispatchError> {
         let mut vault = Self::get_active_rich_vault_from_id(&vault_id)?;
