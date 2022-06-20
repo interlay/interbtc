@@ -1,9 +1,14 @@
-use crate::{relaychain::kusama_test_net::*, setup::*};
+use crate::relaychain::kusama_test_net::*;
+use codec::Encode;
 use frame_support::{assert_ok, weights::WeightToFee};
 use orml_traits::MultiCurrency;
-use primitives::CurrencyId::Token;
+use primitives::{
+    CurrencyId::{ForeignAsset, Token},
+    CustomMetadata,
+};
+use xcm::latest::prelude::*;
 use xcm_builder::ParentIsPreset;
-use xcm_emulator::TestExt;
+use xcm_emulator::{TestExt, XcmExecutor};
 use xcm_executor::traits::Convert;
 
 mod hrmp {
