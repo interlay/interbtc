@@ -15,15 +15,16 @@ mod hrmp {
     use super::*;
 
     use polkadot_runtime_parachains::hrmp;
-    fn construct_xcm(call: hrmp::Call<polkadot_runtime::Runtime>) -> Xcm<()> {
+    fn construct_xcm(call: hrmp::Call<polkadot_runtime::Runtime>, xcm_fee: u128, transact_weight: u64) -> Xcm<()> {
         Xcm(vec![
-            WithdrawAsset((Here, 410000000000).into()),
+            WithdrawAsset((Here, xcm_fee).into()),
             BuyExecution {
-                fees: (Here, 400000000000).into(),
-                weight_limit: Unlimited,
+                fees: (Here, xcm_fee).into(),
+                weight_limit: Unlimited, /* Let polkadot weigh the message. Weight will include the
+                                          * `transact.require_weight_at_most` */
             },
             Transact {
-                require_weight_at_most: 10000000000,
+                require_weight_at_most: transact_weight,
                 origin_type: OriginKind::Native,
                 call: polkadot_runtime::Call::Hrmp(call).encode().into(),
             },
@@ -70,18 +71,22 @@ mod hrmp {
         })
     }
 
-    fn init_open_channel<T>(sender: u32, recipient: u32)
+    fn init_open_channel<T>(sender: u32, recipient: u32, xcm_fee: u128, transact_weight: u64)
     where
         T: TestExt,
     {
         // do hrmp_init_open_channel
         assert!(!has_open_channel_requested_event(sender, recipient)); // just a sanity check
         T::execute_with(|| {
-            let message = construct_xcm(hrmp::Call::<polkadot_runtime::Runtime>::hrmp_init_open_channel {
-                recipient: recipient.into(),
-                proposed_max_capacity: 1000,
-                proposed_max_message_size: 102400,
-            });
+            let message = construct_xcm(
+                hrmp::Call::<polkadot_runtime::Runtime>::hrmp_init_open_channel {
+                    recipient: recipient.into(),
+                    proposed_max_capacity: 1000,
+                    proposed_max_message_size: 102400,
+                },
+                xcm_fee,
+                transact_weight,
+            );
             assert_ok!(pallet_xcm::Pallet::<interlay_runtime_parachain::Runtime>::send_xcm(
                 Here, Parent, message
             ));
@@ -89,51 +94,87 @@ mod hrmp {
         assert!(has_open_channel_requested_event(sender, recipient));
     }
 
-    fn accept_open_channel<T>(sender: u32, recipient: u32)
+    fn accept_open_channel<T>(sender: u32, recipient: u32, xcm_fee: u128, transact_weight: u64)
     where
         T: TestExt,
     {
         // do hrmp_accept_open_channel
         assert!(!has_open_channel_accepted_event(sender, recipient)); // just a sanity check
         T::execute_with(|| {
-            let message = construct_xcm(hrmp::Call::<polkadot_runtime::Runtime>::hrmp_accept_open_channel {
-                sender: sender.into(),
-            });
+            let message = construct_xcm(
+                hrmp::Call::<polkadot_runtime::Runtime>::hrmp_accept_open_channel { sender: sender.into() },
+                xcm_fee,
+                transact_weight,
+            );
             assert_ok!(pallet_xcm::Pallet::<interlay_runtime_parachain::Runtime>::send_xcm(
                 Here, Parent, message
             ));
         });
         assert!(has_open_channel_accepted_event(sender, recipient));
     }
+
     #[test]
-    fn open_hrmp_channel() {
+    fn open_hrmp_channel_cheaply() {
+        // check that 0.25 DOT is enough
+        let xcm_fee = DOT.one() / 4;
+        let transact_weight = 14_000_000_000;
+        let deposit = 2 * (10 * DOT.one() + xcm_fee);
+        open_hrmp_channel(deposit, xcm_fee, transact_weight);
+    }
+
+    #[test]
+    fn test_required_transact_weight() {
+        // actual minimum transact weight at time of writing is < 700_000_000. Use
+        // 800_000_000 so tests don't break every polkadot upgrade
+        let xcm_fee = DOT.one() / 5;
+        let transact_weight = 800_000_000;
+        let deposit = 2 * (10 * DOT.one() + xcm_fee);
+        open_hrmp_channel(deposit, xcm_fee, transact_weight);
+    }
+
+    #[test]
+    fn open_hrmp_channel_with_buffer() {
+        // the actual values used in production: about twice the minimum amounts
+        let xcm_fee = DOT.one() / 2;
+        let transact_weight = 10_000_000_000;
+        let deposit = 2 * (10 * DOT.one() + xcm_fee);
+        open_hrmp_channel(deposit, xcm_fee, transact_weight);
+    }
+
+    fn open_hrmp_channel(initial_balance: u128, xcm_fee: u128, transact_weight: u64) {
+        let existential_deposit = DOT.one();
+
         // setup sovereign account balances
         PolkadotNet::execute_with(|| {
             assert_ok!(polkadot_runtime::Balances::transfer(
                 polkadot_runtime::Origin::signed(ALICE.into()),
                 sp_runtime::MultiAddress::Id(interlay_sovereign_account_on_polkadot()),
-                20_820_000_000_000
+                initial_balance
             ));
             assert_ok!(polkadot_runtime::Balances::transfer(
                 polkadot_runtime::Origin::signed(ALICE.into()),
                 sp_runtime::MultiAddress::Id(sibling_sovereign_account_on_polkadot()),
-                20_820_000_000_000
+                initial_balance
+            ));
+            assert_ok!(polkadot_runtime::Balances::transfer(
+                polkadot_runtime::Origin::signed(ALICE.into()),
+                sp_runtime::MultiAddress::Id(BOB.into()),
+                existential_deposit
             ));
         });
 
         // open channel interlay -> sibling
-        init_open_channel::<Interlay>(INTERLAY_PARA_ID, SIBLING_PARA_ID);
-        accept_open_channel::<Sibling>(INTERLAY_PARA_ID, SIBLING_PARA_ID);
+        init_open_channel::<Interlay>(INTERLAY_PARA_ID, SIBLING_PARA_ID, xcm_fee, transact_weight);
+        accept_open_channel::<Sibling>(INTERLAY_PARA_ID, SIBLING_PARA_ID, xcm_fee, transact_weight);
 
         // open channel sibling -> interlay
-        init_open_channel::<Sibling>(SIBLING_PARA_ID, INTERLAY_PARA_ID);
-        accept_open_channel::<Interlay>(SIBLING_PARA_ID, INTERLAY_PARA_ID);
+        init_open_channel::<Sibling>(SIBLING_PARA_ID, INTERLAY_PARA_ID, xcm_fee, transact_weight);
+        accept_open_channel::<Interlay>(SIBLING_PARA_ID, INTERLAY_PARA_ID, xcm_fee, transact_weight);
 
         // check that Bob received left-over funds (from both Interlay and Sibling).
-        // We expect slightly less than 4 * 0.41 DOT
         PolkadotNet::execute_with(|| {
             let free_balance = polkadot_runtime::Balances::free_balance(&AccountId::from(BOB));
-            assert!(free_balance > 1_600_000_000_000 && free_balance < 1_640_000_000_000);
+            assert!(free_balance > existential_deposit);
         });
     }
 }
