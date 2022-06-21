@@ -158,7 +158,7 @@ benchmarks! {
     }
 
     // TODO: successful_origin only available in runtime-benchmarks
-    // fast_track {
+    // fast_track_proposal {
     //     let prop_index = add_proposal::<T>(0)?;
 
     //     let origin_fast_track = T::FastTrackOrigin::successful_origin();

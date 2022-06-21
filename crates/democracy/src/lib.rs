@@ -65,8 +65,10 @@
 //!
 //! This call can only be made by the `FastTrackOrigin`.
 //!
-//! - `fast_track` - Schedules the current externally proposed proposal that is "majority-carries" to become a
+//! - `fast_track_proposal` - Schedules the current externally proposed proposal that is "majority-carries" to become a
 //!   referendum immediately.
+//! - `fast_track_referendum` - Schedules an active referendum to end in `FastTrackVotingPeriod`
+//!  blocks.
 //!
 //! #### Root
 //!
@@ -327,8 +329,10 @@ pub mod pallet {
         Tabled(PropIndex, BalanceOf<T>, Vec<T::AccountId>),
         /// A referendum has begun. \[ref_index, threshold\]
         Started(ReferendumIndex, VoteThreshold),
+        /// A proposal has been fast tracked. \[ref_index\]
+        FastTrackProposal(ReferendumIndex),
         /// A referendum has been fast tracked. \[ref_index\]
-        FastTrack(ReferendumIndex),
+        FastTrackReferendum(ReferendumIndex),
         /// A proposal has been approved by referendum. \[ref_index\]
         Passed(ReferendumIndex),
         /// A proposal has been rejected by referendum. \[ref_index\]
@@ -373,6 +377,9 @@ pub mod pallet {
         PreimageMissing,
         /// Vote given for invalid referendum
         ReferendumInvalid,
+        /// Fast tracking failed, because the referendum is
+        /// ending sooner than the fast track voting period.
+        ReferendumFastTrackFailed,
         /// Invalid preimage
         PreimageInvalid,
         /// No proposals waiting
@@ -501,8 +508,8 @@ pub mod pallet {
         /// Emits `Started`.
         ///
         /// Weight: `O(1)`
-        #[pallet::weight(T::WeightInfo::fast_track())]
-        pub fn fast_track(
+        #[pallet::weight(T::WeightInfo::fast_track_proposal())]
+        pub fn fast_track_proposal(
             origin: OriginFor<T>,
             #[pallet::compact] prop_index: PropIndex,
             delay: T::BlockNumber,
@@ -534,7 +541,22 @@ pub mod pallet {
                 VoteThreshold::SuperMajorityAgainst,
                 delay,
             );
-            Self::deposit_event(Event::<T>::FastTrack(ref_index));
+            Self::deposit_event(Event::<T>::FastTrackProposal(ref_index));
+            Ok(())
+        }
+
+        #[pallet::weight(T::WeightInfo::fast_track_referendum())]
+        pub fn fast_track_referendum(origin: OriginFor<T>, #[pallet::compact] ref_index: PropIndex) -> DispatchResult {
+            T::FastTrackOrigin::ensure_origin(origin)?;
+            let mut status = Self::referendum_status(ref_index)?;
+            let now = <frame_system::Pallet<T>>::block_number();
+            let voting_period = T::FastTrackVotingPeriod::get();
+            let end_block = now.saturating_add(voting_period);
+            ensure!(status.end > end_block, Error::<T>::ReferendumFastTrackFailed);
+            status.end = end_block;
+
+            ReferendumInfoOf::<T>::insert(ref_index, ReferendumInfo::Ongoing(status));
+            Self::deposit_event(Event::<T>::FastTrackReferendum(ref_index));
             Ok(())
         }
 
