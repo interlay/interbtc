@@ -286,45 +286,12 @@ impl pallet_collator_selection::Config for Runtime {
 mod migrate_aura {
     use super::*;
     use pallet_collator_selection::{CandidacyBond, DesiredCandidates, Invulnerables};
-    use pallet_session::{KeyOwner, NextKeys, QueuedKeys, SessionHandler, SessionManager, Validators};
-    use sp_runtime::{traits::OpaqueKeys, KeyTypeId};
+    use pallet_session::{NextKeys, QueuedKeys, SessionHandler, SessionManager, Validators};
 
     type ValidatorId = <Runtime as frame_system::Config>::AccountId;
 
     fn load_keys(v: &ValidatorId) -> Option<SessionKeys> {
         <NextKeys<Runtime>>::get(v)
-    }
-
-    fn put_keys(v: &ValidatorId, keys: &SessionKeys) {
-        <NextKeys<Runtime>>::insert(v, keys);
-    }
-
-    fn put_key_owner(id: KeyTypeId, key_data: &[u8], v: &ValidatorId) {
-        <KeyOwner<Runtime>>::insert((id, key_data), v)
-    }
-
-    fn clear_key_owner(id: KeyTypeId, key_data: &[u8]) {
-        <KeyOwner<Runtime>>::remove((id, key_data));
-    }
-
-    fn inner_set_keys(who: &ValidatorId, keys: SessionKeys) {
-        let old_keys = load_keys(who);
-
-        for id in SessionKeys::key_ids() {
-            let key = keys.get_raw(*id);
-
-            if let Some(old) = old_keys.as_ref().map(|k| k.get_raw(*id)) {
-                if key == old {
-                    continue;
-                }
-
-                clear_key_owner(*id, old);
-            }
-
-            put_key_owner(*id, key, who);
-        }
-
-        put_keys(who, &keys);
     }
 
     fn pallet_collator_selection_build(invulnerables: Vec<AccountId>) {
@@ -338,24 +305,17 @@ mod migrate_aura {
 
     fn pallet_session_build(keys: Vec<(AccountId, SessionKeys)>) {
         for (account, keys) in keys.iter().cloned() {
-            inner_set_keys(&account, keys);
-            // TODO: is this necessary? accounts should already exist
-            if frame_system::Pallet::<Runtime>::inc_consumers_without_limit(&account).is_err() {
-                frame_system::Pallet::<Runtime>::inc_providers(&account);
-            }
+            Session::set_keys(Origin::signed(account), keys, vec![]).expect("Session::set_keys failed.");
         }
 
         let initial_validators_0 = <CollatorSelection as SessionManager<AccountId>>::new_session_genesis(0)
             .unwrap_or_else(|| keys.iter().map(|x| x.0.clone()).collect());
 
-        let initial_validators_1 = <CollatorSelection as SessionManager<AccountId>>::new_session_genesis(1)
-            .unwrap_or_else(|| initial_validators_0.clone());
-
-        let queued_keys: Vec<_> = initial_validators_1
+        let queued_keys: Vec<_> = initial_validators_0
             .iter()
             .cloned()
             // this should never panic
-            .map(|v| (v.clone(), load_keys(&v).expect("Validator in session 1 missing keys!")))
+            .map(|v| (v.clone(), load_keys(&v).expect("Validator in session 0 missing keys!")))
             .collect();
 
         <Runtime as pallet_session::Config>::SessionHandler::on_genesis_session::<SessionKeys>(&queued_keys);
