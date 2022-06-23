@@ -93,7 +93,7 @@ where
         at: Option<BlockHash>,
     ) -> RpcResult<BalanceWrapper<Balance>>;
 
-    #[rpc(name = "vaultRegistry_getRequiredCollateralForVaultWithCustomThreshold")]
+    #[method(name = "vaultRegistry_getRequiredCollateralForVaultWithCustomThreshold")]
     fn get_required_collateral_for_vault_with_custom_threshold(
         &self,
         vault_id: VaultId,
@@ -295,7 +295,7 @@ where
         let at = BlockId::hash(at.unwrap_or_else(|| self.client.info().best_hash));
         handle_response(
             api.get_required_collateral_for_vault(&at, vault_id),
-            "Unable to get required collateral for vault.".into(),
+            "Unable to get required collateral for vault".into(),
         )
     }
 
@@ -303,13 +303,13 @@ where
         &self,
         vault_id: VaultId,
         at: Option<<Block as BlockT>::Hash>,
-    ) -> JsonRpcResult<BalanceWrapper<Balance>> {
+    ) -> RpcResult<BalanceWrapper<Balance>> {
         let api = self.client.runtime_api();
         let at = BlockId::hash(at.unwrap_or_else(|| self.client.info().best_hash));
 
         handle_response(
             api.get_required_collateral_for_vault_with_custom_threshold(&at, vault_id),
-            "Unable to get required collateral for vault.".into(),
+            "Unable to get required collateral according to custom threshold for vault".into(),
         )
     }
 }
