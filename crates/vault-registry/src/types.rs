@@ -631,7 +631,7 @@ impl<T: Config> RichVault<T> {
         ext::staking::withdraw_stake::<T>(&vault_id, &vault_id.account_id, &to_withdraw)?;
         // take remainder from nominators
         if let Some(to_slash) = to_slash {
-            ext::staking::slash_stake::<T>(self.wrapped_currency(), &vault_id, &to_slash)?;
+            ext::staking::slash_stake::<T>(&vault_id, &to_slash)?;
         }
 
         Pallet::<T>::transfer_funds(

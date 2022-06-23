@@ -5,7 +5,7 @@
 #![cfg_attr(test, feature(proc_macro_hygiene))]
 #![cfg_attr(not(feature = "std"), no_std)]
 
-#[cfg(any(feature = "runtime-benchmarks", test))]
+#[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;
 
 mod default_weights;
@@ -24,7 +24,8 @@ use frame_support::{
     weights::Weight,
     PalletId,
 };
-use sp_runtime::traits::{AccountIdConversion, CheckedDiv, Convert};
+use sp_runtime::traits::{AccountIdConversion, CheckedDiv, Convert, Saturating};
+use sp_std::cmp::min;
 
 pub use pallet::*;
 
@@ -60,6 +61,9 @@ pub mod pallet {
         #[pallet::constant]
         type EmissionPeriod: Get<Self::BlockNumber>;
 
+        /// The total amount of the wrapped asset.
+        type TotalWrapped: Get<BalanceOf<Self, I>>;
+
         /// Weight information for the extrinsics in this module.
         type WeightInfo: WeightInfo;
     }
@@ -88,6 +92,10 @@ pub mod pallet {
     #[pallet::getter(fn reward_per_block)]
     pub type RewardPerBlock<T: Config<I>, I: 'static = ()> = StorageValue<_, BalanceOf<T, I>, ValueQuery>;
 
+    #[pallet::storage]
+    #[pallet::getter(fn reward_per_wrapped)]
+    pub type RewardPerWrapped<T: Config<I>, I: 'static = ()> = StorageValue<_, BalanceOf<T, I>, OptionQuery>;
+
     #[pallet::pallet]
     pub struct Pallet<T, I = ()>(_);
 
@@ -110,17 +118,39 @@ pub mod pallet {
             Self::update_reward_per_block();
             Ok(().into())
         }
+
+        #[pallet::weight(T::WeightInfo::set_reward_per_wrapped())]
+        #[transactional]
+        pub fn set_reward_per_wrapped(
+            origin: OriginFor<T>,
+            reward_per_wrapped: BalanceOf<T, I>,
+        ) -> DispatchResultWithPostInfo {
+            ensure_root(origin)?;
+            RewardPerWrapped::<T, I>::put(reward_per_wrapped);
+            Ok(().into())
+        }
     }
 }
 
 // "Internal" functions, callable by code.
 impl<T: Config<I>, I: 'static> Pallet<T, I> {
     pub fn account_id() -> T::AccountId {
-        T::AnnuityPalletId::get().into_account()
+        T::AnnuityPalletId::get().into_account_truncating()
+    }
+
+    pub fn min_reward_per_block() -> BalanceOf<T, I> {
+        let reward_per_block = Self::reward_per_block();
+        match Self::reward_per_wrapped() {
+            Some(reward_per_wrapped) => min(
+                reward_per_block,
+                reward_per_wrapped.saturating_mul(T::TotalWrapped::get()),
+            ),
+            None => reward_per_block,
+        }
     }
 
     pub(crate) fn begin_block(_height: T::BlockNumber) -> DispatchResult {
-        let reward_per_block = Self::reward_per_block();
+        let reward_per_block = Self::min_reward_per_block();
         Self::deposit_event(Event::<T, I>::BlockReward(reward_per_block));
         T::BlockRewardProvider::distribute_block_reward(&Self::account_id(), reward_per_block)
     }
@@ -135,7 +165,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 
 pub trait BlockRewardProvider<AccountId> {
     type Currency: ReservableCurrency<AccountId>;
-    #[cfg(any(feature = "runtime-benchmarks", test))]
+    #[cfg(feature = "runtime-benchmarks")]
     fn deposit_stake(from: &AccountId, amount: <Self::Currency as Currency<AccountId>>::Balance) -> DispatchResult;
     fn distribute_block_reward(
         from: &AccountId,

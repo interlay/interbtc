@@ -9,7 +9,7 @@ use primitives::{
     issue::IssueRequest, redeem::RedeemRequest, refund::RefundRequest, replace::ReplaceRequest, AccountId, Balance,
     Block, BlockNumber, CurrencyId, H256Le, Hash, Nonce, VaultId,
 };
-use sc_consensus_manual_seal::rpc::{EngineCommand, ManualSeal, ManualSealApi};
+use sc_consensus_manual_seal::rpc::{EngineCommand, ManualSeal, ManualSealApiServer};
 pub use sc_rpc_api::DenyUnsafe;
 use sc_transaction_pool_api::TransactionPool;
 use sp_api::ProvideRuntimeApi;
@@ -19,7 +19,10 @@ use sp_blockchain::{Error as BlockChainError, HeaderBackend, HeaderMetadata};
 use sp_core::H256;
 use std::sync::Arc;
 
-pub use jsonrpc_core;
+pub use jsonrpsee;
+
+/// A type representing all RPC extensions.
+pub type RpcExtension = jsonrpsee::RpcModule<()>;
 
 /// Full client dependencies.
 pub struct FullDeps<C, P> {
@@ -30,11 +33,11 @@ pub struct FullDeps<C, P> {
     /// Whether to deny unsafe calls
     pub deny_unsafe: DenyUnsafe,
     /// Manual seal command sink
-    pub command_sink: Option<jsonrpc_core::futures::channel::mpsc::Sender<EngineCommand<Hash>>>,
+    pub command_sink: Option<futures::channel::mpsc::Sender<EngineCommand<Hash>>>,
 }
 
 /// Instantiate all full RPC extensions.
-pub fn create_full<C, P>(deps: FullDeps<C, P>) -> jsonrpc_core::IoHandler<sc_rpc::Metadata>
+pub fn create_full<C, P>(deps: FullDeps<C, P>) -> Result<RpcExtension, Box<dyn std::error::Error + Send + Sync>>
 where
     C: ProvideRuntimeApi<Block>,
     C: HeaderBackend<Block> + HeaderMetadata<Block, Error = BlockChainError> + 'static,
@@ -74,18 +77,18 @@ where
     C::Api: BlockBuilder<Block>,
     P: TransactionPool + 'static,
 {
-    use module_btc_relay_rpc::{BtcRelay, BtcRelayApi};
-    use module_issue_rpc::{Issue, IssueApi};
-    use module_oracle_rpc::{Oracle, OracleApi};
-    use module_redeem_rpc::{Redeem, RedeemApi};
-    use module_refund_rpc::{Refund, RefundApi};
-    use module_relay_rpc::{Relay, RelayApi};
-    use module_replace_rpc::{Replace, ReplaceApi};
-    use module_vault_registry_rpc::{VaultRegistry, VaultRegistryApi};
-    use pallet_transaction_payment_rpc::{TransactionPayment, TransactionPaymentApi};
-    use substrate_frame_rpc_system::{FullSystem, SystemApi};
+    use module_btc_relay_rpc::{BtcRelay, BtcRelayApiServer};
+    use module_issue_rpc::{Issue, IssueApiServer};
+    use module_oracle_rpc::{Oracle, OracleApiServer};
+    use module_redeem_rpc::{Redeem, RedeemApiServer};
+    use module_refund_rpc::{Refund, RefundApiServer};
+    use module_relay_rpc::{Relay, RelayApiServer};
+    use module_replace_rpc::{Replace, ReplaceApiServer};
+    use module_vault_registry_rpc::{VaultRegistry, VaultRegistryApiServer};
+    use pallet_transaction_payment_rpc::{TransactionPayment, TransactionPaymentApiServer};
+    use substrate_frame_rpc_system::{System, SystemApiServer};
 
-    let mut io = jsonrpc_core::IoHandler::default();
+    let mut module = RpcExtension::new(());
     let FullDeps {
         client,
         pool,
@@ -94,38 +97,32 @@ where
     } = deps;
 
     if let Some(command_sink) = command_sink {
-        io.extend_with(
+        module.merge(
             // We provide the rpc handler with the sending end of the channel to allow the rpc
             // send EngineCommands to the background block authorship task.
-            ManualSealApi::to_delegate(ManualSeal::new(command_sink)),
-        );
+            ManualSeal::new(command_sink).into_rpc(),
+        )?;
     }
 
-    io.extend_with(SystemApi::to_delegate(FullSystem::new(
-        client.clone(),
-        pool,
-        deny_unsafe,
-    )));
+    module.merge(System::new(client.clone(), pool, deny_unsafe).into_rpc())?;
 
-    io.extend_with(TransactionPaymentApi::to_delegate(TransactionPayment::new(
-        client.clone(),
-    )));
+    module.merge(TransactionPayment::new(client.clone()).into_rpc())?;
 
-    io.extend_with(BtcRelayApi::to_delegate(BtcRelay::new(client.clone())));
+    module.merge(BtcRelay::new(client.clone()).into_rpc())?;
 
-    io.extend_with(OracleApi::to_delegate(Oracle::new(client.clone())));
+    module.merge(Oracle::new(client.clone()).into_rpc())?;
 
-    io.extend_with(RelayApi::to_delegate(Relay::new(client.clone())));
+    module.merge(Relay::new(client.clone()).into_rpc())?;
 
-    io.extend_with(VaultRegistryApi::to_delegate(VaultRegistry::new(client.clone())));
+    module.merge(VaultRegistry::new(client.clone()).into_rpc())?;
 
-    io.extend_with(IssueApi::to_delegate(Issue::new(client.clone())));
+    module.merge(Issue::new(client.clone()).into_rpc())?;
 
-    io.extend_with(RedeemApi::to_delegate(Redeem::new(client.clone())));
+    module.merge(Redeem::new(client.clone()).into_rpc())?;
 
-    io.extend_with(RefundApi::to_delegate(Refund::new(client.clone())));
+    module.merge(Refund::new(client.clone()).into_rpc())?;
 
-    io.extend_with(ReplaceApi::to_delegate(Replace::new(client)));
+    module.merge(Replace::new(client).into_rpc())?;
 
-    io
+    Ok(module)
 }

@@ -35,6 +35,7 @@ use sp_std::marker::PhantomData;
 pub trait WeightInfo {
 	fn withdraw_rewards() -> Weight;
 	fn update_rewards() -> Weight;
+	fn set_reward_per_wrapped() -> Weight;
 }
 
 /// Weights for annuity using the Substrate node and recommended hardware.
@@ -57,6 +58,11 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(T::DbWeight::get().reads(1 as Weight))
 			.saturating_add(T::DbWeight::get().writes(1 as Weight))
 	}
+	// Storage: EscrowAnnuity RewardPerWrapped (r:0 w:1)
+	fn set_reward_per_wrapped() -> Weight {
+		(3_288_000 as Weight)
+			.saturating_add(T::DbWeight::get().writes(1 as Weight))
+	}
 }
 
 // For backwards compatibility and tests
@@ -76,6 +82,11 @@ impl WeightInfo for () {
 	fn update_rewards() -> Weight {
 		(9_601_000 as Weight)
 			.saturating_add(RocksDbWeight::get().reads(1 as Weight))
+			.saturating_add(RocksDbWeight::get().writes(1 as Weight))
+	}
+	// Storage: EscrowAnnuity RewardPerWrapped (r:0 w:1)
+	fn set_reward_per_wrapped() -> Weight {
+		(3_288_000 as Weight)
 			.saturating_add(RocksDbWeight::get().writes(1 as Weight))
 	}
 }

@@ -8,7 +8,7 @@
 mod ext;
 pub mod types;
 
-#[cfg(any(feature = "runtime-benchmarks", test))]
+#[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;
 
 mod default_weights;
@@ -746,7 +746,7 @@ impl<T: Config> Pallet<T> {
     /// Public functions
 
     pub fn liquidation_vault_account_id() -> T::AccountId {
-        <T as Config>::PalletId::get().into_account()
+        <T as Config>::PalletId::get().into_account_truncating()
     }
 
     pub fn _register_vault(vault_id: DefaultVaultId<T>, collateral: BalanceOf<T>) -> DispatchResult {
@@ -932,7 +932,7 @@ impl<T: Config> Pallet<T> {
     fn slash_backing_collateral(vault_id: &DefaultVaultId<T>, amount: &Amount<T>) -> DispatchResult {
         amount.unlock_on(&vault_id.account_id)?;
         Self::decrease_total_backing_collateral(&vault_id.currencies, amount)?;
-        ext::staking::slash_stake::<T>(vault_id.wrapped_currency(), vault_id, amount)?;
+        ext::staking::slash_stake::<T>(vault_id, amount)?;
         Ok(())
     }
 

@@ -35,18 +35,11 @@ fn wrapped<T: crate::Config>(amount: u32) -> Amount<T> {
     Amount::new(amount.into(), get_wrapped_currency_id::<T>())
 }
 
-fn dummy_public_key() -> BtcPublicKey {
-    BtcPublicKey([
-        2, 205, 114, 218, 156, 16, 235, 172, 106, 37, 18, 153, 202, 140, 176, 91, 207, 51, 187, 55, 18, 45, 222, 180,
-        119, 54, 243, 97, 173, 150, 161, 169, 230,
-    ])
-}
-
 fn register_public_key<T: crate::Config>(vault_id: DefaultVaultId<T>) {
     let origin = RawOrigin::Signed(vault_id.account_id.clone());
     assert_ok!(VaultRegistry::<T>::register_public_key(
         origin.into(),
-        dummy_public_key()
+        BtcPublicKey::dummy()
     ));
 }
 
@@ -96,7 +89,7 @@ fn mine_blocks<T: crate::Config>(end_height: u32) {
     let height = 0;
     let block = BlockBuilder::new()
         .with_version(4)
-        .with_coinbase(&BtcAddress::random(), 50, 3)
+        .with_coinbase(&BtcAddress::dummy(), 50, 3)
         .with_timestamp(1588813835)
         .mine(U256::from(2).pow(254.into()))
         .unwrap();
@@ -130,7 +123,7 @@ fn mine_blocks<T: crate::Config>(end_height: u32) {
         let block = BlockBuilder::new()
             .with_previous_hash(prev_hash)
             .with_version(4)
-            .with_coinbase(&BtcAddress::random(), 50, 3)
+            .with_coinbase(&BtcAddress::dummy(), 50, 3)
             .with_timestamp(1588813835)
             .add_transaction(transaction.clone())
             .mine(U256::from(2).pow(254.into()))
@@ -173,7 +166,7 @@ benchmarks! {
         let origin: T::AccountId = account("Origin", 0, 0);
         let vault_id = get_vault_id::<T>();
         let amount = Redeem::<T>::redeem_btc_dust_value() + 1000u32.into();
-        let btc_address = BtcAddress::random();
+        let btc_address = BtcAddress::dummy();
 
         initialize_oracle::<T>();
 
@@ -236,7 +229,7 @@ benchmarks! {
 
         initialize_oracle::<T>();
 
-        let origin_btc_address = BtcAddress::random();
+        let origin_btc_address = BtcAddress::dummy();
 
         let redeem_id = H256::zero();
         let mut redeem_request = test_request::<T>(&vault_id);

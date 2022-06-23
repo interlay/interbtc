@@ -21,6 +21,7 @@ use xcm_builder::{
     RelayChainAsNative, SiblingParachainAsNative, SiblingParachainConvertsVia, SignedAccountId32AsNative,
     SignedToAccountId32, SovereignSignedViaLocation, TakeRevenue, TakeWeightCredit,
 };
+pub use xcm_executor;
 use xcm_executor::{Config, XcmExecutor};
 
 parameter_types! {
@@ -105,6 +106,22 @@ parameter_types! {
         // (I)BTC:DOT = 1:2266 & Satoshi:Planck = 1:100
         dot_per_second() / 226_600
     );
+    pub IntrPerSecond: (AssetId, u128) = ( // can be removed once we no longer need to support polkadot < 0.9.16
+        MultiLocation::new(
+            1,
+            X2(Parachain(ParachainInfo::get().into()), GeneralKey(Token(INTR).encode())),
+        ).into(),
+        // KINT:KSM = 4:3
+        (dot_per_second() * 4) / 3
+    );
+    pub IbtcPerSecond: (AssetId, u128) = (
+        MultiLocation::new(
+            1,
+            X2(Parachain(ParachainInfo::get().into()), GeneralKey(Token(IBTC).encode())),
+        ).into(),
+        // (I)BTC:DOT = 1:2266 & Satoshi:Planck = 1:100
+        dot_per_second() / 226_600
+    );
 }
 
 pub struct ToAuthor;
@@ -119,6 +136,10 @@ impl TakeRevenue for ToAuthor {
                 if let Some(author) = pallet_authorship::Pallet::<Runtime>::author() {
                     // Note: will need rethinking once we have existential deposits. Ignore the result.
                     let _ = Tokens::deposit(currency_id, &author, amount);
+                } else {
+                    // should only happen in tests. In the tests it helps us ensure that the fee are
+                    // dealt with.
+                    let _ = Tokens::deposit(currency_id, &TreasuryAccount::get(), amount);
                 }
             }
         }
@@ -129,6 +150,11 @@ pub type Trader = (
     FixedRateOfFungible<DotPerSecond, ToAuthor>,
     FixedRateOfFungible<CanonicalizedIntrPerSecond, ToAuthor>,
     FixedRateOfFungible<CanonicalizedIbtcPerSecond, ToAuthor>,
+    // The xcm-executor ensures no non-canonicalized versions will be used in transfers to our chain
+    // when execute_xcm_in_credit is used. However, there are still cases where it can appear, e.g.
+    // when reclaiming trapped tokens.
+    FixedRateOfFungible<IntrPerSecond, ToAuthor>,
+    FixedRateOfFungible<IbtcPerSecond, ToAuthor>,
     AssetRegistryTrader<FixedRateAssetRegistryTrader<MyFixedConversionRateProvider>, ToAuthor>,
 );
 
@@ -299,10 +325,10 @@ parameter_types! {
 parameter_type_with_key! {
     // Only used for transferring parachain tokens to other parachains using DOT as fee currency. Currently we do not support this, hence return MAX.
     // See: https://github.com/open-web3-stack/open-runtime-module-library/blob/cadcc9fb10b8212f92668138fc8f83dc0c53acf5/xtokens/README.md#transfer-multiple-currencies
-    pub ParachainMinFee: |location: MultiLocation| -> u128 {
+    pub ParachainMinFee: |location: MultiLocation| -> Option<u128> {
         #[allow(clippy::match_ref_pats)] // false positive
         match (location.parents, location.first_interior()) {
-            _ => u128::MAX,
+            _ => None,
         }
     };
 }

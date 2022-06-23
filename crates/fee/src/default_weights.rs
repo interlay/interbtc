@@ -35,6 +35,15 @@ use sp_std::marker::PhantomData;
 /// Weight functions needed for fee.
 pub trait WeightInfo {
 	fn withdraw_rewards() -> Weight;
+	fn set_issue_fee() -> Weight;
+	fn set_issue_griefing_collateral() -> Weight;
+	fn set_redeem_fee() -> Weight;
+	fn set_refund_fee() -> Weight;
+	fn set_premium_redeem_fee() -> Weight;
+	fn set_punishment_fee() -> Weight;
+	fn set_replace_griefing_collateral() -> Weight;
+	fn set_theft_fee() -> Weight;
+	fn set_theft_fee_max() -> Weight;
 }
 
 /// Weights for fee using the Substrate node and recommended hardware.
@@ -58,6 +67,60 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(T::DbWeight::get().reads(13 as Weight))
 			.saturating_add(T::DbWeight::get().writes(4 as Weight))
 	}
+
+	// Storage: Fee IssueFee (r:0 w:1)
+	fn set_issue_fee() -> Weight {
+		(2_835_000 as Weight)
+			.saturating_add(T::DbWeight::get().writes(1 as Weight))
+	}
+
+	// Storage: Fee IssueGriefingCollateral (r:0 w:1)
+	fn set_issue_griefing_collateral() -> Weight {
+		(2_835_000 as Weight)
+			.saturating_add(T::DbWeight::get().writes(1 as Weight))
+	}
+
+	// Storage: Fee RedeemFee (r:0 w:1)
+	fn set_redeem_fee() -> Weight {
+		(2_835_000 as Weight)
+			.saturating_add(T::DbWeight::get().writes(1 as Weight))
+	}
+
+	// Storage: Fee RefundFee (r:0 w:1)
+	fn set_refund_fee() -> Weight {
+		(2_835_000 as Weight)
+			.saturating_add(T::DbWeight::get().writes(1 as Weight))
+	}
+
+	// Storage: Fee PremiumRedeemFee (r:0 w:1)
+	fn set_premium_redeem_fee() -> Weight {
+		(2_835_000 as Weight)
+			.saturating_add(T::DbWeight::get().writes(1 as Weight))
+	}
+
+	// Storage: Fee PunishmentFee (r:0 w:1)
+	fn set_punishment_fee() -> Weight {
+		(2_835_000 as Weight)
+			.saturating_add(T::DbWeight::get().writes(1 as Weight))
+	}
+
+	// Storage: Fee ReplaceGriefingCollateral (r:0 w:1)
+	fn set_replace_griefing_collateral() -> Weight {
+		(2_835_000 as Weight)
+			.saturating_add(T::DbWeight::get().writes(1 as Weight))
+	}
+
+	// Storage: Fee TheftFee (r:0 w:1)
+	fn set_theft_fee() -> Weight {
+		(2_835_000 as Weight)
+			.saturating_add(T::DbWeight::get().writes(1 as Weight))
+	}
+
+	// Storage: Fee TheftFeeMax (r:0 w:1)
+	fn set_theft_fee_max() -> Weight {
+		(2_835_000 as Weight)
+			.saturating_add(T::DbWeight::get().writes(1 as Weight))
+	}
 }
 
 // For backwards compatibility and tests
@@ -80,5 +143,59 @@ impl WeightInfo for () {
 			.saturating_add(RocksDbWeight::get().reads(13 as Weight))
 			.saturating_add(RocksDbWeight::get().writes(4 as Weight))
 	}
+
+	// Storage: Fee IssueFee (r:0 w:1)
+	fn set_issue_fee() -> Weight {
+		(2_835_000 as Weight)
+			.saturating_add(RocksDbWeight::get().writes(1 as Weight))
+	}
+
+	// Storage: Fee IssueGriefingCollateral (r:0 w:1)
+	fn set_issue_griefing_collateral() -> Weight {
+		(2_835_000 as Weight)
+			.saturating_add(RocksDbWeight::get().writes(1 as Weight))
+	}
+
+	// Storage: Fee RedeemFee (r:0 w:1)
+	fn set_redeem_fee() -> Weight {
+		(2_835_000 as Weight)
+			.saturating_add(RocksDbWeight::get().writes(1 as Weight))
+	}
+
+	// Storage: Fee RefundFee (r:0 w:1)
+	fn set_refund_fee() -> Weight {
+		(2_835_000 as Weight)
+			.saturating_add(RocksDbWeight::get().writes(1 as Weight))
+	}
+
+	// Storage: Fee PremiumRedeemFee (r:0 w:1)
+	fn set_premium_redeem_fee() -> Weight {
+		(2_835_000 as Weight)
+			.saturating_add(RocksDbWeight::get().writes(1 as Weight))
+	}
+
+	// Storage: Fee PunishmentFee (r:0 w:1)
+	fn set_punishment_fee() -> Weight {
+		(2_835_000 as Weight)
+			.saturating_add(RocksDbWeight::get().writes(1 as Weight))
+	}
+
+	// Storage: Fee ReplaceGriefingCollateral (r:0 w:1)
+	fn set_replace_griefing_collateral() -> Weight {
+		(2_835_000 as Weight)
+			.saturating_add(RocksDbWeight::get().writes(1 as Weight))
+	}
+
+	// Storage: Fee TheftFee (r:0 w:1)
+	fn set_theft_fee() -> Weight {
+		(2_835_000 as Weight)
+			.saturating_add(RocksDbWeight::get().writes(1 as Weight))
+	}
+
+	// Storage: Fee TheftFeeMax (r:0 w:1)
+	fn set_theft_fee_max() -> Weight {
+		(2_835_000 as Weight)
+			.saturating_add(RocksDbWeight::get().writes(1 as Weight))
+	}	
 }
 

@@ -24,10 +24,7 @@ pub(crate) mod security {
 
 #[cfg_attr(test, mockable)]
 pub(crate) mod staking {
-    use crate::{
-        types::{BalanceOf, CurrencyId},
-        DefaultVaultId,
-    };
+    use crate::{types::BalanceOf, DefaultVaultId};
     use currency::Amount;
     use frame_support::dispatch::{DispatchError, DispatchResult};
     use staking::Staking;
@@ -48,12 +45,8 @@ pub(crate) mod staking {
         T::VaultStaking::withdraw_stake(vault_id, nominator_id, amount.amount(), None)
     }
 
-    pub fn slash_stake<T: crate::Config>(
-        currency_id: CurrencyId<T>,
-        vault_id: &DefaultVaultId<T>,
-        amount: &Amount<T>,
-    ) -> DispatchResult {
-        T::VaultStaking::slash_stake(vault_id, amount.amount(), currency_id)
+    pub fn slash_stake<T: crate::Config>(vault_id: &DefaultVaultId<T>, amount: &Amount<T>) -> DispatchResult {
+        T::VaultStaking::slash_stake(vault_id, amount.amount())
     }
 
     pub fn compute_stake<T: crate::Config>(

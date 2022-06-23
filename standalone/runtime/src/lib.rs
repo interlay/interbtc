@@ -13,7 +13,8 @@ use currency::Amount;
 use frame_support::{
     dispatch::{DispatchError, DispatchResult},
     traits::{
-        ConstU32, Contains, Currency as PalletCurrency, EnsureOneOf, ExistenceRequirement, Imbalance, OnUnbalanced,
+        ConstU32, Contains, Currency as PalletCurrency, EnsureOneOf, EnsureOrigin, EnsureOriginWithArg,
+        ExistenceRequirement, Imbalance, OnUnbalanced,
     },
     weights::ConstantMultiplier,
     PalletId,
@@ -573,17 +574,17 @@ parameter_types! {
 
 parameter_types! {
     // 5EYCAe5i8QbRr5WN1PvaAVqPbfXsqazk9ocaxuzcTjgXPM1e
-    pub FeeAccount: AccountId = FeePalletId::get().into_account();
+    pub FeeAccount: AccountId = FeePalletId::get().into_account_truncating();
     // 5EYCAe5i8QbRrUhwETaRvgif6H3HA84YQri7wjgLtKzRJCML
-    pub SupplyAccount: AccountId = SupplyPalletId::get().into_account();
+    pub SupplyAccount: AccountId = SupplyPalletId::get().into_account_truncating();
     // 5EYCAe5gXcgF6fT7oVsD7E4bfnRZeovzMUD2wkdyvCHrYQQE
-    pub EscrowAnnuityAccount: AccountId = EscrowAnnuityPalletId::get().into_account();
+    pub EscrowAnnuityAccount: AccountId = EscrowAnnuityPalletId::get().into_account_truncating();
     // 5EYCAe5jvsMTc6NLhunLTPVjJg5cZNweWKjNXKqz9RUqQJDY
-    pub VaultAnnuityAccount: AccountId = VaultAnnuityPalletId::get().into_account();
+    pub VaultAnnuityAccount: AccountId = VaultAnnuityPalletId::get().into_account_truncating();
     // 5EYCAe5i8QbRrWTk2CHjZA79gSf1piYSGm2LQfxaw6id3M88
-    pub TreasuryAccount: AccountId = TreasuryPalletId::get().into_account();
+    pub TreasuryAccount: AccountId = TreasuryPalletId::get().into_account_truncating();
     // 5EYCAe5i8QbRra1jndPz1WAuf1q1KHQNfu2cW1EXJ231emTd
-    pub VaultRegistryAccount: AccountId = VaultRegistryPalletId::get().into_account();
+    pub VaultRegistryAccount: AccountId = VaultRegistryPalletId::get().into_account_truncating();
 }
 
 pub fn get_all_module_accounts() -> Vec<AccountId> {
@@ -626,6 +627,8 @@ impl orml_tokens::Config for Runtime {
     type DustRemovalWhitelist = DustRemovalWhitelist;
     type MaxReserves = ConstU32<0>; // we don't use named reserves
     type ReserveIdentifier = (); // we don't use named reserves
+    type OnNewTokenAccount = ();
+    type OnKilledTokenAccount = ();
 }
 
 parameter_types! {
@@ -679,6 +682,13 @@ impl supply::Config for Runtime {
     type OnInflation = DealWithRewards;
 }
 
+pub struct TotalWrapped;
+impl Get<Balance> for TotalWrapped {
+    fn get() -> Balance {
+        orml_tokens::CurrencyAdapter::<Runtime, GetWrappedCurrencyId>::total_issuance()
+    }
+}
+
 parameter_types! {
     pub const EmissionPeriod: BlockNumber = YEARS;
 }
@@ -688,7 +698,7 @@ pub struct EscrowBlockRewardProvider;
 impl annuity::BlockRewardProvider<AccountId> for EscrowBlockRewardProvider {
     type Currency = NativeCurrency;
 
-    #[cfg(any(feature = "runtime-benchmarks"))]
+    #[cfg(feature = "runtime-benchmarks")]
     fn deposit_stake(from: &AccountId, amount: Balance) -> DispatchResult {
         <EscrowRewards as reward::Rewards<AccountId, Balance, CurrencyId>>::deposit_stake(from, amount)
     }
@@ -717,6 +727,7 @@ impl annuity::Config<EscrowAnnuityInstance> for Runtime {
     type BlockRewardProvider = EscrowBlockRewardProvider;
     type BlockNumberToBalance = BlockNumberToBalance;
     type EmissionPeriod = EmissionPeriod;
+    type TotalWrapped = TotalWrapped;
     type WeightInfo = ();
 }
 
@@ -725,7 +736,7 @@ pub struct VaultBlockRewardProvider;
 impl annuity::BlockRewardProvider<AccountId> for VaultBlockRewardProvider {
     type Currency = NativeCurrency;
 
-    #[cfg(any(feature = "runtime-benchmarks"))]
+    #[cfg(feature = "runtime-benchmarks")]
     fn deposit_stake(_from: &AccountId, _amount: Balance) -> DispatchResult {
         // TODO: fix for vault id
         Ok(())
@@ -754,6 +765,7 @@ impl annuity::Config<VaultAnnuityInstance> for Runtime {
     type BlockRewardProvider = VaultBlockRewardProvider;
     type BlockNumberToBalance = BlockNumberToBalance;
     type EmissionPeriod = EmissionPeriod;
+    type TotalWrapped = TotalWrapped;
     type WeightInfo = ();
 }
 
@@ -884,6 +896,10 @@ impl oracle::Config for Runtime {
     type WeightInfo = ();
 }
 
+parameter_types! {
+    pub const MaxExpectedValue: UnsignedFixedPoint = UnsignedFixedPoint::from_inner(<UnsignedFixedPoint as FixedPointNumber>::DIV);
+}
+
 impl fee::Config for Runtime {
     type FeePalletId = FeePalletId;
     type WeightInfo = ();
@@ -894,6 +910,7 @@ impl fee::Config for Runtime {
     type VaultRewards = VaultRewards;
     type VaultStaking = VaultStaking;
     type OnSweep = currency::SweepFunds<Runtime, FeeAccount>;
+    type MaxExpectedValue = MaxExpectedValue;
 }
 
 pub use refund::{Event as RefundEvent, RefundRequest};
@@ -931,13 +948,27 @@ impl nomination::Config for Runtime {
     type WeightInfo = ();
 }
 
+pub struct AssetAuthority;
+impl EnsureOriginWithArg<Origin, Option<u32>> for AssetAuthority {
+    type Success = ();
+
+    fn try_origin(origin: Origin, _asset_id: &Option<u32>) -> Result<Self::Success, Origin> {
+        EnsureRoot::try_origin(origin)
+    }
+
+    #[cfg(feature = "runtime-benchmarks")]
+    fn successful_origin(_asset_id: &Option<u32>) -> Origin {
+        EnsureRoot::successful_origin()
+    }
+}
+
 impl orml_asset_registry::Config for Runtime {
     type Event = Event;
     type Balance = Balance;
     type CustomMetadata = primitives::CustomMetadata;
     type AssetProcessor = SequentialId<Runtime>;
     type AssetId = primitives::ForeignAssetId;
-    type AuthorityOrigin = EnsureRoot<AccountId>;
+    type AuthorityOrigin = AssetAuthority;
     type WeightInfo = ();
 }
 

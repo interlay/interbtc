@@ -32,7 +32,7 @@ pub fn kintsugi_dev_config() -> KintsugiChainSpec {
         ChainType::Live,
         move || {
             kintsugi_mainnet_genesis(
-                vec![get_from_seed::<AuraId>("Alice")],
+                vec![get_authority_keys_from_seed("Alice")],
                 vec![(
                     get_account_id_from_seed::<sr25519::Public>("Bob"),
                     "Bob".as_bytes().to_vec(),
@@ -63,25 +63,45 @@ pub fn kintsugi_mainnet_config() -> KintsugiChainSpec {
             kintsugi_mainnet_genesis(
                 vec![
                     // 5DyzufhT1Ynxk9uxrWHjrVuap8oB4Zz7uYdquZHxFxvYBovd (//authority/0)
-                    hex!["54e1a41c9ba60ca45e911e8798ba9d81c22b04435b04816490ebddffe4dffc5c"].unchecked_into(),
+                    get_authority_keys_from_public_key(hex![
+                        "54e1a41c9ba60ca45e911e8798ba9d81c22b04435b04816490ebddffe4dffc5c"
+                    ]),
                     // 5EvgAvVBQXtFFbcN74rYR2HE8RsWsEJHqPHhrGX427cnbvY2 (//authority/1)
-                    hex!["7e951061df4d5b61b31a69d62233a5a3a2abdc3195902dd22bc062fadbf42e17"].unchecked_into(),
+                    get_authority_keys_from_public_key(hex![
+                        "7e951061df4d5b61b31a69d62233a5a3a2abdc3195902dd22bc062fadbf42e17"
+                    ]),
                     // 5Hp2yfUMoA5uJM6DQpDJAuCHdzvhzn57gurH1Cxp4cUTzciB (//authority/2)
-                    hex!["fe3915da55703833883c8e0dc9a81bc5ab5e3b4099b23d810cd5d78c6598395b"].unchecked_into(),
+                    get_authority_keys_from_public_key(hex![
+                        "fe3915da55703833883c8e0dc9a81bc5ab5e3b4099b23d810cd5d78c6598395b"
+                    ]),
                     // 5FQzZEbc5CtF7gR1De449GtvDwpyVwWPZMqyq9yjJmxXKmgU (//authority/3)
-                    hex!["942dd2ded2896fa236c0f0df58dff88a04d7cf661a4676059d79dc54a271234a"].unchecked_into(),
+                    get_authority_keys_from_public_key(hex![
+                        "942dd2ded2896fa236c0f0df58dff88a04d7cf661a4676059d79dc54a271234a"
+                    ]),
                     // 5EqmSYibeeyypp2YGtJdkZxiNjLKpQLCMpW5J3hNgWBfT9Gw (//authority/4)
-                    hex!["7ad693485d4d67a2112881347a553009f0c1de3b26e662aa3863085f536d0537"].unchecked_into(),
+                    get_authority_keys_from_public_key(hex![
+                        "7ad693485d4d67a2112881347a553009f0c1de3b26e662aa3863085f536d0537"
+                    ]),
                     // 5E1WeDF5L8xXLmMnLmJUCXo5xqLD6zzPP14T9vESydQmUA29 (//authority/5)
-                    hex!["5608fa7874491c640d0420f5f44650a0b5b8b67411b2670b68440bb97e74ee1c"].unchecked_into(),
+                    get_authority_keys_from_public_key(hex![
+                        "5608fa7874491c640d0420f5f44650a0b5b8b67411b2670b68440bb97e74ee1c"
+                    ]),
                     // 5D7eFVnyAhcbEJAPAVENqoCr44zTbztsiragiYjz1ExDePja (//authority/6)
-                    hex!["2e79d45517532bc4b6b3359be9ea2aa8b711a0a5362880cfb6651bcb87fe1b05"].unchecked_into(),
+                    get_authority_keys_from_public_key(hex![
+                        "2e79d45517532bc4b6b3359be9ea2aa8b711a0a5362880cfb6651bcb87fe1b05"
+                    ]),
                     // 5FkCciu8zasoDoViTbAYpcHgitQgB5GHN64HWdXyy8kykXFK (//authority/7)
-                    hex!["a2d4159da7f458f8140899f443b480199c65e75ffb755ea9e097aa5b18352001"].unchecked_into(),
+                    get_authority_keys_from_public_key(hex![
+                        "a2d4159da7f458f8140899f443b480199c65e75ffb755ea9e097aa5b18352001"
+                    ]),
                     // 5H3E3GF1LUeyowgRx47n8AJsRCyzA4f2YNuTo4qEQy7fbbBo (//authority/8)
-                    hex!["dc0c47c6f8fd81190d4fcee4ab2074db5d83eaf301f2cd795ec9b39b8e753f66"].unchecked_into(),
+                    get_authority_keys_from_public_key(hex![
+                        "dc0c47c6f8fd81190d4fcee4ab2074db5d83eaf301f2cd795ec9b39b8e753f66"
+                    ]),
                     // 5ERqgB3mYvotBFu6vVf7fdnTgxHJvVidBpQL8W4yrpFL25mo (//authority/9)
-                    hex!["6896f1128f9a92c68f14713f0cbeb67a402621d7c80257ea3b246fcca5aede17"].unchecked_into(),
+                    get_authority_keys_from_public_key(hex![
+                        "6896f1128f9a92c68f14713f0cbeb67a402621d7c80257ea3b246fcca5aede17"
+                    ]),
                 ],
                 vec![(
                     get_account_id_from_string("5DcrZv97CipkXni4aXcg98Nz9doT6nfs6t3THn7hhnRXTd6D"),
@@ -104,7 +124,7 @@ pub fn kintsugi_mainnet_config() -> KintsugiChainSpec {
 }
 
 fn kintsugi_mainnet_genesis(
-    initial_authorities: Vec<AuraId>,
+    invulnerables: Vec<(AccountId, AuraId)>,
     authorized_oracles: Vec<(AccountId, Vec<u8>)>,
     id: ParaId,
     bitcoin_confirmations: u32,
@@ -117,9 +137,27 @@ fn kintsugi_mainnet_genesis(
         },
         parachain_system: Default::default(),
         parachain_info: kintsugi_runtime::ParachainInfoConfig { parachain_id: id },
-        aura: kintsugi_runtime::AuraConfig {
-            authorities: initial_authorities,
+        collator_selection: kintsugi_runtime::CollatorSelectionConfig {
+            invulnerables: invulnerables.iter().cloned().map(|(acc, _)| acc).collect(),
+            candidacy_bond: Zero::zero(),
+            ..Default::default()
         },
+        session: kintsugi_runtime::SessionConfig {
+            keys: invulnerables
+                .iter()
+                .cloned()
+                .map(|(acc, aura)| {
+                    (
+                        acc.clone(),                            // account id
+                        acc.clone(),                            // validator id
+                        kintsugi_runtime::SessionKeys { aura }, // session keys
+                    )
+                })
+                .collect(),
+        },
+        // no need to pass anything to aura, in fact it will panic if we do.
+        // Session will take care of this.
+        aura: Default::default(),
         aura_ext: Default::default(),
         security: kintsugi_runtime::SecurityConfig {
             initial_status: kintsugi_runtime::StatusCode::Shutdown,

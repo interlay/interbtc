@@ -13,8 +13,8 @@ use currency::Amount;
 use frame_support::{
     dispatch::{DispatchError, DispatchResult},
     traits::{
-        ConstU32, Contains, Currency as PalletCurrency, EnsureOneOf, EnsureOrigin, EqualPrivilegeOnly,
-        ExistenceRequirement, FindAuthor, Imbalance, OnUnbalanced,
+        ConstU32, Contains, Currency as PalletCurrency, EnsureOneOf, EnsureOrigin, EnsureOriginWithArg,
+        EqualPrivilegeOnly, ExistenceRequirement, Imbalance, OnUnbalanced,
     },
     weights::ConstantMultiplier,
     PalletId,
@@ -67,6 +67,11 @@ pub use primitives::{
     UnsignedFixedPoint, UnsignedInner,
 };
 
+// XCM imports
+use pallet_xcm::{EnsureXcm, IsMajorityOfBody};
+use xcm::opaque::latest::BodyId;
+use xcm_config::ParentLocation;
+
 pub mod constants;
 pub mod xcm_config;
 
@@ -84,7 +89,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     spec_name: create_runtime_str!("kintsugi-parachain"),
     impl_name: create_runtime_str!("kintsugi-parachain"),
     authoring_version: 1,
-    spec_version: 17, // 1.14.0
+    spec_version: 19, // 1.16.0
     impl_version: 1,
     transaction_version: 3, // added preimage
     apis: RUNTIME_API_VERSIONS,
@@ -224,25 +229,175 @@ parameter_types! {
 }
 
 impl pallet_authorship::Config for Runtime {
-    type FindAuthor = AuraAccountAdapter;
+    type FindAuthor = pallet_session::FindAccountFromAuthorIndex<Self, Aura>;
     type UncleGenerations = UncleGenerations;
     type FilterUncle = ();
     type EventHandler = ();
 }
 
-pub struct AuraAccountAdapter;
+parameter_types! {
+    pub const Period: u32 = 6 * HOURS;
+    pub const Offset: u32 = 0;
+    pub const MaxAuthorities: u32 = 32;
+}
 
-impl FindAuthor<AccountId> for AuraAccountAdapter {
-    fn find_author<'a, I>(digests: I) -> Option<AccountId>
-    where
-        I: 'a + IntoIterator<Item = (sp_runtime::ConsensusEngineId, &'a [u8])>,
-    {
-        pallet_aura::AuraAuthorId::<Runtime>::find_author(digests).and_then(|k| AccountId::try_from(k.as_ref()).ok())
-    }
+impl pallet_session::Config for Runtime {
+    type Event = Event;
+    type ValidatorId = <Self as frame_system::Config>::AccountId;
+    // we don't have stash and controller, thus we don't need the convert as well.
+    type ValidatorIdOf = pallet_collator_selection::IdentityCollator;
+    type ShouldEndSession = pallet_session::PeriodicSessions<Period, Offset>;
+    type NextSessionRotation = pallet_session::PeriodicSessions<Period, Offset>;
+    type SessionManager = CollatorSelection;
+    // Essentially just Aura, but lets be pedantic.
+    type SessionHandler = <SessionKeys as sp_runtime::traits::OpaqueKeys>::KeyTypeIdProviders;
+    type Keys = SessionKeys;
+    type WeightInfo = ();
 }
 
 parameter_types! {
-    pub const MaxAuthorities: u32 = 32;
+    pub const MaxCandidates: u32 = 1000;
+    pub const MinCandidates: u32 = 5;
+    pub const SessionLength: BlockNumber = 6 * HOURS;
+    pub const MaxInvulnerables: u32 = 100;
+    pub const ExecutiveBody: BodyId = BodyId::Executive;
+}
+
+/// We allow root and the Relay Chain council to execute privileged collator selection operations.
+pub type CollatorSelectionUpdateOrigin =
+    EnsureOneOf<EnsureRoot<AccountId>, EnsureXcm<IsMajorityOfBody<ParentLocation, ExecutiveBody>>>;
+
+impl pallet_collator_selection::Config for Runtime {
+    type Event = Event;
+    type Currency = NativeCurrency;
+    type UpdateOrigin = CollatorSelectionUpdateOrigin;
+    type PotId = CollatorPotId;
+    type MaxCandidates = MaxCandidates;
+    type MinCandidates = MinCandidates;
+    type MaxInvulnerables = MaxInvulnerables;
+    // should be a multiple of session or things will get inconsistent
+    type KickThreshold = Period;
+    type ValidatorId = <Self as frame_system::Config>::AccountId;
+    type ValidatorIdOf = pallet_collator_selection::IdentityCollator;
+    type ValidatorRegistration = Session;
+    type WeightInfo = ();
+}
+
+mod migrate_aura {
+    use super::*;
+    use pallet_collator_selection::{CandidacyBond, DesiredCandidates, Invulnerables};
+    use pallet_session::{NextKeys, QueuedKeys, SessionHandler, SessionManager, Validators};
+
+    type ValidatorId = <Runtime as frame_system::Config>::AccountId;
+
+    fn load_keys(v: &ValidatorId) -> Option<SessionKeys> {
+        <NextKeys<Runtime>>::get(v)
+    }
+
+    fn pallet_collator_selection_build(invulnerables: Vec<AccountId>) {
+        // we can root call `set_desired_candidates` to accept registrations
+        <DesiredCandidates<Runtime>>::put(0);
+        // we can root call `set_candidacy_bond` to set the deposit
+        <CandidacyBond<Runtime>>::put(0);
+        // set these to the current authority set defined in aura
+        <Invulnerables<Runtime>>::put(invulnerables);
+    }
+
+    fn pallet_session_build(keys: Vec<(AccountId, SessionKeys)>) -> DispatchResult {
+        for (account, keys) in keys.iter().cloned() {
+            Session::set_keys(Origin::signed(account), keys, vec![])?;
+        }
+
+        let initial_validators_0 = <CollatorSelection as SessionManager<AccountId>>::new_session_genesis(0)
+            .unwrap_or_else(|| keys.iter().map(|x| x.0.clone()).collect());
+
+        let mut queued_keys = Vec::new();
+
+        for v in initial_validators_0.iter().cloned() {
+            queued_keys.push((v.clone(), load_keys(&v).ok_or(frame_support::error::LookupError)?));
+        }
+
+        <Runtime as pallet_session::Config>::SessionHandler::on_genesis_session::<SessionKeys>(&queued_keys);
+
+        <Validators<Runtime>>::put(initial_validators_0);
+        <QueuedKeys<Runtime>>::put(queued_keys);
+
+        <CollatorSelection as SessionManager<AccountId>>::start_session(0);
+
+        Ok(())
+    }
+
+    pub(crate) fn should_run_upgrade() -> bool {
+        // session may change validators so check invulnerables
+        <Invulnerables<Runtime>>::get().len() == 0
+    }
+
+    pub(crate) fn on_runtime_upgrade() -> frame_support::weights::Weight {
+        // fetch current authorities from Aura
+        let authorities = pallet_aura::Pallet::<Runtime>::authorities();
+        let invulnerables = authorities
+            .clone()
+            .into_inner()
+            .into_iter()
+            .filter_map(|pk| {
+                AccountId::try_from(pk.as_ref())
+                    .ok()
+                    .and_then(|account_id| Some((account_id, pk)))
+            })
+            .collect::<Vec<(AccountId, AuraId)>>();
+
+        // clear aura authorities to prevent panic on session build
+        frame_support::migration::remove_storage_prefix(b"Aura", b"Authorities", &[]);
+
+        // do CollatorSelection GenesisBuild
+        pallet_collator_selection_build(invulnerables.iter().cloned().map(|(acc, _)| acc).collect());
+
+        // do Session GenesisBuild
+        if let Err(err) = pallet_session_build(
+            invulnerables
+                .iter()
+                .cloned()
+                .map(|(acc, aura)| {
+                    (
+                        acc.clone(),          // account id
+                        SessionKeys { aura }, // session keys
+                    )
+                })
+                .collect(),
+        ) {
+            log::info!(target: "kintsugi_runtime", "Aura migration failed: {:?}", err);
+            // something went wrong, reset the authorities
+            frame_support::migration::put_storage_value(b"Aura", b"Authorities", &[], authorities);
+        } else {
+            log::info!(target: "kintsugi_runtime", "Aura migration successful");
+        }
+
+        // TODO: define actual weight
+        Default::default()
+    }
+}
+
+// Migration for vanilla Aura to Session + CollatorSelection.
+pub struct AuraMigration;
+impl frame_support::traits::OnRuntimeUpgrade for AuraMigration {
+    fn on_runtime_upgrade() -> frame_support::weights::Weight {
+        if migrate_aura::should_run_upgrade() {
+            migrate_aura::on_runtime_upgrade()
+        } else {
+            Default::default()
+        }
+    }
+
+    #[cfg(feature = "try-runtime")]
+    fn pre_upgrade() -> Result<(), &'static str> {
+        Ok(())
+    }
+
+    #[cfg(feature = "try-runtime")]
+    fn post_upgrade() -> Result<(), &'static str> {
+        // TODO: assert invulnerables correctly set
+        Ok(())
+    }
 }
 
 impl pallet_aura::Config for Runtime {
@@ -360,7 +515,7 @@ impl EnsureOrigin<Origin> for EnsureKintsugiLabs {
 
     #[cfg(feature = "runtime-benchmarks")]
     fn successful_origin() -> Origin {
-        Origin::from(RawOrigin::Signed(Default::default()))
+        Origin::from(RawOrigin::None)
     }
 }
 
@@ -409,29 +564,6 @@ impl pallet_scheduler::Config for Runtime {
     type WeightInfo = ();
     type PreimageProvider = Preimage;
     type NoPreimagePostponement = NoPreimagePostponement;
-}
-
-pub struct LiquidationVaultFixMigration;
-impl frame_support::traits::OnRuntimeUpgrade for LiquidationVaultFixMigration {
-    fn on_runtime_upgrade() -> frame_support::weights::Weight {
-        use orml_traits::MultiReservableCurrency;
-        use sp_runtime::AccountId32;
-        if let Ok(weight) = vault_registry::types::liquidation_vault_fix::fix_liquidation_vault::<Runtime>() {
-            // piggy back on vault migration do do some other migrations:
-
-            // try to do the staking migration. Technically we should add weight here
-            // but I think we'll be ok without
-            let _ = staking::migration::fix_broken_state::<Runtime, _>(Fee::fee_pool_account_id());
-
-            // a3b3EwCtmURY7K3d6aoWzouHriGfTsvCP2axuMVGpRpkPoxg8
-            let account_raw = hex_literal::hex!("24ac7fb5407f270d807425ecc6352305c0a21b9e7a1ba9812a1785a2af9b955a");
-            let account_id = AccountId32::from(account_raw);
-            Tokens::unreserve(Token(KSM), &account_id, 42335659763394);
-            weight
-        } else {
-            0
-        }
-    }
 }
 
 type EnsureRootOrAllTechnicalCommittee = EnsureOneOf<
@@ -600,22 +732,25 @@ parameter_types! {
     pub const EscrowAnnuityPalletId: PalletId = PalletId(*b"esc/annu");
     pub const VaultAnnuityPalletId: PalletId = PalletId(*b"vlt/annu");
     pub const TreasuryPalletId: PalletId = PalletId(*b"mod/trsy");
+    pub const CollatorPotId: PalletId = PalletId(*b"col/slct");
     pub const VaultRegistryPalletId: PalletId = PalletId(*b"mod/vreg");
 }
 
 parameter_types! {
     // a3cgeH7D28bBsH77KFYdoMgyiXUHdk98XT5M2Wv5EgC45Kqya
-    pub FeeAccount: AccountId = FeePalletId::get().into_account();
+    pub FeeAccount: AccountId = FeePalletId::get().into_account_truncating();
     // a3cgeH7D28bBsHWJtUcHf7srz25o34gCKi8SZVjky6nMyEm83
-    pub SupplyAccount: AccountId = SupplyPalletId::get().into_account();
+    pub SupplyAccount: AccountId = SupplyPalletId::get().into_account_truncating();
     // a3cgeH7CzXoGgXh453eaSJRCvbbBKZN4mejwUVkic8efQUi5R
-    pub EscrowAnnuityAccount: AccountId = EscrowAnnuityPalletId::get().into_account();
+    pub EscrowAnnuityAccount: AccountId = EscrowAnnuityPalletId::get().into_account_truncating();
     // a3cgeH7D3w3wu37yHx4VZeae4EUqNTw5RobTp5KvcMsrPLWJg
-    pub VaultAnnuityAccount: AccountId = VaultAnnuityPalletId::get().into_account();
+    pub VaultAnnuityAccount: AccountId = VaultAnnuityPalletId::get().into_account_truncating();
     // a3cgeH7D28bBsHY4hGLzxkMFUcFQmjGgDa2kmxg3D9Z6AyhtL
-    pub TreasuryAccount: AccountId = TreasuryPalletId::get().into_account();
+    pub TreasuryAccount: AccountId = TreasuryPalletId::get().into_account_truncating();
+    // a3cgeH7Cz8NiptXsRA4iUACqh5frp9SSWgRiRhuaX3kj2ja4h
+    pub CollatorSelectionAccount: AccountId = CollatorPotId::get().into_account_truncating();
     // a3cgeH7D28bBsHbch2n7DChKEapamDqY9yAm441K9WUQZbBGJ
-    pub VaultRegistryAccount: AccountId = VaultRegistryPalletId::get().into_account();
+    pub VaultRegistryAccount: AccountId = VaultRegistryPalletId::get().into_account_truncating();
 }
 
 pub fn get_all_module_accounts() -> Vec<AccountId> {
@@ -625,6 +760,7 @@ pub fn get_all_module_accounts() -> Vec<AccountId> {
         EscrowAnnuityAccount::get(),
         VaultAnnuityAccount::get(),
         TreasuryAccount::get(),
+        CollatorSelectionAccount::get(),
         VaultRegistryAccount::get(),
     ]
 }
@@ -658,6 +794,22 @@ impl orml_tokens::Config for Runtime {
     type DustRemovalWhitelist = DustRemovalWhitelist;
     type MaxReserves = ConstU32<0>; // we don't use named reserves
     type ReserveIdentifier = (); // we don't use named reserves
+    type OnNewTokenAccount = ();
+    type OnKilledTokenAccount = ();
+}
+
+pub struct AssetAuthority;
+impl EnsureOriginWithArg<Origin, Option<u32>> for AssetAuthority {
+    type Success = ();
+
+    fn try_origin(origin: Origin, _asset_id: &Option<u32>) -> Result<Self::Success, Origin> {
+        EnsureRoot::try_origin(origin)
+    }
+
+    #[cfg(feature = "runtime-benchmarks")]
+    fn successful_origin(_asset_id: &Option<u32>) -> Origin {
+        EnsureRoot::successful_origin()
+    }
 }
 
 impl orml_asset_registry::Config for Runtime {
@@ -666,7 +818,7 @@ impl orml_asset_registry::Config for Runtime {
     type CustomMetadata = primitives::CustomMetadata;
     type AssetProcessor = SequentialId<Runtime>;
     type AssetId = primitives::ForeignAssetId;
-    type AuthorityOrigin = EnsureRoot<AccountId>;
+    type AuthorityOrigin = AssetAuthority;
     type WeightInfo = ();
 }
 
@@ -721,6 +873,13 @@ impl supply::Config for Runtime {
     type OnInflation = DealWithRewards;
 }
 
+pub struct TotalWrapped;
+impl Get<Balance> for TotalWrapped {
+    fn get() -> Balance {
+        orml_tokens::CurrencyAdapter::<Runtime, GetWrappedCurrencyId>::total_issuance()
+    }
+}
+
 parameter_types! {
     pub const EmissionPeriod: BlockNumber = YEARS;
 }
@@ -729,12 +888,19 @@ pub struct EscrowBlockRewardProvider;
 
 impl annuity::BlockRewardProvider<AccountId> for EscrowBlockRewardProvider {
     type Currency = NativeCurrency;
+
+    #[cfg(feature = "runtime-benchmarks")]
+    fn deposit_stake(from: &AccountId, amount: Balance) -> DispatchResult {
+        <EscrowRewards as reward::Rewards<AccountId, Balance, CurrencyId>>::deposit_stake(from, amount)
+    }
+
     fn distribute_block_reward(_from: &AccountId, amount: Balance) -> DispatchResult {
         <EscrowRewards as reward::Rewards<AccountId, Balance, CurrencyId>>::distribute_reward(
             amount,
             GetNativeCurrencyId::get(),
         )
     }
+
     fn withdraw_reward(who: &AccountId) -> Result<Balance, DispatchError> {
         <EscrowRewards as reward::Rewards<AccountId, Balance, CurrencyId>>::withdraw_reward(
             who,
@@ -752,6 +918,7 @@ impl annuity::Config<EscrowAnnuityInstance> for Runtime {
     type BlockRewardProvider = EscrowBlockRewardProvider;
     type BlockNumberToBalance = BlockNumberToBalance;
     type EmissionPeriod = EmissionPeriod;
+    type TotalWrapped = TotalWrapped;
     type WeightInfo = ();
 }
 
@@ -759,6 +926,13 @@ pub struct VaultBlockRewardProvider;
 
 impl annuity::BlockRewardProvider<AccountId> for VaultBlockRewardProvider {
     type Currency = NativeCurrency;
+
+    #[cfg(feature = "runtime-benchmarks")]
+    fn deposit_stake(_from: &AccountId, _amount: Balance) -> DispatchResult {
+        // TODO: fix for vault id
+        Ok(())
+    }
+
     fn distribute_block_reward(from: &AccountId, amount: Balance) -> DispatchResult {
         // TODO: remove fee pallet?
         Self::Currency::transfer(from, &FeeAccount::get(), amount, ExistenceRequirement::KeepAlive)?;
@@ -767,6 +941,7 @@ impl annuity::BlockRewardProvider<AccountId> for VaultBlockRewardProvider {
             GetNativeCurrencyId::get(),
         )
     }
+
     fn withdraw_reward(_: &AccountId) -> Result<Balance, DispatchError> {
         Err(sp_runtime::TokenError::Unsupported.into())
     }
@@ -781,6 +956,7 @@ impl annuity::Config<VaultAnnuityInstance> for Runtime {
     type BlockRewardProvider = VaultBlockRewardProvider;
     type BlockNumberToBalance = BlockNumberToBalance;
     type EmissionPeriod = EmissionPeriod;
+    type TotalWrapped = TotalWrapped;
     type WeightInfo = ();
 }
 
@@ -913,6 +1089,10 @@ impl oracle::Config for Runtime {
     type WeightInfo = ();
 }
 
+parameter_types! {
+    pub const MaxExpectedValue: UnsignedFixedPoint = UnsignedFixedPoint::from_inner(<UnsignedFixedPoint as FixedPointNumber>::DIV);
+}
+
 impl fee::Config for Runtime {
     type FeePalletId = FeePalletId;
     type WeightInfo = ();
@@ -923,6 +1103,7 @@ impl fee::Config for Runtime {
     type VaultRewards = VaultRewards;
     type VaultStaking = VaultStaking;
     type OnSweep = currency::SweepFunds<Runtime, FeeAccount>;
+    type MaxExpectedValue = MaxExpectedValue;
 }
 
 pub use refund::{Event as RefundEvent, RefundRequest};
@@ -973,61 +1154,60 @@ construct_runtime! {
         Scheduler: pallet_scheduler::{Pallet, Call, Storage, Event<T>} = 4,
         Preimage: pallet_preimage::{Pallet, Call, Storage, Event<T>} = 5,
         Multisig: pallet_multisig::{Pallet, Call, Storage, Event<T>} = 6,
+        Identity: pallet_identity::{Pallet, Call, Storage, Event<T>} = 7,
 
         // Tokens & Balances
-        Currency: currency::{Pallet} = 7,
-        Tokens: orml_tokens::{Pallet, Call, Storage, Config<T>, Event<T>} = 8,
-        Escrow: escrow::{Pallet, Call, Storage, Event<T>} = 9,
-        Vesting: orml_vesting::{Pallet, Storage, Call, Event<T>, Config<T>} = 10,
-        AssetRegistry: orml_asset_registry::{Pallet, Storage, Call, Event<T>, Config<T>} = 44,
+        Currency: currency::{Pallet} = 20,
+        Tokens: orml_tokens::{Pallet, Call, Storage, Config<T>, Event<T>} = 21,
+        Supply: supply::{Pallet, Storage, Call, Event<T>, Config<T>} = 22,
+        Vesting: orml_vesting::{Pallet, Storage, Call, Event<T>, Config<T>} = 23,
+        AssetRegistry: orml_asset_registry::{Pallet, Storage, Call, Event<T>, Config<T>} = 24,
 
-        EscrowAnnuity: annuity::<Instance1>::{Pallet, Call, Storage, Event<T>} = 11,
-        EscrowRewards: reward::<Instance1>::{Pallet, Storage, Event<T>} = 12,
+        Escrow: escrow::{Pallet, Call, Storage, Event<T>} = 30,
+        EscrowAnnuity: annuity::<Instance1>::{Pallet, Call, Storage, Event<T>} = 31,
+        EscrowRewards: reward::<Instance1>::{Pallet, Storage, Event<T>} = 32,
 
-        VaultAnnuity: annuity::<Instance2>::{Pallet, Call, Storage, Event<T>} = 13,
-        VaultRewards: reward::<Instance2>::{Pallet, Storage, Event<T>} = 14,
-        VaultStaking: staking::{Pallet, Storage, Event<T>} = 15,
-
-        Supply: supply::{Pallet, Storage, Call, Event<T>, Config<T>} = 16,
+        VaultAnnuity: annuity::<Instance2>::{Pallet, Call, Storage, Event<T>} = 40,
+        VaultRewards: reward::<Instance2>::{Pallet, Storage, Event<T>} = 41,
+        VaultStaking: staking::{Pallet, Storage, Event<T>} = 42,
 
         // Bitcoin SPV
-        BTCRelay: btc_relay::{Pallet, Call, Config<T>, Storage, Event<T>} = 17,
-        Relay: relay::{Pallet, Call, Storage, Event<T>} = 18,
+        BTCRelay: btc_relay::{Pallet, Call, Config<T>, Storage, Event<T>} = 50,
+        Relay: relay::{Pallet, Call, Storage, Event<T>} = 51,
 
         // Operational
-        Security: security::{Pallet, Call, Config, Storage, Event<T>} = 19,
-        VaultRegistry: vault_registry::{Pallet, Call, Config<T>, Storage, Event<T>, ValidateUnsigned} = 20,
-        Oracle: oracle::{Pallet, Call, Config<T>, Storage, Event<T>} = 21,
-        Issue: issue::{Pallet, Call, Config<T>, Storage, Event<T>} = 22,
-        Redeem: redeem::{Pallet, Call, Config<T>, Storage, Event<T>} = 23,
-        Replace: replace::{Pallet, Call, Config<T>, Storage, Event<T>} = 24,
-        Fee: fee::{Pallet, Call, Config<T>, Storage} = 25,
-        Refund: refund::{Pallet, Call, Config<T>, Storage, Event<T>} = 26,
-        Nomination: nomination::{Pallet, Call, Config, Storage, Event<T>} = 27,
-
-        Identity: pallet_identity::{Pallet, Call, Storage, Event<T>} = 43,
+        Security: security::{Pallet, Call, Config, Storage, Event<T>} = 60,
+        VaultRegistry: vault_registry::{Pallet, Call, Config<T>, Storage, Event<T>, ValidateUnsigned} = 61,
+        Oracle: oracle::{Pallet, Call, Config<T>, Storage, Event<T>} = 62,
+        Issue: issue::{Pallet, Call, Config<T>, Storage, Event<T>} = 63,
+        Redeem: redeem::{Pallet, Call, Config<T>, Storage, Event<T>} = 64,
+        Replace: replace::{Pallet, Call, Config<T>, Storage, Event<T>} = 65,
+        Fee: fee::{Pallet, Call, Config<T>, Storage} = 66,
+        Refund: refund::{Pallet, Call, Config<T>, Storage, Event<T>} = 67,
+        Nomination: nomination::{Pallet, Call, Config, Storage, Event<T>} = 68,
 
         // Governance
-        Democracy: democracy::{Pallet, Call, Storage, Config<T>, Event<T>} = 28,
-        TechnicalCommittee: pallet_collective::<Instance1>::{Pallet, Call, Storage, Origin<T>, Event<T>, Config<T>} = 29,
-        TechnicalMembership: pallet_membership::{Pallet, Call, Storage, Event<T>, Config<T>} = 30,
-        Treasury: pallet_treasury::{Pallet, Call, Storage, Config, Event<T>} = 31,
+        Democracy: democracy::{Pallet, Call, Storage, Config<T>, Event<T>} = 70,
+        TechnicalCommittee: pallet_collective::<Instance1>::{Pallet, Call, Storage, Origin<T>, Event<T>, Config<T>} = 71,
+        TechnicalMembership: pallet_membership::{Pallet, Call, Storage, Event<T>, Config<T>} = 72,
+        Treasury: pallet_treasury::{Pallet, Call, Storage, Config, Event<T>} = 73,
 
-        ParachainSystem: cumulus_pallet_parachain_system::{Pallet, Call, Config, Storage, Inherent, Event<T>} = 32,
-        ParachainInfo: parachain_info::{Pallet, Storage, Config} = 33,
-
-        Authorship: pallet_authorship::{Pallet, Call, Storage} = 34,
-        Aura: pallet_aura::{Pallet, Storage, Config<T>} = 35,
-        AuraExt: cumulus_pallet_aura_ext::{Pallet, Storage, Config} = 36,
+        Authorship: pallet_authorship::{Pallet, Call, Storage} = 80,
+        CollatorSelection: pallet_collator_selection::{Pallet, Call, Storage, Event<T>, Config<T>} = 81,
+        Session: pallet_session::{Pallet, Call, Storage, Event, Config<T>} = 82,
+        Aura: pallet_aura::{Pallet, Storage, Config<T>} = 83,
+        AuraExt: cumulus_pallet_aura_ext::{Pallet, Storage, Config} = 84,
+        ParachainSystem: cumulus_pallet_parachain_system::{Pallet, Call, Config, Storage, Inherent, Event<T>} = 85,
+        ParachainInfo: parachain_info::{Pallet, Storage, Config} = 86,
 
         // XCM helpers.
-        XcmpQueue: cumulus_pallet_xcmp_queue::{Pallet, Call, Storage, Event<T>} = 37,
-        PolkadotXcm: pallet_xcm::{Pallet, Call, Storage, Event<T>, Origin, Config} = 38,
-        CumulusXcm: cumulus_pallet_xcm::{Pallet, Call, Event<T>, Origin} = 39,
-        DmpQueue: cumulus_pallet_dmp_queue::{Pallet, Call, Storage, Event<T>} = 40,
+        XcmpQueue: cumulus_pallet_xcmp_queue::{Pallet, Call, Storage, Event<T>} = 90,
+        PolkadotXcm: pallet_xcm::{Pallet, Call, Storage, Event<T>, Origin, Config} = 91,
+        CumulusXcm: cumulus_pallet_xcm::{Pallet, Call, Event<T>, Origin} = 92,
+        DmpQueue: cumulus_pallet_dmp_queue::{Pallet, Call, Storage, Event<T>} = 93,
 
-        XTokens: orml_xtokens::{Pallet, Storage, Call, Event<T>} = 41,
-        UnknownTokens: orml_unknown_tokens::{Pallet, Storage, Event} = 42,
+        XTokens: orml_xtokens::{Pallet, Storage, Call, Event<T>} = 94,
+        UnknownTokens: orml_unknown_tokens::{Pallet, Storage, Event} = 95,
     }
 }
 
@@ -1062,7 +1242,7 @@ pub type Executive = frame_executive::Executive<
     frame_system::ChainContext<Runtime>,
     Runtime,
     AllPalletsWithSystem,
-    LiquidationVaultFixMigration,
+    AuraMigration,
 >;
 
 #[cfg(not(feature = "disable-runtime-api"))]

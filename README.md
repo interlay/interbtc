@@ -111,7 +111,7 @@ For more detailed development instructions [see here](./docs/README.md).
 ### Testing
 
 ```
-cargo test
+cargo test --features runtime-benchmarks
 ```
 
 To run with coverage, using [cargo-cov](https://github.com/kennytm/cov):

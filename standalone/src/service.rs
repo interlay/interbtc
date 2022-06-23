@@ -197,11 +197,11 @@ pub fn new_full(mut config: Configuration) -> Result<(TaskManager, RpcHandlers),
     let enable_grandpa = !config.disable_grandpa;
     let prometheus_registry = config.prometheus_registry().cloned();
 
-    let rpc_extensions_builder = {
+    let rpc_builder = {
         let client = client.clone();
         let pool = transaction_pool.clone();
 
-        Box::new(move |deny_unsafe, _| {
+        move |deny_unsafe, _| {
             let deps = interbtc_rpc::FullDeps {
                 client: client.clone(),
                 pool: pool.clone(),
@@ -209,8 +209,8 @@ pub fn new_full(mut config: Configuration) -> Result<(TaskManager, RpcHandlers),
                 command_sink: None,
             };
 
-            Ok(interbtc_rpc::create_full(deps))
-        })
+            interbtc_rpc::create_full(deps).map_err(Into::into)
+        }
     };
 
     let rpc_handlers = sc_service::spawn_tasks(sc_service::SpawnTasksParams {
@@ -219,7 +219,7 @@ pub fn new_full(mut config: Configuration) -> Result<(TaskManager, RpcHandlers),
         keystore: keystore_container.sync_keystore(),
         task_manager: &mut task_manager,
         transaction_pool: transaction_pool.clone(),
-        rpc_extensions_builder,
+        rpc_builder: Box::new(rpc_builder),
         backend,
         system_rpc_tx,
         config,

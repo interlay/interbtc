@@ -14,6 +14,7 @@ use sp_core::H256;
 use sp_runtime::{
     testing::Header,
     traits::{BlakeTwo256, IdentityLookup, Zero},
+    FixedPointNumber,
 };
 
 type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
@@ -109,6 +110,8 @@ impl orml_tokens::Config for Test {
     type DustRemovalWhitelist = Everything;
     type MaxReserves = ConstU32<0>; // we don't use named reserves
     type ReserveIdentifier = (); // we don't use named reserves
+    type OnNewTokenAccount = ();
+    type OnKilledTokenAccount = ();
 }
 
 impl reward::Config for Test {
@@ -166,6 +169,7 @@ impl currency::Config for Test {
 
 parameter_types! {
     pub const FeePalletId: PalletId = PalletId(*b"mod/fees");
+    pub const MaxExpectedValue: UnsignedFixedPoint = UnsignedFixedPoint::from_inner(<UnsignedFixedPoint as FixedPointNumber>::DIV);
 }
 
 impl Config for Test {
@@ -178,6 +182,7 @@ impl Config for Test {
     type VaultRewards = Rewards;
     type VaultStaking = Staking;
     type OnSweep = ();
+    type MaxExpectedValue = MaxExpectedValue;
 }
 
 pub type TestEvent = Event;

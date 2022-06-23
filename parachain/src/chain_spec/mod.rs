@@ -1,7 +1,6 @@
 use bitcoin::utils::{virtual_transaction_size, InputType, TransactionInputMetadata, TransactionOutputMetadata};
 use cumulus_primitives_core::ParaId;
 use hex_literal::hex;
-use interbtc_rpc::jsonrpc_core::serde_json::{map::Map, Value};
 use primitives::{
     AccountId, Balance, CurrencyId, CurrencyId::Token, CurrencyInfo, Signature, VaultCurrencyPair, BITCOIN_MAINNET,
     BITCOIN_REGTEST, BITCOIN_TESTNET, DOT, IBTC, INTR, KBTC, KINT, KSM,
@@ -9,6 +8,7 @@ use primitives::{
 use sc_chain_spec::{ChainSpecExtension, ChainSpecGroup};
 use sc_service::ChainType;
 use serde::{Deserialize, Serialize};
+use serde_json::{map::Map, Value};
 use sp_arithmetic::{FixedPointNumber, FixedU128};
 use sp_consensus_aura::sr25519::AuthorityId as AuraId;
 use sp_core::{crypto::UncheckedInto, sr25519, Pair, Public};
@@ -17,7 +17,8 @@ use std::str::FromStr;
 
 pub mod interlay;
 pub mod kintsugi;
-pub mod testnet;
+pub mod testnet_interlay;
+pub mod testnet_kintsugi;
 
 // The URL for the telemetry server.
 // pub const TELEMETRY_URL: &str = "wss://telemetry.polkadot.io/submit/";
@@ -30,8 +31,11 @@ pub type InterlayChainSpec = sc_service::GenericChainSpec<interlay_runtime::Gene
 /// Specialized `ChainSpec` for the kintsugi parachain runtime.
 pub type KintsugiChainSpec = sc_service::GenericChainSpec<kintsugi_runtime::GenesisConfig, Extensions>;
 
-/// Specialized `ChainSpec` for the testnet parachain runtime.
-pub type TestnetChainSpec = sc_service::GenericChainSpec<testnet_runtime::GenesisConfig, Extensions>;
+/// Specialized `ChainSpec` for the kintsugi testnet parachain runtime.
+pub type KintsugiTestnetChainSpec = sc_service::GenericChainSpec<testnet_kintsugi_runtime::GenesisConfig, Extensions>;
+
+/// Specialized `ChainSpec` for the interlay testnet parachain runtime.
+pub type InterlayTestnetChainSpec = sc_service::GenericChainSpec<testnet_interlay_runtime::GenesisConfig, Extensions>;
 
 /// The extensions for the [`ChainSpec`].
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, ChainSpecExtension, ChainSpecGroup)]

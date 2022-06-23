@@ -270,25 +270,13 @@ mod cancel_replace_tests {
     fn test_cancel_replace_succeeds() {
         run_test(|| {
             setup_mocks();
-            assert_ok!(Replace::_cancel_replace(NEW_VAULT.account_id, H256::zero(),));
+            assert_ok!(Replace::_cancel_replace(H256::zero(),));
             assert_event_matches!(Event::CancelReplace {
                 replace_id: _,
                 new_vault_id: NEW_VAULT,
                 old_vault_id: OLD_VAULT,
                 griefing_collateral: _
             });
-        })
-    }
-
-    #[test]
-    fn test_cancel_replace_invalid_caller_fails() {
-        run_test(|| {
-            setup_mocks();
-
-            assert_err!(
-                Replace::_cancel_replace(OLD_VAULT.account_id, H256::zero(),),
-                TestError::UnauthorizedVault
-            );
         })
     }
 }

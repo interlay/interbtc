@@ -129,6 +129,8 @@ impl orml_tokens::Config for Test {
     type DustRemovalWhitelist = Everything;
     type MaxReserves = ConstU32<0>; // we don't use named reserves
     type ReserveIdentifier = (); // we don't use named reserves
+    type OnNewTokenAccount = ();
+    type OnKilledTokenAccount = ();
 }
 
 impl reward::Config for Test {
@@ -217,6 +219,7 @@ impl oracle::Config for Test {
 
 parameter_types! {
     pub const FeePalletId: PalletId = PalletId(*b"mod/fees");
+    pub const MaxExpectedValue: UnsignedFixedPoint = UnsignedFixedPoint::from_inner(<UnsignedFixedPoint as FixedPointNumber>::DIV);
 }
 
 impl fee::Config for Test {
@@ -229,6 +232,7 @@ impl fee::Config for Test {
     type VaultRewards = Rewards;
     type VaultStaking = Staking;
     type OnSweep = ();
+    type MaxExpectedValue = MaxExpectedValue;
 }
 
 impl refund::Config for Test {

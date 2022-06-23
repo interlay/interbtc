@@ -19,13 +19,6 @@ use vault_registry::{types::DefaultVault, DefaultVaultId, Vault, Wallet};
 
 type Event = crate::Event<Test>;
 
-fn dummy_public_key() -> BtcPublicKey {
-    BtcPublicKey([
-        2, 205, 114, 218, 156, 16, 235, 172, 106, 37, 18, 153, 202, 140, 176, 91, 207, 51, 187, 55, 18, 45, 222, 180,
-        119, 54, 243, 97, 173, 150, 161, 169, 230,
-    ])
-}
-
 fn dummy_merkle_proof() -> MerkleProof {
     MerkleProof {
         block_header: Default::default(),
@@ -476,7 +469,7 @@ fn should_not_report_double_payment_with_identical_tx() {
 #[test]
 fn should_report_double_payment() {
     run_test(|| {
-        let public_key = dummy_public_key();
+        let public_key = BtcPublicKey::dummy();
         let input_address = BtcAddress::P2PKH(public_key.to_hash());
         let output_address = BtcAddress::random();
         let left_tx = build_dummy_transaction_from_input_with_output_and_op_return(
@@ -510,7 +503,7 @@ fn should_report_double_payment() {
 #[test]
 fn should_not_report_double_payment_with_vault_no_input() {
     run_test(|| {
-        let public_key = dummy_public_key();
+        let public_key = BtcPublicKey::dummy();
         let input_address = BtcAddress::random();
         let output_address = BtcAddress::random();
         let left_tx = build_dummy_transaction_from_input_with_output_and_op_return(

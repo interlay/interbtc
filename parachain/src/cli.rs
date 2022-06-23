@@ -96,7 +96,8 @@ pub struct ExportMetadataCommand {
 pub enum RuntimeName {
     Interlay,
     Kintsugi,
-    Testnet,
+    InterlayTestnet,
+    KintsugiTestnet,
 }
 
 #[derive(Debug, Parser)]

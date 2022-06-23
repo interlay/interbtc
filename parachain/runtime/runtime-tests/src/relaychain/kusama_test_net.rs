@@ -1,9 +1,16 @@
-use crate::setup::*;
 use frame_support::traits::GenesisBuild;
+pub use kintsugi_runtime_parachain::{xcm_config::*, *};
 use polkadot_primitives::v2::{BlockNumber, MAX_CODE_SIZE, MAX_POV_SIZE};
 use polkadot_runtime_parachains::configuration::HostConfiguration;
-use primitives::CurrencyId::Token;
+pub use primitives::{
+    CurrencyId::Token,
+    TokenSymbol::{KINT, KSM},
+};
+use sp_runtime::traits::AccountIdConversion;
 use xcm_emulator::{decl_test_network, decl_test_parachain, decl_test_relay_chain};
+
+pub const KINTSUGI_PARA_ID: u32 = 2092;
+pub const SIBLING_PARA_ID: u32 = 2001;
 
 decl_test_relay_chain! {
     pub struct KusamaNet {
@@ -25,10 +32,10 @@ decl_test_parachain! {
 
 decl_test_parachain! {
     pub struct Sibling {
-        Runtime = testnet_runtime_parachain::Runtime,
-        Origin = testnet_runtime_parachain::Origin,
-        XcmpMessageHandler = testnet_runtime_parachain::XcmpQueue,
-        DmpMessageHandler = testnet_runtime_parachain::DmpQueue,
+        Runtime = testnet_kintsugi_runtime_parachain::Runtime,
+        Origin = testnet_kintsugi_runtime_parachain::Origin,
+        XcmpMessageHandler = testnet_kintsugi_runtime_parachain::XcmpQueue,
+        DmpMessageHandler = testnet_kintsugi_runtime_parachain::DmpQueue,
         new_ext = para_ext(SIBLING_PARA_ID),
     }
 }
@@ -93,7 +100,7 @@ pub fn kusama_ext() -> sp_io::TestExternalities {
     pallet_balances::GenesisConfig::<Runtime> {
         balances: vec![
             (AccountId::from(ALICE), 2002 * KSM.one()),
-            // (ParaId::from(KINTSUGI_PARA_ID).into_account(), 2 * KSM.one()),
+            // (ParaId::from(KINTSUGI_PARA_ID).into_account_truncating(), 2 * KSM.one()),
         ],
     }
     .assimilate_storage(&mut t)
@@ -143,4 +150,84 @@ pub fn para_ext(parachain_id: u32) -> sp_io::TestExternalities {
         ])
         .parachain_id(parachain_id)
         .build()
+}
+
+#[allow(dead_code)]
+pub const DEFAULT: [u8; 32] = [0u8; 32];
+#[allow(dead_code)]
+pub const ALICE: [u8; 32] = [4u8; 32];
+#[allow(dead_code)]
+pub const BOB: [u8; 32] = [5u8; 32];
+
+pub struct ExtBuilder {
+    balances: Vec<(AccountId, CurrencyId, Balance)>,
+    parachain_id: u32,
+}
+
+impl Default for ExtBuilder {
+    fn default() -> Self {
+        Self {
+            balances: vec![],
+            parachain_id: 2000,
+        }
+    }
+}
+
+impl ExtBuilder {
+    pub fn balances(mut self, balances: Vec<(AccountId, CurrencyId, Balance)>) -> Self {
+        self.balances = balances;
+        self
+    }
+
+    #[allow(dead_code)]
+    pub fn parachain_id(mut self, parachain_id: u32) -> Self {
+        self.parachain_id = parachain_id;
+        self
+    }
+
+    pub fn build(self) -> sp_io::TestExternalities {
+        let mut t = frame_system::GenesisConfig::default()
+            .build_storage::<Runtime>()
+            .unwrap();
+
+        let native_currency_id = GetNativeCurrencyId::get();
+
+        orml_tokens::GenesisConfig::<Runtime> {
+            balances: self
+                .balances
+                .into_iter()
+                .filter(|(_, currency_id, _)| *currency_id != native_currency_id)
+                .collect::<Vec<_>>(),
+        }
+        .assimilate_storage(&mut t)
+        .unwrap();
+
+        <parachain_info::GenesisConfig as GenesisBuild<Runtime>>::assimilate_storage(
+            &parachain_info::GenesisConfig {
+                parachain_id: self.parachain_id.into(),
+            },
+            &mut t,
+        )
+        .unwrap();
+
+        <pallet_xcm::GenesisConfig as GenesisBuild<Runtime>>::assimilate_storage(
+            &pallet_xcm::GenesisConfig {
+                safe_xcm_version: Some(2),
+            },
+            &mut t,
+        )
+        .unwrap();
+
+        let mut ext = sp_io::TestExternalities::new(t);
+        ext.execute_with(|| System::set_block_number(1));
+        ext
+    }
+}
+
+pub(crate) fn kintsugi_sovereign_account_on_kusama() -> AccountId {
+    polkadot_parachain::primitives::Id::from(KINTSUGI_PARA_ID).into_account_truncating()
+}
+
+pub(crate) fn sibling_sovereign_account_on_kusama() -> AccountId {
+    polkadot_parachain::primitives::Id::from(SIBLING_PARA_ID).into_account_truncating()
 }

@@ -5,7 +5,7 @@
 #![cfg_attr(test, feature(proc_macro_hygiene))]
 #![cfg_attr(not(feature = "std"), no_std)]
 
-#[cfg(any(feature = "runtime-benchmarks", test))]
+#[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;
 
 mod default_weights;
@@ -115,12 +115,18 @@ pub mod pallet {
 
         /// Handler to transfer undistributed rewards.
         type OnSweep: OnSweep<Self::AccountId, Amount<Self>>;
+
+        /// Maximum expected value to set the storage fields to.
+        #[pallet::constant]
+        type MaxExpectedValue: Get<UnsignedFixedPoint<Self>>;
     }
 
     #[pallet::error]
     pub enum Error<T> {
         /// Unable to convert value.
         TryIntoIntError,
+        /// Value exceeds the expected upper bound for storage fields in this pallet.
+        AboveMaxExpectedValue,
     }
 
     #[pallet::hooks]
@@ -267,6 +273,152 @@ pub mod pallet {
             Self::withdraw_from_reward_pool::<T::VaultRewards, T::VaultStaking>(&vault_id, &nominator_id, index)?;
             Ok(().into())
         }
+
+        /// Changes the issue fee percentage (only executable by the Root account)
+        ///
+        /// # Arguments
+        ///
+        /// * `origin` - signing account
+        /// * `fee` - the new fee
+        #[pallet::weight(<T as Config>::WeightInfo::set_issue_fee())]
+        #[transactional]
+        pub fn set_issue_fee(origin: OriginFor<T>, fee: UnsignedFixedPoint<T>) -> DispatchResultWithPostInfo {
+            ensure_root(origin)?;
+            ensure!(fee <= Self::get_max_expected_value(), Error::<T>::AboveMaxExpectedValue);
+            IssueFee::<T>::put(fee);
+            Ok(().into())
+        }
+
+        /// Changes the issue griefing collateral percentage (only executable by the Root account)
+        ///
+        /// # Arguments
+        ///
+        /// * `origin` - signing account
+        /// * `griefing_collateral` - the new griefing collateral
+        #[pallet::weight(<T as Config>::WeightInfo::set_issue_griefing_collateral())]
+        #[transactional]
+        pub fn set_issue_griefing_collateral(
+            origin: OriginFor<T>,
+            griefing_collateral: UnsignedFixedPoint<T>,
+        ) -> DispatchResultWithPostInfo {
+            ensure_root(origin)?;
+            ensure!(
+                griefing_collateral <= Self::get_max_expected_value(),
+                Error::<T>::AboveMaxExpectedValue
+            );
+            IssueGriefingCollateral::<T>::put(griefing_collateral);
+            Ok(().into())
+        }
+
+        /// Changes the redeem fee percentage (only executable by the Root account)
+        ///
+        /// # Arguments
+        ///
+        /// * `origin` - signing account
+        /// * `fee` - the new fee
+        #[pallet::weight(<T as Config>::WeightInfo::set_redeem_fee())]
+        #[transactional]
+        pub fn set_redeem_fee(origin: OriginFor<T>, fee: UnsignedFixedPoint<T>) -> DispatchResultWithPostInfo {
+            ensure_root(origin)?;
+            ensure!(fee <= Self::get_max_expected_value(), Error::<T>::AboveMaxExpectedValue);
+            RedeemFee::<T>::put(fee);
+            Ok(().into())
+        }
+
+        /// Changes the refund fee percentage (only executable by the Root account)
+        ///
+        /// # Arguments
+        ///
+        /// * `origin` - signing account
+        /// * `fee` - the new fee
+        #[pallet::weight(<T as Config>::WeightInfo::set_refund_fee())]
+        #[transactional]
+        pub fn set_refund_fee(origin: OriginFor<T>, fee: UnsignedFixedPoint<T>) -> DispatchResultWithPostInfo {
+            ensure_root(origin)?;
+            ensure!(fee <= Self::get_max_expected_value(), Error::<T>::AboveMaxExpectedValue);
+            RefundFee::<T>::put(fee);
+            Ok(().into())
+        }
+
+        /// Changes the premium redeem fee percentage (only executable by the Root account)
+        ///
+        /// # Arguments
+        ///
+        /// * `origin` - signing account
+        /// * `fee` - the new fee
+        #[pallet::weight(<T as Config>::WeightInfo::set_premium_redeem_fee())]
+        #[transactional]
+        pub fn set_premium_redeem_fee(origin: OriginFor<T>, fee: UnsignedFixedPoint<T>) -> DispatchResultWithPostInfo {
+            ensure_root(origin)?;
+            ensure!(fee <= Self::get_max_expected_value(), Error::<T>::AboveMaxExpectedValue);
+            PremiumRedeemFee::<T>::put(fee);
+            Ok(().into())
+        }
+
+        /// Changes the punishment fee percentage (only executable by the Root account)
+        ///
+        /// # Arguments
+        ///
+        /// * `origin` - signing account
+        /// * `fee` - the new fee
+        #[pallet::weight(<T as Config>::WeightInfo::set_punishment_fee())]
+        #[transactional]
+        pub fn set_punishment_fee(origin: OriginFor<T>, fee: UnsignedFixedPoint<T>) -> DispatchResultWithPostInfo {
+            ensure_root(origin)?;
+            ensure!(fee <= Self::get_max_expected_value(), Error::<T>::AboveMaxExpectedValue);
+            PunishmentFee::<T>::put(fee);
+            Ok(().into())
+        }
+
+        /// Changes the replace griefing collateral percentage (only executable by the Root account)
+        ///
+        /// # Arguments
+        ///
+        /// * `origin` - signing account
+        /// * `griefing_collateral` - the new griefing collateral
+        #[pallet::weight(<T as Config>::WeightInfo::set_replace_griefing_collateral())]
+        #[transactional]
+        pub fn set_replace_griefing_collateral(
+            origin: OriginFor<T>,
+            griefing_collateral: UnsignedFixedPoint<T>,
+        ) -> DispatchResultWithPostInfo {
+            ensure_root(origin)?;
+            ensure!(
+                griefing_collateral <= Self::get_max_expected_value(),
+                Error::<T>::AboveMaxExpectedValue
+            );
+            ReplaceGriefingCollateral::<T>::put(griefing_collateral);
+            Ok(().into())
+        }
+
+        /// Changes the theft fee percentage (only executable by the Root account)
+        ///
+        /// # Arguments
+        ///
+        /// * `origin` - signing account
+        /// * `fee` - the new fee
+        #[pallet::weight(<T as Config>::WeightInfo::set_theft_fee())]
+        #[transactional]
+        pub fn set_theft_fee(origin: OriginFor<T>, fee: UnsignedFixedPoint<T>) -> DispatchResultWithPostInfo {
+            ensure_root(origin)?;
+            ensure!(fee <= Self::get_max_expected_value(), Error::<T>::AboveMaxExpectedValue);
+            TheftFee::<T>::put(fee);
+            Ok(().into())
+        }
+
+        /// Changes the theft fee max (only executable by the Root account)
+        ///
+        /// # Arguments
+        ///
+        /// * `origin` - signing account
+        /// * `fee_max` - the new maximum fee
+        #[pallet::weight(<T as Config>::WeightInfo::set_theft_fee_max())]
+        #[transactional]
+        pub fn set_theft_fee_max(origin: OriginFor<T>, fee_max: UnsignedInner<T>) -> DispatchResultWithPostInfo {
+            ensure_root(origin)?;
+            TheftFeeMax::<T>::put(fee_max);
+            Ok(().into())
+        }
     }
 }
 
@@ -278,7 +430,11 @@ impl<T: Config> Pallet<T> {
     /// This actually does computation. If you need to keep using it, then make sure you cache the
     /// value and only call this once.
     pub fn fee_pool_account_id() -> T::AccountId {
-        <T as Config>::FeePalletId::get().into_account()
+        <T as Config>::FeePalletId::get().into_account_truncating()
+    }
+
+    pub fn get_max_expected_value() -> UnsignedFixedPoint<T> {
+        <T as Config>::MaxExpectedValue::get()
     }
 
     // Public functions exposed to other pallets

@@ -1,24 +1,34 @@
 //! RPC interface for the BtcRelay Module.
 
 use codec::Codec;
-use jsonrpc_core::{Error as RpcError, ErrorCode, Result as JsonRpcResult};
-use jsonrpc_derive::rpc;
+use jsonrpsee::{
+    core::{async_trait, Error as JsonRpseeError, RpcResult},
+    proc_macros::rpc,
+    types::error::{CallError, ErrorCode, ErrorObject},
+};
 use sp_api::ProvideRuntimeApi;
 use sp_blockchain::HeaderBackend;
 use sp_runtime::{generic::BlockId, traits::Block as BlockT, DispatchError};
 use std::sync::Arc;
 
-pub use self::gen_client::Client as RefundClient;
 pub use module_btc_relay_rpc_runtime_api::BtcRelayApi as BtcRelayRuntimeApi;
 
-#[rpc]
+#[rpc(client, server)]
 pub trait BtcRelayApi<BlockHash, H256Le> {
-    #[rpc(name = "btcRelay_verifyBlockHeaderInclusion")]
+    #[method(name = "btcRelay_verifyBlockHeaderInclusion")]
     fn verify_block_header_inclusion(
         &self,
         block_hash: H256Le,
         at: Option<BlockHash>,
-    ) -> JsonRpcResult<Result<(), DispatchError>>;
+    ) -> RpcResult<Result<(), DispatchError>>;
+}
+
+fn internal_err<T: ToString>(message: T) -> JsonRpseeError {
+    JsonRpseeError::Call(CallError::Custom(ErrorObject::owned(
+        ErrorCode::InternalError.code(),
+        message.to_string(),
+        None::<()>,
+    )))
 }
 
 /// A struct that implements the [`BtcRelayApi`].
@@ -37,19 +47,8 @@ impl<C, B> BtcRelay<C, B> {
     }
 }
 
-pub enum Error {
-    RuntimeError,
-}
-
-impl From<Error> for i64 {
-    fn from(e: Error) -> i64 {
-        match e {
-            Error::RuntimeError => 1,
-        }
-    }
-}
-
-impl<C, Block, H256Le> BtcRelayApi<<Block as BlockT>::Hash, H256Le> for BtcRelay<C, Block>
+#[async_trait]
+impl<C, Block, H256Le> BtcRelayApiServer<<Block as BlockT>::Hash, H256Le> for BtcRelay<C, Block>
 where
     Block: BlockT,
     C: Send + Sync + 'static + ProvideRuntimeApi<Block> + HeaderBackend<Block>,
@@ -60,15 +59,11 @@ where
         &self,
         block_hash: H256Le,
         at: Option<<Block as BlockT>::Hash>,
-    ) -> JsonRpcResult<Result<(), DispatchError>> {
+    ) -> RpcResult<Result<(), DispatchError>> {
         let api = self.client.runtime_api();
         let at = BlockId::hash(at.unwrap_or_else(|| self.client.info().best_hash));
 
         api.verify_block_header_inclusion(&at, block_hash)
-            .map_err(|e| RpcError {
-                code: ErrorCode::ServerError(Error::RuntimeError.into()),
-                message: "Unable to verify block header inclusion".into(),
-                data: Some(format!("{:?}", e).into()),
-            })
+            .map_err(|e| internal_err(format!("execution error: Unable to dry run extrinsic {:?}", e)))
     }
 }

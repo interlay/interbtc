@@ -13,8 +13,8 @@ use currency::Amount;
 use frame_support::{
     dispatch::{DispatchError, DispatchResult},
     traits::{
-        ConstU32, Contains, Currency as PalletCurrency, EnsureOneOf, EnsureOrigin, EqualPrivilegeOnly,
-        ExistenceRequirement, Imbalance, OnUnbalanced,
+        ConstU32, Contains, Currency as PalletCurrency, EnsureOneOf, EnsureOrigin, EnsureOriginWithArg,
+        EqualPrivilegeOnly, ExistenceRequirement, Imbalance, OnUnbalanced,
     },
     weights::ConstantMultiplier,
     PalletId,
@@ -23,6 +23,7 @@ use frame_system::{
     limits::{BlockLength, BlockWeights},
     EnsureRoot, RawOrigin,
 };
+pub use orml_asset_registry::AssetMetadata;
 use orml_asset_registry::SequentialId;
 use orml_traits::parameter_type_with_key;
 use pallet_transaction_payment::{Multiplier, TargetedFeeAdjustment};
@@ -88,7 +89,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     spec_name: create_runtime_str!("interlay-parachain"),
     impl_name: create_runtime_str!("interlay-parachain"),
     authoring_version: 1,
-    spec_version: 3, // 1.14.1
+    spec_version: 4, // 1.15.0
     impl_version: 1,
     transaction_version: 2, // added preimage
     apis: RUNTIME_API_VERSIONS,
@@ -398,7 +399,7 @@ impl EnsureOrigin<Origin> for EnsureKintsugiLabs {
 
     #[cfg(feature = "runtime-benchmarks")]
     fn successful_origin() -> Origin {
-        Origin::from(RawOrigin::Signed(Default::default()))
+        Origin::from(RawOrigin::None)
     }
 }
 
@@ -638,19 +639,19 @@ parameter_types! {
 
 parameter_types! {
     // wd9yNSwR5jsJWJNNuqYxifekh2dwu9u15Sr1tP5kmKTJBLc4R
-    pub FeeAccount: AccountId = FeePalletId::get().into_account();
+    pub FeeAccount: AccountId = FeePalletId::get().into_account_truncating();
     // wd9yNSwR5jsJWJmaV4ccaRqdxXFTJUS4shu7RMuSVk3c5F3f4
-    pub SupplyAccount: AccountId = SupplyPalletId::get().into_account();
+    pub SupplyAccount: AccountId = SupplyPalletId::get().into_account_truncating();
     // wd9yNSwR495PKYxKfdeuMcNyu6kqay7wKeWcLMvQ8muuWVPYj
-    pub EscrowAnnuityAccount: AccountId = EscrowAnnuityPalletId::get().into_account();
+    pub EscrowAnnuityAccount: AccountId = EscrowAnnuityPalletId::get().into_account_truncating();
     // wd9yNSwR7YL4Y4PEtY4pUxYR2jeVdsgwyoN8fwVc9196VMAt4
-    pub VaultAnnuityAccount: AccountId = VaultAnnuityPalletId::get().into_account();
+    pub VaultAnnuityAccount: AccountId = VaultAnnuityPalletId::get().into_account_truncating();
     // wd9yNSwR5jsJWJoLHrMKt4K2T7R5392YmZoRdpqijnpLGzEcT
-    pub TreasuryAccount: AccountId = TreasuryPalletId::get().into_account();
+    pub TreasuryAccount: AccountId = TreasuryPalletId::get().into_account_truncating();
     // wd9yNSwR3jeqTuo91k53PUAcfaqX5ZCK4gCPHa5G3h1y8kBEe
-    pub CollatorSelectionAccount: AccountId = CollatorPotId::get().into_account();
+    pub CollatorSelectionAccount: AccountId = CollatorPotId::get().into_account_truncating();
     // wd9yNSwR5jsJWJrtHcnS8Wf6D5zF2dbQhxwRuvAzg9jefbhuM
-    pub VaultRegistryAccount: AccountId = VaultRegistryPalletId::get().into_account();
+    pub VaultRegistryAccount: AccountId = VaultRegistryPalletId::get().into_account_truncating();
 }
 
 pub fn get_all_module_accounts() -> Vec<AccountId> {
@@ -694,6 +695,22 @@ impl orml_tokens::Config for Runtime {
     type DustRemovalWhitelist = DustRemovalWhitelist;
     type MaxReserves = ConstU32<0>; // we don't use named reserves
     type ReserveIdentifier = (); // we don't use named reserves
+    type OnNewTokenAccount = ();
+    type OnKilledTokenAccount = ();
+}
+
+pub struct AssetAuthority;
+impl EnsureOriginWithArg<Origin, Option<u32>> for AssetAuthority {
+    type Success = ();
+
+    fn try_origin(origin: Origin, _asset_id: &Option<u32>) -> Result<Self::Success, Origin> {
+        EnsureRoot::try_origin(origin)
+    }
+
+    #[cfg(feature = "runtime-benchmarks")]
+    fn successful_origin(_asset_id: &Option<u32>) -> Origin {
+        EnsureRoot::successful_origin()
+    }
 }
 
 impl orml_asset_registry::Config for Runtime {
@@ -702,7 +719,7 @@ impl orml_asset_registry::Config for Runtime {
     type CustomMetadata = primitives::CustomMetadata;
     type AssetProcessor = SequentialId<Runtime>;
     type AssetId = primitives::ForeignAssetId;
-    type AuthorityOrigin = EnsureRoot<AccountId>;
+    type AuthorityOrigin = AssetAuthority;
     type WeightInfo = ();
 }
 
@@ -757,6 +774,13 @@ impl supply::Config for Runtime {
     type OnInflation = DealWithRewards;
 }
 
+pub struct TotalWrapped;
+impl Get<Balance> for TotalWrapped {
+    fn get() -> Balance {
+        orml_tokens::CurrencyAdapter::<Runtime, GetWrappedCurrencyId>::total_issuance()
+    }
+}
+
 parameter_types! {
     pub const EmissionPeriod: BlockNumber = YEARS;
 }
@@ -765,12 +789,19 @@ pub struct EscrowBlockRewardProvider;
 
 impl annuity::BlockRewardProvider<AccountId> for EscrowBlockRewardProvider {
     type Currency = NativeCurrency;
+
+    #[cfg(feature = "runtime-benchmarks")]
+    fn deposit_stake(from: &AccountId, amount: Balance) -> DispatchResult {
+        <EscrowRewards as reward::Rewards<AccountId, Balance, CurrencyId>>::deposit_stake(from, amount)
+    }
+
     fn distribute_block_reward(_from: &AccountId, amount: Balance) -> DispatchResult {
         <EscrowRewards as reward::Rewards<AccountId, Balance, CurrencyId>>::distribute_reward(
             amount,
             GetNativeCurrencyId::get(),
         )
     }
+
     fn withdraw_reward(who: &AccountId) -> Result<Balance, DispatchError> {
         <EscrowRewards as reward::Rewards<AccountId, Balance, CurrencyId>>::withdraw_reward(
             who,
@@ -788,6 +819,7 @@ impl annuity::Config<EscrowAnnuityInstance> for Runtime {
     type BlockRewardProvider = EscrowBlockRewardProvider;
     type BlockNumberToBalance = BlockNumberToBalance;
     type EmissionPeriod = EmissionPeriod;
+    type TotalWrapped = TotalWrapped;
     type WeightInfo = ();
 }
 
@@ -795,6 +827,13 @@ pub struct VaultBlockRewardProvider;
 
 impl annuity::BlockRewardProvider<AccountId> for VaultBlockRewardProvider {
     type Currency = NativeCurrency;
+
+    #[cfg(feature = "runtime-benchmarks")]
+    fn deposit_stake(_from: &AccountId, _amount: Balance) -> DispatchResult {
+        // TODO: fix for vault id
+        Ok(())
+    }
+
     fn distribute_block_reward(from: &AccountId, amount: Balance) -> DispatchResult {
         // TODO: remove fee pallet?
         Self::Currency::transfer(from, &FeeAccount::get(), amount, ExistenceRequirement::KeepAlive)?;
@@ -803,6 +842,7 @@ impl annuity::BlockRewardProvider<AccountId> for VaultBlockRewardProvider {
             GetNativeCurrencyId::get(),
         )
     }
+
     fn withdraw_reward(_: &AccountId) -> Result<Balance, DispatchError> {
         Err(sp_runtime::TokenError::Unsupported.into())
     }
@@ -817,6 +857,7 @@ impl annuity::Config<VaultAnnuityInstance> for Runtime {
     type BlockRewardProvider = VaultBlockRewardProvider;
     type BlockNumberToBalance = BlockNumberToBalance;
     type EmissionPeriod = EmissionPeriod;
+    type TotalWrapped = TotalWrapped;
     type WeightInfo = ();
 }
 
@@ -949,6 +990,10 @@ impl oracle::Config for Runtime {
     type WeightInfo = ();
 }
 
+parameter_types! {
+    pub const MaxExpectedValue: UnsignedFixedPoint = UnsignedFixedPoint::from_inner(<UnsignedFixedPoint as FixedPointNumber>::DIV);
+}
+
 impl fee::Config for Runtime {
     type FeePalletId = FeePalletId;
     type WeightInfo = ();
@@ -959,6 +1004,7 @@ impl fee::Config for Runtime {
     type VaultRewards = VaultRewards;
     type VaultStaking = VaultStaking;
     type OnSweep = currency::SweepFunds<Runtime, FeeAccount>;
+    type MaxExpectedValue = MaxExpectedValue;
 }
 
 pub use refund::{Event as RefundEvent, RefundRequest};
