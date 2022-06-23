@@ -251,7 +251,7 @@ fn integration_test_governance_fast_track() {
         // create motion to fast-track simple-majority referendum
         assert_ok!(Call::TechnicalCommittee(TechnicalCommitteeCall::propose {
             threshold: 1, // member count
-            proposal: Box::new(Call::Democracy(DemocracyCall::fast_track_proposal {
+            proposal: Box::new(Call::Democracy(DemocracyCall::fast_track {
                 prop_index: assert_democracy_proposed_event(),
                 delay: <Runtime as democracy::Config>::EnactmentPeriod::get()
             })),
@@ -779,7 +779,7 @@ fn integration_test_proposal_vkint_gets_released_on_fast_track() {
 
         assert_ok!(Call::TechnicalCommittee(TechnicalCommitteeCall::propose {
             threshold: 1, // member count
-            proposal: Box::new(Call::Democracy(DemocracyCall::fast_track_proposal {
+            proposal: Box::new(Call::Democracy(DemocracyCall::fast_track {
                 prop_index: assert_democracy_proposed_event(),
                 delay: <Runtime as democracy::Config>::EnactmentPeriod::get()
             })),

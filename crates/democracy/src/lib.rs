@@ -65,7 +65,7 @@
 //!
 //! This call can only be made by the `FastTrackOrigin`.
 //!
-//! - `fast_track_proposal` - Schedules the current externally proposed proposal that is "majority-carries" to become a
+//! - `fast_track` - Schedules the current externally proposed proposal that is "majority-carries" to become a
 //!   referendum immediately.
 //! - `fast_track_referendum` - Schedules an active referendum to end in `FastTrackVotingPeriod`
 //!  blocks.
@@ -330,7 +330,7 @@ pub mod pallet {
         /// A referendum has begun. \[ref_index, threshold\]
         Started(ReferendumIndex, VoteThreshold),
         /// A proposal has been fast tracked. \[ref_index\]
-        FastTrackProposal(ReferendumIndex),
+        FastTrack(ReferendumIndex),
         /// A referendum has been fast tracked. \[ref_index\]
         FastTrackReferendum(ReferendumIndex),
         /// A proposal has been approved by referendum. \[ref_index\]
@@ -508,8 +508,8 @@ pub mod pallet {
         /// Emits `Started`.
         ///
         /// Weight: `O(1)`
-        #[pallet::weight(T::WeightInfo::fast_track_proposal())]
-        pub fn fast_track_proposal(
+        #[pallet::weight(T::WeightInfo::fast_track())]
+        pub fn fast_track(
             origin: OriginFor<T>,
             #[pallet::compact] prop_index: PropIndex,
             delay: T::BlockNumber,
@@ -541,7 +541,7 @@ pub mod pallet {
                 VoteThreshold::SuperMajorityAgainst,
                 delay,
             );
-            Self::deposit_event(Event::<T>::FastTrackProposal(ref_index));
+            Self::deposit_event(Event::<T>::FastTrack(ref_index));
             Ok(())
         }
 

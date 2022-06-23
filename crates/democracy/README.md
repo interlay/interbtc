@@ -72,7 +72,7 @@ Preimage actions:
 
 These calls can only be made by the `FastTrackOrigin`.
 
-- `fast_track_proposal` - Schedules the current externally proposed proposal that
+- `fast_track` - Schedules the current externally proposed proposal that
   is "majority-carries" to become a referendum immediately.
 - `fast_track_referendum` - Schedules an active referendum to end in `FastTrackVotingPeriod` 
   blocks.

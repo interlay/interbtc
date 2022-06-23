@@ -37,7 +37,7 @@ pub trait WeightInfo {
 	fn external_propose(v: u32, ) -> Weight;
 	fn external_propose_majority() -> Weight;
 	fn external_propose_default() -> Weight;
-	fn fast_track_proposal() -> Weight;
+	fn fast_track() -> Weight;
 	fn fast_track_referendum() -> Weight;
 	fn veto_external(v: u32, ) -> Weight;
 	fn cancel_proposal(p: u32, ) -> Weight;
@@ -139,7 +139,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Storage: Democracy NextExternal (r:1 w:1)
 	// Storage: Democracy ReferendumCount (r:1 w:1)
 	// Storage: Democracy ReferendumInfoOf (r:0 w:1)
-	fn fast_track_proposal() -> Weight {
+	fn fast_track() -> Weight {
 		(29_129_000 as Weight)
 			.saturating_add(T::DbWeight::get().reads(2 as Weight))
 			.saturating_add(T::DbWeight::get().writes(3 as Weight))
@@ -380,7 +380,7 @@ impl WeightInfo for () {
 	// Storage: Democracy NextExternal (r:1 w:1)
 	// Storage: Democracy ReferendumCount (r:1 w:1)
 	// Storage: Democracy ReferendumInfoOf (r:0 w:1)
-	fn fast_track_proposal() -> Weight {
+	fn fast_track() -> Weight {
 		(29_129_000 as Weight)
 			.saturating_add(RocksDbWeight::get().reads(2 as Weight))
 			.saturating_add(RocksDbWeight::get().writes(3 as Weight))
