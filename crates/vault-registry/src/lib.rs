@@ -791,7 +791,7 @@ impl<T: Config> Pallet<T> {
         vault.set_custom_secure_threshold(new_threshold)
     }
 
-    pub fn get_custom_secure_threshold(vault_id: &DefaultVaultId<T>) -> Result<UnsignedFixedPoint<T>, DispatchError> {
+    pub fn get_vault_secure_threshold(vault_id: &DefaultVaultId<T>) -> Result<UnsignedFixedPoint<T>, DispatchError> {
         let global_threshold =
             Self::secure_collateral_threshold(&vault_id.currencies).ok_or(Error::<T>::ThresholdNotSet)?;
         let vault = Self::get_vault_from_id(&vault_id)?;
