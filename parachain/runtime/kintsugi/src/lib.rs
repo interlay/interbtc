@@ -303,20 +303,19 @@ mod migrate_aura {
         <Invulnerables<Runtime>>::put(invulnerables);
     }
 
-    fn pallet_session_build(keys: Vec<(AccountId, SessionKeys)>) {
+    fn pallet_session_build(keys: Vec<(AccountId, SessionKeys)>) -> DispatchResult {
         for (account, keys) in keys.iter().cloned() {
-            Session::set_keys(Origin::signed(account), keys, vec![]).expect("Session::set_keys failed.");
+            Session::set_keys(Origin::signed(account), keys, vec![])?;
         }
 
         let initial_validators_0 = <CollatorSelection as SessionManager<AccountId>>::new_session_genesis(0)
             .unwrap_or_else(|| keys.iter().map(|x| x.0.clone()).collect());
 
-        let queued_keys: Vec<_> = initial_validators_0
-            .iter()
-            .cloned()
-            // this should never panic
-            .map(|v| (v.clone(), load_keys(&v).expect("Validator in session 0 missing keys!")))
-            .collect();
+        let mut queued_keys = Vec::new();
+
+        for v in initial_validators_0.iter().cloned() {
+            queued_keys.push((v.clone(), load_keys(&v).ok_or(frame_support::error::LookupError)?));
+        }
 
         <Runtime as pallet_session::Config>::SessionHandler::on_genesis_session::<SessionKeys>(&queued_keys);
 
@@ -324,6 +323,8 @@ mod migrate_aura {
         <QueuedKeys<Runtime>>::put(queued_keys);
 
         <CollatorSelection as SessionManager<AccountId>>::start_session(0);
+
+        Ok(())
     }
 
     pub(crate) fn should_run_upgrade() -> bool {
@@ -333,7 +334,9 @@ mod migrate_aura {
 
     pub(crate) fn on_runtime_upgrade() -> frame_support::weights::Weight {
         // fetch current authorities from Aura
-        let invulnerables = pallet_aura::Pallet::<Runtime>::authorities()
+        let authorities = pallet_aura::Pallet::<Runtime>::authorities();
+        let invulnerables = authorities
+            .clone()
             .into_inner()
             .into_iter()
             .filter_map(|pk| {
@@ -342,6 +345,7 @@ mod migrate_aura {
                     .and_then(|account_id| Some((account_id, pk)))
             })
             .collect::<Vec<(AccountId, AuraId)>>();
+
         // clear aura authorities to prevent panic on session build
         frame_support::migration::remove_storage_prefix(b"Aura", b"Authorities", &[]);
 
@@ -349,7 +353,7 @@ mod migrate_aura {
         pallet_collator_selection_build(invulnerables.iter().cloned().map(|(acc, _)| acc).collect());
 
         // do Session GenesisBuild
-        pallet_session_build(
+        if let Err(err) = pallet_session_build(
             invulnerables
                 .iter()
                 .cloned()
@@ -360,7 +364,13 @@ mod migrate_aura {
                     )
                 })
                 .collect(),
-        );
+        ) {
+            log::info!(target: "kintsugi_runtime", "Aura migration failed: {:?}", err);
+            // something went wrong, reset the authorities
+            frame_support::migration::put_storage_value(b"Aura", b"Authorities", &[], authorities);
+        } else {
+            log::info!(target: "kintsugi_runtime", "Aura migration successful");
+        }
 
         // TODO: define actual weight
         Default::default()
