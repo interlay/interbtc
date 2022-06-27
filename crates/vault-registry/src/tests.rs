@@ -1,6 +1,8 @@
 use crate::{
-    ext, mock::*, types::BalanceOf, BtcPublicKey, CurrencySource, DefaultVaultId, DispatchError, Error, UpdatableVault,
-    Vault, VaultStatus,
+    ext,
+    mock::*,
+    types::{BalanceOf, UpdatableVault},
+    BtcPublicKey, CurrencySource, DefaultVaultId, DispatchError, Error, Vault, VaultStatus,
 };
 use codec::Decode;
 use currency::Amount;

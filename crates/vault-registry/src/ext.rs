@@ -68,17 +68,12 @@ pub(crate) mod reward {
     use frame_support::dispatch::DispatchError;
     use reward::Rewards;
 
-    pub fn deposit_stake<T: crate::Config>(
-        vault_id: &DefaultVaultId<T>,
-        amount: &Amount<T>,
-    ) -> Result<(), DispatchError> {
-        T::VaultRewards::deposit_stake(vault_id, amount.amount())
+    pub fn set_stake<T: crate::Config>(vault_id: &DefaultVaultId<T>, amount: &Amount<T>) -> Result<(), DispatchError> {
+        T::VaultRewards::set_stake(vault_id, amount.amount())
     }
 
-    pub fn withdraw_stake<T: crate::Config>(
-        vault_id: &DefaultVaultId<T>,
-        amount: &Amount<T>,
-    ) -> Result<(), DispatchError> {
-        T::VaultRewards::withdraw_stake(vault_id, amount.amount())
+    #[cfg(feature = "integration-tests")]
+    pub fn get_stake<T: crate::Config>(vault_id: &DefaultVaultId<T>) -> Result<crate::BalanceOf<T>, DispatchError> {
+        T::VaultRewards::get_stake(vault_id)
     }
 }

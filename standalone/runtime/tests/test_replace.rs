@@ -48,6 +48,8 @@ fn test_with<R>(execute: impl Fn(VaultId, VaultId) -> R) {
                 );
                 CoreVaultData::force_to(&other_new_vault_id, default_vault_state(&other_new_vault_id));
             }
+            VaultRegistryPallet::collateral_integrity_check();
+
             execute(old_vault_id, new_vault_id)
         })
     };
@@ -66,6 +68,8 @@ fn test_without_initialization<R>(execute: impl Fn(CurrencyId) -> R) {
 }
 
 pub fn withdraw_replace(old_vault_id: &VaultId, amount: Amount<Runtime>) -> DispatchResultWithPostInfo {
+    VaultRegistryPallet::collateral_integrity_check();
+
     Call::Replace(ReplaceCall::withdraw_replace {
         currency_pair: old_vault_id.currencies.clone(),
         amount: amount.amount(),

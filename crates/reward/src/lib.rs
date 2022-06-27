@@ -21,7 +21,7 @@ use primitives::{BalanceToFixedPoint, TruncateFixedPointToInt};
 use scale_info::TypeInfo;
 use sp_arithmetic::FixedPointNumber;
 use sp_runtime::{
-    traits::{CheckedAdd, CheckedDiv, CheckedMul, CheckedSub, MaybeSerializeDeserialize, Zero},
+    traits::{CheckedAdd, CheckedDiv, CheckedMul, CheckedSub, MaybeSerializeDeserialize, Saturating, Zero},
     ArithmeticError,
 };
 use sp_std::{convert::TryInto, fmt::Debug};
@@ -306,6 +306,9 @@ pub trait Rewards<AccountId, Balance, CurrencyId> {
     /// Return the stake associated with the `account_id`.
     fn get_stake(account_id: &AccountId) -> Result<Balance, DispatchError>;
 
+    /// Set the stake to `amount` for `account_id` regardless of its current stake.
+    fn set_stake(account_id: &AccountId, amount: Balance) -> DispatchResult;
+
     /// Deposit an `amount` of stake to the `account_id`.
     fn deposit_stake(account_id: &AccountId, amount: Balance) -> DispatchResult;
 
@@ -326,7 +329,7 @@ impl<T, I, Balance> Rewards<T::RewardId, Balance, T::CurrencyId> for Pallet<T, I
 where
     T: Config<I>,
     I: 'static,
-    Balance: BalanceToFixedPoint<SignedFixedPoint<T, I>>,
+    Balance: BalanceToFixedPoint<SignedFixedPoint<T, I>> + Saturating + sp_std::cmp::PartialOrd,
     <T::SignedFixedPoint as FixedPointNumber>::Inner: TryInto<Balance>,
 {
     fn get_stake(reward_id: &T::RewardId) -> Result<Balance, DispatchError> {
@@ -335,6 +338,19 @@ where
             .ok_or(Error::<T, I>::TryIntoIntError)?
             .try_into()
             .map_err(|_| Error::<T, I>::TryIntoIntError.into())
+    }
+
+    fn set_stake(reward_id: &T::RewardId, amount: Balance) -> DispatchResult {
+        let current_stake = <Self as Rewards<T::RewardId, Balance, T::CurrencyId>>::get_stake(reward_id)?;
+        if current_stake < amount {
+            let additional_stake = amount.saturating_sub(current_stake);
+            <Self as Rewards<T::RewardId, Balance, T::CurrencyId>>::deposit_stake(reward_id, additional_stake)
+        } else if current_stake > amount {
+            let surplus_stake = current_stake.saturating_sub(amount);
+            <Self as Rewards<T::RewardId, Balance, T::CurrencyId>>::withdraw_stake(reward_id, surplus_stake)
+        } else {
+            Ok(())
+        }
     }
 
     fn deposit_stake(reward_id: &T::RewardId, amount: Balance) -> DispatchResult {

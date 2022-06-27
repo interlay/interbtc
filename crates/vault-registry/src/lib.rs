@@ -30,7 +30,7 @@ use primitives::VaultCurrencyPair;
 
 use crate::types::{
     BalanceOf, BtcAddress, ClientRelease, CurrencyId, DefaultSystemVault, RichSystemVault, RichVault, SignedInner,
-    UnsignedFixedPoint, UpdatableVault, Version,
+    UnsignedFixedPoint, Version,
 };
 
 use crate::types::DefaultVaultCurrencyPair;
@@ -1080,7 +1080,7 @@ impl<T: Config> Pallet<T> {
 
         let issuable_tokens = vault.issuable_tokens()?;
         ensure!(issuable_tokens.ge(&tokens)?, Error::<T>::ExceedingVaultLimit);
-        vault.increase_to_be_issued(tokens)?;
+        vault.request_issue_tokens(tokens)?;
 
         Self::deposit_event(Event::<T>::IncreaseToBeIssuedTokens {
             vault_id: vault.id(),
@@ -1177,7 +1177,7 @@ impl<T: Config> Pallet<T> {
     /// * `tokens` - the amount of tokens to be unreserved
     pub fn decrease_to_be_issued_tokens(vault_id: &DefaultVaultId<T>, tokens: &Amount<T>) -> DispatchResult {
         let mut vault = Self::get_rich_vault_from_id(vault_id)?;
-        vault.decrease_to_be_issued(tokens)?;
+        vault.cancel_issue_tokens(tokens)?;
 
         Self::deposit_event(Event::<T>::DecreaseToBeIssuedTokens {
             vault_id: vault_id.clone(),
@@ -1199,7 +1199,7 @@ impl<T: Config> Pallet<T> {
     /// * `InsufficientTokensCommitted` - if the amount of tokens reserved is too low
     pub fn issue_tokens(vault_id: &DefaultVaultId<T>, tokens: &Amount<T>) -> DispatchResult {
         let mut vault = Self::get_rich_vault_from_id(&vault_id)?;
-        vault.issue_tokens(tokens)?;
+        vault.execute_issue_tokens(tokens)?;
         Self::deposit_event(Event::<T>::IssueTokens {
             vault_id: vault.id(),
             increase: tokens.amount(),
@@ -1226,7 +1226,7 @@ impl<T: Config> Pallet<T> {
         let redeemable = vault.issued_tokens().checked_sub(&vault.to_be_redeemed_tokens())?;
         ensure!(redeemable.ge(&tokens)?, Error::<T>::InsufficientTokensCommitted);
 
-        vault.increase_to_be_redeemed(tokens)?;
+        vault.request_redeem_tokens(tokens)?;
 
         Self::deposit_event(Event::<T>::IncreaseToBeRedeemedTokens {
             vault_id: vault.id(),
@@ -1246,7 +1246,7 @@ impl<T: Config> Pallet<T> {
     /// * `InsufficientTokensCommitted` - if the amount of to-be-redeemed tokens is too low
     pub fn decrease_to_be_redeemed_tokens(vault_id: &DefaultVaultId<T>, tokens: &Amount<T>) -> DispatchResult {
         let mut vault = Self::get_rich_vault_from_id(&vault_id)?;
-        vault.decrease_to_be_redeemed(tokens)?;
+        vault.cancel_redeem_tokens(tokens)?;
 
         Self::deposit_event(Event::<T>::DecreaseToBeRedeemedTokens {
             vault_id: vault.id(),
@@ -1267,7 +1267,7 @@ impl<T: Config> Pallet<T> {
     pub fn decrease_tokens(vault_id: &DefaultVaultId<T>, user_id: &T::AccountId, tokens: &Amount<T>) -> DispatchResult {
         // decrease to-be-redeemed and issued
         let mut vault = Self::get_rich_vault_from_id(&vault_id)?;
-        vault.decrease_tokens(tokens)?;
+        vault.execute_redeem_tokens(tokens)?;
 
         Self::deposit_event(Event::<T>::DecreaseTokens {
             vault_id: vault.id(),
@@ -1306,8 +1306,7 @@ impl<T: Config> Pallet<T> {
         // need to read before we decrease it
         let to_be_redeemed_tokens = vault.to_be_redeemed_tokens();
 
-        vault.decrease_to_be_redeemed(tokens)?;
-        vault.decrease_issued(tokens)?;
+        vault.execute_redeem_tokens(tokens)?;
 
         if !vault.data.is_liquidated() {
             if premium.is_zero() {
@@ -1396,7 +1395,7 @@ impl<T: Config> Pallet<T> {
 
         // need to requery since the liquidation vault gets modified in `transfer_funds`
         let mut liquidation_vault = Self::get_rich_liquidation_vault(&currency_pair);
-        liquidation_vault.decrease_issued(amount_wrapped)?;
+        liquidation_vault.burn_issued(amount_wrapped)?;
 
         Self::deposit_event(Event::<T>::RedeemTokensLiquidation {
             redeemer_id: redeemer_id.clone(),
@@ -1441,8 +1440,8 @@ impl<T: Config> Pallet<T> {
             ext::staking::deposit_stake::<T>(old_vault_id, &old_vault_id.account_id, &to_be_released)?;
         }
 
-        old_vault.decrease_tokens(tokens)?;
-        new_vault.issue_tokens(tokens)?;
+        old_vault.execute_redeem_tokens(tokens)?;
+        new_vault.execute_issue_tokens(tokens)?;
 
         Self::deposit_event(Event::<T>::ReplaceTokens {
             old_vault_id: old_vault_id.clone(),
@@ -1486,8 +1485,8 @@ impl<T: Config> Pallet<T> {
             )?;
         }
 
-        old_vault.decrease_to_be_redeemed(tokens)?;
-        new_vault.decrease_to_be_issued(tokens)?;
+        old_vault.cancel_redeem_tokens(tokens)?;
+        new_vault.cancel_issue_tokens(tokens)?;
 
         Ok(())
     }
@@ -2044,6 +2043,14 @@ impl<T: Config> Pallet<T> {
 
             let reserved = ext::currency::get_reserved_balance(vault_id.collateral_currency(), &vault_id.account_id);
             assert!(reserved.ge(&backing_collateral).unwrap());
+
+            let rich_vault: RichVault<T> = vault.clone().into();
+            let rewarding_tokens = rich_vault.issued_tokens() - rich_vault.to_be_redeemed_tokens();
+
+            assert_eq!(
+                ext::reward::get_stake::<T>(&vault_id).unwrap(),
+                rewarding_tokens.amount()
+            );
         }
     }
 

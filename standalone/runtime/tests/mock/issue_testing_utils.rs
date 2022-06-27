@@ -114,14 +114,18 @@ impl ExecuteIssueBuilder {
     }
 
     pub fn execute_prepared(&self) -> DispatchResultWithPostInfo {
+        VaultRegistryPallet::collateral_integrity_check();
+
         if let Some((proof, raw_tx)) = &self.execution_tx {
             // alice executes the issuerequest by confirming the btc transaction
-            Call::Issue(IssueCall::execute_issue {
+            let ret = Call::Issue(IssueCall::execute_issue {
                 issue_id: self.issue_id,
                 merkle_proof: proof.to_vec(),
                 raw_tx: raw_tx.to_vec(),
             })
-            .dispatch(origin_of(self.submitter.clone()))
+            .dispatch(origin_of(self.submitter.clone()));
+            VaultRegistryPallet::collateral_integrity_check();
+            ret
         } else {
             panic!("Backing transaction was not prepared prior to execution!");
         }
