@@ -910,7 +910,7 @@ impl<T: Config> Pallet<T> {
         };
 
         let is_below_threshold =
-            Pallet::<T>::is_collateral_below_secure_threshold(&new_collateral, &vault.backed_tokens()?)?;
+            Pallet::<T>::is_collateral_below_vault_secure_threshold(&new_collateral, &vault.backed_tokens()?, &vault)?;
         Ok(!is_below_threshold)
     }
 
@@ -1548,7 +1548,8 @@ impl<T: Config> Pallet<T> {
 
     /// Threshold checks
     pub fn is_vault_below_secure_threshold(vault_id: &DefaultVaultId<T>) -> Result<bool, DispatchError> {
-        let threshold = Self::secure_collateral_threshold(&vault_id.currencies).ok_or(Error::<T>::ThresholdNotSet)?;
+        let vault = Self::get_active_rich_vault_from_id(&vault_id)?;
+        let threshold = vault.get_personal_secure_threshold()?;
         Self::is_vault_below_threshold(vault_id, threshold)
     }
 
@@ -1582,6 +1583,16 @@ impl<T: Config> Pallet<T> {
             wrapped: wrapped_amount.currency(),
         };
         let threshold = Self::secure_collateral_threshold(&currency_pair).ok_or(Error::<T>::ThresholdNotSet)?;
+        Self::is_collateral_below_threshold(collateral, wrapped_amount, threshold)
+    }
+
+    /// Takes vault custom secure threshold into account (if set)
+    pub fn is_collateral_below_vault_secure_threshold(
+        collateral: &Amount<T>,
+        wrapped_amount: &Amount<T>,
+        vault: &RichVault<T>,
+    ) -> Result<bool, DispatchError> {
+        let threshold = vault.get_personal_secure_threshold()?;
         Self::is_collateral_below_threshold(collateral, wrapped_amount, threshold)
     }
 
@@ -1789,20 +1800,6 @@ impl<T: Config> Pallet<T> {
     /// Get the amount of collateral required for the given vault to be at the
     /// current SecureCollateralThreshold with the current exchange rate
     pub fn get_required_collateral_for_vault(vault_id: DefaultVaultId<T>) -> Result<Amount<T>, DispatchError> {
-        let vault = Self::get_active_rich_vault_from_id(&vault_id)?;
-        let issued_tokens = vault.backed_tokens()?;
-
-        let required_collateral =
-            Self::get_required_collateral_for_wrapped(&issued_tokens, vault_id.currencies.collateral)?;
-
-        Ok(required_collateral)
-    }
-
-    /// Get the amount of collateral required for the given vault to be at its
-    /// custom SecureCollateralThreshold with the current exchange rate
-    pub fn get_required_collateral_for_vault_with_custom_threshold(
-        vault_id: DefaultVaultId<T>,
-    ) -> Result<Amount<T>, DispatchError> {
         let vault = Self::get_active_rich_vault_from_id(&vault_id)?;
         let issued_tokens = vault.backed_tokens()?;
 

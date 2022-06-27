@@ -1513,11 +1513,6 @@ impl_runtime_apis! {
             let result = VaultRegistry::get_required_collateral_for_vault(vault_id)?;
             Ok(BalanceWrapper{amount:result.amount()})
         }
-
-        fn get_required_collateral_for_vault_with_custom_threshold(vault_id: VaultId) -> Result<BalanceWrapper<Balance>, DispatchError> {
-            let result = VaultRegistry::get_required_collateral_for_vault_with_custom_threshold(vault_id)?;
-            Ok(BalanceWrapper{amount:result.amount()})
-        }
     }
 
     impl module_issue_rpc_runtime_api::IssueApi<

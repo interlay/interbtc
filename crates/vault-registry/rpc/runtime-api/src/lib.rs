@@ -49,9 +49,5 @@ sp_api::decl_runtime_apis! {
         /// Get the amount of collateral required for the given vault to be at the
         /// current SecureCollateralThreshold with the current exchange rate
         fn get_required_collateral_for_vault(vault_id: VaultId) -> Result<BalanceWrapper<Balance>, DispatchError>;
-
-        /// Get the amount of collateral required for the given vault to be at its
-        /// custom SecureCollateralThreshold with the current exchange rate
-        fn get_required_collateral_for_vault_with_custom_threshold(vault_id: VaultId) -> Result<BalanceWrapper<Balance>, DispatchError>;
     }
 }
