@@ -2,7 +2,7 @@ mod mock;
 use crate::assert_eq;
 use mock::*;
 
-use democracy::{PropIndex, ReferendumIndex, ReferendumInfo, Vote};
+use democracy::{PropIndex, ReferendumIndex, ReferendumInfo, ReferendumStatus, Tally, Vote, VoteThreshold};
 use frame_support::traits::{Currency, Hooks};
 use orml_vesting::VestingSchedule;
 use sp_core::{Encode, Hasher};
@@ -116,7 +116,7 @@ fn assert_technical_committee_executed_event() {
         .expect("execution failed");
 }
 
-fn create_proposal(encoded_proposal: Vec<u8>) {
+fn create_proposal(encoded_proposal: Vec<u8>) -> H256 {
     let proposal_hash = BlakeTwo256::hash(&encoded_proposal[..]);
 
     assert_ok!(
@@ -128,9 +128,11 @@ fn create_proposal(encoded_proposal: Vec<u8>) {
         value: <Runtime as democracy::Config>::MinimumDeposit::get(),
     })
     .dispatch(origin_of(account_of(ALICE))));
+
+    proposal_hash
 }
 
-fn create_set_balance_proposal(amount_to_set: Balance) {
+fn create_set_balance_proposal(amount_to_set: Balance) -> H256 {
     create_proposal(set_balance_proposal(account_of(EVE), amount_to_set))
 }
 
@@ -391,6 +393,48 @@ fn integration_test_governance_voter_can_change_vote() {
         );
         assert!(
             matches!(DemocracyPallet::referendum_info(index), Some(ReferendumInfo::Ongoing(status)) if status.tally.nays == 20_000_000)
+        );
+    });
+}
+
+#[test]
+fn integration_test_fast_track_referendum() {
+    test_with(|| {
+        let amount_to_set = 1000;
+        let proposal_hash = create_set_balance_proposal(amount_to_set);
+
+        let start_height = <Runtime as democracy::Config>::LaunchPeriod::get();
+        DemocracyPallet::on_initialize(start_height);
+        let index = assert_democracy_started_event();
+
+        // create motion to fast-track simple-majority referendum
+        assert_ok!(Call::TechnicalCommittee(TechnicalCommitteeCall::propose {
+            threshold: 1, // member count
+            proposal: Box::new(Call::Democracy(DemocracyCall::fast_track_referendum {
+                ref_index: index,
+            })),
+            length_bound: 100000 // length bound
+        })
+        .dispatch(origin_of(account_of(ALICE))));
+        // should be executed immediately with only one member
+        assert_technical_committee_executed_event();
+
+        let now = SystemPallet::block_number();
+        let fast_track_voting_period = <Runtime as democracy::Config>::FastTrackVotingPeriod::get();
+        let end = now + fast_track_voting_period;
+        assert_eq!(
+            DemocracyPallet::referendum_info(index),
+            Some(ReferendumInfo::Ongoing(ReferendumStatus {
+                end,
+                proposal_hash,
+                threshold: VoteThreshold::SuperMajorityAgainst,
+                delay: <Runtime as democracy::Config>::EnactmentPeriod::get(),
+                tally: Tally {
+                    ayes: 0,
+                    nays: 0,
+                    turnout: 0
+                },
+            }))
         );
     });
 }
