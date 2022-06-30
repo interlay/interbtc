@@ -166,6 +166,10 @@ fn integration_test_issue_with_parachain_shutdown_fails() {
 }
 
 mod request_issue_tests {
+    use std::ops::Add;
+
+    use interbtc_runtime_standalone::UnsignedFixedPoint;
+
     use super::{assert_eq, *};
 
     /// Request fails if parachain is shutdown
@@ -279,7 +283,13 @@ mod request_issue_tests {
     #[test]
     fn integration_test_issue_request_precond_fails_above_capacity() {
         test_with_initialized_vault(|vault_id| {
-            let amount = vault_id.wrapped(1) + VaultRegistryPallet::get_issuable_tokens_from_vault(&vault_id).unwrap();
+            let available_amount = VaultRegistryPallet::get_issuable_tokens_from_vault(&vault_id).unwrap();
+            let amount_one = vault_id.wrapped(1);
+
+            let global_threshold: UnsignedFixedPoint =
+                VaultRegistryPallet::secure_collateral_threshold(&vault_id.currencies).unwrap();
+            let global_threshold_doubled =
+                UnsignedFixedPoint::checked_from_integer(global_threshold.checked_mul_int(2u32).unwrap()).unwrap();
 
             // give the vault a lot of griefing collateral, to check that this isn't available for backing new tokens
             let vault_id = vault_id;
@@ -287,9 +297,42 @@ mod request_issue_tests {
             vault_data.griefing_collateral += griefing(1000000);
             CoreVaultData::force_to(&vault_id, vault_data);
 
+            // set vault custom threshold higher
+            assert_ok!(Call::VaultRegistry(VaultRegistryCall::set_custom_secure_threshold {
+                currency_pair: vault_id.currencies.clone(),
+                custom_threshold: Some(global_threshold_doubled)
+            })
+            .dispatch(origin_of(vault_id.account_id.clone())));
+            let available_amount2 = VaultRegistryPallet::get_issuable_tokens_from_vault(&vault_id).unwrap();
+
+            assert!(available_amount2.lt(&available_amount).unwrap());
+            // check that we can't issue above limit
             assert_noop!(
                 Call::Issue(IssueCall::request_issue {
-                    amount: amount.amount(),
+                    amount: available_amount2.add(amount_one).amount(),
+                    vault_id: vault_id.clone(),
+                })
+                .dispatch(origin_of(account_of(USER))),
+                VaultRegistryError::ExceedingVaultLimit
+            );
+
+            // reset vault threshold
+            assert_ok!(Call::VaultRegistry(VaultRegistryCall::set_custom_secure_threshold {
+                currency_pair: vault_id.currencies.clone(),
+                custom_threshold: None
+            })
+            .dispatch(origin_of(vault_id.account_id.clone())));
+
+            // check that we can issue the earlier amount, now that the threshold is lower
+            assert_ok!(Call::Issue(IssueCall::request_issue {
+                amount: available_amount2.amount(),
+                vault_id: vault_id.clone(),
+            })
+            .dispatch(origin_of(account_of(USER))));
+            // ...but not the full original amount, which would bring us below threshold now
+            assert_noop!(
+                Call::Issue(IssueCall::request_issue {
+                    amount: available_amount.amount(),
                     vault_id: vault_id,
                 })
                 .dispatch(origin_of(account_of(USER))),

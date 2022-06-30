@@ -2027,6 +2027,14 @@ fn get_additional_collateral(vault_id: &VaultId) {
     ));
 }
 
+fn get_a_bit_of_additional_collateral(vault_id: &VaultId) {
+    assert_ok!(VaultRegistryPallet::transfer_funds(
+        CurrencySource::FreeBalance(account_of(FAUCET)),
+        CurrencySource::Collateral(vault_id.clone()),
+        &Amount::new(100_000, vault_id.collateral_currency()),
+    ));
+}
+
 fn setup_cancelable_redeem_with_insufficient_collateral_for_reimburse(vault_id: VaultId) -> H256 {
     let currency_id = vault_id.collateral_currency();
     let amount_btc = vault_id.wrapped(10_000);
@@ -2052,6 +2060,8 @@ fn setup_cancelable_redeem_with_insufficient_collateral_for_reimburse(vault_id: 
 }
 
 mod mint_tokens_for_reimbursed_redeem_equivalence_test {
+    use interbtc_runtime_standalone::UnsignedFixedPoint;
+
     use super::{assert_eq, *};
 
     #[test]
@@ -2084,8 +2094,32 @@ mod mint_tokens_for_reimbursed_redeem_equivalence_test {
             .dispatch(origin_of(account_of(VAULT))));
             ParachainState::get(&vault_id)
         });
+        // scenario 3: insufficient collateral but only due to custom threshold
+        let result3 = test_with(|vault_id| {
+            let redeem_id = setup_cancelable_redeem_with_insufficient_collateral_for_reimburse(vault_id.clone());
+            get_a_bit_of_additional_collateral(&vault_id);
+            assert_ok!(Call::VaultRegistry(VaultRegistryCall::set_custom_secure_threshold {
+                currency_pair: vault_id.currencies.clone(),
+                custom_threshold: UnsignedFixedPoint::checked_from_rational(200, 1),
+            })
+            .dispatch(origin_of(vault_id.account_id.clone())));
+            assert_ok!(Call::Redeem(RedeemCall::cancel_redeem {
+                redeem_id: redeem_id,
+                reimburse: true
+            })
+            .dispatch(origin_of(account_of(USER))));
+            get_additional_collateral(&vault_id);
+            SecurityPallet::set_active_block_number(100000000);
+            assert_ok!(Call::Redeem(RedeemCall::mint_tokens_for_reimbursed_redeem {
+                currency_pair: vault_id.currencies.clone(),
+                redeem_id: redeem_id
+            })
+            .dispatch(origin_of(account_of(VAULT))));
+            ParachainState::get(&vault_id)
+        });
         // the states should be identical
         assert_eq!(result1, result2);
+        assert_eq!(result2, result3);
     }
 }
 

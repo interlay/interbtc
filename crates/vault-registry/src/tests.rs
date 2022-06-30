@@ -827,6 +827,80 @@ fn liquidate_at_most_liquidation_threshold() {
 }
 
 #[test]
+fn can_withdraw_only_up_to_custom_threshold() {
+    run_test(|| {
+        let vault_id = DEFAULT_ID;
+
+        let issued_tokens = 100;
+        let exchange_rate = 10;
+        let secure_threshold = 200u32; // %
+        let custom_threshold = 300u32; // %
+        let minimum_backing_collateral = 100 * 10 * 2;
+        let backing_collateral = 100 * 10 * 3 + 1;
+
+        create_vault_with_collateral(&vault_id, backing_collateral);
+
+        VaultRegistry::_set_secure_collateral_threshold(
+            DEFAULT_CURRENCY_PAIR,
+            FixedU128::checked_from_rational(secure_threshold, 100).unwrap(), // 200%
+        );
+
+        // set custom threshold for vault
+        assert_ok!(VaultRegistry::set_custom_secure_threshold(
+            Origin::signed(vault_id.account_id),
+            DEFAULT_CURRENCY_PAIR,
+            UnsignedFixedPoint::checked_from_rational(custom_threshold, 100),
+        ));
+
+        // set exchange rate
+        convert_to.mock_safe(convert_with_exchange_rate(exchange_rate));
+
+        // issue
+        assert_ok!(VaultRegistry::try_increase_to_be_issued_tokens(
+            &vault_id,
+            &wrapped(issued_tokens)
+        ));
+        assert_ok!(VaultRegistry::issue_tokens(&vault_id, &wrapped(issued_tokens)));
+
+        // should not be able to withdraw below custom threshold
+        assert_err!(
+            VaultRegistry::withdraw_collateral(Origin::signed(vault_id.account_id), vault_id.currencies.clone(), 2),
+            TestError::InsufficientCollateral
+        );
+        // should be able to withdraw up to custom threshold
+        assert_ok!(VaultRegistry::withdraw_collateral(
+            Origin::signed(vault_id.account_id),
+            vault_id.currencies.clone(),
+            1
+        ));
+
+        // reset custom threshold
+        assert_ok!(VaultRegistry::set_custom_secure_threshold(
+            Origin::signed(vault_id.account_id),
+            DEFAULT_CURRENCY_PAIR,
+            None
+        ));
+
+        // should not be able to withdraw below base secure threshold now
+        assert_err!(
+            VaultRegistry::withdraw_collateral(
+                Origin::signed(vault_id.account_id),
+                vault_id.currencies.clone(),
+                backing_collateral - minimum_backing_collateral // will be 1 over
+            ),
+            TestError::InsufficientCollateral
+        );
+
+        // should be able to withdraw to the secure threshold
+        assert_ok!(VaultRegistry::withdraw_collateral(
+            Origin::signed(vault_id.account_id),
+            vault_id.currencies.clone(),
+            backing_collateral - minimum_backing_collateral - 1
+        ));
+    });
+}
+
+#[test]
 fn is_collateral_below_threshold_true_succeeds() {
     run_test(|| {
         let collateral = DEFAULT_COLLATERAL;
