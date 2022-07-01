@@ -272,7 +272,7 @@ pub mod pallet {
         ) -> DispatchResultWithPostInfo {
             let reporter_id = ensure_signed(origin)?;
 
-            // transactions must be unique
+            // Attention: this test fails early before parsing but does NOT ensure uniqueness
             ensure!(raw_txs.0 != raw_txs.1, Error::<T>::DuplicateTransaction);
 
             let parse_and_verify = |raw_tx, raw_proof| -> Result<Transaction, DispatchError> {
@@ -288,6 +288,9 @@ pub mod pallet {
 
             let left_tx_id = left_tx.tx_id();
             let right_tx_id = right_tx.tx_id();
+
+            // transactions must be unique
+            ensure!(left_tx_id != right_tx_id, Error::<T>::DuplicateTransaction);
 
             let vault = ext::vault_registry::get_active_vault_from_id::<T>(&vault_id)?;
             // ensure that the payment is made from one of the registered wallets of the Vault,
