@@ -129,6 +129,59 @@ fn integration_test_report_vault_theft() {
 }
 
 #[test]
+fn prevent_double_payment_force_liquidation() {
+    test_with(|_currency_id| {
+        let issued_tokens = wrapped(10_000);
+        // Register _honest_ vault with hardcoded public key
+        let victim_vault = DAVE;
+        let (vault_public_key_one, _vault_public_key_two) =
+            setup_vault_for_potential_double_spend(issued_tokens, victim_vault, true);
+
+        // User request redeem
+        let redeem_id = setup_redeem(issued_tokens, USER, &default_vault_id_of(victim_vault));
+        let redeem = RedeemPallet::get_open_redeem_request_from_id(&redeem_id).unwrap();
+        let user_btc_address = BtcAddress::P2PKH(H160([2; 20]));
+        let current_block_number = 1;
+
+        // Send the honest redeem transaction
+        let (_tx_id, _tx_block_height, merkle_proof, raw_tx, _) = {
+            register_addresses_and_mine_transaction(
+                default_vault_id_of(victim_vault),
+                vault_public_key_one,
+                vec![],
+                vec![(user_btc_address, redeem.amount_btc())],
+                vec![redeem_id],
+            )
+        };
+
+        // Confirmations
+        SecurityPallet::set_active_block_number(current_block_number + 1 + CONFIRMATIONS);
+
+        // Redeem ok
+        assert_ok!(Call::Redeem(RedeemCall::execute_redeem {
+            redeem_id: redeem_id,
+            merkle_proof: merkle_proof.clone(),
+            raw_tx: raw_tx.clone()
+        })
+        .dispatch(origin_of(account_of(victim_vault))));
+
+        let mut dup_tx = raw_tx.clone();
+        dup_tx.push(0); // any extra bytes
+
+        // Trying to report honest transaction as theft
+        assert_err!(
+            Call::Relay(RelayCall::report_vault_double_payment {
+                vault_id: default_vault_id_of(victim_vault),
+                raw_merkle_proofs: (merkle_proof.clone(), merkle_proof.clone()),
+                raw_txs: (raw_tx, dup_tx),
+            })
+            .dispatch(origin_of(account_of(USER))),
+            RelayError::DuplicateTransaction
+        );
+    });
+}
+
+#[test]
 fn integration_test_double_spend_redeem() {
     test_with(|_currency_id| {
         let issued_tokens = wrapped(10_000);
