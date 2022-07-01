@@ -286,6 +286,7 @@ pub mod pallet {
             let left_tx = parse_and_verify(&raw_txs.0, &raw_merkle_proofs.0)?;
             let right_tx = parse_and_verify(&raw_txs.1, &raw_merkle_proofs.1)?;
 
+            // get tx ids
             let left_tx_id = left_tx.tx_id();
             let right_tx_id = right_tx.tx_id();
 
