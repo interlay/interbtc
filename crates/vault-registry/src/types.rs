@@ -651,6 +651,9 @@ impl<T: Config> RichVault<T> {
                 .ok_or(Error::<T>::ThresholdNotSet)?,
         )?;
 
+        // Clear `to_be_replaced` tokens, since the vault will have no more `issued` or `to_be_issued` tokens.
+        let _ = Pallet::<T>::withdraw_replace_request(&self.data.id, &self.to_be_replaced_tokens())?;
+
         // amount of tokens being backed
         let collateral_tokens = self.backed_tokens()?;
 
