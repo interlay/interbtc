@@ -1,7 +1,6 @@
 //! # Relay Pallet
 //! Based on the [specification](https://spec.interlay.io/spec/relay.html).
 
-#![deny(warnings)]
 #![cfg_attr(test, feature(proc_macro_hygiene))]
 #![cfg_attr(not(feature = "std"), no_std)]
 
@@ -29,7 +28,7 @@ use mocktopus::macros::mockable;
 pub use security;
 
 use crate::types::BalanceOf;
-use bitcoin::{parser::parse_transaction, types::*};
+use bitcoin::types::*;
 use btc_relay::{types::OpReturnPaymentData, BtcAddress};
 use frame_support::{dispatch::DispatchResult, ensure, transactional, weights::Pays};
 use frame_system::ensure_signed;
@@ -223,31 +222,13 @@ pub mod pallet {
             raw_merkle_proof: Vec<u8>,
             raw_tx: Vec<u8>,
         ) -> DispatchResultWithPostInfo {
-            let reporter_id = ensure_signed(origin)?;
+            let _reporter_id = ensure_signed(origin)?;
+            let _silence_vault_id = vault_id;
+            let _silence_raw_merkle_proof = raw_merkle_proof;
+            let _raw_tx = raw_tx;
 
-            let merkle_proof = ext::btc_relay::parse_merkle_proof::<T>(&raw_merkle_proof)?;
-            let transaction = parse_transaction(raw_tx.as_slice()).map_err(|_| Error::<T>::InvalidTransaction)?;
-            let tx_id = transaction.tx_id();
-
-            // throw if already reported
-            ensure!(
-                !<TheftReports<T>>::contains_key(&vault_id, &tx_id),
-                Error::<T>::VaultAlreadyReported,
-            );
-
-            ext::btc_relay::verify_transaction_inclusion::<T>(tx_id, merkle_proof)?;
-            Self::_is_parsed_transaction_invalid(&vault_id, transaction)?;
-
-            ext::vault_registry::liquidate_theft_vault::<T>(&vault_id, reporter_id)?;
-
-            <TheftReports<T>>::mutate(&vault_id, &tx_id, |inner| {
-                let _ = inner.insert(());
-            });
-
-            Self::deposit_event(Event::<T>::VaultTheft { vault_id, tx_id });
-
-            // don't take tx fees on success
-            Ok(Pays::No.into())
+            // always return an error
+            Err(Error::<T>::InvalidTransaction.into())
         }
 
         /// Report Vault double payment, providing two fraud proofs (malicious Bitcoin transactions
@@ -270,66 +251,13 @@ pub mod pallet {
             raw_merkle_proofs: (Vec<u8>, Vec<u8>),
             raw_txs: (Vec<u8>, Vec<u8>),
         ) -> DispatchResultWithPostInfo {
-            let reporter_id = ensure_signed(origin)?;
+            let _reporter_id = ensure_signed(origin)?;
+            let _silence_vault_id = vault_id;
+            let _silence_raw_merkle_proof = raw_merkle_proofs;
+            let _raw_tx = raw_txs;
 
-            // Attention: this test fails early before parsing but does NOT ensure uniqueness
-            ensure!(raw_txs.0 != raw_txs.1, Error::<T>::DuplicateTransaction);
-
-            let parse_and_verify = |raw_tx, raw_proof| -> Result<Transaction, DispatchError> {
-                let merkle_proof = ext::btc_relay::parse_merkle_proof::<T>(raw_proof)?;
-                let transaction = parse_transaction(raw_tx).map_err(|_| Error::<T>::InvalidTransaction)?;
-                // ensure transaction is included
-                ext::btc_relay::verify_transaction_inclusion::<T>(transaction.tx_id(), merkle_proof)?;
-                Ok(transaction)
-            };
-
-            let left_tx = parse_and_verify(&raw_txs.0, &raw_merkle_proofs.0)?;
-            let right_tx = parse_and_verify(&raw_txs.1, &raw_merkle_proofs.1)?;
-
-            let left_tx_id = left_tx.tx_id();
-            let right_tx_id = right_tx.tx_id();
-
-            // transactions must be unique
-            ensure!(left_tx_id != right_tx_id, Error::<T>::DuplicateTransaction);
-
-            let vault = ext::vault_registry::get_active_vault_from_id::<T>(&vault_id)?;
-            // ensure that the payment is made from one of the registered wallets of the Vault,
-            // this prevents a transaction with the same OP_RETURN flagging this Vault for theft
-            ensure!(
-                Self::has_input_from_wallet(&left_tx, &vault.wallet)
-                    && Self::has_input_from_wallet(&right_tx, &vault.wallet),
-                Error::<T>::VaultNoInputToTransaction
-            );
-
-            match (
-                OpReturnPaymentData::<T>::try_from(left_tx),
-                OpReturnPaymentData::<T>::try_from(right_tx),
-            ) {
-                (Ok(left), Ok(right)) => {
-                    // verify that the OP_RETURN matches, amounts are not relevant as Vaults
-                    // might transfer any amount in the theft transaction
-                    ensure!(left.op_return == right.op_return, Error::<T>::ExpectedDuplicate);
-
-                    ext::vault_registry::liquidate_theft_vault::<T>(&vault_id, reporter_id)?;
-
-                    <TheftReports<T>>::mutate(&vault_id, &left_tx_id, |inner| {
-                        let _ = inner.insert(());
-                    });
-                    <TheftReports<T>>::mutate(&vault_id, &right_tx_id, |inner| {
-                        let _ = inner.insert(());
-                    });
-
-                    Self::deposit_event(Event::<T>::VaultDoublePayment {
-                        vault_id,
-                        tx_id_1: left_tx_id,
-                        tx_id_2: right_tx_id,
-                    });
-
-                    // don't take tx fees on success
-                    Ok(Pays::No.into())
-                }
-                _ => Err(Error::<T>::InvalidTransaction.into()),
-            }
+            // always return an error
+            Err(Error::<T>::InvalidTransaction.into())
         }
     }
 }
@@ -388,8 +316,9 @@ impl<T: Config> Pallet<T> {
     /// `vault_id`: the vault.
     /// `raw_tx`: the BTC transaction by the vault.
     pub fn is_transaction_invalid(vault_id: &DefaultVaultId<T>, raw_tx: Vec<u8>) -> DispatchResult {
-        let tx = parse_transaction(raw_tx.as_slice()).map_err(|_| Error::<T>::InvalidTransaction)?;
-        Self::_is_parsed_transaction_invalid(vault_id, tx)
+        let _silence_vault_id = vault_id;
+        let _silence_raw_tx = raw_tx;
+        Err(Error::<T>::InvalidTransaction.into())
     }
 
     /// Check if a vault transaction is invalid. Returns `Ok` if invalid or `Err` otherwise.
