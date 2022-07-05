@@ -336,6 +336,74 @@ fn integration_test_vault_registry_undercollateralization_liquidation() {
 }
 
 #[test]
+fn integration_test_undercollateralized_pending_theft_vault() {
+    test_with(|vault_id| {
+        let stolen_tokens = wrapped(100);
+        let recovery_deadline_block = 2000;
+        let initial_pending_theft_status = VaultStatus::PendingTheft {
+            amount: stolen_tokens.amount(),
+            recovery_deadline_block,
+        };
+
+        let vault_data = CoreVaultData {
+            status: initial_pending_theft_status,
+            ..default_vault_state(&vault_id)
+        };
+
+        CoreVaultData::force_to(&vault_id, vault_data.clone());
+        liquidate_vault(&vault_id);
+        assert_eq!(
+            ParachainState::get(&vault_id),
+            ParachainState::get_default(&vault_id).with_changes(|_, vault, liquidation_vault, _| {
+                let liquidation_vault = liquidation_vault.with_currency(&vault_id.currencies);
+
+                liquidation_vault.collateral = Amount::new(
+                    (default_vault_backing_collateral(vault_id.currencies.collateral).amount()
+                        * (DEFAULT_VAULT_ISSUED + DEFAULT_VAULT_TO_BE_ISSUED - DEFAULT_VAULT_TO_BE_REDEEMED).amount())
+                        / (DEFAULT_VAULT_ISSUED + DEFAULT_VAULT_TO_BE_ISSUED).amount(),
+                    vault_id.currencies.collateral,
+                );
+                liquidation_vault.to_be_issued = vault_id.wrapped(DEFAULT_VAULT_TO_BE_ISSUED.amount());
+                liquidation_vault.issued = vault_id.wrapped(DEFAULT_VAULT_ISSUED.amount());
+                liquidation_vault.to_be_redeemed = vault_id.wrapped(DEFAULT_VAULT_TO_BE_REDEEMED.amount());
+
+                vault.issued = vault_id.wrapped(0);
+                vault.to_be_issued = vault_id.wrapped(0);
+                vault.backing_collateral = Amount::new(0, vault_id.currencies.collateral);
+                vault.liquidated_collateral =
+                    default_vault_backing_collateral(vault_id.currencies.collateral) - liquidation_vault.collateral;
+                vault.status = VaultStatus::Liquidated;
+                *vault
+                    .free_balance
+                    .get_mut(&vault_data.replace_collateral.currency())
+                    .unwrap() += vault_data.replace_collateral;
+            })
+        );
+    });
+}
+
+#[test]
+fn integration_test_pending_theft_vault_is_active() {
+    test_with(|vault_id| {
+        let stolen_tokens = wrapped(100);
+        let recovery_deadline_block = 2000;
+        let initial_pending_theft_status = VaultStatus::PendingTheft {
+            amount: stolen_tokens.amount(),
+            recovery_deadline_block,
+        };
+
+        let vault_data = CoreVaultData {
+            status: initial_pending_theft_status,
+            ..default_vault_state(&vault_id)
+        };
+
+        CoreVaultData::force_to(&vault_id, vault_data.clone());
+        // Should panic if the vault is not active
+        VaultRegistryPallet::get_active_rich_vault_from_id(&vault_id).unwrap();
+    });
+}
+
+#[test]
 fn integration_test_vault_registry_register_respects_fund_limit() {
     test_with(|vault_id| {
         let currency_id = vault_id.collateral_currency();

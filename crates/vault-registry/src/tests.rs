@@ -1518,8 +1518,7 @@ fn test_decrease_to_be_replaced_tokens_below_capacity() {
     })
 }
 
-#[test]
-fn test_offchain_worker_unsigned_transaction_submission() {
+fn test_offchain_worker<F: Fn() -> ()>(mock: F, call: crate::mock::Call) {
     let mut externalities = crate::mock::ExtBuilder::build();
     let (pool, pool_state) = TestTransactionPoolExt::new();
     externalities.register_extension(TransactionPoolExt::new(pool));
@@ -1532,8 +1531,7 @@ fn test_offchain_worker_unsigned_transaction_submission() {
         set_default_thresholds();
         VaultRegistry::insert_vault(&id, Vault::new(id.clone()));
 
-        // mock that all vaults need to be liquidated
-        VaultRegistry::is_vault_below_liquidation_threshold.mock_safe(move |_, _| MockResult::Return(Ok(true)));
+        mock();
 
         // call the actual function we want to test
         VaultRegistry::_offchain_worker();
@@ -1543,9 +1541,24 @@ fn test_offchain_worker_unsigned_transaction_submission() {
         assert!(pool_state.read().transactions.is_empty());
         let tx = Extrinsic::decode(&mut &*tx).unwrap();
         assert_eq!(tx.signature, None); // unsigned
-        assert_eq!(
-            tx.call,
-            crate::mock::Call::VaultRegistry(crate::Call::report_undercollateralized_vault { vault_id: id })
-        );
+        assert_eq!(tx.call, call);
     })
+}
+
+#[test]
+fn test_offchain_worker_unsigned_transaction_submission_undercollateralized() {
+    let id = vault_id(7);
+    test_offchain_worker(
+        || VaultRegistry::is_vault_below_liquidation_threshold.mock_safe(move |_, _| MockResult::Return(Ok(true))),
+        crate::mock::Call::VaultRegistry(crate::Call::report_undercollateralized_vault { vault_id: id }),
+    );
+}
+
+#[test]
+fn test_offchain_worker_unsigned_transaction_submission_pending_theft_elapsed() {
+    let id = vault_id(7);
+    test_offchain_worker(
+        || VaultRegistry::has_pending_theft_elapsed.mock_safe(move |_| MockResult::Return(Ok(true))),
+        crate::mock::Call::VaultRegistry(crate::Call::pending_theft_elapsed { vault_id: id }),
+    );
 }

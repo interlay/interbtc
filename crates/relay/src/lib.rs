@@ -33,11 +33,12 @@ use bitcoin::{parser::parse_transaction, types::*};
 use btc_relay::{types::OpReturnPaymentData, BtcAddress};
 use frame_support::{dispatch::DispatchResult, ensure, transactional, weights::Pays};
 use frame_system::ensure_signed;
+use sp_runtime::{traits::Zero, DispatchError};
 use sp_std::{
     convert::{TryFrom, TryInto},
     vec::Vec,
 };
-use types::DefaultVaultId;
+use types::{DefaultVaultId, DefaultVaultStatus};
 use vault_registry::Wallet;
 
 pub use pallet::*;
@@ -74,6 +75,12 @@ pub mod pallet {
         VaultTheft {
             vault_id: DefaultVaultId<T>,
             tx_id: H256Le,
+            amount: BalanceOf<T>,
+        },
+        VaultTheftRecovery {
+            vault_id: DefaultVaultId<T>,
+            tx_id: H256Le,
+            new_vault_status: DefaultVaultStatus<T>,
         },
         VaultDoublePayment {
             vault_id: DefaultVaultId<T>,
@@ -84,10 +91,21 @@ pub mod pallet {
 
     #[pallet::error]
     pub enum Error<T> {
-        /// Vault already reported
-        VaultAlreadyReported,
+        /// Theft already reported
+        TheftAlreadyReported,
+        /// Theft not reported
+        TheftNotReported,
+        /// Theft already reported
+        TheftRecoveryAlreadyReported,
+        /// One or more inputs reported in the theft recovery
+        /// transaction come from the vault's wallet.
+        InvalidTheftRecovery,
+        /// Reported transaction moves zero amount to the vault's wallet.
+        TheftRecoveryMustBeNonzero,
         /// Vault BTC address not in transaction input
         VaultNoInputToTransaction,
+        /// The vault is not in a pending liquidation status
+        VaultNotPendingLiquidation,
         /// Valid redeem transaction
         ValidRedeemTransaction,
         /// Valid replace transaction
@@ -111,6 +129,13 @@ pub mod pallet {
     #[pallet::storage]
     #[pallet::getter(fn theft_report)]
     pub(super) type TheftReports<T: Config> =
+        StorageDoubleMap<_, Blake2_128Concat, DefaultVaultId<T>, Blake2_128Concat, H256Le, Option<()>, ValueQuery>;
+
+    /// Mapping of Bitcoin transaction identifiers (SHA256 hashes) to account
+    /// identifiers of Vaults paying back stolen funds.
+    #[pallet::storage]
+    #[pallet::getter(fn theft_recovery_report)]
+    pub(super) type TheftRecoveryReports<T: Config> =
         StorageDoubleMap<_, Blake2_128Concat, DefaultVaultId<T>, Blake2_128Concat, H256Le, Option<()>, ValueQuery>;
 
     #[pallet::hooks]
@@ -232,19 +257,28 @@ pub mod pallet {
             // throw if already reported
             ensure!(
                 !<TheftReports<T>>::contains_key(&vault_id, &tx_id),
-                Error::<T>::VaultAlreadyReported,
+                Error::<T>::TheftAlreadyReported,
             );
 
             ext::btc_relay::verify_transaction_inclusion::<T>(tx_id, merkle_proof)?;
-            Self::_is_parsed_transaction_invalid(&vault_id, transaction)?;
+            Self::_is_parsed_transaction_invalid(&vault_id, transaction.clone())?;
 
-            ext::vault_registry::liquidate_theft_vault::<T>(&vault_id, reporter_id)?;
+            // TODO: This assumes that all inputs to the tx were made from the vault's wallet.
+            // `stolen_amount` is the upper bound of what the vault could have stolen and includes
+            // the miner fee. Checking the actual amount spent from the vault's wallet requires a
+            // new extrinsic that verifies all input transactions.
+            let stolen_amount = Self::get_total_output(&transaction, None)?;
+            ext::vault_registry::report_vault_theft::<T>(&vault_id, stolen_amount, &reporter_id)?;
 
             <TheftReports<T>>::mutate(&vault_id, &tx_id, |inner| {
                 let _ = inner.insert(());
             });
 
-            Self::deposit_event(Event::<T>::VaultTheft { vault_id, tx_id });
+            Self::deposit_event(Event::<T>::VaultTheft {
+                vault_id,
+                tx_id,
+                amount: stolen_amount,
+            });
 
             // don't take tx fees on success
             Ok(Pays::No.into())
@@ -292,6 +326,14 @@ pub mod pallet {
             // transactions must be unique
             ensure!(left_tx_id != right_tx_id, Error::<T>::DuplicateTransaction);
 
+            // Ensure at least one of the txs was not reported.
+            // This is required because theft can be reported multiple times on PendingTheft(...) vaults.
+            ensure!(
+                !<TheftReports<T>>::contains_key(&vault_id, &left_tx_id)
+                    || !<TheftReports<T>>::contains_key(&vault_id, &right_tx_id),
+                Error::<T>::TheftAlreadyReported,
+            );
+
             let vault = ext::vault_registry::get_active_vault_from_id::<T>(&vault_id)?;
             // ensure that the payment is made from one of the registered wallets of the Vault,
             // this prevents a transaction with the same OP_RETURN flagging this Vault for theft
@@ -303,14 +345,19 @@ pub mod pallet {
 
             match (
                 OpReturnPaymentData::<T>::try_from(left_tx),
-                OpReturnPaymentData::<T>::try_from(right_tx),
+                OpReturnPaymentData::<T>::try_from(right_tx.clone()),
             ) {
                 (Ok(left), Ok(right)) => {
                     // verify that the OP_RETURN matches, amounts are not relevant as Vaults
                     // might transfer any amount in the theft transaction
                     ensure!(left.op_return == right.op_return, Error::<T>::ExpectedDuplicate);
 
-                    ext::vault_registry::liquidate_theft_vault::<T>(&vault_id, reporter_id)?;
+                    // TODO: This assumes that all inputs to the tx were made from the vault's wallet.
+                    // `stolen_amount` is the upper bound of what the vault could have stolen and includes
+                    // the miner fee. Checking the actual amount spent from the vault's wallet requires a
+                    // new extrinsic that verifies all input transactions.
+                    let stolen_amount = Self::get_total_output(&right_tx, None)?;
+                    ext::vault_registry::report_vault_theft::<T>(&vault_id, stolen_amount, &reporter_id)?;
 
                     <TheftReports<T>>::mutate(&vault_id, &left_tx_id, |inner| {
                         let _ = inner.insert(());
@@ -330,6 +377,60 @@ pub mod pallet {
                 }
                 _ => Err(Error::<T>::InvalidTransaction.into()),
             }
+        }
+
+        /// Report a bitcoin transaction that pays back some stolen amount.
+        /// Once the total repaid amount is equal to the total stolen amount,
+        /// the vault's status is set to `Active(accept_new_issues)`.
+        ///
+        /// # Arguments
+        /// * `vault_id`: The account of the vault to check.
+        /// * `raw_merkle_proof`: The proof of tx inclusion.
+        /// * `raw_tx`: The raw Bitcoin transaction.
+        #[pallet::weight(<T as Config>::WeightInfo::report_vault_theft())]
+        #[transactional]
+        pub fn recover_vault_theft(
+            origin: OriginFor<T>,
+            vault_id: DefaultVaultId<T>,
+            raw_merkle_proof: Vec<u8>,
+            raw_tx: Vec<u8>,
+        ) -> DispatchResult {
+            ensure_signed(origin)?;
+            let vault = ext::vault_registry::get_vault_from_id::<T>(&vault_id)?;
+
+            if vault.is_pending_theft() {
+                let merkle_proof = ext::btc_relay::parse_merkle_proof::<T>(&raw_merkle_proof)?;
+                let transaction = parse_transaction(raw_tx.as_slice()).map_err(|_| Error::<T>::InvalidTransaction)?;
+                let tx_id = transaction.tx_id();
+
+                // throw if already reported
+                ensure!(
+                    !<TheftRecoveryReports<T>>::contains_key(&vault_id, &tx_id),
+                    Error::<T>::TheftRecoveryAlreadyReported,
+                );
+                ext::btc_relay::verify_transaction_inclusion::<T>(tx_id, merkle_proof)?;
+                ensure!(
+                    !Self::has_input_from_wallet(&transaction, &vault.wallet),
+                    Error::<T>::InvalidTheftRecovery
+                );
+
+                let recovered_amount: BalanceOf<T> = Self::get_total_output(&transaction, Some(vault.wallet))?;
+                ensure!(!recovered_amount.is_zero(), Error::<T>::TheftRecoveryMustBeNonzero);
+                let new_vault_status = ext::vault_registry::recover_vault_theft::<T>(&vault_id, recovered_amount)?;
+
+                <TheftRecoveryReports<T>>::mutate(&vault_id, &tx_id, |inner| {
+                    let _ = inner.insert(());
+                });
+
+                Self::deposit_event(Event::<T>::VaultTheftRecovery {
+                    vault_id,
+                    tx_id,
+                    new_vault_status,
+                });
+
+                return Ok(());
+            }
+            Err(Error::<T>::VaultNotPendingLiquidation.into())
         }
     }
 }
@@ -352,6 +453,26 @@ impl<T: Config> Pallet<T> {
             Ok(address) => wallet.has_btc_address(&address),
             _ => false,
         })
+    }
+
+    pub(crate) fn get_total_output<V: TryFrom<i64>>(
+        transaction: &Transaction,
+        maybe_wallet_filter: Option<Wallet>,
+    ) -> Result<V, DispatchError> {
+        let sum: i64 = transaction
+            .clone()
+            .outputs
+            .into_iter()
+            .filter_map(|output| {
+                if let (Some(wallet), Ok(address)) = (maybe_wallet_filter.as_ref(), output.extract_address()) {
+                    if !wallet.has_btc_address(&address) {
+                        return None;
+                    }
+                }
+                Some(output.value)
+            })
+            .sum();
+        Ok(sum.try_into().map_err(|_| Error::<T>::InvalidTransaction)?)
     }
 
     /// Checks if the vault is sending a valid request transaction.

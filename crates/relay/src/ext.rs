@@ -3,8 +3,7 @@ use mocktopus::macros::mockable;
 
 #[cfg_attr(test, mockable)]
 pub(crate) mod vault_registry {
-    use crate::DefaultVaultId;
-    use ::vault_registry::VaultStatus;
+    use crate::{BalanceOf, DefaultVaultId, DefaultVaultStatus};
     use frame_support::dispatch::{DispatchError, DispatchResult};
     use vault_registry::types::DefaultVault;
 
@@ -14,16 +13,26 @@ pub(crate) mod vault_registry {
         <vault_registry::Pallet<T>>::get_active_vault_from_id(vault_id)
     }
 
-    pub fn liquidate_theft_vault<T: crate::Config>(
+    pub fn get_vault_from_id<T: crate::Config>(vault_id: &DefaultVaultId<T>) -> Result<DefaultVault<T>, DispatchError> {
+        <vault_registry::Pallet<T>>::get_vault_from_id(vault_id)
+    }
+
+    pub fn report_vault_theft<T: crate::Config>(
         vault_id: &DefaultVaultId<T>,
-        reporter_id: T::AccountId,
+        reported_amount: BalanceOf<T>,
+        reporter_id: &T::AccountId,
     ) -> DispatchResult {
-        let _ = <vault_registry::Pallet<T>>::liquidate_vault_with_status(
+        <vault_registry::Pallet<T>>::report_vault_theft(vault_id, reported_amount, reporter_id)
+    }
+
+    pub fn recover_vault_theft<T: crate::Config>(
+        vault_id: &DefaultVaultId<T>,
+        recovered_amount: BalanceOf<T>,
+    ) -> Result<DefaultVaultStatus<T>, DispatchError> {
+        Ok(<vault_registry::Pallet<T>>::recover_vault_theft(
             vault_id,
-            VaultStatus::CommittedTheft,
-            Some(reporter_id),
-        )?;
-        Ok(())
+            recovered_amount,
+        )?)
     }
 }
 

@@ -29,8 +29,8 @@ use mocktopus::macros::mockable;
 use primitives::VaultCurrencyPair;
 
 use crate::types::{
-    BalanceOf, BtcAddress, CurrencyId, DefaultSystemVault, RichSystemVault, RichVault, SignedInner, UnsignedFixedPoint,
-    UpdatableVault, Version,
+    BalanceOf, BtcAddress, CurrencyId, DefaultSystemVault, DefaultVaultStatus, RichSystemVault, RichVault, SignedInner,
+    UnsignedFixedPoint, UpdatableVault, Version,
 };
 
 use crate::types::DefaultVaultCurrencyPair;
@@ -437,7 +437,22 @@ pub mod pallet {
 
             // Vault accepts new issues by default
             vault.set_accept_new_issues(true)?;
+            Ok(())
+        }
 
+        /// Trigger liquidation of a vault whose pending theft deadline has passed.
+        ///
+        /// # Arguments
+        /// * `vault_id` - the id of the vault
+        #[pallet::weight(<T as Config>::WeightInfo::recover_vault_id())]
+        #[transactional]
+        pub fn pending_theft_elapsed(_origin: OriginFor<T>, vault_id: DefaultVaultId<T>) -> DispatchResult {
+            let vault = Self::get_rich_vault_from_id(&vault_id)?;
+            if Self::has_pending_theft_elapsed(vault.data)? {
+                Self::liquidate_vault_with_status(&vault_id, VaultStatus::CommittedTheft)?;
+            } else {
+                return Err(Error::<T>::TheftRecoveryDeadlineNotOccurred.into());
+            }
             Ok(())
         }
     }
@@ -544,12 +559,15 @@ pub mod pallet {
             to_be_redeemed_tokens: BalanceOf<T>,
             to_be_replaced_tokens: BalanceOf<T>,
             backing_collateral: BalanceOf<T>,
-            status: VaultStatus,
+            status: DefaultVaultStatus<T>,
             replace_collateral: BalanceOf<T>,
         },
         BanVault {
             vault_id: DefaultVaultId<T>,
             banned_until: T::BlockNumber,
+        },
+        TheftRecovered {
+            vault_id: DefaultVaultId<T>,
         },
     }
 
@@ -573,6 +591,11 @@ pub mod pallet {
         ReservedDepositAddress,
         /// Attempted to liquidate a vault that is not undercollateralized.
         VaultNotBelowLiquidationThreshold,
+        /// The vault is not in a pending liquidation status
+        VaultNotPendingTheft,
+        /// The theft liquidation deadline has elapsed and the vault can no longer
+        /// be recovered from theft liquidation.
+        TheftRecoveryFailed,
         /// Deposit address could not be generated with the given public key.
         InvalidPublicKey,
         /// The Max Nomination Ratio would be exceeded.
@@ -589,6 +612,8 @@ pub mod pallet {
         NoBitcoinPublicKey,
         /// A bitcoin public key was already registered for this account.
         PublicKeyAlreadyRegistered,
+        /// Pending theft deadline is in the future.
+        TheftRecoveryDeadlineNotOccurred,
 
         // Errors used exclusively in RPC functions
         /// Collateralization is infinite if no tokens are issued
@@ -620,7 +645,8 @@ pub mod pallet {
 
     /// If a Vault fails to execute a correct redeem or replace, it is temporarily banned
     /// from further issue, redeem or replace requests. This value configures the duration
-    /// of this ban (in number of blocks) .
+    /// of this ban (in number of blocks). It is also the grace period during which a Vault
+    /// may report confirmed Bitcoin transactions that restore stolen funds.
     #[pallet::storage]
     #[pallet::getter(fn punishment_delay)]
     pub(super) type PunishmentDelay<T: Config> = StorageValue<_, T::BlockNumber, ValueQuery>;
@@ -739,8 +765,13 @@ pub mod pallet {
 impl<T: Config> Pallet<T> {
     fn _offchain_worker() {
         for vault in Self::undercollateralized_vaults() {
-            log::info!("Reporting vault {:?}", vault);
+            log::info!("Reporting undercollateralized vault {:?}", vault);
             let call = Call::report_undercollateralized_vault { vault_id: vault };
+            let _ = SubmitTransaction::<T, Call<T>>::submit_unsigned_transaction(call.into());
+        }
+        for vault in Self::pending_theft_elapsed_vaults() {
+            log::info!("Reporting vault for elapsed pending theft deadline {:?}", vault);
+            let call = Call::pending_theft_elapsed { vault_id: vault };
             let _ = SubmitTransaction::<T, Call<T>>::submit_unsigned_transaction(call.into());
         }
     }
@@ -802,6 +833,8 @@ impl<T: Config> Pallet<T> {
             VaultStatus::Active(_) => Ok(vault),
             VaultStatus::Liquidated => Err(Error::<T>::VaultLiquidated.into()),
             VaultStatus::CommittedTheft => Err(Error::<T>::VaultCommittedTheft.into()),
+            // PendingTheft counts as an active status, so that subsequent theft reports are accepted.
+            VaultStatus::PendingTheft { .. } => Ok(vault),
         }
     }
 
@@ -1451,10 +1484,19 @@ impl<T: Config> Pallet<T> {
         })
     }
 
+    fn pending_theft_elapsed_vaults() -> impl Iterator<Item = DefaultVaultId<T>> {
+        <Vaults<T>>::iter().filter_map(|(vault_id, vault)| {
+            if Self::has_pending_theft_elapsed(vault).unwrap_or(false) {
+                return Some(vault_id);
+            }
+            None
+        })
+    }
+
     /// Liquidates a vault, transferring all of its token balances to the `LiquidationVault`.
     /// Delegates to `liquidate_vault_with_status`, using `Liquidated` status
     pub fn liquidate_vault(vault_id: &DefaultVaultId<T>) -> Result<Amount<T>, DispatchError> {
-        Self::liquidate_vault_with_status(vault_id, VaultStatus::Liquidated, None)
+        Self::liquidate_vault_with_status(vault_id, VaultStatus::Liquidated)
     }
 
     /// Liquidates a vault, transferring all of its token balances to the
@@ -1465,14 +1507,13 @@ impl<T: Config> Pallet<T> {
     /// * `status` - status with which to liquidate the vault
     pub fn liquidate_vault_with_status(
         vault_id: &DefaultVaultId<T>,
-        status: VaultStatus,
-        reporter: Option<T::AccountId>,
+        status: DefaultVaultStatus<T>,
     ) -> Result<Amount<T>, DispatchError> {
         let mut vault = Self::get_active_rich_vault_from_id(&vault_id)?;
         let backing_collateral = vault.get_total_collateral()?;
         let vault_orig = vault.data.clone();
 
-        let to_slash = vault.liquidate(status, reporter)?;
+        let to_slash = vault.liquidate(status)?;
 
         Self::deposit_event(Event::<T>::LiquidateVault {
             vault_id: vault_id.clone(),
@@ -1526,10 +1567,77 @@ impl<T: Config> Pallet<T> {
         Vaults::<T>::insert(id, vault)
     }
 
-    pub fn ban_vault(vault_id: &DefaultVaultId<T>) -> DispatchResult {
+    pub fn compute_banned_until() -> T::BlockNumber {
         let height = ext::security::active_block_number::<T>();
+        height + Self::punishment_delay()
+    }
+
+    pub fn report_vault_theft(
+        vault_id: &DefaultVaultId<T>,
+        reported_amount: BalanceOf<T>,
+        reporter_id: &T::AccountId,
+    ) -> DispatchResult {
         let mut vault = Self::get_active_rich_vault_from_id(vault_id)?;
-        let banned_until = height + Self::punishment_delay();
+        vault.distribute_theft_fee(reporter_id)?;
+
+        let (stolen_amount, recovery_deadline_block) = match vault.data.status {
+            DefaultVaultStatus::<T>::PendingTheft {
+                amount,
+                recovery_deadline_block,
+            } => (
+                amount
+                    .checked_add(&reported_amount)
+                    .ok_or(Error::<T>::ArithmeticOverflow)?,
+                recovery_deadline_block,
+            ),
+            _ => (reported_amount, Self::compute_banned_until()),
+        };
+
+        vault.set_status(DefaultVaultStatus::<T>::PendingTheft {
+            recovery_deadline_block,
+            amount: stolen_amount,
+        });
+        Ok(())
+    }
+
+    pub fn recover_vault_theft(
+        vault_id: &DefaultVaultId<T>,
+        reported_amount: BalanceOf<T>,
+    ) -> Result<DefaultVaultStatus<T>, DispatchError> {
+        let mut vault = Self::get_active_rich_vault_from_id(vault_id)?;
+        let (stolen_amount, recovery_deadline_block) = match vault.data.status {
+            DefaultVaultStatus::<T>::PendingTheft {
+                amount,
+                recovery_deadline_block,
+            } => (
+                // Use saturating subtraction, it's valid to recover with an amount higher than the one
+                // reported for theft.
+                amount.saturating_sub(reported_amount),
+                recovery_deadline_block,
+            ),
+            _ => return Err(Error::<T>::VaultNotPendingTheft.into()),
+        };
+
+        let now = ext::security::active_block_number::<T>();
+        ensure!(recovery_deadline_block > now, Error::<T>::TheftRecoveryFailed);
+
+        let new_vault_status = if stolen_amount.is_zero() {
+            // All reported thefts have been recovered
+            DefaultVaultStatus::<T>::Active(true)
+        } else {
+            DefaultVaultStatus::<T>::PendingTheft {
+                recovery_deadline_block,
+                amount: stolen_amount,
+            }
+        };
+        vault.set_status(new_vault_status);
+
+        Ok(new_vault_status)
+    }
+
+    pub fn ban_vault(vault_id: &DefaultVaultId<T>) -> DispatchResult {
+        let mut vault = Self::get_active_rich_vault_from_id(vault_id)?;
+        let banned_until = Self::compute_banned_until();
         vault.ban_until(banned_until);
         Self::deposit_event(Event::<T>::BanVault {
             vault_id: vault.id(),
@@ -1580,6 +1688,19 @@ impl<T: Config> Pallet<T> {
         };
         let threshold = Self::secure_collateral_threshold(&currency_pair).ok_or(Error::<T>::ThresholdNotSet)?;
         Self::is_collateral_below_threshold(collateral, wrapped_amount, threshold)
+    }
+
+    pub fn has_pending_theft_elapsed(vault: DefaultVault<T>) -> Result<bool, DispatchError> {
+        if let VaultStatus::PendingTheft {
+            recovery_deadline_block,
+            ..
+        } = vault.status
+        {
+            let now = ext::security::active_block_number::<T>();
+            Ok(now > recovery_deadline_block)
+        } else {
+            Err(Error::<T>::VaultNotPendingTheft.into())
+        }
     }
 
     pub fn _set_system_collateral_ceiling(currency_pair: DefaultVaultCurrencyPair<T>, ceiling: BalanceOf<T>) {
@@ -1828,6 +1949,11 @@ impl<T: Config> Pallet<T> {
         vault_collateral.rounded_mul(Self::get_max_nomination_ratio(currency_pair)?)
     }
 
+    pub fn get_max_vault_theft_fee(vault_id: &DefaultVaultId<T>) -> Result<Amount<T>, DispatchError> {
+        let vault = Self::get_active_rich_vault_from_id(&vault_id)?;
+        vault.get_theft_fee_max()
+    }
+
     /// Private getters and setters
 
     fn get_collateral_ceiling(currency_pair: &DefaultVaultCurrencyPair<T>) -> Result<Amount<T>, DispatchError> {
@@ -1850,6 +1976,7 @@ impl<T: Config> Pallet<T> {
     }
 
     /// Like get_rich_vault_from_id, but only returns active vaults
+    #[cfg_attr(feature = "integration-tests", visibility::make(pub))]
     fn get_active_rich_vault_from_id(vault_id: &DefaultVaultId<T>) -> Result<RichVault<T>, DispatchError> {
         Ok(Self::get_active_vault_from_id(vault_id)?.into())
     }

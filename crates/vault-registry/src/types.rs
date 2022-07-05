@@ -106,6 +106,8 @@ pub type DefaultVaultId<T> = VaultId<<T as frame_system::Config>::AccountId, Cur
 
 pub type DefaultVaultCurrencyPair<T> = VaultCurrencyPair<CurrencyId<T>>;
 
+pub type DefaultVaultStatus<T> = VaultStatus<<T as frame_system::Config>::BlockNumber, BalanceOf<T>>;
+
 pub mod liquidation_vault_fix {
     use super::*;
     use primitives::{
@@ -209,18 +211,25 @@ impl Wallet {
 }
 
 #[derive(Encode, Decode, Clone, Copy, PartialEq, Eq, Debug, TypeInfo, MaxEncodedLen)]
-pub enum VaultStatus {
+pub enum VaultStatus<BlockNumber, Balance> {
     /// Vault is active - bool=true indicates that the vault accepts new issue requests
     Active(bool),
 
     /// Vault has been liquidated
     Liquidated,
 
-    /// Vault theft has been reported
+    /// Vault theft has been reported and the vault is in a liquidation grace period
+    /// until `recovery_deadline_block`.
+    PendingTheft {
+        amount: Balance,
+        recovery_deadline_block: BlockNumber,
+    },
+
+    /// Vault theft has been confirmed
     CommittedTheft,
 }
 
-impl Default for VaultStatus {
+impl<BlockNumber, Balance> Default for VaultStatus<BlockNumber, Balance> {
     fn default() -> Self {
         VaultStatus::Active(true)
     }
@@ -234,7 +243,7 @@ pub struct Vault<AccountId, BlockNumber, Balance, CurrencyId: Copy> {
     /// Bitcoin address of this Vault (P2PKH, P2SH, P2WPKH, P2WSH)
     pub wallet: Wallet,
     /// Current status of the vault
-    pub status: VaultStatus,
+    pub status: VaultStatus<BlockNumber, Balance>,
     /// Block height until which this Vault is banned from being used for
     /// Issue, Redeem (except during automatic liquidation) and Replace.
     pub banned_until: Option<BlockNumber>,
@@ -295,6 +304,10 @@ impl<AccountId: Ord, BlockNumber: Default, Balance: HasCompact + Default, Curren
 
     pub fn is_liquidated(&self) -> bool {
         matches!(self.status, VaultStatus::Liquidated | VaultStatus::CommittedTheft)
+    }
+
+    pub fn is_pending_theft(&self) -> bool {
+        matches!(self.status, VaultStatus::PendingTheft { .. })
     }
 }
 
@@ -630,19 +643,16 @@ impl<T: Config> RichVault<T> {
         }
     }
 
-    pub(crate) fn liquidate(
-        &mut self,
-        status: VaultStatus,
-        reporter: Option<T::AccountId>,
-    ) -> Result<Amount<T>, DispatchError> {
+    pub(crate) fn distribute_theft_fee(&mut self, reporter_id: &T::AccountId) -> DispatchResult {
         let vault_id = self.id();
+        let reward = self.get_theft_fee_max()?;
+        Pallet::<T>::force_withdraw_collateral(&vault_id, &reward)?;
+        reward.transfer(&vault_id.account_id, reporter_id)?;
+        Ok(())
+    }
 
-        // pay the theft report fee first
-        if let Some(ref reporter_id) = reporter {
-            let reward = self.get_theft_fee_max()?;
-            Pallet::<T>::force_withdraw_collateral(&vault_id, &reward)?;
-            reward.transfer(&vault_id.account_id, reporter_id)?;
-        }
+    pub(crate) fn liquidate(&mut self, status: DefaultVaultStatus<T>) -> Result<Amount<T>, DispatchError> {
+        let vault_id = self.id();
 
         // we liquidate at most LIQUIDATION_THRESHOLD * collateral
         // this value is the amount of collateral held for the issued + to_be_issued
@@ -694,6 +704,13 @@ impl<T: Config> RichVault<T> {
         Ok(liquidated_collateral_excluding_to_be_redeemed)
     }
 
+    pub fn set_status(&mut self, status: DefaultVaultStatus<T>) {
+        let _ = self.update(|v| {
+            v.status = status;
+            Ok(())
+        });
+    }
+
     pub fn ensure_not_banned(&self) -> DispatchResult {
         if self.is_banned() {
             Err(Error::<T>::VaultBanned.into())
@@ -712,10 +729,11 @@ impl<T: Config> RichVault<T> {
     }
 
     pub(crate) fn is_banned(&self) -> bool {
-        match self.data.banned_until {
-            None => false,
-            Some(until) => ext::security::active_block_number::<T>() <= until,
-        }
+        self.data.is_pending_theft()
+            || match self.data.banned_until {
+                None => false,
+                Some(until) => ext::security::active_block_number::<T>() <= until,
+            }
     }
 
     pub fn ban_until(&mut self, height: T::BlockNumber) {

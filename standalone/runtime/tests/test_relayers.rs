@@ -69,7 +69,7 @@ fn integration_test_report_vault_theft() {
         let theft_amount = wrapped(100);
         let collateral_vault = Amount::new(1000000, currency_id);
         let issued_tokens = wrapped(100);
-        let vault_id = vault_id_of(vault, currency_id);
+        let vault_id = vault_id_of(vault.clone(), currency_id);
 
         let vault_btc_address = BtcAddress::P2SH(H160([
             215, 255, 109, 96, 235, 244, 10, 155, 24, 134, 172, 206, 6, 101, 59, 162, 34, 77, 143, 234,
@@ -99,7 +99,7 @@ fn integration_test_report_vault_theft() {
 
         SecurityPallet::set_active_block_number(1000);
 
-        let pre_liquidation_state = ParachainState::get(&vault_id);
+        let pre_reporting_state = ParachainState::get(&vault_id);
         let theft_fee = FeePallet::get_theft_fee(&collateral_vault).unwrap();
 
         assert_ok!(Call::Relay(RelayCall::report_vault_theft {
@@ -109,17 +109,41 @@ fn integration_test_report_vault_theft() {
         })
         .dispatch(origin_of(account_of(user))));
 
+        let now = SecurityPallet::active_block_number();
+        let recovery_deadline_block = now + VaultRegistryPallet::punishment_delay();
+        assert_eq!(
+            ParachainState::get(&vault_id),
+            pre_reporting_state.with_changes(|user, vault, _liquidation_vault, _fee_pool| {
+                (*user.balances.get_mut(&currency_id).unwrap()).free += theft_fee;
+
+                vault.backing_collateral -= theft_fee;
+                vault.status = VaultStatus::PendingTheft {
+                    amount: theft_amount.amount(),
+                    recovery_deadline_block,
+                };
+            })
+        );
+        assert_err!(
+            Call::VaultRegistry(VaultRegistryCall::pending_theft_elapsed {
+                vault_id: vault_id.clone(),
+            })
+            .dispatch(origin_of(account_of(USER))),
+            VaultRegistryError::TheftRecoveryDeadlineNotOccurred
+        );
+        let pre_liquidation_state = ParachainState::get(&vault_id);
+        SecurityPallet::set_active_block_number(recovery_deadline_block + 1);
+        assert_ok!(Call::VaultRegistry(VaultRegistryCall::pending_theft_elapsed {
+            vault_id: vault_id.clone(),
+        })
+        .dispatch(origin_of(account_of(USER))));
         let confiscated_collateral = Amount::new(110, currency_id);
         assert_eq!(
             ParachainState::get(&vault_id),
-            pre_liquidation_state.with_changes(|user, vault, liquidation_vault, _fee_pool| {
+            pre_liquidation_state.with_changes(|_user, vault, liquidation_vault, _fee_pool| {
                 let liquidation_vault = liquidation_vault.with_currency(&vault_id.currencies);
-
-                (*user.balances.get_mut(&currency_id).unwrap()).free += theft_fee;
 
                 vault.issued -= issued_tokens;
                 vault.backing_collateral -= confiscated_collateral;
-                vault.backing_collateral -= theft_fee;
                 vault.status = VaultStatus::CommittedTheft;
 
                 liquidation_vault.issued += issued_tokens;
@@ -190,11 +214,11 @@ fn integration_test_double_spend_redeem() {
         let stealing_vault = DAVE;
         let (vault_public_key_one, vault_public_key_two) =
             setup_vault_for_potential_double_spend(issued_tokens, stealing_vault, true);
-
         let redeem_id = setup_redeem(issued_tokens, USER, &default_vault_id_of(stealing_vault));
         let redeem = RedeemPallet::get_open_redeem_request_from_id(&redeem_id).unwrap();
         let user_btc_address = BtcAddress::P2PKH(H160([2; 20]));
         let current_block_number = 1;
+        let vault_id = default_vault_id_of(stealing_vault);
 
         // Send the honest redeem transaction
         let (_tx_id, _tx_block_height, merkle_proof, raw_tx, _) = {
@@ -235,14 +259,333 @@ fn integration_test_double_spend_redeem() {
             .dispatch(origin_of(account_of(stealing_vault))),
             RedeemError::RedeemCompleted
         );
-
+        let pre_reporting_state = ParachainState::get(&vault_id);
         // Reporting the double-spend transaction as theft should work
         assert_ok!(Call::Relay(RelayCall::report_vault_double_payment {
-            vault_id: default_vault_id_of(stealing_vault),
-            raw_merkle_proofs: (merkle_proof, theft_merkle_proof),
-            raw_txs: (raw_tx, theft_raw_tx),
+            vault_id: vault_id.clone(),
+            raw_merkle_proofs: (merkle_proof.clone(), theft_merkle_proof.clone()),
+            raw_txs: (raw_tx.clone(), theft_raw_tx.clone()),
         })
         .dispatch(origin_of(account_of(USER))));
+
+        assert_err!(
+            Call::Relay(RelayCall::report_vault_double_payment {
+                vault_id: vault_id.clone(),
+                raw_merkle_proofs: (merkle_proof, theft_merkle_proof),
+                raw_txs: (raw_tx, theft_raw_tx),
+            })
+            .dispatch(origin_of(account_of(USER))),
+            RelayError::TheftAlreadyReported
+        );
+
+        let now = SecurityPallet::active_block_number();
+        let recovery_deadline_block = now + VaultRegistryPallet::punishment_delay();
+
+        let theft_fee = VaultRegistryPallet::get_max_vault_theft_fee(&vault_id).unwrap();
+        let redeem_amount: Amount<Runtime> = redeem.amount_btc();
+        assert_eq!(
+            ParachainState::get(&vault_id),
+            pre_reporting_state.with_changes(|user, vault, _liquidation_vault, _fee_pool| {
+                (*user.balances.get_mut(&vault_id.currencies.collateral).unwrap()).free += theft_fee;
+
+                vault.backing_collateral -= theft_fee;
+                vault.status = VaultStatus::PendingTheft {
+                    amount: redeem_amount.amount(),
+                    recovery_deadline_block,
+                };
+            })
+        );
+        assert_err!(
+            Call::VaultRegistry(VaultRegistryCall::pending_theft_elapsed {
+                vault_id: vault_id.clone(),
+            })
+            .dispatch(origin_of(account_of(USER))),
+            VaultRegistryError::TheftRecoveryDeadlineNotOccurred
+        );
+        let pre_liquidation_state = ParachainState::get(&vault_id);
+        SecurityPallet::set_active_block_number(recovery_deadline_block + 1);
+        assert_ok!(Call::VaultRegistry(VaultRegistryCall::pending_theft_elapsed {
+            vault_id: vault_id.clone(),
+        })
+        .dispatch(origin_of(account_of(USER))));
+        let confiscated_collateral = Amount::new(55, vault_id.currencies.collateral);
+
+        assert_eq!(
+            ParachainState::get(&vault_id),
+            pre_liquidation_state.with_changes(|_user, vault, liquidation_vault, _fee_pool| {
+                let liquidation_vault = liquidation_vault.with_currency(&vault_id.currencies);
+                liquidation_vault.issued += vault.issued;
+                liquidation_vault.collateral += confiscated_collateral;
+
+                vault.issued = Amount::new(0, vault_id.currencies.wrapped);
+                vault.backing_collateral -= confiscated_collateral;
+                vault.status = VaultStatus::CommittedTheft;
+            })
+        );
+    });
+}
+
+#[test]
+fn integration_test_report_pending_theft_vault() {
+    test_with(|_currency_id| {
+        let issued_tokens = wrapped(1000);
+        let stolen_tokens = wrapped(100);
+        let recovery_deadline_block = 2000;
+        let stealing_vault = BOB;
+        let stealing_vault_id = default_vault_id_of(stealing_vault);
+        let initial_pending_theft_status = VaultStatus::PendingTheft {
+            amount: stolen_tokens.amount(),
+            recovery_deadline_block,
+        };
+
+        let (vault_public_key_one, _vault_public_key_two) =
+            setup_vault_for_potential_double_spend(issued_tokens, stealing_vault, true);
+
+        CoreVaultData::force_to(
+            &stealing_vault_id,
+            CoreVaultData {
+                status: initial_pending_theft_status,
+                ..default_vault_state(&stealing_vault_id)
+            },
+        );
+
+        // Steal the same amount, again
+        let (_tx_id, _tx_block_height, merkle_proof, raw_tx, _) = {
+            register_addresses_and_mine_transaction(
+                stealing_vault_id.clone(),
+                vault_public_key_one,
+                vec![],
+                vec![(BtcAddress::P2PKH(H160([2; 20])), stolen_tokens)],
+                vec![],
+            )
+        };
+
+        SecurityPallet::set_active_block_number(1000);
+        let theft_fee = VaultRegistryPallet::get_max_vault_theft_fee(&stealing_vault_id).unwrap();
+
+        let pre_reporting_state = ParachainState::get(&stealing_vault_id);
+
+        // When a vault is in `PendingTheft` status, reporting theft again increases the stolen amount
+        // and slashes its collateral.
+        assert_ok!(Call::Relay(RelayCall::report_vault_theft {
+            vault_id: stealing_vault_id.clone(),
+            raw_merkle_proof: merkle_proof,
+            raw_tx: raw_tx,
+        })
+        .dispatch(origin_of(account_of(USER))));
+        assert_eq!(
+            ParachainState::get(&stealing_vault_id),
+            pre_reporting_state.with_changes(|user, vault, _liquidation_vault, _fee_pool| {
+                (*user.balances.get_mut(&stealing_vault_id.currencies.collateral).unwrap()).free += theft_fee;
+
+                vault.backing_collateral -= theft_fee;
+                vault.status = VaultStatus::PendingTheft {
+                    // The `amount` is increased, but `recovery_deadline_block` does not change.
+                    amount: stolen_tokens.amount() * 2,
+                    recovery_deadline_block,
+                };
+            })
+        );
+    });
+}
+
+#[test]
+fn integration_test_recover_theft_fails() {
+    test_with(|_currency_id| {
+        let issued_tokens = wrapped(1000);
+        let stolen_tokens = wrapped(100);
+        let recovery_deadline_block = 2000;
+        let stealing_vault = BOB;
+        let stealing_vault_id = default_vault_id_of(stealing_vault);
+        let initial_pending_theft_status = VaultStatus::PendingTheft {
+            amount: stolen_tokens.amount(),
+            recovery_deadline_block,
+        };
+
+        let (vault_public_key_one, _vault_public_key_two) =
+            setup_vault_for_potential_double_spend(issued_tokens, stealing_vault, true);
+
+        CoreVaultData::force_to(
+            &stealing_vault_id,
+            CoreVaultData {
+                status: initial_pending_theft_status,
+                ..default_vault_state(&stealing_vault_id)
+            },
+        );
+
+        // Steal but report as recovery
+        let (_tx_id, _tx_block_height, merkle_proof, raw_tx, _) = {
+            register_addresses_and_mine_transaction(
+                stealing_vault_id.clone(),
+                vault_public_key_one.clone(),
+                vec![],
+                vec![(BtcAddress::P2PKH(H160([2; 20])), stolen_tokens)],
+                vec![],
+            )
+        };
+
+        // Send to self but report as recovery
+        let (_tx_id, _tx_block_height, self_merkle_proof, self_raw_tx, _) = {
+            generate_transaction_and_mine(
+                vault_public_key_one.clone(),
+                vec![],
+                vec![(BtcAddress::P2PKH(vault_public_key_one.to_hash()), stolen_tokens)],
+                vec![],
+            )
+        };
+
+        // Bitcoin transaction that is completely unrelated to the vault
+        let (_tx_id, _tx_block_height, unrelated_merkle_proof, unrelated_raw_tx, _) = {
+            generate_transaction_and_mine(
+                BtcPublicKey([0u8; 33]),
+                vec![],
+                vec![(BtcAddress::P2PKH(H160([2; 20])), stolen_tokens)],
+                vec![],
+            )
+        };
+
+        SecurityPallet::set_active_block_number(1000);
+        assert_err!(
+            Call::Relay(RelayCall::recover_vault_theft {
+                vault_id: stealing_vault_id.clone(),
+                raw_merkle_proof: merkle_proof,
+                raw_tx: raw_tx,
+            })
+            .dispatch(origin_of(account_of(USER))),
+            RelayError::InvalidTheftRecovery
+        );
+        assert_err!(
+            Call::Relay(RelayCall::recover_vault_theft {
+                vault_id: stealing_vault_id.clone(),
+                raw_merkle_proof: self_merkle_proof,
+                raw_tx: self_raw_tx,
+            })
+            .dispatch(origin_of(account_of(USER))),
+            RelayError::InvalidTheftRecovery
+        );
+        assert_err!(
+            Call::Relay(RelayCall::recover_vault_theft {
+                vault_id: stealing_vault_id.clone(),
+                raw_merkle_proof: unrelated_merkle_proof,
+                raw_tx: unrelated_raw_tx,
+            })
+            .dispatch(origin_of(account_of(USER))),
+            RelayError::TheftRecoveryMustBeNonzero
+        );
+    });
+}
+
+#[test]
+fn integration_test_recover_theft_works() {
+    test_with(|_currency_id| {
+        let issued_tokens = wrapped(1000);
+        let stolen_tokens = wrapped(100);
+        let recovered_tokens = wrapped(50);
+        let recovery_deadline_block = 2000;
+        let stealing_vault = BOB;
+        let stealing_vault_id = default_vault_id_of(stealing_vault);
+        let initial_pending_theft_status = VaultStatus::PendingTheft {
+            amount: stolen_tokens.amount(),
+            recovery_deadline_block,
+        };
+
+        let (vault_public_key_one, vault_public_key_two) =
+            setup_vault_for_potential_double_spend(issued_tokens, stealing_vault, true);
+
+        CoreVaultData::force_to(
+            &stealing_vault_id,
+            CoreVaultData {
+                status: initial_pending_theft_status,
+                ..default_vault_state(&stealing_vault_id)
+            },
+        );
+
+        register_vault_address(stealing_vault_id.clone(), vault_public_key_one.clone());
+        register_vault_address(stealing_vault_id.clone(), vault_public_key_two.clone());
+
+        // The second output of this tx should not count towards recovery, since it's not a registered vault address.
+        let (_tx_id, _tx_block_height, recovery_merkle_proof_1, recovery_raw_tx_1, _) = {
+            generate_transaction_and_mine(
+                BtcPublicKey([0u8; 33]),
+                vec![],
+                vec![
+                    (BtcAddress::P2PKH(vault_public_key_one.to_hash()), recovered_tokens),
+                    (BtcAddress::P2PKH(BtcPublicKey([0u8; 33]).to_hash()), stolen_tokens),
+                ],
+                vec![],
+            )
+        };
+        let (_tx_id, _tx_block_height, recovery_merkle_proof_2, recovery_raw_tx_2, _) = {
+            generate_transaction_and_mine(
+                BtcPublicKey([1u8; 33]),
+                vec![],
+                vec![(BtcAddress::P2PKH(vault_public_key_two.to_hash()), recovered_tokens)],
+                vec![],
+            )
+        };
+        SecurityPallet::set_active_block_number(1000);
+
+        let pre_recovery_1_state = ParachainState::get(&stealing_vault_id);
+        assert_ok!(Call::Relay(RelayCall::recover_vault_theft {
+            vault_id: stealing_vault_id.clone(),
+            raw_merkle_proof: recovery_merkle_proof_1,
+            raw_tx: recovery_raw_tx_1,
+        })
+        .dispatch(origin_of(account_of(USER))));
+        assert_eq!(
+            ParachainState::get(&stealing_vault_id),
+            pre_recovery_1_state.with_changes(|_user, vault, _liquidation_vault, _fee_pool| {
+                vault.status = VaultStatus::PendingTheft {
+                    // The `amount` is increased, but `recovery_deadline_block` does not change.
+                    amount: stolen_tokens.amount() - recovered_tokens.amount(),
+                    recovery_deadline_block,
+                };
+            })
+        );
+
+        let pre_recovery_2_state = ParachainState::get(&stealing_vault_id);
+        assert_ok!(Call::Relay(RelayCall::recover_vault_theft {
+            vault_id: stealing_vault_id.clone(),
+            raw_merkle_proof: recovery_merkle_proof_2,
+            raw_tx: recovery_raw_tx_2,
+        })
+        .dispatch(origin_of(account_of(USER))));
+        assert_eq!(
+            ParachainState::get(&stealing_vault_id),
+            pre_recovery_2_state.with_changes(|_user, vault, _liquidation_vault, _fee_pool| {
+                vault.status = VaultStatus::Active(true);
+            })
+        );
+    });
+}
+
+#[test]
+fn integration_test_recovering_active_vault_fails() {
+    test_with(|_currency_id| {
+        let issued_tokens = wrapped(10_000);
+        let vault = DAVE;
+        let (_vault_public_key_one, _vault_public_key_two) =
+            setup_vault_for_potential_double_spend(issued_tokens, vault, true);
+
+        // Bitcoin transaction that is completely unrelated to the vault
+        let (_tx_id, _tx_block_height, unrelated_merkle_proof, unrelated_raw_tx, _) = {
+            generate_transaction_and_mine(
+                BtcPublicKey([0u8; 33]),
+                vec![],
+                vec![(BtcAddress::P2PKH(H160([2; 20])), issued_tokens)],
+                vec![],
+            )
+        };
+
+        assert_err!(
+            Call::Relay(RelayCall::recover_vault_theft {
+                vault_id: default_vault_id_of(vault),
+                raw_merkle_proof: unrelated_merkle_proof,
+                raw_tx: unrelated_raw_tx,
+            })
+            .dispatch(origin_of(account_of(USER))),
+            RelayError::VaultNotPendingLiquidation
+        );
     });
 }
 
@@ -370,10 +713,20 @@ fn integration_test_merge_tx_is_disallowed() {
         // allow merge transactions
         assert_ok!(Call::Relay(RelayCall::report_vault_theft {
             vault_id: default_vault_id_of(vault),
-            raw_merkle_proof: merkle_proof,
-            raw_tx: raw_tx
+            raw_merkle_proof: merkle_proof.clone(),
+            raw_tx: raw_tx.clone()
         })
         .dispatch(origin_of(account_of(USER))));
+
+        assert_err!(
+            Call::Relay(RelayCall::report_vault_theft {
+                vault_id: default_vault_id_of(vault),
+                raw_merkle_proof: merkle_proof,
+                raw_tx: raw_tx
+            })
+            .dispatch(origin_of(account_of(USER))),
+            RelayError::TheftAlreadyReported
+        );
     });
 }
 

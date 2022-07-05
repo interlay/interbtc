@@ -276,6 +276,9 @@ impl<T: Config> Pallet<T> {
             Error::<T>::WaitingForRelayerInitialization
         );
 
+        // Check that the vault is currently not banned or pending theft
+        ext::vault_registry::ensure_not_banned::<T>(&vault_id)?;
+
         let vault = ext::vault_registry::get_active_vault_from_id::<T>(&vault_id)?;
 
         // ensure that the vault is accepting new issues
@@ -283,9 +286,6 @@ impl<T: Config> Pallet<T> {
             vault.status == VaultStatus::Active(true),
             Error::<T>::VaultNotAcceptingNewIssues
         );
-
-        // Check that the vault is currently not banned
-        ext::vault_registry::ensure_not_banned::<T>(&vault_id)?;
 
         // calculate griefing collateral based on the total amount of tokens to be issued
         let amount_collateral = amount_requested.convert_to(T::GetGriefingCollateralCurrencyId::get())?;

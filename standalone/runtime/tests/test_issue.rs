@@ -400,6 +400,34 @@ mod request_issue_tests {
             .dispatch(origin_of(account_of(ALICE))));
         });
     }
+
+    #[test]
+    fn integration_test_issue_request_with_pending_theft_vault_fails() {
+        // PRECONDITION: The selected vault MUST NOT be pending theft.
+        test_with_initialized_vault(|vault_id| {
+            let amount = VaultRegistryPallet::get_issuable_tokens_from_vault(&vault_id).unwrap();
+            let stolen_tokens = wrapped(100);
+            let recovery_deadline_block = 2000;
+            let initial_pending_theft_status = VaultStatus::PendingTheft {
+                amount: stolen_tokens.amount(),
+                recovery_deadline_block,
+            };
+            let vault_data = CoreVaultData {
+                status: initial_pending_theft_status,
+                ..default_vault_state(&vault_id)
+            };
+            CoreVaultData::force_to(&vault_id, vault_data.clone());
+
+            assert_noop!(
+                Call::Issue(IssueCall::request_issue {
+                    amount: amount.amount(),
+                    vault_id: vault_id,
+                })
+                .dispatch(origin_of(account_of(USER))),
+                VaultRegistryError::VaultBanned
+            );
+        });
+    }
 }
 
 #[test]

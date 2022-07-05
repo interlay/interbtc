@@ -390,6 +390,32 @@ mod request_replace_tests {
     }
 
     #[test]
+    fn integration_test_replace_request_by_pending_theft_vault_fails() {
+        test_with(|old_vault_id, _new_vault_id| {
+            let stolen_tokens = wrapped(100);
+            let recovery_deadline_block = 2000;
+            let initial_pending_theft_status = VaultStatus::PendingTheft {
+                amount: stolen_tokens.amount(),
+                recovery_deadline_block,
+            };
+            let vault_data = CoreVaultData {
+                status: initial_pending_theft_status,
+                ..default_vault_state(&old_vault_id)
+            };
+            CoreVaultData::force_to(&old_vault_id, vault_data.clone());
+
+            assert_noop!(
+                Call::Replace(ReplaceCall::request_replace {
+                    currency_pair: old_vault_id.currencies.clone(),
+                    amount: 1500,
+                })
+                .dispatch(origin_of(old_vault_id.account_id.clone())),
+                VaultRegistryError::VaultBanned
+            );
+        });
+    }
+
+    #[test]
     fn integration_test_replace_request_replace_with_zero_btc_fails() {
         test_with(|old_vault_id, _new_vault_id| {
             assert_noop!(

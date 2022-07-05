@@ -27,7 +27,7 @@ pub use primitives::{
 };
 use redeem::RedeemRequestStatus;
 use staking::DefaultVaultCurrencyPair;
-use vault_registry::types::UpdatableVault;
+use vault_registry::types::{DefaultVaultStatus, UpdatableVault};
 
 pub use issue::{types::IssueRequestExt, IssueRequest, IssueRequestStatus};
 pub use oracle::OracleKey;
@@ -45,7 +45,7 @@ pub use sp_runtime::{
 pub use sp_std::convert::TryInto;
 use std::collections::BTreeMap;
 pub use std::convert::TryFrom;
-pub use vault_registry::{CurrencySource, DefaultVaultId, Vault, VaultStatus};
+pub use vault_registry::{CurrencySource, DefaultVaultId, Vault};
 
 use self::redeem_testing_utils::USER_BTC_ADDRESS;
 
@@ -59,6 +59,7 @@ pub use itertools::Itertools;
 pub use pretty_assertions::assert_eq;
 
 pub type VaultId = DefaultVaultId<Runtime>;
+pub type VaultStatus = DefaultVaultStatus<Runtime>;
 
 pub const ALICE: [u8; 32] = [0u8; 32];
 pub const BOB: [u8; 32] = [1u8; 32];
@@ -728,9 +729,17 @@ impl CoreVaultData {
 
         VaultRegistryPallet::collateral_integrity_check();
 
+        set_vault_status(&vault_id, state.status).unwrap();
+
         // check that we achieved the desired state
         assert_eq!(CoreVaultData::vault(vault_id.clone()), state);
     }
+}
+
+fn set_vault_status(vault_id: &VaultId, status: VaultStatus) -> Result<(), DispatchError> {
+    let mut vault = VaultRegistryPallet::get_active_rich_vault_from_id(vault_id)?;
+    vault.set_status(status);
+    Ok(())
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -946,9 +955,7 @@ pub fn liquidate_vault_with_status(vault_id: &VaultId, status: VaultStatus) {
         vault_id.currencies.collateral,
         FixedU128::checked_from_integer(10_000_000_000u128).unwrap()
     ));
-    assert_ok!(VaultRegistryPallet::liquidate_vault_with_status(
-        &vault_id, status, None
-    ));
+    assert_ok!(VaultRegistryPallet::liquidate_vault_with_status(&vault_id, status));
     assert_ok!(OraclePallet::_set_exchange_rate(
         vault_id.currencies.collateral,
         FixedU128::checked_from_integer(1u128).unwrap()
