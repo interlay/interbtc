@@ -131,6 +131,10 @@ pub mod pallet {
             log::info!("Off-chain worker started on block {:?}", n);
             Self::_offchain_worker();
         }
+
+        fn on_runtime_upgrade() -> frame_support::weights::Weight {
+            crate::types::v4::migrate_v4_to_v5::<T>()
+        }
     }
 
     #[pallet::validate_unsigned]

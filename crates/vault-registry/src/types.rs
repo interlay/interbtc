@@ -31,6 +31,8 @@ pub enum Version {
     V3,
     /// Fixed liquidation vault
     V4,
+    /// Added custom pervault secure collateral threshold
+    V5,
 }
 
 #[derive(Debug, PartialEq)]
@@ -182,6 +184,159 @@ pub mod liquidation_vault_fix {
                 }
             );
         })
+    }
+}
+
+pub mod v4 {
+    use super::*;
+
+    #[derive(Encode, Decode, Clone, PartialEq, Eq, TypeInfo)]
+    #[cfg_attr(feature = "std", derive(Debug))]
+    pub struct VaultV4<AccountId, BlockNumber, Balance, CurrencyId: Copy> {
+        /// Account identifier of the Vault
+        pub id: VaultId<AccountId, CurrencyId>,
+        /// Bitcoin address of this Vault (P2PKH, P2SH, P2WPKH, P2WSH)
+        pub wallet: Wallet,
+        /// Current status of the vault
+        pub status: VaultStatus,
+        /// Block height until which this Vault is banned from being used for
+        /// Issue, Redeem (except during automatic liquidation) and Replace.
+        pub banned_until: Option<BlockNumber>,
+        /// Number of tokens pending issue
+        pub to_be_issued_tokens: Balance,
+        /// Number of issued tokens
+        pub issued_tokens: Balance,
+        /// Number of tokens pending redeem
+        pub to_be_redeemed_tokens: Balance,
+        /// Number of tokens that have been requested for a replace through
+        /// `request_replace`, but that have not been accepted yet by a new_vault.
+        pub to_be_replaced_tokens: Balance,
+        /// Amount of collateral that is available as griefing collateral to vaults accepting
+        /// a replace request. It is to be payed out if the old_vault fails to call execute_replace.
+        pub replace_collateral: Balance,
+        /// Amount of collateral locked for accepted replace requests.
+        pub active_replace_collateral: Balance,
+        /// Amount of collateral that is locked for remaining to_be_redeemed
+        /// tokens upon liquidation.
+        pub liquidated_collateral: Balance,
+    }
+
+    type DefaultVaultV4<T> = VaultV4<
+        <T as frame_system::Config>::AccountId,
+        <T as frame_system::Config>::BlockNumber,
+        BalanceOf<T>,
+        CurrencyId<T>,
+    >;
+
+    pub fn migrate_v4_to_v5<T: Config>() -> frame_support::weights::Weight {
+        use sp_runtime::traits::Saturating;
+
+        if !matches!(
+            crate::StorageVersion::<T>::get(),
+            Version::V0 | Version::V1 | Version::V2 | Version::V3 | Version::V4
+        ) {
+            log::info!("Not running vault storage migration");
+            return T::DbWeight::get().reads(1); // already upgraded; don't run migration
+        }
+        let mut num_migrated_vaults = 0u64;
+
+        crate::Vaults::<T>::translate::<DefaultVaultV4<T>, _>(|_key, vault_v4| {
+            num_migrated_vaults.saturating_inc();
+
+            Some(Vault {
+                id: vault_v4.id,
+                wallet: vault_v4.wallet,
+                status: vault_v4.status,
+                banned_until: vault_v4.banned_until,
+                secure_collateral_threshold: None,
+                to_be_issued_tokens: vault_v4.to_be_issued_tokens,
+                issued_tokens: vault_v4.issued_tokens,
+                to_be_redeemed_tokens: vault_v4.to_be_redeemed_tokens,
+                to_be_replaced_tokens: vault_v4.to_be_replaced_tokens,
+                replace_collateral: vault_v4.replace_collateral,
+                active_replace_collateral: vault_v4.active_replace_collateral,
+                liquidated_collateral: vault_v4.liquidated_collateral,
+            })
+        });
+        crate::StorageVersion::<T>::put(Version::V5);
+
+        log::info!("Migrated {num_migrated_vaults} vaults");
+
+        T::DbWeight::get().reads_writes(num_migrated_vaults, num_migrated_vaults)
+    }
+
+    #[cfg(test)]
+    #[test]
+    fn test_migration() {
+        use crate::mock::Test;
+        use bitcoin::types::H160;
+        use frame_support::{storage::migration, Blake2_128Concat, StorageHasher};
+        use primitives::{CurrencyId::Token, KBTC, KSM};
+        use sp_runtime::traits::TrailingZeroInput;
+
+        crate::mock::run_test(|| {
+            crate::StorageVersion::<Test>::put(Version::V4);
+
+            let vault: DefaultVaultV4<Test> = VaultV4 {
+                id: VaultId {
+                    account_id: Decode::decode(&mut TrailingZeroInput::new(&[1u8; 32])).unwrap(),
+                    currencies: VaultCurrencyPair {
+                        collateral: Token(KSM),
+                        wrapped: Token(KBTC),
+                    },
+                },
+                wallet: Wallet {
+                    addresses: [
+                        BtcAddress::P2PKH(H160::from([1; 20])),
+                        BtcAddress::P2PKH(H160::from([2; 20])),
+                    ]
+                    .into(),
+                },
+                banned_until: None,
+                status: VaultStatus::Active(true),
+                issued_tokens: Default::default(),
+                liquidated_collateral: Default::default(),
+                replace_collateral: Default::default(),
+                to_be_issued_tokens: Default::default(),
+                to_be_redeemed_tokens: Default::default(),
+                to_be_replaced_tokens: Default::default(),
+                active_replace_collateral: Default::default(),
+            };
+            migration::put_storage_value(
+                b"VaultRegistry",
+                b"Vaults",
+                &Blake2_128Concat::hash(&vault.id.encode()),
+                &vault,
+            );
+
+            migrate_v4_to_v5::<Test>();
+
+            let expected_migrated_vault = Vault {
+                id: vault.id.clone(),
+                wallet: Wallet {
+                    addresses: vault.wallet.addresses.clone(),
+                },
+                status: vault.status.clone(),
+                banned_until: vault.banned_until,
+                secure_collateral_threshold: None,
+                to_be_issued_tokens: vault.to_be_issued_tokens,
+                issued_tokens: vault.issued_tokens,
+                to_be_redeemed_tokens: vault.to_be_redeemed_tokens,
+                to_be_replaced_tokens: vault.to_be_replaced_tokens,
+                replace_collateral: vault.replace_collateral,
+                active_replace_collateral: vault.active_replace_collateral,
+                liquidated_collateral: vault.liquidated_collateral,
+            };
+
+            // check that vault struct was migrated correctly
+            assert_eq!(
+                crate::Vaults::<Test>::iter().collect::<Vec<_>>(),
+                vec![(expected_migrated_vault.id.clone(), expected_migrated_vault),]
+            );
+
+            // check that storage version is bumped
+            assert!(crate::StorageVersion::<Test>::get() == Version::V5);
+        });
     }
 }
 
