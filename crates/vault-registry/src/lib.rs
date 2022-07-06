@@ -1573,18 +1573,6 @@ impl<T: Config> Pallet<T> {
         )
     }
 
-    pub fn is_collateral_below_secure_threshold(
-        collateral: &Amount<T>,
-        wrapped_amount: &Amount<T>,
-    ) -> Result<bool, DispatchError> {
-        let currency_pair = VaultCurrencyPair {
-            collateral: collateral.currency(),
-            wrapped: wrapped_amount.currency(),
-        };
-        let threshold = Self::secure_collateral_threshold(&currency_pair).ok_or(Error::<T>::ThresholdNotSet)?;
-        Self::is_collateral_below_threshold(collateral, wrapped_amount, threshold)
-    }
-
     /// Takes vault custom secure threshold into account (if set)
     pub fn is_collateral_below_vault_secure_threshold(
         collateral: &Amount<T>,
