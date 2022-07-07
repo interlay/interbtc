@@ -159,6 +159,8 @@ mod deposit_collateral_test {
     }
 }
 mod withdraw_collateral_test {
+    use vault_registry::types::ClientRelease;
+
     use super::{assert_eq, *};
 
     fn required_collateral(vault_id: VaultId) -> Amount<Runtime> {
@@ -225,6 +227,22 @@ mod withdraw_collateral_test {
                 .dispatch(origin_of(account_of(VAULT))),
                 VaultRegistryError::InsufficientCollateral
             );
+        });
+    }
+
+    #[test]
+    fn integration_test_vault_registry_set_client_release_works() {
+        test_with(|_vault_id| {
+            let new_release = ClientRelease {
+                version: [1, 0, 2],
+                checksum: [1u8; 32],
+            };
+            assert_ok!(Call::VaultRegistry(VaultRegistryCall::set_client_release {
+                version: new_release.version,
+                checksum: new_release.checksum
+            })
+            .dispatch(root()));
+            assert_eq!(VaultRegistryPallet::latest_client_release(), new_release);
         });
     }
 }

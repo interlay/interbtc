@@ -29,8 +29,8 @@ use mocktopus::macros::mockable;
 use primitives::VaultCurrencyPair;
 
 use crate::types::{
-    BalanceOf, BtcAddress, CurrencyId, DefaultSystemVault, RichSystemVault, RichVault, SignedInner, UnsignedFixedPoint,
-    UpdatableVault, Version,
+    BalanceOf, BtcAddress, ClientRelease, CurrencyId, DefaultSystemVault, RichSystemVault, RichVault, SignedInner,
+    UnsignedFixedPoint, UpdatableVault, Version,
 };
 
 use crate::types::DefaultVaultCurrencyPair;
@@ -417,6 +417,21 @@ pub mod pallet {
             Self::_set_liquidation_collateral_threshold(currency_pair, threshold);
             Ok(())
         }
+
+        /// Changes the collateral liquidation threshold for a currency (only executable by the Root account)
+        ///
+        /// # Arguments
+        /// * `version` - the semver version, where the zero-index element is the major version
+        /// * `checksum` - the SHA256 checksum of the client binary
+        #[pallet::weight(<T as Config>::WeightInfo::set_liquidation_collateral_threshold())]
+        #[transactional]
+        pub fn set_client_release(origin: OriginFor<T>, version: [u32; 3], checksum: [u8; 32]) -> DispatchResult {
+            ensure_root(origin)?;
+            // TODO: Should the new semver version have a check that ensures it is striclty ascending?
+            LatestClientRelease::<T>::put(ClientRelease { version, checksum });
+            Self::deposit_event(Event::<T>::ClientRelease { version, checksum });
+            Ok(())
+        }
     }
 
     #[pallet::event]
@@ -527,6 +542,10 @@ pub mod pallet {
         BanVault {
             vault_id: DefaultVaultId<T>,
             banned_until: T::BlockNumber,
+        },
+        ClientRelease {
+            version: [u32; 3],
+            checksum: [u8; 32],
         },
     }
 
@@ -650,6 +669,12 @@ pub mod pallet {
     #[pallet::storage]
     pub(super) type TotalUserVaultCollateral<T: Config> =
         StorageMap<_, Blake2_128Concat, DefaultVaultCurrencyPair<T>, BalanceOf<T>, ValueQuery>;
+
+    /// Tuple of (semver_version, sha256_checksum) indicating the latest vault client release.
+    /// `semver_version`: The element at index zero is the major semver version.
+    #[pallet::storage]
+    #[pallet::getter(fn latest_client_release)]
+    pub(super) type LatestClientRelease<T: Config> = StorageValue<_, ClientRelease, ValueQuery>;
 
     #[pallet::type_value]
     pub(super) fn DefaultForStorageVersion() -> Version {

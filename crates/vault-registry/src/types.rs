@@ -33,6 +33,14 @@ pub enum Version {
     V4,
 }
 
+#[derive(Encode, Decode, Default, TypeInfo, Eq, PartialEq, Debug)]
+pub struct ClientRelease {
+    /// The semver version, where the zero-index element is the major version
+    pub version: [u32; 3],
+    /// SHA256 checksum of the client binary
+    pub checksum: [u8; 32],
+}
+
 #[derive(Debug, PartialEq)]
 pub enum CurrencySource<T: frame_system::Config + orml_tokens::Config> {
     /// Used by vault to back issued tokens
