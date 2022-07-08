@@ -797,7 +797,7 @@ impl<T: Config> Pallet<T> {
 
     pub fn get_vault_secure_threshold(vault_id: &DefaultVaultId<T>) -> Result<UnsignedFixedPoint<T>, DispatchError> {
         let vault = Self::get_rich_vault_from_id(&vault_id)?;
-        vault.get_personal_secure_threshold()
+        vault.get_secure_threshold()
     }
 
     pub fn get_bitcoin_public_key(account_id: &T::AccountId) -> Result<BtcPublicKey, DispatchError> {
@@ -1548,7 +1548,7 @@ impl<T: Config> Pallet<T> {
     /// Threshold checks
     pub fn is_vault_below_secure_threshold(vault_id: &DefaultVaultId<T>) -> Result<bool, DispatchError> {
         let vault = Self::get_rich_vault_from_id(&vault_id)?;
-        let threshold = vault.get_personal_secure_threshold()?;
+        let threshold = vault.get_secure_threshold()?;
         Self::is_vault_below_threshold(vault_id, threshold)
     }
 
@@ -1579,7 +1579,7 @@ impl<T: Config> Pallet<T> {
         wrapped_amount: &Amount<T>,
         vault: &RichVault<T>,
     ) -> Result<bool, DispatchError> {
-        let threshold = vault.get_personal_secure_threshold()?;
+        let threshold = vault.get_secure_threshold()?;
         Self::is_collateral_below_threshold(collateral, wrapped_amount, threshold)
     }
 
@@ -1790,7 +1790,7 @@ impl<T: Config> Pallet<T> {
         let vault = Self::get_active_rich_vault_from_id(&vault_id)?;
         let issued_tokens = vault.backed_tokens()?;
 
-        let threshold = vault.get_personal_secure_threshold()?;
+        let threshold = vault.get_secure_threshold()?;
         let required_collateral = Self::get_required_collateral_for_wrapped_with_threshold(
             &issued_tokens,
             threshold,

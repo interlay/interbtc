@@ -619,7 +619,7 @@ impl<T: Config> RichVault<T> {
         Pallet::<T>::get_backing_collateral(&self.id())
     }
 
-    pub fn get_personal_secure_threshold(&self) -> Result<UnsignedFixedPoint<T>, DispatchError> {
+    pub fn get_secure_threshold(&self) -> Result<UnsignedFixedPoint<T>, DispatchError> {
         let global_threshold =
             Pallet::<T>::secure_collateral_threshold(&self.id().currencies).ok_or(Error::<T>::ThresholdNotSet)?;
         Ok(self
@@ -630,7 +630,7 @@ impl<T: Config> RichVault<T> {
     }
 
     pub fn get_free_collateral(&self) -> Result<Amount<T>, DispatchError> {
-        let used_collateral = self.get_used_collateral(self.get_personal_secure_threshold()?)?;
+        let used_collateral = self.get_used_collateral(self.get_secure_threshold()?)?;
         self.get_total_collateral()?.checked_sub(&used_collateral)
     }
 
@@ -651,7 +651,7 @@ impl<T: Config> RichVault<T> {
         // free_collateral = collateral - used_collateral
         let free_collateral = self.get_free_collateral()?;
 
-        let secure_threshold = self.get_personal_secure_threshold()?;
+        let secure_threshold = self.get_secure_threshold()?;
 
         // issuable_tokens = (free_collateral / exchange_rate) / secure_collateral_threshold
         let issuable = Pallet::<T>::calculate_max_wrapped_from_collateral_for_threshold(
