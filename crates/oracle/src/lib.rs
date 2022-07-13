@@ -82,6 +82,9 @@ pub mod pallet {
             oracle_id: T::AccountId,
             values: Vec<(OracleKey, T::UnsignedFixedPoint)>,
         },
+        AggregateUpdated {
+            values: Vec<(OracleKey, Option<T::UnsignedFixedPoint>)>,
+        },
         OracleAdded {
             oracle_id: T::AccountId,
             name: Vec<u8>,
@@ -256,10 +259,16 @@ impl<T: Config> Pallet<T> {
 
         let current_time = Self::get_current_time();
 
+        let mut updated_items = Vec::new();
         for (key, is_updated) in raw_values_updated.iter() {
             if *is_updated || Self::is_outdated(key, current_time) {
-                Self::update_aggregate(key);
+                let new_value = Self::update_aggregate(key);
+                updated_items.push((key.clone(), new_value));
             }
+        }
+
+        if !updated_items.is_empty() {
+            Self::deposit_event(Event::<T>::AggregateUpdated { values: updated_items });
         }
 
         let current_status_is_online = Self::is_oracle_online();
@@ -346,7 +355,7 @@ impl<T: Config> Pallet<T> {
             .unique_saturated_into())
     }
 
-    fn update_aggregate(key: &OracleKey) {
+    fn update_aggregate(key: &OracleKey) -> Option<T::UnsignedFixedPoint> {
         RawValuesUpdated::<T>::insert(key, false);
         let mut raw_values: Vec<_> = RawValues::<T>::iter_prefix(key).map(|(_, value)| value).collect();
         let min_timestamp = Self::get_current_time().saturating_sub(Self::get_max_delay());
@@ -354,6 +363,7 @@ impl<T: Config> Pallet<T> {
         if raw_values.len() == 0 {
             Aggregate::<T>::remove(key);
             ValidUntil::<T>::remove(key);
+            None
         } else {
             let valid_until = raw_values
                 .iter()
@@ -367,6 +377,7 @@ impl<T: Config> Pallet<T> {
 
             Aggregate::<T>::insert(key, value.value);
             ValidUntil::<T>::insert(key, valid_until);
+            Some(value.value)
         }
     }
 
