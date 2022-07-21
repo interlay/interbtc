@@ -499,4 +499,5 @@ pub type ForeignAssetId = u32;
 #[derive(scale_info::TypeInfo, Encode, Decode, Clone, Eq, PartialEq, Debug)]
 pub struct CustomMetadata {
     pub fee_per_second: u128,
+    pub coingecko_id: Vec<u8>,
 }
