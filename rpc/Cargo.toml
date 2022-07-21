@@ -11,7 +11,6 @@ jsonrpsee = { version = "0.13.0", features = ["server", "macros"] }
 # Parachain dependencies
 module-btc-relay-rpc = { path = "../crates/btc-relay/rpc" }
 module-oracle-rpc = { path = "../crates/oracle/rpc" }
-module-relay-rpc = { path = "../crates/relay/rpc" }
 module-vault-registry-rpc = { path = "../crates/vault-registry/rpc" }
 module-issue-rpc = { path = "../crates/issue/rpc" }
 module-redeem-rpc = { path = "../crates/redeem/rpc" }
