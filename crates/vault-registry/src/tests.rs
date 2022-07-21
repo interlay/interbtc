@@ -446,7 +446,7 @@ fn decrease_to_be_redeemed_tokens_fails_with_insufficient_tokens() {
 }
 
 #[test]
-fn _succeeds() {
+fn decrease_tokens_succeeds() {
     run_test(|| {
         let id = create_sample_vault();
         let user_id = 5;
@@ -827,6 +827,80 @@ fn liquidate_at_most_liquidation_threshold() {
 }
 
 #[test]
+fn can_withdraw_only_up_to_custom_threshold() {
+    run_test(|| {
+        let vault_id = DEFAULT_ID;
+
+        let issued_tokens = 100;
+        let exchange_rate = 10;
+        let secure_threshold = 200u32; // %
+        let custom_threshold = 300u32; // %
+        let minimum_backing_collateral = 100 * 10 * 2;
+        let backing_collateral = 100 * 10 * 3 + 1;
+
+        create_vault_with_collateral(&vault_id, backing_collateral);
+
+        VaultRegistry::_set_secure_collateral_threshold(
+            DEFAULT_CURRENCY_PAIR,
+            FixedU128::checked_from_rational(secure_threshold, 100).unwrap(), // 200%
+        );
+
+        // set custom threshold for vault
+        assert_ok!(VaultRegistry::set_custom_secure_threshold(
+            Origin::signed(vault_id.account_id),
+            DEFAULT_CURRENCY_PAIR,
+            UnsignedFixedPoint::checked_from_rational(custom_threshold, 100),
+        ));
+
+        // set exchange rate
+        convert_to.mock_safe(convert_with_exchange_rate(exchange_rate));
+
+        // issue
+        assert_ok!(VaultRegistry::try_increase_to_be_issued_tokens(
+            &vault_id,
+            &wrapped(issued_tokens)
+        ));
+        assert_ok!(VaultRegistry::issue_tokens(&vault_id, &wrapped(issued_tokens)));
+
+        // should not be able to withdraw below custom threshold
+        assert_err!(
+            VaultRegistry::withdraw_collateral(Origin::signed(vault_id.account_id), vault_id.currencies.clone(), 2),
+            TestError::InsufficientCollateral
+        );
+        // should be able to withdraw up to custom threshold
+        assert_ok!(VaultRegistry::withdraw_collateral(
+            Origin::signed(vault_id.account_id),
+            vault_id.currencies.clone(),
+            1
+        ));
+
+        // reset custom threshold
+        assert_ok!(VaultRegistry::set_custom_secure_threshold(
+            Origin::signed(vault_id.account_id),
+            DEFAULT_CURRENCY_PAIR,
+            None
+        ));
+
+        // should not be able to withdraw below base secure threshold now
+        assert_err!(
+            VaultRegistry::withdraw_collateral(
+                Origin::signed(vault_id.account_id),
+                vault_id.currencies.clone(),
+                backing_collateral - minimum_backing_collateral // will be 1 over
+            ),
+            TestError::InsufficientCollateral
+        );
+
+        // should be able to withdraw to the secure threshold
+        assert_ok!(VaultRegistry::withdraw_collateral(
+            Origin::signed(vault_id.account_id),
+            vault_id.currencies.clone(),
+            backing_collateral - minimum_backing_collateral - 1
+        ));
+    });
+}
+
+#[test]
 fn is_collateral_below_threshold_true_succeeds() {
     run_test(|| {
         let collateral = DEFAULT_COLLATERAL;
@@ -990,12 +1064,75 @@ fn get_required_collateral_for_wrapped_with_threshold_succeeds() {
     })
 }
 
+mod custom_secure_threshold_tests {
+    use sp_runtime::traits::CheckedMul;
+
+    use super::{assert_eq, *};
+
+    #[test]
+    fn set_custom_secure_threshold_succeeds() {
+        run_test(|| {
+            let id = vault_id(4);
+            let collateral = 50;
+            create_vault_with_collateral(&id, collateral);
+
+            let system_threshold: UnsignedFixedPoint = VaultRegistry::secure_collateral_threshold(&id.currencies)
+                .expect("Unable to get secure collateral threshold");
+            let default_threshold = VaultRegistry::get_vault_secure_threshold(&id)
+                .expect("Unable to get default secure threshold for sample vault");
+            assert_eq!(default_threshold, system_threshold);
+
+            // set a custom threshold
+            let double_system_threshold = system_threshold
+                .checked_mul(&UnsignedFixedPoint::checked_from_integer(2u32).unwrap())
+                .unwrap();
+            assert_ok!(VaultRegistry::try_set_vault_custom_secure_threshold(
+                &id,
+                Some(double_system_threshold)
+            )); // double the threshold
+            let new_threshold = VaultRegistry::get_vault_secure_threshold(&id)
+                .expect("Unable to get custom secure threshold for sample vault");
+            assert_eq!(new_threshold, double_system_threshold);
+
+            // reset threshold
+            assert_ok!(VaultRegistry::try_set_vault_custom_secure_threshold(&id, None));
+            let reset_threshold = VaultRegistry::get_vault_secure_threshold(&id)
+                .expect("Unable to get reset secure threshold for sample vault");
+            assert_eq!(reset_threshold, system_threshold);
+        })
+    }
+
+    #[test]
+    fn set_custom_secure_threshold_sets_issuable_tokens() {
+        run_test(|| {
+            let id = vault_id(4);
+            let collateral = 50;
+            create_vault_with_collateral(&id, collateral);
+            let two = UnsignedFixedPoint::checked_from_integer(2u32).unwrap();
+            let system_secure_threshold: UnsignedFixedPoint =
+                VaultRegistry::secure_collateral_threshold(&id.currencies)
+                    .expect("Unable to get secure collateral threshold");
+            let issuable_tokens_before =
+                VaultRegistry::get_issuable_tokens_from_vault(&id).expect("Sample vault is unable to issue tokens");
+
+            assert_ok!(VaultRegistry::try_set_vault_custom_secure_threshold(
+                &id,
+                Some(system_secure_threshold.checked_mul(&two).unwrap())
+            )); // double the threshold
+            let issuable_tokens_after =
+                VaultRegistry::get_issuable_tokens_from_vault(&id).expect("Sample vault is unable to issue tokens");
+
+            assert_eq!(issuable_tokens_before.checked_div(&two).unwrap(), issuable_tokens_after);
+        })
+    }
+}
+
 mod liquidation_threshold_tests {
     use crate::mock::{AccountId, Balance, BlockNumber};
 
     use super::{assert_eq, *};
 
-    fn setup() -> Vault<AccountId, BlockNumber, Balance, CurrencyId> {
+    fn setup() -> Vault<AccountId, BlockNumber, Balance, CurrencyId, UnsignedFixedPoint> {
         let id = create_sample_vault();
 
         assert_ok!(VaultRegistry::try_increase_to_be_issued_tokens(&id, &wrapped(50)),);
@@ -1217,6 +1354,35 @@ mod get_vaults_with_issuable_tokens_tests {
             );
         })
     }
+
+    #[test]
+    fn get_vaults_with_issuable_tokens_succeeds_with_custom_vault_secure_thresholds() {
+        run_test(|| {
+            let id1 = vault_id(3);
+            let collateral1 = 100;
+            create_vault_with_collateral(&id1, collateral1);
+            let issuable_tokens1 =
+                VaultRegistry::get_issuable_tokens_from_vault(&id1).expect("Sample vault is unable to issue tokens");
+
+            let id2 = vault_id(4);
+            let collateral2 = 200;
+            create_vault_with_collateral(&id2, collateral2);
+            assert_ok!(VaultRegistry::try_set_vault_custom_secure_threshold(
+                &id2,
+                Some(5.into())
+            )); // 500% custom threshold
+            let issuable_tokens2 =
+                VaultRegistry::get_issuable_tokens_from_vault(&id2).expect("Sample vault is unable to issue tokens");
+
+            // Check result is ordered in descending order
+            assert_eq!(issuable_tokens1.gt(&issuable_tokens2).unwrap(), true);
+            assert_eq!(
+                VaultRegistry::get_vaults_with_issuable_tokens(),
+                Ok(vec!((id1, issuable_tokens1), (id2, issuable_tokens2)))
+            );
+        })
+    }
+
     #[test]
     fn get_vaults_with_issuable_tokens_succeeds_when_there_are_liquidated_vaults() {
         run_test(|| {

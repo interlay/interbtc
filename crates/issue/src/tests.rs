@@ -96,6 +96,7 @@ fn test_request_issue_banned_fails() {
                 active_replace_collateral: 0,
                 wallet: Wallet::new(),
                 banned_until: Some(1),
+                secure_collateral_threshold: None,
                 status: VaultStatus::Active(true),
                 liquidated_collateral: 0,
             },

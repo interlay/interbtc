@@ -159,6 +159,8 @@ mod deposit_collateral_test {
     }
 }
 mod withdraw_collateral_test {
+    use interbtc_runtime_standalone::UnsignedFixedPoint;
+
     use super::{assert_eq, *};
 
     fn required_collateral(vault_id: VaultId) -> Amount<Runtime> {
@@ -224,6 +226,49 @@ mod withdraw_collateral_test {
                 })
                 .dispatch(origin_of(account_of(VAULT))),
                 VaultRegistryError::InsufficientCollateral
+            );
+        });
+    }
+
+    #[test]
+    fn integration_test_vault_registry_withdraw_collateral_respects_custom_thresholds() {
+        test_with(|vault_id| {
+            let currency_id = vault_id.collateral_currency();
+            let amount = default_vault_backing_collateral(currency_id) - required_collateral(vault_id.clone());
+
+            assert_ok!(Call::VaultRegistry(VaultRegistryCall::set_custom_secure_threshold {
+                currency_pair: vault_id.currencies.clone(),
+                custom_threshold: UnsignedFixedPoint::checked_from_rational(20, 1),
+            })
+            .dispatch(origin_of(vault_id.account_id.clone())));
+
+            assert_err!(
+                Call::VaultRegistry(VaultRegistryCall::withdraw_collateral {
+                    currency_pair: vault_id.currencies.clone(),
+                    amount: amount.amount()
+                })
+                .dispatch(origin_of(account_of(VAULT))),
+                VaultRegistryError::InsufficientCollateral
+            );
+
+            assert_ok!(Call::VaultRegistry(VaultRegistryCall::set_custom_secure_threshold {
+                currency_pair: vault_id.currencies.clone(),
+                custom_threshold: None,
+            })
+            .dispatch(origin_of(vault_id.account_id.clone())));
+
+            assert_ok!(Call::VaultRegistry(VaultRegistryCall::withdraw_collateral {
+                currency_pair: vault_id.currencies.clone(),
+                amount: amount.amount()
+            })
+            .dispatch(origin_of(account_of(VAULT))));
+
+            assert_eq!(
+                ParachainState::get(&vault_id),
+                ParachainState::get_default(&vault_id).with_changes(|_, vault, _, _| {
+                    vault.backing_collateral -= amount;
+                    *vault.free_balance.get_mut(&vault.collateral_currency()).unwrap() += amount;
+                })
             );
         });
     }

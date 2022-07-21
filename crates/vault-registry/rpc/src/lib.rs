@@ -286,7 +286,6 @@ where
     ) -> RpcResult<BalanceWrapper<Balance>> {
         let api = self.client.runtime_api();
         let at = BlockId::hash(at.unwrap_or_else(|| self.client.info().best_hash));
-
         handle_response(
             api.get_required_collateral_for_vault(&at, vault_id),
             "Unable to get required collateral for vault".into(),

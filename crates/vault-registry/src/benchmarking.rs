@@ -95,6 +95,13 @@ benchmarks! {
         register_vault_with_collateral::<T>(vault_id.clone(), 100000000);
     }: _(RawOrigin::Signed(vault_id.account_id), vault_id.currencies.clone(), true)
 
+    set_custom_secure_threshold {
+        let vault_id = get_vault_id::<T>();
+        mint_collateral::<T>(&vault_id.account_id, (1u32 << 31).into());
+        register_vault_with_collateral::<T>(vault_id.clone(), 100000000);
+        VaultRegistry::<T>::_set_secure_collateral_threshold(vault_id.currencies.clone(), UnsignedFixedPoint::<T>::zero());
+    }: _(RawOrigin::Signed(vault_id.account_id), vault_id.currencies.clone(), Some(UnsignedFixedPoint::<T>::one()))
+
     set_minimum_collateral {
     }: _(RawOrigin::Root, get_collateral_currency_id::<T>(), 1234u32.into())
 
