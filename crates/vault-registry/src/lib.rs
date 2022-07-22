@@ -45,7 +45,9 @@ use frame_support::{
     dispatch::{DispatchError, DispatchResult},
     ensure,
     traits::Get,
-    transactional, PalletId,
+    transactional,
+    weights::Weight,
+    PalletId,
 };
 use frame_system::{
     ensure_signed,
@@ -130,6 +132,10 @@ pub mod pallet {
         fn offchain_worker(n: T::BlockNumber) {
             log::info!("Off-chain worker started on block {:?}", n);
             Self::_offchain_worker();
+        }
+
+        fn on_runtime_upgrade() -> Weight {
+            crate::types::upgrade_vault_release::try_upgrade_current_vault_release::<T>()
         }
     }
 
@@ -418,18 +424,34 @@ pub mod pallet {
             Ok(())
         }
 
-        /// Changes the collateral liquidation threshold for a currency (only executable by the Root account)
+        /// Sets the current client release version, in case of a bug fix or patch.
         ///
         /// # Arguments
         /// * `version` - the semver version, where the zero-index element is the major version
         /// * `checksum` - the SHA256 checksum of the client binary
         #[pallet::weight(<T as Config>::WeightInfo::set_liquidation_collateral_threshold())]
         #[transactional]
-        pub fn set_client_release(origin: OriginFor<T>, version: [u32; 3], checksum: [u8; 32]) -> DispatchResult {
+        pub fn set_current_client_release(origin: OriginFor<T>, uri: Vec<u8>, code_hash: T::Hash) -> DispatchResult {
             ensure_root(origin)?;
-            // TODO: Should the new semver version have a check that ensures it is striclty ascending?
-            LatestClientRelease::<T>::put(ClientRelease { version, checksum });
-            Self::deposit_event(Event::<T>::ClientRelease { version, checksum });
+            let release = ClientRelease { uri, code_hash };
+            CurrentClientRelease::<T>::put(release.clone());
+            Self::deposit_event(Event::<T>::ApplyClientRelease { release });
+            Ok(())
+        }
+
+        /// Sets the pending client release version. To be batched alongside the
+        /// `parachainSystem.enactAuthorizedUpgrade` relay chain xcm call.
+        ///
+        /// # Arguments
+        /// * `version` - the semver version, where the zero-index element is the major version
+        /// * `checksum` - the SHA256 checksum of the client binary
+        #[pallet::weight(<T as Config>::WeightInfo::set_liquidation_collateral_threshold())]
+        #[transactional]
+        pub fn set_pending_client_release(origin: OriginFor<T>, uri: Vec<u8>, code_hash: T::Hash) -> DispatchResult {
+            ensure_root(origin)?;
+            let release = ClientRelease { uri, code_hash };
+            PendingClientRelease::<T>::put(Some(release.clone()));
+            Self::deposit_event(Event::<T>::NotifyClientRelease { release });
             Ok(())
         }
     }
@@ -543,9 +565,11 @@ pub mod pallet {
             vault_id: DefaultVaultId<T>,
             banned_until: T::BlockNumber,
         },
-        ClientRelease {
-            version: [u32; 3],
-            checksum: [u8; 32],
+        NotifyClientRelease {
+            release: ClientRelease<T::Hash>,
+        },
+        ApplyClientRelease {
+            release: ClientRelease<T::Hash>,
         },
     }
 
@@ -673,8 +697,14 @@ pub mod pallet {
     /// Tuple of (semver_version, sha256_checksum) indicating the latest vault client release.
     /// `semver_version`: The element at index zero is the major semver version.
     #[pallet::storage]
-    #[pallet::getter(fn latest_client_release)]
-    pub(super) type LatestClientRelease<T: Config> = StorageValue<_, ClientRelease, ValueQuery>;
+    #[pallet::getter(fn current_client_release)]
+    pub(super) type CurrentClientRelease<T: Config> = StorageValue<_, ClientRelease<T::Hash>, ValueQuery>;
+
+    /// Tuple of (semver_version, sha256_checksum) indicating the latest vault client release.
+    /// `semver_version`: The element at index zero is the major semver version.
+    #[pallet::storage]
+    #[pallet::getter(fn pending_client_release)]
+    pub(super) type PendingClientRelease<T: Config> = StorageValue<_, Option<ClientRelease<T::Hash>>, ValueQuery>;
 
     #[pallet::type_value]
     pub(super) fn DefaultForStorageVersion() -> Version {
@@ -730,6 +760,8 @@ pub mod pallet {
                 LiquidationCollateralThreshold::<T>::insert(currency_pair, threshold);
             }
             StorageVersion::<T>::put(Version::V3);
+            let no_release: Option<ClientRelease<T::Hash>> = None;
+            PendingClientRelease::<T>::put(no_release);
         }
     }
 }

@@ -381,11 +381,12 @@ mod migrate_aura {
 pub struct AuraMigration;
 impl frame_support::traits::OnRuntimeUpgrade for AuraMigration {
     fn on_runtime_upgrade() -> frame_support::weights::Weight {
-        if migrate_aura::should_run_upgrade() {
+        let aura_migration = if migrate_aura::should_run_upgrade() {
             migrate_aura::on_runtime_upgrade()
         } else {
             Default::default()
-        }
+        };
+        aura_migration
     }
 
     #[cfg(feature = "try-runtime")]
