@@ -206,6 +206,13 @@ mod accept_replace_tests {
             )
             .unwrap();
 
+            // Set `accept_new_issues` back to the default value so the parachain state check succeeds.
+            assert_ok!(Call::VaultRegistry(VaultRegistryCall::accept_new_issues {
+                currency_pair: new_vault_id.currencies.clone(),
+                accept_new_issues: true
+            })
+            .dispatch(origin_of(new_vault_id.account_id.clone())));
+
             assert_state_after_accept_replace_correct(&old_vault_id, &new_vault_id, &replace);
         });
     }

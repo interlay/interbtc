@@ -362,14 +362,7 @@ impl<T: Config> Pallet<T> {
         let amount = Amount::new(amount, vault_id.wrapped_currency());
         // decrease to-be-replaced tokens, so that the vault is free to use its issued tokens again.
         let (withdrawn_tokens, to_withdraw_collateral) =
-            ext::vault_registry::decrease_to_be_replaced_tokens::<T>(&vault_id, &amount)?;
-
-        // release the used collateral
-        ext::vault_registry::transfer_funds(
-            CurrencySource::AvailableReplaceCollateral(vault_id.clone()),
-            CurrencySource::FreeBalance(vault_id.account_id.clone()),
-            &to_withdraw_collateral,
-        )?;
+            ext::vault_registry::withdraw_replace_request::<T>(&vault_id, &amount)?;
 
         if withdrawn_tokens.is_zero() {
             return Err(Error::<T>::NoPendingRequest.into());

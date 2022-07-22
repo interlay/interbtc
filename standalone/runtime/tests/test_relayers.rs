@@ -120,6 +120,7 @@ fn integration_test_report_vault_theft() {
                 vault.issued -= issued_tokens;
                 vault.backing_collateral -= confiscated_collateral;
                 vault.backing_collateral -= theft_fee;
+                vault.status = VaultStatus::CommittedTheft;
 
                 liquidation_vault.issued += issued_tokens;
                 liquidation_vault.collateral += confiscated_collateral;

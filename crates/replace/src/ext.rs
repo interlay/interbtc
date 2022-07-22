@@ -128,6 +128,13 @@ pub(crate) mod vault_registry {
         <vault_registry::Pallet<T>>::decrease_to_be_replaced_tokens(vault_id, tokens)
     }
 
+    pub fn withdraw_replace_request<T: crate::Config>(
+        vault_id: &DefaultVaultId<T>,
+        amount: &Amount<T>,
+    ) -> Result<(Amount<T>, Amount<T>), DispatchError> {
+        <vault_registry::Pallet<T>>::withdraw_replace_request(vault_id, amount)
+    }
+
     pub fn try_deposit_collateral<T: crate::Config>(
         vault_id: &DefaultVaultId<T>,
         amount: &Amount<T>,

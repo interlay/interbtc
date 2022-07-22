@@ -442,6 +442,26 @@ pub mod pallet {
             Self::_set_liquidation_collateral_threshold(currency_pair, threshold);
             Ok(())
         }
+
+        /// Recover vault ID from a liquidated status.
+        ///
+        /// # Arguments
+        /// * `currency_pair` - the currency pair to change
+        #[pallet::weight(<T as Config>::WeightInfo::recover_vault_id())]
+        #[transactional]
+        pub fn recover_vault_id(origin: OriginFor<T>, currency_pair: DefaultVaultCurrencyPair<T>) -> DispatchResult {
+            let account_id = ensure_signed(origin)?;
+            let vault_id = VaultId::new(account_id, currency_pair.collateral, currency_pair.wrapped);
+            ensure!(Self::is_vault_liquidated(&vault_id)?, Error::<T>::VaultNotRecoverable);
+
+            let mut vault = Self::get_rich_vault_from_id(&vault_id.clone())?;
+            ensure!(vault.to_be_redeemed_tokens().is_zero(), Error::<T>::VaultNotRecoverable);
+
+            // Vault accepts new issues by default
+            vault.set_accept_new_issues(true)?;
+
+            Ok(())
+        }
     }
 
     #[pallet::event]
@@ -585,6 +605,8 @@ pub mod pallet {
         VaultCommittedTheft,
         /// Vault is no longer usable as it was liquidated due to undercollateralization.
         VaultLiquidated,
+        /// Vault must be either liquidated or flagged for theft.
+        VaultNotRecoverable,
         /// No bitcoin public key is registered for the vault.
         NoBitcoinPublicKey,
         /// A bitcoin public key was already registered for this account.
@@ -1440,6 +1462,27 @@ impl<T: Config> Pallet<T> {
         new_vault.decrease_to_be_issued(tokens)?;
 
         Ok(())
+    }
+
+    /// Withdraws an `amount` of tokens that were requested for replacement by `vault_id`
+    ///
+    /// # Arguments
+    /// * `vault_id` - the id of the vault
+    /// * `amount` - the amount of tokens to be withdrawn from replace requests
+    pub fn withdraw_replace_request(
+        vault_id: &DefaultVaultId<T>,
+        amount: &Amount<T>,
+    ) -> Result<(Amount<T>, Amount<T>), DispatchError> {
+        let (withdrawn_tokens, to_withdraw_collateral) = Self::decrease_to_be_replaced_tokens(&vault_id, &amount)?;
+
+        // release the used collateral
+        Self::transfer_funds(
+            CurrencySource::AvailableReplaceCollateral(vault_id.clone()),
+            CurrencySource::FreeBalance(vault_id.account_id.clone()),
+            &to_withdraw_collateral,
+        )?;
+
+        Ok((withdrawn_tokens, to_withdraw_collateral))
     }
 
     fn undercollateralized_vaults() -> impl Iterator<Item = DefaultVaultId<T>> {
