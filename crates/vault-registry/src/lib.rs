@@ -601,6 +601,8 @@ pub mod pallet {
         MaxNominationRatioViolation,
         /// The collateral ceiling would be exceeded for the vault's currency.
         CurrencyCeilingExceeded,
+        /// Vault is no longer usable as it was liquidated due to theft.
+        VaultCommittedTheft,
         /// Vault is no longer usable as it was liquidated due to undercollateralization.
         VaultLiquidated,
         /// Vault must be either liquidated or flagged for theft.
@@ -844,6 +846,7 @@ impl<T: Config> Pallet<T> {
         match vault.status {
             VaultStatus::Active(_) => Ok(vault),
             VaultStatus::Liquidated => Err(Error::<T>::VaultLiquidated.into()),
+            VaultStatus::CommittedTheft => Err(Error::<T>::VaultCommittedTheft.into()),
         }
     }
 
