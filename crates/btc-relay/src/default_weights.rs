@@ -34,6 +34,8 @@ use sp_std::marker::PhantomData;
 
 /// Weight functions needed for btc_relay.
 pub trait WeightInfo {
+	fn initialize() -> Weight;
+	fn store_block_header() -> Weight;
 	fn verify_and_validate_transaction() -> Weight;
 	fn verify_transaction_inclusion() -> Weight;
 	fn validate_transaction() -> Weight;
@@ -42,6 +44,34 @@ pub trait WeightInfo {
 /// Weights for btc_relay using the Substrate node and recommended hardware.
 pub struct SubstrateWeight<T>(PhantomData<T>);
 impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
+	// Storage: Security ParachainStatus (r:1 w:0)
+	// Storage: BTCRelay BestBlock (r:1 w:1)
+	// Storage: BTCRelay ChainCounter (r:1 w:1)
+	// Storage: BTCRelay Chains (r:1 w:1)
+	// Storage: Security ActiveBlockCount (r:1 w:0)
+	// Storage: BTCRelay ChainsHashes (r:0 w:1)
+	// Storage: BTCRelay StartBlockHeight (r:0 w:1)
+	// Storage: BTCRelay BestBlockHeight (r:0 w:1)
+	// Storage: BTCRelay ChainsIndex (r:0 w:1)
+	// Storage: BTCRelay BlockHeaders (r:0 w:1)
+	fn initialize() -> Weight {
+		(52_878_000 as Weight)
+			.saturating_add(T::DbWeight::get().reads(5 as Weight))
+			.saturating_add(T::DbWeight::get().writes(8 as Weight))
+	}
+	// Storage: Security ParachainStatus (r:1 w:0)
+	// Storage: BTCRelay BlockHeaders (r:2 w:1)
+	// Storage: BTCRelay ChainsIndex (r:1 w:1)
+	// Storage: BTCRelay DisableDifficultyCheck (r:1 w:0)
+	// Storage: BTCRelay ChainsHashes (r:1 w:1)
+	// Storage: Security ActiveBlockCount (r:1 w:0)
+	// Storage: BTCRelay BestBlock (r:0 w:1)
+	// Storage: BTCRelay BestBlockHeight (r:0 w:1)
+	fn store_block_header() -> Weight {
+		(68_306_000 as Weight)
+			.saturating_add(T::DbWeight::get().reads(7 as Weight))
+			.saturating_add(T::DbWeight::get().writes(5 as Weight))
+	}
 	// Storage: Security ParachainStatus (r:1 w:0)
 	// Storage: BTCRelay DisableInclusionCheck (r:1 w:0)
 	// Storage: BTCRelay BestBlockHeight (r:1 w:0)
@@ -73,6 +103,34 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 
 // For backwards compatibility and tests
 impl WeightInfo for () {
+	// Storage: Security ParachainStatus (r:1 w:0)
+	// Storage: BTCRelay BestBlock (r:1 w:1)
+	// Storage: BTCRelay ChainCounter (r:1 w:1)
+	// Storage: BTCRelay Chains (r:1 w:1)
+	// Storage: Security ActiveBlockCount (r:1 w:0)
+	// Storage: BTCRelay ChainsHashes (r:0 w:1)
+	// Storage: BTCRelay StartBlockHeight (r:0 w:1)
+	// Storage: BTCRelay BestBlockHeight (r:0 w:1)
+	// Storage: BTCRelay ChainsIndex (r:0 w:1)
+	// Storage: BTCRelay BlockHeaders (r:0 w:1)
+	fn initialize() -> Weight {
+		(52_878_000 as Weight)
+			.saturating_add(RocksDbWeight::get().reads(5 as Weight))
+			.saturating_add(RocksDbWeight::get().writes(8 as Weight))
+	}
+	// Storage: Security ParachainStatus (r:1 w:0)
+	// Storage: BTCRelay BlockHeaders (r:2 w:1)
+	// Storage: BTCRelay ChainsIndex (r:1 w:1)
+	// Storage: BTCRelay DisableDifficultyCheck (r:1 w:0)
+	// Storage: BTCRelay ChainsHashes (r:1 w:1)
+	// Storage: Security ActiveBlockCount (r:1 w:0)
+	// Storage: BTCRelay BestBlock (r:0 w:1)
+	// Storage: BTCRelay BestBlockHeight (r:0 w:1)
+	fn store_block_header() -> Weight {
+		(68_306_000 as Weight)
+			.saturating_add(RocksDbWeight::get().reads(7 as Weight))
+			.saturating_add(RocksDbWeight::get().writes(5 as Weight))
+	}
 	// Storage: Security ParachainStatus (r:1 w:0)
 	// Storage: BTCRelay DisableInclusionCheck (r:1 w:0)
 	// Storage: BTCRelay BestBlockHeight (r:1 w:0)

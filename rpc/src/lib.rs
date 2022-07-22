@@ -46,7 +46,6 @@ where
     C::Api: pallet_transaction_payment_rpc::TransactionPaymentRuntimeApi<Block, Balance>,
     C::Api: module_btc_relay_rpc::BtcRelayRuntimeApi<Block, H256Le>,
     C::Api: module_oracle_rpc::OracleRuntimeApi<Block, Balance, CurrencyId>,
-    C::Api: module_relay_rpc::RelayRuntimeApi<Block, VaultId<AccountId, CurrencyId>>,
     C::Api: module_vault_registry_rpc::VaultRegistryRuntimeApi<
         Block,
         VaultId<AccountId, CurrencyId>,
@@ -82,7 +81,6 @@ where
     use module_oracle_rpc::{Oracle, OracleApiServer};
     use module_redeem_rpc::{Redeem, RedeemApiServer};
     use module_refund_rpc::{Refund, RefundApiServer};
-    use module_relay_rpc::{Relay, RelayApiServer};
     use module_replace_rpc::{Replace, ReplaceApiServer};
     use module_vault_registry_rpc::{VaultRegistry, VaultRegistryApiServer};
     use pallet_transaction_payment_rpc::{TransactionPayment, TransactionPaymentApiServer};
@@ -111,8 +109,6 @@ where
     module.merge(BtcRelay::new(client.clone()).into_rpc())?;
 
     module.merge(Oracle::new(client.clone()).into_rpc())?;
-
-    module.merge(Relay::new(client.clone()).into_rpc())?;
 
     module.merge(VaultRegistry::new(client.clone()).into_rpc())?;
 
