@@ -622,6 +622,7 @@ fn register_kint_as_foreign_asset() {
         location: Some(MultiLocation::new(1, X2(Parachain(KINTSUGI_PARA_ID), GeneralKey(Token(KINT).encode()))).into()),
         additional: CustomMetadata {
             fee_per_second: 1_000_000_000_000,
+            coingecko_id: "kint-sugi".as_bytes().to_vec(),
         },
     };
     AssetRegistry::register_asset(Origin::root(), metadata, None).unwrap();

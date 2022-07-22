@@ -696,6 +696,7 @@ fn register_intr_as_foreign_asset() {
         location: Some(MultiLocation::new(1, X2(Parachain(INTERLAY_PARA_ID), GeneralKey(Token(INTR).encode()))).into()),
         additional: CustomMetadata {
             fee_per_second: 1_000_000_000_000,
+            coingecko_id: "interlay".as_bytes().to_vec(),
         },
     };
     AssetRegistry::register_asset(Origin::root(), metadata, None).unwrap();
