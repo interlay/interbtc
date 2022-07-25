@@ -106,90 +106,6 @@ pub mod pallet {
 
     #[pallet::call]
     impl<T: Config> Pallet<T> {
-        /// One time function to initialize the BTC-Relay with the first block
-        ///
-        /// # Arguments
-        ///
-        /// * `block_header_bytes` - 80 byte raw Bitcoin block header.
-        /// * `block_height` - starting Bitcoin block height of the submitted block header.
-        ///
-        /// # <weight>
-        /// - Storage Reads:
-        /// 	- One storage read to check that parachain is not shutdown. O(1)
-        /// 	- One storage read to check if relayer authorization is disabled. O(1)
-        /// 	- One storage read to check if relayer is authorized. O(1)
-        /// - Storage Writes:
-        ///     - One storage write to store block hash. O(1)
-        ///     - One storage write to store block header. O(1)
-        /// 	- One storage write to initialize main chain. O(1)
-        ///     - One storage write to store best block hash. O(1)
-        ///     - One storage write to store best block height. O(1)
-        /// - Events:
-        /// 	- One event for initialization.
-        ///
-        /// Total Complexity: O(1)
-        /// # </weight>
-        #[pallet::weight(<T as Config>::WeightInfo::initialize())]
-        #[transactional]
-        pub fn initialize(
-            origin: OriginFor<T>,
-            raw_block_header: RawBlockHeader,
-            block_height: u32,
-        ) -> DispatchResultWithPostInfo {
-            let relayer = ensure_signed(origin)?;
-
-            let block_header = Self::parse_raw_block_header(&raw_block_header)?;
-            Self::_initialize(relayer, block_header, block_height)?;
-
-            // don't take tx fees on success
-            Ok(Pays::No.into())
-        }
-
-        /// Stores a single new block header
-        ///
-        /// # Arguments
-        ///
-        /// * `raw_block_header` - 80 byte raw Bitcoin block header.
-        ///
-        /// # <weight>
-        /// Key: C (len of chains), P (len of positions)
-        /// - Storage Reads:
-        /// 	- One storage read to check that parachain is not shutdown. O(1)
-        /// 	- One storage read to check if relayer authorization is disabled. O(1)
-        /// 	- One storage read to check if relayer is authorized. O(1)
-        /// 	- One storage read to check if block header is stored. O(1)
-        /// 	- One storage read to retrieve parent block hash. O(1)
-        /// 	- One storage read to check if difficulty check is disabled. O(1)
-        /// 	- One storage read to retrieve last re-target. O(1)
-        /// 	- One storage read to retrieve all Chains. O(C)
-        /// - Storage Writes:
-        ///     - One storage write to store block hash. O(1)
-        ///     - One storage write to store block header. O(1)
-        /// 	- One storage mutate to extend main chain. O(1)
-        ///     - One storage write to store best block hash. O(1)
-        ///     - One storage write to store best block height. O(1)
-        /// - Notable Computation:
-        /// 	- O(P) sort to reorg chains.
-        /// - Events:
-        /// 	- One event for block stored (fork or extension).
-        ///
-        /// Total Complexity: O(C + P)
-        /// # </weight>
-        #[pallet::weight(<T as Config>::WeightInfo::store_block_header())]
-        #[transactional]
-        pub fn store_block_header(
-            origin: OriginFor<T>,
-            raw_block_header: RawBlockHeader,
-        ) -> DispatchResultWithPostInfo {
-            let relayer = ensure_signed(origin)?;
-
-            let block_header = Self::parse_raw_block_header(&raw_block_header)?;
-            Self::_store_block_header(&relayer, block_header)?;
-
-            // don't take tx fees on success
-            Ok(Pays::No.into())
-        }
-
         /// Verifies the inclusion of `tx_id` into the relay, and validates the given raw Bitcoin transaction, according
         /// to the supported transaction format (see <https://spec.interlay.io/intro/accepted-format.html>)
         ///
@@ -328,6 +244,8 @@ pub mod pallet {
         InvalidHeaderSize,
         /// Block already stored
         DuplicateBlock,
+        /// Block already stored and is not head
+        OutdatedBlock,
         /// Previous block hash not found
         PrevBlock,
         /// Invalid chain ID
@@ -535,7 +453,7 @@ pub const MAIN_CHAIN_ID: u32 = 0;
 
 #[cfg_attr(test, mockable)]
 impl<T: Config> Pallet<T> {
-    pub fn _initialize(relayer: T::AccountId, basic_block_header: BlockHeader, block_height: u32) -> DispatchResult {
+    pub fn initialize(relayer: T::AccountId, basic_block_header: BlockHeader, block_height: u32) -> DispatchResult {
         // Check if BTC-Relay was already initialized
         ensure!(!Self::best_block_exists(), Error::<T>::AlreadyInitialized);
 
@@ -563,7 +481,22 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
-    pub fn _store_block_header(relayer: &T::AccountId, basic_block_header: BlockHeader) -> DispatchResult {
+    /// wraps _store_block_header, but differentiates between DuplicateError and OutdatedError
+    #[transactional]
+    pub fn store_block_header(relayer: &T::AccountId, basic_block_header: BlockHeader) -> DispatchResult {
+        let ret = Self::_store_block_header(relayer, basic_block_header);
+        if let Err(err) = ret {
+            if err == DispatchError::from(Error::<T>::DuplicateBlock) {
+                // if this is not the chain head, return OutdatedBlock error
+                let this_header_hash = basic_block_header.hash;
+                let best_header_hash = Self::get_best_block();
+                ensure!(this_header_hash == best_header_hash, Error::<T>::OutdatedBlock);
+            }
+        }
+        ret
+    }
+
+    fn _store_block_header(relayer: &T::AccountId, basic_block_header: BlockHeader) -> DispatchResult {
         let prev_header = Self::get_block_header_from_hash(basic_block_header.hash_prev_block)?;
 
         // check if the prev block is the highest block in the chain
