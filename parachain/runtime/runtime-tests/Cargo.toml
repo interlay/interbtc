@@ -83,7 +83,6 @@ pallet-xcm = { git = "https://github.com/paritytech/polkadot", branch = "release
 btc-relay = { path = "../../../crates/btc-relay", default-features = false }
 currency = { path = "../../../crates/currency", default-features = false }
 security = { path = "../../../crates/security", default-features = false }
-relay = { path = "../../../crates/relay", default-features = false }
 vault-registry = { path = "../../../crates/vault-registry", default-features = false }
 oracle = { path = "../../../crates/oracle", default-features = false }
 fee = { path = "../../../crates/fee", default-features = false }
@@ -108,7 +107,6 @@ primitives = { package = "interbtc-primitives", path = "../../../primitives", de
 
 module-btc-relay-rpc-runtime-api = { path = "../../../crates/btc-relay/rpc/runtime-api", default-features = false }
 module-oracle-rpc-runtime-api = { path = "../../../crates/oracle/rpc/runtime-api", default-features = false }
-module-relay-rpc-runtime-api = { path = "../../../crates/relay/rpc/runtime-api", default-features = false }
 module-vault-registry-rpc-runtime-api = { path = "../../../crates/vault-registry/rpc/runtime-api", default-features = false }
 module-issue-rpc-runtime-api = { path = "../../../crates/issue/rpc/runtime-api", default-features = false }
 module-redeem-rpc-runtime-api = { path = "../../../crates/redeem/rpc/runtime-api", default-features = false }
@@ -205,10 +203,8 @@ std = [
   "testnet-interlay-runtime-parachain/std",
   
   "btc-relay/std",
-  "btc-relay/std",
   "currency/std",
   "security/std",
-  "relay/std",
   "vault-registry/std",
   "oracle/std",
   "fee/std",
@@ -230,7 +226,6 @@ std = [
 
   "module-btc-relay-rpc-runtime-api/std",
   "module-oracle-rpc-runtime-api/std",
-  "module-relay-rpc-runtime-api/std",
   "module-vault-registry-rpc-runtime-api/std",
   "module-issue-rpc-runtime-api/std",
   "module-redeem-rpc-runtime-api/std",
@@ -261,7 +256,6 @@ runtime-benchmarks = [
   "issue/runtime-benchmarks",
   "redeem/runtime-benchmarks",
   "replace/runtime-benchmarks",
-  "relay/runtime-benchmarks",
   "vault-registry/runtime-benchmarks",
   "fee/runtime-benchmarks",
 ]
