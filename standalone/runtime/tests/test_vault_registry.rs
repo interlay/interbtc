@@ -532,8 +532,8 @@ fn integration_test_vault_registry_theft_recovery_works() {
 }
 
 mod client_release {
-    use vault_registry::types::ClientRelease;
     use super::{assert_eq, *};
+    use vault_registry::types::ClientRelease;
 
     #[test]
     fn integration_test_vault_registry_set_current_client_release_works() {

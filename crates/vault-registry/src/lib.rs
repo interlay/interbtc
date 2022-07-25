@@ -45,8 +45,7 @@ use frame_support::{
     dispatch::{DispatchError, DispatchResult},
     ensure,
     traits::Get,
-    transactional,
-    PalletId,
+    transactional, PalletId,
 };
 use frame_system::{
     ensure_signed,
