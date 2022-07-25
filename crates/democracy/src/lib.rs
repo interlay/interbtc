@@ -495,17 +495,14 @@ pub mod pallet {
             Self::try_vote(&who, ref_index, vote)
         }
 
-        /// Schedule the currently externally-proposed majority-carries referendum to be tabled
-        /// immediately. If there is no externally-proposed referendum currently, or if there is one
-        /// but it is not a majority-carries referendum then it fails.
+        /// Schedule a proposal to be tabled immediately with the `FastTrackVotingPeriod`.
         ///
         /// The dispatch of this call must be `FastTrackOrigin`.
         ///
-        /// - `proposal_hash`: The hash of the current external proposal.
-        /// - `delay`: The number of block after voting has ended in approval and this should be enacted. This doesn't
-        ///   have a minimum amount.
+        /// - `prop_index`: The index of the current external proposal.
+        /// - `delay`: The number of blocks to wait after approval before execution.
         ///
-        /// Emits `Started`.
+        /// Emits `Started` and `FastTrack`.
         ///
         /// Weight: `O(1)`
         #[pallet::weight(T::WeightInfo::fast_track())]
@@ -515,36 +512,38 @@ pub mod pallet {
             delay: T::BlockNumber,
         ) -> DispatchResult {
             T::FastTrackOrigin::ensure_origin(origin)?;
-
-            let mut public_props = <PublicProps<T>>::get();
-            let (winner_index, _) = public_props
-                .iter()
-                .enumerate()
-                .find(|(_, (i, ..))| *i == prop_index)
-                .ok_or(Error::<T>::ProposalMissing)?;
-
-            let (_, proposal_hash, _) = public_props.swap_remove(winner_index);
-            <PublicProps<T>>::put(public_props);
-
-            if let Some((depositors, deposit)) = <DepositOf<T>>::take(prop_index) {
-                // refund depositors
-                for d in &depositors {
-                    T::Currency::unreserve(d, deposit);
-                }
-            }
-
-            let now = <frame_system::Pallet<T>>::block_number();
-            let voting_period = T::FastTrackVotingPeriod::get();
-            let ref_index = Self::inject_referendum(
-                now.saturating_add(voting_period),
-                proposal_hash,
-                VoteThreshold::SuperMajorityAgainst,
-                delay,
-            );
-            Self::deposit_event(Event::<T>::FastTrack(ref_index));
-            Ok(())
+            Self::fast_track_with_voting_period(prop_index, delay, T::FastTrackVotingPeriod::get())
         }
 
+        /// Same as `fast_track` but with the default `VotingPeriod`.
+        ///
+        /// The dispatch of this call must be `FastTrackOrigin`.
+        ///
+        /// - `prop_index`: The index of the proposal.
+        /// - `delay`: The number of blocks to wait after approval before execution.
+        ///
+        /// Emits `Started` and `FastTrack`.
+        ///
+        /// Weight: `O(1)`
+        #[pallet::weight(T::WeightInfo::fast_track())]
+        pub fn fast_track_default(
+            origin: OriginFor<T>,
+            #[pallet::compact] prop_index: PropIndex,
+            delay: T::BlockNumber,
+        ) -> DispatchResult {
+            T::FastTrackOrigin::ensure_origin(origin)?;
+            Self::fast_track_with_voting_period(prop_index, delay, T::VotingPeriod::get())
+        }
+
+        /// Reduces the voting period of an existing referendum.
+        ///
+        /// The dispatch of this call must be `FastTrackOrigin`.
+        ///
+        /// - `ref_index`: The index of the referendum.
+        ///
+        /// Emits `FastTrackReferendum`.
+        ///
+        /// Weight: `O(1)`
         #[pallet::weight(T::WeightInfo::fast_track_referendum())]
         pub fn fast_track_referendum(origin: OriginFor<T>, #[pallet::compact] ref_index: PropIndex) -> DispatchResult {
             T::FastTrackOrigin::ensure_origin(origin)?;
@@ -809,6 +808,39 @@ impl<T: Config> Pallet<T> {
     }
 
     // private.
+
+    fn fast_track_with_voting_period(
+        prop_index: PropIndex,
+        delay: T::BlockNumber,
+        voting_period: T::BlockNumber,
+    ) -> DispatchResult {
+        let mut public_props = <PublicProps<T>>::get();
+        let (winner_index, _) = public_props
+            .iter()
+            .enumerate()
+            .find(|(_, (i, ..))| *i == prop_index)
+            .ok_or(Error::<T>::ProposalMissing)?;
+
+        let (_, proposal_hash, _) = public_props.swap_remove(winner_index);
+        <PublicProps<T>>::put(public_props);
+
+        if let Some((depositors, deposit)) = <DepositOf<T>>::take(prop_index) {
+            // refund depositors
+            for d in &depositors {
+                T::Currency::unreserve(d, deposit);
+            }
+        }
+
+        let now = <frame_system::Pallet<T>>::block_number();
+        let ref_index = Self::inject_referendum(
+            now.saturating_add(voting_period),
+            proposal_hash,
+            VoteThreshold::SuperMajorityAgainst,
+            delay,
+        );
+        Self::deposit_event(Event::<T>::FastTrack(ref_index));
+        Ok(())
+    }
 
     /// Ok if the given referendum is active, Err otherwise
     fn ensure_ongoing(
