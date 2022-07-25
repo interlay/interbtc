@@ -532,6 +532,45 @@ fn integration_test_vault_registry_theft_recovery_works() {
     });
 }
 
+mod client_release {
+    use super::{assert_eq, *};
+    use vault_registry::types::ClientRelease;
+
+    #[test]
+    fn integration_test_vault_registry_set_current_client_release_works() {
+        test_with(|_vault_id| {
+            let new_release = ClientRelease {
+                uri: b"https://github.com/interlay/interbtc-clients/releases/download/1.14.0/vault-standalone-metadata"
+                    .to_vec(),
+                code_hash: H256::default(),
+            };
+            assert_ok!(Call::VaultRegistry(VaultRegistryCall::set_current_client_release {
+                uri: new_release.uri.clone(),
+                code_hash: new_release.code_hash.clone()
+            })
+            .dispatch(root()));
+            assert_eq!(VaultRegistryPallet::current_client_release(), new_release);
+        });
+    }
+
+    #[test]
+    fn integration_test_vault_registry_set_pending_client_release_works() {
+        test_with(|_vault_id| {
+            let new_release = ClientRelease {
+                uri: b"https://github.com/interlay/interbtc-clients/releases/download/1.15.0/vault-standalone-metadata"
+                    .to_vec(),
+                code_hash: H256::default(),
+            };
+            assert_ok!(Call::VaultRegistry(VaultRegistryCall::set_pending_client_release {
+                uri: new_release.uri.clone(),
+                code_hash: new_release.code_hash.clone()
+            })
+            .dispatch(root()));
+            assert_eq!(VaultRegistryPallet::pending_client_release(), Some(new_release));
+        });
+    }
+}
+
 #[test]
 fn integration_test_vault_registry_theft_recovery_with_executed_redeem_works() {
     test_with(|vault_id| {

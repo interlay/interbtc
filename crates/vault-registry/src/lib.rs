@@ -29,8 +29,8 @@ use mocktopus::macros::mockable;
 use primitives::VaultCurrencyPair;
 
 use crate::types::{
-    BalanceOf, BtcAddress, CurrencyId, DefaultSystemVault, RichSystemVault, RichVault, SignedInner, UnsignedFixedPoint,
-    UpdatableVault, Version,
+    BalanceOf, BtcAddress, ClientRelease, CurrencyId, DefaultSystemVault, RichSystemVault, RichVault, SignedInner,
+    UnsignedFixedPoint, UpdatableVault, Version,
 };
 
 use crate::types::DefaultVaultCurrencyPair;
@@ -134,6 +134,7 @@ pub mod pallet {
 
         fn on_runtime_upgrade() -> frame_support::weights::Weight {
             crate::types::v4::migrate_v4_to_v5::<T>()
+                + crate::types::upgrade_vault_release::try_upgrade_current_vault_release::<T>()
         }
     }
 
@@ -443,6 +444,37 @@ pub mod pallet {
             Ok(())
         }
 
+        /// Sets the current client release version, in case of a bug fix or patch.
+        ///
+        /// # Arguments
+        /// * `uri` - URI to the client release binary
+        /// * `code_hash` - The runtime code hash associated with this client release
+        #[pallet::weight(<T as Config>::WeightInfo::set_current_client_release())]
+        #[transactional]
+        pub fn set_current_client_release(origin: OriginFor<T>, uri: Vec<u8>, code_hash: T::Hash) -> DispatchResult {
+            ensure_root(origin)?;
+            let release = ClientRelease { uri, code_hash };
+            CurrentClientRelease::<T>::put(release.clone());
+            Self::deposit_event(Event::<T>::ApplyClientRelease { release });
+            Ok(())
+        }
+
+        /// Sets the pending client release version. To be batched alongside the
+        /// `parachainSystem.enactAuthorizedUpgrade` relay chain xcm call.
+        ///
+        /// # Arguments
+        /// * `uri` - URI to the client release binary
+        /// * `code_hash` - The runtime code hash associated with this client release
+        #[pallet::weight(<T as Config>::WeightInfo::set_pending_client_release())]
+        #[transactional]
+        pub fn set_pending_client_release(origin: OriginFor<T>, uri: Vec<u8>, code_hash: T::Hash) -> DispatchResult {
+            ensure_root(origin)?;
+            let release = ClientRelease { uri, code_hash };
+            PendingClientRelease::<T>::put(Some(release.clone()));
+            Self::deposit_event(Event::<T>::NotifyClientRelease { release });
+            Ok(())
+        }
+
         /// Recover vault ID from a liquidated status.
         ///
         /// # Arguments
@@ -573,6 +605,12 @@ pub mod pallet {
             vault_id: DefaultVaultId<T>,
             banned_until: T::BlockNumber,
         },
+        NotifyClientRelease {
+            release: ClientRelease<T::Hash>,
+        },
+        ApplyClientRelease {
+            release: ClientRelease<T::Hash>,
+        },
     }
 
     #[pallet::error]
@@ -699,6 +737,16 @@ pub mod pallet {
     #[pallet::storage]
     pub(super) type TotalUserVaultCollateral<T: Config> =
         StorageMap<_, Blake2_128Concat, DefaultVaultCurrencyPair<T>, BalanceOf<T>, ValueQuery>;
+
+    /// Tuple of (release_uri, code_hash) indicating the current vault client release.
+    #[pallet::storage]
+    #[pallet::getter(fn current_client_release)]
+    pub(super) type CurrentClientRelease<T: Config> = StorageValue<_, ClientRelease<T::Hash>, ValueQuery>;
+
+    /// Tuple of (release_uri, code_hash) indicating the pending vault client release.
+    #[pallet::storage]
+    #[pallet::getter(fn pending_client_release)]
+    pub(super) type PendingClientRelease<T: Config> = StorageValue<_, Option<ClientRelease<T::Hash>>, ValueQuery>;
 
     #[pallet::type_value]
     pub(super) fn DefaultForStorageVersion() -> Version {

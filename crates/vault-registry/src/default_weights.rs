@@ -47,6 +47,8 @@ pub trait WeightInfo {
 	fn set_premium_redeem_threshold() -> Weight;
 	fn set_liquidation_collateral_threshold() -> Weight;
 	fn report_undercollateralized_vault() -> Weight;
+	fn set_current_client_release() -> Weight;
+	fn set_pending_client_release() -> Weight;
 	fn recover_vault_id() -> Weight;
 }
 
@@ -187,6 +189,15 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		(363_346_000 as Weight)
 			.saturating_add(T::DbWeight::get().reads(28 as Weight))
 			.saturating_add(T::DbWeight::get().writes(16 as Weight))
+	}
+
+	fn set_current_client_release() -> Weight {
+		(4_130_000 as Weight)
+			.saturating_add(T::DbWeight::get().writes(1 as Weight))
+	}
+
+	fn set_pending_client_release() -> Weight {
+		(4_130_000 as Weight)
 	}
 
 	// Storage: VaultRegistry Vaults (r:2 w:1)
@@ -333,6 +344,15 @@ impl WeightInfo for () {
 		(363_346_000 as Weight)
 			.saturating_add(RocksDbWeight::get().reads(28 as Weight))
 			.saturating_add(RocksDbWeight::get().writes(16 as Weight))
+	}
+
+	fn set_current_client_release() -> Weight {
+		(4_130_000 as Weight)
+			.saturating_add(RocksDbWeight::get().writes(1 as Weight))
+	}
+
+	fn set_pending_client_release() -> Weight {
+		(4_130_000 as Weight)
 	}
 
 	// Storage: VaultRegistry Vaults (r:2 w:1)
