@@ -281,6 +281,28 @@ pub mod liquidation_vault_fix {
 pub mod v4 {
     use super::*;
 
+    #[derive(Encode, Decode, Clone, Copy, PartialEq, Eq, Debug, TypeInfo, MaxEncodedLen)]
+    pub enum VaultStatusV4 {
+        /// Vault is active - bool=true indicates that the vault accepts new issue requests
+        Active(bool),
+
+        /// Vault has been liquidated
+        Liquidated,
+
+        /// Vault theft has been reported
+        CommittedTheft,
+    }
+
+    impl Into<VaultStatus> for VaultStatusV4 {
+        fn into(self) -> VaultStatus {
+            match self {
+                VaultStatusV4::Active(accept_issue) => VaultStatus::Active(accept_issue),
+                VaultStatusV4::Liquidated => VaultStatus::Liquidated,
+                VaultStatusV4::CommittedTheft => VaultStatus::Liquidated,
+            }
+        }
+    }
+
     #[derive(Encode, Decode, Clone, PartialEq, Eq, TypeInfo)]
     #[cfg_attr(feature = "std", derive(Debug))]
     pub struct VaultV4<AccountId, BlockNumber, Balance, CurrencyId: Copy> {
@@ -289,7 +311,7 @@ pub mod v4 {
         /// Bitcoin address of this Vault (P2PKH, P2SH, P2WPKH, P2WSH)
         pub wallet: Wallet,
         /// Current status of the vault
-        pub status: VaultStatus,
+        pub status: VaultStatusV4,
         /// Block height until which this Vault is banned from being used for
         /// Issue, Redeem (except during automatic liquidation) and Replace.
         pub banned_until: Option<BlockNumber>,
@@ -337,7 +359,7 @@ pub mod v4 {
             Some(Vault {
                 id: vault_v4.id,
                 wallet: vault_v4.wallet,
-                status: vault_v4.status,
+                status: vault_v4.status.into(),
                 banned_until: vault_v4.banned_until,
                 secure_collateral_threshold: None,
                 to_be_issued_tokens: vault_v4.to_be_issued_tokens,
@@ -384,7 +406,7 @@ pub mod v4 {
                     .into(),
                 },
                 banned_until: None,
-                status: VaultStatus::Active(true),
+                status: VaultStatusV4::Active(true),
                 issued_tokens: Default::default(),
                 liquidated_collateral: Default::default(),
                 replace_collateral: Default::default(),
@@ -407,7 +429,7 @@ pub mod v4 {
                 wallet: Wallet {
                     addresses: vault.wallet.addresses.clone(),
                 },
-                status: vault.status.clone(),
+                status: vault.status.into(),
                 banned_until: vault.banned_until,
                 secure_collateral_threshold: None,
                 to_be_issued_tokens: vault.to_be_issued_tokens,
@@ -461,10 +483,6 @@ pub enum VaultStatus {
 
     /// Vault has been liquidated
     Liquidated,
-
-    /// Vault theft has been reported
-    // TODO: remove this, requires migration
-    CommittedTheft,
 }
 
 impl Default for VaultStatus {
@@ -551,7 +569,7 @@ impl<
     }
 
     pub fn is_liquidated(&self) -> bool {
-        matches!(self.status, VaultStatus::Liquidated | VaultStatus::CommittedTheft)
+        matches!(self.status, VaultStatus::Liquidated)
     }
 }
 
