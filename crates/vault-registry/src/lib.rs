@@ -694,14 +694,12 @@ pub mod pallet {
     pub(super) type TotalUserVaultCollateral<T: Config> =
         StorageMap<_, Blake2_128Concat, DefaultVaultCurrencyPair<T>, BalanceOf<T>, ValueQuery>;
 
-    /// Tuple of (semver_version, sha256_checksum) indicating the latest vault client release.
-    /// `semver_version`: The element at index zero is the major semver version.
+    /// Tuple of (release_uri, code_hash) indicating the current vault client release.
     #[pallet::storage]
     #[pallet::getter(fn current_client_release)]
     pub(super) type CurrentClientRelease<T: Config> = StorageValue<_, ClientRelease<T::Hash>, ValueQuery>;
 
-    /// Tuple of (semver_version, sha256_checksum) indicating the latest vault client release.
-    /// `semver_version`: The element at index zero is the major semver version.
+    /// Tuple of (release_uri, code_hash) indicating the pending vault client release.
     #[pallet::storage]
     #[pallet::getter(fn pending_client_release)]
     pub(super) type PendingClientRelease<T: Config> = StorageValue<_, Option<ClientRelease<T::Hash>>, ValueQuery>;

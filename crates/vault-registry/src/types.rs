@@ -35,9 +35,9 @@ pub enum Version {
 
 #[derive(Encode, Decode, Eq, PartialEq, Clone, Default, TypeInfo, Debug)]
 pub struct ClientRelease<Hash> {
-    /// The semver version, where the zero-index element is the major version
+    /// URI to the client release binary.
     pub uri: Vec<u8>,
-    /// SHA256 checksum of the client binary
+    /// The runtime code hash associated with this client release.
     pub code_hash: Hash,
 }
 
@@ -122,11 +122,14 @@ pub mod upgrade_vault_release {
     /// If a pending client release exists, set the current release to that.
     /// The pending release becomes `None`.
     pub fn try_upgrade_current_vault_release<T: Config>() -> Weight {
-        let mut writes: Weight = if let Some(pending_release) = Pallet::<T>::pending_client_release() {
+        let writes: Weight = if let Some(pending_release) = Pallet::<T>::pending_client_release() {
             log::info!("Upgrading current vault release.");
-            crate::CurrentClientRelease::<T>::put(pending_release);
+            crate::CurrentClientRelease::<T>::put(pending_release.clone());
             let no_release: Option<ClientRelease<T::Hash>> = None;
             crate::PendingClientRelease::<T>::put(no_release);
+            Pallet::<T>::deposit_event(crate::Event::<T>::ApplyClientRelease {
+                release: pending_release,
+            });
             2
         } else {
             log::info!("No pending vault release, skipping migration.");
