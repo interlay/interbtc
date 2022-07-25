@@ -802,8 +802,6 @@ pub mod pallet {
                 LiquidationCollateralThreshold::<T>::insert(currency_pair, threshold);
             }
             StorageVersion::<T>::put(Version::V3);
-            let no_release: Option<ClientRelease<T::Hash>> = None;
-            PendingClientRelease::<T>::put(no_release);
         }
     }
 }

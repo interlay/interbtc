@@ -124,11 +124,9 @@ pub mod upgrade_vault_release {
     /// If a pending client release exists, set the current release to that.
     /// The pending release becomes `None`.
     pub fn try_upgrade_current_vault_release<T: Config>() -> Weight {
-        let writes: Weight = if let Some(pending_release) = Pallet::<T>::pending_client_release() {
+        let writes: Weight = if let Some(pending_release) = crate::PendingClientRelease::<T>::take() {
             log::info!("Upgrading current vault release.");
             crate::CurrentClientRelease::<T>::put(pending_release.clone());
-            let no_release: Option<ClientRelease<T::Hash>> = None;
-            crate::PendingClientRelease::<T>::put(no_release);
             Pallet::<T>::deposit_event(crate::Event::<T>::ApplyClientRelease {
                 release: pending_release,
             });
