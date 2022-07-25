@@ -247,6 +247,7 @@ mod withdraw_collateral_test {
         });
     }
 
+    #[test]
     fn integration_test_vault_registry_withdraw_collateral_respects_custom_thresholds() {
         test_with(|vault_id| {
             let currency_id = vault_id.collateral_currency();
