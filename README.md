@@ -64,7 +64,6 @@ The Substrate runtime makes use of various custom pallets that are found in the 
 - [oracle](crates/oracle): Trusted providers use this to set exchange rates and Bitcoin fee estimates.
 - [redeem](crates/redeem): Handles redeeming of interBTC for BTC on Bitcoin.
 - [refund](crates/refund): Handles refunds for when a vault receives more BTC than it can cover.
-- [relay](crates/relay): Handles block submission and theft reporting.
 - [replace](crates/replace): Handles replacing vaults.
 - [reward](crates/reward): Scalable reward distribution.
 - [security](crates/security): Handles status and error changes.

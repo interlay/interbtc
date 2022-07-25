@@ -40,14 +40,16 @@ pub trait WeightInfo {
 	fn register_public_key() -> Weight;
 	fn register_address() -> Weight;
 	fn accept_new_issues() -> Weight;
-	fn set_minimum_collateral() -> Weight;
+    fn set_minimum_collateral() -> Weight;
 	fn set_system_collateral_ceiling() -> Weight;
+    fn set_custom_secure_threshold() -> Weight;
 	fn set_secure_collateral_threshold() -> Weight;
 	fn set_premium_redeem_threshold() -> Weight;
 	fn set_liquidation_collateral_threshold() -> Weight;
 	fn report_undercollateralized_vault() -> Weight;
 	fn set_current_client_release() -> Weight;
 	fn set_pending_client_release() -> Weight;
+	fn recover_vault_id() -> Weight;
 }
 
 /// Weights for vault_registry using the Substrate node and recommended hardware.
@@ -130,6 +132,12 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(T::DbWeight::get().reads(1 as Weight))
 			.saturating_add(T::DbWeight::get().writes(1 as Weight))
 	}
+	// Storage: VaultRegistry Vaults (r:1 w:1)
+	fn set_custom_secure_threshold() -> Weight {
+		(14_679_000 as Weight)
+			.saturating_add(RocksDbWeight::get().reads(1 as Weight))
+			.saturating_add(RocksDbWeight::get().writes(1 as Weight))
+	}
 	// Storage: VaultRegistry MinimumCollateralVault (r:0 w:1)
 	fn set_minimum_collateral() -> Weight {
 		(4_059_000 as Weight)
@@ -190,6 +198,12 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 
 	fn set_pending_client_release() -> Weight {
 		(4_130_000 as Weight)
+	}
+
+	// Storage: VaultRegistry Vaults (r:2 w:1)
+	fn recover_vault_id() -> Weight {
+		(14_679_000 as Weight)
+			.saturating_add(T::DbWeight::get().reads(2 as Weight))
 			.saturating_add(T::DbWeight::get().writes(1 as Weight))
 	}
 }
@@ -273,6 +287,12 @@ impl WeightInfo for () {
 			.saturating_add(RocksDbWeight::get().reads(1 as Weight))
 			.saturating_add(RocksDbWeight::get().writes(1 as Weight))
 	}
+	// Storage: VaultRegistry Vaults (r:1 w:1)
+	fn set_custom_secure_threshold() -> Weight {
+		(14_679_000 as Weight)
+			.saturating_add(RocksDbWeight::get().reads(1 as Weight))
+			.saturating_add(RocksDbWeight::get().writes(1 as Weight))
+	}
 	// Storage: VaultRegistry MinimumCollateralVault (r:0 w:1)
 	fn set_minimum_collateral() -> Weight {
 		(4_059_000 as Weight)
@@ -333,6 +353,12 @@ impl WeightInfo for () {
 
 	fn set_pending_client_release() -> Weight {
 		(4_130_000 as Weight)
+	}
+
+	// Storage: VaultRegistry Vaults (r:2 w:1)
+	fn recover_vault_id() -> Weight {
+		(14_679_000 as Weight)
+			.saturating_add(RocksDbWeight::get().reads(2 as Weight))
 			.saturating_add(RocksDbWeight::get().writes(1 as Weight))
 	}
 }

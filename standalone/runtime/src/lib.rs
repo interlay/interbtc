@@ -59,7 +59,7 @@ pub use pallet_grandpa::{fg_primitives, AuthorityId as GrandpaId, AuthorityList 
 pub use sp_consensus_aura::sr25519::AuthorityId as AuraId;
 
 // interBTC exports
-pub use btc_relay::{bitcoin, Call as RelayCall, TARGET_SPACING};
+pub use btc_relay::{bitcoin, Call as BtcRelayCall, TARGET_SPACING};
 pub use module_oracle_rpc_runtime_api::BalanceWrapper;
 pub use security::StatusCode;
 
@@ -795,8 +795,6 @@ impl security::Config for Runtime {
     type Event = Event;
 }
 
-pub use relay::Event as RelayEvent;
-
 pub struct CurrencyConvert;
 impl currency::CurrencyConversion<currency::Amount<Runtime>, CurrencyId> for CurrencyConvert {
     fn convert(amount: &currency::Amount<Runtime>, to: CurrencyId) -> Result<currency::Amount<Runtime>, DispatchError> {
@@ -813,11 +811,6 @@ impl currency::Config for Runtime {
     type GetRelayChainCurrencyId = GetRelayChainCurrencyId;
     type GetWrappedCurrencyId = GetWrappedCurrencyId;
     type CurrencyConversion = CurrencyConvert;
-}
-
-impl relay::Config for Runtime {
-    type Event = Event;
-    type WeightInfo = ();
 }
 
 impl staking::Config for Runtime {
@@ -987,7 +980,7 @@ construct_runtime! {
         Preimage: pallet_preimage::{Pallet, Call, Storage, Event<T>} = 6,
         Multisig: pallet_multisig::{Pallet, Call, Storage, Event<T>} = 7,
 
-        // Tokens & Balances
+        // # Tokens & Balances
         Currency: currency::{Pallet} = 8,
         Tokens: orml_tokens::{Pallet, Call, Storage, Config<T>, Event<T>} = 9,
         Escrow: escrow::{Pallet, Call, Storage, Event<T>} = 10,
@@ -1003,12 +996,12 @@ construct_runtime! {
 
         Supply: supply::{Pallet, Storage, Call, Event<T>, Config<T>} = 17,
 
-        // Bitcoin SPV
+        // # Bitcoin SPV
         BTCRelay: btc_relay::{Pallet, Call, Config<T>, Storage, Event<T>} = 18,
 
-        // Operational
+        // # Operational
         Security: security::{Pallet, Call, Config, Storage, Event<T>} = 19,
-        Relay: relay::{Pallet, Call, Storage, Event<T>} = 20,
+        // Relay: 20
         VaultRegistry: vault_registry::{Pallet, Call, Config<T>, Storage, Event<T>, ValidateUnsigned} = 21,
         Oracle: oracle::{Pallet, Call, Config<T>, Storage, Event<T>} = 22,
         Issue: issue::{Pallet, Call, Config<T>, Storage, Event<T>} = 23,
@@ -1020,7 +1013,7 @@ construct_runtime! {
 
         Identity: pallet_identity::{Pallet, Call, Storage, Event<T>} = 36,
 
-        // Governance
+        // # Governance
         Democracy: democracy::{Pallet, Call, Storage, Config<T>, Event<T>} = 29,
         TechnicalCommittee: pallet_collective::<Instance1>::{Pallet, Call, Storage, Origin<T>, Event<T>, Config<T>} = 30,
         TechnicalMembership: pallet_membership::{Pallet, Call, Storage, Event<T>, Config<T>} = 31,
@@ -1213,7 +1206,6 @@ impl_runtime_apis! {
             list_benchmark!(list, extra, oracle, Oracle);
             list_benchmark!(list, extra, redeem, Redeem);
             list_benchmark!(list, extra, refund, Refund);
-            list_benchmark!(list, extra, relay, Relay);
             list_benchmark!(list, extra, replace, Replace);
             list_benchmark!(list, extra, vault_registry, VaultRegistry);
 
@@ -1252,7 +1244,6 @@ impl_runtime_apis! {
             add_benchmark!(params, batches, oracle, Oracle);
             add_benchmark!(params, batches, redeem, Redeem);
             add_benchmark!(params, batches, refund, Refund);
-            add_benchmark!(params, batches, relay, Relay);
             add_benchmark!(params, batches, replace, Replace);
             add_benchmark!(params, batches, vault_registry, VaultRegistry);
 
@@ -1283,15 +1274,6 @@ impl_runtime_apis! {
         fn collateral_to_wrapped(amount: BalanceWrapper<Balance>, currency_id: CurrencyId) -> Result<BalanceWrapper<Balance>, DispatchError> {
             let result = Oracle::collateral_to_wrapped(amount.amount, currency_id)?;
             Ok(BalanceWrapper{amount:result})
-        }
-    }
-
-    impl module_relay_rpc_runtime_api::RelayApi<
-        Block,
-        VaultId,
-    > for Runtime {
-        fn is_transaction_invalid(vault_id: VaultId, raw_tx: Vec<u8>) -> DispatchResult {
-            Relay::is_transaction_invalid(&vault_id, raw_tx)
         }
     }
 

@@ -160,10 +160,6 @@ pub type SecurityCall = security::Call<Runtime>;
 
 pub type SudoCall = pallet_sudo::Call<Runtime>;
 
-pub type RelayCall = relay::Call<Runtime>;
-pub type RelayPallet = relay::Pallet<Runtime>;
-pub type RelayError = relay::Error<Runtime>;
-
 pub type SystemPallet = frame_system::Pallet<Runtime>;
 pub type SystemError = frame_system::Error<Runtime>;
 
@@ -252,6 +248,7 @@ pub fn default_vault_state(vault_id: &VaultId) -> CoreVaultData {
             .map(|x| (x, default_vault_free_balance(x)))
             .collect(),
         liquidated_collateral: Amount::new(0, vault_id.collateral_currency()),
+        status: VaultStatus::Active(true),
     }
 }
 
@@ -508,6 +505,7 @@ pub struct CoreVaultData {
     pub free_balance: BTreeMap<CurrencyId, Amount<Runtime>>,
     pub to_be_replaced: Amount<Runtime>,
     pub replace_collateral: Amount<Runtime>,
+    pub status: VaultStatus,
 }
 
 impl CoreVaultData {
@@ -522,6 +520,7 @@ impl CoreVaultData {
             backing_collateral: Amount::new(0, vault_id.collateral_currency()),
             free_balance: iter_all_currencies().map(|x| (x, Amount::new(0, x))).collect(),
             liquidated_collateral: Amount::new(0, vault_id.collateral_currency()),
+            status: VaultStatus::Active(true),
         }
     }
 }
@@ -558,6 +557,7 @@ impl CoreVaultData {
                 vault.replace_collateral,
                 <Runtime as vault_registry::Config>::GetGriefingCollateralCurrencyId::get(),
             ),
+            status: vault.status,
         }
     }
 
@@ -1183,7 +1183,7 @@ impl TransactionGenerator {
                 .expect("could not serialize block header");
             let init_block_header = BTCRelayPallet::parse_raw_block_header(&raw_init_block_header).unwrap();
 
-            match BTCRelayPallet::initialize(account_of(ALICE), init_block_header, height) {
+            match BTCRelayPallet::_initialize(account_of(ALICE), init_block_header, height) {
                 Ok(_) => {}
                 Err(e) if e == BTCRelayError::AlreadyInitialized.into() => {}
                 _ => panic!("Failed to initialize btc relay"),
@@ -1278,7 +1278,7 @@ impl TransactionGenerator {
 
     fn relay(&self, height: u32, block: &Block, raw_block_header: RawBlockHeader) {
         if let Some(relayer) = self.relayer {
-            assert_ok!(Call::Relay(RelayCall::store_block_header {
+            assert_ok!(Call::BTCRelay(BTCRelayCall::store_block_header {
                 raw_block_header: raw_block_header
             })
             .dispatch(origin_of(account_of(relayer))));
@@ -1286,7 +1286,7 @@ impl TransactionGenerator {
         } else {
             // bypass staked relayer module
             let block_header = BTCRelayPallet::parse_raw_block_header(&raw_block_header).unwrap();
-            assert_ok!(BTCRelayPallet::store_block_header(&account_of(ALICE), block_header));
+            assert_ok!(BTCRelayPallet::_store_block_header(&account_of(ALICE), block_header));
             assert_store_main_chain_header_event(height, block.header.hash, account_of(ALICE));
         }
     }

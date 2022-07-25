@@ -3531,7 +3531,6 @@ dependencies = [
  "module-oracle-rpc-runtime-api",
  "module-redeem-rpc-runtime-api",
  "module-refund-rpc-runtime-api",
- "module-relay-rpc-runtime-api",
  "module-replace-rpc-runtime-api",
  "module-vault-registry-rpc-runtime-api",
  "pallet-transaction-payment-rpc",
@@ -3602,7 +3601,6 @@ dependencies = [
  "module-oracle-rpc",
  "module-redeem-rpc",
  "module-refund-rpc",
- "module-relay-rpc",
  "module-replace-rpc",
  "module-vault-registry-rpc",
  "pallet-transaction-payment-rpc",
@@ -3647,7 +3645,6 @@ dependencies = [
  "module-oracle-rpc-runtime-api",
  "module-redeem-rpc-runtime-api",
  "module-refund-rpc-runtime-api",
- "module-relay-rpc-runtime-api",
  "module-replace-rpc-runtime-api",
  "module-vault-registry-rpc-runtime-api",
  "nomination",
@@ -3677,7 +3674,6 @@ dependencies = [
  "pretty_assertions",
  "redeem",
  "refund",
- "relay",
  "replace",
  "reward",
  "scale-info",
@@ -3783,7 +3779,6 @@ dependencies = [
  "module-oracle-rpc-runtime-api",
  "module-redeem-rpc-runtime-api",
  "module-refund-rpc-runtime-api",
- "module-relay-rpc-runtime-api",
  "module-replace-rpc-runtime-api",
  "module-vault-registry-rpc-runtime-api",
  "nomination",
@@ -3819,7 +3814,6 @@ dependencies = [
  "polkadot-parachain",
  "redeem",
  "refund",
- "relay",
  "replace",
  "reward",
  "scale-info",
@@ -4138,7 +4132,6 @@ dependencies = [
  "module-oracle-rpc-runtime-api",
  "module-redeem-rpc-runtime-api",
  "module-refund-rpc-runtime-api",
- "module-relay-rpc-runtime-api",
  "module-replace-rpc-runtime-api",
  "module-vault-registry-rpc-runtime-api",
  "nomination",
@@ -4173,7 +4166,6 @@ dependencies = [
  "polkadot-parachain",
  "redeem",
  "refund",
- "relay",
  "replace",
  "reward",
  "scale-info",
@@ -5454,28 +5446,6 @@ dependencies = [
 
 [[package]]
 name = "module-refund-rpc-runtime-api"
-version = "1.2.0"
-dependencies = [
- "frame-support",
- "parity-scale-codec",
- "sp-api",
- "sp-std",
-]
-
-[[package]]
-name = "module-relay-rpc"
-version = "1.2.0"
-dependencies = [
- "jsonrpsee",
- "module-relay-rpc-runtime-api",
- "parity-scale-codec",
- "sp-api",
- "sp-blockchain",
- "sp-runtime",
-]
-
-[[package]]
-name = "module-relay-rpc-runtime-api"
 version = "1.2.0"
 dependencies = [
  "frame-support",
@@ -7127,7 +7097,6 @@ dependencies = [
  "module-oracle-rpc-runtime-api",
  "module-redeem-rpc-runtime-api",
  "module-refund-rpc-runtime-api",
- "module-relay-rpc-runtime-api",
  "module-replace-rpc-runtime-api",
  "module-vault-registry-rpc-runtime-api",
  "nomination",
@@ -7162,7 +7131,6 @@ dependencies = [
  "polkadot-runtime-parachains",
  "redeem",
  "refund",
- "relay",
  "replace",
  "reward",
  "scale-info",
@@ -9349,42 +9317,6 @@ dependencies = [
  "libc",
  "mach",
  "winapi",
-]
-
-[[package]]
-name = "relay"
-version = "1.2.0"
-dependencies = [
- "bitcoin",
- "btc-relay",
- "currency",
- "fee",
- "frame-benchmarking",
- "frame-support",
- "frame-system",
- "hex",
- "interbtc-primitives",
- "mocktopus",
- "nomination",
- "oracle",
- "orml-tokens",
- "orml-traits",
- "pallet-timestamp",
- "parity-scale-codec",
- "redeem",
- "refund",
- "replace",
- "reward",
- "scale-info",
- "security",
- "serde",
- "sp-arithmetic",
- "sp-core",
- "sp-io",
- "sp-runtime",
- "sp-std",
- "staking",
- "vault-registry",
 ]
 
 [[package]]
@@ -12371,7 +12303,6 @@ dependencies = [
  "module-oracle-rpc-runtime-api",
  "module-redeem-rpc-runtime-api",
  "module-refund-rpc-runtime-api",
- "module-relay-rpc-runtime-api",
  "module-replace-rpc-runtime-api",
  "module-vault-registry-rpc-runtime-api",
  "nomination",
@@ -12407,7 +12338,6 @@ dependencies = [
  "polkadot-parachain",
  "redeem",
  "refund",
- "relay",
  "replace",
  "reward",
  "scale-info",
@@ -12471,7 +12401,6 @@ dependencies = [
  "module-oracle-rpc-runtime-api",
  "module-redeem-rpc-runtime-api",
  "module-refund-rpc-runtime-api",
- "module-relay-rpc-runtime-api",
  "module-replace-rpc-runtime-api",
  "module-vault-registry-rpc-runtime-api",
  "nomination",
@@ -12507,7 +12436,6 @@ dependencies = [
  "polkadot-parachain",
  "redeem",
  "refund",
- "relay",
  "replace",
  "reward",
  "scale-info",
