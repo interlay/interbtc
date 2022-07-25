@@ -69,7 +69,7 @@ fn mine_blocks<T: crate::Config>(end_height: u32) {
     let block_header = BtcRelay::<T>::parse_raw_block_header(&raw_block_header).unwrap();
 
     Security::<T>::set_active_block_number(1u32.into());
-    BtcRelay::<T>::_initialize(relayer_id.clone(), block_header, height).unwrap();
+    BtcRelay::<T>::initialize(relayer_id.clone(), block_header, height).unwrap();
 
     let transaction = TransactionBuilder::new()
         .with_version(2)
@@ -104,7 +104,7 @@ fn mine_blocks<T: crate::Config>(end_height: u32) {
         let raw_block_header = RawBlockHeader::from_bytes(&block.header.try_format().unwrap()).unwrap();
         let block_header = BtcRelay::<T>::parse_raw_block_header(&raw_block_header).unwrap();
 
-        BtcRelay::<T>::_store_block_header(&relayer_id, block_header).unwrap();
+        BtcRelay::<T>::store_block_header(&relayer_id, block_header).unwrap();
     }
 }
 
@@ -271,7 +271,7 @@ benchmarks! {
 
         Security::<T>::set_active_block_number(1u32.into());
         VaultRegistry::<T>::_set_system_collateral_ceiling(get_currency_pair::<T>(), 1_000_000_000u32.into());
-        BtcRelay::<T>::_initialize(relayer_id.clone(), block_header, height).unwrap();
+        BtcRelay::<T>::initialize(relayer_id.clone(), block_header, height).unwrap();
 
         let value = 0;
         let transaction = TransactionBuilder::new()
@@ -311,7 +311,7 @@ benchmarks! {
         let raw_block_header = RawBlockHeader::from_bytes(&block.header.try_format().unwrap()).unwrap();
         let block_header = BtcRelay::<T>::parse_raw_block_header(&raw_block_header).unwrap();
 
-        BtcRelay::<T>::_store_block_header(&relayer_id, block_header).unwrap();
+        BtcRelay::<T>::store_block_header(&relayer_id, block_header).unwrap();
         Security::<T>::set_active_block_number(Security::<T>::active_block_number() + BtcRelay::<T>::parachain_confirmations() + 1u32.into());
 
     }: _(RawOrigin::Signed(old_vault_id.account_id), replace_id, proof, raw_tx)

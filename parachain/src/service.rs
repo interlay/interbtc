@@ -70,6 +70,7 @@ pub trait RuntimeApiCollection:
     + cumulus_primitives_core::CollectCollationInfo<Block>
     + module_btc_relay_rpc_runtime_api::BtcRelayApi<Block, H256Le>
     + module_oracle_rpc_runtime_api::OracleApi<Block, Balance, CurrencyId>
+    + module_relay_rpc_runtime_api::RelayApi<Block, VaultId<AccountId, CurrencyId>>
     + module_vault_registry_rpc_runtime_api::VaultRegistryApi<
         Block,
         VaultId<AccountId, CurrencyId>,
@@ -116,6 +117,7 @@ where
         + cumulus_primitives_core::CollectCollationInfo<Block>
         + module_btc_relay_rpc_runtime_api::BtcRelayApi<Block, H256Le>
         + module_oracle_rpc_runtime_api::OracleApi<Block, Balance, CurrencyId>
+        + module_relay_rpc_runtime_api::RelayApi<Block, VaultId<AccountId, CurrencyId>>
         + module_vault_registry_rpc_runtime_api::VaultRegistryApi<
             Block,
             VaultId<AccountId, CurrencyId>,

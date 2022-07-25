@@ -372,7 +372,6 @@ pub enum VaultStatus {
     Liquidated,
 
     /// Vault theft has been reported
-    // TODO: remove this, requires migration
     CommittedTheft,
 }
 

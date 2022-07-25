@@ -36,7 +36,7 @@ fn integration_test_submit_block_headers_and_verify_transaction_inclusion() {
         let parachain_genesis_height = test_data[skip_blocks].height;
         assert_eq!(parachain_genesis_height % DIFFICULTY_ADJUSTMENT_INTERVAL, 0);
 
-        assert_ok!(Call::BTCRelay(BTCRelayCall::initialize {
+        assert_ok!(Call::Relay(RelayCall::initialize {
             raw_block_header: parachain_genesis_header,
             block_height: parachain_genesis_height
         })
@@ -55,7 +55,7 @@ fn integration_test_submit_block_headers_and_verify_transaction_inclusion() {
             assert!(best_block_hash == prev_header_hash);
 
             // submit block hashes
-            assert_ok!(Call::BTCRelay(BTCRelayCall::store_block_header {
+            assert_ok!(Call::Relay(RelayCall::store_block_header {
                 raw_block_header: block.get_raw_header()
             })
             .dispatch(origin_of(account_of(ALICE))));
@@ -159,7 +159,7 @@ fn integration_test_submit_fork_headers() {
         // without going through the `relay` pallet, which checks for the block version when parsing
         let genesis_header = bitcoin::parser::parse_block_header_lenient(&raw_genesis_header).unwrap();
 
-        assert_ok!(BTCRelayPallet::_initialize(
+        assert_ok!(BTCRelayPallet::initialize(
             account_of(ALICE),
             genesis_header,
             genesis_height
@@ -171,7 +171,7 @@ fn integration_test_submit_fork_headers() {
             SecurityPallet::set_active_block_number(index as u32);
             let header = bitcoin::parser::parse_block_header_lenient(raw_header).unwrap();
 
-            assert_ok!(BTCRelayPallet::_store_block_header(&account_of(ALICE), header));
+            assert_ok!(BTCRelayPallet::store_block_header(&account_of(ALICE), header));
             assert_store_main_chain_header_event(index as u32, header.hash, account_of(ALICE));
         }
 
@@ -181,7 +181,7 @@ fn integration_test_submit_fork_headers() {
             let header = bitcoin::parser::parse_block_header_lenient(raw_header).unwrap();
             let height: u32 = index as u32 - NUM_FORK_HEADERS;
 
-            assert_ok!(BTCRelayPallet::_store_block_header(&account_of(ALICE), header));
+            assert_ok!(BTCRelayPallet::store_block_header(&account_of(ALICE), header));
 
             // depending on the height and header, we expect different events and chain state
             match height {

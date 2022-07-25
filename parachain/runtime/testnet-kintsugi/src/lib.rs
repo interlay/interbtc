@@ -58,7 +58,7 @@ pub use sp_runtime::BuildStorage;
 pub use sp_runtime::{Perbill, Permill};
 
 // interBTC exports
-pub use btc_relay::{bitcoin, Call as BtcRelayCall, TARGET_SPACING};
+pub use btc_relay::{bitcoin, Call as RelayCall, TARGET_SPACING};
 pub use constants::{currency::*, time::*};
 pub use module_oracle_rpc_runtime_api::BalanceWrapper;
 pub use security::StatusCode;
@@ -859,6 +859,8 @@ impl security::Config for Runtime {
     type Event = Event;
 }
 
+pub use relay::Event as RelayEvent;
+
 pub struct CurrencyConvert;
 impl currency::CurrencyConversion<currency::Amount<Runtime>, CurrencyId> for CurrencyConvert {
     fn convert(amount: &currency::Amount<Runtime>, to: CurrencyId) -> Result<currency::Amount<Runtime>, DispatchError> {
@@ -875,6 +877,11 @@ impl currency::Config for Runtime {
     type GetRelayChainCurrencyId = GetRelayChainCurrencyId;
     type GetWrappedCurrencyId = GetWrappedCurrencyId;
     type CurrencyConversion = CurrencyConvert;
+}
+
+impl relay::Config for Runtime {
+    type Event = Event;
+    type WeightInfo = ();
 }
 
 impl staking::Config for Runtime {
@@ -1023,7 +1030,7 @@ construct_runtime! {
         Multisig: pallet_multisig::{Pallet, Call, Storage, Event<T>} = 7,
         Identity: pallet_identity::{Pallet, Call, Storage, Event<T>} = 8,
 
-        // # Tokens & Balances
+        // Tokens & Balances
         Currency: currency::{Pallet} = 20,
         Tokens: orml_tokens::{Pallet, Call, Storage, Config<T>, Event<T>} = 21,
         Supply: supply::{Pallet, Storage, Call, Event<T>, Config<T>} = 22,
@@ -1038,11 +1045,11 @@ construct_runtime! {
         VaultRewards: reward::<Instance2>::{Pallet, Storage, Event<T>} = 41,
         VaultStaking: staking::{Pallet, Storage, Event<T>} = 42,
 
-        // # Bitcoin SPV
+        // Bitcoin SPV
         BTCRelay: btc_relay::{Pallet, Call, Config<T>, Storage, Event<T>} = 50,
-        // Relay: 51
+        Relay: relay::{Pallet, Call, Storage, Event<T>} = 51,
 
-        // # Operational
+        // Operational
         Security: security::{Pallet, Call, Config, Storage, Event<T>} = 60,
         VaultRegistry: vault_registry::{Pallet, Call, Config<T>, Storage, Event<T>, ValidateUnsigned} = 61,
         Oracle: oracle::{Pallet, Call, Config<T>, Storage, Event<T>} = 62,
@@ -1053,7 +1060,7 @@ construct_runtime! {
         Refund: refund::{Pallet, Call, Config<T>, Storage, Event<T>} = 67,
         Nomination: nomination::{Pallet, Call, Config, Storage, Event<T>} = 68,
 
-        // # Governance
+        // Governance
         Democracy: democracy::{Pallet, Call, Storage, Config<T>, Event<T>} = 70,
         TechnicalCommittee: pallet_collective::<Instance1>::{Pallet, Call, Storage, Origin<T>, Event<T>, Config<T>} = 71,
         TechnicalMembership: pallet_membership::{Pallet, Call, Storage, Event<T>, Config<T>} = 72,
@@ -1067,7 +1074,7 @@ construct_runtime! {
         ParachainSystem: cumulus_pallet_parachain_system::{Pallet, Call, Config, Storage, Inherent, Event<T>} = 85,
         ParachainInfo: parachain_info::{Pallet, Storage, Config} = 86,
 
-        // # XCM Helpers
+        // XCM Helpers
         XcmpQueue: cumulus_pallet_xcmp_queue::{Pallet, Call, Storage, Event<T>} = 90,
         PolkadotXcm: pallet_xcm::{Pallet, Call, Storage, Event<T>, Origin, Config} = 91,
         CumulusXcm: cumulus_pallet_xcm::{Pallet, Call, Event<T>, Origin} = 92,
@@ -1239,6 +1246,7 @@ impl_runtime_apis! {
             list_benchmark!(list, extra, oracle, Oracle);
             list_benchmark!(list, extra, redeem, Redeem);
             list_benchmark!(list, extra, refund, Refund);
+            list_benchmark!(list, extra, relay, Relay);
             list_benchmark!(list, extra, replace, Replace);
             list_benchmark!(list, extra, vault_registry, VaultRegistry);
 
@@ -1275,6 +1283,7 @@ impl_runtime_apis! {
             add_benchmark!(params, batches, oracle, Oracle);
             add_benchmark!(params, batches, redeem, Redeem);
             add_benchmark!(params, batches, refund, Refund);
+            add_benchmark!(params, batches, relay, Relay);
             add_benchmark!(params, batches, replace, Replace);
             add_benchmark!(params, batches, vault_registry, VaultRegistry);
 
@@ -1305,6 +1314,15 @@ impl_runtime_apis! {
         fn collateral_to_wrapped(amount: BalanceWrapper<Balance>, currency_id: CurrencyId) -> Result<BalanceWrapper<Balance>, DispatchError> {
             let result = Oracle::collateral_to_wrapped(amount.amount, currency_id)?;
             Ok(BalanceWrapper{amount:result})
+        }
+    }
+
+    impl module_relay_rpc_runtime_api::RelayApi<
+        Block,
+        VaultId,
+    > for Runtime {
+        fn is_transaction_invalid(vault_id: VaultId, raw_tx: Vec<u8>) -> DispatchResult {
+            Relay::is_transaction_invalid(&vault_id, raw_tx)
         }
     }
 
