@@ -427,9 +427,9 @@ pub mod pallet {
         /// Sets the current client release version, in case of a bug fix or patch.
         ///
         /// # Arguments
-        /// * `version` - the semver version, where the zero-index element is the major version
-        /// * `checksum` - the SHA256 checksum of the client binary
-        #[pallet::weight(<T as Config>::WeightInfo::set_liquidation_collateral_threshold())]
+        /// * `uri` - URI to the client release binary
+        /// * `code_hash` - The runtime code hash associated with this client release
+        #[pallet::weight(<T as Config>::WeightInfo::set_current_client_release())]
         #[transactional]
         pub fn set_current_client_release(origin: OriginFor<T>, uri: Vec<u8>, code_hash: T::Hash) -> DispatchResult {
             ensure_root(origin)?;
@@ -443,9 +443,9 @@ pub mod pallet {
         /// `parachainSystem.enactAuthorizedUpgrade` relay chain xcm call.
         ///
         /// # Arguments
-        /// * `version` - the semver version, where the zero-index element is the major version
-        /// * `checksum` - the SHA256 checksum of the client binary
-        #[pallet::weight(<T as Config>::WeightInfo::set_liquidation_collateral_threshold())]
+        /// * `uri` - URI to the client release binary
+        /// * `code_hash` - The runtime code hash associated with this client release
+        #[pallet::weight(<T as Config>::WeightInfo::set_pending_client_release())]
         #[transactional]
         pub fn set_pending_client_release(origin: OriginFor<T>, uri: Vec<u8>, code_hash: T::Hash) -> DispatchResult {
             ensure_root(origin)?;
