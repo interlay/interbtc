@@ -1753,7 +1753,7 @@ fn integration_test_liquidation_redeem_with_cancel_redeem() {
         // make sure user has plenty of kbtc
         TokensPallet::set_balance(root(), account_of(USER), Token(KBTC), 10000000000, 10000000000).unwrap();
 
-        liquidate_vault_with_status(&vault_id, VaultStatus::Liquidated);
+        liquidate_vault(&vault_id);
 
         let post_liquidation_state = ParachainState::get(&vault_id);
 
@@ -1853,7 +1853,7 @@ fn integration_test_redeem_wrapped_cancel_liquidated_no_reimburse() {
             },
         );
 
-        liquidate_vault_with_status(&vault_id, VaultStatus::Liquidated);
+        liquidate_vault(&vault_id);
 
         let post_liquidation_state = ParachainState::get(&vault_id);
 
@@ -1915,7 +1915,7 @@ fn integration_test_redeem_wrapped_cancel_liquidated_reimburse() {
             },
         );
 
-        liquidate_vault_with_status(&vault_id, VaultStatus::Liquidated);
+        liquidate_vault(&vault_id);
 
         let post_liquidation_state = ParachainState::get(&vault_id);
 
@@ -1979,7 +1979,7 @@ fn integration_test_redeem_wrapped_execute_liquidated() {
             },
         );
 
-        liquidate_vault_with_status(&vault_id, VaultStatus::Liquidated);
+        liquidate_vault(&vault_id);
 
         let post_liquidation_state = ParachainState::get(&vault_id);
 

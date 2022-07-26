@@ -82,20 +82,3 @@ pub(crate) mod reward {
         T::VaultRewards::withdraw_stake(vault_id, amount.amount())
     }
 }
-
-#[cfg_attr(test, mockable)]
-pub(crate) mod fee {
-    use currency::Amount;
-    use frame_support::{dispatch::DispatchError, traits::Get};
-
-    pub fn get_theft_fee<T: crate::Config>(amount: &Amount<T>) -> Result<Amount<T>, DispatchError> {
-        <fee::Pallet<T>>::get_theft_fee(amount)
-    }
-
-    pub fn get_theft_fee_max<T: crate::Config>() -> Amount<T> {
-        Amount::new(
-            <fee::Pallet<T>>::theft_fee_max(),
-            <T as currency::Config>::GetWrappedCurrencyId::get(),
-        )
-    }
-}

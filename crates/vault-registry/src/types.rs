@@ -456,6 +456,7 @@ pub mod v4 {
 #[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, Default, TypeInfo)]
 pub struct Wallet {
     // store all addresses for `report_vault_theft` checks
+    // TODO: can this be removed now?
     pub addresses: BTreeSet<BtcAddress>,
 }
 
@@ -907,32 +908,8 @@ impl<T: Config> RichVault<T> {
         Ok(())
     }
 
-    pub(crate) fn get_theft_fee_max(&self) -> Result<Amount<T>, DispatchError> {
-        let collateral = Pallet::<T>::compute_collateral(&self.id())?;
-        let theft_reward = ext::fee::get_theft_fee::<T>(&collateral)?;
-
-        let theft_fee_max = ext::fee::get_theft_fee_max::<T>();
-        let max_theft_reward = theft_fee_max.convert_to(self.data.id.currencies.collateral)?;
-        if theft_reward.le(&max_theft_reward)? {
-            Ok(theft_reward)
-        } else {
-            Ok(max_theft_reward)
-        }
-    }
-
-    pub(crate) fn liquidate(
-        &mut self,
-        status: VaultStatus,
-        reporter: Option<T::AccountId>,
-    ) -> Result<Amount<T>, DispatchError> {
+    pub(crate) fn liquidate(&mut self) -> Result<Amount<T>, DispatchError> {
         let vault_id = self.id();
-
-        // pay the theft report fee first
-        if let Some(ref reporter_id) = reporter {
-            let reward = self.get_theft_fee_max()?;
-            Pallet::<T>::force_withdraw_collateral(&vault_id, &reward)?;
-            reward.transfer(&vault_id.account_id, reporter_id)?;
-        }
 
         // we liquidate at most LIQUIDATION_THRESHOLD * collateral
         // this value is the amount of collateral held for the issued + to_be_issued
@@ -977,7 +954,7 @@ impl<T: Config> RichVault<T> {
         let _ = self.update(|v| {
             v.to_be_issued_tokens = Zero::zero();
             v.issued_tokens = Zero::zero();
-            v.status = status;
+            v.status = VaultStatus::Liquidated;
             Ok(())
         });
 

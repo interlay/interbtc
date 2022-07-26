@@ -136,7 +136,7 @@ benchmarks! {
         mint_collateral::<T>(&vault_id.account_id, (1u32 << 31).into());
         register_vault_with_collateral::<T>(vault_id.clone(), 100000000);
         Oracle::<T>::_set_exchange_rate(get_collateral_currency_id::<T>(), UnsignedFixedPoint::<T>::checked_from_rational(10, 1).unwrap()).unwrap();
-        VaultRegistry::<T>::liquidate_vault_with_status(&vault_id, VaultStatus::CommittedTheft, None).unwrap();
+        VaultRegistry::<T>::liquidate_vault(&vault_id).unwrap();
     }: _(RawOrigin::Signed(vault_id.account_id), vault_id.currencies.clone())
 }
 

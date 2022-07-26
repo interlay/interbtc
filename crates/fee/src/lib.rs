@@ -44,7 +44,7 @@ use sp_std::{
     convert::{TryFrom, TryInto},
     fmt::Debug,
 };
-use types::{BalanceOf, DefaultVaultId, SignedFixedPoint, UnsignedFixedPoint, UnsignedInner, Version};
+use types::{BalanceOf, DefaultVaultId, SignedFixedPoint, UnsignedFixedPoint, Version};
 
 pub use pallet::*;
 
@@ -185,16 +185,6 @@ pub mod pallet {
 
     /// # Relayer
 
-    /// Fee that is taken from a liquidated Vault on theft, used to pay the reporter.
-    #[pallet::storage]
-    #[pallet::getter(fn theft_fee)]
-    pub type TheftFee<T: Config> = StorageValue<_, UnsignedFixedPoint<T>, ValueQuery>;
-
-    /// Upper bound to the reward that can be payed to a reporter on success.
-    #[pallet::storage]
-    #[pallet::getter(fn theft_fee_max)]
-    pub type TheftFeeMax<T: Config> = StorageValue<_, UnsignedInner<T>, ValueQuery>;
-
     #[pallet::type_value]
     pub(super) fn DefaultForStorageVersion() -> Version {
         Version::V0
@@ -214,8 +204,6 @@ pub mod pallet {
         pub premium_redeem_fee: UnsignedFixedPoint<T>,
         pub punishment_fee: UnsignedFixedPoint<T>,
         pub replace_griefing_collateral: UnsignedFixedPoint<T>,
-        pub theft_fee: UnsignedFixedPoint<T>,
-        pub theft_fee_max: UnsignedInner<T>,
     }
 
     #[cfg(feature = "std")]
@@ -229,8 +217,6 @@ pub mod pallet {
                 premium_redeem_fee: Default::default(),
                 punishment_fee: Default::default(),
                 replace_griefing_collateral: Default::default(),
-                theft_fee: Default::default(),
-                theft_fee_max: Default::default(),
             }
         }
     }
@@ -245,8 +231,6 @@ pub mod pallet {
             PremiumRedeemFee::<T>::put(self.premium_redeem_fee);
             PunishmentFee::<T>::put(self.punishment_fee);
             ReplaceGriefingCollateral::<T>::put(self.replace_griefing_collateral);
-            TheftFee::<T>::put(self.theft_fee);
-            TheftFeeMax::<T>::put(self.theft_fee_max);
         }
     }
 
@@ -390,35 +374,6 @@ pub mod pallet {
             ReplaceGriefingCollateral::<T>::put(griefing_collateral);
             Ok(().into())
         }
-
-        /// Changes the theft fee percentage (only executable by the Root account)
-        ///
-        /// # Arguments
-        ///
-        /// * `origin` - signing account
-        /// * `fee` - the new fee
-        #[pallet::weight(<T as Config>::WeightInfo::set_theft_fee())]
-        #[transactional]
-        pub fn set_theft_fee(origin: OriginFor<T>, fee: UnsignedFixedPoint<T>) -> DispatchResultWithPostInfo {
-            ensure_root(origin)?;
-            ensure!(fee <= Self::get_max_expected_value(), Error::<T>::AboveMaxExpectedValue);
-            TheftFee::<T>::put(fee);
-            Ok(().into())
-        }
-
-        /// Changes the theft fee max (only executable by the Root account)
-        ///
-        /// # Arguments
-        ///
-        /// * `origin` - signing account
-        /// * `fee_max` - the new maximum fee
-        #[pallet::weight(<T as Config>::WeightInfo::set_theft_fee_max())]
-        #[transactional]
-        pub fn set_theft_fee_max(origin: OriginFor<T>, fee_max: UnsignedInner<T>) -> DispatchResultWithPostInfo {
-            ensure_root(origin)?;
-            TheftFeeMax::<T>::put(fee_max);
-            Ok(().into())
-        }
     }
 }
 
@@ -509,15 +464,6 @@ impl<T: Config> Pallet<T> {
     /// * `amount` - replace amount in collateral (at current exchange rate)
     pub fn get_replace_griefing_collateral(amount: &Amount<T>) -> Result<Amount<T>, DispatchError> {
         amount.rounded_mul(<ReplaceGriefingCollateral<T>>::get())
-    }
-
-    /// Calculate the fee taken from a liquidated Vault on theft.
-    ///
-    /// # Arguments
-    ///
-    /// * `amount` - the vault's backing collateral
-    pub fn get_theft_fee(amount: &Amount<T>) -> Result<Amount<T>, DispatchError> {
-        amount.rounded_mul(<TheftFee<T>>::get())
     }
 
     /// Calculate the fee portion of a total amount. For `amount = fee + refund_amount`, this

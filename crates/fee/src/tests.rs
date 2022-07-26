@@ -1,4 +1,4 @@
-use crate::{mock::*, IssueFee, TheftFeeMax};
+use crate::{mock::*, IssueFee};
 use currency::Amount;
 use frame_support::{assert_noop, assert_ok, dispatch::DispatchResultWithPostInfo};
 use sp_runtime::{DispatchError, FixedPointNumber};
@@ -63,23 +63,4 @@ fn should_set_punishment_fee() {
 #[test]
 fn should_set_replace_griefing_collateral() {
     test_setter(Fee::set_replace_griefing_collateral, Fee::replace_griefing_collateral);
-}
-
-#[test]
-fn should_set_theft_fee() {
-    test_setter(Fee::set_theft_fee, Fee::theft_fee);
-}
-
-#[test]
-fn should_set_theft_fee_max() {
-    // Cannot reuse `test_setter` because this storage field has a different type
-    run_test(|| {
-        let fee_max = 1;
-        assert_noop!(
-            Fee::set_theft_fee_max(Origin::signed(6), fee_max),
-            DispatchError::BadOrigin
-        );
-        assert_ok!(Fee::set_theft_fee_max(Origin::root(), fee_max));
-        assert_eq!(<TheftFeeMax<Test>>::get(), fee_max);
-    })
 }

@@ -934,17 +934,11 @@ impl ParachainTwoVaultState {
 }
 
 pub fn liquidate_vault(vault_id: &VaultId) {
-    liquidate_vault_with_status(vault_id, VaultStatus::Liquidated);
-}
-
-pub fn liquidate_vault_with_status(vault_id: &VaultId, status: VaultStatus) {
     assert_ok!(OraclePallet::_set_exchange_rate(
         vault_id.currencies.collateral,
         FixedU128::checked_from_integer(10_000_000_000u128).unwrap()
     ));
-    assert_ok!(VaultRegistryPallet::liquidate_vault_with_status(
-        &vault_id, status, None
-    ));
+    assert_ok!(VaultRegistryPallet::liquidate_vault(&vault_id));
     assert_ok!(OraclePallet::_set_exchange_rate(
         vault_id.currencies.collateral,
         FixedU128::checked_from_integer(1u128).unwrap()
@@ -1435,8 +1429,6 @@ impl ExtBuilder {
             premium_redeem_fee: FixedU128::checked_from_rational(5, 100).unwrap(), // 5%
             punishment_fee: FixedU128::checked_from_rational(1, 10).unwrap(), // 10%
             replace_griefing_collateral: FixedU128::checked_from_rational(1, 10).unwrap(), // 10%
-            theft_fee: FixedU128::checked_from_rational(5, 100).unwrap(),    // 5%
-            theft_fee_max: 10000000,                                         // 0.1 BTC
         }
         .assimilate_storage(&mut storage)
         .unwrap();

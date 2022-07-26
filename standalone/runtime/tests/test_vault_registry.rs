@@ -439,10 +439,10 @@ fn integration_test_vault_registry_nonexistent_vault_cannot_be_recovered() {
 }
 
 #[test]
-fn integration_test_vault_registry_undercollateralization_recovery_fails() {
+fn integration_test_vault_registry_liquidation_recovery_fails() {
     test_with(|vault_id| {
-        liquidate_vault_with_status(&vault_id, VaultStatus::Liquidated);
-        // `to_be_redeemeded` tokens are non-zero
+        liquidate_vault(&vault_id);
+        // `to_be_redeemed` tokens are non-zero
         assert_err!(
             Call::VaultRegistry(VaultRegistryCall::recover_vault_id {
                 currency_pair: vault_id.currencies.clone(),
@@ -461,60 +461,11 @@ fn default_liquidation_recovery_vault(vault_id: &VaultId) -> CoreVaultData {
 }
 
 #[test]
-fn integration_test_vault_registry_undercollateralization_recovery_works() {
+fn integration_test_vault_registry_liquidation_recovery_works() {
     test_with(|vault_id| {
         let vault_data = default_liquidation_recovery_vault(&vault_id);
         CoreVaultData::force_to(&vault_id, vault_data.clone());
-        liquidate_vault_with_status(&vault_id, VaultStatus::Liquidated);
-
-        let pre_recovery_state = ParachainState::get(&vault_id);
-        assert_ok!(Call::VaultRegistry(VaultRegistryCall::recover_vault_id {
-            currency_pair: vault_id.currencies.clone(),
-        })
-        .dispatch(origin_of(account_of(VAULT))));
-
-        assert_eq!(
-            ParachainState::get(&vault_id),
-            pre_recovery_state.with_changes(|_, vault, _, _| {
-                vault.status = VaultStatus::Active(true);
-            })
-        );
-        deposit_collateral_and_issue(vault_id);
-    });
-}
-
-#[test]
-fn integration_test_vault_registry_theft_recovery_fails() {
-    test_with(|vault_id| {
-        liquidate_vault_with_status(&vault_id, VaultStatus::CommittedTheft);
-        // `to_be_redeemeded` tokens are non-zero
-        assert_err!(
-            Call::VaultRegistry(VaultRegistryCall::recover_vault_id {
-                currency_pair: vault_id.currencies.clone(),
-            })
-            .dispatch(origin_of(account_of(VAULT))),
-            VaultRegistryError::VaultNotRecoverable
-        );
-    });
-}
-
-#[test]
-fn integration_test_vault_registry_theft_recovery_works() {
-    test_with(|vault_id| {
-        let vault_data = default_liquidation_recovery_vault(&vault_id);
-        CoreVaultData::force_to(
-            &vault_id,
-            CoreVaultData {
-                backing_collateral: vault_data.backing_collateral * 2,
-                ..vault_data.clone()
-            },
-        );
-
-        assert_ok!(VaultRegistryPallet::liquidate_vault_with_status(
-            &vault_id,
-            VaultStatus::CommittedTheft,
-            None
-        ));
+        liquidate_vault(&vault_id);
 
         let pre_recovery_state = ParachainState::get(&vault_id);
         assert_ok!(Call::VaultRegistry(VaultRegistryCall::recover_vault_id {
@@ -569,67 +520,4 @@ mod client_release {
             assert_eq!(VaultRegistryPallet::pending_client_release(), Some(new_release));
         });
     }
-}
-
-#[test]
-fn integration_test_vault_registry_theft_recovery_with_executed_redeem_works() {
-    test_with(|vault_id| {
-        let vault_data = default_liquidation_recovery_vault(&vault_id);
-        CoreVaultData::force_to(&vault_id, vault_data.clone());
-        // create an open redeem
-        let redeem_id = setup_redeem(vault_id.wrapped(10_000), USER, &vault_id);
-
-        assert_ok!(VaultRegistryPallet::liquidate_vault_with_status(
-            &vault_id,
-            VaultStatus::CommittedTheft,
-            None
-        ));
-        assert_err!(
-            Call::VaultRegistry(VaultRegistryCall::recover_vault_id {
-                currency_pair: vault_id.currencies.clone(),
-            })
-            .dispatch(origin_of(account_of(VAULT))),
-            VaultRegistryError::VaultNotRecoverable
-        );
-        let redeem = RedeemPallet::get_open_redeem_request_from_id(&redeem_id).unwrap();
-        ExecuteRedeemBuilder::new(redeem_id)
-            .with_amount(redeem.amount_btc())
-            .assert_execute();
-
-        assert_ok!(Call::VaultRegistry(VaultRegistryCall::recover_vault_id {
-            currency_pair: vault_id.currencies.clone(),
-        })
-        .dispatch(origin_of(account_of(VAULT))));
-    });
-}
-
-#[test]
-fn integration_test_vault_registry_theft_recovery_with_cancelled_redeem_works() {
-    test_with(|vault_id| {
-        let vault_data = default_liquidation_recovery_vault(&vault_id);
-        CoreVaultData::force_to(&vault_id, vault_data.clone());
-        // create an open redeem
-        let redeem_id = setup_redeem(vault_id.wrapped(10_000), USER, &vault_id);
-
-        assert_ok!(VaultRegistryPallet::liquidate_vault_with_status(
-            &vault_id,
-            VaultStatus::CommittedTheft,
-            None
-        ));
-        assert_err!(
-            Call::VaultRegistry(VaultRegistryCall::recover_vault_id {
-                currency_pair: vault_id.currencies.clone(),
-            })
-            .dispatch(origin_of(account_of(VAULT))),
-            VaultRegistryError::VaultNotRecoverable
-        );
-        mine_blocks(12);
-        SecurityPallet::set_active_block_number(1100);
-        cancel_redeem(redeem_id, USER, true);
-
-        assert_ok!(Call::VaultRegistry(VaultRegistryCall::recover_vault_id {
-            currency_pair: vault_id.currencies.clone(),
-        })
-        .dispatch(origin_of(account_of(VAULT))));
-    });
 }

@@ -641,7 +641,7 @@ pub mod pallet {
         CurrencyCeilingExceeded,
         /// Vault is no longer usable as it was liquidated due to undercollateralization.
         VaultLiquidated,
-        /// Vault must be either liquidated or flagged for theft.
+        /// Vault must be liquidated.
         VaultNotRecoverable,
         /// No bitcoin public key is registered for the vault.
         NoBitcoinPublicKey,
@@ -1541,28 +1541,18 @@ impl<T: Config> Pallet<T> {
         })
     }
 
-    /// Liquidates a vault, transferring all of its token balances to the `LiquidationVault`.
-    /// Delegates to `liquidate_vault_with_status`, using `Liquidated` status
-    pub fn liquidate_vault(vault_id: &DefaultVaultId<T>) -> Result<Amount<T>, DispatchError> {
-        Self::liquidate_vault_with_status(vault_id, VaultStatus::Liquidated, None)
-    }
-
     /// Liquidates a vault, transferring all of its token balances to the
     /// `LiquidationVault`, as well as the collateral.
     ///
     /// # Arguments
     /// * `vault_id` - the id of the vault to liquidate
     /// * `status` - status with which to liquidate the vault
-    pub fn liquidate_vault_with_status(
-        vault_id: &DefaultVaultId<T>,
-        status: VaultStatus,
-        reporter: Option<T::AccountId>,
-    ) -> Result<Amount<T>, DispatchError> {
+    pub fn liquidate_vault(vault_id: &DefaultVaultId<T>) -> Result<Amount<T>, DispatchError> {
         let mut vault = Self::get_active_rich_vault_from_id(&vault_id)?;
         let backing_collateral = vault.get_total_collateral()?;
         let vault_orig = vault.data.clone();
 
-        let to_slash = vault.liquidate(status, reporter)?;
+        let to_slash = vault.liquidate()?;
 
         Self::deposit_event(Event::<T>::LiquidateVault {
             vault_id: vault_id.clone(),
@@ -1571,7 +1561,7 @@ impl<T: Config> Pallet<T> {
             to_be_redeemed_tokens: vault_orig.to_be_redeemed_tokens,
             to_be_replaced_tokens: vault_orig.to_be_replaced_tokens,
             backing_collateral: backing_collateral.amount(),
-            status,
+            status: VaultStatus::Liquidated,
             replace_collateral: vault_orig.replace_collateral,
         });
         Ok(to_slash)
