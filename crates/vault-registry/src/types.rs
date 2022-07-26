@@ -281,6 +281,28 @@ pub mod liquidation_vault_fix {
 pub mod v4 {
     use super::*;
 
+    #[derive(Encode, Decode, Clone, Copy, PartialEq, Eq, Debug, TypeInfo, MaxEncodedLen)]
+    pub enum VaultStatusV4 {
+        /// Vault is active - bool=true indicates that the vault accepts new issue requests
+        Active(bool),
+
+        /// Vault has been liquidated
+        Liquidated,
+
+        /// Vault theft has been reported
+        CommittedTheft,
+    }
+
+    impl Into<VaultStatus> for VaultStatusV4 {
+        fn into(self) -> VaultStatus {
+            match self {
+                VaultStatusV4::Active(accept_issue) => VaultStatus::Active(accept_issue),
+                VaultStatusV4::Liquidated => VaultStatus::Liquidated,
+                VaultStatusV4::CommittedTheft => VaultStatus::Liquidated,
+            }
+        }
+    }
+
     #[derive(Encode, Decode, Clone, PartialEq, Eq, TypeInfo)]
     #[cfg_attr(feature = "std", derive(Debug))]
     pub struct VaultV4<AccountId, BlockNumber, Balance, CurrencyId: Copy> {
@@ -289,7 +311,7 @@ pub mod v4 {
         /// Bitcoin address of this Vault (P2PKH, P2SH, P2WPKH, P2WSH)
         pub wallet: Wallet,
         /// Current status of the vault
-        pub status: VaultStatus,
+        pub status: VaultStatusV4,
         /// Block height until which this Vault is banned from being used for
         /// Issue, Redeem (except during automatic liquidation) and Replace.
         pub banned_until: Option<BlockNumber>,
@@ -337,7 +359,7 @@ pub mod v4 {
             Some(Vault {
                 id: vault_v4.id,
                 wallet: vault_v4.wallet,
-                status: vault_v4.status,
+                status: vault_v4.status.into(),
                 banned_until: vault_v4.banned_until,
                 secure_collateral_threshold: None,
                 to_be_issued_tokens: vault_v4.to_be_issued_tokens,
@@ -384,7 +406,7 @@ pub mod v4 {
                     .into(),
                 },
                 banned_until: None,
-                status: VaultStatus::Active(true),
+                status: VaultStatusV4::Active(true),
                 issued_tokens: Default::default(),
                 liquidated_collateral: Default::default(),
                 replace_collateral: Default::default(),
@@ -407,7 +429,7 @@ pub mod v4 {
                 wallet: Wallet {
                     addresses: vault.wallet.addresses.clone(),
                 },
-                status: vault.status.clone(),
+                status: vault.status.into(),
                 banned_until: vault.banned_until,
                 secure_collateral_threshold: None,
                 to_be_issued_tokens: vault.to_be_issued_tokens,
@@ -434,6 +456,7 @@ pub mod v4 {
 #[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, Default, TypeInfo)]
 pub struct Wallet {
     // store all addresses for `report_vault_theft` checks
+    // TODO: can this be removed now?
     pub addresses: BTreeSet<BtcAddress>,
 }
 
@@ -461,9 +484,6 @@ pub enum VaultStatus {
 
     /// Vault has been liquidated
     Liquidated,
-
-    /// Vault theft has been reported
-    CommittedTheft,
 }
 
 impl Default for VaultStatus {
@@ -550,7 +570,7 @@ impl<
     }
 
     pub fn is_liquidated(&self) -> bool {
-        matches!(self.status, VaultStatus::Liquidated | VaultStatus::CommittedTheft)
+        matches!(self.status, VaultStatus::Liquidated)
     }
 }
 
@@ -888,32 +908,8 @@ impl<T: Config> RichVault<T> {
         Ok(())
     }
 
-    pub(crate) fn get_theft_fee_max(&self) -> Result<Amount<T>, DispatchError> {
-        let collateral = Pallet::<T>::compute_collateral(&self.id())?;
-        let theft_reward = ext::fee::get_theft_fee::<T>(&collateral)?;
-
-        let theft_fee_max = ext::fee::get_theft_fee_max::<T>();
-        let max_theft_reward = theft_fee_max.convert_to(self.data.id.currencies.collateral)?;
-        if theft_reward.le(&max_theft_reward)? {
-            Ok(theft_reward)
-        } else {
-            Ok(max_theft_reward)
-        }
-    }
-
-    pub(crate) fn liquidate(
-        &mut self,
-        status: VaultStatus,
-        reporter: Option<T::AccountId>,
-    ) -> Result<Amount<T>, DispatchError> {
+    pub(crate) fn liquidate(&mut self) -> Result<Amount<T>, DispatchError> {
         let vault_id = self.id();
-
-        // pay the theft report fee first
-        if let Some(ref reporter_id) = reporter {
-            let reward = self.get_theft_fee_max()?;
-            Pallet::<T>::force_withdraw_collateral(&vault_id, &reward)?;
-            reward.transfer(&vault_id.account_id, reporter_id)?;
-        }
 
         // we liquidate at most LIQUIDATION_THRESHOLD * collateral
         // this value is the amount of collateral held for the issued + to_be_issued
@@ -958,7 +954,7 @@ impl<T: Config> RichVault<T> {
         let _ = self.update(|v| {
             v.to_be_issued_tokens = Zero::zero();
             v.issued_tokens = Zero::zero();
-            v.status = status;
+            v.status = VaultStatus::Liquidated;
             Ok(())
         });
 

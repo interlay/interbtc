@@ -24,7 +24,7 @@ fn mine_genesis<T: Config>(account_id: T::AccountId, address: &BtcAddress, heigh
     let raw_block_header = RawBlockHeader::from_bytes(&block.header.try_format().unwrap()).unwrap();
     let block_header = BtcRelay::<T>::parse_raw_block_header(&raw_block_header).unwrap();
 
-    BtcRelay::<T>::initialize(account_id, block_header, height).unwrap();
+    BtcRelay::<T>::_initialize(account_id, block_header, height).unwrap();
 
     block
 }
@@ -76,6 +76,52 @@ fn mine_block_with_one_tx<T: Config>(
 }
 
 benchmarks! {
+    initialize {
+        let height = 0u32;
+        let origin: T::AccountId = account("Origin", 0, 0);
+        let stake = 100u32;
+
+        let address = BtcAddress::P2PKH(H160::from([0; 20]));
+        let block = BlockBuilder::new()
+            .with_version(4)
+            .with_coinbase(&address, 50, 3)
+            .with_timestamp(1588813835)
+            .mine(U256::from(2).pow(254.into())).unwrap();
+        let block_header = RawBlockHeader::from_bytes(&block.header.try_format().unwrap()).unwrap();
+    }: _(RawOrigin::Signed(origin), block_header, height)
+
+    store_block_header {
+        let origin: T::AccountId = account("Origin", 0, 0);
+
+        let address = BtcAddress::P2PKH(H160::from([0; 20]));
+        let height = 0;
+        let stake = 100u32;
+
+        let init_block = BlockBuilder::new()
+            .with_version(4)
+            .with_coinbase(&address, 50, 3)
+            .with_timestamp(1588813835)
+            .mine(U256::from(2).pow(254.into())).unwrap();
+
+        let init_block_hash = init_block.header.hash;
+        let raw_block_header = RawBlockHeader::from_bytes(&init_block.header.try_format().unwrap())
+            .expect("could not serialize block header");
+        let block_header = BtcRelay::<T>::parse_raw_block_header(&raw_block_header).unwrap();
+
+        BtcRelay::<T>::_initialize(origin.clone(), block_header, height).unwrap();
+
+        let block = BlockBuilder::new()
+            .with_previous_hash(init_block_hash)
+            .with_version(4)
+            .with_coinbase(&address, 50, 3)
+            .with_timestamp(1588814835)
+            .mine(U256::from(2).pow(254.into())).unwrap();
+
+        let raw_block_header = RawBlockHeader::from_bytes(&block.header.try_format().unwrap())
+            .expect("could not serialize block header");
+
+    }: _(RawOrigin::Signed(origin), raw_block_header)
+
     verify_and_validate_transaction {
         let origin: T::AccountId = account("Origin", 0, 0);
 

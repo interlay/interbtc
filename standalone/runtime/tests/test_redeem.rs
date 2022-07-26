@@ -1726,297 +1726,289 @@ fn integration_test_redeem_wrapped_cancel_no_reimburse() {
 
 #[test]
 fn integration_test_liquidation_redeem_with_cancel_redeem() {
-    for liquidation_status in [VaultStatus::CommittedTheft, VaultStatus::Liquidated] {
-        test_with(|vault_id| {
-            let currency_id = vault_id.collateral_currency();
-            let issued_tokens = vault_id.wrapped(10_000);
-            let collateral_vault = Amount::new(1_000_000, currency_id);
-            VaultRegistryPallet::collateral_integrity_check();
-            let redeem_id = setup_cancelable_redeem(USER, &vault_id, issued_tokens);
-            VaultRegistryPallet::collateral_integrity_check();
-            let redeem = RedeemPallet::get_open_redeem_request_from_id(&redeem_id).unwrap();
+    test_with(|vault_id| {
+        let currency_id = vault_id.collateral_currency();
+        let issued_tokens = vault_id.wrapped(10_000);
+        let collateral_vault = Amount::new(1_000_000, currency_id);
+        VaultRegistryPallet::collateral_integrity_check();
+        let redeem_id = setup_cancelable_redeem(USER, &vault_id, issued_tokens);
+        VaultRegistryPallet::collateral_integrity_check();
+        let redeem = RedeemPallet::get_open_redeem_request_from_id(&redeem_id).unwrap();
 
-            // setup vault state such that 1/4th of its collateral is freed after successful redeem
-            let consumed_issued_tokens = redeem.amount_btc() + redeem.transfer_fee_btc();
-            CoreVaultData::force_to(
-                &vault_id,
-                CoreVaultData {
-                    issued: consumed_issued_tokens * 2,
-                    to_be_issued: vault_id.wrapped(0),
-                    to_be_redeemed: consumed_issued_tokens,
-                    backing_collateral: collateral_vault,
-                    to_be_replaced: vault_id.wrapped(0),
-                    replace_collateral: griefing(0),
-                    ..default_vault_state(&vault_id)
-                },
-            );
+        // setup vault state such that 1/4th of its collateral is freed after successful redeem
+        let consumed_issued_tokens = redeem.amount_btc() + redeem.transfer_fee_btc();
+        CoreVaultData::force_to(
+            &vault_id,
+            CoreVaultData {
+                issued: consumed_issued_tokens * 2,
+                to_be_issued: vault_id.wrapped(0),
+                to_be_redeemed: consumed_issued_tokens,
+                backing_collateral: collateral_vault,
+                to_be_replaced: vault_id.wrapped(0),
+                replace_collateral: griefing(0),
+                ..default_vault_state(&vault_id)
+            },
+        );
 
-            // make sure user has plenty of kbtc
-            TokensPallet::set_balance(root(), account_of(USER), Token(KBTC), 10000000000, 10000000000).unwrap();
+        // make sure user has plenty of kbtc
+        TokensPallet::set_balance(root(), account_of(USER), Token(KBTC), 10000000000, 10000000000).unwrap();
 
-            liquidate_vault_with_status(&vault_id, liquidation_status);
+        liquidate_vault(&vault_id);
 
-            let post_liquidation_state = ParachainState::get(&vault_id);
+        let post_liquidation_state = ParachainState::get(&vault_id);
 
-            assert_ok!(Call::Redeem(RedeemCall::liquidation_redeem {
-                currencies: vault_id.currencies.clone(),
-                amount_wrapped: consumed_issued_tokens.amount()
-            })
-            .dispatch(origin_of(account_of(USER))));
-            assert_noop!(
-                Call::Redeem(RedeemCall::liquidation_redeem {
-                    currencies: vault_id.currencies.clone(),
-                    amount_wrapped: 1
-                })
-                .dispatch(origin_of(account_of(USER))),
-                VaultRegistryError::InsufficientTokensCommitted
-            );
-
-            let pre_cancellation_state = ParachainState::get(&vault_id);
-            assert_eq!(
-                pre_cancellation_state,
-                post_liquidation_state.with_changes(|user, _vault, liquidation_vault, _fee_pool| {
-                    let liquidation_vault = liquidation_vault.with_currency(&vault_id.currencies);
-                    liquidation_vault.issued -= consumed_issued_tokens;
-                    liquidation_vault.collateral -= collateral_vault / 2;
-
-                    (*user.balances.get_mut(&vault_id.wrapped_currency()).unwrap()).free -= consumed_issued_tokens;
-                    (*user.balances.get_mut(&vault_id.collateral_currency()).unwrap()).free += collateral_vault / 2;
-                })
-            );
-
-            assert_ok!(Call::Redeem(RedeemCall::cancel_redeem {
-                redeem_id: redeem_id,
-                reimburse: false
-            })
-            .dispatch(origin_of(account_of(USER))));
-
-            let post_cancellation_state = ParachainState::get(&vault_id);
-            assert_eq!(
-                post_cancellation_state,
-                pre_cancellation_state.with_changes(|user, vault, liquidation_vault, _fee_pool| {
-                    let liquidation_vault = liquidation_vault.with_currency(&vault_id.currencies);
-                    liquidation_vault.to_be_redeemed -= consumed_issued_tokens;
-                    liquidation_vault.collateral += collateral_vault / 2;
-
-                    vault.to_be_redeemed -= consumed_issued_tokens;
-                    vault.liquidated_collateral -= collateral_vault / 2;
-
-                    (*user.balances.get_mut(&vault_id.wrapped_currency()).unwrap()).locked -= issued_tokens;
-                    (*user.balances.get_mut(&vault_id.wrapped_currency()).unwrap()).free += issued_tokens;
-                })
-            );
-
-            assert_ok!(Call::Redeem(RedeemCall::liquidation_redeem {
-                currencies: vault_id.currencies.clone(),
-                amount_wrapped: consumed_issued_tokens.amount()
-            })
-            .dispatch(origin_of(account_of(USER))));
-
-            // expect same change as the previous liquidation_redeem
-            assert_eq!(
-                ParachainState::get(&vault_id),
-                post_cancellation_state.with_changes(|user, _vault, liquidation_vault, _fee_pool| {
-                    let liquidation_vault = liquidation_vault.with_currency(&vault_id.currencies);
-                    liquidation_vault.issued -= consumed_issued_tokens;
-                    liquidation_vault.collateral -= collateral_vault / 2;
-
-                    (*user.balances.get_mut(&vault_id.wrapped_currency()).unwrap()).free -= consumed_issued_tokens;
-                    (*user.balances.get_mut(&vault_id.collateral_currency()).unwrap()).free += collateral_vault / 2;
-                })
-            );
+        assert_ok!(Call::Redeem(RedeemCall::liquidation_redeem {
+            currencies: vault_id.currencies.clone(),
+            amount_wrapped: consumed_issued_tokens.amount()
         })
-    }
+        .dispatch(origin_of(account_of(USER))));
+        assert_noop!(
+            Call::Redeem(RedeemCall::liquidation_redeem {
+                currencies: vault_id.currencies.clone(),
+                amount_wrapped: 1
+            })
+            .dispatch(origin_of(account_of(USER))),
+            VaultRegistryError::InsufficientTokensCommitted
+        );
+
+        let pre_cancellation_state = ParachainState::get(&vault_id);
+        assert_eq!(
+            pre_cancellation_state,
+            post_liquidation_state.with_changes(|user, _vault, liquidation_vault, _fee_pool| {
+                let liquidation_vault = liquidation_vault.with_currency(&vault_id.currencies);
+                liquidation_vault.issued -= consumed_issued_tokens;
+                liquidation_vault.collateral -= collateral_vault / 2;
+
+                (*user.balances.get_mut(&vault_id.wrapped_currency()).unwrap()).free -= consumed_issued_tokens;
+                (*user.balances.get_mut(&vault_id.collateral_currency()).unwrap()).free += collateral_vault / 2;
+            })
+        );
+
+        assert_ok!(Call::Redeem(RedeemCall::cancel_redeem {
+            redeem_id: redeem_id,
+            reimburse: false
+        })
+        .dispatch(origin_of(account_of(USER))));
+
+        let post_cancellation_state = ParachainState::get(&vault_id);
+        assert_eq!(
+            post_cancellation_state,
+            pre_cancellation_state.with_changes(|user, vault, liquidation_vault, _fee_pool| {
+                let liquidation_vault = liquidation_vault.with_currency(&vault_id.currencies);
+                liquidation_vault.to_be_redeemed -= consumed_issued_tokens;
+                liquidation_vault.collateral += collateral_vault / 2;
+
+                vault.to_be_redeemed -= consumed_issued_tokens;
+                vault.liquidated_collateral -= collateral_vault / 2;
+
+                (*user.balances.get_mut(&vault_id.wrapped_currency()).unwrap()).locked -= issued_tokens;
+                (*user.balances.get_mut(&vault_id.wrapped_currency()).unwrap()).free += issued_tokens;
+            })
+        );
+
+        assert_ok!(Call::Redeem(RedeemCall::liquidation_redeem {
+            currencies: vault_id.currencies.clone(),
+            amount_wrapped: consumed_issued_tokens.amount()
+        })
+        .dispatch(origin_of(account_of(USER))));
+
+        // expect same change as the previous liquidation_redeem
+        assert_eq!(
+            ParachainState::get(&vault_id),
+            post_cancellation_state.with_changes(|user, _vault, liquidation_vault, _fee_pool| {
+                let liquidation_vault = liquidation_vault.with_currency(&vault_id.currencies);
+                liquidation_vault.issued -= consumed_issued_tokens;
+                liquidation_vault.collateral -= collateral_vault / 2;
+
+                (*user.balances.get_mut(&vault_id.wrapped_currency()).unwrap()).free -= consumed_issued_tokens;
+                (*user.balances.get_mut(&vault_id.collateral_currency()).unwrap()).free += collateral_vault / 2;
+            })
+        );
+    })
 }
 
 #[test]
 fn integration_test_redeem_wrapped_cancel_liquidated_no_reimburse() {
-    for liquidation_status in [VaultStatus::CommittedTheft, VaultStatus::Liquidated] {
-        test_with(|vault_id| {
-            let currency_id = vault_id.collateral_currency();
-            let issued_tokens = vault_id.wrapped(10_000);
-            let collateral_vault = Amount::new(1_000_000, currency_id);
-            VaultRegistryPallet::collateral_integrity_check();
-            let redeem_id = setup_cancelable_redeem(USER, &vault_id, issued_tokens);
-            VaultRegistryPallet::collateral_integrity_check();
-            let redeem = RedeemPallet::get_open_redeem_request_from_id(&redeem_id).unwrap();
+    test_with(|vault_id| {
+        let currency_id = vault_id.collateral_currency();
+        let issued_tokens = vault_id.wrapped(10_000);
+        let collateral_vault = Amount::new(1_000_000, currency_id);
+        VaultRegistryPallet::collateral_integrity_check();
+        let redeem_id = setup_cancelable_redeem(USER, &vault_id, issued_tokens);
+        VaultRegistryPallet::collateral_integrity_check();
+        let redeem = RedeemPallet::get_open_redeem_request_from_id(&redeem_id).unwrap();
 
-            // setup vault state such that 1/4th of its collateral is freed after successful redeem
-            let consumed_issued_tokens = redeem.amount_btc() + redeem.transfer_fee_btc();
-            CoreVaultData::force_to(
-                &vault_id,
-                CoreVaultData {
-                    issued: consumed_issued_tokens * 4,
-                    to_be_issued: vault_id.wrapped(0),
-                    to_be_redeemed: consumed_issued_tokens * 4,
-                    backing_collateral: collateral_vault,
-                    to_be_replaced: vault_id.wrapped(0),
-                    replace_collateral: griefing(0),
-                    ..default_vault_state(&vault_id)
-                },
-            );
+        // setup vault state such that 1/4th of its collateral is freed after successful redeem
+        let consumed_issued_tokens = redeem.amount_btc() + redeem.transfer_fee_btc();
+        CoreVaultData::force_to(
+            &vault_id,
+            CoreVaultData {
+                issued: consumed_issued_tokens * 4,
+                to_be_issued: vault_id.wrapped(0),
+                to_be_redeemed: consumed_issued_tokens * 4,
+                backing_collateral: collateral_vault,
+                to_be_replaced: vault_id.wrapped(0),
+                replace_collateral: griefing(0),
+                ..default_vault_state(&vault_id)
+            },
+        );
 
-            liquidate_vault_with_status(&vault_id, liquidation_status);
+        liquidate_vault(&vault_id);
 
-            let post_liquidation_state = ParachainState::get(&vault_id);
+        let post_liquidation_state = ParachainState::get(&vault_id);
 
-            assert_ok!(Call::Redeem(RedeemCall::cancel_redeem {
-                redeem_id: redeem_id,
-                reimburse: false
+        assert_ok!(Call::Redeem(RedeemCall::cancel_redeem {
+            redeem_id: redeem_id,
+            reimburse: false
+        })
+        .dispatch(origin_of(account_of(USER))));
+
+        // NOTE: changes are relative the the post liquidation state
+        assert_eq!(
+            ParachainState::get(&vault_id),
+            post_liquidation_state.with_changes(|user, vault, liquidation_vault, _fee_pool| {
+                let liquidation_vault = liquidation_vault.with_currency(&vault_id.currencies);
+
+                // to-be-redeemed decreased, forwarding to liquidation vault
+                vault.to_be_redeemed -= redeem.amount_btc() + redeem.transfer_fee_btc();
+                liquidation_vault.to_be_redeemed -= redeem.amount_btc() + redeem.transfer_fee_btc();
+
+                // the collateral that remained with the vault to back this redeem is now transferred to the
+                // liquidation vault
+                let collateral_for_this_redeem = collateral_vault / 4;
+                vault.liquidated_collateral -= collateral_for_this_redeem;
+                liquidation_vault.collateral += collateral_for_this_redeem;
+
+                // user's tokens get unlocked
+                (*user.balances.get_mut(&vault_id.wrapped_currency()).unwrap()).locked -=
+                    redeem.amount_btc() + redeem.fee() + redeem.transfer_fee_btc();
+                (*user.balances.get_mut(&vault_id.wrapped_currency()).unwrap()).free +=
+                    redeem.amount_btc() + redeem.fee() + redeem.transfer_fee_btc();
+
+                // Note that no punishment is taken from vault, because it's already liquidated
             })
-            .dispatch(origin_of(account_of(USER))));
-
-            // NOTE: changes are relative the the post liquidation state
-            assert_eq!(
-                ParachainState::get(&vault_id),
-                post_liquidation_state.with_changes(|user, vault, liquidation_vault, _fee_pool| {
-                    let liquidation_vault = liquidation_vault.with_currency(&vault_id.currencies);
-
-                    // to-be-redeemed decreased, forwarding to liquidation vault
-                    vault.to_be_redeemed -= redeem.amount_btc() + redeem.transfer_fee_btc();
-                    liquidation_vault.to_be_redeemed -= redeem.amount_btc() + redeem.transfer_fee_btc();
-
-                    // the collateral that remained with the vault to back this redeem is now transferred to the
-                    // liquidation vault
-                    let collateral_for_this_redeem = collateral_vault / 4;
-                    vault.liquidated_collateral -= collateral_for_this_redeem;
-                    liquidation_vault.collateral += collateral_for_this_redeem;
-
-                    // user's tokens get unlocked
-                    (*user.balances.get_mut(&vault_id.wrapped_currency()).unwrap()).locked -=
-                        redeem.amount_btc() + redeem.fee() + redeem.transfer_fee_btc();
-                    (*user.balances.get_mut(&vault_id.wrapped_currency()).unwrap()).free +=
-                        redeem.amount_btc() + redeem.fee() + redeem.transfer_fee_btc();
-
-                    // Note that no punishment is taken from vault, because it's already liquidated
-                })
-            );
-        });
-    }
+        );
+    });
 }
 
 #[test]
 fn integration_test_redeem_wrapped_cancel_liquidated_reimburse() {
-    for liquidation_status in [VaultStatus::CommittedTheft, VaultStatus::Liquidated] {
-        test_with(|vault_id| {
-            let currency_id = vault_id.collateral_currency();
-            let issued_tokens = vault_id.wrapped(10_000);
-            let collateral_vault = Amount::new(1_000_000, currency_id);
-            let redeem_id = setup_cancelable_redeem(USER, &vault_id, issued_tokens);
-            let redeem = RedeemPallet::get_open_redeem_request_from_id(&redeem_id).unwrap();
+    test_with(|vault_id| {
+        let currency_id = vault_id.collateral_currency();
+        let issued_tokens = vault_id.wrapped(10_000);
+        let collateral_vault = Amount::new(1_000_000, currency_id);
+        let redeem_id = setup_cancelable_redeem(USER, &vault_id, issued_tokens);
+        let redeem = RedeemPallet::get_open_redeem_request_from_id(&redeem_id).unwrap();
 
-            // setup vault state such that 1/4th of its collateral is freed after successful redeem
-            let consumed_issued_tokens = redeem.amount_btc() + redeem.transfer_fee_btc();
-            CoreVaultData::force_to(
-                &vault_id,
-                CoreVaultData {
-                    issued: consumed_issued_tokens * 4,
-                    to_be_issued: vault_id.wrapped(0),
-                    to_be_redeemed: consumed_issued_tokens * 4,
-                    backing_collateral: collateral_vault,
-                    to_be_replaced: vault_id.wrapped(0),
-                    replace_collateral: griefing(0),
-                    ..default_vault_state(&vault_id)
-                },
-            );
+        // setup vault state such that 1/4th of its collateral is freed after successful redeem
+        let consumed_issued_tokens = redeem.amount_btc() + redeem.transfer_fee_btc();
+        CoreVaultData::force_to(
+            &vault_id,
+            CoreVaultData {
+                issued: consumed_issued_tokens * 4,
+                to_be_issued: vault_id.wrapped(0),
+                to_be_redeemed: consumed_issued_tokens * 4,
+                backing_collateral: collateral_vault,
+                to_be_replaced: vault_id.wrapped(0),
+                replace_collateral: griefing(0),
+                ..default_vault_state(&vault_id)
+            },
+        );
 
-            liquidate_vault_with_status(&vault_id, liquidation_status);
+        liquidate_vault(&vault_id);
 
-            let post_liquidation_state = ParachainState::get(&vault_id);
+        let post_liquidation_state = ParachainState::get(&vault_id);
 
-            assert_ok!(Call::Redeem(RedeemCall::cancel_redeem {
-                redeem_id: redeem_id,
-                reimburse: true
+        assert_ok!(Call::Redeem(RedeemCall::cancel_redeem {
+            redeem_id: redeem_id,
+            reimburse: true
+        })
+        .dispatch(origin_of(account_of(USER))));
+
+        // NOTE: changes are relative the the post liquidation state
+        assert_eq!(
+            ParachainState::get(&vault_id),
+            post_liquidation_state.with_changes(|user, vault, liquidation_vault, fee_pool| {
+                let liquidation_vault = liquidation_vault.with_currency(&vault_id.currencies);
+
+                // to-be-redeemed decreased, forwarding to liquidation vault
+                vault.to_be_redeemed -= redeem.amount_btc() + redeem.transfer_fee_btc();
+                liquidation_vault.to_be_redeemed -= redeem.amount_btc() + redeem.transfer_fee_btc();
+
+                // tokens are given to the vault, minus a fee that is given to the fee pool
+                *vault.free_balance.get_mut(&vault_id.wrapped_currency()).unwrap() +=
+                    redeem.amount_btc() + redeem.transfer_fee_btc();
+                *fee_pool.rewards_for(&vault_id) += redeem.fee();
+
+                // the collateral that remained with the vault to back this redeem is transferred to the user
+                let collateral_for_this_redeem = collateral_vault / 4;
+                vault.liquidated_collateral -= collateral_for_this_redeem;
+                (*user.balances.get_mut(&currency_id).unwrap()).free += collateral_for_this_redeem;
+
+                // user's tokens get burned
+                (*user.balances.get_mut(&vault_id.wrapped_currency()).unwrap()).locked -= issued_tokens;
+
+                // Note that no punishment is taken from vault, because it's already liquidated
             })
-            .dispatch(origin_of(account_of(USER))));
-
-            // NOTE: changes are relative the the post liquidation state
-            assert_eq!(
-                ParachainState::get(&vault_id),
-                post_liquidation_state.with_changes(|user, vault, liquidation_vault, fee_pool| {
-                    let liquidation_vault = liquidation_vault.with_currency(&vault_id.currencies);
-
-                    // to-be-redeemed decreased, forwarding to liquidation vault
-                    vault.to_be_redeemed -= redeem.amount_btc() + redeem.transfer_fee_btc();
-                    liquidation_vault.to_be_redeemed -= redeem.amount_btc() + redeem.transfer_fee_btc();
-
-                    // tokens are given to the vault, minus a fee that is given to the fee pool
-                    *vault.free_balance.get_mut(&vault_id.wrapped_currency()).unwrap() +=
-                        redeem.amount_btc() + redeem.transfer_fee_btc();
-                    *fee_pool.rewards_for(&vault_id) += redeem.fee();
-
-                    // the collateral that remained with the vault to back this redeem is transferred to the user
-                    let collateral_for_this_redeem = collateral_vault / 4;
-                    vault.liquidated_collateral -= collateral_for_this_redeem;
-                    (*user.balances.get_mut(&currency_id).unwrap()).free += collateral_for_this_redeem;
-
-                    // user's tokens get burned
-                    (*user.balances.get_mut(&vault_id.wrapped_currency()).unwrap()).locked -= issued_tokens;
-
-                    // Note that no punishment is taken from vault, because it's already liquidated
-                })
-            );
-        });
-    }
+        );
+    });
 }
 
 #[test]
 fn integration_test_redeem_wrapped_execute_liquidated() {
-    for liquidation_status in [VaultStatus::CommittedTheft, VaultStatus::Liquidated] {
-        test_with(|vault_id| {
-            let currency_id = vault_id.collateral_currency();
-            let issued_tokens = vault_id.wrapped(10_000);
-            let collateral_vault = Amount::new(1_000_000, currency_id);
+    test_with(|vault_id| {
+        let currency_id = vault_id.collateral_currency();
+        let issued_tokens = vault_id.wrapped(10_000);
+        let collateral_vault = Amount::new(1_000_000, currency_id);
 
-            let redeem_id = setup_redeem(issued_tokens, USER, &vault_id);
-            let redeem = RedeemPallet::get_open_redeem_request_from_id(&redeem_id).unwrap();
+        let redeem_id = setup_redeem(issued_tokens, USER, &vault_id);
+        let redeem = RedeemPallet::get_open_redeem_request_from_id(&redeem_id).unwrap();
 
-            // setup vault state such that 1/4th of its collateral is freed after successful redeem
-            let consumed_issued_tokens = redeem.amount_btc() + redeem.transfer_fee_btc();
-            CoreVaultData::force_to(
-                &vault_id,
-                CoreVaultData {
-                    issued: consumed_issued_tokens * 4,
-                    to_be_issued: vault_id.wrapped(0),
-                    to_be_redeemed: consumed_issued_tokens * 4,
-                    backing_collateral: collateral_vault,
-                    to_be_replaced: vault_id.wrapped(0),
-                    replace_collateral: griefing(0),
-                    ..default_vault_state(&vault_id)
-                },
-            );
+        // setup vault state such that 1/4th of its collateral is freed after successful redeem
+        let consumed_issued_tokens = redeem.amount_btc() + redeem.transfer_fee_btc();
+        CoreVaultData::force_to(
+            &vault_id,
+            CoreVaultData {
+                issued: consumed_issued_tokens * 4,
+                to_be_issued: vault_id.wrapped(0),
+                to_be_redeemed: consumed_issued_tokens * 4,
+                backing_collateral: collateral_vault,
+                to_be_replaced: vault_id.wrapped(0),
+                replace_collateral: griefing(0),
+                ..default_vault_state(&vault_id)
+            },
+        );
 
-            liquidate_vault_with_status(&vault_id, liquidation_status);
+        liquidate_vault(&vault_id);
 
-            let post_liquidation_state = ParachainState::get(&vault_id);
+        let post_liquidation_state = ParachainState::get(&vault_id);
 
-            execute_redeem(redeem_id);
+        execute_redeem(redeem_id);
 
-            // NOTE: changes are relative the the post liquidation state
-            assert_eq!(
-                ParachainState::get(&vault_id),
-                post_liquidation_state.with_changes(|user, vault, liquidation_vault, fee_pool| {
-                    let liquidation_vault = liquidation_vault.with_currency(&vault_id.currencies);
+        // NOTE: changes are relative the the post liquidation state
+        assert_eq!(
+            ParachainState::get(&vault_id),
+            post_liquidation_state.with_changes(|user, vault, liquidation_vault, fee_pool| {
+                let liquidation_vault = liquidation_vault.with_currency(&vault_id.currencies);
 
-                    // fee given to fee pool
-                    *fee_pool.rewards_for(&vault_id) += redeem.fee();
+                // fee given to fee pool
+                *fee_pool.rewards_for(&vault_id) += redeem.fee();
 
-                    // wrapped burned from user
-                    (*user.balances.get_mut(&vault_id.wrapped_currency()).unwrap()).locked -= issued_tokens;
+                // wrapped burned from user
+                (*user.balances.get_mut(&vault_id.wrapped_currency()).unwrap()).locked -= issued_tokens;
 
-                    // to-be-redeemed & issued decreased, forwarding to liquidation vault
-                    vault.to_be_redeemed -= redeem.amount_btc() + redeem.transfer_fee_btc();
-                    liquidation_vault.to_be_redeemed -= redeem.amount_btc() + redeem.transfer_fee_btc();
-                    liquidation_vault.issued -= redeem.amount_btc() + redeem.transfer_fee_btc();
+                // to-be-redeemed & issued decreased, forwarding to liquidation vault
+                vault.to_be_redeemed -= redeem.amount_btc() + redeem.transfer_fee_btc();
+                liquidation_vault.to_be_redeemed -= redeem.amount_btc() + redeem.transfer_fee_btc();
+                liquidation_vault.issued -= redeem.amount_btc() + redeem.transfer_fee_btc();
 
-                    // collateral released
-                    let released_collateral = vault.liquidated_collateral / 4;
-                    vault.liquidated_collateral -= released_collateral;
-                    *vault.free_balance.get_mut(&currency_id).unwrap() += released_collateral;
-                })
-            );
-        })
-    }
+                // collateral released
+                let released_collateral = vault.liquidated_collateral / 4;
+                vault.liquidated_collateral -= released_collateral;
+                *vault.free_balance.get_mut(&currency_id).unwrap() += released_collateral;
+            })
+        );
+    })
 }
 
 fn get_additional_collateral(vault_id: &VaultId) {

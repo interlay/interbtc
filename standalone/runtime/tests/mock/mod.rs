@@ -160,10 +160,6 @@ pub type SecurityCall = security::Call<Runtime>;
 
 pub type SudoCall = pallet_sudo::Call<Runtime>;
 
-pub type RelayCall = relay::Call<Runtime>;
-pub type RelayPallet = relay::Pallet<Runtime>;
-pub type RelayError = relay::Error<Runtime>;
-
 pub type SystemPallet = frame_system::Pallet<Runtime>;
 pub type SystemError = frame_system::Error<Runtime>;
 
@@ -938,17 +934,11 @@ impl ParachainTwoVaultState {
 }
 
 pub fn liquidate_vault(vault_id: &VaultId) {
-    liquidate_vault_with_status(vault_id, VaultStatus::Liquidated);
-}
-
-pub fn liquidate_vault_with_status(vault_id: &VaultId, status: VaultStatus) {
     assert_ok!(OraclePallet::_set_exchange_rate(
         vault_id.currencies.collateral,
         FixedU128::checked_from_integer(10_000_000_000u128).unwrap()
     ));
-    assert_ok!(VaultRegistryPallet::liquidate_vault_with_status(
-        &vault_id, status, None
-    ));
+    assert_ok!(VaultRegistryPallet::liquidate_vault(&vault_id));
     assert_ok!(OraclePallet::_set_exchange_rate(
         vault_id.currencies.collateral,
         FixedU128::checked_from_integer(1u128).unwrap()
@@ -1187,7 +1177,7 @@ impl TransactionGenerator {
                 .expect("could not serialize block header");
             let init_block_header = BTCRelayPallet::parse_raw_block_header(&raw_init_block_header).unwrap();
 
-            match BTCRelayPallet::initialize(account_of(ALICE), init_block_header, height) {
+            match BTCRelayPallet::_initialize(account_of(ALICE), init_block_header, height) {
                 Ok(_) => {}
                 Err(e) if e == BTCRelayError::AlreadyInitialized.into() => {}
                 _ => panic!("Failed to initialize btc relay"),
@@ -1282,7 +1272,7 @@ impl TransactionGenerator {
 
     fn relay(&self, height: u32, block: &Block, raw_block_header: RawBlockHeader) {
         if let Some(relayer) = self.relayer {
-            assert_ok!(Call::Relay(RelayCall::store_block_header {
+            assert_ok!(Call::BTCRelay(BTCRelayCall::store_block_header {
                 raw_block_header: raw_block_header
             })
             .dispatch(origin_of(account_of(relayer))));
@@ -1290,7 +1280,7 @@ impl TransactionGenerator {
         } else {
             // bypass staked relayer module
             let block_header = BTCRelayPallet::parse_raw_block_header(&raw_block_header).unwrap();
-            assert_ok!(BTCRelayPallet::store_block_header(&account_of(ALICE), block_header));
+            assert_ok!(BTCRelayPallet::_store_block_header(&account_of(ALICE), block_header));
             assert_store_main_chain_header_event(height, block.header.hash, account_of(ALICE));
         }
     }
@@ -1439,8 +1429,6 @@ impl ExtBuilder {
             premium_redeem_fee: FixedU128::checked_from_rational(5, 100).unwrap(), // 5%
             punishment_fee: FixedU128::checked_from_rational(1, 10).unwrap(), // 10%
             replace_griefing_collateral: FixedU128::checked_from_rational(1, 10).unwrap(), // 10%
-            theft_fee: FixedU128::checked_from_rational(5, 100).unwrap(),    // 5%
-            theft_fee_max: 10000000,                                         // 0.1 BTC
         }
         .assimilate_storage(&mut storage)
         .unwrap();
