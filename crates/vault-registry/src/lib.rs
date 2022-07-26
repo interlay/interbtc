@@ -2043,8 +2043,7 @@ impl<T: Config> Pallet<T> {
     #[cfg(feature = "integration-tests")]
     pub fn collateral_integrity_check() {
         let griefing_currency = T::GetGriefingCollateralCurrencyId::get();
-        for (vault_id, _vault) in
-            Vaults::<T>::iter().filter(|(_, vault)| matches!(vault.status, VaultStatus::Active(_)))
+        for (vault_id, vault) in Vaults::<T>::iter().filter(|(_, vault)| matches!(vault.status, VaultStatus::Active(_)))
         {
             // check that there is enough griefing collateral
             let active_griefing = CurrencySource::<T>::ActiveReplaceCollateral(vault_id.clone())
@@ -2053,12 +2052,14 @@ impl<T: Config> Pallet<T> {
             let available_replace_collateral = CurrencySource::<T>::AvailableReplaceCollateral(vault_id.clone())
                 .current_balance(griefing_currency)
                 .unwrap();
-            let total_replace_collateral = active_griefing + available_replace_collateral;
-            assert!(
-                ext::currency::get_reserved_balance(griefing_currency, &vault_id.account_id)
-                    .ge(&total_replace_collateral)
-                    .unwrap()
-            );
+            let total_replace_collateral = active_griefing + available_replace_collateral.clone();
+            let reserved_balance = ext::currency::get_reserved_balance(griefing_currency, &vault_id.account_id);
+            assert!(reserved_balance.ge(&total_replace_collateral).unwrap());
+
+            if available_replace_collateral.is_zero() {
+                // we can't have reserved collateral for to_be_replaced tokens if there are no to-be-replaced tokens
+                assert!(vault.to_be_replaced_tokens.is_zero());
+            }
 
             let liquidated_collateral = CurrencySource::<T>::LiquidatedCollateral(vault_id.clone())
                 .current_balance(vault_id.collateral_currency())

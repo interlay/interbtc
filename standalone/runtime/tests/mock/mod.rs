@@ -643,7 +643,6 @@ impl CoreVaultData {
             &vault_id,
             &state.to_be_replaced,
         ));
-        VaultRegistryPallet::collateral_integrity_check();
 
         // clear all balances
         for currency_id in iter_all_currencies() {
@@ -666,9 +665,7 @@ impl CoreVaultData {
                     .unwrap_or(Amount::zero(currency_id)),
             )
             .unwrap();
-            VaultRegistryPallet::collateral_integrity_check();
         }
-        VaultRegistryPallet::collateral_integrity_check();
 
         VaultRegistryPallet::transfer_funds(
             CurrencySource::ActiveReplaceCollateral(vault_id.clone()),
@@ -678,7 +675,6 @@ impl CoreVaultData {
                 .unwrap(),
         )
         .unwrap();
-        VaultRegistryPallet::collateral_integrity_check();
 
         VaultRegistryPallet::transfer_funds(
             CurrencySource::AvailableReplaceCollateral(vault_id.clone()),
@@ -688,8 +684,6 @@ impl CoreVaultData {
                 .unwrap(),
         )
         .unwrap();
-
-        VaultRegistryPallet::collateral_integrity_check();
 
         // vault's backing collateral was temporarily increased - reset to 0
         VaultRegistryPallet::transfer_funds(
@@ -934,6 +928,8 @@ impl ParachainTwoVaultState {
 }
 
 pub fn liquidate_vault(vault_id: &VaultId) {
+    VaultRegistryPallet::collateral_integrity_check();
+
     assert_ok!(OraclePallet::_set_exchange_rate(
         vault_id.currencies.collateral,
         FixedU128::checked_from_integer(10_000_000_000u128).unwrap()
@@ -943,6 +939,14 @@ pub fn liquidate_vault(vault_id: &VaultId) {
         vault_id.currencies.collateral,
         FixedU128::checked_from_integer(1u128).unwrap()
     ));
+
+    assert_eq!(
+        CurrencySource::<Runtime>::AvailableReplaceCollateral(vault_id.clone())
+            .current_balance(DEFAULT_GRIEFING_CURRENCY)
+            .unwrap()
+            .amount(),
+        0
+    );
 }
 
 pub fn set_default_thresholds() {
