@@ -3,7 +3,6 @@
 #![deny(warnings)]
 #![cfg_attr(test, feature(proc_macro_hygiene))]
 #![cfg_attr(not(feature = "std"), no_std)]
-#![feature(const_fn_trait_bound)]
 
 #[cfg(test)]
 mod mock;
