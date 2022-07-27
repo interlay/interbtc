@@ -368,6 +368,9 @@ fn integration_test_vault_registry_undercollateralization_liquidation() {
                 liquidation_vault.issued = vault_id.wrapped(DEFAULT_VAULT_ISSUED.amount());
                 liquidation_vault.to_be_redeemed = vault_id.wrapped(DEFAULT_VAULT_TO_BE_REDEEMED.amount());
 
+                vault.griefing_collateral -= DEFAULT_VAULT_REPLACE_COLLATERAL;
+                vault.replace_collateral -= DEFAULT_VAULT_REPLACE_COLLATERAL;
+                vault.to_be_replaced = vault_id.wrapped(0);
                 vault.issued = vault_id.wrapped(0);
                 vault.to_be_issued = vault_id.wrapped(0);
                 vault.backing_collateral = Amount::new(0, currency_id);
@@ -457,6 +460,7 @@ fn default_liquidation_recovery_vault(vault_id: &VaultId) -> CoreVaultData {
     let mut vault_data = default_vault_state(&vault_id);
     vault_data.to_be_redeemed = vault_id.wrapped(0);
     vault_data.to_be_replaced = vault_id.wrapped(0);
+    vault_data.replace_collateral = vault_data.replace_collateral.with_amount(|_| 0);
     vault_data
 }
 
@@ -472,6 +476,8 @@ fn integration_test_vault_registry_liquidation_recovery_works() {
             currency_pair: vault_id.currencies.clone(),
         })
         .dispatch(origin_of(account_of(VAULT))));
+
+        VaultRegistryPallet::collateral_integrity_check();
 
         assert_eq!(
             ParachainState::get(&vault_id),

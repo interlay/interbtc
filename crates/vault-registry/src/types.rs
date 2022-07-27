@@ -920,6 +920,9 @@ impl<T: Config> RichVault<T> {
 
         // Clear `to_be_replaced` tokens, since the vault will have no more `issued` or `to_be_issued` tokens.
         let _ = Pallet::<T>::withdraw_replace_request(&self.data.id, &self.to_be_replaced_tokens())?;
+        // the vault struct was modified in the call above - we need to re-fetch,
+        // otherwise changes get overwritten below
+        *self = Pallet::<T>::get_rich_vault_from_id(&vault_id)?;
 
         // amount of tokens being backed
         let collateral_tokens = self.backed_tokens()?;
