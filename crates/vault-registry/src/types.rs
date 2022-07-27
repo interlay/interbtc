@@ -289,6 +289,28 @@ pub mod v5 {
         pub addresses: BTreeSet<BtcAddress>,
     }
 
+    #[derive(Encode, Decode, Clone, Copy, PartialEq, Eq, Debug, TypeInfo, MaxEncodedLen)]
+    pub enum VaultStatusV5 {
+        /// Vault is active - bool=true indicates that the vault accepts new issue requests
+        Active(bool),
+
+        /// Vault has been liquidated
+        Liquidated,
+
+        /// Vault theft has been reported
+        CommittedTheft,
+    }
+
+    impl Into<VaultStatus> for VaultStatusV5 {
+        fn into(self) -> VaultStatus {
+            match self {
+                VaultStatusV5::Active(accept_issue) => VaultStatus::Active(accept_issue),
+                VaultStatusV5::Liquidated => VaultStatus::Liquidated,
+                VaultStatusV5::CommittedTheft => VaultStatus::Liquidated,
+            }
+        }
+    }
+
     #[derive(Encode, Decode, Clone, PartialEq, Eq, TypeInfo)]
     #[cfg_attr(feature = "std", derive(Debug))]
     pub struct VaultV5<AccountId, BlockNumber, Balance, CurrencyId: Copy> {
@@ -297,7 +319,7 @@ pub mod v5 {
         /// Bitcoin address of this Vault (P2PKH, P2SH, P2WPKH, P2WSH)
         pub wallet: Wallet,
         /// Current status of the vault
-        pub status: VaultStatus,
+        pub status: VaultStatusV5,
         /// Block height until which this Vault is banned from being used for
         /// Issue, Redeem (except during automatic liquidation) and Replace.
         pub banned_until: Option<BlockNumber>,
@@ -341,7 +363,7 @@ pub mod v5 {
 
             Some(Vault {
                 id: vault_v5.id,
-                status: vault_v5.status,
+                status: vault_v5.status.into(),
                 banned_until: vault_v5.banned_until,
                 secure_collateral_threshold: None,
                 to_be_issued_tokens: vault_v5.to_be_issued_tokens,
@@ -388,7 +410,7 @@ pub mod v5 {
                     .into(),
                 },
                 banned_until: None,
-                status: VaultStatus::Active(true),
+                status: VaultStatusV5::CommittedTheft,
                 issued_tokens: Default::default(),
                 liquidated_collateral: Default::default(),
                 replace_collateral: Default::default(),
@@ -408,7 +430,7 @@ pub mod v5 {
 
             let expected_migrated_vault = Vault {
                 id: vault.id.clone(),
-                status: vault.status,
+                status: VaultStatus::Liquidated,
                 banned_until: vault.banned_until,
                 secure_collateral_threshold: None,
                 to_be_issued_tokens: vault.to_be_issued_tokens,
