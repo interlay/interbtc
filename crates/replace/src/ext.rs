@@ -49,7 +49,6 @@ pub(crate) mod btc_relay {
 #[cfg_attr(test, mockable)]
 pub(crate) mod vault_registry {
     use crate::DefaultVaultId;
-    use btc_relay::BtcAddress;
     use currency::Amount;
     use frame_support::dispatch::{DispatchError, DispatchResult};
     use vault_registry::types::CurrencySource;
@@ -92,13 +91,6 @@ pub(crate) mod vault_registry {
 
     pub fn ensure_not_banned<T: crate::Config>(vault_id: &DefaultVaultId<T>) -> DispatchResult {
         <vault_registry::Pallet<T>>::_ensure_not_banned(vault_id)
-    }
-
-    pub fn insert_vault_deposit_address<T: crate::Config>(
-        vault_id: DefaultVaultId<T>,
-        btc_address: BtcAddress,
-    ) -> DispatchResult {
-        <vault_registry::Pallet<T>>::insert_vault_deposit_address(vault_id, btc_address)
     }
 
     pub fn try_increase_to_be_issued_tokens<T: crate::Config>(

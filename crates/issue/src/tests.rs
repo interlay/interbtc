@@ -8,7 +8,7 @@ use mocktopus::mocking::*;
 use sp_arithmetic::FixedU128;
 use sp_core::H256;
 use sp_runtime::traits::One;
-use vault_registry::{DefaultVault, DefaultVaultId, Vault, VaultStatus, Wallet};
+use vault_registry::{DefaultVault, DefaultVaultId, Vault, VaultStatus};
 
 fn dummy_merkle_proof() -> MerkleProof {
     MerkleProof {
@@ -94,7 +94,6 @@ fn test_request_issue_banned_fails() {
                 to_be_redeemed_tokens: 0,
                 replace_collateral: 0,
                 active_replace_collateral: 0,
-                wallet: Wallet::new(),
                 banned_until: Some(1),
                 secure_collateral_threshold: None,
                 status: VaultStatus::Active(true),

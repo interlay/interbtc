@@ -33,6 +33,8 @@ pub enum Version {
     V4,
     /// Added custom pervault secure collateral threshold
     V5,
+    /// Removed wallet
+    V6,
 }
 
 #[derive(Encode, Decode, Eq, PartialEq, Clone, Default, TypeInfo, Debug)]
@@ -278,40 +280,24 @@ pub mod liquidation_vault_fix {
     }
 }
 
-pub mod v4 {
+pub mod v5 {
     use super::*;
 
-    #[derive(Encode, Decode, Clone, Copy, PartialEq, Eq, Debug, TypeInfo, MaxEncodedLen)]
-    pub enum VaultStatusV4 {
-        /// Vault is active - bool=true indicates that the vault accepts new issue requests
-        Active(bool),
-
-        /// Vault has been liquidated
-        Liquidated,
-
-        /// Vault theft has been reported
-        CommittedTheft,
-    }
-
-    impl Into<VaultStatus> for VaultStatusV4 {
-        fn into(self) -> VaultStatus {
-            match self {
-                VaultStatusV4::Active(accept_issue) => VaultStatus::Active(accept_issue),
-                VaultStatusV4::Liquidated => VaultStatus::Liquidated,
-                VaultStatusV4::CommittedTheft => VaultStatus::Liquidated,
-            }
-        }
+    #[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, Default, TypeInfo)]
+    pub struct Wallet {
+        // store all addresses for `report_vault_theft` checks
+        pub addresses: BTreeSet<BtcAddress>,
     }
 
     #[derive(Encode, Decode, Clone, PartialEq, Eq, TypeInfo)]
     #[cfg_attr(feature = "std", derive(Debug))]
-    pub struct VaultV4<AccountId, BlockNumber, Balance, CurrencyId: Copy> {
+    pub struct VaultV5<AccountId, BlockNumber, Balance, CurrencyId: Copy> {
         /// Account identifier of the Vault
         pub id: VaultId<AccountId, CurrencyId>,
         /// Bitcoin address of this Vault (P2PKH, P2SH, P2WPKH, P2WSH)
         pub wallet: Wallet,
         /// Current status of the vault
-        pub status: VaultStatusV4,
+        pub status: VaultStatus,
         /// Block height until which this Vault is banned from being used for
         /// Issue, Redeem (except during automatic liquidation) and Replace.
         pub banned_until: Option<BlockNumber>,
@@ -334,44 +320,40 @@ pub mod v4 {
         pub liquidated_collateral: Balance,
     }
 
-    type DefaultVaultV4<T> = VaultV4<
+    type DefaultVaultV5<T> = VaultV5<
         <T as frame_system::Config>::AccountId,
         <T as frame_system::Config>::BlockNumber,
         BalanceOf<T>,
         CurrencyId<T>,
     >;
 
-    pub fn migrate_v4_to_v5<T: Config>() -> frame_support::weights::Weight {
+    pub fn migrate_v5_to_v6<T: Config>() -> frame_support::weights::Weight {
         use sp_runtime::traits::Saturating;
 
-        if !matches!(
-            crate::StorageVersion::<T>::get(),
-            Version::V0 | Version::V1 | Version::V2 | Version::V3 | Version::V4
-        ) {
+        if !matches!(crate::StorageVersion::<T>::get(), Version::V5) {
             log::info!("Not running vault storage migration");
             return T::DbWeight::get().reads(1); // already upgraded; don't run migration
         }
         let mut num_migrated_vaults = 0u64;
 
-        crate::Vaults::<T>::translate::<DefaultVaultV4<T>, _>(|_key, vault_v4| {
+        crate::Vaults::<T>::translate::<DefaultVaultV5<T>, _>(|_key, vault_v5| {
             num_migrated_vaults.saturating_inc();
 
             Some(Vault {
-                id: vault_v4.id,
-                wallet: vault_v4.wallet,
-                status: vault_v4.status.into(),
-                banned_until: vault_v4.banned_until,
+                id: vault_v5.id,
+                status: vault_v5.status,
+                banned_until: vault_v5.banned_until,
                 secure_collateral_threshold: None,
-                to_be_issued_tokens: vault_v4.to_be_issued_tokens,
-                issued_tokens: vault_v4.issued_tokens,
-                to_be_redeemed_tokens: vault_v4.to_be_redeemed_tokens,
-                to_be_replaced_tokens: vault_v4.to_be_replaced_tokens,
-                replace_collateral: vault_v4.replace_collateral,
-                active_replace_collateral: vault_v4.active_replace_collateral,
-                liquidated_collateral: vault_v4.liquidated_collateral,
+                to_be_issued_tokens: vault_v5.to_be_issued_tokens,
+                issued_tokens: vault_v5.issued_tokens,
+                to_be_redeemed_tokens: vault_v5.to_be_redeemed_tokens,
+                to_be_replaced_tokens: vault_v5.to_be_replaced_tokens,
+                replace_collateral: vault_v5.replace_collateral,
+                active_replace_collateral: vault_v5.active_replace_collateral,
+                liquidated_collateral: vault_v5.liquidated_collateral,
             })
         });
-        crate::StorageVersion::<T>::put(Version::V5);
+        crate::StorageVersion::<T>::put(Version::V6);
 
         log::info!("Migrated {num_migrated_vaults} vaults");
 
@@ -388,9 +370,9 @@ pub mod v4 {
         use sp_runtime::traits::TrailingZeroInput;
 
         crate::mock::run_test(|| {
-            crate::StorageVersion::<Test>::put(Version::V4);
+            crate::StorageVersion::<Test>::put(Version::V5);
 
-            let vault: DefaultVaultV4<Test> = VaultV4 {
+            let vault: DefaultVaultV5<Test> = VaultV5 {
                 id: VaultId {
                     account_id: Decode::decode(&mut TrailingZeroInput::new(&[1u8; 32])).unwrap(),
                     currencies: VaultCurrencyPair {
@@ -406,7 +388,7 @@ pub mod v4 {
                     .into(),
                 },
                 banned_until: None,
-                status: VaultStatusV4::Active(true),
+                status: VaultStatus::Active(true),
                 issued_tokens: Default::default(),
                 liquidated_collateral: Default::default(),
                 replace_collateral: Default::default(),
@@ -422,14 +404,11 @@ pub mod v4 {
                 &vault,
             );
 
-            migrate_v4_to_v5::<Test>();
+            migrate_v5_to_v6::<Test>();
 
             let expected_migrated_vault = Vault {
                 id: vault.id.clone(),
-                wallet: Wallet {
-                    addresses: vault.wallet.addresses.clone(),
-                },
-                status: vault.status.into(),
+                status: vault.status,
                 banned_until: vault.banned_until,
                 secure_collateral_threshold: None,
                 to_be_issued_tokens: vault.to_be_issued_tokens,
@@ -448,32 +427,8 @@ pub mod v4 {
             );
 
             // check that storage version is bumped
-            assert!(crate::StorageVersion::<Test>::get() == Version::V5);
+            assert!(crate::StorageVersion::<Test>::get() == Version::V6);
         });
-    }
-}
-
-#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, Default, TypeInfo)]
-pub struct Wallet {
-    // store all addresses for `report_vault_theft` checks
-    // TODO: can this be removed now?
-    pub addresses: BTreeSet<BtcAddress>,
-}
-
-impl Wallet {
-    pub fn new() -> Self {
-        Self {
-            addresses: BTreeSet::new(),
-        }
-    }
-
-    pub fn has_btc_address(&self, address: &BtcAddress) -> bool {
-        self.addresses.contains(address)
-    }
-
-    pub fn add_btc_address(&mut self, address: BtcAddress) {
-        // TODO: add maximum or griefing collateral
-        self.addresses.insert(address);
     }
 }
 
@@ -497,8 +452,6 @@ impl Default for VaultStatus {
 pub struct Vault<AccountId, BlockNumber, Balance, CurrencyId: Copy, UnsignedFixedPoint> {
     /// Account identifier of the Vault
     pub id: VaultId<AccountId, CurrencyId>,
-    /// Bitcoin address of this Vault (P2PKH, P2SH, P2WPKH, P2WSH)
-    pub wallet: Wallet,
     /// Current status of the vault
     pub status: VaultStatus,
     /// Block height until which this Vault is banned from being used for
@@ -552,10 +505,8 @@ impl<
     pub fn new(
         id: VaultId<AccountId, CurrencyId>,
     ) -> Vault<AccountId, BlockNumber, Balance, CurrencyId, UnsignedFixedPoint> {
-        let wallet = Wallet::new();
         Vault {
             id,
-            wallet,
             banned_until: None,
             status: VaultStatus::Active(true),
             secure_collateral_threshold: Default::default(),
@@ -992,17 +943,9 @@ impl<T: Config> RichVault<T> {
         Ok(vault_public_key)
     }
 
-    pub(crate) fn insert_deposit_address(&mut self, btc_address: BtcAddress) {
-        let _ = self.update(|v| {
-            v.wallet.add_btc_address(btc_address);
-            Ok(())
-        });
-    }
-
     pub(crate) fn new_deposit_address(&mut self, secure_id: H256) -> Result<BtcAddress, DispatchError> {
         let public_key = self.new_deposit_public_key(secure_id)?;
         let btc_address = BtcAddress::P2WPKHv0(public_key.to_hash());
-        self.insert_deposit_address(btc_address);
         Ok(btc_address)
     }
 

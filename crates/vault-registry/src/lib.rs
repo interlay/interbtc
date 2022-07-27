@@ -36,7 +36,7 @@ use crate::types::{
 use crate::types::DefaultVaultCurrencyPair;
 #[doc(inline)]
 pub use crate::types::{
-    BtcPublicKey, CurrencySource, DefaultVault, DefaultVaultId, SystemVault, Vault, VaultId, VaultStatus, Wallet,
+    BtcPublicKey, CurrencySource, DefaultVault, DefaultVaultId, SystemVault, Vault, VaultId, VaultStatus,
 };
 use bitcoin::types::Value;
 use codec::FullCodec;
@@ -133,7 +133,7 @@ pub mod pallet {
         }
 
         fn on_runtime_upgrade() -> frame_support::weights::Weight {
-            crate::types::v4::migrate_v4_to_v5::<T>()
+            crate::types::v5::migrate_v5_to_v6::<T>()
                 + crate::types::upgrade_vault_release::try_upgrade_current_vault_release::<T>()
         }
     }
@@ -276,23 +276,6 @@ pub mod pallet {
             VaultBitcoinPublicKey::<T>::insert(&account_id, &public_key);
 
             Self::deposit_event(Event::<T>::UpdatePublicKey { account_id, public_key });
-            Ok(().into())
-        }
-
-        #[pallet::weight(<T as Config>::WeightInfo::register_address())]
-        #[transactional]
-        pub fn register_address(
-            origin: OriginFor<T>,
-            currency_pair: DefaultVaultCurrencyPair<T>,
-            btc_address: BtcAddress,
-        ) -> DispatchResultWithPostInfo {
-            let account_id = ensure_signed(origin)?;
-            let vault_id = VaultId::new(account_id, currency_pair.collateral, currency_pair.wrapped);
-            Self::insert_vault_deposit_address(vault_id.clone(), btc_address)?;
-            Self::deposit_event(Event::<T>::RegisterAddress {
-                vault_id,
-                address: btc_address,
-            });
             Ok(().into())
         }
 
@@ -2018,17 +2001,6 @@ impl<T: Config> Pallet<T> {
         threshold: UnsignedFixedPoint<T>,
     ) -> Result<Amount<T>, DispatchError> {
         collateral.convert_to(wrapped_currency)?.checked_div(&threshold)
-    }
-
-    pub fn insert_vault_deposit_address(vault_id: DefaultVaultId<T>, btc_address: BtcAddress) -> DispatchResult {
-        ensure!(
-            !ReservedAddresses::<T>::contains_key(&btc_address),
-            Error::<T>::ReservedDepositAddress
-        );
-        let mut vault = Self::get_active_rich_vault_from_id(&vault_id)?;
-        vault.insert_deposit_address(btc_address);
-        ReservedAddresses::<T>::insert(btc_address, vault_id);
-        Ok(())
     }
 
     pub fn new_vault_deposit_address(

@@ -8,7 +8,7 @@ use frame_support::{assert_err, assert_noop, assert_ok, dispatch::DispatchError}
 use mocktopus::mocking::*;
 use security::Pallet as Security;
 use sp_core::{H160, H256};
-use vault_registry::{DefaultVault, VaultStatus, Wallet};
+use vault_registry::{DefaultVault, VaultStatus};
 
 type Event = crate::Event<Test>;
 
@@ -58,7 +58,6 @@ fn default_vault() -> DefaultVault<Test> {
         replace_collateral: 0,
         to_be_redeemed_tokens: 0,
         active_replace_collateral: 0,
-        wallet: Wallet::new(),
         banned_until: None,
         secure_collateral_threshold: None,
         status: VaultStatus::Active(true),
@@ -93,7 +92,6 @@ fn test_request_redeem_fails_with_amount_below_minimum() {
                 replace_collateral: 0,
                 to_be_redeemed_tokens: 0,
                 active_replace_collateral: 0,
-                wallet: Wallet::new(),
                 banned_until: None,
                 secure_collateral_threshold: None,
                 status: VaultStatus::Active(true),
@@ -166,7 +164,6 @@ fn test_request_redeem_succeeds_with_normal_redeem() {
                 to_be_redeemed_tokens: 0,
                 replace_collateral: 0,
                 active_replace_collateral: 0,
-                wallet: Wallet::new(),
                 banned_until: None,
                 secure_collateral_threshold: None,
                 status: VaultStatus::Active(true),
@@ -267,7 +264,6 @@ fn test_request_redeem_succeeds_with_self_redeem() {
                 to_be_redeemed_tokens: 0,
                 active_replace_collateral: 0,
                 replace_collateral: 0,
-                wallet: Wallet::new(),
                 banned_until: None,
                 secure_collateral_threshold: None,
                 status: VaultStatus::Active(true),
@@ -398,7 +394,6 @@ fn test_execute_redeem_succeeds_with_another_account() {
                 to_be_redeemed_tokens: 200,
                 replace_collateral: 0,
                 active_replace_collateral: 0,
-                wallet: Wallet::new(),
                 banned_until: None,
                 secure_collateral_threshold: None,
                 status: VaultStatus::Active(true),
@@ -480,7 +475,6 @@ fn test_execute_redeem_succeeds() {
                 to_be_redeemed_tokens: 200,
                 replace_collateral: 0,
                 active_replace_collateral: 0,
-                wallet: Wallet::new(),
                 banned_until: None,
                 secure_collateral_threshold: None,
                 status: VaultStatus::Active(true),
@@ -839,7 +833,6 @@ mod spec_based_tests {
                     issued_tokens: 200,
                     to_be_redeemed_tokens: 200,
                     replace_collateral: 0,
-                    wallet: Wallet::new(),
                     banned_until: None,
                     status: VaultStatus::Active(true),
                     ..default_vault()

@@ -16,7 +16,7 @@ use primitives::{CurrencyId, VaultCurrencyPair, VaultId};
 use sp_core::{H256, U256};
 use sp_runtime::{traits::One, FixedPointNumber};
 use sp_std::prelude::*;
-use vault_registry::types::{DefaultVaultCurrencyPair, Vault, Wallet};
+use vault_registry::types::{DefaultVaultCurrencyPair, Vault};
 
 // Pallets
 use crate::Pallet as Replace;
@@ -159,7 +159,6 @@ benchmarks! {
         register_public_key::<T>(vault_id.clone());
 
         let vault = Vault {
-            wallet: Wallet::new(),
             id: vault_id.clone(),
             issued_tokens: amount,
             ..Vault::new(vault_id.clone())
@@ -239,7 +238,6 @@ benchmarks! {
         Replace::<T>::insert_replace_request(&replace_id, &replace_request);
 
         let old_vault = Vault {
-            wallet: Wallet::new(),
             id: old_vault_id.clone(),
             ..Vault::new(old_vault_id.clone())
         };
@@ -249,7 +247,6 @@ benchmarks! {
         );
 
         let new_vault = Vault {
-            wallet: Wallet::new(),
             id: new_vault_id.clone(),
             ..Vault::new(new_vault_id.clone())
         };

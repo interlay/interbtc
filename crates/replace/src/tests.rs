@@ -124,7 +124,6 @@ mod accept_replace_tests {
 
     fn setup_mocks() {
         ext::vault_registry::ensure_not_banned::<Test>.mock_safe(|_| MockResult::Return(Ok(())));
-        ext::vault_registry::insert_vault_deposit_address::<Test>.mock_safe(|_, _| MockResult::Return(Ok(())));
         ext::vault_registry::decrease_to_be_replaced_tokens::<Test>
             .mock_safe(|_, _| MockResult::Return(Ok((wrapped(5), griefing(10)))));
         ext::vault_registry::try_deposit_collateral::<Test>.mock_safe(|_, _| MockResult::Return(Ok(())));

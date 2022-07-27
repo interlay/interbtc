@@ -3,10 +3,7 @@ mod mock;
 use currency::Amount;
 use mock::{assert_eq, *};
 
-use crate::mock::{
-    issue_testing_utils::{execute_issue, request_issue},
-    redeem_testing_utils::{cancel_redeem, setup_redeem, ExecuteRedeemBuilder},
-};
+use crate::mock::issue_testing_utils::{execute_issue, request_issue};
 
 pub const USER: [u8; 32] = ALICE;
 pub const VAULT: [u8; 32] = BOB;
@@ -323,14 +320,6 @@ fn integration_test_vault_registry_with_parachain_shutdown_fails() {
         assert_noop!(
             Call::VaultRegistry(VaultRegistryCall::register_public_key {
                 public_key: Default::default()
-            })
-            .dispatch(origin_of(account_of(VAULT))),
-            SystemError::CallFiltered
-        );
-        assert_noop!(
-            Call::VaultRegistry(VaultRegistryCall::register_address {
-                currency_pair: vault_id.currencies.clone(),
-                btc_address: Default::default()
             })
             .dispatch(origin_of(account_of(VAULT))),
             SystemError::CallFiltered

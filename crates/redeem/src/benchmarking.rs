@@ -16,7 +16,7 @@ use primitives::{CurrencyId, CurrencyId::Token, TokenSymbol::*, VaultCurrencyPai
 use sp_core::{H256, U256};
 use sp_runtime::traits::One;
 use sp_std::prelude::*;
-use vault_registry::types::{Vault, Wallet};
+use vault_registry::types::Vault;
 
 // Pallets
 use crate::Pallet as Redeem;
@@ -173,7 +173,6 @@ benchmarks! {
         register_public_key::<T>(vault_id.clone());
 
         let vault = Vault {
-            wallet: Wallet::new(),
             issued_tokens: amount,
             id: vault_id.clone(),
             ..Vault::new(vault_id.clone())
@@ -239,7 +238,6 @@ benchmarks! {
         register_public_key::<T>(vault_id.clone());
 
         let vault = Vault {
-            wallet: Wallet::new(),
             id: vault_id.clone(),
             ..Vault::new(vault_id.clone())
         };
@@ -330,7 +328,6 @@ BtcRelay::<T>::parachain_confirmations() + 1u32.into());
         register_public_key::<T>(vault_id.clone());
 
         let vault = Vault {
-            wallet: Wallet::new(),
             id: vault_id.clone(),
             ..Vault::new(vault_id.clone())
         };
@@ -365,7 +362,6 @@ BtcRelay::<T>::parachain_confirmations() + 1u32.into());
         register_public_key::<T>(vault_id.clone());
 
         let vault = Vault {
-            wallet: Wallet::new(),
             id: vault_id.clone(),
             ..Vault::new(vault_id.clone())
         };
