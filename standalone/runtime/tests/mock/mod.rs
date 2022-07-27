@@ -1290,29 +1290,6 @@ impl TransactionGenerator {
     }
 }
 
-pub fn register_addresses_and_mine_transaction(
-    vault_id: DefaultVaultId<Runtime>,
-    signer: BtcPublicKey,
-    inputs: Vec<(Transaction, u32, Option<BtcPublicKey>)>,
-    outputs: Vec<(BtcAddress, Amount<Runtime>)>,
-    return_data: Vec<H256>,
-) -> (H256Le, u32, Vec<u8>, Vec<u8>, Transaction) {
-    register_vault_address(vault_id.clone(), signer.clone());
-    for (_, _, public_key) in inputs.iter() {
-        if let Some(key) = public_key {
-            register_vault_address(vault_id.clone(), key.clone());
-        }
-    }
-    generate_transaction_and_mine(signer, inputs, outputs, return_data)
-}
-
-pub fn register_vault_address(vault_id: DefaultVaultId<Runtime>, from: BtcPublicKey) {
-    assert_ok!(VaultRegistryPallet::insert_vault_deposit_address(
-        vault_id,
-        BtcAddress::P2PKH(from.to_hash())
-    ));
-}
-
 pub fn generate_transaction_and_mine(
     signer: BtcPublicKey,
     inputs: Vec<(Transaction, u32, Option<BtcPublicKey>)>,

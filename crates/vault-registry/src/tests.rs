@@ -1,8 +1,6 @@
 use crate::{
-    ext,
-    mock::*,
-    types::{BalanceOf, BtcAddress},
-    BtcPublicKey, CurrencySource, DefaultVaultId, DispatchError, Error, UpdatableVault, Vault, VaultStatus, Wallet,
+    ext, mock::*, types::BalanceOf, BtcPublicKey, CurrencySource, DefaultVaultId, DispatchError, Error, UpdatableVault,
+    Vault, VaultStatus,
 };
 use codec::Decode;
 use currency::Amount;
@@ -1572,41 +1570,6 @@ mod get_vaults_with_redeemable_tokens_test {
             );
         })
     }
-}
-
-// #[test]
-// fn wallet_add_btc_address_succeeds() {
-//     run_test(|| {
-//         let address1 = BtcAddress::random();
-//         let address2 = BtcAddress::random();
-//         let address3 = BtcAddress::random();
-
-//         let mut wallet = Wallet::new(address1);
-//         assert_eq!(wallet.get_btc_address(), address1);
-
-//         wallet.add_btc_address(address2);
-//         assert_eq!(wallet.get_btc_address(), address2);
-
-//         wallet.add_btc_address(address3);
-//         assert_eq!(wallet.get_btc_address(), address3);
-//     });
-// }
-
-#[test]
-fn wallet_has_btc_address_succeeds() {
-    use sp_std::collections::btree_set::BTreeSet;
-
-    run_test(|| {
-        let address1 = BtcAddress::random();
-        let address2 = BtcAddress::random();
-
-        let mut addresses = BTreeSet::new();
-        addresses.insert(address1);
-
-        let wallet = Wallet { addresses };
-        assert_eq!(wallet.has_btc_address(&address1), true);
-        assert_eq!(wallet.has_btc_address(&address2), false);
-    });
 }
 
 #[test]

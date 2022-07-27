@@ -415,10 +415,6 @@ impl<T: Config> Pallet<T> {
         // Check that new vault is not currently banned
         ext::vault_registry::ensure_not_banned::<T>(&new_vault_id)?;
 
-        // Add the new replace address to the vault's wallet,
-        // this should also verify that the vault exists
-        ext::vault_registry::insert_vault_deposit_address::<T>(new_vault_id.clone(), btc_address)?;
-
         // decrease old-vault's to-be-replaced tokens
         let (redeemable_tokens, griefing_collateral) =
             ext::vault_registry::decrease_to_be_replaced_tokens::<T>(&old_vault_id, &amount_btc)?;

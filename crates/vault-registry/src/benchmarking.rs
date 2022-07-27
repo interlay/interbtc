@@ -83,12 +83,6 @@ benchmarks! {
         mint_collateral::<T>(&vault_id.account_id, (1u32 << 31).into());
     }: _(RawOrigin::Signed(vault_id.account_id), BtcPublicKey::default())
 
-    register_address {
-        let vault_id = get_vault_id::<T>();
-        mint_collateral::<T>(&vault_id.account_id, (1u32 << 31).into());
-        register_vault_with_collateral::<T>(vault_id.clone(), 100000000);
-    }: _(RawOrigin::Signed(vault_id.account_id), vault_id.currencies.clone(), BtcAddress::default())
-
     accept_new_issues {
         let vault_id = get_vault_id::<T>();
         mint_collateral::<T>(&vault_id.account_id, (1u32 << 31).into());

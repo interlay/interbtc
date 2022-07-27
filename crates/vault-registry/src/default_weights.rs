@@ -38,7 +38,6 @@ pub trait WeightInfo {
 	fn deposit_collateral() -> Weight;
 	fn withdraw_collateral() -> Weight;
 	fn register_public_key() -> Weight;
-	fn register_address() -> Weight;
 	fn accept_new_issues() -> Weight;
     fn set_minimum_collateral() -> Weight;
 	fn set_system_collateral_ceiling() -> Weight;
@@ -118,13 +117,6 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		(27_632_000 as Weight)
 			.saturating_add(T::DbWeight::get().reads(1 as Weight))
 			.saturating_add(T::DbWeight::get().writes(1 as Weight))
-	}
-	// Storage: VaultRegistry ReservedAddresses (r:1 w:1)
-	// Storage: VaultRegistry Vaults (r:1 w:1)
-	fn register_address() -> Weight {
-		(35_385_000 as Weight)
-			.saturating_add(T::DbWeight::get().reads(2 as Weight))
-			.saturating_add(T::DbWeight::get().writes(2 as Weight))
 	}
 	// Storage: VaultRegistry Vaults (r:1 w:1)
 	fn accept_new_issues() -> Weight {
@@ -273,13 +265,6 @@ impl WeightInfo for () {
 		(27_632_000 as Weight)
 			.saturating_add(RocksDbWeight::get().reads(1 as Weight))
 			.saturating_add(RocksDbWeight::get().writes(1 as Weight))
-	}
-	// Storage: VaultRegistry ReservedAddresses (r:1 w:1)
-	// Storage: VaultRegistry Vaults (r:1 w:1)
-	fn register_address() -> Weight {
-		(35_385_000 as Weight)
-			.saturating_add(RocksDbWeight::get().reads(2 as Weight))
-			.saturating_add(RocksDbWeight::get().writes(2 as Weight))
 	}
 	// Storage: VaultRegistry Vaults (r:1 w:1)
 	fn accept_new_issues() -> Weight {
