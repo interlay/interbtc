@@ -87,8 +87,8 @@ impl_opaque_keys! {
 /// This runtime version.
 #[sp_version::runtime_version]
 pub const VERSION: RuntimeVersion = RuntimeVersion {
-    spec_name: create_runtime_str!("testnet-parachain"),
-    impl_name: create_runtime_str!("testnet-parachain"),
+    spec_name: create_runtime_str!("testnet-kintsugi"),
+    impl_name: create_runtime_str!("testnet-kintsugi"),
     authoring_version: 1,
     spec_version: 1017000,
     impl_version: 1,
@@ -152,7 +152,7 @@ parameter_types! {
         })
         .avg_block_initialization(AVERAGE_ON_INITIALIZE_RATIO)
         .build_or_panic();
-    pub const SS58Prefix: u16 = 42;
+    pub const SS58Prefix: u16 = 2092;
 }
 
 pub struct BaseCallFilter;
