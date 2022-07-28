@@ -3539,6 +3539,7 @@ dependencies = [
  "polkadot-parachain",
  "polkadot-primitives",
  "polkadot-service",
+ "regex",
  "sc-basic-authorship",
  "sc-chain-spec",
  "sc-cli",
