@@ -93,6 +93,7 @@ pub mod issue {
 
     #[derive(Encode, Decode, Clone, PartialEq, TypeInfo, MaxEncodedLen)]
     #[cfg_attr(feature = "std", derive(Debug, Serialize, Deserialize))]
+    #[cfg_attr(feature = "std", serde(rename_all = "camelCase"))]
     pub enum IssueRequestStatus {
         /// opened, but not yet executed or cancelled
         Pending,
@@ -167,6 +168,7 @@ pub mod redeem {
 
     #[derive(Encode, Decode, Clone, Eq, PartialEq, TypeInfo, MaxEncodedLen)]
     #[cfg_attr(feature = "std", derive(Debug, Serialize, Deserialize))]
+    #[cfg_attr(feature = "std", serde(rename_all = "camelCase"))]
     pub enum RedeemRequestStatus {
         /// opened, but not yet executed or cancelled
         Pending,
@@ -271,6 +273,7 @@ pub mod replace {
 
     #[derive(Encode, Decode, Clone, PartialEq, TypeInfo, MaxEncodedLen)]
     #[cfg_attr(feature = "std", derive(Debug, Serialize, Deserialize, Eq))]
+    #[cfg_attr(feature = "std", serde(rename_all = "camelCase"))]
     pub enum ReplaceRequestStatus {
         /// accepted, but not yet executed or cancelled
         Pending,
@@ -330,6 +333,8 @@ pub mod oracle {
     use super::*;
 
     #[derive(Encode, Decode, Clone, Eq, PartialEq, Debug, TypeInfo, MaxEncodedLen)]
+    #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+    #[cfg_attr(feature = "std", serde(rename_all = "camelCase"))]
     pub enum Key {
         ExchangeRate(CurrencyId),
         FeeEstimation,
@@ -489,6 +494,7 @@ create_currency_id! {
 
 #[derive(Encode, Decode, Eq, Hash, PartialEq, Copy, Clone, RuntimeDebug, PartialOrd, Ord, TypeInfo, MaxEncodedLen)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "std", serde(rename_all = "camelCase"))]
 pub enum CurrencyId {
     Token(TokenSymbol),
     ForeignAsset(ForeignAssetId),
