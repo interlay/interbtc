@@ -89,7 +89,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     spec_name: create_runtime_str!("interlay-parachain"),
     impl_name: create_runtime_str!("interlay-parachain"),
     authoring_version: 1,
-    spec_version: 1018000,
+    spec_version: 1018001,
     impl_version: 1,
     transaction_version: 2, // added preimage
     apis: RUNTIME_API_VERSIONS,
@@ -529,7 +529,7 @@ parameter_types! {
     pub const ProposalBond: Permill = Permill::from_percent(5);
     pub ProposalBondMinimum: Balance = 5;
     pub ProposalBondMaximum: Option<Balance> = None;
-    pub const SpendPeriod: BlockNumber = 7 * DAYS;
+    pub const SpendPeriod: BlockNumber = 1 * HOURS;
     pub const Burn: Permill = Permill::from_percent(0);
     pub const MaxApprovals: u32 = 100;
 }
