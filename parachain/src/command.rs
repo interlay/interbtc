@@ -103,10 +103,10 @@ fn load_spec(id: &str) -> std::result::Result<Box<dyn sc_service::ChainSpec>, St
         "interlay" => Box::new(chain_spec::InterlayChainSpec::from_json_bytes(
             &include_bytes!("../res/interlay.json")[..],
         )?),
-        "staging-interlay-latest" => Box::new(chain_spec::testnet_interlay::staging_testnet_config(
+        "interlay-testnet-latest" => Box::new(chain_spec::testnet_interlay::staging_testnet_config(
             DEFAULT_PARA_ID.into(),
         )),
-        "staging-latest" => Box::new(chain_spec::testnet_kintsugi::staging_testnet_config(
+        "kintsugi-testnet-latest" => Box::new(chain_spec::testnet_kintsugi::staging_testnet_config(
             DEFAULT_PARA_ID.into(),
         )),
         "moonbase-alpha" => Box::new(chain_spec::testnet_kintsugi::staging_testnet_config(1002.into())),
