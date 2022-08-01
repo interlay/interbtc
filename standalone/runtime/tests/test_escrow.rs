@@ -31,6 +31,7 @@ fn integration_test_individual_balance_and_total_supply() {
             EscrowPallet::balance_at(&account_of(ALICE), Some(height_to_check)),
             EscrowPallet::total_supply(Some(height_to_check))
         );
+        assert_eq!(EscrowPallet::total_locked(), amount_1);
 
         let amount_2 = 600_000_000_000_000;
 
@@ -49,6 +50,7 @@ fn integration_test_individual_balance_and_total_supply() {
         .dispatch(origin_of(account_of(BOB))));
 
         assert_eq!(EscrowPallet::total_supply(Some(height_to_check)), 4615308283904);
+        assert_eq!(EscrowPallet::total_locked(), amount_1 + amount_2);
     });
 }
 

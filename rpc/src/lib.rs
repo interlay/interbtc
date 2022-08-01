@@ -73,10 +73,12 @@ where
         H256,
         ReplaceRequest<AccountId, BlockNumber, Balance, CurrencyId>,
     >,
+    C::Api: module_escrow_rpc::EscrowRuntimeApi<Block, AccountId, BlockNumber, Balance>,
     C::Api: BlockBuilder<Block>,
     P: TransactionPool + 'static,
 {
     use module_btc_relay_rpc::{BtcRelay, BtcRelayApiServer};
+    use module_escrow_rpc::{Escrow, EscrowApiServer};
     use module_issue_rpc::{Issue, IssueApiServer};
     use module_oracle_rpc::{Oracle, OracleApiServer};
     use module_redeem_rpc::{Redeem, RedeemApiServer};
@@ -111,6 +113,8 @@ where
     module.merge(Oracle::new(client.clone()).into_rpc())?;
 
     module.merge(VaultRegistry::new(client.clone()).into_rpc())?;
+
+    module.merge(Escrow::new(client.clone()).into_rpc())?;
 
     module.merge(Issue::new(client.clone()).into_rpc())?;
 
