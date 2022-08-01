@@ -902,6 +902,7 @@ impl fee::Config for Runtime {
     type SignedInner = SignedInner;
     type UnsignedFixedPoint = UnsignedFixedPoint;
     type UnsignedInner = UnsignedInner;
+    type EscrowRewards = EscrowRewards;
     type VaultRewards = VaultRewards;
     type VaultStaking = VaultStaking;
     type OnSweep = currency::SweepFunds<Runtime, FeeAccount>;

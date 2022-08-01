@@ -101,6 +101,9 @@ pub mod pallet {
             + MaybeSerializeDeserialize
             + TypeInfo;
 
+        /// Escrow rewards.
+        type EscrowRewards: reward::Rewards<Self::AccountId, BalanceOf<Self>, CurrencyId<Self>>;
+
         /// Vault reward pool.
         type VaultRewards: reward::Rewards<DefaultVaultId<Self>, BalanceOf<Self>, CurrencyId<Self>>;
 
@@ -241,20 +244,40 @@ pub mod pallet {
     // The pallet's dispatchable functions.
     #[pallet::call]
     impl<T: Config> Pallet<T> {
-        /// Withdraw all rewards from the `origin` account in the `vault_id` staking pool.
+        /// Withdraw all Vault rewards from the `origin` account in the `vault_id` staking pool.
         ///
         /// # Arguments
         ///
         /// * `origin` - signing account
         #[pallet::weight(<T as Config>::WeightInfo::withdraw_rewards())]
         #[transactional]
+        // TODO: remove this when all "wrapped" vault rewards have been distributed
+        // we can also write a migration to drain this manually
+        // NOTE: kept the naming backwards compatability
         pub fn withdraw_rewards(
             origin: OriginFor<T>,
             vault_id: DefaultVaultId<T>,
             index: Option<T::Index>,
         ) -> DispatchResultWithPostInfo {
             let nominator_id = ensure_signed(origin)?;
-            Self::withdraw_from_reward_pool::<T::VaultRewards, T::VaultStaking>(&vault_id, &nominator_id, index)?;
+            Self::withdraw_all_rewards_from_reward_pool::<T::VaultRewards, T::VaultStaking>(
+                &vault_id,
+                &nominator_id,
+                index,
+            )?;
+            Ok(().into())
+        }
+
+        /// Withdraw all Escrow rewards from the `origin` account.
+        ///
+        /// # Arguments
+        ///
+        /// * `origin` - signing account
+        #[pallet::weight(<T as Config>::WeightInfo::withdraw_rewards())]
+        #[transactional]
+        pub fn withdraw_escrow_rewards(origin: OriginFor<T>, currency_id: CurrencyId<T>) -> DispatchResultWithPostInfo {
+            let account_id = ensure_signed(origin)?;
+            Self::withdraw_any_rewards::<T::EscrowRewards>(&account_id, currency_id)?;
             Ok(().into())
         }
 
@@ -491,8 +514,19 @@ impl<T: Config> Pallet<T> {
 
     // Private functions internal to this pallet
 
-    /// Withdraw rewards from a pool and transfer to `account_id`.
-    fn withdraw_from_reward_pool<
+    /// Withdraw rewards for the given currency and transfer to `account_id`.
+    fn withdraw_any_rewards<Rewards: reward::Rewards<T::AccountId, BalanceOf<T>, CurrencyId<T>>>(
+        account_id: &T::AccountId,
+        currency_id: CurrencyId<T>,
+    ) -> DispatchResult {
+        let rewards = Rewards::withdraw_reward(account_id, currency_id)?;
+        let amount = Amount::<T>::new(rewards, currency_id);
+        amount.transfer(&Self::fee_pool_account_id(), account_id)?;
+        Ok(())
+    }
+
+    /// Withdraw all rewards from a pool and transfer to `account_id`.
+    fn withdraw_all_rewards_from_reward_pool<
         Rewards: reward::Rewards<DefaultVaultId<T>, BalanceOf<T>, CurrencyId<T>>,
         Staking: staking::Staking<DefaultVaultId<T>, T::AccountId, T::Index, BalanceOf<T>, CurrencyId<T>>,
     >(
@@ -514,7 +548,7 @@ impl<T: Config> Pallet<T> {
 
     fn distribute(reward: &Amount<T>) -> Result<Amount<T>, DispatchError> {
         Ok(
-            if let Err(_) = T::VaultRewards::distribute_reward(reward.amount(), reward.currency()) {
+            if let Err(_) = T::EscrowRewards::distribute_reward(reward.amount(), reward.currency()) {
                 reward.clone()
             } else {
                 Amount::<T>::zero(reward.currency())

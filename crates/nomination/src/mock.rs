@@ -220,6 +220,7 @@ impl fee::Config for Test {
     type SignedInner = SignedInner;
     type UnsignedFixedPoint = UnsignedFixedPoint;
     type UnsignedInner = UnsignedInner;
+    type EscrowRewards = ();
     type VaultRewards = Rewards;
     type VaultStaking = Staking;
     type OnSweep = ();
