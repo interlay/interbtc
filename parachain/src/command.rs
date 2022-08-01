@@ -32,6 +32,7 @@ use codec::Encode;
 use cumulus_client_service::genesis::generate_genesis_block;
 use cumulus_primitives_core::ParaId;
 use log::info;
+use regex::Regex;
 use sc_cli::{CliConfiguration, DefaultConfigurationValues, ImportParams, KeystoreParams, NetworkParams, SharedParams};
 use sc_service::config::{BasePath, PrometheusConfig};
 use sp_core::hexdisplay::HexDisplay;
@@ -85,11 +86,6 @@ fn load_spec(id: &str) -> std::result::Result<Box<dyn sc_service::ChainSpec>, St
         "rococo" => Box::new(chain_spec::testnet_kintsugi::rococo_testnet_config(
             chain_spec::kintsugi::PARA_ID.into(),
         )),
-        "rococo-local-2000" => Box::new(chain_spec::testnet_kintsugi::rococo_local_testnet_config(2000.into())),
-        "rococo-local-interlay-2000" => {
-            Box::new(chain_spec::testnet_interlay::rococo_local_testnet_config(2000.into()))
-        }
-        "rococo-local-3000" => Box::new(chain_spec::testnet_kintsugi::rococo_local_testnet_config(3000.into())),
         "westend" => Box::new(chain_spec::testnet_kintsugi::westend_testnet_config(
             DEFAULT_PARA_ID.into(),
         )),
@@ -111,6 +107,19 @@ fn load_spec(id: &str) -> std::result::Result<Box<dyn sc_service::ChainSpec>, St
         )),
         "moonbase-alpha" => Box::new(chain_spec::testnet_kintsugi::staging_testnet_config(1002.into())),
         path => {
+            if let Some(matches) = Regex::new(r"^rococo-local-([0-9]+)$").unwrap().captures(path) {
+                let para_id: u32 = matches[1].parse().expect("failed to parse chain id");
+                return Ok(Box::new(chain_spec::testnet_kintsugi::rococo_local_testnet_config(
+                    para_id.into(),
+                )));
+            }
+            if let Some(matches) = Regex::new(r"^rococo-local-interlay-([0-9]+)$").unwrap().captures(path) {
+                let para_id: u32 = matches[1].parse().expect("failed to parse chain id");
+                return Ok(Box::new(chain_spec::testnet_interlay::rococo_local_testnet_config(
+                    para_id.into(),
+                )));
+            }
+
             let chain_spec = chain_spec::DummyChainSpec::from_json_file(path.into())?;
             if chain_spec.is_interlay() {
                 Box::new(chain_spec::InterlayChainSpec::from_json_file(path.into())?)
