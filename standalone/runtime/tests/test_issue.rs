@@ -409,7 +409,7 @@ mod request_issue_tests {
             // lock griefing collateral and increase to_be_issued
             assert_eq!(
                 ParachainState::get(&vault_id),
-                ParachainState::get_default(&vault_id).with_changes(|user, vault, _, _| {
+                ParachainState::get_default(&vault_id).with_changes(|user, vault, _| {
                     vault.to_be_issued += amount_btc;
                     (*user.balances.get_mut(&DEFAULT_GRIEFING_CURRENCY).unwrap()).free -= issue.griefing_collateral();
                     (*user.balances.get_mut(&DEFAULT_GRIEFING_CURRENCY).unwrap()).locked += issue.griefing_collateral();
@@ -534,9 +534,8 @@ fn integration_test_issue_wrapped_execute_bookkeeping() {
 
         assert_eq!(
             ParachainState::get(&vault_id),
-            ParachainState::get_default(&vault_id).with_changes(|user, vault, _, fee_pool| {
+            ParachainState::get_default(&vault_id).with_changes(|user, vault, _| {
                 (*user.balances.get_mut(&vault_id.wrapped_currency()).unwrap()).free += issue.amount();
-                *fee_pool.rewards_for(&vault_id) += issue.fee();
                 vault.issued += issue.fee() + issue.amount();
             }),
         );
@@ -613,9 +612,8 @@ fn integration_test_issue_refund() {
         let post_redeem_state = ParachainState::get(&vault_id);
         assert_eq!(
             post_redeem_state,
-            initial_state.with_changes(|user, vault, _, fee_pool| {
+            initial_state.with_changes(|user, vault, _| {
                 (*user.balances.get_mut(&vault_id.wrapped_currency()).unwrap()).free += issue.amount();
-                *fee_pool.rewards_for(&vault_id) += issue.fee();
                 vault.issued += issue.fee() + issue.amount();
             })
         );
@@ -625,7 +623,7 @@ fn integration_test_issue_refund() {
 
         assert_eq!(
             ParachainState::get(&vault_id),
-            post_redeem_state.with_changes(|_user, vault, _, _fee_pool| {
+            post_redeem_state.with_changes(|_user, vault, _| {
                 let reward = FeePallet::get_refund_fee_from_total(&(sent_btc - requested_btc)).unwrap();
                 *vault.free_balance.get_mut(&vault_id.wrapped_currency()).unwrap() += reward;
                 vault.issued += reward;
@@ -828,12 +826,11 @@ mod execute_issue_tests {
             // user balances are updated, tokens are minted and fees paid
             assert_eq!(
                 ParachainState::get(&vault_id),
-                post_request_state.with_changes(|user, vault, _, fee_pool| {
+                post_request_state.with_changes(|user, vault, _| {
                     (*user.balances.get_mut(&DEFAULT_GRIEFING_CURRENCY).unwrap()).locked -= issue.griefing_collateral();
                     (*user.balances.get_mut(&DEFAULT_GRIEFING_CURRENCY).unwrap()).free += issue.griefing_collateral();
                     (*user.balances.get_mut(&vault_id.wrapped_currency()).unwrap()).free += issue.amount();
 
-                    *fee_pool.rewards_for(&vault_id) += issue.fee();
                     vault.issued += requested_btc;
                     vault.to_be_issued -= requested_btc;
                 })
@@ -872,7 +869,7 @@ mod execute_issue_tests {
             // user balances are updated, tokens are minted and fees paid
             assert_eq!(
                 ParachainState::get(&vault_id),
-                post_request_state.with_changes(|user, vault, _, fee_pool| {
+                post_request_state.with_changes(|user, vault, _| {
                     // user loses 75% of griefing collateral for having only fulfilled 25%
                     (*user.balances.get_mut(&DEFAULT_GRIEFING_CURRENCY).unwrap()).locked -= issue.griefing_collateral();
                     (*user.balances.get_mut(&DEFAULT_GRIEFING_CURRENCY).unwrap()).free += returned_griefing_collateral;
@@ -880,7 +877,6 @@ mod execute_issue_tests {
 
                     // token updating as if only 25% was requested
                     (*user.balances.get_mut(&vault_id.wrapped_currency()).unwrap()).free += issue.amount() / 4;
-                    *fee_pool.rewards_for(&vault_id) += issue.fee() / 4;
                     vault.issued += (issue.fee() + issue.amount()) / 4;
                     vault.to_be_issued -= issue.fee() + issue.amount(); // decrease to sent_btc and then decrease to
                                                                         // zero
@@ -937,12 +933,11 @@ mod execute_issue_tests {
             // user balances are updated, tokens are minted and fees paid
             assert_eq!(
                 ParachainState::get(&vault_id),
-                post_request_state.with_changes(|user, vault, _, fee_pool| {
+                post_request_state.with_changes(|user, vault, _| {
                     (*user.balances.get_mut(&DEFAULT_GRIEFING_CURRENCY).unwrap()).locked -= issue.griefing_collateral();
                     (*user.balances.get_mut(&DEFAULT_GRIEFING_CURRENCY).unwrap()).free += issue.griefing_collateral();
                     (*user.balances.get_mut(&vault_id.wrapped_currency()).unwrap()).free += issue.amount() * 2;
 
-                    *fee_pool.rewards_for(&vault_id) += issue.fee() * 2;
                     vault.issued += sent_btc;
                     vault.to_be_issued -= requested_btc; // increase to sent_btc and decrease back to zero happens
                                                          // within execute_issue and cancels out
@@ -998,12 +993,11 @@ mod execute_issue_tests {
             // not enough collateral to back sent amount, so it's as if the user sent the correct amount
             assert_eq!(
                 ParachainState::get(&vault_id),
-                post_request_state.with_changes(|user, vault, _, fee_pool| {
+                post_request_state.with_changes(|user, vault, _| {
                     (*user.balances.get_mut(&DEFAULT_GRIEFING_CURRENCY).unwrap()).locked -= issue.griefing_collateral();
                     (*user.balances.get_mut(&DEFAULT_GRIEFING_CURRENCY).unwrap()).free += issue.griefing_collateral();
 
                     (*user.balances.get_mut(&vault_id.wrapped_currency()).unwrap()).free += issue.amount();
-                    *fee_pool.rewards_for(&vault_id) += issue.fee();
 
                     vault.issued += issue.fee() + issue.amount();
                     vault.to_be_issued -= issue.fee() + issue.amount();
@@ -1040,7 +1034,7 @@ mod execute_issue_tests {
             // user balances are updated, tokens are minted and fees paid
             assert_eq!(
                 ParachainState::get(&vault_id),
-                post_liquidation_status.with_changes(|user, _vault, liquidation_vault, fee_pool| {
+                post_liquidation_status.with_changes(|user, _vault, liquidation_vault| {
                     (*user.balances.get_mut(&vault_id.wrapped_currency()).unwrap()).free += issue.amount();
 
                     (*user.balances.get_mut(&DEFAULT_GRIEFING_CURRENCY).unwrap()).free += issue.griefing_collateral();
@@ -1049,8 +1043,6 @@ mod execute_issue_tests {
                     let liquidation_vault = liquidation_vault.with_currency(&vault_id.currencies);
                     liquidation_vault.to_be_issued -= issue.amount() + issue.fee();
                     liquidation_vault.issued += issue.amount() + issue.fee();
-
-                    *fee_pool.rewards_for(&vault_id) += issue.fee();
                 })
             );
         });
@@ -1125,7 +1117,7 @@ mod cancel_issue_tests {
             // balances and collaterals are updated
             assert_eq!(
                 ParachainState::get(&vault_id),
-                post_request_state.with_changes(|user, vault, _, _| {
+                post_request_state.with_changes(|user, vault, _| {
                     (*user.balances.get_mut(&DEFAULT_GRIEFING_CURRENCY).unwrap()).locked -= issue.griefing_collateral();
                     *vault.free_balance.get_mut(&DEFAULT_GRIEFING_CURRENCY).unwrap() += issue.griefing_collateral();
                     vault.to_be_issued -= issue.amount() + issue.fee();
@@ -1163,7 +1155,7 @@ mod cancel_issue_tests {
             // grieifing collateral released back to the user
             assert_eq!(
                 ParachainState::get(&vault_id),
-                post_liquidation_status.with_changes(|user, _vault, liquidation_vault, _fee_pool| {
+                post_liquidation_status.with_changes(|user, _vault, liquidation_vault| {
                     // griefing collateral released instead of slashed
                     (*user.balances.get_mut(&DEFAULT_GRIEFING_CURRENCY).unwrap()).locked -= issue.griefing_collateral();
                     (*user.balances.get_mut(&DEFAULT_GRIEFING_CURRENCY).unwrap()).free += issue.griefing_collateral();

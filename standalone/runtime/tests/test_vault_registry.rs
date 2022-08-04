@@ -61,7 +61,7 @@ mod deposit_collateral_test {
 
             assert_eq!(
                 ParachainState::get(&vault_id),
-                ParachainState::get_default(&vault_id).with_changes(|_, vault, _, _| {
+                ParachainState::get_default(&vault_id).with_changes(|_, vault, _| {
                     vault.backing_collateral += amount;
                     *vault.free_balance.get_mut(&vault.collateral_currency()).unwrap() -= amount;
                 })
@@ -83,7 +83,7 @@ mod deposit_collateral_test {
 
             assert_eq!(
                 ParachainState::get(&vault_id),
-                ParachainState::get_default(&vault_id).with_changes(|_, vault, _, _| {
+                ParachainState::get_default(&vault_id).with_changes(|_, vault, _| {
                     vault.backing_collateral += amount;
                     *vault.free_balance.get_mut(&vault.collateral_currency()).unwrap() -= amount;
                 })
@@ -195,7 +195,7 @@ mod withdraw_collateral_test {
 
             assert_eq!(
                 ParachainState::get(&vault_id),
-                ParachainState::get_default(&vault_id).with_changes(|_, vault, _, _| {
+                ParachainState::get_default(&vault_id).with_changes(|_, vault, _| {
                     vault.backing_collateral -= amount;
                     *vault.free_balance.get_mut(&vault.collateral_currency()).unwrap() += amount;
                 })
@@ -217,7 +217,7 @@ mod withdraw_collateral_test {
 
             assert_eq!(
                 ParachainState::get(&vault_id),
-                ParachainState::get_default(&vault_id).with_changes(|_, vault, _, _| {
+                ParachainState::get_default(&vault_id).with_changes(|_, vault, _| {
                     vault.backing_collateral -= amount;
                     *vault.free_balance.get_mut(&vault.collateral_currency()).unwrap() += amount;
                 })
@@ -279,7 +279,7 @@ mod withdraw_collateral_test {
 
             assert_eq!(
                 ParachainState::get(&vault_id),
-                ParachainState::get_default(&vault_id).with_changes(|_, vault, _, _| {
+                ParachainState::get_default(&vault_id).with_changes(|_, vault, _| {
                     vault.backing_collateral -= amount;
                     *vault.free_balance.get_mut(&vault.collateral_currency()).unwrap() += amount;
                 })
@@ -344,7 +344,7 @@ fn integration_test_vault_registry_undercollateralization_liquidation() {
 
         assert_eq!(
             ParachainState::get(&vault_id),
-            ParachainState::get_default(&vault_id).with_changes(|_, vault, liquidation_vault, _| {
+            ParachainState::get_default(&vault_id).with_changes(|_, vault, liquidation_vault| {
                 let liquidation_vault = liquidation_vault.with_currency(&vault_id.currencies);
 
                 liquidation_vault.collateral = Amount::new(
@@ -470,7 +470,7 @@ fn integration_test_vault_registry_liquidation_recovery_works() {
 
         assert_eq!(
             ParachainState::get(&vault_id),
-            pre_recovery_state.with_changes(|_, vault, _, _| {
+            pre_recovery_state.with_changes(|_, vault, _| {
                 vault.status = VaultStatus::Active(true);
             })
         );

@@ -16,8 +16,8 @@ pub use frame_support::{
 };
 pub use interbtc_runtime_standalone::{
     token_distribution, AccountId, Balance, BlockNumber, Call, CurrencyId, EscrowAnnuityInstance,
-    EscrowRewardsInstance, Event, GetNativeCurrencyId, GetRelayChainCurrencyId, GetWrappedCurrencyId, Runtime,
-    TechnicalCommitteeInstance, VaultAnnuityInstance, VaultRewardsInstance, YEARS,
+    EscrowRewardsInstance, Event, FeeAccount, GetNativeCurrencyId, GetRelayChainCurrencyId, GetWrappedCurrencyId,
+    Runtime, TechnicalCommitteeInstance, VaultAnnuityInstance, VaultRewardsInstance, YEARS,
 };
 pub use mocktopus::mocking::*;
 pub use orml_tokens::CurrencyAdapter;
@@ -428,71 +428,6 @@ impl UserData {
     }
 }
 
-#[derive(Debug, Clone)]
-pub struct FeePool {
-    pub vault_rewards: BTreeMap<CurrencyId, Amount<Runtime>>,
-}
-
-impl FeePool {
-    pub fn rewards_for(&mut self, vault_id: &VaultId) -> &mut Amount<Runtime> {
-        self.vault_rewards.get_mut(&vault_id.wrapped_currency()).unwrap()
-    }
-}
-impl Default for FeePool {
-    fn default() -> Self {
-        Self {
-            vault_rewards: iter_wrapped_currencies()
-                .map(|currency_id| (currency_id, Amount::zero(currency_id)))
-                .collect(),
-        }
-    }
-}
-fn abs_difference<T: std::ops::Sub<Output = T> + PartialOrd>(x: T, y: T) -> T {
-    if x < y {
-        y - x
-    } else {
-        x - y
-    }
-}
-
-impl PartialEq for FeePool {
-    fn eq(&self, rhs: &Self) -> bool {
-        assert!(self
-            .vault_rewards
-            .iter()
-            .all(|(currency_id, _)| rhs.vault_rewards.contains_key(currency_id)));
-        assert!(rhs
-            .vault_rewards
-            .iter()
-            .all(|(currency_id, _)| self.vault_rewards.contains_key(currency_id)));
-        self.vault_rewards.iter().all(|(currency_id, lhs)| {
-            abs_difference(lhs.clone(), rhs.vault_rewards.get(currency_id).unwrap().clone())
-                <= Amount::new(1, *currency_id)
-        })
-    }
-}
-
-impl FeePool {
-    pub fn get() -> Self {
-        Self {
-            vault_rewards: iter_wrapped_currencies()
-                .map(|currency_id| {
-                    (
-                        currency_id,
-                        Amount::new(
-                            VaultRewardsPallet::get_total_rewards(currency_id)
-                                .unwrap()
-                                .try_into()
-                                .unwrap(),
-                            currency_id,
-                        ),
-                    )
-                })
-                .collect(),
-        }
-    }
-}
-
 #[derive(Debug, PartialEq, Clone)]
 pub struct CoreVaultData {
     pub to_be_issued: Amount<Runtime>,
@@ -860,7 +795,6 @@ pub struct ParachainState {
     user: UserData,
     vault: CoreVaultData,
     liquidation_vault: LiquidationVaultData,
-    fee_pool: FeePool,
 }
 
 impl ParachainState {
@@ -869,7 +803,6 @@ impl ParachainState {
             user: default_user_state(),
             vault: default_vault_state(vault_id),
             liquidation_vault: default_liquidation_vault_state(&vault_id.currencies),
-            fee_pool: Default::default(),
         }
     }
 }
@@ -880,21 +813,12 @@ impl ParachainState {
             user: UserData::get(ALICE),
             vault: CoreVaultData::vault(vault_id.clone()),
             liquidation_vault: LiquidationVaultData::get(),
-            fee_pool: FeePool::get(),
         }
     }
 
-    pub fn with_changes(
-        &self,
-        f: impl FnOnce(&mut UserData, &mut CoreVaultData, &mut LiquidationVaultData, &mut FeePool),
-    ) -> Self {
+    pub fn with_changes(&self, f: impl FnOnce(&mut UserData, &mut CoreVaultData, &mut LiquidationVaultData)) -> Self {
         let mut state = self.clone();
-        f(
-            &mut state.user,
-            &mut state.vault,
-            &mut state.liquidation_vault,
-            &mut state.fee_pool,
-        );
+        f(&mut state.user, &mut state.vault, &mut state.liquidation_vault);
         state
     }
 }

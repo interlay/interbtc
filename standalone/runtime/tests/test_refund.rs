@@ -127,7 +127,7 @@ mod spec_based_tests {
 
             assert_eq!(
                 ParachainState::get(&vault_id),
-                pre_refund_state.with_changes(|_, vault, _, _| {
+                pre_refund_state.with_changes(|_, vault, _| {
                     // POSTCONDITION: vault.issued_tokens MUST increase by fee
                     vault.issued += refund_fee;
                     // POSTCONDITION: vault.free_balance MUST increase by fee

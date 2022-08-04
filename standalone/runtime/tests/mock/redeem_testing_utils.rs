@@ -7,6 +7,50 @@ pub const USER: [u8; 32] = ALICE;
 pub const VAULT: [u8; 32] = BOB;
 pub const USER_BTC_ADDRESS: BtcAddress = BtcAddress::P2PKH(H160([2u8; 20]));
 
+pub struct RequestRedeemBuilder {
+    amount_btc: Balance,
+    btc_address: BtcAddress,
+    vault_id: VaultId,
+    user: [u8; 32],
+}
+
+impl RequestRedeemBuilder {
+    pub fn new(vault_id: &VaultId, amount_btc: Amount<Runtime>) -> Self {
+        Self {
+            amount_btc: amount_btc.amount(),
+            btc_address: USER_BTC_ADDRESS,
+            vault_id: vault_id.clone(),
+            user: USER,
+        }
+    }
+
+    pub fn with_vault(&mut self, vault: VaultId) -> &mut Self {
+        self.vault_id = vault;
+        self
+    }
+
+    pub fn with_user(&mut self, user: [u8; 32], btc_address: BtcAddress) -> &mut Self {
+        self.user = user;
+        self.btc_address = btc_address;
+        self
+    }
+
+    pub fn request(&self) -> (H256, RedeemRequest<AccountId32, BlockNumber, Balance, CurrencyId>) {
+        assert_ok!(Call::Redeem(RedeemCall::request_redeem {
+            amount_wrapped: self.amount_btc,
+            btc_address: self.btc_address,
+            vault_id: self.vault_id.clone(),
+        })
+        .dispatch(origin_of(account_of(self.user.clone()))));
+
+        // assert that request happened and extract the id
+        let redeem_id = assert_redeem_request_event();
+        let redeem = RedeemPallet::get_open_redeem_request_from_id(&redeem_id).unwrap();
+
+        (redeem_id, redeem)
+    }
+}
+
 pub struct ExecuteRedeemBuilder {
     redeem_id: H256,
     redeem: RedeemRequest<AccountId32, BlockNumber, Balance, CurrencyId>,
@@ -106,19 +150,14 @@ pub fn set_redeem_state(
     UserData::force_to(ALICE, user_state);
 }
 
-pub fn setup_redeem(issued_tokens: Amount<Runtime>, user: [u8; 32], vault: &VaultId) -> H256 {
-    // alice requests to redeem issued_tokens from Bob
-    assert_ok!(Call::Redeem(RedeemCall::request_redeem {
-        amount_wrapped: issued_tokens.amount(),
-        btc_address: USER_BTC_ADDRESS,
-        vault_id: vault.clone()
-    })
-    .dispatch(origin_of(account_of(user))));
+pub fn setup_redeem(issued_tokens: Amount<Runtime>, user: [u8; 32], vault_id: &VaultId) -> H256 {
+    let (redeem_id, _) = RequestRedeemBuilder::new(vault_id, issued_tokens)
+        .with_user(user, USER_BTC_ADDRESS)
+        .request();
 
     VaultRegistryPallet::collateral_integrity_check();
 
-    // assert that request happened and extract the id
-    assert_redeem_request_event()
+    redeem_id
 }
 
 // asserts redeem event happen and extracts its id for further testing

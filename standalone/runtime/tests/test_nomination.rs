@@ -643,37 +643,3 @@ fn integration_test_vault_withdrawal_cannot_exceed_max_nomination_taio() {
         );
     })
 }
-
-#[test]
-fn integration_test_rewards_are_preserved_on_collateral_withdrawal() {
-    test_with_nomination_enabled_and_vault_opted_in(|vault_id| {
-        let mut user_data = default_user_state();
-        (*user_data.balances.get_mut(&vault_id.collateral_currency()).unwrap()).free =
-            default_user_free_balance(vault_id.collateral_currency()) + default_nomination(&vault_id);
-
-        UserData::force_to(USER, user_data);
-        assert_nominate_collateral(&vault_id, account_of(USER), default_nomination(&vault_id));
-
-        let (issue_id, _) = issue_testing_utils::request_issue(&vault_id, vault_id.wrapped(100000));
-        issue_testing_utils::execute_issue(issue_id);
-        FeePallet::withdraw_all_vault_rewards(&vault_id).unwrap();
-        let reward_before_nomination_withdrawal =
-            VaultStakingPallet::compute_reward(vault_id.wrapped_currency(), &vault_id, &account_of(USER)).unwrap();
-        let reward_before_nomination_withdrawal2 =
-            VaultStakingPallet::compute_reward(vault_id.wrapped_currency(), &vault_id, &account_of(USER)).unwrap();
-        assert!(reward_before_nomination_withdrawal > 0);
-        assert_eq!(
-            reward_before_nomination_withdrawal,
-            reward_before_nomination_withdrawal2
-        );
-        assert_ok!(withdraw_nominator_collateral(
-            account_of(USER),
-            &vault_id,
-            default_nomination(&vault_id)
-        ));
-        assert_eq!(
-            VaultStakingPallet::compute_reward(vault_id.wrapped_currency(), &vault_id, &account_of(USER)).unwrap(),
-            reward_before_nomination_withdrawal
-        );
-    })
-}
