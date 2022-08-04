@@ -665,9 +665,11 @@ impl<T: Config> RichVault<T> {
     pub(crate) fn request_issue_tokens(&mut self, tokens: &Amount<T>) -> DispatchResult {
         self.increase_to_be_issued(tokens)
     }
+
     pub(crate) fn cancel_issue_tokens(&mut self, tokens: &Amount<T>) -> DispatchResult {
         self.decrease_to_be_issued(tokens)
     }
+
     pub(crate) fn execute_issue_tokens(&mut self, tokens: &Amount<T>) -> DispatchResult {
         self.decrease_to_be_issued(tokens)?;
         self.increase_issued(tokens)?;
@@ -678,10 +680,12 @@ impl<T: Config> RichVault<T> {
         self.increase_to_be_redeemed(tokens)?;
         self.update_stake()
     }
+
     pub(crate) fn cancel_redeem_tokens(&mut self, tokens: &Amount<T>) -> DispatchResult {
         self.decrease_to_be_redeemed(tokens)?;
         self.update_stake()
     }
+
     pub(crate) fn execute_redeem_tokens(&mut self, tokens: &Amount<T>) -> DispatchResult {
         // no need to update stake since these two token changes counteract the other's effect
         self.decrease_to_be_redeemed(tokens)?;
