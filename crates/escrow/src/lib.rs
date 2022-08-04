@@ -578,13 +578,6 @@ impl<T: Config> Pallet<T> {
         let last_point = <PointHistory<T>>::get(<Epoch<T>>::get());
         Self::supply_at(last_point, height)
     }
-
-    /// RPC only
-    pub fn total_locked() -> BalanceOf<T> {
-        Locked::<T>::iter().fold(BalanceOf::<T>::default(), |sum, (_, locked)| {
-            sum.saturating_add(locked.amount)
-        })
-    }
 }
 
 impl<T: Config> Currency<T::AccountId> for Pallet<T> {

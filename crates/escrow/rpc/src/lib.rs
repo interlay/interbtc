@@ -34,9 +34,6 @@ where
 
     #[method(name = "escrow_totalSupply")]
     fn total_supply(&self, height: Option<BlockNumber>, at: Option<BlockHash>) -> RpcResult<BalanceWrapper<Balance>>;
-
-    #[method(name = "escrow_totalLocked")]
-    fn total_locked(&self, at: Option<BlockHash>) -> RpcResult<BalanceWrapper<Balance>>;
 }
 
 fn internal_err<T: ToString>(message: T) -> JsonRpseeError {
@@ -105,12 +102,5 @@ where
             api.total_supply(&at, height),
             "Unable to obtain the escrow total supply".into(),
         )
-    }
-
-    fn total_locked(&self, at: Option<<Block as BlockT>::Hash>) -> RpcResult<BalanceWrapper<Balance>> {
-        let api = self.client.runtime_api();
-        let at = BlockId::hash(at.unwrap_or_else(|| self.client.info().best_hash));
-
-        handle_response(api.total_locked(&at), "Unable to obtain the escrow total supply".into())
     }
 }

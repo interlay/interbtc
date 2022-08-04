@@ -73,7 +73,6 @@ fn should_increase_amount_locked() {
         extend_lock(ALICE, amount);
 
         assert_eq!(Escrow::balance_at(&ALICE, Some(start_time)), amount + amount);
-        assert_eq!(Escrow::total_locked(), amount + amount);
     })
 }
 
@@ -94,7 +93,6 @@ fn should_increase_unlock_height() {
         let half_time = max_time / 2;
         System::set_block_number(half_time);
         assert_eq!(Escrow::balance_at(&ALICE, Some(half_time)), amount / 2);
-        assert_eq!(Escrow::total_locked(), amount);
 
         assert_ok!(Escrow::increase_unlock_height(
             Origin::signed(ALICE),
@@ -102,7 +100,6 @@ fn should_increase_unlock_height() {
         ));
 
         assert_eq!(Escrow::balance_at(&ALICE, Some(half_time)), amount);
-        assert_eq!(Escrow::total_locked(), amount);
     })
 }
 
@@ -124,7 +121,6 @@ fn should_calculate_total_supply_and_locked() {
         assert_eq!(Escrow::balance_at(&ALICE, None), 600);
         assert_eq!(Escrow::balance_at(&BOB, None), 2000);
         assert_eq!(Escrow::total_supply(None), 2600);
-        assert_eq!(Escrow::total_locked(), 3000);
     })
 }
 
@@ -145,12 +141,10 @@ fn should_calculate_total_supply_and_locked_after_withdraw() {
 
         System::set_block_number(end_time_1);
         assert_eq!(Escrow::balance_at(&ALICE, None), 0);
-        assert_eq!(Escrow::total_locked(), 3000);
         assert_ok!(Escrow::withdraw(Origin::signed(ALICE)));
 
         assert_eq!(Escrow::balance_at(&BOB, None), 800);
         assert_eq!(Escrow::total_supply(None), 800);
-        assert_eq!(Escrow::total_locked(), 2000);
     })
 }
 

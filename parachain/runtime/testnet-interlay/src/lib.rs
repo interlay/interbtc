@@ -1384,10 +1384,6 @@ impl_runtime_apis! {
         fn total_supply(height: Option<BlockNumber>) -> BalanceWrapper<Balance> {
             BalanceWrapper{amount: Escrow::total_supply(height)}
         }
-
-        fn total_locked() -> BalanceWrapper<Balance> {
-            BalanceWrapper{amount: Escrow::total_locked()}
-        }
     }
 
     impl module_issue_rpc_runtime_api::IssueApi<

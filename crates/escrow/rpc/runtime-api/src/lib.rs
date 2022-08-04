@@ -16,8 +16,5 @@ sp_api::decl_runtime_apis! {
 
         /// Get the total voting supply in the system
         fn total_supply(height: Option<BlockNumber>) -> BalanceWrapper<Balance>;
-
-        /// Get the total locked stake
-        fn total_locked() -> BalanceWrapper<Balance>;
     }
 }
