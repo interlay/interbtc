@@ -1,6 +1,54 @@
 //! # Staking Module
 //! Based on the [Scalable Reward Distribution](https://solmaz.io/2019/02/24/scalable-reward-changing/) algorithm.
 
+// Below is a simplified model of this code. It is accurate, but for simplicity it uses
+// floats, and only has a single account (without nomination) and currency. It's useful
+// as a mental model for the more complicated implementation.
+//
+// struct State {
+//     reward_per_token: f64,
+//     reward_tally: f64,
+//     slash_per_token: f64,
+//     slash_tally: f64,
+//     stake: f64,
+//     total_current_stake: f64,
+//     total_stake: f64,
+// }
+// impl State {
+//     fn apply_slash(&mut self) {
+//         self.total_stake -= self.stake * self.slash_per_token - self.slash_tally;
+//         self.stake -= self.stake * self.slash_per_token - self.slash_tally;
+//         self.slash_tally = self.stake * self.slash_per_token;
+//     }
+//     fn distribute_reward(&mut self, x: f64) {
+//         self.reward_per_token += x / self.total_current_stake;
+//     }
+//     fn withdraw_reward(&mut self) -> f64 {
+//         self.apply_slash();
+//         let withdrawal_reward = self.stake * self.reward_per_token - self.reward_tally;
+//         self.reward_tally = self.stake * self.reward_per_token;
+//         withdrawal_reward
+//     }
+//     fn deposit_stake(&mut self, x: f64) {
+//         self.apply_slash();
+//         self.stake += x;
+//         self.total_stake += x;
+//         self.total_current_stake += x;
+//         self.slash_tally += self.slash_per_token * x;
+//         self.reward_tally += self.reward_per_token * x;
+//
+//         self.reward_per_token += x / self.total_current_stake;
+//     }
+//     fn withdraw_stake(&mut self, x: f64) {
+//         self.deposit_stake(-x)
+//     }
+//     fn slash_stake(&mut self, x: f64) {
+//         self.slash_per_token += x / self.total_stake;
+//         self.total_current_stake -= x;
+//         self.reward_per_token += (self.reward_per_token * x) / self.total_current_stake;
+//     }
+// }
+
 // #![deny(warnings)]
 #![cfg_attr(test, feature(proc_macro_hygiene))]
 #![cfg_attr(not(feature = "std"), no_std)]
