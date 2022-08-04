@@ -3527,6 +3527,7 @@ dependencies = [
  "kintsugi-runtime-parachain",
  "log",
  "module-btc-relay-rpc-runtime-api",
+ "module-escrow-rpc-runtime-api",
  "module-issue-rpc-runtime-api",
  "module-oracle-rpc-runtime-api",
  "module-redeem-rpc-runtime-api",
@@ -3598,6 +3599,7 @@ dependencies = [
  "interbtc-primitives",
  "jsonrpsee",
  "module-btc-relay-rpc",
+ "module-escrow-rpc",
  "module-issue-rpc",
  "module-oracle-rpc",
  "module-redeem-rpc",
@@ -3642,6 +3644,7 @@ dependencies = [
  "itertools",
  "mocktopus",
  "module-btc-relay-rpc-runtime-api",
+ "module-escrow-rpc-runtime-api",
  "module-issue-rpc-runtime-api",
  "module-oracle-rpc-runtime-api",
  "module-redeem-rpc-runtime-api",
@@ -3776,6 +3779,7 @@ dependencies = [
  "issue",
  "mocktopus",
  "module-btc-relay-rpc-runtime-api",
+ "module-escrow-rpc-runtime-api",
  "module-issue-rpc-runtime-api",
  "module-oracle-rpc-runtime-api",
  "module-redeem-rpc-runtime-api",
@@ -4129,6 +4133,7 @@ dependencies = [
  "log",
  "mocktopus",
  "module-btc-relay-rpc-runtime-api",
+ "module-escrow-rpc-runtime-api",
  "module-issue-rpc-runtime-api",
  "module-oracle-rpc-runtime-api",
  "module-redeem-rpc-runtime-api",
@@ -5364,6 +5369,28 @@ dependencies = [
  "parity-scale-codec",
  "sp-api",
  "sp-std",
+]
+
+[[package]]
+name = "module-escrow-rpc"
+version = "0.3.0"
+dependencies = [
+ "jsonrpsee",
+ "module-escrow-rpc-runtime-api",
+ "module-oracle-rpc-runtime-api",
+ "parity-scale-codec",
+ "sp-api",
+ "sp-blockchain",
+ "sp-runtime",
+]
+
+[[package]]
+name = "module-escrow-rpc-runtime-api"
+version = "0.3.0"
+dependencies = [
+ "module-oracle-rpc-runtime-api",
+ "parity-scale-codec",
+ "sp-api",
 ]
 
 [[package]]
@@ -12300,6 +12327,7 @@ dependencies = [
  "log",
  "mocktopus",
  "module-btc-relay-rpc-runtime-api",
+ "module-escrow-rpc-runtime-api",
  "module-issue-rpc-runtime-api",
  "module-oracle-rpc-runtime-api",
  "module-redeem-rpc-runtime-api",
@@ -12398,6 +12426,7 @@ dependencies = [
  "log",
  "mocktopus",
  "module-btc-relay-rpc-runtime-api",
+ "module-escrow-rpc-runtime-api",
  "module-issue-rpc-runtime-api",
  "module-oracle-rpc-runtime-api",
  "module-redeem-rpc-runtime-api",

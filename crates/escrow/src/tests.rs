@@ -104,7 +104,7 @@ fn should_increase_unlock_height() {
 }
 
 #[test]
-fn should_calculate_total_supply() {
+fn should_calculate_total_supply_and_locked() {
     run_test(|| {
         let end_time_1 = 100;
         let amount_1 = 1000;
@@ -125,7 +125,7 @@ fn should_calculate_total_supply() {
 }
 
 #[test]
-fn should_calculate_total_supply_after_withdraw() {
+fn should_calculate_total_supply_and_locked_after_withdraw() {
     run_test(|| {
         let end_time_1 = 100;
         let amount_1 = 1000;

@@ -1371,6 +1371,21 @@ impl_runtime_apis! {
         }
     }
 
+    impl module_escrow_rpc_runtime_api::EscrowApi<
+        Block,
+        AccountId,
+        BlockNumber,
+        Balance
+    > for Runtime {
+        fn balance_at(account_id: AccountId, height: Option<BlockNumber>) -> BalanceWrapper<Balance> {
+            BalanceWrapper{amount: Escrow::balance_at(&account_id, height)}
+        }
+
+        fn total_supply(height: Option<BlockNumber>) -> BalanceWrapper<Balance> {
+            BalanceWrapper{amount: Escrow::total_supply(height)}
+        }
+    }
+
     impl module_issue_rpc_runtime_api::IssueApi<
         Block,
         AccountId,

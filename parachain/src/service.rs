@@ -77,7 +77,8 @@ pub trait RuntimeApiCollection:
         UnsignedFixedPoint,
         CurrencyId,
         AccountId,
-    > + module_issue_rpc_runtime_api::IssueApi<
+    > + module_escrow_rpc_runtime_api::EscrowApi<Block, AccountId, BlockNumber, Balance>
+    + module_issue_rpc_runtime_api::IssueApi<
         Block,
         AccountId,
         H256,
@@ -123,7 +124,8 @@ where
             UnsignedFixedPoint,
             CurrencyId,
             AccountId,
-        > + module_issue_rpc_runtime_api::IssueApi<
+        > + module_escrow_rpc_runtime_api::EscrowApi<Block, AccountId, BlockNumber, Balance>
+        + module_issue_rpc_runtime_api::IssueApi<
             Block,
             AccountId,
             H256,
