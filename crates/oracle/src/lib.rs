@@ -42,7 +42,7 @@ use scale_info::TypeInfo;
 use security::{ErrorCode, StatusCode};
 use sp_runtime::{
     traits::{UniqueSaturatedInto, *},
-    FixedPointNumber,
+    ArithmeticError, FixedPointNumber,
 };
 use sp_std::{convert::TryInto, vec::Vec};
 
@@ -102,10 +102,6 @@ pub mod pallet {
         MissingExchangeRate,
         /// Unable to convert value
         TryIntoIntError,
-        /// Mathematical operation caused an overflow
-        ArithmeticOverflow,
-        /// Mathematical operation caused an underflow
-        ArithmeticUnderflow,
     }
 
     #[pallet::hooks]
@@ -334,7 +330,7 @@ impl<T: Config> Pallet<T> {
 
     pub fn wrapped_to_collateral(amount: BalanceOf<T>, currency_id: CurrencyId) -> Result<BalanceOf<T>, DispatchError> {
         let rate = Self::get_price(OracleKey::ExchangeRate(currency_id))?;
-        let converted = rate.checked_mul_int(amount).ok_or(Error::<T>::ArithmeticOverflow)?;
+        let converted = rate.checked_mul_int(amount).ok_or(ArithmeticError::Overflow)?;
         let result = converted.try_into().map_err(|_e| Error::<T>::TryIntoIntError)?;
         Ok(result)
     }
@@ -349,7 +345,7 @@ impl<T: Config> Pallet<T> {
         Ok(T::UnsignedFixedPoint::checked_from_integer(amount)
             .ok_or(Error::<T>::TryIntoIntError)?
             .checked_div(&rate)
-            .ok_or(Error::<T>::ArithmeticUnderflow)?
+            .ok_or(ArithmeticError::Underflow)?
             .truncate_to_inner()
             .ok_or(Error::<T>::TryIntoIntError)?
             .unique_saturated_into())

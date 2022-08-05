@@ -11,7 +11,7 @@ use orml_traits::{MultiCurrency, MultiReservableCurrency};
 use primitives::TruncateFixedPointToInt;
 use sp_runtime::{
     traits::{CheckedAdd, CheckedDiv, CheckedMul, CheckedSub, UniqueSaturatedInto, Zero},
-    FixedPointNumber,
+    ArithmeticError, FixedPointNumber,
 };
 use sp_std::{convert::TryInto, fmt::Debug};
 
@@ -81,7 +81,7 @@ mod math {
             self.amount.is_zero()
         }
 
-        fn checked_fn<F>(&self, other: &Self, f: F, err: Error<T>) -> Result<Self, DispatchError>
+        fn checked_fn<F>(&self, other: &Self, f: F, err: ArithmeticError) -> Result<Self, DispatchError>
         where
             F: Fn(&BalanceOf<T>, &BalanceOf<T>) -> Option<BalanceOf<T>>,
         {
@@ -100,7 +100,7 @@ mod math {
             self.checked_fn(
                 other,
                 <BalanceOf<T> as CheckedAdd>::checked_add,
-                Error::<T>::ArithmeticOverflow,
+                ArithmeticError::Overflow,
             )
         }
 
@@ -108,7 +108,7 @@ mod math {
             self.checked_fn(
                 other,
                 <BalanceOf<T> as CheckedSub>::checked_sub,
-                Error::<T>::ArithmeticUnderflow,
+                ArithmeticError::Underflow,
             )
         }
 
@@ -119,9 +119,7 @@ mod math {
         }
 
         pub fn checked_fixed_point_mul(&self, scalar: &UnsignedFixedPoint<T>) -> Result<Self, DispatchError> {
-            let amount = scalar
-                .checked_mul_int(self.amount)
-                .ok_or(Error::<T>::ArithmeticUnderflow)?;
+            let amount = scalar.checked_mul_int(self.amount).ok_or(ArithmeticError::Underflow)?;
             Ok(Self {
                 amount,
                 currency_id: self.currency_id,
@@ -136,9 +134,7 @@ mod math {
                 UnsignedFixedPoint::<T>::checked_from_integer(self.amount).ok_or(Error::<T>::TryIntoIntError)?;
 
             // do the multiplication
-            let product = self_fixed_point
-                .checked_mul(&scalar)
-                .ok_or(Error::<T>::ArithmeticOverflow)?;
+            let product = self_fixed_point.checked_mul(&scalar).ok_or(ArithmeticError::Overflow)?;
 
             // convert to inner
             let product_inner = UniqueSaturatedInto::<u128>::unique_saturated_into(product.into_inner());
@@ -147,11 +143,11 @@ mod math {
             let accuracy = UniqueSaturatedInto::<u128>::unique_saturated_into(UnsignedFixedPoint::<T>::accuracy());
             let amount = product_inner
                 .checked_add(accuracy)
-                .ok_or(Error::<T>::ArithmeticOverflow)?
+                .ok_or(ArithmeticError::Overflow)?
                 .checked_sub(1)
-                .ok_or(Error::<T>::ArithmeticUnderflow)?
+                .ok_or(ArithmeticError::Underflow)?
                 .checked_div(accuracy)
-                .ok_or(Error::<T>::ArithmeticUnderflow)?
+                .ok_or(ArithmeticError::Underflow)?
                 .try_into()
                 .map_err(|_| Error::<T>::TryIntoIntError)?;
 
@@ -165,7 +161,7 @@ mod math {
             let amount = UnsignedFixedPoint::<T>::checked_from_integer(self.amount)
                 .ok_or(Error::<T>::TryIntoIntError)?
                 .checked_div(&scalar)
-                .ok_or(Error::<T>::ArithmeticOverflow)?
+                .ok_or(ArithmeticError::Overflow)?
                 .truncate_to_inner()
                 .ok_or(Error::<T>::TryIntoIntError)?;
             Ok(Self {
@@ -217,11 +213,11 @@ mod math {
             let rounding_addition = UnsignedFixedPoint::<T>::checked_from_rational(1, 2).unwrap();
 
             let amount = UnsignedFixedPoint::<T>::checked_from_integer(self.amount)
-                .ok_or(Error::<T>::ArithmeticOverflow)?
+                .ok_or(ArithmeticError::Overflow)?
                 .checked_mul(&fraction)
-                .ok_or(Error::<T>::ArithmeticOverflow)?
+                .ok_or(ArithmeticError::Overflow)?
                 .checked_add(&rounding_addition)
-                .ok_or(Error::<T>::ArithmeticOverflow)?
+                .ok_or(ArithmeticError::Overflow)?
                 .truncate_to_inner()
                 .ok_or(Error::<T>::TryIntoIntError)?;
 

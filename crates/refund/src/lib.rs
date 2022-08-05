@@ -35,6 +35,7 @@ use frame_system::{ensure_root, ensure_signed};
 use oracle::OracleKey;
 pub use pallet::*;
 use sp_core::H256;
+use sp_runtime::ArithmeticError;
 use sp_std::{convert::TryInto, vec::Vec};
 use types::{BalanceOf, DefaultVaultId, RefundRequestExt};
 
@@ -81,8 +82,6 @@ pub mod pallet {
 
     #[pallet::error]
     pub enum Error<T> {
-        ArithmeticUnderflow,
-        ArithmeticOverflow,
         NoRefundFoundForIssueId,
         RefundIdNotFound,
         RefundCompleted,
@@ -316,7 +315,7 @@ impl<T: Config> Pallet<T> {
 
         let fee = satoshi_per_bytes
             .checked_mul_int(size)
-            .ok_or(Error::<T>::ArithmeticOverflow)?;
+            .ok_or(ArithmeticError::Overflow)?;
         let amount = fee.try_into().map_err(|_| Error::<T>::TryIntoIntError)?;
         Ok(Amount::new(amount, wrapped_currency))
     }

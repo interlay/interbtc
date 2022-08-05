@@ -231,7 +231,6 @@ impl staking::Config for Test {
 
 pub type TestEvent = Event;
 pub type TestError = Error<Test>;
-pub type CurrencyError = currency::Error<Test>;
 pub type TokensError = orml_tokens::Error<Test>;
 
 pub struct ExtBuilder;

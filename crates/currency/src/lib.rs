@@ -89,8 +89,6 @@ pub mod pallet {
 
     #[pallet::error]
     pub enum Error<T> {
-        ArithmeticOverflow,
-        ArithmeticUnderflow,
         TryIntoIntError,
         InvalidCurrency,
     }

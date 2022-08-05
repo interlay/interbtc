@@ -58,7 +58,7 @@ use sp_runtime::traits::AtLeast32BitUnsigned;
 use sp_runtime::{
     traits::*,
     transaction_validity::{InvalidTransaction, TransactionSource, TransactionValidity, ValidTransaction},
-    FixedPointNumber, FixedPointOperand,
+    ArithmeticError, FixedPointNumber, FixedPointOperand,
 };
 use sp_std::{
     convert::{TryFrom, TryInto},
@@ -648,9 +648,6 @@ pub mod pallet {
         /// Vault attempted to set secure threshold below the global secure threshold
         ThresholdNotAboveGlobalThreshold,
 
-        // Unexpected errors that should never be thrown in normal operation
-        ArithmeticOverflow,
-        ArithmeticUnderflow,
         /// Unable to convert value
         TryIntoIntError,
     }
@@ -954,7 +951,7 @@ impl<T: Config> Pallet<T> {
 
         let new_collateral = match Self::get_backing_collateral(vault_id)?.checked_sub(&amount) {
             Ok(x) => x,
-            Err(x) if x == currency::Error::<T>::ArithmeticUnderflow.into() => return Ok(false),
+            Err(x) if x == ArithmeticError::Underflow.into() => return Ok(false),
             Err(x) => return Err(x),
         };
 
@@ -1683,9 +1680,9 @@ impl<T: Config> Pallet<T> {
 
         let amount = collateral
             .checked_mul(numerator)
-            .ok_or(Error::<T>::ArithmeticOverflow)?
+            .ok_or(ArithmeticError::Overflow)?
             .checked_div(denominator)
-            .ok_or(Error::<T>::ArithmeticUnderflow)?
+            .ok_or(ArithmeticError::Underflow)?
             .try_into()
             .map_err(|_| Error::<T>::TryIntoIntError)?;
         Ok(Amount::new(amount, currency))
@@ -1881,9 +1878,9 @@ impl<T: Config> Pallet<T> {
             Self::premium_redeem_threshold(currency_pair).ok_or(Error::<T>::ThresholdNotSet)?;
         Ok(secure_collateral_threshold
             .checked_div(&premium_redeem_threshold)
-            .ok_or(Error::<T>::ArithmeticUnderflow)?
+            .ok_or(ArithmeticError::Underflow)?
             .checked_sub(&UnsignedFixedPoint::<T>::one())
-            .ok_or(Error::<T>::ArithmeticUnderflow)?)
+            .ok_or(ArithmeticError::Underflow)?)
     }
 
     pub fn get_max_nominatable_collateral(
