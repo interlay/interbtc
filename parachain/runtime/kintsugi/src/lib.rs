@@ -891,7 +891,9 @@ impl annuity::BlockRewardProvider<AccountId> for EscrowBlockRewardProvider {
 
     #[cfg(feature = "runtime-benchmarks")]
     fn deposit_stake(from: &AccountId, amount: Balance) -> DispatchResult {
-        <EscrowRewards as reward::Rewards<AccountId, Balance, CurrencyId>>::deposit_stake(from, amount)
+        let current_stake = <EscrowRewards as reward::Rewards<AccountId, Balance, CurrencyId>>::get_stake(from)?;
+        let new_stake = current_stake.saturating_add(amount);
+        <EscrowRewards as reward::Rewards<AccountId, Balance, CurrencyId>>::set_stake(from, new_stake)
     }
 
     fn distribute_block_reward(_from: &AccountId, amount: Balance) -> DispatchResult {

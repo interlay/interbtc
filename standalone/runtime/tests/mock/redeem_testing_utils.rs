@@ -52,13 +52,17 @@ impl ExecuteRedeemBuilder {
 
         SecurityPallet::set_active_block_number(SecurityPallet::active_block_number() + CONFIRMATIONS);
 
+        VaultRegistryPallet::collateral_integrity_check();
+
         // alice executes the redeemrequest by confirming the btc transaction
-        Call::Redeem(RedeemCall::execute_redeem {
+        let ret = Call::Redeem(RedeemCall::execute_redeem {
             redeem_id: self.redeem_id,
             merkle_proof: proof,
             raw_tx: raw_tx,
         })
-        .dispatch(origin_of(self.submitter.clone()))
+        .dispatch(origin_of(self.submitter.clone()));
+        VaultRegistryPallet::collateral_integrity_check();
+        ret
     }
 
     pub fn assert_execute(&self) {
@@ -110,6 +114,8 @@ pub fn setup_redeem(issued_tokens: Amount<Runtime>, user: [u8; 32], vault: &Vaul
         vault_id: vault.clone()
     })
     .dispatch(origin_of(account_of(user))));
+
+    VaultRegistryPallet::collateral_integrity_check();
 
     // assert that request happened and extract the id
     assert_redeem_request_event()

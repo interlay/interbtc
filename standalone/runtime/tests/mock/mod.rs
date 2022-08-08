@@ -604,41 +604,50 @@ impl CoreVaultData {
             &vault_id,
             &current.to_be_issued
         ));
+        VaultRegistryPallet::collateral_integrity_check();
         assert_ok!(VaultRegistryPallet::decrease_to_be_redeemed_tokens(
             &vault_id,
             &current.to_be_redeemed
         ));
+        VaultRegistryPallet::collateral_integrity_check();
         assert_ok!(VaultRegistryPallet::try_increase_to_be_redeemed_tokens(
             &vault_id,
             &current.issued
         ));
+        VaultRegistryPallet::collateral_integrity_check();
         assert_ok!(VaultRegistryPallet::decrease_tokens(
             &vault_id,
             &account_of(DUMMY),
             &current.issued,
         ));
+        VaultRegistryPallet::collateral_integrity_check();
         assert_ok!(VaultRegistryPallet::decrease_to_be_replaced_tokens(
             &vault_id,
             &current.to_be_replaced,
         ));
+        VaultRegistryPallet::collateral_integrity_check();
 
         // set to-be-issued
         assert_ok!(VaultRegistryPallet::try_increase_to_be_issued_tokens(
             &vault_id,
             &state.to_be_issued
         ));
+        VaultRegistryPallet::collateral_integrity_check();
         // set issued (2 steps)
         assert_ok!(VaultRegistryPallet::try_increase_to_be_issued_tokens(
             &vault_id,
             &state.issued
         ));
+        VaultRegistryPallet::collateral_integrity_check();
         assert_ok!(VaultRegistryPallet::issue_tokens(&vault_id, &state.issued));
         // set to-be-redeemed
+        VaultRegistryPallet::collateral_integrity_check();
         assert_ok!(VaultRegistryPallet::try_increase_to_be_redeemed_tokens(
             &vault_id,
             &state.to_be_redeemed
         ));
         // set to-be-replaced:
+        VaultRegistryPallet::collateral_integrity_check();
         assert_ok!(VaultRegistryPallet::try_increase_to_be_replaced_tokens(
             &vault_id,
             &state.to_be_replaced,
@@ -1011,6 +1020,7 @@ pub fn try_register_vault(collateral: Amount<Runtime>, vault_id: &VaultId) {
     if VaultRegistryPallet::get_vault_from_id(vault_id).is_err() {
         register_vault(&vault_id, collateral);
     };
+    VaultRegistryPallet::collateral_integrity_check();
 }
 
 pub fn force_issue_tokens(user: [u8; 32], vault: [u8; 32], collateral: Amount<Runtime>, tokens: Amount<Runtime>) {
@@ -1464,6 +1474,7 @@ impl ExtBuilder {
 
             let ret = execute();
             VaultRegistryPallet::total_user_vault_collateral_integrity_check();
+            VaultRegistryPallet::collateral_integrity_check();
             ret
         })
     }

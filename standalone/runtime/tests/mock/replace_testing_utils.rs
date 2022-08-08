@@ -82,6 +82,8 @@ pub fn accept_replace(
     .dispatch(origin_of(new_vault_id.account_id.clone()))
     .map_err(|err| err.error)?;
 
+    VaultRegistryPallet::collateral_integrity_check();
+
     let replace_id = assert_accept_replace_event();
     let replace = ReplacePallet::get_open_replace_request(&replace_id).unwrap();
     Ok((replace_id, replace))

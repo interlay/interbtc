@@ -21,10 +21,10 @@ use primitives::{BalanceToFixedPoint, TruncateFixedPointToInt};
 use scale_info::TypeInfo;
 use sp_arithmetic::FixedPointNumber;
 use sp_runtime::{
-    traits::{CheckedAdd, CheckedDiv, CheckedMul, CheckedSub, MaybeSerializeDeserialize, Zero},
+    traits::{CheckedAdd, CheckedDiv, CheckedMul, CheckedSub, MaybeSerializeDeserialize, Saturating, Zero},
     ArithmeticError,
 };
-use sp_std::{convert::TryInto, fmt::Debug};
+use sp_std::{cmp::PartialOrd, convert::TryInto, fmt::Debug};
 
 pub(crate) type SignedFixedPoint<T, I = ()> = <T as Config<I>>::SignedFixedPoint;
 
@@ -306,17 +306,14 @@ pub trait Rewards<AccountId, Balance, CurrencyId> {
     /// Return the stake associated with the `account_id`.
     fn get_stake(account_id: &AccountId) -> Result<Balance, DispatchError>;
 
-    /// Deposit an `amount` of stake to the `account_id`.
-    fn deposit_stake(account_id: &AccountId, amount: Balance) -> DispatchResult;
+    /// Set the stake to `amount` for `account_id` regardless of its current stake.
+    fn set_stake(account_id: &AccountId, amount: Balance) -> DispatchResult;
 
     /// Distribute the `amount` to all participants OR error if zero total stake.
     fn distribute_reward(amount: Balance, currency_id: CurrencyId) -> DispatchResult;
 
     /// Compute the expected reward for the `account_id`.
     fn compute_reward(account_id: &AccountId, currency_id: CurrencyId) -> Result<Balance, DispatchError>;
-
-    /// Withdraw an `amount` of stake from the `account_id`.
-    fn withdraw_stake(account_id: &AccountId, amount: Balance) -> DispatchResult;
 
     /// Withdraw all rewards from the `account_id`.
     fn withdraw_reward(account_id: &AccountId, currency_id: CurrencyId) -> Result<Balance, DispatchError>;
@@ -326,7 +323,7 @@ impl<T, I, Balance> Rewards<T::RewardId, Balance, T::CurrencyId> for Pallet<T, I
 where
     T: Config<I>,
     I: 'static,
-    Balance: BalanceToFixedPoint<SignedFixedPoint<T, I>>,
+    Balance: BalanceToFixedPoint<SignedFixedPoint<T, I>> + Saturating + PartialOrd,
     <T::SignedFixedPoint as FixedPointNumber>::Inner: TryInto<Balance>,
 {
     fn get_stake(reward_id: &T::RewardId) -> Result<Balance, DispatchError> {
@@ -337,8 +334,23 @@ where
             .map_err(|_| Error::<T, I>::TryIntoIntError.into())
     }
 
-    fn deposit_stake(reward_id: &T::RewardId, amount: Balance) -> DispatchResult {
-        Pallet::<T, I>::deposit_stake(reward_id, amount.to_fixed().ok_or(Error::<T, I>::TryIntoIntError)?)
+    fn set_stake(reward_id: &T::RewardId, amount: Balance) -> DispatchResult {
+        let current_stake = <Self as Rewards<T::RewardId, Balance, T::CurrencyId>>::get_stake(reward_id)?;
+        if current_stake < amount {
+            let additional_stake = amount.saturating_sub(current_stake);
+            Pallet::<T, I>::deposit_stake(
+                reward_id,
+                additional_stake.to_fixed().ok_or(Error::<T, I>::TryIntoIntError)?,
+            )
+        } else if current_stake > amount {
+            let surplus_stake = current_stake.saturating_sub(amount);
+            Pallet::<T, I>::withdraw_stake(
+                reward_id,
+                surplus_stake.to_fixed().ok_or(Error::<T, I>::TryIntoIntError)?,
+            )
+        } else {
+            Ok(())
+        }
     }
 
     fn distribute_reward(amount: Balance, currency_id: T::CurrencyId) -> DispatchResult {
@@ -349,10 +361,6 @@ where
         Pallet::<T, I>::compute_reward(currency_id, reward_id)?
             .try_into()
             .map_err(|_| Error::<T, I>::TryIntoIntError.into())
-    }
-
-    fn withdraw_stake(reward_id: &T::RewardId, amount: Balance) -> DispatchResult {
-        Pallet::<T, I>::withdraw_stake(reward_id, amount.to_fixed().ok_or(Error::<T, I>::TryIntoIntError)?)
     }
 
     fn withdraw_reward(reward_id: &T::RewardId, currency_id: T::CurrencyId) -> Result<Balance, DispatchError> {

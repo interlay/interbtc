@@ -95,7 +95,7 @@ pub struct MockBlockRewardProvider;
 
 impl BlockRewardProvider<AccountId> for MockBlockRewardProvider {
     type Currency = Balances;
-    #[cfg(feature = "runtime-benchmarks")]
+    #[cfg(any(feature = "runtime-benchmarks", test))]
     fn deposit_stake(_: &AccountId, _: Balance) -> DispatchResult {
         Ok(())
     }

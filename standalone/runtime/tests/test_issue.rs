@@ -44,12 +44,6 @@ fn test_with_initialized_vault<R>(execute: impl Fn(VaultId) -> R) {
     })
 }
 
-macro_rules! signed_fixed_point {
-    ($amount:expr) => {
-        sp_arithmetic::FixedI128::checked_from_integer($amount).unwrap()
-    };
-}
-
 mod expiry_test {
     use super::{assert_eq, *};
 
@@ -864,7 +858,8 @@ mod execute_issue_tests {
             let post_request_state = ParachainState::get(&vault_id);
 
             // need stake for rewards to deposit
-            assert_ok!(VaultRewardsPallet::deposit_stake(&vault_id, signed_fixed_point!(1)));
+            let stake: u128 = VaultRewardsPallet::get_stake(&vault_id).unwrap();
+            assert!(stake > 0u128);
 
             ExecuteIssueBuilder::new(issue_id)
                 .with_amount(sent_btc)
