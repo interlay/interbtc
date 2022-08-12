@@ -370,32 +370,6 @@ where
     }
 }
 
-impl<A, B: Default, C> Rewards<A, B, C> for () {
-    fn get_stake(_: &A) -> Result<B, DispatchError> {
-        Ok(Default::default())
-    }
-
-    fn deposit_stake(_: &A, _: B) -> DispatchResult {
-        Ok(())
-    }
-
-    fn distribute_reward(_: B, _: C) -> DispatchResult {
-        Ok(())
-    }
-
-    fn compute_reward(_: &A, _: C) -> Result<B, DispatchError> {
-        Ok(Default::default())
-    }
-
-    fn withdraw_stake(_: &A, _: B) -> DispatchResult {
-        Ok(())
-    }
-
-    fn withdraw_reward(_: &A, _: C) -> Result<B, DispatchError> {
-        Ok(Default::default())
-    }
-}
-
 pub trait ModifyStake<AccountId, Balance> {
     /// Deposit stake for an account.
     fn deposit_stake(account_id: &AccountId, amount: Balance) -> DispatchResult;

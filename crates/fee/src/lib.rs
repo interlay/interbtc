@@ -252,8 +252,9 @@ pub mod pallet {
         #[pallet::weight(<T as Config>::WeightInfo::withdraw_rewards())]
         #[transactional]
         // TODO: remove this when all "wrapped" vault rewards have been distributed
-        // we can also write a migration to drain this manually
-        // NOTE: kept the naming backwards compatability
+        // as we also have VaultAnnuity::withdraw_rewards()
+        // we can write a migration to drain this manually
+        // NOTE: kept the naming backwards compatibility
         pub fn withdraw_rewards(
             origin: OriginFor<T>,
             vault_id: DefaultVaultId<T>,

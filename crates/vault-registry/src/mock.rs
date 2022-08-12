@@ -33,13 +33,14 @@ frame_support::construct_runtime!(
         // Tokens & Balances
         Tokens: orml_tokens::{Pallet, Storage, Config<T>, Event<T>},
 
-        Rewards: reward::{Pallet, Call, Storage, Event<T>},
+        EscrowRewards: reward::<Instance1>::{Pallet, Storage, Event<T>},
+        VaultRewards: reward::<Instance2>::{Pallet, Storage, Event<T>},
+        VaultStaking: staking::{Pallet, Storage, Event<T>},
 
         // Operational
         Security: security::{Pallet, Call, Storage, Event<T>},
         VaultRegistry: vault_registry::{Pallet, Call, Config<T>, Storage, Event<T>, ValidateUnsigned},
         Oracle: oracle::{Pallet, Call, Config<T>, Storage, Event<T>},
-        Staking: staking::{Pallet, Storage, Event<T>},
         Fee: fee::{Pallet, Call, Config<T>, Storage},
         Currency: currency::{Pallet},
     }
@@ -125,7 +126,16 @@ impl orml_tokens::Config for Test {
     type OnKilledTokenAccount = ();
 }
 
-impl reward::Config for Test {
+impl reward::Config<reward::Instance1> for Test {
+    type Event = TestEvent;
+    type SignedFixedPoint = SignedFixedPoint;
+    type RewardId = AccountId;
+    type CurrencyId = CurrencyId;
+    type GetNativeCurrencyId = GetNativeCurrencyId;
+    type GetWrappedCurrencyId = GetWrappedCurrencyId;
+}
+
+impl reward::Config<reward::Instance2> for Test {
     type Event = TestEvent;
     type SignedFixedPoint = SignedFixedPoint;
     type RewardId = VaultId<AccountId, CurrencyId>;
@@ -191,9 +201,9 @@ impl fee::Config for Test {
     type SignedInner = SignedInner;
     type UnsignedFixedPoint = UnsignedFixedPoint;
     type UnsignedInner = Balance;
-    type EscrowRewards = ();
-    type VaultRewards = Rewards;
-    type VaultStaking = Staking;
+    type EscrowRewards = EscrowRewards;
+    type VaultRewards = VaultRewards;
+    type VaultStaking = VaultStaking;
     type OnSweep = ();
     type MaxExpectedValue = MaxExpectedValue;
 }

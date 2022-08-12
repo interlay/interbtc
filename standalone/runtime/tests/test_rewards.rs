@@ -137,7 +137,8 @@ fn test_vault_rewards() {
     });
 }
 
-fn escrow_add_balance(account_id: &AccountId, amount: Balance) {
+// only call once per account
+fn escrow_set_balance(account_id: &AccountId, amount: Balance) {
     assert_ok!(Call::Tokens(TokensCall::set_balance {
         who: account_id.clone(),
         currency_id: DEFAULT_NATIVE_CURRENCY,
@@ -164,8 +165,8 @@ fn test_escrow_issue_and_redeem_rewards() {
         let escrow_1 = account_of(ESCROW_1);
         let escrow_2 = account_of(ESCROW_2);
 
-        escrow_add_balance(&escrow_1, 1000000000000);
-        escrow_add_balance(&escrow_2, 2000000000000);
+        escrow_set_balance(&escrow_1, 1000000000000);
+        escrow_set_balance(&escrow_2, 2000000000000);
 
         issue_with_vault(currency_id, &vault_id_1, wrapped(100000));
         redeem_with_vault(&vault_id_1, wrapped(50000));
