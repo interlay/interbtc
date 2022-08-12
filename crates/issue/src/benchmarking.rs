@@ -55,12 +55,18 @@ fn get_vault_id<T: crate::Config>() -> DefaultVaultId<T> {
 fn register_vault<T: crate::Config>(vault_id: DefaultVaultId<T>) {
     let origin = RawOrigin::Signed(vault_id.account_id.clone());
     assert_ok!(VaultRegistry::<T>::register_public_key(
-        origin.into(),
+        origin.clone().into(),
         BtcPublicKey::dummy()
     ));
-    assert_ok!(VaultRegistry::<T>::_register_vault(
-        vault_id.clone(),
+    assert_ok!(VaultRegistry::<T>::register_vault(
+        origin.clone().into(),
+        vault_id.currencies.clone(),
         100000000u32.into()
+    ));
+    assert_ok!(VaultRegistry::<T>::accept_new_issues(
+        origin.clone().into(),
+        vault_id.currencies.clone(),
+        true
     ));
 }
 

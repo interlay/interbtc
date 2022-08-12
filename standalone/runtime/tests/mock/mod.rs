@@ -995,6 +995,12 @@ pub fn register_vault_with_public_key(vault_id: &VaultId, collateral: Amount<Run
         collateral: collateral.amount(),
     })
     .dispatch(origin_of(vault_id.account_id.clone())));
+
+    assert_ok!(Call::VaultRegistry(VaultRegistryCall::accept_new_issues {
+        currency_pair: vault_id.currencies.clone(),
+        accept_new_issues: true,
+    })
+    .dispatch(origin_of(vault_id.account_id.clone())));
 }
 
 pub fn register_vault(vault_id: &VaultId, collateral: Amount<Runtime>) {

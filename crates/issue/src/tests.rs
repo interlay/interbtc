@@ -70,7 +70,9 @@ fn cancel_issue(origin: AccountId, issue_id: &H256) -> Result<(), DispatchError>
 }
 
 fn init_zero_vault(id: DefaultVaultId<Test>) -> DefaultVault<Test> {
-    Vault::new(id)
+    let mut vault = Vault::new(id);
+    vault.status = VaultStatus::Active(true);
+    vault
 }
 
 fn get_dummy_request_id() -> H256 {

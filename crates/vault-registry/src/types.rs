@@ -530,7 +530,7 @@ impl<
         Vault {
             id,
             banned_until: None,
-            status: VaultStatus::Active(true),
+            status: VaultStatus::Active(false),
             secure_collateral_threshold: Default::default(),
             issued_tokens: Default::default(),
             liquidated_collateral: Default::default(),

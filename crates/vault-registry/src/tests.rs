@@ -71,7 +71,12 @@ fn create_vault_with_collateral(id: &DefaultVaultId<Test>, collateral: u128) {
         origin.clone(),
         BtcPublicKey::dummy()
     ));
-    assert_ok!(VaultRegistry::register_vault(origin, id.currencies.clone(), collateral));
+    assert_ok!(VaultRegistry::register_vault(
+        origin.clone(),
+        id.currencies.clone(),
+        collateral
+    ));
+    assert_ok!(VaultRegistry::accept_new_issues(origin, id.currencies.clone(), true));
 }
 
 fn create_vault(id: DefaultVaultId<Test>) -> DefaultVaultId<Test> {
