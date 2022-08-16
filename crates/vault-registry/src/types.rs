@@ -10,7 +10,10 @@ use frame_support::{
 pub use primitives::{VaultCurrencyPair, VaultId};
 use scale_info::TypeInfo;
 use sp_core::H256;
-use sp_runtime::traits::{CheckedAdd, CheckedSub, Zero};
+use sp_runtime::{
+    traits::{CheckedAdd, CheckedSub, Zero},
+    ArithmeticError,
+};
 use sp_std::{collections::btree_set::BTreeSet, vec::Vec};
 
 #[cfg(test)]
@@ -710,7 +713,7 @@ impl<T: Config> RichVault<T> {
             .data
             .issued_tokens
             .checked_add(&self.data.to_be_issued_tokens)
-            .ok_or(Error::<T>::ArithmeticOverflow)?;
+            .ok_or(ArithmeticError::Overflow)?;
         Ok(Amount::new(amount, self.wrapped_currency()))
     }
 
@@ -799,7 +802,7 @@ impl<T: Config> RichVault<T> {
             v.replace_collateral = v
                 .replace_collateral
                 .checked_add(&amount.amount())
-                .ok_or(Error::<T>::ArithmeticOverflow)?;
+                .ok_or(ArithmeticError::Overflow)?;
             Ok(())
         })
     }
@@ -809,7 +812,7 @@ impl<T: Config> RichVault<T> {
             v.replace_collateral = v
                 .replace_collateral
                 .checked_sub(&amount.amount())
-                .ok_or(Error::<T>::ArithmeticUnderflow)?;
+                .ok_or(ArithmeticError::Underflow)?;
             Ok(())
         })
     }
@@ -819,7 +822,7 @@ impl<T: Config> RichVault<T> {
             v.active_replace_collateral = v
                 .active_replace_collateral
                 .checked_add(&amount.amount())
-                .ok_or(Error::<T>::ArithmeticOverflow)?;
+                .ok_or(ArithmeticError::Overflow)?;
             Ok(())
         })
     }
@@ -829,7 +832,7 @@ impl<T: Config> RichVault<T> {
             v.active_replace_collateral = v
                 .active_replace_collateral
                 .checked_sub(&amount.amount())
-                .ok_or(Error::<T>::ArithmeticUnderflow)?;
+                .ok_or(ArithmeticError::Underflow)?;
             Ok(())
         })
     }
@@ -853,7 +856,7 @@ impl<T: Config> RichVault<T> {
             v.liquidated_collateral = v
                 .liquidated_collateral
                 .checked_add(&amount.amount())
-                .ok_or(Error::<T>::ArithmeticOverflow)?;
+                .ok_or(ArithmeticError::Overflow)?;
             Ok(())
         })
     }
@@ -863,7 +866,7 @@ impl<T: Config> RichVault<T> {
             v.liquidated_collateral = v
                 .liquidated_collateral
                 .checked_sub(&amount.amount())
-                .ok_or(Error::<T>::ArithmeticUnderflow)?;
+                .ok_or(ArithmeticError::Underflow)?;
             Ok(())
         })
     }

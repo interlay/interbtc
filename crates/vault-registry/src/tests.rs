@@ -2,7 +2,7 @@ use crate::{
     ext,
     mock::*,
     types::{BalanceOf, UpdatableVault},
-    BtcPublicKey, CurrencySource, DefaultVaultId, DispatchError, Error, Vault, VaultStatus,
+    BtcPublicKey, CurrencySource, DefaultVaultId, DispatchError, Vault, VaultStatus,
 };
 use codec::Decode;
 use currency::Amount;
@@ -13,8 +13,12 @@ use primitives::{VaultCurrencyPair, VaultId};
 use security::Pallet as Security;
 use sp_arithmetic::{traits::One, FixedPointNumber, FixedU128};
 use sp_core::U256;
-use sp_runtime::offchain::{testing::TestTransactionPoolExt, TransactionPoolExt};
+use sp_runtime::{
+    offchain::{testing::TestTransactionPoolExt, TransactionPoolExt},
+    ArithmeticError,
+};
 use sp_std::convert::TryInto;
+
 type Event = crate::Event<Test>;
 
 fn vault_id(account_id: AccountId) -> VaultId<AccountId, CurrencyId> {
@@ -321,7 +325,7 @@ fn decrease_to_be_issued_tokens_fails_with_insufficient_tokens() {
         let id = create_sample_vault();
 
         let res = VaultRegistry::decrease_to_be_issued_tokens(&id, &wrapped(50));
-        assert_err!(res, CurrencyError::ArithmeticUnderflow);
+        assert_err!(res, ArithmeticError::Underflow);
     });
 }
 
@@ -349,7 +353,7 @@ fn issue_tokens_fails_with_insufficient_tokens() {
 
         assert_err!(
             VaultRegistry::issue_tokens(&id, &wrapped(50)),
-            CurrencyError::ArithmeticUnderflow
+            ArithmeticError::Underflow
         );
     });
 }
@@ -441,7 +445,7 @@ fn decrease_to_be_redeemed_tokens_fails_with_insufficient_tokens() {
         let id = create_sample_vault();
 
         let res = VaultRegistry::decrease_to_be_redeemed_tokens(&id, &wrapped(50));
-        assert_err!(res, CurrencyError::ArithmeticUnderflow);
+        assert_err!(res, ArithmeticError::Underflow);
     });
 }
 
@@ -474,7 +478,7 @@ fn decrease_tokens_fails_with_insufficient_tokens() {
         VaultRegistry::try_increase_to_be_issued_tokens(&id, &wrapped(50)).unwrap();
         assert_ok!(VaultRegistry::issue_tokens(&id, &wrapped(50)));
         let res = VaultRegistry::decrease_tokens(&id, &user_id, &wrapped(50));
-        assert_err!(res, CurrencyError::ArithmeticUnderflow);
+        assert_err!(res, ArithmeticError::Underflow);
     });
 }
 
@@ -504,7 +508,7 @@ fn redeem_tokens_fails_with_insufficient_tokens() {
         VaultRegistry::try_increase_to_be_issued_tokens(&id, &wrapped(50)).unwrap();
         assert_ok!(VaultRegistry::issue_tokens(&id, &wrapped(50)));
         let res = VaultRegistry::redeem_tokens(&id, &wrapped(50), &amount(0), &0);
-        assert_err!(res, CurrencyError::ArithmeticUnderflow);
+        assert_err!(res, ArithmeticError::Underflow);
     });
 }
 
@@ -546,7 +550,7 @@ fn redeem_tokens_premium_fails_with_insufficient_tokens() {
         VaultRegistry::try_increase_to_be_issued_tokens(&id, &wrapped(50)).unwrap();
         assert_ok!(VaultRegistry::issue_tokens(&id, &wrapped(50)));
         let res = VaultRegistry::redeem_tokens(&id, &wrapped(50), &amount(30), &user_id);
-        assert_err!(res, CurrencyError::ArithmeticUnderflow);
+        assert_err!(res, ArithmeticError::Underflow);
         assert_not_emitted!(Event::RedeemTokensPremium {
             vault_id: id,
             redeemed_amount: 50,
@@ -967,7 +971,7 @@ fn test_threshold_equivalent_to_legacy_calculation() {
         // calculate how many tokens should be maximally issued given the threshold
         let scaled_collateral_in_wrapped = collateral_in_wrapped
             .checked_mul(U256::from(10).pow(granularity.into()))
-            .ok_or(Error::<Test>::ArithmeticOverflow)?;
+            .ok_or(ArithmeticError::Overflow)?;
         let scaled_max_tokens = scaled_collateral_in_wrapped
             .checked_div(threshold.into())
             .unwrap_or(0.into());
@@ -1005,16 +1009,14 @@ fn test_get_required_collateral_threshold_equivalent_to_legacy_calculation_() {
         // Step 1: inverse of the scaling applied in calculate_max_wrapped_from_collateral_for_threshold
 
         // inverse of the div
-        let btc = btc
-            .checked_mul(threshold.into())
-            .ok_or(Error::<Test>::ArithmeticOverflow)?;
+        let btc = btc.checked_mul(threshold.into()).ok_or(ArithmeticError::Overflow)?;
 
         // To do the inverse of the multiplication, we need to do division, but
         // we need to round up. To round up (a/b), we need to do ((a+b-1)/b):
         let rounding_addition = U256::from(10).pow(granularity.into()) - U256::from(1);
         let btc = (btc + rounding_addition)
             .checked_div(U256::from(10).pow(granularity.into()))
-            .ok_or(Error::<Test>::ArithmeticUnderflow)?;
+            .ok_or(ArithmeticError::Underflow)?;
 
         // Step 2: convert the amount to collateral
         let amount_in_collateral = convert_to(Token(DOT), wrapped(btc.try_into()?))?;
