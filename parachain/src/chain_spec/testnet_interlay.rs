@@ -211,65 +211,41 @@ fn testnet_genesis(
             disable_inclusion_check: false,
         },
         issue: testnet_interlay_runtime::IssueConfig {
-            issue_period: testnet_interlay_runtime::DAYS,
+            issue_period: testnet_interlay_runtime::DAYS * 2,
             issue_btc_dust_value: DEFAULT_DUST_VALUE,
         },
         redeem: testnet_interlay_runtime::RedeemConfig {
             redeem_transaction_size: expected_transaction_size(),
-            redeem_period: testnet_interlay_runtime::DAYS,
+            redeem_period: testnet_interlay_runtime::DAYS * 2,
             redeem_btc_dust_value: DEFAULT_DUST_VALUE,
         },
         replace: testnet_interlay_runtime::ReplaceConfig {
-            replace_period: testnet_interlay_runtime::DAYS,
+            replace_period: testnet_interlay_runtime::DAYS * 2,
             replace_btc_dust_value: DEFAULT_DUST_VALUE,
         },
         vault_registry: testnet_interlay_runtime::VaultRegistryConfig {
-            minimum_collateral_vault: vec![(Token(DOT), 0)],
-            punishment_delay: testnet_interlay_runtime::DAYS,
-            system_collateral_ceiling: vec![
-                (default_pair_testnet(Token(DOT)), 1_000_000_000 * DOT.one()),
-                (default_pair_testnet(Token(INTR)), 1_000_000_000 * INTR.one()),
-            ],
-            secure_collateral_threshold: vec![
-                (
-                    // 150%
-                    default_pair_testnet(Token(DOT)),
-                    FixedU128::checked_from_rational(150, 100).unwrap(),
-                ),
-                (
-                    // 400%
-                    default_pair_testnet(Token(INTR)),
-                    FixedU128::checked_from_rational(400, 100).unwrap(),
-                ),
-            ],
-            premium_redeem_threshold: vec![
-                (
-                    // 135%
-                    default_pair_testnet(Token(DOT)),
-                    FixedU128::checked_from_rational(135, 100).unwrap(),
-                ),
-                (
-                    // 300%
-                    default_pair_testnet(Token(INTR)),
-                    FixedU128::checked_from_rational(300, 100).unwrap(),
-                ),
-            ],
-            liquidation_collateral_threshold: vec![
-                (
-                    // 110%
-                    default_pair_testnet(Token(DOT)),
-                    FixedU128::checked_from_rational(110, 100).unwrap(),
-                ),
-                (
-                    // 200%
-                    default_pair_testnet(Token(INTR)),
-                    FixedU128::checked_from_rational(200, 100).unwrap(),
-                ),
-            ],
+            minimum_collateral_vault: vec![(Token(DOT), 30 * DOT.one())],
+            punishment_delay: interlay_runtime::DAYS,
+            system_collateral_ceiling: vec![(default_pair_testnet(Token(DOT)), 2_450_000 * DOT.one())],
+            secure_collateral_threshold: vec![(
+                default_pair_testnet(Token(DOT)),
+                /* 260% */
+                FixedU128::checked_from_rational(260, 100).unwrap(),
+            )],
+            premium_redeem_threshold: vec![(
+                default_pair_testnet(Token(DOT)),
+                /* 200% */
+                FixedU128::checked_from_rational(200, 100).unwrap(),
+            )],
+            liquidation_collateral_threshold: vec![(
+                default_pair_testnet(Token(DOT)),
+                /* 150% */
+                FixedU128::checked_from_rational(150, 100).unwrap(),
+            )],
         },
         fee: testnet_interlay_runtime::FeeConfig {
             issue_fee: FixedU128::checked_from_rational(15, 10000).unwrap(), // 0.15%
-            issue_griefing_collateral: FixedU128::checked_from_rational(5, 100000).unwrap(), // 0.005%
+            issue_griefing_collateral: FixedU128::checked_from_rational(5, 1000).unwrap(), // 0.5%
             refund_fee: FixedU128::checked_from_rational(5, 1000).unwrap(),  // 0.5%
             redeem_fee: FixedU128::checked_from_rational(5, 1000).unwrap(),  // 0.5%
             premium_redeem_fee: FixedU128::checked_from_rational(5, 100).unwrap(), // 5%
