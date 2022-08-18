@@ -172,7 +172,7 @@ fn interlay_mainnet_genesis(
             disable_inclusion_check: false,
         },
         issue: interlay_runtime::IssueConfig {
-            issue_period: interlay_runtime::DAYS * 2,
+            issue_period: interlay_runtime::DAYS,
             issue_btc_dust_value: DEFAULT_DUST_VALUE,
         },
         redeem: interlay_runtime::RedeemConfig {
