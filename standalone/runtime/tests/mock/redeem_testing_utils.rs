@@ -135,6 +135,28 @@ pub fn assert_redeem_request_event() -> H256 {
     ids.last().unwrap().clone()
 }
 
+/// returns (fee, amount)
+pub fn assert_self_redeem_event() -> (Amount<Runtime>, Amount<Runtime>) {
+    let events = SystemPallet::events();
+    let ids = events
+        .iter()
+        .filter_map(|r| match r.event {
+            Event::Redeem(RedeemEvent::SelfRedeem {
+                ref vault_id,
+                amount,
+                fee,
+            }) => {
+                let fee = Amount::new(fee, vault_id.wrapped_currency());
+                let amount = Amount::new(amount, vault_id.wrapped_currency());
+                Some((fee, amount))
+            }
+            _ => None,
+        })
+        .collect::<Vec<_>>();
+    assert!(ids.len() >= 1);
+    ids.last().unwrap().clone()
+}
+
 pub fn execute_redeem(redeem_id: H256) {
     ExecuteRedeemBuilder::new(redeem_id).assert_execute();
 }

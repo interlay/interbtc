@@ -2149,3 +2149,117 @@ fn liquidation_redeem_should_be_possible_with_zero_collateral() {
         );
     })
 }
+
+mod self_redeem {
+    use super::{assert_eq, *};
+
+    #[test]
+    fn integration_test_self_redeem_with_partial_amount_succeeds() {
+        test_with(|vault_id| {
+            let issued_tokens = vault_id.wrapped(10_000);
+
+            assert_ok!(Call::Redeem(RedeemCall::self_redeem {
+                currency_pair: vault_id.currencies.clone(),
+                amount_wrapped: issued_tokens.amount()
+            })
+            .dispatch(origin_of(vault_id.account_id.clone())));
+
+            let (fee, consumed_issued_tokens) = assert_self_redeem_event();
+
+            assert_eq!(
+                ParachainState::get(&vault_id),
+                ParachainState::get_default(&vault_id).with_changes(|_, vault, _, fee_pool| {
+                    vault.issued -= consumed_issued_tokens;
+                    (*vault.free_balance.get_mut(&vault_id.wrapped_currency()).unwrap()) -= issued_tokens;
+                    *fee_pool.rewards_for(&vault_id) += fee;
+                    consume_to_be_replaced(vault, consumed_issued_tokens);
+                })
+            );
+        });
+    }
+    #[test]
+    fn integration_test_self_redeem_with_full_amount_succeeds() {
+        test_with(|vault_id| {
+            let issued_tokens = default_vault_state(&vault_id).issued - default_vault_state(&vault_id).to_be_redeemed;
+
+            assert_ok!(Call::Redeem(RedeemCall::self_redeem {
+                currency_pair: vault_id.currencies.clone(),
+                amount_wrapped: issued_tokens.amount()
+            })
+            .dispatch(origin_of(vault_id.account_id.clone())));
+
+            assert_self_redeem_event();
+
+            assert_eq!(
+                ParachainState::get(&vault_id),
+                ParachainState::get_default(&vault_id).with_changes(|_, vault, _, _| {
+                    vault.issued -= issued_tokens;
+                    (*vault.free_balance.get_mut(&vault_id.wrapped_currency()).unwrap()) -= issued_tokens;
+                    consume_to_be_replaced(vault, issued_tokens);
+                })
+            );
+        });
+    }
+
+    #[test]
+    fn integration_test_self_redeem_with_higher_issued_tokens_fails() {
+        test_with(|vault_id| {
+            let issue_amount = 999999999;
+
+            assert_ok!(Call::Tokens(TokensCall::set_balance {
+                who: vault_id.account_id.clone(),
+                currency_id: vault_id.wrapped_currency(),
+                new_free: issue_amount,
+                new_reserved: 0,
+            })
+            .dispatch(root()));
+
+            assert_err!(
+                Call::Redeem(RedeemCall::self_redeem {
+                    currency_pair: vault_id.currencies.clone(),
+                    amount_wrapped: issue_amount
+                })
+                .dispatch(origin_of(vault_id.account_id.clone())),
+                VaultRegistryError::InsufficientTokensCommitted
+            );
+        })
+    }
+
+    #[test]
+    fn integration_test_self_redeem_with_higher_than_free_balance_fails() {
+        test_with(|vault_id| {
+            let issue_amount = 1000;
+
+            assert_ok!(Call::Tokens(TokensCall::set_balance {
+                who: vault_id.account_id.clone(),
+                currency_id: vault_id.wrapped_currency(),
+                new_free: issue_amount - 1,
+                new_reserved: 0,
+            })
+            .dispatch(root()));
+
+            assert_err!(
+                Call::Redeem(RedeemCall::self_redeem {
+                    currency_pair: vault_id.currencies.clone(),
+                    amount_wrapped: issue_amount
+                })
+                .dispatch(origin_of(vault_id.account_id.clone())),
+                RedeemError::AmountExceedsUserBalance
+            );
+        })
+    }
+
+    #[test]
+    fn integration_test_self_redeem_with_zero_amount_fails() {
+        test_with(|vault_id| {
+            assert_err!(
+                Call::Redeem(RedeemCall::self_redeem {
+                    currency_pair: vault_id.currencies.clone(),
+                    amount_wrapped: 0
+                })
+                .dispatch(origin_of(vault_id.account_id.clone())),
+                RedeemError::AmountBelowDustAmount
+            );
+        })
+    }
+}

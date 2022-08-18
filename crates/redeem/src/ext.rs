@@ -59,6 +59,12 @@ pub(crate) mod vault_registry {
         <vault_registry::Pallet<T>>::get_liquidated_collateral(vault_id)
     }
 
+    pub fn get_free_redeemable_tokens<T: crate::Config>(
+        vault_id: &DefaultVaultId<T>,
+    ) -> Result<Amount<T>, DispatchError> {
+        <vault_registry::Pallet<T>>::get_free_redeemable_tokens(vault_id)
+    }
+
     pub fn transfer_funds<T: crate::Config>(
         from: CurrencySource<T>,
         to: CurrencySource<T>,
