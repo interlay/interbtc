@@ -30,7 +30,7 @@ use pallet_authorship::EventHandler;
 use pallet_session::{self as session, SessionManager};
 use sp_std::prelude::*;
 
-pub type BalanceOf<T> = <<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
+pub type BalanceOf<T> = <<T as Config>::StakingCurrency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
 
 const SEED: u32 = 0;
 
@@ -51,8 +51,8 @@ fn assert_last_event<T: Config>(generic_event: <T as Config>::Event) {
 
 fn create_funded_user<T: Config>(string: &'static str, n: u32, balance_factor: u32) -> T::AccountId {
     let user = account(string, n, SEED);
-    let balance = T::Currency::minimum_balance() * balance_factor.into();
-    let _ = T::Currency::make_free_balance_be(&user, balance);
+    let balance = T::StakingCurrency::minimum_balance() * balance_factor.into();
+    let _ = T::StakingCurrency::make_free_balance_be(&user, balance);
     user
 }
 
@@ -92,7 +92,7 @@ fn register_candidates<T: Config>(count: u32) {
     assert!(<CandidacyBond<T>>::get() > 0u32.into(), "Bond cannot be zero!");
 
     for who in candidates {
-        T::Currency::make_free_balance_be(&who, <CandidacyBond<T>>::get() * 2u32.into());
+        T::StakingCurrency::make_free_balance_be(&who, <CandidacyBond<T>>::get() * 2u32.into());
         <CollatorSelection<T>>::register_as_candidate(RawOrigin::Signed(who).into()).unwrap();
     }
 }
@@ -126,7 +126,7 @@ benchmarks! {
     }
 
     set_candidacy_bond {
-        let bond_amount: BalanceOf<T> = T::Currency::minimum_balance() * 10u32.into();
+        let bond_amount: BalanceOf<T> = T::StakingCurrency::minimum_balance() * 10u32.into();
         let origin = T::UpdateOrigin::successful_origin();
     }: {
         assert_ok!(
@@ -142,15 +142,15 @@ benchmarks! {
     register_as_candidate {
         let c in 1 .. T::MaxCandidates::get();
 
-        <CandidacyBond<T>>::put(T::Currency::minimum_balance());
+        <CandidacyBond<T>>::put(T::StakingCurrency::minimum_balance());
         <DesiredCandidates<T>>::put(c + 1);
 
         register_validators::<T>(c);
         register_candidates::<T>(c);
 
         let caller: T::AccountId = whitelisted_caller();
-        let bond: BalanceOf<T> = T::Currency::minimum_balance() * 2u32.into();
-        T::Currency::make_free_balance_be(&caller, bond.clone());
+        let bond: BalanceOf<T> = T::StakingCurrency::minimum_balance() * 2u32.into();
+        T::StakingCurrency::make_free_balance_be(&caller, bond.clone());
 
         <session::Pallet<T>>::set_keys(
             RawOrigin::Signed(caller.clone()).into(),
@@ -166,7 +166,7 @@ benchmarks! {
     // worse case is the last candidate leaving.
     leave_intent {
         let c in (T::MinCandidates::get() + 1) .. T::MaxCandidates::get();
-        <CandidacyBond<T>>::put(T::Currency::minimum_balance());
+        <CandidacyBond<T>>::put(T::StakingCurrency::minimum_balance());
         <DesiredCandidates<T>>::put(c);
 
         register_validators::<T>(c);
@@ -181,20 +181,20 @@ benchmarks! {
 
     // worse case is paying a non-existing candidate account.
     note_author {
-        <CandidacyBond<T>>::put(T::Currency::minimum_balance());
-        T::Currency::make_free_balance_be(
+        <CandidacyBond<T>>::put(T::StakingCurrency::minimum_balance());
+        T::StakingCurrency::make_free_balance_be(
             &<CollatorSelection<T>>::account_id(),
-            T::Currency::minimum_balance() * 4u32.into(),
+            T::StakingCurrency::minimum_balance() * 4u32.into(),
         );
         let author = account("author", 0, SEED);
         let new_block: T::BlockNumber = 10u32.into();
 
         frame_system::Pallet::<T>::set_block_number(new_block);
-        assert!(T::Currency::free_balance(&author) == 0u32.into());
+        assert!(T::StakingCurrency::free_balance(&author) == 0u32.into());
     }: {
         <CollatorSelection<T> as EventHandler<_, _>>::note_author(author.clone())
     } verify {
-        assert!(T::Currency::free_balance(&author) > 0u32.into());
+        assert!(T::StakingCurrency::free_balance(&author) > 0u32.into());
         assert_eq!(frame_system::Pallet::<T>::block_number(), new_block);
     }
 
@@ -203,7 +203,7 @@ benchmarks! {
         let r in 1 .. T::MaxCandidates::get();
         let c in 1 .. T::MaxCandidates::get();
 
-        <CandidacyBond<T>>::put(T::Currency::minimum_balance());
+        <CandidacyBond<T>>::put(T::StakingCurrency::minimum_balance());
         <DesiredCandidates<T>>::put(c);
         frame_system::Pallet::<T>::set_block_number(0u32.into());
 

@@ -270,7 +270,8 @@ pub type CollatorSelectionUpdateOrigin =
 
 impl collator_selection::Config for Runtime {
     type Event = Event;
-    type Currency = NativeCurrency;
+    type StakingCurrency = Escrow;
+    type RewardsCurrency = NativeCurrency;
     type UpdateOrigin = CollatorSelectionUpdateOrigin;
     type PotId = CollatorPotId;
     type MaxCandidates = MaxCandidates;

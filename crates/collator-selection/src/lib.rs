@@ -78,7 +78,7 @@ pub mod pallet {
     use sp_runtime::traits::Convert;
     use sp_staking::SessionIndex;
 
-    type BalanceOf<T> = <<T as Config>::Currency as Currency<<T as SystemConfig>::AccountId>>::Balance;
+    type BalanceOf<T> = <<T as Config>::StakingCurrency as Currency<<T as SystemConfig>::AccountId>>::Balance;
 
     /// A convertor from collators id. Since this pallet does not have stash/controller, this is
     /// just identity.
@@ -95,8 +95,11 @@ pub mod pallet {
         /// Overarching event type.
         type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
 
-        /// The currency mechanism.
-        type Currency: ReservableCurrency<Self::AccountId>;
+        /// The currency used for staking.
+        type StakingCurrency: ReservableCurrency<Self::AccountId>;
+
+        /// The currency used for rewards.
+        type RewardsCurrency: ReservableCurrency<Self::AccountId>;
 
         /// Origin that can dictate updating parameters of this pallet.
         type UpdateOrigin: EnsureOrigin<Self::Origin>;
@@ -355,7 +358,7 @@ pub mod pallet {
                 if candidates.iter().any(|candidate| candidate.who == who) {
                     Err(Error::<T>::AlreadyCandidate)?
                 } else {
-                    T::Currency::reserve(&who, deposit)?;
+                    T::StakingCurrency::reserve(&who, deposit)?;
                     candidates.push(incoming);
                     <LastAuthoredBlock<T>>::insert(
                         who.clone(),
@@ -405,7 +408,7 @@ pub mod pallet {
                     .position(|candidate| candidate.who == *who)
                     .ok_or(Error::<T>::NotCandidate)?;
                 let candidate = candidates.remove(index);
-                T::Currency::unreserve(who, candidate.deposit);
+                T::StakingCurrency::unreserve(who, candidate.deposit);
                 <LastAuthoredBlock<T>>::remove(who.clone());
                 Ok(candidates.len())
             })?;
@@ -427,6 +430,7 @@ pub mod pallet {
         /// Kicks out candidates that did not produce a block in the kick threshold
         /// and refund their deposits.
         pub fn kick_stale_candidates(candidates: Vec<CandidateInfo<T::AccountId, BalanceOf<T>>>) -> Vec<T::AccountId> {
+            // TODO: also kick candidates when escrow balance drops
             let now = frame_system::Pallet::<T>::block_number();
             let kick_threshold = T::KickThreshold::get();
             candidates
@@ -457,12 +461,12 @@ pub mod pallet {
         fn note_author(author: T::AccountId) {
             let pot = Self::account_id();
             // assumes an ED will be sent to pot.
-            let reward = T::Currency::free_balance(&pot)
-                .checked_sub(&T::Currency::minimum_balance())
+            let reward = T::RewardsCurrency::free_balance(&pot)
+                .checked_sub(&T::RewardsCurrency::minimum_balance())
                 .unwrap_or_else(Zero::zero)
                 .div(2u32.into());
             // `reward` is half of pot account minus ED, this should never fail.
-            let _success = T::Currency::transfer(&pot, &author, reward, KeepAlive);
+            let _success = T::RewardsCurrency::transfer(&pot, &author, reward, KeepAlive);
             debug_assert!(_success.is_ok());
             <LastAuthoredBlock<T>>::insert(author, frame_system::Pallet::<T>::block_number());
 

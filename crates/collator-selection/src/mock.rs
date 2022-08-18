@@ -208,7 +208,8 @@ impl ValidatorRegistration<u64> for IsRegistered {
 
 impl Config for Test {
     type Event = Event;
-    type Currency = Balances;
+    type StakingCurrency = Balances;
+    type RewardsCurrency = Balances;
     type UpdateOrigin = EnsureSignedBy<RootAccount, u64>;
     type PotId = PotId;
     type MaxCandidates = MaxCandidates;
