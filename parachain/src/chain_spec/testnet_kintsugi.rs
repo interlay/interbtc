@@ -384,59 +384,59 @@ fn testnet_genesis(
             disable_inclusion_check: false,
         },
         issue: testnet_kintsugi_runtime::IssueConfig {
-            issue_period: testnet_kintsugi_runtime::DAYS,
+            issue_period: testnet_kintsugi_runtime::DAYS * 2,
             issue_btc_dust_value: DEFAULT_DUST_VALUE,
         },
         redeem: testnet_kintsugi_runtime::RedeemConfig {
             redeem_transaction_size: expected_transaction_size(),
-            redeem_period: testnet_kintsugi_runtime::DAYS,
+            redeem_period: testnet_kintsugi_runtime::DAYS * 2,
             redeem_btc_dust_value: DEFAULT_DUST_VALUE,
         },
         replace: testnet_kintsugi_runtime::ReplaceConfig {
-            replace_period: testnet_kintsugi_runtime::DAYS,
+            replace_period: testnet_kintsugi_runtime::DAYS * 2,
             replace_btc_dust_value: DEFAULT_DUST_VALUE,
         },
         vault_registry: testnet_kintsugi_runtime::VaultRegistryConfig {
-            minimum_collateral_vault: vec![(Token(KSM), 0)],
-            punishment_delay: testnet_kintsugi_runtime::DAYS,
+            minimum_collateral_vault: vec![(Token(KINT), 55 * KINT.one()), (Token(KSM), 3 * KSM.one())],
+            punishment_delay: kintsugi_runtime::DAYS,
             system_collateral_ceiling: vec![
-                (default_pair_testnet(Token(KSM)), 1_000_000_000 * KSM.one()),
-                (default_pair_testnet(Token(KINT)), 1_000_000_000 * KINT.one()),
+                (default_pair_testnet(Token(KINT)), 26_200 * KINT.one()),
+                (default_pair_testnet(Token(KSM)), 60_000 * KSM.one()),
             ],
             secure_collateral_threshold: vec![
                 (
-                    // 150%
-                    default_pair_testnet(Token(KSM)),
-                    FixedU128::checked_from_rational(150, 100).unwrap(),
+                    default_pair_testnet(Token(KINT)),
+                    /* 900% */
+                    FixedU128::checked_from_rational(900, 100).unwrap(),
                 ),
                 (
-                    // 400%
-                    default_pair_testnet(Token(KINT)),
-                    FixedU128::checked_from_rational(400, 100).unwrap(),
+                    default_pair_testnet(Token(KSM)),
+                    /* 260% */
+                    FixedU128::checked_from_rational(260, 100).unwrap(),
                 ),
             ],
             premium_redeem_threshold: vec![
                 (
-                    // 135%
-                    default_pair_testnet(Token(KSM)),
-                    FixedU128::checked_from_rational(135, 100).unwrap(),
+                    default_pair_testnet(Token(KINT)),
+                    /* 650% */
+                    FixedU128::checked_from_rational(650, 100).unwrap(),
                 ),
                 (
-                    // 300%
-                    default_pair_testnet(Token(KINT)),
-                    FixedU128::checked_from_rational(300, 100).unwrap(),
+                    default_pair_testnet(Token(KSM)),
+                    /* 200% */
+                    FixedU128::checked_from_rational(200, 100).unwrap(),
                 ),
             ],
             liquidation_collateral_threshold: vec![
                 (
-                    // 110%
-                    default_pair_testnet(Token(KSM)),
-                    FixedU128::checked_from_rational(110, 100).unwrap(),
+                    default_pair_testnet(Token(KINT)),
+                    /* 500% */
+                    FixedU128::checked_from_rational(500, 100).unwrap(),
                 ),
                 (
-                    // 200%
-                    default_pair_testnet(Token(KINT)),
-                    FixedU128::checked_from_rational(200, 100).unwrap(),
+                    default_pair_testnet(Token(KSM)),
+                    /* 150% */
+                    FixedU128::checked_from_rational(150, 100).unwrap(),
                 ),
             ],
         },

@@ -176,41 +176,65 @@ fn kintsugi_mainnet_genesis(
             disable_inclusion_check: false,
         },
         issue: kintsugi_runtime::IssueConfig {
-            issue_period: kintsugi_runtime::DAYS,
+            issue_period: kintsugi_runtime::DAYS * 2,
             issue_btc_dust_value: DEFAULT_DUST_VALUE,
         },
         redeem: kintsugi_runtime::RedeemConfig {
             redeem_transaction_size: expected_transaction_size(),
-            redeem_period: kintsugi_runtime::DAYS,
+            redeem_period: kintsugi_runtime::DAYS * 2,
             redeem_btc_dust_value: DEFAULT_DUST_VALUE,
         },
         replace: kintsugi_runtime::ReplaceConfig {
-            replace_period: kintsugi_runtime::DAYS,
+            replace_period: kintsugi_runtime::DAYS * 2,
             replace_btc_dust_value: DEFAULT_DUST_VALUE,
         },
         vault_registry: kintsugi_runtime::VaultRegistryConfig {
-            minimum_collateral_vault: vec![(Token(KSM), 3 * KSM.one())],
+            minimum_collateral_vault: vec![(Token(KINT), 55 * KINT.one()), (Token(KSM), 3 * KSM.one())],
             punishment_delay: kintsugi_runtime::DAYS,
-            system_collateral_ceiling: vec![(default_pair_kintsugi(Token(KSM)), 317 * KSM.one())], /* 317 ksm, about
-                                                                                                    * 100k
-                                                                                                    * USD at
-                                                                                                    * time of writing */
-            secure_collateral_threshold: vec![(
-                default_pair_kintsugi(Token(KSM)),
-                FixedU128::checked_from_rational(260, 100).unwrap(),
-            )], /* 260% */
-            premium_redeem_threshold: vec![(
-                default_pair_kintsugi(Token(KSM)),
-                FixedU128::checked_from_rational(200, 100).unwrap(),
-            )], /* 200% */
-            liquidation_collateral_threshold: vec![(
-                default_pair_kintsugi(Token(KSM)),
-                FixedU128::checked_from_rational(150, 100).unwrap(),
-            )], /* 150% */
+            system_collateral_ceiling: vec![
+                (default_pair_kintsugi(Token(KINT)), 26_200 * KINT.one()),
+                (default_pair_kintsugi(Token(KSM)), 60_000 * KSM.one()),
+            ],
+            secure_collateral_threshold: vec![
+                (
+                    default_pair_kintsugi(Token(KINT)),
+                    /* 900% */
+                    FixedU128::checked_from_rational(900, 100).unwrap(),
+                ),
+                (
+                    default_pair_kintsugi(Token(KSM)),
+                    /* 260% */
+                    FixedU128::checked_from_rational(260, 100).unwrap(),
+                ),
+            ],
+            premium_redeem_threshold: vec![
+                (
+                    default_pair_kintsugi(Token(KINT)),
+                    /* 650% */
+                    FixedU128::checked_from_rational(650, 100).unwrap(),
+                ),
+                (
+                    default_pair_kintsugi(Token(KSM)),
+                    /* 200% */
+                    FixedU128::checked_from_rational(200, 100).unwrap(),
+                ),
+            ],
+            liquidation_collateral_threshold: vec![
+                (
+                    default_pair_kintsugi(Token(KINT)),
+                    /* 500% */
+                    FixedU128::checked_from_rational(500, 100).unwrap(),
+                ),
+                (
+                    default_pair_kintsugi(Token(KSM)),
+                    /* 150% */
+                    FixedU128::checked_from_rational(150, 100).unwrap(),
+                ),
+            ],
         },
         fee: kintsugi_runtime::FeeConfig {
             issue_fee: FixedU128::checked_from_rational(15, 10000).unwrap(), // 0.15%
-            issue_griefing_collateral: FixedU128::checked_from_rational(5, 100000).unwrap(), // 0.005%
+            issue_griefing_collateral: FixedU128::checked_from_rational(5, 1000).unwrap(), // 0.5%
             refund_fee: FixedU128::checked_from_rational(5, 1000).unwrap(),  // 0.5%
             redeem_fee: FixedU128::checked_from_rational(5, 1000).unwrap(),  // 0.5%
             premium_redeem_fee: FixedU128::checked_from_rational(5, 100).unwrap(), // 5%

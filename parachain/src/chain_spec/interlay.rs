@@ -177,35 +177,36 @@ fn interlay_mainnet_genesis(
         },
         redeem: interlay_runtime::RedeemConfig {
             redeem_transaction_size: expected_transaction_size(),
-            redeem_period: interlay_runtime::DAYS,
+            redeem_period: interlay_runtime::DAYS * 2,
             redeem_btc_dust_value: DEFAULT_DUST_VALUE,
         },
         replace: interlay_runtime::ReplaceConfig {
-            replace_period: interlay_runtime::DAYS,
+            replace_period: interlay_runtime::DAYS * 2,
             replace_btc_dust_value: DEFAULT_DUST_VALUE,
         },
         vault_registry: interlay_runtime::VaultRegistryConfig {
             minimum_collateral_vault: vec![(Token(DOT), 30 * DOT.one())],
             punishment_delay: interlay_runtime::DAYS,
-            system_collateral_ceiling: vec![(default_pair_interlay(Token(DOT)), 3333 * DOT.one())], /* 3333 DOT, about 100k
-                                                                                                     * USD at
-                                                                                                     * time of writing */
+            system_collateral_ceiling: vec![(default_pair_interlay(Token(DOT)), 2_450_000 * DOT.one())],
             secure_collateral_threshold: vec![(
                 default_pair_interlay(Token(DOT)),
+                /* 260% */
                 FixedU128::checked_from_rational(260, 100).unwrap(),
-            )], /* 260% */
+            )],
             premium_redeem_threshold: vec![(
                 default_pair_interlay(Token(DOT)),
+                /* 200% */
                 FixedU128::checked_from_rational(200, 100).unwrap(),
-            )], /* 200% */
+            )],
             liquidation_collateral_threshold: vec![(
                 default_pair_interlay(Token(DOT)),
+                /* 150% */
                 FixedU128::checked_from_rational(150, 100).unwrap(),
-            )], /* 150% */
+            )],
         },
         fee: interlay_runtime::FeeConfig {
             issue_fee: FixedU128::checked_from_rational(15, 10000).unwrap(), // 0.15%
-            issue_griefing_collateral: FixedU128::checked_from_rational(5, 100000).unwrap(), // 0.005%
+            issue_griefing_collateral: FixedU128::checked_from_rational(5, 1000).unwrap(), // 0.5%
             refund_fee: FixedU128::checked_from_rational(5, 1000).unwrap(),  // 0.5%
             redeem_fee: FixedU128::checked_from_rational(5, 1000).unwrap(),  // 0.5%
             premium_redeem_fee: FixedU128::checked_from_rational(5, 100).unwrap(), // 5%
