@@ -342,7 +342,7 @@ pub mod pallet {
             Ok(().into())
         }
 
-        #[pallet::weight(<T as Config>::WeightInfo::request_redeem())]
+        #[pallet::weight(<T as Config>::WeightInfo::self_redeem())]
         #[transactional]
         pub fn self_redeem(
             origin: OriginFor<T>,

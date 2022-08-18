@@ -380,6 +380,35 @@ BtcRelay::<T>::parachain_confirmations() + 1u32.into());
     set_redeem_period {
     }: _(RawOrigin::Root, 1u32.into())
 
+    self_redeem {
+        assert_ok!(Oracle::<T>::_set_exchange_rate(get_collateral_currency_id::<T>(),
+            UnsignedFixedPoint::<T>::one()
+        ));
+
+        let vault_id = get_vault_id::<T>();
+        let origin = vault_id.account_id.clone();
+        let amount = 1000;
+
+        register_public_key::<T>(vault_id.clone());
+
+        VaultRegistry::<T>::insert_vault(
+            &vault_id,
+            Vault::new(vault_id.clone())
+        );
+
+        mint_wrapped::<T>(&origin, amount.into());
+
+        mint_collateral::<T>(&vault_id.account_id, 100_000u32.into());
+        assert_ok!(VaultRegistry::<T>::try_deposit_collateral(&vault_id, &collateral(100_000)));
+
+        assert_ok!(VaultRegistry::<T>::try_increase_to_be_issued_tokens(&vault_id, &wrapped(amount)));
+        assert_ok!(VaultRegistry::<T>::issue_tokens(&vault_id, &wrapped(amount)));
+
+        let currency_pair = VaultCurrencyPair {
+            collateral: get_collateral_currency_id::<T>(),
+            wrapped: get_wrapped_currency_id::<T>()
+        };
+    }: _(RawOrigin::Signed(origin), currency_pair, amount.into())
 }
 
 impl_benchmark_test_suite!(
