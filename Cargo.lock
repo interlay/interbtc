@@ -1185,6 +1185,32 @@ dependencies = [
 ]
 
 [[package]]
+name = "collator-selection"
+version = "3.0.0"
+dependencies = [
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "log",
+ "pallet-aura",
+ "pallet-authorship",
+ "pallet-balances",
+ "pallet-session",
+ "pallet-timestamp",
+ "parity-scale-codec",
+ "rand 0.8.5",
+ "scale-info",
+ "serde",
+ "sp-consensus-aura",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-staking",
+ "sp-std",
+ "sp-tracing",
+]
+
+[[package]]
 name = "comfy-table"
 version = "5.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3756,6 +3782,7 @@ dependencies = [
  "annuity",
  "bitcoin",
  "btc-relay",
+ "collator-selection",
  "cumulus-pallet-aura-ext",
  "cumulus-pallet-dmp-queue",
  "cumulus-pallet-parachain-system",
@@ -3798,7 +3825,6 @@ dependencies = [
  "pallet-aura",
  "pallet-authorship",
  "pallet-balances",
- "pallet-collator-selection",
  "pallet-collective",
  "pallet-identity",
  "pallet-membership",
@@ -4109,6 +4135,7 @@ dependencies = [
  "annuity",
  "bitcoin",
  "btc-relay",
+ "collator-selection",
  "cumulus-pallet-aura-ext",
  "cumulus-pallet-dmp-queue",
  "cumulus-pallet-parachain-system",
@@ -4152,7 +4179,6 @@ dependencies = [
  "pallet-aura",
  "pallet-authorship",
  "pallet-balances",
- "pallet-collator-selection",
  "pallet-collective",
  "pallet-identity",
  "pallet-membership",
@@ -6384,26 +6410,6 @@ dependencies = [
  "sp-core",
  "sp-io",
  "sp-runtime",
- "sp-std",
-]
-
-[[package]]
-name = "pallet-collator-selection"
-version = "3.0.0"
-source = "git+https://github.com/paritytech/cumulus?branch=polkadot-v0.9.24#95ca5a085727c1494ddeeae4a2b2e69c4ee1933b"
-dependencies = [
- "frame-benchmarking",
- "frame-support",
- "frame-system",
- "log",
- "pallet-authorship",
- "pallet-session",
- "parity-scale-codec",
- "rand 0.8.5",
- "scale-info",
- "serde",
- "sp-runtime",
- "sp-staking",
  "sp-std",
 ]
 
@@ -12303,6 +12309,7 @@ dependencies = [
  "annuity",
  "bitcoin",
  "btc-relay",
+ "collator-selection",
  "cumulus-pallet-aura-ext",
  "cumulus-pallet-dmp-queue",
  "cumulus-pallet-parachain-system",
@@ -12346,7 +12353,6 @@ dependencies = [
  "pallet-aura",
  "pallet-authorship",
  "pallet-balances",
- "pallet-collator-selection",
  "pallet-collective",
  "pallet-identity",
  "pallet-membership",
@@ -12402,6 +12408,7 @@ dependencies = [
  "annuity",
  "bitcoin",
  "btc-relay",
+ "collator-selection",
  "cumulus-pallet-aura-ext",
  "cumulus-pallet-dmp-queue",
  "cumulus-pallet-parachain-system",
@@ -12445,7 +12452,6 @@ dependencies = [
  "pallet-aura",
  "pallet-authorship",
  "pallet-balances",
- "pallet-collator-selection",
  "pallet-collective",
  "pallet-identity",
  "pallet-membership",
