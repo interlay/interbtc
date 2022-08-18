@@ -1000,6 +1000,7 @@ pub use issue::{Event as IssueEvent, IssueRequest};
 
 impl issue::Config for Runtime {
     type Event = Event;
+    type BlockNumberToBalance = BlockNumberToBalance;
     type WeightInfo = ();
 }
 

@@ -56,7 +56,7 @@ mod expiry_test {
     }
 
     fn cancel_issue(issue_id: H256) -> DispatchResultWithPostInfo {
-        Call::Issue(IssueCall::cancel_issue { issue_id: issue_id }).dispatch(origin_of(account_of(USER)))
+        Call::Issue(IssueCall::cancel_issue { issue_id: issue_id }).dispatch(origin_of(account_of(VAULT)))
     }
 
     #[test]
