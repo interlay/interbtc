@@ -65,7 +65,6 @@ cumulus-primitives-utility = { git = "https://github.com/paritytech/cumulus", br
 cumulus-pallet-dmp-queue = { git = "https://github.com/paritytech/cumulus", branch = "polkadot-v0.9.24", default-features = false }
 cumulus-pallet-xcmp-queue = { git = "https://github.com/paritytech/cumulus", branch = "polkadot-v0.9.24", default-features = false }
 cumulus-pallet-xcm = { git = "https://github.com/paritytech/cumulus", branch = "polkadot-v0.9.24", default-features = false }
-pallet-collator-selection = { git = "https://github.com/paritytech/cumulus", branch = "polkadot-v0.9.24", default-features = false }
 parachain-info = { git = "https://github.com/paritytech/cumulus", branch = "polkadot-v0.9.24", default-features = false }
 
 # Polkadot dependencies
@@ -93,6 +92,7 @@ escrow = { path = "../../../crates/escrow", default-features = false }
 democracy = { path = "../../../crates/democracy", default-features = false }
 annuity = { path = "../../../crates/annuity", default-features = false }
 supply = { path = "../../../crates/supply", default-features = false }
+collator-selection = { path = "../../../crates/collator-selection", default-features = false }
 
 primitives = { package = "interbtc-primitives", path = "../../../primitives", default-features = false }
 
@@ -179,7 +179,6 @@ std = [
   "cumulus-primitives-core/std",
   "cumulus-primitives-timestamp/std",
   "cumulus-primitives-utility/std",
-  "pallet-collator-selection/std",
 
   "polkadot-parachain/std",
   "xcm/std",
@@ -204,6 +203,7 @@ std = [
   "democracy/std",
   "annuity/std",
   "supply/std",
+  "collator-selection/std",
 
   "primitives/std",
 

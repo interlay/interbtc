@@ -245,7 +245,7 @@ impl pallet_session::Config for Runtime {
     type Event = Event;
     type ValidatorId = <Self as frame_system::Config>::AccountId;
     // we don't have stash and controller, thus we don't need the convert as well.
-    type ValidatorIdOf = pallet_collator_selection::IdentityCollator;
+    type ValidatorIdOf = collator_selection::IdentityCollator;
     type ShouldEndSession = pallet_session::PeriodicSessions<Period, Offset>;
     type NextSessionRotation = pallet_session::PeriodicSessions<Period, Offset>;
     type SessionManager = CollatorSelection;
@@ -267,9 +267,10 @@ parameter_types! {
 pub type CollatorSelectionUpdateOrigin =
     EnsureOneOf<EnsureRoot<AccountId>, EnsureXcm<IsMajorityOfBody<ParentLocation, ExecutiveBody>>>;
 
-impl pallet_collator_selection::Config for Runtime {
+impl collator_selection::Config for Runtime {
     type Event = Event;
-    type Currency = NativeCurrency;
+    type StakingCurrency = Escrow;
+    type RewardsCurrency = NativeCurrency;
     type UpdateOrigin = CollatorSelectionUpdateOrigin;
     type PotId = CollatorPotId;
     type MaxCandidates = MaxCandidates;
@@ -278,14 +279,14 @@ impl pallet_collator_selection::Config for Runtime {
     // should be a multiple of session or things will get inconsistent
     type KickThreshold = Period;
     type ValidatorId = <Self as frame_system::Config>::AccountId;
-    type ValidatorIdOf = pallet_collator_selection::IdentityCollator;
+    type ValidatorIdOf = collator_selection::IdentityCollator;
     type ValidatorRegistration = Session;
     type WeightInfo = ();
 }
 
 mod migrate_aura {
     use super::*;
-    use pallet_collator_selection::{CandidacyBond, DesiredCandidates, Invulnerables};
+    use collator_selection::{CandidacyBond, DesiredCandidates, Invulnerables};
     use pallet_session::{NextKeys, QueuedKeys, SessionHandler, SessionManager, Validators};
 
     type ValidatorId = <Runtime as frame_system::Config>::AccountId;
@@ -294,7 +295,7 @@ mod migrate_aura {
         <NextKeys<Runtime>>::get(v)
     }
 
-    fn pallet_collator_selection_build(invulnerables: Vec<AccountId>) {
+    fn collator_selection_build(invulnerables: Vec<AccountId>) {
         // we can root call `set_desired_candidates` to accept registrations
         <DesiredCandidates<Runtime>>::put(0);
         // we can root call `set_candidacy_bond` to set the deposit
@@ -350,7 +351,7 @@ mod migrate_aura {
         frame_support::migration::remove_storage_prefix(b"Aura", b"Authorities", &[]);
 
         // do CollatorSelection GenesisBuild
-        pallet_collator_selection_build(invulnerables.iter().cloned().map(|(acc, _)| acc).collect());
+        collator_selection_build(invulnerables.iter().cloned().map(|(acc, _)| acc).collect());
 
         // do Session GenesisBuild
         if let Err(err) = pallet_session_build(
@@ -1188,7 +1189,7 @@ construct_runtime! {
         Treasury: pallet_treasury::{Pallet, Call, Storage, Config, Event<T>} = 73,
 
         Authorship: pallet_authorship::{Pallet, Call, Storage} = 80,
-        CollatorSelection: pallet_collator_selection::{Pallet, Call, Storage, Event<T>, Config<T>} = 81,
+        CollatorSelection: collator_selection::{Pallet, Call, Storage, Event<T>, Config<T>} = 81,
         Session: pallet_session::{Pallet, Call, Storage, Event, Config<T>} = 82,
         Aura: pallet_aura::{Pallet, Storage, Config<T>} = 83,
         AuraExt: cumulus_pallet_aura_ext::{Pallet, Storage, Config} = 84,
