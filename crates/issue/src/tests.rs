@@ -288,6 +288,7 @@ fn test_cancel_issue_not_expired_and_requester_succeeds() {
         ext::vault_registry::get_active_vault_from_id::<Test>
             .mock_safe(|_| MockResult::Return(Ok(init_zero_vault(VAULT))));
         ext::vault_registry::decrease_to_be_issued_tokens::<Test>.mock_safe(move |_, _| MockResult::Return(Ok(())));
+        ext::vault_registry::is_vault_liquidated::<Test>.mock_safe(move |_| MockResult::Return(Ok(false)));
         ext::fee::get_issue_griefing_collateral::<Test>.mock_safe(move |_| MockResult::Return(Ok(griefing(100))));
 
         let issue_id = request_issue_ok(USER, 300, VAULT);

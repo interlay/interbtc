@@ -440,60 +440,53 @@ impl<T: Config> Pallet<T> {
     fn _cancel_issue(requester: T::AccountId, issue_id: H256) -> Result<(), DispatchError> {
         let issue = Self::get_pending_issue(&issue_id)?;
 
-        let griefing_collateral = if ext::btc_relay::has_request_expired::<T>(
-            issue.opentime,
-            issue.btc_height,
-            Self::issue_period().max(issue.period),
-        )? {
-            // anyone can cancel the issue request once expired
-            let griefing_collateral = issue.griefing_collateral();
-            if ext::vault_registry::is_vault_liquidated::<T>(&issue.vault)? {
-                griefing_collateral.unlock_on(&issue.requester)?;
-            } else {
-                ext::vault_registry::transfer_funds::<T>(
-                    CurrencySource::UserGriefing(issue.requester.clone()),
-                    CurrencySource::FreeBalance(issue.vault.account_id.clone()),
-                    &griefing_collateral,
-                )?;
-            }
-            griefing_collateral
-        } else if issue.requester == requester {
-            // slash/release griefing collateral proportionally to the time elapsed
-            let blocks_elapsed = ext::security::active_block_number::<T>().saturating_sub(issue.opentime);
-            // NOTE: if global issue period increases requester will get more griefing collateral
-            let expected_end = Self::issue_period().max(issue.period);
+        let expected_end = Self::issue_period().max(issue.period);
+        let griefing_collateral =
+            if ext::btc_relay::has_request_expired::<T>(issue.opentime, issue.btc_height, expected_end)? {
+                // anyone can cancel the issue request once expired
+                issue.griefing_collateral()
+            } else if issue.requester == requester {
+                // slash/release griefing collateral proportionally to the time elapsed
+                // NOTE: if global issue period increases requester will get more griefing collateral
+                let blocks_elapsed = ext::security::active_block_number::<T>().saturating_sub(issue.opentime);
 
-            let griefing_collateral = issue.griefing_collateral();
-            let slashed_collateral = ext::vault_registry::calculate_collateral::<T>(
-                &griefing_collateral,
-                // NOTE: workaround since BlockNumber doesn't inherit Into<U256>
-                &Amount::new(
-                    T::BlockNumberToBalance::convert(blocks_elapsed),
-                    griefing_collateral.currency(),
-                ),
-                &Amount::new(
-                    T::BlockNumberToBalance::convert(expected_end),
-                    griefing_collateral.currency(),
-                ),
-            )?
-            // we can never slash more than the griefing collateral
-            .min(&griefing_collateral)?;
-            // give this to the vault to cover the inconvenience
+                let griefing_collateral = issue.griefing_collateral();
+                let slashed_collateral = ext::vault_registry::calculate_collateral::<T>(
+                    &griefing_collateral,
+                    // NOTE: workaround since BlockNumber doesn't inherit Into<U256>
+                    &Amount::new(
+                        T::BlockNumberToBalance::convert(blocks_elapsed),
+                        griefing_collateral.currency(),
+                    ),
+                    &Amount::new(
+                        T::BlockNumberToBalance::convert(expected_end),
+                        griefing_collateral.currency(),
+                    ),
+                )?
+                // we can never slash more than the griefing collateral
+                .min(&griefing_collateral)?;
+
+                // refund anything not slashed
+                let released_collateral = griefing_collateral.saturating_sub(&slashed_collateral)?;
+                released_collateral.unlock_on(&requester)?;
+
+                // TODO: update `issue.griefing_collateral`?
+                slashed_collateral
+            } else {
+                return Err(Error::<T>::TimeNotExpired.into());
+            };
+
+        if ext::vault_registry::is_vault_liquidated::<T>(&issue.vault)? {
+            // return slashed griefing collateral if the vault is liquidated
+            griefing_collateral.unlock_on(&issue.requester)?;
+        } else {
+            // otherwise give all slashed griefing collateral to the vault
             ext::vault_registry::transfer_funds::<T>(
                 CurrencySource::UserGriefing(issue.requester.clone()),
                 CurrencySource::FreeBalance(issue.vault.account_id.clone()),
-                &slashed_collateral,
+                &griefing_collateral,
             )?;
-
-            // refund anything not slashed
-            let released_collateral = griefing_collateral.saturating_sub(&slashed_collateral)?;
-            released_collateral.unlock_on(&requester)?;
-
-            // TODO: update `issue.griefing_collateral`?
-            slashed_collateral
-        } else {
-            return Err(Error::<T>::TimeNotExpired.into());
-        };
+        }
 
         // decrease to-be-redeemed tokens
         let full_amount = issue.amount().checked_add(&issue.fee())?;
