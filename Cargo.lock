@@ -3559,6 +3559,7 @@ dependencies = [
  "module-redeem-rpc-runtime-api",
  "module-refund-rpc-runtime-api",
  "module-replace-rpc-runtime-api",
+ "module-reward-rpc-runtime-api",
  "module-vault-registry-rpc-runtime-api",
  "pallet-transaction-payment-rpc",
  "parity-scale-codec",
@@ -3631,6 +3632,7 @@ dependencies = [
  "module-redeem-rpc",
  "module-refund-rpc",
  "module-replace-rpc",
+ "module-reward-rpc",
  "module-vault-registry-rpc",
  "pallet-transaction-payment-rpc",
  "sc-consensus-manual-seal",
@@ -3676,6 +3678,7 @@ dependencies = [
  "module-redeem-rpc-runtime-api",
  "module-refund-rpc-runtime-api",
  "module-replace-rpc-runtime-api",
+ "module-reward-rpc-runtime-api",
  "module-vault-registry-rpc-runtime-api",
  "nomination",
  "oracle",
@@ -3812,6 +3815,7 @@ dependencies = [
  "module-redeem-rpc-runtime-api",
  "module-refund-rpc-runtime-api",
  "module-replace-rpc-runtime-api",
+ "module-reward-rpc-runtime-api",
  "module-vault-registry-rpc-runtime-api",
  "nomination",
  "oracle",
@@ -4166,6 +4170,7 @@ dependencies = [
  "module-redeem-rpc-runtime-api",
  "module-refund-rpc-runtime-api",
  "module-replace-rpc-runtime-api",
+ "module-reward-rpc-runtime-api",
  "module-vault-registry-rpc-runtime-api",
  "nomination",
  "oracle",
@@ -5528,6 +5533,29 @@ dependencies = [
  "parity-scale-codec",
  "sp-api",
  "sp-std",
+]
+
+[[package]]
+name = "module-reward-rpc"
+version = "0.3.0"
+dependencies = [
+ "jsonrpsee",
+ "module-oracle-rpc-runtime-api",
+ "module-reward-rpc-runtime-api",
+ "parity-scale-codec",
+ "sp-api",
+ "sp-blockchain",
+ "sp-runtime",
+]
+
+[[package]]
+name = "module-reward-rpc-runtime-api"
+version = "0.3.0"
+dependencies = [
+ "frame-support",
+ "module-oracle-rpc-runtime-api",
+ "parity-scale-codec",
+ "sp-api",
 ]
 
 [[package]]
@@ -12340,6 +12368,7 @@ dependencies = [
  "module-redeem-rpc-runtime-api",
  "module-refund-rpc-runtime-api",
  "module-replace-rpc-runtime-api",
+ "module-reward-rpc-runtime-api",
  "module-vault-registry-rpc-runtime-api",
  "nomination",
  "oracle",
@@ -12439,6 +12468,7 @@ dependencies = [
  "module-redeem-rpc-runtime-api",
  "module-refund-rpc-runtime-api",
  "module-replace-rpc-runtime-api",
+ "module-reward-rpc-runtime-api",
  "module-vault-registry-rpc-runtime-api",
  "nomination",
  "oracle",

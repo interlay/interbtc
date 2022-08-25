@@ -1389,6 +1389,20 @@ impl_runtime_apis! {
         }
     }
 
+    impl module_reward_rpc_runtime_api::RewardApi<
+        Block,
+        VaultId,
+        CurrencyId,
+        Balance
+    > for Runtime {
+        fn compute_reward(account_id: VaultId, currency_id: CurrencyId) -> Result<BalanceWrapper<Balance>, DispatchError> {
+            let result = VaultRewards::compute_reward(currency_id, &account_id)?;
+            let balance = BalanceWrapper::<Balance> { amount: result.try_into().map_err(|_| DispatchError::from(reward::Error::<Runtime, reward::Instance2>::TryIntoIntError))? };
+            Ok(balance)
+        }
+    }
+
+
     impl module_issue_rpc_runtime_api::IssueApi<
         Block,
         AccountId,
