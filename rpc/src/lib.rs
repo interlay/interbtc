@@ -74,7 +74,7 @@ where
         ReplaceRequest<AccountId, BlockNumber, Balance, CurrencyId>,
     >,
     C::Api: module_escrow_rpc::EscrowRuntimeApi<Block, AccountId, BlockNumber, Balance>,
-    C::Api: module_reward_rpc::RewardRuntimeApi<Block, VaultId<AccountId, CurrencyId>, CurrencyId, Balance>,
+    C::Api: module_reward_rpc::RewardRuntimeApi<Block, AccountId, VaultId<AccountId, CurrencyId>, CurrencyId, Balance>,
     C::Api: BlockBuilder<Block>,
     P: TransactionPool + 'static,
 {

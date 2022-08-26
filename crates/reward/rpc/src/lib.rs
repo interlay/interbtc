@@ -19,16 +19,25 @@ use std::sync::Arc;
 pub use module_reward_rpc_runtime_api::RewardApi as RewardRuntimeApi;
 
 #[rpc(client, server)]
-pub trait RewardApi<BlockHash, RewardId, CurrencyId, Balance>
+pub trait RewardApi<BlockHash, AccountId, VaultId, CurrencyId, Balance>
 where
     Balance: Codec + MaybeDisplay + MaybeFromStr,
-    RewardId: Codec,
+    AccountId: Codec,
+    VaultId: Codec,
     CurrencyId: Codec,
 {
-    #[method(name = "reward_computeReward")]
-    fn compute_reward(
+    #[method(name = "reward_computeEscrowReward")]
+    fn compute_escrow_reward(
         &self,
-        account_id: RewardId,
+        account_id: AccountId,
+        currency_id: CurrencyId,
+        at: Option<BlockHash>,
+    ) -> RpcResult<BalanceWrapper<Balance>>;
+
+    #[method(name = "reward_computeVaultReward")]
+    fn compute_vault_reward(
+        &self,
+        vault_id: VaultId,
         currency_id: CurrencyId,
         at: Option<BlockHash>,
     ) -> RpcResult<BalanceWrapper<Balance>>;
@@ -68,19 +77,20 @@ fn handle_response<T, E: std::fmt::Debug>(result: Result<Result<T, DispatchError
 }
 
 #[async_trait]
-impl<C, Block, RewardId, CurrencyId, Balance> RewardApiServer<<Block as BlockT>::Hash, RewardId, CurrencyId, Balance>
-    for Reward<C, Block>
+impl<C, Block, AccountId, VaultId, CurrencyId, Balance>
+    RewardApiServer<<Block as BlockT>::Hash, AccountId, VaultId, CurrencyId, Balance> for Reward<C, Block>
 where
     Block: BlockT,
     C: Send + Sync + 'static + ProvideRuntimeApi<Block> + HeaderBackend<Block>,
-    C::Api: RewardRuntimeApi<Block, RewardId, CurrencyId, Balance>,
-    RewardId: Codec,
+    C::Api: RewardRuntimeApi<Block, AccountId, VaultId, CurrencyId, Balance>,
+    AccountId: Codec,
+    VaultId: Codec,
     CurrencyId: Codec,
     Balance: Codec + MaybeDisplay + MaybeFromStr,
 {
-    fn compute_reward(
+    fn compute_escrow_reward(
         &self,
-        account_id: RewardId,
+        account_id: AccountId,
         currency_id: CurrencyId,
         at: Option<<Block as BlockT>::Hash>,
     ) -> RpcResult<BalanceWrapper<Balance>> {
@@ -88,7 +98,22 @@ where
         let at = BlockId::hash(at.unwrap_or_else(|| self.client.info().best_hash));
 
         handle_response(
-            api.compute_reward(&at, account_id, currency_id),
+            api.compute_escrow_reward(&at, account_id, currency_id),
+            "Unable to obtain the current reward".into(),
+        )
+    }
+
+    fn compute_vault_reward(
+        &self,
+        vault_id: VaultId,
+        currency_id: CurrencyId,
+        at: Option<<Block as BlockT>::Hash>,
+    ) -> RpcResult<BalanceWrapper<Balance>> {
+        let api = self.client.runtime_api();
+        let at = BlockId::hash(at.unwrap_or_else(|| self.client.info().best_hash));
+
+        handle_response(
+            api.compute_vault_reward(&at, vault_id, currency_id),
             "Unable to obtain the current reward".into(),
         )
     }

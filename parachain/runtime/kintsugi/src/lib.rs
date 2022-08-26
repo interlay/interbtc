@@ -1517,12 +1517,19 @@ impl_runtime_apis! {
 
     impl module_reward_rpc_runtime_api::RewardApi<
         Block,
+        AccountId,
         VaultId,
         CurrencyId,
         Balance
     > for Runtime {
-        fn compute_reward(account_id: VaultId, currency_id: CurrencyId) -> Result<BalanceWrapper<Balance>, DispatchError> {
-            let amount = <VaultRewards as reward::Rewards<VaultId, Balance, CurrencyId>>::compute_reward(&account_id, currency_id)?;
+        fn compute_escrow_reward(account_id: AccountId, currency_id: CurrencyId) -> Result<BalanceWrapper<Balance>, DispatchError> {
+            let amount = <EscrowRewards as reward::Rewards<AccountId, Balance, CurrencyId>>::compute_reward(&account_id, currency_id)?;
+            let balance = BalanceWrapper::<Balance> { amount };
+            Ok(balance)
+        }
+
+        fn compute_vault_reward(vault_id: VaultId, currency_id: CurrencyId) -> Result<BalanceWrapper<Balance>, DispatchError> {
+            let amount = <VaultRewards as reward::Rewards<VaultId, Balance, CurrencyId>>::compute_reward(&vault_id, currency_id)?;
             let balance = BalanceWrapper::<Balance> { amount };
             Ok(balance)
         }
