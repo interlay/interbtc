@@ -1522,8 +1522,8 @@ impl_runtime_apis! {
         Balance
     > for Runtime {
         fn compute_reward(account_id: VaultId, currency_id: CurrencyId) -> Result<BalanceWrapper<Balance>, DispatchError> {
-            let result = VaultRewards::compute_reward(currency_id, &account_id)?;
-            let balance = BalanceWrapper::<Balance> { amount: result.try_into().map_err(|_| DispatchError::from(reward::Error::<Runtime, reward::Instance2>::TryIntoIntError))? };
+            let amount = <VaultRewards as reward::Rewards<VaultId, Balance, CurrencyId>>::compute_reward(&account_id, currency_id)?;
+            let balance = BalanceWrapper::<Balance> { amount };
             Ok(balance)
         }
     }
