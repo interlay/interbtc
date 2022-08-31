@@ -7,7 +7,7 @@ use jsonrpsee::{
     types::error::{CallError, ErrorCode, ErrorObject},
 };
 use module_oracle_rpc_runtime_api::BalanceWrapper;
-use sp_api::{ApiError, ProvideRuntimeApi};
+use sp_api::ProvideRuntimeApi;
 use sp_blockchain::HeaderBackend;
 use sp_runtime::{
     generic::BlockId,
@@ -67,9 +67,6 @@ impl<C, B> Reward<C, B> {
     }
 }
 
-// fn handle_response<T>(result: Result<T, ApiError>, msg: String) -> RpcResult<T> {
-//     result.map_err(|err| internal_err(format!("Runtime error: {:?}: {:?}", msg, err)))
-// }
 fn handle_response<T, E: std::fmt::Debug>(result: Result<Result<T, DispatchError>, E>, msg: String) -> RpcResult<T> {
     result
         .map_err(|err| internal_err(format!("Runtime error: {:?}: {:?}", msg, err)))?
