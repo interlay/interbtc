@@ -134,7 +134,7 @@ pub mod pallet {
 
         fn on_runtime_upgrade() -> frame_support::weights::Weight {
             crate::types::v5::migrate_v5_to_v6::<T>()
-                + crate::types::upgrade_vault_release::try_upgrade_current_vault_release::<T>()
+                + crate::types::upgrade_client_releases::try_upgrade_current_client_releases::<T>()
         }
     }
 
@@ -428,32 +428,42 @@ pub mod pallet {
         }
 
         /// Sets the current client release version, in case of a bug fix or patch.
+        /// Clients incude the vault, oracle, and faucet.
         ///
         /// # Arguments
-        /// * `uri` - URI to the client release binary
-        /// * `code_hash` - The runtime code hash associated with this client release
+        /// * `client_name` - raw byte string representation of the client name (e.g. `b"vault"`, `b"oracle"`,
+        ///   `b"faucet"`)
+        /// * `release` - The release information for the given `client_name`
         #[pallet::weight(<T as Config>::WeightInfo::set_current_client_release())]
         #[transactional]
-        pub fn set_current_client_release(origin: OriginFor<T>, uri: Vec<u8>, code_hash: T::Hash) -> DispatchResult {
+        pub fn set_current_client_release(
+            origin: OriginFor<T>,
+            client_name: Vec<u8>,
+            release: ClientRelease<T::Hash>,
+        ) -> DispatchResult {
             ensure_root(origin)?;
-            let release = ClientRelease { uri, code_hash };
-            CurrentClientRelease::<T>::put(release.clone());
+            CurrentClientRelease::<T>::insert(client_name, release.clone());
             Self::deposit_event(Event::<T>::ApplyClientRelease { release });
             Ok(())
         }
 
         /// Sets the pending client release version. To be batched alongside the
-        /// `parachainSystem.enactAuthorizedUpgrade` relay chain xcm call.
+        /// `parachainSystem.authorizeUpgrade` Cumulus call.
+        /// Clients incude the vault, oracle, and faucet.
         ///
         /// # Arguments
-        /// * `uri` - URI to the client release binary
-        /// * `code_hash` - The runtime code hash associated with this client release
+        /// * `client_name` - raw byte string representation of the client name (e.g. `b"vault"`, `b"oracle"`,
+        ///   `b"faucet"`)
+        /// * `release` - The release information for the given `client_name`
         #[pallet::weight(<T as Config>::WeightInfo::set_pending_client_release())]
         #[transactional]
-        pub fn set_pending_client_release(origin: OriginFor<T>, uri: Vec<u8>, code_hash: T::Hash) -> DispatchResult {
+        pub fn set_pending_client_release(
+            origin: OriginFor<T>,
+            client_name: Vec<u8>,
+            release: ClientRelease<T::Hash>,
+        ) -> DispatchResult {
             ensure_root(origin)?;
-            let release = ClientRelease { uri, code_hash };
-            PendingClientRelease::<T>::put(Some(release.clone()));
+            PendingClientRelease::<T>::insert(client_name, release.clone());
             Self::deposit_event(Event::<T>::NotifyClientRelease { release });
             Ok(())
         }
@@ -716,15 +726,17 @@ pub mod pallet {
     pub(super) type TotalUserVaultCollateral<T: Config> =
         StorageMap<_, Blake2_128Concat, DefaultVaultCurrencyPair<T>, BalanceOf<T>, ValueQuery>;
 
-    /// Tuple of (release_uri, code_hash) indicating the current vault client release.
+    /// Mapping of client name (string literal represented as bytes) to its release details.
     #[pallet::storage]
     #[pallet::getter(fn current_client_release)]
-    pub(super) type CurrentClientRelease<T: Config> = StorageValue<_, ClientRelease<T::Hash>, ValueQuery>;
+    pub(super) type CurrentClientRelease<T: Config> =
+        StorageMap<_, Blake2_128Concat, Vec<u8>, ClientRelease<T::Hash>, OptionQuery>;
 
-    /// Tuple of (release_uri, code_hash) indicating the pending vault client release.
+    /// Mapping of client name (string literal represented as bytes) to its pending release details.
     #[pallet::storage]
     #[pallet::getter(fn pending_client_release)]
-    pub(super) type PendingClientRelease<T: Config> = StorageValue<_, Option<ClientRelease<T::Hash>>, ValueQuery>;
+    pub(super) type PendingClientRelease<T: Config> =
+        StorageMap<_, Blake2_128Concat, Vec<u8>, ClientRelease<T::Hash>, OptionQuery>;
 
     #[pallet::type_value]
     pub(super) fn DefaultForStorageVersion() -> Version {

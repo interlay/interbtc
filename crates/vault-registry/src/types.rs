@@ -44,8 +44,8 @@ pub enum Version {
 pub struct ClientRelease<Hash> {
     /// URI to the client release binary.
     pub uri: Vec<u8>,
-    /// The runtime code hash associated with this client release.
-    pub code_hash: Hash,
+    /// The SHA256 checksum of the client binary.
+    pub checksum: Hash,
 }
 
 #[derive(Debug, PartialEq)]
@@ -121,84 +121,97 @@ pub type DefaultVaultId<T> = VaultId<<T as frame_system::Config>::AccountId, Cur
 
 pub type DefaultVaultCurrencyPair<T> = VaultCurrencyPair<CurrencyId<T>>;
 
-pub mod upgrade_vault_release {
+pub mod upgrade_client_releases {
 
     use super::*;
     use frame_support::weights::Weight;
 
-    /// If a pending client release exists, set the current release to that.
-    /// The pending release becomes `None`.
-    pub fn try_upgrade_current_vault_release<T: Config>() -> Weight {
-        let writes: Weight = if let Some(pending_release) = crate::PendingClientRelease::<T>::take() {
-            log::info!("Upgrading current vault release.");
-            crate::CurrentClientRelease::<T>::put(pending_release.clone());
-            Pallet::<T>::deposit_event(crate::Event::<T>::ApplyClientRelease {
-                release: pending_release,
-            });
-            2
-        } else {
-            log::info!("No pending vault release, skipping migration.");
-            0
-        };
-        T::DbWeight::get().reads_writes(1, writes)
-    }
-
-    #[cfg(test)]
-    #[test]
-    fn test_vault_release_migration_is_skipped() {
-        use crate::mock::Test;
-
-        crate::mock::run_test(|| {
-            let pre_migration_pending_release = None;
-            crate::PendingClientRelease::<Test>::put(pre_migration_pending_release.clone());
-
-            let pre_migration_current_release = ClientRelease {
-                uri: b"https://github.com/interlay/interbtc-clients/releases/download/1.15.0/vault-standalone-metadata"
-                    .to_vec(),
-                code_hash: H256::default(),
-            };
-            crate::CurrentClientRelease::<Test>::put(pre_migration_current_release.clone());
-
-            try_upgrade_current_vault_release::<Test>();
-
-            assert_eq!(
-                crate::PendingClientRelease::<Test>::get(),
-                pre_migration_pending_release
-            );
-            assert_eq!(
-                crate::CurrentClientRelease::<Test>::get(),
-                pre_migration_current_release
-            );
+    /// For each pending client release, set the current release to that.
+    /// The pending release entry is removed.
+    pub fn try_upgrade_current_client_releases<T: Config>() -> Weight {
+        let keys = crate::PendingClientRelease::<T>::iter_keys().collect::<Vec<_>>();
+        let mut writes: Weight = 0;
+        keys.iter().for_each(|key| {
+            if let Some(release) = crate::PendingClientRelease::<T>::take(key) {
+                log::info!("Upgrading client release for key {:?}", key);
+                crate::CurrentClientRelease::<T>::insert(key, release.clone());
+                Pallet::<T>::deposit_event(crate::Event::<T>::ApplyClientRelease { release });
+                writes += 2;
+            } else {
+                log::info!("No pending client release for key {:?}.", key);
+            }
         });
+
+        T::DbWeight::get().reads_writes(keys.len() as Weight, writes)
     }
 
     #[cfg(test)]
     #[test]
-    fn test_vault_release_migration_executes() {
+    fn test_client_pending_release_migration() {
+        use std::collections::HashMap;
+
         use crate::mock::Test;
 
         crate::mock::run_test(|| {
-            let pre_migration_pending_release = ClientRelease {
-                uri: b"https://github.com/interlay/interbtc-clients/releases/download/1.14.0/vault-standalone-metadata"
-                    .to_vec(),
-                code_hash: H256::default(),
-            };
-            crate::PendingClientRelease::<Test>::put(Some(pre_migration_pending_release.clone()));
+            let vault_key = b"vault".to_vec();
+            let oracle_key = b"oracle".to_vec();
+            let faucet_key = b"faucet".to_vec();
 
-            let pre_migration_current_release = ClientRelease {
-                uri: b"https://github.com/interlay/interbtc-clients/releases/download/1.15.0/vault-standalone-metadata"
-                    .to_vec(),
-                code_hash: H256::default(),
-            };
-            crate::CurrentClientRelease::<Test>::put(pre_migration_current_release.clone());
+            let pre_migration_pending_releases: HashMap<_, _> = vec![
+                (vault_key.clone(), ClientRelease {
+                    uri: b"https://github.com/interlay/interbtc-clients/releases/download/1.15.0/vault-standalone-metadata"
+                        .to_vec(),
+                    checksum: H256::default(),
+                }),
+                (oracle_key.clone(), ClientRelease {
+                    uri: b"https://github.com/interlay/interbtc-clients/releases/download/1.15.0/oracle-standalone-metadata"
+                        .to_vec(),
+                    checksum: H256::default(),
+                })
+            ].into_iter().collect();
+            pre_migration_pending_releases.iter().for_each(|(key, value)| {
+                crate::PendingClientRelease::<Test>::insert(key, value.clone());
+            });
 
-            try_upgrade_current_vault_release::<Test>();
+            let pre_migration_current_releases: HashMap<_, _> = vec![
+                (vault_key.clone(), ClientRelease {
+                    uri: b"https://github.com/interlay/interbtc-clients/releases/download/1.14.0/vault-standalone-metadata"
+                        .to_vec(),
+                    checksum: H256::default(),
+                }),
+                (oracle_key.clone(), ClientRelease {
+                    uri: b"https://github.com/interlay/interbtc-clients/releases/download/1.14.0/oracle-standalone-metadata"
+                        .to_vec(),
+                    checksum: H256::default(),
+                }),
+                (faucet_key.clone(), ClientRelease {
+                    uri: b"https://github.com/interlay/interbtc-clients/releases/download/1.14.0/faucet-standalone-metadata"
+                        .to_vec(),
+                    checksum: H256::default(),
+                })
+            ].into_iter().collect();
+            pre_migration_current_releases.iter().for_each(|(key, value)| {
+                crate::CurrentClientRelease::<Test>::insert(key, value.clone());
+            });
 
-            let no_release: Option<ClientRelease<H256>> = None;
-            assert_eq!(crate::PendingClientRelease::<Test>::get(), no_release);
+            try_upgrade_current_client_releases::<Test>();
+
+            let pending_releases = crate::PendingClientRelease::<Test>::iter_values().collect::<Vec<_>>();
+            assert_eq!(pending_releases.is_empty(), true);
+
+            let current_releases = crate::CurrentClientRelease::<Test>::iter().collect::<HashMap<_, _>>();
             assert_eq!(
-                crate::CurrentClientRelease::<Test>::get(),
-                pre_migration_pending_release
+                current_releases.get(&vault_key),
+                pre_migration_pending_releases.get(&vault_key)
+            );
+            assert_eq!(
+                current_releases.get(&oracle_key),
+                pre_migration_pending_releases.get(&oracle_key)
+            );
+            // The faucet release should not be updated
+            assert_eq!(
+                current_releases.get(&faucet_key),
+                pre_migration_current_releases.get(&faucet_key)
             );
         });
     }
