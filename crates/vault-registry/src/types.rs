@@ -129,20 +129,14 @@ pub mod upgrade_client_releases {
     /// For each pending client release, set the current release to that.
     /// The pending release entry is removed.
     pub fn try_upgrade_current_client_releases<T: Config>() -> Weight {
-        let keys = crate::PendingClientRelease::<T>::iter_keys().collect::<Vec<_>>();
-        let mut writes: Weight = 0;
-        keys.iter().for_each(|key| {
-            if let Some(release) = crate::PendingClientRelease::<T>::take(key) {
-                log::info!("Upgrading client release for key {:?}", key);
-                crate::CurrentClientRelease::<T>::insert(key, release.clone());
-                Pallet::<T>::deposit_event(crate::Event::<T>::ApplyClientRelease { release });
-                writes += 2;
-            } else {
-                log::info!("No pending client release for key {:?}.", key);
-            }
-        });
-
-        T::DbWeight::get().reads_writes(keys.len() as Weight, writes)
+        let mut reads: Weight = 0;
+        for (key, release) in crate::PendingClientReleases::<T>::drain() {
+            log::info!("Upgrading client release for key {:?}", key);
+            crate::CurrentClientReleases::<T>::insert(key, release.clone());
+            Pallet::<T>::deposit_event(crate::Event::<T>::ApplyClientRelease { release });
+            reads += 1;
+        }
+        T::DbWeight::get().reads_writes(reads, reads * 2)
     }
 
     #[cfg(test)]
@@ -170,7 +164,7 @@ pub mod upgrade_client_releases {
                 })
             ].into_iter().collect();
             pre_migration_pending_releases.iter().for_each(|(key, value)| {
-                crate::PendingClientRelease::<Test>::insert(key, value.clone());
+                crate::PendingClientReleases::<Test>::insert(key, value.clone());
             });
 
             let pre_migration_current_releases: HashMap<_, _> = vec![
@@ -191,15 +185,15 @@ pub mod upgrade_client_releases {
                 })
             ].into_iter().collect();
             pre_migration_current_releases.iter().for_each(|(key, value)| {
-                crate::CurrentClientRelease::<Test>::insert(key, value.clone());
+                crate::CurrentClientReleases::<Test>::insert(key, value.clone());
             });
 
             try_upgrade_current_client_releases::<Test>();
 
-            let pending_releases = crate::PendingClientRelease::<Test>::iter_values().collect::<Vec<_>>();
+            let pending_releases = crate::PendingClientReleases::<Test>::iter_values().collect::<Vec<_>>();
             assert_eq!(pending_releases.is_empty(), true);
 
-            let current_releases = crate::CurrentClientRelease::<Test>::iter().collect::<HashMap<_, _>>();
+            let current_releases = crate::CurrentClientReleases::<Test>::iter().collect::<HashMap<_, _>>();
             assert_eq!(
                 current_releases.get(&vault_key),
                 pre_migration_pending_releases.get(&vault_key)

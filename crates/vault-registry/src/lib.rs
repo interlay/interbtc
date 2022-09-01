@@ -442,7 +442,7 @@ pub mod pallet {
             release: ClientRelease<T::Hash>,
         ) -> DispatchResult {
             ensure_root(origin)?;
-            CurrentClientRelease::<T>::insert(client_name, release.clone());
+            CurrentClientReleases::<T>::insert(client_name, release.clone());
             Self::deposit_event(Event::<T>::ApplyClientRelease { release });
             Ok(())
         }
@@ -463,7 +463,7 @@ pub mod pallet {
             release: ClientRelease<T::Hash>,
         ) -> DispatchResult {
             ensure_root(origin)?;
-            PendingClientRelease::<T>::insert(client_name, release.clone());
+            PendingClientReleases::<T>::insert(client_name, release.clone());
             Self::deposit_event(Event::<T>::NotifyClientRelease { release });
             Ok(())
         }
@@ -729,13 +729,13 @@ pub mod pallet {
     /// Mapping of client name (string literal represented as bytes) to its release details.
     #[pallet::storage]
     #[pallet::getter(fn current_client_release)]
-    pub(super) type CurrentClientRelease<T: Config> =
+    pub(super) type CurrentClientReleases<T: Config> =
         StorageMap<_, Blake2_128Concat, Vec<u8>, ClientRelease<T::Hash>, OptionQuery>;
 
     /// Mapping of client name (string literal represented as bytes) to its pending release details.
     #[pallet::storage]
     #[pallet::getter(fn pending_client_release)]
-    pub(super) type PendingClientRelease<T: Config> =
+    pub(super) type PendingClientReleases<T: Config> =
         StorageMap<_, Blake2_128Concat, Vec<u8>, ClientRelease<T::Hash>, OptionQuery>;
 
     #[pallet::type_value]
