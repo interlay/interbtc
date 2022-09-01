@@ -1,5 +1,5 @@
-//! # Services Module
-//! Stores information about network services such as vaults and oracles.
+//! # ClientsInfo Module
+//! Stores information about clients that comprise the network, such as vaults and oracles.
 
 #![deny(warnings)]
 #![cfg_attr(test, feature(proc_macro_hygiene))]

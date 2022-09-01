@@ -94,7 +94,7 @@ democracy = { path = "../../../crates/democracy", default-features = false }
 annuity = { path = "../../../crates/annuity", default-features = false }
 supply = { path = "../../../crates/supply", default-features = false }
 collator-selection = { path = "../../../crates/collator-selection", default-features = false }
-services = { path = "../../../crates/services", default-features = false }
+clients-info = { path = "../../../crates/clients-info", default-features = false }
 
 primitives = { package = "interbtc-primitives", path = "../../../primitives", default-features = false }
 

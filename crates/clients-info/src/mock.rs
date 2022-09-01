@@ -1,4 +1,4 @@
-use crate as services;
+use crate as clients_info;
 use crate::Config;
 use frame_support::{parameter_types, traits::Everything};
 use sp_core::H256;
@@ -19,7 +19,7 @@ frame_support::construct_runtime!(
         UncheckedExtrinsic = UncheckedExtrinsic,
     {
         System: frame_system::{Pallet, Call, Storage, Config, Event<T>},
-        Services: services::{Pallet, Call, Storage, Event<T>}
+        ClientsInfo: clients_info::{Pallet, Call, Storage, Event<T>}
     }
 );
 
