@@ -102,6 +102,7 @@ module-btc-relay-rpc-runtime-api = { path = "../../../crates/btc-relay/rpc/runti
 module-oracle-rpc-runtime-api = { path = "../../../crates/oracle/rpc/runtime-api", default-features = false }
 module-vault-registry-rpc-runtime-api = { path = "../../../crates/vault-registry/rpc/runtime-api", default-features = false }
 module-escrow-rpc-runtime-api = { path = "../../../crates/escrow/rpc/runtime-api", default-features = false }
+module-reward-rpc-runtime-api = { path = "../../../crates/reward/rpc/runtime-api", default-features = false }
 module-issue-rpc-runtime-api = { path = "../../../crates/issue/rpc/runtime-api", default-features = false }
 module-redeem-rpc-runtime-api = { path = "../../../crates/redeem/rpc/runtime-api", default-features = false }
 module-replace-rpc-runtime-api = { path = "../../../crates/replace/rpc/runtime-api", default-features = false }
@@ -219,6 +220,7 @@ std = [
   "module-oracle-rpc-runtime-api/std",
   "module-vault-registry-rpc-runtime-api/std",
   "module-escrow-rpc-runtime-api/std",
+  "module-reward-rpc-runtime-api/std",
   "module-issue-rpc-runtime-api/std",
   "module-redeem-rpc-runtime-api/std",
   "module-replace-rpc-runtime-api/std",

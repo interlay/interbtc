@@ -284,123 +284,6 @@ impl collator_selection::Config for Runtime {
     type WeightInfo = ();
 }
 
-mod migrate_aura {
-    use super::*;
-    use collator_selection::{CandidacyBond, DesiredCandidates, Invulnerables};
-    use pallet_session::{NextKeys, QueuedKeys, SessionHandler, SessionManager, Validators};
-
-    type ValidatorId = <Runtime as frame_system::Config>::AccountId;
-
-    fn load_keys(v: &ValidatorId) -> Option<SessionKeys> {
-        <NextKeys<Runtime>>::get(v)
-    }
-
-    fn collator_selection_build(invulnerables: Vec<AccountId>) {
-        // we can root call `set_desired_candidates` to accept registrations
-        <DesiredCandidates<Runtime>>::put(0);
-        // we can root call `set_candidacy_bond` to set the deposit
-        <CandidacyBond<Runtime>>::put(0);
-        // set these to the current authority set defined in aura
-        <Invulnerables<Runtime>>::put(invulnerables);
-    }
-
-    fn pallet_session_build(keys: Vec<(AccountId, SessionKeys)>) -> DispatchResult {
-        for (account, keys) in keys.iter().cloned() {
-            Session::set_keys(Origin::signed(account), keys, vec![])?;
-        }
-
-        let initial_validators_0 = <CollatorSelection as SessionManager<AccountId>>::new_session_genesis(0)
-            .unwrap_or_else(|| keys.iter().map(|x| x.0.clone()).collect());
-
-        let mut queued_keys = Vec::new();
-
-        for v in initial_validators_0.iter().cloned() {
-            queued_keys.push((v.clone(), load_keys(&v).ok_or(frame_support::error::LookupError)?));
-        }
-
-        <Runtime as pallet_session::Config>::SessionHandler::on_genesis_session::<SessionKeys>(&queued_keys);
-
-        <Validators<Runtime>>::put(initial_validators_0);
-        <QueuedKeys<Runtime>>::put(queued_keys);
-
-        <CollatorSelection as SessionManager<AccountId>>::start_session(0);
-
-        Ok(())
-    }
-
-    pub(crate) fn should_run_upgrade() -> bool {
-        // session may change validators so check invulnerables
-        <Invulnerables<Runtime>>::get().len() == 0
-    }
-
-    pub(crate) fn on_runtime_upgrade() -> frame_support::weights::Weight {
-        // fetch current authorities from Aura
-        let authorities = pallet_aura::Pallet::<Runtime>::authorities();
-        let invulnerables = authorities
-            .clone()
-            .into_inner()
-            .into_iter()
-            .filter_map(|pk| {
-                AccountId::try_from(pk.as_ref())
-                    .ok()
-                    .and_then(|account_id| Some((account_id, pk)))
-            })
-            .collect::<Vec<(AccountId, AuraId)>>();
-
-        // clear aura authorities to prevent panic on session build
-        frame_support::migration::remove_storage_prefix(b"Aura", b"Authorities", &[]);
-
-        // do CollatorSelection GenesisBuild
-        collator_selection_build(invulnerables.iter().cloned().map(|(acc, _)| acc).collect());
-
-        // do Session GenesisBuild
-        if let Err(err) = pallet_session_build(
-            invulnerables
-                .iter()
-                .cloned()
-                .map(|(acc, aura)| {
-                    (
-                        acc.clone(),          // account id
-                        SessionKeys { aura }, // session keys
-                    )
-                })
-                .collect(),
-        ) {
-            log::info!(target: "kintsugi_runtime", "Aura migration failed: {:?}", err);
-            // something went wrong, reset the authorities
-            frame_support::migration::put_storage_value(b"Aura", b"Authorities", &[], authorities);
-        } else {
-            log::info!(target: "kintsugi_runtime", "Aura migration successful");
-        }
-
-        // TODO: define actual weight
-        Default::default()
-    }
-}
-
-// Migration for vanilla Aura to Session + CollatorSelection.
-pub struct AuraMigration;
-impl frame_support::traits::OnRuntimeUpgrade for AuraMigration {
-    fn on_runtime_upgrade() -> frame_support::weights::Weight {
-        if migrate_aura::should_run_upgrade() {
-            migrate_aura::on_runtime_upgrade()
-        } else {
-            Default::default()
-        }
-    }
-
-    #[cfg(feature = "try-runtime")]
-    fn pre_upgrade() -> Result<(), &'static str> {
-        Ok(())
-    }
-
-    #[cfg(feature = "try-runtime")]
-    fn post_upgrade() -> Result<(), &'static str> {
-        // TODO: assert invulnerables correctly set
-        Ok(())
-    }
-}
-
 impl pallet_aura::Config for Runtime {
     type AuthorityId = AuraId;
     type DisabledValidators = ();
@@ -1232,14 +1115,8 @@ pub type UncheckedExtrinsic = generic::UncheckedExtrinsic<Address, Call, Signatu
 /// Extrinsic type that has already been checked.
 pub type CheckedExtrinsic = generic::CheckedExtrinsic<AccountId, Call, SignedExtra>;
 /// Executive: handles dispatch to the various modules.
-pub type Executive = frame_executive::Executive<
-    Runtime,
-    Block,
-    frame_system::ChainContext<Runtime>,
-    Runtime,
-    AllPalletsWithSystem,
-    AuraMigration,
->;
+pub type Executive =
+    frame_executive::Executive<Runtime, Block, frame_system::ChainContext<Runtime>, Runtime, AllPalletsWithSystem, ()>;
 
 #[cfg(not(feature = "disable-runtime-api"))]
 impl_runtime_apis! {
@@ -1512,6 +1389,26 @@ impl_runtime_apis! {
 
         fn total_supply(height: Option<BlockNumber>) -> BalanceWrapper<Balance> {
             BalanceWrapper{amount: Escrow::total_supply(height)}
+        }
+    }
+
+    impl module_reward_rpc_runtime_api::RewardApi<
+        Block,
+        AccountId,
+        VaultId,
+        CurrencyId,
+        Balance
+    > for Runtime {
+        fn compute_escrow_reward(account_id: AccountId, currency_id: CurrencyId) -> Result<BalanceWrapper<Balance>, DispatchError> {
+            let amount = <EscrowRewards as reward::Rewards<AccountId, Balance, CurrencyId>>::compute_reward(&account_id, currency_id)?;
+            let balance = BalanceWrapper::<Balance> { amount };
+            Ok(balance)
+        }
+
+        fn compute_vault_reward(vault_id: VaultId, currency_id: CurrencyId) -> Result<BalanceWrapper<Balance>, DispatchError> {
+            let amount = <VaultRewards as reward::Rewards<VaultId, Balance, CurrencyId>>::compute_reward(&vault_id, currency_id)?;
+            let balance = BalanceWrapper::<Balance> { amount };
+            Ok(balance)
         }
     }
 

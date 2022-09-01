@@ -98,7 +98,7 @@ pub trait RuntimeApiCollection:
         AccountId,
         H256,
         refund::RefundRequest<AccountId, Balance, CurrencyId>,
-    >
+    > + module_reward_rpc_runtime_api::RewardApi<Block, AccountId, VaultId<AccountId, CurrencyId>, CurrencyId, Balance>
 where
     <Self as sp_api::ApiExt<Block>>::StateBackend: sp_api::StateBackend<BlakeTwo256>,
 {
@@ -145,7 +145,7 @@ where
             AccountId,
             H256,
             refund::RefundRequest<AccountId, Balance, CurrencyId>,
-        >,
+        > + module_reward_rpc_runtime_api::RewardApi<Block, AccountId, VaultId<AccountId, CurrencyId>, CurrencyId, Balance>,
     <Self as sp_api::ApiExt<Block>>::StateBackend: sp_api::StateBackend<BlakeTwo256>,
 {
 }

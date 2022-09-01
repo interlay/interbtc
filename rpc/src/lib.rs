@@ -74,6 +74,7 @@ where
         ReplaceRequest<AccountId, BlockNumber, Balance, CurrencyId>,
     >,
     C::Api: module_escrow_rpc::EscrowRuntimeApi<Block, AccountId, BlockNumber, Balance>,
+    C::Api: module_reward_rpc::RewardRuntimeApi<Block, AccountId, VaultId<AccountId, CurrencyId>, CurrencyId, Balance>,
     C::Api: BlockBuilder<Block>,
     P: TransactionPool + 'static,
 {
@@ -84,6 +85,7 @@ where
     use module_redeem_rpc::{Redeem, RedeemApiServer};
     use module_refund_rpc::{Refund, RefundApiServer};
     use module_replace_rpc::{Replace, ReplaceApiServer};
+    use module_reward_rpc::{Reward, RewardApiServer};
     use module_vault_registry_rpc::{VaultRegistry, VaultRegistryApiServer};
     use pallet_transaction_payment_rpc::{TransactionPayment, TransactionPaymentApiServer};
     use substrate_frame_rpc_system::{System, SystemApiServer};
@@ -115,6 +117,8 @@ where
     module.merge(VaultRegistry::new(client.clone()).into_rpc())?;
 
     module.merge(Escrow::new(client.clone()).into_rpc())?;
+
+    module.merge(Reward::new(client.clone()).into_rpc())?;
 
     module.merge(Issue::new(client.clone()).into_rpc())?;
 
