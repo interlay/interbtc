@@ -1010,6 +1010,11 @@ impl nomination::Config for Runtime {
     type WeightInfo = ();
 }
 
+impl services::Config for Runtime {
+    type Event = Event;
+    type WeightInfo = ();
+}
+
 construct_runtime! {
     pub enum Runtime where
         Block = Block,
@@ -1055,6 +1060,7 @@ construct_runtime! {
         Fee: fee::{Pallet, Call, Config<T>, Storage} = 66,
         Refund: refund::{Pallet, Call, Config<T>, Storage, Event<T>} = 67,
         Nomination: nomination::{Pallet, Call, Config, Storage, Event<T>} = 68,
+        Services: services::{Pallet, Call, Storage, Event<T>} = 96,
 
         // # Governance
         Democracy: democracy::{Pallet, Call, Storage, Config<T>, Event<T>} = 70,

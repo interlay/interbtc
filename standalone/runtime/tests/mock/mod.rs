@@ -181,6 +181,9 @@ pub type UtilityCall = pallet_utility::Call<Runtime>;
 pub type SchedulerCall = pallet_scheduler::Call<Runtime>;
 pub type SchedulerPallet = pallet_scheduler::Pallet<Runtime>;
 
+pub type ServicesCall = services::Call<Runtime>;
+pub type ServicesPallet = services::Pallet<Runtime>;
+
 pub const DEFAULT_COLLATERAL_CURRENCY: <Runtime as orml_tokens::Config>::CurrencyId = Token(DOT);
 pub const DEFAULT_WRAPPED_CURRENCY: <Runtime as orml_tokens::Config>::CurrencyId = Token(IBTC);
 pub const DEFAULT_NATIVE_CURRENCY: <Runtime as orml_tokens::Config>::CurrencyId = Token(INTR);

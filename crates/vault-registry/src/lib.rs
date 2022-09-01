@@ -29,8 +29,8 @@ use mocktopus::macros::mockable;
 use primitives::VaultCurrencyPair;
 
 use crate::types::{
-    BalanceOf, BtcAddress, ClientRelease, CurrencyId, DefaultSystemVault, RichSystemVault, RichVault, SignedInner,
-    UnsignedFixedPoint, Version,
+    BalanceOf, BtcAddress, CurrencyId, DefaultSystemVault, RichSystemVault, RichVault, SignedInner, UnsignedFixedPoint,
+    Version,
 };
 
 use crate::types::DefaultVaultCurrencyPair;
@@ -134,7 +134,6 @@ pub mod pallet {
 
         fn on_runtime_upgrade() -> frame_support::weights::Weight {
             crate::types::v5::migrate_v5_to_v6::<T>()
-                + crate::types::upgrade_client_releases::try_upgrade_current_client_releases::<T>()
         }
     }
 
@@ -427,47 +426,6 @@ pub mod pallet {
             Ok(())
         }
 
-        /// Sets the current client release version, in case of a bug fix or patch.
-        /// Clients incude the vault, oracle, and faucet.
-        ///
-        /// # Arguments
-        /// * `client_name` - raw byte string representation of the client name (e.g. `b"vault"`, `b"oracle"`,
-        ///   `b"faucet"`)
-        /// * `release` - The release information for the given `client_name`
-        #[pallet::weight(<T as Config>::WeightInfo::set_current_client_release())]
-        #[transactional]
-        pub fn set_current_client_release(
-            origin: OriginFor<T>,
-            client_name: Vec<u8>,
-            release: ClientRelease<T::Hash>,
-        ) -> DispatchResult {
-            ensure_root(origin)?;
-            CurrentClientReleases::<T>::insert(client_name, release.clone());
-            Self::deposit_event(Event::<T>::ApplyClientRelease { release });
-            Ok(())
-        }
-
-        /// Sets the pending client release version. To be batched alongside the
-        /// `parachainSystem.authorizeUpgrade` Cumulus call.
-        /// Clients incude the vault, oracle, and faucet.
-        ///
-        /// # Arguments
-        /// * `client_name` - raw byte string representation of the client name (e.g. `b"vault"`, `b"oracle"`,
-        ///   `b"faucet"`)
-        /// * `release` - The release information for the given `client_name`
-        #[pallet::weight(<T as Config>::WeightInfo::set_pending_client_release())]
-        #[transactional]
-        pub fn set_pending_client_release(
-            origin: OriginFor<T>,
-            client_name: Vec<u8>,
-            release: ClientRelease<T::Hash>,
-        ) -> DispatchResult {
-            ensure_root(origin)?;
-            PendingClientReleases::<T>::insert(client_name, release.clone());
-            Self::deposit_event(Event::<T>::NotifyClientRelease { release });
-            Ok(())
-        }
-
         /// Recover vault ID from a liquidated status.
         ///
         /// # Arguments
@@ -598,12 +556,6 @@ pub mod pallet {
             vault_id: DefaultVaultId<T>,
             banned_until: T::BlockNumber,
         },
-        NotifyClientRelease {
-            release: ClientRelease<T::Hash>,
-        },
-        ApplyClientRelease {
-            release: ClientRelease<T::Hash>,
-        },
     }
 
     #[pallet::error]
@@ -725,18 +677,6 @@ pub mod pallet {
     #[pallet::storage]
     pub(super) type TotalUserVaultCollateral<T: Config> =
         StorageMap<_, Blake2_128Concat, DefaultVaultCurrencyPair<T>, BalanceOf<T>, ValueQuery>;
-
-    /// Mapping of client name (string literal represented as bytes) to its release details.
-    #[pallet::storage]
-    #[pallet::getter(fn current_client_release)]
-    pub(super) type CurrentClientReleases<T: Config> =
-        StorageMap<_, Blake2_128Concat, Vec<u8>, ClientRelease<T::Hash>, OptionQuery>;
-
-    /// Mapping of client name (string literal represented as bytes) to its pending release details.
-    #[pallet::storage]
-    #[pallet::getter(fn pending_client_release)]
-    pub(super) type PendingClientReleases<T: Config> =
-        StorageMap<_, Blake2_128Concat, Vec<u8>, ClientRelease<T::Hash>, OptionQuery>;
 
     #[pallet::type_value]
     pub(super) fn DefaultForStorageVersion() -> Version {

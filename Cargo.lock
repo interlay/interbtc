@@ -3710,6 +3710,7 @@ dependencies = [
  "security",
  "serde",
  "serde_json",
+ "services",
  "sp-api",
  "sp-arithmetic",
  "sp-block-builder",
@@ -11019,6 +11020,27 @@ dependencies = [
 ]
 
 [[package]]
+name = "services"
+version = "1.2.0"
+dependencies = [
+ "fixed-hash",
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "log",
+ "pallet-timestamp",
+ "parity-scale-codec",
+ "scale-info",
+ "serde",
+ "sp-arithmetic",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-std",
+ "visibility",
+]
+
+[[package]]
 name = "sha-1"
 version = "0.8.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -12379,6 +12401,7 @@ dependencies = [
  "security",
  "serde",
  "serde_json",
+ "services",
  "sp-api",
  "sp-arithmetic",
  "sp-block-builder",
@@ -12478,6 +12501,7 @@ dependencies = [
  "security",
  "serde",
  "serde_json",
+ "services",
  "sp-api",
  "sp-arithmetic",
  "sp-block-builder",

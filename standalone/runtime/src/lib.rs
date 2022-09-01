@@ -967,6 +967,11 @@ impl orml_asset_registry::Config for Runtime {
     type WeightInfo = ();
 }
 
+impl services::Config for Runtime {
+    type Event = Event;
+    type WeightInfo = ();
+}
+
 construct_runtime! {
     pub enum Runtime where
         Block = Block,
@@ -1014,6 +1019,7 @@ construct_runtime! {
         Nomination: nomination::{Pallet, Call, Config, Storage, Event<T>} = 28,
 
         Identity: pallet_identity::{Pallet, Call, Storage, Event<T>} = 36,
+        Services: services::{Pallet, Call, Storage, Event<T>} = 38,
 
         // # Governance
         Democracy: democracy::{Pallet, Call, Storage, Config<T>, Event<T>} = 29,
