@@ -443,7 +443,7 @@ pub mod pallet {
                     if Self::candidates().len() as u32 <= T::MinCandidates::get() {
                         // don't kick if not enough candidates
                         Some(c.who)
-                    } else if since_last > kick_threshold || balance < candidacy_bond {
+                    } else if since_last >= kick_threshold || balance < candidacy_bond {
                         // kick if stale OR balance is not sufficient
                         let outcome = Self::try_remove_candidate(&c.who);
                         if let Err(why) = outcome {
