@@ -391,8 +391,9 @@ fn should_kick_mechanism_below_balance() {
         <crate::LastAuthoredBlock<Test>>::insert(3, 17);
         <crate::LastAuthoredBlock<Test>>::insert(5, 19);
 
-        // workaround to emulate escrow total balance
+        // need to decrease reference counter (from candidate bond)
         frame_system::Pallet::<Test>::dec_consumers(&3);
+        // workaround to emulate escrow total balance decreasing
         assert_ok!(Balances::set_balance(Origin::root(), 3, 0, 0));
 
         // second session change

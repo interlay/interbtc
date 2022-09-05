@@ -440,19 +440,20 @@ pub mod pallet {
                     let since_last = now.saturating_sub(last_block);
                     // total balance excludes reserved
                     let balance = T::StakingCurrency::total_balance(&c.who);
-                    if Self::candidates().len() as u32 <= T::MinCandidates::get() {
-                        // don't kick if not enough candidates
+
+                    // don't kick if not enough candidates
+                    let surplus_candidates = Self::candidates().len() as u32 > T::MinCandidates::get();
+                    // kick if stale OR balance is not sufficient
+                    let is_good_collator = since_last < kick_threshold && balance >= candidacy_bond;
+                    if is_good_collator || !surplus_candidates {
                         Some(c.who)
-                    } else if since_last >= kick_threshold || balance < candidacy_bond {
-                        // kick if stale OR balance is not sufficient
+                    } else {
                         let outcome = Self::try_remove_candidate(&c.who);
                         if let Err(why) = outcome {
                             log::warn!("Failed to remove candidate {:?}", why);
                             debug_assert!(false, "failed to remove candidate {:?}", why);
                         }
                         None
-                    } else {
-                        Some(c.who)
                     }
                 })
                 .collect()
