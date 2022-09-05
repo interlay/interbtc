@@ -14,7 +14,7 @@ use sp_runtime::{
     traits::{CheckedAdd, CheckedSub, Zero},
     ArithmeticError,
 };
-use sp_std::{collections::btree_set::BTreeSet, vec::Vec};
+use sp_std::collections::btree_set::BTreeSet;
 
 #[cfg(test)]
 use mocktopus::macros::mockable;
@@ -38,14 +38,6 @@ pub enum Version {
     V5,
     /// Removed wallet
     V6,
-}
-
-#[derive(Encode, Decode, Eq, PartialEq, Clone, Default, TypeInfo, Debug)]
-pub struct ClientRelease<Hash> {
-    /// URI to the client release binary.
-    pub uri: Vec<u8>,
-    /// The runtime code hash associated with this client release.
-    pub code_hash: Hash,
 }
 
 #[derive(Debug, PartialEq)]
@@ -120,89 +112,6 @@ pub type CurrencyId<T> = <T as orml_tokens::Config>::CurrencyId;
 pub type DefaultVaultId<T> = VaultId<<T as frame_system::Config>::AccountId, CurrencyId<T>>;
 
 pub type DefaultVaultCurrencyPair<T> = VaultCurrencyPair<CurrencyId<T>>;
-
-pub mod upgrade_vault_release {
-
-    use super::*;
-    use frame_support::weights::Weight;
-
-    /// If a pending client release exists, set the current release to that.
-    /// The pending release becomes `None`.
-    pub fn try_upgrade_current_vault_release<T: Config>() -> Weight {
-        let writes: Weight = if let Some(pending_release) = crate::PendingClientRelease::<T>::take() {
-            log::info!("Upgrading current vault release.");
-            crate::CurrentClientRelease::<T>::put(pending_release.clone());
-            Pallet::<T>::deposit_event(crate::Event::<T>::ApplyClientRelease {
-                release: pending_release,
-            });
-            2
-        } else {
-            log::info!("No pending vault release, skipping migration.");
-            0
-        };
-        T::DbWeight::get().reads_writes(1, writes)
-    }
-
-    #[cfg(test)]
-    #[test]
-    fn test_vault_release_migration_is_skipped() {
-        use crate::mock::Test;
-
-        crate::mock::run_test(|| {
-            let pre_migration_pending_release = None;
-            crate::PendingClientRelease::<Test>::put(pre_migration_pending_release.clone());
-
-            let pre_migration_current_release = ClientRelease {
-                uri: b"https://github.com/interlay/interbtc-clients/releases/download/1.15.0/vault-standalone-metadata"
-                    .to_vec(),
-                code_hash: H256::default(),
-            };
-            crate::CurrentClientRelease::<Test>::put(pre_migration_current_release.clone());
-
-            try_upgrade_current_vault_release::<Test>();
-
-            assert_eq!(
-                crate::PendingClientRelease::<Test>::get(),
-                pre_migration_pending_release
-            );
-            assert_eq!(
-                crate::CurrentClientRelease::<Test>::get(),
-                pre_migration_current_release
-            );
-        });
-    }
-
-    #[cfg(test)]
-    #[test]
-    fn test_vault_release_migration_executes() {
-        use crate::mock::Test;
-
-        crate::mock::run_test(|| {
-            let pre_migration_pending_release = ClientRelease {
-                uri: b"https://github.com/interlay/interbtc-clients/releases/download/1.14.0/vault-standalone-metadata"
-                    .to_vec(),
-                code_hash: H256::default(),
-            };
-            crate::PendingClientRelease::<Test>::put(Some(pre_migration_pending_release.clone()));
-
-            let pre_migration_current_release = ClientRelease {
-                uri: b"https://github.com/interlay/interbtc-clients/releases/download/1.15.0/vault-standalone-metadata"
-                    .to_vec(),
-                code_hash: H256::default(),
-            };
-            crate::CurrentClientRelease::<Test>::put(pre_migration_current_release.clone());
-
-            try_upgrade_current_vault_release::<Test>();
-
-            let no_release: Option<ClientRelease<H256>> = None;
-            assert_eq!(crate::PendingClientRelease::<Test>::get(), no_release);
-            assert_eq!(
-                crate::CurrentClientRelease::<Test>::get(),
-                pre_migration_pending_release
-            );
-        });
-    }
-}
 
 pub mod liquidation_vault_fix {
     use super::*;

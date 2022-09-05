@@ -1155,6 +1155,27 @@ dependencies = [
 ]
 
 [[package]]
+name = "clients-info"
+version = "1.2.0"
+dependencies = [
+ "fixed-hash",
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "log",
+ "pallet-timestamp",
+ "parity-scale-codec",
+ "scale-info",
+ "serde",
+ "sp-arithmetic",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-std",
+ "visibility",
+]
+
+[[package]]
 name = "cloudabi"
 version = "0.0.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3655,6 +3676,7 @@ dependencies = [
  "annuity",
  "bitcoin",
  "btc-relay",
+ "clients-info",
  "currency",
  "democracy",
  "escrow",
@@ -12337,6 +12359,7 @@ dependencies = [
  "annuity",
  "bitcoin",
  "btc-relay",
+ "clients-info",
  "collator-selection",
  "cumulus-pallet-aura-ext",
  "cumulus-pallet-dmp-queue",
@@ -12437,6 +12460,7 @@ dependencies = [
  "annuity",
  "bitcoin",
  "btc-relay",
+ "clients-info",
  "collator-selection",
  "cumulus-pallet-aura-ext",
  "cumulus-pallet-dmp-queue",
