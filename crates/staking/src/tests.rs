@@ -82,8 +82,9 @@ fn slash_stake_does_not_break_state() {
         assert_ok!(Staking::slash_stake(&VAULT, fixed!(1_479_196_975_788)));
 
         // state at block 0xe56fd1e1c66ca658284cda6334865cb3ac413fdb6a9272f00f350b6f29787ba5
-        // Note: RewardPerToken is updated correctly  
-        assert_eq!(RewardPerToken::<Test>::get(currency, (0, VAULT)), f(8531126040549884148));
+        // NOTE: RewardPerToken is updated correctly
+        // updated value in v0.9.26 since `CheckedDiv` lost precision with rounding (was 8531126040549884148)
+        assert_eq!(RewardPerToken::<Test>::get(currency, (0, VAULT)), f(8531126040549884146));
         assert_eq!(RewardTally::<Test>::get(currency, (0, VAULT, account)), f(594980318984627591665452302579139));
         assert_eq!(SlashPerToken::<Test>::get(0, VAULT,), f(34067259825257565));
         assert_eq!(SlashTally::<Test>::get(0, (VAULT, account)), f(734987987016863199590580128394));
@@ -174,10 +175,10 @@ fn should_stake_and_distribute_and_withdraw() {
         assert_ok!(Staking::distribute_reward(Token(IBTC), &VAULT, fixed!(1000)));
         assert_ok!(Staking::slash_stake(&VAULT, fixed!(10000)));
 
-        assert_ok!(Staking::compute_stake(&VAULT, &BOB.account_id), 9949);
+        assert_ok!(Staking::compute_stake(&VAULT, &BOB.account_id), 9950);
 
         assert_ok!(Staking::compute_reward(Token(IBTC), &VAULT, &ALICE.account_id), 1023);
-        assert_ok!(Staking::compute_reward(Token(IBTC), &VAULT, &BOB.account_id), 1975);
+        assert_ok!(Staking::compute_reward(Token(IBTC), &VAULT, &BOB.account_id), 1976);
     })
 }
 
