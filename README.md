@@ -33,10 +33,11 @@ This repository is hosted on GitHub: [https://github.com/interlay/interbtc](http
 
 ## About the Project
 
-The interBTC runtime allows the creation of **interBTC**, a fungible token that represents Bitcoin in the Polkadot ecosystem.
+The interBTC runtime allows the creation of **interBTC**, a fungible token that represents Bitcoin on the Interlay network.
+Interlay in turn is connected to other blockchains via [XCM](https://github.com/paritytech/xcm-format) and will be connected to even more blockchians via [IBC](https://ibcprotocol.org/).
 Each interBTC is backed by Bitcoin 1:1 and allows redeeming of the equivalent amount of Bitcoins by relying on a collateralized third-party.
 
-The project uses the concept of [Cryptocurrency-backed Assets](https://xclaim.io) to lock Bitcoin on the Bitcoin blockchain and issue BTC-backed tokens on the BTC Parachain.
+The project uses the concept of [Cryptocurrency-backed Assets](https://xclaim.io) to lock Bitcoin on the Bitcoin blockchain and issue BTC-backed tokens on the Interlay network.
 The implementation is based on the [interBTC specification](https://spec.interlay.io/).
 
 ### Built with
@@ -170,14 +171,10 @@ When interacting via polkadot{.js} you will need to use our [custom types](https
 
 If you would like to contribute, please file an issue on GitHub or reach out to us.
 
-- [Discord](https://discord.gg/C8tjMbgVXh)
+- [Discord](https://discord.com/invite/KgCYK3MKSf)
 - [Telegram](https://t.me/joinchat/G9FaYhNbJK9v-6DN3IyhJw)
 
-We are [hiring](https://interlay.recruitee.com/)!
-
 ## License
-
-(C) Copyright 2021 [Interlay](https://www.interlay.io) Ltd
 
 interBTC is currently licensed under the terms of the Apache License (Version 2.0). See LICENSE
 
