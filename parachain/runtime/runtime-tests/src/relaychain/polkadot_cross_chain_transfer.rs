@@ -490,7 +490,9 @@ fn subscribe_version_notify_works() {
     Interlay::execute_with(|| {
         assert!(interlay_runtime_parachain::System::events().iter().any(|r| matches!(
             r.event,
-            interlay_runtime_parachain::Event::XcmpQueue(cumulus_pallet_xcmp_queue::Event::XcmpMessageSent(Some(_)))
+            interlay_runtime_parachain::Event::XcmpQueue(cumulus_pallet_xcmp_queue::Event::XcmpMessageSent {
+                message_hash: Some(_)
+            })
         )));
     });
     Sibling::execute_with(|| {
@@ -499,10 +501,11 @@ fn subscribe_version_notify_works() {
             .any(|r| matches!(
                 r.event,
                 testnet_interlay_runtime_parachain::Event::XcmpQueue(
-                    cumulus_pallet_xcmp_queue::Event::XcmpMessageSent(Some(_))
-                ) | testnet_interlay_runtime_parachain::Event::XcmpQueue(cumulus_pallet_xcmp_queue::Event::Success(
-                    Some(_)
-                ))
+                    cumulus_pallet_xcmp_queue::Event::XcmpMessageSent { message_hash: Some(_) }
+                ) | testnet_interlay_runtime_parachain::Event::XcmpQueue(cumulus_pallet_xcmp_queue::Event::Success {
+                    message_hash: Some(_),
+                    weight: _
+                })
             )));
     });
 }
@@ -539,7 +542,10 @@ fn trap_assets_works() {
                 (
                     (
                         Parent,
-                        X2(Parachain(INTERLAY_PARA_ID), GeneralKey(Token(INTR).encode())),
+                        X2(
+                            Parachain(INTERLAY_PARA_ID),
+                            GeneralKey(Token(INTR).encode().try_into().unwrap()),
+                        ),
                     ),
                     intr_asset_amount,
                 )
@@ -607,7 +613,10 @@ fn trap_assets_works() {
             } if location
                 == (
                     Parent,
-                    X2(Parachain(INTERLAY_PARA_ID), GeneralKey(Token(INTR).encode())),
+                    X2(
+                        Parachain(INTERLAY_PARA_ID),
+                        GeneralKey(Token(INTR).encode().try_into().unwrap()),
+                    ),
                 )
                     .into() =>
             {
@@ -641,7 +650,10 @@ fn trap_assets_works() {
                 fees: (
                     (
                         Parent,
-                        X2(Parachain(INTERLAY_PARA_ID), GeneralKey(Token(INTR).encode())),
+                        X2(
+                            Parachain(INTERLAY_PARA_ID),
+                            GeneralKey(Token(INTR).encode().try_into().unwrap()),
+                        ),
                     ),
                     intr_asset_amount / 4,
                 )
@@ -693,7 +705,16 @@ fn register_intr_as_foreign_asset() {
         name: "Interlay native".as_bytes().to_vec(),
         symbol: "extINTR".as_bytes().to_vec(),
         existential_deposit: 0,
-        location: Some(MultiLocation::new(1, X2(Parachain(INTERLAY_PARA_ID), GeneralKey(Token(INTR).encode()))).into()),
+        location: Some(
+            MultiLocation::new(
+                1,
+                X2(
+                    Parachain(INTERLAY_PARA_ID),
+                    GeneralKey(Token(INTR).encode().try_into().unwrap()),
+                ),
+            )
+            .into(),
+        ),
         additional: CustomMetadata {
             fee_per_second: 1_000_000_000_000,
             coingecko_id: "interlay".as_bytes().to_vec(),
@@ -703,10 +724,10 @@ fn register_intr_as_foreign_asset() {
 }
 
 /// The goal was to write a test to see how reanchoring is dealt with - to see if we would deal with
-/// a BuyExecution( MultiLocation::new(1, X2(Parachain(ParachainInfo::get().into()), GeneralKey(Token(INTR).encode())))
-/// correctly. However it turns out it is not possible to construct a valid xcm message like that:
-/// InitiateReserveWithdraw makes sure to reanchor the assets sent over XCM, so trying to buy non-reanchored
-/// weight will always fail.
+/// a BuyExecution( MultiLocation::new(1, X2(Parachain(ParachainInfo::get().into()),
+/// GeneralKey(Token(INTR).encode().try_into().unwrap()))) correctly. However it turns out it is not possible to
+/// construct a valid xcm message like that: InitiateReserveWithdraw makes sure to reanchor the assets sent over XCM, so
+/// trying to buy non-reanchored weight will always fail.
 /// This test is left here only because it is a useful reference to see what xtokens::transfer does under the hood.
 /// If this becomes a pain to maintain we can remove it.
 #[test]
@@ -748,7 +769,14 @@ fn test_reanchoring() {
     Sibling::execute_with(|| {
         let assets: MultiAssets = vec![MultiAsset {
             id: Concrete(
-                MultiLocation::new(1, X2(Parachain(INTERLAY_PARA_ID), GeneralKey(Token(INTR).encode()))).into(),
+                MultiLocation::new(
+                    1,
+                    X2(
+                        Parachain(INTERLAY_PARA_ID),
+                        GeneralKey(Token(INTR).encode().try_into().unwrap()),
+                    ),
+                )
+                .into(),
             ),
             fun: Fungible(2_000_000_000_000),
         }]
@@ -762,7 +790,7 @@ fn test_reanchoring() {
                 xcm: Xcm(vec![
                     BuyExecution {
                         fees: (
-                            MultiLocation::new(0, X1(GeneralKey(Token(INTR).encode()))),
+                            MultiLocation::new(0, X1(GeneralKey(Token(INTR).encode().try_into().unwrap()))),
                             2_000_000_000_000,
                         )
                             .into(),

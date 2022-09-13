@@ -28,15 +28,13 @@ use sc_cli::{ChainSpec, Result, RuntimeVersion, SubstrateCli};
 use sc_service::{Configuration, TaskManager};
 
 use crate::cli::RelayChainCli;
-use codec::Encode;
-use cumulus_client_service::genesis::generate_genesis_block;
 use cumulus_primitives_core::ParaId;
 use log::info;
 use regex::Regex;
 use sc_cli::{CliConfiguration, DefaultConfigurationValues, ImportParams, KeystoreParams, NetworkParams, SharedParams};
 use sc_service::config::{BasePath, PrometheusConfig};
 use sp_core::hexdisplay::HexDisplay;
-use sp_runtime::traits::{AccountIdConversion, Block as BlockT};
+use sp_runtime::traits::AccountIdConversion;
 use std::{io::Write, net::SocketAddr, path::PathBuf};
 
 const DEFAULT_PARA_ID: u32 = 2121;
@@ -242,15 +240,6 @@ impl SubstrateCli for RelayChainCli {
     }
 }
 
-fn extract_genesis_wasm(chain_spec: &Box<dyn sc_service::ChainSpec>) -> Result<Vec<u8>> {
-    let mut storage = chain_spec.build_storage()?;
-
-    storage
-        .top
-        .remove(sp_core::storage::well_known_keys::CODE)
-        .ok_or_else(|| "Could not find wasm file in genesis state!".into())
-}
-
 fn write_to_file_or_stdout(raw: bool, output: &Option<PathBuf>, raw_bytes: Vec<u8>) -> Result<()> {
     let output_buf = if raw {
         raw_bytes
@@ -433,28 +422,24 @@ pub fn run() -> Result<()> {
                 }
             }
         }
-        Some(Subcommand::ExportGenesisState(params)) => {
-            let mut builder = sc_cli::LoggerBuilder::new("");
-            builder.with_profiling(sc_tracing::TracingReceiver::Log, "");
-            let _ = builder.init();
+        Some(Subcommand::ExportGenesisState(cmd)) => {
+            let runner = cli.create_runner(cmd)?;
+            let chain_spec = &runner.config().chain_spec;
 
-            let chain_spec = load_spec(&params.chain.clone().unwrap_or_default())?;
-            let state_version = Cli::native_runtime_version(&chain_spec).state_version();
-            let block: Block = generate_genesis_block(&chain_spec, state_version)?;
-            let raw_header = block.header().encode();
-            write_to_file_or_stdout(params.raw, &params.output, raw_header)?;
-
-            Ok(())
+            with_runtime_or_err!(chain_spec, {
+                return runner.sync_run(|_config| {
+                    let spec = cli.load_spec(&cmd.shared_params.chain.clone().unwrap_or_default())?;
+                    let state_version = Cli::native_runtime_version(&spec).state_version();
+                    cmd.run::<Block>(&*spec, state_version)
+                });
+            })
         }
-        Some(Subcommand::ExportGenesisWasm(params)) => {
-            let mut builder = sc_cli::LoggerBuilder::new("");
-            builder.with_profiling(sc_tracing::TracingReceiver::Log, "");
-            let _ = builder.init();
-
-            let raw_wasm_blob = extract_genesis_wasm(&cli.load_spec(&params.chain.clone().unwrap_or_default())?)?;
-            write_to_file_or_stdout(params.raw, &params.output, raw_wasm_blob)?;
-
-            Ok(())
+        Some(Subcommand::ExportGenesisWasm(cmd)) => {
+            let runner = cli.create_runner(cmd)?;
+            runner.sync_run(|_config| {
+                let spec = cli.load_spec(&cmd.shared_params.chain.clone().unwrap_or_default())?;
+                cmd.run(&*spec)
+            })
         }
         Some(Subcommand::ExportMetadata(params)) => {
             let mut ext = frame_support::BasicExternalities::default();
@@ -514,10 +499,6 @@ async fn start_node(cli: Cli, config: Configuration) -> sc_service::error::Resul
 
     let parachain_account = AccountIdConversion::<polkadot_primitives::v2::AccountId>::into_account_truncating(&id);
 
-    let state_version = Cli::native_runtime_version(&config.chain_spec).state_version();
-    let block: Block = generate_genesis_block(&config.chain_spec, state_version).map_err(|e| format!("{:?}", e))?;
-    let genesis_state = format!("0x{:?}", HexDisplay::from(&block.header().encode()));
-
     let tokio_handle = config.tokio_handle.clone();
     let polkadot_config = SubstrateCli::create_configuration(&polkadot_cli, &polkadot_cli, tokio_handle)
         .map_err(|err| format!("Relay chain argument error: {}", err))?;
@@ -526,7 +507,6 @@ async fn start_node(cli: Cli, config: Configuration) -> sc_service::error::Resul
 
     info!("Parachain id: {:?}", id);
     info!("Parachain account: {}", parachain_account);
-    info!("Parachain genesis state: {}", genesis_state);
     info!(
         "Is collating: {}",
         if config.role.is_authority() { "yes" } else { "no" }
