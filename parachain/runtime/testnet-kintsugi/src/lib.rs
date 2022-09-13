@@ -513,7 +513,7 @@ impl pallet_treasury::Config for Runtime {
     type Currency = NativeCurrency;
     type ApproveOrigin = EnsureRoot<AccountId>;
     type RejectOrigin = EnsureRoot<AccountId>;
-    type SpendOrigin = frame_support::traits::NeverEnsureOrigin<Balance>;
+    type SpendOrigin = EnsureRoot<AccountId>;
     type Event = Event;
     type OnSlash = Treasury;
     type ProposalBond = ProposalBond;
