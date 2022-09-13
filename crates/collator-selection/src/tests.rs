@@ -13,8 +13,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate as collator_selection;
-use crate::{mock::*, CandidateInfo, Error};
+use crate::{self as collator_selection, mock::*, CandidateInfo, Error};
 use frame_support::{
     assert_noop, assert_ok,
     traits::{Currency, GenesisBuild, OnInitialize},
@@ -374,6 +373,47 @@ fn should_not_kick_mechanism_too_few() {
         assert_eq!(SessionHandlerCollators::get(), vec![1, 2, 5]);
         // kicked collator gets funds back
         assert_eq!(Balances::free_balance(3), 100);
+    });
+}
+
+#[test]
+fn should_kick_mechanism_below_balance() {
+    new_test_ext().execute_with(|| {
+        // add two candidates
+        assert_ok!(CollatorSelection::register_as_candidate(Origin::signed(3)));
+        assert_ok!(CollatorSelection::register_as_candidate(Origin::signed(5)));
+
+        // first session change
+        initialize_to_block(Period::get());
+        assert_eq!(SessionChangeBlock::get(), Period::get());
+
+        assert_eq!(CollatorSelection::candidates().len(), 2);
+        <crate::LastAuthoredBlock<Test>>::insert(3, 17);
+        <crate::LastAuthoredBlock<Test>>::insert(5, 19);
+
+        // need to decrease reference counter (from candidate bond)
+        frame_system::Pallet::<Test>::dec_consumers(&3);
+        // workaround to emulate escrow total balance decreasing
+        assert_ok!(Balances::set_balance(Origin::root(), 3, 0, 0));
+
+        // second session change
+        initialize_to_block(Period::get() * 2);
+        assert_eq!(SessionChangeBlock::get(), Period::get() * 2);
+
+        // 3 & 5 authored recently but 3 balance too low
+        assert_eq!(CollatorSelection::candidates().len(), 1);
+
+        // 3 will be kicked after 1 session delay
+        assert_eq!(SessionHandlerCollators::get(), vec![1, 2, 3, 5]);
+        let collator = CandidateInfo { who: 5, deposit: 10 };
+        assert_eq!(CollatorSelection::candidates(), vec![collator]);
+
+        // third session change
+        initialize_to_block(Period::get() * 3);
+        assert_eq!(SessionChangeBlock::get(), Period::get() * 3);
+
+        // 3 gets kicked after 1 session delay
+        assert_eq!(SessionHandlerCollators::get(), vec![1, 2, 5]);
     });
 }
 

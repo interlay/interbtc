@@ -428,17 +428,24 @@ pub mod pallet {
         }
 
         /// Kicks out candidates that did not produce a block in the kick threshold
-        /// and refund their deposits.
+        /// or whose free balance drops below the minimum and refund their deposits.
         pub fn kick_stale_candidates(candidates: Vec<CandidateInfo<T::AccountId, BalanceOf<T>>>) -> Vec<T::AccountId> {
-            // TODO: also kick candidates when escrow balance drops
             let now = frame_system::Pallet::<T>::block_number();
             let kick_threshold = T::KickThreshold::get();
+            let candidacy_bond = Self::candidacy_bond();
             candidates
                 .into_iter()
                 .filter_map(|c| {
                     let last_block = <LastAuthoredBlock<T>>::get(c.who.clone());
                     let since_last = now.saturating_sub(last_block);
-                    if since_last < kick_threshold || Self::candidates().len() as u32 <= T::MinCandidates::get() {
+                    // total balance excludes reserved
+                    let balance = T::StakingCurrency::total_balance(&c.who);
+
+                    // don't kick if not enough candidates
+                    let surplus_candidates = Self::candidates().len() as u32 > T::MinCandidates::get();
+                    // kick if stale OR balance is not sufficient
+                    let is_good_collator = since_last < kick_threshold && balance >= candidacy_bond;
+                    if is_good_collator || !surplus_candidates {
                         Some(c.who)
                     } else {
                         let outcome = Self::try_remove_candidate(&c.who);
