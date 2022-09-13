@@ -5,7 +5,7 @@
   <h2 align="center">interBTC</h2>
 
   <p align="center">
-    A trust-minimized bridge from Bitcoin to Polkadot.
+    A trust-minimized bridge from Bitcoin to Anywhere.
     <br />
     <a href="https://spec.interlay.io/"><strong>Explore the specification »</strong></a>
     <br />
