@@ -13,7 +13,7 @@ use currency::Amount;
 use frame_support::{
     dispatch::{DispatchError, DispatchResult},
     traits::{
-        ConstU32, Contains, Currency as PalletCurrency, EnsureOneOf, EnsureOrigin, EnsureOriginWithArg,
+        ConstU32, Contains, Currency as PalletCurrency, EitherOfDiverse, EnsureOrigin, EnsureOriginWithArg,
         ExistenceRequirement, Imbalance, OnUnbalanced,
     },
     weights::ConstantMultiplier,
@@ -324,6 +324,7 @@ where
 }
 
 impl pallet_transaction_payment::Config for Runtime {
+    type Event = Event;
     type OnChargeTransaction =
         pallet_transaction_payment::CurrencyAdapter<NativeCurrency, DealWithFees<Runtime, GetNativeCurrencyId>>;
     type LengthToFee = ConstantMultiplier<Balance, TransactionByteFee>;
@@ -443,7 +444,7 @@ pub const fn deposit(items: u32, bytes: u32) -> Balance {
     items as Balance * 20 * DOLLARS + (bytes as Balance) * 100 * MILLICENTS
 }
 
-type EnsureRootOrAllTechnicalCommittee = EnsureOneOf<
+type EnsureRootOrAllTechnicalCommittee = EitherOfDiverse<
     EnsureRoot<AccountId>,
     pallet_collective::EnsureProportionAtLeast<AccountId, TechnicalCommitteeInstance, 1, 1>,
 >;
@@ -494,6 +495,7 @@ impl pallet_treasury::Config for Runtime {
     type Currency = NativeCurrency;
     type ApproveOrigin = EnsureRoot<AccountId>;
     type RejectOrigin = EnsureRoot<AccountId>;
+    type SpendOrigin = frame_support::traits::NeverEnsureOrigin<Balance>;
     type Event = Event;
     type OnSlash = Treasury;
     type ProposalBond = ProposalBond;
@@ -977,7 +979,7 @@ construct_runtime! {
         Timestamp: pallet_timestamp::{Pallet, Call, Storage, Inherent} = 1,
         Sudo: pallet_sudo::{Pallet, Call, Storage, Config<T>, Event<T>} = 2,
         Utility: pallet_utility::{Pallet, Call, Event} = 3,
-        TransactionPayment: pallet_transaction_payment::{Pallet, Storage} = 4,
+        TransactionPayment: pallet_transaction_payment::{Pallet, Storage, Event<T>} = 4,
         Scheduler: pallet_scheduler::{Pallet, Call, Storage, Event<T>} = 5,
         Preimage: pallet_preimage::{Pallet, Call, Storage, Event<T>} = 6,
         Multisig: pallet_multisig::{Pallet, Call, Storage, Event<T>} = 7,

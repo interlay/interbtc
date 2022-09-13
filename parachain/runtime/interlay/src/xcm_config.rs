@@ -1,6 +1,6 @@
 use super::*;
 use crate::CurrencyId::ForeignAsset;
-use codec::Encode;
+use codec::{Decode, Encode};
 use cumulus_primitives_core::ParaId;
 use frame_support::{
     parameter_types,
@@ -14,6 +14,7 @@ use orml_traits::{
 use orml_xcm_support::{DepositToAlternative, IsNativeConcrete, MultiCurrencyAdapter, MultiNativeAsset};
 use pallet_xcm::XcmPassthrough;
 use polkadot_parachain::primitives::Sibling;
+use sp_runtime::WeakBoundedVec;
 use xcm::latest::prelude::*;
 use xcm_builder::{
     AccountId32Aliases, AllowKnownQueryResponses, AllowSubscriptionsFrom, AllowTopLevelPaidExecutionFrom,
@@ -91,34 +92,22 @@ pub fn dot_per_second() -> u128 {
 parameter_types! {
     pub DotPerSecond: (AssetId, u128) = (MultiLocation::parent().into(), dot_per_second());
     pub CanonicalizedIntrPerSecond: (AssetId, u128) = (
-        MultiLocation::new(
-            0,
-            X1(GeneralKey(Token(INTR).encode())),
-        ).into(),
+        canonical_currency_location(Token(INTR)).into(),
         // INTR:DOT = 4:3
         (dot_per_second() * 4) / 3
     );
     pub CanonicalizedIbtcPerSecond: (AssetId, u128) = (
-        MultiLocation::new(
-            0,
-            X1(GeneralKey(Token(IBTC).encode())),
-        ).into(),
+        canonical_currency_location(Token(IBTC)).into(),
         // (I)BTC:DOT = 1:2266 & Satoshi:Planck = 1:100
         dot_per_second() / 226_600
     );
     pub IntrPerSecond: (AssetId, u128) = ( // can be removed once we no longer need to support polkadot < 0.9.16
-        MultiLocation::new(
-            1,
-            X2(Parachain(ParachainInfo::get().into()), GeneralKey(Token(INTR).encode())),
-        ).into(),
+        non_canonical_currency_location(Token(INTR)).into(),
         // KINT:KSM = 4:3
         (dot_per_second() * 4) / 3
     );
     pub IbtcPerSecond: (AssetId, u128) = (
-        MultiLocation::new(
-            1,
-            X2(Parachain(ParachainInfo::get().into()), GeneralKey(Token(IBTC).encode())),
-        ).into(),
+        non_canonical_currency_location(Token(IBTC)).into(),
         // (I)BTC:DOT = 1:2266 & Satoshi:Planck = 1:100
         dot_per_second() / 226_600
     );
@@ -246,15 +235,30 @@ pub type LocalAssetTransactor = MultiCurrencyAdapter<
     DepositToAlternative<TreasuryAccount, Tokens, CurrencyId, AccountId, Balance>,
 >;
 
+pub fn canonical_currency_location(id: CurrencyId) -> MultiLocation {
+    MultiLocation::new(
+        0,
+        X1(GeneralKey(WeakBoundedVec::<u8, ConstU32<32>>::force_from(
+            id.encode(),
+            None,
+        ))),
+    )
+}
+
+pub fn non_canonical_currency_location(id: CurrencyId) -> MultiLocation {
+    MultiLocation::new(
+        1,
+        X2(
+            Parachain(ParachainInfo::get().into()),
+            GeneralKey(WeakBoundedVec::<u8, ConstU32<32>>::force_from(id.encode(), None)),
+        ),
+    )
+}
+
 pub use currency_id_convert::CurrencyIdConvert;
 
 mod currency_id_convert {
     use super::*;
-    use codec::{Decode, Encode};
-
-    fn native_currency_location(id: CurrencyId) -> MultiLocation {
-        MultiLocation::new(1, X2(Parachain(ParachainInfo::get().into()), GeneralKey(id.encode())))
-    }
 
     pub struct CurrencyIdConvert;
 
@@ -262,8 +266,8 @@ mod currency_id_convert {
         fn convert(id: CurrencyId) -> Option<MultiLocation> {
             match id {
                 PARENT_CURRENCY_ID => Some(MultiLocation::parent()),
-                WRAPPED_CURRENCY_ID => Some(native_currency_location(id)),
-                NATIVE_CURRENCY_ID => Some(native_currency_location(id)),
+                WRAPPED_CURRENCY_ID => Some(non_canonical_currency_location(id)),
+                NATIVE_CURRENCY_ID => Some(non_canonical_currency_location(id)),
                 ForeignAsset(id) => AssetRegistry::multilocation(&id).unwrap_or_default(),
                 _ => None,
             }
@@ -291,12 +295,12 @@ mod currency_id_convert {
                 MultiLocation {
                     parents: 1,
                     interior: X2(Parachain(id), GeneralKey(key)),
-                } if ParaId::from(id) == ParachainInfo::get() => decode_currency_id(key),
+                } if ParaId::from(id) == ParachainInfo::get() => decode_currency_id(key.into_inner()),
                 MultiLocation {
                     // adapt for reanchor canonical location: https://github.com/paritytech/polkadot/pull/4470
                     parents: 0,
                     interior: X1(GeneralKey(key)),
-                } => decode_currency_id(key),
+                } => decode_currency_id(key.into_inner()),
                 _ => None,
             }
             .or_else(|| AssetRegistry::location_to_asset_id(&location).map(|id| CurrencyId::ForeignAsset(id)))

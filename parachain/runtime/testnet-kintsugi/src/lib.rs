@@ -14,7 +14,7 @@ use currency::Amount;
 use frame_support::{
     dispatch::{DispatchError, DispatchResult},
     traits::{
-        ConstU32, Contains, Currency as PalletCurrency, EnsureOneOf, EnsureOrigin, EnsureOriginWithArg,
+        ConstU32, Contains, Currency as PalletCurrency, EitherOfDiverse, EnsureOrigin, EnsureOriginWithArg,
         EqualPrivilegeOnly, ExistenceRequirement, Imbalance, OnUnbalanced,
     },
     weights::ConstantMultiplier,
@@ -267,7 +267,7 @@ parameter_types! {
 
 /// We allow root and the Relay Chain council to execute privileged collator selection operations.
 pub type CollatorSelectionUpdateOrigin =
-    EnsureOneOf<EnsureRoot<AccountId>, EnsureXcm<IsMajorityOfBody<ParentLocation, ExecutiveBody>>>;
+    EitherOfDiverse<EnsureRoot<AccountId>, EnsureXcm<IsMajorityOfBody<ParentLocation, ExecutiveBody>>>;
 
 impl collator_selection::Config for Runtime {
     type Event = Event;
@@ -348,6 +348,7 @@ where
 }
 
 impl pallet_transaction_payment::Config for Runtime {
+    type Event = Event;
     type OnChargeTransaction =
         pallet_transaction_payment::CurrencyAdapter<NativeCurrency, DealWithFees<Runtime, GetNativeCurrencyId>>;
     type LengthToFee = ConstantMultiplier<Balance, TransactionByteFee>;
@@ -440,7 +441,7 @@ impl frame_support::traits::OnRuntimeUpgrade for SchedulerMigrationV3 {
     }
 }
 
-type EnsureRootOrAllTechnicalCommittee = EnsureOneOf<
+type EnsureRootOrAllTechnicalCommittee = EitherOfDiverse<
     EnsureRoot<AccountId>,
     pallet_collective::EnsureProportionAtLeast<AccountId, TechnicalCommitteeInstance, 1, 1>,
 >;
@@ -512,6 +513,7 @@ impl pallet_treasury::Config for Runtime {
     type Currency = NativeCurrency;
     type ApproveOrigin = EnsureRoot<AccountId>;
     type RejectOrigin = EnsureRoot<AccountId>;
+    type SpendOrigin = frame_support::traits::NeverEnsureOrigin<Balance>;
     type Event = Event;
     type OnSlash = Treasury;
     type ProposalBond = ProposalBond;
@@ -571,6 +573,7 @@ impl cumulus_pallet_parachain_system::Config for Runtime {
     type ReservedDmpWeight = ReservedDmpWeight;
     type XcmpMessageHandler = XcmpQueue;
     type ReservedXcmpWeight = ReservedXcmpWeight;
+    type CheckAssociatedRelayNumber = cumulus_pallet_parachain_system::RelayNumberStrictlyIncreases;
 }
 
 impl parachain_info::Config for Runtime {}
@@ -1020,7 +1023,7 @@ construct_runtime! {
         Timestamp: pallet_timestamp::{Pallet, Call, Storage, Inherent} = 1,
         Sudo: pallet_sudo::{Pallet, Call, Storage, Config<T>, Event<T>} = 2,
         Utility: pallet_utility::{Pallet, Call, Event} = 3,
-        TransactionPayment: pallet_transaction_payment::{Pallet, Storage} = 4,
+        TransactionPayment: pallet_transaction_payment::{Pallet, Storage, Event<T>} = 4,
         Scheduler: pallet_scheduler::{Pallet, Call, Storage, Event<T>} = 5,
         Preimage: pallet_preimage::{Pallet, Call, Storage, Event<T>} = 6,
         Multisig: pallet_multisig::{Pallet, Call, Storage, Event<T>} = 7,

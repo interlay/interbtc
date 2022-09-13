@@ -38,7 +38,7 @@ pub enum Subcommand {
 #[derive(Debug, Parser)]
 pub struct ExportMetadataCommand {
     /// Output file name or stdout if unspecified.
-    #[clap(parse(from_os_str))]
+    #[clap(action)]
     pub output: Option<PathBuf>,
 
     /// Write output in binary. Default is to write in hex.

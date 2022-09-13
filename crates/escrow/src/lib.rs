@@ -529,7 +529,7 @@ impl<T: Config> Pallet<T> {
         Self::checkpoint(who, old_locked, Default::default());
 
         T::Currency::remove_lock(LOCK_ID, &who);
-        <UserPointHistory<T>>::remove_prefix(who, None);
+        let _ = <UserPointHistory<T>>::clear_prefix(who, u32::max_value(), None);
 
         Self::deposit_event(Event::<T>::Withdraw {
             who: who.clone(),

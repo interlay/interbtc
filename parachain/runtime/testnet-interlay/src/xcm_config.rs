@@ -6,6 +6,7 @@ use orml_xcm_support::{DepositToAlternative, IsNativeConcrete, MultiCurrencyAdap
 use pallet_xcm::XcmPassthrough;
 use polkadot_parachain::primitives::Sibling;
 use primitives::{Balance, CurrencyId, CurrencyId::ForeignAsset};
+use sp_runtime::WeakBoundedVec;
 use xcm::latest::prelude::*;
 use xcm_builder::{
     AccountId32Aliases, AllowKnownQueryResponses, AllowSubscriptionsFrom, AllowTopLevelPaidExecutionFrom,
@@ -85,31 +86,19 @@ pub fn xcm_per_second() -> u128 {
 parameter_types! {
     pub KsmPerSecond: (AssetId, u128) = (MultiLocation::parent().into(), xcm_per_second());
     pub NativePerSecond: (AssetId, u128) = ( // can be removed once we no longer need to support polkadot < 0.9.16
-        MultiLocation::new(
-            1,
-            X2(Parachain(ParachainInfo::get().into()), GeneralKey(NATIVE_CURRENCY_ID.encode())),
-        ).into(),
+        non_canonical_currency_location(NATIVE_CURRENCY_ID).into(),
         (xcm_per_second() * 4) / 3
     );
     pub WrappedPerSecond: (AssetId, u128) = ( // can be removed once we no longer need to support polkadot < 0.9.16
-        MultiLocation::new(
-            1,
-            X2(Parachain(ParachainInfo::get().into()), GeneralKey(WRAPPED_CURRENCY_ID.encode())),
-        ).into(),
+        non_canonical_currency_location(WRAPPED_CURRENCY_ID).into(),
         xcm_per_second() / 1_500_000
     );
     pub CanonicalizedNativePerSecond: (AssetId, u128) = (
-        MultiLocation::new(
-            0,
-            X1(GeneralKey(NATIVE_CURRENCY_ID.encode())),
-        ).into(),
+        canonical_currency_location(NATIVE_CURRENCY_ID).into(),
         (xcm_per_second() * 4) / 3
     );
     pub CanonicalizedWrappedPerSecond: (AssetId, u128) = (
-        MultiLocation::new(
-            0,
-            X1(GeneralKey(WRAPPED_CURRENCY_ID.encode())),
-        ).into(),
+        canonical_currency_location(WRAPPED_CURRENCY_ID).into(),
         xcm_per_second() / 1_500_000
     );
 }
@@ -248,15 +237,31 @@ pub type LocalAssetTransactor = MultiCurrencyAdapter<
     DepositToAlternative<TreasuryAccount, Tokens, CurrencyId, AccountId, Balance>,
 >;
 
+pub fn canonical_currency_location(id: CurrencyId) -> MultiLocation {
+    MultiLocation::new(
+        0,
+        X1(GeneralKey(WeakBoundedVec::<u8, ConstU32<32>>::force_from(
+            id.encode(),
+            None,
+        ))),
+    )
+}
+
+pub fn non_canonical_currency_location(id: CurrencyId) -> MultiLocation {
+    MultiLocation::new(
+        1,
+        X2(
+            Parachain(ParachainInfo::get().into()),
+            GeneralKey(WeakBoundedVec::<u8, ConstU32<32>>::force_from(id.encode(), None)),
+        ),
+    )
+}
+
 pub use currency_id_convert::CurrencyIdConvert;
 
 mod currency_id_convert {
     use super::*;
-    use codec::{Decode, Encode};
-
-    fn native_currency_location(id: CurrencyId) -> MultiLocation {
-        MultiLocation::new(1, X2(Parachain(ParachainInfo::get().into()), GeneralKey(id.encode())))
-    }
+    use codec::Decode;
 
     pub struct CurrencyIdConvert;
 
@@ -264,8 +269,8 @@ mod currency_id_convert {
         fn convert(id: CurrencyId) -> Option<MultiLocation> {
             match id {
                 PARENT_CURRENCY_ID => Some(MultiLocation::parent()),
-                WRAPPED_CURRENCY_ID => Some(native_currency_location(id)),
-                NATIVE_CURRENCY_ID => Some(native_currency_location(id)),
+                WRAPPED_CURRENCY_ID => Some(non_canonical_currency_location(id)),
+                NATIVE_CURRENCY_ID => Some(non_canonical_currency_location(id)),
                 ForeignAsset(id) => AssetRegistry::multilocation(&id).unwrap_or_default(),
                 _ => None,
             }
@@ -293,12 +298,12 @@ mod currency_id_convert {
                 MultiLocation {
                     parents: 1,
                     interior: X2(Parachain(id), GeneralKey(key)),
-                } if ParaId::from(id) == ParachainInfo::get() => decode_currency_id(key),
+                } if ParaId::from(id) == ParachainInfo::get() => decode_currency_id(key.into_inner()),
                 MultiLocation {
                     // adapt for reanchor canonical location: https://github.com/paritytech/polkadot/pull/4470
                     parents: 0,
                     interior: X1(GeneralKey(key)),
-                } => decode_currency_id(key),
+                } => decode_currency_id(key.into_inner()),
                 _ => None,
             }
             .or_else(|| AssetRegistry::location_to_asset_id(&location).map(|id| CurrencyId::ForeignAsset(id)))

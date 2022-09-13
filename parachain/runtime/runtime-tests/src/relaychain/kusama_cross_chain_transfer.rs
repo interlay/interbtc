@@ -6,10 +6,42 @@ use primitives::{
     CurrencyId::{ForeignAsset, Token},
     CustomMetadata,
 };
+use sp_runtime::{FixedPointNumber, FixedU128};
 use xcm::latest::prelude::*;
 use xcm_builder::ParentIsPreset;
 use xcm_emulator::{TestExt, XcmExecutor};
 use xcm_executor::traits::Convert;
+
+mod fees {
+    use super::*;
+
+    // N * unit_weight * (weight/10^12) * token_per_second
+    fn weight_calculation(instruction_count: u32, unit_weight: Weight, per_second: u128) -> u128 {
+        let weight = unit_weight.saturating_mul(instruction_count as u64);
+        let weight_ratio = FixedU128::saturating_from_rational(weight as u128, WEIGHT_PER_SECOND as u128);
+        weight_ratio.saturating_mul_int(per_second)
+    }
+
+    fn native_unit_cost(instruction_count: u32, per_second: u128) -> u128 {
+        let unit_weight: Weight = kintsugi_runtime_parachain::xcm_config::UnitWeightCost::get();
+        assert_eq!(unit_weight, 200_000_000);
+
+        weight_calculation(instruction_count, unit_weight, per_second)
+    }
+
+    pub fn ksm_per_second_as_fee(instruction_count: u32) -> u128 {
+        let ksm_per_second = kintsugi_runtime_parachain::xcm_config::ksm_per_second();
+        assert_eq!(231_740_000_000, ksm_per_second);
+
+        native_unit_cost(instruction_count, ksm_per_second)
+    }
+
+    pub fn kint_per_second_as_fee(instruction_count: u32) -> u128 {
+        let kint_per_second = kintsugi_runtime_parachain::xcm_config::kint_per_second();
+
+        native_unit_cost(instruction_count, kint_per_second)
+    }
+}
 
 mod hrmp {
     use super::*;
@@ -157,12 +189,8 @@ fn transfer_from_relay_chain() {
         ));
     });
 
-    // ksm_per_second = (WEIGHT_PER_SECOND / ExtrinsicBaseWeight * WEIGHT_PER_NANOS) * (KSM.one() / 50_000)
-    // ksm_per_second = (10**12 / (85_795 * 1_000)) * (10**12 / 50_000)
-    // amount = ksm_per_second * weight / WEIGHT_PER_SECOND
-    // 186_480_000 = 233_100_000_000 * 800_000_000 / 10**12
     Kintsugi::execute_with(|| {
-        let xcm_fee = 186_480_000;
+        let xcm_fee = fees::ksm_per_second_as_fee(4);
         assert_eq!(
             Tokens::free_balance(Token(KSM), &AccountId::from(BOB)),
             KSM.one() - xcm_fee
@@ -301,7 +329,7 @@ fn transfer_to_sibling_and_back() {
 
     // check reception
     Kintsugi::execute_with(|| {
-        let xcm_fee = 248640000;
+        let xcm_fee = fees::kint_per_second_as_fee(4);
         assert_eq!(
             Tokens::free_balance(Token(KINT), &AccountId::from(ALICE)),
             95_000_000_000_000 - xcm_fee
@@ -318,9 +346,9 @@ fn transfer_to_sibling_and_back() {
 
 #[test]
 fn xcm_transfer_execution_barrier_trader_works() {
-    let expect_weight_limit = 600_000_000;
-    let weight_limit_too_low = 500_000_000;
-    let unit_instruction_weight = 200_000_000;
+    let unit_instruction_weight: Weight = kintsugi_runtime_parachain::xcm_config::UnitWeightCost::get();
+    let message_weight = unit_instruction_weight.saturating_mul(3);
+    let xcm_fee = fees::ksm_per_second_as_fee(3);
 
     // relay-chain use normal account to send xcm, destination parachain can't pass Barrier check
     let message = Xcm(vec![
@@ -364,7 +392,7 @@ fn xcm_transfer_execution_barrier_trader_works() {
         ReserveAssetDeposited((Parent, 100).into()),
         BuyExecution {
             fees: (Parent, 100).into(),
-            weight_limit: Limited(weight_limit_too_low),
+            weight_limit: Limited(message_weight - 1),
         },
         DepositAsset {
             assets: All.into(),
@@ -373,17 +401,17 @@ fn xcm_transfer_execution_barrier_trader_works() {
         },
     ]);
     Kintsugi::execute_with(|| {
-        let r = XcmExecutor::<XcmConfig>::execute_xcm(Parent, message, expect_weight_limit);
+        let r = XcmExecutor::<XcmConfig>::execute_xcm(Parent, message, message_weight);
         assert_eq!(r, Outcome::Error(XcmError::Barrier));
     });
 
     // trader inside BuyExecution have TooExpensive error if payment less than calculated weight amount.
-    // the minimum of calculated weight amount(`FixedRateOfFungible<KsmPerSecond>`) is 139_860_000
+    // the minimum of calculated weight amount(`FixedRateOfFungible<KsmPerSecond>`).
     let message = Xcm::<kintsugi_runtime_parachain::Call>(vec![
-        ReserveAssetDeposited((Parent, 139_859_999).into()),
+        ReserveAssetDeposited((Parent, xcm_fee - 1).into()),
         BuyExecution {
-            fees: (Parent, 139_859_999).into(),
-            weight_limit: Limited(expect_weight_limit),
+            fees: (Parent, xcm_fee - 1).into(),
+            weight_limit: Limited(message_weight),
         },
         DepositAsset {
             assets: All.into(),
@@ -392,19 +420,19 @@ fn xcm_transfer_execution_barrier_trader_works() {
         },
     ]);
     Kintsugi::execute_with(|| {
-        let r = XcmExecutor::<XcmConfig>::execute_xcm(Parent, message, expect_weight_limit);
+        let r = XcmExecutor::<XcmConfig>::execute_xcm(Parent, message, message_weight);
         assert_eq!(
             r,
-            Outcome::Incomplete(expect_weight_limit - unit_instruction_weight, XcmError::TooExpensive)
+            Outcome::Incomplete(message_weight - unit_instruction_weight, XcmError::TooExpensive)
         );
     });
 
     // all situation fulfilled, execute success
     let message = Xcm::<kintsugi_runtime_parachain::Call>(vec![
-        ReserveAssetDeposited((Parent, 139_860_000).into()),
+        ReserveAssetDeposited((Parent, xcm_fee).into()),
         BuyExecution {
-            fees: (Parent, 139_860_000).into(),
-            weight_limit: Limited(expect_weight_limit),
+            fees: (Parent, xcm_fee).into(),
+            weight_limit: Limited(message_weight),
         },
         DepositAsset {
             assets: All.into(),
@@ -413,8 +441,8 @@ fn xcm_transfer_execution_barrier_trader_works() {
         },
     ]);
     Kintsugi::execute_with(|| {
-        let r = XcmExecutor::<XcmConfig>::execute_xcm(Parent, message, expect_weight_limit);
-        assert_eq!(r, Outcome::Complete(expect_weight_limit));
+        let r = XcmExecutor::<XcmConfig>::execute_xcm(Parent, message, message_weight);
+        assert_eq!(r, Outcome::Complete(message_weight));
     });
 }
 
@@ -471,7 +499,9 @@ fn subscribe_version_notify_works() {
     Kintsugi::execute_with(|| {
         assert!(kintsugi_runtime_parachain::System::events().iter().any(|r| matches!(
             r.event,
-            kintsugi_runtime_parachain::Event::XcmpQueue(cumulus_pallet_xcmp_queue::Event::XcmpMessageSent(Some(_)))
+            kintsugi_runtime_parachain::Event::XcmpQueue(cumulus_pallet_xcmp_queue::Event::XcmpMessageSent {
+                message_hash: Some(_)
+            })
         )));
     });
     Sibling::execute_with(|| {
@@ -480,10 +510,11 @@ fn subscribe_version_notify_works() {
             .any(|r| matches!(
                 r.event,
                 testnet_kintsugi_runtime_parachain::Event::XcmpQueue(
-                    cumulus_pallet_xcmp_queue::Event::XcmpMessageSent(Some(_))
-                ) | testnet_kintsugi_runtime_parachain::Event::XcmpQueue(cumulus_pallet_xcmp_queue::Event::Success(
-                    Some(_)
-                ))
+                    cumulus_pallet_xcmp_queue::Event::XcmpMessageSent { message_hash: Some(_) }
+                ) | testnet_kintsugi_runtime_parachain::Event::XcmpQueue(cumulus_pallet_xcmp_queue::Event::Success {
+                    message_hash: Some(_),
+                    weight: _,
+                })
             )));
     });
 }
@@ -492,7 +523,7 @@ fn subscribe_version_notify_works() {
 fn trap_assets_works() {
     let mut kint_treasury_amount = 0;
     let (ksm_asset_amount, kint_asset_amount) = (KSM.one(), KINT.one());
-    let trader_weight_to_treasury: u128 = 139_860_000;
+    let trader_weight_to_treasury = fees::ksm_per_second_as_fee(3);
 
     let parent_account: AccountId = ParentIsPreset::<AccountId>::convert(Parent.into()).unwrap();
 
@@ -516,7 +547,10 @@ fn trap_assets_works() {
                 (
                     (
                         Parent,
-                        X2(Parachain(KINTSUGI_PARA_ID), GeneralKey(Token(KINT).encode())),
+                        X2(
+                            Parachain(KINTSUGI_PARA_ID),
+                            GeneralKey(Token(KINT).encode().try_into().unwrap()),
+                        ),
                     ),
                     kint_asset_amount,
                 )
@@ -574,7 +608,10 @@ fn trap_assets_works() {
                 fees: (
                     (
                         Parent,
-                        X2(Parachain(KINTSUGI_PARA_ID), GeneralKey(Token(KINT).encode())),
+                        X2(
+                            Parachain(KINTSUGI_PARA_ID),
+                            GeneralKey(Token(KINT).encode().try_into().unwrap()),
+                        ),
                     ),
                     kint_asset_amount / 2,
                 )
@@ -600,8 +637,8 @@ fn trap_assets_works() {
 
     // verify that assets were claimed successfully (deposited into Bob's account)
     Kintsugi::execute_with(|| {
-        let kint_xcm_fee = 186_480_000;
-        let ksm_xcm_fee = 139_860_000;
+        let kint_xcm_fee = fees::kint_per_second_as_fee(3);
+        let ksm_xcm_fee = fees::ksm_per_second_as_fee(3);
         assert_eq!(
             Tokens::free_balance(Token(KINT), &AccountId::from(BOB)),
             kint_asset_amount - kint_xcm_fee
@@ -619,7 +656,16 @@ fn register_kint_as_foreign_asset() {
         name: "Kintsugi native".as_bytes().to_vec(),
         symbol: "extKINT".as_bytes().to_vec(),
         existential_deposit: 0,
-        location: Some(MultiLocation::new(1, X2(Parachain(KINTSUGI_PARA_ID), GeneralKey(Token(KINT).encode()))).into()),
+        location: Some(
+            MultiLocation::new(
+                1,
+                X2(
+                    Parachain(KINTSUGI_PARA_ID),
+                    GeneralKey(Token(KINT).encode().try_into().unwrap()),
+                ),
+            )
+            .into(),
+        ),
         additional: CustomMetadata {
             fee_per_second: 1_000_000_000_000,
             coingecko_id: "kint-sugi".as_bytes().to_vec(),

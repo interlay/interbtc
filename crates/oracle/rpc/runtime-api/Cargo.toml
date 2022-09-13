@@ -7,9 +7,9 @@ edition = "2021"
 [dependencies]
 serde = { version = "1.0.130", default-features = false, optional = true, features = ["derive"] }
 codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = ["derive", "max-encoded-len"] }
-frame-support = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.24", default-features = false }
-sp-api = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.24", default-features = false }
-sp-std = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.24", default-features = false }
+frame-support = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.26", default-features = false }
+sp-api = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.26", default-features = false }
+sp-std = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.26", default-features = false }
 
 [features]
 default = ["std"]
