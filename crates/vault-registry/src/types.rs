@@ -574,6 +574,10 @@ impl<T: Config> RichVault<T> {
         Amount::new(self.data.to_be_issued_tokens, self.id().wrapped_currency())
     }
 
+    pub(crate) fn freely_redeemable_tokens(&self) -> Result<Amount<T>, DispatchError> {
+        Ok(self.issued_tokens().checked_sub(&self.to_be_redeemed_tokens())?)
+    }
+
     pub(crate) fn request_issue_tokens(&mut self, tokens: &Amount<T>) -> DispatchResult {
         self.increase_to_be_issued(tokens)
     }
@@ -608,7 +612,7 @@ impl<T: Config> RichVault<T> {
         if self.data.is_liquidated() {
             Ok(())
         } else {
-            let stake = self.issued_tokens().checked_sub(&self.to_be_redeemed_tokens())?;
+            let stake = self.freely_redeemable_tokens()?;
             ext::reward::set_stake(&self.id(), &stake)
         }
     }

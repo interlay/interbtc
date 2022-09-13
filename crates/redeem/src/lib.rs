@@ -110,6 +110,11 @@ pub mod pallet {
         RedeemPeriodChange {
             period: T::BlockNumber,
         },
+        SelfRedeem {
+            vault_id: DefaultVaultId<T>,
+            amount: BalanceOf<T>,
+            fee: BalanceOf<T>,
+        },
     }
 
     #[pallet::error]
@@ -336,9 +341,103 @@ pub mod pallet {
             Self::_mint_tokens_for_reimbursed_redeem(vault_id, redeem_id)?;
             Ok(().into())
         }
+
+        #[pallet::weight(<T as Config>::WeightInfo::self_redeem())]
+        #[transactional]
+        pub fn self_redeem(
+            origin: OriginFor<T>,
+            currency_pair: DefaultVaultCurrencyPair<T>,
+            amount_wrapped: BalanceOf<T>,
+        ) -> DispatchResultWithPostInfo {
+            let account_id = ensure_signed(origin)?;
+            let vault_id = VaultId::new(account_id, currency_pair.collateral, currency_pair.wrapped);
+            let amount_wrapped = Amount::new(amount_wrapped, vault_id.wrapped_currency());
+
+            self_redeem::execute::<T>(vault_id, amount_wrapped)?;
+
+            Ok(().into())
+        }
     }
 }
 
+mod self_redeem {
+    use super::*;
+
+    pub(crate) fn execute<T: Config>(vault_id: DefaultVaultId<T>, amount_wrapped: Amount<T>) -> DispatchResult {
+        // ensure that vault is not liquidated and not banned
+        ext::vault_registry::ensure_not_banned::<T>(&vault_id)?;
+
+        // for self-redeem, dustAmount is effectively 1 satoshi
+        ensure!(!amount_wrapped.is_zero(), Error::<T>::AmountBelowDustAmount);
+
+        let (fees, consumed_issued_tokens) = calculate_token_amounts::<T>(&vault_id, &amount_wrapped)?;
+
+        take_user_tokens::<T>(&vault_id.account_id, &consumed_issued_tokens, &fees)?;
+
+        update_vault_tokens::<T>(&vault_id, &consumed_issued_tokens)?;
+
+        Pallet::<T>::deposit_event(Event::<T>::SelfRedeem {
+            vault_id,
+            amount: consumed_issued_tokens.amount(),
+            fee: fees.amount(),
+        });
+
+        Ok(())
+    }
+
+    /// returns (fees, consumed_issued_tokens)
+    fn calculate_token_amounts<T: Config>(
+        vault_id: &DefaultVaultId<T>,
+        requested_redeem_amount: &Amount<T>,
+    ) -> Result<(Amount<T>, Amount<T>), DispatchError> {
+        let redeemable_tokens = ext::vault_registry::get_free_redeemable_tokens(&vault_id)?;
+
+        let fees = if redeemable_tokens.eq(&requested_redeem_amount)? {
+            Amount::zero(vault_id.wrapped_currency())
+        } else {
+            ext::fee::get_redeem_fee::<T>(&requested_redeem_amount)?
+        };
+
+        let consumed_issued_tokens = requested_redeem_amount.checked_sub(&fees)?;
+
+        Ok((fees, consumed_issued_tokens))
+    }
+
+    fn take_user_tokens<T: Config>(
+        account_id: &T::AccountId,
+        consumed_issued_tokens: &Amount<T>,
+        fees: &Amount<T>,
+    ) -> DispatchResult {
+        // burn the tokens that the vault no longer is backing
+        consumed_issued_tokens
+            .lock_on(account_id)
+            .map_err(|_| Error::<T>::AmountExceedsUserBalance)?;
+        consumed_issued_tokens.burn_from(account_id)?;
+
+        // transfer fees to pool
+        fees.transfer(account_id, &ext::fee::fee_pool_account_id::<T>())
+            .map_err(|_| Error::<T>::AmountExceedsUserBalance)?;
+        ext::fee::distribute_rewards::<T>(fees)?;
+
+        Ok(())
+    }
+
+    fn update_vault_tokens<T: Config>(
+        vault_id: &DefaultVaultId<T>,
+        consumed_issued_tokens: &Amount<T>,
+    ) -> DispatchResult {
+        ext::vault_registry::try_increase_to_be_redeemed_tokens::<T>(vault_id, consumed_issued_tokens)?;
+        ext::vault_registry::redeem_tokens::<T>(
+            vault_id,
+            consumed_issued_tokens,
+            &Amount::zero(vault_id.collateral_currency()),
+            &vault_id.account_id,
+        )?;
+
+        Pallet::<T>::release_replace_collateral(vault_id, consumed_issued_tokens)?;
+        Ok(())
+    }
+}
 // "Internal" functions, callable by code.
 #[cfg_attr(test, mockable)]
 impl<T: Config> Pallet<T> {
@@ -403,20 +502,7 @@ impl<T: Config> Pallet<T> {
             Amount::zero(currency_id)
         };
 
-        // decrease to-be-replaced tokens - when the vault requests tokens to be replaced, it
-        // want to get rid of tokens, and it does not matter whether this is through a redeem,
-        // or a replace. As such, we decrease the to-be-replaced tokens here. This call will
-        // never fail due to insufficient to-be-replaced tokens
-        let (_, griefing_collateral) =
-            ext::vault_registry::decrease_to_be_replaced_tokens::<T>(&vault_id, &vault_to_be_burned_tokens)?;
-        // release the griefing collateral that is locked for the replace request
-        if !griefing_collateral.is_zero() {
-            ext::vault_registry::transfer_funds(
-                CurrencySource::AvailableReplaceCollateral(vault_id.clone()),
-                CurrencySource::FreeBalance(vault_id.account_id.clone()),
-                &griefing_collateral,
-            )?;
-        }
+        Self::release_replace_collateral(&vault_id, &vault_to_be_burned_tokens)?;
 
         Self::insert_redeem_request(
             &redeem_id,
@@ -650,6 +736,24 @@ impl<T: Config> Pallet<T> {
             amount: reimbursed_amount.amount(),
         });
 
+        Ok(())
+    }
+
+    fn release_replace_collateral(vault_id: &DefaultVaultId<T>, burned_tokens: &Amount<T>) -> DispatchResult {
+        // decrease to-be-replaced tokens - when the vault requests tokens to be replaced, it
+        // want to get rid of tokens, and it does not matter whether this is through a redeem,
+        // or a replace. As such, we decrease the to-be-replaced tokens here. This call will
+        // never fail due to insufficient to-be-replaced tokens
+        let (_, griefing_collateral) =
+            ext::vault_registry::decrease_to_be_replaced_tokens::<T>(&vault_id, &burned_tokens)?;
+        // release the griefing collateral that is locked for the replace request
+        if !griefing_collateral.is_zero() {
+            ext::vault_registry::transfer_funds(
+                CurrencySource::AvailableReplaceCollateral(vault_id.clone()),
+                CurrencySource::FreeBalance(vault_id.account_id.clone()),
+                &griefing_collateral,
+            )?;
+        }
         Ok(())
     }
 

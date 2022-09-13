@@ -818,6 +818,10 @@ impl<T: Config> Pallet<T> {
         Ok(Amount::new(vault.liquidated_collateral, vault_id.currencies.collateral))
     }
 
+    pub fn get_free_redeemable_tokens(vault_id: &DefaultVaultId<T>) -> Result<Amount<T>, DispatchError> {
+        Ok(Self::get_rich_vault_from_id(vault_id)?.freely_redeemable_tokens()?)
+    }
+
     /// Like get_vault_from_id, but additionally checks that the vault is active
     pub fn get_active_vault_from_id(vault_id: &DefaultVaultId<T>) -> Result<DefaultVault<T>, DispatchError> {
         let vault = Self::get_vault_from_id(vault_id)?;

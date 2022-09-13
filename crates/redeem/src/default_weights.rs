@@ -40,6 +40,7 @@ pub trait WeightInfo {
 	fn cancel_redeem_reimburse() -> Weight;
 	fn cancel_redeem_retry() -> Weight;
 	fn set_redeem_period() -> Weight;
+	fn self_redeem() -> Weight;
 }
 
 /// Weights for redeem using the Substrate node and recommended hardware.
@@ -141,6 +142,9 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		(3_288_000 as Weight)
 			.saturating_add(T::DbWeight::get().writes(1 as Weight))
 	}
+	fn self_redeem() -> Weight {
+		Self::execute_redeem() // Dummy until we rerun benchmarks
+	}
 }
 
 // For backwards compatibility and tests
@@ -240,6 +244,9 @@ impl WeightInfo for () {
 	fn set_redeem_period() -> Weight {
 		(3_288_000 as Weight)
 			.saturating_add(RocksDbWeight::get().writes(1 as Weight))
+	}
+	fn self_redeem() -> Weight {
+		Self::execute_redeem() // dummy until we rerun benchmarks
 	}
 }
 
