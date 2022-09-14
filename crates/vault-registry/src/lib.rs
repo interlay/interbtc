@@ -612,6 +612,9 @@ pub mod pallet {
 
         /// Unable to convert value
         TryIntoIntError,
+
+        /// Vault is not accepting new issue requests.
+        VaultNotAcceptingIssueRequests,
     }
 
     /// The minimum collateral (e.g. DOT/KSM) a Vault needs to provide to register.
@@ -1739,6 +1742,15 @@ impl<T: Config> Pallet<T> {
         } else {
             vault.issuable_tokens()
         }
+    }
+
+    pub fn ensure_accepting_new_issues(vault_id: &DefaultVaultId<T>) -> Result<(), DispatchError> {
+        let vault = Self::get_active_rich_vault_from_id(vault_id)?;
+        ensure!(
+            matches!(vault.data.status, VaultStatus::Active(true)),
+            Error::<T>::VaultNotAcceptingIssueRequests
+        );
+        Ok(())
     }
 
     /// Get the amount of tokens issued by a vault

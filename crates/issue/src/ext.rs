@@ -77,6 +77,10 @@ pub(crate) mod vault_registry {
         <vault_registry::Pallet<T>>::try_increase_to_be_issued_tokens(vault_id, amount)
     }
 
+    pub fn ensure_accepting_new_issues<T: crate::Config>(vault_id: &DefaultVaultId<T>) -> Result<(), DispatchError> {
+        <vault_registry::Pallet<T>>::ensure_accepting_new_issues(vault_id)
+    }
+
     pub fn register_deposit_address<T: crate::Config>(
         vault_id: &DefaultVaultId<T>,
         secure_id: H256,
