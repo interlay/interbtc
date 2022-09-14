@@ -38,7 +38,6 @@ pub trait WeightInfo {
 	fn set_issue_fee() -> Weight;
 	fn set_issue_griefing_collateral() -> Weight;
 	fn set_redeem_fee() -> Weight;
-	fn set_refund_fee() -> Weight;
 	fn set_premium_redeem_fee() -> Weight;
 	fn set_punishment_fee() -> Weight;
 	fn set_replace_griefing_collateral() -> Weight;
@@ -80,12 +79,6 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 
 	// Storage: Fee RedeemFee (r:0 w:1)
 	fn set_redeem_fee() -> Weight {
-		(2_835_000 as Weight)
-			.saturating_add(T::DbWeight::get().writes(1 as Weight))
-	}
-
-	// Storage: Fee RefundFee (r:0 w:1)
-	fn set_refund_fee() -> Weight {
 		(2_835_000 as Weight)
 			.saturating_add(T::DbWeight::get().writes(1 as Weight))
 	}
@@ -144,12 +137,6 @@ impl WeightInfo for () {
 
 	// Storage: Fee RedeemFee (r:0 w:1)
 	fn set_redeem_fee() -> Weight {
-		(2_835_000 as Weight)
-			.saturating_add(RocksDbWeight::get().writes(1 as Weight))
-	}
-
-	// Storage: Fee RefundFee (r:0 w:1)
-	fn set_refund_fee() -> Weight {
 		(2_835_000 as Weight)
 			.saturating_add(RocksDbWeight::get().writes(1 as Weight))
 	}

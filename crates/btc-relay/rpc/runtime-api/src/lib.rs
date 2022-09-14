@@ -1,4 +1,4 @@
-//! Runtime API definition for the Refund Module.
+//! Runtime API definition for the BTCRelay Module.
 
 #![cfg_attr(not(feature = "std"), no_std)]
 

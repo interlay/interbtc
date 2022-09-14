@@ -84,7 +84,6 @@ fee = { path = "../../../crates/fee", default-features = false }
 issue = { path = "../../../crates/issue", default-features = false }
 redeem = { path = "../../../crates/redeem", default-features = false }
 replace = { path = "../../../crates/replace", default-features = false }
-refund = { path = "../../../crates/refund", default-features = false }
 nomination = { path = "../../../crates/nomination", default-features = false }
 reward = { path = "../../../crates/reward", default-features = false }
 staking = { path = "../../../crates/staking", default-features = false }
@@ -104,7 +103,6 @@ module-reward-rpc-runtime-api = { path = "../../../crates/reward/rpc/runtime-api
 module-issue-rpc-runtime-api = { path = "../../../crates/issue/rpc/runtime-api", default-features = false }
 module-redeem-rpc-runtime-api = { path = "../../../crates/redeem/rpc/runtime-api", default-features = false }
 module-replace-rpc-runtime-api = { path = "../../../crates/replace/rpc/runtime-api", default-features = false }
-module-refund-rpc-runtime-api = { path = "../../../crates/refund/rpc/runtime-api", default-features = false }
 
 # Orml dependencies
 orml-tokens = { git = "https://github.com/open-web3-stack/open-runtime-module-library", rev = "8c625a5ab43c1c56cdeed5f8d814a891566d4cf8", default-features = false }
@@ -193,7 +191,6 @@ std = [
   "vault-registry/std",
   "oracle/std",
   "fee/std",
-  "refund/std",
   "issue/std",
   "redeem/std",
   "replace/std",
@@ -218,7 +215,6 @@ std = [
   "module-issue-rpc-runtime-api/std",
   "module-redeem-rpc-runtime-api/std",
   "module-replace-rpc-runtime-api/std",
-  "module-refund-rpc-runtime-api/std",
 
   "orml-tokens/std",
   "orml-traits/std",
@@ -246,7 +242,6 @@ runtime-benchmarks = [
   "nomination/runtime-benchmarks",
   "oracle/runtime-benchmarks",
   "redeem/runtime-benchmarks",
-  "refund/runtime-benchmarks",
   "replace/runtime-benchmarks",
   "vault-registry/runtime-benchmarks",
 ]

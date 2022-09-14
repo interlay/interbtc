@@ -3486,7 +3486,6 @@ dependencies = [
  "module-issue-rpc-runtime-api",
  "module-oracle-rpc-runtime-api",
  "module-redeem-rpc-runtime-api",
- "module-refund-rpc-runtime-api",
  "module-replace-rpc-runtime-api",
  "module-reward-rpc-runtime-api",
  "module-vault-registry-rpc-runtime-api",
@@ -3559,7 +3558,6 @@ dependencies = [
  "module-issue-rpc",
  "module-oracle-rpc",
  "module-redeem-rpc",
- "module-refund-rpc",
  "module-replace-rpc",
  "module-reward-rpc",
  "module-vault-registry-rpc",
@@ -3606,7 +3604,6 @@ dependencies = [
  "module-issue-rpc-runtime-api",
  "module-oracle-rpc-runtime-api",
  "module-redeem-rpc-runtime-api",
- "module-refund-rpc-runtime-api",
  "module-replace-rpc-runtime-api",
  "module-reward-rpc-runtime-api",
  "module-vault-registry-rpc-runtime-api",
@@ -3636,7 +3633,6 @@ dependencies = [
  "parity-scale-codec",
  "pretty_assertions",
  "redeem",
- "refund",
  "replace",
  "reward",
  "scale-info",
@@ -3743,7 +3739,6 @@ dependencies = [
  "module-issue-rpc-runtime-api",
  "module-oracle-rpc-runtime-api",
  "module-redeem-rpc-runtime-api",
- "module-refund-rpc-runtime-api",
  "module-replace-rpc-runtime-api",
  "module-reward-rpc-runtime-api",
  "module-vault-registry-rpc-runtime-api",
@@ -3778,7 +3773,6 @@ dependencies = [
  "parity-scale-codec",
  "polkadot-parachain",
  "redeem",
- "refund",
  "replace",
  "reward",
  "scale-info",
@@ -3855,13 +3849,13 @@ dependencies = [
  "frame-support",
  "frame-system",
  "interbtc-primitives",
+ "log",
  "mocktopus",
  "oracle",
  "orml-tokens",
  "orml-traits",
  "pallet-timestamp",
  "parity-scale-codec",
- "refund",
  "reward",
  "scale-info",
  "security",
@@ -4106,7 +4100,6 @@ dependencies = [
  "module-issue-rpc-runtime-api",
  "module-oracle-rpc-runtime-api",
  "module-redeem-rpc-runtime-api",
- "module-refund-rpc-runtime-api",
  "module-replace-rpc-runtime-api",
  "module-reward-rpc-runtime-api",
  "module-vault-registry-rpc-runtime-api",
@@ -4140,7 +4133,6 @@ dependencies = [
  "parity-scale-codec",
  "polkadot-parachain",
  "redeem",
- "refund",
  "replace",
  "reward",
  "scale-info",
@@ -5386,28 +5378,6 @@ dependencies = [
 
 [[package]]
 name = "module-redeem-rpc-runtime-api"
-version = "1.2.0"
-dependencies = [
- "frame-support",
- "parity-scale-codec",
- "sp-api",
- "sp-std",
-]
-
-[[package]]
-name = "module-refund-rpc"
-version = "1.2.0"
-dependencies = [
- "jsonrpsee",
- "module-refund-rpc-runtime-api",
- "parity-scale-codec",
- "sp-api",
- "sp-blockchain",
- "sp-runtime",
-]
-
-[[package]]
-name = "module-refund-rpc-runtime-api"
 version = "1.2.0"
 dependencies = [
  "frame-support",
@@ -6989,7 +6959,6 @@ dependencies = [
  "module-issue-rpc-runtime-api",
  "module-oracle-rpc-runtime-api",
  "module-redeem-rpc-runtime-api",
- "module-refund-rpc-runtime-api",
  "module-replace-rpc-runtime-api",
  "module-vault-registry-rpc-runtime-api",
  "nomination",
@@ -7023,7 +6992,6 @@ dependencies = [
  "polkadot-runtime",
  "polkadot-runtime-parachains",
  "redeem",
- "refund",
  "replace",
  "reward",
  "scale-info",
@@ -9060,37 +9028,6 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn",
-]
-
-[[package]]
-name = "refund"
-version = "1.2.0"
-dependencies = [
- "bitcoin",
- "btc-relay",
- "currency",
- "fee",
- "frame-benchmarking",
- "frame-support",
- "frame-system",
- "interbtc-primitives",
- "mocktopus",
- "oracle",
- "orml-tokens",
- "orml-traits",
- "pallet-timestamp",
- "parity-scale-codec",
- "reward",
- "scale-info",
- "security",
- "serde",
- "sp-arithmetic",
- "sp-core",
- "sp-io",
- "sp-runtime",
- "sp-std",
- "staking",
- "vault-registry",
 ]
 
 [[package]]
@@ -12135,7 +12072,6 @@ dependencies = [
  "module-issue-rpc-runtime-api",
  "module-oracle-rpc-runtime-api",
  "module-redeem-rpc-runtime-api",
- "module-refund-rpc-runtime-api",
  "module-replace-rpc-runtime-api",
  "module-reward-rpc-runtime-api",
  "module-vault-registry-rpc-runtime-api",
@@ -12170,7 +12106,6 @@ dependencies = [
  "parity-scale-codec",
  "polkadot-parachain",
  "redeem",
- "refund",
  "replace",
  "reward",
  "scale-info",
@@ -12236,7 +12171,6 @@ dependencies = [
  "module-issue-rpc-runtime-api",
  "module-oracle-rpc-runtime-api",
  "module-redeem-rpc-runtime-api",
- "module-refund-rpc-runtime-api",
  "module-replace-rpc-runtime-api",
  "module-reward-rpc-runtime-api",
  "module-vault-registry-rpc-runtime-api",
@@ -12271,7 +12205,6 @@ dependencies = [
  "parity-scale-codec",
  "polkadot-parachain",
  "redeem",
- "refund",
  "replace",
  "reward",
  "scale-info",

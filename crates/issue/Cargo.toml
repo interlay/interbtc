@@ -9,6 +9,7 @@ version = "1.2.0"
 serde = { version = "1.0.130", default-features = false, features = ['derive'], optional = true }
 codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = ["derive", "max-encoded-len"] }
 scale-info = { version = "2.0.0", default-features = false, features = ["derive"] }
+log = { version = "0.4.14", default-features = false }
 
 # Substrate dependencies
 sp-io = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.26", default-features = false }
@@ -30,7 +31,6 @@ fee = { path = "../fee", default-features = false }
 security = { path = "../security", default-features = false }
 currency = { path = "../currency", default-features = false }
 vault-registry = { path = "../vault-registry", default-features = false }
-refund = { path = "../refund", default-features = false }
 
 primitives = { package = "interbtc-primitives", path = "../../primitives", default-features = false }
 
@@ -74,7 +74,6 @@ std = [
 	"security/std",
 	"currency/std",
 	"vault-registry/std",
-	"refund/std",
 
     "primitives/std",
 

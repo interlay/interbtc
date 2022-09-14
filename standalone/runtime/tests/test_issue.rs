@@ -141,23 +141,6 @@ mod expiry_test {
     }
 }
 
-#[test]
-fn integration_test_issue_with_parachain_shutdown_fails() {
-    test_with(|_currency_id| {
-        SecurityPallet::set_status(StatusCode::Shutdown);
-
-        assert_noop!(
-            Call::Refund(RefundCall::execute_refund {
-                refund_id: Default::default(),
-                merkle_proof: Default::default(),
-                raw_tx: Default::default()
-            })
-            .dispatch(origin_of(account_of(ALICE))),
-            SystemError::CallFiltered,
-        );
-    });
-}
-
 mod request_issue_tests {
     use interbtc_runtime_standalone::UnsignedFixedPoint;
     use sp_runtime::traits::CheckedMul;
@@ -582,117 +565,6 @@ fn integration_test_withdraw_after_request_issue() {
     });
 }
 
-#[test]
-/// overpay by a factor of 4
-fn integration_test_issue_refund() {
-    test_with_initialized_vault(|vault_id| {
-        let requested_btc = vault_id.wrapped(1000);
-
-        // make sure we don't have enough collateral to fulfil the overpayment
-        let current_minimum_collateral =
-            VaultRegistryPallet::get_required_collateral_for_vault(vault_id.clone()).unwrap();
-        CoreVaultData::force_to(
-            &vault_id,
-            CoreVaultData {
-                backing_collateral: current_minimum_collateral
-                    + requested_btc.convert_to(vault_id.collateral_currency()).unwrap() * 2,
-                ..CoreVaultData::vault(vault_id.clone())
-            },
-        );
-        let initial_state = ParachainState::get(&vault_id);
-
-        let (issue_id, issue) = request_issue(&vault_id, requested_btc);
-        let sent_btc = (issue.amount() + issue.fee()) * 4;
-
-        ExecuteIssueBuilder::new(issue_id)
-            .with_amount(sent_btc)
-            .assert_execute();
-
-        // not enough collateral to back sent amount, so it's as if the user sent the correct amount
-        let post_redeem_state = ParachainState::get(&vault_id);
-        assert_eq!(
-            post_redeem_state,
-            initial_state.with_changes(|user, vault, _, fee_pool| {
-                (*user.balances.get_mut(&vault_id.wrapped_currency()).unwrap()).free += issue.amount();
-                *fee_pool.rewards_for(&vault_id) += issue.fee();
-                vault.issued += issue.fee() + issue.amount();
-            })
-        );
-
-        // perform the refund
-        execute_refund(VAULT);
-
-        assert_eq!(
-            ParachainState::get(&vault_id),
-            post_redeem_state.with_changes(|_user, vault, _, _fee_pool| {
-                let reward = FeePallet::get_refund_fee_from_total(&(sent_btc - requested_btc)).unwrap();
-                *vault.free_balance.get_mut(&vault_id.wrapped_currency()).unwrap() += reward;
-                vault.issued += reward;
-            })
-        );
-    });
-}
-
-mod execute_refund_payment_limits {
-    use super::{assert_eq, *};
-
-    fn setup_refund(vault_id: &VaultId) -> (H256, Amount<Runtime>) {
-        let requested_btc = vault_id.wrapped(1000);
-
-        // make sure we don't have enough collateral to fulfil the overpayment
-        let current_minimum_collateral =
-            VaultRegistryPallet::get_required_collateral_for_vault(vault_id.clone()).unwrap();
-        CoreVaultData::force_to(
-            &vault_id,
-            CoreVaultData {
-                backing_collateral: current_minimum_collateral
-                    + requested_btc.convert_to(vault_id.collateral_currency()).unwrap() * 2,
-                ..CoreVaultData::vault(vault_id.clone())
-            },
-        );
-
-        let (issue_id, issue) = request_issue(&vault_id, requested_btc);
-        let sent_btc = (issue.amount() + issue.fee()) * 4;
-
-        ExecuteIssueBuilder::new(issue_id)
-            .with_amount(sent_btc)
-            .assert_execute();
-
-        let refund_id = assert_refund_request_event();
-        let refund = RefundPallet::get_open_refund_request_from_id(&refund_id).unwrap();
-
-        (refund_id, vault_id.wrapped(refund.amount_btc))
-    }
-
-    #[test]
-    fn integration_test_execute_refund_with_exact_amount_succeeds() {
-        test_with_initialized_vault(|vault_id| {
-            let (_refund_id, amount) = setup_refund(&vault_id);
-            assert_ok!(execute_refund_with_amount(VAULT, amount));
-        });
-    }
-    #[test]
-    fn integration_test_execute_refund_with_overpayment_fails() {
-        test_with_initialized_vault(|vault_id| {
-            let (_refund_id, amount) = setup_refund(&vault_id);
-            assert_err!(
-                execute_refund_with_amount(VAULT, Amount::new(amount.amount() + 1, amount.currency())),
-                BTCRelayError::InvalidPaymentAmount
-            );
-        });
-    }
-    #[test]
-    fn integration_test_execute_refund_with_underpayment_fails() {
-        test_with_initialized_vault(|vault_id| {
-            let (_refund_id, amount) = setup_refund(&vault_id);
-            assert_err!(
-                execute_refund_with_amount(VAULT, Amount::new(amount.amount() - 1, amount.currency())),
-                BTCRelayError::InvalidPaymentAmount
-            );
-        });
-    }
-}
-
 mod execute_pending_issue_tests {
     use super::{assert_eq, *};
     /// Execute fails if parachain is shut down
@@ -841,7 +713,7 @@ mod execute_pending_issue_tests {
             // issue request is updated: status is complete
             assert_eq!(
                 IssuePallet::issue_requests(issue_id).unwrap().status,
-                IssueRequestStatus::Completed(None)
+                IssueRequestStatus::Completed
             );
         });
     }
@@ -900,11 +772,11 @@ mod execute_pending_issue_tests {
             let mut completed_issue = issue;
             completed_issue.amount /= 4;
             completed_issue.fee /= 4;
-            completed_issue.status = IssueRequestStatus::Completed(None);
+            completed_issue.status = IssueRequestStatus::Completed;
 
             assert_eq!(
                 IssuePallet::issue_requests(issue_id).unwrap().status,
-                IssueRequestStatus::Completed(None)
+                IssueRequestStatus::Completed
             );
             let user_issues = IssuePallet::get_issue_requests_for_account(account_of(USER));
             let onchain_issue = user_issues
@@ -954,7 +826,7 @@ mod execute_pending_issue_tests {
             let mut completed_issue = issue;
             completed_issue.amount *= 2;
             completed_issue.fee *= 2;
-            completed_issue.status = IssueRequestStatus::Completed(None);
+            completed_issue.status = IssueRequestStatus::Completed;
 
             let user_issues = IssuePallet::get_issue_requests_for_account(account_of(USER));
             let onchain_issue = user_issues
@@ -963,65 +835,6 @@ mod execute_pending_issue_tests {
                 .map(|id| IssuePallet::issue_requests(id).unwrap())
                 .unwrap();
             assert_eq!(onchain_issue, completed_issue);
-        });
-    }
-
-    /// Test Execute postconditions when BTC payment is greater than the requested amount, and
-    /// vault can not execute the greater amount
-    #[test]
-    fn integration_test_issue_execute_postcond_overpayment_creates_refund() {
-        test_with_initialized_vault(|vault_id| {
-            let requested_btc = vault_id.wrapped(1000);
-
-            // make sure we don't have enough collateral to fulfil the overpayment
-            let current_minimum_collateral =
-                VaultRegistryPallet::get_required_collateral_for_vault(vault_id.clone()).unwrap();
-            CoreVaultData::force_to(
-                &vault_id,
-                CoreVaultData {
-                    backing_collateral: current_minimum_collateral
-                        + requested_btc.convert_to(vault_id.collateral_currency()).unwrap() * 2,
-                    ..CoreVaultData::vault(vault_id.clone())
-                },
-            );
-
-            let (issue_id, issue) = request_issue(&vault_id, requested_btc);
-            let sent_btc = (issue.amount() + issue.fee()) * 4;
-            let post_request_state = ParachainState::get(&vault_id);
-
-            ExecuteIssueBuilder::new(issue_id)
-                .with_amount(sent_btc)
-                .assert_execute();
-
-            // user balances are updated, tokens are minted and fees paid
-            // not enough collateral to back sent amount, so it's as if the user sent the correct amount
-            assert_eq!(
-                ParachainState::get(&vault_id),
-                post_request_state.with_changes(|user, vault, _, fee_pool| {
-                    (*user.balances.get_mut(&DEFAULT_GRIEFING_CURRENCY).unwrap()).locked -= issue.griefing_collateral();
-                    (*user.balances.get_mut(&DEFAULT_GRIEFING_CURRENCY).unwrap()).free += issue.griefing_collateral();
-
-                    (*user.balances.get_mut(&vault_id.wrapped_currency()).unwrap()).free += issue.amount();
-                    *fee_pool.rewards_for(&vault_id) += issue.fee();
-
-                    vault.issued += issue.fee() + issue.amount();
-                    vault.to_be_issued -= issue.fee() + issue.amount();
-                })
-            );
-
-            // refund requests exists for issue
-            let refund_id = assert_refund_request_event();
-            let refund = RefundPallet::get_open_refund_request_from_id(&refund_id).unwrap();
-            assert_eq!(refund.issue_id, issue_id);
-
-            // issue request is updated: status is complete and references refund request
-            let user_issues = IssuePallet::get_issue_requests_for_account(account_of(USER));
-            let onchain_issue = user_issues
-                .into_iter()
-                .find(|id| id == &issue_id)
-                .map(|id| IssuePallet::issue_requests(id).unwrap())
-                .unwrap();
-            assert_eq!(onchain_issue.status, IssueRequestStatus::Completed(Some(refund_id)));
         });
     }
 

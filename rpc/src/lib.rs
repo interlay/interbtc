@@ -6,8 +6,8 @@
 #![warn(missing_docs)]
 
 use primitives::{
-    issue::IssueRequest, redeem::RedeemRequest, refund::RefundRequest, replace::ReplaceRequest, AccountId, Balance,
-    Block, BlockNumber, CurrencyId, H256Le, Hash, Nonce, VaultId,
+    issue::IssueRequest, redeem::RedeemRequest, replace::ReplaceRequest, AccountId, Balance, Block, BlockNumber,
+    CurrencyId, H256Le, Hash, Nonce, VaultId,
 };
 use sc_consensus_manual_seal::rpc::{EngineCommand, ManualSeal, ManualSealApiServer};
 pub use sc_rpc_api::DenyUnsafe;
@@ -66,7 +66,6 @@ where
         H256,
         RedeemRequest<AccountId, BlockNumber, Balance, CurrencyId>,
     >,
-    C::Api: module_refund_rpc::RefundRuntimeApi<Block, AccountId, H256, RefundRequest<AccountId, Balance, CurrencyId>>,
     C::Api: module_replace_rpc::ReplaceRuntimeApi<
         Block,
         AccountId,
@@ -83,7 +82,6 @@ where
     use module_issue_rpc::{Issue, IssueApiServer};
     use module_oracle_rpc::{Oracle, OracleApiServer};
     use module_redeem_rpc::{Redeem, RedeemApiServer};
-    use module_refund_rpc::{Refund, RefundApiServer};
     use module_replace_rpc::{Replace, ReplaceApiServer};
     use module_reward_rpc::{Reward, RewardApiServer};
     use module_vault_registry_rpc::{VaultRegistry, VaultRegistryApiServer};
@@ -123,8 +121,6 @@ where
     module.merge(Issue::new(client.clone()).into_rpc())?;
 
     module.merge(Redeem::new(client.clone()).into_rpc())?;
-
-    module.merge(Refund::new(client.clone()).into_rpc())?;
 
     module.merge(Replace::new(client).into_rpc())?;
 

@@ -46,11 +46,6 @@ fn should_set_redeem_fee() {
 }
 
 #[test]
-fn should_set_refund_fee() {
-    test_setter(Fee::set_refund_fee, Fee::refund_fee);
-}
-
-#[test]
 fn should_set_premium_redeem_fee() {
     test_setter(Fee::set_premium_redeem_fee, Fee::premium_redeem_fee);
 }

@@ -285,7 +285,7 @@ pub mod pallet {
 
         /// If a redeem request is not completed on time, the redeem request can be cancelled.
         /// The user that initially requested the redeem process calls this function to obtain
-        /// the Vault’s collateral as compensation for not refunding the BTC back to their address.
+        /// the Vault’s collateral as compensation for not transferring the BTC back to their address.
         ///
         /// # Arguments
         ///

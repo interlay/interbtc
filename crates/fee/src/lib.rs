@@ -36,10 +36,7 @@ use frame_system::ensure_signed;
 use reward::Rewards;
 use scale_info::TypeInfo;
 use sp_arithmetic::{traits::*, FixedPointNumber, FixedPointOperand};
-use sp_runtime::{
-    traits::{AccountIdConversion, AtLeast32BitUnsigned},
-    ArithmeticError,
-};
+use sp_runtime::traits::{AccountIdConversion, AtLeast32BitUnsigned};
 use sp_std::{
     convert::{TryFrom, TryInto},
     fmt::Debug,
@@ -152,13 +149,6 @@ pub mod pallet {
     #[pallet::getter(fn redeem_fee)]
     pub type RedeemFee<T: Config> = StorageValue<_, UnsignedFixedPoint<T>, ValueQuery>;
 
-    /// # Refund
-
-    /// Fee share that users need to pay to refund overpaid tokens.
-    #[pallet::storage]
-    #[pallet::getter(fn refund_fee)]
-    pub type RefundFee<T: Config> = StorageValue<_, UnsignedFixedPoint<T>, ValueQuery>;
-
     /// # Vault Registry
 
     /// If users execute a redeem with a Vault flagged for premium redeem,
@@ -200,7 +190,6 @@ pub mod pallet {
         pub issue_fee: UnsignedFixedPoint<T>,
         pub issue_griefing_collateral: UnsignedFixedPoint<T>,
         pub redeem_fee: UnsignedFixedPoint<T>,
-        pub refund_fee: UnsignedFixedPoint<T>,
         pub premium_redeem_fee: UnsignedFixedPoint<T>,
         pub punishment_fee: UnsignedFixedPoint<T>,
         pub replace_griefing_collateral: UnsignedFixedPoint<T>,
@@ -213,7 +202,6 @@ pub mod pallet {
                 issue_fee: Default::default(),
                 issue_griefing_collateral: Default::default(),
                 redeem_fee: Default::default(),
-                refund_fee: Default::default(),
                 premium_redeem_fee: Default::default(),
                 punishment_fee: Default::default(),
                 replace_griefing_collateral: Default::default(),
@@ -227,7 +215,6 @@ pub mod pallet {
             IssueFee::<T>::put(self.issue_fee);
             IssueGriefingCollateral::<T>::put(self.issue_griefing_collateral);
             RedeemFee::<T>::put(self.redeem_fee);
-            RefundFee::<T>::put(self.refund_fee);
             PremiumRedeemFee::<T>::put(self.premium_redeem_fee);
             PunishmentFee::<T>::put(self.punishment_fee);
             ReplaceGriefingCollateral::<T>::put(self.replace_griefing_collateral);
@@ -306,21 +293,6 @@ pub mod pallet {
             ensure_root(origin)?;
             ensure!(fee <= Self::get_max_expected_value(), Error::<T>::AboveMaxExpectedValue);
             RedeemFee::<T>::put(fee);
-            Ok(().into())
-        }
-
-        /// Changes the refund fee percentage (only executable by the Root account)
-        ///
-        /// # Arguments
-        ///
-        /// * `origin` - signing account
-        /// * `fee` - the new fee
-        #[pallet::weight(<T as Config>::WeightInfo::set_refund_fee())]
-        #[transactional]
-        pub fn set_refund_fee(origin: OriginFor<T>, fee: UnsignedFixedPoint<T>) -> DispatchResultWithPostInfo {
-            ensure_root(origin)?;
-            ensure!(fee <= Self::get_max_expected_value(), Error::<T>::AboveMaxExpectedValue);
-            RefundFee::<T>::put(fee);
             Ok(().into())
         }
 
@@ -464,24 +436,6 @@ impl<T: Config> Pallet<T> {
     /// * `amount` - replace amount in collateral (at current exchange rate)
     pub fn get_replace_griefing_collateral(amount: &Amount<T>) -> Result<Amount<T>, DispatchError> {
         amount.rounded_mul(<ReplaceGriefingCollateral<T>>::get())
-    }
-
-    /// Calculate the fee portion of a total amount. For `amount = fee + refund_amount`, this
-    /// function returns `fee`.
-    ///
-    /// # Arguments
-    ///
-    /// * `amount` - total amount in tokens
-    pub fn get_refund_fee_from_total(amount: &Amount<T>) -> Result<Amount<T>, DispatchError> {
-        // calculate 'percentage' = x / (1+x)
-        let percentage = <RefundFee<T>>::get()
-            .checked_div(
-                &<RefundFee<T>>::get()
-                    .checked_add(&UnsignedFixedPoint::<T>::one())
-                    .ok_or(ArithmeticError::Overflow)?,
-            )
-            .ok_or(ArithmeticError::Underflow)?;
-        amount.rounded_mul(percentage)
     }
 
     pub fn withdraw_all_vault_rewards(vault_id: &DefaultVaultId<T>) -> DispatchResult {
