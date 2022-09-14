@@ -21,7 +21,7 @@ use frame_support::{
 };
 use frame_system::{
     limits::{BlockLength, BlockWeights},
-    EnsureRoot, RawOrigin,
+    EnsureRoot, EnsureRootWithSuccess, RawOrigin,
 };
 use orml_asset_registry::SequentialId;
 use orml_traits::parameter_type_with_key;
@@ -516,6 +516,7 @@ parameter_types! {
     pub const SpendPeriod: BlockNumber = 1 * HOURS;
     pub const Burn: Permill = Permill::from_percent(0);
     pub const MaxApprovals: u32 = 100;
+    pub const MaxSpend: Balance = Balance::MAX;
 }
 
 impl pallet_treasury::Config for Runtime {
@@ -523,7 +524,7 @@ impl pallet_treasury::Config for Runtime {
     type Currency = NativeCurrency;
     type ApproveOrigin = EnsureRoot<AccountId>;
     type RejectOrigin = EnsureRoot<AccountId>;
-    type SpendOrigin = EnsureRoot<AccountId>;
+    type SpendOrigin = EnsureRootWithSuccess<AccountId, MaxSpend>;
     type Event = Event;
     type OnSlash = Treasury;
     type ProposalBond = ProposalBond;
