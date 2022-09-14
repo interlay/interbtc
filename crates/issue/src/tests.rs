@@ -5,6 +5,7 @@ use btc_relay::{BtcAddress, BtcPublicKey};
 use currency::Amount;
 use frame_support::{assert_noop, assert_ok, dispatch::DispatchError};
 use mocktopus::mocking::*;
+use orml_traits::MultiCurrency;
 use primitives::issue::IssueRequestStatus;
 use sp_arithmetic::FixedU128;
 use sp_core::H256;
@@ -294,16 +295,22 @@ fn test_cancel_issue_not_expired_and_requester_succeeds() {
         let issue_id = request_issue_ok(USER, 300, VAULT);
 
         unsafe {
+            let mut transfer_called = false;
+
             // issue period is 10, we issued at block 1, so at block 4 the requester gets 70% griefing back
             <security::Pallet<Test>>::set_active_block_number(4);
 
+            let free_before = Tokens::free_balance(DEFAULT_NATIVE_CURRENCY, &USER);
             ext::vault_registry::transfer_funds::<Test>.mock_raw(|_, _, amount| {
+                transfer_called = true;
                 assert_eq!(amount, &griefing(30));
                 MockResult::Return(Ok(()))
             });
 
             assert_ok!(cancel_issue(USER, &issue_id));
 
+            assert_eq!(transfer_called, true);
+            assert_eq!(Tokens::free_balance(DEFAULT_NATIVE_CURRENCY, &USER), free_before + 70);
             assert_eq!(
                 Issue::issue_requests(&issue_id).unwrap().status,
                 IssueRequestStatus::Cancelled

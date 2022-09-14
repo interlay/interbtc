@@ -440,9 +440,9 @@ impl<T: Config> Pallet<T> {
     fn _cancel_issue(requester: T::AccountId, issue_id: H256) -> Result<(), DispatchError> {
         let issue = Self::get_pending_issue(&issue_id)?;
 
-        let expected_end = Self::issue_period().max(issue.period);
-        let griefing_collateral =
-            if ext::btc_relay::has_request_expired::<T>(issue.opentime, issue.btc_height, expected_end)? {
+        let issue_period = Self::issue_period().max(issue.period);
+        let to_be_slashed_collateral =
+            if ext::btc_relay::has_request_expired::<T>(issue.opentime, issue.btc_height, issue_period)? {
                 // anyone can cancel the issue request once expired
                 issue.griefing_collateral()
             } else if issue.requester == requester {
@@ -459,7 +459,7 @@ impl<T: Config> Pallet<T> {
                         griefing_collateral.currency(),
                     ),
                     &Amount::new(
-                        T::BlockNumberToBalance::convert(expected_end),
+                        T::BlockNumberToBalance::convert(issue_period),
                         griefing_collateral.currency(),
                     ),
                 )?
@@ -478,17 +478,17 @@ impl<T: Config> Pallet<T> {
 
         if ext::vault_registry::is_vault_liquidated::<T>(&issue.vault)? {
             // return slashed griefing collateral if the vault is liquidated
-            griefing_collateral.unlock_on(&issue.requester)?;
+            to_be_slashed_collateral.unlock_on(&issue.requester)?;
         } else {
             // otherwise give all slashed griefing collateral to the vault
             ext::vault_registry::transfer_funds::<T>(
                 CurrencySource::UserGriefing(issue.requester.clone()),
                 CurrencySource::FreeBalance(issue.vault.account_id.clone()),
-                &griefing_collateral,
+                &to_be_slashed_collateral,
             )?;
         }
 
-        // decrease to-be-redeemed tokens
+        // decrease to-be-issued tokens
         let full_amount = issue.amount().checked_add(&issue.fee())?;
         ext::vault_registry::decrease_to_be_issued_tokens::<T>(&issue.vault, &full_amount)?;
 
@@ -497,7 +497,7 @@ impl<T: Config> Pallet<T> {
         Self::deposit_event(Event::CancelIssue {
             issue_id,
             requester,
-            griefing_collateral: griefing_collateral.amount(),
+            griefing_collateral: to_be_slashed_collateral.amount(),
         });
         Ok(())
     }
