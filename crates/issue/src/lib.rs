@@ -351,8 +351,6 @@ impl<T: Config> Pallet<T> {
         // allow anyone to complete issue request
         let requester = issue.requester.clone();
 
-        // note: we allow execution after expiry as long at it has not been cancelled yet
-
         let transaction = ext::btc_relay::parse_transaction::<T>(&raw_tx)?;
         let merkle_proof = ext::btc_relay::parse_merkle_proof::<T>(&raw_merkle_proof)?;
         let (maybe_refund_address, amount_transferred) = ext::btc_relay::get_and_verify_issue_payment::<T, BalanceOf<T>>(
@@ -436,7 +434,7 @@ impl<T: Config> Pallet<T> {
 
     /// Cancels CBA issuance if time has expired and slashes collateral.
     fn _cancel_issue(requester: T::AccountId, issue_id: H256) -> Result<(), DispatchError> {
-        let issue = Self::get_issue_request_from_id(&issue_id)?;
+        let issue = Self::get_pending_issue(&issue_id)?;
 
         // only cancellable after the request has expired
         ensure!(
@@ -569,6 +567,17 @@ impl<T: Config> Pallet<T> {
         match request.status {
             IssueRequestStatus::Completed(_) => Err(Error::<T>::IssueCompleted.into()),
             _ => Ok(request),
+        }
+    }
+
+    pub fn get_pending_issue(issue_id: &H256) -> Result<DefaultIssueRequest<T>, DispatchError> {
+        let request = IssueRequests::<T>::try_get(issue_id).or(Err(Error::<T>::IssueIdNotFound))?;
+
+        // NOTE: temporary workaround until we delete
+        match request.status {
+            IssueRequestStatus::Completed(_) => Err(Error::<T>::IssueCompleted.into()),
+            IssueRequestStatus::Cancelled => Err(Error::<T>::IssueCancelled.into()),
+            IssueRequestStatus::Pending => Ok(request),
         }
     }
 

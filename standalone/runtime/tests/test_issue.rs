@@ -1197,8 +1197,6 @@ mod cancel_issue_tests {
         test_with(|vault_id| {
             request_issue(&vault_id, vault_id.wrapped(4_000));
             let nonexistent_issue_id = H256::zero();
-            SecurityPallet::set_active_block_number(IssuePallet::issue_period() + 1 + 1);
-            mine_blocks((IssuePallet::issue_period() + 99) / 100 + 1);
 
             assert_noop!(
                 Call::Issue(IssueCall::cancel_issue {
@@ -1206,6 +1204,38 @@ mod cancel_issue_tests {
                 })
                 .dispatch(origin_of(account_of(VAULT))),
                 IssueError::IssueIdNotFound
+            );
+        });
+    }
+
+    /// Cancel fails if issue request does not exist
+    #[test]
+    fn integration_test_issue_cancel_precond_is_not_cancelled() {
+        test_with(|vault_id| {
+            let (issue_id, _) = request_issue(&vault_id, vault_id.wrapped(4_000));
+            SecurityPallet::set_active_block_number(IssuePallet::issue_period() + 1 + 1);
+            mine_blocks((IssuePallet::issue_period() + 99) / 100 + 1);
+
+            assert_ok!(Call::Issue(IssueCall::cancel_issue { issue_id }).dispatch(origin_of(account_of(VAULT))),);
+            assert_noop!(
+                Call::Issue(IssueCall::cancel_issue { issue_id }).dispatch(origin_of(account_of(VAULT))),
+                IssueError::IssueCancelled
+            );
+        });
+    }
+
+    /// Cancel fails if issue request does not exist
+    #[test]
+    fn integration_test_issue_cancel_precond_is_not_completed() {
+        test_with(|vault_id| {
+            let (issue_id, _) = request_issue(&vault_id, vault_id.wrapped(4_000));
+            SecurityPallet::set_active_block_number(IssuePallet::issue_period() + 1 + 1);
+            mine_blocks((IssuePallet::issue_period() + 99) / 100 + 1);
+
+            execute_issue(issue_id);
+            assert_noop!(
+                Call::Issue(IssueCall::cancel_issue { issue_id }).dispatch(origin_of(account_of(VAULT))),
+                IssueError::IssueCompleted
             );
         });
     }
