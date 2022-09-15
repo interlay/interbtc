@@ -263,6 +263,26 @@ parameter_types! {
     pub const ExecutiveBody: BodyId = BodyId::Executive;
 }
 
+// Set the initial parameters for CollatorSelection.
+pub struct SetCollatorSelection;
+impl frame_support::traits::OnRuntimeUpgrade for SetCollatorSelection {
+    fn on_runtime_upgrade() -> frame_support::weights::Weight {
+        collator_selection::DesiredCandidates::<Runtime>::put(9);
+        collator_selection::CandidacyBond::<Runtime>::put(1000 * KINT.one());
+        RocksDbWeight::get().writes(2)
+    }
+
+    #[cfg(feature = "try-runtime")]
+    fn pre_upgrade() -> Result<(), &'static str> {
+        Ok(())
+    }
+
+    #[cfg(feature = "try-runtime")]
+    fn post_upgrade() -> Result<(), &'static str> {
+        Ok(())
+    }
+}
+
 /// We allow root and the Relay Chain council to execute privileged collator selection operations.
 pub type CollatorSelectionUpdateOrigin =
     EitherOfDiverse<EnsureRoot<AccountId>, EnsureXcm<IsMajorityOfBody<ParentLocation, ExecutiveBody>>>;
@@ -1120,8 +1140,14 @@ pub type UncheckedExtrinsic = generic::UncheckedExtrinsic<Address, Call, Signatu
 /// Extrinsic type that has already been checked.
 pub type CheckedExtrinsic = generic::CheckedExtrinsic<AccountId, Call, SignedExtra>;
 /// Executive: handles dispatch to the various modules.
-pub type Executive =
-    frame_executive::Executive<Runtime, Block, frame_system::ChainContext<Runtime>, Runtime, AllPalletsWithSystem, ()>;
+pub type Executive = frame_executive::Executive<
+    Runtime,
+    Block,
+    frame_system::ChainContext<Runtime>,
+    Runtime,
+    AllPalletsWithSystem,
+    SetCollatorSelection,
+>;
 
 #[cfg(not(feature = "disable-runtime-api"))]
 impl_runtime_apis! {
