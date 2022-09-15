@@ -268,7 +268,7 @@ pub struct SetCollatorSelection;
 impl frame_support::traits::OnRuntimeUpgrade for SetCollatorSelection {
     fn on_runtime_upgrade() -> frame_support::weights::Weight {
         collator_selection::DesiredCandidates::<Runtime>::put(9);
-        collator_selection::CandidacyBond::<Runtime>::put(600 * KINT.one());
+        collator_selection::CandidacyBond::<Runtime>::put(1000 * KINT.one());
         RocksDbWeight::get().writes(2)
     }
 
