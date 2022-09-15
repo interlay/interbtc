@@ -379,6 +379,7 @@ impl<T: Config> Pallet<T> {
                     ensure!(requester == executor, Error::<T>::InvalidExecutor);
                 }
                 if amount_transferred.ne(&expected_total_amount)? {
+                    // griefing collateral and to_be_issued already decreased in cancel
                     let slashed = Amount::zero(T::GetGriefingCollateralCurrencyId::get());
                     Self::set_issue_amount(&issue_id, &mut issue, amount_transferred, slashed)?;
                 }
@@ -508,15 +509,14 @@ impl<T: Config> Pallet<T> {
     ) -> Result<(), DispatchError> {
         let surplus_btc = amount_transferred.checked_sub(&expected_total_amount)?;
         let max_allowed = ext::vault_registry::get_issuable_tokens_from_vault::<T>(&issue.vault)?;
+        let issue_amount = surplus_btc.min(&max_allowed)?;
 
-        if let Ok(_) =
-            ext::vault_registry::try_increase_to_be_issued_tokens::<T>(&issue.vault, &surplus_btc.min(&max_allowed)?)
-        {
+        if let Ok(_) = ext::vault_registry::try_increase_to_be_issued_tokens::<T>(&issue.vault, &issue_amount) {
             // Current vault can handle the surplus; update the issue request
             Self::set_issue_amount(
                 &issue_id,
                 issue,
-                amount_transferred,
+                expected_total_amount.checked_add(&issue_amount)?,
                 Amount::zero(T::GetGriefingCollateralCurrencyId::get()),
             )?;
         }
@@ -585,6 +585,7 @@ impl<T: Config> Pallet<T> {
             *request = request.clone().map(|request| DefaultIssueRequest::<T> {
                 fee: issue.fee,
                 amount: issue.amount,
+                // TODO: update griefing collateral
                 ..request
             });
         });
