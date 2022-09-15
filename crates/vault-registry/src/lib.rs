@@ -615,6 +615,9 @@ pub mod pallet {
 
         /// Vault is not accepting new issue requests.
         VaultNotAcceptingIssueRequests,
+
+        // Minimum collateral was not found for the given currency
+        MinimumCollateralNotSet,
     }
 
     /// The minimum collateral (e.g. DOT/KSM) a Vault needs to provide to register.
@@ -757,6 +760,27 @@ impl<T: Config> Pallet<T> {
     }
 
     pub fn _register_vault(vault_id: DefaultVaultId<T>, collateral: BalanceOf<T>) -> DispatchResult {
+        ensure!(
+            SecureCollateralThreshold::<T>::contains_key(&vault_id.currencies),
+            Error::<T>::ThresholdNotSet
+        );
+        ensure!(
+            PremiumRedeemThreshold::<T>::contains_key(&vault_id.currencies),
+            Error::<T>::ThresholdNotSet
+        );
+        ensure!(
+            LiquidationCollateralThreshold::<T>::contains_key(&vault_id.currencies),
+            Error::<T>::ThresholdNotSet
+        );
+        ensure!(
+            MinimumCollateralVault::<T>::contains_key(vault_id.collateral_currency()),
+            Error::<T>::MinimumCollateralNotSet
+        );
+        ensure!(
+            SystemCollateralCeiling::<T>::contains_key(&vault_id.currencies),
+            Error::<T>::CeilingNotSet
+        );
+
         // make sure a public key is registered
         let _ = Self::get_bitcoin_public_key(&vault_id.account_id)?;
 
