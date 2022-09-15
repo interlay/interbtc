@@ -14,7 +14,7 @@ use sp_arithmetic::{FixedI128, FixedPointNumber, FixedU128};
 use sp_core::H256;
 use sp_runtime::{
     testing::{Header, TestXt},
-    traits::{BlakeTwo256, IdentityLookup, One, Zero},
+    traits::{BlakeTwo256, Convert, IdentityLookup, One, Zero},
 };
 
 type TestExtrinsic = TestXt<Call, ()>;
@@ -242,8 +242,17 @@ impl fee::Config for Test {
     type MaxExpectedValue = MaxExpectedValue;
 }
 
+pub struct BlockNumberToBalance;
+
+impl Convert<BlockNumber, Balance> for BlockNumberToBalance {
+    fn convert(a: BlockNumber) -> Balance {
+        a.into()
+    }
+}
+
 impl Config for Test {
     type Event = TestEvent;
+    type BlockNumberToBalance = BlockNumberToBalance;
     type WeightInfo = ();
 }
 

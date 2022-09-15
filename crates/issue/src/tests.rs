@@ -5,6 +5,8 @@ use btc_relay::{BtcAddress, BtcPublicKey};
 use currency::Amount;
 use frame_support::{assert_noop, assert_ok, dispatch::DispatchError};
 use mocktopus::mocking::*;
+use orml_traits::MultiCurrency;
+use primitives::issue::IssueRequestStatus;
 use sp_arithmetic::FixedU128;
 use sp_core::H256;
 use sp_runtime::traits::One;
@@ -269,7 +271,7 @@ fn test_cancel_issue_not_found_fails() {
 }
 
 #[test]
-fn test_cancel_issue_not_expired_fails() {
+fn test_cancel_issue_not_expired_and_not_requester_fails() {
     run_test(|| {
         ext::vault_registry::get_active_vault_from_id::<Test>
             .mock_safe(|_| MockResult::Return(Ok(init_zero_vault(VAULT))));
@@ -277,7 +279,74 @@ fn test_cancel_issue_not_expired_fails() {
         let issue_id = request_issue_ok(USER, 3, VAULT);
         // issue period is 10, we issued at block 1, so at block 5 the cancel should fail
         <security::Pallet<Test>>::set_active_block_number(5);
-        assert_noop!(cancel_issue(USER, &issue_id), TestError::TimeNotExpired,);
+        assert_noop!(cancel_issue(3, &issue_id), TestError::TimeNotExpired);
+    })
+}
+
+#[test]
+fn test_cancel_issue_not_expired_and_requester_succeeds() {
+    run_test(|| {
+        ext::vault_registry::get_active_vault_from_id::<Test>
+            .mock_safe(|_| MockResult::Return(Ok(init_zero_vault(VAULT))));
+        ext::vault_registry::decrease_to_be_issued_tokens::<Test>.mock_safe(move |_, _| MockResult::Return(Ok(())));
+        ext::vault_registry::is_vault_liquidated::<Test>.mock_safe(move |_| MockResult::Return(Ok(false)));
+        ext::fee::get_issue_griefing_collateral::<Test>.mock_safe(move |_| MockResult::Return(Ok(griefing(100))));
+
+        let issue_id = request_issue_ok(USER, 300, VAULT);
+
+        unsafe {
+            let mut transfer_called = false;
+
+            // issue period is 10, we issued at block 1, so at block 4 the requester gets 70% griefing back
+            <security::Pallet<Test>>::set_active_block_number(4);
+
+            let free_before = Tokens::free_balance(DEFAULT_NATIVE_CURRENCY, &USER);
+            ext::vault_registry::transfer_funds::<Test>.mock_raw(|_, _, amount| {
+                transfer_called = true;
+                assert_eq!(amount, &griefing(30));
+                MockResult::Return(Ok(()))
+            });
+
+            assert_ok!(cancel_issue(USER, &issue_id));
+
+            assert_eq!(transfer_called, true);
+            assert_eq!(Tokens::free_balance(DEFAULT_NATIVE_CURRENCY, &USER), free_before + 70);
+            assert_eq!(
+                Issue::issue_requests(&issue_id).unwrap().status,
+                IssueRequestStatus::Cancelled
+            );
+        }
+    })
+}
+
+#[test]
+fn test_cancel_issue_expired_succeeds() {
+    run_test(|| {
+        ext::vault_registry::get_active_vault_from_id::<Test>
+            .mock_safe(|_| MockResult::Return(Ok(init_zero_vault(VAULT))));
+        ext::vault_registry::decrease_to_be_issued_tokens::<Test>.mock_safe(move |_, _| MockResult::Return(Ok(())));
+        ext::vault_registry::is_vault_liquidated::<Test>.mock_safe(move |_| MockResult::Return(Ok(false)));
+        ext::fee::get_issue_griefing_collateral::<Test>.mock_safe(move |_| MockResult::Return(Ok(griefing(100))));
+        ext::btc_relay::has_request_expired::<Test>.mock_safe(move |_, _, _| MockResult::Return(Ok(true)));
+
+        let issue_id = request_issue_ok(USER, 300, VAULT);
+
+        unsafe {
+            // issue period is 10, we issued at block 1, so at block 12 the request has expired
+            <security::Pallet<Test>>::set_active_block_number(12);
+
+            ext::vault_registry::transfer_funds::<Test>.mock_raw(|_, _, amount| {
+                assert_eq!(amount, &griefing(100));
+                MockResult::Return(Ok(()))
+            });
+
+            assert_ok!(cancel_issue(USER, &issue_id));
+
+            assert_eq!(
+                Issue::issue_requests(&issue_id).unwrap().status,
+                IssueRequestStatus::Cancelled
+            );
+        }
     })
 }
 
