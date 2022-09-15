@@ -123,8 +123,28 @@ pub mod pallet {
 
     #[pallet::hooks]
     impl<T: Config> Hooks<T::BlockNumber> for Pallet<T> {
+        #[cfg(feature = "try-runtime")]
+        fn pre_upgrade() -> Result<(), &'static str> {
+            ensure!(Self::storage_version() == Version::V0, "Wrong storage version.");
+            let issue_count_before = crate::IssueRequests::<T>::iter().count() as u32;
+            log::info!("issue count before: {:?}", issue_count_before);
+            crate::types::v4::IssueCountBefore::<T>::put(issue_count_before);
+
+            Ok(())
+        }
+
         fn on_runtime_upgrade() -> frame_support::weights::Weight {
             crate::types::v4::migrate_v0_to_v4::<T>()
+        }
+
+        #[cfg(feature = "try-runtime")]
+        fn post_upgrade() -> Result<(), &'static str> {
+            ensure!(Self::storage_version() == Version::V4, "Wrong storage version.");
+            let issue_count_before = crate::types::v4::IssueCountBefore::<T>::take();
+            let issue_count_after = crate::IssueRequests::<T>::iter().count() as u32;
+            log::info!("issue count after: {:?}", issue_count_after,);
+            ensure!(issue_count_before == issue_count_after, "Not all issues were migrated.");
+            Ok(())
         }
     }
 

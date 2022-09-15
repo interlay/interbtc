@@ -26,6 +26,10 @@ pub enum Version {
 pub mod v4 {
     use super::*;
     use crate::{BtcAddress, BtcPublicKey, H256};
+    use frame_support::pallet_prelude::*;
+
+    #[frame_support::storage_alias]
+    pub type IssueCountBefore<T: crate::Config> = StorageValue<crate::Pallet<T>, u32, ValueQuery>;
 
     #[derive(Encode, Decode, Clone, PartialEq, TypeInfo, MaxEncodedLen)]
     pub enum IssueRequestStatusV3 {
