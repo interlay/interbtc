@@ -124,7 +124,7 @@ pub mod pallet {
     #[pallet::hooks]
     impl<T: Config> Hooks<T::BlockNumber> for Pallet<T> {
         fn on_runtime_upgrade() -> frame_support::weights::Weight {
-            crate::types::v4::migrate_v3_to_v4::<T>()
+            crate::types::v4::migrate_v0_to_v4::<T>()
         }
     }
 

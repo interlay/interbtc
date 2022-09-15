@@ -66,11 +66,12 @@ pub mod v4 {
         CurrencyId<T>,
     >;
 
-    pub fn migrate_v3_to_v4<T: Config>() -> frame_support::weights::Weight {
+    pub fn migrate_v0_to_v4<T: Config>() -> frame_support::weights::Weight {
         use sp_runtime::traits::Saturating;
 
-        if !matches!(crate::StorageVersion::<T>::get(), Version::V3) {
-            log::info!("Not running vault storage migration");
+        // NOTE: kintsugi & interlay still on version 0
+        if !matches!(crate::StorageVersion::<T>::get(), Version::V0) {
+            log::info!("Not running issue storage migration");
             return T::DbWeight::get().reads(1); // already upgraded; don't run migration
         }
         let mut num_migrated_issues = 0u64;
@@ -94,7 +95,7 @@ pub mod v4 {
         });
         crate::StorageVersion::<T>::put(Version::V4);
 
-        log::info!("Migrated {num_migrated_issues} vaults");
+        log::info!("Migrated {num_migrated_issues} issues");
 
         T::DbWeight::get().reads_writes(num_migrated_issues, num_migrated_issues)
     }
@@ -108,7 +109,7 @@ pub mod v4 {
         use sp_runtime::traits::TrailingZeroInput;
 
         crate::mock::run_test(|| {
-            crate::StorageVersion::<Test>::put(Version::V3);
+            crate::StorageVersion::<Test>::put(Version::V0);
 
             let issue_v3: DefaultIssueRequestV3<Test> = IssueRequestV3 {
                 vault: VaultId {
@@ -119,15 +120,15 @@ pub mod v4 {
                         wrapped: Token(KBTC),
                     },
                 },
-                opentime: Default::default(),
-                period: Default::default(),
-                griefing_collateral: Default::default(),
-                amount: Default::default(),
-                fee: Default::default(),
+                opentime: 1_501_896,
+                period: 14_400,
+                griefing_collateral: 20,
+                amount: 100,
+                fee: 10,
                 requester: <Test as frame_system::Config>::AccountId::decode(&mut TrailingZeroInput::zeroes()).unwrap(),
-                btc_address: Default::default(),
-                btc_public_key: Default::default(),
-                btc_height: Default::default(),
+                btc_address: BtcAddress::P2PKH(sp_core::H160::from([1; 20])),
+                btc_public_key: BtcPublicKey::from([1; 33]),
+                btc_height: 754_190,
                 status: IssueRequestStatusV3::Completed(None),
             };
 
@@ -142,7 +143,7 @@ pub mod v4 {
                 &issue_v3,
             );
 
-            migrate_v3_to_v4::<Test>();
+            migrate_v0_to_v4::<Test>();
 
             let issue_v4 = IssueRequest {
                 vault: issue_v3.vault,
