@@ -286,6 +286,24 @@ impl ExtBuilder {
         .assimilate_storage(&mut storage)
         .unwrap();
 
+        const PAIR: VaultCurrencyPair<CurrencyId> = VaultCurrencyPair {
+            collateral: DEFAULT_COLLATERAL_CURRENCY,
+            wrapped: DEFAULT_WRAPPED_CURRENCY,
+        };
+        vault_registry::GenesisConfig::<Test> {
+            minimum_collateral_vault: vec![(DEFAULT_COLLATERAL_CURRENCY, 0)],
+            punishment_delay: 8,
+            system_collateral_ceiling: vec![(PAIR, 1_000_000_000_000)],
+            secure_collateral_threshold: vec![(PAIR, UnsignedFixedPoint::checked_from_rational(200, 100).unwrap())],
+            premium_redeem_threshold: vec![(PAIR, UnsignedFixedPoint::checked_from_rational(120, 100).unwrap())],
+            liquidation_collateral_threshold: vec![(
+                PAIR,
+                UnsignedFixedPoint::checked_from_rational(110, 100).unwrap(),
+            )],
+        }
+        .assimilate_storage(&mut storage)
+        .unwrap();
+
         replace::GenesisConfig::<Test> {
             replace_period: 10,
             replace_btc_dust_value: 2,

@@ -1377,7 +1377,7 @@ impl ExtBuilder {
         .unwrap();
 
         vault_registry::GenesisConfig::<Runtime> {
-            minimum_collateral_vault: vec![(Token(DOT), 0), (Token(KSM), 0)],
+            minimum_collateral_vault: vec![(Token(DOT), 0), (Token(KSM), 0), (ForeignAsset(1), 0), (Token(INTR), 0)],
             punishment_delay: 8,
             system_collateral_ceiling: iter_currency_pairs().map(|pair| (pair, FUND_LIMIT_CEILING)).collect(),
             secure_collateral_threshold: iter_currency_pairs()
