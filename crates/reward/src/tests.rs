@@ -12,6 +12,26 @@ macro_rules! fixed {
 }
 
 #[test]
+#[cfg_attr(rustfmt, rustfmt_skip)]
+fn reproduce_live_state() {
+    // This function is most useful for debugging. Keeping this test here for convenience
+    // and to function as an additional regression test
+    run_test(|| {
+        let f = |x: i128| SignedFixedPoint::from_inner(x);
+        let currency = Token(INTR);
+
+        // state for a3eFe9M2HbAgrQrShEDH2CEvXACtzLhSf4JGkwuT9SQ1EV4ti at block 0xb47ed0e773e25c81da2cc606495ab6f716c3c2024f9beb361605860912fee652
+        crate::RewardPerToken::<Test>::insert(currency, f(1_699_249_738_518_636_122_154_288_694));
+        crate::RewardTally::<Test>::insert(currency, ALICE, f(164_605_943_476_265_834_062_592_062_507_811_208));
+        crate::Stake::<Test>::insert(ALICE, f(97_679_889_000_000_000_000_000_000));
+        crate::TotalRewards::<Test>::insert(currency, f(8_763_982_459_262_268_000_000_000_000_000_000));
+        crate::TotalStake::<Test>::put(f(2_253_803_217_000_000_000_000_000_000));
+
+        assert_ok!(Reward::compute_reward(currency, &ALICE), 1376582365513566);
+    })
+}
+
+#[test]
 fn should_distribute_rewards_equally() {
     run_test(|| {
         assert_ok!(Reward::deposit_stake(&ALICE, fixed!(50)));
