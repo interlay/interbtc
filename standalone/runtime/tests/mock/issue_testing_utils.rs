@@ -194,46 +194,6 @@ pub fn assert_issue_request_event() -> H256 {
     }
 }
 
-pub fn assert_refund_request_event() -> H256 {
-    SystemPallet::events()
-        .iter()
-        .find_map(|record| match record.event {
-            Event::Refund(RefundEvent::RequestRefund { refund_id, .. }) => Some(refund_id),
-            _ => None,
-        })
-        .expect("request refund event not found")
-}
-
-pub fn execute_refund(vault_id: [u8; 32]) -> (H256, RefundRequest<AccountId, Balance, CurrencyId>) {
-    let refund_id = assert_refund_request_event();
-    let refund = RefundPallet::get_open_refund_request_from_id(&refund_id).unwrap();
-    assert_ok!(execute_refund_with_amount(vault_id, wrapped(refund.amount_btc)));
-    (refund_id, refund)
-}
-
-pub fn execute_refund_with_amount(vault_id: [u8; 32], amount: Amount<Runtime>) -> DispatchResultWithPostInfo {
-    let refund_address_script = bitcoin::Script::try_from("a914d7ff6d60ebf40a9b1886acce06653ba2224d8fea87").unwrap();
-    let refund_address = BtcAddress::from_script_pub_key(&refund_address_script).unwrap();
-
-    let refund_id = assert_refund_request_event();
-
-    let (_tx_id, _height, proof, raw_tx, _) = generate_transaction_and_mine(
-        Default::default(),
-        vec![],
-        vec![(refund_address, amount)],
-        vec![refund_id],
-    );
-
-    SecurityPallet::set_active_block_number((1 + CONFIRMATIONS) * 2);
-
-    Call::Refund(RefundCall::execute_refund {
-        refund_id: refund_id,
-        merkle_proof: proof,
-        raw_tx: raw_tx,
-    })
-    .dispatch(origin_of(account_of(vault_id)))
-}
-
 pub fn cancel_issue(issue_id: H256, vault: [u8; 32]) {
     // expire request without transferring btc
     SecurityPallet::set_active_block_number(IssuePallet::issue_period() + 1 + 1);

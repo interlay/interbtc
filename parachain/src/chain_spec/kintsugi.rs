@@ -235,15 +235,10 @@ fn kintsugi_mainnet_genesis(
         fee: kintsugi_runtime::FeeConfig {
             issue_fee: FixedU128::checked_from_rational(15, 10000).unwrap(), // 0.15%
             issue_griefing_collateral: FixedU128::checked_from_rational(5, 1000).unwrap(), // 0.5%
-            refund_fee: FixedU128::checked_from_rational(5, 1000).unwrap(),  // 0.5%
             redeem_fee: FixedU128::checked_from_rational(5, 1000).unwrap(),  // 0.5%
             premium_redeem_fee: FixedU128::checked_from_rational(5, 100).unwrap(), // 5%
             punishment_fee: FixedU128::checked_from_rational(1, 10).unwrap(), // 10%
             replace_griefing_collateral: FixedU128::checked_from_rational(1, 10).unwrap(), // 10%
-        },
-        refund: kintsugi_runtime::RefundConfig {
-            refund_btc_dust_value: DEFAULT_DUST_VALUE,
-            refund_transaction_size: expected_transaction_size(),
         },
         nomination: kintsugi_runtime::NominationConfig {
             is_nomination_enabled: false,

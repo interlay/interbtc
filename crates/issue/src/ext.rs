@@ -12,7 +12,7 @@ pub(crate) mod btc_relay {
         merkle_proof: MerkleProof,
         transaction: Transaction,
         recipient_btc_address: BtcAddress,
-    ) -> Result<(Option<BtcAddress>, V), DispatchError> {
+    ) -> Result<V, DispatchError> {
         <btc_relay::Pallet<T>>::get_and_verify_issue_payment(merkle_proof, transaction, recipient_btc_address)
     }
 
@@ -79,6 +79,12 @@ pub(crate) mod vault_registry {
 
     pub fn ensure_accepting_new_issues<T: crate::Config>(vault_id: &DefaultVaultId<T>) -> Result<(), DispatchError> {
         <vault_registry::Pallet<T>>::ensure_accepting_new_issues(vault_id)
+    }
+
+    pub fn get_issuable_tokens_from_vault<T: crate::Config>(
+        vault_id: &DefaultVaultId<T>,
+    ) -> Result<Amount<T>, DispatchError> {
+        <vault_registry::Pallet<T>>::get_issuable_tokens_from_vault(vault_id)
     }
 
     pub fn register_deposit_address<T: crate::Config>(
@@ -148,24 +154,5 @@ pub(crate) mod fee {
 
     pub fn distribute_rewards<T: crate::Config>(amount: &Amount<T>) -> DispatchResult {
         <fee::Pallet<T>>::distribute_rewards(amount)
-    }
-}
-
-#[cfg_attr(test, mockable)]
-pub(crate) mod refund {
-    use crate::DefaultVaultId;
-    use btc_relay::BtcAddress;
-    use currency::Amount;
-    use frame_support::dispatch::DispatchError;
-    use sp_core::H256;
-
-    pub fn request_refund<T: crate::Config>(
-        total_amount_btc: &Amount<T>,
-        vault_id: DefaultVaultId<T>,
-        issuer: T::AccountId,
-        btc_address: BtcAddress,
-        issue_id: H256,
-    ) -> Result<Option<H256>, DispatchError> {
-        <refund::Pallet<T>>::request_refund(total_amount_btc, vault_id, issuer, btc_address, issue_id)
     }
 }

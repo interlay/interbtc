@@ -517,7 +517,7 @@ pub const DIFFICULTY_ADJUSTMENT_INTERVAL: u32 = 2016;
 // https://github.com/bitcoin/bitcoin/blob/5ba5becbb5d8c794efe579caeea7eea64f895a13/src/chainparams.cpp#L78
 pub const TARGET_SPACING: u32 = 10 * 60;
 
-/// Accepted maximum number of transaction outputs for validation of redeem/replace/refund
+/// Accepted maximum number of transaction outputs for validation of redeem & replace requests
 /// See: <https://spec.interlay.io/intro/accepted-format.html#accepted-bitcoin-transaction-format>
 pub const ACCEPTED_MAX_TRANSACTION_OUTPUTS: usize = 3;
 
@@ -647,19 +647,18 @@ impl<T: Config> Pallet<T> {
             }
             None => {
                 let payment = Self::get_issue_payment::<i64>(transaction, recipient_btc_address)?;
-                ensure!(payment.1 == expected_btc, Error::<T>::InvalidPaymentAmount);
+                ensure!(payment == expected_btc, Error::<T>::InvalidPaymentAmount);
             }
         };
         Ok(())
     }
 
-    /// interface to the issue pallet; verifies inclusion, and returns the first input
-    /// address (for refunds) and the payment amount
+    /// interface to the issue pallet; verifies inclusion and returns the payment amount
     pub fn get_and_verify_issue_payment<V: TryFrom<Value>>(
         merkle_proof: MerkleProof,
         transaction: Transaction,
         recipient_btc_address: BtcAddress,
-    ) -> Result<(Option<BtcAddress>, V), DispatchError> {
+    ) -> Result<V, DispatchError> {
         // Verify that the transaction is indeed included in the main chain
         Self::_verify_transaction_inclusion(transaction.tx_id(), merkle_proof, None)?;
 
@@ -669,18 +668,10 @@ impl<T: Config> Pallet<T> {
     fn get_issue_payment<V: TryFrom<i64>>(
         transaction: Transaction,
         recipient_btc_address: BtcAddress,
-    ) -> Result<(Option<BtcAddress>, V), DispatchError> {
-        // only return BTC address if we can decode it
-        let input_address = transaction
-            .inputs
-            .get(0)
-            .ok_or(Error::<T>::MalformedTransaction)?
-            .extract_address()
-            .ok();
-
+    ) -> Result<V, DispatchError> {
         // using the on-chain key derivation scheme we only expect a simple
         // payment to the vault's new deposit address
-        let extr_payment_value = transaction
+        let payment_value = transaction
             .outputs
             .into_iter()
             .find_map(|x| match x.extract_address() {
@@ -691,7 +682,7 @@ impl<T: Config> Pallet<T> {
             .try_into()
             .map_err(|_| Error::<T>::InvalidPaymentAmount)?;
 
-        Ok((input_address, extr_payment_value))
+        Ok(payment_value)
     }
 
     /// interface to redeem,replace,refund to check that the payment is included and is valid

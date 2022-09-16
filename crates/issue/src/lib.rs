@@ -56,7 +56,6 @@ pub mod pallet {
         + btc_relay::Config
         + oracle::Config
         + fee::Config<UnsignedInner = BalanceOf<Self>>
-        + refund::Config
     {
         /// The overarching event type.
         type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
@@ -127,7 +126,31 @@ pub mod pallet {
     }
 
     #[pallet::hooks]
-    impl<T: Config> Hooks<T::BlockNumber> for Pallet<T> {}
+    impl<T: Config> Hooks<T::BlockNumber> for Pallet<T> {
+        #[cfg(feature = "try-runtime")]
+        fn pre_upgrade() -> Result<(), &'static str> {
+            ensure!(Self::storage_version() == Version::V0, "Wrong storage version.");
+            let issue_count_before = crate::IssueRequests::<T>::iter().count() as u32;
+            log::info!("issue count before: {:?}", issue_count_before);
+            crate::types::v4::IssueCountBefore::<T>::put(issue_count_before);
+
+            Ok(())
+        }
+
+        fn on_runtime_upgrade() -> frame_support::weights::Weight {
+            crate::types::v4::migrate_v0_to_v4::<T>()
+        }
+
+        #[cfg(feature = "try-runtime")]
+        fn post_upgrade() -> Result<(), &'static str> {
+            ensure!(Self::storage_version() == Version::V4, "Wrong storage version.");
+            let issue_count_before = crate::types::v4::IssueCountBefore::<T>::take();
+            let issue_count_after = crate::IssueRequests::<T>::iter().count() as u32;
+            log::info!("issue count after: {:?}", issue_count_after,);
+            ensure!(issue_count_before == issue_count_after, "Not all issues were migrated.");
+            Ok(())
+        }
+    }
 
     /// Users create issue requests to issue tokens. This mapping provides access
     /// from a unique hash `IssueId` to an `IssueRequest` struct.
@@ -351,13 +374,12 @@ impl<T: Config> Pallet<T> {
         raw_tx: Vec<u8>,
     ) -> Result<(), DispatchError> {
         let mut issue = Self::get_issue_request_from_id(&issue_id)?;
-        let mut maybe_refund_id = None;
         // allow anyone to complete issue request
         let requester = issue.requester.clone();
 
         let transaction = ext::btc_relay::parse_transaction::<T>(&raw_tx)?;
         let merkle_proof = ext::btc_relay::parse_merkle_proof::<T>(&raw_merkle_proof)?;
-        let (maybe_refund_address, amount_transferred) = ext::btc_relay::get_and_verify_issue_payment::<T, BalanceOf<T>>(
+        let amount_transferred = ext::btc_relay::get_and_verify_issue_payment::<T, BalanceOf<T>>(
             merkle_proof,
             transaction,
             issue.btc_address,
@@ -367,7 +389,7 @@ impl<T: Config> Pallet<T> {
         let expected_total_amount = issue.amount().checked_add(&issue.fee())?;
 
         match issue.status {
-            IssueRequestStatus::Completed(_) => return Err(Error::<T>::IssueCompleted.into()),
+            IssueRequestStatus::Completed => return Err(Error::<T>::IssueCompleted.into()),
             IssueRequestStatus::Cancelled => {
                 // if vault is not accepting new issues, we don't allow the execution of cancelled
                 // issues, since this would drop the collateralization rate unexpectedly
@@ -381,6 +403,7 @@ impl<T: Config> Pallet<T> {
                     ensure!(requester == executor, Error::<T>::InvalidExecutor);
                 }
                 if amount_transferred.ne(&expected_total_amount)? {
+                    // griefing collateral and to_be_issued already decreased in cancel
                     let slashed = Amount::zero(T::GetGriefingCollateralCurrencyId::get());
                     Self::set_issue_amount(&issue_id, &mut issue, amount_transferred, slashed)?;
                 }
@@ -394,12 +417,11 @@ impl<T: Config> Pallet<T> {
                     if amount_transferred.gt(&expected_total_amount)?
                         && !ext::vault_registry::is_vault_liquidated::<T>(&issue.vault)?
                     {
-                        maybe_refund_id = Self::try_increase_issue_amount(
+                        Self::try_increase_issue_amount(
                             &issue_id,
                             &mut issue,
                             amount_transferred,
                             expected_total_amount,
-                            maybe_refund_address,
                         )?;
                     }
                     issue.griefing_collateral()
@@ -424,7 +446,7 @@ impl<T: Config> Pallet<T> {
         // distribute rewards
         ext::fee::distribute_rewards::<T>(&issue_fee)?;
 
-        Self::set_issue_status(issue_id, IssueRequestStatus::Completed(maybe_refund_id));
+        Self::set_issue_status(issue_id, IssueRequestStatus::Completed);
 
         Self::deposit_event(Event::ExecuteIssue {
             issue_id,
@@ -535,36 +557,22 @@ impl<T: Config> Pallet<T> {
         issue: &mut DefaultIssueRequest<T>,
         amount_transferred: Amount<T>,
         expected_total_amount: Amount<T>,
-        maybe_refund_address: Option<BtcAddress>,
-    ) -> Result<Option<H256>, DispatchError> {
+    ) -> Result<(), DispatchError> {
         let surplus_btc = amount_transferred.checked_sub(&expected_total_amount)?;
+        let max_allowed = ext::vault_registry::get_issuable_tokens_from_vault::<T>(&issue.vault)?;
+        let issue_amount = surplus_btc.min(&max_allowed)?;
 
-        match ext::vault_registry::try_increase_to_be_issued_tokens::<T>(&issue.vault, &surplus_btc) {
-            Ok(_) => {
-                // Current vault can handle the surplus; update the issue request
-                Self::set_issue_amount(
-                    &issue_id,
-                    issue,
-                    amount_transferred,
-                    Amount::zero(T::GetGriefingCollateralCurrencyId::get()),
-                )?;
-                Ok(None) // no refund
-            }
-            Err(_) => {
-                // vault does not have enough collateral to accept the over payment, so try refund.
-                if let Some(refund_address) = maybe_refund_address {
-                    ext::refund::request_refund::<T>(
-                        &surplus_btc,
-                        issue.vault.clone(),
-                        issue.requester.clone(),
-                        refund_address,
-                        issue_id.clone(),
-                    )
-                } else {
-                    Ok(None)
-                }
-            }
+        if let Ok(_) = ext::vault_registry::try_increase_to_be_issued_tokens::<T>(&issue.vault, &issue_amount) {
+            // Current vault can handle the surplus; update the issue request
+            Self::set_issue_amount(
+                &issue_id,
+                issue,
+                expected_total_amount.checked_add(&issue_amount)?,
+                Amount::zero(T::GetGriefingCollateralCurrencyId::get()),
+            )?;
         }
+        // nothing to do on error
+        Ok(())
     }
 
     /// Fetch all issue requests for the specified account.
@@ -596,7 +604,7 @@ impl<T: Config> Pallet<T> {
 
         // NOTE: temporary workaround until we delete
         match request.status {
-            IssueRequestStatus::Completed(_) => Err(Error::<T>::IssueCompleted.into()),
+            IssueRequestStatus::Completed => Err(Error::<T>::IssueCompleted.into()),
             _ => Ok(request),
         }
     }
@@ -606,7 +614,7 @@ impl<T: Config> Pallet<T> {
 
         // NOTE: temporary workaround until we delete
         match request.status {
-            IssueRequestStatus::Completed(_) => Err(Error::<T>::IssueCompleted.into()),
+            IssueRequestStatus::Completed => Err(Error::<T>::IssueCompleted.into()),
             IssueRequestStatus::Cancelled => Err(Error::<T>::IssueCancelled.into()),
             IssueRequestStatus::Pending => Ok(request),
         }
@@ -628,6 +636,7 @@ impl<T: Config> Pallet<T> {
             *request = request.clone().map(|request| DefaultIssueRequest::<T> {
                 fee: issue.fee,
                 amount: issue.amount,
+                // TODO: update griefing collateral
                 ..request
             });
         });

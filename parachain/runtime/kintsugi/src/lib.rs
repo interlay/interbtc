@@ -1009,13 +1009,6 @@ impl fee::Config for Runtime {
     type MaxExpectedValue = MaxExpectedValue;
 }
 
-pub use refund::{Event as RefundEvent, RefundRequest};
-
-impl refund::Config for Runtime {
-    type Event = Event;
-    type WeightInfo = ();
-}
-
 pub use issue::{Event as IssueEvent, IssueRequest};
 
 impl issue::Config for Runtime {
@@ -1087,7 +1080,7 @@ construct_runtime! {
         Redeem: redeem::{Pallet, Call, Config<T>, Storage, Event<T>} = 64,
         Replace: replace::{Pallet, Call, Config<T>, Storage, Event<T>} = 65,
         Fee: fee::{Pallet, Call, Config<T>, Storage} = 66,
-        Refund: refund::{Pallet, Call, Config<T>, Storage, Event<T>} = 67,
+        // Refund: 67
         Nomination: nomination::{Pallet, Call, Config, Storage, Event<T>} = 68,
 
         // # Governance
@@ -1275,7 +1268,6 @@ impl_runtime_apis! {
             list_benchmark!(list, extra, nomination, Nomination);
             list_benchmark!(list, extra, oracle, Oracle);
             list_benchmark!(list, extra, redeem, Redeem);
-            list_benchmark!(list, extra, refund, Refund);
             list_benchmark!(list, extra, replace, Replace);
             list_benchmark!(list, extra, vault_registry, VaultRegistry);
 
@@ -1311,7 +1303,6 @@ impl_runtime_apis! {
             add_benchmark!(params, batches, nomination, Nomination);
             add_benchmark!(params, batches, oracle, Oracle);
             add_benchmark!(params, batches, redeem, Redeem);
-            add_benchmark!(params, batches, refund, Refund);
             add_benchmark!(params, batches, replace, Replace);
             add_benchmark!(params, batches, vault_registry, VaultRegistry);
 
@@ -1470,25 +1461,6 @@ impl_runtime_apis! {
 
         fn get_vault_redeem_requests(account_id: AccountId) -> Vec<H256> {
             Redeem::get_redeem_requests_for_vault(account_id)
-        }
-    }
-
-    impl module_refund_rpc_runtime_api::RefundApi<
-        Block,
-        AccountId,
-        H256,
-        RefundRequest<AccountId, Balance, CurrencyId>
-    > for Runtime {
-        fn get_refund_requests(account_id: AccountId) -> Vec<H256> {
-            Refund::get_refund_requests_for_account(account_id)
-        }
-
-        fn get_refund_requests_by_issue_id(issue_id: H256) -> Option<H256> {
-            Refund::get_refund_requests_by_issue_id(issue_id)
-        }
-
-        fn get_vault_refund_requests(vault_id: AccountId) -> Vec<H256> {
-            Refund::get_refund_requests_for_vault(vault_id)
         }
     }
 

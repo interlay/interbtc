@@ -1478,8 +1478,10 @@ fn test_get_and_verify_issue_payment_with_tx_containing_taproot() {
 
         BTCRelay::_verify_transaction_inclusion.mock_safe(|_, _, _| MockResult::Return(Ok(())));
 
-        let result = BTCRelay::get_and_verify_issue_payment::<i64>(merkle_proof, transaction, recipient_btc_address);
-        assert!(matches!(result, Ok((_, 15347698))));
+        assert_ok!(
+            BTCRelay::get_and_verify_issue_payment::<i64>(merkle_proof, transaction, recipient_btc_address),
+            15347698
+        );
     })
 }
 

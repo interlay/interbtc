@@ -3,7 +3,7 @@ use hex_literal::hex;
 use interbtc_runtime::{
     token_distribution, AccountId, AuraConfig, BTCRelayConfig, CurrencyId, CurrencyId::Token, CurrencyInfo, FeeConfig,
     GenesisConfig, GetWrappedCurrencyId, GrandpaConfig, IssueConfig, NominationConfig, OracleConfig, RedeemConfig,
-    RefundConfig, ReplaceConfig, SecurityConfig, Signature, StatusCode, SudoConfig, SupplyConfig, SystemConfig,
+    ReplaceConfig, SecurityConfig, Signature, StatusCode, SudoConfig, SupplyConfig, SystemConfig,
     TechnicalCommitteeConfig, TokensConfig, VaultRegistryConfig, BITCOIN_BLOCK_SPACING, DAYS, DOT, IBTC, INTR, KBTC,
     KINT, KSM, WASM_BINARY, YEARS,
 };
@@ -343,15 +343,10 @@ fn testnet_genesis(
         fee: FeeConfig {
             issue_fee: FixedU128::checked_from_rational(15, 10000).unwrap(), // 0.15%
             issue_griefing_collateral: FixedU128::checked_from_rational(5, 100000).unwrap(), // 0.005%
-            refund_fee: FixedU128::checked_from_rational(5, 1000).unwrap(),  // 0.5%
             redeem_fee: FixedU128::checked_from_rational(5, 1000).unwrap(),  // 0.5%
             premium_redeem_fee: FixedU128::checked_from_rational(5, 100).unwrap(), // 5%
             punishment_fee: FixedU128::checked_from_rational(1, 10).unwrap(), // 10%
             replace_griefing_collateral: FixedU128::checked_from_rational(1, 10).unwrap(), // 10%
-        },
-        refund: RefundConfig {
-            refund_btc_dust_value: 1000,
-            refund_transaction_size: expected_transaction_size(),
         },
         nomination: NominationConfig {
             is_nomination_enabled: false,

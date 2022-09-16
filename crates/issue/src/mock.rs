@@ -43,7 +43,6 @@ frame_support::construct_runtime!(
         Oracle: oracle::{Pallet, Call, Config<T>, Storage, Event<T>},
         Issue: issue::{Pallet, Call, Config<T>, Storage, Event<T>},
         Fee: fee::{Pallet, Call, Config<T>, Storage},
-        Refund: refund::{Pallet, Call, Config<T>, Storage, Event<T>},
         Staking: staking::{Pallet, Storage, Event<T>},
         Currency: currency::{Pallet},
     }
@@ -203,11 +202,6 @@ impl security::Config for Test {
     type Event = TestEvent;
 }
 
-impl refund::Config for Test {
-    type Event = TestEvent;
-    type WeightInfo = ();
-}
-
 parameter_types! {
     pub const MinimumPeriod: Moment = 5;
 }
@@ -283,7 +277,6 @@ impl ExtBuilder {
         fee::GenesisConfig::<Test> {
             issue_fee: UnsignedFixedPoint::checked_from_rational(5, 1000).unwrap(), // 0.5%
             issue_griefing_collateral: UnsignedFixedPoint::checked_from_rational(5, 100000).unwrap(), // 0.005%
-            refund_fee: UnsignedFixedPoint::checked_from_rational(5, 1000).unwrap(), // 0.5%
             redeem_fee: UnsignedFixedPoint::checked_from_rational(5, 1000).unwrap(), // 0.5%
             premium_redeem_fee: UnsignedFixedPoint::checked_from_rational(5, 100).unwrap(), // 5%
             punishment_fee: UnsignedFixedPoint::checked_from_rational(1, 10).unwrap(), // 10%

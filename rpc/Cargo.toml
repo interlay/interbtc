@@ -15,7 +15,6 @@ module-vault-registry-rpc = { path = "../crates/vault-registry/rpc" }
 module-issue-rpc = { path = "../crates/issue/rpc" }
 module-redeem-rpc = { path = "../crates/redeem/rpc" }
 module-replace-rpc = { path = "../crates/replace/rpc" }
-module-refund-rpc = { path = "../crates/refund/rpc" }
 module-escrow-rpc = { path = "../crates/escrow/rpc" }
 module-reward-rpc = { path = "../crates/reward/rpc" }
 

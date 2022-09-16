@@ -97,8 +97,8 @@ pub mod issue {
     pub enum IssueRequestStatus {
         /// opened, but not yet executed or cancelled
         Pending,
-        /// payment was received, optional refund ID on overpayment (when vault cannot back)
-        Completed(Option<H256>),
+        /// payment was received
+        Completed,
         /// payment was not received, vault may receive griefing collateral
         Cancelled,
     }
@@ -229,42 +229,6 @@ pub mod redeem {
         pub btc_height: u32,
         /// the status of this redeem request
         pub status: RedeemRequestStatus,
-    }
-}
-
-pub mod refund {
-    use super::*;
-
-    // Due to a known bug in serde we need to specify how u128 is (de)serialized.
-    // See https://github.com/paritytech/substrate/issues/4641
-    #[derive(Encode, Decode, Clone, PartialEq, TypeInfo, MaxEncodedLen)]
-    #[cfg_attr(feature = "std", derive(Debug, Serialize, Deserialize))]
-    pub struct RefundRequest<AccountId, Balance, CurrencyId: Copy> {
-        /// the vault associated with this redeem request
-        pub vault: VaultId<AccountId, CurrencyId>,
-        #[cfg_attr(feature = "std", serde(bound(deserialize = "Balance: std::str::FromStr")))]
-        #[cfg_attr(feature = "std", serde(deserialize_with = "deserialize_from_string"))]
-        #[cfg_attr(feature = "std", serde(bound(serialize = "Balance: std::fmt::Display")))]
-        #[cfg_attr(feature = "std", serde(serialize_with = "serialize_as_string"))]
-        /// the total amount to be transferred back to the user. Note that amount_btc + fee + transfer_fee_btc =
-        /// overpaid amount
-        pub amount_btc: Balance,
-        #[cfg_attr(feature = "std", serde(bound(deserialize = "Balance: std::str::FromStr")))]
-        #[cfg_attr(feature = "std", serde(deserialize_with = "deserialize_from_string"))]
-        #[cfg_attr(feature = "std", serde(bound(serialize = "Balance: std::fmt::Display")))]
-        #[cfg_attr(feature = "std", serde(serialize_with = "serialize_as_string"))]
-        /// total refund fees - taken from request amount
-        pub fee: Balance,
-        /// amount the vault should spend on the bitcoin inclusion fee - taken from request amount
-        pub transfer_fee_btc: Balance,
-        /// the account on issue which overpaid
-        pub issuer: AccountId,
-        /// the user's Bitcoin address for payment verification
-        pub btc_address: BtcAddress,
-        /// the corresponding issue request identifier
-        pub issue_id: H256,
-        /// whether the refund was executed or not
-        pub completed: bool,
     }
 }
 

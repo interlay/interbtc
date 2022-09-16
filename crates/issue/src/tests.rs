@@ -1,4 +1,4 @@
-use crate::{ext, mock::*, Event};
+use crate::{ext, mock::*, Event, IssueRequest};
 
 use bitcoin::types::{MerkleProof, Transaction};
 use btc_relay::{BtcAddress, BtcPublicKey};
@@ -149,25 +149,35 @@ fn test_execute_issue_not_found_fails() {
     })
 }
 
+fn setup_execute(
+    issue_amount: Balance,
+    issue_fee: Balance,
+    griefing_collateral: Balance,
+    btc_transferred: Balance,
+) -> H256 {
+    ext::vault_registry::get_active_vault_from_id::<Test>.mock_safe(|_| MockResult::Return(Ok(init_zero_vault(VAULT))));
+    ext::vault_registry::issue_tokens::<Test>.mock_safe(|_, _| MockResult::Return(Ok(())));
+    ext::vault_registry::is_vault_liquidated::<Test>.mock_safe(|_| MockResult::Return(Ok(false)));
+
+    ext::fee::get_issue_fee::<Test>.mock_safe(move |_| MockResult::Return(Ok(wrapped(issue_fee))));
+    ext::fee::get_issue_griefing_collateral::<Test>
+        .mock_safe(move |_| MockResult::Return(Ok(griefing(griefing_collateral))));
+
+    let issue_id = request_issue_ok(USER, issue_amount, VAULT);
+    <security::Pallet<Test>>::set_active_block_number(5);
+
+    ext::btc_relay::parse_merkle_proof::<Test>.mock_safe(|_| MockResult::Return(Ok(dummy_merkle_proof())));
+    ext::btc_relay::parse_transaction::<Test>.mock_safe(|_| MockResult::Return(Ok(Transaction::default())));
+    ext::btc_relay::get_and_verify_issue_payment::<Test, Balance>
+        .mock_safe(move |_, _, _| MockResult::Return(Ok(btc_transferred)));
+
+    issue_id
+}
+
 #[test]
 fn test_execute_issue_succeeds() {
     run_test(|| {
-        ext::vault_registry::get_active_vault_from_id::<Test>
-            .mock_safe(|_| MockResult::Return(Ok(init_zero_vault(VAULT))));
-        ext::vault_registry::issue_tokens::<Test>.mock_safe(|_, _| MockResult::Return(Ok(())));
-
-        ext::vault_registry::is_vault_liquidated::<Test>.mock_safe(|_| MockResult::Return(Ok(false)));
-
-        ext::fee::get_issue_fee::<Test>.mock_safe(move |_| MockResult::Return(Ok(wrapped(1))));
-
-        let issue_id = request_issue_ok(USER, 3, VAULT);
-        <security::Pallet<Test>>::set_active_block_number(5);
-
-        ext::btc_relay::parse_merkle_proof::<Test>.mock_safe(|_| MockResult::Return(Ok(dummy_merkle_proof())));
-        ext::btc_relay::parse_transaction::<Test>.mock_safe(|_| MockResult::Return(Ok(Transaction::default())));
-        ext::btc_relay::get_and_verify_issue_payment::<Test, Balance>
-            .mock_safe(|_, _, _| MockResult::Return(Ok((Some(BtcAddress::random()), 3))));
-
+        let issue_id = setup_execute(3, 1, 1, 3);
         assert_ok!(execute_issue(USER, &issue_id));
 
         let execute_issue_event = TestEvent::Issue(Event::ExecuteIssue {
@@ -178,6 +188,15 @@ fn test_execute_issue_succeeds() {
             fee: 1,
         });
         assert!(System::events().iter().any(|a| a.event == execute_issue_event));
+        assert!(matches!(
+            Issue::issue_requests(&issue_id),
+            Some(IssueRequest {
+                griefing_collateral: 1,
+                amount: 2,
+                fee: 1,
+                ..
+            })
+        ));
 
         assert_noop!(cancel_issue(USER, &issue_id), TestError::IssueCompleted);
     })
@@ -186,83 +205,104 @@ fn test_execute_issue_succeeds() {
 #[test]
 fn test_execute_issue_overpayment_succeeds() {
     run_test(|| {
-        ext::vault_registry::get_active_vault_from_id::<Test>
-            .mock_safe(|_| MockResult::Return(Ok(init_zero_vault(VAULT))));
-        ext::vault_registry::issue_tokens::<Test>.mock_safe(|_, _| MockResult::Return(Ok(())));
-
-        let issue_id = request_issue_ok(USER, 3, VAULT);
-        <security::Pallet<Test>>::set_active_block_number(5);
-
-        ext::btc_relay::parse_merkle_proof::<Test>.mock_safe(|_| MockResult::Return(Ok(dummy_merkle_proof())));
-        ext::btc_relay::parse_transaction::<Test>.mock_safe(|_| MockResult::Return(Ok(Transaction::default())));
-        ext::btc_relay::get_and_verify_issue_payment::<Test, Balance>
-            .mock_safe(|_, _, _| MockResult::Return(Ok((Some(BtcAddress::random()), 5))));
-
-        ext::vault_registry::is_vault_liquidated::<Test>.mock_safe(|_| MockResult::Return(Ok(false)));
-
+        let issue_id = setup_execute(3, 0, 0, 5);
         unsafe {
             let mut increase_tokens_called = false;
-            let mut refund_called = false;
 
+            ext::vault_registry::get_issuable_tokens_from_vault::<Test>
+                .mock_raw(|_| MockResult::Return(Ok(wrapped(10))));
             ext::vault_registry::try_increase_to_be_issued_tokens::<Test>.mock_raw(|_, amount| {
                 increase_tokens_called = true;
                 assert_eq!(amount, &wrapped(2));
                 MockResult::Return(Ok(()))
             });
 
-            // check that request_refund is not called..
-            ext::refund::request_refund::<Test>.mock_raw(|_, _, _, _, _| {
-                refund_called = true;
-                MockResult::Return(Ok(None))
-            });
-
             assert_ok!(execute_issue(USER, &issue_id));
             assert_eq!(increase_tokens_called, true);
-            assert_eq!(refund_called, false);
+            assert!(matches!(
+                Issue::issue_requests(&issue_id),
+                Some(IssueRequest {
+                    griefing_collateral: 0,
+                    amount: 5, // 3 + 2 - 0
+                    fee: 0,
+                    ..
+                })
+            ));
         }
     })
 }
 
 #[test]
-fn test_execute_issue_refund_succeeds() {
+fn test_execute_issue_overpayment_up_to_max_succeeds() {
     run_test(|| {
-        ext::vault_registry::get_active_vault_from_id::<Test>
-            .mock_safe(|_| MockResult::Return(Ok(init_zero_vault(VAULT))));
-        ext::vault_registry::issue_tokens::<Test>.mock_safe(|_, _| MockResult::Return(Ok(())));
-
-        let issue_id = request_issue_ok(USER, 3, VAULT);
-        <security::Pallet<Test>>::set_active_block_number(5);
-
-        // pay 103 instead of the expected 3
-        ext::btc_relay::parse_merkle_proof::<Test>.mock_safe(|_| MockResult::Return(Ok(dummy_merkle_proof())));
-        ext::btc_relay::parse_transaction::<Test>.mock_safe(|_| MockResult::Return(Ok(Transaction::default())));
-        ext::btc_relay::get_and_verify_issue_payment::<Test, Balance>
-            .mock_safe(|_, _, _| MockResult::Return(Ok((Some(BtcAddress::random()), 103))));
-
-        // return some arbitrary error
-        ext::vault_registry::try_increase_to_be_issued_tokens::<Test>.mock_safe(|_, amount| {
-            assert_eq!(amount, &wrapped(100));
-            MockResult::Return(Err(TestError::IssueCompleted.into()))
-        });
-        ext::vault_registry::register_deposit_address::<Test>
-            .mock_safe(|_, _| MockResult::Return(Ok(BtcAddress::random())));
-
-        ext::vault_registry::is_vault_liquidated::<Test>.mock_safe(|_| MockResult::Return(Ok(false)));
-
+        let issue_id = setup_execute(3, 0, 0, 10);
         unsafe {
-            let mut refund_called = false;
+            let mut increase_tokens_called = false;
 
-            // check that a refund for amount=100 is requested
-            ext::refund::request_refund::<Test>.mock_raw(|amount, _, _, _, _| {
-                refund_called = true;
-                assert_eq!(amount, &wrapped(100));
-                MockResult::Return(Ok(None))
+            ext::vault_registry::get_issuable_tokens_from_vault::<Test>
+                .mock_raw(|_| MockResult::Return(Ok(wrapped(5))));
+            ext::vault_registry::try_increase_to_be_issued_tokens::<Test>.mock_raw(|_, amount| {
+                increase_tokens_called = true;
+                assert_eq!(amount, &wrapped(5));
+                MockResult::Return(Ok(()))
             });
+
             assert_ok!(execute_issue(USER, &issue_id));
-            assert_eq!(refund_called, true);
+            assert_eq!(increase_tokens_called, true);
+            assert!(matches!(
+                Issue::issue_requests(&issue_id),
+                Some(IssueRequest {
+                    griefing_collateral: 0,
+                    amount: 8, // 3 + 5 - 0
+                    fee: 0,
+                    ..
+                })
+            ));
         }
     })
 }
+
+#[test]
+fn test_execute_issue_underpayment_succeeds() {
+    run_test(|| {
+        let issue_id = setup_execute(10, 0, 20, 1);
+        unsafe {
+            let mut transfer_funds_called = false;
+            ext::vault_registry::transfer_funds::<Test>.mock_raw(|from, to, amount| {
+                transfer_funds_called = true;
+                assert_eq!(from.account_id(), USER);
+                assert_eq!(to.account_id(), VAULT.account_id);
+                // to_release_collateral = (griefing_collateral * amount_transferred) / expected_total_amount
+                // slashed_collateral = griefing_collateral - to_release_collateral
+                // 20 - (20 * 1 / 10) = 18
+                assert_eq!(amount, &griefing(18));
+                MockResult::Return(Ok(()))
+            });
+
+            let mut decrease_to_be_issued_tokens_called = false;
+            ext::vault_registry::decrease_to_be_issued_tokens::<Test>.mock_raw(|_, amount| {
+                decrease_to_be_issued_tokens_called = true;
+                assert_eq!(amount, &wrapped(9));
+                MockResult::Return(Ok(()))
+            });
+
+            assert_ok!(execute_issue(USER, &issue_id));
+            assert_eq!(decrease_to_be_issued_tokens_called, true);
+            assert_eq!(transfer_funds_called, true);
+            assert!(matches!(
+                Issue::issue_requests(&issue_id),
+                Some(IssueRequest {
+                    // NOTE: griefing collateral is not updated
+                    griefing_collateral: 20,
+                    amount: 1,
+                    fee: 0,
+                    ..
+                })
+            ));
+        }
+    })
+}
+
 #[test]
 fn test_cancel_issue_not_found_fails() {
     run_test(|| {
