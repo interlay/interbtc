@@ -15,7 +15,7 @@ frame-system  = { git = 'https://github.com/paritytech/substrate.git', branch = 
 log           = { version = "0.4", default-features = false }
 num-bigint    = { default-features = false, version = '0.4' }
 num-traits    = { default-features = false, version = '0.2' }
-primitives    = { package = 'parallel-primitives', path = '../../primitives', default-features = false }
+primitives    = { package = 'interbtc-primitives', path = '../../primitives', default-features = false }
 scale-info    = { version = '2.1', default-features = false, features = ['derive'] }
 sp-core       = { git = 'https://github.com/paritytech/substrate.git', branch = 'polkadot-v0.9.28', default-features = false }
 sp-io         = { git = 'https://github.com/paritytech/substrate.git', branch = 'polkadot-v0.9.28', default-features = false }

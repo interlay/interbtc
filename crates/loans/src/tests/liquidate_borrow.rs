@@ -6,7 +6,7 @@ use crate::{
     Error, MarketState,
 };
 use frame_support::{assert_err, assert_noop, assert_ok};
-use primitives::{tokens::CDOT_6_13, Rate, DOT_U};
+use primitives::{tokens::{CDOT_6_13, DOT_U}, Rate};
 use sp_runtime::FixedPointNumber;
 
 #[test]

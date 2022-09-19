@@ -11,12 +11,14 @@ pub use sp_runtime::OpaqueExtrinsic as UncheckedExtrinsic;
 use sp_runtime::{
     generic,
     traits::{BlakeTwo256, IdentifyAccount, Verify},
-    FixedI128, FixedPointNumber, FixedU128, MultiSignature, RuntimeDebug,
+    FixedI128, FixedPointNumber, FixedU128, MultiSignature, RuntimeDebug, Permill,
 };
 use sp_std::{
     convert::{TryFrom, TryInto},
     prelude::*,
 };
+
+pub mod tokens;
 
 pub use bitcoin::types::H256Le;
 
@@ -357,6 +359,21 @@ pub type UnsignedFixedPoint = FixedU128;
 
 /// The `Inner` type of the `UnsignedFixedPoint`.
 pub type UnsignedInner = u128;
+
+
+/// Loans pallet types
+
+pub type Price = FixedU128;
+pub type Timestamp = u64;
+pub type PriceDetail = (Price, Timestamp);
+pub type Rate = FixedU128;
+pub type Ratio = Permill;
+pub type Shortfall = FixedU128;
+pub type Liquidity = FixedU128;
+pub const SECONDS_PER_YEAR: Timestamp = 365 * 24 * 60 * 60;
+pub type LendingPoolCurrencyId = u32;
+
+
 
 pub trait CurrencyInfo {
     fn name(&self) -> &str;

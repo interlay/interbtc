@@ -44,7 +44,7 @@ use pallet_traits::{
     MarketInfo, MarketStatus, PriceFeeder,
 };
 use primitives::{
-    is_auxiliary_token, Balance, CurrencyId, Liquidity, Price, Rate, Ratio, Shortfall, Timestamp,
+    tokens::is_auxiliary_token, Balance, LendingPoolCurrencyId as CurrencyId, Liquidity, Price, Rate, Ratio, Shortfall, Timestamp,
 };
 use sp_runtime::{
     traits::{
@@ -72,7 +72,6 @@ mod ptoken;
 mod rate_model;
 mod types;
 
-pub mod migrations;
 pub mod weights;
 
 pub const MAX_INTEREST_CALCULATING_INTERVAL: u64 = 5 * 24 * 3600; // 5 days

@@ -8,12 +8,10 @@ use sp_runtime::{traits::Zero, RuntimeDebug};
 use sp_std::prelude::*;
 
 use primitives::{
-    CurrencyId, DerivativeIndex, PersistedValidationData, PriceDetail, Rate, Timestamp,
+    LendingPoolCurrencyId as CurrencyId, PriceDetail, Rate, Timestamp,
 };
 
 pub mod loans;
-pub mod ump;
-pub mod xcm;
 pub use loans::*;
 
 pub trait EmergencyCallFilter<Call> {
@@ -199,30 +197,6 @@ impl ConvertToBigUint for u128 {
     fn get_big_uint(&self) -> BigUint {
         self.to_biguint().unwrap()
     }
-}
-
-/// Get relaychain validation data
-pub trait ValidationDataProvider {
-    fn validation_data() -> Option<PersistedValidationData>;
-}
-
-/// Distribute liquidstaking asset to multi-accounts
-pub trait DistributionStrategy<Balance> {
-    fn get_bond_distributions(
-        bonded_amounts: Vec<(DerivativeIndex, Balance, Balance)>,
-        input: Balance,
-        cap: Balance,
-        min_nominator_bond: Balance,
-    ) -> Vec<(DerivativeIndex, Balance)>;
-    fn get_unbond_distributions(
-        active_bonded_amounts: Vec<(DerivativeIndex, Balance)>,
-        input: Balance,
-        min_nominator_bond: Balance,
-    ) -> Vec<(DerivativeIndex, Balance)>;
-    fn get_rebond_distributions(
-        unbonding_amounts: Vec<(DerivativeIndex, Balance)>,
-        input: Balance,
-    ) -> Vec<(DerivativeIndex, Balance)>;
 }
 
 pub trait Streaming<AccountId, CurrencyId, Balance> {

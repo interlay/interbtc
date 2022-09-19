@@ -1,6 +1,6 @@
 use crate::InterestRateModel;
 use frame_support::pallet_prelude::*;
-use primitives::{CurrencyId, Rate, Ratio};
+use primitives::{LendingPoolCurrencyId as CurrencyId, Rate, Ratio};
 use scale_info::TypeInfo;
 
 /// Container for borrow balance information

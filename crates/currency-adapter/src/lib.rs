@@ -34,7 +34,7 @@ use frame_support::{
         Get, LockIdentifier, WithdrawReasons,
     },
 };
-use primitives::{Balance, CurrencyId};
+use primitives::{Balance, LendingPoolCurrencyId as CurrencyId};
 use sp_runtime::DispatchError;
 
 type AssetIdOf<T> =

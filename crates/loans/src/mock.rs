@@ -25,7 +25,8 @@ use pallet_traits::{
 };
 use primitives::{
     tokens::{CDOT_6_13, PCDOT_6_13},
-    *,
+    LendingPoolCurrencyId as CurrencyId,
+    Moment, PriceDetail
 };
 use sp_core::H256;
 use sp_runtime::{testing::Header, traits::IdentityLookup, AccountId32};
@@ -46,10 +47,8 @@ construct_runtime!(
         System: frame_system::{Pallet, Call, Storage, Config, Event<T>},
         Balances: pallet_balances::{Pallet, Call, Storage, Event<T>},
         Loans: crate::{Pallet, Storage, Call, Event<T>},
-        Prices: pallet_prices::{Pallet, Storage, Call, Event<T>},
         TimestampPallet: pallet_timestamp::{Pallet, Call, Storage, Inherent},
         Assets: pallet_assets::{Pallet, Call, Storage, Event<T>},
-        DefaultAMM: pallet_amm::{Pallet, Call, Storage, Event<T>},
         CurrencyAdapter: pallet_currency_adapter::{Pallet, Call},
     }
 );
@@ -221,53 +220,11 @@ parameter_types! {
     pub const RelayCurrency: CurrencyId = KSM;
 }
 
-// AMM instance initialization
-parameter_types! {
-    pub const AMMPalletId: PalletId = PalletId(*b"par/ammp");
-    // pub const DefaultLpFee: Ratio = Ratio::from_rational(25u32, 10000u32);        // 0.25%
-    // pub const DefaultProtocolFee: Ratio = Ratio::from_rational(5u32, 10000u32);
-    pub  DefaultLpFee: Ratio = Ratio::from_rational(25u32, 10000u32);         // 0.3%
-    pub const MinimumLiquidity: u128 = 1_000u128;
-    pub const LockAccountId: AccountId = ALICE;
-    pub const MaxLengthRoute: u8 = 10;
-}
-
 pub struct AliceCreatePoolOrigin;
 impl SortedMembers<AccountId> for AliceCreatePoolOrigin {
     fn sorted_members() -> Vec<AccountId> {
         vec![ALICE]
     }
-}
-
-impl pallet_amm::Config for Test {
-    type Event = Event;
-    type Assets = CurrencyAdapter;
-    type PalletId = AMMPalletId;
-    type LockAccountId = LockAccountId;
-    type AMMWeightInfo = ();
-    type CreatePoolOrigin = EnsureSignedBy<AliceCreatePoolOrigin, AccountId>;
-    type ProtocolFeeUpdateOrigin = EnsureSignedBy<AliceCreatePoolOrigin, AccountId>;
-    type LpFee = DefaultLpFee;
-    type MinimumLiquidity = MinimumLiquidity;
-    type MaxLengthRoute = MaxLengthRoute;
-    type GetNativeCurrencyId = NativeCurrencyId;
-}
-
-impl pallet_prices::Config for Test {
-    type Event = Event;
-    type Source = MockDataProvider;
-    type FeederOrigin = EnsureRoot<AccountId>;
-    type UpdateOrigin = EnsureRoot<AccountId>;
-    type LiquidStakingExchangeRateProvider = LiquidStaking;
-    type LiquidStakingCurrenciesProvider = LiquidStaking;
-    type VaultTokenCurrenciesFilter = TokenCurrenciesFilter;
-    type VaultTokenExchangeRateProvider = TokenExchangeRateProvider;
-    type VaultLoansRateProvider = VaultLoansRateProvider;
-    type RelayCurrency = RelayCurrency;
-    type Decimal = Decimal;
-    type AMM = DefaultAMM;
-    type Assets = CurrencyAdapter;
-    type WeightInfo = ();
 }
 
 pub struct MockPriceFeeder;

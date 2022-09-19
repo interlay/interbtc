@@ -13,13 +13,14 @@ frame-benchmarking = { git = 'https://github.com/paritytech/substrate.git', bran
 frame-support      = { git = 'https://github.com/paritytech/substrate.git', branch = 'polkadot-v0.9.28', default-features = false }
 frame-system       = { git = 'https://github.com/paritytech/substrate.git', branch = 'polkadot-v0.9.28', default-features = false }
 num-traits         = { default-features = false, version = '0.2' }
-orml-traits        = { version = '0.4.1-dev', default-features = false }
+orml-traits        = { git = "https://github.com/open-web3-stack/open-runtime-module-library", rev = "8c625a5ab43c1c56cdeed5f8d814a891566d4cf8" }
+orml-oracle        = { git = "https://github.com/open-web3-stack/open-runtime-module-library", rev = "8c625a5ab43c1c56cdeed5f8d814a891566d4cf8" }
 pallet-assets      = { git = 'https://github.com/paritytech/substrate.git', branch = 'polkadot-v0.9.28', default-features = false }
 pallet-balances    = { git = 'https://github.com/paritytech/substrate.git', branch = 'polkadot-v0.9.28', default-features = false }
-pallet-prices      = { path = '../prices', default-features = false }
+
 pallet-timestamp   = { git = 'https://github.com/paritytech/substrate.git', branch = 'polkadot-v0.9.28', default-features = false }
 pallet-traits      = { path = '../traits', default-features = false }
-primitives         = { package = 'parallel-primitives', path = '../../primitives', default-features = false }
+primitives         = { package = 'interbtc-primitives', path = '../../primitives', default-features = false }
 scale-info         = { version = '2.1', default-features = false, features = ['derive'] }
 serde              = { version = '1.0.136', features = ['derive'], optional = true }
 sp-io              = { git = 'https://github.com/paritytech/substrate.git', branch = 'polkadot-v0.9.28', default-features = false }
@@ -27,8 +28,6 @@ sp-runtime         = { git = 'https://github.com/paritytech/substrate.git', bran
 sp-std             = { git = 'https://github.com/paritytech/substrate.git', branch = 'polkadot-v0.9.28', default-features = false }
 
 [dev-dependencies]
-orml-oracle             = { version = '0.4.1-dev' }
-pallet-amm              = { path = '../amm' }
 pallet-currency-adapter = { path = '../currency-adapter' }
 sp-core                 = { git = 'https://github.com/paritytech/substrate.git', branch = 'polkadot-v0.9.28' }
 
@@ -46,7 +45,6 @@ std                = [
   'sp-std/std',
   'sp-io/std',
   'pallet-assets/std',
-  'pallet-prices/std',
   'pallet-balances/std',
   'pallet-timestamp/std',
   'serde',
