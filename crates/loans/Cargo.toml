@@ -15,8 +15,7 @@ frame-system       = { git = 'https://github.com/paritytech/substrate.git', bran
 num-traits         = { default-features = false, version = '0.2' }
 orml-traits        = { git = "https://github.com/open-web3-stack/open-runtime-module-library", rev = "8c625a5ab43c1c56cdeed5f8d814a891566d4cf8" }
 orml-oracle        = { git = "https://github.com/open-web3-stack/open-runtime-module-library", rev = "8c625a5ab43c1c56cdeed5f8d814a891566d4cf8" }
-pallet-assets      = { git = 'https://github.com/paritytech/substrate.git', branch = 'polkadot-v0.9.28', default-features = false }
-pallet-balances    = { git = 'https://github.com/paritytech/substrate.git', branch = 'polkadot-v0.9.28', default-features = false }
+orml-tokens        = { git = "https://github.com/open-web3-stack/open-runtime-module-library", rev = "8c625a5ab43c1c56cdeed5f8d814a891566d4cf8", default-features = false }
 
 pallet-timestamp   = { git = 'https://github.com/paritytech/substrate.git', branch = 'polkadot-v0.9.28', default-features = false }
 pallet-traits      = { path = '../traits', default-features = false }
@@ -28,7 +27,6 @@ sp-runtime         = { git = 'https://github.com/paritytech/substrate.git', bran
 sp-std             = { git = 'https://github.com/paritytech/substrate.git', branch = 'polkadot-v0.9.28', default-features = false }
 
 [dev-dependencies]
-pallet-currency-adapter = { path = '../currency-adapter' }
 sp-core                 = { git = 'https://github.com/paritytech/substrate.git', branch = 'polkadot-v0.9.28' }
 
 [features]
@@ -39,13 +37,12 @@ std                = [
   'frame-support/std',
   'frame-system/std',
   'frame-benchmarking/std',
+	"orml-tokens/std",
   'orml-traits/std',
   'primitives/std',
   'sp-runtime/std',
   'sp-std/std',
   'sp-io/std',
-  'pallet-assets/std',
-  'pallet-balances/std',
   'pallet-timestamp/std',
   'serde',
   'scale-info/std',

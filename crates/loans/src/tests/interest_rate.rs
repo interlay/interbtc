@@ -34,11 +34,12 @@ fn utilization_rate_works() {
 fn interest_rate_model_works() {
     new_test_ext().execute_with(|| {
         let rate_decimal: u128 = 1_000_000_000_000_000_000;
-        Assets::mint(
-            Origin::signed(ALICE),
-            DOT,
+        Tokens::set_balance(
+            Origin::root(),
             ALICE,
+            DOT,
             million_unit(1000) - unit(1000),
+            0
         )
         .unwrap();
         // Deposit 200 DOT and borrow 100 DOT
@@ -194,7 +195,7 @@ fn accrue_interest_works_after_redeem() {
             0,
         );
         assert_eq!(
-            <Test as Config>::Assets::balance(DOT, &ALICE),
+            Tokens::balance(DOT, &ALICE),
             819999999999999
         );
     })
@@ -220,7 +221,7 @@ fn accrue_interest_works_after_redeem_all() {
             0,
         );
         assert_eq!(
-            <Test as Config>::Assets::balance(DOT, &BOB),
+            Tokens::balance(DOT, &BOB),
             1000000000003608
         );
         assert!(!AccountDeposits::<Test>::contains_key(DOT, &BOB))
@@ -258,7 +259,7 @@ fn accrue_interest_works_after_repay_all() {
             Rate::from_inner(1000000008561643835),
         );
         assert_eq!(
-            <Test as Config>::Assets::balance(KSM, &ALICE),
+            Tokens::balance(KSM, &ALICE),
             999999999571918
         );
         let borrow_snapshot = Loans::account_borrows(KSM, ALICE);

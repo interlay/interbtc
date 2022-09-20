@@ -6106,20 +6106,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "pallet-assets"
-version = "4.0.0-dev"
-source = "git+https://github.com/paritytech/substrate.git?branch=polkadot-v0.9.28#34a0621761c4a333cb2074ff720f7acbfb92dbb8"
-dependencies = [
- "frame-benchmarking",
- "frame-support",
- "frame-system",
- "parity-scale-codec",
- "scale-info",
- "sp-runtime",
- "sp-std",
-]
-
-[[package]]
 name = "pallet-aura"
 version = "4.0.0-dev"
 source = "git+https://github.com/paritytech//substrate?branch=polkadot-v0.9.26#e8a7d161f39db70cb27fdad6c6e215cf493ebc3b"
@@ -6319,18 +6305,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "pallet-currency-adapter"
-version = "1.9.3"
-dependencies = [
- "frame-support",
- "frame-system",
- "interbtc-primitives",
- "parity-scale-codec",
- "scale-info",
- "sp-runtime",
-]
-
-[[package]]
 name = "pallet-democracy"
 version = "4.0.0-dev"
 source = "git+https://github.com/paritytech//substrate?branch=polkadot-v0.9.26#e8a7d161f39db70cb27fdad6c6e215cf493ebc3b"
@@ -6501,10 +6475,8 @@ dependencies = [
  "interbtc-primitives",
  "num-traits",
  "orml-oracle",
+ "orml-tokens",
  "orml-traits",
- "pallet-assets",
- "pallet-balances",
- "pallet-currency-adapter",
  "pallet-timestamp",
  "pallet-traits",
  "parity-scale-codec",

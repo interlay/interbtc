@@ -18,7 +18,7 @@ use frame_support::{
     construct_runtime, parameter_types, traits::Everything, traits::SortedMembers, PalletId,
 };
 use frame_system::{EnsureRoot, EnsureSignedBy};
-use orml_traits::{DataFeeder, DataProvider, DataProviderExtended};
+use orml_traits::{DataFeeder, DataProvider, DataProviderExtended, parameter_type_with_key};
 use pallet_traits::{
     DecimalProvider, ExchangeRateProvider, LiquidStakingCurrenciesProvider,
     VaultTokenCurrenciesFilter, VaultTokenExchangeRateProvider,
@@ -45,11 +45,9 @@ construct_runtime!(
         UncheckedExtrinsic = UncheckedExtrinsic,
     {
         System: frame_system::{Pallet, Call, Storage, Config, Event<T>},
-        Balances: pallet_balances::{Pallet, Call, Storage, Event<T>},
         Loans: crate::{Pallet, Storage, Call, Event<T>},
         TimestampPallet: pallet_timestamp::{Pallet, Call, Storage, Inherent},
-        Assets: pallet_assets::{Pallet, Call, Storage, Event<T>},
-        CurrencyAdapter: pallet_currency_adapter::{Pallet, Call},
+        Tokens: orml_tokens::{Pallet, Call, Storage, Config<T>, Event<T>},
     }
 );
 
@@ -76,7 +74,7 @@ impl frame_system::Config for Test {
     type BlockHashCount = BlockHashCount;
     type Version = ();
     type PalletInfo = PalletInfo;
-    type AccountData = pallet_balances::AccountData<Balance>;
+    type AccountData = ();
     type OnNewAccount = ();
     type OnKilledAccount = ();
     type SystemWeightInfo = ();
@@ -105,21 +103,28 @@ impl pallet_timestamp::Config for Test {
     type WeightInfo = ();
 }
 
-parameter_types! {
-    pub const ExistentialDeposit: Balance = 1;
-    pub const MaxLocks: u32 = 50;
+parameter_type_with_key! {
+    pub ExistentialDeposits: |_currency_id: CurrencyId| -> Balance {
+        Zero::zero()
+    };
 }
 
-impl pallet_balances::Config for Test {
-    type Balance = Balance;
-    type DustRemoval = ();
+pub type RawAmount = i128;
+
+impl orml_tokens::Config for Test {
     type Event = Event;
-    type ExistentialDeposit = ExistentialDeposit;
-    type AccountStore = System;
-    type WeightInfo = pallet_balances::weights::SubstrateWeight<Test>;
+    type Balance = Balance;
+    type Amount = RawAmount;
+    type CurrencyId = CurrencyId;
+    type WeightInfo = ();
+    type ExistentialDeposits = ExistentialDeposits;
+    type OnDust = ();
     type MaxLocks = MaxLocks;
-    type MaxReserves = ();
-    type ReserveIdentifier = [u8; 8];
+    type DustRemovalWhitelist = Everything;
+    type MaxReserves = ConstU32<0>; // we don't use named reserves
+    type ReserveIdentifier = (); // we don't use named reserves
+    type OnNewTokenAccount = ();
+    type OnKilledTokenAccount = ();
 }
 
 // pallet-price is using for benchmark compilation
@@ -263,29 +268,7 @@ impl PriceFeeder for MockPriceFeeder {
 }
 
 parameter_types! {
-    pub const AssetDeposit: u64 = 1;
-    pub const ApprovalDeposit: u64 = 1;
-    pub const AssetAccountDeposit: u64 = 1;
-    pub const StringLimit: u32 = 50;
-    pub const MetadataDepositBase: u64 = 1;
-    pub const MetadataDepositPerByte: u64 = 1;
-}
-
-impl pallet_assets::Config for Test {
-    type Event = Event;
-    type Balance = Balance;
-    type AssetId = CurrencyId;
-    type Currency = Balances;
-    type ForceOrigin = EnsureRoot<AccountId>;
-    type AssetDeposit = AssetDeposit;
-    type MetadataDepositBase = MetadataDepositBase;
-    type MetadataDepositPerByte = MetadataDepositPerByte;
-    type AssetAccountDeposit = AssetAccountDeposit;
-    type ApprovalDeposit = ApprovalDeposit;
-    type StringLimit = StringLimit;
-    type Freezer = ();
-    type Extra = ();
-    type WeightInfo = ();
+    pub const MaxLocks: u32 = 50;
 }
 
 parameter_types! {
@@ -302,20 +285,9 @@ impl Config for Test {
     type UpdateOrigin = EnsureRoot<AccountId>;
     type WeightInfo = ();
     type UnixTime = TimestampPallet;
-    type Assets = CurrencyAdapter;
+    type Assets = Tokens;
     type RewardAssetId = RewardAssetId;
     type LiquidationFreeAssetId = LiquidationFreeAssetId;
-}
-
-parameter_types! {
-    pub const NativeCurrencyId: CurrencyId = HKO;
-}
-
-impl pallet_currency_adapter::Config for Test {
-    type Assets = Assets;
-    type Balances = Balances;
-    type GetNativeCurrencyId = NativeCurrencyId;
-    type LockOrigin = EnsureRoot<AccountId>;
 }
 
 pub(crate) fn new_test_ext() -> sp_io::TestExternalities {
@@ -326,21 +298,16 @@ pub(crate) fn new_test_ext() -> sp_io::TestExternalities {
     let mut ext = sp_io::TestExternalities::new(t);
     ext.execute_with(|| {
         // Init assets
-        Balances::set_balance(Origin::root(), DAVE, unit(1000), unit(0)).unwrap();
-        Assets::force_create(Origin::root(), DOT, ALICE, true, 1).unwrap();
-        Assets::force_create(Origin::root(), KSM, ALICE, true, 1).unwrap();
-        Assets::force_create(Origin::root(), USDT, ALICE, true, 1).unwrap();
-        Assets::force_create(Origin::root(), SDOT, ALICE, true, 1).unwrap();
-        Assets::force_create(Origin::root(), CDOT_6_13, ALICE, true, 1).unwrap();
-
-        Assets::mint(Origin::signed(ALICE), KSM, ALICE, unit(1000)).unwrap();
-        Assets::mint(Origin::signed(ALICE), DOT, ALICE, unit(1000)).unwrap();
-        Assets::mint(Origin::signed(ALICE), USDT, ALICE, unit(1000)).unwrap();
-        Assets::mint(Origin::signed(ALICE), CDOT_6_13, ALICE, unit(1000)).unwrap();
-        Assets::mint(Origin::signed(ALICE), KSM, BOB, unit(1000)).unwrap();
-        Assets::mint(Origin::signed(ALICE), DOT, BOB, unit(1000)).unwrap();
-        Assets::mint(Origin::signed(ALICE), DOT, DAVE, unit(1000)).unwrap();
-        Assets::mint(Origin::signed(ALICE), USDT, DAVE, unit(1000)).unwrap();
+        
+        Tokens::set_balance(Origin::root(), ALICE, KSM, 1000_000000000000, 0).unwrap();
+        Tokens::set_balance(Origin::root(), ALICE, DOT, 1000_000000000000, 0).unwrap();
+        Tokens::set_balance(Origin::root(), ALICE, USDT, 1000_000000000000, 0).unwrap();
+        Tokens::set_balance(Origin::root(), ALICE, CDOT_6_13, 1000_000000000000, 0).unwrap();
+        Tokens::set_balance(Origin::root(), BOB, KSM, 1000_000000000000, 0).unwrap();
+        Tokens::set_balance(Origin::root(), BOB, DOT, 1000_000000000000, 0).unwrap();
+        Tokens::set_balance(Origin::root(), DAVE, DOT, 1000_000000000000, 0).unwrap();
+        Tokens::set_balance(Origin::root(), DAVE, USDT, 1000_000000000000, 0).unwrap();
+        Tokens::set_balance(Origin::root(), DAVE, HKO, 1000_000000000000, 0).unwrap();
 
         // Init Markets
         Loans::add_market(Origin::root(), HKO, market_mock(PHKO)).unwrap();

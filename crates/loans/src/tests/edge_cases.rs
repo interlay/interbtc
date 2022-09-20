@@ -7,7 +7,7 @@ use sp_runtime::FixedPointNumber;
 #[test]
 fn exceeded_supply_cap() {
     new_test_ext().execute_with(|| {
-        Assets::mint(Origin::signed(ALICE), DOT, ALICE, million_unit(1001)).unwrap();
+        Tokens::set_balance(Origin::root(), ALICE, DOT, million_unit(1001), 0).unwrap();
         let amount = million_unit(501);
         assert_ok!(Loans::mint(Origin::signed(ALICE), DOT, amount));
         // Exceed upper bound.
@@ -43,7 +43,7 @@ fn repay_borrow_all_no_underflow() {
         // Alice repay all borrow balance. total_borrows = total_borrows.saturating_sub(10000005) = 0.
         assert_ok!(Loans::repay_borrow_all(Origin::signed(ALICE), KSM));
 
-        assert_eq!(Assets::balance(KSM, &ALICE), unit(800) - 5);
+        assert_eq!(Tokens::balance(KSM, &ALICE), unit(800) - 5);
 
         assert_eq!(
             Loans::exchange_rate(DOT)
@@ -91,7 +91,7 @@ fn redeem_all_should_be_accurate() {
 fn prevent_the_exchange_rate_attack() {
     new_test_ext().execute_with(|| {
         // Initialize Eve's balance
-        assert_ok!(<Test as Config>::Assets::transfer(
+        assert_ok!(<Tokens as Transfer<AccountId>>::transfer(
             DOT,
             &ALICE,
             &EVE,
@@ -101,16 +101,16 @@ fn prevent_the_exchange_rate_attack() {
         // Eve deposits a small amount
         assert_ok!(Loans::mint(Origin::signed(EVE), DOT, 1));
         // !!! Eve transfer a big amount to Loans::account_id
-        assert_ok!(<Test as Config>::Assets::transfer(
+        assert_ok!(<Tokens as Transfer<AccountId>>::transfer(
             DOT,
             &EVE,
             &Loans::account_id(),
             unit(100),
             false
         ));
-        assert_eq!(<Test as Config>::Assets::balance(DOT, &EVE), 99999999999999);
+        assert_eq!(Tokens::balance(DOT, &EVE), 99999999999999);
         assert_eq!(
-            <Test as Config>::Assets::balance(DOT, &Loans::account_id()),
+            Tokens::balance(DOT, &Loans::account_id()),
             100000000000001
         );
         assert_eq!(

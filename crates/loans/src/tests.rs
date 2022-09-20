@@ -31,11 +31,11 @@ use crate::mock::*;
 #[test]
 fn init_minting_ok() {
     new_test_ext().execute_with(|| {
-        assert_eq!(Assets::balance(KSM, ALICE), unit(1000));
-        assert_eq!(Assets::balance(DOT, ALICE), unit(1000));
-        assert_eq!(Assets::balance(USDT, ALICE), unit(1000));
-        assert_eq!(Assets::balance(KSM, BOB), unit(1000));
-        assert_eq!(Assets::balance(DOT, BOB), unit(1000));
+        assert_eq!(Tokens::balance(KSM, &ALICE), unit(1000));
+        assert_eq!(Tokens::balance(DOT, &ALICE), unit(1000));
+        assert_eq!(Tokens::balance(USDT, &ALICE), unit(1000));
+        assert_eq!(Tokens::balance(KSM, &BOB), unit(1000));
+        assert_eq!(Tokens::balance(DOT, &BOB), unit(1000));
     });
 }
 
@@ -68,7 +68,7 @@ fn init_markets_ok() {
 #[test]
 fn loans_native_token_works() {
     new_test_ext().execute_with(|| {
-        assert_eq!(<Test as Config>::Assets::balance(HKO, &DAVE), unit(1000));
+        assert_eq!(Tokens::balance(HKO, &DAVE), unit(1000));
         assert_eq!(Loans::market(HKO).unwrap().state, MarketState::Active);
         assert_eq!(BorrowIndex::<Test>::get(HKO), Rate::one());
         assert_eq!(
@@ -103,7 +103,7 @@ fn loans_native_token_works() {
         let borrow_snapshot = Loans::account_borrows(HKO, DAVE);
         assert_eq!(borrow_snapshot.principal, unit(100));
         assert_eq!(borrow_snapshot.borrow_index, Loans::borrow_index(HKO));
-        assert_eq!(<Test as Config>::Assets::balance(HKO, &DAVE), unit(100),);
+        assert_eq!(Tokens::balance(HKO, &DAVE), unit(100),);
     })
 }
 
@@ -120,9 +120,9 @@ fn mint_works() {
                 .saturating_mul_int(Loans::account_deposits(DOT, ALICE).voucher_balance),
             unit(100)
         );
-        assert_eq!(<Test as Config>::Assets::balance(DOT, &ALICE), unit(900),);
+        assert_eq!(Tokens::balance(DOT, &ALICE), unit(900),);
         assert_eq!(
-            <Test as Config>::Assets::balance(DOT, &Loans::account_id()),
+            Tokens::balance(DOT, &Loans::account_id()),
             unit(100),
         );
     })
@@ -150,11 +150,12 @@ fn mint_must_return_err_when_overflows_occur() {
         );
 
         // Deposit OVERFLOW_DEPOSIT DOT for CHARLIE
-        assert_ok!(Assets::mint(
-            Origin::signed(ALICE),
-            DOT,
+        assert_ok!(Tokens::set_balance(
+            Origin::root(),
             CHARLIE,
-            OVERFLOW_DEPOSIT
+            DOT,
+            OVERFLOW_DEPOSIT,
+            0
         ));
 
         // Amount is too large, OVERFLOW_DEPOSIT / 0.0X == Overflow
@@ -256,7 +257,7 @@ fn redeem_works() {
                 .saturating_mul_int(Loans::account_deposits(DOT, ALICE).voucher_balance),
             unit(80)
         );
-        assert_eq!(<Test as Config>::Assets::balance(DOT, &ALICE), unit(920),);
+        assert_eq!(Tokens::balance(DOT, &ALICE), unit(920),);
     })
 }
 
@@ -343,7 +344,7 @@ fn redeem_all_works() {
                 .saturating_mul_int(Loans::account_deposits(DOT, ALICE).voucher_balance),
             0,
         );
-        assert_eq!(<Test as Config>::Assets::balance(DOT, &ALICE), unit(1000),);
+        assert_eq!(Tokens::balance(DOT, &ALICE), unit(1000),);
         assert!(!AccountDeposits::<Test>::contains_key(DOT, &ALICE))
     })
 }
@@ -479,7 +480,7 @@ fn borrow_works() {
         let borrow_snapshot = Loans::account_borrows(DOT, ALICE);
         assert_eq!(borrow_snapshot.principal, unit(100));
         assert_eq!(borrow_snapshot.borrow_index, Loans::borrow_index(DOT));
-        assert_eq!(<Test as Config>::Assets::balance(DOT, &ALICE), unit(900),);
+        assert_eq!(Tokens::balance(DOT, &ALICE), unit(900),);
     })
 }
 
@@ -505,7 +506,7 @@ fn lf_borrow_works() {
         let borrow_snapshot = Loans::account_borrows(DOT, ALICE);
         assert_eq!(borrow_snapshot.principal, unit(100));
         assert_eq!(borrow_snapshot.borrow_index, Loans::borrow_index(DOT));
-        assert_eq!(<Test as Config>::Assets::balance(DOT, &ALICE), unit(1100),);
+        assert_eq!(Tokens::balance(DOT, &ALICE), unit(1100),);
     })
 }
 
@@ -531,7 +532,7 @@ fn repay_borrow_works() {
         let borrow_snapshot = Loans::account_borrows(DOT, ALICE);
         assert_eq!(borrow_snapshot.principal, unit(70));
         assert_eq!(borrow_snapshot.borrow_index, Loans::borrow_index(DOT));
-        assert_eq!(<Test as Config>::Assets::balance(DOT, &ALICE), unit(870),);
+        assert_eq!(Tokens::balance(DOT, &ALICE), unit(870),);
     })
 }
 
@@ -553,7 +554,7 @@ fn repay_borrow_all_works() {
         // DOT collateral: deposit = 200
         // KSM: cash + borrow - repay = 1000 + 50 - 50 = 1000
         // KSM borrow balance: borrow - repay = 50 - 50 = 0
-        assert_eq!(<Test as Config>::Assets::balance(DOT, &ALICE), unit(800),);
+        assert_eq!(Tokens::balance(DOT, &ALICE), unit(800),);
         assert_eq!(
             Loans::exchange_rate(DOT)
                 .saturating_mul_int(Loans::account_deposits(DOT, ALICE).voucher_balance),
@@ -623,10 +624,10 @@ fn add_reserves_works() {
 
         assert_eq!(Loans::total_reserves(DOT), unit(100));
         assert_eq!(
-            <Test as Config>::Assets::balance(DOT, &Loans::account_id()),
+            Tokens::balance(DOT, &Loans::account_id()),
             unit(100),
         );
-        assert_eq!(<Test as Config>::Assets::balance(DOT, &ALICE), unit(900),);
+        assert_eq!(Tokens::balance(DOT, &ALICE), unit(900),);
     })
 }
 
@@ -641,10 +642,10 @@ fn reduce_reserves_works() {
 
         assert_eq!(Loans::total_reserves(DOT), unit(80));
         assert_eq!(
-            <Test as Config>::Assets::balance(DOT, &Loans::account_id()),
+            Tokens::balance(DOT, &Loans::account_id()),
             unit(80),
         );
-        assert_eq!(<Test as Config>::Assets::balance(DOT, &ALICE), unit(920),);
+        assert_eq!(Tokens::balance(DOT, &ALICE), unit(920),);
     })
 }
 
@@ -873,11 +874,12 @@ fn get_price_works() {
 #[test]
 fn ensure_enough_cash_works() {
     new_test_ext().execute_with(|| {
-        assert_ok!(Assets::mint(
-            Origin::signed(ALICE),
-            KSM,
+        assert_ok!(Tokens::set_balance(
+            Origin::root(),
             Loans::account_id(),
-            unit(1000)
+            KSM,
+            unit(1000),
+            0
         ));
         assert_ok!(Loans::ensure_enough_cash(KSM, unit(1000)));
         TotalReserves::<Test>::insert(KSM, unit(10));
@@ -919,7 +921,7 @@ fn ensure_valid_exchange_rate_works() {
 #[test]
 fn withdraw_missing_reward_works() {
     new_test_ext().execute_with(|| {
-        assert_eq!(<Test as Config>::Assets::balance(HKO, &DAVE), unit(1000));
+        assert_eq!(Tokens::balance(HKO, &DAVE), unit(1000));
 
         assert_ok!(Loans::add_reward(Origin::signed(DAVE), unit(100)));
 
@@ -929,12 +931,12 @@ fn withdraw_missing_reward_works() {
             unit(40),
         ));
 
-        assert_eq!(<Test as Config>::Assets::balance(HKO, &DAVE), unit(900));
+        assert_eq!(Tokens::balance(HKO, &DAVE), unit(900));
 
-        assert_eq!(<Test as Config>::Assets::balance(HKO, &ALICE), unit(40));
+        assert_eq!(Tokens::balance(HKO, &ALICE), unit(40));
 
         assert_eq!(
-            <Test as Config>::Assets::balance(HKO, &Loans::reward_account_id().unwrap()),
+            Tokens::balance(HKO, &Loans::reward_account_id().unwrap()),
             unit(60)
         );
     })
@@ -1143,14 +1145,14 @@ fn reward_calculation_one_palyer_in_multi_markets_works() {
         _run_to_block(80);
         assert_ok!(Loans::add_reward(Origin::signed(DAVE), unit(200)));
         assert_ok!(Loans::claim_reward(Origin::signed(ALICE)));
-        assert_eq!(<Test as Config>::Assets::balance(HKO, &DAVE), unit(800));
+        assert_eq!(Tokens::balance(HKO, &DAVE), unit(800));
         assert_eq!(
-            almost_equal(<Test as Config>::Assets::balance(HKO, &ALICE), unit(130)),
+            almost_equal(Tokens::balance(HKO, &ALICE), unit(130)),
             true
         );
         assert_eq!(
             almost_equal(
-                <Test as Config>::Assets::balance(HKO, &Loans::reward_account_id().unwrap()),
+                Tokens::balance(HKO, &Loans::reward_account_id().unwrap()),
                 unit(70)
             ),
             true
@@ -1169,7 +1171,7 @@ fn reward_calculation_one_palyer_in_multi_markets_works() {
         _run_to_block(90);
         assert_ok!(Loans::claim_reward(Origin::signed(ALICE)));
         assert_eq!(
-            almost_equal(<Test as Config>::Assets::balance(HKO, &ALICE), unit(140)),
+            almost_equal(Tokens::balance(HKO, &ALICE), unit(140)),
             true
         );
     })
@@ -1259,18 +1261,18 @@ fn reward_calculation_multi_player_in_one_market_works() {
         assert_ok!(Loans::add_reward(Origin::signed(DAVE), unit(200)));
         assert_ok!(Loans::claim_reward_for_market(Origin::signed(ALICE), DOT));
         assert_ok!(Loans::claim_reward_for_market(Origin::signed(BOB), DOT));
-        assert_eq!(<Test as Config>::Assets::balance(HKO, &DAVE), unit(800));
+        assert_eq!(Tokens::balance(HKO, &DAVE), unit(800));
         assert_eq!(
-            almost_equal(<Test as Config>::Assets::balance(HKO, &ALICE), unit(58)),
+            almost_equal(Tokens::balance(HKO, &ALICE), unit(58)),
             true
         );
         assert_eq!(
-            almost_equal(<Test as Config>::Assets::balance(HKO, &BOB), unit(22)),
+            almost_equal(Tokens::balance(HKO, &BOB), unit(22)),
             true
         );
         assert_eq!(
             almost_equal(
-                <Test as Config>::Assets::balance(HKO, &Loans::reward_account_id().unwrap()),
+                Tokens::balance(HKO, &Loans::reward_account_id().unwrap()),
                 unit(120)
             ),
             true
