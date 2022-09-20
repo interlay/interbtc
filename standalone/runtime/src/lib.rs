@@ -65,7 +65,7 @@ pub use security::StatusCode;
 
 pub use primitives::{
     self, AccountId, Balance, BlockNumber, CurrencyId, CurrencyId::Token, CurrencyInfo, Hash, Moment, Nonce, Signature,
-    SignedFixedPoint, SignedInner, TokenSymbol, UnsignedFixedPoint, UnsignedInner, DOT, IBTC, INTR, KBTC, KINT, KSM,
+    SignedFixedPoint, SignedInner, TokenSymbol, UnsignedFixedPoint, UnsignedInner, DOT, IBTC, INTR, KBTC, KINT, KSM, PriceDetail
 };
 
 type VaultId = primitives::VaultId<AccountId, CurrencyId>;
@@ -573,6 +573,7 @@ parameter_types! {
     pub const VaultAnnuityPalletId: PalletId = PalletId(*b"vlt/annu");
     pub const TreasuryPalletId: PalletId = PalletId(*b"mod/trsy");
     pub const VaultRegistryPalletId: PalletId = PalletId(*b"mod/vreg");
+    pub const LoansPalletId: PalletId = PalletId(*b"mod/loan");
 }
 
 parameter_types! {
@@ -805,6 +806,28 @@ impl currency::CurrencyConversion<currency::Amount<Runtime>, CurrencyId> for Cur
     fn convert(amount: &currency::Amount<Runtime>, to: CurrencyId) -> Result<currency::Amount<Runtime>, DispatchError> {
         Oracle::convert(amount, to)
     }
+}
+
+pub struct PriceFeed;
+impl pallet_loans::PriceFeeder for PriceFeed {
+    fn get_price(asset_id: &CurrencyId) -> Option<PriceDetail> {
+        Oracle::get_price(oracle::OracleKey::ExchangeRate(asset_id))
+            .ok()
+            .map(|price| (price, Timestamp::now()))
+    }
+}
+
+impl pallet_loans::Config for Runtime {
+    type Event = Event;
+    type PalletId = LoansPalletId;
+    type PriceFeeder = PriceFeed;
+    type ReserveOrigin = EnsureRoot<AccountId>;
+    type UpdateOrigin = EnsureRoot<AccountId>;
+    type WeightInfo = ();
+    type UnixTime = Timestamp;
+    type Assets = Tokens;
+    type RewardAssetId = GetNativeCurrencyId;
+    type LiquidationFreeAssetId = GetRelayChainCurrencyId;
 }
 
 impl currency::Config for Runtime {
