@@ -172,6 +172,7 @@ std = [
   "democracy/std",
   "annuity/std",
   "supply/std",
+  "pallet-loans/std",
 
   "primitives/std",
 

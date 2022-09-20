@@ -9,45 +9,45 @@ targets = ['x86_64-unknown-linux-gnu']
 
 [dependencies]
 codec              = { package = 'parity-scale-codec', version = '3.1.5', default-features = false }
-frame-benchmarking = { git = 'https://github.com/paritytech/substrate.git', branch = 'polkadot-v0.9.28', default-features = false, optional = true }
-frame-support      = { git = 'https://github.com/paritytech/substrate.git', branch = 'polkadot-v0.9.28', default-features = false }
-frame-system       = { git = 'https://github.com/paritytech/substrate.git', branch = 'polkadot-v0.9.28', default-features = false }
+frame-benchmarking = { git = 'https://github.com/paritytech/substrate.git', branch = 'polkadot-v0.9.26', default-features = false, optional = true }
+frame-support      = { git = 'https://github.com/paritytech/substrate.git', branch = 'polkadot-v0.9.26', default-features = false }
+frame-system       = { git = 'https://github.com/paritytech/substrate.git', branch = 'polkadot-v0.9.26', default-features = false }
 num-traits         = { default-features = false, version = '0.2' }
-orml-traits        = { git = "https://github.com/open-web3-stack/open-runtime-module-library", rev = "8c625a5ab43c1c56cdeed5f8d814a891566d4cf8" }
-orml-oracle        = { git = "https://github.com/open-web3-stack/open-runtime-module-library", rev = "8c625a5ab43c1c56cdeed5f8d814a891566d4cf8" }
+orml-traits        = { git = "https://github.com/open-web3-stack/open-runtime-module-library", rev = "8c625a5ab43c1c56cdeed5f8d814a891566d4cf8", default-features = false  }
+orml-oracle        = { git = "https://github.com/open-web3-stack/open-runtime-module-library", rev = "8c625a5ab43c1c56cdeed5f8d814a891566d4cf8", default-features = false  }
 orml-tokens        = { git = "https://github.com/open-web3-stack/open-runtime-module-library", rev = "8c625a5ab43c1c56cdeed5f8d814a891566d4cf8", default-features = false }
-
-pallet-timestamp   = { git = 'https://github.com/paritytech/substrate.git', branch = 'polkadot-v0.9.28', default-features = false }
+pallet-timestamp   = { git = 'https://github.com/paritytech/substrate.git', branch = 'polkadot-v0.9.26', default-features = false }
 pallet-traits      = { path = '../traits', default-features = false }
 primitives         = { package = 'interbtc-primitives', path = '../../primitives', default-features = false }
 scale-info         = { version = '2.1', default-features = false, features = ['derive'] }
-serde              = { version = '1.0.136', features = ['derive'], optional = true }
-sp-io              = { git = 'https://github.com/paritytech/substrate.git', branch = 'polkadot-v0.9.28', default-features = false }
-sp-runtime         = { git = 'https://github.com/paritytech/substrate.git', branch = 'polkadot-v0.9.28', default-features = false }
-sp-std             = { git = 'https://github.com/paritytech/substrate.git', branch = 'polkadot-v0.9.28', default-features = false }
+serde              = { version = '1.0.136', default-features = false, features = ['derive'], optional = true }
+sp-io              = { git = 'https://github.com/paritytech/substrate.git', branch = 'polkadot-v0.9.26', default-features = false }
+sp-runtime         = { git = 'https://github.com/paritytech/substrate.git', branch = 'polkadot-v0.9.26', default-features = false }
+sp-std             = { git = 'https://github.com/paritytech/substrate.git', branch = 'polkadot-v0.9.26', default-features = false }
+sp-core            = { git = 'https://github.com/paritytech/substrate.git', branch = 'polkadot-v0.9.26', default-features = false }
 
 [dev-dependencies]
-sp-core                 = { git = 'https://github.com/paritytech/substrate.git', branch = 'polkadot-v0.9.28' }
 
 [features]
 default            = ['std']
 runtime-benchmarks = ['frame-benchmarking']
 std                = [
-  'codec/std',
-  'frame-support/std',
-  'frame-system/std',
-  'frame-benchmarking/std',
-	"orml-tokens/std",
-  'orml-traits/std',
-  'primitives/std',
-  'sp-runtime/std',
-  'sp-std/std',
-  'sp-io/std',
-  'pallet-timestamp/std',
-  'serde',
-  'scale-info/std',
-  'num-traits/std',
-  'pallet-traits/std',
+  "codec/std",
+  "frame-benchmarking/std",
+  "frame-support/std",
+  "frame-system/std",
+  "num-traits/std",
+  "orml-traits/std",
+  "orml-oracle/std",
+  "orml-tokens/std",
+  "pallet-timestamp/std",
+  "pallet-traits/std",
+  "primitives/std",
+  "scale-info/std",
+  "serde/std",
+  "sp-io/std",
+  "sp-runtime/std",
+  "sp-std/std"
 ]
 try-runtime        = ['frame-support/try-runtime']
 
