@@ -223,7 +223,6 @@ fn redeem_allowed_works() {
 fn lf_redeem_allowed_works() {
     new_test_ext().execute_with(|| {
         // Set CDOT as lf collateral
-        Loans::update_liquidation_free_collateral(Origin::root(), vec![CDOT_6_13]).unwrap();
         Loans::mint(Origin::signed(ALICE), CDOT_6_13, unit(200)).unwrap();
 
         Loans::mint(Origin::signed(DAVE), USDT, unit(200)).unwrap();
@@ -248,8 +247,6 @@ fn lf_redeem_allowed_works() {
         // But it'll success when redeem cdot
         assert_ok!(Loans::redeem_allowed(CDOT_6_13, &ALICE, unit(100)));
 
-        // Remove CDOT from lf collateral
-        Loans::update_liquidation_free_collateral(Origin::root(), vec![]).unwrap();
         // Then it can be redeemed
         assert_ok!(Loans::redeem_allowed(KSM, &ALICE, unit(100)));
     })
@@ -391,17 +388,6 @@ fn borrow_allowed_works() {
             Loans::borrow_allowed(DOT, &ALICE, 11),
             Error::<Test>::BorrowCapacityExceeded
         );
-    })
-}
-
-#[test]
-fn update_liquidation_free_collateral_works() {
-    new_test_ext().execute_with(|| {
-        assert_ok!(Loans::update_liquidation_free_collateral(
-            Origin::root(),
-            vec![CDOT_6_13]
-        ));
-        assert_eq!(Loans::liquidation_free_collaterals(), vec![CDOT_6_13]);
     })
 }
 

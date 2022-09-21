@@ -134,9 +134,6 @@ pub mod pallet {
         /// Reward asset id.
         #[pallet::constant]
         type RewardAssetId: Get<AssetIdOf<Self>>;
-
-        #[pallet::constant]
-        type LiquidationFreeAssetId: Get<AssetIdOf<Self>>;
     }
 
     #[pallet::error]
@@ -262,8 +259,6 @@ pub mod pallet {
         /// Event emitted when the incentive reserves are redeemed and transfer to receiver's account
         /// [receive_account_id, asset_id, reduced_amount]
         IncentiveReservesReduced(T::AccountId, AssetIdOf<T>, BalanceOf<T>),
-        /// Liquidation free collaterals has been updated
-        LiquidationFreeCollateralsUpdated(Vec<AssetIdOf<T>>),
     }
 
     /// The timestamp of the last calculation of accrued interest
@@ -271,11 +266,6 @@ pub mod pallet {
     #[pallet::getter(fn last_accrued_interest_time)]
     pub type LastAccruedInterestTime<T: Config> =
         StorageMap<_, Blake2_128Concat, AssetIdOf<T>, Timestamp, ValueQuery>;
-
-    /// Liquidation free collateral.
-    #[pallet::storage]
-    #[pallet::getter(fn liquidation_free_collaterals)]
-    pub type LiquidationFreeCollaterals<T: Config> = StorageValue<_, Vec<AssetIdOf<T>>, ValueQuery>;
 
     /// Total number of collateral tokens in circulation
     /// CollateralType -> Balance
@@ -1092,22 +1082,6 @@ pub mod pallet {
             Ok(().into())
         }
 
-        /// Update liquidation free collateral.
-        ///
-        /// The `assets` won't be counted when do general
-        #[pallet::weight(T::WeightInfo::update_liquidation_free_collateral())]
-        #[transactional]
-        pub fn update_liquidation_free_collateral(
-            origin: OriginFor<T>,
-            collaterals: Vec<AssetIdOf<T>>,
-        ) -> DispatchResultWithPostInfo {
-            T::UpdateOrigin::ensure_origin(origin)?;
-            LiquidationFreeCollaterals::<T>::mutate(|liquidation_free_collaterals| {
-                *liquidation_free_collaterals = collaterals.clone()
-            });
-            Self::deposit_event(Event::<T>::LiquidationFreeCollateralsUpdated(collaterals));
-            Ok(().into())
-        }
     }
 }
 
@@ -1116,36 +1090,18 @@ impl<T: Config> Pallet<T> {
         T::PalletId::get().into_account_truncating()
     }
 
-    fn get_lf_borrowed_value(account: &T::AccountId) -> Result<FixedU128, DispatchError> {
-        let lf_borrowed_amount =
-            Self::current_borrow_balance(account, T::LiquidationFreeAssetId::get())?;
-        Self::get_asset_value(T::LiquidationFreeAssetId::get(), lf_borrowed_amount)
+    fn get_lf_borrowed_value(_account: &T::AccountId) -> Result<FixedU128, DispatchError> {
+        Ok(FixedU128::zero())
     }
 
-    fn get_lf_base_position(account: &T::AccountId) -> Result<FixedU128, DispatchError> {
-        let mut total_asset_value: FixedU128 = FixedU128::zero();
-        for (asset_id, _market) in Self::active_markets()
-            .filter(|(asset_id, _)| Self::liquidation_free_collaterals().contains(asset_id))
-        {
-            total_asset_value = total_asset_value
-                .checked_add(&Self::collateral_asset_value(account, asset_id)?)
-                .ok_or(ArithmeticError::Overflow)?;
-        }
-        Ok(total_asset_value)
+    fn get_lf_base_position(_account: &T::AccountId) -> Result<FixedU128, DispatchError> {
+        Ok(FixedU128::zero())
     }
 
     fn get_lf_liquidation_base_position(
-        account: &T::AccountId,
+        _account: &T::AccountId,
     ) -> Result<FixedU128, DispatchError> {
-        let mut total_asset_value: FixedU128 = FixedU128::zero();
-        for (asset_id, _market) in Self::active_markets()
-            .filter(|(asset_id, _)| Self::liquidation_free_collaterals().contains(asset_id))
-        {
-            total_asset_value = total_asset_value
-                .checked_add(&Self::liquidation_threshold_asset_value(account, asset_id)?)
-                .ok_or(ArithmeticError::Overflow)?;
-        }
-        Ok(total_asset_value)
+        Ok(FixedU128::zero())
     }
 
     pub fn get_account_liquidity(
@@ -1381,7 +1337,6 @@ impl<T: Config> Pallet<T> {
         Self::ensure_liquidity(
             redeemer,
             redeem_effects_value,
-            Self::liquidation_free_collaterals().contains(&asset_id),
         )?;
 
         Ok(())
@@ -1439,7 +1394,6 @@ impl<T: Config> Pallet<T> {
         Self::ensure_liquidity(
             borrower,
             borrow_value,
-            asset_id == T::LiquidationFreeAssetId::get(),
         )?;
 
         Ok(())
@@ -1560,16 +1514,7 @@ impl<T: Config> Pallet<T> {
         let account_borrows = Self::current_borrow_balance(borrower, liquidation_asset_id)?;
         let account_borrows_value = Self::get_asset_value(liquidation_asset_id, account_borrows)?;
         let repay_value = Self::get_asset_value(liquidation_asset_id, repay_amount)?;
-        let effects_borrows_value = if liquidation_asset_id == T::LiquidationFreeAssetId::get() {
-            let base_position = Self::get_lf_base_position(borrower)?;
-            if account_borrows_value > base_position {
-                account_borrows_value - base_position
-            } else {
-                FixedU128::zero()
-            }
-        } else {
-            account_borrows_value
-        };
+        let effects_borrows_value = account_borrows_value;
 
         if market
             .close_factor
@@ -1851,20 +1796,12 @@ impl<T: Config> Pallet<T> {
     // Returns `Err` If InsufficientLiquidity
     // `account`: account that need a liquidity check
     // `reduce_amount`: values that will have an impact on liquidity
-    // `lf_enable`: check in liquidation free mode which means borrowing dot or redeeming assets in
-    // `LiquidationFreeCollaterals`.
     fn ensure_liquidity(
         account: &T::AccountId,
         reduce_amount: FixedU128,
-        lf_enable: bool,
     ) -> DispatchResult {
         let (total_liquidity, _, lf_liquidity, _) = Self::get_account_liquidity(account)?;
-
-        if lf_enable && max(total_liquidity, lf_liquidity) >= reduce_amount {
-            return Ok(());
-        }
-
-        if !lf_enable && total_liquidity >= lf_liquidity + reduce_amount {
+        if total_liquidity >= lf_liquidity + reduce_amount {
             return Ok(());
         }
         Err(Error::<T>::InsufficientLiquidity.into())

@@ -242,9 +242,6 @@ parameter_types! {
 parameter_types! {
     pub const LoansPalletId: PalletId = PalletId(*b"par/loan");
     pub const RewardAssetId: CurrencyId = Token(KINT);
-
-    // Until this is removed, set to a value that's not in use.
-    pub const LiquidationFreeAssetId: CurrencyId = ForeignAsset(100000);
 }
 
 impl Config for Test {
@@ -257,7 +254,6 @@ impl Config for Test {
     type UnixTime = TimestampPallet;
     type Assets = Tokens;
     type RewardAssetId = RewardAssetId;
-    type LiquidationFreeAssetId = LiquidationFreeAssetId;
 }
 
 pub(crate) fn new_test_ext() -> sp_io::TestExternalities {

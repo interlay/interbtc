@@ -989,7 +989,6 @@ impl pallet_loans::Config for Runtime {
     type UnixTime = Timestamp;
     type Assets = Tokens;
     type RewardAssetId = GetNativeCurrencyId;
-    type LiquidationFreeAssetId = GetRelayChainCurrencyId;
 }
 
 construct_runtime! {

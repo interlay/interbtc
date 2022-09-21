@@ -440,13 +440,6 @@ benchmarks! {
     verify {
         assert_last_event::<T>(Event::<T>::ReservesReduced(caller, USDT, reduce_amount.into(), (add_amount-reduce_amount).into()).into());
     }
-
-    update_liquidation_free_collateral {
-
-    }: _(SystemOrigin::Root, vec![CDOT_6_13])
-    verify {
-        assert_last_event::<T>(Event::<T>::LiquidationFreeCollateralsUpdated(vec![CDOT_6_13]).into());
-    }
 }
 
 impl_benchmark_test_suite!(Loans, crate::mock::new_test_ext(), crate::mock::Test);

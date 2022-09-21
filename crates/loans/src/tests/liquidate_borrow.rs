@@ -50,27 +50,9 @@ fn liquidate_borrow_allowed_works() {
 // ignore: tests liquidation-free collateral
 #[ignore]
 #[test]
-fn lf_liquidate_borrow_fails_due_to_lf_collateral() {
-    new_test_ext().execute_with(|| {
-        Loans::update_liquidation_free_collateral(Origin::root(), vec![CDOT_6_13]).unwrap();
-
-        assert_err!(
-            Loans::liquidate_borrow(Origin::signed(ALICE), BOB, DOT, unit(100), CDOT_6_13),
-            Error::<Test>::CollateralReserved
-        );
-        assert_err!(
-            Loans::liquidate_borrow(Origin::signed(ALICE), BOB, DOT, unit(100), DOT_U),
-            Error::<Test>::CollateralReserved
-        );
-    })
-}
-
-// ignore: tests liquidation-free collateral
-#[ignore]
-#[test]
 fn lf_liquidate_borrow_allowed_works() {
     new_test_ext().execute_with(|| {
-        Loans::update_liquidation_free_collateral(Origin::root(), vec![CDOT_6_13]).unwrap();
+        // Loans::update_liquidation_free_collateral(Origin::root(), vec![CDOT_6_13]).unwrap();
         // Bob deposits $200 DOT
         Loans::mint(Origin::signed(BOB), DOT, unit(200)).unwrap();
         Loans::mint(Origin::signed(ALICE), USDT, unit(200)).unwrap();
@@ -107,7 +89,7 @@ fn lf_liquidate_borrow_allowed_works() {
         ));
 
         // Remove CDOT from lf collateral
-        Loans::update_liquidation_free_collateral(Origin::root(), vec![]).unwrap();
+        // Loans::update_liquidation_free_collateral(Origin::root(), vec![]).unwrap();
         // The max repay amount = 400 * 50 = $200
         assert_ok!(Loans::liquidate_borrow_allowed(
             &ALICE,
@@ -277,14 +259,4 @@ fn initial_setup() {
     // Alice deposits 200 DOT as collateral
     assert_ok!(Loans::mint(Origin::signed(ALICE), USDT, unit(200)));
     assert_ok!(Loans::collateral_asset(Origin::signed(ALICE), USDT, true));
-    assert_ok!(Loans::mint(Origin::signed(ALICE), CDOT_6_13, unit(200)));
-    assert_ok!(Loans::collateral_asset(
-        Origin::signed(ALICE),
-        CDOT_6_13,
-        true
-    ));
-    assert_ok!(Loans::update_liquidation_free_collateral(
-        Origin::root(),
-        vec![CDOT_6_13]
-    ));
 }

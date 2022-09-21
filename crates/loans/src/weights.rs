@@ -65,7 +65,6 @@ pub trait WeightInfo {
 	fn liquidate_borrow() -> Weight;
 	fn add_reserves() -> Weight;
 	fn reduce_reserves() -> Weight;
-	fn update_liquidation_free_collateral() -> Weight;
 }
 
 /// Weights for pallet_loans using the Substrate node and recommended hardware.
@@ -352,13 +351,6 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(T::DbWeight::get().reads(7 as Weight))
 			.saturating_add(T::DbWeight::get().writes(5 as Weight))
 	}
-	// Storage: unknown [0x3a7472616e73616374696f6e5f6c6576656c3a] (r:1 w:1)
-	// Storage: Loans LiquidationFreeCollaterals (r:1 w:1)
-	fn update_liquidation_free_collateral() -> Weight {
-		(37_654_000 as Weight)
-			.saturating_add(T::DbWeight::get().reads(2 as Weight))
-			.saturating_add(T::DbWeight::get().writes(2 as Weight))
-	}
 }
 
 // For backwards compatibility and tests
@@ -643,12 +635,5 @@ impl WeightInfo for () {
 		(131_943_000 as Weight)
 			.saturating_add(RocksDbWeight::get().reads(7 as Weight))
 			.saturating_add(RocksDbWeight::get().writes(5 as Weight))
-	}
-	// Storage: unknown [0x3a7472616e73616374696f6e5f6c6576656c3a] (r:1 w:1)
-	// Storage: Loans LiquidationFreeCollaterals (r:1 w:1)
-	fn update_liquidation_free_collateral() -> Weight {
-		(37_654_000 as Weight)
-			.saturating_add(RocksDbWeight::get().reads(2 as Weight))
-			.saturating_add(RocksDbWeight::get().writes(2 as Weight))
 	}
 }
