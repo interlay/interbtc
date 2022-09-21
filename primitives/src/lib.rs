@@ -18,8 +18,6 @@ use sp_std::{
     prelude::*,
 };
 
-pub mod tokens;
-
 pub use bitcoin::types::H256Le;
 
 pub const BITCOIN_TESTNET: &str = "bitcoin-testnet";
@@ -371,7 +369,6 @@ pub type Ratio = Permill;
 pub type Shortfall = FixedU128;
 pub type Liquidity = FixedU128;
 pub const SECONDS_PER_YEAR: Timestamp = 365 * 24 * 60 * 60;
-pub type LendingPoolCurrencyId = u32;
 
 
 
@@ -470,6 +467,15 @@ create_currency_id! {
         KSM("Kusama", 12) = 10,
         KBTC("kBTC", 8) = 11,
         KINT("Kintsugi", 12) = 12,
+
+        // cTokens
+        CDOT("cPolkadot", 10) = 20,
+        CIBTC("cinterBTC", 8) = 21,
+        CINTR("cInterlay", 10) = 22,
+
+        CKSM("cKusama", 12) = 30,
+        CKBTC("ckBTC", 8) = 31,
+        CKINT("cKintsugi", 12) = 32,
     }
 }
 

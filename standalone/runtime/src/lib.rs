@@ -64,7 +64,7 @@ pub use module_oracle_rpc_runtime_api::BalanceWrapper;
 pub use security::StatusCode;
 
 pub use primitives::{
-    self, AccountId, Balance, BlockNumber, CurrencyId, CurrencyId::Token, CurrencyInfo, Hash, Moment, Nonce, Signature,
+    self, AccountId, Balance, BlockNumber, CurrencyId, CurrencyId::{Token, ForeignAsset}, CurrencyInfo, Hash, Moment, Nonce, Signature,
     SignedFixedPoint, SignedInner, TokenSymbol, UnsignedFixedPoint, UnsignedInner, DOT, IBTC, INTR, KBTC, KINT, KSM, PriceDetail
 };
 
@@ -817,19 +817,6 @@ impl pallet_traits::PriceFeeder for PriceFeed {
     }
 }
 
-impl pallet_loans::Config for Runtime {
-    type Event = Event;
-    type PalletId = LoansPalletId;
-    type PriceFeeder = PriceFeed;
-    type ReserveOrigin = EnsureRoot<AccountId>;
-    type UpdateOrigin = EnsureRoot<AccountId>;
-    type WeightInfo = ();
-    type UnixTime = Timestamp;
-    type Assets = Tokens;
-    type RewardAssetId = GetNativeCurrencyId;
-    type LiquidationFreeAssetId = GetRelayChainCurrencyId;
-}
-
 impl currency::Config for Runtime {
     type SignedInner = SignedInner;
     type SignedFixedPoint = SignedFixedPoint;
@@ -992,6 +979,19 @@ impl clients_info::Config for Runtime {
     type WeightInfo = ();
 }
 
+impl pallet_loans::Config for Runtime {
+    type Event = Event;
+    type PalletId = LoansPalletId;
+    type PriceFeeder = PriceFeed;
+    type ReserveOrigin = EnsureRoot<AccountId>;
+    type UpdateOrigin = EnsureRoot<AccountId>;
+    type WeightInfo = ();
+    type UnixTime = Timestamp;
+    type Assets = Tokens;
+    type RewardAssetId = GetNativeCurrencyId;
+    type LiquidationFreeAssetId = GetRelayChainCurrencyId;
+}
+
 construct_runtime! {
     pub enum Runtime where
         Block = Block,
@@ -1037,6 +1037,8 @@ construct_runtime! {
         Fee: fee::{Pallet, Call, Config<T>, Storage} = 26,
         // Refund: 27
         Nomination: nomination::{Pallet, Call, Config, Storage, Event<T>} = 28,
+
+        Loans: pallet_loans::{Pallet, Call, Storage, Event<T>} = 39,
 
         Identity: pallet_identity::{Pallet, Call, Storage, Event<T>} = 36,
         ClientsInfo: clients_info::{Pallet, Call, Storage, Event<T>} = 38,

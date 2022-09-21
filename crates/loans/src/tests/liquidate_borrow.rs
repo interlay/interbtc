@@ -1,13 +1,20 @@
 use crate::{
     mock::{
-        new_test_ext, Tokens, Loans, MockPriceFeeder, Origin, Test, ALICE, BOB, DOT, KSM, USDT,
+        new_test_ext, Tokens, Loans, MockPriceFeeder, Origin, Test, ALICE, BOB, 
     },
     tests::unit,
     Error, MarketState,
 };
 use frame_support::{assert_err, assert_noop, assert_ok, traits::fungibles::Inspect};
-use primitives::{tokens::{CDOT_6_13, DOT_U}, Rate};
+use primitives::{CurrencyId::{Token, self}, Rate, DOT as DOT_CURRENCY, KSM as KSM_CURRENCY,
+KBTC as KBTC_CURRENCY, IBTC as IBTC_CURRENCY, KINT as KINT_CURRENCY};
 use sp_runtime::FixedPointNumber;
+
+const DOT: CurrencyId = Token(DOT_CURRENCY);
+const KSM: CurrencyId = Token(KSM_CURRENCY);
+const USDT: CurrencyId = Token(KBTC_CURRENCY);
+const CDOT_6_13: CurrencyId = Token(IBTC_CURRENCY);
+const DOT_U: CurrencyId = Token(KINT_CURRENCY);
 
 #[test]
 fn liquidate_borrow_allowed_works() {
@@ -40,6 +47,8 @@ fn liquidate_borrow_allowed_works() {
     })
 }
 
+// ignore: tests liquidation-free collateral
+#[ignore]
 #[test]
 fn lf_liquidate_borrow_fails_due_to_lf_collateral() {
     new_test_ext().execute_with(|| {
@@ -56,6 +65,8 @@ fn lf_liquidate_borrow_fails_due_to_lf_collateral() {
     })
 }
 
+// ignore: tests liquidation-free collateral
+#[ignore]
 #[test]
 fn lf_liquidate_borrow_allowed_works() {
     new_test_ext().execute_with(|| {

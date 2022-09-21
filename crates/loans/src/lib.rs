@@ -44,7 +44,7 @@ use pallet_traits::{
     MarketInfo, MarketStatus, PriceFeeder,
 };
 use primitives::{
-    tokens::is_auxiliary_token, Balance, LendingPoolCurrencyId as CurrencyId, Liquidity, Price, Rate, Ratio, Shortfall, Timestamp,
+    Balance, CurrencyId, Liquidity, Price, Rate, Ratio, Shortfall, Timestamp,
 };
 use sp_runtime::{
     traits::{
@@ -970,11 +970,6 @@ pub mod pallet {
             collateral_asset_id: AssetIdOf<T>,
         ) -> DispatchResultWithPostInfo {
             let who = ensure_signed(origin)?;
-            ensure!(
-                !Self::liquidation_free_collaterals().contains(&collateral_asset_id)
-                    && !is_auxiliary_token(collateral_asset_id),
-                Error::<T>::CollateralReserved
-            );
             Self::accrue_interest(liquidation_asset_id)?;
             Self::accrue_interest(collateral_asset_id)?;
             Self::do_liquidate_borrow(

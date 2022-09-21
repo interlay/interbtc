@@ -24,16 +24,13 @@ use pallet_traits::{
     VaultTokenCurrenciesFilter, VaultTokenExchangeRateProvider,
 };
 use primitives::{
-    tokens::{CDOT_6_13, PCDOT_6_13},
-    LendingPoolCurrencyId as CurrencyId,
-    Moment, PriceDetail
+    CurrencyId::{Token, ForeignAsset},
+    Moment, PriceDetail, KSM, CKINT, CKSM, CDOT, CKBTC, KINT, DOT, KBTC, INTR, IBTC, CIBTC,
 };
 use sp_core::H256;
 use sp_runtime::{testing::Header, traits::IdentityLookup, AccountId32};
 use sp_std::vec::Vec;
 use std::{cell::RefCell, collections::HashMap};
-
-pub use primitives::tokens::{DOT, HKO, KSM, PDOT, PHKO, PKSM, PUSDT, SDOT, SKSM, USDT};
 
 type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
 type Block = frame_system::mocking::MockBlock<Test>;
@@ -155,41 +152,6 @@ impl DataFeeder<CurrencyId, TimeStampedPrice, AccountId> for MockDataProvider {
     }
 }
 
-pub struct LiquidStakingExchangeRateProvider;
-impl ExchangeRateProvider<CurrencyId> for LiquidStakingExchangeRateProvider {
-    fn get_exchange_rate(_: &CurrencyId) -> Option<Rate> {
-        Some(Rate::saturating_from_rational(150, 100))
-    }
-}
-
-pub struct Decimal;
-impl DecimalProvider<CurrencyId> for Decimal {
-    fn get_decimal(asset_id: &CurrencyId) -> Option<u8> {
-        match *asset_id {
-            KSM | SKSM => Some(12),
-            HKO => Some(12),
-            USDT => Some(6),
-            _ => None,
-        }
-    }
-}
-
-pub struct LiquidStaking;
-impl LiquidStakingCurrenciesProvider<CurrencyId> for LiquidStaking {
-    fn get_staking_currency() -> Option<CurrencyId> {
-        Some(KSM)
-    }
-    fn get_liquid_currency() -> Option<CurrencyId> {
-        Some(SKSM)
-    }
-}
-
-impl ExchangeRateProvider<CurrencyId> for LiquidStaking {
-    fn get_exchange_rate(_: &CurrencyId) -> Option<Rate> {
-        Some(Rate::saturating_from_rational(150, 100))
-    }
-}
-
 pub struct TokenExchangeRateProvider;
 impl VaultTokenExchangeRateProvider<CurrencyId> for TokenExchangeRateProvider {
     fn get_exchange_rate(_: &CurrencyId, _: Rate) -> Option<Rate> {
@@ -222,7 +184,7 @@ impl LoansMarketDataProvider<CurrencyId, Balance> for VaultLoansRateProvider {
 }
 
 parameter_types! {
-    pub const RelayCurrency: CurrencyId = KSM;
+    pub const RelayCurrency: CurrencyId = Token(KSM);
 }
 
 pub struct AliceCreatePoolOrigin;
@@ -238,7 +200,9 @@ impl MockPriceFeeder {
     thread_local! {
         pub static PRICES: RefCell<HashMap<CurrencyId, Option<PriceDetail>>> = {
             RefCell::new(
-                vec![HKO, DOT, KSM, USDT, SKSM, SDOT, CDOT_6_13]
+                // Include a foreign assets to act as a liquidation-free collateral for now. 
+                // TODO: Remove liquidation-free collateral
+                vec![Token(KINT), Token(DOT), Token(KSM), Token(KBTC), Token(INTR), Token(IBTC), ForeignAsset(100000)]
                     .iter()
                     .map(|&x| (x, Some((Price::saturating_from_integer(1), 1))))
                     .collect()
@@ -263,7 +227,11 @@ impl MockPriceFeeder {
 
 impl PriceFeeder for MockPriceFeeder {
     fn get_price(asset_id: &CurrencyId) -> Option<PriceDetail> {
-        Self::PRICES.with(|prices| *prices.borrow().get(asset_id).unwrap())
+        Self::PRICES.with(|prices| {
+            let p = prices.borrow();
+            let v = p.get(asset_id).unwrap();
+            *v
+        })
     }
 }
 
@@ -273,8 +241,10 @@ parameter_types! {
 
 parameter_types! {
     pub const LoansPalletId: PalletId = PalletId(*b"par/loan");
-    pub const RewardAssetId: CurrencyId = HKO;
-    pub const LiquidationFreeAssetId: CurrencyId = DOT;
+    pub const RewardAssetId: CurrencyId = Token(KINT);
+
+    // Until this is removed, set to a value that's not in use.
+    pub const LiquidationFreeAssetId: CurrencyId = ForeignAsset(100000);
 }
 
 impl Config for Test {
@@ -299,29 +269,27 @@ pub(crate) fn new_test_ext() -> sp_io::TestExternalities {
     ext.execute_with(|| {
         // Init assets
         
-        Tokens::set_balance(Origin::root(), ALICE, KSM, 1000_000000000000, 0).unwrap();
-        Tokens::set_balance(Origin::root(), ALICE, DOT, 1000_000000000000, 0).unwrap();
-        Tokens::set_balance(Origin::root(), ALICE, USDT, 1000_000000000000, 0).unwrap();
-        Tokens::set_balance(Origin::root(), ALICE, CDOT_6_13, 1000_000000000000, 0).unwrap();
-        Tokens::set_balance(Origin::root(), BOB, KSM, 1000_000000000000, 0).unwrap();
-        Tokens::set_balance(Origin::root(), BOB, DOT, 1000_000000000000, 0).unwrap();
-        Tokens::set_balance(Origin::root(), DAVE, DOT, 1000_000000000000, 0).unwrap();
-        Tokens::set_balance(Origin::root(), DAVE, USDT, 1000_000000000000, 0).unwrap();
-        Tokens::set_balance(Origin::root(), DAVE, HKO, 1000_000000000000, 0).unwrap();
+        Tokens::set_balance(Origin::root(), ALICE, Token(KSM), 1000_000000000000, 0).unwrap();
+        Tokens::set_balance(Origin::root(), ALICE, Token(DOT), 1000_000000000000, 0).unwrap();
+        Tokens::set_balance(Origin::root(), ALICE, Token(KBTC), 1000_000000000000, 0).unwrap();
+        Tokens::set_balance(Origin::root(), ALICE, Token(IBTC), 1000_000000000000, 0).unwrap();
+        Tokens::set_balance(Origin::root(), BOB, Token(KSM), 1000_000000000000, 0).unwrap();
+        Tokens::set_balance(Origin::root(), BOB, Token(DOT), 1000_000000000000, 0).unwrap();
+        Tokens::set_balance(Origin::root(), DAVE, Token(DOT), 1000_000000000000, 0).unwrap();
+        Tokens::set_balance(Origin::root(), DAVE, Token(KBTC), 1000_000000000000, 0).unwrap();
+        Tokens::set_balance(Origin::root(), DAVE, Token(KINT), 1000_000000000000, 0).unwrap();
 
         // Init Markets
-        Loans::add_market(Origin::root(), HKO, market_mock(PHKO)).unwrap();
-        Loans::activate_market(Origin::root(), HKO).unwrap();
-        Loans::add_market(Origin::root(), KSM, market_mock(PKSM)).unwrap();
-        Loans::activate_market(Origin::root(), KSM).unwrap();
-        Loans::add_market(Origin::root(), DOT, market_mock(PDOT)).unwrap();
-        Loans::activate_market(Origin::root(), DOT).unwrap();
-        Loans::add_market(Origin::root(), USDT, market_mock(PUSDT)).unwrap();
-        Loans::activate_market(Origin::root(), USDT).unwrap();
-        Loans::add_market(Origin::root(), CDOT_6_13, market_mock(PCDOT_6_13)).unwrap();
-        Loans::activate_market(Origin::root(), CDOT_6_13).unwrap();
-
-        Loans::update_liquidation_free_collateral(Origin::root(), vec![CDOT_6_13]).unwrap();
+        Loans::add_market(Origin::root(), Token(KINT), market_mock(Token(CKINT))).unwrap();
+        Loans::activate_market(Origin::root(), Token(KINT)).unwrap();
+        Loans::add_market(Origin::root(), Token(KSM), market_mock(Token(CKSM))).unwrap();
+        Loans::activate_market(Origin::root(), Token(KSM)).unwrap();
+        Loans::add_market(Origin::root(), Token(DOT), market_mock(Token(CDOT))).unwrap();
+        Loans::activate_market(Origin::root(), Token(DOT)).unwrap();
+        Loans::add_market(Origin::root(), Token(KBTC), market_mock(Token(CKBTC))).unwrap();
+        Loans::activate_market(Origin::root(), Token(KBTC)).unwrap();
+        Loans::add_market(Origin::root(), Token(IBTC), market_mock(Token(CIBTC))).unwrap();
+        Loans::activate_market(Origin::root(), Token(IBTC)).unwrap();
 
         System::set_block_number(0);
         TimestampPallet::set_timestamp(6000);
@@ -372,7 +340,7 @@ pub fn million_unit(d: u128) -> u128 {
     unit(d) * 10_u128.pow(6)
 }
 
-pub const fn market_mock(ptoken_id: u32) -> Market<Balance> {
+pub const fn market_mock(ptoken_id: CurrencyId) -> Market<Balance> {
     Market {
         close_factor: Ratio::from_percent(50),
         collateral_factor: Ratio::from_percent(50),
@@ -393,7 +361,7 @@ pub const fn market_mock(ptoken_id: u32) -> Market<Balance> {
     }
 }
 
-pub const MARKET_MOCK: Market<Balance> = market_mock(1200);
+pub const MARKET_MOCK: Market<Balance> = market_mock(ForeignAsset(1200));
 
 pub const ACTIVE_MARKET_MOCK: Market<Balance> = {
     let mut market = MARKET_MOCK;

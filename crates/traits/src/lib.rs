@@ -8,7 +8,7 @@ use sp_runtime::{traits::Zero, RuntimeDebug};
 use sp_std::prelude::*;
 
 use primitives::{
-    LendingPoolCurrencyId as CurrencyId, PriceDetail, Rate, Timestamp,
+    CurrencyId, PriceDetail, Rate, Timestamp,
 };
 
 pub mod loans;

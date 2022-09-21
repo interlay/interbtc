@@ -1,7 +1,6 @@
 use crate::{
     mock::{
-        market_mock, new_test_ext, Loans, Origin, Test, ALICE, DAVE, HKO, KSM, PHKO, PKSM, PUSDT,
-        SDOT, USDT,
+        market_mock, new_test_ext, Loans, Origin, Test, ALICE, DAVE,
     },
     tests::unit,
     Error,
@@ -10,7 +9,16 @@ use frame_support::{
     assert_err, assert_noop, assert_ok,
     traits::tokens::fungibles::{Inspect, Transfer},
 };
+use primitives::{KINT, CKBTC, CKSM, CKINT, KSM as KSM_CURRENCY, CurrencyId::{self, Token, ForeignAsset}, KBTC};
 use sp_runtime::{FixedPointNumber, TokenError};
+
+const HKO: CurrencyId = Token(KINT);
+const KSM: CurrencyId = Token(KSM_CURRENCY);
+const PHKO: CurrencyId = Token(CKINT);
+const PKSM: CurrencyId = Token(CKSM);
+const PUSDT: CurrencyId = Token(CKBTC);
+const USDT: CurrencyId = Token(KBTC);
+
 
 #[test]
 fn trait_inspect_methods_works() {
@@ -82,13 +90,13 @@ fn ptoken_unique_works() {
     new_test_ext().execute_with(|| {
         // ptoken_id already exists in `UnderlyingAssetId`
         assert_noop!(
-            Loans::add_market(Origin::root(), SDOT, market_mock(PHKO)),
+            Loans::add_market(Origin::root(), ForeignAsset(1000000), market_mock(PHKO)),
             Error::<Test>::InvalidPtokenId
         );
 
         // ptoken_id cannot as the same as the asset id in `Markets`
         assert_noop!(
-            Loans::add_market(Origin::root(), SDOT, market_mock(KSM)),
+            Loans::add_market(Origin::root(), ForeignAsset(1000000), market_mock(KSM)),
             Error::<Test>::InvalidPtokenId
         );
     })

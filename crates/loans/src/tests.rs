@@ -20,13 +20,21 @@ mod ptokens;
 
 use frame_support::{assert_err, assert_noop, assert_ok};
 
-use primitives::tokens::CDOT_6_13;
 use sp_runtime::{
     traits::{CheckedDiv, One, Saturating},
     FixedU128, Permill,
 };
 
+use primitives::{CurrencyId::Token, DOT as DOT_CURRENCY, KSM as KSM_CURRENCY, KBTC, IBTC, KINT};
+
 use crate::mock::*;
+
+const DOT: CurrencyId = Token(DOT_CURRENCY);
+const KSM: CurrencyId = Token(KSM_CURRENCY);
+const USDT: CurrencyId = Token(KBTC);
+const CDOT_6_13: CurrencyId = Token(IBTC);
+const HKO: CurrencyId = Token(KINT);
+
 
 #[test]
 fn init_minting_ok() {
@@ -208,6 +216,9 @@ fn redeem_allowed_works() {
     })
 }
 
+
+// ignore: tests liquidation-free collateral
+#[ignore]
 #[test]
 fn lf_redeem_allowed_works() {
     new_test_ext().execute_with(|| {
@@ -403,7 +414,7 @@ fn get_account_liquidity_works() {
         let (liquidity, _, lf_liquidity, _) = Loans::get_account_liquidity(&ALICE).unwrap();
 
         assert_eq!(liquidity, FixedU128::from_inner(unit(100)));
-        assert_eq!(lf_liquidity, FixedU128::from_inner(unit(100)));
+        assert_eq!(lf_liquidity, FixedU128::from_inner(unit(0)));
     })
 }
 
@@ -426,7 +437,7 @@ fn get_account_liquidation_threshold_liquidity_works() {
             Loans::get_account_liquidation_threshold_liquidity(&ALICE).unwrap();
 
         assert_eq!(liquidity, FixedU128::from_inner(unit(20)));
-        assert_eq!(lf_liquidity, FixedU128::from_inner(unit(10)));
+        assert_eq!(lf_liquidity, FixedU128::from_inner(unit(0)));
 
         MockPriceFeeder::set_price(KSM, 2.into());
         let (liquidity, shortfall, lf_liquidity, _) =
@@ -434,10 +445,12 @@ fn get_account_liquidation_threshold_liquidity_works() {
 
         assert_eq!(liquidity, FixedU128::from_inner(unit(0)));
         assert_eq!(shortfall, FixedU128::from_inner(unit(80)));
-        assert_eq!(lf_liquidity, FixedU128::from_inner(unit(10)));
+        assert_eq!(lf_liquidity, FixedU128::from_inner(unit(0)));
     })
 }
 
+// ignore: tests liquidation-free collateral
+#[ignore]
 #[test]
 fn lf_borrow_allowed_works() {
     new_test_ext().execute_with(|| {
