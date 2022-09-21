@@ -809,9 +809,9 @@ impl currency::CurrencyConversion<currency::Amount<Runtime>, CurrencyId> for Cur
 }
 
 pub struct PriceFeed;
-impl pallet_loans::PriceFeeder for PriceFeed {
+impl pallet_traits::PriceFeeder for PriceFeed {
     fn get_price(asset_id: &CurrencyId) -> Option<PriceDetail> {
-        Oracle::get_price(oracle::OracleKey::ExchangeRate(asset_id))
+        Oracle::get_price(oracle::OracleKey::ExchangeRate(*asset_id))
             .ok()
             .map(|price| (price, Timestamp::now()))
     }
