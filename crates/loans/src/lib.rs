@@ -856,6 +856,8 @@ pub mod pallet {
             Self::accrue_interest(asset_id)?;
             let exchange_rate = Self::exchange_rate_stored(asset_id)?;
             Self::update_earned_stored(&who, asset_id, exchange_rate)?;
+            // let deposits = orml_tokens::Pallet::<T>::accounts(who, asset_id);
+            
             let deposits = AccountDeposits::<T>::get(asset_id, &who);
             let redeem_amount = Self::do_redeem_voucher(&who, asset_id, deposits.voucher_balance)?;
             Self::deposit_event(Event::<T>::Redeemed(who, asset_id, redeem_amount));
@@ -930,6 +932,8 @@ pub mod pallet {
         ) -> DispatchResultWithPostInfo {
             let who = ensure_signed(origin)?;
             Self::ensure_active_market(asset_id)?;
+            // let account_data = orml_tokens::Pallet::<T>::accounts(who, asset_id);
+            // ensure!(!account_data.free.is_zero());
             ensure!(
                 AccountDeposits::<T>::contains_key(asset_id, &who),
                 Error::<T>::NoDeposit
@@ -1221,6 +1225,8 @@ impl<T: Config> Pallet<T> {
         supplier: &T::AccountId,
         asset_id: AssetIdOf<T>,
     ) -> Result<BalanceOf<T>, DispatchError> {
+        // let account_data = orml_tokens::Pallet::<T>::accounts(who, asset_id);
+        // if account_data.free.is_zero() { return Ok(BalanceOf::<T>::zero()); }
         if !AccountDeposits::<T>::contains_key(asset_id, supplier) {
             return Ok(BalanceOf::<T>::zero());
         }
@@ -1253,6 +1259,9 @@ impl<T: Config> Pallet<T> {
         borrower: &T::AccountId,
         asset_id: AssetIdOf<T>,
     ) -> Result<FixedU128, DispatchError> {
+        // let account_data = orml_tokens::Pallet::<T>::accounts(who, asset_id);
+        // if account_data.free.is_zero() { return Ok(BalanceOf::<T>::zero()); }
+        
         if !AccountDeposits::<T>::contains_key(asset_id, borrower) {
             return Ok(FixedU128::zero());
         }
@@ -1355,6 +1364,7 @@ impl<T: Config> Pallet<T> {
         let exchange_rate = Self::exchange_rate_stored(asset_id)?;
         let redeem_amount = Self::calc_underlying_amount(voucher_amount, exchange_rate)?;
 
+        // TODO: Amount::new(voucher_amount, asset_id).burn_from(who)
         AccountDeposits::<T>::try_mutate_exists(asset_id, who, |deposits| -> DispatchResult {
             let mut d = deposits.unwrap_or_default();
             d.voucher_balance = d
@@ -1462,6 +1472,7 @@ impl<T: Config> Pallet<T> {
         asset_id: AssetIdOf<T>,
         exchange_rate: Rate,
     ) -> DispatchResult {
+        // let account_data = orml_tokens::Pallet::<T>::accounts(who, asset_id);
         let deposits = AccountDeposits::<T>::get(asset_id, who);
         let account_earned = AccountEarned::<T>::get(asset_id, who);
         let total_earned_prior_new = exchange_rate
@@ -1949,6 +1960,8 @@ impl<T: Config> LoansTrait<AssetIdOf<T>, AccountIdOf<T>, BalanceOf<T>> for Palle
         ensure!(!voucher_amount.is_zero(), Error::<T>::InvalidExchangeRate);
 
         T::Assets::transfer(asset_id, supplier, &Self::account_id(), amount, false)?;
+
+        // TODO: Mint `voucher_amount` tokens to `supplier`
         AccountDeposits::<T>::try_mutate(asset_id, supplier, |deposits| -> DispatchResult {
             deposits.voucher_balance = deposits
                 .voucher_balance

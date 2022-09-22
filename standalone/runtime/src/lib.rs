@@ -811,9 +811,21 @@ impl currency::CurrencyConversion<currency::Amount<Runtime>, CurrencyId> for Cur
 pub struct PriceFeed;
 impl pallet_traits::PriceFeeder for PriceFeed {
     fn get_price(asset_id: &CurrencyId) -> Option<PriceDetail> {
-        Oracle::get_price(oracle::OracleKey::ExchangeRate(*asset_id))
+        let one = match asset_id {
+            Token(t) => t.one(),
+            ForeignAsset(f) => {
+                // TODO: Either add `one` to the AssetRegistry or require this as an associated type in the config trait
+                if let Some(metadata) = AssetRegistry::metadata(f) {
+                    10u128.pow(metadata.decimals)
+                } else {
+                    return None;
+                }
+            }
+        };
+        let amount = Amount::<Runtime>::new(one, asset_id.clone());
+        Oracle::convert(&amount, WRAPPED_CURRENCY_ID)
             .ok()
-            .map(|price| (price, Timestamp::now()))
+            .map(|price| (price.amount().into(), Timestamp::now()))
     }
 }
 
