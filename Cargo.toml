@@ -55,7 +55,6 @@ pallet-membership = { git = "https://github.com/paritytech//substrate", branch =
 pallet-mmr = { git = "https://github.com/paritytech//substrate", branch = "polkadot-v0.9.29" }
 pallet-mmr-rpc = { git = "https://github.com/paritytech//substrate", branch = "polkadot-v0.9.29" }
 pallet-multisig = { git = "https://github.com/paritytech//substrate", branch = "polkadot-v0.9.29" }
-pallet-nicks = { git = "https://github.com/paritytech//substrate", branch = "polkadot-v0.9.29" }
 pallet-offences = { git = "https://github.com/paritytech//substrate", branch = "polkadot-v0.9.29" }
 pallet-offences-benchmarking = { git = "https://github.com/paritytech//substrate", branch = "polkadot-v0.9.29" }
 pallet-proxy = { git = "https://github.com/paritytech//substrate", branch = "polkadot-v0.9.29" }
@@ -90,7 +89,6 @@ sc-consensus-babe = { git = "https://github.com/paritytech//substrate", branch =
 sc-consensus-babe-rpc = { git = "https://github.com/paritytech//substrate", branch = "polkadot-v0.9.29" }
 sc-consensus-epochs = { git = "https://github.com/paritytech//substrate", branch = "polkadot-v0.9.29" }
 sc-consensus-slots = { git = "https://github.com/paritytech//substrate", branch = "polkadot-v0.9.29" }
-sc-consensus-uncles = { git = "https://github.com/paritytech//substrate", branch = "polkadot-v0.9.29" }
 sc-executor = { git = "https://github.com/paritytech//substrate", branch = "polkadot-v0.9.29" }
 sc-executor-common = { git = "https://github.com/paritytech//substrate", branch = "polkadot-v0.9.29" }
 sc-executor-wasmtime = { git = "https://github.com/paritytech//substrate", branch = "polkadot-v0.9.29" }
@@ -139,7 +137,6 @@ sp-rpc = { git = "https://github.com/paritytech//substrate", branch = "polkadot-
 sp-runtime = { git = "https://github.com/paritytech//substrate", branch = "polkadot-v0.9.29" }
 sp-runtime-interface = { git = "https://github.com/paritytech//substrate", branch = "polkadot-v0.9.29" }
 sp-runtime-interface-proc-macro = { git = "https://github.com/paritytech//substrate", branch = "polkadot-v0.9.29" }
-sp-serializer = { git = "https://github.com/paritytech//substrate", branch = "polkadot-v0.9.29" }
 sp-session = { git = "https://github.com/paritytech//substrate", branch = "polkadot-v0.9.29" }
 sp-staking = { git = "https://github.com/paritytech//substrate", branch = "polkadot-v0.9.29" }
 sp-state-machine = { git = "https://github.com/paritytech//substrate", branch = "polkadot-v0.9.29" }
