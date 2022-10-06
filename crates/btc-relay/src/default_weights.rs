@@ -55,9 +55,9 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Storage: BTCRelay ChainsIndex (r:0 w:1)
 	// Storage: BTCRelay BlockHeaders (r:0 w:1)
 	fn initialize() -> Weight {
-		(52_878_000 as Weight)
-			.saturating_add(T::DbWeight::get().reads(5 as Weight))
-			.saturating_add(T::DbWeight::get().writes(8 as Weight))
+		Weight::from_ref_time(52_878_000 as u64)
+			.saturating_add(T::DbWeight::get().reads(5 as u64))
+			.saturating_add(T::DbWeight::get().writes(8 as u64))
 	}
 	// Storage: Security ParachainStatus (r:1 w:0)
 	// Storage: BTCRelay BlockHeaders (r:2 w:1)
@@ -68,9 +68,9 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Storage: BTCRelay BestBlock (r:0 w:1)
 	// Storage: BTCRelay BestBlockHeight (r:0 w:1)
 	fn store_block_header() -> Weight {
-		(68_306_000 as Weight)
-			.saturating_add(T::DbWeight::get().reads(7 as Weight))
-			.saturating_add(T::DbWeight::get().writes(5 as Weight))
+		Weight::from_ref_time(68_306_000 as u64)
+			.saturating_add(T::DbWeight::get().reads(7 as u64))
+			.saturating_add(T::DbWeight::get().writes(5 as u64))
 	}
 	// Storage: Security ParachainStatus (r:1 w:0)
 	// Storage: BTCRelay DisableInclusionCheck (r:1 w:0)
@@ -80,8 +80,8 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Storage: Security ActiveBlockCount (r:1 w:0)
 	// Storage: BTCRelay StableParachainConfirmations (r:1 w:0)
 	fn verify_and_validate_transaction() -> Weight {
-		(66_727_000 as Weight)
-			.saturating_add(T::DbWeight::get().reads(7 as Weight))
+		Weight::from_ref_time(66_727_000 as u64)
+			.saturating_add(T::DbWeight::get().reads(7 as u64))
 	}
 	// Storage: Security ParachainStatus (r:1 w:0)
 	// Storage: BTCRelay DisableInclusionCheck (r:1 w:0)
@@ -91,13 +91,13 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Storage: Security ActiveBlockCount (r:1 w:0)
 	// Storage: BTCRelay StableParachainConfirmations (r:1 w:0)
 	fn verify_transaction_inclusion() -> Weight {
-		(38_910_000 as Weight)
-			.saturating_add(T::DbWeight::get().reads(7 as Weight))
+		Weight::from_ref_time(38_910_000 as u64)
+			.saturating_add(T::DbWeight::get().reads(7 as u64))
 	}
 	// Storage: Security ParachainStatus (r:1 w:0)
 	fn validate_transaction() -> Weight {
-		(11_660_000 as Weight)
-			.saturating_add(T::DbWeight::get().reads(1 as Weight))
+		Weight::from_ref_time(11_660_000 as u64)
+			.saturating_add(T::DbWeight::get().reads(1 as u64))
 	}
 }
 
@@ -114,9 +114,9 @@ impl WeightInfo for () {
 	// Storage: BTCRelay ChainsIndex (r:0 w:1)
 	// Storage: BTCRelay BlockHeaders (r:0 w:1)
 	fn initialize() -> Weight {
-		(52_878_000 as Weight)
-			.saturating_add(RocksDbWeight::get().reads(5 as Weight))
-			.saturating_add(RocksDbWeight::get().writes(8 as Weight))
+		Weight::from_ref_time(52_878_000 as u64)
+			.saturating_add(RocksDbWeight::get().reads(5 as u64))
+			.saturating_add(RocksDbWeight::get().writes(8 as u64))
 	}
 	// Storage: Security ParachainStatus (r:1 w:0)
 	// Storage: BTCRelay BlockHeaders (r:2 w:1)
@@ -127,9 +127,9 @@ impl WeightInfo for () {
 	// Storage: BTCRelay BestBlock (r:0 w:1)
 	// Storage: BTCRelay BestBlockHeight (r:0 w:1)
 	fn store_block_header() -> Weight {
-		(68_306_000 as Weight)
-			.saturating_add(RocksDbWeight::get().reads(7 as Weight))
-			.saturating_add(RocksDbWeight::get().writes(5 as Weight))
+		Weight::from_ref_time(68_306_000 as u64)
+			.saturating_add(RocksDbWeight::get().reads(7 as u64))
+			.saturating_add(RocksDbWeight::get().writes(5 as u64))
 	}
 	// Storage: Security ParachainStatus (r:1 w:0)
 	// Storage: BTCRelay DisableInclusionCheck (r:1 w:0)
@@ -139,8 +139,8 @@ impl WeightInfo for () {
 	// Storage: Security ActiveBlockCount (r:1 w:0)
 	// Storage: BTCRelay StableParachainConfirmations (r:1 w:0)
 	fn verify_and_validate_transaction() -> Weight {
-		(66_727_000 as Weight)
-			.saturating_add(RocksDbWeight::get().reads(7 as Weight))
+		Weight::from_ref_time(66_727_000 as u64)
+			.saturating_add(RocksDbWeight::get().reads(7 as u64))
 	}
 	// Storage: Security ParachainStatus (r:1 w:0)
 	// Storage: BTCRelay DisableInclusionCheck (r:1 w:0)
@@ -150,13 +150,13 @@ impl WeightInfo for () {
 	// Storage: Security ActiveBlockCount (r:1 w:0)
 	// Storage: BTCRelay StableParachainConfirmations (r:1 w:0)
 	fn verify_transaction_inclusion() -> Weight {
-		(38_910_000 as Weight)
-			.saturating_add(RocksDbWeight::get().reads(7 as Weight))
+		Weight::from_ref_time(38_910_000 as u64)
+			.saturating_add(RocksDbWeight::get().reads(7 as u64))
 	}
 	// Storage: Security ParachainStatus (r:1 w:0)
 	fn validate_transaction() -> Weight {
-		(11_660_000 as Weight)
-			.saturating_add(RocksDbWeight::get().reads(1 as Weight))
+		Weight::from_ref_time(11_660_000 as u64)
+			.saturating_add(RocksDbWeight::get().reads(1 as u64))
 	}
 }
 

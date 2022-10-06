@@ -84,7 +84,7 @@ pub mod pallet {
             if let Err(e) = Self::begin_block(n) {
                 sp_runtime::print(e);
             }
-            0
+            Weight::from_ref_time(0 as u64)
         }
     }
 

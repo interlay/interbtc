@@ -53,17 +53,17 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Storage: Fee ReplaceGriefingCollateral (r:1 w:0)
 	// Storage: Tokens Accounts (r:1 w:1)
 	fn request_replace() -> Weight {
-		(91_841_000 as Weight)
-			.saturating_add(T::DbWeight::get().reads(7 as Weight))
-			.saturating_add(T::DbWeight::get().writes(2 as Weight))
+		Weight::from_ref_time(91_841_000 as u64)
+			.saturating_add(T::DbWeight::get().reads(7 as u64))
+			.saturating_add(T::DbWeight::get().writes(2 as u64))
 	}
 	// Storage: Security ParachainStatus (r:1 w:0)
 	// Storage: VaultRegistry Vaults (r:1 w:1)
 	// Storage: Tokens Accounts (r:1 w:1)
 	fn withdraw_replace() -> Weight {
-		(62_541_000 as Weight)
-			.saturating_add(T::DbWeight::get().reads(3 as Weight))
-			.saturating_add(T::DbWeight::get().writes(2 as Weight))
+		Weight::from_ref_time(62_541_000 as u64)
+			.saturating_add(T::DbWeight::get().reads(3 as u64))
+			.saturating_add(T::DbWeight::get().writes(2 as u64))
 	}
 	// Storage: Security ParachainStatus (r:1 w:0)
 	// Storage: VaultRegistry Vaults (r:2 w:2)
@@ -88,9 +88,9 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Storage: BTCRelay BestBlockHeight (r:1 w:0)
 	// Storage: Replace ReplaceRequests (r:0 w:1)
 	fn accept_replace() -> Weight {
-		(301_210_000 as Weight)
-			.saturating_add(T::DbWeight::get().reads(22 as Weight))
-			.saturating_add(T::DbWeight::get().writes(12 as Weight))
+		Weight::from_ref_time(301_210_000 as u64)
+			.saturating_add(T::DbWeight::get().reads(22 as u64))
+			.saturating_add(T::DbWeight::get().writes(12 as u64))
 	}
 	// Storage: Security ParachainStatus (r:1 w:0)
 	// Storage: Replace ReplaceRequests (r:1 w:1)
@@ -107,9 +107,9 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Storage: Rewards RewardTally (r:2 w:2)
 	// Storage: Rewards RewardPerToken (r:1 w:0)
 	fn execute_replace() -> Weight {
-		(188_303_000 as Weight)
-			.saturating_add(T::DbWeight::get().reads(17 as Weight))
-			.saturating_add(T::DbWeight::get().writes(8 as Weight))
+		Weight::from_ref_time(188_303_000 as u64)
+			.saturating_add(T::DbWeight::get().reads(17 as u64))
+			.saturating_add(T::DbWeight::get().writes(8 as u64))
 	}
 	// Storage: Security ParachainStatus (r:1 w:0)
 	// Storage: Replace ReplaceRequests (r:1 w:1)
@@ -127,14 +127,14 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Storage: Staking SlashTally (r:1 w:1)
 	// Storage: Staking TotalStake (r:1 w:1)
 	fn cancel_replace() -> Weight {
-		(190_415_000 as Weight)
-			.saturating_add(T::DbWeight::get().reads(16 as Weight))
-			.saturating_add(T::DbWeight::get().writes(7 as Weight))
+		Weight::from_ref_time(190_415_000 as u64)
+			.saturating_add(T::DbWeight::get().reads(16 as u64))
+			.saturating_add(T::DbWeight::get().writes(7 as u64))
 	}
 	// Storage: Replace ReplacePeriod (r:0 w:1)
 	fn set_replace_period() -> Weight {
-		(3_247_000 as Weight)
-			.saturating_add(T::DbWeight::get().writes(1 as Weight))
+		Weight::from_ref_time(3_247_000 as u64)
+			.saturating_add(T::DbWeight::get().writes(1 as u64))
 	}
 }
 
@@ -148,17 +148,17 @@ impl WeightInfo for () {
 	// Storage: Fee ReplaceGriefingCollateral (r:1 w:0)
 	// Storage: Tokens Accounts (r:1 w:1)
 	fn request_replace() -> Weight {
-		(91_841_000 as Weight)
-			.saturating_add(RocksDbWeight::get().reads(7 as Weight))
-			.saturating_add(RocksDbWeight::get().writes(2 as Weight))
+		Weight::from_ref_time(91_841_000 as u64)
+			.saturating_add(RocksDbWeight::get().reads(7 as u64))
+			.saturating_add(RocksDbWeight::get().writes(2 as u64))
 	}
 	// Storage: Security ParachainStatus (r:1 w:0)
 	// Storage: VaultRegistry Vaults (r:1 w:1)
 	// Storage: Tokens Accounts (r:1 w:1)
 	fn withdraw_replace() -> Weight {
-		(62_541_000 as Weight)
-			.saturating_add(RocksDbWeight::get().reads(3 as Weight))
-			.saturating_add(RocksDbWeight::get().writes(2 as Weight))
+		Weight::from_ref_time(62_541_000 as u64)
+			.saturating_add(RocksDbWeight::get().reads(3 as u64))
+			.saturating_add(RocksDbWeight::get().writes(2 as u64))
 	}
 	// Storage: Security ParachainStatus (r:1 w:0)
 	// Storage: VaultRegistry Vaults (r:2 w:2)
@@ -183,9 +183,9 @@ impl WeightInfo for () {
 	// Storage: BTCRelay BestBlockHeight (r:1 w:0)
 	// Storage: Replace ReplaceRequests (r:0 w:1)
 	fn accept_replace() -> Weight {
-		(301_210_000 as Weight)
-			.saturating_add(RocksDbWeight::get().reads(22 as Weight))
-			.saturating_add(RocksDbWeight::get().writes(12 as Weight))
+		Weight::from_ref_time(301_210_000 as u64)
+			.saturating_add(RocksDbWeight::get().reads(22 as u64))
+			.saturating_add(RocksDbWeight::get().writes(12 as u64))
 	}
 	// Storage: Security ParachainStatus (r:1 w:0)
 	// Storage: Replace ReplaceRequests (r:1 w:1)
@@ -202,9 +202,9 @@ impl WeightInfo for () {
 	// Storage: Rewards RewardTally (r:2 w:2)
 	// Storage: Rewards RewardPerToken (r:1 w:0)
 	fn execute_replace() -> Weight {
-		(188_303_000 as Weight)
-			.saturating_add(RocksDbWeight::get().reads(17 as Weight))
-			.saturating_add(RocksDbWeight::get().writes(8 as Weight))
+		Weight::from_ref_time(188_303_000 as u64)
+			.saturating_add(RocksDbWeight::get().reads(17 as u64))
+			.saturating_add(RocksDbWeight::get().writes(8 as u64))
 	}
 	// Storage: Security ParachainStatus (r:1 w:0)
 	// Storage: Replace ReplaceRequests (r:1 w:1)
@@ -222,14 +222,14 @@ impl WeightInfo for () {
 	// Storage: Staking SlashTally (r:1 w:1)
 	// Storage: Staking TotalStake (r:1 w:1)
 	fn cancel_replace() -> Weight {
-		(190_415_000 as Weight)
-			.saturating_add(RocksDbWeight::get().reads(16 as Weight))
-			.saturating_add(RocksDbWeight::get().writes(7 as Weight))
+		Weight::from_ref_time(190_415_000 as u64)
+			.saturating_add(RocksDbWeight::get().reads(16 as u64))
+			.saturating_add(RocksDbWeight::get().writes(7 as u64))
 	}
 	// Storage: Replace ReplacePeriod (r:0 w:1)
 	fn set_replace_period() -> Weight {
-		(3_247_000 as Weight)
-			.saturating_add(RocksDbWeight::get().writes(1 as Weight))
+		Weight::from_ref_time(3_247_000 as u64)
+			.saturating_add(RocksDbWeight::get().writes(1 as u64))
 	}
 }
 

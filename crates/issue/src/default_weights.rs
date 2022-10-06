@@ -62,9 +62,9 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Storage: Issue IssuePeriod (r:1 w:0)
 	// Storage: Issue IssueRequests (r:0 w:1)
 	fn request_issue() -> Weight {
-		(500_076_000 as Weight)
-			.saturating_add(T::DbWeight::get().reads(17 as Weight))
-			.saturating_add(T::DbWeight::get().writes(4 as Weight))
+		Weight::from_ref_time(500_076_000 as u64)
+			.saturating_add(T::DbWeight::get().reads(17 as u64))
+			.saturating_add(T::DbWeight::get().writes(4 as u64))
 	}
 	// Storage: Security ParachainStatus (r:1 w:0)
 	// Storage: Issue IssueRequests (r:1 w:1)
@@ -86,9 +86,9 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Storage: System Account (r:1 w:1)
 	// Storage: Rewards TotalRewards (r:1 w:1)
 	fn execute_issue() -> Weight {
-		(203_467_000 as Weight)
-			.saturating_add(T::DbWeight::get().reads(19 as Weight))
-			.saturating_add(T::DbWeight::get().writes(10 as Weight))
+		Weight::from_ref_time(203_467_000 as u64)
+			.saturating_add(T::DbWeight::get().reads(19 as u64))
+			.saturating_add(T::DbWeight::get().writes(10 as u64))
 	}
 	// Storage: Security ParachainStatus (r:1 w:0)
 	// Storage: Issue IssueRequests (r:1 w:1)
@@ -97,14 +97,14 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Storage: BTCRelay BestBlockHeight (r:1 w:0)
 	// Storage: VaultRegistry Vaults (r:1 w:1)
 	fn cancel_issue() -> Weight {
-		(95_611_000 as Weight)
-			.saturating_add(T::DbWeight::get().reads(6 as Weight))
-			.saturating_add(T::DbWeight::get().writes(2 as Weight))
+		Weight::from_ref_time(95_611_000 as u64)
+			.saturating_add(T::DbWeight::get().reads(6 as u64))
+			.saturating_add(T::DbWeight::get().writes(2 as u64))
 	}
 	// Storage: Issue IssuePeriod (r:0 w:1)
 	fn set_issue_period() -> Weight {
-		(3_071_000 as Weight)
-			.saturating_add(T::DbWeight::get().writes(1 as Weight))
+		Weight::from_ref_time(3_071_000 as u64)
+			.saturating_add(T::DbWeight::get().writes(1 as u64))
 	}
 }
 
@@ -129,9 +129,9 @@ impl WeightInfo for () {
 	// Storage: Issue IssuePeriod (r:1 w:0)
 	// Storage: Issue IssueRequests (r:0 w:1)
 	fn request_issue() -> Weight {
-		(500_076_000 as Weight)
-			.saturating_add(RocksDbWeight::get().reads(17 as Weight))
-			.saturating_add(RocksDbWeight::get().writes(4 as Weight))
+		Weight::from_ref_time(500_076_000 as u64)
+			.saturating_add(RocksDbWeight::get().reads(17 as u64))
+			.saturating_add(RocksDbWeight::get().writes(4 as u64))
 	}
 	// Storage: Security ParachainStatus (r:1 w:0)
 	// Storage: Issue IssueRequests (r:1 w:1)
@@ -153,9 +153,9 @@ impl WeightInfo for () {
 	// Storage: System Account (r:1 w:1)
 	// Storage: Rewards TotalRewards (r:1 w:1)
 	fn execute_issue() -> Weight {
-		(203_467_000 as Weight)
-			.saturating_add(RocksDbWeight::get().reads(19 as Weight))
-			.saturating_add(RocksDbWeight::get().writes(10 as Weight))
+		Weight::from_ref_time(203_467_000 as u64)
+			.saturating_add(RocksDbWeight::get().reads(19 as u64))
+			.saturating_add(RocksDbWeight::get().writes(10 as u64))
 	}
 	// Storage: Security ParachainStatus (r:1 w:0)
 	// Storage: Issue IssueRequests (r:1 w:1)
@@ -164,14 +164,14 @@ impl WeightInfo for () {
 	// Storage: BTCRelay BestBlockHeight (r:1 w:0)
 	// Storage: VaultRegistry Vaults (r:1 w:1)
 	fn cancel_issue() -> Weight {
-		(95_611_000 as Weight)
-			.saturating_add(RocksDbWeight::get().reads(6 as Weight))
-			.saturating_add(RocksDbWeight::get().writes(2 as Weight))
+		Weight::from_ref_time(95_611_000 as u64)
+			.saturating_add(RocksDbWeight::get().reads(6 as u64))
+			.saturating_add(RocksDbWeight::get().writes(2 as u64))
 	}
 	// Storage: Issue IssuePeriod (r:0 w:1)
 	fn set_issue_period() -> Weight {
-		(3_071_000 as Weight)
-			.saturating_add(RocksDbWeight::get().writes(1 as Weight))
+		Weight::from_ref_time(3_071_000 as u64)
+			.saturating_add(RocksDbWeight::get().writes(1 as u64))
 	}
 }
 
