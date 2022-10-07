@@ -245,17 +245,13 @@ mod actions {
                 destination,
                 self.amount,
             )
-            // if ptoken, must also call `Loans::transfer(...)` besides the orml-transfer 
         }
 
         pub fn lock_on(&self, account_id: &T::AccountId) -> Result<(), DispatchError> {
-            // Once locked, pToken should not be withdrawable from lending pool
-            // TODO: Update loans pallet logic
             <orml_tokens::Pallet<T>>::reserve(self.currency_id, account_id, self.amount)
         }
 
         pub fn unlock_on(&self, account_id: &T::AccountId) -> Result<(), DispatchError> {
-            // Should make pToken withdrawable from lending pool
             ensure!(
                 <orml_tokens::Pallet<T>>::unreserve(self.currency_id, account_id, self.amount).is_zero(),
                 orml_tokens::Error::<T>::BalanceTooLow
@@ -264,8 +260,6 @@ mod actions {
         }
 
         pub fn burn_from(&self, account_id: &T::AccountId) -> DispatchResult {
-            // Called from Loans pallet
-            // burn ptokens when calling `Loans::redeem(...)`
             ensure!(
                 <orml_tokens::Pallet<T>>::slash_reserved(self.currency_id, account_id, self.amount).is_zero(),
                 orml_tokens::Error::<T>::BalanceTooLow
@@ -274,8 +268,6 @@ mod actions {
         }
 
         pub fn mint_to(&self, account_id: &T::AccountId) -> DispatchResult {
-            // Called from Loans pallet
-            // mint ptokens when calling `Loans::mint(...)`
             <orml_tokens::Pallet<T>>::deposit(self.currency_id, account_id, self.amount)
         }
 
