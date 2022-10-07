@@ -1,3 +1,6 @@
+// Copyright 2022 Interlay.
+// This file is part of Interlay.
+
 // Copyright 2021 Parallel Finance Developer.
 // This file is part of Parallel Finance.
 

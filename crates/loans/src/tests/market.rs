@@ -6,7 +6,10 @@ use crate::{
     Error, InterestRateModel, MarketState,
 };
 use frame_support::{assert_noop, assert_ok, error::BadOrigin};
-use primitives::{Rate, Ratio, CDOT, CKBTC, IBTC, CurrencyId::{self, Token, ForeignAsset},  DOT as DOT_CURRENCY, CKSM,};
+use primitives::{
+    CurrencyId::{self, ForeignAsset, Token},
+    Rate, Ratio, CDOT, CKBTC, DOT as DOT_CURRENCY,
+};
 use sp_runtime::{traits::Zero, FixedPointNumber};
 
 const DOT: CurrencyId = Token(DOT_CURRENCY);

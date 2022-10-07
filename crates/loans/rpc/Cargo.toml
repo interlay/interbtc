@@ -1,5 +1,5 @@
 [package]
-authors = ['Parallel Team']
+authors = ['Interlay Ltd']
 edition = '2021'
 name    = 'pallet-loans-rpc'
 version = '1.9.3'

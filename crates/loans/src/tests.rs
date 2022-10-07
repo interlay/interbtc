@@ -1,3 +1,6 @@
+// Copyright 2022 Interlay.
+// This file is part of Interlay.
+
 // Copyright 2021 Parallel Finance Developer.
 // This file is part of Parallel Finance.
 
@@ -29,6 +32,8 @@ use primitives::{CurrencyId::Token, DOT as DOT_CURRENCY, KSM as KSM_CURRENCY, KB
 
 use crate::mock::*;
 
+// For the time being, do a quick reassignment here to avoid changing all the tests
+// TODO: update all tests
 const DOT: CurrencyId = Token(DOT_CURRENCY);
 const KSM: CurrencyId = Token(KSM_CURRENCY);
 const USDT: CurrencyId = Token(KBTC);

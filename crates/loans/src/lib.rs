@@ -1,3 +1,6 @@
+// Copyright 2022 Interlay.
+// This file is part of Interlay.
+
 // Copyright 2021 Parallel Finance Developer.
 // This file is part of Parallel Finance.
 
@@ -21,8 +24,6 @@
 //! determined by the supply and demand.
 
 #![cfg_attr(not(feature = "std"), no_std)]
-
-use core::cmp::max;
 
 pub use crate::rate_model::*;
 
@@ -53,7 +54,7 @@ use sp_runtime::{
     },
     ArithmeticError, FixedPointNumber, FixedU128,
 };
-use sp_std::{result::Result, vec::Vec};
+use sp_std::result::Result;
 
 use sp_io::hashing::blake2_256;
 pub use types::{BorrowSnapshot, Deposits, EarnedSnapshot, Market, MarketState, RewardMarketState};

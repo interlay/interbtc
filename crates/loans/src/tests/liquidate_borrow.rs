@@ -6,15 +6,16 @@ use crate::{
     Error, MarketState,
 };
 use frame_support::{assert_err, assert_noop, assert_ok, traits::fungibles::Inspect};
-use primitives::{CurrencyId::{Token, self}, Rate, DOT as DOT_CURRENCY, KSM as KSM_CURRENCY,
-KBTC as KBTC_CURRENCY, IBTC as IBTC_CURRENCY, KINT as KINT_CURRENCY};
+use primitives::{
+    CurrencyId::{self, Token},
+    Rate, DOT as DOT_CURRENCY, IBTC as IBTC_CURRENCY, KBTC as KBTC_CURRENCY, KSM as KSM_CURRENCY,
+};
 use sp_runtime::FixedPointNumber;
 
 const DOT: CurrencyId = Token(DOT_CURRENCY);
 const KSM: CurrencyId = Token(KSM_CURRENCY);
 const USDT: CurrencyId = Token(KBTC_CURRENCY);
 const CDOT_6_13: CurrencyId = Token(IBTC_CURRENCY);
-const DOT_U: CurrencyId = Token(KINT_CURRENCY);
 
 #[test]
 fn liquidate_borrow_allowed_works() {

@@ -1,9 +1,8 @@
 use interbtc_runtime_standalone::{CurrencyId::Token, KINT};
 mod mock;
 use mock::{assert_eq, *};
-use oracle::types::UnsignedFixedPoint;
-use pallet_loans::{MarketState, InterestRateModel, JumpModel, Market};
-use primitives::{CKINT, Ratio, Rate, CKSM};
+use pallet_loans::{InterestRateModel, JumpModel, Market, MarketState};
+use primitives::{Rate, Ratio, CKINT, CKSM};
 use sp_runtime::traits::CheckedMul;
 
 pub const USER: [u8; 32] = ALICE;

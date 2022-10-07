@@ -1,3 +1,6 @@
+// Copyright 2022 Interlay.
+// This file is part of Interlay.
+
 // Copyright 2021 Parallel Finance Developer.
 // This file is part of Parallel Finance.
 
@@ -17,12 +20,9 @@ pub use super::*;
 use frame_support::{
     construct_runtime, parameter_types, traits::Everything, traits::SortedMembers, PalletId,
 };
-use frame_system::{EnsureRoot, EnsureSignedBy};
-use orml_traits::{DataFeeder, DataProvider, DataProviderExtended, parameter_type_with_key};
-use pallet_traits::{
-    DecimalProvider, ExchangeRateProvider, LiquidStakingCurrenciesProvider,
-    VaultTokenCurrenciesFilter, VaultTokenExchangeRateProvider,
-};
+use frame_system::EnsureRoot;
+use orml_traits::{parameter_type_with_key, DataFeeder, DataProvider, DataProviderExtended};
+use pallet_traits::{VaultTokenCurrenciesFilter, VaultTokenExchangeRateProvider};
 use primitives::{
     CurrencyId::{Token, ForeignAsset},
     Moment, PriceDetail, KSM, CKINT, CKSM, CDOT, CKBTC, KINT, DOT, KBTC, INTR, IBTC, CIBTC,

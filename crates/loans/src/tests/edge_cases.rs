@@ -4,8 +4,8 @@ use crate::{mock::*, Error};
 use frame_support::{assert_err, assert_ok};
 use primitives::{KSM, IBTC};
 use primitives::{
-    CurrencyId::{Token, ForeignAsset},   
-    DOT
+    CurrencyId::{ForeignAsset, Token},
+    DOT, KSM,
 };
 use sp_runtime::FixedPointNumber;
 

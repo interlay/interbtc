@@ -8,13 +8,22 @@ use frame_benchmarking::{account, benchmarks, impl_benchmark_test_suite, whiteli
 use frame_support::assert_ok;
 use frame_system::{self, RawOrigin as SystemOrigin};
 use primitives::{
-    tokens::{CDOT_6_13, DOT, KSM, PKSM, PSKSM, PUSDT, SKSM, USDT},
-    Balance, CurrencyId,
+    Balance,
+    CurrencyId::{self, Token},
+    CDOT as SKSM_CURRENCY, CKINT, CKSM as PSKSM_CURRENCY, INTR as PUSDT_CURRENCY, KBTC as USDT_CURRENCY,
+    KINT as PKSM_CURRENCY, KSM as KSM_CURRENCY,
 };
 use rate_model::{InterestRateModel, JumpModel};
 use sp_std::prelude::*;
 
 const SEED: u32 = 0;
+
+const KSM: CurrencyId = Token(KSM_CURRENCY);
+const USDT: CurrencyId = Token(USDT_CURRENCY);
+const PKSM: CurrencyId = Token(PKSM_CURRENCY);
+const PUSDT: CurrencyId = Token(PUSDT_CURRENCY);
+const SKSM: CurrencyId = Token(SKSM_CURRENCY);
+const PSKSM: CurrencyId = Token(PSKSM_CURRENCY);
 
 const RATE_MODEL_MOCK: InterestRateModel = InterestRateModel::Jump(JumpModel {
     base_rate: Rate::from_inner(Rate::DIV / 100 * 2),
@@ -40,7 +49,7 @@ fn market_mock<T: Config>() -> Market<BalanceOf<T>> {
         liquidate_incentive_reserved_factor: Ratio::from_percent(3),
         supply_cap: 1_000_000_000_000_000_000_000u128, // set to 1B
         borrow_cap: 1_000_000_000_000_000_000_000u128, // set to 1B
-        ptoken_id: 1200,
+        ptoken_id: CurrencyId::Token(CKINT),
     }
 }
 
@@ -51,119 +60,28 @@ fn pending_market_mock<T: Config>(ptoken_id: CurrencyId) -> Market<BalanceOf<T>>
     market
 }
 
-const INITIAL_AMOUNT: u32 = 500_000_000;
-
-fn transfer_initial_balance<
-    T: Config
-        + pallet_assets::Config<AssetId = CurrencyId, Balance = Balance>
-        + pallet_prices::Config
-        + pallet_balances::Config<Balance = Balance>,
->(
+fn transfer_initial_balance<T: Config + orml_tokens::Config<CurrencyId = CurrencyId, Balance = Balance>>(
     caller: T::AccountId,
 ) {
     let account_id = T::Lookup::unlookup(caller.clone());
-    pallet_assets::Pallet::<T>::force_create(
-        SystemOrigin::Root.into(),
-        KSM,
-        account_id.clone(),
-        true,
-        1,
-    )
-    .ok();
-    pallet_assets::Pallet::<T>::force_create(
-        SystemOrigin::Root.into(),
-        SKSM,
-        account_id.clone(),
-        true,
-        1,
-    )
-    .ok();
-    pallet_assets::Pallet::<T>::force_create(
-        SystemOrigin::Root.into(),
-        DOT,
-        account_id.clone(),
-        true,
-        1,
-    )
-    .ok();
-    pallet_assets::Pallet::<T>::force_create(
-        SystemOrigin::Root.into(),
-        CDOT_6_13,
-        account_id.clone(),
-        true,
-        1,
-    )
-    .ok();
-    pallet_assets::Pallet::<T>::force_create(
-        SystemOrigin::Root.into(),
-        USDT,
-        account_id.clone(),
-        true,
-        1,
-    )
-    .ok();
-    pallet_assets::Pallet::<T>::force_set_metadata(
-        SystemOrigin::Root.into(),
-        KSM,
-        b"kusama".to_vec(),
-        b"KSM".to_vec(),
-        12,
-        true,
-    )
-    .ok();
-    pallet_assets::Pallet::<T>::force_set_metadata(
-        SystemOrigin::Root.into(),
-        SKSM,
-        b"xkusama".to_vec(),
-        b"sKSM".to_vec(),
-        12,
-        true,
-    )
-    .ok();
-    pallet_assets::Pallet::<T>::force_set_metadata(
-        SystemOrigin::Root.into(),
-        DOT,
-        b"polkadot".to_vec(),
-        b"DOT".to_vec(),
-        12,
-        true,
-    )
-    .ok();
-    pallet_assets::Pallet::<T>::force_set_metadata(
-        SystemOrigin::Root.into(),
-        CDOT_6_13,
-        b"cDot_6_13".to_vec(),
-        b"cDot_6_13".to_vec(),
-        12,
-        true,
-    )
-    .ok();
-    pallet_assets::Pallet::<T>::force_set_metadata(
-        SystemOrigin::Root.into(),
-        USDT,
-        b"tether".to_vec(),
-        b"USDT".to_vec(),
-        6,
-        true,
-    )
-    .ok();
-    pallet_balances::Pallet::<T>::set_balance(
+    orml_tokens::Pallet::<T>::set_balance(
         SystemOrigin::Root.into(),
         account_id,
+        USDT,
         10_000_000_000_000_u128,
         0_u128,
     )
     .unwrap();
-    <T as pallet::Config>::Assets::mint_into(USDT, &caller, INITIAL_AMOUNT.into()).unwrap();
-    <T as pallet::Config>::Assets::mint_into(KSM, &caller, INITIAL_AMOUNT.into()).unwrap();
-    <T as pallet::Config>::Assets::mint_into(SKSM, &caller, INITIAL_AMOUNT.into()).unwrap();
-    <T as pallet::Config>::Assets::mint_into(DOT, &caller, INITIAL_AMOUNT.into()).unwrap();
-    <T as pallet::Config>::Assets::mint_into(CDOT_6_13, &caller, INITIAL_AMOUNT.into()).unwrap();
-    pallet_prices::Pallet::<T>::set_price(SystemOrigin::Root.into(), USDT, 1.into()).unwrap();
-    pallet_prices::Pallet::<T>::set_price(SystemOrigin::Root.into(), KSM, 1.into()).unwrap();
-    pallet_prices::Pallet::<T>::set_price(SystemOrigin::Root.into(), SKSM, 1.into()).unwrap();
-    pallet_prices::Pallet::<T>::set_price(SystemOrigin::Root.into(), DOT, 1.into()).unwrap();
-    pallet_prices::Pallet::<T>::set_price(SystemOrigin::Root.into(), CDOT_6_13, 1.into()).unwrap();
+    // <T as pallet::Config>::Assets::mint_into(USDT, &caller, INITIAL_AMOUNT.into()).unwrap();
+    // <T as pallet::Config>::Assets::mint_into(KSM, &caller, INITIAL_AMOUNT.into()).unwrap();
+    // <T as pallet::Config>::Assets::mint_into(SKSM, &caller, INITIAL_AMOUNT.into()).unwrap();
+    // <T as pallet::Config>::Assets::mint_into(DOT, &caller, INITIAL_AMOUNT.into()).unwrap();
+    // <T as pallet::Config>::Assets::mint_into(CDOT_6_13, &caller, INITIAL_AMOUNT.into()).unwrap();
+    // orml_tokens::Pallet::<T>::set_price(SystemOrigin::Root.into(), USDT, 1.into()).unwrap();
+    // orml_tokens::Pallet::<T>::set_price(SystemOrigin::Root.into(), KSM, 1.into()).unwrap();
+    // orml_tokens::Pallet::<T>::set_price(SystemOrigin::Root.into(), SKSM, 1.into()).unwrap();
+    // orml_tokens::Pallet::<T>::set_price(SystemOrigin::Root.into(), DOT, 1.into()).unwrap();
+    // orml_tokens::Pallet::<T>::set_price(SystemOrigin::Root.into(), CDOT_6_13, 1.into()).unwrap();
 }
 
 fn set_account_borrows<T: Config>(
@@ -190,7 +108,7 @@ fn assert_last_event<T: Config>(generic_event: <T as Config>::Event) {
 benchmarks! {
     where_clause {
         where
-            T: pallet_assets::Config<AssetId = CurrencyId, Balance = Balance> + pallet_prices::Config + pallet_balances::Config<Balance = Balance>
+            T: orml_tokens::Config<CurrencyId = CurrencyId, Balance = Balance>
     }
 
     add_market {
