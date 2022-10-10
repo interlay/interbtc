@@ -17,6 +17,7 @@
 
 pub use super::*;
 
+use frame_benchmarking::whitelisted_caller;
 use frame_support::{
     construct_runtime, parameter_types, traits::Everything, traits::SortedMembers, PalletId,
 };
@@ -274,7 +275,12 @@ pub(crate) fn new_test_ext() -> sp_io::TestExternalities {
         Tokens::set_balance(Origin::root(), DAVE, Token(DOT), 1000_000000000000, 0).unwrap();
         Tokens::set_balance(Origin::root(), DAVE, Token(KBTC), 1000_000000000000, 0).unwrap();
         Tokens::set_balance(Origin::root(), DAVE, Token(KINT), 1000_000000000000, 0).unwrap();
+        Tokens::set_balance(Origin::root(), whitelisted_caller(), Token(KINT), 1000_000000000000, 0).unwrap();
 
+        MockPriceFeeder::set_price(Token(KBTC), 1.into());
+        MockPriceFeeder::set_price(Token(DOT), 1.into());
+        MockPriceFeeder::set_price(Token(KSM), 1.into());
+        MockPriceFeeder::set_price(Token(CDOT), 1.into());
         // Init Markets
         Loans::add_market(Origin::root(), Token(KINT), market_mock(Token(CKINT))).unwrap();
         Loans::activate_market(Origin::root(), Token(KINT)).unwrap();
