@@ -64,8 +64,10 @@ pub use module_oracle_rpc_runtime_api::BalanceWrapper;
 pub use security::StatusCode;
 
 pub use primitives::{
-    self, AccountId, Balance, BlockNumber, CurrencyId, CurrencyId::{Token, ForeignAsset}, CurrencyInfo, Hash, Moment, Nonce, Signature,
-    SignedFixedPoint, SignedInner, TokenSymbol, UnsignedFixedPoint, UnsignedInner, DOT, IBTC, INTR, KBTC, KINT, KSM, PriceDetail
+    self, AccountId, Balance, BlockNumber, CurrencyId,
+    CurrencyId::{ForeignAsset, Token},
+    CurrencyInfo, Hash, Moment, Nonce, PriceDetail, Signature, SignedFixedPoint, SignedInner, TokenSymbol,
+    UnsignedFixedPoint, UnsignedInner, DOT, IBTC, INTR, KBTC, KINT, KSM,
 };
 
 type VaultId = primitives::VaultId<AccountId, CurrencyId>;

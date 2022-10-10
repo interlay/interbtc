@@ -73,8 +73,7 @@ impl<T: Config> Pallet<T> {
             let supply_speed = RewardSupplySpeed::<T>::get(asset_id);
             if !supply_speed.is_zero() {
                 let total_supply = TotalSupply::<T>::get(asset_id);
-                let delta_index =
-                    Self::calculate_reward_delta_index(delta_block, supply_speed, total_supply)?;
+                let delta_index = Self::calculate_reward_delta_index(delta_block, supply_speed, total_supply)?;
                 supply_state.index = supply_state
                     .index
                     .checked_add(delta_index)
@@ -101,11 +100,7 @@ impl<T: Config> Pallet<T> {
                     .reciprocal()
                     .and_then(|r| r.checked_mul_int(current_borrow_amount))
                     .ok_or(ArithmeticError::Overflow)?;
-                let delta_index = Self::calculate_reward_delta_index(
-                    delta_block,
-                    borrow_speed,
-                    base_borrow_amount,
-                )?;
+                let delta_index = Self::calculate_reward_delta_index(delta_block, borrow_speed, base_borrow_amount)?;
                 borrow_state.index = borrow_state
                     .index
                     .checked_add(delta_index)
@@ -117,85 +112,67 @@ impl<T: Config> Pallet<T> {
         })
     }
 
-    pub(crate) fn distribute_supplier_reward(
-        asset_id: AssetIdOf<T>,
-        supplier: &T::AccountId,
-    ) -> DispatchResult {
-        RewardSupplierIndex::<T>::try_mutate(
-            asset_id,
-            supplier,
-            |supplier_index| -> DispatchResult {
-                let supply_state = RewardSupplyState::<T>::get(asset_id);
-                let delta_index = supply_state
-                    .index
-                    .checked_sub(*supplier_index)
-                    .ok_or(ArithmeticError::Underflow)?;
-                *supplier_index = supply_state.index;
+    pub(crate) fn distribute_supplier_reward(asset_id: AssetIdOf<T>, supplier: &T::AccountId) -> DispatchResult {
+        RewardSupplierIndex::<T>::try_mutate(asset_id, supplier, |supplier_index| -> DispatchResult {
+            let supply_state = RewardSupplyState::<T>::get(asset_id);
+            let delta_index = supply_state
+                .index
+                .checked_sub(*supplier_index)
+                .ok_or(ArithmeticError::Underflow)?;
+            *supplier_index = supply_state.index;
 
-                RewardAccrued::<T>::try_mutate(supplier, |total_reward| -> DispatchResult {
-                    let supplier_account = AccountDeposits::<T>::get(asset_id, supplier);
-                    let supplier_amount = supplier_account.voucher_balance;
-                    let reward_delta = Self::calculate_reward_delta(supplier_amount, delta_index)?;
-                    *total_reward = total_reward
-                        .checked_add(reward_delta)
-                        .ok_or(ArithmeticError::Overflow)?;
-                    Self::deposit_event(Event::<T>::DistributedSupplierReward(
-                        asset_id,
-                        supplier.clone(),
-                        reward_delta,
-                        supply_state.index,
-                    ));
+            RewardAccrued::<T>::try_mutate(supplier, |total_reward| -> DispatchResult {
+                let supplier_account = AccountDeposits::<T>::get(asset_id, supplier);
+                let supplier_amount = supplier_account.voucher_balance;
+                let reward_delta = Self::calculate_reward_delta(supplier_amount, delta_index)?;
+                *total_reward = total_reward
+                    .checked_add(reward_delta)
+                    .ok_or(ArithmeticError::Overflow)?;
+                Self::deposit_event(Event::<T>::DistributedSupplierReward(
+                    asset_id,
+                    supplier.clone(),
+                    reward_delta,
+                    supply_state.index,
+                ));
 
-                    Ok(())
-                })
-            },
-        )
+                Ok(())
+            })
+        })
     }
 
-    pub(crate) fn distribute_borrower_reward(
-        asset_id: AssetIdOf<T>,
-        borrower: &T::AccountId,
-    ) -> DispatchResult {
-        RewardBorrowerIndex::<T>::try_mutate(
-            asset_id,
-            borrower,
-            |borrower_index| -> DispatchResult {
-                let borrow_state = RewardBorrowState::<T>::get(asset_id);
-                let delta_index = borrow_state
-                    .index
-                    .checked_sub(*borrower_index)
-                    .ok_or(ArithmeticError::Underflow)?;
-                *borrower_index = borrow_state.index;
+    pub(crate) fn distribute_borrower_reward(asset_id: AssetIdOf<T>, borrower: &T::AccountId) -> DispatchResult {
+        RewardBorrowerIndex::<T>::try_mutate(asset_id, borrower, |borrower_index| -> DispatchResult {
+            let borrow_state = RewardBorrowState::<T>::get(asset_id);
+            let delta_index = borrow_state
+                .index
+                .checked_sub(*borrower_index)
+                .ok_or(ArithmeticError::Underflow)?;
+            *borrower_index = borrow_state.index;
 
-                RewardAccrued::<T>::try_mutate(borrower, |total_reward| -> DispatchResult {
-                    let current_borrow_amount = Self::current_borrow_balance(borrower, asset_id)?;
-                    let current_borrow_index = BorrowIndex::<T>::get(asset_id);
-                    let base_borrow_amount = current_borrow_index
-                        .reciprocal()
-                        .and_then(|r| r.checked_mul_int(current_borrow_amount))
-                        .ok_or(ArithmeticError::Overflow)?;
-                    let reward_delta =
-                        Self::calculate_reward_delta(base_borrow_amount, delta_index)?;
-                    *total_reward = total_reward
-                        .checked_add(reward_delta)
-                        .ok_or(ArithmeticError::Overflow)?;
-                    Self::deposit_event(Event::<T>::DistributedBorrowerReward(
-                        asset_id,
-                        borrower.clone(),
-                        reward_delta,
-                        borrow_state.index,
-                    ));
+            RewardAccrued::<T>::try_mutate(borrower, |total_reward| -> DispatchResult {
+                let current_borrow_amount = Self::current_borrow_balance(borrower, asset_id)?;
+                let current_borrow_index = BorrowIndex::<T>::get(asset_id);
+                let base_borrow_amount = current_borrow_index
+                    .reciprocal()
+                    .and_then(|r| r.checked_mul_int(current_borrow_amount))
+                    .ok_or(ArithmeticError::Overflow)?;
+                let reward_delta = Self::calculate_reward_delta(base_borrow_amount, delta_index)?;
+                *total_reward = total_reward
+                    .checked_add(reward_delta)
+                    .ok_or(ArithmeticError::Overflow)?;
+                Self::deposit_event(Event::<T>::DistributedBorrowerReward(
+                    asset_id,
+                    borrower.clone(),
+                    reward_delta,
+                    borrow_state.index,
+                ));
 
-                    Ok(())
-                })
-            },
-        )
+                Ok(())
+            })
+        })
     }
 
-    pub(crate) fn collect_market_reward(
-        asset_id: AssetIdOf<T>,
-        user: &T::AccountId,
-    ) -> DispatchResult {
+    pub(crate) fn collect_market_reward(asset_id: AssetIdOf<T>, user: &T::AccountId) -> DispatchResult {
         Self::update_reward_supply_index(asset_id)?;
         Self::distribute_supplier_reward(asset_id, user)?;
 

@@ -34,15 +34,8 @@ impl<T: Config> Pallet<T> {
             return Ok(());
         }
 
-        let (
-            borrow_rate,
-            supply_rate,
-            exchange_rate,
-            util,
-            total_borrows_new,
-            total_reserves_new,
-            borrow_index_new,
-        ) = Self::get_market_status(asset_id)?;
+        let (borrow_rate, supply_rate, exchange_rate, util, total_borrows_new, total_reserves_new, borrow_index_new) =
+            Self::get_market_status(asset_id)?;
 
         Self::update_last_accrued_interest_time(asset_id, now)?;
         TotalBorrows::<T>::insert(asset_id, total_borrows_new);
@@ -60,18 +53,7 @@ impl<T: Config> Pallet<T> {
 
     pub fn get_market_status(
         asset_id: AssetIdOf<T>,
-    ) -> Result<
-        (
-            Rate,
-            Rate,
-            Rate,
-            Ratio,
-            BalanceOf<T>,
-            BalanceOf<T>,
-            FixedU128,
-        ),
-        DispatchError,
-    > {
+    ) -> Result<(Rate, Rate, Rate, Ratio, BalanceOf<T>, BalanceOf<T>, FixedU128), DispatchError> {
         let market = Self::market(asset_id)?;
         let total_supply = Self::total_supply(asset_id);
         let total_cash = Self::get_total_cash(asset_id);
@@ -84,16 +66,14 @@ impl<T: Config> Pallet<T> {
             .rate_model
             .get_borrow_rate(util)
             .ok_or(ArithmeticError::Overflow)?;
-        let supply_rate =
-            InterestRateModel::get_supply_rate(borrow_rate, util, market.reserve_factor);
+        let supply_rate = InterestRateModel::get_supply_rate(borrow_rate, util, market.reserve_factor);
 
         let now = T::UnixTime::now().as_secs();
         let last_accrued_interest_time = Self::last_accrued_interest_time(asset_id);
         if now > last_accrued_interest_time {
             let delta_time = now - last_accrued_interest_time;
             let interest_accumulated =
-                Self::accrued_interest(borrow_rate, total_borrows, delta_time)
-                    .ok_or(ArithmeticError::Overflow)?;
+                Self::accrued_interest(borrow_rate, total_borrows, delta_time).ok_or(ArithmeticError::Overflow)?;
             total_borrows = interest_accumulated
                 .checked_add(total_borrows)
                 .ok_or(ArithmeticError::Overflow)?;
@@ -108,8 +88,7 @@ impl<T: Config> Pallet<T> {
                 .ok_or(ArithmeticError::Overflow)?;
         }
 
-        let exchange_rate =
-            Self::calculate_exchange_rate(total_supply, total_cash, total_borrows, total_reserves)?;
+        let exchange_rate = Self::calculate_exchange_rate(total_supply, total_cash, total_borrows, total_reserves)?;
 
         Ok((
             borrow_rate,
@@ -157,29 +136,21 @@ impl<T: Config> Pallet<T> {
     /// The exchange rate should be greater than 0.02 and less than 1
     pub(crate) fn ensure_valid_exchange_rate(exchange_rate: Rate) -> DispatchResult {
         ensure!(
-            exchange_rate >= Rate::from_inner(MIN_EXCHANGE_RATE)
-                && exchange_rate < Rate::from_inner(MAX_EXCHANGE_RATE),
+            exchange_rate >= Rate::from_inner(MIN_EXCHANGE_RATE) && exchange_rate < Rate::from_inner(MAX_EXCHANGE_RATE),
             Error::<T>::InvalidExchangeRate
         );
 
         Ok(())
     }
 
-    pub(crate) fn update_last_accrued_interest_time(
-        asset_id: AssetIdOf<T>,
-        time: Timestamp,
-    ) -> DispatchResult {
+    pub(crate) fn update_last_accrued_interest_time(asset_id: AssetIdOf<T>, time: Timestamp) -> DispatchResult {
         LastAccruedInterestTime::<T>::try_mutate(asset_id, |last_time| -> DispatchResult {
             *last_time = time;
             Ok(())
         })
     }
 
-    fn accrued_interest(
-        borrow_rate: Rate,
-        amount: BalanceOf<T>,
-        delta_time: Timestamp,
-    ) -> Option<BalanceOf<T>> {
+    fn accrued_interest(borrow_rate: Rate, amount: BalanceOf<T>, delta_time: Timestamp) -> Option<BalanceOf<T>> {
         borrow_rate
             .checked_mul_int(amount)?
             .checked_mul(delta_time.into())?
@@ -207,9 +178,8 @@ impl<T: Config> Pallet<T> {
             .checked_add(total_borrows)
             .and_then(|r| r.checked_sub(total_reserves))
             .ok_or(ArithmeticError::Overflow)?;
-        let exchange_rate =
-            Rate::checked_from_rational(cash_plus_borrows_minus_reserves, total_supply)
-                .ok_or(ArithmeticError::Underflow)?;
+        let exchange_rate = Rate::checked_from_rational(cash_plus_borrows_minus_reserves, total_supply)
+            .ok_or(ArithmeticError::Underflow)?;
         Self::ensure_valid_exchange_rate(exchange_rate)?;
 
         Ok(exchange_rate)

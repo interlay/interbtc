@@ -20,43 +20,17 @@ use sp_runtime::{FixedU128, RuntimeDebug};
 use sp_std::prelude::*;
 
 pub trait Loans<CurrencyId, AccountId, Balance> {
-    fn do_mint(
-        supplier: &AccountId,
-        asset_id: CurrencyId,
-        amount: Balance,
-    ) -> Result<(), DispatchError>;
-    fn do_borrow(
-        borrower: &AccountId,
-        asset_id: CurrencyId,
-        amount: Balance,
-    ) -> Result<(), DispatchError>;
-    fn do_collateral_asset(
-        supplier: &AccountId,
-        asset_id: CurrencyId,
-        enable: bool,
-    ) -> Result<(), DispatchError>;
-    fn do_repay_borrow(
-        borrower: &AccountId,
-        asset_id: CurrencyId,
-        amount: Balance,
-    ) -> Result<(), DispatchError>;
-    fn do_redeem(
-        supplier: &AccountId,
-        asset_id: CurrencyId,
-        amount: Balance,
-    ) -> Result<(), DispatchError>;
+    fn do_mint(supplier: &AccountId, asset_id: CurrencyId, amount: Balance) -> Result<(), DispatchError>;
+    fn do_borrow(borrower: &AccountId, asset_id: CurrencyId, amount: Balance) -> Result<(), DispatchError>;
+    fn do_collateral_asset(supplier: &AccountId, asset_id: CurrencyId, enable: bool) -> Result<(), DispatchError>;
+    fn do_repay_borrow(borrower: &AccountId, asset_id: CurrencyId, amount: Balance) -> Result<(), DispatchError>;
+    fn do_redeem(supplier: &AccountId, asset_id: CurrencyId, amount: Balance) -> Result<(), DispatchError>;
 }
 
 pub trait LoansPositionDataProvider<CurrencyId, AccountId, Balance> {
-    fn get_current_borrow_balance(
-        borrower: &AccountId,
-        asset_id: CurrencyId,
-    ) -> Result<Balance, DispatchError>;
+    fn get_current_borrow_balance(borrower: &AccountId, asset_id: CurrencyId) -> Result<Balance, DispatchError>;
 
-    fn get_current_collateral_balance(
-        supplier: &AccountId,
-        asset_id: CurrencyId,
-    ) -> Result<Balance, DispatchError>;
+    fn get_current_collateral_balance(supplier: &AccountId, asset_id: CurrencyId) -> Result<Balance, DispatchError>;
 }
 
 pub trait LoansMarketDataProvider<CurrencyId, Balance> {

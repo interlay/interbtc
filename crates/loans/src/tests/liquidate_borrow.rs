@@ -1,7 +1,5 @@
 use crate::{
-    mock::{
-        new_test_ext, Tokens, Loans, MockPriceFeeder, Origin, Test, ALICE, BOB, 
-    },
+    mock::{new_test_ext, Loans, MockPriceFeeder, Origin, Test, Tokens, ALICE, BOB},
     tests::unit,
     Error, MarketState,
 };
@@ -39,12 +37,7 @@ fn liquidate_borrow_allowed_works() {
             Loans::liquidate_borrow_allowed(&ALICE, KSM, unit(51), &ksm_market),
             Error::<Test>::TooMuchRepay
         );
-        assert_ok!(Loans::liquidate_borrow_allowed(
-            &ALICE,
-            KSM,
-            unit(50),
-            &ksm_market
-        ));
+        assert_ok!(Loans::liquidate_borrow_allowed(&ALICE, KSM, unit(50), &ksm_market));
     })
 }
 
@@ -82,22 +75,12 @@ fn lf_liquidate_borrow_allowed_works() {
             Loans::liquidate_borrow_allowed(&ALICE, DOT, unit(51), &dot_market),
             Error::<Test>::TooMuchRepay
         );
-        assert_ok!(Loans::liquidate_borrow_allowed(
-            &ALICE,
-            DOT,
-            unit(50),
-            &dot_market
-        ));
+        assert_ok!(Loans::liquidate_borrow_allowed(&ALICE, DOT, unit(50), &dot_market));
 
         // Remove CDOT from lf collateral
         // Loans::update_liquidation_free_collateral(Origin::root(), vec![]).unwrap();
         // The max repay amount = 400 * 50 = $200
-        assert_ok!(Loans::liquidate_borrow_allowed(
-            &ALICE,
-            DOT,
-            unit(100),
-            &dot_market
-        ));
+        assert_ok!(Loans::liquidate_borrow_allowed(&ALICE, DOT, unit(100), &dot_market));
     })
 }
 
@@ -146,13 +129,7 @@ fn full_workflow_works_as_expected() {
         // adjust KSM price to make ALICE generate shortfall
         MockPriceFeeder::set_price(KSM, 2.into());
         // BOB repay the KSM borrow balance and get DOT from ALICE
-        assert_ok!(Loans::liquidate_borrow(
-            Origin::signed(BOB),
-            ALICE,
-            KSM,
-            unit(50),
-            USDT
-        ));
+        assert_ok!(Loans::liquidate_borrow(Origin::signed(BOB), ALICE, KSM, unit(50), USDT));
 
         // KSM price = 2
         // incentive = repay KSM value * 1.1 = (50 * 2) * 1.1 = 110
@@ -164,43 +141,31 @@ fn full_workflow_works_as_expected() {
         // Bob DOT collateral: incentive = 110-(110/1.1*0.03)=107
         assert_eq!(Tokens::balance(USDT, &ALICE), unit(800),);
         assert_eq!(
-            Loans::exchange_rate(USDT)
-                .saturating_mul_int(Loans::account_deposits(USDT, ALICE).voucher_balance),
+            Loans::exchange_rate(USDT).saturating_mul_int(Loans::account_deposits(USDT, ALICE).voucher_balance),
             unit(90),
         );
         assert_eq!(Tokens::balance(KSM, &ALICE), unit(1100),);
         assert_eq!(Loans::account_borrows(KSM, ALICE).principal, unit(50));
         assert_eq!(Tokens::balance(KSM, &BOB), unit(750));
         assert_eq!(
-            Loans::exchange_rate(USDT)
-                .saturating_mul_int(Loans::account_deposits(USDT, BOB).voucher_balance),
+            Loans::exchange_rate(USDT).saturating_mul_int(Loans::account_deposits(USDT, BOB).voucher_balance),
             unit(107),
         );
         // 3 dollar reserved in our incentive reward account
         let incentive_reward_account = Loans::incentive_reward_account_id().unwrap();
-        println!(
-            "incentive reserve account:{:?}",
-            incentive_reward_account.clone()
-        );
+        println!("incentive reserve account:{:?}", incentive_reward_account.clone());
         assert_eq!(
-            Loans::exchange_rate(USDT).saturating_mul_int(
-                Loans::account_deposits(USDT, incentive_reward_account.clone()).voucher_balance
-            ),
+            Loans::exchange_rate(USDT)
+                .saturating_mul_int(Loans::account_deposits(USDT, incentive_reward_account.clone()).voucher_balance),
             unit(3),
         );
         assert_eq!(Tokens::balance(USDT, &ALICE), unit(800),);
         // reduce 2 dollar from incentive reserve to alice account
-        assert_ok!(Loans::reduce_incentive_reserves(
-            Origin::root(),
-            ALICE,
-            USDT,
-            unit(2),
-        ));
+        assert_ok!(Loans::reduce_incentive_reserves(Origin::root(), ALICE, USDT, unit(2),));
         // still 1 dollar left in reserve account
         assert_eq!(
-            Loans::exchange_rate(USDT).saturating_mul_int(
-                Loans::account_deposits(USDT, incentive_reward_account).voucher_balance
-            ),
+            Loans::exchange_rate(USDT)
+                .saturating_mul_int(Loans::account_deposits(USDT, incentive_reward_account).voucher_balance),
             unit(1),
         );
         // 2 dollar transfer to alice

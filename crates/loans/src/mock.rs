@@ -19,14 +19,16 @@ pub use super::*;
 
 use frame_benchmarking::whitelisted_caller;
 use frame_support::{
-    construct_runtime, parameter_types, traits::Everything, traits::SortedMembers, PalletId,
+    construct_runtime, parameter_types,
+    traits::{Everything, SortedMembers},
+    PalletId,
 };
 use frame_system::EnsureRoot;
 use orml_traits::{parameter_type_with_key, DataFeeder, DataProvider, DataProviderExtended};
 use pallet_traits::{VaultTokenCurrenciesFilter, VaultTokenExchangeRateProvider};
 use primitives::{
-    CurrencyId::{Token, ForeignAsset},
-    Moment, PriceDetail, KSM, CKINT, CKSM, CDOT, CKBTC, KINT, DOT, KBTC, INTR, IBTC, CIBTC,
+    CurrencyId::{ForeignAsset, Token},
+    Moment, PriceDetail, CDOT, CIBTC, CKBTC, CKINT, CKSM, DOT, IBTC, INTR, KBTC, KINT, KSM,
 };
 use sp_core::H256;
 use sp_runtime::{testing::Header, traits::IdentityLookup, AccountId32};
@@ -177,9 +179,7 @@ impl LoansMarketDataProvider<CurrencyId, Balance> for VaultLoansRateProvider {
         Ok(Default::default())
     }
 
-    fn get_market_status(
-        _: CurrencyId,
-    ) -> Result<MarketStatus<Balance>, sp_runtime::DispatchError> {
+    fn get_market_status(_: CurrencyId) -> Result<MarketStatus<Balance>, sp_runtime::DispatchError> {
         Ok(Default::default())
     }
 }
@@ -201,7 +201,7 @@ impl MockPriceFeeder {
     thread_local! {
         pub static PRICES: RefCell<HashMap<CurrencyId, Option<PriceDetail>>> = {
             RefCell::new(
-                // Include a foreign assets to act as a liquidation-free collateral for now. 
+                // Include a foreign assets to act as a liquidation-free collateral for now.
                 // TODO: Remove liquidation-free collateral
                 vec![Token(KINT), Token(DOT), Token(KSM), Token(KBTC), Token(INTR), Token(IBTC), ForeignAsset(100000)]
                     .iter()
@@ -258,14 +258,12 @@ impl Config for Test {
 }
 
 pub(crate) fn new_test_ext() -> sp_io::TestExternalities {
-    let t = frame_system::GenesisConfig::default()
-        .build_storage::<Test>()
-        .unwrap();
+    let t = frame_system::GenesisConfig::default().build_storage::<Test>().unwrap();
 
     let mut ext = sp_io::TestExternalities::new(t);
     ext.execute_with(|| {
         // Init assets
-        
+
         Tokens::set_balance(Origin::root(), ALICE, Token(KSM), 1000_000000000000, 0).unwrap();
         Tokens::set_balance(Origin::root(), ALICE, Token(DOT), 1000_000000000000, 0).unwrap();
         Tokens::set_balance(Origin::root(), ALICE, Token(KBTC), 1000_000000000000, 0).unwrap();

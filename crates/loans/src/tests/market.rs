@@ -1,8 +1,5 @@
 use crate::{
-    mock::{
-        market_mock, new_test_ext, Loans, Origin, Test, ACTIVE_MARKET_MOCK, ALICE,
-        MARKET_MOCK,
-    },
+    mock::{market_mock, new_test_ext, Loans, Origin, Test, ACTIVE_MARKET_MOCK, ALICE, MARKET_MOCK},
     Error, InterestRateModel, MarketState,
 };
 use frame_support::{assert_noop, assert_ok, error::BadOrigin};
@@ -117,10 +114,7 @@ fn active_market_does_not_modify_unknown_market_currencies() {
 #[test]
 fn add_market_can_only_be_used_by_root() {
     new_test_ext().execute_with(|| {
-        assert_noop!(
-            Loans::add_market(Origin::signed(ALICE), DOT, MARKET_MOCK),
-            BadOrigin
-        );
+        assert_noop!(Loans::add_market(Origin::signed(ALICE), DOT, MARKET_MOCK), BadOrigin);
     })
 }
 
@@ -210,18 +204,7 @@ fn update_market_has_sanity_checks_for_rate_models() {
 fn update_market_ensures_that_it_is_not_possible_to_modify_unknown_market_currencies() {
     new_test_ext().execute_with(|| {
         assert_noop!(
-            Loans::update_market(
-                Origin::root(),
-                SDOT,
-                None,
-                None,
-                None,
-                None,
-                None,
-                None,
-                None,
-                None,
-            ),
+            Loans::update_market(Origin::root(), SDOT, None, None, None, None, None, None, None, None,),
             Error::<Test>::MarketDoesNotExist
         );
     })
@@ -230,10 +213,7 @@ fn update_market_ensures_that_it_is_not_possible_to_modify_unknown_market_curren
 #[test]
 fn update_market_works() {
     new_test_ext().execute_with(|| {
-        assert_eq!(
-            Loans::market(DOT).unwrap().close_factor,
-            Ratio::from_percent(50)
-        );
+        assert_eq!(Loans::market(DOT).unwrap().close_factor, Ratio::from_percent(50));
 
         let market = MARKET_MOCK;
         assert_ok!(Loans::update_market(
@@ -257,10 +237,7 @@ fn update_market_works() {
 #[test]
 fn update_market_should_not_work_if_with_invalid_params() {
     new_test_ext().execute_with(|| {
-        assert_eq!(
-            Loans::market(DOT).unwrap().close_factor,
-            Ratio::from_percent(50)
-        );
+        assert_eq!(Loans::market(DOT).unwrap().close_factor, Ratio::from_percent(50));
 
         // check error code while collateral_factor is [0%, 100%)
         assert_ok!(Loans::update_market(
@@ -349,11 +326,7 @@ fn update_rate_model_works() {
             Rate::saturating_from_rational(35, 100),
             Ratio::from_percent(80),
         );
-        assert_ok!(Loans::update_rate_model(
-            Origin::root(),
-            DOT,
-            new_rate_model,
-        ));
+        assert_ok!(Loans::update_rate_model(Origin::root(), DOT, new_rate_model,));
         assert_eq!(Loans::market(DOT).unwrap().rate_model, new_rate_model);
 
         // Invalid base_rate

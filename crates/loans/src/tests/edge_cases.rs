@@ -1,11 +1,9 @@
 use super::*;
-use crate::tests::Loans;
-use crate::{mock::*, Error};
+use crate::{mock::*, tests::Loans, Error};
 use frame_support::{assert_err, assert_ok};
-use primitives::{KSM, IBTC};
 use primitives::{
     CurrencyId::{ForeignAsset, Token},
-    DOT, KSM,
+    DOT, IBTC, KSM,
 };
 use sp_runtime::FixedPointNumber;
 
@@ -81,10 +79,7 @@ fn redeem_all_should_be_accurate() {
 
         // let exchange_rate greater than 0.02
         accrue_interest_per_block(Token(KSM), 6, 2);
-        assert_eq!(
-            Loans::exchange_rate(Token(KSM)),
-            Rate::from_inner(20000000036387000)
-        );
+        assert_eq!(Loans::exchange_rate(Token(KSM)), Rate::from_inner(20000000036387000));
 
         assert_ok!(Loans::repay_borrow_all(Origin::signed(ALICE), Token(KSM)));
         // It failed with InsufficientLiquidity before #839
@@ -114,10 +109,7 @@ fn prevent_the_exchange_rate_attack() {
             false
         ));
         assert_eq!(Tokens::balance(Token(DOT), &EVE), 99999999999999);
-        assert_eq!(
-            Tokens::balance(Token(DOT), &Loans::account_id()),
-            100000000000001
-        );
+        assert_eq!(Tokens::balance(Token(DOT), &Loans::account_id()), 100000000000001);
         assert_eq!(
             Loans::total_supply(Token(DOT)),
             1 * 50, // 1 / 0.02
@@ -127,10 +119,7 @@ fn prevent_the_exchange_rate_attack() {
         assert!(Loans::accrue_interest(Token(DOT)).is_err());
 
         // Mock a BIG exchange_rate: 100000000000.02
-        ExchangeRate::<Test>::insert(
-            Token(DOT),
-            Rate::saturating_from_rational(100000000000020u128, 20 * 50),
-        );
+        ExchangeRate::<Test>::insert(Token(DOT), Rate::saturating_from_rational(100000000000020u128, 20 * 50));
         // Bob can not deposit 0.1 DOT because the voucher_balance can not be 0.
         assert_noop!(
             Loans::mint(Origin::signed(BOB), Token(DOT), 100000000000),

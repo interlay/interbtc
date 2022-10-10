@@ -53,11 +53,7 @@ impl<T: Config> Inspect<T::AccountId> for Pallet<T> {
 
     /// Get the maximum amount that `who` can withdraw/transfer successfully.
     /// For ptoken, We don't care if keep_alive is enabled
-    fn reducible_balance(
-        ptoken_id: Self::AssetId,
-        who: &T::AccountId,
-        _keep_alive: bool,
-    ) -> Self::Balance {
+    fn reducible_balance(ptoken_id: Self::AssetId, who: &T::AccountId, _keep_alive: bool) -> Self::Balance {
         Self::reducible_asset(ptoken_id, who).unwrap_or_default()
     }
 
@@ -73,16 +69,11 @@ impl<T: Config> Inspect<T::AccountId> for Pallet<T> {
             Err(_) => return DepositConsequence::UnknownAsset,
         };
 
-        if let Err(res) =
-            Self::ensure_active_market(underlying_id).map_err(|_| DepositConsequence::UnknownAsset)
-        {
+        if let Err(res) = Self::ensure_active_market(underlying_id).map_err(|_| DepositConsequence::UnknownAsset) {
             return res;
         }
 
-        if Self::total_supply(underlying_id)
-            .checked_add(amount)
-            .is_none()
-        {
+        if Self::total_supply(underlying_id).checked_add(amount).is_none() {
             return DepositConsequence::Overflow;
         }
 
@@ -105,9 +96,7 @@ impl<T: Config> Inspect<T::AccountId> for Pallet<T> {
             Err(_) => return WithdrawConsequence::UnknownAsset,
         };
 
-        if let Err(res) =
-            Self::ensure_active_market(underlying_id).map_err(|_| WithdrawConsequence::UnknownAsset)
-        {
+        if let Err(res) = Self::ensure_active_market(underlying_id).map_err(|_| WithdrawConsequence::UnknownAsset) {
             return res;
         }
 
@@ -161,24 +150,20 @@ impl<T: Config> Pallet<T> {
         Self::distribute_supplier_reward(ptoken_id, dest)?;
 
         let underlying_id = Self::underlying_id(ptoken_id)?;
-        AccountDeposits::<T>::try_mutate_exists(
-            underlying_id,
-            source,
-            |deposits| -> DispatchResult {
-                let mut d = deposits.unwrap_or_default();
-                d.voucher_balance = d
-                    .voucher_balance
-                    .checked_sub(amount)
-                    .ok_or(ArithmeticError::Underflow)?;
-                if d.voucher_balance.is_zero() {
-                    // remove deposits storage if zero balance
-                    *deposits = None;
-                } else {
-                    *deposits = Some(d);
-                }
-                Ok(())
-            },
-        )?;
+        AccountDeposits::<T>::try_mutate_exists(underlying_id, source, |deposits| -> DispatchResult {
+            let mut d = deposits.unwrap_or_default();
+            d.voucher_balance = d
+                .voucher_balance
+                .checked_sub(amount)
+                .ok_or(ArithmeticError::Underflow)?;
+            if d.voucher_balance.is_zero() {
+                // remove deposits storage if zero balance
+                *deposits = None;
+            } else {
+                *deposits = Some(d);
+            }
+            Ok(())
+        })?;
 
         AccountDeposits::<T>::try_mutate(underlying_id, &dest, |deposits| -> DispatchResult {
             deposits.voucher_balance = deposits
@@ -191,10 +176,7 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
-    fn reducible_asset(
-        ptoken_id: AssetIdOf<T>,
-        who: &T::AccountId,
-    ) -> Result<BalanceOf<T>, DispatchError> {
+    fn reducible_asset(ptoken_id: AssetIdOf<T>, who: &T::AccountId) -> Result<BalanceOf<T>, DispatchError> {
         let underlying_id = Self::underlying_id(ptoken_id)?;
         let Deposits {
             is_collateral,

@@ -41,18 +41,8 @@ impl Default for InterestRateModel {
 }
 
 impl InterestRateModel {
-    pub fn new_jump_model(
-        base_rate: Rate,
-        jump_rate: Rate,
-        full_rate: Rate,
-        jump_utilization: Ratio,
-    ) -> Self {
-        Self::Jump(JumpModel::new_model(
-            base_rate,
-            jump_rate,
-            full_rate,
-            jump_utilization,
-        ))
+    pub fn new_jump_model(base_rate: Rate, jump_rate: Rate, full_rate: Rate, jump_utilization: Ratio) -> Self {
+        Self::Jump(JumpModel::new_model(base_rate, jump_rate, full_rate, jump_utilization))
     }
 
     pub fn new_curve_model(base_rate: Rate) -> Self {
@@ -104,12 +94,7 @@ impl JumpModel {
     pub const MAX_FULL_RATE: Rate = Rate::from_inner(500_000_000_000_000_000); // 50%
 
     /// Create a new rate model
-    pub fn new_model(
-        base_rate: Rate,
-        jump_rate: Rate,
-        full_rate: Rate,
-        jump_utilization: Ratio,
-    ) -> JumpModel {
+    pub fn new_model(base_rate: Rate, jump_rate: Rate, full_rate: Rate, jump_utilization: Ratio) -> JumpModel {
         Self {
             base_rate,
             jump_rate,
@@ -184,9 +169,7 @@ impl CurveModel {
     pub fn get_borrow_rate(&self, utilization: Ratio) -> Option<Rate> {
         const NINE: usize = 9;
         let utilization_rate: Rate = utilization.into();
-        utilization_rate
-            .saturating_pow(NINE)
-            .checked_add(&self.base_rate)
+        utilization_rate.saturating_pow(NINE).checked_add(&self.base_rate)
     }
 }
 
@@ -238,8 +221,7 @@ mod tests {
         cash = 100;
         let util = Ratio::from_rational(borrows, cash + borrows);
         let borrow_rate = jump_model.get_borrow_rate(util).unwrap();
-        let normal_rate =
-            jump_model.jump_rate.saturating_mul(jump_utilization.into()) + jump_model.base_rate;
+        let normal_rate = jump_model.jump_rate.saturating_mul(jump_utilization.into()) + jump_model.base_rate;
         let excess_util = util.saturating_sub(jump_utilization);
         assert_eq!(
             borrow_rate,
@@ -260,8 +242,7 @@ mod tests {
         let supply_rate = InterestRateModel::get_supply_rate(borrow_rate, util, reserve_factor);
         assert_eq!(
             supply_rate,
-            borrow_rate
-                .saturating_mul(((Ratio::one().saturating_sub(reserve_factor)) * util).into()),
+            borrow_rate.saturating_mul(((Ratio::one().saturating_sub(reserve_factor)) * util).into()),
         );
     }
 
