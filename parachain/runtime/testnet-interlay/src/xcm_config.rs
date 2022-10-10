@@ -7,6 +7,7 @@ use pallet_xcm::XcmPassthrough;
 use polkadot_parachain::primitives::Sibling;
 use primitives::{Balance, CurrencyId, CurrencyId::ForeignAsset};
 use sp_runtime::WeakBoundedVec;
+use xcm::latest::{prelude::*, Weight};
 use xcm_builder::{
     AccountId32Aliases, AllowKnownQueryResponses, AllowSubscriptionsFrom, AllowTopLevelPaidExecutionFrom,
     EnsureXcmOrigin, FixedRateOfFungible, FixedWeightBounds, LocationInverter, NativeAsset, ParentIsPreset,
@@ -14,7 +15,6 @@ use xcm_builder::{
     SignedToAccountId32, SovereignSignedViaLocation, TakeRevenue, TakeWeightCredit,
 };
 use xcm_executor::{Config, XcmExecutor};
-use xcm::latest::{prelude::*, Weight};
 
 parameter_types! {
     pub const ParentLocation: MultiLocation = MultiLocation::parent();
