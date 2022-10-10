@@ -94,6 +94,7 @@ annuity = { path = "../../../crates/annuity", default-features = false }
 supply = { path = "../../../crates/supply", default-features = false }
 collator-selection = { path = "../../../crates/collator-selection", default-features = false }
 clients-info = { path = "../../../crates/clients-info", default-features = false }
+xcm-limit = { path = "../../../crates/xcm-limit", default-features = false }
 
 primitives = { package = "interbtc-primitives", path = "../../../primitives", default-features = false }
 
@@ -208,6 +209,7 @@ std = [
   "annuity/std",
   "supply/std",
   "collator-selection/std",
+  "xcm-limit/std",
 
   "primitives/std",
 

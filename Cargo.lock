@@ -12233,6 +12233,7 @@ dependencies = [
  "xcm",
  "xcm-builder",
  "xcm-executor",
+ "xcm-limit",
 ]
 
 [[package]]
@@ -13578,6 +13579,29 @@ dependencies = [
  "sp-runtime",
  "sp-std",
  "xcm",
+]
+
+[[package]]
+name = "xcm-limit"
+version = "1.2.0"
+dependencies = [
+ "fixed-hash",
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "log",
+ "pallet-timestamp",
+ "parity-scale-codec",
+ "scale-info",
+ "serde",
+ "sp-arithmetic",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-std",
+ "visibility",
+ "xcm",
+ "xcm-executor",
 ]
 
 [[package]]

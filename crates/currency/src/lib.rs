@@ -42,7 +42,9 @@ pub mod pallet {
     /// ## Configuration
     /// The pallet's configuration trait.
     #[pallet::config]
-    pub trait Config: frame_system::Config + orml_tokens::Config<Balance = BalanceOf<Self>> {
+    pub trait Config:
+        frame_system::Config + orml_tokens::Config<Balance = BalanceOf<Self>, CurrencyId = primitives::CurrencyId>
+    {
         type UnsignedFixedPoint: FixedPointNumber<Inner = BalanceOf<Self>>
             + TruncateFixedPointToInt
             + Encode
