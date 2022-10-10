@@ -1130,7 +1130,6 @@ impl<T: Config> Pallet<T> {
         supplier: &T::AccountId,
         asset_id: AssetIdOf<T>,
     ) -> Result<BalanceOf<T>, DispatchError> {
-        // if account_data.free.is_zero() { return Ok(BalanceOf::<T>::zero()); }
         if !AccountDeposits::<T>::contains_key(asset_id, supplier) {
             return Ok(BalanceOf::<T>::zero());
         }
@@ -1394,9 +1393,8 @@ impl<T: Config> Pallet<T> {
         let account_borrows = Self::current_borrow_balance(borrower, liquidation_asset_id)?;
         let account_borrows_value = Self::get_asset_value(liquidation_asset_id, account_borrows)?;
         let repay_value = Self::get_asset_value(liquidation_asset_id, repay_amount)?;
-        let effects_borrows_value = account_borrows_value;
 
-        if market.close_factor.mul_ceil(effects_borrows_value.into_inner()) < repay_value.into_inner() {
+        if market.close_factor.mul_ceil(account_borrows_value.into_inner()) < repay_value.into_inner() {
             return Err(Error::<T>::TooMuchRepay.into());
         }
 

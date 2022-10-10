@@ -63,7 +63,7 @@ fn test_real_market<R>(execute: impl Fn() -> R) {
 }
 
 #[test]
-fn integration_test_issue_expiry_only_parachain_blocks_expired() {
+fn integration_test_liquidation() {
     test_real_market(|| {
         let kint = Token(KINT);
         let ksm = Token(KSM);

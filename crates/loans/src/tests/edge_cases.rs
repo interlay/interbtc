@@ -3,7 +3,7 @@ use crate::{mock::*, tests::Loans, Error};
 use frame_support::{assert_err, assert_ok};
 use primitives::{
     CurrencyId::{ForeignAsset, Token},
-    DOT, IBTC, KSM,
+    DOT, KSM,
 };
 use sp_runtime::FixedPointNumber;
 

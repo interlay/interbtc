@@ -197,41 +197,6 @@ fn redeem_allowed_works() {
     })
 }
 
-// ignore: tests liquidation-free collateral
-#[ignore]
-#[test]
-fn lf_redeem_allowed_works() {
-    new_test_ext().execute_with(|| {
-        // Set CDOT as lf collateral
-        Loans::mint(Origin::signed(ALICE), CDOT_6_13, unit(200)).unwrap();
-
-        Loans::mint(Origin::signed(DAVE), USDT, unit(200)).unwrap();
-        Loans::mint(Origin::signed(DAVE), DOT, unit(200)).unwrap();
-        // Lend $200 CDOT
-        Loans::collateral_asset(Origin::signed(ALICE), CDOT_6_13, true).unwrap();
-
-        Loans::borrow(Origin::signed(ALICE), DOT, unit(50)).unwrap();
-
-        // (200 - 100) * 50% >= 50
-        assert_ok!(Loans::redeem_allowed(CDOT_6_13, &ALICE, unit(100)));
-
-        // Set KSM as collateral, and borrow USDT
-        Loans::mint(Origin::signed(ALICE), KSM, unit(200)).unwrap();
-        Loans::collateral_asset(Origin::signed(ALICE), KSM, true).unwrap();
-        Loans::borrow(Origin::signed(ALICE), USDT, unit(100)).unwrap();
-
-        assert_err!(
-            Loans::redeem_allowed(KSM, &ALICE, unit(100)),
-            Error::<Test>::InsufficientLiquidity
-        );
-        // But it'll success when redeem cdot
-        assert_ok!(Loans::redeem_allowed(CDOT_6_13, &ALICE, unit(100)));
-
-        // Then it can be redeemed
-        assert_ok!(Loans::redeem_allowed(KSM, &ALICE, unit(100)));
-    })
-}
-
 #[test]
 fn redeem_works() {
     new_test_ext().execute_with(|| {
@@ -375,10 +340,9 @@ fn get_account_liquidity_works() {
         Loans::mint(Origin::signed(ALICE), CDOT_6_13, unit(200)).unwrap();
         Loans::collateral_asset(Origin::signed(ALICE), CDOT_6_13, true).unwrap();
 
-        let (liquidity, _, lf_liquidity, _) = Loans::get_account_liquidity(&ALICE).unwrap();
+        let (liquidity, _, _, _) = Loans::get_account_liquidity(&ALICE).unwrap();
 
         assert_eq!(liquidity, FixedU128::from_inner(unit(100)));
-        assert_eq!(lf_liquidity, FixedU128::from_inner(unit(0)));
     })
 }
 
@@ -397,42 +361,15 @@ fn get_account_liquidation_threshold_liquidity_works() {
         Loans::borrow(Origin::signed(ALICE), KSM, unit(100)).unwrap();
         Loans::borrow(Origin::signed(ALICE), DOT, unit(100)).unwrap();
 
-        let (liquidity, _, lf_liquidity, _) = Loans::get_account_liquidation_threshold_liquidity(&ALICE).unwrap();
+        let (liquidity, _, _, _) = Loans::get_account_liquidation_threshold_liquidity(&ALICE).unwrap();
 
         assert_eq!(liquidity, FixedU128::from_inner(unit(20)));
-        assert_eq!(lf_liquidity, FixedU128::from_inner(unit(0)));
 
         MockPriceFeeder::set_price(KSM, 2.into());
-        let (liquidity, shortfall, lf_liquidity, _) =
-            Loans::get_account_liquidation_threshold_liquidity(&ALICE).unwrap();
+        let (liquidity, shortfall, _, _) = Loans::get_account_liquidation_threshold_liquidity(&ALICE).unwrap();
 
         assert_eq!(liquidity, FixedU128::from_inner(unit(0)));
         assert_eq!(shortfall, FixedU128::from_inner(unit(80)));
-        assert_eq!(lf_liquidity, FixedU128::from_inner(unit(0)));
-    })
-}
-
-// ignore: tests liquidation-free collateral
-#[ignore]
-#[test]
-fn lf_borrow_allowed_works() {
-    new_test_ext().execute_with(|| {
-        Loans::mint(Origin::signed(ALICE), CDOT_6_13, unit(200)).unwrap();
-        Loans::mint(Origin::signed(DAVE), USDT, unit(200)).unwrap();
-        Loans::mint(Origin::signed(DAVE), DOT, unit(200)).unwrap();
-        // Lend $200 CDOT
-        Loans::collateral_asset(Origin::signed(ALICE), CDOT_6_13, true).unwrap();
-
-        assert_eq!(
-            Loans::get_asset_value(DOT, unit(100)).unwrap(),
-            Loans::get_asset_value(USDT, unit(100)).unwrap()
-        );
-
-        assert_noop!(
-            Loans::borrow_allowed(USDT, &ALICE, unit(100)),
-            Error::<Test>::InsufficientLiquidity
-        );
-        assert_ok!(Loans::borrow_allowed(DOT, &ALICE, unit(100)));
     })
 }
 
