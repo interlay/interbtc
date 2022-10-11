@@ -1,21 +1,24 @@
 use crate::relaychain::polkadot_test_net::*;
 use codec::Encode;
-use frame_support::{assert_ok, weights::WeightToFee};
+use frame_support::{
+    assert_ok,
+    weights::{Weight as FrameWeight, WeightToFee},
+};
 use orml_traits::MultiCurrency;
 use primitives::{
     CurrencyId::{ForeignAsset, Token},
     CustomMetadata,
 };
-use xcm::latest::prelude::*;
+use xcm::latest::{prelude::*, Weight};
 use xcm_builder::ParentIsPreset;
-use xcm_emulator::{TestExt, XcmExecutor};
 use xcm_executor::traits::{Convert, WeightBounds};
+use xcm_simulator::{TestExt, XcmExecutor};
 
 mod hrmp {
     use super::*;
 
     use polkadot_runtime_parachains::hrmp;
-    fn construct_xcm(call: hrmp::Call<polkadot_runtime::Runtime>, xcm_fee: u128, transact_weight: u64) -> Xcm<()> {
+    fn construct_xcm(call: hrmp::Call<polkadot_runtime::Runtime>, xcm_fee: u128, transact_weight: Weight) -> Xcm<()> {
         Xcm(vec![
             WithdrawAsset((Here, xcm_fee).into()),
             BuyExecution {
@@ -71,7 +74,7 @@ mod hrmp {
         })
     }
 
-    fn init_open_channel<T>(sender: u32, recipient: u32, xcm_fee: u128, transact_weight: u64)
+    fn init_open_channel<T>(sender: u32, recipient: u32, xcm_fee: u128, transact_weight: Weight)
     where
         T: TestExt,
     {
@@ -94,7 +97,7 @@ mod hrmp {
         assert!(has_open_channel_requested_event(sender, recipient));
     }
 
-    fn accept_open_channel<T>(sender: u32, recipient: u32, xcm_fee: u128, transact_weight: u64)
+    fn accept_open_channel<T>(sender: u32, recipient: u32, xcm_fee: u128, transact_weight: Weight)
     where
         T: TestExt,
     {
@@ -221,7 +224,7 @@ fn transfer_to_relay_chain() {
         ));
     });
 
-    let used_weight = 4_000_000_000; // The value used in UI - very conservative: actually used at time of writing = 298_368_000
+    let used_weight = FrameWeight::from_ref_time(4_000_000_000 as u64); // The value used in UI - very conservative: actually used at time of writing = 298_368_000
 
     Interlay::execute_with(|| {
         assert_ok!(XTokens::transfer(
@@ -238,7 +241,7 @@ fn transfer_to_relay_chain() {
                 )
                 .into()
             ),
-            used_weight
+            used_weight.ref_time()
         ));
     });
 
@@ -344,7 +347,7 @@ fn transfer_to_sibling_and_back() {
     Interlay::execute_with(|| {
         let used_weight = 800_000_000; // empirically determined in test - weight is decreased in AllowTopLevelPaidExecutionFrom
         let intr_per_second = interlay_runtime_parachain::xcm_config::CanonicalizedIntrPerSecond::get().1;
-        let xcm_fee = (intr_per_second * used_weight) / WEIGHT_PER_SECOND as u128;
+        let xcm_fee = (intr_per_second * used_weight) / WEIGHT_PER_SECOND.ref_time() as u128;
 
         assert_eq!(
             Tokens::free_balance(Token(INTR), &AccountId::from(ALICE)),
@@ -382,7 +385,7 @@ fn xcm_transfer_execution_barrier_trader_works() {
     let weight_limit_too_low = 500_000_000;
     let unit_instruction_weight = 200_000_000;
     let minimum_fee = (interlay_runtime_parachain::xcm_config::DotPerSecond::get().1 * expect_weight_limit as u128)
-        / WEIGHT_PER_SECOND as u128;
+        / WEIGHT_PER_SECOND.ref_time() as u128;
 
     // relay-chain use normal account to send xcm, destination parachain can't pass Barrier check
     let message = construct_xcm(100, Unlimited);
@@ -513,7 +516,7 @@ fn subscribe_version_notify_works() {
 fn weigh_xcm(mut message: Xcm<Call>, fee_per_second: u128) -> u128 {
     let trapped_xcm_message_weight = <interlay_runtime_parachain::xcm_config::XcmConfig as interlay_runtime_parachain::xcm_config::xcm_executor::Config>::Weigher::weight(
         &mut message).unwrap();
-    (fee_per_second * trapped_xcm_message_weight as u128) / WEIGHT_PER_SECOND as u128
+    (fee_per_second * trapped_xcm_message_weight as u128) / WEIGHT_PER_SECOND.ref_time() as u128
 }
 #[test]
 fn trap_assets_works() {

@@ -7,7 +7,7 @@ pub use primitives::{
     TokenSymbol::{KINT, KSM},
 };
 use sp_runtime::traits::AccountIdConversion;
-use xcm_emulator::{decl_test_network, decl_test_parachain, decl_test_relay_chain};
+use xcm_simulator::{decl_test_network, decl_test_parachain, decl_test_relay_chain};
 
 pub const KINTSUGI_PARA_ID: u32 = 2092;
 pub const SIBLING_PARA_ID: u32 = 2001;
@@ -23,7 +23,6 @@ decl_test_relay_chain! {
 decl_test_parachain! {
     pub struct Kintsugi {
         Runtime = Runtime,
-        Origin = Origin,
         XcmpMessageHandler = kintsugi_runtime_parachain::XcmpQueue,
         DmpMessageHandler = kintsugi_runtime_parachain::DmpQueue,
         new_ext = para_ext(KINTSUGI_PARA_ID),
@@ -33,7 +32,6 @@ decl_test_parachain! {
 decl_test_parachain! {
     pub struct Sibling {
         Runtime = testnet_kintsugi_runtime_parachain::Runtime,
-        Origin = testnet_kintsugi_runtime_parachain::Origin,
         XcmpMessageHandler = testnet_kintsugi_runtime_parachain::XcmpQueue,
         DmpMessageHandler = testnet_kintsugi_runtime_parachain::DmpQueue,
         new_ext = para_ext(SIBLING_PARA_ID),
@@ -66,7 +64,7 @@ fn default_parachains_host_configuration() -> HostConfiguration<BlockNumber> {
         max_upward_queue_count: 8,
         max_upward_queue_size: 1024 * 1024,
         max_downward_message_size: 1024,
-        ump_service_total_weight: 4 * 1_000_000_000,
+        ump_service_total_weight: Weight::from_ref_time(4 * 1_000_000_000 as u64),
         max_upward_message_size: 50 * 1024,
         max_upward_message_num_per_candidate: 5,
         hrmp_sender_deposit: 5_000_000_000_000,

@@ -77,6 +77,7 @@ polkadot-runtime = { git = "https://github.com/paritytech/polkadot", branch = "r
 xcm = { git = "https://github.com/paritytech/polkadot", branch = "release-v0.9.29", default-features = false }
 xcm-builder = { git = "https://github.com/paritytech/polkadot", branch = "release-v0.9.29", default-features = false }
 xcm-executor = { git = "https://github.com/paritytech/polkadot", branch = "release-v0.9.29", default-features = false }
+xcm-simulator = { git = "https://github.com/paritytech/polkadot", branch = "release-v0.9.29", default-features = false }
 pallet-xcm = { git = "https://github.com/paritytech/polkadot", branch = "release-v0.9.29", default-features = false }
 
 # Parachain dependencies
@@ -120,8 +121,6 @@ orml-xtokens = { git = "https://github.com/open-web3-stack/open-runtime-module-l
 orml-xcm = { git = "https://github.com/open-web3-stack/open-runtime-module-library", rev = "44fda4432b71f49ee59a650cf4775db895ab97af", default-features = false }
 orml-xcm-support = { git = "https://github.com/open-web3-stack/open-runtime-module-library", rev = "44fda4432b71f49ee59a650cf4775db895ab97af", default-features = false }
 orml-unknown-tokens = { git = "https://github.com/open-web3-stack/open-runtime-module-library", rev = "44fda4432b71f49ee59a650cf4775db895ab97af", default-features = false }
-
-xcm-emulator = { git = "https://github.com/shaunxw/xcm-simulator", rev = "ab5cd6c5fabe6ddda52ed6803ee1bf54c258fefe" }
 
 [dev-dependencies]
 hex = '0.4.2'
@@ -199,7 +198,7 @@ std = [
   "interlay-runtime-parachain/std",
   "testnet-kintsugi-runtime-parachain/std",
   "testnet-interlay-runtime-parachain/std",
-  
+
   "btc-relay/std",
   "currency/std",
   "security/std",

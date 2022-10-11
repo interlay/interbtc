@@ -7,7 +7,7 @@ pub use primitives::{
     TokenSymbol::{DOT, INTR},
 };
 use sp_runtime::traits::AccountIdConversion;
-use xcm_emulator::{decl_test_network, decl_test_parachain, decl_test_relay_chain};
+use xcm_simulator::{decl_test_network, decl_test_parachain, decl_test_relay_chain};
 
 pub const INTERLAY_PARA_ID: u32 = 2032;
 pub const SIBLING_PARA_ID: u32 = 2001;
@@ -23,7 +23,6 @@ decl_test_relay_chain! {
 decl_test_parachain! {
     pub struct Interlay {
         Runtime = Runtime,
-        Origin = Origin,
         XcmpMessageHandler = interlay_runtime_parachain::XcmpQueue,
         DmpMessageHandler = interlay_runtime_parachain::DmpQueue,
         new_ext = para_ext(INTERLAY_PARA_ID),
@@ -33,7 +32,6 @@ decl_test_parachain! {
 decl_test_parachain! {
     pub struct Sibling {
         Runtime = testnet_interlay_runtime_parachain::Runtime,
-        Origin = testnet_interlay_runtime_parachain::Origin,
         XcmpMessageHandler = testnet_interlay_runtime_parachain::XcmpQueue,
         DmpMessageHandler = testnet_interlay_runtime_parachain::DmpQueue,
         new_ext = para_ext(SIBLING_PARA_ID),
@@ -64,7 +62,7 @@ fn default_parachains_host_configuration() -> HostConfiguration<BlockNumber> {
         validation_upgrade_cooldown: 14_400,
         validation_upgrade_delay: 600,
         max_downward_message_size: 51_200,
-        ump_service_total_weight: 100_000_000_000,
+        ump_service_total_weight: Weight::from_ref_time(100_000_000_000 as u64),
         hrmp_max_parachain_outbound_channels: 10,
         hrmp_max_parathread_outbound_channels: 0,
         hrmp_sender_deposit: 100_000_000_000,
@@ -92,7 +90,7 @@ fn default_parachains_host_configuration() -> HostConfiguration<BlockNumber> {
         zeroth_delay_tranche_width: 0,
         needed_approvals: 30,
         relay_vrf_modulo_samples: 40,
-        ump_max_individual_weight: 20_000_000_000,
+        ump_max_individual_weight: Weight::from_ref_time(20_000_000_000 as u64),
         pvf_checking_enabled: false,
         pvf_voting_ttl: 2,
         minimum_validation_upgrade_delay: 20,

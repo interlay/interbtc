@@ -7127,8 +7127,8 @@ dependencies = [
  "vault-registry",
  "xcm",
  "xcm-builder",
- "xcm-emulator",
  "xcm-executor",
+ "xcm-simulator",
 ]
 
 [[package]]
@@ -7668,7 +7668,7 @@ dependencies = [
  "polkadot-overseer",
  "polkadot-primitives",
  "sc-network",
- "sc-network-common 0.10.0-dev (git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.29)",
+ "sc-network-common",
  "sp-consensus",
  "thiserror",
  "tracing-gum",
@@ -8480,7 +8480,7 @@ dependencies = [
  "sc-finality-grandpa",
  "sc-keystore",
  "sc-network",
- "sc-network-common 0.10.0-dev (git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.29)",
+ "sc-network-common",
  "sc-offchain",
  "sc-service",
  "sc-sync-state-rpc",
@@ -9590,7 +9590,7 @@ dependencies = [
  "prost-build",
  "rand 0.7.3",
  "sc-client-api",
- "sc-network-common 0.10.0-dev (git+https://github.com/paritytech//substrate?branch=polkadot-v0.9.29)",
+ "sc-network-common",
  "sp-api",
  "sp-authority-discovery",
  "sp-blockchain",
@@ -9649,7 +9649,7 @@ dependencies = [
  "memmap2",
  "parity-scale-codec",
  "sc-chain-spec-derive",
- "sc-network-common 0.10.0-dev (git+https://github.com/paritytech//substrate?branch=polkadot-v0.9.29)",
+ "sc-network-common",
  "sc-telemetry",
  "serde",
  "serde_json",
@@ -10051,7 +10051,7 @@ dependencies = [
  "sc-consensus",
  "sc-keystore",
  "sc-network",
- "sc-network-common 0.10.0-dev (git+https://github.com/paritytech//substrate?branch=polkadot-v0.9.29)",
+ "sc-network-common",
  "sc-network-gossip",
  "sc-telemetry",
  "sc-utils",
@@ -10101,7 +10101,7 @@ dependencies = [
  "log",
  "parity-util-mem",
  "sc-client-api",
- "sc-network-common 0.10.0-dev (git+https://github.com/paritytech//substrate?branch=polkadot-v0.9.29)",
+ "sc-network-common",
  "sc-transaction-pool-api",
  "sp-blockchain",
  "sp-runtime",
@@ -10153,8 +10153,8 @@ dependencies = [
  "sc-block-builder",
  "sc-client-api",
  "sc-consensus",
- "sc-network-common 0.10.0-dev (git+https://github.com/paritytech//substrate?branch=polkadot-v0.9.29)",
- "sc-peerset 4.0.0-dev (git+https://github.com/paritytech//substrate?branch=polkadot-v0.9.29)",
+ "sc-network-common",
+ "sc-peerset",
  "sc-utils",
  "serde",
  "serde_json",
@@ -10184,30 +10184,7 @@ dependencies = [
  "parity-scale-codec",
  "prost-build",
  "sc-consensus",
- "sc-peerset 4.0.0-dev (git+https://github.com/paritytech//substrate?branch=polkadot-v0.9.29)",
- "serde",
- "smallvec",
- "sp-blockchain",
- "sp-consensus",
- "sp-finality-grandpa",
- "sp-runtime",
- "thiserror",
-]
-
-[[package]]
-name = "sc-network-common"
-version = "0.10.0-dev"
-source = "git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.29#cc370aa61e15c18d23a2f686b812fd576a630afe"
-dependencies = [
- "async-trait",
- "bitflags",
- "bytes",
- "futures",
- "libp2p",
- "parity-scale-codec",
- "prost-build",
- "sc-consensus",
- "sc-peerset 4.0.0-dev (git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.29)",
+ "sc-peerset",
  "serde",
  "smallvec",
  "sp-blockchain",
@@ -10228,8 +10205,8 @@ dependencies = [
  "libp2p",
  "log",
  "lru 0.7.8",
- "sc-network-common 0.10.0-dev (git+https://github.com/paritytech//substrate?branch=polkadot-v0.9.29)",
- "sc-peerset 4.0.0-dev (git+https://github.com/paritytech//substrate?branch=polkadot-v0.9.29)",
+ "sc-network-common",
+ "sc-peerset",
  "sp-runtime",
  "substrate-prometheus-endpoint",
  "tracing",
@@ -10248,8 +10225,8 @@ dependencies = [
  "prost",
  "prost-build",
  "sc-client-api",
- "sc-network-common 0.10.0-dev (git+https://github.com/paritytech//substrate?branch=polkadot-v0.9.29)",
- "sc-peerset 4.0.0-dev (git+https://github.com/paritytech//substrate?branch=polkadot-v0.9.29)",
+ "sc-network-common",
+ "sc-peerset",
  "sp-blockchain",
  "sp-core",
  "sp-runtime",
@@ -10272,8 +10249,8 @@ dependencies = [
  "prost-build",
  "sc-client-api",
  "sc-consensus",
- "sc-network-common 0.10.0-dev (git+https://github.com/paritytech//substrate?branch=polkadot-v0.9.29)",
- "sc-peerset 4.0.0-dev (git+https://github.com/paritytech//substrate?branch=polkadot-v0.9.29)",
+ "sc-network-common",
+ "sc-peerset",
  "smallvec",
  "sp-arithmetic",
  "sp-blockchain",
@@ -10303,8 +10280,8 @@ dependencies = [
  "parking_lot 0.12.1",
  "rand 0.7.3",
  "sc-client-api",
- "sc-network-common 0.10.0-dev (git+https://github.com/paritytech//substrate?branch=polkadot-v0.9.29)",
- "sc-peerset 4.0.0-dev (git+https://github.com/paritytech//substrate?branch=polkadot-v0.9.29)",
+ "sc-network-common",
+ "sc-peerset",
  "sc-utils",
  "sp-api",
  "sp-core",
@@ -10318,19 +10295,6 @@ dependencies = [
 name = "sc-peerset"
 version = "4.0.0-dev"
 source = "git+https://github.com/paritytech//substrate?branch=polkadot-v0.9.29#cc370aa61e15c18d23a2f686b812fd576a630afe"
-dependencies = [
- "futures",
- "libp2p",
- "log",
- "sc-utils",
- "serde_json",
- "wasm-timer",
-]
-
-[[package]]
-name = "sc-peerset"
-version = "4.0.0-dev"
-source = "git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.29#cc370aa61e15c18d23a2f686b812fd576a630afe"
 dependencies = [
  "futures",
  "libp2p",
@@ -10442,7 +10406,7 @@ dependencies = [
  "sc-informant",
  "sc-keystore",
  "sc-network",
- "sc-network-common 0.10.0-dev (git+https://github.com/paritytech//substrate?branch=polkadot-v0.9.29)",
+ "sc-network-common",
  "sc-network-light",
  "sc-network-sync",
  "sc-offchain",
@@ -13666,31 +13630,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "xcm-emulator"
-version = "0.1.0"
-source = "git+https://github.com/shaunxw/xcm-simulator?rev=ab5cd6c5fabe6ddda52ed6803ee1bf54c258fefe#ab5cd6c5fabe6ddda52ed6803ee1bf54c258fefe"
-dependencies = [
- "cumulus-pallet-dmp-queue",
- "cumulus-pallet-parachain-system",
- "cumulus-pallet-xcmp-queue",
- "cumulus-primitives-core",
- "cumulus-primitives-parachain-inherent",
- "cumulus-test-relay-sproof-builder",
- "frame-support",
- "frame-system",
- "parachain-info",
- "parity-scale-codec",
- "paste",
- "polkadot-primitives",
- "polkadot-runtime-parachains",
- "quote",
- "sp-io",
- "sp-std",
- "xcm",
- "xcm-executor",
-]
-
-[[package]]
 name = "xcm-executor"
 version = "0.9.29"
 source = "git+https://github.com/paritytech//polkadot?branch=release-v0.9.29#94078b44fb6c9767bf60ffcaaa3be40681be5a76"
@@ -13717,6 +13656,23 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn",
+]
+
+[[package]]
+name = "xcm-simulator"
+version = "0.9.29"
+source = "git+https://github.com/paritytech/polkadot?branch=release-v0.9.29#94078b44fb6c9767bf60ffcaaa3be40681be5a76"
+dependencies = [
+ "frame-support",
+ "parity-scale-codec",
+ "paste",
+ "polkadot-core-primitives",
+ "polkadot-parachain",
+ "polkadot-runtime-parachains",
+ "sp-io",
+ "sp-std",
+ "xcm",
+ "xcm-executor",
 ]
 
 [[package]]
