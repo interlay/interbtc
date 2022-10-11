@@ -141,7 +141,9 @@ pub mod pallet {
     use super::*;
 
     #[pallet::config]
-    pub trait Config: frame_system::Config + currency::Config<Balance = BalanceOf<Self>> {
+    pub trait Config:
+        frame_system::Config + currency::Config<Balance = BalanceOf<Self>, CurrencyId = CurrencyId>
+    {
         type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
 
         /// The oracle price feeder
@@ -241,10 +243,10 @@ pub mod pallet {
     pub enum Event<T: Config> {
         /// Enable collateral for certain asset
         /// [sender, asset_id]
-        CollateralAssetAdded(T::AccountId, AssetIdOf<T>),
+        DepositCollateral(T::AccountId, AssetIdOf<T>, BalanceOf<T>),
         /// Disable collateral for certain asset
         /// [sender, asset_id]
-        CollateralAssetRemoved(T::AccountId, AssetIdOf<T>),
+        WithdrawCollateral(T::AccountId, AssetIdOf<T>, BalanceOf<T>),
         /// Event emitted when assets are deposited
         /// [sender, asset_id, amount]
         Deposited(T::AccountId, AssetIdOf<T>, BalanceOf<T>),
@@ -340,15 +342,8 @@ pub mod pallet {
     /// CollateralType -> Owner -> Deposits
     #[pallet::storage]
     #[pallet::getter(fn account_deposits)]
-    pub type AccountDeposits<T: Config> = StorageDoubleMap<
-        _,
-        Blake2_128Concat,
-        AssetIdOf<T>,
-        Blake2_128Concat,
-        T::AccountId,
-        Deposits<BalanceOf<T>>,
-        ValueQuery,
-    >;
+    pub type AccountDeposits<T: Config> =
+        StorageDoubleMap<_, Blake2_128Concat, AssetIdOf<T>, Blake2_128Concat, T::AccountId, BalanceOf<T>, ValueQuery>;
 
     /// Mapping of account addresses to total deposit interest accrual
     /// CurrencyId -> Owner -> EarnedSnapshot
@@ -910,6 +905,22 @@ pub mod pallet {
 
             Self::do_collateral_asset(&who, asset_id, enable)?;
 
+            Ok(().into())
+        }
+
+        #[pallet::weight(<T as Config>::WeightInfo::collateral_asset())]
+        #[transactional]
+        pub fn deposit_collateral(origin: OriginFor<T>, ptoken_amount: Amount<T>) -> DispatchResultWithPostInfo {
+            let who = ensure_signed(origin)?;
+            Self::do_deposit_collateral(&who, ptoken_amount)?;
+            Ok(().into())
+        }
+
+        #[pallet::weight(<T as Config>::WeightInfo::collateral_asset())]
+        #[transactional]
+        pub fn withdraw_collateral(origin: OriginFor<T>, ptoken_amount: Amount<T>) -> DispatchResultWithPostInfo {
+            let who = ensure_signed(origin)?;
+            Self::do_withdraw_collateral(&who, ptoken_amount)?;
             Ok(().into())
         }
 
@@ -1825,21 +1836,10 @@ impl<T: Config> LoansTrait<AssetIdOf<T>, AccountIdOf<T>, BalanceOf<T>> for Palle
 
         T::Assets::transfer(asset_id, supplier, &Self::account_id(), amount, false)?;
 
-        // TODO: Mint `voucher_amount` tokens to `supplier`
-        AccountDeposits::<T>::try_mutate(asset_id, supplier, |deposits| -> DispatchResult {
-            deposits.voucher_balance = deposits
-                .voucher_balance
-                .checked_add(voucher_amount)
-                .ok_or(ArithmeticError::Overflow)?;
-            Ok(())
-        })?;
-        TotalSupply::<T>::try_mutate(asset_id, |total_balance| -> DispatchResult {
-            let new_balance = total_balance
-                .checked_add(voucher_amount)
-                .ok_or(ArithmeticError::Overflow)?;
-            *total_balance = new_balance;
-            Ok(())
-        })?;
+        let ptoken_id = Self::ptoken_id(asset_id)?;
+        let ptokens_to_mint: Amount<T> = Amount::new(voucher_amount, ptoken_id);
+        ptokens_to_mint.mint_to(supplier)?;
+
         Self::deposit_event(Event::<T>::Deposited(supplier.clone(), asset_id, amount));
         Ok(())
     }
@@ -1872,35 +1872,38 @@ impl<T: Config> LoansTrait<AssetIdOf<T>, AccountIdOf<T>, BalanceOf<T>> for Palle
         Ok(())
     }
 
-    fn do_collateral_asset(
-        supplier: &AccountIdOf<T>,
-        asset_id: AssetIdOf<T>,
-        enable: bool,
-    ) -> Result<(), DispatchError> {
-        Self::ensure_active_market(asset_id)?;
-        ensure!(
-            AccountDeposits::<T>::contains_key(asset_id, supplier),
-            Error::<T>::NoDeposit
-        );
-        let mut deposits = Self::account_deposits(asset_id, supplier);
-        // turn on the collateral button
-        if enable {
-            deposits.is_collateral = true;
-            AccountDeposits::<T>::insert(asset_id, supplier, deposits);
-            Self::deposit_event(Event::<T>::CollateralAssetAdded(supplier.clone(), asset_id));
-            return Ok(());
-        }
-        // turn off the collateral button after checking the liquidity
+    fn do_deposit_collateral(supplier: &AccountIdOf<T>, ptoken_amount: Amount<T>) -> Result<(), DispatchError> {
+        let underlying_id = Self::underlying_id(ptoken_amount.currency())?;
+        Self::ensure_active_market(underlying_id)?;
+
+        // Will fail if supplier has insufficient free tokens
+        ptoken_amount.lock_on(supplier)?;
+
+        // Increase the amount of collateral deposited
+        AccountDeposits::<T>::try_mutate_exists(ptoken_amount.currency(), supplier, |deposits| -> DispatchResult {
+            deposits = deposits
+                .unwrap_or_default()
+                .checked_add(ptoken_amount.amount())
+                .ok_or(ArithmeticError::Overflow)?;
+            Ok(())
+        })?;
+
+        Self::deposit_event(Event::<T>::DepositCollateral(
+            supplier.clone(),
+            ptoken_amount.currency(),
+            ptoken_amount.amount(),
+        ));
+        Ok(())
+    }
+
+    fn do_withdraw_collateral(supplier: &AccountIdOf<T>, ptoken_amount: Amount<T>) -> Result<(), DispatchError> {
+        let underlying_id = Self::underlying_id(ptoken_amount.currency())?;
+        Self::ensure_active_market(underlying_id)?;
+
         let total_collateral_value = Self::total_collateral_value(supplier)?;
-        let collateral_asset_value = Self::collateral_asset_value(supplier, asset_id)?;
+        let collateral_asset_value = Self::collateral_asset_value(supplier, underlying_id)?;
         let total_borrowed_value = Self::total_borrowed_value(supplier)?;
-        log::trace!(
-            target: "loans::collateral_asset",
-            "total_collateral_value: {:?}, collateral_asset_value: {:?}, total_borrowed_value: {:?}",
-            total_collateral_value.into_inner(),
-            collateral_asset_value.into_inner(),
-            total_borrowed_value.into_inner(),
-        );
+
         if total_collateral_value
             < total_borrowed_value
                 .checked_add(&collateral_asset_value)
@@ -1908,11 +1911,29 @@ impl<T: Config> LoansTrait<AssetIdOf<T>, AccountIdOf<T>, BalanceOf<T>> for Palle
         {
             return Err(Error::<T>::InsufficientLiquidity.into());
         }
-        deposits.is_collateral = false;
-        AccountDeposits::<T>::insert(asset_id, supplier, deposits);
 
-        Self::deposit_event(Event::<T>::CollateralAssetRemoved(supplier.clone(), asset_id));
+        ptoken_amount.unlock_on(supplier)?;
 
+        // Decrease the amount of collateral deposited
+        AccountDeposits::<T>::try_mutate_exists(asset_id, who, |deposits| -> DispatchResult {
+            let mut d = deposits
+                .unwrap_or_default()
+                .checked_sub(ptoken_amount.amount())
+                .ok_or(ArithmeticError::Underflow)?;
+            if d.is_zero() {
+                // remove deposits storage if zero balance
+                *deposits = None;
+            } else {
+                *deposits = Some(d);
+            }
+            Ok(())
+        })?;
+
+        Self::deposit_event(Event::<T>::WithdrawCollateral(
+            supplier.clone(),
+            ptoken_amount.currency(),
+            ptoken_amount.amount(),
+        ));
         Ok(())
     }
 
