@@ -27,6 +27,7 @@
 
 pub use crate::rate_model::*;
 
+use currency::Amount;
 use frame_support::{
     log,
     pallet_prelude::*,
@@ -140,7 +141,7 @@ pub mod pallet {
     use super::*;
 
     #[pallet::config]
-    pub trait Config: frame_system::Config {
+    pub trait Config: frame_system::Config + currency::Config<Balance = BalanceOf<Self>> {
         type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
 
         /// The oracle price feeder
@@ -468,7 +469,7 @@ pub mod pallet {
         ///
         /// - `asset_id`: Market related currency
         /// - `market`: The market that is going to be stored
-        #[pallet::weight(T::WeightInfo::add_market())]
+        #[pallet::weight(<T as Config>::WeightInfo::add_market())]
         #[transactional]
         pub fn add_market(
             origin: OriginFor<T>,
@@ -520,7 +521,7 @@ pub mod pallet {
         /// If the market is already activated, does nothing.
         ///
         /// - `asset_id`: Market related currency
-        #[pallet::weight(T::WeightInfo::activate_market())]
+        #[pallet::weight(<T as Config>::WeightInfo::activate_market())]
         #[transactional]
         pub fn activate_market(origin: OriginFor<T>, asset_id: AssetIdOf<T>) -> DispatchResultWithPostInfo {
             T::UpdateOrigin::ensure_origin(origin)?;
@@ -540,7 +541,7 @@ pub mod pallet {
         ///
         /// - `asset_id`: Market related currency
         /// - `rate_model`: The new rate model to be updated
-        #[pallet::weight(T::WeightInfo::update_rate_model())]
+        #[pallet::weight(<T as Config>::WeightInfo::update_rate_model())]
         #[transactional]
         pub fn update_rate_model(
             origin: OriginFor<T>,
@@ -566,7 +567,7 @@ pub mod pallet {
         /// - `close_factor`: maximum liquidation ratio at one time
         /// - `liquidate_incentive`: liquidation incentive ratio
         /// - `cap`: market capacity
-        #[pallet::weight(T::WeightInfo::update_market())]
+        #[pallet::weight(<T as Config>::WeightInfo::update_market())]
         #[transactional]
         pub fn update_market(
             origin: OriginFor<T>,
@@ -634,7 +635,7 @@ pub mod pallet {
         ///
         /// - `asset_id`: market related currency
         /// - `market`: the new market parameters
-        #[pallet::weight(T::WeightInfo::force_update_market())]
+        #[pallet::weight(<T as Config>::WeightInfo::force_update_market())]
         #[transactional]
         pub fn force_update_market(
             origin: OriginFor<T>,
@@ -662,7 +663,7 @@ pub mod pallet {
         /// Add reward for the pallet account.
         ///
         /// - `amount`: Reward amount added
-        #[pallet::weight(T::WeightInfo::add_reward())]
+        #[pallet::weight(<T as Config>::WeightInfo::add_reward())]
         #[transactional]
         pub fn add_reward(origin: OriginFor<T>, amount: BalanceOf<T>) -> DispatchResultWithPostInfo {
             let who = ensure_signed(origin)?;
@@ -684,7 +685,7 @@ pub mod pallet {
         ///
         /// - `target_account`: account receive reward token.
         /// - `amount`: Withdraw amount
-        #[pallet::weight(T::WeightInfo::withdraw_missing_reward())]
+        #[pallet::weight(<T as Config>::WeightInfo::withdraw_missing_reward())]
         #[transactional]
         pub fn withdraw_missing_reward(
             origin: OriginFor<T>,
@@ -710,7 +711,7 @@ pub mod pallet {
         ///
         /// - `asset_id`: Market related currency
         /// - `reward_per_block`: reward amount per block.
-        #[pallet::weight(T::WeightInfo::update_market_reward_speed())]
+        #[pallet::weight(<T as Config>::WeightInfo::update_market_reward_speed())]
         #[transactional]
         pub fn update_market_reward_speed(
             origin: OriginFor<T>,
@@ -752,7 +753,7 @@ pub mod pallet {
         }
 
         /// Claim reward from all market.
-        #[pallet::weight(T::WeightInfo::claim_reward())]
+        #[pallet::weight(<T as Config>::WeightInfo::claim_reward())]
         #[transactional]
         pub fn claim_reward(origin: OriginFor<T>) -> DispatchResultWithPostInfo {
             let who = ensure_signed(origin)?;
@@ -769,7 +770,7 @@ pub mod pallet {
         /// Claim reward from the specified market.
         ///
         /// - `asset_id`: Market related currency
-        #[pallet::weight(T::WeightInfo::claim_reward_for_market())]
+        #[pallet::weight(<T as Config>::WeightInfo::claim_reward_for_market())]
         #[transactional]
         pub fn claim_reward_for_market(origin: OriginFor<T>, asset_id: AssetIdOf<T>) -> DispatchResultWithPostInfo {
             let who = ensure_signed(origin)?;
@@ -785,7 +786,7 @@ pub mod pallet {
         ///
         /// - `asset_id`: the asset to be deposited.
         /// - `mint_amount`: the amount to be deposited.
-        #[pallet::weight(T::WeightInfo::mint())]
+        #[pallet::weight(<T as Config>::WeightInfo::mint())]
         #[transactional]
         pub fn mint(
             origin: OriginFor<T>,
@@ -802,7 +803,7 @@ pub mod pallet {
         ///
         /// - `asset_id`: the asset to be redeemed.
         /// - `redeem_amount`: the amount to be redeemed.
-        #[pallet::weight(T::WeightInfo::redeem())]
+        #[pallet::weight(<T as Config>::WeightInfo::redeem())]
         #[transactional]
         pub fn redeem(
             origin: OriginFor<T>,
@@ -819,7 +820,7 @@ pub mod pallet {
         /// Sender redeems all of internal supplies in exchange for the underlying asset.
         ///
         /// - `asset_id`: the asset to be redeemed.
-        #[pallet::weight(T::WeightInfo::redeem_all())]
+        #[pallet::weight(<T as Config>::WeightInfo::redeem_all())]
         #[transactional]
         pub fn redeem_all(origin: OriginFor<T>, asset_id: AssetIdOf<T>) -> DispatchResultWithPostInfo {
             let who = ensure_signed(origin)?;
@@ -838,7 +839,7 @@ pub mod pallet {
         ///
         /// - `asset_id`: the asset to be borrowed.
         /// - `borrow_amount`: the amount to be borrowed.
-        #[pallet::weight(T::WeightInfo::borrow())]
+        #[pallet::weight(<T as Config>::WeightInfo::borrow())]
         #[transactional]
         pub fn borrow(
             origin: OriginFor<T>,
@@ -856,7 +857,7 @@ pub mod pallet {
         ///
         /// - `asset_id`: the asset to be repaid.
         /// - `repay_amount`: the amount to be repaid.
-        #[pallet::weight(T::WeightInfo::repay_borrow())]
+        #[pallet::weight(<T as Config>::WeightInfo::repay_borrow())]
         #[transactional]
         pub fn repay_borrow(
             origin: OriginFor<T>,
@@ -873,7 +874,7 @@ pub mod pallet {
         /// Sender repays all of their debts.
         ///
         /// - `asset_id`: the asset to be repaid.
-        #[pallet::weight(T::WeightInfo::repay_borrow_all())]
+        #[pallet::weight(<T as Config>::WeightInfo::repay_borrow_all())]
         #[transactional]
         pub fn repay_borrow_all(origin: OriginFor<T>, asset_id: AssetIdOf<T>) -> DispatchResultWithPostInfo {
             let who = ensure_signed(origin)?;
@@ -889,7 +890,7 @@ pub mod pallet {
         ///
         /// - `asset_id`: the asset to be set.
         /// - `enable`: turn on/off the collateral option.
-        #[pallet::weight(T::WeightInfo::collateral_asset())]
+        #[pallet::weight(<T as Config>::WeightInfo::collateral_asset())]
         #[transactional]
         pub fn collateral_asset(
             origin: OriginFor<T>,
@@ -918,7 +919,7 @@ pub mod pallet {
         /// - `liquidation_asset_id`: the assert to be liquidated.
         /// - `repay_amount`: the amount to be repaid borrow.
         /// - `collateral_asset_id`: The collateral to seize from the borrower.
-        #[pallet::weight(T::WeightInfo::liquidate_borrow())]
+        #[pallet::weight(<T as Config>::WeightInfo::liquidate_borrow())]
         #[transactional]
         pub fn liquidate_borrow(
             origin: OriginFor<T>,
@@ -941,7 +942,7 @@ pub mod pallet {
         /// - `payer`: the payer account.
         /// - `asset_id`: the assets to be added.
         /// - `add_amount`: the amount to be added.
-        #[pallet::weight(T::WeightInfo::add_reserves())]
+        #[pallet::weight(<T as Config>::WeightInfo::add_reserves())]
         #[transactional]
         pub fn add_reserves(
             origin: OriginFor<T>,
@@ -977,7 +978,7 @@ pub mod pallet {
         /// - `receiver`: the receiver account.
         /// - `asset_id`: the assets to be reduced.
         /// - `reduce_amount`: the amount to be reduced.
-        #[pallet::weight(T::WeightInfo::reduce_reserves())]
+        #[pallet::weight(<T as Config>::WeightInfo::reduce_reserves())]
         #[transactional]
         pub fn reduce_reserves(
             origin: OriginFor<T>,
@@ -1013,7 +1014,7 @@ pub mod pallet {
         ///
         /// - `asset_id`: the asset to be redeemed.
         /// - `redeem_amount`: the amount to be redeemed.
-        #[pallet::weight(T::WeightInfo::redeem()+T::WeightInfo::reduce_reserves())]
+        #[pallet::weight(<T as Config>::WeightInfo::redeem()+<T as Config>::WeightInfo::reduce_reserves())]
         #[transactional]
         pub fn reduce_incentive_reserves(
             origin: OriginFor<T>,

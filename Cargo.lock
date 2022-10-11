@@ -6461,10 +6461,12 @@ dependencies = [
 name = "pallet-loans"
 version = "1.9.3"
 dependencies = [
+ "currency",
  "frame-benchmarking",
  "frame-support",
  "frame-system",
  "interbtc-primitives",
+ "mocktopus",
  "num-traits",
  "orml-oracle",
  "orml-tokens",
