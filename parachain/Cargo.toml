@@ -79,6 +79,8 @@ frame-support = { git = "https://github.com/paritytech/substrate", branch = "pol
 frame-benchmarking = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.26" }
 frame-benchmarking-cli = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.26" }
 
+try-runtime-cli = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.26", optional = true }
+
 # Cumulus dependencies
 cumulus-client-cli = { git = "https://github.com/paritytech/cumulus", branch = "polkadot-v0.9.26" }
 cumulus-client-consensus-aura = { git = "https://github.com/paritytech/cumulus", branch = "polkadot-v0.9.26" }
@@ -103,6 +105,15 @@ polkadot-parachain = { git = "https://github.com/paritytech/polkadot", branch = 
 
 [features]
 default = []
+
+try-runtime = [
+    "try-runtime-cli", 
+    "interlay-runtime/try-runtime",
+    "kintsugi-runtime/try-runtime",
+    "testnet-interlay-runtime/try-runtime",
+    "testnet-kintsugi-runtime/try-runtime"
+]
+
 rococo-native = [ "polkadot-cli/rococo-native" ]
 runtime-benchmarks = [
     "interlay-runtime/runtime-benchmarks",
