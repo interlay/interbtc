@@ -21,8 +21,8 @@ pallet-transaction-payment = { git = "https://github.com/paritytech/substrate", 
 primitives = { package = "interbtc-primitives", path = "../../primitives", default-features = false }
 
 # Orml dependencies
-orml-tokens = { git = "https://github.com/open-web3-stack/open-runtime-module-library", rev = "8c625a5ab43c1c56cdeed5f8d814a891566d4cf8", default-features = false }
-orml-traits = { git = "https://github.com/open-web3-stack/open-runtime-module-library", rev = "8c625a5ab43c1c56cdeed5f8d814a891566d4cf8", default-features = false }
+orml-tokens = { path = "../../../open-runtime-module-library/tokens",default-features = false }
+orml-traits = { path = "../../../open-runtime-module-library/traits", default-features = false }
 
 # for other pallets wanting to mock functions
 mocktopus = {version = "0.7.0", optional = true }

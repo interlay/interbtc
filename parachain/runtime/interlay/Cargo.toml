@@ -106,14 +106,14 @@ module-redeem-rpc-runtime-api = { path = "../../../crates/redeem/rpc/runtime-api
 module-replace-rpc-runtime-api = { path = "../../../crates/replace/rpc/runtime-api", default-features = false }
 
 # Orml dependencies
-orml-tokens = { git = "https://github.com/open-web3-stack/open-runtime-module-library", rev = "8c625a5ab43c1c56cdeed5f8d814a891566d4cf8", default-features = false }
-orml-traits = { git = "https://github.com/open-web3-stack/open-runtime-module-library", rev = "8c625a5ab43c1c56cdeed5f8d814a891566d4cf8", default-features = false }
-orml-vesting = { git = "https://github.com/open-web3-stack/open-runtime-module-library", rev = "8c625a5ab43c1c56cdeed5f8d814a891566d4cf8", default-features = false }
+orml-tokens = { path = "../../../../open-runtime-module-library/tokens", default-features = false }
+orml-traits = { path = "../../../../open-runtime-module-library/traits", default-features = false }
+orml-vesting = { path = "../../../../open-runtime-module-library/vesting", default-features = false }
 
-orml-xtokens = { git = "https://github.com/open-web3-stack/open-runtime-module-library", rev = "8c625a5ab43c1c56cdeed5f8d814a891566d4cf8", default-features = false }
-orml-xcm-support = { git = "https://github.com/open-web3-stack/open-runtime-module-library", rev = "8c625a5ab43c1c56cdeed5f8d814a891566d4cf8", default-features = false }
-orml-unknown-tokens = { git = "https://github.com/open-web3-stack/open-runtime-module-library", rev = "8c625a5ab43c1c56cdeed5f8d814a891566d4cf8", default-features = false }
-orml-asset-registry= { git = "https://github.com/open-web3-stack/open-runtime-module-library", rev = "8c625a5ab43c1c56cdeed5f8d814a891566d4cf8", default-features = false }
+orml-xtokens = { path = "../../../../open-runtime-module-library/xtokens", default-features = false }
+orml-xcm-support = { path = "../../../../open-runtime-module-library/xcm-support", default-features = false }
+orml-unknown-tokens = { path = "../../../../open-runtime-module-library/unknown-tokens", default-features = false }
+orml-asset-registry = { path = "../../../../open-runtime-module-library/asset-registry", default-features = false }
 
 [dev-dependencies]
 hex = '0.4.2'

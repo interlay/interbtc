@@ -44,7 +44,7 @@ use pallet_traits::{
     ConvertToBigUint, Loans as LoansTrait, LoansMarketDataProvider, LoansPositionDataProvider, MarketInfo,
     MarketStatus, PriceFeeder,
 };
-use primitives::{Balance, CurrencyId, Liquidity, Price, Rate, Ratio, Shortfall, Timestamp};
+use primitives::{is_ctoken, Balance, CurrencyId, Liquidity, Price, Rate, Ratio, Shortfall, Timestamp};
 use sp_runtime::{
     traits::{
         AccountIdConversion, CheckedAdd, CheckedDiv, CheckedMul, CheckedSub, One, SaturatedConversion, Saturating,
@@ -52,8 +52,9 @@ use sp_runtime::{
     },
     ArithmeticError, FixedPointNumber, FixedU128,
 };
-use sp_std::result::Result;
+use sp_std::{marker, result::Result};
 
+pub use orml_traits::currency::{OnDeposit, OnSlash, OnTransfer};
 use sp_io::hashing::blake2_256;
 pub use types::{BorrowSnapshot, Deposits, EarnedSnapshot, Market, MarketState, RewardMarketState};
 pub use weights::WeightInfo;
@@ -82,6 +83,45 @@ pub const MIN_EXCHANGE_RATE: u128 = 20_000_000_000_000_000; // 0.02
 type AccountIdOf<T> = <T as frame_system::Config>::AccountId;
 type AssetIdOf<T> = <<T as Config>::Assets as Inspect<<T as frame_system::Config>::AccountId>>::AssetId;
 type BalanceOf<T> = <<T as Config>::Assets as Inspect<<T as frame_system::Config>::AccountId>>::Balance;
+
+pub struct OnSlashHook<T>(marker::PhantomData<T>);
+impl<T: Config> OnSlash<T::AccountId, AssetIdOf<T>, BalanceOf<T>> for OnSlashHook<T> {
+    fn on_slash(currency_id: AssetIdOf<T>, account_id: &T::AccountId, _: BalanceOf<T>) -> DispatchResult {
+        if is_ctoken(currency_id) {
+            Pallet::<T>::update_reward_supply_index(currency_id)?;
+            Pallet::<T>::distribute_supplier_reward(currency_id, account_id)?;
+        }
+        Ok(())
+    }
+}
+
+pub struct OnDepositHook<T>(marker::PhantomData<T>);
+impl<T: Config> OnDeposit<T::AccountId, AssetIdOf<T>, BalanceOf<T>> for OnDepositHook<T> {
+    fn on_deposit(currency_id: AssetIdOf<T>, account_id: &T::AccountId, _: BalanceOf<T>) -> DispatchResult {
+        if is_ctoken(currency_id) {
+            Pallet::<T>::update_reward_supply_index(currency_id)?;
+            Pallet::<T>::distribute_supplier_reward(currency_id, account_id)?;
+        }
+        Ok(())
+    }
+}
+
+pub struct OnTransferHook<T>(marker::PhantomData<T>);
+impl<T: Config> OnTransfer<T::AccountId, AssetIdOf<T>, BalanceOf<T>> for OnTransferHook<T> {
+    fn on_transfer(
+        currency_id: AssetIdOf<T>,
+        from: &T::AccountId,
+        to: &T::AccountId,
+        _: BalanceOf<T>,
+    ) -> DispatchResult {
+        if is_ctoken(currency_id) {
+            Pallet::<T>::update_reward_supply_index(currency_id)?;
+            Pallet::<T>::distribute_supplier_reward(currency_id, from)?;
+            Pallet::<T>::distribute_supplier_reward(currency_id, to)?;
+        }
+        Ok(())
+    }
+}
 
 /// Utility type for managing upgrades/migrations.
 #[derive(Encode, Decode, Clone, Copy, PartialEq, Eq, RuntimeDebug, TypeInfo)]
