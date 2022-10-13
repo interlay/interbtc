@@ -135,29 +135,29 @@ fn load_spec(id: &str) -> std::result::Result<Box<dyn sc_service::ChainSpec>, St
 }
 
 macro_rules! with_runtime_or_err {
-	($chain_spec:expr, { $( $code:tt )* }) => {
-		if $chain_spec.is_interlay() {
+    ($chain_spec:expr, { $( $code:tt )* }) => {
+        if $chain_spec.is_interlay() {
             #[allow(unused_imports)]
-			use { interlay_runtime::RuntimeApi, crate::service::InterlayRuntimeExecutor as Executor };
-			$( $code )*
+            use { interlay_runtime::RuntimeApi, crate::service::InterlayRuntimeExecutor as Executor };
+            $( $code )*
 
-		} else if $chain_spec.is_kintsugi() {
+        } else if $chain_spec.is_kintsugi() {
             #[allow(unused_imports)]
-			use { kintsugi_runtime::RuntimeApi, crate::service::KintsugiRuntimeExecutor as Executor };
-			$( $code )*
+            use { kintsugi_runtime::RuntimeApi, crate::service::KintsugiRuntimeExecutor as Executor };
+            $( $code )*
 
-		} else if $chain_spec.is_interlay_testnet() {
+        } else if $chain_spec.is_interlay_testnet() {
             #[allow(unused_imports)]
-			use { testnet_interlay_runtime::RuntimeApi, crate::service::TestnetInterlayRuntimeExecutor as Executor };
-			$( $code )*
+            use { testnet_interlay_runtime::RuntimeApi, crate::service::TestnetInterlayRuntimeExecutor as Executor };
+            $( $code )*
 
-		} else {
+        } else {
             #[allow(unused_imports)]
-			use { testnet_kintsugi_runtime::RuntimeApi, crate::service::TestnetKintsugiRuntimeExecutor as Executor };
-			$( $code )*
+            use { testnet_kintsugi_runtime::RuntimeApi, crate::service::TestnetKintsugiRuntimeExecutor as Executor };
+            $( $code )*
 
-		}
-	}
+        }
+    }
 }
 
 impl SubstrateCli for Cli {
@@ -212,9 +212,9 @@ impl SubstrateCli for RelayChainCli {
     fn description() -> String {
         format!(
             "Polkadot collator\n\nThe command-line arguments provided first will be \
-		passed to the parachain node, while the arguments provided after -- will be passed \
-		to the relaychain node.\n\n\
-		{} [parachain-args] -- [relaychain-args]",
+        passed to the parachain node, while the arguments provided after -- will be passed \
+        to the relaychain node.\n\n\
+        {} [parachain-args] -- [relaychain-args]",
             Self::executable_name()
         )
     }
@@ -257,55 +257,63 @@ fn write_to_file_or_stdout(raw: bool, output: &Option<PathBuf>, raw_bytes: Vec<u
 }
 
 macro_rules! construct_async_run {
-	(|$components:ident, $cli:ident, $cmd:ident, $config:ident| $( $code:tt )* ) => {{
-		let runner = $cli.create_runner($cmd)?;
-		if runner.config().chain_spec.is_interlay() {
-			runner.async_run(|$config| {
-				let $components = new_partial::<interlay_runtime::RuntimeApi, InterlayRuntimeExecutor>(
-					&$config,
+    (|$components:ident, $cli:ident, $cmd:ident, $config:ident| $( $code:tt )* ) => {{
+        let runner = $cli.create_runner($cmd)?;
+        if runner.config().chain_spec.is_interlay() {
+            runner.async_run(|$config| {
+                let $components = new_partial::<interlay_runtime::RuntimeApi, InterlayRuntimeExecutor>(
+                    &$config,
                     true,
-				)?;
-				let task_manager = $components.task_manager;
-				{ $( $code )* }.map(|v| (v, task_manager))
-			})
-		} else if runner.config().chain_spec.is_kintsugi() {
-			runner.async_run(|$config| {
-				let $components = new_partial::<
-					kintsugi_runtime::RuntimeApi,
-					KintsugiRuntimeExecutor,
-				>(
-					&$config,
+                )?;
+                let task_manager = $components.task_manager;
+                #[allow(unused_imports)]
+                use InterlayRuntimeExecutor as Executor;
+                { $( $code )* }.map(|v| (v, task_manager))
+            })
+        } else if runner.config().chain_spec.is_kintsugi() {
+            runner.async_run(|$config| {
+                let $components = new_partial::<
+                    kintsugi_runtime::RuntimeApi,
+                    KintsugiRuntimeExecutor,
+                >(
+                    &$config,
                     true,
-				)?;
-				let task_manager = $components.task_manager;
-				{ $( $code )* }.map(|v| (v, task_manager))
-			})
-		} else if runner.config().chain_spec.is_interlay_testnet() {
-			runner.async_run(|$config| {
-				let $components = new_partial::<
-					interlay_runtime::RuntimeApi,
-					TestnetInterlayRuntimeExecutor,
-				>(
-					&$config,
+                )?;
+                let task_manager = $components.task_manager;
+                #[allow(unused_imports)]
+                use KintsugiRuntimeExecutor as Executor;
+                { $( $code )* }.map(|v| (v, task_manager))
+            })
+        } else if runner.config().chain_spec.is_interlay_testnet() {
+            runner.async_run(|$config| {
+                let $components = new_partial::<
+                    interlay_runtime::RuntimeApi,
+                    TestnetInterlayRuntimeExecutor,
+                >(
+                    &$config,
                     true,
-				)?;
-				let task_manager = $components.task_manager;
-				{ $( $code )* }.map(|v| (v, task_manager))
-			})
-		} else {
-			runner.async_run(|$config| {
-				let $components = new_partial::<
-					testnet_kintsugi_runtime::RuntimeApi,
-					TestnetKintsugiRuntimeExecutor,
-				>(
-					&$config,
+                )?;
+                let task_manager = $components.task_manager;
+                #[allow(unused_imports)]
+                use TestnetInterlayRuntimeExecutor as Executor;
+                { $( $code )* }.map(|v| (v, task_manager))
+            })
+        } else {
+            runner.async_run(|$config| {
+                let $components = new_partial::<
+                    testnet_kintsugi_runtime::RuntimeApi,
+                    TestnetKintsugiRuntimeExecutor,
+                >(
+                    &$config,
                     true,
-				)?;
-				let task_manager = $components.task_manager;
-				{ $( $code )* }.map(|v| (v, task_manager))
-			})
-		}
-	}}
+                )?;
+                let task_manager = $components.task_manager;
+                #[allow(unused_imports)]
+                use TestnetKintsugiRuntimeExecutor as Executor;
+                { $( $code )* }.map(|v| (v, task_manager))
+            })
+        }
+    }}
 }
 
 /// Parse command line arguments into service configuration.
@@ -458,6 +466,27 @@ pub fn run() -> Result<()> {
 
             Ok(())
         }
+        #[cfg(feature = "try-runtime")]
+        Some(Subcommand::TryRuntime(cmd)) => {
+            let runner = cli.create_runner(cmd)?;
+            let chain_spec = &runner.config().chain_spec;
+
+            with_runtime_or_err!(chain_spec, {
+                return runner.async_run(|config| {
+                    // we don't need any of the components of new_partial, just a runtime, or a task
+                    // manager to do `async_run`.
+                    let registry = config.prometheus_config.as_ref().map(|cfg| &cfg.registry);
+                    let task_manager = sc_service::TaskManager::new(config.tokio_handle.clone(), registry)
+                        .map_err(|e| sc_cli::Error::Service(sc_service::Error::Prometheus(e)))?;
+
+                    Ok((cmd.run::<Block, Executor>(config), task_manager))
+                });
+            })
+        }
+        #[cfg(not(feature = "try-runtime"))]
+        Some(Subcommand::TryRuntime) => Err("TryRuntime wasn't enabled when building the node. \
+                You can enable it with `--features try-runtime`."
+            .into()),
         None => {
             let runner = cli.create_runner(&cli.run.normalize())?;
 

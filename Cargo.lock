@@ -2266,9 +2266,9 @@ dependencies = [
 
 [[package]]
 name = "env_logger"
-version = "0.9.0"
+version = "0.9.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0b2cf0344971ee6c64c31be0d530793fba457d322dfec2810c453d0ef228f9c3"
+checksum = "c90bf5f19754d10198ccb95b70664fc925bd1fc090a0fd9a6ebc54acc8cd6272"
 dependencies = [
  "atty",
  "humantime",
@@ -3529,6 +3529,7 @@ dependencies = [
  "substrate-prometheus-endpoint",
  "testnet-interlay-runtime-parachain",
  "testnet-kintsugi-runtime-parachain",
+ "try-runtime-cli",
 ]
 
 [[package]]
@@ -3730,6 +3731,7 @@ dependencies = [
  "frame-support",
  "frame-system",
  "frame-system-rpc-runtime-api",
+ "frame-try-runtime",
  "hex",
  "hex-literal 0.3.4",
  "interbtc-primitives",
@@ -4091,6 +4093,7 @@ dependencies = [
  "frame-support",
  "frame-system",
  "frame-system-rpc-runtime-api",
+ "frame-try-runtime",
  "hex",
  "hex-literal 0.3.4",
  "interbtc-primitives",
@@ -12063,6 +12066,7 @@ dependencies = [
  "frame-support",
  "frame-system",
  "frame-system-rpc-runtime-api",
+ "frame-try-runtime",
  "hex",
  "hex-literal 0.3.4",
  "interbtc-primitives",
@@ -12162,6 +12166,7 @@ dependencies = [
  "frame-support",
  "frame-system",
  "frame-system-rpc-runtime-api",
+ "frame-try-runtime",
  "hex",
  "hex-literal 0.3.4",
  "interbtc-primitives",
