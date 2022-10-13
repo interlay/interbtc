@@ -13,9 +13,9 @@ frame-benchmarking = { git = 'https://github.com/paritytech/substrate.git', bran
 frame-support      = { git = 'https://github.com/paritytech/substrate.git', branch = 'polkadot-v0.9.26', default-features = false }
 frame-system       = { git = 'https://github.com/paritytech/substrate.git', branch = 'polkadot-v0.9.26', default-features = false }
 num-traits         = { default-features = false, version = '0.2' }
-orml-traits        = { path = "../../../open-runtime-module-library/traits", default-features = false }
+orml-traits        = { git = "https://github.com/interlay/open-runtime-module-library", branch = "dan/mutation-hooks", default-features = false }
 orml-oracle        = { path = "../../../open-runtime-module-library/oracle", default-features = false }
-orml-tokens        = { path = "../../../open-runtime-module-library/tokens", default-features = false }
+orml-tokens        = { git = "https://github.com/interlay/open-runtime-module-library", branch = "dan/mutation-hooks", default-features = false }
 pallet-timestamp   = { git = 'https://github.com/paritytech/substrate.git', branch = 'polkadot-v0.9.26', default-features = false }
 pallet-traits      = { path = '../traits', default-features = false }
 primitives         = { package = 'interbtc-primitives', path = '../../primitives', default-features = false }

@@ -35,8 +35,8 @@ vault-registry = { path = "../vault-registry", default-features = false }
 primitives = { package = "interbtc-primitives", path = "../../primitives", default-features = false }
 
 # Orml dependencies
-orml-tokens = { path = "../../../open-runtime-module-library/tokens", default-features = false, optional = true }
-orml-traits = { path = "../../../open-runtime-module-library/traits", default-features = false, optional = true }
+orml-tokens = { git = "https://github.com/interlay/open-runtime-module-library", branch = "dan/mutation-hooks", default-features = false, optional = true }
+orml-traits = { git = "https://github.com/interlay/open-runtime-module-library", branch = "dan/mutation-hooks", default-features = false, optional = true }
 
 [dev-dependencies]
 mocktopus = "0.7.0"
@@ -47,8 +47,8 @@ reward = { path = "../reward" }
 staking = { path = "../staking" }
 
 # Orml dependencies
-orml-tokens = { path = "../../../open-runtime-module-library/tokens" }
-orml-traits = { path = "../../../open-runtime-module-library/traits" }
+orml-tokens = { git = "https://github.com/interlay/open-runtime-module-library", branch = "dan/mutation-hooks" }
+orml-traits = { git = "https://github.com/interlay/open-runtime-module-library", branch = "dan/mutation-hooks" }
 
 [features]
 default = ["std"]

@@ -89,8 +89,8 @@ module-redeem-rpc-runtime-api = { path = "../../crates/redeem/rpc/runtime-api", 
 module-replace-rpc-runtime-api = { path = "../../crates/replace/rpc/runtime-api", default-features = false }
 
 # Orml dependencies
-orml-tokens = { path = "../../../open-runtime-module-library/tokens", default-features = false }
-orml-traits = { path = "../../../open-runtime-module-library/traits", default-features = false }
+orml-tokens = { git = "https://github.com/interlay/open-runtime-module-library", branch = "dan/mutation-hooks", default-features = false }
+orml-traits = { git = "https://github.com/interlay/open-runtime-module-library", branch = "dan/mutation-hooks", default-features = false }
 orml-vesting = { path = "../../../open-runtime-module-library/vesting", default-features = false }
 orml-asset-registry = { path = "../../../open-runtime-module-library/asset-registry", default-features = false }
 

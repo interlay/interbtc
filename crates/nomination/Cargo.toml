@@ -33,16 +33,16 @@ staking = { path = "../staking", default-features = false }
 primitives = { package = "interbtc-primitives", path = "../../primitives", default-features = false }
 
 # Orml dependencies
-orml-tokens = { path = "../../../open-runtime-module-library/tokens", default-features = false, optional = true }
-orml-traits = { path = "../../../open-runtime-module-library/traits", default-features = false, optional = true }
+orml-tokens = { git = "https://github.com/interlay/open-runtime-module-library", branch = "dan/mutation-hooks", default-features = false, optional = true }
+orml-traits = { git = "https://github.com/interlay/open-runtime-module-library", branch = "dan/mutation-hooks", default-features = false, optional = true }
 
 [dev-dependencies]
 mocktopus = "0.7.0"
 frame-benchmarking = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.26", default-features = false }
 
 # Orml dependencies
-orml-tokens = { path = "../../../open-runtime-module-library/tokens", default-features = false }
-orml-traits = { path = "../../../open-runtime-module-library/traits", default-features = false }
+orml-tokens = { git = "https://github.com/interlay/open-runtime-module-library", branch = "dan/mutation-hooks", default-features = false }
+orml-traits = { git = "https://github.com/interlay/open-runtime-module-library", branch = "dan/mutation-hooks", default-features = false }
 
 [features]
 default = ["std"]
