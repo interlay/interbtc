@@ -1186,11 +1186,7 @@ impl<T: Config> Pallet<T> {
         Ok(total_borrow_value)
     }
 
-    fn collateral_balance(
-        supplier: &T::AccountId,
-        asset_id: AssetIdOf<T>,
-        ptoken_amount: BalanceOf<T>,
-    ) -> Result<BalanceOf<T>, DispatchError> {
+    fn collateral_balance(asset_id: AssetIdOf<T>, ptoken_amount: BalanceOf<T>) -> Result<BalanceOf<T>, DispatchError> {
         let exchange_rate = Self::exchange_rate_stored(asset_id)?;
         let underlying_amount = Self::calc_underlying_amount(ptoken_amount, exchange_rate)?;
         let market = Self::market(asset_id)?;
@@ -1200,11 +1196,10 @@ impl<T: Config> Pallet<T> {
     }
 
     fn collateral_amount_value(
-        supplier: &T::AccountId,
         asset_id: AssetIdOf<T>,
         ptoken_amount: BalanceOf<T>,
     ) -> Result<FixedU128, DispatchError> {
-        let effects_amount = Self::collateral_balance(supplier, asset_id, ptoken_amount)?;
+        let effects_amount = Self::collateral_balance(asset_id, ptoken_amount)?;
         Self::get_asset_value(asset_id, effects_amount)
     }
 
@@ -1217,7 +1212,7 @@ impl<T: Config> Pallet<T> {
         if deposits.is_zero() {
             return Ok(0.into());
         }
-        Self::collateral_amount_value(supplier, asset_id, deposits)
+        Self::collateral_amount_value(asset_id, deposits)
     }
 
     fn liquidation_threshold_asset_value(
@@ -1714,7 +1709,7 @@ impl<T: Config> Pallet<T> {
     }
 
     fn get_total_cash(asset_id: AssetIdOf<T>) -> BalanceOf<T> {
-        orml_tokens::Pallet::<T>::free_balance(asset_id, &Self::account_id())
+        orml_tokens::Pallet::<T>::reducible_balance(asset_id, &Self::account_id(), true)
     }
 
     /// Get the total balance of `who`.
@@ -1920,7 +1915,7 @@ impl<T: Config> LoansTrait<AssetIdOf<T>, AccountIdOf<T>, BalanceOf<T>> for Palle
         Self::ensure_active_market(underlying_id)?;
 
         let total_collateral_value = Self::total_collateral_value(supplier)?;
-        let collateral_amount_value = Self::collateral_amount_value(supplier, underlying_id, ptoken_amount.amount())?;
+        let collateral_amount_value = Self::collateral_amount_value(underlying_id, ptoken_amount.amount())?;
         let total_borrowed_value = Self::total_borrowed_value(supplier)?;
 
         if total_collateral_value

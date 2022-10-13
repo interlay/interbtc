@@ -21,7 +21,7 @@ mod liquidate_borrow;
 mod market;
 mod ptokens;
 
-use frame_support::{assert_err, assert_noop, assert_ok};
+use frame_support::{assert_noop, assert_ok};
 
 use sp_runtime::{
     traits::{CheckedDiv, One, Saturating},
