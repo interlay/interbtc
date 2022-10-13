@@ -21,7 +21,7 @@ pallet-transaction-payment = { git = "https://github.com/paritytech/substrate", 
 primitives = { package = "interbtc-primitives", path = "../../primitives", default-features = false }
 
 # Orml dependencies
-orml-tokens = { git = "https://github.com/interlay/open-runtime-module-library", branch = "dan/mutation-hooks",default-features = false }
+orml-tokens = { git = "https://github.com/interlay/open-runtime-module-library", branch = "dan/mutation-hooks", default-features = false }
 orml-traits = { git = "https://github.com/interlay/open-runtime-module-library", branch = "dan/mutation-hooks", default-features = false }
 
 # for other pallets wanting to mock functions

@@ -1094,6 +1094,7 @@ impl<T: Config> Pallet<T> {
             total_collateral_value > total_borrow_value,
             lf_base_position > lf_borrowed_value,
         ) {
+            // TODO: simplify this function and use checked math operations
             (true, true) => Ok((
                 total_collateral_value - total_borrow_value,
                 FixedU128::zero(),
