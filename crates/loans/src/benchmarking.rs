@@ -112,7 +112,7 @@ fn set_account_borrows<T: Config>(who: T::AccountId, asset_id: AssetIdOf<T>, bor
     );
     TotalBorrows::<T>::insert(asset_id, borrow_balance);
     let amount: Amount<T> = Amount::new(borrow_balance, asset_id);
-    amount.burn_from(who)?;
+    amount.burn_from(&who).unwrap();
 }
 
 fn assert_last_event<T: Config>(generic_event: <T as Config>::Event) {
@@ -247,7 +247,7 @@ benchmarks! {
         assert_ok!(Loans::<T>::add_market(SystemOrigin::Root.into(), KBTC, pending_market_mock::<T>(CKBTC)));
         assert_ok!(Loans::<T>::activate_market(SystemOrigin::Root.into(), KBTC));
         assert_ok!(Loans::<T>::mint(SystemOrigin::Signed(caller.clone()).into(), KBTC, deposit_amount.into()));
-        assert_ok!(Loans::<T>::collateral_asset(SystemOrigin::Signed(caller.clone()).into(), KBTC, true));
+        assert_ok!(Loans::<T>::deposit_all_collateral(SystemOrigin::Signed(caller.clone()).into(), KBTC));
     }: _(SystemOrigin::Signed(caller.clone()), KBTC, borrowed_amount.into())
     verify {
         assert_last_event::<T>(Event::<T>::Borrowed(caller, KBTC, borrowed_amount.into()).into());
@@ -287,7 +287,7 @@ benchmarks! {
         // assert_ok!(Loans::<T>::add_market(SystemOrigin::Root.into(), KBTC, pending_market_mock::<T>(CKBTC)));
         assert_ok!(Loans::<T>::activate_market(SystemOrigin::Root.into(), KBTC));
         assert_ok!(Loans::<T>::mint(SystemOrigin::Signed(caller.clone()).into(), KBTC, deposit_amount.into()));
-        assert_ok!(Loans::<T>::collateral_asset(SystemOrigin::Signed(caller.clone()).into(), KBTC, true));
+        assert_ok!(Loans::<T>::deposit_all_collateral(SystemOrigin::Signed(caller.clone()).into(), KBTC));
         assert_ok!(Loans::<T>::borrow(SystemOrigin::Signed(caller.clone()).into(), KBTC, borrowed_amount.into()));
     }: _(SystemOrigin::Signed(caller.clone()), KBTC, repay_amount.into())
     verify {
@@ -303,23 +303,23 @@ benchmarks! {
         assert_ok!(Loans::<T>::activate_market(SystemOrigin::Root.into(), KBTC));
 
         assert_ok!(Loans::<T>::mint(SystemOrigin::Signed(caller.clone()).into(), KBTC, deposit_amount.into()));
-        assert_ok!(Loans::<T>::collateral_asset(SystemOrigin::Signed(caller.clone()).into(), KBTC, true));
+        assert_ok!(Loans::<T>::deposit_all_collateral(SystemOrigin::Signed(caller.clone()).into(), KBTC));
         assert_ok!(Loans::<T>::borrow(SystemOrigin::Signed(caller.clone()).into(), KBTC, borrowed_amount.into()));
     }: _(SystemOrigin::Signed(caller.clone()), KBTC)
     verify {
         assert_last_event::<T>(Event::<T>::RepaidBorrow(caller, KBTC, borrowed_amount.into()).into());
     }
 
-    collateral_asset {
+    deposit_all_collateral {
         let caller: T::AccountId = whitelisted_caller();
         transfer_initial_balance::<T>(caller.clone());
         let deposit_amount: u32 = 200_000_000;
         assert_ok!(Loans::<T>::add_market(SystemOrigin::Root.into(), KBTC, pending_market_mock::<T>(CKBTC)));
         assert_ok!(Loans::<T>::activate_market(SystemOrigin::Root.into(), KBTC));
         assert_ok!(Loans::<T>::mint(SystemOrigin::Signed(caller.clone()).into(), KBTC, deposit_amount.into()));
-    }: _(SystemOrigin::Signed(caller.clone()), KBTC, true)
+    }: _(SystemOrigin::Signed(caller.clone()), KBTC)
     verify {
-        assert_last_event::<T>(Event::<T>::CollateralAssetAdded(caller, KBTC).into());
+        assert_last_event::<T>(Event::<T>::DepositCollateral(caller, KBTC, deposit_amount.into()).into());
     }
 
     liquidate_borrow {
@@ -337,7 +337,7 @@ benchmarks! {
         assert_ok!(Loans::<T>::activate_market(SystemOrigin::Root.into(), KSM));
         assert_ok!(Loans::<T>::mint(SystemOrigin::Signed(bob.clone()).into(), KSM, deposit_amount.into()));
         assert_ok!(Loans::<T>::mint(SystemOrigin::Signed(alice.clone()).into(), CDOT, deposit_amount.into()));
-        assert_ok!(Loans::<T>::collateral_asset(SystemOrigin::Signed(alice.clone()).into(), CDOT, true));
+        assert_ok!(Loans::<T>::deposit_all_collateral(SystemOrigin::Signed(alice.clone()).into(), CDOT));
         set_account_borrows::<T>(alice.clone(), KSM, borrowed_amount.into());
     }: _(SystemOrigin::Signed(bob.clone()), alice.clone(), KSM, liquidate_amount.into(), CDOT)
     verify {
