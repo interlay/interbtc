@@ -111,7 +111,8 @@ fn set_account_borrows<T: Config>(who: T::AccountId, asset_id: AssetIdOf<T>, bor
         },
     );
     TotalBorrows::<T>::insert(asset_id, borrow_balance);
-    T::Assets::burn_from(asset_id, &who, borrow_balance).unwrap();
+    let amount: Amount<T> = Amount::new(borrow_balance, asset_id);
+    amount.burn_from(who)?;
 }
 
 fn assert_last_event<T: Config>(generic_event: <T as Config>::Event) {
