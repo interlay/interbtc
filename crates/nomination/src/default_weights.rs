@@ -39,6 +39,7 @@ pub trait WeightInfo {
 	fn opt_out_of_nomination() -> Weight;
 	fn deposit_collateral() -> Weight;
 	fn withdraw_collateral() -> Weight;
+	fn set_nomination_limit() -> Weight;
 }
 
 /// Weights for nomination using the Substrate node and recommended hardware.
@@ -127,6 +128,11 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(T::DbWeight::get().reads(21 as Weight))
 			.saturating_add(T::DbWeight::get().writes(10 as Weight))
 	}
+	// Storage: Nomination Nominationlimit (r:0 w:1)
+	fn set_nomination_limit() -> Weight {
+		(2_835_000 as Weight)
+			.saturating_add(T::DbWeight::get().writes(1 as Weight))
+	}
 }
 
 // For backwards compatibility and tests
@@ -213,6 +219,11 @@ impl WeightInfo for () {
 		(259_690_000 as Weight)
 			.saturating_add(RocksDbWeight::get().reads(21 as Weight))
 			.saturating_add(RocksDbWeight::get().writes(10 as Weight))
+	}
+	// Storage: Nomination NominationLimit (r:0 w:1)
+	fn set_nomination_limit() -> Weight {
+		(2_835_000 as Weight)
+			.saturating_add(RocksDbWeight::get().writes(1 as Weight))
 	}
 }
 

@@ -7,6 +7,7 @@ pub const VAULT: [u8; 32] = BOB;
 
 pub const DEFAULT_BACKING_COLLATERAL: Balance = 1_000_000;
 pub const DEFAULT_NOMINATION: Balance = 20_000;
+pub const DEFAULT_NOMINATION_LIMIT: Balance = 1_000_000;
 
 pub const DEFAULT_VAULT_UNBONDING_PERIOD: u32 = 100;
 pub const DEFAULT_NOMINATOR_UNBONDING_PERIOD: u32 = 50;
@@ -38,6 +39,11 @@ pub fn nomination_opt_in(vault_id: &DefaultVaultId<Runtime>) -> DispatchResultWi
 
 pub fn assert_nomination_opt_in(vault_id: &VaultId) {
     assert_ok!(nomination_opt_in(vault_id));
+    assert_ok!(Call::Nomination(NominationCall::set_nomination_limit {
+        currency_pair: vault_id.currencies.clone(),
+        limit: DEFAULT_NOMINATION_LIMIT
+    })
+    .dispatch(origin_of(vault_id.account_id.clone())));
 }
 
 pub fn nomination_opt_out(vault_id: &DefaultVaultId<Runtime>) -> DispatchResultWithPostInfo {

@@ -54,6 +54,11 @@ benchmarks! {
     set_nomination_enabled {
     }: _(RawOrigin::Root, true)
 
+    set_nomination_limit {
+        let vault_id = get_vault_id::<T>();
+        let amount = 100u32.into();
+    }: _(RawOrigin::Signed(vault_id.account_id), vault_id.currencies.clone(), amount)
+
     opt_in_to_nomination {
         setup_exchange_rate::<T>();
         <NominationEnabled<T>>::set(true);
@@ -81,6 +86,13 @@ benchmarks! {
         <NominationEnabled<T>>::set(true);
 
         let vault_id = get_vault_id::<T>();
+
+        Nomination::<T>::set_nomination_limit(
+            RawOrigin::Signed(vault_id.account_id.clone()).into(),
+            vault_id.currencies.clone(),
+            (1u32 << 31).into()
+        ).unwrap();
+
         mint_collateral::<T>(&vault_id.account_id, (1u32 << 31).into());
         register_vault::<T>(vault_id.clone());
 
@@ -101,6 +113,12 @@ benchmarks! {
         register_vault::<T>(vault_id.clone());
 
         <Vaults<T>>::insert(&vault_id, true);
+
+        Nomination::<T>::set_nomination_limit(
+            RawOrigin::Signed(vault_id.account_id.clone()).into(),
+            vault_id.currencies.clone(),
+            (1u32 << 31).into()
+        ).unwrap();
 
         let nominator: T::AccountId = account("Nominator", 0, 0);
         mint_collateral::<T>(&nominator, (1u32 << 31).into());
