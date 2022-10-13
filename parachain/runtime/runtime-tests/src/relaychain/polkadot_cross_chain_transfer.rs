@@ -11,8 +11,8 @@ use primitives::{
 };
 use xcm::latest::{prelude::*, Weight};
 use xcm_builder::ParentIsPreset;
+use xcm_emulator::{TestExt, XcmExecutor};
 use xcm_executor::traits::{Convert, WeightBounds};
-use xcm_simulator::{TestExt, XcmExecutor};
 
 mod hrmp {
     use super::*;

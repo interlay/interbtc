@@ -12,8 +12,8 @@ use primitives::{
 use sp_runtime::{FixedPointNumber, FixedU128};
 use xcm::latest::{prelude::*, Weight};
 use xcm_builder::ParentIsPreset;
+use xcm_emulator::{TestExt, XcmExecutor};
 use xcm_executor::traits::Convert;
-use xcm_simulator::{TestExt, XcmExecutor};
 
 mod fees {
     use super::*;
@@ -227,7 +227,7 @@ fn transfer_to_relay_chain() {
                 )
                 .into()
             ),
-            4_000_000_000 // The value used in UI - very conservative: actually used at time of writing = 298_368_000
+            400_000_000_000 // The value used in UI - very conservative: actually used at time of writing = 298_368_000
         ));
     });
 
