@@ -30,7 +30,7 @@ fn repay_borrow_all_no_underflow() {
     new_test_ext().execute_with(|| {
         // Alice deposits 200 KSM as collateral
         assert_ok!(Loans::mint(Origin::signed(ALICE), Token(KSM), unit(200)));
-        assert_ok!(Loans::collateral_asset(Origin::signed(ALICE), Token(KSM), true));
+        assert_ok!(Loans::deposit_all_collateral(Origin::signed(ALICE), Token(KSM)));
 
         // Alice borrow only 1/1e5 KSM which is hard to accrue total borrows interest in 100 seconds
         assert_ok!(Loans::borrow(Origin::signed(ALICE), Token(KSM), 10_u128.pow(7)));
@@ -50,7 +50,7 @@ fn repay_borrow_all_no_underflow() {
 
         assert_eq!(
             Loans::exchange_rate(Token(DOT))
-                .saturating_mul_int(Loans::account_deposits(Token(KSM), ALICE).voucher_balance),
+                .saturating_mul_int(Loans::account_deposits(Loans::ptoken_id(Token(KSM)).unwrap(), ALICE)),
             unit(200)
         );
 
@@ -74,7 +74,7 @@ fn ensure_capacity_fails_when_market_not_existed() {
 fn redeem_all_should_be_accurate() {
     new_test_ext().execute_with(|| {
         assert_ok!(Loans::mint(Origin::signed(ALICE), Token(KSM), unit(200)));
-        assert_ok!(Loans::collateral_asset(Origin::signed(ALICE), Token(KSM), true));
+        assert_ok!(Loans::deposit_all_collateral(Origin::signed(ALICE), Token(KSM)));
         assert_ok!(Loans::borrow(Origin::signed(ALICE), Token(KSM), unit(50)));
 
         // let exchange_rate greater than 0.02
@@ -111,7 +111,7 @@ fn prevent_the_exchange_rate_attack() {
         assert_eq!(Tokens::balance(Token(DOT), &EVE), 99999999999999);
         assert_eq!(Tokens::balance(Token(DOT), &Loans::account_id()), 100000000000001);
         assert_eq!(
-            Loans::total_supply(Token(DOT)),
+            Loans::total_supply(Token(DOT)).unwrap(),
             1 * 50, // 1 / 0.02
         );
         TimestampPallet::set_timestamp(12000);

@@ -85,7 +85,7 @@ fn loans_native_token_works() {
         // Redeem 1000 HKO is ok
         assert_ok!(Loans::redeem_allowed(HKO, &DAVE, unit(50000),));
 
-        assert_ok!(Loans::collateral_asset(Origin::signed(DAVE), HKO, true));
+        assert_ok!(Loans::deposit_all_collateral(Origin::signed(DAVE), HKO));
 
         // Borrow 500 HKO will reduce 500 HKO liquidity for collateral_factor is 50%
         assert_ok!(Loans::borrow(Origin::signed(DAVE), HKO, unit(500)));
@@ -96,7 +96,7 @@ fn loans_native_token_works() {
         // HKO borrow balance: borrow - repay = 500 - 400 = 100
         // HKO: cash - deposit + borrow - repay = 1000 - 1000 + 500 - 400 = 100
         assert_eq!(
-            Loans::exchange_rate(HKO).saturating_mul_int(Loans::account_deposits(HKO, DAVE).voucher_balance),
+            Loans::exchange_rate(HKO).saturating_mul_int(Loans::account_deposits(Loans::ptoken_id(HKO).unwrap(), DAVE)),
             unit(1000)
         );
         let borrow_snapshot = Loans::account_borrows(HKO, DAVE);
@@ -115,7 +115,7 @@ fn mint_works() {
         // DOT collateral: deposit = 100
         // DOT: cash - deposit = 1000 - 100 = 900
         assert_eq!(
-            Loans::exchange_rate(DOT).saturating_mul_int(Loans::account_deposits(DOT, ALICE).voucher_balance),
+            Loans::exchange_rate(DOT).saturating_mul_int(Loans::free_ptoken_balance(DOT, &ALICE).unwrap()),
             unit(100)
         );
         assert_eq!(Tokens::balance(DOT, &ALICE), unit(900),);
@@ -184,7 +184,7 @@ fn redeem_allowed_works() {
         // Redeem 200 KSM is ok
         assert_ok!(Loans::redeem_allowed(KSM, &ALICE, 10000));
 
-        assert_ok!(Loans::collateral_asset(Origin::signed(ALICE), KSM, true));
+        assert_ok!(Loans::deposit_all_collateral(Origin::signed(ALICE), KSM));
         // Borrow 50 DOT will reduce 100 KSM liquidity for collateral_factor is 50%
         assert_ok!(Loans::borrow(Origin::signed(ALICE), DOT, 50));
         // Redeem 101 KSM should cause InsufficientLiquidity
@@ -206,7 +206,7 @@ fn redeem_works() {
         // DOT collateral: deposit - redeem = 100 - 20 = 80
         // DOT: cash - deposit + redeem = 1000 - 100 + 20 = 920
         assert_eq!(
-            Loans::exchange_rate(DOT).saturating_mul_int(Loans::account_deposits(DOT, ALICE).voucher_balance),
+            Loans::exchange_rate(DOT).saturating_mul_int(Tokens::balance(Loans::ptoken_id(DOT).unwrap(), &ALICE)),
             unit(80)
         );
         assert_eq!(Tokens::balance(DOT, &ALICE), unit(920),);
@@ -232,7 +232,7 @@ fn redeem_fails_when_insufficient_liquidity() {
         // Deposit 200 KSM as collateral
         assert_ok!(Loans::mint(Origin::signed(ALICE), KSM, 200));
 
-        assert_ok!(Loans::collateral_asset(Origin::signed(ALICE), KSM, true));
+        assert_ok!(Loans::deposit_all_collateral(Origin::signed(ALICE), KSM));
         // Borrow 50 DOT will reduce 100 KSM liquidity for collateral_factor is 50%
         assert_ok!(Loans::borrow(Origin::signed(ALICE), DOT, 50));
 
@@ -252,7 +252,7 @@ fn redeem_fails_when_would_use_reserved_balanace() {
         // Deposit 200 KSM as collateral
         assert_ok!(Loans::mint(Origin::signed(ALICE), KSM, 200));
 
-        assert_ok!(Loans::collateral_asset(Origin::signed(ALICE), KSM, true));
+        assert_ok!(Loans::deposit_all_collateral(Origin::signed(ALICE), KSM));
         // Borrow 50 DOT will reduce 100 KSM liquidity for collateral_factor is 50%
         assert_ok!(Loans::borrow(Origin::signed(ALICE), DOT, 50));
         assert_ok!(Loans::add_reserves(Origin::root(), ALICE, DOT, 50));
@@ -292,7 +292,8 @@ fn redeem_all_works() {
         // DOT: cash - deposit + redeem = 1000 - 100 + 100 = 1000
         // DOT collateral: deposit - redeem = 100 - 100 = 0
         assert_eq!(
-            Loans::exchange_rate(DOT).saturating_mul_int(Loans::account_deposits(DOT, ALICE).voucher_balance),
+            Loans::exchange_rate(DOT)
+                .saturating_mul_int(Loans::account_deposits(Loans::ptoken_id(DOT).unwrap(), ALICE)),
             0,
         );
         assert_eq!(Tokens::balance(DOT, &ALICE), unit(1000),);
@@ -306,7 +307,7 @@ fn borrow_allowed_works() {
         // Deposit 200 DOT as collateral
         assert_ok!(Loans::mint(Origin::signed(BOB), DOT, 200));
         assert_ok!(Loans::mint(Origin::signed(ALICE), KSM, 200));
-        assert_ok!(Loans::collateral_asset(Origin::signed(ALICE), KSM, true));
+        assert_ok!(Loans::deposit_all_collateral(Origin::signed(ALICE), KSM));
         // Borrow 101 DOT should cause InsufficientLiquidity
         assert_noop!(
             Loans::borrow_allowed(DOT, &ALICE, 101),
@@ -338,7 +339,7 @@ fn borrow_allowed_works() {
 fn get_account_liquidity_works() {
     new_test_ext().execute_with(|| {
         Loans::mint(Origin::signed(ALICE), CDOT_6_13, unit(200)).unwrap();
-        Loans::collateral_asset(Origin::signed(ALICE), CDOT_6_13, true).unwrap();
+        Loans::deposit_all_collateral(Origin::signed(ALICE), CDOT_6_13).unwrap();
 
         let (liquidity, _, _, _) = Loans::get_account_liquidity(&ALICE).unwrap();
 
@@ -353,10 +354,10 @@ fn get_account_liquidation_threshold_liquidity_works() {
         Loans::mint(Origin::signed(BOB), KSM, unit(200)).unwrap();
 
         Loans::mint(Origin::signed(ALICE), CDOT_6_13, unit(200)).unwrap();
-        Loans::collateral_asset(Origin::signed(ALICE), CDOT_6_13, true).unwrap();
+        Loans::deposit_all_collateral(Origin::signed(ALICE), CDOT_6_13).unwrap();
 
         Loans::mint(Origin::signed(ALICE), USDT, unit(200)).unwrap();
-        Loans::collateral_asset(Origin::signed(ALICE), USDT, true).unwrap();
+        Loans::deposit_all_collateral(Origin::signed(ALICE), USDT).unwrap();
 
         Loans::borrow(Origin::signed(ALICE), KSM, unit(100)).unwrap();
         Loans::borrow(Origin::signed(ALICE), DOT, unit(100)).unwrap();
@@ -378,7 +379,7 @@ fn borrow_works() {
     new_test_ext().execute_with(|| {
         // Deposit 200 DOT as collateral
         assert_ok!(Loans::mint(Origin::signed(ALICE), DOT, unit(200)));
-        assert_ok!(Loans::collateral_asset(Origin::signed(ALICE), DOT, true));
+        assert_ok!(Loans::deposit_all_collateral(Origin::signed(ALICE), DOT));
         // Borrow 100 DOT
         assert_ok!(Loans::borrow(Origin::signed(ALICE), DOT, unit(100)));
 
@@ -386,7 +387,8 @@ fn borrow_works() {
         // DOT borrow balance: borrow = 100
         // DOT: cash - deposit + borrow = 1000 - 200 + 100 = 900
         assert_eq!(
-            Loans::exchange_rate(DOT).saturating_mul_int(Loans::account_deposits(DOT, ALICE).voucher_balance),
+            Loans::exchange_rate(DOT)
+                .saturating_mul_int(Loans::account_deposits(Loans::ptoken_id(DOT).unwrap(), ALICE)),
             unit(200)
         );
         let borrow_snapshot = Loans::account_borrows(DOT, ALICE);
@@ -402,7 +404,7 @@ fn lf_borrow_works() {
         // Deposit 200 DOT as collateral
         Loans::mint(Origin::signed(ALICE), CDOT_6_13, unit(200)).unwrap();
         Loans::mint(Origin::signed(DAVE), DOT, unit(200)).unwrap();
-        Loans::collateral_asset(Origin::signed(ALICE), CDOT_6_13, true).unwrap();
+        Loans::deposit_all_collateral(Origin::signed(ALICE), CDOT_6_13).unwrap();
 
         // Borrow 100 DOT
         assert_ok!(Loans::borrow(Origin::signed(ALICE), DOT, unit(100)));
@@ -412,7 +414,7 @@ fn lf_borrow_works() {
         // DOT: cash - deposit + borrow = 1000 + 100 = 1100
         assert_eq!(
             Loans::exchange_rate(CDOT_6_13)
-                .saturating_mul_int(Loans::account_deposits(CDOT_6_13, ALICE).voucher_balance),
+                .saturating_mul_int(Loans::account_deposits(Loans::ptoken_id(CDOT_6_13).unwrap(), ALICE)),
             unit(200)
         );
         let borrow_snapshot = Loans::account_borrows(DOT, ALICE);
@@ -427,7 +429,7 @@ fn repay_borrow_works() {
     new_test_ext().execute_with(|| {
         // Deposit 200 DOT as collateral
         assert_ok!(Loans::mint(Origin::signed(ALICE), DOT, unit(200)));
-        assert_ok!(Loans::collateral_asset(Origin::signed(ALICE), DOT, true));
+        assert_ok!(Loans::deposit_all_collateral(Origin::signed(ALICE), DOT));
         // Borrow 100 DOT
         assert_ok!(Loans::borrow(Origin::signed(ALICE), DOT, unit(100)));
         // Repay 30 DOT
@@ -437,7 +439,8 @@ fn repay_borrow_works() {
         // DOT borrow balance: borrow - repay = 100 - 30 = 70
         // DOT: cash - deposit + borrow - repay = 1000 - 200 + 100 - 30 = 870
         assert_eq!(
-            Loans::exchange_rate(DOT).saturating_mul_int(Loans::account_deposits(DOT, ALICE).voucher_balance),
+            Loans::exchange_rate(DOT)
+                .saturating_mul_int(Loans::account_deposits(Loans::ptoken_id(DOT).unwrap(), ALICE)),
             unit(200)
         );
         let borrow_snapshot = Loans::account_borrows(DOT, ALICE);
@@ -454,7 +457,7 @@ fn repay_borrow_all_works() {
         assert_ok!(Loans::mint(Origin::signed(BOB), KSM, unit(200)));
         // Alice deposit 200 DOT as collateral
         assert_ok!(Loans::mint(Origin::signed(ALICE), DOT, unit(200)));
-        assert_ok!(Loans::collateral_asset(Origin::signed(ALICE), DOT, true));
+        assert_ok!(Loans::deposit_all_collateral(Origin::signed(ALICE), DOT));
         // Alice borrow 50 KSM
         assert_ok!(Loans::borrow(Origin::signed(ALICE), KSM, unit(50)));
 
@@ -467,7 +470,8 @@ fn repay_borrow_all_works() {
         // KSM borrow balance: borrow - repay = 50 - 50 = 0
         assert_eq!(Tokens::balance(DOT, &ALICE), unit(800),);
         assert_eq!(
-            Loans::exchange_rate(DOT).saturating_mul_int(Loans::account_deposits(DOT, ALICE).voucher_balance),
+            Loans::exchange_rate(DOT)
+                .saturating_mul_int(Loans::account_deposits(Loans::ptoken_id(DOT).unwrap(), ALICE)),
             unit(200)
         );
         let borrow_snapshot = Loans::account_borrows(KSM, ALICE);
@@ -480,32 +484,29 @@ fn repay_borrow_all_works() {
 fn collateral_asset_works() {
     new_test_ext().execute_with(|| {
         // No collateral assets
-        assert_noop!(
-            Loans::collateral_asset(Origin::signed(ALICE), DOT, true),
-            Error::<Test>::NoDeposit
-        );
         // Deposit 200 DOT as collateral
         assert_ok!(Loans::mint(Origin::signed(ALICE), DOT, 200));
-        assert_ok!(Loans::collateral_asset(Origin::signed(ALICE), DOT, true));
-        assert_eq!(Loans::account_deposits(DOT, ALICE).is_collateral, true);
-        assert_noop!(
-            Loans::collateral_asset(Origin::signed(ALICE), DOT, true),
-            Error::<Test>::DuplicateOperation
+        // No ptokens deposited as collateral
+        assert_eq!(
+            Loans::account_deposits(Loans::ptoken_id(DOT).unwrap(), ALICE).eq(&0),
+            true
+        );
+        assert_ok!(Loans::deposit_all_collateral(Origin::signed(ALICE), DOT));
+        // Non-zero ptokens deposited as collateral
+        assert_eq!(
+            Loans::account_deposits(Loans::ptoken_id(DOT).unwrap(), ALICE).gt(&0),
+            true
         );
         // Borrow 100 DOT base on the collateral of 200 DOT
         assert_ok!(Loans::borrow(Origin::signed(ALICE), DOT, 100));
         assert_noop!(
-            Loans::collateral_asset(Origin::signed(ALICE), DOT, false),
+            Loans::withdraw_all_collateral(Origin::signed(ALICE), DOT),
             Error::<Test>::InsufficientLiquidity
         );
         // Repay all the borrows
         assert_ok!(Loans::repay_borrow_all(Origin::signed(ALICE), DOT));
-        assert_ok!(Loans::collateral_asset(Origin::signed(ALICE), DOT, false));
-        assert_eq!(Loans::account_deposits(DOT, ALICE).is_collateral, false);
-        assert_noop!(
-            Loans::collateral_asset(Origin::signed(ALICE), DOT, false),
-            Error::<Test>::DuplicateOperation
-        );
+        assert_ok!(Loans::withdraw_all_collateral(Origin::signed(ALICE), DOT));
+        assert_eq!(Loans::account_deposits(Loans::ptoken_id(DOT).unwrap(), ALICE), 0);
     })
 }
 
@@ -517,8 +518,8 @@ fn total_collateral_value_works() {
         assert_ok!(Loans::mint(Origin::signed(ALICE), DOT, unit(100)));
         assert_ok!(Loans::mint(Origin::signed(ALICE), KSM, unit(200)));
         assert_ok!(Loans::mint(Origin::signed(ALICE), USDT, unit(300)));
-        assert_ok!(Loans::collateral_asset(Origin::signed(ALICE), DOT, true));
-        assert_ok!(Loans::collateral_asset(Origin::signed(ALICE), KSM, true));
+        assert_ok!(Loans::deposit_all_collateral(Origin::signed(ALICE), DOT));
+        assert_ok!(Loans::deposit_all_collateral(Origin::signed(ALICE), KSM));
         assert_eq!(
             Loans::total_collateral_value(&ALICE).unwrap(),
             (collateral_factor.saturating_mul(FixedU128::from_inner(unit(100) + unit(200))))
@@ -671,8 +672,6 @@ fn update_exchange_rate_works() {
         // Initialize value of exchange rate is 0.02
         assert_eq!(Loans::exchange_rate(DOT), Rate::saturating_from_rational(2, 100));
 
-        // total_supply = 0
-        TotalSupply::<Test>::insert(DOT, 0);
         // assert_ok!(Loans::update_exchange_rate(DOT));
         assert_eq!(
             Loans::exchange_rate_stored(DOT).unwrap(),
@@ -856,8 +855,8 @@ fn reward_calculation_one_palyer_in_multi_markets_works() {
     new_test_ext().execute_with(|| {
         assert_ok!(Loans::mint(Origin::signed(ALICE), DOT, unit(100)));
         assert_ok!(Loans::mint(Origin::signed(ALICE), KSM, unit(100)));
-        assert_ok!(Loans::collateral_asset(Origin::signed(ALICE), DOT, true));
-        assert_ok!(Loans::collateral_asset(Origin::signed(ALICE), KSM, true));
+        assert_ok!(Loans::deposit_all_collateral(Origin::signed(ALICE), DOT));
+        assert_ok!(Loans::deposit_all_collateral(Origin::signed(ALICE), KSM));
         assert_ok!(Loans::borrow(Origin::signed(ALICE), DOT, unit(10)));
         assert_ok!(Loans::borrow(Origin::signed(ALICE), KSM, unit(10)));
 
@@ -1027,8 +1026,8 @@ fn reward_calculation_multi_player_in_one_market_works() {
     new_test_ext().execute_with(|| {
         assert_ok!(Loans::mint(Origin::signed(ALICE), DOT, unit(10)));
         assert_ok!(Loans::mint(Origin::signed(BOB), DOT, unit(10)));
-        assert_ok!(Loans::collateral_asset(Origin::signed(ALICE), DOT, true));
-        assert_ok!(Loans::collateral_asset(Origin::signed(BOB), DOT, true));
+        assert_ok!(Loans::deposit_all_collateral(Origin::signed(ALICE), DOT));
+        assert_ok!(Loans::deposit_all_collateral(Origin::signed(BOB), DOT));
 
         _run_to_block(10);
         assert_ok!(Loans::update_market_reward_speed(
@@ -1080,6 +1079,10 @@ fn reward_calculation_multi_player_in_one_market_works() {
 
         _run_to_block(50);
         assert_ok!(Loans::redeem(Origin::signed(ALICE), DOT, unit(10)));
+        // Withdraw all collateral first, so `redeem_all()` redeems collateral as well.
+        // This is a change from Parallel's original implementation, where `redeem_all`
+        // would implicitly withdraw all collateral.
+        assert_ok!(Loans::withdraw_all_collateral(Origin::signed(BOB), DOT));
         assert_ok!(Loans::redeem_all(Origin::signed(BOB), DOT));
         assert_ok!(Loans::repay_borrow_all(Origin::signed(ALICE), DOT));
         assert_ok!(Loans::repay_borrow_all(Origin::signed(BOB), DOT));
@@ -1120,9 +1123,9 @@ fn reward_calculation_multi_player_in_one_market_works() {
 fn reward_calculation_after_liquidate_borrow_works() {
     new_test_ext().execute_with(|| {
         assert_ok!(Loans::mint(Origin::signed(ALICE), DOT, unit(200)));
-        assert_ok!(Loans::collateral_asset(Origin::signed(ALICE), DOT, true));
+        assert_ok!(Loans::deposit_all_collateral(Origin::signed(ALICE), DOT));
         assert_ok!(Loans::mint(Origin::signed(BOB), KSM, unit(500)));
-        assert_ok!(Loans::collateral_asset(Origin::signed(BOB), KSM, true));
+        assert_ok!(Loans::deposit_all_collateral(Origin::signed(BOB), KSM));
         assert_ok!(Loans::borrow(Origin::signed(ALICE), KSM, unit(50)));
         assert_ok!(Loans::borrow(Origin::signed(BOB), KSM, unit(75)));
 

@@ -73,7 +73,7 @@ impl<T: Config> Pallet<T> {
             }
             let supply_speed = RewardSupplySpeed::<T>::get(asset_id);
             if !supply_speed.is_zero() {
-                let total_supply = TotalSupply::<T>::get(asset_id);
+                let total_supply = Self::total_supply(asset_id)?;
                 let delta_index = Self::calculate_reward_delta_index(delta_block, supply_speed, total_supply)?;
                 supply_state.index = supply_state
                     .index
@@ -122,10 +122,11 @@ impl<T: Config> Pallet<T> {
                 .ok_or(ArithmeticError::Underflow)?;
             *supplier_index = supply_state.index;
 
+            let ptoken_id = Self::ptoken_id(asset_id)?;
             RewardAccrued::<T>::try_mutate(supplier, |total_reward| -> DispatchResult {
                 // Frozen balance is not counted towards the total
                 let total_balance =
-                    <orml_tokens::Pallet<T> as MultiCurrency<T::AccountId>>::total_balance(asset_id, supplier);
+                    <orml_tokens::Pallet<T> as MultiCurrency<T::AccountId>>::total_balance(ptoken_id, supplier);
                 let reward_delta = Self::calculate_reward_delta(total_balance, delta_index)?;
                 *total_reward = total_reward
                     .checked_add(reward_delta)

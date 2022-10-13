@@ -1,5 +1,5 @@
 use crate::{
-    mock::{market_mock, new_test_ext, Loans, Origin, Test, ALICE, DAVE},
+    mock::{market_mock, new_test_ext, Loans, Origin, Test, Tokens, ALICE, DAVE},
     tests::unit,
     Error,
 };
@@ -35,15 +35,16 @@ fn trait_inspect_methods_works() {
 
         // DAVE Deposit 100 HKO
         assert_ok!(Loans::mint(Origin::signed(DAVE), HKO, unit(100)));
-        assert_eq!(Loans::balance(PHKO, &DAVE), unit(100) * 50);
+        assert_eq!(Tokens::balance(PHKO, &DAVE), unit(100) * 50);
 
-        assert_eq!(Loans::reducible_balance(PHKO, &DAVE, true), unit(100) * 50);
-        assert_ok!(Loans::collateral_asset(Origin::signed(DAVE), HKO, true));
+        // No collateral deposited yet, therefore no reducible balance
+        assert_eq!(Loans::reducible_balance(PHKO, &DAVE, true), 0);
+        assert_ok!(Loans::deposit_all_collateral(Origin::signed(DAVE), HKO));
         // Borrow 25 HKO will reduce 25 HKO liquidity for collateral_factor is 50%
         assert_ok!(Loans::borrow(Origin::signed(DAVE), HKO, unit(25)));
 
         assert_eq!(
-            Loans::exchange_rate(HKO).saturating_mul_int(Loans::account_deposits(HKO, DAVE).voucher_balance),
+            Loans::exchange_rate(HKO).saturating_mul_int(Loans::account_deposits(Loans::ptoken_id(HKO).unwrap(), DAVE)),
             unit(100)
         );
 
@@ -57,10 +58,10 @@ fn trait_inspect_methods_works() {
         // Liquidity HKO = 25, USDT = 25
         // ptokens = dollar(25 + 25) / 1 / 0.5 / 0.02 = dollar(50) * 100
         assert_ok!(Loans::mint(Origin::signed(DAVE), USDT, unit(50)));
-        assert_eq!(Loans::balance(PUSDT, &DAVE), unit(50) * 50);
-        assert_eq!(Loans::reducible_balance(PUSDT, &DAVE, true), unit(25) * 2 * 50);
+        assert_eq!(Tokens::balance(PUSDT, &DAVE), unit(50) * 50);
+        assert_eq!(Loans::reducible_balance(PUSDT, &DAVE, true), 0);
         // enable USDT collateral
-        assert_ok!(Loans::collateral_asset(Origin::signed(DAVE), USDT, true));
+        assert_ok!(Loans::deposit_all_collateral(Origin::signed(DAVE), USDT));
         assert_eq!(Loans::reducible_balance(PHKO, &DAVE, true), unit(25 + 25) * 2 * 50);
 
         assert_ok!(Loans::borrow(Origin::signed(DAVE), HKO, unit(50)));
@@ -98,13 +99,13 @@ fn transfer_ptoken_works() {
         // DAVE HKO collateral: deposit = 100
         // HKO: cash - deposit = 1000 - 100 = 900
         assert_eq!(
-            Loans::exchange_rate(HKO).saturating_mul_int(Loans::account_deposits(HKO, DAVE).voucher_balance),
+            Loans::exchange_rate(HKO).saturating_mul_int(Tokens::balance(Loans::ptoken_id(HKO).unwrap(), &DAVE)),
             unit(100)
         );
 
         // ALICE HKO collateral: deposit = 0
         assert_eq!(
-            Loans::exchange_rate(HKO).saturating_mul_int(Loans::account_deposits(HKO, ALICE).voucher_balance),
+            Loans::exchange_rate(HKO).saturating_mul_int(Tokens::balance(Loans::ptoken_id(HKO).unwrap(), &ALICE)),
             unit(0)
         );
 
@@ -114,7 +115,7 @@ fn transfer_ptoken_works() {
 
         // DAVE HKO collateral: deposit = 50
         assert_eq!(
-            Loans::exchange_rate(HKO).saturating_mul_int(Loans::account_deposits(HKO, DAVE).voucher_balance),
+            Loans::exchange_rate(HKO).saturating_mul_int(Tokens::balance(Loans::ptoken_id(HKO).unwrap(), &DAVE)),
             unit(50)
         );
         // DAVE Redeem 51 HKO should cause InsufficientDeposit
@@ -125,7 +126,7 @@ fn transfer_ptoken_works() {
 
         // ALICE HKO collateral: deposit = 50
         assert_eq!(
-            Loans::exchange_rate(HKO).saturating_mul_int(Loans::account_deposits(HKO, ALICE).voucher_balance),
+            Loans::exchange_rate(HKO).saturating_mul_int(Tokens::balance(Loans::ptoken_id(HKO).unwrap(), &ALICE)),
             unit(50)
         );
         // ALICE Redeem 50 HKO should be succeeded
@@ -134,25 +135,34 @@ fn transfer_ptoken_works() {
 }
 
 #[test]
-fn transfer_ptokens_under_collateral_works() {
+fn transfer_ptokens_under_collateral_does_not_work() {
     new_test_ext().execute_with(|| {
         // DAVE Deposit 100 HKO
         assert_ok!(Loans::mint(Origin::signed(DAVE), HKO, unit(100)));
-        assert_ok!(Loans::collateral_asset(Origin::signed(DAVE), HKO, true));
+        assert_ok!(Loans::deposit_all_collateral(Origin::signed(DAVE), HKO));
 
         // Borrow 50 HKO will reduce 50 HKO liquidity for collateral_factor is 50%
         assert_ok!(Loans::borrow(Origin::signed(DAVE), HKO, unit(50)));
         // Repay 40 HKO
         assert_ok!(Loans::repay_borrow(Origin::signed(DAVE), HKO, unit(40)));
 
-        // Transfer 20 ptokens from DAVE to ALICE
-        Loans::transfer(PHKO, &DAVE, &ALICE, unit(20) * 50, true).unwrap();
+        // Allowed to redeem 20 ptokens
+        assert_ok!(Loans::redeem_allowed(HKO, &DAVE, unit(20) * 50,));
+        // Not allowed to transfer the same 20 ptokens because they are locked
+        assert_noop!(
+            Loans::transfer(PHKO, &DAVE, &ALICE, unit(20) * 50, true),
+            Error::<Test>::InsufficientCollateral
+        );
+        // First, withdraw the tokens
+        assert_ok!(Loans::withdraw_collateral(Origin::signed(DAVE), PHKO, unit(20) * 50));
+        // Then transfer them
+        assert_ok!(Loans::transfer(PHKO, &DAVE, &ALICE, unit(20) * 50, true),);
 
         // DAVE Deposit HKO = 100 - 20 = 80
         // DAVE Borrow HKO = 0 + 50 - 40 = 10
         // DAVE liquidity HKO = 80 * 0.5 - 10 = 30
         assert_eq!(
-            Loans::exchange_rate(HKO).saturating_mul_int(Loans::account_deposits(HKO, DAVE).voucher_balance),
+            Loans::exchange_rate(HKO).saturating_mul_int(Loans::account_deposits(Loans::ptoken_id(HKO).unwrap(), DAVE)),
             unit(80)
         );
         // DAVE Borrow 31 HKO should cause InsufficientLiquidity
@@ -164,7 +174,7 @@ fn transfer_ptokens_under_collateral_works() {
 
         // Assert ALICE Supply HKO 20
         assert_eq!(
-            Loans::exchange_rate(HKO).saturating_mul_int(Loans::account_deposits(HKO, ALICE).voucher_balance),
+            Loans::exchange_rate(HKO).saturating_mul_int(Tokens::balance(Loans::ptoken_id(HKO).unwrap(), &ALICE)),
             unit(20)
         );
         // ALICE Redeem 20 HKO should be succeeded

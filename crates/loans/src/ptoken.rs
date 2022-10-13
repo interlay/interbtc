@@ -15,7 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::{types::Deposits, AssetIdOf, BalanceOf, *};
+use crate::{AssetIdOf, BalanceOf, *};
 use frame_support::{
     require_transactional,
     traits::tokens::{
@@ -31,10 +31,11 @@ impl<T: Config> Inspect<T::AccountId> for Pallet<T> {
     /// The total amount of issuance in the system.
     fn total_issuance(ptoken_id: Self::AssetId) -> Self::Balance {
         if let Ok(underlying_id) = Self::underlying_id(ptoken_id) {
-            Self::total_supply(underlying_id)
-        } else {
-            Balance::default()
+            if let Ok(supply) = Self::total_supply(underlying_id) {
+                return supply;
+            }
         }
+        Balance::default()
     }
 
     /// The minimum balance any single account may have.
@@ -44,11 +45,7 @@ impl<T: Config> Inspect<T::AccountId> for Pallet<T> {
 
     /// Get the ptoken balance of `who`.
     fn balance(ptoken_id: Self::AssetId, who: &T::AccountId) -> Self::Balance {
-        if let Ok(underlying_id) = Self::underlying_id(ptoken_id) {
-            Self::account_deposits(underlying_id, who).voucher_balance
-        } else {
-            Balance::default()
-        }
+        <orml_tokens::Pallet<T> as MultiCurrency<T::AccountId>>::total_balance(ptoken_id, who)
     }
 
     /// Get the maximum amount that `who` can withdraw/transfer successfully.
@@ -73,8 +70,12 @@ impl<T: Config> Inspect<T::AccountId> for Pallet<T> {
             return res;
         }
 
-        if Self::total_supply(underlying_id).checked_add(amount).is_none() {
-            return DepositConsequence::Overflow;
+        if let Ok(total_supply) = Self::total_supply(underlying_id) {
+            if total_supply.checked_add(amount).is_none() {
+                return DepositConsequence::Overflow;
+            }
+        } else {
+            return DepositConsequence::UnknownAsset;
         }
 
         if Self::balance(ptoken_id, who) + amount < Self::minimum_balance(ptoken_id) {
@@ -126,12 +127,8 @@ impl<T: Config> Transfer<T::AccountId> for Pallet<T> {
         amount: Self::Balance,
         _keep_alive: bool,
     ) -> Result<BalanceOf<T>, DispatchError> {
-        ensure!(
-            amount <= Self::reducible_balance(ptoken_id, source, false),
-            Error::<T>::InsufficientCollateral
-        );
-
-        Self::do_transfer_ptokens(ptoken_id, source, dest, amount)?;
+        <orml_tokens::Pallet<T> as MultiCurrency<T::AccountId>>::transfer(ptoken_id, source, dest, amount)
+            .map_err(|_| Error::<T>::InsufficientCollateral)?;
         Ok(amount)
     }
 }
@@ -150,43 +147,34 @@ impl<T: Config> Pallet<T> {
         Self::distribute_supplier_reward(ptoken_id, dest)?;
 
         let underlying_id = Self::underlying_id(ptoken_id)?;
-        AccountDeposits::<T>::try_mutate_exists(underlying_id, source, |deposits| -> DispatchResult {
-            let mut d = deposits.unwrap_or_default();
-            d.voucher_balance = d
-                .voucher_balance
-                .checked_sub(amount)
-                .ok_or(ArithmeticError::Underflow)?;
-            if d.voucher_balance.is_zero() {
-                // remove deposits storage if zero balance
-                *deposits = None;
-            } else {
-                *deposits = Some(d);
-            }
-            Ok(())
-        })?;
+        // AccountDeposits::<T>::try_mutate_exists(underlying_id, source, |deposits| -> DispatchResult {
+        //     let mut d = deposits.unwrap_or_default();
+        //     d = d
+        //         .checked_sub(amount)
+        //         .ok_or(ArithmeticError::Underflow)?;
+        //     if d.is_zero() {
+        //         // remove deposits storage if zero balance
+        //         *deposits = None;
+        //     } else {
+        //         *deposits = Some(d);
+        //     }
+        //     Ok(())
+        // })?;
 
-        AccountDeposits::<T>::try_mutate(underlying_id, &dest, |deposits| -> DispatchResult {
-            deposits.voucher_balance = deposits
-                .voucher_balance
-                .checked_add(amount)
-                .ok_or(ArithmeticError::Overflow)?;
-            Ok(())
-        })?;
+        // AccountDeposits::<T>::try_mutate(underlying_id, &dest, |deposits| -> DispatchResult {
+        //     deposits = &mut deposits
+        //         .checked_add(amount)
+        //         .ok_or(ArithmeticError::Overflow)?;
+        //     Ok(())
+        // })?;
 
         Ok(())
     }
 
     fn reducible_asset(ptoken_id: AssetIdOf<T>, who: &T::AccountId) -> Result<BalanceOf<T>, DispatchError> {
+        let voucher_balance = Self::account_deposits(ptoken_id, &who);
+
         let underlying_id = Self::underlying_id(ptoken_id)?;
-        let Deposits {
-            is_collateral,
-            voucher_balance,
-        } = Self::account_deposits(underlying_id, &who);
-
-        if !is_collateral {
-            return Ok(voucher_balance);
-        }
-
         let market = Self::ensure_active_market(underlying_id)?;
         let collateral_value = Self::collateral_asset_value(who, underlying_id)?;
 
