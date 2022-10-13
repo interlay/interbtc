@@ -11,7 +11,7 @@ pub use sp_runtime::OpaqueExtrinsic as UncheckedExtrinsic;
 use sp_runtime::{
     generic,
     traits::{BlakeTwo256, IdentifyAccount, Verify},
-    FixedI128, FixedPointNumber, FixedU128, MultiSignature, RuntimeDebug,
+    FixedI128, FixedPointNumber, FixedU128, MultiSignature, Permill, RuntimeDebug,
 };
 use sp_std::{
     convert::{TryFrom, TryInto},
@@ -358,6 +358,17 @@ pub type UnsignedFixedPoint = FixedU128;
 /// The `Inner` type of the `UnsignedFixedPoint`.
 pub type UnsignedInner = u128;
 
+/// Loans pallet types
+
+pub type Price = FixedU128;
+pub type Timestamp = u64;
+pub type PriceDetail = (Price, Timestamp);
+pub type Rate = FixedU128;
+pub type Ratio = Permill;
+pub type Shortfall = FixedU128;
+pub type Liquidity = FixedU128;
+pub const SECONDS_PER_YEAR: Timestamp = 365 * 24 * 60 * 60;
+
 pub trait CurrencyInfo {
     fn name(&self) -> &str;
     fn symbol(&self) -> &str;
@@ -453,6 +464,15 @@ create_currency_id! {
         KSM("Kusama", 12) = 10,
         KBTC("kBTC", 8) = 11,
         KINT("Kintsugi", 12) = 12,
+
+        // cTokens
+        CDOT("cPolkadot", 10) = 20,
+        CIBTC("cinterBTC", 8) = 21,
+        CINTR("cInterlay", 10) = 22,
+
+        CKSM("cKusama", 12) = 30,
+        CKBTC("ckBTC", 8) = 31,
+        CKINT("cKintsugi", 12) = 32,
     }
 }
 

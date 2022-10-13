@@ -1,0 +1,55 @@
+[package]
+authors = ['Parallel Team']
+edition = '2021'
+name    = 'pallet-traits'
+version = '1.9.3'
+
+[package.metadata.docs.rs]
+targets = ['x86_64-unknown-linux-gnu']
+
+[dependencies]
+serde         = { version = '1.0.136',default-features=false, features = ['derive'], optional = true }
+codec         = { package = 'parity-scale-codec', version = '3.1.5', features = ['max-encoded-len'], default-features = false }
+frame-support = { git = 'https://github.com/paritytech/substrate.git', branch = 'polkadot-v0.9.26', default-features = false }
+frame-system  = { git = 'https://github.com/paritytech/substrate.git', branch = 'polkadot-v0.9.26', default-features = false }
+log           = { version = "0.4", default-features = false }
+num-bigint    = { default-features = false, version = '0.4' }
+num-traits    = { default-features = false, version = '0.2' }
+primitives    = { package = 'interbtc-primitives', path = '../../primitives', default-features = false }
+scale-info    = { version = '2.1', default-features = false, features = ['derive'] }
+sp-core       = { git = 'https://github.com/paritytech/substrate.git', branch = 'polkadot-v0.9.26', default-features = false }
+sp-io         = { git = 'https://github.com/paritytech/substrate.git', branch = 'polkadot-v0.9.26', default-features = false }
+sp-runtime    = { git = 'https://github.com/paritytech/substrate.git', branch = 'polkadot-v0.9.26', default-features = false }
+sp-std        = { git = 'https://github.com/paritytech/substrate.git', branch = 'polkadot-v0.9.26', default-features = false }
+xcm           = { git = 'https://github.com/paritytech/polkadot.git', branch = 'release-v0.9.28', default-features = false }
+xcm-builder   = { git = 'https://github.com/paritytech/polkadot.git', branch = 'release-v0.9.28', default-features = false }
+xcm-executor  = { git = 'https://github.com/paritytech/polkadot.git', branch = 'release-v0.9.28', default-features = false }
+
+[dev-dependencies]
+sp-core = { git = 'https://github.com/paritytech/substrate.git', branch = 'polkadot-v0.9.26' }
+
+[features]
+default = ['std']
+std     = [
+  "serde/std",
+  "codec/std",
+  "frame-support/std",
+  "frame-system/std",
+  "log/std",
+  "num-bigint/std",
+  "num-traits/std",
+  "primitives/std",
+  "scale-info/std",
+  "sp-core/std",
+  "sp-io/std",
+  "sp-runtime/std",
+  "sp-std/std",
+  "xcm/std",
+  "xcm-builder/std",
+  "xcm-executor/std"
+]
+
+try-runtime = ['frame-support/try-runtime']
+
+[lib]
+doctest = false

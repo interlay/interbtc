@@ -178,6 +178,10 @@ pub type SchedulerPallet = pallet_scheduler::Pallet<Runtime>;
 pub type ServicesCall = clients_info::Call<Runtime>;
 pub type ServicesPallet = clients_info::Pallet<Runtime>;
 
+pub type LoansCall = pallet_loans::Call<Runtime>;
+pub type LoansError = pallet_loans::Error<Runtime>;
+pub type LoansPallet = pallet_loans::Pallet<Runtime>;
+
 pub const DEFAULT_COLLATERAL_CURRENCY: <Runtime as orml_tokens::Config>::CurrencyId = Token(DOT);
 pub const DEFAULT_WRAPPED_CURRENCY: <Runtime as orml_tokens::Config>::CurrencyId = Token(IBTC);
 pub const DEFAULT_NATIVE_CURRENCY: <Runtime as orml_tokens::Config>::CurrencyId = Token(INTR);
