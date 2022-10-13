@@ -7,7 +7,7 @@ pub use primitives::{
     TokenSymbol::{DOT, INTR},
 };
 use sp_runtime::traits::AccountIdConversion;
-use xcm_simulator::{decl_test_network, decl_test_parachain, decl_test_relay_chain};
+use xcm_emulator::{decl_test_network, decl_test_parachain, decl_test_relay_chain};
 
 pub const INTERLAY_PARA_ID: u32 = 2032;
 pub const SIBLING_PARA_ID: u32 = 2001;
@@ -23,6 +23,7 @@ decl_test_relay_chain! {
 decl_test_parachain! {
     pub struct Interlay {
         Runtime = Runtime,
+        Origin = Origin,
         XcmpMessageHandler = interlay_runtime_parachain::XcmpQueue,
         DmpMessageHandler = interlay_runtime_parachain::DmpQueue,
         new_ext = para_ext(INTERLAY_PARA_ID),
@@ -32,6 +33,7 @@ decl_test_parachain! {
 decl_test_parachain! {
     pub struct Sibling {
         Runtime = testnet_interlay_runtime_parachain::Runtime,
+        Origin = testnet_interlay_runtime_parachain::Origin,
         XcmpMessageHandler = testnet_interlay_runtime_parachain::XcmpQueue,
         DmpMessageHandler = testnet_interlay_runtime_parachain::DmpQueue,
         new_ext = para_ext(SIBLING_PARA_ID),

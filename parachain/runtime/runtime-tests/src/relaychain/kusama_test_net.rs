@@ -1,4 +1,4 @@
-use frame_support::traits::GenesisBuild;
+use frame_support::{traits::GenesisBuild, weights::Weight};
 pub use kintsugi_runtime_parachain::{xcm_config::*, *};
 use polkadot_primitives::v2::{BlockNumber, MAX_CODE_SIZE, MAX_POV_SIZE};
 use polkadot_runtime_parachains::configuration::HostConfiguration;
@@ -7,7 +7,7 @@ pub use primitives::{
     TokenSymbol::{KINT, KSM},
 };
 use sp_runtime::traits::AccountIdConversion;
-use xcm_simulator::{decl_test_network, decl_test_parachain, decl_test_relay_chain};
+use xcm_emulator::{decl_test_network, decl_test_parachain, decl_test_relay_chain};
 
 pub const KINTSUGI_PARA_ID: u32 = 2092;
 pub const SIBLING_PARA_ID: u32 = 2001;
@@ -23,6 +23,7 @@ decl_test_relay_chain! {
 decl_test_parachain! {
     pub struct Kintsugi {
         Runtime = Runtime,
+        Origin = Origin,
         XcmpMessageHandler = kintsugi_runtime_parachain::XcmpQueue,
         DmpMessageHandler = kintsugi_runtime_parachain::DmpQueue,
         new_ext = para_ext(KINTSUGI_PARA_ID),
@@ -32,6 +33,7 @@ decl_test_parachain! {
 decl_test_parachain! {
     pub struct Sibling {
         Runtime = testnet_kintsugi_runtime_parachain::Runtime,
+        Origin = testnet_kintsugi_runtime_parachain::Origin,
         XcmpMessageHandler = testnet_kintsugi_runtime_parachain::XcmpQueue,
         DmpMessageHandler = testnet_kintsugi_runtime_parachain::DmpQueue,
         new_ext = para_ext(SIBLING_PARA_ID),
