@@ -2736,6 +2736,7 @@ source = "git+https://github.com/paritytech//substrate?branch=polkadot-v0.9.29#c
 dependencies = [
  "frame-support",
  "frame-system",
+ "frame-try-runtime",
  "parity-scale-codec",
  "scale-info",
  "sp-core",
@@ -3625,6 +3626,7 @@ dependencies = [
  "substrate-prometheus-endpoint",
  "testnet-interlay-runtime-parachain",
  "testnet-kintsugi-runtime-parachain",
+ "try-runtime-cli",
 ]
 
 [[package]]
@@ -3826,6 +3828,7 @@ dependencies = [
  "frame-support",
  "frame-system",
  "frame-system-rpc-runtime-api",
+ "frame-try-runtime",
  "hex",
  "hex-literal 0.3.4",
  "interbtc-primitives",
@@ -4187,6 +4190,7 @@ dependencies = [
  "frame-support",
  "frame-system",
  "frame-system-rpc-runtime-api",
+ "frame-try-runtime",
  "hex",
  "hex-literal 0.3.4",
  "interbtc-primitives",
@@ -12163,6 +12167,7 @@ dependencies = [
  "frame-support",
  "frame-system",
  "frame-system-rpc-runtime-api",
+ "frame-try-runtime",
  "hex",
  "hex-literal 0.3.4",
  "interbtc-primitives",
@@ -12262,6 +12267,7 @@ dependencies = [
  "frame-support",
  "frame-system",
  "frame-system-rpc-runtime-api",
+ "frame-try-runtime",
  "hex",
  "hex-literal 0.3.4",
  "interbtc-primitives",
