@@ -35,8 +35,8 @@ pallet-timestamp = { git = "https://github.com/paritytech/substrate", branch = "
 currency = { path = "../currency", features = ["testing-utils"] }
 
 # Orml dependencies
-orml-tokens = { git = "https://github.com/interlay/open-runtime-module-library", branch = "dan/mutation-hooks", default-features = false }
-orml-traits = { git = "https://github.com/interlay/open-runtime-module-library", branch = "dan/mutation-hooks", default-features = false }
+orml-tokens = { git = "https://github.com/interlay/open-runtime-module-library", branch = "dan/hooks-weights-v1", default-features = false }
+orml-traits = { git = "https://github.com/interlay/open-runtime-module-library", branch = "dan/hooks-weights-v1", default-features = false }
 
 # Parachain dependencies
 primitives = { package = "interbtc-primitives", path = "../../primitives"}

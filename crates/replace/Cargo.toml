@@ -34,8 +34,8 @@ nomination = { path = "../nomination", default-features = false }
 primitives = { package = "interbtc-primitives", path = "../../primitives", default-features = false }
 
 # Orml dependencies
-orml-tokens = { git = "https://github.com/interlay/open-runtime-module-library", branch = "dan/mutation-hooks", default-features = false, optional = true }
-orml-traits = { git = "https://github.com/interlay/open-runtime-module-library", branch = "dan/mutation-hooks", default-features = false, optional = true }
+orml-tokens = { git = "https://github.com/interlay/open-runtime-module-library", branch = "dan/hooks-weights-v1", default-features = false, optional = true }
+orml-traits = { git = "https://github.com/interlay/open-runtime-module-library", branch = "dan/hooks-weights-v1", default-features = false, optional = true }
 
 [dev-dependencies]
 mocktopus = "0.7.0"
@@ -47,8 +47,8 @@ staking = { path = "../staking" }
 currency = { path = "../currency", features = ["testing-utils"] }
 
 # Orml dependencies
-orml-tokens = { git = "https://github.com/interlay/open-runtime-module-library", branch = "dan/mutation-hooks" }
-orml-traits = { git = "https://github.com/interlay/open-runtime-module-library", branch = "dan/mutation-hooks" }
+orml-tokens = { git = "https://github.com/interlay/open-runtime-module-library", branch = "dan/hooks-weights-v1" }
+orml-traits = { git = "https://github.com/interlay/open-runtime-module-library", branch = "dan/hooks-weights-v1" }
 
 [features]
 default = ["std"]
