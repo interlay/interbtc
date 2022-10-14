@@ -1207,11 +1207,11 @@ impl<T: Config> Pallet<T> {
     fn collateral_asset_value(supplier: &T::AccountId, asset_id: AssetIdOf<T>) -> Result<FixedU128, DispatchError> {
         let ptoken_id = Self::ptoken_id(asset_id)?;
         if !AccountDeposits::<T>::contains_key(ptoken_id, supplier) {
-            return Ok(0.into());
+            return Ok(FixedU128::zero());
         }
         let deposits = Self::account_deposits(ptoken_id, supplier);
         if deposits.is_zero() {
-            return Ok(0.into());
+            return Ok(FixedU128::zero());
         }
         Self::collateral_amount_value(asset_id, deposits)
     }
@@ -1259,7 +1259,7 @@ impl<T: Config> Pallet<T> {
     }
 
     /// Checks if the redeemer should be allowed to redeem tokens in given market.
-    /// Takes into account both `free` and `locked` (deposited as collateral) ptokens.
+    /// Takes into account both `free` and `locked` (i.e. deposited as collateral) ptokens.
     fn redeem_allowed(asset_id: AssetIdOf<T>, redeemer: &T::AccountId, voucher_amount: BalanceOf<T>) -> DispatchResult {
         log::trace!(
             target: "loans::redeem_allowed",
@@ -1593,8 +1593,8 @@ impl<T: Config> Pallet<T> {
                 .ok_or(ArithmeticError::Underflow)?,
         );
 
-        let amount_to_liquidate: Amount<T> = Amount::new(collateral_amount, ptoken_id);
         // Unlock this balance to make it transferrable
+        let amount_to_liquidate: Amount<T> = Amount::new(collateral_amount, ptoken_id);
         amount_to_liquidate.unlock_on(borrower)?;
 
         // increase liquidator's voucher_balance
@@ -1718,13 +1718,13 @@ impl<T: Config> Pallet<T> {
         <orml_tokens::Pallet<T> as MultiCurrency<T::AccountId>>::total_balance(asset_id, who)
     }
 
-    /// Total suply of lending tokens (ptokens), given the underlying
+    /// Total supply of lending tokens (ptokens), given the underlying
     pub fn total_supply(asset_id: AssetIdOf<T>) -> Result<BalanceOf<T>, DispatchError> {
         let ptoken_id = Self::ptoken_id(asset_id)?;
         Ok(orml_tokens::Pallet::<T>::total_issuance(ptoken_id))
     }
 
-    /// Total suply of lending tokens (ptokens), given the underlying
+    /// Free lending tokens (ptokens) of an account, given the underlying
     pub fn free_ptoken_balance(
         asset_id: AssetIdOf<T>,
         account_id: &T::AccountId,
@@ -1918,6 +1918,13 @@ impl<T: Config> LoansTrait<AssetIdOf<T>, AccountIdOf<T>, BalanceOf<T>> for Palle
         let total_collateral_value = Self::total_collateral_value(supplier)?;
         let collateral_amount_value = Self::collateral_amount_value(underlying_id, ptoken_amount.amount())?;
         let total_borrowed_value = Self::total_borrowed_value(supplier)?;
+        log::trace!(
+            target: "loans::collateral_asset",
+            "total_collateral_value: {:?}, collateral_asset_value: {:?}, total_borrowed_value: {:?}",
+            total_collateral_value.into_inner(),
+            collateral_amount_value.into_inner(),
+            total_borrowed_value.into_inner(),
+        );
 
         if total_collateral_value
             < total_borrowed_value

@@ -59,6 +59,9 @@ fn trait_inspect_methods_works() {
         // ptokens = dollar(25 + 25) / 1 / 0.5 / 0.02 = dollar(50) * 100
         assert_ok!(Loans::mint(Origin::signed(DAVE), USDT, unit(50)));
         assert_eq!(Tokens::balance(PUSDT, &DAVE), unit(50) * 50);
+
+        // `reducible_balance()` check how much collateral can be withdrawn from the amount deposited.
+        // Since no collateral has been deposited yet, this value is zero.
         assert_eq!(Loans::reducible_balance(PUSDT, &DAVE, true), 0);
         // enable USDT collateral
         assert_ok!(Loans::deposit_all_collateral(Origin::signed(DAVE), USDT));

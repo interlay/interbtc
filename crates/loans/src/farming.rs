@@ -15,7 +15,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use orml_traits::MultiCurrency;
 use sp_io::hashing::blake2_256;
 use sp_runtime::{traits::Zero, DispatchResult};
 
@@ -125,8 +124,7 @@ impl<T: Config> Pallet<T> {
             let ptoken_id = Self::ptoken_id(asset_id)?;
             RewardAccrued::<T>::try_mutate(supplier, |total_reward| -> DispatchResult {
                 // Frozen balance is not counted towards the total
-                let total_balance =
-                    <orml_tokens::Pallet<T> as MultiCurrency<T::AccountId>>::total_balance(ptoken_id, supplier);
+                let total_balance = Self::balance(ptoken_id, supplier);
                 let reward_delta = Self::calculate_reward_delta(total_balance, delta_index)?;
                 *total_reward = total_reward
                     .checked_add(reward_delta)
