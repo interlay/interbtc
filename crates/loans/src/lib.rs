@@ -87,13 +87,25 @@ type BalanceOf<T> = <<T as Config>::Assets as Inspect<<T as frame_system::Config
 
 pub struct OnSlashHook<T>(marker::PhantomData<T>);
 impl<T: Config> OnSlash<T::AccountId, AssetIdOf<T>, BalanceOf<T>> for OnSlashHook<T> {
-    fn on_slash(currency_id: AssetIdOf<T>, account_id: &T::AccountId, _: BalanceOf<T>) -> DispatchResult {
+    fn on_slash(currency_id: AssetIdOf<T>, account_id: &T::AccountId, amount: BalanceOf<T>) {
         if is_ctoken(currency_id) {
-            let underlying_id = Pallet::<T>::underlying_id(currency_id)?;
-            Pallet::<T>::update_reward_supply_index(underlying_id)?;
-            Pallet::<T>::distribute_supplier_reward(underlying_id, account_id)?;
+            let f = || -> DispatchResult {
+                let underlying_id = Pallet::<T>::underlying_id(currency_id)?;
+                Pallet::<T>::update_reward_supply_index(underlying_id)?;
+                Pallet::<T>::distribute_supplier_reward(underlying_id, account_id)?;
+                Ok(())
+            };
+            if let Err(e) = f() {
+                log::trace!(
+                    target: "loans::on_slash",
+                    "error: {:?}, currency_id: {:?}, account_id: {:?}, amount: {:?}",
+                    e,
+                    currency_id,
+                    account_id,
+                    amount,
+                );
+            }
         }
-        Ok(())
     }
 }
 

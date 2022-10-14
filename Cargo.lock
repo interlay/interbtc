@@ -5922,7 +5922,7 @@ dependencies = [
 [[package]]
 name = "orml-asset-registry"
 version = "0.4.1-dev"
-source = "git+https://github.com/interlay/open-runtime-module-library?branch=dan/mutation-hooks#250c3bf31aec734e6add7d8a0a325c7dcd06f55b"
+source = "git+https://github.com/interlay/open-runtime-module-library?branch=dan/mutation-hooks#87306f17f34fe8003776c230cc6a5fd0e3c2724c"
 dependencies = [
  "frame-support",
  "frame-system",
@@ -5941,7 +5941,7 @@ dependencies = [
 [[package]]
 name = "orml-oracle"
 version = "0.4.1-dev"
-source = "git+https://github.com/interlay/open-runtime-module-library?branch=dan/mutation-hooks#250c3bf31aec734e6add7d8a0a325c7dcd06f55b"
+source = "git+https://github.com/interlay/open-runtime-module-library?branch=dan/mutation-hooks#87306f17f34fe8003776c230cc6a5fd0e3c2724c"
 dependencies = [
  "frame-support",
  "frame-system",
@@ -5959,7 +5959,7 @@ dependencies = [
 [[package]]
 name = "orml-tokens"
 version = "0.4.1-dev"
-source = "git+https://github.com/interlay/open-runtime-module-library?branch=dan/mutation-hooks#250c3bf31aec734e6add7d8a0a325c7dcd06f55b"
+source = "git+https://github.com/interlay/open-runtime-module-library?branch=dan/mutation-hooks#87306f17f34fe8003776c230cc6a5fd0e3c2724c"
 dependencies = [
  "frame-support",
  "frame-system",
@@ -5974,7 +5974,7 @@ dependencies = [
 [[package]]
 name = "orml-traits"
 version = "0.4.1-dev"
-source = "git+https://github.com/interlay/open-runtime-module-library?branch=dan/mutation-hooks#250c3bf31aec734e6add7d8a0a325c7dcd06f55b"
+source = "git+https://github.com/interlay/open-runtime-module-library?branch=dan/mutation-hooks#87306f17f34fe8003776c230cc6a5fd0e3c2724c"
 dependencies = [
  "frame-support",
  "impl-trait-for-tuples",
@@ -5992,7 +5992,7 @@ dependencies = [
 [[package]]
 name = "orml-unknown-tokens"
 version = "0.4.1-dev"
-source = "git+https://github.com/interlay/open-runtime-module-library?branch=dan/mutation-hooks#250c3bf31aec734e6add7d8a0a325c7dcd06f55b"
+source = "git+https://github.com/interlay/open-runtime-module-library?branch=dan/mutation-hooks#87306f17f34fe8003776c230cc6a5fd0e3c2724c"
 dependencies = [
  "frame-support",
  "frame-system",
@@ -6007,7 +6007,7 @@ dependencies = [
 [[package]]
 name = "orml-utilities"
 version = "0.4.1-dev"
-source = "git+https://github.com/interlay/open-runtime-module-library?branch=dan/mutation-hooks#250c3bf31aec734e6add7d8a0a325c7dcd06f55b"
+source = "git+https://github.com/interlay/open-runtime-module-library?branch=dan/mutation-hooks#87306f17f34fe8003776c230cc6a5fd0e3c2724c"
 dependencies = [
  "frame-support",
  "parity-scale-codec",
@@ -6021,7 +6021,7 @@ dependencies = [
 [[package]]
 name = "orml-vesting"
 version = "0.4.1-dev"
-source = "git+https://github.com/interlay/open-runtime-module-library?branch=dan/mutation-hooks#250c3bf31aec734e6add7d8a0a325c7dcd06f55b"
+source = "git+https://github.com/interlay/open-runtime-module-library?branch=dan/mutation-hooks#87306f17f34fe8003776c230cc6a5fd0e3c2724c"
 dependencies = [
  "frame-support",
  "frame-system",
@@ -6050,7 +6050,7 @@ dependencies = [
 [[package]]
 name = "orml-xcm-support"
 version = "0.4.1-dev"
-source = "git+https://github.com/interlay/open-runtime-module-library?branch=dan/mutation-hooks#250c3bf31aec734e6add7d8a0a325c7dcd06f55b"
+source = "git+https://github.com/interlay/open-runtime-module-library?branch=dan/mutation-hooks#87306f17f34fe8003776c230cc6a5fd0e3c2724c"
 dependencies = [
  "frame-support",
  "orml-traits",
@@ -6064,7 +6064,7 @@ dependencies = [
 [[package]]
 name = "orml-xtokens"
 version = "0.4.1-dev"
-source = "git+https://github.com/interlay/open-runtime-module-library?branch=dan/mutation-hooks#250c3bf31aec734e6add7d8a0a325c7dcd06f55b"
+source = "git+https://github.com/interlay/open-runtime-module-library?branch=dan/mutation-hooks#87306f17f34fe8003776c230cc6a5fd0e3c2724c"
 dependencies = [
  "cumulus-primitives-core",
  "frame-support",
@@ -12736,9 +12736,9 @@ version = "1.6.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "97fee6b57c6a41524a810daee9286c02d7752c4253064d0b05472833a438f675"
 dependencies = [
- "cfg-if 1.0.0",
+ "cfg-if 0.1.10",
  "digest 0.10.3",
- "rand 0.8.5",
+ "rand 0.6.5",
  "static_assertions",
 ]
 

@@ -24,7 +24,7 @@ use frame_support::{
     },
 };
 
-// Utilities used for testing
+#[cfg(test)]
 impl<T: Config> Pallet<T> {
     /// The total amount of issuance in the system.
     pub fn total_issuance(ptoken_id: AssetIdOf<T>) -> BalanceOf<T> {
