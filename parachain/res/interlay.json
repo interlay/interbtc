@@ -5,14 +5,14 @@
   "bootNodes": [
     "/dns4/bootnodes.interbtc.interlay.io/tcp/30335/p2p/12D3KooWGD9FgkiKWQTp5t6VLJgTKYqex7AY8CHTs7PGpARLTSZr",
     "/dns4/bootnodes.interbtc.interlay.io/tcp/30336/p2p/12D3KooWJ8Ga38UfUWcBuKCVjJFNCyFAd5YrLnDikTvinE4QG8TG",
-    "/ip4/18.222.37.142/tcp/30333/p2p/12D3KooWQsTnGMPF2uoHvF3p9yTxLsRiWfgVMQZvmq974ebkrqVX",
-    "/ip6/2600:1f16:927:a00:3ca6:247:b167:1c2a/tcp/30333/p2p/12D3KooWQsTnGMPF2uoHvF3p9yTxLsRiWfgVMQZvmq974ebkrqVX",
-    "/ip4/18.181.28.110/tcp/30333/p2p/12D3KooWQWUe64Cmqg3ygRNhxtZFaQHtoPBrCsJW6bUucuyiiR78",
-    "/ip6/2406:da14:3ae:2800:ee64:233a:8348:7636/tcp/30333/p2p/12D3KooWQWUe64Cmqg3ygRNhxtZFaQHtoPBrCsJW6bUucuyiiR78",
-    "/ip4/18.184.223.33/tcp/30333/p2p/12D3KooWHJW8vqWTbVJsJPYMDypm14Qrwf2rdKrW7t1TuAUbKEZw",
-    "/ip6/2a05:d014:cb5:900:ef6b:c34:7dfd:dd69/tcp/30333/p2p/12D3KooWHJW8vqWTbVJsJPYMDypm14Qrwf2rdKrW7t1TuAUbKEZw",
-    "/ip4/3.132.252.38/tcp/30333/p2p/12D3KooWEUYPLnp1mVHZmitDLUiu4PHwMD2FxEx5GvEfMN8tiSLq",
-    "/ip6/2600:1f16:927:a00:eac6:6638:4b72:83d/tcp/30333/p2p/12D3KooWEUYPLnp1mVHZmitDLUiu4PHwMD2FxEx5GvEfMN8tiSLq"
+    "/ip4/35.208.32.176/tcp/30333/p2p/12D3KooWQsTnGMPF2uoHvF3p9yTxLsRiWfgVMQZvmq974ebkrqVX",
+    "/ip6/2600:1900:4000:5990::/tcp/30333/p2p/12D3KooWQsTnGMPF2uoHvF3p9yTxLsRiWfgVMQZvmq974ebkrqVX",
+    "/ip4/35.213.38.240/tcp/30333/p2p/12D3KooWQWUe64Cmqg3ygRNhxtZFaQHtoPBrCsJW6bUucuyiiR78",
+    "/ip6/2600:1900:4050:14bb::/tcp/30333/p2p/12D3KooWQWUe64Cmqg3ygRNhxtZFaQHtoPBrCsJW6bUucuyiiR78",
+    "/ip4/35.214.170.23/tcp/30333/p2p/12D3KooWHJW8vqWTbVJsJPYMDypm14Qrwf2rdKrW7t1TuAUbKEZw",
+    "/ip6/2600:1900:4060:6b80::/tcp/30333/p2p/12D3KooWHJW8vqWTbVJsJPYMDypm14Qrwf2rdKrW7t1TuAUbKEZw",
+    "/ip4/35.208.144.72/tcp/30333/p2p/12D3KooWEUYPLnp1mVHZmitDLUiu4PHwMD2FxEx5GvEfMN8tiSLq",
+    "/ip6/2600:1900:4000:5990:0:2::/tcp/30333/p2p/12D3KooWEUYPLnp1mVHZmitDLUiu4PHwMD2FxEx5GvEfMN8tiSLq"
   ],
   "telemetryEndpoints": null,
   "protocolId": null,
