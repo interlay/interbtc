@@ -13596,7 +13596,7 @@ dependencies = [
 [[package]]
 name = "xcm-emulator"
 version = "0.1.0"
-source = "git+https://github.com/interlay/xcm-simulator?rev=e4864b9ebfe09fc9aa3919ee72a35c2aa364d7a6#e4864b9ebfe09fc9aa3919ee72a35c2aa364d7a6"
+source = "git+https://github.com/shaunxw/xcm-simulator?rev=0460d04c798028e7bef82c907082e11753ed173b#0460d04c798028e7bef82c907082e11753ed173b"
 dependencies = [
  "cumulus-pallet-dmp-queue",
  "cumulus-pallet-parachain-system",
@@ -13612,6 +13612,7 @@ dependencies = [
  "polkadot-primitives",
  "polkadot-runtime-parachains",
  "quote",
+ "sp-arithmetic",
  "sp-io",
  "sp-std",
  "xcm",

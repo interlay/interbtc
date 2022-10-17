@@ -79,9 +79,7 @@ xcm-builder = { git = "https://github.com/paritytech/polkadot", branch = "releas
 xcm-executor = { git = "https://github.com/paritytech/polkadot", branch = "release-v0.9.29", default-features = false }
 xcm-simulator = { git = "https://github.com/paritytech/polkadot", branch = "release-v0.9.29", default-features = false }
 pallet-xcm = { git = "https://github.com/paritytech/polkadot", branch = "release-v0.9.29", default-features = false }
-xcm-emulator = { git = "https://github.com/interlay/xcm-simulator", rev = "e4864b9ebfe09fc9aa3919ee72a35c2aa364d7a6" }
-# the one below is the correct repo - once https://github.com/shaunxw/xcm-simulator/pull/38 is merged we can switch back to the repo below
-# xcm-emulator = { git = "https://github.com/shaunxw/xcm-simulator", rev = "4fdf2d7580c0faef747646dc014728e0da85f316" }
+xcm-emulator = { git = "https://github.com/shaunxw/xcm-simulator", rev = "0460d04c798028e7bef82c907082e11753ed173b" }
 
 # Parachain dependencies
 btc-relay = { path = "../../../crates/btc-relay", default-features = false }
