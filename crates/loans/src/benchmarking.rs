@@ -9,9 +9,8 @@ use frame_support::assert_ok;
 use frame_system::{self, RawOrigin as SystemOrigin};
 use primitives::{
     Balance,
-    CurrencyId::{self, Token},
-    CDOT as CDOT_CURRENCY, CKBTC as CKBTC_CURRENCY, CKSM as CKSM_CURRENCY, DOT as DOT_CURRENCY, KBTC as KBTC_CURRENCY,
-    KINT as KINT_CURRENCY, KSM as KSM_CURRENCY,
+    CurrencyId::{self, PToken, Token},
+    DOT as DOT_CURRENCY, KBTC as KBTC_CURRENCY, KINT as KINT_CURRENCY, KSM as KSM_CURRENCY,
 };
 use rate_model::{InterestRateModel, JumpModel};
 use sp_std::prelude::*;
@@ -20,10 +19,10 @@ const SEED: u32 = 0;
 
 const KSM: CurrencyId = Token(KSM_CURRENCY);
 const KBTC: CurrencyId = Token(KBTC_CURRENCY);
-const CKSM: CurrencyId = Token(CKSM_CURRENCY);
-const CKBTC: CurrencyId = Token(CKBTC_CURRENCY);
+const CKSM: CurrencyId = PToken(3);
+const CKBTC: CurrencyId = PToken(4);
 const DOT: CurrencyId = Token(DOT_CURRENCY);
-const CDOT: CurrencyId = Token(CDOT_CURRENCY);
+const CDOT: CurrencyId = PToken(1);
 const KINT: CurrencyId = Token(KINT_CURRENCY);
 
 const RATE_MODEL_MOCK: InterestRateModel = InterestRateModel::Jump(JumpModel {
@@ -50,7 +49,7 @@ fn market_mock<T: Config>() -> Market<BalanceOf<T>> {
         liquidate_incentive_reserved_factor: Ratio::from_percent(3),
         supply_cap: 1_000_000_000_000_000_000_000u128, // set to 1B
         borrow_cap: 1_000_000_000_000_000_000_000u128, // set to 1B
-        ptoken_id: CurrencyId::Token(CKBTC_CURRENCY),
+        ptoken_id: CurrencyId::PToken(4),
     }
 }
 

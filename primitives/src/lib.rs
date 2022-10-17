@@ -464,15 +464,6 @@ create_currency_id! {
         KSM("Kusama", 12) = 10,
         KBTC("kBTC", 8) = 11,
         KINT("Kintsugi", 12) = 12,
-
-        // cTokens
-        CDOT("cPolkadot", 10) = 20,
-        CIBTC("cinterBTC", 8) = 21,
-        CINTR("cInterlay", 10) = 22,
-
-        CKSM("cKusama", 12) = 30,
-        CKBTC("ckBTC", 8) = 31,
-        CKINT("cKintsugi", 12) = 32,
     }
 }
 
@@ -482,9 +473,11 @@ create_currency_id! {
 pub enum CurrencyId {
     Token(TokenSymbol),
     ForeignAsset(ForeignAssetId),
+    PToken(PTokenId),
 }
 
 pub type ForeignAssetId = u32;
+pub type PTokenId = u32;
 
 #[derive(scale_info::TypeInfo, Encode, Decode, Clone, Eq, PartialEq, Debug)]
 pub struct CustomMetadata {
@@ -492,14 +485,9 @@ pub struct CustomMetadata {
     pub coingecko_id: Vec<u8>,
 }
 
-pub fn is_ctoken(currency_id: CurrencyId) -> bool {
+pub fn is_ptoken(currency_id: CurrencyId) -> bool {
     match currency_id {
-        CurrencyId::Token(CDOT)
-        | CurrencyId::Token(CIBTC)
-        | CurrencyId::Token(CINTR)
-        | CurrencyId::Token(CKSM)
-        | CurrencyId::Token(CKBTC)
-        | CurrencyId::Token(CKINT) => true,
+        CurrencyId::PToken(_) => true,
         _ => false,
     }
 }

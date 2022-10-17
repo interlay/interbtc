@@ -65,7 +65,7 @@ pub use security::StatusCode;
 
 pub use primitives::{
     self, AccountId, Balance, BlockNumber, CurrencyId,
-    CurrencyId::{ForeignAsset, Token},
+    CurrencyId::{ForeignAsset, PToken, Token},
     CurrencyInfo, Hash, Moment, Nonce, PriceDetail, Signature, SignedFixedPoint, SignedInner, TokenSymbol,
     UnsignedFixedPoint, UnsignedInner, DOT, IBTC, INTR, KBTC, KINT, KSM,
 };
@@ -826,6 +826,7 @@ impl pallet_traits::PriceFeeder for PriceFeed {
                     return None;
                 }
             }
+            PToken(_) => return None,
         };
         let amount = Amount::<Runtime>::new(one, asset_id.clone());
         Oracle::convert(&amount, WRAPPED_CURRENCY_ID)

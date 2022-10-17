@@ -28,6 +28,7 @@ pub use primitives::{
 use redeem::RedeemRequestStatus;
 use staking::DefaultVaultCurrencyPair;
 use vault_registry::types::UpdatableVault;
+use CurrencyId::PToken;
 
 pub use issue::{types::IssueRequestExt, IssueRequest, IssueRequestStatus};
 pub use oracle::OracleKey;
@@ -186,6 +187,12 @@ pub const DEFAULT_COLLATERAL_CURRENCY: <Runtime as orml_tokens::Config>::Currenc
 pub const DEFAULT_WRAPPED_CURRENCY: <Runtime as orml_tokens::Config>::CurrencyId = Token(IBTC);
 pub const DEFAULT_NATIVE_CURRENCY: <Runtime as orml_tokens::Config>::CurrencyId = Token(INTR);
 pub const DEFAULT_GRIEFING_CURRENCY: <Runtime as orml_tokens::Config>::CurrencyId = DEFAULT_NATIVE_CURRENCY;
+
+pub const CDOT: CurrencyId = PToken(1);
+pub const CKINT: CurrencyId = PToken(2);
+pub const CKSM: CurrencyId = PToken(3);
+pub const CKBTC: CurrencyId = PToken(4);
+pub const CIBTC: CurrencyId = PToken(5);
 
 pub fn default_vault_id_of(hash: [u8; 32]) -> VaultId {
     VaultId {

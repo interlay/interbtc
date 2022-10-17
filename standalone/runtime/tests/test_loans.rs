@@ -2,7 +2,7 @@ use interbtc_runtime_standalone::{CurrencyId::Token, KINT};
 mod mock;
 use mock::{assert_eq, *};
 use pallet_loans::{InterestRateModel, JumpModel, Market, MarketState};
-use primitives::{Rate, Ratio, CKINT, CKSM};
+use primitives::{Rate, Ratio};
 use sp_runtime::traits::CheckedMul;
 
 pub const USER: [u8; 32] = ALICE;
@@ -29,12 +29,12 @@ pub const fn market_mock(ptoken_id: CurrencyId) -> Market<Balance> {
     }
 }
 
-fn set_up_market(currency_id: CurrencyId, exchange_rate: FixedU128, ctoken_id: CurrencyId) {
+fn set_up_market(currency_id: CurrencyId, exchange_rate: FixedU128, ptoken_id: CurrencyId) {
     assert_ok!(OraclePallet::_set_exchange_rate(currency_id, exchange_rate));
     assert_ok!(Call::Sudo(SudoCall::sudo {
         call: Box::new(Call::Loans(LoansCall::add_market {
             asset_id: currency_id,
-            market: market_mock(ctoken_id),
+            market: market_mock(ptoken_id),
         })),
     })
     .dispatch(origin_of(account_of(ALICE))));
@@ -51,12 +51,12 @@ fn test_real_market<R>(execute: impl Fn() -> R) {
         set_up_market(
             Token(KINT),
             FixedU128::from_inner(115_942_028_985_507_246_376_810_000),
-            Token(CKINT),
+            CKINT,
         );
         set_up_market(
             Token(KSM),
             FixedU128::from_inner(4_573_498_406_135_805_461_670_000),
-            Token(CKSM),
+            CKSM,
         );
         execute()
     });
