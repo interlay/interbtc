@@ -227,7 +227,7 @@ fn transfer_to_relay_chain() {
                 )
                 .into()
             ),
-            400_000_000_000 // The value used in UI - very conservative: actually used at time of writing = 298_368_000
+            4_000_000_000 // The value used in UI - very conservative: actually used at time of writing = 298_368_000
         ));
     });
 
