@@ -21,17 +21,18 @@ pub use interbtc_runtime_standalone::{
 };
 pub use mocktopus::mocking::*;
 pub use orml_tokens::CurrencyAdapter;
+use primitives::is_ptoken;
 pub use primitives::{
-    CurrencyId::{ForeignAsset, Token},
-    VaultCurrencyPair, VaultId as PrimitiveVaultId, DOT, IBTC, INTR, KBTC, KINT, KSM,
+    CurrencyId::{ForeignAsset, PToken, Token},
+    Rate, Ratio, VaultCurrencyPair, VaultId as PrimitiveVaultId, DOT, IBTC, INTR, KBTC, KINT, KSM,
 };
 use redeem::RedeemRequestStatus;
 use staking::DefaultVaultCurrencyPair;
 use vault_registry::types::UpdatableVault;
-use CurrencyId::PToken;
 
 pub use issue::{types::IssueRequestExt, IssueRequest, IssueRequestStatus};
 pub use oracle::OracleKey;
+pub use pallet_loans::{InterestRateModel, Market, MarketState};
 pub use redeem::{types::RedeemRequestExt, RedeemRequest};
 pub use replace::{types::ReplaceRequestExt, ReplaceRequest};
 pub use reward::Rewards;
@@ -50,6 +51,7 @@ pub use vault_registry::{CurrencySource, DefaultVaultId, Vault, VaultStatus};
 use self::redeem_testing_utils::USER_BTC_ADDRESS;
 
 pub mod issue_testing_utils;
+pub mod loans_testing_utils;
 pub mod nomination_testing_utils;
 pub mod redeem_testing_utils;
 pub mod replace_testing_utils;
@@ -360,8 +362,23 @@ pub fn iter_currency_pairs() -> impl Iterator<Item = DefaultVaultCurrencyPair<Ru
     })
 }
 
+pub fn iter_currency_pairs_with_ptokens() -> impl Iterator<Item = DefaultVaultCurrencyPair<Runtime>> {
+    iter_collateral_currencies_and_ptokens().flat_map(|collateral_id| {
+        iter_wrapped_currencies().map(move |wrapped_id| VaultCurrencyPair {
+            collateral: collateral_id,
+            wrapped: wrapped_id,
+        })
+    })
+}
+
 pub fn iter_collateral_currencies() -> impl Iterator<Item = CurrencyId> {
     vec![Token(DOT), Token(KSM), Token(INTR), ForeignAsset(1)].into_iter()
+}
+
+// ptokens should not be minted to the endowed accounts. Use this function
+// to include them in the iterators for configuring the bridge.
+pub fn iter_collateral_currencies_and_ptokens() -> impl Iterator<Item = CurrencyId> {
+    iter_collateral_currencies().chain(vec![PToken(1)].into_iter())
 }
 
 pub fn iter_native_currencies() -> impl Iterator<Item = CurrencyId> {
@@ -977,7 +994,7 @@ pub fn set_default_thresholds() {
     let premium = FixedU128::checked_from_rational(135, 100).unwrap();
     let liquidation = FixedU128::checked_from_rational(110, 100).unwrap();
 
-    for collateral_id in iter_collateral_currencies() {
+    for collateral_id in iter_collateral_currencies_and_ptokens() {
         for wrapped_id in iter_wrapped_currencies() {
             let currency_pair = VaultCurrencyPair {
                 collateral: collateral_id,
@@ -1388,16 +1405,24 @@ impl ExtBuilder {
         .unwrap();
 
         vault_registry::GenesisConfig::<Runtime> {
-            minimum_collateral_vault: vec![(Token(DOT), 0), (Token(KSM), 0), (ForeignAsset(1), 0), (Token(INTR), 0)],
+            minimum_collateral_vault: vec![
+                (Token(DOT), 0),
+                (Token(KSM), 0),
+                (ForeignAsset(1), 0),
+                (Token(INTR), 0),
+                (PToken(1), 0),
+            ],
             punishment_delay: 8,
-            system_collateral_ceiling: iter_currency_pairs().map(|pair| (pair, FUND_LIMIT_CEILING)).collect(),
-            secure_collateral_threshold: iter_currency_pairs()
+            system_collateral_ceiling: iter_currency_pairs_with_ptokens()
+                .map(|pair| (pair, FUND_LIMIT_CEILING))
+                .collect(),
+            secure_collateral_threshold: iter_currency_pairs_with_ptokens()
                 .map(|pair| (pair, FixedU128::checked_from_rational(150, 100).unwrap()))
                 .collect(),
-            premium_redeem_threshold: iter_currency_pairs()
+            premium_redeem_threshold: iter_currency_pairs_with_ptokens()
                 .map(|pair| (pair, FixedU128::checked_from_rational(150, 100).unwrap()))
                 .collect(),
-            liquidation_collateral_threshold: iter_currency_pairs()
+            liquidation_collateral_threshold: iter_currency_pairs_with_ptokens()
                 .map(|pair| (pair, FixedU128::checked_from_rational(110, 100).unwrap()))
                 .collect(),
         }

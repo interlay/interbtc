@@ -485,7 +485,7 @@ pub struct CustomMetadata {
     pub coingecko_id: Vec<u8>,
 }
 
-pub fn is_ptoken(currency_id: CurrencyId) -> bool {
+pub fn is_ptoken(currency_id: &CurrencyId) -> bool {
     match currency_id {
         CurrencyId::PToken(_) => true,
         _ => false,

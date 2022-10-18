@@ -1,7 +1,13 @@
 mod mock;
 
 use currency::Amount;
-use mock::{assert_eq, issue_testing_utils::*, *};
+use mock::{
+    assert_eq,
+    issue_testing_utils::*,
+    loans_testing_utils::{activate_market, market_mock, mint_ptokens},
+    *,
+};
+use CurrencyId::PToken;
 
 fn test_with<R>(execute: impl Fn(VaultId) -> R) {
     let test_with = |currency_id, wrapped_id| {
@@ -17,13 +23,20 @@ fn test_with<R>(execute: impl Fn(VaultId) -> R) {
             let vault_id = PrimitiveVaultId::new(account_of(VAULT), currency_id, wrapped_id);
             LiquidationVaultData::force_to(default_liquidation_vault_state(&vault_id.currencies));
 
+            activate_market(Token(DOT), PToken(1));
+            mint_ptokens(account_of(VAULT), Token(DOT));
+            mint_ptokens(account_of(BOB), Token(DOT));
+            mint_ptokens(account_of(CAROL), Token(DOT));
+            mint_ptokens(account_of(FAUCET), Token(DOT));
+
             execute(vault_id)
         });
     };
-    test_with(Token(DOT), Token(KBTC));
-    test_with(Token(KSM), Token(IBTC));
-    test_with(Token(DOT), Token(IBTC));
-    test_with(ForeignAsset(1), Token(IBTC));
+    // test_with(Token(DOT), Token(KBTC));
+    // test_with(Token(KSM), Token(IBTC));
+    // test_with(Token(DOT), Token(IBTC));
+    // test_with(ForeignAsset(1), Token(IBTC));
+    test_with(PToken(1), Token(IBTC));
 }
 
 fn test_with_initialized_vault<R>(execute: impl Fn(VaultId) -> R) {
