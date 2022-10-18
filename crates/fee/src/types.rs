@@ -17,6 +17,4 @@ pub(crate) type DefaultVaultId<T> = VaultId<<T as frame_system::Config>::Account
 pub enum Version {
     /// Initial version.
     V0,
-    /// Use sovereign account ID.
-    V1,
 }

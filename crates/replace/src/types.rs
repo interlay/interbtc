@@ -14,12 +14,6 @@ use vault_registry::types::CurrencyId;
 pub enum Version {
     /// Initial version.
     V0,
-    /// BtcAddress type with script format.
-    V1,
-    /// Status, make all fields non-optional, remove open_time
-    V2,
-    /// active block number, btc_height
-    V3,
 }
 
 pub(crate) type BalanceOf<T> = <T as vault_registry::Config>::Balance;
