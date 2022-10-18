@@ -133,7 +133,7 @@ pub mod pallet {
         }
 
         fn on_runtime_upgrade() -> frame_support::weights::Weight {
-            crate::types::v5::migrate_v5_to_v6::<T>()
+            crate::types::v1::migrate_v1_to_v6::<T>()
         }
     }
 
@@ -686,10 +686,10 @@ pub mod pallet {
 
     #[pallet::type_value]
     pub(super) fn DefaultForStorageVersion() -> Version {
-        Version::V0
+        Version::V6
     }
 
-    /// Build storage at V1 (requires default 0).
+    /// Pallet storage version
     #[pallet::storage]
     #[pallet::getter(fn storage_version)]
     pub(super) type StorageVersion<T: Config> = StorageValue<_, Version, ValueQuery, DefaultForStorageVersion>;
