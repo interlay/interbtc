@@ -404,7 +404,7 @@ pub mod pallet {
         fn on_initialize(n: T::BlockNumber) -> Weight {
             Self::begin_block(n).unwrap_or_else(|e| {
                 sp_runtime::print(e);
-                0
+                Weight::from_ref_time(0 as u64)
             })
         }
     }
@@ -1060,7 +1060,7 @@ impl<T: Config> Pallet<T> {
     /// # </weight>
     fn begin_block(now: T::BlockNumber) -> Result<Weight, DispatchError> {
         let max_block_weight = T::BlockWeights::get().max_block;
-        let mut weight = 0;
+        let mut weight = Weight::from_ref_time(0 as u64);
 
         let next = Self::lowest_unbaked();
         let last = Self::referendum_count();

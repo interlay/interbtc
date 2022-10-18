@@ -60,45 +60,45 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Storage: Staking RewardTally (r:1 w:1)
 	// Storage: Staking TotalRewards (r:1 w:1)
 	fn withdraw_rewards() -> Weight {
-		(106_814_000 as Weight)
-			.saturating_add(T::DbWeight::get().reads(13 as Weight))
-			.saturating_add(T::DbWeight::get().writes(4 as Weight))
+		Weight::from_ref_time(106_814_000 as u64)
+			.saturating_add(T::DbWeight::get().reads(13 as u64))
+			.saturating_add(T::DbWeight::get().writes(4 as u64))
 	}
 
 	// Storage: Fee IssueFee (r:0 w:1)
 	fn set_issue_fee() -> Weight {
-		(2_835_000 as Weight)
-			.saturating_add(T::DbWeight::get().writes(1 as Weight))
+		Weight::from_ref_time(2_835_000 as u64)
+			.saturating_add(T::DbWeight::get().writes(1 as u64))
 	}
 
 	// Storage: Fee IssueGriefingCollateral (r:0 w:1)
 	fn set_issue_griefing_collateral() -> Weight {
-		(2_835_000 as Weight)
-			.saturating_add(T::DbWeight::get().writes(1 as Weight))
+		Weight::from_ref_time(2_835_000 as u64)
+			.saturating_add(T::DbWeight::get().writes(1 as u64))
 	}
 
 	// Storage: Fee RedeemFee (r:0 w:1)
 	fn set_redeem_fee() -> Weight {
-		(2_835_000 as Weight)
-			.saturating_add(T::DbWeight::get().writes(1 as Weight))
+		Weight::from_ref_time(2_835_000 as u64)
+			.saturating_add(T::DbWeight::get().writes(1 as u64))
 	}
 
 	// Storage: Fee PremiumRedeemFee (r:0 w:1)
 	fn set_premium_redeem_fee() -> Weight {
-		(2_835_000 as Weight)
-			.saturating_add(T::DbWeight::get().writes(1 as Weight))
+		Weight::from_ref_time(2_835_000 as u64)
+			.saturating_add(T::DbWeight::get().writes(1 as u64))
 	}
 
 	// Storage: Fee PunishmentFee (r:0 w:1)
 	fn set_punishment_fee() -> Weight {
-		(2_835_000 as Weight)
-			.saturating_add(T::DbWeight::get().writes(1 as Weight))
+		Weight::from_ref_time(2_835_000 as u64)
+			.saturating_add(T::DbWeight::get().writes(1 as u64))
 	}
 
 	// Storage: Fee ReplaceGriefingCollateral (r:0 w:1)
 	fn set_replace_griefing_collateral() -> Weight {
-		(2_835_000 as Weight)
-			.saturating_add(T::DbWeight::get().writes(1 as Weight))
+		Weight::from_ref_time(2_835_000 as u64)
+			.saturating_add(T::DbWeight::get().writes(1 as u64))
 	}
 }
 
@@ -118,45 +118,45 @@ impl WeightInfo for () {
 	// Storage: Staking RewardTally (r:1 w:1)
 	// Storage: Staking TotalRewards (r:1 w:1)
 	fn withdraw_rewards() -> Weight {
-		(106_814_000 as Weight)
-			.saturating_add(RocksDbWeight::get().reads(13 as Weight))
-			.saturating_add(RocksDbWeight::get().writes(4 as Weight))
+		Weight::from_ref_time(106_814_000 as u64)
+			.saturating_add(RocksDbWeight::get().reads(13 as u64))
+			.saturating_add(RocksDbWeight::get().writes(4 as u64))
 	}
 
 	// Storage: Fee IssueFee (r:0 w:1)
 	fn set_issue_fee() -> Weight {
-		(2_835_000 as Weight)
-			.saturating_add(RocksDbWeight::get().writes(1 as Weight))
+		Weight::from_ref_time(2_835_000 as u64)
+			.saturating_add(RocksDbWeight::get().writes(1 as u64))
 	}
 
 	// Storage: Fee IssueGriefingCollateral (r:0 w:1)
 	fn set_issue_griefing_collateral() -> Weight {
-		(2_835_000 as Weight)
-			.saturating_add(RocksDbWeight::get().writes(1 as Weight))
+		Weight::from_ref_time(2_835_000 as u64)
+			.saturating_add(RocksDbWeight::get().writes(1 as u64))
 	}
 
 	// Storage: Fee RedeemFee (r:0 w:1)
 	fn set_redeem_fee() -> Weight {
-		(2_835_000 as Weight)
-			.saturating_add(RocksDbWeight::get().writes(1 as Weight))
+		Weight::from_ref_time(2_835_000 as u64)
+			.saturating_add(RocksDbWeight::get().writes(1 as u64))
 	}
 
 	// Storage: Fee PremiumRedeemFee (r:0 w:1)
 	fn set_premium_redeem_fee() -> Weight {
-		(2_835_000 as Weight)
-			.saturating_add(RocksDbWeight::get().writes(1 as Weight))
+		Weight::from_ref_time(2_835_000 as u64)
+			.saturating_add(RocksDbWeight::get().writes(1 as u64))
 	}
 
 	// Storage: Fee PunishmentFee (r:0 w:1)
 	fn set_punishment_fee() -> Weight {
-		(2_835_000 as Weight)
-			.saturating_add(RocksDbWeight::get().writes(1 as Weight))
+		Weight::from_ref_time(2_835_000 as u64)
+			.saturating_add(RocksDbWeight::get().writes(1 as u64))
 	}
 
 	// Storage: Fee ReplaceGriefingCollateral (r:0 w:1)
 	fn set_replace_griefing_collateral() -> Weight {
-		(2_835_000 as Weight)
-			.saturating_add(RocksDbWeight::get().writes(1 as Weight))
+		Weight::from_ref_time(2_835_000 as u64)
+			.saturating_add(RocksDbWeight::get().writes(1 as u64))
 	}
 }
 

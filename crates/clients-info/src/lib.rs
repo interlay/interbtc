@@ -134,7 +134,7 @@ pub mod upgrade_client_releases {
     /// For each pending client release, set the current release to that.
     /// The pending release entry is removed.
     pub fn try_upgrade_current_client_releases<T: Config>() -> Weight {
-        let mut reads: Weight = 0;
+        let mut reads = 0;
         for (key, release) in PendingClientReleases::<T>::drain() {
             log::info!("Upgrading client release for key {:?}", key);
             CurrentClientReleases::<T>::insert(key, release.clone());

@@ -47,29 +47,29 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Storage: Oracle ValidUntil (r:0 w:1)
 	// Storage: Timestamp Now (r:0 w:1)
 	fn on_initialize() -> Weight {
-		(5_971_000 as Weight)
-			.saturating_add(T::DbWeight::get().writes(3 as Weight))
+		Weight::from_ref_time(5_971_000 as u64)
+			.saturating_add(T::DbWeight::get().writes(3 as u64))
 	}
 	// Storage: Oracle AuthorizedOracles (r:1 w:0)
 	// Storage: Timestamp Now (r:1 w:0)
 	// Storage: Oracle RawValuesUpdated (r:0 w:1)
 	// Storage: Oracle RawValues (r:0 w:1)
 	fn feed_values(u: u32, ) -> Weight {
-		(48_201_000 as Weight)
+		Weight::from_ref_time(48_201_000 as u64)
 			// Standard Error: 4_000
-			.saturating_add((5_697_000 as Weight).saturating_mul(u as Weight))
-			.saturating_add(T::DbWeight::get().reads(2 as Weight))
-			.saturating_add(T::DbWeight::get().writes(2 as Weight))
+			.saturating_add(Weight::from_ref_time(5_697_000 as u64).saturating_mul(u as u64))
+			.saturating_add(T::DbWeight::get().reads(2 as u64))
+			.saturating_add(T::DbWeight::get().writes(2 as u64))
 	}
 	// Storage: Oracle AuthorizedOracles (r:0 w:1)
 	fn insert_authorized_oracle() -> Weight {
-		(4_690_000 as Weight)
-			.saturating_add(T::DbWeight::get().writes(1 as Weight))
+		Weight::from_ref_time(4_690_000 as u64)
+			.saturating_add(T::DbWeight::get().writes(1 as u64))
 	}
 	// Storage: Oracle AuthorizedOracles (r:0 w:1)
 	fn remove_authorized_oracle() -> Weight {
-		(4_367_000 as Weight)
-			.saturating_add(T::DbWeight::get().writes(1 as Weight))
+		Weight::from_ref_time(4_367_000 as u64)
+			.saturating_add(T::DbWeight::get().writes(1 as u64))
 	}
 }
 
@@ -79,29 +79,29 @@ impl WeightInfo for () {
 	// Storage: Oracle ValidUntil (r:0 w:1)
 	// Storage: Timestamp Now (r:0 w:1)
 	fn on_initialize() -> Weight {
-		(5_971_000 as Weight)
-			.saturating_add(RocksDbWeight::get().writes(3 as Weight))
+		Weight::from_ref_time(5_971_000 as u64)
+			.saturating_add(RocksDbWeight::get().writes(3 as u64))
 	}
 	// Storage: Oracle AuthorizedOracles (r:1 w:0)
 	// Storage: Timestamp Now (r:1 w:0)
 	// Storage: Oracle RawValuesUpdated (r:0 w:1)
 	// Storage: Oracle RawValues (r:0 w:1)
 	fn feed_values(u: u32, ) -> Weight {
-		(48_201_000 as Weight)
+		Weight::from_ref_time(48_201_000 as u64)
 			// Standard Error: 4_000
-			.saturating_add((5_697_000 as Weight).saturating_mul(u as Weight))
-			.saturating_add(RocksDbWeight::get().reads(2 as Weight))
-			.saturating_add(RocksDbWeight::get().writes(2 as Weight))
+			.saturating_add(Weight::from_ref_time(5_697_000 as u64).saturating_mul(u as u64))
+			.saturating_add(RocksDbWeight::get().reads(2 as u64))
+			.saturating_add(RocksDbWeight::get().writes(2 as u64))
 	}
 	// Storage: Oracle AuthorizedOracles (r:0 w:1)
 	fn insert_authorized_oracle() -> Weight {
-		(4_690_000 as Weight)
-			.saturating_add(RocksDbWeight::get().writes(1 as Weight))
+		Weight::from_ref_time(4_690_000 as u64)
+			.saturating_add(RocksDbWeight::get().writes(1 as u64))
 	}
 	// Storage: Oracle AuthorizedOracles (r:0 w:1)
 	fn remove_authorized_oracle() -> Weight {
-		(4_367_000 as Weight)
-			.saturating_add(RocksDbWeight::get().writes(1 as Weight))
+		Weight::from_ref_time(4_367_000 as u64)
+			.saturating_add(RocksDbWeight::get().writes(1 as u64))
 	}
 }
 

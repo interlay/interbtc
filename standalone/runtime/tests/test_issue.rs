@@ -1,7 +1,6 @@
 mod mock;
 
 use currency::Amount;
-use frame_support::assert_err;
 use mock::{assert_eq, issue_testing_utils::*, *};
 
 fn test_with<R>(execute: impl Fn(VaultId) -> R) {

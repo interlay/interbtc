@@ -4,7 +4,6 @@ use cumulus_primitives_core::ParaId;
 use frame_support::{
     parameter_types,
     traits::{Everything, Get, Nothing},
-    weights::Weight,
 };
 use orml_asset_registry::{AssetRegistryTrader, FixedRateAssetRegistryTrader};
 use orml_traits::{
@@ -14,7 +13,7 @@ use orml_xcm_support::{DepositToAlternative, IsNativeConcrete, MultiCurrencyAdap
 use pallet_xcm::XcmPassthrough;
 use polkadot_parachain::primitives::Sibling;
 use sp_runtime::WeakBoundedVec;
-use xcm::latest::prelude::*;
+use xcm::latest::{prelude::*, Weight};
 use xcm_builder::{
     AccountId32Aliases, AllowKnownQueryResponses, AllowSubscriptionsFrom, AllowTopLevelPaidExecutionFrom,
     EnsureXcmOrigin, FixedRateOfFungible, FixedWeightBounds, LocationInverter, NativeAsset, ParentIsPreset,
@@ -83,8 +82,8 @@ fn base_tx_in_ksm() -> Balance {
 }
 
 pub fn ksm_per_second() -> u128 {
-    let base_weight = Balance::from(ExtrinsicBaseWeight::get());
-    let base_tx_per_second = (WEIGHT_PER_SECOND as u128) / base_weight;
+    let base_weight = Balance::from(ExtrinsicBaseWeight::get().ref_time());
+    let base_tx_per_second = (WEIGHT_PER_SECOND.ref_time() as u128) / base_weight;
     base_tx_per_second * base_tx_in_ksm()
 }
 
