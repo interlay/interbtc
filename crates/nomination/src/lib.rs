@@ -89,7 +89,7 @@ pub mod pallet {
         /// Nomination is not enabled.
         VaultNominationDisabled,
         /// Nomination would overburden Vault.
-        DepositViolatesMaxNominationRatio,
+        NominationExceedsLimit,
         /// Vault cannot withdraw.
         CollateralizationTooLow,
     }
@@ -105,6 +105,11 @@ pub mod pallet {
     /// Map of Vaults who have enabled nomination
     #[pallet::storage]
     pub(super) type Vaults<T: Config> = StorageMap<_, Blake2_128Concat, DefaultVaultId<T>, bool, ValueQuery>;
+
+    /// The maximum amount of collateral to be nominated for a given vault.
+    #[pallet::storage]
+    pub(super) type NominationLimit<T: Config> =
+        StorageMap<_, Blake2_128Concat, DefaultVaultId<T>, BalanceOf<T>, ValueQuery>;
 
     #[pallet::genesis_config]
     pub struct GenesisConfig {
@@ -199,6 +204,21 @@ pub mod pallet {
             Self::_withdraw_collateral(&vault_id, &nominator_id, amount, index.unwrap_or_default())?;
             Ok(().into())
         }
+
+        #[pallet::weight(<T as Config>::WeightInfo::set_nomination_limit())]
+        #[transactional]
+        pub fn set_nomination_limit(
+            origin: OriginFor<T>,
+            currency_pair: DefaultVaultCurrencyPair<T>,
+            limit: BalanceOf<T>,
+        ) -> DispatchResultWithPostInfo {
+            ext::security::ensure_parachain_status_running::<T>()?;
+            let account_id = ensure_signed(origin)?;
+            let vault_id = VaultId::new(account_id, currency_pair.collateral, currency_pair.wrapped);
+
+            NominationLimit::<T>::insert(vault_id, limit);
+            Ok(().into())
+        }
     }
 }
 
@@ -256,14 +276,12 @@ impl<T: Config> Pallet<T> {
 
         let amount = Amount::new(amount, vault_id.collateral_currency());
 
-        let vault_backing_collateral = ext::vault_registry::get_backing_collateral::<T>(vault_id)?;
         let total_nominated_collateral = Self::get_total_nominated_collateral(vault_id)?;
         let new_nominated_collateral = total_nominated_collateral.checked_add(&amount)?;
-        let max_nominatable_collateral =
-            ext::vault_registry::get_max_nominatable_collateral::<T>(&vault_backing_collateral, &vault_id.currencies)?;
+        let max_nominatable_collateral = Self::get_nomination_limit(vault_id);
         ensure!(
             new_nominated_collateral.le(&max_nominatable_collateral)?,
-            Error::<T>::DepositViolatesMaxNominationRatio
+            Error::<T>::NominationExceedsLimit
         );
 
         // Withdraw all vault rewards first, to prevent the nominator from withdrawing past rewards
@@ -334,6 +352,10 @@ impl<T: Config> Pallet<T> {
         let vault_backing_collateral = ext::vault_registry::get_backing_collateral::<T>(vault_id)?;
         let vault_actual_collateral = ext::vault_registry::compute_collateral::<T>(vault_id)?;
         vault_backing_collateral.checked_sub(&vault_actual_collateral)
+    }
+    pub fn get_nomination_limit(vault_id: &DefaultVaultId<T>) -> Amount<T> {
+        let limit = NominationLimit::<T>::get(vault_id);
+        Amount::new(limit, vault_id.collateral_currency())
     }
 
     pub fn get_nominator_collateral(
