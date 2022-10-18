@@ -448,13 +448,13 @@ type EnsureRootOrAllTechnicalCommittee = EitherOfDiverse<
 
 parameter_types! {
     pub const LaunchPeriod: BlockNumber = 7 * DAYS;
-    pub const VotingPeriod: BlockNumber = 7 * DAYS;
+    pub const VotingPeriod: BlockNumber = 2 * DAYS;
     pub const FastTrackVotingPeriod: BlockNumber = 3 * HOURS;
     // Require 5 vKINT to make a proposal. Given the crowdloan airdrop, this qualifies about 3500
     // accounts to make a governance proposal. Only 2300 can do two proposals,
     // and 700 accounts can do ten or more proposals.
     pub MinimumDeposit: Balance = 5 * UNITS;
-    pub const EnactmentPeriod: BlockNumber = DAYS;
+    pub const EnactmentPeriod: BlockNumber = 6 * HOURS;
     pub PreimageByteDeposit: Balance = 10 * MILLICENTS;
     pub const MaxVotes: u32 = 100;
     pub const MaxProposals: u32 = 100;
