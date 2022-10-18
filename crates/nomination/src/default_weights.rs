@@ -130,8 +130,8 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	}
 	// Storage: Nomination Nominationlimit (r:0 w:1)
 	fn set_nomination_limit() -> Weight {
-		(2_835_000 as Weight)
-			.saturating_add(T::DbWeight::get().writes(1 as Weight))
+		Weight::from_ref_time(2_835_000 as u64)
+			.saturating_add(T::DbWeight::get().writes(1 as u64))
 	}
 }
 
@@ -222,8 +222,8 @@ impl WeightInfo for () {
 	}
 	// Storage: Nomination NominationLimit (r:0 w:1)
 	fn set_nomination_limit() -> Weight {
-		(2_835_000 as Weight)
-			.saturating_add(RocksDbWeight::get().writes(1 as Weight))
+		Weight::from_ref_time(2_835_000 as u64)
+			.saturating_add(RocksDbWeight::get().writes(1 as u64))
 	}
 }
 
