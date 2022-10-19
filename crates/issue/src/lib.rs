@@ -173,7 +173,7 @@ pub mod pallet {
 
     #[pallet::type_value]
     pub(super) fn DefaultForStorageVersion() -> Version {
-        Version::V0
+        Version::V4
     }
 
     /// Build storage at V1 (requires default 0).
