@@ -2,6 +2,7 @@ mod mock;
 
 use std::str::FromStr;
 
+use crate::loans_testing_utils::{activate_market, mint_ptokens};
 use currency::Amount;
 use mock::{assert_eq, redeem_testing_utils::*, *};
 
@@ -13,6 +14,10 @@ fn test_with<R>(execute: impl Fn(VaultId) -> R) {
             assert_ok!(OraclePallet::_set_exchange_rate(collateral_id, FixedU128::one()));
             if wrapped_id != Token(IBTC) {
                 assert_ok!(OraclePallet::_set_exchange_rate(wrapped_id, FixedU128::one()));
+            }
+            activate_market(Token(DOT), PToken(1));
+            for account in iter_endowed_with_ptoken() {
+                mint_ptokens(account, Token(DOT));
             }
             set_default_thresholds();
             LiquidationVaultData::force_to(default_liquidation_vault_state(&vault_id.currencies));
@@ -38,6 +43,7 @@ fn test_with<R>(execute: impl Fn(VaultId) -> R) {
     test_with(Token(DOT), Token(IBTC), Some(Token(KSM)));
     test_with(Token(KSM), Token(IBTC), None);
     test_with(ForeignAsset(1), Token(IBTC), None);
+    test_with(PToken(1), Token(IBTC), None);
 }
 
 /// to-be-replaced & replace_collateral are decreased in request_redeem
@@ -1354,7 +1360,7 @@ fn integration_test_premium_redeem_wrapped_execute() {
 
         // make vault undercollateralized. Note that we place it under the liquidation threshold
         // as well, but as long as we don't call liquidate that's ok
-        assert_ok!(OraclePallet::_set_exchange_rate(currency_id, FixedU128::from(100)));
+        set_collateral_price(&vault_id, FixedU128::from(100));
 
         // alice requests to redeem issued_tokens from Bob
         assert_ok!(Call::Redeem(RedeemCall::request_redeem {

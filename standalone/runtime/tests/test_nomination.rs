@@ -1,5 +1,6 @@
 mod mock;
 
+use crate::loans_testing_utils::{activate_market, mint_ptokens};
 use currency::Amount;
 use mock::{assert_eq, nomination_testing_utils::*, *};
 use sp_runtime::traits::{CheckedDiv, CheckedSub};
@@ -14,6 +15,10 @@ fn test_with<R>(execute: impl Fn(VaultId) -> R) {
             if wrapped_id != Token(IBTC) {
                 assert_ok!(OraclePallet::_set_exchange_rate(wrapped_id, FixedU128::one()));
             }
+            activate_market(Token(DOT), PToken(1));
+            for account in iter_endowed_with_ptoken() {
+                mint_ptokens(account, Token(DOT));
+            }
             UserData::force_to(USER, default_user_state());
             let vault_id = PrimitiveVaultId::new(account_of(VAULT), currency_id, wrapped_id);
             LiquidationVaultData::force_to(default_liquidation_vault_state(&vault_id.currencies));
@@ -26,6 +31,7 @@ fn test_with<R>(execute: impl Fn(VaultId) -> R) {
     test_with(Token(KSM), Token(IBTC));
     test_with(Token(DOT), Token(IBTC));
     test_with(ForeignAsset(1), Token(IBTC));
+    // test_with(PToken(1), Token(IBTC));
 }
 
 fn test_with_nomination_enabled<R>(execute: impl Fn(VaultId) -> R) {

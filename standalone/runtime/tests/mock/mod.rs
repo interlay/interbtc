@@ -21,6 +21,7 @@ pub use interbtc_runtime_standalone::{
 };
 pub use mocktopus::mocking::*;
 pub use orml_tokens::CurrencyAdapter;
+use pallet_traits::Loans;
 pub use primitives::{
     CurrencyId::{ForeignAsset, PToken, Token},
     Rate, Ratio, VaultCurrencyPair, VaultId as PrimitiveVaultId, DOT, IBTC, INTR, KBTC, KINT, KSM,
@@ -47,7 +48,7 @@ use std::collections::BTreeMap;
 pub use std::convert::TryFrom;
 pub use vault_registry::{CurrencySource, DefaultVaultId, Vault, VaultStatus};
 
-use self::redeem_testing_utils::USER_BTC_ADDRESS;
+use self::{issue_testing_utils::VAULT, redeem_testing_utils::USER_BTC_ADDRESS};
 
 pub mod issue_testing_utils;
 pub mod loans_testing_utils;
@@ -217,7 +218,7 @@ pub fn vault_id_of(id: [u8; 32], collateral_currency: CurrencyId) -> VaultId {
 
 pub fn default_user_state() -> UserData {
     let mut balances = BTreeMap::new();
-    for currency_id in iter_collateral_currencies() {
+    for currency_id in iter_collateral_currencies_and_ptokens() {
         balances.insert(
             currency_id,
             AccountData {
@@ -355,15 +356,6 @@ impl Wrapped for VaultId {
     }
 }
 
-pub fn iter_currency_pairs() -> impl Iterator<Item = DefaultVaultCurrencyPair<Runtime>> {
-    iter_collateral_currencies().flat_map(|collateral_id| {
-        iter_wrapped_currencies().map(move |wrapped_id| VaultCurrencyPair {
-            collateral: collateral_id,
-            wrapped: wrapped_id,
-        })
-    })
-}
-
 pub fn iter_currency_pairs_with_ptokens() -> impl Iterator<Item = DefaultVaultCurrencyPair<Runtime>> {
     iter_collateral_currencies_and_ptokens().flat_map(|collateral_id| {
         iter_wrapped_currencies().map(move |wrapped_id| VaultCurrencyPair {
@@ -371,6 +363,20 @@ pub fn iter_currency_pairs_with_ptokens() -> impl Iterator<Item = DefaultVaultCu
             wrapped: wrapped_id,
         })
     })
+}
+
+pub fn iter_endowed_with_ptoken() -> impl Iterator<Item = AccountId> {
+    vec![
+        account_of(ALICE),
+        account_of(BOB),
+        account_of(CAROL),
+        account_of(DAVE),
+        account_of(EVE),
+        account_of(FRANK),
+        account_of(GRACE),
+        account_of(FAUCET),
+    ]
+    .into_iter()
 }
 
 pub fn iter_collateral_currencies() -> impl Iterator<Item = CurrencyId> {
@@ -392,7 +398,7 @@ pub fn iter_wrapped_currencies() -> impl Iterator<Item = CurrencyId> {
 }
 
 pub fn iter_all_currencies() -> impl Iterator<Item = CurrencyId> {
-    iter_collateral_currencies()
+    iter_collateral_currencies_and_ptokens()
         .chain(iter_native_currencies())
         .chain(iter_wrapped_currencies())
 }
@@ -799,7 +805,7 @@ pub struct LiquidationVaultData {
 
 impl LiquidationVaultData {
     pub fn get() -> Self {
-        let liquidation_vaults = iter_currency_pairs()
+        let liquidation_vaults = iter_currency_pairs_with_ptokens()
             .map(|currency_pair| {
                 let vault = VaultRegistryPallet::get_liquidation_vault(&currency_pair);
                 let data = SingleLiquidationVault {
@@ -824,7 +830,7 @@ impl LiquidationVaultData {
         let mut ret = Self {
             liquidation_vaults: BTreeMap::new(),
         };
-        for pair in iter_currency_pairs() {
+        for pair in iter_currency_pairs_with_ptokens() {
             if &pair == currency_pair {
                 ret.liquidation_vaults
                     .insert(pair.clone(), SingleLiquidationVault::zero(&pair));
@@ -969,18 +975,21 @@ impl ParachainTwoVaultState {
     }
 }
 
+pub fn set_collateral_price(vault_id: &VaultId, price: FixedU128) {
+    let currency_to_set = if vault_id.currencies.collateral.is_ptoken() {
+        LoansPallet::underlying_id(vault_id.currencies.collateral).unwrap()
+    } else {
+        vault_id.currencies.collateral
+    };
+    assert_ok!(OraclePallet::_set_exchange_rate(currency_to_set, price));
+}
+
 pub fn liquidate_vault(vault_id: &VaultId) {
     VaultRegistryPallet::collateral_integrity_check();
 
-    assert_ok!(OraclePallet::_set_exchange_rate(
-        vault_id.currencies.collateral,
-        FixedU128::checked_from_integer(10_000_000_000u128).unwrap()
-    ));
+    set_collateral_price(vault_id, FixedU128::checked_from_integer(10_000_000_000u128).unwrap());
     assert_ok!(VaultRegistryPallet::liquidate_vault(&vault_id));
-    assert_ok!(OraclePallet::_set_exchange_rate(
-        vault_id.currencies.collateral,
-        FixedU128::checked_from_integer(1u128).unwrap()
-    ));
+    set_collateral_price(vault_id, FixedU128::checked_from_integer(1u128).unwrap());
 
     assert_eq!(
         CurrencySource::<Runtime>::AvailableReplaceCollateral(vault_id.clone())
