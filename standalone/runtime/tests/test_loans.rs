@@ -80,11 +80,9 @@ fn integration_test_liquidation() {
         })
         .dispatch(origin_of(account_of(LP))));
 
-        assert_ok!(Call::Loans(LoansCall::collateral_asset {
-            asset_id: kint,
-            enable: true,
-        })
-        .dispatch(origin_of(account_of(USER))));
+        assert_ok!(
+            Call::Loans(LoansCall::deposit_all_collateral { asset_id: kint }).dispatch(origin_of(account_of(USER)))
+        );
 
         assert_err!(
             Call::Loans(LoansCall::borrow {

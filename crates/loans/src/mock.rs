@@ -17,6 +17,7 @@
 
 pub use super::*;
 
+use currency::Amount;
 use frame_benchmarking::whitelisted_caller;
 use frame_support::{
     construct_runtime, parameter_types,
@@ -24,6 +25,7 @@ use frame_support::{
     PalletId,
 };
 use frame_system::EnsureRoot;
+use mocktopus::{macros::mockable, mocking::*};
 use orml_traits::{parameter_type_with_key, DataFeeder, DataProvider, DataProviderExtended};
 use pallet_traits::{VaultTokenCurrenciesFilter, VaultTokenExchangeRateProvider};
 use primitives::{
@@ -31,7 +33,7 @@ use primitives::{
     Moment, PriceDetail, CDOT, CIBTC, CKBTC, CKINT, CKSM, DOT, IBTC, INTR, KBTC, KINT, KSM,
 };
 use sp_core::H256;
-use sp_runtime::{testing::Header, traits::IdentityLookup, AccountId32};
+use sp_runtime::{testing::Header, traits::IdentityLookup, AccountId32, FixedI128};
 use sp_std::vec::Vec;
 use std::{cell::RefCell, collections::HashMap};
 
@@ -48,6 +50,7 @@ construct_runtime!(
         Loans: crate::{Pallet, Storage, Call, Event<T>},
         TimestampPallet: pallet_timestamp::{Pallet, Call, Storage, Inherent},
         Tokens: orml_tokens::{Pallet, Call, Storage, Config<T>, Event<T>},
+        Currency: currency::{Pallet},
     }
 );
 
@@ -119,12 +122,55 @@ impl orml_tokens::Config for Test {
     type WeightInfo = ();
     type ExistentialDeposits = ExistentialDeposits;
     type OnDust = ();
+    type OnSlash = OnSlashHook<Test>;
+    type OnDeposit = OnDepositHook<Test>;
+    type OnTransfer = OnTransferHook<Test>;
     type MaxLocks = MaxLocks;
     type DustRemovalWhitelist = Everything;
     type MaxReserves = ConstU32<0>; // we don't use named reserves
     type ReserveIdentifier = (); // we don't use named reserves
     type OnNewTokenAccount = ();
     type OnKilledTokenAccount = ();
+}
+
+pub type SignedFixedPoint = FixedI128;
+pub type SignedInner = i128;
+pub type UnsignedFixedPoint = FixedU128;
+pub struct CurrencyConvert;
+impl currency::CurrencyConversion<currency::Amount<Test>, CurrencyId> for CurrencyConvert {
+    fn convert(
+        amount: &currency::Amount<Test>,
+        to: CurrencyId,
+    ) -> Result<currency::Amount<Test>, sp_runtime::DispatchError> {
+        let amount = convert_to(to, amount.amount())?;
+        Ok(Amount::new(amount, to))
+    }
+}
+
+#[cfg_attr(test, mockable)]
+pub fn convert_to(to: CurrencyId, amount: Balance) -> Result<Balance, sp_runtime::DispatchError> {
+    Ok(amount) // default conversion 1:1 - overwritable with mocktopus
+}
+
+pub const DEFAULT_COLLATERAL_CURRENCY: CurrencyId = Token(DOT);
+pub const DEFAULT_NATIVE_CURRENCY: CurrencyId = Token(INTR);
+pub const DEFAULT_WRAPPED_CURRENCY: CurrencyId = Token(IBTC);
+
+parameter_types! {
+    pub const GetCollateralCurrencyId: CurrencyId = DEFAULT_COLLATERAL_CURRENCY;
+    pub const GetNativeCurrencyId: CurrencyId = DEFAULT_NATIVE_CURRENCY;
+    pub const GetWrappedCurrencyId: CurrencyId = DEFAULT_WRAPPED_CURRENCY;
+}
+
+impl currency::Config for Test {
+    type SignedInner = SignedInner;
+    type SignedFixedPoint = SignedFixedPoint;
+    type UnsignedFixedPoint = UnsignedFixedPoint;
+    type Balance = Balance;
+    type GetNativeCurrencyId = GetNativeCurrencyId;
+    type GetRelayChainCurrencyId = GetCollateralCurrencyId;
+    type GetWrappedCurrencyId = GetWrappedCurrencyId;
+    type CurrencyConversion = CurrencyConvert;
 }
 
 // pallet-price is using for benchmark compilation

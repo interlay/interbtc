@@ -37,8 +37,8 @@ staking = { path = "../staking", default-features = false }
 primitives = { package = "interbtc-primitives", path = "../../primitives", default-features = false }
 
 # Orml dependencies
-orml-tokens = { git = "https://github.com/open-web3-stack/open-runtime-module-library", rev = "8c625a5ab43c1c56cdeed5f8d814a891566d4cf8", default-features = false }
-orml-traits = { git = "https://github.com/open-web3-stack/open-runtime-module-library", rev = "8c625a5ab43c1c56cdeed5f8d814a891566d4cf8", default-features = false }
+orml-tokens = { git = "https://github.com/interlay/open-runtime-module-library", branch = "dan/hooks-weights-v1", default-features = false }
+orml-traits = { git = "https://github.com/interlay/open-runtime-module-library", branch = "dan/hooks-weights-v1", default-features = false }
 
 [dev-dependencies]
 mocktopus = "0.7.0"

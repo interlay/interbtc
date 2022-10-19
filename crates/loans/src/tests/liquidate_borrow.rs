@@ -3,7 +3,7 @@ use crate::{
     tests::unit,
     Error, MarketState,
 };
-use frame_support::{assert_err, assert_noop, assert_ok, traits::fungibles::Inspect};
+use frame_support::{assert_noop, assert_ok, traits::fungibles::Inspect};
 use primitives::{
     CurrencyId::{self, Token},
     Rate, DOT as DOT_CURRENCY, KBTC as KBTC_CURRENCY, KSM as KSM_CURRENCY,
@@ -52,9 +52,17 @@ fn deposit_of_borrower_must_be_collateral() {
             Loans::liquidate_borrow_allowed(&ALICE, KSM, unit(51), &market),
             Error::<Test>::TooMuchRepay
         );
+
+        // Previously (in Parallel's original implementation), this extrinsic call used to
+        // return a `DepositsAreNotCollateral` error.
+        // However, because the collateral "toggle" has been removed, the extrinsic looks
+        // directly inside the `AccountDeposits` map, which no longer represents ptoken holdings
+        // but rather ptokens that have been locked as collateral.
+        // Since no KSM ptokens have been locked as collateral in this test, there will be zero
+        // collateral available for paying the liquidator, thus producing the error below.
         assert_noop!(
             Loans::liquidate_borrow(Origin::signed(BOB), ALICE, KSM, 10, DOT),
-            Error::<Test>::DepositsAreNotCollateral
+            Error::<Test>::InsufficientCollateral
         );
     })
 }
@@ -97,22 +105,24 @@ fn full_workflow_works_as_expected() {
         // Bob DOT collateral: incentive = 110-(110/1.1*0.03)=107
         assert_eq!(Tokens::balance(USDT, &ALICE), unit(800),);
         assert_eq!(
-            Loans::exchange_rate(USDT).saturating_mul_int(Loans::account_deposits(USDT, ALICE).voucher_balance),
+            Loans::exchange_rate(USDT).saturating_mul_int(Tokens::balance(Loans::ptoken_id(USDT).unwrap(), &ALICE)),
             unit(90),
         );
         assert_eq!(Tokens::balance(KSM, &ALICE), unit(1100),);
         assert_eq!(Loans::account_borrows(KSM, ALICE).principal, unit(50));
         assert_eq!(Tokens::balance(KSM, &BOB), unit(750));
         assert_eq!(
-            Loans::exchange_rate(USDT).saturating_mul_int(Loans::account_deposits(USDT, BOB).voucher_balance),
+            Loans::exchange_rate(USDT).saturating_mul_int(Tokens::balance(Loans::ptoken_id(USDT).unwrap(), &BOB)),
             unit(107),
         );
         // 3 dollar reserved in our incentive reward account
         let incentive_reward_account = Loans::incentive_reward_account_id().unwrap();
         println!("incentive reserve account:{:?}", incentive_reward_account.clone());
         assert_eq!(
-            Loans::exchange_rate(USDT)
-                .saturating_mul_int(Loans::account_deposits(USDT, incentive_reward_account.clone()).voucher_balance),
+            Loans::exchange_rate(USDT).saturating_mul_int(Tokens::balance(
+                Loans::ptoken_id(USDT).unwrap(),
+                &incentive_reward_account.clone()
+            )),
             unit(3),
         );
         assert_eq!(Tokens::balance(USDT, &ALICE), unit(800),);
@@ -120,8 +130,10 @@ fn full_workflow_works_as_expected() {
         assert_ok!(Loans::reduce_incentive_reserves(Origin::root(), ALICE, USDT, unit(2),));
         // still 1 dollar left in reserve account
         assert_eq!(
-            Loans::exchange_rate(USDT)
-                .saturating_mul_int(Loans::account_deposits(USDT, incentive_reward_account).voucher_balance),
+            Loans::exchange_rate(USDT).saturating_mul_int(Tokens::balance(
+                Loans::ptoken_id(USDT).unwrap(),
+                &incentive_reward_account
+            )),
             unit(1),
         );
         // 2 dollar transfer to alice
@@ -180,5 +192,5 @@ fn initial_setup() {
     assert_ok!(Loans::mint(Origin::signed(BOB), KSM, unit(200)));
     // Alice deposits 200 DOT as collateral
     assert_ok!(Loans::mint(Origin::signed(ALICE), USDT, unit(200)));
-    assert_ok!(Loans::collateral_asset(Origin::signed(ALICE), USDT, true));
+    assert_ok!(Loans::deposit_all_collateral(Origin::signed(ALICE), USDT));
 }

@@ -22,7 +22,9 @@ use sp_std::prelude::*;
 pub trait Loans<CurrencyId, AccountId, Balance> {
     fn do_mint(supplier: &AccountId, asset_id: CurrencyId, amount: Balance) -> Result<(), DispatchError>;
     fn do_borrow(borrower: &AccountId, asset_id: CurrencyId, amount: Balance) -> Result<(), DispatchError>;
-    fn do_collateral_asset(supplier: &AccountId, asset_id: CurrencyId, enable: bool) -> Result<(), DispatchError>;
+    fn do_deposit_collateral(supplier: &AccountId, asset_id: CurrencyId, amount: Balance) -> Result<(), DispatchError>;
+    fn do_withdraw_collateral(supplier: &AccountId, asset_id: CurrencyId, amount: Balance)
+        -> Result<(), DispatchError>;
     fn do_repay_borrow(borrower: &AccountId, asset_id: CurrencyId, amount: Balance) -> Result<(), DispatchError>;
     fn do_redeem(supplier: &AccountId, asset_id: CurrencyId, amount: Balance) -> Result<(), DispatchError>;
 }

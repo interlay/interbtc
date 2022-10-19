@@ -55,7 +55,7 @@ impl<T: Config> Pallet<T> {
         asset_id: AssetIdOf<T>,
     ) -> Result<(Rate, Rate, Rate, Ratio, BalanceOf<T>, BalanceOf<T>, FixedU128), DispatchError> {
         let market = Self::market(asset_id)?;
-        let total_supply = Self::total_supply(asset_id);
+        let total_supply = Self::total_supply(asset_id)?;
         let total_cash = Self::get_total_cash(asset_id);
         let mut total_borrows = Self::total_borrows(asset_id);
         let mut total_reserves = Self::total_reserves(asset_id);
@@ -105,7 +105,7 @@ impl<T: Config> Pallet<T> {
     /// This function does not accrue interest before calculating the exchange rate.
     /// exchangeRate = (totalCash + totalBorrows - totalReserves) / totalSupply
     pub fn exchange_rate_stored(asset_id: AssetIdOf<T>) -> Result<Rate, DispatchError> {
-        let total_supply = Self::total_supply(asset_id);
+        let total_supply = Self::total_supply(asset_id)?;
         let total_cash = Self::get_total_cash(asset_id);
         let total_borrows = Self::total_borrows(asset_id);
         let total_reserves = Self::total_reserves(asset_id);

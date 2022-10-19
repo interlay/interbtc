@@ -491,3 +491,17 @@ pub struct CustomMetadata {
     pub fee_per_second: u128,
     pub coingecko_id: Vec<u8>,
 }
+
+impl CurrencyId {
+    pub fn is_ctoken(&self) -> bool {
+        match self {
+            CurrencyId::Token(CDOT)
+            | CurrencyId::Token(CIBTC)
+            | CurrencyId::Token(CINTR)
+            | CurrencyId::Token(CKSM)
+            | CurrencyId::Token(CKBTC)
+            | CurrencyId::Token(CKINT) => true,
+            _ => false,
+        }
+    }
+}

@@ -35,8 +35,8 @@ vault-registry = { path = "../vault-registry", default-features = false }
 primitives = { package = "interbtc-primitives", path = "../../primitives", default-features = false }
 
 # Orml dependencies
-orml-tokens = { git = "https://github.com/open-web3-stack/open-runtime-module-library", rev = "8c625a5ab43c1c56cdeed5f8d814a891566d4cf8", default-features = false, optional = true }
-orml-traits = { git = "https://github.com/open-web3-stack/open-runtime-module-library", rev = "8c625a5ab43c1c56cdeed5f8d814a891566d4cf8", default-features = false, optional = true }
+orml-tokens = { git = "https://github.com/interlay/open-runtime-module-library", branch = "dan/hooks-weights-v1", default-features = false, optional = true }
+orml-traits = { git = "https://github.com/interlay/open-runtime-module-library", branch = "dan/hooks-weights-v1", default-features = false, optional = true }
 
 [dev-dependencies]
 mocktopus = "0.7.0"
@@ -47,8 +47,8 @@ reward = { path = "../reward" }
 staking = { path = "../staking" }
 
 # Orml dependencies
-orml-tokens = { git = "https://github.com/open-web3-stack/open-runtime-module-library", rev = "8c625a5ab43c1c56cdeed5f8d814a891566d4cf8" }
-orml-traits = { git = "https://github.com/open-web3-stack/open-runtime-module-library", rev = "8c625a5ab43c1c56cdeed5f8d814a891566d4cf8" }
+orml-tokens = { git = "https://github.com/interlay/open-runtime-module-library", branch = "dan/hooks-weights-v1" }
+orml-traits = { git = "https://github.com/interlay/open-runtime-module-library", branch = "dan/hooks-weights-v1" }
 
 [features]
 default = ["std"]

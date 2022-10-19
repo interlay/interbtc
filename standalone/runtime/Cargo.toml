@@ -89,10 +89,10 @@ module-redeem-rpc-runtime-api = { path = "../../crates/redeem/rpc/runtime-api", 
 module-replace-rpc-runtime-api = { path = "../../crates/replace/rpc/runtime-api", default-features = false }
 
 # Orml dependencies
-orml-tokens = { git = "https://github.com/open-web3-stack/open-runtime-module-library", rev = "8c625a5ab43c1c56cdeed5f8d814a891566d4cf8", default-features = false }
-orml-traits = { git = "https://github.com/open-web3-stack/open-runtime-module-library", rev = "8c625a5ab43c1c56cdeed5f8d814a891566d4cf8", default-features = false }
-orml-vesting = { git = "https://github.com/open-web3-stack/open-runtime-module-library", rev = "8c625a5ab43c1c56cdeed5f8d814a891566d4cf8", default-features = false }
-orml-asset-registry = { git = "https://github.com/open-web3-stack/open-runtime-module-library", rev = "8c625a5ab43c1c56cdeed5f8d814a891566d4cf8", default-features = false }
+orml-tokens = { git = "https://github.com/interlay/open-runtime-module-library", branch = "dan/hooks-weights-v1", default-features = false }
+orml-traits = { git = "https://github.com/interlay/open-runtime-module-library", branch = "dan/hooks-weights-v1", default-features = false }
+orml-vesting = { git = "https://github.com/interlay/open-runtime-module-library", branch = "dan/hooks-weights-v1", default-features = false }
+orml-asset-registry = { git = "https://github.com/interlay/open-runtime-module-library", branch = "dan/hooks-weights-v1", default-features = false }
 
 xcm-builder = { git = "https://github.com/paritytech/polkadot", branch = "release-v0.9.26", default-features = false }
 
