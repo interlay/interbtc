@@ -31,7 +31,7 @@ fn test_with<R>(execute: impl Fn(VaultId) -> R) {
     test_with(Token(KSM), Token(IBTC));
     test_with(Token(DOT), Token(IBTC));
     test_with(ForeignAsset(1), Token(IBTC));
-    // test_with(PToken(1), Token(IBTC));
+    test_with(PToken(1), Token(IBTC));
 }
 
 fn test_with_nomination_enabled<R>(execute: impl Fn(VaultId) -> R) {
@@ -353,10 +353,8 @@ mod spec_based_tests {
             .dispatch(origin_of(account_of(VAULT))));
             assert_nomination_opt_in(&vault_id);
             assert_nominate_collateral(&vault_id, account_of(USER), default_nomination(&vault_id));
-            assert_ok!(OraclePallet::_set_exchange_rate(
-                vault_id.collateral_currency(),
-                FixedU128::checked_from_integer(3u128).unwrap()
-            ));
+            set_collateral_price(&vault_id, FixedU128::checked_from_integer(3u128).unwrap());
+
             assert_noop!(
                 withdraw_nominator_collateral(account_of(USER), &vault_id, default_nomination(&vault_id)),
                 NominationError::CannotWithdrawCollateral
@@ -550,10 +548,7 @@ fn integration_test_nominator_withdrawal_below_collateralization_threshold_fails
         .dispatch(origin_of(account_of(VAULT))));
         assert_nomination_opt_in(&vault_id);
         assert_nominate_collateral(&vault_id, account_of(USER), default_nomination(&vault_id));
-        assert_ok!(OraclePallet::_set_exchange_rate(
-            vault_id.collateral_currency(),
-            FixedU128::checked_from_integer(3u128).unwrap()
-        ));
+        set_collateral_price(&vault_id, FixedU128::checked_from_integer(3u128).unwrap());
         assert_noop!(
             withdraw_nominator_collateral(account_of(USER), &vault_id, default_nomination(&vault_id)),
             NominationError::CannotWithdrawCollateral
