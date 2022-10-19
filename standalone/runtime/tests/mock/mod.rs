@@ -90,6 +90,9 @@ pub const DEFAULT_VAULT_REPLACE_COLLATERAL: Amount<Runtime> = griefing(20_000);
 
 pub const DEFAULT_GRIEFING_COLLATERAL: Amount<Runtime> = griefing(5_000);
 
+pub const DEFAULT_MAX_EXCHANGE_RATE: u128 = 100_000_000_000_000_000_000; // 100, normally 1
+pub const DEFAULT_MIN_EXCHANGE_RATE: u128 = 1_000_000_000_000_000_000; // 1, normally 0.02
+
 pub fn default_user_free_balance(currency_id: CurrencyId) -> Amount<Runtime> {
     Amount::new(1_000_000, currency_id)
 }
@@ -1474,6 +1477,15 @@ impl ExtBuilder {
             inflation: FixedU128::checked_from_rational(2, 100).unwrap(), // 2%
         }
         .assimilate_storage(&mut storage)
+        .unwrap();
+
+        GenesisBuild::<Runtime>::assimilate_storage(
+            &pallet_loans::GenesisConfig {
+                max_exchange_rate: Rate::from_inner(DEFAULT_MAX_EXCHANGE_RATE),
+                min_exchange_rate: Rate::from_inner(DEFAULT_MIN_EXCHANGE_RATE),
+            },
+            &mut storage,
+        )
         .unwrap();
 
         Self {

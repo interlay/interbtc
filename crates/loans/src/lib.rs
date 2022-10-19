@@ -75,14 +75,6 @@ mod types;
 
 pub mod weights;
 
-pub const MAX_INTEREST_CALCULATING_INTERVAL: u64 = 5 * 24 * 3600; // 5 days
-pub const MIN_INTEREST_CALCULATING_INTERVAL: u64 = 100; // 100 seconds
-
-// TODO: If the exchange rate ever exceeds this, the corresponding market will become unusable.
-// Refactor these constants to storage items.
-pub const MAX_EXCHANGE_RATE: u128 = 1_000_000_000_000_000_000_00; // 1
-pub const MIN_EXCHANGE_RATE: u128 = 1_000_000_000_000_000_000; // 0.02
-
 type AccountIdOf<T> = <T as frame_system::Config>::AccountId;
 type AssetIdOf<T> = <<T as Config>::Assets as Inspect<<T as frame_system::Config>::AccountId>>::AssetId;
 type BalanceOf<T> = <<T as Config>::Assets as Inspect<<T as frame_system::Config>::AccountId>>::Balance;
@@ -446,6 +438,18 @@ pub mod pallet {
     #[pallet::getter(fn reward_accrued)]
     pub type RewardAccrued<T: Config> = StorageMap<_, Blake2_128Concat, T::AccountId, BalanceOf<T>, ValueQuery>;
 
+    /// The maximum allowed exchange rate for a market.
+    #[pallet::storage]
+    #[pallet::storage_prefix = "MaxExchangeRate"]
+    #[pallet::getter(fn max_exchange_rate)]
+    pub type MaxExchangeRate<T: Config> = StorageValue<_, Rate, ValueQuery>;
+
+    /// The minimum allowed exchange rate for a market.
+    #[pallet::storage]
+    #[pallet::storage_prefix = "MinExchangeRate"]
+    #[pallet::getter(fn min_exchange_rate)]
+    pub type MinExchangeRate<T: Config> = StorageValue<_, Rate, ValueQuery>;
+
     /// DefaultVersion is using for initialize the StorageVersion
     #[pallet::type_value]
     pub(super) fn DefaultVersion<T: Config>() -> Versions {
@@ -455,6 +459,30 @@ pub mod pallet {
     /// Storage version of the pallet.
     #[pallet::storage]
     pub(crate) type StorageVersion<T: Config> = StorageValue<_, Versions, ValueQuery, DefaultVersion<T>>;
+
+    #[pallet::genesis_config]
+    pub struct GenesisConfig {
+        pub max_exchange_rate: Rate,
+        pub min_exchange_rate: Rate,
+    }
+
+    #[cfg(feature = "std")]
+    impl Default for GenesisConfig {
+        fn default() -> Self {
+            Self {
+                max_exchange_rate: Default::default(),
+                min_exchange_rate: Default::default(),
+            }
+        }
+    }
+
+    #[pallet::genesis_build]
+    impl<T: Config> GenesisBuild<T> for GenesisConfig {
+        fn build(&self) {
+            MaxExchangeRate::<T>::put(&self.max_exchange_rate);
+            MinExchangeRate::<T>::put(&self.min_exchange_rate);
+        }
+    }
 
     #[pallet::pallet]
     #[pallet::without_storage_info]
@@ -515,7 +543,7 @@ pub mod pallet {
             UnderlyingAssetId::<T>::insert(market.ptoken_id, asset_id);
 
             // Init the ExchangeRate and BorrowIndex for asset
-            ExchangeRate::<T>::insert(asset_id, Rate::from_inner(MIN_EXCHANGE_RATE));
+            ExchangeRate::<T>::insert(asset_id, Self::min_exchange_rate());
             BorrowIndex::<T>::insert(asset_id, Rate::one());
 
             Self::deposit_event(Event::<T>::NewMarket(asset_id, market));

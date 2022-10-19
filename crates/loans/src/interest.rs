@@ -136,7 +136,7 @@ impl<T: Config> Pallet<T> {
     /// The exchange rate should be greater than 0.02 and less than 1
     pub(crate) fn ensure_valid_exchange_rate(exchange_rate: Rate) -> DispatchResult {
         ensure!(
-            exchange_rate >= Rate::from_inner(MIN_EXCHANGE_RATE) && exchange_rate < Rate::from_inner(MAX_EXCHANGE_RATE),
+            exchange_rate >= Self::min_exchange_rate() && exchange_rate < Self::max_exchange_rate(),
             Error::<T>::InvalidExchangeRate
         );
 
@@ -171,7 +171,7 @@ impl<T: Config> Pallet<T> {
         total_reserves: BalanceOf<T>,
     ) -> Result<Rate, DispatchError> {
         if total_supply.is_zero() {
-            return Ok(Rate::from_inner(MIN_EXCHANGE_RATE));
+            return Ok(Self::min_exchange_rate());
         }
 
         let cash_plus_borrows_minus_reserves = total_cash

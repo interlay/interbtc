@@ -17,6 +17,8 @@
 
 pub use super::*;
 
+use crate as pallet_loans;
+
 use currency::Amount;
 use frame_benchmarking::whitelisted_caller;
 use frame_support::{
@@ -47,7 +49,7 @@ construct_runtime!(
         UncheckedExtrinsic = UncheckedExtrinsic,
     {
         System: frame_system::{Pallet, Call, Storage, Config, Event<T>},
-        Loans: crate::{Pallet, Storage, Call, Event<T>},
+        Loans: pallet_loans::{Pallet, Storage, Call, Event<T>, Config},
         TimestampPallet: pallet_timestamp::{Pallet, Call, Storage, Inherent},
         Tokens: orml_tokens::{Pallet, Call, Storage, Config<T>, Event<T>},
         Currency: currency::{Pallet},
@@ -309,8 +311,20 @@ pub const CKSM: CurrencyId = PToken(3);
 pub const CKBTC: CurrencyId = PToken(4);
 pub const CIBTC: CurrencyId = PToken(5);
 
+pub const DEFAULT_MAX_EXCHANGE_RATE: u128 = 1_000_000_000_000_000_000; // 1
+pub const DEFAULT_MIN_EXCHANGE_RATE: u128 = 20_000_000_000_000_000; // 0.02
+
 pub(crate) fn new_test_ext() -> sp_io::TestExternalities {
-    let t = frame_system::GenesisConfig::default().build_storage::<Test>().unwrap();
+    let mut t = frame_system::GenesisConfig::default().build_storage::<Test>().unwrap();
+
+    GenesisBuild::<Test>::assimilate_storage(
+        &pallet_loans::GenesisConfig {
+            max_exchange_rate: Rate::from_inner(DEFAULT_MAX_EXCHANGE_RATE),
+            min_exchange_rate: Rate::from_inner(DEFAULT_MIN_EXCHANGE_RATE),
+        },
+        &mut t,
+    )
+    .unwrap();
 
     let mut ext = sp_io::TestExternalities::new(t);
     ext.execute_with(|| {

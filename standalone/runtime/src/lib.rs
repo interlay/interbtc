@@ -1065,7 +1065,7 @@ construct_runtime! {
         // Refund: 27
         Nomination: nomination::{Pallet, Call, Config, Storage, Event<T>} = 28,
 
-        Loans: pallet_loans::{Pallet, Call, Storage, Event<T>} = 39,
+        Loans: pallet_loans::{Pallet, Call, Storage, Event<T>, Config} = 39,
 
         Identity: pallet_identity::{Pallet, Call, Storage, Event<T>} = 36,
         ClientsInfo: clients_info::{Pallet, Call, Storage, Event<T>} = 38,
