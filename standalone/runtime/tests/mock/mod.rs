@@ -21,7 +21,6 @@ pub use interbtc_runtime_standalone::{
 };
 pub use mocktopus::mocking::*;
 pub use orml_tokens::CurrencyAdapter;
-use primitives::is_ptoken;
 pub use primitives::{
     CurrencyId::{ForeignAsset, PToken, Token},
     Rate, Ratio, VaultCurrencyPair, VaultId as PrimitiveVaultId, DOT, IBTC, INTR, KBTC, KINT, KSM,

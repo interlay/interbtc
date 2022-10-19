@@ -1,3 +1,4 @@
+use currency::Amount;
 use pallet_loans::JumpModel;
 
 use crate::{assert_eq, *};

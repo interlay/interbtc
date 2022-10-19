@@ -45,7 +45,7 @@ pub use pallet::*;
 use pallet_traits::{
     ConvertToBigUint, Loans as LoansTrait, LoansMarketDataProvider, MarketInfo, MarketStatus, PriceFeeder,
 };
-use primitives::{is_ptoken, Balance, CurrencyId, Liquidity, Price, Rate, Ratio, Shortfall, Timestamp};
+use primitives::{Balance, CurrencyId, Liquidity, Price, Rate, Ratio, Shortfall, Timestamp};
 use sp_runtime::{
     traits::{
         AccountIdConversion, CheckedAdd, CheckedDiv, CheckedMul, CheckedSub, One, SaturatedConversion, Saturating,
@@ -79,7 +79,7 @@ pub const MAX_INTEREST_CALCULATING_INTERVAL: u64 = 5 * 24 * 3600; // 5 days
 pub const MIN_INTEREST_CALCULATING_INTERVAL: u64 = 100; // 100 seconds
 
 // TODO: If the exchange rate ever exceeds this, the corresponding market will become unusable.
-// Refactor these constant to storage items.
+// Refactor these constants to storage items.
 pub const MAX_EXCHANGE_RATE: u128 = 1_000_000_000_000_000_000_00; // 1
 pub const MIN_EXCHANGE_RATE: u128 = 1_000_000_000_000_000_000; // 0.02
 
@@ -90,7 +90,7 @@ type BalanceOf<T> = <<T as Config>::Assets as Inspect<<T as frame_system::Config
 pub struct OnSlashHook<T>(marker::PhantomData<T>);
 impl<T: Config> OnSlash<T::AccountId, AssetIdOf<T>, BalanceOf<T>> for OnSlashHook<T> {
     fn on_slash(currency_id: AssetIdOf<T>, account_id: &T::AccountId, amount: BalanceOf<T>) {
-        if is_ptoken(&currency_id) {
+        if currency_id.is_ptoken() {
             let f = || -> DispatchResult {
                 let underlying_id = Pallet::<T>::underlying_id(currency_id)?;
                 Pallet::<T>::update_reward_supply_index(underlying_id)?;
@@ -114,7 +114,7 @@ impl<T: Config> OnSlash<T::AccountId, AssetIdOf<T>, BalanceOf<T>> for OnSlashHoo
 pub struct OnDepositHook<T>(marker::PhantomData<T>);
 impl<T: Config> OnDeposit<T::AccountId, AssetIdOf<T>, BalanceOf<T>> for OnDepositHook<T> {
     fn on_deposit(currency_id: AssetIdOf<T>, account_id: &T::AccountId, _: BalanceOf<T>) -> DispatchResult {
-        if is_ptoken(&currency_id) {
+        if currency_id.is_ptoken() {
             let underlying_id = Pallet::<T>::underlying_id(currency_id)?;
             Pallet::<T>::update_reward_supply_index(underlying_id)?;
             Pallet::<T>::distribute_supplier_reward(underlying_id, account_id)?;
@@ -131,7 +131,7 @@ impl<T: Config> OnTransfer<T::AccountId, AssetIdOf<T>, BalanceOf<T>> for OnTrans
         to: &T::AccountId,
         _: BalanceOf<T>,
     ) -> DispatchResult {
-        if is_ptoken(&currency_id) {
+        if currency_id.is_ptoken() {
             let underlying_id = Pallet::<T>::underlying_id(currency_id)?;
             Pallet::<T>::update_reward_supply_index(underlying_id)?;
             Pallet::<T>::distribute_supplier_reward(underlying_id, from)?;

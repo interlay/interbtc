@@ -26,7 +26,6 @@ use frame_system::{
 use orml_asset_registry::SequentialId;
 use orml_traits::parameter_type_with_key;
 use pallet_transaction_payment::{Multiplier, TargetedFeeAdjustment};
-use primitives::is_ptoken;
 use sp_api::impl_runtime_apis;
 use sp_core::{crypto::KeyTypeId, OpaqueMetadata, H256};
 use sp_runtime::{
@@ -810,9 +809,9 @@ impl security::Config for Runtime {
 pub struct CurrencyConvert;
 impl currency::CurrencyConversion<currency::Amount<Runtime>, CurrencyId> for CurrencyConvert {
     fn convert(amount: &currency::Amount<Runtime>, to: CurrencyId) -> Result<currency::Amount<Runtime>, DispatchError> {
-        if is_ptoken(&amount.currency()) {
+        if amount.currency().is_ptoken() {
             Oracle::convert(&Loans::get_underlying_amount(amount)?, to)
-        } else if is_ptoken(&to) {
+        } else if to.is_ptoken() {
             let underlying_id = Loans::underlying_id(to)?;
             // get the converted value expressed in the underlying asset
             let underlying_amount = Oracle::convert(amount, underlying_id)?;
