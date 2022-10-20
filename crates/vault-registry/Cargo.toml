@@ -44,6 +44,7 @@ orml-traits = { git = "https://github.com/interlay/open-runtime-module-library",
 mocktopus = "0.7.0"
 frame-benchmarking = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.26", default-features = false }
 currency = { path = "../currency", default-features = false, features = ["testing-utils"] }
+pallet-traits = { path = "../../crates/traits", default-features = false }
 pretty_assertions = "0.7.2"
 
 [features]

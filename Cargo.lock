@@ -12963,6 +12963,7 @@ dependencies = [
  "orml-tokens",
  "orml-traits",
  "pallet-timestamp",
+ "pallet-traits",
  "parity-scale-codec",
  "pretty_assertions",
  "reward",

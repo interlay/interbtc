@@ -6,6 +6,8 @@ use mock::{assert_eq, replace_testing_utils::*, *};
 use sp_core::H256;
 use vault_registry::DefaultVaultId;
 
+use crate::loans_testing_utils::activate_lending_and_mint;
+
 type IssueCall = issue::Call<Runtime>;
 
 pub type VaultRegistryError = vault_registry::Error<Runtime>;
@@ -24,6 +26,7 @@ fn test_with<R>(execute: impl Fn(VaultId, VaultId) -> R) {
             if wrapped_currency != Token(IBTC) {
                 assert_ok!(OraclePallet::_set_exchange_rate(wrapped_currency, FixedU128::one()));
             }
+            activate_lending_and_mint(Token(DOT), PToken(1));
             set_default_thresholds();
             UserData::force_to(USER, default_user_state());
             let old_vault_id = VaultId::new(account_of(OLD_VAULT), old_vault_currency, wrapped_currency);
@@ -1140,6 +1143,8 @@ fn integration_test_replace_vault_with_different_currency_succeeds() {
         let old_vault_id = vault_id_of(OLD_VAULT, currency_id);
         let new_vault_id = vault_id_of(NEW_VAULT, other_currency);
 
+        // Mint pTokens so that force-setting vault state doesn't fail
+        activate_lending_and_mint(Token(DOT), PToken(1));
         CoreVaultData::force_to(&old_vault_id, default_vault_state(&old_vault_id));
         CoreVaultData::force_to(&new_vault_id, default_vault_state(&new_vault_id));
 
