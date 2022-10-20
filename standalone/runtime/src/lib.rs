@@ -25,6 +25,7 @@ use frame_system::{
 };
 use orml_asset_registry::SequentialId;
 use orml_traits::parameter_type_with_key;
+use pallet_traits::OracleApi;
 use pallet_transaction_payment::{Multiplier, TargetedFeeAdjustment};
 use sp_api::impl_runtime_apis;
 use sp_core::{crypto::KeyTypeId, OpaqueMetadata, H256};
@@ -806,28 +807,6 @@ impl security::Config for Runtime {
     type Event = Event;
 }
 
-pub struct CurrencyConvert;
-impl currency::CurrencyConversion<currency::Amount<Runtime>, CurrencyId> for CurrencyConvert {
-    fn convert(amount: &currency::Amount<Runtime>, to: CurrencyId) -> Result<currency::Amount<Runtime>, DispatchError> {
-        if amount.currency().is_ptoken() && to.is_ptoken() {
-            let to_underlying_id = Loans::underlying_id(to)?;
-            let from_underlying_amount = Loans::get_underlying_amount(amount)?;
-            let to_underlying_amount = Oracle::convert(&from_underlying_amount, to_underlying_id)?;
-            Loans::get_collateral_amount(&to_underlying_amount)
-        } else if amount.currency().is_ptoken() {
-            Oracle::convert(&Loans::get_underlying_amount(amount)?, to)
-        } else if to.is_ptoken() {
-            let underlying_id = Loans::underlying_id(to)?;
-            // get the converted value expressed in the underlying asset
-            let underlying_amount = Oracle::convert(amount, underlying_id)?;
-            // get the equivalent ptoken amount using the internal exchange rate
-            Loans::get_collateral_amount(&underlying_amount)
-        } else {
-            Oracle::convert(amount, to)
-        }
-    }
-}
-
 pub struct PriceFeed;
 impl pallet_traits::PriceFeeder for PriceFeed {
     fn get_price(asset_id: &CurrencyId) -> Option<PriceDetail> {
@@ -861,7 +840,7 @@ impl currency::Config for Runtime {
     type GetNativeCurrencyId = GetNativeCurrencyId;
     type GetRelayChainCurrencyId = GetRelayChainCurrencyId;
     type GetWrappedCurrencyId = GetWrappedCurrencyId;
-    type CurrencyConversion = CurrencyConvert;
+    type CurrencyConversion = currency::CurrencyConvert<Runtime, Oracle, Loans>;
 }
 
 impl staking::Config for Runtime {

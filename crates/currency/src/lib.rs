@@ -15,11 +15,12 @@ pub mod amount;
 use codec::{EncodeLike, FullCodec};
 use frame_support::{dispatch::DispatchResult, traits::Get};
 use orml_traits::{MultiCurrency, MultiReservableCurrency};
-use primitives::TruncateFixedPointToInt;
+use pallet_traits::{LoansApi, OracleApi};
+use primitives::{CurrencyId as PrimitivesCurrencyId, TruncateFixedPointToInt};
 use scale_info::TypeInfo;
 use sp_runtime::{
     traits::{AtLeast32BitUnsigned, CheckedDiv, MaybeSerializeDeserialize},
-    FixedPointNumber, FixedPointOperand,
+    DispatchError, FixedPointNumber, FixedPointOperand,
 };
 use sp_std::{
     convert::{TryFrom, TryInto},
@@ -34,6 +35,33 @@ mod types;
 use types::*;
 pub use types::{CurrencyConversion, CurrencyId};
 
+pub struct CurrencyConvert<T, Oracle, Loans>(PhantomData<(T, Oracle, Loans)>);
+impl<T, Oracle, Loans> CurrencyConversion<Amount<T>, CurrencyId<T>> for CurrencyConvert<T, Oracle, Loans>
+where
+    T: Config,
+    Oracle: OracleApi<Amount<T>, CurrencyId<T>>,
+    Loans: LoansApi<CurrencyId<T>, T::AccountId, <T as pallet::Config>::Balance, Amount<T>>,
+{
+    fn convert(amount: &Amount<T>, to: CurrencyId<T>) -> Result<Amount<T>, DispatchError> {
+        if amount.currency().is_ptoken() && to.is_ptoken() {
+            let to_underlying_id = Loans::underlying_id(to)?;
+            let from_underlying_amount = Loans::get_underlying_amount(amount)?;
+            let to_underlying_amount = Oracle::convert(&from_underlying_amount, to_underlying_id)?;
+            Loans::get_collateral_amount(&to_underlying_amount)
+        } else if amount.currency().is_ptoken() {
+            Oracle::convert(&Loans::get_underlying_amount(amount)?, to)
+        } else if to.is_ptoken() {
+            let underlying_id = Loans::underlying_id(to)?;
+            // get the converted value expressed in the underlying asset
+            let underlying_amount = Oracle::convert(amount, underlying_id)?;
+            // get the equivalent ptoken amount using the internal exchange rate
+            Loans::get_collateral_amount(&underlying_amount)
+        } else {
+            Oracle::convert(amount, to)
+        }
+    }
+}
+
 #[frame_support::pallet]
 pub mod pallet {
     use super::*;
@@ -42,7 +70,9 @@ pub mod pallet {
     /// ## Configuration
     /// The pallet's configuration trait.
     #[pallet::config]
-    pub trait Config: frame_system::Config + orml_tokens::Config<Balance = BalanceOf<Self>> {
+    pub trait Config:
+        frame_system::Config + orml_tokens::Config<Balance = BalanceOf<Self>, CurrencyId = PrimitivesCurrencyId>
+    {
         type UnsignedFixedPoint: FixedPointNumber<Inner = BalanceOf<Self>>
             + TruncateFixedPointToInt
             + Encode

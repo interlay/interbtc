@@ -21,7 +21,7 @@ pub use interbtc_runtime_standalone::{
 };
 pub use mocktopus::mocking::*;
 pub use orml_tokens::CurrencyAdapter;
-use pallet_traits::Loans;
+use pallet_traits::LoansApi;
 pub use primitives::{
     CurrencyId::{ForeignAsset, PToken, Token},
     Rate, Ratio, VaultCurrencyPair, VaultId as PrimitiveVaultId, DOT, IBTC, INTR, KBTC, KINT, KSM,
@@ -48,7 +48,7 @@ use std::collections::BTreeMap;
 pub use std::convert::TryFrom;
 pub use vault_registry::{CurrencySource, DefaultVaultId, Vault, VaultStatus};
 
-use self::{issue_testing_utils::VAULT, redeem_testing_utils::USER_BTC_ADDRESS};
+use self::redeem_testing_utils::USER_BTC_ADDRESS;
 
 pub mod issue_testing_utils;
 pub mod loans_testing_utils;

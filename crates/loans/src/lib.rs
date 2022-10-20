@@ -43,7 +43,7 @@ use num_traits::cast::ToPrimitive;
 use orml_traits::MultiCurrency;
 pub use pallet::*;
 use pallet_traits::{
-    ConvertToBigUint, Loans as LoansTrait, LoansMarketDataProvider, MarketInfo, MarketStatus, PriceFeeder,
+    ConvertToBigUint, LoansApi as LoansTrait, LoansMarketDataProvider, MarketInfo, MarketStatus, PriceFeeder,
 };
 use primitives::{Balance, CurrencyId, Liquidity, Price, Rate, Ratio, Shortfall, Timestamp};
 use sp_runtime::{
@@ -1729,13 +1729,6 @@ impl<T: Config> Pallet<T> {
         Err(Error::<T>::InsufficientLiquidity.into())
     }
 
-    pub fn get_underlying_amount(ptokens: &Amount<T>) -> Result<Amount<T>, DispatchError> {
-        let underlying_id = Self::underlying_id(ptokens.currency())?;
-        let exchange_rate = Self::exchange_rate_stored(underlying_id)?;
-        let underlying_amount = Self::calc_underlying_amount(ptokens.amount(), exchange_rate)?;
-        Ok(Amount::new(underlying_amount, underlying_id))
-    }
-
     pub fn calc_underlying_amount(
         voucher_amount: BalanceOf<T>,
         exchange_rate: Rate,
@@ -1743,13 +1736,6 @@ impl<T: Config> Pallet<T> {
         Ok(exchange_rate
             .checked_mul_int(voucher_amount)
             .ok_or(ArithmeticError::Overflow)?)
-    }
-
-    pub fn get_collateral_amount(underlying: &Amount<T>) -> Result<Amount<T>, DispatchError> {
-        let exchange_rate = Self::exchange_rate_stored(underlying.currency())?;
-        let underlying_amount = Self::calc_collateral_amount(underlying.amount(), exchange_rate)?;
-        let ptoken_id = Self::ptoken_id(underlying.currency())?;
-        Ok(Amount::new(underlying_amount, ptoken_id))
     }
 
     pub fn calc_collateral_amount(
@@ -1846,13 +1832,6 @@ impl<T: Config> Pallet<T> {
         Markets::<T>::iter().filter(|(_, market)| market.state == MarketState::Active)
     }
 
-    // Returns a stored asset_id
-    //
-    // Returns `Err` if asset_id does not exist, it also means that ptoken_id is invalid.
-    pub fn underlying_id(ptoken_id: AssetIdOf<T>) -> Result<AssetIdOf<T>, DispatchError> {
-        UnderlyingAssetId::<T>::try_get(ptoken_id).map_err(|_err| Error::<T>::InvalidPtokenId.into())
-    }
-
     // Returns the ptoken_id of the related asset
     //
     // Returns `Err` if market does not exist.
@@ -1872,7 +1851,7 @@ impl<T: Config> Pallet<T> {
     }
 }
 
-impl<T: Config> LoansTrait<AssetIdOf<T>, AccountIdOf<T>, BalanceOf<T>> for Pallet<T> {
+impl<T: Config> LoansTrait<AssetIdOf<T>, AccountIdOf<T>, BalanceOf<T>, Amount<T>> for Pallet<T> {
     fn do_mint(supplier: &AccountIdOf<T>, asset_id: AssetIdOf<T>, amount: BalanceOf<T>) -> Result<(), DispatchError> {
         ensure!(!amount.is_zero(), Error::<T>::InvalidAmount);
         Self::ensure_active_market(asset_id)?;
@@ -2034,6 +2013,27 @@ impl<T: Config> LoansTrait<AssetIdOf<T>, AccountIdOf<T>, BalanceOf<T>> for Palle
         let redeem_amount = Self::do_redeem_voucher(supplier, asset_id, voucher_amount)?;
         Self::deposit_event(Event::<T>::Redeemed(supplier.clone(), asset_id, redeem_amount));
         Ok(())
+    }
+
+    fn get_underlying_amount(ptokens: &Amount<T>) -> Result<Amount<T>, DispatchError> {
+        let underlying_id = Self::underlying_id(ptokens.currency())?;
+        let exchange_rate = Self::exchange_rate_stored(underlying_id)?;
+        let underlying_amount = Self::calc_underlying_amount(ptokens.amount(), exchange_rate)?;
+        Ok(Amount::new(underlying_amount, underlying_id))
+    }
+
+    // Returns a stored asset_id
+    //
+    // Returns `Err` if asset_id does not exist, it also means that ptoken_id is invalid.
+    fn underlying_id(ptoken_id: AssetIdOf<T>) -> Result<AssetIdOf<T>, DispatchError> {
+        UnderlyingAssetId::<T>::try_get(ptoken_id).map_err(|_err| Error::<T>::InvalidPtokenId.into())
+    }
+
+    fn get_collateral_amount(underlying: &Amount<T>) -> Result<Amount<T>, DispatchError> {
+        let exchange_rate = Self::exchange_rate_stored(underlying.currency())?;
+        let underlying_amount = Self::calc_collateral_amount(underlying.amount(), exchange_rate)?;
+        let ptoken_id = Self::ptoken_id(underlying.currency())?;
+        Ok(Amount::new(underlying_amount, ptoken_id))
     }
 }
 

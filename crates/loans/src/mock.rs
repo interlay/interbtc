@@ -29,7 +29,6 @@ use frame_support::{
 use frame_system::EnsureRoot;
 use mocktopus::{macros::mockable, mocking::*};
 use orml_traits::{parameter_type_with_key, DataFeeder, DataProvider, DataProviderExtended};
-use pallet_traits::{VaultTokenCurrenciesFilter, VaultTokenExchangeRateProvider};
 use primitives::{
     CurrencyId::{ForeignAsset, PToken, Token},
     Moment, PriceDetail, DOT, IBTC, INTR, KBTC, KINT, KSM,
@@ -200,35 +199,6 @@ impl DataProviderExtended<CurrencyId, TimeStampedPrice> for MockDataProvider {
 impl DataFeeder<CurrencyId, TimeStampedPrice, AccountId> for MockDataProvider {
     fn feed_value(_: AccountId, _: CurrencyId, _: TimeStampedPrice) -> sp_runtime::DispatchResult {
         Ok(())
-    }
-}
-
-pub struct TokenExchangeRateProvider;
-impl VaultTokenExchangeRateProvider<CurrencyId> for TokenExchangeRateProvider {
-    fn get_exchange_rate(_: &CurrencyId, _: Rate) -> Option<Rate> {
-        Some(Rate::saturating_from_rational(100, 150))
-    }
-}
-
-pub struct TokenCurrenciesFilter;
-impl VaultTokenCurrenciesFilter<CurrencyId> for TokenCurrenciesFilter {
-    fn contains(_asset_id: &CurrencyId) -> bool {
-        return false;
-    }
-}
-
-pub struct VaultLoansRateProvider;
-impl LoansMarketDataProvider<CurrencyId, Balance> for VaultLoansRateProvider {
-    fn get_full_interest_rate(_asset_id: CurrencyId) -> Option<Rate> {
-        Some(Rate::from_inner(450_000_000_000_000_000))
-    }
-
-    fn get_market_info(_: CurrencyId) -> Result<MarketInfo, sp_runtime::DispatchError> {
-        Ok(Default::default())
-    }
-
-    fn get_market_status(_: CurrencyId) -> Result<MarketStatus<Balance>, sp_runtime::DispatchError> {
-        Ok(Default::default())
     }
 }
 
