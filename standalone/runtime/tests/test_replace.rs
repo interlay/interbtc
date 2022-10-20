@@ -63,6 +63,8 @@ fn test_with<R>(execute: impl Fn(VaultId, VaultId) -> R) {
     test_with(Token(KSM), Token(DOT), Token(IBTC), None);
     test_with(ForeignAsset(1), Token(DOT), Token(IBTC), None);
     test_with(Token(KSM), ForeignAsset(1), Token(IBTC), None);
+    test_with(PToken(1), ForeignAsset(1), Token(IBTC), None);
+    test_with(Token(KSM), PToken(1), Token(IBTC), None);
 }
 
 fn test_without_initialization<R>(execute: impl Fn(CurrencyId) -> R) {
