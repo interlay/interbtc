@@ -42,8 +42,15 @@ pub fn mint_ptokens(account_id: AccountId, underlying_id: CurrencyId) {
     assert_ok!(amount.mint_to(&account_id));
 
     assert_ok!(Call::Loans(LoansCall::mint {
-        asset_id: Token(DOT),
+        asset_id: underlying_id,
         mint_amount: balance_to_mint
     })
     .dispatch(origin_of(account_id)));
+}
+
+pub fn activate_lending_and_mint(underlying_id: CurrencyId, ptoken_id: CurrencyId) {
+    activate_market(underlying_id, ptoken_id);
+    for account in iter_endowed_with_ptoken() {
+        mint_ptokens(account, underlying_id);
+    }
 }

@@ -434,19 +434,16 @@ pub mod pallet {
 
     /// The reward accrued but not yet transferred to each user.
     #[pallet::storage]
-    #[pallet::storage_prefix = "RewardAccured"]
     #[pallet::getter(fn reward_accrued)]
     pub type RewardAccrued<T: Config> = StorageMap<_, Blake2_128Concat, T::AccountId, BalanceOf<T>, ValueQuery>;
 
     /// The maximum allowed exchange rate for a market.
     #[pallet::storage]
-    #[pallet::storage_prefix = "MaxExchangeRate"]
     #[pallet::getter(fn max_exchange_rate)]
     pub type MaxExchangeRate<T: Config> = StorageValue<_, Rate, ValueQuery>;
 
     /// The minimum allowed exchange rate for a market.
     #[pallet::storage]
-    #[pallet::storage_prefix = "MinExchangeRate"]
     #[pallet::getter(fn min_exchange_rate)]
     pub type MinExchangeRate<T: Config> = StorageValue<_, Rate, ValueQuery>;
 

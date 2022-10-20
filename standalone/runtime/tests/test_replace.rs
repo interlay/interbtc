@@ -1125,7 +1125,7 @@ fn integration_test_replace_cancel_replace_both_vaults_liquidated() {
 #[test]
 fn integration_test_replace_vault_with_different_currency_succeeds() {
     test_without_initialization(|currency_id| {
-        for currency_id in iter_collateral_currencies() {
+        for currency_id in iter_collateral_currencies().filter(|c| !c.is_ptoken()) {
             assert_ok!(OraclePallet::_set_exchange_rate(currency_id, FixedU128::one()));
         }
         set_default_thresholds();

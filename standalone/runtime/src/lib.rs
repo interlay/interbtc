@@ -809,7 +809,12 @@ impl security::Config for Runtime {
 pub struct CurrencyConvert;
 impl currency::CurrencyConversion<currency::Amount<Runtime>, CurrencyId> for CurrencyConvert {
     fn convert(amount: &currency::Amount<Runtime>, to: CurrencyId) -> Result<currency::Amount<Runtime>, DispatchError> {
-        if amount.currency().is_ptoken() {
+        if amount.currency().is_ptoken() && to.is_ptoken() {
+            let to_underlying_id = Loans::underlying_id(to)?;
+            let from_underlying_amount = Loans::get_underlying_amount(amount)?;
+            let to_underlying_amount = Oracle::convert(&from_underlying_amount, to_underlying_id)?;
+            Loans::get_collateral_amount(&to_underlying_amount)
+        } else if amount.currency().is_ptoken() {
             Oracle::convert(&Loans::get_underlying_amount(amount)?, to)
         } else if to.is_ptoken() {
             let underlying_id = Loans::underlying_id(to)?;
@@ -836,6 +841,9 @@ impl pallet_traits::PriceFeeder for PriceFeed {
                     return None;
                 }
             }
+            // Returning `None` here means there is no price for this asset.
+            // This is fine since PTokens may not be used as underlying currency
+            // in the loans pallet.
             PToken(_) => return None,
         };
         let amount = Amount::<Runtime>::new(one, asset_id.clone());

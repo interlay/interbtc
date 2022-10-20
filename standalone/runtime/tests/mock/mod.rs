@@ -218,7 +218,7 @@ pub fn vault_id_of(id: [u8; 32], collateral_currency: CurrencyId) -> VaultId {
 
 pub fn default_user_state() -> UserData {
     let mut balances = BTreeMap::new();
-    for currency_id in iter_collateral_currencies_and_ptokens() {
+    for currency_id in iter_collateral_currencies() {
         balances.insert(
             currency_id,
             AccountData {
@@ -357,7 +357,7 @@ impl Wrapped for VaultId {
 }
 
 pub fn iter_currency_pairs_with_ptokens() -> impl Iterator<Item = DefaultVaultCurrencyPair<Runtime>> {
-    iter_collateral_currencies_and_ptokens().flat_map(|collateral_id| {
+    iter_collateral_currencies().flat_map(|collateral_id| {
         iter_wrapped_currencies().map(move |wrapped_id| VaultCurrencyPair {
             collateral: collateral_id,
             wrapped: wrapped_id,
@@ -380,13 +380,7 @@ pub fn iter_endowed_with_ptoken() -> impl Iterator<Item = AccountId> {
 }
 
 pub fn iter_collateral_currencies() -> impl Iterator<Item = CurrencyId> {
-    vec![Token(DOT), Token(KSM), Token(INTR), ForeignAsset(1)].into_iter()
-}
-
-// ptokens should not be minted to the endowed accounts. Use this function
-// to include them in the iterators for configuring the bridge.
-pub fn iter_collateral_currencies_and_ptokens() -> impl Iterator<Item = CurrencyId> {
-    iter_collateral_currencies().chain(vec![PToken(1)].into_iter())
+    vec![Token(DOT), Token(KSM), Token(INTR), ForeignAsset(1), PToken(1)].into_iter()
 }
 
 pub fn iter_native_currencies() -> impl Iterator<Item = CurrencyId> {
@@ -398,7 +392,7 @@ pub fn iter_wrapped_currencies() -> impl Iterator<Item = CurrencyId> {
 }
 
 pub fn iter_all_currencies() -> impl Iterator<Item = CurrencyId> {
-    iter_collateral_currencies_and_ptokens()
+    iter_collateral_currencies()
         .chain(iter_native_currencies())
         .chain(iter_wrapped_currencies())
 }
@@ -975,7 +969,7 @@ impl ParachainTwoVaultState {
     }
 }
 
-pub fn set_collateral_price(vault_id: &VaultId, price: FixedU128) {
+pub fn set_collateral_exchange_rate(vault_id: &VaultId, price: FixedU128) {
     let currency_to_set = if vault_id.currencies.collateral.is_ptoken() {
         LoansPallet::underlying_id(vault_id.currencies.collateral).unwrap()
     } else {
@@ -987,9 +981,9 @@ pub fn set_collateral_price(vault_id: &VaultId, price: FixedU128) {
 pub fn liquidate_vault(vault_id: &VaultId) {
     VaultRegistryPallet::collateral_integrity_check();
 
-    set_collateral_price(vault_id, FixedU128::checked_from_integer(10_000_000_000u128).unwrap());
+    set_collateral_exchange_rate(vault_id, FixedU128::checked_from_integer(10_000_000_000u128).unwrap());
     assert_ok!(VaultRegistryPallet::liquidate_vault(&vault_id));
-    set_collateral_price(vault_id, FixedU128::checked_from_integer(1u128).unwrap());
+    set_collateral_exchange_rate(vault_id, FixedU128::checked_from_integer(1u128).unwrap());
 
     assert_eq!(
         CurrencySource::<Runtime>::AvailableReplaceCollateral(vault_id.clone())
@@ -1005,7 +999,7 @@ pub fn set_default_thresholds() {
     let premium = FixedU128::checked_from_rational(135, 100).unwrap();
     let liquidation = FixedU128::checked_from_rational(110, 100).unwrap();
 
-    for collateral_id in iter_collateral_currencies_and_ptokens() {
+    for collateral_id in iter_collateral_currencies() {
         for wrapped_id in iter_wrapped_currencies() {
             let currency_pair = VaultCurrencyPair {
                 collateral: collateral_id,
@@ -1382,6 +1376,7 @@ impl ExtBuilder {
             .into_iter()
             .flat_map(|(account, balance)| {
                 iter_collateral_currencies()
+                    .filter(|c| !c.is_ptoken())
                     .chain(iter_native_currencies())
                     .unique()
                     .map(move |currency| (account.clone(), currency, balance))

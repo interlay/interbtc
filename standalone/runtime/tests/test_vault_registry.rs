@@ -12,7 +12,7 @@ fn test_with<R>(execute: impl Fn(VaultId) -> R) {
     let test_with = |currency_id, wrapped_id| {
         ExtBuilder::build().execute_with(|| {
             SecurityPallet::set_active_block_number(1);
-            for currency_id in iter_collateral_currencies() {
+            for currency_id in iter_collateral_currencies().filter(|c| !c.is_ptoken()) {
                 assert_ok!(OraclePallet::_set_exchange_rate(currency_id, FixedU128::one()));
             }
             if wrapped_id != Token(IBTC) {

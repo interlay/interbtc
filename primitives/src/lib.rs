@@ -487,9 +487,6 @@ pub struct CustomMetadata {
 
 impl CurrencyId {
     pub fn is_ptoken(&self) -> bool {
-        match self {
-            CurrencyId::PToken(_) => true,
-            _ => false,
-        }
+        matches!(self, CurrencyId::PToken(_))
     }
 }
