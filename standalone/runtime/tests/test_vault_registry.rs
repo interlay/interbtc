@@ -3,7 +3,10 @@ mod mock;
 use currency::Amount;
 use mock::{assert_eq, *};
 
-use crate::mock::issue_testing_utils::{execute_issue, request_issue};
+use crate::{
+    loans_testing_utils::activate_lending_and_mint,
+    mock::issue_testing_utils::{execute_issue, request_issue},
+};
 
 pub const USER: [u8; 32] = ALICE;
 pub const VAULT: [u8; 32] = BOB;
@@ -12,12 +15,13 @@ fn test_with<R>(execute: impl Fn(VaultId) -> R) {
     let test_with = |currency_id, wrapped_id| {
         ExtBuilder::build().execute_with(|| {
             SecurityPallet::set_active_block_number(1);
-            for currency_id in iter_collateral_currencies() {
+            for currency_id in iter_collateral_currencies().filter(|c| !c.is_ptoken()) {
                 assert_ok!(OraclePallet::_set_exchange_rate(currency_id, FixedU128::one()));
             }
             if wrapped_id != Token(IBTC) {
                 assert_ok!(OraclePallet::_set_exchange_rate(wrapped_id, FixedU128::one()));
             }
+            activate_lending_and_mint(Token(DOT), PToken(1));
             UserData::force_to(USER, default_user_state());
             let vault_id = PrimitiveVaultId::new(account_of(VAULT), currency_id, wrapped_id);
             LiquidationVaultData::force_to(default_liquidation_vault_state(&vault_id.currencies));
@@ -30,6 +34,7 @@ fn test_with<R>(execute: impl Fn(VaultId) -> R) {
     test_with(Token(KSM), Token(IBTC));
     test_with(Token(DOT), Token(IBTC));
     test_with(ForeignAsset(1), Token(IBTC));
+    test_with(PToken(1), Token(IBTC));
 }
 
 fn deposit_collateral_and_issue(vault_id: VaultId) {
@@ -117,6 +122,8 @@ mod deposit_collateral_test {
 
             let amount_1 = 1000_000_000_000_000;
 
+            // Mint pTokens so that force-setting vault state doesn't fail
+            activate_lending_and_mint(Token(DOT), PToken(1));
             let mut vault_data = default_vault_state(&vault_id);
             *vault_data.free_balance.get_mut(&currency_id).unwrap() = Amount::new(amount_1, currency_id);
             CoreVaultData::force_to(&vault_id, vault_data);

@@ -17,6 +17,8 @@
 
 pub use super::*;
 
+use crate as pallet_loans;
+
 use currency::Amount;
 use frame_benchmarking::whitelisted_caller;
 use frame_support::{
@@ -27,10 +29,9 @@ use frame_support::{
 use frame_system::EnsureRoot;
 use mocktopus::{macros::mockable, mocking::*};
 use orml_traits::{parameter_type_with_key, DataFeeder, DataProvider, DataProviderExtended};
-use pallet_traits::{VaultTokenCurrenciesFilter, VaultTokenExchangeRateProvider};
 use primitives::{
-    CurrencyId::{ForeignAsset, Token},
-    Moment, PriceDetail, CDOT, CIBTC, CKBTC, CKINT, CKSM, DOT, IBTC, INTR, KBTC, KINT, KSM,
+    CurrencyId::{ForeignAsset, PToken, Token},
+    Moment, PriceDetail, DOT, IBTC, INTR, KBTC, KINT, KSM,
 };
 use sp_core::H256;
 use sp_runtime::{testing::Header, traits::IdentityLookup, AccountId32, FixedI128};
@@ -47,7 +48,7 @@ construct_runtime!(
         UncheckedExtrinsic = UncheckedExtrinsic,
     {
         System: frame_system::{Pallet, Call, Storage, Config, Event<T>},
-        Loans: crate::{Pallet, Storage, Call, Event<T>},
+        Loans: pallet_loans::{Pallet, Storage, Call, Event<T>, Config},
         TimestampPallet: pallet_timestamp::{Pallet, Call, Storage, Inherent},
         Tokens: orml_tokens::{Pallet, Call, Storage, Config<T>, Event<T>},
         Currency: currency::{Pallet},
@@ -201,35 +202,6 @@ impl DataFeeder<CurrencyId, TimeStampedPrice, AccountId> for MockDataProvider {
     }
 }
 
-pub struct TokenExchangeRateProvider;
-impl VaultTokenExchangeRateProvider<CurrencyId> for TokenExchangeRateProvider {
-    fn get_exchange_rate(_: &CurrencyId, _: Rate) -> Option<Rate> {
-        Some(Rate::saturating_from_rational(100, 150))
-    }
-}
-
-pub struct TokenCurrenciesFilter;
-impl VaultTokenCurrenciesFilter<CurrencyId> for TokenCurrenciesFilter {
-    fn contains(_asset_id: &CurrencyId) -> bool {
-        return false;
-    }
-}
-
-pub struct VaultLoansRateProvider;
-impl LoansMarketDataProvider<CurrencyId, Balance> for VaultLoansRateProvider {
-    fn get_full_interest_rate(_asset_id: CurrencyId) -> Option<Rate> {
-        Some(Rate::from_inner(450_000_000_000_000_000))
-    }
-
-    fn get_market_info(_: CurrencyId) -> Result<MarketInfo, sp_runtime::DispatchError> {
-        Ok(Default::default())
-    }
-
-    fn get_market_status(_: CurrencyId) -> Result<MarketStatus<Balance>, sp_runtime::DispatchError> {
-        Ok(Default::default())
-    }
-}
-
 parameter_types! {
     pub const RelayCurrency: CurrencyId = Token(KSM);
 }
@@ -303,8 +275,26 @@ impl Config for Test {
     type RewardAssetId = RewardAssetId;
 }
 
+pub const CDOT: CurrencyId = PToken(1);
+pub const CKINT: CurrencyId = PToken(2);
+pub const CKSM: CurrencyId = PToken(3);
+pub const CKBTC: CurrencyId = PToken(4);
+pub const CIBTC: CurrencyId = PToken(5);
+
+pub const DEFAULT_MAX_EXCHANGE_RATE: u128 = 1_000_000_000_000_000_000; // 1
+pub const DEFAULT_MIN_EXCHANGE_RATE: u128 = 20_000_000_000_000_000; // 0.02
+
 pub(crate) fn new_test_ext() -> sp_io::TestExternalities {
-    let t = frame_system::GenesisConfig::default().build_storage::<Test>().unwrap();
+    let mut t = frame_system::GenesisConfig::default().build_storage::<Test>().unwrap();
+
+    GenesisBuild::<Test>::assimilate_storage(
+        &pallet_loans::GenesisConfig {
+            max_exchange_rate: Rate::from_inner(DEFAULT_MAX_EXCHANGE_RATE),
+            min_exchange_rate: Rate::from_inner(DEFAULT_MIN_EXCHANGE_RATE),
+        },
+        &mut t,
+    )
+    .unwrap();
 
     let mut ext = sp_io::TestExternalities::new(t);
     ext.execute_with(|| {
@@ -324,17 +314,17 @@ pub(crate) fn new_test_ext() -> sp_io::TestExternalities {
         MockPriceFeeder::set_price(Token(KBTC), 1.into());
         MockPriceFeeder::set_price(Token(DOT), 1.into());
         MockPriceFeeder::set_price(Token(KSM), 1.into());
-        MockPriceFeeder::set_price(Token(CDOT), 1.into());
+        MockPriceFeeder::set_price(CDOT, 1.into());
         // Init Markets
-        Loans::add_market(Origin::root(), Token(KINT), market_mock(Token(CKINT))).unwrap();
-        Loans::activate_market(Origin::root(), Token(KINT)).unwrap();
-        Loans::add_market(Origin::root(), Token(KSM), market_mock(Token(CKSM))).unwrap();
-        Loans::activate_market(Origin::root(), Token(KSM)).unwrap();
-        Loans::add_market(Origin::root(), Token(DOT), market_mock(Token(CDOT))).unwrap();
+        Loans::add_market(Origin::root(), Token(DOT), market_mock(CDOT)).unwrap();
         Loans::activate_market(Origin::root(), Token(DOT)).unwrap();
-        Loans::add_market(Origin::root(), Token(KBTC), market_mock(Token(CKBTC))).unwrap();
+        Loans::add_market(Origin::root(), Token(KINT), market_mock(CKINT)).unwrap();
+        Loans::activate_market(Origin::root(), Token(KINT)).unwrap();
+        Loans::add_market(Origin::root(), Token(KSM), market_mock(CKSM)).unwrap();
+        Loans::activate_market(Origin::root(), Token(KSM)).unwrap();
+        Loans::add_market(Origin::root(), Token(KBTC), market_mock(CKBTC)).unwrap();
         Loans::activate_market(Origin::root(), Token(KBTC)).unwrap();
-        Loans::add_market(Origin::root(), Token(IBTC), market_mock(Token(CIBTC))).unwrap();
+        Loans::add_market(Origin::root(), Token(IBTC), market_mock(CIBTC)).unwrap();
         Loans::activate_market(Origin::root(), Token(IBTC)).unwrap();
 
         System::set_block_number(0);

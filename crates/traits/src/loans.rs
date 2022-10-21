@@ -19,7 +19,7 @@ use scale_info::TypeInfo;
 use sp_runtime::{FixedU128, RuntimeDebug};
 use sp_std::prelude::*;
 
-pub trait Loans<CurrencyId, AccountId, Balance> {
+pub trait LoansApi<CurrencyId, AccountId, Balance, Amount> {
     fn do_mint(supplier: &AccountId, asset_id: CurrencyId, amount: Balance) -> Result<(), DispatchError>;
     fn do_borrow(borrower: &AccountId, asset_id: CurrencyId, amount: Balance) -> Result<(), DispatchError>;
     fn do_deposit_collateral(supplier: &AccountId, asset_id: CurrencyId, amount: Balance) -> Result<(), DispatchError>;
@@ -27,6 +27,9 @@ pub trait Loans<CurrencyId, AccountId, Balance> {
         -> Result<(), DispatchError>;
     fn do_repay_borrow(borrower: &AccountId, asset_id: CurrencyId, amount: Balance) -> Result<(), DispatchError>;
     fn do_redeem(supplier: &AccountId, asset_id: CurrencyId, amount: Balance) -> Result<(), DispatchError>;
+    fn get_underlying_amount(ptokens: &Amount) -> Result<Amount, DispatchError>;
+    fn underlying_id(ptoken_id: CurrencyId) -> Result<CurrencyId, DispatchError>;
+    fn get_collateral_amount(underlying: &Amount) -> Result<Amount, DispatchError>;
 }
 
 pub trait LoansPositionDataProvider<CurrencyId, AccountId, Balance> {

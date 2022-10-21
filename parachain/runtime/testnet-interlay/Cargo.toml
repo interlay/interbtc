@@ -96,6 +96,7 @@ collator-selection = { path = "../../../crates/collator-selection", default-feat
 clients-info = { path = "../../../crates/clients-info", default-features = false }
 
 primitives = { package = "interbtc-primitives", path = "../../../primitives", default-features = false }
+pallet-traits = { path = "../../../crates/traits", default-features = false }
 
 module-btc-relay-rpc-runtime-api = { path = "../../../crates/btc-relay/rpc/runtime-api", default-features = false }
 module-oracle-rpc-runtime-api = { path = "../../../crates/oracle/rpc/runtime-api", default-features = false }

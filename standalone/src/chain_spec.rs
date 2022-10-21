@@ -2,12 +2,12 @@ use bitcoin::utils::{virtual_transaction_size, InputType, TransactionInputMetada
 use hex_literal::hex;
 use interbtc_runtime::{
     token_distribution, AccountId, AuraConfig, BTCRelayConfig, CurrencyId, CurrencyId::Token, CurrencyInfo, FeeConfig,
-    GenesisConfig, GetWrappedCurrencyId, GrandpaConfig, IssueConfig, NominationConfig, OracleConfig, RedeemConfig,
-    ReplaceConfig, SecurityConfig, Signature, StatusCode, SudoConfig, SupplyConfig, SystemConfig,
+    GenesisConfig, GetWrappedCurrencyId, GrandpaConfig, IssueConfig, LoansConfig, NominationConfig, OracleConfig,
+    RedeemConfig, ReplaceConfig, SecurityConfig, Signature, StatusCode, SudoConfig, SupplyConfig, SystemConfig,
     TechnicalCommitteeConfig, TokensConfig, VaultRegistryConfig, BITCOIN_BLOCK_SPACING, DAYS, DOT, IBTC, INTR, KBTC,
     KINT, KSM, WASM_BINARY, YEARS,
 };
-use primitives::{VaultCurrencyPair, BITCOIN_REGTEST};
+use primitives::{Rate, VaultCurrencyPair, BITCOIN_REGTEST};
 use sc_service::ChainType;
 use serde_json::{map::Map, Value};
 use sp_arithmetic::{FixedPointNumber, FixedU128};
@@ -365,5 +365,9 @@ fn testnet_genesis(
             inflation: FixedU128::checked_from_rational(2, 100).unwrap(), // 2%
         },
         asset_registry: Default::default(),
+        loans: LoansConfig {
+            max_exchange_rate: Rate::from_inner(100_000_000_000_000_000_000), // 100, normally 1
+            min_exchange_rate: Rate::from_inner(1_000_000_000_000_000_000),   // 1, normally 0.02
+        },
     }
 }

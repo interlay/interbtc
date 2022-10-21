@@ -21,9 +21,10 @@ pub use interbtc_runtime_standalone::{
 };
 pub use mocktopus::mocking::*;
 pub use orml_tokens::CurrencyAdapter;
+use pallet_traits::LoansApi;
 pub use primitives::{
-    CurrencyId::{ForeignAsset, Token},
-    VaultCurrencyPair, VaultId as PrimitiveVaultId, DOT, IBTC, INTR, KBTC, KINT, KSM,
+    CurrencyId::{ForeignAsset, PToken, Token},
+    Rate, Ratio, VaultCurrencyPair, VaultId as PrimitiveVaultId, DOT, IBTC, INTR, KBTC, KINT, KSM,
 };
 use redeem::RedeemRequestStatus;
 use staking::DefaultVaultCurrencyPair;
@@ -31,6 +32,7 @@ use vault_registry::types::UpdatableVault;
 
 pub use issue::{types::IssueRequestExt, IssueRequest, IssueRequestStatus};
 pub use oracle::OracleKey;
+pub use pallet_loans::{InterestRateModel, Market, MarketState};
 pub use redeem::{types::RedeemRequestExt, RedeemRequest};
 pub use replace::{types::ReplaceRequestExt, ReplaceRequest};
 pub use reward::Rewards;
@@ -49,6 +51,7 @@ pub use vault_registry::{CurrencySource, DefaultVaultId, Vault, VaultStatus};
 use self::redeem_testing_utils::USER_BTC_ADDRESS;
 
 pub mod issue_testing_utils;
+pub mod loans_testing_utils;
 pub mod nomination_testing_utils;
 pub mod redeem_testing_utils;
 pub mod replace_testing_utils;
@@ -87,6 +90,9 @@ pub const DEFAULT_VAULT_GRIEFING_COLLATERAL: Amount<Runtime> = griefing(30_000);
 pub const DEFAULT_VAULT_REPLACE_COLLATERAL: Amount<Runtime> = griefing(20_000);
 
 pub const DEFAULT_GRIEFING_COLLATERAL: Amount<Runtime> = griefing(5_000);
+
+pub const DEFAULT_MAX_EXCHANGE_RATE: u128 = 100_000_000_000_000_000_000; // 100, normally 1
+pub const DEFAULT_MIN_EXCHANGE_RATE: u128 = 1_000_000_000_000_000_000; // 1, normally 0.02
 
 pub fn default_user_free_balance(currency_id: CurrencyId) -> Amount<Runtime> {
     Amount::new(1_000_000, currency_id)
@@ -186,6 +192,12 @@ pub const DEFAULT_COLLATERAL_CURRENCY: <Runtime as orml_tokens::Config>::Currenc
 pub const DEFAULT_WRAPPED_CURRENCY: <Runtime as orml_tokens::Config>::CurrencyId = Token(IBTC);
 pub const DEFAULT_NATIVE_CURRENCY: <Runtime as orml_tokens::Config>::CurrencyId = Token(INTR);
 pub const DEFAULT_GRIEFING_CURRENCY: <Runtime as orml_tokens::Config>::CurrencyId = DEFAULT_NATIVE_CURRENCY;
+
+pub const CDOT: CurrencyId = PToken(1);
+pub const CKINT: CurrencyId = PToken(2);
+pub const CKSM: CurrencyId = PToken(3);
+pub const CKBTC: CurrencyId = PToken(4);
+pub const CIBTC: CurrencyId = PToken(5);
 
 pub fn default_vault_id_of(hash: [u8; 32]) -> VaultId {
     VaultId {
@@ -344,7 +356,7 @@ impl Wrapped for VaultId {
     }
 }
 
-pub fn iter_currency_pairs() -> impl Iterator<Item = DefaultVaultCurrencyPair<Runtime>> {
+pub fn iter_currency_pairs_with_ptokens() -> impl Iterator<Item = DefaultVaultCurrencyPair<Runtime>> {
     iter_collateral_currencies().flat_map(|collateral_id| {
         iter_wrapped_currencies().map(move |wrapped_id| VaultCurrencyPair {
             collateral: collateral_id,
@@ -353,8 +365,22 @@ pub fn iter_currency_pairs() -> impl Iterator<Item = DefaultVaultCurrencyPair<Ru
     })
 }
 
+pub fn iter_endowed_with_ptoken() -> impl Iterator<Item = AccountId> {
+    vec![
+        account_of(ALICE),
+        account_of(BOB),
+        account_of(CAROL),
+        account_of(DAVE),
+        account_of(EVE),
+        account_of(FRANK),
+        account_of(GRACE),
+        account_of(FAUCET),
+    ]
+    .into_iter()
+}
+
 pub fn iter_collateral_currencies() -> impl Iterator<Item = CurrencyId> {
-    vec![Token(DOT), Token(KSM), Token(INTR), ForeignAsset(1)].into_iter()
+    vec![Token(DOT), Token(KSM), Token(INTR), ForeignAsset(1), PToken(1)].into_iter()
 }
 
 pub fn iter_native_currencies() -> impl Iterator<Item = CurrencyId> {
@@ -773,7 +799,7 @@ pub struct LiquidationVaultData {
 
 impl LiquidationVaultData {
     pub fn get() -> Self {
-        let liquidation_vaults = iter_currency_pairs()
+        let liquidation_vaults = iter_currency_pairs_with_ptokens()
             .map(|currency_pair| {
                 let vault = VaultRegistryPallet::get_liquidation_vault(&currency_pair);
                 let data = SingleLiquidationVault {
@@ -798,7 +824,7 @@ impl LiquidationVaultData {
         let mut ret = Self {
             liquidation_vaults: BTreeMap::new(),
         };
-        for pair in iter_currency_pairs() {
+        for pair in iter_currency_pairs_with_ptokens() {
             if &pair == currency_pair {
                 ret.liquidation_vaults
                     .insert(pair.clone(), SingleLiquidationVault::zero(&pair));
@@ -943,18 +969,21 @@ impl ParachainTwoVaultState {
     }
 }
 
+pub fn set_collateral_exchange_rate(vault_id: &VaultId, price: FixedU128) {
+    let currency_to_set = if vault_id.currencies.collateral.is_ptoken() {
+        LoansPallet::underlying_id(vault_id.currencies.collateral).unwrap()
+    } else {
+        vault_id.currencies.collateral
+    };
+    assert_ok!(OraclePallet::_set_exchange_rate(currency_to_set, price));
+}
+
 pub fn liquidate_vault(vault_id: &VaultId) {
     VaultRegistryPallet::collateral_integrity_check();
 
-    assert_ok!(OraclePallet::_set_exchange_rate(
-        vault_id.currencies.collateral,
-        FixedU128::checked_from_integer(10_000_000_000u128).unwrap()
-    ));
+    set_collateral_exchange_rate(vault_id, FixedU128::checked_from_integer(10_000_000_000u128).unwrap());
     assert_ok!(VaultRegistryPallet::liquidate_vault(&vault_id));
-    assert_ok!(OraclePallet::_set_exchange_rate(
-        vault_id.currencies.collateral,
-        FixedU128::checked_from_integer(1u128).unwrap()
-    ));
+    set_collateral_exchange_rate(vault_id, FixedU128::checked_from_integer(1u128).unwrap());
 
     assert_eq!(
         CurrencySource::<Runtime>::AvailableReplaceCollateral(vault_id.clone())
@@ -1347,6 +1376,7 @@ impl ExtBuilder {
             .into_iter()
             .flat_map(|(account, balance)| {
                 iter_collateral_currencies()
+                    .filter(|c| !c.is_ptoken())
                     .chain(iter_native_currencies())
                     .unique()
                     .map(move |currency| (account.clone(), currency, balance))
@@ -1381,16 +1411,24 @@ impl ExtBuilder {
         .unwrap();
 
         vault_registry::GenesisConfig::<Runtime> {
-            minimum_collateral_vault: vec![(Token(DOT), 0), (Token(KSM), 0), (ForeignAsset(1), 0), (Token(INTR), 0)],
+            minimum_collateral_vault: vec![
+                (Token(DOT), 0),
+                (Token(KSM), 0),
+                (ForeignAsset(1), 0),
+                (Token(INTR), 0),
+                (PToken(1), 0),
+            ],
             punishment_delay: 8,
-            system_collateral_ceiling: iter_currency_pairs().map(|pair| (pair, FUND_LIMIT_CEILING)).collect(),
-            secure_collateral_threshold: iter_currency_pairs()
+            system_collateral_ceiling: iter_currency_pairs_with_ptokens()
+                .map(|pair| (pair, FUND_LIMIT_CEILING))
+                .collect(),
+            secure_collateral_threshold: iter_currency_pairs_with_ptokens()
                 .map(|pair| (pair, FixedU128::checked_from_rational(150, 100).unwrap()))
                 .collect(),
-            premium_redeem_threshold: iter_currency_pairs()
+            premium_redeem_threshold: iter_currency_pairs_with_ptokens()
                 .map(|pair| (pair, FixedU128::checked_from_rational(150, 100).unwrap()))
                 .collect(),
-            liquidation_collateral_threshold: iter_currency_pairs()
+            liquidation_collateral_threshold: iter_currency_pairs_with_ptokens()
                 .map(|pair| (pair, FixedU128::checked_from_rational(110, 100).unwrap()))
                 .collect(),
         }
@@ -1443,6 +1481,15 @@ impl ExtBuilder {
             inflation: FixedU128::checked_from_rational(2, 100).unwrap(), // 2%
         }
         .assimilate_storage(&mut storage)
+        .unwrap();
+
+        GenesisBuild::<Runtime>::assimilate_storage(
+            &pallet_loans::GenesisConfig {
+                max_exchange_rate: Rate::from_inner(DEFAULT_MAX_EXCHANGE_RATE),
+                min_exchange_rate: Rate::from_inner(DEFAULT_MIN_EXCHANGE_RATE),
+            },
+            &mut storage,
+        )
         .unwrap();
 
         Self {

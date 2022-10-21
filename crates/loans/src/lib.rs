@@ -43,7 +43,7 @@ use num_traits::cast::ToPrimitive;
 use orml_traits::MultiCurrency;
 pub use pallet::*;
 use pallet_traits::{
-    ConvertToBigUint, Loans as LoansTrait, LoansMarketDataProvider, MarketInfo, MarketStatus, PriceFeeder,
+    ConvertToBigUint, LoansApi as LoansTrait, LoansMarketDataProvider, MarketInfo, MarketStatus, PriceFeeder,
 };
 use primitives::{Balance, CurrencyId, Liquidity, Price, Rate, Ratio, Shortfall, Timestamp};
 use sp_runtime::{
@@ -75,12 +75,6 @@ mod types;
 
 pub mod weights;
 
-pub const MAX_INTEREST_CALCULATING_INTERVAL: u64 = 5 * 24 * 3600; // 5 days
-pub const MIN_INTEREST_CALCULATING_INTERVAL: u64 = 100; // 100 seconds
-
-pub const MAX_EXCHANGE_RATE: u128 = 1_000_000_000_000_000_000; // 1
-pub const MIN_EXCHANGE_RATE: u128 = 20_000_000_000_000_000; // 0.02
-
 type AccountIdOf<T> = <T as frame_system::Config>::AccountId;
 type AssetIdOf<T> = <<T as Config>::Assets as Inspect<<T as frame_system::Config>::AccountId>>::AssetId;
 type BalanceOf<T> = <<T as Config>::Assets as Inspect<<T as frame_system::Config>::AccountId>>::Balance;
@@ -88,7 +82,7 @@ type BalanceOf<T> = <<T as Config>::Assets as Inspect<<T as frame_system::Config
 pub struct OnSlashHook<T>(marker::PhantomData<T>);
 impl<T: Config> OnSlash<T::AccountId, AssetIdOf<T>, BalanceOf<T>> for OnSlashHook<T> {
     fn on_slash(currency_id: AssetIdOf<T>, account_id: &T::AccountId, amount: BalanceOf<T>) {
-        if currency_id.is_ctoken() {
+        if currency_id.is_ptoken() {
             let f = || -> DispatchResult {
                 let underlying_id = Pallet::<T>::underlying_id(currency_id)?;
                 Pallet::<T>::update_reward_supply_index(underlying_id)?;
@@ -112,7 +106,7 @@ impl<T: Config> OnSlash<T::AccountId, AssetIdOf<T>, BalanceOf<T>> for OnSlashHoo
 pub struct OnDepositHook<T>(marker::PhantomData<T>);
 impl<T: Config> OnDeposit<T::AccountId, AssetIdOf<T>, BalanceOf<T>> for OnDepositHook<T> {
     fn on_deposit(currency_id: AssetIdOf<T>, account_id: &T::AccountId, _: BalanceOf<T>) -> DispatchResult {
-        if currency_id.is_ctoken() {
+        if currency_id.is_ptoken() {
             let underlying_id = Pallet::<T>::underlying_id(currency_id)?;
             Pallet::<T>::update_reward_supply_index(underlying_id)?;
             Pallet::<T>::distribute_supplier_reward(underlying_id, account_id)?;
@@ -129,7 +123,7 @@ impl<T: Config> OnTransfer<T::AccountId, AssetIdOf<T>, BalanceOf<T>> for OnTrans
         to: &T::AccountId,
         _: BalanceOf<T>,
     ) -> DispatchResult {
-        if currency_id.is_ctoken() {
+        if currency_id.is_ptoken() {
             let underlying_id = Pallet::<T>::underlying_id(currency_id)?;
             Pallet::<T>::update_reward_supply_index(underlying_id)?;
             Pallet::<T>::distribute_supplier_reward(underlying_id, from)?;
@@ -440,9 +434,18 @@ pub mod pallet {
 
     /// The reward accrued but not yet transferred to each user.
     #[pallet::storage]
-    #[pallet::storage_prefix = "RewardAccured"]
     #[pallet::getter(fn reward_accrued)]
     pub type RewardAccrued<T: Config> = StorageMap<_, Blake2_128Concat, T::AccountId, BalanceOf<T>, ValueQuery>;
+
+    /// The maximum allowed exchange rate for a market.
+    #[pallet::storage]
+    #[pallet::getter(fn max_exchange_rate)]
+    pub type MaxExchangeRate<T: Config> = StorageValue<_, Rate, ValueQuery>;
+
+    /// The minimum allowed exchange rate for a market.
+    #[pallet::storage]
+    #[pallet::getter(fn min_exchange_rate)]
+    pub type MinExchangeRate<T: Config> = StorageValue<_, Rate, ValueQuery>;
 
     /// DefaultVersion is using for initialize the StorageVersion
     #[pallet::type_value]
@@ -453,6 +456,30 @@ pub mod pallet {
     /// Storage version of the pallet.
     #[pallet::storage]
     pub(crate) type StorageVersion<T: Config> = StorageValue<_, Versions, ValueQuery, DefaultVersion<T>>;
+
+    #[pallet::genesis_config]
+    pub struct GenesisConfig {
+        pub max_exchange_rate: Rate,
+        pub min_exchange_rate: Rate,
+    }
+
+    #[cfg(feature = "std")]
+    impl Default for GenesisConfig {
+        fn default() -> Self {
+            Self {
+                max_exchange_rate: Default::default(),
+                min_exchange_rate: Default::default(),
+            }
+        }
+    }
+
+    #[pallet::genesis_build]
+    impl<T: Config> GenesisBuild<T> for GenesisConfig {
+        fn build(&self) {
+            MaxExchangeRate::<T>::put(&self.max_exchange_rate);
+            MinExchangeRate::<T>::put(&self.min_exchange_rate);
+        }
+    }
 
     #[pallet::pallet]
     #[pallet::without_storage_info]
@@ -513,7 +540,7 @@ pub mod pallet {
             UnderlyingAssetId::<T>::insert(market.ptoken_id, asset_id);
 
             // Init the ExchangeRate and BorrowIndex for asset
-            ExchangeRate::<T>::insert(asset_id, Rate::from_inner(MIN_EXCHANGE_RATE));
+            ExchangeRate::<T>::insert(asset_id, Self::min_exchange_rate());
             BorrowIndex::<T>::insert(asset_id, Rate::one());
 
             Self::deposit_event(Event::<T>::NewMarket(asset_id, market));
@@ -1805,13 +1832,6 @@ impl<T: Config> Pallet<T> {
         Markets::<T>::iter().filter(|(_, market)| market.state == MarketState::Active)
     }
 
-    // Returns a stored asset_id
-    //
-    // Returns `Err` if asset_id does not exist, it also means that ptoken_id is invalid.
-    pub fn underlying_id(ptoken_id: AssetIdOf<T>) -> Result<AssetIdOf<T>, DispatchError> {
-        UnderlyingAssetId::<T>::try_get(ptoken_id).map_err(|_err| Error::<T>::InvalidPtokenId.into())
-    }
-
     // Returns the ptoken_id of the related asset
     //
     // Returns `Err` if market does not exist.
@@ -1831,7 +1851,7 @@ impl<T: Config> Pallet<T> {
     }
 }
 
-impl<T: Config> LoansTrait<AssetIdOf<T>, AccountIdOf<T>, BalanceOf<T>> for Pallet<T> {
+impl<T: Config> LoansTrait<AssetIdOf<T>, AccountIdOf<T>, BalanceOf<T>, Amount<T>> for Pallet<T> {
     fn do_mint(supplier: &AccountIdOf<T>, asset_id: AssetIdOf<T>, amount: BalanceOf<T>) -> Result<(), DispatchError> {
         ensure!(!amount.is_zero(), Error::<T>::InvalidAmount);
         Self::ensure_active_market(asset_id)?;
@@ -1993,6 +2013,27 @@ impl<T: Config> LoansTrait<AssetIdOf<T>, AccountIdOf<T>, BalanceOf<T>> for Palle
         let redeem_amount = Self::do_redeem_voucher(supplier, asset_id, voucher_amount)?;
         Self::deposit_event(Event::<T>::Redeemed(supplier.clone(), asset_id, redeem_amount));
         Ok(())
+    }
+
+    fn get_underlying_amount(ptokens: &Amount<T>) -> Result<Amount<T>, DispatchError> {
+        let underlying_id = Self::underlying_id(ptokens.currency())?;
+        let exchange_rate = Self::exchange_rate_stored(underlying_id)?;
+        let underlying_amount = Self::calc_underlying_amount(ptokens.amount(), exchange_rate)?;
+        Ok(Amount::new(underlying_amount, underlying_id))
+    }
+
+    // Returns a stored asset_id
+    //
+    // Returns `Err` if asset_id does not exist, it also means that ptoken_id is invalid.
+    fn underlying_id(ptoken_id: AssetIdOf<T>) -> Result<AssetIdOf<T>, DispatchError> {
+        UnderlyingAssetId::<T>::try_get(ptoken_id).map_err(|_err| Error::<T>::InvalidPtokenId.into())
+    }
+
+    fn get_collateral_amount(underlying: &Amount<T>) -> Result<Amount<T>, DispatchError> {
+        let exchange_rate = Self::exchange_rate_stored(underlying.currency())?;
+        let underlying_amount = Self::calc_collateral_amount(underlying.amount(), exchange_rate)?;
+        let ptoken_id = Self::ptoken_id(underlying.currency())?;
+        Ok(Amount::new(underlying_amount, ptoken_id))
     }
 }
 

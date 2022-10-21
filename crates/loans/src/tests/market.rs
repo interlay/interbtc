@@ -1,17 +1,17 @@
 use crate::{
-    mock::{market_mock, new_test_ext, Loans, Origin, Test, ACTIVE_MARKET_MOCK, ALICE, MARKET_MOCK},
+    mock::{market_mock, new_test_ext, Loans, Origin, Test, ACTIVE_MARKET_MOCK, ALICE, CDOT, MARKET_MOCK},
     Error, InterestRateModel, MarketState,
 };
 use frame_support::{assert_noop, assert_ok, error::BadOrigin};
 use primitives::{
-    CurrencyId::{self, ForeignAsset, Token},
-    Rate, Ratio, CDOT, CKBTC, DOT as DOT_CURRENCY,
+    CurrencyId::{self, ForeignAsset, PToken, Token},
+    Rate, Ratio, DOT as DOT_CURRENCY,
 };
 use sp_runtime::{traits::Zero, FixedPointNumber};
 
 const DOT: CurrencyId = Token(DOT_CURRENCY);
-const PDOT: CurrencyId = Token(CDOT);
-const PUSDT: CurrencyId = Token(CKBTC);
+const PDOT: CurrencyId = CDOT;
+const PUSDT: CurrencyId = PToken(4);
 const SDOT: CurrencyId = ForeignAsset(987997280);
 
 macro_rules! rate_model_sanity_check {

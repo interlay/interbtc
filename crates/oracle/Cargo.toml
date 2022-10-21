@@ -25,6 +25,7 @@ security = { path = "../security", default-features = false }
 primitives = { package = "interbtc-primitives", path = "../../primitives", default-features = false }
 staking = { path = "../staking", default-features = false }
 currency = { path = "../currency", default-features = false }
+pallet-traits = { path = '../traits', default-features = false }
 
 [dev-dependencies]
 mocktopus = "0.7.0"

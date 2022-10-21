@@ -1,5 +1,5 @@
 use crate::{
-    mock::{market_mock, new_test_ext, Loans, Origin, Test, Tokens, ALICE, DAVE},
+    mock::{market_mock, new_test_ext, Loans, Origin, Test, Tokens, ALICE, CKBTC, CKINT, CKSM, DAVE},
     tests::unit,
     Error,
 };
@@ -8,16 +8,16 @@ use frame_support::{
     traits::tokens::fungibles::{Inspect, Transfer},
 };
 use primitives::{
-    CurrencyId::{self, ForeignAsset, Token},
-    CKBTC, CKINT, CKSM, KBTC, KINT, KSM as KSM_CURRENCY,
+    CurrencyId::{self, ForeignAsset, PToken, Token},
+    KBTC, KINT, KSM as KSM_CURRENCY,
 };
 use sp_runtime::{FixedPointNumber, TokenError};
 
 const HKO: CurrencyId = Token(KINT);
 const KSM: CurrencyId = Token(KSM_CURRENCY);
-const PHKO: CurrencyId = Token(CKINT);
-const PKSM: CurrencyId = Token(CKSM);
-const PUSDT: CurrencyId = Token(CKBTC);
+const PHKO: CurrencyId = CKINT;
+const PKSM: CurrencyId = CKSM;
+const PUSDT: CurrencyId = CKBTC;
 const USDT: CurrencyId = Token(KBTC);
 
 #[test]

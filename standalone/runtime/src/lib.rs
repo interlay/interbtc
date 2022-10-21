@@ -25,6 +25,7 @@ use frame_system::{
 };
 use orml_asset_registry::SequentialId;
 use orml_traits::parameter_type_with_key;
+use pallet_traits::OracleApi;
 use pallet_transaction_payment::{Multiplier, TargetedFeeAdjustment};
 use sp_api::impl_runtime_apis;
 use sp_core::{crypto::KeyTypeId, OpaqueMetadata, H256};
@@ -65,7 +66,7 @@ pub use security::StatusCode;
 
 pub use primitives::{
     self, AccountId, Balance, BlockNumber, CurrencyId,
-    CurrencyId::{ForeignAsset, Token},
+    CurrencyId::{ForeignAsset, PToken, Token},
     CurrencyInfo, Hash, Moment, Nonce, PriceDetail, Signature, SignedFixedPoint, SignedInner, TokenSymbol,
     UnsignedFixedPoint, UnsignedInner, DOT, IBTC, INTR, KBTC, KINT, KSM,
 };
@@ -806,13 +807,6 @@ impl security::Config for Runtime {
     type Event = Event;
 }
 
-pub struct CurrencyConvert;
-impl currency::CurrencyConversion<currency::Amount<Runtime>, CurrencyId> for CurrencyConvert {
-    fn convert(amount: &currency::Amount<Runtime>, to: CurrencyId) -> Result<currency::Amount<Runtime>, DispatchError> {
-        Oracle::convert(amount, to)
-    }
-}
-
 pub struct PriceFeed;
 impl pallet_traits::PriceFeeder for PriceFeed {
     fn get_price(asset_id: &CurrencyId) -> Option<PriceDetail> {
@@ -826,6 +820,10 @@ impl pallet_traits::PriceFeeder for PriceFeed {
                     return None;
                 }
             }
+            // Returning `None` here means there is no price for this asset.
+            // This is fine since PTokens may not be used as underlying currency
+            // in the loans pallet.
+            PToken(_) => return None,
         };
         let amount = Amount::<Runtime>::new(one, asset_id.clone());
         Oracle::convert(&amount, WRAPPED_CURRENCY_ID)
@@ -842,7 +840,7 @@ impl currency::Config for Runtime {
     type GetNativeCurrencyId = GetNativeCurrencyId;
     type GetRelayChainCurrencyId = GetRelayChainCurrencyId;
     type GetWrappedCurrencyId = GetWrappedCurrencyId;
-    type CurrencyConversion = CurrencyConvert;
+    type CurrencyConversion = currency::CurrencyConvert<Runtime, Oracle, Loans>;
 }
 
 impl staking::Config for Runtime {
@@ -1054,7 +1052,7 @@ construct_runtime! {
         // Refund: 27
         Nomination: nomination::{Pallet, Call, Config, Storage, Event<T>} = 28,
 
-        Loans: pallet_loans::{Pallet, Call, Storage, Event<T>} = 39,
+        Loans: pallet_loans::{Pallet, Call, Storage, Event<T>, Config} = 39,
 
         Identity: pallet_identity::{Pallet, Call, Storage, Event<T>} = 36,
         ClientsInfo: clients_info::{Pallet, Call, Storage, Event<T>} = 38,
