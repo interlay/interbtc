@@ -1,3 +1,6 @@
+use primitives::Rate;
+use testnet_kintsugi_runtime::LoansConfig;
+
 use super::*;
 
 fn testnet_properties(bitcoin_network: &str) -> Map<String, Value> {
@@ -463,6 +466,10 @@ fn testnet_genesis(
         },
         polkadot_xcm: testnet_kintsugi_runtime::PolkadotXcmConfig {
             safe_xcm_version: Some(2),
+        },
+        loans: LoansConfig {
+            max_exchange_rate: Rate::from_inner(DEFAULT_MAX_EXCHANGE_RATE),
+            min_exchange_rate: Rate::from_inner(DEFAULT_MIN_EXCHANGE_RATE),
         },
     }
 }

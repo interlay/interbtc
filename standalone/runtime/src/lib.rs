@@ -807,6 +807,7 @@ impl security::Config for Runtime {
     type Event = Event;
 }
 
+// TODO: Remove this once `get_price()` is replaced with `amount.convert()`
 pub struct PriceFeed;
 impl pallet_traits::PriceFeeder for PriceFeed {
     fn get_price(asset_id: &CurrencyId) -> Option<PriceDetail> {
