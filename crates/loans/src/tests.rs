@@ -21,6 +21,7 @@ mod liquidate_borrow;
 mod market;
 mod ptokens;
 
+use currency::Amount;
 use frame_support::{assert_noop, assert_ok};
 
 use sp_runtime::{
@@ -115,7 +116,7 @@ fn mint_works() {
         // DOT collateral: deposit = 100
         // DOT: cash - deposit = 1000 - 100 = 900
         assert_eq!(
-            Loans::exchange_rate(DOT).saturating_mul_int(Loans::free_ptoken_balance(DOT, &ALICE).unwrap()),
+            Loans::exchange_rate(DOT).saturating_mul_int(Loans::free_ptokens(DOT, &ALICE).unwrap().amount()),
             unit(100)
         );
         assert_eq!(Tokens::balance(DOT, &ALICE), unit(900),);
@@ -1085,7 +1086,11 @@ fn reward_calculation_multi_player_in_one_market_works() {
         assert_ok!(Loans::withdraw_all_collateral(Origin::signed(BOB), DOT));
         assert_ok!(Loans::redeem_all(Origin::signed(BOB), DOT));
         assert_ok!(Loans::repay_borrow_all(Origin::signed(ALICE), DOT));
-        assert_ok!(Loans::repay_borrow_all(Origin::signed(BOB), DOT));
+        // No loans to repay
+        assert_noop!(
+            Loans::repay_borrow_all(Origin::signed(BOB), DOT),
+            Error::<Test>::InvalidAmount
+        );
         // Alice supply:10     supply reward: 23
         // Alice borrow:0      borrow reward: 15
         // BOB supply:0       supply reward: 17
@@ -1095,9 +1100,24 @@ fn reward_calculation_multi_player_in_one_market_works() {
 
         _run_to_block(60);
         assert_ok!(Loans::mint(Origin::signed(ALICE), DOT, unit(10)));
-        assert_ok!(Loans::redeem_all(Origin::signed(BOB), DOT));
-        assert_ok!(Loans::repay_borrow_all(Origin::signed(ALICE), DOT));
-        assert_ok!(Loans::repay_borrow_all(Origin::signed(BOB), DOT));
+        // There is no locked collateral left, so withdrawing will fail
+        assert_noop!(
+            Loans::withdraw_all_collateral(Origin::signed(BOB), DOT),
+            Error::<Test>::InvalidAmount
+        );
+        // There is also no free collateral left, so redeeming will fail
+        assert_noop!(
+            Loans::redeem_all(Origin::signed(BOB), DOT),
+            Error::<Test>::InvalidAmount
+        );
+        assert_noop!(
+            Loans::repay_borrow_all(Origin::signed(ALICE), DOT),
+            Error::<Test>::InvalidAmount
+        );
+        assert_noop!(
+            Loans::repay_borrow_all(Origin::signed(BOB), DOT),
+            Error::<Test>::InvalidAmount
+        );
         // Alice supply:10     supply reward: 33
         // Alice borrow:0      borrow reward: 15
         // BOB supply:0       supply reward: 17
@@ -1207,5 +1227,33 @@ fn reward_calculation_after_liquidate_borrow_works() {
             ),
             true,
         );
+    })
+}
+
+#[test]
+fn accrue_interest_works_after_get_collateral_amount() {
+    new_test_ext().execute_with(|| {
+        assert_ok!(Loans::mint(Origin::signed(BOB), KSM, unit(200)));
+        assert_ok!(Loans::mint(Origin::signed(ALICE), DOT, unit(200)));
+        assert_ok!(Loans::deposit_all_collateral(Origin::signed(ALICE), DOT));
+        assert_ok!(Loans::borrow(Origin::signed(ALICE), KSM, unit(50)));
+        assert_eq!(Loans::borrow_index(KSM), Rate::one());
+        TimestampPallet::set_timestamp(12000);
+        assert_ok!(Loans::get_collateral_amount(&Amount::<Test>::new(1234, KSM)));
+        assert_eq!(Loans::borrow_index(KSM), Rate::from_inner(1000000008561643835),);
+    })
+}
+
+#[test]
+fn accrue_interest_works_after_get_underlying_amount() {
+    new_test_ext().execute_with(|| {
+        assert_ok!(Loans::mint(Origin::signed(BOB), KSM, unit(200)));
+        assert_ok!(Loans::mint(Origin::signed(ALICE), DOT, unit(200)));
+        assert_ok!(Loans::deposit_all_collateral(Origin::signed(ALICE), DOT));
+        assert_ok!(Loans::borrow(Origin::signed(ALICE), KSM, unit(50)));
+        assert_eq!(Loans::borrow_index(KSM), Rate::one());
+        TimestampPallet::set_timestamp(12000);
+        assert_ok!(Loans::get_underlying_amount(&Loans::free_ptokens(KSM, &ALICE).unwrap()));
+        assert_eq!(Loans::borrow_index(KSM), Rate::from_inner(1000000008561643835),);
     })
 }

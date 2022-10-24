@@ -177,7 +177,7 @@ fn liquidator_must_not_be_borrower() {
     new_test_ext().execute_with(|| {
         initial_setup();
         assert_noop!(
-            Loans::liquidate_borrow(Origin::signed(ALICE), ALICE, KSM, 0, DOT),
+            Loans::liquidate_borrow(Origin::signed(ALICE), ALICE, KSM, 1, DOT),
             Error::<Test>::LiquidatorIsBorrower
         );
     })

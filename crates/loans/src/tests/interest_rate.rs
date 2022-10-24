@@ -1,4 +1,5 @@
 use crate::{mock::*, tests::Loans, Markets};
+use currency::Amount;
 use frame_support::assert_ok;
 use primitives::{CurrencyId::Token, Rate, Ratio, DOT, KSM, SECONDS_PER_YEAR};
 use sp_runtime::{
@@ -186,6 +187,7 @@ fn accrue_interest_works_after_redeem_all() {
         assert_ok!(Loans::deposit_all_collateral(Origin::signed(ALICE), Token(DOT)));
         assert_ok!(Loans::borrow(Origin::signed(ALICE), Token(DOT), unit(10)));
         assert_eq!(Loans::borrow_index(Token(DOT)), Rate::one());
+        assert_eq!(Tokens::balance(Token(DOT), &BOB), 980000000000000);
         TimestampPallet::set_timestamp(12000);
         assert_ok!(Loans::redeem_all(Origin::signed(BOB), Token(DOT)));
         assert_eq!(Loans::borrow_index(Token(DOT)), Rate::from_inner(1000000004669977168),);

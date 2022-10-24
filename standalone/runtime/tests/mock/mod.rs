@@ -356,7 +356,7 @@ impl Wrapped for VaultId {
     }
 }
 
-pub fn iter_currency_pairs_with_ptokens() -> impl Iterator<Item = DefaultVaultCurrencyPair<Runtime>> {
+pub fn iter_currency_pairs() -> impl Iterator<Item = DefaultVaultCurrencyPair<Runtime>> {
     iter_collateral_currencies().flat_map(|collateral_id| {
         iter_wrapped_currencies().map(move |wrapped_id| VaultCurrencyPair {
             collateral: collateral_id,
@@ -799,7 +799,7 @@ pub struct LiquidationVaultData {
 
 impl LiquidationVaultData {
     pub fn get() -> Self {
-        let liquidation_vaults = iter_currency_pairs_with_ptokens()
+        let liquidation_vaults = iter_currency_pairs()
             .map(|currency_pair| {
                 let vault = VaultRegistryPallet::get_liquidation_vault(&currency_pair);
                 let data = SingleLiquidationVault {
@@ -824,7 +824,7 @@ impl LiquidationVaultData {
         let mut ret = Self {
             liquidation_vaults: BTreeMap::new(),
         };
-        for pair in iter_currency_pairs_with_ptokens() {
+        for pair in iter_currency_pairs() {
             if &pair == currency_pair {
                 ret.liquidation_vaults
                     .insert(pair.clone(), SingleLiquidationVault::zero(&pair));
@@ -1419,16 +1419,14 @@ impl ExtBuilder {
                 (PToken(1), 0),
             ],
             punishment_delay: 8,
-            system_collateral_ceiling: iter_currency_pairs_with_ptokens()
-                .map(|pair| (pair, FUND_LIMIT_CEILING))
-                .collect(),
-            secure_collateral_threshold: iter_currency_pairs_with_ptokens()
+            system_collateral_ceiling: iter_currency_pairs().map(|pair| (pair, FUND_LIMIT_CEILING)).collect(),
+            secure_collateral_threshold: iter_currency_pairs()
                 .map(|pair| (pair, FixedU128::checked_from_rational(150, 100).unwrap()))
                 .collect(),
-            premium_redeem_threshold: iter_currency_pairs_with_ptokens()
+            premium_redeem_threshold: iter_currency_pairs()
                 .map(|pair| (pair, FixedU128::checked_from_rational(150, 100).unwrap()))
                 .collect(),
-            liquidation_collateral_threshold: iter_currency_pairs_with_ptokens()
+            liquidation_collateral_threshold: iter_currency_pairs()
                 .map(|pair| (pair, FixedU128::checked_from_rational(110, 100).unwrap()))
                 .collect(),
         }

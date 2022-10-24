@@ -1,7 +1,9 @@
+use currency::Amount;
 use interbtc_runtime_standalone::{CurrencyId::Token, KINT};
 mod mock;
 use mock::{assert_eq, *};
 use pallet_loans::{InterestRateModel, JumpModel, Market, MarketState};
+use pallet_traits::LoansApi;
 use primitives::{Rate, Ratio};
 use sp_runtime::traits::CheckedMul;
 
@@ -58,6 +60,7 @@ fn test_real_market<R>(execute: impl Fn() -> R) {
             FixedU128::from_inner(4_573_498_406_135_805_461_670_000),
             CKSM,
         );
+        set_up_market(Token(DOT), FixedU128::from_inner(324_433_053_239_464_036_596_000), CDOT);
         execute()
     });
 }
@@ -124,5 +127,96 @@ fn integration_test_liquidation() {
             collateral_asset_id: kint
         })
         .dispatch(origin_of(account_of(LP))));
+    });
+}
+
+#[test]
+fn integration_test_ptoken_vault_insufficient_balance() {
+    test_real_market(|| {
+        let dot = Token(DOT);
+        let vault_account_id = account_of(USER);
+
+        assert_ok!(Call::Loans(LoansCall::mint {
+            asset_id: dot,
+            mint_amount: 1000,
+        })
+        .dispatch(origin_of(account_of(USER))));
+
+        let ptokens = LoansPallet::free_ptokens(dot, &vault_account_id).unwrap();
+
+        // Depositing all the collateral should leave none free for registering as a vault
+        assert_ok!(Call::Loans(LoansCall::deposit_all_collateral { asset_id: dot })
+            .dispatch(origin_of(vault_account_id.clone())));
+
+        let ptoken_vault_id = PrimitiveVaultId::new(vault_account_id.clone(), ptokens.currency(), Token(IBTC));
+        assert_err!(
+            get_register_vault_result(&ptoken_vault_id, ptokens),
+            TokensError::BalanceTooLow
+        );
+
+        // Withdraw the ptokens to use them for another purpose
+        assert_ok!(Call::Loans(LoansCall::withdraw_all_collateral { asset_id: dot })
+            .dispatch(origin_of(vault_account_id.clone())));
+
+        // This time, registering a vault works because the ptokens are unlocked
+        assert_ok!(get_register_vault_result(&ptoken_vault_id, ptokens));
+    });
+}
+
+#[test]
+fn integration_test_ptoken_deposit_insufficient_balance() {
+    test_real_market(|| {
+        let dot = Token(DOT);
+        let vault_account_id = account_of(USER);
+
+        assert_ok!(Call::Loans(LoansCall::mint {
+            asset_id: dot,
+            mint_amount: 1000,
+        })
+        .dispatch(origin_of(account_of(USER))));
+
+        let ptokens = LoansPallet::free_ptokens(dot, &vault_account_id).unwrap();
+
+        // Register a vault with all the available ptokens
+        let ptoken_vault_id = PrimitiveVaultId::new(vault_account_id.clone(), ptokens.currency(), Token(IBTC));
+        assert_ok!(get_register_vault_result(&ptoken_vault_id, ptokens),);
+
+        assert_err!(
+            LoansPallet::do_deposit_collateral(&vault_account_id, ptokens.currency(), ptokens.amount()),
+            TokensError::BalanceTooLow
+        );
+    });
+}
+
+#[test]
+fn integration_test_ptoken_transfer_reserved_fails() {
+    test_real_market(|| {
+        let dot = Token(DOT);
+        let vault_account_id = account_of(USER);
+
+        assert_ok!(Call::Loans(LoansCall::mint {
+            asset_id: dot,
+            mint_amount: 1000,
+        })
+        .dispatch(origin_of(vault_account_id.clone())));
+
+        let ptokens = LoansPallet::free_ptokens(dot, &vault_account_id).unwrap();
+
+        // Lock some ptokens into the lending market
+        assert_ok!(LoansPallet::do_deposit_collateral(
+            &vault_account_id,
+            ptokens.currency(),
+            ptokens.amount() / 2
+        ));
+
+        let half_ptokens = ptokens.checked_div(&FixedU128::from_u32(2)).unwrap();
+        assert_eq!(half_ptokens, LoansPallet::free_ptokens(dot, &vault_account_id).unwrap());
+
+        // Transferring the full amount fails
+        assert_noop!(
+            ptokens.transfer(&vault_account_id, &account_of(LP)),
+            TokensError::BalanceTooLow
+        );
+        assert_ok!(half_ptokens.transfer(&vault_account_id, &account_of(LP)));
     });
 }

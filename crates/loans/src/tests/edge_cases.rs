@@ -1,5 +1,6 @@
 use super::*;
 use crate::{mock::*, tests::Loans, Error};
+use currency::Amount;
 use frame_support::{assert_err, assert_ok};
 use primitives::{
     CurrencyId::{ForeignAsset, Token},
@@ -83,7 +84,32 @@ fn redeem_all_should_be_accurate() {
 
         assert_ok!(Loans::repay_borrow_all(Origin::signed(ALICE), Token(KSM)));
         // It failed with InsufficientLiquidity before #839
+        // Interlay modification: Need to withraw collateral first in order to redeem
+        assert_ok!(Loans::withdraw_all_collateral(Origin::signed(ALICE), Token(KSM)));
         assert_ok!(Loans::redeem_all(Origin::signed(ALICE), Token(KSM)));
+    })
+}
+
+// FIXME: this test fails because of rounding
+#[ignore]
+#[test]
+fn converting_to_and_from_collateral_should_not_change_results() {
+    new_test_ext().execute_with(|| {
+        assert_ok!(Loans::mint(Origin::signed(ALICE), Token(KSM), unit(201)));
+        assert_ok!(Loans::deposit_all_collateral(Origin::signed(ALICE), Token(KSM)));
+        assert_ok!(Loans::borrow(Origin::signed(ALICE), Token(KSM), unit(50)));
+
+        // let exchange_rate greater than 0.02
+        accrue_interest_per_block(Token(KSM), 1, 131);
+        assert_eq!(Loans::exchange_rate(Token(KSM)), Rate::from_inner(20000000782289552));
+
+        let base_ksm_amount = 100007444213;
+        for offset in 0..=1000 {
+            let ksm_amount = Amount::new(base_ksm_amount + offset, Token(KSM));
+            let conv_pksm_amount = Loans::get_collateral_amount(&ksm_amount).unwrap();
+            let conv_ksm_amount = Loans::get_underlying_amount(&conv_pksm_amount).unwrap();
+            assert_eq!(conv_ksm_amount.amount(), ksm_amount.amount());
+        }
     })
 }
 
@@ -116,7 +142,7 @@ fn prevent_the_exchange_rate_attack() {
         );
         TimestampPallet::set_timestamp(12000);
         // Eve can not let the exchange rate greater than 1
-        assert!(Loans::accrue_interest(Token(DOT)).is_err());
+        assert_noop!(Loans::accrue_interest(Token(DOT)), Error::<Test>::InvalidExchangeRate);
 
         // Mock a BIG exchange_rate: 100000000000.02
         ExchangeRate::<Test>::insert(Token(DOT), Rate::saturating_from_rational(100000000000020u128, 20 * 50));
