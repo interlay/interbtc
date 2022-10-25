@@ -56,8 +56,8 @@ fn interest_rate_model_works() {
             let delta_time = 6u128;
             TimestampPallet::set_timestamp(6000 * (i + 1));
             assert_ok!(Loans::accrue_interest(Token(DOT)));
-            // utilizationRatio = totalBorrows / (totalCash + totalBorrows)
-            let util_ratio = Ratio::from_rational(total_borrows, total_cash + total_borrows);
+            // utilizationRatio = totalBorrows / (totalCash + totalBorrows - totalReserves)
+            let util_ratio = Ratio::from_rational(total_borrows, total_cash + total_borrows - total_reserves);
             assert_eq!(Loans::utilization_ratio(Token(DOT)), util_ratio);
 
             let borrow_rate = (jump_rate - base_rate) * util_ratio.into() / jump_utilization.into() + base_rate;
@@ -96,6 +96,7 @@ fn interest_rate_model_works() {
         // Calculate borrow accrued interest
         let borrow_principal =
             (borrow_index / borrow_snapshot.borrow_index).saturating_mul_int(borrow_snapshot.principal);
+        // TODO: Why subtract `million_unit(200)` here? Accruing interest doesn't fix this.
         let supply_interest = Loans::exchange_rate(Token(DOT)).saturating_mul_int(total_supply) - million_unit(200);
         assert_eq!(supply_interest, 54337916540000);
         assert_eq!(borrow_principal, 100000063926960644400);

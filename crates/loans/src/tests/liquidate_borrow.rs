@@ -4,6 +4,7 @@ use crate::{
     Error, MarketState,
 };
 use frame_support::{assert_noop, assert_ok, traits::fungibles::Inspect};
+use pallet_traits::LoansApi;
 use primitives::{
     CurrencyId::{self, Token},
     Rate, DOT as DOT_CURRENCY, KBTC as KBTC_CURRENCY, KSM as KSM_CURRENCY,
@@ -30,8 +31,7 @@ fn liquidate_borrow_allowed_works() {
         let ksm_market = Loans::market(KSM).unwrap();
         // Here the balance sheet of Alice is:
         // Collateral   Loans
-        // CDOT $200    KSM $400
-        // USDT $200
+        // USDT $110    KSM $200
         assert_noop!(
             Loans::liquidate_borrow_allowed(&ALICE, KSM, unit(51), &ksm_market),
             Error::<Test>::TooMuchRepay

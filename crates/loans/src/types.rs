@@ -36,6 +36,8 @@ pub struct Deposits<Balance> {
 pub enum MarketState {
     Active,
     Pending,
+    // Unclear why the `Supervision` state is required at all, since it's not used anywhere.
+    // Could just reuse the `Pending` state to temporarily halt a market.
     Supervision,
 }
 

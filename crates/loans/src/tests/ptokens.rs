@@ -1,13 +1,15 @@
 use crate::{
-    mock::{market_mock, new_test_ext, Loans, Origin, Test, Tokens, ALICE, CKBTC, CKINT, CKSM, DAVE},
+    mock::{market_mock, new_test_ext, AccountId, Loans, Origin, Test, Tokens, ALICE, CKBTC, CKINT, CKSM, DAVE},
     tests::unit,
-    Error,
+    Config, Error,
 };
 use frame_support::{
     assert_err, assert_noop, assert_ok,
     traits::tokens::fungibles::{Inspect, Transfer},
 };
+use orml_traits::{MultiCurrency, MultiReservableCurrency};
 use primitives::{
+    Balance,
     CurrencyId::{self, ForeignAsset, PToken, Token},
     KBTC, KINT, KSM as KSM_CURRENCY,
 };
@@ -19,6 +21,17 @@ const PHKO: CurrencyId = CKINT;
 const PKSM: CurrencyId = CKSM;
 const PUSDT: CurrencyId = CKBTC;
 const USDT: CurrencyId = Token(KBTC);
+
+fn free_balance(currency_id: CurrencyId, account_id: &AccountId) -> Balance {
+    <Tokens as MultiCurrency<<Test as frame_system::Config>::AccountId>>::free_balance(currency_id, account_id)
+}
+
+fn reserved_balance(currency_id: CurrencyId, account_id: &AccountId) -> Balance {
+    <Tokens as MultiReservableCurrency<<Test as frame_system::Config>::AccountId>>::reserved_balance(
+        currency_id,
+        account_id,
+    )
+}
 
 #[test]
 fn trait_inspect_methods_works() {
@@ -36,10 +49,20 @@ fn trait_inspect_methods_works() {
         // DAVE Deposit 100 HKO
         assert_ok!(Loans::mint(Origin::signed(DAVE), HKO, unit(100)));
         assert_eq!(Tokens::balance(PHKO, &DAVE), unit(100) * 50);
+        assert_eq!(Tokens::total_issuance(PHKO), unit(100) * 50);
+        // Check entries from orml-tokens directly
+        assert_eq!(free_balance(PHKO, &DAVE), unit(100) * 50);
+        assert_eq!(reserved_balance(PHKO, &DAVE), 0);
 
         // No collateral deposited yet, therefore no reducible balance
         assert_eq!(Loans::reducible_balance(PHKO, &DAVE, true), 0);
+
         assert_ok!(Loans::deposit_all_collateral(Origin::signed(DAVE), HKO));
+        assert_eq!(Loans::reducible_balance(PHKO, &DAVE, true), unit(100) * 50);
+        // Check entries from orml-tokens directly
+        assert_eq!(free_balance(PHKO, &DAVE), 0);
+        assert_eq!(reserved_balance(PHKO, &DAVE), unit(100) * 50);
+
         // Borrow 25 HKO will reduce 25 HKO liquidity for collateral_factor is 50%
         assert_ok!(Loans::borrow(Origin::signed(DAVE), HKO, unit(25)));
 
@@ -59,16 +82,24 @@ fn trait_inspect_methods_works() {
         // ptokens = dollar(25 + 25) / 1 / 0.5 / 0.02 = dollar(50) * 100
         assert_ok!(Loans::mint(Origin::signed(DAVE), USDT, unit(50)));
         assert_eq!(Tokens::balance(PUSDT, &DAVE), unit(50) * 50);
+        // Check entries from orml-tokens directly
+        assert_eq!(free_balance(PUSDT, &DAVE), unit(50) * 50);
+        assert_eq!(reserved_balance(PUSDT, &DAVE), 0);
 
-        // `reducible_balance()` check how much collateral can be withdrawn from the amount deposited.
+        // `reducible_balance()` checks how much collateral can be withdrawn from the amount deposited.
         // Since no collateral has been deposited yet, this value is zero.
         assert_eq!(Loans::reducible_balance(PUSDT, &DAVE, true), 0);
         // enable USDT collateral
         assert_ok!(Loans::deposit_all_collateral(Origin::signed(DAVE), USDT));
         assert_eq!(Loans::reducible_balance(PHKO, &DAVE, true), unit(25 + 25) * 2 * 50);
+        assert_eq!(Loans::reducible_balance(PUSDT, &DAVE, true), unit(50) * 50);
+        // Check entries from orml-tokens directly
+        assert_eq!(free_balance(PUSDT, &DAVE), 0);
+        assert_eq!(reserved_balance(PUSDT, &DAVE), unit(50) * 50);
 
         assert_ok!(Loans::borrow(Origin::signed(DAVE), HKO, unit(50)));
         assert_eq!(Loans::reducible_balance(PHKO, &DAVE, true), 0);
+        assert_eq!(Loans::reducible_balance(PUSDT, &DAVE, true), 0);
 
         assert_eq!(Loans::total_issuance(PHKO), unit(100) * 50);
         assert_ok!(Loans::can_deposit(PHKO, &DAVE, 100, true).into_result());
@@ -142,7 +173,14 @@ fn transfer_ptokens_under_collateral_does_not_work() {
     new_test_ext().execute_with(|| {
         // DAVE Deposit 100 HKO
         assert_ok!(Loans::mint(Origin::signed(DAVE), HKO, unit(100)));
+        // Check entries from orml-tokens directly
+        assert_eq!(free_balance(PHKO, &DAVE), unit(100) * 50);
+        assert_eq!(reserved_balance(PHKO, &DAVE), 0);
+
         assert_ok!(Loans::deposit_all_collateral(Origin::signed(DAVE), HKO));
+        // Check entries from orml-tokens directly
+        assert_eq!(free_balance(PHKO, &DAVE), 0);
+        assert_eq!(reserved_balance(PHKO, &DAVE), unit(100) * 50);
 
         // Borrow 50 HKO will reduce 50 HKO liquidity for collateral_factor is 50%
         assert_ok!(Loans::borrow(Origin::signed(DAVE), HKO, unit(50)));
@@ -156,10 +194,17 @@ fn transfer_ptokens_under_collateral_does_not_work() {
             Loans::transfer(PHKO, &DAVE, &ALICE, unit(20) * 50, true),
             Error::<Test>::InsufficientCollateral
         );
-        // First, withdraw the tokens
+        // First, withdraw some tokens
         assert_ok!(Loans::withdraw_collateral(Origin::signed(DAVE), PHKO, unit(20) * 50));
+        // Check entries from orml-tokens directly
+        assert_eq!(free_balance(PHKO, &DAVE), unit(20) * 50);
+        assert_eq!(reserved_balance(PHKO, &DAVE), unit(80) * 50);
         // Then transfer them
         assert_ok!(Loans::transfer(PHKO, &DAVE, &ALICE, unit(20) * 50, true),);
+        // Check entries from orml-tokens directly
+        assert_eq!(free_balance(PHKO, &DAVE), 0);
+        assert_eq!(reserved_balance(PHKO, &DAVE), unit(80) * 50);
+        assert_eq!(free_balance(PHKO, &ALICE), unit(20) * 50);
 
         // DAVE Deposit HKO = 100 - 20 = 80
         // DAVE Borrow HKO = 0 + 50 - 40 = 10
