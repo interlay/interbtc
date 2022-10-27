@@ -13,16 +13,13 @@ use orml_traits::{MultiCurrency, MultiReservableCurrency};
 use primitives::{
     Balance,
     CurrencyId::{self, ForeignAsset, LendToken, Token},
-    KBTC, KINT, KSM as KSM_CURRENCY,
+    KBTC as KBTC_CURRENCY, KINT as KINT_CURRENCY, KSM as KSM_CURRENCY,
 };
 use sp_runtime::{FixedPointNumber, TokenError};
 
-const HKO: CurrencyId = Token(KINT);
+const KINT: CurrencyId = Token(KINT_CURRENCY);
 const KSM: CurrencyId = Token(KSM_CURRENCY);
-const PHKO: CurrencyId = LEND_KINT;
-const PKSM: CurrencyId = LEND_KSM;
-const PUSDT: CurrencyId = LEND_KBTC;
-const USDT: CurrencyId = Token(KBTC);
+const KBTC: CurrencyId = Token(KBTC_CURRENCY);
 
 pub fn free_balance(currency_id: CurrencyId, account_id: &AccountId) -> Balance {
     <Tokens as MultiCurrency<<Test as frame_system::Config>::AccountId>>::free_balance(currency_id, account_id)
@@ -39,74 +36,77 @@ pub fn reserved_balance(currency_id: CurrencyId, account_id: &AccountId) -> Bala
 fn trait_inspect_methods_works() {
     new_test_ext().execute_with(|| {
         // No Deposits can't not withdraw
-        assert_err!(Loans::can_withdraw(PHKO, &DAVE, 100).into_result(), TokenError::NoFunds);
-        assert_eq!(Loans::total_issuance(PHKO), 0);
-        assert_eq!(Loans::total_issuance(PKSM), 0);
+        assert_err!(
+            Loans::can_withdraw(LEND_KINT, &DAVE, 100).into_result(),
+            TokenError::NoFunds
+        );
+        assert_eq!(Loans::total_issuance(LEND_KINT), 0);
+        assert_eq!(Loans::total_issuance(LEND_KSM), 0);
 
-        let minimum_balance = Loans::minimum_balance(PHKO);
+        let minimum_balance = Loans::minimum_balance(LEND_KINT);
         assert_eq!(minimum_balance, 0);
 
-        assert_eq!(Loans::balance(PHKO, &DAVE), 0);
+        assert_eq!(Loans::balance(LEND_KINT, &DAVE), 0);
 
-        // DAVE Deposit 100 HKO
-        assert_ok!(Loans::mint(Origin::signed(DAVE), HKO, unit(100)));
-        assert_eq!(Tokens::balance(PHKO, &DAVE), unit(100) * 50);
-        assert_eq!(Tokens::total_issuance(PHKO), unit(100) * 50);
+        // DAVE Deposit 100 KINT
+        assert_ok!(Loans::mint(Origin::signed(DAVE), KINT, unit(100)));
+        assert_eq!(Tokens::balance(LEND_KINT, &DAVE), unit(100) * 50);
+        assert_eq!(Tokens::total_issuance(LEND_KINT), unit(100) * 50);
         // Check entries from orml-tokens directly
-        assert_eq!(free_balance(PHKO, &DAVE), unit(100) * 50);
-        assert_eq!(reserved_balance(PHKO, &DAVE), 0);
+        assert_eq!(free_balance(LEND_KINT, &DAVE), unit(100) * 50);
+        assert_eq!(reserved_balance(LEND_KINT, &DAVE), 0);
 
         // No collateral deposited yet, therefore no reducible balance
-        assert_eq!(Loans::reducible_balance(PHKO, &DAVE, true), 0);
+        assert_eq!(Loans::reducible_balance(LEND_KINT, &DAVE, true), 0);
 
-        assert_ok!(Loans::deposit_all_collateral(Origin::signed(DAVE), HKO));
-        assert_eq!(Loans::reducible_balance(PHKO, &DAVE, true), unit(100) * 50);
+        assert_ok!(Loans::deposit_all_collateral(Origin::signed(DAVE), KINT));
+        assert_eq!(Loans::reducible_balance(LEND_KINT, &DAVE, true), unit(100) * 50);
         // Check entries from orml-tokens directly
-        assert_eq!(free_balance(PHKO, &DAVE), 0);
-        assert_eq!(reserved_balance(PHKO, &DAVE), unit(100) * 50);
+        assert_eq!(free_balance(LEND_KINT, &DAVE), 0);
+        assert_eq!(reserved_balance(LEND_KINT, &DAVE), unit(100) * 50);
 
-        // Borrow 25 HKO will reduce 25 HKO liquidity for collateral_factor is 50%
-        assert_ok!(Loans::borrow(Origin::signed(DAVE), HKO, unit(25)));
+        // Borrow 25 KINT will reduce 25 KINT liquidity for collateral_factor is 50%
+        assert_ok!(Loans::borrow(Origin::signed(DAVE), KINT, unit(25)));
 
         assert_eq!(
-            Loans::exchange_rate(HKO)
-                .saturating_mul_int(Loans::account_deposits(Loans::lend_token_id(HKO).unwrap(), DAVE)),
+            Loans::exchange_rate(KINT)
+                .saturating_mul_int(Loans::account_deposits(Loans::lend_token_id(KINT).unwrap(), DAVE)),
             unit(100)
         );
 
-        // DAVE Deposit 100 HKO, Borrow 25 HKO
-        // Liquidity HKO 25
+        // DAVE Deposit 100 KINT, Borrow 25 KINT
+        // Liquidity KINT 25
         // Formula: lend_tokens = liquidity / price(1) / collateral(0.5) / exchange_rate(0.02)
-        assert_eq!(Loans::reducible_balance(PHKO, &DAVE, true), unit(25) * 2 * 50);
+        assert_eq!(Loans::reducible_balance(LEND_KINT, &DAVE, true), unit(25) * 2 * 50);
 
-        // Multi-asset case, additional deposit USDT
-        // DAVE Deposit 100 HKO, 50 USDT, Borrow 25 HKO
-        // Liquidity HKO = 25, USDT = 25
+        // Multi-asset case, additional deposit KBTC
+        // DAVE Deposit 100 KINT, 50 KBTC, Borrow 25 KINT
+        // Liquidity KINT = 25, KBTC = 25
         // lend_tokens = dollar(25 + 25) / 1 / 0.5 / 0.02 = dollar(50) * 100
-        assert_ok!(Loans::mint(Origin::signed(DAVE), USDT, unit(50)));
-        assert_eq!(Tokens::balance(PUSDT, &DAVE), unit(50) * 50);
+        assert_ok!(Loans::mint(Origin::signed(DAVE), KBTC, unit(50)));
+        assert_eq!(Tokens::balance(LEND_KBTC, &DAVE), unit(50) * 50);
         // Check entries from orml-tokens directly
-        assert_eq!(free_balance(PUSDT, &DAVE), unit(50) * 50);
-        assert_eq!(reserved_balance(PUSDT, &DAVE), 0);
+        assert_eq!(free_balance(LEND_KBTC, &DAVE), unit(50) * 50);
+        assert_eq!(reserved_balance(LEND_KBTC, &DAVE), 0);
 
         // `reducible_balance()` checks how much collateral can be withdrawn from the amount deposited.
         // Since no collateral has been deposited yet, this value is zero.
-        assert_eq!(Loans::reducible_balance(PUSDT, &DAVE, true), 0);
-        // enable USDT collateral
-        assert_ok!(Loans::deposit_all_collateral(Origin::signed(DAVE), USDT));
-        assert_eq!(Loans::reducible_balance(PHKO, &DAVE, true), unit(25 + 25) * 2 * 50);
-        assert_eq!(Loans::reducible_balance(PUSDT, &DAVE, true), unit(50) * 50);
+        assert_eq!(Loans::reducible_balance(LEND_KBTC, &DAVE, true), 0);
+        // enable KBTC collateral
+        assert_ok!(Loans::deposit_all_collateral(Origin::signed(DAVE), KBTC));
+        assert_eq!(Loans::reducible_balance(LEND_KINT, &DAVE, true), unit(25 + 25) * 2 * 50);
+        assert_eq!(Loans::reducible_balance(LEND_KBTC, &DAVE, true), unit(50) * 50);
         // Check entries from orml-tokens directly
-        assert_eq!(free_balance(PUSDT, &DAVE), 0);
-        assert_eq!(reserved_balance(PUSDT, &DAVE), unit(50) * 50);
+        assert_eq!(free_balance(LEND_KBTC, &DAVE), 0);
+        assert_eq!(reserved_balance(LEND_KBTC, &DAVE), unit(50) * 50);
 
-        assert_ok!(Loans::borrow(Origin::signed(DAVE), HKO, unit(50)));
-        assert_eq!(Loans::reducible_balance(PHKO, &DAVE, true), 0);
-        assert_eq!(Loans::reducible_balance(PUSDT, &DAVE, true), 0);
+        assert_ok!(Loans::borrow(Origin::signed(DAVE), KINT, unit(50)));
+        assert_eq!(Loans::reducible_balance(LEND_KINT, &DAVE, true), 0);
+        assert_eq!(Loans::reducible_balance(LEND_KBTC, &DAVE, true), 0);
 
-        assert_eq!(Loans::total_issuance(PHKO), unit(100) * 50);
-        assert_ok!(Loans::can_deposit(PHKO, &DAVE, 100, true).into_result());
-        assert_ok!(Loans::can_withdraw(PHKO, &DAVE, 1000).into_result());
+        assert_eq!(Loans::total_issuance(LEND_KINT), unit(100) * 50);
+        assert_ok!(Loans::can_deposit(LEND_KINT, &DAVE, 100, true).into_result());
+        assert_ok!(Loans::can_withdraw(LEND_KINT, &DAVE, 1000).into_result());
     })
 }
 
@@ -115,7 +115,7 @@ fn lend_token_unique_works() {
     new_test_ext().execute_with(|| {
         // lend_token_id already exists in `UnderlyingAssetId`
         assert_noop!(
-            Loans::add_market(Origin::root(), ForeignAsset(1000000), market_mock(PHKO)),
+            Loans::add_market(Origin::root(), ForeignAsset(1000000), market_mock(LEND_KINT)),
             Error::<Test>::InvalidLendTokenId
         );
 
@@ -130,107 +130,111 @@ fn lend_token_unique_works() {
 #[test]
 fn transfer_lend_token_works() {
     new_test_ext().execute_with(|| {
-        // DAVE Deposit 100 HKO
-        assert_ok!(Loans::mint(Origin::signed(DAVE), HKO, unit(100)));
+        // DAVE Deposit 100 KINT
+        assert_ok!(Loans::mint(Origin::signed(DAVE), KINT, unit(100)));
 
-        // DAVE HKO collateral: deposit = 100
-        // HKO: cash - deposit = 1000 - 100 = 900
+        // DAVE KINT collateral: deposit = 100
+        // KINT: cash - deposit = 1000 - 100 = 900
         assert_eq!(
-            Loans::exchange_rate(HKO).saturating_mul_int(Tokens::balance(Loans::lend_token_id(HKO).unwrap(), &DAVE)),
+            Loans::exchange_rate(KINT).saturating_mul_int(Tokens::balance(Loans::lend_token_id(KINT).unwrap(), &DAVE)),
             unit(100)
         );
 
-        // ALICE HKO collateral: deposit = 0
+        // ALICE KINT collateral: deposit = 0
         assert_eq!(
-            Loans::exchange_rate(HKO).saturating_mul_int(Tokens::balance(Loans::lend_token_id(HKO).unwrap(), &ALICE)),
+            Loans::exchange_rate(KINT).saturating_mul_int(Tokens::balance(Loans::lend_token_id(KINT).unwrap(), &ALICE)),
             unit(0)
         );
 
         // Transfer lend_tokens from DAVE to ALICE
-        Loans::transfer(PHKO, &DAVE, &ALICE, unit(50) * 50, true).unwrap();
-        // Loans::transfer_lend_tokens(Origin::signed(DAVE), ALICE, HKO, dollar(50) * 50).unwrap();
+        Loans::transfer(LEND_KINT, &DAVE, &ALICE, unit(50) * 50, true).unwrap();
+        // Loans::transfer_lend_tokens(Origin::signed(DAVE), ALICE, KINT, dollar(50) * 50).unwrap();
 
-        // DAVE HKO collateral: deposit = 50
+        // DAVE KINT collateral: deposit = 50
         assert_eq!(
-            Loans::exchange_rate(HKO).saturating_mul_int(Tokens::balance(Loans::lend_token_id(HKO).unwrap(), &DAVE)),
+            Loans::exchange_rate(KINT).saturating_mul_int(Tokens::balance(Loans::lend_token_id(KINT).unwrap(), &DAVE)),
             unit(50)
         );
-        // DAVE Redeem 51 HKO should cause InsufficientDeposit
+        // DAVE Redeem 51 KINT should cause InsufficientDeposit
         assert_noop!(
-            Loans::redeem_allowed(HKO, &DAVE, unit(51) * 50),
+            Loans::redeem_allowed(KINT, &DAVE, unit(51) * 50),
             Error::<Test>::InsufficientDeposit
         );
 
-        // ALICE HKO collateral: deposit = 50
+        // ALICE KINT collateral: deposit = 50
         assert_eq!(
-            Loans::exchange_rate(HKO).saturating_mul_int(Tokens::balance(Loans::lend_token_id(HKO).unwrap(), &ALICE)),
+            Loans::exchange_rate(KINT).saturating_mul_int(Tokens::balance(Loans::lend_token_id(KINT).unwrap(), &ALICE)),
             unit(50)
         );
-        // ALICE Redeem 50 HKO should be succeeded
-        assert_ok!(Loans::redeem_allowed(HKO, &ALICE, unit(50) * 50));
+        // ALICE Redeem 50 KINT should be succeeded
+        assert_ok!(Loans::redeem_allowed(KINT, &ALICE, unit(50) * 50));
     })
 }
 
 #[test]
 fn transfer_lend_tokens_under_collateral_does_not_work() {
     new_test_ext().execute_with(|| {
-        // DAVE Deposit 100 HKO
-        assert_ok!(Loans::mint(Origin::signed(DAVE), HKO, unit(100)));
+        // DAVE Deposit 100 KINT
+        assert_ok!(Loans::mint(Origin::signed(DAVE), KINT, unit(100)));
         // Check entries from orml-tokens directly
-        assert_eq!(free_balance(PHKO, &DAVE), unit(100) * 50);
-        assert_eq!(reserved_balance(PHKO, &DAVE), 0);
+        assert_eq!(free_balance(LEND_KINT, &DAVE), unit(100) * 50);
+        assert_eq!(reserved_balance(LEND_KINT, &DAVE), 0);
 
-        assert_ok!(Loans::deposit_all_collateral(Origin::signed(DAVE), HKO));
+        assert_ok!(Loans::deposit_all_collateral(Origin::signed(DAVE), KINT));
         // Check entries from orml-tokens directly
-        assert_eq!(free_balance(PHKO, &DAVE), 0);
-        assert_eq!(reserved_balance(PHKO, &DAVE), unit(100) * 50);
+        assert_eq!(free_balance(LEND_KINT, &DAVE), 0);
+        assert_eq!(reserved_balance(LEND_KINT, &DAVE), unit(100) * 50);
 
-        // Borrow 50 HKO will reduce 50 HKO liquidity for collateral_factor is 50%
-        assert_ok!(Loans::borrow(Origin::signed(DAVE), HKO, unit(50)));
-        // Repay 40 HKO
-        assert_ok!(Loans::repay_borrow(Origin::signed(DAVE), HKO, unit(40)));
+        // Borrow 50 KINT will reduce 50 KINT liquidity for collateral_factor is 50%
+        assert_ok!(Loans::borrow(Origin::signed(DAVE), KINT, unit(50)));
+        // Repay 40 KINT
+        assert_ok!(Loans::repay_borrow(Origin::signed(DAVE), KINT, unit(40)));
 
         // Allowed to redeem 20 lend_tokens
-        assert_ok!(Loans::redeem_allowed(HKO, &DAVE, unit(20) * 50,));
+        assert_ok!(Loans::redeem_allowed(KINT, &DAVE, unit(20) * 50,));
         // Not allowed to transfer the same 20 lend_tokens because they are locked
         assert_noop!(
-            Loans::transfer(PHKO, &DAVE, &ALICE, unit(20) * 50, true),
+            Loans::transfer(LEND_KINT, &DAVE, &ALICE, unit(20) * 50, true),
             Error::<Test>::InsufficientCollateral
         );
         // First, withdraw some tokens
-        assert_ok!(Loans::withdraw_collateral(Origin::signed(DAVE), PHKO, unit(20) * 50));
+        assert_ok!(Loans::withdraw_collateral(
+            Origin::signed(DAVE),
+            LEND_KINT,
+            unit(20) * 50
+        ));
         // Check entries from orml-tokens directly
-        assert_eq!(free_balance(PHKO, &DAVE), unit(20) * 50);
-        assert_eq!(reserved_balance(PHKO, &DAVE), unit(80) * 50);
+        assert_eq!(free_balance(LEND_KINT, &DAVE), unit(20) * 50);
+        assert_eq!(reserved_balance(LEND_KINT, &DAVE), unit(80) * 50);
         // Then transfer them
-        assert_ok!(Loans::transfer(PHKO, &DAVE, &ALICE, unit(20) * 50, true),);
+        assert_ok!(Loans::transfer(LEND_KINT, &DAVE, &ALICE, unit(20) * 50, true),);
         // Check entries from orml-tokens directly
-        assert_eq!(free_balance(PHKO, &DAVE), 0);
-        assert_eq!(reserved_balance(PHKO, &DAVE), unit(80) * 50);
-        assert_eq!(free_balance(PHKO, &ALICE), unit(20) * 50);
+        assert_eq!(free_balance(LEND_KINT, &DAVE), 0);
+        assert_eq!(reserved_balance(LEND_KINT, &DAVE), unit(80) * 50);
+        assert_eq!(free_balance(LEND_KINT, &ALICE), unit(20) * 50);
 
-        // DAVE Deposit HKO = 100 - 20 = 80
-        // DAVE Borrow HKO = 0 + 50 - 40 = 10
-        // DAVE liquidity HKO = 80 * 0.5 - 10 = 30
+        // DAVE Deposit KINT = 100 - 20 = 80
+        // DAVE Borrow KINT = 0 + 50 - 40 = 10
+        // DAVE liquidity KINT = 80 * 0.5 - 10 = 30
         assert_eq!(
-            Loans::exchange_rate(HKO)
-                .saturating_mul_int(Loans::account_deposits(Loans::lend_token_id(HKO).unwrap(), DAVE)),
+            Loans::exchange_rate(KINT)
+                .saturating_mul_int(Loans::account_deposits(Loans::lend_token_id(KINT).unwrap(), DAVE)),
             unit(80)
         );
-        // DAVE Borrow 31 HKO should cause InsufficientLiquidity
+        // DAVE Borrow 31 KINT should cause InsufficientLiquidity
         assert_noop!(
-            Loans::borrow(Origin::signed(DAVE), HKO, unit(31)),
+            Loans::borrow(Origin::signed(DAVE), KINT, unit(31)),
             Error::<Test>::InsufficientLiquidity
         );
-        assert_ok!(Loans::borrow(Origin::signed(DAVE), HKO, unit(30)));
+        assert_ok!(Loans::borrow(Origin::signed(DAVE), KINT, unit(30)));
 
-        // Assert ALICE Supply HKO 20
+        // Assert ALICE Supply KINT 20
         assert_eq!(
-            Loans::exchange_rate(HKO).saturating_mul_int(Tokens::balance(Loans::lend_token_id(HKO).unwrap(), &ALICE)),
+            Loans::exchange_rate(KINT).saturating_mul_int(Tokens::balance(Loans::lend_token_id(KINT).unwrap(), &ALICE)),
             unit(20)
         );
-        // ALICE Redeem 20 HKO should be succeeded
+        // ALICE Redeem 20 KINT should be succeeded
         // Also means that transfer lend_token succeed
-        assert_ok!(Loans::redeem_allowed(HKO, &ALICE, unit(20) * 50,));
+        assert_ok!(Loans::redeem_allowed(KINT, &ALICE, unit(20) * 50,));
     })
 }
