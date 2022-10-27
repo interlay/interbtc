@@ -369,6 +369,12 @@ pub type Shortfall = FixedU128;
 pub type Liquidity = FixedU128;
 pub const SECONDS_PER_YEAR: Timestamp = 365 * 24 * 60 * 60;
 
+impl Default for Rate {
+    fn default() -> Self {
+        Self(Default::default())
+    }
+}
+
 pub trait CurrencyInfo {
     fn name(&self) -> &str;
     fn symbol(&self) -> &str;

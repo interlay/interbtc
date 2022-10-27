@@ -135,6 +135,9 @@ impl<T: Config> Pallet<T> {
 
     /// The exchange rate should be greater than the `MinExchangeRate` storage value and less than
     /// the `MaxExchangeRate` storage value.
+    /// This ensures the exchange rate cannot be attacked by a deposit so big that
+    /// subsequent deposits to receive zero lendTokens (because of rounding down). See this
+    /// PR for more details: https://github.com/parallel-finance/parallel/pull/1552/files
     pub(crate) fn ensure_valid_exchange_rate(exchange_rate: Rate) -> DispatchResult {
         ensure!(
             exchange_rate >= Self::min_exchange_rate() && exchange_rate < Self::max_exchange_rate(),
