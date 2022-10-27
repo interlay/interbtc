@@ -45,17 +45,17 @@ where
     fn convert(amount: &Amount<T>, to: CurrencyId<T>) -> Result<Amount<T>, DispatchError> {
         if amount.currency().is_ptoken() && to.is_ptoken() {
             let to_underlying_id = Loans::underlying_id(to)?;
-            let from_underlying_amount = Loans::get_underlying_amount(amount)?;
+            let from_underlying_amount = Loans::recompute_underlying_amount(amount)?;
             let to_underlying_amount = Oracle::convert(&from_underlying_amount, to_underlying_id)?;
-            Loans::get_collateral_amount(&to_underlying_amount)
+            Loans::recompute_collateral_amount(&to_underlying_amount)
         } else if amount.currency().is_ptoken() {
-            Oracle::convert(&Loans::get_underlying_amount(amount)?, to)
+            Oracle::convert(&Loans::recompute_underlying_amount(amount)?, to)
         } else if to.is_ptoken() {
             let underlying_id = Loans::underlying_id(to)?;
             // get the converted value expressed in the underlying asset
             let underlying_amount = Oracle::convert(amount, underlying_id)?;
             // get the equivalent ptoken amount using the internal exchange rate
-            Loans::get_collateral_amount(&underlying_amount)
+            Loans::recompute_collateral_amount(&underlying_amount)
         } else {
             Oracle::convert(amount, to)
         }

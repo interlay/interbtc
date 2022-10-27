@@ -21,15 +21,6 @@ pub struct EarnedSnapshot<Balance> {
     pub exchange_rate_prior: Rate,
 }
 
-/// Deposit information
-#[derive(Encode, Decode, Eq, PartialEq, Copy, Clone, RuntimeDebug, Default, TypeInfo)]
-pub struct Deposits<Balance> {
-    /// The voucher amount of the deposit
-    pub voucher_balance: Balance,
-    /// Can this deposit be used as collateral
-    pub is_collateral: bool,
-}
-
 /// The current state of a market. For more information, see [Market].
 #[cfg_attr(feature = "std", derive(serde::Deserialize, serde::Serialize))]
 #[derive(Clone, Copy, PartialEq, Eq, codec::Decode, codec::Encode, RuntimeDebug, TypeInfo)]

@@ -22,11 +22,11 @@ const PKSM: CurrencyId = CKSM;
 const PUSDT: CurrencyId = CKBTC;
 const USDT: CurrencyId = Token(KBTC);
 
-fn free_balance(currency_id: CurrencyId, account_id: &AccountId) -> Balance {
+pub fn free_balance(currency_id: CurrencyId, account_id: &AccountId) -> Balance {
     <Tokens as MultiCurrency<<Test as frame_system::Config>::AccountId>>::free_balance(currency_id, account_id)
 }
 
-fn reserved_balance(currency_id: CurrencyId, account_id: &AccountId) -> Balance {
+pub fn reserved_balance(currency_id: CurrencyId, account_id: &AccountId) -> Balance {
     <Tokens as MultiReservableCurrency<<Test as frame_system::Config>::AccountId>>::reserved_balance(
         currency_id,
         account_id,

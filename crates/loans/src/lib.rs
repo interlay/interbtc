@@ -57,7 +57,7 @@ use sp_std::{marker, result::Result};
 
 pub use orml_traits::currency::{OnDeposit, OnSlash, OnTransfer};
 use sp_io::hashing::blake2_256;
-pub use types::{BorrowSnapshot, Deposits, EarnedSnapshot, Market, MarketState, RewardMarketState};
+pub use types::{BorrowSnapshot, EarnedSnapshot, Market, MarketState, RewardMarketState};
 pub use weights::WeightInfo;
 
 mod benchmarking;
@@ -860,7 +860,7 @@ pub mod pallet {
             let who = ensure_signed(origin)?;
             // This function is an almost 1:1 duplicate of the logic in `do_redeem`.
             // It could be refactored to compute the redeemable underlying
-            // with `Self::get_underlying_amount(&Self::free_ptokens(asset_id, &who)?)?`
+            // with `Self::recompute_underlying_amount(&Self::free_ptokens(asset_id, &who)?)?`
             // but that would cause the `accrue_interest_works_after_redeem_all` unit test to fail with
             // left: `1000000000003607`,
             // right: `1000000000003608`'
@@ -2041,7 +2041,7 @@ impl<T: Config> LoansTrait<AssetIdOf<T>, AccountIdOf<T>, BalanceOf<T>, Amount<T>
         Ok(())
     }
 
-    fn get_underlying_amount(ptokens: &Amount<T>) -> Result<Amount<T>, DispatchError> {
+    fn recompute_underlying_amount(ptokens: &Amount<T>) -> Result<Amount<T>, DispatchError> {
         // This function could be called externally to this pallet, with interest
         // possibly not having accrued for a few blocks. This would result in using an
         // outdated exchange rate. Call `accrue_interest` to avoid this.
@@ -2060,7 +2060,7 @@ impl<T: Config> LoansTrait<AssetIdOf<T>, AccountIdOf<T>, BalanceOf<T>, Amount<T>
         UnderlyingAssetId::<T>::try_get(ptoken_id).map_err(|_err| Error::<T>::InvalidPtokenId.into())
     }
 
-    fn get_collateral_amount(underlying: &Amount<T>) -> Result<Amount<T>, DispatchError> {
+    fn recompute_collateral_amount(underlying: &Amount<T>) -> Result<Amount<T>, DispatchError> {
         // This function could be called externally to this pallet, with interest
         // possibly not having accrued for a few blocks. This would result in using an
         // outdated exchange rate. Call `accrue_interest` to avoid this.

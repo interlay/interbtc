@@ -31,7 +31,10 @@ use sp_runtime::{
 
 use primitives::{CurrencyId::Token, DOT as DOT_CURRENCY, IBTC, KBTC, KINT, KSM as KSM_CURRENCY};
 
-use crate::mock::*;
+use crate::{
+    mock::*,
+    tests::ptokens::{free_balance, reserved_balance},
+};
 
 // For the time being, do a quick reassignment here to avoid changing all the tests
 // TODO: update all tests
@@ -63,6 +66,7 @@ fn init_markets_ok() {
         assert_eq!(BorrowIndex::<Test>::get(DOT), Rate::one());
         assert_eq!(BorrowIndex::<Test>::get(USDT), Rate::one());
 
+        assert_eq!(ExchangeRate::<Test>::get(HKO), Rate::saturating_from_rational(2, 100));
         assert_eq!(ExchangeRate::<Test>::get(KSM), Rate::saturating_from_rational(2, 100));
         assert_eq!(ExchangeRate::<Test>::get(DOT), Rate::saturating_from_rational(2, 100));
         assert_eq!(ExchangeRate::<Test>::get(USDT), Rate::saturating_from_rational(2, 100));
@@ -155,12 +159,62 @@ fn mint_must_return_err_when_overflows_occur() {
             ArithmeticError::Underflow
         );
 
-        // Exchange rate must ge greater than zero
-        // ExchangeRate::<Test>::insert(DOT, Rate::zero());
-        // assert_noop!(
-        //     Loans::mint(Origin::signed(CHARLIE), DOT, 100),
-        //     ArithmeticError::Underflow
-        // );
+        // Assume a misconfiguration occurs
+        MinExchangeRate::<Test>::put(Rate::zero());
+        // There is no cash in the market. To compute how many ptokens this first deposit
+        // should mint, the `MinExchangeRate` is used, which has been misconfigured and
+        // set to zero (default value for the type). The extrinsic should fail.
+        assert_noop!(
+            Loans::mint(Origin::signed(CHARLIE), DOT, 100),
+            ArithmeticError::Underflow
+        );
+    })
+}
+
+#[test]
+fn supply_cap_below_current_volume() {
+    new_test_ext().execute_with(|| {
+        // Deposit 200 DOT as collateral
+        assert_ok!(Loans::mint(Origin::signed(BOB), DOT, 200));
+        assert_ok!(Loans::mint(Origin::signed(ALICE), KSM, 200));
+        assert_ok!(Loans::deposit_all_collateral(Origin::signed(ALICE), KSM));
+
+        let new_supply_cap = 10;
+        assert_ok!(Loans::force_update_market(
+            Origin::root(),
+            DOT,
+            Market {
+                supply_cap: new_supply_cap,
+                ..ACTIVE_MARKET_MOCK
+            },
+        ));
+        // Minting anything would exceed the cap
+        assert_noop!(
+            Loans::mint(Origin::signed(ALICE), DOT, 10),
+            Error::<Test>::SupplyCapacityExceeded
+        );
+        // Can redeem, even if the resulting deposit is still
+        // above the new cap
+        assert_ok!(Loans::withdraw_all_collateral(Origin::signed(ALICE), KSM));
+        assert_ok!(Loans::redeem(Origin::signed(ALICE), KSM, 10));
+
+        // Cannot mint back the amount that has just been redeemed
+        assert_noop!(
+            Loans::mint(Origin::signed(ALICE), DOT, 10),
+            Error::<Test>::SupplyCapacityExceeded
+        );
+
+        let ptokens = Loans::free_ptokens(KSM, &ALICE).unwrap();
+
+        // Redeem enough to be below the cap
+        assert_ok!(Loans::redeem(
+            Origin::signed(ALICE),
+            KSM,
+            Loans::recompute_underlying_amount(&ptokens).unwrap().amount() - (new_supply_cap / 2)
+        ));
+
+        // Can now supply
+        assert_ok!(Loans::mint(Origin::signed(ALICE), KSM, new_supply_cap / 2));
     })
 }
 
@@ -275,12 +329,12 @@ fn redeem_must_return_err_when_overflows_occur() {
             ArithmeticError::Underflow,
         );
 
-        // Exchange rate must ge greater than zero
-        // ExchangeRate::<Test>::insert(DOT, Rate::zero());
-        // assert_noop!(
-        //     Loans::redeem(Origin::signed(ALICE), DOT, 100),
-        //     ArithmeticError::Underflow
-        // );
+        // Assume a misconfiguration occurs
+        MinExchangeRate::<Test>::put(Rate::zero());
+        assert_noop!(
+            Loans::redeem(Origin::signed(ALICE), DOT, 100),
+            ArithmeticError::Underflow
+        );
     })
 }
 
@@ -298,7 +352,8 @@ fn redeem_all_works() {
             0,
         );
         assert_eq!(Tokens::balance(DOT, &ALICE), unit(1000),);
-        assert!(!AccountDeposits::<Test>::contains_key(DOT, &ALICE))
+        assert!(!AccountDeposits::<Test>::contains_key(DOT, &ALICE));
+        assert_eq!(Tokens::balance(CDOT, &ALICE), 0);
     })
 }
 
@@ -333,6 +388,53 @@ fn borrow_allowed_works() {
             Loans::borrow_allowed(DOT, &ALICE, 11),
             Error::<Test>::BorrowCapacityExceeded
         );
+    })
+}
+
+#[test]
+fn borrow_cap_below_current_volume() {
+    new_test_ext().execute_with(|| {
+        // Deposit 200 DOT as collateral
+        assert_ok!(Loans::mint(Origin::signed(BOB), DOT, 200));
+        assert_ok!(Loans::mint(Origin::signed(ALICE), KSM, 200));
+        assert_ok!(Loans::deposit_all_collateral(Origin::signed(ALICE), KSM));
+        assert_ok!(Loans::borrow(Origin::signed(ALICE), DOT, 50));
+
+        let new_borrow_cap = 10;
+        assert_ok!(Loans::force_update_market(
+            Origin::root(),
+            DOT,
+            Market {
+                borrow_cap: new_borrow_cap,
+                ..ACTIVE_MARKET_MOCK
+            },
+        ));
+        // Borrowing anything would exceed the cap
+        assert_noop!(
+            Loans::borrow_allowed(DOT, &ALICE, 10),
+            Error::<Test>::BorrowCapacityExceeded
+        );
+        // Can repay the borrow, even if the resulting loan is still
+        // above the new cap
+        assert_ok!(Loans::repay_borrow(Origin::signed(ALICE), DOT, 10));
+
+        // Cannot borrow back the amount that has just been repaid
+        assert_noop!(
+            Loans::borrow_allowed(DOT, &ALICE, 10),
+            Error::<Test>::BorrowCapacityExceeded
+        );
+
+        let outstanding = Loans::current_borrow_balance(&ALICE, DOT).unwrap();
+
+        // Repay enough to be below the cap
+        assert_ok!(Loans::repay_borrow(
+            Origin::signed(ALICE),
+            DOT,
+            outstanding - (new_borrow_cap / 2)
+        ));
+
+        // Can now borrow
+        assert_ok!(Loans::borrow_allowed(DOT, &ALICE, new_borrow_cap / 2),);
     })
 }
 
@@ -400,32 +502,6 @@ fn borrow_works() {
 }
 
 #[test]
-fn lf_borrow_works() {
-    new_test_ext().execute_with(|| {
-        // Deposit 200 DOT as collateral
-        Loans::mint(Origin::signed(ALICE), CDOT_6_13, unit(200)).unwrap();
-        Loans::mint(Origin::signed(DAVE), DOT, unit(200)).unwrap();
-        Loans::deposit_all_collateral(Origin::signed(ALICE), CDOT_6_13).unwrap();
-
-        // Borrow 100 DOT
-        assert_ok!(Loans::borrow(Origin::signed(ALICE), DOT, unit(100)));
-
-        // CDOT collateral: deposit = 200
-        // DOT borrow balance: borrow = 100
-        // DOT: cash - deposit + borrow = 1000 + 100 = 1100
-        assert_eq!(
-            Loans::exchange_rate(CDOT_6_13)
-                .saturating_mul_int(Loans::account_deposits(Loans::ptoken_id(CDOT_6_13).unwrap(), ALICE)),
-            unit(200)
-        );
-        let borrow_snapshot = Loans::account_borrows(DOT, ALICE);
-        assert_eq!(borrow_snapshot.principal, unit(100));
-        assert_eq!(borrow_snapshot.borrow_index, Loans::borrow_index(DOT));
-        assert_eq!(Tokens::balance(DOT, &ALICE), unit(1100),);
-    })
-}
-
-#[test]
 fn repay_borrow_works() {
     new_test_ext().execute_with(|| {
         // Deposit 200 DOT as collateral
@@ -487,17 +563,24 @@ fn collateral_asset_works() {
         // No collateral assets
         // Deposit 200 DOT as collateral
         assert_ok!(Loans::mint(Origin::signed(ALICE), DOT, 200));
+        let ptoken_id = Loans::ptoken_id(DOT).unwrap();
         // No ptokens deposited as collateral
         assert_eq!(
-            Loans::account_deposits(Loans::ptoken_id(DOT).unwrap(), ALICE).eq(&0),
+            Loans::account_deposits(ptoken_id, ALICE).eq(&reserved_balance(ptoken_id, &ALICE)),
             true
         );
+        assert_eq!(free_balance(ptoken_id, &ALICE), 200 * 50);
+        assert_eq!(reserved_balance(ptoken_id, &ALICE), 0);
+
         assert_ok!(Loans::deposit_all_collateral(Origin::signed(ALICE), DOT));
         // Non-zero ptokens deposited as collateral
         assert_eq!(
-            Loans::account_deposits(Loans::ptoken_id(DOT).unwrap(), ALICE).gt(&0),
+            Loans::account_deposits(ptoken_id, ALICE).eq(&reserved_balance(ptoken_id, &ALICE)),
             true
         );
+        assert_eq!(free_balance(ptoken_id, &ALICE), 0);
+        assert_eq!(reserved_balance(ptoken_id, &ALICE), 200 * 50);
+
         // Borrow 100 DOT base on the collateral of 200 DOT
         assert_ok!(Loans::borrow(Origin::signed(ALICE), DOT, 100));
         assert_noop!(
@@ -507,7 +590,12 @@ fn collateral_asset_works() {
         // Repay all the borrows
         assert_ok!(Loans::repay_borrow_all(Origin::signed(ALICE), DOT));
         assert_ok!(Loans::withdraw_all_collateral(Origin::signed(ALICE), DOT));
-        assert_eq!(Loans::account_deposits(Loans::ptoken_id(DOT).unwrap(), ALICE), 0);
+        assert_eq!(
+            Loans::account_deposits(ptoken_id, ALICE),
+            reserved_balance(ptoken_id, &ALICE)
+        );
+        assert_eq!(free_balance(ptoken_id, &ALICE), 200 * 50);
+        assert_eq!(reserved_balance(ptoken_id, &ALICE), 0);
     })
 }
 

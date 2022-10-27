@@ -27,9 +27,9 @@ pub trait LoansApi<CurrencyId, AccountId, Balance, Amount> {
         -> Result<(), DispatchError>;
     fn do_repay_borrow(borrower: &AccountId, asset_id: CurrencyId, amount: Balance) -> Result<(), DispatchError>;
     fn do_redeem(supplier: &AccountId, asset_id: CurrencyId, amount: Balance) -> Result<(), DispatchError>;
-    fn get_underlying_amount(ptokens: &Amount) -> Result<Amount, DispatchError>;
+    fn recompute_underlying_amount(ptokens: &Amount) -> Result<Amount, DispatchError>;
     fn underlying_id(ptoken_id: CurrencyId) -> Result<CurrencyId, DispatchError>;
-    fn get_collateral_amount(underlying: &Amount) -> Result<Amount, DispatchError>;
+    fn recompute_collateral_amount(underlying: &Amount) -> Result<Amount, DispatchError>;
 }
 
 pub trait LoansPositionDataProvider<CurrencyId, AccountId, Balance> {

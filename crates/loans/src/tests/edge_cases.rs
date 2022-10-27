@@ -106,8 +106,8 @@ fn converting_to_and_from_collateral_should_not_change_results() {
         let base_ksm_amount = 100007444213;
         for offset in 0..=1000 {
             let ksm_amount = Amount::new(base_ksm_amount + offset, Token(KSM));
-            let conv_pksm_amount = Loans::get_collateral_amount(&ksm_amount).unwrap();
-            let conv_ksm_amount = Loans::get_underlying_amount(&conv_pksm_amount).unwrap();
+            let conv_pksm_amount = Loans::recompute_collateral_amount(&ksm_amount).unwrap();
+            let conv_ksm_amount = Loans::recompute_underlying_amount(&conv_pksm_amount).unwrap();
             assert_eq!(conv_ksm_amount.amount(), ksm_amount.amount());
         }
     })

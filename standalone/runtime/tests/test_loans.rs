@@ -191,6 +191,10 @@ fn integration_test_ptoken_vault_insufficient_balance() {
         // Check entries from orml-tokens directly
         assert_eq!(free_balance(CDOT, &vault_account_id), 1000);
         assert_eq!(reserved_balance(CDOT, &vault_account_id), 0);
+        assert_eq!(
+            LoansPallet::account_deposits(CDOT, vault_account_id.clone()),
+            reserved_balance(CDOT, &vault_account_id)
+        );
 
         let ptokens = LoansPallet::free_ptokens(dot, &vault_account_id).unwrap();
 
@@ -199,6 +203,10 @@ fn integration_test_ptoken_vault_insufficient_balance() {
             .dispatch(origin_of(vault_account_id.clone())));
         assert_eq!(free_balance(CDOT, &vault_account_id), 0);
         assert_eq!(reserved_balance(CDOT, &vault_account_id), 1000);
+        assert_eq!(
+            LoansPallet::account_deposits(ptokens.currency(), vault_account_id.clone()),
+            reserved_balance(CDOT, &vault_account_id)
+        );
 
         let ptoken_vault_id = PrimitiveVaultId::new(vault_account_id.clone(), ptokens.currency(), Token(IBTC));
         assert_err!(
@@ -216,6 +224,10 @@ fn integration_test_ptoken_vault_insufficient_balance() {
         assert_ok!(get_register_vault_result(&ptoken_vault_id, ptokens));
         assert_eq!(free_balance(CDOT, &vault_account_id), 0);
         assert_eq!(reserved_balance(CDOT, &vault_account_id), 1000);
+        assert_eq!(
+            LoansPallet::account_deposits(ptokens.currency(), vault_account_id.clone()),
+            0
+        );
     });
 }
 
@@ -267,6 +279,10 @@ fn integration_test_ptoken_transfer_reserved_fails() {
             ptokens.currency(),
             ptokens.amount() / 2
         ));
+        assert_eq!(
+            LoansPallet::account_deposits(ptokens.currency(), vault_account_id.clone()),
+            reserved_balance(ptokens.currency(), &vault_account_id)
+        );
         assert_eq!(free_balance(CDOT, &vault_account_id), 500);
         assert_eq!(reserved_balance(CDOT, &vault_account_id), 500);
 
