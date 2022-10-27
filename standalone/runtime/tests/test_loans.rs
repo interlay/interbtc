@@ -65,17 +65,17 @@ fn test_real_market<R>(execute: impl Fn() -> R) {
         set_up_market(
             Token(KINT),
             FixedU128::from_inner(115_942_028_985_507_246_376_810_000),
-            LendKINT,
+            LEND_KINT,
         );
         set_up_market(
             Token(KSM),
             FixedU128::from_inner(4_573_498_406_135_805_461_670_000),
-            LendKSM,
+            LEND_KSM,
         );
         set_up_market(
             Token(DOT),
             FixedU128::from_inner(324_433_053_239_464_036_596_000),
-            LendDOT,
+            LEND_DOT,
         );
         execute()
     });
@@ -96,8 +96,8 @@ fn integration_test_liquidation() {
         .dispatch(origin_of(user.clone())));
 
         // Check entries from orml-tokens directly
-        assert_eq!(free_balance(LendKINT, &user), 1000);
-        assert_eq!(reserved_balance(LendKINT, &user), 0);
+        assert_eq!(free_balance(LEND_KINT, &user), 1000);
+        assert_eq!(reserved_balance(LEND_KINT, &user), 0);
 
         assert_ok!(Call::Loans(LoansCall::mint {
             asset_id: ksm,
@@ -106,14 +106,14 @@ fn integration_test_liquidation() {
         .dispatch(origin_of(lp.clone())));
 
         // Check entries from orml-tokens directly
-        assert_eq!(free_balance(LendKSM, &lp), 50);
-        assert_eq!(reserved_balance(LendKSM, &lp), 0);
+        assert_eq!(free_balance(LEND_KSM, &lp), 50);
+        assert_eq!(reserved_balance(LEND_KSM, &lp), 0);
 
         assert_ok!(Call::Loans(LoansCall::deposit_all_collateral { asset_id: kint }).dispatch(origin_of(user.clone())));
 
         // Check entries from orml-tokens directly
-        assert_eq!(free_balance(LendKINT, &user), 0);
-        assert_eq!(reserved_balance(LendKINT, &user), 1000);
+        assert_eq!(free_balance(LEND_KINT, &user), 0);
+        assert_eq!(reserved_balance(LEND_KINT, &user), 1000);
 
         assert_err!(
             Call::Loans(LoansCall::borrow {
@@ -158,23 +158,23 @@ fn integration_test_liquidation() {
         })
         .dispatch(origin_of(lp.clone())));
 
-        assert_eq!(free_balance(LendKINT, &user), 0);
+        assert_eq!(free_balance(LEND_KINT, &user), 0);
         // borrower's reserved collateral is slashed
-        assert_eq!(reserved_balance(LendKINT, &user), 610);
+        assert_eq!(reserved_balance(LEND_KINT, &user), 610);
         // borrower's borrowed balance is unchanged
         assert_eq!(free_balance(ksm, &user), 1000000000015);
 
         // the liquidator receives most of the slashed collateral
-        assert_eq!(reserved_balance(LendKINT, &lp), 0);
-        assert_eq!(free_balance(LendKINT, &lp), 380);
+        assert_eq!(reserved_balance(LEND_KINT, &lp), 0);
+        assert_eq!(free_balance(LEND_KINT, &lp), 380);
 
         // the rest of the slashed collateral routed to the incentive reward account's free balance
         assert_eq!(
-            free_balance(LendKINT, &LoansPallet::incentive_reward_account_id().unwrap()),
+            free_balance(LEND_KINT, &LoansPallet::incentive_reward_account_id().unwrap()),
             10
         );
         assert_eq!(
-            reserved_balance(LendKINT, &LoansPallet::incentive_reward_account_id().unwrap()),
+            reserved_balance(LEND_KINT, &LoansPallet::incentive_reward_account_id().unwrap()),
             0
         );
     });
@@ -193,11 +193,11 @@ fn integration_test_lend_token_vault_insufficient_balance() {
         .dispatch(origin_of(account_of(USER))));
 
         // Check entries from orml-tokens directly
-        assert_eq!(free_balance(LendDOT, &vault_account_id), 1000);
-        assert_eq!(reserved_balance(LendDOT, &vault_account_id), 0);
+        assert_eq!(free_balance(LEND_DOT, &vault_account_id), 1000);
+        assert_eq!(reserved_balance(LEND_DOT, &vault_account_id), 0);
         assert_eq!(
-            LoansPallet::account_deposits(LendDOT, vault_account_id.clone()),
-            reserved_balance(LendDOT, &vault_account_id)
+            LoansPallet::account_deposits(LEND_DOT, vault_account_id.clone()),
+            reserved_balance(LEND_DOT, &vault_account_id)
         );
 
         let lend_tokens = LoansPallet::free_lend_tokens(dot, &vault_account_id).unwrap();
@@ -205,11 +205,11 @@ fn integration_test_lend_token_vault_insufficient_balance() {
         // Depositing all the collateral should leave none free for registering as a vault
         assert_ok!(Call::Loans(LoansCall::deposit_all_collateral { asset_id: dot })
             .dispatch(origin_of(vault_account_id.clone())));
-        assert_eq!(free_balance(LendDOT, &vault_account_id), 0);
-        assert_eq!(reserved_balance(LendDOT, &vault_account_id), 1000);
+        assert_eq!(free_balance(LEND_DOT, &vault_account_id), 0);
+        assert_eq!(reserved_balance(LEND_DOT, &vault_account_id), 1000);
         assert_eq!(
             LoansPallet::account_deposits(lend_tokens.currency(), vault_account_id.clone()),
-            reserved_balance(LendDOT, &vault_account_id)
+            reserved_balance(LEND_DOT, &vault_account_id)
         );
 
         let lend_token_vault_id = PrimitiveVaultId::new(vault_account_id.clone(), lend_tokens.currency(), Token(IBTC));
@@ -221,13 +221,13 @@ fn integration_test_lend_token_vault_insufficient_balance() {
         // Withdraw the lend_tokens to use them for another purpose
         assert_ok!(Call::Loans(LoansCall::withdraw_all_collateral { asset_id: dot })
             .dispatch(origin_of(vault_account_id.clone())));
-        assert_eq!(free_balance(LendDOT, &vault_account_id), 1000);
-        assert_eq!(reserved_balance(LendDOT, &vault_account_id), 0);
+        assert_eq!(free_balance(LEND_DOT, &vault_account_id), 1000);
+        assert_eq!(reserved_balance(LEND_DOT, &vault_account_id), 0);
 
         // This time, registering a vault works because the lend_tokens are unlocked
         assert_ok!(get_register_vault_result(&lend_token_vault_id, lend_tokens));
-        assert_eq!(free_balance(LendDOT, &vault_account_id), 0);
-        assert_eq!(reserved_balance(LendDOT, &vault_account_id), 1000);
+        assert_eq!(free_balance(LEND_DOT, &vault_account_id), 0);
+        assert_eq!(reserved_balance(LEND_DOT, &vault_account_id), 1000);
         assert_eq!(
             LoansPallet::account_deposits(lend_tokens.currency(), vault_account_id.clone()),
             0
@@ -273,8 +273,8 @@ fn integration_test_lend_token_transfer_reserved_fails() {
         })
         .dispatch(origin_of(vault_account_id.clone())));
 
-        assert_eq!(free_balance(LendDOT, &vault_account_id), 1000);
-        assert_eq!(reserved_balance(LendDOT, &vault_account_id), 0);
+        assert_eq!(free_balance(LEND_DOT, &vault_account_id), 1000);
+        assert_eq!(reserved_balance(LEND_DOT, &vault_account_id), 0);
         let lend_tokens = LoansPallet::free_lend_tokens(dot, &vault_account_id).unwrap();
 
         // Lock some lend_tokens into the lending market
@@ -287,8 +287,8 @@ fn integration_test_lend_token_transfer_reserved_fails() {
             LoansPallet::account_deposits(lend_tokens.currency(), vault_account_id.clone()),
             reserved_balance(lend_tokens.currency(), &vault_account_id)
         );
-        assert_eq!(free_balance(LendDOT, &vault_account_id), 500);
-        assert_eq!(reserved_balance(LendDOT, &vault_account_id), 500);
+        assert_eq!(free_balance(LEND_DOT, &vault_account_id), 500);
+        assert_eq!(reserved_balance(LEND_DOT, &vault_account_id), 500);
 
         let half_lend_tokens = lend_tokens.checked_div(&FixedU128::from_u32(2)).unwrap();
         assert_eq!(
@@ -302,8 +302,8 @@ fn integration_test_lend_token_transfer_reserved_fails() {
             TokensError::BalanceTooLow
         );
         assert_ok!(half_lend_tokens.transfer(&vault_account_id, &lp_account_id));
-        assert_eq!(free_balance(LendDOT, &vault_account_id), 0);
-        assert_eq!(reserved_balance(LendDOT, &vault_account_id), 500);
-        assert_eq!(free_balance(LendDOT, &lp_account_id), 500);
+        assert_eq!(free_balance(LEND_DOT, &vault_account_id), 0);
+        assert_eq!(reserved_balance(LEND_DOT, &vault_account_id), 500);
+        assert_eq!(free_balance(LEND_DOT, &lp_account_id), 500);
     });
 }

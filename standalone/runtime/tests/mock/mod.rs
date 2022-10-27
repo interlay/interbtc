@@ -193,11 +193,11 @@ pub const DEFAULT_WRAPPED_CURRENCY: <Runtime as orml_tokens::Config>::CurrencyId
 pub const DEFAULT_NATIVE_CURRENCY: <Runtime as orml_tokens::Config>::CurrencyId = Token(INTR);
 pub const DEFAULT_GRIEFING_CURRENCY: <Runtime as orml_tokens::Config>::CurrencyId = DEFAULT_NATIVE_CURRENCY;
 
-pub const LendDOT: CurrencyId = LendToken(1);
-pub const LendKINT: CurrencyId = LendToken(2);
-pub const LendKSM: CurrencyId = LendToken(3);
-pub const LendKBTC: CurrencyId = LendToken(4);
-pub const LendIBTC: CurrencyId = LendToken(5);
+pub const LEND_DOT: CurrencyId = LendToken(1);
+pub const LEND_KINT: CurrencyId = LendToken(2);
+pub const LEND_KSM: CurrencyId = LendToken(3);
+pub const LEND_KBTC: CurrencyId = LendToken(4);
+pub const LEND_IBTC: CurrencyId = LendToken(5);
 
 pub fn default_vault_id_of(hash: [u8; 32]) -> VaultId {
     VaultId {

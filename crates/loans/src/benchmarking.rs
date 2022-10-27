@@ -19,10 +19,10 @@ const SEED: u32 = 0;
 
 const KSM: CurrencyId = Token(KSM_CURRENCY);
 const KBTC: CurrencyId = Token(KBTC_CURRENCY);
-const LendKSM: CurrencyId = LendToken(3);
+const LEND_KSM: CurrencyId = LendToken(3);
 const LendKBTC: CurrencyId = LendToken(4);
 const DOT: CurrencyId = Token(DOT_CURRENCY);
-const LendDOT: CurrencyId = LendToken(1);
+const LEND_DOT: CurrencyId = LendToken(1);
 const KINT: CurrencyId = Token(KINT_CURRENCY);
 
 const RATE_MODEL_MOCK: InterestRateModel = InterestRateModel::Jump(JumpModel {
@@ -67,7 +67,7 @@ fn transfer_initial_balance<T: Config + orml_tokens::Config<CurrencyId = Currenc
     orml_tokens::Pallet::<T>::set_balance(
         SystemOrigin::Root.into(),
         account_id.clone(),
-        LendKSM,
+        LEND_KSM,
         10_000_000_000_000_u128,
         0_u128,
     )
@@ -93,7 +93,7 @@ fn transfer_initial_balance<T: Config + orml_tokens::Config<CurrencyId = Currenc
     orml_tokens::Pallet::<T>::set_balance(
         SystemOrigin::Root.into(),
         account_id,
-        LendDOT,
+        LEND_DOT,
         10_000_000_000_000_u128,
         0_u128,
     )
@@ -125,9 +125,9 @@ benchmarks! {
     }
 
     add_market {
-    }: _(SystemOrigin::Root, DOT, pending_market_mock::<T>(LendDOT))
+    }: _(SystemOrigin::Root, DOT, pending_market_mock::<T>(LEND_DOT))
     verify {
-        assert_last_event::<T>(Event::<T>::NewMarket(DOT, pending_market_mock::<T>(LendDOT)).into());
+        assert_last_event::<T>(Event::<T>::NewMarket(DOT, pending_market_mock::<T>(LEND_DOT)).into());
     }
 
     activate_market {
@@ -158,7 +158,7 @@ benchmarks! {
         Some(1_000_000_000_000_000_000_000u128)
     )
     verify {
-        let mut market = pending_market_mock::<T>(LendKSM);
+        let mut market = pending_market_mock::<T>(LEND_KSM);
         market.reserve_factor = Ratio::from_percent(50);
         market.close_factor = Ratio::from_percent(15);
         assert_last_event::<T>(Event::<T>::UpdatedMarket(KSM, market).into());
@@ -330,17 +330,17 @@ benchmarks! {
         let borrowed_amount: u32 = 200_000_000;
         let liquidate_amount: u32 = 100_000_000;
         let incentive_amount: u32 = 110_000_000;
-        assert_ok!(Loans::<T>::add_market(SystemOrigin::Root.into(), LendDOT, pending_market_mock::<T>(KINT)));
-        assert_ok!(Loans::<T>::activate_market(SystemOrigin::Root.into(), LendDOT));
-        assert_ok!(Loans::<T>::add_market(SystemOrigin::Root.into(), KSM, pending_market_mock::<T>(LendKSM)));
+        assert_ok!(Loans::<T>::add_market(SystemOrigin::Root.into(), LEND_DOT, pending_market_mock::<T>(KINT)));
+        assert_ok!(Loans::<T>::activate_market(SystemOrigin::Root.into(), LEND_DOT));
+        assert_ok!(Loans::<T>::add_market(SystemOrigin::Root.into(), KSM, pending_market_mock::<T>(LEND_KSM)));
         assert_ok!(Loans::<T>::activate_market(SystemOrigin::Root.into(), KSM));
         assert_ok!(Loans::<T>::mint(SystemOrigin::Signed(bob.clone()).into(), KSM, deposit_amount.into()));
-        assert_ok!(Loans::<T>::mint(SystemOrigin::Signed(alice.clone()).into(), LendDOT, deposit_amount.into()));
-        assert_ok!(Loans::<T>::deposit_all_collateral(SystemOrigin::Signed(alice.clone()).into(), LendDOT));
+        assert_ok!(Loans::<T>::mint(SystemOrigin::Signed(alice.clone()).into(), LEND_DOT, deposit_amount.into()));
+        assert_ok!(Loans::<T>::deposit_all_collateral(SystemOrigin::Signed(alice.clone()).into(), LEND_DOT));
         set_account_borrows::<T>(alice.clone(), KSM, borrowed_amount.into());
-    }: _(SystemOrigin::Signed(bob.clone()), alice.clone(), KSM, liquidate_amount.into(), LendDOT)
+    }: _(SystemOrigin::Signed(bob.clone()), alice.clone(), KSM, liquidate_amount.into(), LEND_DOT)
     verify {
-        assert_last_event::<T>(Event::<T>::LiquidatedBorrow(bob.clone(), alice.clone(), KSM, LendDOT, liquidate_amount.into(), incentive_amount.into()).into());
+        assert_last_event::<T>(Event::<T>::LiquidatedBorrow(bob.clone(), alice.clone(), KSM, LEND_DOT, liquidate_amount.into(), incentive_amount.into()).into());
     }
 
     add_reserves {
