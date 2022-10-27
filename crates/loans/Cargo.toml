@@ -1,57 +1,78 @@
 [package]
-authors = ['Interlay Ltd']
-edition = '2021'
-name    = 'pallet-loans'
-version = '1.9.3'
+authors = ["Interlay Ltd"]
+edition = "2021"
+name = "pallet-loans"
+version = "1.9.3"
 
 [package.metadata.docs.rs]
-targets = ['x86_64-unknown-linux-gnu']
+targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-codec              = { package = 'parity-scale-codec', version = '3.1.5', default-features = false }
-frame-benchmarking = { git = 'https://github.com/paritytech/substrate.git', branch = 'polkadot-v0.9.26', default-features = false, optional = true }
-frame-support      = { git = 'https://github.com/paritytech/substrate.git', branch = 'polkadot-v0.9.26', default-features = false }
-frame-system       = { git = 'https://github.com/paritytech/substrate.git', branch = 'polkadot-v0.9.26', default-features = false }
-num-traits         = { default-features = false, version = '0.2' }
-orml-traits        = { git = "https://github.com/interlay/open-runtime-module-library", branch = "dan/hooks-weights-v1", default-features = false }
-orml-oracle        = { git = "https://github.com/interlay/open-runtime-module-library", branch = "dan/hooks-weights-v1", default-features = false }
-orml-tokens        = { git = "https://github.com/interlay/open-runtime-module-library", branch = "dan/hooks-weights-v1", default-features = false }
-pallet-timestamp   = { git = 'https://github.com/paritytech/substrate.git', branch = 'polkadot-v0.9.26', default-features = false }
-pallet-traits      = { path = '../traits', default-features = false }
-primitives         = { package = 'interbtc-primitives', path = '../../primitives', default-features = false }
-scale-info         = { version = '2.1', default-features = false, features = ['derive'] }
-serde              = { version = '1.0.136', default-features = false, features = ['derive'], optional = true }
-sp-io              = { git = 'https://github.com/paritytech/substrate.git', branch = 'polkadot-v0.9.26', default-features = false }
-sp-runtime         = { git = 'https://github.com/paritytech/substrate.git', branch = 'polkadot-v0.9.26', default-features = false }
-sp-std             = { git = 'https://github.com/paritytech/substrate.git', branch = 'polkadot-v0.9.26', default-features = false }
-sp-core            = { git = 'https://github.com/paritytech/substrate.git', branch = 'polkadot-v0.9.26', default-features = false }
+serde = { version = "1.0.136", default-features = false, features = ["derive"], optional = true }
+codec = { package = "parity-scale-codec", version = "3.1.5", default-features = false }
+scale-info = { version = "2.1.0", default-features = false, features = ["derive"] }
+num-traits = { default-features = false, version = "0.2" }
+
+# Substrate dependencies
+sp-io = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.29", default-features = false }
+sp-core = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.29", default-features = false }
+sp-std = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.29", default-features = false }
+sp-arithmetic = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.29", default-features = false }
+sp-runtime = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.29", default-features = false }
+
+frame-support = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.29", default-features = false }
+frame-system = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.29", default-features = false }
+frame-benchmarking = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.29", default-features = false, optional = true }
+pallet-timestamp = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.29", default-features = false }
+
+# Parachain dependencies
 currency = { path = "../currency", default-features = false }
+pallet-traits = { path = "../traits", default-features = false }
+
+primitives = { package = "interbtc-primitives", path = "../../primitives", default-features = false }
+
+# Orml dependencies
+orml-tokens = { git = "https://github.com/open-web3-stack/open-runtime-module-library", rev = "2c48b626addafbea0227c068c9ab0fc16666b1b5", default-features = false }
+orml-traits = { git = "https://github.com/open-web3-stack/open-runtime-module-library", rev = "2c48b626addafbea0227c068c9ab0fc16666b1b5", default-features = false }
+orml-oracle = { git = "https://github.com/open-web3-stack/open-runtime-module-library", rev = "2c48b626addafbea0227c068c9ab0fc16666b1b5", default-features = false }
 
 [dev-dependencies]
 mocktopus = "0.7.0"
 
 [features]
-default            = ['std']
-runtime-benchmarks = ['frame-benchmarking']
-std                = [
+default = ["std"]
+std = [
+  "serde/std",
   "codec/std",
-  "frame-benchmarking/std",
-  "frame-support/std",
-  "frame-system/std",
+  "scale-info/std",
   "num-traits/std",
+
+	"sp-io/std",
+	"sp-core/std",
+	"sp-std/std",
+	"sp-arithmetic/std",
+	"sp-runtime/std",
+
+	"frame-support/std",
+	"frame-system/std",
+	"frame-benchmarking/std",
+	"pallet-timestamp/std",
+
+	"currency/std",
+  "pallet-traits/std",
+
+  "primitives/std",
+
   "orml-traits/std",
   "orml-oracle/std",
   "orml-tokens/std",
-  "pallet-timestamp/std",
-  "pallet-traits/std",
-  "primitives/std",
-  "scale-info/std",
-  "serde/std",
-  "sp-io/std",
-  "sp-runtime/std",
-  "sp-std/std"
 ]
-try-runtime        = ['frame-support/try-runtime']
+runtime-benchmarks = [
+	"frame-benchmarking",
+	"frame-support/runtime-benchmarks",
+	"frame-system/runtime-benchmarks",
+]
+try-runtime = ["frame-support/try-runtime"]
 
 [lib]
 doctest = false
