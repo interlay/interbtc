@@ -14,8 +14,7 @@ use xcm_builder::{
     RelayChainAsNative, SiblingParachainAsNative, SiblingParachainConvertsVia, SignedAccountId32AsNative,
     SignedToAccountId32, SovereignSignedViaLocation, TakeRevenue, TakeWeightCredit,
 };
-use xcm_executor::{Config, XcmExecutor};
-
+use xcm_executor::{traits::Convert as _, Config, XcmExecutor};
 parameter_types! {
     pub const ParentLocation: MultiLocation = MultiLocation::parent();
     pub const ParentNetwork: NetworkId = NetworkId::Kusama;
@@ -59,12 +58,15 @@ parameter_types! {
     pub UnitWeightCost: Weight = 200_000_000;
 }
 
-pub type Barrier = (
-    TakeWeightCredit,
-    AllowTopLevelPaidExecutionFrom<Everything>,
-    AllowKnownQueryResponses<PolkadotXcm>,
-    AllowSubscriptionsFrom<Everything>,
-); // required for others to keep track of our xcm version
+pub type Barrier = xcm_limit::And<
+    (
+        TakeWeightCredit,
+        AllowTopLevelPaidExecutionFrom<Everything>,
+        AllowKnownQueryResponses<PolkadotXcm>,
+        AllowSubscriptionsFrom<Everything>, // required for others to keep track of our xcm version
+    ),
+    XcmLimit,
+>;
 
 parameter_types! {
     pub const MaxInstructions: u32 = 100;
@@ -161,7 +163,7 @@ impl Config for XcmConfig {
     type Call = Call;
     type XcmSender = XcmRouter;
     // How to withdraw and deposit an asset.
-    type AssetTransactor = LocalAssetTransactor;
+    type AssetTransactor = XcmLimit;
     type OriginConverter = XcmOriginToTransactDispatchOrigin;
     type IsReserve = MultiNativeAsset<AbsoluteReserveProvider>;
     type IsTeleporter = NativeAsset; // <- should be enough to allow teleportation
@@ -367,4 +369,26 @@ impl orml_xtokens::Config for Runtime {
     type MinXcmFee = ParachainMinFee;
     type MultiLocationsFilter = Everything;
     type ReserveProvider = AbsoluteReserveProvider;
+}
+
+parameter_types! {
+    pub const XcmLimitPeriod: BlockNumber = DAYS;
+}
+impl xcm_limit::Config for Runtime {
+    type Event = Event;
+    type WeightInfo = ();
+    type Transactor = LocalAssetTransactor;
+    type Balance = Balance;
+    type CurrencyId = CurrencyId;
+    type CurrencyIdConvert = CurrencyIdConvert;
+    type LocationCategorizer = LocationCategorizer;
+    type Period = XcmLimitPeriod;
+}
+
+pub struct LocationCategorizer;
+
+impl xcm_limit::LocationCategorizer for LocationCategorizer {
+    fn is_local_account(location: MultiLocation) -> bool {
+        AccountId32Aliases::<ParentNetwork, AccountId>::convert(location).is_ok()
+    }
 }

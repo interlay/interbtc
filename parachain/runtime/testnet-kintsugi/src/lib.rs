@@ -1082,6 +1082,7 @@ construct_runtime! {
 
         XTokens: orml_xtokens::{Pallet, Storage, Call, Event<T>} = 94,
         UnknownTokens: orml_unknown_tokens::{Pallet, Storage, Event} = 95,
+        XcmLimit: xcm_limit::{Pallet, Storage, Event<T>} = 97,
     }
 }
 
