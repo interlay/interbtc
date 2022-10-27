@@ -69,6 +69,7 @@ mod tests;
 
 mod farming;
 mod interest;
+#[cfg(test)]
 mod lend_token;
 mod rate_model;
 mod types;

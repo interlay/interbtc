@@ -1,4 +1,3 @@
-use currency::Amount;
 use interbtc_runtime_standalone::{CurrencyId::Token, Tokens, KINT};
 mod mock;
 use mock::{assert_eq, *};

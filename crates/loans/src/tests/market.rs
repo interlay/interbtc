@@ -6,7 +6,7 @@ use crate::{
 };
 use frame_support::{assert_noop, assert_ok, error::BadOrigin};
 use primitives::{
-    CurrencyId::{self, ForeignAsset, LendToken, Token},
+    CurrencyId::{self, ForeignAsset, Token},
     Rate, Ratio, DOT as DOT_CURRENCY,
 };
 use sp_runtime::{traits::Zero, FixedPointNumber};

@@ -3,16 +3,13 @@ use crate::{
         market_mock, new_test_ext, AccountId, Loans, Origin, Test, Tokens, ALICE, DAVE, LEND_KBTC, LEND_KINT, LEND_KSM,
     },
     tests::unit,
-    Config, Error,
+    Error,
 };
-use frame_support::{
-    assert_err, assert_noop, assert_ok,
-    traits::tokens::fungibles::{Inspect, Transfer},
-};
+use frame_support::{assert_err, assert_noop, assert_ok, traits::tokens::fungibles::Inspect};
 use orml_traits::{MultiCurrency, MultiReservableCurrency};
 use primitives::{
     Balance,
-    CurrencyId::{self, ForeignAsset, LendToken, Token},
+    CurrencyId::{self, ForeignAsset, Token},
     KBTC as KBTC_CURRENCY, KINT as KINT_CURRENCY, KSM as KSM_CURRENCY,
 };
 use sp_runtime::{FixedPointNumber, TokenError};

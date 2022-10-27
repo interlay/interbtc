@@ -2,7 +2,6 @@
 
 use frame_support::dispatch::DispatchError;
 use num_bigint::{BigUint, ToBigUint};
-use sp_std::prelude::*;
 
 use primitives::{CurrencyId, PriceDetail};
 

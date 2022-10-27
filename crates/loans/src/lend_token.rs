@@ -16,13 +16,9 @@
 // limitations under the License.
 
 use crate::{AssetIdOf, BalanceOf, *};
-use frame_support::{
-    require_transactional,
-    traits::tokens::{
-        fungibles::{Inspect, Transfer},
-        DepositConsequence, WithdrawConsequence,
-    },
-};
+
+#[cfg(test)]
+use frame_support::traits::tokens::{DepositConsequence, WithdrawConsequence};
 
 #[cfg(test)]
 impl<T: Config> Pallet<T> {

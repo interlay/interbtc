@@ -27,7 +27,7 @@ use frame_support::{
     PalletId,
 };
 use frame_system::EnsureRoot;
-use mocktopus::{macros::mockable, mocking::*};
+use mocktopus::macros::mockable;
 use orml_traits::{parameter_type_with_key, DataFeeder, DataProvider, DataProviderExtended};
 use primitives::{
     CurrencyId::{ForeignAsset, LendToken, Token},

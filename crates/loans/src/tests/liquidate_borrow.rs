@@ -4,7 +4,6 @@ use crate::{
     Error, MarketState,
 };
 use frame_support::{assert_noop, assert_ok, traits::fungibles::Inspect};
-use pallet_traits::LoansApi;
 use primitives::{
     CurrencyId::{self, Token},
     Rate, DOT as DOT_CURRENCY, KBTC as KBTC_CURRENCY, KSM as KSM_CURRENCY,

@@ -1,7 +1,7 @@
 use currency::Amount;
 use pallet_loans::JumpModel;
 
-use crate::{assert_eq, *};
+use crate::*;
 
 pub const fn market_mock(lend_token_id: CurrencyId) -> Market<Balance> {
     Market {
