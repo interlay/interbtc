@@ -3,7 +3,6 @@ mod mock;
 use crate::loans_testing_utils::activate_lending_and_mint;
 use currency::Amount;
 use mock::{assert_eq, nomination_testing_utils::*, *};
-use sp_runtime::traits::{CheckedDiv, CheckedSub};
 
 fn test_with<R>(execute: impl Fn(VaultId) -> R) {
     let test_with = |currency_id, wrapped_id| {
@@ -254,7 +253,7 @@ mod spec_based_tests {
                     amount: 100000000000000000000000
                 })
                 .dispatch(origin_of(account_of(USER))),
-                NominationError::DepositViolatesMaxNominationRatio
+                NominationError::NominationExceedsLimit
             );
             assert_ok!(Call::Nomination(NominationCall::deposit_collateral {
                 vault_id: vault_id.clone(),
@@ -461,16 +460,26 @@ fn integration_test_vaults_cannot_withdraw_nominated_collateral() {
 }
 
 #[test]
-fn integration_test_nominated_collateral_cannot_exceed_max_nomination_ratio() {
+fn integration_test_nominated_collateral_cannot_exceed_nomination_limit() {
     test_with_nomination_enabled_and_vault_opted_in(|vault_id| {
+        assert_ok!(Call::Nomination(NominationCall::deposit_collateral {
+            vault_id: vault_id.clone(),
+            amount: DEFAULT_NOMINATION_LIMIT - 100,
+        })
+        .dispatch(origin_of(account_of(USER))));
         assert_noop!(
-            nominate_collateral(
-                &vault_id,
-                account_of(USER),
-                default_backing_collateral(vault_id.collateral_currency())
-            ),
-            NominationError::DepositViolatesMaxNominationRatio
+            Call::Nomination(NominationCall::deposit_collateral {
+                vault_id: vault_id.clone(),
+                amount: 101,
+            })
+            .dispatch(origin_of(account_of(CAROL))),
+            NominationError::NominationExceedsLimit
         );
+        assert_ok!(Call::Nomination(NominationCall::deposit_collateral {
+            vault_id: vault_id.clone(),
+            amount: 100,
+        })
+        .dispatch(origin_of(account_of(CAROL))));
     });
 }
 
@@ -559,22 +568,6 @@ fn integration_test_nomination_fee_distribution() {
 }
 
 #[test]
-fn integration_test_maximum_nomination_ratio_calculation() {
-    test_with_nomination_enabled_and_vault_opted_in(|vault_id| {
-        let expected_nomination_ratio = FixedU128::checked_from_rational(150, 100)
-            .unwrap()
-            .checked_div(&FixedU128::checked_from_rational(135, 100).unwrap())
-            .unwrap()
-            .checked_sub(&FixedU128::one())
-            .unwrap();
-        assert_eq!(
-            VaultRegistryPallet::get_max_nomination_ratio(&vault_id.currencies).unwrap(),
-            expected_nomination_ratio
-        );
-    })
-}
-
-#[test]
 fn integration_test_vault_opt_out_must_refund_nomination() {
     test_with_nomination_enabled_and_vault_opted_in(|vault_id| {
         assert_nominate_collateral(&vault_id, account_of(USER), default_nomination(&vault_id));
@@ -621,24 +614,6 @@ fn integration_test_liquidating_a_vault_does_not_force_refund() {
         VaultRegistryPallet::liquidate_vault(&vault_id).unwrap();
         let nonce: u32 = VaultStakingPallet::nonce(&vault_id);
         assert_eq!(nonce, 0);
-    })
-}
-
-#[test]
-fn integration_test_vault_withdrawal_cannot_exceed_max_nomination_taio() {
-    test_with_nomination_enabled_and_vault_opted_in(|vault_id| {
-        let max_nomination = VaultRegistryPallet::get_max_nominatable_collateral(
-            &default_backing_collateral(vault_id.collateral_currency()),
-            &vault_id.currencies,
-        )
-        .unwrap();
-        assert_nominate_collateral(&vault_id, account_of(USER), max_nomination);
-
-        // Need to withdraw 10 units to account for rounding errors
-        assert_noop!(
-            withdraw_vault_collateral(&vault_id, Amount::new(10, vault_id.collateral_currency())),
-            VaultRegistryError::MaxNominationRatioViolation
-        );
     })
 }
 

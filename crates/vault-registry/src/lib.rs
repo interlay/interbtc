@@ -133,7 +133,7 @@ pub mod pallet {
         }
 
         fn on_runtime_upgrade() -> frame_support::weights::Weight {
-            crate::types::v5::migrate_v5_to_v6::<T>()
+            crate::types::v1::migrate_v1_to_v6::<T>()
         }
     }
 
@@ -580,7 +580,7 @@ pub mod pallet {
         VaultNotBelowLiquidationThreshold,
         /// Deposit address could not be generated with the given public key.
         InvalidPublicKey,
-        /// The Max Nomination Ratio would be exceeded.
+        /// Deprecated error. TODO: remove when releasing a breaking runtime upgrade
         MaxNominationRatioViolation,
         /// The collateral ceiling would be exceeded for the vault's currency.
         CurrencyCeilingExceeded,
@@ -686,10 +686,10 @@ pub mod pallet {
 
     #[pallet::type_value]
     pub(super) fn DefaultForStorageVersion() -> Version {
-        Version::V0
+        Version::V6
     }
 
-    /// Build storage at V1 (requires default 0).
+    /// Pallet storage version
     #[pallet::storage]
     #[pallet::getter(fn storage_version)]
     pub(super) type StorageVersion<T: Config> = StorageValue<_, Version, ValueQuery, DefaultForStorageVersion>;
@@ -905,24 +905,7 @@ impl<T: Config> Pallet<T> {
             Self::is_allowed_to_withdraw_collateral(vault_id, amount)?,
             Error::<T>::InsufficientCollateral
         );
-        ensure!(
-            Self::is_max_nomination_ratio_preserved(vault_id, amount)?,
-            Error::<T>::MaxNominationRatioViolation
-        );
         Self::force_withdraw_collateral(vault_id, amount)
-    }
-
-    pub fn is_max_nomination_ratio_preserved(
-        vault_id: &DefaultVaultId<T>,
-        amount: &Amount<T>,
-    ) -> Result<bool, DispatchError> {
-        let vault_collateral = Self::compute_collateral(vault_id)?;
-        let backing_collateral = Self::get_backing_collateral(vault_id)?;
-        let current_nomination = backing_collateral.checked_sub(&vault_collateral)?;
-        let new_vault_collateral = vault_collateral.checked_sub(&amount)?;
-        let max_nomination_after_withdrawal =
-            Self::get_max_nominatable_collateral(&new_vault_collateral, &vault_id.currencies)?;
-        Ok(current_nomination.le(&max_nomination_after_withdrawal)?)
     }
 
     /// Checks if the vault would be above the secure threshold after withdrawing collateral
@@ -1856,30 +1839,6 @@ impl<T: Config> Pallet<T> {
     pub fn compute_collateral(vault_id: &DefaultVaultId<T>) -> Result<Amount<T>, DispatchError> {
         let amount = ext::staking::compute_stake::<T>(vault_id, &vault_id.account_id)?;
         Ok(Amount::new(amount, vault_id.currencies.collateral))
-    }
-
-    pub fn get_max_nomination_ratio(
-        currency_pair: &DefaultVaultCurrencyPair<T>,
-    ) -> Result<UnsignedFixedPoint<T>, DispatchError> {
-        // MaxNominationRatio = (SecureCollateralThreshold / PremiumRedeemThreshold) - 1)
-        // It denotes the maximum amount of collateral that can be nominated to a particular Vault.
-        // Its effect is to minimise the impact on collateralization of nominator withdrawals.
-        let secure_collateral_threshold =
-            Self::secure_collateral_threshold(currency_pair).ok_or(Error::<T>::ThresholdNotSet)?;
-        let premium_redeem_threshold =
-            Self::premium_redeem_threshold(currency_pair).ok_or(Error::<T>::ThresholdNotSet)?;
-        Ok(secure_collateral_threshold
-            .checked_div(&premium_redeem_threshold)
-            .ok_or(ArithmeticError::Underflow)?
-            .checked_sub(&UnsignedFixedPoint::<T>::one())
-            .ok_or(ArithmeticError::Underflow)?)
-    }
-
-    pub fn get_max_nominatable_collateral(
-        vault_collateral: &Amount<T>,
-        currency_pair: &DefaultVaultCurrencyPair<T>,
-    ) -> Result<Amount<T>, DispatchError> {
-        vault_collateral.rounded_mul(Self::get_max_nomination_ratio(currency_pair)?)
     }
 
     /// Private getters and setters

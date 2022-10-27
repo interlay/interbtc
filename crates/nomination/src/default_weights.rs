@@ -39,6 +39,7 @@ pub trait WeightInfo {
 	fn opt_out_of_nomination() -> Weight;
 	fn deposit_collateral() -> Weight;
 	fn withdraw_collateral() -> Weight;
+	fn set_nomination_limit() -> Weight;
 }
 
 /// Weights for nomination using the Substrate node and recommended hardware.
@@ -46,17 +47,17 @@ pub struct SubstrateWeight<T>(PhantomData<T>);
 impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Storage: Nomination NominationEnabled (r:0 w:1)
 	fn set_nomination_enabled() -> Weight {
-		(2_835_000 as Weight)
-			.saturating_add(T::DbWeight::get().writes(1 as Weight))
+		Weight::from_ref_time(2_835_000 as u64)
+			.saturating_add(T::DbWeight::get().writes(1 as u64))
 	}
 	// Storage: Security ParachainStatus (r:1 w:0)
 	// Storage: Nomination NominationEnabled (r:1 w:0)
 	// Storage: VaultRegistry Vaults (r:1 w:0)
 	// Storage: Nomination Vaults (r:1 w:1)
 	fn opt_in_to_nomination() -> Weight {
-		(33_861_000 as Weight)
-			.saturating_add(T::DbWeight::get().reads(4 as Weight))
-			.saturating_add(T::DbWeight::get().writes(1 as Weight))
+		Weight::from_ref_time(33_861_000 as u64)
+			.saturating_add(T::DbWeight::get().reads(4 as u64))
+			.saturating_add(T::DbWeight::get().writes(1 as u64))
 	}
 	// Storage: Security ParachainStatus (r:1 w:0)
 	// Storage: Nomination Vaults (r:1 w:1)
@@ -73,9 +74,9 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Storage: Staking RewardTally (r:2 w:2)
 	// Storage: Staking TotalStake (r:1 w:1)
 	fn opt_out_of_nomination() -> Weight {
-		(269_491_000 as Weight)
-			.saturating_add(T::DbWeight::get().reads(20 as Weight))
-			.saturating_add(T::DbWeight::get().writes(10 as Weight))
+		Weight::from_ref_time(269_491_000 as u64)
+			.saturating_add(T::DbWeight::get().reads(20 as u64))
+			.saturating_add(T::DbWeight::get().writes(10 as u64))
 	}
 	// Storage: Security ParachainStatus (r:1 w:0)
 	// Storage: Nomination NominationEnabled (r:1 w:0)
@@ -98,9 +99,9 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Storage: Tokens Accounts (r:2 w:2)
 	// Storage: System Account (r:1 w:0)
 	fn deposit_collateral() -> Weight {
-		(264_795_000 as Weight)
-			.saturating_add(T::DbWeight::get().reads(23 as Weight))
-			.saturating_add(T::DbWeight::get().writes(10 as Weight))
+		Weight::from_ref_time(264_795_000 as u64)
+			.saturating_add(T::DbWeight::get().reads(23 as u64))
+			.saturating_add(T::DbWeight::get().writes(10 as u64))
 	}
 	// Storage: Security ParachainStatus (r:1 w:0)
 	// Storage: Nomination NominationEnabled (r:1 w:0)
@@ -123,9 +124,14 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Storage: Tokens Accounts (r:2 w:2)
 	// Storage: System Account (r:1 w:0)
 	fn withdraw_collateral() -> Weight {
-		(259_690_000 as Weight)
-			.saturating_add(T::DbWeight::get().reads(21 as Weight))
-			.saturating_add(T::DbWeight::get().writes(10 as Weight))
+		Weight::from_ref_time(259_690_000 as u64)
+			.saturating_add(T::DbWeight::get().reads(21 as u64))
+			.saturating_add(T::DbWeight::get().writes(10 as u64))
+	}
+	// Storage: Nomination Nominationlimit (r:0 w:1)
+	fn set_nomination_limit() -> Weight {
+		Weight::from_ref_time(2_835_000 as u64)
+			.saturating_add(T::DbWeight::get().writes(1 as u64))
 	}
 }
 
@@ -133,17 +139,17 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 impl WeightInfo for () {
 	// Storage: Nomination NominationEnabled (r:0 w:1)
 	fn set_nomination_enabled() -> Weight {
-		(2_835_000 as Weight)
-			.saturating_add(RocksDbWeight::get().writes(1 as Weight))
+		Weight::from_ref_time(2_835_000 as u64)
+			.saturating_add(RocksDbWeight::get().writes(1 as u64))
 	}
 	// Storage: Security ParachainStatus (r:1 w:0)
 	// Storage: Nomination NominationEnabled (r:1 w:0)
 	// Storage: VaultRegistry Vaults (r:1 w:0)
 	// Storage: Nomination Vaults (r:1 w:1)
 	fn opt_in_to_nomination() -> Weight {
-		(33_861_000 as Weight)
-			.saturating_add(RocksDbWeight::get().reads(4 as Weight))
-			.saturating_add(RocksDbWeight::get().writes(1 as Weight))
+		Weight::from_ref_time(33_861_000 as u64)
+			.saturating_add(RocksDbWeight::get().reads(4 as u64))
+			.saturating_add(RocksDbWeight::get().writes(1 as u64))
 	}
 	// Storage: Security ParachainStatus (r:1 w:0)
 	// Storage: Nomination Vaults (r:1 w:1)
@@ -160,9 +166,9 @@ impl WeightInfo for () {
 	// Storage: Staking RewardTally (r:2 w:2)
 	// Storage: Staking TotalStake (r:1 w:1)
 	fn opt_out_of_nomination() -> Weight {
-		(269_491_000 as Weight)
-			.saturating_add(RocksDbWeight::get().reads(20 as Weight))
-			.saturating_add(RocksDbWeight::get().writes(10 as Weight))
+		Weight::from_ref_time(269_491_000 as u64)
+			.saturating_add(RocksDbWeight::get().reads(20 as u64))
+			.saturating_add(RocksDbWeight::get().writes(10 as u64))
 	}
 	// Storage: Security ParachainStatus (r:1 w:0)
 	// Storage: Nomination NominationEnabled (r:1 w:0)
@@ -185,9 +191,9 @@ impl WeightInfo for () {
 	// Storage: Tokens Accounts (r:2 w:2)
 	// Storage: System Account (r:1 w:0)
 	fn deposit_collateral() -> Weight {
-		(264_795_000 as Weight)
-			.saturating_add(RocksDbWeight::get().reads(23 as Weight))
-			.saturating_add(RocksDbWeight::get().writes(10 as Weight))
+		Weight::from_ref_time(264_795_000 as u64)
+			.saturating_add(RocksDbWeight::get().reads(23 as u64))
+			.saturating_add(RocksDbWeight::get().writes(10 as u64))
 	}
 	// Storage: Security ParachainStatus (r:1 w:0)
 	// Storage: Nomination NominationEnabled (r:1 w:0)
@@ -210,9 +216,14 @@ impl WeightInfo for () {
 	// Storage: Tokens Accounts (r:2 w:2)
 	// Storage: System Account (r:1 w:0)
 	fn withdraw_collateral() -> Weight {
-		(259_690_000 as Weight)
-			.saturating_add(RocksDbWeight::get().reads(21 as Weight))
-			.saturating_add(RocksDbWeight::get().writes(10 as Weight))
+		Weight::from_ref_time(259_690_000 as u64)
+			.saturating_add(RocksDbWeight::get().reads(21 as u64))
+			.saturating_add(RocksDbWeight::get().writes(10 as u64))
+	}
+	// Storage: Nomination NominationLimit (r:0 w:1)
+	fn set_nomination_limit() -> Weight {
+		Weight::from_ref_time(2_835_000 as u64)
+			.saturating_add(RocksDbWeight::get().writes(1 as u64))
 	}
 }
 

@@ -75,7 +75,7 @@ pub mod pallet {
         fn on_initialize(_n: T::BlockNumber) -> Weight {
             Self::increment_active_block();
             // TODO: calculate weight
-            0
+            Weight::from_ref_time(0)
         }
     }
 

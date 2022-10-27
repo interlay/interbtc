@@ -36,13 +36,6 @@ pub(crate) mod vault_registry {
         <vault_registry::Pallet<T>>::is_allowed_to_withdraw_collateral(vault_id, amount)
     }
 
-    pub fn get_max_nominatable_collateral<T: crate::Config>(
-        vault_collateral: &Amount<T>,
-        currency_pair: &DefaultVaultCurrencyPair<T>,
-    ) -> Result<Amount<T>, DispatchError> {
-        <vault_registry::Pallet<T>>::get_max_nominatable_collateral(vault_collateral, currency_pair)
-    }
-
     pub fn try_increase_total_backing_collateral<T: crate::Config>(
         currency_pair: &DefaultVaultCurrencyPair<T>,
         amount: &Amount<T>,

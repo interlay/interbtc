@@ -1,6 +1,6 @@
 mod mock;
 
-use frame_support::traits::WrapperKeepOpaque;
+use frame_support::{traits::WrapperKeepOpaque, weights::Weight};
 use mock::{assert_eq, *};
 use orml_tokens::AccountData;
 use orml_vesting::VestingSchedule;
@@ -49,7 +49,7 @@ fn integration_test_transfer_from_multisig_to_vested() {
             maybe_timepoint: None,
             call: WrapperKeepOpaque::from_encoded(call.clone()),
             store_call: true,
-            max_weight: 1000000000000,
+            max_weight: Weight::from_ref_time(1000000000000 as u64),
         })
         .dispatch(origin_of(account_of(ALICE))));
 
@@ -73,7 +73,7 @@ fn integration_test_transfer_from_multisig_to_vested() {
             other_signatories: vec![account_of(ALICE)],
             maybe_timepoint: Some(timepoint),
             call_hash: sp_core::blake2_256(&call),
-            max_weight: 1000000000000,
+            max_weight: Weight::from_ref_time(1000000000000 as u64),
         })
         .dispatch(origin_of(account_of(BOB))));
         // step 4a: check that the call is now executed
@@ -118,7 +118,7 @@ fn integration_test_transfer_from_multisig_to_unvested() {
             maybe_timepoint: None,
             call: WrapperKeepOpaque::from_encoded(call.clone()),
             store_call: true,
-            max_weight: 1000000000000,
+            max_weight: Weight::from_ref_time(1000000000000 as u64),
         })
         .dispatch(origin_of(account_of(ALICE))));
 
@@ -127,7 +127,7 @@ fn integration_test_transfer_from_multisig_to_unvested() {
             other_signatories: vec![account_of(ALICE)],
             maybe_timepoint: Some(MultisigPallet::timepoint()),
             call_hash: sp_core::blake2_256(&call),
-            max_weight: 1000000000000,
+            max_weight: Weight::from_ref_time(1000000000000 as u64),
         })
         .dispatch(origin_of(account_of(BOB))));
 
@@ -273,7 +273,7 @@ fn integration_test_batched_multisig_vesting() {
             maybe_timepoint: None,
             call: WrapperKeepOpaque::from_encoded(batch.clone()),
             store_call: true,
-            max_weight: 1000000000000,
+            max_weight: Weight::from_ref_time(1000000000000 as u64),
         })
         .dispatch(origin_of(account_of(ALICE))));
 
@@ -282,7 +282,7 @@ fn integration_test_batched_multisig_vesting() {
             other_signatories: vec![account_of(ALICE)],
             maybe_timepoint: Some(MultisigPallet::timepoint()),
             call_hash: sp_core::blake2_256(&batch),
-            max_weight: 1000000000000,
+            max_weight: Weight::from_ref_time(1000000000000 as u64),
         })
         .dispatch(origin_of(account_of(BOB))));
 

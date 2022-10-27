@@ -173,8 +173,6 @@ pub mod pallet {
     #[pallet::getter(fn replace_griefing_collateral)]
     pub type ReplaceGriefingCollateral<T: Config> = StorageValue<_, UnsignedFixedPoint<T>, ValueQuery>;
 
-    /// # Relayer
-
     #[pallet::type_value]
     pub(super) fn DefaultForStorageVersion() -> Version {
         Version::V0

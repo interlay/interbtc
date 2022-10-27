@@ -5,12 +5,12 @@
   "bootNodes": [
     "/ip4/64.225.82.241/tcp/30334/p2p/12D3KooWBrXv59QdJ3XKTUWcRa5zcDpWYCqCB77xPAKJqUGNnTGQ",
     "/dns4/bootnodes.kintsugi.interlay.io/tcp/30335/p2p/12D3KooWCC7bcYLxCwPcU53FPGU3K4EmnffEMByRBVzC6GzkUnT5",
-    "/ip4/54.65.28.47/tcp/30333/p2p/12D3KooWQvS49jo865cP7VrAeE9zzLWBtGhRzWgoSfzr8AvjC5AX",
-    "/ip6/2406:da14:69b:e300:b7fa:74aa:a257:2f82/tcp/30333/p2p/12D3KooWQvS49jo865cP7VrAeE9zzLWBtGhRzWgoSfzr8AvjC5AX",
-    "/ip4/18.117.5.13/tcp/30333/p2p/12D3KooWHmF3Dy6DtymvXDUVBmPuc6Ng6DAtjf95jtBtdHvtYuxE",
-    "/ip6/2600:1f16:f85:bc00:8e9b:f639:a216:ca95/tcp/30333/p2p/12D3KooWHmF3Dy6DtymvXDUVBmPuc6Ng6DAtjf95jtBtdHvtYuxE",
-    "/ip4/3.72.184.161/tcp/30333/p2p/12D3KooWHdam23RVt2bMb6B5YQD4WCNcwZviiFGur6JV5qxi5Qv5",
-    "/ip6/2a05:d014:5a7:e500:184b:5637:e915:2323/tcp/30333/p2p/12D3KooWHdam23RVt2bMb6B5YQD4WCNcwZviiFGur6JV5qxi5Qv5"
+    "/ip4/35.213.18.84/tcp/30333/p2p/12D3KooWQvS49jo865cP7VrAeE9zzLWBtGhRzWgoSfzr8AvjC5AX",
+    "/ip6/2600:1900:4050:c8d0::/tcp/30333/p2p/12D3KooWQvS49jo865cP7VrAeE9zzLWBtGhRzWgoSfzr8AvjC5AX",
+    "/ip4/35.209.155.60/tcp/30333/p2p/12D3KooWHmF3Dy6DtymvXDUVBmPuc6Ng6DAtjf95jtBtdHvtYuxE",
+    "/ip6/2600:1900:4000:7822:0:4::/tcp/30333/p2p/12D3KooWHmF3Dy6DtymvXDUVBmPuc6Ng6DAtjf95jtBtdHvtYuxE",
+    "/ip4/34.91.166.36/tcp/30333/p2p/12D3KooWHdam23RVt2bMb6B5YQD4WCNcwZviiFGur6JV5qxi5Qv5",
+    "/ip6/2600:1900:4060:66e6::/tcp/30333/p2p/12D3KooWHdam23RVt2bMb6B5YQD4WCNcwZviiFGur6JV5qxi5Qv5"
   ],
   "telemetryEndpoints": null,
   "protocolId": null,

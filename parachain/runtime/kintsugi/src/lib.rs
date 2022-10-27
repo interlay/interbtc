@@ -90,7 +90,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     spec_name: create_runtime_str!("kintsugi-parachain"),
     impl_name: create_runtime_str!("kintsugi-parachain"),
     authoring_version: 1,
-    spec_version: 1018000,
+    spec_version: 1019000,
     impl_version: 1,
     transaction_version: 3, // added preimage
     apis: RUNTIME_API_VERSIONS,
@@ -127,7 +127,7 @@ const AVERAGE_ON_INITIALIZE_RATIO: Perbill = Perbill::from_percent(10);
 /// by  Operational  extrinsics.
 const NORMAL_DISPATCH_RATIO: Perbill = Perbill::from_percent(75);
 /// We allow for 2 seconds of compute with a 12 second average block time.
-const MAXIMUM_BLOCK_WEIGHT: Weight = 2 * WEIGHT_PER_SECOND;
+const MAXIMUM_BLOCK_WEIGHT: Weight = WEIGHT_PER_SECOND.saturating_mul(2 as u64);
 
 parameter_types! {
     pub const BlockHashCount: BlockNumber = 250;
@@ -262,26 +262,6 @@ parameter_types! {
     pub const SessionLength: BlockNumber = 6 * HOURS;
     pub const MaxInvulnerables: u32 = 100;
     pub const ExecutiveBody: BodyId = BodyId::Executive;
-}
-
-// Set the initial parameters for CollatorSelection.
-pub struct SetCollatorSelection;
-impl frame_support::traits::OnRuntimeUpgrade for SetCollatorSelection {
-    fn on_runtime_upgrade() -> frame_support::weights::Weight {
-        collator_selection::DesiredCandidates::<Runtime>::put(9);
-        collator_selection::CandidacyBond::<Runtime>::put(1000 * KINT.one());
-        RocksDbWeight::get().writes(2)
-    }
-
-    #[cfg(feature = "try-runtime")]
-    fn pre_upgrade() -> Result<(), &'static str> {
-        Ok(())
-    }
-
-    #[cfg(feature = "try-runtime")]
-    fn post_upgrade() -> Result<(), &'static str> {
-        Ok(())
-    }
 }
 
 /// We allow root and the Relay Chain council to execute privileged collator selection operations.
@@ -479,13 +459,13 @@ type EnsureRootOrAllTechnicalCommittee = EitherOfDiverse<
 
 parameter_types! {
     pub const LaunchPeriod: BlockNumber = 7 * DAYS;
-    pub const VotingPeriod: BlockNumber = 7 * DAYS;
+    pub const VotingPeriod: BlockNumber = 2 * DAYS;
     pub const FastTrackVotingPeriod: BlockNumber = 3 * HOURS;
     // Require 5 vKINT to make a proposal. Given the crowdloan airdrop, this qualifies about 3500
     // accounts to make a governance proposal. Only 2300 can do two proposals,
     // and 700 accounts can do ten or more proposals.
     pub MinimumDeposit: Balance = 5 * UNITS;
-    pub const EnactmentPeriod: BlockNumber = DAYS;
+    pub const EnactmentPeriod: BlockNumber = 6 * HOURS;
     pub PreimageByteDeposit: Balance = 10 * MILLICENTS;
     pub const MaxVotes: u32 = 100;
     pub const MaxProposals: u32 = 100;
@@ -592,8 +572,8 @@ impl pallet_membership::Config for Runtime {
 }
 
 parameter_types! {
-    pub const ReservedXcmpWeight: Weight = MAXIMUM_BLOCK_WEIGHT / 4;
-    pub const ReservedDmpWeight: Weight = MAXIMUM_BLOCK_WEIGHT / 4;
+    pub const ReservedXcmpWeight: Weight = MAXIMUM_BLOCK_WEIGHT.saturating_div(4 as u64);
+    pub const ReservedDmpWeight: Weight = MAXIMUM_BLOCK_WEIGHT.saturating_div(4 as u64);
 }
 
 impl cumulus_pallet_parachain_system::Config for Runtime {
@@ -1143,14 +1123,8 @@ pub type UncheckedExtrinsic = generic::UncheckedExtrinsic<Address, Call, Signatu
 /// Extrinsic type that has already been checked.
 pub type CheckedExtrinsic = generic::CheckedExtrinsic<AccountId, Call, SignedExtra>;
 /// Executive: handles dispatch to the various modules.
-pub type Executive = frame_executive::Executive<
-    Runtime,
-    Block,
-    frame_system::ChainContext<Runtime>,
-    Runtime,
-    AllPalletsWithSystem,
-    SetCollatorSelection,
->;
+pub type Executive =
+    frame_executive::Executive<Runtime, Block, frame_system::ChainContext<Runtime>, Runtime, AllPalletsWithSystem, ()>;
 
 #[cfg(not(feature = "disable-runtime-api"))]
 impl_runtime_apis! {
@@ -1486,6 +1460,21 @@ impl_runtime_apis! {
 
         fn get_new_vault_replace_requests(vault_id: AccountId) -> Vec<H256> {
             Replace::get_replace_requests_for_new_vault(vault_id)
+        }
+    }
+
+    #[cfg(feature = "try-runtime")]
+    impl frame_try_runtime::TryRuntime<Block> for Runtime {
+        fn on_runtime_upgrade() -> (Weight, Weight) {
+            // NOTE: intentional unwrap: we don't want to propagate the error backwards, and want to
+            // have a backtrace here. If any of the pre/post migration checks fail, we shall stop
+            // right here and right now.
+            let weight = Executive::try_runtime_upgrade().unwrap();
+            (weight, RuntimeBlockWeights::get().max_block)
+        }
+
+        fn execute_block_no_check(block: Block) -> Weight {
+            Executive::execute_block_no_check(block)
         }
     }
 }

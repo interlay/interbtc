@@ -68,9 +68,9 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Storage: VaultStaking RewardTally (r:2 w:2)
 	// Storage: VaultStaking RewardPerToken (r:2 w:0)
 	fn register_vault() -> Weight {
-		(136_098_000 as Weight)
-			.saturating_add(T::DbWeight::get().reads(15 as Weight))
-			.saturating_add(T::DbWeight::get().writes(9 as Weight))
+		Weight::from_ref_time(136_098_000 as u64)
+			.saturating_add(T::DbWeight::get().reads(15 as u64))
+			.saturating_add(T::DbWeight::get().writes(9 as u64))
 	}
 	// Storage: VaultRegistry Vaults (r:1 w:0)
 	// Storage: VaultRegistry TotalUserVaultCollateral (r:1 w:1)
@@ -88,9 +88,9 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Storage: Oracle Aggregate (r:1 w:0)
 	// Storage: VaultRegistry SecureCollateralThreshold (r:1 w:0)
 	fn deposit_collateral() -> Weight {
-		(167_605_000 as Weight)
-			.saturating_add(T::DbWeight::get().reads(17 as Weight))
-			.saturating_add(T::DbWeight::get().writes(8 as Weight))
+		Weight::from_ref_time(167_605_000 as u64)
+			.saturating_add(T::DbWeight::get().reads(17 as u64))
+			.saturating_add(T::DbWeight::get().writes(8 as u64))
 	}
 	// Storage: VaultRegistry Vaults (r:1 w:0)
 	// Storage: VaultStaking Nonce (r:1 w:0)
@@ -108,52 +108,52 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Storage: VaultStaking RewardTally (r:2 w:2)
 	// Storage: VaultStaking RewardPerToken (r:2 w:0)
 	fn withdraw_collateral() -> Weight {
-		(175_284_000 as Weight)
-			.saturating_add(T::DbWeight::get().reads(17 as Weight))
-			.saturating_add(T::DbWeight::get().writes(8 as Weight))
+		Weight::from_ref_time(175_284_000 as u64)
+			.saturating_add(T::DbWeight::get().reads(17 as u64))
+			.saturating_add(T::DbWeight::get().writes(8 as u64))
 	}
 	// Storage: VaultRegistry Vaults (r:1 w:1)
 	fn register_public_key() -> Weight {
-		(27_632_000 as Weight)
-			.saturating_add(T::DbWeight::get().reads(1 as Weight))
-			.saturating_add(T::DbWeight::get().writes(1 as Weight))
+		Weight::from_ref_time(27_632_000 as u64)
+			.saturating_add(T::DbWeight::get().reads(1 as u64))
+			.saturating_add(T::DbWeight::get().writes(1 as u64))
 	}
 	// Storage: VaultRegistry Vaults (r:1 w:1)
 	fn accept_new_issues() -> Weight {
-		(14_679_000 as Weight)
-			.saturating_add(T::DbWeight::get().reads(1 as Weight))
-			.saturating_add(T::DbWeight::get().writes(1 as Weight))
+		Weight::from_ref_time(14_679_000 as u64)
+			.saturating_add(T::DbWeight::get().reads(1 as u64))
+			.saturating_add(T::DbWeight::get().writes(1 as u64))
 	}
 	// Storage: VaultRegistry Vaults (r:1 w:1)
 	fn set_custom_secure_threshold() -> Weight {
-		(14_679_000 as Weight)
-			.saturating_add(RocksDbWeight::get().reads(1 as Weight))
-			.saturating_add(RocksDbWeight::get().writes(1 as Weight))
+		Weight::from_ref_time(14_679_000 as u64)
+			.saturating_add(RocksDbWeight::get().reads(1 as u64))
+			.saturating_add(RocksDbWeight::get().writes(1 as u64))
 	}
 	// Storage: VaultRegistry MinimumCollateralVault (r:0 w:1)
 	fn set_minimum_collateral() -> Weight {
-		(4_059_000 as Weight)
-			.saturating_add(T::DbWeight::get().writes(1 as Weight))
+		Weight::from_ref_time(4_059_000 as u64)
+			.saturating_add(T::DbWeight::get().writes(1 as u64))
 	}
 	// Storage: VaultRegistry SystemCollateralCeiling (r:0 w:1)
 	fn set_system_collateral_ceiling() -> Weight {
-		(4_101_000 as Weight)
-			.saturating_add(T::DbWeight::get().writes(1 as Weight))
+		Weight::from_ref_time(4_101_000 as u64)
+			.saturating_add(T::DbWeight::get().writes(1 as u64))
 	}
 	// Storage: VaultRegistry SecureCollateralThreshold (r:0 w:1)
 	fn set_secure_collateral_threshold() -> Weight {
-		(4_216_000 as Weight)
-			.saturating_add(T::DbWeight::get().writes(1 as Weight))
+		Weight::from_ref_time(4_216_000 as u64)
+			.saturating_add(T::DbWeight::get().writes(1 as u64))
 	}
 	// Storage: VaultRegistry PremiumRedeemThreshold (r:0 w:1)
 	fn set_premium_redeem_threshold() -> Weight {
-		(4_132_000 as Weight)
-			.saturating_add(T::DbWeight::get().writes(1 as Weight))
+		Weight::from_ref_time(4_132_000 as u64)
+			.saturating_add(T::DbWeight::get().writes(1 as u64))
 	}
 	// Storage: VaultRegistry LiquidationCollateralThreshold (r:0 w:1)
 	fn set_liquidation_collateral_threshold() -> Weight {
-		(4_130_000 as Weight)
-			.saturating_add(T::DbWeight::get().writes(1 as Weight))
+		Weight::from_ref_time(4_130_000 as u64)
+			.saturating_add(T::DbWeight::get().writes(1 as u64))
 	}
 	// Storage: VaultRegistry Vaults (r:1 w:1)
 	// Storage: VaultRegistry LiquidationCollateralThreshold (r:1 w:0)
@@ -178,25 +178,25 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Storage: VaultRewards RewardTally (r:2 w:2)
 	// Storage: VaultRewards RewardPerToken (r:2 w:0)
 	fn report_undercollateralized_vault() -> Weight {
-		(363_346_000 as Weight)
-			.saturating_add(T::DbWeight::get().reads(28 as Weight))
-			.saturating_add(T::DbWeight::get().writes(16 as Weight))
+		Weight::from_ref_time(363_346_000 as u64)
+			.saturating_add(T::DbWeight::get().reads(28 as u64))
+			.saturating_add(T::DbWeight::get().writes(16 as u64))
 	}
 
 	fn set_current_client_release() -> Weight {
-		(4_130_000 as Weight)
-			.saturating_add(T::DbWeight::get().writes(1 as Weight))
+		Weight::from_ref_time(4_130_000 as u64)
+			.saturating_add(T::DbWeight::get().writes(1 as u64))
 	}
 
 	fn set_pending_client_release() -> Weight {
-		(4_130_000 as Weight)
+		Weight::from_ref_time(4_130_000 as u64)
 	}
 
 	// Storage: VaultRegistry Vaults (r:2 w:1)
 	fn recover_vault_id() -> Weight {
-		(14_679_000 as Weight)
-			.saturating_add(T::DbWeight::get().reads(2 as Weight))
-			.saturating_add(T::DbWeight::get().writes(1 as Weight))
+		Weight::from_ref_time(14_679_000 as u64)
+			.saturating_add(T::DbWeight::get().reads(2 as u64))
+			.saturating_add(T::DbWeight::get().writes(1 as u64))
 	}
 }
 
@@ -216,9 +216,9 @@ impl WeightInfo for () {
 	// Storage: VaultStaking RewardTally (r:2 w:2)
 	// Storage: VaultStaking RewardPerToken (r:2 w:0)
 	fn register_vault() -> Weight {
-		(136_098_000 as Weight)
-			.saturating_add(RocksDbWeight::get().reads(15 as Weight))
-			.saturating_add(RocksDbWeight::get().writes(9 as Weight))
+		Weight::from_ref_time(136_098_000 as u64)
+			.saturating_add(RocksDbWeight::get().reads(15 as u64))
+			.saturating_add(RocksDbWeight::get().writes(9 as u64))
 	}
 	// Storage: VaultRegistry Vaults (r:1 w:0)
 	// Storage: VaultRegistry TotalUserVaultCollateral (r:1 w:1)
@@ -236,9 +236,9 @@ impl WeightInfo for () {
 	// Storage: Oracle Aggregate (r:1 w:0)
 	// Storage: VaultRegistry SecureCollateralThreshold (r:1 w:0)
 	fn deposit_collateral() -> Weight {
-		(167_605_000 as Weight)
-			.saturating_add(RocksDbWeight::get().reads(17 as Weight))
-			.saturating_add(RocksDbWeight::get().writes(8 as Weight))
+		Weight::from_ref_time(167_605_000 as u64)
+			.saturating_add(RocksDbWeight::get().reads(17 as u64))
+			.saturating_add(RocksDbWeight::get().writes(8 as u64))
 	}
 	// Storage: VaultRegistry Vaults (r:1 w:0)
 	// Storage: VaultStaking Nonce (r:1 w:0)
@@ -256,52 +256,52 @@ impl WeightInfo for () {
 	// Storage: VaultStaking RewardTally (r:2 w:2)
 	// Storage: VaultStaking RewardPerToken (r:2 w:0)
 	fn withdraw_collateral() -> Weight {
-		(175_284_000 as Weight)
-			.saturating_add(RocksDbWeight::get().reads(17 as Weight))
-			.saturating_add(RocksDbWeight::get().writes(8 as Weight))
+		Weight::from_ref_time(175_284_000 as u64)
+			.saturating_add(RocksDbWeight::get().reads(17 as u64))
+			.saturating_add(RocksDbWeight::get().writes(8 as u64))
 	}
 	// Storage: VaultRegistry Vaults (r:1 w:1)
 	fn register_public_key() -> Weight {
-		(27_632_000 as Weight)
-			.saturating_add(RocksDbWeight::get().reads(1 as Weight))
-			.saturating_add(RocksDbWeight::get().writes(1 as Weight))
+		Weight::from_ref_time(27_632_000 as u64)
+			.saturating_add(RocksDbWeight::get().reads(1 as u64))
+			.saturating_add(RocksDbWeight::get().writes(1 as u64))
 	}
 	// Storage: VaultRegistry Vaults (r:1 w:1)
 	fn accept_new_issues() -> Weight {
-		(14_679_000 as Weight)
-			.saturating_add(RocksDbWeight::get().reads(1 as Weight))
-			.saturating_add(RocksDbWeight::get().writes(1 as Weight))
+		Weight::from_ref_time(14_679_000 as u64)
+			.saturating_add(RocksDbWeight::get().reads(1 as u64))
+			.saturating_add(RocksDbWeight::get().writes(1 as u64))
 	}
 	// Storage: VaultRegistry Vaults (r:1 w:1)
 	fn set_custom_secure_threshold() -> Weight {
-		(14_679_000 as Weight)
-			.saturating_add(RocksDbWeight::get().reads(1 as Weight))
-			.saturating_add(RocksDbWeight::get().writes(1 as Weight))
+		Weight::from_ref_time(14_679_000 as u64)
+			.saturating_add(RocksDbWeight::get().reads(1 as u64))
+			.saturating_add(RocksDbWeight::get().writes(1 as u64))
 	}
 	// Storage: VaultRegistry MinimumCollateralVault (r:0 w:1)
 	fn set_minimum_collateral() -> Weight {
-		(4_059_000 as Weight)
-			.saturating_add(RocksDbWeight::get().writes(1 as Weight))
+		Weight::from_ref_time(4_059_000 as u64)
+			.saturating_add(RocksDbWeight::get().writes(1 as u64))
 	}
 	// Storage: VaultRegistry SystemCollateralCeiling (r:0 w:1)
 	fn set_system_collateral_ceiling() -> Weight {
-		(4_101_000 as Weight)
-			.saturating_add(RocksDbWeight::get().writes(1 as Weight))
+		Weight::from_ref_time(4_101_000 as u64)
+			.saturating_add(RocksDbWeight::get().writes(1 as u64))
 	}
 	// Storage: VaultRegistry SecureCollateralThreshold (r:0 w:1)
 	fn set_secure_collateral_threshold() -> Weight {
-		(4_216_000 as Weight)
-			.saturating_add(RocksDbWeight::get().writes(1 as Weight))
+		Weight::from_ref_time(4_216_000 as u64)
+			.saturating_add(RocksDbWeight::get().writes(1 as u64))
 	}
 	// Storage: VaultRegistry PremiumRedeemThreshold (r:0 w:1)
 	fn set_premium_redeem_threshold() -> Weight {
-		(4_132_000 as Weight)
-			.saturating_add(RocksDbWeight::get().writes(1 as Weight))
+		Weight::from_ref_time(4_132_000 as u64)
+			.saturating_add(RocksDbWeight::get().writes(1 as u64))
 	}
 	// Storage: VaultRegistry LiquidationCollateralThreshold (r:0 w:1)
 	fn set_liquidation_collateral_threshold() -> Weight {
-		(4_130_000 as Weight)
-			.saturating_add(RocksDbWeight::get().writes(1 as Weight))
+		Weight::from_ref_time(4_130_000 as u64)
+			.saturating_add(RocksDbWeight::get().writes(1 as u64))
 	}
 	// Storage: VaultRegistry Vaults (r:1 w:1)
 	// Storage: VaultRegistry LiquidationCollateralThreshold (r:1 w:0)
@@ -326,25 +326,25 @@ impl WeightInfo for () {
 	// Storage: VaultRewards RewardTally (r:2 w:2)
 	// Storage: VaultRewards RewardPerToken (r:2 w:0)
 	fn report_undercollateralized_vault() -> Weight {
-		(363_346_000 as Weight)
-			.saturating_add(RocksDbWeight::get().reads(28 as Weight))
-			.saturating_add(RocksDbWeight::get().writes(16 as Weight))
+		Weight::from_ref_time(363_346_000 as u64)
+			.saturating_add(RocksDbWeight::get().reads(28 as u64))
+			.saturating_add(RocksDbWeight::get().writes(16 as u64))
 	}
 
 	fn set_current_client_release() -> Weight {
-		(4_130_000 as Weight)
-			.saturating_add(RocksDbWeight::get().writes(1 as Weight))
+		Weight::from_ref_time(4_130_000 as u64)
+			.saturating_add(RocksDbWeight::get().writes(1 as u64))
 	}
 
 	fn set_pending_client_release() -> Weight {
-		(4_130_000 as Weight)
+		Weight::from_ref_time(4_130_000 as u64)
 	}
 
 	// Storage: VaultRegistry Vaults (r:2 w:1)
 	fn recover_vault_id() -> Weight {
-		(14_679_000 as Weight)
-			.saturating_add(RocksDbWeight::get().reads(2 as Weight))
-			.saturating_add(RocksDbWeight::get().writes(1 as Weight))
+		Weight::from_ref_time(14_679_000 as u64)
+			.saturating_add(RocksDbWeight::get().reads(2 as u64))
+			.saturating_add(RocksDbWeight::get().writes(1 as u64))
 	}
 }
 

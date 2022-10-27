@@ -1,13 +1,16 @@
 use crate::relaychain::kusama_test_net::*;
 use codec::Encode;
-use frame_support::{assert_ok, weights::WeightToFee};
+use frame_support::{
+    assert_ok,
+    weights::{Weight as FrameWeight, WeightToFee},
+};
 use orml_traits::MultiCurrency;
 use primitives::{
     CurrencyId::{ForeignAsset, Token},
     CustomMetadata,
 };
 use sp_runtime::{FixedPointNumber, FixedU128};
-use xcm::latest::prelude::*;
+use xcm::latest::{prelude::*, Weight};
 use xcm_builder::ParentIsPreset;
 use xcm_emulator::{TestExt, XcmExecutor};
 use xcm_executor::traits::Convert;
@@ -18,7 +21,7 @@ mod fees {
     // N * unit_weight * (weight/10^12) * token_per_second
     fn weight_calculation(instruction_count: u32, unit_weight: Weight, per_second: u128) -> u128 {
         let weight = unit_weight.saturating_mul(instruction_count as u64);
-        let weight_ratio = FixedU128::saturating_from_rational(weight as u128, WEIGHT_PER_SECOND as u128);
+        let weight_ratio = FixedU128::saturating_from_rational(weight as u128, WEIGHT_PER_SECOND.ref_time() as u128);
         weight_ratio.saturating_mul_int(per_second)
     }
 
@@ -229,7 +232,7 @@ fn transfer_to_relay_chain() {
     });
 
     KusamaNet::execute_with(|| {
-        let used_weight = 298_368_000; // the actual weight of the sent message
+        let used_weight = FrameWeight::from_ref_time(298_368_000); // the actual weight of the sent message
         let fee =
             <kusama_runtime::Runtime as pallet_transaction_payment::Config>::WeightToFee::weight_to_fee(&used_weight);
         assert_eq!(

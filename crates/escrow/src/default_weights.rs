@@ -53,9 +53,9 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Storage: Escrow UserPointEpoch (r:1 w:1)
 	// Storage: Escrow UserPointHistory (r:0 w:1)
 	fn create_lock() -> Weight {
-		(81_898_000 as Weight)
-			.saturating_add(T::DbWeight::get().reads(9 as Weight))
-			.saturating_add(T::DbWeight::get().writes(9 as Weight))
+		Weight::from_ref_time(81_898_000 as u64)
+			.saturating_add(T::DbWeight::get().reads(9 as u64))
+			.saturating_add(T::DbWeight::get().writes(9 as u64))
 	}
 	// Storage: Escrow Locked (r:1 w:1)
 	// Storage: Tokens Locks (r:1 w:1)
@@ -66,9 +66,9 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Storage: Escrow UserPointEpoch (r:1 w:1)
 	// Storage: Escrow UserPointHistory (r:0 w:1)
 	fn increase_amount() -> Weight {
-		(68_339_000 as Weight)
-			.saturating_add(T::DbWeight::get().reads(7 as Weight))
-			.saturating_add(T::DbWeight::get().writes(8 as Weight))
+		Weight::from_ref_time(68_339_000 as u64)
+			.saturating_add(T::DbWeight::get().reads(7 as u64))
+			.saturating_add(T::DbWeight::get().writes(8 as u64))
 	}
 	// Storage: Escrow Locked (r:1 w:1)
 	// Storage: Escrow SlopeChanges (r:209 w:2)
@@ -77,9 +77,9 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Storage: Escrow UserPointEpoch (r:1 w:1)
 	// Storage: Escrow UserPointHistory (r:0 w:1)
 	fn increase_unlock_height() -> Weight {
-		(1_090_332_000 as Weight)
-			.saturating_add(T::DbWeight::get().reads(213 as Weight))
-			.saturating_add(T::DbWeight::get().writes(214 as Weight))
+		Weight::from_ref_time(1_090_332_000 as u64)
+			.saturating_add(T::DbWeight::get().reads(213 as u64))
+			.saturating_add(T::DbWeight::get().writes(214 as u64))
 	}
 	// Storage: Escrow Locked (r:1 w:1)
 	// Storage: Escrow SlopeChanges (r:209 w:0)
@@ -91,9 +91,9 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Storage: System Account (r:1 w:1)
 	// Storage: Escrow UserPointHistory (r:0 w:2)
 	fn withdraw() -> Weight {
-		(1_120_628_000 as Weight)
-			.saturating_add(T::DbWeight::get().reads(216 as Weight))
-			.saturating_add(T::DbWeight::get().writes(218 as Weight))
+		Weight::from_ref_time(1_120_628_000 as u64)
+			.saturating_add(T::DbWeight::get().reads(216 as u64))
+			.saturating_add(T::DbWeight::get().writes(218 as u64))
 	}
 }
 
@@ -109,9 +109,9 @@ impl WeightInfo for () {
 	// Storage: Escrow UserPointEpoch (r:1 w:1)
 	// Storage: Escrow UserPointHistory (r:0 w:1)
 	fn create_lock() -> Weight {
-		(81_898_000 as Weight)
-			.saturating_add(RocksDbWeight::get().reads(9 as Weight))
-			.saturating_add(RocksDbWeight::get().writes(9 as Weight))
+		Weight::from_ref_time(81_898_000 as u64)
+			.saturating_add(RocksDbWeight::get().reads(9 as u64))
+			.saturating_add(RocksDbWeight::get().writes(9 as u64))
 	}
 	// Storage: Escrow Locked (r:1 w:1)
 	// Storage: Tokens Locks (r:1 w:1)
@@ -122,9 +122,9 @@ impl WeightInfo for () {
 	// Storage: Escrow UserPointEpoch (r:1 w:1)
 	// Storage: Escrow UserPointHistory (r:0 w:1)
 	fn increase_amount() -> Weight {
-		(68_339_000 as Weight)
-			.saturating_add(RocksDbWeight::get().reads(7 as Weight))
-			.saturating_add(RocksDbWeight::get().writes(8 as Weight))
+		Weight::from_ref_time(68_339_000 as u64)
+			.saturating_add(RocksDbWeight::get().reads(7 as u64))
+			.saturating_add(RocksDbWeight::get().writes(8 as u64))
 	}
 	// Storage: Escrow Locked (r:1 w:1)
 	// Storage: Escrow SlopeChanges (r:209 w:2)
@@ -133,9 +133,9 @@ impl WeightInfo for () {
 	// Storage: Escrow UserPointEpoch (r:1 w:1)
 	// Storage: Escrow UserPointHistory (r:0 w:1)
 	fn increase_unlock_height() -> Weight {
-		(1_090_332_000 as Weight)
-			.saturating_add(RocksDbWeight::get().reads(213 as Weight))
-			.saturating_add(RocksDbWeight::get().writes(214 as Weight))
+		Weight::from_ref_time(1_090_332_000 as u64)
+			.saturating_add(RocksDbWeight::get().reads(213 as u64))
+			.saturating_add(RocksDbWeight::get().writes(214 as u64))
 	}
 	// Storage: Escrow Locked (r:1 w:1)
 	// Storage: Escrow SlopeChanges (r:209 w:0)
@@ -147,9 +147,9 @@ impl WeightInfo for () {
 	// Storage: System Account (r:1 w:1)
 	// Storage: Escrow UserPointHistory (r:0 w:2)
 	fn withdraw() -> Weight {
-		(1_120_628_000 as Weight)
-			.saturating_add(RocksDbWeight::get().reads(216 as Weight))
-			.saturating_add(RocksDbWeight::get().writes(218 as Weight))
+		Weight::from_ref_time(1_120_628_000 as u64)
+			.saturating_add(RocksDbWeight::get().reads(216 as u64))
+			.saturating_add(RocksDbWeight::get().writes(218 as u64))
 	}
 }
 

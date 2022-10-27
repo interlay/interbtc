@@ -23,6 +23,11 @@ fn should_deposit_against_valid_vault() {
         ext::vault_registry::get_backing_collateral::<Test>.mock_safe(|_| MockResult::Return(Ok(collateral(10000))));
         ext::vault_registry::compute_collateral::<Test>.mock_safe(|_| MockResult::Return(Ok(collateral(10000))));
         assert_ok!(Nomination::_opt_in_to_nomination(&ALICE));
+        assert_ok!(Nomination::set_nomination_limit(
+            Origin::signed(ALICE.account_id),
+            ALICE.currencies,
+            100
+        ));
         assert_ok!(Nomination::_deposit_collateral(&ALICE, &BOB.account_id, 100));
     })
 }
