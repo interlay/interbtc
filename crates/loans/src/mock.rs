@@ -219,8 +219,6 @@ impl MockPriceFeeder {
     thread_local! {
         pub static PRICES: RefCell<HashMap<CurrencyId, Option<PriceDetail>>> = {
             RefCell::new(
-                // Include a foreign assets to act as a liquidation-free collateral for now.
-                // TODO: Remove liquidation-free collateral
                 vec![Token(KINT), Token(DOT), Token(KSM), Token(KBTC), Token(INTR), Token(IBTC), ForeignAsset(100000)]
                     .iter()
                     .map(|&x| (x, Some((Price::saturating_from_integer(1), 1))))

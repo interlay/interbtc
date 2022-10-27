@@ -21,7 +21,6 @@ mod lend_tokens;
 mod liquidate_borrow;
 mod market;
 
-use currency::Amount;
 use frame_support::{assert_noop, assert_ok};
 
 use sp_runtime::{
@@ -446,7 +445,7 @@ fn get_account_liquidity_works() {
         Loans::mint(Origin::signed(ALICE), IBTC, unit(200)).unwrap();
         Loans::deposit_all_collateral(Origin::signed(ALICE), IBTC).unwrap();
 
-        let (liquidity, _, _, _) = Loans::get_account_liquidity(&ALICE).unwrap();
+        let (liquidity, _) = Loans::get_account_liquidity(&ALICE).unwrap();
 
         assert_eq!(liquidity, FixedU128::from_inner(unit(100)));
     })
@@ -467,12 +466,12 @@ fn get_account_liquidation_threshold_liquidity_works() {
         Loans::borrow(Origin::signed(ALICE), KSM, unit(100)).unwrap();
         Loans::borrow(Origin::signed(ALICE), DOT, unit(100)).unwrap();
 
-        let (liquidity, _, _, _) = Loans::get_account_liquidation_threshold_liquidity(&ALICE).unwrap();
+        let (liquidity, _) = Loans::get_account_liquidation_threshold_liquidity(&ALICE).unwrap();
 
         assert_eq!(liquidity, FixedU128::from_inner(unit(20)));
 
         MockPriceFeeder::set_price(KSM, 2.into());
-        let (liquidity, shortfall, _, _) = Loans::get_account_liquidation_threshold_liquidity(&ALICE).unwrap();
+        let (liquidity, shortfall) = Loans::get_account_liquidation_threshold_liquidity(&ALICE).unwrap();
 
         assert_eq!(liquidity, FixedU128::from_inner(unit(0)));
         assert_eq!(shortfall, FixedU128::from_inner(unit(80)));

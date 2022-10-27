@@ -1128,114 +1128,41 @@ impl<T: Config> Pallet<T> {
         T::PalletId::get().into_account_truncating()
     }
 
-    fn get_lf_borrowed_value(_account: &T::AccountId) -> Result<FixedU128, DispatchError> {
-        Ok(FixedU128::zero())
-    }
-
-    fn get_lf_base_position(_account: &T::AccountId) -> Result<FixedU128, DispatchError> {
-        Ok(FixedU128::zero())
-    }
-
-    fn get_lf_liquidation_base_position(_account: &T::AccountId) -> Result<FixedU128, DispatchError> {
-        Ok(FixedU128::zero())
-    }
-
-    pub fn get_account_liquidity(
-        account: &T::AccountId,
-    ) -> Result<(Liquidity, Shortfall, Liquidity, Shortfall), DispatchError> {
+    pub fn get_account_liquidity(account: &T::AccountId) -> Result<(Liquidity, Shortfall), DispatchError> {
         let total_borrow_value = Self::total_borrowed_value(account)?;
         let total_collateral_value = Self::total_collateral_value(account)?;
-        let lf_borrowed_value = Self::get_lf_borrowed_value(account)?;
-        let lf_base_position = Self::get_lf_base_position(account)?;
 
         log::trace!(
             target: "loans::get_account_liquidity",
-            "account: {:?}, total_borrow_value: {:?}, total_collateral_value: {:?}, lf_borrowed_value: {:?}, lf_base_position: {:?}",
+            "account: {:?}, total_borrow_value: {:?}, total_collateral_value: {:?}",
             account,
             total_borrow_value.into_inner(),
             total_collateral_value.into_inner(),
-            lf_borrowed_value.into_inner(),
-            lf_base_position.into_inner(),
         );
-        match (
-            total_collateral_value > total_borrow_value,
-            lf_base_position > lf_borrowed_value,
-        ) {
-            // TODO: simplify this function and use checked math operations
-            (true, true) => Ok((
-                total_collateral_value - total_borrow_value,
-                FixedU128::zero(),
-                lf_base_position - lf_borrowed_value,
-                FixedU128::zero(),
-            )),
-            (true, false) => Ok((
-                total_collateral_value - total_borrow_value,
-                FixedU128::zero(),
-                FixedU128::zero(),
-                lf_borrowed_value - lf_base_position,
-            )),
-            (false, true) => Ok((
-                FixedU128::zero(),
-                total_borrow_value - total_collateral_value,
-                lf_base_position - lf_borrowed_value,
-                FixedU128::zero(),
-            )),
-            (false, false) => Ok((
-                FixedU128::zero(),
-                total_borrow_value - total_collateral_value,
-                FixedU128::zero(),
-                lf_borrowed_value - lf_base_position,
-            )),
+        if total_collateral_value > total_borrow_value {
+            Ok((total_collateral_value - total_borrow_value, FixedU128::zero()))
+        } else {
+            Ok((FixedU128::zero(), total_borrow_value - total_collateral_value))
         }
     }
 
     pub fn get_account_liquidation_threshold_liquidity(
         account: &T::AccountId,
-    ) -> Result<(Liquidity, Shortfall, Liquidity, Shortfall), DispatchError> {
+    ) -> Result<(Liquidity, Shortfall), DispatchError> {
         let total_borrow_value = Self::total_borrowed_value(account)?;
         let total_collateral_value = Self::total_liquidation_threshold_value(account)?;
 
-        let lf_borrowed_value = Self::get_lf_borrowed_value(account)?;
-        let lf_base_position = Self::get_lf_liquidation_base_position(account)?;
-
         log::trace!(
             target: "loans::get_account_liquidation_threshold_liquidity",
-            "account: {:?}, total_borrow_value: {:?}, total_collateral_value: {:?}, lf_borrowed_value: {:?}, lf_base_position: {:?}",
+            "account: {:?}, total_borrow_value: {:?}, total_collateral_value: {:?}",
             account,
             total_borrow_value.into_inner(),
             total_collateral_value.into_inner(),
-            lf_borrowed_value.into_inner(),
-            lf_base_position.into_inner(),
         );
-
-        match (
-            total_collateral_value > total_borrow_value,
-            lf_base_position > lf_borrowed_value,
-        ) {
-            (true, true) => Ok((
-                total_collateral_value - total_borrow_value,
-                FixedU128::zero(),
-                lf_base_position - lf_borrowed_value,
-                FixedU128::zero(),
-            )),
-            (true, false) => Ok((
-                total_collateral_value - total_borrow_value,
-                FixedU128::zero(),
-                FixedU128::zero(),
-                lf_borrowed_value - lf_base_position,
-            )),
-            (false, true) => Ok((
-                FixedU128::zero(),
-                total_borrow_value - total_collateral_value,
-                lf_base_position - lf_borrowed_value,
-                FixedU128::zero(),
-            )),
-            (false, false) => Ok((
-                FixedU128::zero(),
-                total_borrow_value - total_collateral_value,
-                FixedU128::zero(),
-                lf_borrowed_value - lf_base_position,
-            )),
+        if total_collateral_value > total_borrow_value {
+            Ok((total_collateral_value - total_borrow_value, FixedU128::zero()))
+        } else {
+            Ok((FixedU128::zero(), total_borrow_value - total_collateral_value))
         }
     }
 
@@ -1499,15 +1426,14 @@ impl<T: Config> Pallet<T> {
             repay_amount,
             market
         );
-        let (liquidity, shortfall, lf_liquidity, _) = Self::get_account_liquidation_threshold_liquidity(borrower)?;
+        let (_, shortfall) = Self::get_account_liquidation_threshold_liquidity(borrower)?;
 
         // C_other >= B_other + B_dot_over
-        // C_other >= B_other + max(B_dot - C_lf, 0)
-        // C_other + C_lf >= B_other + B_dot - B_dot + C_lf + max(B_dot - C_lf, 0)
-        // C_all - B_all >= max(0, C_lf - B_dot)
-        // C_all - B_all >= 0 && C_all - B_all >= max(0, C_lf - B_dot)
-        // shortfall == 0 && liquidity > lf_liquidity
-        if shortfall.is_zero() && liquidity >= lf_liquidity {
+        // C_other >= B_other
+        // C_other >= B_other + B_dot - B_dot
+        // C_all - B_all >= 0
+        // shortfall == 0
+        if shortfall.is_zero() {
             return Err(Error::<T>::InsufficientShortfall.into());
         }
 
@@ -1756,8 +1682,8 @@ impl<T: Config> Pallet<T> {
     // `account`: account that need a liquidity check
     // `reduce_amount`: values that will have an impact on liquidity
     fn ensure_liquidity(account: &T::AccountId, reduce_amount: FixedU128) -> DispatchResult {
-        let (total_liquidity, _, lf_liquidity, _) = Self::get_account_liquidity(account)?;
-        if total_liquidity >= lf_liquidity + reduce_amount {
+        let (total_liquidity, _) = Self::get_account_liquidity(account)?;
+        if total_liquidity >= reduce_amount {
             return Ok(());
         }
         Err(Error::<T>::InsufficientLiquidity.into())
