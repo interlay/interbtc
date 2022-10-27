@@ -11,7 +11,7 @@ use sp_runtime::traits::CheckedMul;
 pub const USER: [u8; 32] = ALICE;
 pub const LP: [u8; 32] = BOB;
 
-pub const fn market_mock(ptoken_id: CurrencyId) -> Market<Balance> {
+pub const fn market_mock(lend_token_id: CurrencyId) -> Market<Balance> {
     Market {
         close_factor: Ratio::from_percent(50),
         collateral_factor: Ratio::from_percent(50),
@@ -28,7 +28,7 @@ pub const fn market_mock(ptoken_id: CurrencyId) -> Market<Balance> {
         reserve_factor: Ratio::from_percent(15),
         supply_cap: 1_000_000_000_000_000_000_000u128, // set to 1B
         borrow_cap: 1_000_000_000_000_000_000_000u128, // set to 1B
-        ptoken_id,
+        lend_token_id,
     }
 }
 
@@ -43,12 +43,12 @@ fn reserved_balance(currency_id: CurrencyId, account_id: &AccountId) -> Balance 
     )
 }
 
-fn set_up_market(currency_id: CurrencyId, exchange_rate: FixedU128, ptoken_id: CurrencyId) {
+fn set_up_market(currency_id: CurrencyId, exchange_rate: FixedU128, lend_token_id: CurrencyId) {
     assert_ok!(OraclePallet::_set_exchange_rate(currency_id, exchange_rate));
     assert_ok!(Call::Sudo(SudoCall::sudo {
         call: Box::new(Call::Loans(LoansCall::add_market {
             asset_id: currency_id,
-            market: market_mock(ptoken_id),
+            market: market_mock(lend_token_id),
         })),
     })
     .dispatch(origin_of(account_of(ALICE))));
@@ -65,14 +65,18 @@ fn test_real_market<R>(execute: impl Fn() -> R) {
         set_up_market(
             Token(KINT),
             FixedU128::from_inner(115_942_028_985_507_246_376_810_000),
-            CKINT,
+            LendKINT,
         );
         set_up_market(
             Token(KSM),
             FixedU128::from_inner(4_573_498_406_135_805_461_670_000),
-            CKSM,
+            LendKSM,
         );
-        set_up_market(Token(DOT), FixedU128::from_inner(324_433_053_239_464_036_596_000), CDOT);
+        set_up_market(
+            Token(DOT),
+            FixedU128::from_inner(324_433_053_239_464_036_596_000),
+            LendDOT,
+        );
         execute()
     });
 }
@@ -92,8 +96,8 @@ fn integration_test_liquidation() {
         .dispatch(origin_of(user.clone())));
 
         // Check entries from orml-tokens directly
-        assert_eq!(free_balance(CKINT, &user), 1000);
-        assert_eq!(reserved_balance(CKINT, &user), 0);
+        assert_eq!(free_balance(LendKINT, &user), 1000);
+        assert_eq!(reserved_balance(LendKINT, &user), 0);
 
         assert_ok!(Call::Loans(LoansCall::mint {
             asset_id: ksm,
@@ -102,14 +106,14 @@ fn integration_test_liquidation() {
         .dispatch(origin_of(lp.clone())));
 
         // Check entries from orml-tokens directly
-        assert_eq!(free_balance(CKSM, &lp), 50);
-        assert_eq!(reserved_balance(CKSM, &lp), 0);
+        assert_eq!(free_balance(LendKSM, &lp), 50);
+        assert_eq!(reserved_balance(LendKSM, &lp), 0);
 
         assert_ok!(Call::Loans(LoansCall::deposit_all_collateral { asset_id: kint }).dispatch(origin_of(user.clone())));
 
         // Check entries from orml-tokens directly
-        assert_eq!(free_balance(CKINT, &user), 0);
-        assert_eq!(reserved_balance(CKINT, &user), 1000);
+        assert_eq!(free_balance(LendKINT, &user), 0);
+        assert_eq!(reserved_balance(LendKINT, &user), 1000);
 
         assert_err!(
             Call::Loans(LoansCall::borrow {
@@ -154,30 +158,30 @@ fn integration_test_liquidation() {
         })
         .dispatch(origin_of(lp.clone())));
 
-        assert_eq!(free_balance(CKINT, &user), 0);
+        assert_eq!(free_balance(LendKINT, &user), 0);
         // borrower's reserved collateral is slashed
-        assert_eq!(reserved_balance(CKINT, &user), 610);
+        assert_eq!(reserved_balance(LendKINT, &user), 610);
         // borrower's borrowed balance is unchanged
         assert_eq!(free_balance(ksm, &user), 1000000000015);
 
         // the liquidator receives most of the slashed collateral
-        assert_eq!(reserved_balance(CKINT, &lp), 0);
-        assert_eq!(free_balance(CKINT, &lp), 380);
+        assert_eq!(reserved_balance(LendKINT, &lp), 0);
+        assert_eq!(free_balance(LendKINT, &lp), 380);
 
         // the rest of the slashed collateral routed to the incentive reward account's free balance
         assert_eq!(
-            free_balance(CKINT, &LoansPallet::incentive_reward_account_id().unwrap()),
+            free_balance(LendKINT, &LoansPallet::incentive_reward_account_id().unwrap()),
             10
         );
         assert_eq!(
-            reserved_balance(CKINT, &LoansPallet::incentive_reward_account_id().unwrap()),
+            reserved_balance(LendKINT, &LoansPallet::incentive_reward_account_id().unwrap()),
             0
         );
     });
 }
 
 #[test]
-fn integration_test_ptoken_vault_insufficient_balance() {
+fn integration_test_lend_token_vault_insufficient_balance() {
     test_real_market(|| {
         let dot = Token(DOT);
         let vault_account_id = account_of(USER);
@@ -189,50 +193,50 @@ fn integration_test_ptoken_vault_insufficient_balance() {
         .dispatch(origin_of(account_of(USER))));
 
         // Check entries from orml-tokens directly
-        assert_eq!(free_balance(CDOT, &vault_account_id), 1000);
-        assert_eq!(reserved_balance(CDOT, &vault_account_id), 0);
+        assert_eq!(free_balance(LendDOT, &vault_account_id), 1000);
+        assert_eq!(reserved_balance(LendDOT, &vault_account_id), 0);
         assert_eq!(
-            LoansPallet::account_deposits(CDOT, vault_account_id.clone()),
-            reserved_balance(CDOT, &vault_account_id)
+            LoansPallet::account_deposits(LendDOT, vault_account_id.clone()),
+            reserved_balance(LendDOT, &vault_account_id)
         );
 
-        let ptokens = LoansPallet::free_ptokens(dot, &vault_account_id).unwrap();
+        let lend_tokens = LoansPallet::free_lend_tokens(dot, &vault_account_id).unwrap();
 
         // Depositing all the collateral should leave none free for registering as a vault
         assert_ok!(Call::Loans(LoansCall::deposit_all_collateral { asset_id: dot })
             .dispatch(origin_of(vault_account_id.clone())));
-        assert_eq!(free_balance(CDOT, &vault_account_id), 0);
-        assert_eq!(reserved_balance(CDOT, &vault_account_id), 1000);
+        assert_eq!(free_balance(LendDOT, &vault_account_id), 0);
+        assert_eq!(reserved_balance(LendDOT, &vault_account_id), 1000);
         assert_eq!(
-            LoansPallet::account_deposits(ptokens.currency(), vault_account_id.clone()),
-            reserved_balance(CDOT, &vault_account_id)
+            LoansPallet::account_deposits(lend_tokens.currency(), vault_account_id.clone()),
+            reserved_balance(LendDOT, &vault_account_id)
         );
 
-        let ptoken_vault_id = PrimitiveVaultId::new(vault_account_id.clone(), ptokens.currency(), Token(IBTC));
+        let lend_token_vault_id = PrimitiveVaultId::new(vault_account_id.clone(), lend_tokens.currency(), Token(IBTC));
         assert_err!(
-            get_register_vault_result(&ptoken_vault_id, ptokens),
+            get_register_vault_result(&lend_token_vault_id, lend_tokens),
             TokensError::BalanceTooLow
         );
 
-        // Withdraw the ptokens to use them for another purpose
+        // Withdraw the lend_tokens to use them for another purpose
         assert_ok!(Call::Loans(LoansCall::withdraw_all_collateral { asset_id: dot })
             .dispatch(origin_of(vault_account_id.clone())));
-        assert_eq!(free_balance(CDOT, &vault_account_id), 1000);
-        assert_eq!(reserved_balance(CDOT, &vault_account_id), 0);
+        assert_eq!(free_balance(LendDOT, &vault_account_id), 1000);
+        assert_eq!(reserved_balance(LendDOT, &vault_account_id), 0);
 
-        // This time, registering a vault works because the ptokens are unlocked
-        assert_ok!(get_register_vault_result(&ptoken_vault_id, ptokens));
-        assert_eq!(free_balance(CDOT, &vault_account_id), 0);
-        assert_eq!(reserved_balance(CDOT, &vault_account_id), 1000);
+        // This time, registering a vault works because the lend_tokens are unlocked
+        assert_ok!(get_register_vault_result(&lend_token_vault_id, lend_tokens));
+        assert_eq!(free_balance(LendDOT, &vault_account_id), 0);
+        assert_eq!(reserved_balance(LendDOT, &vault_account_id), 1000);
         assert_eq!(
-            LoansPallet::account_deposits(ptokens.currency(), vault_account_id.clone()),
+            LoansPallet::account_deposits(lend_tokens.currency(), vault_account_id.clone()),
             0
         );
     });
 }
 
 #[test]
-fn integration_test_ptoken_deposit_insufficient_balance() {
+fn integration_test_lend_token_deposit_insufficient_balance() {
     test_real_market(|| {
         let dot = Token(DOT);
         let vault_account_id = account_of(USER);
@@ -243,21 +247,21 @@ fn integration_test_ptoken_deposit_insufficient_balance() {
         })
         .dispatch(origin_of(account_of(USER))));
 
-        let ptokens = LoansPallet::free_ptokens(dot, &vault_account_id).unwrap();
+        let lend_tokens = LoansPallet::free_lend_tokens(dot, &vault_account_id).unwrap();
 
-        // Register a vault with all the available ptokens
-        let ptoken_vault_id = PrimitiveVaultId::new(vault_account_id.clone(), ptokens.currency(), Token(IBTC));
-        assert_ok!(get_register_vault_result(&ptoken_vault_id, ptokens),);
+        // Register a vault with all the available lend_tokens
+        let lend_token_vault_id = PrimitiveVaultId::new(vault_account_id.clone(), lend_tokens.currency(), Token(IBTC));
+        assert_ok!(get_register_vault_result(&lend_token_vault_id, lend_tokens),);
 
         assert_err!(
-            LoansPallet::do_deposit_collateral(&vault_account_id, ptokens.currency(), ptokens.amount()),
+            LoansPallet::do_deposit_collateral(&vault_account_id, lend_tokens.currency(), lend_tokens.amount()),
             TokensError::BalanceTooLow
         );
     });
 }
 
 #[test]
-fn integration_test_ptoken_transfer_reserved_fails() {
+fn integration_test_lend_token_transfer_reserved_fails() {
     test_real_market(|| {
         let dot = Token(DOT);
         let vault_account_id = account_of(USER);
@@ -269,34 +273,37 @@ fn integration_test_ptoken_transfer_reserved_fails() {
         })
         .dispatch(origin_of(vault_account_id.clone())));
 
-        assert_eq!(free_balance(CDOT, &vault_account_id), 1000);
-        assert_eq!(reserved_balance(CDOT, &vault_account_id), 0);
-        let ptokens = LoansPallet::free_ptokens(dot, &vault_account_id).unwrap();
+        assert_eq!(free_balance(LendDOT, &vault_account_id), 1000);
+        assert_eq!(reserved_balance(LendDOT, &vault_account_id), 0);
+        let lend_tokens = LoansPallet::free_lend_tokens(dot, &vault_account_id).unwrap();
 
-        // Lock some ptokens into the lending market
+        // Lock some lend_tokens into the lending market
         assert_ok!(LoansPallet::do_deposit_collateral(
             &vault_account_id,
-            ptokens.currency(),
-            ptokens.amount() / 2
+            lend_tokens.currency(),
+            lend_tokens.amount() / 2
         ));
         assert_eq!(
-            LoansPallet::account_deposits(ptokens.currency(), vault_account_id.clone()),
-            reserved_balance(ptokens.currency(), &vault_account_id)
+            LoansPallet::account_deposits(lend_tokens.currency(), vault_account_id.clone()),
+            reserved_balance(lend_tokens.currency(), &vault_account_id)
         );
-        assert_eq!(free_balance(CDOT, &vault_account_id), 500);
-        assert_eq!(reserved_balance(CDOT, &vault_account_id), 500);
+        assert_eq!(free_balance(LendDOT, &vault_account_id), 500);
+        assert_eq!(reserved_balance(LendDOT, &vault_account_id), 500);
 
-        let half_ptokens = ptokens.checked_div(&FixedU128::from_u32(2)).unwrap();
-        assert_eq!(half_ptokens, LoansPallet::free_ptokens(dot, &vault_account_id).unwrap());
+        let half_lend_tokens = lend_tokens.checked_div(&FixedU128::from_u32(2)).unwrap();
+        assert_eq!(
+            half_lend_tokens,
+            LoansPallet::free_lend_tokens(dot, &vault_account_id).unwrap()
+        );
 
         // Transferring the full amount fails
         assert_noop!(
-            ptokens.transfer(&vault_account_id, &lp_account_id),
+            lend_tokens.transfer(&vault_account_id, &lp_account_id),
             TokensError::BalanceTooLow
         );
-        assert_ok!(half_ptokens.transfer(&vault_account_id, &lp_account_id));
-        assert_eq!(free_balance(CDOT, &vault_account_id), 0);
-        assert_eq!(reserved_balance(CDOT, &vault_account_id), 500);
-        assert_eq!(free_balance(CDOT, &lp_account_id), 500);
+        assert_ok!(half_lend_tokens.transfer(&vault_account_id, &lp_account_id));
+        assert_eq!(free_balance(LendDOT, &vault_account_id), 0);
+        assert_eq!(reserved_balance(LendDOT, &vault_account_id), 500);
+        assert_eq!(free_balance(LendDOT, &lp_account_id), 500);
     });
 }

@@ -43,7 +43,7 @@ where
     Loans: LoansApi<CurrencyId<T>, T::AccountId, <T as pallet::Config>::Balance, Amount<T>>,
 {
     fn convert(amount: &Amount<T>, to: CurrencyId<T>) -> Result<Amount<T>, DispatchError> {
-        if amount.currency().is_ptoken() && to.is_ptoken() {
+        if amount.currency().is_lend_token() && to.is_lend_token() {
             // Exampe (lendDOT to lendINTR): carg
             //   collateral_amount(convert(underlying_amount(lendDOT_amount), underlying_id(lendINTR)))
             //   collateral_amount(convert(dot_amount, INTR))
@@ -52,23 +52,23 @@ where
             let from_underlying_amount = Loans::recompute_underlying_amount(amount)?;
             let to_underlying_amount = Oracle::convert(&from_underlying_amount, to_underlying_id)?;
             Loans::recompute_collateral_amount(&to_underlying_amount)
-        } else if amount.currency().is_ptoken() {
-            // Exampe: cDOT -> INTR = 
+        } else if amount.currency().is_lend_token() {
+            // Exampe: LendDOT -> INTR =
             //   convert(underlying_amount(lendDOT_amount), INTR)
             //   convert(dot_amount, INTR)
             Oracle::convert(&Loans::recompute_underlying_amount(amount)?, to)
-        } else if to.is_ptoken() {
-            // Exampe (DOT to lendINTR): 
+        } else if to.is_lend_token() {
+            // Exampe (DOT to lendINTR):
             //   collateral_amount(convert(dot_amount, underlying_id(lendINTR)))
             //   collateral_amount(convert(dot_amount, INTR))
             //   collateral_amount(intr_amount)
             let underlying_id = Loans::underlying_id(to)?;
             // get the converted value expressed in the underlying asset
             let underlying_amount = Oracle::convert(amount, underlying_id)?;
-            // get the equivalent ptoken amount using the internal exchange rate
+            // get the equivalent lend_token amount using the internal exchange rate
             Loans::recompute_collateral_amount(&underlying_amount)
         } else {
-            // Exampe (DOT to INTR): 
+            // Exampe (DOT to INTR):
             //   convert(dot_amount, INTR)
             Oracle::convert(amount, to)
         }

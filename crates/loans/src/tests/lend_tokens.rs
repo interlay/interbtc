@@ -1,5 +1,7 @@
 use crate::{
-    mock::{market_mock, new_test_ext, AccountId, Loans, Origin, Test, Tokens, ALICE, CKBTC, CKINT, CKSM, DAVE},
+    mock::{
+        market_mock, new_test_ext, AccountId, Loans, Origin, Test, Tokens, ALICE, DAVE, LEND_KBTC, LEND_KINT, LEND_KSM,
+    },
     tests::unit,
     Config, Error,
 };
@@ -10,16 +12,16 @@ use frame_support::{
 use orml_traits::{MultiCurrency, MultiReservableCurrency};
 use primitives::{
     Balance,
-    CurrencyId::{self, ForeignAsset, PToken, Token},
+    CurrencyId::{self, ForeignAsset, LendToken, Token},
     KBTC, KINT, KSM as KSM_CURRENCY,
 };
 use sp_runtime::{FixedPointNumber, TokenError};
 
 const HKO: CurrencyId = Token(KINT);
 const KSM: CurrencyId = Token(KSM_CURRENCY);
-const PHKO: CurrencyId = CKINT;
-const PKSM: CurrencyId = CKSM;
-const PUSDT: CurrencyId = CKBTC;
+const PHKO: CurrencyId = LEND_KINT;
+const PKSM: CurrencyId = LEND_KSM;
+const PUSDT: CurrencyId = LEND_KBTC;
 const USDT: CurrencyId = Token(KBTC);
 
 pub fn free_balance(currency_id: CurrencyId, account_id: &AccountId) -> Balance {
@@ -67,19 +69,20 @@ fn trait_inspect_methods_works() {
         assert_ok!(Loans::borrow(Origin::signed(DAVE), HKO, unit(25)));
 
         assert_eq!(
-            Loans::exchange_rate(HKO).saturating_mul_int(Loans::account_deposits(Loans::ptoken_id(HKO).unwrap(), DAVE)),
+            Loans::exchange_rate(HKO)
+                .saturating_mul_int(Loans::account_deposits(Loans::lend_token_id(HKO).unwrap(), DAVE)),
             unit(100)
         );
 
         // DAVE Deposit 100 HKO, Borrow 25 HKO
         // Liquidity HKO 25
-        // Formula: ptokens = liquidity / price(1) / collateral(0.5) / exchange_rate(0.02)
+        // Formula: lend_tokens = liquidity / price(1) / collateral(0.5) / exchange_rate(0.02)
         assert_eq!(Loans::reducible_balance(PHKO, &DAVE, true), unit(25) * 2 * 50);
 
         // Multi-asset case, additional deposit USDT
         // DAVE Deposit 100 HKO, 50 USDT, Borrow 25 HKO
         // Liquidity HKO = 25, USDT = 25
-        // ptokens = dollar(25 + 25) / 1 / 0.5 / 0.02 = dollar(50) * 100
+        // lend_tokens = dollar(25 + 25) / 1 / 0.5 / 0.02 = dollar(50) * 100
         assert_ok!(Loans::mint(Origin::signed(DAVE), USDT, unit(50)));
         assert_eq!(Tokens::balance(PUSDT, &DAVE), unit(50) * 50);
         // Check entries from orml-tokens directly
@@ -108,24 +111,24 @@ fn trait_inspect_methods_works() {
 }
 
 #[test]
-fn ptoken_unique_works() {
+fn lend_token_unique_works() {
     new_test_ext().execute_with(|| {
-        // ptoken_id already exists in `UnderlyingAssetId`
+        // lend_token_id already exists in `UnderlyingAssetId`
         assert_noop!(
             Loans::add_market(Origin::root(), ForeignAsset(1000000), market_mock(PHKO)),
-            Error::<Test>::InvalidPtokenId
+            Error::<Test>::InvalidLendTokenId
         );
 
-        // ptoken_id cannot as the same as the asset id in `Markets`
+        // lend_token_id cannot as the same as the asset id in `Markets`
         assert_noop!(
             Loans::add_market(Origin::root(), ForeignAsset(1000000), market_mock(KSM)),
-            Error::<Test>::InvalidPtokenId
+            Error::<Test>::InvalidLendTokenId
         );
     })
 }
 
 #[test]
-fn transfer_ptoken_works() {
+fn transfer_lend_token_works() {
     new_test_ext().execute_with(|| {
         // DAVE Deposit 100 HKO
         assert_ok!(Loans::mint(Origin::signed(DAVE), HKO, unit(100)));
@@ -133,23 +136,23 @@ fn transfer_ptoken_works() {
         // DAVE HKO collateral: deposit = 100
         // HKO: cash - deposit = 1000 - 100 = 900
         assert_eq!(
-            Loans::exchange_rate(HKO).saturating_mul_int(Tokens::balance(Loans::ptoken_id(HKO).unwrap(), &DAVE)),
+            Loans::exchange_rate(HKO).saturating_mul_int(Tokens::balance(Loans::lend_token_id(HKO).unwrap(), &DAVE)),
             unit(100)
         );
 
         // ALICE HKO collateral: deposit = 0
         assert_eq!(
-            Loans::exchange_rate(HKO).saturating_mul_int(Tokens::balance(Loans::ptoken_id(HKO).unwrap(), &ALICE)),
+            Loans::exchange_rate(HKO).saturating_mul_int(Tokens::balance(Loans::lend_token_id(HKO).unwrap(), &ALICE)),
             unit(0)
         );
 
-        // Transfer ptokens from DAVE to ALICE
+        // Transfer lend_tokens from DAVE to ALICE
         Loans::transfer(PHKO, &DAVE, &ALICE, unit(50) * 50, true).unwrap();
-        // Loans::transfer_ptokens(Origin::signed(DAVE), ALICE, HKO, dollar(50) * 50).unwrap();
+        // Loans::transfer_lend_tokens(Origin::signed(DAVE), ALICE, HKO, dollar(50) * 50).unwrap();
 
         // DAVE HKO collateral: deposit = 50
         assert_eq!(
-            Loans::exchange_rate(HKO).saturating_mul_int(Tokens::balance(Loans::ptoken_id(HKO).unwrap(), &DAVE)),
+            Loans::exchange_rate(HKO).saturating_mul_int(Tokens::balance(Loans::lend_token_id(HKO).unwrap(), &DAVE)),
             unit(50)
         );
         // DAVE Redeem 51 HKO should cause InsufficientDeposit
@@ -160,7 +163,7 @@ fn transfer_ptoken_works() {
 
         // ALICE HKO collateral: deposit = 50
         assert_eq!(
-            Loans::exchange_rate(HKO).saturating_mul_int(Tokens::balance(Loans::ptoken_id(HKO).unwrap(), &ALICE)),
+            Loans::exchange_rate(HKO).saturating_mul_int(Tokens::balance(Loans::lend_token_id(HKO).unwrap(), &ALICE)),
             unit(50)
         );
         // ALICE Redeem 50 HKO should be succeeded
@@ -169,7 +172,7 @@ fn transfer_ptoken_works() {
 }
 
 #[test]
-fn transfer_ptokens_under_collateral_does_not_work() {
+fn transfer_lend_tokens_under_collateral_does_not_work() {
     new_test_ext().execute_with(|| {
         // DAVE Deposit 100 HKO
         assert_ok!(Loans::mint(Origin::signed(DAVE), HKO, unit(100)));
@@ -187,9 +190,9 @@ fn transfer_ptokens_under_collateral_does_not_work() {
         // Repay 40 HKO
         assert_ok!(Loans::repay_borrow(Origin::signed(DAVE), HKO, unit(40)));
 
-        // Allowed to redeem 20 ptokens
+        // Allowed to redeem 20 lend_tokens
         assert_ok!(Loans::redeem_allowed(HKO, &DAVE, unit(20) * 50,));
-        // Not allowed to transfer the same 20 ptokens because they are locked
+        // Not allowed to transfer the same 20 lend_tokens because they are locked
         assert_noop!(
             Loans::transfer(PHKO, &DAVE, &ALICE, unit(20) * 50, true),
             Error::<Test>::InsufficientCollateral
@@ -210,7 +213,8 @@ fn transfer_ptokens_under_collateral_does_not_work() {
         // DAVE Borrow HKO = 0 + 50 - 40 = 10
         // DAVE liquidity HKO = 80 * 0.5 - 10 = 30
         assert_eq!(
-            Loans::exchange_rate(HKO).saturating_mul_int(Loans::account_deposits(Loans::ptoken_id(HKO).unwrap(), DAVE)),
+            Loans::exchange_rate(HKO)
+                .saturating_mul_int(Loans::account_deposits(Loans::lend_token_id(HKO).unwrap(), DAVE)),
             unit(80)
         );
         // DAVE Borrow 31 HKO should cause InsufficientLiquidity
@@ -222,11 +226,11 @@ fn transfer_ptokens_under_collateral_does_not_work() {
 
         // Assert ALICE Supply HKO 20
         assert_eq!(
-            Loans::exchange_rate(HKO).saturating_mul_int(Tokens::balance(Loans::ptoken_id(HKO).unwrap(), &ALICE)),
+            Loans::exchange_rate(HKO).saturating_mul_int(Tokens::balance(Loans::lend_token_id(HKO).unwrap(), &ALICE)),
             unit(20)
         );
         // ALICE Redeem 20 HKO should be succeeded
-        // Also means that transfer ptoken succeed
+        // Also means that transfer lend_token succeed
         assert_ok!(Loans::redeem_allowed(HKO, &ALICE, unit(20) * 50,));
     })
 }

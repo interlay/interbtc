@@ -56,9 +56,9 @@ fn deposit_of_borrower_must_be_collateral() {
         // Previously (in Parallel's original implementation), this extrinsic call used to
         // return a `DepositsAreNotCollateral` error.
         // However, because the collateral "toggle" has been removed, the extrinsic looks
-        // directly inside the `AccountDeposits` map, which no longer represents ptoken holdings
-        // but rather ptokens that have been locked as collateral.
-        // Since no KSM ptokens have been locked as collateral in this test, there will be zero
+        // directly inside the `AccountDeposits` map, which no longer represents lend_token holdings
+        // but rather lend_tokens that have been locked as collateral.
+        // Since no KSM lend_tokens have been locked as collateral in this test, there will be zero
         // collateral available for paying the liquidator, thus producing the error below.
         assert_noop!(
             Loans::liquidate_borrow(Origin::signed(BOB), ALICE, KSM, 10, DOT),
@@ -105,14 +105,14 @@ fn full_workflow_works_as_expected() {
         // Bob DOT collateral: incentive = 110-(110/1.1*0.03)=107
         assert_eq!(Tokens::balance(USDT, &ALICE), unit(800),);
         assert_eq!(
-            Loans::exchange_rate(USDT).saturating_mul_int(Tokens::balance(Loans::ptoken_id(USDT).unwrap(), &ALICE)),
+            Loans::exchange_rate(USDT).saturating_mul_int(Tokens::balance(Loans::lend_token_id(USDT).unwrap(), &ALICE)),
             unit(90),
         );
         assert_eq!(Tokens::balance(KSM, &ALICE), unit(1100),);
         assert_eq!(Loans::account_borrows(KSM, ALICE).principal, unit(50));
         assert_eq!(Tokens::balance(KSM, &BOB), unit(750));
         assert_eq!(
-            Loans::exchange_rate(USDT).saturating_mul_int(Tokens::balance(Loans::ptoken_id(USDT).unwrap(), &BOB)),
+            Loans::exchange_rate(USDT).saturating_mul_int(Tokens::balance(Loans::lend_token_id(USDT).unwrap(), &BOB)),
             unit(107),
         );
         // 3 dollar reserved in our incentive reward account
@@ -120,7 +120,7 @@ fn full_workflow_works_as_expected() {
         println!("incentive reserve account:{:?}", incentive_reward_account.clone());
         assert_eq!(
             Loans::exchange_rate(USDT).saturating_mul_int(Tokens::balance(
-                Loans::ptoken_id(USDT).unwrap(),
+                Loans::lend_token_id(USDT).unwrap(),
                 &incentive_reward_account.clone()
             )),
             unit(3),
@@ -131,7 +131,7 @@ fn full_workflow_works_as_expected() {
         // still 1 dollar left in reserve account
         assert_eq!(
             Loans::exchange_rate(USDT).saturating_mul_int(Tokens::balance(
-                Loans::ptoken_id(USDT).unwrap(),
+                Loans::lend_token_id(USDT).unwrap(),
                 &incentive_reward_account
             )),
             unit(1),

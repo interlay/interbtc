@@ -15,7 +15,7 @@ fn test_with<R>(execute: impl Fn(VaultId) -> R) {
             if wrapped_id != Token(IBTC) {
                 assert_ok!(OraclePallet::_set_exchange_rate(wrapped_id, FixedU128::one()));
             }
-            activate_lending_and_mint(Token(DOT), PToken(1));
+            activate_lending_and_mint(Token(DOT), LendToken(1));
             set_default_thresholds();
             LiquidationVaultData::force_to(default_liquidation_vault_state(&vault_id.currencies));
             UserData::force_to(USER, default_user_state());
@@ -40,7 +40,7 @@ fn test_with<R>(execute: impl Fn(VaultId) -> R) {
     test_with(Token(DOT), Token(IBTC), Some(Token(KSM)));
     test_with(Token(KSM), Token(IBTC), None);
     test_with(ForeignAsset(1), Token(IBTC), None);
-    test_with(PToken(1), Token(IBTC), None);
+    test_with(LendToken(1), Token(IBTC), None);
 }
 
 /// to-be-replaced & replace_collateral are decreased in request_redeem

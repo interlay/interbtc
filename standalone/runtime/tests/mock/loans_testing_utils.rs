@@ -3,7 +3,7 @@ use pallet_loans::JumpModel;
 
 use crate::{assert_eq, *};
 
-pub const fn market_mock(ptoken_id: CurrencyId) -> Market<Balance> {
+pub const fn market_mock(lend_token_id: CurrencyId) -> Market<Balance> {
     Market {
         close_factor: Ratio::from_percent(50),
         collateral_factor: Ratio::from_percent(50),
@@ -20,14 +20,14 @@ pub const fn market_mock(ptoken_id: CurrencyId) -> Market<Balance> {
         reserve_factor: Ratio::from_percent(15),
         supply_cap: 1_000_000_000_000_000_000_000u128, // set to 1B
         borrow_cap: 1_000_000_000_000_000_000_000u128, // set to 1B
-        ptoken_id,
+        lend_token_id,
     }
 }
 
-pub fn activate_market(underlying_id: CurrencyId, ptoken_id: CurrencyId) {
+pub fn activate_market(underlying_id: CurrencyId, lend_token_id: CurrencyId) {
     assert_ok!(Call::Loans(LoansCall::add_market {
         asset_id: underlying_id,
-        market: market_mock(ptoken_id)
+        market: market_mock(lend_token_id)
     })
     .dispatch(root()));
     assert_ok!(Call::Loans(LoansCall::activate_market {
@@ -36,7 +36,7 @@ pub fn activate_market(underlying_id: CurrencyId, ptoken_id: CurrencyId) {
     .dispatch(root()));
 }
 
-pub fn mint_ptokens(account_id: AccountId, underlying_id: CurrencyId) {
+pub fn mint_lend_tokens(account_id: AccountId, underlying_id: CurrencyId) {
     let balance_to_mint = FUND_LIMIT_CEILING;
     let amount: Amount<Runtime> = Amount::new(balance_to_mint, underlying_id);
     assert_ok!(amount.mint_to(&account_id));
@@ -48,9 +48,9 @@ pub fn mint_ptokens(account_id: AccountId, underlying_id: CurrencyId) {
     .dispatch(origin_of(account_id)));
 }
 
-pub fn activate_lending_and_mint(underlying_id: CurrencyId, ptoken_id: CurrencyId) {
-    activate_market(underlying_id, ptoken_id);
-    for account in iter_endowed_with_ptoken() {
-        mint_ptokens(account, underlying_id);
+pub fn activate_lending_and_mint(underlying_id: CurrencyId, lend_token_id: CurrencyId) {
+    activate_market(underlying_id, lend_token_id);
+    for account in iter_endowed_with_lend_token() {
+        mint_lend_tokens(account, underlying_id);
     }
 }

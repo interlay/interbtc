@@ -9,13 +9,13 @@ fn test_with<R>(execute: impl Fn(VaultId) -> R) {
     let test_with = |currency_id, wrapped_id| {
         ExtBuilder::build().execute_with(|| {
             SecurityPallet::set_active_block_number(1);
-            for currency_id in iter_collateral_currencies().filter(|c| !c.is_ptoken()) {
+            for currency_id in iter_collateral_currencies().filter(|c| !c.is_lend_token()) {
                 assert_ok!(OraclePallet::_set_exchange_rate(currency_id, FixedU128::one()));
             }
             if wrapped_id != Token(IBTC) {
                 assert_ok!(OraclePallet::_set_exchange_rate(wrapped_id, FixedU128::one()));
             }
-            activate_lending_and_mint(Token(DOT), PToken(1));
+            activate_lending_and_mint(Token(DOT), LendToken(1));
             UserData::force_to(USER, default_user_state());
             let vault_id = PrimitiveVaultId::new(account_of(VAULT), currency_id, wrapped_id);
             LiquidationVaultData::force_to(default_liquidation_vault_state(&vault_id.currencies));
@@ -28,7 +28,7 @@ fn test_with<R>(execute: impl Fn(VaultId) -> R) {
     test_with(Token(KSM), Token(IBTC));
     test_with(Token(DOT), Token(IBTC));
     test_with(ForeignAsset(1), Token(IBTC));
-    test_with(PToken(1), Token(IBTC));
+    test_with(LendToken(1), Token(IBTC));
 }
 
 fn test_with_nomination_enabled<R>(execute: impl Fn(VaultId) -> R) {

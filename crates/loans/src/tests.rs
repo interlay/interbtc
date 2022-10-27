@@ -17,9 +17,9 @@
 
 mod edge_cases;
 mod interest_rate;
+mod lend_tokens;
 mod liquidate_borrow;
 mod market;
-mod ptokens;
 
 use currency::Amount;
 use frame_support::{assert_noop, assert_ok};
@@ -33,7 +33,7 @@ use primitives::{CurrencyId::Token, DOT as DOT_CURRENCY, IBTC, KBTC, KINT, KSM a
 
 use crate::{
     mock::*,
-    tests::ptokens::{free_balance, reserved_balance},
+    tests::lend_tokens::{free_balance, reserved_balance},
 };
 
 // For the time being, do a quick reassignment here to avoid changing all the tests
@@ -41,7 +41,7 @@ use crate::{
 const DOT: CurrencyId = Token(DOT_CURRENCY);
 const KSM: CurrencyId = Token(KSM_CURRENCY);
 const USDT: CurrencyId = Token(KBTC);
-const CDOT_6_13: CurrencyId = Token(IBTC);
+const LEND_DOT_6_13: CurrencyId = Token(IBTC);
 const HKO: CurrencyId = Token(KINT);
 
 #[test]
@@ -101,7 +101,8 @@ fn loans_native_token_works() {
         // HKO borrow balance: borrow - repay = 500 - 400 = 100
         // HKO: cash - deposit + borrow - repay = 1000 - 1000 + 500 - 400 = 100
         assert_eq!(
-            Loans::exchange_rate(HKO).saturating_mul_int(Loans::account_deposits(Loans::ptoken_id(HKO).unwrap(), DAVE)),
+            Loans::exchange_rate(HKO)
+                .saturating_mul_int(Loans::account_deposits(Loans::lend_token_id(HKO).unwrap(), DAVE)),
             unit(1000)
         );
         let borrow_snapshot = Loans::account_borrows(HKO, DAVE);
@@ -120,7 +121,7 @@ fn mint_works() {
         // DOT collateral: deposit = 100
         // DOT: cash - deposit = 1000 - 100 = 900
         assert_eq!(
-            Loans::exchange_rate(DOT).saturating_mul_int(Loans::free_ptokens(DOT, &ALICE).unwrap().amount()),
+            Loans::exchange_rate(DOT).saturating_mul_int(Loans::free_lend_tokens(DOT, &ALICE).unwrap().amount()),
             unit(100)
         );
         assert_eq!(Tokens::balance(DOT, &ALICE), unit(900),);
@@ -161,7 +162,7 @@ fn mint_must_return_err_when_overflows_occur() {
 
         // Assume a misconfiguration occurs
         MinExchangeRate::<Test>::put(Rate::zero());
-        // There is no cash in the market. To compute how many ptokens this first deposit
+        // There is no cash in the market. To compute how many lend_tokens this first deposit
         // should mint, the `MinExchangeRate` is used, which has been misconfigured and
         // set to zero (default value for the type). The extrinsic should fail.
         assert_noop!(
@@ -204,13 +205,13 @@ fn supply_cap_below_current_volume() {
             Error::<Test>::SupplyCapacityExceeded
         );
 
-        let ptokens = Loans::free_ptokens(KSM, &ALICE).unwrap();
+        let lend_tokens = Loans::free_lend_tokens(KSM, &ALICE).unwrap();
 
         // Redeem enough to be below the cap
         assert_ok!(Loans::redeem(
             Origin::signed(ALICE),
             KSM,
-            Loans::recompute_underlying_amount(&ptokens).unwrap().amount() - (new_supply_cap / 2)
+            Loans::recompute_underlying_amount(&lend_tokens).unwrap().amount() - (new_supply_cap / 2)
         ));
 
         // Can now supply
@@ -261,7 +262,7 @@ fn redeem_works() {
         // DOT collateral: deposit - redeem = 100 - 20 = 80
         // DOT: cash - deposit + redeem = 1000 - 100 + 20 = 920
         assert_eq!(
-            Loans::exchange_rate(DOT).saturating_mul_int(Tokens::balance(Loans::ptoken_id(DOT).unwrap(), &ALICE)),
+            Loans::exchange_rate(DOT).saturating_mul_int(Tokens::balance(Loans::lend_token_id(DOT).unwrap(), &ALICE)),
             unit(80)
         );
         assert_eq!(Tokens::balance(DOT, &ALICE), unit(920),);
@@ -348,12 +349,12 @@ fn redeem_all_works() {
         // DOT collateral: deposit - redeem = 100 - 100 = 0
         assert_eq!(
             Loans::exchange_rate(DOT)
-                .saturating_mul_int(Loans::account_deposits(Loans::ptoken_id(DOT).unwrap(), ALICE)),
+                .saturating_mul_int(Loans::account_deposits(Loans::lend_token_id(DOT).unwrap(), ALICE)),
             0,
         );
         assert_eq!(Tokens::balance(DOT, &ALICE), unit(1000),);
         assert!(!AccountDeposits::<Test>::contains_key(DOT, &ALICE));
-        assert_eq!(Tokens::balance(CDOT, &ALICE), 0);
+        assert_eq!(Tokens::balance(LEND_DOT, &ALICE), 0);
     })
 }
 
@@ -441,8 +442,8 @@ fn borrow_cap_below_current_volume() {
 #[test]
 fn get_account_liquidity_works() {
     new_test_ext().execute_with(|| {
-        Loans::mint(Origin::signed(ALICE), CDOT_6_13, unit(200)).unwrap();
-        Loans::deposit_all_collateral(Origin::signed(ALICE), CDOT_6_13).unwrap();
+        Loans::mint(Origin::signed(ALICE), LEND_DOT_6_13, unit(200)).unwrap();
+        Loans::deposit_all_collateral(Origin::signed(ALICE), LEND_DOT_6_13).unwrap();
 
         let (liquidity, _, _, _) = Loans::get_account_liquidity(&ALICE).unwrap();
 
@@ -456,8 +457,8 @@ fn get_account_liquidation_threshold_liquidity_works() {
         Loans::mint(Origin::signed(BOB), DOT, unit(200)).unwrap();
         Loans::mint(Origin::signed(BOB), KSM, unit(200)).unwrap();
 
-        Loans::mint(Origin::signed(ALICE), CDOT_6_13, unit(200)).unwrap();
-        Loans::deposit_all_collateral(Origin::signed(ALICE), CDOT_6_13).unwrap();
+        Loans::mint(Origin::signed(ALICE), LEND_DOT_6_13, unit(200)).unwrap();
+        Loans::deposit_all_collateral(Origin::signed(ALICE), LEND_DOT_6_13).unwrap();
 
         Loans::mint(Origin::signed(ALICE), USDT, unit(200)).unwrap();
         Loans::deposit_all_collateral(Origin::signed(ALICE), USDT).unwrap();
@@ -491,7 +492,7 @@ fn borrow_works() {
         // DOT: cash - deposit + borrow = 1000 - 200 + 100 = 900
         assert_eq!(
             Loans::exchange_rate(DOT)
-                .saturating_mul_int(Loans::account_deposits(Loans::ptoken_id(DOT).unwrap(), ALICE)),
+                .saturating_mul_int(Loans::account_deposits(Loans::lend_token_id(DOT).unwrap(), ALICE)),
             unit(200)
         );
         let borrow_snapshot = Loans::account_borrows(DOT, ALICE);
@@ -517,7 +518,7 @@ fn repay_borrow_works() {
         // DOT: cash - deposit + borrow - repay = 1000 - 200 + 100 - 30 = 870
         assert_eq!(
             Loans::exchange_rate(DOT)
-                .saturating_mul_int(Loans::account_deposits(Loans::ptoken_id(DOT).unwrap(), ALICE)),
+                .saturating_mul_int(Loans::account_deposits(Loans::lend_token_id(DOT).unwrap(), ALICE)),
             unit(200)
         );
         let borrow_snapshot = Loans::account_borrows(DOT, ALICE);
@@ -548,7 +549,7 @@ fn repay_borrow_all_works() {
         assert_eq!(Tokens::balance(DOT, &ALICE), unit(800),);
         assert_eq!(
             Loans::exchange_rate(DOT)
-                .saturating_mul_int(Loans::account_deposits(Loans::ptoken_id(DOT).unwrap(), ALICE)),
+                .saturating_mul_int(Loans::account_deposits(Loans::lend_token_id(DOT).unwrap(), ALICE)),
             unit(200)
         );
         let borrow_snapshot = Loans::account_borrows(KSM, ALICE);
@@ -563,23 +564,23 @@ fn collateral_asset_works() {
         // No collateral assets
         // Deposit 200 DOT as collateral
         assert_ok!(Loans::mint(Origin::signed(ALICE), DOT, 200));
-        let ptoken_id = Loans::ptoken_id(DOT).unwrap();
-        // No ptokens deposited as collateral
+        let lend_token_id = Loans::lend_token_id(DOT).unwrap();
+        // No lend_tokens deposited as collateral
         assert_eq!(
-            Loans::account_deposits(ptoken_id, ALICE).eq(&reserved_balance(ptoken_id, &ALICE)),
+            Loans::account_deposits(lend_token_id, ALICE).eq(&reserved_balance(lend_token_id, &ALICE)),
             true
         );
-        assert_eq!(free_balance(ptoken_id, &ALICE), 200 * 50);
-        assert_eq!(reserved_balance(ptoken_id, &ALICE), 0);
+        assert_eq!(free_balance(lend_token_id, &ALICE), 200 * 50);
+        assert_eq!(reserved_balance(lend_token_id, &ALICE), 0);
 
         assert_ok!(Loans::deposit_all_collateral(Origin::signed(ALICE), DOT));
-        // Non-zero ptokens deposited as collateral
+        // Non-zero lend_tokens deposited as collateral
         assert_eq!(
-            Loans::account_deposits(ptoken_id, ALICE).eq(&reserved_balance(ptoken_id, &ALICE)),
+            Loans::account_deposits(lend_token_id, ALICE).eq(&reserved_balance(lend_token_id, &ALICE)),
             true
         );
-        assert_eq!(free_balance(ptoken_id, &ALICE), 0);
-        assert_eq!(reserved_balance(ptoken_id, &ALICE), 200 * 50);
+        assert_eq!(free_balance(lend_token_id, &ALICE), 0);
+        assert_eq!(reserved_balance(lend_token_id, &ALICE), 200 * 50);
 
         // Borrow 100 DOT base on the collateral of 200 DOT
         assert_ok!(Loans::borrow(Origin::signed(ALICE), DOT, 100));
@@ -591,11 +592,11 @@ fn collateral_asset_works() {
         assert_ok!(Loans::repay_borrow_all(Origin::signed(ALICE), DOT));
         assert_ok!(Loans::withdraw_all_collateral(Origin::signed(ALICE), DOT));
         assert_eq!(
-            Loans::account_deposits(ptoken_id, ALICE),
-            reserved_balance(ptoken_id, &ALICE)
+            Loans::account_deposits(lend_token_id, ALICE),
+            reserved_balance(lend_token_id, &ALICE)
         );
-        assert_eq!(free_balance(ptoken_id, &ALICE), 200 * 50);
-        assert_eq!(reserved_balance(ptoken_id, &ALICE), 0);
+        assert_eq!(free_balance(lend_token_id, &ALICE), 200 * 50);
+        assert_eq!(reserved_balance(lend_token_id, &ALICE), 0);
     })
 }
 

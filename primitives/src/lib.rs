@@ -369,12 +369,6 @@ pub type Shortfall = FixedU128;
 pub type Liquidity = FixedU128;
 pub const SECONDS_PER_YEAR: Timestamp = 365 * 24 * 60 * 60;
 
-impl Default for Rate {
-    fn default() -> Self {
-        Self(Default::default())
-    }
-}
-
 pub trait CurrencyInfo {
     fn name(&self) -> &str;
     fn symbol(&self) -> &str;
@@ -479,11 +473,11 @@ create_currency_id! {
 pub enum CurrencyId {
     Token(TokenSymbol),
     ForeignAsset(ForeignAssetId),
-    PToken(PTokenId),
+    LendToken(LendTokenId),
 }
 
 pub type ForeignAssetId = u32;
-pub type PTokenId = u32;
+pub type LendTokenId = u32;
 
 #[derive(scale_info::TypeInfo, Encode, Decode, Clone, Eq, PartialEq, Debug)]
 pub struct CustomMetadata {
@@ -492,7 +486,7 @@ pub struct CustomMetadata {
 }
 
 impl CurrencyId {
-    pub fn is_ptoken(&self) -> bool {
-        matches!(self, CurrencyId::PToken(_))
+    pub fn is_lend_token(&self) -> bool {
+        matches!(self, CurrencyId::LendToken(_))
     }
 }

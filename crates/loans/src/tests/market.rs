@@ -1,17 +1,17 @@
 use crate::{
-    mock::{market_mock, new_test_ext, Loans, Origin, Test, ACTIVE_MARKET_MOCK, ALICE, CDOT, MARKET_MOCK},
+    mock::{market_mock, new_test_ext, Loans, Origin, Test, ACTIVE_MARKET_MOCK, ALICE, LEND_DOT, MARKET_MOCK},
     Error, InterestRateModel, MarketState,
 };
 use frame_support::{assert_noop, assert_ok, error::BadOrigin};
 use primitives::{
-    CurrencyId::{self, ForeignAsset, PToken, Token},
+    CurrencyId::{self, ForeignAsset, LendToken, Token},
     Rate, Ratio, DOT as DOT_CURRENCY,
 };
 use sp_runtime::{traits::Zero, FixedPointNumber};
 
 const DOT: CurrencyId = Token(DOT_CURRENCY);
-const PDOT: CurrencyId = CDOT;
-const PUSDT: CurrencyId = PToken(4);
+const PDOT: CurrencyId = LEND_DOT;
+const PUSDT: CurrencyId = LendToken(4);
 const SDOT: CurrencyId = ForeignAsset(987997280);
 
 macro_rules! rate_model_sanity_check {
@@ -169,19 +169,19 @@ fn force_update_market_works() {
         new_market.state = MarketState::Active;
         Loans::force_update_market(Origin::root(), DOT, new_market).unwrap();
         assert_eq!(Loans::market(DOT).unwrap().state, MarketState::Active);
-        assert_eq!(Loans::market(DOT).unwrap().ptoken_id, PDOT);
+        assert_eq!(Loans::market(DOT).unwrap().lend_token_id, PDOT);
 
-        // New ptoken_id must not be in use
+        // New lend_token_id must not be in use
         assert_noop!(
             Loans::force_update_market(Origin::root(), DOT, market_mock(PUSDT)),
-            Error::<Test>::InvalidPtokenId
+            Error::<Test>::InvalidLendTokenId
         );
         assert_ok!(Loans::force_update_market(
             Origin::root(),
             DOT,
             market_mock(ForeignAsset(1234))
         ));
-        assert_eq!(Loans::market(DOT).unwrap().ptoken_id, ForeignAsset(1234));
+        assert_eq!(Loans::market(DOT).unwrap().lend_token_id, ForeignAsset(1234));
     })
 }
 

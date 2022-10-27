@@ -23,7 +23,7 @@ pub use mocktopus::mocking::*;
 pub use orml_tokens::CurrencyAdapter;
 use pallet_traits::LoansApi;
 pub use primitives::{
-    CurrencyId::{ForeignAsset, PToken, Token},
+    CurrencyId::{ForeignAsset, LendToken, Token},
     Rate, Ratio, VaultCurrencyPair, VaultId as PrimitiveVaultId, DOT, IBTC, INTR, KBTC, KINT, KSM,
 };
 use redeem::RedeemRequestStatus;
@@ -193,11 +193,11 @@ pub const DEFAULT_WRAPPED_CURRENCY: <Runtime as orml_tokens::Config>::CurrencyId
 pub const DEFAULT_NATIVE_CURRENCY: <Runtime as orml_tokens::Config>::CurrencyId = Token(INTR);
 pub const DEFAULT_GRIEFING_CURRENCY: <Runtime as orml_tokens::Config>::CurrencyId = DEFAULT_NATIVE_CURRENCY;
 
-pub const CDOT: CurrencyId = PToken(1);
-pub const CKINT: CurrencyId = PToken(2);
-pub const CKSM: CurrencyId = PToken(3);
-pub const CKBTC: CurrencyId = PToken(4);
-pub const CIBTC: CurrencyId = PToken(5);
+pub const LendDOT: CurrencyId = LendToken(1);
+pub const LendKINT: CurrencyId = LendToken(2);
+pub const LendKSM: CurrencyId = LendToken(3);
+pub const LendKBTC: CurrencyId = LendToken(4);
+pub const LendIBTC: CurrencyId = LendToken(5);
 
 pub fn default_vault_id_of(hash: [u8; 32]) -> VaultId {
     VaultId {
@@ -365,7 +365,7 @@ pub fn iter_currency_pairs() -> impl Iterator<Item = DefaultVaultCurrencyPair<Ru
     })
 }
 
-pub fn iter_endowed_with_ptoken() -> impl Iterator<Item = AccountId> {
+pub fn iter_endowed_with_lend_token() -> impl Iterator<Item = AccountId> {
     vec![
         account_of(ALICE),
         account_of(BOB),
@@ -380,7 +380,7 @@ pub fn iter_endowed_with_ptoken() -> impl Iterator<Item = AccountId> {
 }
 
 pub fn iter_collateral_currencies() -> impl Iterator<Item = CurrencyId> {
-    vec![Token(DOT), Token(KSM), Token(INTR), ForeignAsset(1), PToken(1)].into_iter()
+    vec![Token(DOT), Token(KSM), Token(INTR), ForeignAsset(1), LendToken(1)].into_iter()
 }
 
 pub fn iter_native_currencies() -> impl Iterator<Item = CurrencyId> {
@@ -970,7 +970,7 @@ impl ParachainTwoVaultState {
 }
 
 pub fn set_collateral_exchange_rate(vault_id: &VaultId, price: FixedU128) {
-    let currency_to_set = if vault_id.currencies.collateral.is_ptoken() {
+    let currency_to_set = if vault_id.currencies.collateral.is_lend_token() {
         LoansPallet::underlying_id(vault_id.currencies.collateral).unwrap()
     } else {
         vault_id.currencies.collateral
@@ -1376,7 +1376,7 @@ impl ExtBuilder {
             .into_iter()
             .flat_map(|(account, balance)| {
                 iter_collateral_currencies()
-                    .filter(|c| !c.is_ptoken())
+                    .filter(|c| !c.is_lend_token())
                     .chain(iter_native_currencies())
                     .unique()
                     .map(move |currency| (account.clone(), currency, balance))
@@ -1416,7 +1416,7 @@ impl ExtBuilder {
                 (Token(KSM), 0),
                 (ForeignAsset(1), 0),
                 (Token(INTR), 0),
-                (PToken(1), 0),
+                (LendToken(1), 0),
             ],
             punishment_delay: 8,
             system_collateral_ceiling: iter_currency_pairs().map(|pair| (pair, FUND_LIMIT_CEILING)).collect(),

@@ -30,7 +30,7 @@ use frame_system::EnsureRoot;
 use mocktopus::{macros::mockable, mocking::*};
 use orml_traits::{parameter_type_with_key, DataFeeder, DataProvider, DataProviderExtended};
 use primitives::{
-    CurrencyId::{ForeignAsset, PToken, Token},
+    CurrencyId::{ForeignAsset, LendToken, Token},
     Moment, PriceDetail, DOT, IBTC, INTR, KBTC, KINT, KSM,
 };
 use sp_core::H256;
@@ -275,11 +275,11 @@ impl Config for Test {
     type RewardAssetId = RewardAssetId;
 }
 
-pub const CDOT: CurrencyId = PToken(1);
-pub const CKINT: CurrencyId = PToken(2);
-pub const CKSM: CurrencyId = PToken(3);
-pub const CKBTC: CurrencyId = PToken(4);
-pub const CIBTC: CurrencyId = PToken(5);
+pub const LEND_DOT: CurrencyId = LendToken(1);
+pub const LEND_KINT: CurrencyId = LendToken(2);
+pub const LEND_KSM: CurrencyId = LendToken(3);
+pub const LEND_KBTC: CurrencyId = LendToken(4);
+pub const LEND_IBTC: CurrencyId = LendToken(5);
 
 pub const DEFAULT_MAX_EXCHANGE_RATE: u128 = 1_000_000_000_000_000_000; // 1
 pub const DEFAULT_MIN_EXCHANGE_RATE: u128 = 20_000_000_000_000_000; // 0.02
@@ -314,17 +314,17 @@ pub(crate) fn new_test_ext() -> sp_io::TestExternalities {
         MockPriceFeeder::set_price(Token(KBTC), 1.into());
         MockPriceFeeder::set_price(Token(DOT), 1.into());
         MockPriceFeeder::set_price(Token(KSM), 1.into());
-        MockPriceFeeder::set_price(CDOT, 1.into());
+        MockPriceFeeder::set_price(LEND_DOT, 1.into());
         // Init Markets
-        Loans::add_market(Origin::root(), Token(DOT), market_mock(CDOT)).unwrap();
+        Loans::add_market(Origin::root(), Token(DOT), market_mock(LEND_DOT)).unwrap();
         Loans::activate_market(Origin::root(), Token(DOT)).unwrap();
-        Loans::add_market(Origin::root(), Token(KINT), market_mock(CKINT)).unwrap();
+        Loans::add_market(Origin::root(), Token(KINT), market_mock(LEND_KINT)).unwrap();
         Loans::activate_market(Origin::root(), Token(KINT)).unwrap();
-        Loans::add_market(Origin::root(), Token(KSM), market_mock(CKSM)).unwrap();
+        Loans::add_market(Origin::root(), Token(KSM), market_mock(LEND_KSM)).unwrap();
         Loans::activate_market(Origin::root(), Token(KSM)).unwrap();
-        Loans::add_market(Origin::root(), Token(KBTC), market_mock(CKBTC)).unwrap();
+        Loans::add_market(Origin::root(), Token(KBTC), market_mock(LEND_KBTC)).unwrap();
         Loans::activate_market(Origin::root(), Token(KBTC)).unwrap();
-        Loans::add_market(Origin::root(), Token(IBTC), market_mock(CIBTC)).unwrap();
+        Loans::add_market(Origin::root(), Token(IBTC), market_mock(LEND_IBTC)).unwrap();
         Loans::activate_market(Origin::root(), Token(IBTC)).unwrap();
 
         System::set_block_number(0);
@@ -376,7 +376,7 @@ pub fn million_unit(d: u128) -> u128 {
     unit(d) * 10_u128.pow(6)
 }
 
-pub const fn market_mock(ptoken_id: CurrencyId) -> Market<Balance> {
+pub const fn market_mock(lend_token_id: CurrencyId) -> Market<Balance> {
     Market {
         close_factor: Ratio::from_percent(50),
         collateral_factor: Ratio::from_percent(50),
@@ -393,7 +393,7 @@ pub const fn market_mock(ptoken_id: CurrencyId) -> Market<Balance> {
         reserve_factor: Ratio::from_percent(15),
         supply_cap: 1_000_000_000_000_000_000_000u128, // set to 1B
         borrow_cap: 1_000_000_000_000_000_000_000u128, // set to 1B
-        ptoken_id,
+        lend_token_id,
     }
 }
 

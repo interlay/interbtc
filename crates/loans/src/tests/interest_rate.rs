@@ -161,18 +161,18 @@ fn accrue_interest_works_after_redeem() {
         let amount_to_redeem = unit(10);
         // First, withdraw the amount to redeem from the deposited collateral
         let exchange_rate = Loans::exchange_rate_stored(Token(DOT)).unwrap();
-        let ptoken_amount = Loans::calc_collateral_amount(amount_to_redeem, exchange_rate).unwrap();
+        let lend_token_amount = Loans::calc_collateral_amount(amount_to_redeem, exchange_rate).unwrap();
         assert_ok!(Loans::withdraw_collateral(
             Origin::signed(ALICE),
-            Loans::ptoken_id(Token(DOT)).unwrap(),
-            ptoken_amount
+            Loans::lend_token_id(Token(DOT)).unwrap(),
+            lend_token_amount
         ));
         // Then the amount can be redeemed
         assert_ok!(Loans::redeem(Origin::signed(ALICE), Token(DOT), amount_to_redeem));
         assert_eq!(Loans::borrow_index(Token(DOT)), Rate::from_inner(1000000004756468797),);
         assert_eq!(
             Loans::exchange_rate(Token(DOT))
-                .saturating_mul_int(Loans::account_deposits(Loans::ptoken_id(Token(DOT)).unwrap(), BOB)),
+                .saturating_mul_int(Loans::account_deposits(Loans::lend_token_id(Token(DOT)).unwrap(), BOB)),
             0,
         );
         assert_eq!(Tokens::balance(Token(DOT), &ALICE), 819999999999999);
@@ -194,7 +194,7 @@ fn accrue_interest_works_after_redeem_all() {
         assert_eq!(Loans::borrow_index(Token(DOT)), Rate::from_inner(1000000004669977168),);
         assert_eq!(
             Loans::exchange_rate(Token(DOT))
-                .saturating_mul_int(Loans::account_deposits(Loans::ptoken_id(Token(DOT)).unwrap(), BOB)),
+                .saturating_mul_int(Loans::account_deposits(Loans::lend_token_id(Token(DOT)).unwrap(), BOB)),
             0,
         );
         assert_eq!(Tokens::balance(Token(DOT), &BOB), 1000000000003608);
@@ -289,7 +289,7 @@ fn accrue_interest_works_after_recompute_underlying_amount() {
         assert_eq!(Loans::borrow_index(Token(KSM)), Rate::one());
         TimestampPallet::set_timestamp(12000);
         assert_ok!(Loans::recompute_underlying_amount(
-            &Loans::free_ptokens(Token(KSM), &ALICE).unwrap()
+            &Loans::free_lend_tokens(Token(KSM), &ALICE).unwrap()
         ));
         assert_eq!(Loans::borrow_index(Token(KSM)), Rate::from_inner(1000000008561643835),);
     })

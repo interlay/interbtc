@@ -69,7 +69,7 @@ mod tests;
 
 mod farming;
 mod interest;
-mod ptoken;
+mod lend_token;
 mod rate_model;
 mod types;
 
@@ -82,7 +82,7 @@ type BalanceOf<T> = <<T as Config>::Assets as Inspect<<T as frame_system::Config
 pub struct OnSlashHook<T>(marker::PhantomData<T>);
 impl<T: Config> OnSlash<T::AccountId, AssetIdOf<T>, BalanceOf<T>> for OnSlashHook<T> {
     fn on_slash(currency_id: AssetIdOf<T>, account_id: &T::AccountId, amount: BalanceOf<T>) {
-        if currency_id.is_ptoken() {
+        if currency_id.is_lend_token() {
             let f = || -> DispatchResult {
                 let underlying_id = Pallet::<T>::underlying_id(currency_id)?;
                 Pallet::<T>::update_reward_supply_index(underlying_id)?;
@@ -106,7 +106,7 @@ impl<T: Config> OnSlash<T::AccountId, AssetIdOf<T>, BalanceOf<T>> for OnSlashHoo
 pub struct OnDepositHook<T>(marker::PhantomData<T>);
 impl<T: Config> OnDeposit<T::AccountId, AssetIdOf<T>, BalanceOf<T>> for OnDepositHook<T> {
     fn on_deposit(currency_id: AssetIdOf<T>, account_id: &T::AccountId, _: BalanceOf<T>) -> DispatchResult {
-        if currency_id.is_ptoken() {
+        if currency_id.is_lend_token() {
             let underlying_id = Pallet::<T>::underlying_id(currency_id)?;
             Pallet::<T>::update_reward_supply_index(underlying_id)?;
             Pallet::<T>::distribute_supplier_reward(underlying_id, account_id)?;
@@ -123,7 +123,7 @@ impl<T: Config> OnTransfer<T::AccountId, AssetIdOf<T>, BalanceOf<T>> for OnTrans
         to: &T::AccountId,
         _: BalanceOf<T>,
     ) -> DispatchResult {
-        if currency_id.is_ptoken() {
+        if currency_id.is_lend_token() {
             let underlying_id = Pallet::<T>::underlying_id(currency_id)?;
             Pallet::<T>::update_reward_supply_index(underlying_id)?;
             Pallet::<T>::distribute_supplier_reward(underlying_id, from)?;
@@ -217,8 +217,8 @@ pub mod pallet {
         PriceIsZero,
         /// Invalid asset id
         InvalidCurrencyId,
-        /// Invalid ptoken id
-        InvalidPtokenId,
+        /// Invalid lend_token id
+        InvalidLendTokenId,
         /// Market does not exist
         MarketDoesNotExist,
         /// Market already exists
@@ -392,8 +392,8 @@ pub mod pallet {
     #[pallet::storage]
     pub type Markets<T: Config> = StorageMap<_, Blake2_128Concat, AssetIdOf<T>, Market<BalanceOf<T>>>;
 
-    /// Mapping of ptoken id to asset id
-    /// `ptoken id`: voucher token id
+    /// Mapping of lend_token id to asset id
+    /// `lend_token id`: voucher token id
     /// `asset id`: underlying token id
     #[pallet::storage]
     pub type UnderlyingAssetId<T: Config> = StorageMap<_, Blake2_128Concat, AssetIdOf<T>, AssetIdOf<T>>;
@@ -495,8 +495,8 @@ pub mod pallet {
         /// If a currency is already attached to a market, then the market will be replaced
         /// by the new provided value.
         ///
-        /// The ptoken id and asset id are bound, the ptoken id of new provided market cannot
-        /// be duplicated with the existing one, otherwise it will return `InvalidPtokenId`.
+        /// The lend_token id and asset id are bound, the lend_token id of new provided market cannot
+        /// be duplicated with the existing one, otherwise it will return `InvalidLendTokenId`.
         ///
         /// - `asset_id`: Market related currency
         /// - `market`: The market that is going to be stored
@@ -533,11 +533,11 @@ pub mod pallet {
             );
             ensure!(market.supply_cap > Zero::zero(), Error::<T>::InvalidSupplyCap,);
 
-            // Ensures a given `ptoken_id` not exists on the `Market` and `UnderlyingAssetId`.
-            Self::ensure_ptoken(market.ptoken_id)?;
+            // Ensures a given `lend_token_id` not exists on the `Market` and `UnderlyingAssetId`.
+            Self::ensure_lend_token(market.lend_token_id)?;
             // Update storage of `Market` and `UnderlyingAssetId`
             Markets::<T>::insert(asset_id, market.clone());
-            UnderlyingAssetId::<T>::insert(market.ptoken_id, asset_id);
+            UnderlyingAssetId::<T>::insert(market.lend_token_id, asset_id);
 
             // Init the ExchangeRate and BorrowIndex for asset
             ExchangeRate::<T>::insert(asset_id, Self::min_exchange_rate());
@@ -643,7 +643,7 @@ pub mod pallet {
             let market = Self::mutate_market(asset_id, |stored_market| {
                 *stored_market = Market {
                     state: stored_market.state,
-                    ptoken_id: stored_market.ptoken_id,
+                    lend_token_id: stored_market.lend_token_id,
                     rate_model: stored_market.rate_model,
                     collateral_factor,
                     liquidation_threshold,
@@ -675,13 +675,13 @@ pub mod pallet {
         ) -> DispatchResultWithPostInfo {
             T::UpdateOrigin::ensure_origin(origin)?;
             ensure!(market.rate_model.check_model(), Error::<T>::InvalidRateModelParam);
-            if UnderlyingAssetId::<T>::contains_key(market.ptoken_id) {
+            if UnderlyingAssetId::<T>::contains_key(market.lend_token_id) {
                 ensure!(
-                    Self::underlying_id(market.ptoken_id)? == asset_id,
-                    Error::<T>::InvalidPtokenId
+                    Self::underlying_id(market.lend_token_id)? == asset_id,
+                    Error::<T>::InvalidLendTokenId
                 );
             }
-            UnderlyingAssetId::<T>::insert(market.ptoken_id, asset_id);
+            UnderlyingAssetId::<T>::insert(market.lend_token_id, asset_id);
             let updated_market = Self::mutate_market(asset_id, |stored_market| {
                 *stored_market = market;
                 stored_market.clone()
@@ -860,29 +860,29 @@ pub mod pallet {
             let who = ensure_signed(origin)?;
             // This function is an almost 1:1 duplicate of the logic in `do_redeem`.
             // It could be refactored to compute the redeemable underlying
-            // with `Self::recompute_underlying_amount(&Self::free_ptokens(asset_id, &who)?)?`
+            // with `Self::recompute_underlying_amount(&Self::free_lend_tokens(asset_id, &who)?)?`
             // but that would cause the `accrue_interest_works_after_redeem_all` unit test to fail with
             // left: `1000000000003607`,
             // right: `1000000000003608`'
 
             // Chaining `calc_underlying_amount` and `calc_collateral_amount` continuously decreases
             // an amount because of rounding down, and having the current function call `do_redeem`
-            // would perform three conversions: ptoken -> token -> ptoken -> token.
-            // Calling `do_redeem_voucher` directly only performs one conversion: ptoken -> token,
+            // would perform three conversions: lend_token -> token -> lend_token -> token.
+            // Calling `do_redeem_voucher` directly only performs one conversion: lend_token -> token,
             // avoiding this edge case.
             // TODO: investigate whether it is possible to implement the conversion functions
             // with guarantees that this always holds:
             // `calc_underlying_amount(calc_collateral_amount(x)) = calc_collateral_amount(calc_underlying_amount(x))`
             // Use the `converting_to_and_from_collateral_should_not_change_results` unit test to achieve this.
-            // If there are leftover ptokens after a `redeem_all` (because of rounding down), it would make it
+            // If there are leftover lend_tokens after a `redeem_all` (because of rounding down), it would make it
             // impossible to enforce "collateral toggle" state transitions.
             Self::ensure_active_market(asset_id)?;
             Self::accrue_interest(asset_id)?;
             let exchange_rate = Self::exchange_rate_stored(asset_id)?;
             Self::update_earned_stored(&who, asset_id, exchange_rate)?;
-            let ptokens = Self::free_ptokens(asset_id, &who)?;
-            ensure!(!ptokens.is_zero(), Error::<T>::InvalidAmount);
-            let redeem_amount = Self::do_redeem_voucher(&who, asset_id, ptokens.amount())?;
+            let lend_tokens = Self::free_lend_tokens(asset_id, &who)?;
+            ensure!(!lend_tokens.is_zero(), Error::<T>::InvalidAmount);
+            let redeem_amount = Self::do_redeem_voucher(&who, asset_id, lend_tokens.amount())?;
             Self::deposit_event(Event::<T>::Redeemed(who, asset_id, redeem_amount));
 
             Ok(().into())
@@ -946,9 +946,9 @@ pub mod pallet {
         #[transactional]
         pub fn deposit_all_collateral(origin: OriginFor<T>, asset_id: AssetIdOf<T>) -> DispatchResultWithPostInfo {
             let who = ensure_signed(origin)?;
-            let ptokens = Self::free_ptokens(asset_id, &who)?;
-            ensure!(!ptokens.is_zero(), Error::<T>::InvalidAmount);
-            Self::do_deposit_collateral(&who, ptokens.currency(), ptokens.amount())?;
+            let lend_tokens = Self::free_lend_tokens(asset_id, &who)?;
+            ensure!(!lend_tokens.is_zero(), Error::<T>::InvalidAmount);
+            Self::do_deposit_collateral(&who, lend_tokens.currency(), lend_tokens.amount())?;
             Ok(().into())
         }
 
@@ -970,10 +970,10 @@ pub mod pallet {
         pub fn withdraw_all_collateral(origin: OriginFor<T>, asset_id: AssetIdOf<T>) -> DispatchResultWithPostInfo {
             let who = ensure_signed(origin)?;
 
-            let ptoken_id = Self::ptoken_id(asset_id)?;
-            let collateral = Self::account_deposits(ptoken_id, who.clone());
+            let lend_token_id = Self::lend_token_id(asset_id)?;
+            let collateral = Self::account_deposits(lend_token_id, who.clone());
             ensure!(!collateral.is_zero(), Error::<T>::InvalidAmount);
-            Self::do_withdraw_collateral(&who, ptoken_id, collateral)?;
+            Self::do_withdraw_collateral(&who, lend_token_id, collateral)?;
             Ok(().into())
         }
 
@@ -1254,9 +1254,12 @@ impl<T: Config> Pallet<T> {
         Ok(total_borrow_value)
     }
 
-    fn collateral_balance(asset_id: AssetIdOf<T>, ptoken_amount: BalanceOf<T>) -> Result<BalanceOf<T>, DispatchError> {
+    fn collateral_balance(
+        asset_id: AssetIdOf<T>,
+        lend_token_amount: BalanceOf<T>,
+    ) -> Result<BalanceOf<T>, DispatchError> {
         let exchange_rate = Self::exchange_rate_stored(asset_id)?;
-        let underlying_amount = Self::calc_underlying_amount(ptoken_amount, exchange_rate)?;
+        let underlying_amount = Self::calc_underlying_amount(lend_token_amount, exchange_rate)?;
         let market = Self::market(asset_id)?;
         let effects_amount = market.collateral_factor.mul_ceil(underlying_amount);
 
@@ -1265,18 +1268,18 @@ impl<T: Config> Pallet<T> {
 
     fn collateral_amount_value(
         asset_id: AssetIdOf<T>,
-        ptoken_amount: BalanceOf<T>,
+        lend_token_amount: BalanceOf<T>,
     ) -> Result<FixedU128, DispatchError> {
-        let effects_amount = Self::collateral_balance(asset_id, ptoken_amount)?;
+        let effects_amount = Self::collateral_balance(asset_id, lend_token_amount)?;
         Self::get_asset_value(asset_id, effects_amount)
     }
 
     fn collateral_asset_value(supplier: &T::AccountId, asset_id: AssetIdOf<T>) -> Result<FixedU128, DispatchError> {
-        let ptoken_id = Self::ptoken_id(asset_id)?;
-        if !AccountDeposits::<T>::contains_key(ptoken_id, supplier) {
+        let lend_token_id = Self::lend_token_id(asset_id)?;
+        if !AccountDeposits::<T>::contains_key(lend_token_id, supplier) {
             return Ok(FixedU128::zero());
         }
-        let deposits = Self::account_deposits(ptoken_id, supplier);
+        let deposits = Self::account_deposits(lend_token_id, supplier);
         if deposits.is_zero() {
             return Ok(FixedU128::zero());
         }
@@ -1287,11 +1290,11 @@ impl<T: Config> Pallet<T> {
         borrower: &T::AccountId,
         asset_id: AssetIdOf<T>,
     ) -> Result<FixedU128, DispatchError> {
-        let ptoken_id = Self::ptoken_id(asset_id)?;
-        if !AccountDeposits::<T>::contains_key(ptoken_id, borrower) {
+        let lend_token_id = Self::lend_token_id(asset_id)?;
+        if !AccountDeposits::<T>::contains_key(lend_token_id, borrower) {
             return Ok(FixedU128::zero());
         }
-        let deposits = Self::account_deposits(ptoken_id, borrower);
+        let deposits = Self::account_deposits(lend_token_id, borrower);
         if deposits.is_zero() {
             return Ok(FixedU128::zero());
         }
@@ -1326,7 +1329,7 @@ impl<T: Config> Pallet<T> {
     }
 
     /// Checks if the redeemer should be allowed to redeem tokens in given market.
-    /// Takes into account both `free` and `locked` (i.e. deposited as collateral) ptokens.
+    /// Takes into account both `free` and `locked` (i.e. deposited as collateral) lend_tokens.
     fn redeem_allowed(asset_id: AssetIdOf<T>, redeemer: &T::AccountId, voucher_amount: BalanceOf<T>) -> DispatchResult {
         log::trace!(
             target: "loans::redeem_allowed",
@@ -1335,8 +1338,8 @@ impl<T: Config> Pallet<T> {
             redeemer,
             voucher_amount,
         );
-        let ptoken_id = Self::ptoken_id(asset_id)?;
-        if Self::balance(ptoken_id, redeemer) < voucher_amount {
+        let lend_token_id = Self::lend_token_id(asset_id)?;
+        if Self::balance(lend_token_id, redeemer) < voucher_amount {
             return Err(Error::<T>::InsufficientDeposit.into());
         }
 
@@ -1346,7 +1349,7 @@ impl<T: Config> Pallet<T> {
         Self::ensure_enough_cash(asset_id, redeem_amount)?;
 
         // Ensure that withdrawing deposited collateral doesn't leave the user undercollateralized.
-        let collateral_amount = voucher_amount.saturating_sub(Self::free_ptokens(asset_id, redeemer)?.amount());
+        let collateral_amount = voucher_amount.saturating_sub(Self::free_lend_tokens(asset_id, redeemer)?.amount());
         let collateral_underlying_amount = Self::calc_underlying_amount(collateral_amount, exchange_rate)?;
         let market = Self::market(asset_id)?;
         let effects_amount = market.collateral_factor.mul_ceil(collateral_underlying_amount);
@@ -1376,14 +1379,14 @@ impl<T: Config> Pallet<T> {
         let exchange_rate = Self::exchange_rate_stored(asset_id)?;
         let redeem_amount = Self::calc_underlying_amount(voucher_amount, exchange_rate)?;
 
-        let ptoken_id = Self::ptoken_id(asset_id)?;
-        let ptoken_amount: Amount<T> = Amount::new(voucher_amount, ptoken_id);
+        let lend_token_id = Self::lend_token_id(asset_id)?;
+        let lend_token_amount: Amount<T> = Amount::new(voucher_amount, lend_token_id);
 
         // Need to first `lock_on` in order to `burn_from` because:
-        // 1) only the `free` ptokens are redeemable
+        // 1) only the `free` lend_tokens are redeemable
         // 2) `burn_from` can only be called on locked tokens.
-        ptoken_amount.lock_on(who)?;
-        ptoken_amount.burn_from(who)?;
+        lend_token_amount.lock_on(who)?;
+        lend_token_amount.burn_from(who)?;
 
         let amount_to_transfer: Amount<T> = Amount::new(redeem_amount, asset_id);
         amount_to_transfer
@@ -1547,8 +1550,8 @@ impl<T: Config> Pallet<T> {
         }
         Self::liquidate_borrow_allowed(&borrower, liquidation_asset_id, repay_amount, &market)?;
 
-        let ptoken_id = Self::ptoken_id(collateral_asset_id)?;
-        let deposits = AccountDeposits::<T>::get(ptoken_id, &borrower);
+        let lend_token_id = Self::lend_token_id(collateral_asset_id)?;
+        let deposits = AccountDeposits::<T>::get(lend_token_id, &borrower);
         let exchange_rate = Self::exchange_rate_stored(collateral_asset_id)?;
         let borrower_deposit_amount = exchange_rate
             .checked_mul_int(deposits)
@@ -1652,7 +1655,7 @@ impl<T: Config> Pallet<T> {
         // 3.the liquidator will receive voucher token from borrower
         let exchange_rate = Self::exchange_rate_stored(collateral_asset_id)?;
         let collateral_amount = Self::calc_collateral_amount(collateral_underlying_amount, exchange_rate)?;
-        let ptoken_id = Self::ptoken_id(collateral_asset_id)?;
+        let lend_token_id = Self::lend_token_id(collateral_asset_id)?;
         let incentive_reserved = market.liquidate_incentive_reserved_factor.mul_floor(
             FixedU128::from_inner(collateral_amount)
                 .checked_div(&market.liquidate_incentive)
@@ -1661,18 +1664,18 @@ impl<T: Config> Pallet<T> {
         );
 
         // Unlock this balance to make it transferrable
-        let amount_to_liquidate: Amount<T> = Amount::new(collateral_amount, ptoken_id);
+        let amount_to_liquidate: Amount<T> = Amount::new(collateral_amount, lend_token_id);
         amount_to_liquidate.unlock_on(borrower)?;
 
         // increase liquidator's voucher_balance
         let liquidator_amount_u128 = collateral_amount
             .checked_sub(incentive_reserved)
             .ok_or(ArithmeticError::Underflow)?;
-        let liquidator_amount: Amount<T> = Amount::new(liquidator_amount_u128, ptoken_id);
+        let liquidator_amount: Amount<T> = Amount::new(liquidator_amount_u128, lend_token_id);
         liquidator_amount.transfer(borrower, liquidator)?;
 
         // increase reserve's voucher_balance
-        let incentive_reserved_amount: Amount<T> = Amount::new(incentive_reserved, ptoken_id);
+        let incentive_reserved_amount: Amount<T> = Amount::new(incentive_reserved, lend_token_id);
         incentive_reserved_amount.transfer(borrower, &Self::incentive_reward_account_id()?)?;
 
         Self::deposit_event(Event::<T>::LiquidatedBorrow(
@@ -1731,16 +1734,19 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
-    // Ensures a given `ptoken_id` is unique in `Markets` and `UnderlyingAssetId`.
-    fn ensure_ptoken(ptoken_id: CurrencyId) -> DispatchResult {
-        // The ptoken id is unique, cannot be repeated
+    // Ensures a given `lend_token_id` is unique in `Markets` and `UnderlyingAssetId`.
+    fn ensure_lend_token(lend_token_id: CurrencyId) -> DispatchResult {
+        // The lend_token id is unique, cannot be repeated
         ensure!(
-            !UnderlyingAssetId::<T>::contains_key(ptoken_id),
-            Error::<T>::InvalidPtokenId
+            !UnderlyingAssetId::<T>::contains_key(lend_token_id),
+            Error::<T>::InvalidLendTokenId
         );
 
-        // The ptoken id should not be the same as the id of any asset in markets
-        ensure!(!Markets::<T>::contains_key(ptoken_id), Error::<T>::InvalidPtokenId);
+        // The lend_token id should not be the same as the id of any asset in markets
+        ensure!(
+            !Markets::<T>::contains_key(lend_token_id),
+            Error::<T>::InvalidLendTokenId
+        );
 
         Ok(())
     }
@@ -1785,16 +1791,19 @@ impl<T: Config> Pallet<T> {
         <orml_tokens::Pallet<T> as MultiCurrency<T::AccountId>>::total_balance(asset_id, who)
     }
 
-    /// Total supply of lending tokens (ptokens), given the underlying
+    /// Total supply of lending tokens (lend_tokens), given the underlying
     pub fn total_supply(asset_id: AssetIdOf<T>) -> Result<BalanceOf<T>, DispatchError> {
-        let ptoken_id = Self::ptoken_id(asset_id)?;
-        Ok(orml_tokens::Pallet::<T>::total_issuance(ptoken_id))
+        let lend_token_id = Self::lend_token_id(asset_id)?;
+        Ok(orml_tokens::Pallet::<T>::total_issuance(lend_token_id))
     }
 
-    /// Free lending tokens (ptokens) of an account, given the underlying
-    pub fn free_ptokens(asset_id: AssetIdOf<T>, account_id: &T::AccountId) -> Result<Amount<T>, DispatchError> {
-        let ptoken_id = Self::ptoken_id(asset_id)?;
-        let amount = Amount::new(orml_tokens::Pallet::<T>::free_balance(ptoken_id, account_id), ptoken_id);
+    /// Free lending tokens (lend_tokens) of an account, given the underlying
+    pub fn free_lend_tokens(asset_id: AssetIdOf<T>, account_id: &T::AccountId) -> Result<Amount<T>, DispatchError> {
+        let lend_token_id = Self::lend_token_id(asset_id)?;
+        let amount = Amount::new(
+            orml_tokens::Pallet::<T>::free_balance(lend_token_id, account_id),
+            lend_token_id,
+        );
         Ok(amount)
     }
 
@@ -1858,12 +1867,12 @@ impl<T: Config> Pallet<T> {
         Markets::<T>::iter().filter(|(_, market)| market.state == MarketState::Active)
     }
 
-    // Returns the ptoken_id of the related asset
+    // Returns the lend_token_id of the related asset
     //
     // Returns `Err` if market does not exist.
-    pub fn ptoken_id(asset_id: AssetIdOf<T>) -> Result<AssetIdOf<T>, DispatchError> {
+    pub fn lend_token_id(asset_id: AssetIdOf<T>) -> Result<AssetIdOf<T>, DispatchError> {
         if let Ok(market) = Self::market(asset_id) {
-            Ok(market.ptoken_id)
+            Ok(market.lend_token_id)
         } else {
             Err(Error::<T>::MarketDoesNotExist.into())
         }
@@ -1897,9 +1906,9 @@ impl<T: Config> LoansTrait<AssetIdOf<T>, AccountIdOf<T>, BalanceOf<T>, Amount<T>
         let amount_to_transfer: Amount<T> = Amount::new(amount, asset_id);
         amount_to_transfer.transfer(supplier, &Self::account_id())?;
 
-        let ptoken_id = Self::ptoken_id(asset_id)?;
-        let ptokens_to_mint: Amount<T> = Amount::new(voucher_amount, ptoken_id);
-        ptokens_to_mint.mint_to(supplier)?;
+        let lend_token_id = Self::lend_token_id(asset_id)?;
+        let lend_tokens_to_mint: Amount<T> = Amount::new(voucher_amount, lend_token_id);
+        lend_tokens_to_mint.mint_to(supplier)?;
 
         Self::deposit_event(Event::<T>::Deposited(supplier.clone(), asset_id, amount));
         Ok(())
@@ -1940,25 +1949,25 @@ impl<T: Config> LoansTrait<AssetIdOf<T>, AccountIdOf<T>, BalanceOf<T>, Amount<T>
         asset_id: AssetIdOf<T>,
         amount: BalanceOf<T>,
     ) -> Result<(), DispatchError> {
-        let ptoken_amount: Amount<T> = Amount::new(amount, asset_id);
-        // If the given asset_id is not a valid ptoken, fetching the underlying will fail
-        let underlying_id = Self::underlying_id(ptoken_amount.currency())?;
+        let lend_token_amount: Amount<T> = Amount::new(amount, asset_id);
+        // If the given asset_id is not a valid lend_token, fetching the underlying will fail
+        let underlying_id = Self::underlying_id(lend_token_amount.currency())?;
         Self::ensure_active_market(underlying_id)?;
 
         // Will fail if supplier has insufficient free tokens
-        ptoken_amount.lock_on(supplier)?;
+        lend_token_amount.lock_on(supplier)?;
 
         // Increase the amount of collateral deposited
-        let deposit = Self::account_deposits(ptoken_amount.currency(), supplier);
+        let deposit = Self::account_deposits(lend_token_amount.currency(), supplier);
         let new_deposit = deposit
-            .checked_add(ptoken_amount.amount())
+            .checked_add(lend_token_amount.amount())
             .ok_or(ArithmeticError::Overflow)?;
-        AccountDeposits::<T>::insert(ptoken_amount.currency(), supplier, new_deposit);
+        AccountDeposits::<T>::insert(lend_token_amount.currency(), supplier, new_deposit);
 
         Self::deposit_event(Event::<T>::DepositCollateral(
             supplier.clone(),
-            ptoken_amount.currency(),
-            ptoken_amount.amount(),
+            lend_token_amount.currency(),
+            lend_token_amount.amount(),
         ));
         Ok(())
     }
@@ -1968,13 +1977,13 @@ impl<T: Config> LoansTrait<AssetIdOf<T>, AccountIdOf<T>, BalanceOf<T>, Amount<T>
         asset_id: AssetIdOf<T>,
         amount: BalanceOf<T>,
     ) -> Result<(), DispatchError> {
-        let ptoken_amount: Amount<T> = Amount::new(amount, asset_id);
-        // If the given asset_id is not a valid ptoken, fetching the underlying will fail
-        let underlying_id = Self::underlying_id(ptoken_amount.currency())?;
+        let lend_token_amount: Amount<T> = Amount::new(amount, asset_id);
+        // If the given asset_id is not a valid lend_token, fetching the underlying will fail
+        let underlying_id = Self::underlying_id(lend_token_amount.currency())?;
         Self::ensure_active_market(underlying_id)?;
 
         let total_collateral_value = Self::total_collateral_value(supplier)?;
-        let collateral_amount_value = Self::collateral_amount_value(underlying_id, ptoken_amount.amount())?;
+        let collateral_amount_value = Self::collateral_amount_value(underlying_id, lend_token_amount.amount())?;
         let total_borrowed_value = Self::total_borrowed_value(supplier)?;
         log::trace!(
             target: "loans::collateral_asset",
@@ -1992,13 +2001,13 @@ impl<T: Config> LoansTrait<AssetIdOf<T>, AccountIdOf<T>, BalanceOf<T>, Amount<T>
             return Err(Error::<T>::InsufficientLiquidity.into());
         }
 
-        ptoken_amount.unlock_on(supplier)?;
+        lend_token_amount.unlock_on(supplier)?;
 
         // Decrease the amount of collateral deposited
         AccountDeposits::<T>::try_mutate_exists(asset_id, supplier, |deposits| -> DispatchResult {
             let d = deposits
                 .unwrap_or_default()
-                .checked_sub(ptoken_amount.amount())
+                .checked_sub(lend_token_amount.amount())
                 .ok_or(ArithmeticError::Underflow)?;
             if d.is_zero() {
                 // remove deposits storage if zero balance
@@ -2011,8 +2020,8 @@ impl<T: Config> LoansTrait<AssetIdOf<T>, AccountIdOf<T>, BalanceOf<T>, Amount<T>
 
         Self::deposit_event(Event::<T>::WithdrawCollateral(
             supplier.clone(),
-            ptoken_amount.currency(),
-            ptoken_amount.amount(),
+            lend_token_amount.currency(),
+            lend_token_amount.amount(),
         ));
         Ok(())
     }
@@ -2041,23 +2050,23 @@ impl<T: Config> LoansTrait<AssetIdOf<T>, AccountIdOf<T>, BalanceOf<T>, Amount<T>
         Ok(())
     }
 
-    fn recompute_underlying_amount(ptokens: &Amount<T>) -> Result<Amount<T>, DispatchError> {
+    fn recompute_underlying_amount(lend_tokens: &Amount<T>) -> Result<Amount<T>, DispatchError> {
         // This function could be called externally to this pallet, with interest
         // possibly not having accrued for a few blocks. This would result in using an
         // outdated exchange rate. Call `accrue_interest` to avoid this.
-        let underlying_id = Self::underlying_id(ptokens.currency())?;
+        let underlying_id = Self::underlying_id(lend_tokens.currency())?;
         Self::ensure_active_market(underlying_id)?;
         Self::accrue_interest(underlying_id)?;
         let exchange_rate = Self::exchange_rate_stored(underlying_id)?;
-        let underlying_amount = Self::calc_underlying_amount(ptokens.amount(), exchange_rate)?;
+        let underlying_amount = Self::calc_underlying_amount(lend_tokens.amount(), exchange_rate)?;
         Ok(Amount::new(underlying_amount, underlying_id))
     }
 
     // Returns a stored asset_id
     //
-    // Returns `Err` if asset_id does not exist, it also means that ptoken_id is invalid.
-    fn underlying_id(ptoken_id: AssetIdOf<T>) -> Result<AssetIdOf<T>, DispatchError> {
-        UnderlyingAssetId::<T>::try_get(ptoken_id).map_err(|_err| Error::<T>::InvalidPtokenId.into())
+    // Returns `Err` if asset_id does not exist, it also means that lend_token_id is invalid.
+    fn underlying_id(lend_token_id: AssetIdOf<T>) -> Result<AssetIdOf<T>, DispatchError> {
+        UnderlyingAssetId::<T>::try_get(lend_token_id).map_err(|_err| Error::<T>::InvalidLendTokenId.into())
     }
 
     fn recompute_collateral_amount(underlying: &Amount<T>) -> Result<Amount<T>, DispatchError> {
@@ -2068,8 +2077,8 @@ impl<T: Config> LoansTrait<AssetIdOf<T>, AccountIdOf<T>, BalanceOf<T>, Amount<T>
         Self::accrue_interest(underlying.currency())?;
         let exchange_rate = Self::exchange_rate_stored(underlying.currency())?;
         let underlying_amount = Self::calc_collateral_amount(underlying.amount(), exchange_rate)?;
-        let ptoken_id = Self::ptoken_id(underlying.currency())?;
-        Ok(Amount::new(underlying_amount, ptoken_id))
+        let lend_token_id = Self::lend_token_id(underlying.currency())?;
+        Ok(Amount::new(underlying_amount, lend_token_id))
     }
 }
 

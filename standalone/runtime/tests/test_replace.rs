@@ -26,7 +26,7 @@ fn test_with<R>(execute: impl Fn(VaultId, VaultId) -> R) {
             if wrapped_currency != Token(IBTC) {
                 assert_ok!(OraclePallet::_set_exchange_rate(wrapped_currency, FixedU128::one()));
             }
-            activate_lending_and_mint(Token(DOT), PToken(1));
+            activate_lending_and_mint(Token(DOT), LendToken(1));
             set_default_thresholds();
             UserData::force_to(USER, default_user_state());
             let old_vault_id = VaultId::new(account_of(OLD_VAULT), old_vault_currency, wrapped_currency);
@@ -63,8 +63,8 @@ fn test_with<R>(execute: impl Fn(VaultId, VaultId) -> R) {
     test_with(Token(KSM), Token(DOT), Token(IBTC), None);
     test_with(ForeignAsset(1), Token(DOT), Token(IBTC), None);
     test_with(Token(KSM), ForeignAsset(1), Token(IBTC), None);
-    test_with(PToken(1), ForeignAsset(1), Token(IBTC), None);
-    test_with(Token(KSM), PToken(1), Token(IBTC), None);
+    test_with(LendToken(1), ForeignAsset(1), Token(IBTC), None);
+    test_with(Token(KSM), LendToken(1), Token(IBTC), None);
 }
 
 fn test_without_initialization<R>(execute: impl Fn(CurrencyId) -> R) {
@@ -1130,7 +1130,7 @@ fn integration_test_replace_cancel_replace_both_vaults_liquidated() {
 #[test]
 fn integration_test_replace_vault_with_different_currency_succeeds() {
     test_without_initialization(|currency_id| {
-        for currency_id in iter_collateral_currencies().filter(|c| !c.is_ptoken()) {
+        for currency_id in iter_collateral_currencies().filter(|c| !c.is_lend_token()) {
             assert_ok!(OraclePallet::_set_exchange_rate(currency_id, FixedU128::one()));
         }
         set_default_thresholds();
@@ -1145,8 +1145,8 @@ fn integration_test_replace_vault_with_different_currency_succeeds() {
         let old_vault_id = vault_id_of(OLD_VAULT, currency_id);
         let new_vault_id = vault_id_of(NEW_VAULT, other_currency);
 
-        // Mint pTokens so that force-setting vault state doesn't fail
-        activate_lending_and_mint(Token(DOT), PToken(1));
+        // Mint lendTokens so that force-setting vault state doesn't fail
+        activate_lending_and_mint(Token(DOT), LendToken(1));
         CoreVaultData::force_to(&old_vault_id, default_vault_state(&old_vault_id));
         CoreVaultData::force_to(&new_vault_id, default_vault_state(&new_vault_id));
 

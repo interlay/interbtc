@@ -67,7 +67,7 @@ pub use security::StatusCode;
 
 pub use primitives::{
     self, AccountId, BlockNumber,
-    CurrencyId::{ForeignAsset, PToken, Token},
+    CurrencyId::{ForeignAsset, LendToken, Token},
     CurrencyInfo, Hash, Moment, Nonce, Signature, SignedFixedPoint, SignedInner, UnsignedFixedPoint, UnsignedInner,
 };
 
@@ -1028,9 +1028,9 @@ impl pallet_traits::PriceFeeder for PriceFeed {
                 }
             }
             // Returning `None` here means there is no price for this asset.
-            // This is fine since PTokens may not be used as underlying currency
+            // This is fine since LendTokens may not be used as underlying currency
             // in the loans pallet.
-            PToken(_) => return None,
+            LendToken(_) => return None,
         };
         let amount = Amount::<Runtime>::new(one, asset_id.clone());
         Oracle::convert(&amount, WRAPPED_CURRENCY_ID)

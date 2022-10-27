@@ -50,8 +50,10 @@ fn repay_borrow_all_no_underflow() {
         assert_eq!(Tokens::balance(Token(KSM), &ALICE), unit(800) - 5);
 
         assert_eq!(
-            Loans::exchange_rate(Token(DOT))
-                .saturating_mul_int(Loans::account_deposits(Loans::ptoken_id(Token(KSM)).unwrap(), ALICE)),
+            Loans::exchange_rate(Token(DOT)).saturating_mul_int(Loans::account_deposits(
+                Loans::lend_token_id(Token(KSM)).unwrap(),
+                ALICE
+            )),
             unit(200)
         );
 

@@ -121,10 +121,10 @@ impl<T: Config> Pallet<T> {
                 .ok_or(ArithmeticError::Underflow)?;
             *supplier_index = supply_state.index;
 
-            let ptoken_id = Self::ptoken_id(asset_id)?;
+            let lend_token_id = Self::lend_token_id(asset_id)?;
             RewardAccrued::<T>::try_mutate(supplier, |total_reward| -> DispatchResult {
                 // Frozen balance is not counted towards the total
-                let total_balance = Self::balance(ptoken_id, supplier);
+                let total_balance = Self::balance(lend_token_id, supplier);
                 let reward_delta = Self::calculate_reward_delta(total_balance, delta_index)?;
                 *total_reward = total_reward
                     .checked_add(reward_delta)
