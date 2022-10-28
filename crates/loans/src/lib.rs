@@ -824,6 +824,7 @@ pub mod pallet {
             #[pallet::compact] mint_amount: BalanceOf<T>,
         ) -> DispatchResultWithPostInfo {
             let who = ensure_signed(origin)?;
+            ensure!(!mint_amount.is_zero(), Error::<T>::InvalidAmount);
             Self::do_mint(&who, asset_id, mint_amount)?;
 
             Ok(().into())
@@ -1810,7 +1811,6 @@ impl<T: Config> Pallet<T> {
 
 impl<T: Config> LoansTrait<AssetIdOf<T>, AccountIdOf<T>, BalanceOf<T>, Amount<T>> for Pallet<T> {
     fn do_mint(supplier: &AccountIdOf<T>, asset_id: AssetIdOf<T>, amount: BalanceOf<T>) -> Result<(), DispatchError> {
-        ensure!(!amount.is_zero(), Error::<T>::InvalidAmount);
         Self::ensure_active_market(asset_id)?;
         Self::ensure_under_supply_cap(asset_id, amount)?;
 

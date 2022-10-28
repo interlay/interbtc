@@ -270,10 +270,70 @@ fn redeem_works() {
 }
 
 #[test]
-fn redeem_fails() {
+fn zero_amount_extrinsics_fail() {
     new_test_ext().execute_with(|| {
         assert_noop!(
+            Loans::add_reward(Origin::signed(ALICE), unit(0)),
+            Error::<Test>::InvalidAmount
+        );
+        assert_noop!(
+            Loans::withdraw_missing_reward(Origin::root(), BOB, unit(0)),
+            Error::<Test>::InvalidAmount
+        );
+        assert_noop!(
+            Loans::mint(Origin::signed(ALICE), DOT, unit(0)),
+            Error::<Test>::InvalidAmount
+        );
+        assert_noop!(
             Loans::redeem(Origin::signed(ALICE), DOT, unit(0)),
+            Error::<Test>::InvalidAmount
+        );
+        assert_noop!(
+            Loans::redeem_all(Origin::signed(ALICE), DOT),
+            Error::<Test>::InvalidAmount
+        );
+        assert_noop!(
+            Loans::borrow(Origin::signed(ALICE), DOT, unit(0)),
+            Error::<Test>::InvalidAmount
+        );
+        assert_noop!(
+            Loans::repay_borrow(Origin::signed(ALICE), DOT, unit(0)),
+            Error::<Test>::InvalidAmount
+        );
+        assert_noop!(
+            Loans::repay_borrow_all(Origin::signed(ALICE), DOT),
+            Error::<Test>::InvalidAmount
+        );
+        assert_noop!(
+            Loans::deposit_all_collateral(Origin::signed(ALICE), DOT),
+            Error::<Test>::InvalidAmount
+        );
+        assert_noop!(
+            Loans::deposit_collateral(Origin::signed(ALICE), DOT, unit(0)),
+            Error::<Test>::InvalidAmount
+        );
+        assert_noop!(
+            Loans::withdraw_all_collateral(Origin::signed(ALICE), DOT),
+            Error::<Test>::InvalidAmount
+        );
+        assert_noop!(
+            Loans::withdraw_collateral(Origin::signed(ALICE), DOT, unit(0)),
+            Error::<Test>::InvalidAmount
+        );
+        assert_noop!(
+            Loans::liquidate_borrow(Origin::signed(ALICE), BOB, DOT, unit(0), IBTC),
+            Error::<Test>::InvalidAmount
+        );
+        assert_noop!(
+            Loans::add_reserves(Origin::root(), ALICE, DOT, unit(0)),
+            Error::<Test>::InvalidAmount
+        );
+        assert_noop!(
+            Loans::reduce_reserves(Origin::root(), ALICE, DOT, unit(0)),
+            Error::<Test>::InvalidAmount
+        );
+        assert_noop!(
+            Loans::reduce_incentive_reserves(Origin::root(), ALICE, DOT, unit(0)),
             Error::<Test>::InvalidAmount
         );
     })
