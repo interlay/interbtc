@@ -135,14 +135,9 @@ impl<T: Config> OnTransfer<T::AccountId, AssetIdOf<T>, BalanceOf<T>> for OnTrans
 }
 
 /// Utility type for managing upgrades/migrations.
-#[derive(Encode, Decode, Clone, Copy, PartialEq, Eq, RuntimeDebug, TypeInfo)]
+#[derive(Encode, Decode, Clone, Copy, PartialEq, Eq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
 pub enum Versions {
-    V1,
-    V2,
-    V3,
-    V4,
-    V5,
-    V6,
+    V0,
 }
 
 #[frame_support::pallet]
@@ -451,7 +446,7 @@ pub mod pallet {
     /// DefaultVersion is using for initialize the StorageVersion
     #[pallet::type_value]
     pub(super) fn DefaultVersion<T: Config>() -> Versions {
-        Versions::V2
+        Versions::V0
     }
 
     /// Storage version of the pallet.
