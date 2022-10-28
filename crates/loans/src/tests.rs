@@ -822,7 +822,7 @@ fn update_exchange_rate_works() {
         // Initialize value of exchange rate is 0.02
         assert_eq!(Loans::exchange_rate(DOT), Rate::saturating_from_rational(2, 100));
 
-        // assert_ok!(Loans::update_exchange_rate(DOT));
+        assert_ok!(Loans::accrue_interest(DOT));
         assert_eq!(
             Loans::exchange_rate_stored(DOT).unwrap(),
             Rate::saturating_from_rational(2, 100)
@@ -834,7 +834,6 @@ fn update_exchange_rate_works() {
         assert_ok!(Loans::mint(Origin::signed(ALICE), DOT, unit(10)));
         TotalBorrows::<Test>::insert(DOT, unit(5));
         TotalReserves::<Test>::insert(DOT, unit(1));
-        // assert_ok!(Loans::update_exchange_rate(DOT));
         assert_eq!(
             Loans::exchange_rate_stored(DOT).unwrap(),
             Rate::saturating_from_rational(14, 500)
@@ -923,6 +922,9 @@ fn ensure_enough_cash_works() {
             Error::<Test>::InsufficientCash,
         );
         assert_ok!(Loans::ensure_enough_cash(KSM, unit(990)));
+        // Borrows don't count as cash
+        TotalBorrows::<Test>::insert(KSM, unit(20));
+        assert_ok!(Loans::ensure_enough_cash(KSM, unit(1000)));
     })
 }
 
@@ -1001,7 +1003,7 @@ fn update_market_reward_speed_works() {
 }
 
 #[test]
-fn reward_calculation_one_palyer_in_multi_markets_works() {
+fn reward_calculation_one_player_in_multi_markets_works() {
     new_test_ext().execute_with(|| {
         assert_ok!(Loans::mint(Origin::signed(ALICE), DOT, unit(100)));
         assert_ok!(Loans::mint(Origin::signed(ALICE), KSM, unit(100)));

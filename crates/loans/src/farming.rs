@@ -123,7 +123,9 @@ impl<T: Config> Pallet<T> {
 
             let lend_token_id = Self::lend_token_id(asset_id)?;
             RewardAccrued::<T>::try_mutate(supplier, |total_reward| -> DispatchResult {
-                // Frozen balance is not counted towards the total
+                // Frozen balance is not counted towards the total, so emitted rewards
+                // may be lower than intended.
+                // No balance freezing is done currently, so this is correct.
                 let total_balance = Self::balance(lend_token_id, supplier);
                 let reward_delta = Self::calculate_reward_delta(total_balance, delta_index)?;
                 *total_reward = total_reward

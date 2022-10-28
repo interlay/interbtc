@@ -1710,6 +1710,7 @@ impl<T: Config> Pallet<T> {
     }
 
     /// Get the total balance of `who`.
+    /// Ignores any frozen balance of this account.
     fn balance(asset_id: AssetIdOf<T>, who: &T::AccountId) -> BalanceOf<T> {
         <orml_tokens::Pallet<T> as MultiCurrency<T::AccountId>>::total_balance(asset_id, who)
     }
