@@ -44,7 +44,7 @@ where
 {
     fn convert(amount: &Amount<T>, to: CurrencyId<T>) -> Result<Amount<T>, DispatchError> {
         if amount.currency().is_lend_token() && to.is_lend_token() {
-            // Exampe (lendDOT to lendINTR): carg
+            // Exampe (lendDOT to lendINTR):
             //   collateral_amount(convert(underlying_amount(lendDOT_amount), underlying_id(lendINTR)))
             //   collateral_amount(convert(dot_amount, INTR))
             //   collateral_amount(intr_amount)
