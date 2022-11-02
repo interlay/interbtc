@@ -924,7 +924,10 @@ fn ensure_enough_cash_works() {
         assert_ok!(Loans::ensure_enough_cash(KSM, unit(990)));
         // Borrows don't count as cash
         TotalBorrows::<Test>::insert(KSM, unit(20));
-        assert_ok!(Loans::ensure_enough_cash(KSM, unit(1000)));
+        assert_noop!(
+            Loans::ensure_enough_cash(KSM, unit(1000)),
+            Error::<Test>::InsufficientCash
+        );
     })
 }
 
