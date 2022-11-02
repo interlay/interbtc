@@ -7,7 +7,10 @@ use pallet_xcm::XcmPassthrough;
 use polkadot_parachain::primitives::Sibling;
 use primitives::{Balance, CurrencyId, CurrencyId::ForeignAsset};
 use sp_runtime::WeakBoundedVec;
-use xcm::latest::{prelude::*, Weight};
+use xcm::latest::{
+    prelude::{AccountId32, *},
+    Weight,
+};
 use xcm_builder::{
     AccountId32Aliases, AllowKnownQueryResponses, AllowSubscriptionsFrom, AllowTopLevelPaidExecutionFrom,
     EnsureXcmOrigin, FixedRateOfFungible, FixedWeightBounds, LocationInverter, NativeAsset, ParentIsPreset,

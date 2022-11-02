@@ -28,7 +28,7 @@ use frame_support::{
 };
 use frame_system::EnsureRoot;
 use mocktopus::macros::mockable;
-use orml_traits::{parameter_type_with_key, DataFeeder, DataProvider, DataProviderExtended};
+use orml_traits::{currency::MutationHooks, parameter_type_with_key, DataFeeder, DataProvider, DataProviderExtended};
 use primitives::{
     CurrencyId::{ForeignAsset, LendToken, Token},
     Moment, PriceDetail, DOT, IBTC, INTR, KBTC, KINT, KSM,
@@ -115,6 +115,22 @@ parameter_type_with_key! {
 
 pub type RawAmount = i128;
 
+pub struct CurrencyHooks<T>(PhantomData<T>);
+impl<T: orml_tokens::Config + pallet::Config>
+    MutationHooks<T::AccountId, T::CurrencyId, <T as currency::Config>::Balance> for CurrencyHooks<T>
+where
+    T::AccountId: From<sp_runtime::AccountId32>,
+{
+    type OnDust = ();
+    type OnSlash = OnSlashHook<T>;
+    type PreDeposit = PreDeposit<T>;
+    type PostDeposit = PostDeposit<T>;
+    type PreTransfer = PreTransfer<T>;
+    type PostTransfer = PostTransfer<T>;
+    type OnNewTokenAccount = ();
+    type OnKilledTokenAccount = ();
+}
+
 impl orml_tokens::Config for Test {
     type RuntimeEvent = RuntimeEvent;
     type Balance = Balance;
@@ -122,16 +138,11 @@ impl orml_tokens::Config for Test {
     type CurrencyId = CurrencyId;
     type WeightInfo = ();
     type ExistentialDeposits = ExistentialDeposits;
-    type OnDust = ();
-    type OnSlash = OnSlashHook<Test>;
-    type OnDeposit = OnDepositHook<Test>;
-    type OnTransfer = OnTransferHook<Test>;
+    type CurrencyHooks = CurrencyHooks<Test>;
     type MaxLocks = MaxLocks;
     type DustRemovalWhitelist = Everything;
     type MaxReserves = ConstU32<0>; // we don't use named reserves
     type ReserveIdentifier = (); // we don't use named reserves
-    type OnNewTokenAccount = ();
-    type OnKilledTokenAccount = ();
 }
 
 pub type SignedFixedPoint = FixedI128;
@@ -402,7 +413,7 @@ pub const fn market_mock(lend_token_id: CurrencyId) -> Market<Balance> {
     }
 }
 
-pub const MARKET_MOCK: Market<Balance> = market_mock(ForeignAsset(1200));
+pub const MARKET_MOCK: Market<Balance> = market_mock(LendToken(1200));
 
 pub const ACTIVE_MARKET_MOCK: Market<Balance> = {
     let mut market = MARKET_MOCK;

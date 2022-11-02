@@ -114,14 +114,14 @@ module-redeem-rpc-runtime-api = { path = "../../../crates/redeem/rpc/runtime-api
 module-replace-rpc-runtime-api = { path = "../../../crates/replace/rpc/runtime-api", default-features = false }
 
 # Orml dependencies
-orml-tokens = { git = "https://github.com/open-web3-stack/open-runtime-module-library", rev = "f4ef99fb108232c4c1fe9ed54d08be3681b77669", default-features = false }
-orml-traits = { git = "https://github.com/open-web3-stack/open-runtime-module-library", rev = "f4ef99fb108232c4c1fe9ed54d08be3681b77669", default-features = false }
-orml-vesting = { git = "https://github.com/open-web3-stack/open-runtime-module-library", rev = "f4ef99fb108232c4c1fe9ed54d08be3681b77669", default-features = false }
+orml-tokens = { git = "https://github.com/open-web3-stack/open-runtime-module-library", rev = "5803a01a44ade05fe5f00dd73b619c89fbf4e701", default-features = false }
+orml-traits = { git = "https://github.com/open-web3-stack/open-runtime-module-library", rev = "5803a01a44ade05fe5f00dd73b619c89fbf4e701", default-features = false }
+orml-vesting = { git = "https://github.com/open-web3-stack/open-runtime-module-library", rev = "5803a01a44ade05fe5f00dd73b619c89fbf4e701", default-features = false }
 
-orml-xtokens = { git = "https://github.com/open-web3-stack/open-runtime-module-library", rev = "f4ef99fb108232c4c1fe9ed54d08be3681b77669", default-features = false }
-orml-xcm = { git = "https://github.com/open-web3-stack/open-runtime-module-library", rev = "f4ef99fb108232c4c1fe9ed54d08be3681b77669", default-features = false }
-orml-xcm-support = { git = "https://github.com/open-web3-stack/open-runtime-module-library", rev = "f4ef99fb108232c4c1fe9ed54d08be3681b77669", default-features = false }
-orml-unknown-tokens = { git = "https://github.com/open-web3-stack/open-runtime-module-library", rev = "f4ef99fb108232c4c1fe9ed54d08be3681b77669", default-features = false }
+orml-xtokens = { git = "https://github.com/open-web3-stack/open-runtime-module-library", rev = "5803a01a44ade05fe5f00dd73b619c89fbf4e701", default-features = false }
+orml-xcm = { git = "https://github.com/open-web3-stack/open-runtime-module-library", rev = "5803a01a44ade05fe5f00dd73b619c89fbf4e701", default-features = false }
+orml-xcm-support = { git = "https://github.com/open-web3-stack/open-runtime-module-library", rev = "5803a01a44ade05fe5f00dd73b619c89fbf4e701", default-features = false }
+orml-unknown-tokens = { git = "https://github.com/open-web3-stack/open-runtime-module-library", rev = "5803a01a44ade05fe5f00dd73b619c89fbf4e701", default-features = false }
 
 [dev-dependencies]
 hex = '0.4.2'

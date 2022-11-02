@@ -170,15 +170,6 @@ fn accrue_interest_works_after_redeem() {
         TimestampPallet::set_timestamp(12000);
 
         let amount_to_redeem = unit(10);
-        // First, withdraw the amount to redeem from the deposited collateral
-        let exchange_rate = Loans::exchange_rate_stored(Token(DOT)).unwrap();
-        let lend_token_amount = Loans::calc_collateral_amount(amount_to_redeem, exchange_rate).unwrap();
-        assert_ok!(Loans::withdraw_collateral(
-            RuntimeOrigin::signed(ALICE),
-            Loans::lend_token_id(Token(DOT)).unwrap(),
-            lend_token_amount
-        ));
-        // Then the amount can be redeemed
         assert_ok!(Loans::redeem(
             RuntimeOrigin::signed(ALICE),
             Token(DOT),
@@ -213,6 +204,8 @@ fn accrue_interest_works_after_redeem_all() {
             0,
         );
         assert_eq!(Tokens::balance(Token(DOT), &BOB), 1000000000003608);
+        assert_eq!(Loans::free_lend_tokens(Token(DOT), &BOB).unwrap().is_zero(), true);
+        assert_eq!(Loans::reserved_lend_tokens(Token(DOT), &BOB).unwrap().is_zero(), true);
         assert!(!AccountDeposits::<Test>::contains_key(Token(DOT), &BOB))
     })
 }

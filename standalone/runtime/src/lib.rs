@@ -23,9 +23,9 @@ use frame_system::{
     limits::{BlockLength, BlockWeights},
     EnsureRoot, EnsureRootWithSuccess, EnsureSigned,
 };
-use loans::{OnDepositHook, OnSlashHook, OnTransferHook};
+use loans::{OnSlashHook, PostDeposit, PostTransfer, PreDeposit, PreTransfer};
 use orml_asset_registry::SequentialId;
-use orml_traits::parameter_type_with_key;
+use orml_traits::{currency::MutationHooks, parameter_type_with_key};
 use pallet_transaction_payment::{Multiplier, TargetedFeeAdjustment};
 use sp_api::impl_runtime_apis;
 use sp_core::{crypto::KeyTypeId, OpaqueMetadata, H256};
@@ -602,6 +602,22 @@ parameter_type_with_key! {
     };
 }
 
+pub struct CurrencyHooks<T>(PhantomData<T>);
+impl<T: orml_tokens::Config + loans::Config>
+    MutationHooks<T::AccountId, T::CurrencyId, <T as currency::Config>::Balance> for CurrencyHooks<T>
+where
+    T::AccountId: From<sp_runtime::AccountId32>,
+{
+    type OnDust = orml_tokens::TransferDust<T, FeeAccount>;
+    type OnSlash = OnSlashHook<T>;
+    type PreDeposit = PreDeposit<T>;
+    type PostDeposit = PostDeposit<T>;
+    type PreTransfer = PreTransfer<T>;
+    type PostTransfer = PostTransfer<T>;
+    type OnNewTokenAccount = ();
+    type OnKilledTokenAccount = ();
+}
+
 impl orml_tokens::Config for Runtime {
     type RuntimeEvent = RuntimeEvent;
     type Balance = Balance;
@@ -609,16 +625,11 @@ impl orml_tokens::Config for Runtime {
     type CurrencyId = CurrencyId;
     type WeightInfo = ();
     type ExistentialDeposits = ExistentialDeposits;
-    type OnDust = orml_tokens::TransferDust<Runtime, FeeAccount>;
-    type OnSlash = OnSlashHook<Runtime>;
-    type OnDeposit = OnDepositHook<Runtime>;
-    type OnTransfer = OnTransferHook<Runtime>;
+    type CurrencyHooks = CurrencyHooks<Runtime>;
     type MaxLocks = MaxLocks;
     type DustRemovalWhitelist = DustRemovalWhitelist;
     type MaxReserves = ConstU32<0>; // we don't use named reserves
     type ReserveIdentifier = (); // we don't use named reserves
-    type OnNewTokenAccount = ();
-    type OnKilledTokenAccount = ();
 }
 
 parameter_types! {

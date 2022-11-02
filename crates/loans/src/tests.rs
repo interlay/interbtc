@@ -91,6 +91,7 @@ fn loans_native_token_works() {
         assert_ok!(Loans::redeem_allowed(KINT, &DAVE, unit(50000),));
 
         assert_ok!(Loans::deposit_all_collateral(RuntimeOrigin::signed(DAVE), KINT));
+        assert_eq!(Loans::free_lend_tokens(KINT, &DAVE).unwrap().is_zero(), true);
 
         // Borrow 500 KINT will reduce 500 KINT liquidity for collateral_factor is 50%
         assert_ok!(Loans::borrow(RuntimeOrigin::signed(DAVE), KINT, unit(500)));
@@ -185,6 +186,7 @@ fn supply_cap_below_current_volume() {
         assert_ok!(Loans::mint(RuntimeOrigin::signed(BOB), DOT, 200));
         assert_ok!(Loans::mint(RuntimeOrigin::signed(ALICE), KSM, 200));
         assert_ok!(Loans::deposit_all_collateral(RuntimeOrigin::signed(ALICE), KSM));
+        assert_eq!(Loans::free_lend_tokens(KSM, &ALICE).unwrap().is_zero(), true);
 
         let new_supply_cap = 10;
         assert_ok!(Loans::force_update_market(
@@ -203,6 +205,7 @@ fn supply_cap_below_current_volume() {
         // Can redeem, even if the resulting deposit is still
         // above the new cap
         assert_ok!(Loans::withdraw_all_collateral(RuntimeOrigin::signed(ALICE), KSM));
+        assert_eq!(Loans::reserved_lend_tokens(KSM, &ALICE).unwrap().is_zero(), true);
         assert_ok!(Loans::redeem(RuntimeOrigin::signed(ALICE), KSM, 10));
 
         // Cannot mint back the amount that has just been redeemed
@@ -247,6 +250,7 @@ fn redeem_allowed_works() {
         assert_ok!(Loans::redeem_allowed(KSM, &ALICE, 10000));
 
         assert_ok!(Loans::deposit_all_collateral(RuntimeOrigin::signed(ALICE), KSM));
+        assert_eq!(Loans::free_lend_tokens(KSM, &ALICE).unwrap().is_zero(), true);
         // Borrow 50 DOT will reduce 100 KSM liquidity for collateral_factor is 50%
         assert_ok!(Loans::borrow(RuntimeOrigin::signed(ALICE), DOT, 50));
         // Redeem 101 KSM should cause InsufficientLiquidity
@@ -315,15 +319,7 @@ fn zero_amount_extrinsics_fail() {
             Error::<Test>::InvalidAmount
         );
         assert_noop!(
-            Loans::deposit_collateral(RuntimeOrigin::signed(ALICE), DOT, unit(0)),
-            Error::<Test>::InvalidAmount
-        );
-        assert_noop!(
             Loans::withdraw_all_collateral(RuntimeOrigin::signed(ALICE), DOT),
-            Error::<Test>::InvalidAmount
-        );
-        assert_noop!(
-            Loans::withdraw_collateral(RuntimeOrigin::signed(ALICE), DOT, unit(0)),
             Error::<Test>::InvalidAmount
         );
         assert_noop!(
@@ -355,6 +351,7 @@ fn redeem_fails_when_insufficient_liquidity() {
         assert_ok!(Loans::mint(RuntimeOrigin::signed(ALICE), KSM, 200));
 
         assert_ok!(Loans::deposit_all_collateral(RuntimeOrigin::signed(ALICE), KSM));
+        assert_eq!(Loans::free_lend_tokens(KSM, &ALICE).unwrap().is_zero(), true);
         // Borrow 50 DOT will reduce 100 KSM liquidity for collateral_factor is 50%
         assert_ok!(Loans::borrow(RuntimeOrigin::signed(ALICE), DOT, 50));
 
@@ -410,6 +407,8 @@ fn redeem_all_works() {
     new_test_ext().execute_with(|| {
         assert_ok!(Loans::mint(RuntimeOrigin::signed(ALICE), DOT, unit(100)));
         assert_ok!(Loans::redeem_all(RuntimeOrigin::signed(ALICE), DOT));
+        assert_eq!(Loans::free_lend_tokens(DOT, &ALICE).unwrap().is_zero(), true);
+        assert_eq!(Loans::reserved_lend_tokens(DOT, &ALICE).unwrap().is_zero(), true);
 
         // DOT: cash - deposit + redeem = 1000 - 100 + 100 = 1000
         // DOT collateral: deposit - redeem = 100 - 100 = 0
@@ -1265,11 +1264,9 @@ fn reward_calculation_multi_player_in_one_market_works() {
 
         _run_to_block(50);
         assert_ok!(Loans::redeem(RuntimeOrigin::signed(ALICE), DOT, unit(10)));
-        // Withdraw all collateral first, so `redeem_all()` redeems collateral as well.
-        // This is a change from Parallel's original implementation, where `redeem_all`
-        // would implicitly withdraw all collateral.
-        assert_ok!(Loans::withdraw_all_collateral(RuntimeOrigin::signed(BOB), DOT));
         assert_ok!(Loans::redeem_all(RuntimeOrigin::signed(BOB), DOT));
+        assert_eq!(Loans::free_lend_tokens(DOT, &BOB).unwrap().is_zero(), true);
+        assert_eq!(Loans::reserved_lend_tokens(DOT, &BOB).unwrap().is_zero(), true);
         assert_ok!(Loans::repay_borrow_all(RuntimeOrigin::signed(ALICE), DOT));
         // No loans to repay
         assert_noop!(
@@ -1418,5 +1415,18 @@ fn reward_calculation_after_liquidate_borrow_works() {
             ),
             true,
         );
+    })
+}
+
+#[test]
+fn redeeming_full_amount_leaves_no_leftover() {
+    new_test_ext().execute_with(|| {
+        let amount_to_mint = 1235;
+        assert_ok!(Loans::mint(RuntimeOrigin::signed(ALICE), DOT, amount_to_mint));
+        assert_ok!(Loans::deposit_all_collateral(RuntimeOrigin::signed(ALICE), DOT));
+        assert_ok!(Loans::redeem(RuntimeOrigin::signed(ALICE), DOT, amount_to_mint));
+
+        assert_eq!(Loans::free_lend_tokens(DOT, &ALICE).unwrap().is_zero(), true);
+        assert_eq!(Loans::reserved_lend_tokens(DOT, &ALICE).unwrap().is_zero(), true);
     })
 }

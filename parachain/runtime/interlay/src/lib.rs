@@ -25,7 +25,7 @@ use frame_system::{
 };
 pub use orml_asset_registry::AssetMetadata;
 use orml_asset_registry::SequentialId;
-use orml_traits::parameter_type_with_key;
+use orml_traits::{currency::MutationHooks, parameter_type_with_key};
 use pallet_transaction_payment::{Multiplier, TargetedFeeAdjustment};
 use sp_api::impl_runtime_apis;
 use sp_core::{OpaqueMetadata, H256};
@@ -669,6 +669,21 @@ parameter_type_with_key! {
     };
 }
 
+pub struct CurrencyHooks<T>(PhantomData<T>);
+impl<T: orml_tokens::Config> MutationHooks<T::AccountId, T::CurrencyId, T::Balance> for CurrencyHooks<T>
+where
+    T::AccountId: From<sp_runtime::AccountId32>,
+{
+    type OnDust = orml_tokens::TransferDust<T, FeeAccount>;
+    type OnSlash = ();
+    type PreDeposit = ();
+    type PostDeposit = ();
+    type PreTransfer = ();
+    type PostTransfer = ();
+    type OnNewTokenAccount = ();
+    type OnKilledTokenAccount = ();
+}
+
 impl orml_tokens::Config for Runtime {
     type RuntimeEvent = RuntimeEvent;
     type Balance = Balance;
@@ -676,16 +691,11 @@ impl orml_tokens::Config for Runtime {
     type CurrencyId = CurrencyId;
     type WeightInfo = ();
     type ExistentialDeposits = ExistentialDeposits;
-    type OnDust = orml_tokens::TransferDust<Runtime, FeeAccount>;
-    type OnSlash = ();
-    type OnDeposit = ();
-    type OnTransfer = ();
+    type CurrencyHooks = CurrencyHooks<Runtime>;
     type MaxLocks = MaxLocks;
     type DustRemovalWhitelist = DustRemovalWhitelist;
     type MaxReserves = ConstU32<0>; // we don't use named reserves
     type ReserveIdentifier = (); // we don't use named reserves
-    type OnNewTokenAccount = ();
-    type OnKilledTokenAccount = ();
 }
 
 pub struct AssetAuthority;
