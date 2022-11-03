@@ -1,21 +1,21 @@
 [package]
-authors = ['Interlay Ltd']
-edition = '2021'
-name    = 'pallet-loans-rpc'
-version = '1.9.3'
+authors = ["Interlay Ltd"]
+edition = "2021"
+name    = "pallet-loans-rpc"
+version = "1.9.3"
 
 [dependencies]
-codec               = { package = 'parity-scale-codec', version = '3.1.5' }
+codec               = { package = "parity-scale-codec", version = "3.1.5" }
 jsonrpsee           = { version = "0.15.1", features = ["server", "macros"] }
-primitives          = { package = 'parallel-primitives', path = '../../../primitives', default-features = false }
-serde               = { version = '1.0.136', features = ['derive'] }
-sp-api              = { git = 'https://github.com/paritytech/substrate.git', branch = 'polkadot-v0.9.29' }
-sp-blockchain       = { git = 'https://github.com/paritytech/substrate.git', branch = 'polkadot-v0.9.29' }
-sp-core             = { git = 'https://github.com/paritytech/substrate.git', branch = 'polkadot-v0.9.29' }
-sp-rpc              = { git = 'https://github.com/paritytech/substrate.git', branch = 'polkadot-v0.9.29', default-features = false }
-sp-runtime          = { git = 'https://github.com/paritytech/substrate.git', branch = 'polkadot-v0.9.29' }
+primitives          = { package = "interbtc-primitives", path = "../../../primitives", default-features = false }
+serde               = { version = "1.0.136", features = ["derive"] }
+sp-api              = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.29" }
+sp-blockchain       = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.29" }
+sp-core             = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.29" }
+sp-rpc              = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.29", default-features = false }
+sp-runtime          = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.29" }
 
-pallet-loans-rpc-runtime-api = { path = 'runtime-api', default-features = false }
+pallet-loans-rpc-runtime-api = { path = "runtime-api", default-features = false }
 
 [lib]
 doctest = false

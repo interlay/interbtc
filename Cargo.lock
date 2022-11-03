@@ -3576,6 +3576,7 @@ dependencies = [
  "module-replace-rpc-runtime-api",
  "module-reward-rpc-runtime-api",
  "module-vault-registry-rpc-runtime-api",
+ "pallet-loans-rpc-runtime-api",
  "pallet-transaction-payment-rpc",
  "parity-scale-codec",
  "polkadot-cli",
@@ -3649,6 +3650,7 @@ dependencies = [
  "module-replace-rpc",
  "module-reward-rpc",
  "module-vault-registry-rpc",
+ "pallet-loans-rpc",
  "pallet-transaction-payment-rpc",
  "sc-consensus-manual-seal",
  "sc-rpc",
@@ -3708,6 +3710,7 @@ dependencies = [
  "pallet-grandpa",
  "pallet-identity",
  "pallet-loans",
+ "pallet-loans-rpc-runtime-api",
  "pallet-membership",
  "pallet-multisig",
  "pallet-preimage",
@@ -3848,6 +3851,7 @@ dependencies = [
  "pallet-balances",
  "pallet-collective",
  "pallet-identity",
+ "pallet-loans-rpc-runtime-api",
  "pallet-membership",
  "pallet-multisig",
  "pallet-preimage",
@@ -4212,6 +4216,7 @@ dependencies = [
  "pallet-balances",
  "pallet-collective",
  "pallet-identity",
+ "pallet-loans-rpc-runtime-api",
  "pallet-membership",
  "pallet-multisig",
  "pallet-preimage",
@@ -6584,6 +6589,32 @@ dependencies = [
  "sp-io",
  "sp-runtime",
  "sp-std",
+]
+
+[[package]]
+name = "pallet-loans-rpc"
+version = "1.9.3"
+dependencies = [
+ "interbtc-primitives",
+ "jsonrpsee",
+ "pallet-loans-rpc-runtime-api",
+ "parity-scale-codec",
+ "serde",
+ "sp-api",
+ "sp-blockchain",
+ "sp-core",
+ "sp-rpc",
+ "sp-runtime",
+]
+
+[[package]]
+name = "pallet-loans-rpc-runtime-api"
+version = "1.9.3"
+dependencies = [
+ "interbtc-primitives",
+ "parity-scale-codec",
+ "sp-api",
+ "sp-runtime",
 ]
 
 [[package]]
@@ -12236,6 +12267,7 @@ dependencies = [
  "pallet-collective",
  "pallet-identity",
  "pallet-loans",
+ "pallet-loans-rpc-runtime-api",
  "pallet-membership",
  "pallet-multisig",
  "pallet-preimage",
@@ -12338,6 +12370,7 @@ dependencies = [
  "pallet-collective",
  "pallet-identity",
  "pallet-loans",
+ "pallet-loans-rpc-runtime-api",
  "pallet-membership",
  "pallet-multisig",
  "pallet-preimage",
