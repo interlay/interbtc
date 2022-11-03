@@ -33,6 +33,7 @@ use frame_support::{
     transactional, PalletId,
 };
 use frame_system::ensure_signed;
+use primitives::VaultId;
 use reward::Rewards;
 use scale_info::TypeInfo;
 use sp_arithmetic::{traits::*, FixedPointNumber, FixedPointOperand};
@@ -41,7 +42,7 @@ use sp_std::{
     convert::{TryFrom, TryInto},
     fmt::Debug,
 };
-use types::{BalanceOf, DefaultVaultId, SignedFixedPoint, UnsignedFixedPoint, Version};
+use types::{BalanceOf, DefaultVaultCurrencyPair, DefaultVaultId, SignedFixedPoint, UnsignedFixedPoint, Version};
 
 pub use pallet::*;
 
@@ -182,6 +183,11 @@ pub mod pallet {
     #[pallet::storage]
     #[pallet::getter(fn storage_version)]
     pub(super) type StorageVersion<T: Config> = StorageValue<_, Version, ValueQuery, DefaultForStorageVersion>;
+
+    /// The fraction up rewards going straight to the vault operator. The rest goes to the vault's pool.
+    #[pallet::storage]
+    pub(super) type Commission<T: Config> =
+        StorageMap<_, Blake2_128Concat, DefaultVaultId<T>, UnsignedFixedPoint<T>, OptionQuery>;
 
     #[pallet::genesis_config]
     pub struct GenesisConfig<T: Config> {
@@ -344,12 +350,33 @@ pub mod pallet {
             ReplaceGriefingCollateral::<T>::put(griefing_collateral);
             Ok(().into())
         }
+
+        /// todo: proper weight
+        #[pallet::weight(<T as Config>::WeightInfo::set_commission())]
+        #[transactional]
+        pub fn set_commission(
+            origin: OriginFor<T>,
+            currencies: DefaultVaultCurrencyPair<T>,
+            commission: UnsignedFixedPoint<T>,
+        ) -> DispatchResultWithPostInfo {
+            let account_id = ensure_signed(origin)?;
+            let vault_id = VaultId::from_pair(account_id, currencies);
+            ensure!(
+                commission <= UnsignedFixedPoint::<T>::one(),
+                Error::<T>::AboveMaxExpectedValue
+            );
+            Commission::<T>::insert(vault_id, commission);
+            Ok(().into())
+        }
     }
 }
 
 // "Internal" functions, callable by code.
 #[cfg_attr(test, mockable)]
 impl<T: Config> Pallet<T> {
+    fn get_commission_rate(vault_id: &DefaultVaultId<T>) -> UnsignedFixedPoint<T> {
+        Commission::<T>::get(vault_id).unwrap_or(<UnsignedFixedPoint<T>>::zero())
+    }
     /// The account ID of the fee pool.
     ///
     /// This actually does computation. If you need to keep using it, then make sure you cache the
@@ -482,7 +509,16 @@ impl<T: Config> Pallet<T> {
     ) -> DispatchResult {
         for currency_id in [vault_id.wrapped_currency(), T::GetNativeCurrencyId::get()] {
             let reward = Rewards::withdraw_reward(vault_id, currency_id)?;
-            Staking::distribute_reward(vault_id, reward, currency_id)?;
+
+            let full_amount = Amount::<T>::new(reward, currency_id);
+
+            let commission_rate = Self::get_commission_rate(vault_id);
+            let commission = full_amount.checked_fixed_point_mul(&commission_rate)?;
+            commission.transfer(&Self::fee_pool_account_id(), &vault_id.account_id)?;
+
+            let remainder = full_amount.checked_sub(&commission)?;
+
+            Staking::distribute_reward(vault_id, remainder.amount(), currency_id)?;
         }
 
         Ok(())

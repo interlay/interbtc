@@ -40,6 +40,8 @@ fn test_with_nomination_enabled<R>(execute: impl Fn(VaultId) -> R) {
 fn test_with_nomination_enabled_and_vault_opted_in<R>(execute: impl Fn(VaultId) -> R) {
     test_with_nomination_enabled(|vault_id| {
         assert_nomination_opt_in(&vault_id);
+        set_commission(&vault_id, FixedU128::from_float(COMMISSION));
+
         execute(vault_id)
     })
 }
@@ -627,7 +629,7 @@ fn integration_test_rewards_are_preserved_on_collateral_withdrawal() {
         UserData::force_to(USER, user_data);
         assert_nominate_collateral(&vault_id, account_of(USER), default_nomination(&vault_id));
 
-        let (issue_id, _) = issue_testing_utils::request_issue(&vault_id, vault_id.wrapped(100000));
+        let (issue_id, _) = issue_testing_utils::request_issue(&vault_id, vault_id.wrapped(400000));
         issue_testing_utils::execute_issue(issue_id);
         FeePallet::withdraw_all_vault_rewards(&vault_id).unwrap();
         let reward_before_nomination_withdrawal =

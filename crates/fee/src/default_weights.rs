@@ -41,6 +41,7 @@ pub trait WeightInfo {
 	fn set_premium_redeem_fee() -> Weight;
 	fn set_punishment_fee() -> Weight;
 	fn set_replace_griefing_collateral() -> Weight;
+	fn set_commission() -> Weight;
 }
 
 /// Weights for fee using the Substrate node and recommended hardware.
@@ -100,6 +101,12 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		Weight::from_ref_time(2_835_000 as u64)
 			.saturating_add(T::DbWeight::get().writes(1 as u64))
 	}
+	
+	// Storage: Commission (r:0 w:1)
+	fn set_commission() -> Weight {
+		Weight::from_ref_time(2_835_000 as u64)
+			.saturating_add(T::DbWeight::get().writes(1 as u64))
+	}
 }
 
 // For backwards compatibility and tests
@@ -155,6 +162,12 @@ impl WeightInfo for () {
 
 	// Storage: Fee ReplaceGriefingCollateral (r:0 w:1)
 	fn set_replace_griefing_collateral() -> Weight {
+		Weight::from_ref_time(2_835_000 as u64)
+			.saturating_add(RocksDbWeight::get().writes(1 as u64))
+	}
+
+	// Storage: Fee Commission (r:0 w:1)
+	fn set_commission() -> Weight {
 		Weight::from_ref_time(2_835_000 as u64)
 			.saturating_add(RocksDbWeight::get().writes(1 as u64))
 	}

@@ -69,6 +69,7 @@ pub const DAVE: [u8; 32] = [10u8; 32];
 pub const EVE: [u8; 32] = [11u8; 32];
 pub const FRANK: [u8; 32] = [12u8; 32];
 pub const GRACE: [u8; 32] = [13u8; 32];
+pub const ZACK: [u8; 32] = [25u8; 32];
 
 pub const FAUCET: [u8; 32] = [128u8; 32];
 pub const DUMMY: [u8; 32] = [255u8; 32];
@@ -596,6 +597,12 @@ impl CoreVaultData {
         let mut state = Self::vault(vault_id.clone());
         f(&mut state);
         Self::force_to(vault_id, state);
+    }
+
+    pub fn with_changes(&self, f: impl FnOnce(&mut CoreVaultData)) -> Self {
+        let mut state = self.clone();
+        f(&mut state);
+        state
     }
 
     pub fn force_to(vault_id: &VaultId, state: CoreVaultData) {

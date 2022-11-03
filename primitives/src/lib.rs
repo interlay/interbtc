@@ -79,12 +79,22 @@ impl<AccountId, CurrencyId: Copy> VaultId<AccountId, CurrencyId> {
         }
     }
 
+    pub fn from_pair(account_id: AccountId, currencies: VaultCurrencyPair<CurrencyId>) -> Self {
+        Self { account_id, currencies }
+    }
+
     pub fn collateral_currency(&self) -> CurrencyId {
         self.currencies.collateral
     }
 
     pub fn wrapped_currency(&self) -> CurrencyId {
         self.currencies.wrapped
+    }
+}
+
+impl<AccountId, CurrencyId: Copy> From<(AccountId, VaultCurrencyPair<CurrencyId>)> for VaultId<AccountId, CurrencyId> {
+    fn from((account_id, currencies): (AccountId, VaultCurrencyPair<CurrencyId>)) -> Self {
+        VaultId::new(account_id, currencies.collateral, currencies.wrapped)
     }
 }
 
