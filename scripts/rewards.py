@@ -125,17 +125,24 @@ class VaultRegistry:
 
         previous_collateral_capacity = self.get_collateral_capacity(currency)
         previous_secure_threshold = self.get_secure_threshold(vault)
-        previous_rate = self.collateral[vault] / previous_secure_threshold
+        previous_collateral_div_threshold = self.collateral[vault] / \
+            previous_secure_threshold
 
         self.collateral[vault] += amount
-        next_rate = self.collateral[vault] / secure_threshold - previous_rate
-        self.total_collateral_div_threshold[currency] += next_rate
+        collateral_div_threshold = self.collateral[vault] / secure_threshold
+        collateral_div_threshold_delta = collateral_div_threshold - \
+            previous_collateral_div_threshold
+        self.total_collateral_div_threshold[currency] += collateral_div_threshold_delta
 
         collateral_capacity = self.get_collateral_capacity(currency)
         capacity_delta = collateral_capacity - previous_collateral_capacity
 
         self.rewards.update_stake(
-            currency, capacity_delta, vault.address, amount)
+            currency,
+            capacity_delta,
+            vault.address,
+            collateral_div_threshold_delta
+        )
 
     def set_custom_secure_threshold(self, vault, value):
         secure_threshold = max(self.secure_threshold[vault.currency], value)
@@ -151,6 +158,9 @@ class VaultRegistry:
 
         self.update_collateral_and_threshold(vault, amount, None)
 
+    def withdraw_collateral(self, vault, amount):
+        self.update_collateral_and_threshold(vault, -abs(amount), None)
+
     def get_collateral_capacity(self, currency):
         return self.total_collateral_div_threshold[currency] \
             / self.exchange_rate[currency]
@@ -162,10 +172,14 @@ class VaultRegistry:
         return self.rewards.withdraw_reward(vault.currency, vault.address)
 
 
-vault1 = Vault(0x1, 'DOT')
-vault2 = Vault(0x2, 'KSM')
+# +++++++++++++
+# + EXAMPLE 1 +
+# +++++++++++++
 
 vault_registry = VaultRegistry()
+
+vault1 = Vault(0x1, 'DOT')
+vault2 = Vault(0x2, 'KSM')
 
 vault_registry.set_exchange_rate('DOT', 1000)
 vault_registry.set_exchange_rate('KSM', 500)
@@ -175,13 +189,48 @@ vault_registry.set_global_secure_threshold('KSM', 200/100)
 
 vault_registry.deposit_collateral(vault1, 2000)
 vault_registry.deposit_collateral(vault2, 1000)
+assert (vault_registry.get_collateral_capacity('DOT') == 1.0)
+assert (vault_registry.get_collateral_capacity('KSM') == 1.0)
 
-vault_registry.set_custom_secure_threshold(vault1, 400/100)
-vault_registry.set_exchange_rate('KSM', 1000)
-
-print(vault_registry.get_collateral_capacity('DOT'))
-print(vault_registry.get_collateral_capacity('KSM'))
-
+# equal capacity = equal rewards
 vault_registry.distribute(10)
-print(vault_registry.withdraw_reward(vault1))
-print(vault_registry.withdraw_reward(vault2))
+assert (vault_registry.withdraw_reward(vault1) == 5.0)
+assert (vault_registry.withdraw_reward(vault2) == 5.0)
+
+# double DOT minting capacity
+vault_registry.set_exchange_rate('DOT', 500)
+assert (vault_registry.get_collateral_capacity('DOT') == 2.0)
+assert (vault_registry.get_collateral_capacity('KSM') == 1.0)
+
+# vault1 now receives more rewards
+vault_registry.distribute(10)
+assert (vault_registry.withdraw_reward(vault1) == 6.66666666666667)
+assert (vault_registry.withdraw_reward(vault2) == 3.3333333333333357)
+
+# +++++++++++++
+# + EXAMPLE 2 +
+# +++++++++++++
+
+vault_registry = VaultRegistry()
+vault1 = Vault(0x1, 'DOT')
+vault2 = Vault(0x2, 'DOT')
+vault_registry.set_exchange_rate('DOT', 1000)
+vault_registry.set_global_secure_threshold('DOT', 200/100)
+
+vault_registry.deposit_collateral(vault1, 1000)
+vault_registry.deposit_collateral(vault2, 1000)
+assert (vault_registry.get_collateral_capacity('DOT') == 1.0)
+
+# equal capacity = equal rewards
+vault_registry.distribute(10)
+assert (vault_registry.withdraw_reward(vault1) == 5.0)
+assert (vault_registry.withdraw_reward(vault2) == 5.0)
+
+# vault1 sets higher custom threshold
+vault_registry.set_custom_secure_threshold(vault1, 300/100)
+assert (vault_registry.get_collateral_capacity('DOT') == 0.8333333333333333)
+
+# vault1 now receives less rewards
+vault_registry.distribute(10)
+assert (vault_registry.withdraw_reward(vault1) == 3.999999999999999)
+assert (vault_registry.withdraw_reward(vault2) == 6.0)
