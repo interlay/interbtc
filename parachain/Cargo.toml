@@ -42,6 +42,7 @@ module-reward-rpc-runtime-api = { path = "../crates/reward/rpc/runtime-api" }
 module-issue-rpc-runtime-api = { path = "../crates/issue/rpc/runtime-api" }
 module-redeem-rpc-runtime-api = { path = "../crates/redeem/rpc/runtime-api" }
 module-replace-rpc-runtime-api = { path = "../crates/replace/rpc/runtime-api" }
+pallet-loans-rpc-runtime-api = { path = "../crates/loans/rpc/runtime-api" }
 
 # Substrate dependencies
 sc-cli = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.29", features = ["wasmtime"] }
