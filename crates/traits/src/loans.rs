@@ -32,12 +32,6 @@ pub trait LoansApi<CurrencyId, AccountId, Balance, Amount> {
     fn recompute_collateral_amount(underlying: &Amount) -> Result<Amount, DispatchError>;
 }
 
-pub trait LoansPositionDataProvider<CurrencyId, AccountId, Balance> {
-    fn get_current_borrow_balance(borrower: &AccountId, asset_id: CurrencyId) -> Result<Balance, DispatchError>;
-
-    fn get_current_collateral_balance(supplier: &AccountId, asset_id: CurrencyId) -> Result<Balance, DispatchError>;
-}
-
 pub trait LoansMarketDataProvider<CurrencyId, Balance> {
     fn get_market_info(asset_id: CurrencyId) -> Result<MarketInfo, DispatchError>;
     fn get_market_status(asset_id: CurrencyId) -> Result<MarketStatus<Balance>, DispatchError>;

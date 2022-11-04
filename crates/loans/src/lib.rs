@@ -241,6 +241,8 @@ pub mod pallet {
         CodecError,
         /// Collateral is reserved and cannot be liquidated
         CollateralReserved,
+        /// Arithmetic underflow
+        ArithmeticUnderflow,
     }
 
     #[pallet::event]
@@ -1137,9 +1139,19 @@ impl<T: Config> Pallet<T> {
             total_collateral_value.into_inner(),
         );
         if total_collateral_value > total_borrow_value {
-            Ok((total_collateral_value - total_borrow_value, FixedU128::zero()))
+            Ok((
+                total_collateral_value
+                    .checked_sub(&total_borrow_value)
+                    .ok_or(Error::<T>::ArithmeticUnderflow)?,
+                FixedU128::zero(),
+            ))
         } else {
-            Ok((FixedU128::zero(), total_borrow_value - total_collateral_value))
+            Ok((
+                FixedU128::zero(),
+                total_borrow_value
+                    .checked_sub(&total_collateral_value)
+                    .ok_or(Error::<T>::ArithmeticUnderflow)?,
+            ))
         }
     }
 
