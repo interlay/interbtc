@@ -1,5 +1,5 @@
 [package]
-authors = ["Parallel Team"]
+authors = ["Parallel Team", "Interlay Ltd"]
 edition = "2021"
 name = "pallet-traits"
 version = "1.9.3"
