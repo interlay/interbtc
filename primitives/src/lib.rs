@@ -361,7 +361,7 @@ pub type UnsignedInner = u128;
 /// Loans pallet types
 
 pub type Price = FixedU128;
-pub type Timestamp = u64;
+pub type Timestamp = Moment;
 pub type PriceDetail = (Price, Timestamp);
 pub type Rate = FixedU128;
 pub type Ratio = Permill;

@@ -76,11 +76,18 @@ mod types;
 
 pub mod weights;
 
+pub const REWARD_ACCOUNT_PREFIX: &[u8; 13] = b"loans/farming";
+pub const INCENTIVE_ACCOUNT_PREFIX: &[u8; 15] = b"loans/incentive";
+
 type AccountIdOf<T> = <T as frame_system::Config>::AccountId;
 type AssetIdOf<T> = <<T as Config>::Assets as Inspect<<T as frame_system::Config>::AccountId>>::AssetId;
 type BalanceOf<T> = <<T as Config>::Assets as Inspect<<T as frame_system::Config>::AccountId>>::Balance;
 
 pub struct OnSlashHook<T>(marker::PhantomData<T>);
+// This implementation is not allowed to fail, so erors are logged instead of being propagated.
+// If the slash-related FRAME traits are allowed to fail, this can be fixed.
+// Opened a GitHub issue for this in the Substrate repo: https://github.com/paritytech/substrate/issues/12533
+// TODO: Propagate error once the issue is resolved upstream
 impl<T: Config> OnSlash<T::AccountId, AssetIdOf<T>, BalanceOf<T>> for OnSlashHook<T> {
     fn on_slash(currency_id: AssetIdOf<T>, account_id: &T::AccountId, amount: BalanceOf<T>) {
         if currency_id.is_lend_token() {
@@ -105,6 +112,7 @@ impl<T: Config> OnSlash<T::AccountId, AssetIdOf<T>, BalanceOf<T>> for OnSlashHoo
 }
 
 pub struct OnDepositHook<T>(marker::PhantomData<T>);
+// TODO: upgrade to use orml-tokens posthooks once merged to master
 impl<T: Config> OnDeposit<T::AccountId, AssetIdOf<T>, BalanceOf<T>> for OnDepositHook<T> {
     fn on_deposit(currency_id: AssetIdOf<T>, account_id: &T::AccountId, _: BalanceOf<T>) -> DispatchResult {
         if currency_id.is_lend_token() {
@@ -117,6 +125,7 @@ impl<T: Config> OnDeposit<T::AccountId, AssetIdOf<T>, BalanceOf<T>> for OnDeposi
 }
 
 pub struct OnTransferHook<T>(marker::PhantomData<T>);
+// TODO: upgrade to use orml-tokens posthooks once merged to master
 impl<T: Config> OnTransfer<T::AccountId, AssetIdOf<T>, BalanceOf<T>> for OnTransferHook<T> {
     fn on_transfer(
         currency_id: AssetIdOf<T>,
@@ -146,9 +155,7 @@ pub mod pallet {
     use super::*;
 
     #[pallet::config]
-    pub trait Config:
-        frame_system::Config + currency::Config<Balance = BalanceOf<Self>, CurrencyId = CurrencyId>
-    {
+    pub trait Config: frame_system::Config + currency::Config<Balance = BalanceOf<Self>> {
         type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
 
         /// The oracle price feeder
@@ -1815,7 +1822,7 @@ impl<T: Config> Pallet<T> {
     // Returns the incentive reward account
     pub fn incentive_reward_account_id() -> Result<T::AccountId, DispatchError> {
         let account_id: T::AccountId = T::PalletId::get().into_account_truncating();
-        let entropy = (b"loans/incentive", &[account_id]).using_encoded(blake2_256);
+        let entropy = (INCENTIVE_ACCOUNT_PREFIX, &[account_id]).using_encoded(blake2_256);
         Ok(T::AccountId::decode(&mut &entropy[..]).map_err(|_| Error::<T>::CodecError)?)
     }
 }

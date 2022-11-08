@@ -296,7 +296,7 @@ fn integration_test_lend_token_transfer_reserved_fails() {
         );
 
         // Transferring the full amount fails
-        assert_noop!(
+        assert_err!(
             lend_tokens.transfer(&vault_account_id, &lp_account_id),
             TokensError::BalanceTooLow
         );

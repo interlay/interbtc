@@ -44,7 +44,7 @@ where
 {
     fn convert(amount: &Amount<T>, to: CurrencyId<T>) -> Result<Amount<T>, DispatchError> {
         if amount.currency().is_lend_token() && to.is_lend_token() {
-            // Exampe (lendDOT to lendINTR):
+            // Example (lendDOT to lendINTR):
             //   collateral_amount(convert(underlying_amount(lendDOT_amount), underlying_id(lendINTR)))
             //   collateral_amount(convert(dot_amount, INTR))
             //   collateral_amount(intr_amount)
@@ -53,12 +53,12 @@ where
             let to_underlying_amount = Oracle::convert(&from_underlying_amount, to_underlying_id)?;
             Loans::recompute_collateral_amount(&to_underlying_amount)
         } else if amount.currency().is_lend_token() {
-            // Exampe: LendDOT -> INTR =
+            // Example: LendDOT -> INTR =
             //   convert(underlying_amount(lendDOT_amount), INTR)
             //   convert(dot_amount, INTR)
             Oracle::convert(&Loans::recompute_underlying_amount(amount)?, to)
         } else if to.is_lend_token() {
-            // Exampe (DOT to lendINTR):
+            // Example (DOT to lendINTR):
             //   collateral_amount(convert(dot_amount, underlying_id(lendINTR)))
             //   collateral_amount(convert(dot_amount, INTR))
             //   collateral_amount(intr_amount)
@@ -68,7 +68,7 @@ where
             // get the equivalent lend_token amount using the internal exchange rate
             Loans::recompute_collateral_amount(&underlying_amount)
         } else {
-            // Exampe (DOT to INTR):
+            // Example (DOT to INTR):
             //   convert(dot_amount, INTR)
             Oracle::convert(amount, to)
         }
