@@ -77,3 +77,13 @@ pub(crate) mod reward {
         T::VaultRewards::get_stake(vault_id)
     }
 }
+
+#[cfg_attr(test, mockable)]
+pub(crate) mod fee {
+    use crate::DefaultVaultId;
+    use frame_support::dispatch::DispatchResult;
+
+    pub fn withdraw_all_vault_rewards<T: crate::Config>(vault_id: &DefaultVaultId<T>) -> DispatchResult {
+        <fee::Pallet<T>>::withdraw_all_vault_rewards(vault_id)
+    }
+}
