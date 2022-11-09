@@ -520,11 +520,12 @@ fn integration_test_nomination_increases_issuable_tokens() {
     test_with_nomination_enabled_and_vault_opted_in(|vault_id| {
         let issuance_capacity_before_nomination =
             VaultRegistryPallet::get_issuable_tokens_from_vault(&vault_id).unwrap();
-        assert_eq!(issuance_capacity_before_nomination, vault_id.wrapped(556666));
         assert_nominate_collateral(&vault_id, account_of(USER), default_nomination(&vault_id));
         let issuance_capacity_after_nomination =
             VaultRegistryPallet::get_issuable_tokens_from_vault(&vault_id).unwrap();
-        assert_eq!(issuance_capacity_after_nomination, vault_id.wrapped(570000));
+        assert!(issuance_capacity_after_nomination
+            .gt(&issuance_capacity_before_nomination)
+            .unwrap());
     });
 }
 
@@ -541,8 +542,9 @@ fn integration_test_nominator_withdrawal_request_reduces_issuable_tokens() {
         ));
         let issuance_capacity_after_withdrawal_request =
             VaultRegistryPallet::get_issuable_tokens_from_vault(&vault_id).unwrap();
-        assert_eq!(issuance_capacity_before_withdrawal_request, vault_id.wrapped(570000));
-        assert_eq!(issuance_capacity_after_withdrawal_request, vault_id.wrapped(556666));
+        assert!(issuance_capacity_after_withdrawal_request
+            .lt(&issuance_capacity_before_withdrawal_request)
+            .unwrap());
     });
 }
 

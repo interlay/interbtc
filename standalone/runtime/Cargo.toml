@@ -108,6 +108,9 @@ itertools = "0.10.0"
 bitcoin = { path = "../../crates/bitcoin", default-features = false }
 
 vault-registry = { path = "../../crates/vault-registry", default-features = false, features = ["integration-tests"]}
+rand = "0.8.5"
+log = { version = "0.4.14", default-features = false }
+env_logger = {version = "0.9.1" }
 
 [build-dependencies]
 substrate-wasm-builder = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.31" }
