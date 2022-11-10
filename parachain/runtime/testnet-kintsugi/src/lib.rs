@@ -668,6 +668,9 @@ impl orml_tokens::Config for Runtime {
     type WeightInfo = ();
     type ExistentialDeposits = ExistentialDeposits;
     type OnDust = orml_tokens::TransferDust<Runtime, FeeAccount>;
+    type OnSlash = ();
+    type OnDeposit = ();
+    type OnTransfer = ();
     type MaxLocks = MaxLocks;
     type DustRemovalWhitelist = DustRemovalWhitelist;
     type MaxReserves = ConstU32<0>; // we don't use named reserves
