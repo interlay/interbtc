@@ -17,7 +17,7 @@
 
 pub use super::*;
 
-use crate as pallet_loans;
+use crate as loans;
 
 use currency::Amount;
 use frame_benchmarking::whitelisted_caller;
@@ -48,7 +48,7 @@ construct_runtime!(
         UncheckedExtrinsic = UncheckedExtrinsic,
     {
         System: frame_system::{Pallet, Call, Storage, Config, Event<T>},
-        Loans: pallet_loans::{Pallet, Storage, Call, Event<T>, Config},
+        Loans: loans::{Pallet, Storage, Call, Event<T>, Config},
         TimestampPallet: pallet_timestamp::{Pallet, Call, Storage, Inherent},
         Tokens: orml_tokens::{Pallet, Call, Storage, Config<T>, Event<T>},
         Currency: currency::{Pallet},
@@ -286,7 +286,7 @@ pub(crate) fn new_test_ext() -> sp_io::TestExternalities {
     let mut t = frame_system::GenesisConfig::default().build_storage::<Test>().unwrap();
 
     GenesisBuild::<Test>::assimilate_storage(
-        &pallet_loans::GenesisConfig {
+        &loans::GenesisConfig {
             max_exchange_rate: Rate::from_inner(DEFAULT_MAX_EXCHANGE_RATE),
             min_exchange_rate: Rate::from_inner(DEFAULT_MIN_EXCHANGE_RATE),
         },

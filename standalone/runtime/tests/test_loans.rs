@@ -1,11 +1,11 @@
 use interbtc_runtime_standalone::{CurrencyId::Token, Tokens, KINT};
 mod mock;
+use loans::{InterestRateModel, JumpModel, Market, MarketState};
 use mock::{assert_eq, *};
 use orml_traits::{MultiCurrency, MultiReservableCurrency};
-use pallet_loans::{InterestRateModel, JumpModel, Market, MarketState};
-use pallet_traits::LoansApi;
 use primitives::{Rate, Ratio};
 use sp_runtime::traits::CheckedMul;
+use traits::LoansApi;
 
 pub const USER: [u8; 32] = ALICE;
 pub const LP: [u8; 32] = BOB;

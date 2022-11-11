@@ -1,7 +1,7 @@
 [package]
 authors = ['Interlay Ltd']
 edition = '2021'
-name    = 'pallet-loans-rpc-runtime-api'
+name    = 'loans-rpc-runtime-api'
 version = '1.9.3'
 
 [dependencies]

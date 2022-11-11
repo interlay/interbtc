@@ -1,7 +1,7 @@
 [package]
 authors = ['Interlay Ltd']
 edition = '2021'
-name    = 'pallet-loans-rpc'
+name    = 'loans-rpc'
 version = '1.9.3'
 
 [dependencies]
@@ -15,7 +15,7 @@ sp-core             = { git = 'https://github.com/paritytech/substrate.git', bra
 sp-rpc              = { git = 'https://github.com/paritytech/substrate.git', branch = 'polkadot-v0.9.30', default-features = false }
 sp-runtime          = { git = 'https://github.com/paritytech/substrate.git', branch = 'polkadot-v0.9.30' }
 
-pallet-loans-rpc-runtime-api = { path = 'runtime-api', default-features = false }
+loans-rpc-runtime-api = { path = 'runtime-api', default-features = false }
 
 [lib]
 doctest = false

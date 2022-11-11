@@ -26,7 +26,6 @@ use frame_system::{
 pub use orml_asset_registry::AssetMetadata;
 use orml_asset_registry::SequentialId;
 use orml_traits::parameter_type_with_key;
-use pallet_traits::OracleApi;
 use pallet_transaction_payment::{Multiplier, TargetedFeeAdjustment};
 use sp_api::impl_runtime_apis;
 use sp_core::{OpaqueMetadata, H256};
@@ -40,6 +39,7 @@ use sp_std::{marker::PhantomData, prelude::*};
 #[cfg(feature = "std")]
 use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
+use traits::OracleApi;
 
 // A few exports that help ease life for downstream crates.
 pub use frame_support::{

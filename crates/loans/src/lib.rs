@@ -42,9 +42,6 @@ use frame_system::pallet_prelude::*;
 use num_traits::cast::ToPrimitive;
 use orml_traits::MultiCurrency;
 pub use pallet::*;
-use pallet_traits::{
-    ConvertToBigUint, LoansApi as LoansTrait, LoansMarketDataProvider, MarketInfo, MarketStatus, PriceFeeder,
-};
 use primitives::{Balance, CurrencyId, Liquidity, Price, Rate, Ratio, Shortfall, Timestamp};
 use sp_runtime::{
     traits::{
@@ -54,6 +51,9 @@ use sp_runtime::{
     ArithmeticError, FixedPointNumber, FixedU128,
 };
 use sp_std::{marker, result::Result};
+use traits::{
+    ConvertToBigUint, LoansApi as LoansTrait, LoansMarketDataProvider, MarketInfo, MarketStatus, PriceFeeder,
+};
 
 pub use orml_traits::currency::{OnDeposit, OnSlash, OnTransfer};
 use sp_io::hashing::blake2_256;
