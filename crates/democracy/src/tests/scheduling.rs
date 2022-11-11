@@ -11,7 +11,7 @@ fn simple_passing_should_work() {
             VoteThreshold::SuperMajorityApprove,
             0,
         );
-        assert_ok!(Democracy::vote(Origin::signed(1), r, aye(1)));
+        assert_ok!(Democracy::vote(RuntimeOrigin::signed(1), r, aye(1)));
         assert_eq!(
             tally(r),
             Tally {
@@ -35,7 +35,7 @@ fn simple_failing_should_work() {
             VoteThreshold::SuperMajorityApprove,
             0,
         );
-        assert_ok!(Democracy::vote(Origin::signed(1), r, nay(1)));
+        assert_ok!(Democracy::vote(RuntimeOrigin::signed(1), r, nay(1)));
         assert_eq!(
             tally(r),
             Tally {
@@ -68,7 +68,7 @@ fn ooo_inject_referendums_should_work() {
             0,
         );
 
-        assert_ok!(Democracy::vote(Origin::signed(1), r2, aye(1)));
+        assert_ok!(Democracy::vote(RuntimeOrigin::signed(1), r2, aye(1)));
         assert_eq!(
             tally(r2),
             Tally {
@@ -81,7 +81,7 @@ fn ooo_inject_referendums_should_work() {
         next_block();
         assert_eq!(Balances::free_balance(42), 2);
 
-        assert_ok!(Democracy::vote(Origin::signed(1), r1, aye(1)));
+        assert_ok!(Democracy::vote(RuntimeOrigin::signed(1), r1, aye(1)));
         assert_eq!(
             tally(r1),
             Tally {
@@ -105,12 +105,12 @@ fn delayed_enactment_should_work() {
             VoteThreshold::SuperMajorityApprove,
             1,
         );
-        assert_ok!(Democracy::vote(Origin::signed(1), r, aye(1)));
-        assert_ok!(Democracy::vote(Origin::signed(2), r, aye(2)));
-        assert_ok!(Democracy::vote(Origin::signed(3), r, aye(3)));
-        assert_ok!(Democracy::vote(Origin::signed(4), r, aye(4)));
-        assert_ok!(Democracy::vote(Origin::signed(5), r, aye(5)));
-        assert_ok!(Democracy::vote(Origin::signed(6), r, aye(6)));
+        assert_ok!(Democracy::vote(RuntimeOrigin::signed(1), r, aye(1)));
+        assert_ok!(Democracy::vote(RuntimeOrigin::signed(2), r, aye(2)));
+        assert_ok!(Democracy::vote(RuntimeOrigin::signed(3), r, aye(3)));
+        assert_ok!(Democracy::vote(RuntimeOrigin::signed(4), r, aye(4)));
+        assert_ok!(Democracy::vote(RuntimeOrigin::signed(5), r, aye(5)));
+        assert_ok!(Democracy::vote(RuntimeOrigin::signed(6), r, aye(6)));
 
         assert_eq!(
             tally(r),

@@ -29,7 +29,7 @@ mod hrmp {
             Transact {
                 require_weight_at_most: transact_weight,
                 origin_type: OriginKind::Native,
-                call: polkadot_runtime::Call::Hrmp(call).encode().into(),
+                call: polkadot_runtime::RuntimeCall::Hrmp(call).encode().into(),
             },
             RefundSurplus,
             DepositAsset {
@@ -49,7 +49,7 @@ mod hrmp {
             polkadot_runtime::System::events().iter().any(|r| {
                 matches!(
                     r.event,
-                    polkadot_runtime::Event::Hrmp(hrmp::Event::OpenChannelRequested(
+                    polkadot_runtime::RuntimeEvent::Hrmp(hrmp::Event::OpenChannelRequested(
                         actual_sender,
                         actual_recipient,
                         1000,
@@ -65,7 +65,7 @@ mod hrmp {
             polkadot_runtime::System::events().iter().any(|r| {
                 matches!(
                     r.event,
-                    polkadot_runtime::Event::Hrmp(hrmp::Event::OpenChannelAccepted(
+                    polkadot_runtime::RuntimeEvent::Hrmp(hrmp::Event::OpenChannelAccepted(
                         actual_sender,
                         actual_recipient
                     )) if actual_sender == sender.into() && actual_recipient == recipient.into()
@@ -150,17 +150,17 @@ mod hrmp {
         // setup sovereign account balances
         PolkadotNet::execute_with(|| {
             assert_ok!(polkadot_runtime::Balances::transfer(
-                polkadot_runtime::Origin::signed(ALICE.into()),
+                polkadot_runtime::RuntimeOrigin::signed(ALICE.into()),
                 sp_runtime::MultiAddress::Id(interlay_sovereign_account_on_polkadot()),
                 initial_balance
             ));
             assert_ok!(polkadot_runtime::Balances::transfer(
-                polkadot_runtime::Origin::signed(ALICE.into()),
+                polkadot_runtime::RuntimeOrigin::signed(ALICE.into()),
                 sp_runtime::MultiAddress::Id(sibling_sovereign_account_on_polkadot()),
                 initial_balance
             ));
             assert_ok!(polkadot_runtime::Balances::transfer(
-                polkadot_runtime::Origin::signed(ALICE.into()),
+                polkadot_runtime::RuntimeOrigin::signed(ALICE.into()),
                 sp_runtime::MultiAddress::Id(BOB.into()),
                 existential_deposit
             ));
@@ -186,7 +186,7 @@ mod hrmp {
 fn transfer_from_relay_chain() {
     PolkadotNet::execute_with(|| {
         assert_ok!(polkadot_runtime::XcmPallet::reserve_transfer_assets(
-            polkadot_runtime::Origin::signed(ALICE.into()),
+            polkadot_runtime::RuntimeOrigin::signed(ALICE.into()),
             Box::new(Parachain(INTERLAY_PARA_ID).into().into()),
             Box::new(
                 Junction::AccountId32 {
@@ -218,7 +218,7 @@ fn transfer_from_relay_chain() {
 fn transfer_to_relay_chain() {
     PolkadotNet::execute_with(|| {
         assert_ok!(polkadot_runtime::Balances::transfer(
-            polkadot_runtime::Origin::signed(ALICE.into()),
+            polkadot_runtime::RuntimeOrigin::signed(ALICE.into()),
             sp_runtime::MultiAddress::Id(interlay_sovereign_account_on_polkadot()),
             2 * DOT.one()
         ));
@@ -228,7 +228,7 @@ fn transfer_to_relay_chain() {
 
     Interlay::execute_with(|| {
         assert_ok!(XTokens::transfer(
-            Origin::signed(ALICE.into()),
+            RuntimeOrigin::signed(ALICE.into()),
             Token(DOT),
             2 * DOT.one(),
             Box::new(
@@ -282,7 +282,7 @@ fn transfer_to_sibling_and_back() {
 
     Interlay::execute_with(|| {
         assert_ok!(XTokens::transfer(
-            Origin::signed(ALICE.into()),
+            RuntimeOrigin::signed(ALICE.into()),
             Token(INTR),
             10_000_000_000_000,
             Box::new(
@@ -323,7 +323,7 @@ fn transfer_to_sibling_and_back() {
 
         // return some back to interlay
         assert_ok!(XTokens::transfer(
-            Origin::signed(BOB.into()),
+            RuntimeOrigin::signed(BOB.into()),
             ForeignAsset(1),
             5_000_000_000_000,
             Box::new(
@@ -403,7 +403,7 @@ fn xcm_transfer_execution_barrier_trader_works() {
     Interlay::execute_with(|| {
         assert!(System::events().iter().any(|r| matches!(
             r.event,
-            Event::DmpQueue(cumulus_pallet_dmp_queue::Event::ExecutedDownward {
+            RuntimeEvent::DmpQueue(cumulus_pallet_dmp_queue::Event::ExecutedDownward {
                 outcome: Outcome::Error(XcmError::Barrier),
                 ..
             })
@@ -445,13 +445,13 @@ fn subscribe_version_notify_works() {
     // relay chain subscribe version notify of para chain
     PolkadotNet::execute_with(|| {
         let r = pallet_xcm::Pallet::<polkadot_runtime::Runtime>::force_subscribe_version_notify(
-            polkadot_runtime::Origin::root(),
+            polkadot_runtime::RuntimeOrigin::root(),
             Box::new(Parachain(INTERLAY_PARA_ID).into().into()),
         );
         assert_ok!(r);
     });
     PolkadotNet::execute_with(|| {
-        polkadot_runtime::System::assert_has_event(polkadot_runtime::Event::XcmPallet(
+        polkadot_runtime::System::assert_has_event(polkadot_runtime::RuntimeEvent::XcmPallet(
             pallet_xcm::Event::SupportedVersionChanged(
                 MultiLocation {
                     parents: 0,
@@ -465,13 +465,13 @@ fn subscribe_version_notify_works() {
     // para chain subscribe version notify of relay chain
     Interlay::execute_with(|| {
         let r = pallet_xcm::Pallet::<interlay_runtime_parachain::Runtime>::force_subscribe_version_notify(
-            Origin::root(),
+            RuntimeOrigin::root(),
             Box::new(Parent.into()),
         );
         assert_ok!(r);
     });
     Interlay::execute_with(|| {
-        System::assert_has_event(interlay_runtime_parachain::Event::PolkadotXcm(
+        System::assert_has_event(interlay_runtime_parachain::RuntimeEvent::PolkadotXcm(
             pallet_xcm::Event::SupportedVersionChanged(
                 MultiLocation {
                     parents: 1,
@@ -485,7 +485,7 @@ fn subscribe_version_notify_works() {
     // para chain subscribe version notify of sibling chain
     Interlay::execute_with(|| {
         let r = pallet_xcm::Pallet::<interlay_runtime_parachain::Runtime>::force_subscribe_version_notify(
-            Origin::root(),
+            RuntimeOrigin::root(),
             Box::new((Parent, Parachain(SIBLING_PARA_ID)).into()),
         );
         assert_ok!(r);
@@ -493,7 +493,7 @@ fn subscribe_version_notify_works() {
     Interlay::execute_with(|| {
         assert!(interlay_runtime_parachain::System::events().iter().any(|r| matches!(
             r.event,
-            interlay_runtime_parachain::Event::XcmpQueue(cumulus_pallet_xcmp_queue::Event::XcmpMessageSent {
+            interlay_runtime_parachain::RuntimeEvent::XcmpQueue(cumulus_pallet_xcmp_queue::Event::XcmpMessageSent {
                 message_hash: Some(_)
             })
         )));
@@ -503,17 +503,19 @@ fn subscribe_version_notify_works() {
             .iter()
             .any(|r| matches!(
                 r.event,
-                testnet_interlay_runtime_parachain::Event::XcmpQueue(
+                testnet_interlay_runtime_parachain::RuntimeEvent::XcmpQueue(
                     cumulus_pallet_xcmp_queue::Event::XcmpMessageSent { message_hash: Some(_) }
-                ) | testnet_interlay_runtime_parachain::Event::XcmpQueue(cumulus_pallet_xcmp_queue::Event::Success {
-                    message_hash: Some(_),
-                    weight: _
-                })
+                ) | testnet_interlay_runtime_parachain::RuntimeEvent::XcmpQueue(
+                    cumulus_pallet_xcmp_queue::Event::Success {
+                        message_hash: Some(_),
+                        weight: _
+                    }
+                )
             )));
     });
 }
 
-fn weigh_xcm(mut message: Xcm<Call>, fee_per_second: u128) -> u128 {
+fn weigh_xcm(mut message: Xcm<RuntimeCall>, fee_per_second: u128) -> u128 {
     let trapped_xcm_message_weight = <interlay_runtime_parachain::xcm_config::XcmConfig as interlay_runtime_parachain::xcm_config::xcm_executor::Config>::Weigher::weight(
         &mut message).unwrap();
     (fee_per_second * trapped_xcm_message_weight as u128) / WEIGHT_PER_SECOND.ref_time() as u128
@@ -574,20 +576,26 @@ fn trap_assets_works() {
     let mut trapped_assets: Option<MultiAssets> = None;
     // verify that the assets got trapped (i.e. didn't get burned)
     Interlay::execute_with(|| {
-        assert!(System::events()
-            .iter()
-            .any(|r| matches!(r.event, Event::PolkadotXcm(pallet_xcm::Event::AssetsTrapped(_, _, _)))));
+        assert!(System::events().iter().any(|r| matches!(
+            r.event,
+            RuntimeEvent::PolkadotXcm(pallet_xcm::Event::AssetsTrapped(_, _, _))
+        )));
 
         let event = System::events()
             .iter()
-            .find(|r| matches!(r.event, Event::PolkadotXcm(pallet_xcm::Event::AssetsTrapped(_, _, _))))
+            .find(|r| {
+                matches!(
+                    r.event,
+                    RuntimeEvent::PolkadotXcm(pallet_xcm::Event::AssetsTrapped(_, _, _))
+                )
+            })
             .cloned()
             .unwrap();
 
         use std::convert::TryFrom;
         use xcm::VersionedMultiAssets;
         trapped_assets = match event.event {
-            Event::PolkadotXcm(pallet_xcm::Event::AssetsTrapped(_, _, ticket)) => {
+            RuntimeEvent::PolkadotXcm(pallet_xcm::Event::AssetsTrapped(_, _, ticket)) => {
                 Some(TryFrom::<VersionedMultiAssets>::try_from(ticket).unwrap())
             }
             _ => panic!("event not found"),
@@ -723,7 +731,7 @@ fn register_intr_as_foreign_asset() {
             coingecko_id: "interlay".as_bytes().to_vec(),
         },
     };
-    AssetRegistry::register_asset(Origin::root(), metadata, None).unwrap();
+    AssetRegistry::register_asset(RuntimeOrigin::root(), metadata, None).unwrap();
 }
 
 /// The goal was to write a test to see how reanchoring is dealt with - to see if we would deal with
@@ -749,7 +757,7 @@ fn test_reanchoring() {
 
     Interlay::execute_with(|| {
         assert_ok!(XTokens::transfer(
-            Origin::signed(ALICE.into()),
+            RuntimeOrigin::signed(ALICE.into()),
             Token(INTR),
             10_000_000_000_000,
             Box::new(

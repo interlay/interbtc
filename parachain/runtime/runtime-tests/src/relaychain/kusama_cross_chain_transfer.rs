@@ -60,7 +60,7 @@ mod hrmp {
             Transact {
                 require_weight_at_most: 10000000000,
                 origin_type: OriginKind::Native,
-                call: kusama_runtime::Call::Hrmp(call).encode().into(),
+                call: kusama_runtime::RuntimeCall::Hrmp(call).encode().into(),
             },
             RefundSurplus,
             DepositAsset {
@@ -80,7 +80,7 @@ mod hrmp {
             kusama_runtime::System::events().iter().any(|r| {
                 matches!(
                     r.event,
-                    kusama_runtime::Event::Hrmp(hrmp::Event::OpenChannelRequested(
+                    kusama_runtime::RuntimeEvent::Hrmp(hrmp::Event::OpenChannelRequested(
                         actual_sender,
                         actual_recipient,
                         1000,
@@ -96,7 +96,7 @@ mod hrmp {
             kusama_runtime::System::events().iter().any(|r| {
                 matches!(
                     r.event,
-                    kusama_runtime::Event::Hrmp(hrmp::Event::OpenChannelAccepted(
+                    kusama_runtime::RuntimeEvent::Hrmp(hrmp::Event::OpenChannelAccepted(
                         actual_sender,
                         actual_recipient
                     )) if actual_sender == sender.into() && actual_recipient == recipient.into()
@@ -145,12 +145,12 @@ mod hrmp {
         // setup sovereign account balances
         KusamaNet::execute_with(|| {
             assert_ok!(kusama_runtime::Balances::transfer(
-                kusama_runtime::Origin::signed(ALICE.into()),
+                kusama_runtime::RuntimeOrigin::signed(ALICE.into()),
                 sp_runtime::MultiAddress::Id(kintsugi_sovereign_account_on_kusama()),
                 10_820_000_000_000
             ));
             assert_ok!(kusama_runtime::Balances::transfer(
-                kusama_runtime::Origin::signed(ALICE.into()),
+                kusama_runtime::RuntimeOrigin::signed(ALICE.into()),
                 sp_runtime::MultiAddress::Id(sibling_sovereign_account_on_kusama()),
                 10_820_000_000_000
             ));
@@ -177,7 +177,7 @@ mod hrmp {
 fn transfer_from_relay_chain() {
     KusamaNet::execute_with(|| {
         assert_ok!(kusama_runtime::XcmPallet::reserve_transfer_assets(
-            kusama_runtime::Origin::signed(ALICE.into()),
+            kusama_runtime::RuntimeOrigin::signed(ALICE.into()),
             Box::new(Parachain(KINTSUGI_PARA_ID).into().into()),
             Box::new(
                 Junction::AccountId32 {
@@ -206,7 +206,7 @@ fn transfer_from_relay_chain() {
 fn transfer_to_relay_chain() {
     KusamaNet::execute_with(|| {
         assert_ok!(kusama_runtime::Balances::transfer(
-            kusama_runtime::Origin::signed(ALICE.into()),
+            kusama_runtime::RuntimeOrigin::signed(ALICE.into()),
             sp_runtime::MultiAddress::Id(kintsugi_sovereign_account_on_kusama()),
             2 * KSM.one()
         ));
@@ -214,7 +214,7 @@ fn transfer_to_relay_chain() {
 
     Kintsugi::execute_with(|| {
         assert_ok!(XTokens::transfer(
-            Origin::signed(ALICE.into()),
+            RuntimeOrigin::signed(ALICE.into()),
             Token(KSM),
             KSM.one(),
             Box::new(
@@ -269,7 +269,7 @@ fn transfer_to_sibling_and_back() {
 
     Kintsugi::execute_with(|| {
         assert_ok!(XTokens::transfer(
-            Origin::signed(ALICE.into()),
+            RuntimeOrigin::signed(ALICE.into()),
             Token(KINT),
             10_000_000_000_000,
             Box::new(
@@ -310,7 +310,7 @@ fn transfer_to_sibling_and_back() {
 
         // return some back to kintsugi
         assert_ok!(XTokens::transfer(
-            Origin::signed(BOB.into()),
+            RuntimeOrigin::signed(BOB.into()),
             ForeignAsset(1),
             5_000_000_000_000,
             Box::new(
@@ -380,7 +380,7 @@ fn xcm_transfer_execution_barrier_trader_works() {
     Kintsugi::execute_with(|| {
         assert!(System::events().iter().any(|r| matches!(
             r.event,
-            Event::DmpQueue(cumulus_pallet_dmp_queue::Event::ExecutedDownward {
+            RuntimeEvent::DmpQueue(cumulus_pallet_dmp_queue::Event::ExecutedDownward {
                 outcome: Outcome::Error(XcmError::Barrier),
                 ..
             })
@@ -391,7 +391,7 @@ fn xcm_transfer_execution_barrier_trader_works() {
     // para-chain use XcmExecutor `execute_xcm()` method to execute xcm.
     // if `weight_limit` in BuyExecution is less than `xcm_weight(max_weight)`, then Barrier can't pass.
     // other situation when `weight_limit` is `Unlimited` or large than `xcm_weight`, then it's ok.
-    let message = Xcm::<kintsugi_runtime_parachain::Call>(vec![
+    let message = Xcm::<kintsugi_runtime_parachain::RuntimeCall>(vec![
         ReserveAssetDeposited((Parent, 100).into()),
         BuyExecution {
             fees: (Parent, 100).into(),
@@ -410,7 +410,7 @@ fn xcm_transfer_execution_barrier_trader_works() {
 
     // trader inside BuyExecution have TooExpensive error if payment less than calculated weight amount.
     // the minimum of calculated weight amount(`FixedRateOfFungible<KsmPerSecond>`).
-    let message = Xcm::<kintsugi_runtime_parachain::Call>(vec![
+    let message = Xcm::<kintsugi_runtime_parachain::RuntimeCall>(vec![
         ReserveAssetDeposited((Parent, xcm_fee - 1).into()),
         BuyExecution {
             fees: (Parent, xcm_fee - 1).into(),
@@ -431,7 +431,7 @@ fn xcm_transfer_execution_barrier_trader_works() {
     });
 
     // all situation fulfilled, execute success
-    let message = Xcm::<kintsugi_runtime_parachain::Call>(vec![
+    let message = Xcm::<kintsugi_runtime_parachain::RuntimeCall>(vec![
         ReserveAssetDeposited((Parent, xcm_fee).into()),
         BuyExecution {
             fees: (Parent, xcm_fee).into(),
@@ -454,13 +454,13 @@ fn subscribe_version_notify_works() {
     // relay chain subscribe version notify of para chain
     KusamaNet::execute_with(|| {
         let r = pallet_xcm::Pallet::<kusama_runtime::Runtime>::force_subscribe_version_notify(
-            kusama_runtime::Origin::root(),
+            kusama_runtime::RuntimeOrigin::root(),
             Box::new(Parachain(KINTSUGI_PARA_ID).into().into()),
         );
         assert_ok!(r);
     });
     KusamaNet::execute_with(|| {
-        kusama_runtime::System::assert_has_event(kusama_runtime::Event::XcmPallet(
+        kusama_runtime::System::assert_has_event(kusama_runtime::RuntimeEvent::XcmPallet(
             pallet_xcm::Event::SupportedVersionChanged(
                 MultiLocation {
                     parents: 0,
@@ -474,13 +474,13 @@ fn subscribe_version_notify_works() {
     // para chain subscribe version notify of relay chain
     Kintsugi::execute_with(|| {
         let r = pallet_xcm::Pallet::<kintsugi_runtime_parachain::Runtime>::force_subscribe_version_notify(
-            Origin::root(),
+            RuntimeOrigin::root(),
             Box::new(Parent.into()),
         );
         assert_ok!(r);
     });
     Kintsugi::execute_with(|| {
-        System::assert_has_event(kintsugi_runtime_parachain::Event::PolkadotXcm(
+        System::assert_has_event(kintsugi_runtime_parachain::RuntimeEvent::PolkadotXcm(
             pallet_xcm::Event::SupportedVersionChanged(
                 MultiLocation {
                     parents: 1,
@@ -494,7 +494,7 @@ fn subscribe_version_notify_works() {
     // para chain subscribe version notify of sibling chain
     Kintsugi::execute_with(|| {
         let r = pallet_xcm::Pallet::<kintsugi_runtime_parachain::Runtime>::force_subscribe_version_notify(
-            Origin::root(),
+            RuntimeOrigin::root(),
             Box::new((Parent, Parachain(SIBLING_PARA_ID)).into()),
         );
         assert_ok!(r);
@@ -502,7 +502,7 @@ fn subscribe_version_notify_works() {
     Kintsugi::execute_with(|| {
         assert!(kintsugi_runtime_parachain::System::events().iter().any(|r| matches!(
             r.event,
-            kintsugi_runtime_parachain::Event::XcmpQueue(cumulus_pallet_xcmp_queue::Event::XcmpMessageSent {
+            kintsugi_runtime_parachain::RuntimeEvent::XcmpQueue(cumulus_pallet_xcmp_queue::Event::XcmpMessageSent {
                 message_hash: Some(_)
             })
         )));
@@ -512,12 +512,14 @@ fn subscribe_version_notify_works() {
             .iter()
             .any(|r| matches!(
                 r.event,
-                testnet_kintsugi_runtime_parachain::Event::XcmpQueue(
+                testnet_kintsugi_runtime_parachain::RuntimeEvent::XcmpQueue(
                     cumulus_pallet_xcmp_queue::Event::XcmpMessageSent { message_hash: Some(_) }
-                ) | testnet_kintsugi_runtime_parachain::Event::XcmpQueue(cumulus_pallet_xcmp_queue::Event::Success {
-                    message_hash: Some(_),
-                    weight: _,
-                })
+                ) | testnet_kintsugi_runtime_parachain::RuntimeEvent::XcmpQueue(
+                    cumulus_pallet_xcmp_queue::Event::Success {
+                        message_hash: Some(_),
+                        weight: _,
+                    }
+                )
             )));
     });
 }
@@ -570,20 +572,26 @@ fn trap_assets_works() {
     let mut trapped_assets: Option<MultiAssets> = None;
     // verify that the assets got trapped (i.e. didn't get burned)
     Kintsugi::execute_with(|| {
-        assert!(System::events()
-            .iter()
-            .any(|r| matches!(r.event, Event::PolkadotXcm(pallet_xcm::Event::AssetsTrapped(_, _, _)))));
+        assert!(System::events().iter().any(|r| matches!(
+            r.event,
+            RuntimeEvent::PolkadotXcm(pallet_xcm::Event::AssetsTrapped(_, _, _))
+        )));
 
         let event = System::events()
             .iter()
-            .find(|r| matches!(r.event, Event::PolkadotXcm(pallet_xcm::Event::AssetsTrapped(_, _, _))))
+            .find(|r| {
+                matches!(
+                    r.event,
+                    RuntimeEvent::PolkadotXcm(pallet_xcm::Event::AssetsTrapped(_, _, _))
+                )
+            })
             .cloned()
             .unwrap();
 
         use std::convert::TryFrom;
         use xcm::VersionedMultiAssets;
         trapped_assets = match event.event {
-            Event::PolkadotXcm(pallet_xcm::Event::AssetsTrapped(_, _, ticket)) => {
+            RuntimeEvent::PolkadotXcm(pallet_xcm::Event::AssetsTrapped(_, _, ticket)) => {
                 Some(TryFrom::<VersionedMultiAssets>::try_from(ticket).unwrap())
             }
             _ => panic!("event not found"),
@@ -674,5 +682,5 @@ fn register_kint_as_foreign_asset() {
             coingecko_id: "kint-sugi".as_bytes().to_vec(),
         },
     };
-    AssetRegistry::register_asset(Origin::root(), metadata, None).unwrap();
+    AssetRegistry::register_asset(RuntimeOrigin::root(), metadata, None).unwrap();
 }

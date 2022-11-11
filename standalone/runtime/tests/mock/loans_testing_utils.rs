@@ -25,12 +25,12 @@ pub const fn market_mock(lend_token_id: CurrencyId) -> Market<Balance> {
 }
 
 pub fn activate_market(underlying_id: CurrencyId, lend_token_id: CurrencyId) {
-    assert_ok!(Call::Loans(LoansCall::add_market {
+    assert_ok!(RuntimeCall::Loans(LoansCall::add_market {
         asset_id: underlying_id,
         market: market_mock(lend_token_id)
     })
     .dispatch(root()));
-    assert_ok!(Call::Loans(LoansCall::activate_market {
+    assert_ok!(RuntimeCall::Loans(LoansCall::activate_market {
         asset_id: underlying_id
     })
     .dispatch(root()));
@@ -41,7 +41,7 @@ pub fn mint_lend_tokens(account_id: AccountId, underlying_id: CurrencyId) {
     let amount: Amount<Runtime> = Amount::new(balance_to_mint, underlying_id);
     assert_ok!(amount.mint_to(&account_id));
 
-    assert_ok!(Call::Loans(LoansCall::mint {
+    assert_ok!(RuntimeCall::Loans(LoansCall::mint {
         asset_id: underlying_id,
         mint_amount: balance_to_mint
     })

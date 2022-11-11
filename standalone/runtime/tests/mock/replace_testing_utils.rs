@@ -2,7 +2,7 @@ use crate::*;
 use currency::Amount;
 
 pub fn request_replace(old_vault_id: &VaultId, amount: Amount<Runtime>) -> Amount<Runtime> {
-    assert_ok!(Call::Replace(ReplaceCall::request_replace {
+    assert_ok!(RuntimeCall::Replace(ReplaceCall::request_replace {
         currency_pair: old_vault_id.currencies.clone(),
         amount: amount.amount(),
     })
@@ -44,7 +44,7 @@ pub fn assert_request_replace_event() -> Balance {
         .iter()
         .rev()
         .find_map(|record| match record.event {
-            Event::Replace(ReplaceEvent::RequestReplace {
+            RuntimeEvent::Replace(ReplaceEvent::RequestReplace {
                 griefing_collateral, ..
             }) => Some(griefing_collateral),
             _ => None,
@@ -57,7 +57,7 @@ pub fn assert_accept_replace_event() -> H256 {
         .iter()
         .rev()
         .find_map(|record| match record.event {
-            Event::Replace(ReplaceEvent::AcceptReplace { replace_id, .. }) => Some(replace_id),
+            RuntimeEvent::Replace(ReplaceEvent::AcceptReplace { replace_id, .. }) => Some(replace_id),
             _ => None,
         })
         .unwrap()
@@ -72,7 +72,7 @@ pub fn accept_replace(
 ) -> Result<(H256, ReplaceRequest<AccountId32, BlockNumber, Balance, CurrencyId>), sp_runtime::DispatchError> {
     // assert_replace_request_event();
 
-    Call::Replace(ReplaceCall::accept_replace {
+    RuntimeCall::Replace(ReplaceCall::accept_replace {
         currency_pair: new_vault_id.currencies.clone(),
         old_vault: old_vault_id.clone(),
         amount_btc: amount_btc.amount(),

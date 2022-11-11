@@ -46,7 +46,7 @@ pub mod pallet {
         type AnnuityPalletId: Get<PalletId>;
 
         /// The overarching event type.
-        type Event: From<Event<Self, I>> + IsType<<Self as frame_system::Config>::Event>;
+        type RuntimeEvent: From<Event<Self, I>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
         /// The native currency for emission.
         type Currency: ReservableCurrency<Self::AccountId>;

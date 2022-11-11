@@ -15,8 +15,8 @@ pub use frame_support::{
     dispatch::{DispatchError, DispatchResultWithPostInfo},
 };
 pub use interbtc_runtime_standalone::{
-    token_distribution, AccountId, Balance, BlockNumber, Call, CurrencyId, EscrowAnnuityInstance,
-    EscrowRewardsInstance, Event, GetNativeCurrencyId, GetRelayChainCurrencyId, GetWrappedCurrencyId, Runtime,
+    token_distribution, AccountId, Balance, BlockNumber, CurrencyId, EscrowAnnuityInstance, EscrowRewardsInstance,
+    GetNativeCurrencyId, GetRelayChainCurrencyId, GetWrappedCurrencyId, Runtime, RuntimeCall, RuntimeEvent,
     TechnicalCommitteeInstance, VaultAnnuityInstance, VaultRewardsInstance, YEARS,
 };
 pub use mocktopus::mocking::*;
@@ -312,12 +312,12 @@ pub fn default_redeem_request(
     }
 }
 
-pub fn root() -> <Runtime as frame_system::Config>::Origin {
-    <Runtime as frame_system::Config>::Origin::root()
+pub fn root() -> <Runtime as frame_system::Config>::RuntimeOrigin {
+    <Runtime as frame_system::Config>::RuntimeOrigin::root()
 }
 
-pub fn origin_of(account_id: AccountId) -> <Runtime as frame_system::Config>::Origin {
-    <Runtime as frame_system::Config>::Origin::signed(account_id)
+pub fn origin_of(account_id: AccountId) -> <Runtime as frame_system::Config>::RuntimeOrigin {
+    <Runtime as frame_system::Config>::RuntimeOrigin::signed(account_id)
 }
 
 pub fn account_of(address: [u8; 32]) -> AccountId {
@@ -1022,11 +1022,11 @@ pub fn dummy_public_key() -> BtcPublicKey {
 pub fn register_vault_with_public_key(vault_id: &VaultId, collateral: Amount<Runtime>, public_key: BtcPublicKey) {
     if VaultRegistryPallet::get_bitcoin_public_key(&vault_id.account_id).is_err() {
         assert_ok!(
-            Call::VaultRegistry(VaultRegistryCall::register_public_key { public_key })
+            RuntimeCall::VaultRegistry(VaultRegistryCall::register_public_key { public_key })
                 .dispatch(origin_of(vault_id.account_id.clone()))
         );
     }
-    assert_ok!(Call::VaultRegistry(VaultRegistryCall::register_vault {
+    assert_ok!(RuntimeCall::VaultRegistry(VaultRegistryCall::register_vault {
         currency_pair: vault_id.currencies.clone(),
         collateral: collateral.amount(),
     })
@@ -1040,12 +1040,12 @@ pub fn register_vault(vault_id: &VaultId, collateral: Amount<Runtime>) {
 pub fn get_register_vault_result(vault_id: &VaultId, collateral: Amount<Runtime>) -> DispatchResultWithPostInfo {
     assert_eq!(vault_id.collateral_currency(), collateral.currency());
     if VaultRegistryPallet::get_bitcoin_public_key(&vault_id.account_id).is_err() {
-        assert_ok!(Call::VaultRegistry(VaultRegistryCall::register_public_key {
+        assert_ok!(RuntimeCall::VaultRegistry(VaultRegistryCall::register_public_key {
             public_key: dummy_public_key()
         })
         .dispatch(origin_of(vault_id.account_id.clone())));
     }
-    Call::VaultRegistry(VaultRegistryCall::register_vault {
+    RuntimeCall::VaultRegistry(VaultRegistryCall::register_vault {
         currency_pair: vault_id.currencies.clone(),
         collateral: collateral.amount(),
     })
@@ -1083,7 +1083,7 @@ pub fn required_collateral_for_issue(issued_tokens: Amount<Runtime>, currency_id
 }
 
 pub fn assert_store_main_chain_header_event(block_height: u32, block_hash: H256Le, relayer_id: AccountId) {
-    let store_event = Event::BTCRelay(BTCRelayEvent::StoreMainChainHeader {
+    let store_event = RuntimeEvent::BTCRelay(BTCRelayEvent::StoreMainChainHeader {
         block_height,
         block_hash,
         relayer_id,
@@ -1095,7 +1095,7 @@ pub fn assert_store_main_chain_header_event(block_height: u32, block_hash: H256L
 }
 
 pub fn assert_store_fork_header_event(chain_id: u32, fork_height: u32, block_hash: H256Le, relayer_id: AccountId) {
-    let store_event = Event::BTCRelay(BTCRelayEvent::StoreForkHeader {
+    let store_event = RuntimeEvent::BTCRelay(BTCRelayEvent::StoreForkHeader {
         chain_id,
         fork_height,
         block_hash,
@@ -1108,7 +1108,7 @@ pub fn assert_store_fork_header_event(chain_id: u32, fork_height: u32, block_has
 }
 
 pub fn assert_fork_ahead_of_main_chain_event(main_chain_height: u32, fork_height: u32, fork_id: u32) {
-    let store_event = Event::BTCRelay(BTCRelayEvent::ForkAheadOfMainChain {
+    let store_event = RuntimeEvent::BTCRelay(BTCRelayEvent::ForkAheadOfMainChain {
         main_chain_height,
         fork_height,
         fork_id,
@@ -1120,7 +1120,7 @@ pub fn assert_fork_ahead_of_main_chain_event(main_chain_height: u32, fork_height
 }
 
 pub fn assert_chain_reorg_event(new_chain_tip_hash: H256Le, new_chain_tip_height: u32, fork_depth: u32) {
-    let store_event = Event::BTCRelay(BTCRelayEvent::ChainReorg {
+    let store_event = RuntimeEvent::BTCRelay(BTCRelayEvent::ChainReorg {
         new_chain_tip_hash,
         new_chain_tip_height,
         fork_depth,
@@ -1322,7 +1322,7 @@ impl TransactionGenerator {
 
     fn relay(&self, height: u32, block: &Block, raw_block_header: RawBlockHeader) {
         if let Some(relayer) = self.relayer {
-            assert_ok!(Call::BTCRelay(BTCRelayCall::store_block_header {
+            assert_ok!(RuntimeCall::BTCRelay(BTCRelayCall::store_block_header {
                 raw_block_header: raw_block_header
             })
             .dispatch(origin_of(account_of(relayer))));
@@ -1501,12 +1501,12 @@ impl ExtBuilder {
             // initialize btc relay
             let _ = TransactionGenerator::new().with_confirmations(7).mine();
 
-            assert_ok!(Call::Oracle(OracleCall::insert_authorized_oracle {
+            assert_ok!(RuntimeCall::Oracle(OracleCall::insert_authorized_oracle {
                 account_id: account_of(ALICE),
                 name: vec![]
             })
             .dispatch(root()));
-            assert_ok!(Call::Oracle(OracleCall::feed_values {
+            assert_ok!(RuntimeCall::Oracle(OracleCall::feed_values {
                 values: vec![
                     (OracleKey::ExchangeRate(DEFAULT_COLLATERAL_CURRENCY), FixedU128::from(1)),
                     (OracleKey::ExchangeRate(DEFAULT_GRIEFING_CURRENCY), FixedU128::from(1)),

@@ -28,11 +28,22 @@ fn utilization_rate_works() {
 fn interest_rate_model_works() {
     new_test_ext().execute_with(|| {
         let rate_decimal: u128 = 1_000_000_000_000_000_000;
-        Tokens::set_balance(Origin::root(), ALICE, Token(DOT), million_unit(1000) - unit(1000), 0).unwrap();
+        Tokens::set_balance(
+            RuntimeOrigin::root(),
+            ALICE,
+            Token(DOT),
+            million_unit(1000) - unit(1000),
+            0,
+        )
+        .unwrap();
         // Deposit 200 DOT and borrow 100 DOT
-        assert_ok!(Loans::mint(Origin::signed(ALICE), Token(DOT), million_unit(200)));
-        assert_ok!(Loans::deposit_all_collateral(Origin::signed(ALICE), Token(DOT)));
-        assert_ok!(Loans::borrow(Origin::signed(ALICE), Token(DOT), million_unit(100)));
+        assert_ok!(Loans::mint(RuntimeOrigin::signed(ALICE), Token(DOT), million_unit(200)));
+        assert_ok!(Loans::deposit_all_collateral(RuntimeOrigin::signed(ALICE), Token(DOT)));
+        assert_ok!(Loans::borrow(
+            RuntimeOrigin::signed(ALICE),
+            Token(DOT),
+            million_unit(100)
+        ));
 
         let total_cash = million_unit(200) - million_unit(100);
         let total_supply = Loans::calc_collateral_amount(million_unit(200), Loans::exchange_rate(Token(DOT))).unwrap();
@@ -113,13 +124,13 @@ fn last_accrued_interest_time_should_be_update_correctly() {
     new_test_ext().execute_with(|| {
         assert_eq!(Loans::borrow_index(Token(DOT)), Rate::one());
         assert_eq!(Loans::last_accrued_interest_time(Token(DOT)), 0);
-        assert_ok!(Loans::mint(Origin::signed(ALICE), Token(DOT), unit(200)));
+        assert_ok!(Loans::mint(RuntimeOrigin::signed(ALICE), Token(DOT), unit(200)));
         assert_eq!(Loans::last_accrued_interest_time(Token(DOT)), 6);
-        assert_ok!(Loans::deposit_all_collateral(Origin::signed(ALICE), Token(DOT)));
-        assert_ok!(Loans::borrow(Origin::signed(ALICE), Token(DOT), unit(100)));
+        assert_ok!(Loans::deposit_all_collateral(RuntimeOrigin::signed(ALICE), Token(DOT)));
+        assert_ok!(Loans::borrow(RuntimeOrigin::signed(ALICE), Token(DOT), unit(100)));
         assert_eq!(Loans::borrow_index(Token(DOT)), Rate::one());
         TimestampPallet::set_timestamp(12000);
-        assert_ok!(Loans::mint(Origin::signed(ALICE), Token(DOT), unit(100)));
+        assert_ok!(Loans::mint(RuntimeOrigin::signed(ALICE), Token(DOT), unit(100)));
         assert_eq!(Loans::borrow_index(Token(DOT)), Rate::from_inner(1000000013318112633),);
     })
 }
@@ -127,12 +138,12 @@ fn last_accrued_interest_time_should_be_update_correctly() {
 #[test]
 fn accrue_interest_works_after_mint() {
     new_test_ext().execute_with(|| {
-        assert_ok!(Loans::mint(Origin::signed(ALICE), Token(DOT), unit(200)));
-        assert_ok!(Loans::deposit_all_collateral(Origin::signed(ALICE), Token(DOT)));
-        assert_ok!(Loans::borrow(Origin::signed(ALICE), Token(DOT), unit(100)));
+        assert_ok!(Loans::mint(RuntimeOrigin::signed(ALICE), Token(DOT), unit(200)));
+        assert_ok!(Loans::deposit_all_collateral(RuntimeOrigin::signed(ALICE), Token(DOT)));
+        assert_ok!(Loans::borrow(RuntimeOrigin::signed(ALICE), Token(DOT), unit(100)));
         assert_eq!(Loans::borrow_index(Token(DOT)), Rate::one());
         TimestampPallet::set_timestamp(12000);
-        assert_ok!(Loans::mint(Origin::signed(ALICE), Token(DOT), unit(100)));
+        assert_ok!(Loans::mint(RuntimeOrigin::signed(ALICE), Token(DOT), unit(100)));
         assert_eq!(Loans::borrow_index(Token(DOT)), Rate::from_inner(1000000013318112633),);
     })
 }
@@ -140,11 +151,11 @@ fn accrue_interest_works_after_mint() {
 #[test]
 fn accrue_interest_works_after_borrow() {
     new_test_ext().execute_with(|| {
-        assert_ok!(Loans::mint(Origin::signed(ALICE), Token(DOT), unit(200)));
-        assert_ok!(Loans::deposit_all_collateral(Origin::signed(ALICE), Token(DOT)));
+        assert_ok!(Loans::mint(RuntimeOrigin::signed(ALICE), Token(DOT), unit(200)));
+        assert_ok!(Loans::deposit_all_collateral(RuntimeOrigin::signed(ALICE), Token(DOT)));
         assert_eq!(Loans::borrow_index(Token(DOT)), Rate::one());
         TimestampPallet::set_timestamp(12000);
-        assert_ok!(Loans::borrow(Origin::signed(ALICE), Token(DOT), unit(100)));
+        assert_ok!(Loans::borrow(RuntimeOrigin::signed(ALICE), Token(DOT), unit(100)));
         assert_eq!(Loans::borrow_index(Token(DOT)), Rate::from_inner(1000000003805175038),);
     })
 }
@@ -152,9 +163,9 @@ fn accrue_interest_works_after_borrow() {
 #[test]
 fn accrue_interest_works_after_redeem() {
     new_test_ext().execute_with(|| {
-        assert_ok!(Loans::mint(Origin::signed(ALICE), Token(DOT), unit(200)));
-        assert_ok!(Loans::deposit_all_collateral(Origin::signed(ALICE), Token(DOT)));
-        assert_ok!(Loans::borrow(Origin::signed(ALICE), Token(DOT), unit(10)));
+        assert_ok!(Loans::mint(RuntimeOrigin::signed(ALICE), Token(DOT), unit(200)));
+        assert_ok!(Loans::deposit_all_collateral(RuntimeOrigin::signed(ALICE), Token(DOT)));
+        assert_ok!(Loans::borrow(RuntimeOrigin::signed(ALICE), Token(DOT), unit(10)));
         assert_eq!(Loans::borrow_index(Token(DOT)), Rate::one());
         TimestampPallet::set_timestamp(12000);
 
@@ -163,12 +174,16 @@ fn accrue_interest_works_after_redeem() {
         let exchange_rate = Loans::exchange_rate_stored(Token(DOT)).unwrap();
         let lend_token_amount = Loans::calc_collateral_amount(amount_to_redeem, exchange_rate).unwrap();
         assert_ok!(Loans::withdraw_collateral(
-            Origin::signed(ALICE),
+            RuntimeOrigin::signed(ALICE),
             Loans::lend_token_id(Token(DOT)).unwrap(),
             lend_token_amount
         ));
         // Then the amount can be redeemed
-        assert_ok!(Loans::redeem(Origin::signed(ALICE), Token(DOT), amount_to_redeem));
+        assert_ok!(Loans::redeem(
+            RuntimeOrigin::signed(ALICE),
+            Token(DOT),
+            amount_to_redeem
+        ));
         assert_eq!(Loans::borrow_index(Token(DOT)), Rate::from_inner(1000000004756468797),);
         assert_eq!(
             Loans::exchange_rate(Token(DOT))
@@ -183,14 +198,14 @@ fn accrue_interest_works_after_redeem() {
 fn accrue_interest_works_after_redeem_all() {
     new_test_ext().execute_with(|| {
         assert_eq!(Tokens::balance(Token(DOT), &BOB), 1000000000000000);
-        assert_ok!(Loans::mint(Origin::signed(BOB), Token(DOT), unit(20)));
-        assert_ok!(Loans::mint(Origin::signed(ALICE), Token(DOT), unit(200)));
-        assert_ok!(Loans::deposit_all_collateral(Origin::signed(ALICE), Token(DOT)));
-        assert_ok!(Loans::borrow(Origin::signed(ALICE), Token(DOT), unit(10)));
+        assert_ok!(Loans::mint(RuntimeOrigin::signed(BOB), Token(DOT), unit(20)));
+        assert_ok!(Loans::mint(RuntimeOrigin::signed(ALICE), Token(DOT), unit(200)));
+        assert_ok!(Loans::deposit_all_collateral(RuntimeOrigin::signed(ALICE), Token(DOT)));
+        assert_ok!(Loans::borrow(RuntimeOrigin::signed(ALICE), Token(DOT), unit(10)));
         assert_eq!(Loans::borrow_index(Token(DOT)), Rate::one());
         assert_eq!(Tokens::balance(Token(DOT), &BOB), 980000000000000);
         TimestampPallet::set_timestamp(12000);
-        assert_ok!(Loans::redeem_all(Origin::signed(BOB), Token(DOT)));
+        assert_ok!(Loans::redeem_all(RuntimeOrigin::signed(BOB), Token(DOT)));
         assert_eq!(Loans::borrow_index(Token(DOT)), Rate::from_inner(1000000004669977168),);
         assert_eq!(
             Loans::exchange_rate(Token(DOT))
@@ -205,12 +220,12 @@ fn accrue_interest_works_after_redeem_all() {
 #[test]
 fn accrue_interest_works_after_repay() {
     new_test_ext().execute_with(|| {
-        assert_ok!(Loans::mint(Origin::signed(ALICE), Token(DOT), unit(200)));
-        assert_ok!(Loans::deposit_all_collateral(Origin::signed(ALICE), Token(DOT)));
-        assert_ok!(Loans::borrow(Origin::signed(ALICE), Token(DOT), unit(20)));
+        assert_ok!(Loans::mint(RuntimeOrigin::signed(ALICE), Token(DOT), unit(200)));
+        assert_ok!(Loans::deposit_all_collateral(RuntimeOrigin::signed(ALICE), Token(DOT)));
+        assert_ok!(Loans::borrow(RuntimeOrigin::signed(ALICE), Token(DOT), unit(20)));
         assert_eq!(Loans::borrow_index(Token(DOT)), Rate::one());
         TimestampPallet::set_timestamp(12000);
-        assert_ok!(Loans::repay_borrow(Origin::signed(ALICE), Token(DOT), unit(10)));
+        assert_ok!(Loans::repay_borrow(RuntimeOrigin::signed(ALICE), Token(DOT), unit(10)));
         assert_eq!(Loans::borrow_index(Token(DOT)), Rate::from_inner(1000000005707762557),);
     })
 }
@@ -218,13 +233,13 @@ fn accrue_interest_works_after_repay() {
 #[test]
 fn accrue_interest_works_after_repay_all() {
     new_test_ext().execute_with(|| {
-        assert_ok!(Loans::mint(Origin::signed(BOB), Token(KSM), unit(200)));
-        assert_ok!(Loans::mint(Origin::signed(ALICE), Token(DOT), unit(200)));
-        assert_ok!(Loans::deposit_all_collateral(Origin::signed(ALICE), Token(DOT)));
-        assert_ok!(Loans::borrow(Origin::signed(ALICE), Token(KSM), unit(50)));
+        assert_ok!(Loans::mint(RuntimeOrigin::signed(BOB), Token(KSM), unit(200)));
+        assert_ok!(Loans::mint(RuntimeOrigin::signed(ALICE), Token(DOT), unit(200)));
+        assert_ok!(Loans::deposit_all_collateral(RuntimeOrigin::signed(ALICE), Token(DOT)));
+        assert_ok!(Loans::borrow(RuntimeOrigin::signed(ALICE), Token(KSM), unit(50)));
         assert_eq!(Loans::borrow_index(Token(KSM)), Rate::one());
         TimestampPallet::set_timestamp(12000);
-        assert_ok!(Loans::repay_borrow_all(Origin::signed(ALICE), Token(KSM)));
+        assert_ok!(Loans::repay_borrow_all(RuntimeOrigin::signed(ALICE), Token(KSM)));
         assert_eq!(Loans::borrow_index(Token(KSM)), Rate::from_inner(1000000008561643835),);
         assert_eq!(Tokens::balance(Token(KSM), &ALICE), 999999999571918);
         let borrow_snapshot = Loans::account_borrows(Token(KSM), ALICE);
@@ -237,13 +252,13 @@ fn accrue_interest_works_after_repay_all() {
 fn accrue_interest_works_after_liquidate_borrow() {
     new_test_ext().execute_with(|| {
         // Bob deposits 200 KSM
-        assert_ok!(Loans::mint(Origin::signed(BOB), Token(KSM), unit(200)));
+        assert_ok!(Loans::mint(RuntimeOrigin::signed(BOB), Token(KSM), unit(200)));
         // Alice deposits 300 DOT as collateral
-        assert_ok!(Loans::mint(Origin::signed(ALICE), Token(DOT), unit(300)));
-        assert_ok!(Loans::deposit_all_collateral(Origin::signed(ALICE), Token(DOT)));
+        assert_ok!(Loans::mint(RuntimeOrigin::signed(ALICE), Token(DOT), unit(300)));
+        assert_ok!(Loans::deposit_all_collateral(RuntimeOrigin::signed(ALICE), Token(DOT)));
         // Alice borrows 100 KSM and 50 DOT
-        assert_ok!(Loans::borrow(Origin::signed(ALICE), Token(KSM), unit(100)));
-        assert_ok!(Loans::borrow(Origin::signed(ALICE), Token(DOT), unit(50)));
+        assert_ok!(Loans::borrow(RuntimeOrigin::signed(ALICE), Token(KSM), unit(100)));
+        assert_ok!(Loans::borrow(RuntimeOrigin::signed(ALICE), Token(DOT), unit(50)));
         assert_eq!(Loans::borrow_index(Token(DOT)), Rate::one());
         assert_eq!(Loans::borrow_index(Token(KSM)), Rate::one());
         TimestampPallet::set_timestamp(12000);
@@ -251,7 +266,7 @@ fn accrue_interest_works_after_liquidate_borrow() {
         MockPriceFeeder::set_price(Token(KSM), 2.into());
         // BOB repay the KSM loan and get DOT callateral from ALICE
         assert_ok!(Loans::liquidate_borrow(
-            Origin::signed(BOB),
+            RuntimeOrigin::signed(BOB),
             ALICE,
             Token(KSM),
             unit(50),
@@ -265,10 +280,10 @@ fn accrue_interest_works_after_liquidate_borrow() {
 #[test]
 fn accrue_interest_works_after_recompute_collateral_amount() {
     new_test_ext().execute_with(|| {
-        assert_ok!(Loans::mint(Origin::signed(BOB), Token(KSM), unit(200)));
-        assert_ok!(Loans::mint(Origin::signed(ALICE), Token(DOT), unit(200)));
-        assert_ok!(Loans::deposit_all_collateral(Origin::signed(ALICE), Token(DOT)));
-        assert_ok!(Loans::borrow(Origin::signed(ALICE), Token(KSM), unit(50)));
+        assert_ok!(Loans::mint(RuntimeOrigin::signed(BOB), Token(KSM), unit(200)));
+        assert_ok!(Loans::mint(RuntimeOrigin::signed(ALICE), Token(DOT), unit(200)));
+        assert_ok!(Loans::deposit_all_collateral(RuntimeOrigin::signed(ALICE), Token(DOT)));
+        assert_ok!(Loans::borrow(RuntimeOrigin::signed(ALICE), Token(KSM), unit(50)));
         assert_eq!(Loans::borrow_index(Token(KSM)), Rate::one());
         TimestampPallet::set_timestamp(12000);
         assert_ok!(Loans::recompute_collateral_amount(&Amount::<Test>::new(
@@ -282,10 +297,10 @@ fn accrue_interest_works_after_recompute_collateral_amount() {
 #[test]
 fn accrue_interest_works_after_recompute_underlying_amount() {
     new_test_ext().execute_with(|| {
-        assert_ok!(Loans::mint(Origin::signed(BOB), Token(KSM), unit(200)));
-        assert_ok!(Loans::mint(Origin::signed(ALICE), Token(DOT), unit(200)));
-        assert_ok!(Loans::deposit_all_collateral(Origin::signed(ALICE), Token(DOT)));
-        assert_ok!(Loans::borrow(Origin::signed(ALICE), Token(KSM), unit(50)));
+        assert_ok!(Loans::mint(RuntimeOrigin::signed(BOB), Token(KSM), unit(200)));
+        assert_ok!(Loans::mint(RuntimeOrigin::signed(ALICE), Token(DOT), unit(200)));
+        assert_ok!(Loans::deposit_all_collateral(RuntimeOrigin::signed(ALICE), Token(DOT)));
+        assert_ok!(Loans::borrow(RuntimeOrigin::signed(ALICE), Token(KSM), unit(50)));
         assert_eq!(Loans::borrow_index(Token(KSM)), Rate::one());
         TimestampPallet::set_timestamp(12000);
         assert_ok!(Loans::recompute_underlying_amount(
@@ -298,15 +313,15 @@ fn accrue_interest_works_after_recompute_underlying_amount() {
 #[test]
 fn different_markets_can_accrue_interest_in_one_block() {
     new_test_ext().execute_with(|| {
-        assert_ok!(Loans::mint(Origin::signed(ALICE), Token(DOT), unit(200)));
-        assert_ok!(Loans::deposit_all_collateral(Origin::signed(ALICE), Token(DOT)));
-        assert_ok!(Loans::mint(Origin::signed(ALICE), Token(KSM), unit(200)));
-        assert_ok!(Loans::deposit_all_collateral(Origin::signed(ALICE), Token(KSM)));
+        assert_ok!(Loans::mint(RuntimeOrigin::signed(ALICE), Token(DOT), unit(200)));
+        assert_ok!(Loans::deposit_all_collateral(RuntimeOrigin::signed(ALICE), Token(DOT)));
+        assert_ok!(Loans::mint(RuntimeOrigin::signed(ALICE), Token(KSM), unit(200)));
+        assert_ok!(Loans::deposit_all_collateral(RuntimeOrigin::signed(ALICE), Token(KSM)));
         assert_eq!(Loans::borrow_index(Token(DOT)), Rate::one());
         assert_eq!(Loans::borrow_index(Token(KSM)), Rate::one());
         TimestampPallet::set_timestamp(12000);
-        assert_ok!(Loans::borrow(Origin::signed(ALICE), Token(DOT), unit(100)));
-        assert_ok!(Loans::borrow(Origin::signed(ALICE), Token(KSM), unit(100)));
+        assert_ok!(Loans::borrow(RuntimeOrigin::signed(ALICE), Token(DOT), unit(100)));
+        assert_ok!(Loans::borrow(RuntimeOrigin::signed(ALICE), Token(KSM), unit(100)));
         assert_eq!(Loans::borrow_index(Token(DOT)), Rate::from_inner(1000000003805175038),);
         assert_eq!(Loans::borrow_index(Token(KSM)), Rate::from_inner(1000000003805175038),);
     })
@@ -315,14 +330,14 @@ fn different_markets_can_accrue_interest_in_one_block() {
 #[test]
 fn a_market_can_only_accrue_interest_once_in_a_block() {
     new_test_ext().execute_with(|| {
-        assert_ok!(Loans::mint(Origin::signed(ALICE), Token(DOT), unit(200)));
-        assert_ok!(Loans::deposit_all_collateral(Origin::signed(ALICE), Token(DOT)));
-        assert_ok!(Loans::mint(Origin::signed(BOB), Token(DOT), unit(200)));
-        assert_ok!(Loans::deposit_all_collateral(Origin::signed(BOB), Token(DOT)));
+        assert_ok!(Loans::mint(RuntimeOrigin::signed(ALICE), Token(DOT), unit(200)));
+        assert_ok!(Loans::deposit_all_collateral(RuntimeOrigin::signed(ALICE), Token(DOT)));
+        assert_ok!(Loans::mint(RuntimeOrigin::signed(BOB), Token(DOT), unit(200)));
+        assert_ok!(Loans::deposit_all_collateral(RuntimeOrigin::signed(BOB), Token(DOT)));
         assert_eq!(Loans::borrow_index(Token(DOT)), Rate::one());
         TimestampPallet::set_timestamp(12000);
-        assert_ok!(Loans::borrow(Origin::signed(ALICE), Token(DOT), unit(100)));
-        assert_ok!(Loans::borrow(Origin::signed(BOB), Token(DOT), unit(100)));
+        assert_ok!(Loans::borrow(RuntimeOrigin::signed(ALICE), Token(DOT), unit(100)));
+        assert_ok!(Loans::borrow(RuntimeOrigin::signed(BOB), Token(DOT), unit(100)));
         assert_eq!(Loans::borrow_index(Token(DOT)), Rate::from_inner(1000000003805175038),);
     })
 }

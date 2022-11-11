@@ -65,8 +65,8 @@ impl frame_system::Config for Test {
     type BlockWeights = ();
     type BlockLength = ();
     type DbWeight = ();
-    type Origin = Origin;
-    type Call = Call;
+    type RuntimeOrigin = RuntimeOrigin;
+    type RuntimeCall = RuntimeCall;
     type Index = u64;
     type BlockNumber = BlockNumber;
     type Hash = H256;
@@ -74,7 +74,7 @@ impl frame_system::Config for Test {
     type AccountId = AccountId;
     type Lookup = IdentityLookup<Self::AccountId>;
     type Header = Header;
-    type Event = Event;
+    type RuntimeEvent = RuntimeEvent;
     type BlockHashCount = BlockHashCount;
     type Version = ();
     type PalletInfo = PalletInfo;
@@ -116,7 +116,7 @@ parameter_type_with_key! {
 pub type RawAmount = i128;
 
 impl orml_tokens::Config for Test {
-    type Event = Event;
+    type RuntimeEvent = RuntimeEvent;
     type Balance = Balance;
     type Amount = RawAmount;
     type CurrencyId = CurrencyId;
@@ -262,7 +262,7 @@ parameter_types! {
 }
 
 impl Config for Test {
-    type Event = Event;
+    type RuntimeEvent = RuntimeEvent;
     type PriceFeeder = MockPriceFeeder;
     type PalletId = LoansPalletId;
     type ReserveOrigin = EnsureRoot<AccountId>;
@@ -298,32 +298,39 @@ pub(crate) fn new_test_ext() -> sp_io::TestExternalities {
     ext.execute_with(|| {
         // Init assets
 
-        Tokens::set_balance(Origin::root(), ALICE, Token(KSM), 1000_000000000000, 0).unwrap();
-        Tokens::set_balance(Origin::root(), ALICE, Token(DOT), 1000_000000000000, 0).unwrap();
-        Tokens::set_balance(Origin::root(), ALICE, Token(KBTC), 1000_000000000000, 0).unwrap();
-        Tokens::set_balance(Origin::root(), ALICE, Token(IBTC), 1000_000000000000, 0).unwrap();
-        Tokens::set_balance(Origin::root(), BOB, Token(KSM), 1000_000000000000, 0).unwrap();
-        Tokens::set_balance(Origin::root(), BOB, Token(DOT), 1000_000000000000, 0).unwrap();
-        Tokens::set_balance(Origin::root(), DAVE, Token(DOT), 1000_000000000000, 0).unwrap();
-        Tokens::set_balance(Origin::root(), DAVE, Token(KBTC), 1000_000000000000, 0).unwrap();
-        Tokens::set_balance(Origin::root(), DAVE, Token(KINT), 1000_000000000000, 0).unwrap();
-        Tokens::set_balance(Origin::root(), whitelisted_caller(), Token(KINT), 1000_000000000000, 0).unwrap();
+        Tokens::set_balance(RuntimeOrigin::root(), ALICE, Token(KSM), 1000_000000000000, 0).unwrap();
+        Tokens::set_balance(RuntimeOrigin::root(), ALICE, Token(DOT), 1000_000000000000, 0).unwrap();
+        Tokens::set_balance(RuntimeOrigin::root(), ALICE, Token(KBTC), 1000_000000000000, 0).unwrap();
+        Tokens::set_balance(RuntimeOrigin::root(), ALICE, Token(IBTC), 1000_000000000000, 0).unwrap();
+        Tokens::set_balance(RuntimeOrigin::root(), BOB, Token(KSM), 1000_000000000000, 0).unwrap();
+        Tokens::set_balance(RuntimeOrigin::root(), BOB, Token(DOT), 1000_000000000000, 0).unwrap();
+        Tokens::set_balance(RuntimeOrigin::root(), DAVE, Token(DOT), 1000_000000000000, 0).unwrap();
+        Tokens::set_balance(RuntimeOrigin::root(), DAVE, Token(KBTC), 1000_000000000000, 0).unwrap();
+        Tokens::set_balance(RuntimeOrigin::root(), DAVE, Token(KINT), 1000_000000000000, 0).unwrap();
+        Tokens::set_balance(
+            RuntimeOrigin::root(),
+            whitelisted_caller(),
+            Token(KINT),
+            1000_000000000000,
+            0,
+        )
+        .unwrap();
 
         MockPriceFeeder::set_price(Token(KBTC), 1.into());
         MockPriceFeeder::set_price(Token(DOT), 1.into());
         MockPriceFeeder::set_price(Token(KSM), 1.into());
         MockPriceFeeder::set_price(LEND_DOT, 1.into());
         // Init Markets
-        Loans::add_market(Origin::root(), Token(DOT), market_mock(LEND_DOT)).unwrap();
-        Loans::activate_market(Origin::root(), Token(DOT)).unwrap();
-        Loans::add_market(Origin::root(), Token(KINT), market_mock(LEND_KINT)).unwrap();
-        Loans::activate_market(Origin::root(), Token(KINT)).unwrap();
-        Loans::add_market(Origin::root(), Token(KSM), market_mock(LEND_KSM)).unwrap();
-        Loans::activate_market(Origin::root(), Token(KSM)).unwrap();
-        Loans::add_market(Origin::root(), Token(KBTC), market_mock(LEND_KBTC)).unwrap();
-        Loans::activate_market(Origin::root(), Token(KBTC)).unwrap();
-        Loans::add_market(Origin::root(), Token(IBTC), market_mock(LEND_IBTC)).unwrap();
-        Loans::activate_market(Origin::root(), Token(IBTC)).unwrap();
+        Loans::add_market(RuntimeOrigin::root(), Token(DOT), market_mock(LEND_DOT)).unwrap();
+        Loans::activate_market(RuntimeOrigin::root(), Token(DOT)).unwrap();
+        Loans::add_market(RuntimeOrigin::root(), Token(KINT), market_mock(LEND_KINT)).unwrap();
+        Loans::activate_market(RuntimeOrigin::root(), Token(KINT)).unwrap();
+        Loans::add_market(RuntimeOrigin::root(), Token(KSM), market_mock(LEND_KSM)).unwrap();
+        Loans::activate_market(RuntimeOrigin::root(), Token(KSM)).unwrap();
+        Loans::add_market(RuntimeOrigin::root(), Token(KBTC), market_mock(LEND_KBTC)).unwrap();
+        Loans::activate_market(RuntimeOrigin::root(), Token(KBTC)).unwrap();
+        Loans::add_market(RuntimeOrigin::root(), Token(IBTC), market_mock(LEND_IBTC)).unwrap();
+        Loans::activate_market(RuntimeOrigin::root(), Token(IBTC)).unwrap();
 
         System::set_block_number(0);
         TimestampPallet::set_timestamp(6000);

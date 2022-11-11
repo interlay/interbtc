@@ -44,8 +44,8 @@ impl frame_system::Config for Test {
     type BlockWeights = ();
     type BlockLength = ();
     type DbWeight = ();
-    type Origin = Origin;
-    type Call = Call;
+    type RuntimeOrigin = RuntimeOrigin;
+    type RuntimeCall = RuntimeCall;
     type Index = Index;
     type BlockNumber = BlockNumber;
     type Hash = H256;
@@ -53,7 +53,7 @@ impl frame_system::Config for Test {
     type AccountId = AccountId;
     type Lookup = IdentityLookup<Self::AccountId>;
     type Header = Header;
-    type Event = TestEvent;
+    type RuntimeEvent = RuntimeEvent;
     type BlockHashCount = BlockHashCount;
     type Version = ();
     type PalletInfo = PalletInfo;
@@ -73,7 +73,7 @@ parameter_types! {
 impl pallet_balances::Config for Test {
     type Balance = Balance;
     type DustRemoval = ();
-    type Event = Event;
+    type RuntimeEvent = RuntimeEvent;
     type ExistentialDeposit = ExistentialDeposit;
     type AccountStore = System;
     type WeightInfo = ();
@@ -103,18 +103,12 @@ impl OnInflation<AccountId> for MockOnInflation {
 
 impl Config for Test {
     type SupplyPalletId = SupplyPalletId;
-    type Event = TestEvent;
+    type RuntimeEvent = RuntimeEvent;
     type UnsignedFixedPoint = UnsignedFixedPoint;
     type Currency = Balances;
     type InflationPeriod = InflationPeriod;
     type OnInflation = MockOnInflation;
 }
-
-pub type TestEvent = Event;
-// pub type TestError = Error<Test>;
-
-// pub const ALICE: AccountId = 1;
-// pub const BOB: AccountId = 2;
 
 pub struct ExtBuilder;
 

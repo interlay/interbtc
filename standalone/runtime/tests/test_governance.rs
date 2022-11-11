@@ -32,7 +32,7 @@ fn get_max_locked(account_id: AccountId) -> Balance {
 }
 
 fn create_lock(account_id: AccountId, amount: Balance) {
-    assert_ok!(Call::Escrow(EscrowCall::create_lock {
+    assert_ok!(RuntimeCall::Escrow(EscrowCall::create_lock {
         amount,
         unlock_height: <Runtime as escrow::Config>::MaxPeriod::get()
     })
@@ -40,7 +40,7 @@ fn create_lock(account_id: AccountId, amount: Balance) {
 }
 
 fn set_free_balance(account: AccountId, amount: Balance) {
-    assert_ok!(Call::Tokens(TokensCall::set_balance {
+    assert_ok!(RuntimeCall::Tokens(TokensCall::set_balance {
         who: account,
         currency_id: DEFAULT_NATIVE_CURRENCY,
         new_free: amount,
@@ -58,7 +58,7 @@ fn test_with<R>(execute: impl Fn() -> R) {
 }
 
 fn set_balance_proposal(who: AccountId, value: Balance) -> Vec<u8> {
-    Call::Tokens(TokensCall::set_balance {
+    RuntimeCall::Tokens(TokensCall::set_balance {
         who: who,
         currency_id: DEFAULT_COLLATERAL_CURRENCY,
         new_free: value,
@@ -72,7 +72,7 @@ fn assert_democracy_proposed_event() -> PropIndex {
         .iter()
         .rev()
         .find_map(|record| {
-            if let Event::Democracy(DemocracyEvent::Proposed(index, _)) = record.event {
+            if let RuntimeEvent::Democracy(DemocracyEvent::Proposed(index, _)) = record.event {
                 Some(index)
             } else {
                 None
@@ -86,7 +86,7 @@ fn assert_democracy_started_event() -> ReferendumIndex {
         .iter()
         .rev()
         .find_map(|record| {
-            if let Event::Democracy(DemocracyEvent::Started(index, _)) = record.event {
+            if let RuntimeEvent::Democracy(DemocracyEvent::Started(index, _)) = record.event {
                 Some(index)
             } else {
                 None
@@ -99,7 +99,7 @@ fn assert_democracy_passed_event(index: ReferendumIndex) {
     SystemPallet::events()
         .iter()
         .rev()
-        .find(|record| matches!(record.event, Event::Democracy(DemocracyEvent::Passed(i)) if i == index))
+        .find(|record| matches!(record.event, RuntimeEvent::Democracy(DemocracyEvent::Passed(i)) if i == index))
         .expect("referendum was not passed");
 }
 
@@ -110,7 +110,7 @@ fn assert_technical_committee_executed_event() {
         .find(|record| {
             matches!(
                 record.event,
-                Event::TechnicalCommittee(TechnicalCommitteeEvent::Executed { result: Ok(()), .. })
+                RuntimeEvent::TechnicalCommittee(TechnicalCommitteeEvent::Executed { result: Ok(()), .. })
             )
         })
         .expect("execution failed");
@@ -120,10 +120,11 @@ fn create_proposal(encoded_proposal: Vec<u8>) -> H256 {
     let proposal_hash = BlakeTwo256::hash(&encoded_proposal[..]);
 
     assert_ok!(
-        Call::Democracy(DemocracyCall::note_preimage { encoded_proposal }).dispatch(origin_of(account_of(ALICE)))
+        RuntimeCall::Democracy(DemocracyCall::note_preimage { encoded_proposal })
+            .dispatch(origin_of(account_of(ALICE)))
     );
 
-    assert_ok!(Call::Democracy(DemocracyCall::propose {
+    assert_ok!(RuntimeCall::Democracy(DemocracyCall::propose {
         proposal_hash,
         value: <Runtime as democracy::Config>::MinimumDeposit::get(),
     })
@@ -142,7 +143,7 @@ fn launch_and_approve_referendum() -> (BlockNumber, ReferendumIndex) {
     let index = assert_democracy_started_event();
 
     // vote overwhelmingly in favour
-    assert_ok!(Call::Democracy(DemocracyCall::vote {
+    assert_ok!(RuntimeCall::Democracy(DemocracyCall::vote {
         ref_index: index,
         vote: Vote {
             aye: true,
@@ -171,8 +172,8 @@ fn launch_and_execute_referendum() {
 fn can_recover_from_shutdown_using_governance() {
     test_with(|| {
         // use sudo to set parachain status
-        assert_ok!(Call::Sudo(SudoCall::sudo {
-            call: Box::new(Call::Security(SecurityCall::set_parachain_status {
+        assert_ok!(RuntimeCall::Sudo(SudoCall::sudo {
+            call: Box::new(RuntimeCall::Security(SecurityCall::set_parachain_status {
                 status_code: StatusCode::Shutdown,
             })),
         })
@@ -180,7 +181,7 @@ fn can_recover_from_shutdown_using_governance() {
         assert!(SecurityPallet::is_parachain_shutdown());
 
         create_proposal(
-            Call::Security(SecurityCall::set_parachain_status {
+            RuntimeCall::Security(SecurityCall::set_parachain_status {
                 status_code: StatusCode::Running,
             })
             .encode(),
@@ -194,8 +195,8 @@ fn can_recover_from_shutdown_using_governance() {
 fn can_recover_from_shutdown_using_root() {
     test_with(|| {
         // use sudo to set parachain status
-        assert_ok!(Call::Sudo(SudoCall::sudo {
-            call: Box::new(Call::Security(SecurityCall::set_parachain_status {
+        assert_ok!(RuntimeCall::Sudo(SudoCall::sudo {
+            call: Box::new(RuntimeCall::Security(SecurityCall::set_parachain_status {
                 status_code: StatusCode::Shutdown,
             })),
         })
@@ -203,7 +204,7 @@ fn can_recover_from_shutdown_using_root() {
 
         // verify we cant execute normal calls
         assert_noop!(
-            Call::Tokens(TokensCall::transfer {
+            RuntimeCall::Tokens(TokensCall::transfer {
                 dest: account_of(ALICE),
                 currency_id: DEFAULT_NATIVE_CURRENCY,
                 amount: 123,
@@ -213,15 +214,15 @@ fn can_recover_from_shutdown_using_root() {
         );
 
         // use sudo to set parachain status back to running
-        assert_ok!(Call::Sudo(SudoCall::sudo {
-            call: Box::new(Call::Security(SecurityCall::set_parachain_status {
+        assert_ok!(RuntimeCall::Sudo(SudoCall::sudo {
+            call: Box::new(RuntimeCall::Security(SecurityCall::set_parachain_status {
                 status_code: StatusCode::Running,
             }))
         })
         .dispatch(origin_of(account_of(ALICE))));
 
         // verify that we can execute normal calls again
-        assert_ok!(Call::Tokens(TokensCall::transfer {
+        assert_ok!(RuntimeCall::Tokens(TokensCall::transfer {
             dest: account_of(ALICE),
             currency_id: DEFAULT_NATIVE_CURRENCY,
             amount: 123,
@@ -249,9 +250,9 @@ fn integration_test_governance_fast_track() {
         create_set_balance_proposal(amount_to_set);
 
         // create motion to fast-track simple-majority referendum
-        assert_ok!(Call::TechnicalCommittee(TechnicalCommitteeCall::propose {
+        assert_ok!(RuntimeCall::TechnicalCommittee(TechnicalCommitteeCall::propose {
             threshold: 1, // member count
-            proposal: Box::new(Call::Democracy(DemocracyCall::fast_track {
+            proposal: Box::new(RuntimeCall::Democracy(DemocracyCall::fast_track {
                 prop_index: assert_democracy_proposed_event(),
                 delay: <Runtime as democracy::Config>::EnactmentPeriod::get()
             })),
@@ -283,7 +284,7 @@ fn integration_test_governance_treasury() {
 
         // proposals should increase by 1
         assert_eq!(TreasuryPallet::proposal_count(), 0);
-        assert_ok!(Call::Treasury(TreasuryCall::propose_spend {
+        assert_ok!(RuntimeCall::Treasury(TreasuryCall::propose_spend {
             value: amount_to_fund,
             beneficiary: account_of(BOB)
         })
@@ -291,7 +292,7 @@ fn integration_test_governance_treasury() {
         assert_eq!(TreasuryPallet::proposal_count(), 1);
 
         // create proposal to approve treasury spend
-        create_proposal(Call::Treasury(TreasuryCall::approve_proposal { proposal_id: 0 }).encode());
+        create_proposal(RuntimeCall::Treasury(TreasuryCall::approve_proposal { proposal_id: 0 }).encode());
         launch_and_execute_referendum();
 
         // bob should receive funds
@@ -318,7 +319,7 @@ fn integration_test_vested_escrow() {
             per_period: vesting_amount / 100,
         };
         assert_eq!(vesting_schedule.total_amount(), Some(vesting_amount));
-        assert_ok!(Call::Vesting(VestingCall::update_vesting_schedules {
+        assert_ok!(RuntimeCall::Vesting(VestingCall::update_vesting_schedules {
             who: account_of(BOB),
             vesting_schedules: vec![vesting_schedule]
         })
@@ -341,7 +342,7 @@ fn integration_test_governance_voter_can_change_vote() {
         DemocracyPallet::on_initialize(start_height);
         let index = assert_democracy_started_event();
 
-        assert_ok!(Call::Democracy(DemocracyCall::vote {
+        assert_ok!(RuntimeCall::Democracy(DemocracyCall::vote {
             ref_index: index,
             vote: Vote {
                 aye: true,
@@ -354,7 +355,7 @@ fn integration_test_governance_voter_can_change_vote() {
         );
 
         // can decrease vote amount
-        assert_ok!(Call::Democracy(DemocracyCall::vote {
+        assert_ok!(RuntimeCall::Democracy(DemocracyCall::vote {
             ref_index: index,
             vote: Vote {
                 aye: true,
@@ -367,7 +368,7 @@ fn integration_test_governance_voter_can_change_vote() {
         );
 
         // can increase vote amount
-        assert_ok!(Call::Democracy(DemocracyCall::vote {
+        assert_ok!(RuntimeCall::Democracy(DemocracyCall::vote {
             ref_index: index,
             vote: Vote {
                 aye: true,
@@ -380,7 +381,7 @@ fn integration_test_governance_voter_can_change_vote() {
         );
 
         // can change the vote direction
-        assert_ok!(Call::Democracy(DemocracyCall::vote {
+        assert_ok!(RuntimeCall::Democracy(DemocracyCall::vote {
             ref_index: index,
             vote: Vote {
                 aye: false,
@@ -408,9 +409,9 @@ fn integration_test_fast_track_referendum() {
         let index = assert_democracy_started_event();
 
         // create motion to fast-track simple-majority referendum
-        assert_ok!(Call::TechnicalCommittee(TechnicalCommitteeCall::propose {
+        assert_ok!(RuntimeCall::TechnicalCommittee(TechnicalCommitteeCall::propose {
             threshold: 1, // member count
-            proposal: Box::new(Call::Democracy(DemocracyCall::fast_track_referendum {
+            proposal: Box::new(RuntimeCall::Democracy(DemocracyCall::fast_track_referendum {
                 ref_index: index,
             })),
             length_bound: 100000 // length bound
@@ -458,13 +459,13 @@ fn integration_test_governance_voter_can_change_vote_with_limited_funds() {
         SystemPallet::set_block_number(start);
 
         let lock_duration = <Runtime as escrow::Config>::MaxPeriod::get();
-        assert_ok!(Call::Escrow(EscrowCall::create_lock {
+        assert_ok!(RuntimeCall::Escrow(EscrowCall::create_lock {
             amount: expected_voting_power - max_period,
             unlock_height: start + lock_duration
         })
         .dispatch(origin_of(account_of(BOB))));
 
-        assert_ok!(Call::Democracy(DemocracyCall::vote {
+        assert_ok!(RuntimeCall::Democracy(DemocracyCall::vote {
             ref_index: index,
             vote: Vote {
                 aye: true,
@@ -473,11 +474,10 @@ fn integration_test_governance_voter_can_change_vote_with_limited_funds() {
         })
         .dispatch(origin_of(account_of(BOB))));
 
-        assert_ok!(
-            Call::Escrow(EscrowCall::increase_amount { amount: max_period }).dispatch(origin_of(account_of(BOB)))
-        );
+        assert_ok!(RuntimeCall::Escrow(EscrowCall::increase_amount { amount: max_period })
+            .dispatch(origin_of(account_of(BOB))));
 
-        assert_ok!(Call::Democracy(DemocracyCall::vote {
+        assert_ok!(RuntimeCall::Democracy(DemocracyCall::vote {
             ref_index: index,
             vote: Vote {
                 aye: true,
@@ -498,7 +498,7 @@ fn integration_test_create_lock_half_max_period() {
 
         let lock_duration = <Runtime as escrow::Config>::MaxPeriod::get() / 2;
 
-        assert_ok!(Call::Escrow(EscrowCall::create_lock {
+        assert_ok!(RuntimeCall::Escrow(EscrowCall::create_lock {
             amount: INITIAL_VOTING_POWER,
             unlock_height: start + lock_duration
         })
@@ -535,7 +535,7 @@ fn integration_test_create_lock_halfway_span() {
         let start = <Runtime as escrow::Config>::Span::get() / 2;
         SystemPallet::set_block_number(start);
 
-        assert_ok!(Call::Escrow(EscrowCall::create_lock {
+        assert_ok!(RuntimeCall::Escrow(EscrowCall::create_lock {
             amount: INITIAL_VOTING_POWER,
             unlock_height: <Runtime as escrow::Config>::MaxPeriod::get() + start
         })
@@ -572,7 +572,7 @@ fn integration_test_vote_exceeds_total_voting_power() {
         let end_height = start_height + <Runtime as democracy::Config>::VotingPeriod::get();
 
         SystemPallet::set_block_number(start_height);
-        assert_ok!(Call::Escrow(EscrowCall::create_lock {
+        assert_ok!(RuntimeCall::Escrow(EscrowCall::create_lock {
             amount: 10_000_000_000_000_000_000_000,
             unlock_height: end_height
         })
@@ -583,7 +583,7 @@ fn integration_test_vote_exceeds_total_voting_power() {
         let index = assert_democracy_started_event();
 
         // vote in favour
-        assert_ok!(Call::Democracy(DemocracyCall::vote {
+        assert_ok!(RuntimeCall::Democracy(DemocracyCall::vote {
             ref_index: index,
             vote: Vote {
                 aye: true,
@@ -614,7 +614,7 @@ fn integration_test_proposing_and_voting_only_possible_with_staked_tokens() {
         let encoded_proposal = set_balance_proposal(account_of(EVE), amount_to_fund);
         let proposal_hash = BlakeTwo256::hash(&encoded_proposal[..]);
         assert_noop!(
-            Call::Democracy(DemocracyCall::propose {
+            RuntimeCall::Democracy(DemocracyCall::propose {
                 proposal_hash,
                 value: minimum_proposal_value,
             })
@@ -630,9 +630,10 @@ fn integration_test_proposing_and_voting_only_possible_with_staked_tokens() {
         // Bob stakes 50% of tokens and proposes again
         create_lock(account_of(BOB), 5 * minimum_proposal_value);
         assert_ok!(
-            Call::Democracy(DemocracyCall::note_preimage { encoded_proposal }).dispatch(origin_of(account_of(BOB)))
+            RuntimeCall::Democracy(DemocracyCall::note_preimage { encoded_proposal })
+                .dispatch(origin_of(account_of(BOB)))
         );
-        assert_ok!(Call::Democracy(DemocracyCall::propose {
+        assert_ok!(RuntimeCall::Democracy(DemocracyCall::propose {
             proposal_hash,
             value: minimum_proposal_value,
         })
@@ -641,7 +642,7 @@ fn integration_test_proposing_and_voting_only_possible_with_staked_tokens() {
         // Carol fails to second the proposal without having tokens staked
         let prop_index = assert_democracy_proposed_event();
         assert_noop!(
-            Call::Democracy(DemocracyCall::second {
+            RuntimeCall::Democracy(DemocracyCall::second {
                 proposal: prop_index,
                 seconds_upper_bound: 1000,
             })
@@ -651,7 +652,7 @@ fn integration_test_proposing_and_voting_only_possible_with_staked_tokens() {
 
         // Carol succeeds to second the proposal with staking tokens beforehand
         create_lock(account_of(CAROL), 5 * minimum_proposal_value);
-        assert_ok!(Call::Democracy(DemocracyCall::second {
+        assert_ok!(RuntimeCall::Democracy(DemocracyCall::second {
             proposal: prop_index,
             seconds_upper_bound: 1000,
         })
@@ -663,7 +664,7 @@ fn integration_test_proposing_and_voting_only_possible_with_staked_tokens() {
 
         // Dave cannot vote since no tokens are staked
         assert_noop!(
-            Call::Democracy(DemocracyCall::vote {
+            RuntimeCall::Democracy(DemocracyCall::vote {
                 ref_index,
                 vote: Vote {
                     aye: true,
@@ -675,7 +676,7 @@ fn integration_test_proposing_and_voting_only_possible_with_staked_tokens() {
         );
 
         // Bob votes aye
-        assert_ok!(Call::Democracy(DemocracyCall::vote {
+        assert_ok!(RuntimeCall::Democracy(DemocracyCall::vote {
             ref_index,
             vote: Vote {
                 aye: true,
@@ -718,7 +719,7 @@ fn integration_test_proposal_vkint_gets_released_on_regular_launch() {
         // making a proposal to increase Eve's balance without having tokens staked fails
         let encoded_proposal = set_balance_proposal(account_of(EVE), 100_000);
         let proposal_hash = BlakeTwo256::hash(&encoded_proposal[..]);
-        assert_ok!(Call::Democracy(DemocracyCall::propose {
+        assert_ok!(RuntimeCall::Democracy(DemocracyCall::propose {
             proposal_hash,
             value: minimum_proposal_value,
         })
@@ -730,7 +731,7 @@ fn integration_test_proposal_vkint_gets_released_on_regular_launch() {
             start_vkint_alice - minimum_proposal_value
         );
 
-        assert_ok!(Call::Democracy(DemocracyCall::second {
+        assert_ok!(RuntimeCall::Democracy(DemocracyCall::second {
             proposal: 0,
             seconds_upper_bound: 1000,
         })
@@ -765,7 +766,7 @@ fn integration_test_proposal_vkint_gets_released_on_fast_track() {
         // making a proposal to increase Eve's balance without having tokens staked fails
         let encoded_proposal = set_balance_proposal(account_of(EVE), 100_000);
         let proposal_hash = BlakeTwo256::hash(&encoded_proposal[..]);
-        assert_ok!(Call::Democracy(DemocracyCall::propose {
+        assert_ok!(RuntimeCall::Democracy(DemocracyCall::propose {
             proposal_hash,
             value: minimum_proposal_value,
         })
@@ -777,9 +778,9 @@ fn integration_test_proposal_vkint_gets_released_on_fast_track() {
             start_vkint_alice - minimum_proposal_value
         );
 
-        assert_ok!(Call::TechnicalCommittee(TechnicalCommitteeCall::propose {
+        assert_ok!(RuntimeCall::TechnicalCommittee(TechnicalCommitteeCall::propose {
             threshold: 1, // member count
-            proposal: Box::new(Call::Democracy(DemocracyCall::fast_track {
+            proposal: Box::new(RuntimeCall::Democracy(DemocracyCall::fast_track {
                 prop_index: assert_democracy_proposed_event(),
                 delay: <Runtime as democracy::Config>::EnactmentPeriod::get()
             })),
@@ -808,7 +809,7 @@ fn integration_test_limiting_voting_power_works() {
     let setup = || {
         set_free_balance(account_of(BOB), kint_amount);
 
-        assert_ok!(Call::Escrow(EscrowCall::set_account_limit {
+        assert_ok!(RuntimeCall::Escrow(EscrowCall::set_account_limit {
             who: account_of(BOB),
             start: 500,
             end: 1500,
@@ -821,7 +822,7 @@ fn integration_test_limiting_voting_power_works() {
 
     let assert_minting_limit = |amount| {
         assert_noop!(
-            Call::Escrow(EscrowCall::create_lock {
+            RuntimeCall::Escrow(EscrowCall::create_lock {
                 amount: amount + 1,
                 unlock_height: lock_time
             })
@@ -829,7 +830,7 @@ fn integration_test_limiting_voting_power_works() {
             EscrowError::InsufficientFunds
         );
 
-        assert_ok!(Call::Escrow(EscrowCall::create_lock {
+        assert_ok!(RuntimeCall::Escrow(EscrowCall::create_lock {
             amount,
             unlock_height: lock_time
         })

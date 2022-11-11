@@ -1,6 +1,7 @@
 use crate::{
     mock::{
-        market_mock, new_test_ext, AccountId, Loans, Origin, Test, Tokens, ALICE, DAVE, LEND_KBTC, LEND_KINT, LEND_KSM,
+        market_mock, new_test_ext, AccountId, Loans, RuntimeOrigin, Test, Tokens, ALICE, DAVE, LEND_KBTC, LEND_KINT,
+        LEND_KSM,
     },
     tests::unit,
     Error,
@@ -46,7 +47,7 @@ fn trait_inspect_methods_works() {
         assert_eq!(Loans::balance(LEND_KINT, &DAVE), 0);
 
         // DAVE Deposit 100 KINT
-        assert_ok!(Loans::mint(Origin::signed(DAVE), KINT, unit(100)));
+        assert_ok!(Loans::mint(RuntimeOrigin::signed(DAVE), KINT, unit(100)));
         assert_eq!(Tokens::balance(LEND_KINT, &DAVE), unit(100) * 50);
         assert_eq!(Tokens::total_issuance(LEND_KINT), unit(100) * 50);
         // Check entries from orml-tokens directly
@@ -56,14 +57,14 @@ fn trait_inspect_methods_works() {
         // No collateral deposited yet, therefore no reducible balance
         assert_eq!(Loans::reducible_balance(LEND_KINT, &DAVE, true), 0);
 
-        assert_ok!(Loans::deposit_all_collateral(Origin::signed(DAVE), KINT));
+        assert_ok!(Loans::deposit_all_collateral(RuntimeOrigin::signed(DAVE), KINT));
         assert_eq!(Loans::reducible_balance(LEND_KINT, &DAVE, true), unit(100) * 50);
         // Check entries from orml-tokens directly
         assert_eq!(free_balance(LEND_KINT, &DAVE), 0);
         assert_eq!(reserved_balance(LEND_KINT, &DAVE), unit(100) * 50);
 
         // Borrow 25 KINT will reduce 25 KINT liquidity for collateral_factor is 50%
-        assert_ok!(Loans::borrow(Origin::signed(DAVE), KINT, unit(25)));
+        assert_ok!(Loans::borrow(RuntimeOrigin::signed(DAVE), KINT, unit(25)));
 
         assert_eq!(
             Loans::exchange_rate(KINT)
@@ -80,7 +81,7 @@ fn trait_inspect_methods_works() {
         // DAVE Deposit 100 KINT, 50 KBTC, Borrow 25 KINT
         // Liquidity KINT = 25, KBTC = 25
         // lend_tokens = dollar(25 + 25) / 1 / 0.5 / 0.02 = dollar(50) * 100
-        assert_ok!(Loans::mint(Origin::signed(DAVE), KBTC, unit(50)));
+        assert_ok!(Loans::mint(RuntimeOrigin::signed(DAVE), KBTC, unit(50)));
         assert_eq!(Tokens::balance(LEND_KBTC, &DAVE), unit(50) * 50);
         // Check entries from orml-tokens directly
         assert_eq!(free_balance(LEND_KBTC, &DAVE), unit(50) * 50);
@@ -90,14 +91,14 @@ fn trait_inspect_methods_works() {
         // Since no collateral has been deposited yet, this value is zero.
         assert_eq!(Loans::reducible_balance(LEND_KBTC, &DAVE, true), 0);
         // enable KBTC collateral
-        assert_ok!(Loans::deposit_all_collateral(Origin::signed(DAVE), KBTC));
+        assert_ok!(Loans::deposit_all_collateral(RuntimeOrigin::signed(DAVE), KBTC));
         assert_eq!(Loans::reducible_balance(LEND_KINT, &DAVE, true), unit(25 + 25) * 2 * 50);
         assert_eq!(Loans::reducible_balance(LEND_KBTC, &DAVE, true), unit(50) * 50);
         // Check entries from orml-tokens directly
         assert_eq!(free_balance(LEND_KBTC, &DAVE), 0);
         assert_eq!(reserved_balance(LEND_KBTC, &DAVE), unit(50) * 50);
 
-        assert_ok!(Loans::borrow(Origin::signed(DAVE), KINT, unit(50)));
+        assert_ok!(Loans::borrow(RuntimeOrigin::signed(DAVE), KINT, unit(50)));
         assert_eq!(Loans::reducible_balance(LEND_KINT, &DAVE, true), 0);
         assert_eq!(Loans::reducible_balance(LEND_KBTC, &DAVE, true), 0);
 
@@ -112,13 +113,13 @@ fn lend_token_unique_works() {
     new_test_ext().execute_with(|| {
         // lend_token_id already exists in `UnderlyingAssetId`
         assert_noop!(
-            Loans::add_market(Origin::root(), ForeignAsset(1000000), market_mock(LEND_KINT)),
+            Loans::add_market(RuntimeOrigin::root(), ForeignAsset(1000000), market_mock(LEND_KINT)),
             Error::<Test>::InvalidLendTokenId
         );
 
         // lend_token_id cannot as the same as the asset id in `Markets`
         assert_noop!(
-            Loans::add_market(Origin::root(), ForeignAsset(1000000), market_mock(KSM)),
+            Loans::add_market(RuntimeOrigin::root(), ForeignAsset(1000000), market_mock(KSM)),
             Error::<Test>::InvalidLendTokenId
         );
     })
@@ -128,7 +129,7 @@ fn lend_token_unique_works() {
 fn transfer_lend_token_works() {
     new_test_ext().execute_with(|| {
         // DAVE Deposit 100 KINT
-        assert_ok!(Loans::mint(Origin::signed(DAVE), KINT, unit(100)));
+        assert_ok!(Loans::mint(RuntimeOrigin::signed(DAVE), KINT, unit(100)));
 
         // DAVE KINT collateral: deposit = 100
         // KINT: cash - deposit = 1000 - 100 = 900
@@ -145,7 +146,7 @@ fn transfer_lend_token_works() {
 
         // Transfer lend_tokens from DAVE to ALICE
         Loans::transfer(LEND_KINT, &DAVE, &ALICE, unit(50) * 50, true).unwrap();
-        // Loans::transfer_lend_tokens(Origin::signed(DAVE), ALICE, KINT, dollar(50) * 50).unwrap();
+        // Loans::transfer_lend_tokens(RuntimeOrigin::signed(DAVE), ALICE, KINT, dollar(50) * 50).unwrap();
 
         // DAVE KINT collateral: deposit = 50
         assert_eq!(
@@ -172,20 +173,20 @@ fn transfer_lend_token_works() {
 fn transfer_lend_tokens_under_collateral_does_not_work() {
     new_test_ext().execute_with(|| {
         // DAVE Deposit 100 KINT
-        assert_ok!(Loans::mint(Origin::signed(DAVE), KINT, unit(100)));
+        assert_ok!(Loans::mint(RuntimeOrigin::signed(DAVE), KINT, unit(100)));
         // Check entries from orml-tokens directly
         assert_eq!(free_balance(LEND_KINT, &DAVE), unit(100) * 50);
         assert_eq!(reserved_balance(LEND_KINT, &DAVE), 0);
 
-        assert_ok!(Loans::deposit_all_collateral(Origin::signed(DAVE), KINT));
+        assert_ok!(Loans::deposit_all_collateral(RuntimeOrigin::signed(DAVE), KINT));
         // Check entries from orml-tokens directly
         assert_eq!(free_balance(LEND_KINT, &DAVE), 0);
         assert_eq!(reserved_balance(LEND_KINT, &DAVE), unit(100) * 50);
 
         // Borrow 50 KINT will reduce 50 KINT liquidity for collateral_factor is 50%
-        assert_ok!(Loans::borrow(Origin::signed(DAVE), KINT, unit(50)));
+        assert_ok!(Loans::borrow(RuntimeOrigin::signed(DAVE), KINT, unit(50)));
         // Repay 40 KINT
-        assert_ok!(Loans::repay_borrow(Origin::signed(DAVE), KINT, unit(40)));
+        assert_ok!(Loans::repay_borrow(RuntimeOrigin::signed(DAVE), KINT, unit(40)));
 
         // Allowed to redeem 20 lend_tokens
         assert_ok!(Loans::redeem_allowed(KINT, &DAVE, unit(20) * 50,));
@@ -196,7 +197,7 @@ fn transfer_lend_tokens_under_collateral_does_not_work() {
         );
         // First, withdraw some tokens
         assert_ok!(Loans::withdraw_collateral(
-            Origin::signed(DAVE),
+            RuntimeOrigin::signed(DAVE),
             LEND_KINT,
             unit(20) * 50
         ));
@@ -220,10 +221,10 @@ fn transfer_lend_tokens_under_collateral_does_not_work() {
         );
         // DAVE Borrow 31 KINT should cause InsufficientLiquidity
         assert_noop!(
-            Loans::borrow(Origin::signed(DAVE), KINT, unit(31)),
+            Loans::borrow(RuntimeOrigin::signed(DAVE), KINT, unit(31)),
             Error::<Test>::InsufficientLiquidity
         );
-        assert_ok!(Loans::borrow(Origin::signed(DAVE), KINT, unit(30)));
+        assert_ok!(Loans::borrow(RuntimeOrigin::signed(DAVE), KINT, unit(30)));
 
         // Assert ALICE Supply KINT 20
         assert_eq!(

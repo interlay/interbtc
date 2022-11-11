@@ -9,12 +9,15 @@ fn fast_track_works() {
         // let h = set_balance_proposal_hash_and_note(2);
         let prop_index = 0;
         assert_noop!(
-            Democracy::fast_track(Origin::signed(5), prop_index, 2),
+            Democracy::fast_track(RuntimeOrigin::signed(5), prop_index, 2),
             Error::<Test>::ProposalMissing
         );
         assert_ok!(propose_set_balance_and_note(3, 2, 2));
-        assert_noop!(Democracy::fast_track(Origin::signed(1), prop_index, 2), BadOrigin);
-        assert_ok!(Democracy::fast_track(Origin::signed(5), prop_index, 0));
+        assert_noop!(
+            Democracy::fast_track(RuntimeOrigin::signed(1), prop_index, 2),
+            BadOrigin
+        );
+        assert_ok!(Democracy::fast_track(RuntimeOrigin::signed(5), prop_index, 0));
         assert_eq!(
             Democracy::referendum_status(0),
             Ok(ReferendumStatus {
@@ -45,10 +48,10 @@ fn fast_track_referendum_works() {
         );
 
         assert_noop!(
-            Democracy::fast_track_referendum(Origin::signed(1), ref_index),
+            Democracy::fast_track_referendum(RuntimeOrigin::signed(1), ref_index),
             BadOrigin
         );
-        assert_ok!(Democracy::fast_track_referendum(Origin::signed(5), ref_index));
+        assert_ok!(Democracy::fast_track_referendum(RuntimeOrigin::signed(5), ref_index));
 
         let start_height = System::block_number();
         let end_height = start_height + fast_track_voting_period;
@@ -83,7 +86,7 @@ fn fast_track_referendum_fails() {
 
         // Fails because the referendum ends too soon
         assert_noop!(
-            Democracy::fast_track_referendum(Origin::signed(5), ref_index),
+            Democracy::fast_track_referendum(RuntimeOrigin::signed(5), ref_index),
             Error::<Test>::ReferendumFastTrackFailed
         );
     });
@@ -95,18 +98,18 @@ fn fast_track_referendum_fails() {
 //         System::set_block_number(0);
 //         let h = set_balance_proposal_hash_and_note(2);
 //         assert_noop!(
-//             Democracy::fast_track(Origin::signed(5), h, 3, 2),
+//             Democracy::fast_track(RuntimeOrigin::signed(5), h, 3, 2),
 //             Error::<Test>::ProposalMissing
 //         );
 //         assert_ok!(propose_set_balance_and_note(3, 2, 2));
-//         assert_noop!(Democracy::fast_track(Origin::signed(1), h, 3, 2), BadOrigin);
-//         assert_noop!(Democracy::fast_track(Origin::signed(5), h, 1, 0), BadOrigin);
+//         assert_noop!(Democracy::fast_track(RuntimeOrigin::signed(1), h, 3, 2), BadOrigin);
+//         assert_noop!(Democracy::fast_track(RuntimeOrigin::signed(5), h, 1, 0), BadOrigin);
 //         assert_noop!(
-//             Democracy::fast_track(Origin::signed(6), h, 1, 0),
+//             Democracy::fast_track(RuntimeOrigin::signed(6), h, 1, 0),
 //             Error::<Test>::InstantNotAllowed
 //         );
 //         INSTANT_ALLOWED.with(|v| *v.borrow_mut() = true);
-//         assert_ok!(Democracy::fast_track(Origin::signed(6), h, 1, 0));
+//         assert_ok!(Democracy::fast_track(RuntimeOrigin::signed(6), h, 1, 0));
 //         assert_eq!(
 //             Democracy::referendum_status(0),
 //             Ok(ReferendumStatus {
@@ -131,7 +134,7 @@ fn fast_track_referendum_fails() {
 //         let h = set_balance_proposal_hash_and_note(2);
 //         assert_ok!(propose_set_balance_and_note(2, 2, 2));
 //         assert_noop!(
-//             Democracy::fast_track(Origin::signed(5), h, 3, 2),
+//             Democracy::fast_track(RuntimeOrigin::signed(5), h, 3, 2),
 //             Error::<Test>::NotSimpleMajority
 //         );
 //     });
