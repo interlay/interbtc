@@ -5,16 +5,16 @@ use sp_runtime::{DispatchError, FixedPointNumber};
 
 fn test_setter<F1, F2>(f: F1, get_storage_value: F2)
 where
-    F1: Fn(Origin, UnsignedFixedPoint) -> DispatchResultWithPostInfo,
+    F1: Fn(RuntimeOrigin, UnsignedFixedPoint) -> DispatchResultWithPostInfo,
     F2: Fn() -> UnsignedFixedPoint,
 {
     run_test(|| {
         let large_value = UnsignedFixedPoint::checked_from_rational::<u128, u128>(101, 100).unwrap(); // 101%
-        assert_noop!(f(Origin::root(), large_value), TestError::AboveMaxExpectedValue);
+        assert_noop!(f(RuntimeOrigin::root(), large_value), TestError::AboveMaxExpectedValue);
 
         let valid_value = UnsignedFixedPoint::checked_from_rational::<u128, u128>(100, 100).unwrap(); // 100%
-        assert_noop!(f(Origin::signed(6), valid_value), DispatchError::BadOrigin);
-        assert_ok!(f(Origin::root(), valid_value));
+        assert_noop!(f(RuntimeOrigin::signed(6), valid_value), DispatchError::BadOrigin);
+        assert_ok!(f(RuntimeOrigin::root(), valid_value));
         assert_eq!(get_storage_value(), valid_value);
     })
 }

@@ -63,8 +63,8 @@ impl frame_system::Config for Test {
     type BlockWeights = ();
     type BlockLength = ();
     type DbWeight = ();
-    type Origin = Origin;
-    type Call = Call;
+    type RuntimeOrigin = RuntimeOrigin;
+    type RuntimeCall = RuntimeCall;
     type Index = Index;
     type BlockNumber = BlockNumber;
     type Hash = H256;
@@ -72,7 +72,7 @@ impl frame_system::Config for Test {
     type AccountId = AccountId;
     type Lookup = IdentityLookup<Self::AccountId>;
     type Header = Header;
-    type Event = TestEvent;
+    type RuntimeEvent = RuntimeEvent;
     type BlockHashCount = BlockHashCount;
     type Version = ();
     type PalletInfo = PalletInfo;
@@ -99,7 +99,7 @@ parameter_type_with_key! {
 }
 
 impl orml_tokens::Config for Test {
-    type Event = Event;
+    type RuntimeEvent = RuntimeEvent;
     type Balance = Balance;
     type Amount = RawAmount;
     type CurrencyId = CurrencyId;
@@ -118,7 +118,7 @@ impl orml_tokens::Config for Test {
 }
 
 impl reward::Config for Test {
-    type Event = TestEvent;
+    type RuntimeEvent = RuntimeEvent;
     type SignedFixedPoint = SignedFixedPoint;
     type RewardId = VaultId<AccountId, CurrencyId>;
     type CurrencyId = CurrencyId;
@@ -127,7 +127,7 @@ impl reward::Config for Test {
 }
 
 impl staking::Config for Test {
-    type Event = TestEvent;
+    type RuntimeEvent = RuntimeEvent;
     type SignedFixedPoint = SignedFixedPoint;
     type SignedInner = SignedInner;
     type CurrencyId = CurrencyId;
@@ -146,7 +146,7 @@ impl pallet_timestamp::Config for Test {
 }
 
 impl security::Config for Test {
-    type Event = TestEvent;
+    type RuntimeEvent = RuntimeEvent;
 }
 
 pub struct CurrencyConvert;
@@ -187,8 +187,6 @@ impl Config for Test {
     type OnSweep = ();
     type MaxExpectedValue = MaxExpectedValue;
 }
-
-pub type TestEvent = Event;
 
 #[allow(dead_code)]
 pub type TestError = Error<Test>;

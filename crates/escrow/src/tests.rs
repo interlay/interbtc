@@ -9,13 +9,13 @@ use sp_runtime::traits::Identity;
 
 fn create_lock(origin: AccountId, amount: Balance, end_time: BlockNumber) {
     <Balances as Currency<AccountId>>::make_free_balance_be(&origin, amount);
-    assert_ok!(Escrow::create_lock(Origin::signed(origin), amount, end_time));
+    assert_ok!(Escrow::create_lock(RuntimeOrigin::signed(origin), amount, end_time));
 }
 
 fn extend_lock(origin: AccountId, amount: Balance) {
     let free_balance = <Balances as Currency<AccountId>>::free_balance(&origin);
     <Balances as Currency<AccountId>>::make_free_balance_be(&origin, free_balance + amount);
-    assert_ok!(Escrow::increase_amount(Origin::signed(origin), amount));
+    assert_ok!(Escrow::increase_amount(RuntimeOrigin::signed(origin), amount));
 }
 
 #[test]
@@ -47,11 +47,14 @@ fn should_withdraw_after_expiry() {
         assert_eq!(Escrow::balance_at(&ALICE, Some(end_time)), 0);
 
         // cannot withdraw before expiry
-        assert_err!(Escrow::withdraw(Origin::signed(ALICE)), TestError::LockNotExpired);
+        assert_err!(
+            Escrow::withdraw(RuntimeOrigin::signed(ALICE)),
+            TestError::LockNotExpired
+        );
 
         // advance system and remove lock
         System::set_block_number(end_time);
-        assert_ok!(Escrow::withdraw(Origin::signed(ALICE)));
+        assert_ok!(Escrow::withdraw(RuntimeOrigin::signed(ALICE)));
     })
 }
 
@@ -64,7 +67,7 @@ fn should_increase_amount_locked() {
 
         // lock MUST exist first
         assert_err!(
-            Escrow::increase_amount(Origin::signed(ALICE), amount),
+            Escrow::increase_amount(RuntimeOrigin::signed(ALICE), amount),
             TestError::LockNotFound
         );
 
@@ -84,7 +87,7 @@ fn should_increase_unlock_height() {
 
         // lock MUST exist first
         assert_err!(
-            Escrow::increase_unlock_height(Origin::signed(ALICE), amount),
+            Escrow::increase_unlock_height(RuntimeOrigin::signed(ALICE), amount),
             TestError::LockHasExpired
         );
 
@@ -95,7 +98,7 @@ fn should_increase_unlock_height() {
         assert_eq!(Escrow::balance_at(&ALICE, Some(half_time)), amount / 2);
 
         assert_ok!(Escrow::increase_unlock_height(
-            Origin::signed(ALICE),
+            RuntimeOrigin::signed(ALICE),
             half_time + max_time
         ));
 
@@ -141,7 +144,7 @@ fn should_calculate_total_supply_and_locked_after_withdraw() {
 
         System::set_block_number(end_time_1);
         assert_eq!(Escrow::balance_at(&ALICE, None), 0);
-        assert_ok!(Escrow::withdraw(Origin::signed(ALICE)));
+        assert_ok!(Escrow::withdraw(RuntimeOrigin::signed(ALICE)));
 
         assert_eq!(Escrow::balance_at(&BOB, None), 800);
         assert_eq!(Escrow::total_supply(None), 800);
@@ -204,7 +207,7 @@ fn should_not_allow_amount_smaller_than_max_period() {
 
         <Balances as Currency<AccountId>>::make_free_balance_be(&ALICE, amount);
         assert_err!(
-            Escrow::create_lock(Origin::signed(ALICE), amount, end_time),
+            Escrow::create_lock(RuntimeOrigin::signed(ALICE), amount, end_time),
             TestError::LockAmountTooLow
         );
     })

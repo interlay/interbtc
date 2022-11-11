@@ -59,21 +59,21 @@ mod spec_based_tests {
         // parameter.
         test_with(|_| {
             assert_noop!(
-                Call::Nomination(NominationCall::set_nomination_enabled { enabled: true })
+                RuntimeCall::Nomination(NominationCall::set_nomination_enabled { enabled: true })
                     .dispatch(origin_of(account_of(CAROL))),
                 DispatchError::BadOrigin
             );
             let mut nomination_enabled = true;
-            assert_ok!(Call::Nomination(NominationCall::set_nomination_enabled {
+            assert_ok!(RuntimeCall::Nomination(NominationCall::set_nomination_enabled {
                 enabled: nomination_enabled
             })
-            .dispatch(<Runtime as frame_system::Config>::Origin::root()));
+            .dispatch(<Runtime as frame_system::Config>::RuntimeOrigin::root()));
             assert_eq!(NominationPallet::is_nomination_enabled(), nomination_enabled);
             nomination_enabled = false;
-            assert_ok!(Call::Nomination(NominationCall::set_nomination_enabled {
+            assert_ok!(RuntimeCall::Nomination(NominationCall::set_nomination_enabled {
                 enabled: nomination_enabled
             })
-            .dispatch(<Runtime as frame_system::Config>::Origin::root()));
+            .dispatch(<Runtime as frame_system::Config>::RuntimeOrigin::root()));
             assert_eq!(NominationPallet::is_nomination_enabled(), nomination_enabled);
         })
     }
@@ -82,21 +82,21 @@ mod spec_based_tests {
         SecurityPallet::set_status(status);
         let vault_id = vault_id_of(VAULT, Token(DOT));
         assert_noop!(
-            Call::Nomination(NominationCall::opt_in_to_nomination {
+            RuntimeCall::Nomination(NominationCall::opt_in_to_nomination {
                 currency_pair: vault_id.currencies.clone()
             })
             .dispatch(origin_of(account_of(ALICE))),
             SecurityError::ParachainNotRunning,
         );
         assert_noop!(
-            Call::Nomination(NominationCall::opt_out_of_nomination {
+            RuntimeCall::Nomination(NominationCall::opt_out_of_nomination {
                 currency_pair: vault_id.currencies.clone()
             })
             .dispatch(origin_of(account_of(ALICE))),
             SecurityError::ParachainNotRunning,
         );
         assert_noop!(
-            Call::Nomination(NominationCall::deposit_collateral {
+            RuntimeCall::Nomination(NominationCall::deposit_collateral {
                 vault_id: vault_id.clone(),
                 amount: 100
             })
@@ -104,7 +104,7 @@ mod spec_based_tests {
             SecurityError::ParachainNotRunning,
         );
         assert_noop!(
-            Call::Nomination(NominationCall::withdraw_collateral {
+            RuntimeCall::Nomination(NominationCall::withdraw_collateral {
                 vault_id: vault_id.clone(),
                 amount: 100,
                 index: None
@@ -132,21 +132,21 @@ mod spec_based_tests {
         // POSTCONDITION: The Vault MUST be allowed to receive nominated collateral.
         test_with(|_| {
             assert_noop!(
-                Call::Nomination(NominationCall::set_nomination_enabled { enabled: true })
+                RuntimeCall::Nomination(NominationCall::set_nomination_enabled { enabled: true })
                     .dispatch(origin_of(account_of(CAROL))),
                 DispatchError::BadOrigin
             );
             let mut nomination_enabled = true;
-            assert_ok!(Call::Nomination(NominationCall::set_nomination_enabled {
+            assert_ok!(RuntimeCall::Nomination(NominationCall::set_nomination_enabled {
                 enabled: nomination_enabled
             })
-            .dispatch(<Runtime as frame_system::Config>::Origin::root()));
+            .dispatch(<Runtime as frame_system::Config>::RuntimeOrigin::root()));
             assert_eq!(NominationPallet::is_nomination_enabled(), nomination_enabled);
             nomination_enabled = false;
-            assert_ok!(Call::Nomination(NominationCall::set_nomination_enabled {
+            assert_ok!(RuntimeCall::Nomination(NominationCall::set_nomination_enabled {
                 enabled: nomination_enabled
             })
-            .dispatch(<Runtime as frame_system::Config>::Origin::root()));
+            .dispatch(<Runtime as frame_system::Config>::RuntimeOrigin::root()));
             assert_eq!(NominationPallet::is_nomination_enabled(), nomination_enabled);
         })
     }
@@ -222,7 +222,7 @@ mod spec_based_tests {
         //   - The Vault MUST remain below the max nomination ratio.
         test_with(|vault_id| {
             assert_noop!(
-                Call::Nomination(NominationCall::deposit_collateral {
+                RuntimeCall::Nomination(NominationCall::deposit_collateral {
                     vault_id: vault_id.clone(),
                     amount: DEFAULT_BACKING_COLLATERAL
                 })
@@ -231,7 +231,7 @@ mod spec_based_tests {
             );
             enable_nomination();
             assert_noop!(
-                Call::Nomination(NominationCall::deposit_collateral {
+                RuntimeCall::Nomination(NominationCall::deposit_collateral {
                     vault_id: vault_id.clone(),
                     amount: DEFAULT_BACKING_COLLATERAL
                 })
@@ -239,7 +239,7 @@ mod spec_based_tests {
                 NominationError::VaultNotOptedInToNomination
             );
             assert_noop!(
-                Call::Nomination(NominationCall::deposit_collateral {
+                RuntimeCall::Nomination(NominationCall::deposit_collateral {
                     vault_id: vault_id.clone(),
                     amount: DEFAULT_BACKING_COLLATERAL
                 })
@@ -248,14 +248,14 @@ mod spec_based_tests {
             );
             assert_nomination_opt_in(&vault_id);
             assert_noop!(
-                Call::Nomination(NominationCall::deposit_collateral {
+                RuntimeCall::Nomination(NominationCall::deposit_collateral {
                     vault_id: vault_id.clone(),
                     amount: 100000000000000000000000
                 })
                 .dispatch(origin_of(account_of(USER))),
                 NominationError::NominationExceedsLimit
             );
-            assert_ok!(Call::Nomination(NominationCall::deposit_collateral {
+            assert_ok!(RuntimeCall::Nomination(NominationCall::deposit_collateral {
                 vault_id: vault_id.clone(),
                 amount: DEFAULT_NOMINATION
             })
@@ -298,7 +298,7 @@ mod spec_based_tests {
         //   - Nominator MUST have nominated at least amount.
         test_with(|vault_id| {
             assert_noop!(
-                Call::Nomination(NominationCall::withdraw_collateral {
+                RuntimeCall::Nomination(NominationCall::withdraw_collateral {
                     vault_id: vault_id.clone(),
                     amount: 1,
                     index: None
@@ -308,7 +308,7 @@ mod spec_based_tests {
             );
             enable_nomination();
             assert_noop!(
-                Call::Nomination(NominationCall::withdraw_collateral {
+                RuntimeCall::Nomination(NominationCall::withdraw_collateral {
                     vault_id: vault_id_of(CAROL, vault_id.collateral_currency()),
                     amount: 1,
                     index: None
@@ -317,7 +317,7 @@ mod spec_based_tests {
                 VaultRegistryError::VaultNotFound
             );
             assert_noop!(
-                Call::Nomination(NominationCall::withdraw_collateral {
+                RuntimeCall::Nomination(NominationCall::withdraw_collateral {
                     vault_id: vault_id.clone(),
                     amount: 1,
                     index: None
@@ -327,7 +327,7 @@ mod spec_based_tests {
             );
             assert_nomination_opt_in(&vault_id);
             assert_noop!(
-                Call::Nomination(NominationCall::withdraw_collateral {
+                RuntimeCall::Nomination(NominationCall::withdraw_collateral {
                     vault_id: vault_id.clone(),
                     amount: DEFAULT_BACKING_COLLATERAL,
                     index: None
@@ -342,7 +342,7 @@ mod spec_based_tests {
     fn integration_test_withdraw_collateral_preconditions_collateralization() {
         // PRECONDITION: The Vault MUST remain above the secure collateralization threshold.
         test_with_nomination_enabled(|vault_id| {
-            assert_ok!(Call::VaultRegistry(VaultRegistryCall::withdraw_collateral {
+            assert_ok!(RuntimeCall::VaultRegistry(VaultRegistryCall::withdraw_collateral {
                 currency_pair: vault_id.currencies.clone(),
                 amount: 750000
             })
@@ -425,7 +425,7 @@ fn integration_test_vaults_can_still_opt_out_if_disabled() {
 fn integration_test_cannot_nominate_if_not_opted_in() {
     test_with_nomination_enabled(|vault_id| {
         assert_noop!(
-            Call::Nomination(NominationCall::deposit_collateral {
+            RuntimeCall::Nomination(NominationCall::deposit_collateral {
                 vault_id: vault_id,
                 amount: DEFAULT_BACKING_COLLATERAL
             })
@@ -462,20 +462,20 @@ fn integration_test_vaults_cannot_withdraw_nominated_collateral() {
 #[test]
 fn integration_test_nominated_collateral_cannot_exceed_nomination_limit() {
     test_with_nomination_enabled_and_vault_opted_in(|vault_id| {
-        assert_ok!(Call::Nomination(NominationCall::deposit_collateral {
+        assert_ok!(RuntimeCall::Nomination(NominationCall::deposit_collateral {
             vault_id: vault_id.clone(),
             amount: DEFAULT_NOMINATION_LIMIT - 100,
         })
         .dispatch(origin_of(account_of(USER))));
         assert_noop!(
-            Call::Nomination(NominationCall::deposit_collateral {
+            RuntimeCall::Nomination(NominationCall::deposit_collateral {
                 vault_id: vault_id.clone(),
                 amount: 101,
             })
             .dispatch(origin_of(account_of(CAROL))),
             NominationError::NominationExceedsLimit
         );
-        assert_ok!(Call::Nomination(NominationCall::deposit_collateral {
+        assert_ok!(RuntimeCall::Nomination(NominationCall::deposit_collateral {
             vault_id: vault_id.clone(),
             amount: 100,
         })
@@ -488,7 +488,7 @@ fn integration_test_nominated_collateral_prevents_replace_requests() {
     test_with_nomination_enabled_and_vault_opted_in(|vault_id| {
         assert_nominate_collateral(&vault_id, account_of(USER), default_nomination(&vault_id));
         assert_noop!(
-            Call::Replace(ReplaceCall::request_replace {
+            RuntimeCall::Replace(ReplaceCall::request_replace {
                 currency_pair: vault_id.currencies.clone(),
                 amount: 0,
             })
@@ -503,7 +503,7 @@ fn integration_test_vaults_with_zero_nomination_cannot_request_replacement() {
     test_with_nomination_enabled_and_vault_opted_in(|vault_id| {
         let amount = DEFAULT_VAULT_ISSUED - DEFAULT_VAULT_TO_BE_REDEEMED - DEFAULT_VAULT_TO_BE_REPLACED;
         assert_noop!(
-            Call::Replace(ReplaceCall::request_replace {
+            RuntimeCall::Replace(ReplaceCall::request_replace {
                 currency_pair: vault_id.currencies.clone(),
                 amount: amount.amount(),
             })
@@ -547,7 +547,7 @@ fn integration_test_nominator_withdrawal_request_reduces_issuable_tokens() {
 #[test]
 fn integration_test_nominator_withdrawal_below_collateralization_threshold_fails() {
     test_with_nomination_enabled(|vault_id| {
-        assert_ok!(Call::VaultRegistry(VaultRegistryCall::withdraw_collateral {
+        assert_ok!(RuntimeCall::VaultRegistry(VaultRegistryCall::withdraw_collateral {
             currency_pair: vault_id.currencies.clone(),
             amount: 750000
         })

@@ -98,9 +98,9 @@ pub mod pallet {
         type PalletId: Get<PalletId>;
 
         /// The overarching event type.
-        type Event: From<Event<Self>>
-            + Into<<Self as frame_system::Config>::Event>
-            + IsType<<Self as frame_system::Config>::Event>;
+        type RuntimeEvent: From<Event<Self>>
+            + Into<<Self as frame_system::Config>::RuntimeEvent>
+            + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
         /// The primitive balance type.
         type Balance: AtLeast32BitUnsigned

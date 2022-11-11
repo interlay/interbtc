@@ -1,5 +1,5 @@
 use crate::{
-    mock::{new_test_ext, Loans, MockPriceFeeder, Origin, Test, Tokens, ALICE, BOB},
+    mock::{new_test_ext, Loans, MockPriceFeeder, RuntimeOrigin, Test, Tokens, ALICE, BOB},
     tests::unit,
     Error, MarketState,
 };
@@ -60,7 +60,7 @@ fn deposit_of_borrower_must_be_collateral() {
         // Since no KSM lend_tokens have been locked as collateral in this test, there will be zero
         // collateral available for paying the liquidator, thus producing the error below.
         assert_noop!(
-            Loans::liquidate_borrow(Origin::signed(BOB), ALICE, KSM, 10, DOT),
+            Loans::liquidate_borrow(RuntimeOrigin::signed(BOB), ALICE, KSM, 10, DOT),
             Error::<Test>::InsufficientCollateral
         );
     })
@@ -78,7 +78,7 @@ fn collateral_value_must_be_greater_than_liquidation_value() {
         })
         .unwrap();
         assert_noop!(
-            Loans::liquidate_borrow(Origin::signed(BOB), ALICE, KSM, unit(50), USDT),
+            Loans::liquidate_borrow(RuntimeOrigin::signed(BOB), ALICE, KSM, unit(50), USDT),
             Error::<Test>::InsufficientCollateral
         );
     })
@@ -92,7 +92,13 @@ fn full_workflow_works_as_expected() {
         // adjust KSM price to make ALICE generate shortfall
         MockPriceFeeder::set_price(KSM, 2.into());
         // BOB repay the KSM borrow balance and get DOT from ALICE
-        assert_ok!(Loans::liquidate_borrow(Origin::signed(BOB), ALICE, KSM, unit(50), USDT));
+        assert_ok!(Loans::liquidate_borrow(
+            RuntimeOrigin::signed(BOB),
+            ALICE,
+            KSM,
+            unit(50),
+            USDT
+        ));
 
         // KSM price = 2
         // incentive = repay KSM value * 1.1 = (50 * 2) * 1.1 = 110
@@ -126,7 +132,12 @@ fn full_workflow_works_as_expected() {
         );
         assert_eq!(Tokens::balance(USDT, &ALICE), unit(800),);
         // reduce 2 dollar from incentive reserve to alice account
-        assert_ok!(Loans::reduce_incentive_reserves(Origin::root(), ALICE, USDT, unit(2),));
+        assert_ok!(Loans::reduce_incentive_reserves(
+            RuntimeOrigin::root(),
+            ALICE,
+            USDT,
+            unit(2),
+        ));
         // still 1 dollar left in reserve account
         assert_eq!(
             Loans::exchange_rate(USDT).saturating_mul_int(Tokens::balance(
@@ -152,7 +163,7 @@ fn liquidator_cannot_take_inactive_market_currency() {
             stored_market.clone()
         }));
         assert_noop!(
-            Loans::liquidate_borrow(Origin::signed(BOB), ALICE, KSM, unit(50), DOT),
+            Loans::liquidate_borrow(RuntimeOrigin::signed(BOB), ALICE, KSM, unit(50), DOT),
             Error::<Test>::MarketNotActivated
         );
     })
@@ -165,7 +176,7 @@ fn liquidator_can_not_repay_more_than_the_close_factor_pct_multiplier() {
         alice_borrows_100_ksm();
         MockPriceFeeder::set_price(KSM, 20.into());
         assert_noop!(
-            Loans::liquidate_borrow(Origin::signed(BOB), ALICE, KSM, unit(51), DOT),
+            Loans::liquidate_borrow(RuntimeOrigin::signed(BOB), ALICE, KSM, unit(51), DOT),
             Error::<Test>::TooMuchRepay
         );
     })
@@ -176,20 +187,20 @@ fn liquidator_must_not_be_borrower() {
     new_test_ext().execute_with(|| {
         initial_setup();
         assert_noop!(
-            Loans::liquidate_borrow(Origin::signed(ALICE), ALICE, KSM, 1, DOT),
+            Loans::liquidate_borrow(RuntimeOrigin::signed(ALICE), ALICE, KSM, 1, DOT),
             Error::<Test>::LiquidatorIsBorrower
         );
     })
 }
 
 fn alice_borrows_100_ksm() {
-    assert_ok!(Loans::borrow(Origin::signed(ALICE), KSM, unit(100)));
+    assert_ok!(Loans::borrow(RuntimeOrigin::signed(ALICE), KSM, unit(100)));
 }
 
 fn initial_setup() {
     // Bob deposits 200 KSM
-    assert_ok!(Loans::mint(Origin::signed(BOB), KSM, unit(200)));
+    assert_ok!(Loans::mint(RuntimeOrigin::signed(BOB), KSM, unit(200)));
     // Alice deposits 200 DOT as collateral
-    assert_ok!(Loans::mint(Origin::signed(ALICE), USDT, unit(200)));
-    assert_ok!(Loans::deposit_all_collateral(Origin::signed(ALICE), USDT));
+    assert_ok!(Loans::mint(RuntimeOrigin::signed(ALICE), USDT, unit(200)));
+    assert_ok!(Loans::deposit_all_collateral(RuntimeOrigin::signed(ALICE), USDT));
 }

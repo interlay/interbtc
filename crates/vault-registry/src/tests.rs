@@ -69,7 +69,7 @@ fn convert_with_exchange_rate(
 fn create_vault_with_collateral(id: &DefaultVaultId<Test>, collateral: u128) {
     VaultRegistry::get_minimum_collateral_vault
         .mock_safe(move |currency_id| MockResult::Return(Amount::new(collateral, currency_id)));
-    let origin = Origin::signed(id.account_id.clone());
+    let origin = RuntimeOrigin::signed(id.account_id.clone());
 
     assert_ok!(VaultRegistry::register_public_key(
         origin.clone(),
@@ -143,7 +143,7 @@ fn register_vault_succeeds() {
 #[test]
 fn registering_public_key_twice_fails() {
     run_test(|| {
-        let origin = Origin::signed(DEFAULT_ID.account_id);
+        let origin = RuntimeOrigin::signed(DEFAULT_ID.account_id);
         let public_key_1 = BtcPublicKey([0u8; 33]);
         let public_key_2 = BtcPublicKey([1u8; 33]);
         assert_ok!(VaultRegistry::register_public_key(origin.clone(), public_key_1));
@@ -162,7 +162,7 @@ fn register_vault_fails_when_given_collateral_too_low() {
         let id = DEFAULT_ID;
         let collateral = 100;
 
-        let origin = Origin::signed(id.account_id);
+        let origin = RuntimeOrigin::signed(id.account_id);
         assert_ok!(VaultRegistry::register_public_key(
             origin.clone(),
             BtcPublicKey::dummy()
@@ -182,7 +182,7 @@ fn register_vault_fails_when_account_funds_too_low() {
     run_test(|| {
         let collateral = DEFAULT_COLLATERAL + 1;
 
-        let origin = Origin::signed(DEFAULT_ID.account_id);
+        let origin = RuntimeOrigin::signed(DEFAULT_ID.account_id);
         assert_ok!(VaultRegistry::register_public_key(
             origin.clone(),
             BtcPublicKey::dummy()
@@ -201,8 +201,11 @@ fn register_vault_fails_when_account_funds_too_low() {
 fn register_vault_fails_when_already_registered() {
     run_test(|| {
         let id = create_sample_vault();
-        let result =
-            VaultRegistry::register_vault(Origin::signed(id.account_id), DEFAULT_CURRENCY_PAIR, DEFAULT_COLLATERAL);
+        let result = VaultRegistry::register_vault(
+            RuntimeOrigin::signed(id.account_id),
+            DEFAULT_CURRENCY_PAIR,
+            DEFAULT_COLLATERAL,
+        );
         assert_err!(result, TestError::VaultAlreadyRegistered);
         assert_emitted!(
             Event::RegisterVault {
@@ -219,7 +222,8 @@ fn deposit_collateral_succeeds() {
     run_test(|| {
         let id = create_vault(RICH_ID);
         let additional = RICH_COLLATERAL - DEFAULT_COLLATERAL;
-        let res = VaultRegistry::deposit_collateral(Origin::signed(id.account_id), DEFAULT_CURRENCY_PAIR, additional);
+        let res =
+            VaultRegistry::deposit_collateral(RuntimeOrigin::signed(id.account_id), DEFAULT_CURRENCY_PAIR, additional);
         assert_ok!(res);
         let new_collateral = ext::currency::get_reserved_balance::<Test>(Token(DOT), &id.account_id);
         assert_eq!(new_collateral, amount(DEFAULT_COLLATERAL + additional));
@@ -235,7 +239,7 @@ fn deposit_collateral_succeeds() {
 #[test]
 fn deposit_collateral_fails_when_vault_does_not_exist() {
     run_test(|| {
-        let res = VaultRegistry::deposit_collateral(Origin::signed(3), DEFAULT_CURRENCY_PAIR, 50);
+        let res = VaultRegistry::deposit_collateral(RuntimeOrigin::signed(3), DEFAULT_CURRENCY_PAIR, 50);
         assert_err!(res, TestError::VaultNotFound);
     })
 }
@@ -244,7 +248,7 @@ fn deposit_collateral_fails_when_vault_does_not_exist() {
 fn withdraw_collateral_succeeds() {
     run_test(|| {
         let id = create_sample_vault();
-        let res = VaultRegistry::withdraw_collateral(Origin::signed(id.account_id), id.currencies.clone(), 50);
+        let res = VaultRegistry::withdraw_collateral(RuntimeOrigin::signed(id.account_id), id.currencies.clone(), 50);
         assert_ok!(res);
         let new_collateral = ext::currency::get_reserved_balance::<Test>(Token(DOT), &id.account_id);
         assert_eq!(new_collateral, amount(DEFAULT_COLLATERAL - 50));
@@ -259,7 +263,7 @@ fn withdraw_collateral_succeeds() {
 #[test]
 fn withdraw_collateral_fails_when_vault_does_not_exist() {
     run_test(|| {
-        let res = VaultRegistry::withdraw_collateral(Origin::signed(3), DEFAULT_CURRENCY_PAIR, 50);
+        let res = VaultRegistry::withdraw_collateral(RuntimeOrigin::signed(3), DEFAULT_CURRENCY_PAIR, 50);
         assert_err!(res, TestError::VaultNotFound);
     })
 }
@@ -268,8 +272,11 @@ fn withdraw_collateral_fails_when_vault_does_not_exist() {
 fn withdraw_collateral_fails_when_not_enough_collateral() {
     run_test(|| {
         let id = create_sample_vault();
-        let res =
-            VaultRegistry::withdraw_collateral(Origin::signed(id.account_id), id.currencies, DEFAULT_COLLATERAL + 1);
+        let res = VaultRegistry::withdraw_collateral(
+            RuntimeOrigin::signed(id.account_id),
+            id.currencies,
+            DEFAULT_COLLATERAL + 1,
+        );
         assert_err!(res, TestError::InsufficientCollateral);
     })
 }
@@ -770,14 +777,14 @@ fn liquidate_at_most_liquidation_threshold() {
         // should only be able to withdraw excess above secure threshold
         assert_err!(
             VaultRegistry::withdraw_collateral(
-                Origin::signed(vault_id.account_id),
+                RuntimeOrigin::signed(vault_id.account_id),
                 vault_id.currencies.clone(),
                 backing_collateral
             ),
             TestError::InsufficientCollateral
         );
         assert_ok!(VaultRegistry::withdraw_collateral(
-            Origin::signed(vault_id.account_id),
+            RuntimeOrigin::signed(vault_id.account_id),
             vault_id.currencies.clone(),
             backing_collateral - liquidated_collateral
         ));
@@ -851,7 +858,7 @@ fn can_withdraw_only_up_to_custom_threshold() {
 
         // set custom threshold for vault
         assert_ok!(VaultRegistry::set_custom_secure_threshold(
-            Origin::signed(vault_id.account_id),
+            RuntimeOrigin::signed(vault_id.account_id),
             DEFAULT_CURRENCY_PAIR,
             UnsignedFixedPoint::checked_from_rational(custom_threshold, 100),
         ));
@@ -868,19 +875,23 @@ fn can_withdraw_only_up_to_custom_threshold() {
 
         // should not be able to withdraw below custom threshold
         assert_err!(
-            VaultRegistry::withdraw_collateral(Origin::signed(vault_id.account_id), vault_id.currencies.clone(), 2),
+            VaultRegistry::withdraw_collateral(
+                RuntimeOrigin::signed(vault_id.account_id),
+                vault_id.currencies.clone(),
+                2
+            ),
             TestError::InsufficientCollateral
         );
         // should be able to withdraw up to custom threshold
         assert_ok!(VaultRegistry::withdraw_collateral(
-            Origin::signed(vault_id.account_id),
+            RuntimeOrigin::signed(vault_id.account_id),
             vault_id.currencies.clone(),
             1
         ));
 
         // reset custom threshold
         assert_ok!(VaultRegistry::set_custom_secure_threshold(
-            Origin::signed(vault_id.account_id),
+            RuntimeOrigin::signed(vault_id.account_id),
             DEFAULT_CURRENCY_PAIR,
             None
         ));
@@ -888,7 +899,7 @@ fn can_withdraw_only_up_to_custom_threshold() {
         // should not be able to withdraw below base secure threshold now
         assert_err!(
             VaultRegistry::withdraw_collateral(
-                Origin::signed(vault_id.account_id),
+                RuntimeOrigin::signed(vault_id.account_id),
                 vault_id.currencies.clone(),
                 backing_collateral - minimum_backing_collateral // will be 1 over
             ),
@@ -897,7 +908,7 @@ fn can_withdraw_only_up_to_custom_threshold() {
 
         // should be able to withdraw to the secure threshold
         assert_ok!(VaultRegistry::withdraw_collateral(
-            Origin::signed(vault_id.account_id),
+            RuntimeOrigin::signed(vault_id.account_id),
             vault_id.currencies.clone(),
             backing_collateral - minimum_backing_collateral - 1
         ));
@@ -1451,7 +1462,7 @@ mod get_vaults_with_issuable_tokens_tests {
             let collateral2 = 50;
             create_vault_with_collateral(&id2, collateral2);
             assert_ok!(VaultRegistry::accept_new_issues(
-                Origin::signed(id2.account_id),
+                RuntimeOrigin::signed(id2.account_id),
                 id2.currencies,
                 false
             ));
@@ -1678,7 +1689,7 @@ fn test_offchain_worker_unsigned_transaction_submission() {
         assert_eq!(tx.signature, None); // unsigned
         assert_eq!(
             tx.call,
-            crate::mock::Call::VaultRegistry(crate::Call::report_undercollateralized_vault { vault_id: id })
+            crate::mock::RuntimeCall::VaultRegistry(crate::Call::report_undercollateralized_vault { vault_id: id })
         );
     })
 }

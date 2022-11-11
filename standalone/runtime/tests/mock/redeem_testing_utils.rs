@@ -55,7 +55,7 @@ impl ExecuteRedeemBuilder {
         VaultRegistryPallet::collateral_integrity_check();
 
         // alice executes the redeemrequest by confirming the btc transaction
-        let ret = Call::Redeem(RedeemCall::execute_redeem {
+        let ret = RuntimeCall::Redeem(RedeemCall::execute_redeem {
             redeem_id: self.redeem_id,
             merkle_proof: proof,
             raw_tx: raw_tx,
@@ -108,7 +108,7 @@ pub fn set_redeem_state(
 
 pub fn setup_redeem(issued_tokens: Amount<Runtime>, user: [u8; 32], vault: &VaultId) -> H256 {
     // alice requests to redeem issued_tokens from Bob
-    assert_ok!(Call::Redeem(RedeemCall::request_redeem {
+    assert_ok!(RuntimeCall::Redeem(RedeemCall::request_redeem {
         amount_wrapped: issued_tokens.amount(),
         btc_address: USER_BTC_ADDRESS,
         vault_id: vault.clone()
@@ -127,7 +127,7 @@ pub fn assert_redeem_request_event() -> H256 {
     let ids = events
         .iter()
         .filter_map(|r| match r.event {
-            Event::Redeem(RedeemEvent::RequestRedeem { redeem_id, .. }) => Some(redeem_id),
+            RuntimeEvent::Redeem(RedeemEvent::RequestRedeem { redeem_id, .. }) => Some(redeem_id),
             _ => None,
         })
         .collect::<Vec<H256>>();
@@ -141,7 +141,7 @@ pub fn assert_self_redeem_event() -> (Amount<Runtime>, Amount<Runtime>) {
     let ids = events
         .iter()
         .filter_map(|r| match r.event {
-            Event::Redeem(RedeemEvent::SelfRedeem {
+            RuntimeEvent::Redeem(RedeemEvent::SelfRedeem {
                 ref vault_id,
                 amount,
                 fee,
@@ -162,7 +162,7 @@ pub fn execute_redeem(redeem_id: H256) {
 }
 
 pub fn cancel_redeem(redeem_id: H256, redeemer: [u8; 32], reimburse: bool) {
-    assert_ok!(Call::Redeem(RedeemCall::cancel_redeem {
+    assert_ok!(RuntimeCall::Redeem(RedeemCall::cancel_redeem {
         redeem_id: redeem_id,
         reimburse: reimburse
     })
@@ -188,7 +188,7 @@ pub fn assert_redeem_error(
     SecurityPallet::set_active_block_number(current_block_number + 1 + CONFIRMATIONS);
 
     assert_noop!(
-        Call::Redeem(RedeemCall::execute_redeem {
+        RuntimeCall::Redeem(RedeemCall::execute_redeem {
             redeem_id: redeem_id,
             merkle_proof: merkle_proof.clone(),
             raw_tx: raw_tx

@@ -15,7 +15,7 @@ use polkadot_service::CollatorPair;
 use futures::StreamExt;
 use jsonrpsee::RpcModule;
 use primitives::*;
-use sc_client_api::{ExecutorProvider, HeaderBackend};
+use sc_client_api::HeaderBackend;
 use sc_consensus::LongestChain;
 use sc_executor::NativeElseWasmExecutor;
 use sc_network::{NetworkBlock, NetworkService};
@@ -230,7 +230,7 @@ where
             registry,
         )
     } else {
-        cumulus_client_consensus_aura::import_queue::<AuraPair, _, _, _, _, _, _>(
+        cumulus_client_consensus_aura::import_queue::<AuraPair, _, _, _, _, _>(
             cumulus_client_consensus_aura::ImportQueueParams {
                 block_import: client.clone(),
                 client: client.clone(),
@@ -243,18 +243,17 @@ where
                         };
                         let slot_duration = sp_consensus_aura::SlotDuration::from_millis(slot_ms);
 
-                        let time = sp_timestamp::InherentDataProvider::from_system_time();
+                        let timestamp = sp_timestamp::InherentDataProvider::from_system_time();
 
                         let slot = sp_consensus_aura::inherents::InherentDataProvider::from_timestamp_and_slot_duration(
-                            *time,
+                            *timestamp,
                             slot_duration,
                         );
 
-                        Ok((time, slot))
+                        Ok((slot, timestamp))
                     }
                 },
                 registry,
-                can_author_with: sp_consensus::CanAuthorWithNativeVersion::new(client.executor().clone()),
                 spawner: &task_manager.spawn_essential_handle(),
                 telemetry: telemetry.as_ref().map(|telemetry| telemetry.handle()),
             },
@@ -356,15 +355,16 @@ where
     let prometheus_registry = parachain_config.prometheus_registry().cloned();
     let transaction_pool = params.transaction_pool.clone();
     let import_queue = cumulus_client_service::SharedImportQueue::new(params.import_queue);
-    let (network, system_rpc_tx, start_network) = sc_service::build_network(sc_service::BuildNetworkParams {
-        config: &parachain_config,
-        client: client.clone(),
-        transaction_pool: transaction_pool.clone(),
-        spawn_handle: task_manager.spawn_handle(),
-        import_queue: import_queue.clone(),
-        block_announce_validator_builder: Some(Box::new(|_| Box::new(block_announce_validator))),
-        warp_sync: None,
-    })?;
+    let (network, system_rpc_tx, tx_handler_controller, start_network) =
+        sc_service::build_network(sc_service::BuildNetworkParams {
+            config: &parachain_config,
+            client: client.clone(),
+            transaction_pool: transaction_pool.clone(),
+            spawn_handle: task_manager.spawn_handle(),
+            import_queue: import_queue.clone(),
+            block_announce_validator_builder: Some(Box::new(|_| Box::new(block_announce_validator))),
+            warp_sync: None,
+        })?;
 
     let rpc_builder = {
         let client = client.clone();
@@ -401,6 +401,7 @@ where
         backend: backend.clone(),
         network: network.clone(),
         system_rpc_tx,
+        tx_handler_controller,
         telemetry: telemetry.as_mut(),
     })?;
 
@@ -526,17 +527,17 @@ where
                             )
                             .await;
 
-                        let time = sp_timestamp::InherentDataProvider::from_system_time();
+                        let timestamp = sp_timestamp::InherentDataProvider::from_system_time();
 
                         let slot = sp_consensus_aura::inherents::InherentDataProvider::from_timestamp_and_slot_duration(
-                            *time,
+                            *timestamp,
                             slot_duration,
                         );
 
                         let parachain_inherent = parachain_inherent.ok_or_else(|| {
                             Box::<dyn std::error::Error + Send + Sync>::from("Failed to create parachain inherent")
                         })?;
-                        Ok((time, slot, parachain_inherent))
+                        Ok((slot, timestamp, parachain_inherent))
                     }
                 },
                 block_import: client.clone(),
@@ -577,15 +578,16 @@ where
         other: (mut telemetry, _),
     } = new_partial::<RuntimeApi, Executor>(&config, true)?;
 
-    let (network, system_rpc_tx, network_starter) = sc_service::build_network(sc_service::BuildNetworkParams {
-        config: &config,
-        client: client.clone(),
-        transaction_pool: transaction_pool.clone(),
-        spawn_handle: task_manager.spawn_handle(),
-        import_queue,
-        block_announce_validator_builder: None,
-        warp_sync: None,
-    })?;
+    let (network, system_rpc_tx, tx_handler_controller, network_starter) =
+        sc_service::build_network(sc_service::BuildNetworkParams {
+            config: &config,
+            client: client.clone(),
+            transaction_pool: transaction_pool.clone(),
+            spawn_handle: task_manager.spawn_handle(),
+            import_queue,
+            block_announce_validator_builder: None,
+            warp_sync: None,
+        })?;
 
     if config.offchain_worker.enabled {
         sc_service::build_offchain_workers(&config, task_manager.spawn_handle(), client.clone(), network.clone());
@@ -640,6 +642,8 @@ where
                         current_para_block,
                         relay_offset: 1000,
                         relay_blocks_per_para_block: 2,
+                        para_blocks_per_relay_epoch: 0,
+                        relay_randomness_config: (),
                         xcm_config: MockXcmConfig::new(&*client_for_xcm, block, Default::default(), Default::default()),
                         raw_downward_messages: vec![],
                         raw_horizontal_messages: vec![],
@@ -685,6 +689,7 @@ where
         backend,
         network,
         system_rpc_tx,
+        tx_handler_controller,
         telemetry: telemetry.as_mut(),
     })?;
 

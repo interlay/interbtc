@@ -16,7 +16,7 @@ mod client_releases {
                     .to_vec(),
                 checksum: H256::default(),
             };
-            assert_ok!(Call::ClientsInfo(ServicesCall::set_current_client_release {
+            assert_ok!(RuntimeCall::ClientsInfo(ServicesCall::set_current_client_release {
                 client_name: vault_key.clone(),
                 release: vault_release.clone()
             })
@@ -33,7 +33,7 @@ mod client_releases {
                     .to_vec(),
                 checksum: H256::default(),
             };
-            assert_ok!(Call::ClientsInfo(ServicesCall::set_current_client_release {
+            assert_ok!(RuntimeCall::ClientsInfo(ServicesCall::set_current_client_release {
                 client_name: oracle_client_name.clone(),
                 release: oracle_release.clone()
             })
@@ -55,7 +55,7 @@ mod client_releases {
                     .to_vec(),
                 checksum: H256::default(),
             };
-            assert_ok!(Call::ClientsInfo(ServicesCall::set_pending_client_release {
+            assert_ok!(RuntimeCall::ClientsInfo(ServicesCall::set_pending_client_release {
                 client_name: vault_key.clone(),
                 release: vault_release.clone()
             })
@@ -68,7 +68,7 @@ mod client_releases {
                     .to_vec(),
                 checksum: H256::default(),
             };
-            assert_ok!(Call::ClientsInfo(ServicesCall::set_pending_client_release {
+            assert_ok!(RuntimeCall::ClientsInfo(ServicesCall::set_pending_client_release {
                 client_name: oracle_key.clone(),
                 release: oracle_release.clone()
             })

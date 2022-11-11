@@ -18,7 +18,7 @@ fn get_last_reward() -> Balance {
         .iter()
         .rev()
         .find_map(|record| {
-            if let Event::VaultAnnuity(VaultAnnuityEvent::BlockReward(reward)) = record.event {
+            if let RuntimeEvent::VaultAnnuity(VaultAnnuityEvent::BlockReward(reward)) = record.event {
                 Some(reward)
             } else {
                 None
@@ -30,7 +30,7 @@ fn get_last_reward() -> Balance {
 #[test]
 fn integration_test_annuity() {
     ExtBuilder::build().execute_with(|| {
-        assert_ok!(Call::Tokens(TokensCall::set_balance {
+        assert_ok!(RuntimeCall::Tokens(TokensCall::set_balance {
             who: VaultAnnuityPallet::account_id(),
             currency_id: DEFAULT_NATIVE_CURRENCY,
             new_free: 10_000_000_000_000,
@@ -54,13 +54,13 @@ fn integration_test_annuity_capped() {
     ExtBuilder::build().execute_with(|| {
         let reward_per_wrapped = 1;
         assert_ok!(
-            Call::VaultAnnuity(VaultAnnuityCall::set_reward_per_wrapped { reward_per_wrapped }).dispatch(root())
+            RuntimeCall::VaultAnnuity(VaultAnnuityCall::set_reward_per_wrapped { reward_per_wrapped }).dispatch(root())
         );
 
         let wrapped_issuance = 100_000; // 0.001 BTC
         let native_issuance = 10_000_000_000_000; // 1000 INTR
 
-        assert_ok!(Call::Tokens(TokensCall::set_balance {
+        assert_ok!(RuntimeCall::Tokens(TokensCall::set_balance {
             who: account_of(FAUCET),
             currency_id: DEFAULT_WRAPPED_CURRENCY,
             new_free: wrapped_issuance,
@@ -68,7 +68,7 @@ fn integration_test_annuity_capped() {
         })
         .dispatch(root()));
 
-        assert_ok!(Call::Tokens(TokensCall::set_balance {
+        assert_ok!(RuntimeCall::Tokens(TokensCall::set_balance {
             who: VaultAnnuityPallet::account_id(),
             currency_id: DEFAULT_NATIVE_CURRENCY,
             new_free: native_issuance,
@@ -86,7 +86,7 @@ fn integration_test_annuity_capped() {
 
         // issuance is increased
         let wrapped_issuance = 100_000_000; // 1 BTC
-        assert_ok!(Call::Tokens(TokensCall::set_balance {
+        assert_ok!(RuntimeCall::Tokens(TokensCall::set_balance {
             who: account_of(FAUCET),
             currency_id: DEFAULT_WRAPPED_CURRENCY,
             new_free: wrapped_issuance,
@@ -127,50 +127,50 @@ fn should_distribute_vault_rewards_from_supply() {
         let total_rewards = Permill::from_percent(30) * token_distribution::INITIAL_ALLOCATION;
         // NOTE: start height cannot be the current height or in the past
         let start_height = SystemPallet::block_number() + 1;
-        assert_ok!(Call::Utility(UtilityCall::batch {
+        assert_ok!(RuntimeCall::Utility(UtilityCall::batch {
             calls: vec![
-                Call::Scheduler(SchedulerCall::schedule_named {
+                RuntimeCall::Scheduler(SchedulerCall::schedule_named {
                     id: "Year 1".encode(),
                     when: start_height + YEARS * 0,
                     maybe_periodic: None,
                     priority: 63,
-                    call: Box::new(MaybeHashed::Value(Call::Tokens(TokensCall::force_transfer {
+                    call: Box::new(MaybeHashed::Value(RuntimeCall::Tokens(TokensCall::force_transfer {
                         source: SupplyPallet::account_id(),
                         dest: VaultAnnuityPallet::account_id(),
                         currency_id: DEFAULT_NATIVE_CURRENCY,
                         amount: Permill::from_percent(40) * total_rewards,
                     }))),
                 }),
-                Call::Scheduler(SchedulerCall::schedule_named {
+                RuntimeCall::Scheduler(SchedulerCall::schedule_named {
                     id: "Year 2".encode(),
                     when: start_height + YEARS * 1,
                     maybe_periodic: None,
                     priority: 63,
-                    call: Box::new(MaybeHashed::Value(Call::Tokens(TokensCall::force_transfer {
+                    call: Box::new(MaybeHashed::Value(RuntimeCall::Tokens(TokensCall::force_transfer {
                         source: SupplyPallet::account_id(),
                         dest: VaultAnnuityPallet::account_id(),
                         currency_id: DEFAULT_NATIVE_CURRENCY,
                         amount: Permill::from_percent(30) * total_rewards,
                     }))),
                 }),
-                Call::Scheduler(SchedulerCall::schedule_named {
+                RuntimeCall::Scheduler(SchedulerCall::schedule_named {
                     id: "Year 3".encode(),
                     when: start_height + YEARS * 2,
                     maybe_periodic: None,
                     priority: 63,
-                    call: Box::new(MaybeHashed::Value(Call::Tokens(TokensCall::force_transfer {
+                    call: Box::new(MaybeHashed::Value(RuntimeCall::Tokens(TokensCall::force_transfer {
                         source: SupplyPallet::account_id(),
                         dest: VaultAnnuityPallet::account_id(),
                         currency_id: DEFAULT_NATIVE_CURRENCY,
                         amount: Permill::from_percent(20) * total_rewards,
                     }))),
                 }),
-                Call::Scheduler(SchedulerCall::schedule_named {
+                RuntimeCall::Scheduler(SchedulerCall::schedule_named {
                     id: "Year 4".encode(),
                     when: start_height + YEARS * 3,
                     maybe_periodic: None,
                     priority: 63,
-                    call: Box::new(MaybeHashed::Value(Call::Tokens(TokensCall::force_transfer {
+                    call: Box::new(MaybeHashed::Value(RuntimeCall::Tokens(TokensCall::force_transfer {
                         source: SupplyPallet::account_id(),
                         dest: VaultAnnuityPallet::account_id(),
                         currency_id: DEFAULT_NATIVE_CURRENCY,
@@ -224,50 +224,50 @@ fn should_distribute_escrow_rewards_from_supply() {
         let total_rewards = Permill::from_percent(5) * token_distribution::INITIAL_ALLOCATION;
         // NOTE: start height cannot be the current height or in the past
         let start_height = SystemPallet::block_number() + 1;
-        assert_ok!(Call::Utility(UtilityCall::batch {
+        assert_ok!(RuntimeCall::Utility(UtilityCall::batch {
             calls: vec![
-                Call::Scheduler(SchedulerCall::schedule_named {
+                RuntimeCall::Scheduler(SchedulerCall::schedule_named {
                     id: "Year 1".encode(),
                     when: start_height + YEARS * 0,
                     maybe_periodic: None,
                     priority: 63,
-                    call: Box::new(MaybeHashed::Value(Call::Tokens(TokensCall::force_transfer {
+                    call: Box::new(MaybeHashed::Value(RuntimeCall::Tokens(TokensCall::force_transfer {
                         source: SupplyPallet::account_id(),
                         dest: EscrowAnnuityPallet::account_id(),
                         currency_id: DEFAULT_NATIVE_CURRENCY,
                         amount: Permill::from_percent(25) * total_rewards,
                     }))),
                 }),
-                Call::Scheduler(SchedulerCall::schedule_named {
+                RuntimeCall::Scheduler(SchedulerCall::schedule_named {
                     id: "Year 2".encode(),
                     when: start_height + YEARS * 1,
                     maybe_periodic: None,
                     priority: 63,
-                    call: Box::new(MaybeHashed::Value(Call::Tokens(TokensCall::force_transfer {
+                    call: Box::new(MaybeHashed::Value(RuntimeCall::Tokens(TokensCall::force_transfer {
                         source: SupplyPallet::account_id(),
                         dest: EscrowAnnuityPallet::account_id(),
                         currency_id: DEFAULT_NATIVE_CURRENCY,
                         amount: Permill::from_percent(25) * total_rewards,
                     }))),
                 }),
-                Call::Scheduler(SchedulerCall::schedule_named {
+                RuntimeCall::Scheduler(SchedulerCall::schedule_named {
                     id: "Year 3".encode(),
                     when: start_height + YEARS * 2,
                     maybe_periodic: None,
                     priority: 63,
-                    call: Box::new(MaybeHashed::Value(Call::Tokens(TokensCall::force_transfer {
+                    call: Box::new(MaybeHashed::Value(RuntimeCall::Tokens(TokensCall::force_transfer {
                         source: SupplyPallet::account_id(),
                         dest: EscrowAnnuityPallet::account_id(),
                         currency_id: DEFAULT_NATIVE_CURRENCY,
                         amount: Permill::from_percent(25) * total_rewards,
                     }))),
                 }),
-                Call::Scheduler(SchedulerCall::schedule_named {
+                RuntimeCall::Scheduler(SchedulerCall::schedule_named {
                     id: "Year 4".encode(),
                     when: start_height + YEARS * 3,
                     maybe_periodic: None,
                     priority: 63,
-                    call: Box::new(MaybeHashed::Value(Call::Tokens(TokensCall::force_transfer {
+                    call: Box::new(MaybeHashed::Value(RuntimeCall::Tokens(TokensCall::force_transfer {
                         source: SupplyPallet::account_id(),
                         dest: EscrowAnnuityPallet::account_id(),
                         currency_id: DEFAULT_NATIVE_CURRENCY,

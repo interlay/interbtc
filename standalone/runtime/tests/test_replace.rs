@@ -75,7 +75,7 @@ fn test_without_initialization<R>(execute: impl Fn(CurrencyId) -> R) {
 pub fn withdraw_replace(old_vault_id: &VaultId, amount: Amount<Runtime>) -> DispatchResultWithPostInfo {
     VaultRegistryPallet::collateral_integrity_check();
 
-    Call::Replace(ReplaceCall::withdraw_replace {
+    RuntimeCall::Replace(ReplaceCall::withdraw_replace {
         currency_pair: old_vault_id.currencies.clone(),
         amount: amount.amount(),
     })
@@ -85,7 +85,7 @@ pub fn withdraw_replace(old_vault_id: &VaultId, amount: Amount<Runtime>) -> Disp
 pub fn assert_replace_request_event() {
     let events = SystemPallet::events();
     let ids = events.iter().filter_map(|r| match r.event {
-        Event::Replace(ReplaceEvent::RequestReplace { .. }) => Some(()),
+        RuntimeEvent::Replace(ReplaceEvent::RequestReplace { .. }) => Some(()),
         _ => None,
     });
     assert_eq!(ids.count(), 1);
@@ -200,7 +200,7 @@ mod accept_replace_tests {
     #[test]
     fn integration_test_replace_accept_replace_by_vault_that_does_not_accept_issues_succeeds() {
         test_with(|old_vault_id, new_vault_id| {
-            assert_ok!(Call::VaultRegistry(VaultRegistryCall::accept_new_issues {
+            assert_ok!(RuntimeCall::VaultRegistry(VaultRegistryCall::accept_new_issues {
                 currency_pair: new_vault_id.currencies.clone(),
                 accept_new_issues: false
             })
@@ -216,7 +216,7 @@ mod accept_replace_tests {
             .unwrap();
 
             // Set `accept_new_issues` back to the default value so the parachain state check succeeds.
-            assert_ok!(Call::VaultRegistry(VaultRegistryCall::accept_new_issues {
+            assert_ok!(RuntimeCall::VaultRegistry(VaultRegistryCall::accept_new_issues {
                 currency_pair: new_vault_id.currencies.clone(),
                 accept_new_issues: true
             })
@@ -319,7 +319,7 @@ mod request_replace_tests {
             SecurityPallet::set_status(StatusCode::Shutdown);
 
             assert_noop!(
-                Call::Replace(ReplaceCall::request_replace {
+                RuntimeCall::Replace(ReplaceCall::request_replace {
                     currency_pair: VaultCurrencyPair {
                         collateral: Token(DOT),
                         wrapped: Token(DOT),
@@ -402,7 +402,7 @@ mod request_replace_tests {
     fn integration_test_replace_request_replace_with_zero_btc_fails() {
         test_with(|old_vault_id, _new_vault_id| {
             assert_noop!(
-                Call::Replace(ReplaceCall::request_replace {
+                RuntimeCall::Replace(ReplaceCall::request_replace {
                     currency_pair: old_vault_id.currencies.clone(),
                     amount: 0,
                 })
@@ -558,11 +558,12 @@ mod expiry_test {
     }
 
     fn set_replace_period(period: u32) {
-        assert_ok!(Call::Replace(ReplaceCall::set_replace_period { period }).dispatch(root()));
+        assert_ok!(RuntimeCall::Replace(ReplaceCall::set_replace_period { period }).dispatch(root()));
     }
 
     fn cancel_replace(replace_id: H256) -> DispatchResultWithPostInfo {
-        Call::Replace(ReplaceCall::cancel_replace { replace_id: replace_id }).dispatch(origin_of(account_of(NEW_VAULT)))
+        RuntimeCall::Replace(ReplaceCall::cancel_replace { replace_id: replace_id })
+            .dispatch(origin_of(account_of(NEW_VAULT)))
     }
 
     #[test]
@@ -703,7 +704,7 @@ fn integration_test_replace_with_parachain_shutdown_fails() {
         SecurityPallet::set_status(StatusCode::Shutdown);
 
         assert_noop!(
-            Call::Replace(ReplaceCall::request_replace {
+            RuntimeCall::Replace(ReplaceCall::request_replace {
                 currency_pair: old_vault_id.currencies.clone(),
                 amount: old_vault_id.wrapped(0).amount(),
             })
@@ -726,7 +727,7 @@ fn integration_test_replace_with_parachain_shutdown_fails() {
         );
 
         assert_noop!(
-            Call::Replace(ReplaceCall::execute_replace {
+            RuntimeCall::Replace(ReplaceCall::execute_replace {
                 replace_id: Default::default(),
                 merkle_proof: Default::default(),
                 raw_tx: Default::default()
@@ -736,7 +737,7 @@ fn integration_test_replace_with_parachain_shutdown_fails() {
         );
 
         assert_noop!(
-            Call::Replace(ReplaceCall::cancel_replace {
+            RuntimeCall::Replace(ReplaceCall::cancel_replace {
                 replace_id: Default::default()
             })
             .dispatch(origin_of(account_of(OLD_VAULT))),
@@ -754,8 +755,10 @@ fn integration_test_replace_cancel_replace() {
         // new_vault cancels replacement
         mine_blocks(2);
         SecurityPallet::set_active_block_number(30);
-        assert_ok!(Call::Replace(ReplaceCall::cancel_replace { replace_id: replace_id })
-            .dispatch(origin_of(new_vault_id.account_id.clone())));
+        assert_ok!(
+            RuntimeCall::Replace(ReplaceCall::cancel_replace { replace_id: replace_id })
+                .dispatch(origin_of(new_vault_id.account_id.clone()))
+        );
     });
 }
 
@@ -779,7 +782,7 @@ fn execute_replace_with_amount(replace_id: H256, amount: Amount<Runtime>) -> Dis
 
     SecurityPallet::set_active_block_number(SecurityPallet::active_block_number() + CONFIRMATIONS);
 
-    Call::Replace(ReplaceCall::execute_replace {
+    RuntimeCall::Replace(ReplaceCall::execute_replace {
         replace_id: replace_id,
         merkle_proof: merkle_proof,
         raw_tx: raw_tx,
@@ -791,8 +794,10 @@ fn cancel_replace(replace_id: H256) {
     // set block height
     mine_blocks(2);
     SecurityPallet::set_active_block_number(30);
-    assert_ok!(Call::Replace(ReplaceCall::cancel_replace { replace_id: replace_id })
-        .dispatch(origin_of(account_of(NEW_VAULT))));
+    assert_ok!(
+        RuntimeCall::Replace(ReplaceCall::cancel_replace { replace_id: replace_id })
+            .dispatch(origin_of(account_of(NEW_VAULT)))
+    );
 }
 
 #[test]

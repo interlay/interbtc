@@ -44,16 +44,16 @@ fn reserved_balance(currency_id: CurrencyId, account_id: &AccountId) -> Balance 
 
 fn set_up_market(currency_id: CurrencyId, exchange_rate: FixedU128, lend_token_id: CurrencyId) {
     assert_ok!(OraclePallet::_set_exchange_rate(currency_id, exchange_rate));
-    assert_ok!(Call::Sudo(SudoCall::sudo {
-        call: Box::new(Call::Loans(LoansCall::add_market {
+    assert_ok!(RuntimeCall::Sudo(SudoCall::sudo {
+        call: Box::new(RuntimeCall::Loans(LoansCall::add_market {
             asset_id: currency_id,
             market: market_mock(lend_token_id),
         })),
     })
     .dispatch(origin_of(account_of(ALICE))));
 
-    assert_ok!(Call::Sudo(SudoCall::sudo {
-        call: Box::new(Call::Loans(LoansCall::activate_market { asset_id: currency_id })),
+    assert_ok!(RuntimeCall::Sudo(SudoCall::sudo {
+        call: Box::new(RuntimeCall::Loans(LoansCall::activate_market { asset_id: currency_id })),
     })
     .dispatch(origin_of(account_of(ALICE))));
 }
@@ -88,7 +88,7 @@ fn integration_test_liquidation() {
         let user = account_of(USER);
         let lp = account_of(LP);
 
-        assert_ok!(Call::Loans(LoansCall::mint {
+        assert_ok!(RuntimeCall::Loans(LoansCall::mint {
             asset_id: kint,
             mint_amount: 1000,
         })
@@ -98,7 +98,7 @@ fn integration_test_liquidation() {
         assert_eq!(free_balance(LEND_KINT, &user), 1000);
         assert_eq!(reserved_balance(LEND_KINT, &user), 0);
 
-        assert_ok!(Call::Loans(LoansCall::mint {
+        assert_ok!(RuntimeCall::Loans(LoansCall::mint {
             asset_id: ksm,
             mint_amount: 50,
         })
@@ -108,14 +108,16 @@ fn integration_test_liquidation() {
         assert_eq!(free_balance(LEND_KSM, &lp), 50);
         assert_eq!(reserved_balance(LEND_KSM, &lp), 0);
 
-        assert_ok!(Call::Loans(LoansCall::deposit_all_collateral { asset_id: kint }).dispatch(origin_of(user.clone())));
+        assert_ok!(
+            RuntimeCall::Loans(LoansCall::deposit_all_collateral { asset_id: kint }).dispatch(origin_of(user.clone()))
+        );
 
         // Check entries from orml-tokens directly
         assert_eq!(free_balance(LEND_KINT, &user), 0);
         assert_eq!(reserved_balance(LEND_KINT, &user), 1000);
 
         assert_err!(
-            Call::Loans(LoansCall::borrow {
+            RuntimeCall::Loans(LoansCall::borrow {
                 asset_id: ksm,
                 borrow_amount: 20,
             })
@@ -124,7 +126,7 @@ fn integration_test_liquidation() {
         );
 
         assert_eq!(free_balance(ksm, &user), 1000000000000);
-        assert_ok!(Call::Loans(LoansCall::borrow {
+        assert_ok!(RuntimeCall::Loans(LoansCall::borrow {
             asset_id: ksm,
             borrow_amount: 15,
         })
@@ -132,7 +134,7 @@ fn integration_test_liquidation() {
         assert_eq!(free_balance(ksm, &user), 1000000000015);
 
         assert_err!(
-            Call::Loans(LoansCall::liquidate_borrow {
+            RuntimeCall::Loans(LoansCall::liquidate_borrow {
                 borrower: user.clone(),
                 liquidation_asset_id: ksm,
                 repay_amount: 15,
@@ -149,7 +151,7 @@ fn integration_test_liquidation() {
             kint_rate.checked_mul(&2.into()).unwrap()
         ));
 
-        assert_ok!(Call::Loans(LoansCall::liquidate_borrow {
+        assert_ok!(RuntimeCall::Loans(LoansCall::liquidate_borrow {
             borrower: user.clone(),
             liquidation_asset_id: ksm,
             repay_amount: 7,
@@ -185,7 +187,7 @@ fn integration_test_lend_token_vault_insufficient_balance() {
         let dot = Token(DOT);
         let vault_account_id = account_of(USER);
 
-        assert_ok!(Call::Loans(LoansCall::mint {
+        assert_ok!(RuntimeCall::Loans(LoansCall::mint {
             asset_id: dot,
             mint_amount: 1000,
         })
@@ -202,7 +204,7 @@ fn integration_test_lend_token_vault_insufficient_balance() {
         let lend_tokens = LoansPallet::free_lend_tokens(dot, &vault_account_id).unwrap();
 
         // Depositing all the collateral should leave none free for registering as a vault
-        assert_ok!(Call::Loans(LoansCall::deposit_all_collateral { asset_id: dot })
+        assert_ok!(RuntimeCall::Loans(LoansCall::deposit_all_collateral { asset_id: dot })
             .dispatch(origin_of(vault_account_id.clone())));
         assert_eq!(free_balance(LEND_DOT, &vault_account_id), 0);
         assert_eq!(reserved_balance(LEND_DOT, &vault_account_id), 1000);
@@ -218,7 +220,7 @@ fn integration_test_lend_token_vault_insufficient_balance() {
         );
 
         // Withdraw the lend_tokens to use them for another purpose
-        assert_ok!(Call::Loans(LoansCall::withdraw_all_collateral { asset_id: dot })
+        assert_ok!(RuntimeCall::Loans(LoansCall::withdraw_all_collateral { asset_id: dot })
             .dispatch(origin_of(vault_account_id.clone())));
         assert_eq!(free_balance(LEND_DOT, &vault_account_id), 1000);
         assert_eq!(reserved_balance(LEND_DOT, &vault_account_id), 0);
@@ -240,7 +242,7 @@ fn integration_test_lend_token_deposit_insufficient_balance() {
         let dot = Token(DOT);
         let vault_account_id = account_of(USER);
 
-        assert_ok!(Call::Loans(LoansCall::mint {
+        assert_ok!(RuntimeCall::Loans(LoansCall::mint {
             asset_id: dot,
             mint_amount: 1000,
         })
@@ -266,7 +268,7 @@ fn integration_test_lend_token_transfer_reserved_fails() {
         let vault_account_id = account_of(USER);
         let lp_account_id = account_of(LP);
 
-        assert_ok!(Call::Loans(LoansCall::mint {
+        assert_ok!(RuntimeCall::Loans(LoansCall::mint {
             asset_id: dot,
             mint_amount: 1000,
         })

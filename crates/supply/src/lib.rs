@@ -45,7 +45,7 @@ pub mod pallet {
         type SupplyPalletId: Get<PalletId>;
 
         /// The overarching event type.
-        type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
+        type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
         /// Unsigned fixed point type.
         type UnsignedFixedPoint: FixedPointNumber<Inner = BalanceOf<Self>>

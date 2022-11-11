@@ -53,7 +53,7 @@ fn test_with<R>(execute: impl Fn(CurrencyId) -> R) {
 
 fn withdraw_vault_global_pool_rewards(vault_id: &VaultId) -> i128 {
     let amount = VaultRewardsPallet::compute_reward(vault_id.wrapped_currency(), vault_id).unwrap();
-    assert_ok!(Call::Fee(FeeCall::withdraw_rewards {
+    assert_ok!(RuntimeCall::Fee(FeeCall::withdraw_rewards {
         vault_id: vault_id.clone(),
         index: None
     })
@@ -64,7 +64,7 @@ fn withdraw_vault_global_pool_rewards(vault_id: &VaultId) -> i128 {
 fn withdraw_local_pool_rewards(vault_id: &VaultId, nominator_id: &AccountId) -> i128 {
     let amount =
         staking::Pallet::<Runtime>::compute_reward(vault_id.wrapped_currency(), vault_id, nominator_id).unwrap();
-    assert_ok!(Call::Fee(FeeCall::withdraw_rewards {
+    assert_ok!(RuntimeCall::Fee(FeeCall::withdraw_rewards {
         vault_id: vault_id.clone(),
         index: None
     })
@@ -338,7 +338,7 @@ fn integration_test_fee_with_parachain_shutdown_fails() {
         let vault_id_1 = vault_id_of(VAULT_1, currency_id);
 
         assert_noop!(
-            Call::Fee(FeeCall::withdraw_rewards {
+            RuntimeCall::Fee(FeeCall::withdraw_rewards {
                 vault_id: vault_id_1.clone(),
                 index: None
             })

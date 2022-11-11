@@ -18,20 +18,20 @@ pub fn default_backing_collateral(currency_id: CurrencyId) -> Amount<Runtime> {
 
 pub fn enable_nomination() {
     assert_ok!(
-        Call::Nomination(NominationCall::set_nomination_enabled { enabled: true })
-            .dispatch(<Runtime as frame_system::Config>::Origin::root())
+        RuntimeCall::Nomination(NominationCall::set_nomination_enabled { enabled: true })
+            .dispatch(<Runtime as frame_system::Config>::RuntimeOrigin::root())
     );
 }
 
 pub fn disable_nomination() {
     assert_ok!(
-        Call::Nomination(NominationCall::set_nomination_enabled { enabled: false })
-            .dispatch(<Runtime as frame_system::Config>::Origin::root())
+        RuntimeCall::Nomination(NominationCall::set_nomination_enabled { enabled: false })
+            .dispatch(<Runtime as frame_system::Config>::RuntimeOrigin::root())
     );
 }
 
 pub fn nomination_opt_in(vault_id: &DefaultVaultId<Runtime>) -> DispatchResultWithPostInfo {
-    Call::Nomination(NominationCall::opt_in_to_nomination {
+    RuntimeCall::Nomination(NominationCall::opt_in_to_nomination {
         currency_pair: vault_id.currencies.clone(),
     })
     .dispatch(origin_of(vault_id.account_id.clone()))
@@ -39,7 +39,7 @@ pub fn nomination_opt_in(vault_id: &DefaultVaultId<Runtime>) -> DispatchResultWi
 
 pub fn assert_nomination_opt_in(vault_id: &VaultId) {
     assert_ok!(nomination_opt_in(vault_id));
-    assert_ok!(Call::Nomination(NominationCall::set_nomination_limit {
+    assert_ok!(RuntimeCall::Nomination(NominationCall::set_nomination_limit {
         currency_pair: vault_id.currencies.clone(),
         limit: DEFAULT_NOMINATION_LIMIT
     })
@@ -47,7 +47,7 @@ pub fn assert_nomination_opt_in(vault_id: &VaultId) {
 }
 
 pub fn nomination_opt_out(vault_id: &DefaultVaultId<Runtime>) -> DispatchResultWithPostInfo {
-    Call::Nomination(NominationCall::opt_out_of_nomination {
+    RuntimeCall::Nomination(NominationCall::opt_out_of_nomination {
         currency_pair: vault_id.currencies.clone(),
     })
     .dispatch(origin_of(vault_id.account_id.clone()))
@@ -58,7 +58,7 @@ pub fn nominate_collateral(
     nominator_id: AccountId,
     amount_collateral: Amount<Runtime>,
 ) -> DispatchResultWithPostInfo {
-    Call::Nomination(NominationCall::deposit_collateral {
+    RuntimeCall::Nomination(NominationCall::deposit_collateral {
         vault_id: vault_id.clone(),
         amount: amount_collateral.amount(),
     })
@@ -70,7 +70,7 @@ pub fn assert_nominate_collateral(vault_id: &VaultId, nominator_id: AccountId, a
 }
 
 pub fn withdraw_vault_collateral(vault_id: &VaultId, amount_collateral: Amount<Runtime>) -> DispatchResultWithPostInfo {
-    Call::VaultRegistry(VaultRegistryCall::withdraw_collateral {
+    RuntimeCall::VaultRegistry(VaultRegistryCall::withdraw_collateral {
         currency_pair: vault_id.currencies.clone(),
         amount: amount_collateral.amount(),
     })
@@ -82,7 +82,7 @@ pub fn withdraw_nominator_collateral(
     vault_id: &VaultId,
     amount_collateral: Amount<Runtime>,
 ) -> DispatchResultWithPostInfo {
-    Call::Nomination(NominationCall::withdraw_collateral {
+    RuntimeCall::Nomination(NominationCall::withdraw_collateral {
         vault_id: vault_id.clone(),
         amount: amount_collateral.amount(),
         index: None,
