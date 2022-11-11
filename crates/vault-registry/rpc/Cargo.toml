@@ -7,9 +7,9 @@ version = '0.3.0'
 [dependencies]
 codec = { package = "parity-scale-codec", version = "3.1.5" }
 jsonrpsee = { version = "0.15.1", features = ["server", "macros"] }
-sp-runtime = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.30" }
-sp-api = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.30" }
-sp-blockchain = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.30" }
+sp-runtime = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.31" }
+sp-api = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.31" }
+sp-blockchain = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.31" }
 module-vault-registry-rpc-runtime-api = { path = "runtime-api" }
 
 [dependencies.module-oracle-rpc-runtime-api]
