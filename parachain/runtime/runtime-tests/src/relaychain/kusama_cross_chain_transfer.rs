@@ -80,7 +80,7 @@ mod hrmp {
             kusama_runtime::System::events().iter().any(|r| {
                 matches!(
                     r.event,
-                    kusama_runtime::Event::Hrmp(hrmp::Event::OpenChannelRequested(
+                    kusama_runtime::RuntimeEvent::Hrmp(hrmp::Event::OpenChannelRequested(
                         actual_sender,
                         actual_recipient,
                         1000,
@@ -96,7 +96,7 @@ mod hrmp {
             kusama_runtime::System::events().iter().any(|r| {
                 matches!(
                     r.event,
-                    kusama_runtime::Event::Hrmp(hrmp::Event::OpenChannelAccepted(
+                    kusama_runtime::RuntimeEvent::Hrmp(hrmp::Event::OpenChannelAccepted(
                         actual_sender,
                         actual_recipient
                     )) if actual_sender == sender.into() && actual_recipient == recipient.into()
@@ -112,7 +112,7 @@ mod hrmp {
         // do hrmp_init_open_channel
         assert!(!has_open_channel_requested_event(sender, recipient)); // just a sanity check
         T::execute_with(|| {
-            let message = construct_xcm(hrmp::RuntimeCall::<kusama_runtime::Runtime>::hrmp_init_open_channel {
+            let message = construct_xcm(hrmp::Call::<kusama_runtime::Runtime>::hrmp_init_open_channel {
                 recipient: recipient.into(),
                 proposed_max_capacity: 1000,
                 proposed_max_message_size: 102400,
@@ -131,7 +131,7 @@ mod hrmp {
         // do hrmp_accept_open_channel
         assert!(!has_open_channel_accepted_event(sender, recipient)); // just a sanity check
         T::execute_with(|| {
-            let message = construct_xcm(hrmp::RuntimeCall::<kusama_runtime::Runtime>::hrmp_accept_open_channel {
+            let message = construct_xcm(hrmp::Call::<kusama_runtime::Runtime>::hrmp_accept_open_channel {
                 sender: sender.into(),
             });
             assert_ok!(pallet_xcm::Pallet::<kintsugi_runtime_parachain::Runtime>::send_xcm(
@@ -380,7 +380,7 @@ fn xcm_transfer_execution_barrier_trader_works() {
     Kintsugi::execute_with(|| {
         assert!(System::events().iter().any(|r| matches!(
             r.event,
-            Event::DmpQueue(cumulus_pallet_dmp_queue::Event::ExecutedDownward {
+            RuntimeEvent::DmpQueue(cumulus_pallet_dmp_queue::Event::ExecutedDownward {
                 outcome: Outcome::Error(XcmError::Barrier),
                 ..
             })
@@ -391,7 +391,7 @@ fn xcm_transfer_execution_barrier_trader_works() {
     // para-chain use XcmExecutor `execute_xcm()` method to execute xcm.
     // if `weight_limit` in BuyExecution is less than `xcm_weight(max_weight)`, then Barrier can't pass.
     // other situation when `weight_limit` is `Unlimited` or large than `xcm_weight`, then it's ok.
-    let message = Xcm::<kintsugi_runtime_parachain::Call>(vec![
+    let message = Xcm::<kintsugi_runtime_parachain::RuntimeCall>(vec![
         ReserveAssetDeposited((Parent, 100).into()),
         BuyExecution {
             fees: (Parent, 100).into(),
@@ -410,7 +410,7 @@ fn xcm_transfer_execution_barrier_trader_works() {
 
     // trader inside BuyExecution have TooExpensive error if payment less than calculated weight amount.
     // the minimum of calculated weight amount(`FixedRateOfFungible<KsmPerSecond>`).
-    let message = Xcm::<kintsugi_runtime_parachain::Call>(vec![
+    let message = Xcm::<kintsugi_runtime_parachain::RuntimeCall>(vec![
         ReserveAssetDeposited((Parent, xcm_fee - 1).into()),
         BuyExecution {
             fees: (Parent, xcm_fee - 1).into(),
@@ -431,7 +431,7 @@ fn xcm_transfer_execution_barrier_trader_works() {
     });
 
     // all situation fulfilled, execute success
-    let message = Xcm::<kintsugi_runtime_parachain::Call>(vec![
+    let message = Xcm::<kintsugi_runtime_parachain::RuntimeCall>(vec![
         ReserveAssetDeposited((Parent, xcm_fee).into()),
         BuyExecution {
             fees: (Parent, xcm_fee).into(),
@@ -460,7 +460,7 @@ fn subscribe_version_notify_works() {
         assert_ok!(r);
     });
     KusamaNet::execute_with(|| {
-        kusama_runtime::System::assert_has_event(kusama_runtime::Event::XcmPallet(
+        kusama_runtime::System::assert_has_event(kusama_runtime::RuntimeEvent::XcmPallet(
             pallet_xcm::Event::SupportedVersionChanged(
                 MultiLocation {
                     parents: 0,
@@ -480,7 +480,7 @@ fn subscribe_version_notify_works() {
         assert_ok!(r);
     });
     Kintsugi::execute_with(|| {
-        System::assert_has_event(kintsugi_runtime_parachain::Event::PolkadotXcm(
+        System::assert_has_event(kintsugi_runtime_parachain::RuntimeEvent::PolkadotXcm(
             pallet_xcm::Event::SupportedVersionChanged(
                 MultiLocation {
                     parents: 1,
@@ -502,7 +502,7 @@ fn subscribe_version_notify_works() {
     Kintsugi::execute_with(|| {
         assert!(kintsugi_runtime_parachain::System::events().iter().any(|r| matches!(
             r.event,
-            kintsugi_runtime_parachain::Event::XcmpQueue(cumulus_pallet_xcmp_queue::Event::XcmpMessageSent {
+            kintsugi_runtime_parachain::RuntimeEvent::XcmpQueue(cumulus_pallet_xcmp_queue::Event::XcmpMessageSent {
                 message_hash: Some(_)
             })
         )));
@@ -512,12 +512,14 @@ fn subscribe_version_notify_works() {
             .iter()
             .any(|r| matches!(
                 r.event,
-                testnet_kintsugi_runtime_parachain::Event::XcmpQueue(
+                testnet_kintsugi_runtime_parachain::RuntimeEvent::XcmpQueue(
                     cumulus_pallet_xcmp_queue::Event::XcmpMessageSent { message_hash: Some(_) }
-                ) | testnet_kintsugi_runtime_parachain::Event::XcmpQueue(cumulus_pallet_xcmp_queue::Event::Success {
-                    message_hash: Some(_),
-                    weight: _,
-                })
+                ) | testnet_kintsugi_runtime_parachain::RuntimeEvent::XcmpQueue(
+                    cumulus_pallet_xcmp_queue::Event::Success {
+                        message_hash: Some(_),
+                        weight: _,
+                    }
+                )
             )));
     });
 }
@@ -570,20 +572,26 @@ fn trap_assets_works() {
     let mut trapped_assets: Option<MultiAssets> = None;
     // verify that the assets got trapped (i.e. didn't get burned)
     Kintsugi::execute_with(|| {
-        assert!(System::events()
-            .iter()
-            .any(|r| matches!(r.event, Event::PolkadotXcm(pallet_xcm::Event::AssetsTrapped(_, _, _)))));
+        assert!(System::events().iter().any(|r| matches!(
+            r.event,
+            RuntimeEvent::PolkadotXcm(pallet_xcm::Event::AssetsTrapped(_, _, _))
+        )));
 
         let event = System::events()
             .iter()
-            .find(|r| matches!(r.event, Event::PolkadotXcm(pallet_xcm::Event::AssetsTrapped(_, _, _))))
+            .find(|r| {
+                matches!(
+                    r.event,
+                    RuntimeEvent::PolkadotXcm(pallet_xcm::Event::AssetsTrapped(_, _, _))
+                )
+            })
             .cloned()
             .unwrap();
 
         use std::convert::TryFrom;
         use xcm::VersionedMultiAssets;
         trapped_assets = match event.event {
-            Event::PolkadotXcm(pallet_xcm::Event::AssetsTrapped(_, _, ticket)) => {
+            RuntimeEvent::PolkadotXcm(pallet_xcm::Event::AssetsTrapped(_, _, ticket)) => {
                 Some(TryFrom::<VersionedMultiAssets>::try_from(ticket).unwrap())
             }
             _ => panic!("event not found"),

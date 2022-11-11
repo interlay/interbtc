@@ -75,7 +75,6 @@ impl Config for Test {
     type GetWrappedCurrencyId = GetWrappedCurrencyId;
 }
 
-pub type TestEvent = RuntimeEvent;
 pub type TestError = Error<Test>;
 
 pub const ALICE: AccountId = 1;

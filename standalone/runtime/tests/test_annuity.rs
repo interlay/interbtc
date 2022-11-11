@@ -18,7 +18,7 @@ fn get_last_reward() -> Balance {
         .iter()
         .rev()
         .find_map(|record| {
-            if let Event::VaultAnnuity(VaultAnnuityEvent::BlockReward(reward)) = record.event {
+            if let RuntimeEvent::VaultAnnuity(VaultAnnuityEvent::BlockReward(reward)) = record.event {
                 Some(reward)
             } else {
                 None

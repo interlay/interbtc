@@ -127,7 +127,7 @@ pub fn assert_redeem_request_event() -> H256 {
     let ids = events
         .iter()
         .filter_map(|r| match r.event {
-            Event::Redeem(RedeemEvent::RequestRedeem { redeem_id, .. }) => Some(redeem_id),
+            RuntimeEvent::Redeem(RedeemEvent::RequestRedeem { redeem_id, .. }) => Some(redeem_id),
             _ => None,
         })
         .collect::<Vec<H256>>();
@@ -141,7 +141,7 @@ pub fn assert_self_redeem_event() -> (Amount<Runtime>, Amount<Runtime>) {
     let ids = events
         .iter()
         .filter_map(|r| match r.event {
-            Event::Redeem(RedeemEvent::SelfRedeem {
+            RuntimeEvent::Redeem(RedeemEvent::SelfRedeem {
                 ref vault_id,
                 amount,
                 fee,

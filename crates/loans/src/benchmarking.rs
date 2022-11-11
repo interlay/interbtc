@@ -115,7 +115,7 @@ fn set_account_borrows<T: Config>(who: T::AccountId, asset_id: AssetIdOf<T>, bor
     amount.burn_from(&who).unwrap();
 }
 
-fn assert_last_event<T: Config>(generic_event: <T as Config>::Event) {
+fn assert_last_event<T: Config>(generic_event: <T as Config>::RuntimeEvent) {
     frame_system::Pallet::<T>::assert_last_event(generic_event.into());
 }
 

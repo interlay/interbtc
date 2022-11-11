@@ -176,7 +176,7 @@ pub fn assert_issue_amount_change_event(
     let records: Vec<_> = events
         .iter()
         .rev()
-        .filter(|record| matches!(&record.event, Event::Issue(x) if x == &expected_event))
+        .filter(|record| matches!(&record.event, RuntimeEvent::Issue(x) if x == &expected_event))
         .collect();
     assert_eq!(records.len(), 1);
 }
@@ -186,8 +186,8 @@ pub fn assert_issue_request_event() -> H256 {
     let record = events
         .iter()
         .rev()
-        .find(|record| matches!(record.event, Event::Issue(IssueEvent::RequestIssue { .. })));
-    if let Event::Issue(IssueEvent::RequestIssue { issue_id, .. }) = record.unwrap().event {
+        .find(|record| matches!(record.event, RuntimeEvent::Issue(IssueEvent::RequestIssue { .. })));
+    if let RuntimeEvent::Issue(IssueEvent::RequestIssue { issue_id, .. }) = record.unwrap().event {
         issue_id
     } else {
         panic!("request issue event not found")

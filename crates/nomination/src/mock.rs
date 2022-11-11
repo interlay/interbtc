@@ -18,7 +18,7 @@ use sp_runtime::{
     FixedPointNumber,
 };
 
-type TestExtrinsic = TestXt<Call, ()>;
+type TestExtrinsic = TestXt<RuntimeCall, ()>;
 type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
 type Block = frame_system::mocking::MockBlock<Test>;
 
@@ -239,7 +239,6 @@ impl Config for Test {
     type WeightInfo = ();
 }
 
-pub type TestEvent = RuntimeEvent;
 pub type TestError = Error<Test>;
 
 pub const ALICE: VaultId<AccountId, CurrencyId> = VaultId {

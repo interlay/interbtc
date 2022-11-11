@@ -93,7 +93,6 @@ impl Config for Test {
     type WeightInfo = ();
 }
 
-pub type TestEvent = RuntimeEvent;
 pub type TestError = Error<Test>;
 
 pub const ALICE: AccountId = 1;

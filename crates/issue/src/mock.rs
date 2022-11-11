@@ -17,7 +17,7 @@ use sp_runtime::{
     traits::{BlakeTwo256, Convert, IdentityLookup, One, Zero},
 };
 
-type TestExtrinsic = TestXt<Call, ()>;
+type TestExtrinsic = TestXt<RuntimeCall, ()>;
 type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
 type Block = frame_system::mocking::MockBlock<Test>;
 
@@ -142,7 +142,7 @@ parameter_types! {
 
 impl<C> frame_system::offchain::SendTransactionTypes<C> for Test
 where
-    Call: From<C>,
+    RuntimeCall: From<C>,
 {
     type OverarchingCall = RuntimeCall;
     type Extrinsic = TestExtrinsic;

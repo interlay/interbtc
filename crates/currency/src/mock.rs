@@ -129,8 +129,6 @@ parameter_types! {
     pub const MinimumPeriod: Moment = 5;
 }
 
-pub type TestEvent = RuntimeEvent;
-
 pub struct ExtBuilder;
 
 impl ExtBuilder {

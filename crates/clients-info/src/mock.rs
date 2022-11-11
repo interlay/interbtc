@@ -59,8 +59,6 @@ impl frame_system::Config for Test {
     type MaxConsumers = frame_support::traits::ConstU32<16>;
 }
 
-pub type TestEvent = RuntimeEvent;
-
 impl Config for Test {
     type RuntimeEvent = RuntimeEvent;
     type WeightInfo = ();

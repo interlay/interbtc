@@ -44,7 +44,7 @@ pub fn assert_request_replace_event() -> Balance {
         .iter()
         .rev()
         .find_map(|record| match record.event {
-            Event::Replace(ReplaceEvent::RequestReplace {
+            RuntimeEvent::Replace(ReplaceEvent::RequestReplace {
                 griefing_collateral, ..
             }) => Some(griefing_collateral),
             _ => None,
@@ -57,7 +57,7 @@ pub fn assert_accept_replace_event() -> H256 {
         .iter()
         .rev()
         .find_map(|record| match record.event {
-            Event::Replace(ReplaceEvent::AcceptReplace { replace_id, .. }) => Some(replace_id),
+            RuntimeEvent::Replace(ReplaceEvent::AcceptReplace { replace_id, .. }) => Some(replace_id),
             _ => None,
         })
         .unwrap()

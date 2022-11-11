@@ -15,8 +15,8 @@ pub use frame_support::{
     dispatch::{DispatchError, DispatchResultWithPostInfo},
 };
 pub use interbtc_runtime_standalone::{
-    token_distribution, AccountId, Balance, BlockNumber, Call, CurrencyId, EscrowAnnuityInstance,
-    EscrowRewardsInstance, Event, GetNativeCurrencyId, GetRelayChainCurrencyId, GetWrappedCurrencyId, Runtime,
+    token_distribution, AccountId, Balance, BlockNumber, CurrencyId, EscrowAnnuityInstance, EscrowRewardsInstance,
+    GetNativeCurrencyId, GetRelayChainCurrencyId, GetWrappedCurrencyId, Runtime, RuntimeCall, RuntimeEvent,
     TechnicalCommitteeInstance, VaultAnnuityInstance, VaultRewardsInstance, YEARS,
 };
 pub use mocktopus::mocking::*;
@@ -312,11 +312,11 @@ pub fn default_redeem_request(
     }
 }
 
-pub fn root() -> <Runtime as frame_system::Config>::Origin {
+pub fn root() -> <Runtime as frame_system::Config>::RuntimeOrigin {
     <Runtime as frame_system::Config>::RuntimeOrigin::root()
 }
 
-pub fn origin_of(account_id: AccountId) -> <Runtime as frame_system::Config>::Origin {
+pub fn origin_of(account_id: AccountId) -> <Runtime as frame_system::Config>::RuntimeOrigin {
     <Runtime as frame_system::Config>::RuntimeOrigin::signed(account_id)
 }
 
@@ -1083,7 +1083,7 @@ pub fn required_collateral_for_issue(issued_tokens: Amount<Runtime>, currency_id
 }
 
 pub fn assert_store_main_chain_header_event(block_height: u32, block_hash: H256Le, relayer_id: AccountId) {
-    let store_event = Event::BTCRelay(BTCRelayEvent::StoreMainChainHeader {
+    let store_event = RuntimeEvent::BTCRelay(BTCRelayEvent::StoreMainChainHeader {
         block_height,
         block_hash,
         relayer_id,
@@ -1095,7 +1095,7 @@ pub fn assert_store_main_chain_header_event(block_height: u32, block_hash: H256L
 }
 
 pub fn assert_store_fork_header_event(chain_id: u32, fork_height: u32, block_hash: H256Le, relayer_id: AccountId) {
-    let store_event = Event::BTCRelay(BTCRelayEvent::StoreForkHeader {
+    let store_event = RuntimeEvent::BTCRelay(BTCRelayEvent::StoreForkHeader {
         chain_id,
         fork_height,
         block_hash,
@@ -1108,7 +1108,7 @@ pub fn assert_store_fork_header_event(chain_id: u32, fork_height: u32, block_has
 }
 
 pub fn assert_fork_ahead_of_main_chain_event(main_chain_height: u32, fork_height: u32, fork_id: u32) {
-    let store_event = Event::BTCRelay(BTCRelayEvent::ForkAheadOfMainChain {
+    let store_event = RuntimeEvent::BTCRelay(BTCRelayEvent::ForkAheadOfMainChain {
         main_chain_height,
         fork_height,
         fork_id,
@@ -1120,7 +1120,7 @@ pub fn assert_fork_ahead_of_main_chain_event(main_chain_height: u32, fork_height
 }
 
 pub fn assert_chain_reorg_event(new_chain_tip_hash: H256Le, new_chain_tip_height: u32, fork_depth: u32) {
-    let store_event = Event::BTCRelay(BTCRelayEvent::ChainReorg {
+    let store_event = RuntimeEvent::BTCRelay(BTCRelayEvent::ChainReorg {
         new_chain_tip_hash,
         new_chain_tip_height,
         fork_depth,

@@ -49,7 +49,7 @@ mod hrmp {
             polkadot_runtime::System::events().iter().any(|r| {
                 matches!(
                     r.event,
-                    polkadot_runtime::Event::Hrmp(hrmp::Event::OpenChannelRequested(
+                    polkadot_runtime::RuntimeEvent::Hrmp(hrmp::Event::OpenChannelRequested(
                         actual_sender,
                         actual_recipient,
                         1000,
@@ -65,7 +65,7 @@ mod hrmp {
             polkadot_runtime::System::events().iter().any(|r| {
                 matches!(
                     r.event,
-                    polkadot_runtime::Event::Hrmp(hrmp::Event::OpenChannelAccepted(
+                    polkadot_runtime::RuntimeEvent::Hrmp(hrmp::Event::OpenChannelAccepted(
                         actual_sender,
                         actual_recipient
                     )) if actual_sender == sender.into() && actual_recipient == recipient.into()
@@ -82,7 +82,7 @@ mod hrmp {
         assert!(!has_open_channel_requested_event(sender, recipient)); // just a sanity check
         T::execute_with(|| {
             let message = construct_xcm(
-                hrmp::RuntimeCall::<polkadot_runtime::Runtime>::hrmp_init_open_channel {
+                hrmp::Call::<polkadot_runtime::Runtime>::hrmp_init_open_channel {
                     recipient: recipient.into(),
                     proposed_max_capacity: 1000,
                     proposed_max_message_size: 102400,
@@ -105,7 +105,7 @@ mod hrmp {
         assert!(!has_open_channel_accepted_event(sender, recipient)); // just a sanity check
         T::execute_with(|| {
             let message = construct_xcm(
-                hrmp::RuntimeCall::<polkadot_runtime::Runtime>::hrmp_accept_open_channel { sender: sender.into() },
+                hrmp::Call::<polkadot_runtime::Runtime>::hrmp_accept_open_channel { sender: sender.into() },
                 xcm_fee,
                 transact_weight,
             );
@@ -403,7 +403,7 @@ fn xcm_transfer_execution_barrier_trader_works() {
     Interlay::execute_with(|| {
         assert!(System::events().iter().any(|r| matches!(
             r.event,
-            Event::DmpQueue(cumulus_pallet_dmp_queue::Event::ExecutedDownward {
+            RuntimeEvent::DmpQueue(cumulus_pallet_dmp_queue::Event::ExecutedDownward {
                 outcome: Outcome::Error(XcmError::Barrier),
                 ..
             })
@@ -451,7 +451,7 @@ fn subscribe_version_notify_works() {
         assert_ok!(r);
     });
     PolkadotNet::execute_with(|| {
-        polkadot_runtime::System::assert_has_event(polkadot_runtime::Event::XcmPallet(
+        polkadot_runtime::System::assert_has_event(polkadot_runtime::RuntimeEvent::XcmPallet(
             pallet_xcm::Event::SupportedVersionChanged(
                 MultiLocation {
                     parents: 0,
@@ -471,7 +471,7 @@ fn subscribe_version_notify_works() {
         assert_ok!(r);
     });
     Interlay::execute_with(|| {
-        System::assert_has_event(interlay_runtime_parachain::Event::PolkadotXcm(
+        System::assert_has_event(interlay_runtime_parachain::RuntimeEvent::PolkadotXcm(
             pallet_xcm::Event::SupportedVersionChanged(
                 MultiLocation {
                     parents: 1,
@@ -493,7 +493,7 @@ fn subscribe_version_notify_works() {
     Interlay::execute_with(|| {
         assert!(interlay_runtime_parachain::System::events().iter().any(|r| matches!(
             r.event,
-            interlay_runtime_parachain::Event::XcmpQueue(cumulus_pallet_xcmp_queue::Event::XcmpMessageSent {
+            interlay_runtime_parachain::RuntimeEvent::XcmpQueue(cumulus_pallet_xcmp_queue::Event::XcmpMessageSent {
                 message_hash: Some(_)
             })
         )));
@@ -503,17 +503,19 @@ fn subscribe_version_notify_works() {
             .iter()
             .any(|r| matches!(
                 r.event,
-                testnet_interlay_runtime_parachain::Event::XcmpQueue(
+                testnet_interlay_runtime_parachain::RuntimeEvent::XcmpQueue(
                     cumulus_pallet_xcmp_queue::Event::XcmpMessageSent { message_hash: Some(_) }
-                ) | testnet_interlay_runtime_parachain::Event::XcmpQueue(cumulus_pallet_xcmp_queue::Event::Success {
-                    message_hash: Some(_),
-                    weight: _
-                })
+                ) | testnet_interlay_runtime_parachain::RuntimeEvent::XcmpQueue(
+                    cumulus_pallet_xcmp_queue::Event::Success {
+                        message_hash: Some(_),
+                        weight: _
+                    }
+                )
             )));
     });
 }
 
-fn weigh_xcm(mut message: Xcm<Call>, fee_per_second: u128) -> u128 {
+fn weigh_xcm(mut message: Xcm<RuntimeCall>, fee_per_second: u128) -> u128 {
     let trapped_xcm_message_weight = <interlay_runtime_parachain::xcm_config::XcmConfig as interlay_runtime_parachain::xcm_config::xcm_executor::Config>::Weigher::weight(
         &mut message).unwrap();
     (fee_per_second * trapped_xcm_message_weight as u128) / WEIGHT_PER_SECOND.ref_time() as u128
@@ -574,20 +576,26 @@ fn trap_assets_works() {
     let mut trapped_assets: Option<MultiAssets> = None;
     // verify that the assets got trapped (i.e. didn't get burned)
     Interlay::execute_with(|| {
-        assert!(System::events()
-            .iter()
-            .any(|r| matches!(r.event, Event::PolkadotXcm(pallet_xcm::Event::AssetsTrapped(_, _, _)))));
+        assert!(System::events().iter().any(|r| matches!(
+            r.event,
+            RuntimeEvent::PolkadotXcm(pallet_xcm::Event::AssetsTrapped(_, _, _))
+        )));
 
         let event = System::events()
             .iter()
-            .find(|r| matches!(r.event, Event::PolkadotXcm(pallet_xcm::Event::AssetsTrapped(_, _, _))))
+            .find(|r| {
+                matches!(
+                    r.event,
+                    RuntimeEvent::PolkadotXcm(pallet_xcm::Event::AssetsTrapped(_, _, _))
+                )
+            })
             .cloned()
             .unwrap();
 
         use std::convert::TryFrom;
         use xcm::VersionedMultiAssets;
         trapped_assets = match event.event {
-            Event::PolkadotXcm(pallet_xcm::Event::AssetsTrapped(_, _, ticket)) => {
+            RuntimeEvent::PolkadotXcm(pallet_xcm::Event::AssetsTrapped(_, _, ticket)) => {
                 Some(TryFrom::<VersionedMultiAssets>::try_from(ticket).unwrap())
             }
             _ => panic!("event not found"),

@@ -1,6 +1,7 @@
 use crate::{
     mock::{
-        market_mock, new_test_ext, Loans, Origin, Test, ACTIVE_MARKET_MOCK, ALICE, LEND_DOT, LEND_KBTC, MARKET_MOCK,
+        market_mock, new_test_ext, Loans, RuntimeOrigin, Test, ACTIVE_MARKET_MOCK, ALICE, LEND_DOT, LEND_KBTC,
+        MARKET_MOCK,
     },
     Error, InterestRateModel, MarketState,
 };

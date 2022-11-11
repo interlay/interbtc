@@ -188,8 +188,6 @@ impl Config for Test {
     type MaxExpectedValue = MaxExpectedValue;
 }
 
-pub type TestEvent = RuntimeEvent;
-
 #[allow(dead_code)]
 pub type TestError = Error<Test>;
 

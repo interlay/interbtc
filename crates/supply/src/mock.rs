@@ -110,12 +110,6 @@ impl Config for Test {
     type OnInflation = MockOnInflation;
 }
 
-pub type TestEvent = RuntimeEvent;
-// pub type TestError = Error<Test>;
-
-// pub const ALICE: AccountId = 1;
-// pub const BOB: AccountId = 2;
-
 pub struct ExtBuilder;
 
 impl ExtBuilder {

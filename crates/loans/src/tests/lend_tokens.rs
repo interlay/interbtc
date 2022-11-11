@@ -1,6 +1,7 @@
 use crate::{
     mock::{
-        market_mock, new_test_ext, AccountId, Loans, Origin, Test, Tokens, ALICE, DAVE, LEND_KBTC, LEND_KINT, LEND_KSM,
+        market_mock, new_test_ext, AccountId, Loans, RuntimeOrigin, Test, Tokens, ALICE, DAVE, LEND_KBTC, LEND_KINT,
+        LEND_KSM,
     },
     tests::unit,
     Error,

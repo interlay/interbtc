@@ -72,7 +72,7 @@ fn assert_democracy_proposed_event() -> PropIndex {
         .iter()
         .rev()
         .find_map(|record| {
-            if let Event::Democracy(DemocracyEvent::Proposed(index, _)) = record.event {
+            if let RuntimeEvent::Democracy(DemocracyEvent::Proposed(index, _)) = record.event {
                 Some(index)
             } else {
                 None
@@ -86,7 +86,7 @@ fn assert_democracy_started_event() -> ReferendumIndex {
         .iter()
         .rev()
         .find_map(|record| {
-            if let Event::Democracy(DemocracyEvent::Started(index, _)) = record.event {
+            if let RuntimeEvent::Democracy(DemocracyEvent::Started(index, _)) = record.event {
                 Some(index)
             } else {
                 None
@@ -99,7 +99,7 @@ fn assert_democracy_passed_event(index: ReferendumIndex) {
     SystemPallet::events()
         .iter()
         .rev()
-        .find(|record| matches!(record.event, Event::Democracy(DemocracyEvent::Passed(i)) if i == index))
+        .find(|record| matches!(record.event, RuntimeEvent::Democracy(DemocracyEvent::Passed(i)) if i == index))
         .expect("referendum was not passed");
 }
 
@@ -110,7 +110,7 @@ fn assert_technical_committee_executed_event() {
         .find(|record| {
             matches!(
                 record.event,
-                Event::TechnicalCommittee(TechnicalCommitteeEvent::Executed { result: Ok(()), .. })
+                RuntimeEvent::TechnicalCommittee(TechnicalCommitteeEvent::Executed { result: Ok(()), .. })
             )
         })
         .expect("execution failed");

@@ -17,7 +17,7 @@ use sp_runtime::{
     traits::{BlakeTwo256, IdentityLookup, One, Zero},
 };
 
-type TestExtrinsic = TestXt<Call, ()>;
+type TestExtrinsic = TestXt<RuntimeCall, ()>;
 type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
 type Block = frame_system::mocking::MockBlock<Test>;
 

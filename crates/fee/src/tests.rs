@@ -5,7 +5,7 @@ use sp_runtime::{DispatchError, FixedPointNumber};
 
 fn test_setter<F1, F2>(f: F1, get_storage_value: F2)
 where
-    F1: Fn(Origin, UnsignedFixedPoint) -> DispatchResultWithPostInfo,
+    F1: Fn(RuntimeOrigin, UnsignedFixedPoint) -> DispatchResultWithPostInfo,
     F2: Fn() -> UnsignedFixedPoint,
 {
     run_test(|| {

@@ -23,7 +23,7 @@ decl_test_relay_chain! {
 decl_test_parachain! {
     pub struct Interlay {
         Runtime = Runtime,
-        Origin = Origin,
+        Origin = RuntimeOrigin,
         XcmpMessageHandler = interlay_runtime_parachain::XcmpQueue,
         DmpMessageHandler = interlay_runtime_parachain::DmpQueue,
         new_ext = para_ext(INTERLAY_PARA_ID),
@@ -33,7 +33,7 @@ decl_test_parachain! {
 decl_test_parachain! {
     pub struct Sibling {
         Runtime = testnet_interlay_runtime_parachain::Runtime,
-        Origin = testnet_interlay_runtime_parachain::Origin,
+        Origin = testnet_interlay_runtime_parachain::RuntimeOrigin,
         XcmpMessageHandler = testnet_interlay_runtime_parachain::XcmpQueue,
         DmpMessageHandler = testnet_interlay_runtime_parachain::DmpQueue,
         new_ext = para_ext(SIBLING_PARA_ID),

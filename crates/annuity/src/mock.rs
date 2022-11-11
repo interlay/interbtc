@@ -124,8 +124,6 @@ impl Config for Test {
     type WeightInfo = ();
 }
 
-pub type TestEvent = RuntimeEvent;
-
 pub struct ExtBuilder;
 
 impl ExtBuilder {

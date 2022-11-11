@@ -109,7 +109,6 @@ impl orml_tokens::Config for Test {
     type OnKilledTokenAccount = ();
 }
 
-pub type TestEvent = RuntimeEvent;
 pub type TestError = Error<Test>;
 
 pub const VAULT: VaultId<AccountId, CurrencyId> = VaultId {

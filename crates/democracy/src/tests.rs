@@ -44,12 +44,9 @@ frame_support::construct_runtime!(
 
 // Test that a fitlered call can be dispatched.
 pub struct BaseFilter;
-impl Contains<Call> for BaseFilter {
+impl Contains<RuntimeCall> for BaseFilter {
     fn contains(call: &RuntimeCall) -> bool {
-        !matches!(
-            call,
-            &RuntimeCall::Balances(pallet_balances::RuntimeCall::set_balance { .. })
-        )
+        !matches!(call, &RuntimeCall::Balances(pallet_balances::Call::set_balance { .. }))
     }
 }
 
@@ -188,7 +185,7 @@ fn params_should_work() {
 }
 
 fn set_balance_proposal(value: u64) -> Vec<u8> {
-    RuntimeCall::Balances(pallet_balances::RuntimeCall::set_balance {
+    RuntimeCall::Balances(pallet_balances::Call::set_balance {
         who: 42,
         new_free: value,
         new_reserved: 0,
