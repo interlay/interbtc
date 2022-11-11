@@ -1,5 +1,5 @@
 use interbtc_runtime::{primitives::Block, RuntimeApi};
-use sc_client_api::{BlockBackend};
+use sc_client_api::BlockBackend;
 use sc_consensus_aura::{ImportQueueParams, SlotProportion, StartAuraParams};
 use sc_executor::NativeElseWasmExecutor;
 use sc_finality_grandpa::SharedVoterState;
@@ -175,15 +175,16 @@ pub fn new_full(mut config: Configuration) -> Result<(TaskManager, RpcHandlers),
             grandpa_protocol_name.clone(),
         ));
 
-    let (network, system_rpc_tx, tx_handler_controller, network_starter) = sc_service::build_network(sc_service::BuildNetworkParams {
-        config: &config,
-        client: client.clone(),
-        transaction_pool: transaction_pool.clone(),
-        spawn_handle: task_manager.spawn_handle(),
-        import_queue,
-        block_announce_validator_builder: None,
-        warp_sync: None,
-    })?;
+    let (network, system_rpc_tx, tx_handler_controller, network_starter) =
+        sc_service::build_network(sc_service::BuildNetworkParams {
+            config: &config,
+            client: client.clone(),
+            transaction_pool: transaction_pool.clone(),
+            spawn_handle: task_manager.spawn_handle(),
+            import_queue,
+            block_announce_validator_builder: None,
+            warp_sync: None,
+        })?;
 
     if config.offchain_worker.enabled {
         sc_service::build_offchain_workers(&config, task_manager.spawn_handle(), client.clone(), network.clone());

@@ -15,7 +15,7 @@ use polkadot_service::CollatorPair;
 use futures::StreamExt;
 use jsonrpsee::RpcModule;
 use primitives::*;
-use sc_client_api::{HeaderBackend};
+use sc_client_api::HeaderBackend;
 use sc_consensus::LongestChain;
 use sc_executor::NativeElseWasmExecutor;
 use sc_network::{NetworkBlock, NetworkService};
@@ -353,15 +353,16 @@ where
     let prometheus_registry = parachain_config.prometheus_registry().cloned();
     let transaction_pool = params.transaction_pool.clone();
     let import_queue = cumulus_client_service::SharedImportQueue::new(params.import_queue);
-    let (network, system_rpc_tx, tx_handler_controller, start_network) = sc_service::build_network(sc_service::BuildNetworkParams {
-        config: &parachain_config,
-        client: client.clone(),
-        transaction_pool: transaction_pool.clone(),
-        spawn_handle: task_manager.spawn_handle(),
-        import_queue: import_queue.clone(),
-        block_announce_validator_builder: Some(Box::new(|_| Box::new(block_announce_validator))),
-        warp_sync: None,
-    })?;
+    let (network, system_rpc_tx, tx_handler_controller, start_network) =
+        sc_service::build_network(sc_service::BuildNetworkParams {
+            config: &parachain_config,
+            client: client.clone(),
+            transaction_pool: transaction_pool.clone(),
+            spawn_handle: task_manager.spawn_handle(),
+            import_queue: import_queue.clone(),
+            block_announce_validator_builder: Some(Box::new(|_| Box::new(block_announce_validator))),
+            warp_sync: None,
+        })?;
 
     let rpc_builder = {
         let client = client.clone();
@@ -575,15 +576,16 @@ where
         other: (mut telemetry, _),
     } = new_partial::<RuntimeApi, Executor>(&config, true)?;
 
-    let (network, system_rpc_tx, tx_handler_controller, network_starter) = sc_service::build_network(sc_service::BuildNetworkParams {
-        config: &config,
-        client: client.clone(),
-        transaction_pool: transaction_pool.clone(),
-        spawn_handle: task_manager.spawn_handle(),
-        import_queue,
-        block_announce_validator_builder: None,
-        warp_sync: None,
-    })?;
+    let (network, system_rpc_tx, tx_handler_controller, network_starter) =
+        sc_service::build_network(sc_service::BuildNetworkParams {
+            config: &config,
+            client: client.clone(),
+            transaction_pool: transaction_pool.clone(),
+            spawn_handle: task_manager.spawn_handle(),
+            import_queue,
+            block_announce_validator_builder: None,
+            warp_sync: None,
+        })?;
 
     if config.offchain_worker.enabled {
         sc_service::build_offchain_workers(&config, task_manager.spawn_handle(), client.clone(), network.clone());

@@ -406,11 +406,10 @@ pub fn run() -> Result<()> {
                     }
                 }
                 #[cfg(not(feature = "runtime-benchmarks"))]
-				BenchmarkCmd::Storage(_) => Err(
-					"Storage benchmarking can be enabled with `--features runtime-benchmarks`."
-						.into(),
-				),
-				#[cfg(feature = "runtime-benchmarks")]
+                BenchmarkCmd::Storage(_) => {
+                    Err("Storage benchmarking can be enabled with `--features runtime-benchmarks`.".into())
+                }
+                #[cfg(feature = "runtime-benchmarks")]
                 BenchmarkCmd::Storage(cmd) => {
                     if cfg!(feature = "runtime-benchmarks") {
                         let runner = cli.create_runner(cmd)?;
