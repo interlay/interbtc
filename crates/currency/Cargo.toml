@@ -19,7 +19,7 @@ pallet-transaction-payment = { git = "https://github.com/paritytech/substrate", 
 
 # Parachain dependencies
 primitives = { package = "interbtc-primitives", path = "../../primitives", default-features = false }
-pallet-traits = { path = '../traits', default-features = false }
+traits = { path = '../traits', default-features = false }
 
 # Orml dependencies
 orml-tokens = { git = "https://github.com/open-web3-stack/open-runtime-module-library", rev = "ae13a54dbc1a654df0e2d5e9dc18582b62716365", default-features = false }

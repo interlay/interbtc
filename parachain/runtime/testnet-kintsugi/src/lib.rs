@@ -24,10 +24,9 @@ use frame_system::{
     limits::{BlockLength, BlockWeights},
     EnsureRoot, EnsureRootWithSuccess, EnsureSigned,
 };
+use loans::{OnDepositHook, OnSlashHook, OnTransferHook};
 use orml_asset_registry::SequentialId;
 use orml_traits::{location::AbsoluteReserveProvider, parameter_type_with_key, MultiCurrency};
-use pallet_loans::{OnDepositHook, OnSlashHook, OnTransferHook};
-use pallet_traits::OracleApi;
 use pallet_transaction_payment::{Multiplier, TargetedFeeAdjustment};
 use primitives::PriceDetail;
 use sp_api::impl_runtime_apis;
@@ -42,6 +41,7 @@ use sp_std::{marker::PhantomData, prelude::*};
 #[cfg(feature = "std")]
 use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
+use traits::OracleApi;
 use xcm_executor::{traits::WeightTrader, Assets};
 
 // A few exports that help ease life for downstream crates.
@@ -1018,7 +1018,7 @@ impl clients_info::Config for Runtime {
 
 // TODO: Remove this once `get_price()` is replaced with `amount.convert()`
 pub struct PriceFeed;
-impl pallet_traits::PriceFeeder for PriceFeed {
+impl traits::PriceFeeder for PriceFeed {
     fn get_price(asset_id: &CurrencyId) -> Option<PriceDetail> {
         let one = match asset_id {
             Token(t) => t.one(),
@@ -1042,7 +1042,7 @@ impl pallet_traits::PriceFeeder for PriceFeed {
     }
 }
 
-impl pallet_loans::Config for Runtime {
+impl loans::Config for Runtime {
     type RuntimeEvent = RuntimeEvent;
     type PalletId = LoansPalletId;
     type PriceFeeder = PriceFeed;
@@ -1100,7 +1100,7 @@ construct_runtime! {
         // Refund: 67
         Nomination: nomination::{Pallet, Call, Config, Storage, Event<T>} = 68,
         ClientsInfo: clients_info::{Pallet, Call, Storage, Event<T>} = 96,
-        Loans: pallet_loans::{Pallet, Call, Storage, Event<T>, Config} = 97,
+        Loans: loans::{Pallet, Call, Storage, Event<T>, Config} = 97,
 
         // # Governance
         Democracy: democracy::{Pallet, Call, Storage, Config<T>, Event<T>} = 70,

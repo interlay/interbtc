@@ -21,18 +21,18 @@ pub use interbtc_runtime_standalone::{
 };
 pub use mocktopus::mocking::*;
 pub use orml_tokens::CurrencyAdapter;
-use pallet_traits::LoansApi;
 pub use primitives::{
     CurrencyId::{ForeignAsset, LendToken, Token},
     Rate, Ratio, VaultCurrencyPair, VaultId as PrimitiveVaultId, DOT, IBTC, INTR, KBTC, KINT, KSM,
 };
 use redeem::RedeemRequestStatus;
 use staking::DefaultVaultCurrencyPair;
+use traits::LoansApi;
 use vault_registry::types::UpdatableVault;
 
 pub use issue::{types::IssueRequestExt, IssueRequest, IssueRequestStatus};
+pub use loans::{InterestRateModel, Market, MarketState};
 pub use oracle::OracleKey;
-pub use pallet_loans::{InterestRateModel, Market, MarketState};
 pub use redeem::{types::RedeemRequestExt, RedeemRequest};
 pub use replace::{types::ReplaceRequestExt, ReplaceRequest};
 pub use reward::Rewards;
@@ -184,9 +184,9 @@ pub type SchedulerPallet = pallet_scheduler::Pallet<Runtime>;
 pub type ServicesCall = clients_info::Call<Runtime>;
 pub type ServicesPallet = clients_info::Pallet<Runtime>;
 
-pub type LoansCall = pallet_loans::Call<Runtime>;
-pub type LoansError = pallet_loans::Error<Runtime>;
-pub type LoansPallet = pallet_loans::Pallet<Runtime>;
+pub type LoansCall = loans::Call<Runtime>;
+pub type LoansError = loans::Error<Runtime>;
+pub type LoansPallet = loans::Pallet<Runtime>;
 
 pub const DEFAULT_COLLATERAL_CURRENCY: <Runtime as orml_tokens::Config>::CurrencyId = Token(DOT);
 pub const DEFAULT_WRAPPED_CURRENCY: <Runtime as orml_tokens::Config>::CurrencyId = Token(IBTC);
@@ -1482,7 +1482,7 @@ impl ExtBuilder {
         .unwrap();
 
         GenesisBuild::<Runtime>::assimilate_storage(
-            &pallet_loans::GenesisConfig {
+            &loans::GenesisConfig {
                 max_exchange_rate: Rate::from_inner(DEFAULT_MAX_EXCHANGE_RATE),
                 min_exchange_rate: Rate::from_inner(DEFAULT_MIN_EXCHANGE_RATE),
             },

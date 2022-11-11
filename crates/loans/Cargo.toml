@@ -1,7 +1,7 @@
 [package]
 authors = ["Parallel Team", "Interlay Ltd"]
 edition = "2021"
-name = "pallet-loans"
+name = "loans"
 version = "1.9.3"
 
 [package.metadata.docs.rs]
@@ -27,7 +27,7 @@ pallet-timestamp = { git = "https://github.com/paritytech/substrate", branch = "
 
 # Parachain dependencies
 currency = { path = "../currency", default-features = false }
-pallet-traits = { path = "../traits", default-features = false }
+traits = { path = "../traits", default-features = false }
 
 primitives = { package = "interbtc-primitives", path = "../../primitives", default-features = false }
 
@@ -42,10 +42,10 @@ mocktopus = "0.7.0"
 [features]
 default = ["std"]
 std = [
-  "serde/std",
-  "codec/std",
-  "scale-info/std",
-  "num-traits/std",
+	"serde/std",
+	"codec/std",
+	"scale-info/std",
+	"num-traits/std",
 
 	"sp-io/std",
 	"sp-core/std",
@@ -59,13 +59,13 @@ std = [
 	"pallet-timestamp/std",
 
 	"currency/std",
-  "pallet-traits/std",
+	"traits/std",
 
-  "primitives/std",
+	"primitives/std",
 
-  "orml-traits/std",
-  "orml-oracle/std",
-  "orml-tokens/std",
+	"orml-traits/std",
+	"orml-oracle/std",
+	"orml-tokens/std",
 ]
 runtime-benchmarks = [
 	"frame-benchmarking",
