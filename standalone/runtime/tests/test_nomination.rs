@@ -1,5 +1,6 @@
 mod mock;
 
+use crate::loans_testing_utils::activate_lending_and_mint;
 use currency::Amount;
 use mock::{assert_eq, nomination_testing_utils::*, *};
 
@@ -7,12 +8,13 @@ fn test_with<R>(execute: impl Fn(VaultId) -> R) {
     let test_with = |currency_id, wrapped_id| {
         ExtBuilder::build().execute_with(|| {
             SecurityPallet::set_active_block_number(1);
-            for currency_id in iter_collateral_currencies() {
+            for currency_id in iter_collateral_currencies().filter(|c| !c.is_lend_token()) {
                 assert_ok!(OraclePallet::_set_exchange_rate(currency_id, FixedU128::one()));
             }
             if wrapped_id != Token(IBTC) {
                 assert_ok!(OraclePallet::_set_exchange_rate(wrapped_id, FixedU128::one()));
             }
+            activate_lending_and_mint(Token(DOT), LendToken(1));
             UserData::force_to(USER, default_user_state());
             let vault_id = PrimitiveVaultId::new(account_of(VAULT), currency_id, wrapped_id);
             LiquidationVaultData::force_to(default_liquidation_vault_state(&vault_id.currencies));
@@ -25,6 +27,7 @@ fn test_with<R>(execute: impl Fn(VaultId) -> R) {
     test_with(Token(KSM), Token(IBTC));
     test_with(Token(DOT), Token(IBTC));
     test_with(ForeignAsset(1), Token(IBTC));
+    test_with(LendToken(1), Token(IBTC));
 }
 
 fn test_with_nomination_enabled<R>(execute: impl Fn(VaultId) -> R) {
@@ -346,10 +349,8 @@ mod spec_based_tests {
             .dispatch(origin_of(account_of(VAULT))));
             assert_nomination_opt_in(&vault_id);
             assert_nominate_collateral(&vault_id, account_of(USER), default_nomination(&vault_id));
-            assert_ok!(OraclePallet::_set_exchange_rate(
-                vault_id.collateral_currency(),
-                FixedU128::checked_from_integer(3u128).unwrap()
-            ));
+            set_collateral_exchange_rate(&vault_id, FixedU128::checked_from_integer(3u128).unwrap());
+
             assert_noop!(
                 withdraw_nominator_collateral(account_of(USER), &vault_id, default_nomination(&vault_id)),
                 NominationError::CannotWithdrawCollateral
@@ -553,10 +554,7 @@ fn integration_test_nominator_withdrawal_below_collateralization_threshold_fails
         .dispatch(origin_of(account_of(VAULT))));
         assert_nomination_opt_in(&vault_id);
         assert_nominate_collateral(&vault_id, account_of(USER), default_nomination(&vault_id));
-        assert_ok!(OraclePallet::_set_exchange_rate(
-            vault_id.collateral_currency(),
-            FixedU128::checked_from_integer(3u128).unwrap()
-        ));
+        set_collateral_exchange_rate(&vault_id, FixedU128::checked_from_integer(3u128).unwrap());
         assert_noop!(
             withdraw_nominator_collateral(account_of(USER), &vault_id, default_nomination(&vault_id)),
             NominationError::CannotWithdrawCollateral

@@ -95,6 +95,9 @@ const DEFAULT_DUST_VALUE: Balance = 1000;
 const DEFAULT_BITCOIN_CONFIRMATIONS: u32 = 1;
 const SECURE_BITCOIN_CONFIRMATIONS: u32 = 6;
 
+pub const DEFAULT_MAX_EXCHANGE_RATE: u128 = 1_000_000_000_000_000_000; // 1
+pub const DEFAULT_MIN_EXCHANGE_RATE: u128 = 20_000_000_000_000_000; // 0.02
+
 fn expected_transaction_size() -> u32 {
     virtual_transaction_size(
         TransactionInputMetadata {

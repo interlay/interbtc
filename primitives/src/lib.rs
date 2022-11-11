@@ -11,7 +11,7 @@ pub use sp_runtime::OpaqueExtrinsic as UncheckedExtrinsic;
 use sp_runtime::{
     generic,
     traits::{BlakeTwo256, IdentifyAccount, Verify},
-    FixedI128, FixedPointNumber, FixedU128, MultiSignature, RuntimeDebug,
+    FixedI128, FixedPointNumber, FixedU128, MultiSignature, Permill, RuntimeDebug,
 };
 use sp_std::{
     convert::{TryFrom, TryInto},
@@ -358,6 +358,17 @@ pub type UnsignedFixedPoint = FixedU128;
 /// The `Inner` type of the `UnsignedFixedPoint`.
 pub type UnsignedInner = u128;
 
+/// Loans pallet types
+
+pub type Price = FixedU128;
+pub type Timestamp = Moment;
+pub type PriceDetail = (Price, Timestamp);
+pub type Rate = FixedU128;
+pub type Ratio = Permill;
+pub type Shortfall = FixedU128;
+pub type Liquidity = FixedU128;
+pub const SECONDS_PER_YEAR: Timestamp = 365 * 24 * 60 * 60;
+
 pub trait CurrencyInfo {
     fn name(&self) -> &str;
     fn symbol(&self) -> &str;
@@ -462,12 +473,20 @@ create_currency_id! {
 pub enum CurrencyId {
     Token(TokenSymbol),
     ForeignAsset(ForeignAssetId),
+    LendToken(LendTokenId),
 }
 
 pub type ForeignAssetId = u32;
+pub type LendTokenId = u32;
 
 #[derive(scale_info::TypeInfo, Encode, Decode, Clone, Eq, PartialEq, Debug)]
 pub struct CustomMetadata {
     pub fee_per_second: u128,
     pub coingecko_id: Vec<u8>,
+}
+
+impl CurrencyId {
+    pub fn is_lend_token(&self) -> bool {
+        matches!(self, CurrencyId::LendToken(_))
+    }
 }

@@ -25,6 +25,8 @@ use frame_system::{
 };
 use orml_asset_registry::SequentialId;
 use orml_traits::parameter_type_with_key;
+use pallet_loans::{OnDepositHook, OnSlashHook, OnTransferHook};
+use pallet_traits::OracleApi;
 use pallet_transaction_payment::{Multiplier, TargetedFeeAdjustment};
 use sp_api::impl_runtime_apis;
 use sp_core::{crypto::KeyTypeId, OpaqueMetadata, H256};
@@ -64,8 +66,10 @@ pub use module_oracle_rpc_runtime_api::BalanceWrapper;
 pub use security::StatusCode;
 
 pub use primitives::{
-    self, AccountId, Balance, BlockNumber, CurrencyId, CurrencyId::Token, CurrencyInfo, Hash, Moment, Nonce, Signature,
-    SignedFixedPoint, SignedInner, TokenSymbol, UnsignedFixedPoint, UnsignedInner, DOT, IBTC, INTR, KBTC, KINT, KSM,
+    self, AccountId, Balance, BlockNumber, CurrencyId,
+    CurrencyId::{ForeignAsset, LendToken, Token},
+    CurrencyInfo, Hash, Moment, Nonce, PriceDetail, Signature, SignedFixedPoint, SignedInner, TokenSymbol,
+    UnsignedFixedPoint, UnsignedInner, DOT, IBTC, INTR, KBTC, KINT, KSM,
 };
 
 type VaultId = primitives::VaultId<AccountId, CurrencyId>;
@@ -573,6 +577,7 @@ parameter_types! {
     pub const VaultAnnuityPalletId: PalletId = PalletId(*b"vlt/annu");
     pub const TreasuryPalletId: PalletId = PalletId(*b"mod/trsy");
     pub const VaultRegistryPalletId: PalletId = PalletId(*b"mod/vreg");
+    pub const LoansPalletId: PalletId = PalletId(*b"mod/loan");
 }
 
 parameter_types! {
@@ -626,6 +631,9 @@ impl orml_tokens::Config for Runtime {
     type WeightInfo = ();
     type ExistentialDeposits = ExistentialDeposits;
     type OnDust = orml_tokens::TransferDust<Runtime, FeeAccount>;
+    type OnSlash = OnSlashHook<Runtime>;
+    type OnDeposit = OnDepositHook<Runtime>;
+    type OnTransfer = OnTransferHook<Runtime>;
     type MaxLocks = MaxLocks;
     type DustRemovalWhitelist = DustRemovalWhitelist;
     type MaxReserves = ConstU32<0>; // we don't use named reserves
@@ -800,10 +808,29 @@ impl security::Config for Runtime {
     type Event = Event;
 }
 
-pub struct CurrencyConvert;
-impl currency::CurrencyConversion<currency::Amount<Runtime>, CurrencyId> for CurrencyConvert {
-    fn convert(amount: &currency::Amount<Runtime>, to: CurrencyId) -> Result<currency::Amount<Runtime>, DispatchError> {
-        Oracle::convert(amount, to)
+// TODO: Remove this once `get_price()` is replaced with `amount.convert()`
+pub struct PriceFeed;
+impl pallet_traits::PriceFeeder for PriceFeed {
+    fn get_price(asset_id: &CurrencyId) -> Option<PriceDetail> {
+        let one = match asset_id {
+            Token(t) => t.one(),
+            ForeignAsset(f) => {
+                // TODO: Either add `one` to the AssetRegistry or require this as an associated type in the config trait
+                if let Some(metadata) = AssetRegistry::metadata(f) {
+                    10u128.pow(metadata.decimals)
+                } else {
+                    return None;
+                }
+            }
+            // Returning `None` here means there is no price for this asset.
+            // This is fine since LendTokens may not be used as underlying currency
+            // in the loans pallet.
+            LendToken(_) => return None,
+        };
+        let amount = Amount::<Runtime>::new(one, asset_id.clone());
+        Oracle::convert(&amount, WRAPPED_CURRENCY_ID)
+            .ok()
+            .map(|price| (price.amount().into(), Timestamp::now()))
     }
 }
 
@@ -815,7 +842,7 @@ impl currency::Config for Runtime {
     type GetNativeCurrencyId = GetNativeCurrencyId;
     type GetRelayChainCurrencyId = GetRelayChainCurrencyId;
     type GetWrappedCurrencyId = GetWrappedCurrencyId;
-    type CurrencyConversion = CurrencyConvert;
+    type CurrencyConversion = currency::CurrencyConvert<Runtime, Oracle, Loans>;
 }
 
 impl staking::Config for Runtime {
@@ -969,6 +996,18 @@ impl clients_info::Config for Runtime {
     type WeightInfo = ();
 }
 
+impl pallet_loans::Config for Runtime {
+    type Event = Event;
+    type PalletId = LoansPalletId;
+    type PriceFeeder = PriceFeed;
+    type ReserveOrigin = EnsureRoot<AccountId>;
+    type UpdateOrigin = EnsureRoot<AccountId>;
+    type WeightInfo = ();
+    type UnixTime = Timestamp;
+    type Assets = Tokens;
+    type RewardAssetId = GetNativeCurrencyId;
+}
+
 construct_runtime! {
     pub enum Runtime where
         Block = Block,
@@ -1014,6 +1053,8 @@ construct_runtime! {
         Fee: fee::{Pallet, Call, Config<T>, Storage} = 26,
         // Refund: 27
         Nomination: nomination::{Pallet, Call, Config, Storage, Event<T>} = 28,
+
+        Loans: pallet_loans::{Pallet, Call, Storage, Event<T>, Config} = 39,
 
         Identity: pallet_identity::{Pallet, Call, Storage, Event<T>} = 36,
         ClientsInfo: clients_info::{Pallet, Call, Storage, Event<T>} = 38,

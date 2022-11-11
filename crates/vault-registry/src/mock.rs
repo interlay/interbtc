@@ -7,6 +7,7 @@ use frame_support::{
 };
 use mocktopus::{macros::mockable, mocking::clear_mocks};
 use orml_traits::parameter_type_with_key;
+use pallet_traits::OracleApi;
 pub use primitives::{CurrencyId, CurrencyId::Token, TokenSymbol::*};
 use primitives::{VaultCurrencyPair, VaultId};
 use sp_arithmetic::{FixedI128, FixedPointNumber, FixedU128};
@@ -117,6 +118,9 @@ impl orml_tokens::Config for Test {
     type WeightInfo = ();
     type ExistentialDeposits = ExistentialDeposits;
     type OnDust = ();
+    type OnSlash = ();
+    type OnDeposit = ();
+    type OnTransfer = ();
     type MaxLocks = MaxLocks;
     type DustRemovalWhitelist = Everything;
     type MaxReserves = ConstU32<0>; // we don't use named reserves

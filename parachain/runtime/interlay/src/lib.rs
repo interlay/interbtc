@@ -26,6 +26,7 @@ use frame_system::{
 pub use orml_asset_registry::AssetMetadata;
 use orml_asset_registry::SequentialId;
 use orml_traits::parameter_type_with_key;
+use pallet_traits::OracleApi;
 use pallet_transaction_payment::{Multiplier, TargetedFeeAdjustment};
 use sp_api::impl_runtime_apis;
 use sp_core::{OpaqueMetadata, H256};
@@ -696,6 +697,9 @@ impl orml_tokens::Config for Runtime {
     type WeightInfo = ();
     type ExistentialDeposits = ExistentialDeposits;
     type OnDust = orml_tokens::TransferDust<Runtime, FeeAccount>;
+    type OnSlash = ();
+    type OnDeposit = ();
+    type OnTransfer = ();
     type MaxLocks = MaxLocks;
     type DustRemovalWhitelist = DustRemovalWhitelist;
     type MaxReserves = ConstU32<0>; // we don't use named reserves

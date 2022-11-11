@@ -25,14 +25,15 @@ security = { path = "../security", default-features = false }
 primitives = { package = "interbtc-primitives", path = "../../primitives", default-features = false }
 staking = { path = "../staking", default-features = false }
 currency = { path = "../currency", default-features = false }
+pallet-traits = { path = '../traits', default-features = false }
 
 [dev-dependencies]
 mocktopus = "0.7.0"
 frame-benchmarking = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.29", default-features = false }
 
 # Orml dependencies
-orml-tokens = { git = "https://github.com/open-web3-stack/open-runtime-module-library", rev = "44fda4432b71f49ee59a650cf4775db895ab97af", default-features = false }
-orml-traits = { git = "https://github.com/open-web3-stack/open-runtime-module-library", rev = "44fda4432b71f49ee59a650cf4775db895ab97af", default-features = false }
+orml-tokens = { git = "https://github.com/open-web3-stack/open-runtime-module-library", rev = "2c48b626addafbea0227c068c9ab0fc16666b1b5", default-features = false }
+orml-traits = { git = "https://github.com/open-web3-stack/open-runtime-module-library", rev = "2c48b626addafbea0227c068c9ab0fc16666b1b5", default-features = false }
 
 [features]
 default = ["std"]

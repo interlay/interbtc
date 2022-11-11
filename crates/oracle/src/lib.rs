@@ -38,6 +38,7 @@ use frame_support::{
     weights::Weight,
 };
 use frame_system::{ensure_root, ensure_signed};
+use pallet_traits::OracleApi;
 use scale_info::TypeInfo;
 use security::{ErrorCode, StatusCode};
 use sp_runtime::{
@@ -308,26 +309,6 @@ impl<T: Config> Pallet<T> {
         Aggregate::<T>::get(key).ok_or(Error::<T>::MissingExchangeRate.into())
     }
 
-    pub fn convert(amount: &Amount<T>, currency_id: T::CurrencyId) -> Result<Amount<T>, DispatchError> {
-        let converted = match (amount.currency(), currency_id) {
-            (x, y) if x == y => amount.amount(),
-            (x, _) if x == T::GetWrappedCurrencyId::get() => {
-                // convert interbtc to collateral
-                Self::wrapped_to_collateral(amount.amount(), currency_id)?
-            }
-            (from_currency, x) if x == T::GetWrappedCurrencyId::get() => {
-                // convert collateral to interbtc
-                Self::collateral_to_wrapped(amount.amount(), from_currency)?
-            }
-            (_, _) => {
-                // first convert to btc, then convert the btc to the desired currency
-                let base = Self::collateral_to_wrapped(amount.amount(), amount.currency())?;
-                Self::wrapped_to_collateral(base, currency_id)?
-            }
-        };
-        Ok(Amount::new(converted, currency_id))
-    }
-
     pub fn wrapped_to_collateral(amount: BalanceOf<T>, currency_id: CurrencyId) -> Result<BalanceOf<T>, DispatchError> {
         let rate = Self::get_price(OracleKey::ExchangeRate(currency_id))?;
         let converted = rate.checked_mul_int(amount).ok_or(ArithmeticError::Overflow)?;
@@ -426,5 +407,27 @@ impl<T: Config> Pallet<T> {
     /// True if oracle is authorized
     fn is_authorized(oracle: &T::AccountId) -> bool {
         <AuthorizedOracles<T>>::contains_key(oracle)
+    }
+}
+
+impl<T: Config> OracleApi<Amount<T>, T::CurrencyId> for Pallet<T> {
+    fn convert(amount: &Amount<T>, currency_id: T::CurrencyId) -> Result<Amount<T>, DispatchError> {
+        let converted = match (amount.currency(), currency_id) {
+            (x, y) if x == y => amount.amount(),
+            (x, _) if x == T::GetWrappedCurrencyId::get() => {
+                // convert interbtc to collateral
+                Self::wrapped_to_collateral(amount.amount(), currency_id)?
+            }
+            (from_currency, x) if x == T::GetWrappedCurrencyId::get() => {
+                // convert collateral to interbtc
+                Self::collateral_to_wrapped(amount.amount(), from_currency)?
+            }
+            (_, _) => {
+                // first convert to btc, then convert the btc to the desired currency
+                let base = Self::collateral_to_wrapped(amount.amount(), amount.currency())?;
+                Self::wrapped_to_collateral(base, currency_id)?
+            }
+        };
+        Ok(Amount::new(converted, currency_id))
     }
 }
