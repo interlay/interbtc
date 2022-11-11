@@ -17,7 +17,7 @@ substrate-build-script-utils = { git = "https://github.com/paritytech/substrate"
 [dependencies]
 clap = { version = "3.1", features = [ "derive" ] }
 log = "0.4.8"
-codec = { package = "parity-scale-codec", version = "3.0.0" }
+codec = { package = "parity-scale-codec", version = "3.1.5" }
 serde = { version = "1.0.130", features = ["derive"] }
 hex-literal = "0.2.1"
 futures = "0.3.15"

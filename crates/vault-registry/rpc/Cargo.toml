@@ -5,7 +5,7 @@ name = "module-vault-registry-rpc"
 version = '0.3.0'
 
 [dependencies]
-codec = { package = "parity-scale-codec", version = "3.0.0" }
+codec = { package = "parity-scale-codec", version = "3.1.5" }
 jsonrpsee = { version = "0.15.1", features = ["server", "macros"] }
 sp-runtime = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.30" }
 sp-api = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.30" }
