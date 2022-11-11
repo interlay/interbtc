@@ -79,7 +79,7 @@ impl frame_system::Config for Test {
     type AccountId = AccountId;
     type Lookup = IdentityLookup<Self::AccountId>;
     type Header = Header;
-    type Event = TestEvent;
+    type RuntimeEvent = RuntimeEvent;
     type BlockHashCount = BlockHashCount;
     type Version = ();
     type PalletInfo = PalletInfo;
@@ -129,7 +129,7 @@ impl orml_tokens::Config for Test {
 }
 
 impl reward::Config for Test {
-    type Event = TestEvent;
+    type RuntimeEvent = RuntimeEvent;
     type SignedFixedPoint = SignedFixedPoint;
     type RewardId = VaultId<AccountId, CurrencyId>;
     type CurrencyId = CurrencyId;
@@ -177,14 +177,14 @@ impl currency::Config for Test {
 
 impl vault_registry::Config for Test {
     type PalletId = VaultPalletId;
-    type Event = TestEvent;
+    type RuntimeEvent = RuntimeEvent;
     type Balance = Balance;
     type WeightInfo = ();
     type GetGriefingCollateralCurrencyId = GetNativeCurrencyId;
 }
 
 impl staking::Config for Test {
-    type Event = TestEvent;
+    type RuntimeEvent = RuntimeEvent;
     type SignedFixedPoint = SignedFixedPoint;
     type SignedInner = SignedInner;
     type CurrencyId = CurrencyId;
@@ -196,17 +196,17 @@ parameter_types! {
 }
 
 impl btc_relay::Config for Test {
-    type Event = TestEvent;
+    type RuntimeEvent = RuntimeEvent;
     type ParachainBlocksPerBitcoinBlock = ParachainBlocksPerBitcoinBlock;
     type WeightInfo = ();
 }
 
 impl security::Config for Test {
-    type Event = TestEvent;
+    type RuntimeEvent = RuntimeEvent;
 }
 
 impl nomination::Config for Test {
-    type Event = TestEvent;
+    type RuntimeEvent = RuntimeEvent;
     type WeightInfo = ();
 }
 
@@ -222,7 +222,7 @@ impl pallet_timestamp::Config for Test {
 }
 
 impl oracle::Config for Test {
-    type Event = TestEvent;
+    type RuntimeEvent = RuntimeEvent;
     type WeightInfo = ();
 }
 
@@ -245,11 +245,11 @@ impl fee::Config for Test {
 }
 
 impl Config for Test {
-    type Event = TestEvent;
+    type RuntimeEvent = RuntimeEvent;
     type WeightInfo = ();
 }
 
-pub type TestEvent = Event;
+pub type TestEvent = RuntimeEvent;
 pub type TestError = Error<Test>;
 
 pub const OLD_VAULT: VaultId<AccountId, CurrencyId> = VaultId {

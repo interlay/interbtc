@@ -59,7 +59,7 @@ impl frame_system::Config for Test {
     type AccountId = AccountId;
     type Lookup = IdentityLookup<Self::AccountId>;
     type Header = Header;
-    type Event = TestEvent;
+    type RuntimeEvent = RuntimeEvent;
     type BlockHashCount = BlockHashCount;
     type Version = ();
     type PalletInfo = PalletInfo;
@@ -129,7 +129,7 @@ parameter_types! {
     pub const MinimumPeriod: Moment = 5;
 }
 
-pub type TestEvent = Event;
+pub type TestEvent = RuntimeEvent;
 
 pub struct ExtBuilder;
 

@@ -78,7 +78,7 @@ impl frame_system::Config for Test {
     type AccountId = AccountId;
     type Lookup = IdentityLookup<Self::AccountId>;
     type Header = Header;
-    type Event = TestEvent;
+    type RuntimeEvent = RuntimeEvent;
     type BlockHashCount = BlockHashCount;
     type Version = ();
     type PalletInfo = PalletInfo;
@@ -133,7 +133,7 @@ impl orml_tokens::Config for Test {
 }
 
 impl reward::Config for Test {
-    type Event = TestEvent;
+    type RuntimeEvent = RuntimeEvent;
     type SignedFixedPoint = SignedFixedPoint;
     type RewardId = VaultId<AccountId, CurrencyId>;
     type CurrencyId = CurrencyId;
@@ -155,7 +155,7 @@ where
 
 impl vault_registry::Config for Test {
     type PalletId = VaultPalletId;
-    type Event = TestEvent;
+    type RuntimeEvent = RuntimeEvent;
     type Balance = Balance;
     type WeightInfo = ();
     type GetGriefingCollateralCurrencyId = GetNativeCurrencyId;
@@ -189,7 +189,7 @@ impl currency::Config for Test {
 }
 
 impl staking::Config for Test {
-    type Event = TestEvent;
+    type RuntimeEvent = RuntimeEvent;
     type SignedFixedPoint = SignedFixedPoint;
     type SignedInner = SignedInner;
     type CurrencyId = CurrencyId;
@@ -197,7 +197,7 @@ impl staking::Config for Test {
 }
 
 impl security::Config for Test {
-    type Event = TestEvent;
+    type RuntimeEvent = RuntimeEvent;
 }
 
 parameter_types! {
@@ -230,16 +230,16 @@ impl fee::Config for Test {
 }
 
 impl oracle::Config for Test {
-    type Event = TestEvent;
+    type RuntimeEvent = RuntimeEvent;
     type WeightInfo = ();
 }
 
 impl Config for Test {
-    type Event = TestEvent;
+    type RuntimeEvent = RuntimeEvent;
     type WeightInfo = ();
 }
 
-pub type TestEvent = Event;
+pub type TestEvent = RuntimeEvent;
 pub type TestError = Error<Test>;
 
 pub const ALICE: VaultId<AccountId, CurrencyId> = VaultId {
