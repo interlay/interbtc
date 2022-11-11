@@ -313,11 +313,11 @@ pub fn default_redeem_request(
 }
 
 pub fn root() -> <Runtime as frame_system::Config>::Origin {
-    <Runtime as frame_system::Config>::Origin::root()
+    <Runtime as frame_system::Config>::RuntimeOrigin::root()
 }
 
 pub fn origin_of(account_id: AccountId) -> <Runtime as frame_system::Config>::Origin {
-    <Runtime as frame_system::Config>::Origin::signed(account_id)
+    <Runtime as frame_system::Config>::RuntimeOrigin::signed(account_id)
 }
 
 pub fn account_of(address: [u8; 32]) -> AccountId {
@@ -1022,11 +1022,11 @@ pub fn dummy_public_key() -> BtcPublicKey {
 pub fn register_vault_with_public_key(vault_id: &VaultId, collateral: Amount<Runtime>, public_key: BtcPublicKey) {
     if VaultRegistryPallet::get_bitcoin_public_key(&vault_id.account_id).is_err() {
         assert_ok!(
-            Call::VaultRegistry(VaultRegistryCall::register_public_key { public_key })
+            RuntimeCall::VaultRegistry(VaultRegistryCall::register_public_key { public_key })
                 .dispatch(origin_of(vault_id.account_id.clone()))
         );
     }
-    assert_ok!(Call::VaultRegistry(VaultRegistryCall::register_vault {
+    assert_ok!(RuntimeCall::VaultRegistry(VaultRegistryCall::register_vault {
         currency_pair: vault_id.currencies.clone(),
         collateral: collateral.amount(),
     })
@@ -1040,12 +1040,12 @@ pub fn register_vault(vault_id: &VaultId, collateral: Amount<Runtime>) {
 pub fn get_register_vault_result(vault_id: &VaultId, collateral: Amount<Runtime>) -> DispatchResultWithPostInfo {
     assert_eq!(vault_id.collateral_currency(), collateral.currency());
     if VaultRegistryPallet::get_bitcoin_public_key(&vault_id.account_id).is_err() {
-        assert_ok!(Call::VaultRegistry(VaultRegistryCall::register_public_key {
+        assert_ok!(RuntimeCall::VaultRegistry(VaultRegistryCall::register_public_key {
             public_key: dummy_public_key()
         })
         .dispatch(origin_of(vault_id.account_id.clone())));
     }
-    Call::VaultRegistry(VaultRegistryCall::register_vault {
+    RuntimeCall::VaultRegistry(VaultRegistryCall::register_vault {
         currency_pair: vault_id.currencies.clone(),
         collateral: collateral.amount(),
     })
@@ -1322,7 +1322,7 @@ impl TransactionGenerator {
 
     fn relay(&self, height: u32, block: &Block, raw_block_header: RawBlockHeader) {
         if let Some(relayer) = self.relayer {
-            assert_ok!(Call::BTCRelay(BTCRelayCall::store_block_header {
+            assert_ok!(RuntimeCall::BTCRelay(BTCRelayCall::store_block_header {
                 raw_block_header: raw_block_header
             })
             .dispatch(origin_of(account_of(relayer))));
@@ -1501,12 +1501,12 @@ impl ExtBuilder {
             // initialize btc relay
             let _ = TransactionGenerator::new().with_confirmations(7).mine();
 
-            assert_ok!(Call::Oracle(OracleCall::insert_authorized_oracle {
+            assert_ok!(RuntimeCall::Oracle(OracleCall::insert_authorized_oracle {
                 account_id: account_of(ALICE),
                 name: vec![]
             })
             .dispatch(root()));
-            assert_ok!(Call::Oracle(OracleCall::feed_values {
+            assert_ok!(RuntimeCall::Oracle(OracleCall::feed_values {
                 values: vec![
                     (OracleKey::ExchangeRate(DEFAULT_COLLATERAL_CURRENCY), FixedU128::from(1)),
                     (OracleKey::ExchangeRate(DEFAULT_GRIEFING_CURRENCY), FixedU128::from(1)),

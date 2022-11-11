@@ -993,7 +993,7 @@ fn test_validate_transaction_succeeds_with_payment() {
         BTCRelay::parse_transaction.mock_safe(move |_| MockResult::Return(Ok(sample_transaction_parsed(&outputs))));
 
         assert_ok!(BTCRelay::validate_transaction(
-            Origin::signed(3),
+            RuntimeOrigin::signed(3),
             raw_tx,
             minimum_btc,
             recipient_btc_address,
@@ -1017,7 +1017,7 @@ fn test_validate_transaction_succeeds_with_payment_and_op_return() {
         BTCRelay::parse_transaction.mock_safe(move |_| MockResult::Return(Ok(sample_transaction_parsed(&outputs))));
 
         assert_ok!(BTCRelay::validate_transaction(
-            Origin::signed(3),
+            RuntimeOrigin::signed(3),
             raw_tx,
             minimum_btc,
             recipient_btc_address,
@@ -1041,7 +1041,7 @@ fn test_validate_transaction_succeeds_with_op_return_and_payment() {
         BTCRelay::parse_transaction.mock_safe(move |_| MockResult::Return(Ok(sample_transaction_parsed(&outputs))));
 
         assert_ok!(BTCRelay::validate_transaction(
-            Origin::signed(3),
+            RuntimeOrigin::signed(3),
             raw_tx,
             minimum_btc,
             recipient_btc_address,
@@ -1069,7 +1069,7 @@ fn test_validate_transaction_succeeds_with_payment_and_refund_and_op_return() {
         BTCRelay::parse_transaction.mock_safe(move |_| MockResult::Return(Ok(sample_transaction_parsed(&outputs))));
 
         assert_ok!(BTCRelay::validate_transaction(
-            Origin::signed(3),
+            RuntimeOrigin::signed(3),
             raw_tx,
             minimum_btc,
             recipient_btc_address,
@@ -1096,7 +1096,7 @@ fn test_validate_transaction_invalid_no_outputs_fails() {
 
         assert_err!(
             BTCRelay::validate_transaction(
-                Origin::signed(3),
+                RuntimeOrigin::signed(3),
                 raw_tx,
                 minimum_btc,
                 recipient_btc_address,
@@ -1125,7 +1125,7 @@ fn test_validate_transaction_insufficient_payment_value_fails() {
 
         assert_err!(
             BTCRelay::validate_transaction(
-                Origin::signed(3),
+                RuntimeOrigin::signed(3),
                 raw_tx,
                 minimum_btc,
                 recipient_btc_address,
@@ -1158,7 +1158,7 @@ fn test_validate_transaction_wrong_recipient_fails() {
 
         assert_err!(
             BTCRelay::validate_transaction(
-                Origin::signed(3),
+                RuntimeOrigin::signed(3),
                 raw_tx,
                 minimum_btc,
                 recipient_btc_address,
@@ -1187,7 +1187,7 @@ fn test_validate_transaction_incorrect_opreturn_fails() {
 
         assert_err!(
             BTCRelay::validate_transaction(
-                Origin::signed(3),
+                RuntimeOrigin::signed(3),
                 raw_tx,
                 minimum_btc,
                 recipient_btc_address,
@@ -1227,7 +1227,7 @@ fn test_verify_and_validate_transaction_succeeds() {
         BTCRelay::_verify_transaction_inclusion.mock_safe(move |_, _, _| MockResult::Return(Ok(())));
 
         assert_ok!(BTCRelay::verify_and_validate_transaction(
-            Origin::signed(3),
+            RuntimeOrigin::signed(3),
             raw_merkle_proof,
             confirmations,
             raw_tx,
@@ -1279,7 +1279,7 @@ fn test_verify_transaction_inclusion_succeeds() {
         BTCRelay::check_parachain_confirmations.mock_safe(|_| MockResult::Return(Ok(())));
 
         assert_ok!(BTCRelay::verify_transaction_inclusion(
-            Origin::signed(3),
+            RuntimeOrigin::signed(3),
             proof_result.transaction_hash,
             raw_merkle_proof,
             confirmations
@@ -1323,7 +1323,7 @@ fn test_verify_transaction_inclusion_empty_fork_succeeds() {
         BTCRelay::check_parachain_confirmations.mock_safe(|_| MockResult::Return(Ok(())));
 
         assert_ok!(BTCRelay::verify_transaction_inclusion(
-            Origin::signed(3),
+            RuntimeOrigin::signed(3),
             proof_result.transaction_hash,
             raw_merkle_proof,
             confirmations,
@@ -1377,7 +1377,12 @@ fn test_verify_transaction_inclusion_invalid_tx_id_fails() {
         BTCRelay::check_parachain_confirmations.mock_safe(|_| MockResult::Return(Ok(())));
 
         assert_err!(
-            BTCRelay::verify_transaction_inclusion(Origin::signed(3), invalid_tx_id, raw_merkle_proof, confirmations,),
+            BTCRelay::verify_transaction_inclusion(
+                RuntimeOrigin::signed(3),
+                invalid_tx_id,
+                raw_merkle_proof,
+                confirmations,
+            ),
             TestError::InvalidTxid
         );
     });
@@ -1430,7 +1435,7 @@ fn test_verify_transaction_inclusion_invalid_merkle_root_fails() {
 
         assert_err!(
             BTCRelay::verify_transaction_inclusion(
-                Origin::signed(3),
+                RuntimeOrigin::signed(3),
                 proof_result.transaction_hash,
                 raw_merkle_proof,
                 confirmations,
@@ -1453,7 +1458,7 @@ fn test_verify_transaction_inclusion_fails_with_ongoing_fork() {
         let confirmations = None;
 
         assert_err!(
-            BTCRelay::verify_transaction_inclusion(Origin::signed(3), tx_id, raw_merkle_proof, confirmations,),
+            BTCRelay::verify_transaction_inclusion(RuntimeOrigin::signed(3), tx_id, raw_merkle_proof, confirmations,),
             TestError::OngoingFork
         );
     });

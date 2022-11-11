@@ -37,21 +37,21 @@ fn it_should_set_invulnerables() {
     new_test_ext().execute_with(|| {
         let new_set = vec![1, 2, 3, 4];
         assert_ok!(CollatorSelection::set_invulnerables(
-            Origin::signed(RootAccount::get()),
+            RuntimeOrigin::signed(RootAccount::get()),
             new_set.clone()
         ));
         assert_eq!(CollatorSelection::invulnerables(), new_set);
 
         // cannot set with non-root.
         assert_noop!(
-            CollatorSelection::set_invulnerables(Origin::signed(1), new_set.clone()),
+            CollatorSelection::set_invulnerables(RuntimeOrigin::signed(1), new_set.clone()),
             BadOrigin
         );
 
         // cannot set invulnerables without associated validator keys
         let invulnerables = vec![7];
         assert_noop!(
-            CollatorSelection::set_invulnerables(Origin::signed(RootAccount::get()), invulnerables.clone()),
+            CollatorSelection::set_invulnerables(RuntimeOrigin::signed(RootAccount::get()), invulnerables.clone()),
             Error::<Test>::ValidatorNotRegistered
         );
     });
@@ -65,14 +65,14 @@ fn set_desired_candidates_works() {
 
         // can set
         assert_ok!(CollatorSelection::set_desired_candidates(
-            Origin::signed(RootAccount::get()),
+            RuntimeOrigin::signed(RootAccount::get()),
             7
         ));
         assert_eq!(CollatorSelection::desired_candidates(), 7);
 
         // rejects bad origin
         assert_noop!(
-            CollatorSelection::set_desired_candidates(Origin::signed(1), 8),
+            CollatorSelection::set_desired_candidates(RuntimeOrigin::signed(1), 8),
             BadOrigin
         );
     });
@@ -86,13 +86,16 @@ fn set_candidacy_bond() {
 
         // can set
         assert_ok!(CollatorSelection::set_candidacy_bond(
-            Origin::signed(RootAccount::get()),
+            RuntimeOrigin::signed(RootAccount::get()),
             7
         ));
         assert_eq!(CollatorSelection::candidacy_bond(), 7);
 
         // rejects bad origin.
-        assert_noop!(CollatorSelection::set_candidacy_bond(Origin::signed(1), 8), BadOrigin);
+        assert_noop!(
+            CollatorSelection::set_candidacy_bond(RuntimeOrigin::signed(1), 8),
+            BadOrigin
+        );
     });
 }
 
@@ -104,17 +107,17 @@ fn cannot_register_candidate_if_too_many() {
 
         // can't accept anyone anymore.
         assert_noop!(
-            CollatorSelection::register_as_candidate(Origin::signed(3)),
+            CollatorSelection::register_as_candidate(RuntimeOrigin::signed(3)),
             Error::<Test>::TooManyCandidates,
         );
 
         // reset desired candidates:
         <crate::DesiredCandidates<Test>>::put(1);
-        assert_ok!(CollatorSelection::register_as_candidate(Origin::signed(4)));
+        assert_ok!(CollatorSelection::register_as_candidate(RuntimeOrigin::signed(4)));
 
         // but no more
         assert_noop!(
-            CollatorSelection::register_as_candidate(Origin::signed(5)),
+            CollatorSelection::register_as_candidate(RuntimeOrigin::signed(5)),
             Error::<Test>::TooManyCandidates,
         );
     })
@@ -125,11 +128,11 @@ fn cannot_unregister_candidate_if_too_few() {
     new_test_ext().execute_with(|| {
         // reset desired candidates:
         <crate::DesiredCandidates<Test>>::put(1);
-        assert_ok!(CollatorSelection::register_as_candidate(Origin::signed(4)));
+        assert_ok!(CollatorSelection::register_as_candidate(RuntimeOrigin::signed(4)));
 
         // can not remove too few
         assert_noop!(
-            CollatorSelection::leave_intent(Origin::signed(4)),
+            CollatorSelection::leave_intent(RuntimeOrigin::signed(4)),
             Error::<Test>::TooFewCandidates,
         );
     })
@@ -142,7 +145,7 @@ fn cannot_register_as_candidate_if_invulnerable() {
 
         // can't 1 because it is invulnerable.
         assert_noop!(
-            CollatorSelection::register_as_candidate(Origin::signed(1)),
+            CollatorSelection::register_as_candidate(RuntimeOrigin::signed(1)),
             Error::<Test>::AlreadyInvulnerable,
         );
     })
@@ -153,7 +156,7 @@ fn cannot_register_as_candidate_if_keys_not_registered() {
     new_test_ext().execute_with(|| {
         // can't 7 because keys not registered.
         assert_noop!(
-            CollatorSelection::register_as_candidate(Origin::signed(7)),
+            CollatorSelection::register_as_candidate(RuntimeOrigin::signed(7)),
             Error::<Test>::ValidatorNotRegistered
         );
     })
@@ -163,7 +166,7 @@ fn cannot_register_as_candidate_if_keys_not_registered() {
 fn cannot_register_dupe_candidate() {
     new_test_ext().execute_with(|| {
         // can add 3 as candidate
-        assert_ok!(CollatorSelection::register_as_candidate(Origin::signed(3)));
+        assert_ok!(CollatorSelection::register_as_candidate(RuntimeOrigin::signed(3)));
         let addition = CandidateInfo { who: 3, deposit: 10 };
         assert_eq!(CollatorSelection::candidates(), vec![addition]);
         assert_eq!(CollatorSelection::last_authored_block(3), 10);
@@ -171,7 +174,7 @@ fn cannot_register_dupe_candidate() {
 
         // but no more
         assert_noop!(
-            CollatorSelection::register_as_candidate(Origin::signed(3)),
+            CollatorSelection::register_as_candidate(RuntimeOrigin::signed(3)),
             Error::<Test>::AlreadyCandidate,
         );
     })
@@ -184,11 +187,11 @@ fn cannot_register_as_candidate_if_poor() {
         assert_eq!(Balances::free_balance(&33), 0);
 
         // works
-        assert_ok!(CollatorSelection::register_as_candidate(Origin::signed(3)));
+        assert_ok!(CollatorSelection::register_as_candidate(RuntimeOrigin::signed(3)));
 
         // poor
         assert_noop!(
-            CollatorSelection::register_as_candidate(Origin::signed(33)),
+            CollatorSelection::register_as_candidate(RuntimeOrigin::signed(33)),
             BalancesError::<Test>::InsufficientBalance,
         );
     });
@@ -207,8 +210,8 @@ fn register_as_candidate_works() {
         assert_eq!(Balances::free_balance(&3), 100);
         assert_eq!(Balances::free_balance(&4), 100);
 
-        assert_ok!(CollatorSelection::register_as_candidate(Origin::signed(3)));
-        assert_ok!(CollatorSelection::register_as_candidate(Origin::signed(4)));
+        assert_ok!(CollatorSelection::register_as_candidate(RuntimeOrigin::signed(3)));
+        assert_ok!(CollatorSelection::register_as_candidate(RuntimeOrigin::signed(4)));
 
         assert_eq!(Balances::free_balance(&3), 90);
         assert_eq!(Balances::free_balance(&4), 90);
@@ -221,21 +224,21 @@ fn register_as_candidate_works() {
 fn leave_intent() {
     new_test_ext().execute_with(|| {
         // register a candidate.
-        assert_ok!(CollatorSelection::register_as_candidate(Origin::signed(3)));
+        assert_ok!(CollatorSelection::register_as_candidate(RuntimeOrigin::signed(3)));
         assert_eq!(Balances::free_balance(3), 90);
 
         // register too so can leave above min candidates
-        assert_ok!(CollatorSelection::register_as_candidate(Origin::signed(5)));
+        assert_ok!(CollatorSelection::register_as_candidate(RuntimeOrigin::signed(5)));
         assert_eq!(Balances::free_balance(5), 90);
 
         // cannot leave if not candidate.
         assert_noop!(
-            CollatorSelection::leave_intent(Origin::signed(4)),
+            CollatorSelection::leave_intent(RuntimeOrigin::signed(4)),
             Error::<Test>::NotCandidate
         );
 
         // bond is returned
-        assert_ok!(CollatorSelection::leave_intent(Origin::signed(3)));
+        assert_ok!(CollatorSelection::leave_intent(RuntimeOrigin::signed(3)));
         assert_eq!(Balances::free_balance(3), 100);
         assert_eq!(CollatorSelection::last_authored_block(3), 0);
     });
@@ -249,7 +252,7 @@ fn authorship_event_handler() {
 
         // 4 is the default author.
         assert_eq!(Balances::free_balance(4), 100);
-        assert_ok!(CollatorSelection::register_as_candidate(Origin::signed(4)));
+        assert_ok!(CollatorSelection::register_as_candidate(RuntimeOrigin::signed(4)));
         // triggers `note_author`
         Authorship::on_initialize(1);
 
@@ -274,7 +277,7 @@ fn fees_edgecases() {
         Balances::make_free_balance_be(&CollatorSelection::account_id(), 5);
         // 4 is the default author.
         assert_eq!(Balances::free_balance(4), 100);
-        assert_ok!(CollatorSelection::register_as_candidate(Origin::signed(4)));
+        assert_ok!(CollatorSelection::register_as_candidate(RuntimeOrigin::signed(4)));
         // triggers `note_author`
         Authorship::on_initialize(1);
 
@@ -303,7 +306,7 @@ fn session_management_works() {
         assert_eq!(SessionHandlerCollators::get(), vec![1, 2]);
 
         // add a new collator
-        assert_ok!(CollatorSelection::register_as_candidate(Origin::signed(3)));
+        assert_ok!(CollatorSelection::register_as_candidate(RuntimeOrigin::signed(3)));
 
         // session won't see this.
         assert_eq!(SessionHandlerCollators::get(), vec![1, 2]);
@@ -330,8 +333,8 @@ fn session_management_works() {
 fn kick_mechanism() {
     new_test_ext().execute_with(|| {
         // add a new collator
-        assert_ok!(CollatorSelection::register_as_candidate(Origin::signed(3)));
-        assert_ok!(CollatorSelection::register_as_candidate(Origin::signed(4)));
+        assert_ok!(CollatorSelection::register_as_candidate(RuntimeOrigin::signed(3)));
+        assert_ok!(CollatorSelection::register_as_candidate(RuntimeOrigin::signed(4)));
         initialize_to_block(10);
         assert_eq!(CollatorSelection::candidates().len(), 2);
         initialize_to_block(20);
@@ -355,8 +358,8 @@ fn kick_mechanism() {
 fn should_not_kick_mechanism_too_few() {
     new_test_ext().execute_with(|| {
         // add a new collator
-        assert_ok!(CollatorSelection::register_as_candidate(Origin::signed(3)));
-        assert_ok!(CollatorSelection::register_as_candidate(Origin::signed(5)));
+        assert_ok!(CollatorSelection::register_as_candidate(RuntimeOrigin::signed(3)));
+        assert_ok!(CollatorSelection::register_as_candidate(RuntimeOrigin::signed(5)));
         initialize_to_block(10);
         assert_eq!(CollatorSelection::candidates().len(), 2);
         initialize_to_block(20);
@@ -380,8 +383,8 @@ fn should_not_kick_mechanism_too_few() {
 fn should_kick_mechanism_below_balance() {
     new_test_ext().execute_with(|| {
         // add two candidates
-        assert_ok!(CollatorSelection::register_as_candidate(Origin::signed(3)));
-        assert_ok!(CollatorSelection::register_as_candidate(Origin::signed(5)));
+        assert_ok!(CollatorSelection::register_as_candidate(RuntimeOrigin::signed(3)));
+        assert_ok!(CollatorSelection::register_as_candidate(RuntimeOrigin::signed(5)));
 
         // first session change
         initialize_to_block(Period::get());
@@ -394,7 +397,7 @@ fn should_kick_mechanism_below_balance() {
         // need to decrease reference counter (from candidate bond)
         frame_system::Pallet::<Test>::dec_consumers(&3);
         // workaround to emulate escrow total balance decreasing
-        assert_ok!(Balances::set_balance(Origin::root(), 3, 0, 0));
+        assert_ok!(Balances::set_balance(RuntimeOrigin::root(), 3, 0, 0));
 
         // second session change
         initialize_to_block(Period::get() * 2);

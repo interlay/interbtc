@@ -11,7 +11,7 @@ fn integration_test_individual_balance_and_total_supply() {
         let current_height = SystemPallet::block_number();
         let amount_1 = 1000_000_000_000_000;
 
-        assert_ok!(Call::Tokens(TokensCall::set_balance {
+        assert_ok!(RuntimeCall::Tokens(TokensCall::set_balance {
             who: account_of(ALICE),
             currency_id: DEFAULT_NATIVE_CURRENCY,
             new_free: amount_1,
@@ -19,7 +19,7 @@ fn integration_test_individual_balance_and_total_supply() {
         })
         .dispatch(root()));
 
-        assert_ok!(Call::Escrow(EscrowCall::create_lock {
+        assert_ok!(RuntimeCall::Escrow(EscrowCall::create_lock {
             amount: amount_1,
             unlock_height: current_height + span
         })
@@ -34,7 +34,7 @@ fn integration_test_individual_balance_and_total_supply() {
 
         let amount_2 = 600_000_000_000_000;
 
-        assert_ok!(Call::Tokens(TokensCall::set_balance {
+        assert_ok!(RuntimeCall::Tokens(TokensCall::set_balance {
             who: account_of(BOB),
             currency_id: DEFAULT_NATIVE_CURRENCY,
             new_free: amount_2,
@@ -42,7 +42,7 @@ fn integration_test_individual_balance_and_total_supply() {
         })
         .dispatch(root()));
 
-        assert_ok!(Call::Escrow(EscrowCall::create_lock {
+        assert_ok!(RuntimeCall::Escrow(EscrowCall::create_lock {
             amount: amount_2,
             unlock_height: current_height + span
         })
@@ -62,7 +62,7 @@ fn integration_test_lock_reserved() {
         let initial_free = 1500_000_000_000_000;
         let initial_reserved = 500_000_000_000_000;
 
-        assert_ok!(Call::Tokens(TokensCall::set_balance {
+        assert_ok!(RuntimeCall::Tokens(TokensCall::set_balance {
             who: account_of(ALICE),
             currency_id: DEFAULT_NATIVE_CURRENCY,
             new_free: initial_free,
@@ -70,7 +70,7 @@ fn integration_test_lock_reserved() {
         })
         .dispatch(root()));
 
-        assert_ok!(Call::Escrow(EscrowCall::create_lock {
+        assert_ok!(RuntimeCall::Escrow(EscrowCall::create_lock {
             amount: lock_amount,
             unlock_height: current_height + span
         })
@@ -99,7 +99,7 @@ fn integration_test_escrow_reward_stake() {
         let increase_amount = 100_000;
         let new_free = create_lock_amount + increase_amount;
 
-        assert_ok!(Call::Tokens(TokensCall::set_balance {
+        assert_ok!(RuntimeCall::Tokens(TokensCall::set_balance {
             who: account_of(ALICE),
             currency_id: DEFAULT_NATIVE_CURRENCY,
             new_free,
@@ -108,14 +108,14 @@ fn integration_test_escrow_reward_stake() {
         .dispatch(root()));
 
         let unlock_height = current_height + max_period;
-        assert_ok!(Call::Escrow(EscrowCall::create_lock {
+        assert_ok!(RuntimeCall::Escrow(EscrowCall::create_lock {
             amount: create_lock_amount,
             unlock_height,
         })
         .dispatch(origin_of(account_of(ALICE))));
         ensure_reward_stake_is_escrow_balance(current_height);
 
-        assert_ok!(Call::Escrow(EscrowCall::increase_amount {
+        assert_ok!(RuntimeCall::Escrow(EscrowCall::increase_amount {
             amount: increase_amount
         })
         .dispatch(origin_of(account_of(ALICE))));
@@ -124,7 +124,7 @@ fn integration_test_escrow_reward_stake() {
         SystemPallet::set_block_number(unlock_height / 2);
         let current_height = SystemPallet::block_number();
 
-        assert_ok!(Call::Escrow(EscrowCall::increase_unlock_height {
+        assert_ok!(RuntimeCall::Escrow(EscrowCall::increase_unlock_height {
             unlock_height: current_height + max_period
         })
         .dispatch(origin_of(account_of(ALICE))));

@@ -156,7 +156,7 @@ pub mod pallet {
 
     #[pallet::config]
     pub trait Config: frame_system::Config + currency::Config<Balance = BalanceOf<Self>> {
-        type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
+        type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
         /// The oracle price feeder
         type PriceFeeder: PriceFeeder;
@@ -166,11 +166,11 @@ pub mod pallet {
         type PalletId: Get<PalletId>;
 
         /// The origin which can add/reduce reserves.
-        type ReserveOrigin: EnsureOrigin<Self::Origin>;
+        type ReserveOrigin: EnsureOrigin<Self::RuntimeOrigin>;
 
         /// The origin which can update rate model, liquidate incentive and
         /// add/reduce reserves. Root can always do this.
-        type UpdateOrigin: EnsureOrigin<Self::Origin>;
+        type UpdateOrigin: EnsureOrigin<Self::RuntimeOrigin>;
 
         /// Weight information for extrinsics in this pallet.
         type WeightInfo: WeightInfo;

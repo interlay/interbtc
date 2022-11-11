@@ -394,9 +394,9 @@ fn test_cancel_issue_expired_succeeds() {
 fn test_set_issue_period_only_root() {
     run_test(|| {
         assert_noop!(
-            Issue::set_issue_period(Origin::signed(USER), 1),
+            Issue::set_issue_period(RuntimeOrigin::signed(USER), 1),
             DispatchError::BadOrigin
         );
-        assert_ok!(Issue::set_issue_period(Origin::root(), 1));
+        assert_ok!(Issue::set_issue_period(RuntimeOrigin::root(), 1));
     })
 }

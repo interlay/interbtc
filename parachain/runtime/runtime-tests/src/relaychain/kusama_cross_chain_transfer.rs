@@ -60,7 +60,7 @@ mod hrmp {
             Transact {
                 require_weight_at_most: 10000000000,
                 origin_type: OriginKind::Native,
-                call: kusama_runtime::Call::Hrmp(call).encode().into(),
+                call: kusama_runtime::RuntimeCall::Hrmp(call).encode().into(),
             },
             RefundSurplus,
             DepositAsset {
@@ -112,7 +112,7 @@ mod hrmp {
         // do hrmp_init_open_channel
         assert!(!has_open_channel_requested_event(sender, recipient)); // just a sanity check
         T::execute_with(|| {
-            let message = construct_xcm(hrmp::Call::<kusama_runtime::Runtime>::hrmp_init_open_channel {
+            let message = construct_xcm(hrmp::RuntimeCall::<kusama_runtime::Runtime>::hrmp_init_open_channel {
                 recipient: recipient.into(),
                 proposed_max_capacity: 1000,
                 proposed_max_message_size: 102400,
@@ -131,7 +131,7 @@ mod hrmp {
         // do hrmp_accept_open_channel
         assert!(!has_open_channel_accepted_event(sender, recipient)); // just a sanity check
         T::execute_with(|| {
-            let message = construct_xcm(hrmp::Call::<kusama_runtime::Runtime>::hrmp_accept_open_channel {
+            let message = construct_xcm(hrmp::RuntimeCall::<kusama_runtime::Runtime>::hrmp_accept_open_channel {
                 sender: sender.into(),
             });
             assert_ok!(pallet_xcm::Pallet::<kintsugi_runtime_parachain::Runtime>::send_xcm(
@@ -145,12 +145,12 @@ mod hrmp {
         // setup sovereign account balances
         KusamaNet::execute_with(|| {
             assert_ok!(kusama_runtime::Balances::transfer(
-                kusama_runtime::Origin::signed(ALICE.into()),
+                kusama_runtime::RuntimeOrigin::signed(ALICE.into()),
                 sp_runtime::MultiAddress::Id(kintsugi_sovereign_account_on_kusama()),
                 10_820_000_000_000
             ));
             assert_ok!(kusama_runtime::Balances::transfer(
-                kusama_runtime::Origin::signed(ALICE.into()),
+                kusama_runtime::RuntimeOrigin::signed(ALICE.into()),
                 sp_runtime::MultiAddress::Id(sibling_sovereign_account_on_kusama()),
                 10_820_000_000_000
             ));
@@ -177,7 +177,7 @@ mod hrmp {
 fn transfer_from_relay_chain() {
     KusamaNet::execute_with(|| {
         assert_ok!(kusama_runtime::XcmPallet::reserve_transfer_assets(
-            kusama_runtime::Origin::signed(ALICE.into()),
+            kusama_runtime::RuntimeOrigin::signed(ALICE.into()),
             Box::new(Parachain(KINTSUGI_PARA_ID).into().into()),
             Box::new(
                 Junction::AccountId32 {
@@ -206,7 +206,7 @@ fn transfer_from_relay_chain() {
 fn transfer_to_relay_chain() {
     KusamaNet::execute_with(|| {
         assert_ok!(kusama_runtime::Balances::transfer(
-            kusama_runtime::Origin::signed(ALICE.into()),
+            kusama_runtime::RuntimeOrigin::signed(ALICE.into()),
             sp_runtime::MultiAddress::Id(kintsugi_sovereign_account_on_kusama()),
             2 * KSM.one()
         ));
@@ -214,7 +214,7 @@ fn transfer_to_relay_chain() {
 
     Kintsugi::execute_with(|| {
         assert_ok!(XTokens::transfer(
-            Origin::signed(ALICE.into()),
+            RuntimeOrigin::signed(ALICE.into()),
             Token(KSM),
             KSM.one(),
             Box::new(
@@ -269,7 +269,7 @@ fn transfer_to_sibling_and_back() {
 
     Kintsugi::execute_with(|| {
         assert_ok!(XTokens::transfer(
-            Origin::signed(ALICE.into()),
+            RuntimeOrigin::signed(ALICE.into()),
             Token(KINT),
             10_000_000_000_000,
             Box::new(
@@ -310,7 +310,7 @@ fn transfer_to_sibling_and_back() {
 
         // return some back to kintsugi
         assert_ok!(XTokens::transfer(
-            Origin::signed(BOB.into()),
+            RuntimeOrigin::signed(BOB.into()),
             ForeignAsset(1),
             5_000_000_000_000,
             Box::new(
@@ -454,7 +454,7 @@ fn subscribe_version_notify_works() {
     // relay chain subscribe version notify of para chain
     KusamaNet::execute_with(|| {
         let r = pallet_xcm::Pallet::<kusama_runtime::Runtime>::force_subscribe_version_notify(
-            kusama_runtime::Origin::root(),
+            kusama_runtime::RuntimeOrigin::root(),
             Box::new(Parachain(KINTSUGI_PARA_ID).into().into()),
         );
         assert_ok!(r);
@@ -474,7 +474,7 @@ fn subscribe_version_notify_works() {
     // para chain subscribe version notify of relay chain
     Kintsugi::execute_with(|| {
         let r = pallet_xcm::Pallet::<kintsugi_runtime_parachain::Runtime>::force_subscribe_version_notify(
-            Origin::root(),
+            RuntimeOrigin::root(),
             Box::new(Parent.into()),
         );
         assert_ok!(r);
@@ -494,7 +494,7 @@ fn subscribe_version_notify_works() {
     // para chain subscribe version notify of sibling chain
     Kintsugi::execute_with(|| {
         let r = pallet_xcm::Pallet::<kintsugi_runtime_parachain::Runtime>::force_subscribe_version_notify(
-            Origin::root(),
+            RuntimeOrigin::root(),
             Box::new((Parent, Parachain(SIBLING_PARA_ID)).into()),
         );
         assert_ok!(r);
@@ -674,5 +674,5 @@ fn register_kint_as_foreign_asset() {
             coingecko_id: "kint-sugi".as_bytes().to_vec(),
         },
     };
-    AssetRegistry::register_asset(Origin::root(), metadata, None).unwrap();
+    AssetRegistry::register_asset(RuntimeOrigin::root(), metadata, None).unwrap();
 }

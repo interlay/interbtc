@@ -46,7 +46,7 @@ impl RequestIssueBuilder {
             &self.vault_id,
         );
         // alice requests wrapped by locking btc with bob
-        assert_ok!(Call::Issue(IssueCall::request_issue {
+        assert_ok!(RuntimeCall::Issue(IssueCall::request_issue {
             amount: self.amount_btc,
             vault_id: self.vault_id.clone(),
         })
@@ -118,7 +118,7 @@ impl ExecuteIssueBuilder {
 
         if let Some((proof, raw_tx)) = &self.execution_tx {
             // alice executes the issuerequest by confirming the btc transaction
-            let ret = Call::Issue(IssueCall::execute_issue {
+            let ret = RuntimeCall::Issue(IssueCall::execute_issue {
                 issue_id: self.issue_id,
                 merkle_proof: proof.to_vec(),
                 raw_tx: raw_tx.to_vec(),
@@ -199,5 +199,7 @@ pub fn cancel_issue(issue_id: H256, vault: [u8; 32]) {
     SecurityPallet::set_active_block_number(IssuePallet::issue_period() + 1 + 1);
 
     // cancel issue request
-    assert_ok!(Call::Issue(IssueCall::cancel_issue { issue_id: issue_id }).dispatch(origin_of(account_of(vault))));
+    assert_ok!(
+        RuntimeCall::Issue(IssueCall::cancel_issue { issue_id: issue_id }).dispatch(origin_of(account_of(vault)))
+    );
 }

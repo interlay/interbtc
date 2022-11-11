@@ -29,7 +29,7 @@ mod hrmp {
             Transact {
                 require_weight_at_most: transact_weight,
                 origin_type: OriginKind::Native,
-                call: polkadot_runtime::Call::Hrmp(call).encode().into(),
+                call: polkadot_runtime::RuntimeCall::Hrmp(call).encode().into(),
             },
             RefundSurplus,
             DepositAsset {
@@ -82,7 +82,7 @@ mod hrmp {
         assert!(!has_open_channel_requested_event(sender, recipient)); // just a sanity check
         T::execute_with(|| {
             let message = construct_xcm(
-                hrmp::Call::<polkadot_runtime::Runtime>::hrmp_init_open_channel {
+                hrmp::RuntimeCall::<polkadot_runtime::Runtime>::hrmp_init_open_channel {
                     recipient: recipient.into(),
                     proposed_max_capacity: 1000,
                     proposed_max_message_size: 102400,
@@ -105,7 +105,7 @@ mod hrmp {
         assert!(!has_open_channel_accepted_event(sender, recipient)); // just a sanity check
         T::execute_with(|| {
             let message = construct_xcm(
-                hrmp::Call::<polkadot_runtime::Runtime>::hrmp_accept_open_channel { sender: sender.into() },
+                hrmp::RuntimeCall::<polkadot_runtime::Runtime>::hrmp_accept_open_channel { sender: sender.into() },
                 xcm_fee,
                 transact_weight,
             );
@@ -150,17 +150,17 @@ mod hrmp {
         // setup sovereign account balances
         PolkadotNet::execute_with(|| {
             assert_ok!(polkadot_runtime::Balances::transfer(
-                polkadot_runtime::Origin::signed(ALICE.into()),
+                polkadot_runtime::RuntimeOrigin::signed(ALICE.into()),
                 sp_runtime::MultiAddress::Id(interlay_sovereign_account_on_polkadot()),
                 initial_balance
             ));
             assert_ok!(polkadot_runtime::Balances::transfer(
-                polkadot_runtime::Origin::signed(ALICE.into()),
+                polkadot_runtime::RuntimeOrigin::signed(ALICE.into()),
                 sp_runtime::MultiAddress::Id(sibling_sovereign_account_on_polkadot()),
                 initial_balance
             ));
             assert_ok!(polkadot_runtime::Balances::transfer(
-                polkadot_runtime::Origin::signed(ALICE.into()),
+                polkadot_runtime::RuntimeOrigin::signed(ALICE.into()),
                 sp_runtime::MultiAddress::Id(BOB.into()),
                 existential_deposit
             ));
@@ -186,7 +186,7 @@ mod hrmp {
 fn transfer_from_relay_chain() {
     PolkadotNet::execute_with(|| {
         assert_ok!(polkadot_runtime::XcmPallet::reserve_transfer_assets(
-            polkadot_runtime::Origin::signed(ALICE.into()),
+            polkadot_runtime::RuntimeOrigin::signed(ALICE.into()),
             Box::new(Parachain(INTERLAY_PARA_ID).into().into()),
             Box::new(
                 Junction::AccountId32 {
@@ -218,7 +218,7 @@ fn transfer_from_relay_chain() {
 fn transfer_to_relay_chain() {
     PolkadotNet::execute_with(|| {
         assert_ok!(polkadot_runtime::Balances::transfer(
-            polkadot_runtime::Origin::signed(ALICE.into()),
+            polkadot_runtime::RuntimeOrigin::signed(ALICE.into()),
             sp_runtime::MultiAddress::Id(interlay_sovereign_account_on_polkadot()),
             2 * DOT.one()
         ));
@@ -228,7 +228,7 @@ fn transfer_to_relay_chain() {
 
     Interlay::execute_with(|| {
         assert_ok!(XTokens::transfer(
-            Origin::signed(ALICE.into()),
+            RuntimeOrigin::signed(ALICE.into()),
             Token(DOT),
             2 * DOT.one(),
             Box::new(
@@ -282,7 +282,7 @@ fn transfer_to_sibling_and_back() {
 
     Interlay::execute_with(|| {
         assert_ok!(XTokens::transfer(
-            Origin::signed(ALICE.into()),
+            RuntimeOrigin::signed(ALICE.into()),
             Token(INTR),
             10_000_000_000_000,
             Box::new(
@@ -323,7 +323,7 @@ fn transfer_to_sibling_and_back() {
 
         // return some back to interlay
         assert_ok!(XTokens::transfer(
-            Origin::signed(BOB.into()),
+            RuntimeOrigin::signed(BOB.into()),
             ForeignAsset(1),
             5_000_000_000_000,
             Box::new(
@@ -445,7 +445,7 @@ fn subscribe_version_notify_works() {
     // relay chain subscribe version notify of para chain
     PolkadotNet::execute_with(|| {
         let r = pallet_xcm::Pallet::<polkadot_runtime::Runtime>::force_subscribe_version_notify(
-            polkadot_runtime::Origin::root(),
+            polkadot_runtime::RuntimeOrigin::root(),
             Box::new(Parachain(INTERLAY_PARA_ID).into().into()),
         );
         assert_ok!(r);
@@ -465,7 +465,7 @@ fn subscribe_version_notify_works() {
     // para chain subscribe version notify of relay chain
     Interlay::execute_with(|| {
         let r = pallet_xcm::Pallet::<interlay_runtime_parachain::Runtime>::force_subscribe_version_notify(
-            Origin::root(),
+            RuntimeOrigin::root(),
             Box::new(Parent.into()),
         );
         assert_ok!(r);
@@ -485,7 +485,7 @@ fn subscribe_version_notify_works() {
     // para chain subscribe version notify of sibling chain
     Interlay::execute_with(|| {
         let r = pallet_xcm::Pallet::<interlay_runtime_parachain::Runtime>::force_subscribe_version_notify(
-            Origin::root(),
+            RuntimeOrigin::root(),
             Box::new((Parent, Parachain(SIBLING_PARA_ID)).into()),
         );
         assert_ok!(r);
@@ -723,7 +723,7 @@ fn register_intr_as_foreign_asset() {
             coingecko_id: "interlay".as_bytes().to_vec(),
         },
     };
-    AssetRegistry::register_asset(Origin::root(), metadata, None).unwrap();
+    AssetRegistry::register_asset(RuntimeOrigin::root(), metadata, None).unwrap();
 }
 
 /// The goal was to write a test to see how reanchoring is dealt with - to see if we would deal with
@@ -749,7 +749,7 @@ fn test_reanchoring() {
 
     Interlay::execute_with(|| {
         assert_ok!(XTokens::transfer(
-            Origin::signed(ALICE.into()),
+            RuntimeOrigin::signed(ALICE.into()),
             Token(INTR),
             10_000_000_000_000,
             Box::new(

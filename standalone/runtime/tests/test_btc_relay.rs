@@ -36,7 +36,7 @@ fn integration_test_submit_block_headers_and_verify_transaction_inclusion() {
         let parachain_genesis_height = test_data[skip_blocks].height;
         assert_eq!(parachain_genesis_height % DIFFICULTY_ADJUSTMENT_INTERVAL, 0);
 
-        assert_ok!(Call::BTCRelay(BTCRelayCall::initialize {
+        assert_ok!(RuntimeCall::BTCRelay(BTCRelayCall::initialize {
             raw_block_header: parachain_genesis_header,
             block_height: parachain_genesis_height
         })
@@ -55,7 +55,7 @@ fn integration_test_submit_block_headers_and_verify_transaction_inclusion() {
             assert!(best_block_hash == prev_header_hash);
 
             // submit block hashes
-            assert_ok!(Call::BTCRelay(BTCRelayCall::store_block_header {
+            assert_ok!(RuntimeCall::BTCRelay(BTCRelayCall::store_block_header {
                 raw_block_header: block.get_raw_header()
             })
             .dispatch(origin_of(account_of(ALICE))));
@@ -71,7 +71,7 @@ fn integration_test_submit_block_headers_and_verify_transaction_inclusion() {
                 let txid = tx.get_txid();
                 let raw_merkle_proof = tx.get_raw_merkle_proof();
                 if block.height <= current_height - CONFIRMATIONS + 1 {
-                    assert_ok!(Call::BTCRelay(BTCRelayCall::verify_transaction_inclusion {
+                    assert_ok!(RuntimeCall::BTCRelay(BTCRelayCall::verify_transaction_inclusion {
                         tx_id: txid,
                         raw_merkle_proof: raw_merkle_proof,
                         confirmations: None,
@@ -80,7 +80,7 @@ fn integration_test_submit_block_headers_and_verify_transaction_inclusion() {
                 } else {
                     // expect to fail due to insufficient confirmations
                     assert_noop!(
-                        Call::BTCRelay(BTCRelayCall::verify_transaction_inclusion {
+                        RuntimeCall::BTCRelay(BTCRelayCall::verify_transaction_inclusion {
                             tx_id: txid,
                             raw_merkle_proof: raw_merkle_proof,
                             confirmations: None,
@@ -100,7 +100,7 @@ fn integration_test_btc_relay_with_parachain_shutdown_fails() {
         SecurityPallet::set_status(StatusCode::Shutdown);
 
         assert_noop!(
-            Call::BTCRelay(BTCRelayCall::verify_and_validate_transaction {
+            RuntimeCall::BTCRelay(BTCRelayCall::verify_and_validate_transaction {
                 raw_merkle_proof: Default::default(),
                 confirmations: Default::default(),
                 raw_tx: Default::default(),
@@ -112,7 +112,7 @@ fn integration_test_btc_relay_with_parachain_shutdown_fails() {
             SystemError::CallFiltered
         );
         assert_noop!(
-            Call::BTCRelay(BTCRelayCall::verify_transaction_inclusion {
+            RuntimeCall::BTCRelay(BTCRelayCall::verify_transaction_inclusion {
                 tx_id: Default::default(),
                 raw_merkle_proof: Default::default(),
                 confirmations: Default::default()
@@ -121,7 +121,7 @@ fn integration_test_btc_relay_with_parachain_shutdown_fails() {
             SystemError::CallFiltered
         );
         assert_noop!(
-            Call::BTCRelay(BTCRelayCall::validate_transaction {
+            RuntimeCall::BTCRelay(BTCRelayCall::validate_transaction {
                 raw_tx: Default::default(),
                 expected_btc: Default::default(),
                 recipient_btc_address: Default::default(),

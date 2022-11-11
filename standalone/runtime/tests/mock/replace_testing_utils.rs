@@ -2,7 +2,7 @@ use crate::*;
 use currency::Amount;
 
 pub fn request_replace(old_vault_id: &VaultId, amount: Amount<Runtime>) -> Amount<Runtime> {
-    assert_ok!(Call::Replace(ReplaceCall::request_replace {
+    assert_ok!(RuntimeCall::Replace(ReplaceCall::request_replace {
         currency_pair: old_vault_id.currencies.clone(),
         amount: amount.amount(),
     })
@@ -72,7 +72,7 @@ pub fn accept_replace(
 ) -> Result<(H256, ReplaceRequest<AccountId32, BlockNumber, Balance, CurrencyId>), sp_runtime::DispatchError> {
     // assert_replace_request_event();
 
-    Call::Replace(ReplaceCall::accept_replace {
+    RuntimeCall::Replace(ReplaceCall::accept_replace {
         currency_pair: new_vault_id.currencies.clone(),
         old_vault: old_vault_id.clone(),
         amount_btc: amount_btc.amount(),

@@ -374,7 +374,7 @@ benchmarks! {
         let b in 0 .. MAX_BYTES;
 
         let proposer = funded_account::<T>("proposer", 0);
-        let raw_call = Call::note_preimage { encoded_proposal: vec![1; b as usize] };
+        let raw_call = RuntimeCall::note_preimage { encoded_proposal: vec![1; b as usize] };
         let generic_call: T::Proposal = raw_call.into();
         let encoded_proposal = generic_call.encode();
         let proposal_hash = T::Hashing::hash(&encoded_proposal[..]);
@@ -406,7 +406,7 @@ benchmarks! {
             _ => return Err("preimage not available".into())
         }
         let origin = RawOrigin::Root.into();
-        let call = Call::<T>::enact_proposal { proposal_hash, index: 0 }.encode();
+        let call = RuntimeCall::<T>::enact_proposal { proposal_hash, index: 0 }.encode();
     }: {
         assert_eq!(
             <Call<T> as Decode>::decode(&mut &*call)

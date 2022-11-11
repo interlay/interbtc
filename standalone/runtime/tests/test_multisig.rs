@@ -10,7 +10,7 @@ use sp_std::str::FromStr;
 type VestingCall = orml_vesting::Call<Runtime>;
 
 fn set_balance(who: AccountId, currency_id: CurrencyId, new_free: Balance) {
-    assert_ok!(Call::Tokens(TokensCall::set_balance {
+    assert_ok!(RuntimeCall::Tokens(TokensCall::set_balance {
         who,
         currency_id,
         new_free,
@@ -23,7 +23,7 @@ fn set_balance(who: AccountId, currency_id: CurrencyId, new_free: Balance) {
 fn integration_test_transfer_from_multisig_to_vested() {
     ExtBuilder::build().execute_with(|| {
         // step 0: clear eve's balance for easier testing
-        assert_ok!(Call::Tokens(TokensCall::set_balance {
+        assert_ok!(RuntimeCall::Tokens(TokensCall::set_balance {
             who: account_of(EVE),
             currency_id: Token(INTR),
             new_free: 0,
@@ -37,13 +37,13 @@ fn integration_test_transfer_from_multisig_to_vested() {
         set_balance(account_of(ALICE), Token(INTR), 1 << 60);
 
         // step 2: submit a call, to be executed from the shared account
-        let call = Call::Tokens(TokensCall::transfer {
+        let call = RuntimeCall::Tokens(TokensCall::transfer {
             dest: account_of(EVE),
             currency_id: Token(INTR),
             amount: 20_000_000_000_001,
         })
         .encode();
-        assert_ok!(Call::Multisig(MultisigCall::as_multi {
+        assert_ok!(RuntimeCall::Multisig(MultisigCall::as_multi {
             threshold: 2,
             other_signatories: vec![account_of(BOB)],
             maybe_timepoint: None,
@@ -68,7 +68,7 @@ fn integration_test_transfer_from_multisig_to_vested() {
         let timepoint = MultisigPallet::timepoint();
 
         // step 4: let the second account approve
-        assert_ok!(Call::Multisig(MultisigCall::approve_as_multi {
+        assert_ok!(RuntimeCall::Multisig(MultisigCall::approve_as_multi {
             threshold: 2,
             other_signatories: vec![account_of(ALICE)],
             maybe_timepoint: Some(timepoint),
@@ -101,7 +101,7 @@ fn integration_test_transfer_from_multisig_to_unvested() {
         set_balance(account_of(EVE), Token(INTR), 0);
 
         // gradually release amount over 100 periods
-        let call = Call::Vesting(VestingCall::vested_transfer {
+        let call = RuntimeCall::Vesting(VestingCall::vested_transfer {
             dest: account_of(EVE),
             schedule: VestingSchedule {
                 start: 0,
@@ -112,7 +112,7 @@ fn integration_test_transfer_from_multisig_to_unvested() {
         })
         .encode();
 
-        assert_ok!(Call::Multisig(MultisigCall::as_multi {
+        assert_ok!(RuntimeCall::Multisig(MultisigCall::as_multi {
             threshold: 2,
             other_signatories: vec![account_of(BOB)],
             maybe_timepoint: None,
@@ -122,7 +122,7 @@ fn integration_test_transfer_from_multisig_to_unvested() {
         })
         .dispatch(origin_of(account_of(ALICE))));
 
-        assert_ok!(Call::Multisig(MultisigCall::approve_as_multi {
+        assert_ok!(RuntimeCall::Multisig(MultisigCall::approve_as_multi {
             threshold: 2,
             other_signatories: vec![account_of(ALICE)],
             maybe_timepoint: Some(MultisigPallet::timepoint()),
@@ -155,7 +155,7 @@ fn integration_test_transfer_from_multisig_to_unvested() {
 fn integration_test_transfer_to_vested_multisig() {
     ExtBuilder::build().execute_with(|| {
         // step 0: setup eve's balance
-        assert_ok!(Call::Tokens(TokensCall::set_balance {
+        assert_ok!(RuntimeCall::Tokens(TokensCall::set_balance {
             who: account_of(EVE),
             currency_id: Token(INTR),
             new_free: 20_000_000_000_001,
@@ -167,7 +167,7 @@ fn integration_test_transfer_to_vested_multisig() {
         let multisig_account = MultisigPallet::multi_account_id(&vec![account_of(ALICE), account_of(BOB)], 2);
 
         // transfer to the multisig
-        assert_ok!(Call::Tokens(TokensCall::transfer {
+        assert_ok!(RuntimeCall::Tokens(TokensCall::transfer {
             dest: multisig_account.clone(),
             currency_id: Token(INTR),
             amount: 20_000_000_000_001,
@@ -191,7 +191,7 @@ fn integration_test_transfer_to_unvested_multisig() {
     ExtBuilder::build().execute_with(|| {
         let vesting_amount = 30_000_000;
         // step 0: setup eve's balance
-        assert_ok!(Call::Tokens(TokensCall::set_balance {
+        assert_ok!(RuntimeCall::Tokens(TokensCall::set_balance {
             who: account_of(EVE),
             currency_id: Token(INTR),
             new_free: vesting_amount * 2,
@@ -203,7 +203,7 @@ fn integration_test_transfer_to_unvested_multisig() {
         let multisig_account = MultisigPallet::multi_account_id(&vec![account_of(ALICE), account_of(BOB)], 2);
 
         // transfer to the multisig
-        assert_ok!(Call::Vesting(VestingCall::vested_transfer {
+        assert_ok!(RuntimeCall::Vesting(VestingCall::vested_transfer {
             dest: multisig_account.clone(),
             schedule: VestingSchedule {
                 start: 0,
@@ -253,7 +253,7 @@ fn integration_test_batched_multisig_vesting() {
             .iter()
             .zip(vesting_amounts.iter())
             .map(|(account, vesting_amount)| {
-                Call::Vesting(VestingCall::vested_transfer {
+                RuntimeCall::Vesting(VestingCall::vested_transfer {
                     dest: account.clone(),
                     schedule: VestingSchedule {
                         start: 0,
@@ -265,9 +265,9 @@ fn integration_test_batched_multisig_vesting() {
             })
             .collect();
 
-        let batch = Call::Utility(UtilityCall::batch { calls }).encode();
+        let batch = RuntimeCall::Utility(UtilityCall::batch { calls }).encode();
 
-        assert_ok!(Call::Multisig(MultisigCall::as_multi {
+        assert_ok!(RuntimeCall::Multisig(MultisigCall::as_multi {
             threshold: 2,
             other_signatories: vec![account_of(BOB)],
             maybe_timepoint: None,
@@ -277,7 +277,7 @@ fn integration_test_batched_multisig_vesting() {
         })
         .dispatch(origin_of(account_of(ALICE))));
 
-        assert_ok!(Call::Multisig(MultisigCall::approve_as_multi {
+        assert_ok!(RuntimeCall::Multisig(MultisigCall::approve_as_multi {
             threshold: 2,
             other_signatories: vec![account_of(ALICE)],
             maybe_timepoint: Some(MultisigPallet::timepoint()),

@@ -69,7 +69,7 @@ pub mod pallet {
         frame_system::Config + pallet_timestamp::Config + security::Config + currency::Config<CurrencyId = CurrencyId>
     {
         /// The overarching event type.
-        type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
+        type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
         /// Weight information for the extrinsics in this module.
         type WeightInfo: WeightInfo;

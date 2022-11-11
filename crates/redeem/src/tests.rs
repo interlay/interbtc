@@ -72,7 +72,7 @@ fn test_request_redeem_fails_with_amount_exceeds_user_balance() {
         amount.mint_to(&USER).unwrap();
         let amount = 10_000_000;
         assert_err!(
-            Redeem::request_redeem(Origin::signed(USER), amount, BtcAddress::random(), VAULT),
+            Redeem::request_redeem(RuntimeOrigin::signed(USER), amount, BtcAddress::random(), VAULT),
             TestError::AmountExceedsUserBalance
         );
     })
@@ -110,7 +110,7 @@ fn test_request_redeem_fails_with_amount_below_minimum() {
         });
 
         assert_err!(
-            Redeem::request_redeem(Origin::signed(redeemer), 1, BtcAddress::random(), VAULT),
+            Redeem::request_redeem(RuntimeOrigin::signed(redeemer), 1, BtcAddress::random(), VAULT),
             TestError::AmountBelowDustAmount
         );
     })
@@ -120,7 +120,7 @@ fn test_request_redeem_fails_with_amount_below_minimum() {
 fn test_request_redeem_fails_with_vault_not_found() {
     run_test(|| {
         assert_err!(
-            Redeem::request_redeem(Origin::signed(USER), 1500, BtcAddress::random(), VAULT),
+            Redeem::request_redeem(RuntimeOrigin::signed(USER), 1500, BtcAddress::random(), VAULT),
             VaultRegistryError::VaultNotFound
         );
     })
@@ -133,7 +133,7 @@ fn test_request_redeem_fails_with_vault_banned() {
             .mock_safe(|_| MockResult::Return(Err(VaultRegistryError::VaultBanned.into())));
 
         assert_err!(
-            Redeem::request_redeem(Origin::signed(USER), 1500, BtcAddress::random(), VAULT),
+            Redeem::request_redeem(RuntimeOrigin::signed(USER), 1500, BtcAddress::random(), VAULT),
             VaultRegistryError::VaultBanned
         );
     })
@@ -144,7 +144,7 @@ fn test_request_redeem_fails_with_vault_liquidated() {
     run_test(|| {
         ext::vault_registry::ensure_not_banned::<Test>.mock_safe(|_| MockResult::Return(Ok(())));
         assert_err!(
-            Redeem::request_redeem(Origin::signed(USER), 3000, BtcAddress::random(), VAULT),
+            Redeem::request_redeem(RuntimeOrigin::signed(USER), 3000, BtcAddress::random(), VAULT),
             VaultRegistryError::VaultNotFound
         );
     })
@@ -196,7 +196,7 @@ fn test_request_redeem_succeeds_with_normal_redeem() {
         let btc_fee = Redeem::get_current_inclusion_fee(DEFAULT_WRAPPED_CURRENCY).unwrap();
 
         assert_ok!(Redeem::request_redeem(
-            Origin::signed(redeemer),
+            RuntimeOrigin::signed(redeemer),
             amount,
             btc_address,
             VAULT
@@ -244,7 +244,12 @@ fn test_request_redeem_fails_with_default_btc_address() {
         ext::treasury::get_balance::<Test>.mock_safe(move |_, _| MockResult::Return(wrapped(100)));
 
         assert_err!(
-            Redeem::request_redeem(Origin::signed(redeemer), amount, BtcAddress::P2PKH(H160::zero()), VAULT),
+            Redeem::request_redeem(
+                RuntimeOrigin::signed(redeemer),
+                amount,
+                BtcAddress::P2PKH(H160::zero()),
+                VAULT
+            ),
             btc_relay::Error::<Test>::InvalidBtcHash
         );
     })
@@ -294,7 +299,7 @@ fn test_request_redeem_succeeds_with_self_redeem() {
         let btc_fee = Redeem::get_current_inclusion_fee(DEFAULT_WRAPPED_CURRENCY).unwrap();
 
         assert_ok!(Redeem::request_redeem(
-            Origin::signed(redeemer),
+            RuntimeOrigin::signed(redeemer),
             amount,
             btc_address,
             VAULT
@@ -356,7 +361,7 @@ fn test_liquidation_redeem_succeeds() {
         });
 
         assert_ok!(Redeem::liquidation_redeem(
-            Origin::signed(USER),
+            RuntimeOrigin::signed(USER),
             DEFAULT_CURRENCY_PAIR,
             total_amount,
         ));
@@ -369,7 +374,7 @@ fn test_execute_redeem_fails_with_redeem_id_not_found() {
         convert_to.mock_safe(|_, x| MockResult::Return(Ok(x)));
         assert_err!(
             Redeem::execute_redeem(
-                Origin::signed(VAULT.account_id),
+                RuntimeOrigin::signed(VAULT.account_id),
                 H256([0u8; 32]),
                 Vec::default(),
                 Vec::default()
@@ -440,7 +445,7 @@ fn test_execute_redeem_succeeds_with_another_account() {
         });
 
         assert_ok!(Redeem::execute_redeem(
-            Origin::signed(USER),
+            RuntimeOrigin::signed(USER),
             H256([0u8; 32]),
             Vec::default(),
             Vec::default()
@@ -521,7 +526,7 @@ fn test_execute_redeem_succeeds() {
         });
 
         assert_ok!(Redeem::execute_redeem(
-            Origin::signed(VAULT.account_id),
+            RuntimeOrigin::signed(VAULT.account_id),
             H256([0u8; 32]),
             Vec::default(),
             Vec::default()
@@ -545,7 +550,7 @@ fn test_execute_redeem_succeeds() {
 fn test_cancel_redeem_fails_with_redeem_id_not_found() {
     run_test(|| {
         assert_err!(
-            Redeem::cancel_redeem(Origin::signed(USER), H256([0u8; 32]), false),
+            Redeem::cancel_redeem(RuntimeOrigin::signed(USER), H256([0u8; 32]), false),
             TestError::RedeemIdNotFound
         );
     })
@@ -575,7 +580,7 @@ fn test_cancel_redeem_fails_with_time_not_expired() {
         });
 
         assert_err!(
-            Redeem::cancel_redeem(Origin::signed(USER), H256([0u8; 32]), false),
+            Redeem::cancel_redeem(RuntimeOrigin::signed(USER), H256([0u8; 32]), false),
             TestError::TimeNotExpired
         );
     })
@@ -605,7 +610,7 @@ fn test_cancel_redeem_fails_with_unauthorized_caller() {
         });
 
         assert_noop!(
-            Redeem::cancel_redeem(Origin::signed(CAROL), H256([0u8; 32]), true),
+            Redeem::cancel_redeem(RuntimeOrigin::signed(CAROL), H256([0u8; 32]), true),
             TestError::UnauthorizedRedeemer
         );
     })
@@ -649,7 +654,11 @@ fn test_cancel_redeem_succeeds() {
             }))
         });
         ext::vault_registry::decrease_to_be_redeemed_tokens::<Test>.mock_safe(|_, _| MockResult::Return(Ok(())));
-        assert_ok!(Redeem::cancel_redeem(Origin::signed(USER), H256([0u8; 32]), false));
+        assert_ok!(Redeem::cancel_redeem(
+            RuntimeOrigin::signed(USER),
+            H256([0u8; 32]),
+            false
+        ));
         assert_err!(
             Redeem::get_open_redeem_request_from_id(&H256([0u8; 32])),
             TestError::RedeemCancelled,
@@ -697,7 +706,7 @@ fn test_mint_tokens_for_reimbursed_redeem() {
         Security::<Test>::set_active_block_number(100);
         assert_noop!(
             Redeem::mint_tokens_for_reimbursed_redeem(
-                Origin::signed(VAULT.account_id),
+                RuntimeOrigin::signed(VAULT.account_id),
                 VAULT.currencies.clone(),
                 H256([0u8; 32])
             ),
@@ -721,7 +730,7 @@ fn test_mint_tokens_for_reimbursed_redeem() {
             MockResult::Return(Ok(()))
         });
         assert_ok!(Redeem::mint_tokens_for_reimbursed_redeem(
-            Origin::signed(VAULT.account_id),
+            RuntimeOrigin::signed(VAULT.account_id),
             VAULT.currencies.clone(),
             H256([0u8; 32])
         ));
@@ -732,10 +741,10 @@ fn test_mint_tokens_for_reimbursed_redeem() {
 fn test_set_redeem_period_only_root() {
     run_test(|| {
         assert_noop!(
-            Redeem::set_redeem_period(Origin::signed(USER), 1),
+            Redeem::set_redeem_period(RuntimeOrigin::signed(USER), 1),
             DispatchError::BadOrigin
         );
-        assert_ok!(Redeem::set_redeem_period(Origin::root(), 1));
+        assert_ok!(Redeem::set_redeem_period(RuntimeOrigin::root(), 1));
     })
 }
 
@@ -776,7 +785,7 @@ mod spec_based_tests {
             });
 
             assert_ok!(Redeem::request_redeem(
-                Origin::signed(USER),
+                RuntimeOrigin::signed(USER),
                 amount_to_redeem,
                 BtcAddress::random(),
                 VAULT
@@ -809,7 +818,7 @@ mod spec_based_tests {
             });
 
             assert_ok!(Redeem::liquidation_redeem(
-                Origin::signed(USER),
+                RuntimeOrigin::signed(USER),
                 DEFAULT_CURRENCY_PAIR,
                 total_amount.into(),
             ));
@@ -874,7 +883,7 @@ mod spec_based_tests {
             });
 
             assert_ok!(Redeem::execute_redeem(
-                Origin::signed(USER),
+                RuntimeOrigin::signed(USER),
                 H256([0u8; 32]),
                 Vec::default(),
                 Vec::default()
@@ -943,7 +952,11 @@ mod spec_based_tests {
                 );
                 MockResult::Return(Ok(()))
             });
-            assert_ok!(Redeem::cancel_redeem(Origin::signed(USER), H256([0u8; 32]), true));
+            assert_ok!(Redeem::cancel_redeem(
+                RuntimeOrigin::signed(USER),
+                H256([0u8; 32]),
+                true
+            ));
             assert_err!(
                 Redeem::get_open_redeem_request_from_id(&H256([0u8; 32])),
                 TestError::RedeemCancelled,
@@ -1008,7 +1021,11 @@ mod spec_based_tests {
                 );
                 MockResult::Return(Ok(()))
             });
-            assert_ok!(Redeem::cancel_redeem(Origin::signed(USER), H256([0u8; 32]), true));
+            assert_ok!(Redeem::cancel_redeem(
+                RuntimeOrigin::signed(USER),
+                H256([0u8; 32]),
+                true
+            ));
             assert_err!(
                 Redeem::get_open_redeem_request_from_id(&H256([0u8; 32])),
                 TestError::RedeemCancelled,

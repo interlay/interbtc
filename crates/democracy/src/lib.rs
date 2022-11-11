@@ -159,10 +159,9 @@ enum Releases {
 pub mod pallet {
     use super::*;
     use frame_support::{
-        dispatch::DispatchResultWithPostInfo,
+        dispatch::{DispatchClass, DispatchResultWithPostInfo, Pays},
         pallet_prelude::*,
         traits::EnsureOrigin,
-        weights::{DispatchClass, Pays},
         Parameter,
     };
     use frame_system::{ensure_root, ensure_signed, pallet_prelude::*};
@@ -175,8 +174,11 @@ pub mod pallet {
 
     #[pallet::config]
     pub trait Config: frame_system::Config + Sized {
-        type Proposal: DecodeLimit + Parameter + UnfilteredDispatchable<Origin = Self::Origin> + From<Call<Self>>;
-        type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
+        type Proposal: DecodeLimit
+            + Parameter
+            + UnfilteredDispatchable<RuntimeOrigin = Self::RuntimeOrigin>
+            + From<Call<Self>>;
+        type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
         /// Currency type for this pallet.
         type Currency: ReservableCurrency<Self::AccountId>;
@@ -204,7 +206,7 @@ pub mod pallet {
         /// Origin from which the next majority-carries (or more permissive) referendum may be
         /// tabled to vote according to the `FastTrackVotingPeriod` asynchronously in a similar
         /// manner to the emergency origin. It retains its threshold method.
-        type FastTrackOrigin: EnsureOrigin<Self::Origin>;
+        type FastTrackOrigin: EnsureOrigin<Self::RuntimeOrigin>;
 
         /// Minimum voting period allowed for a fast-track referendum.
         #[pallet::constant]

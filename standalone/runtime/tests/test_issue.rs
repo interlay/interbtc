@@ -50,7 +50,7 @@ mod expiry_test {
     use super::{assert_eq, *};
 
     fn set_issue_period(period: u32) {
-        assert_ok!(Call::Issue(IssueCall::set_issue_period { period }).dispatch(root()));
+        assert_ok!(RuntimeCall::Issue(IssueCall::set_issue_period { period }).dispatch(root()));
     }
 
     fn execute_issue(issue_id: H256) -> DispatchResultWithPostInfo {
@@ -58,7 +58,7 @@ mod expiry_test {
     }
 
     fn cancel_issue(issue_id: H256) -> DispatchResultWithPostInfo {
-        Call::Issue(IssueCall::cancel_issue { issue_id: issue_id }).dispatch(origin_of(account_of(VAULT)))
+        RuntimeCall::Issue(IssueCall::cancel_issue { issue_id: issue_id }).dispatch(origin_of(account_of(VAULT)))
     }
 
     #[test]
@@ -155,7 +155,7 @@ mod request_issue_tests {
         test_with(|vault_id| {
             SecurityPallet::set_status(StatusCode::Shutdown);
             assert_noop!(
-                Call::Issue(IssueCall::request_issue {
+                RuntimeCall::Issue(IssueCall::request_issue {
                     amount: 0,
                     vault_id: vault_id,
                 })
@@ -170,7 +170,7 @@ mod request_issue_tests {
     fn integration_test_issue_request_precond_relay_initialized() {
         ExtBuilder::build().execute_without_relay_init(|| {
             assert_noop!(
-                Call::Issue(IssueCall::request_issue {
+                RuntimeCall::Issue(IssueCall::request_issue {
                     amount: 0,
                     vault_id: dummy_vault_id_of(),
                 })
@@ -183,7 +183,7 @@ mod request_issue_tests {
             let _ = TransactionGenerator::new().with_confirmations(3).mine();
 
             assert_noop!(
-                Call::Issue(IssueCall::request_issue {
+                RuntimeCall::Issue(IssueCall::request_issue {
                     amount: 0,
                     vault_id: dummy_vault_id_of(),
                 })
@@ -200,7 +200,7 @@ mod request_issue_tests {
             //test_with ...out_initialized_vault
             let amount = 1_000;
             assert_noop!(
-                Call::Issue(IssueCall::request_issue {
+                RuntimeCall::Issue(IssueCall::request_issue {
                     amount: amount,
                     vault_id: vault_id,
                 })
@@ -214,13 +214,13 @@ mod request_issue_tests {
     #[test]
     fn integration_test_issue_request_precond_vault_active() {
         test_with_initialized_vault(|vault_id| {
-            assert_ok!(Call::VaultRegistry(VaultRegistryCall::accept_new_issues {
+            assert_ok!(RuntimeCall::VaultRegistry(VaultRegistryCall::accept_new_issues {
                 currency_pair: vault_id.currencies.clone(),
                 accept_new_issues: false
             })
             .dispatch(origin_of(account_of(VAULT))));
             assert_noop!(
-                Call::Issue(IssueCall::request_issue {
+                RuntimeCall::Issue(IssueCall::request_issue {
                     amount: 1000,
                     vault_id: vault_id.clone(),
                 })
@@ -236,7 +236,7 @@ mod request_issue_tests {
         test_with_initialized_vault(|vault_id| {
             let amount = vault_id.wrapped(1); // dust is set to 2
             assert_noop!(
-                Call::Issue(IssueCall::request_issue {
+                RuntimeCall::Issue(IssueCall::request_issue {
                     amount: amount.amount(),
                     vault_id: vault_id,
                 })
@@ -269,7 +269,7 @@ mod request_issue_tests {
             CoreVaultData::force_to(&vault_id, vault_data);
 
             assert_noop!(
-                Call::Issue(IssueCall::request_issue {
+                RuntimeCall::Issue(IssueCall::request_issue {
                     amount: amount.amount(),
                     vault_id: vault_id,
                 })
@@ -287,18 +287,20 @@ mod request_issue_tests {
             // set vault custom threshold higher
             let global_threshold: UnsignedFixedPoint =
                 VaultRegistryPallet::secure_collateral_threshold(&vault_id.currencies).unwrap();
-            assert_ok!(Call::VaultRegistry(VaultRegistryCall::set_custom_secure_threshold {
-                currency_pair: vault_id.currencies.clone(),
-                custom_threshold: Some(
-                    global_threshold
-                        .checked_mul(&UnsignedFixedPoint::checked_from_integer(2u32).unwrap())
-                        .unwrap()
-                )
-            })
-            .dispatch(origin_of(vault_id.account_id.clone())));
+            assert_ok!(
+                RuntimeCall::VaultRegistry(VaultRegistryCall::set_custom_secure_threshold {
+                    currency_pair: vault_id.currencies.clone(),
+                    custom_threshold: Some(
+                        global_threshold
+                            .checked_mul(&UnsignedFixedPoint::checked_from_integer(2u32).unwrap())
+                            .unwrap()
+                    )
+                })
+                .dispatch(origin_of(vault_id.account_id.clone()))
+            );
 
             let amount = VaultRegistryPallet::get_issuable_tokens_from_vault(&vault_id).unwrap();
-            assert_ok!(Call::Issue(IssueCall::request_issue {
+            assert_ok!(RuntimeCall::Issue(IssueCall::request_issue {
                 amount: amount.amount(),
                 vault_id: vault_id.clone(),
             })
@@ -315,15 +317,17 @@ mod request_issue_tests {
             // set vault custom threshold higher
             let global_threshold: UnsignedFixedPoint =
                 VaultRegistryPallet::secure_collateral_threshold(&vault_id.currencies).unwrap();
-            assert_ok!(Call::VaultRegistry(VaultRegistryCall::set_custom_secure_threshold {
-                currency_pair: vault_id.currencies.clone(),
-                custom_threshold: Some(
-                    global_threshold
-                        .checked_mul(&UnsignedFixedPoint::checked_from_integer(2u32).unwrap())
-                        .unwrap()
-                )
-            })
-            .dispatch(origin_of(vault_id.account_id.clone())));
+            assert_ok!(
+                RuntimeCall::VaultRegistry(VaultRegistryCall::set_custom_secure_threshold {
+                    currency_pair: vault_id.currencies.clone(),
+                    custom_threshold: Some(
+                        global_threshold
+                            .checked_mul(&UnsignedFixedPoint::checked_from_integer(2u32).unwrap())
+                            .unwrap()
+                    )
+                })
+                .dispatch(origin_of(vault_id.account_id.clone()))
+            );
 
             let amount = vault_id.wrapped(1) + VaultRegistryPallet::get_issuable_tokens_from_vault(&vault_id).unwrap();
 
@@ -336,7 +340,7 @@ mod request_issue_tests {
             CoreVaultData::force_to(&vault_id, vault_data);
 
             assert_noop!(
-                Call::Issue(IssueCall::request_issue {
+                RuntimeCall::Issue(IssueCall::request_issue {
                     amount: amount.amount(),
                     vault_id: vault_id.clone(),
                 })
@@ -344,7 +348,7 @@ mod request_issue_tests {
                 VaultRegistryError::ExceedingVaultLimit
             );
             assert_noop!(
-                Call::Issue(IssueCall::request_issue {
+                RuntimeCall::Issue(IssueCall::request_issue {
                     amount: original_amount.amount(),
                     vault_id: vault_id,
                 })
@@ -372,7 +376,7 @@ mod request_issue_tests {
 
             // succeeds when using entire balance but not exceeding
             assert_noop!(
-                Call::Issue(IssueCall::request_issue {
+                RuntimeCall::Issue(IssueCall::request_issue {
                     amount: amount_btc.amount(),
                     vault_id: vault_id.clone(),
                 })
@@ -449,7 +453,7 @@ mod request_issue_tests {
             );
 
             liquidate_vault(&vault_id);
-            assert_ok!(Call::Issue(IssueCall::request_issue {
+            assert_ok!(RuntimeCall::Issue(IssueCall::request_issue {
                 amount: amount_btc.amount(),
                 vault_id: different_collateral_vault_id.clone(),
             })
@@ -474,7 +478,7 @@ fn integration_test_issue_wrapped_execute_succeeds() {
         register_vault(&vault_id_proof_submitter, collateral_vault);
 
         // alice requests wrapped by locking btc with bob
-        assert_ok!(Call::Issue(IssueCall::request_issue {
+        assert_ok!(RuntimeCall::Issue(IssueCall::request_issue {
             amount: amount_btc.amount(),
             vault_id: vault_id,
         })
@@ -497,7 +501,7 @@ fn integration_test_issue_wrapped_execute_succeeds() {
         SecurityPallet::set_active_block_number(1 + CONFIRMATIONS);
 
         // alice executes the issue by confirming the btc transaction
-        assert_ok!(Call::Issue(IssueCall::execute_issue {
+        assert_ok!(RuntimeCall::Issue(IssueCall::execute_issue {
             issue_id: issue_id,
             merkle_proof: proof,
             raw_tx: raw_tx
@@ -543,14 +547,14 @@ fn integration_test_withdraw_after_request_issue() {
         register_vault(&vault_id_proof_submitter, collateral_vault);
 
         // alice requests wrapped by locking btc with bob
-        assert_ok!(Call::Issue(IssueCall::request_issue {
+        assert_ok!(RuntimeCall::Issue(IssueCall::request_issue {
             amount: amount_btc.amount(),
             vault_id: vault_id.clone(),
         })
         .dispatch(origin_of(account_of(ALICE))));
 
         // Should not be possible to request more, using the same collateral
-        assert!(Call::Issue(IssueCall::request_issue {
+        assert!(RuntimeCall::Issue(IssueCall::request_issue {
             amount: amount_btc.amount(),
             vault_id: vault_id.clone(),
         })
@@ -558,7 +562,7 @@ fn integration_test_withdraw_after_request_issue() {
         .is_err());
 
         // should not be possible to withdraw the collateral now
-        assert!(Call::VaultRegistry(VaultRegistryCall::withdraw_collateral {
+        assert!(RuntimeCall::VaultRegistry(VaultRegistryCall::withdraw_collateral {
             currency_pair: vault_id.currencies.clone(),
             amount: collateral_vault.amount()
         })
@@ -576,7 +580,7 @@ mod execute_pending_issue_tests {
             SecurityPallet::set_status(StatusCode::Shutdown);
 
             assert_noop!(
-                Call::Issue(IssueCall::execute_issue {
+                RuntimeCall::Issue(IssueCall::execute_issue {
                     issue_id: Default::default(),
                     merkle_proof: Default::default(),
                     raw_tx: Default::default()
@@ -635,7 +639,7 @@ mod execute_pending_issue_tests {
             let bogus_address = BtcAddress::P2WPKHv0(H160::random());
             transaction.outputs[0] = TransactionOutput::payment(1000, &bogus_address);
             assert_noop!(
-                Call::Issue(IssueCall::execute_issue {
+                RuntimeCall::Issue(IssueCall::execute_issue {
                     issue_id: issue_id,
                     merkle_proof: proof,
                     raw_tx: transaction.format_with(true)
@@ -660,7 +664,7 @@ mod execute_pending_issue_tests {
             // mangle block header in merkle proof
             proof[0] += 1;
             assert_noop!(
-                Call::Issue(IssueCall::execute_issue {
+                RuntimeCall::Issue(IssueCall::execute_issue {
                     issue_id: issue_id,
                     merkle_proof: proof,
                     raw_tx: transaction.format_with(true)
@@ -882,7 +886,9 @@ mod execute_cancelled_issue_tests {
         SecurityPallet::set_active_block_number(IssuePallet::issue_period() + 1 + 1);
         mine_blocks((IssuePallet::issue_period() + 99) / 100 + 1);
 
-        assert_ok!(Call::Issue(IssueCall::cancel_issue { issue_id: issue_id }).dispatch(origin_of(account_of(VAULT))));
+        assert_ok!(
+            RuntimeCall::Issue(IssueCall::cancel_issue { issue_id: issue_id }).dispatch(origin_of(account_of(VAULT)))
+        );
 
         (issue_id, issue)
     }
@@ -974,7 +980,7 @@ mod execute_cancelled_issue_tests {
         test_with_initialized_vault(|vault_id| {
             let (issue_id, _issue) = setup_cancelled_issue(&vault_id);
 
-            assert_ok!(Call::VaultRegistry(VaultRegistryCall::accept_new_issues {
+            assert_ok!(RuntimeCall::VaultRegistry(VaultRegistryCall::accept_new_issues {
                 currency_pair: vault_id.currencies.clone(),
                 accept_new_issues: false
             })
@@ -997,7 +1003,7 @@ mod cancel_issue_tests {
         test_with(|_currency_id| {
             SecurityPallet::set_status(StatusCode::Shutdown);
             assert_noop!(
-                Call::Issue(IssueCall::cancel_issue {
+                RuntimeCall::Issue(IssueCall::cancel_issue {
                     issue_id: H256([0; 32]),
                 })
                 .dispatch(origin_of(account_of(ALICE))),
@@ -1014,7 +1020,7 @@ mod cancel_issue_tests {
             let nonexistent_issue_id = H256::zero();
 
             assert_noop!(
-                Call::Issue(IssueCall::cancel_issue {
+                RuntimeCall::Issue(IssueCall::cancel_issue {
                     issue_id: nonexistent_issue_id
                 })
                 .dispatch(origin_of(account_of(VAULT))),
@@ -1031,9 +1037,9 @@ mod cancel_issue_tests {
             SecurityPallet::set_active_block_number(IssuePallet::issue_period() + 1 + 1);
             mine_blocks((IssuePallet::issue_period() + 99) / 100 + 1);
 
-            assert_ok!(Call::Issue(IssueCall::cancel_issue { issue_id }).dispatch(origin_of(account_of(VAULT))),);
+            assert_ok!(RuntimeCall::Issue(IssueCall::cancel_issue { issue_id }).dispatch(origin_of(account_of(VAULT))),);
             assert_noop!(
-                Call::Issue(IssueCall::cancel_issue { issue_id }).dispatch(origin_of(account_of(VAULT))),
+                RuntimeCall::Issue(IssueCall::cancel_issue { issue_id }).dispatch(origin_of(account_of(VAULT))),
                 IssueError::IssueCancelled
             );
         });
@@ -1049,7 +1055,7 @@ mod cancel_issue_tests {
 
             execute_issue(issue_id);
             assert_noop!(
-                Call::Issue(IssueCall::cancel_issue { issue_id }).dispatch(origin_of(account_of(VAULT))),
+                RuntimeCall::Issue(IssueCall::cancel_issue { issue_id }).dispatch(origin_of(account_of(VAULT))),
                 IssueError::IssueCompleted
             );
         });
@@ -1061,7 +1067,8 @@ mod cancel_issue_tests {
         test_with(|vault_id| {
             let (issue_id, _issue) = request_issue(&vault_id, vault_id.wrapped(4_000));
             assert_noop!(
-                Call::Issue(IssueCall::cancel_issue { issue_id: issue_id }).dispatch(origin_of(account_of(VAULT))),
+                RuntimeCall::Issue(IssueCall::cancel_issue { issue_id: issue_id })
+                    .dispatch(origin_of(account_of(VAULT))),
                 IssueError::TimeNotExpired
             );
         });
@@ -1079,9 +1086,8 @@ mod cancel_issue_tests {
             let post_request_state = ParachainState::get(&vault_id);
 
             // bob cancels issue request
-            assert_ok!(
-                Call::Issue(IssueCall::cancel_issue { issue_id: issue_id }).dispatch(origin_of(account_of(VAULT)))
-            );
+            assert_ok!(RuntimeCall::Issue(IssueCall::cancel_issue { issue_id: issue_id })
+                .dispatch(origin_of(account_of(VAULT))));
 
             // balances and collaterals are updated
             assert_eq!(
@@ -1117,9 +1123,8 @@ mod cancel_issue_tests {
             let post_liquidation_status = ParachainState::get(&vault_id);
 
             // bob cancels issue request
-            assert_ok!(
-                Call::Issue(IssueCall::cancel_issue { issue_id: issue_id }).dispatch(origin_of(account_of(VAULT)))
-            );
+            assert_ok!(RuntimeCall::Issue(IssueCall::cancel_issue { issue_id: issue_id })
+                .dispatch(origin_of(account_of(VAULT))));
 
             // grieifing collateral released back to the user
             assert_eq!(

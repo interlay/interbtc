@@ -156,6 +156,12 @@ pub fn run() -> Result<()> {
                     let partials = new_partial(&config)?;
                     cmd.run(partials.client)
                 }),
+                #[cfg(not(feature = "runtime-benchmarks"))]
+				BenchmarkCmd::Storage(_) => Err(
+					"Storage benchmarking can be enabled with `--features runtime-benchmarks`."
+						.into(),
+				),
+				#[cfg(feature = "runtime-benchmarks")]
                 BenchmarkCmd::Storage(cmd) => runner.sync_run(|config| {
                     let partials = new_partial(&config)?;
                     let db = partials.backend.expose_db();
