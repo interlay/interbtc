@@ -30,7 +30,7 @@ pub enum Subcommand {
     Revert(sc_cli::RevertCmd),
 
     /// The custom benchmark subcommmand benchmarking runtime pallets.
-    #[clap(subcommand)]
+    #[command(subcommand)]
     Benchmark(frame_benchmarking_cli::BenchmarkCmd),
 }
 
@@ -67,7 +67,7 @@ impl std::ops::Deref for RunCmd {
     subcommand_negates_reqs = true
 )]
 pub struct Cli {
-    #[clap(subcommand)]
+    #[command(subcommand)]
     pub subcommand: Option<Subcommand>,
 
     #[clap(flatten)]

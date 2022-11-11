@@ -15,7 +15,7 @@ name = "interbtc-standalone"
 substrate-build-script-utils = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.31" }
 
 [dependencies]
-clap = { version = "3.1", features = [ "derive" ] }
+clap = { version = "4.0.9", features = [ "derive" ] }
 log = "0.4.8"
 codec = { package = "parity-scale-codec", version = "3.1.5" }
 serde = { version = "1.0.130", features = ["derive"] }

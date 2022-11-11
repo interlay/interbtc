@@ -40,7 +40,7 @@ pub enum Subcommand {
     Revert(sc_cli::RevertCmd),
 
     /// The custom benchmark subcommmand benchmarking runtime pallets.
-    #[clap(subcommand)]
+    #[command(subcommand)]
     Benchmark(frame_benchmarking_cli::BenchmarkCmd),
 
     /// Try some command against runtime state.
@@ -56,19 +56,19 @@ pub enum Subcommand {
 #[derive(Debug, Parser)]
 pub struct ExportMetadataCommand {
     /// Output file name or stdout if unspecified.
-    #[clap(action)]
+    #[arg(action)]
     pub output: Option<PathBuf>,
 
     /// Write output in binary. Default is to write in hex.
-    #[clap(short, long)]
+    #[arg(short, long)]
     pub raw: bool,
 
     /// The name of the runtime to retrieve the metadata from.
-    #[clap(long, arg_enum)]
+    #[arg(long)]
     pub runtime: RuntimeName,
 }
 
-#[derive(clap::ArgEnum, Debug, Clone)]
+#[derive(clap::ValueEnum, Debug, Clone)]
 pub enum RuntimeName {
     Interlay,
     Kintsugi,
@@ -83,7 +83,7 @@ pub enum RuntimeName {
     subcommand_negates_reqs = true
 )]
 pub struct Cli {
-    #[clap(subcommand)]
+    #[command(subcommand)]
     pub subcommand: Option<Subcommand>,
 
     #[clap(flatten)]

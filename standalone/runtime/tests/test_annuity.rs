@@ -134,36 +134,36 @@ fn should_distribute_vault_rewards_from_supply() {
                     when: start_height + YEARS * 0,
                     maybe_periodic: None,
                     priority: 63,
-                    call: Box::new(MaybeHashed::Value(RuntimeCall::Tokens(TokensCall::force_transfer {
+                    call: Box::new(RuntimeCall::Tokens(TokensCall::force_transfer {
                         source: SupplyPallet::account_id(),
                         dest: VaultAnnuityPallet::account_id(),
                         currency_id: DEFAULT_NATIVE_CURRENCY,
                         amount: Permill::from_percent(40) * total_rewards,
-                    }))),
+                    })),
                 }),
                 RuntimeCall::Scheduler(SchedulerCall::schedule_named {
                     id: "Year 2".encode(),
                     when: start_height + YEARS * 1,
                     maybe_periodic: None,
                     priority: 63,
-                    call: Box::new(MaybeHashed::Value(RuntimeCall::Tokens(TokensCall::force_transfer {
+                    call: Box::new(RuntimeCall::Tokens(TokensCall::force_transfer {
                         source: SupplyPallet::account_id(),
                         dest: VaultAnnuityPallet::account_id(),
                         currency_id: DEFAULT_NATIVE_CURRENCY,
                         amount: Permill::from_percent(30) * total_rewards,
-                    }))),
+                    })),
                 }),
                 RuntimeCall::Scheduler(SchedulerCall::schedule_named {
                     id: "Year 3".encode(),
                     when: start_height + YEARS * 2,
                     maybe_periodic: None,
                     priority: 63,
-                    call: Box::new(MaybeHashed::Value(RuntimeCall::Tokens(TokensCall::force_transfer {
+                    call: Box::new(RuntimeCall::Tokens(TokensCall::force_transfer {
                         source: SupplyPallet::account_id(),
                         dest: VaultAnnuityPallet::account_id(),
                         currency_id: DEFAULT_NATIVE_CURRENCY,
                         amount: Permill::from_percent(20) * total_rewards,
-                    }))),
+                    })),
                 }),
                 RuntimeCall::Scheduler(SchedulerCall::schedule_named {
                     id: "Year 4".encode(),
