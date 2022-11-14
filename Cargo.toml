@@ -100,6 +100,7 @@ sc-network = { git = "https://github.com/paritytech//substrate", branch = "polka
 sc-network-gossip = { git = "https://github.com/paritytech//substrate", branch = "polkadot-v0.9.31" }
 sc-network-common = { git = "https://github.com/paritytech//substrate", branch = "polkadot-v0.9.31" }
 sc-offchain = { git = "https://github.com/paritytech//substrate", branch = "polkadot-v0.9.31" }
+sc-peerset = { git = "https://github.com/paritytech//substrate", branch = "polkadot-v0.9.31" }
 sc-rpc = { git = "https://github.com/paritytech//substrate", branch = "polkadot-v0.9.31" }
 sc-rpc-api = { git = "https://github.com/paritytech//substrate", branch = "polkadot-v0.9.31" }
 sc-rpc-server = { git = "https://github.com/paritytech//substrate", branch = "polkadot-v0.9.31" }
@@ -178,10 +179,12 @@ pallet-xcm = { git = "https://github.com/paritytech//polkadot", branch = "releas
 polkadot-cli = { git = "https://github.com/paritytech//polkadot", branch = "release-v0.9.31" }
 polkadot-client = { git = "https://github.com/paritytech//polkadot", branch = "release-v0.9.31" }
 polkadot-core-primitives = { git = "https://github.com/paritytech//polkadot", branch = "release-v0.9.31" }
+polkadot-node-core-av-store = { git = "https://github.com/paritytech//polkadot", branch = "release-v0.9.31" }
 polkadot-node-core-pvf = { git = "https://github.com/paritytech//polkadot", branch = "release-v0.9.31" }
 polkadot-node-network-protocol = { git = "https://github.com/paritytech//polkadot", branch = "release-v0.9.31" }
 polkadot-node-primitives = { git = "https://github.com/paritytech//polkadot", branch = "release-v0.9.31" }
 polkadot-node-subsystem = { git = "https://github.com/paritytech//polkadot", branch = "release-v0.9.31" }
+polkadot-node-subsystem-util = { git = "https://github.com/paritytech//polkadot", branch = "release-v0.9.31" }
 polkadot-overseer = { git = "https://github.com/paritytech//polkadot", branch = "release-v0.9.31" }
 polkadot-parachain = { git = "https://github.com/paritytech//polkadot", branch = "release-v0.9.31" }
 polkadot-primitives = { git = "https://github.com/paritytech//polkadot", branch = "release-v0.9.31" }

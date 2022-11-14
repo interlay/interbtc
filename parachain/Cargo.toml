@@ -15,7 +15,7 @@ name = "interbtc-parachain"
 substrate-build-script-utils = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.31" }
 
 [dependencies]
-clap = { version = "3.1", features = [ "derive" ] }
+clap = { version = "4.0.9", features = [ "derive" ] }
 log = "0.4.8"
 codec = { package = "parity-scale-codec", version = "3.1.5" }
 serde = { version = "1.0.130", features = ["derive"] }
@@ -97,6 +97,7 @@ cumulus-pallet-parachain-system = { git = "https://github.com/paritytech/cumulus
 cumulus-relay-chain-interface = { git = "https://github.com/paritytech/cumulus", branch = "polkadot-v0.9.31" }
 cumulus-relay-chain-inprocess-interface = { git = "https://github.com/paritytech/cumulus", branch = "polkadot-v0.9.31" }
 cumulus-relay-chain-rpc-interface = { git = "https://github.com/paritytech/cumulus", branch = "polkadot-v0.9.31" }
+cumulus-relay-chain-minimal-node = { git = "https://github.com/paritytech/cumulus", branch = "polkadot-v0.9.31" }
 
 # Polkadot dependencies
 polkadot-primitives = { git = "https://github.com/paritytech/polkadot", branch = "release-v0.9.31" }
