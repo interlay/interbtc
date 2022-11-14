@@ -1121,8 +1121,19 @@ pub type UncheckedExtrinsic = generic::UncheckedExtrinsic<Address, RuntimeCall, 
 /// Extrinsic type that has already been checked.
 pub type CheckedExtrinsic = generic::CheckedExtrinsic<AccountId, RuntimeCall, SignedExtra>;
 /// Executive: handles dispatch to the various modules.
-pub type Executive =
-    frame_executive::Executive<Runtime, Block, frame_system::ChainContext<Runtime>, Runtime, AllPalletsWithSystem, ()>;
+pub type Executive = frame_executive::Executive<
+    Runtime,
+    Block,
+    frame_system::ChainContext<Runtime>,
+    Runtime,
+    AllPalletsWithSystem,
+    (
+        // "Bound uses of call" <https://github.com/paritytech/substrate/pull/11649>
+        pallet_preimage::migration::v1::Migration<Runtime>,
+        pallet_scheduler::migration::v3::MigrateToV4<Runtime>,
+        pallet_multisig::migrations::v1::MigrateToV1<Runtime>,
+    ),
+>;
 
 #[cfg(not(feature = "disable-runtime-api"))]
 impl_runtime_apis! {
