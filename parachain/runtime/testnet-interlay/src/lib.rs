@@ -60,7 +60,7 @@ pub use pallet_timestamp::Call as TimestampCall;
 pub use sp_consensus_aura::sr25519::AuthorityId as AuraId;
 #[cfg(any(feature = "std", test))]
 pub use sp_runtime::BuildStorage;
-pub use sp_runtime::{Perbill, Permill};
+pub use sp_runtime::{FixedU128, Perbill, Permill};
 
 // interBTC exports
 pub use btc_relay::{bitcoin, Call as BtcRelayCall, TARGET_SPACING};
@@ -69,9 +69,10 @@ pub use module_oracle_rpc_runtime_api::BalanceWrapper;
 pub use security::StatusCode;
 
 pub use primitives::{
-    self, AccountId, BlockNumber,
+    self, AccountId, Balance, BlockNumber,
     CurrencyId::{ForeignAsset, LendToken, Token},
-    CurrencyInfo, Hash, Moment, Nonce, Signature, SignedFixedPoint, SignedInner, UnsignedFixedPoint, UnsignedInner,
+    CurrencyInfo, Hash, Liquidity, Moment, Nonce, Rate, Ratio, Shortfall, Signature, SignedFixedPoint, SignedInner,
+    UnsignedFixedPoint, UnsignedInner,
 };
 
 // XCM imports
@@ -1496,6 +1497,24 @@ impl_runtime_apis! {
 
         fn get_new_vault_replace_requests(vault_id: AccountId) -> Vec<H256> {
             Replace::get_replace_requests_for_new_vault(vault_id)
+        }
+    }
+
+    impl loans_rpc_runtime_api::LoansApi<
+        Block,
+        AccountId,
+        Balance,
+    > for Runtime {
+        fn get_account_liquidity(account: AccountId) -> Result<(Liquidity, Shortfall), DispatchError> {
+            Loans::get_account_liquidity(&account)
+        }
+
+        fn get_market_status(asset_id: CurrencyId) -> Result<(Rate, Rate, Rate, Ratio, Balance, Balance, FixedU128), DispatchError> {
+            Loans::get_market_status(asset_id)
+        }
+
+        fn get_liquidation_threshold_liquidity(account: AccountId) -> Result<(Liquidity, Shortfall), DispatchError> {
+            Loans::get_account_liquidation_threshold_liquidity(&account)
         }
     }
 

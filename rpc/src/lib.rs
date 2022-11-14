@@ -74,9 +74,11 @@ where
     >,
     C::Api: module_escrow_rpc::EscrowRuntimeApi<Block, AccountId, BlockNumber, Balance>,
     C::Api: module_reward_rpc::RewardRuntimeApi<Block, AccountId, VaultId<AccountId, CurrencyId>, CurrencyId, Balance>,
+    C::Api: loans_rpc::LoansRuntimeApi<Block, AccountId, Balance>,
     C::Api: BlockBuilder<Block>,
     P: TransactionPool + 'static,
 {
+    use loans_rpc::{Loans, LoansApiServer};
     use module_btc_relay_rpc::{BtcRelay, BtcRelayApiServer};
     use module_escrow_rpc::{Escrow, EscrowApiServer};
     use module_issue_rpc::{Issue, IssueApiServer};
@@ -122,7 +124,9 @@ where
 
     module.merge(Redeem::new(client.clone()).into_rpc())?;
 
-    module.merge(Replace::new(client).into_rpc())?;
+    module.merge(Replace::new(client.clone()).into_rpc())?;
+
+    module.merge(Loans::new(client).into_rpc())?;
 
     Ok(module)
 }

@@ -37,11 +37,7 @@ where
     Balance: Codec + Copy + TryFrom<NumberOrHex>,
 {
     #[method(name = "loans_getCollateralLiquidity")]
-    fn get_account_liquidity(
-        &self,
-        account: AccountId,
-        at: Option<BlockHash>,
-    ) -> RpcResult<(Liquidity, Shortfall, Liquidity, Shortfall)>;
+    fn get_account_liquidity(&self, account: AccountId, at: Option<BlockHash>) -> RpcResult<(Liquidity, Shortfall)>;
     #[method(name = "loans_getMarketStatus")]
     fn get_market_status(
         &self,
@@ -53,7 +49,7 @@ where
         &self,
         account: AccountId,
         at: Option<BlockHash>,
-    ) -> RpcResult<(Liquidity, Shortfall, Liquidity, Shortfall)>;
+    ) -> RpcResult<(Liquidity, Shortfall)>;
 }
 
 /// A struct that implements the [`LoansApi`].
@@ -89,8 +85,7 @@ impl From<Error> for i32 {
 }
 
 #[async_trait]
-impl<C, Block, AccountId, Balance> LoansApiServer<<Block as BlockT>::Hash, AccountId, Balance>
-    for Loans<C, Block>
+impl<C, Block, AccountId, Balance> LoansApiServer<<Block as BlockT>::Hash, AccountId, Balance> for Loans<C, Block>
 where
     Block: BlockT,
     C: Send + Sync + 'static,
@@ -104,7 +99,7 @@ where
         &self,
         account: AccountId,
         at: Option<<Block as BlockT>::Hash>,
-    ) -> RpcResult<(Liquidity, Shortfall, Liquidity, Shortfall)> {
+    ) -> RpcResult<(Liquidity, Shortfall)> {
         let api = self.client.runtime_api();
         let at = BlockId::hash(at.unwrap_or(
             // If the block hash is not supplied assume the best block.
@@ -125,15 +120,7 @@ where
             // If the block hash is not supplied assume the best block.
             self.client.info().best_hash,
         ));
-        let (
-            borrow_rate,
-            supply_rate,
-            exchange_rate,
-            util,
-            total_borrows,
-            total_reserves,
-            borrow_index,
-        ) = api
+        let (borrow_rate, supply_rate, exchange_rate, util, total_borrows, total_reserves, borrow_index) = api
             .get_market_status(&at, asset_id)
             .map_err(runtime_error_into_rpc_error)?
             .map_err(market_status_error_into_rpc_error)?;
@@ -152,7 +139,7 @@ where
         &self,
         account: AccountId,
         at: Option<<Block as BlockT>::Hash>,
-    ) -> RpcResult<(Liquidity, Shortfall, Liquidity, Shortfall)> {
+    ) -> RpcResult<(Liquidity, Shortfall)> {
         let api = self.client.runtime_api();
         let at = BlockId::hash(at.unwrap_or(
             // If the block hash is not supplied assume the best block.
@@ -191,9 +178,7 @@ fn market_status_error_into_rpc_error(err: impl std::fmt::Debug) -> JsonRpseeErr
     )))
 }
 
-fn try_into_rpc_balance<T: std::fmt::Display + Copy + TryInto<NumberOrHex>>(
-    value: T,
-) -> RpcResult<NumberOrHex> {
+fn try_into_rpc_balance<T: std::fmt::Display + Copy + TryInto<NumberOrHex>>(value: T) -> RpcResult<NumberOrHex> {
     value.try_into().map_err(|_| {
         JsonRpseeError::Call(CallError::Custom(ErrorObject::owned(
             ErrorCode::InvalidParams.code(),

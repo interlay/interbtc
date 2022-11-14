@@ -57,7 +57,7 @@ pub use frame_support::{
 pub use pallet_timestamp::Call as TimestampCall;
 #[cfg(any(feature = "std", test))]
 pub use sp_runtime::BuildStorage;
-pub use sp_runtime::{Perbill, Permill};
+pub use sp_runtime::{FixedU128, Perbill, Permill};
 
 pub use pallet_grandpa::{fg_primitives, AuthorityId as GrandpaId, AuthorityList as GrandpaAuthorityList};
 pub use sp_consensus_aura::sr25519::AuthorityId as AuraId;
@@ -70,8 +70,8 @@ pub use security::StatusCode;
 pub use primitives::{
     self, AccountId, Balance, BlockNumber, CurrencyId,
     CurrencyId::{ForeignAsset, LendToken, Token},
-    CurrencyInfo, Hash, Moment, Nonce, PriceDetail, Signature, SignedFixedPoint, SignedInner, TokenSymbol,
-    UnsignedFixedPoint, UnsignedInner, DOT, IBTC, INTR, KBTC, KINT, KSM,
+    CurrencyInfo, Hash, Liquidity, Moment, Nonce, PriceDetail, Rate, Ratio, Shortfall, Signature, SignedFixedPoint,
+    SignedInner, TokenSymbol, UnsignedFixedPoint, UnsignedInner, DOT, IBTC, INTR, KBTC, KINT, KSM,
 };
 
 type VaultId = primitives::VaultId<AccountId, CurrencyId>;
@@ -1462,6 +1462,24 @@ impl_runtime_apis! {
 
         fn get_new_vault_replace_requests(vault_id: AccountId) -> Vec<H256> {
             Replace::get_replace_requests_for_new_vault(vault_id)
+        }
+    }
+
+    impl loans_rpc_runtime_api::LoansApi<
+        Block,
+        AccountId,
+        Balance,
+    > for Runtime {
+        fn get_account_liquidity(account: AccountId) -> Result<(Liquidity, Shortfall), DispatchError> {
+            Loans::get_account_liquidity(&account)
+        }
+
+        fn get_market_status(asset_id: CurrencyId) -> Result<(Rate, Rate, Rate, Ratio, Balance, Balance, FixedU128), DispatchError> {
+            Loans::get_market_status(asset_id)
+        }
+
+        fn get_liquidation_threshold_liquidity(account: AccountId) -> Result<(Liquidity, Shortfall), DispatchError> {
+            Loans::get_account_liquidation_threshold_liquidity(&account)
         }
     }
 }

@@ -17,6 +17,7 @@ module-redeem-rpc = { path = "../crates/redeem/rpc" }
 module-replace-rpc = { path = "../crates/replace/rpc" }
 module-escrow-rpc = { path = "../crates/escrow/rpc" }
 module-reward-rpc = { path = "../crates/reward/rpc" }
+loans-rpc = { path = "../crates/loans/rpc" }
 
 vault-registry = { path = "../crates/vault-registry" }
 primitives = { package = "interbtc-primitives", path = "../primitives" }

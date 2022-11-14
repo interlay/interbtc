@@ -57,7 +57,7 @@ pub use pallet_timestamp::Call as TimestampCall;
 pub use sp_consensus_aura::sr25519::AuthorityId as AuraId;
 #[cfg(any(feature = "std", test))]
 pub use sp_runtime::BuildStorage;
-pub use sp_runtime::{Perbill, Permill};
+pub use sp_runtime::{FixedU128, Perbill, Permill};
 
 // interBTC exports
 pub use btc_relay::{bitcoin, Call as BtcRelayCall, TARGET_SPACING};
@@ -66,8 +66,8 @@ pub use module_oracle_rpc_runtime_api::BalanceWrapper;
 pub use security::StatusCode;
 
 pub use primitives::{
-    self, AccountId, Balance, BlockNumber, CurrencyInfo, Hash, Moment, Nonce, Signature, SignedFixedPoint, SignedInner,
-    UnsignedFixedPoint, UnsignedInner,
+    self, AccountId, Balance, BlockNumber, CurrencyInfo, Hash, Liquidity, Moment, Nonce, Rate, Ratio, Shortfall,
+    Signature, SignedFixedPoint, SignedInner, UnsignedFixedPoint, UnsignedInner,
 };
 
 // XCM imports
@@ -1259,6 +1259,24 @@ impl_runtime_apis! {
             len: u32,
         ) -> pallet_transaction_payment_rpc_runtime_api::FeeDetails<Balance> {
             TransactionPayment::query_fee_details(uxt, len)
+        }
+    }
+
+    impl loans_rpc_runtime_api::LoansApi<
+        Block,
+        AccountId,
+        Balance,
+    > for Runtime {
+        fn get_account_liquidity(_account: AccountId) -> Result<(Liquidity, Shortfall), DispatchError> {
+           Err(DispatchError::Other("RPC Endpoint Not Implemented"))
+        }
+
+        fn get_market_status(_asset_id: CurrencyId) -> Result<(Rate, Rate, Rate, Ratio, Balance, Balance, FixedU128), DispatchError> {
+           Err(DispatchError::Other("RPC Endpoint Not Implemented"))
+        }
+
+        fn get_liquidation_threshold_liquidity(_account: AccountId) -> Result<(Liquidity, Shortfall), DispatchError> {
+           Err(DispatchError::Other("RPC Endpoint Not Implemented"))
         }
     }
 
