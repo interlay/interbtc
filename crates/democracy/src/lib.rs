@@ -746,7 +746,7 @@ pub mod pallet {
         }
 
         /// Enact a proposal from a referendum. For now we just make the weight be the maximum.
-        #[pallet::weight(T::BlockWeights::get().max_block)]
+        #[pallet::weight(1000)]
         pub fn enact_proposal(origin: OriginFor<T>, proposal_hash: T::Hash, index: ReferendumIndex) -> DispatchResult {
             ensure_root(origin)?;
             Self::do_enact_proposal(proposal_hash, index)

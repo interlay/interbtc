@@ -1,6 +1,6 @@
 mod mock;
 
-use frame_support::{traits::WrapperKeepOpaque, weights::Weight};
+use frame_support::weights::Weight;
 use mock::{assert_eq, *};
 use orml_tokens::AccountData;
 use orml_vesting::VestingSchedule;
@@ -41,14 +41,12 @@ fn integration_test_transfer_from_multisig_to_vested() {
             dest: account_of(EVE),
             currency_id: Token(INTR),
             amount: 20_000_000_000_001,
-        })
-        .encode();
+        });
         assert_ok!(RuntimeCall::Multisig(MultisigCall::as_multi {
             threshold: 2,
             other_signatories: vec![account_of(BOB)],
             maybe_timepoint: None,
-            call: WrapperKeepOpaque::from_encoded(call.clone()),
-            store_call: true,
+            call: Box::new(call.clone()),
             max_weight: Weight::from_ref_time(1000000000000 as u64),
         })
         .dispatch(origin_of(account_of(ALICE))));
@@ -72,7 +70,7 @@ fn integration_test_transfer_from_multisig_to_vested() {
             threshold: 2,
             other_signatories: vec![account_of(ALICE)],
             maybe_timepoint: Some(timepoint),
-            call_hash: sp_core::blake2_256(&call),
+            call_hash: sp_core::blake2_256(&call.encode()),
             max_weight: Weight::from_ref_time(1000000000000 as u64),
         })
         .dispatch(origin_of(account_of(BOB))));
@@ -109,15 +107,13 @@ fn integration_test_transfer_from_multisig_to_unvested() {
                 period_count: 100,
                 per_period: vesting_amount / 100,
             },
-        })
-        .encode();
+        });
 
         assert_ok!(RuntimeCall::Multisig(MultisigCall::as_multi {
             threshold: 2,
             other_signatories: vec![account_of(BOB)],
             maybe_timepoint: None,
-            call: WrapperKeepOpaque::from_encoded(call.clone()),
-            store_call: true,
+            call: Box::new(call.clone()),
             max_weight: Weight::from_ref_time(1000000000000 as u64),
         })
         .dispatch(origin_of(account_of(ALICE))));
@@ -126,7 +122,7 @@ fn integration_test_transfer_from_multisig_to_unvested() {
             threshold: 2,
             other_signatories: vec![account_of(ALICE)],
             maybe_timepoint: Some(MultisigPallet::timepoint()),
-            call_hash: sp_core::blake2_256(&call),
+            call_hash: sp_core::blake2_256(&call.encode()),
             max_weight: Weight::from_ref_time(1000000000000 as u64),
         })
         .dispatch(origin_of(account_of(BOB))));
@@ -265,14 +261,13 @@ fn integration_test_batched_multisig_vesting() {
             })
             .collect();
 
-        let batch = RuntimeCall::Utility(UtilityCall::batch { calls }).encode();
+        let batch = RuntimeCall::Utility(UtilityCall::batch { calls });
 
         assert_ok!(RuntimeCall::Multisig(MultisigCall::as_multi {
             threshold: 2,
             other_signatories: vec![account_of(BOB)],
             maybe_timepoint: None,
-            call: WrapperKeepOpaque::from_encoded(batch.clone()),
-            store_call: true,
+            call: Box::new(batch.clone()),
             max_weight: Weight::from_ref_time(1000000000000 as u64),
         })
         .dispatch(origin_of(account_of(ALICE))));
@@ -281,7 +276,7 @@ fn integration_test_batched_multisig_vesting() {
             threshold: 2,
             other_signatories: vec![account_of(ALICE)],
             maybe_timepoint: Some(MultisigPallet::timepoint()),
-            call_hash: sp_core::blake2_256(&batch),
+            call_hash: sp_core::blake2_256(&batch.encode()),
             max_weight: Weight::from_ref_time(1000000000000 as u64),
         })
         .dispatch(origin_of(account_of(BOB))));

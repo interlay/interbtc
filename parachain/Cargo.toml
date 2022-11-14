@@ -120,4 +120,5 @@ rococo-native = [ "polkadot-cli/rococo-native" ]
 runtime-benchmarks = [
     "interlay-runtime/runtime-benchmarks",
     "polkadot-service/runtime-benchmarks",
+    "polkadot-cli/runtime-benchmarks",
 ]
