@@ -38,7 +38,6 @@ use frame_support::{
     weights::Weight,
 };
 use frame_system::{ensure_root, ensure_signed};
-use pallet_traits::OracleApi;
 use scale_info::TypeInfo;
 use security::{ErrorCode, StatusCode};
 use sp_runtime::{
@@ -46,6 +45,7 @@ use sp_runtime::{
     ArithmeticError, FixedPointNumber,
 };
 use sp_std::{convert::TryInto, vec::Vec};
+use traits::OracleApi;
 
 pub use pallet::*;
 pub use primitives::{oracle::Key as OracleKey, CurrencyId, TruncateFixedPointToInt};

@@ -1,5 +1,5 @@
 use currency::Amount;
-use pallet_loans::JumpModel;
+use loans::JumpModel;
 
 use crate::*;
 

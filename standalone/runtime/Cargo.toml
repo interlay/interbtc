@@ -74,8 +74,8 @@ democracy = { path = "../../crates/democracy", default-features = false }
 annuity = { path = "../../crates/annuity", default-features = false }
 supply = { path = "../../crates/supply", default-features = false }
 clients-info = { path = "../../crates/clients-info", default-features = false }
-pallet-loans = { path = "../../crates/loans", default-features = false }
-pallet-traits = { path = "../../crates/traits", default-features = false }
+loans = { path = "../../crates/loans", default-features = false }
+traits = { path = "../../crates/traits", default-features = false }
 
 primitives = { package = "interbtc-primitives", path = "../../primitives", default-features = false }
 
@@ -174,8 +174,8 @@ std = [
   "democracy/std",
   "annuity/std",
   "supply/std",
-  "pallet-loans/std",
-  "pallet-traits/std",
+  "loans/std",
+  "traits/std",
 
   "primitives/std",
 

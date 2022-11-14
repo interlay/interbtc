@@ -95,10 +95,10 @@ annuity = { path = "../../../crates/annuity", default-features = false }
 supply = { path = "../../../crates/supply", default-features = false }
 collator-selection = { path = "../../../crates/collator-selection", default-features = false }
 clients-info = { path = "../../../crates/clients-info", default-features = false }
-pallet-loans = { path = "../../../crates/loans", default-features = false }
+loans = { path = "../../../crates/loans", default-features = false }
+traits = { path = "../../../crates/traits", default-features = false }
 
 primitives = { package = "interbtc-primitives", path = "../../../primitives", default-features = false }
-pallet-traits = { path = "../../../crates/traits", default-features = false }
 
 module-btc-relay-rpc-runtime-api = { path = "../../../crates/btc-relay/rpc/runtime-api", default-features = false }
 module-oracle-rpc-runtime-api = { path = "../../../crates/oracle/rpc/runtime-api", default-features = false }
@@ -212,6 +212,9 @@ std = [
   "annuity/std",
   "supply/std",
   "collator-selection/std",
+  "clients-info/std",
+  "loans/std",
+  "traits/std",
 
   "primitives/std",
 

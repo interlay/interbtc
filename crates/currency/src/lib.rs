@@ -15,7 +15,6 @@ pub mod amount;
 use codec::{EncodeLike, FullCodec};
 use frame_support::{dispatch::DispatchResult, traits::Get};
 use orml_traits::{MultiCurrency, MultiReservableCurrency};
-use pallet_traits::{LoansApi, OracleApi};
 use primitives::{CurrencyId as PrimitivesCurrencyId, TruncateFixedPointToInt};
 use scale_info::TypeInfo;
 use sp_runtime::{
@@ -27,6 +26,7 @@ use sp_std::{
     fmt::Debug,
     marker::PhantomData,
 };
+use traits::{LoansApi, OracleApi};
 
 pub use amount::Amount;
 pub use pallet::*;

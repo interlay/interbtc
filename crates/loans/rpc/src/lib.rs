@@ -17,7 +17,7 @@
 
 use std::sync::Arc;
 
-pub use pallet_loans_rpc_runtime_api::LoansApi as LoansRuntimeApi;
+pub use loans_rpc_runtime_api::LoansApi as LoansRuntimeApi;
 
 use codec::Codec;
 use jsonrpsee::{
