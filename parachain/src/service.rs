@@ -94,7 +94,7 @@ pub trait RuntimeApiCollection:
         H256,
         replace::ReplaceRequest<AccountId, BlockNumber, Balance, CurrencyId>,
     > + module_reward_rpc_runtime_api::RewardApi<Block, AccountId, VaultId<AccountId, CurrencyId>, CurrencyId, Balance>
-    + pallet_loans_rpc_runtime_api::LoansApi<Block, AccountId, Balance>
+    + loans_rpc_runtime_api::LoansApi<Block, AccountId, Balance>
 where
     <Self as sp_api::ApiExt<Block>>::StateBackend: sp_api::StateBackend<BlakeTwo256>,
 {
@@ -137,7 +137,7 @@ where
             H256,
             replace::ReplaceRequest<AccountId, BlockNumber, Balance, CurrencyId>,
         > + module_reward_rpc_runtime_api::RewardApi<Block, AccountId, VaultId<AccountId, CurrencyId>, CurrencyId, Balance>
-        + pallet_loans_rpc_runtime_api::LoansApi<Block, AccountId, Balance>,
+        + loans_rpc_runtime_api::LoansApi<Block, AccountId, Balance>,
     <Self as sp_api::ApiExt<Block>>::StateBackend: sp_api::StateBackend<BlakeTwo256>,
 {
 }

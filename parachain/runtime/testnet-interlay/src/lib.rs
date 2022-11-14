@@ -1500,7 +1500,7 @@ impl_runtime_apis! {
         }
     }
 
-    impl pallet_loans_rpc_runtime_api::LoansApi<
+    impl loans_rpc_runtime_api::LoansApi<
         Block,
         AccountId,
         Balance,

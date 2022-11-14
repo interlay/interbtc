@@ -87,7 +87,7 @@ module-reward-rpc-runtime-api = { path = "../../crates/reward/rpc/runtime-api", 
 module-issue-rpc-runtime-api = { path = "../../crates/issue/rpc/runtime-api", default-features = false }
 module-redeem-rpc-runtime-api = { path = "../../crates/redeem/rpc/runtime-api", default-features = false }
 module-replace-rpc-runtime-api = { path = "../../crates/replace/rpc/runtime-api", default-features = false }
-pallet-loans-rpc-runtime-api = { path = "../../crates/loans/rpc/runtime-api", default-features = false }
+loans-rpc-runtime-api = { path = "../../crates/loans/rpc/runtime-api", default-features = false }
 
 # Orml dependencies
 orml-tokens = { git = "https://github.com/open-web3-stack/open-runtime-module-library", rev = "ae13a54dbc1a654df0e2d5e9dc18582b62716365", default-features = false }
@@ -187,7 +187,7 @@ std = [
   "module-issue-rpc-runtime-api/std",
   "module-redeem-rpc-runtime-api/std",
   "module-replace-rpc-runtime-api/std",
-  "pallet-loans-rpc-runtime-api/std",
+  "loans-rpc-runtime-api/std",
 
   "orml-asset-registry/std",
   "orml-tokens/std",

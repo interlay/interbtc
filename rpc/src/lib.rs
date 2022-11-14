@@ -74,10 +74,11 @@ where
     >,
     C::Api: module_escrow_rpc::EscrowRuntimeApi<Block, AccountId, BlockNumber, Balance>,
     C::Api: module_reward_rpc::RewardRuntimeApi<Block, AccountId, VaultId<AccountId, CurrencyId>, CurrencyId, Balance>,
-    C::Api: pallet_loans_rpc::LoansRuntimeApi<Block, AccountId, Balance>,
+    C::Api: loans_rpc::LoansRuntimeApi<Block, AccountId, Balance>,
     C::Api: BlockBuilder<Block>,
     P: TransactionPool + 'static,
 {
+    use loans_rpc::{Loans, LoansApiServer};
     use module_btc_relay_rpc::{BtcRelay, BtcRelayApiServer};
     use module_escrow_rpc::{Escrow, EscrowApiServer};
     use module_issue_rpc::{Issue, IssueApiServer};
@@ -86,7 +87,6 @@ where
     use module_replace_rpc::{Replace, ReplaceApiServer};
     use module_reward_rpc::{Reward, RewardApiServer};
     use module_vault_registry_rpc::{VaultRegistry, VaultRegistryApiServer};
-    use pallet_loans_rpc::{Loans, LoansApiServer};
     use pallet_transaction_payment_rpc::{TransactionPayment, TransactionPaymentApiServer};
     use substrate_frame_rpc_system::{System, SystemApiServer};
 
