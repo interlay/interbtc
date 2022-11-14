@@ -237,7 +237,7 @@ fn transfer_to_relay_chain() {
             <kusama_runtime::Runtime as pallet_transaction_payment::Config>::WeightToFee::weight_to_fee(&used_weight);
         assert_eq!(
             kusama_runtime::Balances::free_balance(&AccountId::from(BOB)),
-            KSM.one() - fee
+            ((KSM.one() - fee)*9) / 10
         );
 
         // UI uses 165940672 - make sure that that's an overestimation

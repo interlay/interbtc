@@ -20,7 +20,7 @@ use xcm_builder::{
     RelayChainAsNative, SiblingParachainAsNative, SiblingParachainConvertsVia, SignedAccountId32AsNative,
     SignedToAccountId32, SovereignSignedViaLocation, TakeRevenue, TakeWeightCredit,
 };
-use xcm_executor::{Config, XcmExecutor};
+use xcm_executor::{traits::WeightBounds, Config, XcmExecutor};
 use CurrencyId::ForeignAsset;
 
 parameter_types! {
@@ -179,6 +179,218 @@ pub type XcmRouter = (
     XcmpQueue,
 );
 
+trait Tax {
+    fn tax(&self) -> (Self, Self)
+    where
+        Self: Sized;
+}
+impl Tax for MultiAssets {
+    fn tax(&self) -> (Self, Self) {
+        let mut taxed = vec![];
+        let mut tax = vec![];
+
+        for asset in self.inner().iter() {
+            match asset {
+                &MultiAsset {
+                    ref id,
+                    fun: Fungibility::Fungible(amount),
+                } => {
+                    tax.push(MultiAsset {
+                        id: id.clone(),
+                        fun: Fungibility::Fungible(amount / 10),
+                    });
+                    taxed.push(MultiAsset {
+                        id: id.clone(),
+                        fun: Fungibility::Fungible((amount * 9) / 10),
+                    });
+                }
+                x => taxed.push(x.clone()),
+            }
+        }
+        (taxed.into(), tax.into())
+    }
+}
+
+fn limit_buy_execution(mut xcm: Xcm<()>, holding: MultiAssets, at: &MultiLocation) -> Xcm<()> {
+    use xcm_executor::traits::InvertLocation;
+
+    let mut iter = xcm.0.iter_mut();
+    match iter.next() {
+        Some(BuyExecution {
+            ref mut fees,
+            weight_limit,
+        }) => {
+            if let Some(asset) = holding.inner().iter().find(|x| {
+                let ancestry = LocationInverter::<Ancestry>::ancestry();
+                let mut tmp = (*x).clone();
+                match tmp.reanchored(at, &ancestry) {
+                    Ok(reanchored) => reanchored.id == fees.id,
+                    _ => false,
+                }
+            }) {
+                match (&mut fees.fun, &asset.fun) {
+                    (Fungibility::Fungible(ref mut a), Fungibility::Fungible(b)) => {
+                        *a = *b;
+                    }
+                    _ => {}
+                }
+            }
+        }
+        _ => {}
+    }
+    xcm
+}
+
+fn transform_outbound(message: Xcm<RuntimeCall>, original_weight: Weight) -> Result<(Xcm<RuntimeCall>, Weight), ()> {
+    let transformed_message = match &message.0.as_slice() {
+        &[TransferReserveAsset { assets, dest, xcm }] => {
+            // transfer_self_reserve_asset
+            let (taxed, tax) = assets.tax();
+            let transfer_reserve_asset = TransferReserveAsset {
+                assets: taxed.clone(),
+                dest: dest.clone(),
+                xcm: limit_buy_execution(xcm.clone(), taxed.clone(), &dest),
+            };
+            if tax.is_none() {
+                Some(Xcm(vec![transfer_reserve_asset]))
+            } else {
+                let transfer_to_dao = TransferAsset {
+                    assets: tax,
+                    beneficiary: Junction::AccountId32 {
+                        network: NetworkId::Any,
+                        id: TreasuryAccount::get().into(),
+                    }
+                    .into(),
+                };
+                Some(Xcm(vec![transfer_reserve_asset, transfer_to_dao]))
+            }
+        }
+        &[WithdrawAsset(assets), InitiateReserveWithdraw {
+            assets: reserve_assets,
+            reserve,
+            xcm,
+        }] => {
+            // transfer_self_reserve_asset
+            let (taxed, tax) = assets.tax();
+            let withdraw = WithdrawAsset(taxed.clone());
+
+            let mut reserve_withdraw = InitiateReserveWithdraw {
+                assets: reserve_assets.clone(),
+                reserve: reserve.clone(),
+                xcm: limit_buy_execution(xcm.clone(), taxed.clone(), &reserve),
+            };
+
+            if tax.is_none() {
+                Some(Xcm(vec![withdraw, reserve_withdraw.clone()]))
+            } else {
+                let transfer_to_dao = TransferAsset {
+                    assets: tax,
+                    beneficiary: Junction::AccountId32 {
+                        network: NetworkId::Any,
+                        id: TreasuryAccount::get().into(),
+                    }
+                    .into(),
+                };
+                Some(Xcm(vec![withdraw, transfer_to_dao, reserve_withdraw.clone()]))
+            }
+        }
+        _ => None,
+    };
+    match transformed_message {
+        Some(mut message) => {
+            let new_weight = <Runtime as pallet_xcm::Config>::Weigher::weight(&mut message)?;
+            Ok((message, new_weight))
+        }
+        None => Ok((message, original_weight)),
+    }
+}
+
+fn transform_inbound(mut message: Xcm<RuntimeCall>) -> Result<Xcm<RuntimeCall>, ()> {
+    // WithdrawAsset | ReserveAssetDeposited | ClaimAsset]
+    // ClearOrigin*
+    // BuyExecution
+    // <to-insert> transfer
+    // tail
+
+    match message.0.get(0) {
+        Some(WithdrawAsset(assets) | ReserveAssetDeposited(assets) | ClaimAsset { assets, .. }) => {
+            let (_taxed, tax) = assets.tax();
+            let buy_execution = message
+                .0
+                .iter()
+                .enumerate()
+                .skip(1)
+                .find(|(_idx, instruction)| !matches!(instruction, ClearOrigin));
+            match buy_execution {
+                Some((idx, BuyExecution { .. })) => {
+                    let transfer_to_dao = DepositAsset {
+                        assets: MultiAssetFilter::Definite(tax.clone()),
+                        max_assets: tax.len() as u32,
+                        beneficiary: Junction::AccountId32 {
+                            network: NetworkId::Any,
+                            id: TreasuryAccount::get().into(),
+                        }
+                        .into(),
+                    };
+                    message.0.insert(idx + 1, transfer_to_dao);
+                    Ok((message))
+                }
+                _ => Err(()),
+            }
+        }
+        _ => Err(()),
+    }
+}
+
+pub struct TaxingExecutor;
+
+use xcm::latest::ExecuteXcm;
+impl ExecuteXcm<RuntimeCall> for TaxingExecutor {
+    fn execute_xcm_in_credit(
+        origin: impl Into<MultiLocation>,
+        mut message: Xcm<RuntimeCall>,
+        weight_limit: Weight,
+        weight_credit: Weight,
+    ) -> Outcome {
+        use xcm::latest::Instruction::*;
+
+        if weight_credit > 0 {
+            let xcm_weight = match <Runtime as pallet_xcm::Config>::Weigher::weight(&mut message) {
+                Ok(x) => x,
+                Err(()) => return Outcome::Error(XcmError::WeightNotComputable),
+            };
+
+            if xcm_weight <= weight_credit {
+                return match transform_outbound(message, xcm_weight) {
+                    Ok((transformed_message, new_weight)) => {
+                        <XcmExecutor<XcmConfig> as ExecuteXcm<RuntimeCall>>::execute_xcm_in_credit(
+                            origin,
+                            transformed_message,
+                            new_weight,
+                            new_weight,
+                        )
+                    }
+                    Err(()) => Outcome::Error(XcmError::WeightNotComputable),
+                };
+            }
+        } else {
+            return match transform_inbound(message) {
+                Ok(transformed_message) => {
+                    <XcmExecutor<XcmConfig> as ExecuteXcm<RuntimeCall>>::execute_xcm_in_credit(
+                        origin,
+                        transformed_message,
+                        weight_limit,
+                        weight_credit,
+                    )
+                }
+                Err(()) => Outcome::Error(XcmError::WeightNotComputable),
+            }
+        }
+
+        todo!()
+    }
+}
+
 impl pallet_xcm::Config for Runtime {
     type RuntimeEvent = RuntimeEvent;
     type RuntimeCall = RuntimeCall;
@@ -187,7 +399,7 @@ impl pallet_xcm::Config for Runtime {
     type XcmRouter = XcmRouter;
     type ExecuteXcmOrigin = EnsureXcmOrigin<RuntimeOrigin, LocalOriginToLocation>;
     type XcmExecuteFilter = Nothing;
-    type XcmExecutor = XcmExecutor<XcmConfig>;
+    type XcmExecutor = TaxingExecutor;
     type XcmTeleportFilter = Everything;
     type XcmReserveTransferFilter = Everything;
     type Weigher = FixedWeightBounds<UnitWeightCost, RuntimeCall, MaxInstructions>;
@@ -198,12 +410,12 @@ impl pallet_xcm::Config for Runtime {
 
 impl cumulus_pallet_xcm::Config for Runtime {
     type RuntimeEvent = RuntimeEvent;
-    type XcmExecutor = XcmExecutor<XcmConfig>;
+    type XcmExecutor = TaxingExecutor;
 }
 
 impl cumulus_pallet_xcmp_queue::Config for Runtime {
     type RuntimeEvent = RuntimeEvent;
-    type XcmExecutor = XcmExecutor<XcmConfig>;
+    type XcmExecutor = TaxingExecutor;
     type ChannelInfo = ParachainSystem;
     type VersionWrapper = PolkadotXcm;
     type ExecuteOverweightOrigin = EnsureRoot<AccountId>;
@@ -214,7 +426,7 @@ impl cumulus_pallet_xcmp_queue::Config for Runtime {
 
 impl cumulus_pallet_dmp_queue::Config for Runtime {
     type RuntimeEvent = RuntimeEvent;
-    type XcmExecutor = XcmExecutor<XcmConfig>;
+    type XcmExecutor = TaxingExecutor;
     type ExecuteOverweightOrigin = frame_system::EnsureRoot<AccountId>;
 }
 
@@ -350,7 +562,7 @@ impl orml_xtokens::Config for Runtime {
     type CurrencyIdConvert = CurrencyIdConvert;
     type AccountIdToMultiLocation = AccountIdToMultiLocation;
     type SelfLocation = SelfLocation;
-    type XcmExecutor = XcmExecutor<XcmConfig>;
+    type XcmExecutor = TaxingExecutor;
     type Weigher = FixedWeightBounds<UnitWeightCost, RuntimeCall, MaxInstructions>;
     type BaseXcmWeight = UnitWeightCost;
     type LocationInverter = <XcmConfig as Config>::LocationInverter;
