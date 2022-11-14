@@ -2,8 +2,8 @@ mod mock;
 
 use frame_support::traits::{Currency, OnInitialize};
 use mock::{assert_eq, *};
-use sp_runtime::Permill;
 use sp_io::hashing::blake2_256;
+use sp_runtime::Permill;
 
 type EscrowAnnuityPallet = annuity::Pallet<Runtime, EscrowAnnuityInstance>;
 
