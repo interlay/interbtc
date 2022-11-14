@@ -334,7 +334,7 @@ parameter_types! {
 
 parameter_type_with_key! {
     // Only used for transferring parachain tokens to other parachains using DOT/KSM as fee currency. Currently we do not support this, hence return MAX.
-    // See: https://github.com/interlay/open-runtime-module-library/blob/cadcc9fb10b8212f92668138fc8f83dc0c53acf5/xtokens/README.md#transfer-multiple-currencies
+    // See: https://github.com/open-web3-stack/open-runtime-module-library/blob/cadcc9fb10b8212f92668138fc8f83dc0c53acf5/xtokens/README.md#transfer-multiple-currencies
     pub ParachainMinFee: |location: MultiLocation| -> Option<u128> {
         #[allow(clippy::match_ref_pats)] // false positive
         match (location.parents, location.first_interior()) {
