@@ -8,12 +8,12 @@ use std::{
 };
 
 /// Bitcoin blocks and transaction from mainnet taken from blockstream.com
-const PATH_MAINNET_BLOCKS_AND_TRANSACTIONS: &str = "./tests/data/bitcoin-testdata.gzip";
+const PATH_MAINNET_BLOCKS_AND_TRANSACTIONS: &str = "../../data/bitcoin-testdata.gzip";
 
 /// Bitcoin core fork testdata from testnet3: https://raw.githubusercontent.com/bitcoin/bitcoin/d6a59166a1879c1dd5b3a301847961f4b3f17742/test/functional/data/blockheader_testnet3.hex
 /// The headers data is taken from testnet3 for early blocks from genesis until the first checkpoint. There are
 /// two headers with valid POW at height 1 and 2, forking off from genesis. They are indicated by the FORK_PREFIX.
-const PATH_TESTNET_FORKS: &str = "./tests/data/blockheader_testnet3.hex";
+const PATH_TESTNET_FORKS: &str = "../../data/blockheader_testnet3.hex";
 const FORK_PREFIX: &str = "fork:";
 const NUM_FORK_HEADERS: u16 = 549;
 
