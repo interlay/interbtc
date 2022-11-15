@@ -1,14 +1,14 @@
 [package]
 authors = ["Interlay Ltd"]
 edition = "2021"
-name = "module-escrow-rpc-runtime-api"
+name = "escrow-rpc-runtime-api"
 version = '0.3.0'
 
 [dependencies]
 codec = { package = "parity-scale-codec", version = "3.1.5", default-features = false, features = ["derive", "max-encoded-len"] }
 sp-api = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.31", default-features = false }
 
-[dependencies.module-oracle-rpc-runtime-api]
+[dependencies.oracle-rpc-runtime-api]
 default-features = false
 path = '../../../oracle/rpc/runtime-api'
 
@@ -17,5 +17,5 @@ default = ["std"]
 std = [
   "codec/std",
   "sp-api/std",
-  "module-oracle-rpc-runtime-api/std",
+  "oracle-rpc-runtime-api/std",
 ]

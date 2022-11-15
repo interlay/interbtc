@@ -11,7 +11,7 @@ use sp_blockchain::HeaderBackend;
 use sp_runtime::{generic::BlockId, traits::Block as BlockT};
 use std::sync::Arc;
 
-pub use module_issue_rpc_runtime_api::IssueApi as IssueRuntimeApi;
+pub use issue_rpc_runtime_api::IssueApi as IssueRuntimeApi;
 
 #[rpc(client, server)]
 pub trait IssueApi<BlockHash, AccountId, H256, IssueRequest> {

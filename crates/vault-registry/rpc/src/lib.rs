@@ -6,7 +6,7 @@ use jsonrpsee::{
     proc_macros::rpc,
     types::error::{CallError, ErrorCode, ErrorObject},
 };
-use module_oracle_rpc_runtime_api::BalanceWrapper;
+use oracle_rpc_runtime_api::BalanceWrapper;
 use sp_api::ProvideRuntimeApi;
 use sp_blockchain::HeaderBackend;
 use sp_runtime::{
@@ -16,7 +16,7 @@ use sp_runtime::{
 };
 use std::sync::Arc;
 
-pub use module_vault_registry_rpc_runtime_api::VaultRegistryApi as VaultRegistryRuntimeApi;
+pub use vault_registry_rpc_runtime_api::VaultRegistryApi as VaultRegistryRuntimeApi;
 
 #[rpc(client, server)]
 pub trait VaultRegistryApi<BlockHash, VaultId, Balance, UnsignedFixedPoint, CurrencyId, AccountId>

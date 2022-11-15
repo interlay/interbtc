@@ -100,14 +100,14 @@ traits = { path = "../../../crates/traits", default-features = false }
 
 primitives = { package = "interbtc-primitives", path = "../../../primitives", default-features = false }
 
-module-btc-relay-rpc-runtime-api = { path = "../../../crates/btc-relay/rpc/runtime-api", default-features = false }
-module-oracle-rpc-runtime-api = { path = "../../../crates/oracle/rpc/runtime-api", default-features = false }
-module-vault-registry-rpc-runtime-api = { path = "../../../crates/vault-registry/rpc/runtime-api", default-features = false }
-module-escrow-rpc-runtime-api = { path = "../../../crates/escrow/rpc/runtime-api", default-features = false }
-module-reward-rpc-runtime-api = { path = "../../../crates/reward/rpc/runtime-api", default-features = false }
-module-issue-rpc-runtime-api = { path = "../../../crates/issue/rpc/runtime-api", default-features = false }
-module-redeem-rpc-runtime-api = { path = "../../../crates/redeem/rpc/runtime-api", default-features = false }
-module-replace-rpc-runtime-api = { path = "../../../crates/replace/rpc/runtime-api", default-features = false }
+btc-relay-rpc-runtime-api = { path = "../../../crates/btc-relay/rpc/runtime-api", default-features = false }
+oracle-rpc-runtime-api = { path = "../../../crates/oracle/rpc/runtime-api", default-features = false }
+vault-registry-rpc-runtime-api = { path = "../../../crates/vault-registry/rpc/runtime-api", default-features = false }
+escrow-rpc-runtime-api = { path = "../../../crates/escrow/rpc/runtime-api", default-features = false }
+reward-rpc-runtime-api = { path = "../../../crates/reward/rpc/runtime-api", default-features = false }
+issue-rpc-runtime-api = { path = "../../../crates/issue/rpc/runtime-api", default-features = false }
+redeem-rpc-runtime-api = { path = "../../../crates/redeem/rpc/runtime-api", default-features = false }
+replace-rpc-runtime-api = { path = "../../../crates/replace/rpc/runtime-api", default-features = false }
 loans-rpc-runtime-api = { path = "../../../crates/loans/rpc/runtime-api", default-features = false }
 
 # Orml dependencies
@@ -220,14 +220,14 @@ std = [
 
   "parachain-info/std",
 
-  "module-btc-relay-rpc-runtime-api/std",
-  "module-oracle-rpc-runtime-api/std",
-  "module-vault-registry-rpc-runtime-api/std",
-  "module-escrow-rpc-runtime-api/std",
-  "module-reward-rpc-runtime-api/std",
-  "module-issue-rpc-runtime-api/std",
-  "module-redeem-rpc-runtime-api/std",
-  "module-replace-rpc-runtime-api/std",
+  "btc-relay-rpc-runtime-api/std",
+  "oracle-rpc-runtime-api/std",
+  "vault-registry-rpc-runtime-api/std",
+  "escrow-rpc-runtime-api/std",
+  "reward-rpc-runtime-api/std",
+  "issue-rpc-runtime-api/std",
+  "redeem-rpc-runtime-api/std",
+  "replace-rpc-runtime-api/std",
   "loans-rpc-runtime-api/std",
 
   "orml-tokens/std",

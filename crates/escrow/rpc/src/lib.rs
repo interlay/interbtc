@@ -6,7 +6,7 @@ use jsonrpsee::{
     proc_macros::rpc,
     types::error::{CallError, ErrorCode, ErrorObject},
 };
-use module_oracle_rpc_runtime_api::BalanceWrapper;
+use oracle_rpc_runtime_api::BalanceWrapper;
 use sp_api::{ApiError, ProvideRuntimeApi};
 use sp_blockchain::HeaderBackend;
 use sp_runtime::{
@@ -15,7 +15,7 @@ use sp_runtime::{
 };
 use std::sync::Arc;
 
-pub use module_escrow_rpc_runtime_api::EscrowApi as EscrowRuntimeApi;
+pub use escrow_rpc_runtime_api::EscrowApi as EscrowRuntimeApi;
 
 #[rpc(client, server)]
 pub trait EscrowApi<BlockHash, AccountId, BlockNumber, Balance>

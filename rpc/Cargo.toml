@@ -9,14 +9,14 @@ futures = "0.3.21"
 jsonrpsee = { version = "0.15.1", features = ["server", "macros"] }
 
 # Parachain dependencies
-module-btc-relay-rpc = { path = "../crates/btc-relay/rpc" }
-module-oracle-rpc = { path = "../crates/oracle/rpc" }
-module-vault-registry-rpc = { path = "../crates/vault-registry/rpc" }
-module-issue-rpc = { path = "../crates/issue/rpc" }
-module-redeem-rpc = { path = "../crates/redeem/rpc" }
-module-replace-rpc = { path = "../crates/replace/rpc" }
-module-escrow-rpc = { path = "../crates/escrow/rpc" }
-module-reward-rpc = { path = "../crates/reward/rpc" }
+btc-relay-rpc = { path = "../crates/btc-relay/rpc" }
+oracle-rpc = { path = "../crates/oracle/rpc" }
+vault-registry-rpc = { path = "../crates/vault-registry/rpc" }
+issue-rpc = { path = "../crates/issue/rpc" }
+redeem-rpc = { path = "../crates/redeem/rpc" }
+replace-rpc = { path = "../crates/replace/rpc" }
+escrow-rpc = { path = "../crates/escrow/rpc" }
+reward-rpc = { path = "../crates/reward/rpc" }
 loans-rpc = { path = "../crates/loans/rpc" }
 
 vault-registry = { path = "../crates/vault-registry" }

@@ -34,14 +34,14 @@ interbtc-rpc = { path = "../rpc" }
 bitcoin = { path = "../crates/bitcoin" }
 primitives = { package = "interbtc-primitives", path = "../primitives" }
 
-module-btc-relay-rpc-runtime-api = { path = "../crates/btc-relay/rpc/runtime-api" }
-module-oracle-rpc-runtime-api = { path = "../crates/oracle/rpc/runtime-api" }
-module-vault-registry-rpc-runtime-api = { path = "../crates/vault-registry/rpc/runtime-api" }
-module-escrow-rpc-runtime-api = { path = "../crates/escrow/rpc/runtime-api" }
-module-reward-rpc-runtime-api = { path = "../crates/reward/rpc/runtime-api" }
-module-issue-rpc-runtime-api = { path = "../crates/issue/rpc/runtime-api" }
-module-redeem-rpc-runtime-api = { path = "../crates/redeem/rpc/runtime-api" }
-module-replace-rpc-runtime-api = { path = "../crates/replace/rpc/runtime-api" }
+btc-relay-rpc-runtime-api = { path = "../crates/btc-relay/rpc/runtime-api" }
+oracle-rpc-runtime-api = { path = "../crates/oracle/rpc/runtime-api" }
+vault-registry-rpc-runtime-api = { path = "../crates/vault-registry/rpc/runtime-api" }
+escrow-rpc-runtime-api = { path = "../crates/escrow/rpc/runtime-api" }
+reward-rpc-runtime-api = { path = "../crates/reward/rpc/runtime-api" }
+issue-rpc-runtime-api = { path = "../crates/issue/rpc/runtime-api" }
+redeem-rpc-runtime-api = { path = "../crates/redeem/rpc/runtime-api" }
+replace-rpc-runtime-api = { path = "../crates/replace/rpc/runtime-api" }
 loans-rpc-runtime-api = { path = "../crates/loans/rpc/runtime-api" }
 
 # Substrate dependencies

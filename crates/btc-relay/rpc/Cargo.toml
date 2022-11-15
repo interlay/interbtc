@@ -1,5 +1,5 @@
 [package]
-name = "module-btc-relay-rpc"
+name = "btc-relay-rpc"
 version = "1.2.0"
 authors = ["Interlay Ltd"]
 edition = "2021"
@@ -10,4 +10,4 @@ jsonrpsee = { version = "0.15.1", features = ["server", "macros"] }
 sp-runtime = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.31" }
 sp-api = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.31" }
 sp-blockchain = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.31" }
-module-btc-relay-rpc-runtime-api = { path = "runtime-api" }
+btc-relay-rpc-runtime-api = { path = "runtime-api" }

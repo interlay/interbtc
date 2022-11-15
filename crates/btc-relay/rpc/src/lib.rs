@@ -11,7 +11,7 @@ use sp_blockchain::HeaderBackend;
 use sp_runtime::{generic::BlockId, traits::Block as BlockT, DispatchError};
 use std::sync::Arc;
 
-pub use module_btc_relay_rpc_runtime_api::BtcRelayApi as BtcRelayRuntimeApi;
+pub use btc_relay_rpc_runtime_api::BtcRelayApi as BtcRelayRuntimeApi;
 
 #[rpc(client, server)]
 pub trait BtcRelayApi<BlockHash, H256Le> {
