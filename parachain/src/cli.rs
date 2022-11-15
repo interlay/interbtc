@@ -64,11 +64,11 @@ pub struct ExportMetadataCommand {
     pub raw: bool,
 
     /// The name of the runtime to retrieve the metadata from.
-    #[clap(long, arg_enum)]
+    #[clap(long)]
     pub runtime: RuntimeName,
 }
 
-#[derive(clap::ArgEnum, Debug, Clone)]
+#[derive(clap::ValueEnum, Debug, Clone)]
 pub enum RuntimeName {
     Interlay,
     Kintsugi,

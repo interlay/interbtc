@@ -9,7 +9,7 @@ use cumulus_primitives_core::ParaId;
 use cumulus_primitives_parachain_inherent::{MockValidationDataInherentDataProvider, MockXcmConfig};
 use cumulus_relay_chain_inprocess_interface::build_inprocess_relay_chain;
 use cumulus_relay_chain_interface::{RelayChainError, RelayChainInterface, RelayChainResult};
-use cumulus_relay_chain_rpc_interface::{create_client_and_start_worker, RelayChainRpcInterface};
+use cumulus_relay_chain_minimal_node::build_minimal_relay_chain_node;
 use polkadot_service::CollatorPair;
 
 use futures::StreamExt;
@@ -282,10 +282,7 @@ async fn build_relay_chain_interface(
     collator_options: CollatorOptions,
 ) -> RelayChainResult<(Arc<(dyn RelayChainInterface + 'static)>, Option<CollatorPair>)> {
     match collator_options.relay_chain_rpc_url {
-        Some(relay_chain_url) => {
-            let client = create_client_and_start_worker(relay_chain_url, task_manager).await?;
-            Ok((Arc::new(RelayChainRpcInterface::new(client)) as Arc<_>, None))
-        }
+        Some(relay_chain_url) => build_minimal_relay_chain_node(polkadot_config, task_manager, relay_chain_url).await,
         None => build_inprocess_relay_chain(
             polkadot_config,
             parachain_config,
@@ -451,7 +448,6 @@ where
             relay_chain_interface,
             import_queue,
             relay_chain_slot_duration,
-            collator_options,
         };
 
         start_full_node(params)?;

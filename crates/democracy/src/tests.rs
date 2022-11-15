@@ -5,7 +5,7 @@ use crate as pallet_democracy;
 use codec::Encode;
 use frame_support::{
     assert_noop, assert_ok, ord_parameter_types, parameter_types,
-    traits::{Contains, EqualPrivilegeOnly, GenesisBuild, OnInitialize, SortedMembers},
+    traits::{ConstU32, Contains, EqualPrivilegeOnly, GenesisBuild, OnInitialize, SortedMembers},
     weights::Weight,
 };
 use frame_system::{EnsureRoot, EnsureSignedBy};
@@ -42,7 +42,7 @@ frame_support::construct_runtime!(
     }
 );
 
-// Test that a fitlered call can be dispatched.
+// Test that a filtered call can be dispatched.
 pub struct BaseFilter;
 impl Contains<RuntimeCall> for BaseFilter {
     fn contains(call: &RuntimeCall) -> bool {
@@ -53,11 +53,12 @@ impl Contains<RuntimeCall> for BaseFilter {
 parameter_types! {
     pub const BlockHashCount: u64 = 250;
     pub BlockWeights: frame_system::limits::BlockWeights =
-        frame_system::limits::BlockWeights::simple_max(Weight::from_ref_time(1_000_000 as u64));
+        frame_system::limits::BlockWeights::simple_max(frame_support::weights::constants::WEIGHT_PER_SECOND.set_proof_size(u64::MAX));
 }
+
 impl frame_system::Config for Test {
     type BaseCallFilter = BaseFilter;
-    type BlockWeights = ();
+    type BlockWeights = BlockWeights;
     type BlockLength = ();
     type DbWeight = ();
     type RuntimeOrigin = RuntimeOrigin;
@@ -81,6 +82,7 @@ impl frame_system::Config for Test {
     type OnSetCode = ();
     type MaxConsumers = frame_support::traits::ConstU32<16>;
 }
+
 parameter_types! {
     pub MaximumSchedulerWeight: Weight = Perbill::from_percent(80) * BlockWeights::get().max_block;
 }
@@ -92,11 +94,10 @@ impl pallet_scheduler::Config for Test {
     type RuntimeCall = RuntimeCall;
     type MaximumWeight = MaximumSchedulerWeight;
     type ScheduleOrigin = EnsureRoot<u64>;
-    type MaxScheduledPerBlock = ();
+    type MaxScheduledPerBlock = ConstU32<100>;
     type OriginPrivilegeCmp = EqualPrivilegeOnly;
     type WeightInfo = ();
-    type PreimageProvider = ();
-    type NoPreimagePostponement = ();
+    type Preimages = ();
 }
 
 parameter_types! {
