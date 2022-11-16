@@ -4,6 +4,7 @@ use crate::{assert_eq, *};
 
 pub const USER: [u8; 32] = ALICE;
 pub const VAULT: [u8; 32] = BOB;
+pub const VAULT2: [u8; 32] = CAROL;
 
 pub const DEFAULT_BACKING_COLLATERAL: Balance = 1_000_000;
 pub const DEFAULT_NOMINATION: Balance = 20_000;
@@ -11,6 +12,9 @@ pub const DEFAULT_NOMINATION_LIMIT: Balance = 1_000_000;
 
 pub const DEFAULT_VAULT_UNBONDING_PERIOD: u32 = 100;
 pub const DEFAULT_NOMINATOR_UNBONDING_PERIOD: u32 = 50;
+
+pub const COMMISSION: f64 = 0.75;
+pub const NOMINATOR_SHARE: f64 = 1.0 - COMMISSION;
 
 pub fn default_backing_collateral(currency_id: CurrencyId) -> Amount<Runtime> {
     Amount::new(DEFAULT_BACKING_COLLATERAL, currency_id)
@@ -101,4 +105,13 @@ pub fn assert_total_nominated_collateral_is(vault_id: &VaultId, amount_collatera
 
 pub fn get_nominator_collateral(vault_id: &VaultId, nominator_id: AccountId) -> Amount<Runtime> {
     NominationPallet::get_nominator_collateral(vault_id, &nominator_id).unwrap()
+}
+
+pub fn set_commission(vault_id: &VaultId, commission: FixedU128) {
+    FeePallet::set_commission(
+        origin_of(vault_id.account_id.clone()),
+        vault_id.currencies.clone(),
+        commission,
+    )
+    .unwrap();
 }

@@ -872,6 +872,9 @@ impl<T: Config> Pallet<T> {
         // will fail if free_balance is insufficient
         amount.lock_on(&vault_id.account_id)?;
 
+        // withdraw first such that past rewards don't get changed by this deposit
+        ext::fee::withdraw_all_vault_rewards::<T>(vault_id)?;
+
         // Deposit `amount` of stake in the pool
         ext::staking::deposit_stake::<T>(vault_id, &vault_id.account_id, amount)?;
 
@@ -887,6 +890,9 @@ impl<T: Config> Pallet<T> {
         // will fail if reserved_balance is insufficient
         amount.unlock_on(&vault_id.account_id)?;
         Self::decrease_total_backing_collateral(&vault_id.currencies, amount)?;
+
+        // withdraw first such that past rewards don't get changed by this withdrawal
+        ext::fee::withdraw_all_vault_rewards::<T>(vault_id)?;
 
         // Withdraw `amount` of stake from the pool
         ext::staking::withdraw_stake::<T>(vault_id, &vault_id.account_id, amount)?;
@@ -1856,6 +1862,12 @@ impl<T: Config> Pallet<T> {
             TotalUserVaultCollateral::<T>::get(currency_pair),
             currency_pair.collateral,
         ))
+    }
+
+    #[cfg(feature = "integration-tests")]
+    pub fn get_free_collateral(vault_id: &DefaultVaultId<T>) -> Result<Amount<T>, DispatchError> {
+        let rich_vault = Self::get_rich_vault_from_id(vault_id)?;
+        rich_vault.get_free_collateral()
     }
 
     fn get_rich_vault_from_id(vault_id: &DefaultVaultId<T>) -> Result<RichVault<T>, DispatchError> {

@@ -30,8 +30,10 @@ use staking::DefaultVaultCurrencyPair;
 use traits::LoansApi;
 use vault_registry::types::UpdatableVault;
 
+use self::redeem_testing_utils::USER_BTC_ADDRESS;
 pub use issue::{types::IssueRequestExt, IssueRequest, IssueRequestStatus};
 pub use loans::{InterestRateModel, Market, MarketState};
+pub use loans_testing_utils::activate_lending_and_mint;
 pub use oracle::OracleKey;
 pub use redeem::{types::RedeemRequestExt, RedeemRequest};
 pub use replace::{types::ReplaceRequestExt, ReplaceRequest};
@@ -47,8 +49,6 @@ pub use sp_std::convert::TryInto;
 use std::collections::BTreeMap;
 pub use std::convert::TryFrom;
 pub use vault_registry::{CurrencySource, DefaultVaultId, Vault, VaultStatus};
-
-use self::redeem_testing_utils::USER_BTC_ADDRESS;
 
 pub mod issue_testing_utils;
 pub mod loans_testing_utils;
@@ -69,6 +69,7 @@ pub const DAVE: [u8; 32] = [10u8; 32];
 pub const EVE: [u8; 32] = [11u8; 32];
 pub const FRANK: [u8; 32] = [12u8; 32];
 pub const GRACE: [u8; 32] = [13u8; 32];
+pub const ZACK: [u8; 32] = [25u8; 32];
 
 pub const FAUCET: [u8; 32] = [128u8; 32];
 pub const DUMMY: [u8; 32] = [255u8; 32];
@@ -474,7 +475,7 @@ impl Default for FeePool {
         }
     }
 }
-fn abs_difference<T: std::ops::Sub<Output = T> + PartialOrd>(x: T, y: T) -> T {
+pub fn abs_difference<T: std::ops::Sub<Output = T> + PartialOrd>(x: T, y: T) -> T {
     if x < y {
         y - x
     } else {
@@ -598,6 +599,12 @@ impl CoreVaultData {
         Self::force_to(vault_id, state);
     }
 
+    pub fn with_changes(&self, f: impl FnOnce(&mut CoreVaultData)) -> Self {
+        let mut state = self.clone();
+        f(&mut state);
+        state
+    }
+
     pub fn force_to(vault_id: &VaultId, state: CoreVaultData) {
         VaultRegistryPallet::collateral_integrity_check();
 
@@ -612,7 +619,10 @@ impl CoreVaultData {
         assert!(state.to_be_replaced + state.to_be_redeemed <= state.issued);
 
         // register vault if not yet registered
-        try_register_vault(Amount::new(100, state.collateral_currency()), &vault_id);
+        if VaultRegistryPallet::get_vault_from_id(vault_id).is_err() {
+            try_register_vault(Amount::new(100, state.collateral_currency()), &vault_id);
+            VaultRegistryPallet::collateral_integrity_check();
+        }
 
         // todo: check that currency did not change
         let currency_id = VaultRegistryPallet::get_vault_from_id(&vault_id)
@@ -1054,6 +1064,18 @@ pub fn get_register_vault_result(vault_id: &VaultId, collateral: Amount<Runtime>
 
 pub fn try_register_vault(collateral: Amount<Runtime>, vault_id: &VaultId) {
     if VaultRegistryPallet::get_vault_from_id(vault_id).is_err() {
+        if TokensPallet::accounts(vault_id.account_id.clone(), vault_id.collateral_currency()).free
+            < collateral.amount()
+        {
+            // register vault if not yet registered
+            assert_ok!(RuntimeCall::Tokens(TokensCall::set_balance {
+                who: vault_id.account_id.clone(),
+                currency_id: vault_id.collateral_currency(),
+                new_free: collateral.amount(),
+                new_reserved: 0,
+            })
+            .dispatch(root()));
+        }
         register_vault(&vault_id, collateral);
     };
     VaultRegistryPallet::collateral_integrity_check();
