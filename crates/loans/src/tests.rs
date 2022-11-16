@@ -316,11 +316,11 @@ fn zero_amount_extrinsics_fail() {
         );
         assert_noop!(
             Loans::deposit_all_collateral(RuntimeOrigin::signed(ALICE), DOT),
-            Error::<Test>::InvalidAmount
+            Error::<Test>::DepositAllCollateralFailed
         );
         assert_noop!(
             Loans::withdraw_all_collateral(RuntimeOrigin::signed(ALICE), DOT),
-            Error::<Test>::InvalidAmount
+            Error::<Test>::WithdrawAllCollateralFailed
         );
         assert_noop!(
             Loans::liquidate_borrow(RuntimeOrigin::signed(ALICE), BOB, DOT, unit(0), IBTC),
@@ -1285,7 +1285,7 @@ fn reward_calculation_multi_player_in_one_market_works() {
         // There is no locked collateral left, so withdrawing will fail
         assert_noop!(
             Loans::withdraw_all_collateral(RuntimeOrigin::signed(BOB), DOT),
-            Error::<Test>::InvalidAmount
+            Error::<Test>::WithdrawAllCollateralFailed
         );
         // There is also no free collateral left, so redeeming will fail
         assert_noop!(

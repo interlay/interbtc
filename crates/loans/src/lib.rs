@@ -265,6 +265,10 @@ pub mod pallet {
         InvalidExchangeRate,
         /// Amount cannot be zero
         InvalidAmount,
+        /// Locking collateral failed. The account has no `free` tokens.
+        DepositAllCollateralFailed,
+        /// Unlocking collateral failed. The account has no `reserved` tokens.
+        WithdrawAllCollateralFailed,
         /// Tokens already locked for a different purpose than borrow collateral
         TokensAlreadyLocked,
         /// Payer cannot be signer
@@ -998,7 +1002,7 @@ pub mod pallet {
         pub fn deposit_all_collateral(origin: OriginFor<T>, asset_id: AssetIdOf<T>) -> DispatchResultWithPostInfo {
             let who = ensure_signed(origin)?;
             let free_lend_tokens = Self::free_lend_tokens(asset_id, &who)?;
-            ensure!(!free_lend_tokens.is_zero(), Error::<T>::InvalidAmount);
+            ensure!(!free_lend_tokens.is_zero(), Error::<T>::DepositAllCollateralFailed);
             let reserved_lend_tokens = Self::reserved_lend_tokens(asset_id, &who)?;
             // This check could fail if `withdraw_all_collateral()` leaves leftover lend_tokens locked.
             // However the current implementation is guaranteed to withdraw everything.
@@ -1014,7 +1018,7 @@ pub mod pallet {
 
             let lend_token_id = Self::lend_token_id(asset_id)?;
             let collateral = Self::account_deposits(lend_token_id, who.clone());
-            ensure!(!collateral.is_zero(), Error::<T>::InvalidAmount);
+            ensure!(!collateral.is_zero(), Error::<T>::WithdrawAllCollateralFailed);
             Self::do_withdraw_collateral(&who, lend_token_id, collateral)?;
             Ok(().into())
         }
