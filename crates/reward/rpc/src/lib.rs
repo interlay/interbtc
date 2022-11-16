@@ -6,7 +6,7 @@ use jsonrpsee::{
     proc_macros::rpc,
     types::error::{CallError, ErrorCode, ErrorObject},
 };
-use module_oracle_rpc_runtime_api::BalanceWrapper;
+use oracle_rpc_runtime_api::BalanceWrapper;
 use sp_api::ProvideRuntimeApi;
 use sp_blockchain::HeaderBackend;
 use sp_runtime::{
@@ -16,7 +16,7 @@ use sp_runtime::{
 };
 use std::sync::Arc;
 
-pub use module_reward_rpc_runtime_api::RewardApi as RewardRuntimeApi;
+pub use reward_rpc_runtime_api::RewardApi as RewardRuntimeApi;
 
 #[rpc(client, server)]
 pub trait RewardApi<BlockHash, AccountId, VaultId, CurrencyId, Balance>

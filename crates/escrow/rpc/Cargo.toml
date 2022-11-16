@@ -1,7 +1,7 @@
 [package]
 authors = ["Interlay Ltd"]
 edition = "2021"
-name = "module-escrow-rpc"
+name = "escrow-rpc"
 version = '0.3.0'
 
 [dependencies]
@@ -10,7 +10,7 @@ jsonrpsee = { version = "0.15.1", features = ["server", "macros"] }
 sp-runtime = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.31" }
 sp-api = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.31" }
 sp-blockchain = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.31" }
-module-escrow-rpc-runtime-api = { path = "runtime-api" }
+escrow-rpc-runtime-api = { path = "runtime-api" }
 
-[dependencies.module-oracle-rpc-runtime-api]
+[dependencies.oracle-rpc-runtime-api]
 path = '../../oracle/rpc/runtime-api'

@@ -3,7 +3,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use codec::Codec;
-use module_oracle_rpc_runtime_api::BalanceWrapper;
+use oracle_rpc_runtime_api::BalanceWrapper;
 
 sp_api::decl_runtime_apis! {
     pub trait EscrowApi<AccountId, BlockNumber, Balance> where

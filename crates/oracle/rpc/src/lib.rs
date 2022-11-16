@@ -15,7 +15,7 @@ use sp_runtime::{
 };
 use std::sync::Arc;
 
-pub use module_oracle_rpc_runtime_api::{BalanceWrapper, OracleApi as OracleRuntimeApi};
+pub use oracle_rpc_runtime_api::{BalanceWrapper, OracleApi as OracleRuntimeApi};
 
 #[rpc(client, server)]
 pub trait OracleApi<BlockHash, Balance, CurrencyId>

@@ -64,7 +64,7 @@ pub use sp_consensus_aura::sr25519::AuthorityId as AuraId;
 
 // interBTC exports
 pub use btc_relay::{bitcoin, Call as BtcRelayCall, TARGET_SPACING};
-pub use module_oracle_rpc_runtime_api::BalanceWrapper;
+pub use oracle_rpc_runtime_api::BalanceWrapper;
 pub use security::StatusCode;
 
 pub use primitives::{
@@ -1275,7 +1275,7 @@ impl_runtime_apis! {
         }
     }
 
-    impl module_btc_relay_rpc_runtime_api::BtcRelayApi<
+    impl btc_relay_rpc_runtime_api::BtcRelayApi<
         Block,
         H256Le,
     > for Runtime {
@@ -1284,7 +1284,7 @@ impl_runtime_apis! {
         }
     }
 
-    impl module_oracle_rpc_runtime_api::OracleApi<
+    impl oracle_rpc_runtime_api::OracleApi<
         Block,
         Balance,
         CurrencyId
@@ -1300,7 +1300,7 @@ impl_runtime_apis! {
         }
     }
 
-    impl module_vault_registry_rpc_runtime_api::VaultRegistryApi<
+    impl vault_registry_rpc_runtime_api::VaultRegistryApi<
         Block,
         VaultId,
         Balance,
@@ -1363,7 +1363,7 @@ impl_runtime_apis! {
         }
     }
 
-    impl module_escrow_rpc_runtime_api::EscrowApi<
+    impl escrow_rpc_runtime_api::EscrowApi<
         Block,
         AccountId,
         BlockNumber,
@@ -1378,7 +1378,7 @@ impl_runtime_apis! {
         }
     }
 
-    impl module_reward_rpc_runtime_api::RewardApi<
+    impl reward_rpc_runtime_api::RewardApi<
         Block,
         AccountId,
         VaultId,
@@ -1398,7 +1398,7 @@ impl_runtime_apis! {
         }
     }
 
-    impl module_issue_rpc_runtime_api::IssueApi<
+    impl issue_rpc_runtime_api::IssueApi<
         Block,
         AccountId,
         H256,
@@ -1413,7 +1413,7 @@ impl_runtime_apis! {
         }
     }
 
-    impl module_redeem_rpc_runtime_api::RedeemApi<
+    impl redeem_rpc_runtime_api::RedeemApi<
         Block,
         AccountId,
         H256,
@@ -1428,7 +1428,7 @@ impl_runtime_apis! {
         }
     }
 
-    impl module_replace_rpc_runtime_api::ReplaceApi<
+    impl replace_rpc_runtime_api::ReplaceApi<
         Block,
         AccountId,
         H256,

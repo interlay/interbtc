@@ -11,7 +11,7 @@ use sp_blockchain::HeaderBackend;
 use sp_runtime::{generic::BlockId, traits::Block as BlockT};
 use std::sync::Arc;
 
-pub use module_replace_rpc_runtime_api::ReplaceApi as ReplaceRuntimeApi;
+pub use replace_rpc_runtime_api::ReplaceApi as ReplaceRuntimeApi;
 
 #[rpc(client, server)]
 pub trait ReplaceApi<BlockHash, AccountId, H256, ReplaceRequest> {

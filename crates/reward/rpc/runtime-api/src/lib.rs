@@ -4,7 +4,7 @@
 
 use codec::Codec;
 use frame_support::dispatch::DispatchError;
-use module_oracle_rpc_runtime_api::BalanceWrapper;
+use oracle_rpc_runtime_api::BalanceWrapper;
 
 sp_api::decl_runtime_apis! {
     pub trait RewardApi<AccountId, VaultId, CurrencyId, Balance> where

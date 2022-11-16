@@ -1,5 +1,5 @@
 [package]
-name = "module-replace-rpc-runtime-api"
+name = "replace-rpc-runtime-api"
 version = "1.2.0"
 authors = ["Interlay Ltd"]
 edition = "2021"

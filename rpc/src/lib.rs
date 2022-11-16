@@ -44,9 +44,9 @@ where
     C: Send + Sync + 'static,
     C::Api: substrate_frame_rpc_system::AccountNonceApi<Block, AccountId, Nonce>,
     C::Api: pallet_transaction_payment_rpc::TransactionPaymentRuntimeApi<Block, Balance>,
-    C::Api: module_btc_relay_rpc::BtcRelayRuntimeApi<Block, H256Le>,
-    C::Api: module_oracle_rpc::OracleRuntimeApi<Block, Balance, CurrencyId>,
-    C::Api: module_vault_registry_rpc::VaultRegistryRuntimeApi<
+    C::Api: btc_relay_rpc::BtcRelayRuntimeApi<Block, H256Le>,
+    C::Api: oracle_rpc::OracleRuntimeApi<Block, Balance, CurrencyId>,
+    C::Api: vault_registry_rpc::VaultRegistryRuntimeApi<
         Block,
         VaultId<AccountId, CurrencyId>,
         Balance,
@@ -54,41 +54,37 @@ where
         CurrencyId,
         AccountId,
     >,
-    C::Api: module_issue_rpc::IssueRuntimeApi<
-        Block,
-        AccountId,
-        H256,
-        IssueRequest<AccountId, BlockNumber, Balance, CurrencyId>,
-    >,
-    C::Api: module_redeem_rpc::RedeemRuntimeApi<
+    C::Api:
+        issue_rpc::IssueRuntimeApi<Block, AccountId, H256, IssueRequest<AccountId, BlockNumber, Balance, CurrencyId>>,
+    C::Api: redeem_rpc::RedeemRuntimeApi<
         Block,
         AccountId,
         H256,
         RedeemRequest<AccountId, BlockNumber, Balance, CurrencyId>,
     >,
-    C::Api: module_replace_rpc::ReplaceRuntimeApi<
+    C::Api: replace_rpc::ReplaceRuntimeApi<
         Block,
         AccountId,
         H256,
         ReplaceRequest<AccountId, BlockNumber, Balance, CurrencyId>,
     >,
-    C::Api: module_escrow_rpc::EscrowRuntimeApi<Block, AccountId, BlockNumber, Balance>,
-    C::Api: module_reward_rpc::RewardRuntimeApi<Block, AccountId, VaultId<AccountId, CurrencyId>, CurrencyId, Balance>,
+    C::Api: escrow_rpc::EscrowRuntimeApi<Block, AccountId, BlockNumber, Balance>,
+    C::Api: reward_rpc::RewardRuntimeApi<Block, AccountId, VaultId<AccountId, CurrencyId>, CurrencyId, Balance>,
     C::Api: loans_rpc::LoansRuntimeApi<Block, AccountId, Balance>,
     C::Api: BlockBuilder<Block>,
     P: TransactionPool + 'static,
 {
+    use btc_relay_rpc::{BtcRelay, BtcRelayApiServer};
+    use escrow_rpc::{Escrow, EscrowApiServer};
+    use issue_rpc::{Issue, IssueApiServer};
     use loans_rpc::{Loans, LoansApiServer};
-    use module_btc_relay_rpc::{BtcRelay, BtcRelayApiServer};
-    use module_escrow_rpc::{Escrow, EscrowApiServer};
-    use module_issue_rpc::{Issue, IssueApiServer};
-    use module_oracle_rpc::{Oracle, OracleApiServer};
-    use module_redeem_rpc::{Redeem, RedeemApiServer};
-    use module_replace_rpc::{Replace, ReplaceApiServer};
-    use module_reward_rpc::{Reward, RewardApiServer};
-    use module_vault_registry_rpc::{VaultRegistry, VaultRegistryApiServer};
+    use oracle_rpc::{Oracle, OracleApiServer};
     use pallet_transaction_payment_rpc::{TransactionPayment, TransactionPaymentApiServer};
+    use redeem_rpc::{Redeem, RedeemApiServer};
+    use replace_rpc::{Replace, ReplaceApiServer};
+    use reward_rpc::{Reward, RewardApiServer};
     use substrate_frame_rpc_system::{System, SystemApiServer};
+    use vault_registry_rpc::{VaultRegistry, VaultRegistryApiServer};
 
     let mut module = RpcExtension::new(());
     let FullDeps {

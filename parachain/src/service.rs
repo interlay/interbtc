@@ -68,32 +68,32 @@ pub trait RuntimeApiCollection:
     + substrate_frame_rpc_system::AccountNonceApi<Block, AccountId, Nonce>
     + pallet_transaction_payment_rpc::TransactionPaymentRuntimeApi<Block, Balance>
     + cumulus_primitives_core::CollectCollationInfo<Block>
-    + module_btc_relay_rpc_runtime_api::BtcRelayApi<Block, H256Le>
-    + module_oracle_rpc_runtime_api::OracleApi<Block, Balance, CurrencyId>
-    + module_vault_registry_rpc_runtime_api::VaultRegistryApi<
+    + btc_relay_rpc_runtime_api::BtcRelayApi<Block, H256Le>
+    + oracle_rpc_runtime_api::OracleApi<Block, Balance, CurrencyId>
+    + vault_registry_rpc_runtime_api::VaultRegistryApi<
         Block,
         VaultId<AccountId, CurrencyId>,
         Balance,
         UnsignedFixedPoint,
         CurrencyId,
         AccountId,
-    > + module_escrow_rpc_runtime_api::EscrowApi<Block, AccountId, BlockNumber, Balance>
-    + module_issue_rpc_runtime_api::IssueApi<
+    > + escrow_rpc_runtime_api::EscrowApi<Block, AccountId, BlockNumber, Balance>
+    + issue_rpc_runtime_api::IssueApi<
         Block,
         AccountId,
         H256,
         issue::IssueRequest<AccountId, BlockNumber, Balance, CurrencyId>,
-    > + module_redeem_rpc_runtime_api::RedeemApi<
+    > + redeem_rpc_runtime_api::RedeemApi<
         Block,
         AccountId,
         H256,
         redeem::RedeemRequest<AccountId, BlockNumber, Balance, CurrencyId>,
-    > + module_replace_rpc_runtime_api::ReplaceApi<
+    > + replace_rpc_runtime_api::ReplaceApi<
         Block,
         AccountId,
         H256,
         replace::ReplaceRequest<AccountId, BlockNumber, Balance, CurrencyId>,
-    > + module_reward_rpc_runtime_api::RewardApi<Block, AccountId, VaultId<AccountId, CurrencyId>, CurrencyId, Balance>
+    > + reward_rpc_runtime_api::RewardApi<Block, AccountId, VaultId<AccountId, CurrencyId>, CurrencyId, Balance>
     + loans_rpc_runtime_api::LoansApi<Block, AccountId, Balance>
 where
     <Self as sp_api::ApiExt<Block>>::StateBackend: sp_api::StateBackend<BlakeTwo256>,
@@ -111,32 +111,32 @@ where
         + substrate_frame_rpc_system::AccountNonceApi<Block, AccountId, Nonce>
         + pallet_transaction_payment_rpc::TransactionPaymentRuntimeApi<Block, Balance>
         + cumulus_primitives_core::CollectCollationInfo<Block>
-        + module_btc_relay_rpc_runtime_api::BtcRelayApi<Block, H256Le>
-        + module_oracle_rpc_runtime_api::OracleApi<Block, Balance, CurrencyId>
-        + module_vault_registry_rpc_runtime_api::VaultRegistryApi<
+        + btc_relay_rpc_runtime_api::BtcRelayApi<Block, H256Le>
+        + oracle_rpc_runtime_api::OracleApi<Block, Balance, CurrencyId>
+        + vault_registry_rpc_runtime_api::VaultRegistryApi<
             Block,
             VaultId<AccountId, CurrencyId>,
             Balance,
             UnsignedFixedPoint,
             CurrencyId,
             AccountId,
-        > + module_escrow_rpc_runtime_api::EscrowApi<Block, AccountId, BlockNumber, Balance>
-        + module_issue_rpc_runtime_api::IssueApi<
+        > + escrow_rpc_runtime_api::EscrowApi<Block, AccountId, BlockNumber, Balance>
+        + issue_rpc_runtime_api::IssueApi<
             Block,
             AccountId,
             H256,
             issue::IssueRequest<AccountId, BlockNumber, Balance, CurrencyId>,
-        > + module_redeem_rpc_runtime_api::RedeemApi<
+        > + redeem_rpc_runtime_api::RedeemApi<
             Block,
             AccountId,
             H256,
             redeem::RedeemRequest<AccountId, BlockNumber, Balance, CurrencyId>,
-        > + module_replace_rpc_runtime_api::ReplaceApi<
+        > + replace_rpc_runtime_api::ReplaceApi<
             Block,
             AccountId,
             H256,
             replace::ReplaceRequest<AccountId, BlockNumber, Balance, CurrencyId>,
-        > + module_reward_rpc_runtime_api::RewardApi<Block, AccountId, VaultId<AccountId, CurrencyId>, CurrencyId, Balance>
+        > + reward_rpc_runtime_api::RewardApi<Block, AccountId, VaultId<AccountId, CurrencyId>, CurrencyId, Balance>
         + loans_rpc_runtime_api::LoansApi<Block, AccountId, Balance>,
     <Self as sp_api::ApiExt<Block>>::StateBackend: sp_api::StateBackend<BlakeTwo256>,
 {

@@ -11,7 +11,7 @@ use sp_blockchain::HeaderBackend;
 use sp_runtime::{generic::BlockId, traits::Block as BlockT};
 use std::sync::Arc;
 
-pub use module_redeem_rpc_runtime_api::RedeemApi as RedeemRuntimeApi;
+pub use redeem_rpc_runtime_api::RedeemApi as RedeemRuntimeApi;
 
 #[rpc(client, server)]
 pub trait RedeemApi<BlockHash, AccountId, H256, RedeemRequest> {
