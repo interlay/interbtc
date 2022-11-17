@@ -36,7 +36,6 @@ use sp_runtime::{
     ApplyExtrinsicResult, FixedPointNumber, Perquintill,
 };
 use sp_std::{marker::PhantomData, prelude::*};
-use traits::OracleApi;
 
 #[cfg(feature = "std")]
 use sp_version::NativeVersion;
@@ -803,32 +802,6 @@ impl security::Config for Runtime {
     type RuntimeEvent = RuntimeEvent;
 }
 
-// TODO: Remove this once `get_price()` is replaced with `amount.convert()`
-pub struct PriceFeed;
-impl traits::PriceFeeder for PriceFeed {
-    fn get_price(asset_id: &CurrencyId) -> Option<PriceDetail> {
-        let one = match asset_id {
-            Token(t) => t.one(),
-            ForeignAsset(f) => {
-                // TODO: Either add `one` to the AssetRegistry or require this as an associated type in the config trait
-                if let Some(metadata) = AssetRegistry::metadata(f) {
-                    10u128.pow(metadata.decimals)
-                } else {
-                    return None;
-                }
-            }
-            // Returning `None` here means there is no price for this asset.
-            // This is fine since LendTokens may not be used as underlying currency
-            // in the loans pallet.
-            LendToken(_) => return None,
-        };
-        let amount = Amount::<Runtime>::new(one, asset_id.clone());
-        Oracle::convert(&amount, WRAPPED_CURRENCY_ID)
-            .ok()
-            .map(|price| (price.amount().into(), Timestamp::now()))
-    }
-}
-
 impl currency::Config for Runtime {
     type SignedInner = SignedInner;
     type SignedFixedPoint = SignedFixedPoint;
@@ -995,13 +968,13 @@ impl clients_info::Config for Runtime {
 impl loans::Config for Runtime {
     type RuntimeEvent = RuntimeEvent;
     type PalletId = LoansPalletId;
-    type PriceFeeder = PriceFeed;
     type ReserveOrigin = EnsureRoot<AccountId>;
     type UpdateOrigin = EnsureRoot<AccountId>;
     type WeightInfo = ();
     type UnixTime = Timestamp;
     type Assets = Tokens;
     type RewardAssetId = GetNativeCurrencyId;
+    type ReferenceAssetId = GetWrappedCurrencyId;
 }
 
 construct_runtime! {
