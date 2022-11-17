@@ -55,48 +55,59 @@ class Rewards:
             self.reward_per_token
         return reward
 
-    def update_stake(self, address, amount):
-        if amount > 0:
-            self.deposit_stake(address, amount)
-        else:
-            self.withdraw_stake(address, abs(amount))
+    def set_stake(self, address, amount):
+        current_stake = self.stake[address] if address in self.stake else 0
+        if current_stake < amount:
+            additional_stake = amount - current_stake
+            self.deposit_stake(address, additional_stake)
+        elif current_stake > amount:
+            surplus_stake = current_stake - amount
+            self.withdraw_stake(address, surplus_stake)
 
 
 class RewardsRouter:
     def __init__(self):
-        self.root = Rewards()
-        self.leaf = {}
+        self.capacity_rewards = Rewards()
+        self.vault_rewards = {}
 
-    def update_root_stake(self, root_key, root_value):
-        self.root.update_stake(root_key, root_value)
+    def set_collateral_capacity(self, currency, capacity):
+        self.capacity_rewards.set_stake(currency, capacity)
 
-    def update_stake(self, root_key, root_value, leaf_key, leaf_value):
-        if root_key not in self.leaf:
-            self.leaf[root_key] = Rewards()
+    def set_vault_contribution(self, currency, address, contribution):
+        if currency not in self.vault_rewards:
+            self.vault_rewards[currency] = Rewards()
 
-        self.root.update_stake(root_key, root_value)
-        reward = self.root.withdraw_reward(root_key)
-        self.leaf[root_key].distribute(reward)
-        self.leaf[root_key].update_stake(leaf_key, leaf_value)
+        reward = self.capacity_rewards.withdraw_reward(currency)
+        self.vault_rewards[currency].distribute(reward)
+        self.vault_rewards[currency].set_stake(address, contribution)
+
+    def get_vault_contribution(self, currency, address):
+        if currency in self.vault_rewards:
+            if address in self.vault_rewards[currency].stake:
+                return self.vault_rewards[currency].stake[address]
+        return 0
+
+    def get_total_vault_contribution(self, currency):
+        if currency in self.vault_rewards:
+            return self.vault_rewards[currency].total_stake
+        else:
+            return 0
 
     def distribute(self, reward):
-        self.root.distribute(reward)
+        self.capacity_rewards.distribute(reward)
 
-    def withdraw_reward(self, root_key, leaf_key):
-        reward = self.root.withdraw_reward(root_key)
-        self.leaf[root_key].distribute(reward)
-        return self.leaf[root_key].withdraw_reward(leaf_key)
+    def withdraw_reward(self, currency, address):
+        reward = self.capacity_rewards.withdraw_reward(currency)
+        self.vault_rewards[currency].distribute(reward)
+        return self.vault_rewards[currency].withdraw_reward(address)
 
 
 class VaultRegistry:
     def __init__(self):
         self.exchange_rate = {}
         self.secure_threshold = {}
-
         self.rewards = RewardsRouter()
-
         self.collateral = {}
-        self.total_collateral_div_threshold = {}
 
     # relative to btc
     def set_exchange_rate(self, currency, value):
@@ -104,11 +115,9 @@ class VaultRegistry:
             self.exchange_rate[currency] = value
             return
 
-        previous_collateral_capacity = self.get_collateral_capacity(currency)
         self.exchange_rate[currency] = value
         collateral_capacity = self.get_collateral_capacity(currency)
-        capacity_delta = collateral_capacity - previous_collateral_capacity
-        self.rewards.update_root_stake(currency, capacity_delta)
+        self.rewards.set_collateral_capacity(currency, collateral_capacity)
 
     def set_global_secure_threshold(self, currency, value):
         # this is tricky to update without summing
@@ -123,25 +132,23 @@ class VaultRegistry:
         if secure_threshold is None:
             secure_threshold = self.get_secure_threshold(vault)
 
-        previous_collateral_capacity = self.get_collateral_capacity(currency)
-        previous_secure_threshold = self.get_secure_threshold(vault)
-        previous_collateral_div_threshold = self.collateral[vault] / \
-            previous_secure_threshold
-
         self.collateral[vault] += amount
+
         collateral_div_threshold = self.collateral[vault] / secure_threshold
         collateral_div_threshold_delta = collateral_div_threshold - \
-            previous_collateral_div_threshold
-        self.total_collateral_div_threshold[currency] += collateral_div_threshold_delta
+            self.rewards.get_vault_contribution(currency, vault.address)
 
-        collateral_capacity = self.get_collateral_capacity(currency)
-        capacity_delta = collateral_capacity - previous_collateral_capacity
+        total_collateral_div_threshold = self.rewards.get_total_vault_contribution(
+            currency) + collateral_div_threshold_delta
 
-        self.rewards.update_stake(
+        collateral_capacity = total_collateral_div_threshold / \
+            self.exchange_rate[currency]
+
+        self.rewards.set_collateral_capacity(currency, collateral_capacity)
+        self.rewards.set_vault_contribution(
             currency,
-            capacity_delta,
             vault.address,
-            collateral_div_threshold_delta
+            collateral_div_threshold
         )
 
     def set_custom_secure_threshold(self, vault, value):
@@ -153,8 +160,6 @@ class VaultRegistry:
         currency = vault.currency
         if vault not in self.collateral:
             self.collateral[vault] = 0
-        if currency not in self.total_collateral_div_threshold:
-            self.total_collateral_div_threshold[currency] = 0
 
         self.update_collateral_and_threshold(vault, amount, None)
 
@@ -162,7 +167,7 @@ class VaultRegistry:
         self.update_collateral_and_threshold(vault, -abs(amount), None)
 
     def get_collateral_capacity(self, currency):
-        return self.total_collateral_div_threshold[currency] \
+        return self.rewards.get_total_vault_contribution(currency) \
             / self.exchange_rate[currency]
 
     def distribute(self, reward):
