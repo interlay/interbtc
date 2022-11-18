@@ -27,7 +27,7 @@ fn reproduce_live_state() {
         crate::TotalRewards::<Test>::insert(currency, f(8_763_982_459_262_268_000_000_000_000_000_000));
         crate::TotalStake::<Test>::put(f(2_253_803_217_000_000_000_000_000_000));
 
-        assert_ok!(Reward::compute_reward(currency, &ALICE), 1376582365513566);
+        assert_ok!(Reward::compute_reward(&ALICE, currency), 1376582365513566);
     })
 }
 
@@ -37,8 +37,8 @@ fn should_distribute_rewards_equally() {
         assert_ok!(Reward::deposit_stake(&ALICE, fixed!(50)));
         assert_ok!(Reward::deposit_stake(&BOB, fixed!(50)));
         assert_ok!(Reward::distribute_reward(Token(IBTC), fixed!(100)));
-        assert_ok!(Reward::compute_reward(Token(IBTC), &ALICE), 50);
-        assert_ok!(Reward::compute_reward(Token(IBTC), &BOB), 50);
+        assert_ok!(Reward::compute_reward(&ALICE, Token(IBTC)), 50);
+        assert_ok!(Reward::compute_reward(&BOB, Token(IBTC)), 50);
     })
 }
 
@@ -48,8 +48,8 @@ fn should_distribute_uneven_rewards_equally() {
         assert_ok!(Reward::deposit_stake(&ALICE, fixed!(50)));
         assert_ok!(Reward::deposit_stake(&BOB, fixed!(50)));
         assert_ok!(Reward::distribute_reward(Token(IBTC), fixed!(451)));
-        assert_ok!(Reward::compute_reward(Token(IBTC), &ALICE), 225);
-        assert_ok!(Reward::compute_reward(Token(IBTC), &BOB), 225);
+        assert_ok!(Reward::compute_reward(&ALICE, Token(IBTC)), 225);
+        assert_ok!(Reward::compute_reward(&BOB, Token(IBTC)), 225);
     })
 }
 
@@ -58,11 +58,11 @@ fn should_not_update_previous_rewards() {
     run_test(|| {
         assert_ok!(Reward::deposit_stake(&ALICE, fixed!(40)));
         assert_ok!(Reward::distribute_reward(Token(IBTC), fixed!(1000)));
-        assert_ok!(Reward::compute_reward(Token(IBTC), &ALICE), 1000);
+        assert_ok!(Reward::compute_reward(&ALICE, Token(IBTC)), 1000);
 
         assert_ok!(Reward::deposit_stake(&BOB, fixed!(20)));
-        assert_ok!(Reward::compute_reward(Token(IBTC), &ALICE), 1000);
-        assert_ok!(Reward::compute_reward(Token(IBTC), &BOB), 0);
+        assert_ok!(Reward::compute_reward(&ALICE, Token(IBTC)), 1000);
+        assert_ok!(Reward::compute_reward(&BOB, Token(IBTC)), 0);
     })
 }
 
@@ -72,9 +72,9 @@ fn should_withdraw_reward() {
         assert_ok!(Reward::deposit_stake(&ALICE, fixed!(45)));
         assert_ok!(Reward::deposit_stake(&BOB, fixed!(55)));
         assert_ok!(Reward::distribute_reward(Token(IBTC), fixed!(2344)));
-        assert_ok!(Reward::compute_reward(Token(IBTC), &BOB), 1289);
+        assert_ok!(Reward::compute_reward(&BOB, Token(IBTC)), 1289);
         assert_ok!(Reward::withdraw_reward(&ALICE, Token(IBTC)), 1054);
-        assert_ok!(Reward::compute_reward(Token(IBTC), &BOB), 1289);
+        assert_ok!(Reward::compute_reward(&BOB, Token(IBTC)), 1289);
     })
 }
 
@@ -84,9 +84,9 @@ fn should_withdraw_stake() {
         assert_ok!(Reward::deposit_stake(&ALICE, fixed!(1312)));
         assert_ok!(Reward::distribute_reward(Token(IBTC), fixed!(4242)));
         // rounding in `CheckedDiv` loses some precision
-        assert_ok!(Reward::compute_reward(Token(IBTC), &ALICE), 4241);
+        assert_ok!(Reward::compute_reward(&ALICE, Token(IBTC)), 4241);
         assert_ok!(Reward::withdraw_stake(&ALICE, fixed!(1312)));
-        assert_ok!(Reward::compute_reward(Token(IBTC), &ALICE), 4241);
+        assert_ok!(Reward::compute_reward(&ALICE, Token(IBTC)), 4241);
     })
 }
 
@@ -95,7 +95,7 @@ fn should_not_withdraw_stake_if_balance_insufficient() {
     run_test(|| {
         assert_ok!(Reward::deposit_stake(&ALICE, fixed!(100)));
         assert_ok!(Reward::distribute_reward(Token(IBTC), fixed!(2000)));
-        assert_ok!(Reward::compute_reward(Token(IBTC), &ALICE), 2000);
+        assert_ok!(Reward::compute_reward(&ALICE, Token(IBTC)), 2000);
         assert_err!(
             Reward::withdraw_stake(&ALICE, fixed!(200)),
             TestError::InsufficientFunds
@@ -111,7 +111,7 @@ fn should_deposit_stake() {
         assert_eq!(Reward::stake(&ALICE), fixed!(50));
         assert_ok!(Reward::deposit_stake(&BOB, fixed!(50)));
         assert_ok!(Reward::distribute_reward(Token(IBTC), fixed!(1000)));
-        assert_ok!(Reward::compute_reward(Token(IBTC), &ALICE), 500);
+        assert_ok!(Reward::compute_reward(&ALICE, Token(IBTC)), 500);
     })
 }
 
@@ -137,9 +137,9 @@ fn should_distribute_with_many_rewards() {
             // NOTE: this will overflow compute_reward with > u32
             assert_ok!(Reward::distribute_reward(Token(IBTC), fixed!(rng.gen::<u32>() as i128)));
         }
-        let alice_reward = Reward::compute_reward(Token(IBTC), &ALICE).unwrap();
+        let alice_reward = Reward::compute_reward(&ALICE, Token(IBTC)).unwrap();
         assert_ok!(Reward::withdraw_reward(&ALICE, Token(IBTC)), alice_reward);
-        let bob_reward = Reward::compute_reward(Token(IBTC), &BOB).unwrap();
+        let bob_reward = Reward::compute_reward(&BOB, Token(IBTC)).unwrap();
         assert_ok!(Reward::withdraw_reward(&BOB, Token(IBTC)), bob_reward);
     })
 }

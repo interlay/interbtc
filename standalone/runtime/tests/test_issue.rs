@@ -735,7 +735,7 @@ mod execute_pending_issue_tests {
             let post_request_state = ParachainState::get(&vault_id);
 
             // need stake for rewards to deposit
-            let stake: u128 = VaultRewardsPallet::get_stake(&vault_id).unwrap();
+            let stake: u128 = VaultRewardsPallet::get_stake(&(), &vault_id).unwrap();
             assert!(stake > 0u128);
 
             ExecuteIssueBuilder::new(issue_id)

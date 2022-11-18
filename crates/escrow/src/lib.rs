@@ -37,7 +37,7 @@ use frame_support::{
     },
     transactional,
 };
-use reward::ModifyStake;
+use reward::RewardsApi;
 use scale_info::TypeInfo;
 use sp_runtime::{
     traits::{AtLeast32BitUnsigned, CheckedSub, Convert, Saturating, Zero},
@@ -154,7 +154,7 @@ pub mod pallet {
         type MaxPeriod: Get<Self::BlockNumber>;
 
         /// Escrow reward pool.
-        type EscrowRewards: reward::ModifyStake<Self::AccountId, BalanceOf<Self>>;
+        type EscrowRewards: reward::RewardsApi<(), Self::AccountId, BalanceOf<Self>>;
 
         /// Weight information for the extrinsics in this module.
         type WeightInfo: WeightInfo;
@@ -503,8 +503,8 @@ impl<T: Config> Pallet<T> {
         Self::checkpoint(who, old_locked, new_locked);
 
         // withdraw all stake and re-deposit escrow balance
-        T::EscrowRewards::withdraw_stake(who)?;
-        T::EscrowRewards::deposit_stake(who, Self::balance_at(who, None))?;
+        T::EscrowRewards::withdraw_all_stake(&(), who)?;
+        T::EscrowRewards::deposit_stake(&(), who, Self::balance_at(who, None))?;
 
         Self::deposit_event(Event::<T>::Deposit {
             who: who.clone(),
@@ -524,7 +524,7 @@ impl<T: Config> Pallet<T> {
         ensure!(current_height >= old_locked.end, Error::<T>::LockNotExpired);
 
         // withdraw all stake
-        T::EscrowRewards::withdraw_stake(who)?;
+        T::EscrowRewards::withdraw_all_stake(&(), who)?;
 
         Self::checkpoint(who, old_locked, Default::default());
 

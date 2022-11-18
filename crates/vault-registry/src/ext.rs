@@ -27,14 +27,14 @@ pub(crate) mod staking {
     use crate::{types::BalanceOf, DefaultVaultId};
     use currency::Amount;
     use frame_support::dispatch::{DispatchError, DispatchResult};
-    use staking::Staking;
+    use staking::{RewardsApi, StakingApi};
 
     pub fn deposit_stake<T: crate::Config>(
         vault_id: &DefaultVaultId<T>,
         nominator_id: &T::AccountId,
         amount: &Amount<T>,
     ) -> DispatchResult {
-        T::VaultStaking::deposit_stake(vault_id, nominator_id, amount.amount())
+        T::VaultStaking::deposit_stake(&(None, vault_id.clone()), nominator_id, amount.amount())
     }
 
     pub fn withdraw_stake<T: crate::Config>(
@@ -42,7 +42,7 @@ pub(crate) mod staking {
         nominator_id: &T::AccountId,
         amount: &Amount<T>,
     ) -> DispatchResult {
-        T::VaultStaking::withdraw_stake(vault_id, nominator_id, amount.amount(), None)
+        T::VaultStaking::withdraw_stake(&(None, vault_id.clone()), nominator_id, amount.amount())
     }
 
     pub fn slash_stake<T: crate::Config>(vault_id: &DefaultVaultId<T>, amount: &Amount<T>) -> DispatchResult {
@@ -53,11 +53,11 @@ pub(crate) mod staking {
         vault_id: &DefaultVaultId<T>,
         nominator_id: &T::AccountId,
     ) -> Result<BalanceOf<T>, DispatchError> {
-        T::VaultStaking::compute_stake(vault_id, nominator_id)
+        T::VaultStaking::get_stake(&(None, vault_id.clone()), nominator_id)
     }
 
     pub fn total_current_stake<T: crate::Config>(vault_id: &DefaultVaultId<T>) -> Result<BalanceOf<T>, DispatchError> {
-        T::VaultStaking::total_stake(vault_id)
+        T::VaultStaking::get_total_stake(&(None, vault_id.clone()))
     }
 }
 
@@ -66,15 +66,15 @@ pub(crate) mod reward {
     use crate::DefaultVaultId;
     use currency::Amount;
     use frame_support::dispatch::DispatchError;
-    use reward::Rewards;
+    use reward::RewardsApi;
 
     pub fn set_stake<T: crate::Config>(vault_id: &DefaultVaultId<T>, amount: &Amount<T>) -> Result<(), DispatchError> {
-        T::VaultRewards::set_stake(vault_id, amount.amount())
+        T::VaultRewards::set_stake(&(), vault_id, amount.amount())
     }
 
     #[cfg(feature = "integration-tests")]
     pub fn get_stake<T: crate::Config>(vault_id: &DefaultVaultId<T>) -> Result<crate::BalanceOf<T>, DispatchError> {
-        T::VaultRewards::get_stake(vault_id)
+        T::VaultRewards::get_stake(&(), vault_id)
     }
 }
 

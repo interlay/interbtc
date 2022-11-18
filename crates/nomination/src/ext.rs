@@ -65,7 +65,7 @@ pub(crate) mod fee {
 pub(crate) mod staking {
     use crate::BalanceOf;
     use frame_support::dispatch::DispatchError;
-    use staking::Staking;
+    use staking::{RewardsApi, StakingApi};
     use vault_registry::DefaultVaultId;
 
     pub fn nonce<T: crate::Config>(vault_id: &DefaultVaultId<T>) -> T::Index {
@@ -77,7 +77,7 @@ pub(crate) mod staking {
         nominator_id: &T::AccountId,
         amount: BalanceOf<T>,
     ) -> Result<(), DispatchError> {
-        T::VaultStaking::deposit_stake(vault_id, nominator_id, amount)
+        T::VaultStaking::deposit_stake(&(None, vault_id.clone()), nominator_id, amount)
     }
 
     pub fn withdraw_stake<T: crate::Config>(
@@ -86,14 +86,14 @@ pub(crate) mod staking {
         amount: BalanceOf<T>,
         index: Option<T::Index>,
     ) -> Result<(), DispatchError> {
-        T::VaultStaking::withdraw_stake(vault_id, nominator_id, amount, index)
+        T::VaultStaking::withdraw_stake(&(index, vault_id.clone()), nominator_id, amount)
     }
 
     pub fn compute_stake<T: vault_registry::Config>(
         vault_id: &DefaultVaultId<T>,
         nominator_id: &T::AccountId,
     ) -> Result<BalanceOf<T>, DispatchError> {
-        T::VaultStaking::compute_stake(vault_id, nominator_id)
+        T::VaultStaking::get_stake(&(None, vault_id.clone()), nominator_id)
     }
 
     pub fn force_refund<T: crate::Config>(vault_id: &DefaultVaultId<T>) -> Result<BalanceOf<T>, DispatchError> {

@@ -690,20 +690,22 @@ impl annuity::BlockRewardProvider<AccountId> for EscrowBlockRewardProvider {
 
     #[cfg(feature = "runtime-benchmarks")]
     fn deposit_stake(from: &AccountId, amount: Balance) -> DispatchResult {
-        let current_stake = <EscrowRewards as reward::Rewards<AccountId, Balance, CurrencyId>>::get_stake(from)?;
+        let current_stake = <EscrowRewards as reward::RewardsApi<(), AccountId, Balance>>::get_stake(&(), from)?;
         let new_stake = current_stake.saturating_add(amount);
-        <EscrowRewards as reward::Rewards<AccountId, Balance, CurrencyId>>::set_stake(from, new_stake)
+        <EscrowRewards as reward::RewardsApi<(), AccountId, Balance>>::set_stake(&(), from, new_stake)
     }
 
     fn distribute_block_reward(_from: &AccountId, amount: Balance) -> DispatchResult {
-        <EscrowRewards as reward::Rewards<AccountId, Balance, CurrencyId>>::distribute_reward(
-            amount,
+        <EscrowRewards as reward::RewardsApi<(), AccountId, Balance>>::distribute_reward(
+            &(),
             GetNativeCurrencyId::get(),
+            amount,
         )
     }
 
     fn withdraw_reward(who: &AccountId) -> Result<Balance, DispatchError> {
-        <EscrowRewards as reward::Rewards<AccountId, Balance, CurrencyId>>::withdraw_reward(
+        <EscrowRewards as reward::RewardsApi<(), AccountId, Balance>>::withdraw_reward(
+            &(),
             who,
             GetNativeCurrencyId::get(),
         )
@@ -737,9 +739,10 @@ impl annuity::BlockRewardProvider<AccountId> for VaultBlockRewardProvider {
     fn distribute_block_reward(from: &AccountId, amount: Balance) -> DispatchResult {
         // TODO: remove fee pallet?
         Self::Currency::transfer(from, &FeeAccount::get(), amount, ExistenceRequirement::KeepAlive)?;
-        <VaultRewards as reward::Rewards<VaultId, Balance, CurrencyId>>::distribute_reward(
-            amount,
+        <VaultRewards as reward::RewardsApi<(), VaultId, Balance>>::distribute_reward(
+            &(),
             GetNativeCurrencyId::get(),
+            amount,
         )
     }
 
@@ -766,7 +769,8 @@ pub type EscrowRewardsInstance = reward::Instance1;
 impl reward::Config<EscrowRewardsInstance> for Runtime {
     type RuntimeEvent = RuntimeEvent;
     type SignedFixedPoint = SignedFixedPoint;
-    type RewardId = AccountId;
+    type PoolId = ();
+    type StakeId = AccountId;
     type CurrencyId = CurrencyId;
     type GetNativeCurrencyId = GetNativeCurrencyId;
     type GetWrappedCurrencyId = GetWrappedCurrencyId;
@@ -777,7 +781,8 @@ pub type VaultRewardsInstance = reward::Instance2;
 impl reward::Config<VaultRewardsInstance> for Runtime {
     type RuntimeEvent = RuntimeEvent;
     type SignedFixedPoint = SignedFixedPoint;
-    type RewardId = VaultId;
+    type PoolId = ();
+    type StakeId = VaultId;
     type CurrencyId = CurrencyId;
     type GetNativeCurrencyId = GetNativeCurrencyId;
     type GetWrappedCurrencyId = GetWrappedCurrencyId;
@@ -1386,13 +1391,13 @@ impl_runtime_apis! {
         Balance
     > for Runtime {
         fn compute_escrow_reward(account_id: AccountId, currency_id: CurrencyId) -> Result<BalanceWrapper<Balance>, DispatchError> {
-            let amount = <EscrowRewards as reward::Rewards<AccountId, Balance, CurrencyId>>::compute_reward(&account_id, currency_id)?;
+            let amount = <EscrowRewards as reward::RewardsApi<(), AccountId, Balance>>::compute_reward(&(), &account_id, currency_id)?;
             let balance = BalanceWrapper::<Balance> { amount };
             Ok(balance)
         }
 
         fn compute_vault_reward(vault_id: VaultId, currency_id: CurrencyId) -> Result<BalanceWrapper<Balance>, DispatchError> {
-            let amount = <VaultRewards as reward::Rewards<VaultId, Balance, CurrencyId>>::compute_reward(&vault_id, currency_id)?;
+            let amount = <VaultRewards as reward::RewardsApi<(), VaultId, Balance>>::compute_reward(&(), &vault_id, currency_id)?;
             let balance = BalanceWrapper::<Balance> { amount };
             Ok(balance)
         }
