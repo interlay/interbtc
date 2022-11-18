@@ -1,7 +1,7 @@
 //! # Reward Module
 //! Based on the [Scalable Reward Distribution](https://solmaz.io/2019/02/24/scalable-reward-changing/) algorithm.
 
-#![deny(warnings)]
+// #![deny(warnings)]
 #![cfg_attr(test, feature(proc_macro_hygiene))]
 #![cfg_attr(not(feature = "std"), no_std)]
 
@@ -45,8 +45,11 @@ pub mod pallet {
         /// Signed fixed point type.
         type SignedFixedPoint: FixedPointNumber + TruncateFixedPointToInt + Encode + EncodeLike + Decode + TypeInfo;
 
-        /// The reward identifier type.
-        type RewardId: Parameter + Member + MaybeSerializeDeserialize + Debug + MaxEncodedLen;
+        /// The pool identifier type.
+        type PoolId: Parameter + Member + MaybeSerializeDeserialize + Debug + MaxEncodedLen;
+
+        /// The stake identifier type.
+        type StakeId: Parameter + Member + MaybeSerializeDeserialize + Debug + MaxEncodedLen;
 
         /// The currency ID type.
         type CurrencyId: Parameter + Member + Copy + MaybeSerializeDeserialize + Ord + MaxEncodedLen;
@@ -61,9 +64,10 @@ pub mod pallet {
     // The pallet's events
     #[pallet::event]
     #[pallet::generate_deposit(pub(crate) fn deposit_event)]
+    // TODO: rename `reward_id` when `pool_id` is added
     pub enum Event<T: Config<I>, I: 'static = ()> {
         DepositStake {
-            reward_id: T::RewardId,
+            reward_id: T::StakeId,
             amount: T::SignedFixedPoint,
         },
         DistributeReward {
@@ -71,11 +75,11 @@ pub mod pallet {
             amount: T::SignedFixedPoint,
         },
         WithdrawStake {
-            reward_id: T::RewardId,
+            reward_id: T::StakeId,
             amount: T::SignedFixedPoint,
         },
         WithdrawReward {
-            reward_id: T::RewardId,
+            reward_id: T::StakeId,
             currency_id: T::CurrencyId,
             amount: T::SignedFixedPoint,
         },
@@ -116,7 +120,7 @@ pub mod pallet {
     #[pallet::storage]
     #[pallet::getter(fn stake)]
     pub type Stake<T: Config<I>, I: 'static = ()> =
-        StorageMap<_, Blake2_128Concat, T::RewardId, SignedFixedPoint<T, I>, ValueQuery>;
+        StorageMap<_, Blake2_128Concat, T::StakeId, SignedFixedPoint<T, I>, ValueQuery>;
 
     /// Accounts for previous changes in stake size.
     #[pallet::storage]
@@ -125,7 +129,7 @@ pub mod pallet {
         Blake2_128Concat,
         T::CurrencyId,
         Blake2_128Concat,
-        T::RewardId,
+        T::StakeId,
         SignedFixedPoint<T, I>,
         ValueQuery,
     >;
@@ -191,12 +195,12 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
             .ok_or(Error::<T, I>::TryIntoIntError)?)
     }
 
-    pub fn deposit_stake(reward_id: &T::RewardId, amount: SignedFixedPoint<T, I>) -> Result<(), DispatchError> {
-        checked_add_mut!(Stake<T, I>, reward_id, &amount);
+    fn deposit_stake(stake_id: &T::StakeId, amount: SignedFixedPoint<T, I>) -> Result<(), DispatchError> {
+        checked_add_mut!(Stake<T, I>, stake_id, &amount);
         checked_add_mut!(TotalStake<T, I>, &amount);
 
         for currency_id in [T::GetNativeCurrencyId::get(), T::GetWrappedCurrencyId::get()] {
-            <RewardTally<T, I>>::mutate(currency_id, reward_id, |reward_tally| {
+            <RewardTally<T, I>>::mutate(currency_id, stake_id, |reward_tally| {
                 let reward_per_token = Self::reward_per_token(currency_id);
                 let reward_per_token_mul_amount =
                     reward_per_token.checked_mul(&amount).ok_or(ArithmeticError::Overflow)?;
@@ -208,14 +212,14 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
         }
 
         Self::deposit_event(Event::<T, I>::DepositStake {
-            reward_id: reward_id.clone(),
+            reward_id: stake_id.clone(),
             amount,
         });
 
         Ok(())
     }
 
-    pub fn distribute_reward(currency_id: T::CurrencyId, reward: SignedFixedPoint<T, I>) -> DispatchResult {
+    fn distribute_reward(currency_id: T::CurrencyId, reward: SignedFixedPoint<T, I>) -> DispatchResult {
         let total_stake = Self::total_stake();
         ensure!(!total_stake.is_zero(), Error::<T, I>::ZeroTotalStake);
 
@@ -231,14 +235,14 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
     }
 
     pub fn compute_reward(
+        stake_id: &T::StakeId,
         currency_id: T::CurrencyId,
-        account_id: &T::RewardId,
     ) -> Result<<SignedFixedPoint<T, I> as FixedPointNumber>::Inner, DispatchError> {
-        let stake = Self::stake(account_id);
+        let stake = Self::stake(stake_id);
         let reward_per_token = Self::reward_per_token(currency_id);
         // FIXME: this can easily overflow with large numbers
         let stake_mul_reward_per_token = stake.checked_mul(&reward_per_token).ok_or(ArithmeticError::Overflow)?;
-        let reward_tally = <RewardTally<T, I>>::get(currency_id, account_id);
+        let reward_tally = <RewardTally<T, I>>::get(currency_id, stake_id);
         // TODO: this can probably be saturated
         let reward = stake_mul_reward_per_token
             .checked_sub(&reward_tally)
@@ -248,16 +252,16 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
         Ok(reward)
     }
 
-    pub fn withdraw_stake(reward_id: &T::RewardId, amount: SignedFixedPoint<T, I>) -> Result<(), DispatchError> {
-        if amount > Self::stake(reward_id) {
+    fn withdraw_stake(stake_id: &T::StakeId, amount: SignedFixedPoint<T, I>) -> Result<(), DispatchError> {
+        if amount > Self::stake(stake_id) {
             return Err(Error::<T, I>::InsufficientFunds.into());
         }
 
-        checked_sub_mut!(Stake<T, I>, &reward_id, &amount);
+        checked_sub_mut!(Stake<T, I>, stake_id, &amount);
         checked_sub_mut!(TotalStake<T, I>, &amount);
 
         for currency_id in [T::GetNativeCurrencyId::get(), T::GetWrappedCurrencyId::get()] {
-            <RewardTally<T, I>>::mutate(currency_id, reward_id, |reward_tally| {
+            <RewardTally<T, I>>::mutate(currency_id, stake_id, |reward_tally| {
                 let reward_per_token = Self::reward_per_token(currency_id);
                 let reward_per_token_mul_amount =
                     reward_per_token.checked_mul(&amount).ok_or(ArithmeticError::Overflow)?;
@@ -270,133 +274,182 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
         }
 
         Self::deposit_event(Event::<T, I>::WithdrawStake {
-            reward_id: reward_id.clone(),
+            reward_id: stake_id.clone(),
             amount,
         });
         Ok(())
     }
 
-    pub fn withdraw_reward(
-        reward_id: &T::RewardId,
+    fn withdraw_reward(
+        stake_id: &T::StakeId,
         currency_id: T::CurrencyId,
     ) -> Result<<SignedFixedPoint<T, I> as FixedPointNumber>::Inner, DispatchError> {
-        let reward = Self::compute_reward(currency_id, reward_id)?;
+        let reward = Self::compute_reward(stake_id, currency_id)?;
         let reward_as_fixed =
             SignedFixedPoint::<T, I>::checked_from_integer(reward).ok_or(Error::<T, I>::TryIntoIntError)?;
         checked_sub_mut!(TotalRewards<T, I>, currency_id, &reward_as_fixed);
 
-        let stake = Self::stake(reward_id);
+        let stake = Self::stake(stake_id);
         let reward_per_token = Self::reward_per_token(currency_id);
         <RewardTally<T, I>>::insert(
             currency_id,
-            reward_id,
+            stake_id,
             stake.checked_mul(&reward_per_token).ok_or(ArithmeticError::Overflow)?,
         );
 
         Self::deposit_event(Event::<T, I>::WithdrawReward {
             currency_id,
-            reward_id: reward_id.clone(),
+            reward_id: stake_id.clone(),
             amount: reward_as_fixed,
         });
         Ok(reward)
     }
 }
 
-pub trait Rewards<AccountId, Balance, CurrencyId> {
-    /// Return the stake associated with the `account_id`.
-    fn get_stake(account_id: &AccountId) -> Result<Balance, DispatchError>;
-
-    /// Set the stake to `amount` for `account_id` regardless of its current stake.
-    fn set_stake(account_id: &AccountId, amount: Balance) -> DispatchResult;
+pub trait RewardsApi<PoolId, StakeId, Balance>
+where
+    Balance: Saturating + PartialOrd,
+{
+    type CurrencyId;
 
     /// Distribute the `amount` to all participants OR error if zero total stake.
-    fn distribute_reward(amount: Balance, currency_id: CurrencyId) -> DispatchResult;
+    fn distribute_reward(pool_id: &PoolId, currency_id: Self::CurrencyId, amount: Balance) -> DispatchResult;
 
-    /// Compute the expected reward for the `account_id`.
-    fn compute_reward(account_id: &AccountId, currency_id: CurrencyId) -> Result<Balance, DispatchError>;
+    /// Compute the expected reward for the `stake_id`.
+    fn compute_reward(
+        pool_id: &PoolId,
+        stake_id: &StakeId,
+        currency_id: Self::CurrencyId,
+    ) -> Result<Balance, DispatchError>;
 
-    /// Withdraw all rewards from the `account_id`.
-    fn withdraw_reward(account_id: &AccountId, currency_id: CurrencyId) -> Result<Balance, DispatchError>;
+    /// Withdraw all rewards from the `stake_id`.
+    fn withdraw_reward(
+        pool_id: &PoolId,
+        stake_id: &StakeId,
+        currency_id: Self::CurrencyId,
+    ) -> Result<Balance, DispatchError>;
+
+    /// Deposit stake for an account.
+    fn deposit_stake(pool_id: &PoolId, stake_id: &StakeId, amount: Balance) -> DispatchResult;
+
+    /// Withdraw stake for an account.
+    fn withdraw_stake(pool_id: &PoolId, stake_id: &StakeId, amount: Balance) -> DispatchResult;
+
+    /// Withdraw all stake for an account.
+    fn withdraw_all_stake(pool_id: &PoolId, stake_id: &StakeId) -> DispatchResult {
+        Self::withdraw_stake(pool_id, stake_id, Self::get_stake(pool_id, stake_id)?)
+    }
+
+    /// Return the stake associated with the `pool_id`.
+    fn get_total_stake(pool_id: &PoolId) -> Result<Balance, DispatchError>;
+
+    /// Return the stake associated with the `stake_id`.
+    fn get_stake(pool_id: &PoolId, stake_id: &StakeId) -> Result<Balance, DispatchError>;
+
+    /// Set the stake to `amount` for `stake_id` regardless of its current stake.
+    fn set_stake(pool_id: &PoolId, stake_id: &StakeId, amount: Balance) -> DispatchResult {
+        let current_stake = Self::get_stake(pool_id, stake_id)?;
+        if current_stake < amount {
+            let additional_stake = amount.saturating_sub(current_stake);
+            Self::deposit_stake(pool_id, stake_id, additional_stake)
+        } else if current_stake > amount {
+            let surplus_stake = current_stake.saturating_sub(amount);
+            Self::withdraw_stake(pool_id, stake_id, surplus_stake)
+        } else {
+            Ok(())
+        }
+    }
 }
 
-impl<T, I, Balance> Rewards<T::RewardId, Balance, T::CurrencyId> for Pallet<T, I>
+impl<T, I, Balance> RewardsApi<T::PoolId, T::StakeId, Balance> for Pallet<T, I>
 where
     T: Config<I>,
     I: 'static,
     Balance: BalanceToFixedPoint<SignedFixedPoint<T, I>> + Saturating + PartialOrd,
     <T::SignedFixedPoint as FixedPointNumber>::Inner: TryInto<Balance>,
 {
-    fn get_stake(reward_id: &T::RewardId) -> Result<Balance, DispatchError> {
-        Pallet::<T, I>::stake(reward_id)
+    type CurrencyId = T::CurrencyId;
+
+    fn distribute_reward(_pool_id: &T::PoolId, currency_id: T::CurrencyId, amount: Balance) -> DispatchResult {
+        Pallet::<T, I>::distribute_reward(currency_id, amount.to_fixed().ok_or(Error::<T, I>::TryIntoIntError)?)
+    }
+
+    fn compute_reward(
+        _pool_id: &T::PoolId,
+        stake_id: &T::StakeId,
+        currency_id: T::CurrencyId,
+    ) -> Result<Balance, DispatchError> {
+        Pallet::<T, I>::compute_reward(stake_id, currency_id)?
+            .try_into()
+            .map_err(|_| Error::<T, I>::TryIntoIntError.into())
+    }
+
+    fn withdraw_reward(
+        _pool_id: &T::PoolId,
+        stake_id: &T::StakeId,
+        currency_id: T::CurrencyId,
+    ) -> Result<Balance, DispatchError> {
+        Pallet::<T, I>::withdraw_reward(stake_id, currency_id)?
+            .try_into()
+            .map_err(|_| Error::<T, I>::TryIntoIntError.into())
+    }
+
+    fn get_total_stake(_pool_id: &T::PoolId) -> Result<Balance, DispatchError> {
+        Pallet::<T, I>::total_stake()
             .truncate_to_inner()
             .ok_or(Error::<T, I>::TryIntoIntError)?
             .try_into()
             .map_err(|_| Error::<T, I>::TryIntoIntError.into())
     }
 
-    fn set_stake(reward_id: &T::RewardId, amount: Balance) -> DispatchResult {
-        let current_stake = <Self as Rewards<T::RewardId, Balance, T::CurrencyId>>::get_stake(reward_id)?;
-        if current_stake < amount {
-            let additional_stake = amount.saturating_sub(current_stake);
-            Pallet::<T, I>::deposit_stake(
-                reward_id,
-                additional_stake.to_fixed().ok_or(Error::<T, I>::TryIntoIntError)?,
-            )
-        } else if current_stake > amount {
-            let surplus_stake = current_stake.saturating_sub(amount);
-            Pallet::<T, I>::withdraw_stake(
-                reward_id,
-                surplus_stake.to_fixed().ok_or(Error::<T, I>::TryIntoIntError)?,
-            )
-        } else {
-            Ok(())
-        }
-    }
-
-    fn distribute_reward(amount: Balance, currency_id: T::CurrencyId) -> DispatchResult {
-        Pallet::<T, I>::distribute_reward(currency_id, amount.to_fixed().ok_or(Error::<T, I>::TryIntoIntError)?)
-    }
-
-    fn compute_reward(reward_id: &T::RewardId, currency_id: T::CurrencyId) -> Result<Balance, DispatchError> {
-        Pallet::<T, I>::compute_reward(currency_id, reward_id)?
+    fn get_stake(_pool_id: &T::PoolId, stake_id: &T::StakeId) -> Result<Balance, DispatchError> {
+        Pallet::<T, I>::stake(stake_id)
+            .truncate_to_inner()
+            .ok_or(Error::<T, I>::TryIntoIntError)?
             .try_into()
             .map_err(|_| Error::<T, I>::TryIntoIntError.into())
     }
 
-    fn withdraw_reward(reward_id: &T::RewardId, currency_id: T::CurrencyId) -> Result<Balance, DispatchError> {
-        Pallet::<T, I>::withdraw_reward(reward_id, currency_id)?
-            .try_into()
-            .map_err(|_| Error::<T, I>::TryIntoIntError.into())
+    fn deposit_stake(_pool_id: &T::PoolId, stake_id: &T::StakeId, amount: Balance) -> DispatchResult {
+        Pallet::<T, I>::deposit_stake(stake_id, amount.to_fixed().ok_or(Error::<T, I>::TryIntoIntError)?)
+    }
+
+    fn withdraw_stake(_pool_id: &T::PoolId, stake_id: &T::StakeId, amount: Balance) -> DispatchResult {
+        Pallet::<T, I>::withdraw_stake(stake_id, amount.to_fixed().ok_or(Error::<T, I>::TryIntoIntError)?)
     }
 }
 
-pub trait ModifyStake<AccountId, Balance> {
-    /// Deposit stake for an account.
-    fn deposit_stake(account_id: &AccountId, amount: Balance) -> DispatchResult;
-    /// Withdraw all stake for an account.
-    fn withdraw_stake(account_id: &AccountId) -> DispatchResult;
-}
-
-impl<T, I, Balance> ModifyStake<T::RewardId, Balance> for Pallet<T, I>
+impl<PoolId, StakeId, Balance> RewardsApi<PoolId, StakeId, Balance> for ()
 where
-    T: Config<I>,
-    I: 'static,
-    Balance: BalanceToFixedPoint<SignedFixedPoint<T, I>>,
+    Balance: Saturating + PartialOrd + Default,
 {
-    fn deposit_stake(reward_id: &T::RewardId, amount: Balance) -> DispatchResult {
-        Pallet::<T, I>::deposit_stake(reward_id, amount.to_fixed().ok_or(Error::<T, I>::TryIntoIntError)?)
-    }
+    type CurrencyId = ();
 
-    fn withdraw_stake(reward_id: &T::RewardId) -> DispatchResult {
-        Pallet::<T, I>::withdraw_stake(reward_id, Pallet::<T, I>::stake(reward_id))
-    }
-}
-
-impl<AccountId, Balance> ModifyStake<AccountId, Balance> for () {
-    fn deposit_stake(_: &AccountId, _: Balance) -> DispatchResult {
+    fn distribute_reward(_: &PoolId, _: Self::CurrencyId, _: Balance) -> DispatchResult {
         Ok(())
     }
-    fn withdraw_stake(_: &AccountId) -> DispatchResult {
+
+    fn compute_reward(_: &PoolId, _: &StakeId, _: Self::CurrencyId) -> Result<Balance, DispatchError> {
+        Ok(Default::default())
+    }
+
+    fn withdraw_reward(_: &PoolId, _: &StakeId, _: Self::CurrencyId) -> Result<Balance, DispatchError> {
+        Ok(Default::default())
+    }
+
+    fn get_total_stake(_: &PoolId) -> Result<Balance, DispatchError> {
+        Ok(Default::default())
+    }
+
+    fn get_stake(_: &PoolId, _: &StakeId) -> Result<Balance, DispatchError> {
+        Ok(Default::default())
+    }
+
+    fn deposit_stake(_: &PoolId, _: &StakeId, _: Balance) -> DispatchResult {
+        Ok(())
+    }
+
+    fn withdraw_stake(_: &PoolId, _: &StakeId, _: Balance) -> DispatchResult {
         Ok(())
     }
 }

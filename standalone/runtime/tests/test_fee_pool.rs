@@ -83,7 +83,7 @@ fn withdraw_rewards(vault_id: &VaultId, nominator_id: &AccountId) {
 }
 
 fn withdraw_vault_global_pool_rewards(vault_id: &VaultId) -> i128 {
-    let amount = VaultRewardsPallet::compute_reward(vault_id.wrapped_currency(), vault_id).unwrap();
+    let amount = VaultRewardsPallet::compute_reward(vault_id, vault_id.wrapped_currency()).unwrap();
     assert_ok!(RuntimeCall::Fee(FeeCall::withdraw_rewards {
         vault_id: vault_id.clone(),
         index: None
@@ -93,7 +93,7 @@ fn withdraw_vault_global_pool_rewards(vault_id: &VaultId) -> i128 {
 }
 
 fn withdraw_local_pool_rewards(vault_id: &VaultId, nominator_id: &AccountId) -> i128 {
-    let amount = staking::Pallet::<Runtime>::compute_reward(REWARD_CURRENCY, vault_id, nominator_id).unwrap();
+    let amount = VaultStakingPallet::compute_reward(REWARD_CURRENCY, vault_id, nominator_id).unwrap();
     assert_ok!(RuntimeCall::Fee(FeeCall::withdraw_rewards {
         vault_id: vault_id.clone(),
         index: None
@@ -103,7 +103,7 @@ fn withdraw_local_pool_rewards(vault_id: &VaultId, nominator_id: &AccountId) -> 
 }
 
 fn get_vault_global_pool_rewards(vault_id: &VaultId) -> i128 {
-    VaultRewardsPallet::compute_reward(REWARD_CURRENCY, vault_id).unwrap()
+    VaultRewardsPallet::compute_reward(vault_id, REWARD_CURRENCY).unwrap()
 }
 
 fn get_local_pool_rewards(vault_id: &VaultId, nominator_id: &AccountId) -> i128 {
@@ -111,7 +111,7 @@ fn get_local_pool_rewards(vault_id: &VaultId, nominator_id: &AccountId) -> i128 
 }
 
 fn distribute_global_pool(vault_id: &VaultId) {
-    FeePallet::distribute_from_reward_pool::<VaultRewardsPallet, staking::Pallet<Runtime>>(vault_id).unwrap();
+    FeePallet::distribute_from_reward_pool(vault_id).unwrap();
 }
 
 fn get_vault_issued_tokens(vault_id: &VaultId) -> Amount<Runtime> {

@@ -37,7 +37,7 @@ pub use loans_testing_utils::activate_lending_and_mint;
 pub use oracle::OracleKey;
 pub use redeem::{types::RedeemRequestExt, RedeemRequest};
 pub use replace::{types::ReplaceRequestExt, ReplaceRequest};
-pub use reward::Rewards;
+pub use reward::RewardsApi;
 pub use security::{ErrorCode, StatusCode};
 pub use sp_arithmetic::{FixedI128, FixedPointNumber, FixedU128};
 pub use sp_core::{H160, H256, U256};

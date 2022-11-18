@@ -1,7 +1,7 @@
 mod mock;
 
 use mock::{assert_eq, *};
-use reward::Rewards;
+use reward::RewardsApi;
 use sp_core::H256;
 
 #[test]
@@ -85,7 +85,7 @@ fn integration_test_lock_reserved() {
 
 fn ensure_reward_stake_is_escrow_balance(height: BlockNumber) {
     assert_ok!(
-        <EscrowRewardsPallet as Rewards<AccountId, Balance, CurrencyId>>::get_stake(&account_of(ALICE)),
+        <EscrowRewardsPallet as RewardsApi<(), AccountId, Balance>>::get_stake(&(), &account_of(ALICE)),
         EscrowPallet::balance_at(&account_of(ALICE), Some(height))
     );
 }
