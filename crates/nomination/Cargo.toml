@@ -31,6 +31,7 @@ reward = { path = "../reward", default-features = false }
 staking = { path = "../staking", default-features = false }
 
 primitives = { package = "interbtc-primitives", path = "../../primitives", default-features = false }
+traits = { path = "../../crates/traits", default-features = false }
 
 # Orml dependencies
 orml-tokens = { git = "https://github.com/open-web3-stack/open-runtime-module-library", rev = "f4ef99fb108232c4c1fe9ed54d08be3681b77669", default-features = false, optional = true }

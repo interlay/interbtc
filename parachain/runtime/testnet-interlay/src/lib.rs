@@ -931,6 +931,7 @@ impl vault_registry::Config for Runtime {
     type Balance = Balance;
     type WeightInfo = ();
     type GetGriefingCollateralCurrencyId = GetNativeCurrencyId;
+    type NominationApi = Nomination;
 }
 
 impl<C> frame_system::offchain::SendTransactionTypes<C> for Runtime

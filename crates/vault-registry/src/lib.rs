@@ -65,6 +65,7 @@ use sp_std::{
     fmt::Debug,
     vec::Vec,
 };
+use traits::NominationApi;
 
 // value taken from https://github.com/substrate-developer-hub/recipes/blob/master/pallets/ocw-demo/src/lib.rs
 pub const UNSIGNED_TXS_PRIORITY: u64 = 100;
@@ -123,6 +124,8 @@ pub mod pallet {
         /// Currency used for griefing collateral, e.g. DOT.
         #[pallet::constant]
         type GetGriefingCollateralCurrencyId: Get<CurrencyId<Self>>;
+
+        type NominationApi: NominationApi<DefaultVaultId<Self>, Amount<Self>>;
     }
 
     #[pallet::hooks]
@@ -187,74 +190,6 @@ pub mod pallet {
             let account_id = ensure_signed(origin)?;
             let vault_id = VaultId::new(account_id, currency_pair.collateral, currency_pair.wrapped);
             Self::_register_vault(vault_id, collateral)?;
-            Ok(().into())
-        }
-
-        /// Deposit collateral as a security against stealing the
-        /// Bitcoin locked with the caller.
-        ///
-        /// # Arguments
-        /// * `amount` - the amount of extra collateral to lock
-        #[pallet::weight(<T as Config>::WeightInfo::deposit_collateral())]
-        #[transactional]
-        pub fn deposit_collateral(
-            origin: OriginFor<T>,
-            currency_pair: DefaultVaultCurrencyPair<T>,
-            #[pallet::compact] amount: BalanceOf<T>,
-        ) -> DispatchResultWithPostInfo {
-            let account_id = ensure_signed(origin)?;
-
-            let vault_id = VaultId::new(account_id, currency_pair.collateral, currency_pair.wrapped);
-
-            let vault = Self::get_active_rich_vault_from_id(&vault_id)?;
-
-            let amount = Amount::new(amount, currency_pair.collateral);
-
-            Self::try_deposit_collateral(&vault_id, &amount)?;
-
-            Self::deposit_event(Event::<T>::DepositCollateral {
-                vault_id: vault.id(),
-                new_collateral: amount.amount(),
-                total_collateral: vault.get_total_collateral()?.amount(),
-                free_collateral: vault.get_free_collateral()?.amount(),
-            });
-            Ok(().into())
-        }
-
-        /// Withdraws `amount` of the collateral from the amount locked by
-        /// the vault corresponding to the origin account
-        /// The collateral left after withdrawal must be more
-        /// (free or used in collateral issued tokens) than MinimumCollateralVault
-        /// and above the SecureCollateralThreshold. Collateral that is currently
-        /// being used to back issued tokens remains locked until the Vault
-        /// is used for a redeem request (full release can take multiple redeem requests).
-        ///
-        /// # Arguments
-        /// * `amount` - the amount of collateral to withdraw
-        ///
-        /// # Errors
-        /// * `VaultNotFound` - if no vault exists for the origin account
-        /// * `InsufficientCollateralAvailable` - if the vault does not own enough collateral
-        #[pallet::weight(<T as Config>::WeightInfo::withdraw_collateral())]
-        #[transactional]
-        pub fn withdraw_collateral(
-            origin: OriginFor<T>,
-            currency_pair: DefaultVaultCurrencyPair<T>,
-            #[pallet::compact] amount: BalanceOf<T>,
-        ) -> DispatchResultWithPostInfo {
-            let account_id = ensure_signed(origin)?;
-
-            let vault_id = VaultId::new(account_id, currency_pair.collateral, currency_pair.wrapped);
-            let vault = Self::get_rich_vault_from_id(&vault_id)?;
-
-            let amount = Amount::new(amount, currency_pair.collateral);
-            Self::try_withdraw_collateral(&vault_id, &amount)?;
-
-            Self::deposit_event(Event::<T>::WithdrawCollateral {
-                vault_id: vault.id(),
-                withdrawn_amount: amount.amount(),
-                total_collateral: vault.get_total_collateral()?.amount(),
-            });
             Ok(().into())
         }
 
@@ -864,21 +799,7 @@ impl<T: Config> Pallet<T> {
     /// * `vault_id` - the id of the vault
     /// * `amount` - the amount of collateral
     pub fn try_deposit_collateral(vault_id: &DefaultVaultId<T>, amount: &Amount<T>) -> DispatchResult {
-        // ensure the vault is active
-        let _vault = Self::get_active_rich_vault_from_id(vault_id)?;
-
-        // will fail if collateral ceiling exceeded
-        Self::try_increase_total_backing_collateral(&vault_id.currencies, amount)?;
-        // will fail if free_balance is insufficient
-        amount.lock_on(&vault_id.account_id)?;
-
-        // withdraw first such that past rewards don't get changed by this deposit
-        ext::fee::withdraw_all_vault_rewards::<T>(vault_id)?;
-
-        // Deposit `amount` of stake in the pool
-        ext::staking::deposit_stake::<T>(vault_id, &vault_id.account_id, amount)?;
-
-        Ok(())
+        T::NominationApi::deposit_vault_collateral(&vault_id, &amount)
     }
 
     /// Withdraw an `amount` of collateral without checking collateralization
@@ -898,20 +819,6 @@ impl<T: Config> Pallet<T> {
         ext::staking::withdraw_stake::<T>(vault_id, &vault_id.account_id, amount)?;
 
         Ok(())
-    }
-
-    /// Withdraw an `amount` of collateral, ensuring that the vault is sufficiently
-    /// over-collateralized
-    ///
-    /// # Arguments
-    /// * `vault_id` - the id of the vault
-    /// * `amount` - the amount of collateral
-    pub fn try_withdraw_collateral(vault_id: &DefaultVaultId<T>, amount: &Amount<T>) -> DispatchResult {
-        ensure!(
-            Self::is_allowed_to_withdraw_collateral(vault_id, amount)?,
-            Error::<T>::InsufficientCollateral
-        );
-        Self::force_withdraw_collateral(vault_id, amount)
     }
 
     /// Checks if the vault would be above the secure threshold after withdrawing collateral
