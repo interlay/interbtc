@@ -39,6 +39,7 @@ You should implement it's trait like so:
 /// Used for test_module
 impl oracle::Config for Runtime {
     type RuntimeEvent = RuntimeEvent;
+    type OnAggregateChange = ();
     type WeightInfo = ();
 }
 ```
