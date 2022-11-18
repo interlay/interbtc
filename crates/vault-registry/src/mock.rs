@@ -35,13 +35,14 @@ frame_support::construct_runtime!(
         // Tokens & Balances
         Tokens: orml_tokens::{Pallet, Storage, Config<T>, Event<T>},
 
-        Rewards: reward::{Pallet, Call, Storage, Event<T>},
+        CapacityRewards: reward::<Instance1>::{Pallet, Call, Storage, Event<T>},
+        VaultRewards: reward::<Instance2>::{Pallet, Call, Storage, Event<T>},
+        VaultStaking: staking::{Pallet, Storage, Event<T>},
 
         // Operational
         Security: security::{Pallet, Call, Storage, Event<T>},
         VaultRegistry: vault_registry::{Pallet, Call, Config<T>, Storage, Event<T>, ValidateUnsigned},
         Oracle: oracle::{Pallet, Call, Config<T>, Storage, Event<T>},
-        Staking: staking::{Pallet, Storage, Event<T>},
         Fee: fee::{Pallet, Call, Config<T>, Storage},
         Currency: currency::{Pallet},
     }
@@ -125,14 +126,36 @@ impl orml_tokens::Config for Test {
     type ReserveIdentifier = (); // we don't use named reserves
 }
 
-impl reward::Config for Test {
+type CapacityRewardsInstance = reward::Instance1;
+
+impl reward::Config<CapacityRewardsInstance> for Test {
     type RuntimeEvent = RuntimeEvent;
     type SignedFixedPoint = SignedFixedPoint;
     type PoolId = ();
+    type StakeId = CurrencyId;
+    type CurrencyId = CurrencyId;
+    type GetNativeCurrencyId = GetNativeCurrencyId;
+    type GetWrappedCurrencyId = GetWrappedCurrencyId;
+}
+
+type VaultRewardsInstance = reward::Instance2;
+
+impl reward::Config<VaultRewardsInstance> for Test {
+    type RuntimeEvent = RuntimeEvent;
+    type SignedFixedPoint = SignedFixedPoint;
+    type PoolId = CurrencyId;
     type StakeId = VaultId<AccountId, CurrencyId>;
     type CurrencyId = CurrencyId;
     type GetNativeCurrencyId = GetNativeCurrencyId;
     type GetWrappedCurrencyId = GetWrappedCurrencyId;
+}
+
+impl staking::Config for Test {
+    type RuntimeEvent = RuntimeEvent;
+    type SignedFixedPoint = SignedFixedPoint;
+    type SignedInner = SignedInner;
+    type CurrencyId = CurrencyId;
+    type GetNativeCurrencyId = GetNativeCurrencyId;
 }
 
 parameter_types! {
@@ -146,9 +169,35 @@ impl pallet_timestamp::Config for Test {
     type WeightInfo = ();
 }
 
+use primitives::TruncateFixedPointToInt;
+use sp_runtime::traits::CheckedDiv;
+
+pub struct CapacityUpdate<T, CapacityRewards, VaultRewards>(
+    sp_std::marker::PhantomData<(T, CapacityRewards, VaultRewards)>,
+);
+impl<T, CapacityRewards, VaultRewards> oracle::OnAggregateChange<oracle::OracleKey, UnsignedFixedPoint>
+    for CapacityUpdate<T, CapacityRewards, VaultRewards>
+where
+    T: oracle::Config<UnsignedFixedPoint = UnsignedFixedPoint>,
+    CapacityRewards: reward::RewardsApi<(), CurrencyId, CurrencyId, Balance>,
+    VaultRewards: reward::RewardsApi<CurrencyId, VaultId<AccountId, CurrencyId>, CurrencyId, Balance>,
+{
+    fn on_aggregate_change(key: &oracle::OracleKey, _: UnsignedFixedPoint) {
+        if let oracle::OracleKey::ExchangeRate(currency_id) = key {
+            let total_collateral_div_threshold = VaultRewards::get_total_stake(currency_id).unwrap_or_default();
+            let exchange_rate = oracle::Pallet::<T>::get_price(key.clone()).unwrap_or_default();
+            let collateral_capacity = Into::<UnsignedFixedPoint>::into(total_collateral_div_threshold)
+                .checked_div(&exchange_rate)
+                .unwrap_or_default();
+
+            let _ = CapacityRewards::set_stake(&(), currency_id, collateral_capacity.truncate_to_inner().unwrap());
+        }
+    }
+}
+
 impl oracle::Config for Test {
     type RuntimeEvent = RuntimeEvent;
-    type OnAggregateChange = ();
+    type OnAggregateChange = CapacityUpdate<Test, CapacityRewards, VaultRewards>;
     type WeightInfo = ();
 }
 
@@ -193,8 +242,9 @@ impl fee::Config for Test {
     type SignedInner = SignedInner;
     type UnsignedFixedPoint = UnsignedFixedPoint;
     type UnsignedInner = Balance;
-    type VaultRewards = Rewards;
-    type VaultStaking = Staking;
+    type CapacityRewards = CapacityRewards;
+    type VaultRewards = VaultRewards;
+    type StakingRewards = VaultStaking;
     type OnSweep = ();
     type MaxExpectedValue = MaxExpectedValue;
 }
@@ -232,6 +282,8 @@ impl Config for Test {
     type RuntimeEvent = RuntimeEvent;
     type Balance = Balance;
     type WeightInfo = ();
+    // type VaultCapacity
+    type VaultStaking = fee::RewardsRouter<Test>;
     type GetGriefingCollateralCurrencyId = GetNativeCurrencyId;
     type NominationApi = MockDeposit;
 }
@@ -246,14 +298,6 @@ where
 
 impl security::Config for Test {
     type RuntimeEvent = RuntimeEvent;
-}
-
-impl staking::Config for Test {
-    type RuntimeEvent = RuntimeEvent;
-    type SignedFixedPoint = SignedFixedPoint;
-    type SignedInner = SignedInner;
-    type CurrencyId = CurrencyId;
-    type GetNativeCurrencyId = GetNativeCurrencyId;
 }
 
 pub type TestEvent = RuntimeEvent;
