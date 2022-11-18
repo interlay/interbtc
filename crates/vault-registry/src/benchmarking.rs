@@ -58,26 +58,6 @@ benchmarks! {
         VaultRegistry::<T>::register_public_key(origin.clone().into(), public_key).unwrap();
     }: _(origin, vault_id.currencies.clone(), amount.into())
 
-    deposit_collateral {
-        let vault_id = get_vault_id::<T>();
-        mint_collateral::<T>(&vault_id.account_id, (1u32 << 31).into());
-        let amount = 100u32.into();
-        register_vault_with_collateral::<T>(vault_id.clone(), 100000000);
-        Oracle::<T>::_set_exchange_rate(get_collateral_currency_id::<T>(),
-            UnsignedFixedPoint::<T>::one()
-        ).unwrap();
-    }: _(RawOrigin::Signed(vault_id.account_id), vault_id.currencies.clone(), amount)
-
-    withdraw_collateral {
-        let vault_id = get_vault_id::<T>();
-        mint_collateral::<T>(&vault_id.account_id, (1u32 << 31).into());
-        let amount = 100u32.into();
-        register_vault_with_collateral::<T>(vault_id.clone(), 100000000);
-        Oracle::<T>::_set_exchange_rate(get_collateral_currency_id::<T>(),
-            UnsignedFixedPoint::<T>::one()
-        ).unwrap();
-    }: _(RawOrigin::Signed(vault_id.account_id), vault_id.currencies.clone(), amount)
-
     register_public_key {
         let vault_id = get_vault_id::<T>();
         mint_collateral::<T>(&vault_id.account_id, (1u32 << 31).into());

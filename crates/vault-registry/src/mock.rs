@@ -1,5 +1,5 @@
 use crate as vault_registry;
-use crate::{Config, Error};
+use crate::{ext, Config, Error};
 use frame_support::{
     parameter_types,
     traits::{ConstU32, Everything, GenesisBuild},
@@ -14,6 +14,7 @@ use sp_core::H256;
 use sp_runtime::{
     testing::{Header, TestXt},
     traits::{BlakeTwo256, IdentityLookup, One, Zero},
+    DispatchError,
 };
 use traits::OracleApi;
 
@@ -204,6 +205,30 @@ impl fee::Config for Test {
 parameter_types! {
     pub const VaultPalletId: PalletId = PalletId(*b"mod/vreg");
 }
+pub struct MockDeposit;
+
+impl traits::NominationApi<VaultId<AccountId, CurrencyId>, currency::Amount<Test>> for MockDeposit {
+    fn deposit_vault_collateral(
+        vault_id: &VaultId<AccountId, CurrencyId>,
+        amount: &currency::Amount<Test>,
+    ) -> Result<(), DispatchError> {
+        // ensure the vault is active
+        let _vault = VaultRegistry::get_active_rich_vault_from_id(vault_id)?;
+
+        // will fail if collateral ceiling exceeded
+        VaultRegistry::try_increase_total_backing_collateral(&vault_id.currencies, amount)?;
+        // will fail if free_balance is insufficient
+        amount.lock_on(&vault_id.account_id)?;
+
+        // withdraw first such that past rewards don't get changed by this deposit
+        ext::fee::withdraw_all_vault_rewards::<Test>(vault_id)?;
+
+        // Deposit `amount` of stake in the pool
+        ext::staking::deposit_stake::<Test>(vault_id, &vault_id.account_id, amount)?;
+
+        Ok(())
+    }
+}
 
 impl Config for Test {
     type PalletId = VaultPalletId;
@@ -211,6 +236,7 @@ impl Config for Test {
     type Balance = Balance;
     type WeightInfo = ();
     type GetGriefingCollateralCurrencyId = GetNativeCurrencyId;
+    type NominationApi = MockDeposit;
 }
 
 impl<C> frame_system::offchain::SendTransactionTypes<C> for Test

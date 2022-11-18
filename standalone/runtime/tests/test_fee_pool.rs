@@ -590,8 +590,8 @@ fn do_random_nomination_sequence() {
                     let max_amount =
                         CoreVaultData::vault(vault_id.clone()).free_balance[&vault_id.collateral_currency()].amount();
                     let amount = rng.gen_range(0..max_amount);
-                    assert_ok!(RuntimeCall::VaultRegistry(VaultRegistryCall::deposit_collateral {
-                        currency_pair: vault_id.currencies.clone(),
+                    assert_ok!(RuntimeCall::Nomination(NominationCall::deposit_collateral {
+                        vault_id: vault_id.clone(),
                         amount,
                     })
                     .dispatch(origin_of(vault_id.account_id.clone())));
@@ -616,8 +616,9 @@ fn do_random_nomination_sequence() {
                         continue;
                     }
                     let amount = rng.gen_range(0..max_amount);
-                    assert_ok!(RuntimeCall::VaultRegistry(VaultRegistryCall::withdraw_collateral {
-                        currency_pair: vault_id.currencies.clone(),
+                    assert_ok!(RuntimeCall::Nomination(NominationCall::withdraw_collateral {
+                        vault_id: vault_id.clone(),
+                        index: None,
                         amount,
                     })
                     .dispatch(origin_of(vault_id.account_id.clone())));

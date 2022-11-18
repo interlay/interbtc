@@ -39,8 +39,8 @@ fn test_with<R>(execute: impl Fn(VaultId) -> R) {
 
 fn deposit_collateral_and_issue(vault_id: VaultId) {
     let new_collateral = 10_000;
-    assert_ok!(RuntimeCall::VaultRegistry(VaultRegistryCall::deposit_collateral {
-        currency_pair: vault_id.currencies.clone(),
+    assert_ok!(RuntimeCall::Nomination(NominationCall::deposit_collateral {
+        vault_id: vault_id.clone(),
         amount: new_collateral,
     })
     .dispatch(origin_of(account_of(VAULT))));
@@ -58,8 +58,8 @@ mod deposit_collateral_test {
             let currency_id = vault_id.collateral_currency();
             let amount = Amount::new(1_000, currency_id);
 
-            assert_ok!(RuntimeCall::VaultRegistry(VaultRegistryCall::deposit_collateral {
-                currency_pair: vault_id.currencies.clone(),
+            assert_ok!(RuntimeCall::Nomination(NominationCall::deposit_collateral {
+                vault_id: vault_id.clone(),
                 amount: amount.amount(),
             })
             .dispatch(origin_of(account_of(VAULT))));
@@ -80,8 +80,8 @@ mod deposit_collateral_test {
             let currency_id = vault_id.collateral_currency();
             let amount = default_vault_free_balance(currency_id);
 
-            assert_ok!(RuntimeCall::VaultRegistry(VaultRegistryCall::deposit_collateral {
-                currency_pair: vault_id.currencies.clone(),
+            assert_ok!(RuntimeCall::Nomination(NominationCall::deposit_collateral {
+                vault_id: vault_id.clone(),
                 amount: amount.amount()
             })
             .dispatch(origin_of(account_of(VAULT))));
@@ -103,8 +103,8 @@ mod deposit_collateral_test {
             let amount = default_vault_free_balance(currency_id).amount() + 1;
 
             assert_noop!(
-                RuntimeCall::VaultRegistry(VaultRegistryCall::deposit_collateral {
-                    currency_pair: vault_id.currencies.clone(),
+                RuntimeCall::Nomination(NominationCall::deposit_collateral {
+                    vault_id: vault_id.clone(),
                     amount: amount
                 })
                 .dispatch(origin_of(account_of(VAULT))),
@@ -141,8 +141,8 @@ mod deposit_collateral_test {
             .dispatch(origin_of(vault_id.account_id.clone())));
 
             assert_noop!(
-                RuntimeCall::VaultRegistry(VaultRegistryCall::deposit_collateral {
-                    currency_pair: vault_id.currencies.clone(),
+                RuntimeCall::Nomination(NominationCall::deposit_collateral {
+                    vault_id: vault_id.clone(),
                     amount: amount_1
                 })
                 .dispatch(origin_of(vault_id.account_id.clone())),
@@ -163,16 +163,16 @@ mod deposit_collateral_test {
             let remaining = FUND_LIMIT_CEILING - current.amount();
 
             assert_noop!(
-                RuntimeCall::VaultRegistry(VaultRegistryCall::deposit_collateral {
-                    currency_pair: vault_id.currencies.clone(),
+                RuntimeCall::Nomination(NominationCall::deposit_collateral {
+                    vault_id: vault_id.clone(),
                     amount: remaining + 1
                 })
                 .dispatch(origin_of(account_of(VAULT))),
                 VaultRegistryError::CurrencyCeilingExceeded
             );
 
-            assert_ok!(RuntimeCall::VaultRegistry(VaultRegistryCall::deposit_collateral {
-                currency_pair: vault_id.currencies.clone(),
+            assert_ok!(RuntimeCall::Nomination(NominationCall::deposit_collateral {
+                vault_id: vault_id.clone(),
                 amount: remaining,
             })
             .dispatch(origin_of(account_of(VAULT))));
@@ -194,9 +194,10 @@ mod withdraw_collateral_test {
             let currency_id = vault_id.collateral_currency();
             let amount = Amount::new(1_000, currency_id);
 
-            assert_ok!(RuntimeCall::VaultRegistry(VaultRegistryCall::withdraw_collateral {
-                currency_pair: vault_id.currencies.clone(),
-                amount: amount.amount()
+            assert_ok!(RuntimeCall::Nomination(NominationCall::withdraw_collateral {
+                vault_id: vault_id.clone(),
+                amount: amount.amount(),
+                index: None,
             })
             .dispatch(origin_of(account_of(VAULT))));
 
@@ -216,8 +217,9 @@ mod withdraw_collateral_test {
             let currency_id = vault_id.collateral_currency();
             let amount = default_vault_backing_collateral(currency_id) - required_collateral(vault_id.clone());
 
-            assert_ok!(RuntimeCall::VaultRegistry(VaultRegistryCall::withdraw_collateral {
-                currency_pair: vault_id.currencies.clone(),
+            assert_ok!(RuntimeCall::Nomination(NominationCall::withdraw_collateral {
+                vault_id: vault_id.clone(),
+                index: None,
                 amount: amount.amount()
             })
             .dispatch(origin_of(account_of(VAULT))));
@@ -241,12 +243,13 @@ mod withdraw_collateral_test {
                 + 1;
 
             assert_noop!(
-                RuntimeCall::VaultRegistry(VaultRegistryCall::withdraw_collateral {
-                    currency_pair: vault_id.currencies.clone(),
+                RuntimeCall::Nomination(NominationCall::withdraw_collateral {
+                    vault_id: vault_id.clone(),
+                    index: None,
                     amount: amount
                 })
                 .dispatch(origin_of(account_of(VAULT))),
-                VaultRegistryError::InsufficientCollateral
+                NominationError::CannotWithdrawCollateral
             );
         });
     }
@@ -266,12 +269,13 @@ mod withdraw_collateral_test {
             );
 
             assert_err!(
-                RuntimeCall::VaultRegistry(VaultRegistryCall::withdraw_collateral {
-                    currency_pair: vault_id.currencies.clone(),
+                RuntimeCall::Nomination(NominationCall::withdraw_collateral {
+                    vault_id: vault_id.clone(),
+                    index: None,
                     amount: amount.amount()
                 })
                 .dispatch(origin_of(account_of(VAULT))),
-                VaultRegistryError::InsufficientCollateral
+                NominationError::CannotWithdrawCollateral
             );
 
             assert_ok!(
@@ -282,8 +286,9 @@ mod withdraw_collateral_test {
                 .dispatch(origin_of(vault_id.account_id.clone()))
             );
 
-            assert_ok!(RuntimeCall::VaultRegistry(VaultRegistryCall::withdraw_collateral {
-                currency_pair: vault_id.currencies.clone(),
+            assert_ok!(RuntimeCall::Nomination(NominationCall::withdraw_collateral {
+                vault_id: vault_id.clone(),
+                index: None,
                 amount: amount.amount()
             })
             .dispatch(origin_of(account_of(VAULT))));
@@ -313,16 +318,17 @@ fn integration_test_vault_registry_with_parachain_shutdown_fails() {
             SystemError::CallFiltered
         );
         assert_noop!(
-            RuntimeCall::VaultRegistry(VaultRegistryCall::deposit_collateral {
-                currency_pair: vault_id.currencies.clone(),
+            RuntimeCall::Nomination(NominationCall::deposit_collateral {
+                vault_id: vault_id.clone(),
                 amount: 0
             })
             .dispatch(origin_of(account_of(VAULT))),
             SystemError::CallFiltered
         );
         assert_noop!(
-            RuntimeCall::VaultRegistry(VaultRegistryCall::withdraw_collateral {
-                currency_pair: vault_id.currencies.clone(),
+            RuntimeCall::Nomination(NominationCall::withdraw_collateral {
+                vault_id: vault_id.clone(),
+                index: None,
                 amount: 0
             })
             .dispatch(origin_of(account_of(VAULT))),

@@ -562,8 +562,9 @@ fn integration_test_withdraw_after_request_issue() {
         .is_err());
 
         // should not be possible to withdraw the collateral now
-        assert!(RuntimeCall::VaultRegistry(VaultRegistryCall::withdraw_collateral {
-            currency_pair: vault_id.currencies.clone(),
+        assert!(RuntimeCall::Nomination(NominationCall::withdraw_collateral {
+            vault_id: vault_id.clone(),
+            index: None,
             amount: collateral_vault.amount()
         })
         .dispatch(origin_of(account_of(vault)))

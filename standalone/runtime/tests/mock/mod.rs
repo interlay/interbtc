@@ -1064,9 +1064,8 @@ pub fn get_register_vault_result(vault_id: &VaultId, collateral: Amount<Runtime>
 
 pub fn try_register_vault(collateral: Amount<Runtime>, vault_id: &VaultId) {
     if VaultRegistryPallet::get_vault_from_id(vault_id).is_err() {
-        if TokensPallet::accounts(vault_id.account_id.clone(), vault_id.collateral_currency()).free
-            < collateral.amount()
-        {
+        let q = TokensPallet::accounts(vault_id.account_id.clone(), vault_id.collateral_currency());
+        if q.free < collateral.amount() {
             // register vault if not yet registered
             assert_ok!(RuntimeCall::Tokens(TokensCall::set_balance {
                 who: vault_id.account_id.clone(),

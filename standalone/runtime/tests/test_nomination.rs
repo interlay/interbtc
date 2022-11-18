@@ -344,8 +344,9 @@ mod spec_based_tests {
     fn integration_test_withdraw_collateral_preconditions_collateralization() {
         // PRECONDITION: The Vault MUST remain above the secure collateralization threshold.
         test_with_nomination_enabled(|vault_id| {
-            assert_ok!(RuntimeCall::VaultRegistry(VaultRegistryCall::withdraw_collateral {
-                currency_pair: vault_id.currencies.clone(),
+            assert_ok!(RuntimeCall::Nomination(NominationCall::withdraw_collateral {
+                vault_id: vault_id.clone(),
+                index: None,
                 amount: 750000
             })
             .dispatch(origin_of(account_of(VAULT))));
@@ -456,7 +457,7 @@ fn integration_test_vaults_cannot_withdraw_nominated_collateral() {
                 &vault_id,
                 default_backing_collateral(vault_id.collateral_currency()).with_amount(|x| x + 1)
             ),
-            VaultRegistryError::InsufficientCollateral
+            NominationError::CannotWithdrawCollateral
         );
     });
 }
@@ -551,8 +552,9 @@ fn integration_test_nominator_withdrawal_request_reduces_issuable_tokens() {
 #[test]
 fn integration_test_nominator_withdrawal_below_collateralization_threshold_fails() {
     test_with_nomination_enabled(|vault_id| {
-        assert_ok!(RuntimeCall::VaultRegistry(VaultRegistryCall::withdraw_collateral {
-            currency_pair: vault_id.currencies.clone(),
+        assert_ok!(RuntimeCall::Nomination(NominationCall::withdraw_collateral {
+            vault_id: vault_id.clone(),
+            index: None,
             amount: 750000
         })
         .dispatch(origin_of(account_of(VAULT))));
