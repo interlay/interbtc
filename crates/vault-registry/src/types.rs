@@ -548,6 +548,8 @@ impl<T: Config> RichVault<T> {
     pub(crate) fn slash_for_to_be_redeemed(&mut self, amount: &Amount<T>) -> DispatchResult {
         let vault_id = self.id();
         let collateral = self.get_vault_collateral()?.min(amount)?;
+        // withdraw first so as not to affect past rewards
+        ext::fee::withdraw_all_vault_rewards::<T>(&vault_id)?;
         ext::staking::withdraw_stake::<T>(&vault_id, &vault_id.account_id, &collateral)?;
         self.increase_liquidated_collateral(&collateral)?;
         Ok(())
@@ -563,6 +565,8 @@ impl<T: Config> RichVault<T> {
             .and_then(|leftover| Ok((collateral, Some(leftover))))
             .unwrap_or((amount.clone(), None));
 
+        // withdraw first so as not to affect past rewards
+        ext::fee::withdraw_all_vault_rewards::<T>(vault_id)?;
         // "slash" vault first
         ext::staking::withdraw_stake::<T>(&vault_id, &vault_id.account_id, &to_withdraw)?;
         // take remainder from nominators

@@ -875,7 +875,7 @@ impl<T: Config> Pallet<T> {
         // withdraw first such that past rewards don't get changed by this deposit
         ext::fee::withdraw_all_vault_rewards::<T>(vault_id)?;
 
-        // Deposit `amount` of stake in the pool
+        // deposit `amount` of stake in the pool
         ext::staking::deposit_stake::<T>(vault_id, &vault_id.account_id, amount)?;
 
         Ok(())
@@ -894,7 +894,7 @@ impl<T: Config> Pallet<T> {
         // withdraw first such that past rewards don't get changed by this withdrawal
         ext::fee::withdraw_all_vault_rewards::<T>(vault_id)?;
 
-        // Withdraw `amount` of stake from the pool
+        // withdraw `amount` of stake from the pool
         ext::staking::withdraw_stake::<T>(vault_id, &vault_id.account_id, amount)?;
 
         Ok(())
@@ -1404,7 +1404,8 @@ impl<T: Config> Pallet<T> {
                 &old_vault.to_be_redeemed_tokens(),
             )?;
             old_vault.decrease_liquidated_collateral(&to_be_released)?;
-
+            // withdraw first so as not to affect past rewards
+            ext::fee::withdraw_all_vault_rewards::<T>(&old_vault_id)?;
             // deposit old-vault's collateral (this was withdrawn on liquidation)
             ext::staking::deposit_stake::<T>(old_vault_id, &old_vault_id.account_id, &to_be_released)?;
         }
