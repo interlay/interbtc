@@ -86,9 +86,9 @@ fn redeem_all_should_be_accurate() {
 
         assert_ok!(Loans::repay_borrow_all(RuntimeOrigin::signed(ALICE), Token(KSM)));
         // It failed with InsufficientLiquidity before #839
-        // Interlay modification: Need to withraw collateral first in order to redeem
-        assert_ok!(Loans::withdraw_all_collateral(RuntimeOrigin::signed(ALICE), Token(KSM)));
         assert_ok!(Loans::redeem_all(RuntimeOrigin::signed(ALICE), Token(KSM)));
+        assert_eq!(Loans::free_lend_tokens(Token(DOT), &ALICE).unwrap().is_zero(), true);
+        assert_eq!(Loans::reserved_lend_tokens(Token(DOT), &ALICE).unwrap().is_zero(), true);
     })
 }
 
@@ -153,5 +153,116 @@ fn prevent_the_exchange_rate_attack() {
             Loans::mint(RuntimeOrigin::signed(BOB), Token(DOT), 100000000000),
             Error::<Test>::InvalidExchangeRate
         );
+    })
+}
+
+#[test]
+fn deposit_all_collateral_fails_if_locked_tokens_exist() {
+    new_test_ext().execute_with(|| {
+        assert_ok!(Loans::mint(RuntimeOrigin::signed(ALICE), Token(DOT), unit(200)));
+        // Assume 1 lend_token is locked for some other reason than borrow collateral
+        Tokens::reserve(Loans::lend_token_id(Token(DOT)).unwrap(), &ALICE, unit(1)).unwrap();
+        // If there are _any_ locked lend tokens, then the "toggle" cannot be enforced
+        // and the extrinsic fails.
+        assert_noop!(
+            Loans::deposit_all_collateral(RuntimeOrigin::signed(ALICE), Token(DOT)),
+            Error::<Test>::TokensAlreadyLocked
+        );
+    })
+}
+
+#[test]
+fn new_minted_collateral_is_auto_deposited_if_collateral() {
+    new_test_ext().execute_with(|| {
+        assert_ok!(Loans::mint(RuntimeOrigin::signed(ALICE), Token(DOT), unit(200)));
+        assert_ok!(Loans::deposit_all_collateral(RuntimeOrigin::signed(ALICE), Token(DOT)));
+        assert_eq!(Loans::free_lend_tokens(Token(DOT), &ALICE).unwrap().is_zero(), true);
+        assert_eq!(
+            Loans::reserved_lend_tokens(Token(DOT), &ALICE).unwrap().amount(),
+            unit(10000)
+        );
+
+        // Mint more lend tokens, without explicitly depositing.
+        assert_ok!(Loans::mint(RuntimeOrigin::signed(ALICE), Token(DOT), unit(13)));
+        // These new tokens are automatically deposited as collateral
+        assert_eq!(Loans::free_lend_tokens(Token(DOT), &ALICE).unwrap().is_zero(), true);
+        assert_eq!(
+            Loans::reserved_lend_tokens(Token(DOT), &ALICE).unwrap().amount(),
+            unit(10650)
+        );
+    })
+}
+
+#[test]
+fn new_minted_collateral_is_not_auto_deposited_if_not_collateral() {
+    new_test_ext().execute_with(|| {
+        assert_ok!(Loans::mint(RuntimeOrigin::signed(ALICE), Token(DOT), unit(200)));
+        assert_eq!(
+            Loans::free_lend_tokens(Token(DOT), &ALICE).unwrap().amount(),
+            unit(10000)
+        );
+        assert_eq!(Loans::reserved_lend_tokens(Token(DOT), &ALICE).unwrap().is_zero(), true);
+
+        // Mint more lend tokens.
+        assert_ok!(Loans::mint(RuntimeOrigin::signed(ALICE), Token(DOT), unit(13)));
+        // These new tokens are NOT automatically deposited as collateral
+        assert_eq!(
+            Loans::free_lend_tokens(Token(DOT), &ALICE).unwrap().amount(),
+            unit(10650)
+        );
+        assert_eq!(Loans::reserved_lend_tokens(Token(DOT), &ALICE).unwrap().is_zero(), true);
+    })
+}
+
+#[test]
+fn new_transferred_collateral_is_auto_deposited_if_collateral() {
+    new_test_ext().execute_with(|| {
+        assert_ok!(Loans::mint(RuntimeOrigin::signed(ALICE), Token(DOT), unit(200)));
+        let lend_token_id = Loans::lend_token_id(Token(DOT)).unwrap();
+        assert_ok!(Loans::deposit_all_collateral(RuntimeOrigin::signed(ALICE), Token(DOT)));
+        assert_eq!(Loans::free_lend_tokens(Token(DOT), &ALICE).unwrap().is_zero(), true);
+        assert_eq!(
+            Loans::reserved_lend_tokens(Token(DOT), &ALICE).unwrap().amount(),
+            unit(10000)
+        );
+        // Mint some tokens to another user's account
+        assert_ok!(Loans::mint(RuntimeOrigin::signed(BOB), Token(DOT), unit(200)));
+
+        // Transfer some free lend tokens to Alice
+        let amount_to_transfer = Amount::<Test>::new(unit(11), lend_token_id);
+        amount_to_transfer.transfer(&BOB, &ALICE).unwrap();
+
+        // These received tokens are automatically deposited as collateral
+        assert_eq!(Loans::free_lend_tokens(Token(DOT), &ALICE).unwrap().is_zero(), true);
+        assert_eq!(
+            Loans::reserved_lend_tokens(Token(DOT), &ALICE).unwrap().amount(),
+            unit(10011)
+        );
+    })
+}
+
+#[test]
+fn new_transferred_collateral_is_not_auto_deposited_if_not_collateral() {
+    new_test_ext().execute_with(|| {
+        assert_ok!(Loans::mint(RuntimeOrigin::signed(ALICE), Token(DOT), unit(200)));
+        let lend_token_id = Loans::lend_token_id(Token(DOT)).unwrap();
+        assert_eq!(
+            Loans::free_lend_tokens(Token(DOT), &ALICE).unwrap().amount(),
+            unit(10000)
+        );
+        assert_eq!(Loans::reserved_lend_tokens(Token(DOT), &ALICE).unwrap().is_zero(), true);
+        // Mint some tokens to another user's account
+        assert_ok!(Loans::mint(RuntimeOrigin::signed(BOB), Token(DOT), unit(200)));
+
+        // Transfer some free lend tokens to Alice
+        let amount_to_transfer = Amount::<Test>::new(unit(11), lend_token_id);
+        amount_to_transfer.transfer(&BOB, &ALICE).unwrap();
+
+        // These received tokens are automatically deposited as collateral
+        assert_eq!(
+            Loans::free_lend_tokens(Token(DOT), &ALICE).unwrap().amount(),
+            unit(10011)
+        );
+        assert_eq!(Loans::reserved_lend_tokens(Token(DOT), &ALICE).unwrap().is_zero(), true);
     })
 }

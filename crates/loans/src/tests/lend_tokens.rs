@@ -14,6 +14,7 @@ use primitives::{
     KBTC as KBTC_CURRENCY, KINT as KINT_CURRENCY, KSM as KSM_CURRENCY,
 };
 use sp_runtime::{FixedPointNumber, TokenError};
+use traits::LoansApi;
 
 const KINT: CurrencyId = Token(KINT_CURRENCY);
 const KSM: CurrencyId = Token(KSM_CURRENCY);
@@ -195,12 +196,9 @@ fn transfer_lend_tokens_under_collateral_does_not_work() {
             Loans::transfer(LEND_KINT, &DAVE, &ALICE, unit(20) * 50, true),
             Error::<Test>::InsufficientCollateral
         );
-        // First, withdraw some tokens
-        assert_ok!(Loans::withdraw_collateral(
-            RuntimeOrigin::signed(DAVE),
-            LEND_KINT,
-            unit(20) * 50
-        ));
+        // First, withdraw some tokens. Note that directly withdrawing part of the locked
+        // lend_tokens is not possible through extrinsics.
+        assert_ok!(Loans::do_withdraw_collateral(&DAVE, LEND_KINT, unit(20) * 50));
         // Check entries from orml-tokens directly
         assert_eq!(free_balance(LEND_KINT, &DAVE), unit(20) * 50);
         assert_eq!(reserved_balance(LEND_KINT, &DAVE), unit(80) * 50);

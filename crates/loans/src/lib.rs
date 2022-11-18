@@ -40,7 +40,7 @@ use frame_support::{
 };
 use frame_system::pallet_prelude::*;
 use num_traits::cast::ToPrimitive;
-use orml_traits::MultiCurrency;
+use orml_traits::{MultiCurrency, MultiReservableCurrency};
 pub use pallet::*;
 use primitives::{Balance, CurrencyId, Liquidity, Price, Rate, Ratio, Shortfall, Timestamp};
 use sp_runtime::{
@@ -111,10 +111,9 @@ impl<T: Config> OnSlash<T::AccountId, AssetIdOf<T>, BalanceOf<T>> for OnSlashHoo
     }
 }
 
-pub struct OnDepositHook<T>(marker::PhantomData<T>);
-// TODO: upgrade to use orml-tokens posthooks once merged to master
-impl<T: Config> OnDeposit<T::AccountId, AssetIdOf<T>, BalanceOf<T>> for OnDepositHook<T> {
-    fn on_deposit(currency_id: AssetIdOf<T>, account_id: &T::AccountId, _: BalanceOf<T>) -> DispatchResult {
+pub struct PreDeposit<T>(marker::PhantomData<T>);
+impl<T: Config> OnDeposit<T::AccountId, AssetIdOf<T>, BalanceOf<T>> for PreDeposit<T> {
+    fn on_deposit(currency_id: AssetIdOf<T>, account_id: &T::AccountId, _amount: BalanceOf<T>) -> DispatchResult {
         if currency_id.is_lend_token() {
             let underlying_id = Pallet::<T>::underlying_id(currency_id)?;
             Pallet::<T>::update_reward_supply_index(underlying_id)?;
@@ -124,20 +123,44 @@ impl<T: Config> OnDeposit<T::AccountId, AssetIdOf<T>, BalanceOf<T>> for OnDeposi
     }
 }
 
-pub struct OnTransferHook<T>(marker::PhantomData<T>);
-// TODO: upgrade to use orml-tokens posthooks once merged to master
-impl<T: Config> OnTransfer<T::AccountId, AssetIdOf<T>, BalanceOf<T>> for OnTransferHook<T> {
+pub struct PostDeposit<T>(marker::PhantomData<T>);
+impl<T: Config> OnDeposit<T::AccountId, AssetIdOf<T>, BalanceOf<T>> for PostDeposit<T> {
+    fn on_deposit(currency_id: AssetIdOf<T>, account_id: &T::AccountId, amount: BalanceOf<T>) -> DispatchResult {
+        if currency_id.is_lend_token() {
+            Pallet::<T>::lock_if_account_deposited(account_id, currency_id, amount)?;
+        }
+        Ok(())
+    }
+}
+
+pub struct PreTransfer<T>(marker::PhantomData<T>);
+impl<T: Config> OnTransfer<T::AccountId, AssetIdOf<T>, BalanceOf<T>> for PreTransfer<T> {
     fn on_transfer(
         currency_id: AssetIdOf<T>,
         from: &T::AccountId,
         to: &T::AccountId,
-        _: BalanceOf<T>,
+        _amount: BalanceOf<T>,
     ) -> DispatchResult {
         if currency_id.is_lend_token() {
             let underlying_id = Pallet::<T>::underlying_id(currency_id)?;
             Pallet::<T>::update_reward_supply_index(underlying_id)?;
             Pallet::<T>::distribute_supplier_reward(underlying_id, from)?;
             Pallet::<T>::distribute_supplier_reward(underlying_id, to)?;
+        }
+        Ok(())
+    }
+}
+
+pub struct PostTransfer<T>(marker::PhantomData<T>);
+impl<T: Config> OnTransfer<T::AccountId, AssetIdOf<T>, BalanceOf<T>> for PostTransfer<T> {
+    fn on_transfer(
+        currency_id: AssetIdOf<T>,
+        _from: &T::AccountId,
+        to: &T::AccountId,
+        amount: BalanceOf<T>,
+    ) -> DispatchResult {
+        if currency_id.is_lend_token() {
+            Pallet::<T>::lock_if_account_deposited(to, currency_id, amount)?;
         }
         Ok(())
     }
@@ -242,6 +265,12 @@ pub mod pallet {
         InvalidExchangeRate,
         /// Amount cannot be zero
         InvalidAmount,
+        /// Locking collateral failed. The account has no `free` tokens.
+        DepositAllCollateralFailed,
+        /// Unlocking collateral failed. The account has no `reserved` tokens.
+        WithdrawAllCollateralFailed,
+        /// Tokens already locked for a different purpose than borrow collateral
+        TokensAlreadyLocked,
         /// Payer cannot be signer
         PayerIsSigner,
         /// Codec error
@@ -850,6 +879,18 @@ pub mod pallet {
         ) -> DispatchResultWithPostInfo {
             let who = ensure_signed(origin)?;
             ensure!(!redeem_amount.is_zero(), Error::<T>::InvalidAmount);
+
+            let lend_token_id = Self::lend_token_id(asset_id)?;
+            // if the receiver has collateral locked
+            let deposit = Pallet::<T>::account_deposits(lend_token_id, &who);
+            if deposit > 0 {
+                // Withdraw the `lend_tokens` from the borrow collateral, so they are redeemable.
+                // This assumes that a user cannot have both `free` and `locked` lend tokens at
+                // the same time (for the purposes of lending and borrowing).
+                let amount = Amount::<T>::new(redeem_amount, asset_id);
+                let collateral = Self::recompute_collateral_amount(&amount)?;
+                Self::do_withdraw_collateral(&who, collateral.currency(), collateral.amount())?;
+            }
             Self::do_redeem(&who, asset_id, redeem_amount)?;
 
             Ok(().into())
@@ -861,7 +902,7 @@ pub mod pallet {
         #[pallet::weight(<T as Config>::WeightInfo::redeem_all())]
         #[transactional]
         pub fn redeem_all(origin: OriginFor<T>, asset_id: AssetIdOf<T>) -> DispatchResultWithPostInfo {
-            let who = ensure_signed(origin)?;
+            let who = ensure_signed(origin.clone())?;
             // This function is an almost 1:1 duplicate of the logic in `do_redeem`.
             // It could be refactored to compute the redeemable underlying
             // with `Self::recompute_underlying_amount(&Self::free_lend_tokens(asset_id, &who)?)?`
@@ -881,6 +922,16 @@ pub mod pallet {
             // If there are leftover lend_tokens after a `redeem_all` (because of rounding down), it would make it
             // impossible to enforce "collateral toggle" state transitions.
             Self::ensure_active_market(asset_id)?;
+
+            let lend_token_id = Self::lend_token_id(asset_id)?;
+            // if the receiver has collateral locked
+            let deposit = Pallet::<T>::account_deposits(lend_token_id, &who);
+            if deposit > 0 {
+                // then withdraw all collateral
+                Self::withdraw_all_collateral(origin, asset_id)?;
+            }
+
+            // `do_redeem()` logic duplicate:
             Self::accrue_interest(asset_id)?;
             let exchange_rate = Self::exchange_rate_stored(asset_id)?;
             Self::update_earned_stored(&who, asset_id, exchange_rate)?;
@@ -950,22 +1001,13 @@ pub mod pallet {
         #[transactional]
         pub fn deposit_all_collateral(origin: OriginFor<T>, asset_id: AssetIdOf<T>) -> DispatchResultWithPostInfo {
             let who = ensure_signed(origin)?;
-            let lend_tokens = Self::free_lend_tokens(asset_id, &who)?;
-            ensure!(!lend_tokens.is_zero(), Error::<T>::InvalidAmount);
-            Self::do_deposit_collateral(&who, lend_tokens.currency(), lend_tokens.amount())?;
-            Ok(().into())
-        }
-
-        #[pallet::weight(<T as Config>::WeightInfo::collateral_asset())]
-        #[transactional]
-        pub fn deposit_collateral(
-            origin: OriginFor<T>,
-            asset_id: AssetIdOf<T>,
-            #[pallet::compact] amount: BalanceOf<T>,
-        ) -> DispatchResultWithPostInfo {
-            let who = ensure_signed(origin)?;
-            ensure!(!amount.is_zero(), Error::<T>::InvalidAmount);
-            Self::do_deposit_collateral(&who, asset_id, amount)?;
+            let free_lend_tokens = Self::free_lend_tokens(asset_id, &who)?;
+            ensure!(!free_lend_tokens.is_zero(), Error::<T>::DepositAllCollateralFailed);
+            let reserved_lend_tokens = Self::reserved_lend_tokens(asset_id, &who)?;
+            // This check could fail if `withdraw_all_collateral()` leaves leftover lend_tokens locked.
+            // However the current implementation is guaranteed to withdraw everything.
+            ensure!(reserved_lend_tokens.is_zero(), Error::<T>::TokensAlreadyLocked);
+            Self::do_deposit_collateral(&who, free_lend_tokens.currency(), free_lend_tokens.amount())?;
             Ok(().into())
         }
 
@@ -976,21 +1018,8 @@ pub mod pallet {
 
             let lend_token_id = Self::lend_token_id(asset_id)?;
             let collateral = Self::account_deposits(lend_token_id, who.clone());
-            ensure!(!collateral.is_zero(), Error::<T>::InvalidAmount);
+            ensure!(!collateral.is_zero(), Error::<T>::WithdrawAllCollateralFailed);
             Self::do_withdraw_collateral(&who, lend_token_id, collateral)?;
-            Ok(().into())
-        }
-
-        #[pallet::weight(<T as Config>::WeightInfo::collateral_asset())]
-        #[transactional]
-        pub fn withdraw_collateral(
-            origin: OriginFor<T>,
-            asset_id: AssetIdOf<T>,
-            #[pallet::compact] amount: BalanceOf<T>,
-        ) -> DispatchResultWithPostInfo {
-            let who = ensure_signed(origin)?;
-            ensure!(!amount.is_zero(), Error::<T>::InvalidAmount);
-            Self::do_withdraw_collateral(&who, asset_id, amount)?;
             Ok(().into())
         }
 
@@ -1630,6 +1659,21 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
+    pub fn lock_if_account_deposited(
+        account_id: &T::AccountId,
+        lend_token_id: AssetIdOf<T>,
+        incoming_amount: BalanceOf<T>,
+    ) -> DispatchResult {
+        // if the receiver already has their collateral deposited
+        let deposit = Pallet::<T>::account_deposits(lend_token_id, account_id);
+        if deposit > 0 {
+            // then any incoming `lend_tokens` must automatically be deposited as collateral
+            // to enforce the "collateral toggle"
+            Self::do_deposit_collateral(account_id, lend_token_id, incoming_amount)?;
+        }
+        Ok(())
+    }
+
     // Ensures a given `asset_id` is an active market.
     fn ensure_active_market(asset_id: AssetIdOf<T>) -> Result<Market<BalanceOf<T>>, DispatchError> {
         Self::active_markets()
@@ -1743,6 +1787,16 @@ impl<T: Config> Pallet<T> {
         let lend_token_id = Self::lend_token_id(asset_id)?;
         let amount = Amount::new(
             orml_tokens::Pallet::<T>::free_balance(lend_token_id, account_id),
+            lend_token_id,
+        );
+        Ok(amount)
+    }
+
+    /// Reserved lending tokens (lend_tokens) of an account, given the underlying
+    pub fn reserved_lend_tokens(asset_id: AssetIdOf<T>, account_id: &T::AccountId) -> Result<Amount<T>, DispatchError> {
+        let lend_token_id = Self::lend_token_id(asset_id)?;
+        let amount = Amount::new(
+            orml_tokens::Pallet::<T>::reserved_balance(lend_token_id, account_id),
             lend_token_id,
         );
         Ok(amount)
