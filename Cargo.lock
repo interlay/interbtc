@@ -9315,6 +9315,7 @@ dependencies = [
  "frame-support",
  "frame-system",
  "interbtc-primitives",
+ "log",
  "mocktopus",
  "pallet-timestamp",
  "parity-scale-codec",

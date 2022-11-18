@@ -33,8 +33,9 @@ frame_support::construct_runtime!(
         // Tokens & Balances
         Tokens: orml_tokens::{Pallet, Storage, Config<T>, Event<T>},
 
-        Rewards: reward::{Pallet, Call, Storage, Event<T>},
-        Staking: staking::{Pallet, Storage, Event<T>},
+        CapacityRewards: reward::<Instance1>::{Pallet, Call, Storage, Event<T>},
+        VaultRewards: reward::<Instance2>::{Pallet, Call, Storage, Event<T>},
+        VaultStaking: staking::{Pallet, Storage, Event<T>},
 
         // Operational
         Security: security::{Pallet, Call, Storage, Event<T>},
@@ -112,10 +113,24 @@ impl orml_tokens::Config for Test {
     type ReserveIdentifier = (); // we don't use named reserves
 }
 
-impl reward::Config for Test {
+type CapacityRewardsInstance = reward::Instance1;
+
+impl reward::Config<CapacityRewardsInstance> for Test {
     type RuntimeEvent = RuntimeEvent;
     type SignedFixedPoint = SignedFixedPoint;
     type PoolId = ();
+    type StakeId = CurrencyId;
+    type CurrencyId = CurrencyId;
+    type GetNativeCurrencyId = GetNativeCurrencyId;
+    type GetWrappedCurrencyId = GetWrappedCurrencyId;
+}
+
+type VaultRewardsInstance = reward::Instance2;
+
+impl reward::Config<VaultRewardsInstance> for Test {
+    type RuntimeEvent = RuntimeEvent;
+    type SignedFixedPoint = SignedFixedPoint;
+    type PoolId = CurrencyId;
     type StakeId = VaultId<AccountId, CurrencyId>;
     type CurrencyId = CurrencyId;
     type GetNativeCurrencyId = GetNativeCurrencyId;
@@ -178,8 +193,9 @@ impl Config for Test {
     type SignedInner = SignedInner;
     type UnsignedFixedPoint = UnsignedFixedPoint;
     type UnsignedInner = UnsignedInner;
-    type VaultRewards = Rewards;
-    type VaultStaking = Staking;
+    type CapacityRewards = CapacityRewards;
+    type VaultRewards = VaultRewards;
+    type VaultStaking = VaultStaking;
     type OnSweep = ();
     type MaxExpectedValue = MaxExpectedValue;
 }
