@@ -49,6 +49,7 @@ use traits::OracleApi;
 
 pub use pallet::*;
 pub use primitives::{oracle::Key as OracleKey, CurrencyId, TruncateFixedPointToInt};
+pub use types::OnAggregateChange;
 
 #[derive(Encode, Decode, Eq, PartialEq, Clone, Copy, Ord, PartialOrd, TypeInfo, MaxEncodedLen)]
 pub struct TimestampedValue<Value, Moment> {
@@ -61,6 +62,7 @@ pub mod pallet {
     use super::*;
     use frame_support::pallet_prelude::*;
     use frame_system::pallet_prelude::*;
+    use types::OnAggregateChange;
 
     /// ## Configuration
     /// The pallet's configuration trait.
@@ -70,6 +72,9 @@ pub mod pallet {
     {
         /// The overarching event type.
         type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
+
+        /// Hook for aggregate changes.
+        type OnAggregateChange: OnAggregateChange<OracleKey, UnsignedFixedPoint<Self>>;
 
         /// Weight information for the extrinsics in this module.
         type WeightInfo: WeightInfo;
@@ -354,6 +359,8 @@ impl<T: Config> Pallet<T> {
 
             Aggregate::<T>::insert(key, value.value);
             ValidUntil::<T>::insert(key, valid_until);
+            T::OnAggregateChange::on_aggregate_change(key, value.value);
+
             Some(value.value)
         }
     }
