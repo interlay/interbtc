@@ -6,13 +6,14 @@ use frame_support::{
     ensure,
     traits::Get,
 };
-
+use primitives::TruncateFixedPointToInt;
 pub use primitives::{VaultCurrencyPair, VaultId};
+use reward::RewardsApi;
 use scale_info::TypeInfo;
 use sp_core::H256;
 use sp_runtime::{
-    traits::{CheckedAdd, CheckedSub, Zero},
-    ArithmeticError,
+    traits::{CheckedAdd, CheckedDiv, CheckedSub, Zero},
+    ArithmeticError, FixedPointNumber, Saturating,
 };
 
 #[cfg(test)]
@@ -349,18 +350,15 @@ impl<T: Config> RichVault<T> {
 
     pub(crate) fn execute_issue_tokens(&mut self, tokens: &Amount<T>) -> DispatchResult {
         self.decrease_to_be_issued(tokens)?;
-        self.increase_issued(tokens)?;
-        self.update_stake()
+        self.increase_issued(tokens)
     }
 
     pub(crate) fn request_redeem_tokens(&mut self, tokens: &Amount<T>) -> DispatchResult {
-        self.increase_to_be_redeemed(tokens)?;
-        self.update_stake()
+        self.increase_to_be_redeemed(tokens)
     }
 
     pub(crate) fn cancel_redeem_tokens(&mut self, tokens: &Amount<T>) -> DispatchResult {
-        self.decrease_to_be_redeemed(tokens)?;
-        self.update_stake()
+        self.decrease_to_be_redeemed(tokens)
     }
 
     pub(crate) fn execute_redeem_tokens(&mut self, tokens: &Amount<T>) -> DispatchResult {
@@ -369,12 +367,55 @@ impl<T: Config> RichVault<T> {
         self.decrease_issued(tokens)
     }
 
-    fn update_stake(&self) -> DispatchResult {
+    pub(crate) fn update_collateral_and_threshold(
+        &self,
+        amount: Amount<T>,
+        secure_threshold: UnsignedFixedPoint<T>,
+    ) -> DispatchResult {
         if self.data.is_liquidated() {
             Ok(())
         } else {
-            let stake = self.freely_redeemable_tokens()?;
-            ext::reward::set_stake(&self.id(), &stake)
+            let vault_id = self.id();
+
+            // self.collateral[vault] += amount
+            let collateral = self.get_vault_collateral()?.checked_add(&amount)?;
+            let collateral = UnsignedFixedPoint::<T>::saturating_from_integer(collateral.amount());
+
+            // collateral_div_threshold = self.collateral[vault] / secure_threshold
+            // collateral_div_threshold_delta = collateral_div_threshold - \
+            //     self.rewards.get_vault_contribution(currency, vault.address)
+            let collateral_div_threshold = collateral.checked_div(&secure_threshold).unwrap();
+            let previous_collateral_div_threshold = UnsignedFixedPoint::<T>::saturating_from_integer(
+                T::VaultRewards::get_stake(&vault_id.collateral_currency(), &vault_id)?,
+            );
+
+            // total_collateral_div_threshold = self.rewards.get_total_vault_contribution(
+            //     currency) + collateral_div_threshold_delta
+            let mut total_collateral_div_threshold = UnsignedFixedPoint::<T>::saturating_from_integer(
+                T::VaultRewards::get_total_stake(&self.id().collateral_currency())?,
+            );
+            if previous_collateral_div_threshold < collateral_div_threshold {
+                let additional = collateral_div_threshold.saturating_sub(previous_collateral_div_threshold);
+                total_collateral_div_threshold = total_collateral_div_threshold.checked_add(&additional).unwrap();
+            } else if previous_collateral_div_threshold > collateral_div_threshold {
+                let surplus = previous_collateral_div_threshold.saturating_sub(collateral_div_threshold);
+                total_collateral_div_threshold = total_collateral_div_threshold.checked_sub(&surplus).unwrap();
+            }
+
+            // collateral_capacity = total_collateral_div_threshold / \
+            //     self.exchange_rate[currency]
+            let exchange_rate = ext::oracle::get_price::<T>(vault_id.collateral_currency())?;
+            let collateral_capacity = total_collateral_div_threshold.checked_div(&exchange_rate).unwrap();
+
+            T::VaultRewards::set_stake(
+                &vault_id.collateral_currency(),
+                &vault_id,
+                collateral_capacity.truncate_to_inner().unwrap(),
+            )?;
+
+            // TODO: update vault_staking stake
+
+            Ok(())
         }
     }
 
@@ -620,9 +661,9 @@ impl<T: Config> RichVault<T> {
         liquidation_vault.increase_to_be_issued(&self.to_be_issued_tokens())?;
         liquidation_vault.increase_to_be_redeemed(&self.to_be_redeemed_tokens())?;
         // todo: clear replace collateral?
-        // withdraw stake from the reward pool
 
-        ext::reward::set_stake::<T>(&vault_id, &Amount::zero(vault_id.wrapped_currency()))?;
+        // withdraw stake from the reward pool
+        ext::reward::set_stake::<T>(&vault_id, Zero::zero())?;
 
         // Update vault: clear to_be_issued & issued_tokens, but don't touch to_be_redeemed
         let _ = self.update(|v| {
