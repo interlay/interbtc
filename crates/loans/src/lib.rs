@@ -1162,6 +1162,7 @@ impl<T: Config> Pallet<T> {
         T::PalletId::get().into_account_truncating()
     }
 
+    // TODO: return `Amount<T>`s instead of `FixedU128`
     pub fn get_account_liquidity(account: &T::AccountId) -> Result<(Liquidity, Shortfall), DispatchError> {
         let total_borrow_value = Self::total_borrowed_value(account)?;
         let total_collateral_value = Self::total_collateral_value(account)?;
