@@ -219,17 +219,20 @@ pub fn with_price(
         let (custom_currency, custom_price) = maybe_currency_price.unwrap_or((amount.currency(), FixedU128::one()));
         match (amount.currency(), to) {
             currencies if currencies == (custom_currency, DEFAULT_WRAPPED_CURRENCY) => {
-                let fixed_point_amount = amount.to_unsigned_fixed_point().unwrap();
+                let fixed_point_amount = amount.to_unsigned_fixed_point();
                 let new_amount = fixed_point_amount.mul(custom_price);
                 return MockResult::Return(Amount::from_unsigned_fixed_point(new_amount, to));
             }
             currencies if currencies == (DEFAULT_WRAPPED_CURRENCY, custom_currency) => {
-                let fixed_point_amount = amount.to_unsigned_fixed_point().unwrap();
+                let fixed_point_amount = amount.to_unsigned_fixed_point();
                 let new_amount = fixed_point_amount.div(custom_price);
                 return MockResult::Return(Amount::from_unsigned_fixed_point(new_amount, to));
             }
             // The default is a 1:1 exchange rate
-            (_, currency) | (currency, _) if currency == DEFAULT_WRAPPED_CURRENCY => {
+            (_, currency) if currency == DEFAULT_WRAPPED_CURRENCY => {
+                return MockResult::Return(Ok(Amount::new(amount.amount(), DEFAULT_WRAPPED_CURRENCY)));
+            }
+            (currency, _) if currency == DEFAULT_WRAPPED_CURRENCY => {
                 return MockResult::Return(Ok(amount.clone()));
             }
             (_, _) => return MockResult::Return(Err(Error::<Test>::InvalidExchangeRate.into())),

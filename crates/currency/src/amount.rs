@@ -73,9 +73,8 @@ mod conversions {
             Ok(Self::new(amount, currency_id))
         }
 
-        pub fn to_unsigned_fixed_point(&self) -> Result<UnsignedFixedPoint<T>, DispatchError> {
-            let unsigned_fixed_point = <T as pallet::Config>::UnsignedFixedPoint::from_inner(self.amount);
-            Ok(unsigned_fixed_point)
+        pub fn to_unsigned_fixed_point(&self) -> UnsignedFixedPoint<T> {
+            <T as pallet::Config>::UnsignedFixedPoint::from_inner(self.amount)
         }
 
         pub fn convert_to(&self, currency_id: CurrencyId<T>) -> Result<Self, DispatchError> {

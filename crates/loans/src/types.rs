@@ -1,7 +1,24 @@
-use crate::InterestRateModel;
+use crate::{Config, InterestRateModel};
+use currency::Amount;
 use frame_support::pallet_prelude::*;
-use primitives::{CurrencyId, Rate, Ratio};
+use primitives::{CurrencyId, Liquidity, Rate, Ratio, Shortfall};
 use scale_info::TypeInfo;
+
+/// Container for borrow balance information
+#[derive(Encode, Decode, Eq, PartialEq, Clone, RuntimeDebug, TypeInfo)]
+pub struct AccountLiquidity<T: Config> {
+    pub liquidity: Amount<T>,
+    pub shortfall: Amount<T>,
+}
+
+impl<T: Config> AccountLiquidity<T> {
+    pub fn to_rpc_tuple(&self) -> (Liquidity, Shortfall) {
+        (
+            self.liquidity.to_unsigned_fixed_point(),
+            self.shortfall.to_unsigned_fixed_point(),
+        )
+    }
+}
 
 /// Container for borrow balance information
 #[derive(Encode, Decode, Eq, PartialEq, Copy, Clone, RuntimeDebug, Default, TypeInfo)]

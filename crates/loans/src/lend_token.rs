@@ -127,19 +127,15 @@ impl<T: Config> Pallet<T> {
         let collateral_value = Self::collateral_asset_value(who, underlying_id)?;
 
         // liquidity of all assets
-        let (liquidity, _) = Self::get_account_liquidity(who)?;
+        let AccountLiquidity { liquidity, .. } = Self::get_account_liquidity(who)?;
 
-        if liquidity >= collateral_value {
+        if liquidity.ge(&collateral_value)? {
             return Ok(voucher_balance);
         }
 
         // Formula
         // reducible_underlying_amount = liquidity / collateral_factor / price
-        let reducible_supply_value = liquidity
-            .checked_div(&market.collateral_factor.into())
-            .ok_or(ArithmeticError::Overflow)?;
-        let reducible_supply_amount =
-            Amount::<T>::from_unsigned_fixed_point(reducible_supply_value, T::ReferenceAssetId::get())?;
+        let reducible_supply_amount = liquidity.checked_div(&market.collateral_factor.into())?;
         let reducible_underlying_amount = reducible_supply_amount.convert_to(underlying_id)?.amount();
 
         let exchange_rate = Self::exchange_rate(underlying_id);
