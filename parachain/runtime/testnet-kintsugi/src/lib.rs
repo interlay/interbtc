@@ -308,7 +308,7 @@ parameter_types! {
 impl pallet_timestamp::Config for Runtime {
     /// A timestamp: milliseconds since the unix epoch.
     type Moment = Moment;
-    type OnTimestampSet = Aura;
+    type OnTimestampSet = (); // no hook set - it would break instant seal
     type MinimumPeriod = MinimumPeriod;
     type WeightInfo = ();
 }
