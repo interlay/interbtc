@@ -135,16 +135,12 @@ impl<T: Config> Pallet<T> {
 
         // Formula
         // reducible_underlying_amount = liquidity / collateral_factor / price
-        let price = Self::get_price(underlying_id)?;
-
         let reducible_supply_value = liquidity
             .checked_div(&market.collateral_factor.into())
             .ok_or(ArithmeticError::Overflow)?;
-
-        let reducible_underlying_amount = reducible_supply_value
-            .checked_div(&price)
-            .ok_or(ArithmeticError::Underflow)?
-            .into_inner();
+        let reducible_supply_amount =
+            Amount::<T>::from_unsigned_fixed_point(reducible_supply_value, T::ReferenceAssetId::get())?;
+        let reducible_underlying_amount = reducible_supply_amount.convert_to(underlying_id)?.amount();
 
         let exchange_rate = Self::exchange_rate(underlying_id);
         let amount = Self::calc_collateral_amount(reducible_underlying_amount, exchange_rate)?;

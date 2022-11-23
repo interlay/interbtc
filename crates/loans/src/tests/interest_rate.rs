@@ -1,6 +1,7 @@
 use crate::{mock::*, tests::Loans, Markets};
-use currency::Amount;
+use currency::{Amount, CurrencyConversion};
 use frame_support::assert_ok;
+use mocktopus::mocking::Mockable;
 use primitives::{CurrencyId::Token, Rate, Ratio, DOT, KSM, SECONDS_PER_YEAR};
 use sp_runtime::{
     traits::{CheckedDiv, One, Saturating},
@@ -256,7 +257,7 @@ fn accrue_interest_works_after_liquidate_borrow() {
         assert_eq!(Loans::borrow_index(Token(KSM)), Rate::one());
         TimestampPallet::set_timestamp(12000);
         // Adjust KSM price to make shortfall
-        MockPriceFeeder::set_price(Token(KSM), 2.into());
+        CurrencyConvert::convert.mock_safe(with_price(Some((Token(KSM), 2.into()))));
         // BOB repay the KSM loan and get DOT callateral from ALICE
         assert_ok!(Loans::liquidate_borrow(
             RuntimeOrigin::signed(BOB),

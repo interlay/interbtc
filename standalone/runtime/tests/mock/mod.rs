@@ -1571,3 +1571,13 @@ pub const fn wrapped(amount: Balance) -> Amount<Runtime> {
 pub const fn griefing(amount: Balance) -> Amount<Runtime> {
     Amount::new(amount, DEFAULT_GRIEFING_CURRENCY)
 }
+
+pub fn set_balance(who: AccountId, currency_id: CurrencyId, new_free: Balance) {
+    assert_ok!(RuntimeCall::Tokens(TokensCall::set_balance {
+        who,
+        currency_id,
+        new_free,
+        new_reserved: 0,
+    })
+    .dispatch(root()));
+}

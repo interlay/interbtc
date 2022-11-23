@@ -9,16 +9,6 @@ use sp_std::str::FromStr;
 
 type VestingCall = orml_vesting::Call<Runtime>;
 
-fn set_balance(who: AccountId, currency_id: CurrencyId, new_free: Balance) {
-    assert_ok!(RuntimeCall::Tokens(TokensCall::set_balance {
-        who,
-        currency_id,
-        new_free,
-        new_reserved: 0,
-    })
-    .dispatch(root()));
-}
-
 #[test]
 fn integration_test_transfer_from_multisig_to_vested() {
     ExtBuilder::build().execute_with(|| {

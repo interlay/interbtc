@@ -1,9 +1,11 @@
 use crate::{
-    mock::{new_test_ext, Loans, MockPriceFeeder, RuntimeOrigin, Test, Tokens, ALICE, BOB},
+    mock::{new_test_ext, with_price, CurrencyConvert, Loans, RuntimeOrigin, Test, Tokens, ALICE, BOB},
     tests::unit,
     Error, MarketState,
 };
+use currency::CurrencyConversion;
 use frame_support::{assert_noop, assert_ok, traits::fungibles::Inspect};
+use mocktopus::mocking::Mockable;
 use primitives::{
     CurrencyId::{self, Token},
     Rate, DOT as DOT_CURRENCY, KBTC as KBTC_CURRENCY, KSM as KSM_CURRENCY,
@@ -26,7 +28,7 @@ fn liquidate_borrow_allowed_works() {
         initial_setup();
         alice_borrows_100_ksm();
         // Adjust KSM price to make shortfall
-        MockPriceFeeder::set_price(KSM, 2.into());
+        CurrencyConvert::convert.mock_safe(with_price(Some((KSM, 2.into()))));
         let ksm_market = Loans::market(KSM).unwrap();
         // Here the balance sheet of Alice is:
         // Collateral   Loans
@@ -45,7 +47,7 @@ fn deposit_of_borrower_must_be_collateral() {
         initial_setup();
         alice_borrows_100_ksm();
         // Adjust KSM price to make shortfall
-        MockPriceFeeder::set_price(KSM, 2.into());
+        CurrencyConvert::convert.mock_safe(with_price(Some((KSM, 2.into()))));
         let market = Loans::market(KSM).unwrap();
         assert_noop!(
             Loans::liquidate_borrow_allowed(&ALICE, KSM, unit(51), &market),
@@ -71,7 +73,7 @@ fn collateral_value_must_be_greater_than_liquidation_value() {
     new_test_ext().execute_with(|| {
         initial_setup();
         alice_borrows_100_ksm();
-        MockPriceFeeder::set_price(KSM, Rate::from_float(2000.0));
+        CurrencyConvert::convert.mock_safe(with_price(Some((KSM, Rate::from_float(2000.0)))));
         Loans::mutate_market(KSM, |market| {
             market.liquidate_incentive = Rate::from_float(200.0);
             market.clone()
@@ -90,7 +92,7 @@ fn full_workflow_works_as_expected() {
         initial_setup();
         alice_borrows_100_ksm();
         // adjust KSM price to make ALICE generate shortfall
-        MockPriceFeeder::set_price(KSM, 2.into());
+        CurrencyConvert::convert.mock_safe(with_price(Some((KSM, 2.into()))));
         // BOB repay the KSM borrow balance and get DOT from ALICE
         assert_ok!(Loans::liquidate_borrow(
             RuntimeOrigin::signed(BOB),
@@ -157,7 +159,7 @@ fn liquidator_cannot_take_inactive_market_currency() {
         initial_setup();
         alice_borrows_100_ksm();
         // Adjust KSM price to make shortfall
-        MockPriceFeeder::set_price(KSM, 2.into());
+        CurrencyConvert::convert.mock_safe(with_price(Some((KSM, 2.into()))));
         assert_ok!(Loans::mutate_market(DOT, |stored_market| {
             stored_market.state = MarketState::Supervision;
             stored_market.clone()
@@ -174,7 +176,7 @@ fn liquidator_can_not_repay_more_than_the_close_factor_pct_multiplier() {
     new_test_ext().execute_with(|| {
         initial_setup();
         alice_borrows_100_ksm();
-        MockPriceFeeder::set_price(KSM, 20.into());
+        CurrencyConvert::convert.mock_safe(with_price(Some((KSM, 20.into()))));
         assert_noop!(
             Loans::liquidate_borrow(RuntimeOrigin::signed(BOB), ALICE, KSM, unit(51), DOT),
             Error::<Test>::TooMuchRepay
