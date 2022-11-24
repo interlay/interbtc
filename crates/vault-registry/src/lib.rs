@@ -1,7 +1,7 @@
 //! # Vault Registry Module
 //! Based on the [specification](https://spec.interlay.io/spec/vault-registry.html).
 
-#![deny(warnings)]
+// #![deny(warnings)]
 #![cfg_attr(test, feature(proc_macro_hygiene))]
 #![cfg_attr(not(feature = "std"), no_std)]
 
@@ -12,6 +12,9 @@ pub mod types;
 mod benchmarking;
 
 mod default_weights;
+
+mod pool_manager;
+pub use pool_manager::PoolManager;
 
 pub use default_weights::WeightInfo;
 
@@ -771,8 +774,7 @@ impl<T: Config> Pallet<T> {
     }
 
     pub fn get_backing_collateral(vault_id: &DefaultVaultId<T>) -> Result<Amount<T>, DispatchError> {
-        let stake = ext::staking::total_current_stake::<T>(vault_id)?;
-        Ok(Amount::new(stake, vault_id.currencies.collateral))
+        ext::staking::total_current_stake::<T>(vault_id)
     }
 
     pub fn get_liquidated_collateral(vault_id: &DefaultVaultId<T>) -> Result<Amount<T>, DispatchError> {
@@ -812,11 +814,8 @@ impl<T: Config> Pallet<T> {
         amount.unlock_on(&vault_id.account_id)?;
         Self::decrease_total_backing_collateral(&vault_id.currencies, amount)?;
 
-        // withdraw first such that past rewards don't get changed by this withdrawal
-        ext::fee::withdraw_all_vault_rewards::<T>(vault_id)?;
-
         // Withdraw `amount` of stake from the pool
-        ext::staking::withdraw_stake::<T>(vault_id, &vault_id.account_id, amount)?;
+        PoolManager::<T>::withdraw_collateral(vault_id, &vault_id.account_id, amount, None)?;
 
         Ok(())
     }
@@ -857,7 +856,7 @@ impl<T: Config> Pallet<T> {
     fn slash_backing_collateral(vault_id: &DefaultVaultId<T>, amount: &Amount<T>) -> DispatchResult {
         amount.unlock_on(&vault_id.account_id)?;
         Self::decrease_total_backing_collateral(&vault_id.currencies, amount)?;
-        ext::staking::slash_stake::<T>(vault_id, amount)?;
+        PoolManager::<T>::slash_collateral(vault_id, amount)?;
         Ok(())
     }
 
@@ -1313,7 +1312,7 @@ impl<T: Config> Pallet<T> {
             old_vault.decrease_liquidated_collateral(&to_be_released)?;
 
             // deposit old-vault's collateral (this was withdrawn on liquidation)
-            ext::staking::deposit_stake::<T>(old_vault_id, &old_vault_id.account_id, &to_be_released)?;
+            PoolManager::<T>::deposit_collateral(old_vault_id, &old_vault_id.account_id, &to_be_released)?;
         }
 
         old_vault.execute_redeem_tokens(tokens)?;
