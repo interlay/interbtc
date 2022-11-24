@@ -1,4 +1,4 @@
-use crate::{ext, Config, Error, Pallet};
+use crate::{ext, Config, Error, Pallet, PoolManager};
 use codec::{Decode, Encode, HasCompact, MaxEncodedLen};
 use currency::Amount;
 use frame_support::{
@@ -589,7 +589,7 @@ impl<T: Config> RichVault<T> {
     pub(crate) fn slash_for_to_be_redeemed(&mut self, amount: &Amount<T>) -> DispatchResult {
         let vault_id = self.id();
         let collateral = self.get_vault_collateral()?.min(amount)?;
-        ext::staking::withdraw_stake::<T>(&vault_id, &vault_id.account_id, &collateral)?;
+        PoolManager::<T>::withdraw_collateral(&vault_id, &vault_id.account_id, &collateral, None)?;
         self.increase_liquidated_collateral(&collateral)?;
         Ok(())
     }
@@ -605,10 +605,10 @@ impl<T: Config> RichVault<T> {
             .unwrap_or((amount.clone(), None));
 
         // "slash" vault first
-        ext::staking::withdraw_stake::<T>(&vault_id, &vault_id.account_id, &to_withdraw)?;
+        PoolManager::<T>::withdraw_collateral(&vault_id, &vault_id.account_id, &to_withdraw, None)?;
         // take remainder from nominators
         if let Some(to_slash) = to_slash {
-            ext::staking::slash_stake::<T>(&vault_id, &to_slash)?;
+            PoolManager::<T>::slash_collateral(&vault_id, &to_slash)?;
         }
 
         Pallet::<T>::transfer_funds(
@@ -663,7 +663,7 @@ impl<T: Config> RichVault<T> {
         // todo: clear replace collateral?
 
         // withdraw stake from the reward pool
-        ext::reward::set_stake::<T>(&vault_id, Zero::zero())?;
+        ext::reward::set_stake::<T>(&vault_id, &Amount::zero(vault_id.wrapped_currency()))?;
 
         // Update vault: clear to_be_issued & issued_tokens, but don't touch to_be_redeemed
         let _ = self.update(|v| {
