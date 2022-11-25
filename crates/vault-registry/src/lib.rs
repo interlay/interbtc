@@ -256,6 +256,7 @@ pub mod pallet {
             let account_id = ensure_signed(origin)?;
             let vault_id = VaultId::new(account_id, currency_pair.collateral, currency_pair.wrapped);
             Self::try_set_vault_custom_secure_threshold(&vault_id, custom_threshold)?;
+            PoolManager::<T>::on_set_secure_collateral_threshold(&vault_id)?;
             Ok(().into())
         }
 
@@ -1911,12 +1912,13 @@ impl<T: Config> Pallet<T> {
             assert!(reserved.ge(&backing_collateral).unwrap());
 
             let rich_vault: RichVault<T> = vault.clone().into();
-            let rewarding_tokens = rich_vault.issued_tokens() - rich_vault.to_be_redeemed_tokens();
+            let expected_stake = rich_vault
+                .get_total_collateral()
+                .unwrap()
+                .checked_div(&rich_vault.get_secure_threshold().unwrap())
+                .unwrap();
 
-            assert_eq!(
-                ext::reward::get_stake::<T>(&vault_id).unwrap(),
-                rewarding_tokens.amount()
-            );
+            assert_eq!(ext::reward::get_stake::<T>(&vault_id).unwrap(), expected_stake.amount());
         }
     }
 

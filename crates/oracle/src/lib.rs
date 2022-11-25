@@ -49,7 +49,7 @@ use traits::OracleApi;
 
 pub use pallet::*;
 pub use primitives::{oracle::Key as OracleKey, CurrencyId, TruncateFixedPointToInt};
-pub use types::OnAggregateChange;
+pub use traits::OnExchangeRateChange;
 
 #[derive(Encode, Decode, Eq, PartialEq, Clone, Copy, Ord, PartialOrd, TypeInfo, MaxEncodedLen)]
 pub struct TimestampedValue<Value, Moment> {
@@ -62,7 +62,6 @@ pub mod pallet {
     use super::*;
     use frame_support::pallet_prelude::*;
     use frame_system::pallet_prelude::*;
-    use types::OnAggregateChange;
 
     /// ## Configuration
     /// The pallet's configuration trait.
@@ -74,7 +73,7 @@ pub mod pallet {
         type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
         /// Hook for aggregate changes.
-        type OnAggregateChange: OnAggregateChange<OracleKey, UnsignedFixedPoint<Self>>;
+        type OnExchangeRateChange: OnExchangeRateChange<CurrencyId>;
 
         /// Weight information for the extrinsics in this module.
         type WeightInfo: WeightInfo;
@@ -359,7 +358,9 @@ impl<T: Config> Pallet<T> {
 
             Aggregate::<T>::insert(key, value.value);
             ValidUntil::<T>::insert(key, valid_until);
-            T::OnAggregateChange::on_aggregate_change(key, value.value);
+            if let OracleKey::ExchangeRate(currency_id) = key {
+                T::OnExchangeRateChange::on_exchange_rate_change(currency_id);
+            }
 
             Some(value.value)
         }
@@ -382,7 +383,9 @@ impl<T: Config> Pallet<T> {
     ///
     /// * `exchange_rate` - i.e. planck per satoshi
     pub fn _set_exchange_rate(currency_id: CurrencyId, exchange_rate: UnsignedFixedPoint<T>) -> DispatchResult {
-        Aggregate::<T>::insert(OracleKey::ExchangeRate(currency_id), exchange_rate);
+        Aggregate::<T>::insert(&OracleKey::ExchangeRate(currency_id), exchange_rate);
+        T::OnExchangeRateChange::on_exchange_rate_change(&currency_id);
+
         // this is useful for benchmark tests
         Self::recover_from_oracle_offline();
         Ok(())

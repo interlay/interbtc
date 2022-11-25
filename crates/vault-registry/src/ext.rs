@@ -16,17 +16,6 @@ pub(crate) mod currency {
 }
 
 #[cfg_attr(test, mockable)]
-pub(crate) mod oracle {
-    use crate::CurrencyId;
-    use frame_support::dispatch::DispatchError;
-    use oracle::{types::UnsignedFixedPoint, OracleKey};
-
-    pub fn get_price<T: crate::Config>(currency_id: CurrencyId<T>) -> Result<UnsignedFixedPoint<T>, DispatchError> {
-        <oracle::Pallet<T>>::get_price(OracleKey::ExchangeRate(currency_id))
-    }
-}
-
-#[cfg_attr(test, mockable)]
 pub(crate) mod security {
     pub fn active_block_number<T: crate::Config>() -> T::BlockNumber {
         <security::Pallet<T>>::active_block_number()
@@ -97,7 +86,7 @@ pub(crate) mod reward {
 
     #[cfg(feature = "integration-tests")]
     pub fn get_stake<T: crate::Config>(vault_id: &DefaultVaultId<T>) -> Result<crate::BalanceOf<T>, DispatchError> {
-        T::VaultRewards::get_stake(&(), vault_id)
+        T::VaultRewards::get_stake(&vault_id.collateral_currency(), vault_id)
     }
 }
 

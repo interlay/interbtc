@@ -2567,6 +2567,7 @@ dependencies = [
  "sp-runtime",
  "sp-std",
  "staking",
+ "visibility",
 ]
 
 [[package]]
@@ -9401,6 +9402,7 @@ dependencies = [
  "frame-support",
  "frame-system",
  "interbtc-primitives",
+ "log",
  "mocktopus",
  "pallet-timestamp",
  "parity-scale-codec",
@@ -12994,6 +12996,7 @@ version = "1.9.3"
 dependencies = [
  "frame-support",
  "frame-system",
+ "impl-trait-for-tuples",
  "interbtc-primitives",
  "log",
  "num-bigint 0.4.3",

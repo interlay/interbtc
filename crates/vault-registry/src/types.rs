@@ -367,58 +367,6 @@ impl<T: Config> RichVault<T> {
         self.decrease_issued(tokens)
     }
 
-    pub(crate) fn update_collateral_and_threshold(
-        &self,
-        amount: Amount<T>,
-        secure_threshold: UnsignedFixedPoint<T>,
-    ) -> DispatchResult {
-        if self.data.is_liquidated() {
-            Ok(())
-        } else {
-            let vault_id = self.id();
-
-            // self.collateral[vault] += amount
-            let collateral = self.get_vault_collateral()?.checked_add(&amount)?;
-            let collateral = UnsignedFixedPoint::<T>::saturating_from_integer(collateral.amount());
-
-            // collateral_div_threshold = self.collateral[vault] / secure_threshold
-            // collateral_div_threshold_delta = collateral_div_threshold - \
-            //     self.rewards.get_vault_contribution(currency, vault.address)
-            let collateral_div_threshold = collateral.checked_div(&secure_threshold).unwrap();
-            let previous_collateral_div_threshold = UnsignedFixedPoint::<T>::saturating_from_integer(
-                T::VaultRewards::get_stake(&vault_id.collateral_currency(), &vault_id)?,
-            );
-
-            // total_collateral_div_threshold = self.rewards.get_total_vault_contribution(
-            //     currency) + collateral_div_threshold_delta
-            let mut total_collateral_div_threshold = UnsignedFixedPoint::<T>::saturating_from_integer(
-                T::VaultRewards::get_total_stake(&self.id().collateral_currency())?,
-            );
-            if previous_collateral_div_threshold < collateral_div_threshold {
-                let additional = collateral_div_threshold.saturating_sub(previous_collateral_div_threshold);
-                total_collateral_div_threshold = total_collateral_div_threshold.checked_add(&additional).unwrap();
-            } else if previous_collateral_div_threshold > collateral_div_threshold {
-                let surplus = previous_collateral_div_threshold.saturating_sub(collateral_div_threshold);
-                total_collateral_div_threshold = total_collateral_div_threshold.checked_sub(&surplus).unwrap();
-            }
-
-            // collateral_capacity = total_collateral_div_threshold / \
-            //     self.exchange_rate[currency]
-            let exchange_rate = ext::oracle::get_price::<T>(vault_id.collateral_currency())?;
-            let collateral_capacity = total_collateral_div_threshold.checked_div(&exchange_rate).unwrap();
-
-            T::VaultRewards::set_stake(
-                &vault_id.collateral_currency(),
-                &vault_id,
-                collateral_capacity.truncate_to_inner().unwrap(),
-            )?;
-
-            // TODO: update vault_staking stake
-
-            Ok(())
-        }
-    }
-
     pub(crate) fn wrapped_currency(&self) -> CurrencyId<T> {
         self.data.id.wrapped_currency()
     }
@@ -444,6 +392,7 @@ impl<T: Config> RichVault<T> {
         Amount::new(self.data.liquidated_collateral, self.data.id.currencies.collateral)
     }
 
+    // todo: deduplicate these 2 funcs?
     pub fn get_vault_collateral(&self) -> Result<Amount<T>, DispatchError> {
         Pallet::<T>::compute_collateral(&self.id())
     }
