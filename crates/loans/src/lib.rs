@@ -55,7 +55,7 @@ use sp_runtime::{
 use sp_std::vec::Vec;
 use sp_std::{marker, result::Result};
 
-use traits::{ConvertToBigUint, LoansApi as LoansTrait, LoansMarketDataProvider, MarketInfo, MarketStatus};
+use traits::{ConvertToBigUint, LoansApi as LoansTrait, LoansMarketDataProvider, MarketInfo, MarketStatus, OnExchangeRateChange};
 
 pub use orml_traits::currency::{OnDeposit, OnSlash, OnTransfer};
 use sp_io::hashing::blake2_256;
@@ -217,6 +217,9 @@ pub mod pallet {
         /// Reference currency for expressing asset prices. Example: USD, IBTC.
         #[pallet::constant]
         type ReferenceAssetId: Get<AssetIdOf<Self>>;
+
+        /// Hook for exchangerate changes.
+        type OnExchangeRateChange: OnExchangeRateChange<CurrencyId>;
     }
 
     #[pallet::error]
@@ -2085,5 +2088,14 @@ impl<T: Config> LoansMarketDataProvider<AssetIdOf<T>, BalanceOf<T>> for Pallet<T
             return rate;
         }
         None
+    }
+}
+
+impl<T: Config> OnExchangeRateChange<CurrencyId> for Pallet<T> {
+    fn on_exchange_rate_change(currency_id: &CurrencyId) {
+        // todo: propagate error
+        if let Ok(lend_token_id) = Pallet::<T>::lend_token_id(*currency_id) {
+            T::OnExchangeRateChange::on_exchange_rate_change(&lend_token_id)
+        }
     }
 }

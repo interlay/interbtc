@@ -55,46 +55,47 @@ pub mod v1 {
 
         fn on_runtime_upgrade() -> Weight {
             todo!()
-//             let version = StorageVersion::get::<Pallet<T, I>>();
-//             if version != 0 {
-//                 log::warn!(
-//                     target: TARGET,
-//                     "skipping v0 to v1 migration: executed on wrong storage version.\
-// 				Expected version 0, found {:?}",
-//                     version,
-//                 );
-//                 return T::DbWeight::get().reads(1);
-//             }
-// 
-//             let mut weight = T::DbWeight::get().reads_writes(2, 1);
-// 
-//             // update total stake
-//             TotalStake::<T, I>::insert((), v0::TotalStake::<T, I>::get());
-//             weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 1));
-// 
-//             let reward_per_token_storage_map_v0 = v0::RewardPerToken::<T, I>::drain().collect::<Vec<_>>();
-//             weight.saturating_accrue(T::DbWeight::get().reads(reward_per_token_storage_map_v0.len() as u64));
-//             for (currency_id, reward_per_token) in reward_per_token_storage_map_v0.into_iter() {
-//                 RewardPerToken::<T, I>::insert(currency_id, (), reward_per_token);
-//                 weight.saturating_accrue(T::DbWeight::get().writes(1));
-//             }
-// 
-//             let stake_storage_map_v0 = v0::Stake::<T, I>::drain().collect::<Vec<_>>();
-//             weight.saturating_accrue(T::DbWeight::get().reads(stake_storage_map_v0.len() as u64));
-//             for (stake_id, stake) in stake_storage_map_v0.into_iter() {
-//                 Stake::<T, I>::insert(((), stake_id), stake);
-//                 weight.saturating_accrue(T::DbWeight::get().writes(1));
-//             }
-// 
-//             let reward_tally_storage_map_v0 = v0::RewardTally::<T, I>::drain().collect::<Vec<_>>();
-//             weight.saturating_accrue(T::DbWeight::get().reads(reward_tally_storage_map_v0.len() as u64));
-//             for (currency_id, stake_id, reward_tally) in reward_tally_storage_map_v0.into_iter() {
-//                 RewardTally::<T, I>::insert(currency_id, ((), stake_id), reward_tally);
-//                 weight.saturating_accrue(T::DbWeight::get().writes(1));
-//             }
-// 
-//             StorageVersion::new(1).put::<Pallet<T, I>>();
-//             weight.saturating_add(T::DbWeight::get().reads_writes(1, 2))
+            //             let version = StorageVersion::get::<Pallet<T, I>>();
+            //             if version != 0 {
+            //                 log::warn!(
+            //                     target: TARGET,
+            //                     "skipping v0 to v1 migration: executed on wrong storage version.\
+            // 				Expected version 0, found {:?}",
+            //                     version,
+            //                 );
+            //                 return T::DbWeight::get().reads(1);
+            //             }
+            //
+            //             let mut weight = T::DbWeight::get().reads_writes(2, 1);
+            //
+            //             // update total stake
+            //             TotalStake::<T, I>::insert((), v0::TotalStake::<T, I>::get());
+            //             weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 1));
+            //
+            //             let reward_per_token_storage_map_v0 = v0::RewardPerToken::<T,
+            // I>::drain().collect::<Vec<_>>();             
+            // weight.saturating_accrue(T::DbWeight::get().reads(reward_per_token_storage_map_v0.len() as u64));
+            //             for (currency_id, reward_per_token) in reward_per_token_storage_map_v0.into_iter() {
+            //                 RewardPerToken::<T, I>::insert(currency_id, (), reward_per_token);
+            //                 weight.saturating_accrue(T::DbWeight::get().writes(1));
+            //             }
+            //
+            //             let stake_storage_map_v0 = v0::Stake::<T, I>::drain().collect::<Vec<_>>();
+            //             weight.saturating_accrue(T::DbWeight::get().reads(stake_storage_map_v0.len() as u64));
+            //             for (stake_id, stake) in stake_storage_map_v0.into_iter() {
+            //                 Stake::<T, I>::insert(((), stake_id), stake);
+            //                 weight.saturating_accrue(T::DbWeight::get().writes(1));
+            //             }
+            //
+            //             let reward_tally_storage_map_v0 = v0::RewardTally::<T, I>::drain().collect::<Vec<_>>();
+            //             weight.saturating_accrue(T::DbWeight::get().reads(reward_tally_storage_map_v0.len() as u64));
+            //             for (currency_id, stake_id, reward_tally) in reward_tally_storage_map_v0.into_iter() {
+            //                 RewardTally::<T, I>::insert(currency_id, ((), stake_id), reward_tally);
+            //                 weight.saturating_accrue(T::DbWeight::get().writes(1));
+            //             }
+            //
+            //             StorageVersion::new(1).put::<Pallet<T, I>>();
+            //             weight.saturating_add(T::DbWeight::get().reads_writes(1, 2))
         }
 
         #[cfg(feature = "try-runtime")]

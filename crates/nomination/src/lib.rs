@@ -252,8 +252,6 @@ impl<T: Config> Pallet<T> {
             ext::vault_registry::decrease_total_backing_collateral(&vault_id.currencies, &amount)?;
         }
 
-        // withdraw all vault rewards first, to prevent the nominator from withdrawing past rewards
-        ext::fee::withdraw_all_vault_rewards::<T>(vault_id)?;
         // withdraw `amount` of stake from the vault staking pool
         ext::vault_registry::pool_manager::withdraw_collateral::<T>(vault_id, nominator_id, &amount, Some(index))?;
         amount.unlock_on(&vault_id.account_id)?;
@@ -288,9 +286,6 @@ impl<T: Config> Pallet<T> {
             );
             amount.transfer(&nominator_id, &vault_id.account_id)?;
         }
-
-        // Withdraw all vault rewards first, to prevent the nominator from withdrawing past rewards
-        ext::fee::withdraw_all_vault_rewards::<T>(vault_id)?;
 
         // Deposit `amount` of stake into the vault staking pool
         ext::vault_registry::pool_manager::deposit_collateral::<T>(vault_id, nominator_id, &amount)?;

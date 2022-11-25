@@ -1001,7 +1001,7 @@ where
 
 impl oracle::Config for Runtime {
     type RuntimeEvent = RuntimeEvent;
-    type OnAggregateChange = ();
+    type OnExchangeRateChange = ();
     type WeightInfo = ();
 }
 

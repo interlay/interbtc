@@ -58,7 +58,7 @@ pub(crate) mod vault_registry {
             nominator_id: &T::AccountId,
             amount: &Amount<T>,
         ) -> Result<(), DispatchError> {
-            <vault_registry::PoolManager::<T>>::deposit_collateral(vault_id, nominator_id, amount)
+            <vault_registry::PoolManager<T>>::deposit_collateral(vault_id, nominator_id, amount)
         }
 
         pub fn withdraw_collateral<T: crate::Config>(
@@ -67,24 +67,12 @@ pub(crate) mod vault_registry {
             amount: &Amount<T>,
             nonce: Option<<T as frame_system::Config>::Index>,
         ) -> Result<(), DispatchError> {
-            <vault_registry::PoolManager::<T>>::withdraw_collateral(vault_id, nominator_id, amount, nonce)
+            <vault_registry::PoolManager<T>>::withdraw_collateral(vault_id, nominator_id, amount, nonce)
         }
 
-        pub fn kick_nominators<T: crate::Config>(
-            vault_id: &DefaultVaultId<T>,
-        ) -> Result<Amount<T>, DispatchError> {
-            <vault_registry::PoolManager::<T>>::kick_nominators(vault_id)
+        pub fn kick_nominators<T: crate::Config>(vault_id: &DefaultVaultId<T>) -> Result<Amount<T>, DispatchError> {
+            <vault_registry::PoolManager<T>>::kick_nominators(vault_id)
         }
-    }
-}
-
-#[cfg_attr(test, mockable)]
-pub(crate) mod fee {
-    use crate::DefaultVaultId;
-    use frame_support::dispatch::DispatchResult;
-
-    pub fn withdraw_all_vault_rewards<T: crate::Config>(vault_id: &DefaultVaultId<T>) -> DispatchResult {
-        <fee::Pallet<T>>::withdraw_all_vault_rewards(vault_id)
     }
 }
 
