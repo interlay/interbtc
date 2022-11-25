@@ -228,6 +228,7 @@ std = [
   "issue-rpc-runtime-api/std",
   "redeem-rpc-runtime-api/std",
   "replace-rpc-runtime-api/std",
+  "loans-rpc-runtime-api/std",
 
   "orml-tokens/std",
   "orml-traits/std",
