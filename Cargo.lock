@@ -2567,6 +2567,7 @@ dependencies = [
  "sp-runtime",
  "sp-std",
  "staking",
+ "visibility",
 ]
 
 [[package]]
@@ -12835,6 +12836,7 @@ version = "1.9.3"
 dependencies = [
  "frame-support",
  "frame-system",
+ "impl-trait-for-tuples",
  "interbtc-primitives",
  "log",
  "num-bigint 0.4.3",

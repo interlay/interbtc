@@ -175,14 +175,14 @@ use sp_runtime::traits::CheckedDiv;
 pub struct CapacityUpdate<T, CapacityRewards, VaultRewards>(
     sp_std::marker::PhantomData<(T, CapacityRewards, VaultRewards)>,
 );
-impl<T, CapacityRewards, VaultRewards> oracle::OnAggregateChange<oracle::OracleKey, UnsignedFixedPoint>
+impl<T, CapacityRewards, VaultRewards> oracle::OnExchangeRateChange<oracle::OracleKey, UnsignedFixedPoint>
     for CapacityUpdate<T, CapacityRewards, VaultRewards>
 where
     T: oracle::Config<UnsignedFixedPoint = UnsignedFixedPoint>,
     CapacityRewards: reward::RewardsApi<(), CurrencyId, CurrencyId, Balance>,
     VaultRewards: reward::RewardsApi<CurrencyId, VaultId<AccountId, CurrencyId>, CurrencyId, Balance>,
 {
-    fn on_aggregate_change(key: &oracle::OracleKey, _: UnsignedFixedPoint) {
+    fn on_exchange_rate_change(key: &oracle::OracleKey, _: UnsignedFixedPoint) {
         if let oracle::OracleKey::ExchangeRate(currency_id) = key {
             let total_collateral_div_threshold = VaultRewards::get_total_stake(currency_id).unwrap_or_default();
             let exchange_rate = oracle::Pallet::<T>::get_price(key.clone()).unwrap_or_default();
@@ -197,7 +197,7 @@ where
 
 impl oracle::Config for Test {
     type RuntimeEvent = RuntimeEvent;
-    type OnAggregateChange = CapacityUpdate<Test, CapacityRewards, VaultRewards>;
+    type OnExchangeRateChange = CapacityUpdate<Test, CapacityRewards, VaultRewards>;
     type WeightInfo = ();
 }
 

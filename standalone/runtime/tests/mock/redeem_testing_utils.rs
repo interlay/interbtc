@@ -5,6 +5,7 @@ use redeem::RedeemRequestStatus;
 
 pub const USER: [u8; 32] = ALICE;
 pub const VAULT: [u8; 32] = BOB;
+pub const VAULT2: [u8; 32] = CAROL;
 pub const USER_BTC_ADDRESS: BtcAddress = BtcAddress::P2PKH(H160([2u8; 20]));
 
 pub struct ExecuteRedeemBuilder {

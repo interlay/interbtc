@@ -513,7 +513,7 @@ fn integration_test_issue_wrapped_execute_succeeds() {
 #[test]
 fn integration_test_issue_wrapped_execute_bookkeeping() {
     test_with_initialized_vault(|vault_id| {
-        let requested_btc = vault_id.wrapped(1000);
+        let requested_btc = vault_id.wrapped(10000);
         let (issue_id, issue) = request_issue(&vault_id, requested_btc);
 
         assert_eq!(issue.fee() + issue.amount(), requested_btc);
@@ -736,7 +736,7 @@ mod execute_pending_issue_tests {
             let post_request_state = ParachainState::get(&vault_id);
 
             // need stake for rewards to deposit
-            let stake: u128 = VaultRewardsPallet::get_stake(&(), &vault_id).unwrap();
+            let stake: u128 = VaultRewardsPallet::get_stake(&vault_id.collateral_currency(), &vault_id).unwrap();
             assert!(stake > 0u128);
 
             ExecuteIssueBuilder::new(issue_id)

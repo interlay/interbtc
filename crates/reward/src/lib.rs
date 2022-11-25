@@ -245,6 +245,9 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
         reward: SignedFixedPoint<T, I>,
     ) -> DispatchResult {
         let total_stake = Self::total_stake(pool_id);
+        if reward.is_zero() {
+            return Ok(());
+        }
         ensure!(!total_stake.is_zero(), Error::<T, I>::ZeroTotalStake);
 
         let reward_div_total_stake = reward.checked_div(&total_stake).ok_or(ArithmeticError::Underflow)?;
@@ -403,7 +406,11 @@ where
     type CurrencyId = T::CurrencyId;
 
     fn distribute_reward(pool_id: &T::PoolId, currency_id: T::CurrencyId, amount: Balance) -> DispatchResult {
-        Pallet::<T, I>::distribute_reward(pool_id, currency_id, amount.to_fixed().ok_or(Error::<T, I>::TryIntoIntError)?)
+        Pallet::<T, I>::distribute_reward(
+            pool_id,
+            currency_id,
+            amount.to_fixed().ok_or(Error::<T, I>::TryIntoIntError)?,
+        )
     }
 
     fn compute_reward(
@@ -443,11 +450,19 @@ where
     }
 
     fn deposit_stake(pool_id: &T::PoolId, stake_id: &T::StakeId, amount: Balance) -> DispatchResult {
-        Pallet::<T, I>::deposit_stake(pool_id, stake_id, amount.to_fixed().ok_or(Error::<T, I>::TryIntoIntError)?)
+        Pallet::<T, I>::deposit_stake(
+            pool_id,
+            stake_id,
+            amount.to_fixed().ok_or(Error::<T, I>::TryIntoIntError)?,
+        )
     }
 
     fn withdraw_stake(pool_id: &T::PoolId, stake_id: &T::StakeId, amount: Balance) -> DispatchResult {
-        Pallet::<T, I>::withdraw_stake(pool_id, stake_id, amount.to_fixed().ok_or(Error::<T, I>::TryIntoIntError)?)
+        Pallet::<T, I>::withdraw_stake(
+            pool_id,
+            stake_id,
+            amount.to_fixed().ok_or(Error::<T, I>::TryIntoIntError)?,
+        )
     }
 }
 

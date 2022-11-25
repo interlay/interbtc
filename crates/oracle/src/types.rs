@@ -11,11 +11,3 @@ pub enum Version {
     /// Initial version.
     V0,
 }
-
-pub trait OnAggregateChange<Key, Value> {
-    fn on_aggregate_change(key: &Key, value: Value);
-}
-
-impl<Key, Value> OnAggregateChange<Key, Value> for () {
-    fn on_aggregate_change(_: &Key, _: Value) {}
-}

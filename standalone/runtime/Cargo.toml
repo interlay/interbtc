@@ -200,6 +200,8 @@ std = [
   "xcm-builder/std",
 
   "currency/testing-utils",
+  "fee/integration-tests",
+  "staking/integration-tests",
 ]
 runtime-benchmarks = [
   "hex-literal",

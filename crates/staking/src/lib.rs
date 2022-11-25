@@ -751,6 +751,16 @@ impl<T: Config> Pallet<T> {
         });
         Ok(())
     }
+
+    #[cfg(feature = "integration-tests")]
+    pub fn get_total_rewards(currency_id: T::CurrencyId) -> <SignedFixedPoint<T> as FixedPointNumber>::Inner {
+        TotalRewards::<T>::iter()
+            .filter(|(currency, _, _)| currency == &currency_id)
+            .map(|(_, _, amount)| amount)
+            .fold(Zero::zero(), |x: SignedFixedPoint<T>, y: SignedFixedPoint<T>| x + y)
+            .truncate_to_inner()
+            .unwrap()
+    }
 }
 
 impl<T, Balance> RewardsApi<(Option<T::Index>, DefaultVaultId<T>), T::AccountId, Balance> for Pallet<T>

@@ -221,7 +221,7 @@ impl pallet_timestamp::Config for Test {
 
 impl oracle::Config for Test {
     type RuntimeEvent = RuntimeEvent;
-    type OnAggregateChange = ();
+    type OnExchangeRateChange = ();
     type WeightInfo = ();
 }
 
