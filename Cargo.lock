@@ -4024,6 +4024,7 @@ dependencies = [
  "interbtc-primitives",
  "log",
  "mocktopus",
+ "nomination",
  "oracle",
  "orml-tokens",
  "orml-traits",
@@ -5619,6 +5620,7 @@ dependencies = [
  "sp-runtime",
  "sp-std",
  "staking",
+ "traits",
  "vault-registry",
 ]
 
@@ -9169,6 +9171,7 @@ dependencies = [
  "frame-system",
  "interbtc-primitives",
  "mocktopus",
+ "nomination",
  "oracle",
  "orml-tokens",
  "orml-traits",

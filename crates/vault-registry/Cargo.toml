@@ -35,6 +35,7 @@ currency = { path = "../currency", default-features = false }
 reward = { path = "../reward", default-features = false }
 staking = { path = "../staking", default-features = false }
 primitives = { package = "interbtc-primitives", path = "../../primitives", default-features = false }
+traits = { path = "../../crates/traits", default-features = false }
 
 # Orml dependencies
 orml-tokens = { git = "https://github.com/open-web3-stack/open-runtime-module-library", rev = "3fcd3cf9e63fe80fd9671912833a900ba09d1cc0", default-features = false }
@@ -44,8 +45,8 @@ orml-traits = { git = "https://github.com/open-web3-stack/open-runtime-module-li
 mocktopus = "0.7.0"
 frame-benchmarking = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.31", default-features = false }
 currency = { path = "../currency", default-features = false, features = ["testing-utils"] }
-traits = { path = "../../crates/traits", default-features = false }
 pretty_assertions = "0.7.2"
+visibility = { version = "0.0.1" }
 
 [features]
 default = ["std"]

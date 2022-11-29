@@ -19,3 +19,7 @@ impl ConvertToBigUint for u128 {
 pub trait OracleApi<Amount, CurrencyId> {
     fn convert(amount: &Amount, to: CurrencyId) -> Result<Amount, DispatchError>;
 }
+
+pub trait NominationApi<VaultId, Amount> {
+    fn deposit_vault_collateral(vault_id: &VaultId, amount: &Amount) -> Result<(), DispatchError>;
+}

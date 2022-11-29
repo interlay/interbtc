@@ -230,7 +230,7 @@ pub type DefaultVault<T> = Vault<
 
 pub type DefaultSystemVault<T> = SystemVault<BalanceOf<T>, CurrencyId<T>>;
 
-#[cfg_attr(feature = "integration-tests", visibility::make(pub))]
+#[cfg_attr(any(test, feature = "integration-tests"), visibility::make(pub))]
 trait UpdatableVault<T: Config> {
     fn increase_issued(&mut self, tokens: &Amount<T>) -> DispatchResult;
 
@@ -701,16 +701,6 @@ pub(crate) struct RichSystemVault<T: Config> {
 
 #[cfg_attr(test, mockable)]
 impl<T: Config> RichSystemVault<T> {
-    #[cfg(test)]
-    pub(crate) fn id(&self) -> DefaultVaultId<T> {
-        let account_id = Pallet::<T>::liquidation_vault_account_id();
-        VaultId::new(
-            account_id,
-            self.data.currency_pair.collateral,
-            self.data.currency_pair.wrapped,
-        )
-    }
-
     pub(crate) fn burn_issued(&mut self, tokens: &Amount<T>) -> DispatchResult {
         self.decrease_issued(tokens)
     }

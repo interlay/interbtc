@@ -44,6 +44,7 @@ frame-benchmarking = { git = "https://github.com/paritytech/substrate", branch =
 reward = { path = "../reward" }
 staking = { path = "../staking" }
 currency = { path = "../currency", features = ["testing-utils"] }
+nomination = { path = "../nomination" }
 
 # Orml dependencies
 orml-tokens = { git = "https://github.com/open-web3-stack/open-runtime-module-library", rev = "3fcd3cf9e63fe80fd9671912833a900ba09d1cc0" }
@@ -73,6 +74,7 @@ std = [
 	"fee/std",
 	"security/std",
 	"vault-registry/std",
+	"nomination/std",
     "primitives/std",
 
 	"orml-tokens/std",

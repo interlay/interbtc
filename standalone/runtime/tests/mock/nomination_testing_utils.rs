@@ -74,8 +74,9 @@ pub fn assert_nominate_collateral(vault_id: &VaultId, nominator_id: AccountId, a
 }
 
 pub fn withdraw_vault_collateral(vault_id: &VaultId, amount_collateral: Amount<Runtime>) -> DispatchResultWithPostInfo {
-    RuntimeCall::VaultRegistry(VaultRegistryCall::withdraw_collateral {
-        currency_pair: vault_id.currencies.clone(),
+    RuntimeCall::Nomination(NominationCall::withdraw_collateral {
+        vault_id: vault_id.clone(),
+        index: None,
         amount: amount_collateral.amount(),
     })
     .dispatch(origin_of(vault_id.account_id.clone()))

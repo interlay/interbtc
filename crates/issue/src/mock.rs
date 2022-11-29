@@ -45,6 +45,7 @@ frame_support::construct_runtime!(
         Fee: fee::{Pallet, Call, Config<T>, Storage},
         Staking: staking::{Pallet, Storage, Event<T>},
         Currency: currency::{Pallet},
+        Nomination: nomination::{Pallet, Call, Config, Storage, Event<T>},
     }
 );
 
@@ -150,6 +151,12 @@ impl vault_registry::Config for Test {
     type Balance = Balance;
     type WeightInfo = ();
     type GetGriefingCollateralCurrencyId = GetNativeCurrencyId;
+    type NominationApi = Nomination;
+}
+
+impl nomination::Config for Test {
+    type RuntimeEvent = RuntimeEvent;
+    type WeightInfo = ();
 }
 
 pub struct CurrencyConvert;

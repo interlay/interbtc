@@ -177,6 +177,12 @@ impl vault_registry::Config for Test {
     type Balance = Balance;
     type WeightInfo = ();
     type GetGriefingCollateralCurrencyId = GetNativeCurrencyId;
+    type NominationApi = Nomination;
+}
+
+impl nomination::Config for Test {
+    type RuntimeEvent = RuntimeEvent;
+    type WeightInfo = ();
 }
 
 impl staking::Config for Test {
@@ -199,11 +205,6 @@ impl btc_relay::Config for Test {
 
 impl security::Config for Test {
     type RuntimeEvent = RuntimeEvent;
-}
-
-impl nomination::Config for Test {
-    type RuntimeEvent = RuntimeEvent;
-    type WeightInfo = ();
 }
 
 parameter_types! {

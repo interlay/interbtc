@@ -155,6 +155,7 @@ impl vault_registry::Config for Test {
     type Balance = Balance;
     type WeightInfo = ();
     type GetGriefingCollateralCurrencyId = GetNativeCurrencyId;
+    type NominationApi = Nomination;
 }
 
 pub struct CurrencyConvert;
