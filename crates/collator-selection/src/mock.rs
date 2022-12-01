@@ -24,10 +24,13 @@ use frame_system as system;
 use frame_system::EnsureSignedBy;
 use sp_core::H256;
 use sp_runtime::{
-    testing::{Header, UintAuthorityId},
+    generic::Header as GenericHeader,
+    testing::UintAuthorityId,
     traits::{BlakeTwo256, IdentityLookup, OpaqueKeys},
     RuntimeAppPublic,
 };
+
+type Header = GenericHeader<BlockNumber, BlakeTwo256>;
 
 type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
 type Block = frame_system::mocking::MockBlock<Test>;
@@ -49,8 +52,14 @@ frame_support::construct_runtime!(
     }
 );
 
+pub type AccountId = u64;
+pub type Balance = u128;
+pub type BlockNumber = u32;
+pub type Index = u64;
+pub type Moment = u32;
+
 parameter_types! {
-    pub const BlockHashCount: u64 = 250;
+    pub const BlockHashCount: u32 = 250;
     pub const SS58Prefix: u8 = 42;
 }
 
@@ -61,18 +70,18 @@ impl system::Config for Test {
     type DbWeight = ();
     type RuntimeOrigin = RuntimeOrigin;
     type RuntimeCall = RuntimeCall;
-    type Index = u64;
-    type BlockNumber = u64;
+    type Index = Index;
+    type BlockNumber = BlockNumber;
     type Hash = H256;
     type Hashing = BlakeTwo256;
-    type AccountId = u64;
+    type AccountId = AccountId;
     type Lookup = IdentityLookup<Self::AccountId>;
     type Header = Header;
     type RuntimeEvent = RuntimeEvent;
     type BlockHashCount = BlockHashCount;
     type Version = ();
     type PalletInfo = PalletInfo;
-    type AccountData = pallet_balances::AccountData<u64>;
+    type AccountData = pallet_balances::AccountData<Balance>;
     type OnNewAccount = ();
     type OnKilledAccount = ();
     type SystemWeightInfo = ();
@@ -87,7 +96,7 @@ parameter_types! {
 }
 
 impl pallet_balances::Config for Test {
-    type Balance = u64;
+    type Balance = Balance;
     type RuntimeEvent = RuntimeEvent;
     type DustRemoval = ();
     type ExistentialDeposit = ExistentialDeposit;
@@ -116,11 +125,11 @@ impl pallet_authorship::Config for Test {
 }
 
 parameter_types! {
-    pub const MinimumPeriod: u64 = 1;
+    pub const MinimumPeriod: Moment = 1;
 }
 
 impl pallet_timestamp::Config for Test {
-    type Moment = u64;
+    type Moment = Moment;
     type OnTimestampSet = Aura;
     type MinimumPeriod = MinimumPeriod;
     type WeightInfo = ();
@@ -147,7 +156,7 @@ impl From<UintAuthorityId> for MockSessionKeys {
 
 parameter_types! {
     pub static SessionHandlerCollators: Vec<u64> = Vec::new();
-    pub static SessionChangeBlock: u64 = 0;
+    pub static SessionChangeBlock: BlockNumber = 0;
 }
 
 pub struct TestSessionHandler;
@@ -166,8 +175,8 @@ impl pallet_session::SessionHandler<u64> for TestSessionHandler {
 }
 
 parameter_types! {
-    pub const Offset: u64 = 0;
-    pub const Period: u64 = 10;
+    pub const Offset: BlockNumber = 0;
+    pub const Period: BlockNumber = 10;
 }
 
 impl pallet_session::Config for Test {
@@ -256,9 +265,9 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
     t.into()
 }
 
-pub fn initialize_to_block(n: u64) {
+pub fn initialize_to_block(n: BlockNumber) {
     for i in System::block_number() + 1..=n {
         System::set_block_number(i);
-        <AllPalletsWithSystem as frame_support::traits::OnInitialize<u64>>::on_initialize(i);
+        <AllPalletsWithSystem as frame_support::traits::OnInitialize<BlockNumber>>::on_initialize(i);
     }
 }
