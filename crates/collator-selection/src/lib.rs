@@ -66,7 +66,7 @@ pub mod pallet {
         inherent::Vec,
         pallet_prelude::*,
         sp_runtime::{
-            traits::{AccountIdConversion, CheckedSub, Zero},
+            traits::{AccountIdConversion, CheckedSub, Saturating, Zero},
             RuntimeDebug,
         },
         traits::{Currency, EnsureOrigin, ExistenceRequirement::KeepAlive, ReservableCurrency, ValidatorRegistration},
@@ -88,10 +88,9 @@ pub mod pallet {
         }
     }
 
-    // TODO: revert explicit block number
     /// Configure the pallet by specifying the parameters and types on which it depends.
     #[pallet::config]
-    pub trait Config: frame_system::Config<BlockNumber = u32> {
+    pub trait Config: frame_system::Config {
         /// Overarching event type.
         type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
@@ -271,9 +270,9 @@ pub mod pallet {
     }
 
     #[pallet::hooks]
-    impl<T: Config> Hooks<u32> for Pallet<T> {
-        fn on_initialize(n: u32) -> Weight {
-            if n != 1983994 {
+    impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
+        fn on_initialize(n: BlockNumberFor<T>) -> Weight {
+            if n != 1983994u32.into() {
                 // only run for this block on kintsugi
                 // remove once complete
                 return Weight::zero();

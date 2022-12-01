@@ -54,9 +54,9 @@ frame_support::construct_runtime!(
 
 pub type AccountId = u64;
 pub type Balance = u128;
-pub type BlockNumber = u32;
+pub type BlockNumber = u64;
 pub type Index = u64;
-pub type Moment = u32;
+pub type Moment = u64;
 
 parameter_types! {
     pub const BlockHashCount: u32 = 250;
@@ -125,7 +125,8 @@ impl pallet_authorship::Config for Test {
 }
 
 parameter_types! {
-    pub const MinimumPeriod: Moment = 1;
+    // NOTE: updated to match kintsugi runtime
+    pub const MinimumPeriod: u64 = 12000 / 2;
 }
 
 impl pallet_timestamp::Config for Test {
