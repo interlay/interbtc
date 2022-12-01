@@ -1114,6 +1114,36 @@ construct_runtime! {
     }
 }
 
+// https://hackmd.io/@XuVYQ1rUQjGv8uRzzsdzuw/HkduIX4y5
+pub struct SlotDurationMigration;
+
+impl frame_support::traits::OnRuntimeUpgrade for SlotDurationMigration {
+    fn on_runtime_upgrade() -> Weight {
+        if VERSION.spec_version != 1020000 {
+            // only run for this runtime version
+            // remove once complete
+            return Weight::zero();
+        }
+
+        let old_slot_duration: u64 = 6000; // ms
+        let new_slot_duration: u64 = 12000; // ms
+
+        let current_slot = Aura::current_slot();
+        // slot = timestamp / slot_duration
+        // timestamp = slot * slot_duration
+        let timestamp: u64 = Into::<u64>::into(current_slot) * old_slot_duration;
+        let new_slot = timestamp / new_slot_duration;
+        frame_support::migration::put_storage_value(
+            b"Aura",
+            b"CurrentSlot",
+            &[],
+            sp_consensus_aura::Slot::from(new_slot),
+        );
+
+        Weight::zero()
+    }
+}
+
 /// The address format for describing accounts.
 pub type Address = AccountId;
 /// Block header type as expected by this runtime.
@@ -1146,6 +1176,8 @@ pub type Executive = frame_executive::Executive<
     Runtime,
     AllPalletsWithSystem,
     (
+        // Timestamp fix
+        SlotDurationMigration,
         // "Bound uses of call" <https://github.com/paritytech/substrate/pull/11649>
         pallet_preimage::migration::v1::Migration<Runtime>,
         pallet_scheduler::migration::v3::MigrateToV4<Runtime>,
