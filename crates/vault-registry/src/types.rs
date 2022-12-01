@@ -6,14 +6,12 @@ use frame_support::{
     ensure,
     traits::Get,
 };
-use primitives::TruncateFixedPointToInt;
 pub use primitives::{VaultCurrencyPair, VaultId};
-use reward::RewardsApi;
 use scale_info::TypeInfo;
 use sp_core::H256;
 use sp_runtime::{
-    traits::{CheckedAdd, CheckedDiv, CheckedSub, Zero},
-    ArithmeticError, FixedPointNumber, Saturating,
+    traits::{CheckedAdd, CheckedSub, Zero},
+    ArithmeticError,
 };
 
 #[cfg(test)]

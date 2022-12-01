@@ -70,7 +70,7 @@ pub(crate) mod staking {
 
 #[cfg_attr(test, mockable)]
 pub(crate) mod reward {
-    use crate::{types::BalanceOf, CurrencyId, DefaultVaultId};
+    use crate::{CurrencyId, DefaultVaultId};
     use currency::Amount;
     use frame_support::dispatch::DispatchError;
     use reward::RewardsApi;

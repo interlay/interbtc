@@ -1754,6 +1754,13 @@ impl<T: Config> Pallet<T> {
         Ok(Amount::new(amount, vault_id.currencies.collateral))
     }
 
+    pub fn compute_capacity(vault_id: &DefaultVaultId<T>) -> Result<Amount<T>, DispatchError> {
+        let vault = Self::get_rich_vault_from_id(&vault_id)?;
+        let amount = vault.get_vault_collateral()?;
+        let threshold = vault.get_secure_threshold()?;
+        Self::calculate_max_wrapped_from_collateral_for_threshold(&amount, vault_id.currencies.wrapped, threshold)
+    }
+
     /// Private getters and setters
 
     fn get_collateral_ceiling(currency_pair: &DefaultVaultCurrencyPair<T>) -> Result<Amount<T>, DispatchError> {

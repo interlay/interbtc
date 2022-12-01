@@ -350,6 +350,7 @@ impl<T: Config> Pallet<T> {
         let vault_actual_collateral = ext::vault_registry::compute_collateral::<T>(vault_id)?;
         vault_backing_collateral.checked_sub(&vault_actual_collateral)
     }
+
     pub fn get_nomination_limit(vault_id: &DefaultVaultId<T>) -> Amount<T> {
         let limit = NominationLimit::<T>::get(vault_id);
         Amount::new(limit, vault_id.collateral_currency())
