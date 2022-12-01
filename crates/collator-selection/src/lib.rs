@@ -91,7 +91,7 @@ pub mod pallet {
     // TODO: revert explicit block number
     /// Configure the pallet by specifying the parameters and types on which it depends.
     #[pallet::config]
-    pub trait Config: frame_system::Config<BlockNumber = u32> + pallet_aura::Config {
+    pub trait Config: frame_system::Config<BlockNumber = u32> {
         /// Overarching event type.
         type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
@@ -283,7 +283,10 @@ pub mod pallet {
             let new_slot_duration: u64 = 12000; // ms
 
             // https://hackmd.io/@XuVYQ1rUQjGv8uRzzsdzuw/HkduIX4y5
-            let current_slot = pallet_aura::Pallet::<T>::current_slot();
+            let current_slot =
+                frame_support::migration::get_storage_value::<sp_consensus_aura::Slot>(b"Aura", b"CurrentSlot", &[])
+                    .unwrap();
+
             // slot = timestamp / slot_duration
             // timestamp = slot * slot_duration
             let timestamp: u64 = Into::<u64>::into(current_slot) * old_slot_duration;
@@ -302,7 +305,7 @@ pub mod pallet {
     #[pallet::call]
     impl<T: Config> Pallet<T> {
         /// Set the list of invulnerable (fixed) collators.
-        #[pallet::weight(<T as Config>::WeightInfo::set_invulnerables(new.len() as u32))]
+        #[pallet::weight(T::WeightInfo::set_invulnerables(new.len() as u32))]
         pub fn set_invulnerables(origin: OriginFor<T>, new: Vec<T::AccountId>) -> DispatchResultWithPostInfo {
             T::UpdateOrigin::ensure_origin(origin)?;
             // we trust origin calls, this is just a for more accurate benchmarking
@@ -328,7 +331,7 @@ pub mod pallet {
         /// Set the ideal number of collators (not including the invulnerables).
         /// If lowering this number, then the number of running collators could be higher than this figure.
         /// Aside from that edge case, there should be no other way to have more collators than the desired number.
-        #[pallet::weight(<T as Config>::WeightInfo::set_desired_candidates())]
+        #[pallet::weight(T::WeightInfo::set_desired_candidates())]
         pub fn set_desired_candidates(origin: OriginFor<T>, max: u32) -> DispatchResultWithPostInfo {
             T::UpdateOrigin::ensure_origin(origin)?;
             // we trust origin calls, this is just a for more accurate benchmarking
@@ -343,7 +346,7 @@ pub mod pallet {
         }
 
         /// Set the candidacy bond amount.
-        #[pallet::weight(<T as Config>::WeightInfo::set_candidacy_bond())]
+        #[pallet::weight(T::WeightInfo::set_candidacy_bond())]
         pub fn set_candidacy_bond(origin: OriginFor<T>, bond: BalanceOf<T>) -> DispatchResultWithPostInfo {
             T::UpdateOrigin::ensure_origin(origin)?;
             <CandidacyBond<T>>::put(&bond);
@@ -355,7 +358,7 @@ pub mod pallet {
         /// registered session keys and (b) be able to reserve the `CandidacyBond`.
         ///
         /// This call is not available to `Invulnerable` collators.
-        #[pallet::weight(<T as Config>::WeightInfo::register_as_candidate(T::MaxCandidates::get()))]
+        #[pallet::weight(T::WeightInfo::register_as_candidate(T::MaxCandidates::get()))]
         pub fn register_as_candidate(origin: OriginFor<T>) -> DispatchResultWithPostInfo {
             let who = ensure_signed(origin)?;
 
@@ -398,7 +401,7 @@ pub mod pallet {
                 account_id: who,
                 deposit,
             });
-            Ok(Some(<T as Config>::WeightInfo::register_as_candidate(current_count as u32)).into())
+            Ok(Some(T::WeightInfo::register_as_candidate(current_count as u32)).into())
         }
 
         /// Deregister `origin` as a collator candidate. Note that the collator can only leave on
@@ -407,7 +410,7 @@ pub mod pallet {
         /// This call will fail if the total number of candidates would drop below `MinCandidates`.
         ///
         /// This call is not available to `Invulnerable` collators.
-        #[pallet::weight(<T as Config>::WeightInfo::leave_intent(T::MaxCandidates::get()))]
+        #[pallet::weight(T::WeightInfo::leave_intent(T::MaxCandidates::get()))]
         pub fn leave_intent(origin: OriginFor<T>) -> DispatchResultWithPostInfo {
             let who = ensure_signed(origin)?;
             ensure!(
@@ -416,7 +419,7 @@ pub mod pallet {
             );
             let current_count = Self::try_remove_candidate(&who)?;
 
-            Ok(Some(<T as Config>::WeightInfo::leave_intent(current_count as u32)).into())
+            Ok(Some(T::WeightInfo::leave_intent(current_count as u32)).into())
         }
     }
 
@@ -504,7 +507,7 @@ pub mod pallet {
             <LastAuthoredBlock<T>>::insert(author, frame_system::Pallet::<T>::block_number());
 
             frame_system::Pallet::<T>::register_extra_weight_unchecked(
-                <T as Config>::WeightInfo::note_author(),
+                T::WeightInfo::note_author(),
                 DispatchClass::Mandatory,
             );
         }
@@ -530,7 +533,7 @@ pub mod pallet {
             let result = Self::assemble_collators(active_candidates);
 
             frame_system::Pallet::<T>::register_extra_weight_unchecked(
-                <T as Config>::WeightInfo::new_session(candidates_len_before as u32, removed as u32),
+                T::WeightInfo::new_session(candidates_len_before as u32, removed as u32),
                 DispatchClass::Mandatory,
             );
             Some(result)
