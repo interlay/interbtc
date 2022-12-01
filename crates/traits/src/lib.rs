@@ -33,6 +33,6 @@ impl<CurrencyId> OnExchangeRateChange<CurrencyId> for Tuple {
     fn on_exchange_rate_change(currency_id: &CurrencyId) {
         for_tuples!( #(
             Tuple::on_exchange_rate_change(currency_id);
-		)* );
+        )* );
     }
 }

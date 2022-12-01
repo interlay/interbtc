@@ -1,8 +1,8 @@
-pub struct PoolManager<T>(PhantomData<T>);
 use crate::*;
 use traits::OnExchangeRateChange;
 
-// todo: possibly rename to StakeUpdater
+pub struct PoolManager<T>(PhantomData<T>);
+
 impl<T: Config> PoolManager<T> {
     pub fn deposit_collateral(
         vault_id: &DefaultVaultId<T>,
@@ -53,11 +53,6 @@ impl<T: Config> PoolManager<T> {
         Self::update_reward_stake(vault_id)
     }
 
-    // hook to be called _after_ the value has been written
-    pub fn on_set_exchange_rate(currency_id: CurrencyId<T>) -> Result<(), DispatchError> {
-        Self::update_capacity_stake(currency_id)
-    }
-
     fn update_reward_stake(vault_id: &DefaultVaultId<T>) -> Result<(), DispatchError> {
         let total_collateral = ext::staking::total_current_stake::<T>(vault_id)?;
         let secure_threshold = Pallet::<T>::get_vault_secure_threshold(vault_id)?;
@@ -84,3 +79,14 @@ impl<T: Config> OnExchangeRateChange<CurrencyId<T>> for PoolManager<T> {
         let _ = Self::update_capacity_stake(currency_id.clone());
     }
 }
+
+// #[cfg(test)]
+// mod tests {
+//     use super::*;
+//     use mock::*;
+
+//     #[test]
+//     fn should_update_stake_based_on_capacity() {
+//         PoolManager::<Test>::deposit_collateral(currency_id)
+//     }
+// }
