@@ -1,5 +1,5 @@
 use crate as vault_registry;
-use crate::{ext, Config, Error};
+use crate::{Config, Error};
 use frame_support::{
     parameter_types,
     traits::{ConstU32, Everything, GenesisBuild},
@@ -169,35 +169,9 @@ impl pallet_timestamp::Config for Test {
     type WeightInfo = ();
 }
 
-use primitives::TruncateFixedPointToInt;
-use sp_runtime::traits::CheckedDiv;
-
-pub struct CapacityUpdate<T, CapacityRewards, VaultRewards>(
-    sp_std::marker::PhantomData<(T, CapacityRewards, VaultRewards)>,
-);
-impl<T, CapacityRewards, VaultRewards> oracle::OnExchangeRateChange<oracle::OracleKey, UnsignedFixedPoint>
-    for CapacityUpdate<T, CapacityRewards, VaultRewards>
-where
-    T: oracle::Config<UnsignedFixedPoint = UnsignedFixedPoint>,
-    CapacityRewards: reward::RewardsApi<(), CurrencyId, CurrencyId, Balance>,
-    VaultRewards: reward::RewardsApi<CurrencyId, VaultId<AccountId, CurrencyId>, CurrencyId, Balance>,
-{
-    fn on_exchange_rate_change(key: &oracle::OracleKey, _: UnsignedFixedPoint) {
-        if let oracle::OracleKey::ExchangeRate(currency_id) = key {
-            let total_collateral_div_threshold = VaultRewards::get_total_stake(currency_id).unwrap_or_default();
-            let exchange_rate = oracle::Pallet::<T>::get_price(key.clone()).unwrap_or_default();
-            let collateral_capacity = Into::<UnsignedFixedPoint>::into(total_collateral_div_threshold)
-                .checked_div(&exchange_rate)
-                .unwrap_or_default();
-
-            let _ = CapacityRewards::set_stake(&(), currency_id, collateral_capacity.truncate_to_inner().unwrap());
-        }
-    }
-}
-
 impl oracle::Config for Test {
     type RuntimeEvent = RuntimeEvent;
-    type OnExchangeRateChange = CapacityUpdate<Test, CapacityRewards, VaultRewards>;
+    type OnExchangeRateChange = vault_registry::PoolManager<Test>;
     type WeightInfo = ();
 }
 
@@ -244,7 +218,7 @@ impl fee::Config for Test {
     type UnsignedInner = Balance;
     type CapacityRewards = CapacityRewards;
     type VaultRewards = VaultRewards;
-    type StakingRewards = VaultStaking;
+    type VaultStaking = VaultStaking;
     type OnSweep = ();
     type MaxExpectedValue = MaxExpectedValue;
 }
@@ -252,6 +226,7 @@ impl fee::Config for Test {
 parameter_types! {
     pub const VaultPalletId: PalletId = PalletId(*b"mod/vreg");
 }
+
 pub struct MockDeposit;
 
 impl traits::NominationApi<VaultId<AccountId, CurrencyId>, currency::Amount<Test>> for MockDeposit {
@@ -262,16 +237,10 @@ impl traits::NominationApi<VaultId<AccountId, CurrencyId>, currency::Amount<Test
         // ensure the vault is active
         let _vault = VaultRegistry::get_active_rich_vault_from_id(vault_id)?;
 
-        // will fail if collateral ceiling exceeded
-        VaultRegistry::try_increase_total_backing_collateral(&vault_id.currencies, amount)?;
-        // will fail if free_balance is insufficient
+        // Deposit `amount` of stake into the vault staking pool
+        <vault_registry::PoolManager<Test>>::deposit_collateral(vault_id, &vault_id.account_id, amount)?;
         amount.lock_on(&vault_id.account_id)?;
-
-        // withdraw first such that past rewards don't get changed by this deposit
-        ext::fee::withdraw_all_vault_rewards::<Test>(vault_id)?;
-
-        // Deposit `amount` of stake in the pool
-        ext::staking::deposit_stake::<Test>(vault_id, &vault_id.account_id, amount)?;
+        VaultRegistry::try_increase_total_backing_collateral(&vault_id.currencies, &amount)?;
 
         Ok(())
     }
@@ -282,8 +251,6 @@ impl Config for Test {
     type RuntimeEvent = RuntimeEvent;
     type Balance = Balance;
     type WeightInfo = ();
-    // type VaultCapacity
-    type VaultStaking = fee::RewardsRouter<Test>;
     type GetGriefingCollateralCurrencyId = GetNativeCurrencyId;
     type NominationApi = MockDeposit;
 }

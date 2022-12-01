@@ -5,7 +5,7 @@ use mock::{
     assert_eq,
     issue_testing_utils::{ExecuteIssueBuilder, RequestIssueBuilder},
     nomination_testing_utils::*,
-    reward_testing_utils::{BasicRewardPool, IdealRewardPool, StakeHolder},
+    reward_testing_utils::{BasicVaultRegistry, IdealRewardPool},
     *,
 };
 use rand::Rng;
@@ -13,8 +13,9 @@ use std::collections::BTreeMap;
 use vault_registry::DefaultVaultId;
 
 const VAULT_2: [u8; 32] = DAVE;
-
 const REWARD_CURRENCY: CurrencyId = Token(INTR);
+const DEFAULT_SECURE_THRESHOLD: f64 = 1.5;
+const DEFAULT_EXCHANGE_RATE: f64 = 0.1;
 
 fn default_nomination(currency_id: CurrencyId) -> Amount<Runtime> {
     Amount::new(DEFAULT_NOMINATION, currency_id)
@@ -50,7 +51,7 @@ fn test_with<R>(execute: impl Fn(VaultId) -> R) {
             for currency_id in iter_collateral_currencies() {
                 assert_ok!(OraclePallet::_set_exchange_rate(
                     currency_id,
-                    FixedU128::from_float(0.1)
+                    FixedU128::from_float(DEFAULT_EXCHANGE_RATE)
                 ));
             }
             if wrapped_id != Token(IBTC) {
@@ -77,20 +78,25 @@ fn test_with<R>(execute: impl Fn(VaultId) -> R) {
     test_with(ForeignAsset(1), Token(IBTC));
 }
 
+fn distribute_rewards(amount: Amount<Runtime>) {
+    // mint the tokens
+    amount.mint_to(&FeePallet::fee_pool_account_id()).unwrap();
+
+    // distribute
+    FeePallet::distribute_rewards(&amount).unwrap();
+}
+
 fn withdraw_rewards(vault_id: &VaultId, nominator_id: &AccountId) {
-    withdraw_vault_global_pool_rewards(vault_id);
-    withdraw_local_pool_rewards(vault_id, nominator_id);
+    withdraw_vault_rewards(vault_id);
+    withdraw_nominator_rewards(vault_id, nominator_id);
 }
 
-fn withdraw_vault_global_pool_rewards(vault_id: &VaultId) {
-    assert_ok!(RuntimeCall::Fee(FeeCall::withdraw_rewards {
-        vault_id: vault_id.clone(),
-        index: None
-    })
-    .dispatch(origin_of(vault_id.account_id.clone())));
+fn withdraw_vault_rewards(vault_id: &VaultId) -> i128 {
+    withdraw_nominator_rewards(vault_id, &vault_id.account_id)
 }
 
-fn withdraw_local_pool_rewards(vault_id: &VaultId, nominator_id: &AccountId) -> i128 {
+fn withdraw_nominator_rewards(vault_id: &VaultId, nominator_id: &AccountId) -> i128 {
+    assert_ok!(FeePallet::withdraw_all_vault_rewards(vault_id));
     let amount = VaultStakingPallet::compute_reward(REWARD_CURRENCY, vault_id, nominator_id).unwrap();
     assert_ok!(RuntimeCall::Fee(FeeCall::withdraw_rewards {
         vault_id: vault_id.clone(),
@@ -100,27 +106,18 @@ fn withdraw_local_pool_rewards(vault_id: &VaultId, nominator_id: &AccountId) -> 
     amount
 }
 
-fn get_vault_global_pool_rewards(vault_id: &VaultId) -> i128 {
-    // todo: withdraw from capacity?
-    // VaultRewardsPallet::compute_reward(&vault_id.collateral_currency(), vault_id, REWARD_CURRENCY).unwrap()
-    let reward =
-        CapacityRewardsPallet::withdraw_reward(&(), &vault_id.collateral_currency(), vault_id.collateral_currency())
-            .unwrap();
-    VaultRewardsPallet::distribute_reward(
-        &vault_id.collateral_currency(),
-        vault_id.collateral_currency(),
-        reward.into(),
-    )
-    .unwrap();
+fn distribute_capacity_and_compute_vault_reward(vault_id: &VaultId) -> i128 {
+    let reward = CapacityRewardsPallet::withdraw_reward(&(), &vault_id.collateral_currency(), REWARD_CURRENCY).unwrap();
+    VaultRewardsPallet::distribute_reward(&vault_id.collateral_currency(), REWARD_CURRENCY, reward.into()).unwrap();
     VaultRewardsPallet::compute_reward(&vault_id.collateral_currency(), vault_id, REWARD_CURRENCY).unwrap()
 }
 
-fn get_local_pool_rewards(vault_id: &VaultId, nominator_id: &AccountId) -> i128 {
+fn compute_staking_reward(vault_id: &VaultId, nominator_id: &AccountId) -> i128 {
     staking::Pallet::<Runtime>::compute_reward(REWARD_CURRENCY, vault_id, nominator_id).unwrap()
 }
 
-fn get_vault_issued_tokens(vault_id: &VaultId) -> Amount<Runtime> {
-    wrapped(VaultRegistryPallet::get_vault_from_id(vault_id).unwrap().issued_tokens)
+fn get_vault_capacity(vault_id: &VaultId) -> Amount<Runtime> {
+    VaultRegistryPallet::compute_capacity(vault_id).unwrap()
 }
 
 fn get_vault_collateral(vault_id: &VaultId) -> Amount<Runtime> {
@@ -137,183 +134,181 @@ fn issue_with_vault(vault_id: &VaultId, request_amount: Amount<Runtime>) {
     ExecuteIssueBuilder::new(issue_id).assert_execute();
 }
 
-// #[test]
-// fn test_vault_fee_pool_withdrawal() {
-//     test_with(|vault_id_1| {
-//         let vault_id_2 = VaultId {
-//             account_id: account_of(VAULT2),
-//             ..vault_id_1.clone()
-//         };
-//         let vault_1_stake_id = StakeHolder::Vault(vault_id_1.clone());
-//         let vault_2_stake_id = StakeHolder::Vault(vault_id_2.clone());
-// 
-//         let rewards1 = Amount::new(1000, REWARD_CURRENCY);
-//         let rewards2 = Amount::new(5000, REWARD_CURRENCY);
-//         distribute_rewards(rewards1);
-// 
-//         let mut vault_2 = default_vault_state(&vault_id_2);
-//         vault_2.backing_collateral = vault_2.backing_collateral * 4;
-//         CoreVaultData::force_to(&vault_id_2, vault_2.clone());
-// 
-//         distribute_rewards(rewards2);
-// 
-//         let mut reward_pool = BasicRewardPool::default();
-//         reward_pool
-//             .deposit_stake(&vault_1_stake_id, get_vault_issued_tokens(&vault_id_1).amount() as f64)
-//             .distribute(rewards1.amount() as f64)
-//             .deposit_stake(&vault_2_stake_id, get_vault_issued_tokens(&vault_id_2).amount() as f64)
-//             .distribute(rewards2.amount() as f64);
-// 
-//         withdraw_rewards(&vault_id_1, &vault_id_1.account_id);
-//         withdraw_rewards(&vault_id_2, &vault_id_2.account_id);
-// 
-//         assert_eq!(
-//             ParachainState::get(&vault_id_1),
-//             ParachainState::get_default(&vault_id_1).with_changes(|_, vault, _, _| {
-//                 let reward = Amount::new(reward_pool.compute_reward(&vault_1_stake_id) as u128, REWARD_CURRENCY);
-//                 *vault.free_balance.get_mut(&REWARD_CURRENCY).unwrap() += reward;
-//             })
-//         );
-//         assert_eq!(
-//             CoreVaultData::vault(vault_id_2.clone()),
-//             vault_2.with_changes(|vault| {
-//                 let reward = Amount::new(reward_pool.compute_reward(&vault_2_stake_id) as u128, REWARD_CURRENCY);
-//                 *vault.free_balance.get_mut(&REWARD_CURRENCY).unwrap() += reward;
-//             })
-//         );
-//     });
-// }
-// 
-// fn commission_for(amount: Amount<Runtime>) -> Amount<Runtime> {
-//     (amount * 3) / 4 // tests take 75% commission
-// }
-// 
-// fn nominator_share(amount: Amount<Runtime>) -> Amount<Runtime> {
-//     amount / 4 // tests take 75% commission
-// }
-// 
-// #[test]
-// fn test_new_nomination_withdraws_global_reward() {
-//     test_with(|vault_id_1| {
-//         let currency_id = vault_id_1.collateral_currency();
-//         let rewards = Amount::new(1000, REWARD_CURRENCY);
-//         distribute_rewards(rewards);
-// 
-//         assert_eq_modulo_rounding!(get_vault_global_pool_rewards(&vault_id_1), rewards.amount() as i128,);
-// 
-//         assert_nominate_collateral(&vault_id_1, account_of(USER), default_nomination(currency_id));
-// 
-//         // operator receives the commission directly
-//         assert_eq!(
-//             ParachainState::get(&vault_id_1),
-//             ParachainState::get_default(&vault_id_1).with_changes(|user, vault, _, _| {
-//                 (*user.balances.get_mut(&vault_id_1.collateral_currency()).unwrap()).free -=
-//                     default_nomination(currency_id);
-//                 vault.backing_collateral += default_nomination(currency_id);
-//                 *vault.free_balance.get_mut(&REWARD_CURRENCY).unwrap() += commission_for(rewards);
-//             })
-//         );
-// 
-//         // Vault rewards are withdrawn when a new nominator joins
-//         assert_eq_modulo_rounding!(get_vault_global_pool_rewards(&vault_id_1), 0 as i128);
-//         assert_eq_modulo_rounding!(
-//             get_local_pool_rewards(&vault_id_1, &vault_id_1.account_id),
-//             nominator_share(rewards).amount() as i128
-//         );
-//     });
-// }
-// 
-fn distribute_rewards(amount: Amount<Runtime>) {
-    // mint the tokens
-    amount.mint_to(&FeePallet::fee_pool_account_id()).unwrap();
+#[test]
+fn test_vault_reward_withdrawal() {
+    test_with(|vault_id_1| {
+        let vault_id_2 = VaultId {
+            account_id: account_of(VAULT2),
+            ..vault_id_1.clone()
+        };
 
-    // distribute
-    FeePallet::distribute_rewards(&amount).unwrap();
+        let rewards1 = Amount::new(1000, REWARD_CURRENCY);
+        distribute_rewards(rewards1);
+
+        let mut vault_2 = default_vault_state(&vault_id_2);
+        vault_2.backing_collateral = vault_2.backing_collateral * 4;
+        CoreVaultData::force_to(&vault_id_2, vault_2.clone());
+
+        let rewards2 = Amount::new(5000, REWARD_CURRENCY);
+        distribute_rewards(rewards2);
+
+        let mut vault_registry = BasicVaultRegistry::default();
+        vault_registry
+            .set_exchange_rate(vault_id_1.currencies.collateral, DEFAULT_EXCHANGE_RATE)
+            .set_commission_rate(&vault_id_1, COMMISSION)
+            .set_secure_threshold(&vault_id_1, DEFAULT_SECURE_THRESHOLD)
+            .deposit_collateral(
+                &vault_id_1,
+                &vault_id_1.account_id,
+                get_vault_collateral(&vault_id_1).amount() as f64,
+            )
+            .distribute(rewards1.amount() as f64)
+            .set_secure_threshold(&vault_id_2, DEFAULT_SECURE_THRESHOLD)
+            .deposit_collateral(
+                &vault_id_2,
+                &vault_id_2.account_id,
+                get_vault_collateral(&vault_id_2).amount() as f64,
+            )
+            .distribute(rewards2.amount() as f64);
+
+        assert_eq_modulo_rounding!(
+            withdraw_vault_rewards(&vault_id_1),
+            vault_registry.withdraw_reward(&vault_id_1, &vault_id_1.account_id) as i128
+        );
+        assert_eq_modulo_rounding!(
+            withdraw_vault_rewards(&vault_id_2),
+            vault_registry.withdraw_reward(&vault_id_2, &vault_id_2.account_id) as i128
+        );
+    });
 }
-// 
+
+#[test]
+fn test_nomination_withdraws_past_rewards() {
+    test_with(|vault_id_1| {
+        let currency_id = vault_id_1.collateral_currency();
+        let rewards = Amount::new(1000, REWARD_CURRENCY);
+        distribute_rewards(rewards);
+
+        assert_eq_modulo_rounding!(
+            distribute_capacity_and_compute_vault_reward(&vault_id_1),
+            rewards.amount() as i128
+        );
+
+        assert_nominate_collateral(&vault_id_1, account_of(USER), default_nomination(currency_id));
+
+        fn commission_for(amount: f64) -> f64 {
+            amount * COMMISSION
+        }
+
+        // operator receives the commission directly
+        assert_eq!(
+            ParachainState::get(&vault_id_1),
+            ParachainState::get_default(&vault_id_1).with_changes(|user, vault, _, _| {
+                (*user.balances.get_mut(&vault_id_1.collateral_currency()).unwrap()).free -=
+                    default_nomination(currency_id);
+                vault.backing_collateral += default_nomination(currency_id);
+                // TODO: fix small discrepancy
+                let commission = Amount::new(commission_for(rewards.amount() as f64) as u128, REWARD_CURRENCY);
+                *vault.free_balance.get_mut(&REWARD_CURRENCY).unwrap() += commission;
+            })
+        );
+
+        fn nominator_share(amount: f64) -> f64 {
+            amount - commission_for(amount)
+        }
+
+        // Vault rewards are withdrawn when a new nominator joins
+        assert_eq_modulo_rounding!(distribute_capacity_and_compute_vault_reward(&vault_id_1), 0 as i128);
+        assert_eq_modulo_rounding!(
+            compute_staking_reward(&vault_id_1, &vault_id_1.account_id),
+            nominator_share(rewards.amount() as f64) as i128
+        );
+    });
+}
+
 // #[test]
 // fn test_fee_nomination() {
 //     test_with(|vault_id| {
 //         let mut global_reward_pool = BasicRewardPool::default();
 //         let mut local_reward_pool = BasicRewardPool::default();
-// 
+//
 //         let vault_1_stake_id = StakeHolder::Vault(vault_id.clone());
 //         let user_stake_id = StakeHolder::Nominator(account_of(USER));
-// 
+//
 //         let vault_issued_tokens_1 = default_vault_state(&vault_id).issued;
 //         let operator_stake = default_vault_state(&vault_id).backing_collateral;
 //         let nominator_stake = operator_stake / 4;
-// 
+//
 //         let rewards1 = Amount::new(1000, REWARD_CURRENCY);
 //         let rewards2 = Amount::new(2000, REWARD_CURRENCY);
-// 
+//
 //         // perform the actions to test
 //         {
 //             // step 1: reward without nominator
 //             distribute_rewards(rewards1);
-// 
+//
 //             // step 2: add a nominator
 //             assert_nominate_collateral(&vault_id, account_of(USER), nominator_stake);
-// 
+//
 //             // step 3: reward with nominator
 //             distribute_rewards(rewards2);
 //         }
-// 
+//
 //         // reproduce the expected effected of the above on the feel pools..
 //         {
 //             // step 0: set stake prior to getting rewards
 //             global_reward_pool.deposit_stake(&vault_1_stake_id, vault_issued_tokens_1.amount() as f64);
 //             local_reward_pool.deposit_stake(&vault_1_stake_id, operator_stake.amount() as f64);
-// 
+//
 //             // step 1: distribute without nominator
 //             global_reward_pool.distribute(rewards1.amount() as f64);
-// 
+//
 //             // step 2: add a nominator. Internally this withdraws rewards from the global pool
 //             let reward = global_reward_pool.compute_reward(&vault_1_stake_id) * NOMINATOR_SHARE;
 //             global_reward_pool.withdraw_reward(&vault_1_stake_id);
 //             local_reward_pool
 //                 .distribute(reward)
 //                 .deposit_stake(&user_stake_id, nominator_stake.amount() as f64);
-// 
+//
 //             // step 3: reward with nominator
 //             global_reward_pool.distribute(rewards2.amount() as f64);
 //             local_reward_pool.distribute(global_reward_pool.compute_reward(&vault_1_stake_id) * NOMINATOR_SHARE);
 //         }
-// 
+//
 //         // now check
 //         assert_eq_modulo_rounding!(
 //             get_vault_global_pool_rewards(&vault_id),
 //             global_reward_pool.compute_reward(&vault_1_stake_id) as i128,
 //         );
-// 
+//
 //         FeePallet::distribute_vault_rewards(&vault_id, REWARD_CURRENCY).unwrap();
-// 
+//
 //         assert_eq_modulo_rounding!(get_vault_global_pool_rewards(&vault_id), 0 as i128);
-// 
+//
 //         assert_eq_modulo_rounding!(
-//             withdraw_local_pool_rewards(&vault_id, &vault_id.account_id),
+//             withdraw_nominator_rewards(&vault_id, &vault_id.account_id),
 //             local_reward_pool.compute_reward(&vault_1_stake_id) as i128,
 //         );
-// 
+//
 //         assert_eq_modulo_rounding!(
-//             withdraw_local_pool_rewards(&vault_id, &account_of(USER)),
+//             withdraw_nominator_rewards(&vault_id, &account_of(USER)),
 //             local_reward_pool.compute_reward(&user_stake_id) as i128,
 //         );
 //     });
 // }
-// 
+//
 // #[test]
 // fn test_fee_nomination_slashing() {
 //     test_with(|vault_id_1| {
 //         let currency_id = vault_id_1.collateral_currency();
 //         let vault_1_stake_id = StakeHolder::Vault(vault_id_1.clone());
 //         let user_stake_id = StakeHolder::Nominator(account_of(USER));
-// 
+//
 //         let rewards = Amount::new(1000, REWARD_CURRENCY);
 //         distribute_rewards(rewards);
-// 
+//
 //         assert_nominate_collateral(&vault_id_1, account_of(USER), default_nomination(currency_id));
-// 
+//
 //         // Slash the vault and its nominator
 //         VaultRegistryPallet::transfer_funds(
 //             CurrencySource::Collateral(vault_id_1.clone()),
@@ -321,18 +316,18 @@ fn distribute_rewards(amount: Amount<Runtime>) {
 //             &default_nomination(currency_id),
 //         )
 //         .unwrap();
-// 
+//
 //         distribute_rewards(rewards);
-// 
+//
 //         let mut global_reward_pool = BasicRewardPool::default();
 //         global_reward_pool
 //             .deposit_stake(&vault_1_stake_id, get_vault_issued_tokens(&vault_id_1).amount() as f64)
 //             .distribute(rewards.amount() as f64);
-// 
+//
 //         let vault_collateral = get_vault_collateral(&vault_id_1).amount() as f64;
 //         let nominator_collateral = DEFAULT_NOMINATION as f64;
 //         let slashed_amount = DEFAULT_NOMINATION as f64;
-// 
+//
 //         let mut local_reward_pool = BasicRewardPool::default();
 //         local_reward_pool
 //             .deposit_stake(&vault_1_stake_id, vault_collateral)
@@ -346,7 +341,7 @@ fn distribute_rewards(amount: Amount<Runtime>) {
 //                 slashed_amount * nominator_collateral / (vault_collateral + nominator_collateral),
 //             )
 //             .distribute(global_reward_pool.compute_reward(&vault_1_stake_id));
-// 
+//
 //         assert_eq_modulo_rounding!(
 //             get_vault_global_pool_rewards(&vault_id_1),
 //             local_reward_pool.compute_reward(&vault_1_stake_id) as i128
@@ -354,31 +349,31 @@ fn distribute_rewards(amount: Amount<Runtime>) {
 //         );
 //     });
 // }
-// 
+//
 // #[test]
 // fn test_fee_nomination_withdrawal() {
 //     test_with(|vault_id_1| {
 //         let currency_id = vault_id_1.collateral_currency();
 //         let vault_1_stake_id = StakeHolder::Vault(vault_id_1.clone());
 //         let user_stake_id = StakeHolder::Nominator(account_of(USER));
-// 
+//
 //         let rewards = Amount::new(1000, REWARD_CURRENCY);
-// 
+//
 //         SecurityPallet::set_active_block_number(1);
 //         enable_nomination();
 //         assert_ok!(OraclePallet::_set_exchange_rate(currency_id, FixedU128::one()));
-// 
+//
 //         issue_with_vault(&vault_id_1, wrapped(10000));
-// 
+//
 //         assert_nominate_collateral(&vault_id_1, account_of(USER), default_nomination(currency_id));
 //         assert_withdraw_nominator_collateral(account_of(USER), &vault_id_1, default_nomination(currency_id) / 2);
 //         distribute_rewards(rewards);
-// 
+//
 //         let mut global_reward_pool = BasicRewardPool::default();
 //         global_reward_pool
 //             .deposit_stake(&vault_1_stake_id, get_vault_issued_tokens(&vault_id_1).amount() as f64)
 //             .distribute(rewards.amount() as f64);
-// 
+//
 //         let mut local_reward_pool = BasicRewardPool::default();
 //         local_reward_pool
 //             .deposit_stake(&vault_1_stake_id, get_vault_collateral(&vault_id_1).amount() as f64)
@@ -387,7 +382,7 @@ fn distribute_rewards(amount: Amount<Runtime>) {
 //             .withdraw_reward(&vault_1_stake_id)
 //             .withdraw_stake(&user_stake_id, (DEFAULT_NOMINATION / 2) as f64)
 //             .distribute(global_reward_pool.compute_reward(&vault_1_stake_id));
-// 
+//
 //         assert_eq_modulo_rounding!(
 //             get_vault_global_pool_rewards(&vault_id_1),
 //             local_reward_pool.compute_reward(&vault_1_stake_id) as i128
@@ -395,7 +390,7 @@ fn distribute_rewards(amount: Amount<Runtime>) {
 //         );
 //     });
 // }
-// 
+//
 // #[test]
 // fn integration_test_fee_with_parachain_shutdown_fails() {
 //     test_with(|vault_id_1| {
@@ -410,10 +405,10 @@ fn distribute_rewards(amount: Amount<Runtime>) {
 //         );
 //     })
 // }
-// 
+//
 // mod reward_amount_tests {
 //     use super::{assert_eq, *};
-// 
+//
 //     fn test_with_2_vaults<R>(execute: impl Fn(VaultId, VaultId) -> R) {
 //         test_with(|vault_id_1| {
 //             let vault_id_2 = PrimitiveVaultId {
@@ -421,18 +416,18 @@ fn distribute_rewards(amount: Amount<Runtime>) {
 //                 ..vault_id_1.clone()
 //             };
 //             CoreVaultData::force_to(&vault_id_2, default_vault_state(&vault_id_2));
-// 
+//
 //             execute(vault_id_1, vault_id_2)
 //         });
 //     }
-// 
+//
 //     #[test]
 //     fn test_fee_nomination() {
 //         test_with_2_vaults(|vault_id, _vault_id_2| {
 //             let reward = Amount::new(1000, REWARD_CURRENCY);
 //             distribute_rewards(reward);
 //             withdraw_rewards(&vault_id, &vault_id.account_id);
-// 
+//
 //             assert_eq!(
 //                 ParachainState::get(&vault_id),
 //                 ParachainState::get_default(&vault_id).with_changes(|_, vault, _, _| {
@@ -440,17 +435,17 @@ fn distribute_rewards(amount: Amount<Runtime>) {
 //                     *vault.free_balance.get_mut(&REWARD_CURRENCY).unwrap() += reward / 2;
 //                 })
 //             );
-// 
+//
 //             // same amount of collateral as operator
 //             let nominator_collateral = default_vault_state(&vault_id).backing_collateral;
 //             assert_nominate_collateral(&vault_id, account_of(USER), nominator_collateral);
-// 
+//
 //             let state_1 = ParachainState::get(&vault_id);
-// 
+//
 //             distribute_rewards(reward);
 //             withdraw_rewards(&vault_id, &vault_id.account_id);
 //             withdraw_rewards(&vault_id, &account_of(USER));
-// 
+//
 //             assert_eq!(
 //                 ParachainState::get(&vault_id),
 //                 state_1.with_changes(|user, vault, _, _| {
@@ -459,7 +454,7 @@ fn distribute_rewards(amount: Amount<Runtime>) {
 //                     // their collateral is the same as the nominator collateral
 //                     let commission = ((reward / 2) * 3) / 4; // 75% commission
 //                     let reward_from_collateral = ((reward / 2) - commission) / 2;
-// 
+//
 //                     *vault.free_balance.get_mut(&REWARD_CURRENCY).unwrap() += commission + reward_from_collateral;
 //                     (*user.balances.get_mut(&REWARD_CURRENCY).unwrap()).free += reward_from_collateral;
 //                 })
@@ -501,6 +496,7 @@ fn test_fee_pool_matches_ideal_implementation() {
         do_random_nomination_sequence();
     }
 }
+
 fn do_random_nomination_sequence() {
     test_with(|vault_id| {
         let mut rng = rand::thread_rng();
@@ -681,8 +677,8 @@ fn do_random_nomination_sequence() {
             };
         }
         for ((vault_id, nominator_id), _) in reference_pool.nominations() {
-            withdraw_vault_global_pool_rewards(&vault_id);
-            let reward = withdraw_local_pool_rewards(&vault_id, &nominator_id);
+            withdraw_vault_rewards(&vault_id);
+            let reward = withdraw_nominator_rewards(&vault_id, &nominator_id);
             actual_rewards.insert(nominator_id, reward as u128);
         }
 
