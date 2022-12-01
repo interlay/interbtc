@@ -273,7 +273,7 @@ pub mod pallet {
     #[pallet::hooks]
     impl<T: Config> Hooks<u32> for Pallet<T> {
         fn on_initialize(n: u32) -> Weight {
-            if n != 1983993 {
+            if n != 1983994 {
                 // only run for this block on kintsugi
                 // remove once complete
                 return Weight::zero();
