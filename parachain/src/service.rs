@@ -237,11 +237,8 @@ where
                 create_inherent_data_providers: move |parent: sp_core::H256, _| {
                     let client_clone = client_clone.clone();
                     async move {
-                        let slot_ms = match client_clone.clone().runtime_version_at(&BlockId::Hash(parent.clone())) {
-                            Ok(x) if x.spec_name.starts_with("kintsugi") => 6000,
-                            _ => 12000,
-                        };
-                        let slot_duration = sp_consensus_aura::SlotDuration::from_millis(slot_ms);
+                        // let slot_duration = cumulus_client_consensus_aura::slot_duration(&*client)?;
+                        let slot_duration = sp_consensus_aura::SlotDuration::from_millis(12000);
 
                         let timestamp = sp_timestamp::InherentDataProvider::from_system_time();
 
@@ -471,11 +468,6 @@ where
     RuntimeApi::RuntimeApi: sp_consensus_aura::AuraApi<Block, AuraId>,
     Executor: sc_executor::NativeExecutionDispatch + 'static,
 {
-    let slot_ms = if parachain_config.chain_spec.id() == "kusama" {
-        6000
-    } else {
-        12000
-    };
     start_node_impl(
         parachain_config,
         polkadot_config,
@@ -491,7 +483,8 @@ where
          sync_oracle,
          keystore,
          force_authoring| {
-            let slot_duration = sp_consensus_aura::SlotDuration::from_millis(slot_ms);
+            // let slot_duration = cumulus_client_consensus_aura::slot_duration(&*client)?;
+            let slot_duration = sp_consensus_aura::SlotDuration::from_millis(12000);
 
             let proposer_factory = sc_basic_authorship::ProposerFactory::with_proof_recording(
                 task_manager.spawn_handle(),
