@@ -26,6 +26,7 @@ frame-support = { default-features = false, git = "https://github.com/paritytech
 frame-system = { default-features = false, git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.31" }
 pallet-authorship = { default-features = false, git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.31" }
 pallet-session = { default-features = false, git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.31" }
+sp-consensus-aura = { default-features = false, git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.31" }
 
 frame-benchmarking = { default-features = false, optional = true, git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.31" }
 
@@ -59,6 +60,7 @@ std = [
 	"frame-benchmarking/std",
 	"pallet-authorship/std",
 	"pallet-session/std",
+	"sp-consensus-aura/std",
 ]
 
 try-runtime = [ "frame-support/try-runtime" ]

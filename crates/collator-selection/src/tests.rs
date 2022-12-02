@@ -435,3 +435,29 @@ fn cannot_set_genesis_value_twice() {
     // collator selection must be initialized before session.
     collator_selection.assimilate_storage(&mut t).unwrap();
 }
+
+#[test]
+fn should_migrate_kintsugi_2022_12_01() {
+    new_test_ext().execute_with(|| {
+        System::set_block_number(1983994);
+        frame_support::migration::put_storage_value(
+            b"Aura",
+            b"CurrentSlot",
+            &[],
+            sp_consensus_aura::Slot::from(278314523),
+        );
+
+        // this will panic without migration
+        // assert_ok!(Timestamp::set(RuntimeOrigin::none(), 1669887138551));
+
+        CollatorSelection::on_initialize(1983994);
+
+        let current_slot =
+            frame_support::migration::get_storage_value::<sp_consensus_aura::Slot>(b"Aura", b"CurrentSlot", &[])
+                .unwrap();
+        assert_eq!(Into::<u64>::into(current_slot), 139157261);
+
+        // this will now succeed
+        assert_ok!(Timestamp::set(RuntimeOrigin::none(), 1669887138551));
+    });
+}

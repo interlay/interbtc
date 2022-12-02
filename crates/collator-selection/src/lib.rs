@@ -270,7 +270,36 @@ pub mod pallet {
     }
 
     #[pallet::hooks]
-    impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {}
+    impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
+        fn on_initialize(n: BlockNumberFor<T>) -> Weight {
+            if n != 1983994u32.into() {
+                // only run for this block on kintsugi
+                // remove once complete
+                return Weight::zero();
+            }
+
+            let old_slot_duration: u64 = 6000; // ms
+            let new_slot_duration: u64 = 12000; // ms
+
+            // https://hackmd.io/@XuVYQ1rUQjGv8uRzzsdzuw/HkduIX4y5
+            let current_slot =
+                frame_support::migration::get_storage_value::<sp_consensus_aura::Slot>(b"Aura", b"CurrentSlot", &[])
+                    .unwrap();
+
+            // slot = timestamp / slot_duration
+            // timestamp = slot * slot_duration
+            let timestamp: u64 = Into::<u64>::into(current_slot) * old_slot_duration;
+            let new_slot = timestamp / new_slot_duration;
+            frame_support::migration::put_storage_value(
+                b"Aura",
+                b"CurrentSlot",
+                &[],
+                sp_consensus_aura::Slot::from(new_slot),
+            );
+
+            Weight::zero()
+        }
+    }
 
     #[pallet::call]
     impl<T: Config> Pallet<T> {
