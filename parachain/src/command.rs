@@ -51,7 +51,8 @@ impl IdentifyChain for dyn sc_service::ChainSpec {
         self.id().starts_with("interlay")
     }
     fn is_kintsugi(&self) -> bool {
-        self.id().starts_with("kintsugi")
+        // TODO: https://github.com/interlay/interbtc/pull/585
+        self.id().starts_with("kintsugi") || self.id().starts_with("kusama")
     }
     fn is_interlay_testnet(&self) -> bool {
         self.id().starts_with("testnet-interlay")
@@ -195,6 +196,7 @@ impl SubstrateCli for Cli {
         } else if chain_spec.is_kintsugi() {
             &kintsugi_runtime::VERSION
         } else {
+            // TODO: interlay version or panic?
             &testnet_kintsugi_runtime::VERSION
         }
     }
