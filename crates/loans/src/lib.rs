@@ -50,7 +50,7 @@ use sp_runtime::{
     },
     ArithmeticError, FixedPointNumber, FixedU128,
 };
-use sp_std::{marker, result::Result};
+use sp_std::{marker, result::Result, vec::Vec};
 use traits::{ConvertToBigUint, LoansApi as LoansTrait, LoansMarketDataProvider, MarketInfo, MarketStatus};
 
 pub use orml_traits::currency::{OnDeposit, OnSlash, OnTransfer};
@@ -357,7 +357,7 @@ pub mod pallet {
             if min_exchange_rate.is_zero() {
                 crate::MinExchangeRate::<T>::put(Rate::from_inner(DEFAULT_MIN_EXCHANGE_RATE));
             }
-            T::DbWeight::get().reads_writes(0, 2)
+            T::DbWeight::get().reads_writes(2, 2)
         }
 
         #[cfg(feature = "try-runtime")]
