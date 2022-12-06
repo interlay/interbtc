@@ -271,8 +271,8 @@ fn testnet_genesis(
             safe_xcm_version: Some(2),
         },
         loans: LoansConfig {
-            max_exchange_rate: Rate::from_inner(DEFAULT_MAX_EXCHANGE_RATE),
-            min_exchange_rate: Rate::from_inner(DEFAULT_MIN_EXCHANGE_RATE),
+            max_exchange_rate: Rate::from_inner(loans::DEFAULT_MAX_EXCHANGE_RATE),
+            min_exchange_rate: Rate::from_inner(loans::DEFAULT_MIN_EXCHANGE_RATE),
         },
     }
 }

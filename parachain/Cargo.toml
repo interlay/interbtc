@@ -32,6 +32,7 @@ testnet-kintsugi-runtime = { package = "testnet-kintsugi-runtime-parachain", pat
 testnet-interlay-runtime = { package = "testnet-interlay-runtime-parachain", path = "./runtime/testnet-interlay" }
 interbtc-rpc = { path = "../rpc" }
 bitcoin = { path = "../crates/bitcoin" }
+loans = { path = "../crates/loans" }
 primitives = { package = "interbtc-primitives", path = "../primitives" }
 
 btc-relay-rpc-runtime-api = { path = "../crates/btc-relay/rpc/runtime-api" }

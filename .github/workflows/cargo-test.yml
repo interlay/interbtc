@@ -31,6 +31,11 @@ jobs:
         with:
           command: check
           args: --release --workspace
+      - name: try-runtime build
+        uses: actions-rs/cargo@v1
+        with:
+          command: check
+          args: --release --workspace --features try-runtime
       - name: test
         uses: actions-rs/cargo@v1
         with:
