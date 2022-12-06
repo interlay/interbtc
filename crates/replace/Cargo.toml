@@ -90,3 +90,4 @@ runtime-benchmarks = [
 	"orml-tokens",
 	"orml-traits",
 ]
+try-runtime = [ "frame-support/try-runtime" ]

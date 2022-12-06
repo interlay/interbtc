@@ -88,3 +88,4 @@ integration-tests = [
   "visibility"
 ]
 skip-slow-tests = []
+try-runtime = [ "frame-support/try-runtime" ]

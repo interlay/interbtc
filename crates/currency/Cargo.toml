@@ -55,3 +55,4 @@ std = [
 testing-utils = [
   "mocktopus"
 ]
+try-runtime = [ "frame-support/try-runtime" ]

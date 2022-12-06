@@ -256,3 +256,4 @@ runtime-benchmarks = [
   "fee/runtime-benchmarks",
 ]
 disable-runtime-api = []
+try-runtime = [ "frame-support/try-runtime" ]
