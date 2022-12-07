@@ -99,6 +99,16 @@ pub const DEFAULT_CURRENCY_PAIR: VaultCurrencyPair<CurrencyId> = VaultCurrencyPa
     wrapped: DEFAULT_WRAPPED_CURRENCY,
 };
 
+pub fn vault_id(account_id: AccountId) -> VaultId<AccountId, CurrencyId> {
+    VaultId {
+        account_id,
+        currencies: VaultCurrencyPair {
+            collateral: DEFAULT_COLLATERAL_CURRENCY,
+            wrapped: DEFAULT_WRAPPED_CURRENCY,
+        },
+    }
+}
+
 parameter_types! {
     pub const GetCollateralCurrencyId: CurrencyId = DEFAULT_COLLATERAL_CURRENCY;
     pub const GetNativeCurrencyId: CurrencyId = DEFAULT_NATIVE_CURRENCY;
@@ -126,7 +136,7 @@ impl orml_tokens::Config for Test {
     type ReserveIdentifier = (); // we don't use named reserves
 }
 
-type CapacityRewardsInstance = reward::Instance1;
+pub(crate) type CapacityRewardsInstance = reward::Instance1;
 
 impl reward::Config<CapacityRewardsInstance> for Test {
     type RuntimeEvent = RuntimeEvent;
@@ -138,7 +148,7 @@ impl reward::Config<CapacityRewardsInstance> for Test {
     type GetWrappedCurrencyId = GetWrappedCurrencyId;
 }
 
-type VaultRewardsInstance = reward::Instance2;
+pub(crate) type VaultRewardsInstance = reward::Instance2;
 
 impl reward::Config<VaultRewardsInstance> for Test {
     type RuntimeEvent = RuntimeEvent;

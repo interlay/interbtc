@@ -18,7 +18,7 @@ pub mod v0 {
         StorageMap<Pallet<T, I>, Blake2_128Concat, <T as Config<I>>::CurrencyId, SignedFixedPoint<T, I>, ValueQuery>;
 
     #[frame_support::storage_alias]
-    pub(crate) type Stake<T: Config<I>, I: 'static> =
+    pub type Stake<T: Config<I>, I: 'static> =
         StorageMap<Pallet<T, I>, Blake2_128Concat, <T as Config<I>>::StakeId, SignedFixedPoint<T, I>, ValueQuery>;
 
     #[frame_support::storage_alias]
@@ -31,6 +31,50 @@ pub mod v0 {
         SignedFixedPoint<T, I>,
         ValueQuery,
     >;
+
+    pub fn deposit_stake<T: Config<I>, I: 'static>(
+        stake_id: &T::StakeId,
+        amount: SignedFixedPoint<T, I>,
+    ) -> Result<(), DispatchError> {
+        checked_add_mut!(Stake<T, I>, stake_id, &amount);
+        checked_add_mut!(TotalStake<T, I>, &amount);
+
+        for currency_id in [T::GetNativeCurrencyId::get(), T::GetWrappedCurrencyId::get()] {
+            <RewardTally<T, I>>::mutate(currency_id, stake_id, |reward_tally| {
+                let reward_per_token = <RewardPerToken<T, I>>::get(currency_id);
+                let reward_per_token_mul_amount =
+                    reward_per_token.checked_mul(&amount).ok_or(ArithmeticError::Overflow)?;
+                *reward_tally = reward_tally
+                    .checked_add(&reward_per_token_mul_amount)
+                    .ok_or(ArithmeticError::Overflow)?;
+                Ok::<_, DispatchError>(())
+            })?;
+        }
+
+        Ok(())
+    }
+
+    pub fn distribute_reward<T: Config<I>, I: 'static>(
+        currency_id: T::CurrencyId,
+        reward: SignedFixedPoint<T, I>,
+    ) -> DispatchResult {
+        let total_stake = <TotalStake<T, I>>::get();
+        let reward_div_total_stake = reward.checked_div(&total_stake).ok_or(ArithmeticError::Underflow)?;
+        checked_add_mut!(RewardPerToken<T, I>, currency_id, &reward_div_total_stake);
+        checked_add_mut!(TotalRewards<T, I>, currency_id, &reward);
+        Ok(())
+    }
+
+    pub fn compute_reward<T: Config<I>, I: 'static>(
+        stake_id: &T::StakeId,
+        currency_id: T::CurrencyId,
+    ) -> Result<SignedFixedPoint<T, I>, DispatchError> {
+        let stake = <Stake<T, I>>::get(stake_id);
+        let reward_per_token = <RewardPerToken<T, I>>::get(currency_id);
+        let stake_mul_reward_per_token = stake.checked_mul(&reward_per_token).ok_or(ArithmeticError::Overflow)?;
+        let reward_tally = <RewardTally<T, I>>::get(currency_id, stake_id);
+        Ok(stake_mul_reward_per_token.saturating_sub(reward_tally))
+    }
 }
 
 pub mod v1 {
@@ -112,6 +156,7 @@ pub mod v1 {
 mod test {
     use super::*;
     use crate::mock::*;
+    use frame_support::assert_ok;
     use sp_arithmetic::FixedI128;
 
     #[test]
@@ -134,6 +179,9 @@ mod test {
             v0::TotalStake::<Test, ()>::put(FixedI128::from(100));
             // reward_per_token * amount = 2 * 50
             v0::RewardTally::<Test, ()>::insert(Token(IBTC), 1, FixedI128::from(100));
+
+            assert_ok!(v0::compute_reward::<Test, ()>(&0, Token(IBTC)), 100);
+            assert_ok!(v0::compute_reward::<Test, ()>(&1, Token(IBTC)), 0);
 
             let state = v1::MigrateToV1::<Test>::pre_upgrade().unwrap();
             let _w = v1::MigrateToV1::<Test>::on_runtime_upgrade();
