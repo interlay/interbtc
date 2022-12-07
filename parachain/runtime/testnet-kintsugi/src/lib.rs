@@ -970,7 +970,7 @@ where
 
 impl oracle::Config for Runtime {
     type RuntimeEvent = RuntimeEvent;
-    type OnExchangeRateChange = ();
+    type OnExchangeRateChange = (vault_registry::PoolManager<Runtime>, Loans);
     type WeightInfo = ();
 }
 
@@ -1036,6 +1036,7 @@ impl loans::Config for Runtime {
     type Assets = Tokens;
     type RewardAssetId = GetNativeCurrencyId;
     type ReferenceAssetId = GetWrappedCurrencyId;
+    type OnExchangeRateChange = vault_registry::PoolManager<Runtime>;
 }
 
 construct_runtime! {
@@ -1137,8 +1138,18 @@ pub type UncheckedExtrinsic = generic::UncheckedExtrinsic<Address, RuntimeCall, 
 /// Extrinsic type that has already been checked.
 pub type CheckedExtrinsic = generic::CheckedExtrinsic<AccountId, RuntimeCall, SignedExtra>;
 /// Executive: handles dispatch to the various modules.
-pub type Executive =
-    frame_executive::Executive<Runtime, Block, frame_system::ChainContext<Runtime>, Runtime, AllPalletsWithSystem>;
+pub type Executive = frame_executive::Executive<
+    Runtime,
+    Block,
+    frame_system::ChainContext<Runtime>,
+    Runtime,
+    AllPalletsWithSystem,
+    (
+        // Vault Capacity Model
+        reward::migration::v1::MigrateToV1<Runtime, EscrowRewardsInstance>,
+        vault_registry::migration::vault_capacity::RewardsMigration<Runtime, VaultRewardsInstance>,
+    ),
+>;
 
 #[cfg(not(feature = "disable-runtime-api"))]
 impl_runtime_apis! {
