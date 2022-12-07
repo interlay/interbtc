@@ -970,7 +970,7 @@ where
 
 impl oracle::Config for Runtime {
     type RuntimeEvent = RuntimeEvent;
-    type OnExchangeRateChange = ();
+    type OnExchangeRateChange = (vault_registry::PoolManager<Runtime>, Loans);
     type WeightInfo = ();
 }
 
@@ -1036,6 +1036,7 @@ impl loans::Config for Runtime {
     type Assets = Tokens;
     type RewardAssetId = GetNativeCurrencyId;
     type ReferenceAssetId = GetWrappedCurrencyId;
+    type OnExchangeRateChange = vault_registry::PoolManager<Runtime>;
 }
 
 construct_runtime! {

@@ -8,7 +8,6 @@ use currency::Amount;
 use frame_support::{assert_err, assert_noop, assert_ok};
 use mocktopus::mocking::*;
 use pretty_assertions::assert_eq;
-use primitives::{VaultCurrencyPair, VaultId};
 use security::Pallet as Security;
 use sp_arithmetic::{traits::One, FixedPointNumber, FixedU128};
 use sp_core::U256;
@@ -19,16 +18,6 @@ use sp_runtime::{
 use sp_std::convert::TryInto;
 
 type Event = crate::Event<Test>;
-
-fn vault_id(account_id: AccountId) -> VaultId<AccountId, CurrencyId> {
-    VaultId {
-        account_id,
-        currencies: VaultCurrencyPair {
-            collateral: DEFAULT_COLLATERAL_CURRENCY,
-            wrapped: DEFAULT_WRAPPED_CURRENCY,
-        },
-    }
-}
 
 // use macro to avoid messing up stack trace
 macro_rules! assert_emitted {

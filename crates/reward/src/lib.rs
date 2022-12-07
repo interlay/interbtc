@@ -1,7 +1,7 @@
 //! # Reward Module
 //! Based on the [Scalable Reward Distribution](https://solmaz.io/2019/02/24/scalable-reward-changing/) algorithm.
 
-// #![deny(warnings)]
+#![deny(warnings)]
 #![cfg_attr(test, feature(proc_macro_hygiene))]
 #![cfg_attr(not(feature = "std"), no_std)]
 
@@ -154,6 +154,7 @@ pub mod pallet {
     impl<T: Config<I>, I: 'static> Pallet<T, I> {}
 }
 
+#[macro_export]
 macro_rules! checked_add_mut {
     ($storage:ty, $amount:expr) => {
         <$storage>::mutate(|value| {

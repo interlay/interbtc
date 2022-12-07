@@ -1,7 +1,7 @@
 //! # Fee Module
 //! Based on the [specification](https://spec.interlay.io/spec/fee.html).
 
-// #![deny(warnings)]
+#![deny(warnings)]
 #![cfg_attr(test, feature(proc_macro_hygiene))]
 #![cfg_attr(not(feature = "std"), no_std)]
 

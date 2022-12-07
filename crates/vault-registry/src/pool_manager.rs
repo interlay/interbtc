@@ -53,7 +53,8 @@ impl<T: Config> PoolManager<T> {
         Self::update_reward_stake(vault_id)
     }
 
-    fn update_reward_stake(vault_id: &DefaultVaultId<T>) -> Result<(), DispatchError> {
+    // NOTE: temporarily public for reward migration
+    pub(crate) fn update_reward_stake(vault_id: &DefaultVaultId<T>) -> Result<(), DispatchError> {
         let total_collateral = ext::staking::total_current_stake::<T>(vault_id)?;
         let secure_threshold = Pallet::<T>::get_vault_secure_threshold(vault_id)?;
 
