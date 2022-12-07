@@ -4,7 +4,7 @@ use frame_support::pallet_prelude::*;
 use primitives::{CurrencyId, Liquidity, Rate, Ratio, Shortfall};
 use scale_info::TypeInfo;
 
-/// Container for borrow balance information
+/// Container for account liquidity information
 #[derive(Encode, Decode, Eq, PartialEq, Clone, RuntimeDebug, TypeInfo)]
 pub struct AccountLiquidity<T: Config> {
     pub liquidity: Amount<T>,
