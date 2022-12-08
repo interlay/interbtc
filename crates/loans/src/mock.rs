@@ -219,12 +219,12 @@ pub fn with_price(
         let (custom_currency, custom_price) = maybe_currency_price.unwrap_or((amount.currency(), FixedU128::one()));
         match (amount.currency(), to) {
             currencies if currencies == (custom_currency, DEFAULT_WRAPPED_CURRENCY) => {
-                let fixed_point_amount = amount.to_unsigned_fixed_point();
+                let fixed_point_amount = amount.to_unsigned_fixed_point().unwrap();
                 let new_amount = fixed_point_amount.mul(custom_price);
                 return MockResult::Return(Amount::from_unsigned_fixed_point(new_amount, to));
             }
             currencies if currencies == (DEFAULT_WRAPPED_CURRENCY, custom_currency) => {
-                let fixed_point_amount = amount.to_unsigned_fixed_point();
+                let fixed_point_amount = amount.to_unsigned_fixed_point().unwrap();
                 let new_amount = fixed_point_amount.div(custom_price);
                 return MockResult::Return(Amount::from_unsigned_fixed_point(new_amount, to));
             }

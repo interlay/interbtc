@@ -1440,7 +1440,8 @@ impl_runtime_apis! {
         Balance,
     > for Runtime {
         fn get_account_liquidity(account: AccountId) -> Result<(Liquidity, Shortfall), DispatchError> {
-            Loans::get_account_liquidity(&account).map(|liquidity| liquidity.to_rpc_tuple())
+            Loans::get_account_liquidity(&account)
+            .and_then(|liquidity| liquidity.to_rpc_tuple())
         }
 
         fn get_market_status(asset_id: CurrencyId) -> Result<(Rate, Rate, Rate, Ratio, Balance, Balance, FixedU128), DispatchError> {
@@ -1448,7 +1449,8 @@ impl_runtime_apis! {
         }
 
         fn get_liquidation_threshold_liquidity(account: AccountId) -> Result<(Liquidity, Shortfall), DispatchError> {
-            Loans::get_account_liquidation_threshold_liquidity(&account).map(|liquidity| liquidity.to_rpc_tuple())
+            Loans::get_account_liquidation_threshold_liquidity(&account)
+            .and_then(|liquidity| liquidity.to_rpc_tuple())
         }
     }
 }

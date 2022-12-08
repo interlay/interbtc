@@ -12,11 +12,11 @@ pub struct AccountLiquidity<T: Config> {
 }
 
 impl<T: Config> AccountLiquidity<T> {
-    pub fn to_rpc_tuple(&self) -> (Liquidity, Shortfall) {
-        (
-            self.liquidity.to_unsigned_fixed_point(),
-            self.shortfall.to_unsigned_fixed_point(),
-        )
+    pub fn to_rpc_tuple(&self) -> Result<(Liquidity, Shortfall), DispatchError> {
+        Ok((
+            self.liquidity.to_unsigned_fixed_point()?,
+            self.shortfall.to_unsigned_fixed_point()?,
+        ))
     }
 }
 

@@ -515,7 +515,7 @@ fn get_account_liquidity_works() {
 
         let AccountLiquidity { liquidity, .. } = Loans::get_account_liquidity(&ALICE).unwrap();
 
-        assert_eq!(liquidity.to_unsigned_fixed_point(), FixedU128::from_inner(unit(100)));
+        assert_eq!(liquidity.amount(), unit(100));
     })
 }
 
@@ -536,14 +536,14 @@ fn get_account_liquidation_threshold_liquidity_works() {
 
         let AccountLiquidity { liquidity, .. } = Loans::get_account_liquidation_threshold_liquidity(&ALICE).unwrap();
 
-        assert_eq!(liquidity.to_unsigned_fixed_point(), FixedU128::from_inner(unit(20)));
+        assert_eq!(liquidity.amount(), unit(20));
 
         CurrencyConvert::convert.mock_safe(with_price(Some((KSM, 2.into()))));
         let AccountLiquidity { liquidity, shortfall } =
             Loans::get_account_liquidation_threshold_liquidity(&ALICE).unwrap();
 
-        assert_eq!(liquidity.to_unsigned_fixed_point(), FixedU128::from_inner(unit(0)));
-        assert_eq!(shortfall.to_unsigned_fixed_point(), FixedU128::from_inner(unit(80)));
+        assert_eq!(liquidity.amount(), unit(0));
+        assert_eq!(shortfall.amount(), unit(80));
     })
 }
 
@@ -679,9 +679,13 @@ fn total_collateral_value_works() {
         assert_ok!(Loans::mint(RuntimeOrigin::signed(ALICE), USDT, unit(300)));
         assert_ok!(Loans::deposit_all_collateral(RuntimeOrigin::signed(ALICE), DOT));
         assert_ok!(Loans::deposit_all_collateral(RuntimeOrigin::signed(ALICE), KSM));
+        let fixed_u128_collateral = FixedU128::checked_from_integer(unit(100) + unit(200)).unwrap();
         assert_eq!(
-            Loans::total_collateral_value(&ALICE).unwrap().to_unsigned_fixed_point(),
-            (collateral_factor.saturating_mul(FixedU128::from_inner(unit(100) + unit(200))))
+            Loans::total_collateral_value(&ALICE)
+                .unwrap()
+                .to_unsigned_fixed_point()
+                .unwrap(),
+            collateral_factor.saturating_mul(fixed_u128_collateral)
         );
     })
 }
