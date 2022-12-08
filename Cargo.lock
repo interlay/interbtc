@@ -3631,6 +3631,7 @@ dependencies = [
  "issue-rpc-runtime-api",
  "jsonrpsee",
  "kintsugi-runtime-parachain",
+ "loans",
  "loans-rpc-runtime-api",
  "log",
  "oracle-rpc-runtime-api",

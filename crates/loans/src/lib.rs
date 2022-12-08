@@ -50,7 +50,7 @@ use sp_runtime::{
     },
     ArithmeticError, FixedPointNumber, FixedU128,
 };
-use sp_std::{marker, result::Result};
+use sp_std::{marker, result::Result, vec::Vec};
 use traits::{ConvertToBigUint, LoansApi as LoansTrait, LoansMarketDataProvider, MarketInfo, MarketStatus};
 
 pub use orml_traits::currency::{OnDeposit, OnSlash, OnTransfer};
@@ -76,6 +76,9 @@ pub mod weights;
 
 pub const REWARD_ACCOUNT_PREFIX: &[u8; 13] = b"loans/farming";
 pub const INCENTIVE_ACCOUNT_PREFIX: &[u8; 15] = b"loans/incentive";
+
+pub const DEFAULT_MAX_EXCHANGE_RATE: u128 = 1_000_000_000_000_000_000; // 1
+pub const DEFAULT_MIN_EXCHANGE_RATE: u128 = 20_000_000_000_000_000; // 0.02
 
 type AccountIdOf<T> = <T as frame_system::Config>::AccountId;
 type AssetIdOf<T> = <<T as Config>::Assets as Inspect<<T as frame_system::Config>::AccountId>>::AssetId;
@@ -343,6 +346,40 @@ pub mod pallet {
         IncentiveReservesReduced(T::AccountId, AssetIdOf<T>, BalanceOf<T>),
     }
 
+    #[pallet::hooks]
+    impl<T: Config> Hooks<T::BlockNumber> for Pallet<T> {
+        fn on_runtime_upgrade() -> frame_support::weights::Weight {
+            let max_exchange_rate = crate::MaxExchangeRate::<T>::get();
+            if max_exchange_rate.is_zero() {
+                crate::MaxExchangeRate::<T>::put(Rate::from_inner(DEFAULT_MAX_EXCHANGE_RATE));
+            }
+            let min_exchange_rate = crate::MinExchangeRate::<T>::get();
+            if min_exchange_rate.is_zero() {
+                crate::MinExchangeRate::<T>::put(Rate::from_inner(DEFAULT_MIN_EXCHANGE_RATE));
+            }
+            T::DbWeight::get().reads_writes(2, 2)
+        }
+
+        #[cfg(feature = "try-runtime")]
+        fn post_upgrade(_pre_upgrade_state: Vec<u8>) -> Result<(), &'static str> {
+            let max_exchange_rate = crate::MaxExchangeRate::<T>::get();
+            let min_exchange_rate = crate::MinExchangeRate::<T>::get();
+            ensure!(
+                !min_exchange_rate.is_zero(),
+                "Minimum lending exchange rate must be greater than zero"
+            );
+            ensure!(
+                !max_exchange_rate.is_zero(),
+                "Minimum lending exchange rate must be greater than zero"
+            );
+            ensure!(
+                min_exchange_rate.lt(&max_exchange_rate),
+                "Minimum lending exchange rate must be greater than the maximum exchange rate"
+            );
+            Ok(())
+        }
+    }
+
     /// The timestamp of the last calculation of accrued interest
     #[pallet::storage]
     #[pallet::getter(fn last_accrued_interest_time)]
@@ -500,8 +537,8 @@ pub mod pallet {
     impl Default for GenesisConfig {
         fn default() -> Self {
             Self {
-                max_exchange_rate: Default::default(),
-                min_exchange_rate: Default::default(),
+                max_exchange_rate: Rate::from_inner(DEFAULT_MAX_EXCHANGE_RATE),
+                min_exchange_rate: Rate::from_inner(DEFAULT_MIN_EXCHANGE_RATE),
             }
         }
     }
