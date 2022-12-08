@@ -39,8 +39,13 @@ fn get_currency_pair<T: crate::Config>() -> DefaultVaultCurrencyPair<T> {
     }
 }
 
+fn set_default_exchange_rate<T: crate::Config>() {
+    <oracle::Pallet<T>>::_set_exchange_rate(get_collateral_currency_id::<T>(), UnsignedFixedPoint::<T>::one()).unwrap();
+}
+
 fn register_vault_with_collateral<T: crate::Config>(vault_id: DefaultVaultId<T>, collateral: u32) {
     let origin = RawOrigin::Signed(vault_id.account_id.clone());
+    set_default_exchange_rate::<T>();
     assert_ok!(VaultRegistry::<T>::register_public_key(
         origin.into(),
         BtcPublicKey::dummy()
@@ -52,6 +57,7 @@ benchmarks! {
     register_vault {
         let vault_id = get_vault_id::<T>();
         mint_collateral::<T>(&vault_id.account_id, (1u32 << 31).into());
+        set_default_exchange_rate::<T>();
         let amount: u32 = 100;
         let origin = RawOrigin::Signed(vault_id.account_id.clone());
         let public_key = BtcPublicKey::default();
