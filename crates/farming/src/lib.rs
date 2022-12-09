@@ -210,6 +210,7 @@ pub mod pallet {
         /// to the existing duration and the rewards per period are modified
         /// s.t. that the total (old remaining + new) rewards are distributed
         /// over the new total duration
+        #[pallet::call_index(0)]
         #[pallet::weight(T::WeightInfo::update_reward_schedule())]
         #[transactional]
         pub fn update_reward_schedule(
@@ -249,6 +250,7 @@ pub mod pallet {
 
         /// Explicitly remove a reward schedule and transfer any remaining
         /// balance to the treasury
+        #[pallet::call_index(1)]
         #[pallet::weight(T::WeightInfo::remove_reward_schedule())]
         #[transactional]
         pub fn remove_reward_schedule(
@@ -280,6 +282,7 @@ pub mod pallet {
         }
 
         /// Stake the pool tokens in the reward pool
+        #[pallet::call_index(2)]
         #[pallet::weight(T::WeightInfo::deposit())]
         #[transactional]
         pub fn deposit(
@@ -305,6 +308,7 @@ pub mod pallet {
         }
 
         /// Unstake the pool tokens from the reward pool
+        #[pallet::call_index(3)]
         #[pallet::weight(T::WeightInfo::withdraw())]
         #[transactional]
         pub fn withdraw(
@@ -323,6 +327,7 @@ pub mod pallet {
         }
 
         /// Withdraw any accrued rewards from the reward pool
+        #[pallet::call_index(4)]
         #[pallet::weight(T::WeightInfo::claim())]
         #[transactional]
         pub fn claim(

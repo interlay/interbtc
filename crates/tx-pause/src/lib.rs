@@ -224,6 +224,7 @@ pub mod pallet {
         ///
         /// Can only be called by [`Config::PauseOrigin`].
         /// Emits an [`Event::SomethingPaused`] event on success.
+        #[pallet::call_index(0)]
         #[pallet::weight(T::WeightInfo::pause())]
         pub fn pause(origin: OriginFor<T>, full_name: FullNameOf<T>) -> DispatchResult {
             T::PauseOrigin::ensure_origin(origin)?;
@@ -239,6 +240,7 @@ pub mod pallet {
         ///
         /// Can only be called by [`Config::UnpauseOrigin`].
         /// Emits an [`Event::SomethingUnpaused`] event on success.
+        #[pallet::call_index(1)]
         #[pallet::weight(T::WeightInfo::unpause())]
         pub fn unpause(origin: OriginFor<T>, full_name: FullNameOf<T>) -> DispatchResult {
             T::UnpauseOrigin::ensure_origin(origin)?;

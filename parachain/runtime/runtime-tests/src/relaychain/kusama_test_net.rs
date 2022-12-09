@@ -1,7 +1,7 @@
 use frame_support::{traits::GenesisBuild, weights::Weight};
 pub use kintsugi_runtime_parachain::{xcm_config::*, *};
 use polkadot_primitives::v2::{BlockNumber, MAX_CODE_SIZE, MAX_POV_SIZE};
-use polkadot_runtime_parachains::configuration::HostConfiguration;
+use polkadot_runtime_parachains::{configuration::HostConfiguration, paras::ParaKind};
 pub use primitives::{
     CurrencyId::Token,
     TokenSymbol::{KINT, KSM},
@@ -109,7 +109,7 @@ pub fn kusama_ext() -> sp_io::TestExternalities {
     // register a parachain so that we can test opening hrmp channel
     let fake_para = polkadot_runtime_parachains::paras::ParaGenesisArgs {
         genesis_head: HeadData(vec![]),
-        parachain: true,
+        para_kind: ParaKind::Parachain,
         validation_code: ValidationCode(vec![0]),
     };
     <polkadot_runtime_parachains::paras::GenesisConfig as GenesisBuild<Runtime>>::assimilate_storage(

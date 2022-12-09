@@ -185,6 +185,7 @@ pub mod pallet {
         /// * `InsufficientVaultCollateralAmount` - if the collateral is below the minimum threshold
         /// * `VaultAlreadyRegistered` - if a vault is already registered for the origin account
         /// * `InsufficientCollateralAvailable` - if the vault does not own enough collateral
+        #[pallet::call_index(0)]
         #[pallet::weight(<T as Config>::WeightInfo::register_vault())]
         #[transactional]
         pub fn register_vault(
@@ -202,6 +203,7 @@ pub mod pallet {
         ///
         /// # Arguments
         /// * `public_key` - the BTC public key of the vault to update
+        #[pallet::call_index(1)]
         #[pallet::weight(<T as Config>::WeightInfo::register_public_key())]
         #[transactional]
         pub fn register_public_key(origin: OriginFor<T>, public_key: BtcPublicKey) -> DispatchResultWithPostInfo {
@@ -226,6 +228,7 @@ pub mod pallet {
         /// * `accept_new_issues` - true indicates that the vault accepts new issues
         ///
         /// # Weight: `O(1)`
+        #[pallet::call_index(2)]
         #[pallet::weight(<T as Config>::WeightInfo::accept_new_issues())]
         #[transactional]
         pub fn accept_new_issues(
@@ -248,6 +251,7 @@ pub mod pallet {
         /// * `custom_threshold` - either the threshold, or None to use the systemwide default
         ///
         /// # Weight: `O(1)`
+        #[pallet::call_index(3)]
         #[pallet::weight(<T as Config>::WeightInfo::set_custom_secure_threshold())]
         #[transactional]
         pub fn set_custom_secure_threshold(
@@ -262,6 +266,7 @@ pub mod pallet {
             Ok(().into())
         }
 
+        #[pallet::call_index(4)]
         #[pallet::weight(<T as Config>::WeightInfo::report_undercollateralized_vault())]
         #[transactional]
         pub fn report_undercollateralized_vault(
@@ -287,6 +292,7 @@ pub mod pallet {
         /// # Arguments
         /// * `currency_id` - the collateral's currency id
         /// * `minimum` - the new minimum collateral
+        #[pallet::call_index(5)]
         #[pallet::weight(<T as Config>::WeightInfo::set_minimum_collateral())]
         #[transactional]
         pub fn set_minimum_collateral(
@@ -304,6 +310,7 @@ pub mod pallet {
         /// # Arguments
         /// * `currency_pair` - the currency pair to change
         /// * `ceiling` - the new collateral ceiling
+        #[pallet::call_index(6)]
         #[pallet::weight(<T as Config>::WeightInfo::set_system_collateral_ceiling())]
         #[transactional]
         pub fn set_system_collateral_ceiling(
@@ -321,6 +328,7 @@ pub mod pallet {
         /// # Arguments
         /// * `currency_pair` - the currency pair to change
         /// * `threshold` - the new secure threshold
+        #[pallet::call_index(7)]
         #[pallet::weight(<T as Config>::WeightInfo::set_secure_collateral_threshold())]
         #[transactional]
         pub fn set_secure_collateral_threshold(
@@ -338,6 +346,7 @@ pub mod pallet {
         /// # Arguments
         /// * `currency_pair` - the currency pair to change
         /// * `ceiling` - the new collateral ceiling
+        #[pallet::call_index(8)]
         #[pallet::weight(<T as Config>::WeightInfo::set_premium_redeem_threshold())]
         #[transactional]
         pub fn set_premium_redeem_threshold(
@@ -355,6 +364,7 @@ pub mod pallet {
         /// # Arguments
         /// * `currency_pair` - the currency pair to change
         /// * `ceiling` - the new collateral ceiling
+        #[pallet::call_index(9)]
         #[pallet::weight(<T as Config>::WeightInfo::set_liquidation_collateral_threshold())]
         #[transactional]
         pub fn set_liquidation_collateral_threshold(
@@ -371,6 +381,7 @@ pub mod pallet {
         ///
         /// # Arguments
         /// * `currency_pair` - the currency pair to change
+        #[pallet::call_index(10)]
         #[pallet::weight(<T as Config>::WeightInfo::recover_vault_id())]
         #[transactional]
         pub fn recover_vault_id(origin: OriginFor<T>, currency_pair: DefaultVaultCurrencyPair<T>) -> DispatchResult {

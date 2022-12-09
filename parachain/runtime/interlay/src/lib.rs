@@ -50,7 +50,7 @@ pub use frame_support::{
     parameter_types,
     traits::{Everything, Get, KeyOwnerProofSystem, LockIdentifier, Nothing},
     weights::{
-        constants::{BlockExecutionWeight, ExtrinsicBaseWeight, RocksDbWeight, WEIGHT_PER_SECOND},
+        constants::{BlockExecutionWeight, ExtrinsicBaseWeight, RocksDbWeight, WEIGHT_REF_TIME_PER_SECOND},
         IdentityFee, Weight,
     },
     StorageValue,
@@ -131,9 +131,10 @@ const AVERAGE_ON_INITIALIZE_RATIO: Perbill = Perbill::from_percent(10);
 /// by  Operational  extrinsics.
 const NORMAL_DISPATCH_RATIO: Perbill = Perbill::from_percent(75);
 /// We allow for 0.5 seconds of compute with a 12 second average block time.
-pub const MAXIMUM_BLOCK_WEIGHT: Weight = WEIGHT_PER_SECOND
-    .saturating_div(2)
-    .set_proof_size(cumulus_primitives_core::relay_chain::v2::MAX_POV_SIZE as u64);
+pub const MAXIMUM_BLOCK_WEIGHT: Weight = Weight::from_parts(
+    WEIGHT_REF_TIME_PER_SECOND.saturating_div(2),
+    cumulus_primitives_core::relay_chain::v2::MAX_POV_SIZE as u64,
+);
 
 parameter_types! {
     pub const BlockHashCount: BlockNumber = 250;
@@ -1669,22 +1670,23 @@ impl_runtime_apis! {
 
     #[cfg(feature = "try-runtime")]
     impl frame_try_runtime::TryRuntime<Block> for Runtime {
-        fn on_runtime_upgrade() -> (Weight, Weight) {
+        fn on_runtime_upgrade(checks: bool) -> (Weight, Weight) {
             // NOTE: intentional unwrap: we don't want to propagate the error backwards, and want to
             // have a backtrace here. If any of the pre/post migration checks fail, we shall stop
             // right here and right now.
-            let weight = Executive::try_runtime_upgrade().unwrap();
+            let weight = Executive::try_runtime_upgrade(checks).unwrap();
             (weight, RuntimeBlockWeights::get().max_block)
         }
 
         fn execute_block(
             block: Block,
             state_root_check: bool,
+            signature_check: bool,
             select: frame_try_runtime::TryStateSelect
         ) -> Weight {
             // NOTE: intentional unwrap: we don't want to propagate the error backwards, and want to
             // have a backtrace here.
-            Executive::try_execute_block(block, state_root_check, select).expect("execute-block failed")
+            Executive::try_execute_block(block, state_root_check, signature_check, select).expect("execute-block failed")
         }
     }
 }

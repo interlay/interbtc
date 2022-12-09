@@ -31,9 +31,9 @@ primitives = { package = "interbtc-primitives", path = "../primitives" }
 # Substrate dependencies
 sc-consensus = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.31" }
 sc-consensus-aura = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.31" }
-sc-cli = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.31", features = ["wasmtime"] }
+sc-cli = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.31" }
 sc-client-api = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.31" }
-sc-executor = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.31", features = ["wasmtime"] }
+sc-executor = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.31" }
 sc-service = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.31" }
 sc-telemetry = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.31" }
 sc-transaction-pool = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.31" }

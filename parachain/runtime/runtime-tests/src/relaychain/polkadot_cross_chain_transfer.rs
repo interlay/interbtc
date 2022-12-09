@@ -241,7 +241,7 @@ fn transfer_to_relay_chain() {
                 )
                 .into()
             ),
-            used_weight.ref_time()
+            WeightLimit::Unlimited
         ));
     });
 
@@ -298,7 +298,7 @@ fn transfer_to_sibling_and_back() {
                 )
                 .into()
             ),
-            1_000_000_000,
+            WeightLimit::Unlimited,
         ));
 
         assert_eq!(
@@ -339,7 +339,7 @@ fn transfer_to_sibling_and_back() {
                 )
                 .into()
             ),
-            1_000_000_000,
+            WeightLimit::Unlimited,
         ));
     });
 
@@ -347,7 +347,7 @@ fn transfer_to_sibling_and_back() {
     Interlay::execute_with(|| {
         let used_weight = 800_000_000; // empirically determined in test - weight is decreased in AllowTopLevelPaidExecutionFrom
         let intr_per_second = interlay_runtime_parachain::xcm_config::CanonicalizedIntrPerSecond::get().1;
-        let xcm_fee = (intr_per_second * used_weight) / WEIGHT_PER_SECOND.ref_time() as u128;
+        let xcm_fee = (intr_per_second * used_weight) / WEIGHT_REF_TIME_PER_SECOND as u128;
 
         assert_eq!(
             Tokens::free_balance(Token(INTR), &AccountId::from(ALICE)),
@@ -385,7 +385,7 @@ fn xcm_transfer_execution_barrier_trader_works() {
     let weight_limit_too_low = 500_000_000;
     let unit_instruction_weight = 200_000_000;
     let minimum_fee = (interlay_runtime_parachain::xcm_config::DotPerSecond::get().1 * expect_weight_limit as u128)
-        / WEIGHT_PER_SECOND.ref_time() as u128;
+        / WEIGHT_REF_TIME_PER_SECOND as u128;
 
     // relay-chain use normal account to send xcm, destination parachain can't pass Barrier check
     let message = construct_xcm(100, Unlimited);
@@ -518,7 +518,7 @@ fn subscribe_version_notify_works() {
 fn weigh_xcm(mut message: Xcm<RuntimeCall>, fee_per_second: u128) -> u128 {
     let trapped_xcm_message_weight = <interlay_runtime_parachain::xcm_config::XcmConfig as interlay_runtime_parachain::xcm_config::xcm_executor::Config>::Weigher::weight(
         &mut message).unwrap();
-    (fee_per_second * trapped_xcm_message_weight as u128) / WEIGHT_PER_SECOND.ref_time() as u128
+    (fee_per_second * trapped_xcm_message_weight as u128) / WEIGHT_REF_TIME_PER_SECOND as u128
 }
 #[test]
 fn trap_assets_works() {
@@ -773,7 +773,7 @@ fn test_reanchoring() {
                 )
                 .into()
             ),
-            1_000_000_000,
+            WeightLimit::Unlimited,
         ));
     });
 

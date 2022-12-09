@@ -219,6 +219,7 @@ pub mod pallet {
         /// * `amount` - amount of issued tokens
         /// * `btc_address` - the address to receive BTC
         /// * `vault_id` - address of the vault
+        #[pallet::call_index(0)]
         #[pallet::weight(<T as Config>::WeightInfo::request_redeem())]
         #[transactional]
         pub fn request_redeem(
@@ -242,6 +243,7 @@ pub mod pallet {
         /// * `collateral_currency` - currency to be received
         /// * `wrapped_currency` - currency of the wrapped token to burn
         /// * `amount_wrapped` - amount of issued tokens to burn
+        #[pallet::call_index(1)]
         #[pallet::weight(<T as Config>::WeightInfo::liquidation_redeem())]
         #[transactional]
         pub fn liquidation_redeem(
@@ -266,6 +268,7 @@ pub mod pallet {
         /// * `tx_block_height` - block number of collateral chain
         /// * `merkle_proof` - raw bytes
         /// * `raw_tx` - raw bytes
+        #[pallet::call_index(2)]
         #[pallet::weight(<T as Config>::WeightInfo::execute_redeem())]
         #[transactional]
         pub fn execute_redeem(
@@ -294,6 +297,7 @@ pub mod pallet {
         /// * `reimburse` - specifying if the user wishes to be reimbursed in collateral
         /// and slash the Vault, or wishes to keep the tokens (and retry
         /// Redeem with another Vault)
+        #[pallet::call_index(3)]
         #[pallet::weight(if *reimburse { <T as Config>::WeightInfo::cancel_redeem_reimburse() } else { <T as Config>::WeightInfo::cancel_redeem_retry() })]
         #[transactional]
         pub fn cancel_redeem(origin: OriginFor<T>, redeem_id: H256, reimburse: bool) -> DispatchResultWithPostInfo {
@@ -310,6 +314,7 @@ pub mod pallet {
         /// * `period` - default period for new requests
         ///
         /// # Weight: `O(1)`
+        #[pallet::call_index(4)]
         #[pallet::weight(<T as Config>::WeightInfo::set_redeem_period())]
         #[transactional]
         pub fn set_redeem_period(origin: OriginFor<T>, period: T::BlockNumber) -> DispatchResultWithPostInfo {
@@ -330,6 +335,7 @@ pub mod pallet {
         /// * `redeem_id` - identifier of redeem request as output from request_redeem
         ///
         /// # Weight: `O(1)`
+        #[pallet::call_index(5)]
         #[pallet::weight(<T as Config>::WeightInfo::set_redeem_period())]
         #[transactional]
         pub fn mint_tokens_for_reimbursed_redeem(
@@ -342,6 +348,7 @@ pub mod pallet {
             Ok(().into())
         }
 
+        #[pallet::call_index(6)]
         #[pallet::weight(<T as Config>::WeightInfo::self_redeem())]
         #[transactional]
         pub fn self_redeem(
