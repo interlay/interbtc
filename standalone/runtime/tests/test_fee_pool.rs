@@ -1,20 +1,13 @@
 mod mock;
 use currency::Amount;
 use interbtc_runtime_standalone::UnsignedFixedPoint;
-use mock::{
-    assert_eq,
-    issue_testing_utils::{ExecuteIssueBuilder, RequestIssueBuilder},
-    nomination_testing_utils::*,
-    reward_testing_utils::IdealRewardPool,
-    *,
-};
+use mock::{assert_eq, nomination_testing_utils::*, reward_testing_utils::IdealRewardPool, *};
 use rand::Rng;
 use std::collections::BTreeMap;
 use vault_registry::DefaultVaultId;
 
 const VAULT_2: [u8; 32] = DAVE;
 const REWARD_CURRENCY: CurrencyId = Token(INTR);
-const DEFAULT_SECURE_THRESHOLD: f64 = 1.5;
 const DEFAULT_EXCHANGE_RATE: f64 = 0.1;
 
 fn default_nomination(currency_id: CurrencyId) -> Amount<Runtime> {
@@ -86,11 +79,6 @@ fn distribute_rewards(amount: Amount<Runtime>) {
     FeePallet::distribute_rewards(&amount).unwrap();
 }
 
-fn withdraw_rewards(vault_id: &VaultId, nominator_id: &AccountId) {
-    withdraw_vault_rewards(vault_id);
-    withdraw_nominator_rewards(vault_id, nominator_id);
-}
-
 fn withdraw_vault_rewards(vault_id: &VaultId) -> i128 {
     withdraw_nominator_rewards(vault_id, &vault_id.account_id)
 }
@@ -113,7 +101,7 @@ fn distribute_capacity_and_compute_vault_reward(vault_id: &VaultId) -> i128 {
 }
 
 fn compute_staking_reward(vault_id: &VaultId, nominator_id: &AccountId) -> i128 {
-    staking::Pallet::<Runtime>::compute_reward(REWARD_CURRENCY, vault_id, nominator_id).unwrap()
+    VaultStakingPallet::compute_reward(REWARD_CURRENCY, vault_id, nominator_id).unwrap()
 }
 
 fn get_vault_collateral(vault_id: &VaultId) -> Amount<Runtime> {
@@ -121,13 +109,6 @@ fn get_vault_collateral(vault_id: &VaultId) -> Amount<Runtime> {
         .unwrap()
         .try_into()
         .unwrap()
-}
-
-fn issue_with_vault(vault_id: &VaultId, request_amount: Amount<Runtime>) {
-    let (issue_id, _) = RequestIssueBuilder::new(vault_id, request_amount)
-        .with_vault(vault_id.clone())
-        .request();
-    ExecuteIssueBuilder::new(issue_id).assert_execute();
 }
 
 #[test]
@@ -164,30 +145,27 @@ fn test_vault_reward_withdrawal() {
         distribute_rewards(rewards2);
 
         let mut reference_pool = IdealRewardPool::default();
-
-        OraclePallet::_set_exchange_rate(vault_id_1.collateral_currency(), FixedU128::one()).unwrap();
-        reference_pool.set_exchange_rate(vault_id_1.collateral_currency(), FixedU128::one());
-
-        reference_pool.set_commission(&vault_id_1, FixedU128::from_float(COMMISSION));
-        reference_pool.set_secure_threshold(
-            &vault_id_1,
-            VaultRegistryPallet::get_vault_secure_threshold(&vault_id_1).unwrap(),
-        );
-        reference_pool.deposit_nominator_collateral(
-            &(vault_id_1.clone(), vault_id_1.account_id.clone()),
-            get_vault_collateral(&vault_id_1).amount(),
-        );
-        reference_pool.distribute_reward(rewards1.amount());
-
-        reference_pool.set_secure_threshold(
-            &vault_id_2,
-            VaultRegistryPallet::get_vault_secure_threshold(&vault_id_2).unwrap(),
-        );
-        reference_pool.deposit_nominator_collateral(
-            &(vault_id_2.clone(), vault_id_2.account_id.clone()),
-            get_vault_collateral(&vault_id_2).amount(),
-        );
-        reference_pool.distribute_reward(rewards2.amount());
+        reference_pool
+            .set_exchange_rate(vault_id_1.collateral_currency(), FixedU128::one())
+            .set_commission(&vault_id_1, FixedU128::from_float(COMMISSION))
+            .set_secure_threshold(
+                &vault_id_1,
+                VaultRegistryPallet::get_vault_secure_threshold(&vault_id_1).unwrap(),
+            )
+            .deposit_nominator_collateral(
+                &(vault_id_1.clone(), vault_id_1.account_id.clone()),
+                get_vault_collateral(&vault_id_1).amount(),
+            )
+            .distribute_reward(rewards1.amount())
+            .set_secure_threshold(
+                &vault_id_2,
+                VaultRegistryPallet::get_vault_secure_threshold(&vault_id_2).unwrap(),
+            )
+            .deposit_nominator_collateral(
+                &(vault_id_2.clone(), vault_id_2.account_id.clone()),
+                get_vault_collateral(&vault_id_2).amount(),
+            )
+            .distribute_reward(rewards2.amount());
 
         assert_approx_eq!(
             withdraw_vault_rewards(&vault_id_1),
@@ -201,7 +179,7 @@ fn test_vault_reward_withdrawal() {
 }
 
 #[test]
-fn test_nomination_withdraws_past_rewards() {
+fn test_nomination_distributes_past_rewards() {
     test_with(|vault_id_1| {
         let currency_id = vault_id_1.collateral_currency();
         let rewards = Amount::new(1000, REWARD_CURRENCY);
@@ -212,6 +190,7 @@ fn test_nomination_withdraws_past_rewards() {
             rewards.amount() as i128
         );
 
+        // nominator joins
         assert_nominate_collateral(&vault_id_1, account_of(USER), default_nomination(currency_id));
 
         fn commission_for(amount: f64) -> f64 {
@@ -249,12 +228,11 @@ fn test_nomination_withdraws_past_rewards() {
 }
 
 #[test]
-fn test_fee_nomination() {
+fn test_nomination_and_rewards() {
     test_with(|vault_id| {
         let nominator_id = account_of(USER);
         let mut reference_pool = IdealRewardPool::default();
 
-        let vault_issued_tokens = default_vault_state(&vault_id).issued;
         let vault_stake = default_vault_state(&vault_id).backing_collateral;
         let nominator_stake = vault_stake / 4;
 
@@ -263,7 +241,6 @@ fn test_fee_nomination() {
 
         // set commission, exchange rate and secure threshold first
         reference_pool.set_commission(&vault_id, FixedU128::from_float(COMMISSION));
-        OraclePallet::_set_exchange_rate(vault_id.collateral_currency(), FixedU128::one()).unwrap();
         reference_pool.set_exchange_rate(vault_id.collateral_currency(), FixedU128::one());
         reference_pool.set_secure_threshold(
             &vault_id,
@@ -299,152 +276,96 @@ fn test_fee_nomination() {
     });
 }
 
-// #[test]
-// fn test_fee_nomination_slashing() {
-//     test_with(|vault_id_1| {
-//         let currency_id = vault_id_1.collateral_currency();
-//         let nominator_id = account_of(USER);
+#[test]
+fn test_nomination_slashing_and_rewards() {
+    test_with(|vault_id| {
+        let currency_id = vault_id.collateral_currency();
+        let nominator_id = account_of(USER);
 
-//         let rewards = Amount::new(1000, REWARD_CURRENCY);
-//         distribute_rewards(rewards);
+        let rewards1 = Amount::new(1000, REWARD_CURRENCY);
+        distribute_rewards(rewards1);
 
-//         assert_nominate_collateral(&vault_id_1, nominator_id.clone(), default_nomination(currency_id));
+        assert_nominate_collateral(&vault_id, nominator_id.clone(), default_nomination(currency_id));
 
-//         // slash the vault and its nominator
-//         VaultRegistryPallet::transfer_funds(
-//             CurrencySource::Collateral(vault_id_1.clone()),
-//             CurrencySource::FreeBalance(account_of(VAULT_2)),
-//             &default_nomination(currency_id),
-//         )
-//         .unwrap();
+        // slash the vault and its nominator
+        assert_ok!(VaultRegistryPallet::transfer_funds(
+            CurrencySource::Collateral(vault_id.clone()),
+            CurrencySource::FreeBalance(account_of(VAULT_2)),
+            &default_nomination(currency_id),
+        ));
 
-//         distribute_rewards(rewards);
+        let rewards2 = Amount::new(1000, REWARD_CURRENCY);
+        distribute_rewards(rewards2);
 
-//         let vault_collateral = get_vault_collateral(&vault_id_1).amount();
-//         let nominator_collateral = DEFAULT_NOMINATION;
-//         let slashed_amount = DEFAULT_NOMINATION;
+        let vault_collateral = get_vault_collateral(&vault_id).amount();
+        let nominator_collateral = DEFAULT_NOMINATION;
+        let slashed_amount = DEFAULT_NOMINATION;
 
-//         let mut reference_pool = IdealRewardPool::default();
-//         reference_pool
-//             .set_exchange_rate(vault_id_1.collateral_currency(), FixedU128::one())
-//             .set_secure_threshold(
-//                 &vault_id_1,
-//                 VaultRegistryPallet::get_vault_secure_threshold(&vault_id_1).unwrap(),
-//             )
-//             .deposit_nominator_collateral(&(vault_id_1.clone(), vault_id_1.account_id.clone()), vault_collateral)
-//             .distribute_reward(rewards.amount())
-//             .deposit_nominator_collateral(&(vault_id_1.clone(), nominator_id.clone()), nominator_collateral)
-//             .slash_collateral(&vault_id_1, slashed_amount)
-//             .distribute_reward(rewards.amount());
+        let mut reference_pool = IdealRewardPool::default();
+        reference_pool
+            .set_exchange_rate(vault_id.collateral_currency(), FixedU128::one())
+            .set_secure_threshold(
+                &vault_id,
+                VaultRegistryPallet::get_vault_secure_threshold(&vault_id).unwrap(),
+            )
+            .set_commission(&vault_id, FixedU128::from_float(COMMISSION))
+            .deposit_nominator_collateral(&(vault_id.clone(), vault_id.account_id.clone()), vault_collateral)
+            .distribute_reward(rewards1.amount())
+            .deposit_nominator_collateral(&(vault_id.clone(), nominator_id.clone()), nominator_collateral)
+            .slash_collateral(&vault_id, slashed_amount)
+            .distribute_reward(rewards2.amount());
 
-//         assert_approx_eq!(
-//             withdraw_vault_rewards(&vault_id_1),
-//             reference_pool.get_total_reward_for(&vault_id_1.account_id) as i128
-//         );
-//         assert_approx_eq!(
-//             withdraw_nominator_rewards(&vault_id_1, &nominator_id),
-//             reference_pool.get_total_reward_for(&nominator_id) as i128
-//         );
-//     });
-// }
+        assert_approx_eq!(
+            withdraw_vault_rewards(&vault_id),
+            reference_pool.get_total_reward_for(&vault_id.account_id) as i128
+        );
+        assert_approx_eq!(
+            withdraw_nominator_rewards(&vault_id, &nominator_id),
+            reference_pool.get_total_reward_for(&nominator_id) as i128
+        );
+    });
+}
 
-// #[test]
-// fn test_fee_nomination_withdrawal() {
-//     test_with(|vault_id_1| {
-//         let currency_id = vault_id_1.collateral_currency();
-//         let vault_1_stake_id = StakeHolder::Vault(vault_id_1.clone());
-//         let user_stake_id = StakeHolder::Nominator(account_of(USER));
-//
-//         let rewards = Amount::new(1000, REWARD_CURRENCY);
-//
-//         SecurityPallet::set_active_block_number(1);
-//         enable_nomination();
-//         assert_ok!(OraclePallet::_set_exchange_rate(currency_id, FixedU128::one()));
-//
-//         issue_with_vault(&vault_id_1, wrapped(10000));
-//
-//         assert_nominate_collateral(&vault_id_1, account_of(USER), default_nomination(currency_id));
-//         assert_withdraw_nominator_collateral(account_of(USER), &vault_id_1, default_nomination(currency_id) / 2);
-//         distribute_rewards(rewards);
-//
-//         let mut global_reward_pool = BasicRewardPool::default();
-//         global_reward_pool
-//             .deposit_stake(&vault_1_stake_id, get_vault_issued_tokens(&vault_id_1).amount() as f64)
-//             .distribute(rewards.amount() as f64);
-//
-//         let mut local_reward_pool = BasicRewardPool::default();
-//         local_reward_pool
-//             .deposit_stake(&vault_1_stake_id, get_vault_collateral(&vault_id_1).amount() as f64)
-//             .deposit_stake(&user_stake_id, DEFAULT_NOMINATION as f64)
-//             .distribute(global_reward_pool.compute_reward(&user_stake_id))
-//             .withdraw_reward(&vault_1_stake_id)
-//             .withdraw_stake(&user_stake_id, (DEFAULT_NOMINATION / 2) as f64)
-//             .distribute(global_reward_pool.compute_reward(&vault_1_stake_id));
-//
-//         assert_approx_eq!(
-//             get_vault_global_pool_rewards(&vault_id_1),
-//             local_reward_pool.compute_reward(&vault_1_stake_id) as i128
-//                 + local_reward_pool.compute_reward(&user_stake_id) as i128,
-//         );
-//     });
-// }
-//
-// mod reward_amount_tests {
-//     use super::{assert_eq, *};
-//
-//     fn test_with_2_vaults<R>(execute: impl Fn(VaultId, VaultId) -> R) {
-//         test_with(|vault_id_1| {
-//             let vault_id_2 = PrimitiveVaultId {
-//                 account_id: account_of(VAULT2),
-//                 ..vault_id_1.clone()
-//             };
-//             CoreVaultData::force_to(&vault_id_2, default_vault_state(&vault_id_2));
-//
-//             execute(vault_id_1, vault_id_2)
-//         });
-//     }
-//
-//     #[test]
-//     fn test_fee_nomination() {
-//         test_with_2_vaults(|vault_id, _vault_id_2| {
-//             let reward = Amount::new(1000, REWARD_CURRENCY);
-//             distribute_rewards(reward);
-//             withdraw_rewards(&vault_id, &vault_id.account_id);
-//
-//             assert_eq!(
-//                 ParachainState::get(&vault_id),
-//                 ParachainState::get_default(&vault_id).with_changes(|_, vault, _, _| {
-//                     // two vaults with equal issuance -> 50% reward
-//                     *vault.free_balance.get_mut(&REWARD_CURRENCY).unwrap() += reward / 2;
-//                 })
-//             );
-//
-//             // same amount of collateral as operator
-//             let nominator_collateral = default_vault_state(&vault_id).backing_collateral;
-//             assert_nominate_collateral(&vault_id, account_of(USER), nominator_collateral);
-//
-//             let state_1 = ParachainState::get(&vault_id);
-//
-//             distribute_rewards(reward);
-//             withdraw_rewards(&vault_id, &vault_id.account_id);
-//             withdraw_rewards(&vault_id, &account_of(USER));
-//
-//             assert_eq!(
-//                 ParachainState::get(&vault_id),
-//                 state_1.with_changes(|user, vault, _, _| {
-//                     // two vaults with equal issuance -> 50% reward goes to the vault
-//                     // the operator takes 75% commission and gets 50% of the remaining since
-//                     // their collateral is the same as the nominator collateral
-//                     let commission = ((reward / 2) * 3) / 4; // 75% commission
-//                     let reward_from_collateral = ((reward / 2) - commission) / 2;
-//
-//                     *vault.free_balance.get_mut(&REWARD_CURRENCY).unwrap() += commission + reward_from_collateral;
-//                     (*user.balances.get_mut(&REWARD_CURRENCY).unwrap()).free += reward_from_collateral;
-//                 })
-//             );
-//         });
-//     }
-// }
+#[test]
+fn test_nomination_withdrawal_and_rewards() {
+    test_with(|vault_id| {
+        let currency_id = vault_id.collateral_currency();
+        let nominator_id = account_of(USER);
+
+        // nominate and distribute rewards
+        assert_nominate_collateral(&vault_id, nominator_id.clone(), default_nomination(currency_id));
+        let rewards1 = Amount::new(1000, REWARD_CURRENCY);
+        distribute_rewards(rewards1);
+
+        // withdraw half available collateral and distribute again
+        assert_withdraw_nominator_collateral(nominator_id.clone(), &vault_id, default_nomination(currency_id) / 2);
+        let rewards2 = Amount::new(1000, REWARD_CURRENCY);
+        distribute_rewards(rewards2);
+
+        let vault_collateral = get_vault_collateral(&vault_id).amount();
+        let nominator_collateral = DEFAULT_NOMINATION;
+        let withdrawn_collateral = DEFAULT_NOMINATION / 2;
+
+        let mut reference_pool = IdealRewardPool::default();
+        reference_pool
+            .set_exchange_rate(vault_id.collateral_currency(), FixedU128::one())
+            .set_secure_threshold(
+                &vault_id,
+                VaultRegistryPallet::get_vault_secure_threshold(&vault_id).unwrap(),
+            )
+            .set_commission(&vault_id, FixedU128::from_float(COMMISSION))
+            .deposit_nominator_collateral(&(vault_id.clone(), vault_id.account_id.clone()), vault_collateral)
+            .deposit_nominator_collateral(&(vault_id.clone(), nominator_id.clone()), nominator_collateral)
+            .distribute_reward(rewards1.amount())
+            .withdraw_nominator_collateral(&(vault_id.clone(), nominator_id.clone()), withdrawn_collateral)
+            .distribute_reward(rewards2.amount());
+
+        assert_approx_eq!(
+            withdraw_nominator_rewards(&vault_id, &nominator_id),
+            reference_pool.get_total_reward_for(&nominator_id) as i128
+        );
+    });
+}
 
 enum Action {
     DepositNominationCollateral,

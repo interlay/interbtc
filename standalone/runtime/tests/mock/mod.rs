@@ -9,11 +9,11 @@ pub use bitcoin::{
 };
 pub use btc_relay::{BtcAddress, BtcPublicKey};
 use currency::Amount;
+use frame_support::traits::GenesisBuild;
 pub use frame_support::{
     assert_err, assert_noop, assert_ok,
     dispatch::{DispatchError, DispatchResultWithPostInfo},
 };
-use frame_support::{storage::with_transaction, traits::GenesisBuild};
 pub use interbtc_runtime_standalone::{
     token_distribution, AccountId, Balance, BlockNumber, CurrencyId, EscrowAnnuityInstance, EscrowRewardsInstance,
     GetNativeCurrencyId, GetRelayChainCurrencyId, GetWrappedCurrencyId, Runtime, RuntimeCall, RuntimeEvent,
@@ -26,7 +26,6 @@ pub use primitives::{
     Rate, Ratio, VaultCurrencyPair, VaultId as PrimitiveVaultId, DOT, IBTC, INTR, KBTC, KINT, KSM,
 };
 use redeem::RedeemRequestStatus;
-use sp_api::TransactionOutcome;
 use staking::DefaultVaultCurrencyPair;
 use traits::LoansApi;
 use vault_registry::types::UpdatableVault;
@@ -507,24 +506,11 @@ impl FeePool {
         Self {
             vault_rewards: iter_wrapped_currencies()
                 .map(|currency_id| {
-                    // To get actual vault rewards, we first need to distribute from
-                    // CapacityRewards. However, we don't actually want to modify state.
-                    // As such, make the change and then rollback
-                    let reward = with_transaction::<_, DispatchError, _>(|| {
-                        // let reward = CapacityRewardsPallet::withdraw_reward(&(), &currency_id, currency_id).unwrap();
-                        // VaultRewardsPallet::distribute_reward(&currency_id, currency_id, reward.into()).unwrap();
-
-                        let ret1 = CapacityRewardsPallet::get_total_rewards(currency_id).unwrap();
-                        let ret2 = VaultRewardsPallet::get_total_rewards(currency_id).unwrap();
-                        let ret3 = VaultStakingPallet::get_total_rewards(currency_id);
-
-                        let ret = (ret1 + ret2 + ret3).try_into().unwrap();
-
-                        TransactionOutcome::Rollback(Ok(ret))
-                    })
-                    .unwrap();
-
-                    (currency_id, Amount::new(reward, currency_id))
+                    let ret1 = CapacityRewardsPallet::get_total_rewards(currency_id).unwrap();
+                    let ret2 = VaultRewardsPallet::get_total_rewards(currency_id).unwrap();
+                    let ret3 = VaultStakingPallet::get_total_rewards(currency_id);
+                    let total_rewards = (ret1 + ret2 + ret3).try_into().unwrap();
+                    (currency_id, Amount::new(total_rewards, currency_id))
                 })
                 .collect(),
         }
