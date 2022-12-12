@@ -47,6 +47,7 @@ pub struct ExportMetadataCommand {
 }
 
 #[derive(Debug, Parser)]
+#[group(skip)]
 pub struct RunCmd {
     #[clap(flatten)]
     pub base: sc_cli::RunCmd,
