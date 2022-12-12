@@ -67,6 +67,7 @@ impl<T: Config> Pallet<T> {
             return DepositConsequence::UnknownAsset;
         }
 
+        // Not using checked arithmetic here is fine because this is a testing utility
         if Self::balance(lend_token_id, who) + amount < Self::minimum_balance(lend_token_id) {
             return DepositConsequence::BelowMinimum;
         }
