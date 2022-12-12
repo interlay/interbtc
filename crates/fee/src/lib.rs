@@ -475,7 +475,21 @@ impl<T: Config> Pallet<T> {
         amount.rounded_mul(<ReplaceGriefingCollateral<T>>::get())
     }
 
-    pub fn withdraw_all_vault_rewards(vault_id: &DefaultVaultId<T>) -> DispatchResult {
+    pub fn compute_vault_rewards(
+        vault_id: &DefaultVaultId<T>,
+        nominator_id: &T::AccountId,
+        currency_id: CurrencyId<T>,
+    ) -> Result<BalanceOf<T>, DispatchError> {
+        frame_support::storage::with_transaction::<_, DispatchError, _>(|| {
+            sp_runtime::TransactionOutcome::Rollback(Self::distribute_and_compute_vault_rewards(
+                vault_id,
+                nominator_id,
+                currency_id,
+            ))
+        })
+    }
+
+    pub fn distribute_all_vault_rewards(vault_id: &DefaultVaultId<T>) -> DispatchResult {
         for currency_id in [vault_id.wrapped_currency(), T::GetNativeCurrencyId::get()] {
             Self::distribute_vault_rewards(&vault_id, currency_id)?;
         }
@@ -534,5 +548,14 @@ impl<T: Config> Pallet<T> {
         T::VaultStaking::distribute_reward(&(None, vault_id.clone()), currency_id, remainder.amount())?;
 
         Ok(())
+    }
+
+    fn distribute_and_compute_vault_rewards(
+        vault_id: &DefaultVaultId<T>,
+        nominator_id: &T::AccountId,
+        currency_id: CurrencyId<T>,
+    ) -> Result<BalanceOf<T>, DispatchError> {
+        Self::distribute_vault_rewards(&vault_id, currency_id)?;
+        T::VaultStaking::compute_reward(&(None, vault_id.clone()), nominator_id, currency_id)
     }
 }

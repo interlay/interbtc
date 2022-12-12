@@ -107,7 +107,7 @@ pub(crate) mod fee {
     use crate::DefaultVaultId;
     use frame_support::dispatch::DispatchResult;
 
-    pub fn withdraw_all_vault_rewards<T: crate::Config>(vault_id: &DefaultVaultId<T>) -> DispatchResult {
-        <fee::Pallet<T>>::withdraw_all_vault_rewards(vault_id)
+    pub fn distribute_all_vault_rewards<T: crate::Config>(vault_id: &DefaultVaultId<T>) -> DispatchResult {
+        <fee::Pallet<T>>::distribute_all_vault_rewards(vault_id)
     }
 }
