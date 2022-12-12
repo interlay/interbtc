@@ -1227,13 +1227,12 @@ impl<T: Config> Pallet<T> {
 
     fn collateral_asset_value(supplier: &T::AccountId, asset_id: AssetIdOf<T>) -> Result<Amount<T>, DispatchError> {
         let lend_token_id = Self::lend_token_id(asset_id)?;
-        let zero = Amount::<T>::zero(T::ReferenceAssetId::get());
         if !AccountDeposits::<T>::contains_key(lend_token_id, supplier) {
-            return Ok(zero);
+            return Ok(Amount::<T>::zero(T::ReferenceAssetId::get()));
         }
         let deposits = Self::account_deposits(lend_token_id, supplier);
         if deposits.is_zero() {
-            return Ok(zero);
+            return Ok(Amount::<T>::zero(T::ReferenceAssetId::get()));
         }
         Self::collateral_amount_value(asset_id, deposits)
     }
@@ -1243,13 +1242,12 @@ impl<T: Config> Pallet<T> {
         asset_id: AssetIdOf<T>,
     ) -> Result<Amount<T>, DispatchError> {
         let lend_token_id = Self::lend_token_id(asset_id)?;
-        let zero = Amount::<T>::zero(T::ReferenceAssetId::get());
         if !AccountDeposits::<T>::contains_key(lend_token_id, borrower) {
-            return Ok(zero);
+            return Ok(Amount::<T>::zero(T::ReferenceAssetId::get()));
         }
         let deposits = Self::account_deposits(lend_token_id, borrower);
         if deposits.is_zero() {
-            return Ok(zero);
+            return Ok(Amount::<T>::zero(T::ReferenceAssetId::get()));
         }
         let exchange_rate = Self::exchange_rate_stored(asset_id)?;
         let underlying_amount = Self::calc_underlying_amount(deposits, exchange_rate)?;
