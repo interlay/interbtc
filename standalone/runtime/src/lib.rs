@@ -432,7 +432,6 @@ type EnsureRootOrAllTechnicalCommittee = EitherOfDiverse<
 >;
 
 parameter_types! {
-    pub const LaunchPeriod: BlockNumber = 2 * MINUTES;
     pub const VotingPeriod: BlockNumber = 5 * MINUTES;
     pub const FastTrackVotingPeriod: BlockNumber = 1 * MINUTES;
     pub MinimumDeposit: Balance = 100 * DOLLARS;
@@ -447,7 +446,6 @@ impl democracy::Config for Runtime {
     type RuntimeEvent = RuntimeEvent;
     type Currency = Escrow;
     type EnactmentPeriod = EnactmentPeriod;
-    type LaunchPeriod = LaunchPeriod;
     type VotingPeriod = VotingPeriod;
     type MinimumDeposit = MinimumDeposit;
     /// The technical committee can have any proposal be tabled immediately
@@ -461,6 +459,7 @@ impl democracy::Config for Runtime {
     type MaxVotes = MaxVotes;
     type WeightInfo = ();
     type MaxProposals = MaxProposals;
+    type UnixTime = Timestamp;
 }
 
 parameter_types! {

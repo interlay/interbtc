@@ -39,6 +39,7 @@ frame_support::construct_runtime!(
         Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>},
         Scheduler: pallet_scheduler::{Pallet, Call, Storage, Event<T>},
         Democracy: pallet_democracy::{Pallet, Call, Storage, Config<T>, Event<T>},
+        Timestamp: pallet_timestamp::{Pallet, Call, Storage, Inherent},
     }
 );
 
@@ -101,6 +102,17 @@ impl pallet_scheduler::Config for Test {
 }
 
 parameter_types! {
+    pub const MinimumPeriod: u64 = 5;
+}
+
+impl pallet_timestamp::Config for Test {
+    type Moment = u64;
+    type OnTimestampSet = ();
+    type MinimumPeriod = MinimumPeriod;
+    type WeightInfo = ();
+}
+
+parameter_types! {
     pub const ExistentialDeposit: u64 = 1;
     pub const MaxLocks: u32 = 10;
 }
@@ -147,7 +159,6 @@ impl Config for Test {
     type RuntimeEvent = RuntimeEvent;
     type Currency = pallet_balances::Pallet<Self>;
     type EnactmentPeriod = EnactmentPeriod;
-    type LaunchPeriod = LaunchPeriod;
     type VotingPeriod = VotingPeriod;
     type FastTrackVotingPeriod = FastTrackVotingPeriod;
     type MinimumDeposit = MinimumDeposit;
@@ -159,6 +170,7 @@ impl Config for Test {
     type PalletsOrigin = OriginCaller;
     type WeightInfo = ();
     type MaxProposals = MaxProposals;
+    type UnixTime = Timestamp;
 }
 
 pub fn new_test_ext() -> sp_io::TestExternalities {
@@ -230,6 +242,9 @@ fn propose_set_balance_and_note(who: u64, value: u64, delay: u64) -> DispatchRes
 }
 
 fn next_block() {
+    let week = 1000 * 60 * 60 * 24 * 7;
+    Timestamp::set_timestamp(System::block_number() * week / 2);
+
     System::set_block_number(System::block_number() + 1);
     Scheduler::on_initialize(System::block_number());
     assert!(Democracy::begin_block(System::block_number()).is_ok());
@@ -264,4 +279,30 @@ fn nay(who: u64) -> Vote<u64> {
 
 fn tally(r: ReferendumIndex) -> Tally<u64> {
     Democracy::referendum_status(r).unwrap().tally
+}
+
+#[test]
+fn should_launch_works() {
+    new_test_ext().execute_with(|| {
+        let arbitrary_timestamp = 1670864631; // Mon Dec 12 2022 17:03:51 UTC
+
+        let week_boundaries = [
+            1671408000, // Mon Dec 19 2022 00:00:00 UTC
+            1672012800, // Mon Dec 26 2022 00:00:00
+            1672617600, // Mon Jan 02 2023 00:00:00
+        ];
+        // first launch immediately after launch of chain / first runtime upgrade
+        assert!(Democracy::should_launch(Duration::from_secs(arbitrary_timestamp)).unwrap());
+        // second time it should return false
+        assert!(!Democracy::should_launch(Duration::from_secs(arbitrary_timestamp)).unwrap());
+
+        for boundary in week_boundaries {
+            // one second before the next week it should still return false
+            assert!(!Democracy::should_launch(Duration::from_secs(boundary - 1)).unwrap());
+
+            // first second of next week it should return true exactly once
+            assert!(Democracy::should_launch(Duration::from_secs(boundary)).unwrap());
+            assert!(!Democracy::should_launch(Duration::from_secs(boundary)).unwrap());
+        }
+    });
 }
