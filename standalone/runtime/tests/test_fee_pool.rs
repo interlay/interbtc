@@ -452,6 +452,7 @@ fn do_random_nomination_sequence() {
         for vault_id in vaults.iter() {
             let collateral = default_vault_state(&vault_id).backing_collateral.amount();
             reference_pool.deposit_nominator_collateral(&(vault_id.clone(), vault_id.account_id.clone()), collateral);
+            reference_pool.set_commission(&vault_id, FixedU128::from_float(COMMISSION));
 
             assert_ok!(
                 RuntimeCall::VaultRegistry(VaultRegistryCall::set_custom_secure_threshold {
