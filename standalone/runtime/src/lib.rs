@@ -1398,7 +1398,7 @@ impl_runtime_apis! {
         }
 
         fn compute_vault_reward(vault_id: VaultId, currency_id: CurrencyId) -> Result<BalanceWrapper<Balance>, DispatchError> {
-            let amount = <VaultRewards as reward::RewardsApi<CurrencyId, VaultId, Balance>>::compute_reward(&vault_id.collateral_currency(), &vault_id, currency_id)?;
+            let amount = Fee::compute_vault_rewards(&vault_id, &vault_id.account_id, currency_id)?;
             let balance = BalanceWrapper::<Balance> { amount };
             Ok(balance)
         }
