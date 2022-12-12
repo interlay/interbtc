@@ -635,7 +635,7 @@ fn integration_test_rewards_are_preserved_on_collateral_withdrawal() {
 
         let (issue_id, _) = issue_testing_utils::request_issue(&vault_id, vault_id.wrapped(400000));
         issue_testing_utils::execute_issue(issue_id);
-        FeePallet::withdraw_all_vault_rewards(&vault_id).unwrap();
+        FeePallet::distribute_all_vault_rewards(&vault_id).unwrap();
         let reward_before_nomination_withdrawal =
             VaultStakingPallet::compute_reward(vault_id.wrapped_currency(), &vault_id, &account_of(USER)).unwrap();
         let reward_before_nomination_withdrawal2 =

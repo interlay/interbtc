@@ -96,7 +96,7 @@ fn withdraw_vault_rewards(vault_id: &VaultId) -> i128 {
 }
 
 fn withdraw_nominator_rewards(vault_id: &VaultId, nominator_id: &AccountId) -> i128 {
-    assert_ok!(FeePallet::withdraw_all_vault_rewards(vault_id));
+    assert_ok!(FeePallet::distribute_all_vault_rewards(vault_id));
     let amount = VaultStakingPallet::compute_reward(REWARD_CURRENCY, vault_id, nominator_id).unwrap();
     assert_ok!(RuntimeCall::Fee(FeeCall::withdraw_rewards {
         vault_id: vault_id.clone(),

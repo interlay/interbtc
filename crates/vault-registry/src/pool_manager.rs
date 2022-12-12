@@ -9,7 +9,7 @@ impl<T: Config> PoolManager<T> {
         nominator_id: &T::AccountId,
         amount: &Amount<T>,
     ) -> Result<(), DispatchError> {
-        ext::fee::withdraw_all_vault_rewards::<T>(vault_id)?;
+        ext::fee::distribute_all_vault_rewards::<T>(vault_id)?;
         ext::staking::deposit_stake(vault_id, nominator_id, amount)?;
 
         // also propagate to reward & capacity pools
@@ -22,7 +22,7 @@ impl<T: Config> PoolManager<T> {
         amount: &Amount<T>,
         nonce: Option<<T as frame_system::Config>::Index>,
     ) -> Result<(), DispatchError> {
-        ext::fee::withdraw_all_vault_rewards::<T>(vault_id)?;
+        ext::fee::distribute_all_vault_rewards::<T>(vault_id)?;
         ext::staking::withdraw_stake(vault_id, nominator_id, amount, nonce)?;
 
         // also propagate to reward & capacity pools
@@ -30,7 +30,7 @@ impl<T: Config> PoolManager<T> {
     }
 
     pub fn slash_collateral(vault_id: &DefaultVaultId<T>, amount: &Amount<T>) -> Result<(), DispatchError> {
-        ext::fee::withdraw_all_vault_rewards::<T>(vault_id)?;
+        ext::fee::distribute_all_vault_rewards::<T>(vault_id)?;
         ext::staking::slash_stake(vault_id, amount)?;
 
         // also propagate to reward & capacity pools
@@ -38,7 +38,7 @@ impl<T: Config> PoolManager<T> {
     }
 
     pub fn kick_nominators(vault_id: &DefaultVaultId<T>) -> Result<Amount<T>, DispatchError> {
-        ext::fee::withdraw_all_vault_rewards::<T>(vault_id)?;
+        ext::fee::distribute_all_vault_rewards::<T>(vault_id)?;
         let ret = ext::staking::force_refund::<T>(vault_id)?;
 
         // also propagate to reward & capacity pools
@@ -49,7 +49,7 @@ impl<T: Config> PoolManager<T> {
 
     // hook to be called _after_ the value has been written
     pub fn on_set_secure_collateral_threshold(vault_id: &DefaultVaultId<T>) -> Result<(), DispatchError> {
-        ext::fee::withdraw_all_vault_rewards::<T>(vault_id)?;
+        ext::fee::distribute_all_vault_rewards::<T>(vault_id)?;
         Self::update_reward_stake(vault_id)
     }
 

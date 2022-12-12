@@ -34,6 +34,7 @@ where
         at: Option<BlockHash>,
     ) -> RpcResult<BalanceWrapper<Balance>>;
 
+    // TODO: change this to support querying by nominator_id
     #[method(name = "reward_computeVaultReward")]
     fn compute_vault_reward(
         &self,
