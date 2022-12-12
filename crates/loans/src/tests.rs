@@ -513,9 +513,10 @@ fn get_account_liquidity_works() {
         Loans::mint(RuntimeOrigin::signed(ALICE), IBTC, unit(200)).unwrap();
         Loans::deposit_all_collateral(RuntimeOrigin::signed(ALICE), IBTC).unwrap();
 
-        let AccountLiquidity { liquidity, .. } = Loans::get_account_liquidity(&ALICE).unwrap();
-
-        assert_eq!(liquidity.amount(), unit(100));
+        assert_eq!(
+            Loans::get_account_liquidity(&ALICE).unwrap().liquidity().amount(),
+            unit(100)
+        );
     })
 }
 
@@ -534,16 +535,18 @@ fn get_account_liquidation_threshold_liquidity_works() {
         Loans::borrow(RuntimeOrigin::signed(ALICE), KSM, unit(100)).unwrap();
         Loans::borrow(RuntimeOrigin::signed(ALICE), DOT, unit(100)).unwrap();
 
-        let AccountLiquidity { liquidity, .. } = Loans::get_account_liquidation_threshold_liquidity(&ALICE).unwrap();
-
-        assert_eq!(liquidity.amount(), unit(20));
+        assert_eq!(
+            Loans::get_account_liquidation_threshold_liquidity(&ALICE)
+                .unwrap()
+                .liquidity()
+                .amount(),
+            unit(20)
+        );
 
         CurrencyConvert::convert.mock_safe(with_price(Some((KSM, 2.into()))));
-        let AccountLiquidity { liquidity, shortfall } =
-            Loans::get_account_liquidation_threshold_liquidity(&ALICE).unwrap();
-
-        assert_eq!(liquidity.amount(), unit(0));
-        assert_eq!(shortfall.amount(), unit(80));
+        let account_liquidity = Loans::get_account_liquidation_threshold_liquidity(&ALICE).unwrap();
+        assert_eq!(account_liquidity.liquidity().amount(), unit(0));
+        assert_eq!(account_liquidity.shortfall().amount(), unit(80));
     })
 }
 

@@ -5,17 +5,49 @@ use primitives::{CurrencyId, Liquidity, Rate, Ratio, Shortfall};
 use scale_info::TypeInfo;
 
 /// Container for account liquidity information
-#[derive(Encode, Decode, Eq, PartialEq, Clone, RuntimeDebug, TypeInfo)]
-pub struct AccountLiquidity<T: Config> {
-    pub liquidity: Amount<T>,
-    pub shortfall: Amount<T>,
+#[derive(Eq, PartialEq, Clone, RuntimeDebug)]
+pub enum AccountLiquidity<T: Config> {
+    Liquidity(Amount<T>),
+    Shortfall(Amount<T>),
 }
 
 impl<T: Config> AccountLiquidity<T> {
+    pub fn from_collateral_and_debt(
+        collateral_value: Amount<T>,
+        borrow_value: Amount<T>,
+    ) -> Result<Self, DispatchError> {
+        let account_liquidity = if collateral_value.gt(&borrow_value)? {
+            AccountLiquidity::Liquidity(collateral_value.checked_sub(&borrow_value)?)
+        } else {
+            AccountLiquidity::Shortfall(borrow_value.checked_sub(&collateral_value)?)
+        };
+        Ok(account_liquidity)
+    }
+
+    pub fn currency(&self) -> CurrencyId {
+        match &self {
+            AccountLiquidity::Liquidity(x) | AccountLiquidity::Shortfall(x) => x.currency(),
+        }
+    }
+
+    pub fn liquidity(&self) -> Amount<T> {
+        if let AccountLiquidity::Liquidity(x) = &self {
+            return x.clone();
+        }
+        Amount::<T>::zero(self.currency())
+    }
+
+    pub fn shortfall(&self) -> Amount<T> {
+        if let AccountLiquidity::Shortfall(x) = &self {
+            return x.clone();
+        }
+        Amount::<T>::zero(self.currency())
+    }
+
     pub fn to_rpc_tuple(&self) -> Result<(Liquidity, Shortfall), DispatchError> {
         Ok((
-            self.liquidity.to_unsigned_fixed_point()?,
-            self.shortfall.to_unsigned_fixed_point()?,
+            self.liquidity().to_unsigned_fixed_point()?,
+            self.shortfall().to_unsigned_fixed_point()?,
         ))
     }
 }

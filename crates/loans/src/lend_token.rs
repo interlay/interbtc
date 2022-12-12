@@ -127,7 +127,8 @@ impl<T: Config> Pallet<T> {
         let collateral_value = Self::collateral_asset_value(who, underlying_id)?;
 
         // liquidity of all assets
-        let AccountLiquidity { liquidity, .. } = Self::get_account_liquidity(who)?;
+        let account_liquidity = Self::get_account_liquidity(who)?;
+        let liquidity = account_liquidity.liquidity();
 
         if liquidity.ge(&collateral_value)? {
             return Ok(voucher_balance);

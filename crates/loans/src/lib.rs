@@ -1164,9 +1164,8 @@ impl<T: Config> Pallet<T> {
     }
 
     pub fn get_account_liquidity(account: &T::AccountId) -> Result<AccountLiquidity<T>, DispatchError> {
-        let total_borrow_value = Self::total_borrowed_value(account)?;
         let total_collateral_value = Self::total_collateral_value(account)?;
-
+        let total_borrow_value = Self::total_borrowed_value(account)?;
         log::trace!(
             target: "loans::get_account_liquidity",
             "account: {:?}, total_borrow_value: {:?}, total_collateral_value: {:?}",
@@ -1174,26 +1173,14 @@ impl<T: Config> Pallet<T> {
             total_borrow_value.amount(),
             total_collateral_value.amount(),
         );
-        let zero = Amount::<T>::zero(T::ReferenceAssetId::get());
-        if total_collateral_value.gt(&total_borrow_value)? {
-            Ok(AccountLiquidity {
-                liquidity: total_collateral_value.checked_sub(&total_borrow_value)?,
-                shortfall: zero,
-            })
-        } else {
-            Ok(AccountLiquidity {
-                liquidity: zero,
-                shortfall: total_borrow_value.checked_sub(&total_collateral_value)?,
-            })
-        }
+        AccountLiquidity::from_collateral_and_debt(total_collateral_value, total_borrow_value)
     }
 
     pub fn get_account_liquidation_threshold_liquidity(
         account: &T::AccountId,
     ) -> Result<AccountLiquidity<T>, DispatchError> {
-        let total_borrow_value = Self::total_borrowed_value(account)?;
         let total_collateral_value = Self::total_liquidation_threshold_value(account)?;
-
+        let total_borrow_value = Self::total_borrowed_value(account)?;
         log::trace!(
             target: "loans::get_account_liquidation_threshold_liquidity",
             "account: {:?}, total_borrow_value: {:?}, total_collateral_value: {:?}",
@@ -1201,18 +1188,7 @@ impl<T: Config> Pallet<T> {
             total_borrow_value.amount(),
             total_collateral_value.amount(),
         );
-        let zero = Amount::<T>::zero(T::ReferenceAssetId::get());
-        if total_collateral_value.gt(&total_borrow_value)? {
-            Ok(AccountLiquidity {
-                liquidity: total_collateral_value.checked_sub(&total_borrow_value)?,
-                shortfall: zero,
-            })
-        } else {
-            Ok(AccountLiquidity {
-                liquidity: zero,
-                shortfall: total_borrow_value.checked_sub(&total_collateral_value)?,
-            })
-        }
+        AccountLiquidity::from_collateral_and_debt(total_collateral_value, total_borrow_value)
     }
 
     fn total_borrowed_value(borrower: &T::AccountId) -> Result<Amount<T>, DispatchError> {
@@ -1473,14 +1449,10 @@ impl<T: Config> Pallet<T> {
             repay_amount,
             market
         );
-        let AccountLiquidity { shortfall, .. } = Self::get_account_liquidation_threshold_liquidity(borrower)?;
-
-        // C_other >= B_other + B_dot_over
-        // C_other >= B_other
-        // C_other >= B_other + B_dot - B_dot
-        // C_all - B_all >= 0
-        // shortfall == 0
-        if shortfall.is_zero() {
+        if Self::get_account_liquidation_threshold_liquidity(borrower)?
+            .shortfall()
+            .is_zero()
+        {
             return Err(Error::<T>::InsufficientShortfall.into());
         }
 
@@ -1731,8 +1703,7 @@ impl<T: Config> Pallet<T> {
     // `account`: account that need a liquidity check
     // `reduce_amount`: values that will have an impact on liquidity
     fn ensure_liquidity(account: &T::AccountId, reduce_amount: Amount<T>) -> DispatchResult {
-        let AccountLiquidity { liquidity, .. } = Self::get_account_liquidity(account)?;
-        if liquidity.ge(&reduce_amount)? {
+        if Self::get_account_liquidity(account)?.liquidity().ge(&reduce_amount)? {
             return Ok(());
         }
         Err(Error::<T>::InsufficientLiquidity.into())
