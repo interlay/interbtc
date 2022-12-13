@@ -116,14 +116,35 @@ fn invalid_seconds_upper_bound_should_not_work() {
 fn runners_up_should_come_after() {
     new_test_ext().execute_with(|| {
         System::set_block_number(0);
+        // make 6 proposals and check that 2 get launched each period launching period
+        // (which is every 2 blocks in these tests)
+
         assert_ok!(propose_set_balance_and_note(1, 2, 2));
         assert_ok!(propose_set_balance_and_note(1, 4, 4));
         assert_ok!(propose_set_balance_and_note(1, 3, 3));
-        fast_forward_to(2);
+        assert_ok!(propose_set_balance_and_note(2, 5, 3));
+        assert_ok!(propose_set_balance_and_note(2, 6, 3));
+        assert_ok!(propose_set_balance_and_note(2, 8, 3));
+
+        // sanity check: nothing launched yet
+        assert!(Democracy::vote(RuntimeOrigin::signed(1), 0, aye(1)).is_err());
+
+        fast_forward_to(1);
         assert_ok!(Democracy::vote(RuntimeOrigin::signed(1), 0, aye(1)));
-        fast_forward_to(4);
         assert_ok!(Democracy::vote(RuntimeOrigin::signed(1), 1, aye(1)));
-        fast_forward_to(6);
+        assert!(Democracy::vote(RuntimeOrigin::signed(1), 2, aye(1)).is_err()); // third one not yet launched
+
+        // sanity check: on next block nothing should get launched
+        fast_forward_to(2);
+        assert!(Democracy::vote(RuntimeOrigin::signed(1), 2, aye(1)).is_err());
+
+        fast_forward_to(3);
         assert_ok!(Democracy::vote(RuntimeOrigin::signed(1), 2, aye(1)));
+        assert_ok!(Democracy::vote(RuntimeOrigin::signed(1), 3, aye(1)));
+        assert!(Democracy::vote(RuntimeOrigin::signed(1), 4, aye(1)).is_err()); // fifth one not yet launched
+
+        fast_forward_to(5);
+        assert_ok!(Democracy::vote(RuntimeOrigin::signed(1), 4, aye(1)));
+        assert_ok!(Democracy::vote(RuntimeOrigin::signed(1), 5, aye(1)));
     });
 }

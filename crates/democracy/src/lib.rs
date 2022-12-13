@@ -1091,6 +1091,8 @@ impl<T: Config> Pallet<T> {
             // full block weight.
             if Self::launch_next(now).is_ok() {
                 weight = max_block_weight;
+                // try to launch another one. We ignore the result since weight can't increase beyond max_block_weight
+                let _ = Self::launch_next(now);
             } else {
                 weight = weight.saturating_add(T::WeightInfo::on_initialize_base_with_launch_period(r));
             }

@@ -370,7 +370,7 @@ pub mod pallet {
         }
 
         #[cfg(feature = "try-runtime")]
-        fn post_upgrade(_pre_upgrade_state: Vec<u8>) -> Result<(), &'static str> {
+        fn post_upgrade(_pre_upgrade_state: sp_std::vec::Vec<u8>) -> Result<(), &'static str> {
             let max_exchange_rate = crate::MaxExchangeRate::<T>::get();
             let min_exchange_rate = crate::MinExchangeRate::<T>::get();
             ensure!(
