@@ -1127,7 +1127,7 @@ impl<T: Config> Pallet<T> {
         let next_week = beginning_of_week
             .checked_add_days(Days::new(7))
             .ok_or(Error::<T>::TryIntoIntError)?
-            .and_time(NaiveTime::default());
+            .and_time(NaiveTime::from_hms_opt(9, 0, 0).ok_or(Error::<T>::TryIntoIntError)?); // 9 AM UTC
 
         // update storage
         let next_timestamp: u64 = next_week.timestamp().try_into()?;

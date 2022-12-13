@@ -287,9 +287,9 @@ fn should_launch_works() {
         let arbitrary_timestamp = 1670864631; // Mon Dec 12 2022 17:03:51 UTC
 
         let week_boundaries = [
-            1671408000, // Mon Dec 19 2022 00:00:00 UTC
-            1672012800, // Mon Dec 26 2022 00:00:00
-            1672617600, // Mon Jan 02 2023 00:00:00
+            1671440400, // Mon Dec 19 2022 09:00:00 UTC
+            1672045200, // Mon Dec 26 2022 09:00:00 UTC
+            1672650000, // Mon Jan 02 2023 09:00:00 UTC
         ];
         // first launch immediately after launch of chain / first runtime upgrade
         assert!(Democracy::should_launch(Duration::from_secs(arbitrary_timestamp)).unwrap());
@@ -304,5 +304,26 @@ fn should_launch_works() {
             assert!(Democracy::should_launch(Duration::from_secs(boundary)).unwrap());
             assert!(!Democracy::should_launch(Duration::from_secs(boundary)).unwrap());
         }
+    });
+}
+
+#[test]
+fn should_launch_edge_case_behavior() {
+    new_test_ext().execute_with(|| {
+        // test edge case where we launch on monday before 9 am. Next launch will be
+        // in slightly more than 7 days
+        let initial_launch = 1670828400; // Mon Dec 12 2022 07:00:00 UTC
+        let next_launch = 1671440400; // Mon Dec 19 2022 09:00:00 UTC
+
+        // first launch immediately after launch of chain / first runtime upgrade
+        assert!(Democracy::should_launch(Duration::from_secs(initial_launch)).unwrap());
+        assert!(!Democracy::should_launch(Duration::from_secs(initial_launch)).unwrap());
+
+        // one second before the next week it should still return false
+        assert!(!Democracy::should_launch(Duration::from_secs(next_launch - 1)).unwrap());
+
+        // first second of next week it should return true exactly once
+        assert!(Democracy::should_launch(Duration::from_secs(next_launch)).unwrap());
+        assert!(!Democracy::should_launch(Duration::from_secs(next_launch)).unwrap());
     });
 }
