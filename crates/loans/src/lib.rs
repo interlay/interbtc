@@ -55,7 +55,9 @@ use sp_runtime::{
 use sp_std::vec::Vec;
 use sp_std::{marker, result::Result};
 
-use traits::{ConvertToBigUint, LoansApi as LoansTrait, LoansMarketDataProvider, MarketInfo, MarketStatus, OnExchangeRateChange};
+use traits::{
+    ConvertToBigUint, LoansApi as LoansTrait, LoansMarketDataProvider, MarketInfo, MarketStatus, OnExchangeRateChange,
+};
 
 pub use orml_traits::currency::{OnDeposit, OnSlash, OnTransfer};
 use sp_io::hashing::blake2_256;
