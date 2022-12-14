@@ -1,5 +1,5 @@
 use crate::{
-    mock::{new_test_ext, with_price, CurrencyConvert, Loans, RuntimeOrigin, Test, Tokens, ALICE, BOB},
+    mock::{new_test_ext, with_price, CurrencyConvert, Loans, RuntimeOrigin, Test, Tokens, _run_to_block, ALICE, BOB},
     tests::unit,
     Error, MarketState,
 };
@@ -150,6 +150,44 @@ fn full_workflow_works_as_expected() {
         );
         // 2 dollar transfer to alice
         assert_eq!(Tokens::balance(USDT, &ALICE), unit(800) + unit(2),);
+    })
+}
+
+#[test]
+fn withdrawing_incentive_reserve_accrues_interest() {
+    new_test_ext().execute_with(|| {
+        let incentive_reward_account = Loans::incentive_reward_account_id().unwrap();
+        initial_setup();
+        alice_borrows_100_ksm();
+        assert_ok!(Loans::deposit_all_collateral(RuntimeOrigin::signed(BOB), KSM));
+        assert_ok!(Loans::borrow(RuntimeOrigin::signed(BOB), USDT, unit(100)));
+        // adjust KSM price to make ALICE generate shortfall
+        CurrencyConvert::convert.mock_safe(with_price(Some((KSM, 2.into()))));
+        // BOB repay the KSM borrow balance and get DOT from ALICE
+        assert_ok!(Loans::liquidate_borrow(
+            RuntimeOrigin::signed(BOB),
+            ALICE,
+            KSM,
+            unit(50),
+            USDT
+        ));
+        assert_eq!(
+            Loans::exchange_rate(USDT).saturating_mul_int(Tokens::balance(
+                Loans::lend_token_id(USDT).unwrap(),
+                &incentive_reward_account
+            )),
+            unit(3),
+        );
+
+        _run_to_block(10000);
+
+        // Can reduce more than 3 dollars because interest is accrued just before the reserve is withdrawn
+        assert_ok!(Loans::reduce_incentive_reserves(
+            RuntimeOrigin::root(),
+            ALICE,
+            USDT,
+            3000169788955,
+        ));
     })
 }
 

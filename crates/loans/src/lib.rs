@@ -51,7 +51,10 @@ use sp_runtime::{
     },
     ArithmeticError, FixedPointNumber, FixedU128,
 };
-use sp_std::{marker, result::Result, vec::Vec};
+#[cfg(feature = "try-runtime")]
+use sp_std::vec::Vec;
+use sp_std::{marker, result::Result};
+
 use traits::{ConvertToBigUint, LoansApi as LoansTrait, LoansMarketDataProvider, MarketInfo, MarketStatus};
 
 pub use orml_traits::currency::{OnDeposit, OnSlash, OnTransfer};
@@ -1103,6 +1106,7 @@ pub mod pallet {
             T::ReserveOrigin::ensure_origin(origin)?;
             let payer = T::Lookup::lookup(payer)?;
             Self::ensure_active_market(asset_id)?;
+            Self::accrue_interest(asset_id)?;
 
             ensure!(!add_amount.is_zero(), Error::<T>::InvalidAmount);
             let amount_to_transfer: Amount<T> = Amount::new(add_amount, asset_id);
@@ -1141,8 +1145,9 @@ pub mod pallet {
             T::ReserveOrigin::ensure_origin(origin)?;
             let receiver = T::Lookup::lookup(receiver)?;
             Self::ensure_active_market(asset_id)?;
-            ensure!(!reduce_amount.is_zero(), Error::<T>::InvalidAmount);
+            Self::accrue_interest(asset_id)?;
 
+            ensure!(!reduce_amount.is_zero(), Error::<T>::InvalidAmount);
             let total_reserves = Self::total_reserves(asset_id);
             if reduce_amount > total_reserves {
                 return Err(Error::<T>::InsufficientReserves.into());
@@ -1182,6 +1187,7 @@ pub mod pallet {
             let receiver = T::Lookup::lookup(receiver)?;
             let from = Self::incentive_reward_account_id()?;
             Self::ensure_active_market(asset_id)?;
+            Self::accrue_interest(asset_id)?;
             let exchange_rate = Self::exchange_rate_stored(asset_id)?;
             let voucher_amount = Self::calc_collateral_amount(redeem_amount, exchange_rate)?;
             let redeem_amount = Self::do_redeem_voucher(&from, asset_id, voucher_amount)?;
@@ -1411,11 +1417,11 @@ impl<T: Config> Pallet<T> {
             .checked_sub(repay_amount)
             .ok_or(ArithmeticError::Underflow)?;
         let total_borrows = Self::total_borrows(asset_id);
-        // NOTE : total_borrows use a different way to calculate interest
-        // so when user repays all borrows, total_borrows can be less than account_borrows
-        // which will cause it to fail with `ArithmeticError::Underflow`
-        //
-        // Change it back to checked_sub will cause Underflow
+        // NOTE: `total_borrows()` uses `u128` to calculate accrued interest,
+        // while `current_borrow_balance()` uses `FixedU128` to calculate accrued interest.
+        // As a result, when a user repays all borrows, `total_borrows` can be less than `account_borrows`
+        // which would cause a `checked_sub` to fail with `ArithmeticError::Underflow`.
+        // Use `saturating_sub` instead here:
         let total_borrows_new = total_borrows.saturating_sub(repay_amount);
         AccountBorrows::<T>::insert(
             asset_id,
