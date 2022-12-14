@@ -1147,7 +1147,11 @@ pub type Executive = frame_executive::Executive<
     (
         // Vault Capacity Model
         reward::migration::v1::MigrateToV1<Runtime, EscrowRewardsInstance>,
-        vault_registry::migration::vault_capacity::RewardsMigration<Runtime, VaultRewardsInstance>,
+        vault_registry::migration::vault_capacity::RewardsMigration<
+            Runtime,
+            VaultCapacityInstance,
+            VaultRewardsInstance,
+        >,
     ),
 >;
 
