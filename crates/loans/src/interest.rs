@@ -71,7 +71,9 @@ impl<T: Config> Pallet<T> {
         let now = T::UnixTime::now().as_secs();
         let last_accrued_interest_time = Self::last_accrued_interest_time(asset_id);
         if now > last_accrued_interest_time {
-            let delta_time = now - last_accrued_interest_time;
+            let delta_time = now
+                .checked_sub(last_accrued_interest_time)
+                .ok_or(ArithmeticError::Underflow)?;
             let interest_accumulated =
                 Self::accrued_interest(borrow_rate, total_borrows, delta_time).ok_or(ArithmeticError::Overflow)?;
             total_borrows = interest_accumulated

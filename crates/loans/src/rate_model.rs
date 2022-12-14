@@ -153,7 +153,7 @@ pub struct CurveModel {
 }
 
 impl CurveModel {
-    pub const MAX_BASE_RATE: Rate = Rate::from_inner(Rate::DIV / 100 * 10); // 10%
+    pub const MAX_BASE_RATE: Rate = Rate::from_inner(100_000_000_000_000_000); // 10%
 
     /// Create a new curve model
     pub fn new_model(base_rate: Rate) -> CurveModel {

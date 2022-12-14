@@ -1,4 +1,5 @@
 use frame_support::dispatch::DispatchError;
+use sp_runtime::FixedPointNumber;
 
 use crate::Config;
 
@@ -11,6 +12,9 @@ pub(crate) type SignedFixedPoint<T> = <T as Config>::SignedFixedPoint;
 pub(crate) type UnsignedFixedPoint<T> = <T as Config>::UnsignedFixedPoint;
 
 pub(crate) type SignedInner<T> = <T as Config>::SignedInner;
+
+pub(crate) type UnsignedInner<T> = <<T as Config>::UnsignedFixedPoint as FixedPointNumber>::Inner;
+
 pub trait CurrencyConversion<Amount, CurrencyId> {
     fn convert(amount: &Amount, to: CurrencyId) -> Result<Amount, DispatchError>;
 }

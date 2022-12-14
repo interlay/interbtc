@@ -67,6 +67,7 @@ impl<T: Config> Pallet<T> {
             return DepositConsequence::UnknownAsset;
         }
 
+        // Not using checked arithmetic here is fine because this is a testing utility
         if Self::balance(lend_token_id, who) + amount < Self::minimum_balance(lend_token_id) {
             return DepositConsequence::BelowMinimum;
         }
@@ -127,19 +128,16 @@ impl<T: Config> Pallet<T> {
         let collateral_value = Self::collateral_asset_value(who, underlying_id)?;
 
         // liquidity of all assets
-        let (liquidity, _) = Self::get_account_liquidity(who)?;
+        let account_liquidity = Self::get_account_liquidity(who)?;
+        let liquidity = account_liquidity.liquidity();
 
-        if liquidity >= collateral_value {
+        if liquidity.ge(&collateral_value)? {
             return Ok(voucher_balance);
         }
 
         // Formula
         // reducible_underlying_amount = liquidity / collateral_factor / price
-        let reducible_supply_value = liquidity
-            .checked_div(&market.collateral_factor.into())
-            .ok_or(ArithmeticError::Overflow)?;
-        let reducible_supply_amount =
-            Amount::<T>::from_unsigned_fixed_point(reducible_supply_value, T::ReferenceAssetId::get())?;
+        let reducible_supply_amount = liquidity.checked_div(&market.collateral_factor.into())?;
         let reducible_underlying_amount = reducible_supply_amount.convert_to(underlying_id)?.amount();
 
         let exchange_rate = Self::exchange_rate(underlying_id);

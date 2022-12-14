@@ -229,7 +229,10 @@ pub fn with_price(
                 return MockResult::Return(Amount::from_unsigned_fixed_point(new_amount, to));
             }
             // The default is a 1:1 exchange rate
-            (_, currency) | (currency, _) if currency == DEFAULT_WRAPPED_CURRENCY => {
+            (_, currency) if currency == DEFAULT_WRAPPED_CURRENCY => {
+                return MockResult::Return(Ok(Amount::new(amount.amount(), DEFAULT_WRAPPED_CURRENCY)));
+            }
+            (currency, _) if currency == DEFAULT_WRAPPED_CURRENCY => {
                 return MockResult::Return(Ok(amount.clone()));
             }
             (_, _) => return MockResult::Return(Err(Error::<Test>::InvalidExchangeRate.into())),

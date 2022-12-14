@@ -83,3 +83,30 @@ fn test_checked_fixed_point_mul_rounded_up() {
         }
     })
 }
+
+#[test]
+fn test_amount_to_and_from_fixed_point() {
+    run_test(|| {
+        let currency = Token(DOT);
+        let tests: Vec<Amount<Test>> = vec![
+            Amount::new(133, currency),
+            Amount::new(1, currency),
+            Amount::new(0, currency),
+            Amount::new(2, currency),
+        ];
+
+        for amount in tests {
+            let unsigned_fixed_point = amount.to_unsigned_fixed_point().unwrap();
+            assert_eq!(
+                amount,
+                Amount::from_unsigned_fixed_point(unsigned_fixed_point, currency).unwrap()
+            );
+
+            let signed_fixed_point = amount.to_signed_fixed_point().unwrap();
+            assert_eq!(
+                amount,
+                Amount::from_signed_fixed_point(signed_fixed_point, currency).unwrap()
+            );
+        }
+    })
+}
