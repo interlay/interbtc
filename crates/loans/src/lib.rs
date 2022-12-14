@@ -1181,15 +1181,13 @@ pub mod pallet {
             asset_id: AssetIdOf<T>,
             #[pallet::compact] redeem_amount: BalanceOf<T>,
         ) -> DispatchResultWithPostInfo {
-            T::ReserveOrigin::ensure_origin(origin.clone())?;
-            let who = ensure_signed(origin)?;
+            T::ReserveOrigin::ensure_origin(origin)?;
             ensure!(!redeem_amount.is_zero(), Error::<T>::InvalidAmount);
             let receiver = T::Lookup::lookup(receiver)?;
             let from = Self::incentive_reward_account_id()?;
             Self::ensure_active_market(asset_id)?;
             Self::accrue_interest(asset_id)?;
             let exchange_rate = Self::exchange_rate_stored(asset_id)?;
-            Self::update_earned_stored(&who, asset_id, exchange_rate)?;
             let voucher_amount = Self::calc_collateral_amount(redeem_amount, exchange_rate)?;
             let redeem_amount = Self::do_redeem_voucher(&from, asset_id, voucher_amount)?;
 
