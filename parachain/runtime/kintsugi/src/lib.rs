@@ -92,7 +92,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     spec_name: create_runtime_str!("kintsugi-parachain"),
     impl_name: create_runtime_str!("kintsugi-parachain"),
     authoring_version: 1,
-    spec_version: 1020000,
+    spec_version: 1021000,
     impl_version: 1,
     transaction_version: 3, // added preimage
     apis: RUNTIME_API_VERSIONS,
@@ -1161,10 +1161,9 @@ pub type Executive = frame_executive::Executive<
     Runtime,
     AllPalletsWithSystem,
     (
-        // "Bound uses of call" <https://github.com/paritytech/substrate/pull/11649>
-        pallet_preimage::migration::v1::Migration<Runtime>,
-        pallet_scheduler::migration::v3::MigrateToV4<Runtime>,
-        pallet_multisig::migrations::v1::MigrateToV1<Runtime>,
+        // Vault Capacity Model
+        reward::migration::v1::MigrateToV1<Runtime, EscrowRewardsInstance>,
+        vault_registry::migration::vault_capacity::RewardsMigration<Runtime, VaultRewardsInstance>,
     ),
 >;
 
