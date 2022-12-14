@@ -314,7 +314,7 @@ impl<T: Config> Pallet<T> {
         Self::stake_at_index(nonce, vault_id, nominator_id)
     }
 
-    fn stake_at_index(
+    pub fn stake_at_index(
         nonce: T::Index,
         vault_id: &DefaultVaultId<T>,
         nominator_id: &T::AccountId,
@@ -346,7 +346,7 @@ impl<T: Config> Pallet<T> {
         Self::slash_tally_at_index(nonce, vault_id, nominator_id)
     }
 
-    fn slash_tally_at_index(
+    pub fn slash_tally_at_index(
         nonce: T::Index,
         vault_id: &DefaultVaultId<T>,
         nominator_id: &T::AccountId,
@@ -365,7 +365,7 @@ impl<T: Config> Pallet<T> {
         Self::slash_per_token_at_index(nonce, vault_id)
     }
 
-    fn slash_per_token_at_index(nonce: T::Index, vault_id: &DefaultVaultId<T>) -> SignedFixedPoint<T> {
+    pub fn slash_per_token_at_index(nonce: T::Index, vault_id: &DefaultVaultId<T>) -> SignedFixedPoint<T> {
         <SlashPerToken<T>>::get(nonce, vault_id)
     }
 
@@ -474,7 +474,7 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
-    fn compute_amount_to_slash(
+    pub fn compute_amount_to_slash(
         stake: SignedFixedPoint<T>,
         slash_per_token: SignedFixedPoint<T>,
         slash_tally: SignedFixedPoint<T>,
