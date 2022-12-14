@@ -50,7 +50,10 @@ use sp_runtime::{
     },
     ArithmeticError, FixedPointNumber, FixedU128,
 };
-use sp_std::{marker, result::Result, vec::Vec};
+#[cfg(feature = "try-runtime")]
+use sp_std::vec::Vec;
+use sp_std::{marker, result::Result};
+
 use traits::{ConvertToBigUint, LoansApi as LoansTrait, LoansMarketDataProvider, MarketInfo, MarketStatus};
 
 pub use orml_traits::currency::{OnDeposit, OnSlash, OnTransfer};

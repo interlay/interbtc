@@ -713,6 +713,55 @@ fn reduce_reserves_works() {
 }
 
 #[test]
+fn total_reserves_are_updated_on_withdrawal() {
+    new_test_ext().execute_with(|| {
+        assert_ok!(Loans::mint(RuntimeOrigin::signed(ALICE), DOT, unit(100)));
+        assert_ok!(Loans::deposit_all_collateral(RuntimeOrigin::signed(ALICE), DOT));
+        assert_ok!(Loans::borrow(RuntimeOrigin::signed(ALICE), DOT, unit(10)));
+
+        let blocks_to_run = 1000;
+        _run_to_block(blocks_to_run);
+        Loans::accrue_interest(DOT).unwrap();
+        let intermediary_total_reserves = Loans::total_reserves(DOT);
+        _run_to_block(2 * blocks_to_run);
+
+        // Should be able to withdraw the entire total_reserve accumulated so far
+        assert_ok!(Loans::reduce_reserves(
+            RuntimeOrigin::root(),
+            ALICE,
+            DOT,
+            // the actual total reserve is greater than this because of accumulated interest
+            2 * intermediary_total_reserves
+        ));
+        // Leftover
+        assert_eq!(Loans::total_reserves(DOT), 8610);
+    })
+}
+
+#[test]
+fn total_reserves_are_updated_on_deposit() {
+    new_test_ext().execute_with(|| {
+        assert_ok!(Loans::mint(RuntimeOrigin::signed(ALICE), DOT, unit(100)));
+        assert_ok!(Loans::deposit_all_collateral(RuntimeOrigin::signed(ALICE), DOT));
+        assert_ok!(Loans::borrow(RuntimeOrigin::signed(ALICE), DOT, unit(10)));
+
+        let blocks_to_run = 1000;
+        _run_to_block(blocks_to_run);
+        Loans::accrue_interest(DOT).unwrap();
+        let intermediary_total_reserves = Loans::total_reserves(DOT);
+        _run_to_block(2 * blocks_to_run);
+
+        assert_ok!(Loans::add_reserves(RuntimeOrigin::root(), ALICE, DOT, 1,));
+
+        // The stored total reserve must be up-to-date
+        assert!(
+            Loans::total_reserves(DOT) > 2 * intermediary_total_reserves + 1,
+            "interest was not accrued when reserves were added"
+        );
+    })
+}
+
+#[test]
 fn reduce_reserve_reduce_amount_must_be_less_than_total_reserves() {
     new_test_ext().execute_with(|| {
         assert_ok!(Loans::add_reserves(RuntimeOrigin::root(), ALICE, DOT, unit(100)));
