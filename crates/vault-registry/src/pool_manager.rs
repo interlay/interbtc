@@ -80,14 +80,3 @@ impl<T: Config> OnExchangeRateChange<CurrencyId<T>> for PoolManager<T> {
         let _ = Self::update_capacity_stake(currency_id.clone());
     }
 }
-
-// #[cfg(test)]
-// mod tests {
-//     use super::*;
-//     use mock::*;
-
-//     #[test]
-//     fn should_update_stake_based_on_capacity() {
-//         PoolManager::<Test>::deposit_collateral(currency_id)
-//     }
-// }
