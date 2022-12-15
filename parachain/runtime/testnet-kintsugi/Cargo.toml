@@ -120,6 +120,13 @@ orml-xcm-support = { git = "https://github.com/open-web3-stack/open-runtime-modu
 orml-unknown-tokens = { git = "https://github.com/open-web3-stack/open-runtime-module-library", rev = "3fcd3cf9e63fe80fd9671912833a900ba09d1cc0", default-features = false }
 orml-asset-registry= { git = "https://github.com/open-web3-stack/open-runtime-module-library", rev = "3fcd3cf9e63fe80fd9671912833a900ba09d1cc0", default-features = false }
 
+# Zenlink dependencies
+zenlink-protocol = { git = "https://github.com/zenlinkpro/Zenlink-DEX-Module", rev = "2a40100309e74ddf425961b1ba1851c5b6f5cac3", default-features = false }
+zenlink-protocol-runtime-api = { git = "https://github.com/zenlinkpro/Zenlink-DEX-Module", rev = "2a40100309e74ddf425961b1ba1851c5b6f5cac3", default-features = false }
+zenlink-stable-amm = { git = "https://github.com/zenlinkpro/Zenlink-DEX-Module", rev = "2a40100309e74ddf425961b1ba1851c5b6f5cac3", default-features = false }
+zenlink-stable-amm-runtime-api = { git = "https://github.com/zenlinkpro/Zenlink-DEX-Module", rev = "2a40100309e74ddf425961b1ba1851c5b6f5cac3", default-features = false }
+zenlink-swap-router = { git = "https://github.com/zenlinkpro/Zenlink-DEX-Module", rev = "2a40100309e74ddf425961b1ba1851c5b6f5cac3", default-features = false }
+
 [dev-dependencies]
 hex = '0.4.2'
 mocktopus = '0.7.0'
@@ -239,6 +246,12 @@ std = [
   "orml-xtokens/std",
   "orml-xcm-support/std",
   "orml-unknown-tokens/std",
+
+  "zenlink-protocol/std",
+  "zenlink-protocol-runtime-api/std",
+  "zenlink-stable-amm/std",
+  "zenlink-stable-amm-runtime-api/std",
+  "zenlink-swap-router/std"
 ]
 runtime-benchmarks = [
   "frame-benchmarking",
@@ -316,5 +329,8 @@ try-runtime = [
   "cumulus-pallet-xcm/try-runtime",
   "cumulus-pallet-dmp-queue/try-runtime",
   "orml-xtokens/try-runtime",
-  "orml-unknown-tokens/try-runtime"
+  "orml-unknown-tokens/try-runtime",
+  "zenlink-protocol/try-runtime",
+  "zenlink-stable-amm/try-runtime",
+  "zenlink-swap-router/try-runtime"
 ]
