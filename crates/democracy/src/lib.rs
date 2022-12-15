@@ -82,7 +82,7 @@
 
 use core::time::Duration;
 
-use chrono::{Days, NaiveTime};
+use chrono::Days;
 use codec::{Decode, DecodeLimit, Encode, Input, MaxEncodedLen};
 use frame_support::{
     ensure,
@@ -243,6 +243,11 @@ pub mod pallet {
 
         /// Unix time
         type UnixTime: UnixTime;
+
+        /// Duration
+        type Moment: TryInto<i64>;
+
+        type LaunchOffsetMillis: Get<Self::Moment>;
     }
 
     /// The number of (public) proposals that have been made so far.
@@ -1112,7 +1117,7 @@ impl<T: Config> Pallet<T> {
 
     /// determine whether or not a new referendum should be launched. This will return true
     /// once every week.
-    fn should_launch(now: Duration) -> Result<bool, Error<T>> {
+    fn should_launch(now: Duration) -> Result<bool, DispatchError> {
         if now.as_secs() < NextLaunchTimestamp::<T>::get() {
             return Ok(false);
         }
@@ -1120,7 +1125,7 @@ impl<T: Config> Pallet<T> {
         // time to launch - calculate the date of next launch.
 
         // convert to format used by `chrono`
-        let secs: i64 = now.as_secs().try_into()?;
+        let secs: i64 = now.as_secs().try_into().map_err(Error::<T>::from)?;
         let now =
             chrono::NaiveDateTime::from_timestamp_opt(secs, now.subsec_nanos()).ok_or(Error::<T>::TryIntoIntError)?;
 
@@ -1129,10 +1134,17 @@ impl<T: Config> Pallet<T> {
         let next_week = beginning_of_week
             .checked_add_days(Days::new(7))
             .ok_or(Error::<T>::TryIntoIntError)?
-            .and_time(NaiveTime::from_hms_opt(9, 0, 0).ok_or(Error::<T>::TryIntoIntError)?); // 9 AM UTC
+            .and_time(Default::default());
+
+        let offset = T::LaunchOffsetMillis::get()
+            .try_into()
+            .map_err(|_| Error::<T>::TryIntoIntError)?;
+        let next_launch = next_week
+            .checked_add_signed(chrono::Duration::milliseconds(offset))
+            .ok_or(ArithmeticError::Overflow)?;
 
         // update storage
-        let next_timestamp: u64 = next_week.timestamp().try_into()?;
+        let next_timestamp: u64 = next_launch.timestamp().try_into().map_err(Error::<T>::from)?;
         NextLaunchTimestamp::<T>::set(next_timestamp);
 
         Ok(true)

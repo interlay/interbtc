@@ -439,6 +439,7 @@ parameter_types! {
     pub PreimageByteDeposit: Balance = 1 * CENTS;
     pub const MaxVotes: u32 = 100;
     pub const MaxProposals: u32 = 100;
+    pub LaunchOffsetMillis: u64 = 9 * 60 * 60 * 1000; // 9 hours offset, i.e. MON 9 AM
 }
 
 impl democracy::Config for Runtime {
@@ -460,6 +461,8 @@ impl democracy::Config for Runtime {
     type WeightInfo = ();
     type MaxProposals = MaxProposals;
     type UnixTime = Timestamp;
+    type Moment = Moment;
+    type LaunchOffsetMillis = LaunchOffsetMillis;
 }
 
 parameter_types! {
