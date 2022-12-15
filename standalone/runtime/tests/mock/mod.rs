@@ -17,7 +17,7 @@ pub use frame_support::{
 pub use interbtc_runtime_standalone::{
     token_distribution, AccountId, Balance, BlockNumber, CurrencyId, EscrowAnnuityInstance, EscrowRewardsInstance,
     GetNativeCurrencyId, GetRelayChainCurrencyId, GetWrappedCurrencyId, Runtime, RuntimeCall, RuntimeEvent,
-    TechnicalCommitteeInstance, VaultAnnuityInstance, VaultRewardsInstance, YEARS,
+    TechnicalCommitteeInstance, VaultAnnuityInstance, VaultCapacityInstance, VaultRewardsInstance, YEARS,
 };
 pub use mocktopus::mocking::*;
 pub use orml_tokens::CurrencyAdapter;
@@ -136,6 +136,7 @@ pub type EscrowRewardsPallet = reward::Pallet<Runtime, EscrowRewardsInstance>;
 
 pub type VaultRewardsPallet = reward::Pallet<Runtime, VaultRewardsInstance>;
 pub type VaultStakingPallet = staking::Pallet<Runtime>;
+pub type CapacityRewardsPallet = reward::Pallet<Runtime, VaultCapacityInstance>;
 
 pub type IssueCall = issue::Call<Runtime>;
 pub type IssuePallet = issue::Pallet<Runtime>;
@@ -505,16 +506,11 @@ impl FeePool {
         Self {
             vault_rewards: iter_wrapped_currencies()
                 .map(|currency_id| {
-                    (
-                        currency_id,
-                        Amount::new(
-                            VaultRewardsPallet::get_total_rewards(currency_id)
-                                .unwrap()
-                                .try_into()
-                                .unwrap(),
-                            currency_id,
-                        ),
-                    )
+                    let ret1 = CapacityRewardsPallet::get_total_rewards(currency_id).unwrap();
+                    let ret2 = VaultRewardsPallet::get_total_rewards(currency_id).unwrap();
+                    let ret3 = VaultStakingPallet::get_total_rewards(currency_id);
+                    let total_rewards = (ret1 + ret2 + ret3).try_into().unwrap();
+                    (currency_id, Amount::new(total_rewards, currency_id))
                 })
                 .collect(),
         }

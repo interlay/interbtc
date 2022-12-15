@@ -92,7 +92,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     spec_name: create_runtime_str!("kintsugi-parachain"),
     impl_name: create_runtime_str!("kintsugi-parachain"),
     authoring_version: 1,
-    spec_version: 1020000,
+    spec_version: 1021000,
     impl_version: 1,
     transaction_version: 3, // added preimage
     apis: RUNTIME_API_VERSIONS,
@@ -842,7 +842,7 @@ impl annuity::BlockRewardProvider<AccountId> for VaultBlockRewardProvider {
     fn distribute_block_reward(from: &AccountId, amount: Balance) -> DispatchResult {
         // TODO: remove fee pallet?
         Self::Currency::transfer(from, &FeeAccount::get(), amount, ExistenceRequirement::KeepAlive)?;
-        <VaultRewards as reward::RewardsApi<(), VaultId, Balance>>::distribute_reward(
+        <VaultCapacity as reward::RewardsApi<(), CurrencyId, Balance>>::distribute_reward(
             &(),
             GetNativeCurrencyId::get(),
             amount,
@@ -884,8 +884,20 @@ type VaultRewardsInstance = reward::Instance2;
 impl reward::Config<VaultRewardsInstance> for Runtime {
     type RuntimeEvent = RuntimeEvent;
     type SignedFixedPoint = SignedFixedPoint;
-    type PoolId = ();
+    type PoolId = CurrencyId;
     type StakeId = VaultId;
+    type CurrencyId = CurrencyId;
+    type GetNativeCurrencyId = GetNativeCurrencyId;
+    type GetWrappedCurrencyId = GetWrappedCurrencyId;
+}
+
+type VaultCapacityInstance = reward::Instance3;
+
+impl reward::Config<VaultCapacityInstance> for Runtime {
+    type RuntimeEvent = RuntimeEvent;
+    type SignedFixedPoint = SignedFixedPoint;
+    type PoolId = ();
+    type StakeId = CurrencyId;
     type CurrencyId = CurrencyId;
     type GetNativeCurrencyId = GetNativeCurrencyId;
     type GetWrappedCurrencyId = GetWrappedCurrencyId;
@@ -989,7 +1001,7 @@ where
 
 impl oracle::Config for Runtime {
     type RuntimeEvent = RuntimeEvent;
-    type OnAggregateChange = ();
+    type OnExchangeRateChange = ();
     type WeightInfo = ();
 }
 
@@ -1004,6 +1016,7 @@ impl fee::Config for Runtime {
     type SignedInner = SignedInner;
     type UnsignedFixedPoint = UnsignedFixedPoint;
     type UnsignedInner = UnsignedInner;
+    type CapacityRewards = VaultCapacity;
     type VaultRewards = VaultRewards;
     type VaultStaking = VaultStaking;
     type OnSweep = currency::SweepFunds<Runtime, FeeAccount>;
@@ -1073,6 +1086,7 @@ construct_runtime! {
         VaultAnnuity: annuity::<Instance2>::{Pallet, Call, Storage, Event<T>} = 40,
         VaultRewards: reward::<Instance2>::{Pallet, Storage, Event<T>} = 41,
         VaultStaking: staking::{Pallet, Storage, Event<T>} = 42,
+        VaultCapacity: reward::<Instance3>::{Pallet, Storage, Event<T>} = 43,
 
         // # Bitcoin SPV
         BTCRelay: btc_relay::{Pallet, Call, Config<T>, Storage, Event<T>} = 50,
@@ -1147,10 +1161,13 @@ pub type Executive = frame_executive::Executive<
     Runtime,
     AllPalletsWithSystem,
     (
-        // "Bound uses of call" <https://github.com/paritytech/substrate/pull/11649>
-        pallet_preimage::migration::v1::Migration<Runtime>,
-        pallet_scheduler::migration::v3::MigrateToV4<Runtime>,
-        pallet_multisig::migrations::v1::MigrateToV1<Runtime>,
+        // Vault Capacity Model
+        reward::migration::v1::MigrateToV1<Runtime, EscrowRewardsInstance>,
+        vault_registry::migration::vault_capacity::RewardsMigration<
+            Runtime,
+            VaultCapacityInstance,
+            VaultRewardsInstance,
+        >,
     ),
 >;
 
@@ -1440,7 +1457,7 @@ impl_runtime_apis! {
         }
 
         fn compute_vault_reward(vault_id: VaultId, currency_id: CurrencyId) -> Result<BalanceWrapper<Balance>, DispatchError> {
-            let amount = <VaultRewards as reward::RewardsApi<(), VaultId, Balance>>::compute_reward(&(), &vault_id, currency_id)?;
+            let amount = Fee::compute_vault_rewards(&vault_id, &vault_id.account_id, currency_id)?;
             let balance = BalanceWrapper::<Balance> { amount };
             Ok(balance)
         }

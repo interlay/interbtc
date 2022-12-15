@@ -22,6 +22,7 @@ fn should_deposit_against_valid_vault() {
         ext::vault_registry::vault_exists::<Test>.mock_safe(|_| MockResult::Return(true));
         ext::vault_registry::get_backing_collateral::<Test>.mock_safe(|_| MockResult::Return(Ok(collateral(10000))));
         ext::vault_registry::compute_collateral::<Test>.mock_safe(|_| MockResult::Return(Ok(collateral(10000))));
+        ext::vault_registry::pool_manager::deposit_collateral::<Test>.mock_safe(|_, _, _| MockResult::Return(Ok(())));
         assert_ok!(Nomination::_opt_in_to_nomination(&ALICE));
         assert_ok!(Nomination::set_nomination_limit(
             RuntimeOrigin::signed(ALICE.account_id),

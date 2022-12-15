@@ -199,6 +199,7 @@ impl Config for Test {
     type Assets = Tokens;
     type RewardAssetId = GetNativeCurrencyId;
     type ReferenceAssetId = GetWrappedCurrencyId;
+    type OnExchangeRateChange = ();
 }
 
 pub const LEND_DOT: CurrencyId = LendToken(1);

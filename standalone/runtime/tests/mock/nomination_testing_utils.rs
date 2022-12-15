@@ -70,6 +70,7 @@ pub fn nominate_collateral(
 }
 
 pub fn assert_nominate_collateral(vault_id: &VaultId, nominator_id: AccountId, amount_collateral: Amount<Runtime>) {
+    assert_eq!(vault_id.collateral_currency(), amount_collateral.currency());
     assert_ok!(nominate_collateral(vault_id, nominator_id, amount_collateral));
 }
 

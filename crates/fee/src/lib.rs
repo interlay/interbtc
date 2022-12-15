@@ -33,7 +33,7 @@ use frame_support::{
     transactional, PalletId,
 };
 use frame_system::ensure_signed;
-use primitives::VaultId;
+use primitives::{TruncateFixedPointToInt, VaultId};
 use reward::RewardsApi;
 use scale_info::TypeInfo;
 use sp_arithmetic::{traits::*, FixedPointNumber, FixedPointOperand};
@@ -80,6 +80,7 @@ pub mod pallet {
 
         /// Unsigned fixed point type.
         type UnsignedFixedPoint: FixedPointNumber<Inner = <Self as Config>::UnsignedInner>
+            + TruncateFixedPointToInt
             + Encode
             + EncodeLike
             + Decode
@@ -100,8 +101,16 @@ pub mod pallet {
             + MaybeSerializeDeserialize
             + TypeInfo;
 
+        /// Capacity reward pool.
+        type CapacityRewards: RewardsApi<(), CurrencyId<Self>, BalanceOf<Self>, CurrencyId = CurrencyId<Self>>;
+
         /// Vault reward pool.
-        type VaultRewards: RewardsApi<(), DefaultVaultId<Self>, BalanceOf<Self>, CurrencyId = CurrencyId<Self>>;
+        type VaultRewards: RewardsApi<
+            CurrencyId<Self>,
+            DefaultVaultId<Self>,
+            BalanceOf<Self>,
+            CurrencyId = CurrencyId<Self>,
+        >;
 
         /// Vault staking pool.
         type VaultStaking: StakingApi<DefaultVaultId<Self>, Self::Index, BalanceOf<Self>>
@@ -246,7 +255,9 @@ pub mod pallet {
             index: Option<T::Index>,
         ) -> DispatchResultWithPostInfo {
             let nominator_id = ensure_signed(origin)?;
-            Self::withdraw_from_reward_pool(&vault_id, &nominator_id, index)?;
+            for currency_id in [vault_id.wrapped_currency(), T::GetNativeCurrencyId::get()] {
+                Self::withdraw_vault_rewards(&vault_id, &nominator_id, index, currency_id)?;
+            }
             Ok(().into())
         }
 
@@ -464,34 +475,50 @@ impl<T: Config> Pallet<T> {
         amount.rounded_mul(<ReplaceGriefingCollateral<T>>::get())
     }
 
-    pub fn withdraw_all_vault_rewards(vault_id: &DefaultVaultId<T>) -> DispatchResult {
-        Self::distribute_from_reward_pool(vault_id)?;
+    pub fn compute_vault_rewards(
+        vault_id: &DefaultVaultId<T>,
+        nominator_id: &T::AccountId,
+        currency_id: CurrencyId<T>,
+    ) -> Result<BalanceOf<T>, DispatchError> {
+        frame_support::storage::with_transaction::<_, DispatchError, _>(|| {
+            sp_runtime::TransactionOutcome::Rollback(Self::distribute_and_compute_vault_rewards(
+                vault_id,
+                nominator_id,
+                currency_id,
+            ))
+        })
+    }
+
+    pub fn distribute_all_vault_rewards(vault_id: &DefaultVaultId<T>) -> DispatchResult {
+        for currency_id in [vault_id.wrapped_currency(), T::GetNativeCurrencyId::get()] {
+            Self::distribute_vault_rewards(&vault_id, currency_id)?;
+        }
         Ok(())
     }
 
     // Private functions internal to this pallet
 
     /// Withdraw rewards from a pool and transfer to `account_id`.
-    fn withdraw_from_reward_pool(
+    fn withdraw_vault_rewards(
         vault_id: &DefaultVaultId<T>,
         nominator_id: &T::AccountId,
         index: Option<T::Index>,
-    ) -> DispatchResult {
-        Self::distribute_from_reward_pool(&vault_id)?;
+        currency_id: CurrencyId<T>,
+    ) -> Result<BalanceOf<T>, DispatchError> {
+        Self::distribute_vault_rewards(&vault_id, currency_id)?;
 
-        for currency_id in [vault_id.wrapped_currency(), T::GetNativeCurrencyId::get()] {
-            let rewards = T::VaultStaking::withdraw_reward(&(index, vault_id.clone()), nominator_id, currency_id)?
-                .try_into()
-                .map_err(|_| Error::<T>::TryIntoIntError)?;
-            let amount = Amount::<T>::new(rewards, currency_id);
-            amount.transfer(&Self::fee_pool_account_id(), nominator_id)?;
-        }
-        Ok(())
+        let rewards = T::VaultStaking::withdraw_reward(&(index, vault_id.clone()), nominator_id, currency_id)?
+            .try_into()
+            .map_err(|_| Error::<T>::TryIntoIntError)?;
+        let amount = Amount::<T>::new(rewards, currency_id);
+        amount.transfer(&Self::fee_pool_account_id(), nominator_id)?;
+
+        Ok(rewards)
     }
 
     fn distribute(reward: &Amount<T>) -> Result<Amount<T>, DispatchError> {
         Ok(
-            if let Err(_) = T::VaultRewards::distribute_reward(&(), reward.currency(), reward.amount()) {
+            if let Err(_) = T::CapacityRewards::distribute_reward(&(), reward.currency(), reward.amount()) {
                 reward.clone()
             } else {
                 Amount::<T>::zero(reward.currency())
@@ -499,21 +526,36 @@ impl<T: Config> Pallet<T> {
         )
     }
 
-    pub fn distribute_from_reward_pool(vault_id: &DefaultVaultId<T>) -> DispatchResult {
-        for currency_id in [vault_id.wrapped_currency(), T::GetNativeCurrencyId::get()] {
-            let reward = T::VaultRewards::withdraw_reward(&(), vault_id, currency_id)?;
+    #[cfg_attr(feature = "integration-tests", visibility::make(pub))]
+    fn distribute_vault_rewards(vault_id: &DefaultVaultId<T>, currency_id: CurrencyId<T>) -> DispatchResult {
+        let collateral_id = vault_id.collateral_currency();
 
-            let full_amount = Amount::<T>::new(reward, currency_id);
+        // push rewards based on collateral capacity
+        let reward = T::CapacityRewards::withdraw_reward(&(), &collateral_id, currency_id)?;
+        T::VaultRewards::distribute_reward(&collateral_id, currency_id, reward)?;
 
-            let commission_rate = Self::get_commission_rate(vault_id);
-            let commission = full_amount.checked_fixed_point_mul(&commission_rate)?;
-            commission.transfer(&Self::fee_pool_account_id(), &vault_id.account_id)?;
+        // push rewards based on vault's contribution to that capacity
+        let reward = T::VaultRewards::withdraw_reward(&collateral_id, vault_id, currency_id)?;
 
-            let remainder = full_amount.checked_sub(&commission)?;
+        let full_amount = Amount::<T>::new(reward, currency_id);
 
-            T::VaultStaking::distribute_reward(&(None, vault_id.clone()), currency_id, remainder.amount())?;
-        }
+        let commission_rate = Self::get_commission_rate(vault_id);
+        let commission = full_amount.checked_fixed_point_mul(&commission_rate)?;
+        commission.transfer(&Self::fee_pool_account_id(), &vault_id.account_id)?;
+
+        let remainder = full_amount.checked_sub(&commission)?;
+
+        T::VaultStaking::distribute_reward(&(None, vault_id.clone()), currency_id, remainder.amount())?;
 
         Ok(())
+    }
+
+    fn distribute_and_compute_vault_rewards(
+        vault_id: &DefaultVaultId<T>,
+        nominator_id: &T::AccountId,
+        currency_id: CurrencyId<T>,
+    ) -> Result<BalanceOf<T>, DispatchError> {
+        Self::distribute_vault_rewards(&vault_id, currency_id)?;
+        T::VaultStaking::compute_reward(&(None, vault_id.clone()), nominator_id, currency_id)
     }
 }

@@ -67,7 +67,6 @@ fn integration_test_transfer_from_multisig_to_vested() {
             max_weight: call_weight,
         })
         .dispatch(origin_of(account_of(BOB))));
-        println!("{:?}", SystemPallet::events());
         // step 4a: check that the call is now executed
         assert_eq!(
             TokensPallet::accounts(account_of(EVE), Token(INTR)),

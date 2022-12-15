@@ -1,5 +1,5 @@
 use crate as vault_registry;
-use crate::{ext, Config, Error};
+use crate::{Config, Error};
 use frame_support::{
     parameter_types,
     traits::{ConstU32, Everything, GenesisBuild},
@@ -35,13 +35,14 @@ frame_support::construct_runtime!(
         // Tokens & Balances
         Tokens: orml_tokens::{Pallet, Storage, Config<T>, Event<T>},
 
-        Rewards: reward::{Pallet, Call, Storage, Event<T>},
+        CapacityRewards: reward::<Instance1>::{Pallet, Call, Storage, Event<T>},
+        VaultRewards: reward::<Instance2>::{Pallet, Call, Storage, Event<T>},
+        VaultStaking: staking::{Pallet, Storage, Event<T>},
 
         // Operational
         Security: security::{Pallet, Call, Storage, Event<T>},
         VaultRegistry: vault_registry::{Pallet, Call, Config<T>, Storage, Event<T>, ValidateUnsigned},
         Oracle: oracle::{Pallet, Call, Config<T>, Storage, Event<T>},
-        Staking: staking::{Pallet, Storage, Event<T>},
         Fee: fee::{Pallet, Call, Config<T>, Storage},
         Currency: currency::{Pallet},
     }
@@ -98,6 +99,16 @@ pub const DEFAULT_CURRENCY_PAIR: VaultCurrencyPair<CurrencyId> = VaultCurrencyPa
     wrapped: DEFAULT_WRAPPED_CURRENCY,
 };
 
+pub fn vault_id(account_id: AccountId) -> VaultId<AccountId, CurrencyId> {
+    VaultId {
+        account_id,
+        currencies: VaultCurrencyPair {
+            collateral: DEFAULT_COLLATERAL_CURRENCY,
+            wrapped: DEFAULT_WRAPPED_CURRENCY,
+        },
+    }
+}
+
 parameter_types! {
     pub const GetCollateralCurrencyId: CurrencyId = DEFAULT_COLLATERAL_CURRENCY;
     pub const GetNativeCurrencyId: CurrencyId = DEFAULT_NATIVE_CURRENCY;
@@ -125,14 +136,36 @@ impl orml_tokens::Config for Test {
     type ReserveIdentifier = (); // we don't use named reserves
 }
 
-impl reward::Config for Test {
+pub(crate) type CapacityRewardsInstance = reward::Instance1;
+
+impl reward::Config<CapacityRewardsInstance> for Test {
     type RuntimeEvent = RuntimeEvent;
     type SignedFixedPoint = SignedFixedPoint;
     type PoolId = ();
+    type StakeId = CurrencyId;
+    type CurrencyId = CurrencyId;
+    type GetNativeCurrencyId = GetNativeCurrencyId;
+    type GetWrappedCurrencyId = GetWrappedCurrencyId;
+}
+
+pub(crate) type VaultRewardsInstance = reward::Instance2;
+
+impl reward::Config<VaultRewardsInstance> for Test {
+    type RuntimeEvent = RuntimeEvent;
+    type SignedFixedPoint = SignedFixedPoint;
+    type PoolId = CurrencyId;
     type StakeId = VaultId<AccountId, CurrencyId>;
     type CurrencyId = CurrencyId;
     type GetNativeCurrencyId = GetNativeCurrencyId;
     type GetWrappedCurrencyId = GetWrappedCurrencyId;
+}
+
+impl staking::Config for Test {
+    type RuntimeEvent = RuntimeEvent;
+    type SignedFixedPoint = SignedFixedPoint;
+    type SignedInner = SignedInner;
+    type CurrencyId = CurrencyId;
+    type GetNativeCurrencyId = GetNativeCurrencyId;
 }
 
 parameter_types! {
@@ -148,7 +181,7 @@ impl pallet_timestamp::Config for Test {
 
 impl oracle::Config for Test {
     type RuntimeEvent = RuntimeEvent;
-    type OnAggregateChange = ();
+    type OnExchangeRateChange = vault_registry::PoolManager<Test>;
     type WeightInfo = ();
 }
 
@@ -193,8 +226,9 @@ impl fee::Config for Test {
     type SignedInner = SignedInner;
     type UnsignedFixedPoint = UnsignedFixedPoint;
     type UnsignedInner = Balance;
-    type VaultRewards = Rewards;
-    type VaultStaking = Staking;
+    type CapacityRewards = CapacityRewards;
+    type VaultRewards = VaultRewards;
+    type VaultStaking = VaultStaking;
     type OnSweep = ();
     type MaxExpectedValue = MaxExpectedValue;
 }
@@ -202,6 +236,7 @@ impl fee::Config for Test {
 parameter_types! {
     pub const VaultPalletId: PalletId = PalletId(*b"mod/vreg");
 }
+
 pub struct MockDeposit;
 
 impl traits::NominationApi<VaultId<AccountId, CurrencyId>, currency::Amount<Test>> for MockDeposit {
@@ -212,16 +247,10 @@ impl traits::NominationApi<VaultId<AccountId, CurrencyId>, currency::Amount<Test
         // ensure the vault is active
         let _vault = VaultRegistry::get_active_rich_vault_from_id(vault_id)?;
 
-        // will fail if collateral ceiling exceeded
-        VaultRegistry::try_increase_total_backing_collateral(&vault_id.currencies, amount)?;
-        // will fail if free_balance is insufficient
+        // Deposit `amount` of stake into the vault staking pool
+        <vault_registry::PoolManager<Test>>::deposit_collateral(vault_id, &vault_id.account_id, amount)?;
         amount.lock_on(&vault_id.account_id)?;
-
-        // withdraw first such that past rewards don't get changed by this deposit
-        ext::fee::withdraw_all_vault_rewards::<Test>(vault_id)?;
-
-        // Deposit `amount` of stake in the pool
-        ext::staking::deposit_stake::<Test>(vault_id, &vault_id.account_id, amount)?;
+        VaultRegistry::try_increase_total_backing_collateral(&vault_id.currencies, &amount)?;
 
         Ok(())
     }
@@ -246,14 +275,6 @@ where
 
 impl security::Config for Test {
     type RuntimeEvent = RuntimeEvent;
-}
-
-impl staking::Config for Test {
-    type RuntimeEvent = RuntimeEvent;
-    type SignedFixedPoint = SignedFixedPoint;
-    type SignedInner = SignedInner;
-    type CurrencyId = CurrencyId;
-    type GetNativeCurrencyId = GetNativeCurrencyId;
 }
 
 pub type TestEvent = RuntimeEvent;

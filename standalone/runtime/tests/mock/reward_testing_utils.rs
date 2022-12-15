@@ -1,104 +1,55 @@
 use crate::*;
+use primitives::TruncateFixedPointToInt;
 use std::collections::BTreeMap;
 
-#[derive(Clone, PartialEq, Eq, Debug, PartialOrd, Ord)]
-pub enum StakeHolder {
-    Vault(VaultId),
-    Nominator(crate::AccountId),
-}
-type Balance = f64;
-
-#[derive(Debug, Default)]
-pub struct BasicRewardPool {
-    // note: we use BTreeMaps such that the debug print output is sorted, for easier diffing
-    stake: BTreeMap<StakeHolder, Balance>,
-    reward_tally: BTreeMap<StakeHolder, Balance>,
-    total_stake: Balance,
-    reward_per_token: Balance,
-}
-
-impl BasicRewardPool {
-    pub fn deposit_stake(&mut self, account: &StakeHolder, amount: Balance) -> &mut Self {
-        let stake = self.stake.remove(account).unwrap_or(0.0);
-        self.stake.insert(account.clone(), stake + amount);
-        let reward_tally = self.reward_tally.remove(&account).unwrap_or(0.0);
-        self.reward_tally
-            .insert(account.clone(), reward_tally + self.reward_per_token * amount);
-        self.total_stake += amount;
-        self
-    }
-
-    pub fn withdraw_stake(&mut self, account: &StakeHolder, amount: Balance) -> &mut Self {
-        let stake = self.stake.remove(account).unwrap_or(0.0);
-        if stake - amount < 0 as f64 {
-            return self;
-        }
-        self.stake.insert(account.clone(), stake - amount);
-        let reward_tally = self.reward_tally.remove(account).unwrap_or(0.0);
-        self.reward_tally
-            .insert(account.clone(), reward_tally - self.reward_per_token * amount);
-        self.total_stake -= amount;
-        self
-    }
-
-    pub fn distribute(&mut self, reward: Balance) -> &mut Self {
-        self.reward_per_token = self.reward_per_token + reward / self.total_stake;
-        self
-    }
-
-    pub fn compute_reward(&self, account: &StakeHolder) -> Balance {
-        self.stake.get(account).cloned().unwrap_or(0.0) * self.reward_per_token
-            - self.reward_tally.get(account).cloned().unwrap_or(0.0)
-    }
-
-    pub fn withdraw_reward(&mut self, account: &StakeHolder) -> &mut Self {
-        let stake = self.stake.get(account).unwrap_or(&0.0);
-        self.reward_tally.insert(account.clone(), self.reward_per_token * stake);
-        self
-    }
-}
-
-pub type StakerId = (VaultId, crate::AccountId);
+pub type StakeId = (VaultId, AccountId);
 
 #[derive(Debug, Default)]
 pub struct IdealRewardPool {
-    vault_stake: BTreeMap<VaultId, u128>,
-    stake: BTreeMap<StakerId, u128>,
-    rewards: BTreeMap<crate::AccountId, u128>,
+    exchange_rate: BTreeMap<CurrencyId, FixedU128>,
+    secure_threshold: BTreeMap<VaultId, FixedU128>,
+    commission: BTreeMap<VaultId, FixedU128>,
+    collateral: BTreeMap<StakeId, u128>,
+    rewards: BTreeMap<AccountId, (FixedU128, FixedU128)>,
 }
 
 impl IdealRewardPool {
-    pub fn deposit_vault_stake(&mut self, vault: &VaultId, amount: u128) -> &mut Self {
-        log::debug!("deposit_vault_stake {amount}");
-        let current_stake = self.vault_stake.get(vault).map(|x| *x).unwrap_or_default();
-        self.vault_stake.insert(vault.clone(), current_stake + amount);
+    pub fn set_commission(&mut self, vault: &VaultId, rate: FixedU128) -> &mut Self {
+        log::debug!("set_commission {:?}", rate);
+        self.commission.insert(vault.clone(), rate);
         self
     }
 
-    pub fn withdraw_vault_stake(&mut self, vault: &VaultId, amount: u128) -> &mut Self {
-        log::debug!("withdraw_vault_stake {amount}");
-        let current_stake = self.vault_stake.get(vault).map(|x| *x).unwrap_or_default();
-        self.vault_stake.insert(vault.clone(), current_stake - amount);
+    pub fn set_secure_threshold(&mut self, vault: &VaultId, threshold: FixedU128) -> &mut Self {
+        log::debug!("set_secure_threshold {:?}", threshold);
+        self.secure_threshold.insert(vault.clone(), threshold);
         self
     }
 
-    pub fn deposit_nominator_stake(&mut self, account: &StakerId, amount: u128) -> &mut Self {
-        log::debug!("deposit_nominator_stake {amount}");
-        let current_stake = self.stake.get(account).map(|x| *x).unwrap_or_default();
-        self.stake.insert(account.clone(), current_stake + amount);
+    pub fn set_exchange_rate(&mut self, currency_id: CurrencyId, rate: FixedU128) -> &mut Self {
+        log::debug!("set_exchange_rate({:?}) {:?}", currency_id, rate);
+        self.exchange_rate.insert(currency_id, rate);
         self
     }
 
-    pub fn withdraw_nominator_stake(&mut self, account: &StakerId, amount: u128) -> &mut Self {
-        log::debug!("withdraw_nominator_stake {amount}");
-        let current_stake = self.stake.get(account).map(|x| *x).unwrap_or_default();
-        self.stake.insert(account.clone(), current_stake - amount);
+    pub fn deposit_nominator_collateral(&mut self, account: &StakeId, amount: u128) -> &mut Self {
+        log::debug!("deposit_nominator_collateral {amount}");
+        let current_collateral = self.collateral.get(account).map(|x| *x).unwrap_or_default();
+        self.collateral.insert(account.clone(), current_collateral + amount);
         self
     }
 
-    pub fn slash_stake(&mut self, account: &VaultId, amount: u128) -> &mut Self {
+    pub fn withdraw_nominator_collateral(&mut self, account: &StakeId, amount: u128) -> &mut Self {
+        log::debug!("withdraw_nominator_collateral {amount}");
+        let current_collateral = self.collateral.get(account).map(|x| *x).unwrap_or_default();
+        self.collateral.insert(account.clone(), current_collateral - amount);
+        self
+    }
+
+    pub fn slash_collateral(&mut self, account: &VaultId, amount: u128) -> &mut Self {
+        log::error!("slash_collateral {amount}");
         let nominators: Vec<_> = {
-            self.stake
+            self.collateral
                 .iter()
                 .filter(|((vault, _nominator), _stake)| vault == account)
                 .map(|(key, value)| (key.clone(), value.clone()))
@@ -107,62 +58,83 @@ impl IdealRewardPool {
         let total_stake: u128 = nominators.iter().map(|(_key, value)| *value).sum();
         for (key, stake) in nominators {
             let new_stake = stake - (stake * amount) / total_stake;
-            self.stake.insert(key, new_stake);
+            self.collateral.insert(key, new_stake);
         }
         self
     }
 
     pub fn distribute_reward(&mut self, reward: u128) -> &mut Self {
         log::debug!("distribute_reward {reward}");
-        let total_vault_stake: u128 = self.vault_stake.iter().map(|(_, value)| *value).sum();
+        let reward = FixedU128::from(reward);
+        let total_stake: FixedU128 = self
+            .collateral
+            .iter()
+            .map(|(stake_id, _)| self.stake(stake_id))
+            .fold(Zero::zero(), |x: FixedU128, y: FixedU128| x + y);
 
-        for (vault, &vault_stake) in self.vault_stake.iter() {
-            let vault_reward = (vault_stake * reward) / total_vault_stake;
+        for (stake_id, _) in self.collateral.iter() {
+            let stake = self.stake(stake_id);
+            let reward = (stake * reward) / total_stake;
 
-            let current_reward = self.rewards.get(&vault.account_id).map(|x| *x).unwrap_or_default();
-            let operator_reward = (vault_reward * 3) / 4; // 75% commission
-            self.rewards
-                .insert(vault.account_id.clone(), current_reward + operator_reward);
+            let (vault_id, nominator_id) = stake_id;
 
-            let nominators: Vec<_> = self
-                .stake
-                .iter()
-                .filter(|((operator, _nominator), _stake)| operator == vault)
-                .map(|(key, value)| (key.clone(), value.clone()))
-                .collect();
-            let total_nominator_stake: u128 = nominators.iter().map(|(_key, value)| *value).sum();
-            for ((_operator, nominator), nominator_stake) in nominators {
-                let nominator_reward = ((nominator_stake * vault_reward) / total_nominator_stake) / 4;
-                let current_reward = self.rewards.get(&nominator).map(|x| *x).unwrap_or_default();
-                self.rewards.insert(nominator, current_reward + nominator_reward);
-            }
+            let commission = self.commission.get(vault_id).cloned().unwrap_or_default();
+
+            let (vault_commission, vault_reward) = self.rewards.get(&vault_id.account_id).cloned().unwrap_or_default();
+            self.rewards.insert(
+                vault_id.account_id.clone(),
+                (vault_commission + reward * commission, vault_reward),
+            );
+
+            let (nominator_commission, nominator_reward) = self.rewards.get(&nominator_id).cloned().unwrap_or_default();
+            self.rewards.insert(
+                nominator_id.clone(),
+                (nominator_commission, nominator_reward + (reward - reward * commission)),
+            );
         }
         self
     }
 
     pub fn get_total_reward_for(&self, account: &crate::AccountId) -> u128 {
-        self.rewards.get(account).map(|x| *x).unwrap_or_default()
+        self.rewards
+            .get(account)
+            .map(|x| x.1)
+            .unwrap_or_default()
+            .truncate_to_inner()
+            .unwrap()
     }
-    pub fn get_nominator_stake(&self, account: &crate::AccountId) -> u128 {
-        self.stake
+
+    pub fn get_nominator_collateral(&self, account: &crate::AccountId, currency_id: CurrencyId) -> u128 {
+        self.collateral
             .iter()
-            .filter(|((_vault, nominator), _stake)| nominator == account)
+            .filter(|((vault, nominator), _stake)| nominator == account && vault.collateral_currency() == currency_id)
             .map(|(_key, value)| *value)
             .sum()
     }
-    pub fn nominations(&self) -> Vec<(StakerId, u128)> {
-        self.stake
+
+    pub fn nominations(&self) -> Vec<(StakeId, u128)> {
+        self.collateral
             .iter()
             .map(|(key, value)| (key.clone(), value.clone()))
             .collect()
     }
+
     pub fn vaults(&self) -> Vec<VaultId> {
-        self.vault_stake.iter().map(|(key, _)| key.clone()).collect()
+        self.secure_threshold.iter().map(|(key, _)| key.clone()).collect()
     }
+
     pub fn rewards(&self) -> Vec<(crate::AccountId, u128)> {
         self.rewards
             .iter()
-            .map(|(key, value)| (key.clone(), value.clone()))
+            .map(|(key, (commission, rewards))| (key.clone(), (*commission + *rewards).truncate_to_inner().unwrap()))
             .collect()
+    }
+
+    pub fn stake(&self, (vault_id, nominator_id): &StakeId) -> FixedU128 {
+        let currency_id = vault_id.collateral_currency();
+        let threshold = self.secure_threshold[vault_id];
+        let exchange_rate = self.exchange_rate[&currency_id];
+        let collateral = self.collateral[&(vault_id.clone(), nominator_id.clone())];
+        FixedU128::from(collateral) / threshold / exchange_rate
     }
 }

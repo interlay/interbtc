@@ -49,7 +49,7 @@
 //     }
 // }
 
-// #![deny(warnings)]
+#![deny(warnings)]
 #![cfg_attr(test, feature(proc_macro_hygiene))]
 #![cfg_attr(not(feature = "std"), no_std)]
 
@@ -370,7 +370,8 @@ impl<T: Config> Pallet<T> {
     }
 
     /// Deposit an `amount` of stake to the `vault_id` for the `nominator_id`.
-    fn deposit_stake(
+    // NOTE: temporarily public for reward migration
+    pub fn deposit_stake(
         vault_id: &DefaultVaultId<T>,
         nominator_id: &T::AccountId,
         amount: SignedFixedPoint<T>,
@@ -539,7 +540,8 @@ impl<T: Config> Pallet<T> {
     }
 
     /// Distribute the `reward` to all participants.
-    fn distribute_reward(
+    // NOTE: temporarily public for reward migration
+    pub fn distribute_reward(
         currency_id: T::CurrencyId,
         vault_id: &DefaultVaultId<T>,
         reward: SignedFixedPoint<T>,
@@ -750,6 +752,16 @@ impl<T: Config> Pallet<T> {
             new_nonce: Self::nonce(vault_id),
         });
         Ok(())
+    }
+
+    #[cfg(feature = "integration-tests")]
+    pub fn get_total_rewards(currency_id: T::CurrencyId) -> <SignedFixedPoint<T> as FixedPointNumber>::Inner {
+        TotalRewards::<T>::iter()
+            .filter(|(currency, _, _)| currency == &currency_id)
+            .map(|(_, _, amount)| amount)
+            .fold(Zero::zero(), |x: SignedFixedPoint<T>, y: SignedFixedPoint<T>| x + y)
+            .truncate_to_inner()
+            .unwrap()
     }
 }
 

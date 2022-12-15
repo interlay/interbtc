@@ -133,7 +133,7 @@ impl currency::Config for Test {
 
 impl Config for Test {
     type RuntimeEvent = RuntimeEvent;
-    type OnAggregateChange = ();
+    type OnExchangeRateChange = ();
     type WeightInfo = ();
 }
 

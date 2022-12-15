@@ -10,6 +10,8 @@ serde = { version = "1.0.130", default-features = false, features = ["derive"], 
 codec = { package = "parity-scale-codec", version = "3.1.5", default-features = false, features = ["derive", "max-encoded-len"] }
 scale-info = { version = "2.2.0", default-features = false, features = ["derive"] }
 
+visibility = { version = "0.0.1", optional = true }
+
 # Substrate dependencies
 sp-arithmetic = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.31", default-features = false }
 sp-core = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.31", default-features = false }
@@ -70,3 +72,6 @@ runtime-benchmarks = [
 	"frame-system/runtime-benchmarks",
 ]
 try-runtime = [ "frame-support/try-runtime" ]
+integration-tests = [
+  "visibility"
+]
