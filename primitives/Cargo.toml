@@ -18,6 +18,9 @@ xcm = { git = "https://github.com/paritytech/polkadot", branch = "release-v0.9.3
 # Parachain dependencies
 bitcoin = { path = "../crates/bitcoin", default-features = false }
 
+# Zenlink dependencies
+zenlink-protocol = { git = "https://github.com/zenlinkpro/Zenlink-DEX-Module", rev = "2a40100309e74ddf425961b1ba1851c5b6f5cac3", default-features = false }
+
 [features]
 default = ["std"]
 std = [

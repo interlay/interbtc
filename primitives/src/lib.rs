@@ -480,14 +480,26 @@ create_currency_id! {
 #[derive(Encode, Decode, Eq, Hash, PartialEq, Copy, Clone, RuntimeDebug, PartialOrd, Ord, TypeInfo, MaxEncodedLen)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[cfg_attr(feature = "std", serde(rename_all = "camelCase"))]
+pub enum LpToken {
+    Token(TokenSymbol),
+    ForeignAsset(ForeignAssetId),
+    StableLpToken(StablePoolId),
+}
+
+#[derive(Encode, Decode, Eq, Hash, PartialEq, Copy, Clone, RuntimeDebug, PartialOrd, Ord, TypeInfo, MaxEncodedLen)]
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "std", serde(rename_all = "camelCase"))]
 pub enum CurrencyId {
     Token(TokenSymbol),
     ForeignAsset(ForeignAssetId),
     LendToken(LendTokenId),
+    LpToken(LpToken, LpToken),
+    StableLpToken(StablePoolId),
 }
 
 pub type ForeignAssetId = u32;
 pub type LendTokenId = u32;
+pub type StablePoolId = u32;
 
 #[derive(scale_info::TypeInfo, Encode, Decode, Clone, Eq, PartialEq, Debug)]
 pub struct CustomMetadata {
@@ -498,5 +510,40 @@ pub struct CustomMetadata {
 impl CurrencyId {
     pub fn is_lend_token(&self) -> bool {
         matches!(self, CurrencyId::LendToken(_))
+    }
+
+    pub fn join_lp_token(currency_id_0: Self, currency_id_1: Self) -> Option<Self> {
+        let lp_token_0 = match currency_id_0 {
+            CurrencyId::Token(symbol) => LpToken::Token(symbol),
+            CurrencyId::ForeignAsset(foreign_asset_id) => LpToken::ForeignAsset(foreign_asset_id),
+            CurrencyId::StableLpToken(stable_pool_id) => LpToken::StableLpToken(stable_pool_id),
+            _ => return None,
+        };
+        let lp_token_1 = match currency_id_1 {
+            CurrencyId::Token(symbol) => LpToken::Token(symbol),
+            CurrencyId::ForeignAsset(foreign_asset_id) => LpToken::ForeignAsset(foreign_asset_id),
+            CurrencyId::StableLpToken(stable_pool_id) => LpToken::StableLpToken(stable_pool_id),
+            _ => return None,
+        };
+        Some(CurrencyId::LpToken(lp_token_0, lp_token_1))
+    }
+}
+
+impl Into<CurrencyId> for LpToken {
+    fn into(self) -> CurrencyId {
+        match self {
+            LpToken::Token(token) => CurrencyId::Token(token),
+            LpToken::ForeignAsset(foreign_asset_id) => CurrencyId::ForeignAsset(foreign_asset_id),
+            LpToken::StableLpToken(stable_pool_id) => CurrencyId::StableLpToken(stable_pool_id),
+        }
+    }
+}
+
+impl zenlink_protocol::AssetInfo for CurrencyId {
+    fn is_support(&self) -> bool {
+        match self {
+            Self::Token(_) | Self::ForeignAsset(_) | Self::StableLpToken(_) => true,
+            _ => false,
+        }
     }
 }

@@ -237,3 +237,6 @@ cumulus-relay-chain-inprocess-interface  = { git = "https://github.com/paritytec
 cumulus-relay-chain-rpc-interface  = { git = "https://github.com/paritytech//cumulus", branch = "polkadot-v0.9.31" }
 cumulus-client-collator  = { git = "https://github.com/paritytech//cumulus", branch = "polkadot-v0.9.31" }
 cumulus-relay-chain-minimal-node  = { git = "https://github.com/paritytech//cumulus", branch = "polkadot-v0.9.31" }
+
+[patch."https://github.com/open-web3-stack/open-runtime-module-library"]
+orml-traits = { git = "https://github.com/open-web3-stack//open-runtime-module-library", rev = "3fcd3cf9e63fe80fd9671912833a900ba09d1cc0" }

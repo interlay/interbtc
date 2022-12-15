@@ -2,8 +2,8 @@
 
 /// Money matters.
 pub mod currency {
-    use primitives::TokenSymbol;
-    pub use primitives::{Balance, CurrencyId, CurrencyId::Token, KBTC, KINT, KSM};
+    pub use primitives::{Balance, CurrencyId, CurrencyId::Token, TokenSymbol, KBTC, KINT, KSM};
+
     pub const NATIVE_TOKEN_ID: TokenSymbol = KINT;
     pub const NATIVE_CURRENCY_ID: CurrencyId = Token(NATIVE_TOKEN_ID);
     pub const PARENT_TOKEN_ID: TokenSymbol = KSM;
