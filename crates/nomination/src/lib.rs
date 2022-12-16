@@ -249,8 +249,9 @@ impl<T: Config> Pallet<T> {
                 ensure!(Self::is_nomination_enabled(), Error::<T>::VaultNominationDisabled);
                 ensure!(Self::is_opted_in(vault_id)?, Error::<T>::VaultNotOptedInToNomination);
             }
-            ext::vault_registry::decrease_total_backing_collateral(&vault_id.currencies, &amount)?;
         }
+
+        ext::vault_registry::decrease_total_backing_collateral(&vault_id.currencies, &amount)?;
 
         // withdraw `amount` of stake from the vault staking pool
         ext::vault_registry::pool_manager::withdraw_collateral::<T>(vault_id, nominator_id, &amount, Some(index))?;
