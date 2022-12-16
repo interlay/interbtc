@@ -80,12 +80,16 @@
 #![recursion_limit = "256"]
 #![cfg_attr(not(feature = "std"), no_std)]
 
+use core::time::Duration;
+
+use chrono::Days;
 use codec::{Decode, DecodeLimit, Encode, Input, MaxEncodedLen};
 use frame_support::{
     ensure,
     traits::{
         schedule::{DispatchTime, Named as ScheduleNamed},
         BalanceStatus, Currency, Get, LockIdentifier, OnUnbalanced, ReservableCurrency, UnfilteredDispatchable,
+        UnixTime,
     },
     transactional,
     weights::Weight,
@@ -157,6 +161,8 @@ enum Releases {
 
 #[frame_support::pallet]
 pub mod pallet {
+    use core::num::TryFromIntError;
+
     use super::*;
     use frame_support::{
         dispatch::{DispatchClass, DispatchResultWithPostInfo, Pays},
@@ -190,10 +196,6 @@ pub mod pallet {
         /// where they are on the losing side of a vote.
         #[pallet::constant]
         type EnactmentPeriod: Get<Self::BlockNumber>;
-
-        /// How often (in blocks) new public referenda are launched.
-        #[pallet::constant]
-        type LaunchPeriod: Get<Self::BlockNumber>;
 
         /// How often (in blocks) to check for new votes.
         #[pallet::constant]
@@ -238,6 +240,14 @@ pub mod pallet {
         /// The maximum number of public proposals that can exist at any time.
         #[pallet::constant]
         type MaxProposals: Get<u32>;
+
+        /// Unix time
+        type UnixTime: UnixTime;
+
+        /// Duration
+        type Moment: TryInto<i64>;
+
+        type LaunchOffsetMillis: Get<Self::Moment>;
     }
 
     /// The number of (public) proposals that have been made so far.
@@ -296,6 +306,9 @@ pub mod pallet {
     /// New networks start with last version.
     #[pallet::storage]
     pub(crate) type StorageVersion<T> = StorageValue<_, Releases>;
+
+    #[pallet::storage]
+    pub type NextLaunchTimestamp<T: Config> = StorageValue<_, u64, ValueQuery>;
 
     #[pallet::genesis_config]
     pub struct GenesisConfig<T: Config> {
@@ -398,6 +411,14 @@ pub mod pallet {
         MaxVotesReached,
         /// Maximum number of proposals reached.
         TooManyProposals,
+        /// Unable to convert value.
+        TryIntoIntError,
+    }
+
+    impl<T> From<TryFromIntError> for Error<T> {
+        fn from(_err: TryFromIntError) -> Self {
+            Error::<T>::TryIntoIntError
+        }
     }
 
     #[pallet::hooks]
@@ -1069,11 +1090,14 @@ impl<T: Config> Pallet<T> {
         let r = last.saturating_sub(next);
 
         // pick out another public referendum if it's time.
-        if (now % T::LaunchPeriod::get()).is_zero() {
+        let current_time = T::UnixTime::now();
+        if Self::should_launch(current_time)? {
             // Errors come from the queue being empty. If the queue is not empty, it will take
             // full block weight.
             if Self::launch_next(now).is_ok() {
                 weight = max_block_weight;
+                // try to launch another one. We ignore the result since weight can't increase beyond max_block_weight
+                let _ = Self::launch_next(now);
             } else {
                 weight = weight.saturating_add(T::WeightInfo::on_initialize_base_with_launch_period(r));
             }
@@ -1089,6 +1113,41 @@ impl<T: Config> Pallet<T> {
         }
 
         Ok(weight)
+    }
+
+    /// determine whether or not a new referendum should be launched. This will return true
+    /// once every week.
+    fn should_launch(now: Duration) -> Result<bool, DispatchError> {
+        if now.as_secs() < NextLaunchTimestamp::<T>::get() {
+            return Ok(false);
+        }
+
+        // time to launch - calculate the date of next launch.
+
+        // convert to format used by `chrono`
+        let secs: i64 = now.as_secs().try_into().map_err(Error::<T>::from)?;
+        let now =
+            chrono::NaiveDateTime::from_timestamp_opt(secs, now.subsec_nanos()).ok_or(Error::<T>::TryIntoIntError)?;
+
+        // calculate next week boundary
+        let beginning_of_week = now.date().week(chrono::Weekday::Mon).first_day();
+        let next_week = beginning_of_week
+            .checked_add_days(Days::new(7))
+            .ok_or(Error::<T>::TryIntoIntError)?
+            .and_time(Default::default());
+
+        let offset = T::LaunchOffsetMillis::get()
+            .try_into()
+            .map_err(|_| Error::<T>::TryIntoIntError)?;
+        let next_launch = next_week
+            .checked_add_signed(chrono::Duration::milliseconds(offset))
+            .ok_or(ArithmeticError::Overflow)?;
+
+        // update storage
+        let next_timestamp: u64 = next_launch.timestamp().try_into().map_err(Error::<T>::from)?;
+        NextLaunchTimestamp::<T>::set(next_timestamp);
+
+        Ok(true)
     }
 
     /// Reads the length of account in DepositOf without getting the complete value in the runtime.

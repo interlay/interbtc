@@ -39,6 +39,7 @@ frame_support::construct_runtime!(
         Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>},
         Scheduler: pallet_scheduler::{Pallet, Call, Storage, Event<T>},
         Democracy: pallet_democracy::{Pallet, Call, Storage, Config<T>, Event<T>},
+        Timestamp: pallet_timestamp::{Pallet, Call, Storage, Inherent},
     }
 );
 
@@ -101,6 +102,17 @@ impl pallet_scheduler::Config for Test {
 }
 
 parameter_types! {
+    pub const MinimumPeriod: u64 = 5;
+}
+
+impl pallet_timestamp::Config for Test {
+    type Moment = u64;
+    type OnTimestampSet = ();
+    type MinimumPeriod = MinimumPeriod;
+    type WeightInfo = ();
+}
+
+parameter_types! {
     pub const ExistentialDeposit: u64 = 1;
     pub const MaxLocks: u32 = 10;
 }
@@ -124,6 +136,7 @@ parameter_types! {
     pub const MaxVotes: u32 = 100;
     pub const MaxProposals: u32 = MAX_PROPOSALS;
     pub static PreimageByteDeposit: u64 = 0;
+    pub LaunchOffsetMillis: u64 = 9 * 60 * 60 * 1000; // 9 hours offset, i.e. MON 9 AM
 }
 ord_parameter_types! {
     pub const One: u64 = 1;
@@ -147,7 +160,6 @@ impl Config for Test {
     type RuntimeEvent = RuntimeEvent;
     type Currency = pallet_balances::Pallet<Self>;
     type EnactmentPeriod = EnactmentPeriod;
-    type LaunchPeriod = LaunchPeriod;
     type VotingPeriod = VotingPeriod;
     type FastTrackVotingPeriod = FastTrackVotingPeriod;
     type MinimumDeposit = MinimumDeposit;
@@ -159,6 +171,9 @@ impl Config for Test {
     type PalletsOrigin = OriginCaller;
     type WeightInfo = ();
     type MaxProposals = MaxProposals;
+    type UnixTime = Timestamp;
+    type Moment = u64;
+    type LaunchOffsetMillis = LaunchOffsetMillis;
 }
 
 pub fn new_test_ext() -> sp_io::TestExternalities {
@@ -230,6 +245,9 @@ fn propose_set_balance_and_note(who: u64, value: u64, delay: u64) -> DispatchRes
 }
 
 fn next_block() {
+    let week = 1000 * 60 * 60 * 24 * 7;
+    Timestamp::set_timestamp(System::block_number() * week / 2);
+
     System::set_block_number(System::block_number() + 1);
     Scheduler::on_initialize(System::block_number());
     assert!(Democracy::begin_block(System::block_number()).is_ok());
@@ -264,4 +282,51 @@ fn nay(who: u64) -> Vote<u64> {
 
 fn tally(r: ReferendumIndex) -> Tally<u64> {
     Democracy::referendum_status(r).unwrap().tally
+}
+
+#[test]
+fn should_launch_works() {
+    new_test_ext().execute_with(|| {
+        let arbitrary_timestamp = 1670864631; // Mon Dec 12 2022 17:03:51 UTC
+
+        let week_boundaries = [
+            1671440400, // Mon Dec 19 2022 09:00:00 UTC
+            1672045200, // Mon Dec 26 2022 09:00:00 UTC
+            1672650000, // Mon Jan 02 2023 09:00:00 UTC
+        ];
+        // first launch immediately after launch of chain / first runtime upgrade
+        assert!(Democracy::should_launch(Duration::from_secs(arbitrary_timestamp)).unwrap());
+        // second time it should return false
+        assert!(!Democracy::should_launch(Duration::from_secs(arbitrary_timestamp)).unwrap());
+
+        for boundary in week_boundaries {
+            // one second before the next week it should still return false
+            assert!(!Democracy::should_launch(Duration::from_secs(boundary - 1)).unwrap());
+
+            // first second of next week it should return true exactly once
+            assert!(Democracy::should_launch(Duration::from_secs(boundary)).unwrap());
+            assert!(!Democracy::should_launch(Duration::from_secs(boundary)).unwrap());
+        }
+    });
+}
+
+#[test]
+fn should_launch_edge_case_behavior() {
+    new_test_ext().execute_with(|| {
+        // test edge case where we launch on monday before 9 am. Next launch will be
+        // in slightly more than 7 days
+        let initial_launch = 1670828400; // Mon Dec 12 2022 07:00:00 UTC
+        let next_launch = 1671440400; // Mon Dec 19 2022 09:00:00 UTC
+
+        // first launch immediately after launch of chain / first runtime upgrade
+        assert!(Democracy::should_launch(Duration::from_secs(initial_launch)).unwrap());
+        assert!(!Democracy::should_launch(Duration::from_secs(initial_launch)).unwrap());
+
+        // one second before the next week it should still return false
+        assert!(!Democracy::should_launch(Duration::from_secs(next_launch - 1)).unwrap());
+
+        // first second of next week it should return true exactly once
+        assert!(Democracy::should_launch(Duration::from_secs(next_launch)).unwrap());
+        assert!(!Democracy::should_launch(Duration::from_secs(next_launch)).unwrap());
+    });
 }
