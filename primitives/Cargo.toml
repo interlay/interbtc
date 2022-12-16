@@ -32,4 +32,6 @@ std = [
     "sp-runtime/std",
 
     "bitcoin/std",
+
+    "zenlink-protocol/std",
 ]
