@@ -25,7 +25,7 @@ bitcoin = { path = "../bitcoin", default-features = false }
 security = { path = "../security", default-features = false }
 
 [dev-dependencies]
-mocktopus = "0.7.0"
+mocktopus = "0.8.0"
 hex = "0.4.2"
 frame-benchmarking = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.31", default-features = false }
 itertools = "0.10.0"

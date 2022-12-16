@@ -28,7 +28,7 @@ currency = { path = "../currency", default-features = false }
 traits = { path = '../traits', default-features = false }
 
 [dev-dependencies]
-mocktopus = "0.7.0"
+mocktopus = "0.8.0"
 frame-benchmarking = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.31", default-features = false }
 
 # Orml dependencies

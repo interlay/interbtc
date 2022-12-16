@@ -21,7 +21,7 @@ sp-std = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v
 frame-support = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.31", default-features = false }
 
 [dev-dependencies]
-mocktopus = "0.7.0"
+mocktopus = "0.8.0"
 secp256k1 = { package = "secp256k1", git = "https://github.com/rust-bitcoin/rust-secp256k1", rev = "8e61874", default-features = false, features = ["rand-std"] }
 
 [features]

@@ -99,7 +99,7 @@ xcm-builder = { git = "https://github.com/paritytech/polkadot", branch = "releas
 
 [dev-dependencies]
 hex = "0.4.2"
-mocktopus = "0.7.0"
+mocktopus = "0.8.0"
 serde_json = "1.0"
 pretty_assertions = "0.7.2"
 flate2= "1.0"

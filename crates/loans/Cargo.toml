@@ -37,7 +37,7 @@ orml-traits = { git = "https://github.com/open-web3-stack/open-runtime-module-li
 orml-oracle = { git = "https://github.com/open-web3-stack/open-runtime-module-library", rev = "3fcd3cf9e63fe80fd9671912833a900ba09d1cc0", default-features = false }
 
 [dev-dependencies]
-mocktopus = "0.7.0"
+mocktopus = "0.8.0"
 
 [features]
 default = ["std"]

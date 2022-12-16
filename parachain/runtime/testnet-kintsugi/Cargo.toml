@@ -129,7 +129,7 @@ zenlink-swap-router = { git = "https://github.com/zenlinkpro/Zenlink-DEX-Module"
 
 [dev-dependencies]
 hex = '0.4.2'
-mocktopus = '0.7.0'
+mocktopus = "0.8.0"
 serde_json = "1.0"
 
 bitcoin = { path = "../../../crates/bitcoin", default-features = false }
