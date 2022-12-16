@@ -14093,7 +14093,7 @@ dependencies = [
 [[package]]
 name = "zenlink-protocol"
 version = "0.4.4"
-source = "git+https://github.com/zenlinkpro/Zenlink-DEX-Module?rev=2a40100309e74ddf425961b1ba1851c5b6f5cac3#2a40100309e74ddf425961b1ba1851c5b6f5cac3"
+source = "git+https://github.com/interlay/Zenlink-DEX-Module?rev=44b7d5e84276df0eaac70ee89279d2fa4422cf94#44b7d5e84276df0eaac70ee89279d2fa4422cf94"
 dependencies = [
  "cumulus-primitives-core",
  "frame-support",
@@ -14116,7 +14116,7 @@ dependencies = [
 [[package]]
 name = "zenlink-protocol-runtime-api"
 version = "0.4.4"
-source = "git+https://github.com/zenlinkpro/Zenlink-DEX-Module?rev=2a40100309e74ddf425961b1ba1851c5b6f5cac3#2a40100309e74ddf425961b1ba1851c5b6f5cac3"
+source = "git+https://github.com/interlay/Zenlink-DEX-Module?rev=44b7d5e84276df0eaac70ee89279d2fa4422cf94#44b7d5e84276df0eaac70ee89279d2fa4422cf94"
 dependencies = [
  "parity-scale-codec",
  "sp-api",
@@ -14127,7 +14127,7 @@ dependencies = [
 [[package]]
 name = "zenlink-stable-amm"
 version = "0.1.0"
-source = "git+https://github.com/zenlinkpro/Zenlink-DEX-Module?rev=2a40100309e74ddf425961b1ba1851c5b6f5cac3#2a40100309e74ddf425961b1ba1851c5b6f5cac3"
+source = "git+https://github.com/interlay/Zenlink-DEX-Module?rev=44b7d5e84276df0eaac70ee89279d2fa4422cf94#44b7d5e84276df0eaac70ee89279d2fa4422cf94"
 dependencies = [
  "frame-support",
  "frame-system",
@@ -14144,7 +14144,7 @@ dependencies = [
 [[package]]
 name = "zenlink-stable-amm-runtime-api"
 version = "0.1.0"
-source = "git+https://github.com/zenlinkpro/Zenlink-DEX-Module?rev=2a40100309e74ddf425961b1ba1851c5b6f5cac3#2a40100309e74ddf425961b1ba1851c5b6f5cac3"
+source = "git+https://github.com/interlay/Zenlink-DEX-Module?rev=44b7d5e84276df0eaac70ee89279d2fa4422cf94#44b7d5e84276df0eaac70ee89279d2fa4422cf94"
 dependencies = [
  "parity-scale-codec",
  "sp-api",
@@ -14155,7 +14155,7 @@ dependencies = [
 [[package]]
 name = "zenlink-swap-router"
 version = "0.1.0"
-source = "git+https://github.com/zenlinkpro/Zenlink-DEX-Module?rev=2a40100309e74ddf425961b1ba1851c5b6f5cac3#2a40100309e74ddf425961b1ba1851c5b6f5cac3"
+source = "git+https://github.com/interlay/Zenlink-DEX-Module?rev=44b7d5e84276df0eaac70ee89279d2fa4422cf94#44b7d5e84276df0eaac70ee89279d2fa4422cf94"
 dependencies = [
  "frame-support",
  "frame-system",

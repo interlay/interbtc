@@ -121,11 +121,11 @@ orml-unknown-tokens = { git = "https://github.com/open-web3-stack/open-runtime-m
 orml-asset-registry= { git = "https://github.com/open-web3-stack/open-runtime-module-library", rev = "3fcd3cf9e63fe80fd9671912833a900ba09d1cc0", default-features = false }
 
 # Zenlink dependencies
-zenlink-protocol = { git = "https://github.com/zenlinkpro/Zenlink-DEX-Module", rev = "2a40100309e74ddf425961b1ba1851c5b6f5cac3", default-features = false }
-zenlink-protocol-runtime-api = { git = "https://github.com/zenlinkpro/Zenlink-DEX-Module", rev = "2a40100309e74ddf425961b1ba1851c5b6f5cac3", default-features = false }
-zenlink-stable-amm = { git = "https://github.com/zenlinkpro/Zenlink-DEX-Module", rev = "2a40100309e74ddf425961b1ba1851c5b6f5cac3", default-features = false }
-zenlink-stable-amm-runtime-api = { git = "https://github.com/zenlinkpro/Zenlink-DEX-Module", rev = "2a40100309e74ddf425961b1ba1851c5b6f5cac3", default-features = false }
-zenlink-swap-router = { git = "https://github.com/zenlinkpro/Zenlink-DEX-Module", rev = "2a40100309e74ddf425961b1ba1851c5b6f5cac3", default-features = false }
+zenlink-protocol = { git = "https://github.com/interlay/Zenlink-DEX-Module", rev = "44b7d5e84276df0eaac70ee89279d2fa4422cf94", default-features = false }
+zenlink-protocol-runtime-api = { git = "https://github.com/interlay/Zenlink-DEX-Module", rev = "44b7d5e84276df0eaac70ee89279d2fa4422cf94", default-features = false }
+zenlink-stable-amm = { git = "https://github.com/interlay/Zenlink-DEX-Module", rev = "44b7d5e84276df0eaac70ee89279d2fa4422cf94", default-features = false }
+zenlink-stable-amm-runtime-api = { git = "https://github.com/interlay/Zenlink-DEX-Module", rev = "44b7d5e84276df0eaac70ee89279d2fa4422cf94", default-features = false }
+zenlink-swap-router = { git = "https://github.com/interlay/Zenlink-DEX-Module", rev = "44b7d5e84276df0eaac70ee89279d2fa4422cf94", default-features = false }
 
 [dev-dependencies]
 hex = '0.4.2'
