@@ -42,7 +42,7 @@ fn add_referendum<T: Config>(n: u32) -> Result<ReferendumIndex, &'static str> {
     let proposal_hash: T::Hash = T::Hashing::hash_of(&n);
     let vote_threshold = VoteThreshold::SimpleMajority;
 
-    Democracy::<T>::inject_referendum(T::LaunchPeriod::get(), proposal_hash, vote_threshold, 0u32.into());
+    Democracy::<T>::inject_referendum(T::VotingPeriod::get(), proposal_hash, vote_threshold, 0u32.into());
     let referendum_index: ReferendumIndex = ReferendumCount::<T>::get() - 1;
     T::Scheduler::schedule_named(
         (DEMOCRACY_ID, referendum_index).encode(),
@@ -198,7 +198,7 @@ benchmarks! {
         // Launch public
         assert!(add_proposal::<T>(r).is_ok(), "proposal not created");
 
-        let block_number = T::LaunchPeriod::get();
+        let block_number = T::VotingPeriod::get();
 
     }: { Democracy::<T>::on_initialize(block_number) }
     verify {
@@ -264,7 +264,7 @@ benchmarks! {
         assert_eq!(Democracy::<T>::referendum_count(), r, "referenda not created");
         assert_eq!(Democracy::<T>::lowest_unbaked(), 0, "invalid referenda init");
 
-        let block_number = T::LaunchPeriod::get();
+        let block_number = T::VotingPeriod::get();
 
     }: { Democracy::<T>::on_initialize(block_number) }
     verify {
