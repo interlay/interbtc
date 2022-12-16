@@ -254,6 +254,50 @@ pub mod vault_capacity {
                 "Previous rewards should be in staking"
             );
 
+            // check that totalUserVaultCollateral matches sum of stakes in staking pallet (plus liquidated collateral)
+            for (currency_pair, expected_collateral) in crate::TotalUserVaultCollateral::<Runtime>::iter() {
+                let amount_from_nominator_stakes = staking::Stake::<Runtime>::iter()
+                    .filter_map(|(_nonce, (vault, nominator), _value)| {
+                        if vault.collateral_currency() == currency_pair.collateral {
+                            let value = ext::staking::compute_stake::<Runtime>(&vault, &nominator).unwrap();
+                            Some(value)
+                        } else {
+                            None
+                        }
+                    })
+                    .reduce(|a, b| a.saturating_add(b))
+                    .unwrap_or_default();
+                let amount_from_vault_liquidated_collateral = crate::Vaults::<Runtime>::iter()
+                    .filter(|(key, value)| key.currencies.collateral == currency_pair.collateral)
+                    .map(|(_key, vault)| vault.liquidated_collateral)
+                    .reduce(|a, b| a.saturating_add(b))
+                    .unwrap_or_default();
+                let amount_from_liquidation_vault = crate::LiquidationVault::<Runtime>::get(currency_pair)
+                    .map(|x| x.collateral)
+                    .unwrap_or_default();
+
+                log::info!(
+                    target: TARGET,
+                    "TotalUserVaultCollateral: {:?}, sum(stakes): {:?} liquidated_collateral: {:?}, liquidation_vault: {:?}",
+                    expected_collateral,
+                    amount_from_nominator_stakes,
+                    amount_from_vault_liquidated_collateral,
+                    amount_from_liquidation_vault,
+                );
+
+                let actual = amount_from_nominator_stakes
+                    + amount_from_vault_liquidated_collateral
+                    + amount_from_liquidation_vault;
+                let diff = if expected_collateral > actual {
+                    expected_collateral - actual
+                } else {
+                    actual - expected_collateral
+                };
+
+                // allow it to be off by 100 planck
+                assert!(diff <= 100u32.into());
+            }
+
             // check that TotalCurrentStake matches sum of stakes in staking pallet
             for (_nonce, vault_id, total) in staking::TotalCurrentStake::<Runtime>::iter() {
                 log::info!(target: TARGET, "total = {:?}", total);
