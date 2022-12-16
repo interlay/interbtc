@@ -325,12 +325,14 @@ parameter_types! {
     pub const MaxAssetsForTransfer: usize = 2; // set to 2 so we can transfer intr and ibtc at once
 }
 
+const STATEMINT_PARA_ID: u32 = 1000;
+const STATEMINT_XCM_FEE: u128 = 500_000_000; // statemint fee was 31_275_420 on dec 15 2022: https://statemint.stg.subscan.io/xcm_message/polkadot-8c9d800d54d699e7f8c05b54ccbcef3addb861c6
 parameter_type_with_key! {
-    // Only used for transferring parachain tokens to other parachains using DOT as fee currency. Currently we do not support this, hence return MAX.
-    // See: https://github.com/open-web3-stack/open-runtime-module-library/blob/cadcc9fb10b8212f92668138fc8f83dc0c53acf5/xtokens/README.md#transfer-multiple-currencies
+    // Used to determine KSM fee when transferring to statemine. https://github.com/open-web3-stack/open-runtime-module-library/blob/cadcc9fb10b8212f92668138fc8f83dc0c53acf5/xtokens/README.md#transfer-multiple-currencies
     pub ParachainMinFee: |location: MultiLocation| -> Option<u128> {
         #[allow(clippy::match_ref_pats)] // false positive
         match (location.parents, location.first_interior()) {
+            (1, Some(Parachain(id))) if *id == STATEMINT_PARA_ID => Some(STATEMINT_XCM_FEE),
             _ => None,
         }
     };
