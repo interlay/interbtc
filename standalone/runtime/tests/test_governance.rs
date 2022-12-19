@@ -138,7 +138,7 @@ fn create_set_balance_proposal(amount_to_set: Balance) -> H256 {
 }
 
 fn launch_and_approve_referendum() -> (BlockNumber, ReferendumIndex) {
-    let start_height = <Runtime as democracy::Config>::LaunchPeriod::get();
+    let start_height = <Runtime as democracy::Config>::VotingPeriod::get();
     DemocracyPallet::on_initialize(start_height);
     let index = assert_democracy_started_event();
 
@@ -338,7 +338,7 @@ fn integration_test_governance_voter_can_change_vote() {
         let amount_to_set = 1000;
         create_set_balance_proposal(amount_to_set);
 
-        let start_height = <Runtime as democracy::Config>::LaunchPeriod::get();
+        let start_height = <Runtime as democracy::Config>::VotingPeriod::get();
         DemocracyPallet::on_initialize(start_height);
         let index = assert_democracy_started_event();
 
@@ -404,7 +404,7 @@ fn integration_test_fast_track_referendum() {
         let amount_to_set = 1000;
         let proposal_hash = create_set_balance_proposal(amount_to_set);
 
-        let start_height = <Runtime as democracy::Config>::LaunchPeriod::get();
+        let start_height = <Runtime as democracy::Config>::VotingPeriod::get();
         DemocracyPallet::on_initialize(start_height);
         let index = assert_democracy_started_event();
 
@@ -446,7 +446,7 @@ fn integration_test_governance_voter_can_change_vote_with_limited_funds() {
         let amount_to_set = 1000;
         create_set_balance_proposal(amount_to_set);
 
-        let start_height = <Runtime as democracy::Config>::LaunchPeriod::get();
+        let start_height = <Runtime as democracy::Config>::VotingPeriod::get();
         DemocracyPallet::on_initialize(start_height);
         let index = assert_democracy_started_event();
 
@@ -565,10 +565,10 @@ fn integration_test_vote_exceeds_total_voting_power() {
     ExtBuilder::build().execute_with(|| {
         set_free_balance(account_of(ALICE), 10_000_000_000_000_000_000_000);
 
-        // we choose a referendum height that is both on a SPAN and LAUNCHPERIOD boundary
+        // we choose a referendum height that is both on a SPAN and VotingPeriod boundary
         let referendum_height =
-            <Runtime as democracy::Config>::LaunchPeriod::get() * <Runtime as escrow::Config>::Span::get();
-        let start_height = referendum_height - <Runtime as democracy::Config>::LaunchPeriod::get();
+            <Runtime as democracy::Config>::VotingPeriod::get() * <Runtime as escrow::Config>::Span::get();
+        let start_height = referendum_height - <Runtime as democracy::Config>::VotingPeriod::get();
         let end_height = start_height + <Runtime as democracy::Config>::VotingPeriod::get();
 
         SystemPallet::set_block_number(start_height);
@@ -607,7 +607,7 @@ fn integration_test_vote_exceeds_total_voting_power() {
 fn integration_test_proposing_and_voting_only_possible_with_staked_tokens() {
     ExtBuilder::build().execute_with(|| {
         let minimum_proposal_value = <Runtime as democracy::Config>::MinimumDeposit::get();
-        let start_height = <Runtime as democracy::Config>::LaunchPeriod::get();
+        let start_height = <Runtime as democracy::Config>::VotingPeriod::get();
 
         // making a proposal to increase Eve's balance without having tokens staked fails
         let amount_to_fund = 100_000;
@@ -747,7 +747,7 @@ fn integration_test_proposal_vkint_gets_released_on_regular_launch() {
             start_vkint_carol - minimum_proposal_value
         );
 
-        DemocracyPallet::on_initialize(<Runtime as democracy::Config>::LaunchPeriod::get());
+        DemocracyPallet::on_initialize(<Runtime as democracy::Config>::VotingPeriod::get());
 
         // now that it's no longer a proposal, the deposit should be released
         assert_eq!(get_free_vkint(account_of(ALICE)), start_vkint_alice);

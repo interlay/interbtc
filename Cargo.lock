@@ -2063,11 +2063,13 @@ dependencies = [
 name = "democracy"
 version = "1.2.0"
 dependencies = [
+ "chrono",
  "frame-benchmarking",
  "frame-support",
  "frame-system",
  "pallet-balances",
  "pallet-scheduler",
+ "pallet-timestamp",
  "parity-scale-codec",
  "scale-info",
  "serde",
