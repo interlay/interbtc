@@ -238,5 +238,14 @@ cumulus-relay-chain-rpc-interface  = { git = "https://github.com/paritytech//cum
 cumulus-client-collator  = { git = "https://github.com/paritytech//cumulus", branch = "polkadot-v0.9.31" }
 cumulus-relay-chain-minimal-node  = { git = "https://github.com/paritytech//cumulus", branch = "polkadot-v0.9.31" }
 
+# patch needed since we need zenlink to use the same versions 
 [patch."https://github.com/open-web3-stack/open-runtime-module-library"]
+orml-asset-registry = { git = "https://github.com/open-web3-stack//open-runtime-module-library", rev = "3fcd3cf9e63fe80fd9671912833a900ba09d1cc0" }
+orml-oracle = { git = "https://github.com/open-web3-stack//open-runtime-module-library", rev = "3fcd3cf9e63fe80fd9671912833a900ba09d1cc0" }
+orml-tokens = { git = "https://github.com/open-web3-stack//open-runtime-module-library", rev = "3fcd3cf9e63fe80fd9671912833a900ba09d1cc0" }
 orml-traits = { git = "https://github.com/open-web3-stack//open-runtime-module-library", rev = "3fcd3cf9e63fe80fd9671912833a900ba09d1cc0" }
+orml-unknown-tokens = { git = "https://github.com/open-web3-stack//open-runtime-module-library", rev = "3fcd3cf9e63fe80fd9671912833a900ba09d1cc0" }
+orml-utilities = { git = "https://github.com/open-web3-stack//open-runtime-module-library", rev = "3fcd3cf9e63fe80fd9671912833a900ba09d1cc0" }
+orml-vesting = { git = "https://github.com/open-web3-stack//open-runtime-module-library", rev = "3fcd3cf9e63fe80fd9671912833a900ba09d1cc0" }
+orml-xcm-support = { git = "https://github.com/open-web3-stack//open-runtime-module-library", rev = "3fcd3cf9e63fe80fd9671912833a900ba09d1cc0" }
+orml-xtokens = { git = "https://github.com/open-web3-stack//open-runtime-module-library", rev = "3fcd3cf9e63fe80fd9671912833a900ba09d1cc0" }
