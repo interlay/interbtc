@@ -77,7 +77,7 @@ jobs:
           echo ::set-output name=tag::${TAG}
           echo ::set-output name=ts::${TS}
       - name: Set up QEMU
-        uses: docker/setup-qemu-action@v1
+        uses: docker/setup-qemu-action@v2
       - name: Setup docker context for buildx
         id: buildx-context
         run: |
