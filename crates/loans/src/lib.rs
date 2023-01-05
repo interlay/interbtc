@@ -59,10 +59,10 @@ use traits::{
     ConvertToBigUint, LoansApi as LoansTrait, LoansMarketDataProvider, MarketInfo, MarketStatus, OnExchangeRateChange,
 };
 
+pub use default_weights::WeightInfo;
 pub use orml_traits::currency::{OnDeposit, OnSlash, OnTransfer};
 use sp_io::hashing::blake2_256;
 pub use types::{BorrowSnapshot, EarnedSnapshot, Market, MarketState, RewardMarketState};
-pub use default_weights::WeightInfo;
 
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;

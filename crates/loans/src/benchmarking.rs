@@ -11,7 +11,7 @@ use frame_system::{self, RawOrigin as SystemOrigin};
 use primitives::{
     Balance,
     CurrencyId::{self, LendToken, Token},
-    DOT as DOT_CURRENCY, INTR as INTR_CURRENCY, KBTC as KBTC_CURRENCY, KSM as KSM_CURRENCY, KINT as KINT_CURRENCY
+    DOT as DOT_CURRENCY, INTR as INTR_CURRENCY, KBTC as KBTC_CURRENCY, KINT as KINT_CURRENCY, KSM as KSM_CURRENCY,
 };
 use rate_model::{InterestRateModel, JumpModel};
 use sp_std::prelude::*;
@@ -338,7 +338,7 @@ benchmarks! {
         let caller: T::AccountId = whitelisted_caller();
         transfer_initial_balance::<T>(caller.clone());
         let deposit_amount: u128 = 200_000_000;
-        // Divide by the default exchange rate. 
+        // Divide by the default exchange rate.
         // Use a hardcoded value becuase the `FixedU128` used
         // in the benchmarks does not support `to_float`, whereas the version in benchmark tests does.
         // let rate = Loans::<T>::min_exchange_rate().to_float();
