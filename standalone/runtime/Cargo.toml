@@ -218,6 +218,7 @@ runtime-benchmarks = [
   "escrow/runtime-benchmarks",
   "fee/runtime-benchmarks",
   "issue/runtime-benchmarks",
+  "loans/runtime-benchmarks",
   "nomination/runtime-benchmarks",
   "oracle/runtime-benchmarks",
   "redeem/runtime-benchmarks",

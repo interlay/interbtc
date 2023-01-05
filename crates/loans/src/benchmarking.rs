@@ -327,8 +327,11 @@ benchmarks! {
         let caller: T::AccountId = whitelisted_caller();
         transfer_initial_balance::<T>(caller.clone());
         let deposit_amount: u128 = 200_000_000;
-        // divide by the default exchange rate
-        let rate = Loans::<T>::min_exchange_rate().to_float();
+        // Divide by the default exchange rate. 
+        // Use a hardcoded value becuase the `FixedU128` used
+        // in the benchmarks does not support `to_float`, whereas the version in benchmark tests does.
+        // let rate = Loans::<T>::min_exchange_rate().to_float();
+        let rate: f64 = 0.02;
         let expected_lend_tokens = deposit_amount as f64 / rate;
         assert_ok!(Loans::<T>::add_market(SystemOrigin::Root.into(), KBTC, pending_market_mock::<T>(LEND_KBTC)));
         assert_ok!(Loans::<T>::activate_market(SystemOrigin::Root.into(), KBTC));
@@ -343,7 +346,7 @@ benchmarks! {
         transfer_initial_balance::<T>(caller.clone());
         let deposit_amount: u128 = 200_000_000;
         // divide by the default exchange rate
-        let rate = Loans::<T>::min_exchange_rate().to_float();
+        let rate: f64 = 0.02;
         let expected_lend_tokens = deposit_amount as f64 / rate;
         assert_ok!(Loans::<T>::add_market(SystemOrigin::Root.into(), KBTC, pending_market_mock::<T>(LEND_KBTC)));
         assert_ok!(Loans::<T>::activate_market(SystemOrigin::Root.into(), KBTC));
@@ -396,7 +399,7 @@ benchmarks! {
         assert_ok!(Loans::<T>::liquidate_borrow(SystemOrigin::Signed(bob.clone()).into(), alice.clone(), KBTC, liquidate_amount.into(), DOT));
         let incentive_reward_account_id = Loans::<T>::incentive_reward_account_id().unwrap();
         let reward_lend_tokens = orml_tokens::Pallet::<T>::free_balance(LEND_DOT, &incentive_reward_account_id);
-        let rate = Loans::<T>::min_exchange_rate().to_float();
+        let rate: f64 = 0.02;
         let reward_underlying = (reward_lend_tokens as f64 * rate) as u128;
         let receiver = T::Lookup::unlookup(alice.clone());
     }: _(SystemOrigin::Root, receiver.clone().into(), DOT, reward_underlying)

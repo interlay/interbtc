@@ -64,6 +64,7 @@ use sp_io::hashing::blake2_256;
 pub use types::{BorrowSnapshot, EarnedSnapshot, Market, MarketState, RewardMarketState};
 pub use weights::WeightInfo;
 
+#[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;
 
 #[cfg(test)]
