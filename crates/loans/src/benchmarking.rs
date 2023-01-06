@@ -148,14 +148,19 @@ benchmarks! {
     add_market {
     }: _(SystemOrigin::Root, KBTC, pending_market_mock::<T>(LEND_KBTC))
     verify {
-        assert_last_event::<T>(Event::<T>::NewMarket(KBTC, pending_market_mock::<T>(LEND_KBTC)).into());
+        assert_last_event::<T>(Event::<T>::NewMarket {
+            underlying_currency: KBTC,
+            market: pending_market_mock::<T>(LEND_KBTC)
+        }.into());
     }
 
     activate_market {
         Loans::<T>::add_market(SystemOrigin::Root.into(), KSM, pending_market_mock::<T>(LEND_KSM)).unwrap();
     }: _(SystemOrigin::Root, KSM)
     verify {
-        assert_last_event::<T>(Event::<T>::ActivatedMarket(KSM).into());
+        assert_last_event::<T>(Event::<T>::ActivatedMarket {
+            underlying_currency: KSM
+        }.into());
     }
 
     update_rate_model {
@@ -164,7 +169,11 @@ benchmarks! {
     verify {
         let mut market = pending_market_mock::<T>(LEND_KSM);
         market.rate_model = RATE_MODEL_MOCK;
-        assert_last_event::<T>(Event::<T>::UpdatedMarket(KSM, market).into());
+        assert_last_event::<T>(Event::<T>::UpdatedMarket
+            {
+                underlying_currency: KSM,
+                market
+            }.into());
     }
 
     update_market {
@@ -185,14 +194,22 @@ benchmarks! {
         let mut market = pending_market_mock::<T>(LEND_KSM);
         market.reserve_factor = Ratio::from_percent(50);
         market.close_factor = Ratio::from_percent(15);
-        assert_last_event::<T>(Event::<T>::UpdatedMarket(KSM, market).into());
+        assert_last_event::<T>(Event::<T>::UpdatedMarket
+            {
+                underlying_currency: KSM,
+                market
+            }.into());
     }
 
     force_update_market {
         Loans::<T>::add_market(SystemOrigin::Root.into(), KBTC, pending_market_mock::<T>(LEND_KBTC)).unwrap();
     }: _(SystemOrigin::Root,KBTC, pending_market_mock::<T>(LEND_KBTC))
     verify {
-        assert_last_event::<T>(Event::<T>::UpdatedMarket(KBTC, pending_market_mock::<T>(LEND_KBTC)).into());
+        assert_last_event::<T>(Event::<T>::UpdatedMarket
+            {
+                underlying_currency: KBTC,
+                market: pending_market_mock::<T>(LEND_KBTC)
+            }.into());
     }
 
     add_reward {
@@ -200,7 +217,10 @@ benchmarks! {
         transfer_initial_balance::<T>(caller.clone());
     }: _(SystemOrigin::Signed(caller.clone()), 1_000_000_000_000_u128)
     verify {
-        assert_last_event::<T>(Event::<T>::RewardAdded(caller, 1_000_000_000_000_u128).into());
+        assert_last_event::<T>(Event::<T>::RewardAdded {
+            payer: caller,
+            amount: 1_000_000_000_000_u128
+        }.into());
     }
 
     withdraw_missing_reward {
@@ -210,7 +230,10 @@ benchmarks! {
         let receiver = T::Lookup::unlookup(caller.clone());
     }: _(SystemOrigin::Root, receiver, 500_000_000_000_u128)
     verify {
-        assert_last_event::<T>(Event::<T>::RewardWithdrawn(caller, 500_000_000_000_u128).into());
+        assert_last_event::<T>(Event::<T>::RewardWithdrawn {
+            receiver: caller,
+            amount: 500_000_000_000_u128
+        }.into());
     }
 
     update_market_reward_speed {
@@ -218,7 +241,11 @@ benchmarks! {
         assert_ok!(Loans::<T>::activate_market(SystemOrigin::Root.into(), KBTC));
     }: _(SystemOrigin::Root, KBTC, Some(1_000_000), Some(1_000_000))
     verify {
-        assert_last_event::<T>(Event::<T>::MarketRewardSpeedUpdated(KBTC, 1_000_000, 1_000_000).into());
+        assert_last_event::<T>(Event::<T>::MarketRewardSpeedUpdated {
+            underlying_currency: KBTC,
+            supply_reward_per_block: 1_000_000,
+            borrow_reward_per_block: 1_000_000
+        }.into());
     }
 
     claim_reward {
@@ -233,7 +260,10 @@ benchmarks! {
         frame_system::Pallet::<T>::set_block_number(target_height);
     }: _(SystemOrigin::Signed(caller.clone()))
     verify {
-        assert_last_event::<T>(Event::<T>::RewardPaid(caller, 1_000_000).into());
+        assert_last_event::<T>(Event::<T>::RewardPaid {
+            receiver: caller,
+            amount: 1_000_000
+        }.into());
     }
 
     claim_reward_for_market {
@@ -248,7 +278,10 @@ benchmarks! {
         frame_system::Pallet::<T>::set_block_number(target_height);
     }: _(SystemOrigin::Signed(caller.clone()), KBTC)
     verify {
-        assert_last_event::<T>(Event::<T>::RewardPaid(caller, 1_000_000).into());
+        assert_last_event::<T>(Event::<T>::RewardPaid {
+            receiver: caller,
+            amount: 1_000_000
+        }.into());
     }
 
 
@@ -260,7 +293,11 @@ benchmarks! {
         let amount: u32 = 100_000;
     }: _(SystemOrigin::Signed(caller.clone()), KBTC, amount.into())
     verify {
-        assert_last_event::<T>(Event::<T>::Deposited(caller, KBTC, amount.into()).into());
+        assert_last_event::<T>(Event::<T>::Deposited {
+            account_id: caller,
+            currency: KBTC,
+            amount: amount.into()
+        }.into());
     }
 
     borrow {
@@ -274,7 +311,11 @@ benchmarks! {
         assert_ok!(Loans::<T>::deposit_all_collateral(SystemOrigin::Signed(caller.clone()).into(), KBTC));
     }: _(SystemOrigin::Signed(caller.clone()), KBTC, borrowed_amount.into())
     verify {
-        assert_last_event::<T>(Event::<T>::Borrowed(caller, KBTC, borrowed_amount.into()).into());
+        assert_last_event::<T>(Event::<T>::Borrowed {
+            account_id: caller,
+            currency: KBTC,
+            amount: borrowed_amount.into()
+        }.into());
     }
 
     redeem {
@@ -287,7 +328,11 @@ benchmarks! {
         assert_ok!(Loans::<T>::mint(SystemOrigin::Signed(caller.clone()).into(), KBTC, deposit_amount.into()));
     }: _(SystemOrigin::Signed(caller.clone()), KBTC, redeem_amount.into())
     verify {
-        assert_last_event::<T>(Event::<T>::Redeemed(caller, KBTC, redeem_amount.into()).into());
+        assert_last_event::<T>(Event::<T>::Redeemed {
+            account_id: caller,
+            currency: KBTC,
+            amount: redeem_amount.into()
+        }.into());
     }
 
     redeem_all {
@@ -299,7 +344,11 @@ benchmarks! {
         assert_ok!(Loans::<T>::mint(SystemOrigin::Signed(caller.clone()).into(), KBTC, deposit_amount.into()));
     }: _(SystemOrigin::Signed(caller.clone()), KBTC)
     verify {
-        assert_last_event::<T>(Event::<T>::Redeemed(caller, KBTC, deposit_amount.into()).into());
+        assert_last_event::<T>(Event::<T>::Redeemed {
+            account_id: caller,
+            currency: KBTC,
+            amount: deposit_amount.into()
+        }.into());
     }
 
     repay_borrow {
@@ -315,7 +364,11 @@ benchmarks! {
         assert_ok!(Loans::<T>::borrow(SystemOrigin::Signed(caller.clone()).into(), KBTC, borrowed_amount.into()));
     }: _(SystemOrigin::Signed(caller.clone()), KBTC, repay_amount.into())
     verify {
-        assert_last_event::<T>(Event::<T>::RepaidBorrow(caller, KBTC, repay_amount.into()).into());
+        assert_last_event::<T>(Event::<T>::RepaidBorrow {
+            account_id: caller,
+            currency: KBTC,
+            amount: repay_amount.into()
+        }.into());
     }
 
     repay_borrow_all {
@@ -331,7 +384,11 @@ benchmarks! {
         assert_ok!(Loans::<T>::borrow(SystemOrigin::Signed(caller.clone()).into(), KBTC, borrowed_amount.into()));
     }: _(SystemOrigin::Signed(caller.clone()), KBTC)
     verify {
-        assert_last_event::<T>(Event::<T>::RepaidBorrow(caller, KBTC, borrowed_amount.into()).into());
+        assert_last_event::<T>(Event::<T>::RepaidBorrow {
+            account_id: caller,
+            currency: KBTC,
+            amount: borrowed_amount.into()
+        }.into());
     }
 
     deposit_all_collateral {
@@ -349,7 +406,11 @@ benchmarks! {
         assert_ok!(Loans::<T>::mint(SystemOrigin::Signed(caller.clone()).into(), KBTC, deposit_amount));
     }: _(SystemOrigin::Signed(caller.clone()), KBTC)
     verify {
-        assert_last_event::<T>(Event::<T>::DepositCollateral(caller, LEND_KBTC, expected_lend_tokens as u128).into());
+        assert_last_event::<T>(Event::<T>::DepositCollateral {
+            account_id: caller,
+            currency: LEND_KBTC,
+            amount: expected_lend_tokens as u128
+        }.into());
     }
 
     withdraw_all_collateral {
@@ -365,7 +426,11 @@ benchmarks! {
         assert_ok!(Loans::<T>::deposit_all_collateral(SystemOrigin::Signed(caller.clone()).into(), KBTC));
     }: _(SystemOrigin::Signed(caller.clone()), KBTC)
     verify {
-        assert_last_event::<T>(Event::<T>::WithdrawCollateral(caller, LEND_KBTC, expected_lend_tokens as u128).into());
+        assert_last_event::<T>(Event::<T>::WithdrawCollateral {
+            account_id: caller,
+            currency: LEND_KBTC,
+            amount: expected_lend_tokens as u128
+        }.into());
     }
 
     // liquidate_borrow {
@@ -427,7 +492,12 @@ benchmarks! {
         assert_ok!(Loans::<T>::activate_market(SystemOrigin::Root.into(), KBTC));
     }: _(SystemOrigin::Root, payer, KBTC, amount.into())
     verify {
-        assert_last_event::<T>(Event::<T>::ReservesAdded(caller, KBTC, amount.into(), amount.into()).into());
+        assert_last_event::<T>(Event::<T>::ReservesAdded {
+            payer: caller,
+            currency: KBTC,
+            amount: amount.into(),
+            new_reserve_amount: amount.into()
+        }.into());
     }
 
     reduce_reserves {
@@ -441,7 +511,12 @@ benchmarks! {
         assert_ok!(Loans::<T>::add_reserves(SystemOrigin::Root.into(), payer.clone(), KBTC, add_amount.into()));
     }: _(SystemOrigin::Root, payer, KBTC, reduce_amount.into())
     verify {
-        assert_last_event::<T>(Event::<T>::ReservesReduced(caller, KBTC, reduce_amount.into(), (add_amount-reduce_amount).into()).into());
+        assert_last_event::<T>(Event::<T>::ReservesReduced {
+            receiver: caller,
+            currency: KBTC,
+            amount: reduce_amount.into(),
+            new_reserve_amount: (add_amount - reduce_amount).into()
+        }.into());
     }
 }
 
