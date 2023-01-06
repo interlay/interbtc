@@ -405,6 +405,17 @@ pub mod pallet {
             currency: AssetIdOf<T>,
             amount: BalanceOf<T>,
         },
+        /// Event emitted when interest has been accrued for a market
+        InterestAccrued {
+            underlying_currency: AssetIdOf<T>,
+            total_borrows: BalanceOf<T>,
+            total_reserves: BalanceOf<T>,
+            borrow_index: FixedU128,
+            utilization_ratio: Ratio,
+            borrow_rate: Rate,
+            supply_rate: Rate,
+            exchange_rate: Rate,
+        },
     }
 
     #[pallet::hooks]
@@ -671,9 +682,23 @@ pub mod pallet {
             UnderlyingAssetId::<T>::insert(market.lend_token_id, asset_id);
 
             // Init the ExchangeRate and BorrowIndex for asset
-            ExchangeRate::<T>::insert(asset_id, Self::min_exchange_rate());
-            BorrowIndex::<T>::insert(asset_id, Rate::one());
+            let initial_exchange_rate = Self::min_exchange_rate();
+            let initial_borrow_index = Rate::one();
+            ExchangeRate::<T>::insert(asset_id, initial_exchange_rate);
+            BorrowIndex::<T>::insert(asset_id, initial_borrow_index);
 
+            // Emit an `InterestAccrued` event so event subscribers can see the
+            // initial exchange rate.
+            Self::deposit_event(Event::<T>::InterestAccrued {
+                underlying_currency: asset_id,
+                total_borrows: Balance::zero(),
+                total_reserves: Balance::zero(),
+                borrow_index: initial_borrow_index,
+                utilization_ratio: Ratio::zero(),
+                borrow_rate: Rate::zero(),
+                supply_rate: Rate::zero(),
+                exchange_rate: initial_exchange_rate,
+            });
             Self::deposit_event(Event::<T>::NewMarket {
                 underlying_currency: asset_id,
                 market,
