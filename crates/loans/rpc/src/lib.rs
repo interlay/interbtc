@@ -219,7 +219,7 @@ fn market_status_error_into_rpc_error(err: impl std::fmt::Debug) -> JsonRpseeErr
     )))
 }
 
-/// Converts an account liquidity error into an RPC error.
+/// Converts an account fetching error into an RPC error.
 fn account_fetching_error_into_rpc_error(err: impl std::fmt::Debug) -> JsonRpseeError {
     JsonRpseeError::Call(CallError::Custom(ErrorObject::owned(
         Error::AccountFetchingError.into(),
