@@ -368,6 +368,8 @@ benchmarks! {
         assert_last_event::<T>(Event::<T>::WithdrawCollateral(caller, LEND_KBTC, expected_lend_tokens as u128).into());
     }
 
+    // The two benchmarks below fail because they query the Oracle pallet which does not exist in the mock runtime.
+    // TODO: Add the Oracle pallet to the mock runtime and initialize some mock entries.
     // liquidate_borrow {
     //     let alice: T::AccountId = account("Sample", 100, SEED);
     //     let bob: T::AccountId = account("Sample", 101, SEED);
