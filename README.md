@@ -34,7 +34,7 @@ This repository is hosted on GitHub: [https://github.com/interlay/interbtc](http
 ## About the Project
 
 The interBTC runtime allows the creation of **interBTC**, a fungible token that represents Bitcoin on the Interlay network.
-Interlay in turn is connected to other blockchains via [XCM](https://github.com/paritytech/xcm-format) and will be connected to even more blockchians via [IBC](https://ibcprotocol.org/).
+Interlay in turn is connected to other blockchains via [XCM](https://github.com/paritytech/xcm-format) and will be connected to even more blockchains via [IBC](https://ibcprotocol.org/).
 Each interBTC is backed by Bitcoin 1:1 and allows redeeming of the equivalent amount of Bitcoins by relying on a collateralized third-party.
 
 The project uses the concept of [Cryptocurrency-backed Assets](https://xclaim.io) to lock Bitcoin on the Bitcoin blockchain and issue BTC-backed tokens on the Interlay network.

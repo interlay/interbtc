@@ -8,6 +8,8 @@
 #[cfg(feature = "std")]
 include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 
+use frame_support::traits::OnRuntimeUpgrade;
+
 use bitcoin::types::H256Le;
 use currency::Amount;
 use frame_support::{
@@ -173,6 +175,7 @@ impl Contains<RuntimeCall> for BaseCallFilter {
                 | RuntimeCall::Democracy(_)
                 | RuntimeCall::Escrow(_)
                 | RuntimeCall::TechnicalCommittee(_)
+                | RuntimeCall::Sudo(_)
         ) {
             // always allow core calls
             true
@@ -360,6 +363,11 @@ impl pallet_transaction_payment::Config for Runtime {
     type WeightToFee = IdentityFee<Balance>;
     type FeeMultiplierUpdate = SlowAdjustingFeeUpdate<Self>;
     type OperationalFeeMultiplier = OperationalFeeMultiplier;
+}
+
+impl pallet_sudo::Config for Runtime {
+    type RuntimeCall = RuntimeCall;
+    type RuntimeEvent = RuntimeEvent;
 }
 
 impl pallet_utility::Config for Runtime {
@@ -1073,6 +1081,7 @@ construct_runtime! {
         Preimage: pallet_preimage::{Pallet, Call, Storage, Event<T>} = 6,
         Multisig: pallet_multisig::{Pallet, Call, Storage, Event<T>} = 7,
         Identity: pallet_identity::{Pallet, Call, Storage, Event<T>} = 8,
+        Sudo: pallet_sudo::{Pallet, Call, Storage, Config<T>, Event<T>} = 9,
 
         // # Tokens & Balances
         Currency: currency::{Pallet} = 20,
@@ -1168,8 +1177,28 @@ pub type Executive = frame_executive::Executive<
         pallet_preimage::migration::v1::Migration<Runtime>,
         pallet_scheduler::migration::v3::MigrateToV4<Runtime>,
         pallet_multisig::migrations::v1::MigrateToV1<Runtime>,
+        SudoMigrationCheck,
     ),
 >;
+
+struct SudoMigrationCheck;
+
+impl OnRuntimeUpgrade for SudoMigrationCheck {
+    fn on_runtime_upgrade() -> Weight {
+        use frame_support::storage::migration::put_storage_value;
+        put_storage_value(b"Sudo", b"Key", &[], Option::<AccountId>::None);
+        Default::default()
+    }
+    #[cfg(feature = "try-runtime")]
+    fn pre_upgrade() -> Result<Vec<u8>, &'static str> {
+        Ok(Vec::new())
+    }
+    #[cfg(feature = "try-runtime")]
+    fn post_upgrade(_state: Vec<u8>) -> Result<(), &'static str> {
+        assert!(pallet_sudo::Pallet::<Runtime>::key().is_none());
+        Ok(())
+    }
+}
 
 #[cfg(not(feature = "disable-runtime-api"))]
 impl_runtime_apis! {
