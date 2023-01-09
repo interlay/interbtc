@@ -1469,5 +1469,17 @@ impl_runtime_apis! {
             Loans::get_account_liquidation_threshold_liquidity(&account)
             .and_then(|liquidity| liquidity.to_rpc_tuple())
         }
+
+        fn get_reward_account_id() -> Result<AccountId, DispatchError> {
+            Ok(Loans::reward_account_id()?)
+        }
+
+        fn get_incentive_reward_account_id() -> Result<AccountId, DispatchError> {
+            Ok(Loans::incentive_reward_account_id()?)
+        }
+
+        fn get_pallet_account_id() -> Result<AccountId, DispatchError> {
+            Ok(Loans::account_id())
+        }
     }
 }

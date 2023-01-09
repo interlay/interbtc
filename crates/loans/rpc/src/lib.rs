@@ -50,6 +50,12 @@ where
         account: AccountId,
         at: Option<BlockHash>,
     ) -> RpcResult<(Liquidity, Shortfall)>;
+    #[method(name = "loans_getRewardAccountId")]
+    fn get_reward_account_id(&self, at: Option<BlockHash>) -> RpcResult<AccountId>;
+    #[method(name = "loans_getIncentiveRewardAccountId")]
+    fn get_incentive_reward_account_id(&self, at: Option<BlockHash>) -> RpcResult<AccountId>;
+    #[method(name = "loans_getPalletAccountId")]
+    fn get_pallet_account_id(&self, at: Option<BlockHash>) -> RpcResult<AccountId>;
 }
 
 /// A struct that implements the [`LoansApi`].
@@ -72,6 +78,7 @@ pub enum Error {
     RuntimeError,
     AccountLiquidityError,
     MarketStatusError,
+    AccountFetchingError,
 }
 
 impl From<Error> for i32 {
@@ -80,6 +87,7 @@ impl From<Error> for i32 {
             Error::RuntimeError => 1,
             Error::AccountLiquidityError => 2,
             Error::MarketStatusError => 3,
+            Error::AccountFetchingError => 4,
         }
     }
 }
@@ -149,6 +157,39 @@ where
             .map_err(runtime_error_into_rpc_error)?
             .map_err(account_liquidity_error_into_rpc_error)
     }
+
+    fn get_reward_account_id(&self, at: Option<<Block as BlockT>::Hash>) -> RpcResult<AccountId> {
+        let api = self.client.runtime_api();
+        let at = BlockId::hash(at.unwrap_or(
+            // If the block hash is not supplied assume the best block.
+            self.client.info().best_hash,
+        ));
+        api.get_reward_account_id(&at)
+            .map_err(runtime_error_into_rpc_error)?
+            .map_err(account_fetching_error_into_rpc_error)
+    }
+
+    fn get_incentive_reward_account_id(&self, at: Option<<Block as BlockT>::Hash>) -> RpcResult<AccountId> {
+        let api = self.client.runtime_api();
+        let at = BlockId::hash(at.unwrap_or(
+            // If the block hash is not supplied assume the best block.
+            self.client.info().best_hash,
+        ));
+        api.get_incentive_reward_account_id(&at)
+            .map_err(runtime_error_into_rpc_error)?
+            .map_err(account_fetching_error_into_rpc_error)
+    }
+
+    fn get_pallet_account_id(&self, at: Option<<Block as BlockT>::Hash>) -> RpcResult<AccountId> {
+        let api = self.client.runtime_api();
+        let at = BlockId::hash(at.unwrap_or(
+            // If the block hash is not supplied assume the best block.
+            self.client.info().best_hash,
+        ));
+        api.get_pallet_account_id(&at)
+            .map_err(runtime_error_into_rpc_error)?
+            .map_err(account_fetching_error_into_rpc_error)
+    }
 }
 
 /// Converts a runtime trap into an RPC error.
@@ -174,6 +215,15 @@ fn market_status_error_into_rpc_error(err: impl std::fmt::Debug) -> JsonRpseeErr
     JsonRpseeError::Call(CallError::Custom(ErrorObject::owned(
         Error::MarketStatusError.into(),
         "Not able to get market status",
+        Some(format!("{:?}", err)),
+    )))
+}
+
+/// Converts an account liquidity error into an RPC error.
+fn account_fetching_error_into_rpc_error(err: impl std::fmt::Debug) -> JsonRpseeError {
+    JsonRpseeError::Call(CallError::Custom(ErrorObject::owned(
+        Error::AccountFetchingError.into(),
+        "Unable to fetch account",
         Some(format!("{:?}", err)),
     )))
 }

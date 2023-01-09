@@ -1296,6 +1296,18 @@ impl_runtime_apis! {
         fn get_liquidation_threshold_liquidity(_account: AccountId) -> Result<(Liquidity, Shortfall), DispatchError> {
            Err(DispatchError::Other("RPC Endpoint Not Implemented"))
         }
+
+        fn get_reward_account_id() -> Result<AccountId, DispatchError> {
+           Err(DispatchError::Other("RPC Endpoint Not Implemented"))
+        }
+
+        fn get_incentive_reward_account_id() -> Result<AccountId, DispatchError> {
+           Err(DispatchError::Other("RPC Endpoint Not Implemented"))
+        }
+
+        fn get_pallet_account_id() -> Result<AccountId, DispatchError> {
+           Err(DispatchError::Other("RPC Endpoint Not Implemented"))
+        }
     }
 
     #[cfg(feature = "runtime-benchmarks")]
