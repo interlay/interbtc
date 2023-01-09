@@ -850,3 +850,32 @@ fn integration_test_limiting_voting_power_works() {
     test_minting_limit_at(limit_start + limit_period, kint_amount);
     test_minting_limit_at(limit_start + limit_period * 2, kint_amount);
 }
+
+#[test]
+fn test_sudo_is_disabled_if_key_is_none() {
+    test_with(|| {
+        // first a sanity check: sudo works if key is set
+        assert_ok!(RuntimeCall::Sudo(SudoCall::sudo {
+            call: Box::new(RuntimeCall::Security(SecurityCall::set_parachain_status {
+                status_code: StatusCode::Shutdown,
+            })),
+        })
+        .dispatch(origin_of(account_of(ALICE))),);
+
+        use frame_support::storage::migration::put_storage_value;
+        assert!(!pallet_sudo::Pallet::<Runtime>::key().is_none());
+        put_storage_value(b"Sudo", b"Key", &[], Option::<AccountId>::None);
+        assert!(pallet_sudo::Pallet::<Runtime>::key().is_none());
+
+        // assert that sudo does not work when key is none
+        assert_noop!(
+            RuntimeCall::Sudo(SudoCall::sudo {
+                call: Box::new(RuntimeCall::Security(SecurityCall::set_parachain_status {
+                    status_code: StatusCode::Shutdown,
+                })),
+            })
+            .dispatch(origin_of(account_of(ALICE))),
+            SudoError::RequireSudo
+        );
+    })
+}
