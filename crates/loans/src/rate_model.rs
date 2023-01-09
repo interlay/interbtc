@@ -237,10 +237,7 @@ mod tests {
     #[test]
     fn get_supply_rate_works() {
         let borrow_rate = Rate::saturating_from_rational(2, 100);
-        let full_rate = Rate::saturating_from_rational(40, 100);
         let util = Ratio::from_percent(50);
-        // 400,000,000,000,000,000
-        // 40,000,000,000,000,000
         let reserve_factor = Ratio::zero();
         let supply_rate = InterestRateModel::get_supply_rate(borrow_rate, util, reserve_factor);
         assert_eq!(
