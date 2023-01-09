@@ -242,6 +242,28 @@ pub fn with_price(
 }
 
 #[cfg(test)]
+pub(crate) fn set_mock_balances() {
+    Tokens::set_balance(RuntimeOrigin::root(), ALICE, Token(KSM), 1_000_000_000_000_000, 0).unwrap();
+    Tokens::set_balance(RuntimeOrigin::root(), ALICE, Token(DOT), 1_000_000_000_000_000, 0).unwrap();
+    Tokens::set_balance(RuntimeOrigin::root(), ALICE, Token(KBTC), 1_000_000_000_000_000, 0).unwrap();
+    Tokens::set_balance(RuntimeOrigin::root(), ALICE, Token(IBTC), 1_000_000_000_000_000, 0).unwrap();
+    Tokens::set_balance(RuntimeOrigin::root(), BOB, Token(KSM), 1_000_000_000_000_000, 0).unwrap();
+    Tokens::set_balance(RuntimeOrigin::root(), BOB, Token(DOT), 1_000_000_000_000_000, 0).unwrap();
+    Tokens::set_balance(RuntimeOrigin::root(), DAVE, Token(DOT), 1_000_000_000_000_000, 0).unwrap();
+    Tokens::set_balance(RuntimeOrigin::root(), DAVE, Token(KBTC), 1_000_000_000_000_000, 0).unwrap();
+    Tokens::set_balance(RuntimeOrigin::root(), DAVE, Token(KINT), 1_000_000_000_000_000, 0).unwrap();
+    Tokens::set_balance(RuntimeOrigin::root(), DAVE, Token(INTR), 1_000_000_000_000_000, 0).unwrap();
+    Tokens::set_balance(
+        RuntimeOrigin::root(),
+        whitelisted_caller(),
+        Token(KINT),
+        1_000_000_000_000_000,
+        0,
+    )
+    .unwrap();
+}
+
+#[cfg(test)]
 pub(crate) fn new_test_ext() -> sp_io::TestExternalities {
     use currency::CurrencyConversion;
     use mocktopus::mocking::Mockable;
@@ -260,25 +282,7 @@ pub(crate) fn new_test_ext() -> sp_io::TestExternalities {
     let mut ext = sp_io::TestExternalities::new(t);
     ext.execute_with(|| {
         // Init assets
-
-        Tokens::set_balance(RuntimeOrigin::root(), ALICE, Token(KSM), 1_000_000_000_000_000, 0).unwrap();
-        Tokens::set_balance(RuntimeOrigin::root(), ALICE, Token(DOT), 1_000_000_000_000_000, 0).unwrap();
-        Tokens::set_balance(RuntimeOrigin::root(), ALICE, Token(KBTC), 1_000_000_000_000_000, 0).unwrap();
-        Tokens::set_balance(RuntimeOrigin::root(), ALICE, Token(IBTC), 1_000_000_000_000_000, 0).unwrap();
-        Tokens::set_balance(RuntimeOrigin::root(), BOB, Token(KSM), 1_000_000_000_000_000, 0).unwrap();
-        Tokens::set_balance(RuntimeOrigin::root(), BOB, Token(DOT), 1_000_000_000_000_000, 0).unwrap();
-        Tokens::set_balance(RuntimeOrigin::root(), DAVE, Token(DOT), 1_000_000_000_000_000, 0).unwrap();
-        Tokens::set_balance(RuntimeOrigin::root(), DAVE, Token(KBTC), 1_000_000_000_000_000, 0).unwrap();
-        Tokens::set_balance(RuntimeOrigin::root(), DAVE, Token(KINT), 1_000_000_000_000_000, 0).unwrap();
-        Tokens::set_balance(RuntimeOrigin::root(), DAVE, Token(INTR), 1_000_000_000_000_000, 0).unwrap();
-        Tokens::set_balance(
-            RuntimeOrigin::root(),
-            whitelisted_caller(),
-            Token(KINT),
-            1_000_000_000_000_000,
-            0,
-        )
-        .unwrap();
+        set_mock_balances();
 
         // Set exchange rate with the reference currency to the default value
         CurrencyConvert::convert.mock_safe(with_price(None));
@@ -293,6 +297,36 @@ pub(crate) fn new_test_ext() -> sp_io::TestExternalities {
         Loans::activate_market(RuntimeOrigin::root(), Token(KBTC)).unwrap();
         Loans::add_market(RuntimeOrigin::root(), Token(IBTC), market_mock(LEND_IBTC)).unwrap();
         Loans::activate_market(RuntimeOrigin::root(), Token(IBTC)).unwrap();
+
+        System::set_block_number(0);
+        TimestampPallet::set_timestamp(6000);
+    });
+    ext
+}
+
+#[cfg(test)]
+pub(crate) fn new_test_ext_benchmarking() -> sp_io::TestExternalities {
+    use currency::CurrencyConversion;
+    use mocktopus::mocking::Mockable;
+
+    let mut t = frame_system::GenesisConfig::default().build_storage::<Test>().unwrap();
+
+    GenesisBuild::<Test>::assimilate_storage(
+        &loans::GenesisConfig {
+            max_exchange_rate: Rate::from_inner(DEFAULT_MAX_EXCHANGE_RATE),
+            min_exchange_rate: Rate::from_inner(DEFAULT_MIN_EXCHANGE_RATE),
+        },
+        &mut t,
+    )
+    .unwrap();
+
+    let mut ext = sp_io::TestExternalities::new(t);
+    ext.execute_with(|| {
+        // Init assets
+        set_mock_balances();
+
+        // Set exchange rate with the reference currency to the default value
+        CurrencyConvert::convert.mock_safe(with_price(None));
 
         System::set_block_number(0);
         TimestampPallet::set_timestamp(6000);

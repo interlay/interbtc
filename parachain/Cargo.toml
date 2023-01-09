@@ -120,6 +120,9 @@ try-runtime = [
 rococo-native = [ "polkadot-cli/rococo-native" ]
 runtime-benchmarks = [
     "interlay-runtime/runtime-benchmarks",
+    "kintsugi-runtime/runtime-benchmarks",
+    "testnet-interlay-runtime/runtime-benchmarks",
+    "testnet-kintsugi-runtime/runtime-benchmarks",
     "polkadot-service/runtime-benchmarks",
     "polkadot-cli/runtime-benchmarks",
 ]

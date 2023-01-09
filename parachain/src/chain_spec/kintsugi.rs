@@ -256,5 +256,6 @@ fn kintsugi_mainnet_genesis(
         polkadot_xcm: kintsugi_runtime::PolkadotXcmConfig {
             safe_xcm_version: Some(2),
         },
+        sudo: Default::default(),
     }
 }

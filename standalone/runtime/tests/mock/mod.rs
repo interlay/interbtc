@@ -161,6 +161,7 @@ pub type SecurityPallet = security::Pallet<Runtime>;
 pub type SecurityCall = security::Call<Runtime>;
 
 pub type SudoCall = pallet_sudo::Call<Runtime>;
+pub type SudoError = pallet_sudo::Error<Runtime>;
 
 pub type SystemPallet = frame_system::Pallet<Runtime>;
 pub type SystemError = frame_system::Error<Runtime>;

@@ -59,11 +59,12 @@ use traits::{
     ConvertToBigUint, LoansApi as LoansTrait, LoansMarketDataProvider, MarketInfo, MarketStatus, OnExchangeRateChange,
 };
 
+pub use default_weights::WeightInfo;
 pub use orml_traits::currency::{OnDeposit, OnSlash, OnTransfer};
 use sp_io::hashing::blake2_256;
 pub use types::{BorrowSnapshot, EarnedSnapshot, Market, MarketState, RewardMarketState};
-pub use weights::WeightInfo;
 
+#[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;
 
 #[cfg(test)]
@@ -78,7 +79,7 @@ mod lend_token;
 mod rate_model;
 mod types;
 
-pub mod weights;
+mod default_weights;
 
 pub const REWARD_ACCOUNT_PREFIX: &[u8; 13] = b"loans/farming";
 pub const INCENTIVE_ACCOUNT_PREFIX: &[u8; 15] = b"loans/incentive";
@@ -1044,7 +1045,7 @@ pub mod pallet {
             Ok(().into())
         }
 
-        #[pallet::weight(<T as Config>::WeightInfo::collateral_asset())]
+        #[pallet::weight(<T as Config>::WeightInfo::deposit_all_collateral())]
         #[transactional]
         pub fn deposit_all_collateral(origin: OriginFor<T>, asset_id: AssetIdOf<T>) -> DispatchResultWithPostInfo {
             let who = ensure_signed(origin)?;
@@ -1058,7 +1059,7 @@ pub mod pallet {
             Ok(().into())
         }
 
-        #[pallet::weight(<T as Config>::WeightInfo::collateral_asset())]
+        #[pallet::weight(<T as Config>::WeightInfo::withdraw_all_collateral())]
         #[transactional]
         pub fn withdraw_all_collateral(origin: OriginFor<T>, asset_id: AssetIdOf<T>) -> DispatchResultWithPostInfo {
             let who = ensure_signed(origin)?;
@@ -1179,7 +1180,7 @@ pub mod pallet {
         ///
         /// - `asset_id`: the asset to be redeemed.
         /// - `redeem_amount`: the amount to be redeemed.
-        #[pallet::weight(<T as Config>::WeightInfo::redeem()+<T as Config>::WeightInfo::reduce_reserves())]
+        #[pallet::weight(<T as Config>::WeightInfo::reduce_incentive_reserves())]
         #[transactional]
         pub fn reduce_incentive_reserves(
             origin: OriginFor<T>,

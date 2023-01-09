@@ -228,5 +228,6 @@ fn interlay_mainnet_genesis(
         polkadot_xcm: interlay_runtime::PolkadotXcmConfig {
             safe_xcm_version: Some(2),
         },
+        sudo: Default::default(),
     }
 }
