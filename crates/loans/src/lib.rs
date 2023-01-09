@@ -51,8 +51,6 @@ use sp_runtime::{
     },
     ArithmeticError, FixedPointNumber, FixedU128,
 };
-#[cfg(feature = "try-runtime")]
-use sp_std::vec::Vec;
 use sp_std::{marker, result::Result};
 
 use traits::{
