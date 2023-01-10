@@ -305,7 +305,7 @@ pub(crate) fn new_test_ext() -> sp_io::TestExternalities {
 }
 
 #[cfg(test)]
-pub(crate) fn new_test_ext_benchmarking() -> sp_io::TestExternalities {
+pub(crate) fn new_test_ext_no_markets() -> sp_io::TestExternalities {
     use currency::CurrencyConversion;
     use mocktopus::mocking::Mockable;
 

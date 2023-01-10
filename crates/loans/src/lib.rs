@@ -1642,8 +1642,22 @@ impl<T: Config> Pallet<T> {
                 .ok_or(ArithmeticError::Underflow)?,
         );
 
-        // Unlock this balance to make it transferrable
         let amount_to_liquidate: Amount<T> = Amount::new(collateral_amount, lend_token_id);
+        // Decrease the amount of collateral the borrower deposited
+        AccountDeposits::<T>::try_mutate_exists(lend_token_id, borrower, |deposits| -> DispatchResult {
+            let d = deposits
+                .unwrap_or_default()
+                .checked_sub(amount_to_liquidate.amount())
+                .ok_or(ArithmeticError::Underflow)?;
+            if d.is_zero() {
+                // remove deposits storage if zero balance
+                *deposits = None;
+            } else {
+                *deposits = Some(d);
+            }
+            Ok(())
+        })?;
+        // Unlock this balance to make it transferrable
         amount_to_liquidate.unlock_on(borrower)?;
 
         // increase liquidator's voucher_balance

@@ -447,4 +447,4 @@ benchmarks! {
     }
 }
 
-impl_benchmark_test_suite!(Loans, crate::mock::new_test_ext_benchmarking(), crate::mock::Test);
+impl_benchmark_test_suite!(Loans, crate::mock::new_test_ext_no_markets(), crate::mock::Test);
