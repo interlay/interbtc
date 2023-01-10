@@ -149,7 +149,7 @@ benchmarks! {
     }: _(SystemOrigin::Root, KBTC, pending_market_mock::<T>(LEND_KBTC))
     verify {
         assert_last_event::<T>(Event::<T>::NewMarket {
-            underlying_currency: KBTC,
+            underlying_currency_id: KBTC,
             market: pending_market_mock::<T>(LEND_KBTC)
         }.into());
     }
@@ -159,7 +159,7 @@ benchmarks! {
     }: _(SystemOrigin::Root, KSM)
     verify {
         assert_last_event::<T>(Event::<T>::ActivatedMarket {
-            underlying_currency: KSM
+            underlying_currency_id: KSM
         }.into());
     }
 
@@ -171,7 +171,7 @@ benchmarks! {
         market.rate_model = RATE_MODEL_MOCK;
         assert_last_event::<T>(Event::<T>::UpdatedMarket
             {
-                underlying_currency: KSM,
+                underlying_currency_id: KSM,
                 market
             }.into());
     }
@@ -196,7 +196,7 @@ benchmarks! {
         market.close_factor = Ratio::from_percent(15);
         assert_last_event::<T>(Event::<T>::UpdatedMarket
             {
-                underlying_currency: KSM,
+                underlying_currency_id: KSM,
                 market
             }.into());
     }
@@ -207,7 +207,7 @@ benchmarks! {
     verify {
         assert_last_event::<T>(Event::<T>::UpdatedMarket
             {
-                underlying_currency: KBTC,
+                underlying_currency_id: KBTC,
                 market: pending_market_mock::<T>(LEND_KBTC)
             }.into());
     }
@@ -242,7 +242,7 @@ benchmarks! {
     }: _(SystemOrigin::Root, KBTC, Some(1_000_000), Some(1_000_000))
     verify {
         assert_last_event::<T>(Event::<T>::MarketRewardSpeedUpdated {
-            underlying_currency: KBTC,
+            underlying_currency_id: KBTC,
             supply_reward_per_block: 1_000_000,
             borrow_reward_per_block: 1_000_000
         }.into());
@@ -295,7 +295,7 @@ benchmarks! {
     verify {
         assert_last_event::<T>(Event::<T>::Deposited {
             account_id: caller,
-            currency: KBTC,
+            currency_id: KBTC,
             amount: amount.into()
         }.into());
     }
@@ -313,7 +313,7 @@ benchmarks! {
     verify {
         assert_last_event::<T>(Event::<T>::Borrowed {
             account_id: caller,
-            currency: KBTC,
+            currency_id: KBTC,
             amount: borrowed_amount.into()
         }.into());
     }
@@ -330,7 +330,7 @@ benchmarks! {
     verify {
         assert_last_event::<T>(Event::<T>::Redeemed {
             account_id: caller,
-            currency: KBTC,
+            currency_id: KBTC,
             amount: redeem_amount.into()
         }.into());
     }
@@ -346,7 +346,7 @@ benchmarks! {
     verify {
         assert_last_event::<T>(Event::<T>::Redeemed {
             account_id: caller,
-            currency: KBTC,
+            currency_id: KBTC,
             amount: deposit_amount.into()
         }.into());
     }
@@ -366,7 +366,7 @@ benchmarks! {
     verify {
         assert_last_event::<T>(Event::<T>::RepaidBorrow {
             account_id: caller,
-            currency: KBTC,
+            currency_id: KBTC,
             amount: repay_amount.into()
         }.into());
     }
@@ -386,7 +386,7 @@ benchmarks! {
     verify {
         assert_last_event::<T>(Event::<T>::RepaidBorrow {
             account_id: caller,
-            currency: KBTC,
+            currency_id: KBTC,
             amount: borrowed_amount.into()
         }.into());
     }
@@ -408,7 +408,7 @@ benchmarks! {
     verify {
         assert_last_event::<T>(Event::<T>::DepositCollateral {
             account_id: caller,
-            currency: LEND_KBTC,
+            currency_id: LEND_KBTC,
             amount: expected_lend_tokens as u128
         }.into());
     }
@@ -428,7 +428,7 @@ benchmarks! {
     verify {
         assert_last_event::<T>(Event::<T>::WithdrawCollateral {
             account_id: caller,
-            currency: LEND_KBTC,
+            currency_id: LEND_KBTC,
             amount: expected_lend_tokens as u128
         }.into());
     }
@@ -496,7 +496,7 @@ benchmarks! {
     verify {
         assert_last_event::<T>(Event::<T>::ReservesAdded {
             payer: caller,
-            currency: KBTC,
+            currency_id: KBTC,
             amount: amount.into(),
             new_reserve_amount: amount.into()
         }.into());
@@ -515,7 +515,7 @@ benchmarks! {
     verify {
         assert_last_event::<T>(Event::<T>::ReservesReduced {
             receiver: caller,
-            currency: KBTC,
+            currency_id: KBTC,
             amount: reduce_amount.into(),
             new_reserve_amount: (add_amount - reduce_amount).into()
         }.into());

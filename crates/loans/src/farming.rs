@@ -132,7 +132,7 @@ impl<T: Config> Pallet<T> {
                     .checked_add(reward_delta)
                     .ok_or(ArithmeticError::Overflow)?;
                 Self::deposit_event(Event::<T>::DistributedSupplierReward {
-                    underlying_currency: asset_id,
+                    underlying_currency_id: asset_id,
                     supplier: supplier.clone(),
                     reward_delta,
                     supply_reward_index: supply_state.index,
@@ -164,7 +164,7 @@ impl<T: Config> Pallet<T> {
                     .checked_add(reward_delta)
                     .ok_or(ArithmeticError::Overflow)?;
                 Self::deposit_event(Event::<T>::DistributedBorrowerReward {
-                    underlying_currency: asset_id,
+                    underlying_currency_id: asset_id,
                     borrower: borrower.clone(),
                     reward_delta,
                     borrow_reward_index: borrow_state.index,

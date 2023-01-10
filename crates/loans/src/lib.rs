@@ -299,72 +299,72 @@ pub mod pallet {
         /// Enable collateral for certain asset
         DepositCollateral {
             account_id: T::AccountId,
-            currency: AssetIdOf<T>,
+            currency_id: AssetIdOf<T>,
             amount: BalanceOf<T>,
         },
         /// Disable collateral for certain asset
         WithdrawCollateral {
             account_id: T::AccountId,
-            currency: AssetIdOf<T>,
+            currency_id: AssetIdOf<T>,
             amount: BalanceOf<T>,
         },
         /// Event emitted when assets are deposited
         Deposited {
             account_id: T::AccountId,
-            currency: AssetIdOf<T>,
+            currency_id: AssetIdOf<T>,
             amount: BalanceOf<T>,
         },
         /// Event emitted when assets are redeemed
         Redeemed {
             account_id: T::AccountId,
-            currency: AssetIdOf<T>,
+            currency_id: AssetIdOf<T>,
             amount: BalanceOf<T>,
         },
         /// Event emitted when cash is borrowed
         Borrowed {
             account_id: T::AccountId,
-            currency: AssetIdOf<T>,
+            currency_id: AssetIdOf<T>,
             amount: BalanceOf<T>,
         },
         /// Event emitted when a borrow is repaid
         RepaidBorrow {
             account_id: T::AccountId,
-            currency: AssetIdOf<T>,
+            currency_id: AssetIdOf<T>,
             amount: BalanceOf<T>,
         },
         /// Event emitted when a borrow is liquidated
         LiquidatedBorrow {
             liquidator: T::AccountId,
             borrower: T::AccountId,
-            liquidation_currency: AssetIdOf<T>,
-            collateral_currency: AssetIdOf<T>,
+            liquidation_currency_id: AssetIdOf<T>,
+            collateral_currency_id: AssetIdOf<T>,
             repay_amount: BalanceOf<T>,
             collateral_underlying_amount: BalanceOf<T>,
         },
         /// Event emitted when the reserves are reduced
         ReservesReduced {
             receiver: T::AccountId,
-            currency: AssetIdOf<T>,
+            currency_id: AssetIdOf<T>,
             amount: BalanceOf<T>,
             new_reserve_amount: BalanceOf<T>,
         },
         /// Event emitted when the reserves are added
         ReservesAdded {
             payer: T::AccountId,
-            currency: AssetIdOf<T>,
+            currency_id: AssetIdOf<T>,
             amount: BalanceOf<T>,
             new_reserve_amount: BalanceOf<T>,
         },
         /// New market is set
         NewMarket {
-            underlying_currency: AssetIdOf<T>,
+            underlying_currency_id: AssetIdOf<T>,
             market: Market<BalanceOf<T>>,
         },
         /// Event emitted when a market is activated
-        ActivatedMarket { underlying_currency: AssetIdOf<T> },
+        ActivatedMarket { underlying_currency_id: AssetIdOf<T> },
         /// New market parameters is updated
         UpdatedMarket {
-            underlying_currency: AssetIdOf<T>,
+            underlying_currency_id: AssetIdOf<T>,
             market: Market<BalanceOf<T>>,
         },
         /// Reward added
@@ -376,20 +376,20 @@ pub mod pallet {
         },
         /// Event emitted when market reward speed updated.
         MarketRewardSpeedUpdated {
-            underlying_currency: AssetIdOf<T>,
+            underlying_currency_id: AssetIdOf<T>,
             supply_reward_per_block: BalanceOf<T>,
             borrow_reward_per_block: BalanceOf<T>,
         },
         /// Deposited when Reward is distributed to a supplier
         DistributedSupplierReward {
-            underlying_currency: AssetIdOf<T>,
+            underlying_currency_id: AssetIdOf<T>,
             supplier: T::AccountId,
             reward_delta: BalanceOf<T>,
             supply_reward_index: BalanceOf<T>,
         },
         /// Deposited when Reward is distributed to a borrower
         DistributedBorrowerReward {
-            underlying_currency: AssetIdOf<T>,
+            underlying_currency_id: AssetIdOf<T>,
             borrower: T::AccountId,
             reward_delta: BalanceOf<T>,
             borrow_reward_index: BalanceOf<T>,
@@ -402,12 +402,12 @@ pub mod pallet {
         /// Event emitted when the incentive reserves are redeemed and transfer to receiver's account
         IncentiveReservesReduced {
             receiver: T::AccountId,
-            currency: AssetIdOf<T>,
+            currency_id: AssetIdOf<T>,
             amount: BalanceOf<T>,
         },
         /// Event emitted when interest has been accrued for a market
         InterestAccrued {
-            underlying_currency: AssetIdOf<T>,
+            underlying_currency_id: AssetIdOf<T>,
             total_borrows: BalanceOf<T>,
             total_reserves: BalanceOf<T>,
             borrow_index: FixedU128,
@@ -690,7 +690,7 @@ pub mod pallet {
             // Emit an `InterestAccrued` event so event subscribers can see the
             // initial exchange rate.
             Self::deposit_event(Event::<T>::InterestAccrued {
-                underlying_currency: asset_id,
+                underlying_currency_id: asset_id,
                 total_borrows: Balance::zero(),
                 total_reserves: Balance::zero(),
                 borrow_index: initial_borrow_index,
@@ -700,7 +700,7 @@ pub mod pallet {
                 exchange_rate: initial_exchange_rate,
             });
             Self::deposit_event(Event::<T>::NewMarket {
-                underlying_currency: asset_id,
+                underlying_currency_id: asset_id,
                 market,
             });
             Ok(().into())
@@ -723,7 +723,7 @@ pub mod pallet {
                 stored_market.clone()
             })?;
             Self::deposit_event(Event::<T>::ActivatedMarket {
-                underlying_currency: asset_id,
+                underlying_currency_id: asset_id,
             });
             Ok(().into())
         }
@@ -747,7 +747,7 @@ pub mod pallet {
                 stored_market.clone()
             })?;
             Self::deposit_event(Event::<T>::UpdatedMarket {
-                underlying_currency: asset_id,
+                underlying_currency_id: asset_id,
                 market,
             });
 
@@ -821,7 +821,7 @@ pub mod pallet {
                 stored_market.clone()
             })?;
             Self::deposit_event(Event::<T>::UpdatedMarket {
-                underlying_currency: asset_id,
+                underlying_currency_id: asset_id,
                 market,
             });
 
@@ -855,7 +855,7 @@ pub mod pallet {
             })?;
 
             Self::deposit_event(Event::<T>::UpdatedMarket {
-                underlying_currency: asset_id,
+                underlying_currency_id: asset_id,
                 market: updated_market,
             });
             Ok(().into())
@@ -952,7 +952,7 @@ pub mod pallet {
             }
 
             Self::deposit_event(Event::<T>::MarketRewardSpeedUpdated {
-                underlying_currency: asset_id,
+                underlying_currency_id: asset_id,
                 supply_reward_per_block,
                 borrow_reward_per_block,
             });
@@ -1081,7 +1081,7 @@ pub mod pallet {
             let redeem_amount = Self::do_redeem_voucher(&who, asset_id, lend_tokens.amount())?;
             Self::deposit_event(Event::<T>::Redeemed {
                 account_id: who,
-                currency: asset_id,
+                currency_id: asset_id,
                 amount: redeem_amount,
             });
 
@@ -1222,7 +1222,7 @@ pub mod pallet {
 
             Self::deposit_event(Event::<T>::ReservesAdded {
                 payer,
-                currency: asset_id,
+                currency_id: asset_id,
                 amount: add_amount,
                 new_reserve_amount: total_reserves_new,
             });
@@ -1265,7 +1265,7 @@ pub mod pallet {
 
             Self::deposit_event(Event::<T>::ReservesReduced {
                 receiver,
-                currency: asset_id,
+                currency_id: asset_id,
                 amount: reduce_amount,
                 new_reserve_amount: total_reserves_new,
             });
@@ -1300,7 +1300,7 @@ pub mod pallet {
 
             Self::deposit_event(Event::<T>::IncentiveReservesReduced {
                 receiver,
-                currency: asset_id,
+                currency_id: asset_id,
                 amount: redeem_amount,
             });
             Ok(().into())
@@ -1761,8 +1761,8 @@ impl<T: Config> Pallet<T> {
         Self::deposit_event(Event::<T>::LiquidatedBorrow {
             liquidator: liquidator.clone(),
             borrower: borrower.clone(),
-            liquidation_currency: liquidation_asset_id,
-            collateral_currency: collateral_asset_id,
+            liquidation_currency_id: liquidation_asset_id,
+            collateral_currency_id: collateral_asset_id,
             repay_amount,
             collateral_underlying_amount,
         });
@@ -1990,7 +1990,7 @@ impl<T: Config> LoansTrait<AssetIdOf<T>, AccountIdOf<T>, BalanceOf<T>, Amount<T>
 
         Self::deposit_event(Event::<T>::Deposited {
             account_id: supplier.clone(),
-            currency: asset_id,
+            currency_id: asset_id,
             amount,
         });
         Ok(())
@@ -2024,7 +2024,7 @@ impl<T: Config> LoansTrait<AssetIdOf<T>, AccountIdOf<T>, BalanceOf<T>, Amount<T>
 
         Self::deposit_event(Event::<T>::Borrowed {
             account_id: borrower.clone(),
-            currency: asset_id,
+            currency_id: asset_id,
             amount,
         });
         Ok(())
@@ -2052,7 +2052,7 @@ impl<T: Config> LoansTrait<AssetIdOf<T>, AccountIdOf<T>, BalanceOf<T>, Amount<T>
 
         Self::deposit_event(Event::<T>::DepositCollateral {
             account_id: supplier.clone(),
-            currency: lend_token_amount.currency(),
+            currency_id: lend_token_amount.currency(),
             amount: lend_token_amount.amount(),
         });
         Ok(())
@@ -2102,7 +2102,7 @@ impl<T: Config> LoansTrait<AssetIdOf<T>, AccountIdOf<T>, BalanceOf<T>, Amount<T>
 
         Self::deposit_event(Event::<T>::WithdrawCollateral {
             account_id: supplier.clone(),
-            currency: lend_token_amount.currency(),
+            currency_id: lend_token_amount.currency(),
             amount: lend_token_amount.amount(),
         });
         Ok(())
@@ -2119,7 +2119,7 @@ impl<T: Config> LoansTrait<AssetIdOf<T>, AccountIdOf<T>, BalanceOf<T>, Amount<T>
         Self::do_repay_borrow_with_amount(borrower, asset_id, account_borrows, amount)?;
         Self::deposit_event(Event::<T>::RepaidBorrow {
             account_id: borrower.clone(),
-            currency: asset_id,
+            currency_id: asset_id,
             amount,
         });
         Ok(())
@@ -2134,7 +2134,7 @@ impl<T: Config> LoansTrait<AssetIdOf<T>, AccountIdOf<T>, BalanceOf<T>, Amount<T>
         let redeem_amount = Self::do_redeem_voucher(supplier, asset_id, voucher_amount)?;
         Self::deposit_event(Event::<T>::Redeemed {
             account_id: supplier.clone(),
-            currency: asset_id,
+            currency_id: asset_id,
             amount: redeem_amount,
         });
         Ok(())
