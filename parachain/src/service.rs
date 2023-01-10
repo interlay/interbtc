@@ -93,8 +93,15 @@ pub trait RuntimeApiCollection:
         AccountId,
         H256,
         replace::ReplaceRequest<AccountId, BlockNumber, Balance, CurrencyId>,
-    > + reward_rpc_runtime_api::RewardApi<Block, AccountId, VaultId<AccountId, CurrencyId>, CurrencyId, Balance>
-    + loans_rpc_runtime_api::LoansApi<Block, AccountId, Balance>
+    > + reward_rpc_runtime_api::RewardApi<
+        Block,
+        AccountId,
+        VaultId<AccountId, CurrencyId>,
+        CurrencyId,
+        Balance,
+        BlockNumber,
+        UnsignedFixedPoint,
+    > + loans_rpc_runtime_api::LoansApi<Block, AccountId, Balance>
 where
     <Self as sp_api::ApiExt<Block>>::StateBackend: sp_api::StateBackend<BlakeTwo256>,
 {
@@ -136,8 +143,15 @@ where
             AccountId,
             H256,
             replace::ReplaceRequest<AccountId, BlockNumber, Balance, CurrencyId>,
-        > + reward_rpc_runtime_api::RewardApi<Block, AccountId, VaultId<AccountId, CurrencyId>, CurrencyId, Balance>
-        + loans_rpc_runtime_api::LoansApi<Block, AccountId, Balance>,
+        > + reward_rpc_runtime_api::RewardApi<
+            Block,
+            AccountId,
+            VaultId<AccountId, CurrencyId>,
+            CurrencyId,
+            Balance,
+            BlockNumber,
+            UnsignedFixedPoint,
+        > + loans_rpc_runtime_api::LoansApi<Block, AccountId, Balance>,
     <Self as sp_api::ApiExt<Block>>::StateBackend: sp_api::StateBackend<BlakeTwo256>,
 {
 }

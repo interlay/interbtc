@@ -120,7 +120,7 @@ impl<Balance: AtLeast32BitUnsigned + Default + Copy, BlockNumber: AtLeast32BitUn
 
 #[derive(Default, Encode, Decode, Clone, TypeInfo, MaxEncodedLen)]
 pub struct LockedBalance<Balance, BlockNumber> {
-    amount: Balance,
+    pub amount: Balance,
     end: BlockNumber,
 }
 
@@ -513,6 +513,15 @@ impl<T: Config> Pallet<T> {
         });
 
         Ok(())
+    }
+
+    /// RPC helper
+    pub fn round_height_and_deposit_for(
+        who: &T::AccountId,
+        amount: BalanceOf<T>,
+        unlock_height: T::BlockNumber,
+    ) -> DispatchResult {
+        Self::deposit_for(who, amount, Self::round_height(unlock_height))
     }
 
     fn remove_lock(who: &T::AccountId) -> DispatchResult {
