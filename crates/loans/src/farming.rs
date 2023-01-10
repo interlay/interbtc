@@ -131,12 +131,12 @@ impl<T: Config> Pallet<T> {
                 *total_reward = total_reward
                     .checked_add(reward_delta)
                     .ok_or(ArithmeticError::Overflow)?;
-                Self::deposit_event(Event::<T>::DistributedSupplierReward(
-                    asset_id,
-                    supplier.clone(),
+                Self::deposit_event(Event::<T>::DistributedSupplierReward {
+                    underlying_currency_id: asset_id,
+                    supplier: supplier.clone(),
                     reward_delta,
-                    supply_state.index,
-                ));
+                    supply_reward_index: supply_state.index,
+                });
 
                 Ok(())
             })
@@ -163,12 +163,12 @@ impl<T: Config> Pallet<T> {
                 *total_reward = total_reward
                     .checked_add(reward_delta)
                     .ok_or(ArithmeticError::Overflow)?;
-                Self::deposit_event(Event::<T>::DistributedBorrowerReward(
-                    asset_id,
-                    borrower.clone(),
+                Self::deposit_event(Event::<T>::DistributedBorrowerReward {
+                    underlying_currency_id: asset_id,
+                    borrower: borrower.clone(),
                     reward_delta,
-                    borrow_state.index,
-                ));
+                    borrow_reward_index: borrow_state.index,
+                });
 
                 Ok(())
             })
@@ -194,7 +194,10 @@ impl<T: Config> Pallet<T> {
             amount.transfer(&pool_account, user)?;
             RewardAccrued::<T>::remove(user);
         }
-        Self::deposit_event(Event::<T>::RewardPaid(user.clone(), total_reward));
+        Self::deposit_event(Event::<T>::RewardPaid {
+            receiver: user.clone(),
+            amount: total_reward,
+        });
         Ok(())
     }
 }

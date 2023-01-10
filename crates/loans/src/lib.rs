@@ -297,63 +297,125 @@ pub mod pallet {
     #[pallet::generate_deposit(pub (crate) fn deposit_event)]
     pub enum Event<T: Config> {
         /// Enable collateral for certain asset
-        /// [sender, asset_id]
-        DepositCollateral(T::AccountId, AssetIdOf<T>, BalanceOf<T>),
+        DepositCollateral {
+            account_id: T::AccountId,
+            currency_id: AssetIdOf<T>,
+            amount: BalanceOf<T>,
+        },
         /// Disable collateral for certain asset
-        /// [sender, asset_id]
-        WithdrawCollateral(T::AccountId, AssetIdOf<T>, BalanceOf<T>),
+        WithdrawCollateral {
+            account_id: T::AccountId,
+            currency_id: AssetIdOf<T>,
+            amount: BalanceOf<T>,
+        },
         /// Event emitted when assets are deposited
-        /// [sender, asset_id, amount]
-        Deposited(T::AccountId, AssetIdOf<T>, BalanceOf<T>),
+        Deposited {
+            account_id: T::AccountId,
+            currency_id: AssetIdOf<T>,
+            amount: BalanceOf<T>,
+        },
         /// Event emitted when assets are redeemed
-        /// [sender, asset_id, amount]
-        Redeemed(T::AccountId, AssetIdOf<T>, BalanceOf<T>),
+        Redeemed {
+            account_id: T::AccountId,
+            currency_id: AssetIdOf<T>,
+            amount: BalanceOf<T>,
+        },
         /// Event emitted when cash is borrowed
-        /// [sender, asset_id, amount]
-        Borrowed(T::AccountId, AssetIdOf<T>, BalanceOf<T>),
+        Borrowed {
+            account_id: T::AccountId,
+            currency_id: AssetIdOf<T>,
+            amount: BalanceOf<T>,
+        },
         /// Event emitted when a borrow is repaid
-        /// [sender, asset_id, amount]
-        RepaidBorrow(T::AccountId, AssetIdOf<T>, BalanceOf<T>),
+        RepaidBorrow {
+            account_id: T::AccountId,
+            currency_id: AssetIdOf<T>,
+            amount: BalanceOf<T>,
+        },
         /// Event emitted when a borrow is liquidated
-        /// [liquidator, borrower, liquidation_asset_id, collateral_asset_id, repay_amount, collateral_amount]
-        LiquidatedBorrow(
-            T::AccountId,
-            T::AccountId,
-            AssetIdOf<T>,
-            AssetIdOf<T>,
-            BalanceOf<T>,
-            BalanceOf<T>,
-        ),
+        LiquidatedBorrow {
+            liquidator: T::AccountId,
+            borrower: T::AccountId,
+            liquidation_currency_id: AssetIdOf<T>,
+            collateral_currency_id: AssetIdOf<T>,
+            repay_amount: BalanceOf<T>,
+            collateral_underlying_amount: BalanceOf<T>,
+        },
         /// Event emitted when the reserves are reduced
-        /// [admin, asset_id, reduced_amount, total_reserves]
-        ReservesReduced(T::AccountId, AssetIdOf<T>, BalanceOf<T>, BalanceOf<T>),
+        ReservesReduced {
+            receiver: T::AccountId,
+            currency_id: AssetIdOf<T>,
+            amount: BalanceOf<T>,
+            new_reserve_amount: BalanceOf<T>,
+        },
         /// Event emitted when the reserves are added
-        /// [admin, asset_id, added_amount, total_reserves]
-        ReservesAdded(T::AccountId, AssetIdOf<T>, BalanceOf<T>, BalanceOf<T>),
+        ReservesAdded {
+            payer: T::AccountId,
+            currency_id: AssetIdOf<T>,
+            amount: BalanceOf<T>,
+            new_reserve_amount: BalanceOf<T>,
+        },
         /// New market is set
-        /// [new_interest_rate_model]
-        NewMarket(AssetIdOf<T>, Market<BalanceOf<T>>),
+        NewMarket {
+            underlying_currency_id: AssetIdOf<T>,
+            market: Market<BalanceOf<T>>,
+        },
         /// Event emitted when a market is activated
-        /// [admin, asset_id]
-        ActivatedMarket(AssetIdOf<T>),
+        ActivatedMarket { underlying_currency_id: AssetIdOf<T> },
         /// New market parameters is updated
-        /// [admin, asset_id]
-        UpdatedMarket(AssetIdOf<T>, Market<BalanceOf<T>>),
+        UpdatedMarket {
+            underlying_currency_id: AssetIdOf<T>,
+            market: Market<BalanceOf<T>>,
+        },
         /// Reward added
-        RewardAdded(T::AccountId, BalanceOf<T>),
+        RewardAdded { payer: T::AccountId, amount: BalanceOf<T> },
         /// Reward withdrawed
-        RewardWithdrawn(T::AccountId, BalanceOf<T>),
+        RewardWithdrawn {
+            receiver: T::AccountId,
+            amount: BalanceOf<T>,
+        },
         /// Event emitted when market reward speed updated.
-        MarketRewardSpeedUpdated(AssetIdOf<T>, BalanceOf<T>, BalanceOf<T>),
+        MarketRewardSpeedUpdated {
+            underlying_currency_id: AssetIdOf<T>,
+            supply_reward_per_block: BalanceOf<T>,
+            borrow_reward_per_block: BalanceOf<T>,
+        },
         /// Deposited when Reward is distributed to a supplier
-        DistributedSupplierReward(AssetIdOf<T>, T::AccountId, BalanceOf<T>, BalanceOf<T>),
+        DistributedSupplierReward {
+            underlying_currency_id: AssetIdOf<T>,
+            supplier: T::AccountId,
+            reward_delta: BalanceOf<T>,
+            supply_reward_index: BalanceOf<T>,
+        },
         /// Deposited when Reward is distributed to a borrower
-        DistributedBorrowerReward(AssetIdOf<T>, T::AccountId, BalanceOf<T>, BalanceOf<T>),
+        DistributedBorrowerReward {
+            underlying_currency_id: AssetIdOf<T>,
+            borrower: T::AccountId,
+            reward_delta: BalanceOf<T>,
+            borrow_reward_index: BalanceOf<T>,
+        },
         /// Reward Paid for user
-        RewardPaid(T::AccountId, BalanceOf<T>),
+        RewardPaid {
+            receiver: T::AccountId,
+            amount: BalanceOf<T>,
+        },
         /// Event emitted when the incentive reserves are redeemed and transfer to receiver's account
-        /// [receive_account_id, asset_id, reduced_amount]
-        IncentiveReservesReduced(T::AccountId, AssetIdOf<T>, BalanceOf<T>),
+        IncentiveReservesReduced {
+            receiver: T::AccountId,
+            currency_id: AssetIdOf<T>,
+            amount: BalanceOf<T>,
+        },
+        /// Event emitted when interest has been accrued for a market
+        InterestAccrued {
+            underlying_currency_id: AssetIdOf<T>,
+            total_borrows: BalanceOf<T>,
+            total_reserves: BalanceOf<T>,
+            borrow_index: FixedU128,
+            utilization_ratio: Ratio,
+            borrow_rate: Rate,
+            supply_rate: Rate,
+            exchange_rate: Rate,
+        },
     }
 
     #[pallet::hooks]
@@ -620,10 +682,27 @@ pub mod pallet {
             UnderlyingAssetId::<T>::insert(market.lend_token_id, asset_id);
 
             // Init the ExchangeRate and BorrowIndex for asset
-            ExchangeRate::<T>::insert(asset_id, Self::min_exchange_rate());
-            BorrowIndex::<T>::insert(asset_id, Rate::one());
+            let initial_exchange_rate = Self::min_exchange_rate();
+            let initial_borrow_index = Rate::one();
+            ExchangeRate::<T>::insert(asset_id, initial_exchange_rate);
+            BorrowIndex::<T>::insert(asset_id, initial_borrow_index);
 
-            Self::deposit_event(Event::<T>::NewMarket(asset_id, market));
+            // Emit an `InterestAccrued` event so event subscribers can see the
+            // initial exchange rate.
+            Self::deposit_event(Event::<T>::InterestAccrued {
+                underlying_currency_id: asset_id,
+                total_borrows: Balance::zero(),
+                total_reserves: Balance::zero(),
+                borrow_index: initial_borrow_index,
+                utilization_ratio: Ratio::zero(),
+                borrow_rate: Rate::zero(),
+                supply_rate: Rate::zero(),
+                exchange_rate: initial_exchange_rate,
+            });
+            Self::deposit_event(Event::<T>::NewMarket {
+                underlying_currency_id: asset_id,
+                market,
+            });
             Ok(().into())
         }
 
@@ -643,7 +722,9 @@ pub mod pallet {
                 stored_market.state = MarketState::Active;
                 stored_market.clone()
             })?;
-            Self::deposit_event(Event::<T>::ActivatedMarket(asset_id));
+            Self::deposit_event(Event::<T>::ActivatedMarket {
+                underlying_currency_id: asset_id,
+            });
             Ok(().into())
         }
 
@@ -665,7 +746,10 @@ pub mod pallet {
                 stored_market.rate_model = rate_model;
                 stored_market.clone()
             })?;
-            Self::deposit_event(Event::<T>::UpdatedMarket(asset_id, market));
+            Self::deposit_event(Event::<T>::UpdatedMarket {
+                underlying_currency_id: asset_id,
+                market,
+            });
 
             Ok(().into())
         }
@@ -736,7 +820,10 @@ pub mod pallet {
                 };
                 stored_market.clone()
             })?;
-            Self::deposit_event(Event::<T>::UpdatedMarket(asset_id, market));
+            Self::deposit_event(Event::<T>::UpdatedMarket {
+                underlying_currency_id: asset_id,
+                market,
+            });
 
             Ok(().into())
         }
@@ -767,7 +854,10 @@ pub mod pallet {
                 stored_market.clone()
             })?;
 
-            Self::deposit_event(Event::<T>::UpdatedMarket(asset_id, updated_market));
+            Self::deposit_event(Event::<T>::UpdatedMarket {
+                underlying_currency_id: asset_id,
+                market: updated_market,
+            });
             Ok(().into())
         }
 
@@ -786,7 +876,7 @@ pub mod pallet {
             let amount_to_transfer: Amount<T> = Amount::new(amount, reward_asset);
             amount_to_transfer.transfer(&who, &pool_account)?;
 
-            Self::deposit_event(Event::<T>::RewardAdded(who, amount));
+            Self::deposit_event(Event::<T>::RewardAdded { payer: who, amount });
 
             Ok(().into())
         }
@@ -814,7 +904,10 @@ pub mod pallet {
             let amount_to_transfer: Amount<T> = Amount::new(amount, reward_asset);
             amount_to_transfer.transfer(&pool_account, &target_account)?;
 
-            Self::deposit_event(Event::<T>::RewardWithdrawn(target_account, amount));
+            Self::deposit_event(Event::<T>::RewardWithdrawn {
+                receiver: target_account,
+                amount,
+            });
 
             Ok(().into())
         }
@@ -858,11 +951,11 @@ pub mod pallet {
                 })?;
             }
 
-            Self::deposit_event(Event::<T>::MarketRewardSpeedUpdated(
-                asset_id,
+            Self::deposit_event(Event::<T>::MarketRewardSpeedUpdated {
+                underlying_currency_id: asset_id,
                 supply_reward_per_block,
                 borrow_reward_per_block,
-            ));
+            });
             Ok(().into())
         }
 
@@ -986,7 +1079,11 @@ pub mod pallet {
             let lend_tokens = Self::free_lend_tokens(asset_id, &who)?;
             ensure!(!lend_tokens.is_zero(), Error::<T>::InvalidAmount);
             let redeem_amount = Self::do_redeem_voucher(&who, asset_id, lend_tokens.amount())?;
-            Self::deposit_event(Event::<T>::Redeemed(who, asset_id, redeem_amount));
+            Self::deposit_event(Event::<T>::Redeemed {
+                account_id: who,
+                currency_id: asset_id,
+                amount: redeem_amount,
+            });
 
             Ok(().into())
         }
@@ -1123,12 +1220,12 @@ pub mod pallet {
                 .ok_or(ArithmeticError::Overflow)?;
             TotalReserves::<T>::insert(asset_id, total_reserves_new);
 
-            Self::deposit_event(Event::<T>::ReservesAdded(
+            Self::deposit_event(Event::<T>::ReservesAdded {
                 payer,
-                asset_id,
-                add_amount,
-                total_reserves_new,
-            ));
+                currency_id: asset_id,
+                amount: add_amount,
+                new_reserve_amount: total_reserves_new,
+            });
 
             Ok(().into())
         }
@@ -1166,12 +1263,12 @@ pub mod pallet {
             let amount_to_transfer: Amount<T> = Amount::new(reduce_amount, asset_id);
             amount_to_transfer.transfer(&Self::account_id(), &receiver)?;
 
-            Self::deposit_event(Event::<T>::ReservesReduced(
+            Self::deposit_event(Event::<T>::ReservesReduced {
                 receiver,
-                asset_id,
-                reduce_amount,
-                total_reserves_new,
-            ));
+                currency_id: asset_id,
+                amount: reduce_amount,
+                new_reserve_amount: total_reserves_new,
+            });
 
             Ok(().into())
         }
@@ -1201,7 +1298,11 @@ pub mod pallet {
             let amount_to_transfer: Amount<T> = Amount::new(redeem_amount, asset_id);
             amount_to_transfer.transfer(&from, &receiver)?;
 
-            Self::deposit_event(Event::<T>::IncentiveReservesReduced(receiver, asset_id, redeem_amount));
+            Self::deposit_event(Event::<T>::IncentiveReservesReduced {
+                receiver,
+                currency_id: asset_id,
+                amount: redeem_amount,
+            });
             Ok(().into())
         }
     }
@@ -1657,14 +1758,14 @@ impl<T: Config> Pallet<T> {
         let incentive_reserved_amount: Amount<T> = Amount::new(incentive_reserved, lend_token_id);
         incentive_reserved_amount.transfer(borrower, &Self::incentive_reward_account_id()?)?;
 
-        Self::deposit_event(Event::<T>::LiquidatedBorrow(
-            liquidator.clone(),
-            borrower.clone(),
-            liquidation_asset_id,
-            collateral_asset_id,
+        Self::deposit_event(Event::<T>::LiquidatedBorrow {
+            liquidator: liquidator.clone(),
+            borrower: borrower.clone(),
+            liquidation_currency_id: liquidation_asset_id,
+            collateral_currency_id: collateral_asset_id,
             repay_amount,
             collateral_underlying_amount,
-        ));
+        });
 
         Ok(())
     }
@@ -1887,7 +1988,11 @@ impl<T: Config> LoansTrait<AssetIdOf<T>, AccountIdOf<T>, BalanceOf<T>, Amount<T>
         let lend_tokens_to_mint: Amount<T> = Amount::new(voucher_amount, lend_token_id);
         lend_tokens_to_mint.mint_to(supplier)?;
 
-        Self::deposit_event(Event::<T>::Deposited(supplier.clone(), asset_id, amount));
+        Self::deposit_event(Event::<T>::Deposited {
+            account_id: supplier.clone(),
+            currency_id: asset_id,
+            amount,
+        });
         Ok(())
     }
 
@@ -1917,7 +2022,11 @@ impl<T: Config> LoansTrait<AssetIdOf<T>, AccountIdOf<T>, BalanceOf<T>, Amount<T>
         let amount_to_transfer: Amount<T> = Amount::new(amount, asset_id);
         amount_to_transfer.transfer(&Self::account_id(), borrower)?;
 
-        Self::deposit_event(Event::<T>::Borrowed(borrower.clone(), asset_id, amount));
+        Self::deposit_event(Event::<T>::Borrowed {
+            account_id: borrower.clone(),
+            currency_id: asset_id,
+            amount,
+        });
         Ok(())
     }
 
@@ -1941,11 +2050,11 @@ impl<T: Config> LoansTrait<AssetIdOf<T>, AccountIdOf<T>, BalanceOf<T>, Amount<T>
             .ok_or(ArithmeticError::Overflow)?;
         AccountDeposits::<T>::insert(lend_token_amount.currency(), supplier, new_deposit);
 
-        Self::deposit_event(Event::<T>::DepositCollateral(
-            supplier.clone(),
-            lend_token_amount.currency(),
-            lend_token_amount.amount(),
-        ));
+        Self::deposit_event(Event::<T>::DepositCollateral {
+            account_id: supplier.clone(),
+            currency_id: lend_token_amount.currency(),
+            amount: lend_token_amount.amount(),
+        });
         Ok(())
     }
 
@@ -1991,11 +2100,11 @@ impl<T: Config> LoansTrait<AssetIdOf<T>, AccountIdOf<T>, BalanceOf<T>, Amount<T>
             Ok(())
         })?;
 
-        Self::deposit_event(Event::<T>::WithdrawCollateral(
-            supplier.clone(),
-            lend_token_amount.currency(),
-            lend_token_amount.amount(),
-        ));
+        Self::deposit_event(Event::<T>::WithdrawCollateral {
+            account_id: supplier.clone(),
+            currency_id: lend_token_amount.currency(),
+            amount: lend_token_amount.amount(),
+        });
         Ok(())
     }
 
@@ -2008,7 +2117,11 @@ impl<T: Config> LoansTrait<AssetIdOf<T>, AccountIdOf<T>, BalanceOf<T>, Amount<T>
         Self::accrue_interest(asset_id)?;
         let account_borrows = Self::current_borrow_balance(borrower, asset_id)?;
         Self::do_repay_borrow_with_amount(borrower, asset_id, account_borrows, amount)?;
-        Self::deposit_event(Event::<T>::RepaidBorrow(borrower.clone(), asset_id, amount));
+        Self::deposit_event(Event::<T>::RepaidBorrow {
+            account_id: borrower.clone(),
+            currency_id: asset_id,
+            amount,
+        });
         Ok(())
     }
 
@@ -2019,7 +2132,11 @@ impl<T: Config> LoansTrait<AssetIdOf<T>, AccountIdOf<T>, BalanceOf<T>, Amount<T>
         Self::update_earned_stored(supplier, asset_id, exchange_rate)?;
         let voucher_amount = Self::calc_collateral_amount(amount, exchange_rate)?;
         let redeem_amount = Self::do_redeem_voucher(supplier, asset_id, voucher_amount)?;
-        Self::deposit_event(Event::<T>::Redeemed(supplier.clone(), asset_id, redeem_amount));
+        Self::deposit_event(Event::<T>::Redeemed {
+            account_id: supplier.clone(),
+            currency_id: asset_id,
+            amount: redeem_amount,
+        });
         Ok(())
     }
 
