@@ -920,6 +920,9 @@ impl Default for ProxyType {
 impl InstanceFilter<RuntimeCall> for ProxyType {
     fn filter(&self, c: &RuntimeCall) -> bool {
         match self {
+            // Nested calls get checked against this filter during
+            // execution (i.e. not before) this will result in a
+            // `BadOrigin` error if the proxy does not allow the call
             _ if matches!(c, RuntimeCall::Utility(..)) => true,
             ProxyType::Any => true,
         }
@@ -928,8 +931,6 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
         match (self, o) {
             (x, y) if x == y => true,
             (ProxyType::Any, _) => true,
-            (_, ProxyType::Any) => false,
-            _ => false,
         }
     }
 }
