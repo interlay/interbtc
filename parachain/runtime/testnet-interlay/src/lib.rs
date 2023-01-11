@@ -15,7 +15,7 @@ use frame_support::{
     dispatch::{DispatchError, DispatchResult},
     traits::{
         ConstU32, Contains, Currency as PalletCurrency, EitherOfDiverse, EnsureOrigin, EnsureOriginWithArg,
-        EqualPrivilegeOnly, ExistenceRequirement, Imbalance, OnUnbalanced,
+        EqualPrivilegeOnly, ExistenceRequirement, Imbalance, InstanceFilter, OnUnbalanced,
     },
     weights::ConstantMultiplier,
     PalletId,
@@ -953,6 +953,74 @@ impl pallet_identity::Config for Runtime {
     type WeightInfo = ();
 }
 
+parameter_types! {
+    // One storage item; key size 32, value size 8; .
+    pub const ProxyDepositBase: Balance = deposit(1, 8);
+    // Additional storage item size of 33 bytes.
+    pub const ProxyDepositFactor: Balance = deposit(0, 33);
+    pub const MaxProxies: u16 = 32;
+    pub const MaxPending: u16 = 32;
+    pub const AnnouncementDepositBase: Balance = deposit(1, 8);
+    pub const AnnouncementDepositFactor: Balance = deposit(0, 66);
+}
+
+/// The type used to represent the kinds of proxying allowed.
+#[derive(
+    Copy,
+    Clone,
+    Eq,
+    PartialEq,
+    Ord,
+    PartialOrd,
+    codec::Encode,
+    codec::Decode,
+    sp_runtime::RuntimeDebug,
+    codec::MaxEncodedLen,
+    scale_info::TypeInfo,
+)]
+pub enum ProxyType {
+    Any,
+}
+
+impl Default for ProxyType {
+    fn default() -> Self {
+        Self::Any
+    }
+}
+
+impl InstanceFilter<RuntimeCall> for ProxyType {
+    fn filter(&self, c: &RuntimeCall) -> bool {
+        match self {
+            // Nested calls get checked against this filter during
+            // execution (i.e. not before) this will result in a
+            // `BadOrigin` error if the proxy does not allow the call
+            _ if matches!(c, RuntimeCall::Utility(..)) => true,
+            ProxyType::Any => true,
+        }
+    }
+    fn is_superset(&self, o: &Self) -> bool {
+        match (self, o) {
+            (x, y) if x == y => true,
+            (ProxyType::Any, _) => true,
+        }
+    }
+}
+
+impl pallet_proxy::Config for Runtime {
+    type RuntimeEvent = RuntimeEvent;
+    type RuntimeCall = RuntimeCall;
+    type Currency = NativeCurrency;
+    type ProxyType = ProxyType;
+    type ProxyDepositBase = ProxyDepositBase;
+    type ProxyDepositFactor = ProxyDepositFactor;
+    type MaxProxies = MaxProxies;
+    type WeightInfo = ();
+    type MaxPending = MaxPending;
+    type CallHasher = BlakeTwo256;
+    type AnnouncementDepositBase = AnnouncementDepositBase;
+    type AnnouncementDepositFactor = AnnouncementDepositFactor;
+}
+
 impl vault_registry::Config for Runtime {
     type PalletId = VaultRegistryPalletId;
     type RuntimeEvent = RuntimeEvent;
@@ -1057,6 +1125,7 @@ construct_runtime! {
         Preimage: pallet_preimage::{Pallet, Call, Storage, Event<T>} = 6,
         Multisig: pallet_multisig::{Pallet, Call, Storage, Event<T>} = 7,
         Identity: pallet_identity::{Pallet, Call, Storage, Event<T>} = 8,
+        Proxy: pallet_proxy::{Pallet, Call, Storage, Event<T>} = 9,
 
         // # Tokens & Balances
         Currency: currency::{Pallet} = 20,
@@ -1088,8 +1157,7 @@ construct_runtime! {
         Fee: fee::{Pallet, Call, Config<T>, Storage} = 66,
         // Refund: 67
         Nomination: nomination::{Pallet, Call, Config, Storage, Event<T>} = 68,
-        ClientsInfo: clients_info::{Pallet, Call, Storage, Event<T>} = 96,
-        Loans: loans::{Pallet, Call, Storage, Event<T>, Config} = 97,
+        ClientsInfo: clients_info::{Pallet, Call, Storage, Event<T>} = 69,
 
         // # Governance
         Democracy: democracy::{Pallet, Call, Storage, Config<T>, Event<T>} = 70,
@@ -1113,6 +1181,9 @@ construct_runtime! {
 
         XTokens: orml_xtokens::{Pallet, Storage, Call, Event<T>} = 94,
         UnknownTokens: orml_unknown_tokens::{Pallet, Storage, Event} = 95,
+
+        // # Lending
+        Loans: loans::{Pallet, Call, Storage, Event<T>, Config} = 100,
     }
 }
 
