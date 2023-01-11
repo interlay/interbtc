@@ -344,3 +344,22 @@ fn begin_block_set_oracle_offline_succeeds() {
         assert!(oracle_reported, "Oracle should be reported as offline");
     });
 }
+
+#[test]
+fn test_median() {
+    let test_cases = [
+        (vec![], None),
+        (vec![2], Some(2.0)),
+        (vec![2, 1], Some(1.5)),
+        (vec![1, 2, 3], Some(2.0)),
+        (vec![2, 1, 3], Some(2.0)),
+        (vec![10, 2, 1, 3], Some(2.5)),
+        (vec![10, 2, 1, 3, 0], Some(2.0)),
+    ];
+    for (input, output) in test_cases {
+        let input_fixedpoint = input.into_iter().map(|x| FixedU128::from(x)).collect();
+        let output_fixedpoint = output.map(|x| FixedU128::from_float(x));
+
+        assert_eq!(Oracle::median(input_fixedpoint), output_fixedpoint);
+    }
+}
