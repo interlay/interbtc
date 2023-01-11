@@ -59,16 +59,9 @@ fn deposit_of_borrower_must_be_collateral() {
             Error::<Test>::TooMuchRepay
         );
 
-        // Previously (in Parallel's original implementation), this extrinsic call used to
-        // return a `DepositsAreNotCollateral` error.
-        // However, because the collateral "toggle" has been removed, the extrinsic looks
-        // directly inside the `AccountDeposits` map, which no longer represents lend_token holdings
-        // but rather lend_tokens that have been locked as collateral.
-        // Since no KSM lend_tokens have been locked as collateral in this test, there will be zero
-        // collateral available for paying the liquidator, thus producing the error below.
         assert_noop!(
             Loans::liquidate_borrow(RuntimeOrigin::signed(BOB), ALICE, KSM, 10, DOT),
-            Error::<Test>::InsufficientCollateral
+            Error::<Test>::DepositsAreNotCollateral
         );
     })
 }
@@ -282,6 +275,7 @@ fn close_factor_may_require_multiple_liquidations_to_clear_bad_debt() {
         // secure ratio        = 40%
         // liquidation ratio   = 45%
         // liquidation premium = 110%
+        // close factor        = 50%
         initial_setup();
         assert_ok!(Loans::borrow(RuntimeOrigin::signed(ALICE), KSM, unit(80)));
         // Step 1.

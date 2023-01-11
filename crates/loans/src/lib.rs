@@ -1544,6 +1544,7 @@ impl<T: Config> Pallet<T> {
 
         let lend_token_id = Self::lend_token_id(collateral_asset_id)?;
         let deposits = AccountDeposits::<T>::get(lend_token_id, &borrower);
+        ensure!(!deposits.is_zero(), Error::<T>::DepositsAreNotCollateral);
         let exchange_rate = Self::exchange_rate_stored(collateral_asset_id)?;
         let borrower_deposit_amount = exchange_rate
             .checked_mul_int(deposits)
@@ -1635,13 +1636,6 @@ impl<T: Config> Pallet<T> {
         let exchange_rate = Self::exchange_rate_stored(collateral_asset_id)?;
         let collateral_amount = Self::calc_collateral_amount(collateral_underlying_amount, exchange_rate)?;
         let lend_token_id = Self::lend_token_id(collateral_asset_id)?;
-        let incentive_reserved = market.liquidate_incentive_reserved_factor.mul_floor(
-            FixedU128::from_inner(collateral_amount)
-                .checked_div(&market.liquidate_incentive)
-                .map(|r| r.into_inner())
-                .ok_or(ArithmeticError::Underflow)?,
-        );
-
         let amount_to_liquidate: Amount<T> = Amount::new(collateral_amount, lend_token_id);
         // Decrease the amount of collateral the borrower deposited
         AccountDeposits::<T>::try_mutate_exists(lend_token_id, borrower, |deposits| -> DispatchResult {
@@ -1660,15 +1654,18 @@ impl<T: Config> Pallet<T> {
         // Unlock this balance to make it transferrable
         amount_to_liquidate.unlock_on(borrower)?;
 
+        let incentive_reserved = market.liquidate_incentive_reserved_factor.mul_floor(
+            FixedU128::from_inner(collateral_amount)
+                .checked_div(&market.liquidate_incentive)
+                .map(|r| r.into_inner())
+                .ok_or(ArithmeticError::Underflow)?,
+        );
+        let incentive_reserved_amount: Amount<T> = Amount::new(incentive_reserved, lend_token_id);
         // increase liquidator's voucher_balance
-        let liquidator_amount_u128 = collateral_amount
-            .checked_sub(incentive_reserved)
-            .ok_or(ArithmeticError::Underflow)?;
-        let liquidator_amount: Amount<T> = Amount::new(liquidator_amount_u128, lend_token_id);
+        let liquidator_amount = amount_to_liquidate.checked_sub(&incentive_reserved_amount)?;
         liquidator_amount.transfer(borrower, liquidator)?;
 
         // increase reserve's voucher_balance
-        let incentive_reserved_amount: Amount<T> = Amount::new(incentive_reserved, lend_token_id);
         incentive_reserved_amount.transfer(borrower, &Self::incentive_reward_account_id()?)?;
 
         Self::deposit_event(Event::<T>::LiquidatedBorrow(
