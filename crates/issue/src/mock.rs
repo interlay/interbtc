@@ -259,6 +259,10 @@ impl fee::Config for Test {
     type MaxExpectedValue = MaxExpectedValue;
 }
 
+parameter_types! {
+    pub const TreasuryPalletId: PalletId = PalletId(*b"mod/trsy");
+}
+
 pub struct BlockNumberToBalance;
 
 impl Convert<BlockNumber, Balance> for BlockNumberToBalance {
@@ -268,6 +272,7 @@ impl Convert<BlockNumber, Balance> for BlockNumberToBalance {
 }
 
 impl Config for Test {
+    type TreasuryPalletId = TreasuryPalletId;
     type RuntimeEvent = RuntimeEvent;
     type BlockNumberToBalance = BlockNumberToBalance;
     type WeightInfo = ();
