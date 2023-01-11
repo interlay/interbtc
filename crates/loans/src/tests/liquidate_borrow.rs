@@ -102,12 +102,12 @@ fn full_workflow_works_as_expected() {
 
         // KSM price = 2
         // incentive = repay KSM value * 1.1 = (50 * 2) * 1.1 = 110
-        // Alice USDT: cash - deposit = 1000 - 200 = 800
-        // Alice USDT collateral: deposit - incentive = 200 - 110 = 90
+        // Alice KBTC: cash - deposit = 1000 - 200 = 800
+        // Alice KBTC collateral: deposit - incentive = 200 - 110 = 90
         // Alice KSM: cash + borrow = 1000 + 100 = 1100
         // Alice KSM borrow balance: origin borrow balance - liquidate amount = 100 - 50 = 50
         // Bob KSM: cash - deposit - repay = 1000 - 200 - 50 = 750
-        // Bob DOT collateral: incentive = 110-(110/1.1*0.03)=107
+        // Bob KBTC collateral: incentive = 110-(110/1.1*0.03)=107
         assert_eq!(Tokens::balance(KBTC, &ALICE), unit(800),);
         assert_eq!(
             Loans::exchange_rate(KBTC).saturating_mul_int(Tokens::balance(Loans::lend_token_id(KBTC).unwrap(), &ALICE)),
