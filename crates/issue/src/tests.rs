@@ -271,7 +271,7 @@ fn test_execute_issue_underpayment_succeeds() {
             ext::vault_registry::transfer_funds::<Test>.mock_raw(|from, to, amount| {
                 transfer_funds_called = true;
                 assert_eq!(from.account_id(), USER);
-                assert_eq!(to.account_id(), VAULT.account_id);
+                assert_eq!(to.account_id(), Issue::treasury_account_id());
                 // to_release_collateral = (griefing_collateral * amount_transferred) / expected_total_amount
                 // slashed_collateral = griefing_collateral - to_release_collateral
                 // 20 - (20 * 1 / 10) = 18

@@ -754,7 +754,7 @@ mod execute_pending_issue_tests {
                     // user loses 75% of griefing collateral for having only fulfilled 25%
                     (*user.balances.get_mut(&DEFAULT_GRIEFING_CURRENCY).unwrap()).locked -= issue.griefing_collateral();
                     (*user.balances.get_mut(&DEFAULT_GRIEFING_CURRENCY).unwrap()).free += returned_griefing_collateral;
-                    *vault.free_balance.get_mut(&DEFAULT_GRIEFING_CURRENCY).unwrap() += slashed_griefing_collateral;
+                    // TODO: check treasury balance includes griefing collateral
 
                     // token updating as if only 25% was requested
                     (*user.balances.get_mut(&vault_id.wrapped_currency()).unwrap()).free += issue.amount() / 4;
@@ -1095,7 +1095,7 @@ mod cancel_issue_tests {
                 ParachainState::get(&vault_id),
                 post_request_state.with_changes(|user, vault, _, _| {
                     (*user.balances.get_mut(&DEFAULT_GRIEFING_CURRENCY).unwrap()).locked -= issue.griefing_collateral();
-                    *vault.free_balance.get_mut(&DEFAULT_GRIEFING_CURRENCY).unwrap() += issue.griefing_collateral();
+                    // TODO: check treasury balance includes griefing collateral
                     vault.to_be_issued -= issue.amount() + issue.fee();
                 })
             );

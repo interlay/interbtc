@@ -32,11 +32,11 @@ pub use crate::types::{DefaultIssueRequest, IssueRequest, IssueRequestStatus};
 use crate::types::{BalanceOf, DefaultVaultId, Version};
 use btc_relay::{BtcAddress, BtcPublicKey};
 use currency::Amount;
-use frame_support::{dispatch::DispatchError, ensure, traits::Get, transactional};
+use frame_support::{dispatch::DispatchError, ensure, traits::Get, transactional, PalletId};
 use frame_system::{ensure_root, ensure_signed};
 pub use pallet::*;
 use sp_core::H256;
-use sp_runtime::traits::{Convert, Saturating};
+use sp_runtime::traits::{AccountIdConversion, Convert, Saturating};
 use sp_std::vec::Vec;
 use types::IssueRequestExt;
 use vault_registry::{types::CurrencyId, CurrencySource, VaultStatus};
@@ -57,6 +57,10 @@ pub mod pallet {
         + oracle::Config
         + fee::Config<UnsignedInner = BalanceOf<Self>>
     {
+        /// The treasury pallet account for slashed griefing collateral.
+        #[pallet::constant]
+        type TreasuryPalletId: Get<PalletId>;
+
         /// The overarching event type.
         type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
@@ -263,6 +267,10 @@ pub mod pallet {
 // "Internal" functions, callable by code.
 #[cfg_attr(test, mockable)]
 impl<T: Config> Pallet<T> {
+    pub fn treasury_account_id() -> T::AccountId {
+        T::TreasuryPalletId::get().into_account_truncating()
+    }
+
     /// Requests CBA issuance, returns unique tracking ID.
     fn _request_issue(
         requester: T::AccountId,
@@ -475,10 +483,11 @@ impl<T: Config> Pallet<T> {
             // return slashed griefing collateral if the vault is liquidated
             to_be_slashed_collateral.unlock_on(&issue.requester)?;
         } else {
-            // otherwise give all slashed griefing collateral to the vault
+            // otherwise give slashed griefing collateral to the treasury
+            // since the vault may have purposely blocked minting
             ext::vault_registry::transfer_funds::<T>(
                 CurrencySource::UserGriefing(issue.requester.clone()),
-                CurrencySource::FreeBalance(issue.vault.account_id.clone()),
+                CurrencySource::FreeBalance(Self::treasury_account_id()),
                 &to_be_slashed_collateral,
             )?;
         }
@@ -516,7 +525,7 @@ impl<T: Config> Pallet<T> {
         let slashed_collateral = issue.griefing_collateral().checked_sub(&to_release_collateral)?;
         ext::vault_registry::transfer_funds::<T>(
             CurrencySource::UserGriefing(issue.requester.clone()),
-            CurrencySource::FreeBalance(issue.vault.account_id.clone()),
+            CurrencySource::FreeBalance(Self::treasury_account_id()),
             &slashed_collateral,
         )?;
 

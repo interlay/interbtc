@@ -997,6 +997,7 @@ impl fee::Config for Runtime {
 pub use issue::{Event as IssueEvent, IssueRequest};
 
 impl issue::Config for Runtime {
+    type TreasuryPalletId = TreasuryPalletId;
     type RuntimeEvent = RuntimeEvent;
     type BlockNumberToBalance = BlockNumberToBalance;
     type WeightInfo = ();
