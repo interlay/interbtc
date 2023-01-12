@@ -19,12 +19,14 @@ use std::sync::Arc;
 pub use reward_rpc_runtime_api::RewardApi as RewardRuntimeApi;
 
 #[rpc(client, server)]
-pub trait RewardApi<BlockHash, AccountId, VaultId, CurrencyId, Balance>
+pub trait RewardApi<BlockHash, AccountId, VaultId, CurrencyId, Balance, BlockNumber, UnsignedFixedPoint>
 where
     Balance: Codec + MaybeDisplay + MaybeFromStr,
     AccountId: Codec,
     VaultId: Codec,
     CurrencyId: Codec,
+    BlockNumber: Codec,
+    UnsignedFixedPoint: Codec,
 {
     #[method(name = "reward_computeEscrowReward")]
     fn compute_escrow_reward(
@@ -42,6 +44,18 @@ where
         currency_id: CurrencyId,
         at: Option<BlockHash>,
     ) -> RpcResult<BalanceWrapper<Balance>>;
+
+    #[method(name = "reward_estimateEscrowRewardRate")]
+    fn estimate_escrow_reward_rate(
+        &self,
+        account_id: AccountId,
+        amount: Option<Balance>,
+        lock_time: Option<BlockNumber>,
+        at: Option<BlockHash>,
+    ) -> RpcResult<UnsignedFixedPoint>;
+
+    #[method(name = "reward_estimateVaultRewardRate")]
+    fn estimate_vault_reward_rate(&self, vault_id: VaultId, at: Option<BlockHash>) -> RpcResult<UnsignedFixedPoint>;
 }
 
 fn internal_err<T: ToString>(message: T) -> JsonRpseeError {
@@ -75,16 +89,19 @@ fn handle_response<T, E: std::fmt::Debug>(result: Result<Result<T, DispatchError
 }
 
 #[async_trait]
-impl<C, Block, AccountId, VaultId, CurrencyId, Balance>
-    RewardApiServer<<Block as BlockT>::Hash, AccountId, VaultId, CurrencyId, Balance> for Reward<C, Block>
+impl<C, Block, AccountId, VaultId, CurrencyId, Balance, BlockNumber, UnsignedFixedPoint>
+    RewardApiServer<<Block as BlockT>::Hash, AccountId, VaultId, CurrencyId, Balance, BlockNumber, UnsignedFixedPoint>
+    for Reward<C, Block>
 where
     Block: BlockT,
     C: Send + Sync + 'static + ProvideRuntimeApi<Block> + HeaderBackend<Block>,
-    C::Api: RewardRuntimeApi<Block, AccountId, VaultId, CurrencyId, Balance>,
+    C::Api: RewardRuntimeApi<Block, AccountId, VaultId, CurrencyId, Balance, BlockNumber, UnsignedFixedPoint>,
     AccountId: Codec,
     VaultId: Codec,
     CurrencyId: Codec,
     Balance: Codec + MaybeDisplay + MaybeFromStr,
+    BlockNumber: Codec,
+    UnsignedFixedPoint: Codec,
 {
     fn compute_escrow_reward(
         &self,
@@ -113,6 +130,36 @@ where
         handle_response(
             api.compute_vault_reward(&at, vault_id, currency_id),
             "Unable to obtain the current reward".into(),
+        )
+    }
+
+    fn estimate_escrow_reward_rate(
+        &self,
+        account_id: AccountId,
+        amount: Option<Balance>,
+        lock_time: Option<BlockNumber>,
+        at: Option<<Block as BlockT>::Hash>,
+    ) -> RpcResult<UnsignedFixedPoint> {
+        let api = self.client.runtime_api();
+        let at = BlockId::hash(at.unwrap_or_else(|| self.client.info().best_hash));
+
+        handle_response(
+            api.estimate_escrow_reward_rate(&at, account_id, amount, lock_time),
+            "Unable to estimate the current reward".into(),
+        )
+    }
+
+    fn estimate_vault_reward_rate(
+        &self,
+        vault_id: VaultId,
+        at: Option<<Block as BlockT>::Hash>,
+    ) -> RpcResult<UnsignedFixedPoint> {
+        let api = self.client.runtime_api();
+        let at = BlockId::hash(at.unwrap_or_else(|| self.client.info().best_hash));
+
+        handle_response(
+            api.estimate_vault_reward_rate(&at, vault_id),
+            "Unable to estimate the current reward".into(),
         )
     }
 }

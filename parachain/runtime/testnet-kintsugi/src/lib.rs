@@ -1513,7 +1513,9 @@ impl_runtime_apis! {
         AccountId,
         VaultId,
         CurrencyId,
-        Balance
+        Balance,
+        BlockNumber,
+        UnsignedFixedPoint
     > for Runtime {
         fn compute_escrow_reward(account_id: AccountId, currency_id: CurrencyId) -> Result<BalanceWrapper<Balance>, DispatchError> {
             let amount = <EscrowRewards as reward::RewardsApi<(), AccountId, Balance>>::compute_reward(&(), &account_id, currency_id)?;
@@ -1525,6 +1527,44 @@ impl_runtime_apis! {
             let amount = Fee::compute_vault_rewards(&vault_id, &vault_id.account_id, currency_id)?;
             let balance = BalanceWrapper::<Balance> { amount };
             Ok(balance)
+        }
+
+        fn estimate_escrow_reward_rate(
+            account_id: AccountId,
+            amount: Option<Balance>,
+            lock_time: Option<BlockNumber>,
+        ) -> Result<UnsignedFixedPoint, DispatchError> {
+            // withdraw previous rewards
+            <EscrowRewards as reward::RewardsApi<(), AccountId, Balance>>::withdraw_reward(&(), &account_id, NATIVE_CURRENCY_ID)?;
+            // increase amount and/or lock_time
+            Escrow::round_height_and_deposit_for(&account_id, amount.unwrap_or_default(), lock_time.unwrap_or_default())?;
+            // distribute rewards accrued over block count
+            let reward = EscrowAnnuity::min_reward_per_block().saturating_mul(YEARS.into());
+            <EscrowRewards as reward::RewardsApi<(), AccountId, Balance>>::distribute_reward(&(), NATIVE_CURRENCY_ID, reward)?;
+            let received = <EscrowRewards as reward::RewardsApi<(), AccountId, Balance>>::compute_reward(&(), &account_id, NATIVE_CURRENCY_ID)?;
+            // NOTE: total_locked is same currency as rewards
+            let total_locked = Escrow::locked_balance(&account_id).amount;
+            // rate is received / total_locked
+            Ok(UnsignedFixedPoint::checked_from_rational(received, total_locked).unwrap_or_default())
+        }
+
+        fn estimate_vault_reward_rate(
+            vault_id: VaultId,
+        ) -> Result<UnsignedFixedPoint, DispatchError> {
+            // distribute and withdraw previous rewards
+            Fee::distribute_vault_rewards(&vault_id, NATIVE_CURRENCY_ID)?;
+            <VaultStaking as reward::RewardsApi<(Option<Nonce>, VaultId), AccountId, Balance>>::withdraw_reward(&(None, vault_id.clone()), &vault_id.account_id, NATIVE_CURRENCY_ID)?;
+            // distribute rewards accrued over block count
+            let reward = VaultAnnuity::min_reward_per_block().saturating_mul(YEARS.into());
+            <VaultCapacity as reward::RewardsApi<(), CurrencyId, Balance>>::distribute_reward(&(), NATIVE_CURRENCY_ID, reward)?;
+            // compute and convert rewards
+            let received = Fee::compute_vault_rewards(&vault_id, &vault_id.account_id, NATIVE_CURRENCY_ID)?;
+            let received_as_wrapped = Oracle::collateral_to_wrapped(received, NATIVE_CURRENCY_ID)?;
+            // convert collateral stake to same currency
+            let collateral = <VaultStaking as reward::RewardsApi<(Option<Nonce>, VaultId), AccountId, Balance>>::get_stake(&(None, vault_id.clone()), &vault_id.account_id)?;
+            let collateral_as_wrapped = Oracle::collateral_to_wrapped(collateral, vault_id.collateral_currency())?;
+            // rate is received / collateral
+            Ok(UnsignedFixedPoint::checked_from_rational(received_as_wrapped, collateral_as_wrapped).unwrap_or_default())
         }
     }
 

@@ -526,8 +526,7 @@ impl<T: Config> Pallet<T> {
         )
     }
 
-    #[cfg_attr(feature = "integration-tests", visibility::make(pub))]
-    fn distribute_vault_rewards(vault_id: &DefaultVaultId<T>, currency_id: CurrencyId<T>) -> DispatchResult {
+    pub fn distribute_vault_rewards(vault_id: &DefaultVaultId<T>, currency_id: CurrencyId<T>) -> DispatchResult {
         let collateral_id = vault_id.collateral_currency();
 
         // push rewards based on collateral capacity
