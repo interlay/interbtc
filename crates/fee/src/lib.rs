@@ -29,23 +29,26 @@ use codec::{Decode, Encode, EncodeLike};
 use currency::{Amount, CurrencyId, OnSweep};
 use frame_support::{
     dispatch::{DispatchError, DispatchResult},
+    storage,
     traits::Get,
     transactional, PalletId,
 };
 use frame_system::ensure_signed;
+pub use pallet::*;
 use primitives::{TruncateFixedPointToInt, VaultId};
 use reward::RewardsApi;
 use scale_info::TypeInfo;
 use sp_arithmetic::{traits::*, FixedPointNumber, FixedPointOperand};
-use sp_runtime::traits::{AccountIdConversion, AtLeast32BitUnsigned};
+use sp_runtime::{
+    traits::{AccountIdConversion, AtLeast32BitUnsigned},
+    TransactionOutcome,
+};
 use sp_std::{
     convert::{TryFrom, TryInto},
     fmt::Debug,
 };
 use staking::StakingApi;
 use types::{BalanceOf, DefaultVaultCurrencyPair, DefaultVaultId, SignedFixedPoint, UnsignedFixedPoint, Version};
-
-pub use pallet::*;
 
 #[frame_support::pallet]
 pub mod pallet {
@@ -480,13 +483,17 @@ impl<T: Config> Pallet<T> {
         nominator_id: &T::AccountId,
         currency_id: CurrencyId<T>,
     ) -> Result<BalanceOf<T>, DispatchError> {
-        frame_support::storage::with_transaction::<_, DispatchError, _>(|| {
-            sp_runtime::TransactionOutcome::Rollback(Self::distribute_and_compute_vault_rewards(
-                vault_id,
-                nominator_id,
-                currency_id,
-            ))
-        })
+        // use a closure so we can use the `?` operator
+        let get_rewards = || -> Result<BalanceOf<T>, DispatchError> {
+            let balance_before = currency::get_free_balance::<T>(currency_id, nominator_id);
+            Self::withdraw_vault_rewards(vault_id, nominator_id, None, currency_id)?;
+            let balance_after = currency::get_free_balance::<T>(currency_id, nominator_id);
+            let reward = balance_after.saturating_sub(&balance_before)?;
+            Ok(reward.amount())
+        };
+
+        // don't commit storage changes
+        storage::with_transaction(|| TransactionOutcome::Rollback(get_rewards()))
     }
 
     pub fn distribute_all_vault_rewards(vault_id: &DefaultVaultId<T>) -> DispatchResult {
@@ -547,14 +554,5 @@ impl<T: Config> Pallet<T> {
         T::VaultStaking::distribute_reward(&(None, vault_id.clone()), currency_id, remainder.amount())?;
 
         Ok(())
-    }
-
-    fn distribute_and_compute_vault_rewards(
-        vault_id: &DefaultVaultId<T>,
-        nominator_id: &T::AccountId,
-        currency_id: CurrencyId<T>,
-    ) -> Result<BalanceOf<T>, DispatchError> {
-        Self::distribute_vault_rewards(&vault_id, currency_id)?;
-        T::VaultStaking::compute_reward(&(None, vault_id.clone()), nominator_id, currency_id)
     }
 }
