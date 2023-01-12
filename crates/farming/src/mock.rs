@@ -1,4 +1,4 @@
-use crate::{self as farming, Config};
+use crate::{self as farming, Config, Error};
 use frame_support::{
     parameter_types,
     traits::{ConstU32, Everything},
@@ -113,15 +113,16 @@ parameter_types! {
 }
 
 impl Config for Test {
+    type RuntimeEvent = RuntimeEvent;
     type FarmingPalletId = FarmingPalletId;
     type TreasuryPalletId = TreasuryPalletId;
-    type RuntimeEvent = RuntimeEvent;
     type MultiCurrency = Tokens;
-    type LpRewards = Rewards;
-    type MaxRewardSchedules = ConstU32<2>;
+    type RewardPools = Rewards;
+    type WeightInfo = ();
 }
 
 pub type TestEvent = RuntimeEvent;
+pub type TestError = Error<Test>;
 
 pub struct ExtBuilder;
 
