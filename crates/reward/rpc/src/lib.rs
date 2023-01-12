@@ -51,17 +51,11 @@ where
         account_id: AccountId,
         amount: Option<Balance>,
         lock_time: Option<BlockNumber>,
-        after: BlockNumber,
         at: Option<BlockHash>,
     ) -> RpcResult<UnsignedFixedPoint>;
 
     #[method(name = "reward_estimateVaultRewardRate")]
-    fn estimate_vault_reward_rate(
-        &self,
-        vault_id: VaultId,
-        after: BlockNumber,
-        at: Option<BlockHash>,
-    ) -> RpcResult<UnsignedFixedPoint>;
+    fn estimate_vault_reward_rate(&self, vault_id: VaultId, at: Option<BlockHash>) -> RpcResult<UnsignedFixedPoint>;
 }
 
 fn internal_err<T: ToString>(message: T) -> JsonRpseeError {
@@ -144,14 +138,13 @@ where
         account_id: AccountId,
         amount: Option<Balance>,
         lock_time: Option<BlockNumber>,
-        period: BlockNumber,
         at: Option<<Block as BlockT>::Hash>,
     ) -> RpcResult<UnsignedFixedPoint> {
         let api = self.client.runtime_api();
         let at = BlockId::hash(at.unwrap_or_else(|| self.client.info().best_hash));
 
         handle_response(
-            api.estimate_escrow_reward_rate(&at, account_id, amount, lock_time, period),
+            api.estimate_escrow_reward_rate(&at, account_id, amount, lock_time),
             "Unable to estimate the current reward".into(),
         )
     }
@@ -159,14 +152,13 @@ where
     fn estimate_vault_reward_rate(
         &self,
         vault_id: VaultId,
-        period: BlockNumber,
         at: Option<<Block as BlockT>::Hash>,
     ) -> RpcResult<UnsignedFixedPoint> {
         let api = self.client.runtime_api();
         let at = BlockId::hash(at.unwrap_or_else(|| self.client.info().best_hash));
 
         handle_response(
-            api.estimate_vault_reward_rate(&at, vault_id, period),
+            api.estimate_vault_reward_rate(&at, vault_id),
             "Unable to estimate the current reward".into(),
         )
     }

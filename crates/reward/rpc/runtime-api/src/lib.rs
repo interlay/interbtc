@@ -21,10 +21,10 @@ sp_api::decl_runtime_apis! {
         /// Get a given vault's rewards due
         fn compute_vault_reward(vault_id: VaultId, currency_id: CurrencyId) -> Result<BalanceWrapper<Balance>, DispatchError>;
 
-        /// Estimate staking reward rate for a period of N blocks
-        fn estimate_escrow_reward_rate(account_id: AccountId, amount: Option<Balance>, lock_time: Option<BlockNumber>, period: BlockNumber) -> Result<UnsignedFixedPoint, DispatchError>;
+        /// Estimate staking reward rate for a one year period
+        fn estimate_escrow_reward_rate(account_id: AccountId, amount: Option<Balance>, lock_time: Option<BlockNumber>) -> Result<UnsignedFixedPoint, DispatchError>;
 
-        /// Estimate vault reward rate for a period of N blocks
-        fn estimate_vault_reward_rate(vault_id: VaultId, period: BlockNumber) -> Result<UnsignedFixedPoint, DispatchError>;
+        /// Estimate vault reward rate for a one year period
+        fn estimate_vault_reward_rate(vault_id: VaultId) -> Result<UnsignedFixedPoint, DispatchError>;
     }
 }

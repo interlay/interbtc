@@ -1463,14 +1463,13 @@ impl_runtime_apis! {
             account_id: AccountId,
             amount: Option<Balance>,
             lock_time: Option<BlockNumber>,
-            period: BlockNumber,
         ) -> Result<UnsignedFixedPoint, DispatchError> {
             // withdraw previous rewards
             <EscrowRewards as reward::RewardsApi<(), AccountId, Balance>>::withdraw_reward(&(), &account_id, NATIVE_CURRENCY_ID)?;
             // increase amount and/or lock_time
             Escrow::round_height_and_deposit_for(&account_id, amount.unwrap_or_default(), lock_time.unwrap_or_default())?;
             // distribute rewards accrued over block count
-            let reward = EscrowAnnuity::min_reward_per_block().saturating_mul(period.into());
+            let reward = EscrowAnnuity::min_reward_per_block().saturating_mul(YEARS.into());
             <EscrowRewards as reward::RewardsApi<(), AccountId, Balance>>::distribute_reward(&(), NATIVE_CURRENCY_ID, reward)?;
             let received = <EscrowRewards as reward::RewardsApi<(), AccountId, Balance>>::compute_reward(&(), &account_id, NATIVE_CURRENCY_ID)?;
             // NOTE: total_locked is same currency as rewards
@@ -1481,13 +1480,12 @@ impl_runtime_apis! {
 
         fn estimate_vault_reward_rate(
             vault_id: VaultId,
-            period: BlockNumber,
         ) -> Result<UnsignedFixedPoint, DispatchError> {
             // distribute and withdraw previous rewards
             Fee::distribute_vault_rewards(&vault_id, NATIVE_CURRENCY_ID)?;
             <VaultStaking as reward::RewardsApi<(Option<Nonce>, VaultId), AccountId, Balance>>::withdraw_reward(&(None, vault_id.clone()), &vault_id.account_id, NATIVE_CURRENCY_ID)?;
             // distribute rewards accrued over block count
-            let reward = VaultAnnuity::min_reward_per_block().saturating_mul(period.into());
+            let reward = VaultAnnuity::min_reward_per_block().saturating_mul(YEARS.into());
             <VaultCapacity as reward::RewardsApi<(), CurrencyId, Balance>>::distribute_reward(&(), NATIVE_CURRENCY_ID, reward)?;
             // compute and convert rewards
             let received = Fee::compute_vault_rewards(&vault_id, &vault_id.account_id, NATIVE_CURRENCY_ID)?;
