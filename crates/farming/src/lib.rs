@@ -120,20 +120,23 @@ pub mod pallet {
     #[pallet::generate_deposit(pub(crate) fn deposit_event)]
     pub enum Event<T: Config> {
         RewardScheduleUpdated {
-            pool_id: CurrencyIdOf<T>,
+            pool_currency_id: CurrencyIdOf<T>,
+            reward_currency_id: CurrencyIdOf<T>,
             reward_schedule: RewardScheduleOf<T>,
         },
         RewardScheduleRemoved {
-            pool_id: CurrencyIdOf<T>,
+            pool_currency_id: CurrencyIdOf<T>,
+            reward_currency_id: CurrencyIdOf<T>,
         },
         RewardClaimed {
             account_id: AccountIdOf<T>,
-            pool_id: CurrencyIdOf<T>,
+            pool_currency_id: CurrencyIdOf<T>,
+            reward_currency_id: CurrencyIdOf<T>,
             amount: BalanceOf<T>,
         },
         RewardDistributed {
-            pool_id: CurrencyIdOf<T>,
-            currency_id: CurrencyIdOf<T>,
+            pool_currency_id: CurrencyIdOf<T>,
+            reward_currency_id: CurrencyIdOf<T>,
             amount: BalanceOf<T>,
         },
     }
@@ -178,40 +181,41 @@ pub mod pallet {
         #[transactional]
         pub fn update_reward_schedule(
             origin: OriginFor<T>,
-            pool_id: CurrencyIdOf<T>,
-            currency_id: CurrencyIdOf<T>,
+            pool_currency_id: CurrencyIdOf<T>,
+            reward_currency_id: CurrencyIdOf<T>,
             reward_schedule: RewardScheduleOf<T>,
         ) -> DispatchResult {
             ensure_root(origin)?;
 
             // fund the pool account from treasury
             let treasury_account_id = Self::treasury_account_id();
-            let pool_account_id = Self::pool_account_id(&pool_id);
+            let pool_account_id = Self::pool_account_id(&pool_currency_id);
             T::MultiCurrency::transfer(
-                currency_id,
+                reward_currency_id,
                 &treasury_account_id,
                 &pool_account_id,
                 reward_schedule.total().ok_or(ArithmeticError::Overflow)?,
             )?;
 
             // distribute remaining balance from existing schedule
-            if let Ok(previous_schedule) = RewardSchedules::<T>::try_get(pool_id, currency_id) {
+            if let Ok(previous_schedule) = RewardSchedules::<T>::try_get(pool_currency_id, reward_currency_id) {
                 let amount = previous_schedule.total().ok_or(ArithmeticError::Overflow)?;
-                if let Ok(_) = T::RewardPools::distribute_reward(&pool_id, currency_id, amount) {
+                if let Ok(_) = T::RewardPools::distribute_reward(&pool_currency_id, reward_currency_id, amount) {
                     // NOTE: if this fails, the total will not reflect the pool balance
                     // maybe we should fail or send to treasury instead?
                     Self::deposit_event(Event::RewardDistributed {
-                        pool_id,
-                        currency_id,
+                        pool_currency_id,
+                        reward_currency_id,
                         amount,
                     });
                 }
             }
 
             // overwrite new schedule
-            RewardSchedules::<T>::insert(pool_id, currency_id, reward_schedule.clone());
+            RewardSchedules::<T>::insert(pool_currency_id, reward_currency_id, reward_schedule.clone());
             Self::deposit_event(Event::RewardScheduleUpdated {
-                pool_id,
+                pool_currency_id,
+                reward_currency_id,
                 reward_schedule,
             });
             Ok(().into())
@@ -223,23 +227,26 @@ pub mod pallet {
         #[transactional]
         pub fn remove_reward_schedule(
             origin: OriginFor<T>,
-            pool_id: CurrencyIdOf<T>,
-            currency_id: CurrencyIdOf<T>,
+            pool_currency_id: CurrencyIdOf<T>,
+            reward_currency_id: CurrencyIdOf<T>,
         ) -> DispatchResultWithPostInfo {
             ensure_root(origin)?;
 
             // transfer unspent rewards to treasury
             let treasury_account_id = Self::treasury_account_id();
-            let pool_account_id = Self::pool_account_id(&pool_id);
+            let pool_account_id = Self::pool_account_id(&pool_currency_id);
             T::MultiCurrency::transfer(
-                currency_id,
+                reward_currency_id,
                 &pool_account_id,
                 &treasury_account_id,
-                T::MultiCurrency::total_balance(currency_id, &pool_account_id),
+                T::MultiCurrency::total_balance(reward_currency_id, &pool_account_id),
             )?;
 
-            RewardSchedules::<T>::remove(pool_id, currency_id);
-            Self::deposit_event(Event::RewardScheduleRemoved { pool_id });
+            RewardSchedules::<T>::remove(pool_currency_id, reward_currency_id);
+            Self::deposit_event(Event::RewardScheduleRemoved {
+                pool_currency_id,
+                reward_currency_id,
+            });
 
             Ok(().into())
         }
@@ -247,51 +254,66 @@ pub mod pallet {
         /// Stake the pool tokens in the reward pool
         #[pallet::weight(T::WeightInfo::deposit())]
         #[transactional]
-        pub fn deposit(origin: OriginFor<T>, pool_id: CurrencyIdOf<T>, amount: BalanceOf<T>) -> DispatchResult {
+        pub fn deposit(
+            origin: OriginFor<T>,
+            pool_currency_id: CurrencyIdOf<T>,
+            amount: BalanceOf<T>,
+        ) -> DispatchResult {
             let who = ensure_signed(origin)?;
 
             // prevent depositing without reward schedule
             ensure!(
-                !RewardSchedules::<T>::iter_prefix_values(pool_id).count().is_zero(),
+                !RewardSchedules::<T>::iter_prefix_values(pool_currency_id)
+                    .count()
+                    .is_zero(),
                 Error::<T>::ScheduleNotFound
             );
 
             // reserve lp tokens to prevent spending
-            T::MultiCurrency::reserve(pool_id.clone(), &who, amount)?;
+            T::MultiCurrency::reserve(pool_currency_id.clone(), &who, amount)?;
 
             // deposit lp tokens as stake
-            T::RewardPools::deposit_stake(&pool_id, &who, amount)
+            T::RewardPools::deposit_stake(&pool_currency_id, &who, amount)
         }
 
         /// Unstake the pool tokens from the reward pool
         #[pallet::weight(T::WeightInfo::withdraw())]
         #[transactional]
-        pub fn withdraw(origin: OriginFor<T>, pool_id: CurrencyIdOf<T>, amount: BalanceOf<T>) -> DispatchResult {
+        pub fn withdraw(
+            origin: OriginFor<T>,
+            pool_currency_id: CurrencyIdOf<T>,
+            amount: BalanceOf<T>,
+        ) -> DispatchResult {
             let who = ensure_signed(origin)?;
 
             // unreserve lp tokens to allow spending
-            let _remaining = T::MultiCurrency::unreserve(pool_id.clone(), &who, amount);
+            let _remaining = T::MultiCurrency::unreserve(pool_currency_id.clone(), &who, amount);
             // TODO: check remaining is non-zeo
 
             // withdraw lp tokens from stake
-            T::RewardPools::withdraw_stake(&pool_id, &who, amount)
+            T::RewardPools::withdraw_stake(&pool_currency_id, &who, amount)
         }
 
         /// Withdraw any accrued rewards from the reward pool
         #[pallet::weight(T::WeightInfo::claim())]
         #[transactional]
-        pub fn claim(origin: OriginFor<T>, pool_id: CurrencyIdOf<T>, currency_id: CurrencyIdOf<T>) -> DispatchResult {
+        pub fn claim(
+            origin: OriginFor<T>,
+            pool_currency_id: CurrencyIdOf<T>,
+            reward_currency_id: CurrencyIdOf<T>,
+        ) -> DispatchResult {
             let who = ensure_signed(origin)?;
-            let pool_account_id = Self::pool_account_id(&pool_id);
+            let pool_account_id = Self::pool_account_id(&pool_currency_id);
 
             // get reward from staking pool
-            let reward = T::RewardPools::withdraw_reward(&pool_id, &who, currency_id)?;
+            let reward = T::RewardPools::withdraw_reward(&pool_currency_id, &who, reward_currency_id)?;
             // transfer from pool to user
-            T::MultiCurrency::transfer(currency_id, &pool_account_id, &who, reward)?;
+            T::MultiCurrency::transfer(reward_currency_id, &pool_account_id, &who, reward)?;
 
             Self::deposit_event(Event::RewardClaimed {
                 account_id: who,
-                pool_id,
+                pool_currency_id,
+                reward_currency_id,
                 amount: reward,
             });
 
@@ -302,8 +324,8 @@ pub mod pallet {
 
 // "Internal" functions, callable by code.
 impl<T: Config> Pallet<T> {
-    pub fn pool_account_id(pool_id: &CurrencyIdOf<T>) -> T::AccountId {
-        T::FarmingPalletId::get().into_sub_account_truncating(pool_id)
+    pub fn pool_account_id(pool_currency_id: &CurrencyIdOf<T>) -> T::AccountId {
+        T::FarmingPalletId::get().into_sub_account_truncating(pool_currency_id)
     }
 
     pub fn treasury_account_id() -> T::AccountId {
@@ -317,20 +339,20 @@ impl<T: Config> Pallet<T> {
         schedules
             .into_iter()
             .filter(|(_, _, schedule)| schedule.is_ready(height))
-            .for_each(|(pool_id, currency_id, mut reward_schedule)| {
+            .for_each(|(pool_currency_id, reward_currency_id, mut reward_schedule)| {
                 if let Some(amount) = reward_schedule.take() {
-                    if let Ok(_) = T::RewardPools::distribute_reward(&pool_id, currency_id, amount) {
+                    if let Ok(_) = T::RewardPools::distribute_reward(&pool_currency_id, reward_currency_id, amount) {
                         // only update the schedule if we could distribute the reward
-                        RewardSchedules::<T>::insert(pool_id, currency_id, reward_schedule);
+                        RewardSchedules::<T>::insert(pool_currency_id, reward_currency_id, reward_schedule);
                         Self::deposit_event(Event::RewardDistributed {
-                            pool_id,
-                            currency_id,
+                            pool_currency_id,
+                            reward_currency_id,
                             amount,
                         });
                     }
                 } else {
                     // period count is zero
-                    RewardSchedules::<T>::remove(pool_id, currency_id);
+                    RewardSchedules::<T>::remove(pool_currency_id, reward_currency_id);
                     // TODO: sweep leftover rewards
                 }
             });
