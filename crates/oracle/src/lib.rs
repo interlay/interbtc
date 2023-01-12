@@ -353,16 +353,33 @@ impl<T: Config> Pallet<T> {
                 .map(|timestamp| timestamp + Self::get_max_delay())
                 .unwrap_or_default(); // Unwrap will never fail, but if somehow it did, we retry next block
 
-            let mid_index = raw_values.len() / 2;
-            let (_, value, _) = raw_values.select_nth_unstable_by(mid_index as usize, |a, b| a.value.cmp(&b.value));
+            let value = Self::median(raw_values.iter().map(|x| x.value).collect())?;
 
-            Aggregate::<T>::insert(key, value.value);
+            Aggregate::<T>::insert(key, value);
             ValidUntil::<T>::insert(key, valid_until);
             if let OracleKey::ExchangeRate(currency_id) = key {
                 T::OnExchangeRateChange::on_exchange_rate_change(currency_id);
             }
 
-            Some(value.value)
+            Some(value)
+        }
+    }
+
+    fn median(mut raw_values: Vec<UnsignedFixedPoint<T>>) -> Option<UnsignedFixedPoint<T>> {
+        let mid_index = raw_values.len().checked_div(2)?;
+        raw_values.sort_unstable();
+        match raw_values.len() {
+            0 => None,
+            len if len.checked_rem(2)? == 0 => {
+                // even number - get avg of 2 values
+                let value_1 = raw_values.get(mid_index.checked_sub(1)?)?;
+                let value_2 = raw_values.get(mid_index)?;
+                let value = value_1
+                    .checked_add(&value_2)?
+                    .checked_div(&UnsignedFixedPoint::<T>::from(2u32.into()))?;
+                Some(value)
+            }
+            _ => Some(*raw_values.get(mid_index)?),
         }
     }
 

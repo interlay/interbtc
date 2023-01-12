@@ -92,7 +92,8 @@ pub mod pallet {
             + EncodeLike
             + Decode
             + MaybeSerializeDeserialize
-            + TypeInfo;
+            + TypeInfo
+            + From<BalanceOf<Self>>;
 
         type SignedInner: Debug
             + CheckedDiv
