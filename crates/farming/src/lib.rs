@@ -28,7 +28,7 @@ use reward::RewardsApi;
 use scale_info::TypeInfo;
 use sp_runtime::{
     traits::{AccountIdConversion, AtLeast32Bit, Saturating, Zero},
-    ArithmeticError,
+    ArithmeticError, DispatchError, TransactionOutcome,
 };
 
 pub use pallet::*;
@@ -200,7 +200,7 @@ pub mod pallet {
             // distribute remaining balance from existing schedule
             if let Ok(previous_schedule) = RewardSchedules::<T>::try_get(pool_currency_id, reward_currency_id) {
                 let amount = previous_schedule.total().ok_or(ArithmeticError::Overflow)?;
-                if let Ok(_) = T::RewardPools::distribute_reward(&pool_currency_id, reward_currency_id, amount) {
+                if let Ok(_) = Self::try_distribute_reward(pool_currency_id, reward_currency_id, amount) {
                     // NOTE: if this fails, the total will not reflect the pool balance
                     // maybe we should fail or send to treasury instead?
                     Self::deposit_event(Event::RewardDistributed {
@@ -239,7 +239,7 @@ pub mod pallet {
                 reward_currency_id,
                 &pool_account_id,
                 &treasury_account_id,
-                T::MultiCurrency::total_balance(reward_currency_id, &pool_account_id),
+                T::MultiCurrency::free_balance(reward_currency_id, &pool_account_id),
             )?;
 
             RewardSchedules::<T>::remove(pool_currency_id, reward_currency_id);
@@ -332,6 +332,21 @@ impl<T: Config> Pallet<T> {
         T::TreasuryPalletId::get().into_account_truncating()
     }
 
+    fn try_distribute_reward(
+        pool_currency_id: CurrencyIdOf<T>,
+        reward_currency_id: CurrencyIdOf<T>,
+        amount: BalanceOf<T>,
+    ) -> Result<(), DispatchError> {
+        frame_support::storage::with_transaction::<_, DispatchError, _>(|| {
+            let res = T::RewardPools::distribute_reward(&pool_currency_id, reward_currency_id, amount);
+            if res.is_ok() {
+                TransactionOutcome::Commit(res)
+            } else {
+                TransactionOutcome::Rollback(res)
+            }
+        })
+    }
+
     pub(crate) fn begin_block(height: T::BlockNumber) -> DispatchResult {
         // TODO: measure weights, can we bound this somehow?
         let schedules = RewardSchedules::<T>::iter().collect::<Vec<_>>();
@@ -341,7 +356,7 @@ impl<T: Config> Pallet<T> {
             .filter(|(_, _, schedule)| schedule.is_ready(height))
             .for_each(|(pool_currency_id, reward_currency_id, mut reward_schedule)| {
                 if let Some(amount) = reward_schedule.take() {
-                    if let Ok(_) = T::RewardPools::distribute_reward(&pool_currency_id, reward_currency_id, amount) {
+                    if let Ok(_) = Self::try_distribute_reward(pool_currency_id, reward_currency_id, amount) {
                         // only update the schedule if we could distribute the reward
                         RewardSchedules::<T>::insert(pool_currency_id, reward_currency_id, reward_schedule);
                         Self::deposit_event(Event::RewardDistributed {
