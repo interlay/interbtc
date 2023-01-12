@@ -366,20 +366,20 @@ impl<T: Config> Pallet<T> {
     }
 
     fn median(mut raw_values: Vec<UnsignedFixedPoint<T>>) -> Option<UnsignedFixedPoint<T>> {
-        let mid_index = raw_values.len() / 2;
+        let mid_index = raw_values.len().checked_div(2)?;
         raw_values.sort_unstable();
         match raw_values.len() {
             0 => None,
-            len if len % 2 == 0 => {
+            len if len.checked_rem(2)? == 0 => {
                 // even number - get avg of 2 values
-                let value_1 = raw_values[mid_index - 1];
-                let value_2 = raw_values[mid_index];
+                let value_1 = raw_values.get(mid_index.checked_sub(1)?)?;
+                let value_2 = raw_values.get(mid_index)?;
                 let value = value_1
                     .checked_add(&value_2)?
                     .checked_div(&UnsignedFixedPoint::<T>::from(2u32.into()))?;
                 Some(value)
             }
-            _ => Some(raw_values[mid_index]),
+            _ => Some(*raw_values.get(mid_index)?),
         }
     }
 
