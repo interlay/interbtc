@@ -15,16 +15,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use sp_io::hashing::blake2_256;
 use sp_runtime::{traits::Zero, DispatchResult};
 
 use crate::*;
 
 impl<T: Config> Pallet<T> {
     pub fn reward_account_id() -> T::AccountId {
-        let account_id: T::AccountId = T::PalletId::get().into_account_truncating();
-        let entropy = (REWARD_ACCOUNT_PREFIX, &[account_id]).using_encoded(blake2_256);
-        T::AccountId::decode(&mut &entropy[..]).expect("Account derivation failure")
+        T::PalletId::get().into_sub_account_truncating(REWARD_SUB_ACCOUNT)
     }
 
     fn reward_scale() -> u128 {

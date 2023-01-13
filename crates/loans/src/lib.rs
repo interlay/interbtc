@@ -59,7 +59,6 @@ use traits::{
 
 pub use default_weights::WeightInfo;
 pub use orml_traits::currency::{OnDeposit, OnSlash, OnTransfer};
-use sp_io::hashing::blake2_256;
 pub use types::{BorrowSnapshot, EarnedSnapshot, Market, MarketState, RewardMarketState};
 
 #[cfg(feature = "runtime-benchmarks")]
@@ -79,8 +78,8 @@ mod types;
 
 mod default_weights;
 
-pub const REWARD_ACCOUNT_PREFIX: &[u8; 13] = b"loans/farming";
-pub const INCENTIVE_ACCOUNT_PREFIX: &[u8; 15] = b"loans/incentive";
+pub const REWARD_SUB_ACCOUNT: &[u8; 7] = b"farming";
+pub const INCENTIVE_SUB_ACCOUNT: &[u8; 9] = b"incentive";
 
 pub const DEFAULT_MAX_EXCHANGE_RATE: u128 = 1_000_000_000_000_000_000; // 1
 pub const DEFAULT_MIN_EXCHANGE_RATE: u128 = 20_000_000_000_000_000; // 0.02
@@ -1930,9 +1929,7 @@ impl<T: Config> Pallet<T> {
 
     // Returns the incentive reward account
     pub fn incentive_reward_account_id() -> T::AccountId {
-        let account_id: T::AccountId = T::PalletId::get().into_account_truncating();
-        let entropy = (INCENTIVE_ACCOUNT_PREFIX, &[account_id]).using_encoded(blake2_256);
-        T::AccountId::decode(&mut &entropy[..]).expect("Account derivation failure")
+        T::PalletId::get().into_sub_account_truncating(INCENTIVE_SUB_ACCOUNT)
     }
 }
 
