@@ -46,8 +46,8 @@ pub use pallet::*;
 use primitives::{Balance, CurrencyId, Rate, Ratio, Timestamp};
 use sp_runtime::{
     traits::{
-        AccountIdConversion, CheckedAdd, CheckedDiv, CheckedMul, CheckedSub, One, SaturatedConversion, Saturating,
-        StaticLookup, Zero,
+        AccountIdConversion, CheckedAdd, CheckedDiv, CheckedMul, One, SaturatedConversion, Saturating, StaticLookup,
+        Zero,
     },
     ArithmeticError, FixedPointNumber, FixedU128,
 };
@@ -489,20 +489,6 @@ pub mod pallet {
     #[pallet::getter(fn account_deposits)]
     pub type AccountDeposits<T: Config> =
         StorageDoubleMap<_, Blake2_128Concat, AssetIdOf<T>, Blake2_128Concat, T::AccountId, BalanceOf<T>, ValueQuery>;
-
-    /// Mapping of account addresses to total deposit interest accrual
-    /// CurrencyId -> Owner -> EarnedSnapshot
-    #[pallet::storage]
-    #[pallet::getter(fn account_earned)]
-    pub type AccountEarned<T: Config> = StorageDoubleMap<
-        _,
-        Blake2_128Concat,
-        AssetIdOf<T>,
-        Blake2_128Concat,
-        T::AccountId,
-        EarnedSnapshot<BalanceOf<T>>,
-        ValueQuery,
-    >;
 
     /// Accumulator of the total earned interest rate since the opening of the market
     /// CurrencyId -> u128
@@ -1074,8 +1060,6 @@ pub mod pallet {
 
             // `do_redeem()` logic duplicate:
             Self::accrue_interest(asset_id)?;
-            let exchange_rate = Self::exchange_rate_stored(asset_id)?;
-            Self::update_earned_stored(&who, asset_id, exchange_rate)?;
             let lend_tokens = Self::free_lend_tokens(asset_id, &who)?;
             ensure!(!lend_tokens.is_zero(), Error::<T>::InvalidAmount);
             let redeem_amount = Self::do_redeem_voucher(&who, asset_id, lend_tokens.amount())?;
@@ -1560,28 +1544,6 @@ impl<T: Config> Pallet<T> {
         Ok(recent_borrow_balance)
     }
 
-    #[require_transactional]
-    fn update_earned_stored(who: &T::AccountId, asset_id: AssetIdOf<T>, exchange_rate: Rate) -> DispatchResult {
-        let deposits = AccountDeposits::<T>::get(asset_id, who);
-        let account_earned = AccountEarned::<T>::get(asset_id, who);
-        let total_earned_prior_new = exchange_rate
-            .checked_sub(&account_earned.exchange_rate_prior)
-            .and_then(|r| r.checked_mul_int(deposits))
-            .and_then(|r| r.checked_add(account_earned.total_earned_prior))
-            .ok_or(ArithmeticError::Overflow)?;
-
-        AccountEarned::<T>::insert(
-            asset_id,
-            who,
-            EarnedSnapshot {
-                exchange_rate_prior: exchange_rate,
-                total_earned_prior: total_earned_prior_new,
-            },
-        );
-
-        Ok(())
-    }
-
     /// Checks if the liquidation should be allowed to occur
     fn liquidate_borrow_allowed(
         borrower: &T::AccountId,
@@ -1988,7 +1950,6 @@ impl<T: Config> LoansTrait<AssetIdOf<T>, AccountIdOf<T>, BalanceOf<T>, Amount<T>
         Self::distribute_supplier_reward(asset_id, supplier)?;
 
         let exchange_rate = Self::exchange_rate_stored(asset_id)?;
-        Self::update_earned_stored(supplier, asset_id, exchange_rate)?;
         let voucher_amount = Self::calc_collateral_amount(amount, exchange_rate)?;
         ensure!(!voucher_amount.is_zero(), Error::<T>::InvalidExchangeRate);
 
@@ -2140,7 +2101,6 @@ impl<T: Config> LoansTrait<AssetIdOf<T>, AccountIdOf<T>, BalanceOf<T>, Amount<T>
         Self::ensure_active_market(asset_id)?;
         Self::accrue_interest(asset_id)?;
         let exchange_rate = Self::exchange_rate_stored(asset_id)?;
-        Self::update_earned_stored(supplier, asset_id, exchange_rate)?;
         let voucher_amount = Self::calc_collateral_amount(amount, exchange_rate)?;
         let redeem_amount = Self::do_redeem_voucher(supplier, asset_id, voucher_amount)?;
         Self::deposit_event(Event::<T>::Redeemed {
