@@ -258,10 +258,11 @@ fn repay_currency_auto_locking_works() {
             .mul_floor(borrower_slash.checked_div(&liquidate_incentive).unwrap().amount());
         // The amount received by the liquidator should be whatever is slashed
         // from the borrower minus the reserve's share.
-        let expected_liquidator_reward = borrower_slash.amount().checked_sub(reserved_reward).unwrap();
+        let expected_liquidator_reward = borrower_slash.amount() - reserved_reward;
 
-        assert!(
-            actual_liquidator_reward.amount().eq(&expected_liquidator_reward),
+        assert_eq!(
+            actual_liquidator_reward.amount(),
+            expected_liquidator_reward,
             "The entirety of the liquidator's reward should have been auto-locked as collateral"
         );
     })
@@ -298,9 +299,7 @@ fn liquidated_transfer_reduces_locked_collateral() {
             .unwrap()
             .convert_to(DEFAULT_WRAPPED_CURRENCY)
             .unwrap();
-        assert!(liquidated_ksm_as_wrapped
-            .eq(&borrower_collateral_difference_as_wrapped)
-            .unwrap());
+        assert_eq!(liquidated_ksm_as_wrapped, borrower_collateral_difference_as_wrapped);
     })
 }
 
