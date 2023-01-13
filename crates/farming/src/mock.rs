@@ -110,14 +110,16 @@ impl reward::Config for Test {
 parameter_types! {
     pub const FarmingPalletId: PalletId = PalletId(*b"farmings");
     pub const TreasuryPalletId: PalletId = PalletId(*b"treasury");
+    pub const RewardPeriod: BlockNumber = 10;
 }
 
 impl Config for Test {
     type RuntimeEvent = RuntimeEvent;
     type FarmingPalletId = FarmingPalletId;
     type TreasuryPalletId = TreasuryPalletId;
-    type MultiCurrency = Tokens;
+    type RewardPeriod = RewardPeriod;
     type RewardPools = Rewards;
+    type MultiCurrency = Tokens;
     type WeightInfo = ();
 }
 

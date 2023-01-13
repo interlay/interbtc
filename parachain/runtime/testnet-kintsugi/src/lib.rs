@@ -905,12 +905,17 @@ impl reward::Config<FarmingRewardsInstance> for Runtime {
     type GetWrappedCurrencyId = GetWrappedCurrencyId;
 }
 
+parameter_types! {
+    pub const RewardPeriod: BlockNumber = MINUTES;
+}
+
 impl farming::Config for Runtime {
     type RuntimeEvent = RuntimeEvent;
     type FarmingPalletId = FarmingPalletId;
     type TreasuryPalletId = TreasuryPalletId;
-    type MultiCurrency = Tokens;
+    type RewardPeriod = RewardPeriod;
     type RewardPools = FarmingRewards;
+    type MultiCurrency = Tokens;
     type WeightInfo = ();
 }
 

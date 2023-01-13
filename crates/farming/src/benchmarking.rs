@@ -9,9 +9,7 @@ use crate::Pallet as Farming;
 
 fn default_reward_schedule<T: Config>(reward_currency: CurrencyId) -> RewardScheduleOf<T> {
     let reward_schedule = RewardSchedule {
-        start_height: 0u32.into(),
-        period: 10u32.into(),
-        period_count: 100u32.into(),
+        period_count: 100u32,
         per_period: 1000u32.into(),
     };
     let total_amount = reward_schedule.total().unwrap();
@@ -34,7 +32,8 @@ fn create_reward_schedule<T: Config>() -> (CurrencyId, CurrencyId) {
         RawOrigin::Root.into(),
         pool_id,
         reward_currency,
-        reward_schedule,
+        reward_schedule.period_count,
+        reward_schedule.total().unwrap(),
     ));
 
     (pool_id, reward_currency)
@@ -55,7 +54,7 @@ benchmarks! {
         let reward_currency = CurrencyId::Token(INTR);
         let reward_schedule = default_reward_schedule::<T>(reward_currency);
 
-    }: _(RawOrigin::Root, pool_id, reward_currency, reward_schedule)
+    }: _(RawOrigin::Root, pool_id, reward_currency, reward_schedule.period_count, reward_schedule.total().unwrap())
 
     remove_reward_schedule {
         let (pool_id, reward_currency) = create_reward_schedule::<T>();

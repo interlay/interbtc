@@ -27,28 +27,15 @@ use primitives::CurrencyId;
 use reward::RewardsApi;
 use scale_info::TypeInfo;
 use sp_runtime::{
-    traits::{AccountIdConversion, AtLeast32Bit, Saturating, Zero},
+    traits::{AccountIdConversion, AtLeast32Bit, CheckedDiv, Saturating, Zero},
     ArithmeticError, DispatchError, TransactionOutcome,
 };
 use sp_std::vec::Vec;
 
 pub use pallet::*;
 
-pub type AccountIdOf<T> = <T as frame_system::Config>::AccountId;
-
-pub type CurrencyIdOf<T> =
-    <<T as Config>::MultiCurrency as MultiCurrency<<T as frame_system::Config>::AccountId>>::CurrencyId;
-
-type BalanceOf<T> = <<T as Config>::MultiCurrency as MultiCurrency<AccountIdOf<T>>>::Balance;
-
-pub(crate) type RewardScheduleOf<T> = RewardSchedule<<T as frame_system::Config>::BlockNumber, BalanceOf<T>>;
-
-#[derive(Clone, Encode, Decode, PartialEq, Eq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
-pub struct RewardSchedule<BlockNumber, Balance: MaxEncodedLen> {
-    /// Block height to start after
-    pub start_height: BlockNumber,
-    /// Number of blocks between distribution
-    pub period: BlockNumber,
+#[derive(Clone, Default, Encode, Decode, PartialEq, Eq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+pub struct RewardSchedule<Balance: MaxEncodedLen> {
     /// Number of periods remaining
     pub period_count: u32,
     /// Amount of tokens to release
@@ -56,17 +43,10 @@ pub struct RewardSchedule<BlockNumber, Balance: MaxEncodedLen> {
     pub per_period: Balance,
 }
 
-impl<BlockNumber: AtLeast32Bit + Copy, Balance: AtLeast32Bit + MaxEncodedLen + Copy>
-    RewardSchedule<BlockNumber, Balance>
-{
+impl<Balance: AtLeast32Bit + MaxEncodedLen + Copy> RewardSchedule<Balance> {
     /// Returns total amount to distribute, `None` if calculation overflows
     pub fn total(&self) -> Option<Balance> {
         self.per_period.checked_mul(&self.period_count.into())
-    }
-
-    /// Returns true if the schedule is ready
-    pub fn is_ready(&self, now: BlockNumber) -> bool {
-        now.ge(&self.start_height) && (now % self.period).is_zero()
     }
 
     /// Take the next reward and decrement the period count
@@ -86,6 +66,15 @@ pub mod pallet {
     use frame_support::pallet_prelude::*;
     use frame_system::{ensure_root, ensure_signed, pallet_prelude::*};
 
+    pub(crate) type AccountIdOf<T> = <T as frame_system::Config>::AccountId;
+
+    pub(crate) type CurrencyIdOf<T> =
+        <<T as Config>::MultiCurrency as MultiCurrency<<T as frame_system::Config>::AccountId>>::CurrencyId;
+
+    pub(crate) type BalanceOf<T> = <<T as Config>::MultiCurrency as MultiCurrency<AccountIdOf<T>>>::Balance;
+
+    pub(crate) type RewardScheduleOf<T> = RewardSchedule<BalanceOf<T>>;
+
     /// ## Configuration
     /// The pallet's configuration trait.
     #[pallet::config]
@@ -101,16 +90,20 @@ pub mod pallet {
         #[pallet::constant]
         type TreasuryPalletId: Get<PalletId>;
 
-        /// Currency handler to transfer tokens
-        type MultiCurrency: MultiReservableCurrency<AccountIdOf<Self>, CurrencyId = CurrencyId>;
+        /// The period to accrue rewards.
+        #[pallet::constant]
+        type RewardPeriod: Get<Self::BlockNumber>;
 
-        /// Reward pools to track stake
+        /// Reward pools to track stake.
         type RewardPools: RewardsApi<
             CurrencyIdOf<Self>, // pool id is the lp token
             AccountIdOf<Self>,
             BalanceOf<Self>,
             CurrencyId = CurrencyIdOf<Self>,
         >;
+
+        /// Currency handler to transfer tokens.
+        type MultiCurrency: MultiReservableCurrency<AccountIdOf<Self>, CurrencyId = CurrencyId>;
 
         /// Weight information for the extrinsics.
         type WeightInfo: WeightInfo;
@@ -123,19 +116,16 @@ pub mod pallet {
         RewardScheduleUpdated {
             pool_currency_id: CurrencyIdOf<T>,
             reward_currency_id: CurrencyIdOf<T>,
-            reward_schedule: RewardScheduleOf<T>,
+            period_count: u32,
+            per_period: BalanceOf<T>,
         },
-        RewardScheduleRemoved {
-            pool_currency_id: CurrencyIdOf<T>,
-            reward_currency_id: CurrencyIdOf<T>,
-        },
-        RewardClaimed {
-            account_id: AccountIdOf<T>,
+        RewardDistributed {
             pool_currency_id: CurrencyIdOf<T>,
             reward_currency_id: CurrencyIdOf<T>,
             amount: BalanceOf<T>,
         },
-        RewardDistributed {
+        RewardClaimed {
+            account_id: AccountIdOf<T>,
             pool_currency_id: CurrencyIdOf<T>,
             reward_currency_id: CurrencyIdOf<T>,
             amount: BalanceOf<T>,
@@ -149,11 +139,33 @@ pub mod pallet {
 
     #[pallet::hooks]
     impl<T: Config> Hooks<T::BlockNumber> for Pallet<T> {
-        fn on_initialize(n: T::BlockNumber) -> Weight {
-            if let Err(e) = Self::begin_block(n) {
-                sp_runtime::print(e);
+        fn on_initialize(now: T::BlockNumber) -> Weight {
+            if now % T::RewardPeriod::get() == Zero::zero() {
+                let mut count: u32 = 0;
+                // collect first to avoid modifying in-place
+                let schedules = RewardSchedules::<T>::iter().collect::<Vec<_>>();
+                for (pool_currency_id, reward_currency_id, mut reward_schedule) in schedules.into_iter() {
+                    if let Some(amount) = reward_schedule.take() {
+                        if let Ok(_) = Self::try_distribute_reward(pool_currency_id, reward_currency_id, amount) {
+                            // only update the schedule if we could distribute the reward
+                            RewardSchedules::<T>::insert(pool_currency_id, reward_currency_id, reward_schedule);
+                            count.saturating_inc();
+                            Self::deposit_event(Event::RewardDistributed {
+                                pool_currency_id,
+                                reward_currency_id,
+                                amount,
+                            });
+                        }
+                    } else {
+                        // period count is zero
+                        RewardSchedules::<T>::remove(pool_currency_id, reward_currency_id);
+                        // TODO: sweep leftover rewards?
+                    }
+                }
+                T::WeightInfo::on_initialize(count)
+            } else {
+                Weight::zero()
             }
-            Weight::from_ref_time(0 as u64)
         }
     }
 
@@ -166,7 +178,7 @@ pub mod pallet {
         Blake2_128Concat,
         CurrencyIdOf<T>, // reward currency
         RewardScheduleOf<T>,
-        OptionQuery,
+        ValueQuery,
     >;
 
     #[pallet::pallet]
@@ -184,42 +196,35 @@ pub mod pallet {
             origin: OriginFor<T>,
             pool_currency_id: CurrencyIdOf<T>,
             reward_currency_id: CurrencyIdOf<T>,
-            reward_schedule: RewardScheduleOf<T>,
+            period_count: u32,
+            #[pallet::compact] amount: BalanceOf<T>,
         ) -> DispatchResult {
             ensure_root(origin)?;
 
             // fund the pool account from treasury
             let treasury_account_id = Self::treasury_account_id();
             let pool_account_id = Self::pool_account_id(&pool_currency_id);
-            T::MultiCurrency::transfer(
-                reward_currency_id,
-                &treasury_account_id,
-                &pool_account_id,
-                reward_schedule.total().ok_or(ArithmeticError::Overflow)?,
-            )?;
+            T::MultiCurrency::transfer(reward_currency_id, &treasury_account_id, &pool_account_id, amount)?;
 
-            // distribute remaining balance from existing schedule
-            if let Ok(previous_schedule) = RewardSchedules::<T>::try_get(pool_currency_id, reward_currency_id) {
-                let amount = previous_schedule.total().ok_or(ArithmeticError::Overflow)?;
-                if let Ok(_) = Self::try_distribute_reward(pool_currency_id, reward_currency_id, amount) {
-                    // NOTE: if this fails, the total will not reflect the pool balance
-                    // maybe we should fail or send to treasury instead?
-                    Self::deposit_event(Event::RewardDistributed {
-                        pool_currency_id,
-                        reward_currency_id,
-                        amount,
-                    });
-                }
-            }
+            RewardSchedules::<T>::try_mutate(pool_currency_id, reward_currency_id, |reward_schedule| {
+                let total_period_count = reward_schedule
+                    .period_count
+                    .checked_add(period_count)
+                    .ok_or(ArithmeticError::Overflow)?;
+                let total_free = T::MultiCurrency::free_balance(reward_currency_id, &pool_account_id);
+                let total_per_period = total_free.checked_div(&total_period_count.into()).unwrap_or_default();
 
-            // overwrite new schedule
-            RewardSchedules::<T>::insert(pool_currency_id, reward_currency_id, reward_schedule.clone());
-            Self::deposit_event(Event::RewardScheduleUpdated {
-                pool_currency_id,
-                reward_currency_id,
-                reward_schedule,
-            });
-            Ok(().into())
+                reward_schedule.period_count = total_period_count;
+                reward_schedule.per_period = total_per_period;
+
+                Self::deposit_event(Event::RewardScheduleUpdated {
+                    pool_currency_id,
+                    reward_currency_id,
+                    period_count: total_period_count,
+                    per_period: total_per_period,
+                });
+                Ok(().into())
+            })
         }
 
         /// Explicitly remove a reward schedule and transfer any remaining
@@ -244,9 +249,11 @@ pub mod pallet {
             )?;
 
             RewardSchedules::<T>::remove(pool_currency_id, reward_currency_id);
-            Self::deposit_event(Event::RewardScheduleRemoved {
+            Self::deposit_event(Event::RewardScheduleUpdated {
                 pool_currency_id,
                 reward_currency_id,
+                period_count: Zero::zero(),
+                per_period: Zero::zero(),
             });
 
             Ok(().into())
@@ -346,32 +353,5 @@ impl<T: Config> Pallet<T> {
                 TransactionOutcome::Rollback(res)
             }
         })
-    }
-
-    pub(crate) fn begin_block(height: T::BlockNumber) -> DispatchResult {
-        // TODO: measure weights, can we bound this somehow?
-        let schedules = RewardSchedules::<T>::iter().collect::<Vec<_>>();
-        // collect first to avoid modifying in-place
-        schedules
-            .into_iter()
-            .filter(|(_, _, schedule)| schedule.is_ready(height))
-            .for_each(|(pool_currency_id, reward_currency_id, mut reward_schedule)| {
-                if let Some(amount) = reward_schedule.take() {
-                    if let Ok(_) = Self::try_distribute_reward(pool_currency_id, reward_currency_id, amount) {
-                        // only update the schedule if we could distribute the reward
-                        RewardSchedules::<T>::insert(pool_currency_id, reward_currency_id, reward_schedule);
-                        Self::deposit_event(Event::RewardDistributed {
-                            pool_currency_id,
-                            reward_currency_id,
-                            amount,
-                        });
-                    }
-                } else {
-                    // period count is zero
-                    RewardSchedules::<T>::remove(pool_currency_id, reward_currency_id);
-                    // TODO: sweep leftover rewards
-                }
-            });
-        Ok(())
     }
 }

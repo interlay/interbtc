@@ -13,6 +13,7 @@ use sp_std::marker::PhantomData;
 
 /// Weight functions needed for farming.
 pub trait WeightInfo {
+	fn on_initialize(c: u32) -> Weight;
 	fn update_reward_schedule() -> Weight;
 	fn remove_reward_schedule() -> Weight;
 	fn deposit() -> Weight;
@@ -23,6 +24,10 @@ pub trait WeightInfo {
 /// Weights for farming using the Substrate node and recommended hardware.
 pub struct SubstrateWeight<T>(PhantomData<T>);
 impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
+	fn on_initialize(c: u32) -> Weight {
+		Weight::from_ref_time(100 as u64)
+			.saturating_add(Weight::from_ref_time(100 as u64).saturating_mul(c as u64))
+	}
 	fn update_reward_schedule() -> Weight {
 		Weight::from_ref_time(100 as u64)
 	}
@@ -42,6 +47,10 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 
 // For backwards compatibility and tests
 impl WeightInfo for () {
+	fn on_initialize(c: u32) -> Weight {
+		Weight::from_ref_time(100 as u64)
+			.saturating_add(Weight::from_ref_time(100 as u64).saturating_mul(c as u64))
+	}
 	fn update_reward_schedule() -> Weight {
 		Weight::from_ref_time(100 as u64)
 	}
