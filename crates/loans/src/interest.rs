@@ -47,6 +47,7 @@ impl<T: Config> Pallet<T> {
         BorrowRate::<T>::insert(asset_id, borrow_rate);
         SupplyRate::<T>::insert(asset_id, supply_rate);
         ExchangeRate::<T>::insert(asset_id, exchange_rate);
+        Self::on_exchange_rate_change(&Self::lend_token_id(asset_id)?);
 
         Self::deposit_event(Event::<T>::InterestAccrued {
             underlying_currency_id: asset_id,
