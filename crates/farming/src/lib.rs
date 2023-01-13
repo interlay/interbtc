@@ -28,7 +28,7 @@ use reward::RewardsApi;
 use scale_info::TypeInfo;
 use sp_runtime::{
     traits::{AccountIdConversion, AtLeast32Bit, CheckedDiv, Saturating, Zero},
-    ArithmeticError, DispatchError, TransactionOutcome,
+    ArithmeticError, DispatchError,
 };
 use sp_std::vec::Vec;
 
