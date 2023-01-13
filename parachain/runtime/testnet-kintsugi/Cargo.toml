@@ -98,6 +98,7 @@ collator-selection = { path = "../../../crates/collator-selection", default-feat
 clients-info = { path = "../../../crates/clients-info", default-features = false }
 loans = { path = "../../../crates/loans", default-features = false }
 traits = { path = "../../../crates/traits", default-features = false }
+farming = { path = "../../../crates/farming", default-features = false }
 
 primitives = { package = "interbtc-primitives", path = "../../../primitives", default-features = false }
 
@@ -225,6 +226,7 @@ std = [
   "clients-info/std",
   "loans/std",
   "traits/std",
+  "farming/std",
 
   "primitives/std",
 
@@ -276,6 +278,7 @@ runtime-benchmarks = [
   "redeem/runtime-benchmarks",
   "replace/runtime-benchmarks",
   "vault-registry/runtime-benchmarks",
+  "farming/runtime-benchmarks",
 ]
 disable-runtime-api = []
 dev-interlay = []
@@ -318,6 +321,7 @@ try-runtime = [
   "clients-info/try-runtime",
   "loans/try-runtime",
   "democracy/try-runtime",
+  "farming/try-runtime",
   "pallet-collective/try-runtime",
   "pallet-membership/try-runtime",
   "pallet-treasury/try-runtime",

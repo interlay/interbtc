@@ -30,6 +30,7 @@ use sp_runtime::{
     traits::{AccountIdConversion, AtLeast32Bit, Saturating, Zero},
     ArithmeticError, DispatchError, TransactionOutcome,
 };
+use sp_std::vec::Vec;
 
 pub use pallet::*;
 

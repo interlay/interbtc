@@ -558,6 +558,7 @@ parameter_types! {
     pub const TreasuryPalletId: PalletId = PalletId(*b"mod/trsy");
     pub const VaultRegistryPalletId: PalletId = PalletId(*b"mod/vreg");
     pub const LoansPalletId: PalletId = PalletId(*b"mod/loan");
+    pub const FarmingPalletId: PalletId = PalletId(*b"mod/farm");
 }
 
 parameter_types! {
@@ -810,6 +811,27 @@ impl reward::Config<VaultCapacityInstance> for Runtime {
     type CurrencyId = CurrencyId;
     type GetNativeCurrencyId = GetNativeCurrencyId;
     type GetWrappedCurrencyId = GetWrappedCurrencyId;
+}
+
+type FarmingRewardsInstance = reward::Instance4;
+
+impl reward::Config<FarmingRewardsInstance> for Runtime {
+    type RuntimeEvent = RuntimeEvent;
+    type SignedFixedPoint = SignedFixedPoint;
+    type PoolId = CurrencyId;
+    type StakeId = AccountId;
+    type CurrencyId = CurrencyId;
+    type GetNativeCurrencyId = GetNativeCurrencyId;
+    type GetWrappedCurrencyId = GetWrappedCurrencyId;
+}
+
+impl farming::Config for Runtime {
+    type RuntimeEvent = RuntimeEvent;
+    type FarmingPalletId = FarmingPalletId;
+    type TreasuryPalletId = TreasuryPalletId;
+    type MultiCurrency = Tokens;
+    type RewardPools = FarmingRewards;
+    type WeightInfo = ();
 }
 
 impl security::Config for Runtime {
@@ -1095,6 +1117,9 @@ construct_runtime! {
         VaultRewards: reward::<Instance2>::{Pallet, Storage, Event<T>} = 41,
         VaultStaking: staking::{Pallet, Storage, Event<T>} = 42,
         VaultCapacity: reward::<Instance3>::{Pallet, Storage, Event<T>} = 43,
+
+        Farming: farming::{Pallet, Call, Storage, Event<T>} = 44,
+        FarmingRewards: reward::<Instance4>::{Pallet, Storage, Event<T>} = 45,
 
         // # Bitcoin SPV
         BTCRelay: btc_relay::{Pallet, Call, Config<T>, Storage, Event<T>} = 50,
