@@ -188,8 +188,10 @@ pub mod pallet {
     #[pallet::call]
     impl<T: Config> Pallet<T> {
         /// Create or overwrite the reward schedule, if a reward schedule
-        /// already exists for the rewards currency it will first distribute
-        /// any remaining tokens to the rewards pool
+        /// already exists for the rewards currency the duration is added
+        /// to the existing duration and the rewards per period are modified
+        /// s.t. that the total (old remaining + new) rewards are distributed
+        /// over the new total duration
         #[pallet::weight(T::WeightInfo::update_reward_schedule())]
         #[transactional]
         pub fn update_reward_schedule(
@@ -295,8 +297,7 @@ pub mod pallet {
             let who = ensure_signed(origin)?;
 
             // unreserve lp tokens to allow spending
-            let _remaining = T::MultiCurrency::unreserve(pool_currency_id.clone(), &who, amount);
-            // TODO: check remaining is non-zeo
+            T::MultiCurrency::unreserve(pool_currency_id.clone(), &who, amount);
 
             // withdraw lp tokens from stake
             T::RewardPools::withdraw_stake(&pool_currency_id, &who, amount)
@@ -340,18 +341,12 @@ impl<T: Config> Pallet<T> {
         T::TreasuryPalletId::get().into_account_truncating()
     }
 
+    #[transactional]
     fn try_distribute_reward(
         pool_currency_id: CurrencyIdOf<T>,
         reward_currency_id: CurrencyIdOf<T>,
         amount: BalanceOf<T>,
     ) -> Result<(), DispatchError> {
-        frame_support::storage::with_transaction::<_, DispatchError, _>(|| {
-            let res = T::RewardPools::distribute_reward(&pool_currency_id, reward_currency_id, amount);
-            if res.is_ok() {
-                TransactionOutcome::Commit(res)
-            } else {
-                TransactionOutcome::Rollback(res)
-            }
-        })
+        T::RewardPools::distribute_reward(&pool_currency_id, reward_currency_id, amount)
     }
 }
