@@ -855,7 +855,7 @@ pub mod pallet {
             ensure!(!amount.is_zero(), Error::<T>::InvalidAmount);
 
             let reward_asset = T::RewardAssetId::get();
-            let pool_account = Self::reward_account_id()?;
+            let pool_account = Self::reward_account_id();
 
             let amount_to_transfer: Amount<T> = Amount::new(amount, reward_asset);
             amount_to_transfer.transfer(&who, &pool_account)?;
@@ -882,7 +882,7 @@ pub mod pallet {
             ensure!(!amount.is_zero(), Error::<T>::InvalidAmount);
 
             let reward_asset = T::RewardAssetId::get();
-            let pool_account = Self::reward_account_id()?;
+            let pool_account = Self::reward_account_id();
             let target_account = T::Lookup::lookup(target_account)?;
 
             let amount_to_transfer: Amount<T> = Amount::new(amount, reward_asset);
@@ -1270,7 +1270,7 @@ pub mod pallet {
             T::ReserveOrigin::ensure_origin(origin)?;
             ensure!(!redeem_amount.is_zero(), Error::<T>::InvalidAmount);
             let receiver = T::Lookup::lookup(receiver)?;
-            let from = Self::incentive_reward_account_id()?;
+            let from = Self::incentive_reward_account_id();
             Self::ensure_active_market(asset_id)?;
             Self::accrue_interest(asset_id)?;
             let exchange_rate = Self::exchange_rate_stored(asset_id)?;
@@ -1691,7 +1691,7 @@ impl<T: Config> Pallet<T> {
         Self::update_reward_supply_index(collateral_asset_id)?;
         Self::distribute_supplier_reward(collateral_asset_id, liquidator)?;
         Self::distribute_supplier_reward(collateral_asset_id, borrower)?;
-        Self::distribute_supplier_reward(collateral_asset_id, &Self::incentive_reward_account_id()?)?;
+        Self::distribute_supplier_reward(collateral_asset_id, &Self::incentive_reward_account_id())?;
 
         // 3.the liquidator will receive voucher token from borrower
         let exchange_rate = Self::exchange_rate_stored(collateral_asset_id)?;
@@ -1727,7 +1727,7 @@ impl<T: Config> Pallet<T> {
         liquidator_amount.transfer(borrower, liquidator)?;
 
         // increase reserve's voucher_balance
-        incentive_reserved_amount.transfer(borrower, &Self::incentive_reward_account_id()?)?;
+        incentive_reserved_amount.transfer(borrower, &Self::incentive_reward_account_id())?;
 
         Self::deposit_event(Event::<T>::LiquidatedBorrow {
             liquidator: liquidator.clone(),
@@ -1929,10 +1929,10 @@ impl<T: Config> Pallet<T> {
     }
 
     // Returns the incentive reward account
-    pub fn incentive_reward_account_id() -> Result<T::AccountId, DispatchError> {
+    pub fn incentive_reward_account_id() -> T::AccountId {
         let account_id: T::AccountId = T::PalletId::get().into_account_truncating();
         let entropy = (INCENTIVE_ACCOUNT_PREFIX, &[account_id]).using_encoded(blake2_256);
-        Ok(T::AccountId::decode(&mut &entropy[..]).map_err(|_| Error::<T>::CodecError)?)
+        T::AccountId::decode(&mut &entropy[..]).expect("Account derivation failure")
     }
 }
 

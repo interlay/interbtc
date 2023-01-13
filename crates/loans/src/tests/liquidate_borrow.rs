@@ -121,7 +121,7 @@ fn full_workflow_works_as_expected() {
             unit(107),
         );
         // 3 dollar reserved in our incentive reward account
-        let incentive_reward_account = Loans::incentive_reward_account_id().unwrap();
+        let incentive_reward_account = Loans::incentive_reward_account_id();
         println!("incentive reserve account:{:?}", incentive_reward_account.clone());
         assert_eq!(
             Loans::exchange_rate(KBTC).saturating_mul_int(Tokens::balance(
@@ -154,7 +154,7 @@ fn full_workflow_works_as_expected() {
 #[test]
 fn withdrawing_incentive_reserve_accrues_interest() {
     new_test_ext().execute_with(|| {
-        let incentive_reward_account = Loans::incentive_reward_account_id().unwrap();
+        let incentive_reward_account = Loans::incentive_reward_account_id();
         initial_setup();
         alice_borrows_100_ksm();
         assert_ok!(Loans::deposit_all_collateral(RuntimeOrigin::signed(BOB), KSM));

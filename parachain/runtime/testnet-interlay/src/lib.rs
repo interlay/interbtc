@@ -633,10 +633,10 @@ pub fn get_all_module_accounts() -> Vec<AccountId> {
         LoansAccount::get(),
         // Reserve account where lending liquidation rewards are routed as lend tokens
         // Assumes that derivation of the incentive reward account can never fail
-        Loans::incentive_reward_account_id().unwrap(),
+        Loans::incentive_reward_account_id(),
         // Account where lending and borrowing subsidy rewards are deposited
         // Assumes that derivation of the reward account can never fail
-        Loans::reward_account_id().unwrap(),
+        Loans::reward_account_id(),
     ]
 }
 

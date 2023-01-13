@@ -1025,7 +1025,7 @@ fn withdraw_missing_reward_works() {
 
         assert_eq!(Tokens::balance(INTR, &ALICE), unit(40));
 
-        assert_eq!(Tokens::balance(INTR, &Loans::reward_account_id().unwrap()), unit(60));
+        assert_eq!(Tokens::balance(INTR, &Loans::reward_account_id()), unit(60));
     })
 }
 
@@ -1235,7 +1235,7 @@ fn reward_calculation_one_player_in_multi_markets_works() {
         assert_eq!(Tokens::balance(INTR, &DAVE), unit(800));
         assert_eq!(almost_equal(Tokens::balance(INTR, &ALICE), unit(130)), true);
         assert_eq!(
-            almost_equal(Tokens::balance(INTR, &Loans::reward_account_id().unwrap()), unit(70)),
+            almost_equal(Tokens::balance(INTR, &Loans::reward_account_id()), unit(70)),
             true
         );
         assert_ok!(Loans::update_market_reward_speed(
@@ -1364,7 +1364,7 @@ fn reward_calculation_multi_player_in_one_market_works() {
         assert_eq!(almost_equal(Tokens::balance(INTR, &ALICE), unit(58)), true);
         assert_eq!(almost_equal(Tokens::balance(INTR, &BOB), unit(22)), true);
         assert_eq!(
-            almost_equal(Tokens::balance(INTR, &Loans::reward_account_id().unwrap()), unit(120)),
+            almost_equal(Tokens::balance(INTR, &Loans::reward_account_id()), unit(120)),
             true
         );
     })
@@ -1452,14 +1452,14 @@ fn reward_calculation_after_liquidate_borrow_works() {
         assert_ok!(Loans::distribute_borrower_reward(KSM, &BOB));
         assert_ok!(Loans::distribute_supplier_reward(
             DOT,
-            &Loans::incentive_reward_account_id().unwrap(),
+            &Loans::incentive_reward_account_id(),
         ));
 
         assert_eq!(almost_equal(Loans::reward_accrued(ALICE), milli_unit(22375)), true);
         assert_eq!(almost_equal(Loans::reward_accrued(BOB), micro_unit(37512500)), true);
         assert_eq!(
             almost_equal(
-                Loans::reward_accrued(Loans::incentive_reward_account_id().unwrap()),
+                Loans::reward_accrued(Loans::incentive_reward_account_id()),
                 micro_unit(112500),
             ),
             true,
