@@ -617,6 +617,8 @@ parameter_types! {
     pub CollatorSelectionAccount: AccountId = CollatorPotId::get().into_account_truncating();
     // wd9yNSwR5jsJWJrtHcnS8Wf6D5zF2dbQhxwRuvAzg9jefbhuM
     pub VaultRegistryAccount: AccountId = VaultRegistryPalletId::get().into_account_truncating();
+    // wd9yNSwR5jsJWJZ6yzpWRRhe59Z8xLQvZpxrPF7ux76mKaBZ6
+    pub LoansAccount: AccountId = LoansPalletId::get().into_account_truncating();
 }
 
 pub fn get_all_module_accounts() -> Vec<AccountId> {
@@ -628,6 +630,13 @@ pub fn get_all_module_accounts() -> Vec<AccountId> {
         TreasuryAccount::get(),
         CollatorSelectionAccount::get(),
         VaultRegistryAccount::get(),
+        LoansAccount::get(),
+        // Reserve account where lending liquidation rewards are routed as lend tokens
+        // Assumes that derivation of the incentive reward account can never fail
+        Loans::incentive_reward_account_id(),
+        // Account where lending and borrowing subsidy rewards are deposited
+        // Assumes that derivation of the reward account can never fail
+        Loans::reward_account_id(),
     ]
 }
 

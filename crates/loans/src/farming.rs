@@ -15,16 +15,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use sp_io::hashing::blake2_256;
 use sp_runtime::{traits::Zero, DispatchResult};
 
 use crate::*;
 
 impl<T: Config> Pallet<T> {
-    pub(crate) fn reward_account_id() -> Result<T::AccountId, DispatchError> {
-        let account_id: T::AccountId = T::PalletId::get().into_account_truncating();
-        let entropy = (REWARD_ACCOUNT_PREFIX, &[account_id]).using_encoded(blake2_256);
-        Ok(T::AccountId::decode(&mut &entropy[..]).map_err(|_| Error::<T>::CodecError)?)
+    pub fn reward_account_id() -> T::AccountId {
+        T::PalletId::get().into_sub_account_truncating(REWARD_SUB_ACCOUNT)
     }
 
     fn reward_scale() -> u128 {
@@ -186,7 +183,7 @@ impl<T: Config> Pallet<T> {
     }
 
     pub(crate) fn pay_reward(user: &T::AccountId) -> DispatchResult {
-        let pool_account = Self::reward_account_id()?;
+        let pool_account = Self::reward_account_id();
         let reward_asset = T::RewardAssetId::get();
         let total_reward = RewardAccrued::<T>::get(user);
         if total_reward > 0 {

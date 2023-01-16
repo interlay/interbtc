@@ -199,14 +199,14 @@ fn integration_test_liquidation() {
         // the rest of the slashed collateral routed to the incentive reward account's free balance
         assert_eq!(
             almost_equal(
-                free_balance(LEND_KINT, &LoansPallet::incentive_reward_account_id().unwrap()),
+                free_balance(LEND_KINT, &LoansPallet::incentive_reward_account_id()),
                 10 * one_kint,
                 lend_kint_precision
             ),
             true
         );
         assert_eq!(
-            reserved_balance(LEND_KINT, &LoansPallet::incentive_reward_account_id().unwrap()),
+            reserved_balance(LEND_KINT, &LoansPallet::incentive_reward_account_id()),
             0
         );
     });
