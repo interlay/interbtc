@@ -1,8 +1,25 @@
 //! # Farming Module
-//! Root can create reward schedules which payout incentives
-//! on a per period basis. Users can stake LP tokens, such as
-//! those generated from an AMM or lending protocol to receive
-//! these rewards by claiming.
+//! Root can create reward schedules paying incentives periodically to users
+//! staking certain tokens.
+//!
+//! A reward schedule consists of two items:
+//! 1. The number of periods set globally as a configuration for all pools.
+//!    This number is ultimately measured in blocks; e.g., if a period is
+//!    defined as 10 blocks, then a period count of 10 means 100 blocks.
+//! 2. The amount of reward tokens paid in that period.
+//!
+//! Users are only paid a share of the rewards in the period if they have
+//! staked tokens for a reward schedule that distributed more than 0 tokens.
+//!
+//! The following design decisions have been made:
+//! - The reward schedule is configured as a matrix such that a staked token (e.g., an AMM LP token) and an incentive
+//!   token (e.g., INTR or DOT) represent one reward schedule. This enables adding multiple reward currencies per staked
+//!   token.
+//! - Rewards can be increased but not decreased unless the schedule is explicitly removed.
+//! - The rewards period cannot change without a migration.
+//! - Only constant rewards per period are paid. To implement more complex reward schemes, the farming pallet relies on
+//!   the scheduler pallet. This allows a creator to configure different constant payouts by scheduling
+//!   `update_reward_schedule` in the future.
 
 // #![deny(warnings)]
 #![cfg_attr(test, feature(proc_macro_hygiene))]
