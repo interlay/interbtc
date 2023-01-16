@@ -3887,6 +3887,7 @@ dependencies = [
  "substrate-wasm-builder",
  "supply",
  "traits",
+ "tx-pause",
  "vault-registry",
  "vault-registry-rpc-runtime-api",
  "xcm-builder",

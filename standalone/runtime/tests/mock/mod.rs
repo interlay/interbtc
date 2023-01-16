@@ -163,6 +163,7 @@ pub type SecurityCall = security::Call<Runtime>;
 pub type SudoCall = pallet_sudo::Call<Runtime>;
 pub type SudoError = pallet_sudo::Error<Runtime>;
 
+pub type SystemCall = frame_system::Call<Runtime>;
 pub type SystemPallet = frame_system::Pallet<Runtime>;
 pub type SystemError = frame_system::Error<Runtime>;
 
@@ -180,6 +181,8 @@ pub type EscrowError = escrow::Error<Runtime>;
 pub type EscrowPallet = escrow::Pallet<Runtime>;
 
 pub type UtilityCall = pallet_utility::Call<Runtime>;
+
+pub type TxPauseCall = tx_pause::Call<Runtime>;
 
 pub type SchedulerCall = pallet_scheduler::Call<Runtime>;
 pub type SchedulerPallet = pallet_scheduler::Pallet<Runtime>;
