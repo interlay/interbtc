@@ -574,6 +574,8 @@ parameter_types! {
     pub TreasuryAccount: AccountId = TreasuryPalletId::get().into_account_truncating();
     // 5EYCAe5i8QbRra1jndPz1WAuf1q1KHQNfu2cW1EXJ231emTd
     pub VaultRegistryAccount: AccountId = VaultRegistryPalletId::get().into_account_truncating();
+    // 5EYCAe5i8QbRr5Umqbak9Zsapq3nkGBb2KjN9sBxTZjwf4eG
+    pub FarmingAccount: AccountId = FarmingPalletId::get().into_account_truncating();
 }
 
 pub fn get_all_module_accounts() -> Vec<AccountId> {
@@ -584,6 +586,7 @@ pub fn get_all_module_accounts() -> Vec<AccountId> {
         VaultAnnuityAccount::get(),
         TreasuryAccount::get(),
         VaultRegistryAccount::get(),
+        FarmingAccount::get(),
     ]
 }
 
@@ -832,7 +835,7 @@ parameter_types! {
 impl farming::Config for Runtime {
     type RuntimeEvent = RuntimeEvent;
     type FarmingPalletId = FarmingPalletId;
-    type TreasuryPalletId = TreasuryPalletId;
+    type TreasuryAccountId = TreasuryAccount;
     type RewardPeriod = RewardPeriod;
     type RewardPools = FarmingRewards;
     type MultiCurrency = Tokens;

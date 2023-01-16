@@ -26,7 +26,7 @@ fn should_create_and_remove_reward_schedule() {
 
         assert_ok!(Tokens::set_balance(
             RuntimeOrigin::root(),
-            Farming::treasury_account_id(),
+            TreasuryAccountId::get(),
             REWARD_CURRENCY_ID,
             total_amount,
             0
@@ -56,7 +56,7 @@ fn should_create_and_remove_reward_schedule() {
 
         // check treasury balance
         assert_eq!(
-            Tokens::total_balance(REWARD_CURRENCY_ID, &Farming::treasury_account_id()),
+            Tokens::total_balance(REWARD_CURRENCY_ID, &TreasuryAccountId::get()),
             total_amount
         );
 
@@ -86,7 +86,7 @@ fn should_overwrite_existing_schedule() {
 
         assert_ok!(Tokens::set_balance(
             RuntimeOrigin::root(),
-            Farming::treasury_account_id(),
+            TreasuryAccountId::get(),
             REWARD_CURRENCY_ID,
             total_amount,
             0
@@ -167,7 +167,7 @@ fn should_deposit_and_withdraw_stake() {
 
         assert_ok!(Tokens::set_balance(
             RuntimeOrigin::root(),
-            Farming::treasury_account_id(),
+            TreasuryAccountId::get(),
             REWARD_CURRENCY_ID,
             total_amount,
             0
@@ -210,7 +210,7 @@ fn should_deposit_stake_and_claim_reward() {
 
         assert_ok!(Tokens::set_balance(
             RuntimeOrigin::root(),
-            Farming::treasury_account_id(),
+            TreasuryAccountId::get(),
             REWARD_CURRENCY_ID,
             total_amount,
             0

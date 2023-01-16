@@ -622,6 +622,8 @@ parameter_types! {
     pub VaultRegistryAccount: AccountId = VaultRegistryPalletId::get().into_account_truncating();
     // a3cgeH7D28bBsHHqPQpBW7js6ePUgvf41qCBXNxERTqXDZcpv
     pub LoansAccount: AccountId = LoansPalletId::get().into_account_truncating();
+    // a3cgeH7D28bBsH75j5kHyLm1ukdoYepKNKbTohsGag27VbLvK
+    pub FarmingAccount: AccountId = FarmingPalletId::get().into_account_truncating();
 }
 
 pub fn get_all_module_accounts() -> Vec<AccountId> {
@@ -640,6 +642,7 @@ pub fn get_all_module_accounts() -> Vec<AccountId> {
         // Account where lending and borrowing subsidy rewards are deposited
         // Assumes that derivation of the reward account can never fail
         Loans::reward_account_id(),
+        FarmingAccount::get(),
     ]
 }
 
@@ -912,7 +915,7 @@ parameter_types! {
 impl farming::Config for Runtime {
     type RuntimeEvent = RuntimeEvent;
     type FarmingPalletId = FarmingPalletId;
-    type TreasuryPalletId = TreasuryPalletId;
+    type TreasuryAccountId = TreasuryAccount;
     type RewardPeriod = RewardPeriod;
     type RewardPools = FarmingRewards;
     type MultiCurrency = Tokens;

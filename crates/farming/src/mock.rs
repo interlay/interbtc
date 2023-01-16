@@ -10,7 +10,7 @@ use sp_arithmetic::FixedI128;
 use sp_core::H256;
 use sp_runtime::{
     generic::Header as GenericHeader,
-    traits::{BlakeTwo256, IdentityLookup},
+    traits::{AccountIdConversion, BlakeTwo256, IdentityLookup},
 };
 
 type Header = GenericHeader<BlockNumber, BlakeTwo256>;
@@ -109,14 +109,14 @@ impl reward::Config for Test {
 
 parameter_types! {
     pub const FarmingPalletId: PalletId = PalletId(*b"farmings");
-    pub const TreasuryPalletId: PalletId = PalletId(*b"treasury");
+    pub TreasuryAccountId: AccountId = PalletId(*b"treasury").into_account_truncating();
     pub const RewardPeriod: BlockNumber = 10;
 }
 
 impl Config for Test {
     type RuntimeEvent = RuntimeEvent;
     type FarmingPalletId = FarmingPalletId;
-    type TreasuryPalletId = TreasuryPalletId;
+    type TreasuryAccountId = TreasuryAccountId;
     type RewardPeriod = RewardPeriod;
     type RewardPools = Rewards;
     type MultiCurrency = Tokens;

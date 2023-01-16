@@ -86,9 +86,9 @@ pub mod pallet {
         #[pallet::constant]
         type FarmingPalletId: Get<PalletId>;
 
-        /// The treasury pallet id, used for deriving its sovereign account ID.
+        /// The treasury account id for funding pools.
         #[pallet::constant]
-        type TreasuryPalletId: Get<PalletId>;
+        type TreasuryAccountId: Get<Self::AccountId>;
 
         /// The period to accrue rewards.
         #[pallet::constant]
@@ -204,7 +204,7 @@ pub mod pallet {
             ensure_root(origin)?;
 
             // fund the pool account from treasury
-            let treasury_account_id = Self::treasury_account_id();
+            let treasury_account_id = T::TreasuryAccountId::get();
             let pool_account_id = Self::pool_account_id(&pool_currency_id);
             T::MultiCurrency::transfer(reward_currency_id, &treasury_account_id, &pool_account_id, amount)?;
 
@@ -241,7 +241,7 @@ pub mod pallet {
             ensure_root(origin)?;
 
             // transfer unspent rewards to treasury
-            let treasury_account_id = Self::treasury_account_id();
+            let treasury_account_id = T::TreasuryAccountId::get();
             let pool_account_id = Self::pool_account_id(&pool_currency_id);
             T::MultiCurrency::transfer(
                 reward_currency_id,
@@ -335,10 +335,6 @@ pub mod pallet {
 impl<T: Config> Pallet<T> {
     pub fn pool_account_id(pool_currency_id: &CurrencyIdOf<T>) -> T::AccountId {
         T::FarmingPalletId::get().into_sub_account_truncating(pool_currency_id)
-    }
-
-    pub fn treasury_account_id() -> T::AccountId {
-        T::TreasuryPalletId::get().into_account_truncating()
     }
 
     #[transactional]

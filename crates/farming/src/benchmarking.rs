@@ -4,6 +4,7 @@ use frame_benchmarking::{account, benchmarks, impl_benchmark_test_suite};
 use frame_support::{assert_ok, traits::Hooks};
 use frame_system::RawOrigin;
 use primitives::*;
+use sp_std::vec;
 
 // Pallets
 use crate::Pallet as Farming;
@@ -18,7 +19,7 @@ fn default_reward_schedule<T: Config>(reward_currency_id: CurrencyId) -> RewardS
 
     assert_ok!(T::MultiCurrency::deposit(
         reward_currency_id,
-        &Farming::<T>::treasury_account_id(),
+        &T::TreasuryAccountId::get(),
         total_amount,
     ));
 
