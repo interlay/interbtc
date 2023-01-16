@@ -121,7 +121,7 @@ pub mod pallet {
 
 		/// The overarching call type.
 		type RuntimeCall: Parameter
-			+ Dispatchable<Origin = Self::Origin>
+			+ Dispatchable<RuntimeOrigin = Self::RuntimeOrigin>
 			+ GetDispatchInfo
 			+ GetCallMetadata
 			+ From<frame_system::Call<Self>>
@@ -129,10 +129,10 @@ pub mod pallet {
 			+ IsType<<Self as frame_system::Config>::RuntimeCall>;
 
 		/// The only origin that can pause calls.
-		type PauseOrigin: EnsureOrigin<Self::Origin>;
+		type PauseOrigin: EnsureOrigin<Self::RuntimeOrigin>;
 
 		/// The only origin that can un-pause calls.
-		type UnpauseOrigin: EnsureOrigin<Self::Origin>;
+		type UnpauseOrigin: EnsureOrigin<Self::RuntimeOrigin>;
 
 		/// Contains all calls that cannot be paused.
 		///
