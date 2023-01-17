@@ -51,14 +51,16 @@ impl IdentifyChain for dyn sc_service::ChainSpec {
         self.id().starts_with("interlay")
     }
     fn is_kintsugi(&self) -> bool {
-        self.id().starts_with("kintsugi")
+        // NOTE: naming kept for backwards compatibility
+        // changing the ID would require collators to move
+        // their database files or resync
+        self.id().starts_with("kusama")
     }
     fn is_interlay_testnet(&self) -> bool {
         self.id().starts_with("testnet-interlay")
     }
     fn is_kintsugi_testnet(&self) -> bool {
-        // for backwards compatibility reasons testnet-parachain is also assumed to be testnet-kintsugi
-        self.id().starts_with("testnet-kintsugi") || self.id().starts_with("testnet-parachain")
+        self.id().starts_with("testnet-kintsugi")
     }
 }
 
@@ -152,6 +154,7 @@ macro_rules! with_runtime_or_err {
             $( $code )*
 
         } else {
+            // TODO: return error if not testnet-kintsugi?
             #[allow(unused_imports)]
             use { testnet_kintsugi_runtime::RuntimeApi, crate::service::TestnetKintsugiRuntimeExecutor as Executor };
             $( $code )*
@@ -194,7 +197,10 @@ impl SubstrateCli for Cli {
             &interlay_runtime::VERSION
         } else if chain_spec.is_kintsugi() {
             &kintsugi_runtime::VERSION
+        } else if chain_spec.is_interlay_testnet() {
+            &testnet_interlay_runtime::VERSION
         } else {
+            // TODO: panic if not testnet-kintsugi?
             &testnet_kintsugi_runtime::VERSION
         }
     }
