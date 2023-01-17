@@ -221,6 +221,54 @@ fn liquidator_can_not_repay_more_than_the_close_factor_pct_multiplier() {
 }
 
 #[test]
+fn repay_currency_auto_locking_works() {
+    new_test_ext().execute_with(|| {
+        initial_setup();
+        assert_ok!(Loans::mint(RuntimeOrigin::signed(BOB), KBTC, 1));
+        assert_ok!(Loans::deposit_all_collateral(RuntimeOrigin::signed(BOB), KBTC));
+        alice_borrows_100_ksm();
+        CurrencyConvert::convert.mock_safe(with_price(Some((KSM, 2.into()))));
+        let initial_borrower_locked_collateral =
+            Amount::<Test>::new(Loans::account_deposits(LEND_KBTC, &ALICE), LEND_KBTC);
+        let initial_liquidator_locked_collateral =
+            Amount::<Test>::new(Loans::account_deposits(LEND_KBTC, &BOB), LEND_KBTC);
+        assert_ok!(Loans::liquidate_borrow(
+            RuntimeOrigin::signed(BOB),
+            ALICE,
+            KSM,
+            unit(50),
+            KBTC
+        ),);
+        let final_borrower_locked_collateral =
+            Amount::<Test>::new(Loans::account_deposits(LEND_KBTC, &ALICE), LEND_KBTC);
+        let final_liquidator_locked_collateral =
+            Amount::<Test>::new(Loans::account_deposits(LEND_KBTC, &BOB), LEND_KBTC);
+        let actual_liquidator_reward = final_liquidator_locked_collateral
+            .checked_sub(&initial_liquidator_locked_collateral)
+            .unwrap();
+        let borrower_slash = initial_borrower_locked_collateral
+            .checked_sub(&final_borrower_locked_collateral)
+            .unwrap();
+        let Market {
+            liquidate_incentive,
+            liquidate_incentive_reserved_factor,
+            ..
+        } = Loans::market(KSM).unwrap();
+        let reserved_reward = liquidate_incentive_reserved_factor
+            .mul_floor(borrower_slash.checked_div(&liquidate_incentive).unwrap().amount());
+        // The amount received by the liquidator should be whatever is slashed
+        // from the borrower minus the reserve's share.
+        let expected_liquidator_reward = borrower_slash.amount() - reserved_reward;
+
+        assert_eq!(
+            actual_liquidator_reward.amount(),
+            expected_liquidator_reward,
+            "The entirety of the liquidator's reward should have been auto-locked as collateral"
+        );
+    })
+}
+
+#[test]
 fn liquidated_transfer_reduces_locked_collateral() {
     new_test_ext().execute_with(|| {
         initial_setup();
@@ -251,9 +299,7 @@ fn liquidated_transfer_reduces_locked_collateral() {
             .unwrap()
             .convert_to(DEFAULT_WRAPPED_CURRENCY)
             .unwrap();
-        assert!(liquidated_ksm_as_wrapped
-            .eq(&borrower_collateral_difference_as_wrapped)
-            .unwrap());
+        assert_eq!(liquidated_ksm_as_wrapped, borrower_collateral_difference_as_wrapped);
     })
 }
 

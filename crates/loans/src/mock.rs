@@ -249,6 +249,7 @@ pub(crate) fn set_mock_balances() {
     Tokens::set_balance(RuntimeOrigin::root(), ALICE, Token(IBTC), 1_000_000_000_000_000, 0).unwrap();
     Tokens::set_balance(RuntimeOrigin::root(), BOB, Token(KSM), 1_000_000_000_000_000, 0).unwrap();
     Tokens::set_balance(RuntimeOrigin::root(), BOB, Token(DOT), 1_000_000_000_000_000, 0).unwrap();
+    Tokens::set_balance(RuntimeOrigin::root(), BOB, Token(KBTC), 1_000_000_000_000_000, 0).unwrap();
     Tokens::set_balance(RuntimeOrigin::root(), DAVE, Token(DOT), 1_000_000_000_000_000, 0).unwrap();
     Tokens::set_balance(RuntimeOrigin::root(), DAVE, Token(KBTC), 1_000_000_000_000_000, 0).unwrap();
     Tokens::set_balance(RuntimeOrigin::root(), DAVE, Token(KINT), 1_000_000_000_000_000, 0).unwrap();
