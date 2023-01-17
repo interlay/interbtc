@@ -1398,6 +1398,7 @@ impl_runtime_apis! {
 
             list_benchmark!(list, extra, btc_relay, BTCRelay);
             list_benchmark!(list, extra, fee, Fee);
+            list_benchmark!(list, extra, farming, Farming);
             list_benchmark!(list, extra, issue, Issue);
             list_benchmark!(list, extra, loans, Loans);
             list_benchmark!(list, extra, nomination, Nomination);
@@ -1434,6 +1435,7 @@ impl_runtime_apis! {
 
             add_benchmark!(params, batches, btc_relay, BTCRelay);
             add_benchmark!(params, batches, fee, Fee);
+            add_benchmark!(params, batches, farming, Farming);
             add_benchmark!(params, batches, issue, Issue);
             add_benchmark!(params, batches, loans, Loans);
             add_benchmark!(params, batches, nomination, Nomination);
