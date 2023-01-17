@@ -602,6 +602,7 @@ parameter_types! {
     pub const CollatorPotId: PalletId = PalletId(*b"col/slct");
     pub const VaultRegistryPalletId: PalletId = PalletId(*b"mod/vreg");
     pub const LoansPalletId: PalletId = PalletId(*b"mod/loan");
+    pub const FarmingPalletId: PalletId = PalletId(*b"mod/farm");
 }
 
 parameter_types! {
@@ -621,6 +622,8 @@ parameter_types! {
     pub VaultRegistryAccount: AccountId = VaultRegistryPalletId::get().into_account_truncating();
     // a3cgeH7D28bBsHHqPQpBW7js6ePUgvf41qCBXNxERTqXDZcpv
     pub LoansAccount: AccountId = LoansPalletId::get().into_account_truncating();
+    // a3cgeH7D28bBsH75j5kHyLm1ukdoYepKNKbTohsGag27VbLvK
+    pub FarmingAccount: AccountId = FarmingPalletId::get().into_account_truncating();
 }
 
 pub fn get_all_module_accounts() -> Vec<AccountId> {
@@ -639,6 +642,7 @@ pub fn get_all_module_accounts() -> Vec<AccountId> {
         // Account where lending and borrowing subsidy rewards are deposited
         // Assumes that derivation of the reward account can never fail
         Loans::reward_account_id(),
+        FarmingAccount::get(),
     ]
 }
 
@@ -890,6 +894,32 @@ impl reward::Config<VaultCapacityInstance> for Runtime {
     type CurrencyId = CurrencyId;
     type GetNativeCurrencyId = GetNativeCurrencyId;
     type GetWrappedCurrencyId = GetWrappedCurrencyId;
+}
+
+type FarmingRewardsInstance = reward::Instance4;
+
+impl reward::Config<FarmingRewardsInstance> for Runtime {
+    type RuntimeEvent = RuntimeEvent;
+    type SignedFixedPoint = SignedFixedPoint;
+    type PoolId = CurrencyId;
+    type StakeId = AccountId;
+    type CurrencyId = CurrencyId;
+    type GetNativeCurrencyId = GetNativeCurrencyId;
+    type GetWrappedCurrencyId = GetWrappedCurrencyId;
+}
+
+parameter_types! {
+    pub const RewardPeriod: BlockNumber = MINUTES;
+}
+
+impl farming::Config for Runtime {
+    type RuntimeEvent = RuntimeEvent;
+    type FarmingPalletId = FarmingPalletId;
+    type TreasuryAccountId = TreasuryAccount;
+    type RewardPeriod = RewardPeriod;
+    type RewardPools = FarmingRewards;
+    type MultiCurrency = Tokens;
+    type WeightInfo = ();
 }
 
 impl security::Config for Runtime {
@@ -1153,6 +1183,9 @@ construct_runtime! {
         VaultRewards: reward::<Instance2>::{Pallet, Storage, Event<T>} = 41,
         VaultStaking: staking::{Pallet, Storage, Event<T>} = 42,
         VaultCapacity: reward::<Instance3>::{Pallet, Storage, Event<T>} = 43,
+
+        Farming: farming::{Pallet, Call, Storage, Event<T>} = 44,
+        FarmingRewards: reward::<Instance4>::{Pallet, Storage, Event<T>} = 45,
 
         // # Bitcoin SPV
         BTCRelay: btc_relay::{Pallet, Call, Config<T>, Storage, Event<T>} = 50,
