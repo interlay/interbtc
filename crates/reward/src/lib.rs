@@ -102,10 +102,13 @@ pub mod pallet {
     #[pallet::hooks]
     impl<T: Config<I>, I: 'static> Hooks<T::BlockNumber> for Pallet<T, I> {
         fn on_runtime_upgrade() -> Weight {
-            RewardCurrencies::<T, I>::mutate(|reward_currencies| {
-                reward_currencies.insert(T::GetNativeCurrencyId::get());
-                reward_currencies.insert(T::GetWrappedCurrencyId::get());
+            RewardPerToken::<T, I>::iter_keys().for_each(|(_currency_id, pool_id)| {
+                RewardCurrencies::<T, I>::mutate(pool_id, |reward_currencies| {
+                    reward_currencies.insert(T::GetNativeCurrencyId::get());
+                    reward_currencies.insert(T::GetWrappedCurrencyId::get());
+                });
             });
+
             Weight::zero()
         }
     }
@@ -155,7 +158,8 @@ pub mod pallet {
 
     /// Track the currencies used for rewards.
     #[pallet::storage]
-    pub type RewardCurrencies<T: Config<I>, I: 'static = ()> = StorageValue<_, BTreeSet<T::CurrencyId>, ValueQuery>;
+    pub type RewardCurrencies<T: Config<I>, I: 'static = ()> =
+        StorageMap<_, Blake2_128Concat, T::PoolId, BTreeSet<T::CurrencyId>, ValueQuery>;
 
     #[pallet::pallet]
     #[pallet::without_storage_info]
@@ -215,14 +219,14 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
     // this because it's not clear whether the capacity migration
     // will run before or after the pallet hook and we need to make
     // sure these are included for any deposits / withdrawals
-    fn add_default_currencies() {
-        let reward_currencies = RewardCurrencies::<T, I>::get();
+    fn add_default_currencies(pool_id: &T::PoolId) {
+        let reward_currencies = RewardCurrencies::<T, I>::get(pool_id);
         if reward_currencies.contains(&T::GetNativeCurrencyId::get())
             && reward_currencies.contains(&T::GetWrappedCurrencyId::get())
         {
             return;
         }
-        RewardCurrencies::<T, I>::mutate(|reward_currencies| {
+        RewardCurrencies::<T, I>::mutate(pool_id, |reward_currencies| {
             reward_currencies.insert(T::GetNativeCurrencyId::get());
             reward_currencies.insert(T::GetWrappedCurrencyId::get());
         });
@@ -248,8 +252,8 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
         checked_add_mut!(Stake<T, I>, (pool_id, stake_id), &amount);
         checked_add_mut!(TotalStake<T, I>, pool_id, &amount);
 
-        Self::add_default_currencies();
-        for currency_id in RewardCurrencies::<T, I>::get() {
+        Self::add_default_currencies(pool_id);
+        for currency_id in RewardCurrencies::<T, I>::get(pool_id) {
             <RewardTally<T, I>>::mutate(currency_id, (pool_id, stake_id), |reward_tally| {
                 let reward_per_token = Self::reward_per_token(currency_id, pool_id);
                 let reward_per_token_mul_amount =
@@ -282,7 +286,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
         ensure!(!total_stake.is_zero(), Error::<T, I>::ZeroTotalStake);
 
         // track currency for future deposits / withdrawals
-        RewardCurrencies::<T, I>::mutate(|reward_currencies| {
+        RewardCurrencies::<T, I>::mutate(pool_id, |reward_currencies| {
             reward_currencies.insert(currency_id);
         });
 
@@ -328,8 +332,8 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
         checked_sub_mut!(Stake<T, I>, (pool_id, stake_id), &amount);
         checked_sub_mut!(TotalStake<T, I>, pool_id, &amount);
 
-        Self::add_default_currencies();
-        for currency_id in RewardCurrencies::<T, I>::get() {
+        Self::add_default_currencies(pool_id);
+        for currency_id in RewardCurrencies::<T, I>::get(pool_id) {
             <RewardTally<T, I>>::mutate(currency_id, (pool_id, stake_id), |reward_tally| {
                 let reward_per_token = Self::reward_per_token(currency_id, pool_id);
                 let reward_per_token_mul_amount =
