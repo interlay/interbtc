@@ -1,7 +1,12 @@
 use crate as reward;
 use crate::{Config, Error};
 use frame_support::{parameter_types, traits::Everything};
-pub use primitives::{CurrencyId, CurrencyId::Token, TokenSymbol::*, VaultCurrencyPair, VaultId};
+pub use primitives::{
+    CurrencyId,
+    CurrencyId::{ForeignAsset, Token},
+    TokenSymbol::*,
+    VaultCurrencyPair, VaultId,
+};
 use sp_arithmetic::FixedI128;
 use sp_core::H256;
 use sp_runtime::{
