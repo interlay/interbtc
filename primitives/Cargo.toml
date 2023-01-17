@@ -19,7 +19,7 @@ xcm = { git = "https://github.com/paritytech/polkadot", branch = "release-v0.9.3
 bitcoin = { path = "../crates/bitcoin", default-features = false }
 
 # Zenlink dependencies
-zenlink-protocol = { git = "https://github.com/interlay/Zenlink-DEX-Module", rev = "44b7d5e84276df0eaac70ee89279d2fa4422cf94", default-features = false }
+zenlink-protocol = { git = "https://github.com/interlay/Zenlink-DEX-Module", rev = "8d120c4a41e977892b8e4e6067c7832973048341", default-features = false }
 
 [features]
 default = ["std"]
