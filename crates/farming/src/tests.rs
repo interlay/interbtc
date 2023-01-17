@@ -184,6 +184,13 @@ fn should_deposit_and_withdraw_stake() {
         // mint and deposit stake
         mint_and_deposit(account_id, pool_tokens);
 
+        // can't withdraw more stake than reserved
+        let withdraw_amount = pool_tokens * 2;
+        assert_err!(
+            Farming::withdraw(RuntimeOrigin::signed(account_id), POOL_CURRENCY_ID, withdraw_amount),
+            TestError::InsufficientStake
+        );
+
         // only withdraw half of deposit
         let withdraw_amount = pool_tokens / 2;
         assert_ok!(Farming::withdraw(

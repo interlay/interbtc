@@ -152,6 +152,7 @@ pub mod pallet {
     #[pallet::error]
     pub enum Error<T> {
         ScheduleNotFound,
+        InsufficientStake,
     }
 
     #[pallet::hooks]
@@ -314,7 +315,8 @@ pub mod pallet {
             let who = ensure_signed(origin)?;
 
             // unreserve lp tokens to allow spending
-            T::MultiCurrency::unreserve(pool_currency_id.clone(), &who, amount);
+            let remaining = T::MultiCurrency::unreserve(pool_currency_id.clone(), &who, amount);
+            ensure!(remaining.is_zero(), Error::<T>::InsufficientStake);
 
             // withdraw lp tokens from stake
             T::RewardPools::withdraw_stake(&pool_currency_id, &who, amount)
