@@ -1,12 +1,13 @@
 # Audit Reports
 
-The Interlay code bases has been audited multiple times by different auditor, listed beliw. 
-We continue to work with leading security companies and research groups to ensure the protocols & implementations adhere to the highest security standards. 
+The Interlay code bases has been audited multiple times by different auditor, listed below. 
+We continue to work with leading security companies and research groups to ensure the protocols and implementations adhere to the highest security standards. 
 
 ## Code & Protocol Audits
 
 ### Quarkslab
 
+- [September 2022: Audit of the vault client](https://github.com/interlay/interbtc/blob/master/docs/audits/2022-q4-quarkslab/22-09-1042-REP-2.pdf). Scope: [Vault client](https://github.com/interlay/interbtc-clients).
 - [April 2022: Audit of pallets and configuration](https://github.com/interlay/interbtc/blob/master/docs/audits/2022-q1-quarkslab/22-03-942-REP_v1-1.pdf). Scope: Vault functionality, governance related code (escrow, democracy, annuity, supply), high-level review of used ORM and Substrate libraries.
 
 ### SR Labs
