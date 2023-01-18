@@ -147,3 +147,30 @@ fn should_distribute_with_many_rewards() {
         assert_ok!(Reward::withdraw_reward(&(), &BOB, Token(IBTC)), bob_reward);
     })
 }
+
+macro_rules! assert_approx_eq {
+    ($left:expr, $right:expr, $delta:expr) => {
+        assert!(if $left > $right { $left - $right } else { $right - $left } <= $delta)
+    };
+}
+
+#[test]
+fn should_distribute_with_different_rewards() {
+    run_test(|| {
+        assert_ok!(Reward::deposit_stake(&(), &ALICE, fixed!(100)));
+        assert_ok!(Reward::distribute_reward(&(), Token(IBTC), fixed!(1000)));
+        assert_ok!(Reward::deposit_stake(&(), &ALICE, fixed!(100)));
+        assert_ok!(Reward::distribute_reward(&(), Token(INTR), fixed!(1000)));
+        assert_ok!(Reward::deposit_stake(&(), &ALICE, fixed!(100)));
+        assert_ok!(Reward::distribute_reward(&(), Token(DOT), fixed!(1000)));
+        assert_ok!(Reward::deposit_stake(&(), &ALICE, fixed!(100)));
+        assert_ok!(Reward::distribute_reward(&(), ForeignAsset(0), fixed!(1000)));
+
+        assert_ok!(Reward::withdraw_stake(&(), &ALICE, fixed!(300)));
+
+        assert_approx_eq!(Reward::compute_reward(&(), &ALICE, Token(IBTC)).unwrap(), 1000, 1);
+        assert_approx_eq!(Reward::compute_reward(&(), &ALICE, Token(INTR)).unwrap(), 1000, 1);
+        assert_approx_eq!(Reward::compute_reward(&(), &ALICE, Token(DOT)).unwrap(), 1000, 1);
+        assert_approx_eq!(Reward::compute_reward(&(), &ALICE, ForeignAsset(0)).unwrap(), 1000, 1);
+    })
+}
