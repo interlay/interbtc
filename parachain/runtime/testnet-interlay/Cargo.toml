@@ -309,6 +309,7 @@ try-runtime = [
   "fee/try-runtime",
   "nomination/try-runtime",
   "clients-info/try-runtime",
+  "tx-pause/try-runtime",
   "loans/try-runtime",
   "democracy/try-runtime",
   "pallet-collective/try-runtime",

@@ -30,7 +30,7 @@ benchmarks! {
         // let call = Call::<T>::pause { full_name: full_name.clone() };
         // let call = Call::<T>::pause { pallet_name: pallet_name.clone(), maybe_call_name: maybe_call_name.clone() };
 
-    }: _<T::Origin>(origin, full_name.clone())
+    }: _<T::RuntimeOrigin>(origin, full_name.clone())
     verify {
         assert!(TxPause::<T>::paused_calls(full_name.clone()).is_some())
     }
@@ -47,7 +47,7 @@ benchmarks! {
         let unpause_origin = T::UnpauseOrigin::successful_origin();
         // let call = Call::<T>::unpause { pallet_name: pallet_name.clone(), maybe_call_name: maybe_call_name.clone() };
 
-        }: _<T::Origin>(unpause_origin, full_name.clone())
+        }: _<T::RuntimeOrigin>(unpause_origin, full_name.clone())
     verify {
         assert!(TxPause::<T>::paused_calls(full_name.clone()).is_none())
 
