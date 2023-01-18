@@ -3811,6 +3811,7 @@ dependencies = [
  "sp-runtime",
  "sp-session",
  "sp-std",
+ "sp-timestamp",
  "sp-transaction-pool",
  "sp-version",
  "staking",
@@ -5094,6 +5095,7 @@ dependencies = [
  "sp-runtime",
  "sp-std",
  "traits",
+ "visibility",
 ]
 
 [[package]]

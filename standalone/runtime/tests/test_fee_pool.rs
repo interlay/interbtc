@@ -1,11 +1,17 @@
 mod mock;
 use currency::Amount;
-use interbtc_runtime_standalone::UnsignedFixedPoint;
+use frame_support::storage::migration::put_storage_value;
+use interbtc_runtime_standalone::{Timestamp, UnsignedFixedPoint};
 use mock::{
-    assert_eq, loans_testing_utils::mint_lend_tokens, nomination_testing_utils::*,
-    reward_testing_utils::IdealRewardPool, *,
+    assert_eq,
+    loans_testing_utils::{deposit_and_borrow, mint_lend_tokens},
+    nomination_testing_utils::*,
+    reward_testing_utils::IdealRewardPool,
+    *,
 };
 use rand::Rng;
+use sp_consensus_aura::{Slot, SlotDuration};
+use sp_timestamp::Timestamp as SlotTimestamp;
 use std::collections::BTreeMap;
 use traits::LoansApi;
 use vault_registry::DefaultVaultId;
@@ -650,4 +656,44 @@ fn do_random_nomination_sequence() {
             }
         }
     })
+}
+
+#[test]
+fn accrued_lend_token_interest_increases_reward_share() {
+    ExtBuilder::build().execute_with(|| {
+        SecurityPallet::set_active_block_number(1);
+        // The timestamp has to be non-zero for interest to start accruing
+        Timestamp::set_timestamp(1_000);
+        for currency_id in iter_collateral_currencies().filter(|c| !c.is_lend_token()) {
+            assert_ok!(OraclePallet::_set_exchange_rate(
+                currency_id,
+                FixedU128::from_float(DEFAULT_EXCHANGE_RATE)
+            ));
+        }
+        activate_lending_and_mint(Token(DOT), LendToken(1));
+        let vault_id = PrimitiveVaultId::new(account_of(VAULT), LendToken(1), Token(IBTC));
+        CoreVaultData::force_to(&vault_id, default_vault_state(&vault_id));
+
+        // Borrow some lend_tokens so interest starts accruing in the market
+        let initial_lend_token_stake: u128 = CapacityRewardsPallet::get_stake(&(), &vault_id.collateral_currency()).unwrap();
+        let amount_to_borrow = Amount::<Runtime>::new(1_000_000_000_000_000, Token(DOT));
+        deposit_and_borrow(account_of(USER), amount_to_borrow);
+
+        // A timestamp needs to be set to a future time, when a meaningful amount of interest has accrued.
+        // The set timestamp has to be within the bounds of the current Aura slot, so set the slot to a high
+        // value first, by overwriting storage.
+        let slot_duration = SlotDuration::from_millis(AuraPallet::slot_duration());
+        let slot_to_set = Slot::from_timestamp(SlotTimestamp::try_from(1000000000000000).unwrap(), slot_duration);
+        put_storage_value(b"Aura", b"CurrentSlot", &[], slot_to_set);
+        Timestamp::set_timestamp(*slot_to_set * AuraPallet::slot_duration());
+
+        // Manually trigger interest accrual
+        assert_ok!(LoansPallet::accrue_interest(Token(DOT),));
+        let final_lend_token_stake: u128 = CapacityRewardsPallet::get_stake(&(), &vault_id.collateral_currency()).unwrap();
+
+        assert!(
+            final_lend_token_stake.gt(&initial_lend_token_stake),
+            "Expected stake of lend_tokens to increase in the Capacity model pool, because their value increased due to accrued interest."
+        );
+    });
 }
