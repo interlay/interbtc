@@ -223,19 +223,6 @@ benchmarks! {
         }.into());
     }
 
-    withdraw_missing_reward {
-        let caller: T::AccountId = whitelisted_caller();
-        transfer_initial_balance::<T>(caller.clone());
-        assert_ok!(Loans::<T>::add_reward(SystemOrigin::Signed(caller.clone()).into(), 1_000_000_000_000_u128));
-        let receiver = T::Lookup::unlookup(caller.clone());
-    }: _(SystemOrigin::Root, receiver, 500_000_000_000_u128)
-    verify {
-        assert_last_event::<T>(Event::<T>::RewardWithdrawn {
-            receiver: caller,
-            amount: 500_000_000_000_u128
-        }.into());
-    }
-
     update_market_reward_speed {
         assert_ok!(Loans::<T>::add_market(SystemOrigin::Root.into(), KBTC, pending_market_mock::<T>(LEND_KBTC)));
         assert_ok!(Loans::<T>::activate_market(SystemOrigin::Root.into(), KBTC));
