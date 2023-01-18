@@ -1,5 +1,6 @@
 use currency::Amount;
 use loans::JumpModel;
+use traits::LoansApi;
 
 use crate::*;
 
@@ -36,7 +37,8 @@ pub fn activate_market(underlying_id: CurrencyId, lend_token_id: CurrencyId) {
     .dispatch(root()));
 }
 
-pub fn mint_lend_tokens(account_id: AccountId, underlying_id: CurrencyId) {
+pub fn mint_lend_tokens(account_id: AccountId, lend_token_id: CurrencyId) {
+    let underlying_id = LoansPallet::underlying_id(lend_token_id).unwrap();
     let balance_to_mint = FUND_LIMIT_CEILING;
     let amount: Amount<Runtime> = Amount::new(balance_to_mint, underlying_id);
     assert_ok!(amount.mint_to(&account_id));
@@ -48,9 +50,28 @@ pub fn mint_lend_tokens(account_id: AccountId, underlying_id: CurrencyId) {
     .dispatch(origin_of(account_id)));
 }
 
+/// Deposits and borrows the same currency, for the sake of having accruing interest in the market
+pub fn deposit_and_borrow(account_id: AccountId, amount: Amount<Runtime>) {
+    assert_ok!(amount.mint_to(&account_id));
+    assert_ok!(RuntimeCall::Loans(LoansCall::mint {
+        asset_id: amount.currency(),
+        mint_amount: amount.amount()
+    })
+    .dispatch(origin_of(account_id.clone())));
+    assert_ok!(RuntimeCall::Loans(LoansCall::deposit_all_collateral {
+        asset_id: amount.currency()
+    })
+    .dispatch(origin_of(account_id.clone())));
+    assert_ok!(RuntimeCall::Loans(LoansCall::borrow {
+        asset_id: amount.currency(),
+        borrow_amount: amount.amount() / 2,
+    })
+    .dispatch(origin_of(account_id.clone())));
+}
+
 pub fn activate_lending_and_mint(underlying_id: CurrencyId, lend_token_id: CurrencyId) {
     activate_market(underlying_id, lend_token_id);
     for account in iter_endowed_with_lend_token() {
-        mint_lend_tokens(account, underlying_id);
+        mint_lend_tokens(account, lend_token_id);
     }
 }

@@ -191,6 +191,8 @@ pub type LoansCall = loans::Call<Runtime>;
 pub type LoansError = loans::Error<Runtime>;
 pub type LoansPallet = loans::Pallet<Runtime>;
 
+pub type AuraPallet = pallet_aura::Pallet<Runtime>;
+
 pub const DEFAULT_COLLATERAL_CURRENCY: <Runtime as orml_tokens::Config>::CurrencyId = Token(DOT);
 pub const DEFAULT_WRAPPED_CURRENCY: <Runtime as orml_tokens::Config>::CurrencyId = Token(IBTC);
 pub const DEFAULT_NATIVE_CURRENCY: <Runtime as orml_tokens::Config>::CurrencyId = Token(INTR);

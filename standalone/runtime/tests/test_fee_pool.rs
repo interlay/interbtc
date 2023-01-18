@@ -1,9 +1,19 @@
 mod mock;
 use currency::Amount;
-use interbtc_runtime_standalone::UnsignedFixedPoint;
-use mock::{assert_eq, nomination_testing_utils::*, reward_testing_utils::IdealRewardPool, *};
+use frame_support::storage::migration::put_storage_value;
+use interbtc_runtime_standalone::{Timestamp, UnsignedFixedPoint};
+use mock::{
+    assert_eq,
+    loans_testing_utils::{deposit_and_borrow, mint_lend_tokens},
+    nomination_testing_utils::*,
+    reward_testing_utils::IdealRewardPool,
+    *,
+};
 use rand::Rng;
+use sp_consensus_aura::{Slot, SlotDuration};
+use sp_timestamp::Timestamp as SlotTimestamp;
 use std::collections::BTreeMap;
+use traits::LoansApi;
 use vault_registry::DefaultVaultId;
 
 const VAULT_2: [u8; 32] = DAVE;
@@ -41,7 +51,7 @@ fn test_with<R>(execute: impl Fn(VaultId) -> R) {
     let test_with = |currency_id, wrapped_id| {
         ExtBuilder::build().execute_with(|| {
             SecurityPallet::set_active_block_number(1);
-            for currency_id in iter_collateral_currencies() {
+            for currency_id in iter_collateral_currencies().filter(|c| !c.is_lend_token()) {
                 assert_ok!(OraclePallet::_set_exchange_rate(
                     currency_id,
                     FixedU128::from_float(DEFAULT_EXCHANGE_RATE)
@@ -69,6 +79,7 @@ fn test_with<R>(execute: impl Fn(VaultId) -> R) {
     test_with(Token(KSM), Token(IBTC));
     test_with(Token(DOT), Token(IBTC));
     test_with(ForeignAsset(1), Token(IBTC));
+    test_with(LendToken(1), Token(IBTC));
 }
 
 fn distribute_rewards(amount: Amount<Runtime>) {
@@ -414,13 +425,19 @@ fn do_random_nomination_sequence() {
         let nominators: Vec<_> = (100..107).map(|id| account_of([id; 32])).collect();
         for nominator in nominators.iter() {
             for currency_id in [vault_id.collateral_currency(), token1, token2] {
-                assert_ok!(RuntimeCall::Tokens(TokensCall::set_balance {
-                    who: nominator.clone(),
-                    currency_id,
-                    new_free: max_collateral,
-                    new_reserved: 0,
-                })
-                .dispatch(root()));
+                if currency_id.is_lend_token() {
+                    // Hardcoding the lend_token balance would break the internal exchange rate calculation
+                    // in the Loans pallet, which is using the total amount of issued lend_tokens
+                    mint_lend_tokens(nominator.clone(), currency_id);
+                } else {
+                    assert_ok!(RuntimeCall::Tokens(TokensCall::set_balance {
+                        who: nominator.clone(),
+                        currency_id,
+                        new_free: max_collateral,
+                        new_reserved: 0,
+                    })
+                    .dispatch(root()));
+                }
             }
         }
 
@@ -464,8 +481,16 @@ fn do_random_nomination_sequence() {
             let threshold = VaultRegistryPallet::get_vault_secure_threshold(&vault_id).unwrap();
             reference_pool.set_secure_threshold(&vault_id, threshold);
 
-            OraclePallet::_set_exchange_rate(vault_id.collateral_currency(), FixedU128::one()).unwrap();
-            reference_pool.set_exchange_rate(vault_id.collateral_currency(), FixedU128::one());
+            if vault_id.collateral_currency().is_lend_token() {
+                let underlying_id = LoansPallet::underlying_id(vault_id.collateral_currency()).unwrap();
+                let lend_token_rate = FixedU128::one().mul(LoansPallet::exchange_rate(underlying_id));
+                OraclePallet::_set_exchange_rate(underlying_id, FixedU128::one()).unwrap();
+                reference_pool.set_exchange_rate(vault_id.collateral_currency(), lend_token_rate);
+                reference_pool.set_exchange_rate(underlying_id, FixedU128::one());
+            } else {
+                OraclePallet::_set_exchange_rate(vault_id.collateral_currency(), FixedU128::one()).unwrap();
+                reference_pool.set_exchange_rate(vault_id.collateral_currency(), FixedU128::one());
+            }
         }
 
         let mut actual_rewards = BTreeMap::new();
@@ -571,8 +596,22 @@ fn do_random_nomination_sequence() {
                     let vault_id = vaults[rng.gen_range(0..vaults.len())].clone();
                     let currency_id = vault_id.collateral_currency();
                     let exchange_rate = FixedU128::from_float(rng.gen_range(0.5..5.0));
-                    OraclePallet::_set_exchange_rate(currency_id, exchange_rate.clone()).unwrap();
-                    reference_pool.set_exchange_rate(currency_id, exchange_rate.clone());
+                    if currency_id.is_lend_token() {
+                        let underlying_id = LoansPallet::underlying_id(vault_id.collateral_currency()).unwrap();
+                        let lend_token_rate = exchange_rate.mul(LoansPallet::exchange_rate(underlying_id));
+                        // Only need to set the exchange rate of the underlying currency in the oracle pallet
+                        OraclePallet::_set_exchange_rate(underlying_id, exchange_rate.clone()).unwrap();
+                        // The reference pool must store both exchange rates explicitly
+                        reference_pool.set_exchange_rate(currency_id, lend_token_rate);
+                        reference_pool.set_exchange_rate(underlying_id, exchange_rate.clone());
+                    } else {
+                        OraclePallet::_set_exchange_rate(currency_id, exchange_rate.clone()).unwrap();
+                        reference_pool.set_exchange_rate(currency_id, exchange_rate.clone());
+                        if let Ok(lend_token_id) = LoansPallet::lend_token_id(currency_id.clone()) {
+                            let lend_token_rate = exchange_rate.div(LoansPallet::exchange_rate(currency_id.clone()));
+                            reference_pool.set_exchange_rate(lend_token_id, lend_token_rate);
+                        }
+                    }
                 }
                 Action::DistributeRewards => {
                     let amount = rng.gen_range(0..10_000_000_000);
@@ -617,4 +656,44 @@ fn do_random_nomination_sequence() {
             }
         }
     })
+}
+
+#[test]
+fn accrued_lend_token_interest_increases_reward_share() {
+    ExtBuilder::build().execute_with(|| {
+        SecurityPallet::set_active_block_number(1);
+        // The timestamp has to be non-zero for interest to start accruing
+        Timestamp::set_timestamp(1_000);
+        for currency_id in iter_collateral_currencies().filter(|c| !c.is_lend_token()) {
+            assert_ok!(OraclePallet::_set_exchange_rate(
+                currency_id,
+                FixedU128::from_float(DEFAULT_EXCHANGE_RATE)
+            ));
+        }
+        activate_lending_and_mint(Token(DOT), LendToken(1));
+        let vault_id = PrimitiveVaultId::new(account_of(VAULT), LendToken(1), Token(IBTC));
+        CoreVaultData::force_to(&vault_id, default_vault_state(&vault_id));
+
+        // Borrow some lend_tokens so interest starts accruing in the market
+        let initial_lend_token_stake: u128 = CapacityRewardsPallet::get_stake(&(), &vault_id.collateral_currency()).unwrap();
+        let amount_to_borrow = Amount::<Runtime>::new(1_000_000_000_000_000, Token(DOT));
+        deposit_and_borrow(account_of(USER), amount_to_borrow);
+
+        // A timestamp needs to be set to a future time, when a meaningful amount of interest has accrued.
+        // The set timestamp has to be within the bounds of the current Aura slot, so set the slot to a high
+        // value first, by overwriting storage.
+        let slot_duration = SlotDuration::from_millis(AuraPallet::slot_duration());
+        let slot_to_set = Slot::from_timestamp(SlotTimestamp::try_from(1000000000000000).unwrap(), slot_duration);
+        put_storage_value(b"Aura", b"CurrentSlot", &[], slot_to_set);
+        Timestamp::set_timestamp(*slot_to_set * AuraPallet::slot_duration());
+
+        // Manually trigger interest accrual
+        assert_ok!(LoansPallet::accrue_interest(Token(DOT),));
+        let final_lend_token_stake: u128 = CapacityRewardsPallet::get_stake(&(), &vault_id.collateral_currency()).unwrap();
+
+        assert!(
+            final_lend_token_stake.gt(&initial_lend_token_stake),
+            "Expected stake of lend_tokens to increase in the Capacity model pool, because their value increased due to accrued interest."
+        );
+    });
 }

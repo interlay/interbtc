@@ -26,6 +26,7 @@ sp-block-builder = { git = "https://github.com/paritytech/substrate", branch = "
 sp-transaction-pool = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.31", default-features = false }
 sp-inherents = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.31", default-features = false }
 sp-arithmetic = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.31", default-features = false }
+sp-timestamp = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.31", default-features = false }
 
 frame-support = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.31", default-features = false }
 frame-executive = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.31", default-features = false }
@@ -206,6 +207,7 @@ std = [
   "currency/testing-utils",
   "fee/integration-tests",
   "staking/integration-tests",
+  "loans/integration-tests",
 ]
 runtime-benchmarks = [
   "hex-literal",
