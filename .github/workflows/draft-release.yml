@@ -21,7 +21,7 @@ jobs:
         uses: chevdor/srtool-actions@v0.6.0
         with:
           image: docker.io/interlayhq/srtool
-          tag: nightly-2022-06-20
+          tag: nightly-2022-12-15
           package: ${{ matrix.runtime }}-runtime-parachain
           runtime_dir: ./parachain/runtime/${{ matrix.runtime }}
           chain: ${{ matrix.runtime }}
