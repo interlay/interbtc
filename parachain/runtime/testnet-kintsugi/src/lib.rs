@@ -171,9 +171,7 @@ impl Contains<RuntimeCall> for BaseCallFilter {
         if matches!(
             call,
             RuntimeCall::System(_)
-                | RuntimeCall::Authorship(_)
                 | RuntimeCall::Timestamp(_)
-                | RuntimeCall::ParachainSystem(_)
                 | RuntimeCall::Sudo(_)
                 | RuntimeCall::Democracy(_)
                 | RuntimeCall::Escrow(_)
@@ -190,7 +188,8 @@ impl Contains<RuntimeCall> for BaseCallFilter {
             // governance bypasses this call filter).
             false
         } else {
-            true
+            // normal operation: allow all calls that are not explicitly paused
+            TxPause::contains(call)
         }
     }
 }
@@ -1136,6 +1135,22 @@ impl clients_info::Config for Runtime {
     type WeightInfo = ();
 }
 
+parameter_types! {
+    pub const MaxNameLen: u32 = 128;
+    pub const PauseTooLongNames: bool = false;
+}
+
+impl tx_pause::Config for Runtime {
+    type RuntimeEvent = RuntimeEvent;
+    type RuntimeCall = RuntimeCall;
+    type PauseOrigin = EnsureRoot<AccountId>;
+    type UnpauseOrigin = EnsureRoot<AccountId>;
+    type WhitelistCallNames = Nothing;
+    type MaxNameLen = MaxNameLen;
+    type PauseTooLongNames = PauseTooLongNames;
+    type WeightInfo = ();
+}
+
 impl loans::Config for Runtime {
     type RuntimeEvent = RuntimeEvent;
     type PalletId = LoansPalletId;
@@ -1165,6 +1180,7 @@ construct_runtime! {
         Identity: pallet_identity::{Pallet, Call, Storage, Event<T>} = 7,
         Proxy: pallet_proxy::{Pallet, Call, Storage, Event<T>} = 8,
         Sudo: pallet_sudo::{Pallet, Call, Storage, Config<T>, Event<T>} = 9,
+        TxPause: tx_pause::{Pallet, Call, Storage, Event<T>} = 10,
 
         // # Tokens & Balances
         Currency: currency::{Pallet} = 20,

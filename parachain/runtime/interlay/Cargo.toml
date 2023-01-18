@@ -97,6 +97,7 @@ supply = { path = "../../../crates/supply", default-features = false }
 collator-selection = { path = "../../../crates/collator-selection", default-features = false }
 clients-info = { path = "../../../crates/clients-info", default-features = false }
 traits = { path = "../../../crates/traits", default-features = false }
+tx-pause = { path = "../../../crates/tx-pause", default-features = false }
 
 primitives = { package = "interbtc-primitives", path = "../../../primitives", default-features = false }
 
@@ -213,6 +214,7 @@ std = [
   "collator-selection/std",
   "clients-info/std",
   "traits/std",
+  "tx-pause/std",
 
   "primitives/std",
 
@@ -256,6 +258,7 @@ runtime-benchmarks = [
   "redeem/runtime-benchmarks",
   "replace/runtime-benchmarks",
   "vault-registry/runtime-benchmarks",
+  "tx-pause/runtime-benchmarks",
 ]
 disable-runtime-api = []
 try-runtime = [
