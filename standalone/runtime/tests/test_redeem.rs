@@ -72,74 +72,13 @@ mod spec_based_tests {
     use primitives::VaultCurrencyPair;
 
     use super::{assert_eq, *};
-    #[test]
-    fn integration_test_redeem_with_parachain_shutdown_status_fails() {
-        // PRECONDITION: The BTC Parachain status in the Security component
-        test_with(|vault_id| {
-            SecurityPallet::set_status(StatusCode::Shutdown);
-            assert_noop!(
-                RuntimeCall::Redeem(RedeemCall::request_redeem {
-                    amount_wrapped: 1500,
-                    btc_address: BtcAddress::random(),
-                    vault_id: vault_id.clone(),
-                })
-                .dispatch(origin_of(account_of(ALICE))),
-                SystemError::CallFiltered,
-            );
-
-            assert_noop!(
-                RuntimeCall::Redeem(RedeemCall::execute_redeem {
-                    redeem_id: Default::default(),
-                    merkle_proof: Default::default(),
-                    raw_tx: Default::default()
-                })
-                .dispatch(origin_of(account_of(ALICE))),
-                SystemError::CallFiltered,
-            );
-
-            assert_noop!(
-                RuntimeCall::Redeem(RedeemCall::cancel_redeem {
-                    redeem_id: Default::default(),
-                    reimburse: false
-                })
-                .dispatch(origin_of(account_of(ALICE))),
-                SystemError::CallFiltered,
-            );
-            assert_noop!(
-                RuntimeCall::Redeem(RedeemCall::cancel_redeem {
-                    redeem_id: Default::default(),
-                    reimburse: true
-                })
-                .dispatch(origin_of(account_of(ALICE))),
-                SystemError::CallFiltered,
-            );
-
-            assert_noop!(
-                RuntimeCall::Redeem(RedeemCall::liquidation_redeem {
-                    currencies: vault_id.currencies.clone(),
-                    amount_wrapped: 1000
-                })
-                .dispatch(origin_of(account_of(ALICE))),
-                SystemError::CallFiltered,
-            );
-
-            assert_noop!(
-                RuntimeCall::Redeem(RedeemCall::mint_tokens_for_reimbursed_redeem {
-                    currency_pair: vault_id.currencies.clone(),
-                    redeem_id: Default::default()
-                })
-                .dispatch(origin_of(account_of(ALICE))),
-                SystemError::CallFiltered,
-            );
-        });
-    }
 
     #[test]
     fn integration_test_redeem_with_parachain_error_status_fails() {
         // PRECONDITION: The BTC Parachain status in the Security component
         test_with(|vault_id| {
             // `liquidation_redeem` and `execute_redeem` are not tested here
-            // because they only require the parachain status not to be `Shutdown`
+            // because they are allowed even in error
             SecurityPallet::set_status(StatusCode::Error);
 
             assert_noop!(
@@ -1219,40 +1158,6 @@ mod spec_based_tests {
             });
         }
     }
-}
-
-#[test]
-fn integration_test_redeem_parachain_status_shutdown_fails() {
-    test_with(|vault_id| {
-        SecurityPallet::set_status(StatusCode::Shutdown);
-
-        assert_noop!(
-            RuntimeCall::Issue(IssueCall::request_issue {
-                amount: 0,
-                vault_id: vault_id.clone(),
-            })
-            .dispatch(origin_of(account_of(ALICE))),
-            SystemError::CallFiltered,
-        );
-
-        assert_noop!(
-            RuntimeCall::Issue(IssueCall::cancel_issue {
-                issue_id: H256([0; 32]),
-            })
-            .dispatch(origin_of(account_of(ALICE))),
-            SystemError::CallFiltered,
-        );
-
-        assert_noop!(
-            RuntimeCall::Issue(IssueCall::execute_issue {
-                issue_id: H256([0; 32]),
-                merkle_proof: vec![0u8; 32],
-                raw_tx: vec![0u8; 32]
-            })
-            .dispatch(origin_of(account_of(ALICE))),
-            SystemError::CallFiltered,
-        );
-    });
 }
 
 mod execute_redeem_payment_limits {

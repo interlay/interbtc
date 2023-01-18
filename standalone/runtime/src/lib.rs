@@ -183,9 +183,6 @@ impl Contains<RuntimeCall> for BaseCallFilter {
         ) {
             // always allow core calls
             true
-        } else if security::Pallet::<Runtime>::is_parachain_shutdown() {
-            // disallow all non-core calls if shutdown
-            false
         } else {
             // normal operation: allow all calls that are not explicitly paused
             TxPause::contains(call)

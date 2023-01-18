@@ -176,9 +176,6 @@ impl Contains<RuntimeCall> for BaseCallFilter {
         ) {
             // always allow core calls
             true
-        } else if security::Pallet::<Runtime>::is_parachain_shutdown() {
-            // in shutdown mode, all non-core calls are disallowed
-            false
         } else if let RuntimeCall::PolkadotXcm(_) = call {
             // For security reasons, disallow usage of the xcm package by users. Sudo and
             // governance are still able to call these (sudo is explicitly white-listed, while

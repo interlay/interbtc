@@ -310,27 +310,7 @@ mod accept_replace_tests {
 }
 
 mod request_replace_tests {
-    use primitives::VaultCurrencyPair;
-
     use super::{assert_eq, *};
-    #[test]
-    fn integration_test_replace_should_fail_if_not_running() {
-        test_without_initialization(|_currency_id| {
-            SecurityPallet::set_status(StatusCode::Shutdown);
-
-            assert_noop!(
-                RuntimeCall::Replace(ReplaceCall::request_replace {
-                    currency_pair: VaultCurrencyPair {
-                        collateral: Token(DOT),
-                        wrapped: Token(DOT),
-                    },
-                    amount: 0,
-                })
-                .dispatch(origin_of(account_of(OLD_VAULT))),
-                SystemError::CallFiltered,
-            );
-        });
-    }
 
     #[test]
     fn integration_test_replace_request_replace_at_capacity_succeeds() {
@@ -696,54 +676,6 @@ mod execute_replace_payment_limits {
             );
         });
     }
-}
-
-#[test]
-fn integration_test_replace_with_parachain_shutdown_fails() {
-    test_with(|old_vault_id, new_vault_id| {
-        SecurityPallet::set_status(StatusCode::Shutdown);
-
-        assert_noop!(
-            RuntimeCall::Replace(ReplaceCall::request_replace {
-                currency_pair: old_vault_id.currencies.clone(),
-                amount: old_vault_id.wrapped(0).amount(),
-            })
-            .dispatch(origin_of(old_vault_id.account_id.clone())),
-            SystemError::CallFiltered,
-        );
-        assert_noop!(
-            withdraw_replace(&old_vault_id, old_vault_id.wrapped(0)),
-            SystemError::CallFiltered
-        );
-        assert_noop!(
-            accept_replace(
-                &old_vault_id,
-                &new_vault_id,
-                old_vault_id.wrapped(0),
-                griefing(0),
-                Default::default()
-            ),
-            SystemError::CallFiltered
-        );
-
-        assert_noop!(
-            RuntimeCall::Replace(ReplaceCall::execute_replace {
-                replace_id: Default::default(),
-                merkle_proof: Default::default(),
-                raw_tx: Default::default()
-            })
-            .dispatch(origin_of(account_of(OLD_VAULT))),
-            SystemError::CallFiltered
-        );
-
-        assert_noop!(
-            RuntimeCall::Replace(ReplaceCall::cancel_replace {
-                replace_id: Default::default()
-            })
-            .dispatch(origin_of(account_of(OLD_VAULT))),
-            SystemError::CallFiltered
-        );
-    })
 }
 
 #[test]

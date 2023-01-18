@@ -54,7 +54,6 @@ pub fn local_config(id: ParaId) -> KintsugiTestnetChainSpec {
                 )],
                 id,
                 DEFAULT_BITCOIN_CONFIRMATIONS,
-                false,
             )
         },
         vec![],
@@ -108,7 +107,6 @@ pub fn development_config(id: ParaId) -> KintsugiTestnetChainSpec {
                 ],
                 id,
                 DEFAULT_BITCOIN_CONFIRMATIONS,
-                false,
             )
         },
         Vec::new(),
@@ -169,7 +167,6 @@ pub fn staging_testnet_config(id: ParaId) -> KintsugiTestnetChainSpec {
                 )],
                 id,
                 DEFAULT_BITCOIN_CONFIRMATIONS,
-                false,
             )
         },
         Vec::new(),
@@ -230,7 +227,6 @@ pub fn rococo_testnet_config(id: ParaId) -> KintsugiTestnetChainSpec {
                 )],
                 id,
                 DEFAULT_BITCOIN_CONFIRMATIONS,
-                false,
             )
         },
         Vec::new(),
@@ -295,7 +291,6 @@ pub fn westend_testnet_config(id: ParaId) -> KintsugiTestnetChainSpec {
                 )],
                 id,
                 DEFAULT_BITCOIN_CONFIRMATIONS,
-                false,
             )
         },
         Vec::new(),
@@ -317,7 +312,6 @@ fn testnet_genesis(
     authorized_oracles: Vec<(AccountId, Vec<u8>)>,
     id: ParaId,
     bitcoin_confirmations: u32,
-    start_shutdown: bool,
 ) -> testnet_kintsugi_runtime::GenesisConfig {
     testnet_kintsugi_runtime::GenesisConfig {
         system: testnet_kintsugi_runtime::SystemConfig {
@@ -350,11 +344,7 @@ fn testnet_genesis(
         aura: Default::default(),
         aura_ext: Default::default(),
         security: testnet_kintsugi_runtime::SecurityConfig {
-            initial_status: if start_shutdown {
-                testnet_kintsugi_runtime::StatusCode::Shutdown
-            } else {
-                testnet_kintsugi_runtime::StatusCode::Error
-            },
+            initial_status: testnet_kintsugi_runtime::StatusCode::Error,
         },
         sudo: testnet_kintsugi_runtime::SudoConfig {
             // Assign network admin rights.

@@ -10,8 +10,6 @@ pub enum StatusCode {
     Running = 0,
     /// An error has occurred. See Errors for more details.
     Error = 1,
-    /// BTC Parachain operation has been fully suspended.
-    Shutdown = 2,
 }
 
 impl Default for StatusCode {

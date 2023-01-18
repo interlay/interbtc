@@ -160,7 +160,7 @@ fn kintsugi_mainnet_genesis(
         aura: Default::default(),
         aura_ext: Default::default(),
         security: kintsugi_runtime::SecurityConfig {
-            initial_status: kintsugi_runtime::StatusCode::Shutdown,
+            initial_status: kintsugi_runtime::StatusCode::Error,
         },
         asset_registry: Default::default(),
         tokens: Default::default(),

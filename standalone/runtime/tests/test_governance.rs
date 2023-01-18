@@ -172,69 +172,6 @@ fn launch_and_execute_referendum() {
     SchedulerPallet::on_initialize(act_height);
 }
 
-#[test]
-fn can_recover_from_shutdown_using_governance() {
-    test_with(|| {
-        // use sudo to set parachain status
-        assert_ok!(RuntimeCall::Sudo(SudoCall::sudo {
-            call: Box::new(RuntimeCall::Security(SecurityCall::set_parachain_status {
-                status_code: StatusCode::Shutdown,
-            })),
-        })
-        .dispatch(origin_of(account_of(ALICE))));
-        assert!(SecurityPallet::is_parachain_shutdown());
-
-        create_proposal(
-            RuntimeCall::Security(SecurityCall::set_parachain_status {
-                status_code: StatusCode::Running,
-            })
-            .encode(),
-        );
-        launch_and_execute_referendum();
-        assert!(!SecurityPallet::is_parachain_shutdown());
-    })
-}
-
-#[test]
-fn can_recover_from_shutdown_using_root() {
-    test_with(|| {
-        // use sudo to set parachain status
-        assert_ok!(RuntimeCall::Sudo(SudoCall::sudo {
-            call: Box::new(RuntimeCall::Security(SecurityCall::set_parachain_status {
-                status_code: StatusCode::Shutdown,
-            })),
-        })
-        .dispatch(origin_of(account_of(ALICE))));
-
-        // verify we cant execute normal calls
-        assert_noop!(
-            RuntimeCall::Tokens(TokensCall::transfer {
-                dest: account_of(ALICE),
-                currency_id: DEFAULT_NATIVE_CURRENCY,
-                amount: 123,
-            })
-            .dispatch(origin_of(account_of(ALICE))),
-            SystemError::CallFiltered
-        );
-
-        // use sudo to set parachain status back to running
-        assert_ok!(RuntimeCall::Sudo(SudoCall::sudo {
-            call: Box::new(RuntimeCall::Security(SecurityCall::set_parachain_status {
-                status_code: StatusCode::Running,
-            }))
-        })
-        .dispatch(origin_of(account_of(ALICE))));
-
-        // verify that we can execute normal calls again
-        assert_ok!(RuntimeCall::Tokens(TokensCall::transfer {
-            dest: account_of(ALICE),
-            currency_id: DEFAULT_NATIVE_CURRENCY,
-            amount: 123,
-        })
-        .dispatch(origin_of(account_of(ALICE))));
-    });
-}
-
 fn full_name(pallet_name_bytes: &[u8], maybe_call_name_bytes: Option<&[u8]>) -> FullNameOf<Runtime> {
     match maybe_call_name_bytes {
         Some(call_name_bytes) => <FullNameOf<Runtime>>::from((
@@ -998,7 +935,7 @@ fn test_sudo_is_disabled_if_key_is_none() {
         // first a sanity check: sudo works if key is set
         assert_ok!(RuntimeCall::Sudo(SudoCall::sudo {
             call: Box::new(RuntimeCall::Security(SecurityCall::set_parachain_status {
-                status_code: StatusCode::Shutdown,
+                status_code: StatusCode::Error,
             })),
         })
         .dispatch(origin_of(account_of(ALICE))),);
@@ -1012,7 +949,7 @@ fn test_sudo_is_disabled_if_key_is_none() {
         assert_noop!(
             RuntimeCall::Sudo(SudoCall::sudo {
                 call: Box::new(RuntimeCall::Security(SecurityCall::set_parachain_status {
-                    status_code: StatusCode::Shutdown,
+                    status_code: StatusCode::Error,
                 })),
             })
             .dispatch(origin_of(account_of(ALICE))),
