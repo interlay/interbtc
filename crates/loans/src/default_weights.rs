@@ -40,7 +40,6 @@ pub trait WeightInfo {
 	fn update_market() -> Weight;
 	fn force_update_market() -> Weight;
 	fn add_reward() -> Weight;
-	fn withdraw_missing_reward() -> Weight;
 	fn update_market_reward_speed() -> Weight;
 	fn claim_reward() -> Weight;
 	fn claim_reward_for_market() -> Weight;
@@ -102,13 +101,6 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		Weight::from_ref_time(93_667_000 as u64)
 			.saturating_add(T::DbWeight::get().reads(3 as u64))
 			.saturating_add(T::DbWeight::get().writes(3 as u64))
-	}
-	// Storage: Tokens Accounts (r:2 w:2)
-	// Storage: System Account (r:1 w:0)
-	fn withdraw_missing_reward() -> Weight {
-		Weight::from_ref_time(76_333_000 as u64)
-			.saturating_add(T::DbWeight::get().reads(3 as u64))
-			.saturating_add(T::DbWeight::get().writes(2 as u64))
 	}
 	// Storage: Loans Markets (r:2 w:0)
 	// Storage: Loans RewardSupplySpeed (r:1 w:1)
@@ -381,13 +373,6 @@ impl WeightInfo for () {
 		Weight::from_ref_time(93_667_000 as u64)
 			.saturating_add(RocksDbWeight::get().reads(3 as u64))
 			.saturating_add(RocksDbWeight::get().writes(3 as u64))
-	}
-	// Storage: Tokens Accounts (r:2 w:2)
-	// Storage: System Account (r:1 w:0)
-	fn withdraw_missing_reward() -> Weight {
-		Weight::from_ref_time(76_333_000 as u64)
-			.saturating_add(RocksDbWeight::get().reads(3 as u64))
-			.saturating_add(RocksDbWeight::get().writes(2 as u64))
 	}
 	// Storage: Loans Markets (r:2 w:0)
 	// Storage: Loans RewardSupplySpeed (r:1 w:1)

@@ -290,10 +290,6 @@ fn zero_amount_extrinsics_fail() {
             Error::<Test>::InvalidAmount
         );
         assert_noop!(
-            Loans::withdraw_missing_reward(RuntimeOrigin::root(), BOB, unit(0)),
-            Error::<Test>::InvalidAmount
-        );
-        assert_noop!(
             Loans::mint(RuntimeOrigin::signed(ALICE), DOT, unit(0)),
             Error::<Test>::InvalidAmount
         );
@@ -1009,23 +1005,6 @@ fn ensure_valid_exchange_rate_works() {
             Loans::ensure_valid_exchange_rate(Rate::saturating_from_rational(101, 100)),
             Error::<Test>::InvalidExchangeRate,
         );
-    })
-}
-
-#[test]
-fn withdraw_missing_reward_works() {
-    new_test_ext().execute_with(|| {
-        assert_eq!(Tokens::balance(INTR, &DAVE), unit(1000));
-
-        assert_ok!(Loans::add_reward(RuntimeOrigin::signed(DAVE), unit(100)));
-
-        assert_ok!(Loans::withdraw_missing_reward(RuntimeOrigin::root(), ALICE, unit(40),));
-
-        assert_eq!(Tokens::balance(INTR, &DAVE), unit(900));
-
-        assert_eq!(Tokens::balance(INTR, &ALICE), unit(40));
-
-        assert_eq!(Tokens::balance(INTR, &Loans::reward_account_id()), unit(60));
     })
 }
 

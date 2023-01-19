@@ -864,37 +864,6 @@ pub mod pallet {
             Ok(().into())
         }
 
-        /// Withdraw reward token from pallet account.
-        ///
-        /// The origin must conform to `UpdateOrigin`.
-        ///
-        /// - `target_account`: account receive reward token.
-        /// - `amount`: Withdraw amount
-        #[pallet::weight(<T as Config>::WeightInfo::withdraw_missing_reward())]
-        #[transactional]
-        pub fn withdraw_missing_reward(
-            origin: OriginFor<T>,
-            target_account: <T::Lookup as StaticLookup>::Source,
-            amount: BalanceOf<T>,
-        ) -> DispatchResultWithPostInfo {
-            T::UpdateOrigin::ensure_origin(origin)?;
-            ensure!(!amount.is_zero(), Error::<T>::InvalidAmount);
-
-            let reward_asset = T::RewardAssetId::get();
-            let pool_account = Self::reward_account_id();
-            let target_account = T::Lookup::lookup(target_account)?;
-
-            let amount_to_transfer: Amount<T> = Amount::new(amount, reward_asset);
-            amount_to_transfer.transfer(&pool_account, &target_account)?;
-
-            Self::deposit_event(Event::<T>::RewardWithdrawn {
-                receiver: target_account,
-                amount,
-            });
-
-            Ok(().into())
-        }
-
         /// Updates reward speed for the specified market
         ///
         /// The origin must conform to `UpdateOrigin`.
