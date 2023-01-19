@@ -82,6 +82,7 @@ pallet-xcm = { git = "https://github.com/paritytech/polkadot", branch = "release
 xcm-emulator = { git = "https://github.com/shaunxw/xcm-simulator", rev = "0460d04c798028e7bef82c907082e11753ed173b" }
 
 # Parachain dependencies
+runtime-common = {path = "../common", default-features = false }
 btc-relay = { path = "../../../crates/btc-relay", default-features = false }
 currency = { path = "../../../crates/currency", default-features = false }
 security = { path = "../../../crates/security", default-features = false }
@@ -200,6 +201,7 @@ std = [
   "testnet-kintsugi-runtime-parachain/std",
   "testnet-interlay-runtime-parachain/std",
 
+  "runtime-common/std",
   "btc-relay/std",
   "currency/std",
   "security/std",

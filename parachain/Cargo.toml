@@ -30,6 +30,7 @@ interlay-runtime = { package = "interlay-runtime-parachain", path = "./runtime/i
 kintsugi-runtime = { package = "kintsugi-runtime-parachain", path = "./runtime/kintsugi" }
 testnet-kintsugi-runtime = { package = "testnet-kintsugi-runtime-parachain", path = "./runtime/testnet-kintsugi" }
 testnet-interlay-runtime = { package = "testnet-interlay-runtime-parachain", path = "./runtime/testnet-interlay" }
+runtime-common = { package = "runtime-common", path = "./runtime/common" }
 interbtc-rpc = { path = "../rpc" }
 bitcoin = { path = "../crates/bitcoin" }
 loans = { path = "../crates/loans" }
@@ -114,7 +115,8 @@ try-runtime = [
     "interlay-runtime/try-runtime",
     "kintsugi-runtime/try-runtime",
     "testnet-interlay-runtime/try-runtime",
-    "testnet-kintsugi-runtime/try-runtime"
+    "testnet-kintsugi-runtime/try-runtime",
+    "runtime-common/try-runtime"
 ]
 
 rococo-native = [ "polkadot-cli/rococo-native" ]
