@@ -1609,6 +1609,7 @@ impl_runtime_apis! {
             // distribute rewards accrued over block count
             let reward = VaultAnnuity::min_reward_per_block().saturating_mul(YEARS.into());
             <VaultCapacity as reward::RewardsApi<(), CurrencyId, Balance>>::distribute_reward(&(), NATIVE_CURRENCY_ID, reward)?;
+            Amount::<Runtime>::new(reward, NATIVE_CURRENCY_ID).mint_to(&Fee::fee_pool_account_id())?;
             // compute and convert rewards
             let received = Fee::compute_vault_rewards(&vault_id, &vault_id.account_id, NATIVE_CURRENCY_ID)?;
             let received_as_wrapped = Oracle::collateral_to_wrapped(received, NATIVE_CURRENCY_ID)?;

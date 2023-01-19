@@ -122,6 +122,47 @@ fn get_vault_collateral(vault_id: &VaultId) -> Amount<Runtime> {
         .unwrap()
 }
 
+fn estimate_vault_reward_rate(vault_id: VaultId) -> Result<UnsignedFixedPoint, DispatchError> {
+    // distribute and withdraw previous rewards
+    FeePallet::distribute_vault_rewards(&vault_id, REWARD_CURRENCY)?;
+    <VaultStakingPallet as reward::RewardsApi<(Option<u32>, VaultId), AccountId, Balance>>::withdraw_reward(
+        &(None, vault_id.clone()),
+        &vault_id.account_id,
+        REWARD_CURRENCY,
+    )?;
+    // distribute rewards accrued over block count
+    let reward = VaultAnnuityPallet::min_reward_per_block().saturating_mul(YEARS.into());
+    <CapacityRewardsPallet as reward::RewardsApi<(), CurrencyId, Balance>>::distribute_reward(
+        &(),
+        REWARD_CURRENCY,
+        reward,
+    )?;
+    Amount::<Runtime>::new(reward, REWARD_CURRENCY).mint_to(&FeePallet::fee_pool_account_id())?;
+    // compute and convert rewards
+    let received = FeePallet::compute_vault_rewards(&vault_id, &vault_id.account_id, REWARD_CURRENCY)?;
+    let received_as_wrapped = OraclePallet::collateral_to_wrapped(received, REWARD_CURRENCY)?;
+    // convert collateral stake to same currency
+    let collateral = <VaultStakingPallet as reward::RewardsApi<(Option<u32>, VaultId), AccountId, Balance>>::get_stake(
+        &(None, vault_id.clone()),
+        &vault_id.account_id,
+    )?;
+    let collateral_as_wrapped = OraclePallet::collateral_to_wrapped(collateral, vault_id.collateral_currency())?;
+    // rate is received / collateral
+    Ok(UnsignedFixedPoint::checked_from_rational(received_as_wrapped, collateral_as_wrapped).unwrap_or_default())
+}
+
+#[ignore] // fails because lendtokens are not supported yet (TODO!)
+#[test]
+fn integration_test_estimate_vault_reward_rate() {
+    test_with(|vault_id| {
+        let rewards1 = Amount::<Runtime>::new(1000000000000000, REWARD_CURRENCY);
+        rewards1.mint_to(&VaultAnnuityPallet::account_id()).unwrap();
+        VaultAnnuityPallet::update_reward_per_block();
+
+        estimate_vault_reward_rate(vault_id.clone()).unwrap();
+    });
+}
+
 #[test]
 fn integration_test_fee_with_parachain_shutdown_fails() {
     test_with(|vault_id_1| {
