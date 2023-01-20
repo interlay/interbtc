@@ -151,7 +151,6 @@ pub mod pallet {
 
     #[pallet::error]
     pub enum Error<T> {
-        ScheduleNotFound,
         InsufficientStake,
     }
 
@@ -288,14 +287,6 @@ pub mod pallet {
             amount: BalanceOf<T>,
         ) -> DispatchResult {
             let who = ensure_signed(origin)?;
-
-            // prevent depositing without reward schedule
-            ensure!(
-                !RewardSchedules::<T>::iter_prefix_values(pool_currency_id)
-                    .count()
-                    .is_zero(),
-                Error::<T>::ScheduleNotFound
-            );
 
             // reserve lp tokens to prevent spending
             T::MultiCurrency::reserve(pool_currency_id.clone(), &who, amount)?;

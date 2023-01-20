@@ -159,12 +159,6 @@ fn should_deposit_and_withdraw_stake() {
         };
         let total_amount = reward_schedule.total().unwrap();
 
-        // can't deposit without schedule
-        assert_err!(
-            Farming::deposit(RuntimeOrigin::signed(account_id), POOL_CURRENCY_ID, pool_tokens),
-            TestError::ScheduleNotFound
-        );
-
         assert_ok!(Tokens::set_balance(
             RuntimeOrigin::root(),
             TreasuryAccountId::get(),
