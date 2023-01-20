@@ -286,6 +286,8 @@ pub mod pallet {
         WithdrawAllCollateralFailed,
         /// Tokens already locked for a different purpose than borrow collateral
         TokensAlreadyLocked,
+        /// Only free lend tokens are redeemable
+        LockedTokensCannotBeRedeemed,
     }
 
     #[pallet::event]
@@ -1456,25 +1458,12 @@ impl<T: Config> Pallet<T> {
         let redeem_amount = Self::calc_underlying_amount(voucher_amount, exchange_rate)?;
         Self::ensure_enough_cash(asset_id, redeem_amount)?;
 
-        // TODO: Only free lend tokens are redeemable. Replace logic below with this:
-        // if voucher_amount > Self::free_lend_tokens(asset_id, redeemer)?.amount() {
-        //     return Err(...);
-        // }
-
-        // Ensure that withdrawing deposited collateral doesn't leave the user undercollateralized.
-        let collateral_amount = voucher_amount.saturating_sub(Self::free_lend_tokens(asset_id, redeemer)?.amount());
-        let collateral_underlying_amount = Self::calc_underlying_amount(collateral_amount, exchange_rate)?;
-        let market = Self::market(asset_id)?;
-        let effects_amount = market.collateral_factor.mul_ceil(collateral_underlying_amount);
-        let redeem_effects_value = Self::get_asset_value(asset_id, effects_amount)?;
-        log::trace!(
-            target: "loans::redeem_allowed",
-            "redeem_amount: {:?}, redeem_effects_value: {:?}",
-            redeem_amount,
-            redeem_effects_value.amount(),
-        );
-
-        Self::ensure_liquidity(redeemer, redeem_effects_value)?;
+        // Only free tokens are redeemable. If the account has enough liquidity, the lend tokens
+        // must first be withdrawn from collateral (this happens automatically in the `redeem` and
+        // `redeem_all` extrinsics)
+        if voucher_amount > Self::free_lend_tokens(asset_id, redeemer)?.amount() {
+            return Err(Error::<T>::LockedTokensCannotBeRedeemed.into());
+        }
         Ok(())
     }
 
@@ -1863,8 +1852,8 @@ impl<T: Config> Pallet<T> {
 
     /// Ensures that `account` has sufficient liquidity to cover a withdrawal
     /// Returns `Err` If InsufficientLiquidity
-    /// `account`: account that need a liquidity check
-    /// `reduce_amount`: values that will have an impact on liquidity
+    /// `account`: account that needs a liquidity check
+    /// `reduce_amount`: amount to reduce the liquidity (collateral) of the `account` by
     fn ensure_liquidity(account: &T::AccountId, reduce_amount: Amount<T>) -> DispatchResult {
         if Self::get_account_liquidity(account)?.liquidity().ge(&reduce_amount)? {
             return Ok(());
