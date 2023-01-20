@@ -201,6 +201,7 @@ pub mod pallet {
         /// # Arguments
         ///
         /// * `values` - a vector of (key, value) pairs to submit
+        #[pallet::call_index(0)]
         #[pallet::weight(<T as Config>::WeightInfo::feed_values(values.len() as u32))]
         pub fn feed_values(
             origin: OriginFor<T>,
@@ -220,6 +221,7 @@ pub mod pallet {
         /// # Arguments
         /// * `account_id` - the account Id of the oracle
         /// * `name` - a descriptive name for the oracle
+        #[pallet::call_index(1)]
         #[pallet::weight(<T as Config>::WeightInfo::insert_authorized_oracle())]
         #[transactional]
         pub fn insert_authorized_oracle(
@@ -240,6 +242,7 @@ pub mod pallet {
         ///
         /// # Arguments
         /// * `account_id` - the account Id of the oracle
+        #[pallet::call_index(2)]
         #[pallet::weight(<T as Config>::WeightInfo::remove_authorized_oracle())]
         #[transactional]
         pub fn remove_authorized_oracle(origin: OriginFor<T>, account_id: T::AccountId) -> DispatchResult {

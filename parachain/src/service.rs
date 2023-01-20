@@ -1,6 +1,6 @@
 use cumulus_client_cli::CollatorOptions;
 use cumulus_client_consensus_aura::{AuraConsensus, BuildAuraConsensusParams, SlotProportion};
-use cumulus_client_consensus_common::ParachainConsensus;
+use cumulus_client_consensus_common::{ParachainBlockImport as TParachainBlockImport, ParachainConsensus};
 use cumulus_client_network::BlockAnnounceValidator;
 use cumulus_client_service::{
     prepare_node_config, start_collator, start_full_node, StartCollatorParams, StartFullNodeParams,
@@ -16,7 +16,7 @@ use futures::StreamExt;
 use jsonrpsee::RpcModule;
 use primitives::*;
 use sc_client_api::HeaderBackend;
-use sc_consensus::LongestChain;
+use sc_consensus::{ImportQueue, LongestChain};
 use sc_executor::NativeElseWasmExecutor;
 use sc_network::{NetworkBlock, NetworkService};
 use sc_service::{Configuration, PartialComponents, RpcHandlers, TFullBackend, TFullClient, TaskManager};
@@ -163,6 +163,9 @@ type FullClient<RuntimeApi, ExecutorDispatch> =
 
 type MaybeFullSelectChain = Option<LongestChain<FullBackend, Block>>;
 
+type ParachainBlockImport<RuntimeApi, ExecutorDispatch> =
+    TParachainBlockImport<Block, Arc<FullClient<RuntimeApi, ExecutorDispatch>>, FullBackend>;
+
 /// Starts a `ServiceBuilder` for a full service.
 ///
 /// Use this macro if you don't actually need the full service, but just the builder in order to
@@ -245,9 +248,9 @@ where
     } else {
         cumulus_client_consensus_aura::import_queue::<AuraPair, _, _, _, _, _>(
             cumulus_client_consensus_aura::ImportQueueParams {
-                block_import: client.clone(),
+                block_import: ParachainBlockImport::new(client.clone(), backend.clone()),
                 client: client.clone(),
-                create_inherent_data_providers: move |parent: sp_core::H256, _| async move {
+                create_inherent_data_providers: move |_parent: sp_core::H256, _| async move {
                     let timestamp = sp_timestamp::InherentDataProvider::from_system_time();
                     let slot_duration = sp_consensus_aura::SlotDuration::from_millis(12000);
                     let slot = sp_consensus_aura::inherents::InherentDataProvider::from_timestamp_and_slot_duration(
@@ -285,15 +288,16 @@ async fn build_relay_chain_interface(
     task_manager: &mut TaskManager,
     collator_options: CollatorOptions,
 ) -> RelayChainResult<(Arc<(dyn RelayChainInterface + 'static)>, Option<CollatorPair>)> {
-    match collator_options.relay_chain_rpc_url {
-        Some(relay_chain_url) => build_minimal_relay_chain_node(polkadot_config, task_manager, relay_chain_url).await,
-        None => build_inprocess_relay_chain(
+    if !collator_options.relay_chain_rpc_urls.is_empty() {
+        build_minimal_relay_chain_node(polkadot_config, task_manager, collator_options.relay_chain_rpc_urls).await
+    } else {
+        build_inprocess_relay_chain(
             polkadot_config,
             parachain_config,
             telemetry_worker_handle,
             task_manager,
             None,
-        ),
+        )
     }
 }
 
@@ -317,6 +321,7 @@ where
     Executor: sc_executor::NativeExecutionDispatch + 'static,
     BIC: FnOnce(
         Arc<FullClient<RuntimeApi, Executor>>,
+        ParachainBlockImport<RuntimeApi, Executor>,
         Option<&Registry>,
         Option<TelemetryHandle>,
         &TaskManager,
@@ -355,14 +360,14 @@ where
     let validator = parachain_config.role.is_authority();
     let prometheus_registry = parachain_config.prometheus_registry().cloned();
     let transaction_pool = params.transaction_pool.clone();
-    let import_queue = cumulus_client_service::SharedImportQueue::new(params.import_queue);
+    let import_queue_service = params.import_queue.service();
     let (network, system_rpc_tx, tx_handler_controller, start_network) =
         sc_service::build_network(sc_service::BuildNetworkParams {
             config: &parachain_config,
             client: client.clone(),
             transaction_pool: transaction_pool.clone(),
             spawn_handle: task_manager.spawn_handle(),
-            import_queue: import_queue.clone(),
+            import_queue: params.import_queue,
             block_announce_validator_builder: Some(Box::new(|_| Box::new(block_announce_validator))),
             warp_sync: None,
         })?;
@@ -416,6 +421,7 @@ where
     if validator {
         let parachain_consensus = build_consensus(
             client.clone(),
+            ParachainBlockImport::new(client.clone(), backend.clone()),
             prometheus_registry.as_ref(),
             telemetry.as_ref().map(|t| t.handle()),
             &task_manager,
@@ -437,7 +443,7 @@ where
             relay_chain_interface,
             spawner,
             parachain_consensus,
-            import_queue,
+            import_queue: import_queue_service,
             collator_key: collator_key.expect("Command line arguments do not allow this. qed"),
             relay_chain_slot_duration,
         };
@@ -450,7 +456,7 @@ where
             task_manager: &mut task_manager,
             para_id: id,
             relay_chain_interface,
-            import_queue,
+            import_queue: import_queue_service,
             relay_chain_slot_duration,
         };
 
@@ -482,6 +488,7 @@ where
         id,
         |_| Ok(RpcModule::new(())),
         |client,
+         block_import,
          prometheus_registry,
          telemetry,
          task_manager,
@@ -535,7 +542,7 @@ where
                         Ok((slot, timestamp, parachain_inherent))
                     }
                 },
-                block_import: client.clone(),
+                block_import,
                 para_client: client,
                 backoff_authoring_blocks: Option::<()>::None,
                 sync_oracle,

@@ -6,7 +6,7 @@ version = "1.2.0"
 
 [dependencies]
 futures = "0.3.21"
-jsonrpsee = { version = "0.15.1", features = ["server", "macros"] }
+jsonrpsee = { version = "0.16.2", features = ["server", "macros"] }
 
 # Parachain dependencies
 btc-relay-rpc = { path = "../crates/btc-relay/rpc" }

@@ -197,6 +197,7 @@ pub mod pallet {
         /// amount of issued tokens received will be less, because a fee is subtracted.
         /// * `vault` - address of the vault
         /// * `griefing_collateral` - amount of collateral
+        #[pallet::call_index(0)]
         #[pallet::weight(<T as Config>::WeightInfo::request_issue())]
         #[transactional]
         pub fn request_issue(
@@ -218,6 +219,7 @@ pub mod pallet {
         /// * `tx_block_height` - block number of collateral chain
         /// * `merkle_proof` - raw bytes
         /// * `raw_tx` - raw bytes
+        #[pallet::call_index(1)]
         #[pallet::weight(<T as Config>::WeightInfo::execute_issue())]
         #[transactional]
         pub fn execute_issue(
@@ -237,6 +239,7 @@ pub mod pallet {
         ///
         /// * `origin` - sender of the transaction
         /// * `issue_id` - identifier of issue request as output from request_issue
+        #[pallet::call_index(2)]
         #[pallet::weight(<T as Config>::WeightInfo::cancel_issue())]
         #[transactional]
         pub fn cancel_issue(origin: OriginFor<T>, issue_id: H256) -> DispatchResultWithPostInfo {
@@ -253,6 +256,7 @@ pub mod pallet {
         /// * `period` - default period for new requests
         ///
         /// # Weight: `O(1)`
+        #[pallet::call_index(3)]
         #[pallet::weight(<T as Config>::WeightInfo::set_issue_period())]
         #[transactional]
         pub fn set_issue_period(origin: OriginFor<T>, period: T::BlockNumber) -> DispatchResultWithPostInfo {

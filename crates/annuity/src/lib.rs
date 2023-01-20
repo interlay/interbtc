@@ -102,6 +102,7 @@ pub mod pallet {
     // The pallet's dispatchable functions.
     #[pallet::call]
     impl<T: Config<I>, I: 'static> Pallet<T, I> {
+        #[pallet::call_index(0)]
         #[pallet::weight(T::WeightInfo::withdraw_rewards())]
         #[transactional]
         pub fn withdraw_rewards(origin: OriginFor<T>) -> DispatchResultWithPostInfo {
@@ -111,6 +112,7 @@ pub mod pallet {
             Ok(().into())
         }
 
+        #[pallet::call_index(1)]
         #[pallet::weight(T::WeightInfo::update_rewards())]
         #[transactional]
         pub fn update_rewards(origin: OriginFor<T>) -> DispatchResultWithPostInfo {
@@ -119,6 +121,7 @@ pub mod pallet {
             Ok(().into())
         }
 
+        #[pallet::call_index(2)]
         #[pallet::weight(T::WeightInfo::set_reward_per_wrapped())]
         #[transactional]
         pub fn set_reward_per_wrapped(

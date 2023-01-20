@@ -68,6 +68,7 @@ pub mod pallet {
         /// * `client_name` - raw byte string representation of the client name (e.g. `b"vault"`, `b"oracle"`,
         ///   `b"faucet"`)
         /// * `release` - The release information for the given `client_name`
+        #[pallet::call_index(0)]
         #[pallet::weight(<T as Config>::WeightInfo::set_current_client_release())]
         #[transactional]
         pub fn set_current_client_release(
@@ -89,6 +90,7 @@ pub mod pallet {
         /// * `client_name` - raw byte string representation of the client name (e.g. `b"vault"`, `b"oracle"`,
         ///   `b"faucet"`)
         /// * `release` - The release information for the given `client_name`
+        #[pallet::call_index(1)]
         #[pallet::weight(<T as Config>::WeightInfo::set_pending_client_release())]
         #[transactional]
         pub fn set_pending_client_release(

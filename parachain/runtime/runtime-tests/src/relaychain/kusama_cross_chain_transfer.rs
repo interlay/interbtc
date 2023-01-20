@@ -21,7 +21,7 @@ mod fees {
     // N * unit_weight * (weight/10^12) * token_per_second
     fn weight_calculation(instruction_count: u32, unit_weight: Weight, per_second: u128) -> u128 {
         let weight = unit_weight.saturating_mul(instruction_count as u64);
-        let weight_ratio = FixedU128::saturating_from_rational(weight as u128, WEIGHT_PER_SECOND.ref_time() as u128);
+        let weight_ratio = FixedU128::saturating_from_rational(weight as u128, WEIGHT_REF_TIME_PER_SECOND as u128);
         weight_ratio.saturating_mul_int(per_second)
     }
 
@@ -34,7 +34,7 @@ mod fees {
 
     pub fn ksm_per_second_as_fee(instruction_count: u32) -> u128 {
         let ksm_per_second = kintsugi_runtime_parachain::xcm_config::ksm_per_second();
-        assert_eq!(231_740_000_000, ksm_per_second);
+        assert_eq!(202060000000, ksm_per_second);
 
         native_unit_cost(instruction_count, ksm_per_second)
     }
@@ -227,7 +227,7 @@ fn transfer_to_relay_chain() {
                 )
                 .into()
             ),
-            4_000_000_000 // The value used in UI - very conservative: actually used at time of writing = 298_368_000
+            WeightLimit::Unlimited
         ));
     });
 
@@ -285,7 +285,7 @@ fn transfer_to_sibling_and_back() {
                 )
                 .into()
             ),
-            1_000_000_000,
+            WeightLimit::Unlimited,
         ));
 
         assert_eq!(
@@ -326,7 +326,7 @@ fn transfer_to_sibling_and_back() {
                 )
                 .into()
             ),
-            1_000_000_000,
+            WeightLimit::Unlimited,
         ));
     });
 

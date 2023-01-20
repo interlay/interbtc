@@ -141,6 +141,7 @@ pub mod pallet {
         /// * `status_code` - the status code to set
         ///
         /// # Weight: `O(1)`
+        #[pallet::call_index(0)]
         #[pallet::weight(0)]
         #[transactional]
         pub fn set_parachain_status(origin: OriginFor<T>, status_code: StatusCode) -> DispatchResultWithPostInfo {
@@ -157,6 +158,7 @@ pub mod pallet {
         /// * `error_code` - the error code to insert
         ///
         /// # Weight: `O(1)`
+        #[pallet::call_index(1)]
         #[pallet::weight(0)]
         #[transactional]
         pub fn insert_parachain_error(origin: OriginFor<T>, error_code: ErrorCode) -> DispatchResultWithPostInfo {
@@ -173,6 +175,7 @@ pub mod pallet {
         /// * `error_code` - the error code to remove
         ///
         /// # Weight: `O(1)`
+        #[pallet::call_index(2)]
         #[pallet::weight(0)]
         #[transactional]
         pub fn remove_parachain_error(origin: OriginFor<T>, error_code: ErrorCode) -> DispatchResultWithPostInfo {
