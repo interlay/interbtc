@@ -19,9 +19,10 @@
 //!
 //! ## Overview
 //!
-//! Loans pallet implement the lending protocol by using a pool-based strategy
+//! The loans pallet implements a Compound V2-style lending protocol by using a pool-based strategy
 //! that aggregates each user's supplied assets. The interest rate is dynamically
-//! determined by the supply and demand.
+//! determined by the supply and demand. Lending positions are tokenized and can thus have their
+//! ownership transferred.
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
@@ -94,8 +95,13 @@ pub struct OnSlashHook<T>(marker::PhantomData<T>);
 // Opened a GitHub issue for this in the Substrate repo: https://github.com/paritytech/substrate/issues/12533
 // TODO: Propagate error once the issue is resolved upstream
 impl<T: Config> OnSlash<T::AccountId, AssetIdOf<T>, BalanceOf<T>> for OnSlashHook<T> {
+    /// Whenever a lend_token balance is mutated, the supplier incentive rewards accumulated up to that point
+    /// have to be distributed.
     fn on_slash(currency_id: AssetIdOf<T>, account_id: &T::AccountId, amount: BalanceOf<T>) {
         if currency_id.is_lend_token() {
+            // Note that wherever `on_slash` is called in the lending pallet, and the `account_id` has non-zero
+            // `AccountDeposits`, the storage item needs to be decreased by `amount` to reflect the reduction
+            // in collateral.
             let f = || -> DispatchResult {
                 let underlying_id = Pallet::<T>::underlying_id(currency_id)?;
                 Pallet::<T>::update_reward_supply_index(underlying_id)?;
@@ -118,6 +124,8 @@ impl<T: Config> OnSlash<T::AccountId, AssetIdOf<T>, BalanceOf<T>> for OnSlashHoo
 
 pub struct PreDeposit<T>(marker::PhantomData<T>);
 impl<T: Config> OnDeposit<T::AccountId, AssetIdOf<T>, BalanceOf<T>> for PreDeposit<T> {
+    /// Whenever a lend_token balance is mutated, the supplier incentive rewards accumulated up to that point
+    /// have to be distributed.
     fn on_deposit(currency_id: AssetIdOf<T>, account_id: &T::AccountId, _amount: BalanceOf<T>) -> DispatchResult {
         if currency_id.is_lend_token() {
             let underlying_id = Pallet::<T>::underlying_id(currency_id)?;
@@ -140,6 +148,8 @@ impl<T: Config> OnDeposit<T::AccountId, AssetIdOf<T>, BalanceOf<T>> for PostDepo
 
 pub struct PreTransfer<T>(marker::PhantomData<T>);
 impl<T: Config> OnTransfer<T::AccountId, AssetIdOf<T>, BalanceOf<T>> for PreTransfer<T> {
+    /// Whenever a lend_token balance is mutated, the supplier incentive rewards accumulated up to that point
+    /// have to be distributed.
     fn on_transfer(
         currency_id: AssetIdOf<T>,
         from: &T::AccountId,
@@ -158,6 +168,9 @@ impl<T: Config> OnTransfer<T::AccountId, AssetIdOf<T>, BalanceOf<T>> for PreTran
 
 pub struct PostTransfer<T>(marker::PhantomData<T>);
 impl<T: Config> OnTransfer<T::AccountId, AssetIdOf<T>, BalanceOf<T>> for PostTransfer<T> {
+    /// If an account has locked their lend_token balance as collateral, any incoming lend_tokens
+    /// have to be automatically locked as well, in order to enforce a "collateral toggle" that
+    /// offers the same UX as Compound V2's lending protocol implementation.
     fn on_transfer(
         currency_id: AssetIdOf<T>,
         _from: &T::AccountId,
@@ -188,15 +201,15 @@ pub mod pallet {
     {
         type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
-        /// The loan's module id, keep all collaterals of CDPs.
+        /// The loan's module id, used to derive the account that holds the liquidity in all markets.
         #[pallet::constant]
         type PalletId: Get<PalletId>;
 
         /// The origin which can add/reduce reserves.
         type ReserveOrigin: EnsureOrigin<Self::RuntimeOrigin>;
 
-        /// The origin which can update rate model, liquidate incentive and
-        /// add/reduce reserves. Root can always do this.
+        /// The origin which can add or update markets (including interest rate model, liquidate incentive and
+        /// collateral ratios).
         type UpdateOrigin: EnsureOrigin<Self::RuntimeOrigin>;
 
         /// Weight information for extrinsics in this pallet.
@@ -205,12 +218,12 @@ pub mod pallet {
         /// Unix time
         type UnixTime: UnixTime;
 
-        /// Assets for deposit/withdraw collateral assets to/from loans module
+        /// Currency type used by the pallet
         type Assets: Transfer<Self::AccountId, AssetId = CurrencyId, Balance = Balance>
             + Inspect<Self::AccountId, AssetId = CurrencyId, Balance = Balance>
             + Mutate<Self::AccountId, AssetId = CurrencyId, Balance = Balance>;
 
-        /// Reward asset id.
+        /// Incentive reward asset id.
         #[pallet::constant]
         type RewardAssetId: Get<AssetIdOf<Self>>;
 
@@ -228,12 +241,9 @@ pub mod pallet {
         InsufficientLiquidity,
         /// Insufficient deposit to redeem
         InsufficientDeposit,
-        /// Repay amount greater than allowed
+        /// Repay amount greater than allowed (either repays more than the existing debt, or
+        /// exceeds the close factor)
         TooMuchRepay,
-        /// Asset already enabled/disabled collateral
-        DuplicateOperation,
-        /// No deposit asset
-        NoDeposit,
         /// Repay amount more than collateral amount
         InsufficientCollateral,
         /// Liquidator is same as borrower
@@ -248,12 +258,6 @@ pub mod pallet {
         InvalidRateModelParam,
         /// Market not activated
         MarketNotActivated,
-        /// Oracle price not ready
-        PriceOracleNotReady,
-        /// Oracle price is zero
-        PriceIsZero,
-        /// Invalid asset id
-        InvalidCurrencyId,
         /// Invalid lend_token id
         InvalidLendTokenId,
         /// Market does not exist
@@ -272,7 +276,7 @@ pub mod pallet {
         InvalidFactor,
         /// The supply cap cannot be zero
         InvalidSupplyCap,
-        /// The exchange rate should be greater than 0.02 and less than 1
+        /// The exchange rate should be a value between `MinExchangeRate` and `MaxExchangeRate`
         InvalidExchangeRate,
         /// Amount cannot be zero
         InvalidAmount,
@@ -282,12 +286,6 @@ pub mod pallet {
         WithdrawAllCollateralFailed,
         /// Tokens already locked for a different purpose than borrow collateral
         TokensAlreadyLocked,
-        /// Payer cannot be signer
-        PayerIsSigner,
-        /// Codec error
-        CodecError,
-        /// Collateral is reserved and cannot be liquidated
-        CollateralReserved,
     }
 
     #[pallet::event]
@@ -480,8 +478,15 @@ pub mod pallet {
         ValueQuery,
     >;
 
-    /// Mapping of account addresses to deposit details
-    /// CollateralType -> Owner -> Deposits
+    /// Mapping of account addresses to collateral deposit details
+    /// CollateralType -> Owner -> Collateral Deposits
+    ///
+    /// # Remarks
+    ///
+    /// Differently from Parallel Finance's implementation of lending, `AccountDeposits` only
+    /// represents Lend Tokens locked as collateral rather than the entire Lend Token balance of an account.
+    /// If an account minted without also locking their balance as collateral, their corresponding entry
+    /// in this map will be zero.
     #[pallet::storage]
     #[pallet::getter(fn account_deposits)]
     pub type AccountDeposits<T: Config> =
@@ -493,7 +498,7 @@ pub mod pallet {
     #[pallet::getter(fn borrow_index)]
     pub type BorrowIndex<T: Config> = StorageMap<_, Blake2_128Concat, AssetIdOf<T>, Rate, ValueQuery>;
 
-    /// The exchange rate from the underlying to the internal collateral
+    /// The internal exchange rate from the associated lend token to the underlying currency.
     #[pallet::storage]
     #[pallet::getter(fn exchange_rate)]
     pub type ExchangeRate<T: Config> = StorageMap<_, Blake2_128Concat, AssetIdOf<T>, Rate, ValueQuery>;
@@ -513,22 +518,22 @@ pub mod pallet {
     #[pallet::getter(fn utilization_ratio)]
     pub type UtilizationRatio<T: Config> = StorageMap<_, Blake2_128Concat, AssetIdOf<T>, Ratio, ValueQuery>;
 
-    /// Mapping of asset id to its market
+    /// Mapping of underlying currency id to its market
     #[pallet::storage]
     pub type Markets<T: Config> = StorageMap<_, Blake2_128Concat, AssetIdOf<T>, Market<BalanceOf<T>>>;
 
-    /// Mapping of lend_token id to asset id
+    /// Mapping of lend_token id to underlying currency id
     /// `lend_token id`: voucher token id
     /// `asset id`: underlying token id
     #[pallet::storage]
     pub type UnderlyingAssetId<T: Config> = StorageMap<_, Blake2_128Concat, AssetIdOf<T>, AssetIdOf<T>>;
 
-    /// Mapping of token id to supply reward speed
+    /// Mapping of underlying currency id to supply reward speed
     #[pallet::storage]
     #[pallet::getter(fn reward_supply_speed)]
     pub type RewardSupplySpeed<T: Config> = StorageMap<_, Blake2_128Concat, AssetIdOf<T>, BalanceOf<T>, ValueQuery>;
 
-    /// Mapping of token id to borrow reward speed
+    /// Mapping of underlying currency id to borrow reward speed
     #[pallet::storage]
     #[pallet::getter(fn reward_borrow_speed)]
     pub type RewardBorrowSpeed<T: Config> = StorageMap<_, Blake2_128Concat, AssetIdOf<T>, BalanceOf<T>, ValueQuery>;
@@ -545,19 +550,19 @@ pub mod pallet {
     pub type RewardBorrowState<T: Config> =
         StorageMap<_, Blake2_128Concat, AssetIdOf<T>, RewardMarketState<T::BlockNumber, BalanceOf<T>>, ValueQuery>;
 
-    ///  The Reward index for each market for each supplier as of the last time they accrued Reward
+    /// The incentive reward index for each market for each supplier as of the last time they accrued Reward
     #[pallet::storage]
     #[pallet::getter(fn reward_supplier_index)]
     pub type RewardSupplierIndex<T: Config> =
         StorageDoubleMap<_, Blake2_128Concat, AssetIdOf<T>, Blake2_128Concat, T::AccountId, BalanceOf<T>, ValueQuery>;
 
-    ///  The Reward index for each market for each borrower as of the last time they accrued Reward
+    /// The incentive reward index for each market for each borrower as of the last time they accrued Reward
     #[pallet::storage]
     #[pallet::getter(fn reward_borrower_index)]
     pub type RewardBorrowerIndex<T: Config> =
         StorageDoubleMap<_, Blake2_128Concat, AssetIdOf<T>, Blake2_128Concat, T::AccountId, BalanceOf<T>, ValueQuery>;
 
-    /// The reward accrued but not yet transferred to each user.
+    /// The incentive reward accrued but not yet transferred to each user.
     #[pallet::storage]
     #[pallet::getter(fn reward_accrued)]
     pub type RewardAccrued<T: Config> = StorageMap<_, Blake2_128Concat, T::AccountId, BalanceOf<T>, ValueQuery>;
@@ -567,7 +572,7 @@ pub mod pallet {
     #[pallet::getter(fn max_exchange_rate)]
     pub type MaxExchangeRate<T: Config> = StorageValue<_, Rate, ValueQuery>;
 
-    /// The minimum allowed exchange rate for a market.
+    /// The minimum allowed exchange rate for a market. This is the starting rate when a market is first set up.
     #[pallet::storage]
     #[pallet::getter(fn min_exchange_rate)]
     pub type MinExchangeRate<T: Config> = StorageValue<_, Rate, ValueQuery>;
@@ -612,19 +617,16 @@ pub mod pallet {
 
     #[pallet::call]
     impl<T: Config> Pallet<T> {
-        /// Stores a new market and its related currency. Returns `Err` if a currency
-        /// is not attached to an existent market.
+        /// Creates a new lending market for a given currency. Returns `Err` if a market already
+        /// exists for the given currency.
         ///
         /// All provided market states must be `Pending`, otherwise an error will be returned.
         ///
-        /// If a currency is already attached to a market, then the market will be replaced
-        /// by the new provided value.
+        /// The lend_token id specified in the Market struct has to be unique, and cannot be later reused
+        /// when creating a new market.
         ///
-        /// The lend_token id and asset id are bound, the lend_token id of new provided market cannot
-        /// be duplicated with the existing one, otherwise it will return `InvalidLendTokenId`.
-        ///
-        /// - `asset_id`: Market related currency
-        /// - `market`: The market that is going to be stored
+        /// - `asset_id`: Currency to enable lending and borrowing for.
+        /// - `market`: Configuration of the new lending market
         #[pallet::weight(<T as Config>::WeightInfo::add_market())]
         #[transactional]
         pub fn add_market(
@@ -658,7 +660,7 @@ pub mod pallet {
             );
             ensure!(market.supply_cap > Zero::zero(), Error::<T>::InvalidSupplyCap,);
 
-            // Ensures a given `lend_token_id` not exists on the `Market` and `UnderlyingAssetId`.
+            // Ensures a given `lend_token_id` does not exist either in a `Market` or as an `UnderlyingAssetId`.
             Self::ensure_lend_token(market.lend_token_id)?;
             // Update storage of `Market` and `UnderlyingAssetId`
             Markets::<T>::insert(asset_id, market.clone());
@@ -689,15 +691,17 @@ pub mod pallet {
             Ok(().into())
         }
 
-        /// Activates a market. Returns `Err` if the market currency does not exist.
+        /// Activates a market. Returns `Err` if the market does not exist.
         ///
-        /// If the market is already activated, does nothing.
+        /// If the market is already active, does nothing.
         ///
-        /// - `asset_id`: Market related currency
+        /// - `asset_id`: Currency to enable lending and borrowing for.
         #[pallet::weight(<T as Config>::WeightInfo::activate_market())]
         #[transactional]
         pub fn activate_market(origin: OriginFor<T>, asset_id: AssetIdOf<T>) -> DispatchResultWithPostInfo {
             T::UpdateOrigin::ensure_origin(origin)?;
+            // TODO: if the market is already active throw an error,
+            // to avoid emitting the `ActivatedMarket` event again.
             Self::mutate_market(asset_id, |stored_market| {
                 if let MarketState::Active = stored_market.state {
                     return stored_market.clone();
@@ -714,8 +718,8 @@ pub mod pallet {
         /// Updates the rate model of a stored market. Returns `Err` if the market
         /// currency does not exist or the rate model is invalid.
         ///
-        /// - `asset_id`: Market related currency
-        /// - `rate_model`: The new rate model to be updated
+        /// - `asset_id`: Market currency
+        /// - `rate_model`: The new rate model to set
         #[pallet::weight(<T as Config>::WeightInfo::update_rate_model())]
         #[transactional]
         pub fn update_rate_model(
@@ -741,10 +745,13 @@ pub mod pallet {
         ///
         /// - `asset_id`: market related currency
         /// - `collateral_factor`: the collateral utilization ratio
-        /// - `reserve_factor`: fraction of interest currently set aside for reserves
-        /// - `close_factor`: maximum liquidation ratio at one time
+        /// - `liquidation_threshold`: The collateral ratio when a borrower can be liquidated
+        /// - `reserve_factor`: fraction of interest set aside for reserves
+        /// - `close_factor`: max percentage of debt that can be liquidated in a single transaction
+        /// - `liquidate_incentive_reserved_factor`: liquidation share set aside for reserves
         /// - `liquidate_incentive`: liquidation incentive ratio
-        /// - `cap`: market capacity
+        /// - `supply_cap`: Upper bound of supplying
+        /// - `borrow_cap`: Upper bound of borrowing
         #[pallet::weight(<T as Config>::WeightInfo::update_market())]
         #[transactional]
         pub fn update_market(
@@ -815,7 +822,7 @@ pub mod pallet {
         /// does not exist.
         ///
         /// - `asset_id`: market related currency
-        /// - `market`: the new market parameters
+        /// - `market`: Configuration of the new lending market
         #[pallet::weight(<T as Config>::WeightInfo::force_update_market())]
         #[transactional]
         pub fn force_update_market(
@@ -844,7 +851,7 @@ pub mod pallet {
             Ok(().into())
         }
 
-        /// Add reward for the pallet account.
+        /// Deposit incentive reward currency into the pallet account.
         ///
         /// - `amount`: Reward amount added
         #[pallet::weight(<T as Config>::WeightInfo::add_reward())]
@@ -869,7 +876,8 @@ pub mod pallet {
         /// The origin must conform to `UpdateOrigin`.
         ///
         /// - `asset_id`: Market related currency
-        /// - `reward_per_block`: reward amount per block.
+        /// - `supply_reward_per_block`: supply reward amount per block.
+        /// - `borrow_reward_per_block`: borrow reward amount per block.
         #[pallet::weight(<T as Config>::WeightInfo::update_market_reward_speed())]
         #[transactional]
         pub fn update_market_reward_speed(
@@ -911,7 +919,7 @@ pub mod pallet {
             Ok(().into())
         }
 
-        /// Claim reward from all market.
+        /// Claim incentive rewards for all markets.
         #[pallet::weight(<T as Config>::WeightInfo::claim_reward())]
         #[transactional]
         pub fn claim_reward(origin: OriginFor<T>) -> DispatchResultWithPostInfo {
@@ -926,7 +934,7 @@ pub mod pallet {
             Ok(().into())
         }
 
-        /// Claim reward from the specified market.
+        /// Claim inceitve reward for the specified market.
         ///
         /// - `asset_id`: Market related currency
         #[pallet::weight(<T as Config>::WeightInfo::claim_reward_for_market())]
@@ -941,7 +949,8 @@ pub mod pallet {
             Ok(().into())
         }
 
-        /// Sender supplies assets into the market and receives internal supplies in exchange.
+        /// The caller supplies (lends) assets into the market and receives a corresponding amount
+        /// of lend tokens, at the current internal exchange rate.
         ///
         /// - `asset_id`: the asset to be deposited.
         /// - `mint_amount`: the amount to be deposited.
@@ -959,10 +968,11 @@ pub mod pallet {
             Ok(().into())
         }
 
-        /// Sender redeems some of internal supplies in exchange for the underlying asset.
+        /// The caller redeems lend tokens for the underlying asset, at the current
+        /// internal exchange rate.
         ///
-        /// - `asset_id`: the asset to be redeemed.
-        /// - `redeem_amount`: the amount to be redeemed.
+        /// - `asset_id`: the asset to be redeemed
+        /// - `redeem_amount`: the amount to be redeemed, expressed in the underyling currency (`asset_id`)
         #[pallet::weight(<T as Config>::WeightInfo::redeem())]
         #[transactional]
         pub fn redeem(
@@ -989,7 +999,7 @@ pub mod pallet {
             Ok(().into())
         }
 
-        /// Sender redeems all of internal supplies in exchange for the underlying asset.
+        /// The caller redeems their entire lend token balance in exchange for the underlying asset.
         ///
         /// - `asset_id`: the asset to be redeemed.
         #[pallet::weight(<T as Config>::WeightInfo::redeem_all())]
@@ -1038,7 +1048,8 @@ pub mod pallet {
             Ok(().into())
         }
 
-        /// Sender borrows assets from the protocol to their own address.
+        /// The caller borrows `borrow_amount` of `asset_id` from the protocol, using their
+        /// supplied assets as collateral.
         ///
         /// - `asset_id`: the asset to be borrowed.
         /// - `borrow_amount`: the amount to be borrowed.
@@ -1057,10 +1068,10 @@ pub mod pallet {
             Ok(().into())
         }
 
-        /// Sender repays some of their debts.
+        /// The caller repays some of their debts.
         ///
         /// - `asset_id`: the asset to be repaid.
-        /// - `repay_amount`: the amount to be repaid.
+        /// - `repay_amount`: the amount to be repaid, in the underlying currency (`asset_id`).
         #[pallet::weight(<T as Config>::WeightInfo::repay_borrow())]
         #[transactional]
         pub fn repay_borrow(
@@ -1076,7 +1087,7 @@ pub mod pallet {
             Ok(().into())
         }
 
-        /// Sender repays all of their debts.
+        /// The caller repays all of their debts.
         ///
         /// - `asset_id`: the asset to be repaid.
         #[pallet::weight(<T as Config>::WeightInfo::repay_borrow_all())]
@@ -1092,6 +1103,17 @@ pub mod pallet {
             Ok(().into())
         }
 
+        /// Caller enables their lend token balance as borrow collateral. This operation locks
+        /// the lend tokens, so they are no longer transferrable.
+        /// Any incoming lend tokens into the caller's account (either by direct transfer or minting)
+        /// are automatically locked as well, such that locking and unlocking borrow collateral is
+        /// an atomic state (a "collateral toggle").
+        /// If any of the caller's lend token balance is locked elsewhere (for instance, as bridge vault
+        /// collateral), this operation will fail.
+        /// If this operation is successful, the caller's maximum allowed debt increases.
+        ///
+        /// - `asset_id`: the underlying asset denoting the market whose lend tokens are to be
+        /// enabled as collateral.
         #[pallet::weight(<T as Config>::WeightInfo::deposit_all_collateral())]
         #[transactional]
         pub fn deposit_all_collateral(origin: OriginFor<T>, asset_id: AssetIdOf<T>) -> DispatchResultWithPostInfo {
@@ -1106,6 +1128,13 @@ pub mod pallet {
             Ok(().into())
         }
 
+        /// Caller disables their lend token balance as borrow collateral. This operation unlocks
+        /// the lend tokens, so they become transferrable.
+        /// This operation can only succeed if the caller's debt is backed by sufficient collateral
+        /// excluding this currency.
+        ///
+        /// - `asset_id`: the underlying asset denoting the market whose lend tokens are to be
+        /// disabled as collateral.
         #[pallet::weight(<T as Config>::WeightInfo::withdraw_all_collateral())]
         #[transactional]
         pub fn withdraw_all_collateral(origin: OriginFor<T>, asset_id: AssetIdOf<T>) -> DispatchResultWithPostInfo {
@@ -1118,12 +1147,19 @@ pub mod pallet {
             Ok(().into())
         }
 
-        /// The sender liquidates the borrower's collateral.
+        /// The caller liquidates the borrower's collateral. This extrinsic may need to be called multiple
+        /// times to completely clear the borrower's bad debt, because of the `close_factor` parameter in
+        /// the market. See the `close_factor_may_require_multiple_liquidations_to_clear_bad_debt` unit
+        /// test for an example of this.
         ///
         /// - `borrower`: the borrower to be liquidated.
-        /// - `liquidation_asset_id`: the assert to be liquidated.
-        /// - `repay_amount`: the amount to be repaid borrow.
-        /// - `collateral_asset_id`: The collateral to seize from the borrower.
+        /// - `liquidation_asset_id`: the underlying asset to be liquidated.
+        /// - `repay_amount`: the amount of `liquidation_asset_id` to be repaid. This parameter can only
+        /// be as large as the `close_factor` market parameter allows
+        /// (`close_factor * borrower_debt_in_liquidation_asset`).
+        /// - `collateral_asset_id`: The underlying currency whose lend tokens to seize from the borrower.
+        /// Note that the liquidator has to redeem the received lend tokens from the market to convert them
+        /// to `collateral_asset_id`.
         #[pallet::weight(<T as Config>::WeightInfo::liquidate_borrow())]
         #[transactional]
         pub fn liquidate_borrow(
@@ -1142,6 +1178,9 @@ pub mod pallet {
         }
 
         /// Add reserves by transferring from payer.
+        /// TODO: This extrinsic currently does nothing useful. See the TODO comment
+        /// of the `ensure_enough_cash` function for more details. Based on that
+        /// TODO, decide whether this extrinsic should be kept.
         ///
         /// May only be called from `T::ReserveOrigin`.
         ///
@@ -1180,7 +1219,7 @@ pub mod pallet {
             Ok(().into())
         }
 
-        /// Reduces reserves by transferring to receiver.
+        /// Reduces reserves (treasury's share of accrued interest) by transferring to receiver.
         ///
         /// May only be called from `T::ReserveOrigin`.
         ///
@@ -1377,7 +1416,7 @@ impl<T: Config> Pallet<T> {
     }
 
     /// Checks if the redeemer should be allowed to redeem tokens in given market.
-    /// Takes into account both `free` and `locked` (i.e. deposited as collateral) lend_tokens.
+    /// Takes into account both `free` and `locked` (i.e. deposited as collateral) lend_tokens of the redeemer.
     fn redeem_allowed(asset_id: AssetIdOf<T>, redeemer: &T::AccountId, voucher_amount: BalanceOf<T>) -> DispatchResult {
         log::trace!(
             target: "loans::redeem_allowed",
@@ -1396,6 +1435,11 @@ impl<T: Config> Pallet<T> {
         let redeem_amount = Self::calc_underlying_amount(voucher_amount, exchange_rate)?;
         Self::ensure_enough_cash(asset_id, redeem_amount)?;
 
+        // TODO: Only free lend tokens are redeemable. Replace logic below with this:
+        // if voucher_amount > Self::free_lend_tokens(asset_id, redeemer)?.amount() {
+        //     return Err(...);
+        // }
+
         // Ensure that withdrawing deposited collateral doesn't leave the user undercollateralized.
         let collateral_amount = voucher_amount.saturating_sub(Self::free_lend_tokens(asset_id, redeemer)?.amount());
         let collateral_underlying_amount = Self::calc_underlying_amount(collateral_amount, exchange_rate)?;
@@ -1410,7 +1454,6 @@ impl<T: Config> Pallet<T> {
         );
 
         Self::ensure_liquidity(redeemer, redeem_effects_value)?;
-
         Ok(())
     }
 
@@ -1444,7 +1487,7 @@ impl<T: Config> Pallet<T> {
         Ok(redeem_amount)
     }
 
-    /// Borrower shouldn't borrow more than his total collateral value
+    /// Borrower shouldn't borrow more than their total collateral value allows
     fn borrow_allowed(asset_id: AssetIdOf<T>, borrower: &T::AccountId, borrow_amount: BalanceOf<T>) -> DispatchResult {
         Self::ensure_under_borrow_cap(asset_id, borrow_amount)?;
         Self::ensure_enough_cash(asset_id, borrow_amount)?;
@@ -1475,9 +1518,9 @@ impl<T: Config> Pallet<T> {
             .ok_or(ArithmeticError::Underflow)?;
         let total_borrows = Self::total_borrows(asset_id);
         // NOTE: `total_borrows()` uses `u128` to calculate accrued interest,
-        // while `current_borrow_balance()` uses `FixedU128` to calculate accrued interest.
-        // As a result, when a user repays all borrows, `total_borrows` can be less than `account_borrows`
-        // which would cause a `checked_sub` to fail with `ArithmeticError::Underflow`.
+        // while `current_borrow_balance()` uses a `FixedU128` (the `BorrowSnapshot`) to calculate accrued interest.
+        // As a result, when a user repays all borrows, `total_borrows` may be less than `account_borrows`
+        // due to rounding, which would cause a `checked_sub` to fail with `ArithmeticError::Underflow`.
         // Use `saturating_sub` instead here:
         let total_borrows_new = total_borrows.saturating_sub(repay_amount);
         AccountBorrows::<T>::insert(
@@ -1525,6 +1568,7 @@ impl<T: Config> Pallet<T> {
             repay_amount,
             market
         );
+        // The account's shortfall, as calculated using the liquidation threshold, should be non-zero
         if Self::get_account_liquidation_threshold_liquidity(borrower)?
             .shortfall()
             .is_zero()
@@ -1532,7 +1576,7 @@ impl<T: Config> Pallet<T> {
             return Err(Error::<T>::InsufficientShortfall.into());
         }
 
-        // The liquidator may not repay more than 50%(close_factor) of the borrower's borrow balance.
+        // The liquidator may not repay more than 50% (close_factor) of the borrower's borrow balance.
         let account_borrows = Self::current_borrow_balance(borrower, liquidation_asset_id)?;
         let account_borrows_value = Self::get_asset_value(liquidation_asset_id, account_borrows)?.amount();
         let repay_value = Self::get_asset_value(liquidation_asset_id, repay_amount)?.amount();
@@ -1545,13 +1589,13 @@ impl<T: Config> Pallet<T> {
     }
 
     /// Note:
-    /// - liquidation_asset_id is borrower's debt asset.
-    /// - collateral_asset_id is borrower's collateral asset.
-    /// - repay_amount is amount of liquidation_asset_id
+    /// - `liquidation_asset_id` is borrower's debt asset.
+    /// - `collateral_asset_id` is borrower's collateral asset.
+    /// - `repay_amount` is amount of liquidation_asset_id
     ///
     /// The liquidator will repay a certain amount of liquidation_asset_id from own
     /// account for borrower. Then the protocol will reduce borrower's debt
-    /// and liquidator will receive collateral_asset_id(as voucher amount) from
+    /// and liquidator will receive collateral_asset_id (as voucher amount) from
     /// borrower.
     #[require_transactional]
     pub fn do_liquidate_borrow(
@@ -1580,7 +1624,7 @@ impl<T: Config> Pallet<T> {
             .ok_or(ArithmeticError::Overflow)?;
 
         let collateral_value = Self::get_asset_value(collateral_asset_id, borrower_deposit_amount)?;
-        // liquidate_value contains the incentive of liquidator and the punishment of the borrower
+        // liquidate_value includes the premium of the liquidator
         let liquidate_value = Self::get_asset_value(liquidation_asset_id, repay_amount)?
             .checked_fixed_point_mul(&market.liquidate_incentive)?;
 
@@ -1588,10 +1632,9 @@ impl<T: Config> Pallet<T> {
             return Err(Error::<T>::InsufficientCollateral.into());
         }
 
-        // Calculate the collateral will get
+        // Calculate the collateral amount to seize from the borrower
         let real_collateral_underlying_amount = liquidate_value.convert_to(collateral_asset_id)?.amount();
 
-        //inside transfer token
         Self::liquidated_transfer(
             &liquidator,
             &borrower,
@@ -1631,12 +1674,12 @@ impl<T: Config> Pallet<T> {
         Self::update_reward_borrow_index(liquidation_asset_id)?;
         Self::distribute_borrower_reward(liquidation_asset_id, liquidator)?;
 
-        // 1.liquidator repay borrower's debt,
+        // 1.liquidator repays borrower's debt,
         // transfer from liquidator to module account
         let amount_to_transfer: Amount<T> = Amount::new(repay_amount, liquidation_asset_id);
         amount_to_transfer.transfer(liquidator, &Self::account_id())?;
 
-        // 2.the system reduce borrower's debt
+        // 2.the system reduces borrower's debt
         let account_borrows = Self::current_borrow_balance(borrower, liquidation_asset_id)?;
         let account_borrows_new = account_borrows
             .checked_sub(repay_amount)
@@ -1732,7 +1775,7 @@ impl<T: Config> Pallet<T> {
             .ok_or_else(|| Error::<T>::MarketNotActivated.into())
     }
 
-    /// Ensure market is enough to supply `amount` asset.
+    /// Ensure supplying `amount` asset does not exceed the market's supply cap.
     fn ensure_under_supply_cap(asset_id: AssetIdOf<T>, amount: BalanceOf<T>) -> DispatchResult {
         let market = Self::market(asset_id)?;
         // Assets holded by market currently.
@@ -1743,7 +1786,7 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
-    /// Make sure the borrowing under the borrow cap
+    /// Ensure borrowing `amount` asset does not exceed the market's borrow cap.
     fn ensure_under_borrow_cap(asset_id: AssetIdOf<T>, amount: BalanceOf<T>) -> DispatchResult {
         let market = Self::market(asset_id)?;
         let total_borrows = Self::total_borrows(asset_id);
@@ -1757,6 +1800,18 @@ impl<T: Config> Pallet<T> {
     }
 
     /// Make sure there is enough cash available in the pool
+    /// TODO: Compared to Compound's implementation, it seems like
+    /// this function should not subtract the total reserves from the total cash,
+    /// possibly to allow the treasury to deposit liquidity and enable users to exit
+    /// their lend token positions in case of 100% utilization in the market.
+    /// Decide if this function needs to be modified as such, or remove the `add_reserves`
+    /// extrinsic since it currently does nothing useful.
+    ///
+    /// See the redeem check in Compound V2 (also the borrow check):
+    /// - `getCashPrior() > redeemAmount`:
+    /// https://github.com/compound-finance/compound-protocol/blob/a3214f67b73310d547e00fc578e8355911c9d376/contracts/CToken.sol#L518
+    /// - but getCashPrior is the entire balance of the contract:
+    /// https://github.com/compound-finance/compound-protocol/blob/a3214f67b73310d547e00fc578e8355911c9d376/contracts/CToken.sol#L1125
     fn ensure_enough_cash(asset_id: AssetIdOf<T>, amount: BalanceOf<T>) -> DispatchResult {
         let reducible_cash = Self::get_total_cash(asset_id)
             .checked_sub(Self::total_reserves(asset_id))
@@ -1768,7 +1823,7 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
-    // Ensures a given `lend_token_id` is unique in `Markets` and `UnderlyingAssetId`.
+    /// Ensures a given `lend_token_id` is unique in `Markets` and `UnderlyingAssetId`.
     fn ensure_lend_token(lend_token_id: CurrencyId) -> DispatchResult {
         // The lend_token id is unique, cannot be repeated
         ensure!(
@@ -1785,10 +1840,10 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
-    // Ensures that `account` have sufficient liquidity to move your assets
-    // Returns `Err` If InsufficientLiquidity
-    // `account`: account that need a liquidity check
-    // `reduce_amount`: values that will have an impact on liquidity
+    /// Ensures that `account` has sufficient liquidity to cover a withdrawal
+    /// Returns `Err` If InsufficientLiquidity
+    /// `account`: account that need a liquidity check
+    /// `reduce_amount`: values that will have an impact on liquidity
     fn ensure_liquidity(account: &T::AccountId, reduce_amount: Amount<T>) -> DispatchResult {
         if Self::get_account_liquidity(account)?.liquidity().ge(&reduce_amount)? {
             return Ok(());
@@ -1796,6 +1851,7 @@ impl<T: Config> Pallet<T> {
         Err(Error::<T>::InsufficientLiquidity.into())
     }
 
+    /// Convert an amount of lend tokens to their underlying currency
     pub fn calc_underlying_amount(
         voucher_amount: BalanceOf<T>,
         exchange_rate: Rate,
@@ -1805,6 +1861,7 @@ impl<T: Config> Pallet<T> {
             .ok_or(ArithmeticError::Overflow)?)
     }
 
+    /// Convert an amount of underlying currency to the associated lend token
     pub fn calc_collateral_amount(
         underlying_amount: BalanceOf<T>,
         exchange_rate: Rate,
@@ -1815,17 +1872,18 @@ impl<T: Config> Pallet<T> {
             .ok_or(ArithmeticError::Underflow)?)
     }
 
+    /// Transferrable balance in the pallet account (`free - frozen`)
     fn get_total_cash(asset_id: AssetIdOf<T>) -> BalanceOf<T> {
         orml_tokens::Pallet::<T>::reducible_balance(asset_id, &Self::account_id(), true)
     }
 
     /// Get the total balance of `who`.
-    /// Ignores any frozen balance of this account.
+    /// Ignores any frozen balance of this account (`free + reserved`)
     fn balance(asset_id: AssetIdOf<T>, who: &T::AccountId) -> BalanceOf<T> {
         <orml_tokens::Pallet<T> as MultiCurrency<T::AccountId>>::total_balance(asset_id, who)
     }
 
-    /// Total supply of lending tokens (lend_tokens), given the underlying
+    /// Total issuance of lending tokens (lend_tokens), given the underlying
     pub fn total_supply(asset_id: AssetIdOf<T>) -> Result<BalanceOf<T>, DispatchError> {
         let lend_token_id = Self::lend_token_id(asset_id)?;
         Ok(orml_tokens::Pallet::<T>::total_issuance(lend_token_id))
