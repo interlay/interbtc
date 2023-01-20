@@ -77,6 +77,7 @@ xcm-executor = { git = "https://github.com/paritytech/polkadot", branch = "relea
 pallet-xcm = { git = "https://github.com/paritytech/polkadot", branch = "release-v0.9.31", default-features = false }
 
 # Parachain dependencies
+runtime-common = {path = "../common", default-features = false }
 btc-relay = { path = "../../../crates/btc-relay", default-features = false }
 currency = { path = "../../../crates/currency", default-features = false }
 security = { path = "../../../crates/security", default-features = false }
@@ -192,6 +193,7 @@ std = [
   "xcm-executor/std",
   "pallet-xcm/std",
 
+  "runtime-common/std",
   "btc-relay/std",
   "currency/std",
   "security/std",
@@ -277,6 +279,7 @@ try-runtime = [
   "supply/try-runtime",
   "orml-vesting/try-runtime",
   "orml-asset-registry/try-runtime",
+  "runtime-common/try-runtime",
   "escrow/try-runtime",
   "annuity/try-runtime",
   "reward/try-runtime",

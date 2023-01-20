@@ -59,6 +59,7 @@ sp-consensus-aura = { git = "https://github.com/paritytech/substrate", branch = 
 pallet-authorship = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.31", default-features = false }
 
 # Parachain dependencies
+runtime-common = {path = "../../parachain/runtime/common", default-features = false }
 btc-relay = { path = "../../crates/btc-relay", default-features = false }
 currency = { path = "../../crates/currency", default-features = false }
 security = { path = "../../crates/security", default-features = false }
@@ -165,6 +166,7 @@ std = [
   "sp-consensus-aura/std",
   "pallet-authorship/std",
 
+  "runtime-common/std",
   "btc-relay/std",
   "currency/std",
   "security/std",

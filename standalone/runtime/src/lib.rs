@@ -1531,21 +1531,7 @@ impl_runtime_apis! {
         fn estimate_vault_reward_rate(
             vault_id: VaultId,
         ) -> Result<UnsignedFixedPoint, DispatchError> {
-            // distribute and withdraw previous rewards
-            Fee::distribute_vault_rewards(&vault_id, NATIVE_CURRENCY_ID)?;
-            <VaultStaking as reward::RewardsApi<(Option<Nonce>, VaultId), AccountId, Balance>>::withdraw_reward(&(None, vault_id.clone()), &vault_id.account_id, NATIVE_CURRENCY_ID)?;
-            // distribute rewards accrued over block count
-            let reward = VaultAnnuity::min_reward_per_block().saturating_mul(YEARS.into());
-            <VaultCapacity as reward::RewardsApi<(), CurrencyId, Balance>>::distribute_reward(&(), NATIVE_CURRENCY_ID, reward)?;
-            Amount::<Runtime>::new(reward, NATIVE_CURRENCY_ID).mint_to(&Fee::fee_pool_account_id())?;
-            // compute and convert rewards
-            let received = Fee::compute_vault_rewards(&vault_id, &vault_id.account_id, NATIVE_CURRENCY_ID)?;
-            let received_as_wrapped = Oracle::collateral_to_wrapped(received, NATIVE_CURRENCY_ID)?;
-            // convert collateral stake to same currency
-            let collateral = <VaultStaking as reward::RewardsApi<(Option<Nonce>, VaultId), AccountId, Balance>>::get_stake(&(None, vault_id.clone()), &vault_id.account_id)?;
-            let collateral_as_wrapped = Oracle::collateral_to_wrapped(collateral, vault_id.collateral_currency())?;
-            // rate is received / collateral
-            Ok(UnsignedFixedPoint::checked_from_rational(received_as_wrapped, collateral_as_wrapped).unwrap_or_default())
+            runtime_common::estimate_vault_reward_rate::<Runtime, VaultAnnuityInstance, VaultStaking, VaultCapacity, _>(vault_id)
         }
     }
 
