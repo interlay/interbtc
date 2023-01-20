@@ -189,15 +189,19 @@ fn transfer_lend_tokens_under_collateral_does_not_work() {
         // Repay 40 KINT
         assert_ok!(Loans::repay_borrow(RuntimeOrigin::signed(DAVE), KINT, unit(40)));
 
-        // Allowed to redeem 20 lend_tokens
-        assert_ok!(Loans::redeem_allowed(KINT, &DAVE, unit(20) * 50,));
-        // Not allowed to transfer the same 20 lend_tokens because they are locked
+        // Not allowed to redeem 20 lend_tokens because they are locked
+        assert_noop!(
+            Loans::redeem_allowed(KINT, &DAVE, unit(20) * 50),
+            Error::<Test>::LockedTokensCannotBeRedeemed
+        );
+        // Not allowed to transfer 20 lend_tokens because they are locked
         assert_noop!(
             Loans::transfer(LEND_KINT, &DAVE, &ALICE, unit(20) * 50, true),
             Error::<Test>::InsufficientCollateral
         );
         // First, withdraw some tokens. Note that directly withdrawing part of the locked
-        // lend_tokens is not possible through extrinsics.
+        // lend_tokens is not possible through extrinsics. Users can only withdraw the full
+        // amount for a currency via extrinsics, to enforce the collateral toggle.
         assert_ok!(Loans::do_withdraw_collateral(&DAVE, LEND_KINT, unit(20) * 50));
         // Check entries from orml-tokens directly
         assert_eq!(free_balance(LEND_KINT, &DAVE), unit(20) * 50);

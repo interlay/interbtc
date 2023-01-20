@@ -21,7 +21,7 @@ mod lend_tokens;
 mod liquidate_borrow;
 mod market;
 
-use currency::CurrencyConversion;
+use currency::{Amount, CurrencyConversion};
 use frame_support::{assert_noop, assert_ok};
 
 use mocktopus::mocking::Mockable;
@@ -256,13 +256,24 @@ fn redeem_allowed_works() {
         assert_eq!(Loans::free_lend_tokens(KSM, &ALICE).unwrap().is_zero(), true);
         // Borrow 50 DOT will reduce 100 KSM liquidity for collateral_factor is 50%
         assert_ok!(Loans::borrow(RuntimeOrigin::signed(ALICE), DOT, 50));
-        // Redeem 101 KSM should cause InsufficientLiquidity
+        // Redeeming is not allowed because the user has no `free` lend tokens
         assert_noop!(
             Loans::redeem_allowed(KSM, &ALICE, 5050),
+            Error::<Test>::LockedTokensCannotBeRedeemed
+        );
+        // However, the redeem extrinsic withdraws collateral first, if the account has
+        // enough liquidity.
+        // The `withdraw` call in `redeem` should cause InsufficientLiquidity for 101 KSM
+        assert_noop!(
+            Loans::redeem(RuntimeOrigin::signed(ALICE), KSM, 101),
             Error::<Test>::InsufficientLiquidity
         );
-        // Redeem 100 KSM is ok
-        assert_ok!(Loans::redeem_allowed(KSM, &ALICE, 5000));
+        // Redeeming 100 KSM is ok because the withdrawal succeds (the user has enough backing liquidity)
+        assert_ok!(Loans::redeem(
+            RuntimeOrigin::signed(ALICE),
+            KSM,
+            100
+        ));
     })
 }
 
