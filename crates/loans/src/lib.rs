@@ -1195,13 +1195,12 @@ pub mod pallet {
             Ok(().into())
         }
 
-        /// Add reserves by transferring from payer.
-        /// TODO: This extrinsic currently does nothing useful. See the TODO comment
-        /// of the `ensure_enough_cash` function for more details. Based on that
-        /// TODO, decide whether this extrinsic should be kept.
+        /// Add reserves by transferring from payer. This is useful because the reserve balance can be used as
+        /// cash for redeeming. In case the market reaches 100% utilization, the protocol can deposit
+        /// more cash to the reserve, to allow users to exit (redeem) their lend token positions.
+        /// The reserve cash cannot be used for borrowing.
         ///
         /// May only be called from `T::ReserveOrigin`.
-        ///
         /// - `payer`: the payer account.
         /// - `asset_id`: the assets to be added.
         /// - `add_amount`: the amount to be added.
@@ -1454,7 +1453,9 @@ impl<T: Config> Pallet<T> {
         // Ensure there is enough cash in the market
         let exchange_rate = Self::exchange_rate_stored(asset_id)?;
         let redeem_amount = Self::calc_underlying_amount(voucher_amount, exchange_rate)?;
-        Self::ensure_enough_cash(asset_id, redeem_amount)?;
+        if Self::get_total_cash(asset_id) < redeem_amount {
+            return Err(Error::<T>::InsufficientCash.into());
+        }
 
         // TODO: Only free lend tokens are redeemable. Replace logic below with this:
         // if voucher_amount > Self::free_lend_tokens(asset_id, redeemer)?.amount() {
@@ -1511,7 +1512,7 @@ impl<T: Config> Pallet<T> {
     /// Borrower shouldn't borrow more than their total collateral value allows
     fn borrow_allowed(asset_id: AssetIdOf<T>, borrower: &T::AccountId, borrow_amount: BalanceOf<T>) -> DispatchResult {
         Self::ensure_under_borrow_cap(asset_id, borrow_amount)?;
-        Self::ensure_enough_cash(asset_id, borrow_amount)?;
+        Self::ensure_borrow_cash(asset_id, borrow_amount)?;
         let borrow_value = Self::get_asset_value(asset_id, borrow_amount)?;
         Self::ensure_liquidity(borrower, borrow_value)?;
 
@@ -1833,7 +1834,7 @@ impl<T: Config> Pallet<T> {
     /// https://github.com/compound-finance/compound-protocol/blob/a3214f67b73310d547e00fc578e8355911c9d376/contracts/CToken.sol#L518
     /// - but getCashPrior is the entire balance of the contract:
     /// https://github.com/compound-finance/compound-protocol/blob/a3214f67b73310d547e00fc578e8355911c9d376/contracts/CToken.sol#L1125
-    fn ensure_enough_cash(asset_id: AssetIdOf<T>, amount: BalanceOf<T>) -> DispatchResult {
+    fn ensure_borrow_cash(asset_id: AssetIdOf<T>, amount: BalanceOf<T>) -> DispatchResult {
         let reducible_cash = Self::get_total_cash(asset_id)
             .checked_sub(Self::total_reserves(asset_id))
             .ok_or(ArithmeticError::Underflow)?;

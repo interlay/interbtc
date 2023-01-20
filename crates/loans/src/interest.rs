@@ -129,8 +129,9 @@ impl<T: Config> Pallet<T> {
     }
 
     /// Calculate the borrowing utilization ratio of the specified market
-    ///
-    /// utilizationRatio = totalBorrows / (totalCash + totalBorrows − totalReserves)
+    /// `utilization_ratio = borrows / (cash + borrows - reserve)`
+    /// Since the market can reach a state where `cash == 0 && borrows == reserve`,
+    /// this rate can be infinitely large.
     pub(crate) fn calc_utilization_ratio(
         cash: BalanceOf<T>,
         borrows: BalanceOf<T>,
@@ -145,6 +146,9 @@ impl<T: Config> Pallet<T> {
             .and_then(|r| r.checked_sub(reserves))
             .ok_or(ArithmeticError::Overflow)?;
 
+        if total.is_zero() {
+            return Err(DispatchError::Arithmetic(ArithmeticError::DivisionByZero));
+        }
         Ok(Ratio::from_rational(borrows, total))
     }
 
