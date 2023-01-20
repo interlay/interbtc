@@ -166,7 +166,10 @@ impl Contains<RuntimeCall> for BaseCallFilter {
         if matches!(
             call,
             RuntimeCall::System(_)
+                | RuntimeCall::Authorship(_)
+                | RuntimeCall::Session(_)
                 | RuntimeCall::Timestamp(_)
+                | RuntimeCall::ParachainSystem(_)
                 | RuntimeCall::Sudo(_)
                 | RuntimeCall::Democracy(_)
                 | RuntimeCall::Escrow(_)
