@@ -627,6 +627,7 @@ pub mod pallet {
         ///
         /// - `asset_id`: Currency to enable lending and borrowing for.
         /// - `market`: Configuration of the new lending market
+        #[pallet::call_index(0)]
         #[pallet::weight(<T as Config>::WeightInfo::add_market())]
         #[transactional]
         pub fn add_market(
@@ -696,6 +697,7 @@ pub mod pallet {
         /// If the market is already active, does nothing.
         ///
         /// - `asset_id`: Currency to enable lending and borrowing for.
+        #[pallet::call_index(1)]
         #[pallet::weight(<T as Config>::WeightInfo::activate_market())]
         #[transactional]
         pub fn activate_market(origin: OriginFor<T>, asset_id: AssetIdOf<T>) -> DispatchResultWithPostInfo {
@@ -720,6 +722,7 @@ pub mod pallet {
         ///
         /// - `asset_id`: Market currency
         /// - `rate_model`: The new rate model to set
+        #[pallet::call_index(2)]
         #[pallet::weight(<T as Config>::WeightInfo::update_rate_model())]
         #[transactional]
         pub fn update_rate_model(
@@ -752,6 +755,7 @@ pub mod pallet {
         /// - `liquidate_incentive`: liquidation incentive ratio
         /// - `supply_cap`: Upper bound of supplying
         /// - `borrow_cap`: Upper bound of borrowing
+        #[pallet::call_index(3)]
         #[pallet::weight(<T as Config>::WeightInfo::update_market())]
         #[transactional]
         pub fn update_market(
@@ -823,6 +827,7 @@ pub mod pallet {
         ///
         /// - `asset_id`: market related currency
         /// - `market`: Configuration of the new lending market
+        #[pallet::call_index(4)]
         #[pallet::weight(<T as Config>::WeightInfo::force_update_market())]
         #[transactional]
         pub fn force_update_market(
@@ -854,6 +859,7 @@ pub mod pallet {
         /// Deposit incentive reward currency into the pallet account.
         ///
         /// - `amount`: Reward amount added
+        #[pallet::call_index(5)]
         #[pallet::weight(<T as Config>::WeightInfo::add_reward())]
         #[transactional]
         pub fn add_reward(origin: OriginFor<T>, amount: BalanceOf<T>) -> DispatchResultWithPostInfo {
@@ -878,6 +884,7 @@ pub mod pallet {
         /// - `asset_id`: Market related currency
         /// - `supply_reward_per_block`: supply reward amount per block.
         /// - `borrow_reward_per_block`: borrow reward amount per block.
+        #[pallet::call_index(6)]
         #[pallet::weight(<T as Config>::WeightInfo::update_market_reward_speed())]
         #[transactional]
         pub fn update_market_reward_speed(
@@ -920,6 +927,7 @@ pub mod pallet {
         }
 
         /// Claim incentive rewards for all markets.
+        #[pallet::call_index(7)]
         #[pallet::weight(<T as Config>::WeightInfo::claim_reward())]
         #[transactional]
         pub fn claim_reward(origin: OriginFor<T>) -> DispatchResultWithPostInfo {
@@ -937,6 +945,7 @@ pub mod pallet {
         /// Claim inceitve reward for the specified market.
         ///
         /// - `asset_id`: Market related currency
+        #[pallet::call_index(8)]
         #[pallet::weight(<T as Config>::WeightInfo::claim_reward_for_market())]
         #[transactional]
         pub fn claim_reward_for_market(origin: OriginFor<T>, asset_id: AssetIdOf<T>) -> DispatchResultWithPostInfo {
@@ -954,6 +963,7 @@ pub mod pallet {
         ///
         /// - `asset_id`: the asset to be deposited.
         /// - `mint_amount`: the amount to be deposited.
+        #[pallet::call_index(9)]
         #[pallet::weight(<T as Config>::WeightInfo::mint())]
         #[transactional]
         pub fn mint(
@@ -973,6 +983,7 @@ pub mod pallet {
         ///
         /// - `asset_id`: the asset to be redeemed
         /// - `redeem_amount`: the amount to be redeemed, expressed in the underyling currency (`asset_id`)
+        #[pallet::call_index(10)]
         #[pallet::weight(<T as Config>::WeightInfo::redeem())]
         #[transactional]
         pub fn redeem(
@@ -1002,6 +1013,7 @@ pub mod pallet {
         /// The caller redeems their entire lend token balance in exchange for the underlying asset.
         ///
         /// - `asset_id`: the asset to be redeemed.
+        #[pallet::call_index(11)]
         #[pallet::weight(<T as Config>::WeightInfo::redeem_all())]
         #[transactional]
         pub fn redeem_all(origin: OriginFor<T>, asset_id: AssetIdOf<T>) -> DispatchResultWithPostInfo {
@@ -1053,6 +1065,7 @@ pub mod pallet {
         ///
         /// - `asset_id`: the asset to be borrowed.
         /// - `borrow_amount`: the amount to be borrowed.
+        #[pallet::call_index(12)]
         #[pallet::weight(<T as Config>::WeightInfo::borrow())]
         #[transactional]
         pub fn borrow(
@@ -1072,6 +1085,7 @@ pub mod pallet {
         ///
         /// - `asset_id`: the asset to be repaid.
         /// - `repay_amount`: the amount to be repaid, in the underlying currency (`asset_id`).
+        #[pallet::call_index(13)]
         #[pallet::weight(<T as Config>::WeightInfo::repay_borrow())]
         #[transactional]
         pub fn repay_borrow(
@@ -1090,6 +1104,7 @@ pub mod pallet {
         /// The caller repays all of their debts.
         ///
         /// - `asset_id`: the asset to be repaid.
+        #[pallet::call_index(14)]
         #[pallet::weight(<T as Config>::WeightInfo::repay_borrow_all())]
         #[transactional]
         pub fn repay_borrow_all(origin: OriginFor<T>, asset_id: AssetIdOf<T>) -> DispatchResultWithPostInfo {
@@ -1114,6 +1129,7 @@ pub mod pallet {
         ///
         /// - `asset_id`: the underlying asset denoting the market whose lend tokens are to be
         /// enabled as collateral.
+        #[pallet::call_index(15)]
         #[pallet::weight(<T as Config>::WeightInfo::deposit_all_collateral())]
         #[transactional]
         pub fn deposit_all_collateral(origin: OriginFor<T>, asset_id: AssetIdOf<T>) -> DispatchResultWithPostInfo {
@@ -1135,6 +1151,7 @@ pub mod pallet {
         ///
         /// - `asset_id`: the underlying asset denoting the market whose lend tokens are to be
         /// disabled as collateral.
+        #[pallet::call_index(16)]
         #[pallet::weight(<T as Config>::WeightInfo::withdraw_all_collateral())]
         #[transactional]
         pub fn withdraw_all_collateral(origin: OriginFor<T>, asset_id: AssetIdOf<T>) -> DispatchResultWithPostInfo {
@@ -1160,6 +1177,7 @@ pub mod pallet {
         /// - `collateral_asset_id`: The underlying currency whose lend tokens to seize from the borrower.
         /// Note that the liquidator has to redeem the received lend tokens from the market to convert them
         /// to `collateral_asset_id`.
+        #[pallet::call_index(17)]
         #[pallet::weight(<T as Config>::WeightInfo::liquidate_borrow())]
         #[transactional]
         pub fn liquidate_borrow(
@@ -1187,6 +1205,7 @@ pub mod pallet {
         /// - `payer`: the payer account.
         /// - `asset_id`: the assets to be added.
         /// - `add_amount`: the amount to be added.
+        #[pallet::call_index(18)]
         #[pallet::weight(<T as Config>::WeightInfo::add_reserves())]
         #[transactional]
         pub fn add_reserves(
@@ -1226,6 +1245,7 @@ pub mod pallet {
         /// - `receiver`: the receiver account.
         /// - `asset_id`: the assets to be reduced.
         /// - `reduce_amount`: the amount to be reduced.
+        #[pallet::call_index(19)]
         #[pallet::weight(<T as Config>::WeightInfo::reduce_reserves())]
         #[transactional]
         pub fn reduce_reserves(
@@ -1266,6 +1286,7 @@ pub mod pallet {
         ///
         /// - `asset_id`: the asset to be redeemed.
         /// - `redeem_amount`: the amount to be redeemed.
+        #[pallet::call_index(20)]
         #[pallet::weight(<T as Config>::WeightInfo::reduce_incentive_reserves())]
         #[transactional]
         pub fn reduce_incentive_reserves(

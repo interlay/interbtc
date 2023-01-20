@@ -254,6 +254,7 @@ pub mod pallet {
     // The pallet's dispatchable functions.
     #[pallet::call]
     impl<T: Config> Pallet<T> {
+        #[pallet::call_index(0)]
         #[pallet::weight(<T as Config>::WeightInfo::create_lock())]
         #[transactional]
         pub fn create_lock(
@@ -284,6 +285,7 @@ pub mod pallet {
             Self::deposit_for(&who, amount, unlock_height)
         }
 
+        #[pallet::call_index(1)]
         #[pallet::weight(<T as Config>::WeightInfo::increase_amount())]
         #[transactional]
         pub fn increase_amount(origin: OriginFor<T>, #[pallet::compact] amount: BalanceOf<T>) -> DispatchResult {
@@ -303,6 +305,7 @@ pub mod pallet {
             Self::deposit_for(&who, amount, Zero::zero()).into()
         }
 
+        #[pallet::call_index(2)]
         #[pallet::weight(<T as Config>::WeightInfo::increase_unlock_height())]
         #[transactional]
         pub fn increase_unlock_height(origin: OriginFor<T>, unlock_height: T::BlockNumber) -> DispatchResult {
@@ -330,6 +333,7 @@ pub mod pallet {
             Self::deposit_for(&who, Zero::zero(), unlock_height)
         }
 
+        #[pallet::call_index(3)]
         #[pallet::weight(<T as Config>::WeightInfo::withdraw())]
         #[transactional]
         pub fn withdraw(origin: OriginFor<T>) -> DispatchResult {
@@ -337,6 +341,7 @@ pub mod pallet {
             Self::remove_lock(&who)
         }
 
+        #[pallet::call_index(4)]
         #[pallet::weight(0)]
         #[transactional]
         pub fn set_account_limit(
@@ -350,6 +355,7 @@ pub mod pallet {
             Ok(().into())
         }
 
+        #[pallet::call_index(5)]
         #[pallet::weight(0)]
         #[transactional]
         pub fn set_account_block(origin: OriginFor<T>, who: T::AccountId) -> DispatchResultWithPostInfo {

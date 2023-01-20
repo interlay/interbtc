@@ -129,6 +129,7 @@ pub mod pallet {
         ///
         /// Total Complexity: O(1)
         /// # </weight>
+        #[pallet::call_index(0)]
         #[pallet::weight(<T as Config>::WeightInfo::initialize())]
         #[transactional]
         pub fn initialize(
@@ -175,6 +176,7 @@ pub mod pallet {
         ///
         /// Total Complexity: O(C + P)
         /// # </weight>
+        #[pallet::call_index(1)]
         #[pallet::weight(<T as Config>::WeightInfo::store_block_header())]
         #[transactional]
         pub fn store_block_header(
@@ -202,6 +204,7 @@ pub mod pallet {
         /// * `expected_btc` - expected amount of BTC (satoshis) sent to the recipient
         /// * `recipient_btc_address` - 20 byte Bitcoin address of recipient of the BTC in the 1st  / payment UTXO
         /// * `op_return_id` - 32 byte hash identifier expected in OP_RETURN (replay protection)
+        #[pallet::call_index(2)]
         #[pallet::weight(<T as Config>::WeightInfo::verify_and_validate_transaction())]
         #[transactional]
         pub fn verify_and_validate_transaction(
@@ -242,6 +245,7 @@ pub mod pallet {
         /// 	- One storage read to check stable bitcoin confirmations. O(1)
         /// 	- One storage read to check stable parachain confirmations. O(1)
         /// # </weight>
+        #[pallet::call_index(3)]
         #[pallet::weight(<T as Config>::WeightInfo::verify_transaction_inclusion())]
         #[transactional]
         pub fn verify_transaction_inclusion(
@@ -267,6 +271,7 @@ pub mod pallet {
         /// * `expected_btc` - expected amount of BTC (satoshis) sent to the recipient
         /// * `recipient_btc_address` - expected Bitcoin address of recipient (p2sh, p2pkh, p2wpkh)
         /// * `op_return_id` - 32 byte hash identifier expected in OP_RETURN (replay protection)
+        #[pallet::call_index(4)]
         #[pallet::weight(<T as Config>::WeightInfo::validate_transaction())]
         #[transactional]
         pub fn validate_transaction(

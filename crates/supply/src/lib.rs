@@ -132,6 +132,7 @@ pub mod pallet {
     // The pallet's dispatchable functions.
     #[pallet::call]
     impl<T: Config> Pallet<T> {
+        #[pallet::call_index(0)]
         #[pallet::weight(0)]
         #[transactional]
         pub fn set_start_height_and_inflation(

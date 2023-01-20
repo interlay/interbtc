@@ -117,6 +117,7 @@ pub fn new_partial(
         registry: config.prometheus_registry(),
         check_for_equivocation: Default::default(),
         telemetry: telemetry.as_ref().map(|x| x.handle()),
+        compatibility_mode: Default::default(),
     })?;
 
     Ok(sc_service::PartialComponents {
@@ -262,6 +263,7 @@ pub fn new_full(mut config: Configuration) -> Result<(TaskManager, RpcHandlers),
             block_proposal_slot_portion: SlotProportion::new(2f32 / 3f32),
             telemetry: telemetry.as_ref().map(|x| x.handle()),
             max_block_proposal_slot_portion: None,
+            compatibility_mode: Default::default(),
         })?;
 
         // the AURA authoring task is considered essential, i.e. if it

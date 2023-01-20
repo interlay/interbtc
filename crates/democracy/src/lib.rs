@@ -445,6 +445,7 @@ pub mod pallet {
         /// Emits `Proposed`.
         ///
         /// Weight: `O(p)`
+        #[pallet::call_index(0)]
         #[pallet::weight(T::WeightInfo::propose())]
         pub fn propose(
             origin: OriginFor<T>,
@@ -479,6 +480,7 @@ pub mod pallet {
         ///   weighted according to this value with no refund.
         ///
         /// Weight: `O(S)` where S is the number of seconds a proposal already has.
+        #[pallet::call_index(1)]
         #[pallet::weight(T::WeightInfo::second(*seconds_upper_bound))]
         pub fn second(
             origin: OriginFor<T>,
@@ -505,6 +507,7 @@ pub mod pallet {
         /// - `vote`: The vote configuration.
         ///
         /// Weight: `O(R)` where R is the number of referendums the voter has voted on.
+        #[pallet::call_index(2)]
         #[pallet::weight(
 			T::WeightInfo::vote_new(T::MaxVotes::get())
 				.max(T::WeightInfo::vote_existing(T::MaxVotes::get()))
@@ -528,6 +531,7 @@ pub mod pallet {
         /// Emits `Started` and `FastTrack`.
         ///
         /// Weight: `O(1)`
+        #[pallet::call_index(3)]
         #[pallet::weight(T::WeightInfo::fast_track())]
         pub fn fast_track(
             origin: OriginFor<T>,
@@ -548,6 +552,7 @@ pub mod pallet {
         /// Emits `Started` and `FastTrack`.
         ///
         /// Weight: `O(1)`
+        #[pallet::call_index(4)]
         #[pallet::weight(T::WeightInfo::fast_track())]
         pub fn fast_track_default(
             origin: OriginFor<T>,
@@ -567,6 +572,7 @@ pub mod pallet {
         /// Emits `FastTrackReferendum`.
         ///
         /// Weight: `O(1)`
+        #[pallet::call_index(5)]
         #[pallet::weight(T::WeightInfo::fast_track_referendum())]
         pub fn fast_track_referendum(origin: OriginFor<T>, #[pallet::compact] ref_index: PropIndex) -> DispatchResult {
             T::FastTrackOrigin::ensure_origin(origin)?;
@@ -589,6 +595,7 @@ pub mod pallet {
         /// - `ref_index`: The index of the referendum to cancel.
         ///
         /// # Weight: `O(1)`.
+        #[pallet::call_index(6)]
         #[pallet::weight(T::WeightInfo::cancel_referendum())]
         pub fn cancel_referendum(
             origin: OriginFor<T>,
@@ -606,6 +613,7 @@ pub mod pallet {
         /// - `which`: The index of the referendum to cancel.
         ///
         /// Weight: `O(D)` where `D` is the items in the dispatch queue. Weighted as `D = 10`.
+        #[pallet::call_index(7)]
         #[pallet::weight((T::WeightInfo::cancel_queued(10), DispatchClass::Operational))]
         pub fn cancel_queued(origin: OriginFor<T>, which: ReferendumIndex) -> DispatchResult {
             ensure_root(origin)?;
@@ -618,6 +626,7 @@ pub mod pallet {
         /// The dispatch origin of this call must be _Root_.
         ///
         /// Weight: `O(1)`.
+        #[pallet::call_index(8)]
         #[pallet::weight(T::WeightInfo::clear_public_proposals())]
         pub fn clear_public_proposals(origin: OriginFor<T>) -> DispatchResult {
             ensure_root(origin)?;
@@ -630,6 +639,7 @@ pub mod pallet {
         /// - `prop_index`: The index of the proposal to cancel.
         ///
         /// Weight: `O(p)` where `p = PublicProps::<T>::decode_len()`
+        #[pallet::call_index(9)]
         #[pallet::weight(T::WeightInfo::cancel_proposal(T::MaxProposals::get()))]
         #[transactional]
         pub fn cancel_proposal(origin: OriginFor<T>, #[pallet::compact] prop_index: PropIndex) -> DispatchResult {
@@ -667,6 +677,7 @@ pub mod pallet {
         /// Emits `PreimageNoted`.
         ///
         /// Weight: `O(E)` with E size of `encoded_proposal` (protected by a required deposit).
+        #[pallet::call_index(10)]
         #[pallet::weight(T::WeightInfo::note_preimage(encoded_proposal.len() as u32))]
         pub fn note_preimage(origin: OriginFor<T>, encoded_proposal: Vec<u8>) -> DispatchResult {
             Self::note_preimage_inner(ensure_signed(origin)?, encoded_proposal)?;
@@ -685,6 +696,7 @@ pub mod pallet {
         /// Emits `PreimageNoted`.
         ///
         /// Weight: `O(E)` with E size of `encoded_proposal` (protected by a required deposit).
+        #[pallet::call_index(11)]
         #[pallet::weight(T::WeightInfo::note_imminent_preimage(encoded_proposal.len() as u32))]
         pub fn note_imminent_preimage(origin: OriginFor<T>, encoded_proposal: Vec<u8>) -> DispatchResultWithPostInfo {
             Self::note_imminent_preimage_inner(ensure_signed(origin)?, encoded_proposal)?;
@@ -709,6 +721,7 @@ pub mod pallet {
         /// Emits `PreimageReaped`.
         ///
         /// Weight: `O(D)` where D is length of proposal.
+        #[pallet::call_index(12)]
         #[pallet::weight(T::WeightInfo::reap_preimage(*proposal_len_upper_bound))]
         pub fn reap_preimage(
             origin: OriginFor<T>,
@@ -760,6 +773,7 @@ pub mod pallet {
         ///
         /// Weight: `O(R + log R)` where R is the number of referenda that `target` has voted on.
         ///   Weight is calculated for the maximum number of vote.
+        #[pallet::call_index(13)]
         #[pallet::weight(T::WeightInfo::remove_vote(T::MaxVotes::get()))]
         pub fn remove_vote(origin: OriginFor<T>, index: ReferendumIndex) -> DispatchResult {
             let who = ensure_signed(origin)?;
@@ -767,6 +781,7 @@ pub mod pallet {
         }
 
         /// Enact a proposal from a referendum. For now we just make the weight be the maximum.
+        #[pallet::call_index(14)]
         #[pallet::weight(1000)]
         pub fn enact_proposal(origin: OriginFor<T>, proposal_hash: T::Hash, index: ReferendumIndex) -> DispatchResult {
             ensure_root(origin)?;
