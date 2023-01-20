@@ -15,10 +15,13 @@ sp_api::decl_runtime_apis! {
         BlockNumber: Codec,
         UnsignedFixedPoint: Codec,
     {
-        /// Get a given user's rewards due
+        /// Calculate the number of escrow rewards accrued
         fn compute_escrow_reward(account_id: AccountId, currency_id: CurrencyId) -> Result<BalanceWrapper<Balance>, DispatchError>;
 
-        /// Get a given vault's rewards due
+        /// Calculate the number of farming rewards accrued
+        fn compute_farming_reward(account_id: AccountId, pool_currency_id: CurrencyId, reward_currency_id: CurrencyId) -> Result<BalanceWrapper<Balance>, DispatchError>;
+
+        /// Calculate the number of vault rewards accrued
         fn compute_vault_reward(vault_id: VaultId, currency_id: CurrencyId) -> Result<BalanceWrapper<Balance>, DispatchError>;
 
         /// Estimate staking reward rate for a one year period
