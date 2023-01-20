@@ -3,10 +3,14 @@ use crate::assert_eq;
 use mock::*;
 
 use democracy::{PropIndex, ReferendumIndex, ReferendumInfo, ReferendumStatus, Tally, Vote, VoteThreshold};
-use frame_support::traits::{Currency, Hooks};
+use frame_support::{
+    assert_err_ignore_postinfo,
+    traits::{Currency, GetCallMetadata, Hooks},
+};
 use orml_vesting::VestingSchedule;
 use sp_core::{Encode, Hasher};
 use sp_runtime::traits::BlakeTwo256;
+use tx_pause::FullNameOf;
 
 type DemocracyCall = democracy::Call<Runtime>;
 type DemocracyPallet = democracy::Pallet<Runtime>;
@@ -168,67 +172,141 @@ fn launch_and_execute_referendum() {
     SchedulerPallet::on_initialize(act_height);
 }
 
-#[test]
-fn can_recover_from_shutdown_using_governance() {
-    test_with(|| {
-        // use sudo to set parachain status
-        assert_ok!(RuntimeCall::Sudo(SudoCall::sudo {
-            call: Box::new(RuntimeCall::Security(SecurityCall::set_parachain_status {
-                status_code: StatusCode::Shutdown,
-            })),
-        })
-        .dispatch(origin_of(account_of(ALICE))));
-        assert!(SecurityPallet::is_parachain_shutdown());
+fn full_name(pallet_name_bytes: &[u8], maybe_call_name_bytes: Option<&[u8]>) -> FullNameOf<Runtime> {
+    match maybe_call_name_bytes {
+        Some(call_name_bytes) => <FullNameOf<Runtime>>::from((
+            pallet_name_bytes.to_vec().try_into().unwrap(),
+            Some(call_name_bytes.to_vec().try_into().unwrap()),
+        )),
+        None => <FullNameOf<Runtime>>::from((pallet_name_bytes.to_vec().try_into().unwrap(), None)),
+    }
+}
 
-        create_proposal(
-            RuntimeCall::Security(SecurityCall::set_parachain_status {
-                status_code: StatusCode::Running,
-            })
-            .encode(),
-        );
-        launch_and_execute_referendum();
-        assert!(!SecurityPallet::is_parachain_shutdown());
+#[test]
+fn can_pause_pallets() {
+    test_with(|| {
+        let call = RuntimeCall::Tokens(TokensCall::transfer {
+            dest: account_of(ALICE),
+            currency_id: DEFAULT_NATIVE_CURRENCY,
+            amount: 123,
+        });
+
+        // sanity check: this call is allowed by default
+        assert_ok!(call.clone().dispatch(origin_of(account_of(ALICE))));
+
+        // pause calls to Tokens pallet..
+        assert_ok!(RuntimeCall::TxPause(TxPauseCall::pause {
+            full_name: full_name(b"Tokens", None)
+        })
+        .dispatch(root()));
+
+        assert_noop!(call.dispatch(origin_of(account_of(ALICE))), SystemError::CallFiltered);
     })
 }
 
 #[test]
-fn can_recover_from_shutdown_using_root() {
+fn can_pause_functions() {
     test_with(|| {
-        // use sudo to set parachain status
-        assert_ok!(RuntimeCall::Sudo(SudoCall::sudo {
-            call: Box::new(RuntimeCall::Security(SecurityCall::set_parachain_status {
-                status_code: StatusCode::Shutdown,
-            })),
-        })
-        .dispatch(origin_of(account_of(ALICE))));
-
-        // verify we cant execute normal calls
-        assert_noop!(
-            RuntimeCall::Tokens(TokensCall::transfer {
-                dest: account_of(ALICE),
-                currency_id: DEFAULT_NATIVE_CURRENCY,
-                amount: 123,
-            })
-            .dispatch(origin_of(account_of(ALICE))),
-            SystemError::CallFiltered
-        );
-
-        // use sudo to set parachain status back to running
-        assert_ok!(RuntimeCall::Sudo(SudoCall::sudo {
-            call: Box::new(RuntimeCall::Security(SecurityCall::set_parachain_status {
-                status_code: StatusCode::Running,
-            }))
-        })
-        .dispatch(origin_of(account_of(ALICE))));
-
-        // verify that we can execute normal calls again
-        assert_ok!(RuntimeCall::Tokens(TokensCall::transfer {
+        let call = RuntimeCall::Tokens(TokensCall::transfer {
             dest: account_of(ALICE),
             currency_id: DEFAULT_NATIVE_CURRENCY,
             amount: 123,
+        });
+
+        // sanity check: this call is allowed by default
+        assert_ok!(call.clone().dispatch(origin_of(account_of(ALICE))));
+
+        // pause call..
+        assert_ok!(RuntimeCall::TxPause(TxPauseCall::pause {
+            full_name: full_name(b"Tokens", Some(b"transfer"))
+        })
+        .dispatch(root()));
+
+        assert_noop!(call.dispatch(origin_of(account_of(ALICE))), SystemError::CallFiltered);
+
+        // other functions from the Tokens pallet should continue to function
+        assert_ok!(RuntimeCall::Tokens(TokensCall::transfer_all {
+            dest: account_of(ALICE),
+            currency_id: DEFAULT_NATIVE_CURRENCY,
+            keep_alive: false,
         })
         .dispatch(origin_of(account_of(ALICE))));
-    });
+    })
+}
+
+#[test]
+fn pause_works_on_calls_in_batch() {
+    test_with(|| {
+        let call = RuntimeCall::Utility(UtilityCall::batch_all {
+            calls: vec![RuntimeCall::Tokens(TokensCall::transfer {
+                dest: account_of(ALICE),
+                currency_id: DEFAULT_NATIVE_CURRENCY,
+                amount: 123,
+            })],
+        });
+
+        // sanity check: this call is allowed by default
+        assert_ok!(call.clone().dispatch(origin_of(account_of(ALICE))));
+
+        // pause call..
+        assert_ok!(RuntimeCall::TxPause(TxPauseCall::pause {
+            full_name: full_name(b"Tokens", Some(b"transfer"))
+        })
+        .dispatch(root()));
+
+        // we need assert_err_ignore_postinfo since the call does execute, it only bails when the
+        // nested call inside the batch gets dispatched
+        assert_err_ignore_postinfo!(call.dispatch(origin_of(account_of(ALICE))), SystemError::CallFiltered);
+    })
+}
+
+#[test]
+fn can_not_use_txpause_to_brick_parachain() {
+    test_with(|| {
+        let call = RuntimeCall::Tokens(TokensCall::transfer {
+            dest: account_of(ALICE),
+            currency_id: DEFAULT_NATIVE_CURRENCY,
+            amount: 123,
+        });
+
+        // sanity check: this call is allowed by default
+        assert_ok!(call.clone().dispatch(origin_of(account_of(ALICE))));
+
+        // tx-pause pallet itself is unpausable..
+        assert_noop!(
+            RuntimeCall::TxPause(TxPauseCall::pause {
+                full_name: full_name(b"TxPause", None)
+            })
+            .dispatch(root()),
+            tx_pause::Error::<Runtime>::IsUnpausable
+        );
+        let pausable_pallets = RuntimeCall::get_module_names()
+            .into_iter()
+            .filter(|&&pallet| pallet != "TxPause");
+        for pallet in pausable_pallets {
+            assert_ok!(RuntimeCall::TxPause(TxPauseCall::pause {
+                full_name: full_name(pallet.as_bytes(), None)
+            })
+            .dispatch(root()));
+        }
+
+        // sanity check: this call is now paused
+        assert_noop!(
+            call.clone().dispatch(origin_of(account_of(ALICE))),
+            SystemError::CallFiltered
+        );
+
+        create_proposal(
+            RuntimeCall::TxPause(TxPauseCall::unpause {
+                full_name: full_name(b"Tokens", None),
+            })
+            .encode(),
+        );
+        launch_and_execute_referendum();
+
+        // verify that call is indeed unpaused
+        assert_ok!(call.clone().dispatch(origin_of(account_of(ALICE))));
+    })
 }
 
 #[test]
@@ -857,7 +935,7 @@ fn test_sudo_is_disabled_if_key_is_none() {
         // first a sanity check: sudo works if key is set
         assert_ok!(RuntimeCall::Sudo(SudoCall::sudo {
             call: Box::new(RuntimeCall::Security(SecurityCall::set_parachain_status {
-                status_code: StatusCode::Shutdown,
+                status_code: StatusCode::Error,
             })),
         })
         .dispatch(origin_of(account_of(ALICE))),);
@@ -871,7 +949,7 @@ fn test_sudo_is_disabled_if_key_is_none() {
         assert_noop!(
             RuntimeCall::Sudo(SudoCall::sudo {
                 call: Box::new(RuntimeCall::Security(SecurityCall::set_parachain_status {
-                    status_code: StatusCode::Shutdown,
+                    status_code: StatusCode::Error,
                 })),
             })
             .dispatch(origin_of(account_of(ALICE))),

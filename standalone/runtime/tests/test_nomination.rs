@@ -120,7 +120,6 @@ mod spec_based_tests {
     fn integration_test_nomination_with_parachain_shutdown_status_fails() {
         // Checked PRECONDITION: The BTC Parachain status in the Security component be `RUNNING:0`.
         test_with(|_| {
-            // nomination_with_non_running_status_fails(StatusCode::Shutdown);
             nomination_with_non_running_status_fails(StatusCode::Error);
         });
     }

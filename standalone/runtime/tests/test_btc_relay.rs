@@ -95,45 +95,6 @@ fn integration_test_submit_block_headers_and_verify_transaction_inclusion() {
 }
 
 #[test]
-fn integration_test_btc_relay_with_parachain_shutdown_fails() {
-    ExtBuilder::build().execute_with(|| {
-        SecurityPallet::set_status(StatusCode::Shutdown);
-
-        assert_noop!(
-            RuntimeCall::BTCRelay(BTCRelayCall::verify_and_validate_transaction {
-                raw_merkle_proof: Default::default(),
-                confirmations: Default::default(),
-                raw_tx: Default::default(),
-                expected_btc: Default::default(),
-                recipient_btc_address: Default::default(),
-                op_return_id: Default::default()
-            })
-            .dispatch(origin_of(account_of(ALICE))),
-            SystemError::CallFiltered
-        );
-        assert_noop!(
-            RuntimeCall::BTCRelay(BTCRelayCall::verify_transaction_inclusion {
-                tx_id: Default::default(),
-                raw_merkle_proof: Default::default(),
-                confirmations: Default::default()
-            })
-            .dispatch(origin_of(account_of(ALICE))),
-            SystemError::CallFiltered
-        );
-        assert_noop!(
-            RuntimeCall::BTCRelay(BTCRelayCall::validate_transaction {
-                raw_tx: Default::default(),
-                expected_btc: Default::default(),
-                recipient_btc_address: Default::default(),
-                op_return_id: Default::default()
-            })
-            .dispatch(origin_of(account_of(ALICE))),
-            SystemError::CallFiltered
-        );
-    })
-}
-
-#[test]
 fn integration_test_submit_fork_headers() {
     ExtBuilder::build().execute_without_relay_init(|| {
         const NUM_FORK_HEADERS: u32 = 2;

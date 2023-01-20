@@ -144,21 +144,6 @@ fn integration_test_estimate_vault_reward_rate() {
 }
 
 #[test]
-fn integration_test_fee_with_parachain_shutdown_fails() {
-    test_with(|vault_id_1| {
-        SecurityPallet::set_status(StatusCode::Shutdown);
-        assert_noop!(
-            RuntimeCall::Fee(FeeCall::withdraw_rewards {
-                vault_id: vault_id_1.clone(),
-                index: None
-            })
-            .dispatch(origin_of(vault_id_1.account_id)),
-            SystemError::CallFiltered
-        );
-    })
-}
-
-#[test]
 fn test_vault_reward_withdrawal() {
     test_with(|vault_id_1| {
         let vault_id_2 = VaultId {

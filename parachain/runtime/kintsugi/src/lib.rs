@@ -167,25 +167,24 @@ impl Contains<RuntimeCall> for BaseCallFilter {
             call,
             RuntimeCall::System(_)
                 | RuntimeCall::Authorship(_)
+                | RuntimeCall::Session(_)
                 | RuntimeCall::Timestamp(_)
                 | RuntimeCall::ParachainSystem(_)
+                | RuntimeCall::Sudo(_)
                 | RuntimeCall::Democracy(_)
                 | RuntimeCall::Escrow(_)
                 | RuntimeCall::TechnicalCommittee(_)
-                | RuntimeCall::Sudo(_)
         ) {
             // always allow core calls
             true
-        } else if security::Pallet::<Runtime>::is_parachain_shutdown() {
-            // in shutdown mode, all non-core calls are disallowed
-            false
         } else if let RuntimeCall::PolkadotXcm(_) = call {
             // For security reasons, disallow usage of the xcm package by users. Sudo and
             // governance are still able to call these (sudo is explicitly white-listed, while
             // governance bypasses this call filter).
             false
         } else {
-            true
+            // normal operation: allow all calls that are not explicitly paused
+            TxPause::contains(call)
         }
     }
 }
@@ -1134,6 +1133,22 @@ impl clients_info::Config for Runtime {
     type WeightInfo = ();
 }
 
+parameter_types! {
+    pub const MaxNameLen: u32 = 128;
+    pub const PauseTooLongNames: bool = false;
+}
+
+impl tx_pause::Config for Runtime {
+    type RuntimeEvent = RuntimeEvent;
+    type RuntimeCall = RuntimeCall;
+    type PauseOrigin = EnsureRoot<AccountId>;
+    type UnpauseOrigin = EnsureRoot<AccountId>;
+    type WhitelistCallNames = Nothing;
+    type MaxNameLen = MaxNameLen;
+    type PauseTooLongNames = PauseTooLongNames;
+    type WeightInfo = ();
+}
+
 construct_runtime! {
     pub enum Runtime where
         Block = Block,
@@ -1150,6 +1165,7 @@ construct_runtime! {
         Identity: pallet_identity::{Pallet, Call, Storage, Event<T>} = 7,
         Proxy: pallet_proxy::{Pallet, Call, Storage, Event<T>} = 8,
         Sudo: pallet_sudo::{Pallet, Call, Storage, Config<T>, Event<T>} = 9,
+        TxPause: tx_pause::{Pallet, Call, Storage, Event<T>} = 10,
 
         // # Tokens & Balances
         Currency: currency::{Pallet} = 20,

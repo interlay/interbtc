@@ -100,6 +100,7 @@ clients-info = { path = "../../../crates/clients-info", default-features = false
 loans = { path = "../../../crates/loans", default-features = false }
 traits = { path = "../../../crates/traits", default-features = false }
 farming = { path = "../../../crates/farming", default-features = false }
+tx-pause = { path = "../../../crates/tx-pause", default-features = false }
 
 primitives = { package = "interbtc-primitives", path = "../../../primitives", default-features = false }
 
@@ -229,6 +230,7 @@ std = [
   "loans/std",
   "traits/std",
   "farming/std",
+  "tx-pause/std",
 
   "primitives/std",
 
@@ -281,6 +283,7 @@ runtime-benchmarks = [
   "replace/runtime-benchmarks",
   "vault-registry/runtime-benchmarks",
   "farming/runtime-benchmarks",
+  "tx-pause/runtime-benchmarks",
 ]
 disable-runtime-api = []
 dev-interlay = []
@@ -322,6 +325,7 @@ try-runtime = [
   "fee/try-runtime",
   "nomination/try-runtime",
   "clients-info/try-runtime",
+  "tx-pause/try-runtime",
   "loans/try-runtime",
   "democracy/try-runtime",
   "farming/try-runtime",

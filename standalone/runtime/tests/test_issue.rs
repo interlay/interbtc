@@ -149,22 +149,6 @@ mod request_issue_tests {
 
     use super::{assert_eq, *};
 
-    /// Request fails if parachain is shutdown
-    #[test]
-    fn integration_test_issue_request_precond_not_shutdown() {
-        test_with(|vault_id| {
-            SecurityPallet::set_status(StatusCode::Shutdown);
-            assert_noop!(
-                RuntimeCall::Issue(IssueCall::request_issue {
-                    amount: 0,
-                    vault_id: vault_id,
-                })
-                .dispatch(origin_of(account_of(ALICE))),
-                SystemError::CallFiltered,
-            );
-        });
-    }
-
     /// Request fails if relay is not initialized
     #[test]
     fn integration_test_issue_request_precond_relay_initialized() {
@@ -574,23 +558,6 @@ fn integration_test_withdraw_after_request_issue() {
 
 mod execute_pending_issue_tests {
     use super::{assert_eq, *};
-    /// Execute fails if parachain is shut down
-    #[test]
-    fn integration_test_issue_execute_precond_not_shutdown() {
-        test_with(|_currency_id| {
-            SecurityPallet::set_status(StatusCode::Shutdown);
-
-            assert_noop!(
-                RuntimeCall::Issue(IssueCall::execute_issue {
-                    issue_id: Default::default(),
-                    merkle_proof: Default::default(),
-                    raw_tx: Default::default()
-                })
-                .dispatch(origin_of(account_of(ALICE))),
-                SystemError::CallFiltered,
-            );
-        });
-    }
 
     /// Execute fails if corresponding request doesn't exist
     #[test]
@@ -997,21 +964,6 @@ mod execute_cancelled_issue_tests {
 
 mod cancel_issue_tests {
     use super::{assert_eq, *};
-
-    /// Cancel fails when parachain is shutdown
-    #[test]
-    fn integration_test_issue_cancel_precond_not_shutdown() {
-        test_with(|_currency_id| {
-            SecurityPallet::set_status(StatusCode::Shutdown);
-            assert_noop!(
-                RuntimeCall::Issue(IssueCall::cancel_issue {
-                    issue_id: H256([0; 32]),
-                })
-                .dispatch(origin_of(account_of(ALICE))),
-                SystemError::CallFiltered,
-            );
-        });
-    }
 
     /// Cancel fails if issue request does not exist
     #[test]

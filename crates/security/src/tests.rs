@@ -19,17 +19,6 @@ macro_rules! assert_emitted {
 }
 
 #[test]
-fn test_get_and_set_status() {
-    run_test(|| {
-        let status_code = Security::parachain_status();
-        assert_eq!(status_code, StatusCode::Running);
-        Security::set_status(StatusCode::Shutdown);
-        let status_code = Security::parachain_status();
-        assert_eq!(status_code, StatusCode::Shutdown);
-    })
-}
-
-#[test]
 fn test_is_ensure_parachain_running_succeeds() {
     run_test(|| {
         Security::set_status(StatusCode::Running);
@@ -45,26 +34,6 @@ fn test_is_ensure_parachain_running_fails() {
             Security::ensure_parachain_status_running(),
             TestError::ParachainNotRunning
         );
-
-        Security::set_status(StatusCode::Shutdown);
-        assert_noop!(
-            Security::ensure_parachain_status_running(),
-            TestError::ParachainNotRunning
-        );
-    })
-}
-
-#[test]
-fn test_is_parachain_shutdown_succeeds() {
-    run_test(|| {
-        Security::set_status(StatusCode::Running);
-        assert!(!Security::is_parachain_shutdown());
-
-        Security::set_status(StatusCode::Error);
-        assert!(!Security::is_parachain_shutdown());
-
-        Security::set_status(StatusCode::Shutdown);
-        assert!(Security::is_parachain_shutdown());
     })
 }
 
@@ -133,11 +102,6 @@ fn test_get_active_block_not_incremented_if_not_running() {
 
         // not updated if there is an error
         Security::set_status(StatusCode::Error);
-        Security::increment_active_block();
-        assert_eq!(Security::active_block_number(), initial_active_block);
-
-        // not updated if there is shutdown
-        Security::set_status(StatusCode::Shutdown);
         Security::increment_active_block();
         assert_eq!(Security::active_block_number(), initial_active_block);
     })

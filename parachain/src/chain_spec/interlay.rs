@@ -156,7 +156,7 @@ fn interlay_mainnet_genesis(
         aura: Default::default(),
         aura_ext: Default::default(),
         security: interlay_runtime::SecurityConfig {
-            initial_status: interlay_runtime::StatusCode::Shutdown,
+            initial_status: interlay_runtime::StatusCode::Error,
         },
         asset_registry: Default::default(),
         tokens: Default::default(),

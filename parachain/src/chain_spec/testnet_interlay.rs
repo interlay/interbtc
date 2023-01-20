@@ -64,7 +64,6 @@ pub fn development_config(id: ParaId) -> InterlayTestnetChainSpec {
                 ],
                 id,
                 DEFAULT_BITCOIN_CONFIRMATIONS,
-                false,
             )
         },
         Vec::new(),
@@ -125,7 +124,6 @@ pub fn staging_testnet_config(id: ParaId) -> InterlayTestnetChainSpec {
                 )],
                 id,
                 DEFAULT_BITCOIN_CONFIRMATIONS,
-                false,
             )
         },
         Vec::new(),
@@ -151,7 +149,6 @@ fn testnet_genesis(
     authorized_oracles: Vec<(AccountId, Vec<u8>)>,
     id: ParaId,
     bitcoin_confirmations: u32,
-    start_shutdown: bool,
 ) -> testnet_interlay_runtime::GenesisConfig {
     testnet_interlay_runtime::GenesisConfig {
         system: testnet_interlay_runtime::SystemConfig {
@@ -184,11 +181,7 @@ fn testnet_genesis(
         aura: Default::default(),
         aura_ext: Default::default(),
         security: testnet_interlay_runtime::SecurityConfig {
-            initial_status: if start_shutdown {
-                testnet_interlay_runtime::StatusCode::Shutdown
-            } else {
-                testnet_interlay_runtime::StatusCode::Error
-            },
+            initial_status: testnet_interlay_runtime::StatusCode::Error,
         },
         sudo: testnet_interlay_runtime::SudoConfig {
             // Assign network admin rights.

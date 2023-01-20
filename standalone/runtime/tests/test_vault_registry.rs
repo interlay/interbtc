@@ -305,54 +305,6 @@ mod withdraw_collateral_test {
 }
 
 #[test]
-fn integration_test_vault_registry_with_parachain_shutdown_fails() {
-    test_with(|vault_id| {
-        SecurityPallet::set_status(StatusCode::Shutdown);
-
-        assert_noop!(
-            RuntimeCall::VaultRegistry(VaultRegistryCall::register_vault {
-                currency_pair: vault_id.currencies.clone(),
-                collateral: 0,
-            })
-            .dispatch(origin_of(account_of(VAULT))),
-            SystemError::CallFiltered
-        );
-        assert_noop!(
-            RuntimeCall::Nomination(NominationCall::deposit_collateral {
-                vault_id: vault_id.clone(),
-                amount: 0
-            })
-            .dispatch(origin_of(account_of(VAULT))),
-            SystemError::CallFiltered
-        );
-        assert_noop!(
-            RuntimeCall::Nomination(NominationCall::withdraw_collateral {
-                vault_id: vault_id.clone(),
-                index: None,
-                amount: 0
-            })
-            .dispatch(origin_of(account_of(VAULT))),
-            SystemError::CallFiltered
-        );
-        assert_noop!(
-            RuntimeCall::VaultRegistry(VaultRegistryCall::register_public_key {
-                public_key: Default::default()
-            })
-            .dispatch(origin_of(account_of(VAULT))),
-            SystemError::CallFiltered
-        );
-        assert_noop!(
-            RuntimeCall::VaultRegistry(VaultRegistryCall::accept_new_issues {
-                currency_pair: vault_id.currencies.clone(),
-                accept_new_issues: false
-            })
-            .dispatch(origin_of(account_of(VAULT))),
-            SystemError::CallFiltered
-        );
-    });
-}
-
-#[test]
 fn integration_test_vault_registry_undercollateralization_liquidation() {
     test_with(|vault_id| {
         let currency_id = vault_id.collateral_currency();
