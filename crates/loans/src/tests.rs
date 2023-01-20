@@ -269,11 +269,7 @@ fn redeem_allowed_works() {
             Error::<Test>::InsufficientLiquidity
         );
         // Redeeming 100 KSM is ok because the withdrawal succeds (the user has enough backing liquidity)
-        assert_ok!(Loans::redeem(
-            RuntimeOrigin::signed(ALICE),
-            KSM,
-            100
-        ));
+        assert_ok!(Loans::redeem(RuntimeOrigin::signed(ALICE), KSM, 100));
     })
 }
 
