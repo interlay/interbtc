@@ -369,7 +369,7 @@ fn redeem_fails_when_insufficient_liquidity() {
 }
 
 #[test]
-fn redeem_fails_when_would_use_reserved_balanace() {
+fn redeem_succeds_when_would_use_reserved_balanace() {
     new_test_ext().execute_with(|| {
         // Prepare: Bob Deposit 200 DOT
         assert_ok!(Loans::mint(RuntimeOrigin::signed(BOB), DOT, 200));
@@ -382,10 +382,7 @@ fn redeem_fails_when_would_use_reserved_balanace() {
         assert_ok!(Loans::borrow(RuntimeOrigin::signed(ALICE), DOT, 50));
         assert_ok!(Loans::add_reserves(RuntimeOrigin::root(), ALICE, DOT, 50));
 
-        assert_noop!(
-            Loans::redeem(RuntimeOrigin::signed(BOB), DOT, 151),
-            Error::<Test>::InsufficientCash
-        );
+        assert_ok!(Loans::redeem(RuntimeOrigin::signed(BOB), DOT, 151));
     })
 }
 
@@ -963,7 +960,7 @@ fn calc_collateral_amount_works() {
 }
 
 #[test]
-fn ensure_enough_cash_works() {
+fn ensure_borrow_cash_works() {
     new_test_ext().execute_with(|| {
         assert_ok!(Tokens::set_balance(
             RuntimeOrigin::root(),
@@ -972,17 +969,17 @@ fn ensure_enough_cash_works() {
             unit(1000),
             0
         ));
-        assert_ok!(Loans::ensure_enough_cash(KSM, unit(1000)));
+        assert_ok!(Loans::ensure_borrow_cash(KSM, unit(1000)));
         TotalReserves::<Test>::insert(KSM, unit(10));
         assert_noop!(
-            Loans::ensure_enough_cash(KSM, unit(1000)),
+            Loans::ensure_borrow_cash(KSM, unit(1000)),
             Error::<Test>::InsufficientCash,
         );
-        assert_ok!(Loans::ensure_enough_cash(KSM, unit(990)));
+        assert_ok!(Loans::ensure_borrow_cash(KSM, unit(990)));
         // Borrows don't count as cash
         TotalBorrows::<Test>::insert(KSM, unit(20));
         assert_noop!(
-            Loans::ensure_enough_cash(KSM, unit(1000)),
+            Loans::ensure_borrow_cash(KSM, unit(1000)),
             Error::<Test>::InsufficientCash
         );
     })
