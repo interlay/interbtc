@@ -490,14 +490,14 @@ impl<T: Config> Pallet<T> {
         vault_id: &DefaultVaultId<T>,
         nominator_id: &T::AccountId,
         currency_id: CurrencyId<T>,
-    ) -> Result<BalanceOf<T>, DispatchError> {
+    ) -> Result<Amount<T>, DispatchError> {
         // use a closure so we can use the `?` operator
-        let get_rewards = || -> Result<BalanceOf<T>, DispatchError> {
+        let get_rewards = || -> Result<Amount<T>, DispatchError> {
             let balance_before = currency::get_free_balance::<T>(currency_id, nominator_id);
             Self::withdraw_vault_rewards(vault_id, nominator_id, None, currency_id)?;
             let balance_after = currency::get_free_balance::<T>(currency_id, nominator_id);
             let reward = balance_after.saturating_sub(&balance_before)?;
-            Ok(reward.amount())
+            Ok(reward)
         };
 
         // don't commit storage changes
