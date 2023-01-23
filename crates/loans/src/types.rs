@@ -4,7 +4,10 @@ use frame_support::pallet_prelude::*;
 use primitives::{CurrencyId, Liquidity, Rate, Ratio, Shortfall};
 use scale_info::TypeInfo;
 
+// TODO: `cargo doc` crashes on this type, remove the `hidden` macro
+// when upgrading rustc in case that fixes it
 /// Container for account liquidity information
+#[doc(hidden)]
 #[derive(Eq, PartialEq, Clone, RuntimeDebug)]
 pub enum AccountLiquidity<T: Config> {
     Liquidity(Amount<T>),
