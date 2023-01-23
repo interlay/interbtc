@@ -1076,7 +1076,7 @@ where
 
 impl oracle::Config for Runtime {
     type RuntimeEvent = RuntimeEvent;
-    type OnExchangeRateChange = ();
+    type OnExchangeRateChange = vault_registry::PoolManager<Runtime>;
     type WeightInfo = ();
 }
 
