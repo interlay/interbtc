@@ -129,7 +129,7 @@ fn integration_test_estimate_vault_reward_rate() {
         rewards1.mint_to(&VaultAnnuityPallet::account_id()).unwrap();
         VaultAnnuityPallet::update_reward_per_block();
 
-        runtime_common::estimate_vault_reward_rate::<
+        let reward = runtime_common::estimate_vault_reward_rate::<
             Runtime,
             VaultAnnuityInstance,
             VaultStakingPallet,
@@ -137,6 +137,30 @@ fn integration_test_estimate_vault_reward_rate() {
             _,
         >(vault_id.clone())
         .unwrap();
+        assert!(!reward.is_zero());
+    });
+}
+
+#[test]
+fn integration_test_estimate_vault_reward_rate_works_with_zero_stake() {
+    test_with(|vault_id| {
+        CoreVaultData::force_to(
+            &vault_id,
+            CoreVaultData {
+                backing_collateral: Amount::zero(vault_id.collateral_currency()),
+                ..default_vault_state(&vault_id)
+            },
+        );
+        assert_ok!(
+            runtime_common::estimate_vault_reward_rate::<
+                Runtime,
+                VaultAnnuityInstance,
+                VaultStakingPallet,
+                CapacityRewardsPallet,
+                _,
+            >(vault_id.clone()),
+            Zero::zero()
+        );
     });
 }
 
