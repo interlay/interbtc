@@ -413,11 +413,12 @@ enum Action {
     SetSecureThreshold,
     DistributeRewards,
     SetExchangeRate,
+    SetAcceptIssues,
 }
 
 impl Action {
     fn random<R: Rng + ?Sized>(rng: &mut R) -> Action {
-        match rng.gen_range(0..7) {
+        match rng.gen_range(0..8) {
             0 => Self::DepositNominationCollateral,
             1 => Self::WithdrawNominationCollateral,
             2 => Self::DepositVaultCollateral,
@@ -425,6 +426,7 @@ impl Action {
             4 => Self::SetSecureThreshold,
             5 => Self::DistributeRewards,
             6 => Self::SetExchangeRate,
+            7 => Self::SetAcceptIssues,
             _ => unreachable!(),
         }
     }
@@ -644,6 +646,16 @@ fn do_random_nomination_sequence() {
                     let amount = rng.gen_range(0..10_000_000_000);
                     distribute_rewards(Amount::new(amount, REWARD_CURRENCY));
                     reference_pool.distribute_reward(amount);
+                }
+                Action::SetAcceptIssues => {
+                    let vault_id = vaults[rng.gen_range(0..vaults.len())].clone();
+                    let accept_new_issues = rng.gen_bool(0.5);
+                    assert_ok!(RuntimeCall::VaultRegistry(VaultRegistryCall::accept_new_issues {
+                        currency_pair: vault_id.currencies.clone(),
+                        accept_new_issues,
+                    })
+                    .dispatch(origin_of(vault_id.account_id.clone())));
+                    reference_pool.accept_new_issues(&vault_id, accept_new_issues);
                 }
             };
         }

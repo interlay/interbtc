@@ -240,6 +240,7 @@ pub mod pallet {
             let vault_id = VaultId::new(account_id, currency_pair.collateral, currency_pair.wrapped);
             let mut vault = Self::get_active_rich_vault_from_id(&vault_id)?;
             vault.set_accept_new_issues(accept_new_issues)?;
+            PoolManager::<T>::on_vault_settings_change(&vault_id)?;
             Ok(().into())
         }
 
@@ -262,7 +263,7 @@ pub mod pallet {
             let account_id = ensure_signed(origin)?;
             let vault_id = VaultId::new(account_id, currency_pair.collateral, currency_pair.wrapped);
             Self::try_set_vault_custom_secure_threshold(&vault_id, custom_threshold)?;
-            PoolManager::<T>::on_set_secure_collateral_threshold(&vault_id)?;
+            PoolManager::<T>::on_vault_settings_change(&vault_id)?;
             Ok(().into())
         }
 
@@ -1932,11 +1933,15 @@ impl<T: Config> Pallet<T> {
             assert!(reserved.ge(&backing_collateral).unwrap());
 
             let rich_vault: RichVault<T> = vault.clone().into();
-            let expected_stake = rich_vault
-                .get_total_collateral()
-                .unwrap()
-                .checked_div(&rich_vault.get_secure_threshold().unwrap())
-                .unwrap();
+            let expected_stake = if !vault.accepts_new_issues() {
+                Amount::zero(vault_id.collateral_currency())
+            } else {
+                rich_vault
+                    .get_total_collateral()
+                    .unwrap()
+                    .checked_div(&rich_vault.get_secure_threshold().unwrap())
+                    .unwrap()
+            };
 
             assert_eq!(ext::reward::get_stake::<T>(&vault_id).unwrap(), expected_stake.amount());
         }

@@ -8,6 +8,7 @@ pub type StakeId = (VaultId, AccountId);
 pub struct IdealRewardPool {
     exchange_rate: BTreeMap<CurrencyId, FixedU128>,
     secure_threshold: BTreeMap<VaultId, FixedU128>,
+    accept_new_issues: BTreeMap<VaultId, bool>,
     commission: BTreeMap<VaultId, FixedU128>,
     collateral: BTreeMap<StakeId, u128>,
     rewards: BTreeMap<AccountId, (FixedU128, FixedU128)>,
@@ -72,6 +73,10 @@ impl IdealRewardPool {
             .map(|(stake_id, _)| self.stake(stake_id))
             .fold(Zero::zero(), |x: FixedU128, y: FixedU128| x + y);
 
+        if total_stake.is_zero() {
+            return self;
+        }
+
         for (stake_id, _) in self.collateral.iter() {
             let stake = self.stake(stake_id);
             let reward = (stake * reward) / total_stake;
@@ -92,6 +97,12 @@ impl IdealRewardPool {
                 (nominator_commission, nominator_reward + (reward - reward * commission)),
             );
         }
+        self
+    }
+
+    pub fn accept_new_issues(&mut self, vault: &VaultId, accept_new_issues: bool) -> &mut Self {
+        log::debug!("accept_new_issues {:?}", accept_new_issues);
+        self.accept_new_issues.insert(vault.clone(), accept_new_issues);
         self
     }
 
@@ -132,9 +143,13 @@ impl IdealRewardPool {
 
     pub fn stake(&self, (vault_id, nominator_id): &StakeId) -> FixedU128 {
         let currency_id = vault_id.collateral_currency();
-        let threshold = self.secure_threshold[vault_id];
-        let exchange_rate = self.exchange_rate[&currency_id];
-        let collateral = self.collateral[&(vault_id.clone(), nominator_id.clone())];
-        FixedU128::from(collateral) / threshold / exchange_rate
+        if !self.accept_new_issues.get(vault_id).unwrap_or(&true) {
+            Zero::zero()
+        } else {
+            let threshold = self.secure_threshold[vault_id];
+            let exchange_rate = self.exchange_rate[&currency_id];
+            let collateral = self.collateral[&(vault_id.clone(), nominator_id.clone())];
+            FixedU128::from(collateral) / threshold / exchange_rate
+        }
     }
 }
