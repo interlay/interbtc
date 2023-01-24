@@ -47,18 +47,26 @@ impl<T: Config> PoolManager<T> {
         Ok(ret)
     }
 
-    // hook to be called _after_ the value has been written
-    pub fn on_set_secure_collateral_threshold(vault_id: &DefaultVaultId<T>) -> Result<(), DispatchError> {
+    // hook to be called _after_ one of the vault parameters that influences
+    // capacity has been written. This is called when the custom secure threshold or
+    // the accept_new_issues setting changes.
+    pub fn on_vault_settings_change(vault_id: &DefaultVaultId<T>) -> Result<(), DispatchError> {
         ext::fee::distribute_all_vault_rewards::<T>(vault_id)?;
         Self::update_reward_stake(vault_id)
     }
 
     // NOTE: temporarily public for reward migration
     pub(crate) fn update_reward_stake(vault_id: &DefaultVaultId<T>) -> Result<(), DispatchError> {
-        let total_collateral = ext::staking::total_current_stake::<T>(vault_id)?;
-        let secure_threshold = Pallet::<T>::get_vault_secure_threshold(vault_id)?;
+        let vault = Pallet::<T>::get_vault_from_id(vault_id)?;
+        let new_reward_stake = if !vault.accepts_new_issues() {
+            // if the vault is not accepting new issues it's not getting rewards
+            Amount::zero(vault_id.collateral_currency())
+        } else {
+            let total_collateral = ext::staking::total_current_stake::<T>(vault_id)?;
+            let secure_threshold = Pallet::<T>::get_vault_secure_threshold(vault_id)?;
 
-        let new_reward_stake = total_collateral.checked_div(&secure_threshold)?;
+            total_collateral.checked_div(&secure_threshold)?
+        };
 
         ext::reward::set_stake(vault_id, &new_reward_stake)?;
 

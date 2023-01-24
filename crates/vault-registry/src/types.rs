@@ -217,6 +217,10 @@ impl<
     pub fn is_liquidated(&self) -> bool {
         matches!(self.status, VaultStatus::Liquidated)
     }
+
+    pub fn accepts_new_issues(&self) -> bool {
+        matches!(self.status, VaultStatus::Active(true))
+    }
 }
 
 pub type DefaultVault<T> = Vault<
