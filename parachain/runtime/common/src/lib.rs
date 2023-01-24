@@ -44,11 +44,10 @@ where
     let reward = annuity::Pallet::<T, VaultAnnuityInstance>::min_reward_per_block().saturating_mul(YEARS.into());
     VaultCapacityApi::distribute_reward(&(), native_currency, reward)?;
     Amount::<T>::new(reward, native_currency).mint_to(&fee::Pallet::<T>::fee_pool_account_id())?;
-    // compute and convert rewards
-    let received = fee::Pallet::<T>::compute_vault_rewards(&vault_id, &vault_id.account_id, native_currency)?;
-    let received_as_wrapped = oracle::Pallet::<T>::collateral_to_wrapped(received, native_currency)?;
-    // convert collateral stake to same currency
+    // calculate the collateral
     let collateral = VaultStakingApi::get_stake(&(None, vault_id.clone()), &vault_id.account_id)?;
-    let collateral_as_wrapped = oracle::Pallet::<T>::collateral_to_wrapped(collateral, vault_id.collateral_currency())?; // rate is received / collateral
-    Ok(UnsignedFixedPoint::checked_from_rational(received_as_wrapped, collateral_as_wrapped).unwrap_or_default())
+    // compute and convert rewards to the same currency
+    let received = fee::Pallet::<T>::compute_vault_rewards(&vault_id, &vault_id.account_id, native_currency)?;
+    let received_value = received.convert_to(vault_id.collateral_currency())?;
+    Ok(UnsignedFixedPoint::checked_from_rational(received_value.amount(), collateral).unwrap_or_default())
 }

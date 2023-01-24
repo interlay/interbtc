@@ -125,9 +125,6 @@ fn get_vault_collateral(vault_id: &VaultId) -> Amount<Runtime> {
 #[test]
 fn integration_test_estimate_vault_reward_rate() {
     test_with(|vault_id| {
-        if vault_id.collateral_currency().is_lend_token() {
-            return; // not supported yet. TODO!
-        }
         let rewards1 = Amount::<Runtime>::new(1000000000000000, REWARD_CURRENCY);
         rewards1.mint_to(&VaultAnnuityPallet::account_id()).unwrap();
         VaultAnnuityPallet::update_reward_per_block();
