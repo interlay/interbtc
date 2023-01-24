@@ -95,8 +95,7 @@ fn slash_stake_does_not_break_state() {
 
         // The bug that we observed
         Staking::distribute_reward(currency, &VAULT, f(14234191584160000000000000000000)).unwrap();
-        // same as distributed amount except for rounding error
-        assert_eq!(Staking::withdraw_reward(currency, &VAULT, &account).unwrap(), 14234191584159);
+        assert_eq!(Staking::withdraw_reward(currency, &VAULT, &account).unwrap(), 14234191584160);
     })
 }
 
