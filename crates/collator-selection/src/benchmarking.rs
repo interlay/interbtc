@@ -140,7 +140,7 @@ benchmarks! {
     // worse case is when we have all the max-candidate slots filled except one, and we fill that
     // one.
     register_as_candidate {
-        let c in 1 .. T::MaxCandidates::get();
+        let c in 1 .. T::MaxCandidates::get() - 1;
 
         <CandidacyBond<T>>::put(T::StakingCurrency::minimum_balance());
         <DesiredCandidates<T>>::put(c + 1);
