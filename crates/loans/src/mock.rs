@@ -26,7 +26,7 @@ use frame_system::EnsureRoot;
 use mocktopus::{macros::mockable, mocking::MockResult};
 use orml_traits::{currency::MutationHooks, parameter_type_with_key};
 use primitives::{
-    CurrencyId::{LendToken, Token},
+    CurrencyId::{self, LendToken, Token},
     DOT, IBTC, INTR, KBTC, KINT, KSM,
 };
 use sp_core::H256;

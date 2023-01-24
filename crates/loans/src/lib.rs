@@ -29,7 +29,6 @@
 pub use crate::rate_model::*;
 use crate::types::AccountLiquidity;
 
-use codec::FullCodec;
 use currency::Amount;
 use frame_support::{
     log,
@@ -43,17 +42,14 @@ use num_traits::cast::ToPrimitive;
 use orml_traits::{MultiCurrency, MultiReservableCurrency};
 pub use pallet::*;
 use primitives::{Balance, Rate, Ratio, Timestamp};
-use sp_core::U256;
-#[cfg(feature = "std")]
-use sp_runtime::traits::AtLeast32BitUnsigned;
 use sp_runtime::{
     traits::{
         AccountIdConversion, CheckedAdd, CheckedDiv, CheckedMul, One, SaturatedConversion, Saturating, StaticLookup,
         Zero,
     },
-    ArithmeticError, FixedPointNumber, FixedPointOperand, FixedU128,
+    ArithmeticError, FixedPointNumber, FixedU128,
 };
-use sp_std::{fmt::Debug, marker, result::Result};
+use sp_std::{marker, result::Result};
 
 use traits::{
     ConvertToBigUint, LoansApi as LoansTrait, LoansMarketDataProvider, MarketInfo, MarketStatus, OnExchangeRateChange,
@@ -89,7 +85,6 @@ pub const DEFAULT_MIN_EXCHANGE_RATE: u128 = 20_000_000_000_000_000; // 0.02
 type AccountIdOf<T> = <T as frame_system::Config>::AccountId;
 type CurrencyId<T> = <T as orml_tokens::Config>::CurrencyId;
 type BalanceOf<T> = <T as currency::Config>::Balance;
-// type BalanceOf<T> = <T as Config>::Balance;
 
 pub struct OnSlashHook<T>(marker::PhantomData<T>);
 // This implementation is not allowed to fail, so erors are logged instead of being propagated.
@@ -198,7 +193,9 @@ pub mod pallet {
     use super::*;
 
     #[pallet::config]
-    pub trait Config: frame_system::Config + currency::Config<Balance = u128, UnsignedFixedPoint = FixedU128> {
+    pub trait Config:
+        frame_system::Config + currency::Config<Balance = Balance, UnsignedFixedPoint = FixedU128>
+    {
         type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
         /// The loan's module id, used to derive the account that holds the liquidity in all markets.
@@ -217,19 +214,6 @@ pub mod pallet {
 
         /// Unix time
         type UnixTime: UnixTime;
-
-        /// The primitive balance type.
-        type Balance: AtLeast32BitUnsigned
-            + FixedPointOperand
-            + Into<U256>
-            + TryFrom<U256>
-            + MaybeSerializeDeserialize
-            + FullCodec
-            + Copy
-            + Default
-            + Debug
-            + TypeInfo
-            + MaxEncodedLen;
 
         /// Incentive reward asset id.
         #[pallet::constant]
