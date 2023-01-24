@@ -28,6 +28,9 @@ use sp_runtime::traits::BlakeTwo256;
 use std::{sync::Arc, time::Duration};
 use substrate_prometheus_endpoint::Registry;
 
+use zenlink_protocol_runtime_api::ZenlinkProtocolApi as ZenlinkProtocolRuntimeApi;
+use zenlink_stable_amm_runtime_api::StableAmmApi as ZenlinkStableAmmRuntimeApi;
+
 macro_rules! new_runtime_executor {
     ($name:ident,$runtime:ident) => {
         pub struct $name;
@@ -102,6 +105,8 @@ pub trait RuntimeApiCollection:
         BlockNumber,
         UnsignedFixedPoint,
     > + loans_rpc_runtime_api::LoansApi<Block, AccountId, Balance>
+    + ZenlinkProtocolRuntimeApi<Block, AccountId, CurrencyId>
+    + ZenlinkStableAmmRuntimeApi<Block, CurrencyId, Balance, AccountId, StablePoolId>
 where
     <Self as sp_api::ApiExt<Block>>::StateBackend: sp_api::StateBackend<BlakeTwo256>,
 {
@@ -151,7 +156,9 @@ where
             Balance,
             BlockNumber,
             UnsignedFixedPoint,
-        > + loans_rpc_runtime_api::LoansApi<Block, AccountId, Balance>,
+        > + loans_rpc_runtime_api::LoansApi<Block, AccountId, Balance>
+        + ZenlinkProtocolRuntimeApi<Block, AccountId, CurrencyId>
+        + ZenlinkStableAmmRuntimeApi<Block, CurrencyId, Balance, AccountId, StablePoolId>,
     <Self as sp_api::ApiExt<Block>>::StateBackend: sp_api::StateBackend<BlakeTwo256>,
 {
 }

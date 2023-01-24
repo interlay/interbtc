@@ -100,6 +100,11 @@ orml-traits = { git = "https://github.com/open-web3-stack/open-runtime-module-li
 orml-vesting = { git = "https://github.com/open-web3-stack/open-runtime-module-library", rev = "dc39cfddefb10ef0de23655e2c3dcdab66a19404", default-features = false }
 orml-asset-registry = { git = "https://github.com/open-web3-stack/open-runtime-module-library", rev = "dc39cfddefb10ef0de23655e2c3dcdab66a19404", default-features = false }
 
+# Zenlink dependencies
+zenlink-protocol = { git = "https://github.com/interlay/Zenlink-DEX-Module", rev = "1d286f77d8fe38f3a437d35a0600081c2f5b5a00", default-features = false }
+zenlink-protocol-runtime-api = { git = "https://github.com/interlay/Zenlink-DEX-Module", rev = "1d286f77d8fe38f3a437d35a0600081c2f5b5a00", default-features = false }
+zenlink-stable-amm-runtime-api = { git = "https://github.com/interlay/Zenlink-DEX-Module", rev = "1d286f77d8fe38f3a437d35a0600081c2f5b5a00", default-features = false }
+
 xcm-builder = { git = "https://github.com/paritytech/polkadot", branch = "release-v0.9.31", default-features = false }
 
 [dev-dependencies]
@@ -205,6 +210,10 @@ std = [
   "orml-tokens/std",
   "orml-traits/std",
   "orml-vesting/std",
+
+  "zenlink-protocol/std",
+  "zenlink-protocol-runtime-api/std",
+  "zenlink-stable-amm-runtime-api/std",
 
   "xcm-builder/std",
 

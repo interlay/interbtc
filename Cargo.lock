@@ -3739,6 +3739,8 @@ dependencies = [
  "testnet-kintsugi-runtime-parachain",
  "try-runtime-cli",
  "vault-registry-rpc-runtime-api",
+ "zenlink-protocol-runtime-api",
+ "zenlink-stable-amm-runtime-api",
 ]
 
 [[package]]
@@ -3785,6 +3787,10 @@ dependencies = [
  "substrate-frame-rpc-system",
  "vault-registry",
  "vault-registry-rpc",
+ "zenlink-protocol-rpc",
+ "zenlink-protocol-runtime-api",
+ "zenlink-stable-amm-rpc",
+ "zenlink-stable-amm-runtime-api",
 ]
 
 [[package]]
@@ -3880,6 +3886,9 @@ dependencies = [
  "vault-registry",
  "vault-registry-rpc-runtime-api",
  "xcm-builder",
+ "zenlink-protocol",
+ "zenlink-protocol-runtime-api",
+ "zenlink-stable-amm-runtime-api",
 ]
 
 [[package]]
@@ -4029,6 +4038,9 @@ dependencies = [
  "xcm",
  "xcm-builder",
  "xcm-executor",
+ "zenlink-protocol",
+ "zenlink-protocol-runtime-api",
+ "zenlink-stable-amm-runtime-api",
 ]
 
 [[package]]
@@ -4419,6 +4431,9 @@ dependencies = [
  "xcm",
  "xcm-builder",
  "xcm-executor",
+ "zenlink-protocol",
+ "zenlink-protocol-runtime-api",
+ "zenlink-stable-amm-runtime-api",
 ]
 
 [[package]]
@@ -12478,6 +12493,11 @@ dependencies = [
  "xcm",
  "xcm-builder",
  "xcm-executor",
+ "zenlink-protocol",
+ "zenlink-protocol-runtime-api",
+ "zenlink-stable-amm",
+ "zenlink-stable-amm-runtime-api",
+ "zenlink-swap-router",
 ]
 
 [[package]]
@@ -13083,7 +13103,7 @@ checksum = "97fee6b57c6a41524a810daee9286c02d7752c4253064d0b05472833a438f675"
 dependencies = [
  "cfg-if",
  "digest 0.10.6",
- "rand 0.8.5",
+ "rand 0.6.5",
  "static_assertions",
 ]
 
@@ -14177,7 +14197,7 @@ dependencies = [
 [[package]]
 name = "zenlink-protocol"
 version = "0.4.4"
-source = "git+https://github.com/interlay/Zenlink-DEX-Module?rev=8d120c4a41e977892b8e4e6067c7832973048341#8d120c4a41e977892b8e4e6067c7832973048341"
+source = "git+https://github.com/interlay/Zenlink-DEX-Module?rev=1d286f77d8fe38f3a437d35a0600081c2f5b5a00#1d286f77d8fe38f3a437d35a0600081c2f5b5a00"
 dependencies = [
  "cumulus-primitives-core",
  "frame-support",
@@ -14198,9 +14218,24 @@ dependencies = [
 ]
 
 [[package]]
+name = "zenlink-protocol-rpc"
+version = "0.4.4"
+source = "git+https://github.com/interlay/Zenlink-DEX-Module?rev=1d286f77d8fe38f3a437d35a0600081c2f5b5a00#1d286f77d8fe38f3a437d35a0600081c2f5b5a00"
+dependencies = [
+ "jsonrpsee",
+ "parity-scale-codec",
+ "sp-api",
+ "sp-blockchain",
+ "sp-rpc",
+ "sp-runtime",
+ "zenlink-protocol",
+ "zenlink-protocol-runtime-api",
+]
+
+[[package]]
 name = "zenlink-protocol-runtime-api"
 version = "0.4.4"
-source = "git+https://github.com/interlay/Zenlink-DEX-Module?rev=8d120c4a41e977892b8e4e6067c7832973048341#8d120c4a41e977892b8e4e6067c7832973048341"
+source = "git+https://github.com/interlay/Zenlink-DEX-Module?rev=1d286f77d8fe38f3a437d35a0600081c2f5b5a00#1d286f77d8fe38f3a437d35a0600081c2f5b5a00"
 dependencies = [
  "parity-scale-codec",
  "sp-api",
@@ -14211,7 +14246,7 @@ dependencies = [
 [[package]]
 name = "zenlink-stable-amm"
 version = "0.1.0"
-source = "git+https://github.com/interlay/Zenlink-DEX-Module?rev=8d120c4a41e977892b8e4e6067c7832973048341#8d120c4a41e977892b8e4e6067c7832973048341"
+source = "git+https://github.com/interlay/Zenlink-DEX-Module?rev=1d286f77d8fe38f3a437d35a0600081c2f5b5a00#1d286f77d8fe38f3a437d35a0600081c2f5b5a00"
 dependencies = [
  "frame-support",
  "frame-system",
@@ -14226,9 +14261,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "zenlink-stable-amm-rpc"
+version = "0.1.0"
+source = "git+https://github.com/interlay/Zenlink-DEX-Module?rev=1d286f77d8fe38f3a437d35a0600081c2f5b5a00#1d286f77d8fe38f3a437d35a0600081c2f5b5a00"
+dependencies = [
+ "jsonrpsee",
+ "parity-scale-codec",
+ "sp-api",
+ "sp-blockchain",
+ "sp-rpc",
+ "sp-runtime",
+ "zenlink-stable-amm-runtime-api",
+]
+
+[[package]]
 name = "zenlink-stable-amm-runtime-api"
 version = "0.1.0"
-source = "git+https://github.com/interlay/Zenlink-DEX-Module?rev=8d120c4a41e977892b8e4e6067c7832973048341#8d120c4a41e977892b8e4e6067c7832973048341"
+source = "git+https://github.com/interlay/Zenlink-DEX-Module?rev=1d286f77d8fe38f3a437d35a0600081c2f5b5a00#1d286f77d8fe38f3a437d35a0600081c2f5b5a00"
 dependencies = [
  "parity-scale-codec",
  "sp-api",
@@ -14239,7 +14288,7 @@ dependencies = [
 [[package]]
 name = "zenlink-swap-router"
 version = "0.1.0"
-source = "git+https://github.com/interlay/Zenlink-DEX-Module?rev=8d120c4a41e977892b8e4e6067c7832973048341#8d120c4a41e977892b8e4e6067c7832973048341"
+source = "git+https://github.com/interlay/Zenlink-DEX-Module?rev=1d286f77d8fe38f3a437d35a0600081c2f5b5a00#1d286f77d8fe38f3a437d35a0600081c2f5b5a00"
 dependencies = [
  "frame-support",
  "frame-system",
