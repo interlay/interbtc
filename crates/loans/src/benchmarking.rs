@@ -120,7 +120,7 @@ fn transfer_initial_balance<T: Config + orml_tokens::Config<CurrencyId = Currenc
     .unwrap();
 }
 
-fn set_account_borrows<T: Config>(who: T::AccountId, asset_id: AssetIdOf<T>, borrow_balance: BalanceOf<T>) {
+fn set_account_borrows<T: Config>(who: T::AccountId, asset_id: CurrencyId<T>, borrow_balance: BalanceOf<T>) {
     AccountBorrows::<T>::insert(
         asset_id,
         &who,

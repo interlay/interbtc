@@ -60,7 +60,7 @@ impl<T: Config> Pallet<T> {
         Ok(reward_delta)
     }
 
-    pub(crate) fn update_reward_supply_index(asset_id: AssetIdOf<T>) -> DispatchResult {
+    pub(crate) fn update_reward_supply_index(asset_id: CurrencyId<T>) -> DispatchResult {
         let current_block_number = <frame_system::Pallet<T>>::block_number();
         RewardSupplyState::<T>::try_mutate(asset_id, |supply_state| -> DispatchResult {
             let delta_block = current_block_number.saturating_sub(supply_state.block);
@@ -82,7 +82,7 @@ impl<T: Config> Pallet<T> {
         })
     }
 
-    pub(crate) fn update_reward_borrow_index(asset_id: AssetIdOf<T>) -> DispatchResult {
+    pub(crate) fn update_reward_borrow_index(asset_id: CurrencyId<T>) -> DispatchResult {
         let current_block_number = <frame_system::Pallet<T>>::block_number();
         RewardBorrowState::<T>::try_mutate(asset_id, |borrow_state| -> DispatchResult {
             let delta_block = current_block_number.saturating_sub(borrow_state.block);
@@ -109,7 +109,7 @@ impl<T: Config> Pallet<T> {
         })
     }
 
-    pub(crate) fn distribute_supplier_reward(asset_id: AssetIdOf<T>, supplier: &T::AccountId) -> DispatchResult {
+    pub(crate) fn distribute_supplier_reward(asset_id: CurrencyId<T>, supplier: &T::AccountId) -> DispatchResult {
         RewardSupplierIndex::<T>::try_mutate(asset_id, supplier, |supplier_index| -> DispatchResult {
             let supply_state = RewardSupplyState::<T>::get(asset_id);
             let delta_index = supply_state
@@ -140,7 +140,7 @@ impl<T: Config> Pallet<T> {
         })
     }
 
-    pub(crate) fn distribute_borrower_reward(asset_id: AssetIdOf<T>, borrower: &T::AccountId) -> DispatchResult {
+    pub(crate) fn distribute_borrower_reward(asset_id: CurrencyId<T>, borrower: &T::AccountId) -> DispatchResult {
         RewardBorrowerIndex::<T>::try_mutate(asset_id, borrower, |borrower_index| -> DispatchResult {
             let borrow_state = RewardBorrowState::<T>::get(asset_id);
             let delta_index = borrow_state
@@ -172,7 +172,7 @@ impl<T: Config> Pallet<T> {
         })
     }
 
-    pub(crate) fn collect_market_reward(asset_id: AssetIdOf<T>, user: &T::AccountId) -> DispatchResult {
+    pub(crate) fn collect_market_reward(asset_id: CurrencyId<T>, user: &T::AccountId) -> DispatchResult {
         Self::update_reward_supply_index(asset_id)?;
         Self::distribute_supplier_reward(asset_id, user)?;
 

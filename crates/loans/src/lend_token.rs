@@ -15,7 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::{AssetIdOf, BalanceOf, *};
+use crate::{BalanceOf, CurrencyId, *};
 
 #[cfg(test)]
 use frame_support::traits::tokens::{DepositConsequence, WithdrawConsequence};
@@ -23,7 +23,7 @@ use frame_support::traits::tokens::{DepositConsequence, WithdrawConsequence};
 #[cfg(test)]
 impl<T: Config> Pallet<T> {
     /// The total amount of issuance in the system.
-    pub fn total_issuance(lend_token_id: AssetIdOf<T>) -> BalanceOf<T> {
+    pub fn total_issuance(lend_token_id: CurrencyId<T>) -> BalanceOf<T> {
         if let Ok(underlying_id) = Self::underlying_id(lend_token_id) {
             if let Ok(supply) = Self::total_supply(underlying_id) {
                 return supply;
@@ -33,19 +33,19 @@ impl<T: Config> Pallet<T> {
     }
 
     /// The minimum balance any single account may have.
-    pub fn minimum_balance(_lend_token_id: AssetIdOf<T>) -> BalanceOf<T> {
+    pub fn minimum_balance(_lend_token_id: CurrencyId<T>) -> BalanceOf<T> {
         Zero::zero()
     }
 
     /// Get the maximum amount that `who` can withdraw/transfer successfully.
     /// For lend_token, We don't care if keep_alive is enabled
-    pub fn reducible_balance(lend_token_id: AssetIdOf<T>, who: &T::AccountId, _keep_alive: bool) -> BalanceOf<T> {
+    pub fn reducible_balance(lend_token_id: CurrencyId<T>, who: &T::AccountId, _keep_alive: bool) -> BalanceOf<T> {
         Self::reducible_asset(lend_token_id, who).unwrap_or_default()
     }
 
     /// Returns `true` if the balance of `who` may be increased by `amount`.
     pub fn can_deposit(
-        lend_token_id: AssetIdOf<T>,
+        lend_token_id: CurrencyId<T>,
         who: &T::AccountId,
         amount: BalanceOf<T>,
         _mint: bool,
@@ -78,7 +78,7 @@ impl<T: Config> Pallet<T> {
     /// Returns `Failed` if the balance of `who` may not be decreased by `amount`, otherwise
     /// the consequence.
     pub fn can_withdraw(
-        lend_token_id: AssetIdOf<T>,
+        lend_token_id: CurrencyId<T>,
         who: &T::AccountId,
         amount: BalanceOf<T>,
     ) -> WithdrawConsequence<BalanceOf<T>> {
@@ -109,7 +109,7 @@ impl<T: Config> Pallet<T> {
     /// For lend_token, We don't care if keep_alive is enabled
     #[transactional]
     pub fn transfer(
-        lend_token_id: AssetIdOf<T>,
+        lend_token_id: CurrencyId<T>,
         source: &T::AccountId,
         dest: &T::AccountId,
         amount: BalanceOf<T>,
@@ -120,7 +120,7 @@ impl<T: Config> Pallet<T> {
         Ok(amount)
     }
 
-    fn reducible_asset(lend_token_id: AssetIdOf<T>, who: &T::AccountId) -> Result<BalanceOf<T>, DispatchError> {
+    fn reducible_asset(lend_token_id: CurrencyId<T>, who: &T::AccountId) -> Result<BalanceOf<T>, DispatchError> {
         let voucher_balance = Self::account_deposits(lend_token_id, &who);
 
         let underlying_id = Self::underlying_id(lend_token_id)?;

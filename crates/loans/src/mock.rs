@@ -196,7 +196,6 @@ impl Config for Test {
     type UpdateOrigin = EnsureRoot<AccountId>;
     type WeightInfo = ();
     type UnixTime = TimestampPallet;
-    type Assets = Tokens;
     type RewardAssetId = GetNativeCurrencyId;
     type ReferenceAssetId = GetWrappedCurrencyId;
     type OnExchangeRateChange = ();

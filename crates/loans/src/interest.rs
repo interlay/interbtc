@@ -23,7 +23,7 @@ use crate::*;
 impl<T: Config> Pallet<T> {
     /// Accrue interest and update corresponding storage
     #[cfg_attr(any(test, feature = "integration-tests"), visibility::make(pub))]
-    pub(crate) fn accrue_interest(asset_id: AssetIdOf<T>) -> DispatchResult {
+    pub(crate) fn accrue_interest(asset_id: CurrencyId<T>) -> DispatchResult {
         let now = T::UnixTime::now().as_secs();
         let last_accrued_interest_time = Self::last_accrued_interest_time(asset_id);
         if last_accrued_interest_time.is_zero() {
@@ -65,7 +65,7 @@ impl<T: Config> Pallet<T> {
     }
 
     pub fn get_market_status(
-        asset_id: AssetIdOf<T>,
+        asset_id: CurrencyId<T>,
     ) -> Result<(Rate, Rate, Rate, Ratio, BalanceOf<T>, BalanceOf<T>, FixedU128), DispatchError> {
         let market = Self::market(asset_id)?;
         let total_supply = Self::total_supply(asset_id)?;
@@ -119,7 +119,7 @@ impl<T: Config> Pallet<T> {
     /// Update the exchange rate according to the totalCash, totalBorrows and totalSupply.
     /// This function does not accrue interest before calculating the exchange rate.
     /// exchangeRate = (totalCash + totalBorrows - totalReserves) / totalSupply
-    pub fn exchange_rate_stored(asset_id: AssetIdOf<T>) -> Result<Rate, DispatchError> {
+    pub fn exchange_rate_stored(asset_id: CurrencyId<T>) -> Result<Rate, DispatchError> {
         let total_supply = Self::total_supply(asset_id)?;
         let total_cash = Self::get_total_cash(asset_id);
         let total_borrows = Self::total_borrows(asset_id);
@@ -162,7 +162,7 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
-    pub(crate) fn update_last_accrued_interest_time(asset_id: AssetIdOf<T>, time: Timestamp) -> DispatchResult {
+    pub(crate) fn update_last_accrued_interest_time(asset_id: CurrencyId<T>, time: Timestamp) -> DispatchResult {
         LastAccruedInterestTime::<T>::try_mutate(asset_id, |last_time| -> DispatchResult {
             *last_time = time;
             Ok(())
