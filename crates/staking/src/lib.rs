@@ -503,16 +503,22 @@ impl<T: Config> Pallet<T> {
         vault_id: &DefaultVaultId<T>,
         nominator_id: &T::AccountId,
     ) -> Result<<SignedFixedPoint<T> as FixedPointNumber>::Inner, DispatchError> {
+        Self::compute_precise_stake_at_index(nonce, vault_id, nominator_id)?
+            .truncate_to_inner()
+            .ok_or(Error::<T>::TryIntoIntError.into())
+    }
+
+    pub fn compute_precise_stake_at_index(
+        nonce: T::Index,
+        vault_id: &DefaultVaultId<T>,
+        nominator_id: &T::AccountId,
+    ) -> Result<SignedFixedPoint<T>, DispatchError> {
         let stake = Self::stake_at_index(nonce, vault_id, nominator_id);
         let slash_per_token = Self::slash_per_token_at_index(nonce, vault_id);
         let slash_tally = Self::slash_tally_at_index(nonce, vault_id, nominator_id);
         let to_slash = Self::compute_amount_to_slash(stake, slash_per_token, slash_tally)?;
 
-        let stake_sub_to_slash = stake
-            .checked_sub(&to_slash)
-            .ok_or(ArithmeticError::Underflow)?
-            .truncate_to_inner()
-            .ok_or(Error::<T>::TryIntoIntError)?;
+        let stake_sub_to_slash = stake.checked_sub(&to_slash).ok_or(ArithmeticError::Underflow)?;
         Ok(cmp::max(Zero::zero(), stake_sub_to_slash))
     }
 
@@ -579,9 +585,7 @@ impl<T: Config> Pallet<T> {
         vault_id: &DefaultVaultId<T>,
         nominator_id: &T::AccountId,
     ) -> Result<<SignedFixedPoint<T> as FixedPointNumber>::Inner, DispatchError> {
-        let stake =
-            SignedFixedPoint::<T>::checked_from_integer(Self::compute_stake_at_index(nonce, vault_id, nominator_id)?)
-                .ok_or(Error::<T>::TryIntoIntError)?;
+        let stake = Self::compute_precise_stake_at_index(nonce, vault_id, nominator_id)?;
         let reward_per_token = Self::reward_per_token(currency_id, (nonce, vault_id));
         // FIXME: this can easily overflow with large numbers
         let stake_mul_reward_per_token = stake.checked_mul(&reward_per_token).ok_or(ArithmeticError::Overflow)?;
