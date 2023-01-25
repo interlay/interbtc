@@ -1,8 +1,7 @@
 use super::{
-    parameter_types, Balance, CurrencyId, DexGeneral, DexStable, Get, PalletId, Runtime, RuntimeEvent, StablePoolId,
+    parameter_types, Balance, CurrencyId, DexGeneral, DexStable, PalletId, Runtime, RuntimeEvent, StablePoolId,
     Timestamp, Tokens,
 };
-use sp_core::ConstU16;
 
 pub use dex_general::{AssetBalance, GenerateLpAssetId, PairInfo};
 pub use dex_stable::traits::{StablePoolLpCurrencyIdGenerate, ValidateCurrency};

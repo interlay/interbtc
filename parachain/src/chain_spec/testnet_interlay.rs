@@ -252,7 +252,6 @@ fn testnet_genesis(
         },
         technical_committee: Default::default(),
         technical_membership: Default::default(),
-        treasury: Default::default(),
         democracy: Default::default(),
         supply: testnet_interlay_runtime::SupplyConfig {
             initial_supply: testnet_interlay_runtime::token_distribution::INITIAL_ALLOCATION,

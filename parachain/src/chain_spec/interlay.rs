@@ -217,7 +217,6 @@ fn interlay_mainnet_genesis(
         },
         technical_committee: Default::default(),
         technical_membership: Default::default(),
-        treasury: Default::default(),
         democracy: Default::default(),
         supply: interlay_runtime::SupplyConfig {
             initial_supply: interlay_runtime::token_distribution::INITIAL_ALLOCATION,

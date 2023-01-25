@@ -55,6 +55,7 @@ pub trait WeightInfo {
 	fn unlock_set(r: u32, ) -> Weight;
 	fn remove_vote(r: u32, ) -> Weight;
 	fn remove_other_vote(r: u32, ) -> Weight;
+	fn spend_from_treasury() -> Weight;
 }
 
 /// Weights for pallet_democracy using the Substrate node and recommended hardware.
@@ -295,6 +296,9 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(T::DbWeight::get().reads(2 as u64))
 			.saturating_add(T::DbWeight::get().writes(2 as u64))
 	}
+	fn spend_from_treasury() -> Weight {
+		Self::cancel_referendum() // didn't run benchmark yet - use this as approximation
+	}
 }
 
 // For backwards compatibility and tests
@@ -533,5 +537,9 @@ impl WeightInfo for () {
 			.saturating_add(Weight::from_ref_time(157_000 as u64).saturating_mul(r as u64))
 			.saturating_add(RocksDbWeight::get().reads(2 as u64))
 			.saturating_add(RocksDbWeight::get().writes(2 as u64))
+	}
+
+	fn spend_from_treasury() -> Weight {
+		Self::cancel_referendum() // didn't run benchmark yet - use this as approximation
 	}
 }

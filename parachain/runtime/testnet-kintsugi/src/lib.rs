@@ -22,7 +22,7 @@ use frame_support::{
 };
 use frame_system::{
     limits::{BlockLength, BlockWeights},
-    EnsureRoot, EnsureRootWithSuccess, EnsureSigned,
+    EnsureRoot, EnsureSigned,
 };
 use loans::{OnSlashHook, PostDeposit, PostTransfer, PreDeposit, PreTransfer};
 use orml_asset_registry::SequentialId;
@@ -97,7 +97,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     spec_name: create_runtime_str!("testnet-kintsugi"),
     impl_name: create_runtime_str!("testnet-kintsugi"),
     authoring_version: 1,
-    spec_version: 1023002,
+    spec_version: 1023001,
     impl_version: 1,
     transaction_version: 1, // added preimage
     apis: RUNTIME_API_VERSIONS,
@@ -466,6 +466,8 @@ impl democracy::Config for Runtime {
     type UnixTime = Timestamp;
     type Moment = Moment;
     type LaunchOffsetMillis = LaunchOffsetMillis;
+    type TreasuryAccount = TreasuryAccount;
+    type TreasuryCurrency = NativeCurrency;
 }
 
 parameter_types! {
@@ -494,25 +496,6 @@ parameter_types! {
     pub const Burn: Permill = Permill::from_percent(0);
     pub const MaxApprovals: u32 = 100;
     pub const MaxSpend: Balance = Balance::MAX;
-}
-
-impl pallet_treasury::Config for Runtime {
-    type PalletId = TreasuryPalletId;
-    type Currency = NativeCurrency;
-    type ApproveOrigin = EnsureRoot<AccountId>;
-    type RejectOrigin = EnsureRoot<AccountId>;
-    type SpendOrigin = EnsureRootWithSuccess<AccountId, MaxSpend>;
-    type RuntimeEvent = RuntimeEvent;
-    type OnSlash = Treasury;
-    type ProposalBond = ProposalBond;
-    type ProposalBondMinimum = ProposalBondMinimum;
-    type ProposalBondMaximum = ProposalBondMaximum;
-    type SpendPeriod = SpendPeriod;
-    type Burn = Burn;
-    type BurnDestination = ();
-    type SpendFunds = ();
-    type WeightInfo = ();
-    type MaxApprovals = MaxApprovals;
 }
 
 parameter_types! {
@@ -616,7 +599,7 @@ parameter_types! {
     pub TreasuryAccount: AccountId = TreasuryPalletId::get().into_account_truncating();
     // a3cgeH7Cz8NiptXsRA4iUACqh5frp9SSWgRiRhuaX3kj2ja4h
     pub CollatorSelectionAccount: AccountId = CollatorPotId::get().into_account_truncating();
-    // a3cgeH7D28bBsHbch2n7DChKEapamDqY9yAm441K9WUQZbBGJ
+// a3cgeH7D28bBsHbch2n7DChKEapamDqY9yAm441K9WUQZbBGJ
     pub VaultRegistryAccount: AccountId = VaultRegistryPalletId::get().into_account_truncating();
     // a3cgeH7D28bBsHHqPQpBW7js6ePUgvf41qCBXNxERTqXDZcpv
     pub LoansAccount: AccountId = LoansPalletId::get().into_account_truncating();
@@ -984,7 +967,7 @@ impl pallet_identity::Config for Runtime {
     type MaxSubAccounts = MaxSubAccounts;
     type MaxAdditionalFields = MaxAdditionalFields;
     type MaxRegistrars = MaxRegistrars;
-    type Slashed = Treasury;
+    type Slashed = runtime_common::ToTreasury<Runtime, TreasuryAccount, NativeCurrency>;
     type ForceOrigin = EnsureRoot<AccountId>;
     type RegistrarOrigin = EnsureRoot<AccountId>;
     type WeightInfo = ();
@@ -1219,7 +1202,6 @@ construct_runtime! {
         Democracy: democracy::{Pallet, Call, Storage, Config<T>, Event<T>} = 70,
         TechnicalCommittee: pallet_collective::<Instance1>::{Pallet, Call, Storage, Origin<T>, Event<T>, Config<T>} = 71,
         TechnicalMembership: pallet_membership::{Pallet, Call, Storage, Event<T>, Config<T>} = 72,
-        Treasury: pallet_treasury::{Pallet, Call, Storage, Config, Event<T>} = 73,
 
         Authorship: pallet_authorship::{Pallet, Call, Storage} = 80,
         CollatorSelection: collator_selection::{Pallet, Call, Storage, Event<T>, Config<T>} = 81,
