@@ -70,7 +70,7 @@ pub use primitives::{
     self, AccountId, Balance, BlockNumber,
     CurrencyId::{ForeignAsset, LendToken, Token},
     CurrencyInfo, Hash, Liquidity, Moment, Nonce, Rate, Ratio, Shortfall, Signature, SignedFixedPoint, SignedInner,
-    UnsignedFixedPoint, UnsignedInner,
+    StablePoolId, UnsignedFixedPoint, UnsignedInner,
 };
 
 // XCM imports
@@ -80,6 +80,8 @@ use xcm_config::ParentLocation;
 
 pub mod constants;
 pub mod xcm_config;
+
+mod zenlink;
 
 type VaultId = primitives::VaultId<AccountId, CurrencyId>;
 
@@ -1207,8 +1209,11 @@ construct_runtime! {
         XTokens: orml_xtokens::{Pallet, Storage, Call, Event<T>} = 94,
         UnknownTokens: orml_unknown_tokens::{Pallet, Storage, Event} = 95,
 
-        // # Lending
+        // # Lending & AMM
         Loans: loans::{Pallet, Call, Storage, Event<T>, Config} = 100,
+        ZenlinkProtocol: zenlink_protocol::{Pallet, Call, Storage, Event<T>} = 101,
+        ZenlinkStableAmm: zenlink_stable_amm::{Pallet, Call, Storage, Event<T>}  = 102,
+        ZenlinkSwapRouter: zenlink_swap_router::{Pallet, Call, Event<T>} = 103,
     }
 }
 
@@ -1628,6 +1633,123 @@ impl_runtime_apis! {
         fn get_liquidation_threshold_liquidity(account: AccountId) -> Result<(Liquidity, Shortfall), DispatchError> {
             Loans::get_account_liquidation_threshold_liquidity(&account)
             .and_then(|liquidity| liquidity.to_rpc_tuple())
+        }
+    }
+
+    impl zenlink_protocol_runtime_api::ZenlinkProtocolApi<Block, AccountId, CurrencyId> for Runtime {
+        fn get_balance(
+            asset_id: CurrencyId,
+            owner: AccountId
+        ) -> zenlink::AssetBalance {
+            use zenlink_protocol::MultiAssetsHandler;
+            <Runtime as zenlink_protocol::Config>::MultiAssetsHandler::balance_of(asset_id, &owner)
+        }
+
+        fn get_sovereigns_info(
+            asset_id: CurrencyId
+        ) -> Vec<(u32, AccountId, zenlink::AssetBalance)> {
+            ZenlinkProtocol::get_sovereigns_info(&asset_id)
+        }
+
+        fn get_pair_by_asset_id(
+            asset_0: CurrencyId,
+            asset_1: CurrencyId
+        ) -> Option<zenlink::PairInfo<AccountId, zenlink::AssetBalance, CurrencyId>> {
+            ZenlinkProtocol::get_pair_by_asset_id(asset_0, asset_1)
+        }
+
+        fn get_amount_in_price(
+            supply: zenlink::AssetBalance,
+            path: Vec<CurrencyId>
+        ) -> zenlink::AssetBalance {
+            ZenlinkProtocol::desired_in_amount(supply, path)
+        }
+
+        fn get_amount_out_price(
+            supply: zenlink::AssetBalance,
+            path: Vec<CurrencyId>
+        ) -> zenlink::AssetBalance {
+            ZenlinkProtocol::supply_out_amount(supply, path)
+        }
+
+        fn get_estimate_lptoken(
+            asset_0: CurrencyId,
+            asset_1: CurrencyId,
+            amount_0_desired: zenlink::AssetBalance,
+            amount_1_desired: zenlink::AssetBalance,
+            amount_0_min: zenlink::AssetBalance,
+            amount_1_min: zenlink::AssetBalance,
+        ) -> zenlink::AssetBalance{
+            ZenlinkProtocol::get_estimate_lptoken(
+                asset_0,
+                asset_1,
+                amount_0_desired,
+                amount_1_desired,
+                amount_0_min,
+                amount_1_min
+            )
+        }
+    }
+
+    impl zenlink_stable_amm_runtime_api::StableAmmApi<Block, CurrencyId, Balance, AccountId, StablePoolId> for Runtime {
+        fn get_virtual_price(pool_id: StablePoolId) -> Balance {
+            ZenlinkStableAmm::get_virtual_price(pool_id)
+        }
+
+        fn get_a(pool_id: StablePoolId) -> Balance {
+            ZenlinkStableAmm::get_a(pool_id)
+        }
+
+        fn get_a_precise(pool_id: StablePoolId) -> Balance {
+            ZenlinkStableAmm::get_a(pool_id) * 100
+        }
+
+        fn get_currencies(pool_id: StablePoolId) -> Vec<CurrencyId> {
+            ZenlinkStableAmm::get_currencies(pool_id)
+        }
+
+        fn get_currency(pool_id: StablePoolId, index: u32) -> Option<CurrencyId> {
+            ZenlinkStableAmm::get_currency(pool_id, index)
+        }
+
+        fn get_lp_currency(pool_id: StablePoolId) -> Option<CurrencyId> {
+            ZenlinkStableAmm::get_lp_currency(pool_id)
+        }
+
+        fn get_currency_precision_multipliers(pool_id: StablePoolId) -> Vec<Balance> {
+            ZenlinkStableAmm::get_currency_precision_multipliers(pool_id)
+        }
+
+        fn get_currency_balances(pool_id: StablePoolId) -> Vec<Balance> {
+            ZenlinkStableAmm::get_currency_balances(pool_id)
+        }
+
+        fn get_number_of_currencies(pool_id: StablePoolId) -> u32 {
+            ZenlinkStableAmm::get_number_of_currencies(pool_id)
+        }
+
+        fn get_admin_balances(pool_id: StablePoolId) -> Vec<Balance> {
+            ZenlinkStableAmm::get_admin_balances(pool_id)
+        }
+
+        fn calculate_currency_amount(pool_id: StablePoolId, amounts: Vec<Balance>, deposit: bool) -> Balance {
+            use zenlink_stable_amm::traits::StableAmmApi;
+            ZenlinkStableAmm::stable_amm_calculate_currency_amount(pool_id, &amounts, deposit).unwrap_or_default()
+        }
+
+        fn calculate_swap(pool_id: StablePoolId, in_index: u32, out_index: u32, in_amount: Balance) -> Balance {
+            use zenlink_stable_amm::traits::StableAmmApi;
+            ZenlinkStableAmm::stable_amm_calculate_swap_amount(pool_id, in_index as usize, out_index as usize, in_amount).unwrap_or_default()
+        }
+
+        fn calculate_remove_liquidity(pool_id: StablePoolId, amount: Balance) -> Vec<Balance> {
+            use zenlink_stable_amm::traits::StableAmmApi;
+            ZenlinkStableAmm::stable_amm_calculate_remove_liquidity(pool_id, amount).unwrap_or_default()
+        }
+
+        fn calculate_remove_liquidity_one_currency(pool_id: StablePoolId, amount: Balance, index: u32) -> Balance {
+            use zenlink_stable_amm::traits::StableAmmApi;
+            ZenlinkStableAmm::stable_amm_calculate_remove_liquidity_one_currency(pool_id, amount, index).unwrap_or_default()
         }
     }
 

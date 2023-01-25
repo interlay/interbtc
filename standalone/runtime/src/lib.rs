@@ -71,7 +71,7 @@ pub use primitives::{
     self, AccountId, Balance, BlockNumber, CurrencyId,
     CurrencyId::{ForeignAsset, LendToken, Token},
     CurrencyInfo, Hash, Liquidity, Moment, Nonce, PriceDetail, Rate, Ratio, Shortfall, Signature, SignedFixedPoint,
-    SignedInner, TokenSymbol, UnsignedFixedPoint, UnsignedInner, DOT, IBTC, INTR, KBTC, KINT, KSM,
+    SignedInner, StablePoolId, TokenSymbol, UnsignedFixedPoint, UnsignedInner, DOT, IBTC, INTR, KBTC, KINT, KSM,
 };
 
 type VaultId = primitives::VaultId<AccountId, CurrencyId>;
@@ -1620,6 +1620,111 @@ impl_runtime_apis! {
         fn get_liquidation_threshold_liquidity(account: AccountId) -> Result<(Liquidity, Shortfall), DispatchError> {
             Loans::get_account_liquidation_threshold_liquidity(&account)
             .and_then(|liquidity| liquidity.to_rpc_tuple())
+        }
+    }
+
+    impl zenlink_protocol_runtime_api::ZenlinkProtocolApi<Block, AccountId, CurrencyId> for Runtime {
+        fn get_balance(
+            _asset_id: CurrencyId,
+            _owner: AccountId
+        ) -> zenlink_protocol::AssetBalance {
+            Default::default()
+        }
+
+        fn get_sovereigns_info(
+            _asset_id: CurrencyId
+        ) -> Vec<(u32, AccountId, zenlink_protocol::AssetBalance)> {
+            Default::default()
+        }
+
+        fn get_pair_by_asset_id(
+            _asset_0: CurrencyId,
+            _asset_1: CurrencyId
+        ) -> Option<zenlink_protocol::PairInfo<AccountId, zenlink_protocol::AssetBalance, CurrencyId>> {
+            Default::default()
+        }
+
+        fn get_amount_in_price(
+            _supply: zenlink_protocol::AssetBalance,
+            _path: Vec<CurrencyId>
+        ) -> zenlink_protocol::AssetBalance {
+            Default::default()
+        }
+
+        fn get_amount_out_price(
+            _supply: zenlink_protocol::AssetBalance,
+            _path: Vec<CurrencyId>
+        ) -> zenlink_protocol::AssetBalance {
+            Default::default()
+        }
+
+        fn get_estimate_lptoken(
+            _asset_0: CurrencyId,
+            _asset_1: CurrencyId,
+            _amount_0_desired: zenlink_protocol::AssetBalance,
+            _amount_1_desired: zenlink_protocol::AssetBalance,
+            _amount_0_min: zenlink_protocol::AssetBalance,
+            _amount_1_min: zenlink_protocol::AssetBalance,
+        ) -> zenlink_protocol::AssetBalance {
+            Default::default()
+        }
+    }
+
+    impl zenlink_stable_amm_runtime_api::StableAmmApi<Block, CurrencyId, Balance, AccountId, StablePoolId> for Runtime {
+        fn get_virtual_price(_pool_id: StablePoolId) -> Balance {
+            Default::default()
+        }
+
+        fn get_a(_pool_id: StablePoolId) -> Balance {
+            Default::default()
+        }
+
+        fn get_a_precise(_pool_id: StablePoolId) -> Balance {
+            Default::default()
+        }
+
+        fn get_currencies(_pool_id: StablePoolId) -> Vec<CurrencyId> {
+            Default::default()
+        }
+
+        fn get_currency(_pool_id: StablePoolId, _index: u32) -> Option<CurrencyId> {
+            Default::default()
+        }
+
+        fn get_lp_currency(_pool_id: StablePoolId) -> Option<CurrencyId> {
+            Default::default()
+        }
+
+        fn get_currency_precision_multipliers(_pool_id: StablePoolId) -> Vec<Balance> {
+            Default::default()
+        }
+
+        fn get_currency_balances(_pool_id: StablePoolId) -> Vec<Balance> {
+            Default::default()
+        }
+
+        fn get_number_of_currencies(_pool_id: StablePoolId) -> u32 {
+            Default::default()
+        }
+
+        fn get_admin_balances(_pool_id: StablePoolId) -> Vec<Balance> {
+            Default::default()
+        }
+
+        fn calculate_currency_amount(_pool_id: StablePoolId, _amounts: Vec<Balance>, _deposit: bool) -> Balance {
+            Default::default()
+        }
+
+        fn calculate_swap(_pool_id: StablePoolId, _in_index: u32, _out_index: u32, _in_amount: Balance) -> Balance {
+            Default::default()
+        }
+
+        fn calculate_remove_liquidity(_pool_id: StablePoolId, _amount: Balance) -> Vec<Balance> {
+            Default::default()
+        }
+
+        fn calculate_remove_liquidity_one_currency(_pool_id: StablePoolId, _amount: Balance, _index: u32) -> Balance {
+            Default::default()
         }
     }
 }

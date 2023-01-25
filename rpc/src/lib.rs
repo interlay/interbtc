@@ -7,7 +7,7 @@
 
 use primitives::{
     issue::IssueRequest, redeem::RedeemRequest, replace::ReplaceRequest, AccountId, Balance, Block, BlockNumber,
-    CurrencyId, H256Le, Hash, Nonce, VaultId,
+    CurrencyId, H256Le, Hash, Nonce, StablePoolId, VaultId,
 };
 use sc_consensus_manual_seal::rpc::{EngineCommand, ManualSeal, ManualSealApiServer};
 pub use sc_rpc_api::DenyUnsafe;
@@ -18,6 +18,9 @@ use sp_block_builder::BlockBuilder;
 use sp_blockchain::{Error as BlockChainError, HeaderBackend, HeaderMetadata};
 use sp_core::H256;
 use std::sync::Arc;
+
+use zenlink_protocol_runtime_api::ZenlinkProtocolApi as ZenlinkProtocolRuntimeApi;
+use zenlink_stable_amm_runtime_api::StableAmmApi as ZenlinkStableAmmRuntimeApi;
 
 pub use jsonrpsee;
 
@@ -79,6 +82,8 @@ where
         FixedU128,
     >,
     C::Api: loans_rpc::LoansRuntimeApi<Block, AccountId, Balance>,
+    C::Api: ZenlinkProtocolRuntimeApi<Block, AccountId, CurrencyId>,
+    C::Api: ZenlinkStableAmmRuntimeApi<Block, CurrencyId, Balance, AccountId, StablePoolId>,
     C::Api: BlockBuilder<Block>,
     P: TransactionPool + 'static,
 {
@@ -93,6 +98,8 @@ where
     use reward_rpc::{Reward, RewardApiServer};
     use substrate_frame_rpc_system::{System, SystemApiServer};
     use vault_registry_rpc::{VaultRegistry, VaultRegistryApiServer};
+    use zenlink_protocol_rpc::{ZenlinkProtocol, ZenlinkProtocolApiServer};
+    use zenlink_stable_amm_rpc::{StableAmm as ZenlinkStableAmm, StableAmmApiServer as ZenlinkStableAmmApiServer};
 
     let mut module = RpcExtension::new(());
     let FullDeps {
@@ -130,7 +137,11 @@ where
 
     module.merge(Replace::new(client.clone()).into_rpc())?;
 
-    module.merge(Loans::new(client).into_rpc())?;
+    module.merge(Loans::new(client.clone()).into_rpc())?;
+
+    module.merge(ZenlinkProtocol::new(client.clone()).into_rpc())?;
+
+    module.merge(ZenlinkStableAmm::new(client).into_rpc())?;
 
     Ok(module)
 }
