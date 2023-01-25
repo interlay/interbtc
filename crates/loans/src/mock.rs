@@ -26,8 +26,8 @@ use frame_system::EnsureRoot;
 use mocktopus::{macros::mockable, mocking::MockResult};
 use orml_traits::{currency::MutationHooks, parameter_type_with_key};
 use primitives::{
-    CurrencyId::{self, LendToken, Token},
-    DOT, IBTC, INTR, KBTC, KINT, KSM,
+    CurrencyId::{LendToken, Token},
+    DOT, IBTC, INTR, KBTC, KINT, KSM, CurrencyInfo,
 };
 use sp_core::H256;
 use sp_runtime::{testing::Header, traits::IdentityLookup, AccountId32, FixedI128};
@@ -196,6 +196,7 @@ impl Config for Test {
     type UpdateOrigin = EnsureRoot<AccountId>;
     type WeightInfo = ();
     type UnixTime = TimestampPallet;
+    type Assets = Tokens;
     type RewardAssetId = GetNativeCurrencyId;
     type ReferenceAssetId = GetWrappedCurrencyId;
     type OnExchangeRateChange = ();
@@ -347,11 +348,11 @@ pub(crate) fn _run_to_block(n: BlockNumber) {
     }
 }
 
-pub fn almost_equal(target: u128, value: u128) -> bool {
+pub fn almost_equal(target: u128, value: u128, currency_id: CurrencyId) -> bool {
     let target = target as i128;
     let value = value as i128;
     let diff = (target - value).abs() as u128;
-    diff < micro_unit(1)
+    diff < micro_unit(1, currency_id)
 }
 
 pub fn accrue_interest_per_block(asset_id: CurrencyId, block_delta_secs: u64, run_to_block: u64) {
@@ -361,20 +362,24 @@ pub fn accrue_interest_per_block(asset_id: CurrencyId, block_delta_secs: u64, ru
     }
 }
 
-pub fn unit(d: u128) -> u128 {
-    d.saturating_mul(10_u128.pow(12))
+pub fn unit(d: u128, currency_id: CurrencyId) -> u128 {
+    if let CurrencyId::Token(token) = currency_id {
+        d.saturating_mul(10_u128.pow(token.decimals().into()))
+    } else {
+        panic!("Expected the currency to be a regular `CurrencyId::Token`");
+    }
 }
 
-pub fn milli_unit(d: u128) -> u128 {
-    d.saturating_mul(10_u128.pow(9))
+pub fn milli_unit(d: u128, currency_id: CurrencyId) -> u128 {
+    unit(d, currency_id).saturating_div(10_u128.pow(3))
 }
 
-pub fn micro_unit(d: u128) -> u128 {
-    d.saturating_mul(10_u128.pow(6))
+pub fn micro_unit(d: u128, currency_id: CurrencyId) -> u128 {
+    unit(d, currency_id).saturating_div(10_u128.pow(6))
 }
 
-pub fn million_unit(d: u128) -> u128 {
-    unit(d) * 10_u128.pow(6)
+pub fn million_unit(d: u128, currency_id: CurrencyId) -> u128 {
+    unit(d, currency_id) * 10_u128.pow(6)
 }
 
 pub const fn market_mock(lend_token_id: CurrencyId) -> Market<Balance> {
@@ -405,3 +410,4 @@ pub const ACTIVE_MARKET_MOCK: Market<Balance> = {
     market.state = MarketState::Active;
     market
 };
+
