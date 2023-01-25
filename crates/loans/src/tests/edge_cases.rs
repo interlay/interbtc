@@ -119,22 +119,20 @@ fn converting_to_and_from_collateral_should_not_change_results() {
 fn prevent_the_exchange_rate_attack() {
     new_test_ext().execute_with(|| {
         // Initialize Eve's balance
-        assert_ok!(<Tokens as Transfer<AccountId>>::transfer(
+        assert_ok!(Tokens::transfer(
+            RuntimeOrigin::signed(ALICE),
+            EVE,
             Token(DOT),
-            &ALICE,
-            &EVE,
             unit(200),
-            false
         ));
         // Eve deposits a small amount
         assert_ok!(Loans::mint(RuntimeOrigin::signed(EVE), Token(DOT), 1));
         // !!! Eve transfer a big amount to Loans::account_id
-        assert_ok!(<Tokens as Transfer<AccountId>>::transfer(
+        assert_ok!(Tokens::transfer(
+            RuntimeOrigin::signed(EVE),
+            Loans::account_id(),
             Token(DOT),
-            &EVE,
-            &Loans::account_id(),
             unit(100),
-            false
         ));
         assert_eq!(Tokens::balance(Token(DOT), &EVE), 99999999999999);
         assert_eq!(Tokens::balance(Token(DOT), &Loans::account_id()), 100000000000001);

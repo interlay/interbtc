@@ -1088,7 +1088,6 @@ impl loans::Config for Runtime {
     type UpdateOrigin = EnsureRoot<AccountId>;
     type WeightInfo = ();
     type UnixTime = Timestamp;
-    type Assets = Tokens;
     type RewardAssetId = GetNativeCurrencyId;
     type ReferenceAssetId = GetWrappedCurrencyId;
     type OnExchangeRateChange = vault_registry::PoolManager<Runtime>;

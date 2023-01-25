@@ -21,7 +21,7 @@ mod lend_tokens;
 mod liquidate_borrow;
 mod market;
 
-use currency::{Amount, CurrencyConversion};
+use currency::CurrencyConversion;
 use frame_support::{assert_noop, assert_ok};
 
 use mocktopus::mocking::Mockable;
@@ -31,8 +31,9 @@ use sp_runtime::{
 };
 
 use primitives::{
-    CurrencyId::Token, DOT as DOT_CURRENCY, IBTC as IBTC_CURRENCY, INTR as INTR_CURRENCY, KBTC as KBTC_CURRENCY,
-    KINT as KINT_CURRENCY, KSM as KSM_CURRENCY,
+    CurrencyId::{self, Token},
+    DOT as DOT_CURRENCY, IBTC as IBTC_CURRENCY, INTR as INTR_CURRENCY, KBTC as KBTC_CURRENCY, KINT as KINT_CURRENCY,
+    KSM as KSM_CURRENCY,
 };
 
 use crate::{
