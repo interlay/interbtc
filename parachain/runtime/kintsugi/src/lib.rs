@@ -494,6 +494,7 @@ impl democracy::Config for Runtime {
     type MaxVotes = MaxVotes;
     type WeightInfo = ();
     type MaxProposals = MaxProposals;
+    type MaxDeposits = ConstU32<100>;
     type UnixTime = Timestamp;
     type Moment = Moment;
     type LaunchOffsetMillis = LaunchOffsetMillis;
