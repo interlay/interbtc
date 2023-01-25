@@ -36,6 +36,15 @@ where
         at: Option<BlockHash>,
     ) -> RpcResult<BalanceWrapper<Balance>>;
 
+    #[method(name = "reward_computeFarmingReward")]
+    fn compute_farming_reward(
+        &self,
+        account_id: AccountId,
+        pool_currency_id: CurrencyId,
+        reward_currency_id: CurrencyId,
+        at: Option<BlockHash>,
+    ) -> RpcResult<BalanceWrapper<Balance>>;
+
     // TODO: change this to support querying by nominator_id
     #[method(name = "reward_computeVaultReward")]
     fn compute_vault_reward(
@@ -114,7 +123,23 @@ where
 
         handle_response(
             api.compute_escrow_reward(&at, account_id, currency_id),
-            "Unable to obtain the current reward".into(),
+            "Unable to compute the current reward".into(),
+        )
+    }
+
+    fn compute_farming_reward(
+        &self,
+        account_id: AccountId,
+        pool_currency_id: CurrencyId,
+        reward_currency_id: CurrencyId,
+        at: Option<<Block as BlockT>::Hash>,
+    ) -> RpcResult<BalanceWrapper<Balance>> {
+        let api = self.client.runtime_api();
+        let at = BlockId::hash(at.unwrap_or_else(|| self.client.info().best_hash));
+
+        handle_response(
+            api.compute_farming_reward(&at, account_id, pool_currency_id, reward_currency_id),
+            "Unable to compute the current reward".into(),
         )
     }
 
@@ -129,7 +154,7 @@ where
 
         handle_response(
             api.compute_vault_reward(&at, vault_id, currency_id),
-            "Unable to obtain the current reward".into(),
+            "Unable to compute the current reward".into(),
         )
     }
 

@@ -1591,6 +1591,10 @@ impl_runtime_apis! {
             Ok(balance)
         }
 
+        fn compute_farming_reward(_account_id: AccountId, _pool_currency_id: CurrencyId, _reward_currency_id: CurrencyId) -> Result<BalanceWrapper<Balance>, DispatchError> {
+            Err(DispatchError::Other("RPC Endpoint Not Implemented"))
+        }
+
         fn compute_vault_reward(vault_id: VaultId, currency_id: CurrencyId) -> Result<BalanceWrapper<Balance>, DispatchError> {
             let amount = Fee::compute_vault_rewards(&vault_id, &vault_id.account_id, currency_id)?.amount();
             let balance = BalanceWrapper::<Balance> { amount };
