@@ -47,6 +47,7 @@ construct_runtime!(
         TimestampPallet: pallet_timestamp::{Pallet, Call, Storage, Inherent},
         Tokens: orml_tokens::{Pallet, Call, Storage, Config<T>, Event<T>},
         Currency: currency::{Pallet},
+        Utility: pallet_utility,
     }
 );
 
@@ -179,6 +180,13 @@ impl currency::Config for Test {
     type GetRelayChainCurrencyId = GetCollateralCurrencyId;
     type GetWrappedCurrencyId = GetWrappedCurrencyId;
     type CurrencyConversion = CurrencyConvert;
+}
+
+impl pallet_utility::Config for Test {
+    type RuntimeEvent = RuntimeEvent;
+    type RuntimeCall = RuntimeCall;
+    type PalletsOrigin = OriginCaller;
+    type WeightInfo = ();
 }
 
 parameter_types! {
