@@ -124,6 +124,15 @@ mod math {
             )
         }
 
+        pub fn checked_accrue(&mut self, other: &Self) -> Result<&mut Self, DispatchError> {
+            *self = self.checked_fn(
+                other,
+                <BalanceOf<T> as CheckedAdd>::checked_add,
+                ArithmeticError::Overflow,
+            )?;
+            Ok(self)
+        }
+
         pub fn checked_sub(&self, other: &Self) -> Result<Self, DispatchError> {
             self.checked_fn(
                 other,
@@ -250,6 +259,10 @@ mod math {
                 currency_id: self.currency_id,
             })
         }
+
+        pub fn mul_ratio_floor(&self, ratio: primitives::Ratio) -> Self {
+            self.map(|x| ratio.mul_floor(x))
+        }
     }
 }
 
@@ -370,6 +383,28 @@ mod testing_utils {
         fn div(self, other: BalanceOf<T>) -> Self {
             Self {
                 amount: self.amount / other,
+                currency_id: self.currency_id,
+            }
+        }
+    }
+
+    impl<T: Config<Balance = u128>> Add<u128> for Amount<T> {
+        type Output = Self;
+
+        fn add(self, other: u128) -> Self {
+            Self {
+                amount: self.amount + other,
+                currency_id: self.currency_id,
+            }
+        }
+    }
+
+    impl<T: Config<Balance = u128>> Sub<u128> for Amount<T> {
+        type Output = Self;
+
+        fn sub(self, other: u128) -> Self {
+            Self {
+                amount: self.amount - other,
                 currency_id: self.currency_id,
             }
         }

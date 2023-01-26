@@ -43,6 +43,17 @@ fn reserved_balance(currency_id: CurrencyId, account_id: &AccountId) -> Balance 
     )
 }
 
+#[allow(unused)]
+fn free_balance_amount(currency_id: CurrencyId, account_id: &AccountId) -> Amount<Runtime> {
+    let balance = free_balance(currency_id, account_id);
+    Amount::new(balance, currency_id)
+}
+
+fn reserved_balance_amount(currency_id: CurrencyId, account_id: &AccountId) -> Amount<Runtime> {
+    let balance = reserved_balance(currency_id, account_id);
+    Amount::new(balance, currency_id)
+}
+
 fn set_up_market(currency_id: CurrencyId, exchange_rate: FixedU128, lend_token_id: CurrencyId) {
     assert_ok!(OraclePallet::_set_exchange_rate(currency_id, exchange_rate));
     assert_ok!(RuntimeCall::Sudo(SudoCall::sudo {
@@ -228,8 +239,8 @@ fn integration_test_lend_token_vault_insufficient_balance() {
         assert_eq!(free_balance(LEND_DOT, &vault_account_id), 1000);
         assert_eq!(reserved_balance(LEND_DOT, &vault_account_id), 0);
         assert_eq!(
-            LoansPallet::account_deposits(LEND_DOT, vault_account_id.clone()),
-            reserved_balance(LEND_DOT, &vault_account_id)
+            LoansPallet::account_deposits(LEND_DOT, &vault_account_id.clone()),
+            reserved_balance_amount(LEND_DOT, &vault_account_id)
         );
 
         let lend_tokens = LoansPallet::free_lend_tokens(dot, &vault_account_id).unwrap();
@@ -240,8 +251,8 @@ fn integration_test_lend_token_vault_insufficient_balance() {
         assert_eq!(free_balance(LEND_DOT, &vault_account_id), 0);
         assert_eq!(reserved_balance(LEND_DOT, &vault_account_id), 1000);
         assert_eq!(
-            LoansPallet::account_deposits(lend_tokens.currency(), vault_account_id.clone()),
-            reserved_balance(LEND_DOT, &vault_account_id)
+            LoansPallet::account_deposits(lend_tokens.currency(), &vault_account_id),
+            reserved_balance_amount(LEND_DOT, &vault_account_id)
         );
 
         let lend_token_vault_id = PrimitiveVaultId::new(vault_account_id.clone(), lend_tokens.currency(), Token(IBTC));
@@ -261,7 +272,7 @@ fn integration_test_lend_token_vault_insufficient_balance() {
         assert_eq!(free_balance(LEND_DOT, &vault_account_id), 0);
         assert_eq!(reserved_balance(LEND_DOT, &vault_account_id), 1000);
         assert_eq!(
-            LoansPallet::account_deposits(lend_tokens.currency(), vault_account_id.clone()),
+            LoansPallet::account_deposits(lend_tokens.currency(), &vault_account_id).amount(),
             0
         );
     });
@@ -286,7 +297,7 @@ fn integration_test_lend_token_deposit_insufficient_balance() {
         assert_ok!(get_register_vault_result(&lend_token_vault_id, lend_tokens),);
 
         assert_err!(
-            LoansPallet::do_deposit_collateral(&vault_account_id, lend_tokens.currency(), lend_tokens.amount()),
+            LoansPallet::do_deposit_collateral(&vault_account_id, &lend_tokens),
             TokensError::BalanceTooLow
         );
     });
@@ -312,12 +323,11 @@ fn integration_test_lend_token_transfer_reserved_fails() {
         // Lock some lend_tokens into the lending market
         assert_ok!(LoansPallet::do_deposit_collateral(
             &vault_account_id,
-            lend_tokens.currency(),
-            lend_tokens.amount() / 2
+            &(lend_tokens / 2)
         ));
         assert_eq!(
-            LoansPallet::account_deposits(lend_tokens.currency(), vault_account_id.clone()),
-            reserved_balance(lend_tokens.currency(), &vault_account_id)
+            LoansPallet::account_deposits(lend_tokens.currency(), &vault_account_id),
+            reserved_balance_amount(lend_tokens.currency(), &vault_account_id)
         );
         assert_eq!(free_balance(LEND_DOT, &vault_account_id), 500);
         assert_eq!(reserved_balance(LEND_DOT, &vault_account_id), 500);
