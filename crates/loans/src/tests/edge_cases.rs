@@ -4,7 +4,7 @@ use currency::Amount;
 use frame_support::{assert_err, assert_ok};
 use primitives::{
     CurrencyId::{ForeignAsset, Token},
-    DOT, KSM,
+    DOT, IBTC, KSM,
 };
 use sp_runtime::FixedPointNumber;
 
@@ -262,5 +262,37 @@ fn new_transferred_collateral_is_not_auto_deposited_if_not_collateral() {
             unit(10011)
         );
         assert_eq!(Loans::reserved_lend_tokens(Token(DOT), &ALICE).unwrap().is_zero(), true);
+    })
+}
+
+#[test]
+fn small_loans_have_interest_truncated_to_zero() {
+    new_test_ext().execute_with(|| {
+        assert_ok!(Loans::mint(RuntimeOrigin::signed(ALICE), Token(IBTC), unit(100)));
+        assert_ok!(Loans::mint(RuntimeOrigin::signed(BOB), Token(DOT), unit(100)));
+        assert_ok!(Loans::deposit_all_collateral(RuntimeOrigin::signed(BOB), Token(DOT)));
+
+        let initial_block = 2;
+        _run_to_block(initial_block);
+
+        // Borrow 0.1 BTC
+        assert_ok!(Loans::borrow(RuntimeOrigin::signed(BOB), Token(IBTC), 10_000_000));
+
+        // After 25 blocks, there is still no accrued interest.
+        _run_to_block(initial_block + 25);
+        Loans::accrue_interest(Token(IBTC)).unwrap();
+        assert_eq!(Loans::current_borrow_balance(&BOB, Token(IBTC)).unwrap(), 10_000_000);
+
+        // Repay to clear debt and any rounded out interest
+        assert_ok!(Loans::repay_borrow_all(RuntimeOrigin::signed(BOB), Token(IBTC)));
+
+        // Borrow 0.1 BTC again
+        _run_to_block(initial_block + 26);
+        assert_ok!(Loans::borrow(RuntimeOrigin::signed(BOB), Token(IBTC), 10_000_000));
+
+        // After another 25 blocks, there is still no accrued interest.
+        _run_to_block(initial_block + 51);
+        Loans::accrue_interest(Token(IBTC)).unwrap();
+        assert_eq!(Loans::current_borrow_balance(&BOB, Token(IBTC)).unwrap(), 10_000_000);
     })
 }
