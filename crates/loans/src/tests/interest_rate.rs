@@ -235,7 +235,7 @@ fn accrue_interest_works_after_repay_all() {
         TimestampPallet::set_timestamp(12000);
         assert_ok!(Loans::repay_borrow_all(RuntimeOrigin::signed(ALICE), Token(KSM)));
         assert_eq!(Loans::borrow_index(Token(KSM)), Rate::from_inner(1000000008561643835),);
-        assert_eq!(Tokens::balance(Token(KSM), &ALICE), 999999999571918);
+        assert_eq!(Tokens::balance(Token(KSM), &ALICE), 999999999571917);
         let borrow_snapshot = Loans::account_borrows(Token(KSM), ALICE);
         assert_eq!(borrow_snapshot.principal, 0);
         assert_eq!(borrow_snapshot.borrow_index, Loans::borrow_index(Token(KSM)));

@@ -1551,12 +1551,14 @@ impl<T: Config> Pallet<T> {
         }
         // Calculate new borrow balance using the interest index:
         // recent_borrow_balance = snapshot.principal * borrow_index / snapshot.borrow_index
-        let recent_borrow_balance = Self::borrow_index(asset_id)
+        let principal_amount = Amount::<T>::new(snapshot.principal, asset_id);
+        let borrow_index_increase = Self::borrow_index(asset_id)
             .checked_div(&snapshot.borrow_index)
-            .and_then(|r| r.checked_mul_int(snapshot.principal))
-            .ok_or(ArithmeticError::Overflow)?;
+            .ok_or(ArithmeticError::Underflow)?;
+        // Round up the borrower's debt, to avoid giving out short-term interest-free loans.
+        let recent_borrow_balance = principal_amount.checked_fixed_point_mul_rounded_up(&borrow_index_increase)?;
 
-        Ok(recent_borrow_balance)
+        Ok(recent_borrow_balance.amount())
     }
 
     /// Checks if the liquidation should be allowed to occur
