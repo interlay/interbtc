@@ -1,10 +1,10 @@
 use super::*;
 use crate::{mock::*, tests::Loans, Error};
 use currency::Amount;
-use frame_support::{assert_err, assert_ok};
+use frame_support::{assert_err, assert_ok, dispatch::Dispatchable};
 use primitives::{
     CurrencyId::{ForeignAsset, Token},
-    DOT, KSM, IBTC
+    DOT, IBTC, KSM,
 };
 use sp_runtime::FixedPointNumber;
 
@@ -266,7 +266,7 @@ fn new_transferred_collateral_is_not_auto_deposited_if_not_collateral() {
 }
 
 #[test]
-fn small_loans_have_interest_truncated_to_zero() {
+fn flashloan() {
     new_test_ext().execute_with(|| {
         assert_ok!(Loans::mint(RuntimeOrigin::signed(ALICE), Token(IBTC), unit(100)));
         assert_ok!(Loans::mint(RuntimeOrigin::signed(BOB), Token(DOT), unit(100)));
@@ -275,24 +275,19 @@ fn small_loans_have_interest_truncated_to_zero() {
         let initial_block = 2;
         _run_to_block(initial_block);
 
-        // Borrow 0.1 BTC
-        assert_ok!(Loans::borrow(RuntimeOrigin::signed(BOB), Token(IBTC), 10_000_000));
-        
-        // After 25 blocks, there is still no accrued interest.
-        _run_to_block(initial_block + 25);
-        Loans::accrue_interest(Token(IBTC)).unwrap();
-        assert_eq!(Loans::current_borrow_balance(&BOB, Token(IBTC)).unwrap(), 10_000_000);
-
-        // Repay to clear debt and any rounded out interest
-        assert_ok!(Loans::repay_borrow_all(RuntimeOrigin::signed(BOB), Token(IBTC)));
-
-        // Borrow 0.1 BTC again
-        _run_to_block(initial_block + 26);
-        assert_ok!(Loans::borrow(RuntimeOrigin::signed(BOB), Token(IBTC), 10_000_000));
-        
-        // After another 25 blocks, there is still no accrued interest.
-        _run_to_block(initial_block + 51);
-        Loans::accrue_interest(Token(IBTC)).unwrap();
-        assert_eq!(Loans::current_borrow_balance(&BOB, Token(IBTC)).unwrap(), 10_000_000);
+        // The borrower has no IBTC other than the loaned amount. If interest were to accrue,
+        // the `repay_borrow_all` transaction would fail.
+        assert_eq!(Tokens::balance(Token(IBTC), &BOB), 0);
+        let batch_call = RuntimeCall::Utility(pallet_utility::Call::batch {
+            calls: vec![
+                RuntimeCall::Loans(self::Call::borrow {
+                    asset_id: Token(IBTC),
+                    borrow_amount: unit(10),
+                }),
+                RuntimeCall::Loans(self::Call::repay_borrow_all { asset_id: Token(IBTC) }),
+            ],
+        });
+        assert_ok!(batch_call.clone().dispatch(RuntimeOrigin::signed(BOB)));
+        assert_eq!(Loans::current_borrow_balance(&BOB, Token(IBTC)).unwrap(), 0);
     })
 }

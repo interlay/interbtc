@@ -5144,6 +5144,7 @@ dependencies = [
  "orml-tokens",
  "orml-traits",
  "pallet-timestamp",
+ "pallet-utility",
  "parity-scale-codec",
  "scale-info",
  "serde",
