@@ -267,7 +267,7 @@ fn new_transferred_collateral_is_not_auto_deposited_if_not_collateral() {
 }
 
 #[test]
-fn small_loans_have_interest_truncated_to_zero() {
+fn small_loans_have_interest_rounded_up() {
     new_test_ext().execute_with(|| {
         assert_ok!(Loans::mint(RuntimeOrigin::signed(ALICE), Token(IBTC), unit(100)));
         assert_ok!(Loans::mint(RuntimeOrigin::signed(BOB), Token(DOT), unit(100)));
@@ -276,14 +276,14 @@ fn small_loans_have_interest_truncated_to_zero() {
         let initial_block = 2;
         _run_to_block(initial_block);
 
-        // Borrow 0.1 BTC
-        assert_ok!(Loans::borrow(RuntimeOrigin::signed(BOB), Token(IBTC), 10_000_000));
+        // Borrow 1 Satoshi
+        assert_ok!(Loans::borrow(RuntimeOrigin::signed(BOB), Token(IBTC), 1));
 
         _run_to_block(initial_block + 1);
         Loans::accrue_interest(Token(IBTC)).unwrap();
         // Interest gets accrued immediately (rounded up), to prevent
         // giving out interest-free loans due to truncating the interest.
-        assert_eq!(Loans::current_borrow_balance(&BOB, Token(IBTC)).unwrap(), 10_000_001);
+        assert_eq!(Loans::current_borrow_balance(&BOB, Token(IBTC)).unwrap(), 2);
 
         // Trying to repay the entire debt fails, because the borrower is 1 Satoshi short
         assert_noop!(
