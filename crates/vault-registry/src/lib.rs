@@ -419,11 +419,13 @@ pub mod pallet {
             total_collateral: BalanceOf<T>,
         },
         IncreaseLockedCollateral {
+            vault_id: DefaultVaultId<T>,
             currency_pair: DefaultVaultCurrencyPair<T>,
             delta: BalanceOf<T>,
             total: BalanceOf<T>,
         },
         DecreaseLockedCollateral {
+            vault_id: DefaultVaultId<T>,
             currency_pair: DefaultVaultCurrencyPair<T>,
             delta: BalanceOf<T>,
             total: BalanceOf<T>,
@@ -1451,6 +1453,7 @@ impl<T: Config> Pallet<T> {
         TotalUserVaultCollateral::<T>::insert(currency_pair, new.amount());
 
         Self::deposit_event(Event::<T>::IncreaseLockedCollateral {
+            vault_id: vault_id.clone(),
             currency_pair: currency_pair.clone(),
             delta: amount.amount(),
             total: new.amount(),
@@ -1467,6 +1470,7 @@ impl<T: Config> Pallet<T> {
         TotalUserVaultCollateral::<T>::insert(currency_pair, new.amount());
 
         Self::deposit_event(Event::<T>::DecreaseLockedCollateral {
+            vault_id: vault_id.clone(),
             currency_pair: currency_pair.clone(),
             delta: amount.amount(),
             total: new.amount(),
