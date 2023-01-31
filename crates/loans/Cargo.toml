@@ -41,6 +41,8 @@ orml-oracle = { git = "https://github.com/open-web3-stack/open-runtime-module-li
 
 [dev-dependencies]
 mocktopus = "0.8.0"
+visibility = { version = "0.0.1" }
+currency = { path = "../currency", features = ["testing-utils"] }
 
 [features]
 default = ["std"]

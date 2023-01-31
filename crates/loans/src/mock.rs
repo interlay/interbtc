@@ -32,6 +32,7 @@ use primitives::{
 use sp_core::H256;
 use sp_runtime::{testing::Header, traits::IdentityLookup, AccountId32, FixedI128};
 use sp_std::vec::Vec;
+use traits::OracleApi;
 
 type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
 type Block = frame_system::mocking::MockBlock<Test>;
@@ -144,22 +145,17 @@ impl orml_tokens::Config for Test {
 pub type SignedFixedPoint = FixedI128;
 pub type SignedInner = i128;
 pub type UnsignedFixedPoint = FixedU128;
+
 pub struct CurrencyConvert;
 
 #[cfg_attr(test, mockable)]
-impl currency::CurrencyConversion<currency::Amount<Test>, CurrencyId> for CurrencyConvert {
-    fn convert(
-        amount: &currency::Amount<Test>,
-        to: CurrencyId,
-    ) -> Result<currency::Amount<Test>, sp_runtime::DispatchError> {
-        let amount = convert_to(to, amount.amount())?;
-        Ok(Amount::new(amount, to))
+impl OracleApi<Amount<Test>, CurrencyId> for CurrencyConvert {
+    fn convert(amount: &Amount<Test>, to: CurrencyId) -> Result<Amount<Test>, DispatchError> {
+        Ok(amount.clone()) // exchange rate simulated to 1:1
     }
 }
 
-pub fn convert_to(_to: CurrencyId, amount: Balance) -> Result<Balance, sp_runtime::DispatchError> {
-    Ok(amount) // default conversion 1:1 - overwritable with mocktopus
-}
+type Conversion = currency::CurrencyConvert<Test, CurrencyConvert, Loans>;
 
 pub const DEFAULT_COLLATERAL_CURRENCY: CurrencyId = Token(DOT);
 pub const DEFAULT_NATIVE_CURRENCY: CurrencyId = Token(INTR);
@@ -179,7 +175,7 @@ impl currency::Config for Test {
     type GetNativeCurrencyId = GetNativeCurrencyId;
     type GetRelayChainCurrencyId = GetCollateralCurrencyId;
     type GetWrappedCurrencyId = GetWrappedCurrencyId;
-    type CurrencyConversion = CurrencyConvert;
+    type CurrencyConversion = Conversion;
 }
 
 impl pallet_utility::Config for Test {
@@ -240,7 +236,10 @@ pub fn with_price(
             (_, currency) if currency == DEFAULT_WRAPPED_CURRENCY => {
                 return MockResult::Return(Ok(Amount::new(amount.amount(), DEFAULT_WRAPPED_CURRENCY)));
             }
-            (currency, _) if currency == DEFAULT_WRAPPED_CURRENCY => {
+            (currency, x) if currency == DEFAULT_WRAPPED_CURRENCY => {
+                return MockResult::Return(Ok(Amount::new(amount.amount(), x)));
+            }
+            (a, b) if a == b => {
                 return MockResult::Return(Ok(amount.clone()));
             }
             (_, _) => return MockResult::Return(Err(Error::<Test>::InvalidExchangeRate.into())),
@@ -273,7 +272,6 @@ pub(crate) fn set_mock_balances() {
 
 #[cfg(test)]
 pub(crate) fn new_test_ext() -> sp_io::TestExternalities {
-    use currency::CurrencyConversion;
     use mocktopus::mocking::Mockable;
 
     let mut t = frame_system::GenesisConfig::default().build_storage::<Test>().unwrap();
@@ -314,7 +312,6 @@ pub(crate) fn new_test_ext() -> sp_io::TestExternalities {
 
 #[cfg(test)]
 pub(crate) fn new_test_ext_no_markets() -> sp_io::TestExternalities {
-    use currency::CurrencyConversion;
     use mocktopus::mocking::Mockable;
 
     let mut t = frame_system::GenesisConfig::default().build_storage::<Test>().unwrap();

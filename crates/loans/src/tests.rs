@@ -21,7 +21,7 @@ mod lend_tokens;
 mod liquidate_borrow;
 mod market;
 
-use currency::CurrencyConversion;
+use currency::Amount;
 use frame_support::{assert_noop, assert_ok};
 
 use mocktopus::mocking::Mockable;
@@ -35,10 +35,11 @@ use primitives::{
     DOT as DOT_CURRENCY, IBTC as IBTC_CURRENCY, INTR as INTR_CURRENCY, KBTC as KBTC_CURRENCY, KINT as KINT_CURRENCY,
     KSM as KSM_CURRENCY,
 };
+use traits::OracleApi;
 
 use crate::{
     mock::*,
-    tests::lend_tokens::{free_balance, reserved_balance},
+    tests::lend_tokens::{free_balance, reserved_balance, reserved_balance_amount},
 };
 
 const DOT: CurrencyId = Token(DOT_CURRENCY);
@@ -85,14 +86,15 @@ fn loans_native_token_works() {
         assert_eq!(BorrowIndex::<Test>::get(KINT), Rate::one());
         assert_eq!(ExchangeRate::<Test>::get(KINT), Rate::saturating_from_rational(2, 100));
         assert_ok!(Loans::mint(RuntimeOrigin::signed(DAVE), KINT, unit(1000)));
+        let lend_kint = Loans::lend_token_id(KINT).unwrap();
 
         // Redeem 1001 KINT should cause InsufficientDeposit
         assert_noop!(
-            Loans::redeem_allowed(KINT, &DAVE, unit(50050)),
+            Loans::redeem_allowed(&DAVE, &Amount::new(unit(50050), lend_kint)),
             Error::<Test>::InsufficientDeposit
         );
         // Redeem 1000 KINT is ok
-        assert_ok!(Loans::redeem_allowed(KINT, &DAVE, unit(50000),));
+        assert_ok!(Loans::redeem_allowed(&DAVE, &Amount::new(unit(50000), lend_kint)));
 
         assert_ok!(Loans::deposit_all_collateral(RuntimeOrigin::signed(DAVE), KINT));
         assert_eq!(Loans::free_lend_tokens(KINT, &DAVE).unwrap().is_zero(), true);
@@ -107,7 +109,7 @@ fn loans_native_token_works() {
         // KINT: cash - deposit + borrow - repay = 1000 - 1000 + 500 - 400 = 100
         assert_eq!(
             Loans::exchange_rate(KINT)
-                .saturating_mul_int(Loans::account_deposits(Loans::lend_token_id(KINT).unwrap(), DAVE)),
+                .saturating_mul_int(Loans::account_deposits(Loans::lend_token_id(KINT).unwrap(), &DAVE).amount()),
             unit(1000)
         );
         let borrow_snapshot = Loans::account_borrows(KINT, DAVE);
@@ -242,16 +244,19 @@ fn redeem_allowed_works() {
         assert_ok!(Loans::mint(RuntimeOrigin::signed(ALICE), KSM, 200));
         // Redeem 201 KSM should cause InsufficientDeposit
         assert_noop!(
-            Loans::redeem_allowed(KSM, &ALICE, 10050),
+            Loans::redeem_allowed(&ALICE, &Amount::new(10050, Loans::lend_token_id(KSM).unwrap())),
             Error::<Test>::InsufficientDeposit
         );
         // Redeem 1 DOT should cause InsufficientDeposit
         assert_noop!(
-            Loans::redeem_allowed(DOT, &ALICE, 50),
+            Loans::redeem_allowed(&ALICE, &Amount::new(50, Loans::lend_token_id(DOT).unwrap())),
             Error::<Test>::InsufficientDeposit
         );
         // Redeem 200 KSM is ok
-        assert_ok!(Loans::redeem_allowed(KSM, &ALICE, 10000));
+        assert_ok!(Loans::redeem_allowed(
+            &ALICE,
+            &Amount::new(10000, Loans::lend_token_id(KSM).unwrap())
+        ));
 
         assert_ok!(Loans::deposit_all_collateral(RuntimeOrigin::signed(ALICE), KSM));
         assert_eq!(Loans::free_lend_tokens(KSM, &ALICE).unwrap().is_zero(), true);
@@ -259,7 +264,7 @@ fn redeem_allowed_works() {
         assert_ok!(Loans::borrow(RuntimeOrigin::signed(ALICE), DOT, 50));
         // Redeeming is not allowed because the user has no `free` lend tokens
         assert_noop!(
-            Loans::redeem_allowed(KSM, &ALICE, 5050),
+            Loans::redeem_allowed(&ALICE, &Amount::new(5050, Loans::lend_token_id(KSM).unwrap())),
             Error::<Test>::LockedTokensCannotBeRedeemed
         );
         // However, the redeem extrinsic withdraws collateral first, if the account has
@@ -421,7 +426,7 @@ fn redeem_all_works() {
         // DOT collateral: deposit - redeem = 100 - 100 = 0
         assert_eq!(
             Loans::exchange_rate(DOT)
-                .saturating_mul_int(Loans::account_deposits(Loans::lend_token_id(DOT).unwrap(), ALICE)),
+                .saturating_mul_int(Loans::account_deposits(Loans::lend_token_id(DOT).unwrap(), &ALICE).amount()),
             0,
         );
         assert_eq!(Tokens::balance(DOT, &ALICE), unit(1000),);
@@ -439,11 +444,11 @@ fn borrow_allowed_works() {
         assert_ok!(Loans::deposit_all_collateral(RuntimeOrigin::signed(ALICE), KSM));
         // Borrow 101 DOT should cause InsufficientLiquidity
         assert_noop!(
-            Loans::borrow_allowed(DOT, &ALICE, 101),
+            Loans::borrow_allowed(&ALICE, &Amount::new(101, DOT)),
             Error::<Test>::InsufficientLiquidity
         );
         // Borrow 100 DOT is ok
-        assert_ok!(Loans::borrow_allowed(DOT, &ALICE, 100));
+        assert_ok!(Loans::borrow_allowed(&ALICE, &Amount::new(100, DOT)));
 
         // Set borrow limit to 10
         assert_ok!(Loans::force_update_market(
@@ -455,10 +460,10 @@ fn borrow_allowed_works() {
             },
         ));
         // Borrow 10 DOT is ok
-        assert_ok!(Loans::borrow_allowed(DOT, &ALICE, 10));
+        assert_ok!(Loans::borrow_allowed(&ALICE, &Amount::new(10, DOT)));
         // Borrow 11 DOT should cause BorrowLimitExceeded
         assert_noop!(
-            Loans::borrow_allowed(DOT, &ALICE, 11),
+            Loans::borrow_allowed(&ALICE, &Amount::new(11, DOT)),
             Error::<Test>::BorrowCapacityExceeded
         );
     })
@@ -484,7 +489,7 @@ fn borrow_cap_below_current_volume() {
         ));
         // Borrowing anything would exceed the cap
         assert_noop!(
-            Loans::borrow_allowed(DOT, &ALICE, 10),
+            Loans::borrow_allowed(&ALICE, &Amount::new(10, DOT)),
             Error::<Test>::BorrowCapacityExceeded
         );
         // Can repay the borrow, even if the resulting loan is still
@@ -493,7 +498,7 @@ fn borrow_cap_below_current_volume() {
 
         // Cannot borrow back the amount that has just been repaid
         assert_noop!(
-            Loans::borrow_allowed(DOT, &ALICE, 10),
+            Loans::borrow_allowed(&ALICE, &Amount::new(10, DOT)),
             Error::<Test>::BorrowCapacityExceeded
         );
 
@@ -503,11 +508,11 @@ fn borrow_cap_below_current_volume() {
         assert_ok!(Loans::repay_borrow(
             RuntimeOrigin::signed(ALICE),
             DOT,
-            outstanding - (new_borrow_cap / 2)
+            outstanding.amount() - (new_borrow_cap / 2)
         ));
 
         // Can now borrow
-        assert_ok!(Loans::borrow_allowed(DOT, &ALICE, new_borrow_cap / 2),);
+        assert_ok!(Loans::borrow_allowed(&ALICE, &Amount::new(new_borrow_cap / 2, DOT)));
     })
 }
 
@@ -568,7 +573,7 @@ fn borrow_works() {
         // DOT: cash - deposit + borrow = 1000 - 200 + 100 = 900
         assert_eq!(
             Loans::exchange_rate(DOT)
-                .saturating_mul_int(Loans::account_deposits(Loans::lend_token_id(DOT).unwrap(), ALICE)),
+                .saturating_mul_int(Loans::account_deposits(Loans::lend_token_id(DOT).unwrap(), &ALICE).amount()),
             unit(200)
         );
         let borrow_snapshot = Loans::account_borrows(DOT, ALICE);
@@ -594,7 +599,7 @@ fn repay_borrow_works() {
         // DOT: cash - deposit + borrow - repay = 1000 - 200 + 100 - 30 = 870
         assert_eq!(
             Loans::exchange_rate(DOT)
-                .saturating_mul_int(Loans::account_deposits(Loans::lend_token_id(DOT).unwrap(), ALICE)),
+                .saturating_mul_int(Loans::account_deposits(Loans::lend_token_id(DOT).unwrap(), &ALICE).amount()),
             unit(200)
         );
         let borrow_snapshot = Loans::account_borrows(DOT, ALICE);
@@ -625,7 +630,7 @@ fn repay_borrow_all_works() {
         assert_eq!(Tokens::balance(DOT, &ALICE), unit(800),);
         assert_eq!(
             Loans::exchange_rate(DOT)
-                .saturating_mul_int(Loans::account_deposits(Loans::lend_token_id(DOT).unwrap(), ALICE)),
+                .saturating_mul_int(Loans::account_deposits(Loans::lend_token_id(DOT).unwrap(), &ALICE).amount()),
             unit(200)
         );
         let borrow_snapshot = Loans::account_borrows(KSM, ALICE);
@@ -643,8 +648,8 @@ fn collateral_asset_works() {
         let lend_token_id = Loans::lend_token_id(DOT).unwrap();
         // No lend_tokens deposited as collateral
         assert_eq!(
-            Loans::account_deposits(lend_token_id, ALICE).eq(&reserved_balance(lend_token_id, &ALICE)),
-            true
+            Loans::account_deposits(lend_token_id, &ALICE),
+            reserved_balance_amount(lend_token_id, &ALICE)
         );
         assert_eq!(free_balance(lend_token_id, &ALICE), 200 * 50);
         assert_eq!(reserved_balance(lend_token_id, &ALICE), 0);
@@ -652,8 +657,8 @@ fn collateral_asset_works() {
         assert_ok!(Loans::deposit_all_collateral(RuntimeOrigin::signed(ALICE), DOT));
         // Non-zero lend_tokens deposited as collateral
         assert_eq!(
-            Loans::account_deposits(lend_token_id, ALICE).eq(&reserved_balance(lend_token_id, &ALICE)),
-            true
+            Loans::account_deposits(lend_token_id, &ALICE),
+            reserved_balance_amount(lend_token_id, &ALICE)
         );
         assert_eq!(free_balance(lend_token_id, &ALICE), 0);
         assert_eq!(reserved_balance(lend_token_id, &ALICE), 200 * 50);
@@ -668,8 +673,8 @@ fn collateral_asset_works() {
         assert_ok!(Loans::repay_borrow_all(RuntimeOrigin::signed(ALICE), DOT));
         assert_ok!(Loans::withdraw_all_collateral(RuntimeOrigin::signed(ALICE), DOT));
         assert_eq!(
-            Loans::account_deposits(lend_token_id, ALICE),
-            reserved_balance(lend_token_id, &ALICE)
+            Loans::account_deposits(lend_token_id, &ALICE),
+            reserved_balance_amount(lend_token_id, &ALICE)
         );
         assert_eq!(free_balance(lend_token_id, &ALICE), 200 * 50);
         assert_eq!(reserved_balance(lend_token_id, &ALICE), 0);
@@ -703,7 +708,7 @@ fn add_reserves_works() {
         // Add 100 DOT reserves
         assert_ok!(Loans::add_reserves(RuntimeOrigin::root(), ALICE, DOT, unit(100)));
 
-        assert_eq!(Loans::total_reserves(DOT), unit(100));
+        assert_eq!(Loans::total_reserves(DOT).amount(), unit(100));
         assert_eq!(Tokens::balance(DOT, &Loans::account_id()), unit(100),);
         assert_eq!(Tokens::balance(DOT, &ALICE), unit(900),);
     })
@@ -718,7 +723,7 @@ fn reduce_reserves_works() {
         // Reduce 20 DOT reserves
         assert_ok!(Loans::reduce_reserves(RuntimeOrigin::root(), ALICE, DOT, unit(20)));
 
-        assert_eq!(Loans::total_reserves(DOT), unit(80));
+        assert_eq!(Loans::total_reserves(DOT).amount(), unit(80));
         assert_eq!(Tokens::balance(DOT, &Loans::account_id()), unit(80),);
         assert_eq!(Tokens::balance(DOT, &ALICE), unit(920),);
     })
@@ -743,10 +748,10 @@ fn total_reserves_are_updated_on_withdrawal() {
             ALICE,
             DOT,
             // the actual total reserve is greater than this because of accumulated interest
-            2 * intermediary_total_reserves
+            2 * intermediary_total_reserves.amount()
         ));
         // Leftover
-        assert_eq!(Loans::total_reserves(DOT), 8610);
+        assert_eq!(Loans::total_reserves(DOT).amount(), 8610);
     })
 }
 
@@ -767,7 +772,9 @@ fn total_reserves_are_updated_on_deposit() {
 
         // The stored total reserve must be up-to-date
         assert!(
-            Loans::total_reserves(DOT) > 2 * intermediary_total_reserves + 1,
+            Loans::total_reserves(DOT)
+                .gt(&(intermediary_total_reserves * 2 + 1))
+                .unwrap(),
             "interest was not accrued when reserves were added"
         );
     })
@@ -922,7 +929,7 @@ fn current_borrow_balance_works() {
                 borrow_index: Rate::one(),
             },
         );
-        assert_eq!(Loans::current_borrow_balance(&ALICE, DOT).unwrap(), 0);
+        assert_eq!(Loans::current_borrow_balance(&ALICE, DOT).unwrap().amount(), 0);
 
         // snapshot.borrow_index = 0
         AccountBorrows::<Test>::insert(
@@ -933,7 +940,7 @@ fn current_borrow_balance_works() {
                 borrow_index: Rate::zero(),
             },
         );
-        assert_eq!(Loans::current_borrow_balance(&ALICE, DOT).unwrap(), 0);
+        assert_eq!(Loans::current_borrow_balance(&ALICE, DOT).unwrap().amount(), 0);
 
         // borrow_index = 1.2, snapshot.borrow_index = 1, snapshot.principal = 100
         BorrowIndex::<Test>::insert(DOT, Rate::saturating_from_rational(12, 10));
@@ -945,11 +952,12 @@ fn current_borrow_balance_works() {
                 borrow_index: Rate::one(),
             },
         );
-        assert_eq!(Loans::current_borrow_balance(&ALICE, DOT).unwrap(), 120);
+        assert_eq!(Loans::current_borrow_balance(&ALICE, DOT).unwrap().amount(), 120);
     })
 }
 
 #[test]
+// note: this function is testing `calc_collateral_amount`, which is only used in testing code
 fn calc_collateral_amount_works() {
     let exchange_rate = Rate::saturating_from_rational(3, 10);
     assert_eq!(Loans::calc_collateral_amount(1000, exchange_rate).unwrap(), 3333);
@@ -973,17 +981,17 @@ fn ensure_enough_cash_works() {
             unit(1000),
             0
         ));
-        assert_ok!(Loans::ensure_enough_cash(KSM, unit(1000)));
+        assert_ok!(Loans::ensure_enough_cash(&Amount::new(unit(1000), KSM)));
         TotalReserves::<Test>::insert(KSM, unit(10));
         assert_noop!(
-            Loans::ensure_enough_cash(KSM, unit(1000)),
+            Loans::ensure_enough_cash(&Amount::new(unit(1000), KSM)),
             Error::<Test>::InsufficientCash,
         );
-        assert_ok!(Loans::ensure_enough_cash(KSM, unit(990)));
+        assert_ok!(Loans::ensure_enough_cash(&Amount::new(unit(990), KSM)));
         // Borrows don't count as cash
         TotalBorrows::<Test>::insert(KSM, unit(20));
         assert_noop!(
-            Loans::ensure_enough_cash(KSM, unit(1000)),
+            Loans::ensure_enough_cash(&Amount::new(unit(1000), KSM)),
             Error::<Test>::InsufficientCash
         );
     })
