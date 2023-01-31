@@ -5,8 +5,8 @@
 //!
 //! ## Overview
 //!
-//! Built-in assets module in Zenlink Protocol, handle the foreign assets
-//! which are reserved other chain and teleported to this chain by xcm,
+//! Built-in assets module in which handles the foreign assets that are
+//! reserved on other chains and teleported to this chain by xcm
 
 use super::*;
 
@@ -15,7 +15,7 @@ mod mock;
 #[cfg(test)]
 mod tests;
 
-// The Zenlink Protocol foreign foreign which reserved other chain assets
+// The foreign which reserved other chain assets
 impl<T: Config> Pallet<T> {
     /// public mutable functions
 

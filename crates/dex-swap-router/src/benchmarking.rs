@@ -11,9 +11,9 @@ use frame_benchmarking::{benchmarks, whitelisted_caller};
 use frame_support::assert_ok;
 use frame_system::RawOrigin;
 
+use dex_general::{AssetId, MultiAssetsHandler, Pallet as NormalAmmPallet};
+use dex_stable::Pallet as StableAmmPallet;
 use orml_traits::MultiCurrency;
-use zenlink_protocol::{AssetId, MultiAssetsHandler, Pallet as NormalAmmPallet};
-use zenlink_stable_amm::Pallet as StableAmmPallet;
 
 const UNIT: u128 = 1_000_000_000_000u128;
 
@@ -41,9 +41,9 @@ fn token2<CurrencyId: TryFrom<u64> + Default>() -> CurrencyId {
 }
 
 benchmarks! {
-    where_clause { where T: Config + zenlink_protocol::Config + zenlink_stable_amm::Config,
-                        <T as zenlink_stable_amm::Config>::CurrencyId: TryFrom<u64> + Default,
-                        <T as zenlink_protocol::Config>::AssetId: From<AssetId>,
+    where_clause { where T: Config + dex_general::Config + dex_stable::Config,
+                        <T as dex_stable::Config>::CurrencyId: TryFrom<u64> + Default,
+                        <T as dex_general::Config>::AssetId: From<AssetId>,
                         <T as Config>::StableCurrencyId: TryFrom<u64> + Default,
                         <T as Config>::NormalCurrencyId: From<AssetId>,
     }
@@ -51,14 +51,14 @@ benchmarks! {
     swap_exact_token_for_tokens_through_stable_pool{
         let caller: T::AccountId = whitelisted_caller();
 
-        assert_ok!(<T as zenlink_protocol::Config>::MultiAssetsHandler::deposit(ASSET_0.into(), &caller, 1000 * UNIT));
-        assert_ok!(<T as zenlink_protocol::Config>::MultiAssetsHandler::deposit(ASSET_1.into(), &caller, 1000 * UNIT));
+        assert_ok!(<T as dex_general::Config>::MultiAssetsHandler::deposit(ASSET_0.into(), &caller, 1000 * UNIT));
+        assert_ok!(<T as dex_general::Config>::MultiAssetsHandler::deposit(ASSET_1.into(), &caller, 1000 * UNIT));
 
-        let stable_token1 = token1::<<T as zenlink_stable_amm::Config>::CurrencyId>();
-        let stable_token2 = token2::<<T as zenlink_stable_amm::Config>::CurrencyId>();
+        let stable_token1 = token1::<<T as dex_stable::Config>::CurrencyId>();
+        let stable_token2 = token2::<<T as dex_stable::Config>::CurrencyId>();
 
-        assert_ok!(<T as zenlink_stable_amm::Config>::MultiCurrency::deposit(stable_token1, &caller, 1000 * UNIT));
-        assert_ok!(<T as zenlink_stable_amm::Config>::MultiCurrency::deposit(stable_token2, &caller, 1000 * UNIT));
+        assert_ok!(<T as dex_stable::Config>::MultiCurrency::deposit(stable_token1, &caller, 1000 * UNIT));
+        assert_ok!(<T as dex_stable::Config>::MultiCurrency::deposit(stable_token2, &caller, 1000 * UNIT));
 
         assert_ok!(StableAmmPallet::<T>::create_base_pool(
             (RawOrigin::Root).into(),

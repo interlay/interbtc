@@ -21,7 +21,7 @@ impl<T: Config> Pallet<T> {
     }
     /// The account ID of a pair account
     /// only use two byte prefix to support 16 byte account id (used by test)
-    /// "modl" ++ "/zenlink" is 12 bytes, and 4 bytes remaining for hash of AssetId pair.
+    /// "modl" ++ "dex/genr" is 12 bytes, and 4 bytes remaining for hash of AssetId pair.
     /// for AccountId32, 20 bytes remaining for hash of AssetId pair.
     pub fn pair_account_id(asset_0: T::AssetId, asset_1: T::AssetId) -> T::AccountId {
         let (asset_0, asset_1) = Self::sort_asset_id(asset_0, asset_1);
@@ -981,7 +981,7 @@ impl<T: Config> Pallet<T> {
     }
 }
 
-impl<T: Config> ExportZenlink<T::AccountId, T::AssetId> for Pallet<T> {
+impl<T: Config> ExportDexGeneral<T::AccountId, T::AssetId> for Pallet<T> {
     fn get_amount_in_by_path(
         amount_out: AssetBalance,
         path: &[T::AssetId],
@@ -1057,7 +1057,7 @@ impl<T: Config> ExportZenlink<T::AccountId, T::AssetId> for Pallet<T> {
     }
 }
 
-impl<AccountId, AssetId> ExportZenlink<AccountId, AssetId> for () {
+impl<AccountId, AssetId> ExportDexGeneral<AccountId, AssetId> for () {
     fn get_amount_in_by_path(_amount_out: AssetBalance, _path: &[AssetId]) -> Result<Vec<AssetBalance>, DispatchError> {
         unimplemented!()
     }

@@ -23,7 +23,7 @@ impl<T: Config> Pallet<T> {
         }
     }
 
-    // Transfer zenlink assets which are native to this parachain
+    // Transfer assets which are native to this parachain
     pub(crate) fn make_xcm_lateral_transfer_native(
         location: MultiLocation,
         para_id: ParaId,
@@ -43,7 +43,7 @@ impl<T: Config> Pallet<T> {
             }],
         }
     }
-    // Transfer zenlink assets which are foreign to this parachain
+    // Transfer assets which are foreign to this parachain
     pub(crate) fn make_xcm_lateral_transfer_foreign(
         reserve_chain: ParaId,
         location: MultiLocation,

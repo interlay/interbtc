@@ -9,9 +9,9 @@ use sp_runtime::{
     traits::{BlakeTwo256, IdentityLookup},
 };
 
-use crate as pallet_zenlink;
+use crate as pallet_dex_general;
 pub use crate::{
-    AssetId, AssetIdConverter, Config, MultiAssetsHandler, PairLpGenerate, Pallet, ParaId, ZenlinkMultiAssets,
+    AssetId, AssetIdConverter, Config, DexGeneralMultiAssets, MultiAssetsHandler, PairLpGenerate, Pallet, ParaId,
     LIQUIDITY, LOCAL, NATIVE, RESERVED,
 };
 
@@ -26,7 +26,7 @@ frame_support::construct_runtime!(
     {
         System: frame_system::{Pallet, Call, Config, Storage, Event<T>} = 0,
         Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>} = 8,
-        Zenlink: pallet_zenlink::{Pallet, Call, Storage, Event<T>} = 9,
+        DexGeneral: pallet_dex_general::{Pallet, Call, Storage, Event<T>} = 9,
     }
 );
 
@@ -34,7 +34,7 @@ parameter_types! {
     pub const ExistentialDeposit: u64 = 1;
 
     pub const BlockHashCount: u64 = 250;
-    pub const ZenlinkPalletId: PalletId = PalletId(*b"/zenlink");
+    pub const DexGeneralPalletId: PalletId = PalletId(*b"dex/genr");
     pub const MaxReserves: u32 = 50;
 }
 
@@ -79,8 +79,8 @@ impl pallet_balances::Config for Test {
 
 impl Config for Test {
     type RuntimeEvent = RuntimeEvent;
-    type MultiAssetsHandler = ZenlinkMultiAssets<Zenlink, Balances>;
-    type PalletId = ZenlinkPalletId;
+    type MultiAssetsHandler = DexGeneralMultiAssets<DexGeneral, Balances>;
+    type PalletId = DexGeneralPalletId;
     type AssetId = AssetId;
     type LpGenerate = PairLpGenerate<Self>;
     type TargetChains = ();

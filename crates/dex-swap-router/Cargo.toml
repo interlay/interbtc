@@ -1,7 +1,7 @@
 [package]
-name = "zenlink-swap-router"
+name = "dex-swap-router"
 version = "0.1.0"
-authors = ["Zenlink Developers"]
+authors = ["Zenlink Developers", "Interlay Ltd"]
 edition = "2021"
 license = "Apache 2.0"
 
@@ -22,8 +22,9 @@ frame-support = { git = "https://github.com/paritytech/substrate", default-featu
 frame-system = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "polkadot-v0.9.32" }
 frame-benchmarking = { git = "https://github.com/paritytech/substrate", default-features = false, optional = true, branch = "polkadot-v0.9.32" }
 
-zenlink-protocol = {package = "zenlink-protocol", path = "../zenlink-protocol", version = "0.4.4", default-features = false}
-zenlink-stable-amm = {package = "zenlink-stable-amm", path = "../zenlink-stable-amm",version = "0.1.0", default-features = false}
+dex-general = { path = "../dex-general", default-features = false }
+dex-stable = { path = "../dex-stable", default-features = false }
+
 orml-traits = { git = "https://github.com/open-web3-stack/open-runtime-module-library", rev = "f336875e48599b5e9500b301385259354821f01f", default-features = false }
 
 [dev-dependencies]
@@ -46,10 +47,9 @@ std = [
     "sp-runtime/std",
     "sp-std/std",
     "sp-arithmetic/std",
-    "zenlink-protocol/std",
-    "zenlink-stable-amm/std"
+    "dex-general/std",
+    "dex-stable/std",
 ]
-
 runtime-benchmarks = [
     "frame-benchmarking",
 ]

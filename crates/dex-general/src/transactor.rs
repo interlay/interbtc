@@ -37,17 +37,17 @@ impl<ParaChains: Get<Vec<(MultiLocation, u128)>>> FilterAssetLocation for Truste
     }
 }
 
-pub struct TransactorAdaptor<ZenlinkAssets, AccountIdConverter, AccountId, AssetIdConverter, AssetId>(
-    PhantomData<(ZenlinkAssets, AccountIdConverter, AccountId, AssetIdConverter, AssetId)>,
+pub struct TransactorAdaptor<Assets, AccountIdConverter, AccountId, AssetIdConverter, AssetId>(
+    PhantomData<(Assets, AccountIdConverter, AccountId, AssetIdConverter, AssetId)>,
 );
 
 impl<
-        ZenlinkAssets: MultiAssetsHandler<AccountId, AssetId>,
+        DexAssets: MultiAssetsHandler<AccountId, AssetId>,
         AccountIdConverter: Convert<MultiLocation, AccountId>,
         AccountId: sp_std::fmt::Debug + Clone,
         AssetIdConverter: Convert<MultiLocation, AssetId>,
         AssetId: sp_std::fmt::Debug + Clone + Copy,
-    > TransactAsset for TransactorAdaptor<ZenlinkAssets, AccountIdConverter, AccountId, AssetIdConverter, AssetId>
+    > TransactAsset for TransactorAdaptor<DexAssets, AccountIdConverter, AccountId, AssetIdConverter, AssetId>
 {
     fn deposit_asset(asset: &MultiAsset, who: &MultiLocation) -> XcmResult {
         log::info!(
@@ -65,7 +65,7 @@ impl<
                     let asset_id = AssetIdConverter::convert_ref(location)
                         .map_err(|()| XcmError::FailedToTransactAsset("unKnown asset"))?;
 
-                    ZenlinkAssets::deposit(asset_id, &who, amount)
+                    DexAssets::deposit(asset_id, &who, amount)
                         .map_err(|e| XcmError::FailedToTransactAsset(e.into()))?;
                 } else {
                     return Err(XcmError::AssetNotFound);
@@ -92,7 +92,7 @@ impl<
                     let asset_id = AssetIdConverter::convert_ref(location)
                         .map_err(|()| XcmError::FailedToTransactAsset("unKnown asset"))?;
 
-                    ZenlinkAssets::withdraw(asset_id, &who, amount)
+                    DexAssets::withdraw(asset_id, &who, amount)
                         .map_err(|e| XcmError::FailedToTransactAsset(e.into()))?;
                     Ok(asset.clone().into())
                 } else {

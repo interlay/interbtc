@@ -27,8 +27,8 @@ use frame_support::{
     transactional,
 };
 
-use zenlink_protocol::{AssetBalance, ExportZenlink};
-use zenlink_stable_amm::traits::StableAmmApi;
+use dex_general::{AssetBalance, ExportDexGeneral};
+use dex_stable::traits::StableAmmApi;
 
 #[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, TypeInfo)]
 pub struct StablePath<PoolId, CurrencyId> {
@@ -87,7 +87,7 @@ pub mod pallet {
         // The currency id use in standard amm
         type NormalCurrencyId: Parameter + Member + Copy + MaybeSerializeDeserialize + Ord + TypeInfo + MaxEncodedLen;
 
-        type NormalAmm: ExportZenlink<AccountIdOf<Self>, Self::NormalCurrencyId>;
+        type NormalAmm: ExportDexGeneral<AccountIdOf<Self>, Self::NormalCurrencyId>;
 
         type StableAMM: StableAmmApi<Self::StablePoolId, Self::StableCurrencyId, AccountIdOf<Self>, Self::Balance>;
 

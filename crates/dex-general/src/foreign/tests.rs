@@ -268,7 +268,7 @@ fn foreign_multi_asset_total_supply_should_work() {
 }
 
 #[test]
-fn foreign_multi_asset_withdraw_to_zenlink_module_should_work() {
+fn foreign_multi_asset_withdraw_to_dex_general_should_work() {
     new_test_ext().execute_with(|| {
         assert_eq!(<Test as Config>::MultiAssetsHandler::total_supply(DOT_ASSET_ID), 0);
         assert_eq!(

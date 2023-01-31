@@ -59,12 +59,12 @@ fn setup_stable_pools() {
 }
 
 fn setup_pools() {
-    assert_ok!(Zenlink::create_pair(
+    assert_ok!(DexGeneral::create_pair(
         RawOrigin::Root.into(),
         TOKEN1_ASSET_ID,
         TOKEN2_ASSET_ID
     ));
-    assert_ok!(Zenlink::add_liquidity(
+    assert_ok!(DexGeneral::add_liquidity(
         RawOrigin::Signed(USER1).into(),
         TOKEN1_ASSET_ID,
         TOKEN2_ASSET_ID,

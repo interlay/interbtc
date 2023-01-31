@@ -24,11 +24,11 @@ use sp_runtime::{
 
 use crate as router;
 use crate::{Config, Pallet};
-use orml_traits::{parameter_type_with_key, MultiCurrency};
-use zenlink_protocol::{
-    AssetBalance, AssetId, AssetIdConverter, LocalAssetHandler, PairLpGenerate, ZenlinkMultiAssets, LOCAL,
+use dex_general::{
+    AssetBalance, AssetId, AssetIdConverter, DexGeneralMultiAssets, LocalAssetHandler, PairLpGenerate, LOCAL,
 };
-use zenlink_stable_amm::traits::{StablePoolLpCurrencyIdGenerate, ValidateCurrency};
+use dex_stable::traits::{StablePoolLpCurrencyIdGenerate, ValidateCurrency};
+use orml_traits::{parameter_type_with_key, MultiCurrency};
 
 type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
 type Block = frame_system::mocking::MockBlock<Test>;
@@ -37,8 +37,8 @@ parameter_types! {
     pub const ExistentialDeposit: u64 = 1;
 
     pub const BlockHashCount: u64 = 250;
-    pub const StableAmmPalletId: PalletId = PalletId(*b"/zlkSAmm");
-    pub const ZenlinkPalletId: PalletId = PalletId(*b"/zenlink");
+    pub const StableAmmPalletId: PalletId = PalletId(*b"dex/stab");
+    pub const DexGeneralPalletId: PalletId = PalletId(*b"dex/genr");
     pub const MaxReserves: u32 = 50;
     pub const MaxLocks:u32 = 50;
     pub const MinimumPeriod: Moment = SLOT_DURATION / 2;
@@ -70,7 +70,7 @@ pub enum CurrencyId {
     Token(TokenSymbol),
     StableLP(PoolType),
     StableLPV2(PoolId),
-    ZenlinkLp(TokenSymbol, TokenSymbol),
+    LpToken(TokenSymbol, TokenSymbol),
 }
 
 #[derive(Encode, Decode, Eq, PartialEq, Copy, Clone, RuntimeDebug, PartialOrd, MaxEncodedLen, Ord, TypeInfo)]
@@ -156,7 +156,7 @@ impl pallet_timestamp::Config for Test {
     type WeightInfo = ();
 }
 
-impl zenlink_stable_amm::Config for Test {
+impl dex_stable::Config for Test {
     type RuntimeEvent = RuntimeEvent;
     type CurrencyId = CurrencyId;
     type MultiCurrency = Tokens;
@@ -169,10 +169,10 @@ impl zenlink_stable_amm::Config for Test {
     type WeightInfo = ();
 }
 
-impl zenlink_protocol::Config for Test {
+impl dex_general::Config for Test {
     type RuntimeEvent = RuntimeEvent;
-    type MultiAssetsHandler = ZenlinkMultiAssets<Zenlink, Balances, LocalAssetAdaptor<Tokens>>;
-    type PalletId = ZenlinkPalletId;
+    type MultiAssetsHandler = DexGeneralMultiAssets<DexGeneral, Balances, LocalAssetAdaptor<Tokens>>;
+    type PalletId = DexGeneralPalletId;
     type AssetId = AssetId;
     type LpGenerate = PairLpGenerate<Self>;
     type TargetChains = ();
@@ -189,7 +189,7 @@ impl Config for Test {
     type Balance = Balance;
     type StableCurrencyId = CurrencyId;
     type NormalCurrencyId = AssetId;
-    type NormalAmm = Zenlink;
+    type NormalAmm = DexGeneral;
     type StableAMM = StableAMM;
     type WeightInfo = ();
 }
@@ -234,7 +234,7 @@ pub fn asset_id_to_currency_id(asset_id: &AssetId) -> Result<CurrencyId, ()> {
     return if discr == 6 {
         let token0_id = ((asset_id.asset_index & 0x0000_0000_ffff_0000) >> 16) as u8;
         let token1_id = ((asset_id.asset_index & 0x0000_ffff_0000_0000) >> 16) as u8;
-        Ok(CurrencyId::ZenlinkLp(token0_id, token1_id))
+        Ok(CurrencyId::LpToken(token0_id, token1_id))
     } else {
         let token_id = asset_id.asset_index as u8;
 
@@ -308,9 +308,9 @@ frame_support::construct_runtime!(
         Timestamp: pallet_timestamp::{Pallet, Call, Storage, Inherent} = 1,
 
         Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>} = 8,
-        StableAMM: zenlink_stable_amm::{Pallet, Call, Storage, Event<T>} = 9,
+        StableAMM: dex_stable::{Pallet, Call, Storage, Event<T>} = 9,
         Tokens: orml_tokens::{Pallet, Storage, Event<T>, Config<T>} = 11,
-        Zenlink: zenlink_protocol::{Pallet, Call, Storage, Event<T>} = 12,
+        DexGeneral: dex_general::{Pallet, Call, Storage, Event<T>} = 12,
         Router: router::{Pallet, Call, Event<T>} = 13,
     }
 );

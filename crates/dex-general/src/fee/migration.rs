@@ -3,7 +3,7 @@ use frame_support::{pallet_prelude::StorageVersion, traits::OnRuntimeUpgrade};
 use sp_std::vec::Vec;
 
 /// The log target.
-const TARGET: &'static str = "zenlink_protocol::migration";
+const TARGET: &'static str = "dex_general::migration";
 
 pub mod v0 {
     use super::*;
@@ -131,7 +131,7 @@ mod test {
     fn migration_v0_to_v1_works() {
         new_test_ext().execute_with(|| {
             // assume that we are at v0
-            StorageVersion::new(0).put::<Zenlink>();
+            StorageVersion::new(0).put::<DexGeneral>();
 
             let pair = (DOT_ASSET_ID, BTC_ASSET_ID);
             v0::PairStatuses::<Test>::insert(
@@ -155,7 +155,7 @@ mod test {
                 })
             );
 
-            assert_eq!(StorageVersion::get::<Zenlink>(), 1);
+            assert_eq!(StorageVersion::get::<DexGeneral>(), 1);
         });
     }
 }

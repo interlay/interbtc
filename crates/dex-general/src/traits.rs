@@ -141,7 +141,7 @@ impl<AccountId> OtherAssetHandler<AccountId> for () {
     }
 }
 
-pub trait ExportZenlink<AccountId, AssetId> {
+pub trait ExportDexGeneral<AccountId, AssetId> {
     fn get_amount_in_by_path(amount_out: AssetBalance, path: &[AssetId]) -> Result<Vec<AssetBalance>, DispatchError>;
 
     fn get_amount_out_by_path(amount_in: AssetBalance, path: &[AssetId]) -> Result<Vec<AssetBalance>, DispatchError>;

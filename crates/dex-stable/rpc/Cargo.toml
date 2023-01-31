@@ -1,6 +1,7 @@
 [package]
-name = "zenlink-stable-amm-rpc"
+name = "dex-stable-rpc"
 version = "0.1.0"
+authors = ["Zenlink Developers", "Interlay Ltd"]
 edition = "2021"
 
 [dependencies]
@@ -9,10 +10,9 @@ codec = { package = "parity-scale-codec", version = "3.0.0", default-features = 
 
 jsonrpsee = { version = "0.16.2", features = ["server", "macros"] }
 
-
 sp-blockchain = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "polkadot-v0.9.32" }
 sp-api = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "polkadot-v0.9.32" }
 sp-rpc = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "polkadot-v0.9.32" }
 sp-runtime = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "polkadot-v0.9.32" }
 
-zenlink-stable-amm-runtime-api = { path = "./runtime-api", version = "0.1.0"}
+dex-stable-runtime-api = { path = "./runtime-api" }

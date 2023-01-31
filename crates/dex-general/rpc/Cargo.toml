@@ -1,7 +1,7 @@
 [package]
-name = "zenlink-protocol-rpc"
+name = "dex-general-protocol-rpc"
 version = "0.4.4"
-authors = ["Zenlink Developers"]
+authors = ["Zenlink Developers", "Interlay Ltd"]
 edition = "2021"
 license = "Apache 2.0"
 
@@ -24,5 +24,5 @@ sp-runtime = { git = "https://github.com/paritytech/substrate", default-features
 
 # Local packages
 
-zenlink-protocol = { path = "..", version = "0.4.0"}
-zenlink-protocol-runtime-api = { path = "./runtime-api", version = "0.4.0"}
+dex-general = { path = ".." }
+dex-general-runtime-api = { path = "./runtime-api" }

@@ -4,7 +4,7 @@
 #![cfg(feature = "runtime-benchmarks")]
 
 use super::*;
-use crate::Pallet as ZenlinkPallet;
+use crate::Pallet as DexGeneral;
 
 use frame_benchmarking::{benchmarks, whitelisted_caller};
 use frame_support::assert_ok;
@@ -79,7 +79,7 @@ benchmarks! {
 
         let reward:Vec<T::AssetId> =  vec![ASSET_0.into()];
         let reward_amounts: Vec<(T::AssetId, u128)> = vec![(ASSET_1.into(), 0)];
-        assert_ok!(ZenlinkPallet::<T>::bootstrap_create(
+        assert_ok!(DexGeneral::<T>::bootstrap_create(
             (RawOrigin::Root).into(),
             ASSET_0.into(),
             ASSET_1.into(),
@@ -103,7 +103,7 @@ benchmarks! {
         let reward:Vec<T::AssetId> =  vec![ASSET_0.into()];
         let reward_amounts: Vec<(T::AssetId, u128)> = vec![(ASSET_1.into(), 0)];
 
-        assert_ok!(ZenlinkPallet::<T>::bootstrap_create(
+        assert_ok!(DexGeneral::<T>::bootstrap_create(
             (RawOrigin::Root).into(),
             ASSET_0.into(),
             ASSET_1.into(),
@@ -116,7 +116,7 @@ benchmarks! {
             reward_amounts,
         ));
 
-        assert_ok!(ZenlinkPallet::<T>::bootstrap_contribute(
+        assert_ok!(DexGeneral::<T>::bootstrap_contribute(
             RawOrigin::Signed(caller.clone()).into(),
             ASSET_0.into(),
             ASSET_1.into(),
@@ -127,7 +127,7 @@ benchmarks! {
 
         run_to_block::<T>(100);
 
-        assert_ok!(ZenlinkPallet::<T>::bootstrap_end(
+        assert_ok!(DexGeneral::<T>::bootstrap_end(
             RawOrigin::Signed(caller.clone()).into(),
             ASSET_0.into(),
             ASSET_1.into(),
@@ -144,7 +144,7 @@ benchmarks! {
         let reward:Vec<T::AssetId> =  vec![ASSET_0.into()];
         let reward_amounts: Vec<(T::AssetId, u128)> = vec![(ASSET_1.into(), 0)];
 
-        assert_ok!(ZenlinkPallet::<T>::bootstrap_create(
+        assert_ok!(DexGeneral::<T>::bootstrap_create(
             (RawOrigin::Root).into(),
             ASSET_0.into(),
             ASSET_1.into(),
@@ -157,7 +157,7 @@ benchmarks! {
             reward_amounts,
         ));
 
-        assert_ok!(ZenlinkPallet::<T>::bootstrap_contribute(
+        assert_ok!(DexGeneral::<T>::bootstrap_contribute(
             RawOrigin::Signed(caller.clone()).into(),
             ASSET_0.into(),
             ASSET_1.into(),
@@ -175,7 +175,7 @@ benchmarks! {
         let reward:Vec<T::AssetId> =  vec![ASSET_0.into()];
         let reward_amounts: Vec<(T::AssetId, u128)> = vec![(ASSET_1.into(), 0)];
 
-        assert_ok!(ZenlinkPallet::<T>::bootstrap_create(
+        assert_ok!(DexGeneral::<T>::bootstrap_create(
             (RawOrigin::Root).into(),
             ASSET_0.into(),
             ASSET_1.into(),
@@ -199,7 +199,7 @@ benchmarks! {
         let reward:Vec<T::AssetId> =  vec![ASSET_0.into()];
         let reward_amounts: Vec<(T::AssetId, u128)> = vec![(ASSET_1.into(), 0)];
 
-        assert_ok!(ZenlinkPallet::<T>::bootstrap_create(
+        assert_ok!(DexGeneral::<T>::bootstrap_create(
             (RawOrigin::Root).into(),
             ASSET_0.into(),
             ASSET_1.into(),
@@ -212,7 +212,7 @@ benchmarks! {
             reward_amounts,
         ));
 
-        assert_ok!(ZenlinkPallet::<T>::bootstrap_contribute(
+        assert_ok!(DexGeneral::<T>::bootstrap_contribute(
             RawOrigin::Signed(caller.clone()).into(),
             ASSET_0.into(),
             ASSET_1.into(),
@@ -228,9 +228,9 @@ benchmarks! {
         assert_ok!(<T as Config>::MultiAssetsHandler::deposit(ASSET_0.into(), &caller, 1000 * UNIT));
         assert_ok!(<T as Config>::MultiAssetsHandler::deposit(ASSET_1.into(), &caller, 1000 * UNIT));
 
-        assert_ok!(ZenlinkPallet::<T>::create_pair((RawOrigin::Root).into(), ASSET_0.into(), ASSET_1.into()));
+        assert_ok!(DexGeneral::<T>::create_pair((RawOrigin::Root).into(), ASSET_0.into(), ASSET_1.into()));
 
-        assert_ok!(ZenlinkPallet::<T>::set_fee_receiver((RawOrigin::Root).into(), lookup_of_account::<T>(caller.clone()).into()));
+        assert_ok!(DexGeneral::<T>::set_fee_receiver((RawOrigin::Root).into(), lookup_of_account::<T>(caller.clone()).into()));
 
     }:_(RawOrigin::Signed(caller.clone()), ASSET_0.into(), ASSET_1.into(), 10 * UNIT, 10* UNIT, 0,0, 100u32.saturated_into())
 
@@ -239,11 +239,11 @@ benchmarks! {
         assert_ok!(<T as Config>::MultiAssetsHandler::deposit(ASSET_0.into(), &caller, 1000 * UNIT));
         assert_ok!(<T as Config>::MultiAssetsHandler::deposit(ASSET_1.into(), &caller, 1000 * UNIT));
 
-        assert_ok!(ZenlinkPallet::<T>::create_pair((RawOrigin::Root).into(), ASSET_0.into(), ASSET_1.into()));
+        assert_ok!(DexGeneral::<T>::create_pair((RawOrigin::Root).into(), ASSET_0.into(), ASSET_1.into()));
 
-        assert_ok!(ZenlinkPallet::<T>::set_fee_receiver((RawOrigin::Root).into(), lookup_of_account::<T>(caller.clone()).into()));
+        assert_ok!(DexGeneral::<T>::set_fee_receiver((RawOrigin::Root).into(), lookup_of_account::<T>(caller.clone()).into()));
 
-        assert_ok!(ZenlinkPallet::<T>::add_liquidity(
+        assert_ok!(DexGeneral::<T>::add_liquidity(
             RawOrigin::Signed(caller.clone()).into(),
             ASSET_0.into(),
             ASSET_1.into(),
@@ -261,10 +261,10 @@ benchmarks! {
         assert_ok!(<T as Config>::MultiAssetsHandler::deposit(ASSET_1.into(), &caller, 1000 * UNIT));
         assert_ok!(<T as Config>::MultiAssetsHandler::deposit(ASSET_2.into(), &caller, 1000 * UNIT));
 
-        assert_ok!(ZenlinkPallet::<T>::create_pair((RawOrigin::Root).into(), ASSET_0.into(), ASSET_1.into()));
-        assert_ok!(ZenlinkPallet::<T>::create_pair((RawOrigin::Root).into(), ASSET_1.into(), ASSET_2.into()));
+        assert_ok!(DexGeneral::<T>::create_pair((RawOrigin::Root).into(), ASSET_0.into(), ASSET_1.into()));
+        assert_ok!(DexGeneral::<T>::create_pair((RawOrigin::Root).into(), ASSET_1.into(), ASSET_2.into()));
 
-        assert_ok!(ZenlinkPallet::<T>::add_liquidity(
+        assert_ok!(DexGeneral::<T>::add_liquidity(
             RawOrigin::Signed(caller.clone()).into(),
             ASSET_0.into(),
             ASSET_1.into(),
@@ -274,7 +274,7 @@ benchmarks! {
             0,
             100u32.saturated_into()));
 
-        assert_ok!(ZenlinkPallet::<T>::add_liquidity(
+        assert_ok!(DexGeneral::<T>::add_liquidity(
             RawOrigin::Signed(caller.clone()).into(),
             ASSET_1.into(),
             ASSET_2.into(),
@@ -294,10 +294,10 @@ benchmarks! {
         assert_ok!(<T as Config>::MultiAssetsHandler::deposit(ASSET_1.into(), &caller, 1000 * UNIT));
         assert_ok!(<T as Config>::MultiAssetsHandler::deposit(ASSET_2.into(), &caller, 1000 * UNIT));
 
-        assert_ok!(ZenlinkPallet::<T>::create_pair((RawOrigin::Root).into(), ASSET_1.into(), ASSET_2.into()));
-        assert_ok!(ZenlinkPallet::<T>::create_pair((RawOrigin::Root).into(), ASSET_0.into(), ASSET_1.into()));
+        assert_ok!(DexGeneral::<T>::create_pair((RawOrigin::Root).into(), ASSET_1.into(), ASSET_2.into()));
+        assert_ok!(DexGeneral::<T>::create_pair((RawOrigin::Root).into(), ASSET_0.into(), ASSET_1.into()));
 
-        assert_ok!(ZenlinkPallet::<T>::add_liquidity(
+        assert_ok!(DexGeneral::<T>::add_liquidity(
             RawOrigin::Signed(caller.clone()).into(),
             ASSET_1.into(),
             ASSET_2.into(),
@@ -307,7 +307,7 @@ benchmarks! {
             0,
             100u32.saturated_into()));
 
-        assert_ok!(ZenlinkPallet::<T>::add_liquidity(
+        assert_ok!(DexGeneral::<T>::add_liquidity(
             RawOrigin::Signed(caller.clone()).into(),
             ASSET_0.into(),
             ASSET_1.into(),

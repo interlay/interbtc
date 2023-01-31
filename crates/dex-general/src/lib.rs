@@ -63,17 +63,17 @@ pub mod benchmarking;
 mod default_weights;
 
 pub use default_weights::WeightInfo;
-pub use multiassets::{MultiAssetsHandler, ZenlinkMultiAssets};
+pub use multiassets::{DexGeneralMultiAssets, MultiAssetsHandler};
 pub use primitives::{
     AssetBalance, AssetId, AssetIdConverter, AssetInfo, BootstrapParameter, PairLpGenerate, PairMetadata, PairStatus,
     PairStatus::{Bootstrap, Disable, Trading},
     DEFAULT_FEE_RATE, FEE_ADJUSTMENT, LIQUIDITY, LOCAL, NATIVE, RESERVED,
 };
 pub use rpc::PairInfo;
-pub use traits::{ConvertMultiLocation, ExportZenlink, GenerateLpAssetId, LocalAssetHandler, OtherAssetHandler};
+pub use traits::{ConvertMultiLocation, ExportDexGeneral, GenerateLpAssetId, LocalAssetHandler, OtherAssetHandler};
 pub use transactor::{TransactorAdaptor, TrustedParas};
 
-const LOG_TARGET: &str = "zenlink_protocol";
+const LOG_TARGET: &str = "dex_general_protocol";
 pub fn make_x2_location(para_id: u32) -> MultiLocation {
     MultiLocation::new(1, Junctions::X1(Junction::Parachain(para_id)))
 }
@@ -377,7 +377,7 @@ pub mod pallet {
         InvalidFeePoint,
         /// Invalid fee_rate
         InvalidFeeRate,
-        /// Unsupported AssetId by this ZenlinkProtocol Version.
+        /// Unsupported AssetId.
         UnsupportedAssetType,
         /// Account balance must be greater than or equal to the transfer amount.
         InsufficientAssetBalance,
@@ -413,7 +413,7 @@ pub mod pallet {
         ExecutionFailed,
         /// Transfer to self by XCM message.
         DeniedTransferToSelf,
-        /// Not in ZenlinkRegistedParaChains.
+        /// Not in registered parachains.
         TargetChainNotRegistered,
         /// Can't pass the K value check
         InvariantCheckFailed,
@@ -549,13 +549,13 @@ pub mod pallet {
             Ok(())
         }
 
-        /// Transfer zenlink assets to a sibling parachain.
+        /// Transfer assets to a sibling parachain.
         ///
-        /// Zenlink assets can be either native or foreign to the sending parachain.
+        /// Assets can be either native or foreign to the sending parachain.
         ///
         /// # Arguments
         ///
-        /// - `asset_id`: Global identifier for a zenlink foreign
+        /// - `asset_id`: Global identifier for a foreign asset
         /// - `para_id`: Destination parachain
         /// - `account`: Destination account
         /// - `amount`: Amount to transfer

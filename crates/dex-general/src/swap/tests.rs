@@ -8,8 +8,6 @@ use frame_system::RawOrigin;
 use sp_core::U256;
 use sp_runtime::{traits::Zero, DispatchError::BadOrigin};
 
-const PAIR_DOT_BTC_ACCOUNT: u128 = 111825939709248857954450132390071529325;
-
 const DOT_ASSET_ID: AssetId = AssetId {
     chain_id: 200,
     asset_type: LOCAL,
@@ -39,8 +37,6 @@ const DOT_BTC_LP_ID: AssetId = AssetId {
     asset_type: 2,
     asset_index: 12885034496,
 };
-
-const PAIR_DOT_BTC: u128 = 111825939709248857954450132390071529325;
 
 const ALICE: u128 = 1;
 const BOB: u128 = 2;
@@ -92,8 +88,9 @@ fn add_liquidity_should_work() {
             100
         ));
 
-        let balance_dot = <Test as Config>::MultiAssetsHandler::balance_of(DOT_ASSET_ID, &PAIR_DOT_BTC);
-        let balance_btc = <Test as Config>::MultiAssetsHandler::balance_of(BTC_ASSET_ID, &PAIR_DOT_BTC);
+        let pair_dot_btc = DexGeneral::pair_account_id(DOT_ASSET_ID, BTC_ASSET_ID);
+        let balance_dot = <Test as Config>::MultiAssetsHandler::balance_of(DOT_ASSET_ID, &pair_dot_btc);
+        let balance_btc = <Test as Config>::MultiAssetsHandler::balance_of(BTC_ASSET_ID, &pair_dot_btc);
 
         let mint_liquidity = <Test as Config>::MultiAssetsHandler::balance_of(DOT_BTC_LP_ID, &ALICE);
         assert_eq!(mint_liquidity, 16127616066816);
@@ -275,8 +272,10 @@ fn inner_swap_exact_assets_for_assets_should_work() {
             0,
             0
         ));
-        let balance_dot = <Test as Config>::MultiAssetsHandler::balance_of(DOT_ASSET_ID, &PAIR_DOT_BTC);
-        let balance_btc = <Test as Config>::MultiAssetsHandler::balance_of(BTC_ASSET_ID, &PAIR_DOT_BTC);
+
+        let pair_dot_btc = DexGeneral::pair_account_id(DOT_ASSET_ID, BTC_ASSET_ID);
+        let balance_dot = <Test as Config>::MultiAssetsHandler::balance_of(DOT_ASSET_ID, &pair_dot_btc);
+        let balance_btc = <Test as Config>::MultiAssetsHandler::balance_of(BTC_ASSET_ID, &pair_dot_btc);
 
         // println!("balance_dot {} balance_btc {}", balance_dot, balance_btc);
         assert_eq!(balance_dot, 50000000000000000000);
@@ -792,9 +791,10 @@ fn bootstrap_contribute_claim_reward_should_work() {
 
         let total_supply = 2000000000000;
 
+        let pair_dot_btc = DexGeneral::pair_account_id(DOT_ASSET_ID, BTC_ASSET_ID);
         assert_ok!(match DexPallet::pair_status((DOT_ASSET_ID, BTC_ASSET_ID)) {
             Trading(x) => {
-                assert_eq!(x.pair_account, PAIR_DOT_BTC_ACCOUNT);
+                assert_eq!(x.pair_account, pair_dot_btc);
                 assert_eq!(x.total_supply, total_supply);
                 Ok(())
             }
@@ -818,7 +818,7 @@ fn bootstrap_contribute_claim_reward_should_work() {
             total_supply / 2
         );
         assert_eq!(
-            <Test as Config>::MultiAssetsHandler::balance_of(DOT_BTC_LP_ID, &PAIR_DOT_BTC_ACCOUNT),
+            <Test as Config>::MultiAssetsHandler::balance_of(DOT_BTC_LP_ID, &pair_dot_btc),
             total_supply / 2
         );
 
@@ -843,7 +843,7 @@ fn bootstrap_contribute_claim_reward_should_work() {
             total_supply / 2
         );
         assert_eq!(
-            <Test as Config>::MultiAssetsHandler::balance_of(DOT_BTC_LP_ID, &PAIR_DOT_BTC_ACCOUNT),
+            <Test as Config>::MultiAssetsHandler::balance_of(DOT_BTC_LP_ID, &pair_dot_btc),
             0
         );
     })
