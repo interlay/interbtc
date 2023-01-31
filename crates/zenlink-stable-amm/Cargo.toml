@@ -1,0 +1,48 @@
+[package]
+name = "zenlink-stable-amm"
+version = "0.1.0"
+authors = ["Zenlink Developers"]
+edition = "2021"
+license = "Apache 2.0"
+
+[dependencies]
+serde = { version = "1.0.119", optional = true }
+codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false }
+scale-info = { version = "2.1.1", default-features = false, features = ["derive"] }
+
+frame-benchmarking = { git = "https://github.com/paritytech/substrate", default-features = false, optional = true, branch = "polkadot-v0.9.32" }
+sp-core = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "polkadot-v0.9.32" }
+frame-support = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "polkadot-v0.9.32" }
+frame-system = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "polkadot-v0.9.32" }
+sp-runtime = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "polkadot-v0.9.32" }
+sp-std = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.32", default-features = false }
+sp-arithmetic = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.32", default-features = false }
+
+orml-traits = { git = "https://github.com/open-web3-stack/open-runtime-module-library", rev = "f336875e48599b5e9500b301385259354821f01f", default-features = false }
+
+[dev-dependencies]
+orml-tokens = { git = "https://github.com/open-web3-stack/open-runtime-module-library", rev = "f336875e48599b5e9500b301385259354821f01f", default-features = false }
+pallet-balances = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.32" }
+sp-core = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.32", default-features = false }
+sp-io = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.32", default-features = false }
+pallet-timestamp = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.32"}
+
+[features]
+default = ["std"]
+std = [
+    "serde",
+    "codec/std",
+    "scale-info/std",
+    "sp-core/std",
+    "frame-support/std",
+    "frame-system/std",
+    "sp-runtime/std",
+    "sp-std/std",
+    "sp-arithmetic/std",
+    "orml-tokens/std",
+]
+
+runtime-benchmarks = [
+    "frame-benchmarking",
+]
+try-runtime = [ "frame-support/try-runtime" ]

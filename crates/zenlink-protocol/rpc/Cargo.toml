@@ -1,0 +1,28 @@
+[package]
+name = "zenlink-protocol-rpc"
+version = "0.4.4"
+authors = ["Zenlink Developers"]
+edition = "2021"
+license = "Apache 2.0"
+
+[package.metadata.docs.rs]
+targets = ['x86_64-unknown-linux-gnu']
+
+# alias "parity-scale-code" to "codec"
+[dependencies]
+serde = { version = "1.0.119", features = ["derive"], optional = true }
+codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false }
+
+jsonrpsee = { version = "0.16.2", features = ["server", "macros"] }
+
+# Substrate packages
+
+sp-blockchain = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "polkadot-v0.9.32" }
+sp-api = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "polkadot-v0.9.32" }
+sp-rpc = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "polkadot-v0.9.32" }
+sp-runtime = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "polkadot-v0.9.32" }
+
+# Local packages
+
+zenlink-protocol = { path = "..", version = "0.4.0"}
+zenlink-protocol-runtime-api = { path = "./runtime-api", version = "0.4.0"}
