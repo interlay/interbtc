@@ -4,7 +4,7 @@ use currency::Amount;
 use frame_support::{assert_err, assert_ok};
 use primitives::{
     CurrencyId::{ForeignAsset, Token},
-    DOT, KSM,
+    DOT, IBTC, KSM,
 };
 use sp_runtime::FixedPointNumber;
 
@@ -40,17 +40,17 @@ fn repay_borrow_all_no_underflow() {
 
         assert_eq!(
             Loans::current_borrow_balance(&ALICE, Token(KSM)).unwrap().amount(),
-            10000005
+            10000006
         );
         // FIXME since total_borrows is too small and we accrue internal on it every 100 seconds
         // accrue_interest fails every time
         // as you can see the current borrow balance is not equal to total_borrows anymore
         assert_eq!(Loans::total_borrows(Token(KSM)).amount(), 10000000);
 
-        // Alice repay all borrow balance. total_borrows = total_borrows.saturating_sub(10000005) = 0.
+        // Alice repay all borrow balance. total_borrows = total_borrows.saturating_sub(10000006) = 0.
         assert_ok!(Loans::repay_borrow_all(RuntimeOrigin::signed(ALICE), Token(KSM)));
 
-        assert_eq!(Tokens::balance(Token(KSM), &ALICE), unit(800) - 5);
+        assert_eq!(Tokens::balance(Token(KSM), &ALICE), unit(800) - 6);
 
         assert_eq!(
             Loans::exchange_rate(Token(DOT)).saturating_mul_int(
@@ -264,5 +264,42 @@ fn new_transferred_collateral_is_not_auto_deposited_if_not_collateral() {
             unit(10011)
         );
         assert_eq!(Loans::reserved_lend_tokens(Token(DOT), &ALICE).unwrap().is_zero(), true);
+    })
+}
+
+#[test]
+fn small_loans_have_interest_rounded_up() {
+    new_test_ext().execute_with(|| {
+        assert_ok!(Loans::mint(RuntimeOrigin::signed(ALICE), Token(IBTC), unit(100)));
+        assert_ok!(Loans::mint(RuntimeOrigin::signed(BOB), Token(DOT), unit(100)));
+        assert_ok!(Loans::deposit_all_collateral(RuntimeOrigin::signed(BOB), Token(DOT)));
+
+        let initial_block = 2;
+        _run_to_block(initial_block);
+
+        // Borrow 1 Satoshi
+        assert_ok!(Loans::borrow(RuntimeOrigin::signed(BOB), Token(IBTC), 1));
+
+        _run_to_block(initial_block + 1);
+        Loans::accrue_interest(Token(IBTC)).unwrap();
+        // Interest gets accrued immediately (rounded up), to prevent
+        // giving out interest-free loans due to truncating the interest.
+        assert_eq!(Loans::current_borrow_balance(&BOB, Token(IBTC)).unwrap().amount(), 2);
+
+        // Trying to repay the entire debt fails, because the borrower is 1 Satoshi short
+        assert_noop!(
+            Loans::repay_borrow_all(RuntimeOrigin::signed(BOB), Token(IBTC)),
+            orml_tokens::Error::<Test>::BalanceTooLow
+        );
+        // Mint 1 Satoshi to the borrower's account
+        assert_ok!(Tokens::deposit(Token(IBTC), &BOB, 1));
+        // Repay to clear debt and any rounded interest
+        assert_ok!(Loans::repay_borrow_all(RuntimeOrigin::signed(BOB), Token(IBTC)));
+
+        // The debt is now fully cleared
+        assert_eq!(
+            Loans::current_borrow_balance(&BOB, Token(IBTC)).unwrap().is_zero(),
+            true
+        );
     })
 }
