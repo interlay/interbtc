@@ -6,6 +6,7 @@ use crate::{
     tests::unit,
     Error,
 };
+use currency::Amount;
 use frame_support::{assert_err, assert_noop, assert_ok, traits::tokens::fungibles::Inspect};
 use orml_traits::{MultiCurrency, MultiReservableCurrency};
 use primitives::{
@@ -31,6 +32,18 @@ pub fn reserved_balance(currency_id: CurrencyId, account_id: &AccountId) -> Bala
     )
 }
 
+#[allow(unused)]
+pub fn free_balance_amount(currency_id: CurrencyId, account_id: &AccountId) -> Amount<Test> {
+    let balance = free_balance(currency_id, account_id);
+    Amount::new(balance, currency_id)
+}
+
+#[allow(unused)]
+pub fn reserved_balance_amount(currency_id: CurrencyId, account_id: &AccountId) -> Amount<Test> {
+    let balance = reserved_balance(currency_id, account_id);
+    Amount::new(balance, currency_id)
+}
+
 #[test]
 fn trait_inspect_methods_works() {
     new_test_ext().execute_with(|| {
@@ -45,7 +58,7 @@ fn trait_inspect_methods_works() {
         let minimum_balance = Loans::minimum_balance(LEND_KINT);
         assert_eq!(minimum_balance, 0);
 
-        assert_eq!(Loans::balance(LEND_KINT, &DAVE), 0);
+        assert_eq!(Loans::balance(LEND_KINT, &DAVE).amount(), 0);
 
         // DAVE Deposit 100 KINT
         assert_ok!(Loans::mint(RuntimeOrigin::signed(DAVE), KINT, unit(100)));
@@ -69,7 +82,7 @@ fn trait_inspect_methods_works() {
 
         assert_eq!(
             Loans::exchange_rate(KINT)
-                .saturating_mul_int(Loans::account_deposits(Loans::lend_token_id(KINT).unwrap(), DAVE)),
+                .saturating_mul_int(Loans::account_deposits(Loans::lend_token_id(KINT).unwrap(), &DAVE).amount()),
             unit(100)
         );
 
@@ -156,7 +169,7 @@ fn transfer_lend_token_works() {
         );
         // DAVE Redeem 51 KINT should cause InsufficientDeposit
         assert_noop!(
-            Loans::redeem_allowed(KINT, &DAVE, unit(51) * 50),
+            Loans::redeem_allowed(&DAVE, &Amount::new(unit(51) * 50, LEND_KINT)),
             Error::<Test>::InsufficientDeposit
         );
 
@@ -166,7 +179,7 @@ fn transfer_lend_token_works() {
             unit(50)
         );
         // ALICE Redeem 50 KINT should be succeeded
-        assert_ok!(Loans::redeem_allowed(KINT, &ALICE, unit(50) * 50));
+        assert_ok!(Loans::redeem_allowed(&ALICE, &Amount::new(unit(50) * 50, LEND_KINT)));
     })
 }
 
@@ -191,7 +204,7 @@ fn transfer_lend_tokens_under_collateral_does_not_work() {
 
         // Not allowed to redeem 20 lend_tokens because they are locked
         assert_noop!(
-            Loans::redeem_allowed(KINT, &DAVE, unit(20) * 50),
+            Loans::redeem_allowed(&DAVE, &Amount::new(unit(20) * 50, LEND_KINT)),
             Error::<Test>::LockedTokensCannotBeRedeemed
         );
         // Not allowed to transfer 20 lend_tokens because they are locked
@@ -202,7 +215,10 @@ fn transfer_lend_tokens_under_collateral_does_not_work() {
         // First, withdraw some tokens. Note that directly withdrawing part of the locked
         // lend_tokens is not possible through extrinsics. Users can only withdraw the full
         // amount for a currency via extrinsics, to enforce the collateral toggle.
-        assert_ok!(Loans::do_withdraw_collateral(&DAVE, LEND_KINT, unit(20) * 50));
+        assert_ok!(Loans::do_withdraw_collateral(
+            &DAVE,
+            &Amount::new(unit(20) * 50, LEND_KINT)
+        ));
         // Check entries from orml-tokens directly
         assert_eq!(free_balance(LEND_KINT, &DAVE), unit(20) * 50);
         assert_eq!(reserved_balance(LEND_KINT, &DAVE), unit(80) * 50);
@@ -218,7 +234,7 @@ fn transfer_lend_tokens_under_collateral_does_not_work() {
         // DAVE liquidity KINT = 80 * 0.5 - 10 = 30
         assert_eq!(
             Loans::exchange_rate(KINT)
-                .saturating_mul_int(Loans::account_deposits(Loans::lend_token_id(KINT).unwrap(), DAVE)),
+                .saturating_mul_int(Loans::account_deposits(Loans::lend_token_id(KINT).unwrap(), &DAVE).amount()),
             unit(80)
         );
         // DAVE Borrow 31 KINT should cause InsufficientLiquidity
@@ -235,6 +251,6 @@ fn transfer_lend_tokens_under_collateral_does_not_work() {
         );
         // ALICE Redeem 20 KINT should be succeeded
         // Also means that transfer lend_token succeed
-        assert_ok!(Loans::redeem_allowed(KINT, &ALICE, unit(20) * 50,));
+        assert_ok!(Loans::redeem_allowed(&ALICE, &Amount::new(unit(20) * 50, LEND_KINT)));
     })
 }

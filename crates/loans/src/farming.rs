@@ -70,7 +70,7 @@ impl<T: Config> Pallet<T> {
             let supply_speed = RewardSupplySpeed::<T>::get(asset_id);
             if !supply_speed.is_zero() {
                 let total_supply = Self::total_supply(asset_id)?;
-                let delta_index = Self::calculate_reward_delta_index(delta_block, supply_speed, total_supply)?;
+                let delta_index = Self::calculate_reward_delta_index(delta_block, supply_speed, total_supply.amount())?;
                 supply_state.index = supply_state
                     .index
                     .checked_add(delta_index)
@@ -124,7 +124,7 @@ impl<T: Config> Pallet<T> {
                 // may be lower than intended.
                 // No balance freezing is done currently, so this is correct.
                 let total_balance = Self::balance(lend_token_id, supplier);
-                let reward_delta = Self::calculate_reward_delta(total_balance, delta_index)?;
+                let reward_delta = Self::calculate_reward_delta(total_balance.amount(), delta_index)?;
                 *total_reward = total_reward
                     .checked_add(reward_delta)
                     .ok_or(ArithmeticError::Overflow)?;
@@ -154,7 +154,7 @@ impl<T: Config> Pallet<T> {
                 let current_borrow_index = BorrowIndex::<T>::get(asset_id);
                 let base_borrow_amount = current_borrow_index
                     .reciprocal()
-                    .and_then(|r| r.checked_mul_int(current_borrow_amount))
+                    .and_then(|r| r.checked_mul_int(current_borrow_amount.amount()))
                     .ok_or(ArithmeticError::Overflow)?;
                 let reward_delta = Self::calculate_reward_delta(base_borrow_amount, delta_index)?;
                 *total_reward = total_reward

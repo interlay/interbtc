@@ -6,7 +6,6 @@ use crate::{
     tests::unit,
     Amount, Error, Market, MarketState,
 };
-use currency::CurrencyConversion;
 use frame_support::{assert_noop, assert_ok, traits::fungibles::Inspect};
 use mocktopus::mocking::Mockable;
 use primitives::{
@@ -15,7 +14,7 @@ use primitives::{
     Rate, Ratio, DOT as DOT_CURRENCY, KBTC as KBTC_CURRENCY, KSM as KSM_CURRENCY,
 };
 use sp_runtime::FixedPointNumber;
-use traits::LoansApi;
+use traits::{LoansApi, OracleApi};
 
 const DOT: CurrencyId = Token(DOT_CURRENCY);
 const KSM: CurrencyId = Token(KSM_CURRENCY);
@@ -27,7 +26,7 @@ fn liquidate_borrow_allowed_works() {
         // Borrower should have a positive shortfall
         let dot_market = Loans::market(DOT).unwrap();
         assert_noop!(
-            Loans::liquidate_borrow_allowed(&ALICE, DOT, 100, &dot_market),
+            Loans::liquidate_borrow_allowed(&ALICE, &Amount::new(100, DOT), &dot_market),
             Error::<Test>::InsufficientShortfall
         );
         initial_setup();
@@ -39,10 +38,14 @@ fn liquidate_borrow_allowed_works() {
         // Collateral   Loans
         // USDT $110    KSM $200
         assert_noop!(
-            Loans::liquidate_borrow_allowed(&ALICE, KSM, unit(51), &ksm_market),
+            Loans::liquidate_borrow_allowed(&ALICE, &Amount::new(unit(51), KSM), &ksm_market),
             Error::<Test>::TooMuchRepay
         );
-        assert_ok!(Loans::liquidate_borrow_allowed(&ALICE, KSM, unit(50), &ksm_market));
+        assert_ok!(Loans::liquidate_borrow_allowed(
+            &ALICE,
+            &Amount::new(unit(50), KSM),
+            &ksm_market
+        ));
     })
 }
 
@@ -55,7 +58,7 @@ fn deposit_of_borrower_must_be_collateral() {
         CurrencyConvert::convert.mock_safe(with_price(Some((KSM, 2.into()))));
         let market = Loans::market(KSM).unwrap();
         assert_noop!(
-            Loans::liquidate_borrow_allowed(&ALICE, KSM, unit(51), &market),
+            Loans::liquidate_borrow_allowed(&ALICE, &Amount::new(unit(51), KSM), &market),
             Error::<Test>::TooMuchRepay
         );
 
@@ -229,9 +232,9 @@ fn repay_currency_auto_locking_works() {
         alice_borrows_100_ksm();
         CurrencyConvert::convert.mock_safe(with_price(Some((KSM, 2.into()))));
         let initial_borrower_locked_collateral =
-            Amount::<Test>::new(Loans::account_deposits(LEND_KBTC, &ALICE), LEND_KBTC);
+            Amount::<Test>::new(Loans::account_deposits(LEND_KBTC, &ALICE).amount(), LEND_KBTC);
         let initial_liquidator_locked_collateral =
-            Amount::<Test>::new(Loans::account_deposits(LEND_KBTC, &BOB), LEND_KBTC);
+            Amount::<Test>::new(Loans::account_deposits(LEND_KBTC, &BOB).amount(), LEND_KBTC);
         assert_ok!(Loans::liquidate_borrow(
             RuntimeOrigin::signed(BOB),
             ALICE,
@@ -239,10 +242,8 @@ fn repay_currency_auto_locking_works() {
             unit(50),
             KBTC
         ),);
-        let final_borrower_locked_collateral =
-            Amount::<Test>::new(Loans::account_deposits(LEND_KBTC, &ALICE), LEND_KBTC);
-        let final_liquidator_locked_collateral =
-            Amount::<Test>::new(Loans::account_deposits(LEND_KBTC, &BOB), LEND_KBTC);
+        let final_borrower_locked_collateral = Loans::account_deposits(LEND_KBTC, &ALICE);
+        let final_liquidator_locked_collateral = Loans::account_deposits(LEND_KBTC, &BOB);
         let actual_liquidator_reward = final_liquidator_locked_collateral
             .checked_sub(&initial_liquidator_locked_collateral)
             .unwrap();
@@ -275,7 +276,7 @@ fn liquidated_transfer_reduces_locked_collateral() {
         alice_borrows_100_ksm();
         CurrencyConvert::convert.mock_safe(with_price(Some((KSM, 2.into()))));
         let amount_to_liquidate = Amount::<Test>::new(unit(50), KSM);
-        let initial_locked_collateral = Amount::<Test>::new(Loans::account_deposits(LEND_KBTC, &ALICE), LEND_KBTC);
+        let initial_locked_collateral = Loans::account_deposits(LEND_KBTC, &ALICE);
         let initial_locked_underlying = Loans::recompute_underlying_amount(&initial_locked_collateral).unwrap();
         assert_ok!(Loans::liquidate_borrow(
             RuntimeOrigin::signed(BOB),
@@ -284,7 +285,7 @@ fn liquidated_transfer_reduces_locked_collateral() {
             amount_to_liquidate.amount(),
             KBTC
         ),);
-        let final_locked_collateral = Amount::<Test>::new(Loans::account_deposits(LEND_KBTC, &ALICE), LEND_KBTC);
+        let final_locked_collateral = Loans::account_deposits(LEND_KBTC, &ALICE);
         let final_locked_underlying = Loans::recompute_underlying_amount(&final_locked_collateral).unwrap();
         // The total liquidated KSM includes the market's liquidation incentive
         let liquidation_incentive = Loans::market(KSM).unwrap().liquidate_incentive;

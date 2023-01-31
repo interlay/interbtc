@@ -40,7 +40,7 @@ impl<T, Oracle, Loans> CurrencyConversion<Amount<T>, CurrencyId<T>> for Currency
 where
     T: Config,
     Oracle: OracleApi<Amount<T>, CurrencyId<T>>,
-    Loans: LoansApi<CurrencyId<T>, T::AccountId, <T as pallet::Config>::Balance, Amount<T>>,
+    Loans: LoansApi<CurrencyId<T>, T::AccountId, Amount<T>>,
 {
     fn convert(amount: &Amount<T>, to: CurrencyId<T>) -> Result<Amount<T>, DispatchError> {
         if amount.currency().is_lend_token() && to.is_lend_token() {
