@@ -38,12 +38,14 @@ fn repay_borrow_all_no_underflow() {
 
         accrue_interest_per_block(Token(KSM), 100, 9);
 
-        assert_eq!(Loans::current_borrow_balance(&ALICE, Token(KSM)), Ok(10000006));
-        // TODO: Fix the below
+        assert_eq!(
+            Loans::current_borrow_balance(&ALICE, Token(KSM)).unwrap().amount(),
+            10000006
+        );
         // FIXME since total_borrows is too small and we accrue internal on it every 100 seconds
         // accrue_interest fails every time
         // as you can see the current borrow balance is not equal to total_borrows anymore
-        assert_eq!(Loans::total_borrows(Token(KSM)), 10000000);
+        assert_eq!(Loans::total_borrows(Token(KSM)).amount(), 10000000);
 
         // Alice repay all borrow balance. total_borrows = total_borrows.saturating_sub(10000006) = 0.
         assert_ok!(Loans::repay_borrow_all(RuntimeOrigin::signed(ALICE), Token(KSM)));
@@ -51,10 +53,9 @@ fn repay_borrow_all_no_underflow() {
         assert_eq!(Tokens::balance(Token(KSM), &ALICE), unit(800) - 6);
 
         assert_eq!(
-            Loans::exchange_rate(Token(DOT)).saturating_mul_int(Loans::account_deposits(
-                Loans::lend_token_id(Token(KSM)).unwrap(),
-                ALICE
-            )),
+            Loans::exchange_rate(Token(DOT)).saturating_mul_int(
+                Loans::account_deposits(Loans::lend_token_id(Token(KSM)).unwrap(), &ALICE).amount()
+            ),
             unit(200)
         );
 
@@ -68,7 +69,7 @@ fn repay_borrow_all_no_underflow() {
 fn ensure_capacity_fails_when_market_not_existed() {
     new_test_ext().execute_with(|| {
         assert_err!(
-            Loans::ensure_under_supply_cap(ForeignAsset(987997280), unit(100)),
+            Loans::ensure_under_supply_cap(&Amount::new(unit(100), ForeignAsset(987997280))),
             Error::<Test>::MarketDoesNotExist
         );
     });
@@ -138,7 +139,7 @@ fn prevent_the_exchange_rate_attack() {
         assert_eq!(Tokens::balance(Token(DOT), &EVE), 99999999999999);
         assert_eq!(Tokens::balance(Token(DOT), &Loans::account_id()), 100000000000001);
         assert_eq!(
-            Loans::total_supply(Token(DOT)).unwrap(),
+            Loans::total_supply(Token(DOT)).unwrap().amount(),
             1 * 50, // 1 / 0.02
         );
         TimestampPallet::set_timestamp(12000);
@@ -283,7 +284,7 @@ fn small_loans_have_interest_rounded_up() {
         Loans::accrue_interest(Token(IBTC)).unwrap();
         // Interest gets accrued immediately (rounded up), to prevent
         // giving out interest-free loans due to truncating the interest.
-        assert_eq!(Loans::current_borrow_balance(&BOB, Token(IBTC)).unwrap(), 2);
+        assert_eq!(Loans::current_borrow_balance(&BOB, Token(IBTC)).unwrap().amount(), 2);
 
         // Trying to repay the entire debt fails, because the borrower is 1 Satoshi short
         assert_noop!(
@@ -296,6 +297,9 @@ fn small_loans_have_interest_rounded_up() {
         assert_ok!(Loans::repay_borrow_all(RuntimeOrigin::signed(BOB), Token(IBTC)));
 
         // The debt is now fully cleared
-        assert_eq!(Loans::current_borrow_balance(&BOB, Token(IBTC)).unwrap(), 0);
+        assert_eq!(
+            Loans::current_borrow_balance(&BOB, Token(IBTC)).unwrap().is_zero(),
+            true
+        );
     })
 }

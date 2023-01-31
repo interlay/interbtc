@@ -26,7 +26,7 @@ impl<T: Config> Pallet<T> {
     pub fn total_issuance(lend_token_id: CurrencyId<T>) -> BalanceOf<T> {
         if let Ok(underlying_id) = Self::underlying_id(lend_token_id) {
             if let Ok(supply) = Self::total_supply(underlying_id) {
-                return supply;
+                return supply.amount();
             }
         }
         Balance::default()
@@ -60,7 +60,7 @@ impl<T: Config> Pallet<T> {
         }
 
         if let Ok(total_supply) = Self::total_supply(underlying_id) {
-            if total_supply.checked_add(amount).is_none() {
+            if total_supply.amount().checked_add(amount).is_none() {
                 return DepositConsequence::Overflow;
             }
         } else {
@@ -68,7 +68,7 @@ impl<T: Config> Pallet<T> {
         }
 
         // Not using checked arithmetic here is fine because this is a testing utility
-        if Self::balance(lend_token_id, who) + amount < Self::minimum_balance(lend_token_id) {
+        if Self::balance(lend_token_id, who).amount() + amount < Self::minimum_balance(lend_token_id) {
             return DepositConsequence::BelowMinimum;
         }
 
@@ -91,7 +91,7 @@ impl<T: Config> Pallet<T> {
             return res;
         }
 
-        let sub_result = Self::balance(lend_token_id, who).checked_sub(amount);
+        let sub_result = Self::balance(lend_token_id, who).amount().checked_sub(amount);
         if sub_result.is_none() {
             return WithdrawConsequence::NoFunds;
         }
@@ -121,7 +121,7 @@ impl<T: Config> Pallet<T> {
     }
 
     fn reducible_asset(lend_token_id: CurrencyId<T>, who: &T::AccountId) -> Result<BalanceOf<T>, DispatchError> {
-        let voucher_balance = Self::account_deposits(lend_token_id, &who);
+        let voucher_balance = Self::account_deposits(lend_token_id, &who).amount();
 
         let underlying_id = Self::underlying_id(lend_token_id)?;
         let market = Self::ensure_active_market(underlying_id)?;
@@ -143,5 +143,16 @@ impl<T: Config> Pallet<T> {
         let exchange_rate = Self::exchange_rate(underlying_id);
         let amount = Self::calc_collateral_amount(reducible_underlying_amount, exchange_rate)?;
         Ok(amount)
+    }
+
+    /// Convert an amount of underlying currency to the associated lend token
+    pub(crate) fn calc_collateral_amount(
+        underlying_amount: BalanceOf<T>,
+        exchange_rate: Rate,
+    ) -> Result<BalanceOf<T>, DispatchError> {
+        Ok(FixedU128::from_inner(underlying_amount)
+            .checked_div(&exchange_rate)
+            .map(|r| r.into_inner())
+            .ok_or(ArithmeticError::Underflow)?)
     }
 }
