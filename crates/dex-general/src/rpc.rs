@@ -92,25 +92,4 @@ impl<T: Config> Pallet<T> {
             status,
         })
     }
-
-    pub fn get_sovereigns_info(asset_id: &T::AssetId) -> Vec<(u32, T::AccountId, AssetBalance)> {
-        T::TargetChains::get()
-            .iter()
-            .filter_map(|(location, _)| match location.interior {
-                Junctions::X1(Junction::Parachain(id)) => {
-                    if let Ok(sovereign) = T::AccountIdConverter::convert_ref(location) {
-                        Some((id, sovereign))
-                    } else {
-                        None
-                    }
-                }
-                _ => None,
-            })
-            .map(|(para_id, account)| {
-                let balance = T::MultiAssetsHandler::balance_of(*asset_id, &account);
-
-                (para_id, account, balance)
-            })
-            .collect::<Vec<_>>()
-    }
 }

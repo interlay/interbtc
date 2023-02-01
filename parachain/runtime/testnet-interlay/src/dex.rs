@@ -4,13 +4,11 @@ use super::{
 };
 use frame_support::dispatch::DispatchError;
 use orml_traits::MultiCurrency;
-use sp_std::{marker::PhantomData, vec, vec::Vec};
+use sp_std::marker::PhantomData;
 use xcm::latest::prelude::*;
 
-use dex_general::ConvertMultiLocation;
 pub use dex_general::{
-    make_x2_location, AssetBalance, DexGeneralMultiAssets, GenerateLpAssetId, MultiAssetsHandler, PairInfo,
-    TransactorAdaptor, TrustedParas, LIQUIDITY, LOCAL,
+    AssetBalance, DexGeneralMultiAssets, GenerateLpAssetId, MultiAssetsHandler, PairInfo, LIQUIDITY, LOCAL,
 };
 
 pub use dex_stable::traits::{StablePoolLpCurrencyIdGenerate, ValidateCurrency};
@@ -22,7 +20,6 @@ parameter_types! {
 
     // XCM
     pub SelfParaId: u32 = ParachainInfo::get().into();
-    pub DexGeneralRegisteredParaChains: Vec<(MultiLocation, u128)> = vec![];
 }
 
 pub struct MultiAssetsAdaptor<Tokens>(PhantomData<Tokens>);
@@ -61,16 +58,6 @@ impl GenerateLpAssetId<CurrencyId> for PairLpIdentity {
     }
 }
 
-pub struct NoConvert;
-impl<AssetId> ConvertMultiLocation<AssetId> for NoConvert {
-    fn chain_id(_asset_id: &AssetId) -> u32 {
-        0
-    }
-    fn make_x3_location(_asset_id: &AssetId) -> MultiLocation {
-        Default::default()
-    }
-}
-
 impl dex_general::Config for Runtime {
     type RuntimeEvent = RuntimeEvent;
     type MultiAssetsHandler = MultiAssetsAdaptor<Tokens>;
@@ -78,12 +65,7 @@ impl dex_general::Config for Runtime {
     type AssetId = CurrencyId;
     type LpGenerate = PairLpIdentity;
     // NOTE: XCM not supported
-    type XcmExecutor = ();
     type SelfParaId = SelfParaId;
-    type TargetChains = DexGeneralRegisteredParaChains;
-    type AccountIdConverter = ();
-    // no-op since XCM is disabled
-    type AssetIdConverter = NoConvert;
     type WeightInfo = ();
 }
 

@@ -34,18 +34,8 @@ use sp_core::U256;
 use sp_runtime::traits::{AccountIdConversion, Hash, MaybeSerializeDeserialize, One, StaticLookup, Zero};
 use sp_std::{collections::btree_map::BTreeMap, convert::TryInto, fmt::Debug, marker::PhantomData, prelude::*, vec};
 
-// -------xcm--------
 pub use cumulus_primitives_core::ParaId;
-
-use xcm::v1::{ExecuteXcm, Junction, Junctions, MultiAsset, MultiLocation, Order, Outcome, Xcm};
-
-use xcm::v2::{Error as XcmError, Result as XcmResult};
-
-use xcm_executor::{
-    traits::{Convert, FilterAssetLocation, TransactAsset},
-    Assets,
-};
-// -------xcm--------
+use xcm_executor::traits::Convert;
 
 mod fee;
 mod foreign;
@@ -54,8 +44,6 @@ mod primitives;
 mod rpc;
 mod swap;
 mod traits;
-mod transactor;
-mod transfer;
 
 #[cfg(any(feature = "runtime-benchmarks", test))]
 pub mod benchmarking;
@@ -65,18 +53,12 @@ mod default_weights;
 pub use default_weights::WeightInfo;
 pub use multiassets::{DexGeneralMultiAssets, MultiAssetsHandler};
 pub use primitives::{
-    AssetBalance, AssetId, AssetIdConverter, AssetInfo, BootstrapParameter, PairLpGenerate, PairMetadata, PairStatus,
+    AssetBalance, AssetId, AssetInfo, BootstrapParameter, PairLpGenerate, PairMetadata, PairStatus,
     PairStatus::{Bootstrap, Disable, Trading},
     DEFAULT_FEE_RATE, FEE_ADJUSTMENT, LIQUIDITY, LOCAL, NATIVE, RESERVED,
 };
 pub use rpc::PairInfo;
-pub use traits::{ConvertMultiLocation, ExportDexGeneral, GenerateLpAssetId, LocalAssetHandler, OtherAssetHandler};
-pub use transactor::{TransactorAdaptor, TrustedParas};
-
-const LOG_TARGET: &str = "dex_general_protocol";
-pub fn make_x2_location(para_id: u32) -> MultiLocation {
-    MultiLocation::new(1, Junctions::X1(Junction::Parachain(para_id)))
-}
+pub use traits::{ExportDexGeneral, GenerateLpAssetId, LocalAssetHandler, OtherAssetHandler};
 
 #[frame_support::pallet]
 pub mod pallet {
@@ -109,19 +91,8 @@ pub mod pallet {
         /// Generate the AssetId for the pair.
         type LpGenerate: GenerateLpAssetId<Self::AssetId>;
 
-        /// XCM
-
-        /// The set of parachains which the xcm can reach.
-        type TargetChains: Get<Vec<(MultiLocation, u128)>>;
         /// This parachain id.
         type SelfParaId: Get<u32>;
-        /// Something to execute an XCM message.
-        type XcmExecutor: ExecuteXcm<Self::RuntimeCall>;
-        /// AccountId to be used in XCM as a corresponding AccountId32
-        /// and convert from MultiLocation in XCM
-        type AccountIdConverter: Convert<MultiLocation, Self::AccountId>;
-        /// Used to convert the AssetId into a MultiLocation.
-        type AssetIdConverter: ConvertMultiLocation<Self::AssetId>;
 
         /// Weight information for extrinsics in this pallet.
         type WeightInfo: WeightInfo;
@@ -295,11 +266,6 @@ pub mod pallet {
         ),
         /// Transact in trading \[owner, recipient, swap_path, balances\]
         AssetSwap(T::AccountId, T::AccountId, Vec<T::AssetId>, Vec<AssetBalance>),
-
-        /// Transfer by xcm
-
-        /// Transferred to parachain. \[asset_id, src, para_id, dest, amount, used_weight\]
-        TransferredToParachain(T::AssetId, T::AccountId, ParaId, T::AccountId, AssetBalance, u64),
 
         /// Contribute to bootstrap pair. \[who, asset_0, asset_0_contribute, asset_1_contribute\]
         BootstrapContribute(T::AccountId, T::AssetId, AssetBalance, T::AssetId, AssetBalance),
@@ -547,81 +513,6 @@ pub mod pallet {
             T::MultiAssetsHandler::transfer(asset_id, &origin, &target, amount)?;
 
             Ok(())
-        }
-
-        /// Transfer assets to a sibling parachain.
-        ///
-        /// Assets can be either native or foreign to the sending parachain.
-        ///
-        /// # Arguments
-        ///
-        /// - `asset_id`: Global identifier for the asset
-        /// - `para_id`: Destination parachain
-        /// - `account`: Destination account
-        /// - `amount`: Amount to transfer
-        #[pallet::weight(max_weight.saturating_add(100_000_000u64))]
-        #[frame_support::transactional]
-        pub fn transfer_to_parachain(
-            origin: OriginFor<T>,
-            asset_id: T::AssetId,
-            para_id: ParaId,
-            recipient: T::AccountId,
-            #[pallet::compact] amount: AssetBalance,
-            max_weight: u64,
-        ) -> DispatchResult {
-            let who = ensure_signed(origin.clone())?;
-            let balance = T::MultiAssetsHandler::balance_of(asset_id, &who);
-            let checked = Self::check_existential_deposit(asset_id, amount);
-            ensure!(asset_id.is_support(), Error::<T>::UnsupportedAssetType);
-            ensure!(para_id != T::SelfParaId::get().into(), Error::<T>::DeniedTransferToSelf);
-            ensure!(checked.is_some(), Error::<T>::TargetChainNotRegistered);
-            ensure!(Some(true) == checked, Error::<T>::NativeBalanceTooLow);
-            ensure!(balance >= amount, Error::<T>::InsufficientAssetBalance);
-
-            let xcm_target =
-                T::AccountIdConverter::reverse(recipient.clone()).map_err(|_| Error::<T>::AccountIdBadLocation)?;
-
-            let xcm = Self::make_xcm_transfer_to_parachain(&asset_id, para_id, xcm_target, amount)
-                .map_err(|_| Error::<T>::AssetNotExists)?;
-
-            let xcm_origin =
-                T::AccountIdConverter::reverse(who.clone()).map_err(|_| Error::<T>::AccountIdBadLocation)?;
-
-            log::info! {
-                target: LOG_TARGET,
-                "transfer_to_parachain xcm = {:?}",
-                xcm
-            }
-
-            let out_come = T::XcmExecutor::execute_xcm(xcm_origin, xcm, max_weight);
-            match out_come {
-                Outcome::Complete(weight) => {
-                    Self::deposit_event(Event::<T>::TransferredToParachain(
-                        asset_id, who, para_id, recipient, amount, weight,
-                    ));
-
-                    Ok(())
-                }
-                Outcome::Incomplete(weight, err) => {
-                    log::info! {
-                        target: LOG_TARGET,
-                        "transfer_to_parachain is rollback: xcm outcome Incomplete, weight = {:?}, err = {:?}",
-                        weight, err
-                    }
-
-                    Err(Error::<T>::ExecutionFailed.into())
-                }
-
-                Outcome::Error(err) => {
-                    log::info! {
-                        target: LOG_TARGET,
-                        "transfer_to_parachain is rollback: xcm outcome Error, err = {:?}",
-                        err
-                    }
-
-                    Err(Error::<T>::ExecutionFailed.into())
-                }
-            }
         }
 
         /// Create pair by two assets.

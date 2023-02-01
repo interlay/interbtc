@@ -1645,12 +1645,6 @@ impl_runtime_apis! {
             <Runtime as dex_general::Config>::MultiAssetsHandler::balance_of(asset_id, &owner)
         }
 
-        fn get_sovereigns_info(
-            asset_id: CurrencyId
-        ) -> Vec<(u32, AccountId, dex_general::AssetBalance)> {
-            DexGeneral::get_sovereigns_info(&asset_id)
-        }
-
         fn get_pair_by_asset_id(
             asset_0: CurrencyId,
             asset_1: CurrencyId

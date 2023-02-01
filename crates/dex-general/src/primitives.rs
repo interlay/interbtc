@@ -67,32 +67,6 @@ impl<T: Config> GenerateLpAssetId<AssetId> for PairLpGenerate<T> {
     }
 }
 
-impl Into<MultiLocation> for AssetId {
-    fn into(self) -> MultiLocation {
-        MultiLocation::new(
-            1,
-            Junctions::X3(
-                Junction::Parachain(self.chain_id),
-                Junction::PalletInstance(self.asset_type),
-                Junction::GeneralIndex {
-                    0: self.asset_index as u128,
-                },
-            ),
-        )
-    }
-}
-
-pub struct AssetIdConverter;
-impl ConvertMultiLocation<AssetId> for AssetIdConverter {
-    fn chain_id(asset_id: &AssetId) -> u32 {
-        asset_id.chain_id
-    }
-
-    fn make_x3_location(asset_id: &AssetId) -> MultiLocation {
-        asset_id.clone().into()
-    }
-}
-
 /// Status for TradingPair
 #[derive(Clone, Copy, Encode, Decode, RuntimeDebug, PartialEq, Eq, MaxEncodedLen, TypeInfo)]
 pub enum PairStatus<Balance, BlockNumber, Account> {

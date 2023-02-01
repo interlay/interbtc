@@ -26,13 +26,6 @@ pub trait DexGeneralApi<BlockHash, AccountId, AssetId> {
     #[method(name = "dexGeneral_getBalance")]
     fn get_balance(&self, asset_id: AssetId, account: AccountId, at: Option<BlockHash>) -> RpcResult<NumberOrHex>;
 
-    #[method(name = "dexGeneral_getSovereignsInfo")]
-    fn get_sovereigns_info(
-        &self,
-        asset_id: AssetId,
-        at: Option<BlockHash>,
-    ) -> RpcResult<Vec<(u32, AccountId, NumberOrHex)>>;
-
     #[method(name = "dexGeneral_getPairByAssetId")]
     fn get_pair_by_asset_id(
         &self,
@@ -162,24 +155,6 @@ where
 
         api.get_balance(&at, asset_id, account)
             .map(|asset_balance| asset_balance.into())
-            .map_err(runtime_error_into_rpc_err)
-    }
-
-    fn get_sovereigns_info(
-        &self,
-        asset_id: AssetId,
-        at: Option<<Block as BlockT>::Hash>,
-    ) -> RpcResult<Vec<(u32, AccountId, NumberOrHex)>> {
-        let api = self.client.runtime_api();
-        let at = BlockId::hash(at.unwrap_or_else(|| self.client.info().best_hash));
-
-        api.get_sovereigns_info(&at, asset_id)
-            .map(|infos| {
-                infos
-                    .into_iter()
-                    .map(|(para_id, account, asset_balance)| (para_id, account, asset_balance.into()))
-                    .collect::<Vec<_>>()
-            })
             .map_err(runtime_error_into_rpc_err)
     }
 

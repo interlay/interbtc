@@ -1684,12 +1684,6 @@ impl_runtime_apis! {
             Default::default()
         }
 
-        fn get_sovereigns_info(
-            _asset_id: CurrencyId
-        ) -> Vec<(u32, AccountId, dex_general::AssetBalance)> {
-            Default::default()
-        }
-
         fn get_pair_by_asset_id(
             _asset_0: CurrencyId,
             _asset_1: CurrencyId

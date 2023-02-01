@@ -24,9 +24,7 @@ use sp_runtime::{
 
 use crate as router;
 use crate::{Config, Pallet};
-use dex_general::{
-    AssetBalance, AssetId, AssetIdConverter, DexGeneralMultiAssets, LocalAssetHandler, PairLpGenerate, LOCAL,
-};
+use dex_general::{AssetBalance, AssetId, DexGeneralMultiAssets, LocalAssetHandler, PairLpGenerate, LOCAL};
 use dex_stable::traits::{StablePoolLpCurrencyIdGenerate, ValidateCurrency};
 use orml_traits::{parameter_type_with_key, MultiCurrency};
 
@@ -175,11 +173,7 @@ impl dex_general::Config for Test {
     type PalletId = DexGeneralPalletId;
     type AssetId = AssetId;
     type LpGenerate = PairLpGenerate<Self>;
-    type TargetChains = ();
     type SelfParaId = SelfParaId;
-    type XcmExecutor = ();
-    type AccountIdConverter = ();
-    type AssetIdConverter = AssetIdConverter;
     type WeightInfo = ();
 }
 

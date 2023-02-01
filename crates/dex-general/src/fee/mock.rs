@@ -27,8 +27,8 @@ use sp_runtime::{
 
 use crate as pallet_dex_general;
 pub use crate::{
-    AssetBalance, AssetId, AssetIdConverter, Config, DexGeneralMultiAssets, LocalAssetHandler, MultiAssetsHandler,
-    PairLpGenerate, Pallet, ParaId, LIQUIDITY, LOCAL, NATIVE, RESERVED,
+    AssetBalance, AssetId, Config, DexGeneralMultiAssets, LocalAssetHandler, MultiAssetsHandler, PairLpGenerate,
+    Pallet, ParaId, LIQUIDITY, LOCAL, NATIVE, RESERVED,
 };
 
 type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
@@ -135,11 +135,7 @@ impl Config for Test {
     type PalletId = DexGeneralPalletId;
     type AssetId = AssetId;
     type LpGenerate = PairLpGenerate<Self>;
-    type TargetChains = ();
     type SelfParaId = ();
-    type XcmExecutor = ();
-    type AccountIdConverter = ();
-    type AssetIdConverter = AssetIdConverter;
     type WeightInfo = ();
 }
 

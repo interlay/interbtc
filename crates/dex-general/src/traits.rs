@@ -7,16 +7,6 @@ pub trait GenerateLpAssetId<AssetId> {
     fn generate_lp_asset_id(asset_0: AssetId, asset_1: AssetId) -> Option<AssetId>;
 }
 
-pub trait ConvertMultiLocation<AssetId> {
-    fn chain_id(asset_id: &AssetId) -> u32;
-
-    fn make_x2_location(asset_id: &AssetId) -> MultiLocation {
-        MultiLocation::new(1, Junctions::X1(Junction::Parachain(Self::chain_id(asset_id))))
-    }
-
-    fn make_x3_location(asset_id: &AssetId) -> MultiLocation;
-}
-
 pub trait LocalAssetHandler<AccountId> {
     fn local_balance_of(asset_id: AssetId, who: &AccountId) -> AssetBalance;
 
