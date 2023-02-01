@@ -26,8 +26,8 @@ use sp_runtime::{
 
 use crate as pallet_dex_general;
 pub use crate::{
-    AssetBalance, AssetId, Config, DexGeneralMultiAssets, LocalAssetHandler, MultiAssetsHandler, PairLpGenerate,
-    Pallet, ParaId, LIQUIDITY, LOCAL, NATIVE, RESERVED,
+    AssetBalance, AssetId, Config, DexGeneralMultiAssets, MultiAssetsHandler, PairLpGenerate, Pallet, ParaId,
+    LIQUIDITY, LOCAL, NATIVE, RESERVED,
 };
 use orml_traits::{parameter_type_with_key, MultiCurrency};
 
@@ -195,54 +195,41 @@ fn asset_id_to_currency_id(asset_id: &AssetId) -> Result<CurrencyId, ()> {
     };
 }
 
-impl<Local> LocalAssetHandler<AccountId> for LocalAssetAdaptor<Local>
+impl<Local> MultiAssetsHandler<AccountId, AssetId> for LocalAssetAdaptor<Local>
 where
     Local: MultiCurrency<AccountId, Balance = u128, CurrencyId = CurrencyId>,
 {
-    fn local_balance_of(asset_id: AssetId, who: &AccountId) -> AssetBalance {
+    fn balance_of(asset_id: AssetId, who: &AccountId) -> AssetBalance {
         asset_id_to_currency_id(&asset_id).map_or(AssetBalance::default(), |currency_id| {
             Local::free_balance(currency_id, who)
         })
     }
 
-    fn local_total_supply(asset_id: AssetId) -> AssetBalance {
+    fn total_supply(asset_id: AssetId) -> AssetBalance {
         asset_id_to_currency_id(&asset_id).map_or(AssetBalance::default(), |currency_id| {
             Local::total_issuance(currency_id)
         })
     }
 
-    fn local_is_exists(asset_id: AssetId) -> bool {
+    fn is_exists(asset_id: AssetId) -> bool {
         asset_id_to_currency_id(&asset_id).map_or(false, |currency_id| {
             Local::total_issuance(currency_id) > AssetBalance::default()
         })
     }
 
-    fn local_transfer(
-        asset_id: AssetId,
-        origin: &AccountId,
-        target: &AccountId,
-        amount: AssetBalance,
-    ) -> DispatchResult {
+    fn transfer(asset_id: AssetId, origin: &AccountId, target: &AccountId, amount: AssetBalance) -> DispatchResult {
         asset_id_to_currency_id(&asset_id).map_or(Err(DispatchError::CannotLookup), |currency_id| {
             Local::transfer(currency_id, origin, target, amount)
         })
     }
 
-    fn local_deposit(
-        asset_id: AssetId,
-        origin: &AccountId,
-        amount: AssetBalance,
-    ) -> Result<AssetBalance, DispatchError> {
+    fn deposit(asset_id: AssetId, origin: &AccountId, amount: AssetBalance) -> Result<AssetBalance, DispatchError> {
         asset_id_to_currency_id(&asset_id).map_or(Ok(AssetBalance::default()), |currency_id| {
             Local::deposit(currency_id, origin, amount).map(|_| amount)
         })
     }
 
-    fn local_withdraw(
-        asset_id: AssetId,
-        origin: &AccountId,
-        amount: AssetBalance,
-    ) -> Result<AssetBalance, DispatchError> {
+    fn withdraw(asset_id: AssetId, origin: &AccountId, amount: AssetBalance) -> Result<AssetBalance, DispatchError> {
         asset_id_to_currency_id(&asset_id).map_or(Ok(AssetBalance::default()), |currency_id| {
             Local::withdraw(currency_id, origin, amount).map(|_| amount)
         })

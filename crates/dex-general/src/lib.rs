@@ -35,7 +35,6 @@ use sp_runtime::traits::{AccountIdConversion, Hash, MaybeSerializeDeserialize, O
 use sp_std::{collections::btree_map::BTreeMap, convert::TryInto, fmt::Debug, marker::PhantomData, prelude::*, vec};
 
 pub use cumulus_primitives_core::ParaId;
-use xcm_executor::traits::Convert;
 
 mod fee;
 mod foreign;
@@ -58,7 +57,7 @@ pub use primitives::{
     DEFAULT_FEE_RATE, FEE_ADJUSTMENT, LIQUIDITY, LOCAL, NATIVE, RESERVED,
 };
 pub use rpc::PairInfo;
-pub use traits::{ExportDexGeneral, GenerateLpAssetId, LocalAssetHandler, OtherAssetHandler};
+pub use traits::{ExportDexGeneral, GenerateLpAssetId};
 
 #[frame_support::pallet]
 pub mod pallet {
