@@ -393,7 +393,7 @@ pub mod pallet {
         AssetNotExists,
         /// Liquidity is not enough.
         InsufficientLiquidity,
-        /// Trading pair does have enough foreign.
+        /// Trading pair does have enough.
         InsufficientPairReserve,
         /// Get target amount is less than exception.
         InsufficientTargetAmount,
@@ -401,7 +401,7 @@ pub mod pallet {
         ExcessiveSoldAmount,
         /// Can't find pair though trading path.
         InvalidPath,
-        /// Incorrect foreign amount range.
+        /// Incorrect amount range.
         IncorrectAssetAmountRange,
         /// Overflow.
         Overflow,
@@ -555,7 +555,7 @@ pub mod pallet {
         ///
         /// # Arguments
         ///
-        /// - `asset_id`: Global identifier for a foreign asset
+        /// - `asset_id`: Global identifier for the asset
         /// - `para_id`: Destination parachain
         /// - `account`: Destination account
         /// - `amount`: Amount to transfer
@@ -626,7 +626,7 @@ pub mod pallet {
 
         /// Create pair by two assets.
         ///
-        /// The order of foreign dot effect result.
+        /// The order of assets does not effect the result.
         ///
         /// # Arguments
         ///
@@ -680,7 +680,7 @@ pub mod pallet {
 
         /// Provide liquidity to a pair.
         ///
-        /// The order of foreign dot effect result.
+        /// The order of assets does not effect the result.
         ///
         /// # Arguments
         ///
@@ -725,7 +725,7 @@ pub mod pallet {
 
         /// Extract liquidity.
         ///
-        /// The order of foreign dot effect result.
+        /// The order of assets does not effect the result.
         ///
         /// # Arguments
         ///
@@ -768,14 +768,14 @@ pub mod pallet {
             )
         }
 
-        /// Sell amount of foreign by path.
+        /// Sell amount of asset by path.
         ///
         /// # Arguments
         ///
-        /// - `amount_in`: Amount of the foreign will be sold
-        /// - `amount_out_min`: Minimum amount of target foreign
+        /// - `amount_in`: Amount of the asset will be sold
+        /// - `amount_out_min`: Minimum amount of target asset
         /// - `path`: path can convert to pairs.
-        /// - `recipient`: Account that receive the target foreign
+        /// - `recipient`: Account that receive the target asset
         /// - `deadline`: Height of the cutoff block of this transaction
         #[pallet::weight(T::WeightInfo::swap_exact_assets_for_assets())]
         #[frame_support::transactional]
@@ -796,14 +796,14 @@ pub mod pallet {
             Self::inner_swap_exact_assets_for_assets(&who, amount_in, amount_out_min, &path, &recipient)
         }
 
-        /// Buy amount of foreign by path.
+        /// Buy amount of asset by path.
         ///
         /// # Arguments
         ///
-        /// - `amount_out`: Amount of the foreign will be bought
-        /// - `amount_in_max`: Maximum amount of sold foreign
+        /// - `amount_out`: Amount of the asset will be bought
+        /// - `amount_in_max`: Maximum amount of sold asset
         /// - `path`: path can convert to pairs.
-        /// - `recipient`: Account that receive the target foreign
+        /// - `recipient`: Account that receive the target asset
         /// - `deadline`: Height of the cutoff block of this transaction
         #[pallet::weight(T::WeightInfo::swap_assets_for_exact_assets())]
         #[frame_support::transactional]

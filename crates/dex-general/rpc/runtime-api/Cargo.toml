@@ -9,8 +9,8 @@ license = "Apache 2.0"
 # alias "parity-scale-code" to "codec"
 codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false }
 
-sp-api = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "polkadot-v0.9.32" }
-sp-std = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "polkadot-v0.9.32" }
+sp-api = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "polkadot-v0.9.31" }
+sp-std = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "polkadot-v0.9.31" }
 
 dex-general = { path = '../..', default-features = false }
 
