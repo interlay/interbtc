@@ -21,7 +21,7 @@ use sp_runtime::{
 };
 use std::sync::Arc;
 
-use dex_stable_runtime_api::DexStableApi as DexStableRuntimeApi;
+pub use dex_stable_rpc_runtime_api::DexStableApi as DexStableRuntimeApi;
 
 #[rpc(client, server)]
 pub trait DexStableApi<BlockHash, CurrencyId, Balance, AccountId, PoolId> {

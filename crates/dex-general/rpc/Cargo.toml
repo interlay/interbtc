@@ -1,16 +1,13 @@
 [package]
-name = "dex-general-protocol-rpc"
+name = "dex-general-rpc"
 version = "0.4.4"
 authors = ["Zenlink Developers", "Interlay Ltd"]
 edition = "2021"
 license = "Apache 2.0"
 
-[package.metadata.docs.rs]
-targets = ['x86_64-unknown-linux-gnu']
-
-# alias "parity-scale-code" to "codec"
 [dependencies]
 serde = { version = "1.0.119", features = ["derive"], optional = true }
+# alias "parity-scale-code" to "codec"
 codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false }
 
 jsonrpsee = { version = "0.16.2", features = ["server", "macros"] }
@@ -25,4 +22,4 @@ sp-runtime = { git = "https://github.com/paritytech/substrate", default-features
 # Local packages
 
 dex-general = { path = ".." }
-dex-general-runtime-api = { path = "./runtime-api" }
+dex-general-rpc-runtime-api = { path = "./runtime-api" }

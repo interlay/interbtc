@@ -19,7 +19,7 @@ use sp_runtime::{generic::BlockId, traits::Block as BlockT};
 use std::sync::Arc;
 
 use dex_general::{AssetBalance, PairInfo};
-use dex_general_runtime_api::DexGeneralApi as DexGeneralRuntimeApi;
+pub use dex_general_rpc_runtime_api::DexGeneralApi as DexGeneralRuntimeApi;
 
 #[rpc(client, server)]
 pub trait DexGeneralApi<BlockHash, AccountId, AssetId> {

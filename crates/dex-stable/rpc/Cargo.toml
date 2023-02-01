@@ -15,4 +15,4 @@ sp-api = { git = "https://github.com/paritytech/substrate", default-features = f
 sp-rpc = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "polkadot-v0.9.32" }
 sp-runtime = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "polkadot-v0.9.32" }
 
-dex-stable-runtime-api = { path = "./runtime-api" }
+dex-stable-rpc-runtime-api = { path = "./runtime-api" }

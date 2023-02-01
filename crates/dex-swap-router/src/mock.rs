@@ -37,7 +37,7 @@ parameter_types! {
     pub const ExistentialDeposit: u64 = 1;
 
     pub const BlockHashCount: u64 = 250;
-    pub const StableAmmPalletId: PalletId = PalletId(*b"dex/stab");
+    pub const DexStablePalletId: PalletId = PalletId(*b"dex/stab");
     pub const DexGeneralPalletId: PalletId = PalletId(*b"dex/genr");
     pub const MaxReserves: u32 = 50;
     pub const MaxLocks:u32 = 50;
@@ -165,7 +165,7 @@ impl dex_stable::Config for Test {
     type LpGenerate = PoolLpGenerate;
     type TimeProvider = Timestamp;
     type PoolCurrencySymbolLimit = PoolCurrencySymbolLimit;
-    type PalletId = StableAmmPalletId;
+    type PalletId = DexStablePalletId;
     type WeightInfo = ();
 }
 

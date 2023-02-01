@@ -19,7 +19,7 @@ use sp_runtime::{
     RuntimeDebug,
 };
 
-use crate as stable_amm;
+use crate as dex_stable;
 use crate::{
     traits::{StablePoolLpCurrencyIdGenerate, ValidateCurrency},
     Config, Pallet,
@@ -205,7 +205,7 @@ frame_support::construct_runtime!(
         Timestamp: pallet_timestamp::{Pallet, Call, Storage, Inherent} = 1,
 
         Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>} = 8,
-        StableAMM: stable_amm::{Pallet, Call, Storage, Event<T>} = 9,
+        StableAMM: dex_stable::{Pallet, Call, Storage, Event<T>} = 9,
         Tokens: orml_tokens::{Pallet, Storage, Event<T>, Config<T>} = 11,
     }
 );

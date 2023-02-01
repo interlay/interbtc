@@ -45,10 +45,8 @@ issue-rpc-runtime-api = { path = "../crates/issue/rpc/runtime-api" }
 redeem-rpc-runtime-api = { path = "../crates/redeem/rpc/runtime-api" }
 replace-rpc-runtime-api = { path = "../crates/replace/rpc/runtime-api" }
 loans-rpc-runtime-api = { path = "../crates/loans/rpc/runtime-api" }
-
-# Zenlink dependencies
-zenlink-protocol-runtime-api = { git = "https://github.com/interlay/Zenlink-DEX-Module", rev = "1d286f77d8fe38f3a437d35a0600081c2f5b5a00" }
-zenlink-stable-amm-runtime-api = { git = "https://github.com/interlay/Zenlink-DEX-Module", rev = "1d286f77d8fe38f3a437d35a0600081c2f5b5a00" }
+dex-general-rpc-runtime-api = { path = "../crates/dex-general/rpc/runtime-api" }
+dex-stable-rpc-runtime-api = { path = "../crates/dex-stable/rpc/runtime-api" }
 
 # Substrate dependencies
 sc-cli = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.31" }

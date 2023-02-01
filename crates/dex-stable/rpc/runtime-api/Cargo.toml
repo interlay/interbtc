@@ -1,5 +1,5 @@
 [package]
-name = "dex-stable-runtime-api"
+name = "dex-stable-rpc-runtime-api"
 version = "0.1.0"
 authors = ["Zenlink Developers", "Interlay Ltd"]
 edition = "2021"
