@@ -1413,54 +1413,48 @@ impl_runtime_apis! {
         }
     }
 
-    impl zenlink_protocol_runtime_api::ZenlinkProtocolApi<Block, AccountId, CurrencyId> for Runtime {
+    impl dex_general_rpc_runtime_api::DexGeneralApi<Block, AccountId, CurrencyId> for Runtime {
         fn get_balance(
             _asset_id: CurrencyId,
             _owner: AccountId
-        ) -> zenlink_protocol::AssetBalance {
-            Default::default()
-        }
-
-        fn get_sovereigns_info(
-            _asset_id: CurrencyId
-        ) -> Vec<(u32, AccountId, zenlink_protocol::AssetBalance)> {
+        ) -> dex_general::AssetBalance {
             Default::default()
         }
 
         fn get_pair_by_asset_id(
             _asset_0: CurrencyId,
             _asset_1: CurrencyId
-        ) -> Option<zenlink_protocol::PairInfo<AccountId, zenlink_protocol::AssetBalance, CurrencyId>> {
+        ) -> Option<dex_general::PairInfo<AccountId, dex_general::AssetBalance, CurrencyId>> {
             Default::default()
         }
 
         fn get_amount_in_price(
-            _supply: zenlink_protocol::AssetBalance,
+            _supply: dex_general::AssetBalance,
             _path: Vec<CurrencyId>
-        ) -> zenlink_protocol::AssetBalance {
+        ) -> dex_general::AssetBalance {
             Default::default()
         }
 
         fn get_amount_out_price(
-            _supply: zenlink_protocol::AssetBalance,
+            _supply: dex_general::AssetBalance,
             _path: Vec<CurrencyId>
-        ) -> zenlink_protocol::AssetBalance {
+        ) -> dex_general::AssetBalance {
             Default::default()
         }
 
         fn get_estimate_lptoken(
             _asset_0: CurrencyId,
             _asset_1: CurrencyId,
-            _amount_0_desired: zenlink_protocol::AssetBalance,
-            _amount_1_desired: zenlink_protocol::AssetBalance,
-            _amount_0_min: zenlink_protocol::AssetBalance,
-            _amount_1_min: zenlink_protocol::AssetBalance,
-        ) -> zenlink_protocol::AssetBalance {
+            _amount_0_desired: dex_general::AssetBalance,
+            _amount_1_desired: dex_general::AssetBalance,
+            _amount_0_min: dex_general::AssetBalance,
+            _amount_1_min: dex_general::AssetBalance,
+        ) -> dex_general::AssetBalance {
             Default::default()
         }
     }
 
-    impl zenlink_stable_amm_runtime_api::StableAmmApi<Block, CurrencyId, Balance, AccountId, StablePoolId> for Runtime {
+    impl dex_stable_rpc_runtime_api::DexStableApi<Block, CurrencyId, Balance, AccountId, StablePoolId> for Runtime {
         fn get_virtual_price(_pool_id: StablePoolId) -> Balance {
             Default::default()
         }

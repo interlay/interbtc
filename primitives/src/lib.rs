@@ -539,7 +539,7 @@ impl Into<CurrencyId> for LpToken {
     }
 }
 
-impl zenlink_protocol::AssetInfo for CurrencyId {
+impl dex_general::AssetInfo for CurrencyId {
     fn is_support(&self) -> bool {
         match self {
             Self::Token(_) | Self::ForeignAsset(_) | Self::StableLpToken(_) => true,

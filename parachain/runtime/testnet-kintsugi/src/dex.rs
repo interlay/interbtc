@@ -1,28 +1,25 @@
 use super::{
-    parameter_types, AccountId, Balance, CurrencyId, Get, PalletId, ParachainInfo, Runtime, RuntimeEvent, StablePoolId,
-    Timestamp, Tokens, ZenlinkProtocol, ZenlinkStableAmm,
+    parameter_types, AccountId, Balance, CurrencyId, DexGeneral, DexStable, Get, PalletId, ParachainInfo, Runtime,
+    RuntimeEvent, StablePoolId, Timestamp, Tokens,
 };
 use frame_support::dispatch::DispatchError;
 use orml_traits::MultiCurrency;
-use sp_std::{marker::PhantomData, vec, vec::Vec};
+use sp_std::marker::PhantomData;
 use xcm::latest::prelude::*;
 
-use zenlink_protocol::ConvertMultiLocation;
-pub use zenlink_protocol::{
-    make_x2_location, AssetBalance, GenerateLpAssetId, MultiAssetsHandler, PairInfo, TransactorAdaptor, TrustedParas,
-    ZenlinkMultiAssets, LIQUIDITY, LOCAL,
+pub use dex_general::{
+    AssetBalance, DexGeneralMultiAssets, GenerateLpAssetId, MultiAssetsHandler, PairInfo, LIQUIDITY, LOCAL,
 };
 
-pub use zenlink_stable_amm::traits::{StablePoolLpCurrencyIdGenerate, ValidateCurrency};
+pub use dex_stable::traits::{StablePoolLpCurrencyIdGenerate, ValidateCurrency};
 
 parameter_types! {
-    pub const ZenlinkPalletId: PalletId = PalletId(*b"/zenlink");
-    pub const StableAmmPalletId: PalletId = PalletId(*b"stbl/amm");
+    pub const DexGeneralPalletId: PalletId = PalletId(*b"dex/genr");
+    pub const DexStablePalletId: PalletId = PalletId(*b"dex/stbl");
     pub const StringLimit: u32 = 50;
 
     // XCM
     pub SelfParaId: u32 = ParachainInfo::get().into();
-    pub ZenlinkRegisteredParaChains: Vec<(MultiLocation, u128)> = vec![];
 }
 
 pub struct MultiAssetsAdaptor<Tokens>(PhantomData<Tokens>);
@@ -61,29 +58,14 @@ impl GenerateLpAssetId<CurrencyId> for PairLpIdentity {
     }
 }
 
-pub struct NoConvert;
-impl<AssetId> ConvertMultiLocation<AssetId> for NoConvert {
-    fn chain_id(_asset_id: &AssetId) -> u32 {
-        0
-    }
-    fn make_x3_location(_asset_id: &AssetId) -> MultiLocation {
-        Default::default()
-    }
-}
-
-impl zenlink_protocol::Config for Runtime {
+impl dex_general::Config for Runtime {
     type RuntimeEvent = RuntimeEvent;
     type MultiAssetsHandler = MultiAssetsAdaptor<Tokens>;
-    type PalletId = ZenlinkPalletId;
+    type PalletId = DexGeneralPalletId;
     type AssetId = CurrencyId;
     type LpGenerate = PairLpIdentity;
     // NOTE: XCM not supported
-    type XcmExecutor = ();
     type SelfParaId = SelfParaId;
-    type TargetChains = ZenlinkRegisteredParaChains;
-    type AccountIdConverter = ();
-    // no-op since XCM is disabled
-    type AssetIdConverter = NoConvert;
     type WeightInfo = ();
 }
 
@@ -108,7 +90,7 @@ impl ValidateCurrency<CurrencyId> for StableAmmVerifyPoolAsset {
     }
 }
 
-impl zenlink_stable_amm::Config for Runtime {
+impl dex_stable::Config for Runtime {
     type RuntimeEvent = RuntimeEvent;
     type CurrencyId = CurrencyId;
     type MultiCurrency = Tokens;
@@ -117,17 +99,17 @@ impl zenlink_stable_amm::Config for Runtime {
     type EnsurePoolAsset = StableAmmVerifyPoolAsset;
     type LpGenerate = PoolLpGenerate;
     type PoolCurrencySymbolLimit = StringLimit;
-    type PalletId = StableAmmPalletId;
+    type PalletId = DexStablePalletId;
     type WeightInfo = ();
 }
 
-impl zenlink_swap_router::Config for Runtime {
+impl dex_swap_router::Config for Runtime {
     type RuntimeEvent = RuntimeEvent;
     type StablePoolId = StablePoolId;
     type Balance = Balance;
     type StableCurrencyId = CurrencyId;
     type NormalCurrencyId = CurrencyId;
-    type NormalAmm = ZenlinkProtocol;
-    type StableAMM = ZenlinkStableAmm;
+    type NormalAmm = DexGeneral;
+    type StableAMM = DexStable;
     type WeightInfo = ();
 }

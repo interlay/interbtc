@@ -2073,6 +2073,124 @@ dependencies = [
 ]
 
 [[package]]
+name = "dex-general"
+version = "0.4.4"
+dependencies = [
+ "cumulus-primitives-core",
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "log",
+ "orml-tokens",
+ "orml-traits",
+ "pallet-balances",
+ "parity-scale-codec",
+ "scale-info",
+ "serde",
+ "sp-arithmetic",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-std",
+ "xcm",
+ "xcm-executor",
+]
+
+[[package]]
+name = "dex-general-rpc"
+version = "0.4.4"
+dependencies = [
+ "dex-general",
+ "dex-general-rpc-runtime-api",
+ "jsonrpsee",
+ "parity-scale-codec",
+ "serde",
+ "sp-api",
+ "sp-blockchain",
+ "sp-rpc",
+ "sp-runtime",
+]
+
+[[package]]
+name = "dex-general-rpc-runtime-api"
+version = "0.4.4"
+dependencies = [
+ "dex-general",
+ "parity-scale-codec",
+ "serde_json",
+ "sp-api",
+ "sp-std",
+]
+
+[[package]]
+name = "dex-stable"
+version = "0.1.0"
+dependencies = [
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "orml-tokens",
+ "orml-traits",
+ "pallet-balances",
+ "pallet-timestamp",
+ "parity-scale-codec",
+ "scale-info",
+ "serde",
+ "sp-arithmetic",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-std",
+]
+
+[[package]]
+name = "dex-stable-rpc"
+version = "0.1.0"
+dependencies = [
+ "dex-stable-rpc-runtime-api",
+ "jsonrpsee",
+ "parity-scale-codec",
+ "serde",
+ "sp-api",
+ "sp-blockchain",
+ "sp-rpc",
+ "sp-runtime",
+]
+
+[[package]]
+name = "dex-stable-rpc-runtime-api"
+version = "0.1.0"
+dependencies = [
+ "dex-stable",
+ "parity-scale-codec",
+ "sp-api",
+ "sp-std",
+]
+
+[[package]]
+name = "dex-swap-router"
+version = "0.1.0"
+dependencies = [
+ "dex-general",
+ "dex-stable",
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "orml-tokens",
+ "orml-traits",
+ "pallet-balances",
+ "pallet-timestamp",
+ "parity-scale-codec",
+ "scale-info",
+ "serde",
+ "sp-arithmetic",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-std",
+]
+
+[[package]]
 name = "diff"
 version = "0.1.13"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3676,6 +3794,8 @@ dependencies = [
  "cumulus-relay-chain-minimal-node",
  "cumulus-relay-chain-rpc-interface",
  "cumulus-test-relay-sproof-builder",
+ "dex-general-rpc-runtime-api",
+ "dex-stable-rpc-runtime-api",
  "escrow-rpc-runtime-api",
  "frame-benchmarking",
  "frame-benchmarking-cli",
@@ -3739,8 +3859,6 @@ dependencies = [
  "testnet-kintsugi-runtime-parachain",
  "try-runtime-cli",
  "vault-registry-rpc-runtime-api",
- "zenlink-protocol-runtime-api",
- "zenlink-stable-amm-runtime-api",
 ]
 
 [[package]]
@@ -3749,6 +3867,7 @@ version = "1.2.0"
 dependencies = [
  "bitcoin",
  "bstringify",
+ "dex-general",
  "parity-scale-codec",
  "scale-info",
  "serde",
@@ -3756,7 +3875,6 @@ dependencies = [
  "sp-runtime",
  "sp-std",
  "xcm",
- "zenlink-protocol",
 ]
 
 [[package]]
@@ -3764,6 +3882,8 @@ name = "interbtc-rpc"
 version = "1.2.0"
 dependencies = [
  "btc-relay-rpc",
+ "dex-general-rpc",
+ "dex-stable-rpc",
  "escrow-rpc",
  "futures",
  "interbtc-primitives",
@@ -3787,10 +3907,6 @@ dependencies = [
  "substrate-frame-rpc-system",
  "vault-registry",
  "vault-registry-rpc",
- "zenlink-protocol-rpc",
- "zenlink-protocol-runtime-api",
- "zenlink-stable-amm-rpc",
- "zenlink-stable-amm-runtime-api",
 ]
 
 [[package]]
@@ -3804,6 +3920,9 @@ dependencies = [
  "clients-info",
  "currency",
  "democracy",
+ "dex-general",
+ "dex-general-rpc-runtime-api",
+ "dex-stable-rpc-runtime-api",
  "env_logger 0.9.3",
  "escrow",
  "escrow-rpc-runtime-api",
@@ -3886,9 +4005,6 @@ dependencies = [
  "vault-registry",
  "vault-registry-rpc-runtime-api",
  "xcm-builder",
- "zenlink-protocol",
- "zenlink-protocol-runtime-api",
- "zenlink-stable-amm-runtime-api",
 ]
 
 [[package]]
@@ -3956,6 +4072,9 @@ dependencies = [
  "cumulus-primitives-utility",
  "currency",
  "democracy",
+ "dex-general",
+ "dex-general-rpc-runtime-api",
+ "dex-stable-rpc-runtime-api",
  "escrow",
  "escrow-rpc-runtime-api",
  "fee",
@@ -4038,9 +4157,6 @@ dependencies = [
  "xcm",
  "xcm-builder",
  "xcm-executor",
- "zenlink-protocol",
- "zenlink-protocol-runtime-api",
- "zenlink-stable-amm-runtime-api",
 ]
 
 [[package]]
@@ -4348,6 +4464,9 @@ dependencies = [
  "cumulus-primitives-utility",
  "currency",
  "democracy",
+ "dex-general",
+ "dex-general-rpc-runtime-api",
+ "dex-stable-rpc-runtime-api",
  "escrow",
  "escrow-rpc-runtime-api",
  "fee",
@@ -4431,9 +4550,6 @@ dependencies = [
  "xcm",
  "xcm-builder",
  "xcm-executor",
- "zenlink-protocol",
- "zenlink-protocol-runtime-api",
- "zenlink-stable-amm-runtime-api",
 ]
 
 [[package]]
@@ -12409,6 +12525,11 @@ dependencies = [
  "cumulus-primitives-utility",
  "currency",
  "democracy",
+ "dex-general",
+ "dex-general-rpc-runtime-api",
+ "dex-stable",
+ "dex-stable-rpc-runtime-api",
+ "dex-swap-router",
  "escrow",
  "escrow-rpc-runtime-api",
  "fee",
@@ -12493,11 +12614,6 @@ dependencies = [
  "xcm",
  "xcm-builder",
  "xcm-executor",
- "zenlink-protocol",
- "zenlink-protocol-runtime-api",
- "zenlink-stable-amm",
- "zenlink-stable-amm-runtime-api",
- "zenlink-swap-router",
 ]
 
 [[package]]
@@ -12520,6 +12636,11 @@ dependencies = [
  "cumulus-primitives-utility",
  "currency",
  "democracy",
+ "dex-general",
+ "dex-general-rpc-runtime-api",
+ "dex-stable",
+ "dex-stable-rpc-runtime-api",
+ "dex-swap-router",
  "escrow",
  "escrow-rpc-runtime-api",
  "farming",
@@ -12605,11 +12726,6 @@ dependencies = [
  "xcm",
  "xcm-builder",
  "xcm-executor",
- "zenlink-protocol",
- "zenlink-protocol-runtime-api",
- "zenlink-stable-amm",
- "zenlink-stable-amm-runtime-api",
- "zenlink-swap-router",
 ]
 
 [[package]]
@@ -14192,116 +14308,6 @@ dependencies = [
  "parking_lot 0.12.1",
  "rand 0.8.5",
  "static_assertions",
-]
-
-[[package]]
-name = "zenlink-protocol"
-version = "0.4.4"
-source = "git+https://github.com/interlay/Zenlink-DEX-Module?rev=1d286f77d8fe38f3a437d35a0600081c2f5b5a00#1d286f77d8fe38f3a437d35a0600081c2f5b5a00"
-dependencies = [
- "cumulus-primitives-core",
- "frame-support",
- "frame-system",
- "log",
- "orml-tokens",
- "orml-traits",
- "pallet-balances",
- "parity-scale-codec",
- "scale-info",
- "serde",
- "sp-arithmetic",
- "sp-core",
- "sp-runtime",
- "sp-std",
- "xcm",
- "xcm-executor",
-]
-
-[[package]]
-name = "zenlink-protocol-rpc"
-version = "0.4.4"
-source = "git+https://github.com/interlay/Zenlink-DEX-Module?rev=1d286f77d8fe38f3a437d35a0600081c2f5b5a00#1d286f77d8fe38f3a437d35a0600081c2f5b5a00"
-dependencies = [
- "jsonrpsee",
- "parity-scale-codec",
- "sp-api",
- "sp-blockchain",
- "sp-rpc",
- "sp-runtime",
- "zenlink-protocol",
- "zenlink-protocol-runtime-api",
-]
-
-[[package]]
-name = "zenlink-protocol-runtime-api"
-version = "0.4.4"
-source = "git+https://github.com/interlay/Zenlink-DEX-Module?rev=1d286f77d8fe38f3a437d35a0600081c2f5b5a00#1d286f77d8fe38f3a437d35a0600081c2f5b5a00"
-dependencies = [
- "parity-scale-codec",
- "sp-api",
- "sp-std",
- "zenlink-protocol",
-]
-
-[[package]]
-name = "zenlink-stable-amm"
-version = "0.1.0"
-source = "git+https://github.com/interlay/Zenlink-DEX-Module?rev=1d286f77d8fe38f3a437d35a0600081c2f5b5a00#1d286f77d8fe38f3a437d35a0600081c2f5b5a00"
-dependencies = [
- "frame-support",
- "frame-system",
- "orml-traits",
- "parity-scale-codec",
- "scale-info",
- "serde",
- "sp-arithmetic",
- "sp-core",
- "sp-runtime",
- "sp-std",
-]
-
-[[package]]
-name = "zenlink-stable-amm-rpc"
-version = "0.1.0"
-source = "git+https://github.com/interlay/Zenlink-DEX-Module?rev=1d286f77d8fe38f3a437d35a0600081c2f5b5a00#1d286f77d8fe38f3a437d35a0600081c2f5b5a00"
-dependencies = [
- "jsonrpsee",
- "parity-scale-codec",
- "sp-api",
- "sp-blockchain",
- "sp-rpc",
- "sp-runtime",
- "zenlink-stable-amm-runtime-api",
-]
-
-[[package]]
-name = "zenlink-stable-amm-runtime-api"
-version = "0.1.0"
-source = "git+https://github.com/interlay/Zenlink-DEX-Module?rev=1d286f77d8fe38f3a437d35a0600081c2f5b5a00#1d286f77d8fe38f3a437d35a0600081c2f5b5a00"
-dependencies = [
- "parity-scale-codec",
- "sp-api",
- "sp-std",
- "zenlink-stable-amm",
-]
-
-[[package]]
-name = "zenlink-swap-router"
-version = "0.1.0"
-source = "git+https://github.com/interlay/Zenlink-DEX-Module?rev=1d286f77d8fe38f3a437d35a0600081c2f5b5a00#1d286f77d8fe38f3a437d35a0600081c2f5b5a00"
-dependencies = [
- "frame-support",
- "frame-system",
- "orml-traits",
- "parity-scale-codec",
- "scale-info",
- "serde",
- "sp-arithmetic",
- "sp-core",
- "sp-runtime",
- "sp-std",
- "zenlink-protocol",
- "zenlink-stable-amm",
 ]
 
 [[package]]
