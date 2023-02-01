@@ -1209,6 +1209,10 @@ impl<T: Config> Pallet<T> {
 
         let base_pool_lp_currency = base_pool.get_lp_currency();
         let meta_pool_currencies = meta_pool.get_currency_ids();
+        ensure!(
+            meta_amounts.len() == meta_pool_currencies.len(),
+            Error::<T>::MismatchParameter
+        );
 
         let mut deposit_base = false;
         for amount in base_amounts.iter() {
