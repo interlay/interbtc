@@ -379,7 +379,9 @@ pub mod pallet {
         /// - `send_to`:
         /// (1) Some(receiver): it turn on the protocol fee and the new receiver account.
         /// (2) None: it turn off the protocol fee.
+        #[pallet::call_index(0)]
         #[pallet::weight(T::WeightInfo::set_fee_receiver())]
+        #[frame_support::transactional]
         pub fn set_fee_receiver(
             origin: OriginFor<T>,
             send_to: Option<<T::Lookup as StaticLookup>::Source>,
@@ -408,7 +410,9 @@ pub mod pallet {
         /// 0 means no protocol fee.
         /// 30 means 0.3% * 100% = 0.0030.
         /// default is 5 and means 0.3% * 1 / 6 = 0.0005.
+        #[pallet::call_index(1)]
         #[pallet::weight(T::WeightInfo::set_fee_point())]
+        #[frame_support::transactional]
         pub fn set_fee_point(origin: OriginFor<T>, fee_point: u8) -> DispatchResult {
             ensure_root(origin)?;
             ensure!(fee_point <= 30, Error::<T>::InvalidFeePoint);
@@ -419,7 +423,9 @@ pub mod pallet {
         }
 
         /// Set the exchange fee rate.
+        #[pallet::call_index(2)]
         #[pallet::weight(T::WeightInfo::set_fee_point())]
+        #[frame_support::transactional]
         pub fn set_exchange_fee(
             origin: OriginFor<T>,
             asset_0: T::AssetId,
@@ -459,7 +465,9 @@ pub mod pallet {
         ///
         /// - `asset_0`: Asset which make up Pair
         /// - `asset_1`: Asset which make up Pair
+        #[pallet::call_index(3)]
         #[pallet::weight(T::WeightInfo::create_pair())]
+        #[frame_support::transactional]
         pub fn create_pair(origin: OriginFor<T>, asset_0: T::AssetId, asset_1: T::AssetId) -> DispatchResult {
             ensure_root(origin)?;
             ensure!(
@@ -515,6 +523,7 @@ pub mod pallet {
         /// - `amount_0_min`: Minimum amount of asset_0 added to the pair
         /// - `amount_1_min`: Minimum amount of asset_1 added to the pair
         /// - `deadline`: Height of the cutoff block of this transaction
+        #[pallet::call_index(4)]
         #[pallet::weight(T::WeightInfo::add_liquidity())]
         #[frame_support::transactional]
         #[allow(clippy::too_many_arguments)]
@@ -559,6 +568,7 @@ pub mod pallet {
         /// - `amount_asset_1_min`: Minimum amount of asset_1 to exact
         /// - `recipient`: Account that accepts withdrawal of assets
         /// - `deadline`: Height of the cutoff block of this transaction
+        #[pallet::call_index(5)]
         #[pallet::weight(T::WeightInfo::remove_liquidity())]
         #[frame_support::transactional]
         #[allow(clippy::too_many_arguments)]
@@ -601,6 +611,7 @@ pub mod pallet {
         /// - `path`: path can convert to pairs.
         /// - `recipient`: Account that receive the target asset
         /// - `deadline`: Height of the cutoff block of this transaction
+        #[pallet::call_index(6)]
         #[pallet::weight(T::WeightInfo::swap_exact_assets_for_assets())]
         #[frame_support::transactional]
         pub fn swap_exact_assets_for_assets(
@@ -629,6 +640,7 @@ pub mod pallet {
         /// - `path`: path can convert to pairs.
         /// - `recipient`: Account that receive the target asset
         /// - `deadline`: Height of the cutoff block of this transaction
+        #[pallet::call_index(7)]
         #[pallet::weight(T::WeightInfo::swap_assets_for_exact_assets())]
         #[frame_support::transactional]
         pub fn swap_assets_for_exact_assets(
@@ -661,6 +673,7 @@ pub mod pallet {
         /// - `capacity_supply_0`: The max amount of asset_0 total contribute
         /// - `capacity_supply_1`: The max amount of asset_1 total contribute
         /// - `end`: The earliest ending block.
+        #[pallet::call_index(8)]
         #[pallet::weight(T::WeightInfo::bootstrap_create())]
         #[frame_support::transactional]
         #[allow(clippy::too_many_arguments)]
@@ -772,6 +785,7 @@ pub mod pallet {
         /// - `amount_0_contribute`: The amount of asset_0 contribute to this bootstrap pair
         /// - `amount_1_contribute`: The amount of asset_1 contribute to this bootstrap pair
         /// - `deadline`: Height of the cutoff block of this transaction
+        #[pallet::call_index(9)]
         #[pallet::weight(T::WeightInfo::bootstrap_contribute())]
         #[frame_support::transactional]
         pub fn bootstrap_contribute(
@@ -802,6 +816,7 @@ pub mod pallet {
         /// - `asset_0`: Asset which make up bootstrap pair
         /// - `asset_1`: Asset which make up bootstrap pair
         /// - `deadline`: Height of the cutoff block of this transaction
+        #[pallet::call_index(10)]
         #[pallet::weight(T::WeightInfo::bootstrap_claim())]
         #[frame_support::transactional]
         pub fn bootstrap_claim(
@@ -826,6 +841,7 @@ pub mod pallet {
         ///
         /// - `asset_0`: Asset which make up bootstrap pair
         /// - `asset_1`: Asset which make up bootstrap pair
+        #[pallet::call_index(11)]
         #[pallet::weight(T::WeightInfo::bootstrap_end())]
         #[frame_support::transactional]
         pub fn bootstrap_end(origin: OriginFor<T>, asset_0: T::AssetId, asset_1: T::AssetId) -> DispatchResult {
@@ -848,6 +864,7 @@ pub mod pallet {
         /// - `capacity_supply_0`: The new max amount of asset_0 total contribute
         /// - `capacity_supply_1`: The new max amount of asset_1 total contribute
         /// - `end`: The earliest ending block.
+        #[pallet::call_index(12)]
         #[pallet::weight(T::WeightInfo::bootstrap_update())]
         #[frame_support::transactional]
         #[allow(clippy::too_many_arguments)]
@@ -929,6 +946,7 @@ pub mod pallet {
         ///
         /// - `asset_0`: Asset which make up bootstrap pair
         /// - `asset_1`: Asset which make up bootstrap pair
+        #[pallet::call_index(13)]
         #[pallet::weight(T::WeightInfo::bootstrap_refund())]
         #[frame_support::transactional]
         pub fn bootstrap_refund(origin: OriginFor<T>, asset_0: T::AssetId, asset_1: T::AssetId) -> DispatchResult {
@@ -936,6 +954,7 @@ pub mod pallet {
             Self::do_bootstrap_refund(who, asset_0, asset_1)
         }
 
+        #[pallet::call_index(14)]
         #[pallet::weight(100_000_000)]
         #[frame_support::transactional]
         pub fn bootstrap_charge_reward(
@@ -970,6 +989,7 @@ pub mod pallet {
             Ok(())
         }
 
+        #[pallet::call_index(15)]
         #[pallet::weight(100_000_000)]
         #[frame_support::transactional]
         pub fn bootstrap_withdraw_reward(
