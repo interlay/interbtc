@@ -3,21 +3,13 @@
 
 //! Test utilities
 
-use std::marker::PhantomData;
-
 use codec::{Decode, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};
 
-use frame_support::{
-    dispatch::{DispatchError, DispatchResult},
-    pallet_prelude::GenesisBuild,
-    parameter_types,
-    traits::Contains,
-    PalletId,
-};
-use orml_traits::{parameter_type_with_key, MultiCurrency};
+use frame_support::{parameter_types, traits::Contains, PalletId};
+use orml_traits::parameter_type_with_key;
 use sp_core::H256;
 use sp_runtime::{
     testing::Header,
@@ -26,10 +18,7 @@ use sp_runtime::{
 };
 
 use crate as pallet_dex_general;
-pub use crate::{
-    AssetBalance, AssetId, Config, DexGeneralMultiAssets, MultiAssetsHandler, PairLpGenerate, Pallet, ParaId,
-    LIQUIDITY, LOCAL, NATIVE, RESERVED,
-};
+pub use crate::{AssetBalance, AssetInfo, Config, GenerateLpAssetId, Pallet};
 
 type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
 type Block = frame_system::mocking::MockBlock<Test>;
@@ -41,16 +30,38 @@ pub enum CurrencyId {
     LpToken(u8, u8),
 }
 
+impl CurrencyId {
+    pub fn join_lp_token(currency_id_0: Self, currency_id_1: Self) -> Option<Self> {
+        let lp_token_0 = match currency_id_0 {
+            CurrencyId::Token(x) => x,
+            _ => return None,
+        };
+        let lp_token_1 = match currency_id_1 {
+            CurrencyId::Token(y) => y,
+            _ => return None,
+        };
+        Some(CurrencyId::LpToken(lp_token_0, lp_token_1))
+    }
+}
+
+impl AssetInfo for CurrencyId {
+    fn is_support(&self) -> bool {
+        match self {
+            Self::Token(_) => true,
+            _ => false,
+        }
+    }
+}
+
 frame_support::construct_runtime!(
     pub enum Test where
         Block = Block,
         NodeBlock = Block,
         UncheckedExtrinsic = UncheckedExtrinsic,
     {
-        System: frame_system::{Pallet, Call, Config, Storage, Event<T>} = 0,
-        Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>} = 8,
-        DexGeneral: pallet_dex_general::{Pallet, Call, Storage, Event<T>} = 9,
-        Tokens: orml_tokens::{Pallet, Storage, Event<T>, Config<T>} = 11,
+        System: frame_system::{Pallet, Call, Config, Storage, Event<T>},
+        DexGeneral: pallet_dex_general::{Pallet, Call, Storage, Event<T>},
+        Tokens: orml_tokens::{Pallet, Storage, Event<T>, Config<T>},
     }
 );
 
@@ -117,25 +128,19 @@ impl orml_tokens::Config for Test {
     type CurrencyHooks = ();
 }
 
-impl pallet_balances::Config for Test {
-    type Balance = u128;
-    type DustRemoval = ();
-    type RuntimeEvent = RuntimeEvent;
-    type ExistentialDeposit = ExistentialDeposit;
-    type AccountStore = frame_system::Pallet<Test>;
-    type WeightInfo = ();
-    type MaxLocks = ();
-    type MaxReserves = MaxReserves;
-    type ReserveIdentifier = [u8; 8];
+pub struct PairLpIdentity;
+impl GenerateLpAssetId<CurrencyId> for PairLpIdentity {
+    fn generate_lp_asset_id(asset_0: CurrencyId, asset_1: CurrencyId) -> Option<CurrencyId> {
+        CurrencyId::join_lp_token(asset_0, asset_1)
+    }
 }
 
 impl Config for Test {
     type RuntimeEvent = RuntimeEvent;
-    type MultiAssetsHandler = DexGeneralMultiAssets<DexGeneral, Balances, LocalAssetAdaptor<Tokens>>;
+    type MultiCurrency = Tokens;
     type PalletId = DexGeneralPalletId;
-    type AssetId = AssetId;
-    type LpGenerate = PairLpGenerate<Self>;
-    type SelfParaId = ();
+    type AssetId = CurrencyId;
+    type LpGenerate = PairLpIdentity;
     type WeightInfo = ();
 }
 
@@ -146,17 +151,6 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
         .build_storage::<Test>()
         .unwrap()
         .into();
-    pallet_balances::GenesisConfig::<Test> {
-        balances: vec![
-            (1, 34028236692093846346337460743176821145),
-            (2, 10),
-            (3, 10),
-            (4, 10),
-            (5, 10),
-        ],
-    }
-    .assimilate_storage(&mut t)
-    .unwrap();
 
     pallet_dex_general::GenesisConfig::<Test> {
         fee_receiver: None,
@@ -165,73 +159,7 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
     .assimilate_storage(&mut t)
     .unwrap();
 
-    orml_tokens::GenesisConfig::<Test> {
-        balances: vec![
-            (1, CurrencyId::Token(1), 34028236692093846346337460743176821145),
-            (1, CurrencyId::Token(2), 34028236692093846346337460743176821145),
-            (1, CurrencyId::Token(3), 34028236692093846346337460743176821145),
-        ],
-    }
-    .assimilate_storage(&mut t)
-    .unwrap();
-
     t.into()
 }
 
-pub struct LocalAssetAdaptor<Local>(PhantomData<Local>);
-
 type AccountId = u128;
-
-fn asset_id_to_currency_id(asset_id: &AssetId) -> Result<CurrencyId, ()> {
-    if asset_id.asset_type == LIQUIDITY {
-        let token0_id = ((asset_id.asset_index & 0xFFFF0000) >> 16) as u8;
-        let token1_id = (asset_id.asset_index & 0x0000FFFF) as u8;
-        return Ok(CurrencyId::LpToken(token0_id, token1_id));
-    }
-    if asset_id.asset_type == LOCAL {
-        let token_id = asset_id.asset_index as u8;
-        return Ok(CurrencyId::Token(token_id));
-    }
-    Err(())
-}
-
-impl<Local> MultiAssetsHandler<AccountId, AssetId> for LocalAssetAdaptor<Local>
-where
-    Local: MultiCurrency<AccountId, Balance = u128, CurrencyId = CurrencyId>,
-{
-    fn balance_of(asset_id: AssetId, who: &AccountId) -> AssetBalance {
-        asset_id_to_currency_id(&asset_id).map_or(AssetBalance::default(), |currency_id| {
-            Local::free_balance(currency_id, who)
-        })
-    }
-
-    fn total_supply(asset_id: AssetId) -> AssetBalance {
-        asset_id_to_currency_id(&asset_id).map_or(AssetBalance::default(), |currency_id| {
-            Local::total_issuance(currency_id)
-        })
-    }
-
-    fn is_exists(asset_id: AssetId) -> bool {
-        asset_id_to_currency_id(&asset_id).map_or(false, |currency_id| {
-            Local::total_issuance(currency_id) > AssetBalance::default()
-        })
-    }
-
-    fn transfer(asset_id: AssetId, origin: &AccountId, target: &AccountId, amount: AssetBalance) -> DispatchResult {
-        asset_id_to_currency_id(&asset_id).map_or(Err(DispatchError::CannotLookup), |currency_id| {
-            Local::transfer(currency_id, origin, target, amount)
-        })
-    }
-
-    fn deposit(asset_id: AssetId, origin: &AccountId, amount: AssetBalance) -> Result<AssetBalance, DispatchError> {
-        asset_id_to_currency_id(&asset_id).map_or(Ok(AssetBalance::default()), |currency_id| {
-            Local::deposit(currency_id, origin, amount).map(|_| amount)
-        })
-    }
-
-    fn withdraw(asset_id: AssetId, origin: &AccountId, amount: AssetBalance) -> Result<AssetBalance, DispatchError> {
-        asset_id_to_currency_id(&asset_id).map_or(Ok(AssetBalance::default()), |currency_id| {
-            Local::withdraw(currency_id, origin, amount).map(|_| amount)
-        })
-    }
-}

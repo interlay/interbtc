@@ -64,8 +64,8 @@ impl<T: Config> Pallet<T> {
         let pair = Self::sort_asset_id(asset_0, asset_1);
         PairStatuses::<T>::try_mutate(pair, |status| {
             if let Trading(parameter) = status {
-                let reserve_0 = T::MultiAssetsHandler::balance_of(asset_0, &parameter.pair_account);
-                let reserve_1 = T::MultiAssetsHandler::balance_of(asset_1, &parameter.pair_account);
+                let reserve_0 = T::MultiCurrency::free_balance(asset_0, &parameter.pair_account);
+                let reserve_1 = T::MultiCurrency::free_balance(asset_1, &parameter.pair_account);
 
                 let (amount_0, amount_1) = Self::calculate_added_amount(
                     amount_0_desired,
@@ -76,8 +76,8 @@ impl<T: Config> Pallet<T> {
                     reserve_1,
                 )?;
 
-                let balance_asset_0 = T::MultiAssetsHandler::balance_of(asset_0, who);
-                let balance_asset_1 = T::MultiAssetsHandler::balance_of(asset_1, who);
+                let balance_asset_0 = T::MultiCurrency::free_balance(asset_0, who);
+                let balance_asset_1 = T::MultiCurrency::free_balance(asset_1, who);
                 ensure!(
                     balance_asset_0 >= amount_0 && balance_asset_1 >= amount_1,
                     Error::<T>::InsufficientAssetBalance
@@ -88,7 +88,7 @@ impl<T: Config> Pallet<T> {
                 let mint_fee = Self::mint_protocol_fee(reserve_0, reserve_1, asset_0, asset_1, parameter.total_supply)?;
                 if let Some(fee_to) = Self::fee_meta().0 {
                     if mint_fee > 0 && Self::fee_meta().1 > 0 {
-                        T::MultiAssetsHandler::deposit(lp_asset_id, &fee_to, mint_fee).map(|_| mint_fee)?;
+                        T::MultiCurrency::deposit(lp_asset_id, &fee_to, mint_fee).map(|_| mint_fee)?;
                         parameter.total_supply = parameter
                             .total_supply
                             .checked_add(mint_fee)
@@ -105,16 +105,16 @@ impl<T: Config> Pallet<T> {
                     .checked_add(mint_liquidity)
                     .ok_or(Error::<T>::Overflow)?;
 
-                T::MultiAssetsHandler::deposit(lp_asset_id, who, mint_liquidity).map(|_| mint_liquidity)?;
+                T::MultiCurrency::deposit(lp_asset_id, who, mint_liquidity).map(|_| mint_liquidity)?;
 
-                T::MultiAssetsHandler::transfer(asset_0, who, &parameter.pair_account, amount_0)?;
-                T::MultiAssetsHandler::transfer(asset_1, who, &parameter.pair_account, amount_1)?;
+                T::MultiCurrency::transfer(asset_0, who, &parameter.pair_account, amount_0)?;
+                T::MultiCurrency::transfer(asset_1, who, &parameter.pair_account, amount_1)?;
 
                 if let Some(_fee_to) = Self::fee_meta().0 {
                     if Self::fee_meta().1 > 0 {
                         // update reserve_0 and reserve_1
-                        let reserve_0 = T::MultiAssetsHandler::balance_of(asset_0, &parameter.pair_account);
-                        let reserve_1 = T::MultiAssetsHandler::balance_of(asset_1, &parameter.pair_account);
+                        let reserve_0 = T::MultiCurrency::free_balance(asset_0, &parameter.pair_account);
+                        let reserve_1 = T::MultiCurrency::free_balance(asset_1, &parameter.pair_account);
 
                         let last_k_value = U256::from(reserve_0)
                             .checked_mul(U256::from(reserve_1))
@@ -152,8 +152,8 @@ impl<T: Config> Pallet<T> {
         let pair = Self::sort_asset_id(asset_0, asset_1);
         PairStatuses::<T>::try_mutate(pair, |status| {
             if let Trading(parameter) = status {
-                let reserve_0 = T::MultiAssetsHandler::balance_of(asset_0, &parameter.pair_account);
-                let reserve_1 = T::MultiAssetsHandler::balance_of(asset_1, &parameter.pair_account);
+                let reserve_0 = T::MultiCurrency::free_balance(asset_0, &parameter.pair_account);
+                let reserve_1 = T::MultiCurrency::free_balance(asset_1, &parameter.pair_account);
 
                 let amount_0 = Self::calculate_share_amount(remove_liquidity, parameter.total_supply, reserve_0);
                 let amount_1 = Self::calculate_share_amount(remove_liquidity, parameter.total_supply, reserve_1);
@@ -169,7 +169,7 @@ impl<T: Config> Pallet<T> {
                 if let Some(fee_to) = Self::fee_meta().0 {
                     if mint_fee > 0 && Self::fee_meta().1 > 0 {
                         //Self::mutate_liquidity(asset_0, asset_1, &fee_to, mint_fee, true)?;
-                        T::MultiAssetsHandler::deposit(lp_asset_id, &fee_to, mint_fee).map(|_| mint_fee)?;
+                        T::MultiCurrency::deposit(lp_asset_id, &fee_to, mint_fee).map(|_| mint_fee)?;
                         parameter.total_supply = parameter
                             .total_supply
                             .checked_add(mint_fee)
@@ -183,16 +183,16 @@ impl<T: Config> Pallet<T> {
                     .ok_or(Error::<T>::InsufficientLiquidity)?;
 
                 // Self::mutate_liquidity(asset_0, asset_1, who, remove_liquidity, false)?;
-                T::MultiAssetsHandler::withdraw(lp_asset_id, who, remove_liquidity).map(|_| remove_liquidity)?;
+                T::MultiCurrency::withdraw(lp_asset_id, who, remove_liquidity).map(|_| remove_liquidity)?;
 
-                T::MultiAssetsHandler::transfer(asset_0, &parameter.pair_account, recipient, amount_0)?;
-                T::MultiAssetsHandler::transfer(asset_1, &parameter.pair_account, recipient, amount_1)?;
+                T::MultiCurrency::transfer(asset_0, &parameter.pair_account, recipient, amount_0)?;
+                T::MultiCurrency::transfer(asset_1, &parameter.pair_account, recipient, amount_1)?;
 
                 if let Some(_fee_to) = Self::fee_meta().0 {
                     if Self::fee_meta().1 > 0 {
                         // update reserve_0 and reserve_1
-                        let reserve_0 = T::MultiAssetsHandler::balance_of(asset_0, &parameter.pair_account);
-                        let reserve_1 = T::MultiAssetsHandler::balance_of(asset_1, &parameter.pair_account);
+                        let reserve_0 = T::MultiCurrency::free_balance(asset_0, &parameter.pair_account);
+                        let reserve_1 = T::MultiCurrency::free_balance(asset_1, &parameter.pair_account);
 
                         let last_k_value = U256::from(reserve_0)
                             .checked_mul(U256::from(reserve_1))
@@ -234,7 +234,7 @@ impl<T: Config> Pallet<T> {
 
         let pair_account = Self::pair_account_id(path[0], path[1]);
 
-        T::MultiAssetsHandler::transfer(path[0], who, &pair_account, amount_in)?;
+        T::MultiCurrency::transfer(path[0], who, &pair_account, amount_in)?;
         Self::swap(&amounts, path, recipient)?;
 
         Self::deposit_event(Event::AssetSwap(
@@ -261,7 +261,7 @@ impl<T: Config> Pallet<T> {
 
         let pair_account = Self::pair_account_id(path[0], path[1]);
 
-        T::MultiAssetsHandler::transfer(path[0], who, &pair_account, amounts[0])?;
+        T::MultiCurrency::transfer(path[0], who, &pair_account, amounts[0])?;
         Self::swap(&amounts, path, recipient)?;
 
         Self::deposit_event(Event::AssetSwap(
@@ -456,8 +456,8 @@ impl<T: Config> Pallet<T> {
 
         while i > 0 {
             let pair_account = Self::pair_account_id(path[i], path[i - 1]);
-            let reserve_0 = T::MultiAssetsHandler::balance_of(path[i], &pair_account);
-            let reserve_1 = T::MultiAssetsHandler::balance_of(path[i - 1], &pair_account);
+            let reserve_0 = T::MultiCurrency::free_balance(path[i], &pair_account);
+            let reserve_1 = T::MultiCurrency::free_balance(path[i - 1], &pair_account);
 
             ensure!(
                 reserve_1 > Zero::zero() && reserve_0 > Zero::zero(),
@@ -505,8 +505,8 @@ impl<T: Config> Pallet<T> {
 
         for i in 0..len {
             let pair_account = Self::pair_account_id(path[i], path[i + 1]);
-            let reserve_0 = T::MultiAssetsHandler::balance_of(path[i], &pair_account);
-            let reserve_1 = T::MultiAssetsHandler::balance_of(path[i + 1], &pair_account);
+            let reserve_0 = T::MultiCurrency::free_balance(path[i], &pair_account);
+            let reserve_1 = T::MultiCurrency::free_balance(path[i + 1], &pair_account);
 
             ensure!(
                 reserve_1 > Zero::zero() && reserve_0 > Zero::zero(),
@@ -579,8 +579,8 @@ impl<T: Config> Pallet<T> {
             _ => Err(Error::<T>::PairNotExists),
         }?;
 
-        let reserve_0 = T::MultiAssetsHandler::balance_of(asset_0, pair_account);
-        let reserve_1 = T::MultiAssetsHandler::balance_of(asset_1, pair_account);
+        let reserve_0 = T::MultiCurrency::free_balance(asset_0, pair_account);
+        let reserve_1 = T::MultiCurrency::free_balance(asset_1, pair_account);
 
         ensure!(
             amount_0 <= reserve_0 && amount_1 <= reserve_1,
@@ -588,11 +588,11 @@ impl<T: Config> Pallet<T> {
         );
 
         if amount_0 > Zero::zero() {
-            T::MultiAssetsHandler::transfer(asset_0, pair_account, recipient, amount_0)?;
+            T::MultiCurrency::transfer(asset_0, pair_account, recipient, amount_0)?;
         }
 
         if amount_1 > Zero::zero() {
-            T::MultiAssetsHandler::transfer(asset_1, pair_account, recipient, amount_1)?;
+            T::MultiCurrency::transfer(asset_1, pair_account, recipient, amount_1)?;
         }
 
         Ok(())
@@ -663,8 +663,8 @@ impl<T: Config> Pallet<T> {
 
             let pair_account = Self::account_id();
 
-            T::MultiAssetsHandler::transfer(pair.0, &who, &pair_account, amount_0_contribute)?;
-            T::MultiAssetsHandler::transfer(pair.1, &who, &pair_account, amount_1_contribute)?;
+            T::MultiCurrency::transfer(pair.0, &who, &pair_account, amount_0_contribute)?;
+            T::MultiCurrency::transfer(pair.1, &who, &pair_account, amount_1_contribute)?;
 
             let accumulated_supply_0 = bootstrap_parameter
                 .accumulated_supply
@@ -715,21 +715,21 @@ impl<T: Config> Pallet<T> {
                 let pair_account = Self::pair_account_id(pair.0, pair.1);
                 let lp_asset_id = Self::lp_pairs(pair).ok_or(Error::<T>::InsufficientAssetBalance)?;
 
-                T::MultiAssetsHandler::transfer(
+                T::MultiCurrency::transfer(
                     pair.0,
                     &bootstrap_parameter.pair_account,
                     &pair_account,
                     bootstrap_parameter.accumulated_supply.0,
                 )?;
 
-                T::MultiAssetsHandler::transfer(
+                T::MultiCurrency::transfer(
                     pair.1,
                     &bootstrap_parameter.pair_account,
                     &pair_account,
                     bootstrap_parameter.accumulated_supply.1,
                 )?;
 
-                T::MultiAssetsHandler::deposit(lp_asset_id, &pair_account, total_lp_supply).map(|_| total_lp_supply)?;
+                T::MultiCurrency::deposit(lp_asset_id, &pair_account, total_lp_supply).map(|_| total_lp_supply)?;
 
                 PairStatuses::<T>::insert(
                     pair,
@@ -820,7 +820,7 @@ impl<T: Config> Pallet<T> {
                         let pair_account = Self::pair_account_id(pair.0, pair.1);
                         let lp_asset_id = Self::lp_pairs(pair).ok_or(Error::<T>::InsufficientAssetBalance)?;
 
-                        T::MultiAssetsHandler::transfer(lp_asset_id, &pair_account, &recipient, claim_liquidity)?;
+                        T::MultiCurrency::transfer(lp_asset_id, &pair_account, &recipient, claim_liquidity)?;
 
                         let bootstrap_total_liquidity = U256::from(bootstrap_parameter.accumulated_supply.0)
                             .checked_mul(U256::from(bootstrap_parameter.accumulated_supply.1))
@@ -879,8 +879,8 @@ impl<T: Config> Pallet<T> {
         BootstrapPersonalSupply::<T>::try_mutate_exists((pair, &who), |contribution| -> DispatchResult {
             if let Some((amount_0_contribute, amount_1_contribute)) = contribution.take() {
                 let pair_account = Self::account_id();
-                T::MultiAssetsHandler::transfer(pair.0, &pair_account, &who, amount_0_contribute)?;
-                T::MultiAssetsHandler::transfer(pair.1, &pair_account, &who, amount_1_contribute)?;
+                T::MultiCurrency::transfer(pair.0, &pair_account, &who, amount_0_contribute)?;
+                T::MultiCurrency::transfer(pair.1, &pair_account, &who, amount_1_contribute)?;
 
                 PairStatuses::<T>::try_mutate(pair, |status| -> DispatchResult {
                     if let Bootstrap(parameter) = status {
@@ -936,7 +936,7 @@ impl<T: Config> Pallet<T> {
         let limits = Self::get_bootstrap_limits(pair);
 
         for (asset_id, limit) in limits.into_iter() {
-            if T::MultiAssetsHandler::balance_of(asset_id, account) < limit {
+            if T::MultiCurrency::free_balance(asset_id, account) < limit {
                 return false;
             }
         }
@@ -963,7 +963,7 @@ impl<T: Config> Pallet<T> {
                 .and_then(|n| TryInto::<AssetBalance>::try_into(n).ok())
                 .ok_or(Error::<T>::Overflow)?;
 
-            T::MultiAssetsHandler::transfer(asset_id, reward_holder, owner, owner_reward)?;
+            T::MultiCurrency::transfer(asset_id, reward_holder, owner, owner_reward)?;
 
             distribute_rewards.push((asset_id, owner_reward));
         }

@@ -20,20 +20,13 @@ frame-system = { git = "https://github.com/paritytech/substrate", default-featur
 sp-runtime = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "polkadot-v0.9.31" }
 sp-std = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.31", default-features = false }
 sp-arithmetic = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.31", default-features = false }
-pallet-balances = { git = 'https://github.com/paritytech/substrate', default-features = false, branch = 'polkadot-v0.9.31' }
-
-# Polkadot
-xcm = { git = "https://github.com/paritytech/polkadot", branch = "release-v0.9.31", default-features = false }
-xcm-executor = { git = "https://github.com/paritytech/polkadot", branch = "release-v0.9.31", default-features = false }
-
-# Cumulus
-cumulus-primitives-core = { git = "https://github.com/paritytech/cumulus", default-features = false, branch = "polkadot-v0.9.31" }
 
 # Orml dependencies
 orml-tokens = { git = "https://github.com/open-web3-stack/open-runtime-module-library", rev = "dc39cfddefb10ef0de23655e2c3dcdab66a19404", default-features = false }
 orml-traits = { git = "https://github.com/open-web3-stack/open-runtime-module-library", rev = "dc39cfddefb10ef0de23655e2c3dcdab66a19404", default-features = false }
 
 [dev-dependencies]
+pallet-balances = { git = 'https://github.com/paritytech/substrate', default-features = false, branch = 'polkadot-v0.9.31' }
 sp-core = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "polkadot-v0.9.31" }
 sp-io = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "polkadot-v0.9.31" }
 
@@ -50,16 +43,10 @@ std = [
     "sp-runtime/std",
     "sp-std/std",
     "sp-arithmetic/std",
-    "pallet-balances/std",
-
-    "xcm/std",
-    "xcm-executor/std",
-    "cumulus-primitives-core/std",
 
     "orml-traits/std",
     "orml-tokens/std",
 ]
-
 runtime-benchmarks = [
     "frame-benchmarking",
 ]

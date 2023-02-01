@@ -7,9 +7,7 @@ use orml_traits::MultiCurrency;
 use sp_std::marker::PhantomData;
 use xcm::latest::prelude::*;
 
-pub use dex_general::{
-    AssetBalance, DexGeneralMultiAssets, GenerateLpAssetId, MultiAssetsHandler, PairInfo, LIQUIDITY, LOCAL,
-};
+pub use dex_general::{AssetBalance, GenerateLpAssetId, PairInfo};
 
 pub use dex_stable::traits::{StablePoolLpCurrencyIdGenerate, ValidateCurrency};
 
@@ -17,38 +15,6 @@ parameter_types! {
     pub const DexGeneralPalletId: PalletId = PalletId(*b"dex/genr");
     pub const DexStablePalletId: PalletId = PalletId(*b"dex/stbl");
     pub const StringLimit: u32 = 50;
-
-    // XCM
-    pub SelfParaId: u32 = ParachainInfo::get().into();
-}
-
-pub struct MultiAssetsAdaptor<Tokens>(PhantomData<Tokens>);
-
-impl<Tokens> MultiAssetsHandler<AccountId, CurrencyId> for MultiAssetsAdaptor<Tokens>
-where
-    Tokens: MultiCurrency<AccountId, Balance = Balance, CurrencyId = CurrencyId>,
-{
-    fn balance_of(asset_id: CurrencyId, who: &AccountId) -> AssetBalance {
-        Tokens::free_balance(asset_id, who)
-    }
-
-    fn total_supply(asset_id: CurrencyId) -> AssetBalance {
-        Tokens::total_issuance(asset_id)
-    }
-
-    fn is_exists(asset_id: CurrencyId) -> bool {
-        Tokens::total_issuance(asset_id) > AssetBalance::default()
-    }
-
-    fn deposit(asset_id: CurrencyId, target: &AccountId, amount: AssetBalance) -> Result<AssetBalance, DispatchError> {
-        Tokens::deposit(asset_id, target, amount)?;
-        Ok(amount)
-    }
-
-    fn withdraw(asset_id: CurrencyId, origin: &AccountId, amount: AssetBalance) -> Result<AssetBalance, DispatchError> {
-        Tokens::withdraw(asset_id, origin, amount)?;
-        Ok(amount)
-    }
 }
 
 pub struct PairLpIdentity;
@@ -60,12 +26,10 @@ impl GenerateLpAssetId<CurrencyId> for PairLpIdentity {
 
 impl dex_general::Config for Runtime {
     type RuntimeEvent = RuntimeEvent;
-    type MultiAssetsHandler = MultiAssetsAdaptor<Tokens>;
+    type MultiCurrency = Tokens;
     type PalletId = DexGeneralPalletId;
     type AssetId = CurrencyId;
     type LpGenerate = PairLpIdentity;
-    // NOTE: XCM not supported
-    type SelfParaId = SelfParaId;
     type WeightInfo = ();
 }
 
