@@ -88,9 +88,7 @@ impl<T: Config> Pallet<T> {
             let delta_time = now
                 .checked_sub(last_accrued_interest_time)
                 .ok_or(ArithmeticError::Underflow)?;
-            borrow_index_new = Self::increment_index(borrow_rate, borrow_index, delta_time)
-                .and_then(|r| r.checked_add(&borrow_index))
-                .ok_or(ArithmeticError::Overflow)?;
+            borrow_index_new = Self::accrue_index(borrow_rate, borrow_index, delta_time)?;
             let total_borrows_old = total_borrows.clone();
             total_borrows =
                 Self::borrow_balance_from_old_and_new_index(&borrow_index, &borrow_index_new, total_borrows)?;
@@ -163,11 +161,20 @@ impl<T: Config> Pallet<T> {
         })
     }
 
-    fn increment_index(borrow_rate: Rate, index: Rate, delta_time: Timestamp) -> Option<Rate> {
-        borrow_rate
-            .checked_mul(&index)?
-            .checked_mul(&FixedU128::saturating_from_integer(delta_time))?
+    fn accrue_index(borrow_rate: Rate, index: Rate, delta_time: Timestamp) -> Result<Rate, DispatchError> {
+        // TODO: Replace simple interest formula with compound interest formula
+        // Currently:        new_index = old_index * (1 + annual_borrow_rate * fraction_of_a_year)
+        // Compound formula: new_index = old_index * (1 + annual_borrow_rate / SECONDS_PER_YEAR) ^ (delta_time *
+        // SECONDS_PER_YEAR)
+        let fractional_part = borrow_rate
+            .checked_mul(&FixedU128::saturating_from_integer(delta_time))
+            .ok_or(ArithmeticError::Overflow)?
             .checked_div(&FixedU128::saturating_from_integer(SECONDS_PER_YEAR))
+            .ok_or(ArithmeticError::Underflow)?;
+        let accummulated = Rate::one()
+            .checked_add(&fractional_part)
+            .ok_or(ArithmeticError::Overflow)?;
+        Ok(index.checked_mul(&accummulated).ok_or(ArithmeticError::Overflow)?)
     }
 
     fn calculate_exchange_rate(
