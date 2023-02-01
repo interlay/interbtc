@@ -1,7 +1,7 @@
 use super::*;
 use crate::{mock::*, tests::Loans, Error};
 use currency::Amount;
-use frame_support::{assert_err, assert_ok};
+use frame_support::{assert_err, assert_ok, dispatch::Dispatchable};
 use primitives::{
     CurrencyId::{ForeignAsset, Token},
     DOT, IBTC, KSM,
@@ -269,6 +269,46 @@ fn new_transferred_collateral_is_not_auto_deposited_if_not_collateral() {
 
 #[test]
 fn small_loans_have_interest_rounded_up() {
+    new_test_ext().execute_with(|| {
+        assert_ok!(Loans::mint(RuntimeOrigin::signed(ALICE), Token(IBTC), unit(100)));
+        assert_ok!(Loans::mint(RuntimeOrigin::signed(BOB), Token(DOT), unit(100)));
+        assert_ok!(Loans::deposit_all_collateral(RuntimeOrigin::signed(BOB), Token(DOT)));
+
+        let initial_block = 2;
+        _run_to_block(initial_block);
+
+        assert_eq!(Tokens::balance(Token(IBTC), &BOB), 0);
+        let borrow_amount_small = 1;
+        let borrow_amount_big = unit(10);
+        // If there was an bug in the lazy interest accrual, the second loan would be interest-free
+        let batch_call = RuntimeCall::Utility(pallet_utility::Call::batch {
+            calls: vec![
+                RuntimeCall::Loans(self::Call::borrow {
+                    asset_id: Token(IBTC),
+                    borrow_amount: borrow_amount_small,
+                }),
+                RuntimeCall::Loans(self::Call::borrow {
+                    asset_id: Token(IBTC),
+                    borrow_amount: borrow_amount_big,
+                }),
+            ],
+        });
+        assert_ok!(batch_call.clone().dispatch(RuntimeOrigin::signed(BOB)));
+
+        _run_to_block(initial_block + 10000);
+        Loans::accrue_interest(Token(IBTC)).unwrap();
+        let borrow_index = Loans::borrow_index(Token(IBTC));
+        let current_borrow_balance = Loans::current_borrow_balance(&BOB, Token(IBTC)).unwrap();
+        let total_borrowed_amount = borrow_amount_small + borrow_amount_big;
+        let expected_borrow_balance = borrow_index.checked_mul_int(total_borrowed_amount).unwrap();
+        assert_eq!(
+            almost_equal(current_borrow_balance.amount(), expected_borrow_balance),
+            true,
+        );
+    })
+}
+
+fn big_loan_following_a_small_loan_still_accrues_interest() {
     new_test_ext().execute_with(|| {
         assert_ok!(Loans::mint(RuntimeOrigin::signed(ALICE), Token(IBTC), unit(100)));
         assert_ok!(Loans::mint(RuntimeOrigin::signed(BOB), Token(DOT), unit(100)));
