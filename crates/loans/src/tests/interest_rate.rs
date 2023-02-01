@@ -2,9 +2,9 @@ use crate::{mock::*, tests::Loans, Markets};
 use currency::Amount;
 use frame_support::assert_ok;
 use mocktopus::mocking::Mockable;
-use primitives::{CurrencyId::Token, Rate, Ratio, DOT, KSM, SECONDS_PER_YEAR};
+use primitives::{CurrencyId::Token, Moment, Rate, Ratio, DOT, KSM};
 use sp_runtime::{
-    traits::{CheckedDiv, One, Saturating},
+    traits::{CheckedDiv, One},
     FixedPointNumber,
 };
 use traits::OracleApi;
@@ -75,7 +75,6 @@ fn interest_rate_model_works() {
         let mut total_reserves: u128 = 0;
 
         // Interest accrued from blocks 1 to 49
-        // TODO: Change to match the current implementation
         for i in 1..49 {
             let delta_time = 6u128;
             TimestampPallet::set_timestamp(6000 * (i + 1));
@@ -85,13 +84,13 @@ fn interest_rate_model_works() {
             assert_eq!(Loans::utilization_ratio(Token(DOT)), util_ratio);
 
             let borrow_rate = (jump_rate - base_rate) * util_ratio.into() / jump_utilization.into() + base_rate;
-            let interest_accumulated: u128 = borrow_rate
-                .saturating_mul_int(total_borrows)
-                .saturating_mul(delta_time.into())
-                .checked_div(SECONDS_PER_YEAR.into())
-                .unwrap();
-            total_borrows = interest_accumulated + total_borrows;
-            assert_eq!(Loans::total_borrows(Token(DOT)).amount(), total_borrows);
+            let borrow_index_old = borrow_index;
+            borrow_index = Loans::accrue_index(borrow_rate, borrow_index, delta_time as Moment).unwrap();
+            let total_borrows_old = total_borrows;
+            total_borrows = (borrow_index / borrow_index_old).saturating_mul_int(total_borrows);
+            let interest_accumulated = total_borrows - total_borrows_old;
+            let actual_total_borrows = Loans::total_borrows(Token(DOT)).amount();
+            assert_eq!(actual_total_borrows, total_borrows);
             total_reserves = Markets::<Test>::get(&Token(DOT))
                 .unwrap()
                 .reserve_factor
@@ -104,26 +103,20 @@ fn interest_rate_model_works() {
                 Loans::exchange_rate(Token(DOT)).into_inner(),
                 (total_cash + total_borrows - total_reserves) * rate_decimal / total_supply
             );
-            let numerator = borrow_index
-                .saturating_mul(borrow_rate)
-                .saturating_mul(Rate::saturating_from_integer(delta_time))
-                .checked_div(&Rate::saturating_from_integer(SECONDS_PER_YEAR))
-                .unwrap();
-            borrow_index = numerator + borrow_index;
             assert_eq!(Loans::borrow_index(Token(DOT)), borrow_index);
         }
-        assert_eq!(total_borrows, 100000063926960646826);
-        assert_eq!(total_reserves, 9589044097001);
-        assert_eq!(borrow_index, Rate::from_inner(1000000639269606444));
-        assert_eq!(Loans::exchange_rate(Token(DOT)), Rate::from_inner(20000005433791654));
+        assert_eq!(total_borrows, 100000063926960953257);
+        assert_eq!(total_reserves, 9589044142967);
+        assert_eq!(borrow_index, Rate::from_inner(1000000639269609557));
+        assert_eq!(Loans::exchange_rate(Token(DOT)), Rate::from_inner(20000005433791681));
 
         // Calculate borrow accrued interest
         let borrow_principal =
             (borrow_index / borrow_snapshot.borrow_index).saturating_mul_int(borrow_snapshot.principal);
-        // TODO: Why subtract `million_unit(200)` here? Accruing interest doesn't fix this.
+        // The supply interest here is probably the fraction of interest that goes to the reserve
         let supply_interest = Loans::exchange_rate(Token(DOT)).saturating_mul_int(total_supply) - million_unit(200);
-        assert_eq!(supply_interest, 54337916540000);
-        assert_eq!(borrow_principal, 100000063926960644400);
+        assert_eq!(supply_interest, 54337916810000);
+        assert_eq!(borrow_principal, 100000063926960955700);
         assert_eq!(total_borrows / 10000, borrow_principal / 10000);
         assert_eq!(
             (total_borrows - million_unit(100) - total_reserves) / 10000,
@@ -144,7 +137,7 @@ fn last_accrued_interest_time_should_be_update_correctly() {
         assert_eq!(Loans::borrow_index(Token(DOT)), Rate::one());
         TimestampPallet::set_timestamp(12000);
         assert_ok!(Loans::mint(RuntimeOrigin::signed(ALICE), Token(DOT), unit(100)));
-        assert_eq!(Loans::borrow_index(Token(DOT)), Rate::from_inner(1000000013318112633),);
+        assert_eq!(Loans::borrow_index(Token(DOT)), Rate::from_inner(1000000013318112698),);
     })
 }
 
@@ -157,7 +150,7 @@ fn accrue_interest_works_after_mint() {
         assert_eq!(Loans::borrow_index(Token(DOT)), Rate::one());
         TimestampPallet::set_timestamp(12000);
         assert_ok!(Loans::mint(RuntimeOrigin::signed(ALICE), Token(DOT), unit(100)));
-        assert_eq!(Loans::borrow_index(Token(DOT)), Rate::from_inner(1000000013318112633),);
+        assert_eq!(Loans::borrow_index(Token(DOT)), Rate::from_inner(1000000013318112698),);
     })
 }
 
@@ -188,7 +181,7 @@ fn accrue_interest_works_after_redeem() {
             Token(DOT),
             amount_to_redeem
         ));
-        assert_eq!(Loans::borrow_index(Token(DOT)), Rate::from_inner(1000000004756468797),);
+        assert_eq!(Loans::borrow_index(Token(DOT)), Rate::from_inner(1000000004756468801),);
         assert_eq!(
             Loans::exchange_rate(Token(DOT))
                 .saturating_mul_int(Loans::account_deposits(Loans::lend_token_id(Token(DOT)).unwrap(), &BOB).amount()),
@@ -210,7 +203,7 @@ fn accrue_interest_works_after_redeem_all() {
         assert_eq!(Tokens::balance(Token(DOT), &BOB), 980000000000000);
         TimestampPallet::set_timestamp(12000);
         assert_ok!(Loans::redeem_all(RuntimeOrigin::signed(BOB), Token(DOT)));
-        assert_eq!(Loans::borrow_index(Token(DOT)), Rate::from_inner(1000000004669977168),);
+        assert_eq!(Loans::borrow_index(Token(DOT)), Rate::from_inner(1000000004669977174),);
         assert_eq!(
             Loans::exchange_rate(Token(DOT))
                 .saturating_mul_int(Loans::account_deposits(Loans::lend_token_id(Token(DOT)).unwrap(), &BOB).amount()),
@@ -232,7 +225,7 @@ fn accrue_interest_works_after_repay() {
         assert_eq!(Loans::borrow_index(Token(DOT)), Rate::one());
         TimestampPallet::set_timestamp(12000);
         assert_ok!(Loans::repay_borrow(RuntimeOrigin::signed(ALICE), Token(DOT), unit(10)));
-        assert_eq!(Loans::borrow_index(Token(DOT)), Rate::from_inner(1000000005707762557),);
+        assert_eq!(Loans::borrow_index(Token(DOT)), Rate::from_inner(1000000005707762564),);
     })
 }
 
@@ -246,7 +239,7 @@ fn accrue_interest_works_after_repay_all() {
         assert_eq!(Loans::borrow_index(Token(KSM)), Rate::one());
         TimestampPallet::set_timestamp(12000);
         assert_ok!(Loans::repay_borrow_all(RuntimeOrigin::signed(ALICE), Token(KSM)));
-        assert_eq!(Loans::borrow_index(Token(KSM)), Rate::from_inner(1000000008561643835),);
+        assert_eq!(Loans::borrow_index(Token(KSM)), Rate::from_inner(1000000008561643864),);
         assert_eq!(Tokens::balance(Token(KSM), &ALICE), 999999999571917);
         let borrow_snapshot = Loans::account_borrows(Token(KSM), ALICE);
         assert_eq!(borrow_snapshot.principal, 0);
@@ -278,8 +271,8 @@ fn accrue_interest_works_after_liquidate_borrow() {
             unit(50),
             Token(DOT)
         ));
-        assert_eq!(Loans::borrow_index(Token(KSM)), Rate::from_inner(1000000013318112633),);
-        assert_eq!(Loans::borrow_index(Token(DOT)), Rate::from_inner(1000000006976141552),);
+        assert_eq!(Loans::borrow_index(Token(KSM)), Rate::from_inner(1000000013318112698),);
+        assert_eq!(Loans::borrow_index(Token(DOT)), Rate::from_inner(1000000006976141566),);
     })
 }
 
@@ -296,7 +289,7 @@ fn accrue_interest_works_after_recompute_collateral_amount() {
             1234,
             Token(KSM)
         )));
-        assert_eq!(Loans::borrow_index(Token(KSM)), Rate::from_inner(1000000008561643835),);
+        assert_eq!(Loans::borrow_index(Token(KSM)), Rate::from_inner(1000000008561643864),);
     })
 }
 
@@ -312,7 +305,7 @@ fn accrue_interest_works_after_recompute_underlying_amount() {
         assert_ok!(Loans::recompute_underlying_amount(
             &Loans::free_lend_tokens(Token(KSM), &ALICE).unwrap()
         ));
-        assert_eq!(Loans::borrow_index(Token(KSM)), Rate::from_inner(1000000008561643835),);
+        assert_eq!(Loans::borrow_index(Token(KSM)), Rate::from_inner(1000000008561643864),);
     })
 }
 

@@ -34,31 +34,24 @@ fn repay_borrow_all_no_underflow() {
         assert_ok!(Loans::deposit_all_collateral(RuntimeOrigin::signed(ALICE), Token(KSM)));
 
         // Alice borrow only 1/1e5 KSM which is hard to accrue total borrows interest in 100 seconds
-        assert_ok!(Loans::borrow(RuntimeOrigin::signed(ALICE), Token(KSM), 10_u128.pow(7)));
+        assert_ok!(Loans::borrow(RuntimeOrigin::signed(ALICE), Token(KSM), 10_u128.pow(5)));
 
         accrue_interest_per_block(Token(KSM), 100, 1000);
 
         assert_eq!(
             Loans::current_borrow_balance(&ALICE, Token(KSM)).unwrap().amount(),
-            10000006
+            100007
         );
-        // TODO: total_borrows is greater than current_borrow_balance because the former is accrued
-        // every block, which leads to compounding, while the latter is only accrued now.
-        // This check fails because we are using the simple interest formula instead of the compound
-        // interest one. It should not matter how often interest is accrued in a market.
-        // You can confirm that this is the case by changing the `accrue_interest_per_block`
-        // call above to run for 1000 blocks. The difference becomes much more notable:
-        //   left: `10000634`,
-        //  right: `10000006`'
-        assert_eq!(
-            Loans::total_borrows(Token(KSM)).amount(),
-            Loans::current_borrow_balance(&ALICE, Token(KSM)).unwrap().amount()
-        );
+        // `total_borrows` had its interest rounded down to zero each block because the principal
+        // amount is too small
+        assert_eq!(Loans::total_borrows(Token(KSM)).amount(), 100000);
 
-        // Alice repay all borrow balance. total_borrows = total_borrows.saturating_sub(10000006) = 0.
+        // Alice repay all borrow balance. total_borrows = total_borrows.saturating_sub(100007) = 0.
+        // Repaying should not cause an underflow
         assert_ok!(Loans::repay_borrow_all(RuntimeOrigin::signed(ALICE), Token(KSM)));
+        assert_eq!(Loans::total_borrows(Token(KSM)).amount(), 0);
 
-        assert_eq!(Tokens::balance(Token(KSM), &ALICE), unit(800) - 6);
+        assert_eq!(Tokens::balance(Token(KSM), &ALICE), unit(800) - 7);
 
         assert_eq!(
             Loans::exchange_rate(Token(DOT)).saturating_mul_int(
@@ -92,7 +85,7 @@ fn redeem_all_should_be_accurate() {
 
         // let exchange_rate greater than 0.02
         accrue_interest_per_block(Token(KSM), 6, 2);
-        assert_eq!(Loans::exchange_rate(Token(KSM)), Rate::from_inner(20000000036387100));
+        assert_eq!(Loans::exchange_rate(Token(KSM)), Rate::from_inner(20000000036387000));
 
         assert_ok!(Loans::repay_borrow_all(RuntimeOrigin::signed(ALICE), Token(KSM)));
         // It failed with InsufficientLiquidity before #839
