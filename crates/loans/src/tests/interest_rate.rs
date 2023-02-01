@@ -75,6 +75,7 @@ fn interest_rate_model_works() {
         let mut total_reserves: u128 = 0;
 
         // Interest accrued from blocks 1 to 49
+        // TODO: Change to match the current implementation
         for i in 1..49 {
             let delta_time = 6u128;
             TimestampPallet::set_timestamp(6000 * (i + 1));

@@ -1530,7 +1530,7 @@ impl<T: Config> Pallet<T> {
         // As a result, when a user repays all borrows, `total_borrows` may be less than `account_borrows`
         // due to rounding, which would cause a `checked_sub` to fail with `ArithmeticError::Underflow`.
         // Use `saturating_sub` instead here:
-        let total_borrows_new = total_borrows.saturating_sub(&repay_amount)?;
+        let total_borrows_new = total_borrows.checked_sub(&repay_amount)?;
         AccountBorrows::<T>::insert(
             asset_id,
             borrower,
@@ -1551,16 +1551,24 @@ impl<T: Config> Pallet<T> {
         if snapshot.principal.is_zero() || snapshot.borrow_index.is_zero() {
             return Ok(Amount::zero(asset_id));
         }
+        let principal_amount = Amount::<T>::new(snapshot.principal, asset_id);
+        Self::borrow_balance_from_old_and_new_index(
+            &snapshot.borrow_index,
+            &Self::borrow_index(asset_id),
+            principal_amount,
+        )
+    }
+
+    pub fn borrow_balance_from_old_and_new_index(
+        old_index: &FixedU128,
+        new_index: &FixedU128,
+        amount: Amount<T>,
+    ) -> Result<Amount<T>, DispatchError> {
         // Calculate new borrow balance using the interest index:
         // recent_borrow_balance = snapshot.principal * borrow_index / snapshot.borrow_index
-        let principal_amount = Amount::<T>::new(snapshot.principal, asset_id);
-        let borrow_index_increase = Self::borrow_index(asset_id)
-            .checked_div(&snapshot.borrow_index)
-            .ok_or(ArithmeticError::Underflow)?;
-        // Round up the borrower's debt, to avoid giving out short-term interest-free loans.
-        let recent_borrow_balance = principal_amount.checked_fixed_point_mul_rounded_up(&borrow_index_increase)?;
-
-        Ok(recent_borrow_balance)
+        let borrow_index_increase = new_index.checked_div(&old_index).ok_or(ArithmeticError::Underflow)?;
+        let borrow_balance = amount.checked_fixed_point_mul_rounded_up(&borrow_index_increase)?;
+        Ok(borrow_balance)
     }
 
     /// Checks if the liquidation should be allowed to occur

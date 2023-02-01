@@ -72,7 +72,8 @@ impl<T: Config> Pallet<T> {
         let total_cash = Self::get_total_cash(asset_id);
         let mut total_borrows = Self::total_borrows(asset_id);
         let mut total_reserves = Self::total_reserves(asset_id);
-        let mut borrow_index = Self::borrow_index(asset_id);
+        let borrow_index = Self::borrow_index(asset_id);
+        let mut borrow_index_new = borrow_index;
 
         let util = Self::calc_utilization_ratio(&total_cash, &total_borrows, &total_reserves)?;
         let borrow_rate = market
@@ -87,15 +88,16 @@ impl<T: Config> Pallet<T> {
             let delta_time = now
                 .checked_sub(last_accrued_interest_time)
                 .ok_or(ArithmeticError::Underflow)?;
-            let interest_accumulated = Self::accrued_interest(borrow_rate, &total_borrows, delta_time)?;
-            total_borrows = interest_accumulated.checked_add(&total_borrows)?;
-            total_reserves = interest_accumulated
-                .map(|x| market.reserve_factor.mul_floor(x))
-                .checked_add(&total_reserves)?;
-
-            borrow_index = Self::increment_index(borrow_rate, borrow_index, delta_time)
+            borrow_index_new = Self::increment_index(borrow_rate, borrow_index, delta_time)
                 .and_then(|r| r.checked_add(&borrow_index))
                 .ok_or(ArithmeticError::Overflow)?;
+            let total_borrows_old = total_borrows.clone();
+            total_borrows =
+                Self::borrow_balance_from_old_and_new_index(&borrow_index, &borrow_index_new, total_borrows)?;
+            let interest_accummulated = total_borrows.checked_sub(&total_borrows_old)?;
+            total_reserves = interest_accummulated
+                .map(|x| market.reserve_factor.mul_floor(x))
+                .checked_add(&total_reserves)?;
         }
 
         let exchange_rate = Self::calculate_exchange_rate(&total_supply, &total_cash, &total_borrows, &total_reserves)?;
@@ -107,7 +109,7 @@ impl<T: Config> Pallet<T> {
             util,
             total_borrows.amount(),
             total_reserves.amount(),
-            borrow_index,
+            borrow_index_new,
         ))
     }
 
@@ -159,21 +161,6 @@ impl<T: Config> Pallet<T> {
             *last_time = time;
             Ok(())
         })
-    }
-
-    fn accrued_interest(
-        borrow_rate: Rate,
-        amount: &Amount<T>,
-        delta_time: Timestamp,
-    ) -> Result<Amount<T>, DispatchError> {
-        let balance = borrow_rate
-            .checked_mul_int(amount.amount())
-            .ok_or(ArithmeticError::Overflow)?
-            .checked_mul(delta_time.into())
-            .ok_or(ArithmeticError::Overflow)?
-            .checked_div(SECONDS_PER_YEAR.into())
-            .ok_or(ArithmeticError::Underflow)?;
-        Ok(Amount::new(balance, amount.currency()))
     }
 
     fn increment_index(borrow_rate: Rate, index: Rate, delta_time: Timestamp) -> Option<Rate> {
