@@ -166,9 +166,9 @@ impl<T: Config> Pallet<T> {
         amount: &Amount<T>,
         delta_time: Timestamp,
     ) -> Result<Amount<T>, DispatchError> {
-        let balance = borrow_rate
-            .checked_mul_int(amount.amount())
-            .ok_or(ArithmeticError::Overflow)?
+        let balance = amount
+            .checked_mul(&borrow_rate)?
+            .amount()
             .checked_mul(delta_time.into())
             .ok_or(ArithmeticError::Overflow)?
             .checked_div(SECONDS_PER_YEAR.into())

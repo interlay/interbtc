@@ -33,7 +33,7 @@ pub use pallet::*;
 
 mod types;
 use types::*;
-pub use types::{CurrencyConversion, CurrencyId};
+pub use types::{CurrencyConversion, CurrencyId, Rounding};
 
 pub struct CurrencyConvert<T, Oracle, Loans>(PhantomData<(T, Oracle, Loans)>);
 impl<T, Oracle, Loans> CurrencyConversion<Amount<T>, CurrencyId<T>> for CurrencyConvert<T, Oracle, Loans>

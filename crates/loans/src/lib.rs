@@ -29,7 +29,7 @@
 pub use crate::rate_model::*;
 use crate::types::AccountLiquidity;
 
-use currency::Amount;
+use currency::{Amount, Rounding};
 use frame_support::{
     log,
     pallet_prelude::*,
@@ -1558,7 +1558,7 @@ impl<T: Config> Pallet<T> {
             .checked_div(&snapshot.borrow_index)
             .ok_or(ArithmeticError::Underflow)?;
         // Round up the borrower's debt, to avoid giving out short-term interest-free loans.
-        let recent_borrow_balance = principal_amount.checked_fixed_point_mul_rounded_up(&borrow_index_increase)?;
+        let recent_borrow_balance = principal_amount.checked_rounded_mul(&borrow_index_increase, Rounding::Up)?;
 
         Ok(recent_borrow_balance)
     }
@@ -1634,8 +1634,7 @@ impl<T: Config> Pallet<T> {
 
         let collateral_value = Self::get_asset_value(&borrower_deposits)?;
         // liquidate_value includes the premium of the liquidator
-        let liquidate_value =
-            Self::get_asset_value(repayment_underlying)?.checked_fixed_point_mul(&market.liquidate_incentive)?;
+        let liquidate_value = Self::get_asset_value(repayment_underlying)?.checked_mul(&market.liquidate_incentive)?;
         if collateral_value.lt(&liquidate_value)? {
             return Err(Error::<T>::InsufficientCollateral.into());
         }
@@ -2108,11 +2107,7 @@ impl<T: Config> LoansTrait<CurrencyId<T>, AccountIdOf<T>, Amount<T>> for Pallet<
         Self::ensure_active_market(underlying_id)?;
         Self::accrue_interest(underlying_id)?;
         let exchange_rate = Self::exchange_rate_stored(underlying_id)?;
-        let underlying_amount = exchange_rate
-            .checked_mul_int(lend_tokens.amount())
-            .ok_or(ArithmeticError::Overflow)?;
-
-        Ok(Amount::new(underlying_amount, underlying_id))
+        Ok(lend_tokens.checked_mul(&exchange_rate)?.set_currency(underlying_id))
     }
 
     // Returns a stored asset_id
@@ -2130,13 +2125,10 @@ impl<T: Config> LoansTrait<CurrencyId<T>, AccountIdOf<T>, Amount<T>> for Pallet<
         Self::ensure_active_market(underlying.currency())?;
         Self::accrue_interest(underlying.currency())?;
         let exchange_rate = Self::exchange_rate_stored(underlying.currency())?;
-        let lend_amount = FixedU128::from_inner(underlying.amount())
-            .checked_div(&exchange_rate)
-            .map(|r| r.into_inner())
-            .ok_or(ArithmeticError::Underflow)?;
 
         let lend_token_id = Self::lend_token_id(underlying.currency())?;
-        Ok(Amount::new(lend_amount, lend_token_id))
+
+        Ok(underlying.checked_div(&exchange_rate)?.set_currency(lend_token_id))
     }
 }
 

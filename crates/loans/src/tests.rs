@@ -154,7 +154,7 @@ fn mint_must_return_err_when_overflows_occur() {
         // Verify token balance first
         assert_noop!(
             Loans::mint(RuntimeOrigin::signed(CHARLIE), DOT, OVERFLOW_DEPOSIT),
-            ArithmeticError::Underflow
+            ArithmeticError::Overflow
         );
 
         // Deposit OVERFLOW_DEPOSIT DOT for CHARLIE
@@ -170,7 +170,7 @@ fn mint_must_return_err_when_overflows_occur() {
         // Underflow is used here redeem could also be 0
         assert_noop!(
             Loans::mint(RuntimeOrigin::signed(CHARLIE), DOT, OVERFLOW_DEPOSIT),
-            ArithmeticError::Underflow
+            ArithmeticError::Overflow
         );
 
         // Assume a misconfiguration occurs
@@ -180,7 +180,7 @@ fn mint_must_return_err_when_overflows_occur() {
         // set to zero (default value for the type). The extrinsic should fail.
         assert_noop!(
             Loans::mint(RuntimeOrigin::signed(CHARLIE), DOT, 100),
-            ArithmeticError::Underflow
+            ArithmeticError::Overflow
         );
     })
 }
@@ -402,14 +402,14 @@ fn redeem_must_return_err_when_overflows_occur() {
         // Underflow is used here redeem could also be 0
         assert_noop!(
             Loans::redeem(RuntimeOrigin::signed(ALICE), DOT, u128::MAX),
-            ArithmeticError::Underflow,
+            ArithmeticError::Overflow,
         );
 
         // Assume a misconfiguration occurs
         MinExchangeRate::<Test>::put(Rate::zero());
         assert_noop!(
             Loans::redeem(RuntimeOrigin::signed(ALICE), DOT, 100),
-            ArithmeticError::Underflow
+            ArithmeticError::Overflow
         );
     })
 }

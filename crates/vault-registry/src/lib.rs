@@ -46,6 +46,7 @@ pub use crate::types::{
 use bitcoin::types::Value;
 use codec::FullCodec;
 pub use currency::Amount;
+use currency::Rounding;
 use frame_support::{
     dispatch::{DispatchError, DispatchResult},
     ensure,
@@ -63,7 +64,7 @@ use sp_runtime::traits::AtLeast32BitUnsigned;
 use sp_runtime::{
     traits::*,
     transaction_validity::{InvalidTransaction, TransactionSource, TransactionValidity, ValidTransaction},
-    ArithmeticError, FixedPointNumber, FixedPointOperand,
+    ArithmeticError, FixedPointOperand,
 };
 use sp_std::{
     convert::{TryFrom, TryInto},
@@ -1878,7 +1879,7 @@ impl<T: Config> Pallet<T> {
         currency_id: CurrencyId<T>,
     ) -> Result<Amount<T>, DispatchError> {
         wrapped
-            .checked_fixed_point_mul_rounded_up(&threshold)?
+            .checked_rounded_mul(&threshold, Rounding::Up)?
             .convert_to(currency_id)
     }
 
@@ -1966,33 +1967,5 @@ impl<T: Config> Pallet<T> {
                     .amount();
             assert_eq!(total, amount);
         }
-    }
-}
-
-trait CheckedMulIntRoundedUp {
-    /// Like checked_mul_int, but this version rounds the result up instead of down.
-    fn checked_mul_int_rounded_up<N: TryFrom<u128> + TryInto<u128>>(self, n: N) -> Option<N>;
-}
-
-impl<T: FixedPointNumber> CheckedMulIntRoundedUp for T {
-    fn checked_mul_int_rounded_up<N: TryFrom<u128> + TryInto<u128>>(self, n: N) -> Option<N> {
-        // convert n into fixed_point
-        let n_inner = TryInto::<T::Inner>::try_into(n.try_into().ok()?).ok()?;
-        let n_fixed_point = T::checked_from_integer(n_inner)?;
-
-        // do the multiplication
-        let product = self.checked_mul(&n_fixed_point)?;
-
-        // convert to inner
-        let product_inner = UniqueSaturatedInto::<u128>::unique_saturated_into(product.into_inner());
-
-        // convert to u128 by dividing by a rounded up division by accuracy
-        let accuracy = UniqueSaturatedInto::<u128>::unique_saturated_into(T::accuracy());
-        product_inner
-            .checked_add(accuracy)?
-            .checked_sub(1)?
-            .checked_div(accuracy)?
-            .try_into()
-            .ok()
     }
 }
