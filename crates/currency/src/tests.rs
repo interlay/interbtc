@@ -31,10 +31,54 @@ fn test_checked_fixed_point_mul() {
                 UnsignedFixedPoint::checked_from_rational(1, 10).unwrap(), // 10%
                 Amount::new(1000000000, currency),
             ),
+            (
+                Amount::new(10, currency),
+                UnsignedFixedPoint::checked_from_rational(1, 3).unwrap(),
+                Amount::new(3, currency), // 3.33 -> floors to 3
+            ),
+            (
+                Amount::new(11, currency),
+                UnsignedFixedPoint::checked_from_rational(1, 3).unwrap(),
+                Amount::new(3, currency), // 3.66 -> floors to 3
+            ),
+            (
+                Amount::new(3, currency),
+                UnsignedFixedPoint::checked_from_rational(1, 2).unwrap(),
+                Amount::new(1, currency), // 1.5 -> floors to 1
+            ),
         ];
 
         for (amount, percent, expected) in tests {
             let actual = amount.checked_fixed_point_mul(&percent).unwrap();
+            assert_eq!(actual, expected);
+        }
+    })
+}
+
+#[test]
+fn test_checked_fixed_point_rounded_mul() {
+    run_test(|| {
+        let currency = Token(DOT);
+        let tests: Vec<(Amount<Test>, UnsignedFixedPoint, Amount<Test>)> = vec![
+            (
+                Amount::new(10, currency),
+                UnsignedFixedPoint::checked_from_rational(1, 3).unwrap(),
+                Amount::new(3, currency), // 3.33 -> rounds to 3
+            ),
+            (
+                Amount::new(11, currency),
+                UnsignedFixedPoint::checked_from_rational(1, 3).unwrap(),
+                Amount::new(4, currency), // 3.66 -> rounds to 4
+            ),
+            (
+                Amount::new(3, currency),
+                UnsignedFixedPoint::checked_from_rational(1, 2).unwrap(),
+                Amount::new(2, currency), // 1.5 -> rounds to 2
+            ),
+        ];
+
+        for (amount, percent, expected) in tests {
+            let actual = amount.rounded_mul(percent.clone()).unwrap();
             assert_eq!(actual, expected);
         }
     })
@@ -79,6 +123,40 @@ fn test_checked_fixed_point_mul_rounded_up() {
 
         for (amount, percent, expected) in tests {
             let actual = amount.checked_fixed_point_mul_rounded_up(&percent).unwrap();
+            assert_eq!(actual, expected);
+        }
+    })
+}
+
+#[test]
+fn test_checked_div() {
+    run_test(|| {
+        let currency = Token(DOT);
+        let tests: Vec<(Amount<Test>, UnsignedFixedPoint, Amount<Test>)> = vec![
+            (
+                Amount::new(10, currency),
+                UnsignedFixedPoint::from(3),
+                Amount::new(3, currency), // 3.33 -> floors to 3
+            ),
+            (
+                Amount::new(11, currency),
+                UnsignedFixedPoint::from(3),
+                Amount::new(3, currency), // 3.66 -> floors to 3
+            ),
+            (
+                Amount::new(3, currency),
+                UnsignedFixedPoint::from(2),
+                Amount::new(1, currency), // 1.5 -> floors to 1
+            ),
+            (
+                Amount::new(10, currency),
+                UnsignedFixedPoint::checked_from_rational(1, 2).unwrap(),
+                Amount::new(20, currency),
+            ),
+        ];
+
+        for (amount, percent, expected) in tests {
+            let actual = amount.checked_div(&percent).unwrap();
             assert_eq!(actual, expected);
         }
     })

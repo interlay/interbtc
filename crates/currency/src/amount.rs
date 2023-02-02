@@ -10,7 +10,7 @@ use frame_support::{
 use orml_traits::{MultiCurrency, MultiReservableCurrency};
 use primitives::TruncateFixedPointToInt;
 use sp_runtime::{
-    traits::{CheckedAdd, CheckedDiv, CheckedMul, CheckedSub, UniqueSaturatedInto, Zero},
+    traits::{CheckedAdd, CheckedSub, Zero},
     ArithmeticError, FixedPointNumber,
 };
 use sp_std::{convert::TryInto, fmt::Debug};
@@ -90,6 +90,8 @@ mod conversions {
 
 #[cfg_attr(feature = "testing-utils", mocktopus::macros::mockable)]
 mod math {
+    use sp_runtime::{helpers_128bit::multiply_by_rational_with_rounding, Rounding};
+
     use super::*;
 
     impl<T: Config> Amount<T> {
@@ -155,30 +157,22 @@ mod math {
             })
         }
 
-        pub fn checked_fixed_point_mul_rounded_up(
-            &self,
-            scalar: &UnsignedFixedPoint<T>,
-        ) -> Result<Self, DispatchError> {
-            let self_fixed_point =
-                UnsignedFixedPoint::<T>::checked_from_integer(self.amount).ok_or(Error::<T>::TryIntoIntError)?;
+        fn mul(&self, scalar: &UnsignedFixedPoint<T>, rounding: Rounding) -> Result<Self, DispatchError> {
+            let to_u128 =
+                |x: BalanceOf<T>| -> Result<u128, Error<T>> { x.try_into().map_err(|_| Error::<T>::TryIntoIntError) };
 
-            // do the multiplication
-            let product = self_fixed_point.checked_mul(&scalar).ok_or(ArithmeticError::Overflow)?;
-
-            // convert to inner
-            let product_inner = UniqueSaturatedInto::<u128>::unique_saturated_into(product.into_inner());
-
-            // convert to u128 by dividing by a rounded up division by accuracy
-            let accuracy = UniqueSaturatedInto::<u128>::unique_saturated_into(UnsignedFixedPoint::<T>::accuracy());
-            let amount = product_inner
-                .checked_add(accuracy)
-                .ok_or(ArithmeticError::Overflow)?
-                .checked_sub(1)
-                .ok_or(ArithmeticError::Underflow)?
-                .checked_div(accuracy)
-                .ok_or(ArithmeticError::Underflow)?
-                .try_into()
-                .map_err(|_| Error::<T>::TryIntoIntError)?;
+            // Use low-level multiply_by_rational_with_rounding to avoid having to convert self.amount
+            // to fixedpoint, which could overflow. multiply_by_rational_with_rounding(a,b,c) returns
+            // (a * b) / c, using 256 bit for the intermediate multiplication.
+            let amount = multiply_by_rational_with_rounding(
+                to_u128(self.amount)?,
+                to_u128(scalar.into_inner())?,
+                to_u128(UnsignedFixedPoint::<T>::DIV)?,
+                rounding,
+            )
+            .ok_or(ArithmeticError::Overflow)?
+            .try_into()
+            .map_err(|_| Error::<T>::TryIntoIntError)?;
 
             Ok(Self {
                 amount,
@@ -186,13 +180,34 @@ mod math {
             })
         }
 
+        pub fn checked_fixed_point_mul_rounded_up(
+            &self,
+            scalar: &UnsignedFixedPoint<T>,
+        ) -> Result<Self, DispatchError> {
+            self.mul(scalar, Rounding::Up)
+        }
+
+        pub fn rounded_mul(&self, fraction: UnsignedFixedPoint<T>) -> Result<Self, DispatchError> {
+            self.mul(&fraction, Rounding::NearestPrefUp)
+        }
+
         pub fn checked_div(&self, scalar: &UnsignedFixedPoint<T>) -> Result<Self, DispatchError> {
-            let amount = UnsignedFixedPoint::<T>::checked_from_integer(self.amount)
-                .ok_or(Error::<T>::TryIntoIntError)?
-                .checked_div(&scalar)
-                .ok_or(ArithmeticError::Overflow)?
-                .truncate_to_inner()
-                .ok_or(Error::<T>::TryIntoIntError)?;
+            let to_u128 =
+                |x: BalanceOf<T>| -> Result<u128, Error<T>> { x.try_into().map_err(|_| Error::<T>::TryIntoIntError) };
+
+            // Use low-level multiply_by_rational_with_rounding to avoid having to convert self.amount
+            // to fixedpoint, which could overflow. multiply_by_rational_with_rounding(a,b,c) returns
+            // (a * b) / c, using 256 bit for the intermediate multiplication.
+            let amount = multiply_by_rational_with_rounding(
+                to_u128(self.amount)?,
+                to_u128(UnsignedFixedPoint::<T>::DIV)?,
+                to_u128(scalar.into_inner())?,
+                Rounding::Down,
+            )
+            .ok_or(ArithmeticError::Overflow)?
+            .try_into()
+            .map_err(|_| Error::<T>::TryIntoIntError)?;
+
             Ok(Self {
                 amount,
                 currency_id: self.currency_id,
@@ -238,26 +253,6 @@ mod math {
         pub fn gt(&self, other: &Self) -> Result<bool, DispatchError> {
             ensure!(self.currency_id == other.currency_id, Error::<T>::InvalidCurrency);
             Ok(self.amount > other.amount)
-        }
-
-        pub fn rounded_mul(&self, fraction: UnsignedFixedPoint<T>) -> Result<Self, DispatchError> {
-            // we add 0.5 before we do the final integer division to round the result we return.
-            // note that unwrapping is safe because we use a constant
-            let rounding_addition = UnsignedFixedPoint::<T>::checked_from_rational(1, 2).unwrap();
-
-            let amount = UnsignedFixedPoint::<T>::checked_from_integer(self.amount)
-                .ok_or(ArithmeticError::Overflow)?
-                .checked_mul(&fraction)
-                .ok_or(ArithmeticError::Overflow)?
-                .checked_add(&rounding_addition)
-                .ok_or(ArithmeticError::Overflow)?
-                .truncate_to_inner()
-                .ok_or(Error::<T>::TryIntoIntError)?;
-
-            Ok(Self {
-                amount,
-                currency_id: self.currency_id,
-            })
         }
 
         pub fn mul_ratio_floor(&self, ratio: primitives::Ratio) -> Self {
