@@ -40,10 +40,7 @@ use frame_support::{
 use frame_system::{ensure_root, ensure_signed};
 use scale_info::TypeInfo;
 use security::{ErrorCode, StatusCode};
-use sp_runtime::{
-    traits::{UniqueSaturatedInto, *},
-    ArithmeticError, FixedPointNumber,
-};
+use sp_runtime::{traits::*, ArithmeticError, FixedPointNumber};
 use sp_std::{convert::TryInto, vec::Vec};
 use traits::OracleApi;
 
@@ -328,15 +325,9 @@ impl<T: Config> Pallet<T> {
         if amount.is_zero() {
             return Ok(Zero::zero());
         }
+        let amount = Amount::<T>::new(amount, currency_id);
 
-        // The code below performs `amount/rate`, plus necessary type conversions
-        Ok(T::UnsignedFixedPoint::checked_from_integer(amount)
-            .ok_or(Error::<T>::TryIntoIntError)?
-            .checked_div(&rate)
-            .ok_or(ArithmeticError::Underflow)?
-            .truncate_to_inner()
-            .ok_or(Error::<T>::TryIntoIntError)?
-            .unique_saturated_into())
+        amount.checked_div(&rate).map(|x| x.amount())
     }
 
     fn update_aggregate(key: &OracleKey) -> Option<T::UnsignedFixedPoint> {
