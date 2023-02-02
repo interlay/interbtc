@@ -410,6 +410,9 @@ pub fn iter_all_currencies() -> impl Iterator<Item = CurrencyId> {
 impl UserData {
     pub fn get(id: [u8; 32]) -> Self {
         let account_id = account_of(id);
+        Self::from_account(account_id)
+    }
+    pub fn from_account(account_id: AccountId) -> Self {
         let mut hash_map = BTreeMap::new();
 
         for currency_id in iter_all_currencies() {

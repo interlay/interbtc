@@ -8,6 +8,16 @@ pub const VAULT: [u8; 32] = BOB;
 pub const VAULT2: [u8; 32] = CAROL;
 pub const USER_BTC_ADDRESS: BtcAddress = BtcAddress::P2PKH(H160([2u8; 20]));
 
+pub trait RedeemRequestTestExt {
+    fn amount_without_fee_as_collateral(&self, currency_id: CurrencyId) -> Amount<Runtime>;
+}
+impl RedeemRequestTestExt for RedeemRequest<AccountId, BlockNumber, Balance, CurrencyId> {
+    fn amount_without_fee_as_collateral(&self, currency_id: CurrencyId) -> Amount<Runtime> {
+        let amount_without_fee = self.amount_btc() + self.transfer_fee_btc();
+        amount_without_fee.convert_to(currency_id).unwrap()
+    }
+}
+
 pub struct ExecuteRedeemBuilder {
     redeem_id: H256,
     redeem: RedeemRequest<AccountId32, BlockNumber, Balance, CurrencyId>,
@@ -80,9 +90,18 @@ pub fn setup_cancelable_redeem(user: [u8; 32], vault: &VaultId, issued_tokens: A
 
     // expire request without transferring btc
     mine_blocks((RedeemPallet::redeem_period() + 99) / 100 + 1);
-    SecurityPallet::set_active_block_number(RedeemPallet::redeem_period() + 1 + 1);
+    SecurityPallet::set_active_block_number(
+        SecurityPallet::active_block_number() + RedeemPallet::redeem_period() + 1 + 1,
+    );
 
     redeem_id
+}
+
+pub fn expire_bans() {
+    mine_blocks((RedeemPallet::redeem_period() + 99) / 100 + 1);
+    SecurityPallet::set_active_block_number(
+        SecurityPallet::active_block_number() + VaultRegistryPallet::punishment_delay() + 1 + 1,
+    );
 }
 
 pub fn set_redeem_state(
