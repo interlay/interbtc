@@ -9,26 +9,13 @@ use crate::Pallet as DexGeneral;
 use frame_benchmarking::{benchmarks, whitelisted_caller};
 use frame_support::assert_ok;
 use frame_system::RawOrigin;
+use sp_runtime::SaturatedConversion;
 
 const UNIT: u128 = 1_000_000_000_000;
 
-const ASSET_0: AssetId = AssetId {
-    chain_id: 2001,
-    asset_type: 2,
-    asset_index: 515,
-};
-
-const ASSET_1: AssetId = AssetId {
-    chain_id: 2001,
-    asset_type: 2,
-    asset_index: 516,
-};
-
-const ASSET_2: AssetId = AssetId {
-    chain_id: 2001,
-    asset_type: 2,
-    asset_index: 518,
-};
+const ASSET_0: u32 = 0;
+const ASSET_1: u32 = 1;
+const ASSET_2: u32 = 2;
 
 pub fn lookup_of_account<T: Config>(
     who: T::AccountId,
@@ -48,7 +35,7 @@ fn run_to_block<T: Config>(n: u32) {
 
 benchmarks! {
 
-    where_clause { where T::AssetId: From<AssetId>}
+    where_clause { where T::AssetId: From<u32> }
 
     set_fee_receiver{
         let caller: T::AccountId = whitelisted_caller();
@@ -61,21 +48,21 @@ benchmarks! {
     create_pair {
         let caller: T::AccountId = whitelisted_caller();
 
-        assert_ok!(<T as Config>::MultiAssetsHandler::deposit(ASSET_0.into(), &caller, 1000 * UNIT));
-        assert_ok!(<T as Config>::MultiAssetsHandler::deposit(ASSET_1.into(), &caller, 1000 * UNIT));
+        assert_ok!(<T as Config>::MultiCurrency::deposit(ASSET_0.into(), &caller, 1000 * UNIT));
+        assert_ok!(<T as Config>::MultiCurrency::deposit(ASSET_1.into(), &caller, 1000 * UNIT));
 
     } : _(RawOrigin::Root, ASSET_0.into(), ASSET_1.into())
 
     bootstrap_create {
-        let reward:Vec<T::AssetId> =  vec![ASSET_0.into()];
+        let reward: Vec<T::AssetId> =  vec![ASSET_0.into()];
         let reward_amounts: Vec<(T::AssetId, u128)> = vec![(ASSET_1.into(), 0)];
     }: _(RawOrigin::Root, ASSET_0.into(), ASSET_1.into(), 1000, 1000, 1000_000_000, 1000_000_000, 100u128.saturated_into(), reward, reward_amounts)
 
     bootstrap_contribute{
         let caller: T::AccountId = whitelisted_caller();
 
-        assert_ok!(<T as Config>::MultiAssetsHandler::deposit(ASSET_0.into(), &caller, 1000 * UNIT));
-        assert_ok!(<T as Config>::MultiAssetsHandler::deposit(ASSET_1.into(), &caller, 1000 * UNIT));
+        assert_ok!(<T as Config>::MultiCurrency::deposit(ASSET_0.into(), &caller, 1000 * UNIT));
+        assert_ok!(<T as Config>::MultiCurrency::deposit(ASSET_1.into(), &caller, 1000 * UNIT));
 
         let reward:Vec<T::AssetId> =  vec![ASSET_0.into()];
         let reward_amounts: Vec<(T::AssetId, u128)> = vec![(ASSET_1.into(), 0)];
@@ -97,8 +84,8 @@ benchmarks! {
     bootstrap_claim{
         let caller: T::AccountId = whitelisted_caller();
 
-        assert_ok!(<T as Config>::MultiAssetsHandler::deposit(ASSET_0.into(), &caller, 1000 * UNIT));
-        assert_ok!(<T as Config>::MultiAssetsHandler::deposit(ASSET_1.into(), &caller, 1000 * UNIT));
+        assert_ok!(<T as Config>::MultiCurrency::deposit(ASSET_0.into(), &caller, 1000 * UNIT));
+        assert_ok!(<T as Config>::MultiCurrency::deposit(ASSET_1.into(), &caller, 1000 * UNIT));
 
         let reward:Vec<T::AssetId> =  vec![ASSET_0.into()];
         let reward_amounts: Vec<(T::AssetId, u128)> = vec![(ASSET_1.into(), 0)];
@@ -138,8 +125,8 @@ benchmarks! {
     bootstrap_end{
         let caller: T::AccountId = whitelisted_caller();
 
-        assert_ok!(<T as Config>::MultiAssetsHandler::deposit(ASSET_0.into(), &caller, 1000 * UNIT));
-        assert_ok!(<T as Config>::MultiAssetsHandler::deposit(ASSET_1.into(), &caller, 1000 * UNIT));
+        assert_ok!(<T as Config>::MultiCurrency::deposit(ASSET_0.into(), &caller, 1000 * UNIT));
+        assert_ok!(<T as Config>::MultiCurrency::deposit(ASSET_1.into(), &caller, 1000 * UNIT));
 
         let reward:Vec<T::AssetId> =  vec![ASSET_0.into()];
         let reward_amounts: Vec<(T::AssetId, u128)> = vec![(ASSET_1.into(), 0)];
@@ -193,8 +180,8 @@ benchmarks! {
     bootstrap_refund{
         let caller: T::AccountId = whitelisted_caller();
 
-        assert_ok!(<T as Config>::MultiAssetsHandler::deposit(ASSET_0.into(), &caller, 1000 * UNIT));
-        assert_ok!(<T as Config>::MultiAssetsHandler::deposit(ASSET_1.into(), &caller, 1000 * UNIT));
+        assert_ok!(<T as Config>::MultiCurrency::deposit(ASSET_0.into(), &caller, 1000 * UNIT));
+        assert_ok!(<T as Config>::MultiCurrency::deposit(ASSET_1.into(), &caller, 1000 * UNIT));
 
         let reward:Vec<T::AssetId> =  vec![ASSET_0.into()];
         let reward_amounts: Vec<(T::AssetId, u128)> = vec![(ASSET_1.into(), 0)];
@@ -225,8 +212,8 @@ benchmarks! {
 
     add_liquidity{
         let caller: T::AccountId = whitelisted_caller();
-        assert_ok!(<T as Config>::MultiAssetsHandler::deposit(ASSET_0.into(), &caller, 1000 * UNIT));
-        assert_ok!(<T as Config>::MultiAssetsHandler::deposit(ASSET_1.into(), &caller, 1000 * UNIT));
+        assert_ok!(<T as Config>::MultiCurrency::deposit(ASSET_0.into(), &caller, 1000 * UNIT));
+        assert_ok!(<T as Config>::MultiCurrency::deposit(ASSET_1.into(), &caller, 1000 * UNIT));
 
         assert_ok!(DexGeneral::<T>::create_pair((RawOrigin::Root).into(), ASSET_0.into(), ASSET_1.into()));
 
@@ -236,8 +223,8 @@ benchmarks! {
 
     remove_liquidity{
         let caller: T::AccountId = whitelisted_caller();
-        assert_ok!(<T as Config>::MultiAssetsHandler::deposit(ASSET_0.into(), &caller, 1000 * UNIT));
-        assert_ok!(<T as Config>::MultiAssetsHandler::deposit(ASSET_1.into(), &caller, 1000 * UNIT));
+        assert_ok!(<T as Config>::MultiCurrency::deposit(ASSET_0.into(), &caller, 1000 * UNIT));
+        assert_ok!(<T as Config>::MultiCurrency::deposit(ASSET_1.into(), &caller, 1000 * UNIT));
 
         assert_ok!(DexGeneral::<T>::create_pair((RawOrigin::Root).into(), ASSET_0.into(), ASSET_1.into()));
 
@@ -257,9 +244,9 @@ benchmarks! {
 
     swap_exact_assets_for_assets{
         let caller: T::AccountId = whitelisted_caller();
-        assert_ok!(<T as Config>::MultiAssetsHandler::deposit(ASSET_0.into(), &caller, 1000 * UNIT));
-        assert_ok!(<T as Config>::MultiAssetsHandler::deposit(ASSET_1.into(), &caller, 1000 * UNIT));
-        assert_ok!(<T as Config>::MultiAssetsHandler::deposit(ASSET_2.into(), &caller, 1000 * UNIT));
+        assert_ok!(<T as Config>::MultiCurrency::deposit(ASSET_0.into(), &caller, 1000 * UNIT));
+        assert_ok!(<T as Config>::MultiCurrency::deposit(ASSET_1.into(), &caller, 1000 * UNIT));
+        assert_ok!(<T as Config>::MultiCurrency::deposit(ASSET_2.into(), &caller, 1000 * UNIT));
 
         assert_ok!(DexGeneral::<T>::create_pair((RawOrigin::Root).into(), ASSET_0.into(), ASSET_1.into()));
         assert_ok!(DexGeneral::<T>::create_pair((RawOrigin::Root).into(), ASSET_1.into(), ASSET_2.into()));
@@ -290,9 +277,9 @@ benchmarks! {
 
     swap_assets_for_exact_assets{
         let caller: T::AccountId = whitelisted_caller();
-        assert_ok!(<T as Config>::MultiAssetsHandler::deposit(ASSET_0.into(), &caller, 1000 * UNIT));
-        assert_ok!(<T as Config>::MultiAssetsHandler::deposit(ASSET_1.into(), &caller, 1000 * UNIT));
-        assert_ok!(<T as Config>::MultiAssetsHandler::deposit(ASSET_2.into(), &caller, 1000 * UNIT));
+        assert_ok!(<T as Config>::MultiCurrency::deposit(ASSET_0.into(), &caller, 1000 * UNIT));
+        assert_ok!(<T as Config>::MultiCurrency::deposit(ASSET_1.into(), &caller, 1000 * UNIT));
+        assert_ok!(<T as Config>::MultiCurrency::deposit(ASSET_2.into(), &caller, 1000 * UNIT));
 
         assert_ok!(DexGeneral::<T>::create_pair((RawOrigin::Root).into(), ASSET_1.into(), ASSET_2.into()));
         assert_ok!(DexGeneral::<T>::create_pair((RawOrigin::Root).into(), ASSET_0.into(), ASSET_1.into()));

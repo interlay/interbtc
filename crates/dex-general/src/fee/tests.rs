@@ -2,33 +2,24 @@
 // Licensed under Apache 2.0.
 
 use super::mock::*;
-use crate::{AssetId, Error, MultiAssetsHandler};
+use crate::Error;
 use frame_support::{assert_noop, assert_ok, error::BadOrigin};
 use frame_system::RawOrigin;
+use orml_traits::MultiCurrency;
 use sp_core::U256;
 
-const DOT_ASSET_ID: AssetId = AssetId {
-    chain_id: 200,
-    asset_type: LOCAL,
-    asset_index: 2,
-};
+const DOT_ASSET_ID: CurrencyId = CurrencyId::Token(2);
+const BTC_ASSET_ID: CurrencyId = CurrencyId::Token(3);
 
-const BTC_ASSET_ID: AssetId = AssetId {
-    chain_id: 300,
-    asset_type: RESERVED,
-    asset_index: 3,
-};
+const LP_DOT_BTC: CurrencyId = CurrencyId::LpToken(2, 3);
 
 const ALICE: u128 = 1;
 const BOB: u128 = 2;
 const CHARLIE: u128 = 3;
 const DOT_UNIT: u128 = 1000_000_000_000_000;
 const BTC_UNIT: u128 = 1000_000_00;
-const LP_DOT_BTC: AssetId = AssetId {
-    chain_id: 0,
-    asset_type: 2,
-    asset_index: 12885034496,
-};
+
+const MAX_BALANCE: u128 = u128::MAX - 1;
 
 #[test]
 fn fee_meta_getter_should_work() {
@@ -75,8 +66,16 @@ fn turn_on_protocol_fee_only_add_liquidity_no_fee_should_work() {
 
         // 2. first add_liquidity
 
-        assert_ok!(DexPallet::foreign_mint(DOT_ASSET_ID, &ALICE, u128::MAX));
-        assert_ok!(DexPallet::foreign_mint(BTC_ASSET_ID, &ALICE, u128::MAX));
+        assert_ok!(<Test as Config>::MultiCurrency::deposit(
+            DOT_ASSET_ID,
+            &ALICE,
+            MAX_BALANCE
+        ));
+        assert_ok!(<Test as Config>::MultiCurrency::deposit(
+            BTC_ASSET_ID,
+            &ALICE,
+            MAX_BALANCE
+        ));
 
         let total_supply_dot: u128 = 1 * DOT_UNIT;
         let total_supply_btc: u128 = 1 * BTC_UNIT;
@@ -100,10 +99,10 @@ fn turn_on_protocol_fee_only_add_liquidity_no_fee_should_work() {
 
         let lp_of_alice_0 = 316227766016;
         assert_eq!(
-            <Test as Config>::MultiAssetsHandler::balance_of(LP_DOT_BTC, &ALICE),
+            <Test as Config>::MultiCurrency::free_balance(LP_DOT_BTC, &ALICE),
             lp_of_alice_0
         );
-        assert_eq!(<Test as Config>::MultiAssetsHandler::balance_of(LP_DOT_BTC, &BOB), 0);
+        assert_eq!(<Test as Config>::MultiCurrency::free_balance(LP_DOT_BTC, &BOB), 0);
         assert_eq!(
             DexPallet::k_last(sorted_pair),
             U256::from(DOT_UNIT) * U256::from(BTC_UNIT)
@@ -127,18 +126,18 @@ fn turn_on_protocol_fee_only_add_liquidity_no_fee_should_work() {
 
         let lp_of_alice_1 = 16127616066816u128;
         assert_eq!(
-            <Test as Config>::MultiAssetsHandler::balance_of(LP_DOT_BTC, &ALICE),
+            <Test as Config>::MultiCurrency::free_balance(LP_DOT_BTC, &ALICE),
             lp_of_alice_1
         );
-        assert_eq!(<Test as Config>::MultiAssetsHandler::balance_of(LP_DOT_BTC, &BOB), 0);
+        assert_eq!(<Test as Config>::MultiCurrency::free_balance(LP_DOT_BTC, &BOB), 0);
         assert_eq!(
             DexPallet::k_last(sorted_pair),
             U256::from(51 * DOT_UNIT) * U256::from(51 * BTC_UNIT)
         );
 
         let pair_dot_btc = DexGeneral::pair_account_id(DOT_ASSET_ID, BTC_ASSET_ID);
-        let balance_dot = <Test as Config>::MultiAssetsHandler::balance_of(DOT_ASSET_ID, &pair_dot_btc);
-        let balance_btc = <Test as Config>::MultiAssetsHandler::balance_of(BTC_ASSET_ID, &pair_dot_btc);
+        let balance_dot = <Test as Config>::MultiCurrency::free_balance(DOT_ASSET_ID, &pair_dot_btc);
+        let balance_btc = <Test as Config>::MultiCurrency::free_balance(BTC_ASSET_ID, &pair_dot_btc);
 
         //println!("balance_DOT {}, balance_BTC {}", balance_dot, balance_btc);
         assert_eq!(balance_dot, 51000000000000000);
@@ -157,15 +156,15 @@ fn turn_on_protocol_fee_only_add_liquidity_no_fee_should_work() {
             100
         ));
 
-        let lp_total = <Test as Config>::MultiAssetsHandler::total_supply(LP_DOT_BTC);
+        let lp_total = <Test as Config>::MultiCurrency::total_issuance(LP_DOT_BTC);
         let lp_of_alice_2 = 31939004367616u128;
         assert_eq!(
-            <Test as Config>::MultiAssetsHandler::balance_of(LP_DOT_BTC, &ALICE),
+            <Test as Config>::MultiCurrency::free_balance(LP_DOT_BTC, &ALICE),
             lp_of_alice_2
         );
         let lp_of_bob = 0u128;
         assert_eq!(
-            <Test as Config>::MultiAssetsHandler::balance_of(LP_DOT_BTC, &BOB),
+            <Test as Config>::MultiCurrency::free_balance(LP_DOT_BTC, &BOB),
             lp_of_bob
         );
         assert_eq!(lp_total, lp_of_alice_2 + lp_of_bob);
@@ -190,8 +189,16 @@ fn turn_on_protocol_fee_remove_liquidity_should_work() {
 
         // 2. first add_liquidity
 
-        assert_ok!(DexPallet::foreign_mint(DOT_ASSET_ID, &ALICE, 10000 * DOT_UNIT));
-        assert_ok!(DexPallet::foreign_mint(BTC_ASSET_ID, &ALICE, 10000 * BTC_UNIT));
+        assert_ok!(<Test as Config>::MultiCurrency::deposit(
+            DOT_ASSET_ID,
+            &ALICE,
+            10000 * DOT_UNIT
+        ));
+        assert_ok!(<Test as Config>::MultiCurrency::deposit(
+            BTC_ASSET_ID,
+            &ALICE,
+            10000 * BTC_UNIT
+        ));
 
         let total_supply_dot: u128 = 1 * DOT_UNIT;
         let total_supply_btc: u128 = 1 * BTC_UNIT;
@@ -215,10 +222,10 @@ fn turn_on_protocol_fee_remove_liquidity_should_work() {
 
         let lp_of_alice_0 = 316227766016;
         assert_eq!(
-            <Test as Config>::MultiAssetsHandler::balance_of(LP_DOT_BTC, &ALICE),
+            <Test as Config>::MultiCurrency::free_balance(LP_DOT_BTC, &ALICE),
             lp_of_alice_0
         );
-        assert_eq!(<Test as Config>::MultiAssetsHandler::balance_of(LP_DOT_BTC, &BOB), 0);
+        assert_eq!(<Test as Config>::MultiCurrency::free_balance(LP_DOT_BTC, &BOB), 0);
         assert_eq!(
             DexPallet::k_last(sorted_pair),
             U256::from(DOT_UNIT) * U256::from(BTC_UNIT)
@@ -242,18 +249,18 @@ fn turn_on_protocol_fee_remove_liquidity_should_work() {
 
         let lp_of_alice_1 = 16127616066816u128;
         assert_eq!(
-            <Test as Config>::MultiAssetsHandler::balance_of(LP_DOT_BTC, &ALICE),
+            <Test as Config>::MultiCurrency::free_balance(LP_DOT_BTC, &ALICE),
             lp_of_alice_1
         );
-        assert_eq!(<Test as Config>::MultiAssetsHandler::balance_of(LP_DOT_BTC, &BOB), 0);
+        assert_eq!(<Test as Config>::MultiCurrency::free_balance(LP_DOT_BTC, &BOB), 0);
         assert_eq!(
             DexPallet::k_last(sorted_pair),
             U256::from(51 * DOT_UNIT) * U256::from(51 * BTC_UNIT)
         );
 
         let pair_dot_btc = DexGeneral::pair_account_id(DOT_ASSET_ID, BTC_ASSET_ID);
-        let balance_dot = <Test as Config>::MultiAssetsHandler::balance_of(DOT_ASSET_ID, &pair_dot_btc);
-        let balance_btc = <Test as Config>::MultiAssetsHandler::balance_of(BTC_ASSET_ID, &pair_dot_btc);
+        let balance_dot = <Test as Config>::MultiCurrency::free_balance(DOT_ASSET_ID, &pair_dot_btc);
+        let balance_btc = <Test as Config>::MultiCurrency::free_balance(BTC_ASSET_ID, &pair_dot_btc);
 
         //println!("balance_DOT {}, balance_BTC {}", balance_dot, balance_btc);
         assert_eq!(balance_dot, 51000000000000000);
@@ -272,14 +279,14 @@ fn turn_on_protocol_fee_remove_liquidity_should_work() {
             100
         ));
 
-        let lp_total = <Test as Config>::MultiAssetsHandler::total_supply(LP_DOT_BTC);
+        let lp_total = <Test as Config>::MultiCurrency::total_issuance(LP_DOT_BTC);
         assert_eq!(
-            <Test as Config>::MultiAssetsHandler::balance_of(LP_DOT_BTC, &ALICE),
+            <Test as Config>::MultiCurrency::free_balance(LP_DOT_BTC, &ALICE),
             lp_of_alice_1 - lp_of_alice_0
         );
         let lp_of_bob = 0u128;
         assert_eq!(
-            <Test as Config>::MultiAssetsHandler::balance_of(LP_DOT_BTC, &BOB),
+            <Test as Config>::MultiCurrency::free_balance(LP_DOT_BTC, &BOB),
             lp_of_bob
         );
         assert_eq!(lp_total, lp_of_alice_1 - lp_of_alice_0 + lp_of_bob);
@@ -304,9 +311,21 @@ fn turn_on_protocol_fee_swap_have_fee_should_work() {
 
         // 2. first add_liquidity
 
-        assert_ok!(DexPallet::foreign_mint(DOT_ASSET_ID, &ALICE, DOT_UNIT * 1000));
-        assert_ok!(DexPallet::foreign_mint(BTC_ASSET_ID, &ALICE, BTC_UNIT * 1000));
-        assert_ok!(DexPallet::foreign_mint(DOT_ASSET_ID, &CHARLIE, DOT_UNIT * 1000));
+        assert_ok!(<Test as Config>::MultiCurrency::deposit(
+            DOT_ASSET_ID,
+            &ALICE,
+            DOT_UNIT * 1000
+        ));
+        assert_ok!(<Test as Config>::MultiCurrency::deposit(
+            BTC_ASSET_ID,
+            &ALICE,
+            BTC_UNIT * 1000
+        ));
+        assert_ok!(<Test as Config>::MultiCurrency::deposit(
+            DOT_ASSET_ID,
+            &CHARLIE,
+            DOT_UNIT * 1000
+        ));
 
         assert_ok!(DexPallet::create_pair(
             RawOrigin::Root.into(),
@@ -330,10 +349,10 @@ fn turn_on_protocol_fee_swap_have_fee_should_work() {
 
         let lp_of_alice_0 = 316227766016;
         assert_eq!(
-            <Test as Config>::MultiAssetsHandler::balance_of(LP_DOT_BTC, &ALICE),
+            <Test as Config>::MultiCurrency::free_balance(LP_DOT_BTC, &ALICE),
             lp_of_alice_0
         );
-        assert_eq!(<Test as Config>::MultiAssetsHandler::balance_of(LP_DOT_BTC, &BOB), 0);
+        assert_eq!(<Test as Config>::MultiCurrency::free_balance(LP_DOT_BTC, &BOB), 0);
         assert_eq!(
             DexPallet::k_last(sorted_pair),
             U256::from(DOT_UNIT) * U256::from(BTC_UNIT)
@@ -350,26 +369,26 @@ fn turn_on_protocol_fee_swap_have_fee_should_work() {
         ));
 
         assert_eq!(
-            <Test as Config>::MultiAssetsHandler::balance_of(LP_DOT_BTC, &ALICE),
+            <Test as Config>::MultiCurrency::free_balance(LP_DOT_BTC, &ALICE),
             lp_of_alice_0
         );
-        assert_eq!(<Test as Config>::MultiAssetsHandler::balance_of(LP_DOT_BTC, &BOB), 0);
+        assert_eq!(<Test as Config>::MultiCurrency::free_balance(LP_DOT_BTC, &BOB), 0);
         assert_eq!(
             DexPallet::k_last(sorted_pair),
             U256::from(DOT_UNIT) * U256::from(BTC_UNIT)
         );
 
         let pair_dot_btc = DexGeneral::pair_account_id(DOT_ASSET_ID, BTC_ASSET_ID);
-        let balance_dot = <Test as Config>::MultiAssetsHandler::balance_of(DOT_ASSET_ID, &pair_dot_btc);
-        let balance_btc = <Test as Config>::MultiAssetsHandler::balance_of(BTC_ASSET_ID, &pair_dot_btc);
+        let balance_dot = <Test as Config>::MultiCurrency::free_balance(DOT_ASSET_ID, &pair_dot_btc);
+        let balance_btc = <Test as Config>::MultiCurrency::free_balance(BTC_ASSET_ID, &pair_dot_btc);
 
         //println!("balance_DOT {}, balance_BTC {}", balance_dot, balance_btc);
         assert_eq!(balance_dot, 2000000000000000);
         assert_eq!(balance_btc, 50075113);
 
         let k_last = DexPallet::k_last(sorted_pair);
-        let reserve_0 = <Test as Config>::MultiAssetsHandler::balance_of(DOT_ASSET_ID, &pair_dot_btc);
-        let reserve_1 = <Test as Config>::MultiAssetsHandler::balance_of(BTC_ASSET_ID, &pair_dot_btc);
+        let reserve_0 = <Test as Config>::MultiCurrency::free_balance(DOT_ASSET_ID, &pair_dot_btc);
+        let reserve_1 = <Test as Config>::MultiCurrency::free_balance(BTC_ASSET_ID, &pair_dot_btc);
         let root_k = U256::from(reserve_0)
             .saturating_mul(U256::from(reserve_1))
             .integer_sqrt();
@@ -377,7 +396,7 @@ fn turn_on_protocol_fee_swap_have_fee_should_work() {
 
         assert!(root_k > root_k_last);
 
-        let lp_total = <Test as Config>::MultiAssetsHandler::total_supply(LP_DOT_BTC);
+        let lp_total = <Test as Config>::MultiCurrency::total_issuance(LP_DOT_BTC);
         let numerator = U256::from(lp_total).saturating_mul(root_k.saturating_sub(root_k_last));
         let denominator = root_k.saturating_mul(U256::from(5u128)).saturating_add(root_k_last);
         let expect_fee = numerator.checked_div(denominator).unwrap_or_default();
@@ -394,17 +413,17 @@ fn turn_on_protocol_fee_swap_have_fee_should_work() {
             100
         ));
 
-        let lp_total = <Test as Config>::MultiAssetsHandler::total_supply(LP_DOT_BTC);
+        let lp_total = <Test as Config>::MultiCurrency::total_issuance(LP_DOT_BTC);
         let lp_of_alice_2 = 474361420078u128;
         assert_eq!(
-            <Test as Config>::MultiAssetsHandler::balance_of(LP_DOT_BTC, &ALICE),
+            <Test as Config>::MultiCurrency::free_balance(LP_DOT_BTC, &ALICE),
             lp_of_alice_2
         );
 
         let lp_of_bob = 39548424u128;
         assert_eq!(expect_fee, U256::from(lp_of_bob));
         assert_eq!(
-            U256::from(<Test as Config>::MultiAssetsHandler::balance_of(LP_DOT_BTC, &BOB)),
+            U256::from(<Test as Config>::MultiCurrency::free_balance(LP_DOT_BTC, &BOB)),
             expect_fee
         );
         assert_eq!(lp_total, lp_of_alice_2 + lp_of_bob);
@@ -427,9 +446,21 @@ fn turn_on_protocol_fee_swap_have_fee_at_should_work() {
 
         // 2. first add_liquidity
 
-        assert_ok!(DexPallet::foreign_mint(DOT_ASSET_ID, &ALICE, 100_000_000 * DOT_UNIT));
-        assert_ok!(DexPallet::foreign_mint(BTC_ASSET_ID, &ALICE, 100_000_000 * BTC_UNIT));
-        assert_ok!(DexPallet::foreign_mint(DOT_ASSET_ID, &CHARLIE, 100_000_000 * DOT_UNIT));
+        assert_ok!(<Test as Config>::MultiCurrency::deposit(
+            DOT_ASSET_ID,
+            &ALICE,
+            100_000_000 * DOT_UNIT
+        ));
+        assert_ok!(<Test as Config>::MultiCurrency::deposit(
+            BTC_ASSET_ID,
+            &ALICE,
+            100_000_000 * BTC_UNIT
+        ));
+        assert_ok!(<Test as Config>::MultiCurrency::deposit(
+            DOT_ASSET_ID,
+            &CHARLIE,
+            100_000_000 * DOT_UNIT
+        ));
 
         assert_ok!(DexPallet::create_pair(
             RawOrigin::Root.into(),
@@ -456,10 +487,10 @@ fn turn_on_protocol_fee_swap_have_fee_at_should_work() {
             .integer_sqrt()
             .as_u128();
         assert_eq!(
-            <Test as Config>::MultiAssetsHandler::balance_of(LP_DOT_BTC, &ALICE),
+            <Test as Config>::MultiCurrency::free_balance(LP_DOT_BTC, &ALICE),
             lp_of_alice_0
         );
-        assert_eq!(<Test as Config>::MultiAssetsHandler::balance_of(LP_DOT_BTC, &BOB), 0);
+        assert_eq!(<Test as Config>::MultiCurrency::free_balance(LP_DOT_BTC, &BOB), 0);
         assert_eq!(
             DexPallet::k_last(sorted_pair),
             U256::from(total_supply_btc) * U256::from(total_supply_dot)
@@ -476,11 +507,11 @@ fn turn_on_protocol_fee_swap_have_fee_at_should_work() {
         ));
 
         assert_eq!(
-            <Test as Config>::MultiAssetsHandler::balance_of(LP_DOT_BTC, &ALICE),
+            <Test as Config>::MultiCurrency::free_balance(LP_DOT_BTC, &ALICE),
             lp_of_alice_0
         );
         //println!("{:#?}", lp_of_alice_0);
-        assert_eq!(<Test as Config>::MultiAssetsHandler::balance_of(LP_DOT_BTC, &BOB), 0);
+        assert_eq!(<Test as Config>::MultiCurrency::free_balance(LP_DOT_BTC, &BOB), 0);
         assert_eq!(
             DexPallet::k_last(sorted_pair),
             U256::from(total_supply_btc) * U256::from(total_supply_dot)
@@ -489,8 +520,8 @@ fn turn_on_protocol_fee_swap_have_fee_at_should_work() {
         let k_last = DexPallet::k_last(sorted_pair);
 
         let pair_dot_btc = DexGeneral::pair_account_id(DOT_ASSET_ID, BTC_ASSET_ID);
-        let reserve_0 = <Test as Config>::MultiAssetsHandler::balance_of(DOT_ASSET_ID, &pair_dot_btc);
-        let reserve_1 = <Test as Config>::MultiAssetsHandler::balance_of(BTC_ASSET_ID, &pair_dot_btc);
+        let reserve_0 = <Test as Config>::MultiCurrency::free_balance(DOT_ASSET_ID, &pair_dot_btc);
+        let reserve_1 = <Test as Config>::MultiCurrency::free_balance(BTC_ASSET_ID, &pair_dot_btc);
 
         assert_eq!(reserve_0, total_supply_dot + 1 * DOT_UNIT);
         assert_eq!(reserve_1, total_supply_btc - 99699900);
@@ -502,7 +533,7 @@ fn turn_on_protocol_fee_swap_have_fee_at_should_work() {
 
         assert!(root_k > root_k_last);
 
-        let lp_total = <Test as Config>::MultiAssetsHandler::total_supply(LP_DOT_BTC);
+        let lp_total = <Test as Config>::MultiCurrency::total_issuance(LP_DOT_BTC);
         let numerator = U256::from(lp_total).saturating_mul(root_k.saturating_sub(root_k_last));
         let denominator = root_k.saturating_mul(U256::from(5u128)).saturating_add(root_k_last);
         let expect_fee = numerator.checked_div(denominator).unwrap_or_default();
@@ -522,21 +553,21 @@ fn turn_on_protocol_fee_swap_have_fee_at_should_work() {
             100
         ));
 
-        let lp_fee = <Test as Config>::MultiAssetsHandler::balance_of(LP_DOT_BTC, &BOB);
+        let lp_fee = <Test as Config>::MultiCurrency::free_balance(LP_DOT_BTC, &BOB);
 
         let alice_lp_add =
             (U256::from(lp_of_alice_0 + lp_fee) * U256::from(added_btc) / U256::from(reserve_1)).as_u128();
 
-        let lp_total = <Test as Config>::MultiAssetsHandler::total_supply(LP_DOT_BTC);
+        let lp_total = <Test as Config>::MultiCurrency::total_issuance(LP_DOT_BTC);
         assert_eq!(
-            <Test as Config>::MultiAssetsHandler::balance_of(LP_DOT_BTC, &ALICE),
+            <Test as Config>::MultiCurrency::free_balance(LP_DOT_BTC, &ALICE),
             lp_of_alice_0 + alice_lp_add
         );
 
-        let lp_of_bob = <Test as Config>::MultiAssetsHandler::balance_of(LP_DOT_BTC, &BOB);
+        let lp_of_bob = <Test as Config>::MultiCurrency::free_balance(LP_DOT_BTC, &BOB);
         assert_eq!(expect_fee, U256::from(lp_of_bob));
         assert_eq!(
-            U256::from(<Test as Config>::MultiAssetsHandler::balance_of(LP_DOT_BTC, &BOB)),
+            U256::from(<Test as Config>::MultiCurrency::free_balance(LP_DOT_BTC, &BOB)),
             expect_fee
         );
         assert_eq!(lp_total, lp_of_alice_0 + alice_lp_add + lp_of_bob);
@@ -559,9 +590,21 @@ fn get_amount_out(
 fn should_set_custom_exchange_fee() {
     new_test_ext().execute_with(|| {
         // add_liquidity
-        assert_ok!(DexPallet::foreign_mint(DOT_ASSET_ID, &ALICE, 100_000_000 * DOT_UNIT));
-        assert_ok!(DexPallet::foreign_mint(BTC_ASSET_ID, &ALICE, 100_000_000 * BTC_UNIT));
-        assert_ok!(DexPallet::foreign_mint(DOT_ASSET_ID, &CHARLIE, 100_000_000 * DOT_UNIT));
+        assert_ok!(<Test as Config>::MultiCurrency::deposit(
+            DOT_ASSET_ID,
+            &ALICE,
+            100_000_000 * DOT_UNIT
+        ));
+        assert_ok!(<Test as Config>::MultiCurrency::deposit(
+            BTC_ASSET_ID,
+            &ALICE,
+            100_000_000 * BTC_UNIT
+        ));
+        assert_ok!(<Test as Config>::MultiCurrency::deposit(
+            DOT_ASSET_ID,
+            &CHARLIE,
+            100_000_000 * DOT_UNIT
+        ));
 
         assert_ok!(DexPallet::create_pair(
             RawOrigin::Root.into(),
@@ -596,10 +639,10 @@ fn should_set_custom_exchange_fee() {
             .integer_sqrt()
             .as_u128();
         assert_eq!(
-            <Test as Config>::MultiAssetsHandler::balance_of(LP_DOT_BTC, &ALICE),
+            <Test as Config>::MultiCurrency::free_balance(LP_DOT_BTC, &ALICE),
             lp_of_alice_0
         );
-        assert_eq!(<Test as Config>::MultiAssetsHandler::balance_of(LP_DOT_BTC, &BOB), 0);
+        assert_eq!(<Test as Config>::MultiCurrency::free_balance(LP_DOT_BTC, &BOB), 0);
 
         // swap
         assert_ok!(DexPallet::inner_swap_exact_assets_for_assets(
@@ -611,13 +654,13 @@ fn should_set_custom_exchange_fee() {
         ));
 
         assert_eq!(
-            <Test as Config>::MultiAssetsHandler::balance_of(LP_DOT_BTC, &ALICE),
+            <Test as Config>::MultiCurrency::free_balance(LP_DOT_BTC, &ALICE),
             lp_of_alice_0
         );
 
         let pair_dot_btc = DexGeneral::pair_account_id(DOT_ASSET_ID, BTC_ASSET_ID);
-        let reserve_0 = <Test as Config>::MultiAssetsHandler::balance_of(DOT_ASSET_ID, &pair_dot_btc);
-        let reserve_1 = <Test as Config>::MultiAssetsHandler::balance_of(BTC_ASSET_ID, &pair_dot_btc);
+        let reserve_0 = <Test as Config>::MultiCurrency::free_balance(DOT_ASSET_ID, &pair_dot_btc);
+        let reserve_1 = <Test as Config>::MultiCurrency::free_balance(BTC_ASSET_ID, &pair_dot_btc);
 
         assert_eq!(reserve_0, total_supply_dot + DOT_UNIT);
 

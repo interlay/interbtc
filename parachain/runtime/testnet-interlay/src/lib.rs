@@ -1637,14 +1637,6 @@ impl_runtime_apis! {
     }
 
     impl dex_general_rpc_runtime_api::DexGeneralApi<Block, AccountId, CurrencyId> for Runtime {
-        fn get_balance(
-            asset_id: CurrencyId,
-            owner: AccountId
-        ) -> dex_general::AssetBalance {
-            use dex_general::MultiAssetsHandler;
-            <Runtime as dex_general::Config>::MultiAssetsHandler::balance_of(asset_id, &owner)
-        }
-
         fn get_pair_by_asset_id(
             asset_0: CurrencyId,
             asset_1: CurrencyId

@@ -5,5 +5,3 @@
 mod mock;
 #[cfg(test)]
 mod tests;
-
-mod migration;

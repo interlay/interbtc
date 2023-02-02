@@ -311,6 +311,7 @@ pub mod pallet {
         /// - `admin_fee_receiver`: The admin fee receiver of created pool.
         /// - `lp_currency_symbol`: The symbol of created pool lp currency.
         /// - `lp_currency_decimal`: The decimal of created pool lp currency.
+        #[pallet::call_index(0)]
         #[pallet::weight(T::WeightInfo::create_base_pool())]
         #[transactional]
         pub fn create_base_pool(
@@ -377,6 +378,7 @@ pub mod pallet {
         /// - `admin_fee_receiver`: The admin fee receiver of created pool.
         /// - `lp_currency_symbol`: The symbol of created pool lp currency.
         /// - `lp_currency_decimal`: The decimal of created pool lp currency.
+        #[pallet::call_index(1)]
         #[pallet::weight(T::WeightInfo::create_meta_pool())]
         #[transactional]
         pub fn create_meta_pool(
@@ -450,6 +452,7 @@ pub mod pallet {
         /// - `amounts`: Supply amounts of currencies.
         /// - `min_mint_amount`: The min amount of lp currency get.
         /// - `deadline`: Height of the cutoff block of this transaction
+        #[pallet::call_index(2)]
         #[pallet::weight(T::WeightInfo::add_liquidity())]
         #[transactional]
         pub fn add_liquidity(
@@ -480,6 +483,7 @@ pub mod pallet {
         /// - `in_amount`: The amounts of currencies swap.
         /// - `min_mint_amount`: The min amount of receive currency.
         /// - `deadline`: Height of the cutoff block of this transaction
+        #[pallet::call_index(3)]
         #[pallet::weight(T::WeightInfo::swap())]
         #[transactional]
         pub fn swap(
@@ -518,6 +522,7 @@ pub mod pallet {
         /// - `lp_amount`: The amounts of lp currency.
         /// - `min_amounts`: The min amounts of pool's currencies to get.
         /// - `deadline`: Height of the cutoff block of this transaction
+        #[pallet::call_index(4)]
         #[pallet::weight(T::WeightInfo::remove_liquidity())]
         #[transactional]
         pub fn remove_liquidity(
@@ -547,6 +552,7 @@ pub mod pallet {
         /// - `index`: The index of receive currency.
         /// - `min_amount`: The min amounts of received currency;
         /// - `deadline`: Height of the cutoff block of this transaction
+        #[pallet::call_index(5)]
         #[pallet::weight(T::WeightInfo::remove_liquidity_one_currency())]
         #[transactional]
         pub fn remove_liquidity_one_currency(
@@ -576,6 +582,7 @@ pub mod pallet {
         /// - `amounts`: The specify amounts of receive currencies.
         /// - `max_burn_amount`: The max amount of burned lp currency.
         /// - `deadline`: Height of the cutoff block of this transaction
+        #[pallet::call_index(6)]
         #[pallet::weight(T::WeightInfo::remove_liquidity_imbalance())]
         #[transactional]
         pub fn remove_liquidity_imbalance(
@@ -607,6 +614,7 @@ pub mod pallet {
         /// - `base_amounts`: Supply amounts of currencies to base pool.
         /// - `min_to_mint`: The min amount of pool lp currency get.
         /// - `deadline`: Height of the cutoff block of this transaction.
+        #[pallet::call_index(7)]
         #[pallet::weight(T::WeightInfo::add_pool_and_base_pool_liquidity())]
         #[transactional]
         pub fn add_pool_and_base_pool_liquidity(
@@ -646,6 +654,7 @@ pub mod pallet {
         /// - `min_amounts_meta`: The min amounts of pool's currencies to get.
         /// - `min_amounts_base`: The min amounts of basic pool's currencies to get.
         /// - `deadline`: Height of the cutoff block of this transaction.
+        #[pallet::call_index(8)]
         #[pallet::weight(T::WeightInfo::remove_pool_and_base_pool_liquidity())]
         #[transactional]
         pub fn remove_pool_and_base_pool_liquidity(
@@ -686,6 +695,7 @@ pub mod pallet {
         /// - `i`: The index of target currency in basic pool.
         /// - `min_amount`: The min amounts of received currency.
         /// - `deadline`: Height of the cutoff block of this transaction.
+        #[pallet::call_index(9)]
         #[pallet::weight(T::WeightInfo::remove_pool_and_base_pool_liquidity_one_currency())]
         #[transactional]
         pub fn remove_pool_and_base_pool_liquidity_one_currency(
@@ -727,6 +737,7 @@ pub mod pallet {
         /// - `dx`: The amounts of swap currency.
         /// - `min_dy`: The min amounts of target currency.
         /// - `deadline`: Height of the cutoff block of this transaction.
+        #[pallet::call_index(10)]
         #[pallet::weight(T::WeightInfo::swap_pool_from_base())]
         #[transactional]
         pub fn swap_pool_from_base(
@@ -761,6 +772,7 @@ pub mod pallet {
         /// - `dx`: The amounts of swap currency.
         /// - `min_dy`: The min amounts of target currency.
         /// - `deadline`: Height of the cutoff block of this transaction.
+        #[pallet::call_index(11)]
         #[pallet::weight(T::WeightInfo::swap_pool_to_base())]
         #[transactional]
         pub fn swap_pool_to_base(
@@ -783,6 +795,7 @@ pub mod pallet {
             Ok(())
         }
 
+        #[pallet::call_index(12)]
         #[pallet::weight(T::WeightInfo::swap_meta_pool_underlying())]
         #[transactional]
         pub fn swap_meta_pool_underlying(
@@ -827,6 +840,7 @@ pub mod pallet {
         ///
         /// - `pool_id`: The id of pool.
         /// - `fee_receiver`: The new admin fee receiver of this pool.
+        #[pallet::call_index(13)]
         #[pallet::weight(1_000_000)]
         #[transactional]
         pub fn update_fee_receiver(
@@ -856,6 +870,7 @@ pub mod pallet {
         ///
         /// - `pool_id`: The id of pool.
         /// - `new_swap_fee`: The new swap fee of this pool.
+        #[pallet::call_index(14)]
         #[pallet::weight(1_000_000)]
         #[transactional]
         pub fn set_swap_fee(origin: OriginFor<T>, pool_id: T::PoolId, new_swap_fee: Number) -> DispatchResult {
@@ -879,6 +894,7 @@ pub mod pallet {
         ///
         /// - `pool_id`: The id of pool.
         /// - `new_admin_fee`: The new admin fee of this pool.
+        #[pallet::call_index(15)]
         #[pallet::weight(1_000_000)]
         #[transactional]
         pub fn set_admin_fee(origin: OriginFor<T>, pool_id: T::PoolId, new_admin_fee: Number) -> DispatchResult {
@@ -905,6 +921,7 @@ pub mod pallet {
         /// - `pool_id`: The id of pool.
         /// - `future_a`: The new A to ramp towards.
         /// - `future_a_time`: Timestamp when the new A should be reached
+        #[pallet::call_index(16)]
         #[pallet::weight(1_000_000)]
         #[transactional]
         pub fn ramp_a(
@@ -990,6 +1007,7 @@ pub mod pallet {
         /// # Argument
         ///
         /// - `pool_id`: The id of pool.
+        #[pallet::call_index(17)]
         #[pallet::weight(1_000_000)]
         #[transactional]
         pub fn stop_ramp_a(origin: OriginFor<T>, pool_id: T::PoolId) -> DispatchResult {
@@ -1027,6 +1045,7 @@ pub mod pallet {
         /// # Argument
         ///
         /// - `pool_id`: The id of pool.
+        #[pallet::call_index(18)]
         #[pallet::weight(T::WeightInfo::withdraw_admin_fee())]
         #[transactional]
         pub fn withdraw_admin_fee(origin: OriginFor<T>, pool_id: T::PoolId) -> DispatchResult {

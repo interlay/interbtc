@@ -2076,7 +2076,6 @@ dependencies = [
 name = "dex-general"
 version = "0.4.4"
 dependencies = [
- "cumulus-primitives-core",
  "frame-benchmarking",
  "frame-support",
  "frame-system",
@@ -2092,8 +2091,6 @@ dependencies = [
  "sp-io",
  "sp-runtime",
  "sp-std",
- "xcm",
- "xcm-executor",
 ]
 
 [[package]]

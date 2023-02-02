@@ -1,42 +1,20 @@
 // Copyright 2021-2022 Zenlink.
 // Licensed under Apache 2.0.
 
-use super::{mock::*, AssetId, Error, MultiAssetsHandler};
+use super::{mock::*, Error};
 use crate::primitives::PairStatus::Trading;
 use frame_support::{assert_noop, assert_ok};
 use frame_system::RawOrigin;
+use orml_traits::MultiCurrency;
 use sp_core::U256;
 use sp_runtime::{traits::Zero, DispatchError::BadOrigin};
 
-const DOT_ASSET_ID: AssetId = AssetId {
-    chain_id: 200,
-    asset_type: LOCAL,
-    asset_index: 2,
-};
+const DOT_ASSET_ID: CurrencyId = CurrencyId::Token(2);
+const BTC_ASSET_ID: CurrencyId = CurrencyId::Token(3);
+const KSM_ASSET_ID: CurrencyId = CurrencyId::Token(3);
+const ETH_ASSET_ID: CurrencyId = CurrencyId::Token(4);
 
-const KSM_ASSET_ID: AssetId = AssetId {
-    chain_id: 200,
-    asset_type: LOCAL,
-    asset_index: 3,
-};
-
-const BTC_ASSET_ID: AssetId = AssetId {
-    chain_id: 300,
-    asset_type: RESERVED,
-    asset_index: 3,
-};
-
-const ETH_ASSET_ID: AssetId = AssetId {
-    chain_id: 300,
-    asset_type: NATIVE,
-    asset_index: 0,
-};
-
-const DOT_BTC_LP_ID: AssetId = AssetId {
-    chain_id: 0,
-    asset_type: 2,
-    asset_index: 12885034496,
-};
+const DOT_BTC_LP_ID: CurrencyId = CurrencyId::LpToken(2, 3);
 
 const ALICE: u128 = 1;
 const BOB: u128 = 2;
@@ -45,11 +23,21 @@ const DOT_UNIT: u128 = 1000_000_000_000_000;
 const BTC_UNIT: u128 = 1000_000_00;
 const ETH_UNIT: u128 = 1000_000_000_000;
 
+const MAX_BALANCE: u128 = u128::MAX - 1;
+
 #[test]
 fn add_liquidity_should_work() {
     new_test_ext().execute_with(|| {
-        assert_ok!(DexPallet::foreign_mint(DOT_ASSET_ID, &ALICE, u128::MAX));
-        assert_ok!(DexPallet::foreign_mint(BTC_ASSET_ID, &ALICE, u128::MAX));
+        assert_ok!(<Test as Config>::MultiCurrency::deposit(
+            DOT_ASSET_ID,
+            &ALICE,
+            MAX_BALANCE
+        ));
+        assert_ok!(<Test as Config>::MultiCurrency::deposit(
+            BTC_ASSET_ID,
+            &ALICE,
+            MAX_BALANCE
+        ));
 
         assert_ok!(DexPallet::create_pair(
             RawOrigin::Root.into(),
@@ -71,7 +59,7 @@ fn add_liquidity_should_work() {
             100
         ));
 
-        let mint_liquidity = <Test as Config>::MultiAssetsHandler::balance_of(DOT_BTC_LP_ID, &ALICE);
+        let mint_liquidity = <Test as Config>::MultiCurrency::free_balance(DOT_BTC_LP_ID, &ALICE);
 
         assert_eq!(mint_liquidity, 316227766016);
         let total_supply_dot = 50 * DOT_UNIT;
@@ -89,10 +77,10 @@ fn add_liquidity_should_work() {
         ));
 
         let pair_dot_btc = DexGeneral::pair_account_id(DOT_ASSET_ID, BTC_ASSET_ID);
-        let balance_dot = <Test as Config>::MultiAssetsHandler::balance_of(DOT_ASSET_ID, &pair_dot_btc);
-        let balance_btc = <Test as Config>::MultiAssetsHandler::balance_of(BTC_ASSET_ID, &pair_dot_btc);
+        let balance_dot = <Test as Config>::MultiCurrency::free_balance(DOT_ASSET_ID, &pair_dot_btc);
+        let balance_btc = <Test as Config>::MultiCurrency::free_balance(BTC_ASSET_ID, &pair_dot_btc);
 
-        let mint_liquidity = <Test as Config>::MultiAssetsHandler::balance_of(DOT_BTC_LP_ID, &ALICE);
+        let mint_liquidity = <Test as Config>::MultiCurrency::free_balance(DOT_BTC_LP_ID, &ALICE);
         assert_eq!(mint_liquidity, 16127616066816);
 
         assert_eq!(balance_dot, 51000000000000000);
@@ -105,8 +93,16 @@ fn add_liquidity_should_work() {
 #[test]
 fn remove_liquidity_should_work() {
     new_test_ext().execute_with(|| {
-        assert_ok!(DexPallet::foreign_mint(DOT_ASSET_ID, &ALICE, u128::MAX));
-        assert_ok!(DexPallet::foreign_mint(BTC_ASSET_ID, &ALICE, u128::MAX));
+        assert_ok!(<Test as Config>::MultiCurrency::deposit(
+            DOT_ASSET_ID,
+            &ALICE,
+            MAX_BALANCE
+        ));
+        assert_ok!(<Test as Config>::MultiCurrency::deposit(
+            BTC_ASSET_ID,
+            &ALICE,
+            MAX_BALANCE
+        ));
 
         assert_ok!(DexPallet::create_pair(
             RawOrigin::Root.into(),
@@ -137,8 +133,8 @@ fn remove_liquidity_should_work() {
             100
         ));
 
-        let balance_dot = <Test as Config>::MultiAssetsHandler::balance_of(DOT_ASSET_ID, &BOB);
-        let balance_btc = <Test as Config>::MultiAssetsHandler::balance_of(BTC_ASSET_ID, &BOB);
+        let balance_dot = <Test as Config>::MultiCurrency::free_balance(DOT_ASSET_ID, &BOB);
+        let balance_btc = <Test as Config>::MultiCurrency::free_balance(BTC_ASSET_ID, &BOB);
 
         assert_eq!(balance_dot, 316227766016);
         assert_eq!(balance_btc, 31622);
@@ -150,8 +146,16 @@ fn remove_liquidity_should_work() {
 #[test]
 fn foreign_get_in_price_should_work() {
     new_test_ext().execute_with(|| {
-        assert_ok!(DexPallet::foreign_mint(DOT_ASSET_ID, &ALICE, u128::MAX));
-        assert_ok!(DexPallet::foreign_mint(BTC_ASSET_ID, &ALICE, u128::MAX));
+        assert_ok!(<Test as Config>::MultiCurrency::deposit(
+            DOT_ASSET_ID,
+            &ALICE,
+            MAX_BALANCE
+        ));
+        assert_ok!(<Test as Config>::MultiCurrency::deposit(
+            BTC_ASSET_ID,
+            &ALICE,
+            MAX_BALANCE
+        ));
 
         assert_ok!(DexPallet::create_pair(
             RawOrigin::Root.into(),
@@ -200,8 +204,16 @@ fn foreign_get_in_price_should_work() {
 #[test]
 fn foreign_get_out_price_should_work() {
     new_test_ext().execute_with(|| {
-        assert_ok!(DexPallet::foreign_mint(DOT_ASSET_ID, &ALICE, u128::MAX));
-        assert_ok!(DexPallet::foreign_mint(BTC_ASSET_ID, &ALICE, u128::MAX));
+        assert_ok!(<Test as Config>::MultiCurrency::deposit(
+            DOT_ASSET_ID,
+            &ALICE,
+            MAX_BALANCE
+        ));
+        assert_ok!(<Test as Config>::MultiCurrency::deposit(
+            BTC_ASSET_ID,
+            &ALICE,
+            MAX_BALANCE
+        ));
 
         assert_ok!(DexPallet::create_pair(
             RawOrigin::Root.into(),
@@ -251,8 +263,16 @@ fn foreign_get_out_price_should_work() {
 #[test]
 fn inner_swap_exact_assets_for_assets_should_work() {
     new_test_ext().execute_with(|| {
-        assert_ok!(DexPallet::foreign_mint(DOT_ASSET_ID, &ALICE, u128::MAX));
-        assert_ok!(DexPallet::foreign_mint(BTC_ASSET_ID, &ALICE, u128::MAX));
+        assert_ok!(<Test as Config>::MultiCurrency::deposit(
+            DOT_ASSET_ID,
+            &ALICE,
+            MAX_BALANCE
+        ));
+        assert_ok!(<Test as Config>::MultiCurrency::deposit(
+            BTC_ASSET_ID,
+            &ALICE,
+            MAX_BALANCE
+        ));
 
         let total_supply_dot = 50000 * DOT_UNIT;
         let total_supply_btc = 50000 * BTC_UNIT;
@@ -274,8 +294,8 @@ fn inner_swap_exact_assets_for_assets_should_work() {
         ));
 
         let pair_dot_btc = DexGeneral::pair_account_id(DOT_ASSET_ID, BTC_ASSET_ID);
-        let balance_dot = <Test as Config>::MultiAssetsHandler::balance_of(DOT_ASSET_ID, &pair_dot_btc);
-        let balance_btc = <Test as Config>::MultiAssetsHandler::balance_of(BTC_ASSET_ID, &pair_dot_btc);
+        let balance_dot = <Test as Config>::MultiCurrency::free_balance(DOT_ASSET_ID, &pair_dot_btc);
+        let balance_btc = <Test as Config>::MultiCurrency::free_balance(BTC_ASSET_ID, &pair_dot_btc);
 
         // println!("balance_dot {} balance_btc {}", balance_dot, balance_btc);
         assert_eq!(balance_dot, 50000000000000000000);
@@ -292,7 +312,7 @@ fn inner_swap_exact_assets_for_assets_should_work() {
             &BOB,
         ));
 
-        let btc_balance = <Test as Config>::MultiAssetsHandler::balance_of(BTC_ASSET_ID, &BOB);
+        let btc_balance = <Test as Config>::MultiCurrency::free_balance(BTC_ASSET_ID, &BOB);
 
         // println!("btc_balance {}", btc_balance);
         assert_eq!(btc_balance, 99698012);
@@ -309,7 +329,7 @@ fn inner_swap_exact_assets_for_assets_should_work() {
             &path,
             &BOB,
         ));
-        let dot_balance = <Test as Config>::MultiAssetsHandler::balance_of(DOT_ASSET_ID, &BOB);
+        let dot_balance = <Test as Config>::MultiCurrency::free_balance(DOT_ASSET_ID, &BOB);
 
         // println!("dot_balance {}", dot_balance);
         assert_eq!(dot_balance, 997019939603584)
@@ -319,9 +339,21 @@ fn inner_swap_exact_assets_for_assets_should_work() {
 #[test]
 fn inner_swap_exact_assets_for_assets_in_pairs_should_work() {
     new_test_ext().execute_with(|| {
-        assert_ok!(DexPallet::foreign_mint(DOT_ASSET_ID, &ALICE, u128::MAX));
-        assert_ok!(DexPallet::foreign_mint(BTC_ASSET_ID, &ALICE, u128::MAX));
-        assert_ok!(DexPallet::foreign_mint(ETH_ASSET_ID, &ALICE, u128::MAX));
+        assert_ok!(<Test as Config>::MultiCurrency::deposit(
+            DOT_ASSET_ID,
+            &ALICE,
+            MAX_BALANCE
+        ));
+        assert_ok!(<Test as Config>::MultiCurrency::deposit(
+            BTC_ASSET_ID,
+            &ALICE,
+            MAX_BALANCE
+        ));
+        assert_ok!(<Test as Config>::MultiCurrency::deposit(
+            ETH_ASSET_ID,
+            &ALICE,
+            MAX_BALANCE
+        ));
 
         let total_supply_dot = 5000 * DOT_UNIT;
         let total_supply_btc = 5000 * BTC_UNIT;
@@ -369,7 +401,7 @@ fn inner_swap_exact_assets_for_assets_in_pairs_should_work() {
             &path,
             &BOB,
         ));
-        let eth_balance = <Test as Config>::MultiAssetsHandler::balance_of(ETH_ASSET_ID, &BOB);
+        let eth_balance = <Test as Config>::MultiCurrency::free_balance(ETH_ASSET_ID, &BOB);
 
         // println!("eth_balance {}", eth_balance);
         assert_eq!(eth_balance, 993613333572);
@@ -377,7 +409,7 @@ fn inner_swap_exact_assets_for_assets_in_pairs_should_work() {
         let path = vec![ETH_ASSET_ID, BTC_ASSET_ID, DOT_ASSET_ID];
         let amount_in = 1 * ETH_UNIT;
         let amount_out_min = 1 * DOT_UNIT * 996 / 1000 * 996 / 1000;
-        let dot_balance = <Test as Config>::MultiAssetsHandler::balance_of(DOT_ASSET_ID, &BOB);
+        let dot_balance = <Test as Config>::MultiCurrency::free_balance(DOT_ASSET_ID, &BOB);
 
         // println!("dot_balance {}", dot_balance);
         assert_eq!(dot_balance, 0);
@@ -389,7 +421,7 @@ fn inner_swap_exact_assets_for_assets_in_pairs_should_work() {
             &path,
             &BOB,
         ));
-        let dot_balance = <Test as Config>::MultiAssetsHandler::balance_of(DOT_ASSET_ID, &BOB);
+        let dot_balance = <Test as Config>::MultiCurrency::free_balance(DOT_ASSET_ID, &BOB);
 
         // println!("dot_balance {}", dot_balance);
         assert_eq!(dot_balance, 994405843102918);
@@ -402,8 +434,16 @@ fn inner_swap_assets_for_exact_assets_should_work() {
         let total_supply_dot = 10000 * DOT_UNIT;
         let total_supply_btc = 10000 * BTC_UNIT;
 
-        assert_ok!(DexPallet::foreign_mint(DOT_ASSET_ID, &ALICE, total_supply_dot));
-        assert_ok!(DexPallet::foreign_mint(BTC_ASSET_ID, &ALICE, total_supply_btc));
+        assert_ok!(<Test as Config>::MultiCurrency::deposit(
+            DOT_ASSET_ID,
+            &ALICE,
+            total_supply_dot
+        ));
+        assert_ok!(<Test as Config>::MultiCurrency::deposit(
+            BTC_ASSET_ID,
+            &ALICE,
+            total_supply_btc
+        ));
 
         let supply_dot = 5000 * DOT_UNIT;
         let supply_btc = 5000 * BTC_UNIT;
@@ -433,11 +473,11 @@ fn inner_swap_assets_for_exact_assets_should_work() {
             &path,
             &BOB
         ));
-        let btc_balance = <Test as Config>::MultiAssetsHandler::balance_of(BTC_ASSET_ID, &BOB);
+        let btc_balance = <Test as Config>::MultiCurrency::free_balance(BTC_ASSET_ID, &BOB);
         assert_eq!(btc_balance, amount_out);
 
         let amount_in_dot =
-            total_supply_dot - supply_dot - <Test as Config>::MultiAssetsHandler::balance_of(DOT_ASSET_ID, &ALICE);
+            total_supply_dot - supply_dot - <Test as Config>::MultiCurrency::free_balance(DOT_ASSET_ID, &ALICE);
 
         // println!("amount in {}", amount_in_dot);
         assert_eq!(amount_in_dot, 1003209669015047);
@@ -454,7 +494,7 @@ fn inner_swap_assets_for_exact_assets_should_work() {
             &path,
             &BOB
         ));
-        let dot_balance = <Test as Config>::MultiAssetsHandler::balance_of(DOT_ASSET_ID, &BOB);
+        let dot_balance = <Test as Config>::MultiCurrency::free_balance(DOT_ASSET_ID, &BOB);
 
         // println!("dot_balance {}", dot_balance);
         assert_eq!(dot_balance, 1000000000000000);
@@ -462,7 +502,7 @@ fn inner_swap_assets_for_exact_assets_should_work() {
         assert_eq!(dot_balance, amount_out);
 
         let amount_in_btc =
-            total_supply_btc - supply_btc - <Test as Config>::MultiAssetsHandler::balance_of(BTC_ASSET_ID, &ALICE);
+            total_supply_btc - supply_btc - <Test as Config>::MultiCurrency::free_balance(BTC_ASSET_ID, &ALICE);
 
         // println!("amount in {}", amount_in_btc);
         assert_eq!(amount_in_btc, 100280779);
@@ -478,9 +518,21 @@ fn inner_swap_assets_for_exact_assets_in_pairs_should_work() {
         let total_supply_btc = 10000 * BTC_UNIT;
         let total_supply_eth = 10000 * ETH_UNIT;
 
-        assert_ok!(DexPallet::foreign_mint(DOT_ASSET_ID, &ALICE, total_supply_dot));
-        assert_ok!(DexPallet::foreign_mint(BTC_ASSET_ID, &ALICE, total_supply_btc));
-        assert_ok!(DexPallet::foreign_mint(ETH_ASSET_ID, &ALICE, total_supply_eth));
+        assert_ok!(<Test as Config>::MultiCurrency::deposit(
+            DOT_ASSET_ID,
+            &ALICE,
+            total_supply_dot
+        ));
+        assert_ok!(<Test as Config>::MultiCurrency::deposit(
+            BTC_ASSET_ID,
+            &ALICE,
+            total_supply_btc
+        ));
+        assert_ok!(<Test as Config>::MultiCurrency::deposit(
+            ETH_ASSET_ID,
+            &ALICE,
+            total_supply_eth
+        ));
 
         assert_ok!(DexPallet::create_pair(
             RawOrigin::Root.into(),
@@ -521,7 +573,7 @@ fn inner_swap_assets_for_exact_assets_in_pairs_should_work() {
         let path = vec![DOT_ASSET_ID, BTC_ASSET_ID, ETH_ASSET_ID];
         let amount_out = 1 * ETH_UNIT;
         let amount_in_max = 1 * DOT_UNIT * 1004 / 1000 * 1004 / 1000;
-        let bob_dev_balance = <Test as Config>::MultiAssetsHandler::balance_of(ETH_ASSET_ID, &BOB);
+        let bob_dev_balance = <Test as Config>::MultiCurrency::free_balance(ETH_ASSET_ID, &BOB);
         assert_ok!(DexPallet::inner_swap_assets_for_exact_assets(
             &ALICE,
             amount_out,
@@ -529,7 +581,7 @@ fn inner_swap_assets_for_exact_assets_in_pairs_should_work() {
             &path,
             &BOB
         ));
-        let eth_balance = <Test as Config>::MultiAssetsHandler::balance_of(ETH_ASSET_ID, &BOB);
+        let eth_balance = <Test as Config>::MultiCurrency::free_balance(ETH_ASSET_ID, &BOB);
 
         // println!("eth_balance {}", eth_balance);
         assert_eq!(eth_balance, 1000000000000);
@@ -546,7 +598,7 @@ fn inner_swap_assets_for_exact_assets_in_pairs_should_work() {
             &path,
             &BOB
         ));
-        let dot_balance = <Test as Config>::MultiAssetsHandler::balance_of(DOT_ASSET_ID, &BOB);
+        let dot_balance = <Test as Config>::MultiCurrency::free_balance(DOT_ASSET_ID, &BOB);
         assert_eq!(dot_balance, amount_out);
     })
 }
@@ -554,8 +606,8 @@ fn inner_swap_assets_for_exact_assets_in_pairs_should_work() {
 #[test]
 fn create_bootstrap_should_work() {
     new_test_ext().execute_with(|| {
-        assert_ok!(<Test as Config>::MultiAssetsHandler::deposit(DOT_ASSET_ID, &ALICE, 0));
-        assert_ok!(<Test as Config>::MultiAssetsHandler::deposit(ETH_ASSET_ID, &ALICE, 0));
+        assert_ok!(<Test as Config>::MultiCurrency::deposit(DOT_ASSET_ID, &ALICE, 0));
+        assert_ok!(<Test as Config>::MultiCurrency::deposit(ETH_ASSET_ID, &ALICE, 0));
 
         assert_ok!(DexPallet::bootstrap_create(
             RawOrigin::Root.into(),
@@ -596,8 +648,8 @@ fn create_bootstrap_should_work() {
 #[test]
 fn update_bootstrap_should_work() {
     new_test_ext().execute_with(|| {
-        assert_ok!(<Test as Config>::MultiAssetsHandler::deposit(DOT_ASSET_ID, &ALICE, 0));
-        assert_ok!(<Test as Config>::MultiAssetsHandler::deposit(ETH_ASSET_ID, &ALICE, 0));
+        assert_ok!(<Test as Config>::MultiCurrency::deposit(DOT_ASSET_ID, &ALICE, 0));
+        assert_ok!(<Test as Config>::MultiCurrency::deposit(ETH_ASSET_ID, &ALICE, 0));
 
         assert_ok!(DexPallet::bootstrap_create(
             RawOrigin::Root.into(),
@@ -649,8 +701,16 @@ fn bootstrap_contribute_should_work() {
         let supply_dot = 10000 * DOT_UNIT;
         let supply_btc = 10000 * BTC_UNIT;
 
-        assert_ok!(DexPallet::foreign_mint(DOT_ASSET_ID, &ALICE, supply_dot));
-        assert_ok!(DexPallet::foreign_mint(BTC_ASSET_ID, &ALICE, supply_btc));
+        assert_ok!(<Test as Config>::MultiCurrency::deposit(
+            DOT_ASSET_ID,
+            &ALICE,
+            supply_dot
+        ));
+        assert_ok!(<Test as Config>::MultiCurrency::deposit(
+            BTC_ASSET_ID,
+            &ALICE,
+            supply_btc
+        ));
         assert_ok!(DexPallet::bootstrap_create(
             RawOrigin::Root.into(),
             DOT_ASSET_ID,
@@ -684,10 +744,18 @@ fn bootstrap_contribute_end_should_work() {
         let supply_dot = 10000 * DOT_UNIT;
         let supply_btc = 10000 * BTC_UNIT;
 
-        assert_ok!(DexPallet::foreign_mint(DOT_ASSET_ID, &ALICE, supply_dot));
-        assert_ok!(DexPallet::foreign_mint(BTC_ASSET_ID, &ALICE, supply_btc));
-        assert_ok!(DexPallet::foreign_mint(DOT_ASSET_ID, &BOB, supply_dot));
-        assert_ok!(DexPallet::foreign_mint(BTC_ASSET_ID, &BOB, supply_btc));
+        assert_ok!(<Test as Config>::MultiCurrency::deposit(
+            DOT_ASSET_ID,
+            &ALICE,
+            supply_dot
+        ));
+        assert_ok!(<Test as Config>::MultiCurrency::deposit(
+            BTC_ASSET_ID,
+            &ALICE,
+            supply_btc
+        ));
+        assert_ok!(<Test as Config>::MultiCurrency::deposit(DOT_ASSET_ID, &BOB, supply_dot));
+        assert_ok!(<Test as Config>::MultiCurrency::deposit(BTC_ASSET_ID, &BOB, supply_btc));
 
         assert_ok!(DexPallet::bootstrap_create(
             RawOrigin::Root.into(),
@@ -746,10 +814,18 @@ fn bootstrap_contribute_claim_reward_should_work() {
         let supply_dot = 10000 * DOT_UNIT;
         let supply_btc = 10000 * BTC_UNIT;
 
-        assert_ok!(DexPallet::foreign_mint(DOT_ASSET_ID, &ALICE, supply_dot));
-        assert_ok!(DexPallet::foreign_mint(BTC_ASSET_ID, &ALICE, supply_btc));
-        assert_ok!(DexPallet::foreign_mint(DOT_ASSET_ID, &BOB, supply_dot));
-        assert_ok!(DexPallet::foreign_mint(BTC_ASSET_ID, &BOB, supply_btc));
+        assert_ok!(<Test as Config>::MultiCurrency::deposit(
+            DOT_ASSET_ID,
+            &ALICE,
+            supply_dot
+        ));
+        assert_ok!(<Test as Config>::MultiCurrency::deposit(
+            BTC_ASSET_ID,
+            &ALICE,
+            supply_btc
+        ));
+        assert_ok!(<Test as Config>::MultiCurrency::deposit(DOT_ASSET_ID, &BOB, supply_dot));
+        assert_ok!(<Test as Config>::MultiCurrency::deposit(BTC_ASSET_ID, &BOB, supply_btc));
 
         assert_ok!(DexPallet::bootstrap_create(
             RawOrigin::Root.into(),
@@ -801,10 +877,7 @@ fn bootstrap_contribute_claim_reward_should_work() {
             _ => Err(()),
         });
 
-        assert_eq!(
-            <Test as Config>::MultiAssetsHandler::balance_of(DOT_BTC_LP_ID, &ALICE),
-            0
-        );
+        assert_eq!(<Test as Config>::MultiCurrency::free_balance(DOT_BTC_LP_ID, &ALICE), 0);
 
         assert_ok!(DexPallet::bootstrap_claim(
             RawOrigin::Signed(ALICE).into(),
@@ -814,11 +887,11 @@ fn bootstrap_contribute_claim_reward_should_work() {
             1000,
         ));
         assert_eq!(
-            <Test as Config>::MultiAssetsHandler::balance_of(DOT_BTC_LP_ID, &ALICE),
+            <Test as Config>::MultiCurrency::free_balance(DOT_BTC_LP_ID, &ALICE),
             total_supply / 2
         );
         assert_eq!(
-            <Test as Config>::MultiAssetsHandler::balance_of(DOT_BTC_LP_ID, &pair_dot_btc),
+            <Test as Config>::MultiCurrency::free_balance(DOT_BTC_LP_ID, &pair_dot_btc),
             total_supply / 2
         );
 
@@ -827,7 +900,7 @@ fn bootstrap_contribute_claim_reward_should_work() {
             Error::<Test>::ZeroContribute
         );
         assert_eq!(
-            <Test as Config>::MultiAssetsHandler::balance_of(DOT_BTC_LP_ID, &ALICE),
+            <Test as Config>::MultiCurrency::free_balance(DOT_BTC_LP_ID, &ALICE),
             total_supply / 2
         );
 
@@ -839,11 +912,11 @@ fn bootstrap_contribute_claim_reward_should_work() {
             1000,
         ));
         assert_eq!(
-            <Test as Config>::MultiAssetsHandler::balance_of(DOT_BTC_LP_ID, &BOB),
+            <Test as Config>::MultiCurrency::free_balance(DOT_BTC_LP_ID, &BOB),
             total_supply / 2
         );
         assert_eq!(
-            <Test as Config>::MultiAssetsHandler::balance_of(DOT_BTC_LP_ID, &pair_dot_btc),
+            <Test as Config>::MultiCurrency::free_balance(DOT_BTC_LP_ID, &pair_dot_btc),
             0
         );
     })
@@ -856,10 +929,18 @@ fn refund_in_disable_bootstrap_should_work() {
         let supply_dot = 10000 * DOT_UNIT;
         let supply_btc = 10000 * BTC_UNIT;
 
-        assert_ok!(DexPallet::foreign_mint(DOT_ASSET_ID, &ALICE, supply_dot));
-        assert_ok!(DexPallet::foreign_mint(BTC_ASSET_ID, &ALICE, supply_btc));
-        assert_ok!(DexPallet::foreign_mint(DOT_ASSET_ID, &BOB, supply_dot));
-        assert_ok!(DexPallet::foreign_mint(BTC_ASSET_ID, &BOB, supply_btc));
+        assert_ok!(<Test as Config>::MultiCurrency::deposit(
+            DOT_ASSET_ID,
+            &ALICE,
+            supply_dot
+        ));
+        assert_ok!(<Test as Config>::MultiCurrency::deposit(
+            BTC_ASSET_ID,
+            &ALICE,
+            supply_btc
+        ));
+        assert_ok!(<Test as Config>::MultiCurrency::deposit(DOT_ASSET_ID, &BOB, supply_dot));
+        assert_ok!(<Test as Config>::MultiCurrency::deposit(BTC_ASSET_ID, &BOB, supply_btc));
 
         assert_ok!(DexPallet::bootstrap_create(
             RawOrigin::Root.into(),
@@ -905,11 +986,11 @@ fn refund_in_disable_bootstrap_should_work() {
             BTC_ASSET_ID,
         ));
         assert_eq!(
-            <Test as Config>::MultiAssetsHandler::balance_of(DOT_ASSET_ID, &BOB),
+            <Test as Config>::MultiCurrency::free_balance(DOT_ASSET_ID, &BOB),
             supply_dot
         );
         assert_eq!(
-            <Test as Config>::MultiAssetsHandler::balance_of(BTC_ASSET_ID, &BOB),
+            <Test as Config>::MultiCurrency::free_balance(BTC_ASSET_ID, &BOB),
             supply_btc
         );
 
@@ -933,8 +1014,16 @@ fn disable_bootstrap_removed_after_all_refund_should_work() {
         let supply_dot = 10000 * DOT_UNIT;
         let supply_btc = 10000 * BTC_UNIT;
 
-        assert_ok!(DexPallet::foreign_mint(DOT_ASSET_ID, &ALICE, supply_dot));
-        assert_ok!(DexPallet::foreign_mint(BTC_ASSET_ID, &ALICE, supply_btc));
+        assert_ok!(<Test as Config>::MultiCurrency::deposit(
+            DOT_ASSET_ID,
+            &ALICE,
+            supply_dot
+        ));
+        assert_ok!(<Test as Config>::MultiCurrency::deposit(
+            BTC_ASSET_ID,
+            &ALICE,
+            supply_btc
+        ));
 
         assert_ok!(DexPallet::bootstrap_create(
             RawOrigin::Root.into(),
@@ -980,8 +1069,16 @@ fn bootstrap_pair_deny_swap_should_work() {
         let supply_dot = 10000 * DOT_UNIT;
         let supply_btc = 10000 * BTC_UNIT;
 
-        assert_ok!(DexPallet::foreign_mint(DOT_ASSET_ID, &ALICE, supply_dot));
-        assert_ok!(DexPallet::foreign_mint(BTC_ASSET_ID, &ALICE, supply_btc));
+        assert_ok!(<Test as Config>::MultiCurrency::deposit(
+            DOT_ASSET_ID,
+            &ALICE,
+            supply_dot
+        ));
+        assert_ok!(<Test as Config>::MultiCurrency::deposit(
+            BTC_ASSET_ID,
+            &ALICE,
+            supply_btc
+        ));
 
         assert_ok!(DexPallet::bootstrap_create(
             RawOrigin::Root.into(),
@@ -1057,10 +1154,18 @@ fn refund_in_success_bootstrap_should_not_work() {
         let supply_dot = 10000 * DOT_UNIT;
         let supply_btc = 10000 * BTC_UNIT;
 
-        assert_ok!(DexPallet::foreign_mint(DOT_ASSET_ID, &ALICE, supply_dot));
-        assert_ok!(DexPallet::foreign_mint(BTC_ASSET_ID, &ALICE, supply_btc));
-        assert_ok!(DexPallet::foreign_mint(DOT_ASSET_ID, &BOB, supply_dot));
-        assert_ok!(DexPallet::foreign_mint(BTC_ASSET_ID, &BOB, supply_btc));
+        assert_ok!(<Test as Config>::MultiCurrency::deposit(
+            DOT_ASSET_ID,
+            &ALICE,
+            supply_dot
+        ));
+        assert_ok!(<Test as Config>::MultiCurrency::deposit(
+            BTC_ASSET_ID,
+            &ALICE,
+            supply_btc
+        ));
+        assert_ok!(<Test as Config>::MultiCurrency::deposit(DOT_ASSET_ID, &BOB, supply_dot));
+        assert_ok!(<Test as Config>::MultiCurrency::deposit(BTC_ASSET_ID, &BOB, supply_btc));
 
         assert_ok!(DexPallet::bootstrap_create(
             RawOrigin::Root.into(),
@@ -1119,10 +1224,18 @@ fn refund_in_ongoing_bootstrap_should_not_work() {
         let supply_dot = 10000 * DOT_UNIT;
         let supply_btc = 10000 * BTC_UNIT;
 
-        assert_ok!(DexPallet::foreign_mint(DOT_ASSET_ID, &ALICE, supply_dot));
-        assert_ok!(DexPallet::foreign_mint(BTC_ASSET_ID, &ALICE, supply_btc));
-        assert_ok!(DexPallet::foreign_mint(DOT_ASSET_ID, &BOB, supply_dot));
-        assert_ok!(DexPallet::foreign_mint(BTC_ASSET_ID, &BOB, supply_btc));
+        assert_ok!(<Test as Config>::MultiCurrency::deposit(
+            DOT_ASSET_ID,
+            &ALICE,
+            supply_dot
+        ));
+        assert_ok!(<Test as Config>::MultiCurrency::deposit(
+            BTC_ASSET_ID,
+            &ALICE,
+            supply_btc
+        ));
+        assert_ok!(<Test as Config>::MultiCurrency::deposit(DOT_ASSET_ID, &BOB, supply_dot));
+        assert_ok!(<Test as Config>::MultiCurrency::deposit(BTC_ASSET_ID, &BOB, supply_btc));
 
         assert_ok!(DexPallet::bootstrap_create(
             RawOrigin::Root.into(),
@@ -1160,10 +1273,18 @@ fn create_pair_in_disable_bootstrap_should_work() {
         let supply_dot = 10000 * DOT_UNIT;
         let supply_btc = 10000 * BTC_UNIT;
 
-        assert_ok!(DexPallet::foreign_mint(DOT_ASSET_ID, &ALICE, 1 * DOT_UNIT));
-        assert_ok!(DexPallet::foreign_mint(BTC_ASSET_ID, &ALICE, 1 * BTC_UNIT));
-        assert_ok!(DexPallet::foreign_mint(DOT_ASSET_ID, &BOB, supply_dot));
-        assert_ok!(DexPallet::foreign_mint(BTC_ASSET_ID, &BOB, supply_btc));
+        assert_ok!(<Test as Config>::MultiCurrency::deposit(
+            DOT_ASSET_ID,
+            &ALICE,
+            1 * DOT_UNIT
+        ));
+        assert_ok!(<Test as Config>::MultiCurrency::deposit(
+            BTC_ASSET_ID,
+            &ALICE,
+            1 * BTC_UNIT
+        ));
+        assert_ok!(<Test as Config>::MultiCurrency::deposit(DOT_ASSET_ID, &BOB, supply_dot));
+        assert_ok!(<Test as Config>::MultiCurrency::deposit(BTC_ASSET_ID, &BOB, supply_btc));
 
         assert_ok!(DexPallet::bootstrap_create(
             RawOrigin::Root.into(),
@@ -1211,11 +1332,11 @@ fn create_pair_in_disable_bootstrap_should_work() {
             BTC_ASSET_ID,
         ));
         assert_eq!(
-            <Test as Config>::MultiAssetsHandler::balance_of(DOT_ASSET_ID, &BOB),
+            <Test as Config>::MultiCurrency::free_balance(DOT_ASSET_ID, &BOB),
             supply_dot
         );
         assert_eq!(
-            <Test as Config>::MultiAssetsHandler::balance_of(BTC_ASSET_ID, &BOB),
+            <Test as Config>::MultiCurrency::free_balance(BTC_ASSET_ID, &BOB),
             supply_btc
         );
 
@@ -1229,7 +1350,7 @@ fn create_pair_in_disable_bootstrap_should_work() {
             Error::<Test>::ZeroContribute
         );
 
-        let mint_liquidity = <Test as Config>::MultiAssetsHandler::balance_of(DOT_BTC_LP_ID, &ALICE);
+        let mint_liquidity = <Test as Config>::MultiCurrency::free_balance(DOT_BTC_LP_ID, &ALICE);
         assert_eq!(mint_liquidity, 316227766016);
     })
 }
@@ -1241,10 +1362,18 @@ fn create_bootstrap_in_disable_bootstrap() {
         let supply_dot = 10000 * DOT_UNIT;
         let supply_btc = 10000 * BTC_UNIT;
 
-        assert_ok!(DexPallet::foreign_mint(DOT_ASSET_ID, &ALICE, 1 * DOT_UNIT));
-        assert_ok!(DexPallet::foreign_mint(BTC_ASSET_ID, &ALICE, 1 * BTC_UNIT));
-        assert_ok!(DexPallet::foreign_mint(DOT_ASSET_ID, &BOB, supply_dot));
-        assert_ok!(DexPallet::foreign_mint(BTC_ASSET_ID, &BOB, supply_btc));
+        assert_ok!(<Test as Config>::MultiCurrency::deposit(
+            DOT_ASSET_ID,
+            &ALICE,
+            1 * DOT_UNIT
+        ));
+        assert_ok!(<Test as Config>::MultiCurrency::deposit(
+            BTC_ASSET_ID,
+            &ALICE,
+            1 * BTC_UNIT
+        ));
+        assert_ok!(<Test as Config>::MultiCurrency::deposit(DOT_ASSET_ID, &BOB, supply_dot));
+        assert_ok!(<Test as Config>::MultiCurrency::deposit(BTC_ASSET_ID, &BOB, supply_btc));
 
         assert_ok!(DexPallet::bootstrap_create(
             RawOrigin::Root.into(),
@@ -1315,7 +1444,7 @@ fn create_bootstrap_in_disable_bootstrap() {
             1000,
         ));
         assert_eq!(
-            <Test as Config>::MultiAssetsHandler::balance_of(DOT_BTC_LP_ID, &BOB),
+            <Test as Config>::MultiCurrency::free_balance(DOT_BTC_LP_ID, &BOB),
             2000000000000
         );
     })
@@ -1328,10 +1457,18 @@ fn create_pair_in_ongoing_bootstrap_should_not_work() {
         let supply_dot = 10000 * DOT_UNIT;
         let supply_btc = 10000 * BTC_UNIT;
 
-        assert_ok!(DexPallet::foreign_mint(DOT_ASSET_ID, &ALICE, 1 * DOT_UNIT));
-        assert_ok!(DexPallet::foreign_mint(BTC_ASSET_ID, &ALICE, 1 * BTC_UNIT));
-        assert_ok!(DexPallet::foreign_mint(DOT_ASSET_ID, &BOB, supply_dot));
-        assert_ok!(DexPallet::foreign_mint(BTC_ASSET_ID, &BOB, supply_btc));
+        assert_ok!(<Test as Config>::MultiCurrency::deposit(
+            DOT_ASSET_ID,
+            &ALICE,
+            1 * DOT_UNIT
+        ));
+        assert_ok!(<Test as Config>::MultiCurrency::deposit(
+            BTC_ASSET_ID,
+            &ALICE,
+            1 * BTC_UNIT
+        ));
+        assert_ok!(<Test as Config>::MultiCurrency::deposit(DOT_ASSET_ID, &BOB, supply_dot));
+        assert_ok!(<Test as Config>::MultiCurrency::deposit(BTC_ASSET_ID, &BOB, supply_btc));
 
         assert_ok!(DexPallet::bootstrap_create(
             RawOrigin::Root.into(),
@@ -1355,8 +1492,16 @@ fn create_pair_in_ongoing_bootstrap_should_not_work() {
 #[test]
 fn liquidity_at_boundary_should_work() {
     new_test_ext().execute_with(|| {
-        assert_ok!(DexPallet::foreign_mint(DOT_ASSET_ID, &ALICE, u128::MAX));
-        assert_ok!(DexPallet::foreign_mint(BTC_ASSET_ID, &ALICE, u128::MAX));
+        assert_ok!(<Test as Config>::MultiCurrency::deposit(
+            DOT_ASSET_ID,
+            &ALICE,
+            MAX_BALANCE
+        ));
+        assert_ok!(<Test as Config>::MultiCurrency::deposit(
+            BTC_ASSET_ID,
+            &ALICE,
+            MAX_BALANCE
+        ));
 
         assert_ok!(DexPallet::create_pair(
             RawOrigin::Root.into(),
@@ -1368,29 +1513,23 @@ fn liquidity_at_boundary_should_work() {
             RawOrigin::Signed(ALICE).into(),
             DOT_ASSET_ID,
             BTC_ASSET_ID,
-            u128::MAX,
-            u128::MAX,
+            MAX_BALANCE,
+            MAX_BALANCE,
             0,
             0,
             100
         ));
-        let mint_liquidity = <Test as Config>::MultiAssetsHandler::balance_of(DOT_BTC_LP_ID, &ALICE);
-        assert_eq!(
-            <Test as Config>::MultiAssetsHandler::balance_of(DOT_ASSET_ID, &ALICE),
-            0
-        );
-        assert_eq!(
-            <Test as Config>::MultiAssetsHandler::balance_of(BTC_ASSET_ID, &ALICE),
-            0
-        );
+        let mint_liquidity = <Test as Config>::MultiCurrency::free_balance(DOT_BTC_LP_ID, &ALICE);
+        assert_eq!(<Test as Config>::MultiCurrency::free_balance(DOT_ASSET_ID, &ALICE), 0);
+        assert_eq!(<Test as Config>::MultiCurrency::free_balance(BTC_ASSET_ID, &ALICE), 0);
 
-        assert_eq!(mint_liquidity, u128::MAX);
+        assert_eq!(mint_liquidity, MAX_BALANCE);
 
         assert_ok!(DexPallet::remove_liquidity(
             RawOrigin::Signed(ALICE).into(),
             DOT_ASSET_ID,
             BTC_ASSET_ID,
-            u128::MAX,
+            MAX_BALANCE,
             0,
             0,
             ALICE,
@@ -1398,20 +1537,20 @@ fn liquidity_at_boundary_should_work() {
         ));
 
         assert_eq!(
-            <Test as Config>::MultiAssetsHandler::balance_of(DOT_ASSET_ID, &ALICE),
-            u128::MAX
+            <Test as Config>::MultiCurrency::free_balance(DOT_ASSET_ID, &ALICE),
+            MAX_BALANCE
         );
         assert_eq!(
-            <Test as Config>::MultiAssetsHandler::balance_of(BTC_ASSET_ID, &ALICE),
-            u128::MAX
+            <Test as Config>::MultiCurrency::free_balance(BTC_ASSET_ID, &ALICE),
+            MAX_BALANCE
         );
 
         assert_ok!(DexPallet::add_liquidity(
             RawOrigin::Signed(ALICE).into(),
             DOT_ASSET_ID,
             BTC_ASSET_ID,
-            u128::MAX,
-            u128::MAX,
+            MAX_BALANCE,
+            MAX_BALANCE,
             0,
             0,
             100
@@ -1421,7 +1560,7 @@ fn liquidity_at_boundary_should_work() {
             RawOrigin::Signed(ALICE).into(),
             DOT_ASSET_ID,
             BTC_ASSET_ID,
-            u128::MAX / 2,
+            MAX_BALANCE / 2,
             0,
             0,
             ALICE,
@@ -1429,12 +1568,12 @@ fn liquidity_at_boundary_should_work() {
         ));
 
         assert_eq!(
-            <Test as Config>::MultiAssetsHandler::balance_of(DOT_ASSET_ID, &ALICE),
-            u128::MAX / 2
+            <Test as Config>::MultiCurrency::free_balance(DOT_ASSET_ID, &ALICE),
+            MAX_BALANCE / 2
         );
         assert_eq!(
-            <Test as Config>::MultiAssetsHandler::balance_of(BTC_ASSET_ID, &ALICE),
-            u128::MAX / 2
+            <Test as Config>::MultiCurrency::free_balance(BTC_ASSET_ID, &ALICE),
+            MAX_BALANCE / 2
         );
     })
 }
@@ -1443,12 +1582,36 @@ fn liquidity_at_boundary_should_work() {
 fn multi_bootstrap_contribute_claim_should_work() {
     new_test_ext().execute_with(|| {
         System::set_block_number(1);
-        assert_ok!(DexPallet::foreign_mint(DOT_ASSET_ID, &ALICE, u128::MAX / 4 - 1));
-        assert_ok!(DexPallet::foreign_mint(BTC_ASSET_ID, &ALICE, u128::MAX / 4 - 1));
-        assert_ok!(DexPallet::foreign_mint(DOT_ASSET_ID, &BOB, u128::MAX / 4 - 1));
-        assert_ok!(DexPallet::foreign_mint(BTC_ASSET_ID, &BOB, u128::MAX / 4 - 1));
-        assert_ok!(DexPallet::foreign_mint(DOT_ASSET_ID, &CHARLIE, u128::MAX / 4 - 1));
-        assert_ok!(DexPallet::foreign_mint(BTC_ASSET_ID, &CHARLIE, u128::MAX / 4 - 1));
+        assert_ok!(<Test as Config>::MultiCurrency::deposit(
+            DOT_ASSET_ID,
+            &ALICE,
+            MAX_BALANCE / 4 - 1
+        ));
+        assert_ok!(<Test as Config>::MultiCurrency::deposit(
+            BTC_ASSET_ID,
+            &ALICE,
+            MAX_BALANCE / 4 - 1
+        ));
+        assert_ok!(<Test as Config>::MultiCurrency::deposit(
+            DOT_ASSET_ID,
+            &BOB,
+            MAX_BALANCE / 4 - 1
+        ));
+        assert_ok!(<Test as Config>::MultiCurrency::deposit(
+            BTC_ASSET_ID,
+            &BOB,
+            MAX_BALANCE / 4 - 1
+        ));
+        assert_ok!(<Test as Config>::MultiCurrency::deposit(
+            DOT_ASSET_ID,
+            &CHARLIE,
+            MAX_BALANCE / 4 - 1
+        ));
+        assert_ok!(<Test as Config>::MultiCurrency::deposit(
+            BTC_ASSET_ID,
+            &CHARLIE,
+            MAX_BALANCE / 4 - 1
+        ));
 
         let unit = 1_000_000_000_000_000_000u128;
         assert_ok!(DexPallet::bootstrap_create(
@@ -1498,7 +1661,7 @@ fn multi_bootstrap_contribute_claim_should_work() {
             BTC_ASSET_ID
         ));
 
-        let total_lp = <Test as Config>::MultiAssetsHandler::total_supply(DOT_BTC_LP_ID);
+        let total_lp = <Test as Config>::MultiCurrency::total_issuance(DOT_BTC_LP_ID);
         assert_eq!(
             U256::from(300_000_000 * unit)
                 .saturating_mul(U256::from(300_000_000 * unit))
@@ -1539,13 +1702,13 @@ fn multi_bootstrap_contribute_claim_should_work() {
         // 100000000000000000000000000 (200000000 * 10^18 * 300000000 * 10^18 + 0) / (300000000 *
         // 10^18 *2) = 100000000000000000000000000 alice_lp = 100000000000000000000000000
 
-        let alice_lp = <Test as Config>::MultiAssetsHandler::balance_of(DOT_BTC_LP_ID, &ALICE);
+        let alice_lp = <Test as Config>::MultiCurrency::free_balance(DOT_BTC_LP_ID, &ALICE);
         assert_eq!(alice_lp, 100000000000000000000000000);
 
-        let bob_lp = <Test as Config>::MultiAssetsHandler::balance_of(DOT_BTC_LP_ID, &BOB);
+        let bob_lp = <Test as Config>::MultiCurrency::free_balance(DOT_BTC_LP_ID, &BOB);
         assert_eq!(bob_lp, 100000000000000000000000000);
 
-        let charlie_lp = <Test as Config>::MultiAssetsHandler::balance_of(DOT_BTC_LP_ID, &CHARLIE);
+        let charlie_lp = <Test as Config>::MultiCurrency::free_balance(DOT_BTC_LP_ID, &CHARLIE);
         assert_eq!(charlie_lp, 100000000000000000000000000);
     })
 }
@@ -1619,8 +1782,16 @@ fn bootstrap_charge_reward_should_work() {
             [(DOT_ASSET_ID, 2000 * unit), (BTC_ASSET_ID, 1000 * unit)].to_vec(),
         ));
 
-        assert_ok!(DexPallet::foreign_mint(KSM_ASSET_ID, &BOB, 1000 * unit));
-        assert_ok!(DexPallet::foreign_mint(ETH_ASSET_ID, &BOB, 2000 * unit));
+        assert_ok!(<Test as Config>::MultiCurrency::deposit(
+            KSM_ASSET_ID,
+            &BOB,
+            1000 * unit
+        ));
+        assert_ok!(<Test as Config>::MultiCurrency::deposit(
+            ETH_ASSET_ID,
+            &BOB,
+            2000 * unit
+        ));
 
         assert_ok!(DexPallet::bootstrap_charge_reward(
             RawOrigin::Signed(BOB).into(),
@@ -1630,16 +1801,16 @@ fn bootstrap_charge_reward_should_work() {
         ));
 
         assert_eq!(
-            <Test as Config>::MultiAssetsHandler::balance_of(ETH_ASSET_ID, &DexPallet::account_id()),
+            <Test as Config>::MultiCurrency::free_balance(ETH_ASSET_ID, &DexPallet::account_id()),
             2000 * unit
         );
         assert_eq!(
-            <Test as Config>::MultiAssetsHandler::balance_of(KSM_ASSET_ID, &DexPallet::account_id()),
+            <Test as Config>::MultiCurrency::free_balance(KSM_ASSET_ID, &DexPallet::account_id()),
             1000 * unit
         );
 
-        assert_eq!(<Test as Config>::MultiAssetsHandler::balance_of(ETH_ASSET_ID, &BOB), 0);
-        assert_eq!(<Test as Config>::MultiAssetsHandler::balance_of(KSM_ASSET_ID, &BOB), 0);
+        assert_eq!(<Test as Config>::MultiCurrency::free_balance(ETH_ASSET_ID, &BOB), 0);
+        assert_eq!(<Test as Config>::MultiCurrency::free_balance(KSM_ASSET_ID, &BOB), 0);
     })
 }
 
@@ -1661,8 +1832,16 @@ fn bootstrap_withdraw_reward_after_charge_should_work() {
             [(DOT_ASSET_ID, 2000 * unit), (BTC_ASSET_ID, 1000 * unit)].to_vec(),
         ));
 
-        assert_ok!(DexPallet::foreign_mint(KSM_ASSET_ID, &BOB, 1000 * unit));
-        assert_ok!(DexPallet::foreign_mint(ETH_ASSET_ID, &BOB, 2000 * unit));
+        assert_ok!(<Test as Config>::MultiCurrency::deposit(
+            KSM_ASSET_ID,
+            &BOB,
+            1000 * unit
+        ));
+        assert_ok!(<Test as Config>::MultiCurrency::deposit(
+            ETH_ASSET_ID,
+            &BOB,
+            2000 * unit
+        ));
 
         assert_ok!(DexPallet::bootstrap_charge_reward(
             RawOrigin::Signed(BOB).into(),
@@ -1679,20 +1858,20 @@ fn bootstrap_withdraw_reward_after_charge_should_work() {
         ));
 
         assert_eq!(
-            <Test as Config>::MultiAssetsHandler::balance_of(ETH_ASSET_ID, &DexPallet::account_id()),
+            <Test as Config>::MultiCurrency::free_balance(ETH_ASSET_ID, &DexPallet::account_id()),
             0
         );
         assert_eq!(
-            <Test as Config>::MultiAssetsHandler::balance_of(KSM_ASSET_ID, &DexPallet::account_id()),
+            <Test as Config>::MultiCurrency::free_balance(KSM_ASSET_ID, &DexPallet::account_id()),
             0
         );
 
         assert_eq!(
-            <Test as Config>::MultiAssetsHandler::balance_of(ETH_ASSET_ID, &ALICE),
+            <Test as Config>::MultiCurrency::free_balance(ETH_ASSET_ID, &ALICE),
             2000 * unit
         );
         assert_eq!(
-            <Test as Config>::MultiAssetsHandler::balance_of(KSM_ASSET_ID, &ALICE),
+            <Test as Config>::MultiCurrency::free_balance(KSM_ASSET_ID, &ALICE),
             1000 * unit
         );
 
@@ -1721,8 +1900,16 @@ fn bootstrap_charge_reward_with_insufficient_account_should_not_work() {
             [(DOT_ASSET_ID, 2000 * unit), (BTC_ASSET_ID, 1000 * unit)].to_vec(),
         ));
 
-        assert_ok!(DexPallet::foreign_mint(KSM_ASSET_ID, &BOB, 1000 * unit));
-        assert_ok!(DexPallet::foreign_mint(ETH_ASSET_ID, &BOB, 2000 * unit));
+        assert_ok!(<Test as Config>::MultiCurrency::deposit(
+            KSM_ASSET_ID,
+            &BOB,
+            1000 * unit
+        ));
+        assert_ok!(<Test as Config>::MultiCurrency::deposit(
+            ETH_ASSET_ID,
+            &BOB,
+            2000 * unit
+        ));
 
         assert_noop!(
             DexPallet::bootstrap_charge_reward(
@@ -1735,20 +1922,20 @@ fn bootstrap_charge_reward_with_insufficient_account_should_not_work() {
         );
 
         assert_eq!(
-            <Test as Config>::MultiAssetsHandler::balance_of(ETH_ASSET_ID, &DexPallet::account_id()),
+            <Test as Config>::MultiCurrency::free_balance(ETH_ASSET_ID, &DexPallet::account_id()),
             0
         );
         assert_eq!(
-            <Test as Config>::MultiAssetsHandler::balance_of(KSM_ASSET_ID, &DexPallet::account_id()),
+            <Test as Config>::MultiCurrency::free_balance(KSM_ASSET_ID, &DexPallet::account_id()),
             0
         );
 
         assert_eq!(
-            <Test as Config>::MultiAssetsHandler::balance_of(ETH_ASSET_ID, &BOB),
+            <Test as Config>::MultiCurrency::free_balance(ETH_ASSET_ID, &BOB),
             2000 * unit
         );
         assert_eq!(
-            <Test as Config>::MultiAssetsHandler::balance_of(KSM_ASSET_ID, &BOB),
+            <Test as Config>::MultiCurrency::free_balance(KSM_ASSET_ID, &BOB),
             1000 * unit
         );
     })
@@ -1775,8 +1962,16 @@ fn bootstrap_contribute_below_limits_should_not_work() {
         ));
 
         // charlie's asset  below limit,
-        assert_ok!(DexPallet::foreign_mint(DOT_ASSET_ID, &CHARLIE, 100 * unit));
-        assert_ok!(DexPallet::foreign_mint(BTC_ASSET_ID, &CHARLIE, 2000 * unit));
+        assert_ok!(<Test as Config>::MultiCurrency::deposit(
+            DOT_ASSET_ID,
+            &CHARLIE,
+            100 * unit
+        ));
+        assert_ok!(<Test as Config>::MultiCurrency::deposit(
+            BTC_ASSET_ID,
+            &CHARLIE,
+            2000 * unit
+        ));
 
         assert_noop!(
             DexPallet::bootstrap_contribute(
@@ -1791,20 +1986,20 @@ fn bootstrap_contribute_below_limits_should_not_work() {
         );
 
         assert_eq!(
-            <Test as Config>::MultiAssetsHandler::balance_of(DOT_ASSET_ID, &DexPallet::account_id()),
+            <Test as Config>::MultiCurrency::free_balance(DOT_ASSET_ID, &DexPallet::account_id()),
             0
         );
         assert_eq!(
-            <Test as Config>::MultiAssetsHandler::balance_of(BTC_ASSET_ID, &DexPallet::account_id()),
+            <Test as Config>::MultiCurrency::free_balance(BTC_ASSET_ID, &DexPallet::account_id()),
             0
         );
 
         assert_eq!(
-            <Test as Config>::MultiAssetsHandler::balance_of(DOT_ASSET_ID, &CHARLIE),
+            <Test as Config>::MultiCurrency::free_balance(DOT_ASSET_ID, &CHARLIE),
             100 * unit
         );
         assert_eq!(
-            <Test as Config>::MultiAssetsHandler::balance_of(BTC_ASSET_ID, &CHARLIE),
+            <Test as Config>::MultiCurrency::free_balance(BTC_ASSET_ID, &CHARLIE),
             2000 * unit
         );
     })
@@ -1829,15 +2024,39 @@ fn bootstrap_contribute_exceed_limits_should_work() {
         ));
 
         // alice mint asset
-        assert_ok!(DexPallet::foreign_mint(DOT_ASSET_ID, &ALICE, 2_000_000 * unit));
-        assert_ok!(DexPallet::foreign_mint(BTC_ASSET_ID, &ALICE, 4_000_000 * unit));
+        assert_ok!(<Test as Config>::MultiCurrency::deposit(
+            DOT_ASSET_ID,
+            &ALICE,
+            2_000_000 * unit
+        ));
+        assert_ok!(<Test as Config>::MultiCurrency::deposit(
+            BTC_ASSET_ID,
+            &ALICE,
+            4_000_000 * unit
+        ));
 
-        assert_ok!(DexPallet::foreign_mint(DOT_ASSET_ID, &CHARLIE, 2_000_000 * unit));
-        assert_ok!(DexPallet::foreign_mint(BTC_ASSET_ID, &CHARLIE, 4_000_000 * unit));
+        assert_ok!(<Test as Config>::MultiCurrency::deposit(
+            DOT_ASSET_ID,
+            &CHARLIE,
+            2_000_000 * unit
+        ));
+        assert_ok!(<Test as Config>::MultiCurrency::deposit(
+            BTC_ASSET_ID,
+            &CHARLIE,
+            4_000_000 * unit
+        ));
 
         // alice will charge
-        assert_ok!(DexPallet::foreign_mint(ETH_ASSET_ID, &ALICE, 20_000 * unit));
-        assert_ok!(DexPallet::foreign_mint(KSM_ASSET_ID, &ALICE, 10_000 * unit));
+        assert_ok!(<Test as Config>::MultiCurrency::deposit(
+            ETH_ASSET_ID,
+            &ALICE,
+            20_000 * unit
+        ));
+        assert_ok!(<Test as Config>::MultiCurrency::deposit(
+            KSM_ASSET_ID,
+            &ALICE,
+            10_000 * unit
+        ));
 
         assert_ok!(DexPallet::bootstrap_charge_reward(
             RawOrigin::Signed(ALICE).into(),
@@ -1847,8 +2066,16 @@ fn bootstrap_contribute_exceed_limits_should_work() {
         ));
 
         // bob's asset == limit
-        assert_ok!(DexPallet::foreign_mint(DOT_ASSET_ID, &BOB, 2_000 * unit));
-        assert_ok!(DexPallet::foreign_mint(BTC_ASSET_ID, &BOB, 1_000 * unit));
+        assert_ok!(<Test as Config>::MultiCurrency::deposit(
+            DOT_ASSET_ID,
+            &BOB,
+            2_000 * unit
+        ));
+        assert_ok!(<Test as Config>::MultiCurrency::deposit(
+            BTC_ASSET_ID,
+            &BOB,
+            1_000 * unit
+        ));
 
         assert_ok!(DexPallet::bootstrap_contribute(
             RawOrigin::Signed(ALICE).into(),
@@ -1914,7 +2141,7 @@ fn bootstrap_contribute_exceed_limits_should_work() {
         // * (2000000000000000000000000 * 4001000000000000000000000 + 4000000000000000000000000 *
         //   2002000000000000000000000) / (2002000000000000000000000 *2))
         // = 2_828_427_323_371_633_862_327_510
-        let alice_lp = <Test as Config>::MultiAssetsHandler::balance_of(DOT_BTC_LP_ID, &ALICE);
+        let alice_lp = <Test as Config>::MultiCurrency::free_balance(DOT_BTC_LP_ID, &ALICE);
         assert_eq!(alice_lp, 2_828_427_323_371_633_862_327_509u128);
 
         // bob_lp = sqrt((2000000000000000000000 * 4001000000000000000000000 +
@@ -1922,7 +2149,7 @@ fn bootstrap_contribute_exceed_limits_should_work() {
         // * (2000000000000000000000 * 4001000000000000000000000 + 1000000000000000000000 * 2002000000000000000000000) /
         //   (2002000000000000000000000 *2))
         // = 1767_369_577_951_894_138_583
-        let bob_lp = <Test as Config>::MultiAssetsHandler::balance_of(DOT_BTC_LP_ID, &BOB);
+        let bob_lp = <Test as Config>::MultiCurrency::free_balance(DOT_BTC_LP_ID, &BOB);
         assert_eq!(bob_lp, 1767_369_577_951_894_138_582u128);
 
         // bootstrap_mint_lp = 2828427323371633862327510 + 1767369577951894138583 =
@@ -1933,11 +2160,11 @@ fn bootstrap_contribute_exceed_limits_should_work() {
         // bob_reward_ksm = 1767369577951894138582 * 10000000000000000000000 /
         // (2828427323371633862327510 + 1767369577951894138583) = 6_244_692_573_110_468_636
         assert_eq!(
-            <Test as Config>::MultiAssetsHandler::balance_of(ETH_ASSET_ID, &BOB),
+            <Test as Config>::MultiCurrency::free_balance(ETH_ASSET_ID, &BOB),
             12_489_385_146_220_937_273
         );
         assert_eq!(
-            <Test as Config>::MultiAssetsHandler::balance_of(KSM_ASSET_ID, &BOB),
+            <Test as Config>::MultiCurrency::free_balance(KSM_ASSET_ID, &BOB),
             6_244_692_573_110_468_636
         );
 
@@ -1946,11 +2173,11 @@ fn bootstrap_contribute_exceed_limits_should_work() {
         // alice_reward_ksm = 2828427323371633862327510 * 10000000000000000000000 /
         // (2828427323371633862327510 + 1767369577951894138583) = 9_993_755_307_426_889_531_363
         assert_eq!(
-            <Test as Config>::MultiAssetsHandler::balance_of(ETH_ASSET_ID, &ALICE),
+            <Test as Config>::MultiCurrency::free_balance(ETH_ASSET_ID, &ALICE),
             19_987_510_614_853_779_062_726
         );
         assert_eq!(
-            <Test as Config>::MultiAssetsHandler::balance_of(KSM_ASSET_ID, &ALICE),
+            <Test as Config>::MultiCurrency::free_balance(KSM_ASSET_ID, &ALICE),
             9_993_755_307_426_889_531_363
         );
     })
@@ -1974,11 +2201,27 @@ fn bootstrap_zero_reward_claim_should_work() {
             [(DOT_ASSET_ID, 2000 * unit), (BTC_ASSET_ID, 1000 * unit)].to_vec(),
         ));
 
-        assert_ok!(DexPallet::foreign_mint(DOT_ASSET_ID, &ALICE, 2_000_000 * unit));
-        assert_ok!(DexPallet::foreign_mint(BTC_ASSET_ID, &ALICE, 4_000_000 * unit));
+        assert_ok!(<Test as Config>::MultiCurrency::deposit(
+            DOT_ASSET_ID,
+            &ALICE,
+            2_000_000 * unit
+        ));
+        assert_ok!(<Test as Config>::MultiCurrency::deposit(
+            BTC_ASSET_ID,
+            &ALICE,
+            4_000_000 * unit
+        ));
 
-        assert_ok!(DexPallet::foreign_mint(DOT_ASSET_ID, &BOB, 2_000 * unit));
-        assert_ok!(DexPallet::foreign_mint(BTC_ASSET_ID, &BOB, 1_000 * unit));
+        assert_ok!(<Test as Config>::MultiCurrency::deposit(
+            DOT_ASSET_ID,
+            &BOB,
+            2_000 * unit
+        ));
+        assert_ok!(<Test as Config>::MultiCurrency::deposit(
+            BTC_ASSET_ID,
+            &BOB,
+            1_000 * unit
+        ));
 
         assert_ok!(DexPallet::bootstrap_contribute(
             RawOrigin::Signed(ALICE).into(),
@@ -2023,30 +2266,24 @@ fn bootstrap_zero_reward_claim_should_work() {
         ));
 
         assert_eq!(
-            <Test as Config>::MultiAssetsHandler::balance_of(DOT_BTC_LP_ID, &ALICE),
+            <Test as Config>::MultiCurrency::free_balance(DOT_BTC_LP_ID, &ALICE),
             2_828_427_323_371_633_862_327_509
         );
 
         assert_eq!(
-            <Test as Config>::MultiAssetsHandler::balance_of(DOT_BTC_LP_ID, &BOB),
+            <Test as Config>::MultiCurrency::free_balance(DOT_BTC_LP_ID, &BOB),
             1767_369_577_951_894_138_582
         );
 
         assert_eq!(
-            <Test as Config>::MultiAssetsHandler::total_supply(DOT_BTC_LP_ID),
+            <Test as Config>::MultiCurrency::total_issuance(DOT_BTC_LP_ID),
             2_830_194_692_949_585_756_466_093
         );
 
-        assert_eq!(<Test as Config>::MultiAssetsHandler::balance_of(ETH_ASSET_ID, &BOB), 0);
-        assert_eq!(<Test as Config>::MultiAssetsHandler::balance_of(KSM_ASSET_ID, &BOB), 0);
+        assert_eq!(<Test as Config>::MultiCurrency::free_balance(ETH_ASSET_ID, &BOB), 0);
+        assert_eq!(<Test as Config>::MultiCurrency::free_balance(KSM_ASSET_ID, &BOB), 0);
 
-        assert_eq!(
-            <Test as Config>::MultiAssetsHandler::balance_of(ETH_ASSET_ID, &ALICE),
-            0
-        );
-        assert_eq!(
-            <Test as Config>::MultiAssetsHandler::balance_of(KSM_ASSET_ID, &ALICE),
-            0
-        );
+        assert_eq!(<Test as Config>::MultiCurrency::free_balance(ETH_ASSET_ID, &ALICE), 0);
+        assert_eq!(<Test as Config>::MultiCurrency::free_balance(KSM_ASSET_ID, &ALICE), 0);
     })
 }

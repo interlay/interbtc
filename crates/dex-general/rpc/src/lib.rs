@@ -23,9 +23,6 @@ pub use dex_general_rpc_runtime_api::DexGeneralApi as DexGeneralRuntimeApi;
 
 #[rpc(client, server)]
 pub trait DexGeneralApi<BlockHash, AccountId, AssetId> {
-    #[method(name = "dexGeneral_getBalance")]
-    fn get_balance(&self, asset_id: AssetId, account: AccountId, at: Option<BlockHash>) -> RpcResult<NumberOrHex>;
-
     #[method(name = "dexGeneral_getPairByAssetId")]
     fn get_pair_by_asset_id(
         &self,
@@ -142,20 +139,6 @@ where
         )
         .map(|price| price.into())
         .map_err(runtime_error_into_rpc_err)
-    }
-
-    fn get_balance(
-        &self,
-        asset_id: AssetId,
-        account: AccountId,
-        at: Option<<Block as BlockT>::Hash>,
-    ) -> RpcResult<NumberOrHex> {
-        let api = self.client.runtime_api();
-        let at = BlockId::hash(at.unwrap_or_else(|| self.client.info().best_hash));
-
-        api.get_balance(&at, asset_id, account)
-            .map(|asset_balance| asset_balance.into())
-            .map_err(runtime_error_into_rpc_err)
     }
 
     fn get_pair_by_asset_id(

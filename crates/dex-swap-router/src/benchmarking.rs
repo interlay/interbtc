@@ -11,7 +11,7 @@ use frame_benchmarking::{benchmarks, whitelisted_caller};
 use frame_support::assert_ok;
 use frame_system::RawOrigin;
 
-use dex_general::{AssetId, MultiAssetsHandler, Pallet as NormalAmmPallet};
+use dex_general::Pallet as NormalAmmPallet;
 use dex_stable::Pallet as StableAmmPallet;
 use orml_traits::MultiCurrency;
 
@@ -21,16 +21,8 @@ const INITIAL_A_VALUE: u128 = 50;
 const SWAP_FEE: u128 = 10000000;
 const ADMIN_FEE: u128 = 0;
 
-const ASSET_0: AssetId = AssetId {
-    chain_id: 2001,
-    asset_type: 2,
-    asset_index: 515,
-};
-const ASSET_1: AssetId = AssetId {
-    chain_id: 2001,
-    asset_type: 2,
-    asset_index: 514,
-};
+const ASSET_0: u32 = 0;
+const ASSET_1: u32 = 1;
 
 fn token1<CurrencyId: TryFrom<u64> + Default>() -> CurrencyId {
     CurrencyId::try_from(513u64).unwrap_or_default()
@@ -43,16 +35,16 @@ fn token2<CurrencyId: TryFrom<u64> + Default>() -> CurrencyId {
 benchmarks! {
     where_clause { where T: Config + dex_general::Config + dex_stable::Config,
                         <T as dex_stable::Config>::CurrencyId: TryFrom<u64> + Default,
-                        <T as dex_general::Config>::AssetId: From<AssetId>,
+                        <T as dex_general::Config>::AssetId: From<u32>,
                         <T as Config>::StableCurrencyId: TryFrom<u64> + Default,
-                        <T as Config>::NormalCurrencyId: From<AssetId>,
+                        <T as Config>::NormalCurrencyId: From<u32>,
     }
 
     swap_exact_token_for_tokens_through_stable_pool{
         let caller: T::AccountId = whitelisted_caller();
 
-        assert_ok!(<T as dex_general::Config>::MultiAssetsHandler::deposit(ASSET_0.into(), &caller, 1000 * UNIT));
-        assert_ok!(<T as dex_general::Config>::MultiAssetsHandler::deposit(ASSET_1.into(), &caller, 1000 * UNIT));
+        assert_ok!(<T as dex_general::Config>::MultiCurrency::deposit(ASSET_0.into(), &caller, 1000 * UNIT));
+        assert_ok!(<T as dex_general::Config>::MultiCurrency::deposit(ASSET_1.into(), &caller, 1000 * UNIT));
 
         let stable_token1 = token1::<<T as dex_stable::Config>::CurrencyId>();
         let stable_token2 = token2::<<T as dex_stable::Config>::CurrencyId>();

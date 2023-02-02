@@ -17,28 +17,16 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 #![allow(clippy::unused_unit)]
 
-#[cfg(feature = "std")]
-use serde::{Deserialize, Serialize};
-
 pub use pallet::*;
 
 use codec::{Decode, Encode, FullCodec};
-use frame_support::{
-    inherent::Vec,
-    pallet_prelude::*,
-    sp_runtime::SaturatedConversion,
-    traits::{Currency, ExistenceRequirement, ExistenceRequirement::KeepAlive, Get, WithdrawReasons},
-    PalletId, RuntimeDebug,
-};
+use frame_support::{inherent::Vec, pallet_prelude::*, traits::Get, PalletId, RuntimeDebug};
+use orml_traits::MultiCurrency;
 use sp_core::U256;
 use sp_runtime::traits::{AccountIdConversion, Hash, MaybeSerializeDeserialize, One, StaticLookup, Zero};
-use sp_std::{collections::btree_map::BTreeMap, convert::TryInto, fmt::Debug, marker::PhantomData, prelude::*, vec};
-
-pub use cumulus_primitives_core::ParaId;
+use sp_std::{collections::btree_map::BTreeMap, convert::TryInto, fmt::Debug, prelude::*, vec};
 
 mod fee;
-mod foreign;
-mod multiassets;
 mod primitives;
 mod rpc;
 mod swap;
@@ -50,14 +38,16 @@ pub mod benchmarking;
 mod default_weights;
 
 pub use default_weights::WeightInfo;
-pub use multiassets::{DexGeneralMultiAssets, MultiAssetsHandler};
 pub use primitives::{
-    AssetBalance, AssetId, AssetInfo, BootstrapParameter, PairLpGenerate, PairMetadata, PairStatus,
+    AssetBalance, AssetInfo, BootstrapParameter, PairMetadata, PairStatus,
     PairStatus::{Bootstrap, Disable, Trading},
-    DEFAULT_FEE_RATE, FEE_ADJUSTMENT, LIQUIDITY, LOCAL, NATIVE, RESERVED,
+    DEFAULT_FEE_RATE, FEE_ADJUSTMENT,
 };
 pub use rpc::PairInfo;
 pub use traits::{ExportDexGeneral, GenerateLpAssetId};
+
+#[allow(type_alias_bounds)]
+type AccountIdOf<T: Config> = <T as frame_system::Config>::AccountId;
 
 #[frame_support::pallet]
 pub mod pallet {
@@ -70,8 +60,8 @@ pub mod pallet {
     pub trait Config: frame_system::Config {
         /// Because this pallet emits events, it depends on the runtime's definition of an event.
         type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
-        /// The assets interface beyond native currency and other assets.
-        type MultiAssetsHandler: MultiAssetsHandler<Self::AccountId, Self::AssetId>;
+        /// The trait control all currencies
+        type MultiCurrency: MultiCurrency<AccountIdOf<Self>, CurrencyId = Self::AssetId, Balance = AssetBalance>;
         /// This pallet id.
         #[pallet::constant]
         type PalletId: Get<PalletId>;
@@ -89,10 +79,6 @@ pub mod pallet {
             + MaxEncodedLen;
         /// Generate the AssetId for the pair.
         type LpGenerate: GenerateLpAssetId<Self::AssetId>;
-
-        /// This parachain id.
-        type SelfParaId: Get<u32>;
-
         /// Weight information for extrinsics in this pallet.
         type WeightInfo: WeightInfo;
     }
@@ -101,22 +87,6 @@ pub mod pallet {
     #[pallet::without_storage_info]
     #[pallet::generate_store(pub(super) trait Store)]
     pub struct Pallet<T>(_);
-
-    /// Foreign foreign storage
-    #[pallet::storage]
-    #[pallet::getter(fn foreign_ledger)]
-    /// The number of units of assets held by any given account.
-    pub type ForeignLedger<T: Config> =
-        StorageMap<_, Blake2_128Concat, (T::AssetId, T::AccountId), AssetBalance, ValueQuery>;
-
-    #[pallet::storage]
-    #[pallet::getter(fn foreign_meta)]
-    /// TWOX-NOTE: `AssetId` is trusted, so this is safe.
-    pub type ForeignMeta<T: Config> = StorageMap<_, Twox64Concat, T::AssetId, AssetBalance, ValueQuery>;
-
-    #[pallet::storage]
-    #[pallet::getter(fn foreign_list)]
-    pub type ForeignList<T: Config> = StorageValue<_, Vec<T::AssetId>, ValueQuery>;
 
     #[pallet::storage]
     #[pallet::getter(fn k_last)]
@@ -229,15 +199,6 @@ pub mod pallet {
     #[pallet::event]
     #[pallet::generate_deposit(pub(super) fn deposit_event)]
     pub enum Event<T: Config> {
-        /// Foreign Asset
-
-        /// Some assets were transferred. \[asset_id, owner, target, amount\]
-        Transferred(T::AssetId, T::AccountId, T::AccountId, AssetBalance),
-        /// Some assets were burned. \[asset_id, owner, amount\]
-        Burned(T::AssetId, T::AccountId, AssetBalance),
-        /// Some assets were minted. \[asset_id, owner, amount\]
-        Minted(T::AssetId, T::AccountId, AssetBalance),
-
         /// Swap
 
         /// Create a trading pair. \[asset_0, asset_1\]
@@ -418,7 +379,9 @@ pub mod pallet {
         /// - `send_to`:
         /// (1) Some(receiver): it turn on the protocol fee and the new receiver account.
         /// (2) None: it turn off the protocol fee.
+        #[pallet::call_index(0)]
         #[pallet::weight(T::WeightInfo::set_fee_receiver())]
+        #[frame_support::transactional]
         pub fn set_fee_receiver(
             origin: OriginFor<T>,
             send_to: Option<<T::Lookup as StaticLookup>::Source>,
@@ -447,7 +410,9 @@ pub mod pallet {
         /// 0 means no protocol fee.
         /// 30 means 0.3% * 100% = 0.0030.
         /// default is 5 and means 0.3% * 1 / 6 = 0.0005.
+        #[pallet::call_index(1)]
         #[pallet::weight(T::WeightInfo::set_fee_point())]
+        #[frame_support::transactional]
         pub fn set_fee_point(origin: OriginFor<T>, fee_point: u8) -> DispatchResult {
             ensure_root(origin)?;
             ensure!(fee_point <= 30, Error::<T>::InvalidFeePoint);
@@ -458,7 +423,9 @@ pub mod pallet {
         }
 
         /// Set the exchange fee rate.
+        #[pallet::call_index(2)]
         #[pallet::weight(T::WeightInfo::set_fee_point())]
+        #[frame_support::transactional]
         pub fn set_exchange_fee(
             origin: OriginFor<T>,
             asset_0: T::AssetId,
@@ -490,30 +457,6 @@ pub mod pallet {
             Ok(())
         }
 
-        /// Move some assets from one holder to another.
-        ///
-        /// # Arguments
-        ///
-        /// - `asset_id`: The foreign id.
-        /// - `target`: The receiver of the foreign.
-        /// - `amount`: The amount of the foreign to transfer.
-        #[pallet::weight(1_000_000)]
-        pub fn transfer(
-            origin: OriginFor<T>,
-            asset_id: T::AssetId,
-            recipient: <T::Lookup as StaticLookup>::Source,
-            #[pallet::compact] amount: AssetBalance,
-        ) -> DispatchResult {
-            let origin = ensure_signed(origin)?;
-            let target = T::Lookup::lookup(recipient)?;
-            let balance = T::MultiAssetsHandler::balance_of(asset_id, &origin);
-            ensure!(balance >= amount, Error::<T>::InsufficientAssetBalance);
-
-            T::MultiAssetsHandler::transfer(asset_id, &origin, &target, amount)?;
-
-            Ok(())
-        }
-
         /// Create pair by two assets.
         ///
         /// The order of assets does not effect the result.
@@ -522,7 +465,9 @@ pub mod pallet {
         ///
         /// - `asset_0`: Asset which make up Pair
         /// - `asset_1`: Asset which make up Pair
+        #[pallet::call_index(3)]
         #[pallet::weight(T::WeightInfo::create_pair())]
+        #[frame_support::transactional]
         pub fn create_pair(origin: OriginFor<T>, asset_0: T::AssetId, asset_1: T::AssetId) -> DispatchResult {
             ensure_root(origin)?;
             ensure!(
@@ -531,9 +476,6 @@ pub mod pallet {
             );
 
             ensure!(asset_0 != asset_1, Error::<T>::DeniedCreatePair);
-
-            ensure!(T::MultiAssetsHandler::is_exists(asset_0), Error::<T>::AssetNotExists);
-            ensure!(T::MultiAssetsHandler::is_exists(asset_1), Error::<T>::AssetNotExists);
 
             let pair = Self::sort_asset_id(asset_0, asset_1);
             PairStatuses::<T>::try_mutate(pair, |status| match status {
@@ -581,6 +523,7 @@ pub mod pallet {
         /// - `amount_0_min`: Minimum amount of asset_0 added to the pair
         /// - `amount_1_min`: Minimum amount of asset_1 added to the pair
         /// - `deadline`: Height of the cutoff block of this transaction
+        #[pallet::call_index(4)]
         #[pallet::weight(T::WeightInfo::add_liquidity())]
         #[frame_support::transactional]
         #[allow(clippy::too_many_arguments)]
@@ -625,6 +568,7 @@ pub mod pallet {
         /// - `amount_asset_1_min`: Minimum amount of asset_1 to exact
         /// - `recipient`: Account that accepts withdrawal of assets
         /// - `deadline`: Height of the cutoff block of this transaction
+        #[pallet::call_index(5)]
         #[pallet::weight(T::WeightInfo::remove_liquidity())]
         #[frame_support::transactional]
         #[allow(clippy::too_many_arguments)]
@@ -667,6 +611,7 @@ pub mod pallet {
         /// - `path`: path can convert to pairs.
         /// - `recipient`: Account that receive the target asset
         /// - `deadline`: Height of the cutoff block of this transaction
+        #[pallet::call_index(6)]
         #[pallet::weight(T::WeightInfo::swap_exact_assets_for_assets())]
         #[frame_support::transactional]
         pub fn swap_exact_assets_for_assets(
@@ -695,6 +640,7 @@ pub mod pallet {
         /// - `path`: path can convert to pairs.
         /// - `recipient`: Account that receive the target asset
         /// - `deadline`: Height of the cutoff block of this transaction
+        #[pallet::call_index(7)]
         #[pallet::weight(T::WeightInfo::swap_assets_for_exact_assets())]
         #[frame_support::transactional]
         pub fn swap_assets_for_exact_assets(
@@ -727,6 +673,7 @@ pub mod pallet {
         /// - `capacity_supply_0`: The max amount of asset_0 total contribute
         /// - `capacity_supply_1`: The max amount of asset_1 total contribute
         /// - `end`: The earliest ending block.
+        #[pallet::call_index(8)]
         #[pallet::weight(T::WeightInfo::bootstrap_create())]
         #[frame_support::transactional]
         #[allow(clippy::too_many_arguments)]
@@ -838,6 +785,7 @@ pub mod pallet {
         /// - `amount_0_contribute`: The amount of asset_0 contribute to this bootstrap pair
         /// - `amount_1_contribute`: The amount of asset_1 contribute to this bootstrap pair
         /// - `deadline`: Height of the cutoff block of this transaction
+        #[pallet::call_index(9)]
         #[pallet::weight(T::WeightInfo::bootstrap_contribute())]
         #[frame_support::transactional]
         pub fn bootstrap_contribute(
@@ -868,6 +816,7 @@ pub mod pallet {
         /// - `asset_0`: Asset which make up bootstrap pair
         /// - `asset_1`: Asset which make up bootstrap pair
         /// - `deadline`: Height of the cutoff block of this transaction
+        #[pallet::call_index(10)]
         #[pallet::weight(T::WeightInfo::bootstrap_claim())]
         #[frame_support::transactional]
         pub fn bootstrap_claim(
@@ -892,6 +841,7 @@ pub mod pallet {
         ///
         /// - `asset_0`: Asset which make up bootstrap pair
         /// - `asset_1`: Asset which make up bootstrap pair
+        #[pallet::call_index(11)]
         #[pallet::weight(T::WeightInfo::bootstrap_end())]
         #[frame_support::transactional]
         pub fn bootstrap_end(origin: OriginFor<T>, asset_0: T::AssetId, asset_1: T::AssetId) -> DispatchResult {
@@ -914,6 +864,7 @@ pub mod pallet {
         /// - `capacity_supply_0`: The new max amount of asset_0 total contribute
         /// - `capacity_supply_1`: The new max amount of asset_1 total contribute
         /// - `end`: The earliest ending block.
+        #[pallet::call_index(12)]
         #[pallet::weight(T::WeightInfo::bootstrap_update())]
         #[frame_support::transactional]
         #[allow(clippy::too_many_arguments)]
@@ -995,6 +946,7 @@ pub mod pallet {
         ///
         /// - `asset_0`: Asset which make up bootstrap pair
         /// - `asset_1`: Asset which make up bootstrap pair
+        #[pallet::call_index(13)]
         #[pallet::weight(T::WeightInfo::bootstrap_refund())]
         #[frame_support::transactional]
         pub fn bootstrap_refund(origin: OriginFor<T>, asset_0: T::AssetId, asset_1: T::AssetId) -> DispatchResult {
@@ -1002,6 +954,7 @@ pub mod pallet {
             Self::do_bootstrap_refund(who, asset_0, asset_1)
         }
 
+        #[pallet::call_index(14)]
         #[pallet::weight(100_000_000)]
         #[frame_support::transactional]
         pub fn bootstrap_charge_reward(
@@ -1022,7 +975,7 @@ pub mod pallet {
                 for (asset_id, amount) in &charge_rewards {
                     let already_charge_amount = rewards.get(asset_id).ok_or(Error::<T>::NoRewardTokens)?;
 
-                    T::MultiAssetsHandler::transfer(*asset_id, &who, &Self::account_id(), *amount)?;
+                    T::MultiCurrency::transfer(*asset_id, &who, &Self::account_id(), *amount)?;
                     let new_charge_amount = already_charge_amount.checked_add(*amount).ok_or(Error::<T>::Overflow)?;
 
                     rewards.insert(*asset_id, new_charge_amount);
@@ -1036,6 +989,7 @@ pub mod pallet {
             Ok(())
         }
 
+        #[pallet::call_index(15)]
         #[pallet::weight(100_000_000)]
         #[frame_support::transactional]
         pub fn bootstrap_withdraw_reward(
@@ -1050,7 +1004,7 @@ pub mod pallet {
 
             BootstrapRewards::<T>::try_mutate(pair, |rewards| -> DispatchResult {
                 for (asset_id, amount) in rewards {
-                    T::MultiAssetsHandler::transfer(*asset_id, &Self::account_id(), &recipient, *amount)?;
+                    T::MultiCurrency::transfer(*asset_id, &Self::account_id(), &recipient, *amount)?;
 
                     *amount = Zero::zero();
                 }

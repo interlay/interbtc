@@ -115,6 +115,7 @@ pub mod pallet {
 
     #[pallet::call]
     impl<T: Config> Pallet<T> {
+        #[pallet::call_index(0)]
         #[pallet::weight(T::WeightInfo::swap_exact_token_for_tokens_through_stable_pool())]
         #[transactional]
         pub fn swap_exact_token_for_tokens_through_stable_pool(
