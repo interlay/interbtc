@@ -34,23 +34,24 @@ fn repay_borrow_all_no_underflow() {
         assert_ok!(Loans::deposit_all_collateral(RuntimeOrigin::signed(ALICE), Token(KSM)));
 
         // Alice borrow only 1/1e5 KSM which is hard to accrue total borrows interest in 100 seconds
-        assert_ok!(Loans::borrow(RuntimeOrigin::signed(ALICE), Token(KSM), 10_u128.pow(7)));
+        assert_ok!(Loans::borrow(RuntimeOrigin::signed(ALICE), Token(KSM), 10_u128.pow(5)));
 
-        accrue_interest_per_block(Token(KSM), 100, 9);
+        accrue_interest_per_block(Token(KSM), 100, 1000);
 
         assert_eq!(
             Loans::current_borrow_balance(&ALICE, Token(KSM)).unwrap().amount(),
-            10000006
+            100007
         );
-        // FIXME since total_borrows is too small and we accrue internal on it every 100 seconds
-        // accrue_interest fails every time
-        // as you can see the current borrow balance is not equal to total_borrows anymore
-        assert_eq!(Loans::total_borrows(Token(KSM)).amount(), 10000000);
+        // `total_borrows` had its interest rounded down to zero each block because the principal
+        // amount is too small
+        assert_eq!(Loans::total_borrows(Token(KSM)).amount(), 100000);
 
-        // Alice repay all borrow balance. total_borrows = total_borrows.saturating_sub(10000006) = 0.
+        // Alice repay all borrow balance. total_borrows = total_borrows.saturating_sub(100007) = 0.
+        // Repaying should not cause an underflow
         assert_ok!(Loans::repay_borrow_all(RuntimeOrigin::signed(ALICE), Token(KSM)));
+        assert_eq!(Loans::total_borrows(Token(KSM)).amount(), 0);
 
-        assert_eq!(Tokens::balance(Token(KSM), &ALICE), unit(800) - 6);
+        assert_eq!(Tokens::balance(Token(KSM), &ALICE), unit(800) - 7);
 
         assert_eq!(
             Loans::exchange_rate(Token(DOT)).saturating_mul_int(

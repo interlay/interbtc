@@ -57,7 +57,7 @@ use traits::{
 
 pub use default_weights::WeightInfo;
 pub use orml_traits::currency::{OnDeposit, OnSlash, OnTransfer};
-pub use types::{BorrowSnapshot, EarnedSnapshot, Market, MarketState, RewardMarketState};
+pub use types::{BorrowSnapshot, EarnedSnapshot, Market, MarketState, RewardMarketState, RoundingMode};
 
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;
@@ -1525,11 +1525,8 @@ impl<T: Config> Pallet<T> {
 
         let account_borrows_new = account_borrows.checked_sub(&repay_amount)?;
         let total_borrows = Self::total_borrows(asset_id);
-        // NOTE: `total_borrows()` uses `u128` to calculate accrued interest,
-        // while `current_borrow_balance()` uses a `FixedU128` (the `BorrowSnapshot`) to calculate accrued interest.
-        // As a result, when a user repays all borrows, `total_borrows` may be less than `account_borrows`
-        // due to rounding, which would cause a `checked_sub` to fail with `ArithmeticError::Underflow`.
-        // Use `saturating_sub` instead here:
+        // Use `saturating_sub` here, because it's intended for `total_borrows` to be rounded down,
+        // such that it is less than or equal to the actual borrower debt.
         let total_borrows_new = total_borrows.saturating_sub(&repay_amount)?;
         AccountBorrows::<T>::insert(
             asset_id,
@@ -1551,16 +1548,35 @@ impl<T: Config> Pallet<T> {
         if snapshot.principal.is_zero() || snapshot.borrow_index.is_zero() {
             return Ok(Amount::zero(asset_id));
         }
+        let principal_amount = Amount::<T>::new(snapshot.principal, asset_id);
+        // Round borrower debt up to avoid interest-free loans
+        Self::borrow_balance_from_old_and_new_index(
+            &snapshot.borrow_index,
+            &Self::borrow_index(asset_id),
+            principal_amount,
+            RoundingMode::Up,
+        )
+    }
+
+    pub fn borrow_balance_from_old_and_new_index(
+        old_index: &FixedU128,
+        new_index: &FixedU128,
+        amount: Amount<T>,
+        rounding_mode: RoundingMode,
+    ) -> Result<Amount<T>, DispatchError> {
         // Calculate new borrow balance using the interest index:
         // recent_borrow_balance = snapshot.principal * borrow_index / snapshot.borrow_index
-        let principal_amount = Amount::<T>::new(snapshot.principal, asset_id);
-        let borrow_index_increase = Self::borrow_index(asset_id)
-            .checked_div(&snapshot.borrow_index)
-            .ok_or(ArithmeticError::Underflow)?;
-        // Round up the borrower's debt, to avoid giving out short-term interest-free loans.
-        let recent_borrow_balance = principal_amount.checked_fixed_point_mul_rounded_up(&borrow_index_increase)?;
-
-        Ok(recent_borrow_balance)
+        let borrow_index_increase = new_index.checked_div(&old_index).ok_or(ArithmeticError::Underflow)?;
+        let borrow_balance = match rounding_mode {
+            RoundingMode::Up => amount.checked_fixed_point_mul_rounded_up(&borrow_index_increase)?,
+            RoundingMode::Down => {
+                let balance_u128 = borrow_index_increase
+                    .checked_mul_int(amount.amount())
+                    .ok_or(ArithmeticError::Overflow)?;
+                Amount::<T>::new(balance_u128, amount.currency())
+            }
+        };
+        Ok(borrow_balance)
     }
 
     /// Checks if the liquidation should be allowed to occur
