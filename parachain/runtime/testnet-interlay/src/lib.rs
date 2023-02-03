@@ -97,7 +97,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     spec_name: create_runtime_str!("testnet-interlay"),
     impl_name: create_runtime_str!("testnet-interlay"),
     authoring_version: 1,
-    spec_version: 1020000,
+    spec_version: 1021006,
     impl_version: 1,
     transaction_version: 1, // added preimage
     apis: RUNTIME_API_VERSIONS,
