@@ -140,11 +140,7 @@ fn mint_and_deposit(account_id: AccountId, amount: Balance) {
         0
     ));
 
-    assert_ok!(Farming::deposit(
-        RuntimeOrigin::signed(account_id),
-        POOL_CURRENCY_ID,
-        amount
-    ));
+    assert_ok!(Farming::deposit(RuntimeOrigin::signed(account_id), POOL_CURRENCY_ID,));
 }
 
 #[test]

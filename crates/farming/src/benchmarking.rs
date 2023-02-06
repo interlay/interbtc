@@ -46,11 +46,10 @@ fn create_default_reward_schedule<T: Config>() -> (CurrencyId, CurrencyId) {
 }
 
 fn deposit_lp_tokens<T: Config>(pool_currency_id: CurrencyId, account_id: &T::AccountId, amount: BalanceOf<T>) {
-    assert_ok!(T::MultiCurrency::deposit(pool_currency_id, account_id, amount,));
+    assert_ok!(T::MultiCurrency::deposit(pool_currency_id, account_id, amount));
     assert_ok!(Farming::<T>::deposit(
         RawOrigin::Signed(account_id.clone()).into(),
         pool_currency_id,
-        amount,
     ));
 }
 
@@ -95,14 +94,13 @@ benchmarks! {
     deposit {
         let origin: T::AccountId = account("Origin", 0, 0);
         let (pool_currency_id, _) = create_default_reward_schedule::<T>();
-        let amount = 100u32.into();
         assert_ok!(T::MultiCurrency::deposit(
             pool_currency_id,
             &origin,
-            amount,
+            100u32.into(),
         ));
 
-    }: _(RawOrigin::Signed(origin), pool_currency_id, amount)
+    }: _(RawOrigin::Signed(origin), pool_currency_id)
 
     withdraw {
         let origin: T::AccountId = account("Origin", 0, 0);
