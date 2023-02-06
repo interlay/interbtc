@@ -294,8 +294,6 @@ pub mod pallet {
         RequireProtocolAdmin,
         /// Require the admin candidate who can become new admin after confirm.
         RequireProtocolAdminCandidate,
-        /// Invalid fee_point
-        InvalidFeePoint,
         /// Invalid fee_rate
         InvalidFeeRate,
         /// Unsupported AssetId.
@@ -471,7 +469,12 @@ pub mod pallet {
         #[pallet::call_index(3)]
         #[pallet::weight(T::WeightInfo::create_pair())]
         #[frame_support::transactional]
-        pub fn create_pair(origin: OriginFor<T>, asset_0: T::AssetId, asset_1: T::AssetId) -> DispatchResult {
+        pub fn create_pair(
+            origin: OriginFor<T>,
+            asset_0: T::AssetId,
+            asset_1: T::AssetId,
+            fee_rate: u128,
+        ) -> DispatchResult {
             ensure_root(origin)?;
             ensure!(
                 asset_0.is_support() && asset_1.is_support(),
@@ -479,6 +482,7 @@ pub mod pallet {
             );
 
             ensure!(asset_0 != asset_1, Error::<T>::DeniedCreatePair);
+            ensure!(fee_rate < FEE_ADJUSTMENT, Error::<T>::InvalidFeeRate);
 
             let pair = Self::sort_asset_id(asset_0, asset_1);
             PairStatuses::<T>::try_mutate(pair, |status| match status {
@@ -490,7 +494,7 @@ pub mod pallet {
                         *status = Trading(PairMetadata {
                             pair_account: Self::pair_account_id(pair.0, pair.1),
                             total_supply: Zero::zero(),
-                            fee_rate: DEFAULT_FEE_RATE,
+                            fee_rate,
                         });
                         Ok(())
                     } else {

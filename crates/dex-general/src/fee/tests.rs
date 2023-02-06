@@ -2,7 +2,7 @@
 // Licensed under Apache 2.0.
 
 use super::mock::*;
-use crate::FEE_ADJUSTMENT;
+use crate::{DEFAULT_FEE_RATE, FEE_ADJUSTMENT};
 use frame_support::{assert_noop, assert_ok, error::BadOrigin};
 use frame_system::RawOrigin;
 use orml_traits::MultiCurrency;
@@ -79,6 +79,7 @@ fn turn_on_protocol_fee_only_add_liquidity_no_fee_should_work() {
             RawOrigin::Root.into(),
             DOT_ASSET_ID,
             BTC_ASSET_ID,
+            DEFAULT_FEE_RATE,
         ));
 
         assert_ok!(DexPallet::add_liquidity(
@@ -201,6 +202,7 @@ fn turn_on_protocol_fee_remove_liquidity_should_work() {
             RawOrigin::Root.into(),
             DOT_ASSET_ID,
             BTC_ASSET_ID,
+            DEFAULT_FEE_RATE,
         ));
 
         assert_ok!(DexPallet::add_liquidity(
@@ -324,6 +326,7 @@ fn turn_on_protocol_fee_swap_have_fee_should_work() {
             RawOrigin::Root.into(),
             DOT_ASSET_ID,
             BTC_ASSET_ID,
+            DEFAULT_FEE_RATE,
         ));
 
         let total_supply_dot: u128 = 1 * DOT_UNIT;
@@ -458,6 +461,7 @@ fn turn_on_protocol_fee_swap_have_fee_at_should_work() {
             RawOrigin::Root.into(),
             DOT_ASSET_ID,
             BTC_ASSET_ID,
+            DEFAULT_FEE_RATE,
         ));
 
         let total_supply_dot: u128 = 1_000_000 * DOT_UNIT;
@@ -602,6 +606,7 @@ fn should_set_lower_custom_exchange_fee() {
             RawOrigin::Root.into(),
             DOT_ASSET_ID,
             BTC_ASSET_ID,
+            DEFAULT_FEE_RATE,
         ));
 
         // decrease exchange fee to 0.02%
@@ -686,6 +691,7 @@ fn should_set_higher_custom_exchange_fee() {
             RawOrigin::Root.into(),
             DOT_ASSET_ID,
             BTC_ASSET_ID,
+            DEFAULT_FEE_RATE,
         ));
 
         let total_supply_dot: u128 = 1_000_000 * DOT_UNIT;
@@ -792,6 +798,7 @@ fn should_set_max_fee_point() {
             RawOrigin::Root.into(),
             DOT_ASSET_ID,
             BTC_ASSET_ID,
+            DEFAULT_FEE_RATE,
         ));
 
         let total_supply_dot: u128 = 1_000_000 * DOT_UNIT;
