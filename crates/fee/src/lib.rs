@@ -26,7 +26,7 @@ extern crate mocktopus;
 use mocktopus::macros::mockable;
 
 use codec::{Decode, Encode, EncodeLike};
-use currency::{Amount, CurrencyId, OnSweep};
+use currency::{Amount, CurrencyId, OnSweep, Rounding};
 use frame_support::{
     dispatch::{DispatchError, DispatchResult},
     storage,
@@ -435,7 +435,7 @@ impl<T: Config> Pallet<T> {
     ///
     /// * `amount` - issue amount in tokens
     pub fn get_issue_fee(amount: &Amount<T>) -> Result<Amount<T>, DispatchError> {
-        amount.rounded_mul(<IssueFee<T>>::get())
+        amount.checked_rounded_mul(&<IssueFee<T>>::get(), Rounding::NearestPrefUp)
     }
 
     /// Calculate the required issue griefing collateral.
@@ -444,7 +444,7 @@ impl<T: Config> Pallet<T> {
     ///
     /// * `amount` - issue amount in collateral (at current exchange rate)
     pub fn get_issue_griefing_collateral(amount: &Amount<T>) -> Result<Amount<T>, DispatchError> {
-        amount.rounded_mul(<IssueGriefingCollateral<T>>::get())
+        amount.checked_rounded_mul(&<IssueGriefingCollateral<T>>::get(), Rounding::NearestPrefUp)
     }
 
     /// Calculate the required redeem fee in tokens. Upon execution, the
@@ -454,7 +454,7 @@ impl<T: Config> Pallet<T> {
     ///
     /// * `amount` - redeem amount in tokens
     pub fn get_redeem_fee(amount: &Amount<T>) -> Result<Amount<T>, DispatchError> {
-        amount.rounded_mul(<RedeemFee<T>>::get())
+        amount.checked_rounded_mul(&<RedeemFee<T>>::get(), Rounding::NearestPrefUp)
     }
 
     /// Calculate the premium redeem fee in collateral for a user to get if redeeming
@@ -464,7 +464,7 @@ impl<T: Config> Pallet<T> {
     ///
     /// * `amount` - amount in collateral (at current exchange rate)
     pub fn get_premium_redeem_fee(amount: &Amount<T>) -> Result<Amount<T>, DispatchError> {
-        amount.rounded_mul(<PremiumRedeemFee<T>>::get())
+        amount.checked_rounded_mul(&<PremiumRedeemFee<T>>::get(), Rounding::NearestPrefUp)
     }
 
     /// Calculate punishment fee for a Vault that fails to execute a redeem
@@ -474,7 +474,7 @@ impl<T: Config> Pallet<T> {
     ///
     /// * `amount` - amount in collateral (at current exchange rate)
     pub fn get_punishment_fee(amount: &Amount<T>) -> Result<Amount<T>, DispatchError> {
-        amount.rounded_mul(<PunishmentFee<T>>::get())
+        amount.checked_rounded_mul(&<PunishmentFee<T>>::get(), Rounding::NearestPrefUp)
     }
 
     /// Calculate the required replace griefing collateral.
@@ -483,7 +483,7 @@ impl<T: Config> Pallet<T> {
     ///
     /// * `amount` - replace amount in collateral (at current exchange rate)
     pub fn get_replace_griefing_collateral(amount: &Amount<T>) -> Result<Amount<T>, DispatchError> {
-        amount.rounded_mul(<ReplaceGriefingCollateral<T>>::get())
+        amount.checked_rounded_mul(&<ReplaceGriefingCollateral<T>>::get(), Rounding::NearestPrefUp)
     }
 
     pub fn compute_vault_rewards(
@@ -554,7 +554,7 @@ impl<T: Config> Pallet<T> {
         let full_amount = Amount::<T>::new(reward, currency_id);
 
         let commission_rate = Self::get_commission_rate(vault_id);
-        let commission = full_amount.checked_fixed_point_mul(&commission_rate)?;
+        let commission = full_amount.checked_mul(&commission_rate)?;
         commission.transfer(&Self::fee_pool_account_id(), &vault_id.account_id)?;
 
         let remainder = full_amount.checked_sub(&commission)?;

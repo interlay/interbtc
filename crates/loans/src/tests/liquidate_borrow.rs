@@ -289,9 +289,7 @@ fn liquidated_transfer_reduces_locked_collateral() {
         let final_locked_underlying = Loans::recompute_underlying_amount(&final_locked_collateral).unwrap();
         // The total liquidated KSM includes the market's liquidation incentive
         let liquidation_incentive = Loans::market(KSM).unwrap().liquidate_incentive;
-        let liquidated_ksm = amount_to_liquidate
-            .checked_fixed_point_mul(&liquidation_incentive)
-            .unwrap();
+        let liquidated_ksm = amount_to_liquidate.checked_mul(&liquidation_incentive).unwrap();
         let liquidated_ksm_as_wrapped = liquidated_ksm.convert_to(DEFAULT_WRAPPED_CURRENCY).unwrap();
         // The borrower's locked collateral (as tracked by the `AccountDeposits` storage item) must have been decreased
         // by the liquidated amount.

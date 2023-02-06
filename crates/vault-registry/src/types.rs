@@ -421,7 +421,7 @@ impl<T: Config> RichVault<T> {
     pub fn get_used_collateral(&self, threshold: UnsignedFixedPoint<T>) -> Result<Amount<T>, DispatchError> {
         let issued_tokens = self.backed_tokens()?;
         let issued_tokens_in_collateral = issued_tokens.convert_to(self.data.id.currencies.collateral)?;
-        let used_collateral = issued_tokens_in_collateral.checked_fixed_point_mul(&threshold)?;
+        let used_collateral = issued_tokens_in_collateral.checked_mul(&threshold)?;
         self.get_total_collateral()?.min(&used_collateral)
     }
 

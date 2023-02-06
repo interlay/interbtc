@@ -14,12 +14,6 @@ pub enum AccountLiquidity<T: Config> {
     Shortfall(Amount<T>),
 }
 
-#[derive(Eq, PartialEq, Clone, RuntimeDebug)]
-pub enum RoundingMode {
-    Up,
-    Down,
-}
-
 impl<T: Config> AccountLiquidity<T> {
     pub fn from_collateral_and_debt(
         collateral_value: Amount<T>,

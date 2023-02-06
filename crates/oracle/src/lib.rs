@@ -40,7 +40,7 @@ use frame_support::{
 use frame_system::{ensure_root, ensure_signed};
 use scale_info::TypeInfo;
 use security::{ErrorCode, StatusCode};
-use sp_runtime::{traits::*, ArithmeticError, FixedPointNumber};
+use sp_runtime::traits::*;
 use sp_std::{convert::TryInto, vec::Vec};
 use traits::OracleApi;
 
@@ -314,10 +314,11 @@ impl<T: Config> Pallet<T> {
     }
 
     pub fn wrapped_to_collateral(amount: BalanceOf<T>, currency_id: CurrencyId) -> Result<BalanceOf<T>, DispatchError> {
+        let amount = Amount::<T>::new(amount, currency_id);
+
         let rate = Self::get_price(OracleKey::ExchangeRate(currency_id))?;
-        let converted = rate.checked_mul_int(amount).ok_or(ArithmeticError::Overflow)?;
-        let result = converted.try_into().map_err(|_e| Error::<T>::TryIntoIntError)?;
-        Ok(result)
+
+        amount.checked_mul(&rate).map(|x| x.amount())
     }
 
     pub fn collateral_to_wrapped(amount: BalanceOf<T>, currency_id: CurrencyId) -> Result<BalanceOf<T>, DispatchError> {
