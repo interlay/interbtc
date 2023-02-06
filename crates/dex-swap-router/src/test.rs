@@ -6,6 +6,7 @@ use super::{
     StableSwapMode::FromBase,
     *,
 };
+use dex_general::DEFAULT_FEE_RATE;
 use frame_support::{assert_noop, assert_ok};
 use frame_system::RawOrigin;
 
@@ -62,7 +63,8 @@ fn setup_pools() {
     assert_ok!(DexGeneral::create_pair(
         RawOrigin::Root.into(),
         TOKEN1_ASSET_ID,
-        TOKEN2_ASSET_ID
+        TOKEN2_ASSET_ID,
+        DEFAULT_FEE_RATE,
     ));
     assert_ok!(DexGeneral::add_liquidity(
         RawOrigin::Signed(USER1).into(),

@@ -20,6 +20,7 @@ const UNIT: u128 = 1_000_000_000_000u128;
 const INITIAL_A_VALUE: u128 = 50;
 const SWAP_FEE: u128 = 10000000;
 const ADMIN_FEE: u128 = 0;
+const FEE_RATE: u128 = 30;
 
 const ASSET_0: u32 = 0;
 const ASSET_1: u32 = 1;
@@ -67,6 +68,7 @@ benchmarks! {
             (RawOrigin::Root).into(),
             ASSET_0.into(),
             ASSET_1.into(),
+            FEE_RATE,
         ));
 
 

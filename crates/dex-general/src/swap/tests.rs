@@ -2,7 +2,7 @@
 // Licensed under Apache 2.0.
 
 use super::{mock::*, Error};
-use crate::primitives::PairStatus::Trading;
+use crate::{primitives::PairStatus::Trading, DEFAULT_FEE_RATE};
 use frame_support::{assert_noop, assert_ok};
 use frame_system::RawOrigin;
 use orml_traits::MultiCurrency;
@@ -43,6 +43,7 @@ fn add_liquidity_should_work() {
             RawOrigin::Root.into(),
             DOT_ASSET_ID,
             BTC_ASSET_ID,
+            DEFAULT_FEE_RATE,
         ));
 
         let total_supply_dot: u128 = 1 * DOT_UNIT;
@@ -108,6 +109,7 @@ fn remove_liquidity_should_work() {
             RawOrigin::Root.into(),
             DOT_ASSET_ID,
             BTC_ASSET_ID,
+            DEFAULT_FEE_RATE,
         ));
 
         let total_supply_dot = 50 * DOT_UNIT;
@@ -161,6 +163,7 @@ fn foreign_get_in_price_should_work() {
             RawOrigin::Root.into(),
             DOT_ASSET_ID,
             BTC_ASSET_ID,
+            DEFAULT_FEE_RATE,
         ));
 
         let total_supply_dot = 10000 * DOT_UNIT;
@@ -219,6 +222,7 @@ fn foreign_get_out_price_should_work() {
             RawOrigin::Root.into(),
             DOT_ASSET_ID,
             BTC_ASSET_ID,
+            DEFAULT_FEE_RATE,
         ));
 
         let total_supply_dot = 1000000 * DOT_UNIT;
@@ -281,6 +285,7 @@ fn inner_swap_exact_assets_for_assets_should_work() {
             RawOrigin::Root.into(),
             DOT_ASSET_ID,
             BTC_ASSET_ID,
+            DEFAULT_FEE_RATE,
         ));
 
         assert_ok!(DexPallet::inner_add_liquidity(
@@ -363,6 +368,7 @@ fn inner_swap_exact_assets_for_assets_in_pairs_should_work() {
             RawOrigin::Root.into(),
             DOT_ASSET_ID,
             BTC_ASSET_ID,
+            DEFAULT_FEE_RATE,
         ));
 
         assert_ok!(DexPallet::inner_add_liquidity(
@@ -379,6 +385,7 @@ fn inner_swap_exact_assets_for_assets_in_pairs_should_work() {
             RawOrigin::Root.into(),
             ETH_ASSET_ID,
             BTC_ASSET_ID,
+            DEFAULT_FEE_RATE,
         ));
 
         assert_ok!(DexPallet::inner_add_liquidity(
@@ -452,6 +459,7 @@ fn inner_swap_assets_for_exact_assets_should_work() {
             RawOrigin::Root.into(),
             DOT_ASSET_ID,
             BTC_ASSET_ID,
+            DEFAULT_FEE_RATE,
         ));
 
         assert_ok!(DexPallet::inner_add_liquidity(
@@ -538,12 +546,14 @@ fn inner_swap_assets_for_exact_assets_in_pairs_should_work() {
             RawOrigin::Root.into(),
             DOT_ASSET_ID,
             BTC_ASSET_ID,
+            DEFAULT_FEE_RATE,
         ));
 
         assert_ok!(DexPallet::create_pair(
             RawOrigin::Root.into(),
             ETH_ASSET_ID,
             BTC_ASSET_ID,
+            DEFAULT_FEE_RATE,
         ));
 
         let supply_dot = 5000 * DOT_UNIT;
@@ -623,7 +633,7 @@ fn create_bootstrap_should_work() {
         ));
 
         assert_noop!(
-            DexPallet::create_pair(RawOrigin::Root.into(), ETH_ASSET_ID, DOT_ASSET_ID),
+            DexPallet::create_pair(RawOrigin::Root.into(), ETH_ASSET_ID, DOT_ASSET_ID, DEFAULT_FEE_RATE),
             Error::<Test>::PairAlreadyExists
         );
 
@@ -1059,6 +1069,7 @@ fn disable_bootstrap_removed_after_all_refund_should_work() {
             RawOrigin::Root.into(),
             DOT_ASSET_ID,
             BTC_ASSET_ID,
+            DEFAULT_FEE_RATE,
         ));
     })
 }
@@ -1313,7 +1324,8 @@ fn create_pair_in_disable_bootstrap_should_work() {
         assert_ok!(DexPallet::create_pair(
             RawOrigin::Root.into(),
             DOT_ASSET_ID,
-            BTC_ASSET_ID
+            BTC_ASSET_ID,
+            DEFAULT_FEE_RATE,
         ));
         assert_ok!(DexPallet::add_liquidity(
             RawOrigin::Signed(ALICE).into(),
@@ -1483,7 +1495,7 @@ fn create_pair_in_ongoing_bootstrap_should_not_work() {
             [].to_vec(),
         ));
         assert_noop!(
-            DexPallet::create_pair(RawOrigin::Root.into(), DOT_ASSET_ID, BTC_ASSET_ID,),
+            DexPallet::create_pair(RawOrigin::Root.into(), DOT_ASSET_ID, BTC_ASSET_ID, DEFAULT_FEE_RATE),
             Error::<Test>::PairAlreadyExists
         );
     })
@@ -1507,6 +1519,7 @@ fn liquidity_at_boundary_should_work() {
             RawOrigin::Root.into(),
             DOT_ASSET_ID,
             BTC_ASSET_ID,
+            DEFAULT_FEE_RATE,
         ));
 
         assert_ok!(DexPallet::add_liquidity(

@@ -51,7 +51,7 @@ benchmarks! {
         assert_ok!(<T as Config>::MultiCurrency::deposit(ASSET_0.into(), &caller, 1000 * UNIT));
         assert_ok!(<T as Config>::MultiCurrency::deposit(ASSET_1.into(), &caller, 1000 * UNIT));
 
-    } : _(RawOrigin::Root, ASSET_0.into(), ASSET_1.into())
+    } : _(RawOrigin::Root, ASSET_0.into(), ASSET_1.into(), DEFAULT_FEE_RATE)
 
     bootstrap_create {
         let reward: Vec<T::AssetId> =  vec![ASSET_0.into()];
@@ -215,7 +215,7 @@ benchmarks! {
         assert_ok!(<T as Config>::MultiCurrency::deposit(ASSET_0.into(), &caller, 1000 * UNIT));
         assert_ok!(<T as Config>::MultiCurrency::deposit(ASSET_1.into(), &caller, 1000 * UNIT));
 
-        assert_ok!(DexGeneral::<T>::create_pair((RawOrigin::Root).into(), ASSET_0.into(), ASSET_1.into()));
+        assert_ok!(DexGeneral::<T>::create_pair((RawOrigin::Root).into(), ASSET_0.into(), ASSET_1.into(), DEFAULT_FEE_RATE));
 
         assert_ok!(DexGeneral::<T>::set_fee_receiver((RawOrigin::Root).into(), lookup_of_account::<T>(caller.clone()).into()));
 
@@ -226,7 +226,7 @@ benchmarks! {
         assert_ok!(<T as Config>::MultiCurrency::deposit(ASSET_0.into(), &caller, 1000 * UNIT));
         assert_ok!(<T as Config>::MultiCurrency::deposit(ASSET_1.into(), &caller, 1000 * UNIT));
 
-        assert_ok!(DexGeneral::<T>::create_pair((RawOrigin::Root).into(), ASSET_0.into(), ASSET_1.into()));
+        assert_ok!(DexGeneral::<T>::create_pair((RawOrigin::Root).into(), ASSET_0.into(), ASSET_1.into(), DEFAULT_FEE_RATE));
 
         assert_ok!(DexGeneral::<T>::set_fee_receiver((RawOrigin::Root).into(), lookup_of_account::<T>(caller.clone()).into()));
 
@@ -248,8 +248,8 @@ benchmarks! {
         assert_ok!(<T as Config>::MultiCurrency::deposit(ASSET_1.into(), &caller, 1000 * UNIT));
         assert_ok!(<T as Config>::MultiCurrency::deposit(ASSET_2.into(), &caller, 1000 * UNIT));
 
-        assert_ok!(DexGeneral::<T>::create_pair((RawOrigin::Root).into(), ASSET_0.into(), ASSET_1.into()));
-        assert_ok!(DexGeneral::<T>::create_pair((RawOrigin::Root).into(), ASSET_1.into(), ASSET_2.into()));
+        assert_ok!(DexGeneral::<T>::create_pair((RawOrigin::Root).into(), ASSET_0.into(), ASSET_1.into(), DEFAULT_FEE_RATE));
+        assert_ok!(DexGeneral::<T>::create_pair((RawOrigin::Root).into(), ASSET_1.into(), ASSET_2.into(), DEFAULT_FEE_RATE));
 
         assert_ok!(DexGeneral::<T>::add_liquidity(
             RawOrigin::Signed(caller.clone()).into(),
@@ -281,8 +281,8 @@ benchmarks! {
         assert_ok!(<T as Config>::MultiCurrency::deposit(ASSET_1.into(), &caller, 1000 * UNIT));
         assert_ok!(<T as Config>::MultiCurrency::deposit(ASSET_2.into(), &caller, 1000 * UNIT));
 
-        assert_ok!(DexGeneral::<T>::create_pair((RawOrigin::Root).into(), ASSET_1.into(), ASSET_2.into()));
-        assert_ok!(DexGeneral::<T>::create_pair((RawOrigin::Root).into(), ASSET_0.into(), ASSET_1.into()));
+        assert_ok!(DexGeneral::<T>::create_pair((RawOrigin::Root).into(), ASSET_1.into(), ASSET_2.into(), DEFAULT_FEE_RATE));
+        assert_ok!(DexGeneral::<T>::create_pair((RawOrigin::Root).into(), ASSET_0.into(), ASSET_1.into(), DEFAULT_FEE_RATE));
 
         assert_ok!(DexGeneral::<T>::add_liquidity(
             RawOrigin::Signed(caller.clone()).into(),
