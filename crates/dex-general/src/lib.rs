@@ -404,6 +404,7 @@ pub mod pallet {
         /// An integer y which satisfies the equation `1/x-1=y`
         /// where x is the percentage of the exchange fee
         /// e.g. 1/(1/6)-1=5, 1/(1/2)-1=1
+        /// See section 2.4 of the Uniswap v2 whitepaper
         #[pallet::call_index(1)]
         #[pallet::weight(T::WeightInfo::set_fee_point())]
         #[frame_support::transactional]
@@ -416,6 +417,17 @@ pub mod pallet {
         }
 
         /// Set the exchange fee rate.
+        ///
+        /// # Arguments
+        ///
+        /// - `asset_0`: Asset which makes up the pair
+        /// - `asset_1`: Asset which makes up the pair
+        /// - `fee_rate`:
+        /// Value denoting the trading fee taken from the amount paid in,
+        /// multiplied by the fee adjustment to simplify calculations.
+        /// e.g. 0.3% / 100 = 0.003
+        ///      0.003 * 10000 = 30
+        /// See section 3.2.1 of the Uniswap v2 whitepaper
         #[pallet::call_index(2)]
         #[pallet::weight(T::WeightInfo::set_fee_point())]
         #[frame_support::transactional]

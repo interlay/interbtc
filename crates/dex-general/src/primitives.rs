@@ -7,8 +7,8 @@ use scale_info::TypeInfo;
 pub type AssetBalance = u128;
 
 // 0.3% exchange fee rate
-pub const DEFAULT_FEE_RATE: u128 = 3;
-pub const FEE_ADJUSTMENT: u128 = 1000;
+pub const DEFAULT_FEE_RATE: u128 = 30;
+pub const FEE_ADJUSTMENT: u128 = 10000;
 
 pub trait AssetInfo {
     fn is_support(&self) -> bool;

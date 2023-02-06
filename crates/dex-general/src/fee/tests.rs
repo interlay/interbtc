@@ -134,7 +134,6 @@ fn turn_on_protocol_fee_only_add_liquidity_no_fee_should_work() {
         let balance_dot = <Test as Config>::MultiCurrency::free_balance(DOT_ASSET_ID, &pair_dot_btc);
         let balance_btc = <Test as Config>::MultiCurrency::free_balance(BTC_ASSET_ID, &pair_dot_btc);
 
-        //println!("balance_DOT {}, balance_BTC {}", balance_dot, balance_btc);
         assert_eq!(balance_dot, 51000000000000000);
         assert_eq!(balance_btc, 5100000000);
         assert_eq!((balance_dot / DOT_UNIT), (balance_btc / BTC_UNIT));
@@ -257,7 +256,6 @@ fn turn_on_protocol_fee_remove_liquidity_should_work() {
         let balance_dot = <Test as Config>::MultiCurrency::free_balance(DOT_ASSET_ID, &pair_dot_btc);
         let balance_btc = <Test as Config>::MultiCurrency::free_balance(BTC_ASSET_ID, &pair_dot_btc);
 
-        //println!("balance_DOT {}, balance_BTC {}", balance_dot, balance_btc);
         assert_eq!(balance_dot, 51000000000000000);
         assert_eq!(balance_btc, 5100000000);
         assert_eq!((balance_dot / DOT_UNIT), (balance_btc / BTC_UNIT));
@@ -377,7 +375,6 @@ fn turn_on_protocol_fee_swap_have_fee_should_work() {
         let balance_dot = <Test as Config>::MultiCurrency::free_balance(DOT_ASSET_ID, &pair_dot_btc);
         let balance_btc = <Test as Config>::MultiCurrency::free_balance(BTC_ASSET_ID, &pair_dot_btc);
 
-        //println!("balance_DOT {}, balance_BTC {}", balance_dot, balance_btc);
         assert_eq!(balance_dot, 2000000000000000);
         assert_eq!(balance_btc, 50075113);
 
@@ -505,7 +502,7 @@ fn turn_on_protocol_fee_swap_have_fee_at_should_work() {
             <Test as Config>::MultiCurrency::free_balance(LP_DOT_BTC, &ALICE),
             lp_of_alice_0
         );
-        //println!("{:#?}", lp_of_alice_0);
+
         assert_eq!(<Test as Config>::MultiCurrency::free_balance(LP_DOT_BTC, &BOB), 0);
         assert_eq!(
             DexPallet::k_last(sorted_pair),
@@ -607,7 +604,7 @@ fn should_set_lower_custom_exchange_fee() {
             BTC_ASSET_ID,
         ));
 
-        // decrease exchange fee to 0.2%
+        // decrease exchange fee to 0.02%
         assert_ok!(DexPallet::set_exchange_fee(
             RawOrigin::Root.into(),
             DOT_ASSET_ID,
@@ -691,16 +688,34 @@ fn should_set_higher_custom_exchange_fee() {
             BTC_ASSET_ID,
         ));
 
+        let total_supply_dot: u128 = 1_000_000 * DOT_UNIT;
+        let total_supply_btc: u128 = 1_000_000 * BTC_UNIT;
+
+        // less out with higher swap fee_rate
+        assert_eq!(
+            99999900,
+            get_amount_out(DOT_UNIT, total_supply_dot, total_supply_btc, 0)
+        );
+        assert_eq!(
+            69999951,
+            get_amount_out(DOT_UNIT, total_supply_dot, total_supply_btc, 3000)
+        );
+        assert_eq!(
+            49999975,
+            get_amount_out(DOT_UNIT, total_supply_dot, total_supply_btc, 5000)
+        );
+        assert_eq!(
+            29999991,
+            get_amount_out(DOT_UNIT, total_supply_dot, total_supply_btc, 7000)
+        );
+
         // increase exchange fee to 50%
         assert_ok!(DexPallet::set_exchange_fee(
             RawOrigin::Root.into(),
             DOT_ASSET_ID,
             BTC_ASSET_ID,
-            500
+            5000
         ));
-
-        let total_supply_dot: u128 = 1_000_000 * DOT_UNIT;
-        let total_supply_btc: u128 = 1_000_000 * BTC_UNIT;
 
         assert_ok!(DexPallet::add_liquidity(
             RawOrigin::Signed(ALICE).into(),
@@ -744,7 +759,7 @@ fn should_set_higher_custom_exchange_fee() {
         assert_eq!(reserve_0, total_supply_dot + DOT_UNIT);
         assert_eq!(
             reserve_1,
-            total_supply_btc - get_amount_out(DOT_UNIT, total_supply_dot, total_supply_btc, 500)
+            total_supply_btc - get_amount_out(DOT_UNIT, total_supply_dot, total_supply_btc, 5000)
         );
     });
 }
