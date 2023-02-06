@@ -7,6 +7,7 @@ use frame_system::RawOrigin;
 use oracle::Pallet as Oracle;
 use orml_traits::MultiCurrency;
 use primitives::CurrencyId;
+use sp_runtime::FixedPointNumber;
 use sp_std::prelude::*;
 
 type UnsignedFixedPoint<T> = <T as currency::Config>::UnsignedFixedPoint;

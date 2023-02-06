@@ -90,13 +90,21 @@ mod conversions {
 
 #[cfg_attr(feature = "testing-utils", mocktopus::macros::mockable)]
 mod math {
-    use sp_runtime::{helpers_128bit::multiply_by_rational_with_rounding, Rounding};
+    use sp_runtime::helpers_128bit::multiply_by_rational_with_rounding;
 
     use super::*;
 
     impl<T: Config> Amount<T> {
         pub fn zero(currency_id: CurrencyId<T>) -> Self {
             Self::new(0u32.into(), currency_id)
+        }
+
+        /// sets the currency, leaving the amount untouched
+        pub fn set_currency(&self, currency_id: CurrencyId<T>) -> Self {
+            Self {
+                currency_id,
+                ..self.clone()
+            }
         }
 
         pub fn is_zero(&self) -> bool {
@@ -149,15 +157,16 @@ mod math {
                 .or_else(|_| Ok(Self::new(0u32.into(), self.currency_id)))
         }
 
-        pub fn checked_fixed_point_mul(&self, scalar: &UnsignedFixedPoint<T>) -> Result<Self, DispatchError> {
-            let amount = scalar.checked_mul_int(self.amount).ok_or(ArithmeticError::Underflow)?;
-            Ok(Self {
-                amount,
-                currency_id: self.currency_id,
-            })
+        /// The default mul, which is rounded down
+        pub fn checked_mul(&self, scalar: &UnsignedFixedPoint<T>) -> Result<Self, DispatchError> {
+            self.checked_rounded_mul(scalar, Rounding::Down)
         }
 
-        fn mul(&self, scalar: &UnsignedFixedPoint<T>, rounding: Rounding) -> Result<Self, DispatchError> {
+        pub fn checked_rounded_mul(
+            &self,
+            scalar: &UnsignedFixedPoint<T>,
+            rounding: Rounding,
+        ) -> Result<Self, DispatchError> {
             let to_u128 =
                 |x: BalanceOf<T>| -> Result<u128, Error<T>> { x.try_into().map_err(|_| Error::<T>::TryIntoIntError) };
 
@@ -178,17 +187,6 @@ mod math {
                 amount,
                 currency_id: self.currency_id,
             })
-        }
-
-        pub fn checked_fixed_point_mul_rounded_up(
-            &self,
-            scalar: &UnsignedFixedPoint<T>,
-        ) -> Result<Self, DispatchError> {
-            self.mul(scalar, Rounding::Up)
-        }
-
-        pub fn rounded_mul(&self, fraction: UnsignedFixedPoint<T>) -> Result<Self, DispatchError> {
-            self.mul(&fraction, Rounding::NearestPrefUp)
         }
 
         pub fn checked_div(&self, scalar: &UnsignedFixedPoint<T>) -> Result<Self, DispatchError> {

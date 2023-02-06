@@ -1,4 +1,4 @@
-use crate::{mock::*, Amount};
+use crate::{mock::*, Amount, Rounding};
 use sp_runtime::FixedPointNumber;
 
 #[test]
@@ -49,7 +49,7 @@ fn test_checked_fixed_point_mul() {
         ];
 
         for (amount, percent, expected) in tests {
-            let actual = amount.checked_fixed_point_mul(&percent).unwrap();
+            let actual = amount.checked_mul(&percent).unwrap();
             assert_eq!(actual, expected);
         }
     })
@@ -78,7 +78,7 @@ fn test_checked_fixed_point_rounded_mul() {
         ];
 
         for (amount, percent, expected) in tests {
-            let actual = amount.rounded_mul(percent.clone()).unwrap();
+            let actual = amount.checked_rounded_mul(&percent, Rounding::NearestPrefUp).unwrap();
             assert_eq!(actual, expected);
         }
     })
@@ -122,7 +122,7 @@ fn test_checked_fixed_point_mul_rounded_up() {
         ];
 
         for (amount, percent, expected) in tests {
-            let actual = amount.checked_fixed_point_mul_rounded_up(&percent).unwrap();
+            let actual = amount.checked_rounded_mul(&percent, Rounding::Up).unwrap();
             assert_eq!(actual, expected);
         }
     })

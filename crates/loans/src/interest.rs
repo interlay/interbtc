@@ -100,7 +100,7 @@ impl<T: Config> Pallet<T> {
                 &borrow_index,
                 &borrow_index_new,
                 total_borrows,
-                RoundingMode::Down,
+                Rounding::Down,
             )?;
             let interest_accummulated = total_borrows.checked_sub(&total_borrows_old)?;
             total_reserves = interest_accummulated
