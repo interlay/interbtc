@@ -96,7 +96,6 @@ pub mod pallet {
 
     #[pallet::storage]
     #[pallet::getter(fn fee_meta)]
-    /// (Option<fee_receiver>, fee_point)
     pub(super) type FeeMeta<T: Config> = StorageValue<_, (Option<T::AccountId>, u8), ValueQuery>;
 
     #[pallet::storage]
@@ -151,14 +150,10 @@ pub mod pallet {
     #[pallet::genesis_config]
     /// Refer: https://github.com/Uniswap/uniswap-v2-core/blob/master/contracts/UniswapV2Pair.sol#L88
     pub struct GenesisConfig<T: Config> {
-        /// The admin of the protocol fee.
-        // pub fee_admin: T::AccountId,
         /// The receiver of the protocol fee.
         pub fee_receiver: Option<T::AccountId>,
-        /// The fee point which integer between [0,30]
-        /// 0 means no protocol fee.
-        /// 30 means 0.3% * 100% = 0.0030.
-        /// default is 5 and means 0.3% * 1 / 6 = 0.0005.
+        /// The fee point is an integer satisfying the following equation:
+        /// 5 = 1/(1/6)-1 (1/6 of all swap fees)
         pub fee_point: u8,
     }
 
@@ -406,16 +401,14 @@ pub mod pallet {
         /// # Arguments
         ///
         /// - `fee_point`:
-        /// The fee_point which integer between [0,30]
-        /// 0 means no protocol fee.
-        /// 30 means 0.3% * 100% = 0.0030.
-        /// default is 5 and means 0.3% * 1 / 6 = 0.0005.
+        /// An integer y which satisfies the equation `1/x-1=y`
+        /// where x is the percentage of the exchange fee
+        /// e.g. 1/(1/6)-1=5, 1/(1/2)-1=1
         #[pallet::call_index(1)]
         #[pallet::weight(T::WeightInfo::set_fee_point())]
         #[frame_support::transactional]
         pub fn set_fee_point(origin: OriginFor<T>, fee_point: u8) -> DispatchResult {
             ensure_root(origin)?;
-            ensure!(fee_point <= 30, Error::<T>::InvalidFeePoint);
 
             FeeMeta::<T>::mutate(|fee_meta| fee_meta.1 = fee_point);
 
@@ -434,8 +427,6 @@ pub mod pallet {
         ) -> DispatchResult {
             ensure_root(origin)?;
 
-            // only allow fees higher than 0.3%
-            ensure!(fee_rate >= DEFAULT_FEE_RATE, Error::<T>::InvalidFeeRate);
             // can't be more than 100%, paths are only valid
             // if the amount is greater than one
             ensure!(fee_rate < FEE_ADJUSTMENT, Error::<T>::InvalidFeeRate);
