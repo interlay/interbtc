@@ -427,6 +427,25 @@ fn turn_on_protocol_fee_swap_have_fee_should_work() {
     });
 }
 
+fn calculate_mint_fee(fee_point: u128) -> U256 {
+    let sorted_pair = DexPallet::sort_asset_id(DOT_ASSET_ID, BTC_ASSET_ID);
+    let pair_dot_btc = DexGeneral::pair_account_id(DOT_ASSET_ID, BTC_ASSET_ID);
+    let reserve_0 = <Test as Config>::MultiCurrency::free_balance(DOT_ASSET_ID, &pair_dot_btc);
+    let reserve_1 = <Test as Config>::MultiCurrency::free_balance(BTC_ASSET_ID, &pair_dot_btc);
+
+    let k_last = DexPallet::k_last(sorted_pair);
+    let root_k = U256::from(reserve_0)
+        .saturating_mul(U256::from(reserve_1))
+        .integer_sqrt();
+    let root_k_last = k_last.integer_sqrt();
+    assert!(root_k > root_k_last);
+
+    let lp_total = <Test as Config>::MultiCurrency::total_issuance(LP_DOT_BTC);
+    let numerator = U256::from(lp_total).saturating_mul(root_k.saturating_sub(root_k_last));
+    let denominator = root_k.saturating_mul(U256::from(fee_point)).saturating_add(root_k_last);
+    numerator.checked_div(denominator).unwrap_or_default()
+}
+
 #[test]
 fn turn_on_protocol_fee_swap_have_fee_at_should_work() {
     new_test_ext().execute_with(|| {
@@ -513,8 +532,6 @@ fn turn_on_protocol_fee_swap_have_fee_at_should_work() {
             U256::from(total_supply_btc) * U256::from(total_supply_dot)
         );
 
-        let k_last = DexPallet::k_last(sorted_pair);
-
         let pair_dot_btc = DexGeneral::pair_account_id(DOT_ASSET_ID, BTC_ASSET_ID);
         let reserve_0 = <Test as Config>::MultiCurrency::free_balance(DOT_ASSET_ID, &pair_dot_btc);
         let reserve_1 = <Test as Config>::MultiCurrency::free_balance(BTC_ASSET_ID, &pair_dot_btc);
@@ -522,17 +539,7 @@ fn turn_on_protocol_fee_swap_have_fee_at_should_work() {
         assert_eq!(reserve_0, total_supply_dot + 1 * DOT_UNIT);
         assert_eq!(reserve_1, total_supply_btc - 99699900);
 
-        let root_k = U256::from(reserve_0)
-            .saturating_mul(U256::from(reserve_1))
-            .integer_sqrt();
-        let root_k_last = k_last.integer_sqrt();
-
-        assert!(root_k > root_k_last);
-
-        let lp_total = <Test as Config>::MultiCurrency::total_issuance(LP_DOT_BTC);
-        let numerator = U256::from(lp_total).saturating_mul(root_k.saturating_sub(root_k_last));
-        let denominator = root_k.saturating_mul(U256::from(5u128)).saturating_add(root_k_last);
-        let expect_fee = numerator.checked_div(denominator).unwrap_or_default();
+        let expect_fee = calculate_mint_fee(5);
 
         let (added_btc, _) =
             DexPallet::calculate_added_amount(1 * BTC_UNIT, 1 * DOT_UNIT, 0, 0, reserve_1, reserve_0).unwrap();
@@ -824,6 +831,8 @@ fn should_set_max_fee_point() {
             &CHARLIE,                          // recipient
         ));
 
+        let expect_fee = calculate_mint_fee(0);
+
         // add more liquidity
         assert_ok!(DexPallet::add_liquidity(
             RawOrigin::Signed(ALICE).into(),
@@ -837,6 +846,6 @@ fn should_set_max_fee_point() {
         ));
 
         let lp_fee = <Test as Config>::MultiCurrency::free_balance(LP_DOT_BTC, &BOB);
-        assert_eq!(lp_fee, 474342123);
+        assert_eq!(expect_fee, U256::from(lp_fee));
     });
 }
