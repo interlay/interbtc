@@ -92,4 +92,29 @@ impl<T: Config> Pallet<T> {
             status,
         })
     }
+
+    /// Calculate the underlying amounts for burning LP tokens using
+    /// the formula (lp_balance * reserve) / lp_total_supply
+    pub fn calculate_remove_liquidity(
+        asset_0: T::AssetId,
+        asset_1: T::AssetId,
+        amount: AssetBalance,
+    ) -> Option<(AssetBalance, AssetBalance)> {
+        let pair_account = Self::pair_account_id(asset_0, asset_1);
+        let lp_asset_id = Self::lp_asset_id(&asset_0, &asset_1)?;
+        let lp_total_supply = T::MultiCurrency::total_issuance(lp_asset_id);
+
+        Some((
+            Self::calculate_share_amount(
+                amount,
+                lp_total_supply,
+                T::MultiCurrency::free_balance(asset_0, &pair_account),
+            ),
+            Self::calculate_share_amount(
+                amount,
+                lp_total_supply,
+                T::MultiCurrency::free_balance(asset_1, &pair_account),
+            ),
+        ))
+    }
 }

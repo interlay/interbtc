@@ -21,10 +21,10 @@ sp_api::decl_runtime_apis! {
             asset_1: AssetId
         ) -> Option<PairInfo<AccountId, AssetBalance, AssetId>>;
 
-        //buy amount asset price
+        // buy amount asset price
         fn get_amount_in_price(supply: AssetBalance, path: Vec<AssetId>) -> AssetBalance;
 
-        //sell amount asset price
+        // sell amount asset price
         fn get_amount_out_price(supply: AssetBalance, path: Vec<AssetId>) -> AssetBalance;
 
         fn get_estimate_lptoken(
@@ -35,5 +35,11 @@ sp_api::decl_runtime_apis! {
             amount_0_min: AssetBalance,
             amount_1_min: AssetBalance,
         ) -> AssetBalance;
-     }
+
+        fn calculate_remove_liquidity(
+            asset_0: AssetId,
+            asset_1: AssetId,
+            amount: AssetBalance,
+        ) -> Option<(AssetBalance, AssetBalance)>;
+    }
 }

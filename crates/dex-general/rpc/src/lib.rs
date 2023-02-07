@@ -58,6 +58,15 @@ pub trait DexGeneralApi<BlockHash, AccountId, AssetId> {
         amount_1_min: AssetBalance,
         at: Option<BlockHash>,
     ) -> RpcResult<NumberOrHex>;
+
+    #[method(name = "dexGeneral_calculateRemoveLiquidity")]
+    fn calculate_remove_liquidity(
+        &self,
+        asset_0: AssetId,
+        asset_1: AssetId,
+        amount: AssetBalance,
+        at: Option<BlockHash>,
+    ) -> RpcResult<Option<(AssetBalance, AssetBalance)>>;
 }
 
 pub struct DexGeneral<C, M> {
@@ -85,7 +94,7 @@ where
     C: HeaderBackend<Block>,
     C::Api: DexGeneralRuntimeApi<Block, AccountId, AssetId>,
 {
-    //buy amount asset price
+    // buy amount asset price
     fn get_amount_in_price(
         &self,
         supply: AssetBalance,
@@ -100,7 +109,7 @@ where
             .map_err(runtime_error_into_rpc_err)
     }
 
-    //sell amount asset price
+    // sell amount asset price
     fn get_amount_out_price(
         &self,
         supply: AssetBalance,
@@ -164,6 +173,20 @@ where
                     status: pair.status,
                 })
             })
+            .map_err(runtime_error_into_rpc_err)
+    }
+
+    fn calculate_remove_liquidity(
+        &self,
+        asset_0: AssetId,
+        asset_1: AssetId,
+        amount: AssetBalance,
+        at: Option<<Block as BlockT>::Hash>,
+    ) -> RpcResult<Option<(AssetBalance, AssetBalance)>> {
+        let api = self.client.runtime_api();
+        let at = BlockId::hash(at.unwrap_or_else(|| self.client.info().best_hash));
+
+        api.calculate_remove_liquidity(&at, asset_0, asset_1, amount)
             .map_err(runtime_error_into_rpc_err)
     }
 }

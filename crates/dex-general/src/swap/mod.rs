@@ -269,7 +269,7 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
-    fn calculate_share_amount(
+    pub(crate) fn calculate_share_amount(
         amount_0: AssetBalance,
         reserve_0: AssetBalance,
         reserve_1: AssetBalance,

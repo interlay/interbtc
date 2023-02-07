@@ -1724,6 +1724,18 @@ impl_runtime_apis! {
                 amount_1_min
             )
         }
+
+        fn calculate_remove_liquidity(
+            asset_0: CurrencyId,
+            asset_1: CurrencyId,
+            amount: dex_general::AssetBalance,
+        ) -> Option<(dex_general::AssetBalance, dex_general::AssetBalance)> {
+            DexGeneral::calculate_remove_liquidity(
+                asset_0,
+                asset_1,
+                amount,
+            )
+        }
     }
 
     impl dex_stable_rpc_runtime_api::DexStableApi<Block, CurrencyId, Balance, AccountId, StablePoolId> for Runtime {
