@@ -268,7 +268,7 @@ pub mod vault_capacity {
                     .reduce(|a, b| a.saturating_add(b))
                     .unwrap_or_default();
                 let amount_from_vault_liquidated_collateral = crate::Vaults::<Runtime>::iter()
-                    .filter(|(key, value)| key.currencies.collateral == currency_pair.collateral)
+                    .filter(|(key, _value)| key.currencies.collateral == currency_pair.collateral)
                     .map(|(_key, vault)| vault.liquidated_collateral)
                     .reduce(|a, b| a.saturating_add(b))
                     .unwrap_or_default();

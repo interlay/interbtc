@@ -1,14 +1,9 @@
 use super::{
-    parameter_types, AccountId, Balance, CurrencyId, DexGeneral, DexStable, Get, PalletId, ParachainInfo, Runtime,
-    RuntimeEvent, StablePoolId, Timestamp, Tokens,
+    parameter_types, Balance, CurrencyId, DexGeneral, DexStable, Get, PalletId, Runtime, RuntimeEvent, StablePoolId,
+    Timestamp, Tokens,
 };
-use frame_support::dispatch::DispatchError;
-use orml_traits::MultiCurrency;
-use sp_std::marker::PhantomData;
-use xcm::latest::prelude::*;
 
 pub use dex_general::{AssetBalance, GenerateLpAssetId, PairInfo};
-
 pub use dex_stable::traits::{StablePoolLpCurrencyIdGenerate, ValidateCurrency};
 
 parameter_types! {

@@ -309,6 +309,7 @@ fn small_loans_have_interest_rounded_up() {
     })
 }
 
+#[test]
 fn big_loan_following_a_small_loan_still_accrues_interest() {
     new_test_ext().execute_with(|| {
         assert_ok!(Loans::mint(RuntimeOrigin::signed(ALICE), Token(IBTC), unit(100)));
