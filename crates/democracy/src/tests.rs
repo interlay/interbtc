@@ -175,6 +175,7 @@ impl Config for Test {
     type PalletsOrigin = OriginCaller;
     type WeightInfo = ();
     type MaxProposals = MaxProposals;
+    type MaxDeposits = ConstU32<1000>;
     type UnixTime = Timestamp;
     type Moment = u64;
     type LaunchOffsetMillis = LaunchOffsetMillis;

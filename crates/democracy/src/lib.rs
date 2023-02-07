@@ -241,6 +241,10 @@ pub mod pallet {
         #[pallet::constant]
         type MaxProposals: Get<u32>;
 
+        /// The maximum number of deposits a public proposal may have at any time.
+        #[pallet::constant]
+        type MaxDeposits: Get<u32>;
+
         /// Unix time
         type UnixTime: UnixTime;
 
@@ -258,14 +262,16 @@ pub mod pallet {
     /// The public proposals. Unsorted. The second item is the proposal's hash.
     #[pallet::storage]
     #[pallet::getter(fn public_props)]
-    pub type PublicProps<T: Config> = StorageValue<_, Vec<(PropIndex, T::Hash, T::AccountId)>, ValueQuery>;
+    pub type PublicProps<T: Config> =
+        StorageValue<_, BoundedVec<(PropIndex, T::Hash, T::AccountId), T::MaxProposals>, ValueQuery>;
 
     /// Those who have locked a deposit.
     ///
     /// TWOX-NOTE: Safe, as increasing integer keys are safe.
     #[pallet::storage]
     #[pallet::getter(fn deposit_of)]
-    pub type DepositOf<T: Config> = StorageMap<_, Twox64Concat, PropIndex, (Vec<T::AccountId>, BalanceOf<T>)>;
+    pub type DepositOf<T: Config> =
+        StorageMap<_, Twox64Concat, PropIndex, (BoundedVec<T::AccountId, T::MaxDeposits>, BalanceOf<T>)>;
 
     /// Map of hashes to the proposal preimage, along with who registered it and their deposit.
     /// The block number is the block at which it was deposited.
@@ -409,8 +415,8 @@ pub mod pallet {
         WrongUpperBound,
         /// Maximum number of votes reached.
         MaxVotesReached,
-        /// Maximum number of proposals reached.
-        TooManyProposals,
+        /// Maximum number of items reached.
+        TooMany,
         /// Unable to convert value.
         TryIntoIntError,
     }
@@ -458,13 +464,15 @@ pub mod pallet {
             let index = Self::public_prop_count();
             let real_prop_count = PublicProps::<T>::decode_len().unwrap_or(0) as u32;
             let max_proposals = T::MaxProposals::get();
-            ensure!(real_prop_count < max_proposals, Error::<T>::TooManyProposals);
+            ensure!(real_prop_count < max_proposals, Error::<T>::TooMany);
 
             T::Currency::reserve(&who, value)?;
             PublicPropCount::<T>::put(index + 1);
-            <DepositOf<T>>::insert(index, (&[&who][..], value));
 
-            <PublicProps<T>>::append((index, proposal_hash, who));
+            let depositors = BoundedVec::<_, T::MaxDeposits>::truncate_from(vec![who.clone()]);
+            DepositOf::<T>::insert(index, (depositors, value));
+
+            PublicProps::<T>::try_append((index, proposal_hash, who)).map_err(|_| Error::<T>::TooMany)?;
 
             Self::deposit_event(Event::<T>::Proposed(index, value));
             Ok(())
@@ -490,10 +498,11 @@ pub mod pallet {
             let who = ensure_signed(origin)?;
 
             let seconds = Self::len_of_deposit_of(proposal).ok_or_else(|| Error::<T>::ProposalMissing)?;
+            ensure!(seconds < T::MaxDeposits::get(), Error::<T>::TooMany);
             ensure!(seconds <= seconds_upper_bound, Error::<T>::WrongUpperBound);
             let mut deposit = Self::deposit_of(proposal).ok_or(Error::<T>::ProposalMissing)?;
             T::Currency::reserve(&who, deposit.1)?;
-            deposit.0.push(who);
+            deposit.0.try_push(who.clone()).map_err(|_| Error::<T>::TooMany)?;
             <DepositOf<T>>::insert(proposal, deposit);
             Ok(())
         }
@@ -852,7 +861,7 @@ impl<T: Config> Pallet<T> {
         delay: T::BlockNumber,
         voting_period: T::BlockNumber,
     ) -> DispatchResult {
-        let mut public_props = <PublicProps<T>>::get();
+        let mut public_props = Self::public_props();
         let (winner_index, _) = public_props
             .iter()
             .enumerate()
@@ -994,7 +1003,7 @@ impl<T: Config> Pallet<T> {
                 for d in &depositors {
                     T::Currency::unreserve(d, deposit);
                 }
-                Self::deposit_event(Event::<T>::Tabled(prop_index, deposit, depositors));
+                Self::deposit_event(Event::<T>::Tabled(prop_index, deposit, depositors.to_vec()));
                 Self::inject_referendum(
                     now.saturating_add(T::VotingPeriod::get()),
                     proposal,
