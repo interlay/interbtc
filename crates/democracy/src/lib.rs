@@ -502,8 +502,7 @@ pub mod pallet {
             ensure!(seconds <= seconds_upper_bound, Error::<T>::WrongUpperBound);
             let mut deposit = Self::deposit_of(proposal).ok_or(Error::<T>::ProposalMissing)?;
             T::Currency::reserve(&who, deposit.1)?;
-            let ok = deposit.0.try_push(who.clone()).is_ok();
-            debug_assert!(ok, "`seconds` is below static limit; `try_insert` should succeed; qed");
+            deposit.0.try_push(who.clone()).map_err(|_| Error::<T>::TooMany)?;
             <DepositOf<T>>::insert(proposal, deposit);
             Ok(())
         }
