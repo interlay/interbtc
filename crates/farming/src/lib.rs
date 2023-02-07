@@ -349,6 +349,12 @@ impl<T: Config> Pallet<T> {
         T::FarmingPalletId::get().into_sub_account_truncating(pool_currency_id)
     }
 
+    pub fn total_rewards(pool_currency_id: &CurrencyIdOf<T>, reward_currency_id: &CurrencyIdOf<T>) -> BalanceOf<T> {
+        RewardSchedules::<T>::get(pool_currency_id, reward_currency_id)
+            .total()
+            .unwrap_or_default()
+    }
+
     #[transactional]
     fn try_distribute_reward(
         pool_currency_id: CurrencyIdOf<T>,

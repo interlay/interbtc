@@ -27,6 +27,9 @@ sp_api::decl_runtime_apis! {
         /// Estimate staking reward rate for a one year period
         fn estimate_escrow_reward_rate(account_id: AccountId, amount: Option<Balance>, lock_time: Option<BlockNumber>) -> Result<UnsignedFixedPoint, DispatchError>;
 
+        /// Estimate farming rewards for remaining incentives
+        fn estimate_farming_reward(account_id: AccountId, pool_currency_id: CurrencyId, reward_currency_id: CurrencyId) -> Result<BalanceWrapper<Balance>, DispatchError>;
+
         /// Estimate vault reward rate for a one year period
         fn estimate_vault_reward_rate(vault_id: VaultId) -> Result<UnsignedFixedPoint, DispatchError>;
     }

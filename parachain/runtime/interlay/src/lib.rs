@@ -1721,6 +1721,14 @@ impl_runtime_apis! {
             Ok(UnsignedFixedPoint::checked_from_rational(received, total_locked).unwrap_or_default())
         }
 
+        fn estimate_farming_reward(
+            _account_id: AccountId,
+            _pool_currency_id: CurrencyId,
+            _reward_currency_id: CurrencyId,
+        ) -> Result<BalanceWrapper<Balance>, DispatchError> {
+            Err(DispatchError::Other("RPC Endpoint Not Implemented"))
+        }
+
         fn estimate_vault_reward_rate(
             vault_id: VaultId,
         ) -> Result<UnsignedFixedPoint, DispatchError> {
