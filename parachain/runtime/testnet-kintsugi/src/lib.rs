@@ -1613,6 +1613,18 @@ impl_runtime_apis! {
             Ok(UnsignedFixedPoint::checked_from_rational(received, total_locked).unwrap_or_default())
         }
 
+        fn estimate_farming_reward(
+            account_id: AccountId,
+            pool_currency_id: CurrencyId,
+            reward_currency_id: CurrencyId,
+        ) -> Result<BalanceWrapper<Balance>, DispatchError> {
+            <FarmingRewards as reward::RewardsApi<CurrencyId, AccountId, Balance>>::withdraw_reward(&pool_currency_id, &account_id, reward_currency_id)?;
+            <FarmingRewards as reward::RewardsApi<CurrencyId, AccountId, Balance>>::distribute_reward(&pool_currency_id, reward_currency_id, Farming::total_rewards(&pool_currency_id, &reward_currency_id))?;
+            let amount = <FarmingRewards as reward::RewardsApi<CurrencyId, AccountId, Balance>>::compute_reward(&pool_currency_id, &account_id, reward_currency_id)?;
+            let balance = BalanceWrapper::<Balance> { amount };
+            Ok(balance)
+        }
+
         fn estimate_vault_reward_rate(
             vault_id: VaultId,
         ) -> Result<UnsignedFixedPoint, DispatchError> {

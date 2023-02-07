@@ -603,6 +603,7 @@ parameter_types! {
     pub const CollatorPotId: PalletId = PalletId(*b"col/slct");
     pub const VaultRegistryPalletId: PalletId = PalletId(*b"mod/vreg");
     pub const LoansPalletId: PalletId = PalletId(*b"mod/loan");
+    pub const FarmingPalletId: PalletId = PalletId(*b"mod/farm");
 }
 
 parameter_types! {
@@ -622,6 +623,8 @@ parameter_types! {
     pub VaultRegistryAccount: AccountId = VaultRegistryPalletId::get().into_account_truncating();
     // wd9yNSwR5jsJWJZ6yzpWRRhe59Z8xLQvZpxrPF7ux76mKaBZ6
     pub LoansAccount: AccountId = LoansPalletId::get().into_account_truncating();
+    // wd9yNSwR5jsJWJNMKfkcteintFoTp4aBvKN8fa2x7KHMbc6sv
+    pub FarmingAccount: AccountId = FarmingPalletId::get().into_account_truncating();
 }
 
 pub fn get_all_module_accounts() -> Vec<AccountId> {
@@ -640,6 +643,7 @@ pub fn get_all_module_accounts() -> Vec<AccountId> {
         // Account where lending and borrowing subsidy rewards are deposited
         // Assumes that derivation of the reward account can never fail
         Loans::reward_account_id(),
+        FarmingAccount::get(),
     ]
 }
 
@@ -891,6 +895,32 @@ impl reward::Config<VaultCapacityInstance> for Runtime {
     type CurrencyId = CurrencyId;
     type GetNativeCurrencyId = GetNativeCurrencyId;
     type GetWrappedCurrencyId = GetWrappedCurrencyId;
+}
+
+type FarmingRewardsInstance = reward::Instance4;
+
+impl reward::Config<FarmingRewardsInstance> for Runtime {
+    type RuntimeEvent = RuntimeEvent;
+    type SignedFixedPoint = SignedFixedPoint;
+    type PoolId = CurrencyId;
+    type StakeId = AccountId;
+    type CurrencyId = CurrencyId;
+    type GetNativeCurrencyId = GetNativeCurrencyId;
+    type GetWrappedCurrencyId = GetWrappedCurrencyId;
+}
+
+parameter_types! {
+    pub const RewardPeriod: BlockNumber = MINUTES;
+}
+
+impl farming::Config for Runtime {
+    type RuntimeEvent = RuntimeEvent;
+    type FarmingPalletId = FarmingPalletId;
+    type TreasuryAccountId = TreasuryAccount;
+    type RewardPeriod = RewardPeriod;
+    type RewardPools = FarmingRewards;
+    type MultiCurrency = Tokens;
+    type WeightInfo = ();
 }
 
 impl security::Config for Runtime {
@@ -1171,6 +1201,9 @@ construct_runtime! {
         VaultStaking: staking::{Pallet, Storage, Event<T>} = 42,
         VaultCapacity: reward::<Instance3>::{Pallet, Storage, Event<T>} = 43,
 
+        Farming: farming::{Pallet, Call, Storage, Event<T>} = 44,
+        FarmingRewards: reward::<Instance4>::{Pallet, Storage, Event<T>} = 45,
+
         // # Bitcoin SPV
         BTCRelay: btc_relay::{Pallet, Call, Config<T>, Storage, Event<T>} = 50,
         // Relay: 51
@@ -1368,6 +1401,7 @@ impl_runtime_apis! {
 
             list_benchmark!(list, extra, btc_relay, BTCRelay);
             list_benchmark!(list, extra, fee, Fee);
+            list_benchmark!(list, extra, farming, Farming);
             list_benchmark!(list, extra, issue, Issue);
             list_benchmark!(list, extra, loans, Loans);
             list_benchmark!(list, extra, nomination, Nomination);
@@ -1404,6 +1438,7 @@ impl_runtime_apis! {
 
             add_benchmark!(params, batches, btc_relay, BTCRelay);
             add_benchmark!(params, batches, fee, Fee);
+            add_benchmark!(params, batches, farming, Farming);
             add_benchmark!(params, batches, issue, Issue);
             add_benchmark!(params, batches, loans, Loans);
             add_benchmark!(params, batches, nomination, Nomination);
@@ -1535,8 +1570,10 @@ impl_runtime_apis! {
             Ok(balance)
         }
 
-        fn compute_farming_reward(_account_id: AccountId, _pool_currency_id: CurrencyId, _reward_currency_id: CurrencyId) -> Result<BalanceWrapper<Balance>, DispatchError> {
-            Err(DispatchError::Other("RPC Endpoint Not Implemented"))
+        fn compute_farming_reward(account_id: AccountId, pool_currency_id: CurrencyId, reward_currency_id: CurrencyId) -> Result<BalanceWrapper<Balance>, DispatchError> {
+            let amount = <FarmingRewards as reward::RewardsApi<CurrencyId, AccountId, Balance>>::compute_reward(&pool_currency_id, &account_id, reward_currency_id)?;
+            let balance = BalanceWrapper::<Balance> { amount };
+            Ok(balance)
         }
 
         fn compute_vault_reward(vault_id: VaultId, currency_id: CurrencyId) -> Result<BalanceWrapper<Balance>, DispatchError> {
@@ -1562,6 +1599,18 @@ impl_runtime_apis! {
             let total_locked = Escrow::locked_balance(&account_id).amount;
             // rate is received / total_locked
             Ok(UnsignedFixedPoint::checked_from_rational(received, total_locked).unwrap_or_default())
+        }
+
+        fn estimate_farming_reward(
+            account_id: AccountId,
+            pool_currency_id: CurrencyId,
+            reward_currency_id: CurrencyId,
+        ) -> Result<BalanceWrapper<Balance>, DispatchError> {
+            <FarmingRewards as reward::RewardsApi<CurrencyId, AccountId, Balance>>::withdraw_reward(&pool_currency_id, &account_id, reward_currency_id)?;
+            <FarmingRewards as reward::RewardsApi<CurrencyId, AccountId, Balance>>::distribute_reward(&pool_currency_id, reward_currency_id, Farming::total_rewards(&pool_currency_id, &reward_currency_id))?;
+            let amount = <FarmingRewards as reward::RewardsApi<CurrencyId, AccountId, Balance>>::compute_reward(&pool_currency_id, &account_id, reward_currency_id)?;
+            let balance = BalanceWrapper::<Balance> { amount };
+            Ok(balance)
         }
 
         fn estimate_vault_reward_rate(

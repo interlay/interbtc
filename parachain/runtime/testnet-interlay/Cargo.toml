@@ -99,6 +99,7 @@ collator-selection = { path = "../../../crates/collator-selection", default-feat
 clients-info = { path = "../../../crates/clients-info", default-features = false }
 loans = { path = "../../../crates/loans", default-features = false }
 traits = { path = "../../../crates/traits", default-features = false }
+farming = { path = "../../../crates/farming", default-features = false }
 tx-pause = { path = "../../../crates/tx-pause", default-features = false }
 dex-general = { path = "../../../crates/dex-general", default-features = false }
 dex-stable = { path = "../../../crates/dex-stable", default-features = false }
@@ -226,6 +227,7 @@ std = [
   "clients-info/std",
   "loans/std",
   "traits/std",
+  "farming/std",
   "tx-pause/std",
   "dex-general/std",
   "dex-stable/std",
@@ -277,6 +279,7 @@ runtime-benchmarks = [
   "redeem/runtime-benchmarks",
   "replace/runtime-benchmarks",
   "vault-registry/runtime-benchmarks",
+  "farming/runtime-benchmarks",
   "tx-pause/runtime-benchmarks",
 ]
 disable-runtime-api = []
@@ -325,6 +328,7 @@ try-runtime = [
   "dex-general/try-runtime",
   "dex-stable/try-runtime",
   "dex-swap-router/try-runtime",
+  "farming/try-runtime",
   "pallet-collective/try-runtime",
   "pallet-membership/try-runtime",
   "pallet-treasury/try-runtime",

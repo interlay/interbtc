@@ -63,6 +63,15 @@ where
         at: Option<BlockHash>,
     ) -> RpcResult<UnsignedFixedPoint>;
 
+    #[method(name = "reward_estimateFarmingReward")]
+    fn estimate_farming_reward(
+        &self,
+        account_id: AccountId,
+        pool_currency_id: CurrencyId,
+        reward_currency_id: CurrencyId,
+        at: Option<BlockHash>,
+    ) -> RpcResult<BalanceWrapper<Balance>>;
+
     #[method(name = "reward_estimateVaultRewardRate")]
     fn estimate_vault_reward_rate(&self, vault_id: VaultId, at: Option<BlockHash>) -> RpcResult<UnsignedFixedPoint>;
 }
@@ -170,6 +179,22 @@ where
 
         handle_response(
             api.estimate_escrow_reward_rate(&at, account_id, amount, lock_time),
+            "Unable to estimate the current reward".into(),
+        )
+    }
+
+    fn estimate_farming_reward(
+        &self,
+        account_id: AccountId,
+        pool_currency_id: CurrencyId,
+        reward_currency_id: CurrencyId,
+        at: Option<<Block as BlockT>::Hash>,
+    ) -> RpcResult<BalanceWrapper<Balance>> {
+        let api = self.client.runtime_api();
+        let at = BlockId::hash(at.unwrap_or_else(|| self.client.info().best_hash));
+
+        handle_response(
+            api.estimate_farming_reward(&at, account_id, pool_currency_id, reward_currency_id),
             "Unable to estimate the current reward".into(),
         )
     }
