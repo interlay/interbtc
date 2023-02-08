@@ -508,6 +508,17 @@ pub struct CustomMetadata {
 }
 
 impl CurrencyId {
+    pub fn sort(&mut self) {
+        match *self {
+            CurrencyId::LpToken(x, y) => {
+                if x > y {
+                    *self = CurrencyId::LpToken(y, x)
+                }
+            }
+            _ => {}
+        }
+    }
+
     pub fn is_lend_token(&self) -> bool {
         matches!(self, CurrencyId::LendToken(_))
     }
