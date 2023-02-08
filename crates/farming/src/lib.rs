@@ -290,17 +290,9 @@ pub mod pallet {
         #[pallet::call_index(2)]
         #[pallet::weight(T::WeightInfo::deposit(*length_rewards))]
         #[transactional]
-        pub fn deposit(
-            origin: OriginFor<T>,
-            mut pool_currency_id: CurrencyIdOf<T>,
-            length_rewards: u32,
-        ) -> DispatchResult {
+        pub fn deposit(origin: OriginFor<T>, mut pool_currency_id: CurrencyIdOf<T>) -> DispatchResult {
             let who = ensure_signed(origin)?;
             pool_currency_id.sort();
-            ensure!(
-                length_rewards >= T::RewardPools::reward_currencies_len(&pool_currency_id),
-                Error::<T>::BadRewardLength,
-            );
 
             // reserve lp tokens to prevent spending
             let amount = T::MultiCurrency::free_balance(pool_currency_id.clone(), &who);
@@ -326,10 +318,6 @@ pub mod pallet {
         ) -> DispatchResult {
             let who = ensure_signed(origin)?;
             pool_currency_id.sort();
-            ensure!(
-                length_rewards >= T::RewardPools::reward_currencies_len(&pool_currency_id),
-                Error::<T>::BadRewardLength,
-            );
 
             // unreserve lp tokens to allow spending
             let remaining = T::MultiCurrency::unreserve(pool_currency_id.clone(), &who, amount);
