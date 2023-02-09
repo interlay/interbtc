@@ -37,6 +37,8 @@ use sp_runtime::{
 };
 use sp_std::{marker::PhantomData, prelude::*};
 
+mod dex;
+
 #[cfg(feature = "std")]
 use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
@@ -1171,8 +1173,11 @@ construct_runtime! {
         Aura: pallet_aura::{Pallet, Config<T>} = 81,
         Grandpa: pallet_grandpa::{Pallet, Call, Storage, Config, Event} = 82,
 
-        // # Lending
+        // # Lending & amm
         Loans: loans::{Pallet, Call, Storage, Event<T>, Config} = 100,
+        DexGeneral: dex_general::{Pallet, Call, Storage, Event<T>} = 101,
+        DexStable: dex_stable::{Pallet, Call, Storage, Event<T>}  = 102,
+        DexSwapRouter: dex_swap_router::{Pallet, Call, Event<T>} = 103,
     }
 }
 

@@ -82,6 +82,8 @@ traits = { path = "../../crates/traits", default-features = false }
 farming = { path = "../../crates/farming", default-features = false }
 tx-pause = { path = "../../crates/tx-pause", default-features = false }
 dex-general = { path = "../../crates/dex-general", default-features = false }
+dex-stable = { path = "../../crates/dex-stable", default-features = false }
+dex-swap-router = { path = "../../crates/dex-swap-router", default-features = false }
 
 primitives = { package = "interbtc-primitives", path = "../../primitives", default-features = false }
 
@@ -192,6 +194,8 @@ std = [
   "farming/std",
   "tx-pause/std",
   "dex-general/std",
+  "dex-stable/std",
+  "dex-swap-router/std",
 
   "primitives/std",
 

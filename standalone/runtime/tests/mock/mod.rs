@@ -14,6 +14,7 @@ pub use frame_support::{
     assert_err, assert_noop, assert_ok,
     dispatch::{DispatchError, DispatchResultWithPostInfo},
 };
+use interbtc_runtime_standalone::RuntimeOrigin;
 pub use interbtc_runtime_standalone::{
     token_distribution, AccountId, Balance, BlockNumber, CurrencyId, EscrowAnnuityInstance, EscrowRewardsInstance,
     GetNativeCurrencyId, GetRelayChainCurrencyId, GetWrappedCurrencyId, Runtime, RuntimeCall, RuntimeEvent,
@@ -197,6 +198,14 @@ pub type LoansPallet = loans::Pallet<Runtime>;
 pub type AuraPallet = pallet_aura::Pallet<Runtime>;
 
 pub type VaultAnnuityPallet = annuity::Pallet<Runtime, VaultAnnuityInstance>;
+
+pub type DexGeneralCall = dex_general::Call<Runtime>;
+pub type DexGeneralError = dex_general::Error<Runtime>;
+pub type DexGeneralPallet = dex_general::Pallet<Runtime>;
+
+pub type DexStableCall = dex_stable::Call<Runtime>;
+pub type DexStableError = dex_stable::Error<Runtime>;
+pub type DexStablePallet = dex_stable::Pallet<Runtime>;
 
 pub const DEFAULT_COLLATERAL_CURRENCY: <Runtime as orml_tokens::Config>::CurrencyId = Token(DOT);
 pub const DEFAULT_WRAPPED_CURRENCY: <Runtime as orml_tokens::Config>::CurrencyId = Token(IBTC);
@@ -1586,4 +1595,26 @@ pub fn set_balance(who: AccountId, currency_id: CurrencyId, new_free: Balance) {
         new_reserved: 0,
     })
     .dispatch(root()));
+}
+
+pub trait RuntimeCallExt {
+    fn assert_dispatch(self, origin: RuntimeOrigin);
+    fn assert_sudo_dispatch(self);
+    fn sudo_dispatch(self) -> DispatchResultWithPostInfo;
+}
+
+impl RuntimeCallExt for RuntimeCall {
+    fn assert_dispatch(self, origin: RuntimeOrigin) {
+        assert_ok!(self.dispatch(origin));
+    }
+
+    fn assert_sudo_dispatch(self) {
+        assert_ok!(self.sudo_dispatch());
+    }
+
+    fn sudo_dispatch(self) -> DispatchResultWithPostInfo {
+        use frame_support::traits::UnfilteredDispatchable;
+        // don't use sudo.sudo - it does not propagate errors
+        self.dispatch_bypass_filter(frame_system::RawOrigin::Root.into())
+    }
 }
