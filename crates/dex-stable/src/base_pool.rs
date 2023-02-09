@@ -28,6 +28,7 @@ impl<T: Config> Pallet<T> {
             currency_ids.len() == currency_decimals.len(),
             Error::<T>::MismatchParameter
         );
+        ensure!(!a.is_zero(), Error::<T>::ZeroA);
         ensure!(a < MAX_A, Error::<T>::ExceedMaxA);
         ensure!(fee <= MAX_SWAP_FEE, Error::<T>::ExceedMaxFee);
         ensure!(admin_fee <= MAX_ADMIN_FEE, Error::<T>::ExceedMaxAdminFee);
