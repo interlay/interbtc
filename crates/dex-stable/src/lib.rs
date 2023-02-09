@@ -274,11 +274,13 @@ pub mod pallet {
         ExceedMaxAChange,
         /// The ramping A of this pool is already stopped.
         AlreadyStoppedRampA,
-        /// The fee parameter exceeds MAX_SWAP_FEE when create pool.
+        /// The fee parameter exceeds MAX_SWAP_FEE when creating the pool.
         ExceedMaxFee,
-        /// The admin fee parameter exceeds MAX_ADMIN_FEE when create pool.
+        /// The admin fee parameter exceeds MAX_ADMIN_FEE when creating the pool.
         ExceedMaxAdminFee,
-        /// The A parameter exceed MAX_A when create pool.
+        /// The A parameter cannot be zero when creating the pool.
+        ZeroA,
+        /// The A parameter exceed MAX_A when creating the pool.
         ExceedMaxA,
         /// The lp currency id is already used when create pool.
         LpCurrencyAlreadyUsed,

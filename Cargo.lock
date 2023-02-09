@@ -12530,6 +12530,7 @@ dependencies = [
  "dex-swap-router",
  "escrow",
  "escrow-rpc-runtime-api",
+ "farming",
  "fee",
  "frame-benchmarking",
  "frame-executive",

@@ -145,7 +145,7 @@ fn create_meta_pool_with_incorrect_parameter_should_not_work() {
         assert_eq!(StableAmm::next_pool_id(), 1);
         assert_eq!(StableAmm::pools(1), None);
 
-        //create mismatch parameter should not work
+        // create mismatch parameter should not work
         assert_noop!(
             StableAmm::create_base_pool(
                 RawOrigin::Root.into(),
@@ -191,7 +191,7 @@ fn create_meta_pool_with_incorrect_parameter_should_not_work() {
                 RawOrigin::Root.into(),
                 vec![Token(TOKEN1_SYMBOL), Token(TOKEN2_SYMBOL), base_pool_lp_currency,],
                 vec![TOKEN1_DECIMAL, 20, TOKEN3_DECIMAL],
-                0,
+                INITIAL_A_VALUE,
                 0,
                 0,
                 ALICE,
@@ -219,7 +219,7 @@ fn create_meta_pool_with_parameters_exceed_threshold_should_not_work() {
                     base_lp_currency
                 ],
                 vec![TOKEN1_DECIMAL, TOKEN2_DECIMAL, TOKEN3_DECIMAL, STABLE_LP_DECIMAL],
-                0,
+                INITIAL_A_VALUE,
                 (MAX_SWAP_FEE + 1).into(),
                 0,
                 ALICE,
@@ -241,7 +241,7 @@ fn create_meta_pool_with_parameters_exceed_threshold_should_not_work() {
                     base_lp_currency
                 ],
                 vec![TOKEN1_DECIMAL, TOKEN2_DECIMAL, TOKEN3_DECIMAL, STABLE_LP_DECIMAL],
-                0,
+                INITIAL_A_VALUE,
                 (MAX_SWAP_FEE).into(),
                 (MAX_ADMIN_FEE + 1).into(),
                 ALICE,
