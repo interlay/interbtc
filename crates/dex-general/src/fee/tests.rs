@@ -2,7 +2,7 @@
 // Licensed under Apache 2.0.
 
 use super::mock::*;
-use crate::{DEFAULT_FEE_RATE, FEE_ADJUSTMENT};
+use crate::{PairMetadata, PairStatus, DEFAULT_FEE_RATE, FEE_ADJUSTMENT};
 use frame_support::{assert_noop, assert_ok, error::BadOrigin};
 use frame_system::RawOrigin;
 use orml_traits::MultiCurrency;
@@ -46,6 +46,24 @@ fn fee_meta_setter_should_not_work() {
 
         assert_noop!(DexPallet::set_fee_point(RawOrigin::Signed(BOB).into(), 0), BadOrigin);
     })
+}
+
+#[test]
+fn create_pair_should_set_fee_rate() {
+    new_test_ext().execute_with(|| {
+        assert_ok!(DexPallet::create_pair(
+            RawOrigin::Root.into(),
+            DOT_ASSET_ID,
+            BTC_ASSET_ID,
+            12,
+        ));
+        let sorted_pair = DexPallet::sort_asset_id(DOT_ASSET_ID, BTC_ASSET_ID);
+
+        assert!(matches!(
+            DexPallet::pair_status(sorted_pair),
+            PairStatus::Trading(PairMetadata { fee_rate: 12, .. })
+        ));
+    });
 }
 
 #[test]

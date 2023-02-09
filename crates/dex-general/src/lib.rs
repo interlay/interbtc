@@ -505,7 +505,7 @@ pub mod pallet {
                     *status = Trading(PairMetadata {
                         pair_account: Self::pair_account_id(pair.0, pair.1),
                         total_supply: Zero::zero(),
-                        fee_rate: DEFAULT_FEE_RATE,
+                        fee_rate,
                     });
                     Ok(())
                 }
