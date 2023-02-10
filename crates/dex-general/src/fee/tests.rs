@@ -71,13 +71,10 @@ fn turn_on_protocol_fee_only_add_liquidity_no_fee_should_work() {
     new_test_ext().execute_with(|| {
         // 1. turn on the protocol fee
         // use default rate: 1/6
+        assert_ok!(DexPallet::set_fee_receiver(RawOrigin::Root.into(), Some(BOB)));
 
         let sorted_pair = DexPallet::sort_asset_id(DOT_ASSET_ID, BTC_ASSET_ID);
-
-        assert_ok!(DexPallet::set_fee_receiver(RawOrigin::Root.into(), Some(BOB)));
         assert_eq!(DexPallet::k_last(sorted_pair), U256::zero());
-
-        // 2. first add_liquidity
 
         assert_ok!(<Test as Config>::MultiCurrency::deposit(
             DOT_ASSET_ID,
@@ -100,6 +97,7 @@ fn turn_on_protocol_fee_only_add_liquidity_no_fee_should_work() {
             DEFAULT_FEE_RATE,
         ));
 
+        // 2. first add_liquidity
         assert_ok!(DexPallet::add_liquidity(
             RawOrigin::Signed(ALICE).into(),
             DOT_ASSET_ID,
@@ -122,11 +120,10 @@ fn turn_on_protocol_fee_only_add_liquidity_no_fee_should_work() {
             U256::from(DOT_UNIT) * U256::from(BTC_UNIT)
         );
 
-        // 3. second add_liquidity
-
         let total_supply_dot = 50 * DOT_UNIT;
         let total_supply_btc = 50 * BTC_UNIT;
 
+        // 3. second add_liquidity
         assert_ok!(DexPallet::add_liquidity(
             RawOrigin::Signed(ALICE).into(),
             BTC_ASSET_ID,
@@ -194,13 +191,10 @@ fn turn_on_protocol_fee_remove_liquidity_should_work() {
     new_test_ext().execute_with(|| {
         // 1. turn on the protocol fee
         // use default rate: 1/6
+        assert_ok!(DexPallet::set_fee_receiver(RawOrigin::Root.into(), Some(BOB)));
 
         let sorted_pair = DexPallet::sort_asset_id(DOT_ASSET_ID, BTC_ASSET_ID);
-
-        assert_ok!(DexPallet::set_fee_receiver(RawOrigin::Root.into(), Some(BOB)));
         assert_eq!(DexPallet::k_last(sorted_pair), U256::zero());
-
-        // 2. first add_liquidity
 
         assert_ok!(<Test as Config>::MultiCurrency::deposit(
             DOT_ASSET_ID,
@@ -223,6 +217,7 @@ fn turn_on_protocol_fee_remove_liquidity_should_work() {
             DEFAULT_FEE_RATE,
         ));
 
+        // 2. first add_liquidity
         assert_ok!(DexPallet::add_liquidity(
             RawOrigin::Signed(ALICE).into(),
             DOT_ASSET_ID,
@@ -245,11 +240,10 @@ fn turn_on_protocol_fee_remove_liquidity_should_work() {
             U256::from(DOT_UNIT) * U256::from(BTC_UNIT)
         );
 
-        // 3. second add_liquidity
-
         let total_supply_dot = 50 * DOT_UNIT;
         let total_supply_btc = 50 * BTC_UNIT;
 
+        // 3. second add_liquidity
         assert_ok!(DexPallet::add_liquidity(
             RawOrigin::Signed(ALICE).into(),
             BTC_ASSET_ID,
@@ -314,15 +308,12 @@ fn turn_on_protocol_fee_remove_liquidity_should_work() {
 fn turn_on_protocol_fee_swap_have_fee_should_work() {
     new_test_ext().execute_with(|| {
         // 1. turn on the protocol fee
+        assert_ok!(DexPallet::set_fee_receiver(RawOrigin::Root.into(), Some(BOB)));
+        // use default rate: 1/(1/6)-1=5
+        assert_ok!(DexPallet::set_fee_point(RawOrigin::Root.into(), 5u8));
 
         let sorted_pair = DexPallet::sort_asset_id(DOT_ASSET_ID, BTC_ASSET_ID);
-
-        assert_ok!(DexPallet::set_fee_receiver(RawOrigin::Root.into(), Some(BOB)));
-        // use default rate: 0.3% * 1 / 6 = 0.0005
-        assert_ok!(DexPallet::set_fee_point(RawOrigin::Root.into(), 5u8));
         assert_eq!(DexPallet::k_last(sorted_pair), U256::zero());
-
-        // 2. first add_liquidity
 
         assert_ok!(<Test as Config>::MultiCurrency::deposit(
             DOT_ASSET_ID,
@@ -350,6 +341,7 @@ fn turn_on_protocol_fee_swap_have_fee_should_work() {
         let total_supply_dot: u128 = 1 * DOT_UNIT;
         let total_supply_btc: u128 = 1 * BTC_UNIT;
 
+        // 2. first add_liquidity
         assert_ok!(DexPallet::add_liquidity(
             RawOrigin::Signed(ALICE).into(),
             DOT_ASSET_ID,
@@ -373,7 +365,6 @@ fn turn_on_protocol_fee_swap_have_fee_should_work() {
         );
 
         // 3. swap
-
         assert_ok!(DexPallet::inner_swap_exact_assets_for_assets(
             &CHARLIE,
             DOT_UNIT,
@@ -468,15 +459,12 @@ fn calculate_mint_fee(fee_point: u128) -> U256 {
 fn turn_on_protocol_fee_swap_have_fee_at_should_work() {
     new_test_ext().execute_with(|| {
         // 1. turn on the protocol fee
+        assert_ok!(DexPallet::set_fee_receiver(RawOrigin::Root.into(), Some(BOB)));
+        // use default rate: 1/(1/6)-1=5
+        assert_ok!(DexPallet::set_fee_point(RawOrigin::Root.into(), 5u8));
 
         let sorted_pair = DexPallet::sort_asset_id(DOT_ASSET_ID, BTC_ASSET_ID);
-
-        assert_ok!(DexPallet::set_fee_receiver(RawOrigin::Root.into(), Some(BOB)));
-        // use default rate: 0.3% * 1 / 6 = 0.0005
-        assert_ok!(DexPallet::set_fee_point(RawOrigin::Root.into(), 5u8));
         assert_eq!(DexPallet::k_last(sorted_pair), U256::zero());
-
-        // 2. first add_liquidity
 
         assert_ok!(<Test as Config>::MultiCurrency::deposit(
             DOT_ASSET_ID,
@@ -504,6 +492,7 @@ fn turn_on_protocol_fee_swap_have_fee_at_should_work() {
         let total_supply_dot: u128 = 1_000_000 * DOT_UNIT;
         let total_supply_btc: u128 = 1_000_000 * BTC_UNIT;
 
+        // 2. first add_liquidity
         assert_ok!(DexPallet::add_liquidity(
             RawOrigin::Signed(ALICE).into(),
             DOT_ASSET_ID,
@@ -530,7 +519,6 @@ fn turn_on_protocol_fee_swap_have_fee_at_should_work() {
         );
 
         // 3. swap
-
         assert_ok!(DexPallet::inner_swap_exact_assets_for_assets(
             &CHARLIE,
             DOT_UNIT,
@@ -562,7 +550,7 @@ fn turn_on_protocol_fee_swap_have_fee_at_should_work() {
         let (added_btc, _) =
             DexPallet::calculate_added_amount(1 * BTC_UNIT, 1 * DOT_UNIT, 0, 0, reserve_1, reserve_0).unwrap();
 
-        // // 4. second add_liquidity
+        // 4. second add_liquidity
         assert_ok!(DexPallet::add_liquidity(
             RawOrigin::Signed(ALICE).into(),
             BTC_ASSET_ID,
@@ -865,5 +853,79 @@ fn should_set_max_fee_point() {
 
         let lp_fee = <Test as Config>::MultiCurrency::free_balance(LP_DOT_BTC, &BOB);
         assert_eq!(expect_fee, U256::from(lp_fee));
+    });
+}
+
+#[test]
+fn assert_higher_fee_point_decreases_protocol_fee() {
+    new_test_ext().execute_with(|| {
+        assert_ok!(DexPallet::set_fee_receiver(RawOrigin::Root.into(), Some(BOB)));
+
+        assert_ok!(<Test as Config>::MultiCurrency::deposit(
+            DOT_ASSET_ID,
+            &ALICE,
+            100_000_000 * DOT_UNIT
+        ));
+        assert_ok!(<Test as Config>::MultiCurrency::deposit(
+            BTC_ASSET_ID,
+            &ALICE,
+            100_000_000 * BTC_UNIT
+        ));
+        assert_ok!(<Test as Config>::MultiCurrency::deposit(
+            DOT_ASSET_ID,
+            &CHARLIE,
+            100_000_000 * DOT_UNIT
+        ));
+
+        assert_ok!(DexPallet::create_pair(
+            RawOrigin::Root.into(),
+            DOT_ASSET_ID,
+            BTC_ASSET_ID,
+            DEFAULT_FEE_RATE,
+        ));
+
+        let total_supply_dot: u128 = 1_000_000 * DOT_UNIT;
+        let total_supply_btc: u128 = 1_000_000 * BTC_UNIT;
+
+        assert_ok!(DexPallet::add_liquidity(
+            RawOrigin::Signed(ALICE).into(),
+            DOT_ASSET_ID,
+            BTC_ASSET_ID,
+            total_supply_dot,
+            total_supply_btc,
+            0,
+            0,
+            100
+        ));
+
+        assert_ok!(DexPallet::inner_swap_exact_assets_for_assets(
+            &CHARLIE,
+            DOT_UNIT,
+            1,
+            &vec![DOT_ASSET_ID, BTC_ASSET_ID],
+            &CHARLIE,
+        ));
+
+        fn mint_fee_for_point(fee_point: u8) -> u128 {
+            let pair_dot_btc = DexGeneral::pair_account_id(DOT_ASSET_ID, BTC_ASSET_ID);
+            let reserve_0 = <Test as Config>::MultiCurrency::free_balance(DOT_ASSET_ID, &pair_dot_btc);
+            let reserve_1 = <Test as Config>::MultiCurrency::free_balance(BTC_ASSET_ID, &pair_dot_btc);
+            let total_supply = <Test as Config>::MultiCurrency::total_issuance(LP_DOT_BTC);
+            assert_ok!(DexPallet::set_fee_point(RawOrigin::Root.into(), fee_point));
+            DexPallet::mint_protocol_fee(reserve_0, reserve_1, DOT_ASSET_ID, BTC_ASSET_ID, total_supply).unwrap()
+        }
+
+        // 1/(1/1)-1=0
+        let total_fee = mint_fee_for_point(0);
+        // 1/(1/2)-1=1
+        assert_eq!(mint_fee_for_point(1), total_fee / 2);
+        // 1/(1/4)-1=3
+        assert_eq!(mint_fee_for_point(3), total_fee / 4);
+        // 1/(1/6)-1=5
+        assert_eq!(mint_fee_for_point(5), total_fee / 6);
+        // 1/(1/10)-1=9
+        assert_eq!(mint_fee_for_point(9), total_fee / 10);
+        // 1/(1/100)-1=99
+        assert_eq!(mint_fee_for_point(99), total_fee / 100);
     });
 }
