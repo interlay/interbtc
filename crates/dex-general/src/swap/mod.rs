@@ -489,26 +489,25 @@ impl<T: Config> Pallet<T> {
     }
 
     pub fn get_amount_out_by_path(
-        amount_in: AssetBalance,
+        mut amount_in: AssetBalance,
         path: &[T::AssetId],
     ) -> Result<Vec<AssetBalance>, DispatchError> {
         ensure!(path.len() > 1, Error::<T>::InvalidPath);
 
-        let len = path.len() - 1;
         let mut out_vec = vec![amount_in];
 
-        for i in 0..len {
-            let pair_account = Self::pair_account_id(path[i], path[i + 1]);
-            let reserve_0 = T::MultiCurrency::free_balance(path[i], &pair_account);
-            let reserve_1 = T::MultiCurrency::free_balance(path[i + 1], &pair_account);
+        for &[input_asset, output_asset] in path.array_windows::<2>() {
+            let pair_account = Self::pair_account_id(input_asset, output_asset);
+            let reserve_0 = T::MultiCurrency::free_balance(input_asset, &pair_account);
+            let reserve_1 = T::MultiCurrency::free_balance(output_asset, &pair_account);
 
             ensure!(
                 reserve_1 > Zero::zero() && reserve_0 > Zero::zero(),
                 Error::<T>::InvalidPath
             );
 
-            let fee_rate = Self::pair_status(Self::sort_asset_id(path[i], path[i + 1])).fee_rate();
-            let amount = Self::get_amount_out(out_vec[i], reserve_0, reserve_1, fee_rate)?;
+            let fee_rate = Self::pair_status(Self::sort_asset_id(input_asset, output_asset)).fee_rate();
+            let amount = Self::get_amount_out(amount_in, reserve_0, reserve_1, fee_rate)?;
             ensure!(amount > Zero::zero(), Error::<T>::InvalidPath);
 
             // check K
@@ -516,7 +515,7 @@ impl<T: Config> Pallet<T> {
                 .checked_mul(U256::from(reserve_1))
                 .ok_or(Error::<T>::Overflow)?;
 
-            let reserve_0_after_swap = reserve_0.checked_add(out_vec[i]).ok_or(Error::<T>::Overflow)?;
+            let reserve_0_after_swap = reserve_0.checked_add(amount_in).ok_or(Error::<T>::Overflow)?;
             let reserve_1_after_swap = reserve_1.checked_sub(amount).ok_or(Error::<T>::Overflow)?;
 
             let invariant_after_swap: U256 = U256::from(reserve_1_after_swap)
@@ -529,6 +528,7 @@ impl<T: Config> Pallet<T> {
             );
 
             out_vec.push(amount);
+            amount_in = amount;
         }
 
         Ok(out_vec)
