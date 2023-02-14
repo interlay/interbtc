@@ -37,8 +37,7 @@ benchmarks! {
     where_clause { where T: Config + dex_general::Config + dex_stable::Config,
                         <T as dex_stable::Config>::CurrencyId: TryFrom<u64> + Default,
                         <T as dex_general::Config>::AssetId: From<u32>,
-                        <T as Config>::StableCurrencyId: TryFrom<u64> + Default,
-                        <T as Config>::NormalCurrencyId: From<u32>,
+                        <T as Config>::CurrencyId: TryFrom<u64> + From<u32> + Default,
     }
 
     swap_exact_token_for_tokens_through_stable_pool{
@@ -92,8 +91,8 @@ benchmarks! {
             1000u32.into()
         ));
 
-        let router_stable_token1 = token1::<<T as Config>::StableCurrencyId>();
-        let router_stable_token2 = token2::<<T as Config>::StableCurrencyId>();
+        let router_stable_token1 = token1::<<T as Config>::CurrencyId>();
+        let router_stable_token2 = token2::<<T as Config>::CurrencyId>();
 
      }:_(
         RawOrigin::Signed(caller.clone()),
@@ -101,7 +100,7 @@ benchmarks! {
         0u32.into(),
         vec![
             Route::Normal([ASSET_1.into(), ASSET_0.into()].to_vec()),
-            Route::Stable(StablePath::<T::StablePoolId, <T as Config>::StableCurrencyId> {
+            Route::Stable(StablePath::<T::StablePoolId, <T as Config>::CurrencyId> {
                 pool_id: 0u32.into(),
                 base_pool_id: 0u32.into(),
                 mode: Single,

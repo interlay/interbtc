@@ -27,7 +27,7 @@ fn setup_stable_pools() {
     ));
 
     let pool_id = StableAMM::next_pool_id() - 1;
-    let first_pool_lp_currency_id = StableLPV2(pool_id);
+    let first_pool_lp_currency_id = StableLP(pool_id);
 
     assert_ok!(StableAMM::add_liquidity(
         RawOrigin::Signed(USER1).into(),
