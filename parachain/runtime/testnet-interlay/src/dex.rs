@@ -66,8 +66,7 @@ impl dex_swap_router::Config for Runtime {
     type RuntimeEvent = RuntimeEvent;
     type StablePoolId = StablePoolId;
     type Balance = Balance;
-    type StableCurrencyId = CurrencyId;
-    type NormalCurrencyId = CurrencyId;
+    type CurrencyId = CurrencyId;
     type NormalAmm = DexGeneral;
     type StableAMM = DexStable;
     type WeightInfo = ();

@@ -59,8 +59,7 @@ impl Contains<AccountId> for MockDustRemovalWhitelist {
 pub enum CurrencyId {
     Forbidden(TokenSymbol),
     Token(TokenSymbol),
-    StableLP(PoolType),
-    StableLPV2(PoolId),
+    StableLP(PoolId),
     LpToken(TokenSymbol, TokenSymbol),
 }
 
@@ -191,8 +190,7 @@ impl Config for Test {
     type RuntimeEvent = RuntimeEvent;
     type StablePoolId = PoolId;
     type Balance = Balance;
-    type StableCurrencyId = CurrencyId;
-    type NormalCurrencyId = CurrencyId;
+    type CurrencyId = CurrencyId;
     type NormalAmm = DexGeneral;
     type StableAMM = StableAMM;
     type WeightInfo = ();
@@ -204,7 +202,7 @@ pub struct PoolLpGenerate;
 
 impl StablePoolLpCurrencyIdGenerate<CurrencyId, PoolId> for PoolLpGenerate {
     fn generate_by_pool_id(pool_id: PoolId) -> CurrencyId {
-        return CurrencyId::StableLPV2(pool_id);
+        return CurrencyId::StableLP(pool_id);
     }
 }
 

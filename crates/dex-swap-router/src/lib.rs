@@ -47,9 +47,9 @@ pub enum StableSwapMode {
 }
 
 #[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, TypeInfo)]
-pub enum Route<PoolId, StableCurrencyId, NormalCurrencyId> {
-    Stable(StablePath<PoolId, StableCurrencyId>),
-    Normal(Vec<NormalCurrencyId>),
+pub enum Route<PoolId, CurrencyId> {
+    Stable(StablePath<PoolId, CurrencyId>),
+    Normal(Vec<CurrencyId>),
 }
 
 pub use pallet::*;
@@ -81,15 +81,12 @@ pub mod pallet {
             + Into<AssetBalance>
             + TypeInfo;
 
-        // The currency id use in stable amm
-        type StableCurrencyId: Parameter + Member + Copy + MaybeSerializeDeserialize + Ord + TypeInfo + MaxEncodedLen;
+        // The currency id used in both amms
+        type CurrencyId: Parameter + Member + Copy + MaybeSerializeDeserialize + Ord + TypeInfo + MaxEncodedLen;
 
-        // The currency id use in standard amm
-        type NormalCurrencyId: Parameter + Member + Copy + MaybeSerializeDeserialize + Ord + TypeInfo + MaxEncodedLen;
+        type NormalAmm: ExportDexGeneral<AccountIdOf<Self>, Self::CurrencyId>;
 
-        type NormalAmm: ExportDexGeneral<AccountIdOf<Self>, Self::NormalCurrencyId>;
-
-        type StableAMM: StableAmmApi<Self::StablePoolId, Self::StableCurrencyId, AccountIdOf<Self>, Self::Balance>;
+        type StableAMM: StableAmmApi<Self::StablePoolId, Self::CurrencyId, AccountIdOf<Self>, Self::Balance>;
 
         /// Weight information for extrinsics in this pallet.
         type WeightInfo: WeightInfo;
@@ -122,7 +119,7 @@ pub mod pallet {
             origin: OriginFor<T>,
             amount_in: T::Balance,
             amount_out_min: T::Balance,
-            routes: Vec<Route<T::StablePoolId, T::StableCurrencyId, T::NormalCurrencyId>>,
+            routes: Vec<Route<T::StablePoolId, T::CurrencyId>>,
             to: T::AccountId,
             deadline: T::BlockNumber,
         ) -> DispatchResult {
@@ -160,7 +157,7 @@ pub mod pallet {
 impl<T: Config> Pallet<T> {
     fn stable_swap(
         who: &T::AccountId,
-        path: &StablePath<T::StablePoolId, T::StableCurrencyId>,
+        path: &StablePath<T::StablePoolId, T::CurrencyId>,
         amount_in: T::Balance,
         to: &T::AccountId,
     ) -> Result<T::Balance, DispatchError> {
@@ -203,18 +200,13 @@ impl<T: Config> Pallet<T> {
         Ok(out_amount)
     }
 
-    fn swap(
-        who: &T::AccountId,
-        amount_in: T::Balance,
-        path: &[T::NormalCurrencyId],
-        to: &T::AccountId,
-    ) -> DispatchResult {
+    fn swap(who: &T::AccountId, amount_in: T::Balance, path: &[T::CurrencyId], to: &T::AccountId) -> DispatchResult {
         T::NormalAmm::inner_swap_exact_assets_for_assets(who, amount_in.into(), Zero::zero(), path, to)
     }
 
     fn currency_index_from_stable_pool(
         pool_id: T::StablePoolId,
-        currency_id: T::StableCurrencyId,
+        currency_id: T::CurrencyId,
     ) -> Result<u32, DispatchError> {
         T::StableAMM::currency_index(pool_id, currency_id).ok_or_else(|| Error::<T>::MismatchPoolAndCurrencyId.into())
     }
