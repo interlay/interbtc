@@ -224,6 +224,11 @@ mod math {
             Ok(if self.le(other)? { self.clone() } else { other.clone() })
         }
 
+        pub fn max(&self, other: &Self) -> Result<Self, DispatchError> {
+            ensure!(self.currency_id == other.currency_id, Error::<T>::InvalidCurrency);
+            Ok(if self.ge(other)? { self.clone() } else { other.clone() })
+        }
+
         pub fn lt(&self, other: &Self) -> Result<bool, DispatchError> {
             ensure!(self.currency_id == other.currency_id, Error::<T>::InvalidCurrency);
             Ok(self.amount < other.amount)

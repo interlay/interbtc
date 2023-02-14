@@ -24,7 +24,7 @@ mod market;
 use currency::Amount;
 use frame_support::{assert_noop, assert_ok};
 
-use mocktopus::mocking::Mockable;
+use mocktopus::mocking::{MockResult, Mockable};
 use sp_runtime::{
     traits::{CheckedDiv, One, Saturating},
     FixedU128, Permill,
@@ -1472,5 +1472,50 @@ fn redeeming_full_amount_leaves_no_leftover() {
 
         assert_eq!(Loans::free_lend_tokens(DOT, &ALICE).unwrap().is_zero(), true);
         assert_eq!(Loans::reserved_lend_tokens(DOT, &ALICE).unwrap().is_zero(), true);
+    })
+}
+
+#[test]
+fn redeem_amount_matches_freed_underlying() {
+    new_test_ext().execute_with(|| {
+        let amount_to_mint = 2_123_123_123;
+        let amount_to_redeem = Amount::<Test>::new(1_00_000_000, DOT);
+        assert_ok!(Loans::mint(RuntimeOrigin::signed(ALICE), DOT, amount_to_mint));
+        assert_ok!(Loans::deposit_all_collateral(RuntimeOrigin::signed(ALICE), DOT));
+
+        let pre_redeem_balance = Tokens::free_balance(DOT, &ALICE);
+        let inner_exchange_rate = FixedU128::from_inner(20000000000000001);
+
+        // Force rounding error in conversion
+        Amount::<Test>::to_lend_token.mock_safe(move |x| {
+            MockResult::Return(Ok(x
+                .checked_mul(&inner_exchange_rate.clone())
+                .unwrap()
+                .set_currency(Loans::lend_token_id(x.currency()).unwrap())))
+        });
+        Amount::<Test>::to_underlying.mock_safe(move |x| {
+            MockResult::Return(Ok(x
+                .checked_div(&inner_exchange_rate.clone())
+                .unwrap()
+                .set_currency(Loans::underlying_id(x.currency()).unwrap())))
+        });
+
+        // sanity check: converting the lend token and back to underlying gives indeed a different result
+        assert_ne!(
+            amount_to_redeem.to_lend_token().unwrap().to_underlying().unwrap(),
+            amount_to_redeem
+        );
+
+        assert_ok!(Loans::redeem(
+            RuntimeOrigin::signed(ALICE),
+            DOT,
+            amount_to_redeem.amount()
+        ));
+
+        // before #930 this used to be off by one.
+        assert_eq!(
+            Tokens::free_balance(DOT, &ALICE),
+            pre_redeem_balance + amount_to_redeem.amount()
+        );
     })
 }
