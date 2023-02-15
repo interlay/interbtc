@@ -1012,14 +1012,17 @@ pub mod pallet {
             let who = ensure_signed(origin)?;
             ensure!(!redeem_amount.is_zero(), Error::<T>::InvalidAmount);
 
-            let amount = Amount::<T>::new(redeem_amount, asset_id);
+            let underlying = Amount::<T>::new(redeem_amount, asset_id);
+            let voucher = underlying.to_lend_token()?;
 
-            Self::do_redeem(&who, &amount, &amount.to_lend_token()?)?;
+            Self::do_redeem(&who, &underlying, &voucher)?;
 
             Ok(().into())
         }
 
         /// The caller redeems their entire lend token balance in exchange for the underlying asset.
+        /// Note: this will fail if the account needs some of the collateral for backing open borrows,
+        /// or if any of the lend tokens are used by other pallets (e.g. used as vault collateral)
         ///
         /// - `asset_id`: the asset to be redeemed.
         #[pallet::call_index(11)]
@@ -1027,16 +1030,13 @@ pub mod pallet {
         #[transactional]
         pub fn redeem_all(origin: OriginFor<T>, asset_id: CurrencyId<T>) -> DispatchResultWithPostInfo {
             let who = ensure_signed(origin.clone())?;
-            // This function is an almost 1:1 duplicate of the logic in `do_redeem`.
-            // It could be refactored to compute the redeemable underlying
-            let free = Self::free_lend_tokens(asset_id, &who)?;
-            let reserved = Self::reserved_lend_tokens(asset_id, &who)?;
-            let used_collateral = Amount::max(&free, &reserved)?;
-            let underlying = &used_collateral.to_underlying()?;
 
-            // note: we use used_collateral rather than underlying.to_lend_token, s.t. the account
+            let voucher = Self::balance(Self::lend_token_id(asset_id)?, &who);
+            let underlying = &voucher.to_underlying()?;
+
+            // note: we use total balance rather than underlying.to_lend_token, s.t. the account
             // is left neatly with 0 balance
-            Self::do_redeem(&who, &underlying, &used_collateral)?;
+            Self::do_redeem(&who, &underlying, &voucher)?;
 
             Ok(().into())
         }
