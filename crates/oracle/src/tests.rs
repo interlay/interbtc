@@ -1,6 +1,7 @@
-use crate::{mock::*, CurrencyId, OracleKey};
+use crate::{mock::*, CurrencyId, OracleKey, RebaseTokens};
 use frame_support::{assert_err, assert_ok, dispatch::DispatchError};
 use mocktopus::mocking::*;
+use orml_traits::MultiCurrency;
 use sp_arithmetic::FixedU128;
 use sp_runtime::FixedPointNumber;
 
@@ -362,4 +363,44 @@ fn test_median() {
 
         assert_eq!(Oracle::median(input_fixedpoint), output_fixedpoint);
     }
+}
+
+#[test]
+fn test_rebase_tokens() {
+    run_test(|| {
+        Oracle::is_authorized.mock_safe(|_| MockResult::Return(true));
+        RebaseTokens::<Test>::insert(ForeignAsset(2), Token(KSM));
+        assert_ok!(Oracle::feed_values(
+            RuntimeOrigin::signed(0),
+            vec![
+                // LKSM/BTC => 0.00018807
+                (
+                    OracleKey::ExchangeRate(ForeignAsset(2)),
+                    FixedU128::from_inner(53_171_691_391_503_161_727_385_600)
+                ),
+                // KSM/BTC => 0.00148502
+                (
+                    OracleKey::ExchangeRate(Token(KSM)),
+                    FixedU128::from_inner(6_733_916_041_534_794_629_120_000)
+                ),
+            ],
+        ));
+
+        mine_block();
+
+        assert_ok!(Tokens::set_balance(
+            RuntimeOrigin::root(),
+            0,
+            ForeignAsset(2),
+            1000000000000,
+            0
+        ));
+
+        // LKSM/KSM => 0.12664475899314487
+        assert_eq!(126644758993, OracleRebase::total_issuance(ForeignAsset(2)));
+        assert_eq!(126644758993, OracleRebase::total_balance(ForeignAsset(2), &0));
+        assert_eq!(126644758993, OracleRebase::free_balance(ForeignAsset(2), &0));
+
+        assert_ok!(OracleRebase::transfer(ForeignAsset(2), &0, &1, 126644758993));
+    });
 }

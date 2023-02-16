@@ -1,18 +1,24 @@
 use crate as oracle;
-use crate::{Config, Error};
+use crate::{types::*, Config, Error};
 use frame_support::{
     parameter_types,
     traits::{ConstU32, Everything, GenesisBuild},
 };
 use mocktopus::mocking::clear_mocks;
 use orml_traits::parameter_type_with_key;
-pub use primitives::{CurrencyId::Token, TokenSymbol::*};
+pub use primitives::{
+    CurrencyId::{ForeignAsset, Token},
+    TokenSymbol::*,
+};
 use sp_arithmetic::{FixedI128, FixedU128};
 use sp_core::H256;
 use sp_runtime::{
     testing::Header,
     traits::{BlakeTwo256, IdentityLookup},
 };
+
+pub type OracleRebase =
+    Combiner<AccountId, IsRebaseToken<Test>, Mapper<AccountId, RebaseAdapter<Test>, Tokens>, Tokens>;
 
 type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
 type Block = frame_system::mocking::MockBlock<Test>;

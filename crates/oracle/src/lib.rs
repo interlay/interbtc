@@ -47,6 +47,7 @@ use traits::OracleApi;
 pub use pallet::*;
 pub use primitives::{oracle::Key as OracleKey, CurrencyId, TruncateFixedPointToInt};
 pub use traits::OnExchangeRateChange;
+pub use types::*;
 
 #[derive(Encode, Decode, Eq, PartialEq, Clone, Copy, Ord, PartialOrd, TypeInfo, MaxEncodedLen)]
 pub struct TimestampedValue<Value, Moment> {
@@ -145,6 +146,9 @@ pub mod pallet {
     #[pallet::storage]
     #[pallet::getter(fn authorized_oracles)]
     pub type AuthorizedOracles<T: Config> = StorageMap<_, Blake2_128Concat, T::AccountId, Vec<u8>, ValueQuery>;
+
+    #[pallet::storage]
+    pub type RebaseTokens<T: Config> = StorageMap<_, Blake2_128Concat, CurrencyId, CurrencyId, OptionQuery>;
 
     #[pallet::type_value]
     pub(super) fn DefaultForStorageVersion() -> Version {
