@@ -76,6 +76,9 @@ mod types;
 
 mod default_weights;
 
+#[cfg(test)]
+use mocktopus::macros::mockable;
+
 pub const REWARD_SUB_ACCOUNT: &[u8; 7] = b"farming";
 pub const INCENTIVE_SUB_ACCOUNT: &[u8; 9] = b"incentive";
 
@@ -87,6 +90,7 @@ type CurrencyId<T> = <T as orml_tokens::Config>::CurrencyId;
 type BalanceOf<T> = <T as currency::Config>::Balance;
 
 /// Lending-specific methods on Amount
+#[cfg_attr(test, mockable)]
 trait LendingAmountExt {
     fn to_lend_token(&self) -> Result<Self, DispatchError>
     where
@@ -96,6 +100,7 @@ trait LendingAmountExt {
         Self: Sized;
 }
 
+#[cfg_attr(test, mockable)]
 impl<T: Config> LendingAmountExt for Amount<T> {
     fn to_lend_token(&self) -> Result<Self, DispatchError> {
         let lend_token_id = Pallet::<T>::lend_token_id(self.currency())?;
@@ -1007,23 +1012,17 @@ pub mod pallet {
             let who = ensure_signed(origin)?;
             ensure!(!redeem_amount.is_zero(), Error::<T>::InvalidAmount);
 
-            let lend_token_id = Self::lend_token_id(asset_id)?;
-            // if the receiver has collateral locked
-            let deposit = Pallet::<T>::account_deposits(lend_token_id, &who);
-            let amount = Amount::<T>::new(redeem_amount, asset_id);
-            if !deposit.is_zero() {
-                // Withdraw the `lend_tokens` from the borrow collateral, so they are redeemable.
-                // This assumes that a user cannot have both `free` and `locked` lend tokens at
-                // the same time (for the purposes of lending and borrowing).
-                let collateral = Self::recompute_collateral_amount(&amount)?;
-                Self::do_withdraw_collateral(&who, &collateral)?;
-            }
-            Self::do_redeem(&who, &amount)?;
+            let underlying = Amount::<T>::new(redeem_amount, asset_id);
+            let voucher = underlying.to_lend_token()?;
+
+            Self::do_redeem(&who, &underlying, &voucher)?;
 
             Ok(().into())
         }
 
         /// The caller redeems their entire lend token balance in exchange for the underlying asset.
+        /// Note: this will fail if the account needs some of the collateral for backing open borrows,
+        /// or if any of the lend tokens are used by other pallets (e.g. used as vault collateral)
         ///
         /// - `asset_id`: the asset to be redeemed.
         #[pallet::call_index(11)]
@@ -1031,44 +1030,13 @@ pub mod pallet {
         #[transactional]
         pub fn redeem_all(origin: OriginFor<T>, asset_id: CurrencyId<T>) -> DispatchResultWithPostInfo {
             let who = ensure_signed(origin.clone())?;
-            // This function is an almost 1:1 duplicate of the logic in `do_redeem`.
-            // It could be refactored to compute the redeemable underlying
-            // with `Self::recompute_underlying_amount(&Self::free_lend_tokens(asset_id, &who)?)?`
-            // but that would cause the `accrue_interest_works_after_redeem_all` unit test to fail with
-            // left: `1000000000003607`,
-            // right: `1000000000003608`'
 
-            // Chaining `calc_underlying_amount` and `calc_collateral_amount` continuously decreases
-            // an amount because of rounding down, and having the current function call `do_redeem`
-            // would perform three conversions: lend_token -> token -> lend_token -> token.
-            // Calling `do_redeem_voucher` directly only performs one conversion: lend_token -> token,
-            // avoiding this edge case.
-            // TODO: investigate whether it is possible to implement the conversion functions
-            // with guarantees that this always holds:
-            // `calc_underlying_amount(calc_collateral_amount(x)) = calc_collateral_amount(calc_underlying_amount(x))`
-            // Use the `converting_to_and_from_collateral_should_not_change_results` unit test to achieve this.
-            // If there are leftover lend_tokens after a `redeem_all` (because of rounding down), it would make it
-            // impossible to enforce "collateral toggle" state transitions.
-            Self::ensure_active_market(asset_id)?;
+            let voucher = Self::balance(Self::lend_token_id(asset_id)?, &who);
+            let underlying = &voucher.to_underlying()?;
 
-            let lend_token_id = Self::lend_token_id(asset_id)?;
-            // if the receiver has collateral locked
-            let deposit = Pallet::<T>::account_deposits(lend_token_id, &who);
-            if !deposit.is_zero() {
-                // then withdraw all collateral
-                Self::withdraw_all_collateral(origin, asset_id)?;
-            }
-
-            // `do_redeem()` logic duplicate:
-            Self::accrue_interest(asset_id)?;
-            let lend_tokens = Self::free_lend_tokens(asset_id, &who)?;
-            ensure!(!lend_tokens.is_zero(), Error::<T>::InvalidAmount);
-            let redeem = Self::do_redeem_voucher(&who, lend_tokens)?;
-            Self::deposit_event(Event::<T>::Redeemed {
-                account_id: who,
-                currency_id: asset_id,
-                amount: redeem.amount(),
-            });
+            // note: we use total balance rather than underlying.to_lend_token, s.t. the account
+            // is left neatly with 0 balance
+            Self::do_redeem(&who, &underlying, &voucher)?;
 
             Ok(().into())
         }
@@ -1313,17 +1281,16 @@ pub mod pallet {
             Self::ensure_active_market(asset_id)?;
             Self::accrue_interest(asset_id)?;
 
-            let redeem_amount = Amount::new(redeem_amount, asset_id);
-            let voucher = redeem_amount.to_lend_token()?;
+            let underlying = Amount::new(redeem_amount, asset_id);
 
-            let redeem = Self::do_redeem_voucher(&from, voucher)?;
+            Self::do_redeem(&from, &underlying, &underlying.to_lend_token()?)?;
 
-            redeem.transfer(&from, &receiver)?;
+            underlying.transfer(&from, &receiver)?;
 
             Self::deposit_event(Event::<T>::IncentiveReservesReduced {
                 receiver,
                 currency_id: asset_id,
-                amount: redeem.amount(),
+                amount: underlying.amount(),
             });
             Ok(().into())
         }
@@ -1458,6 +1425,9 @@ impl<T: Config> Pallet<T> {
             redeemer,
             voucher.amount(),
         );
+
+        ensure!(!voucher.is_zero(), Error::<T>::InvalidAmount);
+
         if Self::balance(voucher.currency(), redeemer).lt(&voucher)? {
             return Err(Error::<T>::InsufficientDeposit.into());
         }
@@ -1473,29 +1443,6 @@ impl<T: Config> Pallet<T> {
             return Err(Error::<T>::LockedTokensCannotBeRedeemed.into());
         }
         Ok(())
-    }
-
-    #[require_transactional]
-    pub fn do_redeem_voucher(who: &T::AccountId, voucher: Amount<T>) -> Result<Amount<T>, DispatchError> {
-        let asset_id = Self::underlying_id(voucher.currency())?;
-
-        Self::redeem_allowed(who, &voucher)?;
-        Self::update_reward_supply_index(asset_id)?;
-        Self::distribute_supplier_reward(asset_id, who)?;
-
-        let redeem_amount = voucher.to_underlying()?;
-
-        // Need to first `lock_on` in order to `burn_from` because:
-        // 1) only the `free` lend_tokens are redeemable
-        // 2) `burn_from` can only be called on locked tokens.
-        voucher.lock_on(who)?;
-        voucher.burn_from(who)?;
-
-        redeem_amount
-            .transfer(&Self::account_id(), who)
-            .map_err(|_| Error::<T>::InsufficientCash)?;
-
-        Ok(redeem_amount)
     }
 
     /// Borrower shouldn't borrow more than their total collateral value allows
@@ -2089,18 +2036,39 @@ impl<T: Config> LoansTrait<CurrencyId<T>, AccountIdOf<T>, Amount<T>> for Pallet<
         Ok(())
     }
 
-    fn do_redeem(supplier: &AccountIdOf<T>, amount: &Amount<T>) -> Result<(), DispatchError> {
-        let asset_id = amount.currency();
+    fn do_redeem(supplier: &AccountIdOf<T>, underlying: &Amount<T>, voucher: &Amount<T>) -> Result<(), DispatchError> {
+        let asset_id = underlying.currency();
+
+        // if the receiver has collateral locked
+        if !Pallet::<T>::account_deposits(voucher.currency(), &supplier).is_zero() {
+            // Withdraw the `lend_tokens` from the borrow collateral, so they are redeemable.
+            // This assumes that a user cannot have both `free` and `locked` lend tokens at
+            // the same time (for the purposes of lending and borrowing).
+            Self::do_withdraw_collateral(&supplier, &voucher)?;
+        }
+
         Self::ensure_active_market(asset_id)?;
         Self::accrue_interest(asset_id)?;
 
-        let voucher = amount.to_lend_token()?;
+        Self::redeem_allowed(supplier, &voucher)?;
 
-        let redeem = Self::do_redeem_voucher(supplier, voucher)?;
+        Self::update_reward_supply_index(asset_id)?;
+        Self::distribute_supplier_reward(asset_id, supplier)?;
+
+        // Need to first `lock_on` in order to `burn_from` because:
+        // 1) only the `free` lend_tokens are redeemable
+        // 2) `burn_from` can only be called on locked tokens.
+        voucher.lock_on(supplier)?;
+        voucher.burn_from(supplier)?;
+
+        underlying
+            .transfer(&Self::account_id(), supplier)
+            .map_err(|_| Error::<T>::InsufficientCash)?;
+
         Self::deposit_event(Event::<T>::Redeemed {
             account_id: supplier.clone(),
             currency_id: asset_id,
-            amount: redeem.amount(),
+            amount: underlying.amount(),
         });
         Ok(())
     }

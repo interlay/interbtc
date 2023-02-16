@@ -187,7 +187,7 @@ fn accrue_interest_works_after_redeem() {
                 .saturating_mul_int(Loans::account_deposits(Loans::lend_token_id(Token(DOT)).unwrap(), &BOB).amount()),
             0,
         );
-        assert_eq!(Tokens::balance(Token(DOT), &ALICE), 819999999999999);
+        assert_eq!(Tokens::balance(Token(DOT), &ALICE), 820000000000000);
     })
 }
 
