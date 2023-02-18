@@ -85,7 +85,6 @@ fn default_parachains_host_configuration() -> HostConfiguration<BlockNumber> {
         max_validators: Some(200),
         dispute_period: 6,
         dispute_post_conclusion_acceptance_period: 600,
-        dispute_max_spam_slots: 2,
         dispute_conclusion_by_time_out_period: 600,
         no_show_slots: 2,
         n_delay_tranches: 89,
