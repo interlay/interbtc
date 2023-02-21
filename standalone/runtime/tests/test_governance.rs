@@ -940,9 +940,9 @@ fn test_sudo_is_disabled_if_key_is_none() {
         })
         .dispatch(origin_of(account_of(ALICE))),);
 
-        use frame_support::storage::migration::put_storage_value;
+        use frame_support::storage::migration::take_storage_value;
         assert!(!pallet_sudo::Pallet::<Runtime>::key().is_none());
-        put_storage_value(b"Sudo", b"Key", &[], Option::<AccountId>::None);
+        take_storage_value::<AccountId>(b"Sudo", b"Key", &[]);
         assert!(pallet_sudo::Pallet::<Runtime>::key().is_none());
 
         // assert that sudo does not work when key is none
