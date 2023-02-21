@@ -1264,6 +1264,12 @@ pub type Executive = frame_executive::Executive<
         pallet_preimage::migration::v1::Migration<Runtime>,
         pallet_scheduler::migration::v3::MigrateToV4<Runtime>,
         pallet_multisig::migrations::v1::MigrateToV1<Runtime>,
+        reward::migration::v1::MigrateToV1<Runtime, EscrowRewardsInstance>,
+        vault_registry::migration::vault_capacity::RewardsMigration<
+            Runtime,
+            VaultCapacityInstance,
+            VaultRewardsInstance,
+        >,
         SudoMigrationCheck,
     ),
 >;
