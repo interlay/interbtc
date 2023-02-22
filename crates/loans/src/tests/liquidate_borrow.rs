@@ -200,7 +200,7 @@ fn liquidator_cannot_take_inactive_market_currency() {
         // Adjust KSM price to make shortfall
         CurrencyConvert::convert.mock_safe(with_price(Some((KSM, 2.into()))));
         assert_ok!(Loans::mutate_market(DOT, |stored_market| {
-            stored_market.state = MarketState::Supervision;
+            stored_market.state = MarketState::Pending;
             stored_market.clone()
         }));
         assert_noop!(
