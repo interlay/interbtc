@@ -1272,8 +1272,8 @@ struct SudoMigrationCheck;
 
 impl OnRuntimeUpgrade for SudoMigrationCheck {
     fn on_runtime_upgrade() -> Weight {
-        use frame_support::storage::migration::put_storage_value;
-        put_storage_value(b"Sudo", b"Key", &[], Option::<AccountId>::None);
+        use frame_support::storage::migration::take_storage_value;
+        take_storage_value::<AccountId>(b"Sudo", b"Key", &[]);
         Default::default()
     }
     #[cfg(feature = "try-runtime")]
