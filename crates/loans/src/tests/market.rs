@@ -123,12 +123,13 @@ fn add_market_can_only_be_used_by_root() {
 }
 
 #[test]
-fn add_market_ensures_that_market_state_must_be_pending() {
+fn add_market_with_active_state_works() {
     new_test_ext().execute_with(|| {
-        assert_noop!(
-            Loans::add_market(RuntimeOrigin::root(), FOREIGN_ASSET, ACTIVE_MARKET_MOCK),
-            Error::<Test>::NewMarketMustHavePendingState
-        );
+        assert_ok!(Loans::add_market(
+            RuntimeOrigin::root(),
+            FOREIGN_ASSET,
+            ACTIVE_MARKET_MOCK
+        ),);
     })
 }
 

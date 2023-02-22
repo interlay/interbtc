@@ -655,10 +655,6 @@ pub mod pallet {
         ) -> DispatchResultWithPostInfo {
             T::UpdateOrigin::ensure_origin(origin)?;
             ensure!(!Markets::<T>::contains_key(asset_id), Error::<T>::MarketAlreadyExists);
-            ensure!(
-                market.state == MarketState::Pending,
-                Error::<T>::NewMarketMustHavePendingState
-            );
             ensure!(market.rate_model.check_model(), Error::<T>::InvalidRateModelParam);
             ensure!(
                 market.collateral_factor >= Ratio::zero() && market.collateral_factor < Ratio::one(),
@@ -705,8 +701,15 @@ pub mod pallet {
             });
             Self::deposit_event(Event::<T>::NewMarket {
                 underlying_currency_id: asset_id,
-                market,
+                market: market.clone(),
             });
+
+            if let MarketState::Active = market.state {
+                Self::deposit_event(Event::<T>::ActivatedMarket {
+                    underlying_currency_id: asset_id,
+                });
+            }
+
             Ok(().into())
         }
 
