@@ -252,6 +252,8 @@ pub mod pallet {
 
         /// Hook for exchangerate changes.
         type OnExchangeRateChange: OnExchangeRateChange<CurrencyId<Self>>;
+
+        type Treasury: Get<Self::AccountId>;
     }
 
     #[pallet::error]
@@ -477,11 +479,6 @@ pub mod pallet {
     /// CurrencyId -> Balance
     #[pallet::storage]
     pub type TotalBorrows<T: Config> = StorageMap<_, Blake2_128Concat, CurrencyId<T>, BalanceOf<T>, ValueQuery>;
-
-    /// Total amount of reserves of the underlying held in this market
-    /// CurrencyId -> Balance
-    #[pallet::storage]
-    pub type TotalReserves<T: Config> = StorageMap<_, Blake2_128Concat, CurrencyId<T>, BalanceOf<T>, ValueQuery>;
 
     /// Mapping of account addresses to outstanding borrow balances
     /// CurrencyId -> Owner -> BorrowSnapshot
@@ -1177,90 +1174,6 @@ pub mod pallet {
             Ok(().into())
         }
 
-        /// Add reserves by transferring from payer.
-        /// TODO: This extrinsic currently does nothing useful. See the TODO comment
-        /// of the `ensure_enough_cash` function for more details. Based on that
-        /// TODO, decide whether this extrinsic should be kept.
-        ///
-        /// May only be called from `T::ReserveOrigin`.
-        ///
-        /// - `payer`: the payer account.
-        /// - `asset_id`: the assets to be added.
-        /// - `add_amount`: the amount to be added.
-        #[pallet::call_index(18)]
-        #[pallet::weight(<T as Config>::WeightInfo::add_reserves())]
-        #[transactional]
-        pub fn add_reserves(
-            origin: OriginFor<T>,
-            payer: <T::Lookup as StaticLookup>::Source,
-            asset_id: CurrencyId<T>,
-            #[pallet::compact] add_amount: BalanceOf<T>,
-        ) -> DispatchResultWithPostInfo {
-            let amount_to_transfer = Amount::new(add_amount, asset_id);
-            T::ReserveOrigin::ensure_origin(origin)?;
-            let payer = T::Lookup::lookup(payer)?;
-            Self::ensure_active_market(asset_id)?;
-            Self::accrue_interest(asset_id)?;
-
-            ensure!(!amount_to_transfer.is_zero(), Error::<T>::InvalidAmount);
-            amount_to_transfer.transfer(&payer, &Self::account_id())?;
-            let total_reserves = Self::total_reserves(asset_id);
-            let total_reserves_new = total_reserves.checked_add(&amount_to_transfer)?;
-            TotalReserves::<T>::insert(asset_id, total_reserves_new.amount());
-
-            Self::deposit_event(Event::<T>::ReservesAdded {
-                payer,
-                currency_id: asset_id,
-                amount: amount_to_transfer.amount(),
-                new_reserve_amount: total_reserves_new.amount(),
-            });
-
-            Ok(().into())
-        }
-
-        /// Reduces reserves (treasury's share of accrued interest) by transferring to receiver.
-        ///
-        /// May only be called from `T::ReserveOrigin`.
-        ///
-        /// - `receiver`: the receiver account.
-        /// - `asset_id`: the assets to be reduced.
-        /// - `reduce_amount`: the amount to be reduced.
-        #[pallet::call_index(19)]
-        #[pallet::weight(<T as Config>::WeightInfo::reduce_reserves())]
-        #[transactional]
-        pub fn reduce_reserves(
-            origin: OriginFor<T>,
-            receiver: <T::Lookup as StaticLookup>::Source,
-            asset_id: CurrencyId<T>,
-            #[pallet::compact] reduce_amount: BalanceOf<T>,
-        ) -> DispatchResultWithPostInfo {
-            T::ReserveOrigin::ensure_origin(origin)?;
-            let receiver = T::Lookup::lookup(receiver)?;
-            Self::ensure_active_market(asset_id)?;
-            Self::accrue_interest(asset_id)?;
-
-            let amount_to_transfer = Amount::new(reduce_amount, asset_id);
-
-            ensure!(!amount_to_transfer.is_zero(), Error::<T>::InvalidAmount);
-            let total_reserves = Self::total_reserves(asset_id);
-            if amount_to_transfer.gt(&total_reserves)? {
-                return Err(Error::<T>::InsufficientReserves.into());
-            }
-            let total_reserves_new = total_reserves.checked_sub(&amount_to_transfer)?;
-            TotalReserves::<T>::insert(asset_id, total_reserves_new.amount());
-
-            amount_to_transfer.transfer(&Self::account_id(), &receiver)?;
-
-            Self::deposit_event(Event::<T>::ReservesReduced {
-                receiver,
-                currency_id: asset_id,
-                amount: amount_to_transfer.amount(),
-                new_reserve_amount: total_reserves_new.amount(),
-            });
-
-            Ok(().into())
-        }
-
         /// Sender redeems some of internal supplies in exchange for the underlying asset.
         ///
         /// - `asset_id`: the asset to be redeemed.
@@ -1306,11 +1219,6 @@ impl<T: Config> Pallet<T> {
     #[cfg_attr(any(test, feature = "integration-tests"), visibility::make(pub))]
     fn total_borrows(asset_id: CurrencyId<T>) -> Amount<T> {
         Amount::new(TotalBorrows::<T>::get(asset_id), asset_id)
-    }
-
-    #[cfg_attr(any(test, feature = "integration-tests"), visibility::make(pub))]
-    fn total_reserves(asset_id: CurrencyId<T>) -> Amount<T> {
-        Amount::new(TotalReserves::<T>::get(asset_id), asset_id)
     }
 
     pub fn account_id() -> T::AccountId {
@@ -1763,9 +1671,7 @@ impl<T: Config> Pallet<T> {
     /// - but getCashPrior is the entire balance of the contract:
     /// https://github.com/compound-finance/compound-protocol/blob/a3214f67b73310d547e00fc578e8355911c9d376/contracts/CToken.sol#L1125
     fn ensure_enough_cash(amount: &Amount<T>) -> DispatchResult {
-        let reducible_cash =
-            Self::get_total_cash(amount.currency()).checked_sub(&Self::total_reserves(amount.currency()))?;
-        if reducible_cash.lt(&amount)? {
+        if Self::get_total_cash(amount.currency()).lt(&amount)? {
             return Err(Error::<T>::InsufficientCash.into());
         }
 
@@ -2121,7 +2027,7 @@ impl<T: Config> LoansMarketDataProvider<CurrencyId<T>, BalanceOf<T>> for Pallet<
     }
 
     fn get_market_status(asset_id: CurrencyId<T>) -> Result<MarketStatus<BalanceOf<T>>, DispatchError> {
-        let (borrow_rate, supply_rate, exchange_rate, utilization, total_borrows, total_reserves, borrow_index) =
+        let (borrow_rate, supply_rate, exchange_rate, utilization, total_borrows, _, borrow_index) =
             Self::get_market_status(asset_id)?;
         Ok(MarketStatus {
             borrow_rate,
@@ -2129,7 +2035,6 @@ impl<T: Config> LoansMarketDataProvider<CurrencyId<T>, BalanceOf<T>> for Pallet<
             exchange_rate,
             utilization,
             total_borrows,
-            total_reserves,
             borrow_index,
         })
     }

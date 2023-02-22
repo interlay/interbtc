@@ -59,6 +59,5 @@ pub struct MarketStatus<Balance> {
     pub exchange_rate: Rate,
     pub utilization: Ratio,
     pub total_borrows: Balance,
-    pub total_reserves: Balance,
     pub borrow_index: FixedU128,
 }
