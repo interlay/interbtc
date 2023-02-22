@@ -117,6 +117,12 @@ pub struct Market<Balance> {
     pub lend_token_id: CurrencyId,
 }
 
+impl<Balance> Market<Balance> {
+    pub(crate) fn is_active(&self) -> bool {
+        matches!(self.state, MarketState::Active)
+    }
+}
+
 #[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug, TypeInfo, Default)]
 pub struct RewardMarketState<BlockNumber, Balance> {
     pub index: Balance,

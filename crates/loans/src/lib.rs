@@ -307,6 +307,8 @@ pub mod pallet {
         TokensAlreadyLocked,
         /// Only free lend tokens are redeemable
         LockedTokensCannotBeRedeemed,
+        /// Market is already active.
+        AlreadyActive,
     }
 
     #[pallet::event]
@@ -723,15 +725,16 @@ pub mod pallet {
         #[transactional]
         pub fn activate_market(origin: OriginFor<T>, asset_id: CurrencyId<T>) -> DispatchResultWithPostInfo {
             T::UpdateOrigin::ensure_origin(origin)?;
-            // TODO: if the market is already active throw an error,
-            // to avoid emitting the `ActivatedMarket` event again.
-            Self::mutate_market(asset_id, |stored_market| {
-                if let MarketState::Active = stored_market.state {
-                    return stored_market.clone();
+
+            Markets::<T>::try_mutate(asset_id, |maybe_market| match maybe_market {
+                Some(market) => {
+                    ensure!(!market.is_active(), Error::<T>::AlreadyActive);
+                    market.state = MarketState::Active;
+                    Ok(())
                 }
-                stored_market.state = MarketState::Active;
-                stored_market.clone()
+                None => Err(Error::<T>::MarketDoesNotExist),
             })?;
+
             Self::deposit_event(Event::<T>::ActivatedMarket {
                 underlying_currency_id: asset_id,
             });

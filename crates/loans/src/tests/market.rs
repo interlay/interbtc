@@ -134,6 +134,21 @@ fn add_market_with_active_state_works() {
 }
 
 #[test]
+fn activate_already_active_market_fails() {
+    new_test_ext().execute_with(|| {
+        assert_ok!(Loans::add_market(
+            RuntimeOrigin::root(),
+            FOREIGN_ASSET,
+            ACTIVE_MARKET_MOCK
+        ));
+        assert_noop!(
+            Loans::activate_market(RuntimeOrigin::root(), FOREIGN_ASSET),
+            Error::<Test>::AlreadyActive
+        );
+    })
+}
+
+#[test]
 fn add_market_has_sanity_checks_for_rate_models() {
     rate_model_sanity_check!(add_market);
 }
