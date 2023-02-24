@@ -1812,6 +1812,20 @@ impl_runtime_apis! {
         }
     }
 
+    impl dex_swap_router_rpc_runtime_api::DexSwapRouterApi<Block, Balance, CurrencyId, StablePoolId> for Runtime {
+        fn find_best_trade_exact_in(
+            input_amount: Balance,
+            input_currency: CurrencyId,
+            output_currency: CurrencyId
+        ) -> Option<(Balance, Vec<dex_swap_router::Route<StablePoolId, CurrencyId>>)> {
+            DexSwapRouter::find_best_trade_exact_in(
+                input_amount,
+                input_currency,
+                output_currency,
+            )
+        }
+    }
+
     #[cfg(feature = "try-runtime")]
     impl frame_try_runtime::TryRuntime<Block> for Runtime {
         fn on_runtime_upgrade(checks: frame_try_runtime::UpgradeCheckSelect) -> (Weight, Weight) {

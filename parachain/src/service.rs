@@ -104,6 +104,7 @@ pub trait RuntimeApiCollection:
     > + loans_rpc_runtime_api::LoansApi<Block, AccountId, Balance>
     + dex_general_rpc_runtime_api::DexGeneralApi<Block, AccountId, CurrencyId>
     + dex_stable_rpc_runtime_api::DexStableApi<Block, CurrencyId, Balance, AccountId, StablePoolId>
+    + dex_swap_router_rpc_runtime_api::DexSwapRouterApi<Block, Balance, CurrencyId, StablePoolId>
 where
     <Self as sp_api::ApiExt<Block>>::StateBackend: sp_api::StateBackend<BlakeTwo256>,
 {
@@ -155,7 +156,8 @@ where
             UnsignedFixedPoint,
         > + loans_rpc_runtime_api::LoansApi<Block, AccountId, Balance>
         + dex_general_rpc_runtime_api::DexGeneralApi<Block, AccountId, CurrencyId>
-        + dex_stable_rpc_runtime_api::DexStableApi<Block, CurrencyId, Balance, AccountId, StablePoolId>,
+        + dex_stable_rpc_runtime_api::DexStableApi<Block, CurrencyId, Balance, AccountId, StablePoolId>
+        + dex_swap_router_rpc_runtime_api::DexSwapRouterApi<Block, Balance, CurrencyId, StablePoolId>,
     <Self as sp_api::ApiExt<Block>>::StateBackend: sp_api::StateBackend<BlakeTwo256>,
 {
 }

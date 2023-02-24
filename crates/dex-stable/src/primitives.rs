@@ -73,7 +73,9 @@ pub enum Pool<PoolId, CurrencyId, AccountId, BoundString> {
     Meta(MetaPool<PoolId, CurrencyId, AccountId, BoundString>),
 }
 
-impl<PoolId, CurrencyId: Copy, AccountId: Clone, BoundString> Pool<PoolId, CurrencyId, AccountId, BoundString> {
+impl<PoolId, CurrencyId: Copy + PartialEq, AccountId: Clone, BoundString>
+    Pool<PoolId, CurrencyId, AccountId, BoundString>
+{
     pub fn info(self) -> BasePool<CurrencyId, AccountId, BoundString> {
         match self {
             Pool::Base(bp) => bp,
@@ -86,6 +88,10 @@ impl<PoolId, CurrencyId: Copy, AccountId: Clone, BoundString> Pool<PoolId, Curre
             Pool::Base(bp) => bp.currency_ids,
             Pool::Meta(mp) => mp.info.currency_ids,
         }
+    }
+
+    pub fn get_currency_index(self, currency_id: CurrencyId) -> Option<usize> {
+        self.get_currency_ids().iter().position(|&r| r == currency_id)
     }
 
     pub fn get_lp_currency(&self) -> CurrencyId {

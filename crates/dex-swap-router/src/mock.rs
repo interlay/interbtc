@@ -85,24 +85,6 @@ impl dex_general::AssetInfo for CurrencyId {
         }
     }
 }
-
-#[derive(Encode, Decode, Eq, PartialEq, Copy, Clone, RuntimeDebug, PartialOrd, MaxEncodedLen, Ord, TypeInfo)]
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-pub enum PoolToken {
-    Token(TokenSymbol),
-    StablePoolLp(PoolId),
-}
-
-#[derive(Encode, Decode, Eq, PartialEq, Copy, Clone, RuntimeDebug, PartialOrd, MaxEncodedLen, Ord, TypeInfo)]
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-pub enum PoolType {
-    P2(PoolToken, PoolToken),
-    P3(PoolToken, PoolToken, PoolToken),
-    P4(PoolToken, PoolToken, PoolToken, PoolToken),
-    P5(PoolToken, PoolToken, PoolToken, PoolToken, PoolToken),
-    P6(PoolToken, PoolToken, PoolToken, PoolToken, PoolToken, PoolToken),
-}
-
 impl frame_system::Config for Test {
     type BaseCallFilter = frame_support::traits::Everything;
     type RuntimeOrigin = RuntimeOrigin;
@@ -266,9 +248,6 @@ pub const TOKEN1_UNIT: u128 = 1_000_000_000_000_000_000;
 pub const TOKEN2_UNIT: u128 = 1_000_000_000_000_000_000;
 pub const TOKEN3_UNIT: u128 = 1_000_000;
 pub const TOKEN4_UNIT: u128 = 1_000_000;
-
-pub const TOKEN1_ASSET_ID: CurrencyId = CurrencyId::Token(1);
-pub const TOKEN2_ASSET_ID: CurrencyId = CurrencyId::Token(2);
 
 pub fn new_test_ext() -> sp_io::TestExternalities {
     let mut t = frame_system::GenesisConfig::default()

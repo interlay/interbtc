@@ -62,14 +62,14 @@ fn setup_stable_pools() {
 fn setup_pools() {
     assert_ok!(DexGeneral::create_pair(
         RawOrigin::Root.into(),
-        TOKEN1_ASSET_ID,
-        TOKEN2_ASSET_ID,
+        Token(TOKEN1_SYMBOL),
+        Token(TOKEN2_SYMBOL),
         DEFAULT_FEE_RATE,
     ));
     assert_ok!(DexGeneral::add_liquidity(
         RawOrigin::Signed(USER1).into(),
-        TOKEN1_ASSET_ID,
-        TOKEN2_ASSET_ID,
+        Token(TOKEN1_SYMBOL),
+        Token(TOKEN2_SYMBOL),
         1e18 as Balance,
         1e18 as Balance,
         0,
@@ -85,7 +85,7 @@ fn swap_exact_token_for_tokens_through_stable_pool_with_amount_slippage_should_f
         setup_pools();
 
         let routes = vec![
-            Route::Normal(vec![TOKEN2_ASSET_ID, TOKEN1_ASSET_ID]),
+            Route::Normal(vec![Token(TOKEN2_SYMBOL), Token(TOKEN1_SYMBOL)]),
             Route::Stable(StablePath::<PoolId, CurrencyId> {
                 pool_id: 1,
                 base_pool_id: 0,
@@ -116,7 +116,7 @@ fn swap_exact_token_for_tokens_through_stable_pool_should_work() {
         setup_pools();
 
         let routes = vec![
-            Route::Normal(vec![TOKEN2_ASSET_ID, TOKEN1_ASSET_ID]),
+            Route::Normal(vec![Token(TOKEN2_SYMBOL), Token(TOKEN1_SYMBOL)]),
             Route::Stable(StablePath::<PoolId, CurrencyId> {
                 pool_id: 1,
                 base_pool_id: 0,
@@ -154,6 +154,23 @@ fn swap_exact_token_for_tokens_through_stable_pool_should_work() {
         assert_eq!(
             Tokens::accounts(USER2, Token(TOKEN4_SYMBOL)).free,
             token4_balance_before + 9854
+        );
+    })
+}
+
+#[test]
+fn rpc_find_best_trade() {
+    new_test_ext().execute_with(|| {
+        setup_stable_pools();
+        setup_pools();
+
+        assert_eq!(RouterPallet::get_all_trading_pairs().len(), 8);
+        assert_eq!(
+            RouterPallet::find_best_trade_exact_in(100 as u128, Token(TOKEN1_SYMBOL), Token(TOKEN2_SYMBOL)),
+            Some((
+                99,
+                vec![Route::Normal(vec![Token(TOKEN1_SYMBOL), Token(TOKEN2_SYMBOL)])]
+            ))
         );
     })
 }

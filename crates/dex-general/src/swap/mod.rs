@@ -976,6 +976,13 @@ impl<T: Config> Pallet<T> {
 }
 
 impl<T: Config> ExportDexGeneral<T::AccountId, T::AssetId> for Pallet<T> {
+    fn get_all_trading_pairs() -> Vec<(T::AssetId, T::AssetId)> {
+        PairStatuses::<T>::iter()
+            .filter(|(_, status)| matches!(status, PairStatus::Trading(_)))
+            .map(|(pair, _)| pair)
+            .collect()
+    }
+
     fn get_amount_in_by_path(
         amount_out: AssetBalance,
         path: &[T::AssetId],
@@ -1052,6 +1059,10 @@ impl<T: Config> ExportDexGeneral<T::AccountId, T::AssetId> for Pallet<T> {
 }
 
 impl<AccountId, AssetId> ExportDexGeneral<AccountId, AssetId> for () {
+    fn get_all_trading_pairs() -> Vec<(AssetId, AssetId)> {
+        unimplemented!()
+    }
+
     fn get_amount_in_by_path(_amount_out: AssetBalance, _path: &[AssetId]) -> Result<Vec<AssetBalance>, DispatchError> {
         unimplemented!()
     }

@@ -47,6 +47,7 @@ replace-rpc-runtime-api = { path = "../crates/replace/rpc/runtime-api" }
 loans-rpc-runtime-api = { path = "../crates/loans/rpc/runtime-api" }
 dex-general-rpc-runtime-api = { path = "../crates/dex-general/rpc/runtime-api" }
 dex-stable-rpc-runtime-api = { path = "../crates/dex-stable/rpc/runtime-api" }
+dex-swap-router-rpc-runtime-api = { path = "../crates/dex-swap-router/rpc/runtime-api" }
 
 # Substrate dependencies
 sc-cli = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.31" }

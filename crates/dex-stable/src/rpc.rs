@@ -42,15 +42,12 @@ impl<T: Config> Pallet<T> {
         Vec::new()
     }
 
-    pub fn get_currency_index(pool_id: T::PoolId, currency_id: T::CurrencyId) -> Option<u32> {
+    pub fn get_currency_index(pool_id: T::PoolId, currency_id: T::CurrencyId) -> Option<usize> {
         if let Some(pool) = Self::pools(pool_id) {
-            for (i, c) in pool.get_currency_ids().iter().enumerate() {
-                if *c == currency_id {
-                    return Some(i as u32);
-                }
-            }
-        };
-        None
+            pool.get_currency_index(currency_id)
+        } else {
+            None
+        }
     }
 
     pub fn get_currency(pool_id: T::PoolId, index: u32) -> Option<T::CurrencyId> {

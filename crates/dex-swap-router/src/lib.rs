@@ -6,6 +6,8 @@
 #![allow(clippy::too_many_arguments)]
 #![allow(clippy::type_complexity)]
 
+pub mod rpc;
+
 #[cfg(test)]
 mod mock;
 
@@ -18,7 +20,10 @@ pub use weights::WeightInfo;
 
 use codec::{Decode, Encode};
 
-use sp_runtime::traits::{AtLeast32BitUnsigned, One, Zero};
+use sp_runtime::{
+    traits::{AtLeast32BitUnsigned, One, Zero},
+    FixedPointOperand,
+};
 use sp_std::{fmt::Debug, vec::Vec};
 
 use frame_support::{
@@ -28,25 +33,10 @@ use frame_support::{
 };
 
 use dex_general::{AssetBalance, ExportDexGeneral};
-use dex_stable::traits::StableAmmApi;
+use dex_stable::traits::{StableAmmApi, StablePath, StableSwapMode};
 
 #[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, TypeInfo)]
-pub struct StablePath<PoolId, CurrencyId> {
-    pub pool_id: PoolId,
-    pub base_pool_id: PoolId,
-    pub mode: StableSwapMode,
-    pub from_currency: CurrencyId,
-    pub to_currency: CurrencyId,
-}
-
-#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, TypeInfo)]
-pub enum StableSwapMode {
-    Single,
-    FromBase,
-    ToBase,
-}
-
-#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, TypeInfo)]
+#[cfg_attr(feature = "std", derive(serde::Serialize, serde::Deserialize))]
 pub enum Route<PoolId, CurrencyId> {
     Stable(StablePath<PoolId, CurrencyId>),
     Normal(Vec<CurrencyId>),
@@ -71,6 +61,7 @@ pub mod pallet {
         type Balance: Parameter
             + Member
             + AtLeast32BitUnsigned
+            + FixedPointOperand
             + Codec
             + Default
             + Copy
@@ -208,6 +199,8 @@ impl<T: Config> Pallet<T> {
         pool_id: T::StablePoolId,
         currency_id: T::CurrencyId,
     ) -> Result<u32, DispatchError> {
-        T::StableAMM::currency_index(pool_id, currency_id).ok_or_else(|| Error::<T>::MismatchPoolAndCurrencyId.into())
+        T::StableAMM::currency_index(pool_id, currency_id)
+            .ok_or_else(|| Error::<T>::MismatchPoolAndCurrencyId.into())
+            .map(|i| i as u32)
     }
 }
