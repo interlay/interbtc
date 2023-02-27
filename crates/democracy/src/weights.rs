@@ -29,7 +29,7 @@ use sp_std::marker::PhantomData;
 /// Weight functions needed for pallet_democracy.
 pub trait WeightInfo {
 	fn propose() -> Weight;
-	fn second(s: u32, ) -> Weight;
+	fn second() -> Weight;
 	fn vote_new(r: u32, ) -> Weight;
 	fn vote_existing(r: u32, ) -> Weight;
 	fn emergency_cancel() -> Weight;
@@ -70,10 +70,8 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(T::DbWeight::get().writes(3 as u64))
 	}
 	// Storage: Democracy DepositOf (r:1 w:1)
-	fn second(s: u32, ) -> Weight {
-		Weight::from_ref_time(41_157_000 as u64)
-			// Standard Error: 0
-			.saturating_add(Weight::from_ref_time(157_000 as u64).saturating_mul(s as u64))
+	fn second() -> Weight {
+		Weight::from_ref_time(37_863_000 as u64)
 			.saturating_add(T::DbWeight::get().reads(1 as u64))
 			.saturating_add(T::DbWeight::get().writes(1 as u64))
 	}
@@ -311,10 +309,8 @@ impl WeightInfo for () {
 			.saturating_add(RocksDbWeight::get().writes(3 as u64))
 	}
 	// Storage: Democracy DepositOf (r:1 w:1)
-	fn second(s: u32, ) -> Weight {
-		Weight::from_ref_time(41_157_000 as u64)
-			// Standard Error: 0
-			.saturating_add(Weight::from_ref_time(157_000 as u64).saturating_mul(s as u64))
+	fn second() -> Weight {
+		Weight::from_ref_time(37_863_000 as u64)
 			.saturating_add(RocksDbWeight::get().reads(1 as u64))
 			.saturating_add(RocksDbWeight::get().writes(1 as u64))
 	}

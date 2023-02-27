@@ -441,31 +441,28 @@ parameter_types! {
     // and 700 accounts can do ten or more proposals.
     pub MinimumDeposit: Balance = 5 * UNITS;
     pub const EnactmentPeriod: BlockNumber = DAYS;
-    pub PreimageByteDeposit: Balance = 10 * MILLICENTS;
     pub const MaxVotes: u32 = 100;
     pub const MaxProposals: u32 = 100;
     pub LaunchOffsetMillis: u64 = 9 * 60 * 60 * 1000; // 9 hours offset, i.e. MON 9 AM
 }
 
 impl democracy::Config for Runtime {
-    type Proposal = RuntimeCall;
     type RuntimeEvent = RuntimeEvent;
+    type Scheduler = Scheduler;
+    type Preimages = Preimage;
     type Currency = Escrow;
     type EnactmentPeriod = EnactmentPeriod;
     type VotingPeriod = VotingPeriod;
+    type FastTrackVotingPeriod = FastTrackVotingPeriod;
     type MinimumDeposit = MinimumDeposit;
+    type MaxVotes = MaxVotes;
+    type MaxProposals = MaxProposals;
+    type MaxDeposits = ConstU32<100>;
     /// The technical committee can have any proposal be tabled immediately
     /// with a shorter voting period.
     type FastTrackOrigin = EnsureRootOrAllTechnicalCommittee;
-    type FastTrackVotingPeriod = FastTrackVotingPeriod;
-    type PreimageByteDeposit = PreimageByteDeposit;
-    type Slash = Treasury;
-    type Scheduler = Scheduler;
     type PalletsOrigin = OriginCaller;
-    type MaxVotes = MaxVotes;
     type WeightInfo = ();
-    type MaxProposals = MaxProposals;
-    type MaxDeposits = ConstU32<100>;
     type UnixTime = Timestamp;
     type Moment = Moment;
     type LaunchOffsetMillis = LaunchOffsetMillis;
