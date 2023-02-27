@@ -170,7 +170,7 @@ When interacting via polkadot{.js} you will need to use our [custom types](https
 
 If you would like to contribute, please file an issue on GitHub or reach out to us.
 
-- [Discord](https://discord.com/invite/KgCYK3MKSf)
+- [Discord](https://discord.gg/interlay)
 - [Telegram](https://t.me/joinchat/G9FaYhNbJK9v-6DN3IyhJw)
 
 ## License
