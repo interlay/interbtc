@@ -65,10 +65,9 @@
 //!
 //! This call can only be made by the `FastTrackOrigin`.
 //!
-//! - `fast_track` - Schedules the current externally proposed proposal that is "majority-carries" to become a
-//!   referendum immediately.
-//! - `fast_track_referendum` - Schedules an active referendum to end in `FastTrackVotingPeriod`
-//!  blocks.
+//! - `table_proposal` - Upgrades a public proposal to a referendum - ends after `VotingPeriod`.
+//! - `fast_track` - Upgrades a public proposal to a referendum - ends after `FastTrackVotingPeriod`.
+//! - `fast_track_referendum` - Schedules an active referendum to end after `FastTrackVotingPeriod`.
 //!
 //! #### Root
 //!
@@ -563,7 +562,7 @@ pub mod pallet {
         /// Weight: `O(1)`
         #[pallet::call_index(4)]
         #[pallet::weight(T::WeightInfo::fast_track())]
-        pub fn fast_track_default(
+        pub fn table_proposal(
             origin: OriginFor<T>,
             #[pallet::compact] prop_index: PropIndex,
             delay: T::BlockNumber,
