@@ -14,7 +14,7 @@ use frame_support::{
     dispatch::{DispatchError, DispatchResult},
     traits::{
         ConstU32, Contains, Currency as PalletCurrency, EitherOfDiverse, EnsureOrigin, EnsureOriginWithArg,
-        EqualPrivilegeOnly, ExistenceRequirement, Imbalance, InstanceFilter, OnRuntimeUpgrade, OnUnbalanced,
+        EqualPrivilegeOnly, ExistenceRequirement, Imbalance, InstanceFilter, OnUnbalanced,
     },
     weights::ConstantMultiplier,
     Blake2_128Concat, PalletId, Twox64Concat,

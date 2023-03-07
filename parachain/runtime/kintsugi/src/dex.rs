@@ -2,6 +2,11 @@ use super::{
     parameter_types, Balance, CurrencyId, DexGeneral, DexStable, PalletId, Runtime, RuntimeEvent, StablePoolId,
     Timestamp, Tokens,
 };
+<<<<<<< HEAD
+=======
+use frame_support::traits::OnRuntimeUpgrade;
+use sp_core::ConstU16;
+>>>>>>> a38d5ba1 (chore: upgrade to polkadot 0.9.38)
 
 pub use dex_general::{AssetBalance, GenerateLpAssetId, PairInfo};
 pub use dex_stable::traits::{StablePoolLpCurrencyIdGenerate, ValidateCurrency};
