@@ -1,3 +1,4 @@
+use cumulus_primitives_core::MultiLocation;
 use frame_support::traits::GenesisBuild;
 pub use interlay_runtime_parachain::{xcm_config::*, *};
 use polkadot_primitives::v2::{BlockNumber, MAX_CODE_SIZE, MAX_POV_SIZE};
@@ -23,7 +24,7 @@ decl_test_relay_chain! {
 decl_test_parachain! {
     pub struct Interlay {
         Runtime = Runtime,
-        Origin = RuntimeOrigin,
+        RuntimeOrigin = RuntimeOrigin,
         XcmpMessageHandler = interlay_runtime_parachain::XcmpQueue,
         DmpMessageHandler = interlay_runtime_parachain::DmpQueue,
         new_ext = para_ext(INTERLAY_PARA_ID),
@@ -33,7 +34,7 @@ decl_test_parachain! {
 decl_test_parachain! {
     pub struct Sibling {
         Runtime = testnet_interlay_runtime_parachain::Runtime,
-        Origin = testnet_interlay_runtime_parachain::RuntimeOrigin,
+        RuntimeOrigin = testnet_interlay_runtime_parachain::RuntimeOrigin,
         XcmpMessageHandler = testnet_interlay_runtime_parachain::XcmpQueue,
         DmpMessageHandler = testnet_interlay_runtime_parachain::DmpQueue,
         new_ext = para_ext(SIBLING_PARA_ID),
@@ -137,7 +138,7 @@ pub fn polkadot_ext() -> sp_io::TestExternalities {
 
     <pallet_xcm::GenesisConfig as GenesisBuild<Runtime>>::assimilate_storage(
         &pallet_xcm::GenesisConfig {
-            safe_xcm_version: Some(2),
+            safe_xcm_version: Some(3),
         },
         &mut t,
     )
@@ -222,7 +223,15 @@ impl ExtBuilder {
         .unwrap();
 
         let mut ext = sp_io::TestExternalities::new(t);
-        ext.execute_with(|| System::set_block_number(1));
+        ext.execute_with(|| {
+            System::set_block_number(1);
+            PolkadotXcm::force_xcm_version(
+                interlay_runtime_parachain::RuntimeOrigin::root(),
+                Box::new(MultiLocation::parent()),
+                3,
+            )
+            .unwrap();
+        });
         ext
     }
 }

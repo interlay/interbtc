@@ -230,14 +230,8 @@ impl frame_system::Config for Runtime {
     type MaxConsumers = frame_support::traits::ConstU32<16>;
 }
 
-parameter_types! {
-    pub const UncleGenerations: u32 = 0;
-}
-
 impl pallet_authorship::Config for Runtime {
     type FindAuthor = AuraAccountAdapter;
-    type UncleGenerations = UncleGenerations;
-    type FilterUncle = ();
     type EventHandler = ();
 }
 
@@ -254,6 +248,7 @@ impl FindAuthor<AccountId> for AuraAccountAdapter {
 
 parameter_types! {
     pub const MaxAuthorities: u32 = 32;
+    pub const MaxSetIdSessionEntries: u32 = 0;
 }
 
 impl pallet_aura::Config for Runtime {
@@ -271,6 +266,7 @@ impl pallet_grandpa::Config for Runtime {
     type HandleEquivocation = ();
     type WeightInfo = ();
     type MaxAuthorities = MaxAuthorities;
+    type MaxSetIdSessionEntries = MaxSetIdSessionEntries;
 }
 
 parameter_types! {
@@ -1042,8 +1038,8 @@ impl EnsureOriginWithArg<RuntimeOrigin, Option<u32>> for AssetAuthority {
     }
 
     #[cfg(feature = "runtime-benchmarks")]
-    fn successful_origin(_asset_id: &Option<u32>) -> RuntimeOrigin {
-        EnsureRoot::successful_origin()
+    fn try_successful_origin(_: &Option<u32>) -> Result<RuntimeOrigin, ()> {
+        EnsureRoot::try_successful_origin()
     }
 }
 
@@ -1146,7 +1142,7 @@ construct_runtime! {
         TechnicalCommittee: pallet_collective::<Instance1>::{Pallet, Call, Storage, Origin<T>, Event<T>, Config<T>} = 71,
         TechnicalMembership: pallet_membership::{Pallet, Call, Storage, Event<T>, Config<T>} = 72,
 
-        Authorship: pallet_authorship::{Pallet, Call, Storage} = 80,
+        Authorship: pallet_authorship::{Pallet, Storage} = 80,
         Aura: pallet_aura::{Pallet, Config<T>} = 81,
         Grandpa: pallet_grandpa::{Pallet, Call, Storage, Config, Event} = 82,
 
@@ -1313,6 +1309,14 @@ impl_runtime_apis! {
             len: u32,
         ) -> pallet_transaction_payment_rpc_runtime_api::FeeDetails<Balance> {
             TransactionPayment::query_fee_details(uxt, len)
+        }
+
+        fn query_weight_to_fee(weight: Weight) -> Balance {
+            TransactionPayment::weight_to_fee(weight)
+        }
+
+        fn query_length_to_fee(length: u32) -> Balance {
+            TransactionPayment::length_to_fee(length)
         }
     }
 

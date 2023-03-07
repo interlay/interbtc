@@ -26,7 +26,7 @@ benchmarks! {
         let full_name: FullNameOf<T> = (name::<T>(b"SomePalletName"), Some(name::<T>(b"SomePalletName")));
         // let pallet_name: PalletNameOf<T> = name::<T>(b"SomePalletName");
         // let maybe_call_name: Option<CallNameOf<T>> = Some(name::<T>(b"some_call_name"));
-        let origin = T::PauseOrigin::successful_origin();
+        let origin = T::PauseOrigin::try_successful_origin().unwrap();
         // let call = Call::<T>::pause { full_name: full_name.clone() };
         // let call = Call::<T>::pause { pallet_name: pallet_name.clone(), maybe_call_name: maybe_call_name.clone() };
 
@@ -37,14 +37,14 @@ benchmarks! {
 
   unpause {
         let full_name: FullNameOf<T> = (name::<T>(b"SomePalletName"), Some(name::<T>(b"SomePalletName")));
-        let pause_origin = T::PauseOrigin::successful_origin();
+        let pause_origin = T::PauseOrigin::try_successful_origin().unwrap();
 
         TxPause::<T>::pause(
             pause_origin,
             full_name.clone(),
             )?;
 
-        let unpause_origin = T::UnpauseOrigin::successful_origin();
+        let unpause_origin = T::UnpauseOrigin::try_successful_origin().unwrap();
         // let call = Call::<T>::unpause { pallet_name: pallet_name.clone(), maybe_call_name: maybe_call_name.clone() };
 
         }: _<T::RuntimeOrigin>(unpause_origin, full_name.clone())

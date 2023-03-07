@@ -7,7 +7,7 @@ use frame_support::{
 use orml_traits::MultiCurrency;
 use primitives::{
     CurrencyId::{ForeignAsset, Token},
-    CustomMetadata,
+    CustomMetadata, TokenSymbol,
 };
 use xcm::latest::{prelude::*, Weight};
 use xcm_builder::ParentIsPreset;
@@ -28,18 +28,13 @@ mod hrmp {
             },
             Transact {
                 require_weight_at_most: transact_weight,
-                origin_type: OriginKind::Native,
+                origin_kind: OriginKind::Native,
                 call: polkadot_runtime::RuntimeCall::Hrmp(call).encode().into(),
             },
             RefundSurplus,
             DepositAsset {
                 assets: All.into(),
-                max_assets: 1,
-                beneficiary: Junction::AccountId32 {
-                    id: BOB,
-                    network: NetworkId::Any,
-                }
-                .into(),
+                beneficiary: Junction::AccountId32 { id: BOB, network: None }.into(),
             },
         ])
     }
@@ -145,6 +140,7 @@ mod hrmp {
     }
 
     fn open_hrmp_channel(initial_balance: u128, xcm_fee: u128, transact_weight: u64) {
+        let transact_weight = Weight::from_ref_time(transact_weight);
         let existential_deposit = DOT.one();
 
         // setup sovereign account balances
@@ -190,25 +186,20 @@ fn test_transact_barrier() {
         keep_alive: false,
     };
     let message = Xcm(vec![
-        WithdrawAsset((Here, 410000000000).into()),
+        WithdrawAsset((Here, 410000000000u128).into()),
         BuyExecution {
-            fees: (Here, 400000000000).into(),
+            fees: (Here, 400000000000u128).into(),
             weight_limit: Unlimited,
         },
         Transact {
-            require_weight_at_most: 10000000000,
-            origin_type: OriginKind::Native,
+            require_weight_at_most: Weight::from_ref_time(10000000000),
+            origin_kind: OriginKind::Native,
             call: interlay_runtime_parachain::RuntimeCall::Tokens(call).encode().into(),
         },
         RefundSurplus,
         DepositAsset {
             assets: All.into(),
-            max_assets: 1,
-            beneficiary: Junction::AccountId32 {
-                id: BOB,
-                network: NetworkId::Any,
-            }
-            .into(),
+            beneficiary: Junction::AccountId32 { id: BOB, network: None }.into(),
         },
     ]);
 
@@ -236,15 +227,8 @@ fn transfer_from_relay_chain() {
     PolkadotNet::execute_with(|| {
         assert_ok!(polkadot_runtime::XcmPallet::reserve_transfer_assets(
             polkadot_runtime::RuntimeOrigin::signed(ALICE.into()),
-            Box::new(Parachain(INTERLAY_PARA_ID).into().into()),
-            Box::new(
-                Junction::AccountId32 {
-                    id: BOB,
-                    network: NetworkId::Any
-                }
-                .into()
-                .into()
-            ),
+            Box::new(Parachain(INTERLAY_PARA_ID).into_versioned()),
+            Box::new(Junction::AccountId32 { id: BOB, network: None }.into_versioned()),
             Box::new((Here, DOT.one()).into()),
             0
         ));
@@ -280,16 +264,7 @@ fn transfer_to_relay_chain() {
             RuntimeOrigin::signed(ALICE.into()),
             Token(DOT),
             2 * DOT.one(),
-            Box::new(
-                MultiLocation::new(
-                    1,
-                    X1(Junction::AccountId32 {
-                        id: BOB,
-                        network: NetworkId::Any,
-                    })
-                )
-                .into()
-            ),
+            Box::new(MultiLocation::new(1, X1(Junction::AccountId32 { id: BOB, network: None })).into()),
             WeightLimit::Unlimited
         ));
     });
@@ -340,7 +315,7 @@ fn transfer_to_sibling_and_back() {
                     X2(
                         Parachain(SIBLING_PARA_ID),
                         Junction::AccountId32 {
-                            network: NetworkId::Any,
+                            network: None,
                             id: BOB.into(),
                         }
                     )
@@ -381,7 +356,7 @@ fn transfer_to_sibling_and_back() {
                     X2(
                         Parachain(INTERLAY_PARA_ID),
                         Junction::AccountId32 {
-                            network: NetworkId::Any,
+                            network: None,
                             id: ALICE.into(),
                         }
                     )
@@ -423,7 +398,6 @@ fn xcm_transfer_execution_barrier_trader_works() {
             },
             DepositAsset {
                 assets: All.into(),
-                max_assets: 1,
                 beneficiary: Here.into(),
             },
         ])
@@ -431,9 +405,10 @@ fn xcm_transfer_execution_barrier_trader_works() {
 
     let expect_weight_limit = <interlay_runtime_parachain::xcm_config::XcmConfig as interlay_runtime_parachain::xcm_config::xcm_executor::Config>::Weigher::weight(
         &mut construct_xcm(100, Unlimited)).unwrap();
-    let weight_limit_too_low = 500_000_000;
-    let unit_instruction_weight = 200_000_000;
-    let minimum_fee = (interlay_runtime_parachain::xcm_config::DotPerSecond::get().1 * expect_weight_limit as u128)
+    let weight_limit_too_low = Weight::from_ref_time(500_000_000);
+    let unit_instruction_weight = Weight::from_ref_time(200_000_000);
+    let minimum_fee = (interlay_runtime_parachain::xcm_config::DotPerSecond::get().1
+        * expect_weight_limit.ref_time() as u128)
         / WEIGHT_REF_TIME_PER_SECOND as u128;
 
     // relay-chain use normal account to send xcm, destination parachain can't pass Barrier check
@@ -442,10 +417,10 @@ fn xcm_transfer_execution_barrier_trader_works() {
         // Polkadot effectively disabled the `send` extrinsic in 0.9.19, so use send_xcm
         assert_ok!(pallet_xcm::Pallet::<polkadot_runtime::Runtime>::send_xcm(
             X1(Junction::AccountId32 {
-                network: NetworkId::Any,
+                network: None,
                 id: ALICE.into(),
             }),
-            Parachain(INTERLAY_PARA_ID).into(),
+            Parachain(INTERLAY_PARA_ID),
             message
         ));
     });
@@ -465,7 +440,8 @@ fn xcm_transfer_execution_barrier_trader_works() {
     // other situation when `weight_limit` is `Unlimited` or large than `xcm_weight`, then it's ok.
     let message = construct_xcm(100, Limited(weight_limit_too_low));
     Interlay::execute_with(|| {
-        let r = XcmExecutor::<XcmConfig>::execute_xcm(Parent, message, expect_weight_limit);
+        let hash = message.using_encoded(sp_io::hashing::blake2_256);
+        let r = XcmExecutor::<XcmConfig>::execute_xcm(Parent, message, hash, expect_weight_limit);
         assert_eq!(r, Outcome::Error(XcmError::Barrier));
     });
 
@@ -474,7 +450,8 @@ fn xcm_transfer_execution_barrier_trader_works() {
 
     let message = construct_xcm(minimum_fee - 1, Limited(expect_weight_limit));
     Interlay::execute_with(|| {
-        let r = XcmExecutor::<XcmConfig>::execute_xcm(Parent, message, expect_weight_limit);
+        let hash = message.using_encoded(sp_io::hashing::blake2_256);
+        let r = XcmExecutor::<XcmConfig>::execute_xcm(Parent, message, hash, expect_weight_limit);
         assert_eq!(
             r,
             Outcome::Incomplete(expect_weight_limit - unit_instruction_weight, XcmError::TooExpensive)
@@ -484,7 +461,8 @@ fn xcm_transfer_execution_barrier_trader_works() {
     // all situation fulfilled, execute success
     let message = construct_xcm(minimum_fee, Limited(expect_weight_limit));
     Interlay::execute_with(|| {
-        let r = XcmExecutor::<XcmConfig>::execute_xcm(Parent, message, expect_weight_limit);
+        let hash = message.using_encoded(sp_io::hashing::blake2_256);
+        let r = XcmExecutor::<XcmConfig>::execute_xcm(Parent, message, hash, expect_weight_limit);
         assert_eq!(r, Outcome::Complete(expect_weight_limit));
     });
 }
@@ -495,7 +473,7 @@ fn subscribe_version_notify_works() {
     PolkadotNet::execute_with(|| {
         let r = pallet_xcm::Pallet::<polkadot_runtime::Runtime>::force_subscribe_version_notify(
             polkadot_runtime::RuntimeOrigin::root(),
-            Box::new(Parachain(INTERLAY_PARA_ID).into().into()),
+            Box::new(Parachain(INTERLAY_PARA_ID).into_versioned()),
         );
         assert_ok!(r);
     });
@@ -506,7 +484,7 @@ fn subscribe_version_notify_works() {
                     parents: 0,
                     interior: X1(Parachain(INTERLAY_PARA_ID)),
                 },
-                2,
+                3,
             ),
         ));
     });
@@ -526,7 +504,7 @@ fn subscribe_version_notify_works() {
                     parents: 1,
                     interior: Here,
                 },
-                2,
+                3,
             ),
         ));
     });
@@ -567,8 +545,24 @@ fn subscribe_version_notify_works() {
 fn weigh_xcm(mut message: Xcm<RuntimeCall>, fee_per_second: u128) -> u128 {
     let trapped_xcm_message_weight = <interlay_runtime_parachain::xcm_config::XcmConfig as interlay_runtime_parachain::xcm_config::xcm_executor::Config>::Weigher::weight(
         &mut message).unwrap();
-    (fee_per_second * trapped_xcm_message_weight as u128) / WEIGHT_REF_TIME_PER_SECOND as u128
+    (fee_per_second * trapped_xcm_message_weight.ref_time() as u128) / WEIGHT_REF_TIME_PER_SECOND as u128
 }
+
+fn general_key_of(token_symbol: TokenSymbol) -> Junction {
+    let id = Token(token_symbol);
+    let encoded = id.encode();
+    let mut data = [0u8; 32];
+    if encoded.len() > 32 {
+        // we are not returning result, so panic is inevitable. Let's make it explicit.
+        panic!("Currency ID was too long to be encoded");
+    }
+    data[..encoded.len()].copy_from_slice(&encoded[..]);
+    GeneralKey {
+        length: encoded.len() as u8,
+        data,
+    }
+}
+
 #[test]
 fn trap_assets_works() {
     let mut intr_treasury_amount = 0;
@@ -590,17 +584,11 @@ fn trap_assets_works() {
             WithdrawAsset(assets.clone().into()),
             BuyExecution {
                 fees: assets,
-                weight_limit: Limited(DOT.one() as u64),
+                weight_limit: Limited(Weight::from_ref_time(DOT.one() as u64)),
             },
             WithdrawAsset(
                 (
-                    (
-                        Parent,
-                        X2(
-                            Parachain(INTERLAY_PARA_ID),
-                            GeneralKey(Token(INTR).encode().try_into().unwrap()),
-                        ),
-                    ),
+                    (Parent, X2(Parachain(INTERLAY_PARA_ID), general_key_of(INTR))),
                     intr_asset_amount,
                 )
                     .into(),
@@ -617,7 +605,7 @@ fn trap_assets_works() {
     PolkadotNet::execute_with(|| {
         assert_ok!(pallet_xcm::Pallet::<polkadot_runtime::Runtime>::send_xcm(
             Here,
-            Parachain(INTERLAY_PARA_ID).into(),
+            Parachain(INTERLAY_PARA_ID),
             construct_xcm(assets.clone(), intr_asset_amount),
         ));
     });
@@ -664,24 +652,13 @@ fn trap_assets_works() {
     let trapped_intr_amount = trapped_assets
         .clone()
         .unwrap()
-        .drain()
+        .into_inner()
         .into_iter()
         .find_map(|x| match x {
             MultiAsset {
                 id: AssetId::Concrete(location),
                 fun: Fungibility::Fungible(amount),
-            } if location
-                == (
-                    Parent,
-                    X2(
-                        Parachain(INTERLAY_PARA_ID),
-                        GeneralKey(Token(INTR).encode().try_into().unwrap()),
-                    ),
-                )
-                    .into() =>
-            {
-                Some(amount)
-            }
+            } if location == (Parent, X2(Parachain(INTERLAY_PARA_ID), general_key_of(INTR))).into() => Some(amount),
             _ => None,
         })
         .unwrap();
@@ -689,7 +666,7 @@ fn trap_assets_works() {
     let trapped_dot_amount = trapped_assets
         .clone()
         .unwrap()
-        .drain()
+        .into_inner()
         .into_iter()
         .find_map(|x| match x {
             MultiAsset {
@@ -708,26 +685,15 @@ fn trap_assets_works() {
             },
             BuyExecution {
                 fees: (
-                    (
-                        Parent,
-                        X2(
-                            Parachain(INTERLAY_PARA_ID),
-                            GeneralKey(Token(INTR).encode().try_into().unwrap()),
-                        ),
-                    ),
+                    (Parent, X2(Parachain(INTERLAY_PARA_ID), general_key_of(INTR))),
                     intr_asset_amount / 4,
                 )
                     .into(),
-                weight_limit: Limited(4_000000_000_000),
+                weight_limit: Limited(Weight::from_ref_time(4_000_000_000_000)),
             },
             DepositAsset {
                 assets: All.into(),
-                max_assets: 2,
-                beneficiary: Junction::AccountId32 {
-                    id: BOB,
-                    network: NetworkId::Any,
-                }
-                .into(),
+                beneficiary: Junction::AccountId32 { id: BOB, network: None }.into(),
             },
         ])
     }
@@ -736,7 +702,7 @@ fn trap_assets_works() {
     PolkadotNet::execute_with(|| {
         assert_ok!(pallet_xcm::Pallet::<polkadot_runtime::Runtime>::send_xcm(
             Here,
-            Parachain(INTERLAY_PARA_ID).into(),
+            Parachain(INTERLAY_PARA_ID),
             construct_reclaiming_xcm(trapped_assets.clone(), intr_asset_amount),
         ));
     });
@@ -765,127 +731,11 @@ fn register_intr_as_foreign_asset() {
         name: "Interlay native".as_bytes().to_vec(),
         symbol: "extINTR".as_bytes().to_vec(),
         existential_deposit: 0,
-        location: Some(
-            MultiLocation::new(
-                1,
-                X2(
-                    Parachain(INTERLAY_PARA_ID),
-                    GeneralKey(Token(INTR).encode().try_into().unwrap()),
-                ),
-            )
-            .into(),
-        ),
+        location: Some(MultiLocation::new(1, X2(Parachain(INTERLAY_PARA_ID), general_key_of(INTR))).into()),
         additional: CustomMetadata {
             fee_per_second: 1_000_000_000_000,
             coingecko_id: "interlay".as_bytes().to_vec(),
         },
     };
     AssetRegistry::register_asset(RuntimeOrigin::root(), metadata, None).unwrap();
-}
-
-/// The goal was to write a test to see how reanchoring is dealt with - to see if we would deal with
-/// a BuyExecution( MultiLocation::new(1, X2(Parachain(ParachainInfo::get().into()),
-/// GeneralKey(Token(INTR).encode().try_into().unwrap()))) correctly. However it turns out it is not possible to
-/// construct a valid xcm message like that: InitiateReserveWithdraw makes sure to reanchor the assets sent over XCM, so
-/// trying to buy non-reanchored weight will always fail.
-/// This test is left here only because it is a useful reference to see what xtokens::transfer does under the hood.
-/// If this becomes a pain to maintain we can remove it.
-#[test]
-fn test_reanchoring() {
-    Sibling::execute_with(|| {
-        register_intr_as_foreign_asset();
-    });
-
-    Interlay::execute_with(|| {
-        assert_ok!(Tokens::deposit(
-            Token(INTR),
-            &AccountId::from(ALICE),
-            100_000_000_000_000
-        ));
-    });
-
-    Interlay::execute_with(|| {
-        assert_ok!(XTokens::transfer(
-            RuntimeOrigin::signed(ALICE.into()),
-            Token(INTR),
-            10_000_000_000_000,
-            Box::new(
-                MultiLocation::new(
-                    1,
-                    X2(
-                        Parachain(SIBLING_PARA_ID),
-                        Junction::AccountId32 {
-                            network: NetworkId::Any,
-                            id: BOB.into(),
-                        }
-                    )
-                )
-                .into()
-            ),
-            WeightLimit::Unlimited,
-        ));
-    });
-
-    Sibling::execute_with(|| {
-        let assets: MultiAssets = vec![MultiAsset {
-            id: Concrete(
-                MultiLocation::new(
-                    1,
-                    X2(
-                        Parachain(INTERLAY_PARA_ID),
-                        GeneralKey(Token(INTR).encode().try_into().unwrap()),
-                    ),
-                )
-                .into(),
-            ),
-            fun: Fungible(2_000_000_000_000),
-        }]
-        .into();
-
-        let mut msg = Xcm(vec![
-            WithdrawAsset(assets.clone()),
-            InitiateReserveWithdraw {
-                assets: All.into(),
-                reserve: MultiLocation::new(1, X1(Parachain(INTERLAY_PARA_ID))).into(),
-                xcm: Xcm(vec![
-                    BuyExecution {
-                        fees: (
-                            MultiLocation::new(0, X1(GeneralKey(Token(INTR).encode().try_into().unwrap()))),
-                            2_000_000_000_000,
-                        )
-                            .into(),
-                        weight_limit: Unlimited,
-                    },
-                    DepositAsset {
-                        assets: All.into(),
-                        max_assets: 1,
-                        beneficiary: Junction::AccountId32 {
-                            id: ALICE,
-                            network: NetworkId::Any,
-                        }
-                        .into(),
-                    },
-                ]),
-            },
-        ]);
-        let weight =
-            <testnet_interlay_runtime_parachain::Runtime as orml_xtokens::Config>::Weigher::weight(&mut msg).unwrap();
-        <testnet_interlay_runtime_parachain::Runtime as orml_xtokens::Config>::XcmExecutor::execute_xcm_in_credit(
-            Junction::AccountId32 {
-                id: BOB,
-                network: NetworkId::Any,
-            }
-            .into(),
-            msg,
-            weight,
-            weight,
-        )
-        .ensure_complete()
-        .unwrap();
-    });
-
-    // check reception
-    Interlay::execute_with(|| {
-        assert!(Tokens::free_balance(Token(INTR), &AccountId::from(ALICE)) > 90_000_000_000_000);
-    });
 }

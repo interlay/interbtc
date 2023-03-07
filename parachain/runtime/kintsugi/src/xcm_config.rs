@@ -13,15 +13,14 @@ use orml_xcm_support::{DepositToAlternative, IsNativeConcrete, MultiCurrencyAdap
 use pallet_xcm::XcmPassthrough;
 use polkadot_parachain::primitives::Sibling;
 use runtime_common::Transactless;
-use sp_runtime::WeakBoundedVec;
 use xcm::latest::{prelude::*, Weight};
 use xcm_builder::{
     AccountId32Aliases, AllowKnownQueryResponses, AllowSubscriptionsFrom, AllowTopLevelPaidExecutionFrom,
-    EnsureXcmOrigin, FixedRateOfFungible, FixedWeightBounds, LocationInverter, NativeAsset, ParentIsPreset,
-    RelayChainAsNative, SiblingParachainAsNative, SiblingParachainConvertsVia, SignedAccountId32AsNative,
-    SignedToAccountId32, SovereignSignedViaLocation, TakeRevenue, TakeWeightCredit,
+    EnsureXcmOrigin, FixedRateOfFungible, FixedWeightBounds, NativeAsset, ParentIsPreset, RelayChainAsNative,
+    SiblingParachainAsNative, SiblingParachainConvertsVia, SignedAccountId32AsNative, SignedToAccountId32,
+    SovereignSignedViaLocation, TakeRevenue, TakeWeightCredit,
 };
-use xcm_executor::XcmExecutor;
+use xcm_executor::{traits::WithOriginFilter, XcmExecutor};
 use CurrencyId::ForeignAsset;
 parameter_types! {
     pub const ParentLocation: MultiLocation = MultiLocation::parent();
@@ -70,7 +69,7 @@ pub type Barrier = Transactless<(
 
 parameter_types! {
     // One XCM operation is 200_000_000 weight, cross-chain transfer ~= 2x of transfer.
-    pub UnitWeightCost: Weight = 200_000_000;
+    pub UnitWeightCost: Weight = Weight::from_ref_time(200_000_000);
     pub const MaxInstructions: u32 = 100;
 }
 
@@ -92,27 +91,35 @@ pub fn kint_per_second() -> u128 {
 }
 
 parameter_types! {
-    pub KsmPerSecond: (AssetId, u128) = (MultiLocation::parent().into(), ksm_per_second());
-    pub KintPerSecond: (AssetId, u128) = ( // can be removed once we no longer need to support polkadot < 0.9.16
+    pub KsmPerSecond: (AssetId, u128, u128) = (MultiLocation::parent().into(), ksm_per_second(),
+    0, // todo: determine how much to charge per mb of proof
+);
+    pub KintPerSecond: (AssetId, u128, u128) = ( // can be removed once we no longer need to support polkadot < 0.9.16
         non_canonical_currency_location(Token(KINT)).into(),
         // KINT:KSM = 4:3
-        kint_per_second()
+        kint_per_second(),
+        0, // todo: determine how much to charge per mb of proof
     );
-    pub KbtcPerSecond: (AssetId, u128) = ( // can be removed once we no longer need to support polkadot < 0.9.16
+    pub KbtcPerSecond: (AssetId, u128, u128) = ( // can be removed once we no longer need to support polkadot < 0.9.16
         non_canonical_currency_location(Token(KBTC)).into(),
         // KBTC:KSM = 1:150 & Satoshi:Planck = 1:10_000
-        ksm_per_second() / 1_500_000
+        ksm_per_second() / 1_500_000,
+        0, // todo: determine how much to charge per mb of proof
     );
-    pub CanonicalizedKintPerSecond: (AssetId, u128) = (
+    pub CanonicalizedKintPerSecond: (AssetId, u128, u128) = (
         canonical_currency_location(Token(KINT)).into(),
         // KINT:KSM = 4:3
-        kint_per_second()
+        kint_per_second(),
+        0, // todo: determine how much to charge per mb of proof
     );
-    pub CanonicalizedKbtcPerSecond: (AssetId, u128) = (
+    pub CanonicalizedKbtcPerSecond: (AssetId, u128, u128) = (
         canonical_currency_location(Token(KBTC)).into(),
         // KBTC:KSM = 1:150 & Satoshi:Planck = 1:10_000
-        ksm_per_second() / 1_500_000
+        ksm_per_second() / 1_500_000,
+        0, // todo: determine how much to charge per mb of proof
     );
+    pub const RelayNetwork: NetworkId = NetworkId::Kusama;
+    pub UniversalLocation: InteriorMultiLocation = X2(GlobalConsensus(RelayNetwork::get()), Parachain(ParachainInfo::parachain_id().into()));
 }
 
 pub struct ToTreasury;
@@ -149,6 +156,32 @@ impl FixedConversionRateProvider for MyFixedConversionRateProvider {
     }
 }
 
+/// A call filter for the XCM Transact instruction. This is a temporary measure until we properly
+/// account for proof size weights.
+///
+/// Calls that are allowed through this filter must:
+/// 1. Have a fixed weight;
+/// 2. Cannot lead to another call being made;
+/// 3. Have a defined proof size weight, e.g. no unbounded vecs in call parameters.
+pub struct SafeCallFilter;
+impl Contains<RuntimeCall> for SafeCallFilter {
+    fn contains(call: &RuntimeCall) -> bool {
+        // we need to filter all calls that can recurse. We're being a bit overly conservative here
+        // by completly blocking the pallets below rather than filter per specific call.
+        match call {
+            RuntimeCall::Sudo(..) | RuntimeCall::Proxy(..) | RuntimeCall::Multisig(..) | RuntimeCall::Utility(..) => {
+                // these calls can recurse - disallow
+                false
+            }
+            RuntimeCall::Issue(..) | RuntimeCall::Replace(..) | RuntimeCall::Redeem(..) | RuntimeCall::BTCRelay(..) => {
+                // disallow anything to do with btc transactions since btc tx may be unbounded
+                false
+            }
+            _ => true,
+        }
+    }
+}
+
 impl xcm_executor::Config for XcmConfig {
     type RuntimeCall = RuntimeCall;
     type XcmSender = XcmRouter;
@@ -157,7 +190,6 @@ impl xcm_executor::Config for XcmConfig {
     type OriginConverter = XcmOriginToTransactDispatchOrigin;
     type IsReserve = MultiNativeAsset<AbsoluteReserveProvider>;
     type IsTeleporter = NativeAsset; // <- should be enough to allow teleportation
-    type LocationInverter = LocationInverter<Ancestry>;
     type Barrier = Barrier;
     type Weigher = FixedWeightBounds<UnitWeightCost, RuntimeCall, MaxInstructions>;
     type Trader = Trader;
@@ -165,6 +197,16 @@ impl xcm_executor::Config for XcmConfig {
     type SubscriptionService = PolkadotXcm;
     type AssetTrap = PolkadotXcm;
     type AssetClaims = PolkadotXcm;
+    type PalletInstancesInfo = AllPalletsWithSystem;
+    type MaxAssetsIntoHolding = ConstU32<8>;
+    type AssetLocker = ();
+    type AssetExchanger = ();
+    type FeeManager = ();
+    type MessageExporter = ();
+    type UniversalAliases = Nothing;
+    type SafeCallFilter = SafeCallFilter;
+    type CallDispatcher = WithOriginFilter<SafeCallFilter>;
+    type UniversalLocation = UniversalLocation;
 }
 
 /// No local origins on this chain are allowed to dispatch XCM sends/executions.
@@ -174,10 +216,16 @@ pub type LocalOriginToLocation = (SignedToAccountId32<RuntimeOrigin, AccountId, 
 /// queues.
 pub type XcmRouter = (
     // Two routers - use UMP to communicate with the relay chain:
-    cumulus_primitives_utility::ParentAsUmp<ParachainSystem, PolkadotXcm>,
+    cumulus_primitives_utility::ParentAsUmp<ParachainSystem, PolkadotXcm, ()>, /* note: sets PriceForParentDelivery
+                                                                                * to 0 */
     // ..and XCMP to communicate with the sibling chains.
     XcmpQueue,
 );
+
+#[cfg(feature = "runtime-benchmarks")]
+parameter_types! {
+    pub const ReachableDest: MultiLocation = MultiLocation::parent();
+}
 
 impl pallet_xcm::Config for Runtime {
     type RuntimeEvent = RuntimeEvent;
@@ -191,9 +239,17 @@ impl pallet_xcm::Config for Runtime {
     type XcmTeleportFilter = Everything;
     type XcmReserveTransferFilter = Everything;
     type Weigher = FixedWeightBounds<UnitWeightCost, RuntimeCall, MaxInstructions>;
-    type LocationInverter = LocationInverter<Ancestry>;
     type AdvertisedXcmVersion = pallet_xcm::CurrentXcmVersion;
     const VERSION_DISCOVERY_QUEUE_SIZE: u32 = 100;
+    type Currency = NativeCurrency; // note: not used due to the empty CurrencyMatcher
+    type CurrencyMatcher = ();
+    type TrustedLockers = ();
+    type SovereignAccountOf = LocationToAccountId;
+    type MaxLockers = ConstU32<8>;
+    type UniversalLocation = UniversalLocation;
+    type WeightInfo = pallet_xcm::TestWeightInfo; // todo: use actual weight
+    #[cfg(feature = "runtime-benchmarks")]
+    type ReachableDest = ReachableDest;
 }
 
 impl cumulus_pallet_xcm::Config for Runtime {
@@ -209,6 +265,7 @@ impl cumulus_pallet_xcmp_queue::Config for Runtime {
     type ExecuteOverweightOrigin = EnsureRoot<AccountId>;
     type ControllerOrigin = EnsureRoot<AccountId>;
     type ControllerOriginConverter = XcmOriginToTransactDispatchOrigin;
+    type PriceForSiblingDelivery = ();
     type WeightInfo = ();
 }
 
@@ -229,24 +286,26 @@ pub type LocalAssetTransactor = MultiCurrencyAdapter<
     DepositToAlternative<TreasuryAccount, Tokens, CurrencyId, AccountId, Balance>,
 >;
 
+fn general_key_of(id: CurrencyId) -> Junction {
+    let encoded = id.encode();
+    let mut data = [0u8; 32];
+    if encoded.len() > 32 {
+        // we are not returning result, so panic is inevitable. Let's make it explicit.
+        panic!("Currency ID was too long to be encoded");
+    }
+    data[..encoded.len()].copy_from_slice(&encoded[..]);
+    GeneralKey {
+        length: encoded.len() as u8,
+        data,
+    }
+}
+
 pub fn canonical_currency_location(id: CurrencyId) -> MultiLocation {
-    MultiLocation::new(
-        0,
-        X1(GeneralKey(WeakBoundedVec::<u8, ConstU32<32>>::force_from(
-            id.encode(),
-            None,
-        ))),
-    )
+    MultiLocation::new(0, X1(general_key_of(id)))
 }
 
 pub fn non_canonical_currency_location(id: CurrencyId) -> MultiLocation {
-    MultiLocation::new(
-        1,
-        X2(
-            Parachain(ParachainInfo::get().into()),
-            GeneralKey(WeakBoundedVec::<u8, ConstU32<32>>::force_from(id.encode(), None)),
-        ),
-    )
+    MultiLocation::new(1, X2(Parachain(ParachainInfo::get().into()), general_key_of(id)))
 }
 
 pub use currency_id_convert::CurrencyIdConvert;
@@ -270,9 +329,13 @@ mod currency_id_convert {
 
     impl Convert<MultiLocation, Option<CurrencyId>> for CurrencyIdConvert {
         fn convert(location: MultiLocation) -> Option<CurrencyId> {
-            fn decode_currency_id(key: Vec<u8>) -> Option<CurrencyId> {
+            fn decode_currency_id(length: u8, data: [u8; 32]) -> Option<CurrencyId> {
+                let length = length as usize;
+                if length > data.len() {
+                    return None;
+                }
                 // decode the general key
-                if let Ok(currency_id) = CurrencyId::decode(&mut &key[..]) {
+                if let Ok(currency_id) = CurrencyId::decode(&mut &data[..length]) {
                     // check `currency_id` is cross-chain asset
                     match currency_id {
                         WRAPPED_CURRENCY_ID => Some(currency_id),
@@ -288,13 +351,13 @@ mod currency_id_convert {
                 x if x == MultiLocation::parent() => Some(PARENT_CURRENCY_ID),
                 MultiLocation {
                     parents: 1,
-                    interior: X2(Parachain(id), GeneralKey(key)),
-                } if ParaId::from(id) == ParachainInfo::get() => decode_currency_id(key.into_inner()),
+                    interior: X2(Parachain(id), GeneralKey { length, data }),
+                } if ParaId::from(id) == ParachainInfo::get() => decode_currency_id(length, data),
                 MultiLocation {
                     // adapt for reanchor canonical location: https://github.com/paritytech/polkadot/pull/4470
                     parents: 0,
-                    interior: X1(GeneralKey(key)),
-                } => decode_currency_id(key.into_inner()),
+                    interior: X1(GeneralKey { length, data }),
+                } => decode_currency_id(length, data),
                 _ => None,
             }
             .or_else(|| AssetRegistry::location_to_asset_id(&location).map(|id| CurrencyId::ForeignAsset(id)))
@@ -338,7 +401,7 @@ pub struct AccountIdToMultiLocation;
 impl Convert<AccountId, MultiLocation> for AccountIdToMultiLocation {
     fn convert(account: AccountId) -> MultiLocation {
         X1(AccountId32 {
-            network: NetworkId::Any,
+            network: None,
             id: account.into(),
         })
         .into()
@@ -355,9 +418,9 @@ impl orml_xtokens::Config for Runtime {
     type XcmExecutor = XcmExecutor<XcmConfig>;
     type Weigher = FixedWeightBounds<UnitWeightCost, RuntimeCall, MaxInstructions>;
     type BaseXcmWeight = UnitWeightCost;
-    type LocationInverter = <XcmConfig as xcm_executor::Config>::LocationInverter;
     type MaxAssetsForTransfer = MaxAssetsForTransfer;
     type MinXcmFee = ParachainMinFee;
     type MultiLocationsFilter = Everything;
     type ReserveProvider = AbsoluteReserveProvider;
+    type UniversalLocation = UniversalLocation;
 }
