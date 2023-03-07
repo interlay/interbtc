@@ -103,7 +103,7 @@ benchmarks! {
     set_invulnerables {
         let b in 1 .. T::MaxInvulnerables::get();
         let new_invulnerables = register_validators::<T>(b);
-        let origin = T::UpdateOrigin::successful_origin();
+        let origin = T::UpdateOrigin::try_successful_origin().unwrap();
     }: {
         assert_ok!(
             <CollatorSelection<T>>::set_invulnerables(origin, new_invulnerables.clone())
@@ -115,7 +115,7 @@ benchmarks! {
 
     set_desired_candidates {
         let max: u32 = 999;
-        let origin = T::UpdateOrigin::successful_origin();
+        let origin = T::UpdateOrigin::try_successful_origin().unwrap();
     }: {
         assert_ok!(
             <CollatorSelection<T>>::set_desired_candidates(origin, max.clone())
@@ -127,7 +127,7 @@ benchmarks! {
 
     set_candidacy_bond {
         let bond_amount: BalanceOf<T> = T::StakingCurrency::minimum_balance() * 10u32.into();
-        let origin = T::UpdateOrigin::successful_origin();
+        let origin = T::UpdateOrigin::try_successful_origin().unwrap();
     }: {
         assert_ok!(
             <CollatorSelection<T>>::set_candidacy_bond(origin, bond_amount.clone())
