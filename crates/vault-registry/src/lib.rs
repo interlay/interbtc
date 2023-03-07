@@ -510,6 +510,10 @@ pub mod pallet {
             vault_id: DefaultVaultId<T>,
             banned_until: T::BlockNumber,
         },
+        ActiveVault {
+            vault_id: DefaultVaultId<T>,
+            status: VaultStatus,
+        }
     }
 
     #[pallet::error]

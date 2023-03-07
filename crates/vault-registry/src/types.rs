@@ -513,6 +513,10 @@ impl<T: Config> RichVault<T> {
     pub(crate) fn set_accept_new_issues(&mut self, accept_new_issues: bool) -> DispatchResult {
         self.update(|v| {
             v.status = VaultStatus::Active(accept_new_issues);
+            Self::deposit_event(Event::<T>::ActiveVault {
+                vault_id: v.id(),
+                status: VaultStatus::Active(accept_new_issues)
+            });
             Ok(())
         })
     }
