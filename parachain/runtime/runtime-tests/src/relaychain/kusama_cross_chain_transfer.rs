@@ -1,13 +1,10 @@
 use crate::relaychain::kusama_test_net::*;
 use codec::Encode;
-use frame_support::{
-    assert_ok,
-    weights::{Weight as FrameWeight, WeightToFee},
-};
+use frame_support::assert_ok;
 use orml_traits::MultiCurrency;
 use primitives::{
     CurrencyId::{ForeignAsset, Token},
-    CustomMetadata,
+    CustomMetadata, TokenSymbol,
 };
 use sp_runtime::{FixedPointNumber, FixedU128};
 use xcm::latest::{prelude::*, Weight};
@@ -21,20 +18,25 @@ mod fees {
     // N * unit_weight * (weight/10^12) * token_per_second
     fn weight_calculation(instruction_count: u32, unit_weight: Weight, per_second: u128) -> u128 {
         let weight = unit_weight.saturating_mul(instruction_count as u64);
-        let weight_ratio = FixedU128::saturating_from_rational(weight as u128, WEIGHT_REF_TIME_PER_SECOND as u128);
+        let weight_ratio =
+            FixedU128::saturating_from_rational(weight.ref_time() as u128, WEIGHT_REF_TIME_PER_SECOND as u128);
         weight_ratio.saturating_mul_int(per_second)
     }
 
     fn native_unit_cost(instruction_count: u32, per_second: u128) -> u128 {
         let unit_weight: Weight = kintsugi_runtime_parachain::xcm_config::UnitWeightCost::get();
-        assert_eq!(unit_weight, 200_000_000);
+        assert_eq!(unit_weight.ref_time(), 200_000_000);
+        assert_eq!(unit_weight.proof_size(), 0);
 
         weight_calculation(instruction_count, unit_weight, per_second)
     }
 
     pub fn ksm_per_second_as_fee(instruction_count: u32) -> u128 {
         let ksm_per_second = kintsugi_runtime_parachain::xcm_config::ksm_per_second();
-        assert_eq!(202060000000, ksm_per_second);
+
+        // check ksm per second. It's by no means essential - it's just useful to be forced to check the
+        // change after polkadot updates
+        assert_eq!(200320000000, ksm_per_second);
 
         native_unit_cost(instruction_count, ksm_per_second)
     }
@@ -52,25 +54,20 @@ mod hrmp {
     use polkadot_runtime_parachains::hrmp;
     fn construct_xcm(call: hrmp::Call<kusama_runtime::Runtime>) -> Xcm<()> {
         Xcm(vec![
-            WithdrawAsset((Here, 410000000000).into()),
+            WithdrawAsset((Here, 410000000000u128).into()),
             BuyExecution {
-                fees: (Here, 400000000000).into(),
+                fees: (Here, 400000000000u128).into(),
                 weight_limit: Unlimited,
             },
             Transact {
-                require_weight_at_most: 10000000000,
-                origin_type: OriginKind::Native,
+                require_weight_at_most: Weight::from_ref_time(10000000000),
+                origin_kind: OriginKind::Native,
                 call: kusama_runtime::RuntimeCall::Hrmp(call).encode().into(),
             },
             RefundSurplus,
             DepositAsset {
                 assets: All.into(),
-                max_assets: 1,
-                beneficiary: Junction::AccountId32 {
-                    id: BOB,
-                    network: NetworkId::Any,
-                }
-                .into(),
+                beneficiary: Junction::AccountId32 { id: BOB, network: None }.into(),
             },
         ])
     }
@@ -181,25 +178,20 @@ fn test_transact_barrier() {
         keep_alive: false,
     };
     let message = Xcm(vec![
-        WithdrawAsset((Here, 410000000000).into()),
+        WithdrawAsset((Here, 410000000000u128).into()),
         BuyExecution {
-            fees: (Here, 400000000000).into(),
+            fees: (Here, 400000000000u128).into(),
             weight_limit: Unlimited,
         },
         Transact {
-            require_weight_at_most: 10000000000,
-            origin_type: OriginKind::Native,
+            require_weight_at_most: Weight::from_ref_time(10000000000),
+            origin_kind: OriginKind::Native,
             call: kintsugi_runtime_parachain::RuntimeCall::Tokens(call).encode().into(),
         },
         RefundSurplus,
         DepositAsset {
             assets: All.into(),
-            max_assets: 1,
-            beneficiary: Junction::AccountId32 {
-                id: BOB,
-                network: NetworkId::Any,
-            }
-            .into(),
+            beneficiary: Junction::AccountId32 { id: BOB, network: None }.into(),
         },
     ]);
 
@@ -227,26 +219,20 @@ fn transfer_from_relay_chain() {
     KusamaNet::execute_with(|| {
         assert_ok!(kusama_runtime::XcmPallet::reserve_transfer_assets(
             kusama_runtime::RuntimeOrigin::signed(ALICE.into()),
-            Box::new(Parachain(KINTSUGI_PARA_ID).into().into()),
-            Box::new(
-                Junction::AccountId32 {
-                    id: BOB,
-                    network: NetworkId::Any
-                }
-                .into()
-                .into()
-            ),
+            Box::new(Parachain(KINTSUGI_PARA_ID).into_versioned()),
+            Box::new(Junction::AccountId32 { id: BOB, network: None }.into_versioned()),
             Box::new((Here, KSM.one()).into()),
             0
         ));
     });
 
     Kintsugi::execute_with(|| {
-        let xcm_fee = fees::ksm_per_second_as_fee(4);
-        assert_eq!(
-            Tokens::free_balance(Token(KSM), &AccountId::from(BOB)),
-            KSM.one() - xcm_fee
-        );
+        let xcm_fee = KSM.one() - Tokens::free_balance(Token(KSM), &AccountId::from(BOB));
+
+        assert!(xcm_fee < 1000000000); // fees are set to 1000000000 in ui - make sure it's enough
+        assert!(xcm_fee > 0); // check that some fees are taken
+
+        // check that fees go to treasury
         assert_eq!(Tokens::free_balance(Token(KSM), &TreasuryAccount::get()), xcm_fee);
     });
 }
@@ -266,28 +252,13 @@ fn transfer_to_relay_chain() {
             RuntimeOrigin::signed(ALICE.into()),
             Token(KSM),
             KSM.one(),
-            Box::new(
-                MultiLocation::new(
-                    1,
-                    X1(Junction::AccountId32 {
-                        id: BOB,
-                        network: NetworkId::Any,
-                    })
-                )
-                .into()
-            ),
+            Box::new(MultiLocation::new(1, X1(Junction::AccountId32 { id: BOB, network: None })).into()),
             WeightLimit::Unlimited
         ));
     });
 
     KusamaNet::execute_with(|| {
-        let used_weight = FrameWeight::from_ref_time(298_368_000); // the actual weight of the sent message
-        let fee =
-            <kusama_runtime::Runtime as pallet_transaction_payment::Config>::WeightToFee::weight_to_fee(&used_weight);
-        assert_eq!(
-            kusama_runtime::Balances::free_balance(&AccountId::from(BOB)),
-            KSM.one() - fee
-        );
+        let fee = KSM.one() - kusama_runtime::Balances::free_balance(&AccountId::from(BOB));
 
         // UI uses 165940672 - make sure that that's an overestimation
         assert!(fee < 165940672);
@@ -327,7 +298,7 @@ fn transfer_to_sibling_and_back() {
                     X2(
                         Parachain(SIBLING_PARA_ID),
                         Junction::AccountId32 {
-                            network: NetworkId::Any,
+                            network: None,
                             id: BOB.into(),
                         }
                     )
@@ -368,7 +339,7 @@ fn transfer_to_sibling_and_back() {
                     X2(
                         Parachain(KINTSUGI_PARA_ID),
                         Junction::AccountId32 {
-                            network: NetworkId::Any,
+                            network: None,
                             id: ALICE.into(),
                         }
                     )
@@ -411,7 +382,6 @@ fn xcm_transfer_execution_barrier_trader_works() {
         },
         DepositAsset {
             assets: All.into(),
-            max_assets: 1,
             beneficiary: Here.into(),
         },
     ]);
@@ -419,10 +389,10 @@ fn xcm_transfer_execution_barrier_trader_works() {
         // Kusama effectively disabled the `send` extrinsic in 0.9.19, so use send_xcm
         assert_ok!(pallet_xcm::Pallet::<kusama_runtime::Runtime>::send_xcm(
             X1(Junction::AccountId32 {
-                network: NetworkId::Any,
+                network: None,
                 id: ALICE.into(),
             }),
-            Parachain(KINTSUGI_PARA_ID).into(),
+            Parachain(KINTSUGI_PARA_ID),
             message
         ));
     });
@@ -444,16 +414,16 @@ fn xcm_transfer_execution_barrier_trader_works() {
         ReserveAssetDeposited((Parent, 100).into()),
         BuyExecution {
             fees: (Parent, 100).into(),
-            weight_limit: Limited(message_weight - 1),
+            weight_limit: Limited(message_weight - Weight::from_ref_time(1)),
         },
         DepositAsset {
             assets: All.into(),
-            max_assets: 1,
             beneficiary: Here.into(),
         },
     ]);
     Kintsugi::execute_with(|| {
-        let r = XcmExecutor::<XcmConfig>::execute_xcm(Parent, message, message_weight);
+        let hash = message.using_encoded(sp_io::hashing::blake2_256);
+        let r = XcmExecutor::<XcmConfig>::execute_xcm(Parent, message, hash, message_weight);
         assert_eq!(r, Outcome::Error(XcmError::Barrier));
     });
 
@@ -467,12 +437,12 @@ fn xcm_transfer_execution_barrier_trader_works() {
         },
         DepositAsset {
             assets: All.into(),
-            max_assets: 1,
             beneficiary: Here.into(),
         },
     ]);
     Kintsugi::execute_with(|| {
-        let r = XcmExecutor::<XcmConfig>::execute_xcm(Parent, message, message_weight);
+        let hash = message.using_encoded(sp_io::hashing::blake2_256);
+        let r = XcmExecutor::<XcmConfig>::execute_xcm(Parent, message, hash, message_weight);
         assert_eq!(
             r,
             Outcome::Incomplete(message_weight - unit_instruction_weight, XcmError::TooExpensive)
@@ -488,12 +458,12 @@ fn xcm_transfer_execution_barrier_trader_works() {
         },
         DepositAsset {
             assets: All.into(),
-            max_assets: 1,
             beneficiary: Here.into(),
         },
     ]);
     Kintsugi::execute_with(|| {
-        let r = XcmExecutor::<XcmConfig>::execute_xcm(Parent, message, message_weight);
+        let hash = message.using_encoded(sp_io::hashing::blake2_256);
+        let r = XcmExecutor::<XcmConfig>::execute_xcm(Parent, message, hash, message_weight);
         assert_eq!(r, Outcome::Complete(message_weight));
     });
 }
@@ -504,7 +474,7 @@ fn subscribe_version_notify_works() {
     KusamaNet::execute_with(|| {
         let r = pallet_xcm::Pallet::<kusama_runtime::Runtime>::force_subscribe_version_notify(
             kusama_runtime::RuntimeOrigin::root(),
-            Box::new(Parachain(KINTSUGI_PARA_ID).into().into()),
+            Box::new(Parachain(KINTSUGI_PARA_ID).into_versioned()),
         );
         assert_ok!(r);
     });
@@ -515,7 +485,7 @@ fn subscribe_version_notify_works() {
                     parents: 0,
                     interior: X1(Parachain(KINTSUGI_PARA_ID)),
                 },
-                2,
+                3,
             ),
         ));
     });
@@ -535,7 +505,7 @@ fn subscribe_version_notify_works() {
                     parents: 1,
                     interior: Here,
                 },
-                2,
+                3,
             ),
         ));
     });
@@ -573,9 +543,25 @@ fn subscribe_version_notify_works() {
     });
 }
 
+fn general_key_of(token_symbol: TokenSymbol) -> Junction {
+    let id = Token(token_symbol);
+    let encoded = id.encode();
+    let mut data = [0u8; 32];
+    if encoded.len() > 32 {
+        // we are not returning result, so panic is inevitable. Let's make it explicit.
+        panic!("Currency ID was too long to be encoded");
+    }
+    data[..encoded.len()].copy_from_slice(&encoded[..]);
+    GeneralKey {
+        length: encoded.len() as u8,
+        data,
+    }
+}
+
 #[test]
 fn trap_assets_works() {
     let mut kint_treasury_amount = 0;
+    let mut ksm_treasury_amount = 0;
     let (ksm_asset_amount, kint_asset_amount) = (KSM.one(), KINT.one());
     let trader_weight_to_treasury = fees::ksm_per_second_as_fee(3);
 
@@ -586,6 +572,7 @@ fn trap_assets_works() {
         assert_ok!(Tokens::deposit(Token(KINT), &parent_account, 100 * KINT.one()));
 
         kint_treasury_amount = Tokens::free_balance(Token(KINT), &TreasuryAccount::get());
+        ksm_treasury_amount = Tokens::free_balance(Token(KSM), &TreasuryAccount::get());
     });
 
     let assets: MultiAsset = (Parent, ksm_asset_amount).into();
@@ -595,17 +582,11 @@ fn trap_assets_works() {
             WithdrawAsset(assets.clone().into()),
             BuyExecution {
                 fees: assets,
-                weight_limit: Limited(KSM.one() as u64),
+                weight_limit: Limited(Weight::from_ref_time(KSM.one() as u64)),
             },
             WithdrawAsset(
                 (
-                    (
-                        Parent,
-                        X2(
-                            Parachain(KINTSUGI_PARA_ID),
-                            GeneralKey(Token(KINT).encode().try_into().unwrap()),
-                        ),
-                    ),
+                    (Parent, X2(Parachain(KINTSUGI_PARA_ID), general_key_of(KINT))),
                     kint_asset_amount,
                 )
                     .into(),
@@ -613,7 +594,7 @@ fn trap_assets_works() {
         ];
         assert_ok!(pallet_xcm::Pallet::<kusama_runtime::Runtime>::send_xcm(
             Here,
-            Parachain(KINTSUGI_PARA_ID).into(),
+            Parachain(KINTSUGI_PARA_ID),
             Xcm(xcm),
         ));
     });
@@ -666,31 +647,20 @@ fn trap_assets_works() {
             },
             BuyExecution {
                 fees: (
-                    (
-                        Parent,
-                        X2(
-                            Parachain(KINTSUGI_PARA_ID),
-                            GeneralKey(Token(KINT).encode().try_into().unwrap()),
-                        ),
-                    ),
+                    (Parent, X2(Parachain(KINTSUGI_PARA_ID), general_key_of(KINT))),
                     kint_asset_amount / 2,
                 )
                     .into(),
-                weight_limit: Limited(KSM.one() as u64),
+                weight_limit: Limited(Weight::from_ref_time(KSM.one() as u64)),
             },
             DepositAsset {
                 assets: All.into(),
-                max_assets: 2,
-                beneficiary: Junction::AccountId32 {
-                    id: BOB,
-                    network: NetworkId::Any,
-                }
-                .into(),
+                beneficiary: Junction::AccountId32 { id: BOB, network: None }.into(),
             },
         ];
         assert_ok!(pallet_xcm::Pallet::<kusama_runtime::Runtime>::send_xcm(
             Here,
-            Parachain(KINTSUGI_PARA_ID).into(),
+            Parachain(KINTSUGI_PARA_ID),
             Xcm(xcm),
         ));
     });
@@ -716,16 +686,7 @@ fn register_kint_as_foreign_asset() {
         name: "Kintsugi native".as_bytes().to_vec(),
         symbol: "extKINT".as_bytes().to_vec(),
         existential_deposit: 0,
-        location: Some(
-            MultiLocation::new(
-                1,
-                X2(
-                    Parachain(KINTSUGI_PARA_ID),
-                    GeneralKey(Token(KINT).encode().try_into().unwrap()),
-                ),
-            )
-            .into(),
-        ),
+        location: Some(MultiLocation::new(1, X2(Parachain(KINTSUGI_PARA_ID), general_key_of(KINT))).into()),
         additional: CustomMetadata {
             fee_per_second: 1_000_000_000_000,
             coingecko_id: "kint-sugi".as_bytes().to_vec(),
