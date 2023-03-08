@@ -1277,16 +1277,7 @@ pub type Executive = frame_executive::Executive<
     frame_system::ChainContext<Runtime>,
     Runtime,
     AllPalletsWithSystem,
-    (
-        // Vault Capacity Model
-        reward::migration::v1::MigrateToV1<Runtime, EscrowRewardsInstance>,
-        vault_registry::migration::vault_capacity::RewardsMigration<
-            Runtime,
-            VaultCapacityInstance,
-            VaultRewardsInstance,
-        >,
-        democracy::migrations::v1::Migration<Runtime>,
-    ),
+    (democracy::migrations::v1::Migration<Runtime>,),
 >;
 
 #[cfg(not(feature = "disable-runtime-api"))]

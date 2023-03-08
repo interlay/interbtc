@@ -1253,41 +1253,8 @@ pub type Executive = frame_executive::Executive<
     frame_system::ChainContext<Runtime>,
     Runtime,
     AllPalletsWithSystem,
-    (
-        // Vault Capacity Model
-        reward::migration::v1::MigrateToV1<Runtime, EscrowRewardsInstance>,
-        vault_registry::migration::vault_capacity::RewardsMigration<
-            Runtime,
-            VaultCapacityInstance,
-            VaultRewardsInstance,
-        >,
-        democracy::migrations::v1::Migration<Runtime>,
-        SudoMigrationCheck,
-    ),
+    (democracy::migrations::v1::Migration<Runtime>,),
 >;
-
-struct SudoMigrationCheck;
-
-impl OnRuntimeUpgrade for SudoMigrationCheck {
-    fn on_runtime_upgrade() -> Weight {
-        use frame_support::storage::migration::take_storage_value;
-        take_storage_value::<AccountId>(b"Sudo", b"Key", &[]);
-        Default::default()
-    }
-    #[cfg(feature = "try-runtime")]
-    fn pre_upgrade() -> Result<Vec<u8>, &'static str> {
-        Ok(Vec::new())
-    }
-    #[cfg(feature = "try-runtime")]
-    fn post_upgrade(_state: Vec<u8>) -> Result<(), &'static str> {
-        assert!(pallet_sudo::Pallet::<Runtime>::key().is_none());
-        log::info!(
-            target: "runtime",
-            "sudo key None 👍"
-        );
-        Ok(())
-    }
-}
 
 #[cfg(not(feature = "disable-runtime-api"))]
 impl_runtime_apis! {
