@@ -5,6 +5,7 @@
 #![allow(clippy::unused_unit)]
 #![allow(clippy::too_many_arguments)]
 #![allow(clippy::type_complexity)]
+#![feature(array_windows)]
 
 #[cfg(test)]
 mod mock;
@@ -52,6 +53,20 @@ pub enum Route<PoolId, CurrencyId> {
     Normal(Vec<CurrencyId>),
 }
 
+impl<PoolId, CurrencyId: Clone> Route<PoolId, CurrencyId> {
+    fn input_currency(&self) -> Option<CurrencyId> {
+        match self {
+            Route::Stable(x) => Some(x.from_currency.clone()),
+            Route::Normal(x) => x.first().cloned(),
+        }
+    }
+    fn output_currency(&self) -> Option<CurrencyId> {
+        match self {
+            Route::Stable(x) => Some(x.to_currency.clone()),
+            Route::Normal(x) => x.last().cloned(),
+        }
+    }
+}
 pub use pallet::*;
 
 #[allow(type_alias_bounds)]
@@ -127,6 +142,8 @@ pub mod pallet {
 
             let now = frame_system::Pallet::<T>::block_number();
             ensure!(deadline > now, Error::<T>::Deadline);
+
+            Self::validate_routes(&routes)?;
 
             let mut amount_out = amount_in;
             let mut receiver = who.clone();
@@ -209,5 +226,14 @@ impl<T: Config> Pallet<T> {
         currency_id: T::CurrencyId,
     ) -> Result<u32, DispatchError> {
         T::StableAMM::currency_index(pool_id, currency_id).ok_or_else(|| Error::<T>::MismatchPoolAndCurrencyId.into())
+    }
+
+    fn validate_routes(routes: &[Route<T::StablePoolId, T::CurrencyId>]) -> DispatchResult {
+        for [route_1, route_2] in routes.array_windows::<2>() {
+            let output_1 = route_1.output_currency().ok_or(Error::<T>::InvalidPath)?;
+            let input_2 = route_2.input_currency().ok_or(Error::<T>::InvalidPath)?;
+            ensure!(output_1 == input_2, Error::<T>::InvalidRoutes);
+        }
+        Ok(())
     }
 }
