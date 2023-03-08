@@ -51,6 +51,22 @@ fn proposal_with_deposit_below_minimum_should_not_work() {
 }
 
 #[test]
+fn proposal_without_preimage_should_not_work() {
+    new_test_ext().execute_with(|| {
+        System::set_block_number(0);
+
+        let proposal = Bounded::Lookup {
+            hash: Default::default(),
+            len: 128,
+        };
+        assert_noop!(
+            Democracy::propose(RuntimeOrigin::signed(1), proposal, 1),
+            Error::<Test>::PreimageMissing
+        );
+    });
+}
+
+#[test]
 fn poor_proposer_should_not_work() {
     new_test_ext().execute_with(|| {
         assert_noop!(

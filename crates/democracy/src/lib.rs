@@ -309,6 +309,8 @@ pub mod pallet {
         ValueLow,
         /// Proposal does not exist
         ProposalMissing,
+        /// Preimage does not exist
+        PreimageMissing,
         /// Not imminent
         NotImminent,
         /// Too early
@@ -382,6 +384,12 @@ pub mod pallet {
             let real_prop_count = PublicProps::<T>::decode_len().unwrap_or(0) as u32;
             let max_proposals = T::MaxProposals::get();
             ensure!(real_prop_count < max_proposals, Error::<T>::TooMany);
+
+            ensure!(T::Preimages::have(&proposal), Error::<T>::PreimageMissing);
+            // Actually `hold` the proposal now to make sure it is not removed.
+            // This will be reversed by the Scheduler pallet once it is executed
+            // which assumes that we will already have placed a `hold` on it.
+            T::Preimages::hold(&proposal);
 
             T::Currency::reserve(&who, value)?;
             PublicPropCount::<T>::put(index + 1);
@@ -849,11 +857,6 @@ impl<T: Config> Pallet<T> {
 
         if approved {
             Self::deposit_event(Event::<T>::Passed { ref_index: index });
-            // Actually `hold` the proposal now since we didn't hold it when it came in via the
-            // submit extrinsic and we now know that it will be needed. This will be reversed by
-            // Scheduler pallet once it is executed which assumes that we will already have placed
-            // a `hold` on it.
-            T::Preimages::hold(&status.proposal);
 
             // Earliest it can be scheduled for is next block.
             let when = now.saturating_add(status.delay.max(One::one()));
