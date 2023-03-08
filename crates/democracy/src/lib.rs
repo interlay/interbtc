@@ -880,6 +880,9 @@ impl<T: Config> Pallet<T> {
                 frame_support::print("LOGIC ERROR: bake_referendum/schedule_named failed");
             }
         } else {
+            // scheduler will not drop the call data
+            // so we should unrequest that here
+            T::Preimages::drop(&status.proposal);
             Self::deposit_event(Event::<T>::NotPassed { ref_index: index });
         }
 
