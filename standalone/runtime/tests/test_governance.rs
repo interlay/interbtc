@@ -5,11 +5,9 @@ use mock::*;
 use democracy::{PropIndex, ReferendumIndex, ReferendumInfo, ReferendumStatus, Tally, Vote, VoteThreshold};
 use frame_support::{
     assert_err_ignore_postinfo,
-    traits::{Currency, GetCallMetadata, Hooks},
+    traits::{Currency, GetCallMetadata, Hooks, StorePreimage},
 };
 use orml_vesting::VestingSchedule;
-use sp_core::{Encode, Hasher};
-use sp_runtime::traits::BlakeTwo256;
 use tx_pause::FullNameOf;
 
 type DemocracyCall = democracy::Call<Runtime>;
@@ -61,23 +59,13 @@ fn test_with<R>(execute: impl Fn() -> R) {
     });
 }
 
-fn set_balance_proposal(who: AccountId, value: Balance) -> Vec<u8> {
-    RuntimeCall::Tokens(TokensCall::set_balance {
-        who: who,
-        currency_id: DEFAULT_COLLATERAL_CURRENCY,
-        new_free: value,
-        new_reserved: 0,
-    })
-    .encode()
-}
-
 fn assert_democracy_proposed_event() -> PropIndex {
     SystemPallet::events()
         .iter()
         .rev()
         .find_map(|record| {
-            if let RuntimeEvent::Democracy(DemocracyEvent::Proposed(index, _)) = record.event {
-                Some(index)
+            if let RuntimeEvent::Democracy(DemocracyEvent::Proposed { proposal_index, .. }) = record.event {
+                Some(proposal_index)
             } else {
                 None
             }
@@ -90,8 +78,8 @@ fn assert_democracy_started_event() -> ReferendumIndex {
         .iter()
         .rev()
         .find_map(|record| {
-            if let RuntimeEvent::Democracy(DemocracyEvent::Started(index, _)) = record.event {
-                Some(index)
+            if let RuntimeEvent::Democracy(DemocracyEvent::Started { ref_index, .. }) = record.event {
+                Some(ref_index)
             } else {
                 None
             }
@@ -103,7 +91,7 @@ fn assert_democracy_passed_event(index: ReferendumIndex) {
     SystemPallet::events()
         .iter()
         .rev()
-        .find(|record| matches!(record.event, RuntimeEvent::Democracy(DemocracyEvent::Passed(i)) if i == index))
+        .find(|record| matches!(record.event, RuntimeEvent::Democracy(DemocracyEvent::Passed { ref_index }) if ref_index == index))
         .expect("referendum was not passed");
 }
 
@@ -120,24 +108,30 @@ fn assert_technical_committee_executed_event() {
         .expect("execution failed");
 }
 
-fn create_proposal(encoded_proposal: Vec<u8>) -> H256 {
-    let proposal_hash = BlakeTwo256::hash(&encoded_proposal[..]);
-
-    assert_ok!(
-        RuntimeCall::Democracy(DemocracyCall::note_preimage { encoded_proposal })
-            .dispatch(origin_of(account_of(ALICE)))
-    );
-
-    assert_ok!(RuntimeCall::Democracy(DemocracyCall::propose {
-        proposal_hash,
-        value: <Runtime as democracy::Config>::MinimumDeposit::get(),
+fn set_balance_proposal(who: AccountId, value: Balance) -> RuntimeCall {
+    RuntimeCall::Tokens(TokensCall::set_balance {
+        who: who,
+        currency_id: DEFAULT_COLLATERAL_CURRENCY,
+        new_free: value,
+        new_reserved: 0,
     })
-    .dispatch(origin_of(account_of(ALICE))));
-
-    proposal_hash
 }
 
-fn create_set_balance_proposal(amount_to_set: Balance) -> H256 {
+fn create_proposal_call(proposal: RuntimeCall, deposit_value: Balance) -> RuntimeCall {
+    RuntimeCall::Democracy(DemocracyCall::propose {
+        proposal: <Runtime as democracy::Config>::Preimages::bound(proposal).unwrap(),
+        value: deposit_value,
+    })
+}
+
+fn create_proposal(proposal: RuntimeCall) {
+    assert_ok!(
+        create_proposal_call(proposal, <Runtime as democracy::Config>::MinimumDeposit::get())
+            .dispatch(origin_of(account_of(ALICE)))
+    );
+}
+
+fn create_set_balance_proposal(amount_to_set: Balance) {
     create_proposal(set_balance_proposal(account_of(EVE), amount_to_set))
 }
 
@@ -296,12 +290,9 @@ fn can_not_use_txpause_to_brick_parachain() {
             SystemError::CallFiltered
         );
 
-        create_proposal(
-            RuntimeCall::TxPause(TxPauseCall::unpause {
-                full_name: full_name(b"Tokens", None),
-            })
-            .encode(),
-        );
+        create_proposal(RuntimeCall::TxPause(TxPauseCall::unpause {
+            full_name: full_name(b"Tokens", None),
+        }));
         launch_and_execute_referendum();
 
         // verify that call is indeed unpaused
@@ -370,7 +361,7 @@ fn integration_test_governance_treasury() {
         assert_eq!(TreasuryPallet::proposal_count(), 1);
 
         // create proposal to approve treasury spend
-        create_proposal(RuntimeCall::Treasury(TreasuryCall::approve_proposal { proposal_id: 0 }).encode());
+        create_proposal(RuntimeCall::Treasury(TreasuryCall::approve_proposal { proposal_id: 0 }));
         launch_and_execute_referendum();
 
         // bob should receive funds
@@ -480,7 +471,7 @@ fn integration_test_governance_voter_can_change_vote() {
 fn integration_test_fast_track_referendum() {
     test_with(|| {
         let amount_to_set = 1000;
-        let proposal_hash = create_set_balance_proposal(amount_to_set);
+        create_set_balance_proposal(amount_to_set);
 
         let start_height = <Runtime as democracy::Config>::VotingPeriod::get();
         DemocracyPallet::on_initialize(start_height);
@@ -505,7 +496,11 @@ fn integration_test_fast_track_referendum() {
             DemocracyPallet::referendum_info(index),
             Some(ReferendumInfo::Ongoing(ReferendumStatus {
                 end,
-                proposal_hash,
+                proposal: <Runtime as democracy::Config>::Preimages::bound(set_balance_proposal(
+                    account_of(EVE),
+                    amount_to_set
+                ))
+                .unwrap(),
                 threshold: VoteThreshold::SuperMajorityAgainst,
                 delay: <Runtime as democracy::Config>::EnactmentPeriod::get(),
                 tally: Tally {
@@ -689,14 +684,13 @@ fn integration_test_proposing_and_voting_only_possible_with_staked_tokens() {
 
         // making a proposal to increase Eve's balance without having tokens staked fails
         let amount_to_fund = 100_000;
-        let encoded_proposal = set_balance_proposal(account_of(EVE), amount_to_fund);
-        let proposal_hash = BlakeTwo256::hash(&encoded_proposal[..]);
+
+        let proposal = create_proposal_call(
+            set_balance_proposal(account_of(EVE), amount_to_fund),
+            minimum_proposal_value,
+        );
         assert_noop!(
-            RuntimeCall::Democracy(DemocracyCall::propose {
-                proposal_hash,
-                value: minimum_proposal_value,
-            })
-            .dispatch(origin_of(account_of(BOB))),
+            proposal.clone().dispatch(origin_of(account_of(BOB))),
             EscrowError::InsufficientFunds
         );
 
@@ -707,34 +701,20 @@ fn integration_test_proposing_and_voting_only_possible_with_staked_tokens() {
 
         // Bob stakes 50% of tokens and proposes again
         create_lock(account_of(BOB), 5 * minimum_proposal_value);
-        assert_ok!(
-            RuntimeCall::Democracy(DemocracyCall::note_preimage { encoded_proposal })
-                .dispatch(origin_of(account_of(BOB)))
-        );
-        assert_ok!(RuntimeCall::Democracy(DemocracyCall::propose {
-            proposal_hash,
-            value: minimum_proposal_value,
-        })
-        .dispatch(origin_of(account_of(BOB))));
+        assert_ok!(proposal.dispatch(origin_of(account_of(BOB))));
 
         // Carol fails to second the proposal without having tokens staked
         let prop_index = assert_democracy_proposed_event();
         assert_noop!(
-            RuntimeCall::Democracy(DemocracyCall::second {
-                proposal: prop_index,
-                seconds_upper_bound: 1000,
-            })
-            .dispatch(origin_of(account_of(CAROL))),
+            RuntimeCall::Democracy(DemocracyCall::second { proposal: prop_index })
+                .dispatch(origin_of(account_of(CAROL))),
             EscrowError::InsufficientFunds
         );
 
         // Carol succeeds to second the proposal with staking tokens beforehand
         create_lock(account_of(CAROL), 5 * minimum_proposal_value);
-        assert_ok!(RuntimeCall::Democracy(DemocracyCall::second {
-            proposal: prop_index,
-            seconds_upper_bound: 1000,
-        })
-        .dispatch(origin_of(account_of(CAROL))));
+        assert_ok!(RuntimeCall::Democracy(DemocracyCall::second { proposal: prop_index })
+            .dispatch(origin_of(account_of(CAROL))));
 
         // Proceed proposal to a referendum
         DemocracyPallet::on_initialize(start_height);
@@ -795,13 +775,10 @@ fn integration_test_proposal_vkint_gets_released_on_regular_launch() {
         let start_vkint_carol = get_free_vkint(account_of(CAROL));
 
         // making a proposal to increase Eve's balance without having tokens staked fails
-        let encoded_proposal = set_balance_proposal(account_of(EVE), 100_000);
-        let proposal_hash = BlakeTwo256::hash(&encoded_proposal[..]);
-        assert_ok!(RuntimeCall::Democracy(DemocracyCall::propose {
-            proposal_hash,
-            value: minimum_proposal_value,
-        })
-        .dispatch(origin_of(account_of(ALICE))));
+        assert_ok!(
+            create_proposal_call(set_balance_proposal(account_of(EVE), 100_000), minimum_proposal_value)
+                .dispatch(origin_of(account_of(ALICE)))
+        );
 
         // alice should have locked some vkint
         assert_eq!(
@@ -809,11 +786,7 @@ fn integration_test_proposal_vkint_gets_released_on_regular_launch() {
             start_vkint_alice - minimum_proposal_value
         );
 
-        assert_ok!(RuntimeCall::Democracy(DemocracyCall::second {
-            proposal: 0,
-            seconds_upper_bound: 1000,
-        })
-        .dispatch(origin_of(account_of(CAROL))));
+        assert_ok!(RuntimeCall::Democracy(DemocracyCall::second { proposal: 0 }).dispatch(origin_of(account_of(CAROL))));
 
         // now both alice and carol should have locked some vkint
         assert_eq!(
@@ -842,13 +815,10 @@ fn integration_test_proposal_vkint_gets_released_on_fast_track() {
         let start_vkint_alice = get_free_vkint(account_of(ALICE));
 
         // making a proposal to increase Eve's balance without having tokens staked fails
-        let encoded_proposal = set_balance_proposal(account_of(EVE), 100_000);
-        let proposal_hash = BlakeTwo256::hash(&encoded_proposal[..]);
-        assert_ok!(RuntimeCall::Democracy(DemocracyCall::propose {
-            proposal_hash,
-            value: minimum_proposal_value,
-        })
-        .dispatch(origin_of(account_of(ALICE))));
+        assert_ok!(
+            create_proposal_call(set_balance_proposal(account_of(EVE), 100_000), minimum_proposal_value)
+                .dispatch(origin_of(account_of(ALICE)))
+        );
 
         // alice should have locked some vkint
         assert_eq!(

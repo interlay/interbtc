@@ -5,12 +5,7 @@ use super::*;
 #[test]
 fn simple_passing_should_work() {
     new_test_ext().execute_with(|| {
-        let r = Democracy::inject_referendum(
-            2,
-            set_balance_proposal_hash_and_note(2),
-            VoteThreshold::SuperMajorityApprove,
-            0,
-        );
+        let r = Democracy::inject_referendum(2, set_balance_proposal(2), VoteThreshold::SuperMajorityApprove, 0);
         assert_ok!(Democracy::vote(RuntimeOrigin::signed(1), r, aye(1)));
         assert_eq!(
             tally(r),
@@ -29,12 +24,7 @@ fn simple_passing_should_work() {
 #[test]
 fn simple_failing_should_work() {
     new_test_ext().execute_with(|| {
-        let r = Democracy::inject_referendum(
-            2,
-            set_balance_proposal_hash_and_note(2),
-            VoteThreshold::SuperMajorityApprove,
-            0,
-        );
+        let r = Democracy::inject_referendum(2, set_balance_proposal(2), VoteThreshold::SuperMajorityApprove, 0);
         assert_ok!(Democracy::vote(RuntimeOrigin::signed(1), r, nay(1)));
         assert_eq!(
             tally(r),
@@ -55,18 +45,8 @@ fn simple_failing_should_work() {
 #[test]
 fn ooo_inject_referendums_should_work() {
     new_test_ext().execute_with(|| {
-        let r1 = Democracy::inject_referendum(
-            3,
-            set_balance_proposal_hash_and_note(3),
-            VoteThreshold::SuperMajorityApprove,
-            0,
-        );
-        let r2 = Democracy::inject_referendum(
-            2,
-            set_balance_proposal_hash_and_note(2),
-            VoteThreshold::SuperMajorityApprove,
-            0,
-        );
+        let r1 = Democracy::inject_referendum(3, set_balance_proposal(3), VoteThreshold::SuperMajorityApprove, 0);
+        let r2 = Democracy::inject_referendum(2, set_balance_proposal(2), VoteThreshold::SuperMajorityApprove, 0);
 
         assert_ok!(Democracy::vote(RuntimeOrigin::signed(1), r2, aye(1)));
         assert_eq!(
@@ -79,7 +59,6 @@ fn ooo_inject_referendums_should_work() {
         );
 
         next_block();
-        assert_eq!(Balances::free_balance(42), 2);
 
         assert_ok!(Democracy::vote(RuntimeOrigin::signed(1), r1, aye(1)));
         assert_eq!(
@@ -92,6 +71,9 @@ fn ooo_inject_referendums_should_work() {
         );
 
         next_block();
+        assert_eq!(Balances::free_balance(42), 2);
+
+        next_block();
         assert_eq!(Balances::free_balance(42), 3);
     });
 }
@@ -99,12 +81,7 @@ fn ooo_inject_referendums_should_work() {
 #[test]
 fn delayed_enactment_should_work() {
     new_test_ext().execute_with(|| {
-        let r = Democracy::inject_referendum(
-            2,
-            set_balance_proposal_hash_and_note(2),
-            VoteThreshold::SuperMajorityApprove,
-            1,
-        );
+        let r = Democracy::inject_referendum(2, set_balance_proposal(2), VoteThreshold::SuperMajorityApprove, 1);
         assert_ok!(Democracy::vote(RuntimeOrigin::signed(1), r, aye(1)));
         assert_ok!(Democracy::vote(RuntimeOrigin::signed(2), r, aye(2)));
         assert_ok!(Democracy::vote(RuntimeOrigin::signed(3), r, aye(3)));

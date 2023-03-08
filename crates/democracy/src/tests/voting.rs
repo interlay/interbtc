@@ -17,7 +17,7 @@ fn overvoting_should_fail() {
 fn single_proposal_should_work() {
     new_test_ext().execute_with(|| {
         System::set_block_number(0);
-        assert_ok!(propose_set_balance_and_note(1, 2, 1));
+        assert_ok!(propose_set_balance(1, 2, 1));
         let r = 0;
         assert!(Democracy::referendum_info(r).is_none());
 
@@ -30,7 +30,7 @@ fn single_proposal_should_work() {
             Democracy::referendum_status(0),
             Ok(ReferendumStatus {
                 end: 3,
-                proposal_hash: set_balance_proposal_hash_and_note(2),
+                proposal: set_balance_proposal(2),
                 threshold: VoteThreshold::SuperMajorityAgainst,
                 delay: 2,
                 tally: Tally {
@@ -62,12 +62,7 @@ fn single_proposal_should_work() {
 #[test]
 fn controversial_voting_should_work() {
     new_test_ext().execute_with(|| {
-        let r = Democracy::inject_referendum(
-            2,
-            set_balance_proposal_hash_and_note(2),
-            VoteThreshold::SuperMajorityApprove,
-            0,
-        );
+        let r = Democracy::inject_referendum(2, set_balance_proposal(2), VoteThreshold::SuperMajorityApprove, 0);
 
         assert_ok!(Democracy::vote(RuntimeOrigin::signed(1), r, aye(1)));
         assert_ok!(Democracy::vote(RuntimeOrigin::signed(2), r, nay(2)));
@@ -95,12 +90,7 @@ fn controversial_voting_should_work() {
 #[test]
 fn controversial_low_turnout_voting_should_work() {
     new_test_ext().execute_with(|| {
-        let r = Democracy::inject_referendum(
-            2,
-            set_balance_proposal_hash_and_note(2),
-            VoteThreshold::SuperMajorityApprove,
-            0,
-        );
+        let r = Democracy::inject_referendum(2, set_balance_proposal(2), VoteThreshold::SuperMajorityApprove, 0);
         assert_ok!(Democracy::vote(RuntimeOrigin::signed(5), r, nay(5)));
         assert_ok!(Democracy::vote(RuntimeOrigin::signed(6), r, aye(6)));
 
@@ -126,12 +116,7 @@ fn passing_low_turnout_voting_should_work() {
         assert_eq!(Balances::free_balance(42), 0);
         assert_eq!(Balances::total_issuance(), 210);
 
-        let r = Democracy::inject_referendum(
-            2,
-            set_balance_proposal_hash_and_note(2),
-            VoteThreshold::SuperMajorityApprove,
-            0,
-        );
+        let r = Democracy::inject_referendum(2, set_balance_proposal(2), VoteThreshold::SuperMajorityApprove, 0);
         assert_ok!(Democracy::vote(RuntimeOrigin::signed(4), r, aye(4)));
         assert_ok!(Democracy::vote(RuntimeOrigin::signed(5), r, nay(5)));
         assert_ok!(Democracy::vote(RuntimeOrigin::signed(6), r, aye(6)));
