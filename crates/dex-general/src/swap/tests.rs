@@ -25,6 +25,193 @@ const ETH_UNIT: u128 = 1000_000_000_000;
 
 const MAX_BALANCE: u128 = u128::MAX - 1;
 
+// property tests, some of which are adapted from https://github.com/galacticcouncil/HydraDX-math/blob/36432a1b139400eb69b096c32af488d3cf4b20c2/src/xyk/invariants.rs
+// which is licenced under Apache License 2.0
+mod prop_tests {
+    use super::*;
+    use proptest::{prelude::ProptestConfig, proptest, strategy::Strategy};
+    use sp_runtime::FixedU128;
+    pub const ONE: u128 = 1_000_000_000_000;
+
+    fn asset_reserve() -> impl Strategy<Value = u128> {
+        1000 * ONE..10_000_000 * ONE
+    }
+
+    fn trade_amount() -> impl Strategy<Value = u128> {
+        ONE..100 * ONE
+    }
+
+    fn fee_rate() -> impl Strategy<Value = u128> {
+        0..crate::FEE_ADJUSTMENT
+    }
+
+    macro_rules! assert_eq_approx {
+        ( $x:expr, $y:expr, $z:expr, $r:expr) => {{
+            let diff = if $x >= $y { $x - $y } else { $y - $x };
+            if diff > $z {
+                panic!("\n{} not equal\n left: {:?}\nright: {:?}\n", $r, $x, $y);
+            }
+        }};
+    }
+
+    fn assert_asset_invariant(old_state: (u128, u128), new_state: (u128, u128), desc: &str) {
+        let new_s = U256::from(new_state.0) * U256::from(new_state.1);
+        let old_s = U256::from(old_state.0) * U256::from(old_state.1);
+
+        assert!(new_s >= old_s, "Invariant decreased for {}", desc);
+    }
+
+    proptest! {
+        #![proptest_config(ProptestConfig::with_cases(10000))]
+        #[test]
+        fn test_get_amount_out( asset_in_reserve in asset_reserve(),
+            asset_out_reserve in asset_reserve(),
+            amount in  trade_amount(),
+            fee in fee_rate(),
+        ) {
+            let amount_out = DexGeneral::get_amount_out(amount, asset_in_reserve, asset_out_reserve, fee).unwrap();
+
+            assert_asset_invariant((asset_in_reserve, asset_out_reserve),
+                (asset_in_reserve + amount, asset_out_reserve - amount_out),
+                "out given in"
+            );
+        }
+    }
+
+    proptest! {
+        #![proptest_config(ProptestConfig::with_cases(10000))]
+        #[test]
+        fn test_get_amount_in( asset_in_reserve in asset_reserve(),
+            asset_out_reserve in asset_reserve(),
+            amount_out in  trade_amount(),
+            fee in fee_rate(),
+        ) {
+            let amount_in = DexGeneral::get_amount_in(amount_out, asset_in_reserve, asset_out_reserve, fee).unwrap();
+
+            assert_asset_invariant((asset_in_reserve, asset_out_reserve),
+                (asset_in_reserve + amount_in, asset_out_reserve - amount_out),
+                "out given in"
+            );
+        }
+    }
+
+    proptest! {
+        #![proptest_config(ProptestConfig::with_cases(1000))]
+        #[test]
+        fn test_inner_swap_assets_for_exact_assets( asset_in_reserve in asset_reserve(),
+            asset_out_reserve in asset_reserve(),
+            amount_out in  trade_amount(),
+            fee in fee_rate(),
+        ) {
+            new_test_ext().execute_with(|| {
+                let amount_in_max = DexGeneral::get_amount_in(amount_out, asset_in_reserve, asset_out_reserve, fee).unwrap();
+                test_concrete_inner_swap_assets_for_exact_assets(asset_in_reserve, asset_out_reserve, amount_out, amount_in_max, fee);
+            })
+        }
+    }
+
+    fn test_concrete_inner_swap_assets_for_exact_assets(
+        asset_in_reserve: u128,
+        asset_out_reserve: u128,
+        amount_out: u128,
+        amount_in_max: u128,
+        fee: u128,
+    ) {
+        assert_ok!(<Test as Config>::MultiCurrency::deposit(
+            DOT_ASSET_ID,
+            &ALICE,
+            10 * asset_in_reserve
+        ));
+        assert_ok!(<Test as Config>::MultiCurrency::deposit(
+            BTC_ASSET_ID,
+            &ALICE,
+            10 * asset_out_reserve
+        ));
+
+        assert_ok!(DexPallet::create_pair(
+            RawOrigin::Root.into(),
+            DOT_ASSET_ID,
+            BTC_ASSET_ID,
+            fee,
+        ));
+
+        assert_ok!(DexPallet::inner_add_liquidity(
+            &ALICE,
+            DOT_ASSET_ID,
+            BTC_ASSET_ID,
+            asset_in_reserve,
+            asset_out_reserve,
+            0,
+            0
+        ));
+        let path = vec![DOT_ASSET_ID, BTC_ASSET_ID];
+        // we rely on the inner invariant check here
+        assert_ok!(DexPallet::inner_swap_assets_for_exact_assets(
+            &ALICE,
+            amount_out,
+            amount_in_max,
+            &path,
+            &BOB
+        ));
+    }
+
+    proptest! {
+        #![proptest_config(ProptestConfig::with_cases(10000))]
+        #[test]
+        fn test_add_liquidity( reserve_0 in asset_reserve(),
+            reserve_1 in asset_reserve(),
+            amount_0_desired in asset_reserve(),
+            amount_1_desired in asset_reserve(),
+            amount_0_min in asset_reserve(),
+            amount_1_min in asset_reserve(),
+            total_supply in asset_reserve(),
+        ) {
+            let result = DexGeneral::calculate_added_amount(
+                amount_0_desired,
+                amount_1_desired,
+                amount_0_min,
+                amount_1_min,
+                reserve_0,
+                reserve_1);
+            if let Ok((added_0, added_1)) = result {
+                let p0 = FixedU128::from((reserve_0, reserve_1));
+                let p1 = FixedU128::from((reserve_0 + added_0, reserve_1 + added_1));
+
+                // Price should not change
+                assert_eq_approx!(p0,
+                    p1,
+                    FixedU128::from_float(0.0000000001),
+                    "Price has changed after add liquidity");
+
+
+                let shares = DexGeneral::calculate_liquidity(
+                    added_0, added_1, reserve_0, reserve_1, total_supply);
+
+                // THe following must hold when adding liquiduity.
+                //delta_S / S <= delta_X / X
+                //delta_S / S <= delta_Y / Y
+
+                let s = U256::from(total_supply);
+                let delta_s = U256::from(shares);
+                let delta_x = U256::from(added_0);
+                let delta_y = U256::from(added_1);
+                let x = U256::from(reserve_0);
+                let y = U256::from(reserve_1);
+
+                let l =  delta_s * x;
+                let r =  s * delta_x;
+
+                assert!(l <= r);
+
+                let l =  delta_s * y;
+                let r =  s * delta_y;
+
+                assert!(l <= r);
+            }
+        }
+    }
+}
+
 #[test]
 fn add_liquidity_should_work() {
     new_test_ext().execute_with(|| {

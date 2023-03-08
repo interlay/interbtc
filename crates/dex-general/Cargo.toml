@@ -29,6 +29,7 @@ orml-traits = { git = "https://github.com/open-web3-stack/open-runtime-module-li
 pallet-balances = { git = 'https://github.com/paritytech/substrate', default-features = false, branch = 'polkadot-v0.9.31' }
 sp-core = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "polkadot-v0.9.31" }
 sp-io = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "polkadot-v0.9.31" }
+proptest = "1.1.0"
 
 [features]
 default = ["std"]
