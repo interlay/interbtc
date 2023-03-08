@@ -716,7 +716,7 @@ impl<T: Config> Pallet<T> {
         let ref_index = Self::inject_referendum(
             now.saturating_add(voting_period),
             proposal_hash,
-            VoteThreshold::SuperMajorityAgainst,
+            VoteThreshold::SuperMajorityApprove,
             delay,
         );
         Self::deposit_event(Event::<T>::FastTrack { ref_index });
@@ -844,7 +844,7 @@ impl<T: Config> Pallet<T> {
                 Self::inject_referendum(
                     now.saturating_add(T::VotingPeriod::get()),
                     proposal,
-                    VoteThreshold::SuperMajorityAgainst,
+                    VoteThreshold::SuperMajorityApprove,
                     T::EnactmentPeriod::get(),
                 );
             }
