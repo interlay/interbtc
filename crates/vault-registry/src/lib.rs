@@ -513,7 +513,7 @@ pub mod pallet {
         ActiveVault {
             vault_id: DefaultVaultId<T>,
             status: VaultStatus,
-        }
+        },
     }
 
     #[pallet::error]

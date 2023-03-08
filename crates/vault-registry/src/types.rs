@@ -515,7 +515,7 @@ impl<T: Config> RichVault<T> {
             v.status = VaultStatus::Active(accept_new_issues);
             Self::deposit_event(Event::<T>::ActiveVault {
                 vault_id: v.id(),
-                status: VaultStatus::Active(accept_new_issues)
+                status: VaultStatus::Active(accept_new_issues),
             });
             Ok(())
         })
