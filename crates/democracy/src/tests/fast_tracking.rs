@@ -22,7 +22,7 @@ fn fast_track_works() {
             Ok(ReferendumStatus {
                 end: 2,
                 proposal: set_balance_proposal(2),
-                threshold: VoteThreshold::SuperMajorityAgainst,
+                threshold: VoteThreshold::SuperMajorityApprove,
                 delay: 0,
                 tally: Tally {
                     ayes: 0,
@@ -42,7 +42,7 @@ fn fast_track_referendum_works() {
         let ref_index = Democracy::inject_referendum(
             fast_track_voting_period * 2,
             set_balance_proposal(2),
-            VoteThreshold::SuperMajorityAgainst,
+            VoteThreshold::SuperMajorityApprove,
             0,
         );
 
@@ -59,7 +59,7 @@ fn fast_track_referendum_works() {
             Ok(ReferendumStatus {
                 end: end_height,
                 proposal: set_balance_proposal(2),
-                threshold: VoteThreshold::SuperMajorityAgainst,
+                threshold: VoteThreshold::SuperMajorityApprove,
                 delay: 0,
                 tally: Tally {
                     ayes: 0,
@@ -79,7 +79,7 @@ fn fast_track_referendum_fails() {
         let ref_index = Democracy::inject_referendum(
             fast_track_voting_period - 1,
             set_balance_proposal(2),
-            VoteThreshold::SuperMajorityAgainst,
+            VoteThreshold::SuperMajorityApprove,
             0,
         );
 

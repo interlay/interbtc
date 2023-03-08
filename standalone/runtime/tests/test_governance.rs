@@ -501,7 +501,7 @@ fn integration_test_fast_track_referendum() {
                     amount_to_set
                 ))
                 .unwrap(),
-                threshold: VoteThreshold::SuperMajorityAgainst,
+                threshold: VoteThreshold::SuperMajorityApprove,
                 delay: <Runtime as democracy::Config>::EnactmentPeriod::get(),
                 tally: Tally {
                     ayes: 0,
