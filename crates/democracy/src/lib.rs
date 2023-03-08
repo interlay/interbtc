@@ -565,10 +565,13 @@ pub mod pallet {
 
             PublicProps::<T>::try_mutate(|props| {
                 if let Some(i) = props.iter().position(|p| p.0 == prop_index) {
-                    let (_, _, proposer) = props.remove(i);
+                    let (_, proposal, proposer) = props.remove(i);
                     if let Some(account_id) = who {
                         ensure!(proposer == account_id, Error::<T>::NotProposer);
                     }
+                    // since we placed a `hold` on propose
+                    // we should now unrequest the data
+                    T::Preimages::drop(&proposal);
                     Ok(())
                 } else {
                     Err(Error::<T>::ProposalMissing)
@@ -678,7 +681,11 @@ impl<T: Config> Pallet<T> {
     /// Remove a referendum.
     pub fn internal_cancel_referendum(ref_index: ReferendumIndex) {
         Self::deposit_event(Event::<T>::Cancelled { ref_index });
-        ReferendumInfoOf::<T>::remove(ref_index);
+        if let Some(ReferendumInfo::Ongoing(status)) = ReferendumInfoOf::<T>::take(ref_index) {
+            // unrequest the data since the scheduler
+            // did not execute the call
+            T::Preimages::drop(&status.proposal);
+        }
     }
 
     // private.
