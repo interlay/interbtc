@@ -118,6 +118,7 @@ replace-rpc-runtime-api = { path = "../../../crates/replace/rpc/runtime-api", de
 loans-rpc-runtime-api = { path = "../../../crates/loans/rpc/runtime-api", default-features = false }
 dex-general-rpc-runtime-api = { path = "../../../crates/dex-general/rpc/runtime-api", default-features = false }
 dex-stable-rpc-runtime-api = { path = "../../../crates/dex-stable/rpc/runtime-api", default-features = false }
+dex-swap-router-rpc-runtime-api = { path = "../../../crates/dex-swap-router/rpc/runtime-api", default-features = false }
 
 # Orml dependencies
 orml-tokens = { git = "https://github.com/open-web3-stack/open-runtime-module-library", rev = "dc39cfddefb10ef0de23655e2c3dcdab66a19404", default-features = false }
@@ -248,6 +249,7 @@ std = [
   "loans-rpc-runtime-api/std",
   "dex-general-rpc-runtime-api/std",
   "dex-stable-rpc-runtime-api/std",
+  "dex-swap-router-rpc-runtime-api/std",
 
   "orml-tokens/std",
   "orml-traits/std",

@@ -4348,3 +4348,79 @@ fn meta_pool_swap_underlying_impact_on_base_pool_price_should_work() {
         );
     })
 }
+
+// TODO: rewrite to use mock values
+fn calculate_swap(pool_id: PoolId, i: usize, j: usize, in_balance: Balance) -> Balance {
+    let pool = StableAmm::pools(pool_id).unwrap().get_pool_info();
+    let normalized_balances = StableAmm::xp(&pool.balances, &pool.token_multipliers).unwrap();
+    let new_in_balance = normalized_balances[i] + in_balance * pool.token_multipliers[i];
+    let out_balance = StableAmm::get_y(&pool, i, j, new_in_balance, &normalized_balances).unwrap();
+    let out_amount = (normalized_balances[j] - out_balance) / pool.token_multipliers[j];
+    let fee = (out_amount * pool.fee) / FEE_DENOMINATOR;
+    out_amount - fee
+}
+
+#[test]
+fn should_calculate_swap_amount_from_base() {
+    new_test_ext().execute_with(|| {
+        // asset 0 (base): 1e20 + 1e20 + 1e20
+        // asset 1 (base): 1e8 + 1e8 + 1e8
+        // asset 2 (base): 1e8 + 1e8 + 1e8
+        // asset 0 (meta): 1e18
+        // asset 1 (meta): 1e18
+        let (base_pool_id, meta_pool_id) = setup_test_meta_pool();
+
+        fn calculate_token_amount(pool_id: PoolId, amounts: &Vec<Balance>, deposit: bool) -> Balance {
+            let pool = StableAmm::pools(pool_id).unwrap().get_pool_info();
+            let amp = pool.future_a;
+            let d0 = StableAmm::xp(&pool.balances, &pool.token_multipliers)
+                .and_then(|xp| StableAmm::get_d(&xp, amp))
+                .unwrap();
+            let new_balances = pool
+                .balances
+                .iter()
+                .zip(amounts.iter())
+                .map(|(x, y)| if deposit { x + y } else { x - y })
+                .collect::<Vec<_>>();
+            let d1 = StableAmm::xp(&new_balances, &pool.token_multipliers)
+                .and_then(|xp| StableAmm::get_d(&xp, amp))
+                .unwrap();
+            let total_supply = <Test as Config>::MultiCurrency::total_issuance(pool.lp_currency_id);
+            let diff = if deposit { d1 - d0 } else { d0 - d1 };
+            (diff * total_supply) / d0
+        }
+
+        let swap_amount = 100_000;
+        let mut base_amounts = vec![0; 3];
+        base_amounts[0] = swap_amount;
+        let base_lp_amount = calculate_token_amount(base_pool_id, &base_amounts, true);
+        assert_ok!(
+            StableAmm::stable_amm_calculate_currency_amount(base_pool_id, &base_amounts, true),
+            base_lp_amount
+        );
+
+        assert_eq!(
+            StableAmm::stable_amm_calculate_swap_amount_from_base(meta_pool_id, base_pool_id, 0, 0, swap_amount)
+                .unwrap()
+                .unwrap(),
+            calculate_swap(meta_pool_id, 0, 1, base_lp_amount),
+        );
+    })
+}
+
+#[test]
+fn should_calculate_swap_amount_to_base() {
+    new_test_ext().execute_with(|| {
+        let (base_pool_id, meta_pool_id) = setup_test_meta_pool();
+        let base_pool = StableAmm::pools(base_pool_id).unwrap().get_pool_info();
+        let token_lp_amount = calculate_swap(meta_pool_id, 0, 1, 100_000);
+        assert_eq!(
+            StableAmm::stable_amm_calculate_swap_amount_to_base(meta_pool_id, base_pool_id, 0, 0, 100_000)
+                .unwrap()
+                .unwrap(),
+            StableAmm::calculate_base_remove_liquidity_one_token(&base_pool, token_lp_amount, 0)
+                .unwrap()
+                .0,
+        );
+    })
+}

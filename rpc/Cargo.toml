@@ -20,6 +20,7 @@ reward-rpc = { path = "../crates/reward/rpc" }
 loans-rpc = { path = "../crates/loans/rpc" }
 dex-general-rpc = { path = "../crates/dex-general/rpc" }
 dex-stable-rpc = { path = "../crates/dex-stable/rpc" }
+dex-swap-router-rpc = { path = "../crates/dex-swap-router/rpc" }
 
 vault-registry = { path = "../crates/vault-registry" }
 primitives = { package = "interbtc-primitives", path = "../primitives" }

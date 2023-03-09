@@ -2365,6 +2365,31 @@ dependencies = [
 ]
 
 [[package]]
+name = "dex-swap-router-rpc"
+version = "0.1.0"
+dependencies = [
+ "dex-swap-router",
+ "dex-swap-router-rpc-runtime-api",
+ "jsonrpsee",
+ "parity-scale-codec",
+ "serde",
+ "sp-api",
+ "sp-blockchain",
+ "sp-rpc",
+ "sp-runtime",
+]
+
+[[package]]
+name = "dex-swap-router-rpc-runtime-api"
+version = "0.1.0"
+dependencies = [
+ "dex-swap-router",
+ "parity-scale-codec",
+ "sp-api",
+ "sp-std",
+]
+
+[[package]]
 name = "diff"
 version = "0.1.13"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3988,6 +4013,7 @@ dependencies = [
  "cumulus-test-relay-sproof-builder",
  "dex-general-rpc-runtime-api",
  "dex-stable-rpc-runtime-api",
+ "dex-swap-router-rpc-runtime-api",
  "escrow-rpc-runtime-api",
  "frame-benchmarking",
  "frame-benchmarking-cli",
@@ -4076,6 +4102,7 @@ dependencies = [
  "btc-relay-rpc",
  "dex-general-rpc",
  "dex-stable-rpc",
+ "dex-swap-router-rpc",
  "escrow-rpc",
  "futures",
  "interbtc-primitives",
@@ -4115,6 +4142,8 @@ dependencies = [
  "dex-general",
  "dex-general-rpc-runtime-api",
  "dex-stable-rpc-runtime-api",
+ "dex-swap-router",
+ "dex-swap-router-rpc-runtime-api",
  "env_logger 0.9.3",
  "escrow",
  "escrow-rpc-runtime-api",
@@ -4286,6 +4315,8 @@ dependencies = [
  "dex-general",
  "dex-general-rpc-runtime-api",
  "dex-stable-rpc-runtime-api",
+ "dex-swap-router",
+ "dex-swap-router-rpc-runtime-api",
  "escrow",
  "escrow-rpc-runtime-api",
  "fee",
@@ -4678,6 +4709,8 @@ dependencies = [
  "dex-general",
  "dex-general-rpc-runtime-api",
  "dex-stable-rpc-runtime-api",
+ "dex-swap-router",
+ "dex-swap-router-rpc-runtime-api",
  "escrow",
  "escrow-rpc-runtime-api",
  "fee",
@@ -12964,6 +12997,7 @@ dependencies = [
  "dex-stable",
  "dex-stable-rpc-runtime-api",
  "dex-swap-router",
+ "dex-swap-router-rpc-runtime-api",
  "escrow",
  "escrow-rpc-runtime-api",
  "farming",
@@ -13076,6 +13110,7 @@ dependencies = [
  "dex-stable",
  "dex-stable-rpc-runtime-api",
  "dex-swap-router",
+ "dex-swap-router-rpc-runtime-api",
  "escrow",
  "escrow-rpc-runtime-api",
  "farming",

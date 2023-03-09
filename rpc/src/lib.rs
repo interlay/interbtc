@@ -81,12 +81,14 @@ where
     C::Api: loans_rpc::LoansRuntimeApi<Block, AccountId, Balance>,
     C::Api: dex_general_rpc::DexGeneralRuntimeApi<Block, AccountId, CurrencyId>,
     C::Api: dex_stable_rpc::DexStableRuntimeApi<Block, CurrencyId, Balance, AccountId, StablePoolId>,
+    C::Api: dex_swap_router_rpc::DexSwapRouterRuntimeApi<Block, Balance, CurrencyId, StablePoolId>,
     C::Api: BlockBuilder<Block>,
     P: TransactionPool + 'static,
 {
     use btc_relay_rpc::{BtcRelay, BtcRelayApiServer};
     use dex_general_rpc::{DexGeneral, DexGeneralApiServer};
     use dex_stable_rpc::{DexStable, DexStableApiServer};
+    use dex_swap_router_rpc::{DexSwapRouter, DexSwapRouterApiServer};
     use escrow_rpc::{Escrow, EscrowApiServer};
     use issue_rpc::{Issue, IssueApiServer};
     use loans_rpc::{Loans, LoansApiServer};
@@ -138,7 +140,9 @@ where
 
     module.merge(DexGeneral::new(client.clone()).into_rpc())?;
 
-    module.merge(DexStable::new(client).into_rpc())?;
+    module.merge(DexStable::new(client.clone()).into_rpc())?;
+
+    module.merge(DexSwapRouter::new(client).into_rpc())?;
 
     Ok(module)
 }

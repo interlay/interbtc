@@ -1518,6 +1518,16 @@ impl_runtime_apis! {
         }
     }
 
+    impl dex_swap_router_rpc_runtime_api::DexSwapRouterApi<Block, Balance, CurrencyId, StablePoolId> for Runtime {
+        fn find_best_trade_exact_in(
+            _input_amount: Balance,
+            _input_currency: CurrencyId,
+            _output_currency: CurrencyId
+        ) -> Option<(Balance, Vec<dex_swap_router::Route<StablePoolId, CurrencyId>>)> {
+            Default::default()
+        }
+    }
+
     #[cfg(feature = "runtime-benchmarks")]
     impl frame_benchmarking::Benchmark<Block> for Runtime {
         fn benchmark_metadata(extra: bool) -> (
