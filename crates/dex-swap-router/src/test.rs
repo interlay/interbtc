@@ -157,3 +157,61 @@ fn swap_exact_token_for_tokens_through_stable_pool_should_work() {
         );
     })
 }
+
+#[test]
+fn test_validate_routes() {
+    new_test_ext().execute_with(|| {
+        fn stable(input: CurrencyId, output: CurrencyId) -> Route<PoolId, CurrencyId> {
+            Route::Stable(StablePath::<PoolId, CurrencyId> {
+                pool_id: 1,
+                base_pool_id: 0,
+                mode: FromBase,
+                from_currency: input,
+                to_currency: output,
+            })
+        }
+
+        // single routes..
+        assert_ok!(RouterPallet::validate_routes(&[Route::Normal(vec![
+            Token(1),
+            Token(2)
+        ]),]));
+        assert_ok!(RouterPallet::validate_routes(&[stable(Token(2), Token(3))]));
+
+        // 2 routes
+        assert_ok!(RouterPallet::validate_routes(&[
+            Route::Normal(vec![Token(1), Token(2)]),
+            stable(Token(2), Token(3))
+        ]));
+
+        // many routes
+        assert_ok!(RouterPallet::validate_routes(&[
+            Route::Normal(vec![Token(1), Token(2), Token(3)]),
+            stable(Token(3), Token(2)),
+            stable(Token(2), Token(1)),
+            Route::Normal(vec![Token(1), Token(2)]),
+            Route::Normal(vec![Token(2), Token(1)]),
+        ]));
+
+        // a "gap" in the routes - output of one route does match input of next
+        assert_noop!(
+            RouterPallet::validate_routes(&[
+                Route::Normal(vec![Token(1), Token(2)]),
+                Route::Normal(vec![Token(1), Token(4)]),
+            ]),
+            Error::<Test>::InvalidRoutes
+        );
+
+        // empty output currency
+        assert_noop!(
+            RouterPallet::validate_routes(&[Route::Normal(vec![]), Route::Normal(vec![Token(1), Token(4)]),]),
+            Error::<Test>::InvalidPath
+        );
+
+        // empty input currency
+        assert_noop!(
+            RouterPallet::validate_routes(&[Route::Normal(vec![Token(1), Token(4)]), Route::Normal(vec![])]),
+            Error::<Test>::InvalidPath
+        );
+    })
+}
