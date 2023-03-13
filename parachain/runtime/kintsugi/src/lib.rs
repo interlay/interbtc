@@ -66,8 +66,10 @@ pub use orml_asset_registry::AssetMetadata;
 pub use security::StatusCode;
 
 pub use primitives::{
-    self, AccountId, Balance, BlockNumber, CurrencyInfo, Hash, Liquidity, Moment, Nonce, Rate, Ratio, Shortfall,
-    Signature, SignedFixedPoint, SignedInner, StablePoolId, UnsignedFixedPoint, UnsignedInner,
+    self, AccountId, Balance, BlockNumber,
+    CurrencyId::{ForeignAsset, LendToken, Token},
+    CurrencyInfo, Hash, Liquidity, Moment, Nonce, Rate, Ratio, Shortfall, Signature, SignedFixedPoint, SignedInner,
+    StablePoolId, UnsignedFixedPoint, UnsignedInner,
 };
 
 // XCM imports
@@ -77,6 +79,8 @@ use xcm_config::ParentLocation;
 
 pub mod constants;
 pub mod xcm_config;
+
+mod dex;
 
 type VaultId = primitives::VaultId<AccountId, CurrencyId>;
 
@@ -628,6 +632,8 @@ parameter_types! {
     pub const TreasuryPalletId: PalletId = PalletId(*b"mod/trsy");
     pub const CollatorPotId: PalletId = PalletId(*b"col/slct");
     pub const VaultRegistryPalletId: PalletId = PalletId(*b"mod/vreg");
+    pub const LoansPalletId: PalletId = PalletId(*b"mod/loan");
+    pub const FarmingPalletId: PalletId = PalletId(*b"mod/farm");
 }
 
 parameter_types! {
@@ -645,6 +651,10 @@ parameter_types! {
     pub CollatorSelectionAccount: AccountId = CollatorPotId::get().into_account_truncating();
     // a3cgeH7D28bBsHbch2n7DChKEapamDqY9yAm441K9WUQZbBGJ
     pub VaultRegistryAccount: AccountId = VaultRegistryPalletId::get().into_account_truncating();
+    // a3cgeH7D28bBsHHqPQpBW7js6ePUgvf41qCBXNxERTqXDZcpv
+    pub LoansAccount: AccountId = LoansPalletId::get().into_account_truncating();
+    // a3cgeH7D28bBsH75j5kHyLm1ukdoYepKNKbTohsGag27VbLvK
+    pub FarmingAccount: AccountId = FarmingPalletId::get().into_account_truncating();
 }
 
 pub fn get_all_module_accounts() -> Vec<AccountId> {
@@ -656,6 +666,10 @@ pub fn get_all_module_accounts() -> Vec<AccountId> {
         TreasuryAccount::get(),
         CollatorSelectionAccount::get(),
         VaultRegistryAccount::get(),
+        LoansAccount::get(),
+        Loans::incentive_reward_account_id(),
+        Loans::reward_account_id(),
+        FarmingAccount::get(),
     ]
 }
 
@@ -908,6 +922,32 @@ impl reward::Config<VaultCapacityInstance> for Runtime {
     type GetWrappedCurrencyId = GetWrappedCurrencyId;
 }
 
+type FarmingRewardsInstance = reward::Instance4;
+
+impl reward::Config<FarmingRewardsInstance> for Runtime {
+    type RuntimeEvent = RuntimeEvent;
+    type SignedFixedPoint = SignedFixedPoint;
+    type PoolId = CurrencyId;
+    type StakeId = AccountId;
+    type CurrencyId = CurrencyId;
+    type GetNativeCurrencyId = GetNativeCurrencyId;
+    type GetWrappedCurrencyId = GetWrappedCurrencyId;
+}
+
+parameter_types! {
+    pub const RewardPeriod: BlockNumber = MINUTES;
+}
+
+impl farming::Config for Runtime {
+    type RuntimeEvent = RuntimeEvent;
+    type FarmingPalletId = FarmingPalletId;
+    type TreasuryAccountId = TreasuryAccount;
+    type RewardPeriod = RewardPeriod;
+    type RewardPools = FarmingRewards;
+    type MultiCurrency = Tokens;
+    type WeightInfo = ();
+}
+
 impl security::Config for Runtime {
     type RuntimeEvent = RuntimeEvent;
 }
@@ -1147,6 +1187,18 @@ impl tx_pause::Config for Runtime {
     type WeightInfo = ();
 }
 
+impl loans::Config for Runtime {
+    type RuntimeEvent = RuntimeEvent;
+    type PalletId = LoansPalletId;
+    type ReserveOrigin = EnsureRoot<AccountId>;
+    type UpdateOrigin = EnsureRoot<AccountId>;
+    type WeightInfo = ();
+    type UnixTime = Timestamp;
+    type RewardAssetId = GetNativeCurrencyId;
+    type ReferenceAssetId = GetWrappedCurrencyId;
+    type OnExchangeRateChange = vault_registry::PoolManager<Runtime>;
+}
+
 construct_runtime! {
     pub enum Runtime where
         Block = Block,
@@ -1180,6 +1232,9 @@ construct_runtime! {
         VaultRewards: reward::<Instance2>::{Pallet, Storage, Event<T>} = 41,
         VaultStaking: staking::{Pallet, Storage, Event<T>} = 42,
         VaultCapacity: reward::<Instance3>::{Pallet, Storage, Event<T>} = 43,
+
+        Farming: farming::{Pallet, Call, Storage, Event<T>} = 44,
+        FarmingRewards: reward::<Instance4>::{Pallet, Storage, Event<T>} = 45,
 
         // # Bitcoin SPV
         BTCRelay: btc_relay::{Pallet, Call, Config<T>, Storage, Event<T>} = 50,
@@ -1219,6 +1274,12 @@ construct_runtime! {
 
         XTokens: orml_xtokens::{Pallet, Storage, Call, Event<T>} = 94,
         UnknownTokens: orml_unknown_tokens::{Pallet, Storage, Event} = 95,
+
+        // # Lending & AMM
+        Loans: loans::{Pallet, Call, Storage, Event<T>, Config} = 100,
+        DexGeneral: dex_general::{Pallet, Call, Storage, Event<T>} = 101,
+        DexStable: dex_stable::{Pallet, Call, Storage, Event<T>}  = 102,
+        DexSwapRouter: dex_swap_router::{Pallet, Call, Event<T>} = 103,
     }
 }
 
@@ -1543,8 +1604,10 @@ impl_runtime_apis! {
             Ok(balance)
         }
 
-        fn compute_farming_reward(_account_id: AccountId, _pool_currency_id: CurrencyId, _reward_currency_id: CurrencyId) -> Result<BalanceWrapper<Balance>, DispatchError> {
-            Err(DispatchError::Other("RPC Endpoint Not Implemented"))
+        fn compute_farming_reward(account_id: AccountId, pool_currency_id: CurrencyId, reward_currency_id: CurrencyId) -> Result<BalanceWrapper<Balance>, DispatchError> {
+            let amount = <FarmingRewards as reward::RewardsApi<CurrencyId, AccountId, Balance>>::compute_reward(&pool_currency_id, &account_id, reward_currency_id)?;
+            let balance = BalanceWrapper::<Balance> { amount };
+            Ok(balance)
         }
 
         fn compute_vault_reward(vault_id: VaultId, currency_id: CurrencyId) -> Result<BalanceWrapper<Balance>, DispatchError> {
@@ -1573,11 +1636,15 @@ impl_runtime_apis! {
         }
 
         fn estimate_farming_reward(
-            _account_id: AccountId,
-            _pool_currency_id: CurrencyId,
-            _reward_currency_id: CurrencyId,
+            account_id: AccountId,
+            pool_currency_id: CurrencyId,
+            reward_currency_id: CurrencyId,
         ) -> Result<BalanceWrapper<Balance>, DispatchError> {
-            Err(DispatchError::Other("RPC Endpoint Not Implemented"))
+            <FarmingRewards as reward::RewardsApi<CurrencyId, AccountId, Balance>>::withdraw_reward(&pool_currency_id, &account_id, reward_currency_id)?;
+            <FarmingRewards as reward::RewardsApi<CurrencyId, AccountId, Balance>>::distribute_reward(&pool_currency_id, reward_currency_id, Farming::total_rewards(&pool_currency_id, &reward_currency_id))?;
+            let amount = <FarmingRewards as reward::RewardsApi<CurrencyId, AccountId, Balance>>::compute_reward(&pool_currency_id, &account_id, reward_currency_id)?;
+            let balance = BalanceWrapper::<Balance> { amount };
+            Ok(balance)
         }
 
         fn estimate_vault_reward_rate(
@@ -1637,116 +1704,133 @@ impl_runtime_apis! {
         AccountId,
         Balance,
     > for Runtime {
-        fn get_account_liquidity(_account: AccountId) -> Result<(Liquidity, Shortfall), DispatchError> {
-           Err(DispatchError::Other("RPC Endpoint Not Implemented"))
+        fn get_account_liquidity(account: AccountId) -> Result<(Liquidity, Shortfall), DispatchError> {
+            Loans::get_account_liquidity(&account)
+            .and_then(|liquidity| liquidity.to_rpc_tuple())
         }
 
-        fn get_market_status(_asset_id: CurrencyId) -> Result<(Rate, Rate, Rate, Ratio, Balance, Balance, FixedU128), DispatchError> {
-           Err(DispatchError::Other("RPC Endpoint Not Implemented"))
+        fn get_market_status(asset_id: CurrencyId) -> Result<(Rate, Rate, Rate, Ratio, Balance, Balance, FixedU128), DispatchError> {
+            Loans::get_market_status(asset_id)
         }
 
-        fn get_liquidation_threshold_liquidity(_account: AccountId) -> Result<(Liquidity, Shortfall), DispatchError> {
-           Err(DispatchError::Other("RPC Endpoint Not Implemented"))
+        fn get_liquidation_threshold_liquidity(account: AccountId) -> Result<(Liquidity, Shortfall), DispatchError> {
+            Loans::get_account_liquidation_threshold_liquidity(&account)
+            .and_then(|liquidity| liquidity.to_rpc_tuple())
         }
     }
 
     impl dex_general_rpc_runtime_api::DexGeneralApi<Block, AccountId, CurrencyId> for Runtime {
         fn get_pair_by_asset_id(
-            _asset_0: CurrencyId,
-            _asset_1: CurrencyId
+            asset_0: CurrencyId,
+            asset_1: CurrencyId
         ) -> Option<dex_general::PairInfo<AccountId, dex_general::AssetBalance, CurrencyId>> {
-            Default::default()
+            DexGeneral::get_pair_by_asset_id(asset_0, asset_1)
         }
 
         fn get_amount_in_price(
-            _supply: dex_general::AssetBalance,
-            _path: Vec<CurrencyId>
+            supply: dex_general::AssetBalance,
+            path: Vec<CurrencyId>
         ) -> dex_general::AssetBalance {
-            Default::default()
+            DexGeneral::desired_in_amount(supply, path)
         }
 
         fn get_amount_out_price(
-            _supply: dex_general::AssetBalance,
-            _path: Vec<CurrencyId>
+            supply: dex_general::AssetBalance,
+            path: Vec<CurrencyId>
         ) -> dex_general::AssetBalance {
-            Default::default()
+            DexGeneral::supply_out_amount(supply, path)
         }
 
         fn get_estimate_lptoken(
-            _asset_0: CurrencyId,
-            _asset_1: CurrencyId,
-            _amount_0_desired: dex_general::AssetBalance,
-            _amount_1_desired: dex_general::AssetBalance,
-            _amount_0_min: dex_general::AssetBalance,
-            _amount_1_min: dex_general::AssetBalance,
-        ) -> dex_general::AssetBalance {
-            Default::default()
+            asset_0: CurrencyId,
+            asset_1: CurrencyId,
+            amount_0_desired: dex_general::AssetBalance,
+            amount_1_desired: dex_general::AssetBalance,
+            amount_0_min: dex_general::AssetBalance,
+            amount_1_min: dex_general::AssetBalance,
+        ) -> dex_general::AssetBalance{
+            DexGeneral::get_estimate_lptoken(
+                asset_0,
+                asset_1,
+                amount_0_desired,
+                amount_1_desired,
+                amount_0_min,
+                amount_1_min
+            )
         }
 
         fn calculate_remove_liquidity(
-            _asset_0: CurrencyId,
-            _asset_1: CurrencyId,
-            _amount: dex_general::AssetBalance,
+            asset_0: CurrencyId,
+            asset_1: CurrencyId,
+            amount: dex_general::AssetBalance,
         ) -> Option<(dex_general::AssetBalance, dex_general::AssetBalance)> {
-            Default::default()
+            DexGeneral::calculate_remove_liquidity(
+                asset_0,
+                asset_1,
+                amount,
+            )
         }
     }
 
     impl dex_stable_rpc_runtime_api::DexStableApi<Block, CurrencyId, Balance, AccountId, StablePoolId> for Runtime {
-        fn get_virtual_price(_pool_id: StablePoolId) -> Balance {
-            Default::default()
+        fn get_virtual_price(pool_id: StablePoolId) -> Balance {
+            DexStable::get_virtual_price(pool_id)
         }
 
-        fn get_a(_pool_id: StablePoolId) -> Balance {
-            Default::default()
+        fn get_a(pool_id: StablePoolId) -> Balance {
+            DexStable::get_a(pool_id)
         }
 
-        fn get_a_precise(_pool_id: StablePoolId) -> Balance {
-            Default::default()
+        fn get_a_precise(pool_id: StablePoolId) -> Balance {
+            DexStable::get_a(pool_id) * 100
         }
 
-        fn get_currencies(_pool_id: StablePoolId) -> Vec<CurrencyId> {
-            Default::default()
+        fn get_currencies(pool_id: StablePoolId) -> Vec<CurrencyId> {
+            DexStable::get_currencies(pool_id)
         }
 
-        fn get_currency(_pool_id: StablePoolId, _index: u32) -> Option<CurrencyId> {
-            Default::default()
+        fn get_currency(pool_id: StablePoolId, index: u32) -> Option<CurrencyId> {
+            DexStable::get_currency(pool_id, index)
         }
 
-        fn get_lp_currency(_pool_id: StablePoolId) -> Option<CurrencyId> {
-            Default::default()
+        fn get_lp_currency(pool_id: StablePoolId) -> Option<CurrencyId> {
+            DexStable::get_lp_currency(pool_id)
         }
 
-        fn get_currency_precision_multipliers(_pool_id: StablePoolId) -> Vec<Balance> {
-            Default::default()
+        fn get_currency_precision_multipliers(pool_id: StablePoolId) -> Vec<Balance> {
+            DexStable::get_currency_precision_multipliers(pool_id)
         }
 
-        fn get_currency_balances(_pool_id: StablePoolId) -> Vec<Balance> {
-            Default::default()
+        fn get_currency_balances(pool_id: StablePoolId) -> Vec<Balance> {
+            DexStable::get_currency_balances(pool_id)
         }
 
-        fn get_number_of_currencies(_pool_id: StablePoolId) -> u32 {
-            Default::default()
+        fn get_number_of_currencies(pool_id: StablePoolId) -> u32 {
+            DexStable::get_number_of_currencies(pool_id)
         }
 
-        fn get_admin_balances(_pool_id: StablePoolId) -> Vec<Balance> {
-            Default::default()
+        fn get_admin_balances(pool_id: StablePoolId) -> Vec<Balance> {
+            DexStable::get_admin_balances(pool_id)
         }
 
-        fn calculate_currency_amount(_pool_id: StablePoolId, _amounts: Vec<Balance>, _deposit: bool) -> Balance {
-            Default::default()
+        fn calculate_currency_amount(pool_id: StablePoolId, amounts: Vec<Balance>, deposit: bool) -> Balance {
+            use dex_stable::traits::StableAmmApi;
+            DexStable::stable_amm_calculate_currency_amount(pool_id, &amounts, deposit).unwrap_or_default()
         }
 
-        fn calculate_swap(_pool_id: StablePoolId, _in_index: u32, _out_index: u32, _in_amount: Balance) -> Balance {
-            Default::default()
+        fn calculate_swap(pool_id: StablePoolId, in_index: u32, out_index: u32, in_amount: Balance) -> Balance {
+            use dex_stable::traits::StableAmmApi;
+            DexStable::stable_amm_calculate_swap_amount(pool_id, in_index as usize, out_index as usize, in_amount).unwrap_or_default()
         }
 
-        fn calculate_remove_liquidity(_pool_id: StablePoolId, _amount: Balance) -> Vec<Balance> {
-            Default::default()
+        fn calculate_remove_liquidity(pool_id: StablePoolId, amount: Balance) -> Vec<Balance> {
+            use dex_stable::traits::StableAmmApi;
+            DexStable::stable_amm_calculate_remove_liquidity(pool_id, amount).unwrap_or_default()
         }
 
-        fn calculate_remove_liquidity_one_currency(_pool_id: StablePoolId, _amount: Balance, _index: u32) -> Balance {
-            Default::default()
+        fn calculate_remove_liquidity_one_currency(pool_id: StablePoolId, amount: Balance, index: u32) -> Balance {
+            use dex_stable::traits::StableAmmApi;
+            DexStable::stable_amm_calculate_remove_liquidity_one_currency(pool_id, amount, index).unwrap_or_default()
         }
     }
 
