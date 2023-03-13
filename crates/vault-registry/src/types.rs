@@ -56,6 +56,12 @@ pub enum CurrencySource<T: frame_system::Config + orml_tokens::Config> {
     LiquidationVault(DefaultVaultCurrencyPair<T>),
 }
 
+pub enum ThresholdType {
+    SecureCollateralThreshold,
+    PremiumRedeemThreshold,
+    LiquidationCollateralThreshold,
+}
+
 #[cfg_attr(test, mockable)]
 impl<T: Config> CurrencySource<T> {
     pub fn account_id(&self) -> <T as frame_system::Config>::AccountId {

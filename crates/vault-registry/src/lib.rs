@@ -41,7 +41,7 @@ use crate::types::{
 use crate::types::DefaultVaultCurrencyPair;
 #[doc(inline)]
 pub use crate::types::{
-    BtcPublicKey, CurrencySource, DefaultVault, DefaultVaultId, SystemVault, Vault, VaultId, VaultStatus,
+    BtcPublicKey, CurrencySource, DefaultVault, DefaultVaultId, SystemVault, ThresholdType, Vault, VaultId, VaultStatus,
 };
 use bitcoin::types::Value;
 use codec::FullCodec;
@@ -509,6 +509,11 @@ pub mod pallet {
         BanVault {
             vault_id: DefaultVaultId<T>,
             banned_until: T::BlockNumber,
+        },
+        ThresholdChange {
+            threshold_type: ThresholdType,
+            currency_pair: DefaultVaultCurrencyPair<T>,
+            threshold_amount: UnsignedFixedPoint<T>,
         },
     }
 
@@ -1543,10 +1548,20 @@ impl<T: Config> Pallet<T> {
         threshold: UnsignedFixedPoint<T>,
     ) {
         SecureCollateralThreshold::<T>::insert(currency_pair, threshold);
+        Self::deposit_event(Event::<T>::ThresholdChange {
+            threshold_type: ThresholdType::SecureCollateralThreshold,
+            currency_pair: currency_pair,
+            threshold_amount: threshold,
+        });
     }
 
     pub fn _set_premium_redeem_threshold(currency_pair: DefaultVaultCurrencyPair<T>, threshold: UnsignedFixedPoint<T>) {
         PremiumRedeemThreshold::<T>::insert(currency_pair, threshold);
+        Self::deposit_event(Event::<T>::ThresholdChange {
+            threshold_type: ThresholdType::PremiumRedeemThreshold,
+            currency_pair: currency_pair,
+            threshold_amount: threshold,
+        });
     }
 
     pub fn _set_liquidation_collateral_threshold(
@@ -1554,6 +1569,11 @@ impl<T: Config> Pallet<T> {
         threshold: UnsignedFixedPoint<T>,
     ) {
         LiquidationCollateralThreshold::<T>::insert(currency_pair, threshold);
+        Self::deposit_event(Event::<T>::ThresholdChange {
+            threshold_type: ThresholdType::LiquidationCollateralThreshold,
+            currency_pair: currency_pair,
+            threshold_amount: threshold,
+        });
     }
 
     /// return (collateral * Numerator) / denominator, used when dealing with liquidated vaults
