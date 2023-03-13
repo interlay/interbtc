@@ -1314,7 +1314,7 @@ pub type Executive = frame_executive::Executive<
     frame_system::ChainContext<Runtime>,
     Runtime,
     AllPalletsWithSystem,
-    (democracy::migrations::v1::Migration<Runtime>,),
+    (dex::DexSetup, dex::LoansSetup),
 >;
 
 #[cfg(not(feature = "disable-runtime-api"))]
