@@ -213,5 +213,28 @@ fn test_validate_routes() {
             RouterPallet::validate_routes(&[Route::Normal(vec![Token(1), Token(4)]), Route::Normal(vec![])]),
             Error::<Test>::InvalidPath
         );
+
+        // sanity check that our test makes sense
+        assert_eq!(MaxSwaps::get(), 10);
+        // 10 swaps - still allowed
+        assert_ok!(RouterPallet::validate_routes(&[
+            Route::Normal(vec![Token(1), Token(2), Token(3)]),
+            stable(Token(3), Token(2)),
+            stable(Token(2), Token(1)),
+            Route::Normal(vec![Token(1), Token(2), Token(3), Token(4)]),
+            Route::Normal(vec![Token(4), Token(3), Token(2), Token(1)]),
+        ]));
+
+        // 11 swaps - not allowed
+        assert_noop!(
+            RouterPallet::validate_routes(&[
+                Route::Normal(vec![Token(1), Token(2), Token(3)]),
+                stable(Token(3), Token(2)),
+                stable(Token(2), Token(1)),
+                Route::Normal(vec![Token(1), Token(2), Token(3), Token(4)]),
+                Route::Normal(vec![Token(4), Token(3), Token(2), Token(1), Token(5)]),
+            ]),
+            Error::<Test>::ExceededSwapLimit
+        );
     })
 }

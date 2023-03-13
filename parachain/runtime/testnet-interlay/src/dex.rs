@@ -5,6 +5,7 @@ use super::{
 
 pub use dex_general::{AssetBalance, GenerateLpAssetId, PairInfo};
 pub use dex_stable::traits::{StablePoolLpCurrencyIdGenerate, ValidateCurrency};
+use sp_core::ConstU16;
 
 parameter_types! {
     pub const DexGeneralPalletId: PalletId = PalletId(*b"dex/genr");
@@ -69,5 +70,6 @@ impl dex_swap_router::Config for Runtime {
     type CurrencyId = CurrencyId;
     type NormalAmm = DexGeneral;
     type StableAMM = DexStable;
+    type MaxSwaps = ConstU16<4>;
     type WeightInfo = ();
 }
