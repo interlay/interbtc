@@ -265,11 +265,6 @@ pub mod pallet {
             let vault_id = VaultId::new(account_id, currency_pair.collateral, currency_pair.wrapped);
             Self::try_set_vault_custom_secure_threshold(&vault_id, custom_threshold)?;
             PoolManager::<T>::on_vault_settings_change(&vault_id)?;
-            Self::deposit_event(Event::<T>::CustomThreshold {
-                vault_id: vault_id,
-                currency_pair: currency_pair,
-                threshold_amount: custom_threshold.unwrap(),
-            });
             Ok(().into())
         }
 
@@ -786,6 +781,11 @@ impl<T: Config> Pallet<T> {
                 some_new_threshold.gt(&global_threshold),
                 Error::<T>::ThresholdNotAboveGlobalThreshold
             );
+            Self::deposit_event(Event::<T>::CustomThreshold {
+                vault_id: vault_id,
+                currency_pair: currency_pair,
+                threshold_amount: some_new_threshold,
+            });
         }
         let mut vault = Self::get_rich_vault_from_id(&vault_id)?;
         vault.set_custom_secure_threshold(new_threshold)
