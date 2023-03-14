@@ -265,6 +265,11 @@ pub mod pallet {
             let vault_id = VaultId::new(account_id, currency_pair.collateral, currency_pair.wrapped);
             Self::try_set_vault_custom_secure_threshold(&vault_id, custom_threshold)?;
             PoolManager::<T>::on_vault_settings_change(&vault_id)?;
+            Self::deposit_event(Event::<T>::CustomThreshold {
+                vault_id: vault_id,
+                currency_pair: currency_pair,
+                threshold_amount: custom_threshold.unwrap(),
+            });
             Ok(().into())
         }
 
@@ -510,8 +515,13 @@ pub mod pallet {
             vault_id: DefaultVaultId<T>,
             banned_until: T::BlockNumber,
         },
-        ThresholdChange {
+        GlobalThreshold {
             threshold_type: ThresholdType,
+            currency_pair: DefaultVaultCurrencyPair<T>,
+            threshold_amount: UnsignedFixedPoint<T>,
+        },
+        CustomThreshold {
+            vault_id: DefaultVaultId<T>,
             currency_pair: DefaultVaultCurrencyPair<T>,
             threshold_amount: UnsignedFixedPoint<T>,
         },
