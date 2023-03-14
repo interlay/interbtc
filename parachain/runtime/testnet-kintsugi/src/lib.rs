@@ -97,7 +97,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     spec_name: create_runtime_str!("testnet-kintsugi"),
     impl_name: create_runtime_str!("testnet-kintsugi"),
     authoring_version: 1,
-    spec_version: 1022000,
+    spec_version: 1023000,
     impl_version: 1,
     transaction_version: 1, // added preimage
     apis: RUNTIME_API_VERSIONS,
@@ -1271,14 +1271,8 @@ pub type UncheckedExtrinsic = generic::UncheckedExtrinsic<Address, RuntimeCall, 
 /// Extrinsic type that has already been checked.
 pub type CheckedExtrinsic = generic::CheckedExtrinsic<AccountId, RuntimeCall, SignedExtra>;
 /// Executive: handles dispatch to the various modules.
-pub type Executive = frame_executive::Executive<
-    Runtime,
-    Block,
-    frame_system::ChainContext<Runtime>,
-    Runtime,
-    AllPalletsWithSystem,
-    (democracy::migrations::v1::Migration<Runtime>,),
->;
+pub type Executive =
+    frame_executive::Executive<Runtime, Block, frame_system::ChainContext<Runtime>, Runtime, AllPalletsWithSystem>;
 
 #[cfg(not(feature = "disable-runtime-api"))]
 impl_runtime_apis! {
