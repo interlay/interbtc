@@ -186,6 +186,10 @@ impl dex_general::Config for Test {
     type WeightInfo = ();
 }
 
+parameter_types! {
+    pub const MaxSwaps: u16 = 10;
+}
+
 impl Config for Test {
     type RuntimeEvent = RuntimeEvent;
     type StablePoolId = PoolId;
@@ -193,6 +197,7 @@ impl Config for Test {
     type CurrencyId = CurrencyId;
     type NormalAmm = DexGeneral;
     type StableAMM = StableAMM;
+    type MaxSwaps = MaxSwaps;
     type WeightInfo = ();
 }
 

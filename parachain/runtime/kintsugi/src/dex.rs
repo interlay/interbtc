@@ -3,6 +3,7 @@ use super::{
     PalletId, Rate, Ratio, Runtime, RuntimeEvent, RuntimeOrigin, StablePoolId, Timestamp, Tokens, Vec, Weight, KBTC,
     KINT, KSM,
 };
+use sp_core::ConstU16;
 use sp_runtime::{traits::Zero, FixedPointNumber};
 
 #[cfg(feature = "try-runtime")]
@@ -74,6 +75,7 @@ impl dex_swap_router::Config for Runtime {
     type CurrencyId = CurrencyId;
     type NormalAmm = DexGeneral;
     type StableAMM = DexStable;
+    type MaxSwaps = ConstU16<4>;
     type WeightInfo = ();
 }
 
