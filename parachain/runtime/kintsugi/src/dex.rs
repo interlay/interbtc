@@ -87,7 +87,10 @@ fn create_pair_and_update_rewards(asset_0: CurrencyId, asset_1: CurrencyId, rewa
             RuntimeOrigin::root(),
             CurrencyId::join_lp_token(asset_0, asset_1).expect("currencies are valid; qed"),
             CurrencyId::Token(KINT),
-            132480, // 60 * 24 * 92 (approx three months)
+            // period is 5 (blocks per minute)
+            // so period count for three months
+            // is 60 minutes * 24 hours * 92 days
+            132480,
             rewards,
         ) {
             log::error!("Could not update rewards: {:?}", err);
