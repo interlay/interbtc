@@ -30,6 +30,7 @@ pub enum InterestRateModel {
 }
 
 impl Default for InterestRateModel {
+    #[cfg_attr(test, mutate)]
     fn default() -> Self {
         Self::new_jump_model(
             Rate::saturating_from_rational(2, 100),
@@ -41,14 +42,17 @@ impl Default for InterestRateModel {
 }
 
 impl InterestRateModel {
+    #[cfg_attr(test, mutate)]
     pub fn new_jump_model(base_rate: Rate, jump_rate: Rate, full_rate: Rate, jump_utilization: Ratio) -> Self {
         Self::Jump(JumpModel::new_model(base_rate, jump_rate, full_rate, jump_utilization))
     }
 
+    #[cfg_attr(test, mutate)]
     pub fn new_curve_model(base_rate: Rate) -> Self {
         Self::Curve(CurveModel::new_model(base_rate))
     }
 
+    #[cfg_attr(test, mutate)]
     pub fn check_model(&self) -> bool {
         match self {
             Self::Jump(jump) => jump.check_model(),
@@ -57,6 +61,7 @@ impl InterestRateModel {
     }
 
     /// Calculates the current borrow interest rate
+    #[cfg_attr(test, mutate)]
     pub fn get_borrow_rate(&self, utilization: Ratio) -> Option<Rate> {
         match self {
             Self::Jump(jump) => jump.get_borrow_rate(utilization),
@@ -65,6 +70,7 @@ impl InterestRateModel {
     }
 
     /// Calculates the current supply interest rate
+    #[cfg_attr(test, mutate)]
     pub fn get_supply_rate(borrow_rate: Rate, util: Ratio, reserve_factor: Ratio) -> Rate {
         // ((1 - reserve_factor) * borrow_rate) * utilization
         let one_minus_reserve_factor = Ratio::one().saturating_sub(reserve_factor);
@@ -94,6 +100,7 @@ impl JumpModel {
     pub const MAX_FULL_RATE: Rate = Rate::from_inner(500_000_000_000_000_000); // 50%
 
     /// Create a new rate model
+    #[cfg_attr(test, mutate)]
     pub fn new_model(base_rate: Rate, jump_rate: Rate, full_rate: Rate, jump_utilization: Ratio) -> JumpModel {
         Self {
             base_rate,
@@ -104,6 +111,7 @@ impl JumpModel {
     }
 
     /// Check the jump model for sanity
+    #[cfg_attr(test, mutate)]
     pub fn check_model(&self) -> bool {
         if self.base_rate > Self::MAX_BASE_RATE
             || self.jump_rate > Self::MAX_JUMP_RATE
@@ -119,6 +127,7 @@ impl JumpModel {
     }
 
     /// Calculates the borrow interest rate of jump model
+    #[cfg_attr(test, mutate)]
     pub fn get_borrow_rate(&self, utilization: Ratio) -> Option<Rate> {
         if utilization <= self.jump_utilization {
             // utilization * (jump_rate - zero_rate) / jump_utilization + zero_rate
@@ -156,16 +165,19 @@ impl CurveModel {
     pub const MAX_BASE_RATE: Rate = Rate::from_inner(100_000_000_000_000_000); // 10%
 
     /// Create a new curve model
+    #[cfg_attr(test, mutate)]
     pub fn new_model(base_rate: Rate) -> CurveModel {
         Self { base_rate }
     }
 
     /// Check the curve model for sanity
+    #[cfg_attr(test, mutate)]
     pub fn check_model(&self) -> bool {
         self.base_rate <= Self::MAX_BASE_RATE
     }
 
     /// Calculates the borrow interest rate of curve model
+    #[cfg_attr(test, mutate)]
     pub fn get_borrow_rate(&self, utilization: Ratio) -> Option<Rate> {
         const NINE: usize = 9;
         let utilization_rate: Rate = utilization.into();

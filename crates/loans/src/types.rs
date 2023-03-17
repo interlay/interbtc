@@ -4,6 +4,9 @@ use frame_support::pallet_prelude::*;
 use primitives::{CurrencyId, Liquidity, Rate, Ratio, Shortfall};
 use scale_info::TypeInfo;
 
+#[cfg(test)]
+use mutagen::mutate;
+
 // TODO: `cargo doc` crashes on this type, remove the `hidden` macro
 // when upgrading rustc in case that fixes it
 /// Container for account liquidity information
@@ -15,6 +18,7 @@ pub enum AccountLiquidity<T: Config> {
 }
 
 impl<T: Config> AccountLiquidity<T> {
+    #[cfg_attr(test, mutate)]
     pub fn from_collateral_and_debt(
         collateral_value: Amount<T>,
         borrow_value: Amount<T>,
@@ -27,12 +31,14 @@ impl<T: Config> AccountLiquidity<T> {
         Ok(account_liquidity)
     }
 
+    #[cfg_attr(test, mutate)]
     pub fn currency(&self) -> CurrencyId {
         match &self {
             AccountLiquidity::Liquidity(x) | AccountLiquidity::Shortfall(x) => x.currency(),
         }
     }
 
+    #[cfg_attr(test, mutate)]
     pub fn liquidity(&self) -> Amount<T> {
         if let AccountLiquidity::Liquidity(x) = &self {
             return x.clone();
@@ -40,6 +46,7 @@ impl<T: Config> AccountLiquidity<T> {
         Amount::<T>::zero(self.currency())
     }
 
+    #[cfg_attr(test, mutate)]
     pub fn shortfall(&self) -> Amount<T> {
         if let AccountLiquidity::Shortfall(x) = &self {
             return x.clone();
@@ -47,6 +54,7 @@ impl<T: Config> AccountLiquidity<T> {
         Amount::<T>::zero(self.currency())
     }
 
+    #[cfg_attr(test, mutate)]
     pub fn to_rpc_tuple(&self) -> Result<(Liquidity, Shortfall), DispatchError> {
         Ok((
             self.liquidity().to_unsigned_fixed_point()?,
