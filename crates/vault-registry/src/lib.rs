@@ -849,6 +849,12 @@ impl<T: Config> Pallet<T> {
             Err(x) => return Err(x),
         };
 
+        ensure!(
+            new_collateral.is_zero()
+                || new_collateral.ge(&Self::get_minimum_collateral_vault(vault_id.currencies.collateral))?,
+            Error::<T>::InsufficientVaultCollateralAmount
+        );
+
         let is_below_threshold =
             Pallet::<T>::is_collateral_below_vault_secure_threshold(&new_collateral, &vault.backed_tokens()?, &vault)?;
         Ok(!is_below_threshold)
