@@ -10149,6 +10149,8 @@ dependencies = [
  "supply",
  "traits",
  "vault-registry",
+ "xcm",
+ "xcm-executor",
 ]
 
 [[package]]
