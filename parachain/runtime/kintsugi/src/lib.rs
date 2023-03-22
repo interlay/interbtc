@@ -14,10 +14,10 @@ use frame_support::{
     dispatch::{DispatchError, DispatchResult},
     traits::{
         ConstU32, Contains, Currency as PalletCurrency, EitherOfDiverse, EnsureOrigin, EnsureOriginWithArg,
-        EqualPrivilegeOnly, ExistenceRequirement, Imbalance, InstanceFilter, OnUnbalanced,
+        EqualPrivilegeOnly, ExistenceRequirement, Imbalance, InstanceFilter, OnRuntimeUpgrade, OnUnbalanced,
     },
     weights::ConstantMultiplier,
-    PalletId,
+    Blake2_128Concat, PalletId, Twox64Concat,
 };
 use frame_system::{
     limits::{BlockLength, BlockWeights},
@@ -1283,10 +1283,51 @@ pub type Executive = frame_executive::Executive<
     Runtime,
     AllPalletsWithSystem,
     (
+        VersionNotifyTargetsFix, // Note: needs to be before pallet_xcm migration
+        pallet_xcm::migration::v1::MigrateToV1<Runtime>,
         orml_asset_registry::Migration<Runtime>,
         orml_unknown_tokens::Migration<Runtime>,
     ),
 >;
+
+/// Adds the relay chain as a subscriber for xcm version notifications. Kusama subscribed to us,
+/// but this is not reflected in our chain state due to an error in the early days of our xcm
+/// config. Add it now such that kusama will be notified of our version upgrade. Without it,
+/// transfers from kusama will no longer work.
+pub struct VersionNotifyTargetsFix;
+
+impl OnRuntimeUpgrade for VersionNotifyTargetsFix {
+    fn on_runtime_upgrade() -> Weight {
+        use crate::sp_api_hidden_includes_construct_runtime::hidden_include::StorageHasher;
+        use codec::Encode;
+        use frame_support::storage::migration::put_storage_value;
+        use xcm::VersionedMultiLocation;
+
+        let key_1 = Twox64Concat::hash(&2u32.encode());
+
+        let key_2 = Blake2_128Concat::hash(
+            &VersionedMultiLocation::V2(xcm::v2::MultiLocation::new(1, xcm::v2::Junctions::Here)).encode(),
+        );
+
+        let key = [key_1, key_2].concat();
+
+        // The 2653 below needs to match kusama.xcmPallet.versionNotifiers(2, OUR_PARA)
+        let value: (u64, u64, u32) = (2653, 0, 2);
+
+        put_storage_value(b"PolkadotXcm", b"VersionNotifyTargets", &key, value);
+
+        Default::default()
+    }
+    #[cfg(feature = "try-runtime")]
+    fn pre_upgrade() -> Result<Vec<u8>, &'static str> {
+        Ok(Vec::new())
+    }
+    #[cfg(feature = "try-runtime")]
+    fn post_upgrade(_state: Vec<u8>) -> Result<(), &'static str> {
+        // tested with chopsticks - not bothering with try-runtime check
+        Ok(())
+    }
+}
 
 #[cfg(not(feature = "disable-runtime-api"))]
 impl_runtime_apis! {
