@@ -952,13 +952,6 @@ impl security::Config for Runtime {
     type RuntimeEvent = RuntimeEvent;
 }
 
-pub struct CurrencyConvert;
-impl currency::CurrencyConversion<currency::Amount<Runtime>, CurrencyId> for CurrencyConvert {
-    fn convert(amount: &currency::Amount<Runtime>, to: CurrencyId) -> Result<currency::Amount<Runtime>, DispatchError> {
-        Oracle::convert(amount, to)
-    }
-}
-
 impl currency::Config for Runtime {
     type SignedInner = SignedInner;
     type SignedFixedPoint = SignedFixedPoint;
@@ -967,7 +960,7 @@ impl currency::Config for Runtime {
     type GetNativeCurrencyId = GetNativeCurrencyId;
     type GetRelayChainCurrencyId = GetRelayChainCurrencyId;
     type GetWrappedCurrencyId = GetWrappedCurrencyId;
-    type CurrencyConversion = CurrencyConvert;
+    type CurrencyConversion = currency::CurrencyConvert<Runtime, Oracle, Loans>;
 }
 
 impl staking::Config for Runtime {
