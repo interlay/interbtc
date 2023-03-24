@@ -43,6 +43,8 @@ pallet-multisig = { git = "https://github.com/paritytech/substrate", branch = "p
 pallet-preimage = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.31", default-features = false }
 pallet-identity = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.31", default-features = false }
 pallet-proxy = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.31", default-features = false }
+pallet-contracts = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.31", default-features = false }
+pallet-contracts-primitives = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.31", default-features = false }
 
 frame-system-rpc-runtime-api = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.31", default-features = false }
 pallet-transaction-payment-rpc-runtime-api = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.31", default-features = false }
@@ -157,6 +159,8 @@ std = [
   "pallet-preimage/std",
   "pallet-identity/std",
   "pallet-proxy/std",
+  "pallet-contracts/std",
+  "pallet-contracts-primitives/std",
 
   "pallet-collective/std",
   "pallet-membership/std",

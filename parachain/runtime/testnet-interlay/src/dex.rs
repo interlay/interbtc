@@ -11,6 +11,7 @@ parameter_types! {
     pub const DexGeneralPalletId: PalletId = PalletId(*b"dex/genr");
     pub const DexStablePalletId: PalletId = PalletId(*b"dex/stab");
     pub const StringLimit: u32 = 50;
+    pub const MaxSwaps:u16 = 4;
 }
 
 pub struct PairLpIdentity;
@@ -27,6 +28,7 @@ impl dex_general::Config for Runtime {
     type AssetId = CurrencyId;
     type LpGenerate = PairLpIdentity;
     type WeightInfo = ();
+    type MaxSwaps = MaxSwaps;
 }
 
 pub struct PoolLpGenerate;
@@ -70,6 +72,6 @@ impl dex_swap_router::Config for Runtime {
     type CurrencyId = CurrencyId;
     type NormalAmm = DexGeneral;
     type StableAMM = DexStable;
-    type MaxSwaps = ConstU16<4>;
+    type MaxSwaps = MaxSwaps;
     type WeightInfo = ();
 }

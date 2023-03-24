@@ -176,6 +176,11 @@ pub type NominationError = nomination::Error<Runtime>;
 pub type NominationEvent = nomination::Event<Runtime>;
 pub type NominationPallet = nomination::Pallet<Runtime>;
 
+pub type ContractsCall = pallet_contracts::Call<Runtime>;
+pub type ContractsError = pallet_contracts::Error<Runtime>;
+pub type ContractsEvent = pallet_contracts::Event<Runtime>;
+pub type ContractsPallet = pallet_contracts::Pallet<Runtime>;
+
 pub type EscrowCall = escrow::Call<Runtime>;
 pub type EscrowError = escrow::Error<Runtime>;
 pub type EscrowPallet = escrow::Pallet<Runtime>;
