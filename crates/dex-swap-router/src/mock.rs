@@ -184,6 +184,7 @@ impl dex_general::Config for Test {
     type AssetId = CurrencyId;
     type LpGenerate = PairLpIdentity;
     type WeightInfo = ();
+    type MaxSwaps = MaxSwaps;
 }
 
 parameter_types! {
