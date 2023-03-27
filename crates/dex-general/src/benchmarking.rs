@@ -4,9 +4,8 @@
 #![cfg(feature = "runtime-benchmarks")]
 
 use super::*;
-use crate::Pallet as DexGeneral;
 
-use frame_benchmarking::{benchmarks, whitelisted_caller};
+use frame_benchmarking::v2::{benchmarks, impl_benchmark_test_suite, whitelisted_caller};
 use frame_support::assert_ok;
 use frame_system::RawOrigin;
 use sp_runtime::SaturatedConversion;
@@ -23,7 +22,7 @@ pub fn lookup_of_account<T: Config>(
     <T as frame_system::Config>::Lookup::unlookup(who)
 }
 
-fn run_to_block<T: Config>(n: u32) {
+pub fn run_to_block<T: Config>(n: u32) {
     type System<T> = frame_system::Pallet<T>;
 
     while System::<T>::block_number() < n.saturated_into() {
@@ -33,38 +32,79 @@ fn run_to_block<T: Config>(n: u32) {
     }
 }
 
-benchmarks! {
+#[benchmarks(where T::AssetId: From<u32>)]
+mod benchmarks {
+    use super::*;
+    use crate::Pallet as DexGeneral;
 
-    where_clause { where T::AssetId: From<u32> }
-
-    set_fee_receiver{
+    #[benchmark]
+    pub fn set_fee_receiver() {
         let caller: T::AccountId = whitelisted_caller();
-    }:_(RawOrigin::Root, lookup_of_account::<T>(caller.clone()).into())
+        #[extrinsic_call]
+        DexGeneral::set_fee_receiver(RawOrigin::Root, lookup_of_account::<T>(caller.clone()).into());
+    }
 
-    set_fee_point{
+    #[benchmark]
+    pub fn set_fee_point() {
+        #[extrinsic_call]
+        DexGeneral::set_fee_point(RawOrigin::Root, 5);
+    }
 
-    }:_(RawOrigin::Root, 5)
-
-    create_pair {
+    #[benchmark]
+    pub fn create_pair() {
         let caller: T::AccountId = whitelisted_caller();
 
-        assert_ok!(<T as Config>::MultiCurrency::deposit(ASSET_0.into(), &caller, 1000 * UNIT));
-        assert_ok!(<T as Config>::MultiCurrency::deposit(ASSET_1.into(), &caller, 1000 * UNIT));
+        assert_ok!(<T as Config>::MultiCurrency::deposit(
+            ASSET_0.into(),
+            &caller,
+            1000 * UNIT
+        ));
+        assert_ok!(<T as Config>::MultiCurrency::deposit(
+            ASSET_1.into(),
+            &caller,
+            1000 * UNIT
+        ));
 
-    } : _(RawOrigin::Root, ASSET_0.into(), ASSET_1.into(), DEFAULT_FEE_RATE)
+        #[extrinsic_call]
+        DexGeneral::create_pair(RawOrigin::Root, ASSET_0.into(), ASSET_1.into(), DEFAULT_FEE_RATE);
+    }
 
-    bootstrap_create {
-        let reward: Vec<T::AssetId> =  vec![ASSET_0.into()];
+    #[benchmark]
+    pub fn bootstrap_create() {
+        let reward: Vec<T::AssetId> = vec![ASSET_0.into()];
         let reward_amounts: Vec<(T::AssetId, u128)> = vec![(ASSET_1.into(), 0)];
-    }: _(RawOrigin::Root, ASSET_0.into(), ASSET_1.into(), 1000, 1000, 1000_000_000, 1000_000_000, 100u128.saturated_into(), reward, reward_amounts)
 
-    bootstrap_contribute{
+        #[extrinsic_call]
+        DexGeneral::bootstrap_create(
+            RawOrigin::Root,
+            ASSET_0.into(),
+            ASSET_1.into(),
+            1000,
+            1000,
+            1000_000_000,
+            1000_000_000,
+            100u128.saturated_into(),
+            reward,
+            reward_amounts,
+        );
+    }
+
+    #[benchmark]
+    pub fn bootstrap_contribute() {
         let caller: T::AccountId = whitelisted_caller();
 
-        assert_ok!(<T as Config>::MultiCurrency::deposit(ASSET_0.into(), &caller, 1000 * UNIT));
-        assert_ok!(<T as Config>::MultiCurrency::deposit(ASSET_1.into(), &caller, 1000 * UNIT));
+        assert_ok!(<T as Config>::MultiCurrency::deposit(
+            ASSET_0.into(),
+            &caller,
+            1000 * UNIT
+        ));
+        assert_ok!(<T as Config>::MultiCurrency::deposit(
+            ASSET_1.into(),
+            &caller,
+            1000 * UNIT
+        ));
 
-        let reward:Vec<T::AssetId> =  vec![ASSET_0.into()];
+        let reward: Vec<T::AssetId> = vec![ASSET_0.into()];
         let reward_amounts: Vec<(T::AssetId, u128)> = vec![(ASSET_1.into(), 0)];
         assert_ok!(DexGeneral::<T>::bootstrap_create(
             (RawOrigin::Root).into(),
@@ -79,15 +119,33 @@ benchmarks! {
             reward_amounts,
         ));
 
-    }: _(RawOrigin::Signed(caller.clone()), ASSET_0.into(), ASSET_1.into(), UNIT, UNIT, 100u128.saturated_into())
+        #[extrinsic_call]
+        DexGeneral::bootstrap_contribute(
+            RawOrigin::Signed(caller.clone()),
+            ASSET_0.into(),
+            ASSET_1.into(),
+            UNIT,
+            UNIT,
+            100u128.saturated_into(),
+        );
+    }
 
-    bootstrap_claim{
+    #[benchmark]
+    pub fn bootstrap_claim() {
         let caller: T::AccountId = whitelisted_caller();
 
-        assert_ok!(<T as Config>::MultiCurrency::deposit(ASSET_0.into(), &caller, 1000 * UNIT));
-        assert_ok!(<T as Config>::MultiCurrency::deposit(ASSET_1.into(), &caller, 1000 * UNIT));
+        assert_ok!(<T as Config>::MultiCurrency::deposit(
+            ASSET_0.into(),
+            &caller,
+            1000 * UNIT
+        ));
+        assert_ok!(<T as Config>::MultiCurrency::deposit(
+            ASSET_1.into(),
+            &caller,
+            1000 * UNIT
+        ));
 
-        let reward:Vec<T::AssetId> =  vec![ASSET_0.into()];
+        let reward: Vec<T::AssetId> = vec![ASSET_0.into()];
         let reward_amounts: Vec<(T::AssetId, u128)> = vec![(ASSET_1.into(), 0)];
 
         assert_ok!(DexGeneral::<T>::bootstrap_create(
@@ -96,8 +154,8 @@ benchmarks! {
             ASSET_1.into(),
             1000,
             1000,
-            10*UNIT,
-            10*UNIT,
+            10 * UNIT,
+            10 * UNIT,
             99u128.saturated_into(),
             reward,
             reward_amounts,
@@ -107,8 +165,8 @@ benchmarks! {
             RawOrigin::Signed(caller.clone()).into(),
             ASSET_0.into(),
             ASSET_1.into(),
-            10*UNIT,
-            10*UNIT,
+            10 * UNIT,
+            10 * UNIT,
             99u128.saturated_into()
         ));
 
@@ -120,15 +178,32 @@ benchmarks! {
             ASSET_1.into(),
         ));
 
-    }:_(RawOrigin::Signed(caller.clone()), lookup_of_account::<T>(caller.clone()), ASSET_0.into(), ASSET_1.into(), 120u128.saturated_into())
+        #[extrinsic_call]
+        DexGeneral::bootstrap_claim(
+            RawOrigin::Signed(caller.clone()),
+            lookup_of_account::<T>(caller.clone()),
+            ASSET_0.into(),
+            ASSET_1.into(),
+            120u128.saturated_into(),
+        );
+    }
 
-    bootstrap_end{
+    #[benchmark]
+    pub fn bootstrap_end() {
         let caller: T::AccountId = whitelisted_caller();
 
-        assert_ok!(<T as Config>::MultiCurrency::deposit(ASSET_0.into(), &caller, 1000 * UNIT));
-        assert_ok!(<T as Config>::MultiCurrency::deposit(ASSET_1.into(), &caller, 1000 * UNIT));
+        assert_ok!(<T as Config>::MultiCurrency::deposit(
+            ASSET_0.into(),
+            &caller,
+            1000 * UNIT
+        ));
+        assert_ok!(<T as Config>::MultiCurrency::deposit(
+            ASSET_1.into(),
+            &caller,
+            1000 * UNIT
+        ));
 
-        let reward:Vec<T::AssetId> =  vec![ASSET_0.into()];
+        let reward: Vec<T::AssetId> = vec![ASSET_0.into()];
         let reward_amounts: Vec<(T::AssetId, u128)> = vec![(ASSET_1.into(), 0)];
 
         assert_ok!(DexGeneral::<T>::bootstrap_create(
@@ -137,8 +212,8 @@ benchmarks! {
             ASSET_1.into(),
             1000,
             1000,
-            10*UNIT,
-            10*UNIT,
+            10 * UNIT,
+            10 * UNIT,
             99u128.saturated_into(),
             reward,
             reward_amounts,
@@ -148,18 +223,22 @@ benchmarks! {
             RawOrigin::Signed(caller.clone()).into(),
             ASSET_0.into(),
             ASSET_1.into(),
-            10*UNIT,
-            10*UNIT,
+            10 * UNIT,
+            10 * UNIT,
             99u128.saturated_into()
         ));
 
         run_to_block::<T>(100);
-    }:_(RawOrigin::Signed(caller.clone()), ASSET_0.into(), ASSET_1.into())
 
-    bootstrap_update{
+        #[extrinsic_call]
+        DexGeneral::bootstrap_end(RawOrigin::Signed(caller.clone()), ASSET_0.into(), ASSET_1.into());
+    }
+
+    #[benchmark]
+    pub fn bootstrap_update() {
         let caller: T::AccountId = whitelisted_caller();
 
-        let reward:Vec<T::AssetId> =  vec![ASSET_0.into()];
+        let reward: Vec<T::AssetId> = vec![ASSET_0.into()];
         let reward_amounts: Vec<(T::AssetId, u128)> = vec![(ASSET_1.into(), 0)];
 
         assert_ok!(DexGeneral::<T>::bootstrap_create(
@@ -168,32 +247,54 @@ benchmarks! {
             ASSET_1.into(),
             1000,
             1000,
-            10*UNIT,
-            10*UNIT,
+            10 * UNIT,
+            10 * UNIT,
             99u128.saturated_into(),
             reward.clone(),
             reward_amounts.clone(),
         ));
 
-    }:_(RawOrigin::Root, ASSET_0.into(), ASSET_1.into(), 1000, 1000, 1000_000_000, 1000_000_000, 100u128.saturated_into(), reward, reward_amounts)
+        #[extrinsic_call]
+        DexGeneral::bootstrap_update(
+            RawOrigin::Root,
+            ASSET_0.into(),
+            ASSET_1.into(),
+            1000,
+            1000,
+            1000_000_000,
+            1000_000_000,
+            100u128.saturated_into(),
+            reward,
+            reward_amounts,
+        );
+    }
 
-    bootstrap_refund{
+    #[benchmark]
+    pub fn bootstrap_refund() {
         let caller: T::AccountId = whitelisted_caller();
 
-        assert_ok!(<T as Config>::MultiCurrency::deposit(ASSET_0.into(), &caller, 1000 * UNIT));
-        assert_ok!(<T as Config>::MultiCurrency::deposit(ASSET_1.into(), &caller, 1000 * UNIT));
+        assert_ok!(<T as Config>::MultiCurrency::deposit(
+            ASSET_0.into(),
+            &caller,
+            1000 * UNIT
+        ));
+        assert_ok!(<T as Config>::MultiCurrency::deposit(
+            ASSET_1.into(),
+            &caller,
+            1000 * UNIT
+        ));
 
-        let reward:Vec<T::AssetId> =  vec![ASSET_0.into()];
+        let reward: Vec<T::AssetId> = vec![ASSET_0.into()];
         let reward_amounts: Vec<(T::AssetId, u128)> = vec![(ASSET_1.into(), 0)];
 
         assert_ok!(DexGeneral::<T>::bootstrap_create(
             (RawOrigin::Root).into(),
             ASSET_0.into(),
             ASSET_1.into(),
-            2*UNIT,
-            2*UNIT,
-            10*UNIT,
-            10*UNIT,
+            2 * UNIT,
+            2 * UNIT,
+            10 * UNIT,
+            10 * UNIT,
             99u128.saturated_into(),
             reward,
             reward_amounts,
@@ -203,107 +304,242 @@ benchmarks! {
             RawOrigin::Signed(caller.clone()).into(),
             ASSET_0.into(),
             ASSET_1.into(),
-            1*UNIT,
-            1*UNIT,
+            1 * UNIT,
+            1 * UNIT,
             99u128.saturated_into()
         ));
         run_to_block::<T>(100);
-    }:_(RawOrigin::Signed(caller.clone()), ASSET_0.into(), ASSET_1.into())
 
-    add_liquidity{
+        #[extrinsic_call]
+        DexGeneral::bootstrap_refund(RawOrigin::Signed(caller.clone()), ASSET_0.into(), ASSET_1.into());
+    }
+
+    #[benchmark]
+    pub fn add_liquidity() {
         let caller: T::AccountId = whitelisted_caller();
-        assert_ok!(<T as Config>::MultiCurrency::deposit(ASSET_0.into(), &caller, 1000 * UNIT));
-        assert_ok!(<T as Config>::MultiCurrency::deposit(ASSET_1.into(), &caller, 1000 * UNIT));
+        assert_ok!(<T as Config>::MultiCurrency::deposit(
+            ASSET_0.into(),
+            &caller,
+            1000 * UNIT
+        ));
+        assert_ok!(<T as Config>::MultiCurrency::deposit(
+            ASSET_1.into(),
+            &caller,
+            1000 * UNIT
+        ));
 
-        assert_ok!(DexGeneral::<T>::create_pair((RawOrigin::Root).into(), ASSET_0.into(), ASSET_1.into(), DEFAULT_FEE_RATE));
+        assert_ok!(DexGeneral::<T>::create_pair(
+            (RawOrigin::Root).into(),
+            ASSET_0.into(),
+            ASSET_1.into(),
+            DEFAULT_FEE_RATE
+        ));
 
-        assert_ok!(DexGeneral::<T>::set_fee_receiver((RawOrigin::Root).into(), lookup_of_account::<T>(caller.clone()).into()));
+        assert_ok!(DexGeneral::<T>::set_fee_receiver(
+            (RawOrigin::Root).into(),
+            lookup_of_account::<T>(caller.clone()).into()
+        ));
 
-    }:_(RawOrigin::Signed(caller.clone()), ASSET_0.into(), ASSET_1.into(), 10 * UNIT, 10* UNIT, 0,0, 100u32.saturated_into())
+        #[extrinsic_call]
+        DexGeneral::add_liquidity(
+            RawOrigin::Signed(caller.clone()),
+            ASSET_0.into(),
+            ASSET_1.into(),
+            10 * UNIT,
+            10 * UNIT,
+            0,
+            0,
+            100u32.saturated_into(),
+        );
+    }
 
-    remove_liquidity{
+    #[benchmark]
+    pub fn remove_liquidity() {
         let caller: T::AccountId = whitelisted_caller();
-        assert_ok!(<T as Config>::MultiCurrency::deposit(ASSET_0.into(), &caller, 1000 * UNIT));
-        assert_ok!(<T as Config>::MultiCurrency::deposit(ASSET_1.into(), &caller, 1000 * UNIT));
+        assert_ok!(<T as Config>::MultiCurrency::deposit(
+            ASSET_0.into(),
+            &caller,
+            1000 * UNIT
+        ));
+        assert_ok!(<T as Config>::MultiCurrency::deposit(
+            ASSET_1.into(),
+            &caller,
+            1000 * UNIT
+        ));
 
-        assert_ok!(DexGeneral::<T>::create_pair((RawOrigin::Root).into(), ASSET_0.into(), ASSET_1.into(), DEFAULT_FEE_RATE));
+        assert_ok!(DexGeneral::<T>::create_pair(
+            (RawOrigin::Root).into(),
+            ASSET_0.into(),
+            ASSET_1.into(),
+            DEFAULT_FEE_RATE
+        ));
 
-        assert_ok!(DexGeneral::<T>::set_fee_receiver((RawOrigin::Root).into(), lookup_of_account::<T>(caller.clone()).into()));
+        assert_ok!(DexGeneral::<T>::set_fee_receiver(
+            (RawOrigin::Root).into(),
+            lookup_of_account::<T>(caller.clone()).into()
+        ));
 
         assert_ok!(DexGeneral::<T>::add_liquidity(
             RawOrigin::Signed(caller.clone()).into(),
             ASSET_0.into(),
             ASSET_1.into(),
             10 * UNIT,
-            10* UNIT,
+            10 * UNIT,
             0,
             0,
-            100u32.saturated_into()));
+            100u32.saturated_into()
+        ));
 
-    }:_(RawOrigin::Signed(caller.clone()), ASSET_0.into(), ASSET_1.into(), 1 * UNIT, 0, 0, lookup_of_account::<T>(caller.clone()).into(), 100u32.saturated_into())
+        #[extrinsic_call]
+        DexGeneral::remove_liquidity(
+            RawOrigin::Signed(caller.clone()),
+            ASSET_0.into(),
+            ASSET_1.into(),
+            1 * UNIT,
+            0,
+            0,
+            lookup_of_account::<T>(caller.clone()).into(),
+            100u32.saturated_into(),
+        );
+    }
 
-    swap_exact_assets_for_assets{
+    #[benchmark]
+    pub fn swap_exact_assets_for_assets() {
         let caller: T::AccountId = whitelisted_caller();
-        assert_ok!(<T as Config>::MultiCurrency::deposit(ASSET_0.into(), &caller, 1000 * UNIT));
-        assert_ok!(<T as Config>::MultiCurrency::deposit(ASSET_1.into(), &caller, 1000 * UNIT));
-        assert_ok!(<T as Config>::MultiCurrency::deposit(ASSET_2.into(), &caller, 1000 * UNIT));
+        assert_ok!(<T as Config>::MultiCurrency::deposit(
+            ASSET_0.into(),
+            &caller,
+            1000 * UNIT
+        ));
+        assert_ok!(<T as Config>::MultiCurrency::deposit(
+            ASSET_1.into(),
+            &caller,
+            1000 * UNIT
+        ));
+        assert_ok!(<T as Config>::MultiCurrency::deposit(
+            ASSET_2.into(),
+            &caller,
+            1000 * UNIT
+        ));
 
-        assert_ok!(DexGeneral::<T>::create_pair((RawOrigin::Root).into(), ASSET_0.into(), ASSET_1.into(), DEFAULT_FEE_RATE));
-        assert_ok!(DexGeneral::<T>::create_pair((RawOrigin::Root).into(), ASSET_1.into(), ASSET_2.into(), DEFAULT_FEE_RATE));
+        assert_ok!(DexGeneral::<T>::create_pair(
+            (RawOrigin::Root).into(),
+            ASSET_0.into(),
+            ASSET_1.into(),
+            DEFAULT_FEE_RATE
+        ));
+        assert_ok!(DexGeneral::<T>::create_pair(
+            (RawOrigin::Root).into(),
+            ASSET_1.into(),
+            ASSET_2.into(),
+            DEFAULT_FEE_RATE
+        ));
 
         assert_ok!(DexGeneral::<T>::add_liquidity(
             RawOrigin::Signed(caller.clone()).into(),
             ASSET_0.into(),
             ASSET_1.into(),
             10 * UNIT,
-            10* UNIT,
+            10 * UNIT,
             0,
             0,
-            100u32.saturated_into()));
+            100u32.saturated_into()
+        ));
 
         assert_ok!(DexGeneral::<T>::add_liquidity(
             RawOrigin::Signed(caller.clone()).into(),
             ASSET_1.into(),
             ASSET_2.into(),
             10 * UNIT,
-            10* UNIT,
+            10 * UNIT,
             0,
             0,
-            100u32.saturated_into()));
+            100u32.saturated_into()
+        ));
 
         let path: Vec<T::AssetId> = vec![ASSET_0.into(), ASSET_1.into(), ASSET_2.into()];
 
-    }:_(RawOrigin::Signed(caller.clone()), 1* UNIT, 0,path, lookup_of_account::<T>(caller.clone()).into(), 100u32.saturated_into())
+        #[extrinsic_call]
+        DexGeneral::swap_exact_assets_for_assets(
+            RawOrigin::Signed(caller.clone()),
+            1 * UNIT,
+            0,
+            path,
+            lookup_of_account::<T>(caller.clone()).into(),
+            100u32.saturated_into(),
+        );
+    }
 
-    swap_assets_for_exact_assets{
+    #[benchmark]
+    pub fn swap_assets_for_exact_assets() {
         let caller: T::AccountId = whitelisted_caller();
-        assert_ok!(<T as Config>::MultiCurrency::deposit(ASSET_0.into(), &caller, 1000 * UNIT));
-        assert_ok!(<T as Config>::MultiCurrency::deposit(ASSET_1.into(), &caller, 1000 * UNIT));
-        assert_ok!(<T as Config>::MultiCurrency::deposit(ASSET_2.into(), &caller, 1000 * UNIT));
+        assert_ok!(<T as Config>::MultiCurrency::deposit(
+            ASSET_0.into(),
+            &caller,
+            1000 * UNIT
+        ));
+        assert_ok!(<T as Config>::MultiCurrency::deposit(
+            ASSET_1.into(),
+            &caller,
+            1000 * UNIT
+        ));
+        assert_ok!(<T as Config>::MultiCurrency::deposit(
+            ASSET_2.into(),
+            &caller,
+            1000 * UNIT
+        ));
 
-        assert_ok!(DexGeneral::<T>::create_pair((RawOrigin::Root).into(), ASSET_1.into(), ASSET_2.into(), DEFAULT_FEE_RATE));
-        assert_ok!(DexGeneral::<T>::create_pair((RawOrigin::Root).into(), ASSET_0.into(), ASSET_1.into(), DEFAULT_FEE_RATE));
+        assert_ok!(DexGeneral::<T>::create_pair(
+            (RawOrigin::Root).into(),
+            ASSET_1.into(),
+            ASSET_2.into(),
+            DEFAULT_FEE_RATE
+        ));
+        assert_ok!(DexGeneral::<T>::create_pair(
+            (RawOrigin::Root).into(),
+            ASSET_0.into(),
+            ASSET_1.into(),
+            DEFAULT_FEE_RATE
+        ));
 
         assert_ok!(DexGeneral::<T>::add_liquidity(
             RawOrigin::Signed(caller.clone()).into(),
             ASSET_1.into(),
             ASSET_2.into(),
             10 * UNIT,
-            10* UNIT,
+            10 * UNIT,
             0,
             0,
-            100u32.saturated_into()));
+            100u32.saturated_into()
+        ));
 
         assert_ok!(DexGeneral::<T>::add_liquidity(
             RawOrigin::Signed(caller.clone()).into(),
             ASSET_0.into(),
             ASSET_1.into(),
             10 * UNIT,
-            10* UNIT,
+            10 * UNIT,
             0,
             0,
-            100u32.saturated_into()));
+            100u32.saturated_into()
+        ));
 
         let path: Vec<T::AssetId> = vec![ASSET_0.into(), ASSET_1.into(), ASSET_2.into()];
-    }:_(RawOrigin::Signed(caller.clone()), 1* UNIT, 10*UNIT,path, lookup_of_account::<T>(caller.clone()).into(), 100u32.saturated_into())
+
+        #[extrinsic_call]
+        DexGeneral::swap_assets_for_exact_assets(
+            RawOrigin::Signed(caller.clone()),
+            1 * UNIT,
+            10 * UNIT,
+            path,
+            lookup_of_account::<T>(caller.clone()).into(),
+            100u32.saturated_into(),
+        );
+    }
+
+    impl_benchmark_test_suite!(
+        DexGeneral,
+        crate::fee::mock::ExtBuilder::build(),
+        crate::fee::mock::Test
+    );
 }

@@ -1465,6 +1465,7 @@ impl_runtime_apis! {
             list_benchmark!(list, extra, redeem, Redeem);
             list_benchmark!(list, extra, replace, Replace);
             list_benchmark!(list, extra, vault_registry, VaultRegistry);
+            list_benchmark!(list, extra, dex_general, DexGeneral);
 
             let storage_info = AllPalletsWithSystem::storage_info();
 
@@ -1500,6 +1501,7 @@ impl_runtime_apis! {
             add_benchmark!(params, batches, redeem, Redeem);
             add_benchmark!(params, batches, replace, Replace);
             add_benchmark!(params, batches, vault_registry, VaultRegistry);
+            add_benchmark!(params, batches, dex_general, DexGeneral);
 
             if batches.is_empty() { return Err("Benchmark not found for this pallet.".into()) }
             Ok(batches)
