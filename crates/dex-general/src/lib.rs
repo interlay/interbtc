@@ -82,6 +82,9 @@ pub mod pallet {
         type LpGenerate: GenerateLpAssetId<Self::AssetId>;
         /// Weight information for extrinsics in this pallet.
         type WeightInfo: WeightInfo;
+        /// The maximum number of swaps allowed in routes
+        #[pallet::constant]
+        type MaxSwaps: Get<u16>;
     }
 
     #[pallet::pallet]
@@ -631,6 +634,8 @@ pub mod pallet {
             #[pallet::compact] deadline: T::BlockNumber,
         ) -> DispatchResult {
             ensure!(path.iter().all(|id| id.is_support()), Error::<T>::UnsupportedAssetType);
+            ensure!(path.len() <= T::MaxSwaps::get().into(), Error::<T>::InvalidPath);
+
             let who = ensure_signed(origin)?;
             let recipient = T::Lookup::lookup(recipient)?;
             let now = frame_system::Pallet::<T>::block_number();
@@ -660,6 +665,7 @@ pub mod pallet {
             #[pallet::compact] deadline: T::BlockNumber,
         ) -> DispatchResult {
             ensure!(path.iter().all(|id| id.is_support()), Error::<T>::UnsupportedAssetType);
+            ensure!(path.len() <= T::MaxSwaps::get().into(), Error::<T>::InvalidPath);
             let who = ensure_signed(origin)?;
             let recipient = T::Lookup::lookup(recipient)?;
             let now = frame_system::Pallet::<T>::block_number();
@@ -971,6 +977,10 @@ pub mod pallet {
             asset_1: T::AssetId,
             charge_rewards: Vec<(T::AssetId, AssetBalance)>,
         ) -> DispatchResult {
+            ensure!(
+                charge_rewards.len() <= T::MaxSwaps::get().into(),
+                Error::<T>::ChargeRewardParamsError
+            );
             let pair = Self::sort_asset_id(asset_0, asset_1);
             let who = ensure_signed(origin)?;
 
