@@ -53,6 +53,12 @@ impl AssetInfo for CurrencyId {
     }
 }
 
+impl From<u32> for CurrencyId {
+    fn from(value: u32) -> Self {
+        CurrencyId::Token(value.try_into().unwrap())
+    }
+}
+
 frame_support::construct_runtime!(
     pub enum Test where
         Block = Block,
@@ -143,6 +149,16 @@ impl Config for Test {
     type LpGenerate = PairLpIdentity;
     type WeightInfo = ();
     type MaxSwaps = ConstU16<10>;
+}
+
+pub struct ExtBuilder;
+
+impl ExtBuilder {
+    pub fn build() -> sp_io::TestExternalities {
+        let storage = frame_system::GenesisConfig::default().build_storage::<Test>().unwrap();
+
+        storage.into()
+    }
 }
 
 pub type DexPallet = Pallet<Test>;
