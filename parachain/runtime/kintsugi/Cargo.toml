@@ -269,6 +269,7 @@ runtime-benchmarks = [
 
   "annuity/runtime-benchmarks",
   "btc-relay/runtime-benchmarks",
+  "dex-general/runtime-benchmarks",
   "fee/runtime-benchmarks",
   "issue/runtime-benchmarks",
   "nomination/runtime-benchmarks",
@@ -277,6 +278,7 @@ runtime-benchmarks = [
   "replace/runtime-benchmarks",
   "vault-registry/runtime-benchmarks",
   "tx-pause/runtime-benchmarks",
+  "primitives/runtime-benchmarks",
 ]
 disable-runtime-api = []
 try-runtime = [

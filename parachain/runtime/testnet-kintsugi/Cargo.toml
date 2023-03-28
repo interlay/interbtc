@@ -280,6 +280,7 @@ runtime-benchmarks = [
   "vault-registry/runtime-benchmarks",
   "farming/runtime-benchmarks",
   "tx-pause/runtime-benchmarks",
+  "primitives/runtime-benchmarks",
 ]
 disable-runtime-api = []
 dev-interlay = []
