@@ -26,6 +26,10 @@ pub mod benchmarks {
     #[benchmark]
     pub fn create_lock() {
         let origin: T::AccountId = account("Origin", 0, 0);
+        // 52 weeks, i.e. 1 year. Since `create_lock` iterates ones per elapsed span,
+        // we simulate a very bad case: 1 year without calls to `deposit_for`.
+        // This should be a pretty safe upper bound
+        System::<T>::set_block_number(T::Span::get() * 52u32.into());
         let start_height = System::<T>::block_number();
         let end_height = start_height + T::MaxPeriod::get();
         let amount = T::BlockNumberToBalance::convert(T::MaxPeriod::get());
@@ -39,6 +43,10 @@ pub mod benchmarks {
     pub fn increase_amount() {
         let origin: T::AccountId = account("Origin", 0, 0);
         let amount = T::BlockNumberToBalance::convert(T::MaxPeriod::get());
+        // 52 weeks, i.e. 1 year. Since `increase_amount` iterates ones per elapsed span,
+        // we simulate a very bad case: 1 year without calls to `deposit_for`.
+        // This should be a pretty safe upper bound
+        System::<T>::set_block_number(T::Span::get() * 52u32.into());
         create_default_lock::<T>(origin.clone());
         let free_balance = T::Currency::free_balance(&origin);
         T::Currency::make_free_balance_be(&origin, free_balance + amount.into());
@@ -50,6 +58,10 @@ pub mod benchmarks {
     #[benchmark]
     pub fn increase_unlock_height() {
         let origin: T::AccountId = account("Origin", 0, 0);
+        // 52 weeks, i.e. 1 year. Since `increase_unlock_height` iterates ones per elapsed span,
+        // we simulate a very bad case: 1 year without calls to `deposit_for`.
+        // This should be a pretty safe upper bound
+        System::<T>::set_block_number(T::Span::get() * 52u32.into());
         create_default_lock::<T>(origin.clone());
         let end_height = System::<T>::block_number() + T::MaxPeriod::get() - T::Span::get();
         System::<T>::set_block_number(end_height);
@@ -61,6 +73,10 @@ pub mod benchmarks {
     #[benchmark]
     pub fn withdraw() {
         let origin: T::AccountId = account("Origin", 0, 0);
+        // 52 weeks, i.e. 1 year. Since `increase_unlock_height` iterates ones per elapsed span,
+        // we simulate a very bad case: 1 year without calls to `deposit_for`.
+        // This should be a pretty safe upper bound
+        System::<T>::set_block_number(T::Span::get() * 52u32.into());
         create_default_lock::<T>(origin.clone());
         let end_height = System::<T>::block_number() + T::MaxPeriod::get() + T::Span::get();
         System::<T>::set_block_number(end_height);
