@@ -23,7 +23,7 @@ pub use crate::{AssetBalance, AssetInfo, Config, GenerateLpAssetId, Pallet};
 type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
 type Block = frame_system::mocking::MockBlock<Test>;
 
-#[derive(Encode, Decode, Eq, PartialEq, Copy, Clone, RuntimeDebug, MaxEncodedLen, PartialOrd, Ord, TypeInfo)]
+#[derive(Encode, Decode, Eq, PartialEq, Copy, Clone, RuntimeDebug, PartialOrd, Ord, TypeInfo, MaxEncodedLen)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 pub enum CurrencyId {
     Token(u8),
@@ -50,12 +50,6 @@ impl AssetInfo for CurrencyId {
             Self::Token(_) => true,
             _ => false,
         }
-    }
-}
-
-impl From<u32> for CurrencyId {
-    fn from(value: u32) -> Self {
-        CurrencyId::Token(value.try_into().unwrap())
     }
 }
 

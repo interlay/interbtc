@@ -33,7 +33,7 @@ pub fn run_to_block<T: Config>(n: u32) {
 }
 
 #[benchmarks(where T::AssetId: From<u32>)]
-mod benchmarks {
+pub mod benchmarks {
     use super::*;
     use crate::Pallet as DexGeneral;
 
