@@ -3,6 +3,8 @@
 
 #![cfg(feature = "runtime-benchmarks")]
 
+// use crate::fee::mock::CurrencyId;
+
 use super::*;
 
 use frame_benchmarking::v2::{benchmarks, impl_benchmark_test_suite, whitelisted_caller};
@@ -12,9 +14,43 @@ use sp_runtime::SaturatedConversion;
 
 const UNIT: u128 = 1_000_000_000_000;
 
-const ASSET_0: u32 = 0;
-const ASSET_1: u32 = 1;
-const ASSET_2: u32 = 2;
+
+#[derive(Encode, Decode, Eq, Hash, PartialEq, Copy, Clone, RuntimeDebug, PartialOrd, Ord, TypeInfo, MaxEncodedLen)]
+pub enum CurrencyId {
+    Token(u8),
+    LpToken(u8, u8),
+}
+
+impl CurrencyId {
+    pub fn join_lp_token(currency_id_0: Self, currency_id_1: Self) -> Option<Self> {
+        let lp_token_0 = match currency_id_0 {
+            CurrencyId::Token(x) => x,
+            _ => return None,
+        };
+        let lp_token_1 = match currency_id_1 {
+            CurrencyId::Token(y) => y,
+            _ => return None,
+        };
+        Some(CurrencyId::LpToken(lp_token_0, lp_token_1))
+    }
+}
+
+impl AssetInfo for CurrencyId {
+    fn is_support(&self) -> bool {
+        match self {
+            Self::Token(_) => true,
+            _ => false,
+        }
+    }
+}
+
+const ASSET_0: CurrencyId = CurrencyId::Token(0);
+const ASSET_1: CurrencyId = CurrencyId::Token(1);
+const ASSET_2: CurrencyId = CurrencyId::Token(2);
+
+// const ASSET_0: u32 = 0;
+// const ASSET_1: u32 = 1;
+// const ASSET_2: u32 = 2;
 
 pub fn lookup_of_account<T: Config>(
     who: T::AccountId,
@@ -32,8 +68,8 @@ pub fn run_to_block<T: Config>(n: u32) {
     }
 }
 
-#[benchmarks(where T::AssetId: From<u32>)]
-mod benchmarks {
+#[benchmarks]
+pub mod benchmarks {
     use super::*;
     use crate::Pallet as DexGeneral;
 
