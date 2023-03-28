@@ -28,6 +28,8 @@ impl dex_general::Config for Runtime {
     type LpGenerate = PairLpIdentity;
     type WeightInfo = ();
     type MaxSwaps = MaxSwaps;
+    #[cfg(feature = "runtime-benchmarks")]
+    type GetBenchmarkAsset = runtime_common::benchmark_util::GetSomeAsset;
 }
 
 pub struct PoolLpGenerate;

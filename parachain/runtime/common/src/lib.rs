@@ -90,3 +90,15 @@ impl<T: ShouldExecute> ShouldExecute for Transactless<T> {
         T::should_execute(origin, instructions, max_weight, weight_credit)
     }
 }
+
+#[cfg(feature = "runtime-benchmarks")]
+pub mod benchmark_util {
+    use primitives::CurrencyId;
+    use sp_runtime::traits::Convert;
+    pub struct GetSomeAsset;
+    impl Convert<u8, CurrencyId> for GetSomeAsset {
+        fn convert(x: u8) -> CurrencyId {
+            CurrencyId::ForeignAsset(x.into())
+        }
+    }
+}

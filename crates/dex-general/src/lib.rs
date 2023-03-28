@@ -85,6 +85,10 @@ pub mod pallet {
         /// The maximum number of swaps allowed in routes
         #[pallet::constant]
         type MaxSwaps: Get<u16>;
+
+        /// workaround to be able to get some asset ids in the benchmarks
+        #[cfg(feature = "runtime-benchmarks")]
+        type GetBenchmarkAsset: sp_runtime::traits::Convert<u8, Self::AssetId>;
     }
 
     #[pallet::pallet]

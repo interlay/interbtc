@@ -142,6 +142,20 @@ impl Config for Test {
     type LpGenerate = PairLpIdentity;
     type WeightInfo = ();
     type MaxSwaps = ConstU16<10>;
+    #[cfg(feature = "runtime-benchmarks")]
+    type GetBenchmarkAsset = benchmark_util::GetSomeAsset;
+}
+
+#[cfg(feature = "runtime-benchmarks")]
+pub mod benchmark_util {
+    use super::*;
+    use sp_runtime::traits::Convert;
+    pub struct GetSomeAsset;
+    impl Convert<u8, CurrencyId> for GetSomeAsset {
+        fn convert(x: u8) -> CurrencyId {
+            CurrencyId::Token(x)
+        }
+    }
 }
 
 pub type DexPallet = Pallet<Test>;

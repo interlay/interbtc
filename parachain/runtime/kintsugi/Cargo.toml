@@ -266,6 +266,8 @@ runtime-benchmarks = [
   "pallet-society/runtime-benchmarks",
   "pallet-collective/runtime-benchmarks",
 
+  "runtime-common/runtime-benchmarks",
+
   "xcm-builder/runtime-benchmarks",
   "pallet-xcm/runtime-benchmarks",
 
@@ -279,6 +281,7 @@ runtime-benchmarks = [
   "replace/runtime-benchmarks",
   "vault-registry/runtime-benchmarks",
   "tx-pause/runtime-benchmarks",
+  "dex-general/runtime-benchmarks",
 ]
 disable-runtime-api = []
 try-runtime = [

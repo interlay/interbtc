@@ -127,3 +127,4 @@ try-runtime = [
   "orml-xtokens/try-runtime",
   "orml-unknown-tokens/try-runtime"
 ]
+runtime-benchmarks = []
