@@ -278,11 +278,9 @@ runtime-benchmarks = [
   "replace/runtime-benchmarks",
   "vault-registry/runtime-benchmarks",
   "tx-pause/runtime-benchmarks",
-<<<<<<< HEAD
   "primitives/runtime-benchmarks",
-=======
   "escrow/runtime-benchmarks",
->>>>>>> 1c5cf6b0 (chore: fix escrow benchmark)
+  "primitives/runtime-benchmarks",
 ]
 disable-runtime-api = []
 try-runtime = [
