@@ -282,6 +282,7 @@ runtime-benchmarks = [
   "tx-pause/runtime-benchmarks",
   "primitives/runtime-benchmarks",
   "escrow/runtime-benchmarks",
+  "primitives/runtime-benchmarks",
 ]
 disable-runtime-api = []
 try-runtime = [
