@@ -53,6 +53,12 @@ impl AssetInfo for CurrencyId {
     }
 }
 
+impl From<u32> for CurrencyId {
+    fn from(value: u32) -> Self {
+        CurrencyId::Token(value.try_into().unwrap())
+    }
+}
+
 frame_support::construct_runtime!(
     pub enum Test where
         Block = Block,
