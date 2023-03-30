@@ -69,9 +69,10 @@ pub enum CurrencyId {
 impl From<u32> for CurrencyId {
     fn from(value: u32) -> Self {
         if value < 1000 {
+            // Inner value must fit inside `u8`
             CurrencyId::Token((value % 256).try_into().unwrap())
         } else {
-            CurrencyId::StableLPV2(value.try_into().unwrap())
+            CurrencyId::StableLPV2((value % 256).try_into().unwrap())
         }
     }
 }
