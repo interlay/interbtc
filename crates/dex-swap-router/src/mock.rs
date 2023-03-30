@@ -86,6 +86,13 @@ impl dex_general::AssetInfo for CurrencyId {
     }
 }
 
+impl From<u32> for CurrencyId {
+    fn from(value: u32) -> Self {
+        // Inner value must fit inside `u8`
+        CurrencyId::Token((value % 256).try_into().unwrap())
+    }
+}
+
 #[derive(Encode, Decode, Eq, PartialEq, Copy, Clone, RuntimeDebug, PartialOrd, MaxEncodedLen, Ord, TypeInfo)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 pub enum PoolToken {

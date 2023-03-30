@@ -7,7 +7,7 @@ use super::{StableSwapMode::*, *};
 
 use sp_std::vec;
 
-use frame_benchmarking::{benchmarks, whitelisted_caller};
+use frame_benchmarking::v2::{benchmarks, whitelisted_caller};
 use frame_support::assert_ok;
 use frame_system::RawOrigin;
 
@@ -25,37 +25,57 @@ const FEE_RATE: u128 = 30;
 const ASSET_0: u32 = 0;
 const ASSET_1: u32 = 1;
 
-fn token1<CurrencyId: TryFrom<u64> + Default>() -> CurrencyId {
-    CurrencyId::try_from(513u64).unwrap_or_default()
+fn token1<CurrencyId: From<u32>>() -> CurrencyId {
+    CurrencyId::from(513u32)
 }
 
-fn token2<CurrencyId: TryFrom<u64> + Default>() -> CurrencyId {
-    CurrencyId::try_from(514u64).unwrap_or_default()
+fn token2<CurrencyId: From<u32>>() -> CurrencyId {
+    CurrencyId::from(514u32)
 }
 
-benchmarks! {
-    where_clause { where T: Config + dex_general::Config + dex_stable::Config,
-                        <T as dex_stable::Config>::CurrencyId: TryFrom<u64> + Default,
-                        <T as dex_general::Config>::AssetId: From<u32>,
-                        <T as Config>::CurrencyId: TryFrom<u64> + From<u32> + Default,
-    }
+#[benchmarks(
+    where T: Config + dex_general::Config + dex_stable::Config,
+    <T as dex_stable::Config>::CurrencyId: From<u32>,
+    <T as dex_general::Config>::AssetId: From<u32>,
+    <T as Config>::CurrencyId: From<u32>,
+)]
+pub mod benchmarks {
+    use super::*;
+    use frame_benchmarking::v2::extrinsic_call;
 
-    swap_exact_token_for_tokens_through_stable_pool{
+    #[benchmark]
+    pub fn swap_exact_token_for_tokens_through_stable_pool() {
         let caller: T::AccountId = whitelisted_caller();
 
-        assert_ok!(<T as dex_general::Config>::MultiCurrency::deposit(ASSET_0.into(), &caller, 1000 * UNIT));
-        assert_ok!(<T as dex_general::Config>::MultiCurrency::deposit(ASSET_1.into(), &caller, 1000 * UNIT));
+        assert_ok!(<T as dex_general::Config>::MultiCurrency::deposit(
+            ASSET_0.into(),
+            &caller,
+            1000 * UNIT
+        ));
+        assert_ok!(<T as dex_general::Config>::MultiCurrency::deposit(
+            ASSET_1.into(),
+            &caller,
+            1000 * UNIT
+        ));
 
         let stable_token1 = token1::<<T as dex_stable::Config>::CurrencyId>();
         let stable_token2 = token2::<<T as dex_stable::Config>::CurrencyId>();
 
-        assert_ok!(<T as dex_stable::Config>::MultiCurrency::deposit(stable_token1, &caller, 1000 * UNIT));
-        assert_ok!(<T as dex_stable::Config>::MultiCurrency::deposit(stable_token2, &caller, 1000 * UNIT));
+        assert_ok!(<T as dex_stable::Config>::MultiCurrency::deposit(
+            stable_token1,
+            &caller,
+            1000 * UNIT
+        ));
+        assert_ok!(<T as dex_stable::Config>::MultiCurrency::deposit(
+            stable_token2,
+            &caller,
+            1000 * UNIT
+        ));
 
         assert_ok!(StableAmmPallet::<T>::create_base_pool(
             (RawOrigin::Root).into(),
             [stable_token1, stable_token2].to_vec(),
-            [12,12].to_vec(),
+            [12, 12].to_vec(),
             INITIAL_A_VALUE,
             SWAP_FEE,
             ADMIN_FEE,
@@ -69,7 +89,6 @@ benchmarks! {
             ASSET_1.into(),
             FEE_RATE,
         ));
-
 
         assert_ok!(NormalAmmPallet::<T>::add_liquidity(
             RawOrigin::Signed(caller.clone()).into(),
@@ -85,7 +104,7 @@ benchmarks! {
         assert_ok!(StableAmmPallet::<T>::add_liquidity(
             RawOrigin::Signed(caller.clone()).into(),
             0u32.into(),
-            [10*UNIT, 10*UNIT].to_vec(),
+            [10 * UNIT, 10 * UNIT].to_vec(),
             0,
             caller.clone(),
             1000u32.into()
@@ -94,21 +113,23 @@ benchmarks! {
         let router_stable_token1 = token1::<<T as Config>::CurrencyId>();
         let router_stable_token2 = token2::<<T as Config>::CurrencyId>();
 
-     }:_(
-        RawOrigin::Signed(caller.clone()),
-        (100u32).into(),
-        0u32.into(),
-        vec![
-            Route::Normal([ASSET_1.into(), ASSET_0.into()].to_vec()),
-            Route::Stable(StablePath::<T::StablePoolId, <T as Config>::CurrencyId> {
-                pool_id: 0u32.into(),
-                base_pool_id: 0u32.into(),
-                mode: Single,
-                from_currency: router_stable_token2,
-                to_currency: router_stable_token1,
-            }),
-        ],
-        caller.clone(),
-        1000u32.into()
-    )
+        #[extrinsic_call]
+        crate::Pallet::swap_exact_token_for_tokens_through_stable_pool(
+            RawOrigin::Signed(caller.clone()),
+            (100u32).into(),
+            0u32.into(),
+            vec![
+                Route::Normal([ASSET_1.into(), ASSET_0.into()].to_vec()),
+                Route::Stable(StablePath::<T::StablePoolId, <T as Config>::CurrencyId> {
+                    pool_id: 0u32.into(),
+                    base_pool_id: 0u32.into(),
+                    mode: Single,
+                    from_currency: router_stable_token2,
+                    to_currency: router_stable_token1,
+                }),
+            ],
+            caller.clone(),
+            1000u32.into(),
+        );
+    }
 }
