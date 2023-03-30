@@ -270,6 +270,7 @@ runtime-benchmarks = [
   "btc-relay/runtime-benchmarks",
   "dex-general/runtime-benchmarks",
   "dex-stable/runtime-benchmarks",
+  "dex-swap-router/runtime-benchmarks",
   "escrow/runtime-benchmarks",
   "fee/runtime-benchmarks",
   "issue/runtime-benchmarks",
