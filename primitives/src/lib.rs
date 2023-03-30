@@ -562,6 +562,11 @@ impl dex_general::AssetInfo for CurrencyId {
 #[cfg(feature = "runtime-benchmarks")]
 impl From<u32> for CurrencyId {
     fn from(value: u32) -> Self {
-        CurrencyId::ForeignAsset(value)
+        if value < 1000 {
+            // Inner value must fit inside `u8`
+            CurrencyId::ForeignAsset((value % 256).try_into().unwrap())
+        } else {
+            CurrencyId::StableLpToken((value % 256).try_into().unwrap())
+        }
     }
 }
