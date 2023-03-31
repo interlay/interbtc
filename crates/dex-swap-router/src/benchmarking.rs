@@ -42,7 +42,6 @@ fn token1<CurrencyId: From<u32>>() -> CurrencyId {
 )]
 pub mod benchmarks {
     use super::*;
-    use frame_benchmarking::v2::extrinsic_call;
 
     #[benchmark]
     pub fn swap_exact_token_for_tokens_through_stable_pool() {
