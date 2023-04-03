@@ -8,12 +8,15 @@ use crate::{AccountBorrows, Pallet as Loans};
 use frame_benchmarking::v2::{account, benchmarks, impl_benchmark_test_suite, whitelisted_caller};
 use frame_support::assert_ok;
 use frame_system::{self, RawOrigin as SystemOrigin};
+use oracle::Pallet as Oracle;
 use primitives::{
     Balance,
     CurrencyId::{self, LendToken, Token},
-    DOT as DOT_CURRENCY, INTR as INTR_CURRENCY, KBTC as KBTC_CURRENCY, KINT as KINT_CURRENCY, KSM as KSM_CURRENCY,
+    UnsignedFixedPoint, DOT as DOT_CURRENCY, INTR as INTR_CURRENCY, KBTC as KBTC_CURRENCY, KINT as KINT_CURRENCY,
+    KSM as KSM_CURRENCY,
 };
 use rate_model::{InterestRateModel, JumpModel};
+use security::{Pallet as Security, StatusCode};
 use sp_std::prelude::*;
 
 const SEED: u32 = 0;
@@ -140,8 +143,11 @@ fn assert_last_event<T: Config>(generic_event: <T as Config>::RuntimeEvent) {
 }
 
 #[benchmarks(where
-            T: orml_tokens::Config<CurrencyId = CurrencyId, Balance = Balance>)]
+            T: orml_tokens::Config<CurrencyId = CurrencyId, Balance = Balance>, T: security::Config, T: oracle::Config)
+            ]
 pub mod benchmarks {
+    use frame_benchmarking::v2::extrinsic_call;
+
     use super::*;
 
     #[benchmark]
@@ -601,57 +607,130 @@ pub mod benchmarks {
         );
     }
 
-    // The two benchmarks below fail because they query the Oracle pallet which does not exist in the mock runtime.
-    // TODO: Add the Oracle pallet to the mock runtime and initialize some mock entries.
-    // liquidate_borrow {
-    //     let alice: T::AccountId = account("Sample", 100, SEED);
-    //     let bob: T::AccountId = account("Sample", 101, SEED);
-    //     transfer_initial_balance::<T>(alice.clone());
-    //     transfer_initial_balance::<T>(bob.clone());
-    //     let deposit_amount: u32 = 200_000_000;
-    //     let borrowed_amount: u32 = 200_000_000;
-    //     let liquidate_amount: u32 = 100_000_000;
-    //     let incentive_amount: u32 = 110_000_000;
-    //     assert_ok!(Loans::<T>::add_market(SystemOrigin::Root.into(), DOT, pending_market_mock::<T>(LEND_DOT)));
-    //     assert_ok!(Loans::<T>::activate_market(SystemOrigin::Root.into(), DOT));
-    //     assert_ok!(Loans::<T>::add_market(SystemOrigin::Root.into(), KBTC, pending_market_mock::<T>(LEND_KBTC)));
-    //     assert_ok!(Loans::<T>::activate_market(SystemOrigin::Root.into(), KBTC));
-    //     assert_ok!(Loans::<T>::mint(SystemOrigin::Signed(bob.clone()).into(), KBTC, deposit_amount.into()));
-    //     assert_ok!(Loans::<T>::mint(SystemOrigin::Signed(alice.clone()).into(), DOT, deposit_amount.into()));
-    //     assert_ok!(Loans::<T>::deposit_all_collateral(SystemOrigin::Signed(alice.clone()).into(), DOT));
-    //     set_account_borrows::<T>(alice.clone(), KBTC, borrowed_amount.into());
-    // }: _(SystemOrigin::Signed(bob.clone()), alice.clone(), KBTC, liquidate_amount.into(), DOT)
-    // verify {
-    //     assert_last_event::<T>(Event::<T>::LiquidatedBorrow(bob.clone(), alice.clone(), KBTC, DOT,
-    // liquidate_amount.into(), incentive_amount.into()).into()); }
+    #[benchmark]
+    pub fn liquidate_borrow() {
+        Security::<T>::set_active_block_number(1u32.into());
+        Security::<T>::set_status(StatusCode::Running);
+        let alice: T::AccountId = account("Sample", 100, SEED);
+        let bob: T::AccountId = account("Sample", 101, SEED);
+        transfer_initial_balance::<T>(alice.clone());
+        transfer_initial_balance::<T>(bob.clone());
+        let deposit_amount: u32 = 200_000_000;
+        let borrowed_amount: u32 = 200_000_000;
+        let liquidate_amount: u32 = 100_000_000;
+        let incentive_amount: u32 = 110_000_000;
+        assert_ok!(Oracle::<T>::_set_exchange_rate(DOT, UnsignedFixedPoint::one()));
+        assert_ok!(Loans::<T>::add_market(
+            SystemOrigin::Root.into(),
+            DOT,
+            pending_market_mock::<T>(LEND_DOT)
+        ));
+        assert_ok!(Loans::<T>::activate_market(SystemOrigin::Root.into(), DOT));
+        assert_ok!(Loans::<T>::add_market(
+            SystemOrigin::Root.into(),
+            KBTC,
+            pending_market_mock::<T>(LEND_KBTC)
+        ));
+        assert_ok!(Loans::<T>::activate_market(SystemOrigin::Root.into(), KBTC));
+        assert_ok!(Loans::<T>::mint(
+            SystemOrigin::Signed(bob.clone()).into(),
+            KBTC,
+            deposit_amount.into()
+        ));
+        assert_ok!(Loans::<T>::mint(
+            SystemOrigin::Signed(alice.clone()).into(),
+            DOT,
+            deposit_amount.into()
+        ));
+        assert_ok!(Loans::<T>::deposit_all_collateral(
+            SystemOrigin::Signed(alice.clone()).into(),
+            DOT
+        ));
+        set_account_borrows::<T>(alice.clone(), KBTC, borrowed_amount.into());
+        #[extrinsic_call]
+        Loans::liquidate_borrow(
+            SystemOrigin::Signed(bob.clone()),
+            alice.clone(),
+            KBTC,
+            liquidate_amount.into(),
+            DOT,
+        );
+        assert_last_event::<T>(
+            Event::<T>::LiquidatedBorrow {
+                liquidator: bob.clone(),
+                borrower: alice.clone(),
+                liquidation_currency_id: KBTC,
+                collateral_currency_id: DOT,
+                repay_amount: liquidate_amount.into(),
+                collateral_underlying_amount: incentive_amount.into(),
+            }
+            .into(),
+        );
+    }
 
-    // reduce_incentive_reserves {
-    //     let alice: T::AccountId = account("Sample", 100, SEED);
-    //     let bob: T::AccountId = account("Sample", 101, SEED);
-    //     transfer_initial_balance::<T>(alice.clone());
-    //     transfer_initial_balance::<T>(bob.clone());
-    //     let deposit_amount: u32 = 200_000_000;
-    //     let borrowed_amount: u32 = 200_000_000;
-    //     let liquidate_amount: u32 = 100_000_000;
-    //     let incentive_amount: u32 = 110_000_000;
-    //     assert_ok!(Loans::<T>::add_market(SystemOrigin::Root.into(), DOT, pending_market_mock::<T>(LEND_DOT)));
-    //     assert_ok!(Loans::<T>::activate_market(SystemOrigin::Root.into(), DOT));
-    //     assert_ok!(Loans::<T>::add_market(SystemOrigin::Root.into(), KBTC, pending_market_mock::<T>(LEND_KBTC)));
-    //     assert_ok!(Loans::<T>::activate_market(SystemOrigin::Root.into(), KBTC));
-    //     assert_ok!(Loans::<T>::mint(SystemOrigin::Signed(bob.clone()).into(), KBTC, deposit_amount.into()));
-    //     assert_ok!(Loans::<T>::mint(SystemOrigin::Signed(alice.clone()).into(), DOT, deposit_amount.into()));
-    //     assert_ok!(Loans::<T>::deposit_all_collateral(SystemOrigin::Signed(alice.clone()).into(), DOT));
-    //     set_account_borrows::<T>(alice.clone(), KBTC, borrowed_amount.into());
-    //     assert_ok!(Loans::<T>::liquidate_borrow(SystemOrigin::Signed(bob.clone()).into(), alice.clone(), KBTC,
-    // liquidate_amount.into(), DOT));     let incentive_reward_account_id =
-    // Loans::<T>::incentive_reward_account_id().unwrap();     let reward_lend_tokens =
-    // orml_tokens::Pallet::<T>::free_balance(LEND_DOT, &incentive_reward_account_id);     let rate: f64 = 0.02;
-    //     let reward_underlying = (reward_lend_tokens as f64 * rate) as u128;
-    //     let receiver = T::Lookup::unlookup(alice.clone());
-    // }: _(SystemOrigin::Root, receiver.clone().into(), DOT, reward_underlying)
-    // verify {
-    //     assert_last_event::<T>(Event::<T>::IncentiveReservesReduced(alice.clone(), DOT, reward_underlying).into())
-    // }
+    #[benchmark]
+    pub fn reduce_incentive_reserves() {
+        Security::<T>::set_active_block_number(1u32.into());
+        Security::<T>::set_status(StatusCode::Running);
+        let alice: T::AccountId = account("Sample", 100, SEED);
+        let bob: T::AccountId = account("Sample", 101, SEED);
+        transfer_initial_balance::<T>(alice.clone());
+        transfer_initial_balance::<T>(bob.clone());
+        let deposit_amount: u32 = 200_000_000;
+        let borrowed_amount: u32 = 200_000_000;
+        let liquidate_amount: u32 = 100_000_000;
+        let incentive_amount: u32 = 110_000_000;
+        assert_ok!(Oracle::<T>::_set_exchange_rate(DOT, UnsignedFixedPoint::one()));
+        assert_ok!(Loans::<T>::add_market(
+            SystemOrigin::Root.into(),
+            DOT,
+            pending_market_mock::<T>(LEND_DOT)
+        ));
+        assert_ok!(Loans::<T>::activate_market(SystemOrigin::Root.into(), DOT));
+        assert_ok!(Loans::<T>::add_market(
+            SystemOrigin::Root.into(),
+            KBTC,
+            pending_market_mock::<T>(LEND_KBTC)
+        ));
+        assert_ok!(Loans::<T>::activate_market(SystemOrigin::Root.into(), KBTC));
+        assert_ok!(Loans::<T>::mint(
+            SystemOrigin::Signed(bob.clone()).into(),
+            KBTC,
+            deposit_amount.into()
+        ));
+        assert_ok!(Loans::<T>::mint(
+            SystemOrigin::Signed(alice.clone()).into(),
+            DOT,
+            deposit_amount.into()
+        ));
+        assert_ok!(Loans::<T>::deposit_all_collateral(
+            SystemOrigin::Signed(alice.clone()).into(),
+            DOT
+        ));
+        set_account_borrows::<T>(alice.clone(), KBTC, borrowed_amount.into());
+        assert_ok!(Loans::<T>::liquidate_borrow(
+            SystemOrigin::Signed(bob.clone()).into(),
+            alice.clone(),
+            KBTC,
+            liquidate_amount.into(),
+            DOT
+        ));
+        let incentive_reward_account_id = Loans::<T>::incentive_reward_account_id();
+        let reward_lend_tokens = orml_tokens::Pallet::<T>::free_balance(LEND_DOT, &incentive_reward_account_id);
+        let rate: f64 = 0.02;
+        let reward_underlying = (reward_lend_tokens as f64 * rate) as u128;
+        let receiver = T::Lookup::unlookup(alice.clone());
+        #[extrinsic_call]
+        Loans::reduce_incentive_reserves(SystemOrigin::Root, receiver.clone().into(), DOT, reward_underlying);
+        assert_last_event::<T>(
+            Event::<T>::IncentiveReservesReduced {
+                receiver: alice.clone(),
+                currency_id: DOT,
+                amount: reward_underlying,
+            }
+            .into(),
+        );
+    }
 
     #[benchmark]
     pub fn add_reserves() {
