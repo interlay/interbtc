@@ -66,6 +66,17 @@ pub enum CurrencyId {
     StableLPV2(PoolId),
 }
 
+impl From<u32> for CurrencyId {
+    fn from(value: u32) -> Self {
+        if value < 1000 {
+            // Inner value must fit inside `u8`
+            CurrencyId::Token((value % 256).try_into().unwrap())
+        } else {
+            CurrencyId::StableLPV2((value % 256).try_into().unwrap())
+        }
+    }
+}
+
 #[derive(Encode, Decode, Eq, PartialEq, Copy, Clone, RuntimeDebug, PartialOrd, MaxEncodedLen, Ord, TypeInfo)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 pub enum PoolToken {
@@ -158,6 +169,16 @@ impl Config for Test {
     type PoolCurrencySymbolLimit = PoolCurrencySymbolLimit;
     type PalletId = StableAmmPalletId;
     type WeightInfo = ();
+}
+
+pub struct ExtBuilder;
+
+impl ExtBuilder {
+    pub fn build() -> sp_io::TestExternalities {
+        let storage = frame_system::GenesisConfig::default().build_storage::<Test>().unwrap();
+
+        storage.into()
+    }
 }
 
 pub struct EnsurePoolAssetImpl<Local>(PhantomData<Local>);
