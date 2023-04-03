@@ -1,4 +1,7 @@
-use bitcoin::types::{H256Le, RawBlockHeader};
+use bitcoin::{
+    parser::parse_block_header_lenient,
+    types::{BlockHeader, H256Le, MerkleProof, RawBlockHeader},
+};
 use flate2::read::GzDecoder;
 use serde::Deserialize;
 use std::{
@@ -35,8 +38,9 @@ impl Block {
         H256Le::from_hex_be(&self.hash)
     }
 
-    pub fn get_raw_header(&self) -> RawBlockHeader {
-        RawBlockHeader::from_hex(&self.raw_header).expect(ERR_INVALID_HEADER)
+    pub fn get_block_header(&self) -> BlockHeader {
+        parse_block_header_lenient(&RawBlockHeader::from_hex(&self.raw_header).expect(ERR_INVALID_HEADER))
+            .expect(ERR_INVALID_HEADER)
     }
 }
 
@@ -51,8 +55,8 @@ impl Transaction {
         H256Le::from_hex_be(&self.txid)
     }
 
-    pub fn get_raw_merkle_proof(&self) -> Vec<u8> {
-        hex::decode(&self.raw_merkle_proof).expect(ERR_INVALID_PROOF)
+    pub fn get_merkle_proof(&self) -> MerkleProof {
+        MerkleProof::parse(&hex::decode(&self.raw_merkle_proof).expect(ERR_INVALID_PROOF)).expect(ERR_INVALID_PROOF)
     }
 }
 

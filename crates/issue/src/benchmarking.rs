@@ -1,10 +1,6 @@
 use super::*;
-use bitcoin::{
-    formatter::{Formattable, TryFormattable},
-    types::{
-        BlockBuilder, RawBlockHeader, TransactionBuilder, TransactionInputBuilder, TransactionInputSource,
-        TransactionOutput,
-    },
+use bitcoin::types::{
+    BlockBuilder, TransactionBuilder, TransactionInputBuilder, TransactionInputSource, TransactionOutput,
 };
 use btc_relay::{BtcAddress, BtcPublicKey};
 use currency::getters::{get_relay_chain_currency_id as get_collateral_currency_id, *};
@@ -82,11 +78,8 @@ fn mine_blocks<T: crate::Config>(end_height: u32) {
         .mine(U256::from(2).pow(254.into()))
         .unwrap();
 
-    let raw_block_header = RawBlockHeader::from_bytes(&block.header.try_format().unwrap()).unwrap();
-    let block_header = BtcRelay::<T>::parse_raw_block_header(&raw_block_header).unwrap();
-
     Security::<T>::set_active_block_number(1u32.into());
-    BtcRelay::<T>::_initialize(relayer_id.clone(), block_header, height).unwrap();
+    BtcRelay::<T>::_initialize(relayer_id.clone(), block.header, height).unwrap();
 
     let transaction = TransactionBuilder::new()
         .with_version(2)
@@ -118,10 +111,7 @@ fn mine_blocks<T: crate::Config>(end_height: u32) {
             .unwrap();
         prev_hash = block.header.hash;
 
-        let raw_block_header = RawBlockHeader::from_bytes(&block.header.try_format().unwrap()).unwrap();
-        let block_header = BtcRelay::<T>::parse_raw_block_header(&raw_block_header).unwrap();
-
-        BtcRelay::<T>::_store_block_header(&relayer_id, block_header).unwrap();
+        BtcRelay::<T>::_store_block_header(&relayer_id, block.header).unwrap();
     }
 }
 
@@ -150,11 +140,9 @@ benchmarks! {
             .with_timestamp(1588813835)
             .mine(U256::from(2).pow(254.into())).unwrap();
         let block_hash = block.header.hash;
-        let raw_block_header = RawBlockHeader::from_bytes(&block.header.try_format().unwrap()).unwrap();
-        let block_header = BtcRelay::<T>::parse_raw_block_header(&raw_block_header).unwrap();
 
         Security::<T>::set_active_block_number(1u32.into());
-        BtcRelay::<T>::_initialize(relayer_id.clone(), block_header, height).unwrap();
+        BtcRelay::<T>::_initialize(relayer_id.clone(), block.header, height).unwrap();
 
         let vault_btc_address = BtcAddress::dummy();
 
@@ -187,9 +175,7 @@ benchmarks! {
             .add_transaction(transaction)
             .mine(U256::from(2).pow(254.into())).unwrap();
 
-        let raw_block_header = RawBlockHeader::from_bytes(&block.header.try_format().unwrap()).unwrap();
-        let block_header = BtcRelay::<T>::parse_raw_block_header(&raw_block_header).unwrap();
-        BtcRelay::<T>::_store_block_header(&relayer_id, block_header).unwrap();
+        BtcRelay::<T>::_store_block_header(&relayer_id, block.header).unwrap();
         Security::<T>::set_active_block_number(Security::<T>::active_block_number() + BtcRelay::<T>::parachain_confirmations());
 
     }: _(RawOrigin::Signed(origin), amount, vault_id)
@@ -230,11 +216,9 @@ benchmarks! {
             .mine(U256::from(2).pow(254.into())).unwrap();
 
         let block_hash = block.header.hash;
-        let raw_block_header = RawBlockHeader::from_bytes(&block.header.try_format().unwrap()).unwrap();
-        let block_header = BtcRelay::<T>::parse_raw_block_header(&raw_block_header).unwrap();
 
         Security::<T>::set_active_block_number(1u32.into());
-        BtcRelay::<T>::_initialize(relayer_id.clone(), block_header, height).unwrap();
+        BtcRelay::<T>::_initialize(relayer_id.clone(), block.header, height).unwrap();
 
         let transaction = TransactionBuilder::new()
             .with_version(2)
@@ -267,13 +251,9 @@ benchmarks! {
             .mine(U256::from(2).pow(254.into())).unwrap();
 
         let tx_id = transaction.tx_id();
-        let proof = block.merkle_proof(&[tx_id]).unwrap().try_format().unwrap();
-        let raw_tx = transaction.format_with(true);
+        let merkle_proof = block.merkle_proof(&[tx_id]).unwrap();
 
-        let raw_block_header = RawBlockHeader::from_bytes(&block.header.try_format().unwrap()).unwrap();
-        let block_header = BtcRelay::<T>::parse_raw_block_header(&raw_block_header).unwrap();
-
-        BtcRelay::<T>::_store_block_header(&relayer_id, block_header).unwrap();
+        BtcRelay::<T>::_store_block_header(&relayer_id, block.header).unwrap();
         Security::<T>::set_active_block_number(Security::<T>::active_block_number() + BtcRelay::<T>::parachain_confirmations());
 
         VaultRegistry::<T>::_set_system_collateral_ceiling(get_currency_pair::<T>(), 1_000_000_000u32.into());
@@ -284,7 +264,7 @@ benchmarks! {
         VaultRegistry::<T>::try_increase_to_be_issued_tokens(&vault_id, &value).unwrap();
         let secure_id = Security::<T>::get_secure_id(&vault_id.account_id);
         VaultRegistry::<T>::register_deposit_address(&vault_id, secure_id).unwrap();
-    }: _(RawOrigin::Signed(origin), issue_id, proof, raw_tx)
+    }: _(RawOrigin::Signed(origin), issue_id, merkle_proof, transaction)
 
     cancel_issue {
         let origin: T::AccountId = account("Origin", 0, 0);

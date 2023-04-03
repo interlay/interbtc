@@ -32,20 +32,19 @@ fn integration_test_submit_block_headers_and_verify_transaction_inclusion() {
             .iter()
             .position(|d| d.height % DIFFICULTY_ADJUSTMENT_INTERVAL == 0)
             .unwrap();
-        let parachain_genesis_header = test_data[skip_blocks].get_raw_header();
+        let parachain_genesis_header = test_data[skip_blocks].get_block_header();
         let parachain_genesis_height = test_data[skip_blocks].height;
         assert_eq!(parachain_genesis_height % DIFFICULTY_ADJUSTMENT_INTERVAL, 0);
 
         assert_ok!(RuntimeCall::BTCRelay(BTCRelayCall::initialize {
-            raw_block_header: parachain_genesis_header,
+            block_header: parachain_genesis_header,
             block_height: parachain_genesis_height
         })
         .dispatch(origin_of(account_of(ALICE))));
 
         for block in test_data.iter().skip(skip_blocks + 1).take(BLOCKS_TO_TEST) {
-            let raw_header = block.get_raw_header();
-            let parsed_block = bitcoin::parser::parse_block_header_lenient(&raw_header).unwrap();
-            let prev_header_hash = parsed_block.hash_prev_block;
+            let block_header = block.get_block_header();
+            let prev_header_hash = block_header.hash_prev_block;
 
             // check that the previously submitted header and the current header are matching
             let best_block_hash = BTCRelayPallet::get_best_block();
@@ -56,7 +55,7 @@ fn integration_test_submit_block_headers_and_verify_transaction_inclusion() {
 
             // submit block hashes
             assert_ok!(RuntimeCall::BTCRelay(BTCRelayCall::store_block_header {
-                raw_block_header: block.get_raw_header()
+                block_header: block.get_block_header()
             })
             .dispatch(origin_of(account_of(ALICE))));
 
@@ -69,11 +68,11 @@ fn integration_test_submit_block_headers_and_verify_transaction_inclusion() {
         for block in test_data.iter().skip(skip_blocks).take(BLOCKS_TO_TEST) {
             for tx in &block.test_txs {
                 let txid = tx.get_txid();
-                let raw_merkle_proof = tx.get_raw_merkle_proof();
+                let merkle_proof = tx.get_merkle_proof();
                 if block.height <= current_height - CONFIRMATIONS + 1 {
                     assert_ok!(RuntimeCall::BTCRelay(BTCRelayCall::verify_transaction_inclusion {
                         tx_id: txid,
-                        raw_merkle_proof: raw_merkle_proof,
+                        merkle_proof,
                         confirmations: None,
                     })
                     .dispatch(origin_of(account_of(ALICE))));
@@ -82,7 +81,7 @@ fn integration_test_submit_block_headers_and_verify_transaction_inclusion() {
                     assert_noop!(
                         RuntimeCall::BTCRelay(BTCRelayCall::verify_transaction_inclusion {
                             tx_id: txid,
-                            raw_merkle_proof: raw_merkle_proof,
+                            merkle_proof,
                             confirmations: None,
                         })
                         .dispatch(origin_of(account_of(ALICE))),

@@ -455,8 +455,8 @@ mod spec_based_tests {
                 assert_noop!(
                     RuntimeCall::Redeem(RedeemCall::execute_redeem {
                         redeem_id: H256::random(),
-                        merkle_proof: vec![0; 240],
-                        raw_tx: vec![0; 240]
+                        merkle_proof: Default::default(),
+                        transaction: Default::default(),
                     })
                     .dispatch(origin_of(account_of(VAULT))),
                     RedeemError::RedeemIdNotFound
@@ -516,7 +516,7 @@ mod spec_based_tests {
                 );
 
                 // The `merkleProof` MUST contain a valid proof of of `rawTX`
-                let (_tx_id, _tx_block_height, _merkle_proof, raw_tx, _) = generate_transaction_and_mine(
+                let (_tx_id, _tx_block_height, _merkle_proof, transaction) = generate_transaction_and_mine(
                     Default::default(),
                     vec![],
                     vec![(user_btc_address, redeem.amount_btc())],
@@ -526,8 +526,8 @@ mod spec_based_tests {
                 assert_noop!(
                     RuntimeCall::Redeem(RedeemCall::execute_redeem {
                         redeem_id: redeem_id,
-                        merkle_proof: invalid_merkle_proof,
-                        raw_tx: raw_tx.clone()
+                        merkle_proof: MerkleProof::parse(&invalid_merkle_proof).unwrap(),
+                        transaction,
                     })
                     .dispatch(origin_of(account_of(VAULT))),
                     BTCRelayError::BlockNotFound
@@ -1268,7 +1268,7 @@ fn integration_test_premium_redeem_wrapped_execute() {
         let redeem = RedeemPallet::get_open_redeem_request_from_id(&redeem_id).unwrap();
 
         // send the btc from the vault to the user
-        let (_tx_id, _tx_block_height, merkle_proof, raw_tx, _) = generate_transaction_and_mine(
+        let (_tx_id, _tx_block_height, merkle_proof, transaction) = generate_transaction_and_mine(
             Default::default(),
             vec![],
             vec![(user_btc_address, redeem.amount_btc())],
@@ -1278,9 +1278,9 @@ fn integration_test_premium_redeem_wrapped_execute() {
         SecurityPallet::set_active_block_number(1 + CONFIRMATIONS);
 
         assert_ok!(RuntimeCall::Redeem(RedeemCall::execute_redeem {
-            redeem_id: redeem_id,
-            merkle_proof: merkle_proof,
-            raw_tx: raw_tx
+            redeem_id,
+            merkle_proof,
+            transaction
         })
         .dispatch(origin_of(account_of(VAULT))));
 
@@ -1336,7 +1336,7 @@ fn integration_test_multiple_redeems_multiple_op_returns() {
         let redeem_2 = RedeemPallet::get_open_redeem_request_from_id(&redeem_2_id).unwrap();
 
         // try to fulfill both redeem requests in a single transaction
-        let (_tx_id, _tx_block_height, merkle_proof, raw_tx, _) = generate_transaction_and_mine(
+        let (_tx_id, _tx_block_height, merkle_proof, transaction) = generate_transaction_and_mine(
             Default::default(),
             vec![],
             vec![
@@ -1352,7 +1352,7 @@ fn integration_test_multiple_redeems_multiple_op_returns() {
             RuntimeCall::Redeem(RedeemCall::execute_redeem {
                 redeem_id: redeem_1_id,
                 merkle_proof: merkle_proof.clone(),
-                raw_tx: raw_tx.clone()
+                transaction: transaction.clone(),
             })
             .dispatch(origin_of(account_of(VAULT))),
             BTCRelayError::InvalidOpReturnTransaction
@@ -1362,7 +1362,7 @@ fn integration_test_multiple_redeems_multiple_op_returns() {
             RuntimeCall::Redeem(RedeemCall::execute_redeem {
                 redeem_id: redeem_2_id,
                 merkle_proof: merkle_proof.clone(),
-                raw_tx: raw_tx.clone()
+                transaction: transaction.clone(),
             })
             .dispatch(origin_of(account_of(VAULT))),
             BTCRelayError::InvalidOpReturnTransaction
@@ -1387,7 +1387,7 @@ fn integration_test_single_redeem_multiple_op_returns() {
         let redeem_id = assert_redeem_request_event();
         let redeem = RedeemPallet::get_open_redeem_request_from_id(&redeem_id).unwrap();
 
-        let (_tx_id, _tx_block_height, merkle_proof, raw_tx, _) = generate_transaction_and_mine(
+        let (_tx_id, _tx_block_height, merkle_proof, transaction) = generate_transaction_and_mine(
             Default::default(),
             vec![],
             vec![(user_btc_address, redeem.amount_btc())],
@@ -1401,9 +1401,9 @@ fn integration_test_single_redeem_multiple_op_returns() {
 
         assert_err!(
             RuntimeCall::Redeem(RedeemCall::execute_redeem {
-                redeem_id: redeem_id,
-                merkle_proof: merkle_proof.clone(),
-                raw_tx: raw_tx.clone()
+                redeem_id,
+                merkle_proof,
+                transaction
             })
             .dispatch(origin_of(account_of(VAULT))),
             BTCRelayError::InvalidOpReturnTransaction

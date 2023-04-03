@@ -1,11 +1,13 @@
 use crate::{formatter::Formattable, parser::extract_op_return_data, types::*, Error};
+use codec::{Decode, Encode};
+use scale_info::TypeInfo;
 use sp_std::{prelude::*, vec};
 
 #[cfg(feature = "std")]
 use codec::alloc::string::String;
 
 /// Bitcoin script
-#[derive(PartialEq, Debug, Clone)]
+#[derive(Encode, Decode, TypeInfo, PartialEq, Debug, Clone)]
 pub struct Script {
     pub(crate) bytes: Vec<u8>,
 }

@@ -30,6 +30,7 @@ pub mod types;
 pub use crate::types::{DefaultRedeemRequest, RedeemRequest, RedeemRequestStatus};
 
 use crate::types::{BalanceOf, RedeemRequestExt, Version};
+use bitcoin::types::{MerkleProof, Transaction};
 use btc_relay::BtcAddress;
 use currency::Amount;
 use frame_support::{
@@ -274,11 +275,11 @@ pub mod pallet {
         pub fn execute_redeem(
             origin: OriginFor<T>,
             redeem_id: H256,
-            merkle_proof: Vec<u8>,
-            raw_tx: Vec<u8>,
+            merkle_proof: MerkleProof,
+            transaction: Transaction,
         ) -> DispatchResultWithPostInfo {
             let _ = ensure_signed(origin)?;
-            Self::_execute_redeem(redeem_id, merkle_proof, raw_tx)?;
+            Self::_execute_redeem(redeem_id, merkle_proof, transaction)?;
 
             // Don't take tx fees on success. If the vault had to pay for this function, it would
             // have been vulnerable to a griefing attack where users would redeem amounts just
@@ -568,12 +569,14 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
-    fn _execute_redeem(redeem_id: H256, raw_merkle_proof: Vec<u8>, raw_tx: Vec<u8>) -> Result<(), DispatchError> {
+    fn _execute_redeem(
+        redeem_id: H256,
+        merkle_proof: MerkleProof,
+        transaction: Transaction,
+    ) -> Result<(), DispatchError> {
         let redeem = Self::get_open_redeem_request_from_id(&redeem_id)?;
 
         // check the transaction inclusion and validity
-        let transaction = ext::btc_relay::parse_transaction::<T>(&raw_tx)?;
-        let merkle_proof = ext::btc_relay::parse_merkle_proof::<T>(&raw_merkle_proof)?;
         ext::btc_relay::verify_and_validate_op_return_transaction::<T, _>(
             merkle_proof,
             transaction,

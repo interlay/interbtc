@@ -69,8 +69,7 @@ use sp_std::{
 pub use bitcoin::{self, Address as BtcAddress, PublicKey as BtcPublicKey};
 use bitcoin::{
     merkle::{MerkleProof, ProofResult},
-    parser::{parse_block_header, parse_transaction},
-    types::{BlockChain, BlockHeader, H256Le, RawBlockHeader, Transaction, Value},
+    types::{BlockChain, BlockHeader, H256Le, Transaction, Value},
     Error as BitcoinError, SetCompact,
 };
 pub use types::{OpReturnPaymentData, RichBlockHeader};
@@ -110,7 +109,7 @@ pub mod pallet {
         ///
         /// # Arguments
         ///
-        /// * `block_header_bytes` - 80 byte raw Bitcoin block header.
+        /// * `block_header` - Bitcoin block header.
         /// * `block_height` - starting Bitcoin block height of the submitted block header.
         ///
         /// # <weight>
@@ -134,12 +133,11 @@ pub mod pallet {
         #[transactional]
         pub fn initialize(
             origin: OriginFor<T>,
-            raw_block_header: RawBlockHeader,
+            block_header: BlockHeader,
             block_height: u32,
         ) -> DispatchResultWithPostInfo {
             let relayer = ensure_signed(origin)?;
 
-            let block_header = Self::parse_raw_block_header(&raw_block_header)?;
             Self::_initialize(relayer, block_header, block_height)?;
 
             // don't take tx fees on success
@@ -150,7 +148,7 @@ pub mod pallet {
         ///
         /// # Arguments
         ///
-        /// * `raw_block_header` - 80 byte raw Bitcoin block header.
+        /// * `block_header` - Bitcoin block header.
         ///
         /// # <weight>
         /// Key: C (len of chains), P (len of positions)
@@ -179,28 +177,24 @@ pub mod pallet {
         #[pallet::call_index(1)]
         #[pallet::weight(<T as Config>::WeightInfo::store_block_header())]
         #[transactional]
-        pub fn store_block_header(
-            origin: OriginFor<T>,
-            raw_block_header: RawBlockHeader,
-        ) -> DispatchResultWithPostInfo {
+        pub fn store_block_header(origin: OriginFor<T>, block_header: BlockHeader) -> DispatchResultWithPostInfo {
             let relayer = ensure_signed(origin)?;
 
-            let block_header = Self::parse_raw_block_header(&raw_block_header)?;
             Self::_store_block_header(&relayer, block_header)?;
 
             // don't take tx fees on success
             Ok(Pays::No.into())
         }
 
-        /// Verifies the inclusion of `tx_id` into the relay, and validates the given raw Bitcoin transaction, according
+        /// Verifies the inclusion of `tx_id` into the relay, and validates the given Bitcoin transaction, according
         /// to the supported transaction format (see <https://spec.interlay.io/intro/accepted-format.html>)
         ///
         /// # Arguments
         ///
-        /// * `raw_merkle_proof` - The raw merkle proof as returned by bitcoin `gettxoutproof`
+        /// * `merkle_proof` - The merkle proof as returned by bitcoin `gettxoutproof`
         /// * `confirmations` - The number of confirmations needed to accept the proof. If `none`, the value stored in
         ///   the StableBitcoinConfirmations storage item is used.
-        /// * `raw_tx` - raw Bitcoin transaction
+        /// * `transaction` - The Bitcoin transaction
         /// * `expected_btc` - expected amount of BTC (satoshis) sent to the recipient
         /// * `recipient_btc_address` - 20 byte Bitcoin address of recipient of the BTC in the 1st  / payment UTXO
         /// * `op_return_id` - 32 byte hash identifier expected in OP_RETURN (replay protection)
@@ -209,17 +203,14 @@ pub mod pallet {
         #[transactional]
         pub fn verify_and_validate_transaction(
             origin: OriginFor<T>,
-            raw_merkle_proof: Vec<u8>,
+            merkle_proof: MerkleProof,
             confirmations: Option<u32>,
-            raw_tx: Vec<u8>,
+            transaction: Transaction,
             expected_btc: Value,
             recipient_btc_address: BtcAddress,
             op_return_id: Option<H256>,
         ) -> DispatchResultWithPostInfo {
             let _ = ensure_signed(origin)?;
-
-            let transaction = Self::parse_transaction(&raw_tx)?;
-            let merkle_proof = Self::parse_merkle_proof(&raw_merkle_proof)?;
             Self::_verify_transaction_inclusion(transaction.tx_id(), merkle_proof, confirmations)?;
             Self::_validate_transaction(transaction, expected_btc, recipient_btc_address, op_return_id)?;
             Ok(().into())
@@ -230,7 +221,7 @@ pub mod pallet {
         /// # Arguments
         ///
         /// * `tx_id` - The hash of the transaction to check for
-        /// * `raw_merkle_proof` - The raw merkle proof as returned by bitcoin `gettxoutproof`
+        /// * `merkle_proof` - The merkle proof as returned by bitcoin `gettxoutproof`
         /// * `confirmations` - The number of confirmations needed to accept the proof. If `none`, the value stored in
         ///   the `StableBitcoinConfirmations` storage item is used.
         ///
@@ -251,23 +242,21 @@ pub mod pallet {
         pub fn verify_transaction_inclusion(
             origin: OriginFor<T>,
             tx_id: H256Le,
-            raw_merkle_proof: Vec<u8>,
+            merkle_proof: MerkleProof,
             confirmations: Option<u32>,
         ) -> DispatchResultWithPostInfo {
             let _ = ensure_signed(origin)?;
-
-            let merkle_proof = Self::parse_merkle_proof(&raw_merkle_proof)?;
             Self::_verify_transaction_inclusion(tx_id, merkle_proof, confirmations)?;
             Ok(().into())
         }
 
-        /// Validates a given raw Bitcoin transaction, according to the supported transaction
+        /// Validates a given Bitcoin transaction, according to the supported transaction
         /// format (see <https://spec.interlay.io/intro/accepted-format.html>)
         /// This DOES NOT check if the transaction is included in a block, nor does it guarantee that the
         /// transaction is fully valid according to the consensus (needs full node).
         ///
         /// # Arguments
-        /// * `raw_tx` - raw Bitcoin transaction
+        /// * `transaction` - Bitcoin transaction
         /// * `expected_btc` - expected amount of BTC (satoshis) sent to the recipient
         /// * `recipient_btc_address` - expected Bitcoin address of recipient (p2sh, p2pkh, p2wpkh)
         /// * `op_return_id` - 32 byte hash identifier expected in OP_RETURN (replay protection)
@@ -276,15 +265,12 @@ pub mod pallet {
         #[transactional]
         pub fn validate_transaction(
             origin: OriginFor<T>,
-            raw_tx: Vec<u8>,
+            transaction: Transaction,
             expected_btc: Value,
             recipient_btc_address: BtcAddress,
             op_return_id: Option<H256>,
         ) -> DispatchResultWithPostInfo {
             let _ = ensure_signed(origin)?;
-
-            let transaction = Self::parse_transaction(&raw_tx)?;
-
             Self::_validate_transaction(transaction, expected_btc, recipient_btc_address, op_return_id)?;
             Ok(().into())
         }
@@ -522,7 +508,7 @@ pub const DIFFICULTY_ADJUSTMENT_INTERVAL: u32 = 2016;
 // https://github.com/bitcoin/bitcoin/blob/5ba5becbb5d8c794efe579caeea7eea64f895a13/src/chainparams.cpp#L78
 pub const TARGET_SPACING: u32 = 10 * 60;
 
-/// Accepted maximum number of transaction outputs for validation of redeem & replace requests
+/// Accepted maximum number of transaction outputs for validation of redeem/replace/refund
 /// See: <https://spec.interlay.io/intro/accepted-format.html#accepted-bitcoin-transaction-format>
 pub const ACCEPTED_MAX_TRANSACTION_OUTPUTS: usize = 3;
 
@@ -635,10 +621,6 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
-    pub fn parse_raw_block_header(raw_block_header: &RawBlockHeader) -> Result<BlockHeader, DispatchError> {
-        Ok(parse_block_header(raw_block_header).map_err(Error::<T>::from)?)
-    }
-
     // helper for the dispatchable
     fn _validate_transaction(
         transaction: Transaction,
@@ -701,7 +683,7 @@ impl<T: Config> Pallet<T> {
         // Verify that the transaction is indeed included in the main chain
         Self::_verify_transaction_inclusion(transaction.tx_id(), merkle_proof, None)?;
 
-        // Parse transaction and check that it matches the given parameters
+        // Check that the transaction matches the given parameters
         Self::validate_op_return_transaction(transaction, recipient_btc_address, expected_btc, op_return_id)?;
         Ok(())
     }
@@ -1007,19 +989,11 @@ impl<T: Config> Pallet<T> {
     // *********************************
 
     // Wrapper functions around bitcoin lib for testing purposes
-    pub fn parse_transaction(raw_tx: &[u8]) -> Result<Transaction, DispatchError> {
-        Ok(parse_transaction(&raw_tx).map_err(Error::<T>::from)?)
-    }
-
-    pub fn parse_merkle_proof(raw_merkle_proof: &[u8]) -> Result<MerkleProof, DispatchError> {
-        MerkleProof::parse(&raw_merkle_proof).map_err(|err| Error::<T>::from(err).into())
-    }
-
     fn verify_merkle_proof(merkle_proof: &MerkleProof) -> Result<ProofResult, DispatchError> {
         merkle_proof.verify_proof().map_err(|err| Error::<T>::from(err).into())
     }
 
-    /// Parses and verifies a raw Bitcoin block header.
+    /// Verifies a Bitcoin block header.
     ///
     /// # Arguments
     ///

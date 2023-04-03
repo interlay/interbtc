@@ -264,7 +264,7 @@ impl BlockHeader {
     }
 }
 
-#[derive(PartialEq, Clone, Debug)]
+#[derive(Encode, Decode, TypeInfo, PartialEq, Clone, Debug)]
 pub enum TransactionInputSource {
     /// Spending from transaction with the given hash, from output with the given index
     FromOutput(H256Le, u32),
@@ -273,7 +273,7 @@ pub enum TransactionInputSource {
 }
 
 /// Bitcoin transaction input
-#[derive(PartialEq, Clone, Debug)]
+#[derive(Encode, Decode, TypeInfo, PartialEq, Clone, Debug)]
 pub struct TransactionInput {
     pub source: TransactionInputSource,
     pub script: Vec<u8>,
@@ -302,7 +302,7 @@ impl TransactionInput {
 pub type Value = i64;
 
 /// Bitcoin transaction output
-#[derive(PartialEq, Debug, Clone)]
+#[derive(Encode, Decode, TypeInfo, PartialEq, Debug, Clone)]
 pub struct TransactionOutput {
     pub value: Value,
     pub script: Script,
@@ -330,7 +330,7 @@ impl TransactionOutput {
 
 /// Bitcoin transaction
 // Note: the `default` implementation is used only for testing code
-#[derive(PartialEq, Debug, Clone, Default)]
+#[derive(Encode, Decode, TypeInfo, Default, PartialEq, Debug, Clone)]
 pub struct Transaction {
     pub version: i32,
     pub inputs: Vec<TransactionInput>,
@@ -350,7 +350,7 @@ impl Transaction {
 }
 
 // https://en.bitcoin.it/wiki/NLockTime
-#[derive(PartialEq, Debug, Clone)]
+#[derive(Encode, Decode, TypeInfo, PartialEq, Debug, Clone)]
 pub enum LockTime {
     /// time as unix timestamp
     Time(u32),
