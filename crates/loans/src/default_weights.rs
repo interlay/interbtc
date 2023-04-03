@@ -56,6 +56,8 @@ pub trait WeightInfo {
 	fn withdraw_all_collateral() -> Weight;
 	fn add_reserves() -> Weight;
 	fn reduce_reserves() -> Weight;
+	fn liquidate_borrow() -> Weight;
+	fn reduce_incentive_reserves() -> Weight;
 }
 
 /// Weights for loans using the Substrate node and recommended hardware.
@@ -512,6 +514,11 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(T::DbWeight::get().reads(15_u64))
 			.saturating_add(T::DbWeight::get().writes(3_u64))
 	}
+	fn liquidate_borrow() -> Weight {
+		Weight::from_ref_time(637_956_000 as u64)
+			.saturating_add(T::DbWeight::get().reads(40 as u64))
+			.saturating_add(T::DbWeight::get().writes(20 as u64))
+	}
 	/// Storage: Loans Markets (r:2 w:0)
 	/// Proof Skipped: Loans Markets (max_values: None, max_size: None, mode: Measured)
 	/// Storage: Timestamp Now (r:1 w:0)
@@ -553,6 +560,11 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		Weight::from_parts(112_916_000, 26757)
 			.saturating_add(T::DbWeight::get().reads(8_u64))
 			.saturating_add(T::DbWeight::get().writes(4_u64))
+	}
+	fn reduce_incentive_reserves() -> Weight {
+		Weight::from_ref_time(370_601_000 as u64)
+			.saturating_add(T::DbWeight::get().reads(22 as u64))
+			.saturating_add(T::DbWeight::get().writes(9 as u64))
 	}
 }
 
@@ -1009,6 +1021,11 @@ impl WeightInfo for () {
 			.saturating_add(RocksDbWeight::get().reads(15_u64))
 			.saturating_add(RocksDbWeight::get().writes(3_u64))
 	}
+	fn liquidate_borrow() -> Weight {
+		Weight::from_ref_time(637_956_000 as u64)
+			.saturating_add(RocksDbWeight::get().reads(40 as u64))
+			.saturating_add(RocksDbWeight::get().writes(20 as u64))
+	}
 	/// Storage: Loans Markets (r:2 w:0)
 	/// Proof Skipped: Loans Markets (max_values: None, max_size: None, mode: Measured)
 	/// Storage: Timestamp Now (r:1 w:0)
@@ -1050,5 +1067,10 @@ impl WeightInfo for () {
 		Weight::from_parts(112_916_000, 26757)
 			.saturating_add(RocksDbWeight::get().reads(8_u64))
 			.saturating_add(RocksDbWeight::get().writes(4_u64))
+	}
+	fn reduce_incentive_reserves() -> Weight {
+		Weight::from_ref_time(370_601_000 as u64)
+			.saturating_add(RocksDbWeight::get().reads(22 as u64))
+			.saturating_add(RocksDbWeight::get().writes(9 as u64))
 	}
 }
