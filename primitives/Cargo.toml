@@ -33,3 +33,4 @@ std = [
 
     "dex-general/std",
 ]
+runtime-benchmarks = []

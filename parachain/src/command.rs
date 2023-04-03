@@ -60,7 +60,7 @@ impl IdentifyChain for dyn sc_service::ChainSpec {
         self.id().starts_with("testnet-interlay")
     }
     fn is_kintsugi_testnet(&self) -> bool {
-        self.id().starts_with("testnet-kintsugi")
+        self.id().starts_with("testnet-kintsugi") || self.id().starts_with("staging")
     }
 }
 

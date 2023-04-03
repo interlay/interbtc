@@ -558,3 +558,10 @@ impl dex_general::AssetInfo for CurrencyId {
         }
     }
 }
+
+#[cfg(feature = "runtime-benchmarks")]
+impl From<u32> for CurrencyId {
+    fn from(value: u32) -> Self {
+        CurrencyId::ForeignAsset(value)
+    }
+}
