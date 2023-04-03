@@ -53,6 +53,18 @@ impl AssetInfo for CurrencyId {
     }
 }
 
+impl From<u32> for CurrencyId {
+    fn from(value: u32) -> Self {
+        if value < 1000 {
+            // Inner value must fit inside `u8`
+            CurrencyId::Token((value % 256).try_into().unwrap())
+        } else {
+            // Uses a dummy value for the second tuple item
+            CurrencyId::LpToken((value % 256).try_into().unwrap(), 0)
+        }
+    }
+}
+
 frame_support::construct_runtime!(
     pub enum Test where
         Block = Block,
