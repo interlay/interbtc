@@ -112,12 +112,10 @@ fn integration_test_submit_fork_headers() {
         SecurityPallet::set_active_block_number(1);
 
         let genesis_height = 0;
-        let raw_genesis_header = test_data[0];
-
         // Note: the testdata set is old and hence this is a block version below 4
         // Therefore, this is stored directly from the parsed block in the `btc-relay` pallet
         // without going through the `relay` pallet, which checks for the block version when parsing
-        let genesis_header = bitcoin::parser::parse_block_header_lenient(&raw_genesis_header).unwrap();
+        let genesis_header = test_data[0];
 
         assert_ok!(BTCRelayPallet::_initialize(
             account_of(ALICE),
@@ -127,21 +125,19 @@ fn integration_test_submit_fork_headers() {
 
         // submit the two fork headers first so that they become the main chain
         // chains_index[0]: [0] -> [f1] -> [f2]
-        for (index, raw_header) in test_data.iter().enumerate().skip(1).take(NUM_FORK_HEADERS as usize) {
+        for (index, header) in test_data.iter().enumerate().skip(1).take(NUM_FORK_HEADERS as usize) {
             SecurityPallet::set_active_block_number(index as u32);
-            let header = bitcoin::parser::parse_block_header_lenient(raw_header).unwrap();
 
-            assert_ok!(BTCRelayPallet::_store_block_header(&account_of(ALICE), header));
+            assert_ok!(BTCRelayPallet::_store_block_header(&account_of(ALICE), header.clone()));
             assert_store_main_chain_header_event(index as u32, header.hash, account_of(ALICE));
         }
 
         // submit future main chain without genesis
-        for (index, raw_header) in test_data.iter().enumerate().skip(1 + NUM_FORK_HEADERS as usize) {
+        for (index, header) in test_data.iter().enumerate().skip(1 + NUM_FORK_HEADERS as usize) {
             SecurityPallet::set_active_block_number(index as u32);
-            let header = bitcoin::parser::parse_block_header_lenient(raw_header).unwrap();
             let height: u32 = index as u32 - NUM_FORK_HEADERS;
 
-            assert_ok!(BTCRelayPallet::_store_block_header(&account_of(ALICE), header));
+            assert_ok!(BTCRelayPallet::_store_block_header(&account_of(ALICE), header.clone()));
 
             // depending on the height and header, we expect different events and chain state
             match height {

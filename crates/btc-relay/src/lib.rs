@@ -133,11 +133,12 @@ pub mod pallet {
         #[transactional]
         pub fn initialize(
             origin: OriginFor<T>,
-            block_header: BlockHeader,
+            mut block_header: BlockHeader,
             block_height: u32,
         ) -> DispatchResultWithPostInfo {
             let relayer = ensure_signed(origin)?;
 
+            Self::_validate_block_header(&mut block_header)?;
             Self::_initialize(relayer, block_header, block_height)?;
 
             // don't take tx fees on success
@@ -177,9 +178,10 @@ pub mod pallet {
         #[pallet::call_index(1)]
         #[pallet::weight(<T as Config>::WeightInfo::store_block_header())]
         #[transactional]
-        pub fn store_block_header(origin: OriginFor<T>, block_header: BlockHeader) -> DispatchResultWithPostInfo {
+        pub fn store_block_header(origin: OriginFor<T>, mut block_header: BlockHeader) -> DispatchResultWithPostInfo {
             let relayer = ensure_signed(origin)?;
 
+            Self::_validate_block_header(&mut block_header)?;
             Self::_store_block_header(&relayer, block_header)?;
 
             // don't take tx fees on success
@@ -618,6 +620,12 @@ impl<T: Config> Pallet<T> {
             });
         };
 
+        Ok(())
+    }
+
+    pub fn _validate_block_header(block_header: &mut BlockHeader) -> Result<(), DispatchError> {
+        block_header.ensure_version().map_err(Error::<T>::from)?;
+        block_header.update_hash().map_err(Error::<T>::from)?;
         Ok(())
     }
 

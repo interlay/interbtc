@@ -1,7 +1,4 @@
-use bitcoin::{
-    parser::parse_block_header_lenient,
-    types::{BlockHeader, H256Le, MerkleProof, RawBlockHeader},
-};
+use bitcoin::types::{BlockHeader, H256Le, MerkleProof};
 use flate2::read::GzDecoder;
 use serde::Deserialize;
 use std::{
@@ -39,8 +36,7 @@ impl Block {
     }
 
     pub fn get_block_header(&self) -> BlockHeader {
-        parse_block_header_lenient(&RawBlockHeader::from_hex(&self.raw_header).expect(ERR_INVALID_HEADER))
-            .expect(ERR_INVALID_HEADER)
+        BlockHeader::from_hex(&self.raw_header).expect(ERR_INVALID_HEADER)
     }
 }
 
@@ -91,12 +87,12 @@ pub fn get_bitcoin_testdata() -> Vec<Block> {
     test_data
 }
 
-pub fn get_fork_testdata() -> Vec<RawBlockHeader> {
+pub fn get_fork_testdata() -> Vec<BlockHeader> {
     let data = read_data(PATH_TESTNET_FORKS);
 
-    let test_data: Vec<RawBlockHeader> = data
+    let test_data: Vec<BlockHeader> = data
         .lines()
-        .filter_map(|s| RawBlockHeader::from_hex(s.strip_prefix(FORK_PREFIX).unwrap_or(s)).ok())
+        .filter_map(|s| BlockHeader::from_hex(s.strip_prefix(FORK_PREFIX).unwrap_or(s)).ok())
         .collect();
 
     assert!(test_data.len() == NUM_FORK_HEADERS as usize);
