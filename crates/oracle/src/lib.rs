@@ -109,8 +109,8 @@ pub mod pallet {
     #[pallet::hooks]
     impl<T: Config> Hooks<T::BlockNumber> for Pallet<T> {
         fn on_initialize(n: T::BlockNumber) -> Weight {
-            Self::begin_block(n);
-            <T as Config>::WeightInfo::on_initialize()
+            let iterations = Self::begin_block(n);
+            <T as Config>::WeightInfo::on_initialize(iterations)
         }
     }
 
@@ -254,7 +254,7 @@ pub mod pallet {
 #[cfg_attr(test, mockable)]
 impl<T: Config> Pallet<T> {
     // public only for testing purposes
-    pub fn begin_block(_height: T::BlockNumber) {
+    pub fn begin_block(_height: T::BlockNumber) -> u32 {
         // read to a temporary value, because we can't alter the map while we iterate over it
         let raw_values_updated: Vec<_> = RawValuesUpdated::<T>::iter().collect();
 
@@ -285,6 +285,8 @@ impl<T: Config> Pallet<T> {
                 Self::report_oracle_offline();
             }
         }
+
+        raw_values_updated.len().saturated_into()
     }
 
     // public only for testing purposes
