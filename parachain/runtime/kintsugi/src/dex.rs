@@ -2,14 +2,14 @@ use super::{
     parameter_types, Balance, CurrencyId, DexGeneral, DexStable, Get, PalletId, Runtime, RuntimeEvent, StablePoolId,
     Timestamp, Tokens,
 };
+use sp_core::ConstU16;
 
 pub use dex_general::{AssetBalance, GenerateLpAssetId, PairInfo};
 pub use dex_stable::traits::{StablePoolLpCurrencyIdGenerate, ValidateCurrency};
-use sp_core::ConstU16;
 
 parameter_types! {
     pub const DexGeneralPalletId: PalletId = PalletId(*b"dex/genr");
-    pub const DexStablePalletId: PalletId = PalletId(*b"dex/stab");
+    pub const DexStablePalletId: PalletId = PalletId(*b"dex/stbl");
     pub const StringLimit: u32 = 50;
     pub const MaxSwaps:u16 = 4;
 }

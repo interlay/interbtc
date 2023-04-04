@@ -66,6 +66,12 @@ impl<PoolId, CurrencyId: Clone> Route<PoolId, CurrencyId> {
             Route::Normal(x) => x.last().cloned(),
         }
     }
+    fn number_of_swaps(&self) -> usize {
+        match self {
+            Route::Stable(_) => 1,
+            Route::Normal(x) => x.len().saturating_sub(1),
+        }
+    }
 }
 pub use pallet::*;
 
@@ -103,6 +109,10 @@ pub mod pallet {
 
         type StableAMM: StableAmmApi<Self::StablePoolId, Self::CurrencyId, AccountIdOf<Self>, Self::Balance>;
 
+        /// The maximum number of swaps allowed in routes
+        #[pallet::constant]
+        type MaxSwaps: Get<u16>;
+
         /// Weight information for extrinsics in this pallet.
         type WeightInfo: WeightInfo;
     }
@@ -123,6 +133,7 @@ pub mod pallet {
         ConvertCurrencyFailed,
         AmountSlippage,
         InvalidPath,
+        ExceededSwapLimit,
     }
 
     #[pallet::call]
@@ -229,6 +240,12 @@ impl<T: Config> Pallet<T> {
     }
 
     fn validate_routes(routes: &[Route<T::StablePoolId, T::CurrencyId>]) -> DispatchResult {
+        let num_swaps = routes
+            .iter()
+            .map(|x| x.number_of_swaps())
+            .fold(0usize, |a, b| a.saturating_add(b));
+        ensure!(num_swaps <= T::MaxSwaps::get().into(), Error::<T>::ExceededSwapLimit);
+
         for [route_1, route_2] in routes.array_windows::<2>() {
             let output_1 = route_1.output_currency().ok_or(Error::<T>::InvalidPath)?;
             let input_2 = route_2.input_currency().ok_or(Error::<T>::InvalidPath)?;

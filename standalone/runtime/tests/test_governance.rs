@@ -2,13 +2,17 @@ mod mock;
 use crate::assert_eq;
 use mock::*;
 
+use codec::Encode;
 use democracy::{PropIndex, ReferendumIndex, ReferendumInfo, ReferendumStatus, Tally, Vote, VoteThreshold};
 use frame_support::{
     assert_err_ignore_postinfo,
-    traits::{Currency, GetCallMetadata, Hooks, StorePreimage},
+    traits::{Bounded, BoundedInline, Currency, GetCallMetadata, Hooks, StorePreimage},
 };
 use orml_vesting::VestingSchedule;
 use tx_pause::FullNameOf;
+
+type PreimageCall = pallet_preimage::Call<Runtime>;
+type PreimageEvent = pallet_preimage::Event<Runtime>;
 
 type DemocracyCall = democracy::Call<Runtime>;
 type DemocracyPallet = democracy::Pallet<Runtime>;
@@ -66,6 +70,20 @@ fn assert_democracy_proposed_event() -> PropIndex {
         .find_map(|record| {
             if let RuntimeEvent::Democracy(DemocracyEvent::Proposed { proposal_index, .. }) = record.event {
                 Some(proposal_index)
+            } else {
+                None
+            }
+        })
+        .expect("nothing was proposed")
+}
+
+fn assert_preimage_noted_event() -> H256 {
+    SystemPallet::events()
+        .iter()
+        .rev()
+        .find_map(|record| {
+            if let RuntimeEvent::Preimage(PreimageEvent::Noted { hash }) = record.event {
+                Some(hash)
             } else {
                 None
             }
@@ -305,6 +323,52 @@ fn integration_test_governance() {
     test_with(|| {
         let amount_to_set = 1000;
         create_set_balance_proposal(amount_to_set);
+        launch_and_execute_referendum();
+
+        // balance is now set to amount above
+        assert_eq!(CollateralCurrency::total_balance(&account_of(EVE)), amount_to_set);
+    });
+}
+
+#[test]
+fn integration_test_governance_inline_proposal() {
+    test_with(|| {
+        let amount_to_set = 1000;
+
+        let call = set_balance_proposal(account_of(EVE), amount_to_set);
+        assert_ok!(RuntimeCall::Democracy(DemocracyCall::propose {
+            proposal: Bounded::Inline(BoundedInline::try_from(call.encode()).unwrap()),
+            value: <Runtime as democracy::Config>::MinimumDeposit::get(),
+        })
+        .dispatch(origin_of(account_of(ALICE))));
+
+        launch_and_execute_referendum();
+
+        // balance is now set to amount above
+        assert_eq!(CollateralCurrency::total_balance(&account_of(EVE)), amount_to_set);
+    });
+}
+
+#[test]
+fn integration_test_governance_preimage_proposal() {
+    test_with(|| {
+        let amount_to_set = 1000;
+
+        let call = set_balance_proposal(account_of(EVE), amount_to_set);
+        assert_ok!(
+            RuntimeCall::Preimage(PreimageCall::note_preimage { bytes: call.encode() })
+                .dispatch(origin_of(account_of(ALICE)))
+        );
+
+        assert_ok!(RuntimeCall::Democracy(DemocracyCall::propose {
+            proposal: Bounded::Lookup {
+                hash: assert_preimage_noted_event(),
+                len: call.encode().len() as u32
+            },
+            value: <Runtime as democracy::Config>::MinimumDeposit::get(),
+        })
+        .dispatch(origin_of(account_of(ALICE))));
+
         launch_and_execute_referendum();
 
         // balance is now set to amount above

@@ -13,6 +13,7 @@ use orml_traits::{
 use orml_xcm_support::{DepositToAlternative, IsNativeConcrete, MultiCurrencyAdapter, MultiNativeAsset};
 use pallet_xcm::XcmPassthrough;
 use polkadot_parachain::primitives::Sibling;
+use runtime_common::Transactless;
 use sp_runtime::WeakBoundedVec;
 use xcm::latest::{prelude::*, Weight};
 use xcm_builder::{
@@ -62,12 +63,12 @@ pub type XcmOriginToTransactDispatchOrigin = (
     XcmPassthrough<RuntimeOrigin>,
 );
 
-pub type Barrier = (
+pub type Barrier = Transactless<(
     TakeWeightCredit,
     AllowTopLevelPaidExecutionFrom<Everything>,
     AllowKnownQueryResponses<PolkadotXcm>,
     AllowSubscriptionsFrom<Everything>,
-); // required for others to keep track of our xcm version
+)>; // required for others to keep track of our xcm version
 
 parameter_types! {
     // One XCM operation is 200_000_000 weight, cross-chain transfer ~= 2x of transfer.
@@ -154,7 +155,7 @@ impl FixedConversionRateProvider for MyFixedConversionRateProvider {
     }
 }
 
-impl Config for XcmConfig {
+impl xcm_executor::Config for XcmConfig {
     type RuntimeCall = RuntimeCall;
     type XcmSender = XcmRouter;
     // How to withdraw and deposit an asset.

@@ -174,6 +174,55 @@ mod hrmp {
 }
 
 #[test]
+fn test_transact_barrier() {
+    let call = orml_tokens::Call::<kintsugi_runtime_parachain::Runtime>::transfer_all {
+        dest: ALICE.into(),
+        currency_id: Token(KSM),
+        keep_alive: false,
+    };
+    let message = Xcm(vec![
+        WithdrawAsset((Here, 410000000000).into()),
+        BuyExecution {
+            fees: (Here, 400000000000).into(),
+            weight_limit: Unlimited,
+        },
+        Transact {
+            require_weight_at_most: 10000000000,
+            origin_type: OriginKind::Native,
+            call: kintsugi_runtime_parachain::RuntimeCall::Tokens(call).encode().into(),
+        },
+        RefundSurplus,
+        DepositAsset {
+            assets: All.into(),
+            max_assets: 1,
+            beneficiary: Junction::AccountId32 {
+                id: BOB,
+                network: NetworkId::Any,
+            }
+            .into(),
+        },
+    ]);
+
+    KusamaNet::execute_with(|| {
+        assert_ok!(pallet_xcm::Pallet::<kusama_runtime::Runtime>::send_xcm(
+            Here,
+            X1(Parachain(2092)),
+            message
+        ));
+    });
+
+    Kintsugi::execute_with(|| {
+        assert!(System::events().iter().any(|r| matches!(
+            r.event,
+            RuntimeEvent::DmpQueue(cumulus_pallet_dmp_queue::Event::ExecutedDownward {
+                outcome: Outcome::Error(XcmError::Barrier),
+                ..
+            })
+        )));
+    });
+}
+
+#[test]
 fn transfer_from_relay_chain() {
     KusamaNet::execute_with(|| {
         assert_ok!(kusama_runtime::XcmPallet::reserve_transfer_assets(

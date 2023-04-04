@@ -673,8 +673,7 @@ pub mod pallet {
                 Error::<T>::InvalidFactor,
             );
             ensure!(
-                market.liquidate_incentive_reserved_factor > Ratio::zero()
-                    && market.liquidate_incentive_reserved_factor < Ratio::one(),
+                market.liquidate_incentive_reserved_factor < Ratio::one(),
                 Error::<T>::InvalidFactor,
             );
             ensure!(market.supply_cap > Zero::zero(), Error::<T>::InvalidSupplyCap,);
@@ -813,6 +812,10 @@ pub mod pallet {
             ensure!(
                 reserve_factor > Ratio::zero() && reserve_factor < Ratio::one(),
                 Error::<T>::InvalidFactor
+            );
+            ensure!(
+                market.liquidate_incentive_reserved_factor < Ratio::one(),
+                Error::<T>::InvalidFactor,
             );
             ensure!(supply_cap > Zero::zero(), Error::<T>::InvalidSupplyCap);
 

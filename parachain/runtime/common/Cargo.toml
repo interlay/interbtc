@@ -13,7 +13,8 @@ sp-std = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v
 sp-runtime = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.31", default-features = false }
 frame-support = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.31", default-features = false }
 frame-system = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.31", default-features = false }
-
+xcm = { git = "https://github.com/paritytech/polkadot", branch = "release-v0.9.31", default-features = false }
+xcm-executor = { git = "https://github.com/paritytech/polkadot", default-features = false , branch = "release-v0.9.31" }
 
 # Parachain dependencies
 btc-relay = { path = "../../../crates/btc-relay", default-features = false }
@@ -61,6 +62,9 @@ std = [
   "sp-runtime/std",
   "frame-support/std",
   "frame-system/std",
+  "xcm/std",
+  "xcm-executor/std",
+
   "btc-relay/std",
   "currency/std",
   "security/std",

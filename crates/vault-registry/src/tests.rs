@@ -206,6 +206,31 @@ fn register_vault_fails_when_already_registered() {
 }
 
 #[test]
+fn should_check_withdraw_collateral() {
+    run_test(|| {
+        create_sample_vault();
+        VaultRegistry::get_minimum_collateral_vault
+            .mock_safe(move |currency_id| MockResult::Return(Amount::new(DEFAULT_COLLATERAL / 2, currency_id)));
+
+        // should allow withdraw all
+        assert_ok!(
+            VaultRegistry::is_allowed_to_withdraw_collateral(&DEFAULT_ID, &amount(DEFAULT_COLLATERAL)),
+            true,
+        );
+        // should allow withdraw above minimum
+        assert_ok!(
+            VaultRegistry::is_allowed_to_withdraw_collateral(&DEFAULT_ID, &amount(DEFAULT_COLLATERAL / 4)),
+            true,
+        );
+        // should not allow withdraw above zero, below minimum
+        assert_err!(
+            VaultRegistry::is_allowed_to_withdraw_collateral(&DEFAULT_ID, &amount(DEFAULT_COLLATERAL / 4 * 3)),
+            TestError::InsufficientVaultCollateralAmount,
+        );
+    });
+}
+
+#[test]
 fn try_increase_to_be_issued_tokens_succeeds() {
     run_test(|| {
         let id = create_sample_vault();
