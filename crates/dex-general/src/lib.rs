@@ -156,8 +156,8 @@ pub mod pallet {
     pub struct GenesisConfig<T: Config> {
         /// The receiver of the protocol fee.
         pub fee_receiver: Option<T::AccountId>,
-        /// The fee point is an integer satisfying the following equation:
-        /// 5 = 1/(1/6)-1 (1/6 of all swap fees)
+        /// The higher the fee point, the smaller the
+        /// cut of the exchange fee taken from LPs.
         pub fee_point: u8,
     }
 
