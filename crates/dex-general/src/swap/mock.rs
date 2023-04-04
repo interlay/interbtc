@@ -9,7 +9,7 @@ use serde::{Deserialize, Serialize};
 
 use frame_support::{parameter_types, traits::Contains, PalletId};
 use orml_traits::parameter_type_with_key;
-use sp_core::H256;
+use sp_core::{ConstU16, H256};
 use sp_runtime::{
     testing::Header,
     traits::{BlakeTwo256, IdentityLookup},
@@ -141,6 +141,7 @@ impl Config for Test {
     type AssetId = CurrencyId;
     type LpGenerate = PairLpIdentity;
     type WeightInfo = ();
+    type MaxSwaps = ConstU16<10>;
 }
 
 pub type DexPallet = Pallet<Test>;

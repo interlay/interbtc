@@ -214,12 +214,13 @@ pub mod pallet {
         #[transactional]
         pub fn update_reward_schedule(
             origin: OriginFor<T>,
-            pool_currency_id: CurrencyIdOf<T>,
+            mut pool_currency_id: CurrencyIdOf<T>,
             reward_currency_id: CurrencyIdOf<T>,
             period_count: u32,
             #[pallet::compact] amount: BalanceOf<T>,
         ) -> DispatchResult {
             ensure_root(origin)?;
+            pool_currency_id.sort();
 
             // fund the pool account from treasury
             let treasury_account_id = T::TreasuryAccountId::get();
@@ -254,10 +255,11 @@ pub mod pallet {
         #[transactional]
         pub fn remove_reward_schedule(
             origin: OriginFor<T>,
-            pool_currency_id: CurrencyIdOf<T>,
+            mut pool_currency_id: CurrencyIdOf<T>,
             reward_currency_id: CurrencyIdOf<T>,
         ) -> DispatchResultWithPostInfo {
             ensure_root(origin)?;
+            pool_currency_id.sort();
 
             // transfer unspent rewards to treasury
             let treasury_account_id = T::TreasuryAccountId::get();
@@ -284,8 +286,9 @@ pub mod pallet {
         #[pallet::call_index(2)]
         #[pallet::weight(T::WeightInfo::deposit())]
         #[transactional]
-        pub fn deposit(origin: OriginFor<T>, pool_currency_id: CurrencyIdOf<T>) -> DispatchResult {
+        pub fn deposit(origin: OriginFor<T>, mut pool_currency_id: CurrencyIdOf<T>) -> DispatchResult {
             let who = ensure_signed(origin)?;
+            pool_currency_id.sort();
 
             // reserve lp tokens to prevent spending
             let amount = T::MultiCurrency::free_balance(pool_currency_id.clone(), &who);
@@ -301,10 +304,11 @@ pub mod pallet {
         #[transactional]
         pub fn withdraw(
             origin: OriginFor<T>,
-            pool_currency_id: CurrencyIdOf<T>,
+            mut pool_currency_id: CurrencyIdOf<T>,
             amount: BalanceOf<T>,
         ) -> DispatchResult {
             let who = ensure_signed(origin)?;
+            pool_currency_id.sort();
 
             // unreserve lp tokens to allow spending
             let remaining = T::MultiCurrency::unreserve(pool_currency_id.clone(), &who, amount);
@@ -320,10 +324,11 @@ pub mod pallet {
         #[transactional]
         pub fn claim(
             origin: OriginFor<T>,
-            pool_currency_id: CurrencyIdOf<T>,
+            mut pool_currency_id: CurrencyIdOf<T>,
             reward_currency_id: CurrencyIdOf<T>,
         ) -> DispatchResult {
             let who = ensure_signed(origin)?;
+            pool_currency_id.sort();
             let pool_account_id = Self::pool_account_id(&pool_currency_id);
 
             // get reward from staking pool
@@ -350,6 +355,8 @@ impl<T: Config> Pallet<T> {
     }
 
     pub fn total_rewards(pool_currency_id: &CurrencyIdOf<T>, reward_currency_id: &CurrencyIdOf<T>) -> BalanceOf<T> {
+        let mut pool_currency_id = pool_currency_id.clone();
+        pool_currency_id.sort();
         RewardSchedules::<T>::get(pool_currency_id, reward_currency_id)
             .total()
             .unwrap_or_default()

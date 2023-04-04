@@ -97,7 +97,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     spec_name: create_runtime_str!("testnet-kintsugi"),
     impl_name: create_runtime_str!("testnet-kintsugi"),
     authoring_version: 1,
-    spec_version: 1021010,
+    spec_version: 1023002,
     impl_version: 1,
     transaction_version: 1, // added preimage
     apis: RUNTIME_API_VERSIONS,
@@ -441,31 +441,28 @@ parameter_types! {
     // and 700 accounts can do ten or more proposals.
     pub MinimumDeposit: Balance = 5 * UNITS;
     pub const EnactmentPeriod: BlockNumber = 6 * HOURS;
-    pub PreimageByteDeposit: Balance = 10 * MILLICENTS;
     pub const MaxVotes: u32 = 100;
     pub const MaxProposals: u32 = 100;
     pub LaunchOffsetMillis: u64 = 9 * 60 * 60 * 1000; // 9 hours offset, i.e. MON 9 AM
 }
 
 impl democracy::Config for Runtime {
-    type Proposal = RuntimeCall;
     type RuntimeEvent = RuntimeEvent;
+    type Scheduler = Scheduler;
+    type Preimages = Preimage;
     type Currency = Escrow;
     type EnactmentPeriod = EnactmentPeriod;
     type VotingPeriod = VotingPeriod;
+    type FastTrackVotingPeriod = FastTrackVotingPeriod;
     type MinimumDeposit = MinimumDeposit;
+    type MaxVotes = MaxVotes;
+    type MaxProposals = MaxProposals;
+    type MaxDeposits = ConstU32<100>;
     /// The technical committee can have any proposal be tabled immediately
     /// with a shorter voting period.
     type FastTrackOrigin = EnsureRootOrAllTechnicalCommittee;
-    type FastTrackVotingPeriod = FastTrackVotingPeriod;
-    type PreimageByteDeposit = PreimageByteDeposit;
-    type Slash = Treasury;
-    type Scheduler = Scheduler;
     type PalletsOrigin = OriginCaller;
-    type MaxVotes = MaxVotes;
     type WeightInfo = ();
-    type MaxProposals = MaxProposals;
-    type MaxDeposits = ConstU32<100>;
     type UnixTime = Timestamp;
     type Moment = Moment;
     type LaunchOffsetMillis = LaunchOffsetMillis;
@@ -1274,22 +1271,8 @@ pub type UncheckedExtrinsic = generic::UncheckedExtrinsic<Address, RuntimeCall, 
 /// Extrinsic type that has already been checked.
 pub type CheckedExtrinsic = generic::CheckedExtrinsic<AccountId, RuntimeCall, SignedExtra>;
 /// Executive: handles dispatch to the various modules.
-pub type Executive = frame_executive::Executive<
-    Runtime,
-    Block,
-    frame_system::ChainContext<Runtime>,
-    Runtime,
-    AllPalletsWithSystem,
-    (
-        // Vault Capacity Model
-        reward::migration::v1::MigrateToV1<Runtime, EscrowRewardsInstance>,
-        vault_registry::migration::vault_capacity::RewardsMigration<
-            Runtime,
-            VaultCapacityInstance,
-            VaultRewardsInstance,
-        >,
-    ),
->;
+pub type Executive =
+    frame_executive::Executive<Runtime, Block, frame_system::ChainContext<Runtime>, Runtime, AllPalletsWithSystem>;
 
 #[cfg(not(feature = "disable-runtime-api"))]
 impl_runtime_apis! {

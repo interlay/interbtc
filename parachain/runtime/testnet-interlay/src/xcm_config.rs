@@ -6,6 +6,7 @@ use orml_xcm_support::{DepositToAlternative, IsNativeConcrete, MultiCurrencyAdap
 use pallet_xcm::XcmPassthrough;
 use polkadot_parachain::primitives::Sibling;
 use primitives::{Balance, CurrencyId, CurrencyId::ForeignAsset};
+use runtime_common::Transactless;
 use sp_runtime::WeakBoundedVec;
 use xcm::latest::{
     prelude::{AccountId32, *},
@@ -62,12 +63,12 @@ parameter_types! {
     pub UnitWeightCost: Weight = 200_000_000;
 }
 
-pub type Barrier = (
+pub type Barrier = Transactless<(
     TakeWeightCredit,
     AllowTopLevelPaidExecutionFrom<Everything>,
     AllowKnownQueryResponses<PolkadotXcm>,
     AllowSubscriptionsFrom<Everything>,
-); // required for others to keep track of our xcm version
+)>; // required for others to keep track of our xcm version
 
 parameter_types! {
     pub const MaxInstructions: u32 = 100;
@@ -160,7 +161,7 @@ impl WeightTrader for FreeTestExection {
     }
 }
 
-impl Config for XcmConfig {
+impl xcm_executor::Config for XcmConfig {
     type RuntimeCall = RuntimeCall;
     type XcmSender = XcmRouter;
     // How to withdraw and deposit an asset.

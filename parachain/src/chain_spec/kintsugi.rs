@@ -1,4 +1,6 @@
 use super::*;
+use kintsugi_runtime::LoansConfig;
+use primitives::Rate;
 
 pub const PARA_ID: u32 = 2092;
 
@@ -257,5 +259,9 @@ fn kintsugi_mainnet_genesis(
             safe_xcm_version: Some(2),
         },
         sudo: Default::default(),
+        loans: LoansConfig {
+            max_exchange_rate: Rate::from_inner(loans::DEFAULT_MAX_EXCHANGE_RATE),
+            min_exchange_rate: Rate::from_inner(loans::DEFAULT_MIN_EXCHANGE_RATE),
+        },
     }
 }

@@ -184,6 +184,11 @@ impl dex_general::Config for Test {
     type AssetId = CurrencyId;
     type LpGenerate = PairLpIdentity;
     type WeightInfo = ();
+    type MaxSwaps = MaxSwaps;
+}
+
+parameter_types! {
+    pub const MaxSwaps: u16 = 10;
 }
 
 impl Config for Test {
@@ -193,6 +198,7 @@ impl Config for Test {
     type CurrencyId = CurrencyId;
     type NormalAmm = DexGeneral;
     type StableAMM = StableAMM;
+    type MaxSwaps = MaxSwaps;
     type WeightInfo = ();
 }
 

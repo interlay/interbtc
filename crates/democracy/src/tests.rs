@@ -2,10 +2,9 @@
 
 use super::*;
 use crate as pallet_democracy;
-use codec::Encode;
 use frame_support::{
     assert_noop, assert_ok, ord_parameter_types, parameter_types,
-    traits::{ConstU32, Contains, EqualPrivilegeOnly, GenesisBuild, OnInitialize, SortedMembers},
+    traits::{ConstU32, ConstU64, Contains, EqualPrivilegeOnly, GenesisBuild, OnInitialize, SortedMembers},
     weights::Weight,
 };
 use frame_system::{EnsureRoot, EnsureSignedBy};
@@ -17,9 +16,9 @@ use sp_runtime::{
     Perbill,
 };
 
+mod cancellation;
 mod decoders;
 mod fast_tracking;
-mod preimage;
 mod public_proposals;
 mod scheduling;
 mod voting;
@@ -37,6 +36,7 @@ frame_support::construct_runtime!(
     {
         System: frame_system::{Pallet, Call, Config, Storage, Event<T>},
         Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>},
+        Preimage: pallet_preimage,
         Scheduler: pallet_scheduler::{Pallet, Call, Storage, Event<T>},
         Democracy: pallet_democracy::{Pallet, Call, Storage, Config<T>, Event<T>},
         Timestamp: pallet_timestamp::{Pallet, Call, Storage, Inherent},
@@ -86,6 +86,15 @@ impl frame_system::Config for Test {
     type SS58Prefix = ();
     type OnSetCode = ();
     type MaxConsumers = frame_support::traits::ConstU32<16>;
+}
+
+impl pallet_preimage::Config for Test {
+    type RuntimeEvent = RuntimeEvent;
+    type WeightInfo = ();
+    type Currency = Balances;
+    type ManagerOrigin = EnsureRoot<u64>;
+    type BaseDeposit = ConstU64<0>;
+    type ByteDeposit = ConstU64<0>;
 }
 
 parameter_types! {
@@ -160,22 +169,20 @@ impl SortedMembers<u64> for OneToFive {
 }
 
 impl Config for Test {
-    type Proposal = RuntimeCall;
     type RuntimeEvent = RuntimeEvent;
+    type Scheduler = Scheduler;
+    type Preimages = Preimage;
     type Currency = pallet_balances::Pallet<Self>;
     type EnactmentPeriod = EnactmentPeriod;
     type VotingPeriod = VotingPeriod;
     type FastTrackVotingPeriod = FastTrackVotingPeriod;
     type MinimumDeposit = MinimumDeposit;
-    type FastTrackOrigin = EnsureSignedBy<Five, u64>;
-    type PreimageByteDeposit = PreimageByteDeposit;
-    type Slash = ();
-    type Scheduler = Scheduler;
     type MaxVotes = MaxVotes;
-    type PalletsOrigin = OriginCaller;
-    type WeightInfo = ();
     type MaxProposals = MaxProposals;
     type MaxDeposits = ConstU32<1000>;
+    type FastTrackOrigin = EnsureSignedBy<Five, u64>;
+    type PalletsOrigin = OriginCaller;
+    type WeightInfo = ();
     type UnixTime = Timestamp;
     type Moment = u64;
     type LaunchOffsetMillis = LaunchOffsetMillis;
@@ -205,48 +212,26 @@ fn params_should_work() {
     });
 }
 
-fn set_balance_proposal(value: u64) -> Vec<u8> {
-    RuntimeCall::Balances(pallet_balances::Call::set_balance {
+fn set_balance_proposal(value: u64) -> BoundedCallOf<Test> {
+    let inner = pallet_balances::Call::set_balance {
         who: 42,
         new_free: value,
         new_reserved: 0,
-    })
-    .encode()
+    };
+    let outer = RuntimeCall::Balances(inner);
+    Preimage::bound(outer).unwrap()
 }
 
 #[test]
 fn set_balance_proposal_is_correctly_filtered_out() {
     for i in 0..10 {
-        let call = RuntimeCall::decode(&mut &set_balance_proposal(i)[..]).unwrap();
+        let call = Preimage::realize(&set_balance_proposal(i)).unwrap().0;
         assert!(!<Test as frame_system::Config>::BaseCallFilter::contains(&call));
     }
 }
 
-fn set_balance_proposal_hash(value: u64) -> H256 {
-    BlakeTwo256::hash(&set_balance_proposal(value)[..])
-}
-
-fn set_balance_proposal_hash_and_note(value: u64) -> H256 {
-    let p = set_balance_proposal(value);
-    let h = BlakeTwo256::hash(&p[..]);
-    match Democracy::note_preimage(RuntimeOrigin::signed(6), p) {
-        Ok(_) => (),
-        Err(x) if x == Error::<Test>::DuplicatePreimage.into() => (),
-        Err(x) => panic!("{:?}", x),
-    }
-    h
-}
-
 fn propose_set_balance(who: u64, value: u64, delay: u64) -> DispatchResult {
-    Democracy::propose(RuntimeOrigin::signed(who), set_balance_proposal_hash(value), delay)
-}
-
-fn propose_set_balance_and_note(who: u64, value: u64, delay: u64) -> DispatchResult {
-    Democracy::propose(
-        RuntimeOrigin::signed(who),
-        set_balance_proposal_hash_and_note(value),
-        delay,
-    )
+    Democracy::propose(RuntimeOrigin::signed(who), set_balance_proposal(value), delay)
 }
 
 fn next_block() {
@@ -266,7 +251,7 @@ fn fast_forward_to(n: u64) {
 
 fn begin_referendum() -> ReferendumIndex {
     System::set_block_number(0);
-    assert_ok!(propose_set_balance_and_note(1, 2, 1));
+    assert_ok!(propose_set_balance(1, 2, 1));
     fast_forward_to(2);
     0
 }
