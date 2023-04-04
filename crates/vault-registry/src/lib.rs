@@ -783,7 +783,7 @@ impl<T: Config> Pallet<T> {
             );
             Self::deposit_event(Event::<T>::CustomThreshold {
                 vault_id: vault_id,
-                currency_pair: currency_pair,
+                currency_pair: vault_id.currencies,
                 threshold_amount: some_new_threshold,
             });
         }
