@@ -1,6 +1,6 @@
 use super::*;
 use crate::CurrencyId::Token;
-use frame_benchmarking::v2::{account, benchmark, benchmarks, impl_benchmark_test_suite};
+use frame_benchmarking::v2::{account, benchmark, benchmarks, impl_benchmark_test_suite, Linear};
 use frame_support::{assert_ok, traits::Hooks};
 use frame_system::RawOrigin;
 use primitives::*;
@@ -67,8 +67,7 @@ pub mod benchmarks {
     use super::*;
 
     #[benchmark]
-    pub fn on_initialize() {
-        let c = get_benchmarking_currency_ids().len() as u32;
+    pub fn on_initialize(c: Linear<1, 4>) {
         let currency_ids = get_benchmarking_currency_ids();
         let block_number = T::RewardPeriod::get();
 
