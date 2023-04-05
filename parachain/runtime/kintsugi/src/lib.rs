@@ -787,9 +787,7 @@ impl annuity::BlockRewardProvider<AccountId> for EscrowBlockRewardProvider {
 
     #[cfg(feature = "runtime-benchmarks")]
     fn deposit_stake(from: &AccountId, amount: Balance) -> DispatchResult {
-        let current_stake = <EscrowRewards as reward::RewardsApi<(), AccountId, Balance>>::get_stake(&(), from)?;
-        let new_stake = current_stake.saturating_add(amount);
-        <EscrowRewards as reward::RewardsApi<(), AccountId, Balance>>::set_stake(&(), from, new_stake)
+        <EscrowRewards as reward::RewardsApi<(), AccountId, Balance>>::deposit_stake(&(), from, amount)
     }
 
     fn distribute_block_reward(_from: &AccountId, amount: Balance) -> DispatchResult {
@@ -1329,6 +1327,31 @@ impl OnRuntimeUpgrade for VersionNotifyTargetsFix {
     }
 }
 
+#[cfg(feature = "runtime-benchmarks")]
+#[macro_use]
+extern crate frame_benchmarking;
+
+#[cfg(feature = "runtime-benchmarks")]
+mod benches {
+    define_benchmarks!(
+        [annuity, EscrowAnnuity]
+        [btc_relay, BTCRelay]
+        [dex_general, DexGeneral]
+        [dex_stable, DexStable]
+        [dex_swap_router, DexSwapRouter]
+        [escrow, Escrow]
+        [fee, Fee]
+        [farming, Farming]
+        [issue, Issue]
+        [loans, Loans]
+        [nomination, Nomination]
+        [oracle, Oracle]
+        [redeem, Redeem]
+        [replace, Replace]
+        [vault_registry, VaultRegistry]
+    );
+}
+
 #[cfg(not(feature = "disable-runtime-api"))]
 impl_runtime_apis! {
     impl sp_api::Core<Block> for Runtime {
@@ -1452,25 +1475,11 @@ impl_runtime_apis! {
             Vec<frame_benchmarking::BenchmarkList>,
             Vec<frame_support::traits::StorageInfo>,
         ) {
-            use frame_benchmarking::{list_benchmark, Benchmarking, BenchmarkList};
+            use frame_benchmarking::{Benchmarking, BenchmarkList};
             use frame_support::traits::StorageInfoTrait;
 
             let mut list = Vec::<BenchmarkList>::new();
-
-            list_benchmark!(list, extra, btc_relay, BTCRelay);
-            list_benchmark!(list, extra, fee, Fee);
-            list_benchmark!(list, extra, issue, Issue);
-            list_benchmark!(list, extra, nomination, Nomination);
-            list_benchmark!(list, extra, oracle, Oracle);
-            list_benchmark!(list, extra, redeem, Redeem);
-            list_benchmark!(list, extra, replace, Replace);
-            list_benchmark!(list, extra, vault_registry, VaultRegistry);
-            list_benchmark!(list, extra, dex_general, DexGeneral);
-            list_benchmark!(list, extra, escrow, Escrow);
-            list_benchmark!(list, extra, dex_general, DexGeneral);
-            list_benchmark!(list, extra, dex_stable, DexStable);
-            list_benchmark!(list, extra, dex_swap_router, DexSwapRouter);
-            list_benchmark!(list, extra, escrow, Escrow);
+            list_benchmarks!(list, extra);
 
             let storage_info = AllPalletsWithSystem::storage_info();
 
@@ -1480,40 +1489,16 @@ impl_runtime_apis! {
         fn dispatch_benchmark(
             config: frame_benchmarking::BenchmarkConfig
         ) -> Result<Vec<frame_benchmarking::BenchmarkBatch>, sp_runtime::RuntimeString> {
-            use frame_benchmarking::{Benchmarking, BenchmarkBatch, add_benchmark, TrackedStorageKey};
+            use frame_benchmarking::{Benchmarking, BenchmarkBatch, TrackedStorageKey};
 
-            let whitelist: Vec<TrackedStorageKey> = vec![
-                // Block Number
-                hex_literal::hex!("26aa394eea5630e07c48ae0c9558cef702a5c1b19ab7a04f536c519aca4983ac").to_vec().into(),
-                // Total Issuance
-                hex_literal::hex!("c2261276cc9d1f8598ea4b6a74b15c2f57c875e4cff74148e4628f264b974c80").to_vec().into(),
-                // Execution Phase
-                hex_literal::hex!("26aa394eea5630e07c48ae0c9558cef7ff553b5a9862a516939d82b3d3d8661a").to_vec().into(),
-                // Event Count
-                hex_literal::hex!("26aa394eea5630e07c48ae0c9558cef70a98fdbe9ce6c55837576c60c7af3850").to_vec().into(),
-                // System Events
-                hex_literal::hex!("26aa394eea5630e07c48ae0c9558cef780d41e5e16056765bc8461851072c9d7").to_vec().into(),
-            ];
+            use frame_support::traits::WhitelistedStorageKeys;
+            let whitelist: Vec<TrackedStorageKey> = AllPalletsWithSystem::whitelisted_storage_keys();
 
             let mut batches = Vec::<BenchmarkBatch>::new();
             let params = (&config, &whitelist);
 
-            add_benchmark!(params, batches, btc_relay, BTCRelay);
-            add_benchmark!(params, batches, fee, Fee);
-            add_benchmark!(params, batches, issue, Issue);
-            add_benchmark!(params, batches, nomination, Nomination);
-            add_benchmark!(params, batches, oracle, Oracle);
-            add_benchmark!(params, batches, redeem, Redeem);
-            add_benchmark!(params, batches, replace, Replace);
-            add_benchmark!(params, batches, vault_registry, VaultRegistry);
-            add_benchmark!(params, batches, dex_general, DexGeneral);
-            add_benchmark!(params, batches, escrow, Escrow);
-            add_benchmark!(params, batches, dex_general, DexGeneral);
-            add_benchmark!(params, batches, dex_stable, DexStable);
-            add_benchmark!(params, batches, dex_swap_router, DexSwapRouter);
-            add_benchmark!(params, batches, escrow, Escrow);
+            add_benchmarks!(params, batches);
 
-            if batches.is_empty() { return Err("Benchmark not found for this pallet.".into()) }
             Ok(batches)
         }
     }
@@ -1915,4 +1900,31 @@ cumulus_pallet_parachain_system::register_validate_block! {
     Runtime = Runtime,
     BlockExecutor = cumulus_pallet_aura_ext::BlockExecutor::<Runtime, Executive>,
     CheckInherents = CheckInherents,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use frame_support::traits::WhitelistedStorageKeys;
+    use sp_core::hexdisplay::HexDisplay;
+    use std::collections::HashSet;
+
+    #[test]
+    fn check_whitelist() {
+        let whitelist: HashSet<String> = AllPalletsWithSystem::whitelisted_storage_keys()
+            .iter()
+            .map(|e| HexDisplay::from(&e.key).to_string())
+            .collect();
+
+        // Block Number
+        assert!(whitelist.contains("26aa394eea5630e07c48ae0c9558cef702a5c1b19ab7a04f536c519aca4983ac"));
+        // Total Issuance
+        assert!(whitelist.contains("c2261276cc9d1f8598ea4b6a74b15c2f57c875e4cff74148e4628f264b974c80"));
+        // Execution Phase
+        assert!(whitelist.contains("26aa394eea5630e07c48ae0c9558cef7ff553b5a9862a516939d82b3d3d8661a"));
+        // Event Count
+        assert!(whitelist.contains("26aa394eea5630e07c48ae0c9558cef70a98fdbe9ce6c55837576c60c7af3850"));
+        // System Events
+        assert!(whitelist.contains("26aa394eea5630e07c48ae0c9558cef780d41e5e16056765bc8461851072c9d7"));
+    }
 }
