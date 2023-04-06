@@ -151,6 +151,39 @@ pub mod v1 {
     }
 }
 
+pub mod bound {
+    use super::*;
+    use frame_support::pallet_prelude::*;
+    use sp_std::collections::btree_set::BTreeSet;
+
+    #[frame_support::storage_alias]
+    pub type RewardCurrencies<T: Config<I>, I: 'static> = StorageMap<
+        Pallet<T, I>,
+        Blake2_128Concat,
+        <T as Config<I>>::PoolId,
+        BTreeSet<<T as Config<I>>::CurrencyId>,
+        ValueQuery,
+    >;
+
+    #[cfg(test)]
+    #[test]
+    fn test_decode_bounded_b_tree_set() {
+        use crate::mock::*;
+
+        crate::mock::run_test(|| {
+            let mut reward_currencies_before = BTreeSet::default();
+            reward_currencies_before.insert(Token(IBTC));
+            reward_currencies_before.insert(Token(INTR));
+            RewardCurrencies::<Test, ()>::insert((), reward_currencies_before);
+
+            let reward_currencies_after = crate::RewardCurrencies::<Test>::get(());
+            assert_eq!(reward_currencies_after.len(), 2);
+            assert!(reward_currencies_after.contains(&Token(IBTC)));
+            assert!(reward_currencies_after.contains(&Token(INTR)));
+        });
+    }
+}
+
 #[cfg(test)]
 #[cfg(feature = "try-runtime")]
 mod test {
