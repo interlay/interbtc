@@ -255,14 +255,16 @@ runtime-benchmarks = [
 
   "annuity/runtime-benchmarks",
   "btc-relay/runtime-benchmarks",
+  "escrow/runtime-benchmarks",
   "fee/runtime-benchmarks",
   "issue/runtime-benchmarks",
   "nomination/runtime-benchmarks",
   "oracle/runtime-benchmarks",
+  "primitives/runtime-benchmarks",
   "redeem/runtime-benchmarks",
   "replace/runtime-benchmarks",
-  "vault-registry/runtime-benchmarks",
   "tx-pause/runtime-benchmarks",
+  "vault-registry/runtime-benchmarks",
 ]
 disable-runtime-api = []
 try-runtime = [

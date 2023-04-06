@@ -272,17 +272,17 @@ runtime-benchmarks = [
   "dex-stable/runtime-benchmarks",
   "dex-swap-router/runtime-benchmarks",
   "escrow/runtime-benchmarks",
+  "farming/runtime-benchmarks",
   "fee/runtime-benchmarks",
   "issue/runtime-benchmarks",
   "loans/runtime-benchmarks",
   "nomination/runtime-benchmarks",
   "oracle/runtime-benchmarks",
+  "primitives/runtime-benchmarks",
   "redeem/runtime-benchmarks",
   "replace/runtime-benchmarks",
-  "vault-registry/runtime-benchmarks",
-  "farming/runtime-benchmarks",
   "tx-pause/runtime-benchmarks",
-  "primitives/runtime-benchmarks",
+  "vault-registry/runtime-benchmarks",
 ]
 disable-runtime-api = []
 dev-interlay = []
