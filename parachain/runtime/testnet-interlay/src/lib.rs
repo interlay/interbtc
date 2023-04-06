@@ -1417,13 +1417,17 @@ impl_runtime_apis! {
             use frame_benchmarking::{Benchmarking, BenchmarkBatch, TrackedStorageKey};
 
             use frame_support::traits::WhitelistedStorageKeys;
-            let whitelist: Vec<TrackedStorageKey> = AllPalletsWithSystem::whitelisted_storage_keys();
+            let mut whitelist: Vec<TrackedStorageKey> = AllPalletsWithSystem::whitelisted_storage_keys();
+
+            // Treasury Account
+            // TODO: this is manual for now, someday we might be able to use a
+            // macro for this particular key
+            let treasury_key = frame_system::Account::<Runtime>::hashed_key_for(TreasuryAccount::get());
+            whitelist.push(treasury_key.to_vec().into());
 
             let mut batches = Vec::<BenchmarkBatch>::new();
             let params = (&config, &whitelist);
-
             add_benchmarks!(params, batches);
-
             Ok(batches)
         }
     }

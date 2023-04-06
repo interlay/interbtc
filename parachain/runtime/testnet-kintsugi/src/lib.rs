@@ -1426,14 +1426,15 @@ impl_runtime_apis! {
             use frame_support::traits::WhitelistedStorageKeys;
             let mut whitelist: Vec<TrackedStorageKey> = AllPalletsWithSystem::whitelisted_storage_keys();
 
-            let treasury_key = frame_system::Account::<Runtime>::hashed_key_for(Treasury::account_id());
+            // Treasury Account
+            // TODO: this is manual for now, someday we might be able to use a
+            // macro for this particular key
+            let treasury_key = frame_system::Account::<Runtime>::hashed_key_for(TreasuryAccount::get());
             whitelist.push(treasury_key.to_vec().into());
 
             let mut batches = Vec::<BenchmarkBatch>::new();
             let params = (&config, &whitelist);
-
             add_benchmarks!(params, batches);
-
             Ok(batches)
         }
     }
