@@ -842,6 +842,7 @@ impl reward::Config<EscrowRewardsInstance> for Runtime {
     type CurrencyId = CurrencyId;
     type GetNativeCurrencyId = GetNativeCurrencyId;
     type GetWrappedCurrencyId = GetWrappedCurrencyId;
+    type MaxRewardCurrencies = ConstU32<10>;
 }
 
 type VaultRewardsInstance = reward::Instance2;
@@ -854,6 +855,7 @@ impl reward::Config<VaultRewardsInstance> for Runtime {
     type CurrencyId = CurrencyId;
     type GetNativeCurrencyId = GetNativeCurrencyId;
     type GetWrappedCurrencyId = GetWrappedCurrencyId;
+    type MaxRewardCurrencies = ConstU32<10>;
 }
 
 type VaultCapacityInstance = reward::Instance3;
@@ -866,6 +868,7 @@ impl reward::Config<VaultCapacityInstance> for Runtime {
     type CurrencyId = CurrencyId;
     type GetNativeCurrencyId = GetNativeCurrencyId;
     type GetWrappedCurrencyId = GetWrappedCurrencyId;
+    type MaxRewardCurrencies = ConstU32<10>;
 }
 
 type FarmingRewardsInstance = reward::Instance4;
@@ -878,6 +881,7 @@ impl reward::Config<FarmingRewardsInstance> for Runtime {
     type CurrencyId = CurrencyId;
     type GetNativeCurrencyId = GetNativeCurrencyId;
     type GetWrappedCurrencyId = GetWrappedCurrencyId;
+    type MaxRewardCurrencies = ConstU32<10>;
 }
 
 parameter_types! {
