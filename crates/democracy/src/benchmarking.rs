@@ -78,6 +78,7 @@ pub mod benchmarks {
             p as usize,
             "Proposals not created."
         );
+        Ok(())
     }
 
     #[benchmark]
@@ -108,6 +109,7 @@ pub mod benchmarks {
             (T::MaxDeposits::get()) as usize,
             "`second` benchmark did not work"
         );
+        Ok(())
     }
 
     #[benchmark]
@@ -130,6 +132,7 @@ pub mod benchmarks {
 
         let Voting { votes, .. } = VotingOf::<T>::get(&caller);
         assert_eq!(votes.len(), T::MaxVotes::get() as usize, "Vote was not recorded.");
+        Ok(())
     }
 
     #[benchmark]
@@ -166,6 +169,7 @@ pub mod benchmarks {
             _ => panic!("referendum not ongoing"),
         };
         assert_eq!(tally.nays, 1000u32.into(), "changed vote was not recorded");
+        Ok(())
     }
 
     #[benchmark]
@@ -187,6 +191,7 @@ pub mod benchmarks {
             ref_count_before + 1,
             "referendum not created"
         );
+        Ok(())
     }
 
     #[benchmark]
@@ -228,6 +233,7 @@ pub mod benchmarks {
                 }
             }
         }
+        Ok(())
     }
 
     // No launch no maturing referenda.
@@ -260,6 +266,7 @@ pub mod benchmarks {
                 }
             }
         }
+        Ok(())
     }
 
     #[benchmark]
@@ -293,6 +300,7 @@ pub mod benchmarks {
                 }
             }
         }
+        Ok(())
     }
 
     #[benchmark]
@@ -301,6 +309,7 @@ pub mod benchmarks {
 
         #[extrinsic_call]
         Democracy::clear_public_proposals(RawOrigin::Root);
+        Ok(())
     }
 
     #[benchmark]
@@ -324,6 +333,7 @@ pub mod benchmarks {
 
         let Voting { votes, .. } = VotingOf::<T>::get(&caller);
         assert_eq!(votes.len(), (r - 1) as usize, "Vote was not removed");
+        Ok(())
     }
 
     #[benchmark]
