@@ -6,12 +6,14 @@ use frame_system::RawOrigin;
 use orml_traits::MultiCurrency;
 use primitives::CurrencyId;
 use sp_runtime::traits::One;
+use sp_std::vec;
 use vault_registry::BtcPublicKey;
 
 // Pallets
 use crate::Pallet as Nomination;
 use oracle::Pallet as Oracle;
 use vault_registry::Pallet as VaultRegistry;
+use security::{Pallet as Security, StatusCode};
 
 fn deposit_tokens<T: crate::Config>(currency_id: CurrencyId, account_id: &T::AccountId, amount: BalanceOf<T>) {
     assert_ok!(<orml_tokens::Pallet<T>>::deposit(currency_id, account_id, amount));
@@ -62,6 +64,7 @@ pub mod benchmarks {
 
     #[benchmark]
     pub fn set_nomination_limit() {
+        Security::<T>::set_status(StatusCode::Running);
         let vault_id = get_vault_id::<T>();
         let amount = 100u32.into();
         #[extrinsic_call]
