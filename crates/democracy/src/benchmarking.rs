@@ -2,7 +2,7 @@
 
 use super::*;
 
-use frame_benchmarking::v2::{account, benchmarks, impl_benchmark_test_suite, whitelist_account, Linear};
+use frame_benchmarking::v2::{account, benchmarks, impl_benchmark_test_suite, whitelist_account, Linear, BenchmarkError};
 use frame_support::traits::{Currency, EnsureOrigin, Get, Hash as PreimageHash, OnInitialize};
 use frame_system::RawOrigin;
 use sp_core::H256;
@@ -55,16 +55,16 @@ fn account_vote<T: Config>(b: BalanceOf<T>) -> Vote<BalanceOf<T>> {
     Vote { aye: true, balance: b }
 }
 
-#[benchmarks]
+#[benchmarks(where T: Config)]
 pub mod benchmarks {
     use super::*;
 
     #[benchmark]
-    pub fn propose() {
+    pub fn propose() -> Result<(), BenchmarkError> {
         let p = T::MaxProposals::get();
 
         for i in 0..(p - 1) {
-            add_proposal::<T>(i)?;
+            add_proposal::<T>(i).unwrap();
         }
 
         let caller = funded_account::<T>("caller", 0);
@@ -81,18 +81,18 @@ pub mod benchmarks {
     }
 
     #[benchmark]
-    pub fn second() {
+    pub fn second() -> Result<(), BenchmarkError> {
         let caller = funded_account::<T>("caller", 0);
-        add_proposal::<T>(0)?;
+        add_proposal::<T>(0).unwrap();
 
         // Create s existing "seconds"
         // we must reserve one deposit for the `proposal` and one for our benchmarked `second` call.
         for i in 0..T::MaxDeposits::get() - 2 {
             let seconder = funded_account::<T>("seconder", i);
-            Democracy::<T>::second(RawOrigin::Signed(seconder).into(), 0)?;
+            Democracy::<T>::second(RawOrigin::Signed(seconder).into(), 0).unwrap();
         }
 
-        let deposits = Democracy::<T>::deposit_of(0).ok_or("Proposal not created")?;
+        let deposits = Democracy::<T>::deposit_of(0).ok_or("Proposal not created").unwrap();
         assert_eq!(
             deposits.0.len(),
             (T::MaxDeposits::get() - 1) as usize,
@@ -102,7 +102,7 @@ pub mod benchmarks {
         #[extrinsic_call]
         Democracy::second(RawOrigin::Signed(caller), 0);
 
-        let deposits = Democracy::<T>::deposit_of(0).ok_or("Proposal not created")?;
+        let deposits = Democracy::<T>::deposit_of(0).ok_or("Proposal not created").unwrap();
         assert_eq!(
             deposits.0.len(),
             (T::MaxDeposits::get()) as usize,
@@ -111,14 +111,14 @@ pub mod benchmarks {
     }
 
     #[benchmark]
-    pub fn vote_new() {
+    pub fn vote_new() -> Result<(), BenchmarkError> {
         let caller = funded_account::<T>("caller", 0);
         let account_vote = account_vote::<T>(100u32.into());
 
         // We need to create existing direct votes
         for i in 0..99 {
             let ref_index = add_referendum::<T>(i).0;
-            Democracy::<T>::vote(RawOrigin::Signed(caller.clone()).into(), ref_index, account_vote)?;
+            Democracy::<T>::vote(RawOrigin::Signed(caller.clone()).into(), ref_index, account_vote).unwrap();
         }
         let Voting { votes, .. } = VotingOf::<T>::get(&caller);
         assert_eq!(votes.len(), (99) as usize, "Votes were not recorded.");
@@ -133,14 +133,14 @@ pub mod benchmarks {
     }
 
     #[benchmark]
-    pub fn vote_existing() {
+    pub fn vote_existing() -> Result<(), BenchmarkError> {
         let caller = funded_account::<T>("caller", 0);
         let account_vote = account_vote::<T>(100u32.into());
 
         // We need to create existing direct votes
         for i in 0..T::MaxVotes::get() {
             let ref_index = add_referendum::<T>(i).0;
-            Democracy::<T>::vote(RawOrigin::Signed(caller.clone()).into(), ref_index, account_vote)?;
+            Democracy::<T>::vote(RawOrigin::Signed(caller.clone()).into(), ref_index, account_vote).unwrap();
         }
         let Voting { votes, .. } = VotingOf::<T>::get(&caller);
         assert_eq!(votes.len(), T::MaxVotes::get() as usize, "Votes were not recorded.");
@@ -160,18 +160,18 @@ pub mod benchmarks {
 
         let Voting { votes, .. } = VotingOf::<T>::get(&caller);
         assert_eq!(votes.len(), T::MaxVotes::get() as usize, "Vote was incorrectly added");
-        let referendum_info = Democracy::<T>::referendum_info(ref_index).ok_or("referendum doesn't exist")?;
+        let referendum_info = Democracy::<T>::referendum_info(ref_index).ok_or("referendum doesn't exist").unwrap();
         let tally = match referendum_info {
             ReferendumInfo::Ongoing(r) => r.tally,
-            _ => return Err("referendum not ongoing".into()),
+            _ => panic!("referendum not ongoing"),
         };
         assert_eq!(tally.nays, 1000u32.into(), "changed vote was not recorded");
     }
 
     #[benchmark]
-    pub fn fast_track() {
+    pub fn fast_track() -> Result<(), BenchmarkError> {
         let origin_fast_track = T::FastTrackOrigin::try_successful_origin().unwrap();
-        let proposal_hash = add_proposal::<T>(0)?;
+        let proposal_hash = add_proposal::<T>(0).unwrap();
         let prop_index = PublicProps::<T>::get()
             .iter()
             .find(|p| p.1.hash() == proposal_hash)
@@ -190,7 +190,7 @@ pub mod benchmarks {
     }
 
     #[benchmark]
-    pub fn cancel_referendum() {
+    pub fn cancel_referendum() -> Result<(), BenchmarkError> {
         let (ref_index, _, _) = add_referendum::<T>(0);
         #[extrinsic_call]
         Democracy::cancel_proposal(RawOrigin::Root, ref_index);
@@ -200,7 +200,7 @@ pub mod benchmarks {
     // assume the weight is `MaxBlockWeight` when executing.
     #[extra]
     #[benchmark]
-    pub fn on_initialize_public(r: Linear<0, 99>) {
+    pub fn on_initialize_public(r: Linear<0, 99>) -> Result<(), BenchmarkError> {
         for i in 0..r {
             add_referendum::<T>(i);
         }
@@ -224,7 +224,7 @@ pub mod benchmarks {
             if let Some(value) = ReferendumInfoOf::<T>::get(i) {
                 match value {
                     ReferendumInfo::Finished { .. } => (),
-                    ReferendumInfo::Ongoing(_) => return Err("Referendum was not finished".into()),
+                    ReferendumInfo::Ongoing(_) => panic!("Referendum was not finished"),
                 }
             }
         }
@@ -232,7 +232,7 @@ pub mod benchmarks {
 
     // No launch no maturing referenda.
     #[benchmark]
-    pub fn on_initialize_base(r: Linear<0, 99>) {
+    pub fn on_initialize_base(r: Linear<0, 99>) -> Result<(), BenchmarkError> {
         for i in 0..r {
             add_referendum::<T>(i);
         }
@@ -255,7 +255,7 @@ pub mod benchmarks {
         for i in 0..r {
             if let Some(value) = ReferendumInfoOf::<T>::get(i) {
                 match value {
-                    ReferendumInfo::Finished { .. } => return Err("Referendum has been finished".into()),
+                    ReferendumInfo::Finished { .. } => panic!("Referendum has been finished"),
                     ReferendumInfo::Ongoing(_) => (),
                 }
             }
@@ -263,7 +263,7 @@ pub mod benchmarks {
     }
 
     #[benchmark]
-    pub fn on_initialize_base_with_launch_period(r: Linear<0, 99>) {
+    pub fn on_initialize_base_with_launch_period(r: Linear<0, 99>) -> Result<(), BenchmarkError> {
         for i in 0..r {
             add_referendum::<T>(i);
         }
@@ -288,7 +288,7 @@ pub mod benchmarks {
         for i in 0..r {
             if let Some(value) = ReferendumInfoOf::<T>::get(i) {
                 match value {
-                    ReferendumInfo::Finished { .. } => return Err("Referendum has been finished".into()),
+                    ReferendumInfo::Finished { .. } => panic!("Referendum has been finished"),
                     ReferendumInfo::Ongoing(_) => (),
                 }
             }
@@ -296,21 +296,21 @@ pub mod benchmarks {
     }
 
     #[benchmark]
-    pub fn clear_public_proposals() {
-        add_proposal::<T>(0)?;
+    pub fn clear_public_proposals() -> Result<(), BenchmarkError> {
+        add_proposal::<T>(0).unwrap();
 
         #[extrinsic_call]
         Democracy::clear_public_proposals(RawOrigin::Root);
     }
 
     #[benchmark]
-    pub fn remove_vote(r: Linear<1, 100>) {
+    pub fn remove_vote(r: Linear<1, 100>) -> Result<(), BenchmarkError> {
         let caller = funded_account::<T>("caller", 0);
         let account_vote = account_vote::<T>(100u32.into());
 
         for i in 0..r {
             let ref_index = add_referendum::<T>(i).0;
-            Democracy::<T>::vote(RawOrigin::Signed(caller.clone()).into(), ref_index, account_vote)?;
+            Democracy::<T>::vote(RawOrigin::Signed(caller.clone()).into(), ref_index, account_vote).unwrap();
         }
 
         let Voting { votes, .. } = VotingOf::<T>::get(&caller);
