@@ -29,6 +29,9 @@ use sp_runtime::{
     FixedPointNumber,
 };
 
+mod default_weights;
+pub use default_weights::WeightInfo;
+
 pub use pallet::*;
 
 #[frame_support::pallet]
@@ -68,6 +71,9 @@ pub mod pallet {
 
         /// Handler for when the total supply has inflated.
         type OnInflation: OnInflation<Self::AccountId, Currency = Self::Currency>;
+
+        /// Weight information for extrinsics in this pallet.
+        type WeightInfo: WeightInfo;
     }
 
     // The pallet's events
@@ -136,7 +142,7 @@ pub mod pallet {
     #[pallet::call]
     impl<T: Config> Pallet<T> {
         #[pallet::call_index(0)]
-        #[pallet::weight(0)]
+        #[pallet::weight(<T as pallet::Config>::WeightInfo::set_start_height_and_inflation())]
         #[transactional]
         pub fn set_start_height_and_inflation(
             origin: OriginFor<T>,
