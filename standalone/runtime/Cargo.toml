@@ -243,6 +243,7 @@ runtime-benchmarks = [
   "vault-registry/runtime-benchmarks",
   "farming/runtime-benchmarks",
   "tx-pause/runtime-benchmarks",
+  "security/runtime-benchmarks",
 
   "orml-asset-registry/runtime-benchmarks",
 

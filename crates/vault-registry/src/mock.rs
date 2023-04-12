@@ -277,6 +277,7 @@ where
 
 impl security::Config for Test {
     type RuntimeEvent = RuntimeEvent;
+    type WeightInfo = ();
 }
 
 pub type TestEvent = RuntimeEvent;
