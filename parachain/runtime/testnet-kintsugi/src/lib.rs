@@ -900,6 +900,7 @@ impl farming::Config for Runtime {
 
 impl security::Config for Runtime {
     type RuntimeEvent = RuntimeEvent;
+    type WeightInfo = ();
 }
 
 impl currency::Config for Runtime {
@@ -1282,6 +1283,7 @@ mod benches {
         [loans, Loans]
         [nomination, Nomination]
         [oracle, Oracle]
+        [security, Security]
         [redeem, Redeem]
         [replace, Replace]
         [vault_registry, VaultRegistry]

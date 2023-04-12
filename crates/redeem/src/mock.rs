@@ -229,6 +229,7 @@ impl btc_relay::Config for Test {
 
 impl security::Config for Test {
     type RuntimeEvent = RuntimeEvent;
+    type WeightInfo = ();
 }
 
 parameter_types! {

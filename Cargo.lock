@@ -11808,6 +11808,7 @@ dependencies = [
 name = "security"
 version = "1.2.0"
 dependencies = [
+ "frame-benchmarking",
  "frame-support",
  "frame-system",
  "mocktopus",

@@ -826,6 +826,7 @@ impl farming::Config for Runtime {
 
 impl security::Config for Runtime {
     type RuntimeEvent = RuntimeEvent;
+    type WeightInfo = ();
 }
 
 impl currency::Config for Runtime {
@@ -1346,6 +1347,7 @@ impl_runtime_apis! {
             list_benchmark!(list, extra, redeem, Redeem);
             list_benchmark!(list, extra, replace, Replace);
             list_benchmark!(list, extra, vault_registry, VaultRegistry);
+            list_benchmark!(list, extra, security, Security);
 
             let storage_info = AllPalletsWithSystem::storage_info();
 
@@ -1384,6 +1386,7 @@ impl_runtime_apis! {
             add_benchmark!(params, batches, redeem, Redeem);
             add_benchmark!(params, batches, replace, Replace);
             add_benchmark!(params, batches, vault_registry, VaultRegistry);
+            add_benchmark!(params, batches, security, Security);
 
             if batches.is_empty() { return Err("Benchmark not found for this pallet.".into()) }
             Ok(batches)
