@@ -93,7 +93,8 @@ pub mod pallet {
             + Decode
             + MaybeSerializeDeserialize
             + TypeInfo
-            + From<BalanceOf<Self>>;
+            + From<BalanceOf<Self>>
+            + MaxEncodedLen;
 
         type SignedInner: Debug
             + CheckedDiv

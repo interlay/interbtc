@@ -88,7 +88,6 @@ pub mod pallet {
 
     #[pallet::pallet]
     #[pallet::generate_store(trait Store)]
-    #[pallet::without_storage_info] // vault struct contains vec which doesn't implement MaxEncodedLen
     pub struct Pallet<T>(_);
 
     #[pallet::config]
