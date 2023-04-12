@@ -12,8 +12,8 @@ use vault_registry::BtcPublicKey;
 // Pallets
 use crate::Pallet as Nomination;
 use oracle::Pallet as Oracle;
-use vault_registry::Pallet as VaultRegistry;
 use security::{Pallet as Security, StatusCode};
+use vault_registry::Pallet as VaultRegistry;
 
 fn deposit_tokens<T: crate::Config>(currency_id: CurrencyId, account_id: &T::AccountId, amount: BalanceOf<T>) {
     assert_ok!(<orml_tokens::Pallet<T>>::deposit(currency_id, account_id, amount));
@@ -42,6 +42,13 @@ fn get_vault_id<T: crate::Config>() -> DefaultVaultId<T> {
 
 fn register_vault<T: crate::Config>(vault_id: DefaultVaultId<T>) {
     let origin = RawOrigin::Signed(vault_id.account_id.clone());
+    VaultRegistry::<T>::set_minimum_collateral(
+        RawOrigin::Root.into(),
+        get_collateral_currency_id::<T>(),
+        100_000u32.into(),
+    )
+    .unwrap();
+    mint_collateral::<T>(&vault_id.account_id, (1000000000u32).into());
     assert_ok!(VaultRegistry::<T>::register_public_key(
         origin.into(),
         BtcPublicKey::dummy()
@@ -81,7 +88,6 @@ pub mod benchmarks {
         <NominationEnabled<T>>::set(true);
 
         let vault_id = get_vault_id::<T>();
-        mint_collateral::<T>(&vault_id.account_id, (1u32 << 31).into());
         register_vault::<T>(vault_id.clone());
 
         #[extrinsic_call]
@@ -94,7 +100,6 @@ pub mod benchmarks {
         <NominationEnabled<T>>::set(true);
 
         let vault_id = get_vault_id::<T>();
-        mint_collateral::<T>(&vault_id.account_id, (1u32 << 31).into());
         register_vault::<T>(vault_id.clone());
 
         <Vaults<T>>::insert(&vault_id, true);
@@ -117,7 +122,6 @@ pub mod benchmarks {
         )
         .unwrap();
 
-        mint_collateral::<T>(&vault_id.account_id, (1u32 << 31).into());
         register_vault::<T>(vault_id.clone());
 
         <Vaults<T>>::insert(&vault_id, true);
@@ -135,7 +139,6 @@ pub mod benchmarks {
         <NominationEnabled<T>>::set(true);
 
         let vault_id = get_vault_id::<T>();
-        mint_collateral::<T>(&vault_id.account_id, (1u32 << 31).into());
         register_vault::<T>(vault_id.clone());
 
         <Vaults<T>>::insert(&vault_id, true);
