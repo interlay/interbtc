@@ -88,7 +88,8 @@ pub mod pallet {
             + EncodeLike
             + Decode
             + MaybeSerializeDeserialize
-            + TypeInfo;
+            + TypeInfo
+            + MaxEncodedLen;
 
         /// The `Inner` type of the `UnsignedFixedPoint`.
         type UnsignedInner: Debug
