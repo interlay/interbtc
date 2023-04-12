@@ -158,6 +158,7 @@ impl pallet_timestamp::Config for Test {
 
 impl security::Config for Test {
     type RuntimeEvent = RuntimeEvent;
+    type WeightInfo = ();
 }
 
 pub struct CurrencyConvert;

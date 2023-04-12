@@ -905,6 +905,7 @@ impl reward::Config<VaultCapacityInstance> for Runtime {
 
 impl security::Config for Runtime {
     type RuntimeEvent = RuntimeEvent;
+    type WeightInfo = ();
 }
 
 pub struct CurrencyConvert;
@@ -1298,6 +1299,7 @@ mod benches {
         [oracle, Oracle]
         [redeem, Redeem]
         [replace, Replace]
+        [security, Security]
         [vault_registry, VaultRegistry]
     );
 }

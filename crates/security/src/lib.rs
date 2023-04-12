@@ -5,10 +5,15 @@
 #![cfg_attr(test, feature(proc_macro_hygiene))]
 #![cfg_attr(not(feature = "std"), no_std)]
 
+#[cfg(feature = "runtime-benchmarks")]
+mod benchmarking;
+
 use sp_runtime::{traits::*, ArithmeticError};
 use sp_std::convert::TryInto;
 
+mod default_weights;
 pub mod types;
+pub use default_weights::WeightInfo;
 
 #[cfg(test)]
 mod mock;
@@ -32,11 +37,10 @@ use frame_support::{
     weights::Weight,
 };
 use frame_system::ensure_root;
+pub use pallet::*;
 use sha2::{Digest, Sha256};
 use sp_core::{H256, U256};
 use sp_std::{collections::btree_set::BTreeSet, prelude::*, vec};
-
-pub use pallet::*;
 
 #[frame_support::pallet]
 pub mod pallet {
@@ -50,6 +54,9 @@ pub mod pallet {
     pub trait Config: frame_system::Config {
         /// The overarching event type.
         type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
+
+        /// Weight information for the extrinsics in this module.
+        type WeightInfo: WeightInfo;
     }
 
     #[pallet::event]
@@ -74,8 +81,7 @@ pub mod pallet {
     impl<T: Config> Hooks<T::BlockNumber> for Pallet<T> {
         fn on_initialize(_n: T::BlockNumber) -> Weight {
             Self::increment_active_block();
-            // TODO: calculate weight
-            Weight::from_ref_time(0)
+            <T as Config>::WeightInfo::on_initialize()
         }
     }
 
@@ -142,7 +148,7 @@ pub mod pallet {
         ///
         /// # Weight: `O(1)`
         #[pallet::call_index(0)]
-        #[pallet::weight(0)]
+        #[pallet::weight(<T as Config>::WeightInfo::set_parachain_status())]
         #[transactional]
         pub fn set_parachain_status(origin: OriginFor<T>, status_code: StatusCode) -> DispatchResultWithPostInfo {
             ensure_root(origin)?;
@@ -159,7 +165,7 @@ pub mod pallet {
         ///
         /// # Weight: `O(1)`
         #[pallet::call_index(1)]
-        #[pallet::weight(0)]
+        #[pallet::weight(<T as Config>::WeightInfo::insert_parachain_error())]
         #[transactional]
         pub fn insert_parachain_error(origin: OriginFor<T>, error_code: ErrorCode) -> DispatchResultWithPostInfo {
             ensure_root(origin)?;
@@ -176,7 +182,7 @@ pub mod pallet {
         ///
         /// # Weight: `O(1)`
         #[pallet::call_index(2)]
-        #[pallet::weight(0)]
+        #[pallet::weight(<T as Config>::WeightInfo::remove_parachain_error())]
         #[transactional]
         pub fn remove_parachain_error(origin: OriginFor<T>, error_code: ErrorCode) -> DispatchResultWithPostInfo {
             ensure_root(origin)?;
