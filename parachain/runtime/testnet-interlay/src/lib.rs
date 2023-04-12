@@ -1285,6 +1285,7 @@ mod benches {
         [vault_registry, VaultRegistry]
         [democracy, Democracy]
         [tx_pause, TxPause]
+        [supply, Supply]
     );
 }
 
