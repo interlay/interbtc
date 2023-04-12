@@ -1304,6 +1304,7 @@ mod benches {
         [redeem, Redeem]
         [replace, Replace]
         [vault_registry, VaultRegistry]
+        [supply, Supply]
     );
 }
 

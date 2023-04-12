@@ -1304,6 +1304,7 @@ mod benches {
         [replace, Replace]
         [security, Security]
         [vault_registry, VaultRegistry]
+        [supply, Supply]
     );
 }
 
