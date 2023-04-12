@@ -266,6 +266,7 @@ runtime-benchmarks = [
   "tx-pause/runtime-benchmarks",
   "vault-registry/runtime-benchmarks",
   "security/runtime-benchmarks",
+  "democracy/runtime-benchmarks",
 ]
 disable-runtime-api = []
 try-runtime = [

@@ -284,6 +284,7 @@ runtime-benchmarks = [
   "security/runtime-benchmarks",
   "tx-pause/runtime-benchmarks",
   "vault-registry/runtime-benchmarks",
+  "democracy/runtime-benchmarks",
 ]
 disable-runtime-api = []
 dev-interlay = []

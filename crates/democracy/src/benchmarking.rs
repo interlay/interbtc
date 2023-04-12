@@ -6,7 +6,7 @@ use frame_support::traits::{Currency, EnsureOrigin, Get, Hash as PreimageHash, O
 use frame_system::RawOrigin;
 use sp_core::H256;
 use sp_runtime::traits::Bounded;
-use std::fmt::Debug;
+use frame_support::dispatch::fmt::Debug;
 
 use crate::Pallet as Democracy;
 
