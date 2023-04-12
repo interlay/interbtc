@@ -348,7 +348,6 @@ fn testnet_genesis(
             phantom: Default::default(),
         },
         technical_membership: Default::default(),
-        treasury: Default::default(),
         democracy: Default::default(),
         supply: SupplyConfig {
             initial_supply: token_distribution::INITIAL_ALLOCATION,

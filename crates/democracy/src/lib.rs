@@ -119,7 +119,10 @@ pub type BoundedCallOf<T> = Bounded<CallOf<T>>;
 pub mod pallet {
     use super::*;
     use core::num::TryFromIntError;
-    use frame_support::{pallet_prelude::*, traits::EnsureOrigin};
+    use frame_support::{
+        pallet_prelude::*,
+        traits::{EnsureOrigin, ExistenceRequirement},
+    };
     use frame_system::{ensure_root, ensure_signed, pallet_prelude::*};
     use sp_runtime::DispatchResult;
 
@@ -200,6 +203,12 @@ pub mod pallet {
 
         /// Millisecond offset into week from Monday.
         type LaunchOffsetMillis: Get<Self::Moment>;
+
+        /// Account from which is transferred in `spend_from_treasury`.
+        type TreasuryAccount: Get<Self::AccountId>;
+
+        /// Currency used in `spend_from_treasury`.
+        type TreasuryCurrency: Currency<Self::AccountId, Balance = BalanceOf<Self>>;
     }
 
     /// The number of (public) proposals that have been made so far.
@@ -600,6 +609,22 @@ pub mod pallet {
         pub fn remove_vote(origin: OriginFor<T>, index: ReferendumIndex) -> DispatchResult {
             let who = ensure_signed(origin)?;
             Self::try_remove_vote(&who, index)
+        }
+
+        #[pallet::call_index(14)]
+        #[pallet::weight(T::WeightInfo::spend_from_treasury())]
+        pub fn spend_from_treasury(
+            origin: OriginFor<T>,
+            #[pallet::compact] value: BalanceOf<T>,
+            beneficiary: T::AccountId,
+        ) -> DispatchResult {
+            ensure_root(origin)?;
+            T::TreasuryCurrency::transfer(
+                &T::TreasuryAccount::get(),
+                &beneficiary,
+                value,
+                ExistenceRequirement::AllowDeath,
+            )
         }
     }
 }

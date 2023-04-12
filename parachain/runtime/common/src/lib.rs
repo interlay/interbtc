@@ -2,8 +2,12 @@
 use core::marker::PhantomData;
 
 use currency::Amount;
+use frame_support::{
+    pallet_prelude::Get,
+    traits::{Currency, OnUnbalanced, TryDrop},
+};
 use primitives::BlockNumber;
-use sp_runtime::{traits::Get as _, DispatchError, FixedPointNumber};
+use sp_runtime::{DispatchError, FixedPointNumber};
 use sp_std::prelude::*;
 
 // The relay chain is limited to 12s to include parachain blocks.
@@ -90,5 +94,21 @@ impl<T: ShouldExecute> ShouldExecute for Transactless<T> {
         }
         // No transact - return result of the wrapped barrier
         T::should_execute(origin, message, max_weight, weight_credit)
+    }
+}
+
+pub struct ToTreasury<T, TreasuryAccount, NativeCurrency>(PhantomData<(T, TreasuryAccount, NativeCurrency)>);
+
+impl<T, TreasuryAccount, NativeCurrency, NegImbalance> OnUnbalanced<NegImbalance>
+    for ToTreasury<T, TreasuryAccount, NativeCurrency>
+where
+    T: frame_system::Config,
+    NativeCurrency: Currency<T::AccountId, NegativeImbalance = NegImbalance>,
+    NegImbalance: TryDrop,
+    TreasuryAccount: Get<T::AccountId>,
+{
+    fn on_nonzero_unbalanced(amount: NegImbalance) {
+        // Must resolve into existing but better to be safe.
+        let _ = NativeCurrency::resolve_creating(&TreasuryAccount::get(), amount);
     }
 }

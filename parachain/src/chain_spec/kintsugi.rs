@@ -247,7 +247,6 @@ fn kintsugi_mainnet_genesis(
         },
         technical_committee: Default::default(),
         technical_membership: Default::default(),
-        treasury: Default::default(),
         democracy: Default::default(),
         supply: kintsugi_runtime::SupplyConfig {
             initial_supply: kintsugi_runtime::token_distribution::INITIAL_ALLOCATION,

@@ -289,6 +289,15 @@ benchmarks! {
         assert_eq!(votes.len(), (r - 1) as usize, "Vote was not removed");
     }
 
+    spend_from_treasury {
+        let beneficiary: T::AccountId = account("beneficiary", 0, 0);
+        T::Currency::make_free_balance_be(&T::TreasuryAccount::get(), 100u32.into());
+        let value = 100u32.into();
+    }: _(RawOrigin::Root, value, beneficiary.clone())
+    verify {
+        assert_eq!(T::TreasuryCurrency::free_balance(&beneficiary), 100u32.into());
+    }
+
     impl_benchmark_test_suite!(
         Democracy,
         crate::tests::new_test_ext(),
