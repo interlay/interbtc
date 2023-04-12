@@ -310,6 +310,8 @@ pub mod pallet {
         NotPassed { ref_index: ReferendumIndex },
         /// A referendum has been cancelled.
         Cancelled { ref_index: ReferendumIndex },
+        /// A proposal has been cancelled.
+        CancelledProposal { prop_index: PropIndex },
     }
 
     #[pallet::error]
@@ -591,6 +593,7 @@ pub mod pallet {
                     T::Currency::unreserve(&who, amount);
                 }
             }
+            Self::deposit_event(Event::<T>::CancelledProposal { prop_index });
 
             Ok(())
         }
