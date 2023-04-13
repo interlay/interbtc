@@ -1373,6 +1373,7 @@ mod benches {
         [replace, Replace]
         [security, Security]
         [vault_registry, VaultRegistry]
+        [tx_pause, TxPause]
     );
 }
 
