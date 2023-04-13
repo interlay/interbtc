@@ -366,6 +366,8 @@ where
 {
     type CurrencyId;
 
+    fn reward_currencies_len(pool_id: &PoolId) -> u32;
+
     /// Distribute the `amount` to all participants OR error if zero total stake.
     fn distribute_reward(pool_id: &PoolId, currency_id: Self::CurrencyId, amount: Balance) -> DispatchResult;
 
@@ -423,6 +425,10 @@ where
     <T::SignedFixedPoint as FixedPointNumber>::Inner: TryInto<Balance>,
 {
     type CurrencyId = T::CurrencyId;
+
+    fn reward_currencies_len(pool_id: &T::PoolId) -> u32 {
+        RewardCurrencies::<T, I>::get(pool_id).len() as u32
+    }
 
     fn distribute_reward(pool_id: &T::PoolId, currency_id: T::CurrencyId, amount: Balance) -> DispatchResult {
         Pallet::<T, I>::distribute_reward(
@@ -490,6 +496,10 @@ where
     Balance: Saturating + PartialOrd + Default,
 {
     type CurrencyId = ();
+
+    fn reward_currencies_len(_: &PoolId) -> u32 {
+        Default::default()
+    }
 
     fn distribute_reward(_: &PoolId, _: Self::CurrencyId, _: Balance) -> DispatchResult {
         Ok(())

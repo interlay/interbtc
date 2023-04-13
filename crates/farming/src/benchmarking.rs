@@ -1,6 +1,6 @@
 use super::*;
 use crate::CurrencyId::Token;
-use frame_benchmarking::v2::{account, benchmark, benchmarks, impl_benchmark_test_suite, Linear};
+use frame_benchmarking::v2::*;
 use frame_support::{assert_ok, traits::Hooks};
 use frame_system::RawOrigin;
 use primitives::*;
@@ -38,9 +38,11 @@ fn create_reward_schedule<T: Config>(pool_currency_id: CurrencyId, reward_curren
     ));
 }
 
-fn create_default_reward_schedule<T: Config>() -> (CurrencyId, CurrencyId) {
-    let pool_currency_id = CurrencyId::LpToken(LpToken::Token(DOT), LpToken::Token(IBTC));
-    let reward_currency_id = CurrencyId::Token(INTR);
+const DEFAULT_POOL_CURRENCY_ID: CurrencyId = CurrencyId::LpToken(LpToken::Token(DOT), LpToken::Token(IBTC));
+
+fn create_default_reward_schedule<T: Config>(c: u32) -> (CurrencyId, CurrencyId) {
+    let pool_currency_id = DEFAULT_POOL_CURRENCY_ID;
+    let reward_currency_id = CurrencyId::ForeignAsset(c);
     create_reward_schedule::<T>(pool_currency_id, reward_currency_id);
     (pool_currency_id, reward_currency_id)
 }
@@ -50,7 +52,29 @@ fn deposit_lp_tokens<T: Config>(pool_currency_id: CurrencyId, account_id: &T::Ac
     assert_ok!(Farming::<T>::deposit(
         RawOrigin::Signed(account_id.clone()).into(),
         pool_currency_id,
+        T::RewardPools::reward_currencies_len(&pool_currency_id)
     ));
+}
+
+fn create_multiple_reward_schedules<T: Config>(num_schedules: u32, caller: &T::AccountId) -> CurrencyId {
+    let (pool_currency_id, reward_currency_id) = create_default_reward_schedule::<T>(0);
+    deposit_lp_tokens::<T>(pool_currency_id, &caller, 100u32.into());
+    // need to distribute rewards to add currency
+    assert_ok!(T::RewardPools::distribute_reward(
+        &pool_currency_id,
+        reward_currency_id,
+        100u32.into()
+    ));
+    for i in 1..num_schedules {
+        let (_, reward_currency_id) = create_default_reward_schedule::<T>(i);
+        assert_ok!(T::RewardPools::distribute_reward(
+            &pool_currency_id,
+            reward_currency_id,
+            100u32.into()
+        ));
+    }
+    assert_eq!(T::RewardPools::reward_currencies_len(&pool_currency_id), num_schedules);
+    pool_currency_id
 }
 
 pub fn get_benchmarking_currency_ids() -> Vec<(CurrencyId, CurrencyId)> {
@@ -91,7 +115,7 @@ pub mod benchmarks {
         let reward_schedule = default_reward_schedule::<T>(reward_currency_id);
 
         #[extrinsic_call]
-        Farming::<T>::update_reward_schedule(
+        _(
             RawOrigin::Root,
             pool_currency_id,
             reward_currency_id,
@@ -102,39 +126,51 @@ pub mod benchmarks {
 
     #[benchmark]
     pub fn remove_reward_schedule() {
-        let (pool_currency_id, reward_currency_id) = create_default_reward_schedule::<T>();
+        let (pool_currency_id, reward_currency_id) = create_default_reward_schedule::<T>(0);
 
         #[extrinsic_call]
-        Farming::<T>::remove_reward_schedule(RawOrigin::Root, pool_currency_id, reward_currency_id);
+        _(RawOrigin::Root, pool_currency_id, reward_currency_id);
     }
 
     #[benchmark]
-    pub fn deposit() {
-        let origin: T::AccountId = account("Origin", 0, 0);
-        let (pool_currency_id, _) = create_default_reward_schedule::<T>();
-        assert_ok!(T::MultiCurrency::deposit(pool_currency_id, &origin, 100u32.into(),));
+    pub fn deposit(c: Linear<1, 4>) {
+        let caller = whitelisted_caller();
+        let pool_currency_id = create_multiple_reward_schedules::<T>(c, &caller);
+        assert_ok!(T::MultiCurrency::deposit(pool_currency_id, &caller, 100u32.into()));
 
         #[extrinsic_call]
-        Farming::<T>::deposit(RawOrigin::Signed(origin), pool_currency_id);
+        _(
+            RawOrigin::Signed(caller.clone()),
+            pool_currency_id,
+            T::RewardPools::reward_currencies_len(&pool_currency_id),
+        );
+
+        // deposit can succeed with zero, so check stake
+        assert_ok!(T::RewardPools::get_stake(&pool_currency_id, &caller), 200u32.into());
     }
 
     #[benchmark]
-    pub fn withdraw() {
-        let origin: T::AccountId = account("Origin", 0, 0);
-        let (pool_currency_id, _) = create_default_reward_schedule::<T>();
-        let amount = 100u32.into();
-        deposit_lp_tokens::<T>(pool_currency_id, &origin, amount);
+    pub fn withdraw(c: Linear<1, 4>) {
+        let caller = whitelisted_caller();
+        let pool_currency_id = create_multiple_reward_schedules::<T>(c, &caller);
 
         #[extrinsic_call]
-        Farming::<T>::withdraw(RawOrigin::Signed(origin), pool_currency_id, amount);
+        _(
+            RawOrigin::Signed(caller.clone()),
+            pool_currency_id,
+            100u32.into(),
+            T::RewardPools::reward_currencies_len(&pool_currency_id),
+        );
+
+        assert_ok!(T::RewardPools::get_stake(&pool_currency_id, &caller), 0u32.into());
     }
 
     #[benchmark]
     pub fn claim() {
-        let origin: T::AccountId = account("Origin", 0, 0);
-        let (pool_currency_id, reward_currency_id) = create_default_reward_schedule::<T>();
+        let caller = whitelisted_caller();
+        let (pool_currency_id, reward_currency_id) = create_default_reward_schedule::<T>(0);
         let amount = 100u32.into();
-        deposit_lp_tokens::<T>(pool_currency_id, &origin, amount);
+        deposit_lp_tokens::<T>(pool_currency_id, &caller, amount);
         assert_ok!(T::RewardPools::distribute_reward(
             &pool_currency_id,
             reward_currency_id,
@@ -142,7 +178,7 @@ pub mod benchmarks {
         ));
 
         #[extrinsic_call]
-        Farming::<T>::claim(RawOrigin::Signed(origin), pool_currency_id, reward_currency_id);
+        _(RawOrigin::Signed(caller), pool_currency_id, reward_currency_id);
     }
 
     impl_benchmark_test_suite!(Farming, crate::mock::ExtBuilder::build(), crate::mock::Test);
