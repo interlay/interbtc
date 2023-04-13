@@ -78,6 +78,7 @@ use xcm::opaque::latest::BodyId;
 use xcm_config::ParentLocation;
 
 pub mod constants;
+pub mod weights;
 pub mod xcm_config;
 
 type VaultId = primitives::VaultId<AccountId, CurrencyId>;
@@ -585,7 +586,7 @@ parameter_types! {
 
 impl btc_relay::Config for Runtime {
     type RuntimeEvent = RuntimeEvent;
-    type WeightInfo = ();
+    type WeightInfo = weights::btc_relay::WeightInfo<Runtime>;
     type ParachainBlocksPerBitcoinBlock = ParachainBlocksPerBitcoinBlock;
 }
 
@@ -809,7 +810,7 @@ impl annuity::Config<EscrowAnnuityInstance> for Runtime {
     type BlockNumberToBalance = BlockNumberToBalance;
     type EmissionPeriod = EmissionPeriod;
     type TotalWrapped = TotalWrapped;
-    type WeightInfo = ();
+    type WeightInfo = weights::annuity::WeightInfo<Runtime>;
 }
 
 pub struct VaultBlockRewardProvider;
@@ -892,7 +893,7 @@ impl reward::Config<VaultCapacityInstance> for Runtime {
 
 impl security::Config for Runtime {
     type RuntimeEvent = RuntimeEvent;
-    type WeightInfo = ();
+    type WeightInfo = weights::security::WeightInfo<Runtime>;
     type MaxErrors = ConstU32<1>;
 }
 
@@ -942,7 +943,7 @@ impl escrow::Config for Runtime {
     type Span = Span;
     type MaxPeriod = MaxPeriod;
     type EscrowRewards = EscrowRewards;
-    type WeightInfo = ();
+    type WeightInfo = weights::escrow::WeightInfo<Runtime>;
 }
 
 // https://github.com/paritytech/polkadot/blob/be005938a64b9170a5d55887ce42004e1b086b7b/runtime/polkadot/src/lib.rs#L584-L592
@@ -1043,7 +1044,7 @@ impl vault_registry::Config for Runtime {
     type PalletId = VaultRegistryPalletId;
     type RuntimeEvent = RuntimeEvent;
     type Balance = Balance;
-    type WeightInfo = ();
+    type WeightInfo = weights::vault_registry::WeightInfo<Runtime>;
     type GetGriefingCollateralCurrencyId = GetNativeCurrencyId;
     type NominationApi = Nomination;
 }
@@ -1061,7 +1062,7 @@ pub type OracleName = oracle::NameOf<Runtime>;
 impl oracle::Config for Runtime {
     type RuntimeEvent = RuntimeEvent;
     type OnExchangeRateChange = vault_registry::PoolManager<Runtime>;
-    type WeightInfo = ();
+    type WeightInfo = weights::oracle::WeightInfo<Runtime>;
     type MaxNameLength = ConstU32<255>;
 }
 
@@ -1110,12 +1111,12 @@ pub use nomination::Event as NominationEvent;
 
 impl nomination::Config for Runtime {
     type RuntimeEvent = RuntimeEvent;
-    type WeightInfo = ();
+    type WeightInfo = weights::nomination::WeightInfo<Runtime>;
 }
 
 impl clients_info::Config for Runtime {
     type RuntimeEvent = RuntimeEvent;
-    type WeightInfo = ();
+    type WeightInfo = weights::clients_info::WeightInfo<Runtime>;
     type MaxNameLength = ConstU32<255>;
     type MaxUriLength = ConstU32<255>;
 }
@@ -1133,7 +1134,7 @@ impl tx_pause::Config for Runtime {
     type WhitelistCallNames = Nothing;
     type MaxNameLen = MaxNameLen;
     type PauseTooLongNames = PauseTooLongNames;
-    type WeightInfo = ();
+    type WeightInfo = weights::tx_pause::WeightInfo<Runtime>;
 }
 
 construct_runtime! {
@@ -1288,11 +1289,8 @@ mod benches {
         [clients_info, ClientsInfo]
         [escrow, Escrow]
         [fee, Fee]
-        [issue, Issue]
         [nomination, Nomination]
         [oracle, Oracle]
-        [redeem, Redeem]
-        [replace, Replace]
         [security, Security]
         [vault_registry, VaultRegistry]
         [democracy, Democracy]
