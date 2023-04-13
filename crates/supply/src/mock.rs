@@ -108,6 +108,7 @@ impl Config for Test {
     type Currency = Balances;
     type InflationPeriod = InflationPeriod;
     type OnInflation = MockOnInflation;
+    type WeightInfo = ();
 }
 
 pub struct ExtBuilder;
