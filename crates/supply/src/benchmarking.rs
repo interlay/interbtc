@@ -7,9 +7,6 @@ use frame_benchmarking::v2::{benchmarks, impl_benchmark_test_suite};
 use frame_system::{self, RawOrigin as SystemOrigin};
 use sp_std::prelude::*;
 
-mod default_weights;
-pub use default_weights::WeightInfo;
-
 #[benchmarks]
 pub mod benchmarks {
     use super::*;
