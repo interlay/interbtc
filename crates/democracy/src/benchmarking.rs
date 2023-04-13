@@ -2,11 +2,13 @@
 use super::*;
 
 use frame_benchmarking::v2::*;
-use frame_support::traits::{Currency, EnsureOrigin, Get, Hash as PreimageHash, OnInitialize};
+use frame_support::{
+    dispatch::fmt::Debug,
+    traits::{Currency, EnsureOrigin, Get, Hash as PreimageHash, OnInitialize},
+};
 use frame_system::RawOrigin;
 use sp_core::H256;
 use sp_runtime::traits::Bounded;
-use frame_support::dispatch::fmt::Debug;
 
 use crate::Pallet as Democracy;
 
