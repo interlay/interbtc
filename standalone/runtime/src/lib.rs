@@ -1079,6 +1079,8 @@ impl orml_asset_registry::Config for Runtime {
 impl clients_info::Config for Runtime {
     type RuntimeEvent = RuntimeEvent;
     type WeightInfo = ();
+    type MaxNameLength = ConstU32<255>;
+    type MaxUriLength = ConstU32<255>;
 }
 
 impl loans::Config for Runtime {

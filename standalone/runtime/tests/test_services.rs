@@ -3,6 +3,7 @@ use mock::{assert_eq, *};
 
 mod client_releases {
     use clients_info::ClientRelease;
+    use frame_support::BoundedVec;
 
     use super::{assert_eq, *};
 
@@ -10,10 +11,9 @@ mod client_releases {
     fn integration_test_vault_registry_set_current_client_release_works() {
         ExtBuilder::build().execute_with(|| {
             // Set the vault release
-            let vault_key = b"vault".to_vec();
+            let vault_key = BoundedVec::try_from(b"vault".to_vec()).unwrap();
             let vault_release = ClientRelease {
-                uri: b"https://github.com/interlay/interbtc-clients/releases/download/1.16.0/vault-parachain-metadata-kintsugi-testnet"
-                    .to_vec(),
+                uri: BoundedVec::try_from(b"https://github.com/interlay/interbtc-clients/releases/download/1.16.0/vault-parachain-metadata-kintsugi-testnet".to_vec()).unwrap(),
                 checksum: H256::default(),
             };
             assert_ok!(RuntimeCall::ClientsInfo(ServicesCall::set_current_client_release {
@@ -27,10 +27,9 @@ mod client_releases {
             );
 
             // Set the oracle release
-            let oracle_client_name = b"oracle".to_vec();
+            let oracle_client_name = BoundedVec::try_from(b"oracle".to_vec()).unwrap();
             let oracle_release = ClientRelease {
-                uri: b"https://github.com/interlay/interbtc-clients/releases/download/1.16.0/oracle-parachain-metadata-kintsugi-testnet"
-                    .to_vec(),
+                uri: BoundedVec::try_from(b"https://github.com/interlay/interbtc-clients/releases/download/1.16.0/oracle-parachain-metadata-kintsugi-testnet".to_vec()).unwrap(),
                 checksum: H256::default(),
             };
             assert_ok!(RuntimeCall::ClientsInfo(ServicesCall::set_current_client_release {
@@ -49,10 +48,9 @@ mod client_releases {
     fn integration_test_vault_registry_set_pending_client_release_works() {
         ExtBuilder::build().execute_with(|| {
             // Set the vault release
-            let vault_key = b"vault".to_vec();
+            let vault_key = BoundedVec::try_from(b"vault".to_vec()).unwrap();
             let vault_release = ClientRelease {
-                uri: b"https://github.com/interlay/interbtc-clients/releases/download/1.16.0/vault-parachain-metadata-kintsugi-testnet"
-                    .to_vec(),
+                uri: BoundedVec::try_from(b"https://github.com/interlay/interbtc-clients/releases/download/1.16.0/vault-parachain-metadata-kintsugi-testnet".to_vec()).unwrap(),
                 checksum: H256::default(),
             };
             assert_ok!(RuntimeCall::ClientsInfo(ServicesCall::set_pending_client_release {
@@ -62,10 +60,9 @@ mod client_releases {
             .dispatch(root()));
 
             // Set the oracle release
-            let oracle_key = b"oracle".to_vec();
+            let oracle_key = BoundedVec::try_from(b"oracle".to_vec()).unwrap();
             let oracle_release = ClientRelease {
-                uri: b"https://github.com/interlay/interbtc-clients/releases/download/1.16.0/oracle-parachain-metadata-kintsugi-testnet"
-                    .to_vec(),
+                uri: BoundedVec::try_from(b"https://github.com/interlay/interbtc-clients/releases/download/1.16.0/oracle-parachain-metadata-kintsugi-testnet".to_vec()).unwrap(),
                 checksum: H256::default(),
             };
             assert_ok!(RuntimeCall::ClientsInfo(ServicesCall::set_pending_client_release {

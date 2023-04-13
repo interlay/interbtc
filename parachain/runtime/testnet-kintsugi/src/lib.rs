@@ -1131,6 +1131,8 @@ impl nomination::Config for Runtime {
 impl clients_info::Config for Runtime {
     type RuntimeEvent = RuntimeEvent;
     type WeightInfo = ();
+    type MaxNameLength = ConstU32<255>;
+    type MaxUriLength = ConstU32<255>;
 }
 
 parameter_types! {
@@ -1291,6 +1293,7 @@ mod benches {
     define_benchmarks!(
         [annuity, EscrowAnnuity]
         [btc_relay, BTCRelay]
+        [clients_info, ClientsInfo]
         [dex_general, DexGeneral]
         [dex_stable, DexStable]
         [dex_swap_router, DexSwapRouter]
@@ -1306,6 +1309,7 @@ mod benches {
         [replace, Replace]
         [vault_registry, VaultRegistry]
         [supply, Supply]
+        [tx_pause, TxPause]
     );
 }
 

@@ -152,6 +152,7 @@ pub mod pallet {
     #[pallet::error]
     pub enum Error<T> {
         InsufficientStake,
+        BadRewardLength,
     }
 
     #[pallet::hooks]
@@ -282,13 +283,24 @@ pub mod pallet {
             Ok(().into())
         }
 
-        /// Stake the pool tokens in the reward pool
+        /// Stake all pool tokens in the reward pool
+        ///
+        /// - `pool_currency_id`: LP token to deposit
+        /// - `length_rewards`: upper bound for number of reward currencies
         #[pallet::call_index(2)]
-        #[pallet::weight(T::WeightInfo::deposit())]
+        #[pallet::weight(T::WeightInfo::deposit(*length_rewards))]
         #[transactional]
-        pub fn deposit(origin: OriginFor<T>, mut pool_currency_id: CurrencyIdOf<T>) -> DispatchResult {
+        pub fn deposit(
+            origin: OriginFor<T>,
+            mut pool_currency_id: CurrencyIdOf<T>,
+            length_rewards: u32,
+        ) -> DispatchResult {
             let who = ensure_signed(origin)?;
             pool_currency_id.sort();
+            ensure!(
+                length_rewards >= T::RewardPools::reward_currencies_len(&pool_currency_id),
+                Error::<T>::BadRewardLength,
+            );
 
             // reserve lp tokens to prevent spending
             let amount = T::MultiCurrency::free_balance(pool_currency_id.clone(), &who);
@@ -299,16 +311,25 @@ pub mod pallet {
         }
 
         /// Unstake the pool tokens from the reward pool
+        ///
+        /// - `pool_currency_id`: LP token to withdraw
+        /// - `amount`: of LP token to withdraw
+        /// - `length_rewards`: upper bound for number of reward currencies
         #[pallet::call_index(3)]
-        #[pallet::weight(T::WeightInfo::withdraw())]
+        #[pallet::weight(T::WeightInfo::withdraw(*length_rewards))]
         #[transactional]
         pub fn withdraw(
             origin: OriginFor<T>,
             mut pool_currency_id: CurrencyIdOf<T>,
             amount: BalanceOf<T>,
+            length_rewards: u32,
         ) -> DispatchResult {
             let who = ensure_signed(origin)?;
             pool_currency_id.sort();
+            ensure!(
+                length_rewards >= T::RewardPools::reward_currencies_len(&pool_currency_id),
+                Error::<T>::BadRewardLength,
+            );
 
             // unreserve lp tokens to allow spending
             let remaining = T::MultiCurrency::unreserve(pool_currency_id.clone(), &who, amount);
