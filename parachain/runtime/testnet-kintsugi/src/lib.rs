@@ -1288,6 +1288,7 @@ mod benches {
         [replace, Replace]
         [vault_registry, VaultRegistry]
         [democracy, Democracy]
+        [tx_pause, TxPause]
     );
 }
 
