@@ -777,6 +777,10 @@ where
 {
     type CurrencyId = T::CurrencyId;
 
+    fn reward_currencies_len(_: &(Option<T::Index>, DefaultVaultId<T>)) -> u32 {
+        2
+    }
+
     fn distribute_reward(
         (_, vault_id): &(Option<T::Index>, DefaultVaultId<T>),
         currency_id: T::CurrencyId,
