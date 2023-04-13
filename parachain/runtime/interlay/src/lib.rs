@@ -1111,6 +1111,8 @@ impl nomination::Config for Runtime {
 impl clients_info::Config for Runtime {
     type RuntimeEvent = RuntimeEvent;
     type WeightInfo = ();
+    type MaxNameLength = ConstU32<255>;
+    type MaxUriLength = ConstU32<255>;
 }
 
 parameter_types! {
@@ -1278,6 +1280,7 @@ mod benches {
     define_benchmarks!(
         [annuity, EscrowAnnuity]
         [btc_relay, BTCRelay]
+        [clients_info, ClientsInfo]
         [escrow, Escrow]
         [fee, Fee]
         [issue, Issue]
