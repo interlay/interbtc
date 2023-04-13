@@ -88,7 +88,7 @@ pub mod pallet {
         #[pallet::constant]
         type MaxSwaps: Get<u16>;
 
-        /// The maximum number of swaps allowed in routes
+        /// The maximum number of items allowed in a bounded map
         #[pallet::constant]
         type MaxMapItems: Get<u32>;
     }
