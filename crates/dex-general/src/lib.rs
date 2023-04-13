@@ -25,7 +25,7 @@ use frame_support::{
     inherent::Vec, pallet_prelude::*, storage::bounded_btree_map::BoundedBTreeMap, traits::Get, PalletId, RuntimeDebug,
 };
 use orml_traits::MultiCurrency;
-use sp_core::{ConstU16, U256};
+use sp_core::U256;
 use sp_runtime::traits::{AccountIdConversion, Hash, MaybeSerializeDeserialize, One, StaticLookup, Zero};
 use sp_std::{collections::btree_map::BTreeMap, convert::TryInto, fmt::Debug, prelude::*, vec};
 
@@ -88,9 +88,13 @@ pub mod pallet {
         #[pallet::constant]
         type MaxSwaps: Get<u16>;
 
-        /// The maximum number of items allowed in a bounded map
+        /// The maximum number of rewards that can be stored
         #[pallet::constant]
-        type MaxMapItems: Get<u32>;
+        type MaxBootstrapRewards: Get<u32>;
+
+        /// The maximum number of limits that can be stored
+        #[pallet::constant]
+        type MaxBootstrapLimits: Get<u32>;
     }
 
     #[pallet::pallet]
@@ -153,7 +157,7 @@ pub mod pallet {
         _,
         Twox64Concat,
         (T::AssetId, T::AssetId),
-        BoundedBTreeMap<T::AssetId, AssetBalance, T::MaxMapItems>,
+        BoundedBTreeMap<T::AssetId, AssetBalance, T::MaxBootstrapRewards>,
         ValueQuery,
     >;
 
@@ -163,7 +167,7 @@ pub mod pallet {
         _,
         Twox64Concat,
         (T::AssetId, T::AssetId),
-        BoundedBTreeMap<T::AssetId, AssetBalance, T::MaxMapItems>,
+        BoundedBTreeMap<T::AssetId, AssetBalance, T::MaxBootstrapLimits>,
         ValueQuery,
     >;
 
@@ -378,8 +382,10 @@ pub mod pallet {
         ChargeRewardParamsError,
         /// Exist some reward in bootstrap,
         ExistRewardsInBootstrap,
-        /// Failed to create bounded map
-        BoundedBTreeMapCreationFailed,
+        /// The number of rewards exceeds the storage limit
+        TooManyRewards,
+        /// The number of limits exceeds the storage limit
+        TooManyLimits,
     }
 
     #[pallet::hooks]
@@ -753,21 +759,21 @@ pub mod pallet {
 
                         BootstrapRewards::<T>::insert(
                             pair,
-                            BoundedBTreeMap::<T::AssetId, AssetBalance, T::MaxMapItems>::try_from(
+                            BoundedBTreeMap::<T::AssetId, AssetBalance, T::MaxBootstrapRewards>::try_from(
                                 rewards
                                     .into_iter()
                                     .map(|asset_id| (asset_id, Zero::zero()))
                                     .collect::<BTreeMap<T::AssetId, AssetBalance>>(),
                             )
-                            .map_err(|_| Error::<T>::BoundedBTreeMapCreationFailed)?,
+                            .map_err(|_| Error::<T>::TooManyRewards)?,
                         );
 
                         BootstrapLimits::<T>::insert(
                             pair,
-                            BoundedBTreeMap::<T::AssetId, AssetBalance, T::MaxMapItems>::try_from(
+                            BoundedBTreeMap::<T::AssetId, AssetBalance, T::MaxBootstrapLimits>::try_from(
                                 limits.into_iter().collect::<BTreeMap<T::AssetId, AssetBalance>>(),
                             )
-                            .map_err(|_| Error::<T>::BoundedBTreeMapCreationFailed)?,
+                            .map_err(|_| Error::<T>::TooManyLimits)?,
                         );
 
                         Ok(())
@@ -786,21 +792,21 @@ pub mod pallet {
 
                     BootstrapRewards::<T>::insert(
                         pair,
-                        BoundedBTreeMap::<T::AssetId, AssetBalance, T::MaxMapItems>::try_from(
+                        BoundedBTreeMap::<T::AssetId, AssetBalance, T::MaxBootstrapRewards>::try_from(
                             rewards
                                 .into_iter()
                                 .map(|asset_id| (asset_id, Zero::zero()))
                                 .collect::<BTreeMap<T::AssetId, AssetBalance>>(),
                         )
-                        .map_err(|_| Error::<T>::BoundedBTreeMapCreationFailed)?,
+                        .map_err(|_| Error::<T>::TooManyRewards)?,
                     );
 
                     BootstrapLimits::<T>::insert(
                         pair,
-                        BoundedBTreeMap::<T::AssetId, AssetBalance, T::MaxMapItems>::try_from(
+                        BoundedBTreeMap::<T::AssetId, AssetBalance, T::MaxBootstrapLimits>::try_from(
                             limits.into_iter().collect::<BTreeMap<T::AssetId, AssetBalance>>(),
                         )
-                        .map_err(|_| Error::<T>::BoundedBTreeMapCreationFailed)?,
+                        .map_err(|_| Error::<T>::TooManyLimits)?,
                     );
 
                     Ok(())
@@ -955,21 +961,21 @@ pub mod pallet {
 
                     BootstrapRewards::<T>::insert(
                         pair,
-                        BoundedBTreeMap::<T::AssetId, AssetBalance, T::MaxMapItems>::try_from(
+                        BoundedBTreeMap::<T::AssetId, AssetBalance, T::MaxBootstrapRewards>::try_from(
                             rewards
                                 .into_iter()
                                 .map(|asset_id| (asset_id, Zero::zero()))
                                 .collect::<BTreeMap<T::AssetId, AssetBalance>>(),
                         )
-                        .map_err(|_| Error::<T>::BoundedBTreeMapCreationFailed)?,
+                        .map_err(|_| Error::<T>::TooManyRewards)?,
                     );
 
                     BootstrapLimits::<T>::insert(
                         pair,
-                        BoundedBTreeMap::<T::AssetId, AssetBalance, T::MaxMapItems>::try_from(
+                        BoundedBTreeMap::<T::AssetId, AssetBalance, T::MaxBootstrapLimits>::try_from(
                             limits.into_iter().collect::<BTreeMap<T::AssetId, AssetBalance>>(),
                         )
-                        .map_err(|_| Error::<T>::BoundedBTreeMapCreationFailed)?,
+                        .map_err(|_| Error::<T>::TooManyLimits)?,
                     );
 
                     Ok(())
@@ -1034,7 +1040,7 @@ pub mod pallet {
 
                     rewards
                         .try_insert(*asset_id, new_charge_amount)
-                        .map_err(|_| Error::<T>::BoundedBTreeMapCreationFailed)?;
+                        .map_err(|_| Error::<T>::TooManyRewards)?;
                 }
 
                 Self::deposit_event(Event::ChargeReward(pair.0, pair.1, who, charge_rewards));

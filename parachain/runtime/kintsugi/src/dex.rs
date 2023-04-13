@@ -3,7 +3,6 @@ use super::{
     Timestamp, Tokens,
 };
 use frame_support::traits::OnRuntimeUpgrade;
-use sp_core::ConstU16;
 
 pub use dex_general::{AssetBalance, GenerateLpAssetId, PairInfo};
 pub use dex_stable::traits::{StablePoolLpCurrencyIdGenerate, ValidateCurrency};
@@ -13,7 +12,8 @@ parameter_types! {
     pub const DexStablePalletId: PalletId = PalletId(*b"dex/stbl");
     pub const StringLimit: u32 = 50;
     pub const MaxSwaps:u16 = 4;
-    pub const MaxMapItems: u16 = 1000;
+    pub const MaxBootstrapRewards: u32 = 1000;
+    pub const MaxBootstrapLimits:u32 = 1000;
 }
 
 pub struct PairLpIdentity;
@@ -31,7 +31,8 @@ impl dex_general::Config for Runtime {
     type LpGenerate = PairLpIdentity;
     type WeightInfo = ();
     type MaxSwaps = MaxSwaps;
-    type MaxMapItems = MaxMapItems;
+    type MaxBootstrapRewards = MaxBootstrapRewards;
+    type MaxBootstrapLimits = MaxBootstrapLimits;
 }
 
 pub struct PoolLpGenerate;
