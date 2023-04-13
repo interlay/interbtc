@@ -11,6 +11,7 @@ parameter_types! {
     pub const DexStablePalletId: PalletId = PalletId(*b"dex/stab");
     pub const StringLimit: u32 = 50;
     pub const MaxSwaps:u16 = 4;
+    pub const MaxMapItems: u16 = 1000;
 }
 
 pub struct PairLpIdentity;
@@ -28,6 +29,7 @@ impl dex_general::Config for Runtime {
     type LpGenerate = PairLpIdentity;
     type WeightInfo = ();
     type MaxSwaps = MaxSwaps;
+    type MaxMapItems = MaxMapItems;
 }
 
 pub struct PoolLpGenerate;
