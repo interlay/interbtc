@@ -5,7 +5,7 @@
 
 use super::*;
 
-use frame_benchmarking::v2::{benchmarks, impl_benchmark_test_suite, whitelisted_caller};
+use frame_benchmarking::v2::{benchmarks, impl_benchmark_test_suite, whitelisted_caller, Linear};
 use frame_support::assert_ok;
 use frame_system::RawOrigin;
 use sp_runtime::SaturatedConversion;
@@ -404,60 +404,43 @@ pub mod benchmarks {
     }
 
     #[benchmark]
-    pub fn swap_exact_assets_for_assets() {
+    pub fn swap_exact_assets_for_assets(u: Linear<1, 1000>) {
         let caller: T::AccountId = whitelisted_caller();
-        assert_ok!(<T as Config>::MultiCurrency::deposit(
-            ASSET_0.into(),
-            &caller,
-            1000 * UNIT
-        ));
-        assert_ok!(<T as Config>::MultiCurrency::deposit(
-            ASSET_1.into(),
-            &caller,
-            1000 * UNIT
-        ));
-        assert_ok!(<T as Config>::MultiCurrency::deposit(
-            ASSET_2.into(),
-            &caller,
-            1000 * UNIT
-        ));
+        let mut path: Vec<T::AssetId> = vec![];
 
-        assert_ok!(DexGeneral::<T>::create_pair(
-            (RawOrigin::Root).into(),
-            ASSET_0.into(),
-            ASSET_1.into(),
-            DEFAULT_FEE_RATE
-        ));
-        assert_ok!(DexGeneral::<T>::create_pair(
-            (RawOrigin::Root).into(),
-            ASSET_1.into(),
-            ASSET_2.into(),
-            DEFAULT_FEE_RATE
-        ));
+        for i in 0..u {
+            let asset_0: u32 = i;
+            let asset_1: u32 = i + 1;
 
-        assert_ok!(DexGeneral::<T>::add_liquidity(
-            RawOrigin::Signed(caller.clone()).into(),
-            ASSET_0.into(),
-            ASSET_1.into(),
-            10 * UNIT,
-            10 * UNIT,
-            0,
-            0,
-            100u32.saturated_into()
-        ));
-
-        assert_ok!(DexGeneral::<T>::add_liquidity(
-            RawOrigin::Signed(caller.clone()).into(),
-            ASSET_1.into(),
-            ASSET_2.into(),
-            10 * UNIT,
-            10 * UNIT,
-            0,
-            0,
-            100u32.saturated_into()
-        ));
-
-        let path: Vec<T::AssetId> = vec![ASSET_0.into(), ASSET_1.into(), ASSET_2.into()];
+            assert_ok!(<T as Config>::MultiCurrency::deposit(
+                asset_0.into(),
+                &caller,
+                1000 * UNIT
+            ));
+            assert_ok!(<T as Config>::MultiCurrency::deposit(
+                asset_1.into(),
+                &caller,
+                1000 * UNIT
+            ));
+            assert_ok!(DexGeneral::<T>::create_pair(
+                (RawOrigin::Root).into(),
+                asset_0.into(),
+                asset_1.into(),
+                DEFAULT_FEE_RATE
+            ));
+            assert_ok!(DexGeneral::<T>::add_liquidity(
+                RawOrigin::Signed(caller.clone()).into(),
+                asset_0.into(),
+                asset_1.into(),
+                10 * UNIT,
+                10 * UNIT,
+                0,
+                0,
+                100u32.saturated_into()
+            ));
+            path.push(asset_0.into());
+        }
+        path.push((u as u32).into());
 
         #[extrinsic_call]
         DexGeneral::swap_exact_assets_for_assets(

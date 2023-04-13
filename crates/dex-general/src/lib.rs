@@ -647,6 +647,7 @@ pub mod pallet {
         /// - `recipient`: Account that receive the target asset
         /// - `deadline`: Height of the cutoff block of this transaction
         #[pallet::call_index(6)]
+        // #[pallet::weight(T::WeightInfo::swap_exact_assets_for_assets(path.len() as u32))]
         #[pallet::weight(T::WeightInfo::swap_exact_assets_for_assets())]
         #[frame_support::transactional]
         pub fn swap_exact_assets_for_assets(
