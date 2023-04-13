@@ -79,6 +79,7 @@ use xcm::{latest::MultiLocation, opaque::latest::BodyId};
 use xcm_config::ParentLocation;
 
 pub mod constants;
+pub mod weights;
 pub mod xcm_config;
 
 mod dex;
@@ -808,7 +809,7 @@ impl annuity::Config<EscrowAnnuityInstance> for Runtime {
     type BlockNumberToBalance = BlockNumberToBalance;
     type EmissionPeriod = EmissionPeriod;
     type TotalWrapped = TotalWrapped;
-    type WeightInfo = ();
+    type WeightInfo = weights::annuity::WeightInfo<Runtime>;
 }
 
 pub struct VaultBlockRewardProvider;
@@ -913,12 +914,12 @@ impl farming::Config for Runtime {
     type RewardPeriod = RewardPeriod;
     type RewardPools = FarmingRewards;
     type MultiCurrency = Tokens;
-    type WeightInfo = ();
+    type WeightInfo = weights::farming::WeightInfo<Runtime>;
 }
 
 impl security::Config for Runtime {
     type RuntimeEvent = RuntimeEvent;
-    type WeightInfo = ();
+    type WeightInfo = weights::security::WeightInfo<Runtime>;
     type MaxErrors = ConstU32<1>;
 }
 
@@ -961,7 +962,7 @@ impl escrow::Config for Runtime {
     type Span = Span;
     type MaxPeriod = MaxPeriod;
     type EscrowRewards = EscrowRewards;
-    type WeightInfo = ();
+    type WeightInfo = weights::escrow::WeightInfo<Runtime>;
 }
 
 // https://github.com/paritytech/polkadot/blob/be005938a64b9170a5d55887ce42004e1b086b7b/runtime/kusama/src/lib.rs#L953-L961
@@ -1062,7 +1063,7 @@ impl vault_registry::Config for Runtime {
     type PalletId = VaultRegistryPalletId;
     type RuntimeEvent = RuntimeEvent;
     type Balance = Balance;
-    type WeightInfo = ();
+    type WeightInfo = weights::vault_registry::WeightInfo<Runtime>;
     type GetGriefingCollateralCurrencyId = GetNativeCurrencyId;
     type NominationApi = Nomination;
 }
@@ -1080,7 +1081,7 @@ pub type OracleName = oracle::NameOf<Runtime>;
 impl oracle::Config for Runtime {
     type RuntimeEvent = RuntimeEvent;
     type OnExchangeRateChange = (vault_registry::PoolManager<Runtime>, Loans);
-    type WeightInfo = ();
+    type WeightInfo = weights::oracle::WeightInfo<Runtime>;
     type MaxNameLength = ConstU32<255>;
 }
 
@@ -1090,7 +1091,7 @@ parameter_types! {
 
 impl fee::Config for Runtime {
     type FeePalletId = FeePalletId;
-    type WeightInfo = ();
+    type WeightInfo = weights::fee::WeightInfo<Runtime>;
     type SignedFixedPoint = SignedFixedPoint;
     type SignedInner = SignedInner;
     type UnsignedFixedPoint = UnsignedFixedPoint;
@@ -1129,12 +1130,12 @@ pub use nomination::Event as NominationEvent;
 
 impl nomination::Config for Runtime {
     type RuntimeEvent = RuntimeEvent;
-    type WeightInfo = ();
+    type WeightInfo = weights::nomination::WeightInfo<Runtime>;
 }
 
 impl clients_info::Config for Runtime {
     type RuntimeEvent = RuntimeEvent;
-    type WeightInfo = ();
+    type WeightInfo = weights::clients_info::WeightInfo<Runtime>;
     type MaxNameLength = ConstU32<255>;
     type MaxUriLength = ConstU32<255>;
 }
@@ -1152,7 +1153,7 @@ impl tx_pause::Config for Runtime {
     type WhitelistCallNames = Nothing;
     type MaxNameLen = MaxNameLen;
     type PauseTooLongNames = PauseTooLongNames;
-    type WeightInfo = ();
+    type WeightInfo = weights::tx_pause::WeightInfo<Runtime>;
 }
 
 impl loans::Config for Runtime {
@@ -1160,7 +1161,7 @@ impl loans::Config for Runtime {
     type PalletId = LoansPalletId;
     type ReserveOrigin = EnsureRoot<AccountId>;
     type UpdateOrigin = EnsureRoot<AccountId>;
-    type WeightInfo = ();
+    type WeightInfo = weights::loans::WeightInfo<Runtime>;
     type UnixTime = Timestamp;
     type RewardAssetId = GetNativeCurrencyId;
     type ReferenceAssetId = GetWrappedCurrencyId;
@@ -1296,7 +1297,6 @@ extern crate frame_benchmarking;
 mod benches {
     define_benchmarks!(
         [annuity, EscrowAnnuity]
-        [btc_relay, BTCRelay]
         [clients_info, ClientsInfo]
         [dex_general, DexGeneral]
         [dex_stable, DexStable]
@@ -1304,13 +1304,10 @@ mod benches {
         [escrow, Escrow]
         [fee, Fee]
         [farming, Farming]
-        [issue, Issue]
         [loans, Loans]
         [nomination, Nomination]
         [oracle, Oracle]
         [security, Security]
-        [redeem, Redeem]
-        [replace, Replace]
         [vault_registry, VaultRegistry]
         [supply, Supply]
         [tx_pause, TxPause]
