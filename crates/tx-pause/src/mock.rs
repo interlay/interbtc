@@ -22,9 +22,9 @@ use crate as pallet_tx_pause;
 
 use frame_support::{
     parameter_types,
-    traits::{ConstU64, Everything, InsideBoth, InstanceFilter, SortedMembers},
+    traits::{ConstU64, EitherOfDiverse, Everything, InsideBoth, InstanceFilter, SortedMembers},
 };
-use frame_system::EnsureSignedBy;
+use frame_system::{EnsureRoot, EnsureSignedBy};
 use sp_core::H256;
 use sp_runtime::{
     testing::Header,
@@ -182,8 +182,8 @@ impl SortedMembers<u64> for UnpauseOrigin {
 impl Config for Test {
     type RuntimeEvent = RuntimeEvent;
     type RuntimeCall = RuntimeCall;
-    type PauseOrigin = EnsureSignedBy<PauseOrigin, Self::AccountId>;
-    type UnpauseOrigin = EnsureSignedBy<UnpauseOrigin, Self::AccountId>;
+    type PauseOrigin = EitherOfDiverse<EnsureRoot<Self::AccountId>, EnsureSignedBy<PauseOrigin, Self::AccountId>>;
+    type UnpauseOrigin = EitherOfDiverse<EnsureRoot<Self::AccountId>, EnsureSignedBy<UnpauseOrigin, Self::AccountId>>;
     type WhitelistCallNames = WhitelistCallNames;
     type MaxNameLen = MaxNameLen;
     type PauseTooLongNames = PauseTooLongNames;
