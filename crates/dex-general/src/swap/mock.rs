@@ -142,7 +142,8 @@ impl Config for Test {
     type LpGenerate = PairLpIdentity;
     type WeightInfo = ();
     type MaxSwaps = ConstU16<10>;
-    type MaxMapItems = ConstU32<1000>;
+    type MaxBootstrapRewards = ConstU32<1000>;
+    type MaxBootstrapLimits = ConstU32<1000>;
 }
 
 pub type DexPallet = Pallet<Test>;
