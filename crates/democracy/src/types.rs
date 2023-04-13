@@ -1,6 +1,6 @@
 //! Miscellaneous additional datatypes.
 
-use crate::{ReferendumIndex, VoteThreshold};
+use crate::VoteThreshold;
 use codec::{Decode, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;
 use sp_runtime::{
@@ -17,10 +17,10 @@ pub struct Vote<Balance> {
 }
 
 /// The account is voting directly.
-#[derive(Encode, Decode, Clone, Eq, PartialEq, Default, RuntimeDebug, TypeInfo)]
-pub struct Voting<Balance> {
+#[derive(Encode, Decode, Clone, Eq, PartialEq, Default, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+pub struct Voting<Votes> {
     /// The current votes of the account.
-    pub(crate) votes: Vec<(ReferendumIndex, Vote<Balance>)>,
+    pub(crate) votes: Votes,
 }
 
 /// Info regarding an ongoing referendum.

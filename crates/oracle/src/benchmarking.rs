@@ -17,7 +17,10 @@ pub mod benchmarks {
     #[benchmark]
     fn on_initialize(u: Linear<1, 1000>) {
         let origin: T::AccountId = account("origin", 0, 0);
-        <AuthorizedOracles<T>>::insert(origin.clone(), Vec::<u8>::new());
+        <AuthorizedOracles<T>>::insert(
+            origin.clone(),
+            BoundedVec::try_from(vec![0; T::MaxNameLength::get() as usize]).unwrap(),
+        );
 
         let values: Vec<_> = (0..u)
             .map(|x| {
@@ -51,7 +54,10 @@ pub mod benchmarks {
     #[benchmark]
     fn feed_values(u: Linear<1, 1000>) {
         let origin: T::AccountId = account("origin", 0, 0);
-        <AuthorizedOracles<T>>::insert(origin.clone(), Vec::<u8>::new());
+        <AuthorizedOracles<T>>::insert(
+            origin.clone(),
+            BoundedVec::try_from(vec![0; T::MaxNameLength::get() as usize]).unwrap(),
+        );
 
         let values: Vec<_> = (0..u)
             .map(|x| {
@@ -78,14 +84,21 @@ pub mod benchmarks {
         let origin: T::AccountId = account("origin", 0, 0);
 
         #[extrinsic_call]
-        insert_authorized_oracle(RawOrigin::Root, origin.clone(), "Origin".as_bytes().to_vec());
+        insert_authorized_oracle(
+            RawOrigin::Root,
+            origin.clone(),
+            BoundedVec::try_from(vec![0; T::MaxNameLength::get() as usize]).unwrap(),
+        );
         assert_eq!(Oracle::<T>::is_authorized(&origin), true);
     }
 
     #[benchmark]
     fn remove_authorized_oracle() {
         let origin: T::AccountId = account("origin", 0, 0);
-        Oracle::<T>::insert_oracle(origin.clone(), "Origin".as_bytes().to_vec());
+        Oracle::<T>::insert_oracle(
+            origin.clone(),
+            BoundedVec::try_from(vec![0; T::MaxNameLength::get() as usize]).unwrap(),
+        );
 
         #[extrinsic_call]
         remove_authorized_oracle(RawOrigin::Root, origin.clone());

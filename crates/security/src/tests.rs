@@ -41,7 +41,7 @@ fn test_is_ensure_parachain_running_fails() {
 fn test_is_parachain_error_oracle_offline() {
     run_test(|| {
         Security::set_status(StatusCode::Error);
-        Security::insert_error(ErrorCode::OracleOffline);
+        Security::insert_error(ErrorCode::OracleOffline).unwrap();
         assert_eq!(Security::is_parachain_error_oracle_offline(), true);
     })
 }
@@ -51,7 +51,7 @@ where
     F: FnOnce(),
 {
     for err in &error_codes {
-        Security::insert_error(err.clone());
+        Security::insert_error(err.clone()).unwrap();
     }
     recover();
     for err in &error_codes {

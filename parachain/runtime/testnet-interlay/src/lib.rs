@@ -904,6 +904,7 @@ impl farming::Config for Runtime {
 impl security::Config for Runtime {
     type RuntimeEvent = RuntimeEvent;
     type WeightInfo = ();
+    type MaxErrors = ConstU32<1>;
 }
 
 impl currency::Config for Runtime {
@@ -1059,10 +1060,13 @@ where
     type Extrinsic = UncheckedExtrinsic;
 }
 
+pub type OracleName = oracle::NameOf<Runtime>;
+
 impl oracle::Config for Runtime {
     type RuntimeEvent = RuntimeEvent;
     type OnExchangeRateChange = (vault_registry::PoolManager<Runtime>, Loans);
     type WeightInfo = ();
+    type MaxNameLength = ConstU32<255>;
 }
 
 parameter_types! {
