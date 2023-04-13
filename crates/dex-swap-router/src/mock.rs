@@ -192,10 +192,12 @@ impl dex_general::Config for Test {
     type LpGenerate = PairLpIdentity;
     type WeightInfo = ();
     type MaxSwaps = MaxSwaps;
+    type MaxMapItems = MaxMapItems;
 }
 
 parameter_types! {
     pub const MaxSwaps: u16 = 10;
+    pub const MaxMapItems: u16 = 1000;
 }
 
 impl Config for Test {
