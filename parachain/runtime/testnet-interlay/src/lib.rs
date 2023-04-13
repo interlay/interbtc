@@ -757,6 +757,7 @@ impl supply::Config for Runtime {
     type Currency = NativeCurrency;
     type InflationPeriod = InflationPeriod;
     type OnInflation = DealWithRewards;
+    type WeightInfo = ();
 }
 
 pub struct TotalWrapped;
@@ -1300,6 +1301,7 @@ mod benches {
         [replace, Replace]
         [security, Security]
         [vault_registry, VaultRegistry]
+        [supply, Supply]
         [tx_pause, TxPause]
     );
 }

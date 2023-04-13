@@ -5,6 +5,9 @@
 #![cfg_attr(test, feature(proc_macro_hygiene))]
 #![cfg_attr(not(feature = "std"), no_std)]
 
+#[cfg(feature = "runtime-benchmarks")]
+mod benchmarking;
+
 #[cfg(test)]
 mod mock;
 
@@ -25,6 +28,9 @@ use sp_runtime::{
     traits::{AccountIdConversion, Saturating, Zero},
     FixedPointNumber,
 };
+
+mod default_weights;
+pub use default_weights::WeightInfo;
 
 pub use pallet::*;
 
@@ -65,6 +71,9 @@ pub mod pallet {
 
         /// Handler for when the total supply has inflated.
         type OnInflation: OnInflation<Self::AccountId, Currency = Self::Currency>;
+
+        /// Weight information for extrinsics in this pallet.
+        type WeightInfo: WeightInfo;
     }
 
     // The pallet's events
@@ -133,7 +142,7 @@ pub mod pallet {
     #[pallet::call]
     impl<T: Config> Pallet<T> {
         #[pallet::call_index(0)]
-        #[pallet::weight(0)]
+        #[pallet::weight(<T as pallet::Config>::WeightInfo::set_start_height_and_inflation())]
         #[transactional]
         pub fn set_start_height_and_inflation(
             origin: OriginFor<T>,
