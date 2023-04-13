@@ -3,9 +3,8 @@ use mocktopus::macros::mockable;
 
 #[cfg_attr(test, mockable)]
 pub(crate) mod security {
-    use frame_support::dispatch::DispatchResult;
+    use frame_support::{dispatch::DispatchResult, BoundedBTreeSet};
     use security::{ErrorCode, StatusCode};
-    use sp_std::collections::btree_set::BTreeSet;
 
     pub fn ensure_parachain_status_running<T: crate::Config>() -> DispatchResult {
         <security::Pallet<T>>::ensure_parachain_status_running()
@@ -19,11 +18,11 @@ pub(crate) mod security {
         <security::Pallet<T>>::set_status(status_code)
     }
 
-    pub(crate) fn insert_error<T: crate::Config>(error_code: ErrorCode) {
+    pub(crate) fn insert_error<T: crate::Config>(error_code: ErrorCode) -> DispatchResult {
         <security::Pallet<T>>::insert_error(error_code)
     }
 
-    pub(crate) fn get_errors<T: crate::Config>() -> BTreeSet<ErrorCode> {
+    pub(crate) fn get_errors<T: crate::Config>() -> BoundedBTreeSet<ErrorCode, <T as security::Config>::MaxErrors> {
         <security::Pallet<T>>::get_errors()
     }
 }

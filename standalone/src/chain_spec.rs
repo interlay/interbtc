@@ -1,11 +1,12 @@
 use bitcoin::utils::{virtual_transaction_size, InputType, TransactionInputMetadata, TransactionOutputMetadata};
+use frame_support::BoundedVec;
 use hex_literal::hex;
 use interbtc_runtime::{
     token_distribution, AccountId, AuraConfig, BTCRelayConfig, CurrencyId, CurrencyId::Token, CurrencyInfo, FeeConfig,
     GenesisConfig, GetWrappedCurrencyId, GrandpaConfig, IssueConfig, LoansConfig, NominationConfig, OracleConfig,
-    RedeemConfig, ReplaceConfig, SecurityConfig, Signature, StatusCode, SudoConfig, SupplyConfig, SystemConfig,
-    TechnicalCommitteeConfig, TokensConfig, VaultRegistryConfig, BITCOIN_BLOCK_SPACING, DAYS, DOT, IBTC, INTR, KBTC,
-    KINT, KSM, WASM_BINARY, YEARS,
+    OracleName, RedeemConfig, ReplaceConfig, SecurityConfig, Signature, StatusCode, SudoConfig, SupplyConfig,
+    SystemConfig, TechnicalCommitteeConfig, TokensConfig, VaultRegistryConfig, BITCOIN_BLOCK_SPACING, DAYS, DOT, IBTC,
+    INTR, KBTC, KINT, KSM, WASM_BINARY, YEARS,
 };
 use primitives::{Rate, VaultCurrencyPair, BITCOIN_REGTEST};
 use sc_service::ChainType;
@@ -88,7 +89,7 @@ pub fn local_config() -> ChainSpec {
                 ],
                 vec![(
                     get_account_id_from_seed::<sr25519::Public>("Bob"),
-                    "Bob".as_bytes().to_vec(),
+                    BoundedVec::truncate_from("Bob".as_bytes().to_vec()),
                 )],
                 0,
             )
@@ -146,7 +147,7 @@ pub fn beta_testnet_config() -> ChainSpec {
                 ],
                 vec![(
                     get_account_id_from_string("5H8zjSWfzMn86d1meeNrZJDj3QZSvRjKxpTfuVaZ46QJZ4qs"),
-                    "Interlay".as_bytes().to_vec(),
+                    BoundedVec::truncate_from("Interlay".as_bytes().to_vec()),
                 )],
                 1,
             )
@@ -186,15 +187,15 @@ pub fn development_config() -> ChainSpec {
                 vec![
                     (
                         get_account_id_from_seed::<sr25519::Public>("Alice"),
-                        "Alice".as_bytes().to_vec(),
+                        BoundedVec::truncate_from("Alice".as_bytes().to_vec()),
                     ),
                     (
                         get_account_id_from_seed::<sr25519::Public>("Bob"),
-                        "Bob".as_bytes().to_vec(),
+                        BoundedVec::truncate_from("Bob".as_bytes().to_vec()),
                     ),
                     (
                         get_account_id_from_seed::<sr25519::Public>("Charlie"),
-                        "Charlie".as_bytes().to_vec(),
+                        BoundedVec::truncate_from("Charlie".as_bytes().to_vec()),
                     ),
                 ],
                 1,
@@ -235,7 +236,7 @@ fn testnet_genesis(
     root_key: AccountId,
     initial_authorities: Vec<(AuraId, GrandpaId)>,
     endowed_accounts: Vec<AccountId>,
-    authorized_oracles: Vec<(AccountId, Vec<u8>)>,
+    authorized_oracles: Vec<(AccountId, OracleName)>,
     bitcoin_confirmations: u32,
 ) -> GenesisConfig {
     GenesisConfig {

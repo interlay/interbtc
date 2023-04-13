@@ -35,7 +35,7 @@ pub fn interlay_dev_config() -> InterlayChainSpec {
                 vec![get_authority_keys_from_seed("Alice")],
                 vec![(
                     get_account_id_from_seed::<sr25519::Public>("Bob"),
-                    "Bob".as_bytes().to_vec(),
+                    BoundedVec::truncate_from("Bob".as_bytes().to_vec()),
                 )],
                 id,
                 1,
@@ -101,7 +101,7 @@ pub fn interlay_mainnet_config() -> InterlayChainSpec {
                 ],
                 vec![(
                     get_account_id_from_string("5FyE5kCDSVtM1KmscBBa2Api8ZsF2DBT81QHf9RuS2NntUPw"),
-                    "Interlay".as_bytes().to_vec(),
+                    BoundedVec::truncate_from("Interlay".as_bytes().to_vec()),
                 )],
                 id,
                 SECURE_BITCOIN_CONFIRMATIONS,
@@ -121,7 +121,7 @@ pub fn interlay_mainnet_config() -> InterlayChainSpec {
 
 fn interlay_mainnet_genesis(
     invulnerables: Vec<(AccountId, AuraId)>,
-    authorized_oracles: Vec<(AccountId, Vec<u8>)>,
+    authorized_oracles: Vec<(AccountId, interlay_runtime::OracleName)>,
     id: ParaId,
     bitcoin_confirmations: u32,
 ) -> interlay_runtime::GenesisConfig {

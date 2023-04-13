@@ -41,6 +41,7 @@ impl oracle::Config for Runtime {
     type RuntimeEvent = RuntimeEvent;
     type OnExchangeRateChange = ();
     type WeightInfo = ();
+    type MaxNameLength = ConstU32<255>;
 }
 ```
 

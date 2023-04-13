@@ -60,7 +60,8 @@ pub mod pallet {
             + EncodeLike
             + Decode
             + MaybeSerializeDeserialize
-            + TypeInfo;
+            + TypeInfo
+            + MaxEncodedLen;
 
         /// The native currency for emission.
         type Currency: ReservableCurrency<Self::AccountId>;
@@ -135,7 +136,6 @@ pub mod pallet {
     }
 
     #[pallet::pallet]
-    #[pallet::without_storage_info] // no MaxEncodedLen for fixed point types
     pub struct Pallet<T>(_);
 
     // The pallet's dispatchable functions.
