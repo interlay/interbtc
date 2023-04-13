@@ -1,6 +1,5 @@
-//! Loans pallet benchmarking.
+//! Supply pallet benchmarking.
 #![allow(unused_imports)]
-#![cfg(feature = "runtime-benchmarks")]
 use super::*;
 
 use frame_benchmarking::v2::{benchmarks, impl_benchmark_test_suite};
