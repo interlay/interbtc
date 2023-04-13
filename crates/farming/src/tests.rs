@@ -140,7 +140,11 @@ fn mint_and_deposit(account_id: AccountId, amount: Balance) {
         0
     ));
 
-    assert_ok!(Farming::deposit(RuntimeOrigin::signed(account_id), POOL_CURRENCY_ID,));
+    assert_ok!(Farming::deposit(
+        RuntimeOrigin::signed(account_id),
+        POOL_CURRENCY_ID,
+        u32::MAX
+    ));
 }
 
 #[test]
@@ -177,7 +181,12 @@ fn should_deposit_and_withdraw_stake() {
         // can't withdraw more stake than reserved
         let withdraw_amount = pool_tokens * 2;
         assert_err!(
-            Farming::withdraw(RuntimeOrigin::signed(account_id), POOL_CURRENCY_ID, withdraw_amount),
+            Farming::withdraw(
+                RuntimeOrigin::signed(account_id),
+                POOL_CURRENCY_ID,
+                withdraw_amount,
+                u32::MAX
+            ),
             TestError::InsufficientStake
         );
 
@@ -186,7 +195,8 @@ fn should_deposit_and_withdraw_stake() {
         assert_ok!(Farming::withdraw(
             RuntimeOrigin::signed(account_id),
             POOL_CURRENCY_ID,
-            withdraw_amount
+            withdraw_amount,
+            u32::MAX
         ));
         assert_eq!(Tokens::free_balance(POOL_CURRENCY_ID, &account_id), withdraw_amount);
     })
