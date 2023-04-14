@@ -10,6 +10,7 @@ impl<T: Config> Pallet<T> {
         pool_id: T::PoolId,
         meta_pool: &mut MetaPool<
             T::PoolId,
+            T::CurrencyId,
             T::AccountId,
             BoundedVec<u8, T::PoolCurrencySymbolLimit>,
             BoundedVec<T::CurrencyId, T::PoolCurrenciesLimit>,
@@ -130,6 +131,7 @@ impl<T: Config> Pallet<T> {
         pool_id: T::PoolId,
         meta_pool: &mut MetaPool<
             T::PoolId,
+            T::CurrencyId,
             T::AccountId,
             BoundedVec<u8, T::PoolCurrencySymbolLimit>,
             BoundedVec<T::CurrencyId, T::PoolCurrenciesLimit>,
@@ -187,6 +189,7 @@ impl<T: Config> Pallet<T> {
         pool_id: T::PoolId,
         meta_pool: &mut MetaPool<
             T::PoolId,
+            T::CurrencyId,
             T::AccountId,
             BoundedVec<u8, T::PoolCurrencySymbolLimit>,
             BoundedVec<T::CurrencyId, T::PoolCurrenciesLimit>,
@@ -250,6 +253,7 @@ impl<T: Config> Pallet<T> {
         pool_id: T::PoolId,
         meta_pool: &mut MetaPool<
             T::PoolId,
+            T::CurrencyId,
             T::AccountId,
             BoundedVec<u8, T::PoolCurrencySymbolLimit>,
             BoundedVec<T::CurrencyId, T::PoolCurrenciesLimit>,
@@ -302,6 +306,7 @@ impl<T: Config> Pallet<T> {
     pub(crate) fn meta_pool_swap_underlying(
         meta_pool: &mut MetaPool<
             T::PoolId,
+            T::CurrencyId,
             T::AccountId,
             BoundedVec<u8, T::PoolCurrencySymbolLimit>,
             BoundedVec<T::CurrencyId, T::PoolCurrenciesLimit>,
@@ -480,6 +485,7 @@ impl<T: Config> Pallet<T> {
     pub(crate) fn meta_pool_update_virtual_price(
         meta_pool: &mut MetaPool<
             T::PoolId,
+            T::CurrencyId,
             T::AccountId,
             BoundedVec<u8, T::PoolCurrencySymbolLimit>,
             BoundedVec<T::CurrencyId, T::PoolCurrenciesLimit>,
@@ -503,6 +509,7 @@ impl<T: Config> Pallet<T> {
     pub(crate) fn calculate_meta_virtual_price(
         meta_pool: &MetaPool<
             T::PoolId,
+            T::CurrencyId,
             T::AccountId,
             BoundedVec<u8, T::PoolCurrencySymbolLimit>,
             BoundedVec<T::CurrencyId, T::PoolCurrenciesLimit>,
@@ -541,6 +548,7 @@ impl<T: Config> Pallet<T> {
     fn meta_pool_base_virtual_price(
         meta_pool: &MetaPool<
             T::PoolId,
+            T::CurrencyId,
             T::AccountId,
             BoundedVec<u8, T::PoolCurrencySymbolLimit>,
             BoundedVec<T::CurrencyId, T::PoolCurrenciesLimit>,
@@ -561,6 +569,7 @@ impl<T: Config> Pallet<T> {
     pub(crate) fn calculate_meta_remove_liquidity_one_currency(
         meta_pool: &MetaPool<
             T::PoolId,
+            T::CurrencyId,
             T::AccountId,
             BoundedVec<u8, T::PoolCurrencySymbolLimit>,
             BoundedVec<T::CurrencyId, T::PoolCurrenciesLimit>,
@@ -652,6 +661,7 @@ impl<T: Config> Pallet<T> {
     pub(crate) fn calculate_meta_currency_amount(
         meta_pool: &MetaPool<
             T::PoolId,
+            T::CurrencyId,
             T::AccountId,
             BoundedVec<u8, T::PoolCurrencySymbolLimit>,
             BoundedVec<T::CurrencyId, T::PoolCurrenciesLimit>,
@@ -705,6 +715,7 @@ impl<T: Config> Pallet<T> {
     pub(crate) fn calculate_meta_remove_liquidity_imbalance(
         meta_pool: &mut MetaPool<
             T::PoolId,
+            T::CurrencyId,
             T::AccountId,
             BoundedVec<u8, T::PoolCurrencySymbolLimit>,
             BoundedVec<T::CurrencyId, T::PoolCurrenciesLimit>,
@@ -767,6 +778,7 @@ impl<T: Config> Pallet<T> {
     pub(crate) fn calculate_meta_swap_amount(
         meta_pool: &MetaPool<
             T::PoolId,
+            T::CurrencyId,
             T::AccountId,
             BoundedVec<u8, T::PoolCurrencySymbolLimit>,
             BoundedVec<T::CurrencyId, T::PoolCurrenciesLimit>,

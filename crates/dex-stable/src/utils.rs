@@ -61,6 +61,7 @@ impl<T: Config> Pallet<T> {
 
     pub(crate) fn get_y(
         pool: &BasePool<
+            T::CurrencyId,
             T::AccountId,
             BoundedVec<u8, T::PoolCurrencySymbolLimit>,
             BoundedVec<T::CurrencyId, T::PoolCurrenciesLimit>,
@@ -117,6 +118,7 @@ impl<T: Config> Pallet<T> {
 
     pub(crate) fn get_yd(
         pool: &BasePool<
+            T::CurrencyId,
             T::AccountId,
             BoundedVec<u8, T::PoolCurrencySymbolLimit>,
             BoundedVec<T::CurrencyId, T::PoolCurrenciesLimit>,
@@ -199,6 +201,7 @@ impl<T: Config> Pallet<T> {
 
     pub(crate) fn get_a_precise(
         pool: &BasePool<
+            T::CurrencyId,
             T::AccountId,
             BoundedVec<u8, T::PoolCurrencySymbolLimit>,
             BoundedVec<T::CurrencyId, T::PoolCurrenciesLimit>,
@@ -241,9 +244,10 @@ impl<T: Config> Pallet<T> {
     pub(crate) fn get_pool_virtual_price(
         pool: &Pool<
             T::PoolId,
+            T::CurrencyId,
             T::AccountId,
             BoundedVec<u8, T::PoolCurrencySymbolLimit>,
-            BoundedVec<u8, T::PoolCurrencySymbolLimit>,
+            BoundedVec<T::CurrencyId, T::PoolCurrenciesLimit>,
             BoundedVec<Balance, T::PoolBalanceLimit>,
         >,
     ) -> Option<Balance> {
@@ -255,6 +259,7 @@ impl<T: Config> Pallet<T> {
 
     pub(crate) fn calculate_fee_per_token(
         pool: &BasePool<
+            T::CurrencyId,
             T::AccountId,
             BoundedVec<u8, T::PoolCurrencySymbolLimit>,
             BoundedVec<T::CurrencyId, T::PoolCurrenciesLimit>,

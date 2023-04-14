@@ -130,9 +130,10 @@ pub mod pallet {
         T::PoolId,
         Pool<
             T::PoolId,
+            T::CurrencyId,
             T::AccountId,
             BoundedVec<u8, T::PoolCurrencySymbolLimit>,
-            BoundedVec<T::CurrencyId, T::PoolCurrencySymbolLimit>,
+            BoundedVec<T::CurrencyId, T::PoolCurrenciesLimit>,
             BoundedVec<Balance, T::PoolBalanceLimit>,
         >,
     >;
@@ -305,6 +306,7 @@ pub mod pallet {
         InvalidBasePoolLpCurrency,
         /// The token index out of range.
         TokenIndexOutOfRange,
+        TooManyPoolBalances,
     }
 
     #[pallet::call]
