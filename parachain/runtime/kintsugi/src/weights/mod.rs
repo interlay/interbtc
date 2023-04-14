@@ -1,5 +1,6 @@
 pub mod annuity;
 pub mod clients_info;
+pub mod democracy;
 pub mod dex_general;
 pub mod dex_stable;
 pub mod dex_swap_router;
