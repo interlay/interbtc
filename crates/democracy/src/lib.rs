@@ -89,11 +89,13 @@ use sp_std::prelude::*;
 
 mod types;
 mod vote_threshold;
-pub mod weights;
+
 pub use pallet::*;
 pub use types::{ReferendumInfo, ReferendumStatus, Tally, Vote, Voting};
 pub use vote_threshold::{Approved, VoteThreshold};
-pub use weights::WeightInfo;
+
+mod default_weights;
+pub use default_weights::WeightInfo;
 
 #[cfg(test)]
 mod tests;
@@ -450,10 +452,7 @@ pub mod pallet {
         ///
         /// Weight: `O(R)` where R is the number of referendums the voter has voted on.
         #[pallet::call_index(2)]
-        #[pallet::weight(
-			T::WeightInfo::vote_new(T::MaxVotes::get())
-				.max(T::WeightInfo::vote_existing(T::MaxVotes::get()))
-		)]
+        #[pallet::weight(T::WeightInfo::vote_new().max(T::WeightInfo::vote_existing()))]
         pub fn vote(
             origin: OriginFor<T>,
             #[pallet::compact] ref_index: ReferendumIndex,
@@ -495,6 +494,7 @@ pub mod pallet {
         ///
         /// Weight: `O(1)`
         #[pallet::call_index(4)]
+        // same complexity as `fast_track` so no need to benchmark separately
         #[pallet::weight(T::WeightInfo::fast_track())]
         pub fn table_proposal(
             origin: OriginFor<T>,
@@ -567,7 +567,7 @@ pub mod pallet {
         ///
         /// Weight: `O(p)` where `p = PublicProps::<T>::decode_len()`
         #[pallet::call_index(9)]
-        #[pallet::weight(T::WeightInfo::cancel_proposal(T::MaxProposals::get()))]
+        #[pallet::weight(T::WeightInfo::cancel_proposal())]
         #[transactional]
         pub fn cancel_proposal(origin: OriginFor<T>, #[pallet::compact] prop_index: PropIndex) -> DispatchResult {
             let who = ensure_signed(origin.clone())
