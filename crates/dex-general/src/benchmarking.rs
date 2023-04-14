@@ -5,7 +5,7 @@
 
 use super::*;
 
-use frame_benchmarking::v2::{benchmarks, impl_benchmark_test_suite, whitelisted_caller};
+use frame_benchmarking::v2::*;
 use frame_support::assert_ok;
 use frame_system::RawOrigin;
 use sp_runtime::SaturatedConversion;
@@ -14,7 +14,6 @@ const UNIT: u128 = 1_000_000_000_000;
 
 const ASSET_0: u32 = 0;
 const ASSET_1: u32 = 1;
-const ASSET_2: u32 = 2;
 
 pub fn lookup_of_account<T: Config>(
     who: T::AccountId,
@@ -70,12 +69,12 @@ pub mod benchmarks {
     }
 
     #[benchmark]
-    pub fn bootstrap_create() {
-        let reward: Vec<T::AssetId> = vec![ASSET_0.into()];
-        let reward_amounts: Vec<(T::AssetId, u128)> = vec![(ASSET_1.into(), 0)];
+    pub fn bootstrap_create(r: Linear<1, 10>, l: Linear<1, 10>) {
+        let rewards: Vec<T::AssetId> = (0..r).map(Into::into).collect();
+        let limits: Vec<(T::AssetId, u128)> = (0..l).map(|a| (a.into(), 0)).collect();
 
         #[extrinsic_call]
-        DexGeneral::bootstrap_create(
+        _(
             RawOrigin::Root,
             ASSET_0.into(),
             ASSET_1.into(),
@@ -84,8 +83,8 @@ pub mod benchmarks {
             1000_000_000,
             1000_000_000,
             100u128.saturated_into(),
-            reward,
-            reward_amounts,
+            rewards,
+            limits,
         );
     }
 
@@ -235,11 +234,11 @@ pub mod benchmarks {
     }
 
     #[benchmark]
-    pub fn bootstrap_update() {
+    pub fn bootstrap_update(r: Linear<1, 10>, l: Linear<1, 10>) {
         let caller: T::AccountId = whitelisted_caller();
 
-        let reward: Vec<T::AssetId> = vec![ASSET_0.into()];
-        let reward_amounts: Vec<(T::AssetId, u128)> = vec![(ASSET_1.into(), 0)];
+        let rewards: Vec<T::AssetId> = (0..r).map(Into::into).collect();
+        let limits: Vec<(T::AssetId, u128)> = (0..l).map(|a| (a.into(), 0)).collect();
 
         assert_ok!(DexGeneral::<T>::bootstrap_create(
             (RawOrigin::Root).into(),
@@ -250,12 +249,12 @@ pub mod benchmarks {
             10 * UNIT,
             10 * UNIT,
             99u128.saturated_into(),
-            reward.clone(),
-            reward_amounts.clone(),
+            rewards.clone(),
+            limits.clone(),
         ));
 
         #[extrinsic_call]
-        DexGeneral::bootstrap_update(
+        _(
             RawOrigin::Root,
             ASSET_0.into(),
             ASSET_1.into(),
@@ -264,8 +263,8 @@ pub mod benchmarks {
             1000_000_000,
             1000_000_000,
             100u128.saturated_into(),
-            reward,
-            reward_amounts,
+            rewards,
+            limits,
         );
     }
 
@@ -404,63 +403,40 @@ pub mod benchmarks {
     }
 
     #[benchmark]
-    pub fn swap_exact_assets_for_assets() {
+    pub fn swap_exact_assets_for_assets(a: Linear<2, 10>) {
         let caller: T::AccountId = whitelisted_caller();
-        assert_ok!(<T as Config>::MultiCurrency::deposit(
-            ASSET_0.into(),
-            &caller,
-            1000 * UNIT
-        ));
-        assert_ok!(<T as Config>::MultiCurrency::deposit(
-            ASSET_1.into(),
-            &caller,
-            1000 * UNIT
-        ));
-        assert_ok!(<T as Config>::MultiCurrency::deposit(
-            ASSET_2.into(),
-            &caller,
-            1000 * UNIT
-        ));
 
-        assert_ok!(DexGeneral::<T>::create_pair(
-            (RawOrigin::Root).into(),
-            ASSET_0.into(),
-            ASSET_1.into(),
-            DEFAULT_FEE_RATE
-        ));
-        assert_ok!(DexGeneral::<T>::create_pair(
-            (RawOrigin::Root).into(),
-            ASSET_1.into(),
-            ASSET_2.into(),
-            DEFAULT_FEE_RATE
-        ));
+        for asset in 0..a {
+            assert_ok!(<T as Config>::MultiCurrency::deposit(
+                asset.into(),
+                &caller,
+                1000 * UNIT
+            ));
+        }
 
-        assert_ok!(DexGeneral::<T>::add_liquidity(
-            RawOrigin::Signed(caller.clone()).into(),
-            ASSET_0.into(),
-            ASSET_1.into(),
-            10 * UNIT,
-            10 * UNIT,
-            0,
-            0,
-            100u32.saturated_into()
-        ));
+        let path: Vec<T::AssetId> = (0..a).map(Into::into).collect();
+        for &[asset_0, asset_1] in path.array_windows::<2>() {
+            assert_ok!(DexGeneral::<T>::create_pair(
+                (RawOrigin::Root).into(),
+                asset_0,
+                asset_1,
+                DEFAULT_FEE_RATE
+            ));
 
-        assert_ok!(DexGeneral::<T>::add_liquidity(
-            RawOrigin::Signed(caller.clone()).into(),
-            ASSET_1.into(),
-            ASSET_2.into(),
-            10 * UNIT,
-            10 * UNIT,
-            0,
-            0,
-            100u32.saturated_into()
-        ));
-
-        let path: Vec<T::AssetId> = vec![ASSET_0.into(), ASSET_1.into(), ASSET_2.into()];
+            assert_ok!(DexGeneral::<T>::add_liquidity(
+                RawOrigin::Signed(caller.clone()).into(),
+                asset_0,
+                asset_1,
+                10 * UNIT,
+                10 * UNIT,
+                0,
+                0,
+                100u32.saturated_into()
+            ));
+        }
 
         #[extrinsic_call]
-        DexGeneral::swap_exact_assets_for_assets(
+        _(
             RawOrigin::Signed(caller.clone()),
             1 * UNIT,
             0,
@@ -471,69 +447,126 @@ pub mod benchmarks {
     }
 
     #[benchmark]
-    pub fn swap_assets_for_exact_assets() {
+    pub fn swap_assets_for_exact_assets(a: Linear<2, 10>) {
         let caller: T::AccountId = whitelisted_caller();
-        assert_ok!(<T as Config>::MultiCurrency::deposit(
-            ASSET_0.into(),
-            &caller,
-            1000 * UNIT
-        ));
-        assert_ok!(<T as Config>::MultiCurrency::deposit(
-            ASSET_1.into(),
-            &caller,
-            1000 * UNIT
-        ));
-        assert_ok!(<T as Config>::MultiCurrency::deposit(
-            ASSET_2.into(),
-            &caller,
-            1000 * UNIT
-        ));
 
-        assert_ok!(DexGeneral::<T>::create_pair(
-            (RawOrigin::Root).into(),
-            ASSET_1.into(),
-            ASSET_2.into(),
-            DEFAULT_FEE_RATE
-        ));
-        assert_ok!(DexGeneral::<T>::create_pair(
-            (RawOrigin::Root).into(),
-            ASSET_0.into(),
-            ASSET_1.into(),
-            DEFAULT_FEE_RATE
-        ));
+        for asset in 0..a {
+            assert_ok!(<T as Config>::MultiCurrency::deposit(
+                asset.into(),
+                &caller,
+                1000 * UNIT
+            ));
+        }
 
-        assert_ok!(DexGeneral::<T>::add_liquidity(
-            RawOrigin::Signed(caller.clone()).into(),
-            ASSET_1.into(),
-            ASSET_2.into(),
-            10 * UNIT,
-            10 * UNIT,
-            0,
-            0,
-            100u32.saturated_into()
-        ));
+        let path: Vec<T::AssetId> = (0..a).map(Into::into).collect();
+        for &[asset_0, asset_1] in path.array_windows::<2>() {
+            assert_ok!(DexGeneral::<T>::create_pair(
+                (RawOrigin::Root).into(),
+                asset_0,
+                asset_1,
+                DEFAULT_FEE_RATE
+            ));
 
-        assert_ok!(DexGeneral::<T>::add_liquidity(
-            RawOrigin::Signed(caller.clone()).into(),
-            ASSET_0.into(),
-            ASSET_1.into(),
-            10 * UNIT,
-            10 * UNIT,
-            0,
-            0,
-            100u32.saturated_into()
-        ));
-
-        let path: Vec<T::AssetId> = vec![ASSET_0.into(), ASSET_1.into(), ASSET_2.into()];
+            assert_ok!(DexGeneral::<T>::add_liquidity(
+                RawOrigin::Signed(caller.clone()).into(),
+                asset_0,
+                asset_1,
+                10 * UNIT,
+                10 * UNIT,
+                0,
+                0,
+                100u32.saturated_into()
+            ));
+        }
 
         #[extrinsic_call]
-        DexGeneral::swap_assets_for_exact_assets(
+        _(
             RawOrigin::Signed(caller.clone()),
             1 * UNIT,
-            10 * UNIT,
+            100 * UNIT,
             path,
             lookup_of_account::<T>(caller.clone()).into(),
             100u32.saturated_into(),
+        );
+    }
+
+    #[benchmark]
+    pub fn bootstrap_charge_reward(r: Linear<1, 10>) {
+        let caller: T::AccountId = whitelisted_caller();
+
+        for asset in 0..r {
+            assert_ok!(<T as Config>::MultiCurrency::deposit(
+                asset.into(),
+                &caller,
+                1000 * UNIT
+            ));
+        }
+
+        let rewards: Vec<T::AssetId> = (0..r).map(Into::into).collect();
+        let limits: Vec<(T::AssetId, u128)> = vec![(ASSET_1.into(), 0)];
+
+        assert_ok!(DexGeneral::<T>::bootstrap_create(
+            (RawOrigin::Root).into(),
+            ASSET_0.into(),
+            ASSET_1.into(),
+            2 * UNIT,
+            2 * UNIT,
+            10 * UNIT,
+            10 * UNIT,
+            99u128.saturated_into(),
+            rewards,
+            limits,
+        ));
+
+        let charge_rewards: Vec<(T::AssetId, u128)> = (0..r).map(|a| (a.into(), 100 * UNIT)).collect();
+
+        #[extrinsic_call]
+        _(
+            RawOrigin::Signed(caller.clone()),
+            ASSET_0.into(),
+            ASSET_1.into(),
+            charge_rewards,
+        );
+    }
+
+    // TODO: parameterize by number of rewards
+    #[benchmark]
+    pub fn bootstrap_withdraw_reward() {
+        let caller: T::AccountId = whitelisted_caller();
+
+        assert_ok!(<T as Config>::MultiCurrency::deposit(
+            ASSET_0.into(),
+            &caller,
+            1000 * UNIT
+        ));
+        assert_ok!(<T as Config>::MultiCurrency::deposit(
+            ASSET_1.into(),
+            &caller,
+            1000 * UNIT
+        ));
+
+        let rewards: Vec<T::AssetId> = vec![ASSET_0.into()];
+        let limits: Vec<(T::AssetId, u128)> = vec![(ASSET_1.into(), 0)];
+
+        assert_ok!(DexGeneral::<T>::bootstrap_create(
+            (RawOrigin::Root).into(),
+            ASSET_0.into(),
+            ASSET_1.into(),
+            2 * UNIT,
+            2 * UNIT,
+            10 * UNIT,
+            10 * UNIT,
+            99u128.saturated_into(),
+            rewards,
+            limits.clone(),
+        ));
+
+        #[extrinsic_call]
+        _(
+            RawOrigin::Root,
+            ASSET_0.into(),
+            ASSET_1.into(),
+            lookup_of_account::<T>(caller.clone()).into(),
         );
     }
 
