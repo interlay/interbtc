@@ -50,7 +50,7 @@ pub fn local_config(id: ParaId) -> KintsugiTestnetChainSpec {
                 ],
                 vec![(
                     get_account_id_from_seed::<sr25519::Public>("Bob"),
-                    "Bob".as_bytes().to_vec(),
+                    BoundedVec::truncate_from("Bob".as_bytes().to_vec()),
                 )],
                 id,
                 DEFAULT_BITCOIN_CONFIRMATIONS,
@@ -94,15 +94,15 @@ pub fn development_config(id: ParaId) -> KintsugiTestnetChainSpec {
                 vec![
                     (
                         get_account_id_from_seed::<sr25519::Public>("Alice"),
-                        "Alice".as_bytes().to_vec(),
+                        BoundedVec::truncate_from("Alice".as_bytes().to_vec()),
                     ),
                     (
                         get_account_id_from_seed::<sr25519::Public>("Bob"),
-                        "Bob".as_bytes().to_vec(),
+                        BoundedVec::truncate_from("Bob".as_bytes().to_vec()),
                     ),
                     (
                         get_account_id_from_seed::<sr25519::Public>("Charlie"),
-                        "Charlie".as_bytes().to_vec(),
+                        BoundedVec::truncate_from("Charlie".as_bytes().to_vec()),
                     ),
                 ],
                 id,
@@ -163,7 +163,7 @@ pub fn staging_testnet_config(id: ParaId) -> KintsugiTestnetChainSpec {
                 vec![(
                     // 5ECj4iBBi3h8kYzhqLFmzVLafC64UpsXvK7H4ZZyXoVQJdJq (//oracle/1)
                     get_account_id_from_string("5ECj4iBBi3h8kYzhqLFmzVLafC64UpsXvK7H4ZZyXoVQJdJq"),
-                    "Interlay".as_bytes().to_vec(),
+                    BoundedVec::truncate_from("Interlay".as_bytes().to_vec()),
                 )],
                 id,
                 DEFAULT_BITCOIN_CONFIRMATIONS,
@@ -223,7 +223,7 @@ pub fn rococo_testnet_config(id: ParaId) -> KintsugiTestnetChainSpec {
                 vec![(
                     // 5FKuXEdswjda6EfXtWcTbdVH8vQbmNDWhK2qrPGx6GeHvvZh (//oracle/1)
                     get_account_id_from_string("5FKuXEdswjda6EfXtWcTbdVH8vQbmNDWhK2qrPGx6GeHvvZh"),
-                    "Interlay".as_bytes().to_vec(),
+                    BoundedVec::truncate_from("Interlay".as_bytes().to_vec()),
                 )],
                 id,
                 DEFAULT_BITCOIN_CONFIRMATIONS,
@@ -287,7 +287,7 @@ pub fn westend_testnet_config(id: ParaId) -> KintsugiTestnetChainSpec {
                 vec![(
                     // 5DMALjH2zJXa4YgG33J2YFBHKeWeP6M7pHugEi5Bk8Qda6bs (//oracle/1)
                     get_account_id_from_string("5DMALjH2zJXa4YgG33J2YFBHKeWeP6M7pHugEi5Bk8Qda6bs"),
-                    "Interlay".as_bytes().to_vec(),
+                    BoundedVec::truncate_from("Interlay".as_bytes().to_vec()),
                 )],
                 id,
                 DEFAULT_BITCOIN_CONFIRMATIONS,
@@ -309,7 +309,7 @@ fn testnet_genesis(
     root_key: AccountId,
     invulnerables: Vec<(AccountId, AuraId)>,
     endowed_accounts: Vec<AccountId>,
-    authorized_oracles: Vec<(AccountId, Vec<u8>)>,
+    authorized_oracles: Vec<(AccountId, testnet_kintsugi_runtime::OracleName)>,
     id: ParaId,
     bitcoin_confirmations: u32,
 ) -> testnet_kintsugi_runtime::GenesisConfig {

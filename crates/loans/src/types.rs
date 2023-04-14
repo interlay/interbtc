@@ -1,4 +1,5 @@
 use crate::{Config, InterestRateModel};
+use codec::MaxEncodedLen;
 use currency::Amount;
 use frame_support::pallet_prelude::*;
 use primitives::{CurrencyId, Liquidity, Rate, Ratio, Shortfall};
@@ -56,7 +57,7 @@ impl<T: Config> AccountLiquidity<T> {
 }
 
 /// Container for borrow balance information
-#[derive(Encode, Decode, Eq, PartialEq, Copy, Clone, RuntimeDebug, Default, TypeInfo)]
+#[derive(Encode, Decode, Eq, PartialEq, Copy, Clone, RuntimeDebug, Default, TypeInfo, MaxEncodedLen)]
 pub struct BorrowSnapshot<Balance> {
     /// Principal Total balance (with accrued interest), after applying the most recent balance-changing action.
     /// In other words, this is the amount of underlying borrowed that is to be paid back eventually.
@@ -76,7 +77,7 @@ pub struct EarnedSnapshot<Balance> {
 
 /// The current state of a market. For more information, see [Market].
 #[cfg_attr(feature = "std", derive(serde::Deserialize, serde::Serialize))]
-#[derive(Clone, Copy, PartialEq, Eq, codec::Decode, codec::Encode, RuntimeDebug, TypeInfo)]
+#[derive(Clone, Copy, PartialEq, Eq, codec::Decode, codec::Encode, RuntimeDebug, TypeInfo, MaxEncodedLen)]
 pub enum MarketState {
     Active,
     Pending,
@@ -89,7 +90,7 @@ pub enum MarketState {
 ///
 /// A large pool of liquidity where accounts can lend and borrow.
 #[cfg_attr(feature = "std", derive(serde::Deserialize, serde::Serialize))]
-#[derive(Clone, PartialEq, Eq, codec::Decode, codec::Encode, RuntimeDebug, TypeInfo)]
+#[derive(Clone, PartialEq, Eq, codec::Decode, codec::Encode, RuntimeDebug, TypeInfo, MaxEncodedLen)]
 pub struct Market<Balance> {
     /// The secure collateral ratio
     pub collateral_factor: Ratio,
@@ -117,7 +118,7 @@ pub struct Market<Balance> {
     pub lend_token_id: CurrencyId,
 }
 
-#[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug, TypeInfo, Default)]
+#[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug, TypeInfo, Default, MaxEncodedLen)]
 pub struct RewardMarketState<BlockNumber, Balance> {
     pub index: Balance,
     /// total amount of staking asset user deposited

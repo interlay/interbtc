@@ -240,7 +240,6 @@ pub mod pallet {
     }
 
     #[pallet::pallet]
-    #[pallet::without_storage_info] // fixedpoint does not yet implement MaxEncodedLen
     pub struct Pallet<T>(_);
 
     // The pallet's dispatchable functions.

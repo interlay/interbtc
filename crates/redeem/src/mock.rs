@@ -4,7 +4,7 @@ use currency::Amount;
 use frame_support::{
     assert_ok, parameter_types,
     traits::{ConstU32, Everything, GenesisBuild},
-    PalletId,
+    BoundedVec, PalletId,
 };
 use mocktopus::{macros::mockable, mocking::clear_mocks};
 pub use oracle::{CurrencyId, OracleKey};
@@ -230,6 +230,7 @@ impl btc_relay::Config for Test {
 impl security::Config for Test {
     type RuntimeEvent = RuntimeEvent;
     type WeightInfo = ();
+    type MaxErrors = ConstU32<1>;
 }
 
 parameter_types! {
@@ -247,6 +248,7 @@ impl oracle::Config for Test {
     type RuntimeEvent = RuntimeEvent;
     type OnExchangeRateChange = ();
     type WeightInfo = ();
+    type MaxNameLength = ConstU32<255>;
 }
 
 parameter_types! {
@@ -339,7 +341,7 @@ impl ExtBuilder {
         .unwrap();
 
         oracle::GenesisConfig::<Test> {
-            authorized_oracles: vec![(USER, "test".as_bytes().to_vec())],
+            authorized_oracles: vec![(USER, BoundedVec::truncate_from("test".as_bytes().to_vec()))],
             max_delay: 0,
         }
         .assimilate_storage(&mut storage)

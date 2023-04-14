@@ -1,17 +1,18 @@
 use super::{
-    parameter_types, Balance, CurrencyId, DexGeneral, DexStable, PalletId, Runtime, RuntimeEvent, StablePoolId,
-    Timestamp, Tokens,
+    parameter_types, weights, Balance, CurrencyId, DexGeneral, DexStable, PalletId, Runtime, RuntimeEvent,
+    StablePoolId, Timestamp, Tokens,
 };
 
 pub use dex_general::{AssetBalance, GenerateLpAssetId, PairInfo};
 pub use dex_stable::traits::{StablePoolLpCurrencyIdGenerate, ValidateCurrency};
-use sp_core::ConstU16;
 
 parameter_types! {
     pub const DexGeneralPalletId: PalletId = PalletId(*b"dex/genr");
     pub const DexStablePalletId: PalletId = PalletId(*b"dex/stab");
     pub const StringLimit: u32 = 50;
     pub const MaxSwaps:u16 = 4;
+    pub const MaxBootstrapRewards: u32 = 1000;
+    pub const MaxBootstrapLimits:u32 = 1000;
 }
 
 pub struct PairLpIdentity;
@@ -27,8 +28,10 @@ impl dex_general::Config for Runtime {
     type PalletId = DexGeneralPalletId;
     type AssetId = CurrencyId;
     type LpGenerate = PairLpIdentity;
-    type WeightInfo = ();
+    type WeightInfo = weights::dex_general::WeightInfo<Runtime>;
     type MaxSwaps = MaxSwaps;
+    type MaxBootstrapRewards = MaxBootstrapRewards;
+    type MaxBootstrapLimits = MaxBootstrapLimits;
 }
 
 pub struct PoolLpGenerate;
@@ -62,7 +65,7 @@ impl dex_stable::Config for Runtime {
     type LpGenerate = PoolLpGenerate;
     type PoolCurrencySymbolLimit = StringLimit;
     type PalletId = DexStablePalletId;
-    type WeightInfo = ();
+    type WeightInfo = weights::dex_stable::WeightInfo<Runtime>;
 }
 
 impl dex_swap_router::Config for Runtime {
@@ -73,5 +76,5 @@ impl dex_swap_router::Config for Runtime {
     type NormalAmm = DexGeneral;
     type StableAMM = DexStable;
     type MaxSwaps = MaxSwaps;
-    type WeightInfo = ();
+    type WeightInfo = weights::dex_swap_router::WeightInfo<Runtime>;
 }

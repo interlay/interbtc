@@ -103,13 +103,14 @@ pub mod pallet {
             + Encode
             + EncodeLike
             + Decode
-            + TypeInfo;
+            + TypeInfo
+            + MaxEncodedLen;
 
         #[pallet::constant]
         type GetNativeCurrencyId: Get<Self::CurrencyId>;
 
         /// The currency ID type.
-        type CurrencyId: Parameter + Member + Copy + MaybeSerializeDeserialize + Ord;
+        type CurrencyId: Parameter + Member + Copy + MaybeSerializeDeserialize + Ord + MaxEncodedLen;
     }
 
     // The pallet's events
@@ -268,7 +269,6 @@ pub mod pallet {
     pub type Nonce<T: Config> = StorageMap<_, Blake2_128Concat, DefaultVaultId<T>, T::Index, ValueQuery>;
 
     #[pallet::pallet]
-    #[pallet::without_storage_info] // no MaxEncodedLen for <T as frame_system::Config>::Index
     pub struct Pallet<T>(_);
 
     // The pallet's dispatchable functions.
