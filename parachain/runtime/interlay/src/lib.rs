@@ -808,7 +808,7 @@ impl annuity::Config<EscrowAnnuityInstance> for Runtime {
     type BlockNumberToBalance = BlockNumberToBalance;
     type EmissionPeriod = EmissionPeriod;
     type TotalWrapped = TotalWrapped;
-    type WeightInfo = weights::annuity::WeightInfo<Runtime>;
+    type WeightInfo = weights::annuity_escrow_annuity::WeightInfo<Runtime>;
 }
 
 pub struct VaultBlockRewardProvider;
@@ -857,7 +857,7 @@ impl annuity::Config<VaultAnnuityInstance> for Runtime {
     type BlockNumberToBalance = BlockNumberToBalance;
     type EmissionPeriod = EmissionPeriod;
     type TotalWrapped = TotalWrapped;
-    type WeightInfo = ();
+    type WeightInfo = weights::annuity_vault_annuity::WeightInfo<Runtime>;
 }
 
 type EscrowRewardsInstance = reward::Instance1;
@@ -1303,6 +1303,7 @@ mod benches {
         [supply, Supply]
         [escrow, Escrow]
         [annuity, EscrowAnnuity]
+        [annuity, VaultAnnuity]
         [btc_relay, BTCRelay]
         [security, Security]
         [vault_registry, VaultRegistry]
