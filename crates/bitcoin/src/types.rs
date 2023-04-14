@@ -7,14 +7,14 @@ pub use crate::merkle::MerkleProof;
 use crate::{
     formatter::{Formattable, TryFormattable},
     merkle::MerkleTree,
-    parser::{extract_address_hash_scriptsig, extract_address_hash_witness},
+    parser::{extract_address_hash_scriptsig, extract_address_hash_witness, parse_block_header},
     utils::{log2, reverse_endianness, sha256d_le},
     Address, Error, PublicKey, Script,
 };
 use codec::{Decode, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;
 pub use sp_core::{H160, H256, U256};
-use sp_std::{convert::TryFrom, prelude::*, vec};
+use sp_std::{prelude::*, vec};
 
 #[cfg(feature = "std")]
 use codec::alloc::string::String;
@@ -161,76 +161,6 @@ pub enum OpCode {
 
 /// Custom Types
 
-/// Bitcoin raw block header (80 bytes)
-#[derive(Encode, Decode, Copy, Clone, TypeInfo, MaxEncodedLen)]
-pub struct RawBlockHeader([u8; 80]);
-
-impl Default for RawBlockHeader {
-    fn default() -> Self {
-        Self([0; 80])
-    }
-}
-
-impl TryFrom<Vec<u8>> for RawBlockHeader {
-    type Error = Error;
-
-    fn try_from(v: Vec<u8>) -> Result<Self, Self::Error> {
-        RawBlockHeader::from_bytes(v)
-    }
-}
-
-impl RawBlockHeader {
-    /// Returns a raw block header from a bytes slice
-    ///
-    /// # Arguments
-    ///
-    /// * `bytes` - A slice containing the header
-    pub fn from_bytes<B: AsRef<[u8]>>(bytes: B) -> Result<RawBlockHeader, Error> {
-        let slice = bytes.as_ref();
-        if slice.len() != 80 {
-            return Err(Error::InvalidHeaderSize);
-        }
-        let mut result = [0u8; 80];
-        result.copy_from_slice(slice);
-        Ok(RawBlockHeader(result))
-    }
-
-    /// Returns a raw block header from a bytes slice
-    ///
-    /// # Arguments
-    ///
-    /// * `bytes` - A slice containing the header
-    #[cfg(feature = "std")]
-    pub fn from_hex<T: AsRef<[u8]>>(hex_string: T) -> Result<RawBlockHeader, Error> {
-        let bytes = hex::decode(hex_string).map_err(|_e| Error::MalformedHeader)?;
-        Self::from_bytes(&bytes)
-    }
-
-    /// Returns the hash of the block header using Bitcoin's double sha256
-    pub fn hash(&self) -> H256Le {
-        sha256d_le(self.as_bytes())
-    }
-
-    /// Returns the block header as a slice
-    pub fn as_bytes(&self) -> &[u8] {
-        &self.0
-    }
-}
-
-impl PartialEq for RawBlockHeader {
-    fn eq(&self, other: &Self) -> bool {
-        let self_bytes = &self.0[..];
-        let other_bytes = &other.0[..];
-        self_bytes == other_bytes
-    }
-}
-
-impl sp_std::fmt::Debug for RawBlockHeader {
-    fn fmt(&self, f: &mut sp_std::fmt::Formatter<'_>) -> sp_std::fmt::Result {
-        f.debug_list().entries(self.0.iter()).finish()
-    }
-}
-
 // Constants
 pub const P2PKH_SCRIPT_SIZE: u32 = 25;
 pub const P2SH_SCRIPT_SIZE: u32 = 23;
@@ -250,21 +180,66 @@ pub struct BlockHeader {
     pub target: U256,
     pub timestamp: u32,
     pub version: i32,
+    // TODO: remove hash
     pub hash: H256Le,
     pub hash_prev_block: H256Le,
     pub nonce: u32,
 }
 
 impl BlockHeader {
+    /// Returns the hash of the block header using Bitcoin's double sha256
+    pub fn hash(&self) -> Result<H256Le, Error> {
+        Ok(sha256d_le(&self.try_format()?))
+    }
+
+    pub fn ensure_version(&self) -> Result<(), Error> {
+        if self.version < 4 {
+            // as per bip65, we reject block versions less than 4. Note that the reason
+            // we can hardcode this, is that bitcoin switched to version 4 in december
+            // 2015, and the genesis of the bridge will never be set to a genesis from
+            // before that date.
+            // see https://github.com/bitcoin/bips/blob/master/bip-0065.mediawiki#spv-clients
+            Err(Error::InvalidBlockVersion)
+        } else {
+            Ok(())
+        }
+    }
+
     pub fn update_hash(&mut self) -> Result<H256Le, Error> {
-        let new_hash = sha256d_le(&self.try_format()?);
+        let new_hash = self.hash()?;
 
         self.hash = new_hash;
         Ok(self.hash)
     }
+
+    /// Returns a block header from a bytes slice
+    ///
+    /// # Arguments
+    ///
+    /// * `bytes` - A slice containing the header
+    pub fn from_bytes<B: AsRef<[u8]>>(bytes: B) -> Result<BlockHeader, Error> {
+        let slice = bytes.as_ref();
+        if slice.len() != 80 {
+            return Err(Error::InvalidHeaderSize);
+        }
+        let mut result = [0u8; 80];
+        result.copy_from_slice(slice);
+        parse_block_header(&result)
+    }
+
+    /// Returns a block header from a hex string
+    ///
+    /// # Arguments
+    ///
+    /// * `data` - A string containing the header
+    #[cfg(feature = "std")]
+    pub fn from_hex<T: AsRef<[u8]>>(data: T) -> Result<BlockHeader, Error> {
+        let bytes = hex::decode(data).map_err(|_e| Error::MalformedHeader)?;
+        Self::from_bytes(&bytes)
+    }
 }
 
-#[derive(PartialEq, Clone, Debug)]
+#[derive(Encode, Decode, TypeInfo, PartialEq, Clone, Debug)]
 pub enum TransactionInputSource {
     /// Spending from transaction with the given hash, from output with the given index
     FromOutput(H256Le, u32),
@@ -273,7 +248,7 @@ pub enum TransactionInputSource {
 }
 
 /// Bitcoin transaction input
-#[derive(PartialEq, Clone, Debug)]
+#[derive(Encode, Decode, TypeInfo, PartialEq, Clone, Debug)]
 pub struct TransactionInput {
     pub source: TransactionInputSource,
     pub script: Vec<u8>,
@@ -302,7 +277,7 @@ impl TransactionInput {
 pub type Value = i64;
 
 /// Bitcoin transaction output
-#[derive(PartialEq, Debug, Clone)]
+#[derive(Encode, Decode, TypeInfo, PartialEq, Debug, Clone)]
 pub struct TransactionOutput {
     pub value: Value,
     pub script: Script,
@@ -330,7 +305,7 @@ impl TransactionOutput {
 
 /// Bitcoin transaction
 // Note: the `default` implementation is used only for testing code
-#[derive(PartialEq, Debug, Clone, Default)]
+#[derive(Encode, Decode, TypeInfo, Default, PartialEq, Debug, Clone)]
 pub struct Transaction {
     pub version: i32,
     pub inputs: Vec<TransactionInput>,
@@ -350,7 +325,7 @@ impl Transaction {
 }
 
 // https://en.bitcoin.it/wiki/NLockTime
-#[derive(PartialEq, Debug, Clone)]
+#[derive(Encode, Decode, TypeInfo, PartialEq, Debug, Clone)]
 pub enum LockTime {
     /// time as unix timestamp
     Time(u32),

@@ -9,7 +9,7 @@ use sha2::{Digest, Sha256};
 #[cfg(test)]
 use mocktopus::macros::mockable;
 
-use crate::{Error, SetCompact};
+use crate::{utils::sha256d_le, Error, SetCompact};
 use sp_core::U256;
 use sp_std::{prelude::*, vec};
 
@@ -68,8 +68,7 @@ impl Parsable for CompactUint {
 
 impl Parsable for BlockHeader {
     fn parse(raw_bytes: &[u8], position: usize) -> Result<(BlockHeader, usize), Error> {
-        let slice = raw_bytes.get(position..position + 80).ok_or(Error::EndOfFile)?;
-        let header_bytes = RawBlockHeader::from_bytes(slice)?;
+        let header_bytes = raw_bytes.get(position..position + 80).ok_or(Error::EndOfFile)?;
         let block_header = parse_block_header(&header_bytes)?;
         Ok((block_header, 80))
     }
@@ -224,21 +223,24 @@ pub trait FromLeBytes: Sized {
 
 impl FromLeBytes for BlockHeader {
     fn from_le_bytes(bytes: &[u8]) -> Result<BlockHeader, Error> {
-        parse_block_header(&RawBlockHeader::from_bytes(bytes)?)
+        parse_block_header(bytes)
     }
 }
 
-// like parse_block_header, but without the version check. This is needed in testing, to test
-// with historical data
-pub fn parse_block_header_lenient(raw_header: &RawBlockHeader) -> Result<BlockHeader, Error> {
-    let mut parser = BytesParser::new(raw_header.as_bytes());
+/// Parses the raw bitcoin header into a Rust struct
+///
+/// # Arguments
+///
+/// * `header` - An 80-byte Bitcoin header
+pub fn parse_block_header(bytes: &[u8]) -> Result<BlockHeader, Error> {
+    let mut parser = BytesParser::new(bytes);
     let version: i32 = parser.parse()?;
     let hash_prev_block: H256Le = parser.parse()?;
     let merkle_root: H256Le = parser.parse()?;
     let timestamp: u32 = parser.parse()?;
     let target: U256 = parser.parse()?;
     let nonce: u32 = parser.parse()?;
-    let hash: H256Le = raw_header.hash();
+    let hash: H256Le = sha256d_le(bytes);
 
     let block_header = BlockHeader {
         merkle_root,
@@ -249,26 +251,6 @@ pub fn parse_block_header_lenient(raw_header: &RawBlockHeader) -> Result<BlockHe
         nonce,
         hash,
     };
-
-    Ok(block_header)
-}
-
-/// Parses the raw bitcoin header into a Rust struct
-///
-/// # Arguments
-///
-/// * `header` - An 80-byte Bitcoin header
-pub fn parse_block_header(raw_header: &RawBlockHeader) -> Result<BlockHeader, Error> {
-    let block_header = parse_block_header_lenient(raw_header)?;
-
-    if block_header.version < 4 {
-        // as per bip65, we reject block versions less than 4. Note that the reason
-        // we can hardcode this, is that bitcoin switched to version 4 in december
-        // 2015, and the genesis of the bridge will never be set to a genesis from
-        // before that date.
-        // see https://github.com/bitcoin/bips/blob/master/bip-0065.mediawiki#spv-clients
-        return Err(Error::InvalidBlockVersion);
-    }
 
     Ok(block_header)
 }
@@ -528,8 +510,7 @@ pub(crate) mod tests {
     #[test]
     fn test_parse_block_header() {
         let hex_header = sample_block_header();
-        let raw_header = RawBlockHeader::from_hex(&hex_header).unwrap();
-        let parsed_header = parse_block_header(&raw_header).unwrap();
+        let parsed_header = BlockHeader::from_hex(&hex_header).unwrap();
         assert_eq!(parsed_header.version, 4);
         assert_eq!(parsed_header.timestamp, 1415239972);
         assert_eq!(
@@ -550,11 +531,9 @@ pub(crate) mod tests {
         let valid_header_hex = "04".to_string() + hex_header_without_version;
         let invalid_header_hex = "03".to_string() + hex_header_without_version;
 
-        assert_ok!(parse_block_header(
-            &RawBlockHeader::from_hex(&valid_header_hex).unwrap()
-        ));
+        assert_ok!(BlockHeader::from_hex(&valid_header_hex));
         assert_err!(
-            parse_block_header(&RawBlockHeader::from_hex(&invalid_header_hex).unwrap()),
+            BlockHeader::from_hex(&invalid_header_hex).unwrap().ensure_version(),
             Error::InvalidBlockVersion
         );
     }

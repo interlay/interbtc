@@ -1235,7 +1235,7 @@ impl TransactionGenerator {
         self.relayer = relayer;
         self
     }
-    pub fn mine(&self) -> (H256Le, u32, Vec<u8>, Vec<u8>, Transaction) {
+    pub fn mine(&self) -> (H256Le, u32, MerkleProof, Transaction) {
         let mut height = BTCRelayPallet::get_best_block_height() + 1;
         let extra_confirmations = self.confirmations - 1;
 
@@ -1251,11 +1251,7 @@ impl TransactionGenerator {
                 .mine(U256::from(2).pow(254.into()))
                 .unwrap();
 
-            let raw_init_block_header = RawBlockHeader::from_bytes(&init_block.header.try_format().unwrap())
-                .expect("could not serialize block header");
-            let init_block_header = BTCRelayPallet::parse_raw_block_header(&raw_init_block_header).unwrap();
-
-            match BTCRelayPallet::_initialize(account_of(ALICE), init_block_header, height) {
+            match BTCRelayPallet::_initialize(account_of(ALICE), init_block.header, height) {
                 Ok(_) => {}
                 Err(e) if e == BTCRelayError::AlreadyInitialized.into() => {}
                 _ => panic!("Failed to initialize btc relay"),
@@ -1313,16 +1309,11 @@ impl TransactionGenerator {
             .mine(U256::from(2).pow(254.into()))
             .unwrap();
 
-        let raw_block_header =
-            RawBlockHeader::from_bytes(&block.header.try_format().unwrap()).expect("could not serialize block header");
-
         let tx_id = transaction.tx_id();
         let tx_block_height = height;
-        let proof = block.merkle_proof(&[tx_id]).unwrap();
-        let bytes_proof = proof.try_format().unwrap();
-        let raw_tx = transaction.format_with(true);
+        let merkle_proof = block.merkle_proof(&[tx_id]).unwrap();
 
-        self.relay(height, &block, raw_block_header);
+        self.relay(height, &block, block.header);
 
         // Mine six new blocks to get over required confirmations
         let mut prev_block_hash = block.header.hash;
@@ -1338,26 +1329,22 @@ impl TransactionGenerator {
                 .mine(U256::from(2).pow(254.into()))
                 .unwrap();
 
-            let raw_conf_block_header = RawBlockHeader::from_bytes(&conf_block.header.try_format().unwrap())
-                .expect("could not serialize block header");
-            self.relay(height, &conf_block, raw_conf_block_header);
+            self.relay(height, &conf_block, conf_block.header);
 
             prev_block_hash = conf_block.header.hash;
         }
 
-        (tx_id, tx_block_height, bytes_proof, raw_tx, transaction)
+        (tx_id, tx_block_height, merkle_proof, transaction)
     }
 
-    fn relay(&self, height: u32, block: &Block, raw_block_header: RawBlockHeader) {
+    fn relay(&self, height: u32, block: &Block, block_header: BlockHeader) {
         if let Some(relayer) = self.relayer {
             assert_ok!(RuntimeCall::BTCRelay(BTCRelayCall::store_block_header {
-                raw_block_header: raw_block_header
+                block_header: block_header
             })
             .dispatch(origin_of(account_of(relayer))));
-            assert_store_main_chain_header_event(height, raw_block_header.hash(), account_of(relayer));
+            assert_store_main_chain_header_event(height, block_header.hash, account_of(relayer));
         } else {
-            // bypass staked relayer module
-            let block_header = BTCRelayPallet::parse_raw_block_header(&raw_block_header).unwrap();
             assert_ok!(BTCRelayPallet::_store_block_header(&account_of(ALICE), block_header));
             assert_store_main_chain_header_event(height, block.header.hash, account_of(ALICE));
         }
@@ -1369,14 +1356,13 @@ pub fn generate_transaction_and_mine(
     inputs: Vec<(Transaction, u32, Option<BtcPublicKey>)>,
     outputs: Vec<(BtcAddress, Amount<Runtime>)>,
     return_data: Vec<H256>,
-) -> (H256Le, u32, Vec<u8>, Vec<u8>, Transaction) {
-    let (tx_id, height, proof, raw_tx, tx) = TransactionGenerator::new()
+) -> (H256Le, u32, MerkleProof, Transaction) {
+    TransactionGenerator::new()
         .with_script(signer.to_p2pkh_script_sig(vec![1; 32]).as_bytes())
         .with_inputs(inputs)
         .with_outputs(outputs)
         .with_op_return(return_data)
-        .mine();
-    (tx_id, height, proof, raw_tx, tx)
+        .mine()
 }
 
 pub struct ExtBuilder {

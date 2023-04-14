@@ -6,7 +6,7 @@ use crate::{ext, mock::*, types::*, BtcAddress, Error, DIFFICULTY_ADJUSTMENT_INT
 type Event = crate::Event<Test>;
 
 use crate::{Chains, ChainsIndex};
-use bitcoin::{formatter::TryFormattable, merkle::*, parser::*, types::*};
+use bitcoin::{merkle::*, parser::*, types::*};
 use frame_support::{assert_err, assert_ok};
 use mocktopus::mocking::*;
 use sp_std::{
@@ -493,8 +493,7 @@ mod store_block_header_tests {
     }
 
     fn parse_from_hex(hex_string: &str) -> BlockHeader {
-        let raw = RawBlockHeader::from_hex(hex_string).unwrap();
-        parse_block_header_lenient(&raw).unwrap()
+        BlockHeader::from_hex(hex_string).unwrap()
     }
 
     #[test]
@@ -795,12 +794,10 @@ fn test_verify_block_header_no_retarget_succeeds() {
         let block_height: u32 = 100;
         let genesis_header = sample_parsed_genesis_header(chain_id, block_height);
 
-        let raw_first_header = RawBlockHeader::from_hex(sample_raw_first_header()).unwrap();
+        let block_header = BlockHeader::from_hex(sample_raw_first_header()).unwrap();
 
         // Not duplicate block
         BTCRelay::block_header_exists.mock_safe(move |_| MockResult::Return(false));
-
-        let block_header = parse_block_header_lenient(&raw_first_header).unwrap();
 
         assert_ok!(BTCRelay::verify_block_header(
             &block_header,
@@ -819,14 +816,10 @@ fn test_verify_block_header_correct_retarget_increase_succeeds() {
         // Sample interval with INCREASING target
         let retarget_headers = sample_retarget_interval_increase();
 
-        let prev_block_header_rich = RichBlockHeader::<BlockNumber>::new(
-            parse_block_header_lenient(&retarget_headers[1]).unwrap(),
-            chain_id,
-            block_height,
-            Default::default(),
-        );
+        let prev_block_header_rich =
+            RichBlockHeader::<BlockNumber>::new(retarget_headers[1], chain_id, block_height, Default::default());
 
-        let curr_block_header = parse_block_header_lenient(&retarget_headers[2]).unwrap();
+        let curr_block_header = retarget_headers[2];
         // Prev block exists
         BTCRelay::get_block_header_from_hash.mock_safe(move |_| MockResult::Return(Ok(prev_block_header_rich)));
         // Not duplicate block
@@ -834,7 +827,7 @@ fn test_verify_block_header_correct_retarget_increase_succeeds() {
         // Compute new target returns target of submitted header (i.e., correct)
         BTCRelay::compute_new_target.mock_safe(move |_, _| MockResult::Return(Ok(curr_block_header.target)));
 
-        let block_header = parse_block_header_lenient(&retarget_headers[2]).unwrap();
+        let block_header = retarget_headers[2];
         assert_ok!(BTCRelay::verify_block_header(
             &block_header,
             prev_block_header_rich.block_height + 1,
@@ -852,20 +845,16 @@ fn test_verify_block_header_correct_retarget_decrease_succeeds() {
         // Sample interval with DECREASING target
         let retarget_headers = sample_retarget_interval_decrease();
 
-        let prev_block_header_rich = RichBlockHeader::<BlockNumber>::new(
-            parse_block_header(&retarget_headers[1]).unwrap(),
-            chain_id,
-            block_height,
-            Default::default(),
-        );
+        let prev_block_header_rich =
+            RichBlockHeader::<BlockNumber>::new(retarget_headers[1], chain_id, block_height, Default::default());
 
-        let curr_block_header = parse_block_header(&retarget_headers[2]).unwrap();
+        let curr_block_header = retarget_headers[2];
         // Not duplicate block
         BTCRelay::block_header_exists.mock_safe(move |_| MockResult::Return(false));
         // Compute new target returns target of submitted header (i.e., correct)
         BTCRelay::compute_new_target.mock_safe(move |_, _| MockResult::Return(Ok(curr_block_header.target)));
 
-        let block_header = BTCRelay::parse_raw_block_header(&retarget_headers[2]).unwrap();
+        let block_header = &retarget_headers[2];
         assert_ok!(BTCRelay::verify_block_header(
             &block_header,
             prev_block_header_rich.block_height + 1,
@@ -882,20 +871,16 @@ fn test_verify_block_header_missing_retarget_succeeds() {
         let block_height: u32 = 2015;
         let retarget_headers = sample_retarget_interval_increase();
 
-        let prev_block_header_rich = RichBlockHeader::<BlockNumber>::new(
-            parse_block_header_lenient(&retarget_headers[1]).unwrap(),
-            chain_id,
-            block_height,
-            Default::default(),
-        );
+        let prev_block_header_rich =
+            RichBlockHeader::<BlockNumber>::new(retarget_headers[1], chain_id, block_height, Default::default());
 
-        let curr_block_header = parse_block_header_lenient(&retarget_headers[2]).unwrap();
+        let curr_block_header = retarget_headers[2];
         // Not duplicate block
         BTCRelay::block_header_exists.mock_safe(move |_| MockResult::Return(false));
         // Compute new target returns HIGHER target
         BTCRelay::compute_new_target.mock_safe(move |_, _| MockResult::Return(Ok(curr_block_header.target + 1)));
 
-        let block_header = parse_block_header_lenient(&retarget_headers[2]).unwrap();
+        let block_header = retarget_headers[2];
         assert_err!(
             BTCRelay::verify_block_header(
                 &block_header,
@@ -914,15 +899,11 @@ fn test_compute_new_target() {
     let block_height: u32 = 2016;
     let retarget_headers = sample_retarget_interval_increase();
 
-    let last_retarget_time = parse_block_header_lenient(&retarget_headers[0]).unwrap().timestamp as u64;
-    let prev_block_header = RichBlockHeader::<BlockNumber>::new(
-        parse_block_header_lenient(&retarget_headers[1]).unwrap(),
-        chain_id,
-        block_height,
-        Default::default(),
-    );
+    let last_retarget_time = retarget_headers[0].timestamp as u64;
+    let prev_block_header =
+        RichBlockHeader::<BlockNumber>::new(retarget_headers[1], chain_id, block_height, Default::default());
 
-    let curr_block_header = parse_block_header_lenient(&retarget_headers[2]).unwrap();
+    let curr_block_header = retarget_headers[2];
 
     BTCRelay::get_last_retarget_time.mock_safe(move |_, _| MockResult::Return(Ok(last_retarget_time)));
 
@@ -949,8 +930,7 @@ fn test_verify_block_header_duplicate_fails() {
             MockResult::Return(true)
         });
 
-        let raw_first_header = RawBlockHeader::from_hex(sample_raw_first_header()).unwrap();
-        let first_header = parse_block_header_lenient(&raw_first_header).unwrap();
+        let first_header = BlockHeader::from_hex(sample_raw_first_header()).unwrap();
         assert_err!(
             BTCRelay::verify_block_header(&first_header, genesis_header.block_height + 1, genesis_header),
             TestError::DuplicateBlock
@@ -967,12 +947,11 @@ fn test_verify_block_header_low_diff_fails() {
         let genesis_header = sample_parsed_genesis_header(chain_id, block_height);
 
         // block header with high target but weak hash
-        let raw_first_header_weak = RawBlockHeader::from_hex(sample_raw_first_header_low_diff()).unwrap();
+        let first_header_weak = BlockHeader::from_hex(sample_raw_first_header_low_diff()).unwrap();
 
         // submitted block does not yet exist
         BTCRelay::block_header_exists.mock_safe(move |_| MockResult::Return(false));
 
-        let first_header_weak = parse_block_header_lenient(&raw_first_header_weak).unwrap();
         assert_err!(
             BTCRelay::verify_block_header(&first_header_weak, genesis_header.block_height + 1, genesis_header),
             TestError::LowDiff
@@ -983,18 +962,17 @@ fn test_verify_block_header_low_diff_fails() {
 #[test]
 fn test_validate_transaction_succeeds_with_payment() {
     run_test(|| {
-        let raw_tx = hex::decode(sample_accepted_transaction()).unwrap();
         let minimum_btc: i64 = 2500200000;
         let recipient_btc_address =
             BtcAddress::P2SH(H160::from_str(&"66c7060feb882664ae62ffad0051fe843e318e85").unwrap());
 
         let outputs = vec![sample_valid_payment_output()];
 
-        BTCRelay::parse_transaction.mock_safe(move |_| MockResult::Return(Ok(sample_transaction_parsed(&outputs))));
+        let transaction = sample_transaction_parsed(&outputs);
 
         assert_ok!(BTCRelay::validate_transaction(
             RuntimeOrigin::signed(3),
-            raw_tx,
+            transaction,
             minimum_btc,
             recipient_btc_address,
             None,
@@ -1005,7 +983,6 @@ fn test_validate_transaction_succeeds_with_payment() {
 #[test]
 fn test_validate_transaction_succeeds_with_payment_and_op_return() {
     run_test(|| {
-        let raw_tx = hex::decode(sample_accepted_transaction()).unwrap();
         let minimum_btc: i64 = 2500200000;
         let recipient_btc_address =
             BtcAddress::P2SH(H160::from_str(&"66c7060feb882664ae62ffad0051fe843e318e85").unwrap());
@@ -1014,11 +991,11 @@ fn test_validate_transaction_succeeds_with_payment_and_op_return() {
 
         let outputs = vec![sample_valid_payment_output(), sample_valid_data_output()];
 
-        BTCRelay::parse_transaction.mock_safe(move |_| MockResult::Return(Ok(sample_transaction_parsed(&outputs))));
+        let transaction = sample_transaction_parsed(&outputs);
 
         assert_ok!(BTCRelay::validate_transaction(
             RuntimeOrigin::signed(3),
-            raw_tx,
+            transaction,
             minimum_btc,
             recipient_btc_address,
             Some(H256::from_slice(&op_return_id))
@@ -1029,7 +1006,6 @@ fn test_validate_transaction_succeeds_with_payment_and_op_return() {
 #[test]
 fn test_validate_transaction_succeeds_with_op_return_and_payment() {
     run_test(|| {
-        let raw_tx = hex::decode(sample_accepted_transaction()).unwrap();
         let minimum_btc: i64 = 2500200000;
         let recipient_btc_address =
             BtcAddress::P2SH(H160::from_str(&"66c7060feb882664ae62ffad0051fe843e318e85").unwrap());
@@ -1038,11 +1014,11 @@ fn test_validate_transaction_succeeds_with_op_return_and_payment() {
 
         let outputs = vec![sample_valid_data_output(), sample_valid_payment_output()];
 
-        BTCRelay::parse_transaction.mock_safe(move |_| MockResult::Return(Ok(sample_transaction_parsed(&outputs))));
+        let transaction = sample_transaction_parsed(&outputs);
 
         assert_ok!(BTCRelay::validate_transaction(
             RuntimeOrigin::signed(3),
-            raw_tx,
+            transaction,
             minimum_btc,
             recipient_btc_address,
             Some(H256::from_slice(&op_return_id))
@@ -1053,7 +1029,6 @@ fn test_validate_transaction_succeeds_with_op_return_and_payment() {
 #[test]
 fn test_validate_transaction_succeeds_with_payment_and_refund_and_op_return() {
     run_test(|| {
-        let raw_tx = hex::decode(sample_accepted_transaction()).unwrap();
         let minimum_btc: i64 = 2500200000;
         let recipient_btc_address =
             BtcAddress::P2SH(H160::from_str(&"66c7060feb882664ae62ffad0051fe843e318e85").unwrap());
@@ -1066,11 +1041,11 @@ fn test_validate_transaction_succeeds_with_payment_and_refund_and_op_return() {
             sample_valid_data_output(),
         ];
 
-        BTCRelay::parse_transaction.mock_safe(move |_| MockResult::Return(Ok(sample_transaction_parsed(&outputs))));
+        let transaction = sample_transaction_parsed(&outputs);
 
         assert_ok!(BTCRelay::validate_transaction(
             RuntimeOrigin::signed(3),
-            raw_tx,
+            transaction,
             minimum_btc,
             recipient_btc_address,
             Some(H256::from_slice(&op_return_id))
@@ -1081,9 +1056,6 @@ fn test_validate_transaction_succeeds_with_payment_and_refund_and_op_return() {
 #[test]
 fn test_validate_transaction_invalid_no_outputs_fails() {
     run_test(|| {
-        // Simulate input (we mock the parsed transaction)
-        let raw_tx = hex::decode(sample_accepted_transaction()).unwrap();
-
         let minimum_btc: i64 = 2500200000;
         let recipient_btc_address =
             BtcAddress::P2SH(H160::from_str(&"66c7060feb882664ae62ffad0051fe843e318e85").unwrap());
@@ -1092,12 +1064,12 @@ fn test_validate_transaction_invalid_no_outputs_fails() {
         // missing required data output
         let outputs = vec![sample_valid_payment_output()];
 
-        BTCRelay::parse_transaction.mock_safe(move |_| MockResult::Return(Ok(sample_transaction_parsed(&outputs))));
+        let transaction = sample_transaction_parsed(&outputs);
 
         assert_err!(
             BTCRelay::validate_transaction(
                 RuntimeOrigin::signed(3),
-                raw_tx,
+                transaction,
                 minimum_btc,
                 recipient_btc_address,
                 Some(H256::from_slice(&op_return_id))
@@ -1110,9 +1082,6 @@ fn test_validate_transaction_invalid_no_outputs_fails() {
 #[test]
 fn test_validate_transaction_insufficient_payment_value_fails() {
     run_test(|| {
-        // Simulate input (we mock the parsed transaction)
-        let raw_tx = vec![0u8; 342];
-
         let minimum_btc: i64 = 2500200000;
         let recipient_btc_address =
             BtcAddress::P2SH(H160::from_str(&"66c7060feb882664ae62ffad0051fe843e318e85").unwrap());
@@ -1121,12 +1090,12 @@ fn test_validate_transaction_insufficient_payment_value_fails() {
 
         let outputs = vec![sample_insufficient_value_payment_output(), sample_valid_data_output()];
 
-        BTCRelay::parse_transaction.mock_safe(move |_| MockResult::Return(Ok(sample_transaction_parsed(&outputs))));
+        let transaction = sample_transaction_parsed(&outputs);
 
         assert_err!(
             BTCRelay::validate_transaction(
                 RuntimeOrigin::signed(3),
-                raw_tx,
+                transaction,
                 minimum_btc,
                 recipient_btc_address,
                 Some(H256::from_slice(&op_return_id))
@@ -1139,9 +1108,6 @@ fn test_validate_transaction_insufficient_payment_value_fails() {
 #[test]
 fn test_validate_transaction_wrong_recipient_fails() {
     run_test(|| {
-        // Simulate input (we mock the parsed transaction)
-        let raw_tx = vec![0u8; 342];
-
         let minimum_btc: i64 = 2500200000;
         let recipient_btc_address =
             BtcAddress::P2SH(H160::from_str(&"66c7060feb882664ae62ffad0051fe843e318e85").unwrap());
@@ -1154,12 +1120,12 @@ fn test_validate_transaction_wrong_recipient_fails() {
             sample_valid_data_output(),
         ];
 
-        BTCRelay::parse_transaction.mock_safe(move |_| MockResult::Return(Ok(sample_transaction_parsed(&outputs))));
+        let transaction = sample_transaction_parsed(&outputs);
 
         assert_err!(
             BTCRelay::validate_transaction(
                 RuntimeOrigin::signed(3),
-                raw_tx,
+                transaction,
                 minimum_btc,
                 recipient_btc_address,
                 Some(H256::from_slice(&op_return_id))
@@ -1172,9 +1138,6 @@ fn test_validate_transaction_wrong_recipient_fails() {
 #[test]
 fn test_validate_transaction_incorrect_opreturn_fails() {
     run_test(|| {
-        // Simulate input (we mock the parsed transaction)
-        let raw_tx = vec![0u8; 342];
-
         let minimum_btc: i64 = 2500200000;
         let recipient_btc_address =
             BtcAddress::P2SH(H160::from_str(&"66c7060feb882664ae62ffad0051fe843e318e85").unwrap());
@@ -1183,12 +1146,12 @@ fn test_validate_transaction_incorrect_opreturn_fails() {
 
         let outputs = vec![sample_valid_payment_output(), sample_incorrect_data_output()];
 
-        BTCRelay::parse_transaction.mock_safe(move |_| MockResult::Return(Ok(sample_transaction_parsed(&outputs))));
+        let transaction = sample_transaction_parsed(&outputs);
 
         assert_err!(
             BTCRelay::validate_transaction(
                 RuntimeOrigin::signed(3),
-                raw_tx,
+                transaction,
                 minimum_btc,
                 recipient_btc_address,
                 Some(H256::from_slice(&op_return_id))
@@ -1215,22 +1178,21 @@ fn test_verify_and_validate_transaction_succeeds() {
 
         // rest are example values -- not checked in this test.
         // let block_height = 0;
-        let raw_merkle_proof = vec![0u8; 100];
+        let merkle_proof = sample_merkle_proof();
         let confirmations = None;
         let minimum_btc: i64 = 0;
         let recipient_btc_address =
             BtcAddress::P2SH(H160::from_str(&"66c7060feb882664ae62ffad0051fe843e318e85").unwrap());
         let op_return_id =
             hex::decode("e5c17d15b8b1fa2811b7e6da66ffa5e1aaa05922c69068bf90cd585b95bb4675".to_owned()).unwrap();
-        BTCRelay::parse_merkle_proof.mock_safe(|_| MockResult::Return(Ok(sample_merkle_proof())));
         BTCRelay::_validate_transaction.mock_safe(move |_, _, _, _| MockResult::Return(Ok(())));
         BTCRelay::_verify_transaction_inclusion.mock_safe(move |_, _, _| MockResult::Return(Ok(())));
 
         assert_ok!(BTCRelay::verify_and_validate_transaction(
             RuntimeOrigin::signed(3),
-            raw_merkle_proof,
+            merkle_proof,
             confirmations,
-            raw_tx,
+            transaction,
             minimum_btc,
             recipient_btc_address,
             Some(H256::from_slice(&op_return_id))
@@ -1246,12 +1208,10 @@ fn test_verify_transaction_inclusion_succeeds() {
         let start = 10;
         let main_chain_height = 300;
         let fork_chain_height = 280;
-        // Random init since we mock this
-        let raw_merkle_proof = vec![0u8; 100];
         let confirmations = None;
         let rich_block_header = sample_rich_tx_block_header(chain_id, main_chain_height);
 
-        let proof = sample_merkle_proof();
+        let merkle_proof = sample_merkle_proof();
         let proof_result = sample_valid_proof_result();
 
         let main = get_empty_block_chain_from_chain_id_and_height(chain_id, start, main_chain_height);
@@ -1269,7 +1229,6 @@ fn test_verify_transaction_inclusion_succeeds() {
 
         BTCRelay::get_best_block_height.mock_safe(move || MockResult::Return(main_chain_height));
 
-        BTCRelay::parse_merkle_proof.mock_safe(move |_| MockResult::Return(Ok(proof.clone())));
         BTCRelay::verify_merkle_proof.mock_safe(move |_| MockResult::Return(Ok(proof_result)));
 
         BTCRelay::get_block_header_from_hash.mock_safe(move |_| MockResult::Return(Ok(rich_block_header)));
@@ -1281,7 +1240,7 @@ fn test_verify_transaction_inclusion_succeeds() {
         assert_ok!(BTCRelay::verify_transaction_inclusion(
             RuntimeOrigin::signed(3),
             proof_result.transaction_hash,
-            raw_merkle_proof,
+            merkle_proof,
             confirmations
         ));
     });
@@ -1293,12 +1252,10 @@ fn test_verify_transaction_inclusion_empty_fork_succeeds() {
         let chain_id = 0;
         let start = 10;
         let main_chain_height = 300;
-        // Random init since we mock this
-        let raw_merkle_proof = vec![0u8; 100];
         let confirmations = None;
         let rich_block_header = sample_rich_tx_block_header(chain_id, main_chain_height);
 
-        let proof = sample_merkle_proof();
+        let merkle_proof = sample_merkle_proof();
         let proof_result = sample_valid_proof_result();
 
         let main = get_empty_block_chain_from_chain_id_and_height(chain_id, start, main_chain_height);
@@ -1313,7 +1270,6 @@ fn test_verify_transaction_inclusion_empty_fork_succeeds() {
 
         BTCRelay::get_best_block_height.mock_safe(move || MockResult::Return(main_chain_height));
 
-        BTCRelay::parse_merkle_proof.mock_safe(move |_| MockResult::Return(Ok(proof.clone())));
         BTCRelay::verify_merkle_proof.mock_safe(move |_| MockResult::Return(Ok(proof_result)));
 
         BTCRelay::get_block_header_from_hash.mock_safe(move |_| MockResult::Return(Ok(rich_block_header)));
@@ -1325,7 +1281,7 @@ fn test_verify_transaction_inclusion_empty_fork_succeeds() {
         assert_ok!(BTCRelay::verify_transaction_inclusion(
             RuntimeOrigin::signed(3),
             proof_result.transaction_hash,
-            raw_merkle_proof,
+            merkle_proof,
             confirmations,
         ));
     });
@@ -1339,8 +1295,6 @@ fn test_verify_transaction_inclusion_invalid_tx_id_fails() {
         let start = 10;
         let main_chain_height = 300;
         let fork_chain_height = 280;
-        // Random init since we mock this
-        let raw_merkle_proof = vec![0u8; 100];
         let confirmations = None;
         let rich_block_header = sample_rich_tx_block_header(chain_id, main_chain_height);
 
@@ -1349,7 +1303,7 @@ fn test_verify_transaction_inclusion_invalid_tx_id_fails() {
             &hex::decode("0000000000000000000000000000000000000000000000000000000000000000".to_owned()).unwrap(),
         );
 
-        let proof = sample_merkle_proof();
+        let merkle_proof = sample_merkle_proof();
         let proof_result = sample_valid_proof_result();
 
         let main = get_empty_block_chain_from_chain_id_and_height(chain_id, start, main_chain_height);
@@ -1367,7 +1321,6 @@ fn test_verify_transaction_inclusion_invalid_tx_id_fails() {
 
         BTCRelay::get_best_block_height.mock_safe(move || MockResult::Return(main_chain_height));
 
-        BTCRelay::parse_merkle_proof.mock_safe(move |_| MockResult::Return(Ok(proof.clone())));
         BTCRelay::verify_merkle_proof.mock_safe(move |_| MockResult::Return(Ok(proof_result)));
 
         BTCRelay::get_block_header_from_hash.mock_safe(move |_| MockResult::Return(Ok(rich_block_header)));
@@ -1380,7 +1333,7 @@ fn test_verify_transaction_inclusion_invalid_tx_id_fails() {
             BTCRelay::verify_transaction_inclusion(
                 RuntimeOrigin::signed(3),
                 invalid_tx_id,
-                raw_merkle_proof,
+                merkle_proof,
                 confirmations,
             ),
             TestError::InvalidTxid
@@ -1396,8 +1349,6 @@ fn test_verify_transaction_inclusion_invalid_merkle_root_fails() {
         let start = 10;
         let main_chain_height = 300;
         let fork_chain_height = 280;
-        // Random init since we mock this
-        let raw_merkle_proof = vec![0u8; 100];
         let confirmations = None;
         let mut rich_block_header = sample_rich_tx_block_header(chain_id, main_chain_height);
 
@@ -1407,7 +1358,7 @@ fn test_verify_transaction_inclusion_invalid_merkle_root_fails() {
         );
         rich_block_header.block_header.merkle_root = invalid_merkle_root;
 
-        let proof = sample_merkle_proof();
+        let merkle_proof = sample_merkle_proof();
         let proof_result = sample_valid_proof_result();
 
         let main = get_empty_block_chain_from_chain_id_and_height(chain_id, start, main_chain_height);
@@ -1425,8 +1376,6 @@ fn test_verify_transaction_inclusion_invalid_merkle_root_fails() {
 
         BTCRelay::get_best_block_height.mock_safe(move || MockResult::Return(main_chain_height));
 
-        BTCRelay::parse_merkle_proof.mock_safe(move |_| MockResult::Return(Ok(proof.clone())));
-
         BTCRelay::get_block_header_from_hash.mock_safe(move |_| MockResult::Return(Ok(rich_block_header)));
 
         BTCRelay::check_bitcoin_confirmations.mock_safe(|_, _, _| MockResult::Return(Ok(())));
@@ -1437,7 +1386,7 @@ fn test_verify_transaction_inclusion_invalid_merkle_root_fails() {
             BTCRelay::verify_transaction_inclusion(
                 RuntimeOrigin::signed(3),
                 proof_result.transaction_hash,
-                raw_merkle_proof,
+                merkle_proof,
                 confirmations,
             ),
             TestError::InvalidMerkleProof
@@ -1450,15 +1399,14 @@ fn test_verify_transaction_inclusion_fails_with_ongoing_fork() {
     run_test(|| {
         BTCRelay::get_chain_id_from_position.mock_safe(|_| MockResult::Return(Ok(1)));
         BTCRelay::get_block_chain_from_id.mock_safe(|_| MockResult::Return(Ok(BlockChain::default())));
-        BTCRelay::parse_merkle_proof.mock_safe(|_| MockResult::Return(Ok(sample_merkle_proof())));
         BTCRelay::verify_merkle_proof.mock_safe(|_| MockResult::Return(Ok(sample_valid_proof_result())));
 
         let tx_id = sample_valid_proof_result().transaction_hash;
-        let raw_merkle_proof = vec![0u8; 100];
+        let merkle_proof = sample_merkle_proof();
         let confirmations = None;
 
         assert_err!(
-            BTCRelay::verify_transaction_inclusion(RuntimeOrigin::signed(3), tx_id, raw_merkle_proof, confirmations,),
+            BTCRelay::verify_transaction_inclusion(RuntimeOrigin::signed(3), tx_id, merkle_proof, confirmations,),
             TestError::OngoingFork
         );
     });
@@ -1469,11 +1417,11 @@ fn test_get_and_verify_issue_payment_with_tx_containing_taproot() {
     run_test(|| {
         let raw_tx = "010000000001013413e41f47eecad702082578c35a2925217056fd0a837b22f1a205fe178a010d0500000000ffffffff19771000000000000017a91415f691c1905082c300362d48540846c30855162d877a1000000000000022512038234fa3e3ca718dfadfb540c320180e68798e67e0a9d4f10d98ea33d37caf047a100000000000001976a914d73838271ee26471aa3640915ed7274b49435b6688acee2000000000000016001470eab26ae0074a58802acc7c38cd9941619c408d14250000000000001976a91479ef95650e8284c3be439d888cf2ee2d1d8ef63088ac3129000000000000160014a558dd2db8167e069f580da2482a9b73dc4f5960217f0000000000001976a91409f3607112083fb1ffe3718214a8e5d5eb0da46188ac04a50000000000001600149215c14609d581aacaa54f629e823cc8abd17ee6c7cd00000000000017a9146da59c9a54a5465402884712bbbe140bc68a4f218728f700000000000017a914ed99cbd06b43b4e3741d1457f7af7b24c2e8d12487ae380100000000001976a91448296f6f29c497f59193ab4e7def5f2e03ef2f9988ac654901000000000017a914ba997376b5daaa3707aefdf30cc09745b579df2187a6a301000000000017a914ffed3c6e71adc2b73939d6951f4655ed1432909b87ec9202000000000017a9147759a1bffe2acca168afdb5b106250b02a703b2887d63603000000000016001439fef3095e8a3bce11ce471aa602bf3e3609d8ddae3703000000000017a914ea0d18bbd804d17a1f2f07ed9aa1670721777d2287cd370300000000001976a914bcc6bcffe584761176d8f510896e882f838208d988ac1d3803000000000016001470eb59ad925fdec71ca0ec50cf7c6b9bbe8dc7592f380300000000001976a91447eb6c94d7b2ac0c11eb3957c0844d333e21d02e88ac724803000000000016001470eb59ad925fdec71ca0ec50cf7c6b9bbe8dc759692e050000000000160014ae26178c1a9b4adb6f24f047fa119e034205900c381b10000000000017a914c9e20b0d7e46d07a878585955ca377db833d181587d32b20000000000017a914bbfcd0b601046e1656ba9b74a98ee8d362d5b63687402f200000000000160014ca146a720a30ca404e979df59d3ddca039e8fd58f22fea0000000000220020935f3eb059cd94bd307e6378bd590724f361f0316fd0964eb5952f274dfb7b4f0400483045022100c9fc44a423e31fc792f5d255ae09ffdc0b224cb70fcebacd52183ce2813ba11d022046c8530230f644be4a05f25bd6a2264b99afc7e3e38531d4bde12d477d03f18001473044022027f50b14154123b173286db76e189a32973a13b0b4ca425329533229cf7f8d9a02202cea81a657ee654c63ab4a01a741931378abae036435a1d695622216596d9e27016952210257bf4070df9735de32305f3bc25320d331edb10c662423e06cd1e50bc58d8fa7210246454540c4e36ba6a481347d0194ffe476640289aecfd2d3f3db1328415b9a5c210248e0a3385d6f744ae81779e10f8ccafbbed7d44debf08a2b0d5250e2f0a0e84853aef0210b00";
         let tx_bytes = hex::decode(&raw_tx).unwrap();
-        let transaction = BTCRelay::parse_transaction(&tx_bytes).unwrap();
+        let transaction = parse_transaction(&tx_bytes).unwrap();
 
         let raw_proof = "0000402007abe6919ca547e5a9ffe0a11936feef61cb59e7b1f703000000000000000000a53fd3336aa8a18ea00d4127ddb4f4c8d602eee44e271191ee957c257d6b28fc104c4362c0400a17783168d59f0a00000d20a74fa5c909996400a1eaf8ccb08a1fe93f125d260bdbe85f6c46a8ceb0135825c9767aea6bd8d7534a4dcb550332a174a3532aca52665e621c23504d020547dbaa46c7c8fd72b89d3b7dbe1f4f7ca977f3227ad9ce47fc725eb166324662ffdf6b1c856c7a4ec042017fd6c4b10b7b7405d35d2334389b1ea7455f3d94153b3ecfcbaea201e40fdfde250f6a810857bf3ce25af03521a417f44f038e48d7443c46d8574331f1e393ac0c47700544235de90786fca8b6f6d6ce4dce28eabfe82afdf11f4b31ae5209384e56cfc2e103a28f62cd5a269323966a3e29210276fd3fad24c0a2a832ba276dd036b0f50d1d24b12ad239812ffd64cc318f6c28a1a98295da3e28cc22959235808a432225dc101b3c5d545067c8c6553ea89675c7652d914146f9851d78c52802e5dffcbb77ae2f90478f507811c2cece1c2e7b08e5978b8384e6bdf73573b0033a6c2da1494abb5e0b760a00583c106cfdb9b658cecd0d11f35385dbbeb5546bda1144978c674a589e1991e8610aa5ef7480abff3e82bd5bcb91174fd1e896bab2746c9f5fed3faad55d043c1822e7a98f8b8862a104d7ae0500";
         let proof_bytes = hex::decode(&raw_proof).unwrap();
-        let merkle_proof = BTCRelay::parse_merkle_proof(&proof_bytes).unwrap();
+        let merkle_proof = MerkleProof::parse(&proof_bytes).unwrap();
 
         // check the last output address
         let raw_address = "935f3eb059cd94bd307e6378bd590724f361f0316fd0964eb5952f274dfb7b4f";
@@ -1622,21 +1570,17 @@ fn get_chain_from_id_ok() {
 fn store_generated_block_headers() {
     let target = U256::from(2).pow(254.into());
     let miner = BtcAddress::P2PKH(H160::from_str(&"66c7060feb882664ae62ffad0051fe843e318e85").unwrap());
-    let get_header = |block: &Block| RawBlockHeader::from_bytes(&block.header.try_format().unwrap()).unwrap();
 
     run_test(|| {
         let mut last_block = BlockBuilder::new().with_coinbase(&miner, 50, 0).mine(target).unwrap();
-        let last_block_header = BTCRelay::parse_raw_block_header(&get_header(&last_block)).unwrap();
-        assert_ok!(BTCRelay::_initialize(3, last_block_header, 0));
+        assert_ok!(BTCRelay::_initialize(3, last_block.header, 0));
         for i in 1..20 {
             last_block = BlockBuilder::new()
                 .with_coinbase(&miner, 50, i)
                 .with_previous_hash(last_block.header.hash)
                 .mine(target)
                 .unwrap();
-            let raw_header = get_header(&last_block);
-            let block_header = parse_block_header(&raw_header).unwrap();
-            assert_ok!(BTCRelay::_store_block_header(&3, block_header));
+            assert_ok!(BTCRelay::_store_block_header(&3, last_block.header));
         }
         let main_chain: BlockChain = BTCRelay::get_block_chain_from_id(crate::MAIN_CHAIN_ID).unwrap();
         assert_eq!(main_chain.start_height, 0);
@@ -2091,9 +2035,9 @@ fn sample_raw_genesis_header() -> String {
 }
 
 fn sample_parsed_genesis_header(chain_id: u32, block_height: u32) -> RichBlockHeader<BlockNumber> {
-    let genesis_header = RawBlockHeader::from_hex(sample_raw_genesis_header()).unwrap();
+    let genesis_header = BlockHeader::from_hex(sample_raw_genesis_header()).unwrap();
     RichBlockHeader::<BlockNumber> {
-        block_header: parse_block_header_lenient(&genesis_header).unwrap(),
+        block_header: genesis_header,
         block_height,
         chain_id,
         para_height: Default::default(),
@@ -2114,45 +2058,41 @@ fn sample_raw_first_header() -> String {
 }
 
 fn sample_parsed_first_block(chain_id: u32, block_height: u32) -> RichBlockHeader<BlockNumber> {
-    let block_header = RawBlockHeader::from_hex(sample_raw_first_header()).unwrap();
+    let block_header = BlockHeader::from_hex(sample_raw_first_header()).unwrap();
     RichBlockHeader::<BlockNumber> {
-        block_header: parse_block_header_lenient(&block_header).unwrap(),
+        block_header,
         block_height,
         chain_id,
         para_height: Default::default(),
     }
 }
 
-fn sample_retarget_interval_increase() -> [RawBlockHeader; 3] {
+fn sample_retarget_interval_increase() -> [BlockHeader; 3] {
     // block height 66528
-    let last_retarget_header = RawBlockHeader::from_hex("01000000".to_owned() + "4e8e5cf3c4e4b8f63a9cf88beb2dbaba1949182101ae4e5cf54ad100000000009f2a2344e8112b0d7bd8089414106ee5f17bb6cd64078883e1b661fa251aac6bed1d3c4cf4a3051c4dcd2b02").unwrap();
+    let last_retarget_header = BlockHeader::from_hex("01000000".to_owned() + "4e8e5cf3c4e4b8f63a9cf88beb2dbaba1949182101ae4e5cf54ad100000000009f2a2344e8112b0d7bd8089414106ee5f17bb6cd64078883e1b661fa251aac6bed1d3c4cf4a3051c4dcd2b02").unwrap();
     // block height 66543
-    let prev_block_header = RawBlockHeader::from_hex("01000000".to_owned()  + "1e321d88cb25946c4ca521eece3752803c021f9403fc4e0171203a0500000000317057f8b50414848a5a3a26d9eb8ace3d6f5495df456d0104dd1421159faf5029293c4cf4a3051c73199005").unwrap();
+    let prev_block_header = BlockHeader::from_hex("01000000".to_owned()  + "1e321d88cb25946c4ca521eece3752803c021f9403fc4e0171203a0500000000317057f8b50414848a5a3a26d9eb8ace3d6f5495df456d0104dd1421159faf5029293c4cf4a3051c73199005").unwrap();
     // block height 68544
-    let curr_header = RawBlockHeader::from_hex("01000000".to_owned() + "fb57c71ccd211b3de4ccc2e23b50a7cdb72aab91e60737b3a2bfdf030000000088a88ad9df68925e880e5d52b7e50cef225871c68b40a2cd0bca1084cd436037f388404cfd68011caeb1f801").unwrap();
+    let curr_header = BlockHeader::from_hex("01000000".to_owned() + "fb57c71ccd211b3de4ccc2e23b50a7cdb72aab91e60737b3a2bfdf030000000088a88ad9df68925e880e5d52b7e50cef225871c68b40a2cd0bca1084cd436037f388404cfd68011caeb1f801").unwrap();
 
     [last_retarget_header, prev_block_header, curr_header]
 }
 
-fn sample_retarget_interval_decrease() -> [RawBlockHeader; 3] {
+fn sample_retarget_interval_decrease() -> [BlockHeader; 3] {
     // block height 558432
-    let last_retarget_header = RawBlockHeader::from_hex("00c0ff2f".to_owned() + "6550b5dae76559589e3e3e135237072b6bc498949da6280000000000000000005988783435f506d2ccfbadb484e56d6f1d5dfdd480650acae1e3b43d3464ea73caf13b5c33d62f171d508fdb").unwrap();
+    let last_retarget_header = BlockHeader::from_hex("00c0ff2f".to_owned() + "6550b5dae76559589e3e3e135237072b6bc498949da6280000000000000000005988783435f506d2ccfbadb484e56d6f1d5dfdd480650acae1e3b43d3464ea73caf13b5c33d62f171d508fdb").unwrap();
     // block height 560447
-    let prev_block_header = RawBlockHeader::from_hex("00000020".to_owned()  + "d8e8e54ca5e33522b94fbba5de736efc55ff75e832cf2300000000000000000007b395f80858ee022c9c3c2f0f5cee4bd807039f0729b0559ae4326c3ba77d6b209f4e5c33d62f1746ee356d").unwrap();
+    let prev_block_header = BlockHeader::from_hex("00000020".to_owned()  + "d8e8e54ca5e33522b94fbba5de736efc55ff75e832cf2300000000000000000007b395f80858ee022c9c3c2f0f5cee4bd807039f0729b0559ae4326c3ba77d6b209f4e5c33d62f1746ee356d").unwrap();
     // block height 560448
-    let curr_header = RawBlockHeader::from_hex("00000020".to_owned() + "6b05bd2c4a06b3d8503a033c2593396a25a79e1dcadb140000000000000000001b08df3d42cd9a38d8b66adf9dc5eb464f503633bd861085ffff723634531596a1a24e5c35683017bf67b72a").unwrap();
+    let curr_header = BlockHeader::from_hex("00000020".to_owned() + "6b05bd2c4a06b3d8503a033c2593396a25a79e1dcadb140000000000000000001b08df3d42cd9a38d8b66adf9dc5eb464f503633bd861085ffff723634531596a1a24e5c35683017bf67b72a").unwrap();
 
     [last_retarget_header, prev_block_header, curr_header]
-}
-
-fn sample_accepted_transaction() -> String {
-    "020000000001010000000000000000000000000000000000000000000000000000000000000000ffffffff0502cb000101ffffffff02400606950000000017a91466c7060feb882664ae62ffad0051fe843e318e85870000000000000000266a24aa21a9ede5c17d15b8b1fa2811b7e6da66ffa5e1aaa05922c69068bf90cd585b95bb46750120000000000000000000000000000000000000000000000000000000000000000000000000".to_owned()
 }
 
 fn sample_rich_tx_block_header(chain_id: u32, block_height: u32) -> RichBlockHeader<BlockNumber> {
-    let raw_header = RawBlockHeader::from_hex("0000003096cb3d93696c4f56c10da153963d35abf4692c07b2b3bf0702fb4cb32a8682211ee1fb90996ca1d5dcd12866ba9066458bf768641215933d7d8b3a10ef79d090e8a13a5effff7f2005000000".to_owned()).unwrap();
+    let block_header = BlockHeader::from_hex("0000003096cb3d93696c4f56c10da153963d35abf4692c07b2b3bf0702fb4cb32a8682211ee1fb90996ca1d5dcd12866ba9066458bf768641215933d7d8b3a10ef79d090e8a13a5effff7f2005000000".to_owned()).unwrap();
     RichBlockHeader::<BlockNumber> {
-        block_header: parse_block_header(&raw_header).unwrap(),
+        block_header,
         block_height,
         chain_id,
         para_height: Default::default(),

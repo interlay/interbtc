@@ -29,14 +29,6 @@ pub(crate) mod btc_relay {
         <btc_relay::Pallet<T>>::get_best_block_height()
     }
 
-    pub fn parse_transaction<T: btc_relay::Config>(raw_tx: &[u8]) -> Result<Transaction, DispatchError> {
-        <btc_relay::Pallet<T>>::parse_transaction(raw_tx)
-    }
-
-    pub fn parse_merkle_proof<T: btc_relay::Config>(raw_merkle_proof: &[u8]) -> Result<MerkleProof, DispatchError> {
-        <btc_relay::Pallet<T>>::parse_merkle_proof(raw_merkle_proof)
-    }
-
     pub fn has_request_expired<T: crate::Config>(
         opentime: T::BlockNumber,
         btc_open_height: u32,

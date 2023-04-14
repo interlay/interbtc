@@ -10,6 +10,8 @@ use crate::{
     utils::hash256_merkle_step,
     Error,
 };
+use codec::{Decode, Encode};
+use scale_info::TypeInfo;
 use sp_std::prelude::*;
 
 // Values taken from https://github.com/bitcoin/bitcoin/blob/78dae8caccd82cfbfd76557f1fb7d7557c7b5edb/src/consensus/consensus.h
@@ -24,7 +26,7 @@ const MAX_TRANSACTIONS_IN_PROOF: u32 = MAX_BLOCK_WEIGHT / MIN_TRANSACTION_WEIGHT
 pub struct MerkleTree;
 
 /// Stores the content of a merkle proof
-#[derive(Clone)]
+#[derive(Encode, Decode, TypeInfo, PartialEq, Default, Clone)]
 #[cfg_attr(feature = "std", derive(Debug))]
 pub struct MerkleProof {
     pub block_header: BlockHeader,

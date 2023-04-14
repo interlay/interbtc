@@ -705,7 +705,7 @@ fn execute_replace_with_amount(replace_id: H256, amount: Amount<Runtime>) -> Dis
     let replace = ReplacePallet::get_open_or_cancelled_replace_request(&replace_id).unwrap();
 
     // send the btc from the old_vault to the new_vault
-    let (_tx_id, _tx_block_height, merkle_proof, raw_tx, _) = generate_transaction_and_mine(
+    let (_tx_id, _tx_block_height, merkle_proof, transaction) = generate_transaction_and_mine(
         Default::default(),
         vec![],
         vec![(replace.btc_address, amount)],
@@ -715,9 +715,9 @@ fn execute_replace_with_amount(replace_id: H256, amount: Amount<Runtime>) -> Dis
     SecurityPallet::set_active_block_number(SecurityPallet::active_block_number() + CONFIRMATIONS);
 
     RuntimeCall::Replace(ReplaceCall::execute_replace {
-        replace_id: replace_id,
-        merkle_proof: merkle_proof,
-        raw_tx: raw_tx,
+        replace_id,
+        merkle_proof,
+        transaction,
     })
     .dispatch(origin_of(account_of(OLD_VAULT)))
 }

@@ -1,6 +1,5 @@
 use crate::{ext, mock::*, Event, IssueRequest};
 
-use bitcoin::types::{MerkleProof, Transaction};
 use btc_relay::{BtcAddress, BtcPublicKey};
 use currency::Amount;
 use frame_support::{assert_noop, assert_ok, dispatch::DispatchError};
@@ -11,15 +10,6 @@ use sp_arithmetic::FixedU128;
 use sp_core::H256;
 use sp_runtime::traits::One;
 use vault_registry::{DefaultVault, DefaultVaultId, Vault, VaultStatus};
-
-fn dummy_merkle_proof() -> MerkleProof {
-    MerkleProof {
-        block_header: Default::default(),
-        transactions_count: 0,
-        flag_bits: vec![],
-        hashes: vec![],
-    }
-}
 
 fn griefing(amount: u128) -> Amount<Test> {
     Amount::new(amount, DEFAULT_NATIVE_CURRENCY)
@@ -64,7 +54,7 @@ fn request_issue_ok_with_address(
 }
 
 fn execute_issue(origin: AccountId, issue_id: &H256) -> Result<(), DispatchError> {
-    Issue::_execute_issue(origin, *issue_id, vec![0u8; 100], vec![0u8; 100])
+    Issue::_execute_issue(origin, *issue_id, Default::default(), Default::default())
 }
 
 fn cancel_issue(origin: AccountId, issue_id: &H256) -> Result<(), DispatchError> {
@@ -166,8 +156,6 @@ fn setup_execute(
     let issue_id = request_issue_ok(USER, issue_amount, VAULT);
     <security::Pallet<Test>>::set_active_block_number(5);
 
-    ext::btc_relay::parse_merkle_proof::<Test>.mock_safe(|_| MockResult::Return(Ok(dummy_merkle_proof())));
-    ext::btc_relay::parse_transaction::<Test>.mock_safe(|_| MockResult::Return(Ok(Transaction::default())));
     ext::btc_relay::get_and_verify_issue_payment::<Test, Balance>
         .mock_safe(move |_, _, _| MockResult::Return(Ok(btc_transferred)));
 

@@ -3,7 +3,6 @@ use crate::{
     *,
 };
 
-use bitcoin::types::{MerkleProof, Transaction};
 use btc_relay::BtcAddress;
 use currency::Amount;
 use frame_support::{assert_err, assert_ok};
@@ -11,15 +10,6 @@ use mocktopus::mocking::*;
 use sp_core::H256;
 
 type Event = crate::Event<Test>;
-
-fn dummy_merkle_proof() -> MerkleProof {
-    MerkleProof {
-        block_header: Default::default(),
-        transactions_count: 0,
-        flag_bits: vec![],
-        hashes: vec![],
-    }
-}
 
 macro_rules! assert_event_matches {
     ($( $pattern:pat_param )|+ $( if $guard: expr )? $(,)?) => {
@@ -198,8 +188,6 @@ mod execute_replace_test {
 
         Replace::replace_period.mock_safe(|| MockResult::Return(20));
         ext::btc_relay::has_request_expired::<Test>.mock_safe(|_, _, _| MockResult::Return(Ok(false)));
-        ext::btc_relay::parse_merkle_proof::<Test>.mock_safe(|_| MockResult::Return(Ok(dummy_merkle_proof())));
-        ext::btc_relay::parse_transaction::<Test>.mock_safe(|_| MockResult::Return(Ok(Transaction::default())));
         ext::btc_relay::verify_and_validate_op_return_transaction::<Test, Balance>
             .mock_safe(|_, _, _, _, _| MockResult::Return(Ok(())));
         ext::vault_registry::replace_tokens::<Test>.mock_safe(|_, _, _, _| MockResult::Return(Ok(())));
@@ -214,7 +202,11 @@ mod execute_replace_test {
     fn test_execute_replace_succeeds() {
         run_test(|| {
             setup_mocks();
-            assert_ok!(Replace::_execute_replace(H256::zero(), Vec::new(), Vec::new()));
+            assert_ok!(Replace::_execute_replace(
+                H256::zero(),
+                Default::default(),
+                Default::default()
+            ));
             assert_event_matches!(Event::ExecuteReplace {
                 replace_id: _,
                 old_vault_id: OLD_VAULT,
@@ -236,7 +228,11 @@ mod execute_replace_test {
                 replace
             });
 
-            assert_ok!(Replace::_execute_replace(H256::zero(), Vec::new(), Vec::new()));
+            assert_ok!(Replace::_execute_replace(
+                H256::zero(),
+                Default::default(),
+                Default::default()
+            ));
             assert_event_matches!(Event::ExecuteReplace {
                 replace_id: _,
                 old_vault_id: OLD_VAULT,

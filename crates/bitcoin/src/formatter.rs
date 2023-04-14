@@ -392,16 +392,15 @@ mod tests {
     #[test]
     fn test_format_block_header() {
         let hex_header = parser::tests::sample_block_header();
-        let raw_header = RawBlockHeader::from_hex(&hex_header).unwrap();
-        let parsed_header = parser::parse_block_header(&raw_header).unwrap();
-        assert_eq!(parsed_header.try_format().unwrap(), raw_header.as_bytes());
+        let parsed_header = BlockHeader::from_hex(&hex_header).unwrap();
+        assert_eq!(hex::encode(parsed_header.try_format().unwrap()), hex_header);
     }
 
     #[test]
     fn test_format_block_header_testnet() {
         let hex_header = "00000020b0b3d77b97015b519553423c96642b33ca534c50ecefd133640000000000000029a0a725684aeca24af83e3ba0a3e3ee56adfdf032d19e5acba6d0a262e1580ca354915fd4c8001ac42a7b3a".to_string();
-        let raw_header = RawBlockHeader::from_hex(&hex_header).unwrap();
-        let parsed_header = parser::parse_block_header(&raw_header).unwrap();
+        let raw_header = hex::decode(&hex_header).unwrap();
+        let parsed_header = BlockHeader::from_bytes(&raw_header).unwrap();
 
         assert_eq!(
             parsed_header,
@@ -410,7 +409,7 @@ mod tests {
                 target: U256::from_dec_str("1260618571951953247774709397757627131971305851995253681160192").unwrap(),
                 timestamp: 1603359907,
                 version: 536870912,
-                hash: raw_header.hash(),
+                hash: sha256d_le(&raw_header),
                 hash_prev_block: H256Le::from_hex_be(
                     "000000000000006433d1efec504c53ca332b64963c425395515b01977bd7b3b0"
                 ),
@@ -418,7 +417,7 @@ mod tests {
             }
         );
 
-        assert_eq!(parsed_header.try_format().unwrap(), raw_header.as_bytes());
+        assert_eq!(hex::encode(parsed_header.try_format().unwrap()), hex_header);
     }
 
     // taken from https://bitcoin.org/en/developer-reference#block-headers
