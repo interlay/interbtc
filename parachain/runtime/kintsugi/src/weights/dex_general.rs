@@ -44,8 +44,8 @@ impl<T: frame_system::Config> dex_general::WeightInfo for WeightInfo<T> {
 		// Proof Size summary in bytes:
 		//  Measured:  `787`
 		//  Estimated: `1282`
-		// Minimum execution time: 12_889_000 picoseconds.
-		Weight::from_parts(13_510_000, 1282)
+		// Minimum execution time: 10_253_000 picoseconds.
+		Weight::from_parts(10_563_000, 1282)
 			.saturating_add(T::DbWeight::get().reads(1_u64))
 			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
@@ -55,8 +55,8 @@ impl<T: frame_system::Config> dex_general::WeightInfo for WeightInfo<T> {
 		// Proof Size summary in bytes:
 		//  Measured:  `787`
 		//  Estimated: `1282`
-		// Minimum execution time: 12_602_000 picoseconds.
-		Weight::from_parts(13_184_000, 1282)
+		// Minimum execution time: 10_005_000 picoseconds.
+		Weight::from_parts(10_492_000, 1282)
 			.saturating_add(T::DbWeight::get().reads(1_u64))
 			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
@@ -68,8 +68,8 @@ impl<T: frame_system::Config> dex_general::WeightInfo for WeightInfo<T> {
 		// Proof Size summary in bytes:
 		//  Measured:  `1024`
 		//  Estimated: `4523`
-		// Minimum execution time: 33_750_000 picoseconds.
-		Weight::from_parts(34_855_000, 4523)
+		// Minimum execution time: 26_745_000 picoseconds.
+		Weight::from_parts(27_856_000, 4523)
 			.saturating_add(T::DbWeight::get().reads(1_u64))
 			.saturating_add(T::DbWeight::get().writes(2_u64))
 	}
@@ -85,8 +85,8 @@ impl<T: frame_system::Config> dex_general::WeightInfo for WeightInfo<T> {
 		// Proof Size summary in bytes:
 		//  Measured:  `1024`
 		//  Estimated: `5547`
-		// Minimum execution time: 35_590_000 picoseconds.
-		Weight::from_parts(64_803_555, 5547)
+		// Minimum execution time: 28_589_000 picoseconds.
+		Weight::from_parts(29_361_000, 5547)
 			.saturating_add(T::DbWeight::get().reads(1_u64))
 			.saturating_add(T::DbWeight::get().writes(3_u64))
 	}
@@ -104,8 +104,8 @@ impl<T: frame_system::Config> dex_general::WeightInfo for WeightInfo<T> {
 		// Proof Size summary in bytes:
 		//  Measured:  `1975`
 		//  Estimated: `26313`
-		// Minimum execution time: 119_445_000 picoseconds.
-		Weight::from_parts(120_910_000, 26313)
+		// Minimum execution time: 98_978_000 picoseconds.
+		Weight::from_parts(102_105_000, 26313)
 			.saturating_add(T::DbWeight::get().reads(8_u64))
 			.saturating_add(T::DbWeight::get().writes(7_u64))
 	}
@@ -127,8 +127,8 @@ impl<T: frame_system::Config> dex_general::WeightInfo for WeightInfo<T> {
 		// Proof Size summary in bytes:
 		//  Measured:  `3218`
 		//  Estimated: `36248`
-		// Minimum execution time: 117_662_000 picoseconds.
-		Weight::from_parts(119_459_000, 36248)
+		// Minimum execution time: 89_325_000 picoseconds.
+		Weight::from_parts(95_558_000, 36248)
 			.saturating_add(T::DbWeight::get().reads(8_u64))
 			.saturating_add(T::DbWeight::get().writes(3_u64))
 	}
@@ -148,8 +148,8 @@ impl<T: frame_system::Config> dex_general::WeightInfo for WeightInfo<T> {
 		// Proof Size summary in bytes:
 		//  Measured:  `2128`
 		//  Estimated: `29525`
-		// Minimum execution time: 145_145_000 picoseconds.
-		Weight::from_parts(145_979_000, 29525)
+		// Minimum execution time: 116_357_000 picoseconds.
+		Weight::from_parts(123_142_000, 29525)
 			.saturating_add(T::DbWeight::get().reads(9_u64))
 			.saturating_add(T::DbWeight::get().writes(10_u64))
 	}
@@ -163,10 +163,10 @@ impl<T: frame_system::Config> dex_general::WeightInfo for WeightInfo<T> {
 	/// The range of component `l` is `[1, 10]`.
 	fn bootstrap_update(r: u32, l: u32, ) -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `1344 + r * (21 ±0)`
-		//  Estimated: `8925 + r * (69 ±0) + l * (3 ±0)`
-		// Minimum execution time: 42_556_000 picoseconds.
-		Weight::from_parts(60_596_175, 8925)
+		//  Measured:  `1330`
+		//  Estimated: `8940`
+		// Minimum execution time: 34_083_000 picoseconds.
+		Weight::from_parts(34_855_000, 8940)
 			.saturating_add(T::DbWeight::get().reads(2_u64))
 			.saturating_add(T::DbWeight::get().writes(3_u64))
 			.saturating_add(Weight::from_parts(0, 69).saturating_mul(r.into()))
@@ -207,8 +207,8 @@ impl<T: frame_system::Config> dex_general::WeightInfo for WeightInfo<T> {
 		// Proof Size summary in bytes:
 		//  Measured:  `2040`
 		//  Estimated: `34143`
-		// Minimum execution time: 146_154_000 picoseconds.
-		Weight::from_parts(147_295_000, 34143)
+		// Minimum execution time: 127_878_000 picoseconds.
+		Weight::from_parts(131_913_000, 34143)
 			.saturating_add(T::DbWeight::get().reads(11_u64))
 			.saturating_add(T::DbWeight::get().writes(9_u64))
 	}
@@ -230,8 +230,8 @@ impl<T: frame_system::Config> dex_general::WeightInfo for WeightInfo<T> {
 		// Proof Size summary in bytes:
 		//  Measured:  `2548`
 		//  Estimated: `36175`
-		// Minimum execution time: 133_828_000 picoseconds.
-		Weight::from_parts(135_196_000, 36175)
+		// Minimum execution time: 117_025_000 picoseconds.
+		Weight::from_parts(119_535_000, 36175)
 			.saturating_add(T::DbWeight::get().reads(11_u64))
 			.saturating_add(T::DbWeight::get().writes(8_u64))
 	}
