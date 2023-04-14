@@ -85,7 +85,7 @@ pub mod pallet {
         type MultiCurrency: MultiCurrency<AccountIdOf<Self>, CurrencyId = Self::CurrencyId, Balance = Balance>;
 
         /// The pool ID type
-        type PoolId: Parameter + Codec + Copy + Ord + AtLeast32BitUnsigned + Zero + One + Default;
+        type PoolId: Parameter + Codec + Copy + Ord + AtLeast32BitUnsigned + Zero + One + Default + MaxEncodedLen;
 
         /// The trait verify currency for some scenes.
         type EnsurePoolAsset: ValidateCurrency<Self::CurrencyId>;
@@ -98,6 +98,12 @@ pub mod pallet {
         #[pallet::constant]
         type PoolCurrencySymbolLimit: Get<u32>;
 
+        #[pallet::constant]
+        type PoolCurrenciesLimit: Get<u32>;
+
+        #[pallet::constant]
+        type PoolBalanceLimit: Get<u32>;
+
         /// This pallet ID.
         #[pallet::constant]
         type PalletId: Get<PalletId>;
@@ -107,7 +113,6 @@ pub mod pallet {
     }
 
     #[pallet::pallet]
-    #[pallet::without_storage_info]
     #[pallet::generate_store(pub(super) trait Store)]
     pub struct Pallet<T>(_);
 
@@ -123,7 +128,13 @@ pub mod pallet {
         _,
         Blake2_128Concat,
         T::PoolId,
-        Pool<T::PoolId, T::CurrencyId, T::AccountId, BoundedVec<u8, T::PoolCurrencySymbolLimit>>,
+        Pool<
+            T::PoolId,
+            T::AccountId,
+            BoundedVec<u8, T::PoolCurrencySymbolLimit>,
+            BoundedVec<T::CurrencyId, T::PoolCurrencySymbolLimit>,
+            BoundedVec<Balance, T::PoolBalanceLimit>,
+        >,
     >;
 
     /// The pool id corresponding to lp currency

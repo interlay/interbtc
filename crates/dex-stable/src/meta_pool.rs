@@ -8,7 +8,13 @@ impl<T: Config> Pallet<T> {
     pub(crate) fn meta_pool_add_liquidity(
         who: &T::AccountId,
         pool_id: T::PoolId,
-        meta_pool: &mut MetaPool<T::PoolId, T::CurrencyId, T::AccountId, BoundedVec<u8, T::PoolCurrencySymbolLimit>>,
+        meta_pool: &mut MetaPool<
+            T::PoolId,
+            T::AccountId,
+            BoundedVec<u8, T::PoolCurrencySymbolLimit>,
+            BoundedVec<T::CurrencyId, T::PoolCurrenciesLimit>,
+            BoundedVec<Balance, T::PoolBalanceLimit>,
+        >,
         amounts: &[Balance],
         min_mint_amount: Balance,
         to: &T::AccountId,
@@ -122,7 +128,13 @@ impl<T: Config> Pallet<T> {
     pub(crate) fn meta_pool_swap(
         who: &T::AccountId,
         pool_id: T::PoolId,
-        meta_pool: &mut MetaPool<T::PoolId, T::CurrencyId, T::AccountId, BoundedVec<u8, T::PoolCurrencySymbolLimit>>,
+        meta_pool: &mut MetaPool<
+            T::PoolId,
+            T::AccountId,
+            BoundedVec<u8, T::PoolCurrencySymbolLimit>,
+            BoundedVec<T::CurrencyId, T::PoolCurrenciesLimit>,
+            BoundedVec<Balance, T::PoolBalanceLimit>,
+        >,
         i: usize,
         j: usize,
         in_amount: Balance,
@@ -173,7 +185,13 @@ impl<T: Config> Pallet<T> {
 
     pub(crate) fn meta_pool_remove_liquidity_one_currency(
         pool_id: T::PoolId,
-        meta_pool: &mut MetaPool<T::PoolId, T::CurrencyId, T::AccountId, BoundedVec<u8, T::PoolCurrencySymbolLimit>>,
+        meta_pool: &mut MetaPool<
+            T::PoolId,
+            T::AccountId,
+            BoundedVec<u8, T::PoolCurrencySymbolLimit>,
+            BoundedVec<T::CurrencyId, T::PoolCurrenciesLimit>,
+            BoundedVec<Balance, T::PoolBalanceLimit>,
+        >,
         who: &T::AccountId,
         lp_amount: Balance,
         index: u32,
@@ -230,7 +248,13 @@ impl<T: Config> Pallet<T> {
     pub(crate) fn meta_pool_remove_liquidity_imbalance(
         who: &T::AccountId,
         pool_id: T::PoolId,
-        meta_pool: &mut MetaPool<T::PoolId, T::CurrencyId, T::AccountId, BoundedVec<u8, T::PoolCurrencySymbolLimit>>,
+        meta_pool: &mut MetaPool<
+            T::PoolId,
+            T::AccountId,
+            BoundedVec<u8, T::PoolCurrencySymbolLimit>,
+            BoundedVec<T::CurrencyId, T::PoolCurrenciesLimit>,
+            BoundedVec<Balance, T::PoolBalanceLimit>,
+        >,
         amounts: &[Balance],
         max_burn_amount: Balance,
         to: &T::AccountId,
@@ -276,7 +300,13 @@ impl<T: Config> Pallet<T> {
     }
 
     pub(crate) fn meta_pool_swap_underlying(
-        meta_pool: &mut MetaPool<T::PoolId, T::CurrencyId, T::AccountId, BoundedVec<u8, T::PoolCurrencySymbolLimit>>,
+        meta_pool: &mut MetaPool<
+            T::PoolId,
+            T::AccountId,
+            BoundedVec<u8, T::PoolCurrencySymbolLimit>,
+            BoundedVec<T::CurrencyId, T::PoolCurrenciesLimit>,
+            BoundedVec<Balance, T::PoolBalanceLimit>,
+        >,
         pool_id: T::PoolId,
         who: &T::AccountId,
         to: &T::AccountId,
@@ -448,7 +478,13 @@ impl<T: Config> Pallet<T> {
     }
 
     pub(crate) fn meta_pool_update_virtual_price(
-        meta_pool: &mut MetaPool<T::PoolId, T::CurrencyId, T::AccountId, BoundedVec<u8, T::PoolCurrencySymbolLimit>>,
+        meta_pool: &mut MetaPool<
+            T::PoolId,
+            T::AccountId,
+            BoundedVec<u8, T::PoolCurrencySymbolLimit>,
+            BoundedVec<T::CurrencyId, T::PoolCurrenciesLimit>,
+            BoundedVec<Balance, T::PoolBalanceLimit>,
+        >,
     ) -> Option<Balance> {
         let now = T::TimeProvider::now().as_secs();
         if now > (meta_pool.base_cache_last_updated + BASE_CACHE_EXPIRE_TIME) {
@@ -465,7 +501,13 @@ impl<T: Config> Pallet<T> {
     }
 
     pub(crate) fn calculate_meta_virtual_price(
-        meta_pool: &MetaPool<T::PoolId, T::CurrencyId, T::AccountId, BoundedVec<u8, T::PoolCurrencySymbolLimit>>,
+        meta_pool: &MetaPool<
+            T::PoolId,
+            T::AccountId,
+            BoundedVec<u8, T::PoolCurrencySymbolLimit>,
+            BoundedVec<T::CurrencyId, T::PoolCurrenciesLimit>,
+            BoundedVec<Balance, T::PoolBalanceLimit>,
+        >,
     ) -> Option<Balance> {
         let base_virtual_price = Self::meta_pool_base_virtual_price(meta_pool)?;
         let normalized_balances = Self::meta_pool_xp(
@@ -497,7 +539,13 @@ impl<T: Config> Pallet<T> {
     }
 
     fn meta_pool_base_virtual_price(
-        meta_pool: &MetaPool<T::PoolId, T::CurrencyId, T::AccountId, BoundedVec<u8, T::PoolCurrencySymbolLimit>>,
+        meta_pool: &MetaPool<
+            T::PoolId,
+            T::AccountId,
+            BoundedVec<u8, T::PoolCurrencySymbolLimit>,
+            BoundedVec<T::CurrencyId, T::PoolCurrenciesLimit>,
+            BoundedVec<Balance, T::PoolBalanceLimit>,
+        >,
     ) -> Option<Balance> {
         let now = T::TimeProvider::now().as_secs();
         if now > (meta_pool.base_cache_last_updated + BASE_CACHE_EXPIRE_TIME) {
@@ -511,7 +559,13 @@ impl<T: Config> Pallet<T> {
     }
 
     pub(crate) fn calculate_meta_remove_liquidity_one_currency(
-        meta_pool: &MetaPool<T::PoolId, T::CurrencyId, T::AccountId, BoundedVec<u8, T::PoolCurrencySymbolLimit>>,
+        meta_pool: &MetaPool<
+            T::PoolId,
+            T::AccountId,
+            BoundedVec<u8, T::PoolCurrencySymbolLimit>,
+            BoundedVec<T::CurrencyId, T::PoolCurrenciesLimit>,
+            BoundedVec<Balance, T::PoolBalanceLimit>,
+        >,
         token_amount: Balance,
         index: usize,
         total_supply: Balance,
@@ -596,7 +650,13 @@ impl<T: Config> Pallet<T> {
     }
 
     pub(crate) fn calculate_meta_currency_amount(
-        meta_pool: &MetaPool<T::PoolId, T::CurrencyId, T::AccountId, BoundedVec<u8, T::PoolCurrencySymbolLimit>>,
+        meta_pool: &MetaPool<
+            T::PoolId,
+            T::AccountId,
+            BoundedVec<u8, T::PoolCurrencySymbolLimit>,
+            BoundedVec<T::CurrencyId, T::PoolCurrenciesLimit>,
+            BoundedVec<Balance, T::PoolBalanceLimit>,
+        >,
         amounts: Vec<Balance>,
         deposit: bool,
     ) -> Result<Balance, DispatchError> {
@@ -643,7 +703,13 @@ impl<T: Config> Pallet<T> {
     }
 
     pub(crate) fn calculate_meta_remove_liquidity_imbalance(
-        meta_pool: &mut MetaPool<T::PoolId, T::CurrencyId, T::AccountId, BoundedVec<u8, T::PoolCurrencySymbolLimit>>,
+        meta_pool: &mut MetaPool<
+            T::PoolId,
+            T::AccountId,
+            BoundedVec<u8, T::PoolCurrencySymbolLimit>,
+            BoundedVec<T::CurrencyId, T::PoolCurrenciesLimit>,
+            BoundedVec<Balance, T::PoolBalanceLimit>,
+        >,
         amounts: &[Balance],
         total_supply: Balance,
         base_virtual_price: Balance,
@@ -699,7 +765,13 @@ impl<T: Config> Pallet<T> {
     }
 
     pub(crate) fn calculate_meta_swap_amount(
-        meta_pool: &MetaPool<T::PoolId, T::CurrencyId, T::AccountId, BoundedVec<u8, T::PoolCurrencySymbolLimit>>,
+        meta_pool: &MetaPool<
+            T::PoolId,
+            T::AccountId,
+            BoundedVec<u8, T::PoolCurrencySymbolLimit>,
+            BoundedVec<T::CurrencyId, T::PoolCurrenciesLimit>,
+            BoundedVec<Balance, T::PoolBalanceLimit>,
+        >,
         i: usize,
         j: usize,
         in_amount: Balance,

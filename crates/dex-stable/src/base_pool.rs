@@ -1,6 +1,8 @@
 // Copyright 2021-2022 Zenlink.
 // Licensed under Apache 2.0.
 
+use crate::mock::CurrencyId;
+
 use super::*;
 
 impl<T: Config> Pallet<T> {
@@ -14,7 +16,12 @@ impl<T: Config> Pallet<T> {
         lp_currency_symbol: Vec<u8>,
     ) -> Result<
         (
-            BasePool<T::CurrencyId, T::AccountId, BoundedVec<u8, T::PoolCurrencySymbolLimit>>,
+            BasePool<
+                T::AccountId,
+                BoundedVec<u8, T::PoolCurrencySymbolLimit>,
+                BoundedVec<T::CurrencyId, T::PoolCurrenciesLimit>,
+                BoundedVec<Balance, T::PoolBalanceLimit>,
+            >,
             T::PoolId,
         ),
         DispatchError,
@@ -88,7 +95,12 @@ impl<T: Config> Pallet<T> {
     pub(crate) fn base_pool_add_liquidity(
         who: &T::AccountId,
         pool_id: T::PoolId,
-        pool: &mut BasePool<T::CurrencyId, T::AccountId, BoundedVec<u8, T::PoolCurrencySymbolLimit>>,
+        pool: &mut BasePool<
+            T::AccountId,
+            BoundedVec<u8, T::PoolCurrencySymbolLimit>,
+            BoundedVec<T::CurrencyId, T::PoolCurrenciesLimit>,
+            BoundedVec<Balance, T::PoolBalanceLimit>,
+        >,
         amounts: &[Balance],
         min_mint_amount: Balance,
         to: &T::AccountId,
@@ -170,7 +182,12 @@ impl<T: Config> Pallet<T> {
     pub(crate) fn base_pool_swap(
         who: &T::AccountId,
         pool_id: T::PoolId,
-        pool: &mut BasePool<T::CurrencyId, T::AccountId, BoundedVec<u8, T::PoolCurrencySymbolLimit>>,
+        pool: &mut BasePool<
+            T::AccountId,
+            BoundedVec<u8, T::PoolCurrencySymbolLimit>,
+            BoundedVec<T::CurrencyId, T::PoolCurrenciesLimit>,
+            BoundedVec<Balance, T::PoolBalanceLimit>,
+        >,
         i: usize,
         j: usize,
         in_amount: Balance,
@@ -241,7 +258,12 @@ impl<T: Config> Pallet<T> {
 
     pub(crate) fn base_pool_remove_liquidity_one_currency(
         pool_id: T::PoolId,
-        pool: &mut BasePool<T::CurrencyId, T::AccountId, BoundedVec<u8, T::PoolCurrencySymbolLimit>>,
+        pool: &mut BasePool<
+            T::AccountId,
+            BoundedVec<u8, T::PoolCurrencySymbolLimit>,
+            BoundedVec<T::CurrencyId, T::PoolCurrenciesLimit>,
+            BoundedVec<Balance, T::PoolBalanceLimit>,
+        >,
         who: &T::AccountId,
         lp_amount: Balance,
         index: u32,
@@ -290,7 +312,12 @@ impl<T: Config> Pallet<T> {
     pub(crate) fn base_pool_remove_liquidity_imbalance(
         who: &T::AccountId,
         pool_id: T::PoolId,
-        pool: &mut BasePool<T::CurrencyId, T::AccountId, BoundedVec<u8, T::PoolCurrencySymbolLimit>>,
+        pool: &mut BasePool<
+            T::AccountId,
+            BoundedVec<u8, T::PoolCurrencySymbolLimit>,
+            BoundedVec<T::CurrencyId, T::PoolCurrenciesLimit>,
+            BoundedVec<Balance, T::PoolBalanceLimit>,
+        >,
         amounts: &[Balance],
         max_burn_amount: Balance,
         to: &T::AccountId,
@@ -330,7 +357,12 @@ impl<T: Config> Pallet<T> {
     }
 
     pub(crate) fn calculate_base_virtual_price(
-        pool: &BasePool<T::CurrencyId, T::AccountId, BoundedVec<u8, T::PoolCurrencySymbolLimit>>,
+        pool: &BasePool<
+            T::AccountId,
+            BoundedVec<u8, T::PoolCurrencySymbolLimit>,
+            BoundedVec<T::CurrencyId, T::PoolCurrenciesLimit>,
+            BoundedVec<Balance, T::PoolBalanceLimit>,
+        >,
     ) -> Option<Balance> {
         let d = Self::get_d(
             &Self::xp(&pool.balances, &pool.token_multipliers)?,
@@ -350,7 +382,12 @@ impl<T: Config> Pallet<T> {
     }
 
     pub(crate) fn calculate_base_remove_liquidity_imbalance(
-        pool: &mut BasePool<T::CurrencyId, T::AccountId, BoundedVec<u8, T::PoolCurrencySymbolLimit>>,
+        pool: &mut BasePool<
+            T::AccountId,
+            BoundedVec<u8, T::PoolCurrencySymbolLimit>,
+            BoundedVec<T::CurrencyId, T::PoolCurrenciesLimit>,
+            BoundedVec<Balance, T::PoolBalanceLimit>,
+        >,
         amounts: &[Balance],
         total_supply: Balance,
     ) -> Option<(Balance, Vec<Balance>, Balance)> {
@@ -399,7 +436,12 @@ impl<T: Config> Pallet<T> {
     }
 
     pub(crate) fn calculate_base_remove_liquidity_one_token(
-        pool: &BasePool<T::CurrencyId, T::AccountId, BoundedVec<u8, T::PoolCurrencySymbolLimit>>,
+        pool: &BasePool<
+            T::AccountId,
+            BoundedVec<u8, T::PoolCurrencySymbolLimit>,
+            BoundedVec<T::CurrencyId, T::PoolCurrenciesLimit>,
+            BoundedVec<Balance, T::PoolBalanceLimit>,
+        >,
         token_amount: Balance,
         index: u32,
     ) -> Option<(Balance, Balance)> {
@@ -461,7 +503,12 @@ impl<T: Config> Pallet<T> {
     }
 
     pub(crate) fn calculate_base_swap_amount(
-        pool: &BasePool<T::CurrencyId, T::AccountId, BoundedVec<u8, T::PoolCurrencySymbolLimit>>,
+        pool: &BasePool<
+            T::AccountId,
+            BoundedVec<u8, T::PoolCurrencySymbolLimit>,
+            BoundedVec<T::CurrencyId, T::PoolCurrenciesLimit>,
+            BoundedVec<Balance, T::PoolBalanceLimit>,
+        >,
         i: usize,
         j: usize,
         in_balance: Balance,
@@ -491,7 +538,12 @@ impl<T: Config> Pallet<T> {
     }
 
     pub(crate) fn calculate_base_mint_amount(
-        pool: &mut BasePool<T::CurrencyId, T::AccountId, BoundedVec<u8, T::PoolCurrencySymbolLimit>>,
+        pool: &mut BasePool<
+            T::AccountId,
+            BoundedVec<u8, T::PoolCurrencySymbolLimit>,
+            BoundedVec<T::CurrencyId, T::PoolCurrenciesLimit>,
+            BoundedVec<Balance, T::PoolBalanceLimit>,
+        >,
         new_balances: &mut [Balance],
         d0: Balance,
         d1: &mut Balance,
@@ -537,7 +589,12 @@ impl<T: Config> Pallet<T> {
     }
 
     pub(crate) fn calculate_base_remove_liquidity(
-        pool: &BasePool<T::CurrencyId, T::AccountId, BoundedVec<u8, T::PoolCurrencySymbolLimit>>,
+        pool: &BasePool<
+            T::AccountId,
+            BoundedVec<u8, T::PoolCurrencySymbolLimit>,
+            BoundedVec<T::CurrencyId, T::PoolCurrenciesLimit>,
+            BoundedVec<Balance, T::PoolBalanceLimit>,
+        >,
         amount: Balance,
     ) -> Option<Vec<Balance>> {
         let lp_total_supply = T::MultiCurrency::total_issuance(pool.lp_currency_id);
@@ -557,7 +614,12 @@ impl<T: Config> Pallet<T> {
     }
 
     pub(crate) fn calculate_base_currency_amount(
-        pool: &BasePool<T::CurrencyId, T::AccountId, BoundedVec<u8, T::PoolCurrencySymbolLimit>>,
+        pool: &BasePool<
+            T::AccountId,
+            BoundedVec<u8, T::PoolCurrencySymbolLimit>,
+            BoundedVec<T::CurrencyId, T::PoolCurrenciesLimit>,
+            BoundedVec<Balance, T::PoolBalanceLimit>,
+        >,
         amounts: Vec<Balance>,
         deposit: bool,
     ) -> Result<Balance, DispatchError> {

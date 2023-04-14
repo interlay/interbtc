@@ -33,14 +33,14 @@ pub const MAX_ADMIN_FEE: Number = 10_000_000_000; // 100%
 pub const MAX_SWAP_FEE: Number = 100_000_000; // 1%
 
 #[derive(Encode, Decode, Clone, Default, PartialEq, Eq, Debug, TypeInfo)]
-pub struct BasePool<CurrencyId, AccountId, BoundString> {
-    pub currency_ids: Vec<CurrencyId>,
-    pub lp_currency_id: CurrencyId,
+pub struct BasePool<AccountId, BoundString, BoundCurrencies, BoundPoolBalances> {
+    pub currency_ids: BoundCurrencies,
+    pub lp_currency_id: BoundCurrencies,
     // token i multiplier to reach POOL_TOKEN_COMMON_DECIMALS
-    pub token_multipliers: Vec<Balance>,
+    pub token_multipliers: BoundPoolBalances,
     // effective balance which might different from token balance of the pool account because it
     // hold admin fee as well
-    pub balances: Vec<Balance>,
+    pub balances: BoundPoolBalances,
     // swap fee ratio. Change on any action which move balance state far from the ideal state
     pub fee: Number,
     // admin fee in ratio of swap fee.
@@ -58,30 +58,32 @@ pub struct BasePool<CurrencyId, AccountId, BoundString> {
 }
 
 #[derive(Encode, Decode, Clone, Default, PartialEq, Eq, Debug, TypeInfo)]
-pub struct MetaPool<PoolId, CurrencyId, AccountId, BoundString> {
+pub struct MetaPool<PoolId, AccountId, BoundString, BoundCurrencies, BoundPoolBalances> {
     pub base_pool_id: PoolId,
     pub base_virtual_price: Balance,
     pub base_cache_last_updated: u64,
-    pub base_currencies: Vec<CurrencyId>,
+    pub base_currencies: BoundCurrencies,
 
-    pub info: BasePool<CurrencyId, AccountId, BoundString>,
+    pub info: BasePool<AccountId, BoundString, BoundCurrencies, BoundPoolBalances>,
 }
 
 #[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, TypeInfo)]
-pub enum Pool<PoolId, CurrencyId, AccountId, BoundString> {
-    Base(BasePool<CurrencyId, AccountId, BoundString>),
-    Meta(MetaPool<PoolId, CurrencyId, AccountId, BoundString>),
+pub enum Pool<PoolId, AccountId, BoundString, BoundCurrencies, BoundPoolBalances> {
+    Base(BasePool<AccountId, BoundString, BoundCurrencies, BoundPoolBalances>),
+    Meta(MetaPool<PoolId, AccountId, BoundString, BoundCurrencies, BoundPoolBalances>),
 }
 
-impl<PoolId, CurrencyId: Copy, AccountId: Clone, BoundString> Pool<PoolId, CurrencyId, AccountId, BoundString> {
-    pub fn info(self) -> BasePool<CurrencyId, AccountId, BoundString> {
+impl<PoolId, AccountId: Clone, BoundString, BoundCurrencies, BoundPoolBalances>
+    Pool<PoolId, AccountId, BoundString, BoundCurrencies, BoundPoolBalances>
+{
+    pub fn info(self) -> BasePool<AccountId, BoundString, BoundCurrencies, BoundPoolBalances> {
         match self {
             Pool::Base(bp) => bp,
             Pool::Meta(mp) => mp.info,
         }
     }
 
-    pub fn get_currency_ids(self) -> Vec<CurrencyId> {
+    pub fn get_currency_ids(self) -> BoundCurrencies {
         match self {
             Pool::Base(bp) => bp.currency_ids,
             Pool::Meta(mp) => mp.info.currency_ids,
@@ -102,14 +104,14 @@ impl<PoolId, CurrencyId: Copy, AccountId: Clone, BoundString> Pool<PoolId, Curre
         }
     }
 
-    pub fn get_token_multipliers(self) -> Vec<Balance> {
+    pub fn get_token_multipliers(self) -> BoundPoolBalances {
         match self {
             Pool::Base(bp) => bp.token_multipliers,
             Pool::Meta(mp) => mp.info.token_multipliers,
         }
     }
 
-    pub fn get_balances(&self) -> Vec<Balance> {
+    pub fn get_balances(&self) -> BoundPoolBalances {
         match self {
             Pool::Base(bp) => bp.balances.clone(),
             Pool::Meta(mp) => mp.info.balances.clone(),
