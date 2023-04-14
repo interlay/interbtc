@@ -128,7 +128,6 @@ pub mod pallet {
 
     #[pallet::pallet]
     #[pallet::generate_store(pub(super) trait Store)]
-    #[pallet::without_storage_info]
     #[pallet::storage_version(STORAGE_VERSION)]
     pub struct Pallet<T>(_);
 
@@ -245,7 +244,8 @@ pub mod pallet {
     ///
     /// TWOX-NOTE: SAFE as `AccountId`s are crypto hashes anyway.
     #[pallet::storage]
-    pub type VotingOf<T: Config> = StorageMap<_, Twox64Concat, T::AccountId, Voting<BalanceOf<T>>, ValueQuery>;
+    pub type VotingOf<T: Config> =
+        StorageMap<_, Twox64Concat, T::AccountId, Voting<BalanceOf<T>, T::MaxVotes>, ValueQuery>;
 
     #[pallet::storage]
     pub type NextLaunchTimestamp<T: Config> = StorageValue<_, u64, ValueQuery>;
@@ -757,8 +757,9 @@ impl<T: Config> Pallet<T> {
                     votes[i].1 = vote;
                 }
                 Err(i) => {
-                    ensure!(votes.len() as u32 <= T::MaxVotes::get(), Error::<T>::MaxVotesReached);
-                    votes.insert(i, (ref_index, vote));
+                    votes
+                        .try_insert(i, (ref_index, vote))
+                        .map_err(|_| Error::<T>::MaxVotesReached)?;
                 }
             }
             // Shouldn't be possible to fail, but we handle it gracefully.

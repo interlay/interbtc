@@ -45,7 +45,13 @@ pub mod pallet {
         type RuntimeEvent: From<Event<Self, I>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
         /// Signed fixed point type.
-        type SignedFixedPoint: FixedPointNumber + TruncateFixedPointToInt + Encode + EncodeLike + Decode + TypeInfo;
+        type SignedFixedPoint: FixedPointNumber
+            + TruncateFixedPointToInt
+            + Encode
+            + EncodeLike
+            + Decode
+            + TypeInfo
+            + MaxEncodedLen;
 
         /// The pool identifier type.
         type PoolId: Parameter + Member + MaybeSerializeDeserialize + Debug + MaxEncodedLen;
@@ -157,7 +163,6 @@ pub mod pallet {
         StorageMap<_, Blake2_128Concat, T::PoolId, BoundedBTreeSet<T::CurrencyId, T::MaxRewardCurrencies>, ValueQuery>;
 
     #[pallet::pallet]
-    #[pallet::without_storage_info]
     pub struct Pallet<T, I = ()>(_);
 
     // The pallet's dispatchable functions.

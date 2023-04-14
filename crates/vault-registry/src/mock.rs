@@ -185,6 +185,7 @@ impl oracle::Config for Test {
     type RuntimeEvent = RuntimeEvent;
     type OnExchangeRateChange = vault_registry::PoolManager<Test>;
     type WeightInfo = ();
+    type MaxNameLength = ConstU32<255>;
 }
 
 pub struct CurrencyConvert;
@@ -278,6 +279,7 @@ where
 impl security::Config for Test {
     type RuntimeEvent = RuntimeEvent;
     type WeightInfo = ();
+    type MaxErrors = ConstU32<1>;
 }
 
 pub type TestEvent = RuntimeEvent;
