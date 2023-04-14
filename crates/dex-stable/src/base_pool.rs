@@ -1,8 +1,6 @@
 // Copyright 2021-2022 Zenlink.
 // Licensed under Apache 2.0.
 
-use crate::mock::CurrencyId;
-
 use super::*;
 
 impl<T: Config> Pallet<T> {

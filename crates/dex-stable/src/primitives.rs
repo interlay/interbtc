@@ -32,7 +32,7 @@ pub const MAX_A_CHANGE: u32 = 10;
 pub const MAX_ADMIN_FEE: Number = 10_000_000_000; // 100%
 pub const MAX_SWAP_FEE: Number = 100_000_000; // 1%
 
-#[derive(Encode, Decode, Clone, Default, PartialEq, Eq, Debug, TypeInfo)]
+#[derive(Encode, Decode, Clone, Default, PartialEq, Eq, Debug, TypeInfo, MaxEncodedLen)]
 pub struct BasePool<CurrencyId, AccountId, BoundString, BoundCurrencies, BoundPoolBalances> {
     pub currency_ids: BoundCurrencies,
     pub lp_currency_id: CurrencyId,
@@ -57,7 +57,7 @@ pub struct BasePool<CurrencyId, AccountId, BoundString, BoundCurrencies, BoundPo
     pub lp_currency_decimal: u8,
 }
 
-#[derive(Encode, Decode, Clone, Default, PartialEq, Eq, Debug, TypeInfo)]
+#[derive(Encode, Decode, Clone, Default, PartialEq, Eq, Debug, TypeInfo, MaxEncodedLen)]
 pub struct MetaPool<PoolId, CurrencyId, AccountId, BoundString, BoundCurrencies, BoundPoolBalances> {
     pub base_pool_id: PoolId,
     pub base_virtual_price: Balance,
@@ -67,7 +67,7 @@ pub struct MetaPool<PoolId, CurrencyId, AccountId, BoundString, BoundCurrencies,
     pub info: BasePool<CurrencyId, AccountId, BoundString, BoundCurrencies, BoundPoolBalances>,
 }
 
-#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, TypeInfo)]
+#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, TypeInfo, MaxEncodedLen)]
 pub enum Pool<PoolId, CurrencyId, AccountId, BoundString, BoundCurrencies, BoundPoolBalances> {
     Base(BasePool<CurrencyId, AccountId, BoundString, BoundCurrencies, BoundPoolBalances>),
     Meta(MetaPool<PoolId, CurrencyId, AccountId, BoundString, BoundCurrencies, BoundPoolBalances>),
