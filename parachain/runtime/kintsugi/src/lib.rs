@@ -226,7 +226,7 @@ impl frame_system::Config for Runtime {
     type OnKilledAccount = ();
     type DbWeight = ();
     type BaseCallFilter = BaseCallFilter;
-    type SystemWeightInfo = ();
+    type SystemWeightInfo = (); // TODO: frame_system benchmarks are non-standard - run them as well
     type BlockWeights = RuntimeBlockWeights;
     type BlockLength = RuntimeBlockLength;
     type SS58Prefix = SS58Prefix;
@@ -256,7 +256,7 @@ impl pallet_session::Config for Runtime {
     // Essentially just Aura, but lets be pedantic.
     type SessionHandler = <SessionKeys as sp_runtime::traits::OpaqueKeys>::KeyTypeIdProviders;
     type Keys = SessionKeys;
-    type WeightInfo = ();
+    type WeightInfo = (); // TODO: we can't run this benchmark atm since it requires pallet_staking: https://github.com/paritytech/substrate/issues/11068
 }
 
 parameter_types! {
@@ -303,7 +303,7 @@ impl pallet_timestamp::Config for Runtime {
     type Moment = Moment;
     type OnTimestampSet = Aura;
     type MinimumPeriod = MinimumPeriod;
-    type WeightInfo = ();
+    type WeightInfo = weights::pallet_timestamp::WeightInfo<Runtime>;
 }
 
 pub type SlowAdjustingFeeUpdate<R> =
@@ -368,7 +368,7 @@ impl pallet_sudo::Config for Runtime {
 impl pallet_utility::Config for Runtime {
     type RuntimeCall = RuntimeCall;
     type RuntimeEvent = RuntimeEvent;
-    type WeightInfo = ();
+    type WeightInfo = weights::pallet_utility::WeightInfo<Runtime>;
     type PalletsOrigin = OriginCaller;
 }
 
@@ -430,7 +430,7 @@ parameter_types! {
 }
 
 impl pallet_preimage::Config for Runtime {
-    type WeightInfo = ();
+    type WeightInfo = weights::pallet_preimage::WeightInfo<Runtime>;
     type RuntimeEvent = RuntimeEvent;
     type Currency = NativeCurrency;
     type ManagerOrigin = EnsureRoot<AccountId>;
@@ -452,7 +452,7 @@ impl pallet_scheduler::Config for Runtime {
     type ScheduleOrigin = EnsureRoot<AccountId>;
     type MaxScheduledPerBlock = MaxScheduledPerBlock;
     type OriginPrivilegeCmp = EqualPrivilegeOnly;
-    type WeightInfo = ();
+    type WeightInfo = weights::pallet_scheduler::WeightInfo<Runtime>;
     type Preimages = Preimage;
 }
 
@@ -511,7 +511,7 @@ impl pallet_multisig::Config for Runtime {
     type DepositBase = GetDepositBase;
     type DepositFactor = GetDepositFactor;
     type MaxSignatories = GetMaxSignatories;
-    type WeightInfo = ();
+    type WeightInfo = weights::pallet_multisig::WeightInfo<Runtime>;
 }
 
 parameter_types! {
@@ -539,7 +539,7 @@ impl pallet_treasury::Config for Runtime {
     type Burn = Burn;
     type BurnDestination = ();
     type SpendFunds = ();
-    type WeightInfo = ();
+    type WeightInfo = weights::pallet_treasury::WeightInfo<Runtime>;
     type MaxApprovals = MaxApprovals;
 }
 
@@ -559,7 +559,7 @@ impl pallet_collective::Config<TechnicalCommitteeInstance> for Runtime {
     type MaxProposals = TechnicalCommitteeMaxProposals;
     type MaxMembers = TechnicalCommitteeMaxMembers;
     type DefaultVote = pallet_collective::PrimeDefaultVote;
-    type WeightInfo = ();
+    type WeightInfo = weights::pallet_collective::WeightInfo<Runtime>;
 }
 
 impl pallet_membership::Config for Runtime {
@@ -572,7 +572,7 @@ impl pallet_membership::Config for Runtime {
     type MembershipInitialized = TechnicalCommittee;
     type MembershipChanged = TechnicalCommittee;
     type MaxMembers = TechnicalCommitteeMaxMembers;
-    type WeightInfo = ();
+    type WeightInfo = weights::pallet_membership::WeightInfo<Runtime>;
 }
 
 parameter_types! {
@@ -606,7 +606,7 @@ parameter_types! {
 
 impl btc_relay::Config for Runtime {
     type RuntimeEvent = RuntimeEvent;
-    type WeightInfo = ();
+    type WeightInfo = weights::btc_relay::WeightInfo<Runtime>;
     type ParachainBlocksPerBitcoinBlock = ParachainBlocksPerBitcoinBlock;
 }
 
@@ -787,7 +787,7 @@ impl supply::Config for Runtime {
     type Currency = NativeCurrency;
     type InflationPeriod = InflationPeriod;
     type OnInflation = DealWithRewards;
-    type WeightInfo = ();
+    type WeightInfo = weights::supply::WeightInfo<Runtime>;
 }
 
 pub struct TotalWrapped;
@@ -1017,7 +1017,7 @@ impl pallet_identity::Config for Runtime {
     type Slashed = Treasury;
     type ForceOrigin = EnsureRoot<AccountId>;
     type RegistrarOrigin = EnsureRoot<AccountId>;
-    type WeightInfo = ();
+    type WeightInfo = weights::pallet_identity::WeightInfo<Runtime>;
 }
 
 parameter_types! {
@@ -1081,7 +1081,7 @@ impl pallet_proxy::Config for Runtime {
     type ProxyDepositBase = ProxyDepositBase;
     type ProxyDepositFactor = ProxyDepositFactor;
     type MaxProxies = MaxProxies;
-    type WeightInfo = ();
+    type WeightInfo = weights::pallet_proxy::WeightInfo<Runtime>;
     type MaxPending = MaxPending;
     type CallHasher = BlakeTwo256;
     type AnnouncementDepositBase = AnnouncementDepositBase;
@@ -1366,22 +1366,35 @@ extern crate frame_benchmarking;
 #[cfg(feature = "runtime-benchmarks")]
 mod benches {
     define_benchmarks!(
+        [pallet_timestamp, Timestamp]
+        [pallet_utility, Utility]
+        [pallet_scheduler, Scheduler]
+        [pallet_preimage, Preimage]
+        [pallet_multisig, Multisig]
+        [pallet_identity, Identity]
+        [pallet_proxy, Proxy]
+        [tx_pause, TxPause]
+        [supply, Supply]
+        [escrow, Escrow]
         [annuity, EscrowAnnuity]
+        [farming, Farming]
+        [btc_relay, BTCRelay]
+        [security, Security]
+        [vault_registry, VaultRegistry]
+        [oracle, Oracle]
+        [fee, Fee]
+        [nomination, Nomination]
         [clients_info, ClientsInfo]
+        [pallet_collective, TechnicalCommittee]
+        [pallet_membership, TechnicalMembership]
+        [pallet_treasury, Treasury]
+        [cumulus_pallet_xcmp_queue, XcmpQueue]
+        [pallet_xcm, PolkadotXcm]
+        [loans, Loans]
         [dex_general, DexGeneral]
         [dex_stable, DexStable]
         [dex_swap_router, DexSwapRouter]
-        [escrow, Escrow]
-        [fee, Fee]
-        [farming, Farming]
-        [loans, Loans]
-        [nomination, Nomination]
-        [oracle, Oracle]
-        [security, Security]
-        [vault_registry, VaultRegistry]
         [democracy, Democracy]
-        [supply, Supply]
-        [tx_pause, TxPause]
     );
 }
 
