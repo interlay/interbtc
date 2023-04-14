@@ -456,7 +456,7 @@ impl democracy::Config for Runtime {
     /// with a shorter voting period.
     type FastTrackOrigin = EnsureRootOrAllTechnicalCommittee;
     type PalletsOrigin = OriginCaller;
-    type WeightInfo = ();
+    type WeightInfo = weights::democracy::WeightInfo<Runtime>;
     type UnixTime = Timestamp;
     type Moment = Moment;
     type LaunchOffsetMillis = LaunchOffsetMillis;
@@ -1309,6 +1309,7 @@ mod benches {
         [oracle, Oracle]
         [security, Security]
         [vault_registry, VaultRegistry]
+        [democracy, Democracy]
         [supply, Supply]
         [tx_pause, TxPause]
     );

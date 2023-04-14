@@ -1,6 +1,7 @@
 pub mod annuity;
 pub mod btc_relay;
 pub mod clients_info;
+pub mod democracy;
 pub mod escrow;
 pub mod fee;
 pub mod nomination;
