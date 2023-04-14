@@ -40,8 +40,13 @@ pub mod benchmarks {
         T::Currency::make_free_balance_be(&account_id, balance);
         assert_ok!(T::BlockRewardProvider::distribute_block_reward(&account_id, balance));
 
+        let rewards_before = T::Currency::free_balance(&caller);
+
         #[extrinsic_call]
-        _(RawOrigin::Signed(caller));
+        _(RawOrigin::Signed(caller.clone()));
+
+        // only one account with stake so they get all of the rewards
+        assert_eq!(T::Currency::free_balance(&caller), rewards_before + balance);
     }
 
     #[benchmark]
