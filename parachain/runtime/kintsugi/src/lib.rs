@@ -789,8 +789,8 @@ impl annuity::BlockRewardProvider<AccountId> for EscrowBlockRewardProvider {
     type Currency = NativeCurrency;
 
     #[cfg(feature = "runtime-benchmarks")]
-    fn deposit_stake(from: &AccountId, amount: Balance) -> DispatchResult {
-        <EscrowRewards as reward::RewardsApi<(), AccountId, Balance>>::deposit_stake(&(), from, amount)
+    fn deposit_stake(who: &AccountId, amount: Balance) -> DispatchResult {
+        <EscrowRewards as reward::RewardsApi<(), AccountId, Balance>>::deposit_stake(&(), who, amount)
     }
 
     fn distribute_block_reward(_from: &AccountId, amount: Balance) -> DispatchResult {
@@ -829,7 +829,7 @@ impl annuity::BlockRewardProvider<AccountId> for VaultBlockRewardProvider {
     type Currency = NativeCurrency;
 
     #[cfg(feature = "runtime-benchmarks")]
-    fn deposit_stake(_from: &AccountId, amount: Balance) -> DispatchResult {
+    fn deposit_stake(_who: &AccountId, amount: Balance) -> DispatchResult {
         // since this is only used for benchmarking
         // deposit stake for the native currency
         <VaultCapacity as reward::RewardsApi<(), CurrencyId, Balance>>::deposit_stake(

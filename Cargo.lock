@@ -206,6 +206,7 @@ dependencies = [
  "pallet-balances",
  "parity-scale-codec",
  "rand 0.8.5",
+ "reward",
  "scale-info",
  "serde",
  "sp-arithmetic",
