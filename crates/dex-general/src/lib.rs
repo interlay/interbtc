@@ -647,7 +647,7 @@ pub mod pallet {
         /// - `recipient`: Account that receive the target asset
         /// - `deadline`: Height of the cutoff block of this transaction
         #[pallet::call_index(6)]
-        #[pallet::weight(T::WeightInfo::swap_exact_assets_for_assets())]
+        #[pallet::weight(T::WeightInfo::swap_exact_assets_for_assets(path.len() as u32))]
         #[frame_support::transactional]
         pub fn swap_exact_assets_for_assets(
             origin: OriginFor<T>,
@@ -658,7 +658,6 @@ pub mod pallet {
             #[pallet::compact] deadline: T::BlockNumber,
         ) -> DispatchResult {
             ensure!(path.iter().all(|id| id.is_support()), Error::<T>::UnsupportedAssetType);
-            ensure!(path.len() <= T::MaxSwaps::get().into(), Error::<T>::InvalidPath);
 
             let who = ensure_signed(origin)?;
             let recipient = T::Lookup::lookup(recipient)?;
@@ -678,7 +677,7 @@ pub mod pallet {
         /// - `recipient`: Account that receive the target asset
         /// - `deadline`: Height of the cutoff block of this transaction
         #[pallet::call_index(7)]
-        #[pallet::weight(T::WeightInfo::swap_assets_for_exact_assets())]
+        #[pallet::weight(T::WeightInfo::swap_assets_for_exact_assets(path.len() as u32))]
         #[frame_support::transactional]
         pub fn swap_assets_for_exact_assets(
             origin: OriginFor<T>,
@@ -689,7 +688,7 @@ pub mod pallet {
             #[pallet::compact] deadline: T::BlockNumber,
         ) -> DispatchResult {
             ensure!(path.iter().all(|id| id.is_support()), Error::<T>::UnsupportedAssetType);
-            ensure!(path.len() <= T::MaxSwaps::get().into(), Error::<T>::InvalidPath);
+
             let who = ensure_signed(origin)?;
             let recipient = T::Lookup::lookup(recipient)?;
             let now = frame_system::Pallet::<T>::block_number();
@@ -712,7 +711,7 @@ pub mod pallet {
         /// - `capacity_supply_1`: The max amount of asset_1 total contribute
         /// - `end`: The earliest ending block.
         #[pallet::call_index(8)]
-        #[pallet::weight(T::WeightInfo::bootstrap_create())]
+        #[pallet::weight(T::WeightInfo::bootstrap_create(rewards.len() as u32, limits.len() as u32))]
         #[frame_support::transactional]
         #[allow(clippy::too_many_arguments)]
         pub fn bootstrap_create(
@@ -915,7 +914,7 @@ pub mod pallet {
         /// - `capacity_supply_1`: The new max amount of asset_1 total contribute
         /// - `end`: The earliest ending block.
         #[pallet::call_index(12)]
-        #[pallet::weight(T::WeightInfo::bootstrap_update())]
+        #[pallet::weight(T::WeightInfo::bootstrap_update(rewards.len() as u32, limits.len() as u32))]
         #[frame_support::transactional]
         #[allow(clippy::too_many_arguments)]
         pub fn bootstrap_update(
@@ -1011,7 +1010,7 @@ pub mod pallet {
         }
 
         #[pallet::call_index(14)]
-        #[pallet::weight(100_000_000)]
+        #[pallet::weight(T::WeightInfo::bootstrap_charge_reward(charge_rewards.len() as u32))]
         #[frame_support::transactional]
         pub fn bootstrap_charge_reward(
             origin: OriginFor<T>,
@@ -1019,10 +1018,6 @@ pub mod pallet {
             asset_1: T::AssetId,
             charge_rewards: Vec<(T::AssetId, AssetBalance)>,
         ) -> DispatchResult {
-            ensure!(
-                charge_rewards.len() <= T::MaxSwaps::get().into(),
-                Error::<T>::ChargeRewardParamsError
-            );
             let pair = Self::sort_asset_id(asset_0, asset_1);
             let who = ensure_signed(origin)?;
 
@@ -1052,7 +1047,7 @@ pub mod pallet {
         }
 
         #[pallet::call_index(15)]
-        #[pallet::weight(100_000_000)]
+        #[pallet::weight(T::WeightInfo::bootstrap_withdraw_reward())]
         #[frame_support::transactional]
         pub fn bootstrap_withdraw_reward(
             origin: OriginFor<T>,
