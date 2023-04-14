@@ -371,6 +371,8 @@ pub mod benchmarks {
 
     #[benchmark]
     pub fn borrow() {
+        initialize::<T>();
+
         let caller: T::AccountId = whitelisted_caller();
         transfer_initial_balance::<T>(caller.clone());
         let deposit_amount: u32 = 200_000_000;
@@ -461,6 +463,8 @@ pub mod benchmarks {
 
     #[benchmark]
     pub fn repay_borrow() {
+        initialize::<T>();
+
         let caller: T::AccountId = whitelisted_caller();
         transfer_initial_balance::<T>(caller.clone());
         let deposit_amount: u32 = 200_000_000;
@@ -501,6 +505,8 @@ pub mod benchmarks {
 
     #[benchmark]
     pub fn repay_borrow_all() {
+        initialize::<T>();
+
         let caller: T::AccountId = whitelisted_caller();
         transfer_initial_balance::<T>(caller.clone());
         let deposit_amount: u32 = 200_000_000;
@@ -540,6 +546,8 @@ pub mod benchmarks {
 
     #[benchmark]
     pub fn deposit_all_collateral() {
+        initialize::<T>();
+
         let caller: T::AccountId = whitelisted_caller();
         transfer_initial_balance::<T>(caller.clone());
         let deposit_amount: u128 = 200_000_000;
@@ -574,6 +582,8 @@ pub mod benchmarks {
 
     #[benchmark]
     pub fn withdraw_all_collateral() {
+        initialize::<T>();
+
         let caller: T::AccountId = whitelisted_caller();
         transfer_initial_balance::<T>(caller.clone());
         let deposit_amount: u128 = 200_000_000;
@@ -609,6 +619,8 @@ pub mod benchmarks {
 
     #[benchmark]
     pub fn liquidate_borrow() {
+        initialize::<T>();
+
         Security::<T>::set_active_block_number(1u32.into());
         Security::<T>::set_status(StatusCode::Running);
         let alice: T::AccountId = account("Sample", 100, SEED);
@@ -670,8 +682,8 @@ pub mod benchmarks {
 
     #[benchmark]
     pub fn reduce_incentive_reserves() {
-        Security::<T>::set_active_block_number(1u32.into());
-        Security::<T>::set_status(StatusCode::Running);
+        initialize::<T>();
+
         let alice: T::AccountId = account("Sample", 100, SEED);
         let bob: T::AccountId = account("Sample", 101, SEED);
         transfer_initial_balance::<T>(alice.clone());
@@ -734,6 +746,8 @@ pub mod benchmarks {
 
     #[benchmark]
     pub fn add_reserves() {
+        initialize::<T>();
+
         let caller: T::AccountId = whitelisted_caller();
         let payer = T::Lookup::unlookup(caller.clone());
         transfer_initial_balance::<T>(caller.clone());
@@ -759,6 +773,8 @@ pub mod benchmarks {
 
     #[benchmark]
     pub fn reduce_reserves() {
+        initialize::<T>();
+
         let caller: T::AccountId = whitelisted_caller();
         let payer = T::Lookup::unlookup(caller.clone());
         transfer_initial_balance::<T>(caller.clone());
@@ -790,4 +806,15 @@ pub mod benchmarks {
     }
 
     impl_benchmark_test_suite!(Loans, crate::mock::new_test_ext_no_markets(), crate::mock::Test);
+}
+
+fn initialize<
+    T: orml_tokens::Config<CurrencyId = CurrencyId>
+        + security::Config
+        + oracle::Config
+        + currency::Config<UnsignedFixedPoint = UnsignedFixedPoint>,
+>() {
+    Security::<T>::set_active_block_number(1u32.into());
+    Security::<T>::set_status(StatusCode::Running);
+    assert_ok!(Oracle::<T>::_set_exchange_rate(KBTC, UnsignedFixedPoint::one()));
 }
