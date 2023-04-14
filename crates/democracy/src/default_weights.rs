@@ -50,6 +50,7 @@ pub trait WeightInfo {
 	fn on_initialize_base_with_launch_period(r: u32, ) -> Weight;
 	fn clear_public_proposals() -> Weight;
 	fn remove_vote(r: u32, ) -> Weight;
+	fn spend_from_treasury() -> Weight;
 }
 
 /// Weights for democracy using the Substrate node and recommended hardware.
@@ -301,6 +302,9 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(T::DbWeight::get().writes(2_u64))
 			.saturating_add(Weight::from_parts(0, 52).saturating_mul(r.into()))
 	}
+	fn spend_from_treasury() -> Weight {
+		Self::cancel_referendum() // didn't run benchmark yet - use this as approximation
+	}
 }
 
 // For backwards compatibility and tests
@@ -550,5 +554,9 @@ impl WeightInfo for () {
 			.saturating_add(RocksDbWeight::get().reads(2_u64))
 			.saturating_add(RocksDbWeight::get().writes(2_u64))
 			.saturating_add(Weight::from_parts(0, 52).saturating_mul(r.into()))
+	}
+
+	fn spend_from_treasury() -> Weight {
+		Self::cancel_referendum() // didn't run benchmark yet - use this as approximation
 	}
 }

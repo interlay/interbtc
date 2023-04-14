@@ -368,10 +368,10 @@ pub mod benchmarks {
 
         #[extrinsic_call]
         spend_from_treasury(RawOrigin::Root, value, beneficiary.clone());
-        
+
         assert_eq!(T::TreasuryCurrency::free_balance(&beneficiary), 100u32.into());
     }
-    
+
     impl_benchmark_test_suite! {
         Democracy,
         crate::tests::new_test_ext(),

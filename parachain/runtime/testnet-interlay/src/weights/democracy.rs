@@ -284,4 +284,7 @@ impl<T: frame_system::Config> democracy::WeightInfo for WeightInfo<T> {
 			.saturating_add(T::DbWeight::get().writes(2_u64))
 			.saturating_add(Weight::from_parts(0, 52).saturating_mul(r.into()))
 	}
+	fn spend_from_treasury() -> Weight {
+		Self::cancel_referendum() // didn't run benchmark yet - use this as approximation
+	}
 }
