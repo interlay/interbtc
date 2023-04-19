@@ -73,6 +73,7 @@ pallet-tips = { git = "https://github.com/paritytech//substrate", branch = "polk
 pallet-transaction-payment = { git = "https://github.com/paritytech//substrate", branch = "polkadot-v0.9.38" }
 pallet-transaction-payment-rpc = { git = "https://github.com/paritytech//substrate", branch = "polkadot-v0.9.38" }
 pallet-transaction-payment-rpc-runtime-api = { git = "https://github.com/paritytech//substrate", branch = "polkadot-v0.9.38" }
+pallet-treasury = { git = "https://github.com/paritytech//substrate", branch = "polkadot-v0.9.38" }
 pallet-utility = { git = "https://github.com/paritytech//substrate", branch = "polkadot-v0.9.38" }
 pallet-vesting = { git = "https://github.com/paritytech//substrate", branch = "polkadot-v0.9.38" }
 sc-authority-discovery = { git = "https://github.com/paritytech//substrate", branch = "polkadot-v0.9.38" }
