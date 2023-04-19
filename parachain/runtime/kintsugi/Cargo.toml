@@ -299,6 +299,7 @@ runtime-benchmarks = [
   "vault-registry/runtime-benchmarks",
   "democracy/runtime-benchmarks",
   "supply/runtime-benchmarks",
+  "collator-selection/runtime-benchmarks",
 ]
 disable-runtime-api = []
 try-runtime = [

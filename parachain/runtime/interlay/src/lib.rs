@@ -283,7 +283,7 @@ impl collator_selection::Config for Runtime {
     type ValidatorId = <Self as frame_system::Config>::AccountId;
     type ValidatorIdOf = collator_selection::IdentityCollator;
     type ValidatorRegistration = Session;
-    type WeightInfo = ();
+    type WeightInfo = weights::collator_selection::WeightInfo<Runtime>;
 }
 
 impl pallet_aura::Config for Runtime {
@@ -1303,6 +1303,7 @@ mod benches {
         [fee, Fee]
         [nomination, Nomination]
         [clients_info, ClientsInfo]
+        [collator_selection, CollatorSelection]
         [pallet_collective, TechnicalCommittee]
         [pallet_membership, TechnicalMembership]
         [cumulus_pallet_xcmp_queue, XcmpQueue]
