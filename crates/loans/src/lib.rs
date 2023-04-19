@@ -61,6 +61,7 @@ pub use types::{BorrowSnapshot, EarnedSnapshot, Market, MarketState, RewardMarke
 
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;
+pub mod migration;
 
 #[cfg(test)]
 mod mock;
