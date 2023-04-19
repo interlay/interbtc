@@ -15,7 +15,7 @@ use frame_support::{
     dispatch::{DispatchError, DispatchResult},
     traits::{
         ConstU32, Contains, Currency as PalletCurrency, EitherOfDiverse, EnsureOrigin, EnsureOriginWithArg,
-        EqualPrivilegeOnly, ExistenceRequirement, Imbalance, InstanceFilter, OnUnbalanced,
+        EqualPrivilegeOnly, ExistenceRequirement, Imbalance, InstanceFilter, OnUnbalanced, Randomness,
     },
     weights::ConstantMultiplier,
     PalletId,
@@ -97,7 +97,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     spec_name: create_runtime_str!("testnet-kintsugi"),
     impl_name: create_runtime_str!("testnet-kintsugi"),
     authoring_version: 1,
-    spec_version: 1023001,
+    spec_version: 1024000,
     impl_version: 1,
     transaction_version: 1, // added preimage
     apis: RUNTIME_API_VERSIONS,
@@ -1162,6 +1162,111 @@ impl loans::Config for Runtime {
     type OnExchangeRateChange = vault_registry::PoolManager<Runtime>;
 }
 
+pub struct NoRandomness;
+impl Randomness<Hash, BlockNumber> for NoRandomness {
+    fn random(_subject: &[u8]) -> (Hash, BlockNumber) {
+        // this is deprecated so don't bother to implement
+        unimplemented!()
+    }
+}
+
+pub struct DummyWeightPrice;
+impl Convert<Weight, Balance> for DummyWeightPrice {
+    fn convert(_a: Weight) -> Balance {
+        // informational only, leaving blank for now
+        Default::default()
+    }
+}
+
+// contracts
+parameter_types! {
+    pub const DeletionQueueDepth: u32 = 10;
+    pub const DeletionWeightLimit: Weight = Weight::from_ref_time(100000000 as u64);
+    pub const DepositPerByte: Balance = 1;
+    pub const DepositPerItem: Balance = 1;
+    pub const MaxCodeLen: u32 = 100000000;
+    pub const MaxStorageKeyLen: u32 = 100000000;
+    pub const UnsafeUnstableInterface: bool = false;
+    pub const MaxDebugBufferLen: u32 = 100000000;
+}
+
+pub struct DefaultSchedule;
+
+impl Get<pallet_contracts::Schedule<Runtime>> for DefaultSchedule {
+    fn get() -> pallet_contracts::Schedule<Runtime> {
+        Default::default()
+    }
+}
+
+use pallet_contracts::chain_extension::{ChainExtension, Environment, Ext, InitState, RetVal, SysConfig};
+use sp_core::crypto::UncheckedFrom;
+
+/// Contract extension for `FetchRandom`
+#[derive(Default)]
+pub struct HelloWorldExtension;
+
+impl ChainExtension<Runtime> for HelloWorldExtension {
+    fn call<E: Ext>(&mut self, env: Environment<E, InitState>) -> Result<RetVal, DispatchError>
+    where
+        <E::T as SysConfig>::AccountId: UncheckedFrom<<E::T as SysConfig>::Hash> + AsRef<[u8]>,
+    {
+        let func_id = env.func_id();
+        let alice = AccountId::from([0u8; 32]);
+        let currency_id = Token(KINT);
+
+        match func_id {
+            1101 => {
+                let mut env = env.buf_in_buf_out();
+
+                let balance = Tokens::accounts(&alice, &currency_id).free;
+
+                let ret = balance.encode();
+                env.write(&ret, false, None)
+                    .map_err(|_| DispatchError::Other("ChainExtension failed"))?;
+            }
+            //             1102 => {
+            //                 let mut env = env.buf_in_buf_out();
+            //                 let arg: u128 = env.read_as()?;
+            //
+            //                 Tokens::set_balance(RuntimeOrigin::root(), AccountId::from([0u8; 32]), currency_id, arg,
+            // 0).unwrap();
+            //
+            //                 env.write(&[], false, None)
+            //                     .map_err(|_| DispatchError::Other("ChainExtension failed"))?;
+            //             }
+            _ => return Err(DispatchError::Other("Unimplemented func_id")),
+        }
+        Ok(RetVal::Converging(0))
+    }
+
+    fn enabled() -> bool {
+        true
+    }
+}
+
+impl pallet_contracts::Config for Runtime {
+    type Time = Timestamp;
+    type Randomness = NoRandomness;
+    type Currency = NativeCurrency;
+    type RuntimeEvent = RuntimeEvent;
+    type RuntimeCall = RuntimeCall;
+    type CallFilter = BaseCallFilter;
+    type WeightPrice = DummyWeightPrice;
+    type WeightInfo = ();
+    type ChainExtension = HelloWorldExtension;
+    type Schedule = DefaultSchedule;
+    type CallStack = [pallet_contracts::Frame<Self>; 31];
+    type DeletionQueueDepth = DeletionQueueDepth;
+    type DeletionWeightLimit = DeletionWeightLimit;
+    type DepositPerByte = DepositPerByte;
+    type DepositPerItem = DepositPerItem;
+    type AddressGenerator = pallet_contracts::DefaultAddressGenerator;
+    type MaxCodeLen = MaxCodeLen;
+    type MaxStorageKeyLen = MaxStorageKeyLen;
+    type UnsafeUnstableInterface = UnsafeUnstableInterface;
+    type MaxDebugBufferLen = MaxDebugBufferLen;
+}
+
 construct_runtime! {
     pub enum Runtime where
         Block = Block,
@@ -1243,6 +1348,9 @@ construct_runtime! {
         DexGeneral: dex_general::{Pallet, Call, Storage, Event<T>} = 101,
         DexStable: dex_stable::{Pallet, Call, Storage, Event<T>}  = 102,
         DexSwapRouter: dex_swap_router::{Pallet, Call, Event<T>} = 103,
+
+        // # smart contracts
+        Contracts: pallet_contracts::{Pallet, Call, Storage, Event<T>} = 110,
     }
 }
 

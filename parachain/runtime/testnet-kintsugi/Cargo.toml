@@ -105,6 +105,9 @@ dex-general = { path = "../../../crates/dex-general", default-features = false }
 dex-stable = { path = "../../../crates/dex-stable", default-features = false }
 dex-swap-router = { path = "../../../crates/dex-swap-router", default-features = false }
 
+pallet-contracts = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.31", default-features = false }
+pallet-contracts-primitives = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.31", default-features = false }
+
 primitives = { package = "interbtc-primitives", path = "../../../primitives", default-features = false }
 
 btc-relay-rpc-runtime-api = { path = "../../../crates/btc-relay/rpc/runtime-api", default-features = false }
@@ -178,6 +181,9 @@ std = [
   "pallet-identity/std",
   "pallet-proxy/std",
   "pallet-sudo/std",
+  
+  "pallet-contracts/std",
+  "pallet-contracts-primitives/std",
 
   "frame-system-rpc-runtime-api/std",
   "pallet-transaction-payment-rpc-runtime-api/std",
@@ -300,6 +306,7 @@ try-runtime = [
   "pallet-identity/try-runtime",
   "pallet-proxy/try-runtime",
   "pallet-sudo/try-runtime",
+  "pallet-contracts/try-runtime",
   "currency/try-runtime",
   "orml-tokens/try-runtime",
   "supply/try-runtime",
