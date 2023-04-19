@@ -84,7 +84,7 @@ pub mod pallet {
             if let Err(e) = Self::begin_block(n) {
                 sp_runtime::print(e);
             }
-            Weight::from_ref_time(0 as u64)
+            <T as Config<I>>::WeightInfo::on_initialize()
         }
     }
 
@@ -108,7 +108,7 @@ pub mod pallet {
         pub fn withdraw_rewards(origin: OriginFor<T>) -> DispatchResultWithPostInfo {
             let dest = ensure_signed(origin)?;
             let value = T::BlockRewardProvider::withdraw_reward(&dest)?;
-            let _ = T::Currency::transfer(&Self::account_id(), &dest, value, ExistenceRequirement::KeepAlive);
+            T::Currency::transfer(&Self::account_id(), &dest, value, ExistenceRequirement::AllowDeath)?;
             Ok(().into())
         }
 
@@ -169,10 +169,14 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 pub trait BlockRewardProvider<AccountId> {
     type Currency: ReservableCurrency<AccountId>;
     #[cfg(any(feature = "runtime-benchmarks", test))]
-    fn deposit_stake(from: &AccountId, amount: <Self::Currency as Currency<AccountId>>::Balance) -> DispatchResult;
+    fn deposit_stake(who: &AccountId, amount: <Self::Currency as Currency<AccountId>>::Balance) -> DispatchResult;
     fn distribute_block_reward(
         from: &AccountId,
         amount: <Self::Currency as Currency<AccountId>>::Balance,
     ) -> DispatchResult;
+    #[cfg(any(feature = "runtime-benchmarks", test))]
+    fn can_withdraw_reward() -> bool {
+        true
+    }
     fn withdraw_reward(who: &AccountId) -> Result<<Self::Currency as Currency<AccountId>>::Balance, DispatchError>;
 }

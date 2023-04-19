@@ -777,10 +777,8 @@ impl annuity::BlockRewardProvider<AccountId> for EscrowBlockRewardProvider {
     type Currency = NativeCurrency;
 
     #[cfg(feature = "runtime-benchmarks")]
-    fn deposit_stake(from: &AccountId, amount: Balance) -> DispatchResult {
-        let current_stake = <EscrowRewards as reward::RewardsApi<(), AccountId, Balance>>::get_stake(&(), from)?;
-        let new_stake = current_stake.saturating_add(amount);
-        <EscrowRewards as reward::RewardsApi<(), AccountId, Balance>>::set_stake(&(), from, new_stake)
+    fn deposit_stake(who: &AccountId, amount: Balance) -> DispatchResult {
+        <EscrowRewards as reward::RewardsApi<(), AccountId, Balance>>::deposit_stake(&(), who, amount)
     }
 
     fn distribute_block_reward(_from: &AccountId, amount: Balance) -> DispatchResult {
@@ -810,7 +808,7 @@ impl annuity::Config<EscrowAnnuityInstance> for Runtime {
     type BlockNumberToBalance = BlockNumberToBalance;
     type EmissionPeriod = EmissionPeriod;
     type TotalWrapped = TotalWrapped;
-    type WeightInfo = weights::annuity::WeightInfo<Runtime>;
+    type WeightInfo = weights::annuity_escrow_annuity::WeightInfo<Runtime>;
 }
 
 pub struct VaultBlockRewardProvider;
@@ -819,9 +817,14 @@ impl annuity::BlockRewardProvider<AccountId> for VaultBlockRewardProvider {
     type Currency = NativeCurrency;
 
     #[cfg(feature = "runtime-benchmarks")]
-    fn deposit_stake(_from: &AccountId, _amount: Balance) -> DispatchResult {
-        // TODO: fix for vault id
-        Ok(())
+    fn deposit_stake(_who: &AccountId, amount: Balance) -> DispatchResult {
+        // since this is only used for benchmarking
+        // deposit stake for the native currency
+        <VaultCapacity as reward::RewardsApi<(), CurrencyId, Balance>>::deposit_stake(
+            &(),
+            &GetNativeCurrencyId::get(),
+            amount,
+        )
     }
 
     fn distribute_block_reward(from: &AccountId, amount: Balance) -> DispatchResult {
@@ -834,8 +837,13 @@ impl annuity::BlockRewardProvider<AccountId> for VaultBlockRewardProvider {
         )
     }
 
+    #[cfg(feature = "runtime-benchmarks")]
+    fn can_withdraw_reward() -> bool {
+        false
+    }
+
     fn withdraw_reward(_: &AccountId) -> Result<Balance, DispatchError> {
-        Err(sp_runtime::TokenError::Unsupported.into())
+        Err(DispatchError::Other("Unsupported"))
     }
 }
 
@@ -849,7 +857,7 @@ impl annuity::Config<VaultAnnuityInstance> for Runtime {
     type BlockNumberToBalance = BlockNumberToBalance;
     type EmissionPeriod = EmissionPeriod;
     type TotalWrapped = TotalWrapped;
-    type WeightInfo = ();
+    type WeightInfo = weights::annuity_vault_annuity::WeightInfo<Runtime>;
 }
 
 type EscrowRewardsInstance = reward::Instance1;
@@ -1295,6 +1303,7 @@ mod benches {
         [supply, Supply]
         [escrow, Escrow]
         [annuity, EscrowAnnuity]
+        [annuity, VaultAnnuity]
         [btc_relay, BTCRelay]
         [security, Security]
         [vault_registry, VaultRegistry]
