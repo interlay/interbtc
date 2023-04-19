@@ -1300,7 +1300,6 @@ mod benches {
         [clients_info, ClientsInfo]
         [pallet_collective, TechnicalCommittee]
         [pallet_membership, TechnicalMembership]
-        [pallet_treasury, Treasury]
         [cumulus_pallet_xcmp_queue, XcmpQueue]
         [pallet_xcm, PolkadotXcm]
         [loans, Loans]

@@ -16,7 +16,7 @@ use frame_support::{
     dispatch::{DispatchError, DispatchResult},
     traits::{
         ConstU32, Contains, Currency as PalletCurrency, EitherOfDiverse, EnsureOrigin, EnsureOriginWithArg,
-        EqualPrivilegeOnly, ExistenceRequirement, Imbalance, InstanceFilter, OnUnbalanced,
+        EqualPrivilegeOnly, ExistenceRequirement, Imbalance, InstanceFilter, OnRuntimeUpgrade, OnUnbalanced,
     },
     weights::ConstantMultiplier,
     Blake2_128Concat, PalletId, Twox64Concat,
@@ -1369,7 +1369,6 @@ mod benches {
         [clients_info, ClientsInfo]
         [pallet_collective, TechnicalCommittee]
         [pallet_membership, TechnicalMembership]
-        [pallet_treasury, Treasury]
         [cumulus_pallet_xcmp_queue, XcmpQueue]
         [pallet_xcm, PolkadotXcm]
         [loans, Loans]

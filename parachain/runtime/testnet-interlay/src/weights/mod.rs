@@ -20,7 +20,6 @@ pub mod pallet_preimage;
 pub mod pallet_proxy;
 pub mod pallet_scheduler;
 pub mod pallet_timestamp;
-pub mod pallet_treasury;
 pub mod pallet_utility;
 pub mod pallet_xcm;
 pub mod security;

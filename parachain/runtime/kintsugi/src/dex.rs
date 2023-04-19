@@ -1,6 +1,6 @@
 use super::{
-    parameter_types, Balance, CurrencyId, DexGeneral, DexStable, PalletId, Runtime, RuntimeEvent, StablePoolId,
-    Timestamp, Tokens,
+    parameter_types, weights, Balance, CurrencyId, DexGeneral, DexStable, PalletId, Runtime, RuntimeEvent,
+    StablePoolId, Timestamp, Tokens,
 };
 
 pub use dex_general::{AssetBalance, GenerateLpAssetId, PairInfo};
