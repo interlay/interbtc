@@ -55,11 +55,11 @@ mod tests;
 
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;
-pub mod weights;
+mod default_weights;
 
 #[frame_support::pallet]
 pub mod pallet {
-    pub use crate::weights::WeightInfo;
+    pub use crate::default_weights::WeightInfo;
     use core::ops::Div;
     use frame_support::{
         dispatch::{DispatchClass, DispatchResultWithPostInfo},

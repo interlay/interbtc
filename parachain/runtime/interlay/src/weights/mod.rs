@@ -2,6 +2,7 @@ pub mod annuity_escrow_annuity;
 pub mod annuity_vault_annuity;
 pub mod btc_relay;
 pub mod clients_info;
+pub mod collator_selection;
 pub mod cumulus_pallet_xcmp_queue;
 pub mod democracy;
 pub mod escrow;
