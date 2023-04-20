@@ -227,7 +227,7 @@ impl frame_system::Config for Runtime {
     type OnKilledAccount = ();
     type DbWeight = ();
     type BaseCallFilter = BaseCallFilter;
-    type SystemWeightInfo = ();
+    type SystemWeightInfo = weights::frame_system::WeightInfo<Runtime>;
     type BlockWeights = RuntimeBlockWeights;
     type BlockLength = RuntimeBlockLength;
     type SS58Prefix = SS58Prefix;
@@ -1300,6 +1300,7 @@ mod benches {
         [dex_stable, DexStable]
         [dex_swap_router, DexSwapRouter]
         [democracy, Democracy]
+        [frame_system, frame_system_benchmarking::Pallet::<Runtime>]
     );
 }
 
@@ -1441,6 +1442,7 @@ impl_runtime_apis! {
             config: frame_benchmarking::BenchmarkConfig
         ) -> Result<Vec<frame_benchmarking::BenchmarkBatch>, sp_runtime::RuntimeString> {
             use frame_benchmarking::{Benchmarking, BenchmarkBatch, TrackedStorageKey};
+            impl frame_system_benchmarking::Config for Runtime {}
 
             use frame_support::traits::WhitelistedStorageKeys;
             let mut whitelist: Vec<TrackedStorageKey> = AllPalletsWithSystem::whitelisted_storage_keys();

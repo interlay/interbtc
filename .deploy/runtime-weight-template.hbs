@@ -21,11 +21,7 @@ use sp_std::marker::PhantomData;
 
 /// Weights for {{pallet}} using the Substrate node and recommended hardware.
 pub struct WeightInfo<T>(PhantomData<T>);
-{{#if (eq pallet "frame_system")}}
-impl<T: crate::Config> WeightInfo for WeightInfo<T> {
-{{else}}
 impl<T: frame_system::Config> {{pallet}}::WeightInfo for WeightInfo<T> {
-{{/if}}
 	{{#each benchmarks as |benchmark|}}
 	{{#each benchmark.comments as |comment|}}
 	/// {{comment}}
