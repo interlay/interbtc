@@ -10,6 +10,7 @@ pub mod dex_swap_router;
 pub mod escrow;
 pub mod farming;
 pub mod fee;
+pub mod frame_system;
 pub mod loans;
 pub mod nomination;
 pub mod oracle;

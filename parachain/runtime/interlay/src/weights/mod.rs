@@ -6,6 +6,7 @@ pub mod cumulus_pallet_xcmp_queue;
 pub mod democracy;
 pub mod escrow;
 pub mod fee;
+pub mod frame_system;
 pub mod nomination;
 pub mod oracle;
 pub mod pallet_collective;
