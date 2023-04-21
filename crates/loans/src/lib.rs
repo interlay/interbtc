@@ -61,7 +61,6 @@ pub use types::{BorrowSnapshot, EarnedSnapshot, Market, MarketState, RewardMarke
 
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;
-pub mod migration;
 
 #[cfg(test)]
 mod mock;
@@ -433,17 +432,6 @@ pub mod pallet {
             supply_rate: Rate,
             exchange_rate: Rate,
         },
-    }
-
-    #[pallet::hooks]
-    impl<T: Config> Hooks<T::BlockNumber> for Pallet<T> {
-        #[cfg(feature = "try-runtime")]
-        fn post_upgrade(pre_upgrade_state: sp_std::vec::Vec<u8>) -> Result<(), &'static str> {
-            frame_support::assert_ok!(migration::collateral_toggle::Migration::<T>::post_upgrade(
-                pre_upgrade_state
-            ));
-            Ok(())
-        }
     }
 
     /// The timestamp of the last calculation of accrued interest
