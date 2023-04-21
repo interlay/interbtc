@@ -10369,6 +10369,7 @@ dependencies = [
  "democracy",
  "escrow",
  "fee",
+ "frame-benchmarking",
  "frame-support",
  "frame-system",
  "interbtc-primitives",

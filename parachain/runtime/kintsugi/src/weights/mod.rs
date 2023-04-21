@@ -15,6 +15,7 @@ pub mod frame_system;
 pub mod loans;
 pub mod nomination;
 pub mod oracle;
+pub mod orml_tokens;
 pub mod pallet_collective;
 pub mod pallet_identity;
 pub mod pallet_membership;

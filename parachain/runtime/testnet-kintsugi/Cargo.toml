@@ -280,6 +280,7 @@ runtime-benchmarks = [
   "xcm-builder/runtime-benchmarks",
   "pallet-xcm/runtime-benchmarks",
 
+  "runtime-common/runtime-benchmarks",
   "annuity/runtime-benchmarks",
   "btc-relay/runtime-benchmarks",
   "clients-info/runtime-benchmarks",
