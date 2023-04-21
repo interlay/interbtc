@@ -437,10 +437,6 @@ pub mod pallet {
 
     #[pallet::hooks]
     impl<T: Config> Hooks<T::BlockNumber> for Pallet<T> {
-        fn on_runtime_upgrade() -> frame_support::weights::Weight {
-            migration::collateral_toggle::Migration::<T>::on_runtime_upgrade()
-        }
-
         #[cfg(feature = "try-runtime")]
         fn post_upgrade(pre_upgrade_state: sp_std::vec::Vec<u8>) -> Result<(), &'static str> {
             frame_support::assert_ok!(migration::collateral_toggle::Migration::<T>::post_upgrade(
