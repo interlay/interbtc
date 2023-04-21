@@ -23,6 +23,7 @@ use frame_system::{
     limits::{BlockLength, BlockWeights},
     EnsureRoot, RawOrigin,
 };
+use loans::{OnSlashHook, PostDeposit, PostTransfer, PreDeposit, PreTransfer};
 use orml_asset_registry::SequentialId;
 use orml_traits::{currency::MutationHooks, parameter_type_with_key};
 use pallet_transaction_payment::{Multiplier, TargetedFeeAdjustment};
@@ -95,7 +96,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     spec_name: create_runtime_str!("kintsugi-parachain"),
     impl_name: create_runtime_str!("kintsugi-parachain"),
     authoring_version: 1,
-    spec_version: 1023002,
+    spec_version: 1023003,
     impl_version: 1,
     transaction_version: 3, // added preimage
     apis: RUNTIME_API_VERSIONS,
@@ -673,16 +674,17 @@ parameter_type_with_key! {
 }
 
 pub struct CurrencyHooks<T>(PhantomData<T>);
-impl<T: orml_tokens::Config> MutationHooks<T::AccountId, T::CurrencyId, T::Balance> for CurrencyHooks<T>
+impl<T: orml_tokens::Config + loans::Config>
+    MutationHooks<T::AccountId, T::CurrencyId, <T as currency::Config>::Balance> for CurrencyHooks<T>
 where
     T::AccountId: From<sp_runtime::AccountId32>,
 {
     type OnDust = orml_tokens::TransferDust<T, FeeAccount>;
-    type OnSlash = ();
-    type PreDeposit = ();
-    type PostDeposit = ();
-    type PreTransfer = ();
-    type PostTransfer = ();
+    type OnSlash = OnSlashHook<T>;
+    type PreDeposit = PreDeposit<T>;
+    type PostDeposit = PostDeposit<T>;
+    type PreTransfer = PreTransfer<T>;
+    type PostTransfer = PostTransfer<T>;
     type OnNewTokenAccount = ();
     type OnKilledTokenAccount = ();
 }
@@ -1283,8 +1285,14 @@ pub type UncheckedExtrinsic = generic::UncheckedExtrinsic<Address, RuntimeCall, 
 /// Extrinsic type that has already been checked.
 pub type CheckedExtrinsic = generic::CheckedExtrinsic<AccountId, RuntimeCall, SignedExtra>;
 /// Executive: handles dispatch to the various modules.
-pub type Executive =
-    frame_executive::Executive<Runtime, Block, frame_system::ChainContext<Runtime>, Runtime, AllPalletsWithSystem>;
+pub type Executive = frame_executive::Executive<
+    Runtime,
+    Block,
+    frame_system::ChainContext<Runtime>,
+    Runtime,
+    AllPalletsWithSystem,
+    loans::migration::collateral_toggle::Migration<Runtime>,
+>;
 
 #[cfg(not(feature = "disable-runtime-api"))]
 impl_runtime_apis! {
