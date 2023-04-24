@@ -25,6 +25,7 @@ use frame_system::{
     limits::{BlockLength, BlockWeights},
     EnsureRoot, RawOrigin,
 };
+use loans::{OnSlashHook, PostDeposit, PostTransfer, PreDeposit, PreTransfer};
 use orml_asset_registry::SequentialId;
 use orml_traits::{currency::MutationHooks, parameter_type_with_key};
 use pallet_transaction_payment::{Multiplier, TargetedFeeAdjustment};
@@ -668,16 +669,17 @@ parameter_type_with_key! {
 }
 
 pub struct CurrencyHooks<T>(PhantomData<T>);
-impl<T: orml_tokens::Config> MutationHooks<T::AccountId, T::CurrencyId, T::Balance> for CurrencyHooks<T>
+impl<T: orml_tokens::Config + loans::Config>
+    MutationHooks<T::AccountId, T::CurrencyId, <T as currency::Config>::Balance> for CurrencyHooks<T>
 where
     T::AccountId: From<sp_runtime::AccountId32>,
 {
     type OnDust = orml_tokens::TransferDust<T, FeeAccount>;
-    type OnSlash = ();
-    type PreDeposit = ();
-    type PostDeposit = ();
-    type PreTransfer = ();
-    type PostTransfer = ();
+    type OnSlash = OnSlashHook<T>;
+    type PreDeposit = PreDeposit<T>;
+    type PostDeposit = PostDeposit<T>;
+    type PreTransfer = PreTransfer<T>;
+    type PostTransfer = PostTransfer<T>;
     type OnNewTokenAccount = ();
     type OnKilledTokenAccount = ();
 }
@@ -687,7 +689,7 @@ impl orml_tokens::Config for Runtime {
     type Balance = Balance;
     type Amount = primitives::Amount;
     type CurrencyId = CurrencyId;
-    type WeightInfo = ();
+    type WeightInfo = weights::orml_tokens::WeightInfo<Runtime>;
     type ExistentialDeposits = ExistentialDeposits;
     type CurrencyHooks = CurrencyHooks<Runtime>;
     type MaxLocks = MaxLocks;
@@ -1389,6 +1391,7 @@ mod benches {
         [dex_swap_router, DexSwapRouter]
         [democracy, Democracy]
         [frame_system, frame_system_benchmarking::Pallet::<Runtime>]
+        [orml_tokens, runtime_common::benchmarking::orml_tokens::Pallet::<Runtime>]
     );
 }
 
@@ -1531,6 +1534,7 @@ impl_runtime_apis! {
         ) -> Result<Vec<frame_benchmarking::BenchmarkBatch>, sp_runtime::RuntimeString> {
             use frame_benchmarking::{Benchmarking, BenchmarkBatch, TrackedStorageKey};
             impl frame_system_benchmarking::Config for Runtime {}
+            impl  runtime_common::benchmarking::orml_tokens::Config for Runtime {}
 
             use frame_support::traits::WhitelistedStorageKeys;
             let mut whitelist: Vec<TrackedStorageKey> = AllPalletsWithSystem::whitelisted_storage_keys();

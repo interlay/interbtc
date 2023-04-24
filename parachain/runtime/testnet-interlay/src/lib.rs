@@ -659,7 +659,7 @@ impl orml_tokens::Config for Runtime {
     type Balance = Balance;
     type Amount = primitives::Amount;
     type CurrencyId = CurrencyId;
-    type WeightInfo = ();
+    type WeightInfo = weights::orml_tokens::WeightInfo<Runtime>;
     type ExistentialDeposits = ExistentialDeposits;
     type CurrencyHooks = CurrencyHooks<Runtime>;
     type MaxLocks = MaxLocks;
@@ -1311,6 +1311,7 @@ mod benches {
         [dex_swap_router, DexSwapRouter]
         [democracy, Democracy]
         [frame_system, frame_system_benchmarking::Pallet::<Runtime>]
+        [orml_tokens, runtime_common::benchmarking::orml_tokens::Pallet::<Runtime>]
     );
 }
 
@@ -1453,6 +1454,7 @@ impl_runtime_apis! {
         ) -> Result<Vec<frame_benchmarking::BenchmarkBatch>, sp_runtime::RuntimeString> {
             use frame_benchmarking::{Benchmarking, BenchmarkBatch, TrackedStorageKey};
             impl frame_system_benchmarking::Config for Runtime {}
+            impl  runtime_common::benchmarking::orml_tokens::Config for Runtime {}
 
             use frame_support::traits::WhitelistedStorageKeys;
             let mut whitelist: Vec<TrackedStorageKey> = AllPalletsWithSystem::whitelisted_storage_keys();

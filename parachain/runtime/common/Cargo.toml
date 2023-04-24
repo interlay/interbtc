@@ -15,6 +15,7 @@ frame-support = { git = "https://github.com/paritytech/substrate", branch = "pol
 frame-system = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.31", default-features = false }
 xcm = { git = "https://github.com/paritytech/polkadot", branch = "release-v0.9.31", default-features = false }
 xcm-executor = { git = "https://github.com/paritytech/polkadot", default-features = false , branch = "release-v0.9.31" }
+frame-benchmarking = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.31", default-features = false, optional = true }
 
 # Parachain dependencies
 btc-relay = { path = "../../../crates/btc-relay", default-features = false }
@@ -62,6 +63,7 @@ std = [
   "sp-runtime/std",
   "frame-support/std",
   "frame-system/std",
+  "frame-benchmarking?/std",
   "xcm/std",
   "xcm-executor/std",
 
@@ -126,4 +128,9 @@ try-runtime = [
   "democracy/try-runtime",
   "orml-xtokens/try-runtime",
   "orml-unknown-tokens/try-runtime"
+]
+runtime-benchmarks = [
+  "frame-benchmarking",
+  "frame-support/runtime-benchmarks",
+  "frame-system/runtime-benchmarks",
 ]
