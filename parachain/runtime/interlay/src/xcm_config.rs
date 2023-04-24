@@ -173,7 +173,7 @@ pub struct SafeCallFilter;
 impl Contains<RuntimeCall> for SafeCallFilter {
     fn contains(call: &RuntimeCall) -> bool {
         // we need to filter all calls that can recurse. We're being a bit overly conservative here
-        // by completly blocking the pallets below rather than filter per specific call.
+        // by completely blocking the pallets below rather than filter per specific call.
         match call {
             RuntimeCall::Sudo(..) | RuntimeCall::Proxy(..) | RuntimeCall::Multisig(..) | RuntimeCall::Utility(..) => {
                 // these calls can recurse - disallow
