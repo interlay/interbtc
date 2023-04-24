@@ -5,7 +5,7 @@ use mocktopus::macros::mockable;
 
 pub use crate::merkle::MerkleProof;
 use crate::{
-    formatter::{Formattable, TryFormattable},
+    formatter::TryFormat,
     merkle::MerkleTree,
     parser::{extract_address_hash_scriptsig, extract_address_hash_witness, parse_block_header},
     utils::{log2, reverse_endianness, sha256d_le},
@@ -168,6 +168,7 @@ pub const P2WPKH_V0_SCRIPT_SIZE: u32 = 22;
 pub const P2WSH_V0_SCRIPT_SIZE: u32 = 34;
 pub const HASH160_SIZE_HEX: u8 = 0x14;
 pub const HASH256_SIZE_HEX: u8 = 0x20;
+// TODO: reduce to H256 size + op code
 pub const MAX_OPRETURN_SIZE: usize = 83;
 
 /// Structs
@@ -189,7 +190,7 @@ pub struct BlockHeader {
 impl BlockHeader {
     /// Returns the hash of the block header using Bitcoin's double sha256
     pub fn hash(&self) -> Result<H256Le, Error> {
-        Ok(sha256d_le(&self.try_format()?))
+        Ok(sha256d_le(&self.try_format(&mut 80)?))
     }
 
     pub fn ensure_version(&self) -> Result<(), Error> {
@@ -316,11 +317,16 @@ pub struct Transaction {
 #[cfg_attr(test, mockable)]
 impl Transaction {
     pub fn tx_id(&self) -> H256Le {
-        sha256d_le(&self.format_with(false))
+        sha256d_le(&self.try_format_with(false, &mut u32::max_value()).expect("Not bounded"))
+    }
+
+    pub fn tx_id_bounded(&self, length_bound: u32) -> Result<H256Le, Error> {
+        let bytes = self.try_format_with(false, &mut length_bound.clone())?;
+        Ok(sha256d_le(&bytes))
     }
 
     pub fn hash(&self) -> H256Le {
-        sha256d_le(&self.format_with(true))
+        sha256d_le(&self.try_format_with(true, &mut u32::max_value()).expect("Not bounded"))
     }
 }
 
@@ -575,6 +581,10 @@ impl H256Le {
     /// Hashes the value a single time using sha256
     pub fn sha256d(&self) -> Self {
         sha256d_le(&self.to_bytes_le())
+    }
+
+    pub(crate) fn len(&self) -> usize {
+        self.content.len()
     }
 }
 
@@ -995,7 +1005,7 @@ mod tests {
 
         // FIXME: flag_bits incorrect
         let proof = block.merkle_proof(&[transaction.tx_id()]).unwrap();
-        let bytes = proof.try_format().unwrap();
+        let bytes = proof.try_format(&mut u32::max_value()).unwrap();
         MerkleProof::parse(&bytes).unwrap();
     }
 

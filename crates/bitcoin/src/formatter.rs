@@ -6,234 +6,292 @@ use crate::{merkle::MerkleProof, script::*, types::*, Error, GetCompact};
 const WITNESS_FLAG: u8 = 0x01;
 const WITNESS_MARKER: u8 = 0x00;
 
+trait CheckedReduce: Sized {
+    fn checked_reduce(&mut self, amount: Self) -> Result<(), Error>;
+}
+
+impl CheckedReduce for u32 {
+    fn checked_reduce(&mut self, amount: Self) -> Result<(), Error> {
+        self.checked_sub(amount)
+            .map(|new_self| *self = new_self)
+            .ok_or(Error::ArithmeticUnderflow)
+    }
+}
+
 /// Type to be formatted as a bytes array
-pub trait Formattable<Options = ()> {
-    fn format(&self) -> Vec<u8>;
-    fn format_with(&self, _options: Options) -> Vec<u8> {
-        self.format()
+pub trait TryFormat<Options = ()>: Sized {
+    fn format_size(&self) -> u32 {
+        sp_std::mem::size_of::<Self>() as u32
+    }
+    fn try_format(&self, length_bound: &mut u32) -> Result<Vec<u8>, Error>;
+    fn try_format_with(&self, _options: Options, length_bound: &mut u32) -> Result<Vec<u8>, Error> {
+        self.try_format(length_bound)
     }
 }
 
-pub trait TryFormattable<Options = ()> {
-    fn try_format(&self) -> Result<Vec<u8>, Error>;
-    fn try_format_with(&self, _options: Options) -> Result<Vec<u8>, Error> {
-        self.try_format()
-    }
-}
-
-/// Macro to generate `Formattable` implementation of int types
-macro_rules! make_formattable_int {
+/// Macro to generate `TryFormat` implementation of int types
+macro_rules! make_try_format_int {
     ($type:ty) => {
-        impl Formattable<bool> for $type {
-            fn format(&self) -> Vec<u8> {
-                Vec::from(&self.to_le_bytes()[..])
+        impl TryFormat<bool> for $type {
+            fn try_format(&self, length_bound: &mut u32) -> Result<Vec<u8>, Error> {
+                length_bound.checked_reduce(self.format_size())?;
+                Ok(Vec::from(&self.to_le_bytes()[..]))
             }
 
-            fn format_with(&self, be: bool) -> Vec<u8> {
+            fn try_format_with(&self, be: bool, length_bound: &mut u32) -> Result<Vec<u8>, Error> {
                 if be {
-                    Vec::from(&self.to_be_bytes()[..])
+                    length_bound.checked_reduce(self.format_size())?;
+                    Ok(Vec::from(&self.to_be_bytes()[..]))
                 } else {
-                    self.format()
+                    self.try_format(length_bound)
                 }
             }
         }
     };
 }
 
-impl<T, U> Formattable<U> for &T
+impl<T, U> TryFormat<U> for &T
 where
-    T: Formattable<U>,
+    T: TryFormat<U>,
 {
-    fn format(&self) -> Vec<u8> {
-        T::format(self)
+    fn format_size(&self) -> u32 {
+        T::format_size(self)
     }
 
-    fn format_with(&self, options: U) -> Vec<u8> {
-        T::format_with(self, options)
+    fn try_format(&self, length_bound: &mut u32) -> Result<Vec<u8>, Error> {
+        T::try_format(self, length_bound)
     }
-}
 
-// Generate formattable implementation for the basic integers (signed and unsgined) types
-make_formattable_int!(u8);
-make_formattable_int!(u16);
-make_formattable_int!(u32);
-make_formattable_int!(u64);
-make_formattable_int!(i8);
-make_formattable_int!(i16);
-make_formattable_int!(i32);
-make_formattable_int!(i64);
-
-impl Formattable<()> for bool {
-    fn format(&self) -> Vec<u8> {
-        (*self as u8).format()
+    fn try_format_with(&self, options: U, length_bound: &mut u32) -> Result<Vec<u8>, Error> {
+        T::try_format_with(self, options, length_bound)
     }
 }
 
-impl Formattable<()> for H256Le {
-    fn format(&self) -> Vec<u8> {
-        Vec::from(&self.to_bytes_le()[..])
+// Generate `TryFormat` implementation for the basic integers (signed and unsgined) types
+make_try_format_int!(u8);
+make_try_format_int!(u16);
+make_try_format_int!(u32);
+make_try_format_int!(u64);
+make_try_format_int!(i8);
+make_try_format_int!(i16);
+make_try_format_int!(i32);
+make_try_format_int!(i64);
+
+impl TryFormat<()> for bool {
+    fn try_format(&self, length_bound: &mut u32) -> Result<Vec<u8>, Error> {
+        (*self as u8).try_format(length_bound)
     }
 }
 
-impl Formattable for CompactUint {
-    fn format(&self) -> Vec<u8> {
+impl TryFormat<()> for H256Le {
+    fn format_size(&self) -> u32 {
+        self.len() as u32
+    }
+
+    fn try_format(&self, length_bound: &mut u32) -> Result<Vec<u8>, Error> {
+        length_bound.checked_reduce(self.format_size())?;
+        Ok(Vec::from(&self.to_bytes_le()[..]))
+    }
+}
+
+impl TryFormat for CompactUint {
+    fn format_size(&self) -> u32 {
+        match self.value {
+            0..=0xFC => 1,
+            0xFD..=0xFFFF => 3,
+            0x10000..=0xFFFFFFFF => 5,
+            _ => 9,
+        }
+    }
+
+    fn try_format(&self, length_bound: &mut u32) -> Result<Vec<u8>, Error> {
         let mut formatter = Formatter::new();
         if self.value < 0xfd {
-            formatter.format(self.value as u8);
+            formatter.try_format(self.value as u8, length_bound)?;
         } else if self.value < u16::max_value() as u64 {
-            formatter.format(0xfd_u8);
-            formatter.format(self.value as u16);
+            formatter.try_format(0xfd_u8, length_bound)?;
+            formatter.try_format(self.value as u16, length_bound)?;
         } else if self.value < u32::max_value() as u64 {
-            formatter.format(0xfe_u8);
-            formatter.format(self.value as u32);
+            formatter.try_format(0xfe_u8, length_bound)?;
+            formatter.try_format(self.value as u32, length_bound)?;
         } else {
-            formatter.format(0xff_u8);
-            formatter.format(self.value);
+            formatter.try_format(0xff_u8, length_bound)?;
+            formatter.try_format(self.value, length_bound)?;
         }
-        formatter.result()
+        Ok(formatter.result())
     }
 }
 
-impl<T, U> Formattable<U> for Vec<T>
+impl<T, U> TryFormat<U> for Vec<T>
 where
-    for<'a> &'a T: Formattable<U>,
+    for<'a> &'a T: TryFormat<U>,
     U: Default + Copy,
 {
-    fn format(&self) -> Vec<u8> {
-        self.format_with(Default::default())
+    fn format_size(&self) -> u32 {
+        CompactUint::from_usize(self.len())
+            .format_size()
+            .saturating_add(self.len() as u32)
     }
 
-    fn format_with(&self, options: U) -> Vec<u8> {
+    fn try_format(&self, length_bound: &mut u32) -> Result<Vec<u8>, Error> {
+        self.try_format_with(Default::default(), length_bound)
+    }
+
+    fn try_format_with(&self, options: U, length_bound: &mut u32) -> Result<Vec<u8>, Error> {
         let mut formatter = Formatter::new();
-        formatter.format(CompactUint {
-            value: self.len() as u64,
-        });
+        formatter.try_format(
+            CompactUint {
+                value: self.len() as u64,
+            },
+            length_bound,
+        )?;
         for value in self.iter() {
-            formatter.format_with(value, options);
+            formatter.try_format_with(value, options, length_bound)?;
         }
-        formatter.result()
+        Ok(formatter.result())
     }
 }
 
-impl Formattable<bool> for TransactionInput {
-    fn format(&self) -> Vec<u8> {
+impl TryFormat<bool> for TransactionInput {
+    fn try_format(&self, length_bound: &mut u32) -> Result<Vec<u8>, Error> {
         let mut formatter = Formatter::new();
         let (previous_hash, previous_index) = match self.source {
             TransactionInputSource::Coinbase(_) => (H256Le::zero(), u32::max_value()),
             TransactionInputSource::FromOutput(hash, index) => (hash, index),
         };
-        formatter.format(&previous_hash);
-        formatter.format(previous_index);
-        formatter.format(CompactUint::from_usize(self.script.len()));
+        formatter.try_format(&previous_hash, length_bound)?;
+        formatter.try_format(previous_index, length_bound)?;
+        formatter.try_format(CompactUint::from_usize(self.script.len()), length_bound)?;
         if let TransactionInputSource::Coinbase(Some(height)) = self.source {
-            formatter.format(Script::height(height).as_bytes());
+            formatter.try_format(Script::height(height).as_bytes(), length_bound)?;
         }
-        formatter.output(&self.script); // we already formatted the length
-        formatter.format(self.sequence);
-        formatter.result()
+        formatter.try_output(&self.script, length_bound)?; // we already formatted the length
+        formatter.try_format(self.sequence, length_bound)?;
+        Ok(formatter.result())
     }
 }
 
-impl Formattable for Script {
-    fn format(&self) -> Vec<u8> {
-        self.bytes.format()
+impl TryFormat for Script {
+    fn try_format(&self, length_bound: &mut u32) -> Result<Vec<u8>, Error> {
+        self.bytes.try_format(length_bound)
     }
 }
 
-impl Formattable for &[u8] {
-    fn format(&self) -> Vec<u8> {
-        Vec::from(*self)
+impl TryFormat for &[u8] {
+    fn format_size(&self) -> u32 {
+        self.len() as u32
+    }
+
+    fn try_format(&self, length_bound: &mut u32) -> Result<Vec<u8>, Error> {
+        length_bound.checked_reduce(self.format_size())?;
+        Ok(Vec::from(*self))
     }
 }
 
-impl Formattable for H160 {
-    fn format(&self) -> Vec<u8> {
-        Vec::from(self.as_bytes())
+impl TryFormat for H160 {
+    fn format_size(&self) -> u32 {
+        Self::len_bytes() as u32
+    }
+
+    fn try_format(&self, length_bound: &mut u32) -> Result<Vec<u8>, Error> {
+        length_bound.checked_reduce(self.format_size())?;
+        Ok(Vec::from(self.as_bytes()))
     }
 }
 
-impl Formattable for H256 {
-    fn format(&self) -> Vec<u8> {
-        Vec::from(self.as_bytes())
+impl TryFormat for H256 {
+    fn format_size(&self) -> u32 {
+        Self::len_bytes() as u32
+    }
+
+    fn try_format(&self, length_bound: &mut u32) -> Result<Vec<u8>, Error> {
+        length_bound.checked_reduce(self.format_size())?;
+        Ok(Vec::from(self.as_bytes()))
     }
 }
 
-impl Formattable for OpCode {
-    fn format(&self) -> Vec<u8> {
-        vec![*self as u8]
+impl TryFormat for OpCode {
+    fn try_format(&self, length_bound: &mut u32) -> Result<Vec<u8>, Error> {
+        length_bound.checked_reduce(1)?;
+        Ok(vec![*self as u8])
     }
 }
 
-impl Formattable for TransactionOutput {
-    fn format(&self) -> Vec<u8> {
+impl TryFormat for TransactionOutput {
+    fn try_format(&self, length_bound: &mut u32) -> Result<Vec<u8>, Error> {
         let mut formatter = Formatter::new();
-        formatter.format(self.value);
-        formatter.format(&self.script);
-        formatter.result()
+        formatter.try_format(self.value, length_bound)?;
+        formatter.try_format(&self.script, length_bound)?;
+        Ok(formatter.result())
     }
 }
 
-impl Formattable<bool> for Transaction {
-    fn format(&self) -> Vec<u8> {
-        self.format_with(true)
+impl TryFormat<bool> for Transaction {
+    fn try_format(&self, length_bound: &mut u32) -> Result<Vec<u8>, Error> {
+        self.try_format_with(true, length_bound)
     }
 
-    fn format_with(&self, witness: bool) -> Vec<u8> {
+    fn try_format_with(&self, witness: bool, length_bound: &mut u32) -> Result<Vec<u8>, Error> {
         let mut formatter = Formatter::new();
         let allow_witness = (self.version & SERIALIZE_TRANSACTION_NO_WITNESS) == 0;
-        // check if any of the inputs has a witness
-        let has_witness = allow_witness && self.inputs.iter().any(|v| !v.witness.is_empty());
+        // NOTE: doesn't format witnesses for tx_id
+        let format_witness = if witness && allow_witness {
+            // check if any of the inputs has a witness
+            self.inputs.iter().any(|v| !v.witness.is_empty())
+        } else {
+            false
+        };
 
-        formatter.format(self.version);
+        formatter.try_format(self.version, length_bound)?;
 
-        if witness && has_witness {
-            formatter.format(WITNESS_MARKER);
-            formatter.format(WITNESS_FLAG);
+        if format_witness {
+            formatter.try_format(WITNESS_MARKER, length_bound)?;
+            formatter.try_format(WITNESS_FLAG, length_bound)?;
         }
 
-        formatter.format(&self.inputs);
-        formatter.format(&self.outputs);
+        formatter.try_format(&self.inputs, length_bound)?;
+        formatter.try_format(&self.outputs, length_bound)?;
 
-        if witness && has_witness {
+        if format_witness {
             for input in self.inputs.iter() {
-                formatter.format(&input.witness);
+                formatter.try_format(&input.witness, length_bound)?;
             }
         }
 
         match self.lock_at {
-            LockTime::BlockHeight(b) | LockTime::Time(b) => formatter.format(b),
+            LockTime::BlockHeight(b) | LockTime::Time(b) => formatter.try_format(b, length_bound)?,
         };
 
-        formatter.result()
+        Ok(formatter.result())
     }
 }
 
 // https://developer.bitcoin.org/reference/block_chain.html#target-nbits
-impl TryFormattable<bool> for U256 {
-    fn try_format(&self) -> Result<Vec<u8>, Error> {
+impl TryFormat<bool> for U256 {
+    fn try_format(&self, _length_bound: &mut u32) -> Result<Vec<u8>, Error> {
         let bits = self.clone().get_compact().ok_or(Error::InvalidCompact)?;
         Ok(bits.to_le_bytes().to_vec())
     }
 }
 
-impl TryFormattable for BlockHeader {
-    fn try_format(&self) -> Result<Vec<u8>, Error> {
+impl TryFormat for BlockHeader {
+    fn try_format(&self, length_bound: &mut u32) -> Result<Vec<u8>, Error> {
         let mut formatter = Formatter::new();
-        formatter.format(self.version);
-        formatter.format(self.hash_prev_block);
-        formatter.format(self.merkle_root);
-        formatter.format(self.timestamp);
-        formatter.try_format(self.target)?;
-        formatter.format(self.nonce);
+        formatter.try_format(self.version, length_bound)?;
+        formatter.try_format(self.hash_prev_block, length_bound)?;
+        formatter.try_format(self.merkle_root, length_bound)?;
+        formatter.try_format(self.timestamp, length_bound)?;
+        formatter.try_format(self.target, length_bound)?;
+        formatter.try_format(self.nonce, length_bound)?;
         Ok(formatter.result())
     }
 }
 
-impl TryFormattable for Block {
-    fn try_format(&self) -> Result<Vec<u8>, Error> {
+impl TryFormat for Block {
+    fn try_format(&self, length_bound: &mut u32) -> Result<Vec<u8>, Error> {
         let mut formatter = Formatter::new();
-        formatter.try_format(self.header)?;
-        formatter.format(&self.transactions);
+        formatter.try_format(self.header, length_bound)?;
+        formatter.try_format(&self.transactions, length_bound)?;
         Ok(formatter.result())
     }
 }
@@ -244,15 +302,15 @@ impl TryFormattable for Block {
 /// Hashes (N * 32 bytes, little endian)
 /// Number of bytes of flag bits (varint, 1 - 3 bytes)
 /// Flag bits (little endian)
-impl TryFormattable for MerkleProof {
-    fn try_format(&self) -> Result<Vec<u8>, Error> {
+impl TryFormat for MerkleProof {
+    fn try_format(&self, length_bound: &mut u32) -> Result<Vec<u8>, Error> {
         let mut formatter = Formatter::new();
-        formatter.try_format(self.block_header)?;
-        formatter.format(self.transactions_count);
+        formatter.try_format(self.block_header, length_bound)?;
+        formatter.try_format(self.transactions_count, length_bound)?;
         let hashes_count = CompactUint::from_usize(self.hashes.len());
-        formatter.format(hashes_count);
+        formatter.try_format(hashes_count, length_bound)?;
         for hash in self.hashes.clone() {
-            formatter.format(hash);
+            formatter.try_format(hash, length_bound)?;
         }
 
         let len = self
@@ -266,8 +324,8 @@ impl TryFormattable for MerkleProof {
         for p in 0..self.flag_bits.len() {
             bytes[p.checked_div(8).ok_or(Error::ArithmeticUnderflow)?] |= (self.flag_bits[p] as u8) << (p % 8) as u8;
         }
-        formatter.format(bytes.len() as u8);
-        formatter.output(&bytes);
+        formatter.try_format(bytes.len() as u8, length_bound)?;
+        formatter.try_output(&bytes, length_bound)?;
 
         Ok(formatter.result())
     }
@@ -282,34 +340,30 @@ impl Formatter {
         Formatter { bytes: Vec::new() }
     }
 
-    fn output(&mut self, bytes: &[u8]) {
+    fn try_output(&mut self, bytes: &[u8], length_bound: &mut u32) -> Result<(), Error> {
+        length_bound.checked_reduce(bytes.len() as u32)?;
         self.bytes.extend(bytes);
-    }
-
-    fn try_format<T, U>(&mut self, value: T) -> Result<(), Error>
-    where
-        T: TryFormattable<U>,
-    {
-        self.bytes.extend(value.try_format()?);
         Ok(())
     }
 
-    fn format<T, U>(&mut self, value: T)
+    fn try_format<T, U>(&mut self, value: T, length_bound: &mut u32) -> Result<(), Error>
     where
-        T: Formattable<U>,
+        T: TryFormat<U>,
     {
-        self.bytes.extend(value.format())
+        self.bytes.extend(value.try_format(length_bound)?);
+        Ok(())
     }
 
-    fn format_with<T, U>(&mut self, value: T, data: U)
+    fn try_format_with<T, U>(&mut self, value: T, data: U, length_bound: &mut u32) -> Result<(), Error>
     where
-        T: Formattable<U>,
+        T: TryFormat<U>,
     {
-        self.bytes.extend(value.format_with(data))
+        self.bytes.extend(value.try_format_with(data, length_bound)?);
+        Ok(())
     }
 
-    pub(crate) fn result(&self) -> Vec<u8> {
-        self.bytes.clone()
+    pub(crate) fn result(self) -> Vec<u8> {
+        self.bytes
     }
 }
 
@@ -320,28 +374,40 @@ mod tests {
 
     #[test]
     fn test_format_int_types() {
-        assert_eq!(1u8.format(), [1]);
-        assert_eq!(1i8.format(), [1]);
-        assert_eq!(255u8.format(), [255]);
-        assert_eq!((-1i8).format(), [255]);
+        assert_eq!(1u8.try_format(&mut u32::max_value()).unwrap(), [1]);
+        assert_eq!(1i8.try_format(&mut u32::max_value()).unwrap(), [1]);
+        assert_eq!(255u8.try_format(&mut u32::max_value()).unwrap(), [255]);
+        assert_eq!((-1i8).try_format(&mut u32::max_value()).unwrap(), [255]);
 
-        assert_eq!(256u16.format(), [0, 1]);
-        assert_eq!(256u16.format_with(true), [1, 0]);
-        assert_eq!((0xffffu32 + 1).format(), [0, 0, 1, 0]);
-        assert_eq!((0xffffffu32 + 1).format(), [0, 0, 0, 1]);
-        assert_eq!(u64::max_value().format(), [0xff].repeat(8));
+        assert_eq!(256u16.try_format(&mut u32::max_value()).unwrap(), [0, 1]);
+        assert_eq!(256u16.try_format_with(true, &mut u32::max_value()).unwrap(), [1, 0]);
+        assert_eq!((0xffffu32 + 1).try_format(&mut u32::max_value()).unwrap(), [0, 0, 1, 0]);
+        assert_eq!(
+            (0xffffffu32 + 1).try_format(&mut u32::max_value()).unwrap(),
+            [0, 0, 0, 1]
+        );
+        assert_eq!(
+            u64::max_value().try_format(&mut u32::max_value()).unwrap(),
+            [0xff].repeat(8)
+        );
     }
 
     #[test]
     fn test_format_compact_uint() {
-        assert_eq!(CompactUint { value: 0xfa }.format(), [0xfa]);
-        assert_eq!(CompactUint { value: 0xff }.format(), [0xfd, 0xff, 0]);
+        assert_eq!(
+            CompactUint { value: 0xfa }.try_format(&mut u32::max_value()).unwrap(),
+            [0xfa]
+        );
+        assert_eq!(
+            CompactUint { value: 0xff }.try_format(&mut u32::max_value()).unwrap(),
+            [0xfd, 0xff, 0]
+        );
         let u32_cuint = CompactUint { value: 0xffff + 1 };
-        assert_eq!(u32_cuint.format(), [0xfe, 0, 0, 1, 0]);
+        assert_eq!(u32_cuint.try_format(&mut u32::max_value()).unwrap(), [0xfe, 0, 0, 1, 0]);
         let u64_cuint = CompactUint {
             value: u64::max_value(),
         };
-        assert_eq!(u64_cuint.format(), [0xff].repeat(9));
+        assert_eq!(u64_cuint.try_format(&mut u32::max_value()).unwrap(), [0xff].repeat(9));
     }
 
     #[test]
@@ -350,7 +416,7 @@ mod tests {
         let input_bytes = hex::decode(&raw_input).unwrap();
         let mut parser = parser::BytesParser::new(&input_bytes);
         let input: TransactionInput = parser.parse_with(2).unwrap();
-        let formatted = input.format();
+        let formatted = input.try_format(&mut u32::max_value()).unwrap();
         assert_eq!(formatted, input_bytes);
     }
 
@@ -360,7 +426,7 @@ mod tests {
         let output_bytes = hex::decode(&raw_output).unwrap();
         let mut parser = parser::BytesParser::new(&output_bytes);
         let output: TransactionOutput = parser.parse().unwrap();
-        let formatted = output.format();
+        let formatted = output.try_format(&mut u32::max_value()).unwrap();
         assert_eq!(formatted, output_bytes);
     }
 
@@ -369,7 +435,7 @@ mod tests {
         let raw_tx = parser::tests::sample_transaction();
         let tx_bytes = hex::decode(&raw_tx).unwrap();
         let transaction = crate::parser::parse_transaction(&tx_bytes).unwrap();
-        let formatted = transaction.format();
+        let formatted = transaction.try_format(&mut u32::max_value()).unwrap();
         assert_eq!(formatted, tx_bytes);
     }
 
@@ -380,11 +446,11 @@ mod tests {
         let raw_tx = parser::tests::sample_extended_transaction();
         let tx_bytes = hex::decode(&raw_tx).unwrap();
         let transaction = parser::parse_transaction(&tx_bytes).unwrap();
-        let formatted = transaction.format();
+        let formatted = transaction.try_format(&mut u32::max_value()).unwrap();
         assert_eq!(formatted, tx_bytes);
         let computed_hash = sha256d_le(&formatted);
         assert_eq!(computed_hash, expected_hash);
-        let formatted_no_witness = transaction.format_with(false);
+        let formatted_no_witness = transaction.try_format_with(false, &mut u32::max_value()).unwrap();
         let computed_txid = sha256d_le(&formatted_no_witness);
         assert_eq!(computed_txid, expected_txid);
     }
@@ -393,7 +459,10 @@ mod tests {
     fn test_format_block_header() {
         let hex_header = parser::tests::sample_block_header();
         let parsed_header = BlockHeader::from_hex(&hex_header).unwrap();
-        assert_eq!(hex::encode(parsed_header.try_format().unwrap()), hex_header);
+        assert_eq!(
+            hex::encode(parsed_header.try_format(&mut u32::max_value()).unwrap()),
+            hex_header
+        );
     }
 
     #[test]
@@ -417,14 +486,17 @@ mod tests {
             }
         );
 
-        assert_eq!(hex::encode(parsed_header.try_format().unwrap()), hex_header);
+        assert_eq!(
+            hex::encode(parsed_header.try_format(&mut u32::max_value()).unwrap()),
+            hex_header
+        );
     }
 
     // taken from https://bitcoin.org/en/developer-reference#block-headers
     #[test]
     fn test_format_u256() {
         let value = U256::from_dec_str("680733321990486529407107157001552378184394215934016880640").unwrap();
-        let result = value.try_format().unwrap();
+        let result = value.try_format(&mut u32::max_value()).unwrap();
         let expected = hex::decode("30c31b18").unwrap();
         assert_eq!(result, expected);
     }
@@ -433,7 +505,7 @@ mod tests {
     fn test_format_u256_testnet() {
         // 0xb8e4a3e93640d7a4623e92589e40960b4b20420478d7ed60662176c323cf4caa
         let value = U256::from_dec_str("1260618571951953247774709397757627131971305851995253681160192").unwrap();
-        let result = value.try_format().unwrap();
+        let result = value.try_format(&mut u32::max_value()).unwrap();
         let expected = hex::decode("d4c8001a").unwrap();
         assert_eq!(result, expected);
     }
@@ -444,6 +516,6 @@ mod tests {
     fn test_format_merkle_proof() {
         let proof = MerkleProof::parse(&hex::decode(PROOF_HEX).unwrap()).unwrap();
         let expected = hex::decode(PROOF_HEX).unwrap();
-        assert_eq!(proof.try_format().unwrap(), expected);
+        assert_eq!(proof.try_format(&mut u32::max_value()).unwrap(), expected);
     }
 }

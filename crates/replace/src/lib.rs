@@ -493,6 +493,7 @@ impl<T: Config> Pallet<T> {
         ext::btc_relay::verify_and_validate_op_return_transaction::<T, _>(
             merkle_proof,
             transaction,
+            u32::MAX,
             replace.btc_address,
             replace.amount,
             replace_id,

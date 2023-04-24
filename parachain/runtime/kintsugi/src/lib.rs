@@ -1392,6 +1392,7 @@ mod benches {
         [democracy, Democracy]
         [frame_system, frame_system_benchmarking::Pallet::<Runtime>]
         [orml_tokens, runtime_common::benchmarking::orml_tokens::Pallet::<Runtime>]
+        [redeem, Redeem]
     );
 }
 

@@ -2,11 +2,7 @@
 
 extern crate hex;
 
-use bitcoin::types::TransactionInputSource;
-pub use bitcoin::{
-    formatter::{Formattable, TryFormattable},
-    types::*,
-};
+pub use bitcoin::types::*;
 pub use btc_relay::{BtcAddress, BtcPublicKey};
 use currency::Amount;
 pub use frame_support::{

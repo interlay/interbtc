@@ -1,4 +1,4 @@
-use crate::{formatter::Formattable, parser::extract_op_return_data, types::*, Error};
+use crate::{formatter::TryFormat, parser::extract_op_return_data, types::*, Error};
 use codec::{Decode, Encode};
 use scale_info::TypeInfo;
 use sp_std::{prelude::*, vec};
@@ -69,8 +69,12 @@ impl Script {
             && self.bytes[22] == OpCode::OpEqual as u8
     }
 
-    pub fn append<T: Formattable<U>, U>(&mut self, value: T) {
-        self.bytes.extend(&value.format())
+    pub fn append<T: TryFormat<U>, U>(&mut self, value: T) {
+        self.bytes.extend(
+            &value
+                .try_format(&mut value.format_size())
+                .expect("Length bound should be sufficient"),
+        )
     }
 
     pub fn extract_op_return_data(&self) -> Result<Vec<u8>, Error> {
