@@ -19,10 +19,8 @@ impl CheckedReduce for u32 {
 }
 
 /// Type to be formatted as a bytes array
-pub trait TryFormat<Options = ()>: Sized {
-    fn format_size(&self) -> u32 {
-        sp_std::mem::size_of::<Self>() as u32
-    }
+pub trait TryFormat<Options: Default = ()>: Sized {
+    fn format_size(&self, options: Options) -> u32;
     fn try_format(&self, length_bound: &mut u32) -> Result<Vec<u8>, Error>;
     fn try_format_with(&self, _options: Options, length_bound: &mut u32) -> Result<Vec<u8>, Error> {
         self.try_format(length_bound)
@@ -33,14 +31,18 @@ pub trait TryFormat<Options = ()>: Sized {
 macro_rules! make_try_format_int {
     ($type:ty) => {
         impl TryFormat<bool> for $type {
+            fn format_size(&self, _: bool) -> u32 {
+                sp_std::mem::size_of::<Self>() as u32
+            }
+
             fn try_format(&self, length_bound: &mut u32) -> Result<Vec<u8>, Error> {
-                length_bound.checked_reduce(self.format_size())?;
+                length_bound.checked_reduce(self.format_size(true))?;
                 Ok(Vec::from(&self.to_le_bytes()[..]))
             }
 
             fn try_format_with(&self, be: bool, length_bound: &mut u32) -> Result<Vec<u8>, Error> {
                 if be {
-                    length_bound.checked_reduce(self.format_size())?;
+                    length_bound.checked_reduce(self.format_size(true))?;
                     Ok(Vec::from(&self.to_be_bytes()[..]))
                 } else {
                     self.try_format(length_bound)
@@ -53,9 +55,10 @@ macro_rules! make_try_format_int {
 impl<T, U> TryFormat<U> for &T
 where
     T: TryFormat<U>,
+    U: Default,
 {
-    fn format_size(&self) -> u32 {
-        T::format_size(self)
+    fn format_size(&self, options: U) -> u32 {
+        T::format_size(self, options)
     }
 
     fn try_format(&self, length_bound: &mut u32) -> Result<Vec<u8>, Error> {
@@ -78,24 +81,28 @@ make_try_format_int!(i32);
 make_try_format_int!(i64);
 
 impl TryFormat<()> for bool {
+    fn format_size(&self, _: ()) -> u32 {
+        sp_std::mem::size_of::<u8>() as u32
+    }
+
     fn try_format(&self, length_bound: &mut u32) -> Result<Vec<u8>, Error> {
         (*self as u8).try_format(length_bound)
     }
 }
 
 impl TryFormat<()> for H256Le {
-    fn format_size(&self) -> u32 {
-        self.len() as u32
+    fn format_size(&self, _: ()) -> u32 {
+        Self::len_bytes() as u32
     }
 
     fn try_format(&self, length_bound: &mut u32) -> Result<Vec<u8>, Error> {
-        length_bound.checked_reduce(self.format_size())?;
+        length_bound.checked_reduce(self.format_size(()))?;
         Ok(Vec::from(&self.to_bytes_le()[..]))
     }
 }
 
 impl TryFormat for CompactUint {
-    fn format_size(&self) -> u32 {
+    fn format_size(&self, _: ()) -> u32 {
         match self.value {
             0..=0xFC => 1,
             0xFD..=0xFFFF => 3,
@@ -127,10 +134,12 @@ where
     for<'a> &'a T: TryFormat<U>,
     U: Default + Copy,
 {
-    fn format_size(&self) -> u32 {
-        CompactUint::from_usize(self.len())
-            .format_size()
-            .saturating_add(self.len() as u32)
+    fn format_size(&self, options: U) -> u32 {
+        let mut size = CompactUint::from_usize(self.len()).format_size(());
+        for value in self.iter() {
+            size += value.format_size(options);
+        }
+        size
     }
 
     fn try_format(&self, length_bound: &mut u32) -> Result<Vec<u8>, Error> {
@@ -152,7 +161,19 @@ where
     }
 }
 
-impl TryFormat<bool> for TransactionInput {
+impl TryFormat for TransactionInput {
+    fn format_size(&self, _: ()) -> u32 {
+        let mut size = 0;
+        size += H256Le::len_bytes() as u32;
+        size += sp_std::mem::size_of::<u32>() as u32;
+        if let TransactionInputSource::Coinbase(Some(height)) = self.source {
+            size += Script::height(height).format_size(());
+        }
+        size += self.script.format_size(false);
+        size += self.sequence.format_size(false);
+        size
+    }
+
     fn try_format(&self, length_bound: &mut u32) -> Result<Vec<u8>, Error> {
         let mut formatter = Formatter::new();
         let (previous_hash, previous_index) = match self.source {
@@ -172,52 +193,67 @@ impl TryFormat<bool> for TransactionInput {
 }
 
 impl TryFormat for Script {
+    fn format_size(&self, _: ()) -> u32 {
+        self.bytes.format_size(false)
+    }
+
     fn try_format(&self, length_bound: &mut u32) -> Result<Vec<u8>, Error> {
         self.bytes.try_format(length_bound)
     }
 }
 
 impl TryFormat for &[u8] {
-    fn format_size(&self) -> u32 {
+    fn format_size(&self, _: ()) -> u32 {
         self.len() as u32
     }
 
     fn try_format(&self, length_bound: &mut u32) -> Result<Vec<u8>, Error> {
-        length_bound.checked_reduce(self.format_size())?;
+        length_bound.checked_reduce(self.format_size(()))?;
         Ok(Vec::from(*self))
     }
 }
 
 impl TryFormat for H160 {
-    fn format_size(&self) -> u32 {
+    fn format_size(&self, _: ()) -> u32 {
         Self::len_bytes() as u32
     }
 
     fn try_format(&self, length_bound: &mut u32) -> Result<Vec<u8>, Error> {
-        length_bound.checked_reduce(self.format_size())?;
+        length_bound.checked_reduce(self.format_size(()))?;
         Ok(Vec::from(self.as_bytes()))
     }
 }
 
 impl TryFormat for H256 {
-    fn format_size(&self) -> u32 {
+    fn format_size(&self, _: ()) -> u32 {
         Self::len_bytes() as u32
     }
 
     fn try_format(&self, length_bound: &mut u32) -> Result<Vec<u8>, Error> {
-        length_bound.checked_reduce(self.format_size())?;
+        length_bound.checked_reduce(self.format_size(()))?;
         Ok(Vec::from(self.as_bytes()))
     }
 }
 
 impl TryFormat for OpCode {
+    fn format_size(&self, _: ()) -> u32 {
+        sp_std::mem::size_of::<u8>() as u32
+    }
+
     fn try_format(&self, length_bound: &mut u32) -> Result<Vec<u8>, Error> {
-        length_bound.checked_reduce(1)?;
+        length_bound.checked_reduce(self.format_size(()))?;
         Ok(vec![*self as u8])
     }
 }
 
 impl TryFormat for TransactionOutput {
+    fn format_size(&self, _: ()) -> u32 {
+        let mut size = 0;
+        size += self.value.format_size(false);
+        size += self.script.format_size(());
+        size
+    }
+
     fn try_format(&self, length_bound: &mut u32) -> Result<Vec<u8>, Error> {
         let mut formatter = Formatter::new();
         formatter.try_format(self.value, length_bound)?;
@@ -227,6 +263,25 @@ impl TryFormat for TransactionOutput {
 }
 
 impl TryFormat<bool> for Transaction {
+    fn format_size(&self, witness: bool) -> u32 {
+        let mut size = 0;
+        size += self.version.format_size(witness);
+        let allow_witness = (self.version & SERIALIZE_TRANSACTION_NO_WITNESS) == 0;
+        if witness && allow_witness && self.has_witness() {
+            size += WITNESS_MARKER.format_size(witness);
+            size += WITNESS_FLAG.format_size(witness);
+            for input in self.inputs.iter() {
+                size += input.witness.format_size(witness);
+            }
+        }
+        size += self.inputs.format_size(());
+        size += self.outputs.format_size(());
+        match self.lock_at {
+            LockTime::BlockHeight(b) | LockTime::Time(b) => size += b.format_size(witness),
+        };
+        size
+    }
+
     fn try_format(&self, length_bound: &mut u32) -> Result<Vec<u8>, Error> {
         self.try_format_with(true, length_bound)
     }
@@ -235,12 +290,7 @@ impl TryFormat<bool> for Transaction {
         let mut formatter = Formatter::new();
         let allow_witness = (self.version & SERIALIZE_TRANSACTION_NO_WITNESS) == 0;
         // NOTE: doesn't format witnesses for tx_id
-        let format_witness = if witness && allow_witness {
-            // check if any of the inputs has a witness
-            self.inputs.iter().any(|v| !v.witness.is_empty())
-        } else {
-            false
-        };
+        let format_witness = witness && allow_witness && self.has_witness();
 
         formatter.try_format(self.version, length_bound)?;
 
@@ -267,7 +317,11 @@ impl TryFormat<bool> for Transaction {
 }
 
 // https://developer.bitcoin.org/reference/block_chain.html#target-nbits
-impl TryFormat<bool> for U256 {
+impl TryFormat for U256 {
+    fn format_size(&self, _: ()) -> u32 {
+        sp_std::mem::size_of::<u32>() as u32
+    }
+
     fn try_format(&self, _length_bound: &mut u32) -> Result<Vec<u8>, Error> {
         let bits = self.clone().get_compact().ok_or(Error::InvalidCompact)?;
         Ok(bits.to_le_bytes().to_vec())
@@ -275,6 +329,17 @@ impl TryFormat<bool> for U256 {
 }
 
 impl TryFormat for BlockHeader {
+    fn format_size(&self, _: ()) -> u32 {
+        let mut size = 0;
+        size += self.version.format_size(false);
+        size += self.hash_prev_block.format_size(());
+        size += self.merkle_root.format_size(());
+        size += self.timestamp.format_size(false);
+        size += self.target.format_size(());
+        size += self.nonce.format_size(false);
+        size
+    }
+
     fn try_format(&self, length_bound: &mut u32) -> Result<Vec<u8>, Error> {
         let mut formatter = Formatter::new();
         formatter.try_format(self.version, length_bound)?;
@@ -288,6 +353,13 @@ impl TryFormat for BlockHeader {
 }
 
 impl TryFormat for Block {
+    fn format_size(&self, _: ()) -> u32 {
+        let mut size = 0;
+        size += self.header.format_size(());
+        size += self.transactions.format_size(true);
+        size
+    }
+
     fn try_format(&self, length_bound: &mut u32) -> Result<Vec<u8>, Error> {
         let mut formatter = Formatter::new();
         formatter.try_format(self.header, length_bound)?;
@@ -303,15 +375,21 @@ impl TryFormat for Block {
 /// Number of bytes of flag bits (varint, 1 - 3 bytes)
 /// Flag bits (little endian)
 impl TryFormat for MerkleProof {
+    fn format_size(&self, _: ()) -> u32 {
+        let mut size = 0;
+        size += self.block_header.format_size(());
+        size += self.transactions_count.format_size(false);
+        size += self.hashes.format_size(());
+        let len = ((self.flag_bits.len() + 7) / 8) as u32;
+        size += 1 + len;
+        size
+    }
+
     fn try_format(&self, length_bound: &mut u32) -> Result<Vec<u8>, Error> {
         let mut formatter = Formatter::new();
         formatter.try_format(self.block_header, length_bound)?;
         formatter.try_format(self.transactions_count, length_bound)?;
-        let hashes_count = CompactUint::from_usize(self.hashes.len());
-        formatter.try_format(hashes_count, length_bound)?;
-        for hash in self.hashes.clone() {
-            formatter.try_format(hash, length_bound)?;
-        }
+        formatter.try_format(self.hashes.clone(), length_bound)?;
 
         let len = self
             .flag_bits
@@ -349,6 +427,7 @@ impl Formatter {
     fn try_format<T, U>(&mut self, value: T, length_bound: &mut u32) -> Result<(), Error>
     where
         T: TryFormat<U>,
+        U: Default,
     {
         self.bytes.extend(value.try_format(length_bound)?);
         Ok(())
@@ -357,6 +436,7 @@ impl Formatter {
     fn try_format_with<T, U>(&mut self, value: T, data: U, length_bound: &mut u32) -> Result<(), Error>
     where
         T: TryFormat<U>,
+        U: Default,
     {
         self.bytes.extend(value.try_format_with(data, length_bound)?);
         Ok(())
@@ -371,6 +451,7 @@ impl Formatter {
 mod tests {
     use super::*;
     use crate::{parser, utils::sha256d_le};
+    use frame_support::{assert_err, assert_ok};
 
     #[test]
     fn test_format_int_types() {
@@ -398,10 +479,12 @@ mod tests {
             CompactUint { value: 0xfa }.try_format(&mut u32::max_value()).unwrap(),
             [0xfa]
         );
+        assert_eq!(CompactUint { value: 0xfa }.format_size(()), 1);
         assert_eq!(
             CompactUint { value: 0xff }.try_format(&mut u32::max_value()).unwrap(),
             [0xfd, 0xff, 0]
         );
+        assert_eq!(CompactUint { value: 0xff }.format_size(()), 3);
         let u32_cuint = CompactUint { value: 0xffff + 1 };
         assert_eq!(u32_cuint.try_format(&mut u32::max_value()).unwrap(), [0xfe, 0, 0, 1, 0]);
         let u64_cuint = CompactUint {
@@ -418,6 +501,7 @@ mod tests {
         let input: TransactionInput = parser.parse_with(2).unwrap();
         let formatted = input.try_format(&mut u32::max_value()).unwrap();
         assert_eq!(formatted, input_bytes);
+        assert_eq!(formatted.len() as u32, input.format_size(()));
     }
 
     #[test]
@@ -428,6 +512,7 @@ mod tests {
         let output: TransactionOutput = parser.parse().unwrap();
         let formatted = output.try_format(&mut u32::max_value()).unwrap();
         assert_eq!(formatted, output_bytes);
+        assert_eq!(formatted.len() as u32, output.format_size(()));
     }
 
     #[test]
@@ -437,6 +522,19 @@ mod tests {
         let transaction = crate::parser::parse_transaction(&tx_bytes).unwrap();
         let formatted = transaction.try_format(&mut u32::max_value()).unwrap();
         assert_eq!(formatted, tx_bytes);
+        assert_eq!(formatted.len() as u32, transaction.format_size(true));
+    }
+
+    #[test]
+    fn test_format_transaction_bound_fails() {
+        let raw_tx = parser::tests::sample_transaction();
+        let tx_bytes = hex::decode(&raw_tx).unwrap();
+        let transaction = crate::parser::parse_transaction(&tx_bytes).unwrap();
+        assert_ok!(transaction.try_format(&mut (tx_bytes.len() as u32)));
+        assert_err!(
+            transaction.try_format(&mut (tx_bytes.len() as u32 - 1)),
+            Error::ArithmeticUnderflow
+        );
     }
 
     #[test]

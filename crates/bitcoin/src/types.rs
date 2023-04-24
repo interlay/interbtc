@@ -328,6 +328,11 @@ impl Transaction {
     pub fn hash(&self) -> H256Le {
         sha256d_le(&self.try_format_with(true, &mut u32::max_value()).expect("Not bounded"))
     }
+
+    pub(crate) fn has_witness(&self) -> bool {
+        // check if any of the inputs has a witness
+        self.inputs.iter().any(|v| !v.witness.is_empty())
+    }
 }
 
 // https://en.bitcoin.it/wiki/NLockTime
@@ -583,8 +588,9 @@ impl H256Le {
         sha256d_le(&self.to_bytes_le())
     }
 
-    pub(crate) fn len(&self) -> usize {
-        self.content.len()
+    #[inline]
+    pub(crate) const fn len_bytes() -> usize {
+        32
     }
 }
 

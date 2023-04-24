@@ -69,10 +69,10 @@ impl Script {
             && self.bytes[22] == OpCode::OpEqual as u8
     }
 
-    pub fn append<T: TryFormat<U>, U>(&mut self, value: T) {
+    pub fn append<T: TryFormat<U>, U: Default>(&mut self, value: T) {
         self.bytes.extend(
             &value
-                .try_format(&mut value.format_size())
+                .try_format(&mut value.format_size(Default::default()))
                 .expect("Length bound should be sufficient"),
         )
     }
