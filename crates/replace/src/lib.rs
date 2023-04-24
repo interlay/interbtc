@@ -267,7 +267,7 @@ pub mod pallet {
         /// * 'merkle_proof' - the merkle root of the block
         /// * `raw_tx` - the transaction id in bytes
         #[pallet::call_index(3)]
-        #[pallet::weight(<T as Config>::WeightInfo::execute_replace())]
+        #[pallet::weight(<T as Config>::WeightInfo::execute_pending_replace().max(<T as Config>::WeightInfo::execute_cancelled_replace()))]
         #[transactional]
         pub fn execute_replace(
             origin: OriginFor<T>,

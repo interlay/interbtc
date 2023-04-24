@@ -1112,7 +1112,7 @@ pub use replace::{Event as ReplaceEvent, ReplaceRequest};
 
 impl replace::Config for Runtime {
     type RuntimeEvent = RuntimeEvent;
-    type WeightInfo = ();
+    type WeightInfo = weights::replace::WeightInfo<Runtime>;
 }
 
 pub use nomination::Event as NominationEvent;
@@ -1318,6 +1318,7 @@ mod benches {
         [cumulus_pallet_xcmp_queue, XcmpQueue]
         [pallet_xcm, PolkadotXcm]
         [frame_system, frame_system_benchmarking::Pallet::<Runtime>]
+        [replace, Replace]
     );
 }
 // [orml_tokens, runtime_common::benchmarking::orml_tokens::Pallet::<Runtime>]
