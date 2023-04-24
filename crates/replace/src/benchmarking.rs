@@ -94,7 +94,7 @@ fn mine_blocks<T: crate::Config>(end_height: u32) {
             .unwrap();
         prev_hash = block.header.hash;
 
-        BtcRelay::<T>::_store_block_header(&relayer_id, block.header).unwrap();
+        BtcRelay::<T>::_store_block_header(&relayer_id, block.header, u32::MAX).unwrap();
     }
 }
 
@@ -292,7 +292,7 @@ benchmarks! {
         let tx_id = transaction.tx_id();
         let merkle_proof = block.merkle_proof(&[tx_id]).unwrap();
 
-        BtcRelay::<T>::_store_block_header(&relayer_id, block.header).unwrap();
+        BtcRelay::<T>::_store_block_header(&relayer_id, block.header, u32::MAX).unwrap();
         Security::<T>::set_active_block_number(Security::<T>::active_block_number() + BtcRelay::<T>::parachain_confirmations() + 1u32.into());
 
     }: _(RawOrigin::Signed(old_vault_id.account_id), replace_id, merkle_proof, transaction)

@@ -55,7 +55,8 @@ fn integration_test_submit_block_headers_and_verify_transaction_inclusion() {
 
             // submit block hashes
             assert_ok!(RuntimeCall::BTCRelay(BTCRelayCall::store_block_header {
-                block_header: block.get_block_header()
+                block_header: block.get_block_header(),
+                reorg_bound: 10u32,
             })
             .dispatch(origin_of(account_of(ALICE))));
 
@@ -70,21 +71,11 @@ fn integration_test_submit_block_headers_and_verify_transaction_inclusion() {
                 let txid = tx.get_txid();
                 let merkle_proof = tx.get_merkle_proof();
                 if block.height <= current_height - CONFIRMATIONS + 1 {
-                    assert_ok!(RuntimeCall::BTCRelay(BTCRelayCall::verify_transaction_inclusion {
-                        tx_id: txid,
-                        merkle_proof,
-                        confirmations: None,
-                    })
-                    .dispatch(origin_of(account_of(ALICE))));
+                    assert_ok!(BTCRelayPallet::_verify_transaction_inclusion(txid, merkle_proof, None));
                 } else {
                     // expect to fail due to insufficient confirmations
                     assert_noop!(
-                        RuntimeCall::BTCRelay(BTCRelayCall::verify_transaction_inclusion {
-                            tx_id: txid,
-                            merkle_proof,
-                            confirmations: None,
-                        })
-                        .dispatch(origin_of(account_of(ALICE))),
+                        BTCRelayPallet::_verify_transaction_inclusion(txid, merkle_proof, None),
                         BTCRelayError::BitcoinConfirmations
                     );
                 }
@@ -128,7 +119,11 @@ fn integration_test_submit_fork_headers() {
         for (index, header) in test_data.iter().enumerate().skip(1).take(NUM_FORK_HEADERS as usize) {
             SecurityPallet::set_active_block_number(index as u32);
 
-            assert_ok!(BTCRelayPallet::_store_block_header(&account_of(ALICE), header.clone()));
+            assert_ok!(BTCRelayPallet::_store_block_header(
+                &account_of(ALICE),
+                header.clone(),
+                10u32
+            ));
             assert_store_main_chain_header_event(index as u32, header.hash, account_of(ALICE));
         }
 
@@ -137,7 +132,11 @@ fn integration_test_submit_fork_headers() {
             SecurityPallet::set_active_block_number(index as u32);
             let height: u32 = index as u32 - NUM_FORK_HEADERS;
 
-            assert_ok!(BTCRelayPallet::_store_block_header(&account_of(ALICE), header.clone()));
+            assert_ok!(BTCRelayPallet::_store_block_header(
+                &account_of(ALICE),
+                header.clone(),
+                10u32
+            ));
 
             // depending on the height and header, we expect different events and chain state
             match height {

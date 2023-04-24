@@ -59,7 +59,10 @@ use frame_support::{
 };
 use frame_system::ensure_signed;
 use sp_core::{H256, U256};
-use sp_runtime::traits::{CheckedAdd, CheckedDiv, CheckedSub, One};
+use sp_runtime::{
+    traits::{CheckedAdd, CheckedDiv, CheckedSub, One, Zero},
+    Saturating,
+};
 use sp_std::{
     convert::{TryFrom, TryInto},
     prelude::*,
@@ -112,24 +115,13 @@ pub mod pallet {
         /// * `block_header` - Bitcoin block header.
         /// * `block_height` - starting Bitcoin block height of the submitted block header.
         ///
-        /// # <weight>
-        /// - Storage Reads:
-        /// 	- One storage read to check that parachain is not shutdown. O(1)
-        /// 	- One storage read to check if relayer authorization is disabled. O(1)
-        /// 	- One storage read to check if relayer is authorized. O(1)
-        /// - Storage Writes:
-        ///     - One storage write to store block hash. O(1)
-        ///     - One storage write to store block header. O(1)
-        /// 	- One storage write to initialize main chain. O(1)
-        ///     - One storage write to store best block hash. O(1)
-        ///     - One storage write to store best block height. O(1)
-        /// - Events:
-        /// 	- One event for initialization.
-        ///
-        /// Total Complexity: O(1)
-        /// # </weight>
+        /// ## Complexity
+        /// - O(1)
         #[pallet::call_index(0)]
-        #[pallet::weight(<T as Config>::WeightInfo::initialize())]
+        #[pallet::weight((
+            <T as Config>::WeightInfo::initialize(),
+            DispatchClass::Operational
+        ))]
         #[transactional]
         pub fn initialize(
             origin: OriginFor<T>,
@@ -151,130 +143,26 @@ pub mod pallet {
         ///
         /// * `block_header` - Bitcoin block header.
         ///
-        /// # <weight>
-        /// Key: C (len of chains), P (len of positions)
-        /// - Storage Reads:
-        /// 	- One storage read to check that parachain is not shutdown. O(1)
-        /// 	- One storage read to check if relayer authorization is disabled. O(1)
-        /// 	- One storage read to check if relayer is authorized. O(1)
-        /// 	- One storage read to check if block header is stored. O(1)
-        /// 	- One storage read to retrieve parent block hash. O(1)
-        /// 	- One storage read to check if difficulty check is disabled. O(1)
-        /// 	- One storage read to retrieve last re-target. O(1)
-        /// 	- One storage read to retrieve all Chains. O(C)
-        /// - Storage Writes:
-        ///     - One storage write to store block hash. O(1)
-        ///     - One storage write to store block header. O(1)
-        /// 	- One storage mutate to extend main chain. O(1)
-        ///     - One storage write to store best block hash. O(1)
-        ///     - One storage write to store best block height. O(1)
-        /// - Notable Computation:
-        /// 	- O(P) sort to reorg chains.
-        /// - Events:
-        /// 	- One event for block stored (fork or extension).
-        ///
-        /// Total Complexity: O(C + P)
-        /// # </weight>
+        /// ## Complexity
+        /// - `O(R)` where `R` is the number of reorgs
         #[pallet::call_index(1)]
-        #[pallet::weight(<T as Config>::WeightInfo::store_block_header())]
+        #[pallet::weight((
+            <T as Config>::WeightInfo::store_block_header(*reorg_bound),
+            DispatchClass::Operational
+        ))]
         #[transactional]
-        pub fn store_block_header(origin: OriginFor<T>, mut block_header: BlockHeader) -> DispatchResultWithPostInfo {
+        pub fn store_block_header(
+            origin: OriginFor<T>,
+            mut block_header: BlockHeader,
+            reorg_bound: u32,
+        ) -> DispatchResultWithPostInfo {
             let relayer = ensure_signed(origin)?;
 
             Self::_validate_block_header(&mut block_header)?;
-            Self::_store_block_header(&relayer, block_header)?;
+            Self::_store_block_header(&relayer, block_header, reorg_bound)?;
 
             // don't take tx fees on success
             Ok(Pays::No.into())
-        }
-
-        /// Verifies the inclusion of `tx_id` into the relay, and validates the given Bitcoin transaction, according
-        /// to the supported transaction format (see <https://spec.interlay.io/intro/accepted-format.html>)
-        ///
-        /// # Arguments
-        ///
-        /// * `merkle_proof` - The merkle proof as returned by bitcoin `gettxoutproof`
-        /// * `confirmations` - The number of confirmations needed to accept the proof. If `none`, the value stored in
-        ///   the StableBitcoinConfirmations storage item is used.
-        /// * `transaction` - The Bitcoin transaction
-        /// * `expected_btc` - expected amount of BTC (satoshis) sent to the recipient
-        /// * `recipient_btc_address` - 20 byte Bitcoin address of recipient of the BTC in the 1st  / payment UTXO
-        /// * `op_return_id` - 32 byte hash identifier expected in OP_RETURN (replay protection)
-        #[pallet::call_index(2)]
-        #[pallet::weight(<T as Config>::WeightInfo::verify_and_validate_transaction())]
-        #[transactional]
-        pub fn verify_and_validate_transaction(
-            origin: OriginFor<T>,
-            merkle_proof: MerkleProof,
-            confirmations: Option<u32>,
-            transaction: Transaction,
-            expected_btc: Value,
-            recipient_btc_address: BtcAddress,
-            op_return_id: Option<H256>,
-        ) -> DispatchResultWithPostInfo {
-            let _ = ensure_signed(origin)?;
-            Self::_verify_transaction_inclusion(transaction.tx_id(), merkle_proof, confirmations)?;
-            Self::_validate_transaction(transaction, expected_btc, recipient_btc_address, op_return_id)?;
-            Ok(().into())
-        }
-
-        /// Verifies the inclusion of `tx_id`
-        ///
-        /// # Arguments
-        ///
-        /// * `tx_id` - The hash of the transaction to check for
-        /// * `merkle_proof` - The merkle proof as returned by bitcoin `gettxoutproof`
-        /// * `confirmations` - The number of confirmations needed to accept the proof. If `none`, the value stored in
-        ///   the `StableBitcoinConfirmations` storage item is used.
-        ///
-        /// # <weight>
-        /// Key: C (len of chains), P (len of positions)
-        /// - Storage Reads:
-        /// 	- One storage read to check if inclusion check is disabled. O(1)
-        /// 	- One storage read to retrieve best block height. O(1)
-        /// 	- One storage read to check if transaction is in active fork. O(1)
-        /// 	- One storage read to retrieve block header. O(1)
-        /// 	- One storage read to check that parachain is not shutdown. O(1)
-        /// 	- One storage read to check stable bitcoin confirmations. O(1)
-        /// 	- One storage read to check stable parachain confirmations. O(1)
-        /// # </weight>
-        #[pallet::call_index(3)]
-        #[pallet::weight(<T as Config>::WeightInfo::verify_transaction_inclusion())]
-        #[transactional]
-        pub fn verify_transaction_inclusion(
-            origin: OriginFor<T>,
-            tx_id: H256Le,
-            merkle_proof: MerkleProof,
-            confirmations: Option<u32>,
-        ) -> DispatchResultWithPostInfo {
-            let _ = ensure_signed(origin)?;
-            Self::_verify_transaction_inclusion(tx_id, merkle_proof, confirmations)?;
-            Ok(().into())
-        }
-
-        /// Validates a given Bitcoin transaction, according to the supported transaction
-        /// format (see <https://spec.interlay.io/intro/accepted-format.html>)
-        /// This DOES NOT check if the transaction is included in a block, nor does it guarantee that the
-        /// transaction is fully valid according to the consensus (needs full node).
-        ///
-        /// # Arguments
-        /// * `transaction` - Bitcoin transaction
-        /// * `expected_btc` - expected amount of BTC (satoshis) sent to the recipient
-        /// * `recipient_btc_address` - expected Bitcoin address of recipient (p2sh, p2pkh, p2wpkh)
-        /// * `op_return_id` - 32 byte hash identifier expected in OP_RETURN (replay protection)
-        #[pallet::call_index(4)]
-        #[pallet::weight(<T as Config>::WeightInfo::validate_transaction())]
-        #[transactional]
-        pub fn validate_transaction(
-            origin: OriginFor<T>,
-            transaction: Transaction,
-            expected_btc: Value,
-            recipient_btc_address: BtcAddress,
-            op_return_id: Option<H256>,
-        ) -> DispatchResultWithPostInfo {
-            let _ = ensure_signed(origin)?;
-            Self::_validate_transaction(transaction, expected_btc, recipient_btc_address, op_return_id)?;
-            Ok(().into())
         }
     }
 
@@ -556,7 +444,11 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
-    pub fn _store_block_header(relayer: &T::AccountId, basic_block_header: BlockHeader) -> DispatchResult {
+    pub fn _store_block_header(
+        relayer: &T::AccountId,
+        basic_block_header: BlockHeader,
+        reorg_bound: u32,
+    ) -> DispatchResult {
         let prev_header = Self::get_block_header_from_hash(basic_block_header.hash_prev_block)?;
 
         // check if the prev block is the highest block in the chain
@@ -593,7 +485,7 @@ impl<T: Config> Pallet<T> {
 
             if blockchain.chain_id != MAIN_CHAIN_ID {
                 // if we added a block to a fork, we may need to reorder the chains
-                Self::reorganize_chains(&blockchain)?;
+                Self::reorganize_chains(&blockchain, reorg_bound)?;
             } else {
                 Self::update_chain_head(&basic_block_header, current_block_height);
             }
@@ -1222,6 +1114,7 @@ impl<T: Config> Pallet<T> {
             Err(_) => None,
         })
     }
+
     /// Checks if a newly inserted fork results in an update to the sorted
     /// Chains mapping. This happens when the max height of the fork is greater
     /// than the max height of the previous element in the Chains mapping.
@@ -1229,7 +1122,7 @@ impl<T: Config> Pallet<T> {
     /// # Arguments
     ///
     /// * `fork` - the blockchain element that may cause a reorg
-    fn reorganize_chains(fork: &BlockChain) -> Result<(), DispatchError> {
+    fn reorganize_chains(fork: &BlockChain, mut reorg_bound: u32) -> Result<(), DispatchError> {
         // get the position of the fork in Chains
         let fork_position: u32 = Self::get_chain_position_from_chain_id(fork.chain_id)?;
         // check if the previous element in Chains has a lower block_height
@@ -1238,8 +1131,11 @@ impl<T: Config> Pallet<T> {
 
         // swap elements as long as previous block height is smaller
         while current_position > 0 {
+            reorg_bound.saturating_dec();
+            ensure!(!reorg_bound.is_zero(), Error::<T>::ArithmeticUnderflow);
+
             // get the previous position
-            let prev_position = current_position - 1;
+            let prev_position = current_position.saturating_sub(1);
             // get the blockchain id
             let prev_blockchain_id = if let Ok(chain_id) = Self::get_chain_id_from_position(prev_position) {
                 chain_id
@@ -1259,13 +1155,13 @@ impl<T: Config> Pallet<T> {
                     // and the current height is more than the
                     // STABLE_TRANSACTION_CONFIRMATIONS ahead
                     // we are swapping the main chain
-                    if prev_height + Self::get_stable_transaction_confirmations() <= current_height {
+                    if prev_height.saturating_add(Self::get_stable_transaction_confirmations()) <= current_height {
                         // Swap the mainchain. As an optimization, this function returns the
                         // new best block hash and its height
                         let (new_chain_tip_hash, new_chain_tip_height) = Self::swap_main_blockchain(&fork)?;
 
                         // announce the new main chain
-                        let fork_depth = fork.max_height - fork.start_height;
+                        let fork_depth = fork.max_height.saturating_sub(fork.start_height);
                         Self::deposit_event(Event::<T>::ChainReorg {
                             new_chain_tip_hash,
                             new_chain_tip_height,
