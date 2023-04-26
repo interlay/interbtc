@@ -654,6 +654,7 @@ parameter_type_with_key! {
     };
 }
 
+// TODO!: Set `OnSlash`, and Pre/Post hooks before the lending launch on interlay
 pub struct CurrencyHooks<T>(PhantomData<T>);
 impl<T: orml_tokens::Config> MutationHooks<T::AccountId, T::CurrencyId, T::Balance> for CurrencyHooks<T>
 where

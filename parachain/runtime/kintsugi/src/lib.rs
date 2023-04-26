@@ -23,6 +23,7 @@ use frame_system::{
     limits::{BlockLength, BlockWeights},
     EnsureRoot, RawOrigin,
 };
+use loans::{OnSlashHook, PostDeposit, PostTransfer, PreDeposit, PreTransfer};
 use orml_asset_registry::SequentialId;
 use orml_traits::{currency::MutationHooks, parameter_type_with_key};
 use pallet_transaction_payment::{Multiplier, TargetedFeeAdjustment};
@@ -95,7 +96,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     spec_name: create_runtime_str!("kintsugi-parachain"),
     impl_name: create_runtime_str!("kintsugi-parachain"),
     authoring_version: 1,
-    spec_version: 1023002,
+    spec_version: 1023003,
     impl_version: 1,
     transaction_version: 3, // added preimage
     apis: RUNTIME_API_VERSIONS,
@@ -666,16 +667,17 @@ parameter_type_with_key! {
 }
 
 pub struct CurrencyHooks<T>(PhantomData<T>);
-impl<T: orml_tokens::Config> MutationHooks<T::AccountId, T::CurrencyId, T::Balance> for CurrencyHooks<T>
+impl<T: orml_tokens::Config + loans::Config>
+    MutationHooks<T::AccountId, T::CurrencyId, <T as currency::Config>::Balance> for CurrencyHooks<T>
 where
     T::AccountId: From<sp_runtime::AccountId32>,
 {
     type OnDust = orml_tokens::TransferDust<T, FeeAccount>;
-    type OnSlash = ();
-    type PreDeposit = ();
-    type PostDeposit = ();
-    type PreTransfer = ();
-    type PostTransfer = ();
+    type OnSlash = OnSlashHook<T>;
+    type PreDeposit = PreDeposit<T>;
+    type PostDeposit = PostDeposit<T>;
+    type PreTransfer = PreTransfer<T>;
+    type PostTransfer = PostTransfer<T>;
     type OnNewTokenAccount = ();
     type OnKilledTokenAccount = ();
 }
@@ -1276,58 +1278,8 @@ pub type UncheckedExtrinsic = generic::UncheckedExtrinsic<Address, RuntimeCall, 
 /// Extrinsic type that has already been checked.
 pub type CheckedExtrinsic = generic::CheckedExtrinsic<AccountId, RuntimeCall, SignedExtra>;
 /// Executive: handles dispatch to the various modules.
-pub type Executive = frame_executive::Executive<
-    Runtime,
-    Block,
-    frame_system::ChainContext<Runtime>,
-    Runtime,
-    AllPalletsWithSystem,
-    (
-        VersionNotifyTargetsFix, // Note: needs to be before pallet_xcm migration
-        pallet_xcm::migration::v1::MigrateToV1<Runtime>,
-        orml_asset_registry::Migration<Runtime>,
-        orml_unknown_tokens::Migration<Runtime>,
-    ),
->;
-
-/// Adds the relay chain as a subscriber for xcm version notifications. Kusama subscribed to us,
-/// but this is not reflected in our chain state due to an error in the early days of our xcm
-/// config. Add it now such that kusama will be notified of our version upgrade. Without it,
-/// transfers from kusama will no longer work.
-pub struct VersionNotifyTargetsFix;
-
-impl OnRuntimeUpgrade for VersionNotifyTargetsFix {
-    fn on_runtime_upgrade() -> Weight {
-        use crate::sp_api_hidden_includes_construct_runtime::hidden_include::StorageHasher;
-        use codec::Encode;
-        use frame_support::storage::migration::put_storage_value;
-        use xcm::VersionedMultiLocation;
-
-        let key_1 = Twox64Concat::hash(&2u32.encode());
-
-        let key_2 = Blake2_128Concat::hash(
-            &VersionedMultiLocation::V2(xcm::v2::MultiLocation::new(1, xcm::v2::Junctions::Here)).encode(),
-        );
-
-        let key = [key_1, key_2].concat();
-
-        // The 2653 below needs to match kusama.xcmPallet.versionNotifiers(2, OUR_PARA)
-        let value: (u64, u64, u32) = (2653, 0, 2);
-
-        put_storage_value(b"PolkadotXcm", b"VersionNotifyTargets", &key, value);
-
-        Default::default()
-    }
-    #[cfg(feature = "try-runtime")]
-    fn pre_upgrade() -> Result<Vec<u8>, &'static str> {
-        Ok(Vec::new())
-    }
-    #[cfg(feature = "try-runtime")]
-    fn post_upgrade(_state: Vec<u8>) -> Result<(), &'static str> {
-        // tested with chopsticks - not bothering with try-runtime check
-        Ok(())
-    }
-}
+pub type Executive =
+    frame_executive::Executive<Runtime, Block, frame_system::ChainContext<Runtime>, Runtime, AllPalletsWithSystem, ()>;
 
 #[cfg(not(feature = "disable-runtime-api"))]
 impl_runtime_apis! {
