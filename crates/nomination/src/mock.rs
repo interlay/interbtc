@@ -6,6 +6,7 @@ use frame_support::{
     traits::{ConstU32, Everything, GenesisBuild},
     PalletId,
 };
+use frame_system::EnsureRoot;
 use mocktopus::{macros::mockable, mocking::clear_mocks};
 use orml_traits::parameter_type_with_key;
 pub use primitives::{CurrencyId, CurrencyId::Token, TokenSymbol::*};
@@ -46,6 +47,7 @@ frame_support::construct_runtime!(
         Oracle: oracle::{Pallet, Call, Config<T>, Storage, Event<T>},
         Nomination: nomination::{Pallet, Call, Config, Storage, Event<T>},
         Currency: currency::{Pallet},
+        Loans: loans::{Pallet, Storage, Call, Event<T>, Config},
     }
 );
 
@@ -251,6 +253,22 @@ impl oracle::Config for Test {
     type OnExchangeRateChange = ();
     type WeightInfo = ();
     type MaxNameLength = ConstU32<255>;
+}
+
+parameter_types! {
+    pub const LoansPalletId: PalletId = PalletId(*b"par/loan");
+}
+
+impl loans::Config for Test {
+    type RuntimeEvent = RuntimeEvent;
+    type PalletId = LoansPalletId;
+    type ReserveOrigin = EnsureRoot<AccountId>;
+    type UpdateOrigin = EnsureRoot<AccountId>;
+    type WeightInfo = ();
+    type UnixTime = Timestamp;
+    type RewardAssetId = GetNativeCurrencyId;
+    type ReferenceAssetId = GetWrappedCurrencyId;
+    type OnExchangeRateChange = ();
 }
 
 impl Config for Test {

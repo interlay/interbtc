@@ -29,6 +29,7 @@ fee = { path = "../fee", default-features = false }
 oracle = { path = "../oracle", default-features = false }
 reward = { path = "../reward", default-features = false }
 staking = { path = "../staking", default-features = false }
+loans = { path = "../loans", default-features = false }
 
 primitives = { package = "interbtc-primitives", path = "../../primitives", default-features = false }
 traits = { path = "../../crates/traits", default-features = false }
@@ -69,6 +70,7 @@ std = [
   "reward/std",
   "oracle/std",
   "staking/std",
+  "loans/std",
 
   "primitives/std",
 
