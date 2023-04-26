@@ -1,6 +1,5 @@
 #!/bin/bash
 #set -euxo pipefail
-#
 
 while getopts ":r:p:" opt; do
   case $opt in
@@ -26,21 +25,18 @@ if [ -z "${pallet}" ]; then
   pallet="*"
 fi
 
-echo $runtime
-echo "${pallet}"
-
-#cargo run \
-#  --bin interbtc-parachain \
-#  --features runtime-benchmarks \
-#  --release \
-#  -- \
-#  benchmark pallet \
-#  --pallet $pallet \
-#  --extrinsic '*' \
-#  --chain $runtime \
-#  --execution=wasm \
-#  --wasm-execution=compiled \
-#  --steps 100 \
-#  --repeat 10 \
-#  --output parachain/runtime/kintsugi/src/weights/ \
-#  --template .deploy/runtime-weight-template.hbs
+cargo run \
+  --bin interbtc-parachain \
+  --features runtime-benchmarks \
+  --release \
+  -- \
+  benchmark pallet \
+  --pallet "${pallet}" \
+  --extrinsic '*' \
+  --chain "${runtime}" \
+  --execution=wasm \
+  --wasm-execution=compiled \
+  --steps 100 \
+  --repeat 10 \
+  --output parachain/runtime/kintsugi/src/weights/ \
+  --template .deploy/runtime-weight-template.hbs
