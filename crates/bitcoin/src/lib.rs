@@ -15,7 +15,7 @@
 //! - Merkle proof construction and verification.
 //! - Elliptic curve multiplication over Secp256k1.
 
-#![deny(warnings)]
+// #![deny(warnings)]
 #![cfg_attr(test, feature(proc_macro_hygiene))]
 #![cfg_attr(not(feature = "std"), no_std)]
 

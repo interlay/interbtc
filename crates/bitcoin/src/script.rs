@@ -69,12 +69,8 @@ impl Script {
             && self.bytes[22] == OpCode::OpEqual as u8
     }
 
-    pub fn append<T: TryFormat<U>, U: Default>(&mut self, value: T) {
-        self.bytes.extend(
-            &value
-                .try_format(&mut value.format_size(Default::default()))
-                .expect("Length bound should be sufficient"),
-        )
+    pub fn append<T: TryFormat>(&mut self, value: T) {
+        value.try_format(&mut self.bytes).expect("Not bounded");
     }
 
     pub fn extract_op_return_data(&self) -> Result<Vec<u8>, Error> {

@@ -319,7 +319,9 @@ pub mod benchmarks {
         let merkle_proof = block.merkle_proof(&[tx_id]).unwrap();
         assert_eq!(merkle_proof.transactions_count, transactions_count);
         assert_eq!(merkle_proof.hashes.len() as u32, h);
-        let length_bound = transaction.try_format_with(false, &mut u32::max_value()).unwrap().len() as u32;
+        let mut bytes = vec![];
+        assert_ok!(transaction.try_format(&mut bytes));
+        let length_bound = bytes.len() as u32;
 
         BtcRelay::<T>::_store_block_header(&relayer_id, block.header).unwrap();
         Security::<T>::set_active_block_number(

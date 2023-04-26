@@ -5,7 +5,7 @@ use mocktopus::macros::mockable;
 
 pub use crate::merkle::MerkleProof;
 use crate::{
-    formatter::TryFormat,
+    formatter::{BoundedWriter, TryFormat, Writer},
     merkle::MerkleTree,
     parser::{extract_address_hash_scriptsig, extract_address_hash_witness, parse_block_header},
     utils::{log2, reverse_endianness, sha256d_le},
@@ -190,7 +190,9 @@ pub struct BlockHeader {
 impl BlockHeader {
     /// Returns the hash of the block header using Bitcoin's double sha256
     pub fn hash(&self) -> Result<H256Le, Error> {
-        Ok(sha256d_le(&self.try_format(&mut 80)?))
+        let mut bytes = vec![];
+        self.try_format(&mut bytes)?;
+        Ok(sha256d_le(&bytes))
     }
 
     pub fn ensure_version(&self) -> Result<(), Error> {
@@ -316,17 +318,30 @@ pub struct Transaction {
 
 #[cfg_attr(test, mockable)]
 impl Transaction {
-    pub fn tx_id(&self) -> H256Le {
-        sha256d_le(&self.try_format_with(false, &mut u32::max_value()).expect("Not bounded"))
+    pub(crate) fn format_no_witness<W: Writer>(&self, w: &mut W) -> Result<(), Error> {
+        self.version.try_format(w)?;
+        self.inputs.try_format(w)?;
+        self.outputs.try_format(w)?;
+        self.lock_at.try_format(w)?;
+        Ok(())
     }
 
     pub fn tx_id_bounded(&self, length_bound: u32) -> Result<H256Le, Error> {
-        let bytes = self.try_format_with(false, &mut length_bound.clone())?;
-        Ok(sha256d_le(&bytes))
+        let mut bytes = BoundedWriter::new(length_bound);
+        self.format_no_witness(&mut bytes)?;
+        Ok(sha256d_le(&bytes.result()))
+    }
+
+    pub fn tx_id(&self) -> H256Le {
+        let mut bytes = vec![];
+        self.format_no_witness(&mut bytes).expect("Not bounded");
+        sha256d_le(&bytes)
     }
 
     pub fn hash(&self) -> H256Le {
-        sha256d_le(&self.try_format_with(true, &mut u32::max_value()).expect("Not bounded"))
+        let mut bytes = vec![];
+        self.try_format(&mut bytes).expect("Not bounded");
+        sha256d_le(&bytes)
     }
 
     pub(crate) fn has_witness(&self) -> bool {
@@ -586,11 +601,6 @@ impl H256Le {
     /// Hashes the value a single time using sha256
     pub fn sha256d(&self) -> Self {
         sha256d_le(&self.to_bytes_le())
-    }
-
-    #[inline]
-    pub(crate) const fn len_bytes() -> usize {
-        32
     }
 }
 
@@ -1011,7 +1021,8 @@ mod tests {
 
         // FIXME: flag_bits incorrect
         let proof = block.merkle_proof(&[transaction.tx_id()]).unwrap();
-        let bytes = proof.try_format(&mut u32::max_value()).unwrap();
+        let mut bytes = vec![];
+        proof.try_format(&mut bytes).unwrap();
         MerkleProof::parse(&bytes).unwrap();
     }
 
