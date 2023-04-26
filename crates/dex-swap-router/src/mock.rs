@@ -34,6 +34,7 @@ parameter_types! {
     pub const MaxReserves: u32 = 50;
     pub const MaxLocks:u32 = 50;
     pub const MinimumPeriod: Moment = SLOT_DURATION / 2;
+    pub const PoolCurrencyLimit: u32 = 10;
     pub const PoolCurrencySymbolLimit: u32 = 50;
 }
 
@@ -172,6 +173,7 @@ impl dex_stable::Config for Test {
     type EnsurePoolAsset = EnsurePoolAssetImpl<Tokens>;
     type LpGenerate = PoolLpGenerate;
     type TimeProvider = Timestamp;
+    type PoolCurrencyLimit = PoolCurrencyLimit;
     type PoolCurrencySymbolLimit = PoolCurrencySymbolLimit;
     type PalletId = DexStablePalletId;
     type WeightInfo = ();
