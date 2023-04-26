@@ -191,7 +191,7 @@ fn store_block_header_on_mainchain_succeeds() {
         BTCRelay::get_block_chain_from_id.mock_safe(move |_: u32| MockResult::Return(Ok(prev_blockchain.clone())));
 
         let block_header_hash = block_header.hash;
-        assert_ok!(BTCRelay::_store_block_header(&3, rich_header.block_header, u32::MAX));
+        assert_ok!(BTCRelay::_store_block_header(&3, rich_header.block_header));
 
         let store_main_event = TestEvent::BTCRelay(Event::StoreMainChainHeader {
             block_height: block_height + 1,
@@ -229,7 +229,7 @@ fn store_block_header_on_fork_succeeds() {
         // simulate that initialize has been called
         BTCRelay::increment_chain_counter().unwrap();
 
-        assert_ok!(BTCRelay::_store_block_header(&3, block_header, u32::MAX));
+        assert_ok!(BTCRelay::_store_block_header(&3, block_header));
 
         let store_fork_event = TestEvent::BTCRelay(Event::StoreForkHeader {
             chain_id,
@@ -407,7 +407,7 @@ mod store_block_header_tests {
 
     fn store_header_and_check_invariants(block: &BlockHeader) {
         check_store_block_header_invariants();
-        assert_ok!(BTCRelay::_store_block_header(&3, block.clone(), u32::MAX));
+        assert_ok!(BTCRelay::_store_block_header(&3, block.clone()));
         Security::set_active_block_number(
             ext::security::active_block_number::<Test>() + BTCRelay::parachain_confirmations(),
         );
@@ -591,7 +591,7 @@ mod store_block_header_tests {
 fn store_block_header_no_prev_block_fails() {
     run_test(|| {
         assert_err!(
-            BTCRelay::_store_block_header(&3, sample_block_header(), u32::MAX),
+            BTCRelay::_store_block_header(&3, sample_block_header()),
             TestError::BlockNotFound,
         );
     })
@@ -606,10 +606,7 @@ fn check_and_do_reorg_fork_id_not_found() {
 
         let blockchain = get_empty_block_chain_from_chain_id_and_height(chain_id, start_height, block_height);
 
-        assert_err!(
-            BTCRelay::reorganize_chains(&blockchain, u32::MAX),
-            TestError::ForkIdNotFound
-        );
+        assert_err!(BTCRelay::reorganize_chains(&blockchain), TestError::ForkIdNotFound);
     })
 }
 
@@ -648,7 +645,7 @@ fn check_and_do_reorg_swap_fork_position() {
 
         assert_eq!(current_position, fork_position);
 
-        assert_ok!(BTCRelay::reorganize_chains(&fork, u32::MAX));
+        assert_ok!(BTCRelay::reorganize_chains(&fork));
         // assert that positions have been swapped
         let new_position = BTCRelay::get_chain_position_from_chain_id(fork_chain_id).unwrap();
         assert_eq!(new_position, swap_position);
@@ -691,7 +688,7 @@ fn check_and_do_reorg_new_fork_is_main_chain() {
 
         BTCRelay::swap_main_blockchain.mock_safe(move |_| MockResult::Return(Ok((best_block_hash, fork_block_height))));
 
-        assert_ok!(BTCRelay::reorganize_chains(&fork, u32::MAX));
+        assert_ok!(BTCRelay::reorganize_chains(&fork));
         // assert that the new main chain is set
         let reorg_event = TestEvent::BTCRelay(Event::ChainReorg {
             new_chain_tip_hash: best_block_hash,
@@ -733,7 +730,7 @@ fn check_and_do_reorg_new_fork_below_stable_transaction_confirmations() {
 
         BTCRelay::swap_main_blockchain.mock_safe(move |_| MockResult::Return(Ok((best_block_hash, fork_block_height))));
 
-        assert_ok!(BTCRelay::reorganize_chains(&fork, u32::MAX));
+        assert_ok!(BTCRelay::reorganize_chains(&fork));
         // assert that the fork has not overtaken the main chain
         let ahead_event = TestEvent::BTCRelay(Event::ForkAheadOfMainChain {
             main_chain_height: main_block_height,
@@ -1524,7 +1521,7 @@ fn store_generated_block_headers() {
                 .with_previous_hash(last_block.header.hash)
                 .mine(target)
                 .unwrap();
-            assert_ok!(BTCRelay::_store_block_header(&3, last_block.header, u32::MAX));
+            assert_ok!(BTCRelay::_store_block_header(&3, last_block.header));
         }
         let main_chain: BlockChain = BTCRelay::get_block_chain_from_id(crate::MAIN_CHAIN_ID).unwrap();
         assert_eq!(main_chain.start_height, 0);
@@ -1884,14 +1881,11 @@ fn test_check_and_do_reorg() {
 
         // we should skip empty `Chains`, this can occur if the
         // previous index is accidentally deleted
-        assert_ok!(BTCRelay::reorganize_chains(
-            &BlockChain {
-                chain_id: 7,
-                start_height: 1_897_317,
-                max_height: 1_897_910,
-            },
-            u32::MAX
-        ));
+        assert_ok!(BTCRelay::reorganize_chains(&BlockChain {
+            chain_id: 7,
+            start_height: 1_897_317,
+            max_height: 1_897_910,
+        }));
     })
 }
 

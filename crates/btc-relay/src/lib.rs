@@ -59,10 +59,7 @@ use frame_support::{
 };
 use frame_system::ensure_signed;
 use sp_core::{H256, U256};
-use sp_runtime::{
-    traits::{CheckedAdd, CheckedDiv, CheckedSub, One, Zero},
-    Saturating,
-};
+use sp_runtime::traits::{CheckedAdd, CheckedDiv, CheckedSub, One};
 use sp_std::{
     convert::{TryFrom, TryInto},
     prelude::*,
@@ -144,22 +141,38 @@ pub mod pallet {
         /// * `block_header` - Bitcoin block header.
         ///
         /// ## Complexity
-        /// - `O(R)` where `R` is the number of reorgs
+        /// - `O(F)` where `F` is the number of forks
         #[pallet::call_index(1)]
         #[pallet::weight((
-            <T as Config>::WeightInfo::store_block_header(*reorg_bound),
+            {
+                let f = *fork_bound;
+                <T as Config>::WeightInfo::store_block_header()
+                    .max(<T as Config>::WeightInfo::store_block_header_new_fork_sorted(f))
+                    .max(<T as Config>::WeightInfo::store_block_header_new_fork_unsorted(f))
+                    .max(<T as Config>::WeightInfo::store_block_header_reorganize_chains(f))
+            },
             DispatchClass::Operational
         ))]
         #[transactional]
         pub fn store_block_header(
             origin: OriginFor<T>,
             mut block_header: BlockHeader,
-            reorg_bound: u32,
+            fork_bound: u32,
         ) -> DispatchResultWithPostInfo {
             let relayer = ensure_signed(origin)?;
 
+            // the worst-case complexity is always dictated by the number of chains
+            // TODO: as the growth of `Chains` is unbounded this extrinsic may become
+            // prohibitively expensive, we should remove old forks from storage
+            ensure!(
+                // ideally we would compare the number of entries in `Chains` here but
+                // since we never delete from that this should be equal to the length
+                Self::get_chain_counter().saturating_add(1) <= fork_bound,
+                Error::<T>::WrongForkBound
+            );
+
             Self::_validate_block_header(&mut block_header)?;
-            Self::_store_block_header(&relayer, block_header, reorg_bound)?;
+            Self::_store_block_header(&relayer, block_header)?;
 
             // don't take tx fees on success
             Ok(Pays::No.into())
@@ -297,6 +310,8 @@ pub mod pallet {
         InvalidOpReturnTransaction,
         /// Invalid compact value in header
         InvalidCompact,
+        /// Wrong fork bound, should be higher
+        WrongForkBound,
     }
 
     /// Store Bitcoin block headers
@@ -308,6 +323,7 @@ pub mod pallet {
     /// The first index into this mapping (0) is considered to be the longest chain. The value
     /// of the entry is the index into `ChainsIndex` to retrieve the `BlockChain`.
     #[pallet::storage]
+    // TODO: migrate this to sorted vec
     pub(super) type Chains<T: Config> = StorageMap<_, Blake2_128Concat, u32, u32>;
 
     /// Auxiliary mapping of chains ids to `BlockChain` entries. The first index into this
@@ -444,11 +460,7 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
-    pub fn _store_block_header(
-        relayer: &T::AccountId,
-        basic_block_header: BlockHeader,
-        reorg_bound: u32,
-    ) -> DispatchResult {
+    pub fn _store_block_header(relayer: &T::AccountId, basic_block_header: BlockHeader) -> DispatchResult {
         let prev_header = Self::get_block_header_from_hash(basic_block_header.hash_prev_block)?;
 
         // check if the prev block is the highest block in the chain
@@ -479,13 +491,9 @@ impl<T: Config> Pallet<T> {
             // extend the current chain
             let blockchain = Self::extend_blockchain(current_block_height, &basic_block_header, prev_blockchain)?;
 
-            // Update the pointer to BlockChain in ChainsIndex
-            // todo: remove - this is already done in extend_blockchain
-            ChainsIndex::<T>::mutate(blockchain.chain_id, |_b| &blockchain);
-
             if blockchain.chain_id != MAIN_CHAIN_ID {
                 // if we added a block to a fork, we may need to reorder the chains
-                Self::reorganize_chains(&blockchain, reorg_bound)?;
+                Self::reorganize_chains(&blockchain)?;
             } else {
                 Self::update_chain_head(&basic_block_header, current_block_height);
             }
@@ -1122,7 +1130,7 @@ impl<T: Config> Pallet<T> {
     /// # Arguments
     ///
     /// * `fork` - the blockchain element that may cause a reorg
-    fn reorganize_chains(fork: &BlockChain, mut reorg_bound: u32) -> Result<(), DispatchError> {
+    fn reorganize_chains(fork: &BlockChain) -> Result<(), DispatchError> {
         // get the position of the fork in Chains
         let fork_position: u32 = Self::get_chain_position_from_chain_id(fork.chain_id)?;
         // check if the previous element in Chains has a lower block_height
@@ -1131,9 +1139,6 @@ impl<T: Config> Pallet<T> {
 
         // swap elements as long as previous block height is smaller
         while current_position > 0 {
-            reorg_bound.saturating_dec();
-            ensure!(!reorg_bound.is_zero(), Error::<T>::ArithmeticUnderflow);
-
             // get the previous position
             let prev_position = current_position.saturating_sub(1);
             // get the blockchain id
@@ -1199,8 +1204,8 @@ impl<T: Config> Pallet<T> {
     /// * `blockchain` - new blockchain element
     fn insert_sorted(blockchain: &BlockChain) -> Result<(), DispatchError> {
         // get a sorted vector over the Chains elements
-        // NOTE: LinkedStorageMap iterators are not sorted over the keys
         let mut chains = Chains::<T>::iter().collect::<Vec<(u32, u32)>>();
+        // TODO: can we optimize this? i.e. store sorted vec
         chains.sort_by_key(|k| k.0);
 
         let max_chain_element = chains.len() as u32;
@@ -1216,9 +1221,11 @@ impl<T: Config> Pallet<T> {
             // get the height of the current chain_id
             let curr_height = Self::get_block_chain_from_id(*curr_chain_id)?.max_height;
 
-            // if the height of the current blockchain is lower than
-            // the new blockchain, it should be inserted at that position
-            if curr_height <= blockchain.max_height {
+            // if the height of the new blockchain is higher than
+            // the current blockchain, it should be inserted at that position
+            // NOTE: inequality should be gt to prevent swapping chains
+            // at the same height
+            if blockchain.max_height > curr_height {
                 position_blockchain = *curr_position;
                 break;
             };
@@ -1226,16 +1233,11 @@ impl<T: Config> Pallet<T> {
 
         // insert the new fork into the chains element
         Self::set_chain_from_position_and_id(max_chain_element, blockchain.chain_id);
+
         // starting from the last element swap the positions until
         // the new blockchain is at the position_blockchain
-        for curr_position in (position_blockchain + 1..max_chain_element + 1).rev() {
-            // TODO: this is a useless check
-            // stop when the blockchain element is at it's
-            // designated position
-            if curr_position < position_blockchain {
-                break;
-            };
-            let prev_position = curr_position - 1;
+        for prev_position in (position_blockchain..max_chain_element).rev() {
+            let curr_position = prev_position.saturating_add(1);
             // swap the current element with the previous one
             Self::swap_chain(curr_position, prev_position);
         }
@@ -1276,6 +1278,7 @@ impl<T: Config> Pallet<T> {
     /// to flag potentially invalid blocks.
     ///
     /// # Arguments
+    ///
     /// * `para_height` - height of the parachain when the block was stored
     pub fn check_parachain_confirmations(para_height: T::BlockNumber) -> Result<(), DispatchError> {
         let current_height = ext::security::active_block_number::<T>();
