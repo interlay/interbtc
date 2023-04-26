@@ -23,7 +23,7 @@ pub type AccountId<T> = <T as frame_system::Config>::AccountId;
 pub type VaultId<T> = primitives::VaultId<AccountId<T>, currency::CurrencyId<T>>;
 pub use currency::CurrencyId;
 use primitives::{Balance, Nonce};
-use xcm::{latest::MultiLocation, v2::Instruction};
+use xcm::latest::{Instruction, MultiLocation, Weight};
 use xcm_executor::traits::ShouldExecute;
 
 fn native_currency_id<T: currency::Config>() -> CurrencyId<T> {
@@ -65,12 +65,12 @@ pub struct AndBarrier<T: ShouldExecute, U: ShouldExecute>(PhantomData<(T, U)>);
 impl<T: ShouldExecute, U: ShouldExecute> ShouldExecute for AndBarrier<T, U> {
     fn should_execute<Call>(
         origin: &MultiLocation,
-        message: &mut xcm::v2::Xcm<Call>,
-        max_weight: u64,
-        weight_credit: &mut u64,
+        instructions: &mut [Instruction<Call>],
+        max_weight: Weight,
+        weight_credit: &mut Weight,
     ) -> Result<(), ()> {
-        T::should_execute(origin, message, max_weight, weight_credit)?;
-        U::should_execute(origin, message, max_weight, weight_credit)?;
+        T::should_execute(origin, instructions, max_weight, weight_credit)?;
+        U::should_execute(origin, instructions, max_weight, weight_credit)?;
         // only if both returned ok, we return ok
         Ok(())
     }
@@ -81,19 +81,17 @@ pub struct Transactless<T: ShouldExecute>(PhantomData<T>);
 impl<T: ShouldExecute> ShouldExecute for Transactless<T> {
     fn should_execute<Call>(
         origin: &MultiLocation,
-        message: &mut xcm::v2::Xcm<Call>,
-        max_weight: u64,
-        weight_credit: &mut u64,
+        instructions: &mut [Instruction<Call>],
+        max_weight: Weight,
+        weight_credit: &mut Weight,
     ) -> Result<(), ()> {
-        let xcm::v2::Xcm(ref instructions) = message;
-
         // filter any outer-level Transacts. Any Transact calls sent to other chain should still work.
         let has_transact = instructions.iter().any(|x| matches!(x, Instruction::Transact { .. }));
         if has_transact {
             return Err(());
         }
         // No transact - return result of the wrapped barrier
-        T::should_execute(origin, message, max_weight, weight_credit)
+        T::should_execute(origin, instructions, max_weight, weight_credit)
     }
 }
 

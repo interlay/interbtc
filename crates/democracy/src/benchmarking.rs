@@ -144,7 +144,7 @@ benchmarks! {
     }
 
     fast_track {
-        let origin_fast_track = T::FastTrackOrigin::successful_origin();
+        let origin_fast_track = T::FastTrackOrigin::try_successful_origin().unwrap();
         let proposal_hash = add_proposal::<T>(0)?;
         let prop_index = PublicProps::<T>::get()
             .iter()

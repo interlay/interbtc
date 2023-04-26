@@ -78,7 +78,7 @@ xcm-builder = { git = "https://github.com/paritytech/polkadot", branch = "releas
 xcm-executor = { git = "https://github.com/paritytech/polkadot", branch = "release-v0.9.31", default-features = false }
 xcm-simulator = { git = "https://github.com/paritytech/polkadot", branch = "release-v0.9.31", default-features = false }
 pallet-xcm = { git = "https://github.com/paritytech/polkadot", branch = "release-v0.9.31", default-features = false }
-xcm-emulator = { git = "https://github.com/shaunxw/xcm-simulator", rev = "0460d04c798028e7bef82c907082e11753ed173b" }
+xcm-emulator = { git = "https://github.com/shaunxw/xcm-simulator", rev = "754f3b90ecc65af735a6c9a2e1792c5253926ff6" }
 
 # Parachain dependencies
 runtime-common = {path = "../common", default-features = false }

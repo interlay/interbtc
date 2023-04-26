@@ -14,10 +14,10 @@ use frame_support::{
     dispatch::{DispatchError, DispatchResult},
     traits::{
         ConstU32, Contains, Currency as PalletCurrency, EitherOfDiverse, EnsureOrigin, EnsureOriginWithArg,
-        EqualPrivilegeOnly, ExistenceRequirement, Imbalance, InstanceFilter, OnUnbalanced,
+        EqualPrivilegeOnly, ExistenceRequirement, Imbalance, InstanceFilter, OnRuntimeUpgrade, OnUnbalanced,
     },
     weights::ConstantMultiplier,
-    PalletId,
+    Blake2_128Concat, PalletId, Twox64Concat,
 };
 use frame_system::{
     limits::{BlockLength, BlockWeights},
@@ -135,7 +135,7 @@ const NORMAL_DISPATCH_RATIO: Perbill = Perbill::from_percent(75);
 /// We allow for 0.5 seconds of compute with a 12 second average block time.
 pub const MAXIMUM_BLOCK_WEIGHT: Weight = Weight::from_parts(
     WEIGHT_REF_TIME_PER_SECOND.saturating_div(2),
-    cumulus_primitives_core::relay_chain::v2::MAX_POV_SIZE as u64,
+    cumulus_primitives_core::relay_chain::MAX_POV_SIZE as u64,
 );
 parameter_types! {
     pub const BlockHashCount: BlockNumber = 250;
@@ -170,7 +170,6 @@ impl Contains<RuntimeCall> for BaseCallFilter {
         if matches!(
             call,
             RuntimeCall::System(_)
-                | RuntimeCall::Authorship(_)
                 | RuntimeCall::Session(_)
                 | RuntimeCall::Timestamp(_)
                 | RuntimeCall::ParachainSystem(_)
@@ -233,14 +232,8 @@ impl frame_system::Config for Runtime {
     type MaxConsumers = frame_support::traits::ConstU32<16>;
 }
 
-parameter_types! {
-    pub const UncleGenerations: u32 = 0;
-}
-
 impl pallet_authorship::Config for Runtime {
     type FindAuthor = pallet_session::FindAccountFromAuthorIndex<Self, Aura>;
-    type UncleGenerations = UncleGenerations;
-    type FilterUncle = ();
     type EventHandler = (CollatorSelection,);
 }
 
@@ -414,8 +407,8 @@ impl EnsureOrigin<RuntimeOrigin> for EnsureKintsugiLabs {
     }
 
     #[cfg(feature = "runtime-benchmarks")]
-    fn successful_origin() -> RuntimeOrigin {
-        RuntimeOrigin::from(RawOrigin::None)
+    fn try_successful_origin() -> Result<RuntimeOrigin, ()> {
+        Ok(RuntimeOrigin::from(RawOrigin::None))
     }
 }
 
@@ -712,8 +705,8 @@ impl EnsureOriginWithArg<RuntimeOrigin, Option<u32>> for AssetAuthority {
     }
 
     #[cfg(feature = "runtime-benchmarks")]
-    fn successful_origin(_asset_id: &Option<u32>) -> RuntimeOrigin {
-        EnsureRoot::successful_origin()
+    fn try_successful_origin(_: &Option<u32>) -> Result<RuntimeOrigin, ()> {
+        EnsureRoot::try_successful_origin()
     }
 }
 
@@ -1235,7 +1228,7 @@ construct_runtime! {
         TechnicalMembership: pallet_membership::{Pallet, Call, Storage, Event<T>, Config<T>} = 72,
         // Treasury: 73
 
-        Authorship: pallet_authorship::{Pallet, Call, Storage} = 80,
+        Authorship: pallet_authorship::{Pallet, Storage} = 80,
         CollatorSelection: collator_selection::{Pallet, Call, Storage, Event<T>, Config<T>} = 81,
         Session: pallet_session::{Pallet, Call, Storage, Event, Config<T>} = 82,
         Aura: pallet_aura::{Pallet, Storage, Config<T>} = 83,
@@ -1394,6 +1387,14 @@ impl_runtime_apis! {
             len: u32,
         ) -> pallet_transaction_payment_rpc_runtime_api::FeeDetails<Balance> {
             TransactionPayment::query_fee_details(uxt, len)
+        }
+
+        fn query_weight_to_fee(weight: Weight) -> Balance {
+            TransactionPayment::weight_to_fee(weight)
+        }
+
+        fn query_length_to_fee(length: u32) -> Balance {
+            TransactionPayment::length_to_fee(length)
         }
     }
 

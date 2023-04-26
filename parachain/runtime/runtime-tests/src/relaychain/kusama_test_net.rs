@@ -1,6 +1,7 @@
+use cumulus_primitives_core::MultiLocation;
 use frame_support::{traits::GenesisBuild, weights::Weight};
 pub use kintsugi_runtime_parachain::{xcm_config::*, *};
-use polkadot_primitives::v2::{BlockNumber, MAX_CODE_SIZE, MAX_POV_SIZE};
+use polkadot_primitives::{BlockNumber, MAX_CODE_SIZE, MAX_POV_SIZE};
 use polkadot_runtime_parachains::{configuration::HostConfiguration, paras::ParaKind};
 pub use primitives::{
     CurrencyId::Token,
@@ -23,7 +24,7 @@ decl_test_relay_chain! {
 decl_test_parachain! {
     pub struct Kintsugi {
         Runtime = Runtime,
-        Origin = RuntimeOrigin,
+        RuntimeOrigin = RuntimeOrigin,
         XcmpMessageHandler = kintsugi_runtime_parachain::XcmpQueue,
         DmpMessageHandler = kintsugi_runtime_parachain::DmpQueue,
         new_ext = para_ext(KINTSUGI_PARA_ID),
@@ -33,7 +34,7 @@ decl_test_parachain! {
 decl_test_parachain! {
     pub struct Sibling {
         Runtime = testnet_kintsugi_runtime_parachain::Runtime,
-        Origin = testnet_kintsugi_runtime_parachain::RuntimeOrigin,
+        RuntimeOrigin = testnet_kintsugi_runtime_parachain::RuntimeOrigin,
         XcmpMessageHandler = testnet_kintsugi_runtime_parachain::XcmpQueue,
         DmpMessageHandler = testnet_kintsugi_runtime_parachain::DmpQueue,
         new_ext = para_ext(SIBLING_PARA_ID),
@@ -131,7 +132,7 @@ pub fn kusama_ext() -> sp_io::TestExternalities {
 
     <pallet_xcm::GenesisConfig as GenesisBuild<Runtime>>::assimilate_storage(
         &pallet_xcm::GenesisConfig {
-            safe_xcm_version: Some(2),
+            safe_xcm_version: Some(3),
         },
         &mut t,
     )
@@ -212,14 +213,22 @@ impl ExtBuilder {
 
         <pallet_xcm::GenesisConfig as GenesisBuild<Runtime>>::assimilate_storage(
             &pallet_xcm::GenesisConfig {
-                safe_xcm_version: Some(2),
+                safe_xcm_version: Some(2), // NOTE! if this was required for tests we may need it on mainnet
             },
             &mut t,
         )
         .unwrap();
 
         let mut ext = sp_io::TestExternalities::new(t);
-        ext.execute_with(|| System::set_block_number(1));
+        ext.execute_with(|| {
+            System::set_block_number(1);
+            PolkadotXcm::force_xcm_version(
+                kintsugi_runtime_parachain::RuntimeOrigin::root(),
+                Box::new(MultiLocation::parent()),
+                3,
+            )
+            .unwrap();
+        });
         ext
     }
 }
