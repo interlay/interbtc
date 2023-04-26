@@ -19,25 +19,6 @@ use mocktopus::macros::mockable;
 
 pub use bitcoin::{Address as BtcAddress, PublicKey as BtcPublicKey};
 
-/// Storage version.
-#[derive(Encode, Decode, Eq, PartialEq, TypeInfo, MaxEncodedLen)]
-pub enum Version {
-    /// Initial version.
-    V0,
-    /// BtcAddress type with script format.
-    V1,
-    /// added replace_collateral to vault, changed vaultStatus enum
-    V2,
-    /// moved public_key out of the vault struct
-    V3,
-    /// Fixed liquidation vault
-    V4,
-    /// Added custom pervault secure collateral threshold
-    V5,
-    /// Removed wallet
-    V6,
-}
-
 #[derive(Debug, PartialEq)]
 pub enum CurrencySource<T: frame_system::Config + orml_tokens::Config> {
     /// Used by vault to back issued tokens
@@ -110,21 +91,6 @@ pub type CurrencyId<T> = <T as orml_tokens::Config>::CurrencyId;
 pub type DefaultVaultId<T> = VaultId<<T as frame_system::Config>::AccountId, CurrencyId<T>>;
 
 pub type DefaultVaultCurrencyPair<T> = VaultCurrencyPair<CurrencyId<T>>;
-
-pub mod v1 {
-    use super::*;
-
-    pub fn migrate_v1_to_v6<T: Config>() -> frame_support::weights::Weight {
-        // kintsugi is on V6 but interlay is still on V1
-        if !matches!(crate::StorageVersion::<T>::get(), Version::V1) {
-            log::info!("Not running vault storage migration");
-            return T::DbWeight::get().reads(1); // already upgraded; don't run migration
-        }
-        // nothing to do other than update version
-        crate::StorageVersion::<T>::put(Version::V6);
-        T::DbWeight::get().reads_writes(0, 1)
-    }
-}
 
 #[derive(Encode, Decode, Clone, Copy, PartialEq, Eq, Debug, TypeInfo, MaxEncodedLen)]
 pub enum VaultStatus {

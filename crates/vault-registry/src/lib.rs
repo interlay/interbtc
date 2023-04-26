@@ -35,7 +35,6 @@ use primitives::VaultCurrencyPair;
 
 use crate::types::{
     BalanceOf, BtcAddress, CurrencyId, DefaultSystemVault, RichSystemVault, RichVault, SignedInner, UnsignedFixedPoint,
-    Version,
 };
 
 use crate::types::DefaultVaultCurrencyPair;
@@ -86,8 +85,12 @@ pub mod pallet {
     use frame_support::pallet_prelude::*;
     use frame_system::pallet_prelude::*;
 
+    /// The current storage version.
+    const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
+
     #[pallet::pallet]
     #[pallet::generate_store(trait Store)]
+    #[pallet::storage_version(STORAGE_VERSION)]
     #[pallet::without_storage_info] // vault struct contains vec which doesn't implement MaxEncodedLen
     pub struct Pallet<T>(_);
 
@@ -142,7 +145,14 @@ pub mod pallet {
         }
 
         fn on_runtime_upgrade() -> frame_support::weights::Weight {
-            crate::types::v1::migrate_v1_to_v6::<T>()
+            let _ = frame_support::migration::clear_storage_prefix(
+                <Pallet<T>>::name().as_bytes(),
+                b"StorageVersion",
+                b"",
+                None,
+                None,
+            );
+            T::DbWeight::get().reads_writes(0, 1)
         }
     }
 
@@ -638,16 +648,6 @@ pub mod pallet {
     pub(super) type TotalUserVaultCollateral<T: Config> =
         StorageMap<_, Blake2_128Concat, DefaultVaultCurrencyPair<T>, BalanceOf<T>, ValueQuery>;
 
-    #[pallet::type_value]
-    pub(super) fn DefaultForStorageVersion() -> Version {
-        Version::V6
-    }
-
-    /// Pallet storage version
-    #[pallet::storage]
-    #[pallet::getter(fn storage_version)]
-    pub(super) type StorageVersion<T: Config> = StorageValue<_, Version, ValueQuery, DefaultForStorageVersion>;
-
     #[pallet::genesis_config]
     pub struct GenesisConfig<T: Config> {
         pub minimum_collateral_vault: Vec<(CurrencyId<T>, BalanceOf<T>)>,
@@ -691,7 +691,6 @@ pub mod pallet {
             for (currency_pair, threshold) in self.liquidation_collateral_threshold.iter() {
                 LiquidationCollateralThreshold::<T>::insert(currency_pair, threshold);
             }
-            StorageVersion::<T>::put(Version::V3);
         }
     }
 }
