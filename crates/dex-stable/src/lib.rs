@@ -59,7 +59,7 @@ use orml_traits::MultiCurrency;
 use sp_arithmetic::traits::{checked_pow, AtLeast32BitUnsigned, CheckedAdd, One, Zero};
 use sp_core::U256;
 use sp_runtime::traits::{AccountIdConversion, StaticLookup};
-use sp_std::{ops::Sub, vec, vec::Vec};
+use sp_std::{fmt::Debug, ops::Sub, vec, vec::Vec};
 
 pub use pallet::*;
 use primitives::*;
@@ -85,7 +85,7 @@ pub mod pallet {
         type MultiCurrency: MultiCurrency<AccountIdOf<Self>, CurrencyId = Self::CurrencyId, Balance = Balance>;
 
         /// The pool ID type
-        type PoolId: Parameter + Codec + Copy + Ord + AtLeast32BitUnsigned + Zero + One + Default;
+        type PoolId: Parameter + Codec + Copy + Ord + AtLeast32BitUnsigned + Zero + One + Default + MaxEncodedLen;
 
         /// The trait verify currency for some scenes.
         type EnsurePoolAsset: ValidateCurrency<Self::CurrencyId>;
@@ -94,6 +94,9 @@ pub mod pallet {
 
         /// The trait get timestamp of chain.
         type TimeProvider: UnixTime;
+
+        #[pallet::constant]
+        type PoolCurrencyLimit: Get<u32>;
 
         #[pallet::constant]
         type PoolCurrencySymbolLimit: Get<u32>;
@@ -107,7 +110,6 @@ pub mod pallet {
     }
 
     #[pallet::pallet]
-    #[pallet::without_storage_info]
     #[pallet::generate_store(pub(super) trait Store)]
     pub struct Pallet<T>(_);
 
@@ -123,7 +125,7 @@ pub mod pallet {
         _,
         Blake2_128Concat,
         T::PoolId,
-        Pool<T::PoolId, T::CurrencyId, T::AccountId, BoundedVec<u8, T::PoolCurrencySymbolLimit>>,
+        Pool<T::PoolId, T::CurrencyId, T::AccountId, T::PoolCurrencyLimit, T::PoolCurrencySymbolLimit>,
     >;
 
     /// The pool id corresponding to lp currency
@@ -286,7 +288,9 @@ pub mod pallet {
         LpCurrencyAlreadyUsed,
         /// Require all currencies of this pool when first supply.
         RequireAllCurrencies,
-        /// The symbol of created pool maybe exceed length limit.
+        /// The number of currencies exceeds the length limit.
+        TooManyCurrencies,
+        /// The symbol of created pool exceeds the length limit.
         BadPoolCurrencySymbol,
         /// The transaction change nothing.
         InvalidTransaction,

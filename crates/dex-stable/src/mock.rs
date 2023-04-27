@@ -37,6 +37,7 @@ parameter_types! {
     pub const MaxReserves: u32 = 50;
     pub const MaxLocks:u32 = 50;
     pub const MinimumPeriod: Moment = SLOT_DURATION / 2;
+    pub const PoolCurrencyLimit: u32 = 10;
     pub const PoolCurrencySymbolLimit: u32 = 50;
 }
 
@@ -166,6 +167,7 @@ impl Config for Test {
     type EnsurePoolAsset = EnsurePoolAssetImpl<Tokens>;
     type LpGenerate = PoolLpGenerate;
     type TimeProvider = Timestamp;
+    type PoolCurrencyLimit = PoolCurrencyLimit;
     type PoolCurrencySymbolLimit = PoolCurrencySymbolLimit;
     type PalletId = StableAmmPalletId;
     type WeightInfo = ();
@@ -321,10 +323,10 @@ pub fn get_user_balance(currency_id: CurrencyId, user: &AccountId) -> Balance {
     <Test as Config>::MultiCurrency::free_balance(currency_id, user)
 }
 
-pub type MockPool = Pool<PoolId, CurrencyId, AccountId, BoundedVec<u8, PoolCurrencySymbolLimit>>;
+pub type MockPool = Pool<PoolId, CurrencyId, AccountId, PoolCurrencyLimit, PoolCurrencySymbolLimit>;
 
 impl MockPool {
-    pub fn get_pool_info(&self) -> BasePool<CurrencyId, AccountId, BoundedVec<u8, PoolCurrencySymbolLimit>> {
+    pub fn get_pool_info(&self) -> BasePool<CurrencyId, AccountId, PoolCurrencyLimit, PoolCurrencySymbolLimit> {
         match self {
             MockPool::Base(bp) => (*bp).clone(),
             MockPool::Meta(mp) => mp.info.clone(),
