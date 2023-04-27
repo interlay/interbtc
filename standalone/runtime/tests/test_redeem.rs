@@ -457,6 +457,7 @@ mod spec_based_tests {
                         redeem_id: H256::random(),
                         merkle_proof: Default::default(),
                         transaction: Default::default(),
+                        length_bound: u32::MAX,
                     })
                     .dispatch(origin_of(account_of(VAULT))),
                     RedeemError::RedeemIdNotFound
@@ -528,6 +529,7 @@ mod spec_based_tests {
                         redeem_id: redeem_id,
                         merkle_proof: MerkleProof::parse(&invalid_merkle_proof).unwrap(),
                         transaction,
+                        length_bound: u32::MAX,
                     })
                     .dispatch(origin_of(account_of(VAULT))),
                     BTCRelayError::BlockNotFound
@@ -1280,7 +1282,8 @@ fn integration_test_premium_redeem_wrapped_execute() {
         assert_ok!(RuntimeCall::Redeem(RedeemCall::execute_redeem {
             redeem_id,
             merkle_proof,
-            transaction
+            transaction,
+            length_bound: u32::MAX,
         })
         .dispatch(origin_of(account_of(VAULT))));
 
@@ -1353,6 +1356,7 @@ fn integration_test_multiple_redeems_multiple_op_returns() {
                 redeem_id: redeem_1_id,
                 merkle_proof: merkle_proof.clone(),
                 transaction: transaction.clone(),
+                length_bound: u32::MAX,
             })
             .dispatch(origin_of(account_of(VAULT))),
             BTCRelayError::InvalidOpReturnTransaction
@@ -1363,6 +1367,7 @@ fn integration_test_multiple_redeems_multiple_op_returns() {
                 redeem_id: redeem_2_id,
                 merkle_proof: merkle_proof.clone(),
                 transaction: transaction.clone(),
+                length_bound: u32::MAX,
             })
             .dispatch(origin_of(account_of(VAULT))),
             BTCRelayError::InvalidOpReturnTransaction
@@ -1403,7 +1408,8 @@ fn integration_test_single_redeem_multiple_op_returns() {
             RuntimeCall::Redeem(RedeemCall::execute_redeem {
                 redeem_id,
                 merkle_proof,
-                transaction
+                transaction,
+                length_bound: u32::MAX,
             })
             .dispatch(origin_of(account_of(VAULT))),
             BTCRelayError::InvalidOpReturnTransaction

@@ -312,6 +312,8 @@ pub mod pallet {
         InvalidCompact,
         /// Wrong fork bound, should be higher
         WrongForkBound,
+        /// Weight bound exceeded
+        BoundExceeded,
     }
 
     /// Store Bitcoin block headers
@@ -1356,6 +1358,7 @@ impl<T: Config> From<BitcoinError> for Error<T> {
             BitcoinError::ArithmeticOverflow => Self::ArithmeticOverflow,
             BitcoinError::ArithmeticUnderflow => Self::ArithmeticUnderflow,
             BitcoinError::InvalidCompact => Self::InvalidCompact,
+            BitcoinError::BoundExceeded => Self::BoundExceeded,
         }
     }
 }

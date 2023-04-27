@@ -34,7 +34,7 @@ impl BoundedWriter {
         self.length_bound
             .checked_sub(bytes)
             .map(|new_self| self.length_bound = new_self)
-            .ok_or(Error::ArithmeticUnderflow)
+            .ok_or(Error::BoundExceeded)
     }
 
     pub(crate) fn result(&self) -> Vec<u8> {
@@ -347,7 +347,7 @@ mod tests {
         assert_ok!(transaction.try_format(&mut BoundedWriter::new(tx_bytes.len() as u32)));
         assert_err!(
             transaction.try_format(&mut BoundedWriter::new(tx_bytes.len() as u32 - 1)),
-            Error::ArithmeticUnderflow
+            Error::BoundExceeded
         );
     }
 

@@ -1107,7 +1107,7 @@ pub use redeem::{Event as RedeemEvent, RedeemRequest};
 
 impl redeem::Config for Runtime {
     type RuntimeEvent = RuntimeEvent;
-    type WeightInfo = ();
+    type WeightInfo = weights::redeem::WeightInfo<Runtime>;
 }
 
 pub use replace::{Event as ReplaceEvent, ReplaceRequest};
@@ -1319,6 +1319,7 @@ mod benches {
         [democracy, Democracy]
         [frame_system, frame_system_benchmarking::Pallet::<Runtime>]
         [orml_tokens, runtime_common::benchmarking::orml_tokens::Pallet::<Runtime>]
+        [redeem, Redeem]
     );
 }
 
