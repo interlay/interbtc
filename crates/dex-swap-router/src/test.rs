@@ -79,13 +79,16 @@ fn setup_pools() {
 }
 
 #[test]
-fn swap_exact_token_for_tokens_through_stable_pool_with_amount_slippage_should_failed() {
+fn swap_exact_tokens_for_tokens_with_amount_slippage_should_failed() {
     new_test_ext().execute_with(|| {
         setup_stable_pools();
         setup_pools();
 
         let routes = vec![
-            Route::Normal(vec![TOKEN2_ASSET_ID, TOKEN1_ASSET_ID]),
+            Route::General(GeneralPath {
+                asset_0: TOKEN2_ASSET_ID,
+                asset_1: TOKEN1_ASSET_ID,
+            }),
             Route::Stable(StablePath::<PoolId, CurrencyId> {
                 pool_id: 1,
                 base_pool_id: 0,
@@ -96,7 +99,7 @@ fn swap_exact_token_for_tokens_through_stable_pool_with_amount_slippage_should_f
         ];
 
         assert_noop!(
-            RouterPallet::swap_exact_token_for_tokens_through_stable_pool(
+            RouterPallet::swap_exact_tokens_for_tokens(
                 RawOrigin::Signed(USER2).into(),
                 1e16 as Balance,
                 u128::MAX,
@@ -110,13 +113,16 @@ fn swap_exact_token_for_tokens_through_stable_pool_with_amount_slippage_should_f
 }
 
 #[test]
-fn swap_exact_token_for_tokens_through_stable_pool_should_work() {
+fn swap_exact_tokens_for_tokens_should_work() {
     new_test_ext().execute_with(|| {
         setup_stable_pools();
         setup_pools();
 
         let routes = vec![
-            Route::Normal(vec![TOKEN2_ASSET_ID, TOKEN1_ASSET_ID]),
+            Route::General(GeneralPath {
+                asset_0: TOKEN2_ASSET_ID,
+                asset_1: TOKEN1_ASSET_ID,
+            }),
             Route::Stable(StablePath::<PoolId, CurrencyId> {
                 pool_id: 1,
                 base_pool_id: 0,
@@ -130,7 +136,7 @@ fn swap_exact_token_for_tokens_through_stable_pool_should_work() {
         let token3_balance_before = Tokens::accounts(USER1, Token(TOKEN3_SYMBOL)).free;
         let token4_balance_before = Tokens::accounts(USER2, Token(TOKEN4_SYMBOL)).free;
 
-        assert_ok!(RouterPallet::swap_exact_token_for_tokens_through_stable_pool(
+        assert_ok!(RouterPallet::swap_exact_tokens_for_tokens(
             RawOrigin::Signed(USER1).into(),
             1e16 as Balance,
             0,
@@ -161,6 +167,13 @@ fn swap_exact_token_for_tokens_through_stable_pool_should_work() {
 #[test]
 fn test_validate_routes() {
     new_test_ext().execute_with(|| {
+        fn general(input: CurrencyId, output: CurrencyId) -> Route<PoolId, CurrencyId> {
+            Route::General(GeneralPath {
+                asset_0: input,
+                asset_1: output,
+            })
+        }
+
         fn stable(input: CurrencyId, output: CurrencyId) -> Route<PoolId, CurrencyId> {
             Route::Stable(StablePath::<PoolId, CurrencyId> {
                 pool_id: 1,
@@ -172,69 +185,28 @@ fn test_validate_routes() {
         }
 
         // single routes..
-        assert_ok!(RouterPallet::validate_routes(&[Route::Normal(vec![
-            Token(1),
-            Token(2)
-        ]),]));
+        assert_ok!(RouterPallet::validate_routes(&[general(Token(1), Token(2))]));
         assert_ok!(RouterPallet::validate_routes(&[stable(Token(2), Token(3))]));
 
         // 2 routes
         assert_ok!(RouterPallet::validate_routes(&[
-            Route::Normal(vec![Token(1), Token(2)]),
+            general(Token(1), Token(2)),
             stable(Token(2), Token(3))
         ]));
 
         // many routes
         assert_ok!(RouterPallet::validate_routes(&[
-            Route::Normal(vec![Token(1), Token(2), Token(3)]),
+            general(Token(1), Token(3)),
             stable(Token(3), Token(2)),
             stable(Token(2), Token(1)),
-            Route::Normal(vec![Token(1), Token(2)]),
-            Route::Normal(vec![Token(2), Token(1)]),
+            general(Token(1), Token(2)),
+            general(Token(2), Token(1))
         ]));
 
         // a "gap" in the routes - output of one route does match input of next
         assert_noop!(
-            RouterPallet::validate_routes(&[
-                Route::Normal(vec![Token(1), Token(2)]),
-                Route::Normal(vec![Token(1), Token(4)]),
-            ]),
+            RouterPallet::validate_routes(&[general(Token(1), Token(2)), general(Token(1), Token(4))]),
             Error::<Test>::InvalidRoutes
-        );
-
-        // empty output currency
-        assert_noop!(
-            RouterPallet::validate_routes(&[Route::Normal(vec![]), Route::Normal(vec![Token(1), Token(4)]),]),
-            Error::<Test>::InvalidPath
-        );
-
-        // empty input currency
-        assert_noop!(
-            RouterPallet::validate_routes(&[Route::Normal(vec![Token(1), Token(4)]), Route::Normal(vec![])]),
-            Error::<Test>::InvalidPath
-        );
-
-        // sanity check that our test makes sense
-        assert_eq!(MaxSwaps::get(), 10);
-        // 10 swaps - still allowed
-        assert_ok!(RouterPallet::validate_routes(&[
-            Route::Normal(vec![Token(1), Token(2), Token(3)]),
-            stable(Token(3), Token(2)),
-            stable(Token(2), Token(1)),
-            Route::Normal(vec![Token(1), Token(2), Token(3), Token(4)]),
-            Route::Normal(vec![Token(4), Token(3), Token(2), Token(1)]),
-        ]));
-
-        // 11 swaps - not allowed
-        assert_noop!(
-            RouterPallet::validate_routes(&[
-                Route::Normal(vec![Token(1), Token(2), Token(3)]),
-                stable(Token(3), Token(2)),
-                stable(Token(2), Token(1)),
-                Route::Normal(vec![Token(1), Token(2), Token(3), Token(4)]),
-                Route::Normal(vec![Token(4), Token(3), Token(2), Token(1), Token(5)]),
-            ]),
-            Error::<Test>::ExceededSwapLimit
         );
     })
 }

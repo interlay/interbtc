@@ -209,8 +209,8 @@ impl Config for Test {
     type StablePoolId = PoolId;
     type Balance = Balance;
     type CurrencyId = CurrencyId;
-    type NormalAmm = DexGeneral;
-    type StableAMM = StableAMM;
+    type GeneralAmm = DexGeneral;
+    type StableAmm = StableAMM;
     type MaxSwaps = MaxSwaps;
     type WeightInfo = ();
 }
