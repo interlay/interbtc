@@ -217,7 +217,7 @@ impl<T: Config> Pallet<T> {
             .and_then(|n| TryInto::<Balance>::try_into(n).ok())
             .ok_or(Error::<T>::Arithmetic)?;
 
-        //update pool balance
+        // update pool balance
         pool.balances[i] = pool.balances[i].checked_add(in_amount).ok_or(Error::<T>::Arithmetic)?;
         pool.balances[j] = pool.balances[j]
             .checked_sub(dy)
