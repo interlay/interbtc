@@ -1340,7 +1340,8 @@ impl TransactionGenerator {
     fn relay(&self, height: u32, block: &Block, block_header: BlockHeader) {
         if let Some(relayer) = self.relayer {
             assert_ok!(RuntimeCall::BTCRelay(BTCRelayCall::store_block_header {
-                block_header: block_header
+                block_header: block_header,
+                fork_bound: 10u32,
             })
             .dispatch(origin_of(account_of(relayer))));
             assert_store_main_chain_header_event(height, block_header.hash, account_of(relayer));
