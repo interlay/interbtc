@@ -22,6 +22,7 @@ pub mod pallet_timestamp;
 pub mod pallet_utility;
 pub mod pallet_xcm;
 pub mod redeem;
+pub mod replace;
 pub mod security;
 pub mod supply;
 pub mod tx_pause;

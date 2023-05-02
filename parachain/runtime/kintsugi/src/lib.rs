@@ -1146,7 +1146,7 @@ pub use replace::{Event as ReplaceEvent, ReplaceRequest};
 
 impl replace::Config for Runtime {
     type RuntimeEvent = RuntimeEvent;
-    type WeightInfo = ();
+    type WeightInfo = weights::replace::WeightInfo<Runtime>;
 }
 
 pub use nomination::Event as NominationEvent;
@@ -1393,6 +1393,7 @@ mod benches {
         [democracy, Democracy]
         [frame_system, frame_system_benchmarking::Pallet::<Runtime>]
         [orml_tokens, runtime_common::benchmarking::orml_tokens::Pallet::<Runtime>]
+        [replace, Replace]
         [redeem, Redeem]
     );
 }

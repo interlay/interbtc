@@ -4,15 +4,14 @@ use bitcoin::types::{
 };
 use btc_relay::{BtcAddress, BtcPublicKey};
 use currency::getters::{get_relay_chain_currency_id as get_collateral_currency_id, *};
-use frame_benchmarking::{account, benchmarks, impl_benchmark_test_suite};
+use frame_benchmarking::v2::{account, benchmarks, impl_benchmark_test_suite};
 use frame_support::assert_ok;
 use frame_system::RawOrigin;
 use orml_traits::MultiCurrency;
-use primitives::{CurrencyId, VaultCurrencyPair, VaultId};
+use primitives::VaultId;
 use sp_core::{H256, U256};
 use sp_runtime::{traits::One, FixedPointNumber};
 use sp_std::prelude::*;
-use vault_registry::types::{DefaultVaultCurrencyPair, Vault};
 
 // Pallets
 use crate::Pallet as Replace;
@@ -21,37 +20,25 @@ use oracle::Pallet as Oracle;
 use security::Pallet as Security;
 use vault_registry::Pallet as VaultRegistry;
 
-type UnsignedFixedPoint<T> = <T as currency::Config>::UnsignedFixedPoint;
-
-fn wrapped<T: crate::Config>(amount: u32) -> Amount<T> {
-    Amount::new(amount.into(), get_wrapped_currency_id::<T>())
+struct Payment {
+    amount: i64,
+    output_address: BtcAddress,
+    op_return: H256,
 }
 
-fn get_currency_pair<T: crate::Config>() -> DefaultVaultCurrencyPair<T> {
-    VaultCurrencyPair {
-        collateral: get_collateral_currency_id::<T>(),
-        wrapped: get_wrapped_currency_id::<T>(),
-    }
-}
-
-fn deposit_tokens<T: crate::Config>(currency_id: CurrencyId, account_id: &T::AccountId, amount: BalanceOf<T>) {
-    assert_ok!(<orml_tokens::Pallet<T>>::deposit(currency_id, account_id, amount));
-}
-
-fn mint_collateral<T: crate::Config>(account_id: &T::AccountId, amount: BalanceOf<T>) {
-    deposit_tokens::<T>(get_collateral_currency_id::<T>(), account_id, amount);
-    deposit_tokens::<T>(get_native_currency_id::<T>(), account_id, amount);
-}
-
-fn mine_blocks_until_expiry<T: crate::Config>(request: &DefaultReplaceRequest<T>) {
-    let period = Replace::<T>::replace_period().max(request.period);
-    let expiry_height = BtcRelay::<T>::bitcoin_expiry_height(request.btc_height, period).unwrap();
-    mine_blocks::<T>(expiry_height + 100);
-}
-
-fn mine_blocks<T: crate::Config>(end_height: u32) {
+fn mine_blocks<T: crate::Config>(end_height: u32, tx: Option<Payment>) -> (Transaction, MerkleProof) {
     let relayer_id: T::AccountId = account("Relayer", 0, 0);
-    mint_collateral::<T>(&relayer_id, (1u32 << 31).into());
+
+    assert_ok!(<orml_tokens::Pallet<T>>::deposit(
+        get_collateral_currency_id::<T>(),
+        &relayer_id,
+        (1u32 << 31).into()
+    ));
+    assert_ok!(<orml_tokens::Pallet<T>>::deposit(
+        get_native_currency_id::<T>(),
+        &relayer_id,
+        (1u32 << 31).into()
+    ));
 
     let height = 0;
     let block = BlockBuilder::new()
@@ -64,23 +51,29 @@ fn mine_blocks<T: crate::Config>(end_height: u32) {
     Security::<T>::set_active_block_number(1u32.into());
     BtcRelay::<T>::_initialize(relayer_id.clone(), block.header, height).unwrap();
 
-    let transaction = TransactionBuilder::new()
-        .with_version(2)
-        .add_input(
-            TransactionInputBuilder::new()
-                .with_source(TransactionInputSource::FromOutput(block.transactions[0].hash(), 0))
-                .with_script(&[
-                    0, 71, 48, 68, 2, 32, 91, 128, 41, 150, 96, 53, 187, 63, 230, 129, 53, 234, 210, 186, 21, 187, 98,
-                    38, 255, 112, 30, 27, 228, 29, 132, 140, 155, 62, 123, 216, 232, 168, 2, 32, 72, 126, 179, 207,
-                    142, 8, 99, 8, 32, 78, 244, 166, 106, 160, 207, 227, 61, 210, 172, 234, 234, 93, 59, 159, 79, 12,
-                    194, 240, 212, 3, 120, 50, 1, 71, 81, 33, 3, 113, 209, 131, 177, 9, 29, 242, 229, 15, 217, 247,
-                    165, 78, 111, 80, 79, 50, 200, 117, 80, 30, 233, 210, 167, 133, 175, 62, 253, 134, 127, 212, 51,
-                    33, 2, 128, 200, 184, 235, 148, 25, 43, 34, 28, 173, 55, 54, 189, 164, 187, 243, 243, 152, 7, 84,
-                    210, 85, 156, 238, 77, 97, 188, 240, 162, 197, 105, 62, 82, 174,
-                ])
-                .build(),
-        )
-        .build();
+    let mut builder = TransactionBuilder::new();
+    builder.with_version(2).add_input(
+        TransactionInputBuilder::new()
+            .with_source(TransactionInputSource::FromOutput(block.transactions[0].hash(), 0))
+            .with_script(&[
+                0, 71, 48, 68, 2, 32, 91, 128, 41, 150, 96, 53, 187, 63, 230, 129, 53, 234, 210, 186, 21, 187, 98, 38,
+                255, 112, 30, 27, 228, 29, 132, 140, 155, 62, 123, 216, 232, 168, 2, 32, 72, 126, 179, 207, 142, 8, 99,
+                8, 32, 78, 244, 166, 106, 160, 207, 227, 61, 210, 172, 234, 234, 93, 59, 159, 79, 12, 194, 240, 212, 3,
+                120, 50, 1, 71, 81, 33, 3, 113, 209, 131, 177, 9, 29, 242, 229, 15, 217, 247, 165, 78, 111, 80, 79, 50,
+                200, 117, 80, 30, 233, 210, 167, 133, 175, 62, 253, 134, 127, 212, 51, 33, 2, 128, 200, 184, 235, 148,
+                25, 43, 34, 28, 173, 55, 54, 189, 164, 187, 243, 243, 152, 7, 84, 210, 85, 156, 238, 77, 97, 188, 240,
+                162, 197, 105, 62, 82, 174,
+            ])
+            .build(),
+    );
+    if let Some(tx) = tx {
+        builder.add_output(TransactionOutput::payment(tx.amount as i64, &tx.output_address));
+        builder.add_output(TransactionOutput::op_return(0, &tx.op_return.as_bytes()));
+    }
+
+    let transaction = builder.build();
+
+    let mut ret = None;
 
     let mut prev_hash = block.header.hash;
     for _ in 0..end_height {
@@ -94,8 +87,16 @@ fn mine_blocks<T: crate::Config>(end_height: u32) {
             .unwrap();
         prev_hash = block.header.hash;
 
+        if let None = ret {
+            let tx_id = transaction.tx_id();
+            let merkle_proof = block.merkle_proof(&[tx_id]).unwrap();
+
+            ret = Some((transaction.clone(), merkle_proof));
+        }
+
         BtcRelay::<T>::_store_block_header(&relayer_id, block.header).unwrap();
     }
+    ret.unwrap()
 }
 
 fn test_request<T: crate::Config>(
@@ -108,7 +109,7 @@ fn test_request<T: crate::Config>(
         period: Default::default(),
         accept_time: Default::default(),
         amount: Default::default(),
-        griefing_collateral: Default::default(),
+        griefing_collateral: 12345u32.into(), // non-zero to hit additional code paths
         btc_address: Default::default(),
         collateral: Default::default(),
         btc_height: Default::default(),
@@ -124,218 +125,262 @@ fn get_vault_id<T: crate::Config>(name: &'static str) -> DefaultVaultId<T> {
     )
 }
 
-fn register_public_key<T: crate::Config>(vault_id: DefaultVaultId<T>) {
-    let origin = RawOrigin::Signed(vault_id.account_id);
+fn register_vault<T: crate::Config>(vault_id: &DefaultVaultId<T>, issued_tokens: Amount<T>, to_be_replaced: Amount<T>) {
+    let origin = RawOrigin::Signed(vault_id.account_id.clone());
+
+    assert_ok!(<orml_tokens::Pallet<T>>::deposit(
+        get_collateral_currency_id::<T>(),
+        &vault_id.account_id,
+        (1u32 << 31).into()
+    ));
+    assert_ok!(<orml_tokens::Pallet<T>>::deposit(
+        get_native_currency_id::<T>(),
+        &vault_id.account_id,
+        (1u32 << 31).into()
+    ));
+
     assert_ok!(VaultRegistry::<T>::register_public_key(
         origin.into(),
         BtcPublicKey::dummy()
     ));
-}
-
-fn register_vault<T: crate::Config>(vault_id: DefaultVaultId<T>) {
-    register_public_key::<T>(vault_id.clone());
     assert_ok!(VaultRegistry::<T>::_register_vault(
         vault_id.clone(),
         100000000u32.into()
     ));
+
+    VaultRegistry::<T>::try_increase_to_be_issued_tokens(vault_id, &issued_tokens).unwrap();
+    VaultRegistry::<T>::issue_tokens(vault_id, &issued_tokens).unwrap();
+    VaultRegistry::<T>::try_increase_to_be_replaced_tokens(vault_id, &to_be_replaced).unwrap();
 }
 
-benchmarks! {
-    request_replace {
-        let vault_id = get_vault_id::<T>("Vault");
-        mint_collateral::<T>(&vault_id.account_id, (1u32 << 31).into());
-        let amount = Replace::<T>::dust_value(get_wrapped_currency_id::<T>()).amount() + 1000u32.into();
+struct ChainState<T: Config> {
+    old_vault_id: DefaultVaultId<T>,
+    new_vault_id: DefaultVaultId<T>,
+    issued_tokens: Amount<T>,
+    to_be_replaced: Amount<T>,
+}
 
-        register_public_key::<T>(vault_id.clone());
+fn setup_chain<T: crate::Config>() -> ChainState<T> {
+    let new_vault_id = get_vault_id::<T>("NewVault");
+    let old_vault_id = get_vault_id::<T>("OldVault");
 
-        let vault = Vault {
-            id: vault_id.clone(),
-            issued_tokens: amount,
-            ..Vault::new(vault_id.clone())
-        };
+    Oracle::<T>::_set_exchange_rate(
+        get_native_currency_id::<T>(), // for griefing collateral
+        <T as currency::Config>::UnsignedFixedPoint::one(),
+    )
+    .unwrap();
+    Oracle::<T>::_set_exchange_rate(
+        old_vault_id.collateral_currency(),
+        <T as currency::Config>::UnsignedFixedPoint::one(),
+    )
+    .unwrap();
 
-        VaultRegistry::<T>::insert_vault(
-            &vault_id,
-            vault
+    VaultRegistry::<T>::set_minimum_collateral(
+        RawOrigin::Root.into(),
+        old_vault_id.collateral_currency(),
+        100_000u32.into(),
+    )
+    .unwrap();
+    VaultRegistry::<T>::_set_system_collateral_ceiling(old_vault_id.currencies.clone(), 1_000_000_000u32.into());
+
+    VaultRegistry::<T>::_set_secure_collateral_threshold(
+        old_vault_id.currencies.clone(),
+        <T as currency::Config>::UnsignedFixedPoint::checked_from_rational(1, 100000).unwrap(),
+    );
+    VaultRegistry::<T>::_set_premium_redeem_threshold(
+        old_vault_id.currencies.clone(),
+        <T as currency::Config>::UnsignedFixedPoint::checked_from_rational(1, 200000).unwrap(),
+    );
+    VaultRegistry::<T>::_set_liquidation_collateral_threshold(
+        old_vault_id.currencies.clone(),
+        <T as currency::Config>::UnsignedFixedPoint::checked_from_rational(1, 300000).unwrap(),
+    );
+
+    let issued_tokens = Amount::new(200000u32.into(), old_vault_id.wrapped_currency());
+    let to_be_replaced = issued_tokens.clone().map(|x| x / 4u32.into());
+
+    register_vault(&old_vault_id, issued_tokens.clone(), to_be_replaced.clone());
+    register_vault(&new_vault_id, issued_tokens.clone(), to_be_replaced.clone());
+
+    ChainState {
+        old_vault_id,
+        new_vault_id,
+        issued_tokens,
+        to_be_replaced,
+    }
+}
+
+fn setup_replace<T: crate::Config>(
+    old_vault_id: &DefaultVaultId<T>,
+    new_vault_id: &DefaultVaultId<T>,
+    to_be_replaced: Amount<T>,
+) -> (H256, MerkleProof, Transaction) {
+    let replace_id = H256::zero();
+    let mut replace_request = test_request::<T>(&new_vault_id, &old_vault_id);
+    replace_request.amount = to_be_replaced.amount();
+    Replace::<T>::insert_replace_request(&replace_id, &replace_request);
+
+    let payment = Payment {
+        amount: to_be_replaced.amount().try_into().unwrap_or_default(),
+        output_address: replace_request.btc_address,
+        op_return: replace_id,
+    };
+
+    // simulate that the request has been accepted
+    VaultRegistry::<T>::try_increase_to_be_redeemed_tokens(&old_vault_id, &to_be_replaced).unwrap();
+    VaultRegistry::<T>::try_increase_to_be_issued_tokens(&new_vault_id, &to_be_replaced).unwrap();
+
+    VaultRegistry::<T>::transfer_funds(
+        CurrencySource::FreeBalance(old_vault_id.account_id.clone()),
+        CurrencySource::ActiveReplaceCollateral(old_vault_id.clone()),
+        &Amount::new(replace_request.griefing_collateral, get_native_currency_id::<T>()),
+    )
+    .unwrap();
+
+    let period = Replace::<T>::replace_period().max(replace_request.period);
+    let expiry_height = BtcRelay::<T>::bitcoin_expiry_height(replace_request.btc_height, period).unwrap();
+    let (transaction, merkle_proof) = mine_blocks::<T>(expiry_height + 100, Some(payment));
+
+    Security::<T>::set_active_block_number(
+        Security::<T>::active_block_number() + Replace::<T>::replace_period() + 100u32.into(),
+    );
+
+    (replace_id, merkle_proof, transaction)
+}
+#[benchmarks]
+pub mod benchmarks {
+    use super::*;
+
+    #[benchmark]
+    fn request_replace() {
+        let ChainState {
+            old_vault_id,
+            issued_tokens,
+            to_be_replaced,
+            ..
+        } = setup_chain::<T>();
+
+        let amount = (issued_tokens.checked_sub(&to_be_replaced).unwrap()).amount();
+
+        #[extrinsic_call]
+        request_replace(
+            RawOrigin::Signed(old_vault_id.account_id.clone()),
+            old_vault_id.currencies.clone(),
+            amount,
         );
+    }
 
-        Oracle::<T>::_set_exchange_rate(get_collateral_currency_id::<T>(), UnsignedFixedPoint::<T>::one()).unwrap();
-        VaultRegistry::<T>::_set_system_collateral_ceiling(vault_id.currencies.clone(), 1_000_000_000u32.into());
-    }: _(RawOrigin::Signed(vault_id.account_id.clone()), vault_id.currencies.clone(), amount)
+    #[benchmark]
+    fn withdraw_replace() {
+        let ChainState {
+            old_vault_id,
+            to_be_replaced,
+            ..
+        } = setup_chain::<T>();
 
-    withdraw_replace {
-        let vault_id = get_vault_id::<T>("OldVault");
-        mint_collateral::<T>(&vault_id.account_id, (1u32 << 31).into());
-        let amount = wrapped(5);
+        #[extrinsic_call]
+        withdraw_replace(
+            RawOrigin::Signed(old_vault_id.account_id.clone()),
+            old_vault_id.currencies.clone(),
+            to_be_replaced.amount(),
+        );
+    }
 
-        let threshold = UnsignedFixedPoint::<T>::one();
-        VaultRegistry::<T>::_set_secure_collateral_threshold(get_currency_pair::<T>(), threshold);
-        Oracle::<T>::_set_exchange_rate(get_collateral_currency_id::<T>(), UnsignedFixedPoint::<T>::one()).unwrap();
-        VaultRegistry::<T>::_set_system_collateral_ceiling(get_currency_pair::<T>(), 1_000_000_000u32.into());
-
-        register_vault::<T>(vault_id.clone());
-
-        VaultRegistry::<T>::try_increase_to_be_issued_tokens(&vault_id, &amount).unwrap();
-        VaultRegistry::<T>::issue_tokens(&vault_id, &amount).unwrap();
-        VaultRegistry::<T>::try_increase_to_be_replaced_tokens(&vault_id, &amount).unwrap();
-
-        // TODO: check that an amount was actually withdrawn
-    }: _(RawOrigin::Signed(vault_id.account_id.clone()), vault_id.currencies.clone(), amount.amount())
-
-    accept_replace {
-        let new_vault_id = get_vault_id::<T>("NewVault");
-        let old_vault_id = get_vault_id::<T>("OldVault");
-        mint_collateral::<T>(&old_vault_id.account_id, (1u32 << 31).into());
-        mint_collateral::<T>(&new_vault_id.account_id, (1u32 << 31).into());
-        let dust_value =  Replace::<T>::dust_value(get_wrapped_currency_id::<T>());
-        let amount = dust_value.checked_add(&wrapped(100u32)).unwrap();
-        let griefing = 1000u32.into();
-
-        let new_vault_btc_address = BtcAddress::dummy();
-
-        VaultRegistry::<T>::_set_secure_collateral_threshold(get_currency_pair::<T>(), UnsignedFixedPoint::<T>::checked_from_rational(1, 100000).unwrap());
-        Oracle::<T>::_set_exchange_rate(get_collateral_currency_id::<T>(), UnsignedFixedPoint::<T>::one()).unwrap();
-        VaultRegistry::<T>::_set_system_collateral_ceiling(get_currency_pair::<T>(), 1_000_000_000u32.into());
-        register_vault::<T>(old_vault_id.clone());
-
-        VaultRegistry::<T>::try_increase_to_be_issued_tokens(&old_vault_id, &amount).unwrap();
-        VaultRegistry::<T>::issue_tokens(&old_vault_id, &amount).unwrap();
-        VaultRegistry::<T>::try_increase_to_be_replaced_tokens(&old_vault_id, &amount).unwrap();
-
-        register_vault::<T>(new_vault_id.clone());
-
-        let replace_id = H256::zero();
-        let mut replace_request = test_request::<T>(&old_vault_id, &old_vault_id);
-        replace_request.amount = amount.amount();
-        Replace::<T>::insert_replace_request(&replace_id, &replace_request);
-
-        Oracle::<T>::_set_exchange_rate(get_collateral_currency_id::<T>(), UnsignedFixedPoint::<T>::one()
-        ).unwrap();
-    }: _(RawOrigin::Signed(new_vault_id.account_id.clone()), new_vault_id.currencies.clone(), old_vault_id, amount.amount(), griefing, new_vault_btc_address)
-
-    execute_replace {
-        let new_vault_id = get_vault_id::<T>("NewVault");
-        let old_vault_id = get_vault_id::<T>("OldVault");
-        let relayer_id: T::AccountId = account("Relayer", 0, 0);
-
-        let new_vault_btc_address = BtcAddress::dummy();
-        let old_vault_btc_address = BtcAddress::dummy();
+    #[benchmark]
+    fn accept_replace() {
+        let ChainState {
+            old_vault_id,
+            new_vault_id,
+            to_be_replaced,
+            ..
+        } = setup_chain::<T>();
 
         let replace_id = H256::zero();
         let mut replace_request = test_request::<T>(&new_vault_id, &old_vault_id);
-        replace_request.btc_address = old_vault_btc_address;
-
+        replace_request.amount = to_be_replaced.amount();
         Replace::<T>::insert_replace_request(&replace_id, &replace_request);
 
-        let old_vault = Vault {
-            id: old_vault_id.clone(),
-            ..Vault::new(old_vault_id.clone())
-        };
-        VaultRegistry::<T>::insert_vault(
-            &old_vault_id,
-            old_vault
+        let new_vault_btc_address = BtcAddress::dummy();
+        let griefing = 100000000u32.into();
+
+        #[extrinsic_call]
+        accept_replace(
+            RawOrigin::Signed(new_vault_id.account_id.clone()),
+            new_vault_id.currencies.clone(),
+            old_vault_id,
+            to_be_replaced.amount(),
+            griefing,
+            new_vault_btc_address,
         );
+    }
 
-        let new_vault = Vault {
-            id: new_vault_id.clone(),
-            ..Vault::new(new_vault_id.clone())
-        };
-        VaultRegistry::<T>::insert_vault(
-            &new_vault_id,
-            new_vault
+    #[benchmark]
+    fn execute_pending_replace() {
+        let ChainState {
+            old_vault_id,
+            new_vault_id,
+            to_be_replaced,
+            ..
+        } = setup_chain::<T>();
+        let (replace_id, merkle_proof, transaction) = setup_replace::<T>(&old_vault_id, &new_vault_id, to_be_replaced);
+
+        #[extrinsic_call]
+        execute_replace(
+            RawOrigin::Signed(old_vault_id.account_id),
+            replace_id,
+            merkle_proof,
+            transaction,
         );
+    }
 
-        let height = 0;
-        let block = BlockBuilder::new()
-            .with_version(4)
-            .with_coinbase(&new_vault_btc_address, 50, 3)
-            .with_timestamp(1588813835)
-            .mine(U256::from(2).pow(254.into())).unwrap();
+    #[benchmark]
+    fn execute_cancelled_replace() {
+        let ChainState {
+            old_vault_id,
+            new_vault_id,
+            to_be_replaced,
+            ..
+        } = setup_chain::<T>();
+        let (replace_id, merkle_proof, transaction) = setup_replace::<T>(&old_vault_id, &new_vault_id, to_be_replaced);
 
-        let block_hash = block.header.hash;
+        assert_ok!(Pallet::<T>::cancel_replace(
+            RawOrigin::Signed(new_vault_id.account_id).into(),
+            replace_id
+        ));
 
-        Security::<T>::set_active_block_number(1u32.into());
-        VaultRegistry::<T>::_set_system_collateral_ceiling(get_currency_pair::<T>(), 1_000_000_000u32.into());
-        BtcRelay::<T>::_initialize(relayer_id.clone(), block.header, height).unwrap();
+        #[extrinsic_call]
+        execute_replace(
+            RawOrigin::Signed(old_vault_id.account_id),
+            replace_id,
+            merkle_proof,
+            transaction,
+        );
+    }
 
-        let value = 0;
-        let transaction = TransactionBuilder::new()
-            .with_version(2)
-            .add_input(
-                TransactionInputBuilder::new()
-                    .with_source(TransactionInputSource::FromOutput(block.transactions[0].hash(), 0))
-                    .with_script(&[
-                        0, 71, 48, 68, 2, 32, 91, 128, 41, 150, 96, 53, 187, 63, 230, 129, 53, 234,
-                        210, 186, 21, 187, 98, 38, 255, 112, 30, 27, 228, 29, 132, 140, 155, 62, 123,
-                        216, 232, 168, 2, 32, 72, 126, 179, 207, 142, 8, 99, 8, 32, 78, 244, 166, 106,
-                        160, 207, 227, 61, 210, 172, 234, 234, 93, 59, 159, 79, 12, 194, 240, 212, 3,
-                        120, 50, 1, 71, 81, 33, 3, 113, 209, 131, 177, 9, 29, 242, 229, 15, 217, 247,
-                        165, 78, 111, 80, 79, 50, 200, 117, 80, 30, 233, 210, 167, 133, 175, 62, 253,
-                        134, 127, 212, 51, 33, 2, 128, 200, 184, 235, 148, 25, 43, 34, 28, 173, 55, 54,
-                        189, 164, 187, 243, 243, 152, 7, 84, 210, 85, 156, 238, 77, 97, 188, 240, 162,
-                        197, 105, 62, 82, 174,
-                    ])
-                    .build(),
-            )
-            .add_output(TransactionOutput::payment(value.into(), &old_vault_btc_address))
-            .add_output(TransactionOutput::op_return(0, H256::zero().as_bytes()))
-            .build();
+    #[benchmark]
+    fn cancel_replace() {
+        let ChainState {
+            old_vault_id,
+            new_vault_id,
+            to_be_replaced,
+            ..
+        } = setup_chain::<T>();
 
-        let block = BlockBuilder::new()
-            .with_previous_hash(block_hash)
-            .with_version(4)
-            .with_coinbase(&new_vault_btc_address, 50, 3)
-            .with_timestamp(1588813835)
-            .add_transaction(transaction.clone())
-            .mine(U256::from(2).pow(254.into())).unwrap();
+        let (replace_id, _, _) = setup_replace::<T>(&old_vault_id, &new_vault_id, to_be_replaced);
 
-        let tx_id = transaction.tx_id();
-        let merkle_proof = block.merkle_proof(&[tx_id]).unwrap();
+        #[extrinsic_call]
+        cancel_replace(RawOrigin::Signed(new_vault_id.account_id), replace_id);
+    }
 
-        BtcRelay::<T>::_store_block_header(&relayer_id, block.header).unwrap();
-        Security::<T>::set_active_block_number(Security::<T>::active_block_number() + BtcRelay::<T>::parachain_confirmations() + 1u32.into());
+    #[benchmark]
+    fn set_replace_period() {
+        #[extrinsic_call]
+        set_replace_period(RawOrigin::Root, 1u32.into());
+    }
 
-    }: _(RawOrigin::Signed(old_vault_id.account_id), replace_id, merkle_proof, transaction)
-
-    cancel_replace {
-        let new_vault_id = get_vault_id::<T>("NewVault");
-        let old_vault_id = get_vault_id::<T>("OldVault");
-        mint_collateral::<T>(&new_vault_id.account_id, (1u32 << 31).into());
-        mint_collateral::<T>(&old_vault_id.account_id, (1u32 << 31).into());
-
-        let amount = wrapped(100);
-
-        let replace_id = H256::zero();
-        let mut replace_request = test_request::<T>(&new_vault_id, &old_vault_id);
-        replace_request.amount = amount.amount();
-        Replace::<T>::insert_replace_request(&replace_id, &replace_request);
-
-        // expire replace request
-        mine_blocks_until_expiry::<T>(&replace_request);
-        Security::<T>::set_active_block_number(Security::<T>::active_block_number() + Replace::<T>::replace_period() + 100u32.into());
-
-        VaultRegistry::<T>::_set_secure_collateral_threshold(get_currency_pair::<T>(), UnsignedFixedPoint::<T>::checked_from_rational(1, 100000).unwrap());
-        VaultRegistry::<T>::_set_system_collateral_ceiling(get_currency_pair::<T>(), 1_000_000_000u32.into());
-
-        Oracle:: <T>::_set_exchange_rate(get_collateral_currency_id::<T>(), UnsignedFixedPoint::<T>::one()).unwrap();
-
-        register_vault::<T>(old_vault_id.clone());
-        VaultRegistry::<T>::try_increase_to_be_issued_tokens(&old_vault_id, &amount).unwrap();
-        VaultRegistry::<T>::issue_tokens(&old_vault_id, &amount).unwrap();
-        VaultRegistry::<T>::try_increase_to_be_redeemed_tokens(&old_vault_id, &amount).unwrap();
-
-        register_vault::<T>(new_vault_id.clone());
-        VaultRegistry::<T>::try_increase_to_be_issued_tokens(&new_vault_id, &amount).unwrap();
-
-    }: _(RawOrigin::Signed(new_vault_id.account_id), replace_id)
-
-    set_replace_period {
-    }: _(RawOrigin::Root, 1u32.into())
-
+    impl_benchmark_test_suite! {
+        Replace,
+        crate::mock::ExtBuilder::build_with(Default::default()),
+        crate::mock::Test
+    }
 }
-
-impl_benchmark_test_suite!(
-    Replace,
-    crate::mock::ExtBuilder::build_with(Default::default()),
-    crate::mock::Test
-);
