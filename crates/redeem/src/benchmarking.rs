@@ -1,7 +1,10 @@
 use super::*;
 use bitcoin::{
     formatter::TryFormat,
-    types::{BlockBuilder, TransactionBuilder, TransactionInputBuilder, TransactionInputSource, TransactionOutput},
+    types::{
+        Block, BlockBuilder, TransactionBuilder, TransactionInput, TransactionInputBuilder, TransactionInputSource,
+        TransactionOutput,
+    },
 };
 use btc_relay::{BtcAddress, BtcPublicKey};
 use currency::getters::{get_relay_chain_currency_id as get_collateral_currency_id, *};
@@ -150,6 +153,15 @@ fn get_vault_id<T: crate::Config>() -> DefaultVaultId<T> {
     )
 }
 
+fn new_tx_input<T: crate::Config>(block: &Block, b: usize) -> TransactionInput {
+    TransactionInputBuilder::new()
+        .with_source(TransactionInputSource::FromOutput(block.transactions[0].hash(), 0))
+        .with_script(&vec![0; b])
+        .add_witness(&vec![0; 72]) // max signature size
+        .add_witness(&vec![0; 65]) // uncompressed public key
+        .build()
+}
+
 #[benchmarks(
 	where
 		<<T as vault_registry::Config>::Balance as TryInto<i64>>::Error: Debug,
@@ -227,7 +239,7 @@ pub mod benchmarks {
     }
 
     #[benchmark]
-    pub fn execute_redeem(h: Linear<2, 10>, i: Linear<1, 10>, o: Linear<2, 3>, b: Linear<1, 1_024>) {
+    pub fn execute_redeem(h: Linear<2, 10>, i: Linear<1, 10>, o: Linear<2, 3>, b: Linear<1, 2_048>) {
         // we expect at least two hashes for payment + merkle root
         let height = h - 1; // remove the merkle root to get height
         let transactions_count = 2u32.pow(height);
@@ -255,18 +267,16 @@ pub mod benchmarks {
             },
         );
 
-        let height = 0;
         let block = BlockBuilder::new()
             .with_version(4)
             .with_coinbase(&caller_btc_address, 50, 3)
             .with_timestamp(u32::MAX)
             .mine(U256::from(2).pow(254.into()))
             .unwrap();
-
         let block_hash = block.header.hash;
 
         Security::<T>::set_active_block_number(1u32.into());
-        BtcRelay::<T>::_initialize(relayer_id.clone(), block.header, height).unwrap();
+        BtcRelay::<T>::_initialize(relayer_id.clone(), block.header, 0).unwrap();
 
         let mut block_builder = BlockBuilder::new();
         block_builder
@@ -277,21 +287,21 @@ pub mod benchmarks {
 
         // we always have two txs for coinbase + payment
         for _ in 0..(transactions_count - 2) {
-            block_builder.add_transaction(TransactionBuilder::new().with_version(2).build());
+            block_builder.add_transaction(
+                TransactionBuilder::new()
+                    .with_version(2)
+                    .add_input(new_tx_input::<T>(&block, 100))
+                    .add_output(TransactionOutput::payment(0, &caller_btc_address))
+                    .build(),
+            );
         }
 
         let mut transaction_builder = TransactionBuilder::new();
 
         // add tx inputs
-        for _ in 0..i {
-            transaction_builder.add_input(
-                TransactionInputBuilder::new()
-                    .with_source(TransactionInputSource::FromOutput(block.transactions[0].hash(), 0))
-                    .with_script(&vec![0; b as usize])
-                    .add_witness(&vec![0; 72]) // max signature size
-                    .add_witness(&vec![0; 65]) // uncompressed public key
-                    .build(),
-            );
+        transaction_builder.add_input(new_tx_input::<T>(&block, b as usize));
+        for _ in 1..i {
+            transaction_builder.add_input(new_tx_input::<T>(&block, 100));
         }
 
         // we always need these outputs for redeem
