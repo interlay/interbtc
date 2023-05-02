@@ -1321,6 +1321,7 @@ mod benches {
     );
 }
 // [orml_tokens, runtime_common::benchmarking::orml_tokens::Pallet::<Runtime>]
+// [orml_vesting, runtime_common::benchmarking::orml_vesting::Pallet::<Runtime>]
 
 #[cfg(not(feature = "disable-runtime-api"))]
 impl_runtime_apis! {
@@ -1580,6 +1581,7 @@ impl_runtime_apis! {
             use frame_benchmarking::{Benchmarking, BenchmarkBatch, TrackedStorageKey};
             impl frame_system_benchmarking::Config for Runtime {}
             // impl  runtime_common::benchmarking::orml_tokens::Config for Runtime {}
+            // impl  runtime_common::benchmarking::orml_vesting::Config for Runtime {}
 
             use frame_support::traits::WhitelistedStorageKeys;
             let mut whitelist: Vec<TrackedStorageKey> = AllPalletsWithSystem::whitelisted_storage_keys();
