@@ -20,22 +20,6 @@ use oracle::Pallet as Oracle;
 use security::Pallet as Security;
 use vault_registry::Pallet as VaultRegistry;
 
-// type UnsignedFixedPoint<T> = <T as currency::Config>::UnsignedFixedPoint;
-
-// fn wrapped<T: crate::Config>(amount: u32) -> Amount<T> {
-//     Amount::new(amount.into(), get_wrapped_currency_id::<T>())
-// }
-
-//
-// fn deposit_tokens<T: crate::Config>(currency_id: CurrencyId, account_id: &T::AccountId, amount: BalanceOf<T>) {
-//     assert_ok!(<orml_tokens::Pallet<T>>::deposit(currency_id, account_id, amount));
-// }
-//
-// fn mint_collateral<T: crate::Config>(account_id: &T::AccountId, amount: BalanceOf<T>) {
-//     deposit_tokens::<T>(get_collateral_currency_id::<T>(), account_id, amount);
-//     deposit_tokens::<T>(get_native_currency_id::<T>(), account_id, amount);
-// }
-
 struct Payment {
     amount: i64,
     output_address: BtcAddress,
@@ -140,14 +124,6 @@ fn get_vault_id<T: crate::Config>(name: &'static str) -> DefaultVaultId<T> {
         get_wrapped_currency_id::<T>(),
     )
 }
-//
-// fn register_public_key<T: crate::Config>(vault_id: DefaultVaultId<T>) {
-//     let origin = RawOrigin::Signed(vault_id.account_id);
-//     assert_ok!(VaultRegistry::<T>::register_public_key(
-//         origin.into(),
-//         BtcPublicKey::dummy()
-//     ));
-// }
 
 fn register_vault<T: crate::Config>(vault_id: &DefaultVaultId<T>, issued_tokens: Amount<T>, to_be_replaced: Amount<T>) {
     let origin = RawOrigin::Signed(vault_id.account_id.clone());
@@ -250,7 +226,7 @@ fn setup_replace<T: crate::Config>(
         op_return: replace_id,
     };
 
-    // similate that the request has been accepted
+    // simulate that the request has been accepted
     VaultRegistry::<T>::try_increase_to_be_redeemed_tokens(&old_vault_id, &to_be_replaced).unwrap();
     VaultRegistry::<T>::try_increase_to_be_issued_tokens(&new_vault_id, &to_be_replaced).unwrap();
 
