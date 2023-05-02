@@ -5,7 +5,7 @@ use mocktopus::macros::mockable;
 
 pub use crate::merkle::MerkleProof;
 use crate::{
-    formatter::{Formattable, TryFormattable},
+    formatter::{BoundedWriter, TryFormat, Writer},
     merkle::MerkleTree,
     parser::{extract_address_hash_scriptsig, extract_address_hash_witness, parse_block_header},
     utils::{log2, reverse_endianness, sha256d_le},
@@ -168,6 +168,7 @@ pub const P2WPKH_V0_SCRIPT_SIZE: u32 = 22;
 pub const P2WSH_V0_SCRIPT_SIZE: u32 = 34;
 pub const HASH160_SIZE_HEX: u8 = 0x14;
 pub const HASH256_SIZE_HEX: u8 = 0x20;
+// TODO: reduce to H256 size + op code
 pub const MAX_OPRETURN_SIZE: usize = 83;
 
 /// Structs
@@ -189,7 +190,9 @@ pub struct BlockHeader {
 impl BlockHeader {
     /// Returns the hash of the block header using Bitcoin's double sha256
     pub fn hash(&self) -> Result<H256Le, Error> {
-        Ok(sha256d_le(&self.try_format()?))
+        let mut bytes = vec![];
+        self.try_format(&mut bytes)?;
+        Ok(sha256d_le(&bytes))
     }
 
     pub fn ensure_version(&self) -> Result<(), Error> {
@@ -315,12 +318,35 @@ pub struct Transaction {
 
 #[cfg_attr(test, mockable)]
 impl Transaction {
+    pub(crate) fn format_no_witness<W: Writer>(&self, w: &mut W) -> Result<(), Error> {
+        self.version.try_format(w)?;
+        self.inputs.try_format(w)?;
+        self.outputs.try_format(w)?;
+        self.lock_at.try_format(w)?;
+        Ok(())
+    }
+
+    pub fn tx_id_bounded(&self, length_bound: u32) -> Result<H256Le, Error> {
+        let mut bytes = BoundedWriter::new(length_bound);
+        self.format_no_witness(&mut bytes)?;
+        Ok(sha256d_le(&bytes.result()))
+    }
+
     pub fn tx_id(&self) -> H256Le {
-        sha256d_le(&self.format_with(false))
+        let mut bytes = vec![];
+        self.format_no_witness(&mut bytes).expect("Not bounded");
+        sha256d_le(&bytes)
     }
 
     pub fn hash(&self) -> H256Le {
-        sha256d_le(&self.format_with(true))
+        let mut bytes = vec![];
+        self.try_format(&mut bytes).expect("Not bounded");
+        sha256d_le(&bytes)
+    }
+
+    pub(crate) fn has_witness(&self) -> bool {
+        // check if any of the inputs has a witness
+        self.inputs.iter().any(|v| !v.witness.is_empty())
     }
 }
 
@@ -995,7 +1021,8 @@ mod tests {
 
         // FIXME: flag_bits incorrect
         let proof = block.merkle_proof(&[transaction.tx_id()]).unwrap();
-        let bytes = proof.try_format().unwrap();
+        let mut bytes = vec![];
+        proof.try_format(&mut bytes).unwrap();
         MerkleProof::parse(&bytes).unwrap();
     }
 

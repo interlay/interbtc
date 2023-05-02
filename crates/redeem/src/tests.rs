@@ -367,7 +367,8 @@ fn test_execute_redeem_fails_with_redeem_id_not_found() {
                 RuntimeOrigin::signed(VAULT.account_id),
                 H256([0u8; 32]),
                 Default::default(),
-                Default::default()
+                Default::default(),
+                u32::MAX,
             ),
             TestError::RedeemIdNotFound
         );
@@ -396,7 +397,7 @@ fn test_execute_redeem_succeeds_with_another_account() {
             },
         );
         ext::btc_relay::verify_and_validate_op_return_transaction::<Test, Balance>
-            .mock_safe(|_, _, _, _, _| MockResult::Return(Ok(())));
+            .mock_safe(|_, _, _, _, _, _| MockResult::Return(Ok(())));
 
         let btc_fee = Redeem::get_current_inclusion_fee(DEFAULT_WRAPPED_CURRENCY).unwrap();
 
@@ -436,7 +437,8 @@ fn test_execute_redeem_succeeds_with_another_account() {
             RuntimeOrigin::signed(USER),
             H256([0u8; 32]),
             Default::default(),
-            Default::default()
+            Default::default(),
+            u32::MAX,
         ));
         assert_emitted!(Event::ExecuteRedeem {
             redeem_id: H256([0; 32]),
@@ -475,7 +477,7 @@ fn test_execute_redeem_succeeds() {
             },
         );
         ext::btc_relay::verify_and_validate_op_return_transaction::<Test, Balance>
-            .mock_safe(|_, _, _, _, _| MockResult::Return(Ok(())));
+            .mock_safe(|_, _, _, _, _, _| MockResult::Return(Ok(())));
 
         let btc_fee = Redeem::get_current_inclusion_fee(DEFAULT_WRAPPED_CURRENCY).unwrap();
 
@@ -515,7 +517,8 @@ fn test_execute_redeem_succeeds() {
             RuntimeOrigin::signed(VAULT.account_id),
             H256([0u8; 32]),
             Default::default(),
-            Default::default()
+            Default::default(),
+            u32::MAX,
         ));
         assert_emitted!(Event::ExecuteRedeem {
             redeem_id: H256([0; 32]),
@@ -834,7 +837,7 @@ mod spec_based_tests {
                 },
             );
             ext::btc_relay::verify_and_validate_op_return_transaction::<Test, Balance>
-                .mock_safe(|_, _, _, _, _| MockResult::Return(Ok(())));
+                .mock_safe(|_, _, _, _, _, _| MockResult::Return(Ok(())));
 
             let btc_fee = Redeem::get_current_inclusion_fee(DEFAULT_WRAPPED_CURRENCY).unwrap();
             let redeem_request = RedeemRequest {
@@ -870,7 +873,8 @@ mod spec_based_tests {
                 RuntimeOrigin::signed(USER),
                 H256([0u8; 32]),
                 Default::default(),
-                Default::default()
+                Default::default(),
+                u32::MAX,
             ));
             assert_emitted!(Event::ExecuteRedeem {
                 redeem_id: H256([0; 32]),

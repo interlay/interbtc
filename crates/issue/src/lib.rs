@@ -221,7 +221,14 @@ pub mod pallet {
         /// * `merkle_proof` - raw bytes
         /// * `raw_tx` - raw bytes
         #[pallet::call_index(1)]
-        #[pallet::weight(<T as Config>::WeightInfo::execute_issue())]
+        #[pallet::weight(
+                 <T as Config>::WeightInfo::execute_issue_underpayment()
+            .max(<T as Config>::WeightInfo::execute_issue_exact())
+            .max(<T as Config>::WeightInfo::execute_issue_overpayment())
+            .max(<T as Config>::WeightInfo::execute_expired_issue_underpayment())
+            .max(<T as Config>::WeightInfo::execute_expired_issue_exact())
+            .max(<T as Config>::WeightInfo::execute_expired_issue_overpayment())
+        )]
         #[transactional]
         pub fn execute_issue(
             origin: OriginFor<T>,
