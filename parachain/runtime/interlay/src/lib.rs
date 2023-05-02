@@ -1098,7 +1098,7 @@ impl issue::Config for Runtime {
     type TreasuryPalletId = TreasuryPalletId;
     type RuntimeEvent = RuntimeEvent;
     type BlockNumberToBalance = BlockNumberToBalance;
-    type WeightInfo = ();
+    type WeightInfo = weights::issue::WeightInfo<Runtime>;
 }
 
 pub use redeem::{Event as RedeemEvent, RedeemRequest};
@@ -1300,6 +1300,7 @@ mod benches {
         [pallet_identity, Identity]
         [pallet_proxy, Proxy]
         [tx_pause, TxPause]
+        [issue, Issue]
         [supply, Supply]
         [escrow, Escrow]
         [annuity, EscrowAnnuity]

@@ -4578,6 +4578,7 @@ dependencies = [
  "sp-runtime",
  "sp-std",
  "staking",
+ "traits",
  "vault-registry",
 ]
 

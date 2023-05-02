@@ -8,6 +8,7 @@ pub mod democracy;
 pub mod escrow;
 pub mod fee;
 pub mod frame_system;
+pub mod issue;
 pub mod nomination;
 pub mod oracle;
 pub mod pallet_collective;

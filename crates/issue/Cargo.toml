@@ -32,6 +32,7 @@ security = { path = "../security", default-features = false }
 currency = { path = "../currency", default-features = false }
 vault-registry = { path = "../vault-registry", default-features = false }
 nomination = { path = "../nomination", default-features = false }
+traits = { path = '../traits', default-features = false }
 
 primitives = { package = "interbtc-primitives", path = "../../primitives", default-features = false }
 
