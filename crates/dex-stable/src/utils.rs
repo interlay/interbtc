@@ -86,13 +86,13 @@ impl<T: Config> Pallet<T> {
                 .checked_mul(d)?
                 .checked_div(U256::from(x).checked_mul(n_currencies)?)?;
         }
-        let a_percision = U256::from(A_PRECISION);
+        let a_precision = U256::from(A_PRECISION);
         c = c
             .checked_mul(d)?
-            .checked_mul(a_percision)?
+            .checked_mul(a_precision)?
             .checked_div(ann.checked_mul(n_currencies)?)?;
 
-        let b = sum.checked_add(d.checked_mul(a_percision)?.checked_div(ann)?)?;
+        let b = sum.checked_add(d.checked_mul(a_precision)?.checked_div(ann)?)?;
 
         let mut last_y: U256;
         let mut y = d;
