@@ -1098,14 +1098,14 @@ impl issue::Config for Runtime {
     type TreasuryPalletId = TreasuryPalletId;
     type RuntimeEvent = RuntimeEvent;
     type BlockNumberToBalance = BlockNumberToBalance;
-    type WeightInfo = ();
+    type WeightInfo = weights::issue::WeightInfo<Runtime>;
 }
 
 pub use redeem::{Event as RedeemEvent, RedeemRequest};
 
 impl redeem::Config for Runtime {
     type RuntimeEvent = RuntimeEvent;
-    type WeightInfo = ();
+    type WeightInfo = weights::redeem::WeightInfo<Runtime>;
 }
 
 pub use replace::{Event as ReplaceEvent, ReplaceRequest};
@@ -1300,6 +1300,7 @@ mod benches {
         [pallet_identity, Identity]
         [pallet_proxy, Proxy]
         [tx_pause, TxPause]
+        [issue, Issue]
         [supply, Supply]
         [escrow, Escrow]
         [annuity, EscrowAnnuity]
@@ -1319,6 +1320,7 @@ mod benches {
         [pallet_xcm, PolkadotXcm]
         [frame_system, frame_system_benchmarking::Pallet::<Runtime>]
         [replace, Replace]
+        [redeem, Redeem]
     );
 }
 // [orml_tokens, runtime_common::benchmarking::orml_tokens::Pallet::<Runtime>]
