@@ -12,6 +12,7 @@ pub(crate) mod btc_relay {
     pub fn verify_and_validate_op_return_transaction<T: crate::Config, V: TryInto<Value>>(
         merkle_proof: MerkleProof,
         transaction: Transaction,
+        length_bound: u32,
         recipient_btc_address: BtcAddress,
         expected_btc: V,
         op_return_id: H256,
@@ -19,6 +20,7 @@ pub(crate) mod btc_relay {
         <btc_relay::Pallet<T>>::verify_and_validate_op_return_transaction(
             merkle_proof,
             transaction,
+            length_bound,
             recipient_btc_address,
             expected_btc,
             op_return_id,

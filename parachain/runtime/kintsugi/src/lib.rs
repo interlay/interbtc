@@ -25,6 +25,7 @@ use frame_system::{
     limits::{BlockLength, BlockWeights},
     EnsureRoot, RawOrigin,
 };
+use loans::{OnSlashHook, PostDeposit, PostTransfer, PreDeposit, PreTransfer};
 use orml_asset_registry::SequentialId;
 use orml_traits::{currency::MutationHooks, parameter_type_with_key};
 use pallet_transaction_payment::{Multiplier, TargetedFeeAdjustment};
@@ -225,7 +226,7 @@ impl frame_system::Config for Runtime {
     type OnKilledAccount = ();
     type DbWeight = ();
     type BaseCallFilter = BaseCallFilter;
-    type SystemWeightInfo = (); // TODO: frame_system benchmarks are non-standard - run them as well
+    type SystemWeightInfo = weights::frame_system::WeightInfo<Runtime>;
     type BlockWeights = RuntimeBlockWeights;
     type BlockLength = RuntimeBlockLength;
     type SS58Prefix = SS58Prefix;
@@ -284,7 +285,7 @@ impl collator_selection::Config for Runtime {
     type ValidatorId = <Self as frame_system::Config>::AccountId;
     type ValidatorIdOf = collator_selection::IdentityCollator;
     type ValidatorRegistration = Session;
-    type WeightInfo = ();
+    type WeightInfo = weights::collator_selection::WeightInfo<Runtime>;
 }
 
 impl pallet_aura::Config for Runtime {
@@ -668,16 +669,17 @@ parameter_type_with_key! {
 }
 
 pub struct CurrencyHooks<T>(PhantomData<T>);
-impl<T: orml_tokens::Config> MutationHooks<T::AccountId, T::CurrencyId, T::Balance> for CurrencyHooks<T>
+impl<T: orml_tokens::Config + loans::Config>
+    MutationHooks<T::AccountId, T::CurrencyId, <T as currency::Config>::Balance> for CurrencyHooks<T>
 where
     T::AccountId: From<sp_runtime::AccountId32>,
 {
     type OnDust = orml_tokens::TransferDust<T, FeeAccount>;
-    type OnSlash = ();
-    type PreDeposit = ();
-    type PostDeposit = ();
-    type PreTransfer = ();
-    type PostTransfer = ();
+    type OnSlash = OnSlashHook<T>;
+    type PreDeposit = PreDeposit<T>;
+    type PostDeposit = PostDeposit<T>;
+    type PreTransfer = PreTransfer<T>;
+    type PostTransfer = PostTransfer<T>;
     type OnNewTokenAccount = ();
     type OnKilledTokenAccount = ();
 }
@@ -687,7 +689,7 @@ impl orml_tokens::Config for Runtime {
     type Balance = Balance;
     type Amount = primitives::Amount;
     type CurrencyId = CurrencyId;
-    type WeightInfo = ();
+    type WeightInfo = weights::orml_tokens::WeightInfo<Runtime>;
     type ExistentialDeposits = ExistentialDeposits;
     type CurrencyHooks = CurrencyHooks<Runtime>;
     type MaxLocks = MaxLocks;
@@ -789,8 +791,8 @@ impl annuity::BlockRewardProvider<AccountId> for EscrowBlockRewardProvider {
     type Currency = NativeCurrency;
 
     #[cfg(feature = "runtime-benchmarks")]
-    fn deposit_stake(from: &AccountId, amount: Balance) -> DispatchResult {
-        <EscrowRewards as reward::RewardsApi<(), AccountId, Balance>>::deposit_stake(&(), from, amount)
+    fn deposit_stake(who: &AccountId, amount: Balance) -> DispatchResult {
+        <EscrowRewards as reward::RewardsApi<(), AccountId, Balance>>::deposit_stake(&(), who, amount)
     }
 
     fn distribute_block_reward(_from: &AccountId, amount: Balance) -> DispatchResult {
@@ -820,7 +822,7 @@ impl annuity::Config<EscrowAnnuityInstance> for Runtime {
     type BlockNumberToBalance = BlockNumberToBalance;
     type EmissionPeriod = EmissionPeriod;
     type TotalWrapped = TotalWrapped;
-    type WeightInfo = weights::annuity::WeightInfo<Runtime>;
+    type WeightInfo = weights::annuity_escrow_annuity::WeightInfo<Runtime>;
 }
 
 pub struct VaultBlockRewardProvider;
@@ -829,9 +831,14 @@ impl annuity::BlockRewardProvider<AccountId> for VaultBlockRewardProvider {
     type Currency = NativeCurrency;
 
     #[cfg(feature = "runtime-benchmarks")]
-    fn deposit_stake(_from: &AccountId, _amount: Balance) -> DispatchResult {
-        // TODO: fix for vault id
-        Ok(())
+    fn deposit_stake(_who: &AccountId, amount: Balance) -> DispatchResult {
+        // since this is only used for benchmarking
+        // deposit stake for the native currency
+        <VaultCapacity as reward::RewardsApi<(), CurrencyId, Balance>>::deposit_stake(
+            &(),
+            &GetNativeCurrencyId::get(),
+            amount,
+        )
     }
 
     fn distribute_block_reward(from: &AccountId, amount: Balance) -> DispatchResult {
@@ -844,8 +851,13 @@ impl annuity::BlockRewardProvider<AccountId> for VaultBlockRewardProvider {
         )
     }
 
+    #[cfg(feature = "runtime-benchmarks")]
+    fn can_withdraw_reward() -> bool {
+        false
+    }
+
     fn withdraw_reward(_: &AccountId) -> Result<Balance, DispatchError> {
-        Err(sp_runtime::TokenError::Unsupported.into())
+        Err(DispatchError::Other("Unsupported"))
     }
 }
 
@@ -859,7 +871,7 @@ impl annuity::Config<VaultAnnuityInstance> for Runtime {
     type BlockNumberToBalance = BlockNumberToBalance;
     type EmissionPeriod = EmissionPeriod;
     type TotalWrapped = TotalWrapped;
-    type WeightInfo = ();
+    type WeightInfo = weights::annuity_vault_annuity::WeightInfo<Runtime>;
 }
 
 type EscrowRewardsInstance = reward::Instance1;
@@ -1127,7 +1139,7 @@ pub use redeem::{Event as RedeemEvent, RedeemRequest};
 
 impl redeem::Config for Runtime {
     type RuntimeEvent = RuntimeEvent;
-    type WeightInfo = ();
+    type WeightInfo = weights::redeem::WeightInfo<Runtime>;
 }
 
 pub use replace::{Event as ReplaceEvent, ReplaceRequest};
@@ -1360,6 +1372,7 @@ mod benches {
         [supply, Supply]
         [escrow, Escrow]
         [annuity, EscrowAnnuity]
+        [annuity, VaultAnnuity]
         [farming, Farming]
         [btc_relay, BTCRelay]
         [security, Security]
@@ -1368,6 +1381,7 @@ mod benches {
         [fee, Fee]
         [nomination, Nomination]
         [clients_info, ClientsInfo]
+        [collator_selection, CollatorSelection]
         [pallet_collective, TechnicalCommittee]
         [pallet_membership, TechnicalMembership]
         [cumulus_pallet_xcmp_queue, XcmpQueue]
@@ -1377,6 +1391,9 @@ mod benches {
         [dex_stable, DexStable]
         [dex_swap_router, DexSwapRouter]
         [democracy, Democracy]
+        [frame_system, frame_system_benchmarking::Pallet::<Runtime>]
+        [orml_tokens, runtime_common::benchmarking::orml_tokens::Pallet::<Runtime>]
+        [redeem, Redeem]
     );
 }
 
@@ -1518,6 +1535,8 @@ impl_runtime_apis! {
             config: frame_benchmarking::BenchmarkConfig
         ) -> Result<Vec<frame_benchmarking::BenchmarkBatch>, sp_runtime::RuntimeString> {
             use frame_benchmarking::{Benchmarking, BenchmarkBatch, TrackedStorageKey};
+            impl frame_system_benchmarking::Config for Runtime {}
+            impl  runtime_common::benchmarking::orml_tokens::Config for Runtime {}
 
             use frame_support::traits::WhitelistedStorageKeys;
             let mut whitelist: Vec<TrackedStorageKey> = AllPalletsWithSystem::whitelisted_storage_keys();

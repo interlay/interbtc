@@ -31,6 +31,7 @@ sp-arithmetic = { git = "https://github.com/paritytech/substrate", branch = "pol
 frame-support = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.31", default-features = false }
 frame-executive = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.31", default-features = false }
 frame-system = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.31", default-features = false }
+frame-system-benchmarking = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.31", default-features = false, optional = true }
 frame-benchmarking = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.31", default-features = false, optional = true }
 pallet-balances = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.31", default-features = false }
 pallet-timestamp = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.31", default-features = false }
@@ -166,6 +167,7 @@ std = [
   "frame-support/std",
   "frame-executive/std",
   "frame-system/std",
+  "frame-system-benchmarking?/std",
   "frame-benchmarking/std",
   "pallet-balances/std",
   "pallet-timestamp/std",
@@ -261,6 +263,7 @@ runtime-benchmarks = [
   "frame-benchmarking",
   "frame-support/runtime-benchmarks",
   "frame-system/runtime-benchmarks",
+  "frame-system-benchmarking/runtime-benchmarks",
   "pallet-society/runtime-benchmarks",
   "pallet-collective/runtime-benchmarks",
   "pallet-balances/runtime-benchmarks",
@@ -278,6 +281,7 @@ runtime-benchmarks = [
   "xcm-builder/runtime-benchmarks",
   "pallet-xcm/runtime-benchmarks",
 
+  "runtime-common/runtime-benchmarks",
   "annuity/runtime-benchmarks",
   "btc-relay/runtime-benchmarks",
   "clients-info/runtime-benchmarks",
@@ -299,6 +303,7 @@ runtime-benchmarks = [
   "vault-registry/runtime-benchmarks",
   "democracy/runtime-benchmarks",
   "supply/runtime-benchmarks",
+  "collator-selection/runtime-benchmarks",
 ]
 disable-runtime-api = []
 try-runtime = [

@@ -224,7 +224,7 @@ impl frame_system::Config for Runtime {
     type OnKilledAccount = ();
     type DbWeight = ();
     type BaseCallFilter = BaseCallFilter;
-    type SystemWeightInfo = ();
+    type SystemWeightInfo = weights::frame_system::WeightInfo<Runtime>;
     type BlockWeights = RuntimeBlockWeights;
     type BlockLength = RuntimeBlockLength;
     type SS58Prefix = SS58Prefix;
@@ -283,7 +283,7 @@ impl collator_selection::Config for Runtime {
     type ValidatorId = <Self as frame_system::Config>::AccountId;
     type ValidatorIdOf = collator_selection::IdentityCollator;
     type ValidatorRegistration = Session;
-    type WeightInfo = ();
+    type WeightInfo = weights::collator_selection::WeightInfo<Runtime>;
 }
 
 impl pallet_aura::Config for Runtime {
@@ -777,10 +777,8 @@ impl annuity::BlockRewardProvider<AccountId> for EscrowBlockRewardProvider {
     type Currency = NativeCurrency;
 
     #[cfg(feature = "runtime-benchmarks")]
-    fn deposit_stake(from: &AccountId, amount: Balance) -> DispatchResult {
-        let current_stake = <EscrowRewards as reward::RewardsApi<(), AccountId, Balance>>::get_stake(&(), from)?;
-        let new_stake = current_stake.saturating_add(amount);
-        <EscrowRewards as reward::RewardsApi<(), AccountId, Balance>>::set_stake(&(), from, new_stake)
+    fn deposit_stake(who: &AccountId, amount: Balance) -> DispatchResult {
+        <EscrowRewards as reward::RewardsApi<(), AccountId, Balance>>::deposit_stake(&(), who, amount)
     }
 
     fn distribute_block_reward(_from: &AccountId, amount: Balance) -> DispatchResult {
@@ -810,7 +808,7 @@ impl annuity::Config<EscrowAnnuityInstance> for Runtime {
     type BlockNumberToBalance = BlockNumberToBalance;
     type EmissionPeriod = EmissionPeriod;
     type TotalWrapped = TotalWrapped;
-    type WeightInfo = weights::annuity::WeightInfo<Runtime>;
+    type WeightInfo = weights::annuity_escrow_annuity::WeightInfo<Runtime>;
 }
 
 pub struct VaultBlockRewardProvider;
@@ -819,9 +817,14 @@ impl annuity::BlockRewardProvider<AccountId> for VaultBlockRewardProvider {
     type Currency = NativeCurrency;
 
     #[cfg(feature = "runtime-benchmarks")]
-    fn deposit_stake(_from: &AccountId, _amount: Balance) -> DispatchResult {
-        // TODO: fix for vault id
-        Ok(())
+    fn deposit_stake(_who: &AccountId, amount: Balance) -> DispatchResult {
+        // since this is only used for benchmarking
+        // deposit stake for the native currency
+        <VaultCapacity as reward::RewardsApi<(), CurrencyId, Balance>>::deposit_stake(
+            &(),
+            &GetNativeCurrencyId::get(),
+            amount,
+        )
     }
 
     fn distribute_block_reward(from: &AccountId, amount: Balance) -> DispatchResult {
@@ -834,8 +837,13 @@ impl annuity::BlockRewardProvider<AccountId> for VaultBlockRewardProvider {
         )
     }
 
+    #[cfg(feature = "runtime-benchmarks")]
+    fn can_withdraw_reward() -> bool {
+        false
+    }
+
     fn withdraw_reward(_: &AccountId) -> Result<Balance, DispatchError> {
-        Err(sp_runtime::TokenError::Unsupported.into())
+        Err(DispatchError::Other("Unsupported"))
     }
 }
 
@@ -849,7 +857,7 @@ impl annuity::Config<VaultAnnuityInstance> for Runtime {
     type BlockNumberToBalance = BlockNumberToBalance;
     type EmissionPeriod = EmissionPeriod;
     type TotalWrapped = TotalWrapped;
-    type WeightInfo = ();
+    type WeightInfo = weights::annuity_vault_annuity::WeightInfo<Runtime>;
 }
 
 type EscrowRewardsInstance = reward::Instance1;
@@ -1097,7 +1105,7 @@ pub use redeem::{Event as RedeemEvent, RedeemRequest};
 
 impl redeem::Config for Runtime {
     type RuntimeEvent = RuntimeEvent;
-    type WeightInfo = ();
+    type WeightInfo = weights::redeem::WeightInfo<Runtime>;
 }
 
 pub use replace::{Event as ReplaceEvent, ReplaceRequest};
@@ -1296,6 +1304,7 @@ mod benches {
         [supply, Supply]
         [escrow, Escrow]
         [annuity, EscrowAnnuity]
+        [annuity, VaultAnnuity]
         [btc_relay, BTCRelay]
         [security, Security]
         [vault_registry, VaultRegistry]
@@ -1304,12 +1313,16 @@ mod benches {
         [fee, Fee]
         [nomination, Nomination]
         [clients_info, ClientsInfo]
+        [collator_selection, CollatorSelection]
         [pallet_collective, TechnicalCommittee]
         [pallet_membership, TechnicalMembership]
         [cumulus_pallet_xcmp_queue, XcmpQueue]
         [pallet_xcm, PolkadotXcm]
+        [frame_system, frame_system_benchmarking::Pallet::<Runtime>]
+        [redeem, Redeem]
     );
 }
+// [orml_tokens, runtime_common::benchmarking::orml_tokens::Pallet::<Runtime>]
 
 #[cfg(not(feature = "disable-runtime-api"))]
 impl_runtime_apis! {
@@ -1567,6 +1580,8 @@ impl_runtime_apis! {
             config: frame_benchmarking::BenchmarkConfig
         ) -> Result<Vec<frame_benchmarking::BenchmarkBatch>, sp_runtime::RuntimeString> {
             use frame_benchmarking::{Benchmarking, BenchmarkBatch, TrackedStorageKey};
+            impl frame_system_benchmarking::Config for Runtime {}
+            // impl  runtime_common::benchmarking::orml_tokens::Config for Runtime {}
 
             use frame_support::traits::WhitelistedStorageKeys;
             let mut whitelist: Vec<TrackedStorageKey> = AllPalletsWithSystem::whitelisted_storage_keys();

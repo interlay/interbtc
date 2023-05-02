@@ -25,9 +25,10 @@ use frame_support::{
     codec::Decode,
     traits::{Currency, EnsureOrigin, Get},
 };
-use frame_system::{EventRecord, RawOrigin};
+use frame_system::{EventRecord, Pallet as System, RawOrigin};
 use pallet_authorship::EventHandler;
 use pallet_session::{self as session, SessionManager};
+use sp_runtime::traits::Bounded;
 use sp_std::prelude::*;
 
 pub type BalanceOf<T> = <<T as Config>::StakingCurrency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
@@ -49,9 +50,9 @@ fn assert_last_event<T: Config>(generic_event: <T as Config>::RuntimeEvent) {
     assert_eq!(event, &system_event);
 }
 
-fn create_funded_user<T: Config>(string: &'static str, n: u32, balance_factor: u32) -> T::AccountId {
+fn create_funded_user<T: Config>(string: &'static str, n: u32) -> T::AccountId {
     let user = account(string, n, SEED);
-    let balance = T::StakingCurrency::minimum_balance() * balance_factor.into();
+    let balance = BalanceOf::<T>::max_value() / 2u32.into();
     let _ = T::StakingCurrency::make_free_balance_be(&user, balance);
     user
 }
@@ -74,13 +75,14 @@ fn keys<T: Config + session::Config>(c: u32) -> <T as session::Config>::Keys {
 }
 
 fn validator<T: Config + session::Config>(c: u32) -> (T::AccountId, <T as session::Config>::Keys) {
-    (create_funded_user::<T>("candidate", c, 1000), keys::<T>(c))
+    (create_funded_user::<T>("candidate", c), keys::<T>(c))
 }
 
 fn register_validators<T: Config + session::Config>(count: u32) -> Vec<T::AccountId> {
     let validators = (0..count).map(|c| validator::<T>(c)).collect::<Vec<_>>();
 
     for (who, keys) in validators.clone() {
+        System::<T>::inc_providers(&who);
         <session::Pallet<T>>::set_keys(RawOrigin::Signed(who).into(), keys, Vec::new()).unwrap();
     }
 
@@ -93,7 +95,9 @@ fn register_candidates<T: Config>(count: u32) {
 
     for who in candidates {
         T::StakingCurrency::make_free_balance_be(&who, <CandidacyBond<T>>::get() * 2u32.into());
-        <CollatorSelection<T>>::register_as_candidate(RawOrigin::Signed(who).into()).unwrap();
+        assert_ok!(<CollatorSelection<T>>::register_as_candidate(
+            RawOrigin::Signed(who).into()
+        ));
     }
 }
 
@@ -126,7 +130,7 @@ benchmarks! {
     }
 
     set_candidacy_bond {
-        let bond_amount: BalanceOf<T> = T::StakingCurrency::minimum_balance() * 10u32.into();
+        let bond_amount = BalanceOf::<T>::max_value() / 4u32.into();
         let origin = T::UpdateOrigin::try_successful_origin().unwrap();
     }: {
         assert_ok!(
@@ -142,21 +146,22 @@ benchmarks! {
     register_as_candidate {
         let c in 1 .. T::MaxCandidates::get() - 1;
 
-        <CandidacyBond<T>>::put(T::StakingCurrency::minimum_balance());
+        <CandidacyBond<T>>::put(BalanceOf::<T>::max_value() / 4u32.into());
         <DesiredCandidates<T>>::put(c + 1);
 
         register_validators::<T>(c);
         register_candidates::<T>(c);
 
         let caller: T::AccountId = whitelisted_caller();
-        let bond: BalanceOf<T> = T::StakingCurrency::minimum_balance() * 2u32.into();
+        let bond = <CandidacyBond<T>>::get() * 2u32.into();
         T::StakingCurrency::make_free_balance_be(&caller, bond.clone());
 
-        <session::Pallet<T>>::set_keys(
+        System::<T>::inc_providers(&caller);
+        assert_ok!(<session::Pallet<T>>::set_keys(
             RawOrigin::Signed(caller.clone()).into(),
             keys::<T>(c + 1),
             Vec::new()
-        ).unwrap();
+        ));
 
     }: _(RawOrigin::Signed(caller.clone()))
     verify {
@@ -166,7 +171,7 @@ benchmarks! {
     // worse case is the last candidate leaving.
     leave_intent {
         let c in (T::MinCandidates::get() + 1) .. T::MaxCandidates::get();
-        <CandidacyBond<T>>::put(T::StakingCurrency::minimum_balance());
+        <CandidacyBond<T>>::put(BalanceOf::<T>::max_value() / 4u32.into());
         <DesiredCandidates<T>>::put(c);
 
         register_validators::<T>(c);
@@ -181,20 +186,20 @@ benchmarks! {
 
     // worse case is paying a non-existing candidate account.
     note_author {
-        <CandidacyBond<T>>::put(T::StakingCurrency::minimum_balance());
-        T::StakingCurrency::make_free_balance_be(
+        <CandidacyBond<T>>::put(BalanceOf::<T>::max_value() / 4u32.into());
+        T::RewardsCurrency::make_free_balance_be(
             &<CollatorSelection<T>>::account_id(),
-            T::StakingCurrency::minimum_balance() * 4u32.into(),
+            2000u32.into(),
         );
         let author = account("author", 0, SEED);
         let new_block: T::BlockNumber = 10u32.into();
 
         frame_system::Pallet::<T>::set_block_number(new_block);
-        assert!(T::StakingCurrency::free_balance(&author) == 0u32.into());
+        assert!(T::RewardsCurrency::free_balance(&author) == 0u32.into());
     }: {
         <CollatorSelection<T> as EventHandler<_, _>>::note_author(author.clone())
     } verify {
-        assert!(T::StakingCurrency::free_balance(&author) > 0u32.into());
+        assert!(T::RewardsCurrency::free_balance(&author) > 0u32.into());
         assert_eq!(frame_system::Pallet::<T>::block_number(), new_block);
     }
 
@@ -203,7 +208,7 @@ benchmarks! {
         let r in 1 .. T::MaxCandidates::get();
         let c in 1 .. T::MaxCandidates::get();
 
-        <CandidacyBond<T>>::put(T::StakingCurrency::minimum_balance());
+        <CandidacyBond<T>>::put(BalanceOf::<T>::max_value() / 4u32.into());
         <DesiredCandidates<T>>::put(c);
         frame_system::Pallet::<T>::set_block_number(0u32.into());
 

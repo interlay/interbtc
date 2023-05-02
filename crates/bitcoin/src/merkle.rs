@@ -14,10 +14,11 @@ use codec::{Decode, Encode};
 use scale_info::TypeInfo;
 use sp_std::prelude::*;
 
-// Values taken from https://github.com/bitcoin/bitcoin/blob/78dae8caccd82cfbfd76557f1fb7d7557c7b5edb/src/consensus/consensus.h
+// https://github.com/bitcoin/bitcoin/blob/78dae8caccd82cfbfd76557f1fb7d7557c7b5edb/src/consensus/consensus.h
 const MAX_BLOCK_WEIGHT: u32 = 4_000_000;
 const WITNESS_SCALE_FACTOR: u32 = 4;
 const MIN_TRANSACTION_WEIGHT: u32 = WITNESS_SCALE_FACTOR * 60;
+// https://github.com/bitcoin/bitcoin/blob/7fcf53f7b4524572d1d0c9a5fdc388e87eb02416/src/merkleblock.cpp#L155
 const MAX_TRANSACTIONS_IN_PROOF: u32 = MAX_BLOCK_WEIGHT / MIN_TRANSACTION_WEIGHT;
 
 /// Stores the content of a merkle tree
@@ -54,6 +55,7 @@ impl MerkleTree {
         (transactions_count + (1 << height) - 1) >> height
     }
 
+    // `O(log N)` where `N` is `transactions_count`
     pub fn compute_height(transactions_count: u32) -> u32 {
         let mut height = 0;
         while Self::compute_width(transactions_count, height) > 1 {
@@ -122,11 +124,13 @@ impl MerkleProof {
         traversal.bits_used = traversal.bits_used.checked_add(1).ok_or(Error::ArithmeticOverflow)?;
 
         if height == 0 || !parent_of_hash {
+            // if at height 0, or nothing interesting below, use stored hash and do not descend
             if traversal.hashes_used >= self.hashes.len() {
                 return Err(Error::MalformedMerkleProof);
             }
             let hash = self.hashes[traversal.hashes_used];
             if height == 0 && parent_of_hash {
+                // in case of height 0, we have a matched txid
                 traversal.merkle_position = Some(pos);
                 traversal.hash_position = Some(traversal.hashes_used);
             }
