@@ -104,7 +104,6 @@ farming = { path = "../../../crates/farming", default-features = false }
 tx-pause = { path = "../../../crates/tx-pause", default-features = false }
 dex-general = { path = "../../../crates/dex-general", default-features = false }
 dex-stable = { path = "../../../crates/dex-stable", default-features = false }
-dex-swap-router = { path = "../../../crates/dex-swap-router", default-features = false }
 
 primitives = { package = "interbtc-primitives", path = "../../../primitives", default-features = false }
 
@@ -234,7 +233,6 @@ std = [
   "tx-pause/std",
   "dex-general/std",
   "dex-stable/std",
-  "dex-swap-router/std",
 
   "primitives/std",
 
@@ -290,7 +288,6 @@ runtime-benchmarks = [
   "clients-info/runtime-benchmarks",
   "dex-general/runtime-benchmarks",
   "dex-stable/runtime-benchmarks",
-  "dex-swap-router/runtime-benchmarks",
   "escrow/runtime-benchmarks",
   "farming/runtime-benchmarks",
   "fee/runtime-benchmarks",
@@ -350,7 +347,6 @@ try-runtime = [
   "democracy/try-runtime",
   "dex-general/try-runtime",
   "dex-stable/try-runtime",
-  "dex-swap-router/try-runtime",
   "farming/try-runtime",
   "pallet-collective/try-runtime",
   "pallet-membership/try-runtime",
