@@ -54,7 +54,7 @@ fn request_issue_ok_with_address(
 }
 
 fn execute_issue(origin: AccountId, issue_id: &H256) -> Result<(), DispatchError> {
-    Issue::_execute_issue(origin, *issue_id, Default::default(), Default::default())
+    Issue::_execute_issue(origin, *issue_id, Default::default(), Default::default(), u32::MAX)
 }
 
 fn cancel_issue(origin: AccountId, issue_id: &H256) -> Result<(), DispatchError> {
@@ -157,7 +157,7 @@ fn setup_execute(
     <security::Pallet<Test>>::set_active_block_number(5);
 
     ext::btc_relay::get_and_verify_issue_payment::<Test, Balance>
-        .mock_safe(move |_, _, _| MockResult::Return(Ok(btc_transferred)));
+        .mock_safe(move |_, _, _, _| MockResult::Return(Ok(btc_transferred)));
 
     issue_id
 }

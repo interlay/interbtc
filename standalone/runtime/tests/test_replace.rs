@@ -718,6 +718,7 @@ fn execute_replace_with_amount(replace_id: H256, amount: Amount<Runtime>) -> Dis
         replace_id,
         merkle_proof,
         transaction,
+        length_bound: u32::MAX,
     })
     .dispatch(origin_of(account_of(OLD_VAULT)))
 }
