@@ -54,7 +54,7 @@ pub mod benchmarks {
     use orml_vesting::Call;
 
     #[benchmark]
-    fn claim(n: Linear<0, 10>) {
+    fn claim(n: Linear<0, 1>) {
         let setup = setup_transfer::<T>();
         let schedule = dummy_schedule::<T>();
         for _ in 0..n {
@@ -82,7 +82,7 @@ pub mod benchmarks {
     }
 
     #[benchmark]
-    fn update_vesting_schedules(n: Linear<0, 10>) {
+    fn update_vesting_schedules(n: Linear<0, 1>) {
         let setup = setup_transfer::<T>();
         let schedule = dummy_schedule::<T>();
         assert_ok!(orml_vesting::Pallet::<T>::vested_transfer(

@@ -376,7 +376,7 @@ impl pallet_utility::Config for Runtime {
 parameter_types! {
     pub MinVestedTransfer: Balance = 0;
     // NOTE: per account, airdrop only needs one
-    pub const MaxVestingSchedules: u32 = 10;
+    pub const MaxVestingSchedules: u32 = 1;
 }
 
 impl orml_vesting::Config for Runtime {
