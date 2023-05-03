@@ -196,7 +196,7 @@ pub mod benchmarks {
     }
 
     #[benchmark]
-    pub fn execute_redeem(h: Linear<2, 10>, i: Linear<1, 10>, o: Linear<2, 3>, b: Linear<1, 2_048>) {
+    pub fn execute_redeem(h: Linear<2, 10>, i: Linear<1, 10>, o: Linear<2, 3>, b: Linear<541, 2_048>) {
         let vault_id = get_vault_id::<T>();
         let relayer_id: T::AccountId = account("Relayer", 0, 0);
 

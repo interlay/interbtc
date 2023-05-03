@@ -136,7 +136,7 @@ fn setup_replace<T: crate::Config>(
     hashes: u32,
     vin: u32,
     vout: u32,
-    padding: u32,
+    tx_size: u32,
 ) -> (H256, MerkleProof, Transaction)
 where
     <<T as vault_registry::Config>::Balance as TryInto<i64>>::Error: Debug,
@@ -187,7 +187,7 @@ where
     }
 
     let (transaction, merkle_proof) =
-        BtcRelay::<T>::initialize_and_store_max(relayer_id.clone(), hashes, vin, outputs, padding as usize);
+        BtcRelay::<T>::initialize_and_store_max(relayer_id.clone(), hashes, vin, outputs, tx_size as usize);
 
     let period = Replace::<T>::replace_period().max(replace_request.period);
     let expiry_height = BtcRelay::<T>::bitcoin_expiry_height(replace_request.btc_height, period).unwrap();
@@ -271,7 +271,7 @@ pub mod benchmarks {
     }
 
     #[benchmark]
-    fn execute_pending_replace(h: Linear<2, 10>, i: Linear<1, 10>, o: Linear<2, 3>, b: Linear<1, 2_048>) {
+    fn execute_pending_replace(h: Linear<2, 10>, i: Linear<1, 10>, o: Linear<2, 3>, b: Linear<541, 2_048>) {
         let ChainState {
             old_vault_id,
             new_vault_id,
@@ -293,7 +293,7 @@ pub mod benchmarks {
     }
 
     #[benchmark]
-    fn execute_cancelled_replace(h: Linear<2, 10>, i: Linear<1, 10>, o: Linear<2, 3>, b: Linear<1, 2_048>) {
+    fn execute_cancelled_replace(h: Linear<2, 10>, i: Linear<1, 10>, o: Linear<2, 3>, b: Linear<541, 2_048>) {
         let ChainState {
             old_vault_id,
             new_vault_id,
@@ -328,7 +328,7 @@ pub mod benchmarks {
             ..
         } = setup_chain::<T>();
 
-        let (replace_id, _, _) = setup_replace::<T>(&old_vault_id, &new_vault_id, to_be_replaced, 2, 2, 2, 1);
+        let (replace_id, _, _) = setup_replace::<T>(&old_vault_id, &new_vault_id, to_be_replaced, 2, 2, 2, 541);
 
         #[extrinsic_call]
         cancel_replace(RawOrigin::Signed(new_vault_id.account_id), replace_id);

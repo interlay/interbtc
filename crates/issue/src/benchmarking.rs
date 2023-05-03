@@ -1,7 +1,5 @@
 use super::*;
-use bitcoin::types::{
-    BlockBuilder, TransactionBuilder, TransactionInputBuilder, TransactionInputSource, TransactionOutput,
-};
+use bitcoin::types::{BlockBuilder, TransactionOutput};
 use btc_relay::{BtcAddress, BtcPublicKey};
 use currency::getters::{get_relay_chain_currency_id as get_collateral_currency_id, *};
 use frame_benchmarking::v2::*;
@@ -117,7 +115,7 @@ fn setup_issue<T: crate::Config>(
     hashes: u32,
     vin: u32,
     vout: u32,
-    padding: u32,
+    tx_size: u32,
 ) -> ChainState<T> {
     let origin: T::AccountId = account("Origin", 0, 0);
     let vault_id = get_vault_id::<T>();
@@ -147,7 +145,7 @@ fn setup_issue<T: crate::Config>(
     Issue::<T>::insert_issue_request(&issue_id, &issue_request);
 
     let mut outputs: Vec<_> = (0..(vout - 1))
-        .map(|_| TransactionOutput::op_return(0, H256::zero().as_bytes()))
+        .map(|_| TransactionOutput::payment(0, &BtcAddress::default()))
         .collect();
     // worst-case is expected payment last
     outputs.push(TransactionOutput::payment(
@@ -160,7 +158,7 @@ fn setup_issue<T: crate::Config>(
     ));
 
     let (transaction, merkle_proof) =
-        BtcRelay::<T>::initialize_and_store_max(relayer_id.clone(), hashes, vin, outputs, padding as usize);
+        BtcRelay::<T>::initialize_and_store_max(relayer_id.clone(), hashes, vin, outputs, tx_size as usize);
     let length_bound = transaction.size_no_witness() as u32;
 
     register_vault::<T>(vault_id.clone());
@@ -196,50 +194,16 @@ pub mod benchmarks {
         register_vault::<T>(vault_id.clone());
 
         // initialize relay
-
-        let height = 0;
-        let block = BlockBuilder::new()
+        let init_block = BlockBuilder::new()
             .with_version(4)
             .with_coinbase(&BtcAddress::dummy(), 50, 3)
-            .with_timestamp(1588813835)
+            .with_timestamp(u32::MAX)
             .mine(U256::from(2).pow(254.into()))
             .unwrap();
-        let block_hash = block.header.hash;
 
         Security::<T>::set_active_block_number(1u32.into());
-        BtcRelay::<T>::_initialize(relayer_id.clone(), block.header, height).unwrap();
-
-        let vault_btc_address = BtcAddress::dummy();
-
-        let transaction = TransactionBuilder::new()
-            .with_version(2)
-            .add_input(
-                TransactionInputBuilder::new()
-                    .with_source(TransactionInputSource::FromOutput(block.transactions[0].hash(), 0))
-                    .with_script(&[
-                        0, 71, 48, 68, 2, 32, 91, 128, 41, 150, 96, 53, 187, 63, 230, 129, 53, 234, 210, 186, 21, 187,
-                        98, 38, 255, 112, 30, 27, 228, 29, 132, 140, 155, 62, 123, 216, 232, 168, 2, 32, 72, 126, 179,
-                        207, 142, 8, 99, 8, 32, 78, 244, 166, 106, 160, 207, 227, 61, 210, 172, 234, 234, 93, 59, 159,
-                        79, 12, 194, 240, 212, 3, 120, 50, 1, 71, 81, 33, 3, 113, 209, 131, 177, 9, 29, 242, 229, 15,
-                        217, 247, 165, 78, 111, 80, 79, 50, 200, 117, 80, 30, 233, 210, 167, 133, 175, 62, 253, 134,
-                        127, 212, 51, 33, 2, 128, 200, 184, 235, 148, 25, 43, 34, 28, 173, 55, 54, 189, 164, 187, 243,
-                        243, 152, 7, 84, 210, 85, 156, 238, 77, 97, 188, 240, 162, 197, 105, 62, 82, 174,
-                    ])
-                    .build(),
-            )
-            .add_output(TransactionOutput::payment(123123, &vault_btc_address))
-            .add_output(TransactionOutput::op_return(0, H256::zero().as_bytes()))
-            .build();
-
-        let block = BlockBuilder::new()
-            .with_previous_hash(block_hash)
-            .with_version(4)
-            .with_timestamp(1588813835)
-            .add_transaction(transaction)
-            .mine(U256::from(2).pow(254.into()))
-            .unwrap();
-
-        BtcRelay::<T>::_store_block_header(&relayer_id, block.header).unwrap();
+        BtcRelay::<T>::_initialize(relayer_id.clone(), init_block.header, 0).unwrap();
+        BtcRelay::<T>::mine_blocks(&relayer_id, 1);
         Security::<T>::set_active_block_number(
             Security::<T>::active_block_number() + BtcRelay::<T>::parachain_confirmations(),
         );
@@ -249,7 +213,7 @@ pub mod benchmarks {
     }
 
     #[benchmark]
-    fn execute_issue_exact(h: Linear<2, 10>, i: Linear<1, 10>, o: Linear<1, 10>, b: Linear<1, 2_048>) {
+    fn execute_issue_exact(h: Linear<2, 10>, i: Linear<1, 10>, o: Linear<1, 10>, b: Linear<770, 2_048>) {
         let origin: T::AccountId = account("Origin", 0, 0);
         let issue_data = setup_issue::<T>(PaymentType::Exact, h, i, o, b);
 
@@ -264,7 +228,7 @@ pub mod benchmarks {
     }
 
     #[benchmark]
-    fn execute_issue_overpayment(h: Linear<2, 10>, i: Linear<1, 10>, o: Linear<1, 10>, b: Linear<1, 2_048>) {
+    fn execute_issue_overpayment(h: Linear<2, 10>, i: Linear<1, 10>, o: Linear<1, 10>, b: Linear<770, 2_048>) {
         let origin: T::AccountId = account("Origin", 0, 0);
         let issue_data = setup_issue::<T>(PaymentType::Overpayment, h, i, o, b);
 
@@ -279,7 +243,7 @@ pub mod benchmarks {
     }
 
     #[benchmark]
-    fn execute_issue_underpayment(h: Linear<2, 10>, i: Linear<1, 10>, o: Linear<1, 10>, b: Linear<1, 2_048>) {
+    fn execute_issue_underpayment(h: Linear<2, 10>, i: Linear<1, 10>, o: Linear<1, 10>, b: Linear<770, 2_048>) {
         let origin: T::AccountId = account("Origin", 0, 0);
         let issue_data = setup_issue::<T>(PaymentType::Underpayment, h, i, o, b);
 
@@ -294,7 +258,7 @@ pub mod benchmarks {
     }
 
     #[benchmark]
-    fn execute_expired_issue_exact(h: Linear<2, 10>, i: Linear<1, 10>, o: Linear<1, 10>, b: Linear<1, 2_048>) {
+    fn execute_expired_issue_exact(h: Linear<2, 10>, i: Linear<1, 10>, o: Linear<1, 10>, b: Linear<770, 2_048>) {
         let origin: T::AccountId = account("Origin", 0, 0);
         let issue_data = setup_issue::<T>(PaymentType::Exact, h, i, o, b);
         expire_issue::<T>(&issue_data);
@@ -310,7 +274,7 @@ pub mod benchmarks {
     }
 
     #[benchmark]
-    fn execute_expired_issue_overpayment(h: Linear<2, 10>, i: Linear<1, 10>, o: Linear<1, 10>, b: Linear<1, 2_048>) {
+    fn execute_expired_issue_overpayment(h: Linear<2, 10>, i: Linear<1, 10>, o: Linear<1, 10>, b: Linear<770, 2_048>) {
         let origin: T::AccountId = account("Origin", 0, 0);
         let issue_data = setup_issue::<T>(PaymentType::Overpayment, h, i, o, b);
         expire_issue::<T>(&issue_data);
@@ -326,7 +290,7 @@ pub mod benchmarks {
     }
 
     #[benchmark]
-    fn execute_expired_issue_underpayment(h: Linear<2, 10>, i: Linear<1, 10>, o: Linear<1, 10>, b: Linear<1, 2_048>) {
+    fn execute_expired_issue_underpayment(h: Linear<2, 10>, i: Linear<1, 10>, o: Linear<1, 10>, b: Linear<770, 2_048>) {
         let origin: T::AccountId = account("Origin", 0, 0);
         let issue_data = setup_issue::<T>(PaymentType::Underpayment, h, i, o, b);
         expire_issue::<T>(&issue_data);
@@ -345,7 +309,7 @@ pub mod benchmarks {
     fn cancel_issue() {
         let origin: T::AccountId = account("Origin", 0, 0);
 
-        let issue_data = setup_issue::<T>(PaymentType::Exact, 2, 2, 2, 1);
+        let issue_data = setup_issue::<T>(PaymentType::Exact, 2, 2, 2, 770);
         expire_issue::<T>(&issue_data);
 
         #[extrinsic_call]

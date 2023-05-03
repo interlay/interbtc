@@ -1346,7 +1346,7 @@ impl<T: Config> Pallet<T> {
         hashes: u32,
         vin: u32,
         vout: Vec<TransactionOutput>,
-        padding: usize,
+        max_tx_size: usize,
     ) -> (Transaction, MerkleProof) {
         let init_block = BlockBuilder::new()
             .with_version(4)
@@ -1358,9 +1358,16 @@ impl<T: Config> Pallet<T> {
         ext::security::set_active_block_number::<T>(1u32.into());
         Self::_initialize(relayer.clone(), init_block.header, 0).unwrap();
 
-        let transaction = TransactionBuilder::build_max(padding, vin, vout);
-        let block = BlockBuilder::build_max(init_block_hash, hashes, transaction.clone());
+        let mut transaction = TransactionBuilder::build_max(vin, vout);
+        let min_tx_size = transaction.size_no_witness();
+        let padding = max_tx_size
+            .checked_sub(min_tx_size)
+            .expect("Wrong length bound in benchmark");
+        assert!(vin > 0, "Need at least one input");
+        transaction.inputs[0].pad_script(padding);
+        assert_eq!(transaction.size_no_witness(), max_tx_size, "Wrong transaction size");
 
+        let block = BlockBuilder::build_max(init_block_hash, hashes, transaction.clone());
         let tx_id = transaction.tx_id();
         let merkle_proof = block.merkle_proof(&[tx_id]).unwrap();
 

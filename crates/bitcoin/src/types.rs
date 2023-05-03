@@ -275,6 +275,20 @@ impl TransactionInput {
             }
         })
     }
+
+    // used by the benchmarks to make the
+    // transaction be an expected length
+    #[cfg(feature = "runtime-benchmarks")]
+    pub fn pad_script(&mut self, padding: usize) {
+        let total_len = self.script.len() + padding;
+        let compact_len = match total_len {
+            0..=0xFC => 1,
+            0xFD..=0xFFFF => 3,
+            0x10000..=0xFFFFFFFF => 5,
+            _ => 9,
+        };
+        self.script.append(&mut vec![0; total_len - compact_len]);
+    }
 }
 
 pub type Value = i64;
@@ -512,7 +526,7 @@ impl BlockBuilder {
             block_builder.add_transaction(
                 TransactionBuilder::new()
                     .with_version(2)
-                    .add_input(TransactionInputBuilder::build_max(100))
+                    .add_input(TransactionInputBuilder::build_max(1))
                     .add_output(TransactionOutput::payment(0, &Address::default()))
                     .build(),
             );
@@ -760,16 +774,16 @@ impl TransactionBuilder {
     }
 
     #[cfg(feature = "runtime-benchmarks")]
-    pub fn build_max(padding: usize, vin: u32, vout: Vec<TransactionOutput>) -> Transaction {
+    pub fn build_max(vin: u32, vout: Vec<TransactionOutput>) -> Transaction {
         let mut transaction_builder = Self::new();
         transaction_builder.with_version(2);
 
         // add tx inputs
-        transaction_builder.add_input(TransactionInputBuilder::build_max(padding));
-        for _ in 1..vin {
-            transaction_builder.add_input(TransactionInputBuilder::build_max(100));
+        for _ in 0..vin {
+            transaction_builder.add_input(TransactionInputBuilder::build_max(1));
         }
 
+        // add tx outputs
         for output in vout {
             transaction_builder.add_output(output);
         }
@@ -850,6 +864,9 @@ impl TransactionInputBuilder {
         Self::new()
             .with_source(TransactionInputSource::FromOutput(H256Le::zero(), u32::MAX))
             .with_script(&vec![0; padding])
+            // technically we can ignore the witnesses for benchmarks
+            // since computing the tx_id would skip those values but
+            // we anyway give the max values for a P2WPKH program here
             .add_witness(&vec![0; 72]) // max signature size
             .add_witness(&vec![0; 65]) // uncompressed public key
             .build()
@@ -1221,5 +1238,35 @@ mod tests {
         );
 
         assert_eq!(expected, actual);
+    }
+
+    // check the minimum tx size for benchmarks, if this
+    // fails we need to adjust the bounds
+    #[cfg(feature = "runtime-benchmarks")]
+    #[test]
+    fn minimum_tx_sizes() {
+        assert_eq!(
+            770,
+            TransactionBuilder::build_max(
+                10,
+                (0..10)
+                    .map(|_| TransactionOutput::payment(Value::MAX, &Address::default()))
+                    .collect()
+            )
+            .size_no_witness()
+        );
+
+        assert_eq!(
+            541,
+            TransactionBuilder::build_max(
+                10,
+                vec![
+                    TransactionOutput::payment(Value::MAX, &Address::default()),
+                    TransactionOutput::op_return(0, H256::zero().as_bytes()),
+                    TransactionOutput::payment(Value::MAX, &Address::default()),
+                ]
+            )
+            .size_no_witness()
+        );
     }
 }
