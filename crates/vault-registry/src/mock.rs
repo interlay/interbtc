@@ -227,8 +227,6 @@ impl fee::Config for Test {
     type WeightInfo = ();
     type SignedFixedPoint = SignedFixedPoint;
     type SignedInner = SignedInner;
-    type UnsignedFixedPoint = UnsignedFixedPoint;
-    type UnsignedInner = Balance;
     type CapacityRewards = CapacityRewards;
     type VaultRewards = VaultRewards;
     type VaultStaking = VaultStaking;
@@ -262,7 +260,6 @@ impl traits::NominationApi<VaultId<AccountId, CurrencyId>, currency::Amount<Test
 impl Config for Test {
     type PalletId = VaultPalletId;
     type RuntimeEvent = RuntimeEvent;
-    type Balance = Balance;
     type WeightInfo = ();
     type GetGriefingCollateralCurrencyId = GetNativeCurrencyId;
     type NominationApi = MockDeposit;

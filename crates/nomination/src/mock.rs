@@ -60,7 +60,6 @@ pub type Index = u64;
 pub type SignedFixedPoint = FixedI128;
 pub type SignedInner = i128;
 pub type UnsignedFixedPoint = FixedU128;
-pub type UnsignedInner = u128;
 
 parameter_types! {
     pub const BlockHashCount: u64 = 250;
@@ -179,7 +178,6 @@ where
 impl vault_registry::Config for Test {
     type PalletId = VaultPalletId;
     type RuntimeEvent = RuntimeEvent;
-    type Balance = Balance;
     type WeightInfo = ();
     type GetGriefingCollateralCurrencyId = GetNativeCurrencyId;
     type NominationApi = Nomination;
@@ -239,8 +237,6 @@ impl fee::Config for Test {
     type WeightInfo = ();
     type SignedFixedPoint = SignedFixedPoint;
     type SignedInner = SignedInner;
-    type UnsignedFixedPoint = UnsignedFixedPoint;
-    type UnsignedInner = UnsignedInner;
     type CapacityRewards = CapacityRewards;
     type VaultRewards = VaultRewards;
     type VaultStaking = VaultStaking;

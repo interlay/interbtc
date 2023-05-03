@@ -978,7 +978,6 @@ impl pallet_proxy::Config for Runtime {
 impl vault_registry::Config for Runtime {
     type PalletId = VaultRegistryPalletId;
     type RuntimeEvent = RuntimeEvent;
-    type Balance = Balance;
     type WeightInfo = ();
     type GetGriefingCollateralCurrencyId = GetNativeCurrencyId;
     type NominationApi = Nomination;
@@ -1010,8 +1009,6 @@ impl fee::Config for Runtime {
     type WeightInfo = ();
     type SignedFixedPoint = SignedFixedPoint;
     type SignedInner = SignedInner;
-    type UnsignedFixedPoint = UnsignedFixedPoint;
-    type UnsignedInner = UnsignedInner;
     type CapacityRewards = VaultCapacity;
     type VaultRewards = VaultRewards;
     type VaultStaking = VaultStaking;
