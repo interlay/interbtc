@@ -96,6 +96,7 @@ pub mod pallet {
     }
 
     #[pallet::storage]
+    #[pallet::whitelist_storage]
     #[pallet::getter(fn start_height)]
     pub type StartHeight<T: Config> = StorageValue<_, T::BlockNumber, OptionQuery>;
 

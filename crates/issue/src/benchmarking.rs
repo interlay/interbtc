@@ -1,10 +1,8 @@
 use super::*;
-use bitcoin::types::{
-    BlockBuilder, TransactionBuilder, TransactionInputBuilder, TransactionInputSource, TransactionOutput,
-};
+use bitcoin::types::{BlockBuilder, TransactionOutput};
 use btc_relay::{BtcAddress, BtcPublicKey};
 use currency::getters::{get_relay_chain_currency_id as get_collateral_currency_id, *};
-use frame_benchmarking::v2::{account, benchmarks, impl_benchmark_test_suite};
+use frame_benchmarking::v2::*;
 use frame_support::assert_ok;
 use frame_system::RawOrigin;
 use orml_traits::MultiCurrency;
@@ -15,7 +13,6 @@ use sp_std::prelude::*;
 
 // Pallets
 use crate::Pallet as Issue;
-use bitcoin::types::Block;
 use btc_relay::Pallet as BtcRelay;
 use oracle::Pallet as Oracle;
 use security::Pallet as Security;
@@ -88,55 +85,15 @@ fn register_vault<T: crate::Config>(vault_id: DefaultVaultId<T>) {
     ));
 }
 
-fn expire_issue<T: crate::Config>(chain_state: &mut ChainState<T>) {
+fn expire_issue<T: crate::Config>(chain_state: &ChainState<T>) {
     let period = Issue::<T>::issue_period().max(chain_state.issue_request.period);
     let expiry_height = BtcRelay::<T>::bitcoin_expiry_height(chain_state.issue_request.btc_height, period).unwrap();
     Security::<T>::set_active_block_number(
         chain_state.issue_request.opentime + Issue::<T>::issue_period() + 100u32.into(),
     );
 
-    mine_blocks::<T>(chain_state, expiry_height + 100);
-}
-
-fn mine_blocks<T: crate::Config>(chain_state: &mut ChainState<T>, end_height: u32) {
     let relayer_id: T::AccountId = account("Relayer", 0, 0);
-
-    let transaction = TransactionBuilder::new()
-        .with_version(2)
-        .add_input(
-            TransactionInputBuilder::new()
-                .with_source(TransactionInputSource::FromOutput(
-                    chain_state.newest_bitcoin_block.transactions[0].hash(),
-                    0,
-                ))
-                .with_script(&[
-                    0, 71, 48, 68, 2, 32, 91, 128, 41, 150, 96, 53, 187, 63, 230, 129, 53, 234, 210, 186, 21, 187, 98,
-                    38, 255, 112, 30, 27, 228, 29, 132, 140, 155, 62, 123, 216, 232, 168, 2, 32, 72, 126, 179, 207,
-                    142, 8, 99, 8, 32, 78, 244, 166, 106, 160, 207, 227, 61, 210, 172, 234, 234, 93, 59, 159, 79, 12,
-                    194, 240, 212, 3, 120, 50, 1, 71, 81, 33, 3, 113, 209, 131, 177, 9, 29, 242, 229, 15, 217, 247,
-                    165, 78, 111, 80, 79, 50, 200, 117, 80, 30, 233, 210, 167, 133, 175, 62, 253, 134, 127, 212, 51,
-                    33, 2, 128, 200, 184, 235, 148, 25, 43, 34, 28, 173, 55, 54, 189, 164, 187, 243, 243, 152, 7, 84,
-                    210, 85, 156, 238, 77, 97, 188, 240, 162, 197, 105, 62, 82, 174,
-                ])
-                .build(),
-        )
-        .build();
-
-    let mut prev_hash = chain_state.newest_bitcoin_block.header.hash;
-    for _ in 0..end_height {
-        let block = BlockBuilder::new()
-            .with_previous_hash(prev_hash)
-            .with_version(4)
-            .with_coinbase(&BtcAddress::dummy(), 50, 3)
-            .with_timestamp(1588813835)
-            .add_transaction(transaction.clone())
-            .mine(U256::from(2).pow(254.into()))
-            .unwrap();
-        prev_hash = block.header.hash;
-
-        BtcRelay::<T>::_store_block_header(&relayer_id, block.header).unwrap();
-        chain_state.newest_bitcoin_block = block;
-    }
+    BtcRelay::<T>::mine_blocks(&relayer_id, expiry_height + 100);
 }
 
 enum PaymentType {
@@ -150,10 +107,16 @@ struct ChainState<T: Config> {
     merkle_proof: MerkleProof,
     transaction: Transaction,
     issue_request: DefaultIssueRequest<T>,
-    newest_bitcoin_block: Block,
+    length_bound: u32,
 }
 
-fn setup_issue<T: crate::Config>(payment: PaymentType) -> ChainState<T> {
+fn setup_issue<T: crate::Config>(
+    payment: PaymentType,
+    hashes: u32,
+    vin: u32,
+    vout: u32,
+    tx_size: u32,
+) -> ChainState<T> {
     let origin: T::AccountId = account("Origin", 0, 0);
     let vault_id = get_vault_id::<T>();
     let relayer_id: T::AccountId = account("Relayer", 0, 0);
@@ -181,62 +144,22 @@ fn setup_issue<T: crate::Config>(payment: PaymentType) -> ChainState<T> {
     };
     Issue::<T>::insert_issue_request(&issue_id, &issue_request);
 
-    let height = 0;
-    let block = BlockBuilder::new()
-        .with_version(4)
-        .with_coinbase(&vault_btc_address, 50, 3)
-        .with_timestamp(1588813835)
-        .mine(U256::from(2).pow(254.into()))
-        .unwrap();
+    let mut outputs: Vec<_> = (0..(vout - 1))
+        .map(|_| TransactionOutput::payment(0, &BtcAddress::default()))
+        .collect();
+    // worst-case is expected payment last
+    outputs.push(TransactionOutput::payment(
+        match payment {
+            PaymentType::Underpayment => 1u32.into(),
+            PaymentType::Exact => 2u32.into(),
+            PaymentType::Overpayment => 3u32.into(),
+        },
+        &vault_btc_address,
+    ));
 
-    let block_hash = block.header.hash;
-
-    Security::<T>::set_active_block_number(1u32.into());
-    BtcRelay::<T>::_initialize(relayer_id.clone(), block.header, height).unwrap();
-
-    let transaction = TransactionBuilder::new()
-        .with_version(2)
-        .add_input(
-            TransactionInputBuilder::new()
-                .with_source(TransactionInputSource::FromOutput(block.transactions[0].hash(), 0))
-                .with_script(&[
-                    0, 71, 48, 68, 2, 32, 91, 128, 41, 150, 96, 53, 187, 63, 230, 129, 53, 234, 210, 186, 21, 187, 98,
-                    38, 255, 112, 30, 27, 228, 29, 132, 140, 155, 62, 123, 216, 232, 168, 2, 32, 72, 126, 179, 207,
-                    142, 8, 99, 8, 32, 78, 244, 166, 106, 160, 207, 227, 61, 210, 172, 234, 234, 93, 59, 159, 79, 12,
-                    194, 240, 212, 3, 120, 50, 1, 71, 81, 33, 3, 113, 209, 131, 177, 9, 29, 242, 229, 15, 217, 247,
-                    165, 78, 111, 80, 79, 50, 200, 117, 80, 30, 233, 210, 167, 133, 175, 62, 253, 134, 127, 212, 51,
-                    33, 2, 128, 200, 184, 235, 148, 25, 43, 34, 28, 173, 55, 54, 189, 164, 187, 243, 243, 152, 7, 84,
-                    210, 85, 156, 238, 77, 97, 188, 240, 162, 197, 105, 62, 82, 174,
-                ])
-                .build(),
-        )
-        .add_output(TransactionOutput::payment(
-            match payment {
-                PaymentType::Underpayment => 1u32.into(),
-                PaymentType::Exact => 2u32.into(),
-                PaymentType::Overpayment => 3u32.into(),
-            },
-            &vault_btc_address,
-        ))
-        .add_output(TransactionOutput::op_return(0, H256::zero().as_bytes()))
-        .build();
-
-    let block = BlockBuilder::new()
-        .with_previous_hash(block_hash)
-        .with_version(4)
-        .with_coinbase(&vault_btc_address, 50, 4)
-        .with_timestamp(1588813835)
-        .add_transaction(transaction.clone())
-        .mine(U256::from(2).pow(254.into()))
-        .unwrap();
-
-    let tx_id = transaction.tx_id();
-    let merkle_proof = block.merkle_proof(&[tx_id]).unwrap();
-
-    BtcRelay::<T>::_store_block_header(&relayer_id, block.header).unwrap();
-    Security::<T>::set_active_block_number(
-        Security::<T>::active_block_number() + BtcRelay::<T>::parachain_confirmations(),
-    );
+    let (transaction, merkle_proof) =
+        BtcRelay::<T>::initialize_and_store_max(relayer_id.clone(), hashes, vin, outputs, tx_size as usize);
+    let length_bound = transaction.size_no_witness() as u32;
 
     register_vault::<T>(vault_id.clone());
 
@@ -249,7 +172,7 @@ fn setup_issue<T: crate::Config>(payment: PaymentType) -> ChainState<T> {
         merkle_proof,
         transaction,
         issue_request,
-        newest_bitcoin_block: block,
+        length_bound,
     }
 }
 
@@ -271,50 +194,16 @@ pub mod benchmarks {
         register_vault::<T>(vault_id.clone());
 
         // initialize relay
-
-        let height = 0;
-        let block = BlockBuilder::new()
+        let init_block = BlockBuilder::new()
             .with_version(4)
             .with_coinbase(&BtcAddress::dummy(), 50, 3)
-            .with_timestamp(1588813835)
+            .with_timestamp(u32::MAX)
             .mine(U256::from(2).pow(254.into()))
             .unwrap();
-        let block_hash = block.header.hash;
 
         Security::<T>::set_active_block_number(1u32.into());
-        BtcRelay::<T>::_initialize(relayer_id.clone(), block.header, height).unwrap();
-
-        let vault_btc_address = BtcAddress::dummy();
-
-        let transaction = TransactionBuilder::new()
-            .with_version(2)
-            .add_input(
-                TransactionInputBuilder::new()
-                    .with_source(TransactionInputSource::FromOutput(block.transactions[0].hash(), 0))
-                    .with_script(&[
-                        0, 71, 48, 68, 2, 32, 91, 128, 41, 150, 96, 53, 187, 63, 230, 129, 53, 234, 210, 186, 21, 187,
-                        98, 38, 255, 112, 30, 27, 228, 29, 132, 140, 155, 62, 123, 216, 232, 168, 2, 32, 72, 126, 179,
-                        207, 142, 8, 99, 8, 32, 78, 244, 166, 106, 160, 207, 227, 61, 210, 172, 234, 234, 93, 59, 159,
-                        79, 12, 194, 240, 212, 3, 120, 50, 1, 71, 81, 33, 3, 113, 209, 131, 177, 9, 29, 242, 229, 15,
-                        217, 247, 165, 78, 111, 80, 79, 50, 200, 117, 80, 30, 233, 210, 167, 133, 175, 62, 253, 134,
-                        127, 212, 51, 33, 2, 128, 200, 184, 235, 148, 25, 43, 34, 28, 173, 55, 54, 189, 164, 187, 243,
-                        243, 152, 7, 84, 210, 85, 156, 238, 77, 97, 188, 240, 162, 197, 105, 62, 82, 174,
-                    ])
-                    .build(),
-            )
-            .add_output(TransactionOutput::payment(123123, &vault_btc_address))
-            .add_output(TransactionOutput::op_return(0, H256::zero().as_bytes()))
-            .build();
-
-        let block = BlockBuilder::new()
-            .with_previous_hash(block_hash)
-            .with_version(4)
-            .with_timestamp(1588813835)
-            .add_transaction(transaction)
-            .mine(U256::from(2).pow(254.into()))
-            .unwrap();
-
-        BtcRelay::<T>::_store_block_header(&relayer_id, block.header).unwrap();
+        BtcRelay::<T>::_initialize(relayer_id.clone(), init_block.header, 0).unwrap();
+        BtcRelay::<T>::mine_blocks(&relayer_id, 1);
         Security::<T>::set_active_block_number(
             Security::<T>::active_block_number() + BtcRelay::<T>::parachain_confirmations(),
         );
@@ -324,9 +213,9 @@ pub mod benchmarks {
     }
 
     #[benchmark]
-    fn execute_issue_exact() {
+    fn execute_issue_exact(h: Linear<2, 10>, i: Linear<1, 10>, o: Linear<1, 10>, b: Linear<770, 2_048>) {
         let origin: T::AccountId = account("Origin", 0, 0);
-        let issue_data = setup_issue::<T>(PaymentType::Exact);
+        let issue_data = setup_issue::<T>(PaymentType::Exact, h, i, o, b);
 
         #[extrinsic_call]
         execute_issue(
@@ -334,13 +223,14 @@ pub mod benchmarks {
             issue_data.issue_id,
             issue_data.merkle_proof,
             issue_data.transaction,
+            issue_data.length_bound,
         );
     }
 
     #[benchmark]
-    fn execute_issue_overpayment() {
+    fn execute_issue_overpayment(h: Linear<2, 10>, i: Linear<1, 10>, o: Linear<1, 10>, b: Linear<770, 2_048>) {
         let origin: T::AccountId = account("Origin", 0, 0);
-        let issue_data = setup_issue::<T>(PaymentType::Overpayment);
+        let issue_data = setup_issue::<T>(PaymentType::Overpayment, h, i, o, b);
 
         #[extrinsic_call]
         execute_issue(
@@ -348,13 +238,14 @@ pub mod benchmarks {
             issue_data.issue_id,
             issue_data.merkle_proof,
             issue_data.transaction,
+            issue_data.length_bound,
         );
     }
 
     #[benchmark]
-    fn execute_issue_underpayment() {
+    fn execute_issue_underpayment(h: Linear<2, 10>, i: Linear<1, 10>, o: Linear<1, 10>, b: Linear<770, 2_048>) {
         let origin: T::AccountId = account("Origin", 0, 0);
-        let issue_data = setup_issue::<T>(PaymentType::Underpayment);
+        let issue_data = setup_issue::<T>(PaymentType::Underpayment, h, i, o, b);
 
         #[extrinsic_call]
         execute_issue(
@@ -362,14 +253,15 @@ pub mod benchmarks {
             issue_data.issue_id,
             issue_data.merkle_proof,
             issue_data.transaction,
+            issue_data.length_bound,
         );
     }
 
     #[benchmark]
-    fn execute_expired_issue_exact() {
+    fn execute_expired_issue_exact(h: Linear<2, 10>, i: Linear<1, 10>, o: Linear<1, 10>, b: Linear<770, 2_048>) {
         let origin: T::AccountId = account("Origin", 0, 0);
-        let mut issue_data = setup_issue::<T>(PaymentType::Exact);
-        expire_issue::<T>(&mut issue_data);
+        let issue_data = setup_issue::<T>(PaymentType::Exact, h, i, o, b);
+        expire_issue::<T>(&issue_data);
 
         #[extrinsic_call]
         execute_issue(
@@ -377,14 +269,15 @@ pub mod benchmarks {
             issue_data.issue_id,
             issue_data.merkle_proof,
             issue_data.transaction,
+            issue_data.length_bound,
         );
     }
 
     #[benchmark]
-    fn execute_expired_issue_overpayment() {
+    fn execute_expired_issue_overpayment(h: Linear<2, 10>, i: Linear<1, 10>, o: Linear<1, 10>, b: Linear<770, 2_048>) {
         let origin: T::AccountId = account("Origin", 0, 0);
-        let mut issue_data = setup_issue::<T>(PaymentType::Overpayment);
-        expire_issue::<T>(&mut issue_data);
+        let issue_data = setup_issue::<T>(PaymentType::Overpayment, h, i, o, b);
+        expire_issue::<T>(&issue_data);
 
         #[extrinsic_call]
         execute_issue(
@@ -392,14 +285,15 @@ pub mod benchmarks {
             issue_data.issue_id,
             issue_data.merkle_proof,
             issue_data.transaction,
+            issue_data.length_bound,
         );
     }
 
     #[benchmark]
-    fn execute_expired_issue_underpayment() {
+    fn execute_expired_issue_underpayment(h: Linear<2, 10>, i: Linear<1, 10>, o: Linear<1, 10>, b: Linear<770, 2_048>) {
         let origin: T::AccountId = account("Origin", 0, 0);
-        let mut issue_data = setup_issue::<T>(PaymentType::Underpayment);
-        expire_issue::<T>(&mut issue_data);
+        let issue_data = setup_issue::<T>(PaymentType::Underpayment, h, i, o, b);
+        expire_issue::<T>(&issue_data);
 
         #[extrinsic_call]
         execute_issue(
@@ -407,6 +301,7 @@ pub mod benchmarks {
             issue_data.issue_id,
             issue_data.merkle_proof,
             issue_data.transaction,
+            issue_data.length_bound,
         );
     }
 
@@ -414,8 +309,8 @@ pub mod benchmarks {
     fn cancel_issue() {
         let origin: T::AccountId = account("Origin", 0, 0);
 
-        let mut issue_data = setup_issue::<T>(PaymentType::Exact);
-        expire_issue::<T>(&mut issue_data);
+        let issue_data = setup_issue::<T>(PaymentType::Exact, 2, 2, 2, 770);
+        expire_issue::<T>(&issue_data);
 
         #[extrinsic_call]
         cancel_issue(RawOrigin::Signed(origin), issue_data.issue_id);

@@ -275,6 +275,20 @@ impl TransactionInput {
             }
         })
     }
+
+    // used by the benchmarks to make the
+    // transaction be an expected length
+    #[cfg(feature = "runtime-benchmarks")]
+    pub fn pad_script(&mut self, padding: usize) {
+        let total_len = self.script.len() + padding;
+        let compact_len = match total_len {
+            0..=0xFC => 1,
+            0xFD..=0xFFFF => 3,
+            0x10000..=0xFFFFFFFF => 5,
+            _ => 9,
+        };
+        self.script.append(&mut vec![0; total_len - compact_len]);
+    }
 }
 
 pub type Value = i64;
@@ -342,6 +356,12 @@ impl Transaction {
         let mut bytes = vec![];
         self.try_format(&mut bytes).expect("Not bounded");
         sha256d_le(&bytes)
+    }
+
+    pub fn size_no_witness(&self) -> usize {
+        let mut bytes = vec![];
+        self.format_no_witness(&mut bytes).expect("Not bounded");
+        bytes.len()
     }
 
     pub(crate) fn has_witness(&self) -> bool {
@@ -486,6 +506,42 @@ impl BlockBuilder {
             tx_ids.push(tx.tx_id());
         }
         MerkleTree::compute_root(0, height, tx_ids.len() as u32, &tx_ids)
+    }
+
+    #[cfg(feature = "runtime-benchmarks")]
+    pub fn build_max(previous_hash: H256Le, hashes: u32, transaction: Transaction) -> Block {
+        let mut block_builder = Self::new();
+        block_builder
+            .with_previous_hash(previous_hash)
+            .with_version(4)
+            .with_coinbase(&Address::default(), 50, 3)
+            .with_timestamp(u32::MAX);
+
+        // we expect at least two hashes for payment + merkle root
+        let tree_height = hashes - 1; // remove the merkle root to get height
+        let transactions_count = 2u32.pow(tree_height);
+
+        // we always have two txs for coinbase + payment
+        for _ in 0..(transactions_count - 2) {
+            block_builder.add_transaction(
+                TransactionBuilder::new()
+                    .with_version(2)
+                    .add_input(TransactionInputBuilder::build_max(1))
+                    .add_output(TransactionOutput::payment(0, &Address::default()))
+                    .build(),
+            );
+        }
+
+        let tx_id = transaction.tx_id();
+        block_builder.add_transaction(transaction);
+        let block = block_builder.mine(U256::from(2).pow(254.into())).unwrap();
+
+        // sanity check that the proof has the correct size
+        let merkle_proof = block.merkle_proof(&[tx_id]).unwrap();
+        assert_eq!(merkle_proof.transactions_count, transactions_count);
+        assert_eq!(merkle_proof.hashes.len() as u32, hashes);
+
+        block
     }
 }
 
@@ -716,6 +772,24 @@ impl TransactionBuilder {
     pub fn build(&self) -> Transaction {
         self.transaction.clone()
     }
+
+    #[cfg(feature = "runtime-benchmarks")]
+    pub fn build_max(vin: u32, vout: Vec<TransactionOutput>) -> Transaction {
+        let mut transaction_builder = Self::new();
+        transaction_builder.with_version(2);
+
+        // add tx inputs
+        for _ in 0..vin {
+            transaction_builder.add_input(TransactionInputBuilder::build_max(1));
+        }
+
+        // add tx outputs
+        for output in vout {
+            transaction_builder.add_output(output);
+        }
+
+        transaction_builder.build()
+    }
 }
 
 /// Construct transaction inputs
@@ -740,6 +814,7 @@ impl TransactionInputBuilder {
     pub fn new() -> TransactionInputBuilder {
         Self::default()
     }
+
     pub fn with_source(&mut self, source: TransactionInputSource) -> &mut Self {
         self.transaction_input.source = source;
         self
@@ -782,6 +857,19 @@ impl TransactionInputBuilder {
 
     pub fn build(&self) -> TransactionInput {
         self.transaction_input.clone()
+    }
+
+    #[cfg(feature = "runtime-benchmarks")]
+    pub fn build_max(padding: usize) -> TransactionInput {
+        Self::new()
+            .with_source(TransactionInputSource::FromOutput(H256Le::zero(), u32::MAX))
+            .with_script(&vec![0; padding])
+            // technically we can ignore the witnesses for benchmarks
+            // since computing the tx_id would skip those values but
+            // we anyway give the max values for a P2WPKH program here
+            .add_witness(&vec![0; 72]) // max signature size
+            .add_witness(&vec![0; 65]) // uncompressed public key
+            .build()
     }
 }
 
@@ -1150,5 +1238,35 @@ mod tests {
         );
 
         assert_eq!(expected, actual);
+    }
+
+    // check the minimum tx size for benchmarks, if this
+    // fails we need to adjust the bounds
+    #[cfg(feature = "runtime-benchmarks")]
+    #[test]
+    fn minimum_tx_sizes() {
+        assert_eq!(
+            770,
+            TransactionBuilder::build_max(
+                10,
+                (0..10)
+                    .map(|_| TransactionOutput::payment(Value::MAX, &Address::default()))
+                    .collect()
+            )
+            .size_no_witness()
+        );
+
+        assert_eq!(
+            541,
+            TransactionBuilder::build_max(
+                10,
+                vec![
+                    TransactionOutput::payment(Value::MAX, &Address::default()),
+                    TransactionOutput::op_return(0, H256::zero().as_bytes()),
+                    TransactionOutput::payment(Value::MAX, &Address::default()),
+                ]
+            )
+            .size_no_witness()
+        );
     }
 }

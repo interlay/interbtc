@@ -1,17 +1,15 @@
 use super::*;
-use bitcoin::types::{
-    BlockBuilder, TransactionBuilder, TransactionInputBuilder, TransactionInputSource, TransactionOutput,
-};
+use bitcoin::types::TransactionOutput;
 use btc_relay::{BtcAddress, BtcPublicKey};
 use currency::getters::{get_relay_chain_currency_id as get_collateral_currency_id, *};
-use frame_benchmarking::v2::{account, benchmarks, impl_benchmark_test_suite};
+use frame_benchmarking::v2::*;
 use frame_support::assert_ok;
 use frame_system::RawOrigin;
 use orml_traits::MultiCurrency;
 use primitives::VaultId;
-use sp_core::{H256, U256};
+use sp_core::H256;
 use sp_runtime::{traits::One, FixedPointNumber};
-use sp_std::prelude::*;
+use sp_std::{fmt::Debug, prelude::*};
 
 // Pallets
 use crate::Pallet as Replace;
@@ -19,85 +17,6 @@ use btc_relay::Pallet as BtcRelay;
 use oracle::Pallet as Oracle;
 use security::Pallet as Security;
 use vault_registry::Pallet as VaultRegistry;
-
-struct Payment {
-    amount: i64,
-    output_address: BtcAddress,
-    op_return: H256,
-}
-
-fn mine_blocks<T: crate::Config>(end_height: u32, tx: Option<Payment>) -> (Transaction, MerkleProof) {
-    let relayer_id: T::AccountId = account("Relayer", 0, 0);
-
-    assert_ok!(<orml_tokens::Pallet<T>>::deposit(
-        get_collateral_currency_id::<T>(),
-        &relayer_id,
-        (1u32 << 31).into()
-    ));
-    assert_ok!(<orml_tokens::Pallet<T>>::deposit(
-        get_native_currency_id::<T>(),
-        &relayer_id,
-        (1u32 << 31).into()
-    ));
-
-    let height = 0;
-    let block = BlockBuilder::new()
-        .with_version(4)
-        .with_coinbase(&BtcAddress::dummy(), 50, 3)
-        .with_timestamp(1588813835)
-        .mine(U256::from(2).pow(254.into()))
-        .unwrap();
-
-    Security::<T>::set_active_block_number(1u32.into());
-    BtcRelay::<T>::_initialize(relayer_id.clone(), block.header, height).unwrap();
-
-    let mut builder = TransactionBuilder::new();
-    builder.with_version(2).add_input(
-        TransactionInputBuilder::new()
-            .with_source(TransactionInputSource::FromOutput(block.transactions[0].hash(), 0))
-            .with_script(&[
-                0, 71, 48, 68, 2, 32, 91, 128, 41, 150, 96, 53, 187, 63, 230, 129, 53, 234, 210, 186, 21, 187, 98, 38,
-                255, 112, 30, 27, 228, 29, 132, 140, 155, 62, 123, 216, 232, 168, 2, 32, 72, 126, 179, 207, 142, 8, 99,
-                8, 32, 78, 244, 166, 106, 160, 207, 227, 61, 210, 172, 234, 234, 93, 59, 159, 79, 12, 194, 240, 212, 3,
-                120, 50, 1, 71, 81, 33, 3, 113, 209, 131, 177, 9, 29, 242, 229, 15, 217, 247, 165, 78, 111, 80, 79, 50,
-                200, 117, 80, 30, 233, 210, 167, 133, 175, 62, 253, 134, 127, 212, 51, 33, 2, 128, 200, 184, 235, 148,
-                25, 43, 34, 28, 173, 55, 54, 189, 164, 187, 243, 243, 152, 7, 84, 210, 85, 156, 238, 77, 97, 188, 240,
-                162, 197, 105, 62, 82, 174,
-            ])
-            .build(),
-    );
-    if let Some(tx) = tx {
-        builder.add_output(TransactionOutput::payment(tx.amount as i64, &tx.output_address));
-        builder.add_output(TransactionOutput::op_return(0, &tx.op_return.as_bytes()));
-    }
-
-    let transaction = builder.build();
-
-    let mut ret = None;
-
-    let mut prev_hash = block.header.hash;
-    for _ in 0..end_height {
-        let block = BlockBuilder::new()
-            .with_previous_hash(prev_hash)
-            .with_version(4)
-            .with_coinbase(&BtcAddress::dummy(), 50, 3)
-            .with_timestamp(1588813835)
-            .add_transaction(transaction.clone())
-            .mine(U256::from(2).pow(254.into()))
-            .unwrap();
-        prev_hash = block.header.hash;
-
-        if let None = ret {
-            let tx_id = transaction.tx_id();
-            let merkle_proof = block.merkle_proof(&[tx_id]).unwrap();
-
-            ret = Some((transaction.clone(), merkle_proof));
-        }
-
-        BtcRelay::<T>::_store_block_header(&relayer_id, block.header).unwrap();
-    }
-    ret.unwrap()
-}
 
 fn test_request<T: crate::Config>(
     new_vault_id: &DefaultVaultId<T>,
@@ -110,7 +29,7 @@ fn test_request<T: crate::Config>(
         accept_time: Default::default(),
         amount: Default::default(),
         griefing_collateral: 12345u32.into(), // non-zero to hit additional code paths
-        btc_address: Default::default(),
+        btc_address: BtcAddress::dummy(),
         collateral: Default::default(),
         btc_height: Default::default(),
         status: Default::default(),
@@ -214,17 +133,18 @@ fn setup_replace<T: crate::Config>(
     old_vault_id: &DefaultVaultId<T>,
     new_vault_id: &DefaultVaultId<T>,
     to_be_replaced: Amount<T>,
-) -> (H256, MerkleProof, Transaction) {
+    hashes: u32,
+    vin: u32,
+    vout: u32,
+    tx_size: u32,
+) -> (H256, MerkleProof, Transaction)
+where
+    <<T as vault_registry::Config>::Balance as TryInto<i64>>::Error: Debug,
+{
     let replace_id = H256::zero();
     let mut replace_request = test_request::<T>(&new_vault_id, &old_vault_id);
     replace_request.amount = to_be_replaced.amount();
     Replace::<T>::insert_replace_request(&replace_id, &replace_request);
-
-    let payment = Payment {
-        amount: to_be_replaced.amount().try_into().unwrap_or_default(),
-        output_address: replace_request.btc_address,
-        op_return: replace_id,
-    };
 
     // simulate that the request has been accepted
     VaultRegistry::<T>::try_increase_to_be_redeemed_tokens(&old_vault_id, &to_be_replaced).unwrap();
@@ -237,17 +157,53 @@ fn setup_replace<T: crate::Config>(
     )
     .unwrap();
 
+    let relayer_id: T::AccountId = account("Relayer", 0, 0);
+    assert_ok!(<orml_tokens::Pallet<T>>::deposit(
+        get_collateral_currency_id::<T>(),
+        &relayer_id,
+        (1u32 << 31).into()
+    ));
+    assert_ok!(<orml_tokens::Pallet<T>>::deposit(
+        get_native_currency_id::<T>(),
+        &relayer_id,
+        (1u32 << 31).into()
+    ));
+
+    // we always need these outputs for replace
+    let mut outputs = vec![
+        TransactionOutput::payment(
+            to_be_replaced.amount().try_into().unwrap(),
+            &replace_request.btc_address,
+        ),
+        TransactionOutput::op_return(0, replace_id.as_bytes()),
+    ];
+
+    // add return-to-self output
+    if vout == 3 {
+        outputs.push(TransactionOutput::payment(
+            0u32.into(),
+            &BtcAddress::P2PKH(sp_core::H160::zero()),
+        ));
+    }
+
+    let (transaction, merkle_proof) =
+        BtcRelay::<T>::initialize_and_store_max(relayer_id.clone(), hashes, vin, outputs, tx_size as usize);
+
     let period = Replace::<T>::replace_period().max(replace_request.period);
     let expiry_height = BtcRelay::<T>::bitcoin_expiry_height(replace_request.btc_height, period).unwrap();
-    let (transaction, merkle_proof) = mine_blocks::<T>(expiry_height + 100, Some(payment));
 
+    BtcRelay::<T>::mine_blocks(&relayer_id, expiry_height + 100);
     Security::<T>::set_active_block_number(
         Security::<T>::active_block_number() + Replace::<T>::replace_period() + 100u32.into(),
     );
 
     (replace_id, merkle_proof, transaction)
 }
-#[benchmarks]
+
+#[benchmarks(
+	where
+		<<T as vault_registry::Config>::Balance as TryInto<i64>>::Error: Debug,
+)]
 pub mod benchmarks {
     use super::*;
 
@@ -315,14 +271,16 @@ pub mod benchmarks {
     }
 
     #[benchmark]
-    fn execute_pending_replace() {
+    fn execute_pending_replace(h: Linear<2, 10>, i: Linear<1, 10>, o: Linear<2, 3>, b: Linear<541, 2_048>) {
         let ChainState {
             old_vault_id,
             new_vault_id,
             to_be_replaced,
             ..
         } = setup_chain::<T>();
-        let (replace_id, merkle_proof, transaction) = setup_replace::<T>(&old_vault_id, &new_vault_id, to_be_replaced);
+        let (replace_id, merkle_proof, transaction) =
+            setup_replace::<T>(&old_vault_id, &new_vault_id, to_be_replaced, h, i, o, b);
+        let length_bound = transaction.size_no_witness() as u32;
 
         #[extrinsic_call]
         execute_replace(
@@ -330,18 +288,21 @@ pub mod benchmarks {
             replace_id,
             merkle_proof,
             transaction,
+            length_bound,
         );
     }
 
     #[benchmark]
-    fn execute_cancelled_replace() {
+    fn execute_cancelled_replace(h: Linear<2, 10>, i: Linear<1, 10>, o: Linear<2, 3>, b: Linear<541, 2_048>) {
         let ChainState {
             old_vault_id,
             new_vault_id,
             to_be_replaced,
             ..
         } = setup_chain::<T>();
-        let (replace_id, merkle_proof, transaction) = setup_replace::<T>(&old_vault_id, &new_vault_id, to_be_replaced);
+        let (replace_id, merkle_proof, transaction) =
+            setup_replace::<T>(&old_vault_id, &new_vault_id, to_be_replaced, h, i, o, b);
+        let length_bound = transaction.size_no_witness() as u32;
 
         assert_ok!(Pallet::<T>::cancel_replace(
             RawOrigin::Signed(new_vault_id.account_id).into(),
@@ -354,6 +315,7 @@ pub mod benchmarks {
             replace_id,
             merkle_proof,
             transaction,
+            length_bound,
         );
     }
 
@@ -366,7 +328,7 @@ pub mod benchmarks {
             ..
         } = setup_chain::<T>();
 
-        let (replace_id, _, _) = setup_replace::<T>(&old_vault_id, &new_vault_id, to_be_replaced);
+        let (replace_id, _, _) = setup_replace::<T>(&old_vault_id, &new_vault_id, to_be_replaced, 2, 2, 2, 541);
 
         #[extrinsic_call]
         cancel_replace(RawOrigin::Signed(new_vault_id.account_id), replace_id);

@@ -89,10 +89,12 @@ pub mod pallet {
     }
 
     #[pallet::storage]
+    #[pallet::whitelist_storage]
     #[pallet::getter(fn reward_per_block)]
     pub type RewardPerBlock<T: Config<I>, I: 'static = ()> = StorageValue<_, BalanceOf<T, I>, ValueQuery>;
 
     #[pallet::storage]
+    #[pallet::whitelist_storage]
     #[pallet::getter(fn reward_per_wrapped)]
     pub type RewardPerWrapped<T: Config<I>, I: 'static = ()> = StorageValue<_, BalanceOf<T, I>, OptionQuery>;
 

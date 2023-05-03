@@ -255,7 +255,7 @@ fn kintsugi_mainnet_genesis(
             inflation: FixedU128::checked_from_rational(2, 100).unwrap(), // 2%
         },
         polkadot_xcm: kintsugi_runtime::PolkadotXcmConfig {
-            safe_xcm_version: Some(2),
+            safe_xcm_version: Some(3),
         },
         sudo: Default::default(),
         loans: LoansConfig {

@@ -687,7 +687,7 @@ impl orml_asset_registry::Config for Runtime {
     type AssetProcessor = SequentialId<Runtime>;
     type AssetId = primitives::ForeignAssetId;
     type AuthorityOrigin = AssetAuthority;
-    type WeightInfo = ();
+    type WeightInfo = weights::orml_asset_registry::WeightInfo<Runtime>;
 }
 
 parameter_types! {
@@ -1239,7 +1239,7 @@ construct_runtime! {
         Loans: loans::{Pallet, Call, Storage, Event<T>, Config} = 100,
         DexGeneral: dex_general::{Pallet, Call, Storage, Event<T>} = 101,
         DexStable: dex_stable::{Pallet, Call, Storage, Event<T>}  = 102,
-        DexSwapRouter: dex_swap_router::{Pallet, Call, Event<T>} = 103,
+        // DexSwapRouter: 103
     }
 }
 
@@ -1316,11 +1316,11 @@ mod benches {
         [loans, Loans]
         [dex_general, DexGeneral]
         [dex_stable, DexStable]
-        [dex_swap_router, DexSwapRouter]
         [democracy, Democracy]
         [frame_system, frame_system_benchmarking::Pallet::<Runtime>]
         [orml_tokens, runtime_common::benchmarking::orml_tokens::Pallet::<Runtime>]
         [orml_vesting, runtime_common::benchmarking::orml_vesting::Pallet::<Runtime>]
+        [orml_asset_registry, runtime_common::benchmarking::orml_asset_registry::Pallet::<Runtime>]
         [replace, Replace]
         [redeem, Redeem]
     );
@@ -1467,6 +1467,7 @@ impl_runtime_apis! {
             impl frame_system_benchmarking::Config for Runtime {}
             impl runtime_common::benchmarking::orml_tokens::Config for Runtime {}
             impl runtime_common::benchmarking::orml_vesting::Config for Runtime {}
+            impl  runtime_common::benchmarking::orml_asset_registry::Config for Runtime {}
 
             use frame_support::traits::WhitelistedStorageKeys;
             let mut whitelist: Vec<TrackedStorageKey> = AllPalletsWithSystem::whitelisted_storage_keys();

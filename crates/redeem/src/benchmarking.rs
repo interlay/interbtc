@@ -1,11 +1,5 @@
 use super::*;
-use bitcoin::{
-    formatter::TryFormat,
-    types::{
-        Block, BlockBuilder, TransactionBuilder, TransactionInput, TransactionInputBuilder, TransactionInputSource,
-        TransactionOutput,
-    },
-};
+use bitcoin::types::{BlockBuilder, TransactionOutput};
 use btc_relay::{BtcAddress, BtcPublicKey};
 use currency::getters::{get_relay_chain_currency_id as get_collateral_currency_id, *};
 use frame_benchmarking::v2::*;
@@ -82,51 +76,23 @@ fn initialize_oracle<T: crate::Config>() {
     Oracle::<T>::begin_block(0u32.into());
 }
 
-fn mine_blocks_until_expiry<T: crate::Config>(request: &DefaultRedeemRequest<T>) {
-    let period = Redeem::<T>::redeem_period().max(request.period);
-    let expiry_height = BtcRelay::<T>::bitcoin_expiry_height(request.btc_height, period).unwrap();
-    mine_blocks::<T>(expiry_height + 100);
-}
-
-fn mine_blocks<T: crate::Config>(end_height: u32) {
+fn initialize_and_mine_blocks_until_expiry<T: crate::Config>(request: &DefaultRedeemRequest<T>) {
     let relayer_id: T::AccountId = account("Relayer", 0, 0);
     mint_collateral::<T>(&relayer_id, (1u32 << 31).into());
+    Security::<T>::set_active_block_number(1u32.into());
 
-    let height = 0;
-    let block = BlockBuilder::new()
+    let period = Redeem::<T>::redeem_period().max(request.period);
+    let expiry_height = BtcRelay::<T>::bitcoin_expiry_height(request.btc_height, period).unwrap();
+
+    let init_block = BlockBuilder::new()
         .with_version(4)
-        .with_coinbase(&BtcAddress::dummy(), 50, 3)
-        .with_timestamp(1588813835)
+        .with_coinbase(&BtcAddress::default(), 50, 3)
+        .with_timestamp(u32::MAX)
         .mine(U256::from(2).pow(254.into()))
         .unwrap();
 
-    Security::<T>::set_active_block_number(1u32.into());
-    BtcRelay::<T>::_initialize(relayer_id.clone(), block.header, height).unwrap();
-
-    let transaction = TransactionBuilder::new()
-        .with_version(2)
-        .add_input(
-            TransactionInputBuilder::new()
-                .with_source(TransactionInputSource::FromOutput(block.transactions[0].hash(), 0))
-                .with_script(&[])
-                .build(),
-        )
-        .build();
-
-    let mut prev_hash = block.header.hash;
-    for _ in 0..end_height {
-        let block = BlockBuilder::new()
-            .with_previous_hash(prev_hash)
-            .with_version(4)
-            .with_coinbase(&BtcAddress::dummy(), 50, 3)
-            .with_timestamp(1588813835)
-            .add_transaction(transaction.clone())
-            .mine(U256::from(2).pow(254.into()))
-            .unwrap();
-        prev_hash = block.header.hash;
-
-        BtcRelay::<T>::_store_block_header(&relayer_id, block.header).unwrap();
-    }
+    BtcRelay::<T>::_initialize(relayer_id.clone(), init_block.header, 0).unwrap();
+    BtcRelay::<T>::mine_blocks(&relayer_id, expiry_height + 100);
 }
 
 fn test_request<T: crate::Config>(vault_id: &DefaultVaultId<T>) -> DefaultRedeemRequest<T> {
@@ -151,15 +117,6 @@ fn get_vault_id<T: crate::Config>() -> DefaultVaultId<T> {
         get_collateral_currency_id::<T>(),
         get_wrapped_currency_id::<T>(),
     )
-}
-
-fn new_tx_input<T: crate::Config>(block: &Block, b: usize) -> TransactionInput {
-    TransactionInputBuilder::new()
-        .with_source(TransactionInputSource::FromOutput(block.transactions[0].hash(), 0))
-        .with_script(&vec![0; b])
-        .add_witness(&vec![0; 72]) // max signature size
-        .add_witness(&vec![0; 65]) // uncompressed public key
-        .build()
 }
 
 #[benchmarks(
@@ -239,11 +196,7 @@ pub mod benchmarks {
     }
 
     #[benchmark]
-    pub fn execute_redeem(h: Linear<2, 10>, i: Linear<1, 10>, o: Linear<2, 3>, b: Linear<1, 2_048>) {
-        // we expect at least two hashes for payment + merkle root
-        let height = h - 1; // remove the merkle root to get height
-        let transactions_count = 2u32.pow(height);
-
+    pub fn execute_redeem(h: Linear<2, 10>, i: Linear<1, 10>, o: Linear<2, 3>, b: Linear<541, 2_048>) {
         let vault_id = get_vault_id::<T>();
         let relayer_id: T::AccountId = account("Relayer", 0, 0);
 
@@ -267,76 +220,23 @@ pub mod benchmarks {
             },
         );
 
-        let block = BlockBuilder::new()
-            .with_version(4)
-            .with_coinbase(&caller_btc_address, 50, 3)
-            .with_timestamp(u32::MAX)
-            .mine(U256::from(2).pow(254.into()))
-            .unwrap();
-        let block_hash = block.header.hash;
-
-        Security::<T>::set_active_block_number(1u32.into());
-        BtcRelay::<T>::_initialize(relayer_id.clone(), block.header, 0).unwrap();
-
-        let mut block_builder = BlockBuilder::new();
-        block_builder
-            .with_previous_hash(block_hash)
-            .with_version(4)
-            .with_coinbase(&caller_btc_address, 50, 3)
-            .with_timestamp(u32::MAX);
-
-        // we always have two txs for coinbase + payment
-        for _ in 0..(transactions_count - 2) {
-            block_builder.add_transaction(
-                TransactionBuilder::new()
-                    .with_version(2)
-                    .add_input(new_tx_input::<T>(&block, 100))
-                    .add_output(TransactionOutput::payment(0, &caller_btc_address))
-                    .build(),
-            );
-        }
-
-        let mut transaction_builder = TransactionBuilder::new();
-
-        // add tx inputs
-        transaction_builder.add_input(new_tx_input::<T>(&block, b as usize));
-        for _ in 1..i {
-            transaction_builder.add_input(new_tx_input::<T>(&block, 100));
-        }
-
         // we always need these outputs for redeem
-        transaction_builder
-            .with_version(2)
-            .add_output(TransactionOutput::payment(
-                redeem_request.amount_btc.try_into().unwrap(),
-                &caller_btc_address,
-            ))
-            .add_output(TransactionOutput::op_return(0, H256::zero().as_bytes()));
+        let mut outputs = vec![
+            TransactionOutput::payment(redeem_request.amount_btc.try_into().unwrap(), &caller_btc_address),
+            TransactionOutput::op_return(0, H256::zero().as_bytes()),
+        ];
 
         // add return-to-self output
         if o == 3 {
-            transaction_builder.add_output(TransactionOutput::payment(
+            outputs.push(TransactionOutput::payment(
                 0u32.into(),
                 &BtcAddress::P2PKH(sp_core::H160::zero()),
             ));
         }
 
-        let transaction = transaction_builder.build();
-        block_builder.add_transaction(transaction.clone());
-
-        let block = block_builder.mine(U256::from(2).pow(254.into())).unwrap();
-        let tx_id = transaction.tx_id();
-        let merkle_proof = block.merkle_proof(&[tx_id]).unwrap();
-        assert_eq!(merkle_proof.transactions_count, transactions_count);
-        assert_eq!(merkle_proof.hashes.len() as u32, h);
-        let mut bytes = vec![];
-        assert_ok!(transaction.try_format(&mut bytes));
-        let length_bound = bytes.len() as u32;
-
-        BtcRelay::<T>::_store_block_header(&relayer_id, block.header).unwrap();
-        Security::<T>::set_active_block_number(
-            Security::<T>::active_block_number() + BtcRelay::<T>::parachain_confirmations() + 1u32.into(),
-        );
+        let (transaction, merkle_proof) =
+            BtcRelay::<T>::initialize_and_store_max(relayer_id.clone(), h, i, outputs, b as usize);
+        let length_bound = transaction.size_no_witness() as u32;
 
         assert_ok!(Oracle::<T>::_set_exchange_rate(
             get_collateral_currency_id::<T>(),
@@ -369,7 +269,7 @@ pub mod benchmarks {
         mint_and_reserve_wrapped::<T>(&redeem_request.redeemer, redeem_request.amount_btc);
 
         // expire redeem request
-        mine_blocks_until_expiry::<T>(&redeem_request);
+        initialize_and_mine_blocks_until_expiry::<T>(&redeem_request);
         Security::<T>::set_active_block_number(
             Security::<T>::active_block_number() + Redeem::<T>::redeem_period() + 100u32.into(),
         );
@@ -412,7 +312,7 @@ pub mod benchmarks {
         mint_and_reserve_wrapped::<T>(&redeem_request.redeemer, redeem_request.amount_btc);
 
         // expire redeem request
-        mine_blocks_until_expiry::<T>(&redeem_request);
+        initialize_and_mine_blocks_until_expiry::<T>(&redeem_request);
         Security::<T>::set_active_block_number(
             Security::<T>::active_block_number() + Redeem::<T>::redeem_period() + 100u32.into(),
         );

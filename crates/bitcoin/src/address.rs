@@ -40,8 +40,17 @@ impl Address {
         const OP_CHECK_SIG: u8 = OpCode::OpCheckSig as u8;
         const OP_EQUAL: u8 = OpCode::OpEqual as u8;
         const OP_0: u8 = OpCode::Op0 as u8;
+        const MAX_ADDRESS_BYTES: usize = HASH256_SIZE_HEX as usize + 2; // max length is for P2WSHv0; see the match below
 
-        match script.as_bytes() {
+        let bytes = script.as_bytes();
+
+        if bytes.len() > MAX_ADDRESS_BYTES {
+            // the `match` below might be O(bytes.len()) due to the binding of slices
+            // Provide an early exit here to make sure this function is O(1)
+            return Err(Error::InvalidBtcAddress);
+        }
+
+        match bytes {
             &[OP_DUP, OP_HASH_160, HASH160_SIZE_HEX, ref addr @ .., OP_EQUAL_VERIFY, OP_CHECK_SIG]
                 if addr.len() == HASH160_SIZE_HEX as usize =>
             {
