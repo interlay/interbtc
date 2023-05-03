@@ -76,6 +76,7 @@ xcm = { git = "https://github.com/paritytech/polkadot", branch = "release-v0.9.3
 xcm-builder = { git = "https://github.com/paritytech/polkadot", branch = "release-v0.9.31", default-features = false }
 xcm-executor = { git = "https://github.com/paritytech/polkadot", branch = "release-v0.9.31", default-features = false }
 pallet-xcm = { git = "https://github.com/paritytech/polkadot", branch = "release-v0.9.31", default-features = false }
+pallet-xcm-benchmarks = { git = "https://github.com/paritytech/polkadot", branch = "release-v0.9.31", default-features = false, optional = true }
 
 # Parachain dependencies
 runtime-common = {path = "../common", default-features = false }
@@ -168,6 +169,7 @@ std = [
   "frame-executive/std",
   "frame-system/std",
   "frame-system-benchmarking?/std",
+  "pallet-xcm-benchmarks?/std",
   "frame-benchmarking/std",
   "pallet-balances/std",
   "pallet-timestamp/std",
@@ -264,6 +266,7 @@ runtime-benchmarks = [
   "frame-support/runtime-benchmarks",
   "frame-system/runtime-benchmarks",
   "frame-system-benchmarking/runtime-benchmarks",
+  "pallet-xcm-benchmarks/runtime-benchmarks",
   "pallet-society/runtime-benchmarks",
   "pallet-collective/runtime-benchmarks",
   "pallet-balances/runtime-benchmarks",

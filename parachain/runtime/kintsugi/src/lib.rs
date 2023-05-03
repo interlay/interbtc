@@ -1395,6 +1395,8 @@ mod benches {
         [orml_tokens, runtime_common::benchmarking::orml_tokens::Pallet::<Runtime>]
         [replace, Replace]
         [redeem, Redeem]
+        [pallet_xcm_benchmarks::generic, pallet_xcm_benchmarks::generic::Pallet::<Runtime>]
+        [pallet_xcm_benchmarks::fungible, pallet_xcm_benchmarks::fungible::Pallet::<Runtime>]
     );
 }
 
