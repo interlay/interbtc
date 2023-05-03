@@ -11,6 +11,7 @@ pub mod frame_system;
 pub mod issue;
 pub mod nomination;
 pub mod oracle;
+pub mod orml_asset_registry;
 pub mod pallet_collective;
 pub mod pallet_identity;
 pub mod pallet_membership;
