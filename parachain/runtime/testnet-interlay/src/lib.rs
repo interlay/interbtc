@@ -1241,7 +1241,7 @@ construct_runtime! {
         Loans: loans::{Pallet, Call, Storage, Event<T>, Config} = 100,
         DexGeneral: dex_general::{Pallet, Call, Storage, Event<T>} = 101,
         DexStable: dex_stable::{Pallet, Call, Storage, Event<T>}  = 102,
-        DexSwapRouter: dex_swap_router::{Pallet, Call, Event<T>} = 103,
+        // DexSwapRouter: 103
     }
 }
 
@@ -1309,7 +1309,6 @@ mod benches {
         [loans, Loans]
         [dex_general, DexGeneral]
         [dex_stable, DexStable]
-        [dex_swap_router, DexSwapRouter]
         [democracy, Democracy]
         [frame_system, frame_system_benchmarking::Pallet::<Runtime>]
         [orml_tokens, runtime_common::benchmarking::orml_tokens::Pallet::<Runtime>]
