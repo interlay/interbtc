@@ -1,4 +1,4 @@
-use frame_benchmarking::v2::{account, benchmarks, whitelisted_caller};
+use frame_benchmarking::v2::{account, benchmarks, whitelisted_caller, Linear};
 use frame_support::{
     assert_ok,
     traits::{Currency, Get},
@@ -13,7 +13,7 @@ use sp_std::prelude::*;
 const SEED: u32 = 0;
 
 pub struct Pallet<T: Config>(orml_vesting::Pallet<T>);
-pub trait Config: orml_vesting::Config + currency::Config<CurrencyId = CurrencyId> + loans::Config {}
+pub trait Config: orml_vesting::Config + currency::Config<CurrencyId = CurrencyId> {}
 pub fn lookup_of_account<T: Config>(
     who: T::AccountId,
 ) -> <<T as frame_system::Config>::Lookup as StaticLookup>::Source {
@@ -41,7 +41,7 @@ struct Transfer<T: Config> {
 fn setup_transfer<T: Config>() -> Transfer<T> {
     let from: T::AccountId = whitelisted_caller();
     let to: T::AccountId = account("to", 0, SEED);
-    let amount = 1000u32.into();
+    let amount = 1000000000u32.into();
     let native_currency = <T as currency::Config>::GetNativeCurrencyId::get();
     assert_ok!(orml_tokens::Pallet::<T>::deposit(native_currency, &from, amount));
 
@@ -54,14 +54,16 @@ pub mod benchmarks {
     use orml_vesting::Call;
 
     #[benchmark]
-    fn claim() {
+    fn claim(n: Linear<0, 10>) {
         let setup = setup_transfer::<T>();
         let schedule = dummy_schedule::<T>();
-        assert_ok!(orml_vesting::Pallet::<T>::vested_transfer(
-            RawOrigin::Signed(setup.from).into(),
-            lookup_of_account::<T>(setup.to.clone()),
-            schedule
-        ));
+        for _ in 0..n {
+            assert_ok!(orml_vesting::Pallet::<T>::vested_transfer(
+                RawOrigin::Signed(setup.from.clone()).into(),
+                lookup_of_account::<T>(setup.to.clone()),
+                schedule.clone()
+            ));
+        }
 
         #[extrinsic_call]
         claim(RawOrigin::Signed(setup.to));
@@ -80,7 +82,7 @@ pub mod benchmarks {
     }
 
     #[benchmark]
-    fn update_vesting_schedules() {
+    fn update_vesting_schedules(n: Linear<0, 10>) {
         let setup = setup_transfer::<T>();
         let schedule = dummy_schedule::<T>();
         assert_ok!(orml_vesting::Pallet::<T>::vested_transfer(
@@ -89,28 +91,14 @@ pub mod benchmarks {
             schedule.clone()
         ));
         let new_schedule = VestingSchedule {
-            per_period: 8u32.into(),
+            per_period: 1u32.into(),
             ..schedule
         };
         #[extrinsic_call]
         update_vesting_schedules(
             RawOrigin::Root,
             lookup_of_account::<T>(setup.to.clone()),
-            vec![new_schedule],
+            vec![new_schedule; n as usize],
         );
-    }
-
-    #[benchmark]
-    fn claim_for() {
-        let setup = setup_transfer::<T>();
-        let schedule = dummy_schedule::<T>();
-        assert_ok!(orml_vesting::Pallet::<T>::vested_transfer(
-            RawOrigin::Signed(setup.from.clone()).into(),
-            lookup_of_account::<T>(setup.to.clone()),
-            schedule
-        ));
-
-        #[extrinsic_call]
-        claim_for(RawOrigin::Signed(setup.from), lookup_of_account::<T>(setup.to.clone()));
     }
 }
