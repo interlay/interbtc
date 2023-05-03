@@ -21,7 +21,16 @@ use sp_std::marker::PhantomData;
 
 /// Weights for {{pallet}} using the Substrate node and recommended hardware.
 pub struct WeightInfo<T>(PhantomData<T>);
+
+{{#if (or 
+	(eq pallet "pallet_xcm_benchmarks::fungible")
+	(eq pallet "pallet_xcm_benchmarks::generic")
+	)}}
+impl<T: frame_system::Config> WeightInfo<T> {
+{{else}}
 impl<T: frame_system::Config> {{pallet}}::WeightInfo for WeightInfo<T> {
+{{/if}}
+
 	{{#each benchmarks as |benchmark|}}
 	{{#each benchmark.comments as |comment|}}
 	/// {{comment}}
@@ -29,7 +38,14 @@ impl<T: frame_system::Config> {{pallet}}::WeightInfo for WeightInfo<T> {
 	{{#each benchmark.component_ranges as |range|}}
 	/// The range of component `{{range.name}}` is `[{{range.min}}, {{range.max}}]`.
 	{{/each}}
+	{{#if (or 
+		(eq ../pallet "pallet_xcm_benchmarks::fungible")
+		(eq ../pallet "pallet_xcm_benchmarks::generic")
+	)}}
+	pub fn {{benchmark.name~}}
+	{{else}}
 	fn {{benchmark.name~}}
+	{{/if}}
 	(
 		{{~#each benchmark.components as |c| ~}}
 		{{~#if (not c.is_used)}}_{{/if}}{{c.name}}: u32, {{/each~}}

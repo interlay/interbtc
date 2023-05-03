@@ -209,6 +209,7 @@ xcm = { git = "https://github.com/paritytech//polkadot", branch = "release-v0.9.
 xcm-builder = { git = "https://github.com/paritytech//polkadot", branch = "release-v0.9.38" }
 xcm-executor = { git = "https://github.com/paritytech//polkadot", branch = "release-v0.9.38" }
 xcm-simulator = { git = "https://github.com/paritytech//polkadot", branch = "release-v0.9.38" }
+pallet-xcm-benchmarks = { git = "https://github.com/paritytech//polkadot", branch = "release-v0.9.38" }
 polkadot-availability-distribution = { git = "https://github.com/paritytech//polkadot", branch = "release-v0.9.38" }
 polkadot-erasure-coding = { git = "https://github.com/paritytech//polkadot", branch = "release-v0.9.38" }
 polkadot-network-bridge = { git = "https://github.com/paritytech//polkadot", branch = "release-v0.9.38" }
