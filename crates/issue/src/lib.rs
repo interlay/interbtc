@@ -52,11 +52,7 @@ pub mod pallet {
     /// The pallet's configuration trait.
     #[pallet::config]
     pub trait Config:
-        frame_system::Config
-        + vault_registry::Config
-        + btc_relay::Config
-        + oracle::Config
-        + fee::Config<UnsignedInner = BalanceOf<Self>>
+        frame_system::Config + vault_registry::Config + btc_relay::Config + oracle::Config + fee::Config
     {
         /// The treasury pallet account for slashed griefing collateral.
         #[pallet::constant]

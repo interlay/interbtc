@@ -17,6 +17,7 @@ use frame_support::{dispatch::DispatchResult, traits::Get};
 use orml_traits::{MultiCurrency, MultiReservableCurrency};
 use primitives::{CurrencyId as PrimitivesCurrencyId, TruncateFixedPointToInt};
 use scale_info::TypeInfo;
+use sp_core::U256;
 use sp_runtime::{
     traits::{AtLeast32BitUnsigned, CheckedDiv, MaybeSerializeDeserialize},
     DispatchError, FixedPointNumber, FixedPointOperand,
@@ -111,11 +112,17 @@ pub mod pallet {
 
         type Balance: AtLeast32BitUnsigned
             + FixedPointOperand
+            + Into<U256>
+            + TryFrom<U256>
+            + TryFrom<i64> // from bitcoin types
+            + TryInto<i64> // into bitcoin types
             + MaybeSerializeDeserialize
             + FullCodec
             + Copy
             + Default
-            + Debug;
+            + Debug
+            + TypeInfo
+            + MaxEncodedLen;
 
         /// Native currency e.g. INTR/KINT
         #[pallet::constant]
