@@ -51,6 +51,13 @@ extern crate mocktopus;
 #[cfg(test)]
 use mocktopus::macros::mockable;
 
+#[cfg(feature = "runtime-benchmarks")]
+use bitcoin::types::{BlockBuilder, TransactionBuilder, TransactionOutput};
+use bitcoin::{
+    merkle::{MerkleProof, ProofResult},
+    types::{BlockChain, BlockHeader, H256Le, Transaction, Value},
+    Error as BitcoinError, SetCompact,
+};
 use frame_support::{
     dispatch::{DispatchError, DispatchResult},
     ensure, runtime_print,
@@ -65,16 +72,9 @@ use sp_std::{
     prelude::*,
 };
 
-// Crates
 pub use bitcoin::{self, Address as BtcAddress, PublicKey as BtcPublicKey};
-use bitcoin::{
-    merkle::{MerkleProof, ProofResult},
-    types::{BlockChain, BlockHeader, H256Le, Transaction, Value},
-    Error as BitcoinError, SetCompact,
-};
-pub use types::{OpReturnPaymentData, RichBlockHeader};
-
 pub use pallet::*;
+pub use types::{OpReturnPaymentData, RichBlockHeader};
 
 #[frame_support::pallet]
 pub mod pallet {
@@ -554,10 +554,15 @@ impl<T: Config> Pallet<T> {
     pub fn get_and_verify_issue_payment<V: TryFrom<Value>>(
         merkle_proof: MerkleProof,
         transaction: Transaction,
+        length_bound: u32,
         recipient_btc_address: BtcAddress,
     ) -> Result<V, DispatchError> {
+        let tx_id = transaction
+            .tx_id_bounded(length_bound)
+            .map_err(|err| Error::<T>::from(err))?;
+
         // Verify that the transaction is indeed included in the main chain
-        Self::_verify_transaction_inclusion(transaction.tx_id(), merkle_proof, None)?;
+        Self::_verify_transaction_inclusion(tx_id, merkle_proof, None)?;
 
         Self::get_issue_payment(transaction, recipient_btc_address)
     }
@@ -1333,6 +1338,55 @@ impl<T: Config> Pallet<T> {
     /// For internal testing
     pub fn set_disable_difficulty_check(disabled: bool) {
         DisableDifficultyCheck::<T>::put(disabled);
+    }
+
+    #[cfg(feature = "runtime-benchmarks")]
+    pub fn initialize_and_store_max(
+        relayer: T::AccountId,
+        hashes: u32,
+        vin: u32,
+        vout: Vec<TransactionOutput>,
+        padding: usize,
+    ) -> (Transaction, MerkleProof) {
+        let init_block = BlockBuilder::new()
+            .with_version(4)
+            .with_coinbase(&BtcAddress::default(), 50, 3)
+            .with_timestamp(u32::MAX)
+            .mine(U256::from(2).pow(254.into()))
+            .unwrap();
+        let init_block_hash = init_block.header.hash;
+        ext::security::set_active_block_number::<T>(1u32.into());
+        Self::_initialize(relayer.clone(), init_block.header, 0).unwrap();
+
+        let transaction = TransactionBuilder::build_max(padding, vin, vout);
+        let block = BlockBuilder::build_max(init_block_hash, hashes, transaction.clone());
+
+        let tx_id = transaction.tx_id();
+        let merkle_proof = block.merkle_proof(&[tx_id]).unwrap();
+
+        Self::_store_block_header(&relayer, block.header).unwrap();
+        ext::security::set_active_block_number::<T>(
+            ext::security::active_block_number::<T>() + Self::parachain_confirmations() + 1u32.into(),
+        );
+
+        (transaction, merkle_proof)
+    }
+
+    #[cfg(feature = "runtime-benchmarks")]
+    pub fn mine_blocks(relayer: &T::AccountId, height: u32) {
+        let mut block_hash = Self::get_best_block();
+
+        for _ in 0..height {
+            let block = BlockBuilder::new()
+                .with_previous_hash(block_hash)
+                .with_version(4)
+                .with_coinbase(&BtcAddress::default(), 50, 3)
+                .with_timestamp(u32::MAX)
+                .mine(U256::from(2).pow(254.into()))
+                .unwrap();
+            block_hash = block.header.hash;
+            Self::_store_block_header(relayer, block.header).unwrap();
+        }
     }
 }
 

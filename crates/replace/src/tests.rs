@@ -205,7 +205,8 @@ mod execute_replace_test {
             assert_ok!(Replace::_execute_replace(
                 H256::zero(),
                 Default::default(),
-                Default::default()
+                Default::default(),
+                u32::MAX,
             ));
             assert_event_matches!(Event::ExecuteReplace {
                 replace_id: _,
@@ -231,7 +232,8 @@ mod execute_replace_test {
             assert_ok!(Replace::_execute_replace(
                 H256::zero(),
                 Default::default(),
-                Default::default()
+                Default::default(),
+                u32::MAX,
             ));
             assert_event_matches!(Event::ExecuteReplace {
                 replace_id: _,

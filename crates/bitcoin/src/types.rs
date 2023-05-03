@@ -344,6 +344,12 @@ impl Transaction {
         sha256d_le(&bytes)
     }
 
+    pub fn size_no_witness(&self) -> usize {
+        let mut bytes = vec![];
+        self.format_no_witness(&mut bytes).expect("Not bounded");
+        bytes.len()
+    }
+
     pub(crate) fn has_witness(&self) -> bool {
         // check if any of the inputs has a witness
         self.inputs.iter().any(|v| !v.witness.is_empty())
@@ -486,6 +492,42 @@ impl BlockBuilder {
             tx_ids.push(tx.tx_id());
         }
         MerkleTree::compute_root(0, height, tx_ids.len() as u32, &tx_ids)
+    }
+
+    #[cfg(feature = "runtime-benchmarks")]
+    pub fn build_max(previous_hash: H256Le, hashes: u32, transaction: Transaction) -> Block {
+        let mut block_builder = Self::new();
+        block_builder
+            .with_previous_hash(previous_hash)
+            .with_version(4)
+            .with_coinbase(&Address::default(), 50, 3)
+            .with_timestamp(u32::MAX);
+
+        // we expect at least two hashes for payment + merkle root
+        let tree_height = hashes - 1; // remove the merkle root to get height
+        let transactions_count = 2u32.pow(tree_height);
+
+        // we always have two txs for coinbase + payment
+        for _ in 0..(transactions_count - 2) {
+            block_builder.add_transaction(
+                TransactionBuilder::new()
+                    .with_version(2)
+                    .add_input(TransactionInputBuilder::build_max(100))
+                    .add_output(TransactionOutput::payment(0, &Address::default()))
+                    .build(),
+            );
+        }
+
+        let tx_id = transaction.tx_id();
+        block_builder.add_transaction(transaction);
+        let block = block_builder.mine(U256::from(2).pow(254.into())).unwrap();
+
+        // sanity check that the proof has the correct size
+        let merkle_proof = block.merkle_proof(&[tx_id]).unwrap();
+        assert_eq!(merkle_proof.transactions_count, transactions_count);
+        assert_eq!(merkle_proof.hashes.len() as u32, hashes);
+
+        block
     }
 }
 
@@ -716,6 +758,24 @@ impl TransactionBuilder {
     pub fn build(&self) -> Transaction {
         self.transaction.clone()
     }
+
+    #[cfg(feature = "runtime-benchmarks")]
+    pub fn build_max(padding: usize, vin: u32, vout: Vec<TransactionOutput>) -> Transaction {
+        let mut transaction_builder = Self::new();
+        transaction_builder.with_version(2);
+
+        // add tx inputs
+        transaction_builder.add_input(TransactionInputBuilder::build_max(padding));
+        for _ in 1..vin {
+            transaction_builder.add_input(TransactionInputBuilder::build_max(100));
+        }
+
+        for output in vout {
+            transaction_builder.add_output(output);
+        }
+
+        transaction_builder.build()
+    }
 }
 
 /// Construct transaction inputs
@@ -740,6 +800,7 @@ impl TransactionInputBuilder {
     pub fn new() -> TransactionInputBuilder {
         Self::default()
     }
+
     pub fn with_source(&mut self, source: TransactionInputSource) -> &mut Self {
         self.transaction_input.source = source;
         self
@@ -782,6 +843,16 @@ impl TransactionInputBuilder {
 
     pub fn build(&self) -> TransactionInput {
         self.transaction_input.clone()
+    }
+
+    #[cfg(feature = "runtime-benchmarks")]
+    pub fn build_max(padding: usize) -> TransactionInput {
+        Self::new()
+            .with_source(TransactionInputSource::FromOutput(H256Le::zero(), u32::MAX))
+            .with_script(&vec![0; padding])
+            .add_witness(&vec![0; 72]) // max signature size
+            .add_witness(&vec![0; 65]) // uncompressed public key
+            .build()
     }
 }
 

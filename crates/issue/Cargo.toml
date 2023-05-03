@@ -89,6 +89,7 @@ runtime-benchmarks = [
 	"frame-system/runtime-benchmarks",
 
 	"bitcoin/runtime-benchmarks",
+	"btc-relay/runtime-benchmarks",
 
 	"orml-tokens",
 	"orml-traits",
