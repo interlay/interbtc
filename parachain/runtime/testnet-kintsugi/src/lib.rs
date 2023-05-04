@@ -40,6 +40,7 @@ use sp_std::{marker::PhantomData, prelude::*};
 #[cfg(feature = "std")]
 use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
+use weights::{block_weights::BlockExecutionWeight, extrinsic_weights::ExtrinsicBaseWeight};
 use xcm_executor::{traits::WeightTrader, Assets};
 
 // A few exports that help ease life for downstream crates.
@@ -49,7 +50,7 @@ pub use frame_support::{
     parameter_types,
     traits::{Everything, Get, KeyOwnerProofSystem, LockIdentifier, Nothing},
     weights::{
-        constants::{BlockExecutionWeight, ExtrinsicBaseWeight, RocksDbWeight, WEIGHT_REF_TIME_PER_SECOND},
+        constants::{RocksDbWeight, WEIGHT_REF_TIME_PER_SECOND},
         IdentityFee, Weight,
     },
     StorageValue,

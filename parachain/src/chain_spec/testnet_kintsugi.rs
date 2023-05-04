@@ -121,7 +121,7 @@ pub fn development_config(id: ParaId) -> KintsugiTestnetChainSpec {
     )
 }
 
-pub fn staging_testnet_config(id: ParaId) -> KintsugiTestnetChainSpec {
+pub fn staging_testnet_config(id: ParaId, benchmarking: bool) -> KintsugiTestnetChainSpec {
     KintsugiTestnetChainSpec::from_genesis(
         "interBTC",
         "staging_testnet",
@@ -159,7 +159,14 @@ pub fn staging_testnet_config(id: ParaId) -> KintsugiTestnetChainSpec {
                     get_account_id_from_string("5GjJ26ffHApgUFLgxKWpWL5T5ppxWjSRJe42PjPNATLvjcJK"),
                     // 5DqzGaydetDXGya818gyuHA7GAjEWRsQN6UWNKpvfgq2KyM7 (//account/5)
                     get_account_id_from_string("5DqzGaydetDXGya818gyuHA7GAjEWRsQN6UWNKpvfgq2KyM7"),
-                ],
+                ]
+                .into_iter()
+                .chain(if benchmarking {
+                    vec![get_account_id_from_seed::<sr25519::Public>("Alice")]
+                } else {
+                    vec![]
+                })
+                .collect(),
                 vec![(
                     // 5ECj4iBBi3h8kYzhqLFmzVLafC64UpsXvK7H4ZZyXoVQJdJq (//oracle/1)
                     get_account_id_from_string("5ECj4iBBi3h8kYzhqLFmzVLafC64UpsXvK7H4ZZyXoVQJdJq"),

@@ -16,26 +16,31 @@
 
 use crate::{
     chain_spec,
-    cli::{Cli, RuntimeName, Subcommand},
+    cli::{Cli, RelayChainCli, RuntimeName, Subcommand},
     service::{
         new_partial, InterlayRuntimeExecutor, KintsugiRuntimeExecutor, TestnetInterlayRuntimeExecutor,
         TestnetKintsugiRuntimeExecutor,
     },
 };
-use frame_benchmarking_cli::{BenchmarkCmd, SUBSTRATE_REFERENCE_HARDWARE};
-use primitives::Block;
-use sc_cli::{ChainSpec, Result, RuntimeVersion, SubstrateCli};
-use sc_service::{Configuration, TaskManager};
-
-use crate::cli::RelayChainCli;
 use cumulus_primitives_core::ParaId;
+use frame_benchmarking_cli::{BenchmarkCmd, SUBSTRATE_REFERENCE_HARDWARE};
 use log::info;
+use primitives::Block;
 use regex::Regex;
-use sc_cli::{CliConfiguration, DefaultConfigurationValues, ImportParams, KeystoreParams, NetworkParams, SharedParams};
-use sc_service::config::{BasePath, PrometheusConfig};
+use sc_cli::{
+    ChainSpec, CliConfiguration, DefaultConfigurationValues, ImportParams, KeystoreParams, NetworkParams, Result,
+    RuntimeVersion, SharedParams, SubstrateCli,
+};
+use sc_service::{
+    config::{BasePath, PrometheusConfig},
+    Configuration, TaskManager,
+};
 use sp_core::hexdisplay::HexDisplay;
 use sp_runtime::traits::AccountIdConversion;
 use std::{io::Write, net::SocketAddr, path::PathBuf};
+
+#[cfg(feature = "runtime-benchmarks")]
+use crate::benchmarking::*;
 
 const DEFAULT_PARA_ID: u32 = 2121;
 
@@ -89,23 +94,33 @@ fn load_spec(id: &str) -> std::result::Result<Box<dyn sc_service::ChainSpec>, St
         "westend" => Box::new(chain_spec::testnet_kintsugi::westend_testnet_config(
             DEFAULT_PARA_ID.into(),
         )),
-        "kintsugi-dev" => Box::new(chain_spec::kintsugi::kintsugi_dev_config()),
+        "kintsugi-dev" | "kintsugi-bench" => Box::new(chain_spec::kintsugi::kintsugi_dev_config()),
         "kintsugi-latest" => Box::new(chain_spec::kintsugi::kintsugi_mainnet_config()),
         "kintsugi" => Box::new(chain_spec::KintsugiChainSpec::from_json_bytes(
             &include_bytes!("../res/kintsugi.json")[..],
         )?),
-        "interlay-dev" => Box::new(chain_spec::interlay::interlay_dev_config()),
+        "interlay-dev" | "interlay-bench" => Box::new(chain_spec::interlay::interlay_dev_config()),
         "interlay-latest" => Box::new(chain_spec::interlay::interlay_mainnet_config()),
         "interlay" => Box::new(chain_spec::InterlayChainSpec::from_json_bytes(
             &include_bytes!("../res/interlay.json")[..],
         )?),
+        "interlay-testnet-bench" => Box::new(chain_spec::testnet_interlay::staging_testnet_config(
+            DEFAULT_PARA_ID.into(),
+            true,
+        )),
         "interlay-testnet-latest" => Box::new(chain_spec::testnet_interlay::staging_testnet_config(
             DEFAULT_PARA_ID.into(),
+            false,
+        )),
+        "kintsugi-testnet-bench" => Box::new(chain_spec::testnet_kintsugi::staging_testnet_config(
+            DEFAULT_PARA_ID.into(),
+            true,
         )),
         "kintsugi-testnet-latest" => Box::new(chain_spec::testnet_kintsugi::staging_testnet_config(
             DEFAULT_PARA_ID.into(),
+            false,
         )),
-        "moonbase-alpha" => Box::new(chain_spec::testnet_kintsugi::staging_testnet_config(1002.into())),
+        "moonbase-alpha" => Box::new(chain_spec::testnet_kintsugi::staging_testnet_config(1002.into(), false)),
         path => {
             if let Some(matches) = Regex::new(r"^rococo-local-([0-9]+)$").unwrap().captures(path) {
                 let para_id: u32 = matches[1].parse().expect("failed to parse chain id");
@@ -396,7 +411,6 @@ pub fn run() -> Result<()> {
                 }
                 BenchmarkCmd::Block(cmd) => {
                     if cfg!(feature = "runtime-benchmarks") {
-                        let runner = cli.create_runner(cmd)?;
                         let chain_spec = &runner.config().chain_spec;
 
                         with_runtime_or_err!(chain_spec, {
@@ -418,7 +432,6 @@ pub fn run() -> Result<()> {
                 #[cfg(feature = "runtime-benchmarks")]
                 BenchmarkCmd::Storage(cmd) => {
                     if cfg!(feature = "runtime-benchmarks") {
-                        let runner = cli.create_runner(cmd)?;
                         let chain_spec = &runner.config().chain_spec;
 
                         with_runtime_or_err!(chain_spec, {
@@ -435,7 +448,31 @@ pub fn run() -> Result<()> {
                             .into())
                     }
                 }
-                BenchmarkCmd::Overhead(_) => Err("Unsupported benchmarking command".into()),
+                #[cfg(feature = "runtime-benchmarks")]
+                BenchmarkCmd::Overhead(cmd) => {
+                    let chain_spec = &runner.config().chain_spec;
+                    with_runtime_or_err!(chain_spec, {
+                        let selected_runtime = SelectedRuntime::from_chain_spec(chain_spec)?;
+                        runner.sync_run(|config| {
+                            let partials = new_partial::<RuntimeApi, Executor>(&config, false)?;
+                            let remark_builder = RemarkBuilder {
+                                client: partials.client.clone(),
+                                selected_runtime,
+                            };
+                            cmd.run(
+                                config,
+                                partials.client,
+                                para_benchmark_inherent_data().unwrap(),
+                                Vec::new(),
+                                &remark_builder,
+                            )
+                        })
+                    })
+                }
+                #[cfg(not(feature = "runtime-benchmarks"))]
+                BenchmarkCmd::Overhead(_) => Err("Benchmarking wasn't enabled when building the node. \
+                        You can enable it with `--features runtime-benchmarks`."
+                    .into()),
                 BenchmarkCmd::Extrinsic(_) => Err("Unsupported benchmarking command".into()),
                 BenchmarkCmd::Machine(cmd) => {
                     runner.sync_run(|config| cmd.run(&config, SUBSTRATE_REFERENCE_HARDWARE.clone()))
