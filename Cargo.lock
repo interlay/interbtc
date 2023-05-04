@@ -14188,6 +14188,7 @@ dependencies = [
  "frame-support",
  "frame-system",
  "interbtc-primitives",
+ "loans",
  "log",
  "mocktopus",
  "oracle",

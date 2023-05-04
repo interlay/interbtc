@@ -4,11 +4,13 @@ use currency::getters::{get_relay_chain_currency_id as get_collateral_currency_i
 use frame_benchmarking::v2::{account, benchmarks, impl_benchmark_test_suite};
 use frame_support::assert_ok;
 use frame_system::RawOrigin;
+use loans::{InterestRateModel, JumpModel, Market, MarketState, Pallet as Loans};
 use oracle::Pallet as Oracle;
 use orml_traits::MultiCurrency;
-use primitives::CurrencyId;
+use primitives::{CurrencyId, Rate, Ratio};
 use sp_runtime::FixedPointNumber;
 use sp_std::prelude::*;
+use traits::LoansApi;
 
 type UnsignedFixedPoint<T> = <T as currency::Config>::UnsignedFixedPoint;
 
@@ -60,14 +62,81 @@ fn register_vault_with_collateral<T: crate::Config>(vault_id: DefaultVaultId<T>)
     assert_ok!(VaultRegistry::<T>::_register_vault(vault_id.clone(), amount));
 }
 
-#[benchmarks]
+pub const fn market_mock<T: loans::Config>(lend_token_id: CurrencyId) -> Market<u128> {
+    Market {
+        close_factor: Ratio::from_percent(50),
+        collateral_factor: Ratio::from_percent(50),
+        liquidation_threshold: Ratio::from_percent(55),
+        liquidate_incentive: Rate::from_inner(Rate::DIV / 100 * 110),
+        liquidate_incentive_reserved_factor: Ratio::from_percent(3),
+        state: MarketState::Pending,
+        rate_model: InterestRateModel::Jump(JumpModel {
+            base_rate: Rate::from_inner(Rate::DIV / 100 * 2),
+            jump_rate: Rate::from_inner(Rate::DIV / 100 * 10),
+            full_rate: Rate::from_inner(Rate::DIV / 100 * 32),
+            jump_utilization: Ratio::from_percent(80),
+        }),
+        reserve_factor: Ratio::from_percent(15),
+        supply_cap: 1_000_000_000_000_000_000_000u128, // set to 1B
+        borrow_cap: 1_000_000_000_000_000_000_000u128, // set to 1B
+        lend_token_id,
+    }
+}
+
+pub fn activate_market<T: loans::Config>(underlying_id: CurrencyId, lend_token_id: CurrencyId) {
+    println!("activating market");
+    let origin = RawOrigin::Root;
+    assert_ok!(Loans::<T>::add_market(
+        origin.clone().into(),
+        underlying_id,
+        market_mock::<T>(lend_token_id)
+    ));
+    assert_ok!(Loans::<T>::activate_market(origin.into(), underlying_id,));
+
+    println!("activated market");
+}
+
+pub fn mint_lend_tokens<T: loans::Config>(account_id: &T::AccountId, lend_token_id: CurrencyId) {
+    const LEND_TOKEN_FUNDING_AMOUNT: u128 = 1_000_000_000_000_000_000;
+    let underlying_id = Loans::<T>::underlying_id(lend_token_id).unwrap();
+    let amount: Amount<T> = Amount::new(LEND_TOKEN_FUNDING_AMOUNT, underlying_id);
+    let origin = RawOrigin::Signed(account_id.clone());
+    assert_ok!(amount.mint_to(&account_id));
+
+    println!("minting");
+    assert_ok!(Loans::<T>::mint(
+        origin.into(),
+        underlying_id,
+        LEND_TOKEN_FUNDING_AMOUNT
+    ));
+    println!("minted");
+}
+
+pub fn activate_lending_and_mint<T: loans::Config>(
+    underlying_id: CurrencyId,
+    lend_token_id: CurrencyId,
+    account_id: &T::AccountId,
+) {
+    activate_market::<T>(underlying_id, lend_token_id);
+    mint_lend_tokens::<T>(account_id, lend_token_id);
+}
+
+fn activate_lending_and_get_vault_id<T: loans::Config>() -> DefaultVaultId<T> {
+    let account_id: T::AccountId = account("Vault", 0, 0);
+    let lend_token = CurrencyId::LendToken(1);
+    activate_lending_and_mint::<T>(get_collateral_currency_id::<T>(), lend_token.clone(), &account_id);
+    VaultId::new(account("Vault", 0, 0), lend_token, get_wrapped_currency_id::<T>())
+}
+
+#[benchmarks(where T: loans::Config)]
 pub mod benchmarks {
     use super::*;
 
     #[benchmark]
     fn register_vault() {
-        let vault_id = get_vault_id::<T>();
         set_default_exchange_rate::<T>();
+        let vault_id = activate_lending_and_get_vault_id::<T>();
+        // let vault_id = get_vault_id::<T>();
         let amount = VaultRegistry::<T>::minimum_collateral_vault(vault_id.collateral_currency());
         mint_collateral::<T>(&vault_id.account_id, amount);
         let origin = RawOrigin::Signed(vault_id.account_id.clone());

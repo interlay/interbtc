@@ -59,12 +59,8 @@ pub const fn market_mock<T: loans::Config>(lend_token_id: CurrencyId) -> Market<
 fn activate_lending_and_get_vault_id<T: loans::Config>() -> DefaultVaultId<T> {
     let account_id: T::AccountId = account("Vault", 0, 0);
     let lend_token = CurrencyId::LendToken(1);
-    activate_lending_and_mint::<T>(get_collateral_currency_id::<T>(), lend_token, &account_id);
-    VaultId::new(
-        account("Vault", 0, 0),
-        get_collateral_currency_id::<T>(),
-        get_wrapped_currency_id::<T>(),
-    )
+    activate_lending_and_mint::<T>(get_collateral_currency_id::<T>(), lend_token.clone(), &account_id);
+    VaultId::new(account("Vault", 0, 0), lend_token, get_wrapped_currency_id::<T>())
 }
 
 fn register_vault<T: crate::Config>(vault_id: DefaultVaultId<T>) {
@@ -119,7 +115,7 @@ pub fn activate_lending_and_mint<T: loans::Config>(
     mint_lend_tokens::<T>(account_id, lend_token_id);
 }
 
-#[benchmarks(where T: loans::Config + currency::Config<Balance = u128>)]
+#[benchmarks(where T: loans::Config)]
 pub mod benchmarks {
     use super::*;
 
