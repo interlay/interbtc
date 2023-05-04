@@ -143,6 +143,8 @@ pub mod pallet {
             lp_currency_id: T::CurrencyId,
             a: Number,
             account: T::AccountId,
+            swap_fee: Number,
+            admin_fee: Number,
             admin_fee_receiver: T::AccountId,
         },
         /// A pool's admin_fee_receiver was updated.
@@ -262,7 +264,7 @@ pub mod pallet {
         AmountSlippage,
         /// Forbid swap same currency.
         SwapSameCurrency,
-        /// The index of currency id bigger the length of pool's currencies;
+        /// The index of currency id bigger the length of pool's currencies.
         CurrencyIndexOutRange,
         /// The pool does not have enough lp currency.
         InsufficientLpReserve,
@@ -365,6 +367,8 @@ pub mod pallet {
                     lp_currency_id,
                     a,
                     account: pool_account,
+                    swap_fee: fee,
+                    admin_fee,
                     admin_fee_receiver,
                 });
 
@@ -450,6 +454,8 @@ pub mod pallet {
                     lp_currency_id,
                     a,
                     account: pool_account,
+                    swap_fee: fee,
+                    admin_fee,
                     admin_fee_receiver,
                 });
                 Ok(())
