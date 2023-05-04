@@ -54,13 +54,13 @@ impl IdentifyChain for dyn sc_service::ChainSpec {
         // NOTE: naming kept for backwards compatibility
         // changing the ID would require collators to move
         // their database files or resync
-        self.id().starts_with("kusama")
+        self.id().starts_with("kusama") || self.id() == "kintsugi"
     }
     fn is_interlay_testnet(&self) -> bool {
         self.id().starts_with("testnet-interlay")
     }
     fn is_kintsugi_testnet(&self) -> bool {
-        self.id().starts_with("testnet-kintsugi")
+        self.id().starts_with("testnet-kintsugi") || self.id().starts_with("staging")
     }
 }
 

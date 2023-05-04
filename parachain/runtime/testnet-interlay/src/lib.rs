@@ -79,6 +79,7 @@ use xcm::{latest::MultiLocation, opaque::latest::BodyId};
 use xcm_config::ParentLocation;
 
 pub mod constants;
+pub mod weights;
 pub mod xcm_config;
 
 mod dex;
@@ -226,7 +227,7 @@ impl frame_system::Config for Runtime {
     type OnKilledAccount = ();
     type DbWeight = ();
     type BaseCallFilter = BaseCallFilter;
-    type SystemWeightInfo = ();
+    type SystemWeightInfo = weights::frame_system::WeightInfo<Runtime>;
     type BlockWeights = RuntimeBlockWeights;
     type BlockLength = RuntimeBlockLength;
     type SS58Prefix = SS58Prefix;
@@ -256,7 +257,7 @@ impl pallet_session::Config for Runtime {
     // Essentially just Aura, but lets be pedantic.
     type SessionHandler = <SessionKeys as sp_runtime::traits::OpaqueKeys>::KeyTypeIdProviders;
     type Keys = SessionKeys;
-    type WeightInfo = ();
+    type WeightInfo = (); // TODO: we can't run this benchmark atm since it requires pallet_staking: https://github.com/paritytech/substrate/issues/11068
 }
 
 parameter_types! {
@@ -285,7 +286,7 @@ impl collator_selection::Config for Runtime {
     type ValidatorId = <Self as frame_system::Config>::AccountId;
     type ValidatorIdOf = collator_selection::IdentityCollator;
     type ValidatorRegistration = Session;
-    type WeightInfo = ();
+    type WeightInfo = weights::collator_selection::WeightInfo<Runtime>;
 }
 
 impl pallet_aura::Config for Runtime {
@@ -303,7 +304,7 @@ impl pallet_timestamp::Config for Runtime {
     type Moment = Moment;
     type OnTimestampSet = Aura;
     type MinimumPeriod = MinimumPeriod;
-    type WeightInfo = ();
+    type WeightInfo = weights::pallet_timestamp::WeightInfo<Runtime>;
 }
 
 pub type SlowAdjustingFeeUpdate<R> =
@@ -368,7 +369,7 @@ impl pallet_sudo::Config for Runtime {
 impl pallet_utility::Config for Runtime {
     type RuntimeCall = RuntimeCall;
     type RuntimeEvent = RuntimeEvent;
-    type WeightInfo = ();
+    type WeightInfo = weights::pallet_utility::WeightInfo<Runtime>;
     type PalletsOrigin = OriginCaller;
 }
 
@@ -384,7 +385,7 @@ impl orml_vesting::Config for Runtime {
     type MinVestedTransfer = MinVestedTransfer;
     // anyone can transfer vested tokens
     type VestedTransferOrigin = EnsureSigned<AccountId>;
-    type WeightInfo = ();
+    type WeightInfo = weights::orml_vesting::WeightInfo<Runtime>;
     type MaxVestingSchedules = MaxVestingSchedules;
     type BlockNumberProvider = System;
 }
@@ -402,7 +403,7 @@ impl pallet_scheduler::Config for Runtime {
     type MaximumWeight = MaximumSchedulerWeight;
     type ScheduleOrigin = EnsureRoot<AccountId>;
     type MaxScheduledPerBlock = MaxScheduledPerBlock;
-    type WeightInfo = ();
+    type WeightInfo = weights::pallet_scheduler::WeightInfo<Runtime>;
     type OriginPrivilegeCmp = EqualPrivilegeOnly;
     type Preimages = Preimage;
 }
@@ -413,7 +414,7 @@ parameter_types! {
 }
 
 impl pallet_preimage::Config for Runtime {
-    type WeightInfo = ();
+    type WeightInfo = weights::pallet_preimage::WeightInfo<Runtime>;
     type RuntimeEvent = RuntimeEvent;
     type Currency = NativeCurrency;
     type ManagerOrigin = EnsureRoot<AccountId>;
@@ -455,7 +456,7 @@ impl democracy::Config for Runtime {
     /// with a shorter voting period.
     type FastTrackOrigin = EnsureRootOrAllTechnicalCommittee;
     type PalletsOrigin = OriginCaller;
-    type WeightInfo = ();
+    type WeightInfo = weights::democracy::WeightInfo<Runtime>;
     type UnixTime = Timestamp;
     type Moment = Moment;
     type LaunchOffsetMillis = LaunchOffsetMillis;
@@ -478,7 +479,7 @@ impl pallet_multisig::Config for Runtime {
     type DepositBase = GetDepositBase;
     type DepositFactor = GetDepositFactor;
     type MaxSignatories = GetMaxSignatories;
-    type WeightInfo = ();
+    type WeightInfo = weights::pallet_multisig::WeightInfo<Runtime>;
 }
 
 parameter_types! {
@@ -507,7 +508,7 @@ impl pallet_collective::Config<TechnicalCommitteeInstance> for Runtime {
     type MaxProposals = TechnicalCommitteeMaxProposals;
     type MaxMembers = TechnicalCommitteeMaxMembers;
     type DefaultVote = pallet_collective::PrimeDefaultVote;
-    type WeightInfo = ();
+    type WeightInfo = weights::pallet_collective::WeightInfo<Runtime>;
 }
 
 impl pallet_membership::Config for Runtime {
@@ -520,7 +521,7 @@ impl pallet_membership::Config for Runtime {
     type MembershipInitialized = TechnicalCommittee;
     type MembershipChanged = TechnicalCommittee;
     type MaxMembers = TechnicalCommitteeMaxMembers;
-    type WeightInfo = ();
+    type WeightInfo = weights::pallet_membership::WeightInfo<Runtime>;
 }
 
 parameter_types! {
@@ -554,7 +555,7 @@ parameter_types! {
 
 impl btc_relay::Config for Runtime {
     type RuntimeEvent = RuntimeEvent;
-    type WeightInfo = ();
+    type WeightInfo = weights::btc_relay::WeightInfo<Runtime>;
     type ParachainBlocksPerBitcoinBlock = ParachainBlocksPerBitcoinBlock;
 }
 
@@ -658,7 +659,7 @@ impl orml_tokens::Config for Runtime {
     type Balance = Balance;
     type Amount = primitives::Amount;
     type CurrencyId = CurrencyId;
-    type WeightInfo = ();
+    type WeightInfo = weights::orml_tokens::WeightInfo<Runtime>;
     type ExistentialDeposits = ExistentialDeposits;
     type CurrencyHooks = CurrencyHooks<Runtime>;
     type MaxLocks = MaxLocks;
@@ -688,7 +689,7 @@ impl orml_asset_registry::Config for Runtime {
     type AssetProcessor = SequentialId<Runtime>;
     type AssetId = primitives::ForeignAssetId;
     type AuthorityOrigin = AssetAuthority;
-    type WeightInfo = ();
+    type WeightInfo = weights::orml_asset_registry::WeightInfo<Runtime>;
 }
 
 parameter_types! {
@@ -740,6 +741,7 @@ impl supply::Config for Runtime {
     type Currency = NativeCurrency;
     type InflationPeriod = InflationPeriod;
     type OnInflation = DealWithRewards;
+    type WeightInfo = weights::supply::WeightInfo<Runtime>;
 }
 
 pub struct TotalWrapped;
@@ -759,10 +761,8 @@ impl annuity::BlockRewardProvider<AccountId> for EscrowBlockRewardProvider {
     type Currency = NativeCurrency;
 
     #[cfg(feature = "runtime-benchmarks")]
-    fn deposit_stake(from: &AccountId, amount: Balance) -> DispatchResult {
-        let current_stake = <EscrowRewards as reward::RewardsApi<(), AccountId, Balance>>::get_stake(&(), from)?;
-        let new_stake = current_stake.saturating_add(amount);
-        <EscrowRewards as reward::RewardsApi<(), AccountId, Balance>>::set_stake(&(), from, new_stake)
+    fn deposit_stake(who: &AccountId, amount: Balance) -> DispatchResult {
+        <EscrowRewards as reward::RewardsApi<(), AccountId, Balance>>::deposit_stake(&(), who, amount)
     }
 
     fn distribute_block_reward(_from: &AccountId, amount: Balance) -> DispatchResult {
@@ -792,7 +792,7 @@ impl annuity::Config<EscrowAnnuityInstance> for Runtime {
     type BlockNumberToBalance = BlockNumberToBalance;
     type EmissionPeriod = EmissionPeriod;
     type TotalWrapped = TotalWrapped;
-    type WeightInfo = ();
+    type WeightInfo = weights::annuity_escrow_annuity::WeightInfo<Runtime>;
 }
 
 pub struct VaultBlockRewardProvider;
@@ -801,9 +801,14 @@ impl annuity::BlockRewardProvider<AccountId> for VaultBlockRewardProvider {
     type Currency = NativeCurrency;
 
     #[cfg(feature = "runtime-benchmarks")]
-    fn deposit_stake(_from: &AccountId, _amount: Balance) -> DispatchResult {
-        // TODO: fix for vault id
-        Ok(())
+    fn deposit_stake(_who: &AccountId, amount: Balance) -> DispatchResult {
+        // since this is only used for benchmarking
+        // deposit stake for the native currency
+        <VaultCapacity as reward::RewardsApi<(), CurrencyId, Balance>>::deposit_stake(
+            &(),
+            &GetNativeCurrencyId::get(),
+            amount,
+        )
     }
 
     fn distribute_block_reward(from: &AccountId, amount: Balance) -> DispatchResult {
@@ -816,8 +821,13 @@ impl annuity::BlockRewardProvider<AccountId> for VaultBlockRewardProvider {
         )
     }
 
+    #[cfg(feature = "runtime-benchmarks")]
+    fn can_withdraw_reward() -> bool {
+        false
+    }
+
     fn withdraw_reward(_: &AccountId) -> Result<Balance, DispatchError> {
-        Err(sp_runtime::TokenError::Unsupported.into())
+        Err(DispatchError::Other("Unsupported"))
     }
 }
 
@@ -831,7 +841,7 @@ impl annuity::Config<VaultAnnuityInstance> for Runtime {
     type BlockNumberToBalance = BlockNumberToBalance;
     type EmissionPeriod = EmissionPeriod;
     type TotalWrapped = TotalWrapped;
-    type WeightInfo = ();
+    type WeightInfo = weights::annuity_vault_annuity::WeightInfo<Runtime>;
 }
 
 type EscrowRewardsInstance = reward::Instance1;
@@ -844,6 +854,7 @@ impl reward::Config<EscrowRewardsInstance> for Runtime {
     type CurrencyId = CurrencyId;
     type GetNativeCurrencyId = GetNativeCurrencyId;
     type GetWrappedCurrencyId = GetWrappedCurrencyId;
+    type MaxRewardCurrencies = ConstU32<10>;
 }
 
 type VaultRewardsInstance = reward::Instance2;
@@ -856,6 +867,7 @@ impl reward::Config<VaultRewardsInstance> for Runtime {
     type CurrencyId = CurrencyId;
     type GetNativeCurrencyId = GetNativeCurrencyId;
     type GetWrappedCurrencyId = GetWrappedCurrencyId;
+    type MaxRewardCurrencies = ConstU32<10>;
 }
 
 type VaultCapacityInstance = reward::Instance3;
@@ -868,6 +880,7 @@ impl reward::Config<VaultCapacityInstance> for Runtime {
     type CurrencyId = CurrencyId;
     type GetNativeCurrencyId = GetNativeCurrencyId;
     type GetWrappedCurrencyId = GetWrappedCurrencyId;
+    type MaxRewardCurrencies = ConstU32<10>;
 }
 
 type FarmingRewardsInstance = reward::Instance4;
@@ -880,6 +893,7 @@ impl reward::Config<FarmingRewardsInstance> for Runtime {
     type CurrencyId = CurrencyId;
     type GetNativeCurrencyId = GetNativeCurrencyId;
     type GetWrappedCurrencyId = GetWrappedCurrencyId;
+    type MaxRewardCurrencies = ConstU32<10>;
 }
 
 parameter_types! {
@@ -893,11 +907,13 @@ impl farming::Config for Runtime {
     type RewardPeriod = RewardPeriod;
     type RewardPools = FarmingRewards;
     type MultiCurrency = Tokens;
-    type WeightInfo = ();
+    type WeightInfo = weights::farming::WeightInfo<Runtime>;
 }
 
 impl security::Config for Runtime {
     type RuntimeEvent = RuntimeEvent;
+    type WeightInfo = weights::security::WeightInfo<Runtime>;
+    type MaxErrors = ConstU32<1>;
 }
 
 impl currency::Config for Runtime {
@@ -939,7 +955,7 @@ impl escrow::Config for Runtime {
     type Span = Span;
     type MaxPeriod = MaxPeriod;
     type EscrowRewards = EscrowRewards;
-    type WeightInfo = ();
+    type WeightInfo = weights::escrow::WeightInfo<Runtime>;
 }
 
 // https://github.com/paritytech/polkadot/blob/be005938a64b9170a5d55887ce42004e1b086b7b/runtime/kusama/src/lib.rs#L953-L961
@@ -965,7 +981,7 @@ impl pallet_identity::Config for Runtime {
     type Slashed = runtime_common::ToTreasury<Runtime, TreasuryAccount, NativeCurrency>;
     type ForceOrigin = EnsureRoot<AccountId>;
     type RegistrarOrigin = EnsureRoot<AccountId>;
-    type WeightInfo = ();
+    type WeightInfo = weights::pallet_identity::WeightInfo<Runtime>;
 }
 
 parameter_types! {
@@ -1029,7 +1045,7 @@ impl pallet_proxy::Config for Runtime {
     type ProxyDepositBase = ProxyDepositBase;
     type ProxyDepositFactor = ProxyDepositFactor;
     type MaxProxies = MaxProxies;
-    type WeightInfo = ();
+    type WeightInfo = weights::pallet_proxy::WeightInfo<Runtime>;
     type MaxPending = MaxPending;
     type CallHasher = BlakeTwo256;
     type AnnouncementDepositBase = AnnouncementDepositBase;
@@ -1040,7 +1056,7 @@ impl vault_registry::Config for Runtime {
     type PalletId = VaultRegistryPalletId;
     type RuntimeEvent = RuntimeEvent;
     type Balance = Balance;
-    type WeightInfo = ();
+    type WeightInfo = weights::vault_registry::WeightInfo<Runtime>;
     type GetGriefingCollateralCurrencyId = GetNativeCurrencyId;
     type NominationApi = Nomination;
 }
@@ -1053,10 +1069,13 @@ where
     type Extrinsic = UncheckedExtrinsic;
 }
 
+pub type OracleName = oracle::NameOf<Runtime>;
+
 impl oracle::Config for Runtime {
     type RuntimeEvent = RuntimeEvent;
     type OnExchangeRateChange = (vault_registry::PoolManager<Runtime>, Loans);
-    type WeightInfo = ();
+    type WeightInfo = weights::oracle::WeightInfo<Runtime>;
+    type MaxNameLength = ConstU32<255>;
 }
 
 parameter_types! {
@@ -1065,7 +1084,7 @@ parameter_types! {
 
 impl fee::Config for Runtime {
     type FeePalletId = FeePalletId;
-    type WeightInfo = ();
+    type WeightInfo = weights::fee::WeightInfo<Runtime>;
     type SignedFixedPoint = SignedFixedPoint;
     type SignedInner = SignedInner;
     type UnsignedFixedPoint = UnsignedFixedPoint;
@@ -1083,33 +1102,35 @@ impl issue::Config for Runtime {
     type TreasuryPalletId = TreasuryPalletId;
     type RuntimeEvent = RuntimeEvent;
     type BlockNumberToBalance = BlockNumberToBalance;
-    type WeightInfo = ();
+    type WeightInfo = weights::issue::WeightInfo<Runtime>;
 }
 
 pub use redeem::{Event as RedeemEvent, RedeemRequest};
 
 impl redeem::Config for Runtime {
     type RuntimeEvent = RuntimeEvent;
-    type WeightInfo = ();
+    type WeightInfo = weights::redeem::WeightInfo<Runtime>;
 }
 
 pub use replace::{Event as ReplaceEvent, ReplaceRequest};
 
 impl replace::Config for Runtime {
     type RuntimeEvent = RuntimeEvent;
-    type WeightInfo = ();
+    type WeightInfo = weights::replace::WeightInfo<Runtime>;
 }
 
 pub use nomination::Event as NominationEvent;
 
 impl nomination::Config for Runtime {
     type RuntimeEvent = RuntimeEvent;
-    type WeightInfo = ();
+    type WeightInfo = weights::nomination::WeightInfo<Runtime>;
 }
 
 impl clients_info::Config for Runtime {
     type RuntimeEvent = RuntimeEvent;
-    type WeightInfo = ();
+    type WeightInfo = weights::clients_info::WeightInfo<Runtime>;
+    type MaxNameLength = ConstU32<255>;
+    type MaxUriLength = ConstU32<255>;
 }
 
 parameter_types! {
@@ -1125,7 +1146,7 @@ impl tx_pause::Config for Runtime {
     type WhitelistCallNames = Nothing;
     type MaxNameLen = MaxNameLen;
     type PauseTooLongNames = PauseTooLongNames;
-    type WeightInfo = ();
+    type WeightInfo = weights::tx_pause::WeightInfo<Runtime>;
 }
 
 impl loans::Config for Runtime {
@@ -1133,7 +1154,7 @@ impl loans::Config for Runtime {
     type PalletId = LoansPalletId;
     type ReserveOrigin = EnsureRoot<AccountId>;
     type UpdateOrigin = EnsureRoot<AccountId>;
-    type WeightInfo = ();
+    type WeightInfo = weights::loans::WeightInfo<Runtime>;
     type UnixTime = Timestamp;
     type RewardAssetId = GetNativeCurrencyId;
     type ReferenceAssetId = GetWrappedCurrencyId;
@@ -1220,7 +1241,7 @@ construct_runtime! {
         Loans: loans::{Pallet, Call, Storage, Event<T>, Config} = 100,
         DexGeneral: dex_general::{Pallet, Call, Storage, Event<T>} = 101,
         DexStable: dex_stable::{Pallet, Call, Storage, Event<T>}  = 102,
-        DexSwapRouter: dex_swap_router::{Pallet, Call, Event<T>} = 103,
+        // DexSwapRouter: 103
     }
 }
 
@@ -1251,6 +1272,55 @@ pub type CheckedExtrinsic = generic::CheckedExtrinsic<AccountId, RuntimeCall, Si
 /// Executive: handles dispatch to the various modules.
 pub type Executive =
     frame_executive::Executive<Runtime, Block, frame_system::ChainContext<Runtime>, Runtime, AllPalletsWithSystem>;
+
+#[cfg(feature = "runtime-benchmarks")]
+#[macro_use]
+extern crate frame_benchmarking;
+
+#[cfg(feature = "runtime-benchmarks")]
+mod benches {
+    define_benchmarks!(
+        // Parachain
+        [annuity, EscrowAnnuity]
+        [annuity, VaultAnnuity]
+        [btc_relay, BTCRelay]
+        [clients_info, ClientsInfo]
+        [collator_selection, CollatorSelection]
+        [democracy, Democracy]
+        [dex_general, DexGeneral]
+        [dex_stable, DexStable]
+        [escrow, Escrow]
+        [farming, Farming]
+        [fee, Fee]
+        [issue, Issue]
+        [loans, Loans]
+        [nomination, Nomination]
+        [oracle, Oracle]
+        [redeem, Redeem]
+        [replace, Replace]
+        [security, Security]
+        [supply, Supply]
+        [tx_pause, TxPause]
+        [vault_registry, VaultRegistry]
+
+        // Other
+        [cumulus_pallet_xcmp_queue, XcmpQueue]
+        [frame_system, frame_system_benchmarking::Pallet::<Runtime>]
+        [orml_asset_registry, runtime_common::benchmarking::orml_asset_registry::Pallet::<Runtime>]
+        [orml_tokens, runtime_common::benchmarking::orml_tokens::Pallet::<Runtime>]
+        [orml_vesting, runtime_common::benchmarking::orml_vesting::Pallet::<Runtime>]
+        [pallet_collective, TechnicalCommittee]
+        [pallet_identity, Identity]
+        [pallet_membership, TechnicalMembership]
+        [pallet_multisig, Multisig]
+        [pallet_preimage, Preimage]
+        [pallet_proxy, Proxy]
+        [pallet_scheduler, Scheduler]
+        [pallet_timestamp, Timestamp]
+        [pallet_utility, Utility]
+        [pallet_xcm, PolkadotXcm]
+    );
+}
 
 #[cfg(not(feature = "disable-runtime-api"))]
 impl_runtime_apis! {
@@ -1375,21 +1445,11 @@ impl_runtime_apis! {
             Vec<frame_benchmarking::BenchmarkList>,
             Vec<frame_support::traits::StorageInfo>,
         ) {
-            use frame_benchmarking::{list_benchmark, Benchmarking, BenchmarkList};
+            use frame_benchmarking::{Benchmarking, BenchmarkList};
             use frame_support::traits::StorageInfoTrait;
 
             let mut list = Vec::<BenchmarkList>::new();
-
-            list_benchmark!(list, extra, btc_relay, BTCRelay);
-            list_benchmark!(list, extra, fee, Fee);
-            list_benchmark!(list, extra, farming, Farming);
-            list_benchmark!(list, extra, issue, Issue);
-            list_benchmark!(list, extra, loans, Loans);
-            list_benchmark!(list, extra, nomination, Nomination);
-            list_benchmark!(list, extra, oracle, Oracle);
-            list_benchmark!(list, extra, redeem, Redeem);
-            list_benchmark!(list, extra, replace, Replace);
-            list_benchmark!(list, extra, vault_registry, VaultRegistry);
+            list_benchmarks!(list, extra);
 
             let storage_info = AllPalletsWithSystem::storage_info();
 
@@ -1399,36 +1459,24 @@ impl_runtime_apis! {
         fn dispatch_benchmark(
             config: frame_benchmarking::BenchmarkConfig
         ) -> Result<Vec<frame_benchmarking::BenchmarkBatch>, sp_runtime::RuntimeString> {
-            use frame_benchmarking::{Benchmarking, BenchmarkBatch, add_benchmark, TrackedStorageKey};
+            use frame_benchmarking::{Benchmarking, BenchmarkBatch, TrackedStorageKey};
+            impl frame_system_benchmarking::Config for Runtime {}
+            impl  runtime_common::benchmarking::orml_tokens::Config for Runtime {}
+            impl  runtime_common::benchmarking::orml_vesting::Config for Runtime {}
+            impl  runtime_common::benchmarking::orml_asset_registry::Config for Runtime {}
 
-            let whitelist: Vec<TrackedStorageKey> = vec![
-                // Block Number
-                hex_literal::hex!("26aa394eea5630e07c48ae0c9558cef702a5c1b19ab7a04f536c519aca4983ac").to_vec().into(),
-                // Total Issuance
-                hex_literal::hex!("c2261276cc9d1f8598ea4b6a74b15c2f57c875e4cff74148e4628f264b974c80").to_vec().into(),
-                // Execution Phase
-                hex_literal::hex!("26aa394eea5630e07c48ae0c9558cef7ff553b5a9862a516939d82b3d3d8661a").to_vec().into(),
-                // Event Count
-                hex_literal::hex!("26aa394eea5630e07c48ae0c9558cef70a98fdbe9ce6c55837576c60c7af3850").to_vec().into(),
-                // System Events
-                hex_literal::hex!("26aa394eea5630e07c48ae0c9558cef780d41e5e16056765bc8461851072c9d7").to_vec().into(),
-            ];
+            use frame_support::traits::WhitelistedStorageKeys;
+            let mut whitelist: Vec<TrackedStorageKey> = AllPalletsWithSystem::whitelisted_storage_keys();
+
+            // Treasury Account
+            // TODO: this is manual for now, someday we might be able to use a
+            // macro for this particular key
+            let treasury_key = frame_system::Account::<Runtime>::hashed_key_for(TreasuryAccount::get());
+            whitelist.push(treasury_key.to_vec().into());
 
             let mut batches = Vec::<BenchmarkBatch>::new();
             let params = (&config, &whitelist);
-
-            add_benchmark!(params, batches, btc_relay, BTCRelay);
-            add_benchmark!(params, batches, fee, Fee);
-            add_benchmark!(params, batches, farming, Farming);
-            add_benchmark!(params, batches, issue, Issue);
-            add_benchmark!(params, batches, loans, Loans);
-            add_benchmark!(params, batches, nomination, Nomination);
-            add_benchmark!(params, batches, oracle, Oracle);
-            add_benchmark!(params, batches, redeem, Redeem);
-            add_benchmark!(params, batches, replace, Replace);
-            add_benchmark!(params, batches, vault_registry, VaultRegistry);
-
-            if batches.is_empty() { return Err("Benchmark not found for this pallet.".into()) }
+            add_benchmarks!(params, batches);
             Ok(batches)
         }
     }

@@ -2,7 +2,7 @@ use crate as btc_relay;
 use crate::{Config, Error};
 use frame_support::{
     parameter_types,
-    traits::{Everything, GenesisBuild},
+    traits::{ConstU32, Everything, GenesisBuild},
 };
 use mocktopus::mocking::clear_mocks;
 use sp_core::H256;
@@ -67,7 +67,7 @@ impl frame_system::Config for Test {
     type SystemWeightInfo = ();
     type SS58Prefix = SS58Prefix;
     type OnSetCode = ();
-    type MaxConsumers = frame_support::traits::ConstU32<16>;
+    type MaxConsumers = ConstU32<16>;
 }
 
 parameter_types! {
@@ -93,6 +93,8 @@ impl pallet_timestamp::Config for Test {
 
 impl security::Config for Test {
     type RuntimeEvent = RuntimeEvent;
+    type WeightInfo = ();
+    type MaxErrors = ConstU32<1>;
 }
 
 pub type TestEvent = RuntimeEvent;

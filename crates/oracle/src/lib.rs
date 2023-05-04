@@ -36,6 +36,7 @@ use frame_support::{
     traits::Get,
     transactional,
     weights::Weight,
+    BoundedVec,
 };
 use frame_system::{ensure_root, ensure_signed};
 use scale_info::TypeInfo;
@@ -47,6 +48,8 @@ use traits::OracleApi;
 pub use pallet::*;
 pub use primitives::{oracle::Key as OracleKey, CurrencyId, TruncateFixedPointToInt};
 pub use traits::OnExchangeRateChange;
+
+pub type NameOf<T> = BoundedVec<u8, <T as pallet::Config>::MaxNameLength>;
 
 #[derive(Encode, Decode, Eq, PartialEq, Clone, Copy, Ord, PartialOrd, TypeInfo, MaxEncodedLen)]
 pub struct TimestampedValue<Value, Moment> {
@@ -74,6 +77,10 @@ pub mod pallet {
 
         /// Weight information for the extrinsics in this module.
         type WeightInfo: WeightInfo;
+
+        /// The maximum length of an oracle name.
+        #[pallet::constant]
+        type MaxNameLength: Get<u32>;
     }
 
     #[pallet::event]
@@ -89,7 +96,7 @@ pub mod pallet {
         },
         OracleAdded {
             oracle_id: T::AccountId,
-            name: Vec<u8>,
+            name: NameOf<T>,
         },
         OracleRemoved {
             oracle_id: T::AccountId,
@@ -109,8 +116,8 @@ pub mod pallet {
     #[pallet::hooks]
     impl<T: Config> Hooks<T::BlockNumber> for Pallet<T> {
         fn on_initialize(n: T::BlockNumber) -> Weight {
-            Self::begin_block(n);
-            <T as Config>::WeightInfo::on_initialize()
+            let iterations = Self::begin_block(n);
+            <T as Config>::WeightInfo::on_initialize(iterations)
         }
     }
 
@@ -144,7 +151,7 @@ pub mod pallet {
     // Oracles allowed to set the exchange rate, maps to the name
     #[pallet::storage]
     #[pallet::getter(fn authorized_oracles)]
-    pub type AuthorizedOracles<T: Config> = StorageMap<_, Blake2_128Concat, T::AccountId, Vec<u8>, ValueQuery>;
+    pub type AuthorizedOracles<T: Config> = StorageMap<_, Blake2_128Concat, T::AccountId, NameOf<T>, ValueQuery>;
 
     #[pallet::type_value]
     pub(super) fn DefaultForStorageVersion() -> Version {
@@ -159,7 +166,7 @@ pub mod pallet {
     #[pallet::genesis_config]
     pub struct GenesisConfig<T: Config> {
         pub max_delay: u32,
-        pub authorized_oracles: Vec<(T::AccountId, Vec<u8>)>,
+        pub authorized_oracles: Vec<(T::AccountId, NameOf<T>)>,
     }
 
     #[cfg(feature = "std")]
@@ -186,7 +193,6 @@ pub mod pallet {
     }
 
     #[pallet::pallet]
-    #[pallet::without_storage_info] // MaxEncodedLen not implemented for vecs
     pub struct Pallet<T>(_);
 
     // The pallet's dispatchable functions.
@@ -224,7 +230,7 @@ pub mod pallet {
         pub fn insert_authorized_oracle(
             origin: OriginFor<T>,
             account_id: T::AccountId,
-            name: Vec<u8>,
+            name: NameOf<T>,
         ) -> DispatchResult {
             ensure_root(origin)?;
             Self::insert_oracle(account_id.clone(), name.clone());
@@ -254,7 +260,7 @@ pub mod pallet {
 #[cfg_attr(test, mockable)]
 impl<T: Config> Pallet<T> {
     // public only for testing purposes
-    pub fn begin_block(_height: T::BlockNumber) {
+    pub fn begin_block(_height: T::BlockNumber) -> u32 {
         // read to a temporary value, because we can't alter the map while we iterate over it
         let raw_values_updated: Vec<_> = RawValuesUpdated::<T>::iter().collect();
 
@@ -285,6 +291,8 @@ impl<T: Config> Pallet<T> {
                 Self::report_oracle_offline();
             }
         }
+
+        raw_values_updated.len().saturated_into()
     }
 
     // public only for testing purposes
@@ -409,7 +417,8 @@ impl<T: Config> Pallet<T> {
 
     fn report_oracle_offline() {
         ext::security::set_status::<T>(StatusCode::Error);
-        ext::security::insert_error::<T>(ErrorCode::OracleOffline);
+        // this is unlikely to fail since there is only one possible error
+        let _ = ext::security::insert_error::<T>(ErrorCode::OracleOffline);
     }
 
     fn recover_from_oracle_offline() {
@@ -422,7 +431,7 @@ impl<T: Config> Pallet<T> {
     }
 
     /// Add a new authorized oracle
-    fn insert_oracle(oracle: T::AccountId, name: Vec<u8>) {
+    fn insert_oracle(oracle: T::AccountId, name: NameOf<T>) {
         <AuthorizedOracles<T>>::insert(oracle, name)
     }
 

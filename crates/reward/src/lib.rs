@@ -26,7 +26,7 @@ use sp_runtime::{
     traits::{CheckedAdd, CheckedDiv, CheckedMul, CheckedSub, MaybeSerializeDeserialize, Saturating, Zero},
     ArithmeticError,
 };
-use sp_std::{cmp::PartialOrd, collections::btree_set::BTreeSet, convert::TryInto, fmt::Debug};
+use sp_std::{cmp::PartialOrd, convert::TryInto, fmt::Debug};
 
 pub(crate) type SignedFixedPoint<T, I = ()> = <T as Config<I>>::SignedFixedPoint;
 
@@ -35,7 +35,7 @@ pub use pallet::*;
 #[frame_support::pallet]
 pub mod pallet {
     use super::*;
-    use frame_support::pallet_prelude::*;
+    use frame_support::{pallet_prelude::*, BoundedBTreeSet};
 
     /// ## Configuration
     /// The pallet's configuration trait.
@@ -45,7 +45,13 @@ pub mod pallet {
         type RuntimeEvent: From<Event<Self, I>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
         /// Signed fixed point type.
-        type SignedFixedPoint: FixedPointNumber + TruncateFixedPointToInt + Encode + EncodeLike + Decode + TypeInfo;
+        type SignedFixedPoint: FixedPointNumber
+            + TruncateFixedPointToInt
+            + Encode
+            + EncodeLike
+            + Decode
+            + TypeInfo
+            + MaxEncodedLen;
 
         /// The pool identifier type.
         type PoolId: Parameter + Member + MaybeSerializeDeserialize + Debug + MaxEncodedLen;
@@ -61,6 +67,10 @@ pub mod pallet {
 
         #[pallet::constant]
         type GetWrappedCurrencyId: Get<Self::CurrencyId>;
+
+        /// The maximum number of reward currencies.
+        #[pallet::constant]
+        type MaxRewardCurrencies: Get<u32>;
     }
 
     // The pallet's events
@@ -97,21 +107,12 @@ pub mod pallet {
         InsufficientFunds,
         /// Cannot distribute rewards without stake.
         ZeroTotalStake,
+        /// Maximum rewards currencies reached.
+        MaxRewardCurrencies,
     }
 
     #[pallet::hooks]
-    impl<T: Config<I>, I: 'static> Hooks<T::BlockNumber> for Pallet<T, I> {
-        fn on_runtime_upgrade() -> Weight {
-            RewardPerToken::<T, I>::iter_keys().for_each(|(_currency_id, pool_id)| {
-                RewardCurrencies::<T, I>::mutate(pool_id, |reward_currencies| {
-                    reward_currencies.insert(T::GetNativeCurrencyId::get());
-                    reward_currencies.insert(T::GetWrappedCurrencyId::get());
-                });
-            });
-
-            Weight::zero()
-        }
-    }
+    impl<T: Config<I>, I: 'static> Hooks<T::BlockNumber> for Pallet<T, I> {}
 
     /// The total stake deposited to this reward pool.
     #[pallet::storage]
@@ -159,10 +160,9 @@ pub mod pallet {
     /// Track the currencies used for rewards.
     #[pallet::storage]
     pub type RewardCurrencies<T: Config<I>, I: 'static = ()> =
-        StorageMap<_, Blake2_128Concat, T::PoolId, BTreeSet<T::CurrencyId>, ValueQuery>;
+        StorageMap<_, Blake2_128Concat, T::PoolId, BoundedBTreeSet<T::CurrencyId, T::MaxRewardCurrencies>, ValueQuery>;
 
     #[pallet::pallet]
-    #[pallet::without_storage_info]
     pub struct Pallet<T, I = ()>(_);
 
     // The pallet's dispatchable functions.
@@ -215,23 +215,6 @@ macro_rules! checked_sub_mut {
 
 // "Internal" functions, callable by code.
 impl<T: Config<I>, I: 'static> Pallet<T, I> {
-    // TODO: remove this after the migration, I have added
-    // this because it's not clear whether the capacity migration
-    // will run before or after the pallet hook and we need to make
-    // sure these are included for any deposits / withdrawals
-    fn add_default_currencies(pool_id: &T::PoolId) {
-        let reward_currencies = RewardCurrencies::<T, I>::get(pool_id);
-        if reward_currencies.contains(&T::GetNativeCurrencyId::get())
-            && reward_currencies.contains(&T::GetWrappedCurrencyId::get())
-        {
-            return;
-        }
-        RewardCurrencies::<T, I>::mutate(pool_id, |reward_currencies| {
-            reward_currencies.insert(T::GetNativeCurrencyId::get());
-            reward_currencies.insert(T::GetWrappedCurrencyId::get());
-        });
-    }
-
     pub fn stake(pool_id: &T::PoolId, stake_id: &T::StakeId) -> SignedFixedPoint<T, I> {
         Stake::<T, I>::get((pool_id, stake_id))
     }
@@ -252,7 +235,6 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
         checked_add_mut!(Stake<T, I>, (pool_id, stake_id), &amount);
         checked_add_mut!(TotalStake<T, I>, pool_id, &amount);
 
-        Self::add_default_currencies(pool_id);
         for currency_id in RewardCurrencies::<T, I>::get(pool_id) {
             <RewardTally<T, I>>::mutate(currency_id, (pool_id, stake_id), |reward_tally| {
                 let reward_per_token = Self::reward_per_token(currency_id, pool_id);
@@ -286,9 +268,11 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
         ensure!(!total_stake.is_zero(), Error::<T, I>::ZeroTotalStake);
 
         // track currency for future deposits / withdrawals
-        RewardCurrencies::<T, I>::mutate(pool_id, |reward_currencies| {
-            reward_currencies.insert(currency_id);
-        });
+        RewardCurrencies::<T, I>::try_mutate(pool_id, |reward_currencies| {
+            reward_currencies
+                .try_insert(currency_id)
+                .map_err(|_| Error::<T, I>::MaxRewardCurrencies)
+        })?;
 
         let reward_div_total_stake = reward.checked_div(&total_stake).ok_or(ArithmeticError::Underflow)?;
         checked_add_mut!(RewardPerToken<T, I>, currency_id, pool_id, &reward_div_total_stake);
@@ -332,7 +316,6 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
         checked_sub_mut!(Stake<T, I>, (pool_id, stake_id), &amount);
         checked_sub_mut!(TotalStake<T, I>, pool_id, &amount);
 
-        Self::add_default_currencies(pool_id);
         for currency_id in RewardCurrencies::<T, I>::get(pool_id) {
             <RewardTally<T, I>>::mutate(currency_id, (pool_id, stake_id), |reward_tally| {
                 let reward_per_token = Self::reward_per_token(currency_id, pool_id);
@@ -387,6 +370,8 @@ where
     Balance: Saturating + PartialOrd,
 {
     type CurrencyId;
+
+    fn reward_currencies_len(pool_id: &PoolId) -> u32;
 
     /// Distribute the `amount` to all participants OR error if zero total stake.
     fn distribute_reward(pool_id: &PoolId, currency_id: Self::CurrencyId, amount: Balance) -> DispatchResult;
@@ -445,6 +430,10 @@ where
     <T::SignedFixedPoint as FixedPointNumber>::Inner: TryInto<Balance>,
 {
     type CurrencyId = T::CurrencyId;
+
+    fn reward_currencies_len(pool_id: &T::PoolId) -> u32 {
+        RewardCurrencies::<T, I>::get(pool_id).len() as u32
+    }
 
     fn distribute_reward(pool_id: &T::PoolId, currency_id: T::CurrencyId, amount: Balance) -> DispatchResult {
         Pallet::<T, I>::distribute_reward(
@@ -512,6 +501,10 @@ where
     Balance: Saturating + PartialOrd + Default,
 {
     type CurrencyId = ();
+
+    fn reward_currencies_len(_: &PoolId) -> u32 {
+        Default::default()
+    }
 
     fn distribute_reward(_: &PoolId, _: Self::CurrencyId, _: Balance) -> DispatchResult {
         Ok(())

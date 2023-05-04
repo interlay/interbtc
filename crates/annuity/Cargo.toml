@@ -30,6 +30,7 @@ rand = "0.8.3"
 frame-benchmarking = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.31", default-features = false }
 pallet-balances = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.31", default-features = false }
 
+reward = { path = "../reward", default-features = false }
 primitives = { package = "interbtc-primitives", path = "../../primitives", default-features = false }
 
 [features]
@@ -39,6 +40,7 @@ std = [
 	"codec/std",
 	"scale-info/std",
 
+	"reward/std",
 	"primitives/std",
 
 	"sp-arithmetic/std",

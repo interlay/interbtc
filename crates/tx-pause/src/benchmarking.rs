@@ -19,43 +19,44 @@
 
 use super::{Pallet as TxPause, *};
 
-use frame_benchmarking::benchmarks;
+use frame_benchmarking::v2::*;
 
-benchmarks! {
-    pause {
-        let full_name: FullNameOf<T> = (name::<T>(b"SomePalletName"), Some(name::<T>(b"SomePalletName")));
-        // let pallet_name: PalletNameOf<T> = name::<T>(b"SomePalletName");
-        // let maybe_call_name: Option<CallNameOf<T>> = Some(name::<T>(b"some_call_name"));
-        let origin = T::PauseOrigin::try_successful_origin().unwrap();
-        // let call = Call::<T>::pause { full_name: full_name.clone() };
-        // let call = Call::<T>::pause { pallet_name: pallet_name.clone(), maybe_call_name: maybe_call_name.clone() };
+#[benchmarks]
+pub mod benchmarks {
+    use frame_system::RawOrigin;
 
-    }: _<T::RuntimeOrigin>(origin, full_name.clone())
-    verify {
-        assert!(TxPause::<T>::paused_calls(full_name.clone()).is_some())
+    use super::*;
+
+    #[benchmark]
+    fn pause() {
+        let full_name = name::<T>();
+
+        #[extrinsic_call]
+        pause(RawOrigin::Root, full_name.clone());
+
+        assert!(TxPause::<T>::paused_calls(full_name).is_some());
     }
 
-  unpause {
-        let full_name: FullNameOf<T> = (name::<T>(b"SomePalletName"), Some(name::<T>(b"SomePalletName")));
-        let pause_origin = T::PauseOrigin::try_successful_origin().unwrap();
+    #[benchmark]
+    fn unpause() {
+        let full_name = name::<T>();
+        TxPause::<T>::pause(RawOrigin::Root.into(), full_name.clone()).unwrap();
+        assert!(TxPause::<T>::paused_calls(full_name.clone()).is_some());
 
-        TxPause::<T>::pause(
-            pause_origin,
-            full_name.clone(),
-            )?;
+        #[extrinsic_call]
+        unpause(RawOrigin::Root, full_name.clone());
 
-        let unpause_origin = T::UnpauseOrigin::try_successful_origin().unwrap();
-        // let call = Call::<T>::unpause { pallet_name: pallet_name.clone(), maybe_call_name: maybe_call_name.clone() };
-
-        }: _<T::RuntimeOrigin>(unpause_origin, full_name.clone())
-    verify {
-        assert!(TxPause::<T>::paused_calls(full_name.clone()).is_none())
-
+        assert!(TxPause::<T>::paused_calls(full_name).is_none());
     }
 
-    impl_benchmark_test_suite!(TxPause, crate::mock::new_test_ext(), crate::mock::Test);
+    impl_benchmark_test_suite! { TxPause, crate::mock::new_test_ext(), crate::mock::Test }
 }
 
-pub fn name<T: Config>(bytes: &[u8]) -> BoundedVec<u8, T::MaxNameLen> {
-    bytes.to_vec().try_into().unwrap()
+/// Longest possible name.
+fn name<T: Config>() -> FullNameOf<T> {
+    let max_len = T::MaxNameLen::get() as usize;
+    (
+        vec![1; max_len].try_into().unwrap(),
+        Some(vec![1; max_len].try_into().unwrap()),
+    )
 }

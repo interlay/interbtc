@@ -5,6 +5,9 @@
 #![cfg_attr(test, feature(proc_macro_hygiene))]
 #![cfg_attr(not(feature = "std"), no_std)]
 
+#[cfg(feature = "runtime-benchmarks")]
+mod benchmarking;
+
 #[cfg(test)]
 mod mock;
 
@@ -25,6 +28,9 @@ use sp_runtime::{
     traits::{AccountIdConversion, Saturating, Zero},
     FixedPointNumber,
 };
+
+mod default_weights;
+pub use default_weights::WeightInfo;
 
 pub use pallet::*;
 
@@ -54,7 +60,8 @@ pub mod pallet {
             + EncodeLike
             + Decode
             + MaybeSerializeDeserialize
-            + TypeInfo;
+            + TypeInfo
+            + MaxEncodedLen;
 
         /// The native currency for emission.
         type Currency: ReservableCurrency<Self::AccountId>;
@@ -65,6 +72,9 @@ pub mod pallet {
 
         /// Handler for when the total supply has inflated.
         type OnInflation: OnInflation<Self::AccountId, Currency = Self::Currency>;
+
+        /// Weight information for extrinsics in this pallet.
+        type WeightInfo: WeightInfo;
     }
 
     // The pallet's events
@@ -81,12 +91,12 @@ pub mod pallet {
     impl<T: Config> Hooks<T::BlockNumber> for Pallet<T> {
         fn on_initialize(n: T::BlockNumber) -> Weight {
             Self::begin_block(n);
-            // TODO: calculate weight
-            Weight::from_ref_time(0 as u64)
+            T::WeightInfo::on_initialize()
         }
     }
 
     #[pallet::storage]
+    #[pallet::whitelist_storage]
     #[pallet::getter(fn start_height)]
     pub type StartHeight<T: Config> = StorageValue<_, T::BlockNumber, OptionQuery>;
 
@@ -126,14 +136,13 @@ pub mod pallet {
     }
 
     #[pallet::pallet]
-    #[pallet::without_storage_info] // no MaxEncodedLen for fixed point types
     pub struct Pallet<T>(_);
 
     // The pallet's dispatchable functions.
     #[pallet::call]
     impl<T: Config> Pallet<T> {
         #[pallet::call_index(0)]
-        #[pallet::weight(0)]
+        #[pallet::weight(<T as pallet::Config>::WeightInfo::set_start_height_and_inflation())]
         #[transactional]
         pub fn set_start_height_and_inflation(
             origin: OriginFor<T>,

@@ -134,6 +134,7 @@ impl reward::Config<CapacityRewardsInstance> for Test {
     type CurrencyId = CurrencyId;
     type GetNativeCurrencyId = GetNativeCurrencyId;
     type GetWrappedCurrencyId = GetWrappedCurrencyId;
+    type MaxRewardCurrencies = ConstU32<10>;
 }
 
 type VaultRewardsInstance = reward::Instance2;
@@ -146,6 +147,7 @@ impl reward::Config<VaultRewardsInstance> for Test {
     type CurrencyId = CurrencyId;
     type GetNativeCurrencyId = GetNativeCurrencyId;
     type GetWrappedCurrencyId = GetWrappedCurrencyId;
+    type MaxRewardCurrencies = ConstU32<10>;
 }
 
 impl staking::Config for Test {
@@ -221,6 +223,8 @@ impl btc_relay::Config for Test {
 
 impl security::Config for Test {
     type RuntimeEvent = RuntimeEvent;
+    type WeightInfo = ();
+    type MaxErrors = ConstU32<1>;
 }
 
 parameter_types! {
@@ -238,6 +242,7 @@ impl oracle::Config for Test {
     type RuntimeEvent = RuntimeEvent;
     type OnExchangeRateChange = ();
     type WeightInfo = ();
+    type MaxNameLength = ConstU32<255>;
 }
 
 parameter_types! {

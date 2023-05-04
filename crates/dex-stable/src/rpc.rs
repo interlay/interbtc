@@ -37,7 +37,7 @@ impl<T: Config> Pallet<T> {
 
     pub fn get_currencies(pool_id: T::PoolId) -> Vec<T::CurrencyId> {
         if let Some(pool) = Self::pools(pool_id) {
-            return pool.get_currency_ids();
+            return pool.get_currency_ids().to_vec();
         };
         Vec::new()
     }
@@ -72,14 +72,14 @@ impl<T: Config> Pallet<T> {
 
     pub fn get_currency_precision_multipliers(pool_id: T::PoolId) -> Vec<Balance> {
         if let Some(pool) = Self::pools(pool_id) {
-            return pool.get_token_multipliers();
+            return pool.get_token_multipliers().to_vec();
         };
         Vec::new()
     }
 
     pub fn get_currency_balances(pool_id: T::PoolId) -> Vec<Balance> {
         if let Some(pool) = Self::pools(pool_id) {
-            return pool.get_balances();
+            return pool.get_balances().to_vec();
         };
         Vec::new()
     }

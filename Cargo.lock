@@ -206,6 +206,7 @@ dependencies = [
  "pallet-balances",
  "parity-scale-codec",
  "rand 0.8.5",
+ "reward",
  "scale-info",
  "serde",
  "sp-arithmetic",
@@ -1147,7 +1148,6 @@ dependencies = [
  "frame-support",
  "frame-system",
  "log",
- "pallet-timestamp",
  "parity-scale-codec",
  "scale-info",
  "serde",
@@ -1847,6 +1847,7 @@ version = "0.1.0"
 source = "git+https://github.com/paritytech//cumulus?branch=polkadot-v0.9.38#9b4e0247137f158d1a35118197d34adfa58858b7"
 dependencies = [
  "cumulus-primitives-core",
+ "frame-benchmarking",
  "frame-support",
  "frame-system",
  "log",
@@ -2441,29 +2442,6 @@ dependencies = [
  "dex-stable",
  "parity-scale-codec",
  "sp-api",
- "sp-std",
-]
-
-[[package]]
-name = "dex-swap-router"
-version = "0.1.0"
-dependencies = [
- "dex-general",
- "dex-stable",
- "frame-benchmarking",
- "frame-support",
- "frame-system",
- "orml-tokens",
- "orml-traits",
- "pallet-balances",
- "pallet-timestamp",
- "parity-scale-codec",
- "scale-info",
- "serde",
- "sp-arithmetic",
- "sp-core",
- "sp-io",
- "sp-runtime",
  "sp-std",
 ]
 
@@ -4417,6 +4395,7 @@ dependencies = [
  "frame-executive",
  "frame-support",
  "frame-system",
+ "frame-system-benchmarking",
  "frame-system-rpc-runtime-api",
  "frame-try-runtime",
  "hex",
@@ -4454,6 +4433,7 @@ dependencies = [
  "pallet-transaction-payment-rpc-runtime-api",
  "pallet-utility",
  "pallet-xcm",
+ "pallet-xcm-benchmarks",
  "parachain-info",
  "parity-scale-codec",
  "polkadot-parachain",
@@ -4576,6 +4556,7 @@ dependencies = [
  "sp-runtime",
  "sp-std",
  "staking",
+ "traits",
  "vault-registry",
 ]
 
@@ -4803,7 +4784,6 @@ dependencies = [
  "dex-general-rpc-runtime-api",
  "dex-stable",
  "dex-stable-rpc-runtime-api",
- "dex-swap-router",
  "escrow",
  "escrow-rpc-runtime-api",
  "farming",
@@ -4812,6 +4792,7 @@ dependencies = [
  "frame-executive",
  "frame-support",
  "frame-system",
+ "frame-system-benchmarking",
  "frame-system-rpc-runtime-api",
  "frame-try-runtime",
  "hex",
@@ -4851,6 +4832,7 @@ dependencies = [
  "pallet-transaction-payment-rpc-runtime-api",
  "pallet-utility",
  "pallet-xcm",
+ "pallet-xcm-benchmarks",
  "parachain-info",
  "parity-scale-codec",
  "polkadot-parachain",
@@ -5706,6 +5688,7 @@ dependencies = [
  "interbtc-primitives",
  "mocktopus",
  "num-traits",
+ "oracle",
  "orml-oracle",
  "orml-tokens",
  "orml-traits",
@@ -5713,6 +5696,7 @@ dependencies = [
  "pallet-utility",
  "parity-scale-codec",
  "scale-info",
+ "security",
  "serde",
  "sp-arithmetic",
  "sp-core",
@@ -10364,6 +10348,7 @@ dependencies = [
  "democracy",
  "escrow",
  "fee",
+ "frame-benchmarking",
  "frame-support",
  "frame-system",
  "interbtc-primitives",
@@ -11806,6 +11791,7 @@ dependencies = [
 name = "security"
 version = "1.2.0"
 dependencies = [
+ "frame-benchmarking",
  "frame-support",
  "frame-system",
  "mocktopus",
@@ -13254,7 +13240,6 @@ dependencies = [
  "dex-general-rpc-runtime-api",
  "dex-stable",
  "dex-stable-rpc-runtime-api",
- "dex-swap-router",
  "escrow",
  "escrow-rpc-runtime-api",
  "farming",
@@ -13263,6 +13248,7 @@ dependencies = [
  "frame-executive",
  "frame-support",
  "frame-system",
+ "frame-system-benchmarking",
  "frame-system-rpc-runtime-api",
  "frame-try-runtime",
  "hex",
@@ -13365,7 +13351,6 @@ dependencies = [
  "dex-general-rpc-runtime-api",
  "dex-stable",
  "dex-stable-rpc-runtime-api",
- "dex-swap-router",
  "escrow",
  "escrow-rpc-runtime-api",
  "farming",
@@ -13374,6 +13359,7 @@ dependencies = [
  "frame-executive",
  "frame-support",
  "frame-system",
+ "frame-system-benchmarking",
  "frame-system-rpc-runtime-api",
  "frame-try-runtime",
  "hex",

@@ -254,6 +254,7 @@ runtime-benchmarks = [
   "replace/runtime-benchmarks",
   "vault-registry/runtime-benchmarks",
   "fee/runtime-benchmarks",
+  "security/runtime-benchmarks",
 ]
 disable-runtime-api = []
 try-runtime = [ "frame-support/try-runtime" ]

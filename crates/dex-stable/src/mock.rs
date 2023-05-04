@@ -37,6 +37,7 @@ parameter_types! {
     pub const MaxReserves: u32 = 50;
     pub const MaxLocks:u32 = 50;
     pub const MinimumPeriod: Moment = SLOT_DURATION / 2;
+    pub const PoolCurrencyLimit: u32 = 10;
     pub const PoolCurrencySymbolLimit: u32 = 50;
 }
 
@@ -64,6 +65,17 @@ pub enum CurrencyId {
     Token(TokenSymbol),
     StableLP(PoolType),
     StableLPV2(PoolId),
+}
+
+impl From<u32> for CurrencyId {
+    fn from(value: u32) -> Self {
+        if value < 1000 {
+            // Inner value must fit inside `u8`
+            CurrencyId::Token((value % 256).try_into().unwrap())
+        } else {
+            CurrencyId::StableLPV2((value % 256).try_into().unwrap())
+        }
+    }
 }
 
 #[derive(Encode, Decode, Eq, PartialEq, Copy, Clone, RuntimeDebug, PartialOrd, MaxEncodedLen, Ord, TypeInfo)]
@@ -155,9 +167,20 @@ impl Config for Test {
     type EnsurePoolAsset = EnsurePoolAssetImpl<Tokens>;
     type LpGenerate = PoolLpGenerate;
     type TimeProvider = Timestamp;
+    type PoolCurrencyLimit = PoolCurrencyLimit;
     type PoolCurrencySymbolLimit = PoolCurrencySymbolLimit;
     type PalletId = StableAmmPalletId;
     type WeightInfo = ();
+}
+
+pub struct ExtBuilder;
+
+impl ExtBuilder {
+    pub fn build() -> sp_io::TestExternalities {
+        let storage = frame_system::GenesisConfig::default().build_storage::<Test>().unwrap();
+
+        storage.into()
+    }
 }
 
 pub struct EnsurePoolAssetImpl<Local>(PhantomData<Local>);
@@ -300,10 +323,10 @@ pub fn get_user_balance(currency_id: CurrencyId, user: &AccountId) -> Balance {
     <Test as Config>::MultiCurrency::free_balance(currency_id, user)
 }
 
-pub type MockPool = Pool<PoolId, CurrencyId, AccountId, BoundedVec<u8, PoolCurrencySymbolLimit>>;
+pub type MockPool = Pool<PoolId, CurrencyId, AccountId, PoolCurrencyLimit, PoolCurrencySymbolLimit>;
 
 impl MockPool {
-    pub fn get_pool_info(&self) -> BasePool<CurrencyId, AccountId, BoundedVec<u8, PoolCurrencySymbolLimit>> {
+    pub fn get_pool_info(&self) -> BasePool<CurrencyId, AccountId, PoolCurrencyLimit, PoolCurrencySymbolLimit> {
         match self {
             MockPool::Base(bp) => (*bp).clone(),
             MockPool::Meta(mp) => mp.info.clone(),

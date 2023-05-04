@@ -49,6 +49,8 @@ construct_runtime!(
         Tokens: orml_tokens::{Pallet, Call, Storage, Config<T>, Event<T>},
         Currency: currency::{Pallet},
         Utility: pallet_utility,
+        Oracle: oracle::{Pallet, Call, Config<T>, Storage, Event<T>},
+        Security: security::{Pallet, Call, Storage, Event<T>},
     }
 );
 
@@ -188,6 +190,19 @@ impl pallet_utility::Config for Test {
     type WeightInfo = ();
 }
 
+impl oracle::Config for Test {
+    type RuntimeEvent = RuntimeEvent;
+    type OnExchangeRateChange = ();
+    type WeightInfo = ();
+    type MaxNameLength = ConstU32<255>;
+}
+
+impl security::Config for Test {
+    type RuntimeEvent = RuntimeEvent;
+    type WeightInfo = ();
+    type MaxErrors = ConstU32<1>;
+}
+
 parameter_types! {
     pub const MaxLocks: u32 = 50;
 }
@@ -308,6 +323,7 @@ pub(crate) fn new_test_ext() -> sp_io::TestExternalities {
         Loans::activate_market(RuntimeOrigin::root(), Token(IBTC)).unwrap();
 
         System::set_block_number(0);
+        Security::set_active_block_number(1);
         TimestampPallet::set_timestamp(6000);
     });
     ext

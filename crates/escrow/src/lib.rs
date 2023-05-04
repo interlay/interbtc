@@ -248,7 +248,6 @@ pub mod pallet {
     pub type Blocks<T: Config> = StorageMap<_, Blake2_128Concat, T::AccountId, bool, ValueQuery>;
 
     #[pallet::pallet]
-    #[pallet::without_storage_info] // no MaxEncodedLen for <T as frame_system::Config>::Index
     pub struct Pallet<T>(_);
 
     // The pallet's dispatchable functions.
@@ -683,7 +682,15 @@ impl<T: Config> Currency<T::AccountId> for Pallet<T> {
         who: &T::AccountId,
         balance: Self::Balance,
     ) -> SignedImbalance<Self::Balance, Self::PositiveImbalance> {
-        T::Currency::make_free_balance_be(who, balance)
+        let now = Self::current_height();
+        let max_period = T::MaxPeriod::get();
+        let end_height = now.saturating_add(max_period);
+        <UserPointHistory<T>>::insert(
+            who,
+            <UserPointEpoch<T>>::get(who),
+            Point::new::<T::BlockNumberToBalance>(balance, now, end_height, max_period),
+        );
+        SignedImbalance::zero()
     }
 }
 

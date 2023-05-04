@@ -141,7 +141,7 @@ impl Default for VaultStatus {
     }
 }
 
-#[derive(Encode, Decode, Clone, PartialEq, Eq, TypeInfo)]
+#[derive(Encode, Decode, Clone, PartialEq, Eq, TypeInfo, MaxEncodedLen)]
 #[cfg_attr(feature = "std", derive(Debug))]
 pub struct Vault<AccountId, BlockNumber, Balance, CurrencyId: Copy, UnsignedFixedPoint> {
     /// Account identifier of the Vault

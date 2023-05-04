@@ -21,7 +21,9 @@
 pub use pallet::*;
 
 use codec::{Decode, Encode, FullCodec};
-use frame_support::{inherent::Vec, pallet_prelude::*, traits::Get, PalletId, RuntimeDebug};
+use frame_support::{
+    inherent::Vec, pallet_prelude::*, storage::bounded_btree_map::BoundedBTreeMap, traits::Get, PalletId, RuntimeDebug,
+};
 use orml_traits::MultiCurrency;
 use sp_core::U256;
 use sp_runtime::traits::{AccountIdConversion, Hash, MaybeSerializeDeserialize, One, StaticLookup, Zero};
@@ -85,10 +87,17 @@ pub mod pallet {
         /// The maximum number of swaps allowed in routes
         #[pallet::constant]
         type MaxSwaps: Get<u16>;
+
+        /// The maximum number of rewards that can be stored
+        #[pallet::constant]
+        type MaxBootstrapRewards: Get<u32>;
+
+        /// The maximum number of limits that can be stored
+        #[pallet::constant]
+        type MaxBootstrapLimits: Get<u32>;
     }
 
     #[pallet::pallet]
-    #[pallet::without_storage_info]
     #[pallet::generate_store(pub(super) trait Store)]
     pub struct Pallet<T>(_);
 
@@ -143,13 +152,23 @@ pub mod pallet {
 
     #[pallet::storage]
     #[pallet::getter(fn get_bootstrap_rewards)]
-    pub type BootstrapRewards<T: Config> =
-        StorageMap<_, Twox64Concat, (T::AssetId, T::AssetId), BTreeMap<T::AssetId, AssetBalance>, ValueQuery>;
+    pub type BootstrapRewards<T: Config> = StorageMap<
+        _,
+        Twox64Concat,
+        (T::AssetId, T::AssetId),
+        BoundedBTreeMap<T::AssetId, AssetBalance, T::MaxBootstrapRewards>,
+        ValueQuery,
+    >;
 
     #[pallet::storage]
     #[pallet::getter(fn get_bootstrap_limits)]
-    pub type BootstrapLimits<T: Config> =
-        StorageMap<_, Twox64Concat, (T::AssetId, T::AssetId), BTreeMap<T::AssetId, AssetBalance>, ValueQuery>;
+    pub type BootstrapLimits<T: Config> = StorageMap<
+        _,
+        Twox64Concat,
+        (T::AssetId, T::AssetId),
+        BoundedBTreeMap<T::AssetId, AssetBalance, T::MaxBootstrapLimits>,
+        ValueQuery,
+    >;
 
     #[pallet::genesis_config]
     /// Refer: https://github.com/Uniswap/uniswap-v2-core/blob/master/contracts/UniswapV2Pair.sol#L88
@@ -362,6 +381,10 @@ pub mod pallet {
         ChargeRewardParamsError,
         /// Exist some reward in bootstrap,
         ExistRewardsInBootstrap,
+        /// The number of rewards exceeds the storage limit
+        TooManyRewards,
+        /// The number of limits exceeds the storage limit
+        TooManyLimits,
     }
 
     #[pallet::hooks]
@@ -623,7 +646,7 @@ pub mod pallet {
         /// - `recipient`: Account that receive the target asset
         /// - `deadline`: Height of the cutoff block of this transaction
         #[pallet::call_index(6)]
-        #[pallet::weight(T::WeightInfo::swap_exact_assets_for_assets())]
+        #[pallet::weight(T::WeightInfo::swap_exact_assets_for_assets(path.len() as u32))]
         #[frame_support::transactional]
         pub fn swap_exact_assets_for_assets(
             origin: OriginFor<T>,
@@ -634,7 +657,6 @@ pub mod pallet {
             #[pallet::compact] deadline: T::BlockNumber,
         ) -> DispatchResult {
             ensure!(path.iter().all(|id| id.is_support()), Error::<T>::UnsupportedAssetType);
-            ensure!(path.len() <= T::MaxSwaps::get().into(), Error::<T>::InvalidPath);
 
             let who = ensure_signed(origin)?;
             let recipient = T::Lookup::lookup(recipient)?;
@@ -654,7 +676,7 @@ pub mod pallet {
         /// - `recipient`: Account that receive the target asset
         /// - `deadline`: Height of the cutoff block of this transaction
         #[pallet::call_index(7)]
-        #[pallet::weight(T::WeightInfo::swap_assets_for_exact_assets())]
+        #[pallet::weight(T::WeightInfo::swap_assets_for_exact_assets(path.len() as u32))]
         #[frame_support::transactional]
         pub fn swap_assets_for_exact_assets(
             origin: OriginFor<T>,
@@ -665,7 +687,7 @@ pub mod pallet {
             #[pallet::compact] deadline: T::BlockNumber,
         ) -> DispatchResult {
             ensure!(path.iter().all(|id| id.is_support()), Error::<T>::UnsupportedAssetType);
-            ensure!(path.len() <= T::MaxSwaps::get().into(), Error::<T>::InvalidPath);
+
             let who = ensure_signed(origin)?;
             let recipient = T::Lookup::lookup(recipient)?;
             let now = frame_system::Pallet::<T>::block_number();
@@ -688,7 +710,7 @@ pub mod pallet {
         /// - `capacity_supply_1`: The max amount of asset_1 total contribute
         /// - `end`: The earliest ending block.
         #[pallet::call_index(8)]
-        #[pallet::weight(T::WeightInfo::bootstrap_create())]
+        #[pallet::weight(T::WeightInfo::bootstrap_create(rewards.len() as u32, limits.len() as u32))]
         #[frame_support::transactional]
         #[allow(clippy::too_many_arguments)]
         pub fn bootstrap_create(
@@ -735,15 +757,21 @@ pub mod pallet {
 
                         BootstrapRewards::<T>::insert(
                             pair,
-                            rewards
-                                .into_iter()
-                                .map(|asset_id| (asset_id, Zero::zero()))
-                                .collect::<BTreeMap<T::AssetId, AssetBalance>>(),
+                            BoundedBTreeMap::<T::AssetId, AssetBalance, T::MaxBootstrapRewards>::try_from(
+                                rewards
+                                    .into_iter()
+                                    .map(|asset_id| (asset_id, Zero::zero()))
+                                    .collect::<BTreeMap<T::AssetId, AssetBalance>>(),
+                            )
+                            .map_err(|_| Error::<T>::TooManyRewards)?,
                         );
 
                         BootstrapLimits::<T>::insert(
                             pair,
-                            limits.into_iter().collect::<BTreeMap<T::AssetId, AssetBalance>>(),
+                            BoundedBTreeMap::<T::AssetId, AssetBalance, T::MaxBootstrapLimits>::try_from(
+                                limits.into_iter().collect::<BTreeMap<T::AssetId, AssetBalance>>(),
+                            )
+                            .map_err(|_| Error::<T>::TooManyLimits)?,
                         );
 
                         Ok(())
@@ -762,15 +790,21 @@ pub mod pallet {
 
                     BootstrapRewards::<T>::insert(
                         pair,
-                        rewards
-                            .into_iter()
-                            .map(|asset_id| (asset_id, Zero::zero()))
-                            .collect::<BTreeMap<T::AssetId, AssetBalance>>(),
+                        BoundedBTreeMap::<T::AssetId, AssetBalance, T::MaxBootstrapRewards>::try_from(
+                            rewards
+                                .into_iter()
+                                .map(|asset_id| (asset_id, Zero::zero()))
+                                .collect::<BTreeMap<T::AssetId, AssetBalance>>(),
+                        )
+                        .map_err(|_| Error::<T>::TooManyRewards)?,
                     );
 
                     BootstrapLimits::<T>::insert(
                         pair,
-                        limits.into_iter().collect::<BTreeMap<T::AssetId, AssetBalance>>(),
+                        BoundedBTreeMap::<T::AssetId, AssetBalance, T::MaxBootstrapLimits>::try_from(
+                            limits.into_iter().collect::<BTreeMap<T::AssetId, AssetBalance>>(),
+                        )
+                        .map_err(|_| Error::<T>::TooManyLimits)?,
                     );
 
                     Ok(())
@@ -879,7 +913,7 @@ pub mod pallet {
         /// - `capacity_supply_1`: The new max amount of asset_1 total contribute
         /// - `end`: The earliest ending block.
         #[pallet::call_index(12)]
-        #[pallet::weight(T::WeightInfo::bootstrap_update())]
+        #[pallet::weight(T::WeightInfo::bootstrap_update(rewards.len() as u32, limits.len() as u32))]
         #[frame_support::transactional]
         #[allow(clippy::too_many_arguments)]
         pub fn bootstrap_update(
@@ -925,15 +959,21 @@ pub mod pallet {
 
                     BootstrapRewards::<T>::insert(
                         pair,
-                        rewards
-                            .into_iter()
-                            .map(|asset_id| (asset_id, Zero::zero()))
-                            .collect::<BTreeMap<T::AssetId, AssetBalance>>(),
+                        BoundedBTreeMap::<T::AssetId, AssetBalance, T::MaxBootstrapRewards>::try_from(
+                            rewards
+                                .into_iter()
+                                .map(|asset_id| (asset_id, Zero::zero()))
+                                .collect::<BTreeMap<T::AssetId, AssetBalance>>(),
+                        )
+                        .map_err(|_| Error::<T>::TooManyRewards)?,
                     );
 
                     BootstrapLimits::<T>::insert(
                         pair,
-                        limits.into_iter().collect::<BTreeMap<T::AssetId, AssetBalance>>(),
+                        BoundedBTreeMap::<T::AssetId, AssetBalance, T::MaxBootstrapLimits>::try_from(
+                            limits.into_iter().collect::<BTreeMap<T::AssetId, AssetBalance>>(),
+                        )
+                        .map_err(|_| Error::<T>::TooManyLimits)?,
                     );
 
                     Ok(())
@@ -969,7 +1009,7 @@ pub mod pallet {
         }
 
         #[pallet::call_index(14)]
-        #[pallet::weight(100_000_000)]
+        #[pallet::weight(T::WeightInfo::bootstrap_charge_reward(charge_rewards.len() as u32))]
         #[frame_support::transactional]
         pub fn bootstrap_charge_reward(
             origin: OriginFor<T>,
@@ -977,10 +1017,6 @@ pub mod pallet {
             asset_1: T::AssetId,
             charge_rewards: Vec<(T::AssetId, AssetBalance)>,
         ) -> DispatchResult {
-            ensure!(
-                charge_rewards.len() <= T::MaxSwaps::get().into(),
-                Error::<T>::ChargeRewardParamsError
-            );
             let pair = Self::sort_asset_id(asset_0, asset_1);
             let who = ensure_signed(origin)?;
 
@@ -996,7 +1032,9 @@ pub mod pallet {
                     T::MultiCurrency::transfer(*asset_id, &who, &Self::account_id(), *amount)?;
                     let new_charge_amount = already_charge_amount.checked_add(*amount).ok_or(Error::<T>::Overflow)?;
 
-                    rewards.insert(*asset_id, new_charge_amount);
+                    rewards
+                        .try_insert(*asset_id, new_charge_amount)
+                        .map_err(|_| Error::<T>::TooManyRewards)?;
                 }
 
                 Self::deposit_event(Event::ChargeReward(pair.0, pair.1, who, charge_rewards));
@@ -1008,7 +1046,7 @@ pub mod pallet {
         }
 
         #[pallet::call_index(15)]
-        #[pallet::weight(100_000_000)]
+        #[pallet::weight(T::WeightInfo::bootstrap_withdraw_reward())]
         #[frame_support::transactional]
         pub fn bootstrap_withdraw_reward(
             origin: OriginFor<T>,

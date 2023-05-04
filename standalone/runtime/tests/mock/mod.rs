@@ -2,18 +2,14 @@
 
 extern crate hex;
 
-use bitcoin::types::TransactionInputSource;
-pub use bitcoin::{
-    formatter::{Formattable, TryFormattable},
-    types::*,
-};
+pub use bitcoin::types::*;
 pub use btc_relay::{BtcAddress, BtcPublicKey};
 use currency::Amount;
-use frame_support::traits::GenesisBuild;
 pub use frame_support::{
     assert_err, assert_noop, assert_ok,
     dispatch::{DispatchError, DispatchResultWithPostInfo},
 };
+use frame_support::{traits::GenesisBuild, BoundedVec};
 pub use interbtc_runtime_standalone::{
     token_distribution, AccountId, Balance, BlockNumber, CurrencyId, EscrowAnnuityInstance, EscrowRewardsInstance,
     GetNativeCurrencyId, GetRelayChainCurrencyId, GetWrappedCurrencyId, Runtime, RuntimeCall, RuntimeEvent,
@@ -1340,7 +1336,8 @@ impl TransactionGenerator {
     fn relay(&self, height: u32, block: &Block, block_header: BlockHeader) {
         if let Some(relayer) = self.relayer {
             assert_ok!(RuntimeCall::BTCRelay(BTCRelayCall::store_block_header {
-                block_header: block_header
+                block_header: block_header,
+                fork_bound: 10u32,
             })
             .dispatch(origin_of(account_of(relayer))));
             assert_store_main_chain_header_event(height, block_header.hash, account_of(relayer));
@@ -1403,7 +1400,7 @@ impl ExtBuilder {
             .unwrap();
 
         oracle::GenesisConfig::<Runtime> {
-            authorized_oracles: vec![(account_of(BOB), BOB.to_vec())],
+            authorized_oracles: vec![(account_of(BOB), BoundedVec::truncate_from(BOB.to_vec()))],
             max_delay: 3600000, // one hour
         }
         .assimilate_storage(&mut storage)
@@ -1517,7 +1514,7 @@ impl ExtBuilder {
 
             assert_ok!(RuntimeCall::Oracle(OracleCall::insert_authorized_oracle {
                 account_id: account_of(ALICE),
-                name: vec![]
+                name: BoundedVec::truncate_from(vec![])
             })
             .dispatch(root()));
             assert_ok!(RuntimeCall::Oracle(OracleCall::feed_values {

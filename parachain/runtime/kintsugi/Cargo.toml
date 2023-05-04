@@ -31,6 +31,7 @@ sp-arithmetic = { git = "https://github.com/paritytech/substrate", branch = "pol
 frame-support = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.31", default-features = false }
 frame-executive = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.31", default-features = false }
 frame-system = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.31", default-features = false }
+frame-system-benchmarking = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.31", default-features = false, optional = true }
 frame-benchmarking = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.31", default-features = false, optional = true }
 pallet-balances = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.31", default-features = false }
 pallet-timestamp = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.31", default-features = false }
@@ -75,6 +76,7 @@ xcm = { git = "https://github.com/paritytech/polkadot", branch = "release-v0.9.3
 xcm-builder = { git = "https://github.com/paritytech/polkadot", branch = "release-v0.9.31", default-features = false }
 xcm-executor = { git = "https://github.com/paritytech/polkadot", branch = "release-v0.9.31", default-features = false }
 pallet-xcm = { git = "https://github.com/paritytech/polkadot", branch = "release-v0.9.31", default-features = false }
+pallet-xcm-benchmarks = { git = "https://github.com/paritytech/polkadot", branch = "release-v0.9.31", default-features = false, optional = true }
 
 # Parachain dependencies
 runtime-common = {path = "../common", default-features = false }
@@ -102,7 +104,6 @@ farming = { path = "../../../crates/farming", default-features = false }
 tx-pause = { path = "../../../crates/tx-pause", default-features = false }
 dex-general = { path = "../../../crates/dex-general", default-features = false }
 dex-stable = { path = "../../../crates/dex-stable", default-features = false }
-dex-swap-router = { path = "../../../crates/dex-swap-router", default-features = false }
 
 primitives = { package = "interbtc-primitives", path = "../../../primitives", default-features = false }
 
@@ -166,6 +167,8 @@ std = [
   "frame-support/std",
   "frame-executive/std",
   "frame-system/std",
+  "frame-system-benchmarking?/std",
+  "pallet-xcm-benchmarks?/std",
   "frame-benchmarking/std",
   "pallet-balances/std",
   "pallet-timestamp/std",
@@ -230,7 +233,6 @@ std = [
   "tx-pause/std",
   "dex-general/std",
   "dex-stable/std",
-  "dex-swap-router/std",
 
   "primitives/std",
 
@@ -261,22 +263,46 @@ runtime-benchmarks = [
   "frame-benchmarking",
   "frame-support/runtime-benchmarks",
   "frame-system/runtime-benchmarks",
-  "pallet-society/runtime-benchmarks",
+  "frame-system-benchmarking/runtime-benchmarks",
+  "cumulus-pallet-xcmp-queue/runtime-benchmarks",
+  "pallet-balances/runtime-benchmarks",
   "pallet-collective/runtime-benchmarks",
-
-  "xcm-builder/runtime-benchmarks",
+  "pallet-identity/runtime-benchmarks",
+  "pallet-membership/runtime-benchmarks",
+  "pallet-multisig/runtime-benchmarks",
+  "pallet-preimage/runtime-benchmarks",
+  "pallet-proxy/runtime-benchmarks",
+  "pallet-scheduler/runtime-benchmarks",
+  "pallet-timestamp/runtime-benchmarks",
+  "pallet-utility/runtime-benchmarks",
+  "pallet-society/runtime-benchmarks",
+  "pallet-xcm-benchmarks/runtime-benchmarks",
   "pallet-xcm/runtime-benchmarks",
+  "xcm-builder/runtime-benchmarks",
 
   "annuity/runtime-benchmarks",
   "btc-relay/runtime-benchmarks",
+  "clients-info/runtime-benchmarks",
+  "collator-selection/runtime-benchmarks",
+  "democracy/runtime-benchmarks",
+  "dex-general/runtime-benchmarks",
+  "dex-stable/runtime-benchmarks",
+  "escrow/runtime-benchmarks",
+  "farming/runtime-benchmarks",
   "fee/runtime-benchmarks",
   "issue/runtime-benchmarks",
+  "loans/runtime-benchmarks",
   "nomination/runtime-benchmarks",
   "oracle/runtime-benchmarks",
   "redeem/runtime-benchmarks",
   "replace/runtime-benchmarks",
-  "vault-registry/runtime-benchmarks",
+  "security/runtime-benchmarks",
+  "supply/runtime-benchmarks",
   "tx-pause/runtime-benchmarks",
+  "vault-registry/runtime-benchmarks",
+
+  "runtime-common/runtime-benchmarks",
+  "primitives/runtime-benchmarks",
 ]
 disable-runtime-api = []
 try-runtime = [
@@ -320,7 +346,6 @@ try-runtime = [
   "democracy/try-runtime",
   "dex-general/try-runtime",
   "dex-stable/try-runtime",
-  "dex-swap-router/try-runtime",
   "farming/try-runtime",
   "pallet-collective/try-runtime",
   "pallet-membership/try-runtime",

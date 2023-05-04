@@ -105,6 +105,7 @@ impl reward::Config for Test {
     type CurrencyId = CurrencyId;
     type GetNativeCurrencyId = GetNativeCurrencyId;
     type GetWrappedCurrencyId = GetWrappedCurrencyId;
+    type MaxRewardCurrencies = ConstU32<10>;
 }
 
 parameter_types! {

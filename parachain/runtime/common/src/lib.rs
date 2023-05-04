@@ -10,6 +10,9 @@ use primitives::BlockNumber;
 use sp_runtime::{DispatchError, FixedPointNumber};
 use sp_std::prelude::*;
 
+#[cfg(feature = "runtime-benchmarks")]
+pub mod benchmarking;
+
 // The relay chain is limited to 12s to include parachain blocks.
 pub const MILLISECS_PER_BLOCK: u64 = 12000;
 pub const MINUTES: BlockNumber = 60_000 / (MILLISECS_PER_BLOCK as BlockNumber);

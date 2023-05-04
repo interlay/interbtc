@@ -1,6 +1,9 @@
 use crate as reward;
 use crate::{Config, Error};
-use frame_support::{parameter_types, traits::Everything};
+use frame_support::{
+    parameter_types,
+    traits::{ConstU32, Everything},
+};
 pub use primitives::{
     CurrencyId,
     CurrencyId::{ForeignAsset, Token},
@@ -63,7 +66,7 @@ impl frame_system::Config for Test {
     type SystemWeightInfo = ();
     type SS58Prefix = SS58Prefix;
     type OnSetCode = ();
-    type MaxConsumers = frame_support::traits::ConstU32<16>;
+    type MaxConsumers = ConstU32<16>;
 }
 
 parameter_types! {
@@ -79,6 +82,7 @@ impl Config for Test {
     type CurrencyId = CurrencyId;
     type GetNativeCurrencyId = GetNativeCurrencyId;
     type GetWrappedCurrencyId = GetWrappedCurrencyId;
+    type MaxRewardCurrencies = ConstU32<10>;
 }
 
 pub type TestError = Error<Test>;

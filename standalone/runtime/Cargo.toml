@@ -229,6 +229,7 @@ runtime-benchmarks = [
 
   "annuity/runtime-benchmarks",
   "btc-relay/runtime-benchmarks",
+  "dex-general/runtime-benchmarks",
   "escrow/runtime-benchmarks",
   "fee/runtime-benchmarks",
   "issue/runtime-benchmarks",
@@ -240,6 +241,7 @@ runtime-benchmarks = [
   "vault-registry/runtime-benchmarks",
   "farming/runtime-benchmarks",
   "tx-pause/runtime-benchmarks",
+  "security/runtime-benchmarks",
 
   "orml-asset-registry/runtime-benchmarks",
 

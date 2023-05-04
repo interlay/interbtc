@@ -122,6 +122,7 @@ impl ExecuteIssueBuilder {
                 issue_id: self.issue_id,
                 merkle_proof: merkle_proof.clone(),
                 transaction: transaction.clone(),
+                length_bound: u32::MAX,
             })
             .dispatch(origin_of(self.submitter.clone()));
             VaultRegistryPallet::collateral_integrity_check();

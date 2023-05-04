@@ -220,17 +220,36 @@ pub mod pallet {
         /// * `tx_block_height` - block number of collateral chain
         /// * `merkle_proof` - raw bytes
         /// * `raw_tx` - raw bytes
+        ///
+        /// ## Complexity:
+        /// - `O(H + I + O + B)` where:
+        ///   - `H` is the number of hashes in the merkle tree
+        ///   - `I` is the number of transaction inputs
+        ///   - `O` is the number of transaction outputs
+        ///   - `B` is `transaction` size in bytes (length-fee-bounded)
         #[pallet::call_index(1)]
-        #[pallet::weight(<T as Config>::WeightInfo::execute_issue())]
+        #[pallet::weight({
+            let h = merkle_proof.hashes.len() as u32;
+            let i = transaction.inputs.len() as u32;
+            let o = transaction.outputs.len() as u32;
+            let b = *length_bound;
+            <T as Config>::WeightInfo::execute_issue_underpayment(h, i, o, b)
+                .max(<T as Config>::WeightInfo::execute_issue_exact(h, i, o, b))
+                .max(<T as Config>::WeightInfo::execute_issue_overpayment(h, i, o, b))
+                .max(<T as Config>::WeightInfo::execute_expired_issue_underpayment(h, i, o, b))
+                .max(<T as Config>::WeightInfo::execute_expired_issue_exact(h, i, o, b))
+                .max(<T as Config>::WeightInfo::execute_expired_issue_overpayment(h, i, o, b))
+        })]
         #[transactional]
         pub fn execute_issue(
             origin: OriginFor<T>,
             issue_id: H256,
             merkle_proof: MerkleProof,
             transaction: Transaction,
+            #[pallet::compact] length_bound: u32,
         ) -> DispatchResultWithPostInfo {
             let executor = ensure_signed(origin)?;
-            Self::_execute_issue(executor, issue_id, merkle_proof, transaction)?;
+            Self::_execute_issue(executor, issue_id, merkle_proof, transaction, length_bound)?;
             Ok(().into())
         }
 
@@ -358,6 +377,7 @@ impl<T: Config> Pallet<T> {
         issue_id: H256,
         merkle_proof: MerkleProof,
         transaction: Transaction,
+        length_bound: u32,
     ) -> Result<(), DispatchError> {
         let mut issue = Self::get_issue_request_from_id(&issue_id)?;
         // allow anyone to complete issue request
@@ -366,6 +386,7 @@ impl<T: Config> Pallet<T> {
         let amount_transferred = ext::btc_relay::get_and_verify_issue_payment::<T, BalanceOf<T>>(
             merkle_proof,
             transaction,
+            length_bound,
             issue.btc_address,
         )?;
         let amount_transferred = Amount::new(amount_transferred, issue.vault.wrapped_currency());

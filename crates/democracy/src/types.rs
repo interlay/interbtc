@@ -2,10 +2,11 @@
 
 use crate::{ReferendumIndex, VoteThreshold};
 use codec::{Decode, Encode, MaxEncodedLen};
+use frame_support::traits::Get;
 use scale_info::TypeInfo;
 use sp_runtime::{
     traits::{Bounded, CheckedAdd, CheckedDiv, CheckedMul, CheckedSub, Saturating, Zero},
-    RuntimeDebug,
+    BoundedVec, RuntimeDebug,
 };
 use sp_std::prelude::*;
 
@@ -17,10 +18,20 @@ pub struct Vote<Balance> {
 }
 
 /// The account is voting directly.
-#[derive(Encode, Decode, Clone, Eq, PartialEq, Default, RuntimeDebug, TypeInfo)]
-pub struct Voting<Balance> {
+#[derive(Clone, Encode, Decode, Eq, MaxEncodedLen, PartialEq, RuntimeDebug, TypeInfo)]
+#[codec(mel_bound(skip_type_params(MaxVotes)))]
+#[scale_info(skip_type_params(MaxVotes))]
+pub struct Voting<Balance, MaxVotes: Get<u32>> {
     /// The current votes of the account.
-    pub(crate) votes: Vec<(ReferendumIndex, Vote<Balance>)>,
+    pub(crate) votes: BoundedVec<(ReferendumIndex, Vote<Balance>), MaxVotes>,
+}
+
+impl<Balance: Default, MaxVotes: Get<u32>> Default for Voting<Balance, MaxVotes> {
+    fn default() -> Self {
+        Voting {
+            votes: Default::default(),
+        }
+    }
 }
 
 /// Info regarding an ongoing referendum.

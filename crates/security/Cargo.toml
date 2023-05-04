@@ -16,6 +16,7 @@ sp-std = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v
 sp-runtime = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.31", default-features = false }
 frame-support = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.31", default-features = false }
 frame-system = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.31", default-features = false }
+frame-benchmarking = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.31", default-features = false, optional = true }
 
 [dev-dependencies]
 mocktopus = "0.8.0"
@@ -33,5 +34,11 @@ std = [
   "sp-runtime/std",
   "frame-support/std",
   "frame-system/std",
+  "frame-benchmarking/std"
 ]
 try-runtime = [ "frame-support/try-runtime" ]
+runtime-benchmarks = [
+  "frame-benchmarking",
+  "frame-support/runtime-benchmarks",
+  "frame-system/runtime-benchmarks"
+]

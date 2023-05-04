@@ -120,6 +120,7 @@ parameter_types! {
     );
     pub const RelayNetwork: NetworkId = NetworkId::Kusama;
     pub UniversalLocation: InteriorMultiLocation = X2(GlobalConsensus(RelayNetwork::get()), Parachain(ParachainInfo::parachain_id().into()));
+    pub const MaxAssetsIntoHolding: u32 = 8;
 }
 
 pub struct ToTreasury;
@@ -186,10 +187,13 @@ impl xcm_executor::Config for XcmConfig {
     type RuntimeCall = RuntimeCall;
     type XcmSender = XcmRouter;
     // How to withdraw and deposit an asset.
+    #[cfg(feature = "runtime-benchmarks")]
+    type AssetTransactor = BenchmarkingLocalAssetTransactor;
+    #[cfg(not(feature = "runtime-benchmarks"))]
     type AssetTransactor = LocalAssetTransactor;
     type OriginConverter = XcmOriginToTransactDispatchOrigin;
     type IsReserve = MultiNativeAsset<AbsoluteReserveProvider>;
-    type IsTeleporter = NativeAsset; // <- should be enough to allow teleportation
+    type IsTeleporter = Nothing; // no teleportation allowed
     type Barrier = Barrier;
     type Weigher = FixedWeightBounds<UnitWeightCost, RuntimeCall, MaxInstructions>;
     type Trader = Trader;
@@ -198,7 +202,7 @@ impl xcm_executor::Config for XcmConfig {
     type AssetTrap = PolkadotXcm;
     type AssetClaims = PolkadotXcm;
     type PalletInstancesInfo = AllPalletsWithSystem;
-    type MaxAssetsIntoHolding = ConstU32<8>;
+    type MaxAssetsIntoHolding = MaxAssetsIntoHolding;
     type AssetLocker = ();
     type AssetExchanger = ();
     type FeeManager = ();
@@ -266,7 +270,7 @@ impl cumulus_pallet_xcmp_queue::Config for Runtime {
     type ControllerOrigin = EnsureRoot<AccountId>;
     type ControllerOriginConverter = XcmOriginToTransactDispatchOrigin;
     type PriceForSiblingDelivery = ();
-    type WeightInfo = ();
+    type WeightInfo = weights::cumulus_pallet_xcmp_queue::WeightInfo<Runtime>;
 }
 
 impl cumulus_pallet_dmp_queue::Config for Runtime {
@@ -423,4 +427,215 @@ impl orml_xtokens::Config for Runtime {
     type MultiLocationsFilter = Everything;
     type ReserveProvider = AbsoluteReserveProvider;
     type UniversalLocation = UniversalLocation;
+}
+
+#[cfg(feature = "runtime-benchmarks")]
+use benchmark_impls::*;
+
+#[cfg(feature = "runtime-benchmarks")]
+mod benchmark_impls {
+    use super::*;
+    use frame_benchmarking::BenchmarkError;
+
+    /// wrapper around LocalAssetTransactor that fakes teleports for bencharking purposes.
+    /// Without this wrapper, benchmarks just fail. Since we don't support teleports,
+    /// faking this is acceptable.
+    pub struct BenchmarkingLocalAssetTransactor;
+
+    #[cfg(feature = "runtime-benchmarks")]
+    impl xcm_executor::traits::TransactAsset for BenchmarkingLocalAssetTransactor {
+        fn can_check_in(_origin: &MultiLocation, _what: &MultiAsset, _context: &XcmContext) -> XcmResult {
+            Ok(())
+        }
+        fn check_in(_origin: &MultiLocation, _what: &MultiAsset, _context: &XcmContext) {}
+
+        fn can_check_out(_dest: &MultiLocation, _what: &MultiAsset, _context: &XcmContext) -> XcmResult {
+            Ok(())
+        }
+        fn check_out(_dest: &MultiLocation, _what: &MultiAsset, _context: &XcmContext) {}
+
+        fn deposit_asset(what: &MultiAsset, who: &MultiLocation, context: &XcmContext) -> XcmResult {
+            LocalAssetTransactor::deposit_asset(what, who, context)
+        }
+        fn withdraw_asset(
+            what: &MultiAsset,
+            who: &MultiLocation,
+            maybe_context: Option<&XcmContext>,
+        ) -> Result<xcm_executor::Assets, XcmError> {
+            LocalAssetTransactor::withdraw_asset(what, who, maybe_context)
+        }
+
+        fn internal_transfer_asset(
+            asset: &MultiAsset,
+            from: &MultiLocation,
+            to: &MultiLocation,
+            context: &XcmContext,
+        ) -> Result<xcm_executor::Assets, XcmError> {
+            LocalAssetTransactor::internal_transfer_asset(asset, from, to, context)
+        }
+
+        fn transfer_asset(
+            asset: &MultiAsset,
+            from: &MultiLocation,
+            to: &MultiLocation,
+            context: &XcmContext,
+        ) -> Result<xcm_executor::Assets, XcmError> {
+            LocalAssetTransactor::transfer_asset(asset, from, to, context)
+        }
+    }
+
+    impl pallet_xcm_benchmarks::Config for Runtime {
+        type XcmConfig = XcmConfig;
+        type AccountIdConverter = xcm_config::LocationToAccountId;
+        fn valid_destination() -> Result<MultiLocation, BenchmarkError> {
+            Ok(MultiLocation::parent())
+        }
+        fn worst_case_holding(_depositable_count: u32) -> MultiAssets {
+            // 8 fungibles
+            const HOLDING_FUNGIBLES: u32 = 9;
+            let fungibles_amount: u128 = 100;
+            let assets = (0..HOLDING_FUNGIBLES)
+                .map(|i| {
+                    let location: MultiLocation = GeneralIndex(i as u128).into();
+                    MultiAsset {
+                        id: Concrete(location),
+                        fun: Fungible(fungibles_amount * i as u128),
+                    }
+                    .into()
+                })
+                .chain(core::iter::once(MultiAsset {
+                    id: Concrete(MultiLocation::parent()),
+                    fun: Fungible(u128::MAX),
+                }))
+                .collect::<Vec<_>>();
+
+            assets.into()
+        }
+    }
+
+    parameter_types! {
+        pub TrustedTeleporter: Option<(MultiLocation, MultiAsset)> = None;
+        pub CheckedAccount: Option<(AccountId, xcm_builder::MintLocation)> = None;
+    }
+
+    impl pallet_xcm_benchmarks::fungible::Config for Runtime {
+        type TransactAsset = orml_tokens::CurrencyAdapter<Runtime, GetNativeCurrencyId>;
+
+        type CheckedAccount = CheckedAccount;
+        type TrustedTeleporter = TrustedTeleporter;
+
+        fn get_multi_asset() -> MultiAsset {
+            MultiAsset {
+                id: Concrete(canonical_currency_location(Token(KINT))),
+                fun: Fungible(100000000000),
+            }
+        }
+    }
+
+    impl pallet_xcm_benchmarks::generic::Config for Runtime {
+        type RuntimeCall = RuntimeCall;
+
+        fn worst_case_response() -> (u64, Response) {
+            (0u64, Response::Version(Default::default()))
+        }
+
+        fn worst_case_asset_exchange() -> Result<(MultiAssets, MultiAssets), BenchmarkError> {
+            // not supported atm
+            Err(BenchmarkError::Skip)
+        }
+
+        fn universal_alias() -> Result<Junction, BenchmarkError> {
+            // The XCM executor doesn't have a configured `UniversalAliases`
+            Err(BenchmarkError::Skip)
+        }
+
+        fn transact_origin_and_runtime_call() -> Result<(MultiLocation, RuntimeCall), BenchmarkError> {
+            let origin = MultiLocation::parent();
+            let call = RuntimeCall::System(frame_system::Call::remark { remark: vec![] });
+            // transact disallowed, but necessary for unsubscribe_version
+            Ok((origin, call))
+        }
+
+        fn subscribe_origin() -> Result<MultiLocation, BenchmarkError> {
+            Ok(MultiLocation::parent())
+        }
+
+        fn claimable_asset() -> Result<(MultiLocation, MultiLocation, MultiAssets), BenchmarkError> {
+            let origin = MultiLocation::parent();
+            let assets: MultiAssets = (Concrete(MultiLocation::parent()), 1_000u128).into();
+            let ticket = MultiLocation {
+                parents: 0,
+                interior: Here,
+            };
+            Ok((origin, ticket, assets))
+        }
+
+        fn unlockable_asset() -> Result<(MultiLocation, MultiLocation, MultiAsset), BenchmarkError> {
+            // we don't support asset locking
+            Err(BenchmarkError::Skip)
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    type FungiblesWeight = crate::weights::pallet_xcm_benchmarks_fungible::WeightInfo<Runtime>;
+    type GenericsWeight = crate::weights::pallet_xcm_benchmarks_generic::WeightInfo<Runtime>;
+
+    fn check_assets_weight(weight: Weight) {
+        let unit_weight_cost = UnitWeightCost::get();
+        let holding_items: u64 = MaxAssetsIntoHolding::get().into();
+        // multiply by holding_items * 2 because these instructions iterate over assets
+        // in the holding, and documentation states: "In the worse case, the Holding
+        // Register may contain up to twice as many assets as this"
+        assert!(weight.ref_time() * holding_items * 2 <= unit_weight_cost.ref_time());
+    }
+
+    #[test]
+    #[ignore] // disabled for now since it requires weights measured on production machines
+    fn test_weights() {
+        let unit_weight_cost = UnitWeightCost::get();
+
+        // the following don't have benchmarks..
+        // check_assets_weight(FungiblesWeight::initiate_reserve_withdraw());
+        // check_assets_weight(FungiblesWeight::reserve_asset_deposited());
+
+        // check instructions that iterate over assets
+        check_assets_weight(FungiblesWeight::withdraw_asset());
+        check_assets_weight(FungiblesWeight::transfer_asset());
+        check_assets_weight(FungiblesWeight::transfer_reserve_asset());
+        check_assets_weight(FungiblesWeight::deposit_asset());
+        check_assets_weight(FungiblesWeight::deposit_reserve_asset());
+        check_assets_weight(GenericsWeight::burn_asset());
+        check_assets_weight(GenericsWeight::expect_asset());
+
+        assert!(GenericsWeight::clear_origin().ref_time() <= unit_weight_cost.ref_time());
+        assert!(GenericsWeight::descend_origin().ref_time() <= unit_weight_cost.ref_time());
+        assert!(GenericsWeight::report_error().ref_time() <= unit_weight_cost.ref_time());
+
+        assert!(GenericsWeight::report_holding().ref_time() <= unit_weight_cost.ref_time());
+        assert!(GenericsWeight::buy_execution().ref_time() <= unit_weight_cost.ref_time());
+        assert!(GenericsWeight::refund_surplus().ref_time() <= unit_weight_cost.ref_time());
+        assert!(GenericsWeight::set_error_handler().ref_time() <= unit_weight_cost.ref_time());
+        assert!(GenericsWeight::set_appendix().ref_time() <= unit_weight_cost.ref_time());
+        assert!(GenericsWeight::clear_error().ref_time() <= unit_weight_cost.ref_time());
+        assert!(GenericsWeight::claim_asset().ref_time() <= unit_weight_cost.ref_time());
+        assert!(GenericsWeight::trap().ref_time() <= unit_weight_cost.ref_time());
+        assert!(GenericsWeight::subscribe_version().ref_time() <= unit_weight_cost.ref_time());
+        assert!(GenericsWeight::unsubscribe_version().ref_time() <= unit_weight_cost.ref_time());
+        assert!(GenericsWeight::expect_origin().ref_time() <= unit_weight_cost.ref_time());
+        assert!(GenericsWeight::expect_error().ref_time() <= unit_weight_cost.ref_time());
+        assert!(GenericsWeight::expect_transact_status().ref_time() <= unit_weight_cost.ref_time());
+        assert!(GenericsWeight::query_response().ref_time() <= unit_weight_cost.ref_time());
+        assert!(GenericsWeight::query_pallet().ref_time() <= unit_weight_cost.ref_time());
+        assert!(GenericsWeight::expect_pallet().ref_time() <= unit_weight_cost.ref_time());
+        assert!(GenericsWeight::report_transact_status().ref_time() <= unit_weight_cost.ref_time());
+        assert!(GenericsWeight::clear_transact_status().ref_time() <= unit_weight_cost.ref_time());
+        assert!(GenericsWeight::set_fees_mode().ref_time() <= unit_weight_cost.ref_time());
+        assert!(GenericsWeight::set_topic().ref_time() <= unit_weight_cost.ref_time());
+        assert!(GenericsWeight::clear_topic().ref_time() <= unit_weight_cost.ref_time());
+        assert!(GenericsWeight::unpaid_execution().ref_time() <= unit_weight_cost.ref_time());
+    }
 }

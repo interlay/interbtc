@@ -664,6 +664,7 @@ impl supply::Config for Runtime {
     type Currency = NativeCurrency;
     type InflationPeriod = InflationPeriod;
     type OnInflation = DealWithRewards;
+    type WeightInfo = ();
 }
 
 pub struct TotalWrapped;
@@ -725,9 +726,14 @@ impl annuity::BlockRewardProvider<AccountId> for VaultBlockRewardProvider {
     type Currency = NativeCurrency;
 
     #[cfg(feature = "runtime-benchmarks")]
-    fn deposit_stake(_from: &AccountId, _amount: Balance) -> DispatchResult {
-        // TODO: fix for vault id
-        Ok(())
+    fn deposit_stake(_from: &AccountId, amount: Balance) -> DispatchResult {
+        // since this is only used for benchmarking
+        // deposit stake for the native currency
+        <VaultCapacity as reward::RewardsApi<(), CurrencyId, Balance>>::deposit_stake(
+            &(),
+            &GetNativeCurrencyId::get(),
+            amount,
+        )
     }
 
     fn distribute_block_reward(from: &AccountId, amount: Balance) -> DispatchResult {
@@ -740,8 +746,13 @@ impl annuity::BlockRewardProvider<AccountId> for VaultBlockRewardProvider {
         )
     }
 
+    #[cfg(feature = "runtime-benchmarks")]
+    fn can_withdraw_reward() -> bool {
+        false
+    }
+
     fn withdraw_reward(_: &AccountId) -> Result<Balance, DispatchError> {
-        Err(sp_runtime::TokenError::Unsupported.into())
+        Err(DispatchError::Other("Unsupported"))
     }
 }
 
@@ -768,6 +779,7 @@ impl reward::Config<EscrowRewardsInstance> for Runtime {
     type CurrencyId = CurrencyId;
     type GetNativeCurrencyId = GetNativeCurrencyId;
     type GetWrappedCurrencyId = GetWrappedCurrencyId;
+    type MaxRewardCurrencies = ConstU32<10>;
 }
 
 pub type VaultRewardsInstance = reward::Instance2;
@@ -780,6 +792,7 @@ impl reward::Config<VaultRewardsInstance> for Runtime {
     type CurrencyId = CurrencyId;
     type GetNativeCurrencyId = GetNativeCurrencyId;
     type GetWrappedCurrencyId = GetWrappedCurrencyId;
+    type MaxRewardCurrencies = ConstU32<10>;
 }
 
 pub type VaultCapacityInstance = reward::Instance3;
@@ -792,6 +805,7 @@ impl reward::Config<VaultCapacityInstance> for Runtime {
     type CurrencyId = CurrencyId;
     type GetNativeCurrencyId = GetNativeCurrencyId;
     type GetWrappedCurrencyId = GetWrappedCurrencyId;
+    type MaxRewardCurrencies = ConstU32<10>;
 }
 
 type FarmingRewardsInstance = reward::Instance4;
@@ -804,6 +818,7 @@ impl reward::Config<FarmingRewardsInstance> for Runtime {
     type CurrencyId = CurrencyId;
     type GetNativeCurrencyId = GetNativeCurrencyId;
     type GetWrappedCurrencyId = GetWrappedCurrencyId;
+    type MaxRewardCurrencies = ConstU32<10>;
 }
 
 parameter_types! {
@@ -822,6 +837,8 @@ impl farming::Config for Runtime {
 
 impl security::Config for Runtime {
     type RuntimeEvent = RuntimeEvent;
+    type WeightInfo = ();
+    type MaxErrors = ConstU32<1>;
 }
 
 impl currency::Config for Runtime {
@@ -975,10 +992,13 @@ where
     type Extrinsic = UncheckedExtrinsic;
 }
 
+pub type OracleName = oracle::NameOf<Runtime>;
+
 impl oracle::Config for Runtime {
     type RuntimeEvent = RuntimeEvent;
     type OnExchangeRateChange = (vault_registry::PoolManager<Runtime>, Loans);
     type WeightInfo = ();
+    type MaxNameLength = ConstU32<255>;
 }
 
 parameter_types! {
@@ -1056,6 +1076,8 @@ impl orml_asset_registry::Config for Runtime {
 impl clients_info::Config for Runtime {
     type RuntimeEvent = RuntimeEvent;
     type WeightInfo = ();
+    type MaxNameLength = ConstU32<255>;
+    type MaxUriLength = ConstU32<255>;
 }
 
 impl loans::Config for Runtime {
@@ -1342,6 +1364,7 @@ impl_runtime_apis! {
             list_benchmark!(list, extra, redeem, Redeem);
             list_benchmark!(list, extra, replace, Replace);
             list_benchmark!(list, extra, vault_registry, VaultRegistry);
+            list_benchmark!(list, extra, security, Security);
 
             let storage_info = AllPalletsWithSystem::storage_info();
 
@@ -1380,6 +1403,7 @@ impl_runtime_apis! {
             add_benchmark!(params, batches, redeem, Redeem);
             add_benchmark!(params, batches, replace, Replace);
             add_benchmark!(params, batches, vault_registry, VaultRegistry);
+            add_benchmark!(params, batches, security, Security);
 
             if batches.is_empty() { return Err("Benchmark not found for this pallet.".into()) }
             Ok(batches)
