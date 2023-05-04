@@ -416,6 +416,9 @@ impl orml_vesting::Config for Runtime {
     type RuntimeEvent = RuntimeEvent;
     type Currency = NativeCurrency;
     type MinVestedTransfer = MinVestedTransfer;
+    #[cfg(feature = "runtime-benchmarks")]
+    type VestedTransferOrigin = frame_system::EnsureSigned<AccountId>;
+    #[cfg(not(feature = "runtime-benchmarks"))]
     type VestedTransferOrigin = EnsureKintsugiLabs;
     type WeightInfo = weights::orml_vesting::WeightInfo<Runtime>;
     type MaxVestingSchedules = MaxVestingSchedules;

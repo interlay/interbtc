@@ -19,7 +19,7 @@
 
 use super::{Pallet as TxPause, *};
 
-use frame_benchmarking::v2::{account, benchmarks, impl_benchmark_test_suite};
+use frame_benchmarking::v2::*;
 
 #[benchmarks]
 pub mod benchmarks {
