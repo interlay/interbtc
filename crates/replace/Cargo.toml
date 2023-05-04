@@ -75,7 +75,7 @@ std = [
 	"currency/std",
 	"vault-registry/std",
 	"nomination/std",
-    "primitives/std",
+	"primitives/std",
 
 	"orml-tokens/std",
 	"orml-traits/std",
