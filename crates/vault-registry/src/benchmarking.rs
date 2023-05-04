@@ -23,14 +23,6 @@ fn mint_collateral<T: crate::Config>(account_id: &T::AccountId, amount: BalanceO
     deposit_tokens::<T>(get_native_currency_id::<T>(), account_id, amount);
 }
 
-fn get_vault_id<T: crate::Config>() -> DefaultVaultId<T> {
-    VaultId::new(
-        account("Vault", 0, 0),
-        get_collateral_currency_id::<T>(),
-        get_wrapped_currency_id::<T>(),
-    )
-}
-
 fn get_currency_pair<T: crate::Config>() -> DefaultVaultCurrencyPair<T> {
     VaultCurrencyPair {
         collateral: get_collateral_currency_id::<T>(),
@@ -42,10 +34,22 @@ fn set_default_exchange_rate<T: crate::Config>() {
     <oracle::Pallet<T>>::_set_exchange_rate(get_collateral_currency_id::<T>(), UnsignedFixedPoint::<T>::one()).unwrap();
 }
 
+fn set_collateral_config<T: crate::Config>(vault_id: &DefaultVaultId<T>) {
+    <MinimumCollateralVault<T>>::insert::<CurrencyId, BalanceOf<T>>(vault_id.collateral_currency(), 0u32.into());
+    VaultRegistry::<T>::_set_system_collateral_ceiling(vault_id.currencies.clone(), 1_000_000_000u32.into());
+    VaultRegistry::<T>::_set_secure_collateral_threshold(vault_id.currencies.clone(), UnsignedFixedPoint::<T>::one());
+    VaultRegistry::<T>::_set_premium_redeem_threshold(vault_id.currencies.clone(), UnsignedFixedPoint::<T>::one());
+    VaultRegistry::<T>::_set_liquidation_collateral_threshold(
+        vault_id.currencies.clone(),
+        UnsignedFixedPoint::<T>::one(),
+    );
+}
+
 fn register_vault_with_collateral<T: crate::Config>(vault_id: DefaultVaultId<T>) {
+    // Set all thresholds in a function call
     VaultRegistry::<T>::set_minimum_collateral(
         RawOrigin::Root.into(),
-        get_collateral_currency_id::<T>(),
+        vault_id.collateral_currency(),
         100_000u32.into(),
     )
     .unwrap();
@@ -84,7 +88,6 @@ pub const fn market_mock<T: loans::Config>(lend_token_id: CurrencyId) -> Market<
 }
 
 pub fn activate_market<T: loans::Config>(underlying_id: CurrencyId, lend_token_id: CurrencyId) {
-    println!("activating market");
     let origin = RawOrigin::Root;
     assert_ok!(Loans::<T>::add_market(
         origin.clone().into(),
@@ -92,8 +95,6 @@ pub fn activate_market<T: loans::Config>(underlying_id: CurrencyId, lend_token_i
         market_mock::<T>(lend_token_id)
     ));
     assert_ok!(Loans::<T>::activate_market(origin.into(), underlying_id,));
-
-    println!("activated market");
 }
 
 pub fn mint_lend_tokens<T: loans::Config>(account_id: &T::AccountId, lend_token_id: CurrencyId) {
@@ -103,13 +104,11 @@ pub fn mint_lend_tokens<T: loans::Config>(account_id: &T::AccountId, lend_token_
     let origin = RawOrigin::Signed(account_id.clone());
     assert_ok!(amount.mint_to(&account_id));
 
-    println!("minting");
     assert_ok!(Loans::<T>::mint(
         origin.into(),
         underlying_id,
         LEND_TOKEN_FUNDING_AMOUNT
     ));
-    println!("minted");
 }
 
 pub fn activate_lending_and_mint<T: loans::Config>(
@@ -121,11 +120,13 @@ pub fn activate_lending_and_mint<T: loans::Config>(
     mint_lend_tokens::<T>(account_id, lend_token_id);
 }
 
-fn activate_lending_and_get_vault_id<T: loans::Config>() -> DefaultVaultId<T> {
+fn activate_lending_and_get_vault_id<T: crate::Config + loans::Config>() -> DefaultVaultId<T> {
     let account_id: T::AccountId = account("Vault", 0, 0);
     let lend_token = CurrencyId::LendToken(1);
     activate_lending_and_mint::<T>(get_collateral_currency_id::<T>(), lend_token.clone(), &account_id);
-    VaultId::new(account("Vault", 0, 0), lend_token, get_wrapped_currency_id::<T>())
+    let vault_id = VaultId::new(account("Vault", 0, 0), lend_token, get_wrapped_currency_id::<T>());
+    set_collateral_config::<T>(&vault_id);
+    vault_id
 }
 
 #[benchmarks(where T: loans::Config)]
@@ -136,7 +137,6 @@ pub mod benchmarks {
     fn register_vault() {
         set_default_exchange_rate::<T>();
         let vault_id = activate_lending_and_get_vault_id::<T>();
-        // let vault_id = get_vault_id::<T>();
         let amount = VaultRegistry::<T>::minimum_collateral_vault(vault_id.collateral_currency());
         mint_collateral::<T>(&vault_id.account_id, amount);
         let origin = RawOrigin::Signed(vault_id.account_id.clone());
@@ -149,7 +149,7 @@ pub mod benchmarks {
 
     #[benchmark]
     fn register_public_key() {
-        let vault_id = get_vault_id::<T>();
+        let vault_id = activate_lending_and_get_vault_id::<T>();
         mint_collateral::<T>(&vault_id.account_id, (1u32 << 31).into());
 
         #[extrinsic_call]
@@ -158,7 +158,7 @@ pub mod benchmarks {
 
     #[benchmark]
     fn accept_new_issues() {
-        let vault_id = get_vault_id::<T>();
+        let vault_id = activate_lending_and_get_vault_id::<T>();
         register_vault_with_collateral::<T>(vault_id.clone());
 
         #[extrinsic_call]
@@ -171,7 +171,7 @@ pub mod benchmarks {
 
     #[benchmark]
     fn set_custom_secure_threshold() {
-        let vault_id = get_vault_id::<T>();
+        let vault_id = activate_lending_and_get_vault_id::<T>();
         register_vault_with_collateral::<T>(vault_id.clone());
         VaultRegistry::<T>::_set_secure_collateral_threshold(
             vault_id.currencies.clone(),
@@ -230,12 +230,13 @@ pub mod benchmarks {
 
     #[benchmark]
     fn report_undercollateralized_vault() {
-        let vault_id = get_vault_id::<T>();
+        let vault_id = activate_lending_and_get_vault_id::<T>();
         let origin: T::AccountId = account("Origin", 0, 0);
+        let underlying_id = Loans::<T>::underlying_id(vault_id.collateral_currency()).unwrap();
 
         register_vault_with_collateral::<T>(vault_id.clone());
         Oracle::<T>::_set_exchange_rate(
-            vault_id.collateral_currency(),
+            underlying_id.clone(),
             UnsignedFixedPoint::<T>::checked_from_rational(1, 1).unwrap(),
         )
         .unwrap();
@@ -246,7 +247,7 @@ pub mod benchmarks {
         VaultRegistry::<T>::issue_tokens(&vault_id, &amount).unwrap();
 
         Oracle::<T>::_set_exchange_rate(
-            vault_id.collateral_currency(),
+            underlying_id.clone(),
             UnsignedFixedPoint::<T>::checked_from_rational(2147483647, 1).unwrap(),
         )
         .unwrap();
@@ -257,10 +258,11 @@ pub mod benchmarks {
 
     #[benchmark]
     fn recover_vault_id() {
-        let vault_id = get_vault_id::<T>();
+        let vault_id = activate_lending_and_get_vault_id::<T>();
         register_vault_with_collateral::<T>(vault_id.clone());
+        let underlying_id = Loans::<T>::underlying_id(vault_id.collateral_currency()).unwrap();
         Oracle::<T>::_set_exchange_rate(
-            get_collateral_currency_id::<T>(),
+            underlying_id.clone(),
             UnsignedFixedPoint::<T>::checked_from_rational(10, 1).unwrap(),
         )
         .unwrap();

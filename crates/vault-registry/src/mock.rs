@@ -9,7 +9,7 @@ use frame_system::EnsureRoot;
 use mocktopus::{macros::mockable, mocking::clear_mocks};
 use orml_traits::parameter_type_with_key;
 pub use primitives::{CurrencyId, CurrencyId::Token, TokenSymbol::*};
-use primitives::{VaultCurrencyPair, VaultId};
+use primitives::{Rate, VaultCurrencyPair, VaultId};
 use sp_arithmetic::{FixedI128, FixedPointNumber, FixedU128};
 use sp_core::H256;
 use sp_runtime::{
@@ -93,6 +93,7 @@ impl frame_system::Config for Test {
 }
 
 pub const DEFAULT_COLLATERAL_CURRENCY: CurrencyId = Token(DOT);
+pub const WORST_CASE_COLLATERAL_CURRENCY: CurrencyId = CurrencyId::LendToken(1);
 pub const DEFAULT_NATIVE_CURRENCY: CurrencyId = Token(INTR);
 pub const DEFAULT_WRAPPED_CURRENCY: CurrencyId = Token(IBTC);
 
@@ -100,6 +101,14 @@ pub const DEFAULT_CURRENCY_PAIR: VaultCurrencyPair<CurrencyId> = VaultCurrencyPa
     collateral: DEFAULT_COLLATERAL_CURRENCY,
     wrapped: DEFAULT_WRAPPED_CURRENCY,
 };
+
+pub const WORST_CASE_CURRENCY_PAIR: VaultCurrencyPair<CurrencyId> = VaultCurrencyPair {
+    collateral: WORST_CASE_COLLATERAL_CURRENCY,
+    wrapped: DEFAULT_WRAPPED_CURRENCY,
+};
+
+pub const DEFAULT_MAX_EXCHANGE_RATE: u128 = 1_000_000_000_000_000_000; // 1
+pub const DEFAULT_MIN_EXCHANGE_RATE: u128 = 20_000_000_000_000_000; // 0.02
 
 pub fn vault_id(account_id: AccountId) -> VaultId<AccountId, CurrencyId> {
     VaultId {
@@ -335,14 +344,35 @@ impl ExtBuilder {
 
         conf.assimilate_storage(&mut storage).unwrap();
 
+        GenesisBuild::<Test>::assimilate_storage(
+            &loans::GenesisConfig {
+                max_exchange_rate: Rate::from_inner(DEFAULT_MAX_EXCHANGE_RATE),
+                min_exchange_rate: Rate::from_inner(DEFAULT_MIN_EXCHANGE_RATE),
+            },
+            &mut storage,
+        )
+        .unwrap();
+
         // Parameters to be set in tests
         vault_registry::GenesisConfig::<Test> {
-            minimum_collateral_vault: vec![(DEFAULT_COLLATERAL_CURRENCY, 0)],
+            minimum_collateral_vault: vec![(DEFAULT_COLLATERAL_CURRENCY, 0), (WORST_CASE_COLLATERAL_CURRENCY, 0)],
             punishment_delay: 0,
-            system_collateral_ceiling: vec![(DEFAULT_CURRENCY_PAIR, 1_000_000_000_000)],
-            secure_collateral_threshold: vec![(DEFAULT_CURRENCY_PAIR, UnsignedFixedPoint::one())],
-            premium_redeem_threshold: vec![(DEFAULT_CURRENCY_PAIR, UnsignedFixedPoint::one())],
-            liquidation_collateral_threshold: vec![(DEFAULT_CURRENCY_PAIR, UnsignedFixedPoint::one())],
+            system_collateral_ceiling: vec![
+                (DEFAULT_CURRENCY_PAIR, 1_000_000_000_000),
+                (WORST_CASE_CURRENCY_PAIR, 1_000_000_000_000),
+            ],
+            secure_collateral_threshold: vec![
+                (DEFAULT_CURRENCY_PAIR, UnsignedFixedPoint::one()),
+                (WORST_CASE_CURRENCY_PAIR, UnsignedFixedPoint::one()),
+            ],
+            premium_redeem_threshold: vec![
+                (DEFAULT_CURRENCY_PAIR, UnsignedFixedPoint::one()),
+                (WORST_CASE_CURRENCY_PAIR, UnsignedFixedPoint::one()),
+            ],
+            liquidation_collateral_threshold: vec![
+                (DEFAULT_CURRENCY_PAIR, UnsignedFixedPoint::one()),
+                (WORST_CASE_CURRENCY_PAIR, UnsignedFixedPoint::one()),
+            ],
         }
         .assimilate_storage(&mut storage)
         .unwrap();
