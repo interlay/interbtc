@@ -12,6 +12,7 @@ pub mod issue;
 pub mod nomination;
 pub mod oracle;
 pub mod orml_asset_registry;
+pub mod orml_vesting;
 pub mod pallet_collective;
 pub mod pallet_identity;
 pub mod pallet_membership;

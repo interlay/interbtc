@@ -417,7 +417,7 @@ impl orml_vesting::Config for Runtime {
     type Currency = NativeCurrency;
     type MinVestedTransfer = MinVestedTransfer;
     type VestedTransferOrigin = EnsureKintsugiLabs;
-    type WeightInfo = ();
+    type WeightInfo = weights::orml_vesting::WeightInfo<Runtime>;
     type MaxVestingSchedules = MaxVestingSchedules;
     type BlockNumberProvider = System;
 }
@@ -1327,6 +1327,7 @@ mod benches {
     );
 }
 // [orml_tokens, runtime_common::benchmarking::orml_tokens::Pallet::<Runtime>]
+// [orml_vesting, runtime_common::benchmarking::orml_vesting::Pallet::<Runtime>]
 
 #[cfg(not(feature = "disable-runtime-api"))]
 impl_runtime_apis! {
@@ -1586,6 +1587,7 @@ impl_runtime_apis! {
             use frame_benchmarking::{Benchmarking, BenchmarkBatch, TrackedStorageKey};
             impl frame_system_benchmarking::Config for Runtime {}
             // impl  runtime_common::benchmarking::orml_tokens::Config for Runtime {}
+            impl  runtime_common::benchmarking::orml_vesting::Config for Runtime {}
             impl  runtime_common::benchmarking::orml_asset_registry::Config for Runtime {}
 
             use frame_support::traits::WhitelistedStorageKeys;

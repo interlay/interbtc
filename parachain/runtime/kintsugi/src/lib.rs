@@ -419,7 +419,7 @@ impl orml_vesting::Config for Runtime {
     type Currency = NativeCurrency;
     type MinVestedTransfer = MinVestedTransfer;
     type VestedTransferOrigin = EnsureKintsugiLabs;
-    type WeightInfo = ();
+    type WeightInfo = weights::orml_vesting::WeightInfo<Runtime>;
     type MaxVestingSchedules = MaxVestingSchedules;
     type BlockNumberProvider = System;
 }
@@ -1392,6 +1392,7 @@ mod benches {
         [democracy, Democracy]
         [frame_system, frame_system_benchmarking::Pallet::<Runtime>]
         [orml_tokens, runtime_common::benchmarking::orml_tokens::Pallet::<Runtime>]
+        [orml_vesting, runtime_common::benchmarking::orml_vesting::Pallet::<Runtime>]
         [orml_asset_registry, runtime_common::benchmarking::orml_asset_registry::Pallet::<Runtime>]
         [replace, Replace]
         [redeem, Redeem]
@@ -1539,7 +1540,8 @@ impl_runtime_apis! {
         ) -> Result<Vec<frame_benchmarking::BenchmarkBatch>, sp_runtime::RuntimeString> {
             use frame_benchmarking::{Benchmarking, BenchmarkBatch, TrackedStorageKey};
             impl frame_system_benchmarking::Config for Runtime {}
-            impl  runtime_common::benchmarking::orml_tokens::Config for Runtime {}
+            impl runtime_common::benchmarking::orml_tokens::Config for Runtime {}
+            impl runtime_common::benchmarking::orml_vesting::Config for Runtime {}
             impl  runtime_common::benchmarking::orml_asset_registry::Config for Runtime {}
 
             use frame_support::traits::WhitelistedStorageKeys;
