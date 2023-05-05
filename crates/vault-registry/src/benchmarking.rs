@@ -46,7 +46,6 @@ fn set_collateral_config<T: crate::Config>(vault_id: &DefaultVaultId<T>) {
 }
 
 fn register_vault_with_collateral<T: crate::Config>(vault_id: DefaultVaultId<T>) {
-    // Set all thresholds in a function call
     VaultRegistry::<T>::set_minimum_collateral(
         RawOrigin::Root.into(),
         vault_id.collateral_currency(),

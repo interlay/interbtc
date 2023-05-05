@@ -16,7 +16,6 @@ use oracle::Pallet as Oracle;
 use security::{Pallet as Security, StatusCode};
 use traits::LoansApi;
 use vault_registry::Pallet as VaultRegistry;
-// pub const LEND_TOKEN_FUNDING_AMOUNT: u128 = 1_000_000_000_000_000_000;
 
 fn deposit_tokens<T: crate::Config>(currency_id: CurrencyId, account_id: &T::AccountId, amount: BalanceOf<T>) {
     assert_ok!(<orml_tokens::Pallet<T>>::deposit(currency_id, account_id, amount));
