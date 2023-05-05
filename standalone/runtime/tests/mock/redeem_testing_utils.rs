@@ -70,6 +70,7 @@ impl ExecuteRedeemBuilder {
             redeem_id: self.redeem_id,
             merkle_proof,
             transaction,
+            length_bound: u32::MAX,
         })
         .dispatch(origin_of(self.submitter.clone()));
         VaultRegistryPallet::collateral_integrity_check();
@@ -212,6 +213,7 @@ pub fn assert_redeem_error(
             redeem_id: redeem_id,
             merkle_proof,
             transaction,
+            length_bound: u32::MAX,
         })
         .dispatch(origin_of(account_of(VAULT))),
         error

@@ -75,7 +75,7 @@ std = [
 	"currency/std",
 	"vault-registry/std",
 	"nomination/std",
-    "primitives/std",
+	"primitives/std",
 
 	"orml-tokens/std",
 	"orml-traits/std",
@@ -86,6 +86,7 @@ runtime-benchmarks = [
 	"frame-system/runtime-benchmarks",
 
 	"bitcoin/runtime-benchmarks",
+	"btc-relay/runtime-benchmarks",
 
 	"orml-tokens",
 	"orml-traits",

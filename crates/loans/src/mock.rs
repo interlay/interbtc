@@ -137,6 +137,9 @@ impl orml_tokens::Config for Test {
     type CurrencyId = CurrencyId;
     type WeightInfo = ();
     type ExistentialDeposits = ExistentialDeposits;
+    #[cfg(feature = "try-runtime")]
+    type CurrencyHooks = ();
+    #[cfg(not(feature = "try-runtime"))]
     type CurrencyHooks = CurrencyHooks<Test>;
     type MaxLocks = MaxLocks;
     type DustRemovalWhitelist = Everything;

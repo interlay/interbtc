@@ -363,7 +363,7 @@ pub mod benchmarks {
     #[benchmark]
     fn spend_from_treasury() {
         let beneficiary: T::AccountId = account("beneficiary", 0, 0);
-        T::Currency::make_free_balance_be(&T::TreasuryAccount::get(), 100u32.into());
+        T::TreasuryCurrency::make_free_balance_be(&T::TreasuryAccount::get(), 100u32.into());
         let value = 100u32.into();
 
         #[extrinsic_call]

@@ -34,7 +34,7 @@ use frame_support::{
     log,
     pallet_prelude::*,
     require_transactional,
-    traits::{tokens::fungibles::Inspect, UnixTime},
+    traits::{tokens::fungibles::Inspect, OnRuntimeUpgrade, UnixTime},
     transactional, PalletId,
 };
 use frame_system::pallet_prelude::*;
@@ -432,40 +432,6 @@ pub mod pallet {
             supply_rate: Rate,
             exchange_rate: Rate,
         },
-    }
-
-    #[pallet::hooks]
-    impl<T: Config> Hooks<T::BlockNumber> for Pallet<T> {
-        fn on_runtime_upgrade() -> frame_support::weights::Weight {
-            let max_exchange_rate = crate::MaxExchangeRate::<T>::get();
-            if max_exchange_rate.is_zero() {
-                crate::MaxExchangeRate::<T>::put(Rate::from_inner(DEFAULT_MAX_EXCHANGE_RATE));
-            }
-            let min_exchange_rate = crate::MinExchangeRate::<T>::get();
-            if min_exchange_rate.is_zero() {
-                crate::MinExchangeRate::<T>::put(Rate::from_inner(DEFAULT_MIN_EXCHANGE_RATE));
-            }
-            T::DbWeight::get().reads_writes(2, 2)
-        }
-
-        #[cfg(feature = "try-runtime")]
-        fn post_upgrade(_pre_upgrade_state: sp_std::vec::Vec<u8>) -> Result<(), &'static str> {
-            let max_exchange_rate = crate::MaxExchangeRate::<T>::get();
-            let min_exchange_rate = crate::MinExchangeRate::<T>::get();
-            ensure!(
-                !min_exchange_rate.is_zero(),
-                "Minimum lending exchange rate must be greater than zero"
-            );
-            ensure!(
-                !max_exchange_rate.is_zero(),
-                "Minimum lending exchange rate must be greater than zero"
-            );
-            ensure!(
-                min_exchange_rate.lt(&max_exchange_rate),
-                "Minimum lending exchange rate must be greater than the maximum exchange rate"
-            );
-            Ok(())
-        }
     }
 
     /// The timestamp of the last calculation of accrued interest

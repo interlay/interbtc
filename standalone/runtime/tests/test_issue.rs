@@ -489,6 +489,7 @@ fn integration_test_issue_wrapped_execute_succeeds() {
             issue_id: issue_id,
             merkle_proof,
             transaction,
+            length_bound: u32::MAX,
         })
         .dispatch(origin_of(account_of(vault_proof_submitter))));
     });
@@ -611,6 +612,7 @@ mod execute_pending_issue_tests {
                     issue_id: issue_id,
                     merkle_proof,
                     transaction,
+                    length_bound: u32::MAX,
                 })
                 .dispatch(origin_of(account_of(CAROL))),
                 BTCRelayError::InvalidTxid
@@ -636,6 +638,7 @@ mod execute_pending_issue_tests {
                     issue_id: issue_id,
                     merkle_proof,
                     transaction,
+                    length_bound: u32::MAX,
                 })
                 .dispatch(origin_of(account_of(CAROL))),
                 BTCRelayError::BlockNotFound

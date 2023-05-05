@@ -416,8 +416,11 @@ impl orml_vesting::Config for Runtime {
     type RuntimeEvent = RuntimeEvent;
     type Currency = NativeCurrency;
     type MinVestedTransfer = MinVestedTransfer;
+    #[cfg(feature = "runtime-benchmarks")]
+    type VestedTransferOrigin = frame_system::EnsureSigned<AccountId>;
+    #[cfg(not(feature = "runtime-benchmarks"))]
     type VestedTransferOrigin = EnsureKintsugiLabs;
-    type WeightInfo = ();
+    type WeightInfo = weights::orml_vesting::WeightInfo<Runtime>;
     type MaxVestingSchedules = MaxVestingSchedules;
     type BlockNumberProvider = System;
 }
@@ -655,6 +658,7 @@ parameter_type_with_key! {
     };
 }
 
+// TODO!: Set `OnSlash`, and Pre/Post hooks before the lending launch on interlay
 pub struct CurrencyHooks<T>(PhantomData<T>);
 impl<T: orml_tokens::Config> MutationHooks<T::AccountId, T::CurrencyId, T::Balance> for CurrencyHooks<T>
 where
@@ -705,7 +709,7 @@ impl orml_asset_registry::Config for Runtime {
     type AssetProcessor = SequentialId<Runtime>;
     type AssetId = primitives::ForeignAssetId;
     type AuthorityOrigin = AssetAuthority;
-    type WeightInfo = ();
+    type WeightInfo = weights::orml_asset_registry::WeightInfo<Runtime>;
 }
 
 parameter_types! {
@@ -1095,21 +1099,21 @@ impl issue::Config for Runtime {
     type TreasuryPalletId = TreasuryPalletId;
     type RuntimeEvent = RuntimeEvent;
     type BlockNumberToBalance = BlockNumberToBalance;
-    type WeightInfo = ();
+    type WeightInfo = weights::issue::WeightInfo<Runtime>;
 }
 
 pub use redeem::{Event as RedeemEvent, RedeemRequest};
 
 impl redeem::Config for Runtime {
     type RuntimeEvent = RuntimeEvent;
-    type WeightInfo = ();
+    type WeightInfo = weights::redeem::WeightInfo<Runtime>;
 }
 
 pub use replace::{Event as ReplaceEvent, ReplaceRequest};
 
 impl replace::Config for Runtime {
     type RuntimeEvent = RuntimeEvent;
-    type WeightInfo = ();
+    type WeightInfo = weights::replace::WeightInfo<Runtime>;
 }
 
 pub use nomination::Event as NominationEvent;
@@ -1289,16 +1293,7 @@ extern crate frame_benchmarking;
 #[cfg(feature = "runtime-benchmarks")]
 mod benches {
     define_benchmarks!(
-        [pallet_timestamp, Timestamp]
-        [pallet_utility, Utility]
-        [pallet_scheduler, Scheduler]
-        [pallet_preimage, Preimage]
-        [pallet_multisig, Multisig]
-        [pallet_identity, Identity]
-        [pallet_proxy, Proxy]
-        [tx_pause, TxPause]
-        [supply, Supply]
-        [escrow, Escrow]
+        // Parachain
         [annuity, EscrowAnnuity]
         [annuity, VaultAnnuity]
         [btc_relay, BTCRelay]
@@ -1308,14 +1303,35 @@ mod benches {
         [fee, Fee]
         [clients_info, ClientsInfo]
         [collator_selection, CollatorSelection]
-        [pallet_collective, TechnicalCommittee]
-        [pallet_membership, TechnicalMembership]
+        [escrow, Escrow]
+        [issue, Issue]
+        [nomination, Nomination]
+        [redeem, Redeem]
+        [replace, Replace]
+        [supply, Supply]
+        [tx_pause, TxPause]
+        [vault_registry, VaultRegistry]
+
+        // Other
         [cumulus_pallet_xcmp_queue, XcmpQueue]
-        [pallet_xcm, PolkadotXcm]
         [frame_system, frame_system_benchmarking::Pallet::<Runtime>]
+        [orml_asset_registry, runtime_common::benchmarking::orml_asset_registry::Pallet::<Runtime>]
+        // [orml_tokens, runtime_common::benchmarking::orml_tokens::Pallet::<Runtime>]
+        [orml_vesting, runtime_common::benchmarking::orml_vesting::Pallet::<Runtime>]
+        [pallet_collective, TechnicalCommittee]
+        [pallet_identity, Identity]
+        [pallet_membership, TechnicalMembership]
+        [pallet_multisig, Multisig]
+        [pallet_preimage, Preimage]
+        [pallet_proxy, Proxy]
+        [pallet_scheduler, Scheduler]
+        [pallet_timestamp, Timestamp]
+        [pallet_utility, Utility]
+        [pallet_xcm_benchmarks::fungible, pallet_xcm_benchmarks::fungible::Pallet::<Runtime>]
+        [pallet_xcm_benchmarks::generic, pallet_xcm_benchmarks::generic::Pallet::<Runtime>]
+        [pallet_xcm, PolkadotXcm]
     );
 }
-// [orml_tokens, runtime_common::benchmarking::orml_tokens::Pallet::<Runtime>]
 
 #[cfg(not(feature = "disable-runtime-api"))]
 impl_runtime_apis! {
@@ -1575,6 +1591,8 @@ impl_runtime_apis! {
             use frame_benchmarking::{Benchmarking, BenchmarkBatch, TrackedStorageKey};
             impl frame_system_benchmarking::Config for Runtime {}
             // impl  runtime_common::benchmarking::orml_tokens::Config for Runtime {}
+            impl  runtime_common::benchmarking::orml_vesting::Config for Runtime {}
+            impl  runtime_common::benchmarking::orml_asset_registry::Config for Runtime {}
 
             use frame_support::traits::WhitelistedStorageKeys;
             let mut whitelist: Vec<TrackedStorageKey> = AllPalletsWithSystem::whitelisted_storage_keys();

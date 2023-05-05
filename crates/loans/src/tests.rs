@@ -17,7 +17,7 @@
 
 mod edge_cases;
 mod interest_rate;
-mod lend_tokens;
+pub mod lend_tokens;
 mod liquidate_borrow;
 mod market;
 

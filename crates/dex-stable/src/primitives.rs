@@ -3,7 +3,7 @@
 
 use codec::{Decode, Encode};
 use frame_support::pallet_prelude::*;
-use sp_std::vec::Vec;
+use sp_std::fmt::Debug;
 
 pub type Balance = u128;
 pub type Number = Balance;
@@ -32,15 +32,22 @@ pub const MAX_A_CHANGE: u32 = 10;
 pub const MAX_ADMIN_FEE: Number = 10_000_000_000; // 100%
 pub const MAX_SWAP_FEE: Number = 100_000_000; // 1%
 
-#[derive(Encode, Decode, Clone, Default, PartialEq, Eq, Debug, TypeInfo)]
-pub struct BasePool<CurrencyId, AccountId, BoundString> {
-    pub currency_ids: Vec<CurrencyId>,
+#[derive(CloneNoBound, PartialEqNoBound, EqNoBound, RuntimeDebugNoBound, TypeInfo, Encode, Decode, MaxEncodedLen)]
+#[codec(mel_bound(skip_type_params(PoolCurrencyLimit, PoolCurrencySymbolLimit)))]
+#[scale_info(skip_type_params(PoolCurrencyLimit, PoolCurrencySymbolLimit))]
+
+pub struct BasePool<CurrencyId, AccountId, PoolCurrencyLimit: Get<u32>, PoolCurrencySymbolLimit: Get<u32>>
+where
+    AccountId: Clone + Debug + Eq + PartialEq,
+    CurrencyId: Clone + Debug + Eq + PartialEq,
+{
+    pub currency_ids: BoundedVec<CurrencyId, PoolCurrencyLimit>,
     pub lp_currency_id: CurrencyId,
     // token i multiplier to reach POOL_TOKEN_COMMON_DECIMALS
-    pub token_multipliers: Vec<Balance>,
+    pub token_multipliers: BoundedVec<Balance, PoolCurrencyLimit>,
     // effective balance which might different from token balance of the pool account because it
     // hold admin fee as well
-    pub balances: Vec<Balance>,
+    pub balances: BoundedVec<Balance, PoolCurrencyLimit>,
     // swap fee ratio. Change on any action which move balance state far from the ideal state
     pub fee: Number,
     // admin fee in ratio of swap fee.
@@ -53,35 +60,56 @@ pub struct BasePool<CurrencyId, AccountId, BoundString> {
     // the pool's account
     pub account: AccountId,
     pub admin_fee_receiver: AccountId,
-    pub lp_currency_symbol: BoundString,
+    pub lp_currency_symbol: BoundedVec<u8, PoolCurrencySymbolLimit>,
     pub lp_currency_decimal: u8,
 }
 
-#[derive(Encode, Decode, Clone, Default, PartialEq, Eq, Debug, TypeInfo)]
-pub struct MetaPool<PoolId, CurrencyId, AccountId, BoundString> {
+#[derive(CloneNoBound, PartialEqNoBound, EqNoBound, RuntimeDebugNoBound, TypeInfo, Encode, Decode, MaxEncodedLen)]
+#[codec(mel_bound(skip_type_params(PoolCurrencyLimit, PoolCurrencySymbolLimit)))]
+#[scale_info(skip_type_params(PoolCurrencyLimit, PoolCurrencySymbolLimit))]
+
+pub struct MetaPool<PoolId, CurrencyId, AccountId, PoolCurrencyLimit: Get<u32>, PoolCurrencySymbolLimit: Get<u32>>
+where
+    AccountId: Clone + Debug + Eq + PartialEq,
+    CurrencyId: Clone + Debug + Eq + PartialEq,
+    PoolId: Clone + Debug + Eq + PartialEq,
+{
     pub base_pool_id: PoolId,
     pub base_virtual_price: Balance,
     pub base_cache_last_updated: u64,
-    pub base_currencies: Vec<CurrencyId>,
+    pub base_currencies: BoundedVec<CurrencyId, PoolCurrencyLimit>,
 
-    pub info: BasePool<CurrencyId, AccountId, BoundString>,
+    pub info: BasePool<CurrencyId, AccountId, PoolCurrencyLimit, PoolCurrencySymbolLimit>,
 }
 
-#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, TypeInfo)]
-pub enum Pool<PoolId, CurrencyId, AccountId, BoundString> {
-    Base(BasePool<CurrencyId, AccountId, BoundString>),
-    Meta(MetaPool<PoolId, CurrencyId, AccountId, BoundString>),
+#[derive(CloneNoBound, PartialEqNoBound, EqNoBound, RuntimeDebugNoBound, TypeInfo, Encode, Decode, MaxEncodedLen)]
+#[codec(mel_bound(skip_type_params(PoolCurrencyLimit, PoolCurrencySymbolLimit)))]
+#[scale_info(skip_type_params(PoolCurrencyLimit, PoolCurrencySymbolLimit))]
+pub enum Pool<PoolId, CurrencyId, AccountId, PoolCurrencyLimit: Get<u32>, PoolCurrencySymbolLimit: Get<u32>>
+where
+    AccountId: Clone + Debug + Eq + PartialEq,
+    CurrencyId: Clone + Debug + Eq + PartialEq,
+    PoolId: Clone + Debug + Eq + PartialEq,
+{
+    Base(BasePool<CurrencyId, AccountId, PoolCurrencyLimit, PoolCurrencySymbolLimit>),
+    Meta(MetaPool<PoolId, CurrencyId, AccountId, PoolCurrencyLimit, PoolCurrencySymbolLimit>),
 }
 
-impl<PoolId, CurrencyId: Copy, AccountId: Clone, BoundString> Pool<PoolId, CurrencyId, AccountId, BoundString> {
-    pub fn info(self) -> BasePool<CurrencyId, AccountId, BoundString> {
+impl<PoolId, CurrencyId, AccountId: Clone, PoolCurrencyLimit: Get<u32>, PoolCurrencySymbolLimit: Get<u32>>
+    Pool<PoolId, CurrencyId, AccountId, PoolCurrencyLimit, PoolCurrencySymbolLimit>
+where
+    AccountId: Clone + Debug + Eq + PartialEq,
+    CurrencyId: Clone + Copy + Debug + Eq + PartialEq,
+    PoolId: Clone + Copy + Debug + Eq + PartialEq,
+{
+    pub fn info(self) -> BasePool<CurrencyId, AccountId, PoolCurrencyLimit, PoolCurrencySymbolLimit> {
         match self {
             Pool::Base(bp) => bp,
             Pool::Meta(mp) => mp.info,
         }
     }
 
-    pub fn get_currency_ids(self) -> Vec<CurrencyId> {
+    pub fn get_currency_ids(self) -> BoundedVec<CurrencyId, PoolCurrencyLimit> {
         match self {
             Pool::Base(bp) => bp.currency_ids,
             Pool::Meta(mp) => mp.info.currency_ids,
@@ -102,14 +130,14 @@ impl<PoolId, CurrencyId: Copy, AccountId: Clone, BoundString> Pool<PoolId, Curre
         }
     }
 
-    pub fn get_token_multipliers(self) -> Vec<Balance> {
+    pub fn get_token_multipliers(self) -> BoundedVec<Balance, PoolCurrencyLimit> {
         match self {
             Pool::Base(bp) => bp.token_multipliers,
             Pool::Meta(mp) => mp.info.token_multipliers,
         }
     }
 
-    pub fn get_balances(&self) -> Vec<Balance> {
+    pub fn get_balances(&self) -> BoundedVec<Balance, PoolCurrencyLimit> {
         match self {
             Pool::Base(bp) => bp.balances.clone(),
             Pool::Meta(mp) => mp.info.balances.clone(),

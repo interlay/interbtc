@@ -65,7 +65,7 @@ std = [
 
   "currency/std",
   "security/std",
-	"vault-registry/std",
+  "vault-registry/std",
   "fee/std",
   "reward/std",
   "oracle/std",
@@ -74,15 +74,15 @@ std = [
 
   "primitives/std",
 
-	"orml-tokens/std",
-	"orml-traits/std",
+  "orml-tokens/std",
+  "orml-traits/std",
 ]
 runtime-benchmarks = [
-	"frame-benchmarking",
-	"frame-support/runtime-benchmarks",
-	"frame-system/runtime-benchmarks",
+  "frame-benchmarking",
+  "frame-support/runtime-benchmarks",
+  "frame-system/runtime-benchmarks",
 
-	"orml-tokens",
-	"orml-traits",
+  "orml-tokens",
+  "orml-traits",
 ]
 try-runtime = [ "frame-support/try-runtime" ]

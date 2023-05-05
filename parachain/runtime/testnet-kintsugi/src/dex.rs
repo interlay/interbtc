@@ -9,6 +9,7 @@ pub use dex_stable::traits::{StablePoolLpCurrencyIdGenerate, ValidateCurrency};
 parameter_types! {
     pub const DexGeneralPalletId: PalletId = PalletId(*b"dex/genr");
     pub const DexStablePalletId: PalletId = PalletId(*b"dex/stbl");
+    pub const CurrencyLimit: u32 = 10;
     pub const StringLimit: u32 = 50;
     pub const MaxSwaps:u16 = 4;
     pub const MaxBootstrapRewards: u32 = 1000;
@@ -63,18 +64,8 @@ impl dex_stable::Config for Runtime {
     type TimeProvider = Timestamp;
     type EnsurePoolAsset = StableAmmVerifyPoolAsset;
     type LpGenerate = PoolLpGenerate;
+    type PoolCurrencyLimit = CurrencyLimit;
     type PoolCurrencySymbolLimit = StringLimit;
     type PalletId = DexStablePalletId;
     type WeightInfo = weights::dex_stable::WeightInfo<Runtime>;
-}
-
-impl dex_swap_router::Config for Runtime {
-    type RuntimeEvent = RuntimeEvent;
-    type StablePoolId = StablePoolId;
-    type Balance = Balance;
-    type CurrencyId = CurrencyId;
-    type NormalAmm = DexGeneral;
-    type StableAMM = DexStable;
-    type MaxSwaps = MaxSwaps;
-    type WeightInfo = weights::dex_swap_router::WeightInfo<Runtime>;
 }

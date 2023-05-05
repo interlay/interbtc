@@ -98,7 +98,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     spec_name: create_runtime_str!("kintsugi-parachain"),
     impl_name: create_runtime_str!("kintsugi-parachain"),
     authoring_version: 1,
-    spec_version: 1023002,
+    spec_version: 1023003,
     impl_version: 1,
     transaction_version: 3, // added preimage
     apis: RUNTIME_API_VERSIONS,
@@ -418,8 +418,11 @@ impl orml_vesting::Config for Runtime {
     type RuntimeEvent = RuntimeEvent;
     type Currency = NativeCurrency;
     type MinVestedTransfer = MinVestedTransfer;
+    #[cfg(feature = "runtime-benchmarks")]
+    type VestedTransferOrigin = frame_system::EnsureSigned<AccountId>;
+    #[cfg(not(feature = "runtime-benchmarks"))]
     type VestedTransferOrigin = EnsureKintsugiLabs;
-    type WeightInfo = ();
+    type WeightInfo = weights::orml_vesting::WeightInfo<Runtime>;
     type MaxVestingSchedules = MaxVestingSchedules;
     type BlockNumberProvider = System;
 }
@@ -719,7 +722,7 @@ impl orml_asset_registry::Config for Runtime {
     type AssetProcessor = SequentialId<Runtime>;
     type AssetId = primitives::ForeignAssetId;
     type AuthorityOrigin = AssetAuthority;
-    type WeightInfo = ();
+    type WeightInfo = weights::orml_asset_registry::WeightInfo<Runtime>;
 }
 
 parameter_types! {
@@ -1129,21 +1132,21 @@ impl issue::Config for Runtime {
     type TreasuryPalletId = TreasuryPalletId;
     type RuntimeEvent = RuntimeEvent;
     type BlockNumberToBalance = BlockNumberToBalance;
-    type WeightInfo = ();
+    type WeightInfo = weights::issue::WeightInfo<Runtime>;
 }
 
 pub use redeem::{Event as RedeemEvent, RedeemRequest};
 
 impl redeem::Config for Runtime {
     type RuntimeEvent = RuntimeEvent;
-    type WeightInfo = ();
+    type WeightInfo = weights::redeem::WeightInfo<Runtime>;
 }
 
 pub use replace::{Event as ReplaceEvent, ReplaceRequest};
 
 impl replace::Config for Runtime {
     type RuntimeEvent = RuntimeEvent;
-    type WeightInfo = ();
+    type WeightInfo = weights::replace::WeightInfo<Runtime>;
 }
 
 pub use nomination::Event as NominationEvent;
@@ -1268,7 +1271,7 @@ construct_runtime! {
         Loans: loans::{Pallet, Call, Storage, Event<T>, Config} = 100,
         DexGeneral: dex_general::{Pallet, Call, Storage, Event<T>} = 101,
         DexStable: dex_stable::{Pallet, Call, Storage, Event<T>}  = 102,
-        DexSwapRouter: dex_swap_router::{Pallet, Call, Event<T>} = 103,
+        // DexSwapRouter: 103
     }
 }
 
@@ -1297,58 +1300,8 @@ pub type UncheckedExtrinsic = generic::UncheckedExtrinsic<Address, RuntimeCall, 
 /// Extrinsic type that has already been checked.
 pub type CheckedExtrinsic = generic::CheckedExtrinsic<AccountId, RuntimeCall, SignedExtra>;
 /// Executive: handles dispatch to the various modules.
-pub type Executive = frame_executive::Executive<
-    Runtime,
-    Block,
-    frame_system::ChainContext<Runtime>,
-    Runtime,
-    AllPalletsWithSystem,
-    (
-        VersionNotifyTargetsFix, // Note: needs to be before pallet_xcm migration
-        pallet_xcm::migration::v1::MigrateToV1<Runtime>,
-        orml_asset_registry::Migration<Runtime>,
-        orml_unknown_tokens::Migration<Runtime>,
-    ),
->;
-
-/// Adds the relay chain as a subscriber for xcm version notifications. Kusama subscribed to us,
-/// but this is not reflected in our chain state due to an error in the early days of our xcm
-/// config. Add it now such that kusama will be notified of our version upgrade. Without it,
-/// transfers from kusama will no longer work.
-pub struct VersionNotifyTargetsFix;
-
-impl OnRuntimeUpgrade for VersionNotifyTargetsFix {
-    fn on_runtime_upgrade() -> Weight {
-        use crate::sp_api_hidden_includes_construct_runtime::hidden_include::StorageHasher;
-        use codec::Encode;
-        use frame_support::storage::migration::put_storage_value;
-        use xcm::VersionedMultiLocation;
-
-        let key_1 = Twox64Concat::hash(&2u32.encode());
-
-        let key_2 = Blake2_128Concat::hash(
-            &VersionedMultiLocation::V2(xcm::v2::MultiLocation::new(1, xcm::v2::Junctions::Here)).encode(),
-        );
-
-        let key = [key_1, key_2].concat();
-
-        // The 2653 below needs to match kusama.xcmPallet.versionNotifiers(2, OUR_PARA)
-        let value: (u64, u64, u32) = (2653, 0, 2);
-
-        put_storage_value(b"PolkadotXcm", b"VersionNotifyTargets", &key, value);
-
-        Default::default()
-    }
-    #[cfg(feature = "try-runtime")]
-    fn pre_upgrade() -> Result<Vec<u8>, &'static str> {
-        Ok(Vec::new())
-    }
-    #[cfg(feature = "try-runtime")]
-    fn post_upgrade(_state: Vec<u8>) -> Result<(), &'static str> {
-        // tested with chopsticks - not bothering with try-runtime check
-        Ok(())
-    }
-}
+pub type Executive =
+    frame_executive::Executive<Runtime, Block, frame_system::ChainContext<Runtime>, Runtime, AllPalletsWithSystem, ()>;
 
 #[cfg(feature = "runtime-benchmarks")]
 #[macro_use]
@@ -1357,38 +1310,47 @@ extern crate frame_benchmarking;
 #[cfg(feature = "runtime-benchmarks")]
 mod benches {
     define_benchmarks!(
-        [pallet_timestamp, Timestamp]
-        [pallet_utility, Utility]
-        [pallet_scheduler, Scheduler]
-        [pallet_preimage, Preimage]
-        [pallet_multisig, Multisig]
-        [pallet_identity, Identity]
-        [pallet_proxy, Proxy]
-        [tx_pause, TxPause]
-        [supply, Supply]
-        [escrow, Escrow]
+        // Parachain
         [annuity, EscrowAnnuity]
         [annuity, VaultAnnuity]
-        [farming, Farming]
         [btc_relay, BTCRelay]
-        [security, Security]
-        [vault_registry, VaultRegistry]
-        [oracle, Oracle]
-        [fee, Fee]
-        [nomination, Nomination]
         [clients_info, ClientsInfo]
         [collator_selection, CollatorSelection]
-        [pallet_collective, TechnicalCommittee]
-        [pallet_membership, TechnicalMembership]
-        [cumulus_pallet_xcmp_queue, XcmpQueue]
-        [pallet_xcm, PolkadotXcm]
-        [loans, Loans]
+        [democracy, Democracy]
         [dex_general, DexGeneral]
         [dex_stable, DexStable]
-        [dex_swap_router, DexSwapRouter]
-        [democracy, Democracy]
+        [escrow, Escrow]
+        [farming, Farming]
+        [fee, Fee]
+        [issue, Issue]
+        [loans, Loans]
+        [nomination, Nomination]
+        [oracle, Oracle]
+        [redeem, Redeem]
+        [replace, Replace]
+        [security, Security]
+        [supply, Supply]
+        [tx_pause, TxPause]
+        [vault_registry, VaultRegistry]
+
+        // Other
+        [cumulus_pallet_xcmp_queue, XcmpQueue]
         [frame_system, frame_system_benchmarking::Pallet::<Runtime>]
+        [orml_asset_registry, runtime_common::benchmarking::orml_asset_registry::Pallet::<Runtime>]
         [orml_tokens, runtime_common::benchmarking::orml_tokens::Pallet::<Runtime>]
+        [orml_vesting, runtime_common::benchmarking::orml_vesting::Pallet::<Runtime>]
+        [pallet_collective, TechnicalCommittee]
+        [pallet_identity, Identity]
+        [pallet_membership, TechnicalMembership]
+        [pallet_multisig, Multisig]
+        [pallet_preimage, Preimage]
+        [pallet_proxy, Proxy]
+        [pallet_scheduler, Scheduler]
+        [pallet_timestamp, Timestamp]
+        [pallet_utility, Utility]
+        [pallet_xcm_benchmarks::fungible, pallet_xcm_benchmarks::fungible::Pallet::<Runtime>]
+        [pallet_xcm_benchmarks::generic, pallet_xcm_benchmarks::generic::Pallet::<Runtime>]
+        [pallet_xcm, PolkadotXcm]
     );
 }
 
@@ -1531,7 +1493,9 @@ impl_runtime_apis! {
         ) -> Result<Vec<frame_benchmarking::BenchmarkBatch>, sp_runtime::RuntimeString> {
             use frame_benchmarking::{Benchmarking, BenchmarkBatch, TrackedStorageKey};
             impl frame_system_benchmarking::Config for Runtime {}
-            impl  runtime_common::benchmarking::orml_tokens::Config for Runtime {}
+            impl runtime_common::benchmarking::orml_tokens::Config for Runtime {}
+            impl runtime_common::benchmarking::orml_vesting::Config for Runtime {}
+            impl  runtime_common::benchmarking::orml_asset_registry::Config for Runtime {}
 
             use frame_support::traits::WhitelistedStorageKeys;
             let mut whitelist: Vec<TrackedStorageKey> = AllPalletsWithSystem::whitelisted_storage_keys();

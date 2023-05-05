@@ -264,20 +264,32 @@ pub mod pallet {
         /// * `origin` - anyone executing this redeem request
         /// * `redeem_id` - identifier of redeem request as output from request_redeem
         /// * `tx_id` - transaction hash
-        /// * `tx_block_height` - block number of collateral chain
-        /// * `merkle_proof` - raw bytes
-        /// * `raw_tx` - raw bytes
+        /// * `merkle_proof` - membership proof
+        /// * `transaction` - tx containing payment
+        ///
+        /// ## Complexity:
+        /// - `O(H + I + O + B)` where:
+        ///   - `H` is the number of hashes in the merkle tree
+        ///   - `I` is the number of transaction inputs
+        ///   - `O` is the number of transaction outputs
+        ///   - `B` is `transaction` size in bytes (length-fee-bounded)
         #[pallet::call_index(2)]
-        #[pallet::weight(<T as Config>::WeightInfo::execute_redeem())]
+        #[pallet::weight(<T as Config>::WeightInfo::execute_redeem(
+            merkle_proof.hashes.len() as u32, // H
+            transaction.inputs.len() as u32, // I
+            transaction.outputs.len() as u32, // O
+            *length_bound,
+        ))]
         #[transactional]
         pub fn execute_redeem(
             origin: OriginFor<T>,
             redeem_id: H256,
             merkle_proof: MerkleProof,
             transaction: Transaction,
+            #[pallet::compact] length_bound: u32,
         ) -> DispatchResultWithPostInfo {
             let _ = ensure_signed(origin)?;
-            Self::_execute_redeem(redeem_id, merkle_proof, transaction)?;
+            Self::_execute_redeem(redeem_id, merkle_proof, transaction, length_bound)?;
 
             // Don't take tx fees on success. If the vault had to pay for this function, it would
             // have been vulnerable to a griefing attack where users would redeem amounts just
@@ -463,7 +475,7 @@ impl<T: Config> Pallet<T> {
             Error::<T>::AmountExceedsUserBalance
         );
 
-        // We saw a user lose bitcoin when he forgot to enter the address in the polkadotjs ui.
+        // We saw a user lose bitcoin when they forgot to enter the address in the polkadot-js ui.
         // Make sure this can't happen again.
         ensure!(!btc_address.is_zero(), btc_relay::Error::<T>::InvalidBtcHash);
 
@@ -571,6 +583,7 @@ impl<T: Config> Pallet<T> {
         redeem_id: H256,
         merkle_proof: MerkleProof,
         transaction: Transaction,
+        length_bound: u32,
     ) -> Result<(), DispatchError> {
         let redeem = Self::get_open_redeem_request_from_id(&redeem_id)?;
 
@@ -578,6 +591,7 @@ impl<T: Config> Pallet<T> {
         ext::btc_relay::verify_and_validate_op_return_transaction::<T, _>(
             merkle_proof,
             transaction,
+            length_bound, // need to check this first to avoid excess work
             redeem.btc_address,
             redeem.amount_btc,
             redeem_id,
