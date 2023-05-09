@@ -35,7 +35,7 @@ fn set_default_exchange_rate<T: crate::Config>() {
 }
 
 fn set_collateral_config<T: crate::Config>(vault_id: &DefaultVaultId<T>) {
-    <MinimumCollateralVault<T>>::insert::<CurrencyId, BalanceOf<T>>(vault_id.collateral_currency(), 0u32.into());
+    VaultRegistry::<T>::_set_minimum_collateral_vault(vault_id.collateral_currency(), 0u32.into());
     VaultRegistry::<T>::_set_system_collateral_ceiling(vault_id.currencies.clone(), 1_000_000_000u32.into());
     VaultRegistry::<T>::_set_secure_collateral_threshold(vault_id.currencies.clone(), UnsignedFixedPoint::<T>::one());
     VaultRegistry::<T>::_set_premium_redeem_threshold(vault_id.currencies.clone(), UnsignedFixedPoint::<T>::one());

@@ -1303,14 +1303,14 @@ mod benches {
         [escrow, Escrow]
         [fee, Fee]
         [issue, Issue]
-        [nomination, Nomination]
+        // [nomination, Nomination]
         [oracle, Oracle]
         [redeem, Redeem]
         [replace, Replace]
         [security, Security]
         [supply, Supply]
         [tx_pause, TxPause]
-        [vault_registry, VaultRegistry]
+        // [vault_registry, VaultRegistry]
 
         // Other
         [cumulus_pallet_xcmp_queue, XcmpQueue]

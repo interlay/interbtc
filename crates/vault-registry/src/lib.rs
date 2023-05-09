@@ -1514,6 +1514,10 @@ impl<T: Config> Pallet<T> {
         Self::is_collateral_below_threshold(collateral, wrapped_amount, threshold)
     }
 
+    pub fn _set_minimum_collateral_vault(collateral_currency: CurrencyId<T>, min_collateral: BalanceOf<T>) {
+        MinimumCollateralVault::<T>::insert(collateral_currency, min_collateral);
+    }
+
     pub fn _set_system_collateral_ceiling(currency_pair: DefaultVaultCurrencyPair<T>, ceiling: BalanceOf<T>) {
         SystemCollateralCeiling::<T>::insert(currency_pair, ceiling);
     }

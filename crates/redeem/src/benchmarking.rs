@@ -121,7 +121,7 @@ fn get_vault_id<T: crate::Config>() -> DefaultVaultId<T> {
 
 #[benchmarks(
 	where
-		<<T as vault_registry::Config>::Balance as TryInto<i64>>::Error: Debug,
+		<<T as currency::Config>::Balance as TryInto<i64>>::Error: Debug,
 )]
 pub mod benchmarks {
     use super::*;
