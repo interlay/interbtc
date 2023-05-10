@@ -4,7 +4,7 @@ use crate::{
     BtcPublicKey, CurrencySource, DefaultVaultId, DispatchError, Vault,
 };
 use codec::Decode;
-use currency::Amount;
+use currency::{Amount, CurrencyConversion};
 use frame_support::{assert_err, assert_noop, assert_ok};
 use mocktopus::mocking::*;
 use pretty_assertions::assert_eq;
@@ -96,7 +96,8 @@ fn create_vault_and_issue_tokens(
     create_vault_with_collateral(&id, collateral);
 
     // exchange rate 1 Satoshi = 10 Planck (smallest unit of DOT)
-    convert_to.mock_safe(move |currency, x| MockResult::Return(Ok(Amount::new(x.amount() / 10, currency))));
+    <oracle::Pallet<Test>>::_set_exchange_rate(id.collateral_currency(), UnsignedFixedPoint::from_rational(10, 1))
+        .unwrap();
 
     // issue tokens with 200% collateralization of DEFAULT_COLLATERAL
     assert_ok!(VaultRegistry::try_increase_to_be_issued_tokens(
@@ -673,8 +674,6 @@ fn is_collateral_below_threshold_true_succeeds() {
         let btc_amount = DEFAULT_COLLATERAL / 2;
         let threshold = FixedU128::checked_from_rational(201, 100).unwrap(); // 201%
 
-        convert_to.mock_safe(move |_, _| MockResult::Return(Ok(wrapped(collateral))));
-
         assert_eq!(
             VaultRegistry::is_collateral_below_threshold(&amount(collateral), &wrapped(btc_amount), threshold),
             Ok(true)
@@ -689,8 +688,6 @@ fn is_collateral_below_threshold_false_succeeds() {
         let btc_amount = 50;
         let threshold = FixedU128::checked_from_rational(200, 100).unwrap(); // 200%
 
-        convert_to.mock_safe(move |_, _| MockResult::Return(Ok(wrapped(collateral))));
-
         assert_eq!(
             VaultRegistry::is_collateral_below_threshold(&amount(collateral), &wrapped(btc_amount), threshold),
             Ok(false)
@@ -703,8 +700,6 @@ fn calculate_max_wrapped_from_collateral_for_threshold_succeeds() {
     run_test(|| {
         let collateral: u128 = u64::MAX as u128;
         let threshold = FixedU128::checked_from_rational(200, 100).unwrap(); // 200%
-
-        convert_to.mock_safe(move |_, _| MockResult::Return(Ok(wrapped(collateral))));
 
         assert_eq!(
             VaultRegistry::calculate_max_wrapped_from_collateral_for_threshold(
@@ -1240,7 +1235,11 @@ mod get_vaults_with_issuable_tokens_tests {
             assert_eq!(vault.data.to_be_redeemed_tokens, 0);
 
             // update the exchange rate
-            convert_to.mock_safe(convert_with_exchange_rate(2));
+            <oracle::Pallet<Test>>::_set_exchange_rate(
+                id.collateral_currency(),
+                UnsignedFixedPoint::from_rational(2, 1),
+            )
+            .unwrap();
             VaultRegistry::_set_secure_collateral_threshold(
                 DEFAULT_CURRENCY_PAIR,
                 FixedU128::checked_from_rational(150, 100).unwrap(), // 150%

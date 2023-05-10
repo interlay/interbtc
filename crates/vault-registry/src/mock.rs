@@ -1,5 +1,6 @@
 use crate as vault_registry;
 use crate::{Config, Error};
+use currency::CurrencyConversion;
 use frame_support::{
     parameter_types,
     traits::{ConstU32, Everything, GenesisBuild},
@@ -215,22 +216,12 @@ impl loans::Config for Test {
     type OnExchangeRateChange = ();
 }
 
-pub struct CurrencyConvert;
-impl currency::CurrencyConversion<currency::Amount<Test>, CurrencyId> for CurrencyConvert {
-    fn convert(
-        amount: &currency::Amount<Test>,
-        to: CurrencyId,
-    ) -> Result<currency::Amount<Test>, sp_runtime::DispatchError> {
-        convert_to(to, amount.clone())
-    }
-}
-
 #[cfg_attr(test, mockable)]
 pub fn convert_to(
     to: CurrencyId,
     amount: currency::Amount<Test>,
 ) -> Result<currency::Amount<Test>, sp_runtime::DispatchError> {
-    <oracle::Pallet<Test>>::convert(&amount, to)
+    currency::CurrencyConvert::<Test, Oracle, Loans>::convert(&amount, to)
 }
 
 impl currency::Config for Test {
