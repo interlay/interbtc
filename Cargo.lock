@@ -2446,6 +2446,29 @@ dependencies = [
 ]
 
 [[package]]
+name = "dex-swap-router"
+version = "0.1.0"
+dependencies = [
+ "dex-general",
+ "dex-stable",
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "orml-tokens",
+ "orml-traits",
+ "pallet-balances",
+ "pallet-timestamp",
+ "parity-scale-codec",
+ "scale-info",
+ "serde",
+ "sp-arithmetic",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-std",
+]
+
+[[package]]
 name = "diff"
 version = "0.1.13"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4784,6 +4807,7 @@ dependencies = [
  "dex-general-rpc-runtime-api",
  "dex-stable",
  "dex-stable-rpc-runtime-api",
+ "dex-swap-router",
  "escrow",
  "escrow-rpc-runtime-api",
  "farming",
@@ -13240,6 +13264,7 @@ dependencies = [
  "dex-general-rpc-runtime-api",
  "dex-stable",
  "dex-stable-rpc-runtime-api",
+ "dex-swap-router",
  "escrow",
  "escrow-rpc-runtime-api",
  "farming",
@@ -13351,6 +13376,7 @@ dependencies = [
  "dex-general-rpc-runtime-api",
  "dex-stable",
  "dex-stable-rpc-runtime-api",
+ "dex-swap-router",
  "escrow",
  "escrow-rpc-runtime-api",
  "farming",
