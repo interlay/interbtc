@@ -30,6 +30,7 @@ oracle = { path = "../oracle", default-features = false }
 fee = { path = "../fee", default-features = false }
 security = { path = "../security", default-features = false }
 vault-registry = { path = "../vault-registry", default-features = false }
+loans = { path = "../loans", default-features = false }
 primitives = { package = "interbtc-primitives", path = "../../primitives", default-features = false }
 
 # Orml dependencies
@@ -76,6 +77,7 @@ std = [
 	"vault-registry/std",
 	"nomination/std",
 	"primitives/std",
+	"loans/std",
 
 	"orml-tokens/std",
 	"orml-traits/std",
@@ -87,6 +89,7 @@ runtime-benchmarks = [
 
 	"bitcoin/runtime-benchmarks",
 	"btc-relay/runtime-benchmarks",
+	"vault-registry/runtime-benchmarks",
 
 	"orml-tokens",
 	"orml-traits",

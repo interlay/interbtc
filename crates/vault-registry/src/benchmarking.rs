@@ -1,3 +1,5 @@
+#![cfg(feature = "runtime-benchmarks")]
+
 use super::*;
 use crate::{types::BtcPublicKey, Pallet as VaultRegistry};
 use currency::getters::{get_relay_chain_currency_id as get_collateral_currency_id, *};
@@ -119,7 +121,7 @@ pub fn activate_lending_and_mint<T: loans::Config>(
     mint_lend_tokens::<T>(account_id, lend_token_id);
 }
 
-fn activate_lending_and_get_vault_id<T: crate::Config + loans::Config>() -> DefaultVaultId<T> {
+pub fn activate_lending_and_get_vault_id<T: crate::Config + loans::Config>() -> DefaultVaultId<T> {
     let account_id: T::AccountId = account("Vault", 0, 0);
     let lend_token = CurrencyId::LendToken(1);
     activate_lending_and_mint::<T>(get_collateral_currency_id::<T>(), lend_token.clone(), &account_id);
