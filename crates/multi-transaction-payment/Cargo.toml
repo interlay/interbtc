@@ -1,0 +1,63 @@
+[package]
+authors = ["Interlay Ltd"]
+description = "Multi transaction payment module"
+edition = "2021"
+homepage = "https://spec.interlay.io/spec/collateral.html"
+name = "multi-transaction-payment"
+version = "1.2.0"
+
+[dependencies]
+serde = { version = "1.0.130", default-features = false, features = ["derive"], optional = true }
+codec = { package = "parity-scale-codec", version = "3.1.5", default-features = false, features = ["derive", "max-encoded-len"] }
+scale-info = { version = "2.2.0", default-features = false, features = ["derive"] }
+
+sp-std = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.31", default-features = false }
+sp-runtime = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.31", default-features = false }
+frame-support = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.31", default-features = false }
+frame-system = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.31", default-features = false }
+pallet-transaction-payment = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.31", default-features = false }
+
+# Parachain dependencies
+primitives = { package = "interbtc-primitives", path = "../../primitives", default-features = false }
+traits = { path = '../traits', default-features = false }
+currency = { path = '../currency', default-features = false }
+dex-general = { path = '../dex-general', default-features = false }
+
+# Orml dependencies
+orml-tokens = { git = "https://github.com/open-web3-stack/open-runtime-module-library", rev = "dc39cfddefb10ef0de23655e2c3dcdab66a19404", default-features = false }
+orml-traits = { git = "https://github.com/open-web3-stack/open-runtime-module-library", rev = "dc39cfddefb10ef0de23655e2c3dcdab66a19404", default-features = false }
+
+# for other pallets wanting to mock functions
+mocktopus = { version = "0.8.0", optional = true }
+
+[dev-dependencies]
+sp-core = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.31", default-features = false }
+sp-io = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.31", default-features = false }
+sp-runtime = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.31", default-features = false }
+sp-arithmetic = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.31", default-features = false }
+primitives = { package = "interbtc-primitives", path = "../../primitives", default-features = false }
+
+[features]
+default = ["std"]
+std = [
+  "serde",
+  "codec/std",
+  "scale-info/std",
+
+  "sp-std/std",
+  "sp-runtime/std",
+  "frame-support/std",
+  "frame-system/std",
+  "pallet-transaction-payment/std",
+
+  "primitives/std",
+  "currency/std",
+  "dex-general/std",
+
+	"orml-tokens/std",
+	"orml-traits/std",
+]
+testing-utils = [
+  "mocktopus"
+]
+try-runtime = [ "frame-support/try-runtime" ]

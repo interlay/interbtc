@@ -4831,6 +4831,7 @@ dependencies = [
  "loans-rpc-runtime-api",
  "log",
  "mocktopus",
+ "multi-transaction-payment",
  "nomination",
  "oracle",
  "oracle-rpc-runtime-api",
@@ -6073,6 +6074,30 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 1.0.109",
+]
+
+[[package]]
+name = "multi-transaction-payment"
+version = "1.2.0"
+dependencies = [
+ "currency",
+ "dex-general",
+ "frame-support",
+ "frame-system",
+ "interbtc-primitives",
+ "mocktopus",
+ "orml-tokens",
+ "orml-traits",
+ "pallet-transaction-payment",
+ "parity-scale-codec",
+ "scale-info",
+ "serde",
+ "sp-arithmetic",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-std",
+ "traits",
 ]
 
 [[package]]

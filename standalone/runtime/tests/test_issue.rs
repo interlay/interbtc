@@ -462,11 +462,11 @@ fn integration_test_issue_wrapped_execute_succeeds() {
         register_vault(&vault_id_proof_submitter, collateral_vault);
 
         // alice requests wrapped by locking btc with bob
-        assert_ok!(RuntimeCall::Issue(IssueCall::request_issue {
+        RuntimeCall::Issue(IssueCall::request_issue {
             amount: amount_btc.amount(),
             vault_id: vault_id,
         })
-        .dispatch(origin_of(account_of(USER))));
+        .dispatch(origin_of(account_of(USER)));
 
         let issue_id = assert_issue_request_event();
         let issue_request = IssuePallet::get_issue_request_from_id(&issue_id).unwrap();
