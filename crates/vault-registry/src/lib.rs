@@ -34,8 +34,7 @@ use mocktopus::macros::mockable;
 use primitives::VaultCurrencyPair;
 
 use crate::types::{
-    BalanceOf, BtcAddress, CurrencyId, DefaultSystemVault, RichSystemVault, RichVault, SignedInner, UnsignedFixedPoint,
-    Version,
+    BalanceOf, BtcAddress, CurrencyId, DefaultSystemVault, RichSystemVault, RichVault, UnsignedFixedPoint, Version,
 };
 
 use crate::types::DefaultVaultCurrencyPair;
@@ -43,8 +42,6 @@ use crate::types::DefaultVaultCurrencyPair;
 pub use crate::types::{
     BtcPublicKey, CurrencySource, DefaultVault, DefaultVaultId, SystemVault, Vault, VaultId, VaultStatus,
 };
-use bitcoin::types::Value;
-use codec::FullCodec;
 pub use currency::Amount;
 use currency::Rounding;
 use frame_support::{
@@ -57,20 +54,13 @@ use frame_system::{
     ensure_signed,
     offchain::{SendTransactionTypes, SubmitTransaction},
 };
-use scale_info::TypeInfo;
 use sp_core::{H256, U256};
-#[cfg(feature = "std")]
-use sp_runtime::traits::AtLeast32BitUnsigned;
 use sp_runtime::{
     traits::*,
     transaction_validity::{InvalidTransaction, TransactionSource, TransactionValidity, ValidTransaction},
-    ArithmeticError, FixedPointOperand,
+    ArithmeticError,
 };
-use sp_std::{
-    convert::{TryFrom, TryInto},
-    fmt::Debug,
-    vec::Vec,
-};
+use sp_std::{convert::TryInto, fmt::Debug, vec::Vec};
 use traits::NominationApi;
 
 // value taken from https://github.com/substrate-developer-hub/recipes/blob/master/pallets/ocw-demo/src/lib.rs
@@ -96,8 +86,8 @@ pub mod pallet {
         + SendTransactionTypes<Call<Self>>
         + oracle::Config
         + security::Config
-        + currency::Config<Balance = BalanceOf<Self>>
-        + fee::Config<UnsignedInner = BalanceOf<Self>, SignedInner = SignedInner<Self>>
+        + currency::Config
+        + fee::Config
     {
         /// The vault module id, used for deriving its sovereign account ID.
         #[pallet::constant] // put the constant in metadata
@@ -107,21 +97,6 @@ pub mod pallet {
         type RuntimeEvent: From<Event<Self>>
             + Into<<Self as frame_system::Config>::RuntimeEvent>
             + IsType<<Self as frame_system::Config>::RuntimeEvent>;
-
-        /// The primitive balance type.
-        type Balance: AtLeast32BitUnsigned
-            + FixedPointOperand
-            + Into<U256>
-            + TryFrom<U256>
-            + TryFrom<Value>
-            + TryInto<Value>
-            + MaybeSerializeDeserialize
-            + FullCodec
-            + Copy
-            + Default
-            + Debug
-            + TypeInfo
-            + MaxEncodedLen;
 
         /// Weight information for the extrinsics in this module.
         type WeightInfo: WeightInfo;
@@ -1537,6 +1512,10 @@ impl<T: Config> Pallet<T> {
     ) -> Result<bool, DispatchError> {
         let threshold = vault.get_secure_threshold()?;
         Self::is_collateral_below_threshold(collateral, wrapped_amount, threshold)
+    }
+
+    pub fn _set_minimum_collateral_vault(collateral_currency: CurrencyId<T>, min_collateral: BalanceOf<T>) {
+        MinimumCollateralVault::<T>::insert(collateral_currency, min_collateral);
     }
 
     pub fn _set_system_collateral_ceiling(currency_pair: DefaultVaultCurrencyPair<T>, ceiling: BalanceOf<T>) {

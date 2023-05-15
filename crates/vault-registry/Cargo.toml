@@ -34,6 +34,7 @@ security = { path = "../security", default-features = false }
 currency = { path = "../currency", default-features = false }
 reward = { path = "../reward", default-features = false }
 staking = { path = "../staking", default-features = false }
+loans = { path = "../loans", default-features = false }
 primitives = { package = "interbtc-primitives", path = "../../primitives", default-features = false }
 traits = { path = "../../crates/traits", default-features = false }
 
@@ -76,6 +77,7 @@ std = [
   "reward/std",
   "staking/std",
   "primitives/std",
+  "loans/std",
 ]
 runtime-benchmarks = [
   "frame-benchmarking",

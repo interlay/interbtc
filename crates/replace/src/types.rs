@@ -16,7 +16,7 @@ pub enum Version {
     V0,
 }
 
-pub(crate) type BalanceOf<T> = <T as vault_registry::Config>::Balance;
+pub(crate) type BalanceOf<T> = <T as currency::Config>::Balance;
 
 pub(crate) type DefaultVaultId<T> = VaultId<<T as frame_system::Config>::AccountId, CurrencyId<T>>;
 

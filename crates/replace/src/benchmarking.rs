@@ -139,7 +139,7 @@ fn setup_replace<T: crate::Config>(
     tx_size: u32,
 ) -> (H256, MerkleProof, Transaction)
 where
-    <<T as vault_registry::Config>::Balance as TryInto<i64>>::Error: Debug,
+    <<T as currency::Config>::Balance as TryInto<i64>>::Error: Debug,
 {
     let replace_id = H256::zero();
     let mut replace_request = test_request::<T>(&new_vault_id, &old_vault_id);
@@ -202,7 +202,7 @@ where
 
 #[benchmarks(
 	where
-		<<T as vault_registry::Config>::Balance as TryInto<i64>>::Error: Debug,
+		<<T as currency::Config>::Balance as TryInto<i64>>::Error: Debug,
 )]
 pub mod benchmarks {
     use super::*;

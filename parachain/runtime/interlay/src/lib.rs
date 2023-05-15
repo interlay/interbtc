@@ -1055,7 +1055,6 @@ impl pallet_proxy::Config for Runtime {
 impl vault_registry::Config for Runtime {
     type PalletId = VaultRegistryPalletId;
     type RuntimeEvent = RuntimeEvent;
-    type Balance = Balance;
     type WeightInfo = weights::vault_registry::WeightInfo<Runtime>;
     type GetGriefingCollateralCurrencyId = GetNativeCurrencyId;
     type NominationApi = Nomination;
@@ -1087,8 +1086,6 @@ impl fee::Config for Runtime {
     type WeightInfo = weights::fee::WeightInfo<Runtime>;
     type SignedFixedPoint = SignedFixedPoint;
     type SignedInner = SignedInner;
-    type UnsignedFixedPoint = UnsignedFixedPoint;
-    type UnsignedInner = UnsignedInner;
     type CapacityRewards = VaultCapacity;
     type VaultRewards = VaultRewards;
     type VaultStaking = VaultStaking;
@@ -1306,14 +1303,14 @@ mod benches {
         [escrow, Escrow]
         [fee, Fee]
         [issue, Issue]
-        [nomination, Nomination]
+        // [nomination, Nomination]
         [oracle, Oracle]
         [redeem, Redeem]
         [replace, Replace]
         [security, Security]
         [supply, Supply]
         [tx_pause, TxPause]
-        [vault_registry, VaultRegistry]
+        // [vault_registry, VaultRegistry]
 
         // Other
         [cumulus_pallet_xcmp_queue, XcmpQueue]

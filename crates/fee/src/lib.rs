@@ -35,20 +35,16 @@ use frame_support::{
 };
 use frame_system::ensure_signed;
 pub use pallet::*;
-use primitives::{TruncateFixedPointToInt, VaultId};
+use primitives::VaultId;
 use reward::RewardsApi;
-use scale_info::TypeInfo;
-use sp_arithmetic::{traits::*, FixedPointNumber, FixedPointOperand};
-use sp_runtime::{
-    traits::{AccountIdConversion, AtLeast32BitUnsigned},
-    TransactionOutcome,
-};
+use sp_arithmetic::{traits::*, FixedPointNumber};
+use sp_runtime::{traits::AccountIdConversion, TransactionOutcome};
 use sp_std::{
     convert::{TryFrom, TryInto},
     fmt::Debug,
 };
 use staking::StakingApi;
-use types::{BalanceOf, DefaultVaultCurrencyPair, DefaultVaultId, SignedFixedPoint, UnsignedFixedPoint, Version};
+use types::{BalanceOf, DefaultVaultCurrencyPair, DefaultVaultId, UnsignedFixedPoint, Version};
 
 #[frame_support::pallet]
 pub mod pallet {
@@ -59,11 +55,7 @@ pub mod pallet {
     /// ## Configuration
     /// The pallet's configuration trait.
     #[pallet::config]
-    pub trait Config:
-        frame_system::Config
-        + security::Config
-        + currency::Config<UnsignedFixedPoint = UnsignedFixedPoint<Self>, SignedFixedPoint = SignedFixedPoint<Self>>
-    {
+    pub trait Config: frame_system::Config + security::Config + currency::Config {
         /// The fee module id, used for deriving its sovereign account ID.
         #[pallet::constant]
         type FeePalletId: Get<PalletId>;
@@ -80,30 +72,6 @@ pub mod pallet {
             + TryFrom<BalanceOf<Self>>
             + TryInto<BalanceOf<Self>>
             + MaybeSerializeDeserialize;
-
-        /// Unsigned fixed point type.
-        type UnsignedFixedPoint: FixedPointNumber<Inner = <Self as Config>::UnsignedInner>
-            + TruncateFixedPointToInt
-            + Encode
-            + EncodeLike
-            + Decode
-            + MaybeSerializeDeserialize
-            + TypeInfo
-            + MaxEncodedLen;
-
-        /// The `Inner` type of the `UnsignedFixedPoint`.
-        type UnsignedInner: Debug
-            + One
-            + CheckedMul
-            + CheckedDiv
-            + FixedPointOperand
-            + AtLeast32BitUnsigned
-            + Default
-            + Encode
-            + EncodeLike
-            + Decode
-            + MaybeSerializeDeserialize
-            + TypeInfo;
 
         /// Capacity reward pool.
         type CapacityRewards: RewardsApi<(), CurrencyId<Self>, BalanceOf<Self>, CurrencyId = CurrencyId<Self>>;

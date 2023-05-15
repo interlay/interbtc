@@ -4,16 +4,20 @@ use frame_benchmarking::v2::{account, benchmarks, impl_benchmark_test_suite};
 use frame_support::assert_ok;
 use frame_system::RawOrigin;
 use orml_traits::MultiCurrency;
-use primitives::CurrencyId;
-use sp_runtime::traits::One;
+use primitives::{CurrencyId, Rate, Ratio};
+use sp_runtime::{traits::One, FixedPointNumber};
 use sp_std::vec;
 use vault_registry::BtcPublicKey;
 
 // Pallets
 use crate::Pallet as Nomination;
+use loans::{InterestRateModel, JumpModel, Market, MarketState, Pallet as Loans};
 use oracle::Pallet as Oracle;
 use security::{Pallet as Security, StatusCode};
+use traits::LoansApi;
 use vault_registry::Pallet as VaultRegistry;
+
+type UnsignedFixedPoint<T> = <T as currency::Config>::UnsignedFixedPoint;
 
 fn deposit_tokens<T: crate::Config>(currency_id: CurrencyId, account_id: &T::AccountId, amount: BalanceOf<T>) {
     assert_ok!(<orml_tokens::Pallet<T>>::deposit(currency_id, account_id, amount));
@@ -32,12 +36,45 @@ fn setup_exchange_rate<T: crate::Config>() {
     .unwrap();
 }
 
-fn get_vault_id<T: crate::Config>() -> DefaultVaultId<T> {
-    VaultId::new(
-        account("Vault", 0, 0),
-        get_collateral_currency_id::<T>(),
-        get_wrapped_currency_id::<T>(),
-    )
+pub const fn market_mock<T: loans::Config>(lend_token_id: CurrencyId) -> Market<u128> {
+    Market {
+        close_factor: Ratio::from_percent(50),
+        collateral_factor: Ratio::from_percent(50),
+        liquidation_threshold: Ratio::from_percent(55),
+        liquidate_incentive: Rate::from_inner(Rate::DIV / 100 * 110),
+        liquidate_incentive_reserved_factor: Ratio::from_percent(3),
+        state: MarketState::Pending,
+        rate_model: InterestRateModel::Jump(JumpModel {
+            base_rate: Rate::from_inner(Rate::DIV / 100 * 2),
+            jump_rate: Rate::from_inner(Rate::DIV / 100 * 10),
+            full_rate: Rate::from_inner(Rate::DIV / 100 * 32),
+            jump_utilization: Ratio::from_percent(80),
+        }),
+        reserve_factor: Ratio::from_percent(15),
+        supply_cap: 1_000_000_000_000_000_000_000u128, // set to 1B
+        borrow_cap: 1_000_000_000_000_000_000_000u128, // set to 1B
+        lend_token_id,
+    }
+}
+
+fn set_collateral_config<T: vault_registry::Config>(vault_id: &DefaultVaultId<T>) {
+    VaultRegistry::<T>::_set_minimum_collateral_vault(vault_id.collateral_currency(), 0u32.into());
+    VaultRegistry::<T>::_set_system_collateral_ceiling(vault_id.currencies.clone(), 1_000_000_000u32.into());
+    VaultRegistry::<T>::_set_secure_collateral_threshold(vault_id.currencies.clone(), UnsignedFixedPoint::<T>::one());
+    VaultRegistry::<T>::_set_premium_redeem_threshold(vault_id.currencies.clone(), UnsignedFixedPoint::<T>::one());
+    VaultRegistry::<T>::_set_liquidation_collateral_threshold(
+        vault_id.currencies.clone(),
+        UnsignedFixedPoint::<T>::one(),
+    );
+}
+
+fn activate_lending_and_get_vault_id<T: loans::Config + vault_registry::Config>() -> DefaultVaultId<T> {
+    let account_id: T::AccountId = account("Vault", 0, 0);
+    let lend_token = CurrencyId::LendToken(1);
+    activate_lending_and_mint::<T>(get_collateral_currency_id::<T>(), lend_token.clone(), &account_id);
+    let vault_id = VaultId::new(account("Vault", 0, 0), lend_token, get_wrapped_currency_id::<T>());
+    set_collateral_config::<T>(&vault_id);
+    vault_id
 }
 
 fn register_vault<T: crate::Config>(vault_id: DefaultVaultId<T>) {
@@ -59,7 +96,40 @@ fn register_vault<T: crate::Config>(vault_id: DefaultVaultId<T>) {
     ));
 }
 
-#[benchmarks]
+pub fn activate_market<T: loans::Config>(underlying_id: CurrencyId, lend_token_id: CurrencyId) {
+    let origin = RawOrigin::Root;
+    assert_ok!(Loans::<T>::add_market(
+        origin.clone().into(),
+        underlying_id,
+        market_mock::<T>(lend_token_id)
+    ));
+    assert_ok!(Loans::<T>::activate_market(origin.into(), underlying_id,));
+}
+
+pub fn mint_lend_tokens<T: loans::Config>(account_id: &T::AccountId, lend_token_id: CurrencyId) {
+    const LEND_TOKEN_FUNDING_AMOUNT: u128 = 1_000_000_000_000_000_000;
+    let underlying_id = Loans::<T>::underlying_id(lend_token_id).unwrap();
+    let amount: Amount<T> = Amount::new(LEND_TOKEN_FUNDING_AMOUNT, underlying_id);
+    let origin = RawOrigin::Signed(account_id.clone());
+    assert_ok!(amount.mint_to(&account_id));
+
+    assert_ok!(Loans::<T>::mint(
+        origin.into(),
+        underlying_id,
+        LEND_TOKEN_FUNDING_AMOUNT
+    ));
+}
+
+pub fn activate_lending_and_mint<T: loans::Config>(
+    underlying_id: CurrencyId,
+    lend_token_id: CurrencyId,
+    account_id: &T::AccountId,
+) {
+    activate_market::<T>(underlying_id, lend_token_id);
+    mint_lend_tokens::<T>(account_id, lend_token_id);
+}
+
+#[benchmarks(where T: loans::Config)]
 pub mod benchmarks {
     use super::*;
 
@@ -72,7 +142,7 @@ pub mod benchmarks {
     #[benchmark]
     pub fn set_nomination_limit() {
         Security::<T>::set_status(StatusCode::Running);
-        let vault_id = get_vault_id::<T>();
+        let vault_id = activate_lending_and_get_vault_id::<T>();
         let amount = 100u32.into();
         #[extrinsic_call]
         _(
@@ -87,7 +157,7 @@ pub mod benchmarks {
         setup_exchange_rate::<T>();
         <NominationEnabled<T>>::set(true);
 
-        let vault_id = get_vault_id::<T>();
+        let vault_id = activate_lending_and_get_vault_id::<T>();
         register_vault::<T>(vault_id.clone());
 
         #[extrinsic_call]
@@ -99,7 +169,7 @@ pub mod benchmarks {
         setup_exchange_rate::<T>();
         <NominationEnabled<T>>::set(true);
 
-        let vault_id = get_vault_id::<T>();
+        let vault_id = activate_lending_and_get_vault_id::<T>();
         register_vault::<T>(vault_id.clone());
 
         <Vaults<T>>::insert(&vault_id, true);
@@ -113,7 +183,7 @@ pub mod benchmarks {
         setup_exchange_rate::<T>();
         <NominationEnabled<T>>::set(true);
 
-        let vault_id = get_vault_id::<T>();
+        let vault_id = activate_lending_and_get_vault_id::<T>();
 
         Nomination::<T>::set_nomination_limit(
             RawOrigin::Signed(vault_id.account_id.clone()).into(),
@@ -127,7 +197,11 @@ pub mod benchmarks {
         <Vaults<T>>::insert(&vault_id, true);
 
         let nominator: T::AccountId = account("Nominator", 0, 0);
-        mint_collateral::<T>(&nominator, (1u32 << 31).into());
+        if vault_id.collateral_currency().is_lend_token() {
+            mint_lend_tokens::<T>(&nominator, vault_id.collateral_currency());
+        } else {
+            mint_collateral::<T>(&nominator, (1u32 << 31).into());
+        }
         let amount = 100u32.into();
         #[extrinsic_call]
         _(RawOrigin::Signed(nominator), vault_id, amount);
@@ -138,7 +212,7 @@ pub mod benchmarks {
         setup_exchange_rate::<T>();
         <NominationEnabled<T>>::set(true);
 
-        let vault_id = get_vault_id::<T>();
+        let vault_id = activate_lending_and_get_vault_id::<T>();
         register_vault::<T>(vault_id.clone());
 
         <Vaults<T>>::insert(&vault_id, true);
@@ -151,7 +225,11 @@ pub mod benchmarks {
         .unwrap();
 
         let nominator: T::AccountId = account("Nominator", 0, 0);
-        mint_collateral::<T>(&nominator, (1u32 << 31).into());
+        if vault_id.collateral_currency().is_lend_token() {
+            mint_lend_tokens::<T>(&nominator, vault_id.collateral_currency());
+        } else {
+            mint_collateral::<T>(&nominator, (1u32 << 31).into());
+        }
         let amount = 100u32.into();
 
         assert_ok!(Nomination::<T>::_deposit_collateral(&vault_id, &nominator, amount));
