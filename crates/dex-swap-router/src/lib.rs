@@ -13,6 +13,12 @@ mod mock;
 #[cfg(test)]
 mod test;
 
+#[cfg(any(feature = "runtime-benchmarks", test))]
+pub mod benchmarking;
+
+mod default_weights;
+pub use default_weights::WeightInfo;
+
 use codec::{Decode, Encode};
 
 use frame_support::{
@@ -103,6 +109,7 @@ pub mod pallet {
         /// Weight information for extrinsics in this pallet.
         type GeneralWeightInfo: DexGeneralWeightInfo;
         type StableWeightInfo: DexStableWeightInfo;
+        type WeightInfo: WeightInfo;
     }
 
     #[pallet::pallet]
@@ -141,6 +148,7 @@ pub mod pallet {
                     }
                 })
                 .fold(Weight::zero(), |total: Weight, weight: Weight| total.saturating_add(weight))
+                .saturating_add(T::WeightInfo::validate_routes(routes.len() as u32))
         })]
         #[transactional]
         pub fn swap_exact_tokens_for_tokens(
@@ -153,6 +161,7 @@ pub mod pallet {
         ) -> DispatchResult {
             let who = ensure_signed(origin)?;
 
+            // not captured in benchmark because read is whitelisted
             let now = frame_system::Pallet::<T>::block_number();
             ensure!(deadline > now, Error::<T>::Deadline);
 

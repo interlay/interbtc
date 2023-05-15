@@ -17,7 +17,7 @@ use sp_runtime::{
 };
 
 use crate as dex_swap_router;
-use crate::{Config, Pallet};
+use crate::Config;
 use dex_general::GenerateLpAssetId;
 use dex_stable::traits::{StablePoolLpCurrencyIdGenerate, ValidateCurrency};
 use orml_traits::{parameter_type_with_key, MultiCurrency};
@@ -213,6 +213,7 @@ impl Config for Test {
     type StableAmm = DexStable;
     type GeneralWeightInfo = ();
     type StableWeightInfo = ();
+    type WeightInfo = ();
 }
 
 pub struct ExtBuilder;

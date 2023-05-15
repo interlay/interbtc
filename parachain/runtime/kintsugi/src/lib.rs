@@ -1322,6 +1322,7 @@ mod benches {
         [democracy, Democracy]
         [dex_general, DexGeneral]
         [dex_stable, DexStable]
+        [dex_swap_router, DexSwapRouter]
         [escrow, Escrow]
         [farming, Farming]
         [fee, Fee]
