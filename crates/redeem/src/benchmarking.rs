@@ -1,5 +1,3 @@
-#![cfg(feature = "runtime-benchmarks")]
-
 use super::*;
 use bitcoin::types::{BlockBuilder, TransactionOutput};
 use btc_relay::{BtcAddress, BtcPublicKey};
@@ -179,7 +177,6 @@ pub mod benchmarks {
 
         mint_wrapped::<T>(&caller, amount.into());
 
-        mint_collateral::<T>(&vault_id.account_id, 100_000u32.into());
         mint_vault_collateral::<T>(&vault_id);
         assert_ok!(VaultRegistry::<T>::try_deposit_collateral(
             &vault_id,
