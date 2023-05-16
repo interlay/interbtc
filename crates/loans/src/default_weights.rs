@@ -37,6 +37,7 @@ use sp_std::marker::PhantomData;
 
 /// Weight functions needed for loans.
 pub trait WeightInfo {
+	fn on_initialize(u: u32, ) -> Weight;
 	fn add_market() -> Weight;
 	fn activate_market() -> Weight;
 	fn update_rate_model() -> Weight;
@@ -63,6 +64,20 @@ pub trait WeightInfo {
 /// Weights for loans using the Substrate node and recommended hardware.
 pub struct SubstrateWeight<T>(PhantomData<T>);
 impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
+	fn on_initialize(u: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `1536 + u * (127 ±0)`
+		//  Estimated: `16631 + u * (10916 ±0)`
+		// Minimum execution time: 63_664_000 picoseconds.
+		Weight::from_parts(64_646_000, 16631)
+			// Standard Error: 52_342
+			.saturating_add(Weight::from_parts(28_651_201, 0).saturating_mul(u.into()))
+			.saturating_add(T::DbWeight::get().reads(5_u64))
+			.saturating_add(T::DbWeight::get().reads((4_u64).saturating_mul(u.into())))
+			.saturating_add(T::DbWeight::get().writes(2_u64))
+			.saturating_add(T::DbWeight::get().writes((3_u64).saturating_mul(u.into())))
+			.saturating_add(Weight::from_parts(0, 10916).saturating_mul(u.into()))
+	}
 	/// Storage: Loans Markets (r:2 w:1)
 	/// Proof Skipped: Loans Markets (max_values: None, max_size: None, mode: Measured)
 	/// Storage: Loans UnderlyingAssetId (r:1 w:1)
@@ -656,6 +671,20 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 
 // For backwards compatibility and tests
 impl WeightInfo for () {
+	fn on_initialize(u: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `1536 + u * (127 ±0)`
+		//  Estimated: `16631 + u * (10916 ±0)`
+		// Minimum execution time: 63_664_000 picoseconds.
+		Weight::from_parts(64_646_000, 16631)
+			// Standard Error: 52_342
+			.saturating_add(Weight::from_parts(28_651_201, 0).saturating_mul(u.into()))
+			.saturating_add(RocksDbWeight::get().reads(5_u64))
+			.saturating_add(RocksDbWeight::get().reads((4_u64).saturating_mul(u.into())))
+			.saturating_add(RocksDbWeight::get().writes(2_u64))
+			.saturating_add(RocksDbWeight::get().writes((3_u64).saturating_mul(u.into())))
+			.saturating_add(Weight::from_parts(0, 10916).saturating_mul(u.into()))
+	}
 	/// Storage: Loans Markets (r:2 w:1)
 	/// Proof Skipped: Loans Markets (max_values: None, max_size: None, mode: Measured)
 	/// Storage: Loans UnderlyingAssetId (r:1 w:1)

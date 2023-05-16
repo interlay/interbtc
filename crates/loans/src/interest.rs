@@ -48,6 +48,11 @@ impl<T: Config> Pallet<T> {
         BorrowRate::<T>::insert(asset_id, borrow_rate);
         SupplyRate::<T>::insert(asset_id, supply_rate);
         ExchangeRate::<T>::insert(asset_id, exchange_rate);
+        // Flip the re-accrual boolean flag. If the current accrual was triggered by a user,
+        // the flag is enabled, which causes the next block will accrue interest again and
+        // disable the flag. This ensures the redundant storage always has up-to-date interest
+        // rates which the UI can display.
+        MarketToReaccrue::<T>::insert(asset_id, !Self::market_to_reaccrue(asset_id));
         Self::on_exchange_rate_change(&asset_id);
 
         Self::deposit_event(Event::<T>::InterestAccrued {
