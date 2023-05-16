@@ -121,14 +121,14 @@ impl<T: Config> Pallet<T> {
                     Self::mutate_k_last(asset_0, asset_1, last_k_value);
                 }
 
-                Self::deposit_event(Event::LiquidityAdded(
-                    who.clone(),
+                Self::deposit_event(Event::LiquidityAdded {
+                    owner: who.clone(),
                     asset_0,
                     asset_1,
-                    amount_0,
-                    amount_1,
-                    mint_liquidity,
-                ));
+                    add_balance_0: amount_0,
+                    add_balance_1: amount_1,
+                    mint_balance_lp: mint_liquidity,
+                });
 
                 Ok(())
             } else {
@@ -196,15 +196,15 @@ impl<T: Config> Pallet<T> {
                     Self::mutate_k_last(asset_0, asset_1, last_k_value);
                 }
 
-                Self::deposit_event(Event::LiquidityRemoved(
-                    who.clone(),
-                    recipient.clone(),
+                Self::deposit_event(Event::LiquidityRemoved {
+                    owner: who.clone(),
+                    recipient: recipient.clone(),
                     asset_0,
                     asset_1,
-                    amount_0,
-                    amount_1,
-                    remove_liquidity,
-                ));
+                    rm_balance_0: amount_0,
+                    rm_balance_1: amount_1,
+                    burn_balance_lp: remove_liquidity,
+                });
 
                 Ok(())
             } else {
@@ -232,12 +232,12 @@ impl<T: Config> Pallet<T> {
         T::MultiCurrency::transfer(path[0], who, &pair_account, amount_in)?;
         Self::swap(&amounts, path, recipient)?;
 
-        Self::deposit_event(Event::AssetSwap(
-            who.clone(),
-            recipient.clone(),
-            Vec::from(path),
-            amounts,
-        ));
+        Self::deposit_event(Event::AssetSwap {
+            owner: who.clone(),
+            recipient: recipient.clone(),
+            swap_path: Vec::from(path),
+            balances: amounts,
+        });
 
         Ok(())
     }
@@ -259,12 +259,12 @@ impl<T: Config> Pallet<T> {
         T::MultiCurrency::transfer(path[0], who, &pair_account, amounts[0])?;
         Self::swap(&amounts, path, recipient)?;
 
-        Self::deposit_event(Event::AssetSwap(
-            who.clone(),
-            recipient.clone(),
-            Vec::from(path),
-            amounts,
-        ));
+        Self::deposit_event(Event::AssetSwap {
+            owner: who.clone(),
+            recipient: recipient.clone(),
+            swap_path: Vec::from(path),
+            balances: amounts,
+        });
 
         Ok(())
     }
@@ -674,13 +674,13 @@ impl<T: Config> Pallet<T> {
             bootstrap_parameter.accumulated_supply = (accumulated_supply_0, accumulated_supply_1);
             PairStatuses::<T>::insert(pair, Bootstrap(bootstrap_parameter));
 
-            Self::deposit_event(Event::BootstrapContribute(
-                who.clone(),
-                pair.0,
-                amount_0_contribute,
-                pair.1,
-                amount_1_contribute,
-            ));
+            Self::deposit_event(Event::BootstrapContribute {
+                who: who.clone(),
+                asset_0: pair.0,
+                asset_1: pair.1,
+                asset_0_contribute: amount_0_contribute,
+                asset_1_contribute: amount_1_contribute,
+            });
             Ok(())
         })
     }
@@ -736,13 +736,13 @@ impl<T: Config> Pallet<T> {
 
                 BootstrapEndStatus::<T>::insert(pair, Bootstrap(bootstrap_parameter.clone()));
 
-                Self::deposit_event(Event::BootstrapEnd(
-                    pair.0,
-                    pair.1,
-                    bootstrap_parameter.accumulated_supply.0,
-                    bootstrap_parameter.accumulated_supply.1,
+                Self::deposit_event(Event::BootstrapEnd {
+                    asset_0: pair.0,
+                    asset_1: pair.1,
+                    asset_0_amount: bootstrap_parameter.accumulated_supply.0,
+                    asset_1_amount: bootstrap_parameter.accumulated_supply.1,
                     total_lp_supply,
-                ));
+                });
 
                 Ok(())
             }
@@ -831,16 +831,16 @@ impl<T: Config> Pallet<T> {
                             bootstrap_total_liquidity,
                         )?;
 
-                        Self::deposit_event(Event::BootstrapClaim(
-                            pair_account,
-                            who.clone(),
-                            recipient,
-                            pair.0,
-                            pair.1,
-                            amount_0_contribute,
-                            amount_1_contribute,
-                            claim_liquidity,
-                        ));
+                        Self::deposit_event(Event::BootstrapClaim {
+                            bootstrap_pair_account: pair_account,
+                            claimer: who.clone(),
+                            receiver: recipient,
+                            asset_0: pair.0,
+                            asset_1: pair.1,
+                            asset_0_refund: amount_0_contribute,
+                            asset_1_refund: amount_1_contribute,
+                            lp_amount: claim_liquidity,
+                        });
 
                         Ok(())
                     } else {
@@ -895,14 +895,14 @@ impl<T: Config> Pallet<T> {
 
                 *contribution = None;
 
-                Self::deposit_event(Event::BootstrapRefund(
-                    pair_account,
-                    who.clone(),
-                    pair.0,
-                    pair.1,
-                    amount_0_contribute,
-                    amount_1_contribute,
-                ));
+                Self::deposit_event(Event::BootstrapRefund {
+                    bootstrap_pair_account: pair_account,
+                    caller: who.clone(),
+                    asset_0: pair.0,
+                    asset_1: pair.1,
+                    asset_0_refund: amount_0_contribute,
+                    asset_1_refund: amount_1_contribute,
+                });
 
                 Ok(())
             } else {
@@ -963,12 +963,12 @@ impl<T: Config> Pallet<T> {
         }
 
         if !distribute_rewards.is_empty() {
-            Self::deposit_event(Event::DistributeReward(
-                pair.0,
-                pair.1,
-                reward_holder.clone(),
-                distribute_rewards,
-            ));
+            Self::deposit_event(Event::DistributeReward {
+                asset_0: pair.0,
+                asset_1: pair.1,
+                reward_holder: reward_holder.clone(),
+                rewards: distribute_rewards,
+            });
         }
 
         Ok(())
