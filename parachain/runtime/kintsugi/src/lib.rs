@@ -1497,7 +1497,7 @@ impl_runtime_apis! {
             impl frame_system_benchmarking::Config for Runtime {}
             impl runtime_common::benchmarking::orml_tokens::Config for Runtime {}
             impl runtime_common::benchmarking::orml_vesting::Config for Runtime {}
-            impl  runtime_common::benchmarking::orml_asset_registry::Config for Runtime {}
+            impl runtime_common::benchmarking::orml_asset_registry::Config for Runtime {}
 
             use frame_support::traits::WhitelistedStorageKeys;
             let mut whitelist: Vec<TrackedStorageKey> = AllPalletsWithSystem::whitelisted_storage_keys();

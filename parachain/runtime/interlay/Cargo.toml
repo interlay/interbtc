@@ -98,9 +98,13 @@ annuity = { path = "../../../crates/annuity", default-features = false }
 supply = { path = "../../../crates/supply", default-features = false }
 collator-selection = { path = "../../../crates/collator-selection", default-features = false }
 clients-info = { path = "../../../crates/clients-info", default-features = false }
+loans = { path = "../../../crates/loans", default-features = false }
 traits = { path = "../../../crates/traits", default-features = false }
+farming = { path = "../../../crates/farming", default-features = false }
 tx-pause = { path = "../../../crates/tx-pause", default-features = false }
 dex-general = { path = "../../../crates/dex-general", default-features = false }
+dex-stable = { path = "../../../crates/dex-stable", default-features = false }
+dex-swap-router = { path = "../../../crates/dex-swap-router", default-features = false }
 
 primitives = { package = "interbtc-primitives", path = "../../../primitives", default-features = false }
 
@@ -208,9 +212,13 @@ std = [
   "currency/std",
   "democracy/std",
   "dex-general/std",
+  "dex-stable/std",
+  "dex-swap-router/std",
   "escrow/std",
+  "farming/std",
   "fee/std",
   "issue/std",
+  "loans/std",
   "nomination/std",
   "oracle/std",
   "redeem/std",
@@ -273,9 +281,14 @@ runtime-benchmarks = [
   "clients-info/runtime-benchmarks",
   "collator-selection/runtime-benchmarks",
   "democracy/runtime-benchmarks",
+  "dex-general/runtime-benchmarks",
+  "dex-stable/runtime-benchmarks",
+  "dex-swap-router/runtime-benchmarks",
   "escrow/runtime-benchmarks",
+  "farming/runtime-benchmarks",
   "fee/runtime-benchmarks",
   "issue/runtime-benchmarks",
+  "loans/runtime-benchmarks",
   "nomination/runtime-benchmarks",
   "oracle/runtime-benchmarks",
   "redeem/runtime-benchmarks",
@@ -328,8 +341,12 @@ try-runtime = [
   "nomination/try-runtime",
   "clients-info/try-runtime",
   "tx-pause/try-runtime",
+  "loans/try-runtime",
   "democracy/try-runtime",
   "dex-general/try-runtime",
+  "dex-stable/try-runtime",
+  "dex-swap-router/try-runtime",
+  "farming/try-runtime",
   "pallet-collective/try-runtime",
   "pallet-membership/try-runtime",
   "pallet-authorship/try-runtime",
