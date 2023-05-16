@@ -1236,7 +1236,7 @@ construct_runtime! {
         Loans: loans::{Pallet, Call, Storage, Event<T>, Config} = 100,
         DexGeneral: dex_general::{Pallet, Call, Storage, Event<T>} = 101,
         DexStable: dex_stable::{Pallet, Call, Storage, Event<T>}  = 102,
-        // DexSwapRouter: 103
+        DexSwapRouter: dex_swap_router::{Pallet, Call, Event<T>} = 103,
     }
 }
 
@@ -1293,6 +1293,7 @@ mod benches {
         [democracy, Democracy]
         [dex_general, DexGeneral]
         [dex_stable, DexStable]
+        [dex_swap_router, DexSwapRouter]
         [escrow, Escrow]
         [farming, Farming]
         [fee, Fee]

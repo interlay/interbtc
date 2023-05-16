@@ -69,3 +69,15 @@ impl dex_stable::Config for Runtime {
     type PalletId = DexStablePalletId;
     type WeightInfo = weights::dex_stable::WeightInfo<Runtime>;
 }
+
+impl dex_swap_router::Config for Runtime {
+    type RuntimeEvent = RuntimeEvent;
+    type StablePoolId = StablePoolId;
+    type Balance = Balance;
+    type CurrencyId = CurrencyId;
+    type GeneralAmm = DexGeneral;
+    type StableAmm = DexStable;
+    type GeneralWeightInfo = weights::dex_general::WeightInfo<Runtime>;
+    type StableWeightInfo = weights::dex_stable::WeightInfo<Runtime>;
+    type WeightInfo = ();
+}
