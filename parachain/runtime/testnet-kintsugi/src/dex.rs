@@ -3,7 +3,7 @@ use super::{
     StablePoolId, Timestamp, Tokens,
 };
 
-pub use dex_general::{AssetBalance, GenerateLpAssetId, PairInfo};
+pub use dex_general::{AssetBalance, GenerateLpAssetId, PairInfo, ValidateAsset};
 pub use dex_stable::traits::{StablePoolLpCurrencyIdGenerate, ValidateCurrency};
 
 parameter_types! {
@@ -11,7 +11,6 @@ parameter_types! {
     pub const DexStablePalletId: PalletId = PalletId(*b"dex/stbl");
     pub const CurrencyLimit: u32 = 10;
     pub const StringLimit: u32 = 50;
-    pub const MaxSwaps:u16 = 4;
     pub const MaxBootstrapRewards: u32 = 1000;
     pub const MaxBootstrapLimits:u32 = 1000;
 }
@@ -23,14 +22,21 @@ impl GenerateLpAssetId<CurrencyId> for PairLpIdentity {
     }
 }
 
+pub struct DexGeneralVerifyPairAsset;
+impl ValidateAsset<CurrencyId> for DexGeneralVerifyPairAsset {
+    fn validate_asset(currency_id: &CurrencyId) -> bool {
+        currency_id.is_lp_token()
+    }
+}
+
 impl dex_general::Config for Runtime {
     type RuntimeEvent = RuntimeEvent;
     type MultiCurrency = Tokens;
     type PalletId = DexGeneralPalletId;
     type AssetId = CurrencyId;
+    type EnsurePairAsset = DexGeneralVerifyPairAsset;
     type LpGenerate = PairLpIdentity;
     type WeightInfo = weights::dex_general::WeightInfo<Runtime>;
-    type MaxSwaps = MaxSwaps;
     type MaxBootstrapRewards = MaxBootstrapRewards;
     type MaxBootstrapLimits = MaxBootstrapLimits;
 }
@@ -42,8 +48,8 @@ impl StablePoolLpCurrencyIdGenerate<CurrencyId, StablePoolId> for PoolLpGenerate
     }
 }
 
-pub struct StableAmmVerifyPoolAsset;
-impl ValidateCurrency<CurrencyId> for StableAmmVerifyPoolAsset {
+pub struct DexStableVerifyPoolAsset;
+impl ValidateCurrency<CurrencyId> for DexStableVerifyPoolAsset {
     fn validate_pooled_currency(_currencies: &[CurrencyId]) -> bool {
         true
     }
@@ -62,7 +68,7 @@ impl dex_stable::Config for Runtime {
     type MultiCurrency = Tokens;
     type PoolId = StablePoolId;
     type TimeProvider = Timestamp;
-    type EnsurePoolAsset = StableAmmVerifyPoolAsset;
+    type EnsurePoolAsset = DexStableVerifyPoolAsset;
     type LpGenerate = PoolLpGenerate;
     type PoolCurrencyLimit = CurrencyLimit;
     type PoolCurrencySymbolLimit = StringLimit;

@@ -538,6 +538,13 @@ impl CurrencyId {
         };
         Some(CurrencyId::LpToken(lp_token_0, lp_token_1))
     }
+
+    pub fn is_lp_token(&self) -> bool {
+        match self {
+            Self::Token(_) | Self::ForeignAsset(_) | Self::StableLpToken(_) => true,
+            _ => false,
+        }
+    }
 }
 
 impl Into<CurrencyId> for LpToken {
@@ -546,15 +553,6 @@ impl Into<CurrencyId> for LpToken {
             LpToken::Token(token) => CurrencyId::Token(token),
             LpToken::ForeignAsset(foreign_asset_id) => CurrencyId::ForeignAsset(foreign_asset_id),
             LpToken::StableLpToken(stable_pool_id) => CurrencyId::StableLpToken(stable_pool_id),
-        }
-    }
-}
-
-impl dex_general::AssetInfo for CurrencyId {
-    fn is_support(&self) -> bool {
-        match self {
-            Self::Token(_) | Self::ForeignAsset(_) | Self::StableLpToken(_) => true,
-            _ => false,
         }
     }
 }

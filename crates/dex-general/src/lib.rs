@@ -42,12 +42,12 @@ mod default_weights;
 
 pub use default_weights::WeightInfo;
 pub use primitives::{
-    AssetBalance, AssetInfo, BootstrapParameter, PairMetadata, PairStatus,
+    AssetBalance, BootstrapParameter, PairMetadata, PairStatus,
     PairStatus::{Bootstrap, Disable, Trading},
     DEFAULT_FEE_RATE, FEE_ADJUSTMENT,
 };
 pub use rpc::PairInfo;
-pub use traits::{ExportDexGeneral, GenerateLpAssetId};
+pub use traits::{ExportDexGeneral, GenerateLpAssetId, ValidateAsset};
 
 #[allow(type_alias_bounds)]
 type AccountIdOf<T: Config> = <T as frame_system::Config>::AccountId;
@@ -63,11 +63,14 @@ pub mod pallet {
     pub trait Config: frame_system::Config {
         /// Because this pallet emits events, it depends on the runtime's definition of an event.
         type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
+
         /// The trait control all currencies
         type MultiCurrency: MultiCurrency<AccountIdOf<Self>, CurrencyId = Self::AssetId, Balance = AssetBalance>;
+
         /// This pallet id.
         #[pallet::constant]
         type PalletId: Get<PalletId>;
+
         /// The asset type.
         type AssetId: FullCodec
             + Eq
@@ -76,17 +79,18 @@ pub mod pallet {
             + PartialOrd
             + Copy
             + MaybeSerializeDeserialize
-            + AssetInfo
             + Debug
             + scale_info::TypeInfo
             + MaxEncodedLen;
+
+        /// Verify the asset can be used in a pair.
+        type EnsurePairAsset: ValidateAsset<Self::AssetId>;
+
         /// Generate the AssetId for the pair.
         type LpGenerate: GenerateLpAssetId<Self::AssetId>;
+
         /// Weight information for extrinsics in this pallet.
         type WeightInfo: WeightInfo;
-        /// The maximum number of swaps allowed in routes
-        #[pallet::constant]
-        type MaxSwaps: Get<u16>;
 
         /// The maximum number of rewards that can be stored
         #[pallet::constant]
@@ -354,18 +358,12 @@ pub mod pallet {
     }
     #[pallet::error]
     pub enum Error<T> {
-        /// Require the admin who can reset the admin and receiver of the protocol fee.
-        RequireProtocolAdmin,
-        /// Require the admin candidate who can become new admin after confirm.
-        RequireProtocolAdminCandidate,
         /// Invalid fee_rate
         InvalidFeeRate,
         /// Unsupported AssetId.
         UnsupportedAssetType,
         /// Account balance must be greater than or equal to the transfer amount.
         InsufficientAssetBalance,
-        /// Account native currency balance must be greater than ExistentialDeposit.
-        NativeBalanceTooLow,
         /// Trading pair can't be created.
         DeniedCreatePair,
         /// Trading pair already exists.
@@ -390,18 +388,8 @@ pub mod pallet {
         Overflow,
         /// Transaction block number is larger than the end block number.
         Deadline,
-        /// Location given was invalid or unsupported.
-        AccountIdBadLocation,
-        /// XCM execution failed.
-        ExecutionFailed,
-        /// Transfer to self by XCM message.
-        DeniedTransferToSelf,
-        /// Not in registered parachains.
-        TargetChainNotRegistered,
         /// Can't pass the K value check
         InvariantCheckFailed,
-        /// Created pair can't create now
-        PairCreateForbidden,
         /// Pair is not in bootstrap
         NotInBootstrap,
         /// Amount of contribution is invalid.
@@ -555,7 +543,7 @@ pub mod pallet {
         ) -> DispatchResult {
             ensure_root(origin)?;
             ensure!(
-                asset_0.is_support() && asset_1.is_support(),
+                T::EnsurePairAsset::validate_asset(&asset_0) && T::EnsurePairAsset::validate_asset(&asset_1),
                 Error::<T>::UnsupportedAssetType
             );
 
@@ -627,7 +615,7 @@ pub mod pallet {
             #[pallet::compact] deadline: T::BlockNumber,
         ) -> DispatchResult {
             ensure!(
-                asset_0.is_support() && asset_1.is_support(),
+                T::EnsurePairAsset::validate_asset(&asset_0) && T::EnsurePairAsset::validate_asset(&asset_1),
                 Error::<T>::UnsupportedAssetType
             );
             let who = ensure_signed(origin)?;
@@ -672,7 +660,7 @@ pub mod pallet {
             #[pallet::compact] deadline: T::BlockNumber,
         ) -> DispatchResult {
             ensure!(
-                asset_0.is_support() && asset_1.is_support(),
+                T::EnsurePairAsset::validate_asset(&asset_0) && T::EnsurePairAsset::validate_asset(&asset_1),
                 Error::<T>::UnsupportedAssetType
             );
             let who = ensure_signed(origin)?;
@@ -711,12 +699,14 @@ pub mod pallet {
             recipient: <T::Lookup as StaticLookup>::Source,
             #[pallet::compact] deadline: T::BlockNumber,
         ) -> DispatchResult {
-            ensure!(path.iter().all(|id| id.is_support()), Error::<T>::UnsupportedAssetType);
-
             let who = ensure_signed(origin)?;
             let recipient = T::Lookup::lookup(recipient)?;
             let now = frame_system::Pallet::<T>::block_number();
             ensure!(deadline > now, Error::<T>::Deadline);
+            ensure!(
+                path.iter().all(|id| T::EnsurePairAsset::validate_asset(&id)),
+                Error::<T>::UnsupportedAssetType
+            );
 
             Self::inner_swap_exact_assets_for_assets(&who, amount_in, amount_out_min, &path, &recipient)
         }
@@ -741,7 +731,10 @@ pub mod pallet {
             recipient: <T::Lookup as StaticLookup>::Source,
             #[pallet::compact] deadline: T::BlockNumber,
         ) -> DispatchResult {
-            ensure!(path.iter().all(|id| id.is_support()), Error::<T>::UnsupportedAssetType);
+            ensure!(
+                path.iter().all(|id| T::EnsurePairAsset::validate_asset(&id)),
+                Error::<T>::UnsupportedAssetType
+            );
 
             let who = ensure_signed(origin)?;
             let recipient = T::Lookup::lookup(recipient)?;
@@ -799,7 +792,7 @@ pub mod pallet {
                             capacity_supply: (capacity_supply_0, capacity_supply_1),
                             accumulated_supply: params.accumulated_supply,
                             end_block_number: end,
-                            pair_account: Self::account_id(),
+                            pair_account: Self::bootstrap_account_id(),
                         });
 
                         // must no reward before update.
@@ -840,7 +833,7 @@ pub mod pallet {
                         capacity_supply: (capacity_supply_0, capacity_supply_1),
                         accumulated_supply: (Zero::zero(), Zero::zero()),
                         end_block_number: end,
-                        pair_account: Self::account_id(),
+                        pair_account: Self::bootstrap_account_id(),
                     });
 
                     BootstrapRewards::<T>::insert(
@@ -867,7 +860,7 @@ pub mod pallet {
             })?;
 
             Self::deposit_event(Event::BootstrapCreated {
-                bootstrap_pair_account: Self::account_id(),
+                bootstrap_pair_account: Self::bootstrap_account_id(),
                 asset_0: pair.0,
                 asset_1: pair.1,
                 total_supply_0: target_supply_0,
@@ -1001,7 +994,7 @@ pub mod pallet {
                         capacity_supply: (capacity_supply_0, capacity_supply_1),
                         accumulated_supply: params.accumulated_supply,
                         end_block_number: end,
-                        pair_account: Self::account_id(),
+                        pair_account: Self::bootstrap_account_id(),
                     });
 
                     // must no reward before update.
@@ -1084,7 +1077,7 @@ pub mod pallet {
                 for (asset_id, amount) in &charge_rewards {
                     let already_charge_amount = rewards.get(asset_id).ok_or(Error::<T>::NoRewardTokens)?;
 
-                    T::MultiCurrency::transfer(*asset_id, &who, &Self::account_id(), *amount)?;
+                    T::MultiCurrency::transfer(*asset_id, &who, &Self::bootstrap_account_id(), *amount)?;
                     let new_charge_amount = already_charge_amount.checked_add(*amount).ok_or(Error::<T>::Overflow)?;
 
                     rewards
@@ -1120,7 +1113,7 @@ pub mod pallet {
 
             BootstrapRewards::<T>::try_mutate(pair, |rewards| -> DispatchResult {
                 for (asset_id, amount) in rewards {
-                    T::MultiCurrency::transfer(*asset_id, &Self::account_id(), &recipient, *amount)?;
+                    T::MultiCurrency::transfer(*asset_id, &Self::bootstrap_account_id(), &recipient, *amount)?;
 
                     *amount = Zero::zero();
                 }

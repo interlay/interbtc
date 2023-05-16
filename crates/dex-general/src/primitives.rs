@@ -10,10 +10,6 @@ pub type AssetBalance = u128;
 pub const DEFAULT_FEE_RATE: u128 = 30;
 pub const FEE_ADJUSTMENT: u128 = 10000;
 
-pub trait AssetInfo {
-    fn is_support(&self) -> bool;
-}
-
 /// Status for TradingPair
 #[derive(Clone, Copy, Encode, Decode, RuntimeDebug, PartialEq, Eq, MaxEncodedLen, TypeInfo)]
 pub enum PairStatus<Balance, BlockNumber, Account> {
