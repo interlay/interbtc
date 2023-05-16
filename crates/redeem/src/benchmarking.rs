@@ -6,11 +6,14 @@ use frame_benchmarking::v2::*;
 use frame_support::assert_ok;
 use frame_system::RawOrigin;
 use orml_traits::MultiCurrency;
-use primitives::{CurrencyId, VaultCurrencyPair, VaultId};
+use primitives::CurrencyId;
 use sp_core::{H256, U256};
 use sp_runtime::traits::One;
 use sp_std::{fmt::Debug, prelude::*};
-use vault_registry::types::Vault;
+use vault_registry::{
+    benchmarking::{activate_lending_and_get_vault_id, mint_lend_tokens},
+    types::Vault,
+};
 
 // Pallets
 use crate::Pallet as Redeem;
@@ -111,16 +114,17 @@ fn test_request<T: crate::Config>(vault_id: &DefaultVaultId<T>) -> DefaultRedeem
     }
 }
 
-fn get_vault_id<T: crate::Config>() -> DefaultVaultId<T> {
-    VaultId::new(
-        account("Vault", 0, 0),
-        get_collateral_currency_id::<T>(),
-        get_wrapped_currency_id::<T>(),
-    )
+fn mint_vault_collateral<T: crate::Config + loans::Config>(vault_id: &DefaultVaultId<T>) {
+    if vault_id.collateral_currency().is_lend_token() {
+        mint_lend_tokens::<T>(&vault_id.account_id, vault_id.collateral_currency());
+    } else {
+        mint_collateral::<T>(&vault_id.account_id, 100_000u32.into());
+    }
 }
 
 #[benchmarks(
 	where
+    T: loans::Config,
 		<<T as currency::Config>::Balance as TryInto<i64>>::Error: Debug,
 )]
 pub mod benchmarks {
@@ -129,8 +133,8 @@ pub mod benchmarks {
     #[benchmark]
     pub fn request_redeem() {
         let caller = whitelisted_caller();
-        let vault_id = get_vault_id::<T>();
-        let amount = Redeem::<T>::redeem_btc_dust_value() * 100u32.into();
+        let vault_id = activate_lending_and_get_vault_id::<T>();
+        let amount = Redeem::<T>::redeem_btc_dust_value() * BalanceOf::<T>::from(100u32);
         let btc_address = BtcAddress::dummy();
 
         initialize_oracle::<T>();
@@ -164,7 +168,7 @@ pub mod benchmarks {
         ));
 
         let caller = whitelisted_caller();
-        let vault_id = get_vault_id::<T>();
+        let vault_id = activate_lending_and_get_vault_id::<T>();
         let amount = 1000;
 
         register_public_key::<T>(vault_id.clone());
@@ -173,7 +177,7 @@ pub mod benchmarks {
 
         mint_wrapped::<T>(&caller, amount.into());
 
-        mint_collateral::<T>(&vault_id.account_id, 100_000u32.into());
+        mint_vault_collateral::<T>(&vault_id);
         assert_ok!(VaultRegistry::<T>::try_deposit_collateral(
             &vault_id,
             &collateral(100_000)
@@ -186,18 +190,14 @@ pub mod benchmarks {
         assert_ok!(VaultRegistry::<T>::issue_tokens(&vault_id, &wrapped(amount)));
 
         VaultRegistry::<T>::liquidate_vault(&vault_id).unwrap();
-        let currency_pair = VaultCurrencyPair {
-            collateral: get_collateral_currency_id::<T>(),
-            wrapped: get_wrapped_currency_id::<T>(),
-        };
 
         #[extrinsic_call]
-        _(RawOrigin::Signed(caller), currency_pair, amount.into());
+        _(RawOrigin::Signed(caller), vault_id.currencies, amount.into());
     }
 
     #[benchmark]
     pub fn execute_redeem(h: Linear<2, 10>, i: Linear<1, 10>, o: Linear<2, 3>, b: Linear<541, 2_048>) {
-        let vault_id = get_vault_id::<T>();
+        let vault_id = activate_lending_and_get_vault_id::<T>();
         let relayer_id: T::AccountId = account("Relayer", 0, 0);
 
         initialize_oracle::<T>();
@@ -256,7 +256,7 @@ pub mod benchmarks {
     #[benchmark]
     pub fn cancel_redeem_reimburse() {
         let caller: T::AccountId = whitelisted_caller();
-        let vault_id = get_vault_id::<T>();
+        let vault_id = activate_lending_and_get_vault_id::<T>();
 
         initialize_oracle::<T>();
 
@@ -300,7 +300,7 @@ pub mod benchmarks {
     #[benchmark]
     pub fn cancel_redeem_retry() {
         let caller: T::AccountId = whitelisted_caller();
-        let vault_id = get_vault_id::<T>();
+        let vault_id = activate_lending_and_get_vault_id::<T>();
 
         initialize_oracle::<T>();
 
@@ -353,7 +353,7 @@ pub mod benchmarks {
             UnsignedFixedPoint::<T>::one()
         ));
 
-        let vault_id = get_vault_id::<T>();
+        let vault_id = activate_lending_and_get_vault_id::<T>();
         let caller = vault_id.account_id.clone();
         let amount = 1000;
 
@@ -363,7 +363,11 @@ pub mod benchmarks {
 
         mint_wrapped::<T>(&caller, amount.into());
 
-        mint_collateral::<T>(&vault_id.account_id, 100_000u32.into());
+        if vault_id.collateral_currency().is_lend_token() {
+            mint_lend_tokens::<T>(&vault_id.account_id, vault_id.collateral_currency());
+        } else {
+            mint_collateral::<T>(&vault_id.account_id, 100_000u32.into());
+        }
         assert_ok!(VaultRegistry::<T>::try_deposit_collateral(
             &vault_id,
             &collateral(100_000)
@@ -375,13 +379,8 @@ pub mod benchmarks {
         ));
         assert_ok!(VaultRegistry::<T>::issue_tokens(&vault_id, &wrapped(amount)));
 
-        let currency_pair = VaultCurrencyPair {
-            collateral: get_collateral_currency_id::<T>(),
-            wrapped: get_wrapped_currency_id::<T>(),
-        };
-
         #[extrinsic_call]
-        _(RawOrigin::Signed(caller), currency_pair, amount.into());
+        _(RawOrigin::Signed(caller), vault_id.currencies, amount.into());
     }
 
     impl_benchmark_test_suite!(

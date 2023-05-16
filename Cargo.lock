@@ -9913,6 +9913,7 @@ dependencies = [
  "frame-support",
  "frame-system",
  "interbtc-primitives",
+ "loans",
  "mocktopus",
  "nomination",
  "oracle",

@@ -10,8 +10,8 @@ pub mod migration;
 mod ext;
 pub mod types;
 
-#[cfg(feature = "runtime-benchmarks")]
-mod benchmarking;
+#[cfg(any(feature = "runtime-benchmarks", test))]
+pub mod benchmarking;
 
 mod default_weights;
 

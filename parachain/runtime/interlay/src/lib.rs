@@ -1305,7 +1305,7 @@ mod benches {
         [issue, Issue]
         // [nomination, Nomination]
         [oracle, Oracle]
-        [redeem, Redeem]
+        // [redeem, Redeem]
         [replace, Replace]
         [security, Security]
         [supply, Supply]

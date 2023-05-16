@@ -1,16 +1,16 @@
 use crate as redeem;
 use crate::{Config, Error};
-use currency::Amount;
 use frame_support::{
     assert_ok, parameter_types,
     traits::{ConstU32, Everything, GenesisBuild},
     BoundedVec, PalletId,
 };
+use frame_system::EnsureRoot;
 use mocktopus::{macros::mockable, mocking::clear_mocks};
 pub use oracle::{CurrencyId, OracleKey};
 use orml_traits::parameter_type_with_key;
 pub use primitives::{CurrencyId::Token, TokenSymbol::*};
-use primitives::{VaultCurrencyPair, VaultId};
+use primitives::{Rate, VaultCurrencyPair, VaultId};
 pub use sp_arithmetic::{FixedI128, FixedPointNumber, FixedU128};
 use sp_core::H256;
 use sp_runtime::{
@@ -48,6 +48,7 @@ frame_support::construct_runtime!(
         Fee: fee::{Pallet, Call, Config<T>, Storage},
         Currency: currency::{Pallet},
         Nomination: nomination::{Pallet, Call, Config, Storage, Event<T>},
+        Loans: loans::{Pallet, Storage, Call, Event<T>, Config},
     }
 );
 
@@ -101,6 +102,8 @@ pub const DEFAULT_CURRENCY_PAIR: VaultCurrencyPair<CurrencyId> = VaultCurrencyPa
     collateral: DEFAULT_COLLATERAL_CURRENCY,
     wrapped: DEFAULT_WRAPPED_CURRENCY,
 };
+pub const DEFAULT_MAX_EXCHANGE_RATE: u128 = 1_000_000_000_000_000_000; // 1
+pub const DEFAULT_MIN_EXCHANGE_RATE: u128 = 20_000_000_000_000_000; // 0.02
 
 parameter_types! {
     pub const GetCollateralCurrencyId: CurrencyId = DEFAULT_COLLATERAL_CURRENCY;
@@ -154,17 +157,6 @@ impl nomination::Config for Test {
     type WeightInfo = ();
 }
 
-pub struct CurrencyConvert;
-impl currency::CurrencyConversion<currency::Amount<Test>, CurrencyId> for CurrencyConvert {
-    fn convert(
-        amount: &currency::Amount<Test>,
-        to: CurrencyId,
-    ) -> Result<currency::Amount<Test>, sp_runtime::DispatchError> {
-        let amount = convert_to(to, amount.amount())?;
-        Ok(Amount::new(amount, to))
-    }
-}
-
 #[cfg_attr(test, mockable)]
 pub fn convert_to(to: CurrencyId, amount: Balance) -> Result<Balance, sp_runtime::DispatchError> {
     Ok(amount) // default conversion 1:1 - overwritable with mocktopus
@@ -178,7 +170,7 @@ impl currency::Config for Test {
     type GetNativeCurrencyId = GetNativeCurrencyId;
     type GetRelayChainCurrencyId = GetCollateralCurrencyId;
     type GetWrappedCurrencyId = GetWrappedCurrencyId;
-    type CurrencyConversion = CurrencyConvert;
+    type CurrencyConversion = currency::CurrencyConvert<Test, Oracle, Loans>;
 }
 
 type CapacityRewardsInstance = reward::Instance1;
@@ -266,6 +258,22 @@ impl fee::Config for Test {
     type MaxExpectedValue = MaxExpectedValue;
 }
 
+parameter_types! {
+    pub const LoansPalletId: PalletId = PalletId(*b"par/loan");
+}
+
+impl loans::Config for Test {
+    type RuntimeEvent = RuntimeEvent;
+    type PalletId = LoansPalletId;
+    type ReserveOrigin = EnsureRoot<AccountId>;
+    type UpdateOrigin = EnsureRoot<AccountId>;
+    type WeightInfo = ();
+    type UnixTime = Timestamp;
+    type RewardAssetId = GetNativeCurrencyId;
+    type ReferenceAssetId = GetWrappedCurrencyId;
+    type OnExchangeRateChange = ();
+}
+
 impl Config for Test {
     type RuntimeEvent = RuntimeEvent;
     type WeightInfo = ();
@@ -341,6 +349,15 @@ impl ExtBuilder {
             max_delay: 0,
         }
         .assimilate_storage(&mut storage)
+        .unwrap();
+
+        GenesisBuild::<Test>::assimilate_storage(
+            &loans::GenesisConfig {
+                max_exchange_rate: Rate::from_inner(DEFAULT_MAX_EXCHANGE_RATE),
+                min_exchange_rate: Rate::from_inner(DEFAULT_MIN_EXCHANGE_RATE),
+            },
+            &mut storage,
+        )
         .unwrap();
 
         storage.into()
