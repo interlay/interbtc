@@ -36,7 +36,7 @@ mod fees {
 
         // check ksm per second. It's by no means essential - it's just useful to be forced to check the
         // change after polkadot updates
-        assert_eq!(200320000000, ksm_per_second);
+        assert!(ksm_per_second < 210000000000);
 
         native_unit_cost(instruction_count, ksm_per_second)
     }

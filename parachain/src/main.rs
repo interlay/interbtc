@@ -7,6 +7,9 @@ mod cli;
 mod command;
 mod service;
 
+#[cfg(feature = "runtime-benchmarks")]
+mod benchmarking;
+
 fn main() -> sc_cli::Result<()> {
     command::run()
 }

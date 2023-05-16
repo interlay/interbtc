@@ -39,6 +39,7 @@ pub fn kintsugi_dev_config() -> KintsugiChainSpec {
                     get_account_id_from_seed::<sr25519::Public>("Bob"),
                     BoundedVec::truncate_from("Bob".as_bytes().to_vec()),
                 )],
+                vec![get_account_id_from_seed::<sr25519::Public>("Alice")],
                 id,
                 1,
             )
@@ -109,6 +110,7 @@ pub fn kintsugi_mainnet_config() -> KintsugiChainSpec {
                     get_account_id_from_string("5DcrZv97CipkXni4aXcg98Nz9doT6nfs6t3THn7hhnRXTd6D"),
                     BoundedVec::truncate_from("Interlay".as_bytes().to_vec()),
                 )],
+                vec![], // no endowed accounts
                 id,
                 SECURE_BITCOIN_CONFIRMATIONS,
             )
@@ -128,6 +130,7 @@ pub fn kintsugi_mainnet_config() -> KintsugiChainSpec {
 fn kintsugi_mainnet_genesis(
     invulnerables: Vec<(AccountId, AuraId)>,
     authorized_oracles: Vec<(AccountId, kintsugi_runtime::OracleName)>,
+    endowed_accounts: Vec<AccountId>,
     id: ParaId,
     bitcoin_confirmations: u32,
 ) -> kintsugi_runtime::GenesisConfig {
@@ -165,7 +168,12 @@ fn kintsugi_mainnet_genesis(
             initial_status: kintsugi_runtime::StatusCode::Error,
         },
         asset_registry: Default::default(),
-        tokens: Default::default(),
+        tokens: kintsugi_runtime::TokensConfig {
+            balances: endowed_accounts
+                .iter()
+                .flat_map(|k| vec![(k.clone(), Token(KINT), 1 << 60)])
+                .collect(),
+        },
         vesting: Default::default(),
         oracle: kintsugi_runtime::OracleConfig {
             authorized_oracles,

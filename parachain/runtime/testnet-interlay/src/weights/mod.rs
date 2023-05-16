@@ -1,5 +1,6 @@
 pub mod annuity_escrow_annuity;
 pub mod annuity_vault_annuity;
+pub mod block_weights;
 pub mod btc_relay;
 pub mod clients_info;
 pub mod collator_selection;
@@ -8,6 +9,7 @@ pub mod democracy;
 pub mod dex_general;
 pub mod dex_stable;
 pub mod escrow;
+pub mod extrinsic_weights;
 pub mod farming;
 pub mod fee;
 pub mod frame_system;

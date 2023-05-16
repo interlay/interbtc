@@ -73,6 +73,7 @@ sp-session = { git = "https://github.com/paritytech/substrate", branch = "polkad
 sp-offchain = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.31" }
 sp-block-builder = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.31" }
 sp-keystore = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.31" }
+sp-keyring = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.31" }
 sp-timestamp = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.31" }
 sp-arithmetic = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.31" }
 sp-io = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.31" }
@@ -81,9 +82,11 @@ substrate-prometheus-endpoint = { git = "https://github.com/paritytech/substrate
 pallet-transaction-payment-rpc = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.31" }
 substrate-frame-rpc-system = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.31" }
 
+frame-system = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.31", default-features = false }
 frame-support = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.31" }
 frame-benchmarking = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.31" }
 frame-benchmarking-cli = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.31" }
+pallet-transaction-payment = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.31", default-features = false }
 
 try-runtime-cli = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.26", optional = true }
 
@@ -120,11 +123,14 @@ try-runtime = [
     "kintsugi-runtime/try-runtime",
     "testnet-interlay-runtime/try-runtime",
     "testnet-kintsugi-runtime/try-runtime",
-    "runtime-common/try-runtime"
+    "runtime-common/try-runtime",
+    "frame-system/try-runtime",
+    "pallet-transaction-payment/try-runtime"
 ]
 
 rococo-native = [ "polkadot-cli/rococo-native" ]
 runtime-benchmarks = [
+    "frame-system/runtime-benchmarks",
     "interlay-runtime/runtime-benchmarks",
     "kintsugi-runtime/runtime-benchmarks",
     "testnet-interlay-runtime/runtime-benchmarks",
