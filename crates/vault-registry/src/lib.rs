@@ -216,6 +216,10 @@ pub mod pallet {
             let mut vault = Self::get_active_rich_vault_from_id(&vault_id)?;
             vault.set_accept_new_issues(accept_new_issues)?;
             PoolManager::<T>::on_vault_settings_change(&vault_id)?;
+            Self::deposit_event(Event::<T>::SetAcceptNewIssues {
+                vault_id,
+                accept_new_issues,
+            });
             Ok(().into())
         }
 
@@ -239,6 +243,10 @@ pub mod pallet {
             let vault_id = VaultId::new(account_id, currency_pair.collateral, currency_pair.wrapped);
             Self::try_set_vault_custom_secure_threshold(&vault_id, custom_threshold)?;
             PoolManager::<T>::on_vault_settings_change(&vault_id)?;
+            Self::deposit_event(Event::<T>::SetCustomSecureThreshold {
+                vault_id,
+                custom_threshold,
+            });
             Ok(().into())
         }
 
@@ -313,7 +321,11 @@ pub mod pallet {
             threshold: UnsignedFixedPoint<T>,
         ) -> DispatchResult {
             ensure_root(origin)?;
-            Self::_set_secure_collateral_threshold(currency_pair, threshold);
+            Self::_set_secure_collateral_threshold(currency_pair.clone(), threshold.clone());
+            Self::deposit_event(Event::<T>::SetSecureCollateralThreshold {
+                currency_pair,
+                threshold,
+            });
             Ok(())
         }
 
@@ -331,7 +343,11 @@ pub mod pallet {
             threshold: UnsignedFixedPoint<T>,
         ) -> DispatchResult {
             ensure_root(origin)?;
-            Self::_set_premium_redeem_threshold(currency_pair, threshold);
+            Self::_set_premium_redeem_threshold(currency_pair.clone(), threshold.clone());
+            Self::deposit_event(Event::<T>::SetPremiumRedeemThreshold {
+                currency_pair,
+                threshold,
+            });
             Ok(())
         }
 
@@ -349,7 +365,11 @@ pub mod pallet {
             threshold: UnsignedFixedPoint<T>,
         ) -> DispatchResult {
             ensure_root(origin)?;
-            Self::_set_liquidation_collateral_threshold(currency_pair, threshold);
+            Self::_set_liquidation_collateral_threshold(currency_pair.clone(), threshold.clone());
+            Self::deposit_event(Event::<T>::SetLiquidationCollateralThreshold {
+                currency_pair,
+                threshold,
+            });
             Ok(())
         }
 
@@ -381,17 +401,6 @@ pub mod pallet {
         RegisterVault {
             vault_id: DefaultVaultId<T>,
             collateral: BalanceOf<T>,
-        },
-        DepositCollateral {
-            vault_id: DefaultVaultId<T>,
-            new_collateral: BalanceOf<T>,
-            total_collateral: BalanceOf<T>,
-            free_collateral: BalanceOf<T>,
-        },
-        WithdrawCollateral {
-            vault_id: DefaultVaultId<T>,
-            withdrawn_amount: BalanceOf<T>,
-            total_collateral: BalanceOf<T>,
         },
         IncreaseLockedCollateral {
             currency_pair: DefaultVaultCurrencyPair<T>,
@@ -484,6 +493,26 @@ pub mod pallet {
             vault_id: DefaultVaultId<T>,
             banned_until: T::BlockNumber,
         },
+        SetAcceptNewIssues {
+            vault_id: DefaultVaultId<T>,
+            accept_new_issues: bool,
+        },
+        SetSecureCollateralThreshold {
+            currency_pair: DefaultVaultCurrencyPair<T>,
+            threshold: UnsignedFixedPoint<T>,
+        },
+        SetPremiumRedeemThreshold {
+            currency_pair: DefaultVaultCurrencyPair<T>,
+            threshold: UnsignedFixedPoint<T>,
+        },
+        SetLiquidationCollateralThreshold {
+            currency_pair: DefaultVaultCurrencyPair<T>,
+            threshold: UnsignedFixedPoint<T>,
+        },
+        SetCustomSecureThreshold {
+            vault_id: DefaultVaultId<T>,
+            custom_threshold: Option<UnsignedFixedPoint<T>>,
+        },
     }
 
     #[pallet::error]
@@ -502,14 +531,10 @@ pub mod pallet {
         VaultAlreadyRegistered,
         /// The specified vault does not exist.
         VaultNotFound,
-        /// The Bitcoin Address has already been registered
-        ReservedDepositAddress,
         /// Attempted to liquidate a vault that is not undercollateralized.
         VaultNotBelowLiquidationThreshold,
         /// Deposit address could not be generated with the given public key.
         InvalidPublicKey,
-        /// Deprecated error. TODO: remove when releasing a breaking runtime upgrade
-        MaxNominationRatioViolation,
         /// The collateral ceiling would be exceeded for the vault's currency.
         CurrencyCeilingExceeded,
         /// Vault is no longer usable as it was liquidated due to undercollateralization.
