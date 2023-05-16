@@ -33,7 +33,7 @@ parameter_types! {
     pub const ExistentialDeposit: u64 = 1;
 
     pub const BlockHashCount: u64 = 250;
-    pub const StableAmmPalletId: PalletId = PalletId(*b"/zlkSAmm");
+    pub const StableAmmPalletId: PalletId = PalletId(*b"dex/stbl");
     pub const MaxReserves: u32 = 50;
     pub const MaxLocks:u32 = 50;
     pub const MinimumPeriod: Moment = SLOT_DURATION / 2;
@@ -288,8 +288,8 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 }
 
 pub const DAYS: u64 = 86400;
-pub const POOL0ACCOUNTID: AccountId = 33865947477506447919519395693;
-pub const POOL1ACCOUNTID: AccountId = 113094109991770785513063346029;
+pub const POOL0ACCOUNTID: AccountId = 33543405710335677835818332013;
+pub const POOL1ACCOUNTID: AccountId = 112771568224600015429362282349;
 
 pub fn mine_block() {
     let now = SystemTime::now()

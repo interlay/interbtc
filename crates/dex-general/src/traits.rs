@@ -3,6 +3,10 @@
 
 use super::*;
 
+pub trait ValidateAsset<AssetId> {
+    fn validate_asset(a: &AssetId) -> bool;
+}
+
 pub trait GenerateLpAssetId<AssetId> {
     fn generate_lp_asset_id(asset_0: AssetId, asset_1: AssetId) -> Option<AssetId>;
 }

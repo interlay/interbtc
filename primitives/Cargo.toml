@@ -17,7 +17,6 @@ xcm = { git = "https://github.com/paritytech/polkadot", branch = "release-v0.9.3
 
 # Parachain dependencies
 bitcoin = { path = "../crates/bitcoin", default-features = false }
-dex-general = { path = "../crates/dex-general", default-features = false }
 
 [features]
 default = ["std"]
@@ -30,7 +29,5 @@ std = [
     "sp-runtime/std",
 
     "bitcoin/std",
-
-    "dex-general/std",
 ]
 runtime-benchmarks = []

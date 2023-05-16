@@ -4188,7 +4188,6 @@ version = "1.2.0"
 dependencies = [
  "bitcoin",
  "bstringify",
- "dex-general",
  "parity-scale-codec",
  "scale-info",
  "serde",

@@ -16,9 +16,12 @@ mod mock;
 mod tests;
 
 impl<T: Config> Pallet<T> {
-    pub(crate) fn account_id() -> T::AccountId {
-        T::PalletId::get().into_account_truncating()
+    pub(crate) fn bootstrap_account_id() -> T::AccountId {
+        // only use two byte prefix to support 16 byte account id (used by test)
+        // "modl" ++ "dex/genr" ++ "boot" is 16 bytes
+        T::PalletId::get().into_sub_account_truncating("boot")
     }
+
     /// The account ID of a pair account
     /// only use two byte prefix to support 16 byte account id (used by test)
     /// "modl" ++ "dex/genr" is 12 bytes, and 4 bytes remaining for hash of AssetId pair.
@@ -655,7 +658,7 @@ impl<T: Config> Pallet<T> {
                 .checked_add(amount_1_contribute)
                 .ok_or(Error::<T>::Overflow)?;
 
-            let pair_account = Self::account_id();
+            let pair_account = Self::bootstrap_account_id();
 
             T::MultiCurrency::transfer(pair.0, &who, &pair_account, amount_0_contribute)?;
             T::MultiCurrency::transfer(pair.1, &who, &pair_account, amount_1_contribute)?;
@@ -872,7 +875,7 @@ impl<T: Config> Pallet<T> {
 
         BootstrapPersonalSupply::<T>::try_mutate_exists((pair, &who), |contribution| -> DispatchResult {
             if let Some((amount_0_contribute, amount_1_contribute)) = contribution.take() {
-                let pair_account = Self::account_id();
+                let pair_account = Self::bootstrap_account_id();
                 T::MultiCurrency::transfer(pair.0, &pair_account, &who, amount_0_contribute)?;
                 T::MultiCurrency::transfer(pair.1, &pair_account, &who, amount_1_contribute)?;
 

@@ -10,7 +10,7 @@ use serde::{Deserialize, Serialize};
 
 use frame_support::{parameter_types, traits::Contains, PalletId};
 use orml_traits::parameter_type_with_key;
-use sp_core::{ConstU16, ConstU32, H256};
+use sp_core::{ConstU32, H256};
 use sp_runtime::{
     testing::Header,
     traits::{BlakeTwo256, IdentityLookup},
@@ -18,7 +18,7 @@ use sp_runtime::{
 };
 
 use crate as pallet_dex_general;
-pub use crate::{AssetBalance, AssetInfo, Config, GenerateLpAssetId, Pallet};
+pub use crate::{AssetBalance, Config, GenerateLpAssetId, Pallet, ValidateAsset};
 
 type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
 type Block = frame_system::mocking::MockBlock<Test>;
@@ -44,10 +44,12 @@ impl CurrencyId {
     }
 }
 
-impl AssetInfo for CurrencyId {
-    fn is_support(&self) -> bool {
-        match self {
-            Self::Token(_) => true,
+pub struct EnsurePairAssetImpl;
+
+impl ValidateAsset<CurrencyId> for EnsurePairAssetImpl {
+    fn validate_asset(currency_id: &CurrencyId) -> bool {
+        match currency_id {
+            CurrencyId::Token(_) => true,
             _ => false,
         }
     }
@@ -152,9 +154,9 @@ impl Config for Test {
     type MultiCurrency = Tokens;
     type PalletId = DexGeneralPalletId;
     type AssetId = CurrencyId;
+    type EnsurePairAsset = EnsurePairAssetImpl;
     type LpGenerate = PairLpIdentity;
     type WeightInfo = ();
-    type MaxSwaps = ConstU16<10>;
     type MaxBootstrapRewards = ConstU32<1000>;
     type MaxBootstrapLimits = ConstU32<1000>;
 }

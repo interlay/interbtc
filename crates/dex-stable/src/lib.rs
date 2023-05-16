@@ -87,9 +87,10 @@ pub mod pallet {
         /// The pool ID type
         type PoolId: Parameter + Codec + Copy + Ord + AtLeast32BitUnsigned + Zero + One + Default + MaxEncodedLen;
 
-        /// The trait verify currency for some scenes.
+        /// Verify that the currencies can be used in a pool.
         type EnsurePoolAsset: ValidateCurrency<Self::CurrencyId>;
 
+        /// Generate the CurrencyId for the pool.
         type LpGenerate: StablePoolLpCurrencyIdGenerate<Self::CurrencyId, Self::PoolId>;
 
         /// The trait get timestamp of chain.
@@ -1108,6 +1109,12 @@ pub mod pallet {
 }
 
 impl<T: Config> Pallet<T> {
+    /// only use two byte prefix to support 16 byte account id (used by test)
+    /// "modl" ++ "dex/stbl" is 12 bytes, and 4 bytes remaining for PoolId
+    pub fn pool_account_id(pool_id: &T::PoolId) -> T::AccountId {
+        T::PalletId::get().into_sub_account_truncating(pool_id)
+    }
+
     fn inner_add_liquidity(
         who: &T::AccountId,
         pool_id: T::PoolId,

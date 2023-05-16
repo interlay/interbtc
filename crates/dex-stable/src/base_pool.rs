@@ -56,7 +56,7 @@ impl<T: Config> Pallet<T> {
             Error::<T>::LpCurrencyAlreadyUsed
         );
 
-        let account = T::PalletId::get().into_sub_account_truncating(pool_id);
+        let account = Self::pool_account_id(&pool_id);
         frame_system::Pallet::<T>::inc_providers(&account);
         let a_with_precision = a.checked_mul(A_PRECISION).ok_or(Error::<T>::Arithmetic)?;
 

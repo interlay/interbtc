@@ -1,26 +1,22 @@
 // Copyright 2021-2022 Zenlink.
 // Licensed under Apache 2.0.
 
-#[cfg(feature = "std")]
-use std::marker::PhantomData;
-
 use codec::{Decode, Encode, MaxEncodedLen};
+use frame_support::{pallet_prelude::GenesisBuild, parameter_types, traits::Contains, PalletId};
 use scale_info::TypeInfo;
 use serde::{Deserialize, Serialize};
-
-use frame_support::{pallet_prelude::GenesisBuild, parameter_types, traits::Contains, PalletId};
 use sp_core::H256;
 use sp_runtime::{
     testing::Header,
-    traits::{BlakeTwo256, IdentityLookup, Zero},
+    traits::{BlakeTwo256, IdentityLookup},
     RuntimeDebug,
 };
 
 use crate as dex_swap_router;
 use crate::Config;
-use dex_general::GenerateLpAssetId;
+use dex_general::{GenerateLpAssetId, ValidateAsset};
 use dex_stable::traits::{StablePoolLpCurrencyIdGenerate, ValidateCurrency};
-use orml_traits::{parameter_type_with_key, MultiCurrency};
+use orml_traits::parameter_type_with_key;
 
 type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
 type Block = frame_system::mocking::MockBlock<Test>;
@@ -76,10 +72,8 @@ impl CurrencyId {
         };
         Some(CurrencyId::LpToken(lp_token_0, lp_token_1))
     }
-}
 
-impl dex_general::AssetInfo for CurrencyId {
-    fn is_support(&self) -> bool {
+    pub fn is_lp_token(&self) -> bool {
         match self {
             Self::Token(_) => true,
             _ => false,
@@ -165,12 +159,41 @@ impl pallet_timestamp::Config for Test {
     type WeightInfo = ();
 }
 
+pub struct PoolLpGenerate;
+impl StablePoolLpCurrencyIdGenerate<CurrencyId, PoolId> for PoolLpGenerate {
+    fn generate_by_pool_id(pool_id: PoolId) -> CurrencyId {
+        return CurrencyId::StableLP(pool_id);
+    }
+}
+
+pub struct VerifyPoolAsset;
+impl ValidateCurrency<CurrencyId> for VerifyPoolAsset {
+    fn validate_pooled_currency(currencies: &[CurrencyId]) -> bool {
+        for currency in currencies.iter() {
+            if let CurrencyId::Forbidden(_) = *currency {
+                return false;
+            }
+        }
+        true
+    }
+
+    fn validate_pool_lp_currency(currency_id: CurrencyId) -> bool {
+        if let CurrencyId::Token(_) = currency_id {
+            return false;
+        }
+        if Tokens::total_issuance(currency_id) > 0 {
+            return false;
+        }
+        true
+    }
+}
+
 impl dex_stable::Config for Test {
     type RuntimeEvent = RuntimeEvent;
     type CurrencyId = CurrencyId;
     type MultiCurrency = Tokens;
     type PoolId = PoolId;
-    type EnsurePoolAsset = EnsurePoolAssetImpl<Tokens>;
+    type EnsurePoolAsset = VerifyPoolAsset;
     type LpGenerate = PoolLpGenerate;
     type TimeProvider = Timestamp;
     type PoolCurrencyLimit = PoolCurrencyLimit;
@@ -186,20 +209,26 @@ impl GenerateLpAssetId<CurrencyId> for PairLpIdentity {
     }
 }
 
+pub struct VerifyPairAsset;
+impl ValidateAsset<CurrencyId> for VerifyPairAsset {
+    fn validate_asset(currency_id: &CurrencyId) -> bool {
+        currency_id.is_lp_token()
+    }
+}
+
 impl dex_general::Config for Test {
     type RuntimeEvent = RuntimeEvent;
     type MultiCurrency = Tokens;
     type PalletId = DexGeneralPalletId;
     type AssetId = CurrencyId;
+    type EnsurePairAsset = VerifyPairAsset;
     type LpGenerate = PairLpIdentity;
     type WeightInfo = ();
-    type MaxSwaps = MaxSwaps;
     type MaxBootstrapRewards = MaxBootstrapRewards;
     type MaxBootstrapLimits = MaxBootstrapLimits;
 }
 
 parameter_types! {
-    pub const MaxSwaps: u16 = 10;
     pub const MaxBootstrapRewards: u32 = 1000;
     pub const MaxBootstrapLimits:u32 = 1000;
 }
@@ -223,41 +252,6 @@ impl ExtBuilder {
         let storage = frame_system::GenesisConfig::default().build_storage::<Test>().unwrap();
 
         storage.into()
-    }
-}
-
-pub struct EnsurePoolAssetImpl<Local>(PhantomData<Local>);
-
-pub struct PoolLpGenerate;
-
-impl StablePoolLpCurrencyIdGenerate<CurrencyId, PoolId> for PoolLpGenerate {
-    fn generate_by_pool_id(pool_id: PoolId) -> CurrencyId {
-        return CurrencyId::StableLP(pool_id);
-    }
-}
-
-impl<Local> ValidateCurrency<CurrencyId> for EnsurePoolAssetImpl<Local>
-where
-    Local: MultiCurrency<AccountId, Balance = u128, CurrencyId = CurrencyId>,
-{
-    fn validate_pooled_currency(currencies: &[CurrencyId]) -> bool {
-        for currency in currencies.iter() {
-            if let CurrencyId::Forbidden(_) = *currency {
-                return false;
-            }
-        }
-        true
-    }
-
-    fn validate_pool_lp_currency(currency_id: CurrencyId) -> bool {
-        if let CurrencyId::Token(_) = currency_id {
-            return false;
-        }
-
-        if Local::total_issuance(currency_id) > Zero::zero() {
-            return false;
-        }
-        true
     }
 }
 
