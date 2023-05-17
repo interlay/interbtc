@@ -1046,7 +1046,7 @@ fn accrued_lend_token_interest_increases_reward_share() {
         Timestamp::set_timestamp(*slot_to_set * AuraPallet::slot_duration());
 
         // Manually trigger interest accrual
-        assert_ok!(LoansPallet::accrue_interest(Token(DOT),));
+        assert_ok!(LoansPallet::accrue_interest(Token(DOT), false));
         let final_lend_token_stake: u128 = CapacityRewardsPallet::get_stake(&(), &vault_id.collateral_currency()).unwrap();
 
         assert!(

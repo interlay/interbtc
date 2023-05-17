@@ -381,7 +381,7 @@ pub fn almost_equal(target: u128, value: u128) -> bool {
 pub fn accrue_interest_per_block(asset_id: CurrencyId, block_delta_secs: u64, run_to_block: u64) {
     for i in 1..run_to_block {
         TimestampPallet::set_timestamp(6000 + (block_delta_secs * 1000 * i));
-        Loans::accrue_interest(asset_id).unwrap();
+        Loans::accrue_interest(asset_id, false).unwrap();
     }
 }
 

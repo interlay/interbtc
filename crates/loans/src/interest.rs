@@ -23,7 +23,12 @@ use crate::*;
 impl<T: Config> Pallet<T> {
     /// Accrue interest and update corresponding storage
     #[cfg_attr(any(test, feature = "integration-tests"), visibility::make(pub))]
-    pub(crate) fn accrue_interest(asset_id: CurrencyId<T>) -> DispatchResult {
+    pub(crate) fn accrue_interest(asset_id: CurrencyId<T>, reaccrue_next_block: bool) -> DispatchResult {
+        // Ensure redundant storage always has up-to-date interest
+        // rates which the UI can display.
+        // This operations mutates storage even if accruing fails.
+        MarketToReaccrue::<T>::insert(asset_id, reaccrue_next_block);
+
         let now = T::UnixTime::now().as_secs();
         let last_accrued_interest_time = Self::last_accrued_interest_time(asset_id);
         if last_accrued_interest_time.is_zero() {
@@ -48,11 +53,6 @@ impl<T: Config> Pallet<T> {
         BorrowRate::<T>::insert(asset_id, borrow_rate);
         SupplyRate::<T>::insert(asset_id, supply_rate);
         ExchangeRate::<T>::insert(asset_id, exchange_rate);
-        // Flip the re-accrual boolean flag. If the current accrual was triggered by a user,
-        // the flag is enabled, which causes the next block will accrue interest again and
-        // disable the flag. This ensures the redundant storage always has up-to-date interest
-        // rates which the UI can display.
-        MarketToReaccrue::<T>::insert(asset_id, !Self::market_to_reaccrue(asset_id));
         Self::on_exchange_rate_change(&asset_id);
 
         Self::deposit_event(Event::<T>::InterestAccrued {
