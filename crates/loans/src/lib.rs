@@ -514,7 +514,8 @@ pub mod pallet {
     #[pallet::storage]
     pub type Markets<T: Config> = StorageMap<_, Blake2_128Concat, CurrencyId<T>, Market<BalanceOf<T>>>;
 
-    /// Mapping of underlying currency id to its market
+    /// Mapping of underlying currency id of a market to the flag indicating
+    /// whether the marked should have interest accrued in the `on_initialize` hook
     #[pallet::storage]
     #[pallet::getter(fn market_to_reaccrue)]
     pub type MarketToReaccrue<T: Config> = StorageMap<_, Blake2_128Concat, CurrencyId<T>, bool, ValueQuery>;
