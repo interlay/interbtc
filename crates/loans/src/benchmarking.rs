@@ -5,7 +5,7 @@
 use super::*;
 use crate::{AccountBorrows, Pallet as Loans};
 
-use frame_benchmarking::v2::{account, benchmarks, impl_benchmark_test_suite, whitelisted_caller};
+use frame_benchmarking::v2::{account, benchmarks, impl_benchmark_test_suite, whitelisted_caller, Linear};
 use frame_support::assert_ok;
 use frame_system::{self, RawOrigin as SystemOrigin};
 use oracle::Pallet as Oracle;
@@ -149,6 +149,34 @@ pub mod benchmarks {
     use frame_benchmarking::v2::extrinsic_call;
 
     use super::*;
+
+    #[benchmark]
+    pub fn on_initialize(u: Linear<1, 2>) {
+        initialize::<T>();
+
+        let caller: T::AccountId = whitelisted_caller();
+        transfer_initial_balance::<T>(caller.clone());
+        let deposit_amount: u32 = 200_000_000;
+        let borrowed_amount: u32 = 100_000_000;
+        assert_ok!(Loans::<T>::add_market(
+            SystemOrigin::Root.into(),
+            KBTC,
+            pending_market_mock::<T>(LEND_KBTC)
+        ));
+        assert_ok!(Loans::<T>::activate_market(SystemOrigin::Root.into(), KBTC));
+        assert_ok!(Loans::<T>::mint(
+            SystemOrigin::Signed(caller.clone()).into(),
+            KBTC,
+            deposit_amount.into()
+        ));
+
+        #[block]
+        {
+            // Begin second block, because the first block is set in
+            // `initialize::<T>()`
+            Loans::<T>::begin_block(2u32.into());
+        }
+    }
 
     #[benchmark]
     pub fn add_market() {
