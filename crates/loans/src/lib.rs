@@ -34,7 +34,7 @@ use frame_support::{
     log,
     pallet_prelude::*,
     require_transactional,
-    traits::{tokens::fungibles::Inspect, OnRuntimeUpgrade, UnixTime},
+    traits::{tokens::fungibles::Inspect, UnixTime},
     transactional, PalletId,
 };
 use frame_system::pallet_prelude::*;

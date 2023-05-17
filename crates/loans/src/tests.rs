@@ -1519,3 +1519,91 @@ fn redeem_amount_matches_freed_underlying() {
         );
     })
 }
+
+fn read_interest_rates(
+    previous_supply_rate: &mut FixedU128,
+    previous_borrow_rate: &mut FixedU128,
+    current_supply_rate: &mut FixedU128,
+    current_borrow_rate: &mut FixedU128,
+) {
+    *previous_supply_rate = *current_supply_rate;
+    *previous_borrow_rate = *current_borrow_rate;
+    *current_supply_rate = Loans::supply_rate(DOT);
+    *current_borrow_rate = Loans::borrow_rate(DOT);
+}
+
+#[test]
+fn interest_rate_hook_works() {
+    new_test_ext().execute_with(|| {
+        let mut previous_supply_rate = Default::default();
+        let mut previous_borrow_rate = Default::default();
+
+        let mut current_supply_rate = Default::default();
+        let mut current_borrow_rate = Default::default();
+
+        // Run to block 1 and accrue interest so further accruals set interest rate storage
+        _run_to_block(1);
+        Loans::accrue_interest(DOT).unwrap();
+
+        _run_to_block(2);
+        // Mint and borrow so both interest rates will be non-zero
+        // This enables the re-accrual flag for next block
+        assert_ok!(Loans::mint(RuntimeOrigin::signed(ALICE), DOT, unit(100)));
+        assert_ok!(Loans::deposit_all_collateral(RuntimeOrigin::signed(ALICE), DOT));
+        assert_ok!(Loans::borrow(RuntimeOrigin::signed(ALICE), DOT, unit(10)));
+        read_interest_rates(
+            &mut previous_supply_rate,
+            &mut previous_borrow_rate,
+            &mut current_supply_rate,
+            &mut current_borrow_rate,
+        );
+
+        // The hook on block 3 auto-accrues interest so storage items are updated
+        _run_to_block(3);
+
+        read_interest_rates(
+            &mut previous_supply_rate,
+            &mut previous_borrow_rate,
+            &mut current_supply_rate,
+            &mut current_borrow_rate,
+        );
+        // The previous block ended with a `borrow` that did not accrue interest.
+        // This means that re-accruing will increase both borrow and supply rates
+        // because market utilization increased.
+        assert!(current_supply_rate.gt(&previous_supply_rate));
+        assert!(current_borrow_rate.gt(&previous_borrow_rate));
+
+        // The hook on block 4 does not auto-accrue interest
+        _run_to_block(4);
+
+        read_interest_rates(
+            &mut previous_supply_rate,
+            &mut previous_borrow_rate,
+            &mut current_supply_rate,
+            &mut current_borrow_rate,
+        );
+        assert_eq!(current_supply_rate, previous_supply_rate);
+        assert_eq!(current_borrow_rate, previous_borrow_rate);
+        // This enables the re-accrual flag for next block
+        assert_ok!(Loans::mint(RuntimeOrigin::signed(ALICE), DOT, unit(100)));
+
+        // The hook on block 5 accrues interest
+        _run_to_block(5);
+        read_interest_rates(
+            &mut previous_supply_rate,
+            &mut previous_borrow_rate,
+            &mut current_supply_rate,
+            &mut current_borrow_rate,
+        );
+        // Interacting with the market during this block will not re-accrue
+        assert_ok!(Loans::mint(RuntimeOrigin::signed(ALICE), DOT, unit(100)));
+        read_interest_rates(
+            &mut previous_supply_rate,
+            &mut previous_borrow_rate,
+            &mut current_supply_rate,
+            &mut current_borrow_rate,
+        );
+        assert_eq!(current_supply_rate, previous_supply_rate);
+        assert_eq!(current_borrow_rate, previous_borrow_rate);
+    });
+}
