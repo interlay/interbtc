@@ -518,6 +518,7 @@ pub fn run() -> Result<()> {
         #[cfg(feature = "try-runtime")]
         Some(Subcommand::TryRuntime(cmd)) => {
             use sc_executor::{sp_wasm_interface::ExtendedHostFunctions, NativeExecutionDispatch};
+            use try_runtime_cli::block_building_info::timestamp_with_aura_info;
             let runner = cli.create_runner(cmd)?;
             let chain_spec = &runner.config().chain_spec;
 
@@ -529,11 +530,12 @@ pub fn run() -> Result<()> {
                     let task_manager = sc_service::TaskManager::new(config.tokio_handle.clone(), registry)
                         .map_err(|e| sc_cli::Error::Service(sc_service::Error::Prometheus(e)))?;
 
+                    let info_provider = timestamp_with_aura_info(6000);
                     Ok((
                         cmd.run::<Block, ExtendedHostFunctions<
                             sp_io::SubstrateHostFunctions,
                             <Executor as NativeExecutionDispatch>::ExtendHostFunctions,
-                        >>(),
+                        >, _>(Some(info_provider)),
                         task_manager,
                     ))
                 });

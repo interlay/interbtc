@@ -84,6 +84,8 @@ pub mod benchmarks {
             p as usize,
             "Proposals not created."
         );
+
+        Ok(())
     }
 
     #[benchmark]
@@ -117,7 +119,7 @@ pub mod benchmarks {
     }
 
     #[benchmark]
-    pub fn vote_new() {
+    pub fn vote_new() -> Result<(), BenchmarkError> {
         let caller = funded_account::<T>("caller", 0);
         let account_vote = account_vote::<T>(100u32.into());
 
@@ -141,10 +143,12 @@ pub mod benchmarks {
 
         let Voting { votes, .. } = VotingOf::<T>::get(&caller);
         assert_eq!(votes.len(), T::MaxVotes::get() as usize, "Vote was not recorded.");
+
+        Ok(())
     }
 
     #[benchmark]
-    pub fn vote_existing() {
+    pub fn vote_existing() -> Result<(), BenchmarkError> {
         let caller = funded_account::<T>("caller", 0);
         let account_vote = account_vote::<T>(100u32.into());
 
@@ -177,6 +181,8 @@ pub mod benchmarks {
             _ => panic!("referendum not ongoing"),
         };
         assert_eq!(tally.nays, 1000u32.into(), "changed vote was not recorded");
+
+        Ok(())
     }
 
     #[benchmark]
@@ -220,6 +226,8 @@ pub mod benchmarks {
 
         #[extrinsic_call]
         _(RawOrigin::Signed(proposer), 0);
+
+        Ok(())
     }
 
     #[benchmark]
@@ -228,12 +236,13 @@ pub mod benchmarks {
 
         #[extrinsic_call]
         _(RawOrigin::Root, ref_index);
+
+        Ok(())
     }
 
     // This measures the path of `launch_next` public. Not currently used as we simply
     // assume the weight is `MaxBlockWeight` when executing.
-    #[extra]
-    #[benchmark]
+    #[benchmark(extra)]
     pub fn on_initialize_public(r: Linear<0, 99>) -> Result<(), BenchmarkError> {
         for i in 0..r {
             add_referendum::<T>(i);
@@ -262,6 +271,7 @@ pub mod benchmarks {
                 }
             }
         }
+        Ok(())
     }
 
     // No launch no maturing referenda.
@@ -294,6 +304,7 @@ pub mod benchmarks {
                 }
             }
         }
+        Ok(())
     }
 
     #[benchmark]
@@ -327,6 +338,7 @@ pub mod benchmarks {
                 }
             }
         }
+        Ok(())
     }
 
     #[benchmark]
@@ -335,6 +347,7 @@ pub mod benchmarks {
 
         #[extrinsic_call]
         _(RawOrigin::Root);
+        Ok(())
     }
 
     #[benchmark]
@@ -358,6 +371,7 @@ pub mod benchmarks {
 
         let Voting { votes, .. } = VotingOf::<T>::get(&caller);
         assert_eq!(votes.len(), (r - 1) as usize, "Vote was not removed");
+        Ok(())
     }
 
     #[benchmark]
