@@ -112,6 +112,7 @@ pub mod pallet {
         type WeightInfo: WeightInfo;
 
         /// Convert supported currencies to target asset.
+        /// NOTE: the price should only ever increase
         type RebaseConvert: TryConvertBalance<Balance, Balance, AssetId = Self::CurrencyId>;
     }
 
@@ -139,6 +140,7 @@ pub mod pallet {
     #[pallet::getter(fn lp_currencies)]
     pub type LpCurrencies<T: Config> = StorageMap<_, Blake2_128Concat, T::CurrencyId, T::PoolId>;
 
+    // quote -> base
     #[pallet::storage]
     pub type RebaseTokens<T: Config> = StorageMap<_, Blake2_128Concat, T::CurrencyId, T::CurrencyId, OptionQuery>;
 

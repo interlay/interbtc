@@ -113,11 +113,12 @@ mod tests {
         new_test_ext().execute_with(|| {
             // staking (rebase) token is worth 2:1 of liquid token
             RebaseTokens::<Test>::insert(Rebase(TOKEN1_SYMBOL), Token(TOKEN1_SYMBOL));
+            mock::oracle::Price::<Test>::insert((Rebase(TOKEN1_SYMBOL), Token(TOKEN1_SYMBOL)), 1);
 
             assert_ok!(StableAmm::create_base_pool(
                 RawOrigin::Root.into(),
-                vec![Token(TOKEN1_SYMBOL), Rebase(TOKEN1_SYMBOL)],
-                vec![TOKEN1_DECIMAL, TOKEN1_DECIMAL],
+                vec![Token(TOKEN1_SYMBOL), Rebase(TOKEN1_SYMBOL), Token(TOKEN2_SYMBOL)],
+                vec![TOKEN1_DECIMAL, TOKEN1_DECIMAL, TOKEN2_DECIMAL],
                 INITIAL_A_VALUE,
                 SWAP_FEE,
                 ADMIN_FEE,
@@ -127,11 +128,11 @@ mod tests {
 
             let pool_id = StableAmm::next_pool_id() - 1;
             assert_ok!(StableAmm::add_liquidity(
-                RawOrigin::Signed(ALICE).into(),
+                RawOrigin::Signed(BOB).into(),
                 pool_id,
-                vec![1e18 as Balance, 1e18 as Balance * 2],
+                vec![1e18 as Balance, 1e18 as Balance, 1e18 as Balance],
                 0,
-                ALICE,
+                BOB,
                 u64::MAX,
             ));
 
@@ -139,16 +140,50 @@ mod tests {
             let calculated_swap_return = StableAmm::calculate_base_swap_amount(&pool, 0, 1, 1e17 as Balance).unwrap();
             assert_eq!(calculated_swap_return, 99702611562565288);
 
-            assert_ok!(StableAmm::swap(
+            // rebase tokens are now worth twice as much
+            mock::oracle::Price::<Test>::insert((Rebase(TOKEN1_SYMBOL), Token(TOKEN1_SYMBOL)), 2);
+            assert_ok!(StableAmm::add_liquidity(
                 RawOrigin::Signed(BOB).into(),
                 pool_id,
+                vec![1e18 as Balance, 0, 1e18 as Balance],
                 0,
-                1,
-                1e17 as Balance,
-                calculated_swap_return,
-                CHARLIE,
-                u64::MAX
+                BOB,
+                u64::MAX,
             ));
+
+            // price stays the same
+            let calculated_swap_return = StableAmm::calculate_base_swap_amount(&pool, 0, 1, 1e17 as Balance).unwrap();
+            assert_eq!(calculated_swap_return, 99702611562565288);
+
+            let admin_lp_balance = <Test as Config>::MultiCurrency::free_balance(pool.lp_currency_id, &ALICE);
+            assert_eq!(admin_lp_balance, 995181615631638418);
+
+            fn calculate_remove_all_liquidity(pool_id: PoolId, account: AccountId) -> Vec<Balance> {
+                let pool = StableAmm::pools(pool_id).unwrap().get_pool_info();
+                let amounts = StableAmm::calculate_base_remove_liquidity(
+                    &pool,
+                    <Test as Config>::MultiCurrency::free_balance(pool.lp_currency_id, &account),
+                )
+                .unwrap();
+
+                amounts
+                    .iter()
+                    .zip(pool.currency_ids)
+                    .map(|(amount, currency_id)| {
+                        <Test as Config>::RebaseConvert::try_convert_balance_back(*amount, currency_id.clone())
+                    })
+                    .collect::<Result<Vec<_>, _>>()
+                    .unwrap()
+            }
+
+            assert_eq!(
+                calculate_remove_all_liquidity(pool_id, ALICE),
+                [331753180913049698, 165868730225911397, 331753180913049698]
+            );
+            assert_eq!(
+                calculate_remove_all_liquidity(pool_id, BOB),
+                [1668153408288201704, 834037180572837200, 1668153408288201704]
+            );
         });
     }
 }

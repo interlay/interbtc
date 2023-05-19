@@ -232,6 +232,7 @@ impl<T: Config> Pallet<T> {
             .checked_sub(dy)
             .and_then(|n| n.checked_sub(admin_fee))
             .ok_or(Error::<T>::Arithmetic)?;
+        // dy subtracted from balances after transfer
         pool.balances[j] = pool.balances[j]
             .checked_sub(T::RebaseConvert::try_convert_balance_back(
                 admin_fee,
@@ -291,7 +292,7 @@ impl<T: Config> Pallet<T> {
             .checked_sub(dy)
             .and_then(|n| n.checked_sub(admin_fee))
             .ok_or(Error::<T>::Arithmetic)?;
-
+        // dy subtracted from balances after transfer
         pool.balances[index as usize] = pool.balances[index as usize]
             .checked_sub(T::RebaseConvert::try_convert_balance_back(
                 admin_fee,

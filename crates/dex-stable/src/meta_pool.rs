@@ -97,6 +97,7 @@ impl<T: Config> Pallet<T> {
                 meta_pool.info.rebased_balances[i] = new_rebased_balances[i]
                     .checked_sub(admin_fee)
                     .ok_or(Error::<T>::Arithmetic)?;
+
                 new_rebased_balances[i] = new_rebased_balances[i]
                     .checked_sub(fees[i])
                     .ok_or(Error::<T>::Arithmetic)?;
@@ -194,6 +195,7 @@ impl<T: Config> Pallet<T> {
             .checked_sub(dy)
             .and_then(|n| n.checked_sub(admin_fee))
             .ok_or(Error::<T>::Arithmetic)?;
+        // dy subtracted from balances after transfer
         meta_pool.info.balances[j] = meta_pool.info.balances[j]
             .checked_sub(T::RebaseConvert::try_convert_balance_back(
                 admin_fee,
