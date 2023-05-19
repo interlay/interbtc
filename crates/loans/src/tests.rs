@@ -1251,6 +1251,64 @@ fn reward_calculation_one_player_in_multi_markets_works() {
 }
 
 #[test]
+fn test_reward_amounts() {
+    new_test_ext().execute_with(|| {
+        assert_ok!(Loans::mint(RuntimeOrigin::signed(ALICE), DOT, unit(100)));
+        assert_ok!(Loans::mint(RuntimeOrigin::signed(ALICE), KSM, unit(100)));
+        assert_ok!(Loans::deposit_all_collateral(RuntimeOrigin::signed(ALICE), DOT));
+        assert_ok!(Loans::deposit_all_collateral(RuntimeOrigin::signed(ALICE), KSM));
+        assert_ok!(Loans::borrow(RuntimeOrigin::signed(ALICE), DOT, unit(10)));
+        assert_ok!(Loans::borrow(RuntimeOrigin::signed(ALICE), KSM, unit(10)));
+
+        assert_ok!(Loans::mint(RuntimeOrigin::signed(BOB), DOT, unit(100)));
+        assert_ok!(Loans::mint(RuntimeOrigin::signed(BOB), KSM, unit(100)));
+        assert_ok!(Loans::deposit_all_collateral(RuntimeOrigin::signed(BOB), DOT));
+        assert_ok!(Loans::deposit_all_collateral(RuntimeOrigin::signed(BOB), KSM));
+        assert_ok!(Loans::borrow(RuntimeOrigin::signed(BOB), DOT, unit(10)));
+        assert_ok!(Loans::borrow(RuntimeOrigin::signed(BOB), KSM, unit(10)));
+
+        _run_to_block(10);
+
+        // Reward of 1 per block, and add rewards for 10 blocks
+        assert_ok!(Loans::add_reward(RuntimeOrigin::signed(DAVE), unit(10)));
+        assert_ok!(Loans::update_market_reward_speed(
+            RuntimeOrigin::root(),
+            DOT,
+            Some(unit(1)),
+            Some(unit(0)),
+        ));
+        // Note: schedule_after scheles after (x+1) blocks, hence to get 10 blocks of rewards we
+        // call schedule_after(9)
+        assert_ok!(Scheduler::schedule_after(
+            RuntimeOrigin::root(),
+            9,
+            None,
+            32,
+            Box::new(RuntimeCall::Loans(crate::Call::update_market_reward_speed {
+                asset_id: DOT,
+                supply_reward_per_block: Some(0),
+                borrow_reward_per_block: Some(0)
+            }))
+        ));
+
+        _run_to_block(15); // 5 blocks after start of rewards activation, change stake
+        assert_ok!(Loans::mint(RuntimeOrigin::signed(ALICE), DOT, unit(200)));
+
+        _run_to_block(1000); // some time in the far future
+        assert_ok!(Loans::mint(RuntimeOrigin::signed(ALICE), DOT, 1)); // force update of rewards
+        assert_ok!(Loans::mint(RuntimeOrigin::signed(BOB), DOT, 1));
+        // both account now have 6 units of rewards each
+        // 5 blocks at 50% stake, 5 blocks at 75% stake = 5*0.5 + 5 * 0.75 = 6.25. Minus small rounding error
+        assert_eq!(Loans::reward_accrued(ALICE), 6249999983019);
+        assert_eq!(Loans::reward_accrued(BOB), 3750000000000);
+
+        // both claims succeed
+        assert_ok!(Loans::claim_reward(RuntimeOrigin::signed(ALICE)));
+        assert_ok!(Loans::claim_reward(RuntimeOrigin::signed(BOB)));
+    })
+}
+
+#[test]
 fn reward_calculation_multi_player_in_one_market_works() {
     new_test_ext().execute_with(|| {
         assert_ok!(Loans::mint(RuntimeOrigin::signed(ALICE), DOT, unit(10)));

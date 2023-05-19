@@ -45,6 +45,7 @@ orml-oracle = { git = "https://github.com/open-web3-stack/open-runtime-module-li
 mocktopus = "0.8.0"
 visibility = { version = "0.0.1" }
 currency = { path = "../currency", features = ["testing-utils"] }
+pallet-scheduler = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.31" }
 
 [features]
 default = ["std"]

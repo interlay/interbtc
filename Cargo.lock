@@ -5720,6 +5720,7 @@ dependencies = [
  "orml-oracle",
  "orml-tokens",
  "orml-traits",
+ "pallet-scheduler",
  "pallet-timestamp",
  "pallet-utility",
  "parity-scale-codec",
