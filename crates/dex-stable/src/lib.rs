@@ -47,6 +47,7 @@ mod base_pool;
 mod default_weights;
 mod meta_pool;
 mod primitives;
+mod rebase;
 mod utils;
 
 use frame_support::{
@@ -64,6 +65,7 @@ use sp_std::{ops::Sub, vec, vec::Vec};
 pub use default_weights::WeightInfo;
 pub use pallet::*;
 use primitives::*;
+pub use rebase::TryConvertBalance;
 use traits::{StablePoolLpCurrencyIdGenerate, ValidateCurrency};
 
 #[allow(type_alias_bounds)]
@@ -108,6 +110,9 @@ pub mod pallet {
 
         /// Weight information for extrinsics in this pallet.
         type WeightInfo: WeightInfo;
+
+        /// Convert supported currencies to target asset.
+        type RebaseConvert: TryConvertBalance<Balance, Balance, AssetId = Self::CurrencyId>;
     }
 
     #[pallet::pallet]
@@ -133,6 +138,9 @@ pub mod pallet {
     #[pallet::storage]
     #[pallet::getter(fn lp_currencies)]
     pub type LpCurrencies<T: Config> = StorageMap<_, Blake2_128Concat, T::CurrencyId, T::PoolId>;
+
+    #[pallet::storage]
+    pub type RebaseTokens<T: Config> = StorageMap<_, Blake2_128Concat, T::CurrencyId, T::CurrencyId, OptionQuery>;
 
     #[pallet::event]
     #[pallet::generate_deposit(pub(super) fn deposit_event)]
@@ -1105,6 +1113,23 @@ pub mod pallet {
                 Ok(())
             })
         }
+
+        /// Add rebasing token with dynamically adjusted price.
+        ///
+        /// Only callable by admin.
+        ///
+        /// # Argument
+        ///
+        /// - `from`: The asset to rebase (e.g. LDOT).
+        /// - `to`: The target asset (e.g. DOT).
+        #[pallet::call_index(19)]
+        #[pallet::weight(1_000_000)]
+        #[transactional]
+        pub fn insert_rebase_token(origin: OriginFor<T>, from: T::CurrencyId, to: T::CurrencyId) -> DispatchResult {
+            ensure_root(origin)?;
+            RebaseTokens::<T>::insert(from, to);
+            Ok(())
+        }
     }
 }
 
@@ -1124,6 +1149,7 @@ impl<T: Config> Pallet<T> {
     ) -> Result<Balance, DispatchError> {
         Pools::<T>::try_mutate_exists(pool_id, |optioned_pool| -> Result<Balance, DispatchError> {
             let pool = optioned_pool.as_mut().ok_or(Error::<T>::InvalidPoolId)?;
+            Self::inner_collect_yield(pool)?;
             match pool {
                 Pool::Base(bp) => Self::base_pool_add_liquidity(who, pool_id, bp, amounts, min_mint_amount, to),
                 Pool::Meta(mp) => Self::meta_pool_add_liquidity(who, pool_id, mp, amounts, min_mint_amount, to),
@@ -1144,6 +1170,7 @@ impl<T: Config> Pallet<T> {
 
         Pools::<T>::try_mutate_exists(pool_id, |optioned_pool| -> Result<Balance, DispatchError> {
             let pool = optioned_pool.as_mut().ok_or(Error::<T>::InvalidPoolId)?;
+            Self::inner_collect_yield(pool)?;
             match pool {
                 Pool::Base(bp) => Self::base_pool_swap(who, pool_id, bp, i, j, in_amount, out_min_amount, to),
                 Pool::Meta(mp) => Self::meta_pool_swap(who, pool_id, mp, i, j, in_amount, out_min_amount, to),
@@ -1161,6 +1188,7 @@ impl<T: Config> Pallet<T> {
         Pools::<T>::try_mutate_exists(pool_id, |optioned_pool| -> DispatchResult {
             ensure!(!lp_amount.is_zero(), Error::<T>::InvalidTransaction);
             let global_pool = optioned_pool.as_mut().ok_or(Error::<T>::InvalidPoolId)?;
+            Self::inner_collect_yield(global_pool)?;
             let pool = match global_pool {
                 Pool::Base(bp) => bp,
                 Pool::Meta(mp) => &mut mp.info,
@@ -1174,13 +1202,17 @@ impl<T: Config> Pallet<T> {
             let min_amounts_length = min_amounts.len();
             ensure!(currencies_length == min_amounts_length, Error::<T>::MismatchParameter);
 
+            // fees are not applied on withdrawal as this method
+            // does not change the imbalance of the pool in any way
             let fees: Vec<Balance> = vec![Zero::zero(); currencies_length];
             let amounts = Self::calculate_base_remove_liquidity(pool, lp_amount).ok_or(Error::<T>::Arithmetic)?;
 
             for (i, amount) in amounts.iter().enumerate() {
                 ensure!(*amount >= min_amounts[i], Error::<T>::AmountSlippage);
-                pool.balances[i] = pool.balances[i].checked_sub(*amount).ok_or(Error::<T>::Arithmetic)?;
-                T::MultiCurrency::transfer(pool.currency_ids[i], &pool.account, to, *amount)?;
+                pool.rebased_balances[i] = pool.rebased_balances[i]
+                    .checked_sub(*amount)
+                    .ok_or(Error::<T>::Arithmetic)?;
+                Self::do_convert_back_and_transfer_out(pool, i, &to, *amount)?;
             }
 
             T::MultiCurrency::withdraw(pool.lp_currency_id, who, lp_amount)?;
@@ -1207,6 +1239,7 @@ impl<T: Config> Pallet<T> {
         Pools::<T>::try_mutate_exists(pool_id, |optioned_pool| -> Result<Balance, DispatchError> {
             ensure!(!lp_amount.is_zero(), Error::<T>::InvalidTransaction);
             let pool = optioned_pool.as_mut().ok_or(Error::<T>::InvalidPoolId)?;
+            Self::inner_collect_yield(pool)?;
             match pool {
                 Pool::Base(bp) => {
                     Self::base_pool_remove_liquidity_one_currency(pool_id, bp, who, lp_amount, index, min_amount, to)
@@ -1227,6 +1260,7 @@ impl<T: Config> Pallet<T> {
     ) -> DispatchResult {
         Pools::<T>::try_mutate_exists(pool_id, |optioned_pool| -> DispatchResult {
             let pool = optioned_pool.as_mut().ok_or(Error::<T>::InvalidPoolId)?;
+            Self::inner_collect_yield(pool)?;
             match pool {
                 Pool::Base(bp) => {
                     Self::base_pool_remove_liquidity_imbalance(who, pool_id, bp, amounts, max_burn_amount, to)
@@ -1486,7 +1520,6 @@ impl<T: Config> Pallet<T> {
             }
 
             let balance = T::MultiCurrency::free_balance(pool.currency_ids[currency_index], &pool.account);
-
             balance.checked_sub(pool.balances[currency_index])
         } else {
             None

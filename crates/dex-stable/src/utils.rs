@@ -177,14 +177,39 @@ impl<T: Config> Pallet<T> {
         from: &T::AccountId,
         to: &T::AccountId,
         amount: Balance,
-    ) -> Result<Balance, Error<T>> {
+    ) -> Result<Balance, DispatchError> {
         let to_prior_balance = T::MultiCurrency::free_balance(currency_id, to);
         T::MultiCurrency::transfer(currency_id, from, to, amount).map_err(|_| Error::<T>::InsufficientReserve)?;
         let to_new_balance = T::MultiCurrency::free_balance(currency_id, to);
 
         to_new_balance
             .checked_sub(to_prior_balance)
-            .ok_or(Error::<T>::Arithmetic)
+            .ok_or(Error::<T>::Arithmetic.into())
+    }
+
+    pub(crate) fn do_transfer_in_and_convert(
+        currency_id: T::CurrencyId,
+        from: &T::AccountId,
+        to: &T::AccountId,
+        amount: Balance,
+    ) -> Result<(Balance, Balance), DispatchError> {
+        let amount = Self::do_transfer_in(currency_id, from, to, amount)?;
+        let rebased_amount = T::RebaseConvert::try_convert_balance(amount, currency_id)?;
+        Ok((amount, rebased_amount))
+    }
+
+    pub(crate) fn do_convert_back_and_transfer_out(
+        pool: &mut BasePool<T::CurrencyId, T::AccountId, T::PoolCurrencyLimit, T::PoolCurrencySymbolLimit>,
+        index: usize,
+        to: &T::AccountId,
+        rebased_amount: Balance,
+    ) -> Result<Balance, DispatchError> {
+        let currency_id = pool.currency_ids[index];
+        let amount = T::RebaseConvert::try_convert_balance_back(rebased_amount, currency_id)?;
+        T::MultiCurrency::transfer(currency_id, &pool.account, to, amount)
+            .map_err(|_| Error::<T>::InsufficientReserve)?;
+        pool.balances[index] = pool.balances[index].checked_sub(amount).ok_or(Error::<T>::Arithmetic)?;
+        Ok(amount)
     }
 
     pub(crate) fn get_a_precise(

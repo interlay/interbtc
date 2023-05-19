@@ -29,7 +29,7 @@ impl<T: Config> Pallet<T> {
 
         if !lp_total_supply.is_zero() {
             let normalized_balances = Self::meta_pool_xp(
-                &meta_pool.info.balances,
+                &meta_pool.info.rebased_balances,
                 &meta_pool.info.token_multipliers,
                 base_virtual_price,
             )
@@ -38,27 +38,34 @@ impl<T: Config> Pallet<T> {
             d0 = Self::get_d(&normalized_balances, amp).ok_or(Error::<T>::Arithmetic)?;
         }
 
-        let mut new_balances = meta_pool.info.balances.clone();
-        for (i, currency) in meta_pool.info.currency_ids.iter().enumerate() {
+        let mut new_rebased_balances = meta_pool.info.rebased_balances.clone();
+        for i in 0..meta_pool.info.currency_ids.len() {
             ensure!(
                 !lp_total_supply.is_zero() || amounts[i] > Zero::zero(),
                 Error::<T>::RequireAllCurrencies
             );
             if !amounts[i].is_zero() {
-                new_balances[i] = new_balances[i]
-                    .checked_add(Self::do_transfer_in(
-                        *currency,
-                        who,
-                        &meta_pool.info.account,
-                        amounts[i],
-                    )?)
+                let (amount, rebased_amount) = Self::do_transfer_in_and_convert(
+                    meta_pool.info.currency_ids[i],
+                    who,
+                    &meta_pool.info.account,
+                    amounts[i],
+                )?;
+                meta_pool.info.balances[i] = meta_pool.info.balances[i]
+                    .checked_add(amount)
+                    .ok_or(Error::<T>::Arithmetic)?;
+                new_rebased_balances[i] = new_rebased_balances[i]
+                    .checked_add(rebased_amount)
                     .ok_or(Error::<T>::Arithmetic)?;
             }
         }
 
-        let normalized_balances =
-            Self::meta_pool_xp(&new_balances, &meta_pool.info.token_multipliers, base_virtual_price)
-                .ok_or(Error::<T>::Arithmetic)?;
+        let normalized_balances = Self::meta_pool_xp(
+            &new_rebased_balances,
+            &meta_pool.info.token_multipliers,
+            base_virtual_price,
+        )
+        .ok_or(Error::<T>::Arithmetic)?;
 
         let d1 = Self::get_d(&normalized_balances, amp).ok_or(Error::<T>::Arithmetic)?;
         ensure!(d1 > d0, Error::<T>::CheckDFailed);
@@ -71,29 +78,44 @@ impl<T: Config> Pallet<T> {
             let fee_per_token = Self::calculate_fee_per_token(&meta_pool.info).ok_or(Error::<T>::Arithmetic)?;
             for i in 0..meta_pool.info.currency_ids.len() {
                 let ideal_balance = U256::from(d1)
-                    .checked_mul(U256::from(meta_pool.info.balances[i]))
+                    .checked_mul(U256::from(meta_pool.info.rebased_balances[i]))
                     .and_then(|n| n.checked_div(U256::from(d0)))
                     .ok_or(Error::<T>::Arithmetic)?;
 
                 fees[i] = U256::from(fee_per_token)
-                    .checked_mul(Self::distance(ideal_balance, U256::from(new_balances[i])))
+                    .checked_mul(Self::distance(ideal_balance, U256::from(new_rebased_balances[i])))
                     .and_then(|n| n.checked_div(U256::from(FEE_DENOMINATOR)))
                     .and_then(|n| TryInto::<Balance>::try_into(n).ok())
                     .ok_or(Error::<T>::Arithmetic)?;
 
-                meta_pool.info.balances[i] = U256::from(fees[i])
+                let admin_fee = U256::from(fees[i])
                     .checked_mul(U256::from(meta_pool.info.admin_fee))
                     .and_then(|n| n.checked_div(U256::from(FEE_DENOMINATOR)))
-                    .and_then(|n| U256::from(new_balances[i]).checked_sub(n))
                     .and_then(|n| TryInto::<Balance>::try_into(n).ok())
                     .ok_or(Error::<T>::Arithmetic)?;
 
-                new_balances[i] = new_balances[i].checked_sub(fees[i]).ok_or(Error::<T>::Arithmetic)?;
+                meta_pool.info.rebased_balances[i] = new_rebased_balances[i]
+                    .checked_sub(admin_fee)
+                    .ok_or(Error::<T>::Arithmetic)?;
+                new_rebased_balances[i] = new_rebased_balances[i]
+                    .checked_sub(fees[i])
+                    .ok_or(Error::<T>::Arithmetic)?;
+
+                meta_pool.info.balances[i] = meta_pool.info.balances[i]
+                    .checked_sub(T::RebaseConvert::try_convert_balance_back(
+                        admin_fee,
+                        meta_pool.info.currency_ids[i],
+                    )?)
+                    .ok_or(Error::<T>::Arithmetic)?;
             }
 
             d2 = Self::get_d(
-                &Self::meta_pool_xp(&new_balances, &meta_pool.info.token_multipliers, base_virtual_price)
-                    .ok_or(Error::<T>::Arithmetic)?,
+                &Self::meta_pool_xp(
+                    &new_rebased_balances,
+                    &meta_pool.info.token_multipliers,
+                    base_virtual_price,
+                )
+                .ok_or(Error::<T>::Arithmetic)?,
                 amp,
             )
             .ok_or(Error::<T>::Arithmetic)?;
@@ -105,7 +127,7 @@ impl<T: Config> Pallet<T> {
                 .and_then(|n| TryInto::<Balance>::try_into(n).ok())
                 .ok_or(Error::<T>::Arithmetic)?;
         } else {
-            meta_pool.info.balances = new_balances;
+            meta_pool.info.rebased_balances = new_rebased_balances;
             mint_amount = d1;
         }
 
@@ -144,10 +166,11 @@ impl<T: Config> Pallet<T> {
         let n_currencies = meta_pool.info.currency_ids.len();
         ensure!(i < n_currencies && j < n_currencies, Error::<T>::CurrencyIndexOutRange);
 
-        let in_amount = Self::do_transfer_in(meta_pool.info.currency_ids[i], who, &meta_pool.info.account, in_amount)?;
+        let (in_amount, rebased_in_amount) =
+            Self::do_transfer_in_and_convert(meta_pool.info.currency_ids[i], who, &meta_pool.info.account, in_amount)?;
 
         let virtual_price = Self::meta_pool_update_virtual_price(meta_pool).ok_or(Error::<T>::Arithmetic)?;
-        let (dy, dy_fee) = Self::calculate_meta_swap_amount(meta_pool, i, j, in_amount, virtual_price)
+        let (dy, dy_fee) = Self::calculate_meta_swap_amount(meta_pool, i, j, rebased_in_amount, virtual_price)
             .ok_or(Error::<T>::Arithmetic)?;
 
         ensure!(dy >= out_min_amount, Error::<T>::AmountSlippage);
@@ -159,17 +182,27 @@ impl<T: Config> Pallet<T> {
             .and_then(|n| TryInto::<Balance>::try_into(n).ok())
             .ok_or(Error::<T>::Arithmetic)?;
 
-        //update pool balance
+        // update pool balances
+        meta_pool.info.rebased_balances[i] = meta_pool.info.rebased_balances[i]
+            .checked_add(rebased_in_amount)
+            .ok_or(Error::<T>::Arithmetic)?;
         meta_pool.info.balances[i] = meta_pool.info.balances[i]
             .checked_add(in_amount)
             .ok_or(Error::<T>::Arithmetic)?;
-        meta_pool.info.balances[j] = meta_pool.info.balances[j]
+
+        meta_pool.info.rebased_balances[j] = meta_pool.info.rebased_balances[j]
             .checked_sub(dy)
             .and_then(|n| n.checked_sub(admin_fee))
             .ok_or(Error::<T>::Arithmetic)?;
+        meta_pool.info.balances[j] = meta_pool.info.balances[j]
+            .checked_sub(T::RebaseConvert::try_convert_balance_back(
+                admin_fee,
+                meta_pool.info.currency_ids[j],
+            )?)
+            .ok_or(Error::<T>::Arithmetic)?;
 
-        T::MultiCurrency::transfer(meta_pool.info.currency_ids[j], &meta_pool.info.account, to, dy)
-            .map_err(|_| Error::<T>::InsufficientReserve)?;
+        // transfer excluding admin and exchange fees
+        Self::do_convert_back_and_transfer_out(&mut meta_pool.info, j, to, dy)?;
 
         Self::deposit_event(Event::CurrencyExchange {
             pool_id,
@@ -218,21 +251,26 @@ impl<T: Config> Pallet<T> {
         ensure!(dy >= min_amount, Error::<T>::AmountSlippage);
         let fee_denominator = U256::from(FEE_DENOMINATOR);
 
-        meta_pool.info.balances[index as usize] = U256::from(dy_fee)
+        let admin_fee = U256::from(dy_fee)
             .checked_mul(U256::from(meta_pool.info.admin_fee))
             .and_then(|n| n.checked_div(fee_denominator))
-            .and_then(|n| n.checked_add(U256::from(dy)))
             .and_then(|n| TryInto::<Balance>::try_into(n).ok())
-            .and_then(|n| meta_pool.info.balances[index as usize].checked_sub(n))
+            .ok_or(Error::<T>::Arithmetic)?;
+
+        meta_pool.info.rebased_balances[index as usize] = meta_pool.info.rebased_balances[index as usize]
+            .checked_sub(dy)
+            .and_then(|n| n.checked_sub(admin_fee))
+            .ok_or(Error::<T>::Arithmetic)?;
+
+        meta_pool.info.balances[index as usize] = meta_pool.info.balances[index as usize]
+            .checked_sub(T::RebaseConvert::try_convert_balance_back(
+                admin_fee,
+                meta_pool.info.currency_ids[index as usize],
+            )?)
             .ok_or(Error::<T>::Arithmetic)?;
 
         T::MultiCurrency::withdraw(meta_pool.info.lp_currency_id, who, lp_amount)?;
-        T::MultiCurrency::transfer(
-            meta_pool.info.currency_ids[index as usize],
-            &meta_pool.info.account,
-            to,
-            dy,
-        )?;
+        Self::do_convert_back_and_transfer_out(&mut meta_pool.info, index as usize, to, dy)?;
 
         Self::deposit_event(Event::RemoveLiquidityOneCurrency {
             pool_id,
@@ -282,7 +320,7 @@ impl<T: Config> Pallet<T> {
 
         for (i, balance) in amounts.iter().enumerate() {
             if *balance > Zero::zero() {
-                T::MultiCurrency::transfer(meta_pool.info.currency_ids[i], &meta_pool.info.account, to, *balance)?;
+                Self::do_convert_back_and_transfer_out(&mut meta_pool.info, i, to, *balance)?;
             }
         }
 
@@ -354,13 +392,18 @@ impl<T: Config> Pallet<T> {
             meta_index_to = base_lp_currency_index;
         }
 
-        let mut dx = Self::do_transfer_in(currency_from, who, &meta_pool.info.account, in_amount)?;
+        let (amount_in, mut dx) =
+            Self::do_transfer_in_and_convert(currency_from, who, &meta_pool.info.account, in_amount)?;
         let mut dy: Balance;
         if currency_index_from < base_lp_currency_index || currency_index_to < base_lp_currency_index {
-            let old_balances = meta_pool.info.balances.clone();
+            let old_rebased_balances = meta_pool.info.rebased_balances.clone();
 
-            let xp = Self::meta_pool_xp(&old_balances, &meta_pool.info.token_multipliers, base_virtual_price)
-                .ok_or(Error::<T>::Arithmetic)?;
+            let xp = Self::meta_pool_xp(
+                &old_rebased_balances,
+                &meta_pool.info.token_multipliers,
+                base_virtual_price,
+            )
+            .ok_or(Error::<T>::Arithmetic)?;
             let x: Balance;
             if currency_index_from < base_lp_currency_index {
                 x = dx
@@ -369,7 +412,7 @@ impl<T: Config> Pallet<T> {
                     .ok_or(Error::<T>::Arithmetic)?;
             } else {
                 let mut base_amounts = vec![Balance::default(); meta_pool.base_currencies.len()];
-                base_amounts[currency_index_from - base_lp_currency_index] = dx;
+                base_amounts[currency_index_from - base_lp_currency_index] = amount_in;
                 dx = Self::inner_add_liquidity(
                     &meta_pool.info.account,
                     meta_pool.base_pool_id,
@@ -401,6 +444,7 @@ impl<T: Config> Pallet<T> {
                     .and_then(|n| TryInto::<Balance>::try_into(n).ok())
                     .ok_or(Error::<T>::Arithmetic)?;
             }
+
             let dy_fee = U256::from(dy)
                 .checked_mul(U256::from(meta_pool.info.fee))
                 .and_then(|n| n.checked_div(U256::from(FEE_DENOMINATOR)))
@@ -412,22 +456,30 @@ impl<T: Config> Pallet<T> {
                 .and_then(|n| n.checked_div(meta_pool.info.token_multipliers[meta_index_to]))
                 .ok_or(Error::<T>::Arithmetic)?;
 
-            let mut dy_admin_fee = U256::from(dy_fee)
+            let mut admin_fee = U256::from(dy_fee)
                 .checked_mul(U256::from(meta_pool.info.admin_fee))
                 .and_then(|n| n.checked_div(U256::from(FEE_DENOMINATOR)))
                 .and_then(|n| TryInto::<Balance>::try_into(n).ok())
                 .ok_or(Error::<T>::Arithmetic)?;
 
-            dy_admin_fee = dy_admin_fee
+            admin_fee = admin_fee
                 .checked_div(meta_pool.info.token_multipliers[meta_index_to])
                 .ok_or(Error::<T>::Arithmetic)?;
 
-            meta_pool.info.balances[meta_index_from] = old_balances[meta_index_from]
+            meta_pool.info.rebased_balances[meta_index_from] = old_rebased_balances[meta_index_from]
                 .checked_add(dx)
                 .ok_or(Error::<T>::Arithmetic)?;
-            meta_pool.info.balances[meta_index_to] = old_balances[meta_index_to]
+
+            meta_pool.info.rebased_balances[meta_index_to] = old_rebased_balances[meta_index_to]
                 .checked_sub(dy)
-                .and_then(|n| n.checked_sub(dy_admin_fee))
+                .and_then(|n| n.checked_sub(admin_fee))
+                .ok_or(Error::<T>::Arithmetic)?;
+
+            meta_pool.info.balances[meta_index_to] = meta_pool.info.balances[meta_index_to]
+                .checked_sub(T::RebaseConvert::try_convert_balance_back(
+                    admin_fee,
+                    meta_pool.info.currency_ids[meta_index_to],
+                )?)
                 .ok_or(Error::<T>::Arithmetic)?;
 
             if currency_index_to >= base_lp_currency_index {
@@ -505,7 +557,7 @@ impl<T: Config> Pallet<T> {
     ) -> Option<Balance> {
         let base_virtual_price = Self::meta_pool_base_virtual_price(meta_pool)?;
         let normalized_balances = Self::meta_pool_xp(
-            &meta_pool.info.balances,
+            &meta_pool.info.rebased_balances,
             &meta_pool.info.token_multipliers,
             base_virtual_price,
         )?;
@@ -559,7 +611,7 @@ impl<T: Config> Pallet<T> {
         let base_virtual_price = Self::meta_pool_base_virtual_price(meta_pool)?;
 
         let mut xp = Self::meta_pool_xp(
-            &meta_pool.info.balances,
+            &meta_pool.info.rebased_balances,
             &meta_pool.info.token_multipliers,
             base_virtual_price,
         )?;
@@ -637,24 +689,28 @@ impl<T: Config> Pallet<T> {
         deposit: bool,
     ) -> Result<Balance, DispatchError> {
         let base_virtual_price = Self::meta_pool_base_virtual_price(meta_pool).ok_or(Error::<T>::Arithmetic)?;
-        let mut new_balances = meta_pool.info.balances.clone();
+        let mut new_rebased_balances = meta_pool.info.rebased_balances.clone();
         let token_multipliers = meta_pool.info.token_multipliers.clone();
 
-        let xp =
-            Self::meta_pool_xp(&new_balances, &token_multipliers, base_virtual_price).ok_or(Error::<T>::Arithmetic)?;
+        let xp = Self::meta_pool_xp(&new_rebased_balances, &token_multipliers, base_virtual_price)
+            .ok_or(Error::<T>::Arithmetic)?;
         let a = Self::get_a_precise(&meta_pool.info).ok_or(Error::<T>::Arithmetic)?;
         let d0 = Self::get_d(&xp, a).ok_or(Error::<T>::Arithmetic)?;
 
         for (i, balance) in amounts.iter().enumerate() {
             if deposit {
-                new_balances[i] = new_balances[i].checked_add(*balance).ok_or(Error::<T>::Arithmetic)?;
+                new_rebased_balances[i] = new_rebased_balances[i]
+                    .checked_add(*balance)
+                    .ok_or(Error::<T>::Arithmetic)?;
             } else {
-                new_balances[i] = new_balances[i].checked_sub(*balance).ok_or(Error::<T>::Arithmetic)?;
+                new_rebased_balances[i] = new_rebased_balances[i]
+                    .checked_sub(*balance)
+                    .ok_or(Error::<T>::Arithmetic)?;
             }
         }
 
-        let xp1 =
-            Self::meta_pool_xp(&new_balances, &token_multipliers, base_virtual_price).ok_or(Error::<T>::Arithmetic)?;
+        let xp1 = Self::meta_pool_xp(&new_rebased_balances, &token_multipliers, base_virtual_price)
+            .ok_or(Error::<T>::Arithmetic)?;
         let d1 = Self::get_d(&xp1, a).ok_or(Error::<T>::Arithmetic)?;
 
         let total_supply = T::MultiCurrency::total_issuance(meta_pool.info.lp_currency_id);
@@ -694,40 +750,54 @@ impl<T: Config> Pallet<T> {
         let fee_per_token = U256::from(Self::calculate_fee_per_token(&meta_pool.info)?);
         let amp = Self::get_a_precise(&meta_pool.info)?;
         let mut fees = vec![Balance::default(); currencies_len];
-        let mut new_balances = meta_pool.info.balances.clone();
+        let mut new_rebased_balances = meta_pool.info.rebased_balances.clone();
         let fee_denominator = U256::from(FEE_DENOMINATOR);
 
-        let xp = Self::meta_pool_xp(&new_balances, &meta_pool.info.token_multipliers, base_virtual_price)?;
+        let xp = Self::meta_pool_xp(
+            &new_rebased_balances,
+            &meta_pool.info.token_multipliers,
+            base_virtual_price,
+        )?;
         let d0 = U256::from(Self::get_d(&xp, amp)?);
 
         for (i, x) in amounts.iter().enumerate() {
-            new_balances[i] = new_balances[i].checked_sub(*x)?;
+            new_rebased_balances[i] = new_rebased_balances[i].checked_sub(*x)?;
         }
 
-        let new_xp = Self::meta_pool_xp(&new_balances, &meta_pool.info.token_multipliers, base_virtual_price)?;
+        let new_xp = Self::meta_pool_xp(
+            &new_rebased_balances,
+            &meta_pool.info.token_multipliers,
+            base_virtual_price,
+        )?;
         let d1 = U256::from(Self::get_d(&new_xp, amp)?);
 
-        for (i, balance) in meta_pool.info.balances.iter_mut().enumerate() {
-            let ideal_balance = d1.checked_mul(U256::from(*balance))?.checked_div(d0)?;
-            let diff = Self::distance(U256::from(new_balances[i]), ideal_balance);
+        for (i, rebased_balance) in meta_pool.info.rebased_balances.iter_mut().enumerate() {
+            let ideal_balance = d1.checked_mul(U256::from(*rebased_balance))?.checked_div(d0)?;
+            let diff = Self::distance(U256::from(new_rebased_balances[i]), ideal_balance);
             fees[i] = fee_per_token
                 .checked_mul(diff)?
                 .checked_div(fee_denominator)
                 .and_then(|n| TryInto::<Balance>::try_into(n).ok())?;
 
-            *balance = U256::from(new_balances[i])
-                .checked_sub(
-                    U256::from(fees[i])
-                        .checked_mul(U256::from(meta_pool.info.admin_fee))?
-                        .checked_div(fee_denominator)?,
-                )
+            let admin_fee = U256::from(fees[i])
+                .checked_mul(U256::from(meta_pool.info.admin_fee))
+                .and_then(|n| n.checked_div(fee_denominator))
                 .and_then(|n| TryInto::<Balance>::try_into(n).ok())?;
 
-            new_balances[i] = new_balances[i].checked_sub(fees[i])?;
+            *rebased_balance = new_rebased_balances[i].checked_sub(admin_fee)?;
+            new_rebased_balances[i] = new_rebased_balances[i].checked_sub(fees[i])?;
+
+            meta_pool.info.balances[i] = meta_pool.info.balances[i].checked_sub(
+                T::RebaseConvert::try_convert_balance_back(admin_fee, meta_pool.info.currency_ids[i]).ok()?,
+            )?;
         }
 
         let d1 = Self::get_d(
-            &Self::meta_pool_xp(&new_balances, &meta_pool.info.token_multipliers, base_virtual_price)?,
+            &Self::meta_pool_xp(
+                &new_rebased_balances,
+                &meta_pool.info.token_multipliers,
+                base_virtual_price,
+            )?,
             amp,
         )?;
 
@@ -752,7 +822,7 @@ impl<T: Config> Pallet<T> {
             return None;
         }
         let xp = Self::meta_pool_xp(
-            &meta_pool.info.balances,
+            &meta_pool.info.rebased_balances,
             &meta_pool.info.token_multipliers,
             base_virtual_price,
         )?;
@@ -828,7 +898,7 @@ impl<T: Config> Pallet<T> {
         );
 
         let xp = Self::meta_pool_xp(
-            &meta_pool.info.balances,
+            &meta_pool.info.rebased_balances,
             &meta_pool.info.token_multipliers,
             base_virtual_price,
         )
@@ -857,7 +927,7 @@ impl<T: Config> Pallet<T> {
                 .and_then(|n| TryInto::<Balance>::try_into(n).ok())
                 .ok_or(Error::<T>::Arithmetic)?;
 
-                // when adding to the base pool,you pay approx 50% of the swap fee
+                // when adding to the base pool, you pay approx 50% of the swap fee
                 let base_pool = Self::pools(meta_pool.base_pool_id).ok_or(Error::<T>::InvalidBasePool)?;
                 let base_pool_fee = base_pool.get_fee();
 

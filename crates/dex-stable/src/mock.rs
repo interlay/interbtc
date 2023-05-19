@@ -31,7 +31,6 @@ type Block = frame_system::mocking::MockBlock<Test>;
 
 parameter_types! {
     pub const ExistentialDeposit: u64 = 1;
-
     pub const BlockHashCount: u64 = 250;
     pub const StableAmmPalletId: PalletId = PalletId(*b"dex/stbl");
     pub const MaxReserves: u32 = 50;
@@ -65,6 +64,7 @@ pub enum CurrencyId {
     Token(TokenSymbol),
     StableLP(PoolType),
     StableLPV2(PoolId),
+    Rebase(TokenSymbol),
 }
 
 impl From<u32> for CurrencyId {
@@ -159,6 +159,17 @@ impl pallet_timestamp::Config for Test {
     type WeightInfo = ();
 }
 
+pub struct CurrencyConvert;
+impl crate::rebase::CurrencyConversion<Balance, CurrencyId> for CurrencyConvert {
+    fn convert(amount: Balance, from: CurrencyId, to: CurrencyId) -> Result<Balance, sp_runtime::DispatchError> {
+        Ok(match (from, to) {
+            (CurrencyId::Rebase(_), _) => amount / 2,
+            (_, CurrencyId::Rebase(_)) => amount * 2,
+            (_, _) => amount,
+        })
+    }
+}
+
 impl Config for Test {
     type RuntimeEvent = RuntimeEvent;
     type CurrencyId = CurrencyId;
@@ -171,6 +182,7 @@ impl Config for Test {
     type PoolCurrencySymbolLimit = PoolCurrencySymbolLimit;
     type PalletId = StableAmmPalletId;
     type WeightInfo = ();
+    type RebaseConvert = crate::rebase::RebaseAdapter<Test, CurrencyConvert>;
 }
 
 pub struct ExtBuilder;
@@ -271,6 +283,7 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
             (ALICE, CurrencyId::Token(TOKEN2_SYMBOL), TOKEN2_UNIT * 1_00_000_000),
             (ALICE, CurrencyId::Token(TOKEN3_SYMBOL), TOKEN3_UNIT * 1_00_000_000),
             (ALICE, CurrencyId::Token(TOKEN4_SYMBOL), TOKEN4_UNIT * 1_00_000_000),
+            (ALICE, CurrencyId::Rebase(TOKEN1_SYMBOL), TOKEN1_UNIT * 1_00_000_000),
             (BOB, CurrencyId::Token(TOKEN1_SYMBOL), TOKEN1_UNIT * 1_00),
             (BOB, CurrencyId::Token(TOKEN2_SYMBOL), TOKEN2_UNIT * 1_00),
             (BOB, CurrencyId::Token(TOKEN3_SYMBOL), TOKEN3_UNIT * 1_00),
