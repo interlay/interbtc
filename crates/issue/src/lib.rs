@@ -17,6 +17,8 @@ mod mock;
 #[cfg(test)]
 mod tests;
 
+pub mod migration;
+
 #[cfg(test)]
 extern crate mocktopus;
 
@@ -77,6 +79,7 @@ pub mod pallet {
             amount: BalanceOf<T>,
             fee: BalanceOf<T>,
             griefing_collateral: BalanceOf<T>,
+            griefing_currency: CurrencyId<T>,
             vault_id: DefaultVaultId<T>,
             vault_address: BtcAddress,
             vault_public_key: BtcPublicKey,
@@ -201,9 +204,10 @@ pub mod pallet {
             origin: OriginFor<T>,
             #[pallet::compact] amount: BalanceOf<T>,
             vault_id: DefaultVaultId<T>,
+            griefing_currency: CurrencyId<T>,
         ) -> DispatchResultWithPostInfo {
             let requester = ensure_signed(origin)?;
-            Self::_request_issue(requester, amount, vault_id)?;
+            Self::_request_issue(requester, amount, vault_id, griefing_currency)?;
             Ok(().into())
         }
 
@@ -296,6 +300,7 @@ impl<T: Config> Pallet<T> {
         requester: T::AccountId,
         amount_requested: BalanceOf<T>,
         vault_id: DefaultVaultId<T>,
+        griefing_currency: CurrencyId<T>,
     ) -> Result<H256, DispatchError> {
         let amount_requested = Amount::new(amount_requested, vault_id.wrapped_currency());
 
@@ -316,11 +321,8 @@ impl<T: Config> Pallet<T> {
         ext::vault_registry::ensure_not_banned::<T>(&vault_id)?;
 
         // calculate griefing collateral based on the total amount of tokens to be issued
-        let amount_collateral = amount_requested.convert_to(T::GetGriefingCollateralCurrencyId::get())?;
-        let griefing_collateral = Amount::<T>::new(
-            ext::fee::get_issue_griefing_collateral::<T>(&amount_collateral)?.amount(),
-            T::GetGriefingCollateralCurrencyId::get(),
-        );
+        let amount_collateral = amount_requested.convert_to(griefing_currency)?;
+        let griefing_collateral = ext::fee::get_issue_griefing_collateral::<T>(&amount_collateral)?;
         griefing_collateral.lock_on(&requester)?;
 
         // only continue if the payment is above the dust value
@@ -348,6 +350,7 @@ impl<T: Config> Pallet<T> {
             amount: amount_user.amount(),
             fee: fee.amount(),
             griefing_collateral: griefing_collateral.amount(),
+            griefing_currency: griefing_collateral.currency(),
             period: Self::issue_period(),
             btc_height: ext::btc_relay::get_best_block_height::<T>(),
             status: IssueRequestStatus::Pending,
@@ -360,6 +363,7 @@ impl<T: Config> Pallet<T> {
             amount: request.amount,
             fee: request.fee,
             griefing_collateral: request.griefing_collateral,
+            griefing_currency: request.griefing_currency,
             vault_id: request.vault,
             vault_address: request.btc_address,
             vault_public_key: request.btc_public_key,
@@ -405,7 +409,7 @@ impl<T: Config> Pallet<T> {
                 }
                 if amount_transferred.ne(&expected_total_amount)? {
                     // griefing collateral and to_be_issued already decreased in cancel
-                    let slashed = Amount::zero(T::GetGriefingCollateralCurrencyId::get());
+                    let slashed = Amount::zero(issue.griefing_currency);
                     Self::set_issue_amount(&issue_id, &mut issue, amount_transferred, slashed)?;
                 }
             }
@@ -570,7 +574,7 @@ impl<T: Config> Pallet<T> {
                 &issue_id,
                 issue,
                 expected_total_amount.checked_add(&issue_amount)?,
-                Amount::zero(T::GetGriefingCollateralCurrencyId::get()),
+                Amount::zero(issue.griefing_currency),
             )?;
         }
         // nothing to do on error

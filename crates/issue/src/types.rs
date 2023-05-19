@@ -1,6 +1,5 @@
 use codec::{Decode, Encode, MaxEncodedLen};
 use currency::Amount;
-use frame_support::traits::Get;
 pub use primitives::issue::{IssueRequest, IssueRequestStatus};
 use primitives::VaultId;
 use scale_info::TypeInfo;
@@ -48,6 +47,6 @@ impl<T: Config> IssueRequestExt<T> for DefaultIssueRequest<T> {
         Amount::new(self.fee, self.vault.wrapped_currency())
     }
     fn griefing_collateral(&self) -> Amount<T> {
-        Amount::new(self.griefing_collateral, T::GetGriefingCollateralCurrencyId::get())
+        Amount::new(self.griefing_collateral, self.griefing_currency)
     }
 }

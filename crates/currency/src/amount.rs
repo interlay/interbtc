@@ -17,7 +17,12 @@ use sp_std::{convert::TryInto, fmt::Debug};
 
 #[cfg_attr(feature = "testing-utils", derive(Copy))]
 #[derive(Clone, PartialEq, Eq, Debug)]
-pub struct Amount<T: Config> {
+pub struct Amount<T>
+where
+    T: Config,
+    BalanceOf<T>: Debug,
+    CurrencyId<T>: Debug,
+{
     amount: BalanceOf<T>,
     currency_id: CurrencyId<T>,
 }
