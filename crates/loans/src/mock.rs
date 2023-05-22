@@ -21,7 +21,11 @@ use crate as loans;
 
 use currency::Amount;
 use frame_benchmarking::whitelisted_caller;
-use frame_support::{construct_runtime, parameter_types, traits::Everything, PalletId};
+use frame_support::{
+    construct_runtime, parameter_types,
+    traits::{EqualPrivilegeOnly, Everything},
+    PalletId,
+};
 use frame_system::EnsureRoot;
 use mocktopus::{macros::mockable, mocking::MockResult};
 use orml_traits::{currency::MutationHooks, parameter_type_with_key};
@@ -51,6 +55,7 @@ construct_runtime!(
         Utility: pallet_utility,
         Oracle: oracle::{Pallet, Call, Config<T>, Storage, Event<T>},
         Security: security::{Pallet, Call, Storage, Event<T>},
+        Scheduler: pallet_scheduler::{Pallet, Call, Storage, Event<T>},
     }
 );
 
@@ -97,6 +102,23 @@ pub const EVE: AccountId = AccountId32::new([5u8; 32]);
 
 parameter_types! {
     pub const MinimumPeriod: u64 = 5;
+}
+
+parameter_types! {
+    pub MaximumSchedulerWeight: Weight = Weight::from_parts(100000000000000000u64, 1000000000000000000u64);
+}
+
+impl pallet_scheduler::Config for Test {
+    type RuntimeEvent = RuntimeEvent;
+    type RuntimeOrigin = RuntimeOrigin;
+    type PalletsOrigin = OriginCaller;
+    type RuntimeCall = RuntimeCall;
+    type MaximumWeight = MaximumSchedulerWeight;
+    type ScheduleOrigin = EnsureRoot<AccountId32>;
+    type MaxScheduledPerBlock = ConstU32<100>;
+    type OriginPrivilegeCmp = EqualPrivilegeOnly;
+    type WeightInfo = ();
+    type Preimages = ();
 }
 
 impl pallet_timestamp::Config for Test {
@@ -365,6 +387,7 @@ pub(crate) fn _run_to_block(n: BlockNumber) {
         System::set_block_number(b);
         Loans::on_initialize(b);
         TimestampPallet::set_timestamp(6000 * b);
+        Scheduler::on_initialize(b);
         if b != n {
             Loans::on_finalize(b);
         }
