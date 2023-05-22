@@ -36,3 +36,24 @@ jobs:
       - name: cargo test
         run: |
           cargo test --release --workspace --features runtime-benchmarks
+      - name: cargo build
+        run: |
+          cargo build --bin interbtc-parachain --release --features runtime-benchmarks
+      - name: benchmarks
+        run: |
+          ./target/release/interbtc-parachain benchmark pallet \
+            --pallet '*' \
+            --extrinsic '*' \
+            --execution=wasm \
+            --wasm-execution=compiled \
+            --steps 2 --repeat 1 \
+            --template .deploy/runtime-weight-template.hbs \
+            --chain interlay-dev --output parachain/runtime/interlay/src/weights/ 
+          ./target/release/interbtc-parachain benchmark pallet \
+            --pallet '*' \
+            --extrinsic '*' \
+            --execution=wasm \
+            --wasm-execution=compiled \
+            --steps 2 --repeat 1 \
+            --template .deploy/runtime-weight-template.hbs \
+            --chain kintsugi-dev --output parachain/runtime/kintsugi/src/weights/ 
