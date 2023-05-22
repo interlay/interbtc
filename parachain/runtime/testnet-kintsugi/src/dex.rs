@@ -85,5 +85,5 @@ impl dex_swap_router::Config for Runtime {
     type StableAmm = DexStable;
     type GeneralWeightInfo = weights::dex_general::WeightInfo<Runtime>;
     type StableWeightInfo = weights::dex_stable::WeightInfo<Runtime>;
-    type WeightInfo = ();
+    type WeightInfo = weights::dex_swap_router::WeightInfo<Runtime>;
 }

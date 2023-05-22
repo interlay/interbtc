@@ -8,6 +8,7 @@ pub mod cumulus_pallet_xcmp_queue;
 pub mod democracy;
 pub mod dex_general;
 pub mod dex_stable;
+pub mod dex_swap_router;
 pub mod escrow;
 pub mod extrinsic_weights;
 pub mod farming;

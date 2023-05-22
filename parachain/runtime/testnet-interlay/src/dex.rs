@@ -8,7 +8,7 @@ pub use dex_stable::traits::{StablePoolLpCurrencyIdGenerate, ValidateCurrency};
 
 parameter_types! {
     pub const DexGeneralPalletId: PalletId = PalletId(*b"dex/genr");
-    pub const DexStablePalletId: PalletId = PalletId(*b"dex/stab");
+    pub const DexStablePalletId: PalletId = PalletId(*b"dex/stbl");
     pub const CurrencyLimit: u32 = 10;
     pub const StringLimit: u32 = 50;
     pub const MaxBootstrapRewards: u32 = 1000;
@@ -85,5 +85,5 @@ impl dex_swap_router::Config for Runtime {
     type StableAmm = DexStable;
     type GeneralWeightInfo = weights::dex_general::WeightInfo<Runtime>;
     type StableWeightInfo = weights::dex_stable::WeightInfo<Runtime>;
-    type WeightInfo = ();
+    type WeightInfo = weights::dex_swap_router::WeightInfo<Runtime>;
 }
