@@ -1307,7 +1307,11 @@ pub type Executive = frame_executive::Executive<
     frame_system::ChainContext<Runtime>,
     Runtime,
     AllPalletsWithSystem,
-    (dex::SetLoansExchangeRates,),
+    (
+        orml_asset_registry::Migration<Runtime>,
+        orml_unknown_tokens::Migration<Runtime>,
+        dex::SetLoansExchangeRates,
+    ),
 >;
 
 #[cfg(feature = "runtime-benchmarks")]
