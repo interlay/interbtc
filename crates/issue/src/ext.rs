@@ -11,9 +11,15 @@ pub(crate) mod btc_relay {
     pub fn get_and_verify_issue_payment<T: crate::Config, V: TryFrom<Value>>(
         merkle_proof: MerkleProof,
         transaction: Transaction,
+        length_bound: u32,
         recipient_btc_address: BtcAddress,
     ) -> Result<V, DispatchError> {
-        <btc_relay::Pallet<T>>::get_and_verify_issue_payment(merkle_proof, transaction, recipient_btc_address)
+        <btc_relay::Pallet<T>>::get_and_verify_issue_payment(
+            merkle_proof,
+            transaction,
+            length_bound,
+            recipient_btc_address,
+        )
     }
 
     pub fn get_best_block_height<T: crate::Config>() -> u32 {
@@ -22,14 +28,6 @@ pub(crate) mod btc_relay {
 
     pub fn is_fully_initialized<T: crate::Config>() -> Result<bool, DispatchError> {
         <btc_relay::Pallet<T>>::is_fully_initialized()
-    }
-
-    pub fn parse_transaction<T: btc_relay::Config>(raw_tx: &[u8]) -> Result<Transaction, DispatchError> {
-        <btc_relay::Pallet<T>>::parse_transaction(raw_tx)
-    }
-
-    pub fn parse_merkle_proof<T: btc_relay::Config>(raw_merkle_proof: &[u8]) -> Result<MerkleProof, DispatchError> {
-        <btc_relay::Pallet<T>>::parse_merkle_proof(raw_merkle_proof)
     }
 
     pub fn has_request_expired<T: crate::Config>(

@@ -2,6 +2,6 @@
 // Licensed under Apache 2.0.
 
 #[cfg(test)]
-mod mock;
+pub mod mock;
 #[cfg(test)]
 mod tests;

@@ -2,13 +2,17 @@ mod mock;
 use crate::assert_eq;
 use mock::*;
 
+use codec::Encode;
 use democracy::{PropIndex, ReferendumIndex, ReferendumInfo, ReferendumStatus, Tally, Vote, VoteThreshold};
 use frame_support::{
     assert_err_ignore_postinfo,
-    traits::{Currency, GetCallMetadata, Hooks, StorePreimage},
+    traits::{Bounded, BoundedInline, Currency, GetCallMetadata, Hooks, StorePreimage},
 };
 use orml_vesting::VestingSchedule;
 use tx_pause::FullNameOf;
+
+type PreimageCall = pallet_preimage::Call<Runtime>;
+type PreimageEvent = pallet_preimage::Event<Runtime>;
 
 type DemocracyCall = democracy::Call<Runtime>;
 type DemocracyPallet = democracy::Pallet<Runtime>;
@@ -17,9 +21,6 @@ type DemocracyError = democracy::Error<Runtime>;
 
 type TechnicalCommitteeCall = pallet_collective::Call<Runtime, TechnicalCommitteeInstance>;
 type TechnicalCommitteeEvent = pallet_collective::Event<Runtime, TechnicalCommitteeInstance>;
-
-type TreasuryCall = pallet_treasury::Call<Runtime>;
-type TreasuryPallet = pallet_treasury::Pallet<Runtime>;
 
 type VestingCall = orml_vesting::Call<Runtime>;
 
@@ -66,6 +67,20 @@ fn assert_democracy_proposed_event() -> PropIndex {
         .find_map(|record| {
             if let RuntimeEvent::Democracy(DemocracyEvent::Proposed { proposal_index, .. }) = record.event {
                 Some(proposal_index)
+            } else {
+                None
+            }
+        })
+        .expect("nothing was proposed")
+}
+
+fn assert_preimage_noted_event() -> H256 {
+    SystemPallet::events()
+        .iter()
+        .rev()
+        .find_map(|record| {
+            if let RuntimeEvent::Preimage(PreimageEvent::Noted { hash }) = record.event {
+                Some(hash)
             } else {
                 None
             }
@@ -255,6 +270,33 @@ fn pause_works_on_calls_in_batch() {
 }
 
 #[test]
+fn spend_from_treasury() {
+    test_with(|| {
+        let treasury_account = interbtc_runtime_standalone::TreasuryAccount::get();
+        assert_ok!(RuntimeCall::Tokens(TokensCall::set_balance {
+            who: treasury_account.clone(),
+            currency_id: DEFAULT_NATIVE_CURRENCY,
+            new_free: 500,
+            new_reserved: 0,
+        })
+        .dispatch(root()));
+
+        let zack_before = TokensPallet::accounts(account_of(ZACK), DEFAULT_NATIVE_CURRENCY).free;
+        let treasury_before = TokensPallet::accounts(treasury_account.clone(), DEFAULT_NATIVE_CURRENCY).free;
+
+        create_proposal(RuntimeCall::Democracy(DemocracyCall::spend_from_treasury {
+            beneficiary: account_of(ZACK),
+            value: 100,
+        }));
+        launch_and_execute_referendum();
+
+        let zack_after = TokensPallet::accounts(account_of(ZACK), DEFAULT_NATIVE_CURRENCY).free;
+        let treasury_after = TokensPallet::accounts(treasury_account, DEFAULT_NATIVE_CURRENCY).free;
+        assert_eq!(zack_after - zack_before, 100);
+        assert_eq!(treasury_before - treasury_after, 100);
+    })
+}
+#[test]
 fn can_not_use_txpause_to_brick_parachain() {
     test_with(|| {
         let call = RuntimeCall::Tokens(TokensCall::transfer {
@@ -313,6 +355,52 @@ fn integration_test_governance() {
 }
 
 #[test]
+fn integration_test_governance_inline_proposal() {
+    test_with(|| {
+        let amount_to_set = 1000;
+
+        let call = set_balance_proposal(account_of(EVE), amount_to_set);
+        assert_ok!(RuntimeCall::Democracy(DemocracyCall::propose {
+            proposal: Bounded::Inline(BoundedInline::try_from(call.encode()).unwrap()),
+            value: <Runtime as democracy::Config>::MinimumDeposit::get(),
+        })
+        .dispatch(origin_of(account_of(ALICE))));
+
+        launch_and_execute_referendum();
+
+        // balance is now set to amount above
+        assert_eq!(CollateralCurrency::total_balance(&account_of(EVE)), amount_to_set);
+    });
+}
+
+#[test]
+fn integration_test_governance_preimage_proposal() {
+    test_with(|| {
+        let amount_to_set = 1000;
+
+        let call = set_balance_proposal(account_of(EVE), amount_to_set);
+        assert_ok!(
+            RuntimeCall::Preimage(PreimageCall::note_preimage { bytes: call.encode() })
+                .dispatch(origin_of(account_of(ALICE)))
+        );
+
+        assert_ok!(RuntimeCall::Democracy(DemocracyCall::propose {
+            proposal: Bounded::Lookup {
+                hash: assert_preimage_noted_event(),
+                len: call.encode().len() as u32
+            },
+            value: <Runtime as democracy::Config>::MinimumDeposit::get(),
+        })
+        .dispatch(origin_of(account_of(ALICE))));
+
+        launch_and_execute_referendum();
+
+        // balance is now set to amount above
+        assert_eq!(CollateralCurrency::total_balance(&account_of(EVE)), amount_to_set);
+    });
+}
+
+#[test]
 fn integration_test_governance_fast_track() {
     test_with(|| {
         let amount_to_set = 1000;
@@ -338,38 +426,6 @@ fn integration_test_governance_fast_track() {
         let end_height = start_height + <Runtime as democracy::Config>::FastTrackVotingPeriod::get();
         DemocracyPallet::on_initialize(end_height);
         assert_democracy_passed_event(index);
-    });
-}
-
-#[test]
-fn integration_test_governance_treasury() {
-    test_with(|| {
-        let balance_before = NativeCurrency::total_balance(&account_of(BOB));
-
-        // fund treasury
-        let amount_to_fund = 10000;
-        set_free_balance(TreasuryPallet::account_id(), amount_to_fund);
-        assert_eq!(TreasuryPallet::pot(), amount_to_fund);
-
-        // proposals should increase by 1
-        assert_eq!(TreasuryPallet::proposal_count(), 0);
-        assert_ok!(RuntimeCall::Treasury(TreasuryCall::propose_spend {
-            value: amount_to_fund,
-            beneficiary: account_of(BOB)
-        })
-        .dispatch(origin_of(account_of(ALICE))));
-        assert_eq!(TreasuryPallet::proposal_count(), 1);
-
-        // create proposal to approve treasury spend
-        create_proposal(RuntimeCall::Treasury(TreasuryCall::approve_proposal { proposal_id: 0 }));
-        launch_and_execute_referendum();
-
-        // bob should receive funds
-        TreasuryPallet::spend_funds();
-        assert_eq!(
-            balance_before + amount_to_fund,
-            NativeCurrency::total_balance(&account_of(BOB))
-        )
     });
 }
 
@@ -753,7 +809,6 @@ fn integration_test_proposing_and_voting_only_possible_with_staked_tokens() {
         SchedulerPallet::on_initialize(act_height);
 
         // Eve should receive funds
-        TreasuryPallet::spend_funds();
         assert_eq!(amount_to_fund, CollateralCurrency::total_balance(&account_of(EVE)))
     });
 }
@@ -779,6 +834,52 @@ fn integration_test_proposal_vkint_gets_released_on_regular_launch() {
             create_proposal_call(set_balance_proposal(account_of(EVE), 100_000), minimum_proposal_value)
                 .dispatch(origin_of(account_of(ALICE)))
         );
+
+        // alice should have locked some vkint
+        assert_eq!(
+            get_free_vkint(account_of(ALICE)),
+            start_vkint_alice - minimum_proposal_value
+        );
+
+        assert_ok!(RuntimeCall::Democracy(DemocracyCall::second { proposal: 0 }).dispatch(origin_of(account_of(CAROL))));
+
+        // now both alice and carol should have locked some vkint
+        assert_eq!(
+            get_free_vkint(account_of(ALICE)),
+            start_vkint_alice - minimum_proposal_value
+        );
+        assert_eq!(
+            get_free_vkint(account_of(CAROL)),
+            start_vkint_carol - minimum_proposal_value
+        );
+
+        DemocracyPallet::on_initialize(<Runtime as democracy::Config>::VotingPeriod::get());
+
+        // now that it's no longer a proposal, the deposit should be released
+        assert_eq!(get_free_vkint(account_of(ALICE)), start_vkint_alice);
+        assert_eq!(get_free_vkint(account_of(CAROL)), start_vkint_carol);
+    });
+}
+#[test]
+fn integration_test_proposal_vkint_gets_released_on_failed_launch() {
+    test_with(|| {
+        let minimum_proposal_value = <Runtime as democracy::Config>::MinimumDeposit::get();
+        assert!(minimum_proposal_value > 0); // sanity check - the test would be useless otherwise
+
+        set_free_balance(account_of(CAROL), 10 * minimum_proposal_value);
+        create_lock(account_of(CAROL), 5 * minimum_proposal_value);
+
+        let start_vkint_alice = get_free_vkint(account_of(ALICE));
+        let start_vkint_carol = get_free_vkint(account_of(CAROL));
+
+        // making a proposal to increase Eve's balance without having tokens staked fails
+        let encoded_proposal = vec![];
+
+        assert_ok!(RuntimeCall::Democracy(DemocracyCall::propose {
+            proposal: Bounded::Inline(encoded_proposal.try_into().unwrap()),
+            value: minimum_proposal_value,
+        })
+        .dispatch(origin_of(account_of(ALICE))));
 
         // alice should have locked some vkint
         assert_eq!(

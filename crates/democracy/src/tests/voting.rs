@@ -25,11 +25,12 @@ fn single_proposal_should_work() {
         fast_forward_to(1);
         assert_ok!(Democracy::vote(RuntimeOrigin::signed(1), r, aye(1)));
 
+        let referendum_end = VotingPeriod::get() + 1;
         assert_eq!(Democracy::referendum_count(), 1);
         assert_eq!(
             Democracy::referendum_status(0),
             Ok(ReferendumStatus {
-                end: 3,
+                end: referendum_end,
                 proposal: set_balance_proposal(2),
                 threshold: VoteThreshold::SuperMajorityApprove,
                 delay: 2,
@@ -46,14 +47,15 @@ fn single_proposal_should_work() {
         // referendum still running
         assert_ok!(Democracy::referendum_status(0));
 
-        // referendum runs during 1 and 2, ends @ start of 3.
-        fast_forward_to(3);
+        // referendum ends successfully
+        fast_forward_to(referendum_end);
 
         assert_noop!(Democracy::referendum_status(0), Error::<Test>::ReferendumInvalid);
-        assert!(pallet_scheduler::Agenda::<Test>::get(5)[0].is_some());
+        let enactment_end = referendum_end + EnactmentPeriod::get();
+        assert!(pallet_scheduler::Agenda::<Test>::get(enactment_end)[0].is_some());
 
-        // referendum passes and wait another two blocks for enactment.
-        fast_forward_to(5);
+        // referendum passes and waits for enactment
+        fast_forward_to(enactment_end);
 
         assert_eq!(Balances::free_balance(42), 2);
     });

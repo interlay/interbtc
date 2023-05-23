@@ -1,4 +1,6 @@
 use super::*;
+use kintsugi_runtime::LoansConfig;
+use primitives::Rate;
 
 pub const PARA_ID: u32 = 2032;
 
@@ -35,8 +37,9 @@ pub fn interlay_dev_config() -> InterlayChainSpec {
                 vec![get_authority_keys_from_seed("Alice")],
                 vec![(
                     get_account_id_from_seed::<sr25519::Public>("Bob"),
-                    "Bob".as_bytes().to_vec(),
+                    BoundedVec::truncate_from("Bob".as_bytes().to_vec()),
                 )],
+                vec![get_account_id_from_seed::<sr25519::Public>("Alice")],
                 id,
                 1,
             )
@@ -101,8 +104,9 @@ pub fn interlay_mainnet_config() -> InterlayChainSpec {
                 ],
                 vec![(
                     get_account_id_from_string("5FyE5kCDSVtM1KmscBBa2Api8ZsF2DBT81QHf9RuS2NntUPw"),
-                    "Interlay".as_bytes().to_vec(),
+                    BoundedVec::truncate_from("Interlay".as_bytes().to_vec()),
                 )],
+                vec![], // no endowed accounts
                 id,
                 SECURE_BITCOIN_CONFIRMATIONS,
             )
@@ -121,7 +125,8 @@ pub fn interlay_mainnet_config() -> InterlayChainSpec {
 
 fn interlay_mainnet_genesis(
     invulnerables: Vec<(AccountId, AuraId)>,
-    authorized_oracles: Vec<(AccountId, Vec<u8>)>,
+    authorized_oracles: Vec<(AccountId, interlay_runtime::OracleName)>,
+    endowed_accounts: Vec<AccountId>,
     id: ParaId,
     bitcoin_confirmations: u32,
 ) -> interlay_runtime::GenesisConfig {
@@ -159,7 +164,12 @@ fn interlay_mainnet_genesis(
             initial_status: interlay_runtime::StatusCode::Error,
         },
         asset_registry: Default::default(),
-        tokens: Default::default(),
+        tokens: interlay_runtime::TokensConfig {
+            balances: endowed_accounts
+                .iter()
+                .flat_map(|k| vec![(k.clone(), Token(INTR), 1 << 60)])
+                .collect(),
+        },
         vesting: Default::default(),
         oracle: interlay_runtime::OracleConfig {
             authorized_oracles,
@@ -217,7 +227,6 @@ fn interlay_mainnet_genesis(
         },
         technical_committee: Default::default(),
         technical_membership: Default::default(),
-        treasury: Default::default(),
         democracy: Default::default(),
         supply: interlay_runtime::SupplyConfig {
             initial_supply: interlay_runtime::token_distribution::INITIAL_ALLOCATION,
@@ -226,8 +235,12 @@ fn interlay_mainnet_genesis(
             inflation: FixedU128::checked_from_rational(2, 100).unwrap(), // 2%
         },
         polkadot_xcm: interlay_runtime::PolkadotXcmConfig {
-            safe_xcm_version: Some(2),
+            safe_xcm_version: Some(3),
         },
         sudo: Default::default(),
+        loans: LoansConfig {
+            max_exchange_rate: Rate::from_inner(loans::DEFAULT_MAX_EXCHANGE_RATE),
+            min_exchange_rate: Rate::from_inner(loans::DEFAULT_MIN_EXCHANGE_RATE),
+        },
     }
 }

@@ -1,6 +1,9 @@
 use crate as clients_info;
 use crate::Config;
-use frame_support::{parameter_types, traits::Everything};
+use frame_support::{
+    parameter_types,
+    traits::{ConstU32, Everything},
+};
 use sp_core::H256;
 use sp_runtime::{
     generic::Header as GenericHeader,
@@ -56,12 +59,14 @@ impl frame_system::Config for Test {
     type SystemWeightInfo = ();
     type SS58Prefix = SS58Prefix;
     type OnSetCode = ();
-    type MaxConsumers = frame_support::traits::ConstU32<16>;
+    type MaxConsumers = ConstU32<16>;
 }
 
 impl Config for Test {
     type RuntimeEvent = RuntimeEvent;
     type WeightInfo = ();
+    type MaxNameLength = ConstU32<255>;
+    type MaxUriLength = ConstU32<255>;
 }
 
 pub struct ExtBuilder;

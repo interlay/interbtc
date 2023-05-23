@@ -26,17 +26,18 @@ sp-block-builder = { git = "https://github.com/paritytech/substrate", branch = "
 sp-transaction-pool = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.31", default-features = false }
 sp-inherents = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.31", default-features = false }
 sp-arithmetic = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.31", default-features = false }
+sp-weights = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.31", default-features = false }
 
 frame-support = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.31", default-features = false }
 frame-executive = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.31", default-features = false }
 frame-system = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.31", default-features = false }
+frame-system-benchmarking = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.31", default-features = false, optional = true }
 frame-benchmarking = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.31", default-features = false, optional = true }
 pallet-balances = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.31", default-features = false }
 pallet-timestamp = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.31", default-features = false }
 pallet-sudo = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.31", default-features = false }
 pallet-utility = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.31", default-features = false }
 pallet-transaction-payment = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.31", default-features = false }
-pallet-treasury = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.31", default-features = false }
 pallet-scheduler = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.31", default-features = false }
 pallet-multisig = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.31", default-features = false }
 pallet-preimage = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.31", default-features = false }
@@ -75,6 +76,7 @@ xcm = { git = "https://github.com/paritytech/polkadot", branch = "release-v0.9.3
 xcm-builder = { git = "https://github.com/paritytech/polkadot", branch = "release-v0.9.31", default-features = false }
 xcm-executor = { git = "https://github.com/paritytech/polkadot", branch = "release-v0.9.31", default-features = false }
 pallet-xcm = { git = "https://github.com/paritytech/polkadot", branch = "release-v0.9.31", default-features = false }
+pallet-xcm-benchmarks = { git = "https://github.com/paritytech/polkadot", branch = "release-v0.9.31", default-features = false, optional = true }
 
 # Parachain dependencies
 runtime-common = {path = "../common", default-features = false }
@@ -96,9 +98,13 @@ annuity = { path = "../../../crates/annuity", default-features = false }
 supply = { path = "../../../crates/supply", default-features = false }
 collator-selection = { path = "../../../crates/collator-selection", default-features = false }
 clients-info = { path = "../../../crates/clients-info", default-features = false }
+loans = { path = "../../../crates/loans", default-features = false }
 traits = { path = "../../../crates/traits", default-features = false }
+farming = { path = "../../../crates/farming", default-features = false }
 tx-pause = { path = "../../../crates/tx-pause", default-features = false }
 dex-general = { path = "../../../crates/dex-general", default-features = false }
+dex-stable = { path = "../../../crates/dex-stable", default-features = false }
+dex-swap-router = { path = "../../../crates/dex-swap-router", default-features = false }
 
 primitives = { package = "interbtc-primitives", path = "../../../primitives", default-features = false }
 
@@ -157,13 +163,14 @@ std = [
   "frame-support/std",
   "frame-executive/std",
   "frame-system/std",
+  "frame-system-benchmarking?/std",
+  "pallet-xcm-benchmarks?/std",
   "frame-benchmarking/std",
   "pallet-balances/std",
   "pallet-timestamp/std",
   "pallet-sudo/std",
   "pallet-utility/std",
   "pallet-transaction-payment/std",
-  "pallet-treasury/std",
   "pallet-scheduler/std",
   "pallet-multisig/std",
   "pallet-preimage/std",
@@ -196,45 +203,48 @@ std = [
   "xcm-builder/std",
   "xcm-executor/std",
   "pallet-xcm/std",
-
-  "runtime-common/std",
-  "btc-relay/std",
-  "currency/std",
-  "security/std",
-  "vault-registry/std",
-  "oracle/std",
-  "fee/std",
-  "issue/std",
-  "redeem/std",
-  "replace/std",
-  "nomination/std",
-  "reward/std",
-  "staking/std",
-  "escrow/std",
-  "democracy/std",
-  "annuity/std",
-  "supply/std",
-  "collator-selection/std",
-  "clients-info/std",
-  "traits/std",
-  "tx-pause/std",
-  "dex-general/std",
-
-  "primitives/std",
-
   "parachain-info/std",
 
+  "annuity/std",
+  "btc-relay/std",
+  "clients-info/std",
+  "collator-selection/std",
+  "currency/std",
+  "democracy/std",
+  "dex-general/std",
+  "dex-stable/std",
+  "dex-swap-router/std",
+  "escrow/std",
+  "farming/std",
+  "fee/std",
+  "issue/std",
+  "loans/std",
+  "nomination/std",
+  "oracle/std",
+  "redeem/std",
+  "replace/std",
+  "reward/std",
+  "security/std",
+  "staking/std",
+  "supply/std",
+  "traits/std",
+  "tx-pause/std",
+  "vault-registry/std",
+
+  "primitives/std",
+  "runtime-common/std",
+
   "btc-relay-rpc-runtime-api/std",
-  "oracle-rpc-runtime-api/std",
-  "vault-registry-rpc-runtime-api/std",
-  "escrow-rpc-runtime-api/std",
-  "reward-rpc-runtime-api/std",
-  "issue-rpc-runtime-api/std",
-  "redeem-rpc-runtime-api/std",
-  "replace-rpc-runtime-api/std",
-  "loans-rpc-runtime-api/std",
   "dex-general-rpc-runtime-api/std",
   "dex-stable-rpc-runtime-api/std",
+  "escrow-rpc-runtime-api/std",
+  "issue-rpc-runtime-api/std",
+  "loans-rpc-runtime-api/std",
+  "oracle-rpc-runtime-api/std",
+  "redeem-rpc-runtime-api/std",
+  "replace-rpc-runtime-api/std",
+  "reward-rpc-runtime-api/std",
+  "vault-registry-rpc-runtime-api/std",
 
   "orml-tokens/std",
   "orml-traits/std",
@@ -249,22 +259,47 @@ runtime-benchmarks = [
   "frame-benchmarking",
   "frame-support/runtime-benchmarks",
   "frame-system/runtime-benchmarks",
-  "pallet-society/runtime-benchmarks",
+  "frame-system-benchmarking/runtime-benchmarks",
+  "cumulus-pallet-xcmp-queue/runtime-benchmarks",
+  "pallet-balances/runtime-benchmarks",
   "pallet-collective/runtime-benchmarks",
-
-  "xcm-builder/runtime-benchmarks",
+  "pallet-identity/runtime-benchmarks",
+  "pallet-membership/runtime-benchmarks",
+  "pallet-multisig/runtime-benchmarks",
+  "pallet-preimage/runtime-benchmarks",
+  "pallet-proxy/runtime-benchmarks",
+  "pallet-scheduler/runtime-benchmarks",
+  "pallet-timestamp/runtime-benchmarks",
+  "pallet-utility/runtime-benchmarks",
+  "pallet-society/runtime-benchmarks",
+  "pallet-xcm-benchmarks/runtime-benchmarks",
   "pallet-xcm/runtime-benchmarks",
+  "xcm-builder/runtime-benchmarks",
 
   "annuity/runtime-benchmarks",
   "btc-relay/runtime-benchmarks",
+  "clients-info/runtime-benchmarks",
+  "collator-selection/runtime-benchmarks",
+  "democracy/runtime-benchmarks",
+  "dex-general/runtime-benchmarks",
+  "dex-stable/runtime-benchmarks",
+  "dex-swap-router/runtime-benchmarks",
+  "escrow/runtime-benchmarks",
+  "farming/runtime-benchmarks",
   "fee/runtime-benchmarks",
   "issue/runtime-benchmarks",
+  "loans/runtime-benchmarks",
   "nomination/runtime-benchmarks",
   "oracle/runtime-benchmarks",
   "redeem/runtime-benchmarks",
   "replace/runtime-benchmarks",
-  "vault-registry/runtime-benchmarks",
+  "security/runtime-benchmarks",
+  "supply/runtime-benchmarks",
   "tx-pause/runtime-benchmarks",
+  "vault-registry/runtime-benchmarks",
+
+  "runtime-common/runtime-benchmarks",
+  "primitives/runtime-benchmarks",
 ]
 disable-runtime-api = []
 try-runtime = [
@@ -273,7 +308,6 @@ try-runtime = [
 	"frame-system/try-runtime",
 	"frame-support/try-runtime",
 
-  "frame-system/try-runtime",
   "pallet-timestamp/try-runtime",
   "pallet-utility/try-runtime",
   "pallet-transaction-payment/try-runtime",
@@ -283,6 +317,7 @@ try-runtime = [
   "pallet-identity/try-runtime",
   "pallet-proxy/try-runtime",
   "pallet-sudo/try-runtime",
+
   "currency/try-runtime",
   "orml-tokens/try-runtime",
   "supply/try-runtime",
@@ -306,11 +341,14 @@ try-runtime = [
   "nomination/try-runtime",
   "clients-info/try-runtime",
   "tx-pause/try-runtime",
+  "loans/try-runtime",
   "democracy/try-runtime",
   "dex-general/try-runtime",
+  "dex-stable/try-runtime",
+  "dex-swap-router/try-runtime",
+  "farming/try-runtime",
   "pallet-collective/try-runtime",
   "pallet-membership/try-runtime",
-  "pallet-treasury/try-runtime",
   "pallet-authorship/try-runtime",
   "collator-selection/try-runtime",
   "pallet-session/try-runtime",

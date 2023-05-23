@@ -1,12 +1,12 @@
 use crate::{
     mock::{
         new_test_ext, with_price, CurrencyConvert, Loans, RuntimeOrigin, Test, Tokens, _run_to_block, market_mock,
-        new_test_ext_no_markets, ALICE, BOB, DEFAULT_WRAPPED_CURRENCY, LEND_KBTC, LEND_KSM,
+        new_test_ext_no_markets, RuntimeCall, ALICE, BOB, DEFAULT_WRAPPED_CURRENCY, LEND_KBTC, LEND_KSM,
     },
     tests::unit,
     Amount, Error, Market, MarketState,
 };
-use frame_support::{assert_noop, assert_ok, traits::fungibles::Inspect};
+use frame_support::{assert_noop, assert_ok, dispatch::Dispatchable, traits::fungibles::Inspect};
 use mocktopus::mocking::Mockable;
 use primitives::{
     Balance,
@@ -125,7 +125,6 @@ fn full_workflow_works_as_expected() {
         );
         // 3 dollar reserved in our incentive reward account
         let incentive_reward_account = Loans::incentive_reward_account_id();
-        println!("incentive reserve account:{:?}", incentive_reward_account.clone());
         assert_eq!(
             Loans::exchange_rate(KBTC).saturating_mul_int(Tokens::balance(
                 Loans::lend_token_id(KBTC).unwrap(),
@@ -151,6 +150,71 @@ fn full_workflow_works_as_expected() {
         );
         // 2 dollar transfer to alice
         assert_eq!(Tokens::balance(KBTC, &ALICE), unit(800) + unit(2),);
+    })
+}
+
+#[test]
+// like full_workflow_works_as_expected, but with liquidate_incentive_reserved_factor set to 0
+fn liquidate_incentive_reserved_factor_can_be_zero() {
+    new_test_ext().execute_with(|| {
+        initial_setup();
+        alice_borrows_100_ksm();
+        // adjust KSM price to make ALICE generate shortfall
+        CurrencyConvert::convert.mock_safe(with_price(Some((KSM, 2.into()))));
+
+        // Use the RuntimeCall wrapper so we have explicit argument names
+        assert_ok!(RuntimeCall::Loans(crate::Call::update_market {
+            asset_id: KSM,
+            liquidate_incentive_reserved_factor: Some(Ratio::zero()),
+            collateral_factor: None,
+            liquidation_threshold: None,
+            reserve_factor: None,
+            close_factor: None,
+            liquidate_incentive: None,
+            supply_cap: None,
+            borrow_cap: None
+        })
+        .dispatch(RuntimeOrigin::root()));
+
+        // BOB repay the KSM borrow balance and get DOT from ALICE
+        assert_ok!(Loans::liquidate_borrow(
+            RuntimeOrigin::signed(BOB),
+            ALICE,
+            KSM,
+            unit(50),
+            KBTC
+        ));
+
+        // KSM price = 2
+        // incentive = repay KSM value * 1.1 = (50 * 2) * 1.1 = 110
+        // Alice KBTC: cash - deposit = 1000 - 200 = 800
+        // Alice KBTC collateral: deposit - incentive = 200 - 110 = 90
+        // Alice KSM: cash + borrow = 1000 + 100 = 1100
+        // Alice KSM borrow balance: origin borrow balance - liquidate amount = 100 - 50 = 50
+        // Bob KSM: cash - deposit - repay = 1000 - 200 - 50 = 750
+        // Bob KBTC collateral: incentive = 110-(110/1.1*0.0)=110
+        assert_eq!(Tokens::balance(KBTC, &ALICE), unit(800),);
+        assert_eq!(
+            Loans::exchange_rate(KBTC).saturating_mul_int(Tokens::balance(Loans::lend_token_id(KBTC).unwrap(), &ALICE)),
+            unit(90),
+        );
+        assert_eq!(Tokens::balance(KSM, &ALICE), unit(1100),);
+        assert_eq!(Loans::account_borrows(KSM, ALICE).principal, unit(50));
+        assert_eq!(Tokens::balance(KSM, &BOB), unit(750));
+        assert_eq!(
+            Loans::exchange_rate(KBTC).saturating_mul_int(Tokens::balance(Loans::lend_token_id(KBTC).unwrap(), &BOB)),
+            unit(110),
+        );
+        // 0 dollar reserved in our incentive reward account
+        let incentive_reward_account = Loans::incentive_reward_account_id();
+        assert_eq!(
+            Loans::exchange_rate(KBTC).saturating_mul_int(Tokens::balance(
+                Loans::lend_token_id(KBTC).unwrap(),
+                &incentive_reward_account.clone()
+            )),
+            unit(0),
+        );
+        assert_eq!(Tokens::balance(KBTC, &ALICE), unit(800),);
     })
 }
 

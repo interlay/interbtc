@@ -144,10 +144,10 @@ where
         at: Option<<Block as BlockT>::Hash>,
     ) -> RpcResult<BalanceWrapper<Balance>> {
         let api = self.client.runtime_api();
-        let at = BlockId::hash(at.unwrap_or_else(|| self.client.info().best_hash));
+        let at = at.unwrap_or_else(|| self.client.info().best_hash);
 
         handle_response(
-            api.get_vault_collateral(&at, vault_id),
+            api.get_vault_collateral(at, vault_id),
             "Unable to get the vault's collateral".into(),
         )
     }
@@ -158,10 +158,10 @@ where
         at: Option<<Block as BlockT>::Hash>,
     ) -> RpcResult<Vec<VaultId>> {
         let api = self.client.runtime_api();
-        let at = BlockId::hash(at.unwrap_or_else(|| self.client.info().best_hash));
+        let at = at.unwrap_or_else(|| self.client.info().best_hash);
 
         handle_response(
-            api.get_vaults_by_account_id(&at, account_id),
+            api.get_vaults_by_account_id(at, account_id),
             "Unable to get vault ids".into(),
         )
     }
@@ -172,10 +172,10 @@ where
         at: Option<<Block as BlockT>::Hash>,
     ) -> RpcResult<BalanceWrapper<Balance>> {
         let api = self.client.runtime_api();
-        let at = BlockId::hash(at.unwrap_or_else(|| self.client.info().best_hash));
+        let at = at.unwrap_or_else(|| self.client.info().best_hash);
 
         handle_response(
-            api.get_vault_total_collateral(&at, vault_id),
+            api.get_vault_total_collateral(at, vault_id),
             "Unable to get the vault's collateral".into(),
         )
     }
@@ -185,10 +185,10 @@ where
         at: Option<<Block as BlockT>::Hash>,
     ) -> RpcResult<Vec<(VaultId, BalanceWrapper<Balance>)>> {
         let api = self.client.runtime_api();
-        let at = BlockId::hash(at.unwrap_or_else(|| self.client.info().best_hash));
+        let at = at.unwrap_or_else(|| self.client.info().best_hash);
 
         handle_response(
-            api.get_premium_redeem_vaults(&at),
+            api.get_premium_redeem_vaults(at),
             "Unable to find a vault below the premium redeem threshold".into(),
         )
     }
@@ -198,10 +198,10 @@ where
         at: Option<<Block as BlockT>::Hash>,
     ) -> RpcResult<Vec<(VaultId, BalanceWrapper<Balance>)>> {
         let api = self.client.runtime_api();
-        let at = BlockId::hash(at.unwrap_or_else(|| self.client.info().best_hash));
+        let at = at.unwrap_or_else(|| self.client.info().best_hash);
 
         handle_response(
-            api.get_vaults_with_issuable_tokens(&at),
+            api.get_vaults_with_issuable_tokens(at),
             "Unable to find a vault with issuable tokens".into(),
         )
     }
@@ -211,10 +211,10 @@ where
         at: Option<<Block as BlockT>::Hash>,
     ) -> RpcResult<Vec<(VaultId, BalanceWrapper<Balance>)>> {
         let api = self.client.runtime_api();
-        let at = BlockId::hash(at.unwrap_or_else(|| self.client.info().best_hash));
+        let at = at.unwrap_or_else(|| self.client.info().best_hash);
 
         handle_response(
-            api.get_vaults_with_redeemable_tokens(&at),
+            api.get_vaults_with_redeemable_tokens(at),
             "Unable to find a vault with redeemable tokens".into(),
         )
     }
@@ -225,10 +225,10 @@ where
         at: Option<<Block as BlockT>::Hash>,
     ) -> RpcResult<BalanceWrapper<Balance>> {
         let api = self.client.runtime_api();
-        let at = BlockId::hash(at.unwrap_or_else(|| self.client.info().best_hash));
+        let at = at.unwrap_or_else(|| self.client.info().best_hash);
 
         handle_response(
-            api.get_issuable_tokens_from_vault(&at, vault),
+            api.get_issuable_tokens_from_vault(at, vault),
             "Unable to get issuable tokens from vault".into(),
         )
     }
@@ -240,10 +240,10 @@ where
         at: Option<<Block as BlockT>::Hash>,
     ) -> RpcResult<UnsignedFixedPoint> {
         let api = self.client.runtime_api();
-        let at = BlockId::hash(at.unwrap_or_else(|| self.client.info().best_hash));
+        let at = at.unwrap_or_else(|| self.client.info().best_hash);
 
         handle_response(
-            api.get_collateralization_from_vault(&at, vault, only_issued),
+            api.get_collateralization_from_vault(at, vault, only_issued),
             "Unable to get collateralization from vault".into(),
         )
     }
@@ -256,10 +256,10 @@ where
         at: Option<<Block as BlockT>::Hash>,
     ) -> RpcResult<UnsignedFixedPoint> {
         let api = self.client.runtime_api();
-        let at = BlockId::hash(at.unwrap_or_else(|| self.client.info().best_hash));
+        let at = at.unwrap_or_else(|| self.client.info().best_hash);
 
         handle_response(
-            api.get_collateralization_from_vault_and_collateral(&at, vault, collateral, only_issued),
+            api.get_collateralization_from_vault_and_collateral(at, vault, collateral, only_issued),
             "Unable to get collateralization from vault".into(),
         )
     }
@@ -271,10 +271,10 @@ where
         at: Option<<Block as BlockT>::Hash>,
     ) -> RpcResult<BalanceWrapper<Balance>> {
         let api = self.client.runtime_api();
-        let at = BlockId::hash(at.unwrap_or_else(|| self.client.info().best_hash));
+        let at = at.unwrap_or_else(|| self.client.info().best_hash);
 
         handle_response(
-            api.get_required_collateral_for_wrapped(&at, amount_btc, currency_id),
+            api.get_required_collateral_for_wrapped(at, amount_btc, currency_id),
             "Unable to get required collateral for amount".into(),
         )
     }
@@ -285,9 +285,9 @@ where
         at: Option<<Block as BlockT>::Hash>,
     ) -> RpcResult<BalanceWrapper<Balance>> {
         let api = self.client.runtime_api();
-        let at = BlockId::hash(at.unwrap_or_else(|| self.client.info().best_hash));
+        let at = at.unwrap_or_else(|| self.client.info().best_hash);
         handle_response(
-            api.get_required_collateral_for_vault(&at, vault_id),
+            api.get_required_collateral_for_vault(at, vault_id),
             "Unable to get required collateral for vault".into(),
         )
     }

@@ -89,11 +89,13 @@ use sp_std::prelude::*;
 
 mod types;
 mod vote_threshold;
-pub mod weights;
+
 pub use pallet::*;
 pub use types::{ReferendumInfo, ReferendumStatus, Tally, Vote, Voting};
 pub use vote_threshold::{Approved, VoteThreshold};
-pub use weights::WeightInfo;
+
+mod default_weights;
+pub use default_weights::WeightInfo;
 
 #[cfg(test)]
 mod tests;
@@ -119,7 +121,10 @@ pub type BoundedCallOf<T> = Bounded<CallOf<T>>;
 pub mod pallet {
     use super::*;
     use core::num::TryFromIntError;
-    use frame_support::{pallet_prelude::*, traits::EnsureOrigin};
+    use frame_support::{
+        pallet_prelude::*,
+        traits::{EnsureOrigin, ExistenceRequirement},
+    };
     use frame_system::{ensure_root, ensure_signed, pallet_prelude::*};
     use sp_runtime::DispatchResult;
 
@@ -127,8 +132,6 @@ pub mod pallet {
     const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
 
     #[pallet::pallet]
-    #[pallet::generate_store(pub(super) trait Store)]
-    #[pallet::without_storage_info]
     #[pallet::storage_version(STORAGE_VERSION)]
     pub struct Pallet<T>(_);
 
@@ -200,6 +203,12 @@ pub mod pallet {
 
         /// Millisecond offset into week from Monday.
         type LaunchOffsetMillis: Get<Self::Moment>;
+
+        /// Account from which is transferred in `spend_from_treasury`.
+        type TreasuryAccount: Get<Self::AccountId>;
+
+        /// Currency used in `spend_from_treasury`.
+        type TreasuryCurrency: Currency<Self::AccountId, Balance = BalanceOf<Self>>;
     }
 
     /// The number of (public) proposals that have been made so far.
@@ -245,7 +254,8 @@ pub mod pallet {
     ///
     /// TWOX-NOTE: SAFE as `AccountId`s are crypto hashes anyway.
     #[pallet::storage]
-    pub type VotingOf<T: Config> = StorageMap<_, Twox64Concat, T::AccountId, Voting<BalanceOf<T>>, ValueQuery>;
+    pub type VotingOf<T: Config> =
+        StorageMap<_, Twox64Concat, T::AccountId, Voting<BalanceOf<T>, T::MaxVotes>, ValueQuery>;
 
     #[pallet::storage]
     pub type NextLaunchTimestamp<T: Config> = StorageValue<_, u64, ValueQuery>;
@@ -301,6 +311,8 @@ pub mod pallet {
         NotPassed { ref_index: ReferendumIndex },
         /// A referendum has been cancelled.
         Cancelled { ref_index: ReferendumIndex },
+        /// A proposal has been cancelled.
+        CancelledProposal { prop_index: PropIndex },
     }
 
     #[pallet::error]
@@ -352,7 +364,7 @@ pub mod pallet {
         fn on_initialize(n: T::BlockNumber) -> Weight {
             Self::begin_block(n).unwrap_or_else(|e| {
                 sp_runtime::print(e);
-                Weight::from_ref_time(0 as u64)
+                Weight::from_parts(0 as u64, 0u64)
             })
         }
     }
@@ -439,10 +451,7 @@ pub mod pallet {
         ///
         /// Weight: `O(R)` where R is the number of referendums the voter has voted on.
         #[pallet::call_index(2)]
-        #[pallet::weight(
-			T::WeightInfo::vote_new(T::MaxVotes::get())
-				.max(T::WeightInfo::vote_existing(T::MaxVotes::get()))
-		)]
+        #[pallet::weight(T::WeightInfo::vote_new().max(T::WeightInfo::vote_existing()))]
         pub fn vote(
             origin: OriginFor<T>,
             #[pallet::compact] ref_index: ReferendumIndex,
@@ -484,6 +493,7 @@ pub mod pallet {
         ///
         /// Weight: `O(1)`
         #[pallet::call_index(4)]
+        // same complexity as `fast_track` so no need to benchmark separately
         #[pallet::weight(T::WeightInfo::fast_track())]
         pub fn table_proposal(
             origin: OriginFor<T>,
@@ -556,7 +566,7 @@ pub mod pallet {
         ///
         /// Weight: `O(p)` where `p = PublicProps::<T>::decode_len()`
         #[pallet::call_index(9)]
-        #[pallet::weight(T::WeightInfo::cancel_proposal(T::MaxProposals::get()))]
+        #[pallet::weight(T::WeightInfo::cancel_proposal())]
         #[transactional]
         pub fn cancel_proposal(origin: OriginFor<T>, #[pallet::compact] prop_index: PropIndex) -> DispatchResult {
             let who = ensure_signed(origin.clone())
@@ -582,6 +592,7 @@ pub mod pallet {
                     T::Currency::unreserve(&who, amount);
                 }
             }
+            Self::deposit_event(Event::<T>::CancelledProposal { prop_index });
 
             Ok(())
         }
@@ -600,6 +611,22 @@ pub mod pallet {
         pub fn remove_vote(origin: OriginFor<T>, index: ReferendumIndex) -> DispatchResult {
             let who = ensure_signed(origin)?;
             Self::try_remove_vote(&who, index)
+        }
+
+        #[pallet::call_index(14)]
+        #[pallet::weight(T::WeightInfo::spend_from_treasury())]
+        pub fn spend_from_treasury(
+            origin: OriginFor<T>,
+            #[pallet::compact] value: BalanceOf<T>,
+            beneficiary: T::AccountId,
+        ) -> DispatchResult {
+            ensure_root(origin)?;
+            T::TreasuryCurrency::transfer(
+                &T::TreasuryAccount::get(),
+                &beneficiary,
+                value,
+                ExistenceRequirement::AllowDeath,
+            )
         }
     }
 }
@@ -757,8 +784,9 @@ impl<T: Config> Pallet<T> {
                     votes[i].1 = vote;
                 }
                 Err(i) => {
-                    ensure!(votes.len() as u32 <= T::MaxVotes::get(), Error::<T>::MaxVotesReached);
-                    votes.insert(i, (ref_index, vote));
+                    votes
+                        .try_insert(i, (ref_index, vote))
+                        .map_err(|_| Error::<T>::MaxVotesReached)?;
                 }
             }
             // Shouldn't be possible to fail, but we handle it gracefully.
@@ -902,7 +930,7 @@ impl<T: Config> Pallet<T> {
     /// # </weight>
     fn begin_block(now: T::BlockNumber) -> Result<Weight, DispatchError> {
         let max_block_weight = T::BlockWeights::get().max_block;
-        let mut weight = Weight::from_ref_time(0 as u64);
+        let mut weight = Weight::from_parts(0 as u64, 0u64);
 
         let next = Self::lowest_unbaked();
         let last = Self::referendum_count();

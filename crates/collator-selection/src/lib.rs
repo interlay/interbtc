@@ -55,11 +55,11 @@ mod tests;
 
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;
-pub mod weights;
+mod default_weights;
 
 #[frame_support::pallet]
 pub mod pallet {
-    pub use crate::weights::WeightInfo;
+    pub use crate::default_weights::WeightInfo;
     use core::ops::Div;
     use frame_support::{
         dispatch::{DispatchClass, DispatchResultWithPostInfo},
@@ -147,7 +147,6 @@ pub mod pallet {
     }
 
     #[pallet::pallet]
-    #[pallet::generate_store(pub(super) trait Store)]
     pub struct Pallet<T>(_);
 
     /// The invulnerable, fixed collators.
@@ -488,10 +487,6 @@ pub mod pallet {
                 T::WeightInfo::note_author(),
                 DispatchClass::Mandatory,
             );
-        }
-
-        fn note_uncle(_author: T::AccountId, _age: T::BlockNumber) {
-            //TODO can we ignore this?
         }
     }
 

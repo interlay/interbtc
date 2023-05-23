@@ -27,6 +27,7 @@ use mocktopus::macros::mockable;
 
 use crate::types::{BalanceOf, ReplaceRequestExt, Version};
 pub use crate::types::{DefaultReplaceRequest, ReplaceRequest, ReplaceRequestStatus};
+use bitcoin::types::{MerkleProof, Transaction};
 use btc_relay::BtcAddress;
 use currency::Amount;
 pub use default_weights::WeightInfo;
@@ -265,17 +266,32 @@ pub mod pallet {
         /// * `replace_id` - the ID of the replacement request
         /// * 'merkle_proof' - the merkle root of the block
         /// * `raw_tx` - the transaction id in bytes
+        ///
+        /// ## Complexity:
+        /// - `O(H + I + O + B)` where:
+        ///   - `H` is the number of hashes in the merkle tree
+        ///   - `I` is the number of transaction inputs
+        ///   - `O` is the number of transaction outputs
+        ///   - `B` is `transaction` size in bytes (length-fee-bounded)
         #[pallet::call_index(3)]
-        #[pallet::weight(<T as Config>::WeightInfo::execute_replace())]
+        #[pallet::weight({
+            let h = merkle_proof.hashes.len() as u32;
+            let i = transaction.inputs.len() as u32;
+            let o = transaction.outputs.len() as u32;
+            let b = *length_bound;
+            <T as Config>::WeightInfo::execute_pending_replace(h, i, o, b)
+                .max(<T as Config>::WeightInfo::execute_cancelled_replace(h, i, o, b))
+        })]
         #[transactional]
         pub fn execute_replace(
             origin: OriginFor<T>,
             replace_id: H256,
-            merkle_proof: Vec<u8>,
-            raw_tx: Vec<u8>,
+            merkle_proof: MerkleProof,
+            transaction: Transaction,
+            #[pallet::compact] length_bound: u32,
         ) -> DispatchResultWithPostInfo {
             let _ = ensure_signed(origin)?;
-            Self::_execute_replace(replace_id, merkle_proof, raw_tx)?;
+            Self::_execute_replace(replace_id, merkle_proof, transaction, length_bound)?;
             Ok(().into())
         }
 
@@ -475,7 +491,12 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
-    fn _execute_replace(replace_id: H256, raw_merkle_proof: Vec<u8>, raw_tx: Vec<u8>) -> DispatchResult {
+    fn _execute_replace(
+        replace_id: H256,
+        merkle_proof: MerkleProof,
+        transaction: Transaction,
+        length_bound: u32,
+    ) -> DispatchResult {
         // retrieve the replace request using the id parameter
         // we can still execute cancelled requests
         let replace = Self::get_open_or_cancelled_replace_request(&replace_id)?;
@@ -489,11 +510,10 @@ impl<T: Config> Pallet<T> {
         let old_vault_id = replace.old_vault;
 
         // check the transaction inclusion and validity
-        let transaction = ext::btc_relay::parse_transaction::<T>(&raw_tx)?;
-        let merkle_proof = ext::btc_relay::parse_merkle_proof::<T>(&raw_merkle_proof)?;
         ext::btc_relay::verify_and_validate_op_return_transaction::<T, _>(
             merkle_proof,
             transaction,
+            length_bound,
             replace.btc_address,
             replace.amount,
             replace_id,

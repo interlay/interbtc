@@ -1,7 +1,6 @@
 use crate::{ext, mock::*};
 
 use crate::types::{RedeemRequest, RedeemRequestStatus};
-use bitcoin::types::{MerkleProof, Transaction};
 use btc_relay::BtcAddress;
 use currency::Amount;
 use frame_support::{assert_err, assert_noop, assert_ok, dispatch::DispatchError};
@@ -34,15 +33,6 @@ macro_rules! assert_emitted {
             $times
         );
     };
-}
-
-fn dummy_merkle_proof() -> MerkleProof {
-    MerkleProof {
-        block_header: Default::default(),
-        transactions_count: 0,
-        flag_bits: vec![],
-        hashes: vec![],
-    }
 }
 
 fn inject_redeem_request(key: H256, value: RedeemRequest<AccountId, BlockNumber, Balance, CurrencyId>) {
@@ -376,8 +366,9 @@ fn test_execute_redeem_fails_with_redeem_id_not_found() {
             Redeem::execute_redeem(
                 RuntimeOrigin::signed(VAULT.account_id),
                 H256([0u8; 32]),
-                Vec::default(),
-                Vec::default()
+                Default::default(),
+                Default::default(),
+                u32::MAX,
             ),
             TestError::RedeemIdNotFound
         );
@@ -405,10 +396,8 @@ fn test_execute_redeem_succeeds_with_another_account() {
                 liquidated_collateral: 0,
             },
         );
-        ext::btc_relay::parse_merkle_proof::<Test>.mock_safe(|_| MockResult::Return(Ok(dummy_merkle_proof())));
-        ext::btc_relay::parse_transaction::<Test>.mock_safe(|_| MockResult::Return(Ok(Transaction::default())));
         ext::btc_relay::verify_and_validate_op_return_transaction::<Test, Balance>
-            .mock_safe(|_, _, _, _, _| MockResult::Return(Ok(())));
+            .mock_safe(|_, _, _, _, _, _| MockResult::Return(Ok(())));
 
         let btc_fee = Redeem::get_current_inclusion_fee(DEFAULT_WRAPPED_CURRENCY).unwrap();
 
@@ -447,8 +436,9 @@ fn test_execute_redeem_succeeds_with_another_account() {
         assert_ok!(Redeem::execute_redeem(
             RuntimeOrigin::signed(USER),
             H256([0u8; 32]),
-            Vec::default(),
-            Vec::default()
+            Default::default(),
+            Default::default(),
+            u32::MAX,
         ));
         assert_emitted!(Event::ExecuteRedeem {
             redeem_id: H256([0; 32]),
@@ -486,10 +476,8 @@ fn test_execute_redeem_succeeds() {
                 liquidated_collateral: 0,
             },
         );
-        ext::btc_relay::parse_merkle_proof::<Test>.mock_safe(|_| MockResult::Return(Ok(dummy_merkle_proof())));
-        ext::btc_relay::parse_transaction::<Test>.mock_safe(|_| MockResult::Return(Ok(Transaction::default())));
         ext::btc_relay::verify_and_validate_op_return_transaction::<Test, Balance>
-            .mock_safe(|_, _, _, _, _| MockResult::Return(Ok(())));
+            .mock_safe(|_, _, _, _, _, _| MockResult::Return(Ok(())));
 
         let btc_fee = Redeem::get_current_inclusion_fee(DEFAULT_WRAPPED_CURRENCY).unwrap();
 
@@ -528,8 +516,9 @@ fn test_execute_redeem_succeeds() {
         assert_ok!(Redeem::execute_redeem(
             RuntimeOrigin::signed(VAULT.account_id),
             H256([0u8; 32]),
-            Vec::default(),
-            Vec::default()
+            Default::default(),
+            Default::default(),
+            u32::MAX,
         ));
         assert_emitted!(Event::ExecuteRedeem {
             redeem_id: H256([0; 32]),
@@ -847,10 +836,8 @@ mod spec_based_tests {
                     ..default_vault()
                 },
             );
-            ext::btc_relay::parse_merkle_proof::<Test>.mock_safe(|_| MockResult::Return(Ok(dummy_merkle_proof())));
-            ext::btc_relay::parse_transaction::<Test>.mock_safe(|_| MockResult::Return(Ok(Transaction::default())));
             ext::btc_relay::verify_and_validate_op_return_transaction::<Test, Balance>
-                .mock_safe(|_, _, _, _, _| MockResult::Return(Ok(())));
+                .mock_safe(|_, _, _, _, _, _| MockResult::Return(Ok(())));
 
             let btc_fee = Redeem::get_current_inclusion_fee(DEFAULT_WRAPPED_CURRENCY).unwrap();
             let redeem_request = RedeemRequest {
@@ -885,8 +872,9 @@ mod spec_based_tests {
             assert_ok!(Redeem::execute_redeem(
                 RuntimeOrigin::signed(USER),
                 H256([0u8; 32]),
-                Vec::default(),
-                Vec::default()
+                Default::default(),
+                Default::default(),
+                u32::MAX,
             ));
             assert_emitted!(Event::ExecuteRedeem {
                 redeem_id: H256([0; 32]),

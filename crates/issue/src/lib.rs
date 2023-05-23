@@ -30,6 +30,7 @@ pub mod types;
 pub use crate::types::{DefaultIssueRequest, IssueRequest, IssueRequestStatus};
 
 use crate::types::{BalanceOf, DefaultVaultId, Version};
+use bitcoin::types::{MerkleProof, Transaction};
 use btc_relay::{BtcAddress, BtcPublicKey};
 use currency::Amount;
 use frame_support::{dispatch::DispatchError, ensure, traits::Get, transactional, PalletId};
@@ -51,11 +52,7 @@ pub mod pallet {
     /// The pallet's configuration trait.
     #[pallet::config]
     pub trait Config:
-        frame_system::Config
-        + vault_registry::Config
-        + btc_relay::Config
-        + oracle::Config
-        + fee::Config<UnsignedInner = BalanceOf<Self>>
+        frame_system::Config + vault_registry::Config + btc_relay::Config + oracle::Config + fee::Config
     {
         /// The treasury pallet account for slashed griefing collateral.
         #[pallet::constant]
@@ -219,17 +216,36 @@ pub mod pallet {
         /// * `tx_block_height` - block number of collateral chain
         /// * `merkle_proof` - raw bytes
         /// * `raw_tx` - raw bytes
+        ///
+        /// ## Complexity:
+        /// - `O(H + I + O + B)` where:
+        ///   - `H` is the number of hashes in the merkle tree
+        ///   - `I` is the number of transaction inputs
+        ///   - `O` is the number of transaction outputs
+        ///   - `B` is `transaction` size in bytes (length-fee-bounded)
         #[pallet::call_index(1)]
-        #[pallet::weight(<T as Config>::WeightInfo::execute_issue())]
+        #[pallet::weight({
+            let h = merkle_proof.hashes.len() as u32;
+            let i = transaction.inputs.len() as u32;
+            let o = transaction.outputs.len() as u32;
+            let b = *length_bound;
+            <T as Config>::WeightInfo::execute_issue_underpayment(h, i, o, b)
+                .max(<T as Config>::WeightInfo::execute_issue_exact(h, i, o, b))
+                .max(<T as Config>::WeightInfo::execute_issue_overpayment(h, i, o, b))
+                .max(<T as Config>::WeightInfo::execute_expired_issue_underpayment(h, i, o, b))
+                .max(<T as Config>::WeightInfo::execute_expired_issue_exact(h, i, o, b))
+                .max(<T as Config>::WeightInfo::execute_expired_issue_overpayment(h, i, o, b))
+        })]
         #[transactional]
         pub fn execute_issue(
             origin: OriginFor<T>,
             issue_id: H256,
-            merkle_proof: Vec<u8>,
-            raw_tx: Vec<u8>,
+            merkle_proof: MerkleProof,
+            transaction: Transaction,
+            #[pallet::compact] length_bound: u32,
         ) -> DispatchResultWithPostInfo {
             let executor = ensure_signed(origin)?;
-            Self::_execute_issue(executor, issue_id, merkle_proof, raw_tx)?;
+            Self::_execute_issue(executor, issue_id, merkle_proof, transaction, length_bound)?;
             Ok(().into())
         }
 
@@ -355,18 +371,18 @@ impl<T: Config> Pallet<T> {
     fn _execute_issue(
         executor: T::AccountId,
         issue_id: H256,
-        raw_merkle_proof: Vec<u8>,
-        raw_tx: Vec<u8>,
+        merkle_proof: MerkleProof,
+        transaction: Transaction,
+        length_bound: u32,
     ) -> Result<(), DispatchError> {
         let mut issue = Self::get_issue_request_from_id(&issue_id)?;
         // allow anyone to complete issue request
         let requester = issue.requester.clone();
 
-        let transaction = ext::btc_relay::parse_transaction::<T>(&raw_tx)?;
-        let merkle_proof = ext::btc_relay::parse_merkle_proof::<T>(&raw_merkle_proof)?;
         let amount_transferred = ext::btc_relay::get_and_verify_issue_payment::<T, BalanceOf<T>>(
             merkle_proof,
             transaction,
+            length_bound,
             issue.btc_address,
         )?;
         let amount_transferred = Amount::new(amount_transferred, issue.vault.wrapped_currency());

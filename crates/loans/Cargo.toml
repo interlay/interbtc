@@ -31,6 +31,8 @@ pallet-utility = { git = "https://github.com/paritytech/substrate", branch = "po
 # Parachain dependencies
 currency = { path = "../currency", default-features = false }
 traits = { path = "../traits", default-features = false }
+oracle = { path = "../oracle", default-features = false }
+security = { path = "../security", default-features = false }
 
 primitives = { package = "interbtc-primitives", path = "../../primitives", default-features = false }
 
@@ -44,6 +46,7 @@ mocktopus = "0.8.0"
 visibility = { version = "0.0.1" }
 currency = { path = "../currency", features = ["testing-utils"] }
 mutagen = { git = "https://github.com/llogiq/mutagen" }
+pallet-scheduler = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.31" }
 
 [features]
 default = ["std"]
@@ -67,6 +70,8 @@ std = [
 
 	"currency/std",
 	"traits/std",
+	"oracle/std",
+	"security/std",
 
 	"primitives/std",
 

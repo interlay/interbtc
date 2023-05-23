@@ -1,5 +1,5 @@
 use crate::{mock::*, CurrencyId, OracleKey};
-use frame_support::{assert_err, assert_ok, dispatch::DispatchError};
+use frame_support::{assert_err, assert_ok, dispatch::DispatchError, BoundedVec};
 use mocktopus::mocking::*;
 use sp_arithmetic::FixedU128;
 use sp_runtime::FixedPointNumber;
@@ -261,7 +261,7 @@ fn test_is_invalidated() {
 #[test]
 fn oracle_names_have_genesis_info() {
     run_test(|| {
-        let actual = String::from_utf8(Oracle::authorized_oracles(0)).unwrap();
+        let actual = String::from_utf8(Oracle::authorized_oracles(0).to_vec()).unwrap();
         let expected = "test".to_owned();
         assert_eq!(actual, expected);
     });
@@ -273,7 +273,7 @@ fn insert_authorized_oracle_succeeds() {
         let oracle = 1;
         let key = OracleKey::ExchangeRate(Token(DOT));
         let rate = FixedU128::checked_from_rational(1, 1).unwrap();
-        let name = Vec::<u8>::new();
+        let name = BoundedVec::default();
         assert_err!(
             Oracle::feed_values(RuntimeOrigin::signed(oracle), vec![]),
             TestError::InvalidOracleSource
@@ -299,7 +299,7 @@ fn insert_authorized_oracle_succeeds() {
 fn remove_authorized_oracle_succeeds() {
     run_test(|| {
         let oracle = 1;
-        Oracle::insert_oracle(oracle, Vec::<u8>::new());
+        Oracle::insert_oracle(oracle, BoundedVec::default());
         assert_err!(
             Oracle::remove_authorized_oracle(RuntimeOrigin::signed(oracle), oracle),
             DispatchError::BadOrigin

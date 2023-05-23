@@ -10,26 +10,27 @@
 #[cfg(test)]
 mod mock;
 
-#[cfg(any(feature = "runtime-benchmarks", test))]
-pub mod benchmarking;
 #[cfg(test)]
 mod test;
-pub mod weights;
-pub use weights::WeightInfo;
+
+#[cfg(any(feature = "runtime-benchmarks", test))]
+pub mod benchmarking;
+
+mod default_weights;
+pub use default_weights::WeightInfo;
 
 use codec::{Decode, Encode};
-
-use sp_runtime::traits::{AtLeast32BitUnsigned, One, Zero};
-use sp_std::{fmt::Debug, vec::Vec};
 
 use frame_support::{
     dispatch::{Codec, DispatchResult},
     pallet_prelude::*,
     transactional,
 };
+use sp_runtime::traits::{AtLeast32BitUnsigned, One, Zero};
+use sp_std::{fmt::Debug, prelude::*, vec::Vec};
 
-use dex_general::{AssetBalance, ExportDexGeneral};
-use dex_stable::traits::StableAmmApi;
+use dex_general::{AssetBalance, ExportDexGeneral, WeightInfo as DexGeneralWeightInfo};
+use dex_stable::{traits::StableAmmApi, WeightInfo as DexStableWeightInfo};
 
 #[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, TypeInfo)]
 pub struct StablePath<PoolId, CurrencyId> {
@@ -49,30 +50,26 @@ pub enum StableSwapMode {
 
 #[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, TypeInfo)]
 pub enum Route<PoolId, CurrencyId> {
+    General(Vec<CurrencyId>),
     Stable(StablePath<PoolId, CurrencyId>),
-    Normal(Vec<CurrencyId>),
 }
 
 impl<PoolId, CurrencyId: Clone> Route<PoolId, CurrencyId> {
     fn input_currency(&self) -> Option<CurrencyId> {
         match self {
+            Route::General(x) => x.first().cloned(),
             Route::Stable(x) => Some(x.from_currency.clone()),
-            Route::Normal(x) => x.first().cloned(),
         }
     }
+
     fn output_currency(&self) -> Option<CurrencyId> {
         match self {
+            Route::General(x) => x.last().cloned(),
             Route::Stable(x) => Some(x.to_currency.clone()),
-            Route::Normal(x) => x.last().cloned(),
-        }
-    }
-    fn number_of_swaps(&self) -> usize {
-        match self {
-            Route::Stable(_) => 1,
-            Route::Normal(x) => x.len().saturating_sub(1),
         }
     }
 }
+
 pub use pallet::*;
 
 #[allow(type_alias_bounds)]
@@ -105,21 +102,17 @@ pub mod pallet {
         // The currency id used in both amms
         type CurrencyId: Parameter + Member + Copy + MaybeSerializeDeserialize + Ord + TypeInfo + MaxEncodedLen;
 
-        type NormalAmm: ExportDexGeneral<AccountIdOf<Self>, Self::CurrencyId>;
+        type GeneralAmm: ExportDexGeneral<AccountIdOf<Self>, Self::CurrencyId>;
 
-        type StableAMM: StableAmmApi<Self::StablePoolId, Self::CurrencyId, AccountIdOf<Self>, Self::Balance>;
-
-        /// The maximum number of swaps allowed in routes
-        #[pallet::constant]
-        type MaxSwaps: Get<u16>;
+        type StableAmm: StableAmmApi<Self::StablePoolId, Self::CurrencyId, AccountIdOf<Self>, Self::Balance>;
 
         /// Weight information for extrinsics in this pallet.
+        type GeneralWeightInfo: DexGeneralWeightInfo;
+        type StableWeightInfo: DexStableWeightInfo;
         type WeightInfo: WeightInfo;
     }
 
     #[pallet::pallet]
-    #[pallet::without_storage_info]
-    #[pallet::generate_store(pub (super) trait Store)]
     pub struct Pallet<T>(_);
 
     #[pallet::event]
@@ -133,15 +126,31 @@ pub mod pallet {
         ConvertCurrencyFailed,
         AmountSlippage,
         InvalidPath,
-        ExceededSwapLimit,
     }
 
     #[pallet::call]
     impl<T: Config> Pallet<T> {
+        /// Atomically execute a series of trades using `DexGeneral` and/or `DexStable`.
+        /// The whole transaction will rollback if any of the trades fail.
+        ///
+        /// ## Complexity
+        /// - O(T) where T is the number of trades.
         #[pallet::call_index(0)]
-        #[pallet::weight(T::WeightInfo::swap_exact_token_for_tokens_through_stable_pool())]
+        #[pallet::weight({
+            routes.iter()
+                .map(|route| match route {
+                    Route::General(path) => T::GeneralWeightInfo::swap_exact_assets_for_assets(path.len() as u32),
+                    Route::Stable(stable_path) => match stable_path.mode {
+                        StableSwapMode::Single => T::StableWeightInfo::swap(),
+                        StableSwapMode::FromBase => T::StableWeightInfo::swap_pool_from_base(),
+                        StableSwapMode::ToBase => T::StableWeightInfo::swap_pool_to_base(),
+                    }
+                })
+                .fold(Weight::zero(), |total: Weight, weight: Weight| total.saturating_add(weight))
+                .saturating_add(T::WeightInfo::validate_routes(routes.len() as u32))
+        })]
         #[transactional]
-        pub fn swap_exact_token_for_tokens_through_stable_pool(
+        pub fn swap_exact_tokens_for_tokens(
             origin: OriginFor<T>,
             amount_in: T::Balance,
             amount_out_min: T::Balance,
@@ -151,6 +160,7 @@ pub mod pallet {
         ) -> DispatchResult {
             let who = ensure_signed(origin)?;
 
+            // not captured in benchmark because read is whitelisted
             let now = frame_system::Pallet::<T>::block_number();
             ensure!(deadline > now, Error::<T>::Deadline);
 
@@ -159,18 +169,19 @@ pub mod pallet {
             let mut amount_out = amount_in;
             let mut receiver = who.clone();
 
-            for (i, route) in routes.iter().enumerate() {
-                if i == routes.len() - 1 {
+            let num_routes = routes.len();
+            for (i, route) in routes.into_iter().enumerate() {
+                if i == num_routes - 1 {
                     receiver = to.clone();
                 }
                 match route {
-                    Route::Stable(stable_path) => {
-                        (amount_out) = Self::stable_swap(&who, stable_path, amount_out, &receiver)?;
-                    }
-                    Route::Normal(path) => {
-                        let amounts = T::NormalAmm::get_amount_out_by_path(amount_out.into(), path)?;
-                        Self::swap(&who, amount_out, path, &receiver)?;
+                    Route::General(path) => {
+                        let amounts = T::GeneralAmm::get_amount_out_by_path(amount_out.into(), &path)?;
+                        Self::swap(&who, amount_out, &path, &receiver)?;
                         amount_out = T::Balance::from(*amounts.last().ok_or(Error::<T>::InvalidPath)?);
+                    }
+                    Route::Stable(stable_path) => {
+                        (amount_out) = Self::stable_swap(&who, &stable_path, amount_out, &receiver)?;
                     }
                 }
             }
@@ -193,13 +204,12 @@ impl<T: Config> Pallet<T> {
             StableSwapMode::Single => {
                 let from_index = Self::currency_index_from_stable_pool(path.pool_id, path.from_currency)?;
                 let to_index = Self::currency_index_from_stable_pool(path.pool_id, path.to_currency)?;
-                T::StableAMM::swap(who, path.pool_id, from_index, to_index, amount_in, Zero::zero(), to)?
+                T::StableAmm::swap(who, path.pool_id, from_index, to_index, amount_in, Zero::zero(), to)?
             }
             StableSwapMode::FromBase => {
                 let from_index = Self::currency_index_from_stable_pool(path.base_pool_id, path.from_currency)?;
                 let to_index = Self::currency_index_from_stable_pool(path.pool_id, path.to_currency)?;
-
-                T::StableAMM::swap_pool_from_base(
+                T::StableAmm::swap_pool_from_base(
                     who,
                     path.pool_id,
                     path.base_pool_id,
@@ -213,7 +223,7 @@ impl<T: Config> Pallet<T> {
             StableSwapMode::ToBase => {
                 let from_index = Self::currency_index_from_stable_pool(path.pool_id, path.from_currency)?;
                 let to_index = Self::currency_index_from_stable_pool(path.base_pool_id, path.to_currency)?;
-                T::StableAMM::swap_pool_to_base(
+                T::StableAmm::swap_pool_to_base(
                     who,
                     path.pool_id,
                     path.base_pool_id,
@@ -229,23 +239,17 @@ impl<T: Config> Pallet<T> {
     }
 
     fn swap(who: &T::AccountId, amount_in: T::Balance, path: &[T::CurrencyId], to: &T::AccountId) -> DispatchResult {
-        T::NormalAmm::inner_swap_exact_assets_for_assets(who, amount_in.into(), Zero::zero(), path, to)
+        T::GeneralAmm::inner_swap_exact_assets_for_assets(who, amount_in.into(), Zero::zero(), path, to)
     }
 
     fn currency_index_from_stable_pool(
         pool_id: T::StablePoolId,
         currency_id: T::CurrencyId,
     ) -> Result<u32, DispatchError> {
-        T::StableAMM::currency_index(pool_id, currency_id).ok_or_else(|| Error::<T>::MismatchPoolAndCurrencyId.into())
+        T::StableAmm::currency_index(pool_id, currency_id).ok_or_else(|| Error::<T>::MismatchPoolAndCurrencyId.into())
     }
 
     fn validate_routes(routes: &[Route<T::StablePoolId, T::CurrencyId>]) -> DispatchResult {
-        let num_swaps = routes
-            .iter()
-            .map(|x| x.number_of_swaps())
-            .fold(0usize, |a, b| a.saturating_add(b));
-        ensure!(num_swaps <= T::MaxSwaps::get().into(), Error::<T>::ExceededSwapLimit);
-
         for [route_1, route_2] in routes.array_windows::<2>() {
             let output_1 = route_1.output_currency().ok_or(Error::<T>::InvalidPath)?;
             let input_2 = route_2.input_currency().ok_or(Error::<T>::InvalidPath)?;

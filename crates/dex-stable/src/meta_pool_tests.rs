@@ -313,22 +313,22 @@ fn create_meta_pool_should_work() {
                 base_pool_id,
                 base_virtual_price,
                 base_cache_last_updated: now,
-                base_currencies: vec![Token(TOKEN1_SYMBOL), Token(TOKEN2_SYMBOL),],
+                base_currencies: BoundedVec::truncate_from(vec![Token(TOKEN1_SYMBOL), Token(TOKEN2_SYMBOL),]),
                 info: BasePool {
-                    currency_ids: vec![
+                    currency_ids: BoundedVec::truncate_from(vec![
                         Token(TOKEN1_SYMBOL),
                         Token(TOKEN2_SYMBOL),
                         Token(TOKEN3_SYMBOL),
                         base_pool_lp_currency,
-                    ],
+                    ]),
                     lp_currency_id: meta_pool_lp_currency,
-                    token_multipliers: vec![
+                    token_multipliers: BoundedVec::truncate_from(vec![
                         checked_pow(10, (POOL_TOKEN_COMMON_DECIMALS - TOKEN1_DECIMAL) as usize).unwrap(),
                         checked_pow(10, (POOL_TOKEN_COMMON_DECIMALS - TOKEN2_DECIMAL) as usize).unwrap(),
                         checked_pow(10, (POOL_TOKEN_COMMON_DECIMALS - TOKEN3_DECIMAL) as usize).unwrap(),
                         checked_pow(10, (POOL_TOKEN_COMMON_DECIMALS - STABLE_LP_DECIMAL) as usize).unwrap(),
-                    ],
-                    balances: vec![Zero::zero(); 4],
+                    ]),
+                    balances: BoundedVec::truncate_from(vec![Zero::zero(); 4]),
                     fee: SWAP_FEE,
                     admin_fee: ADMIN_FEE,
                     initial_a: INITIAL_A_VALUE * (A_PRECISION as Balance),
@@ -836,7 +836,7 @@ fn remove_liquidity_imbalance_in_meta_pool_with_max_burn_lp_token_amount_range_s
         let max_pool_token_amount_to_be_burned_negative_slippage = max_pool_token_amount_to_be_burned * 1001 / 1000;
         let max_pool_token_amount_to_be_burned_positive_slippage = max_pool_token_amount_to_be_burned * 999 / 1000;
 
-        let mut currency_ids = pool.currency_ids.clone();
+        let mut currency_ids = pool.currency_ids.clone().to_vec();
         currency_ids.push(pool.lp_currency_id);
 
         let balance_before = get_user_token_balances(&currency_ids, &BOB);
@@ -2556,8 +2556,8 @@ fn prepare_attack_meta_context(new_a: Balance) -> AttackContext {
 
     AttackContext {
         initial_attacker_balances: attack_balances,
-        initial_pool_balances: pool.balances.clone(),
-        pool_currencies: pool.currency_ids.clone(),
+        initial_pool_balances: pool.balances.clone().to_vec(),
+        pool_currencies: pool.currency_ids.clone().to_vec(),
         attacker,
         pool_id: meta_pool_id,
     }
@@ -2654,7 +2654,7 @@ fn meta_check_when_ramp_a_upwards_and_tokens_price_unequally() {
         assert_eq!(pool.balances[1], 3e18 as Balance);
 
         // rewrite pool balances
-        context.initial_pool_balances = pool.balances.clone();
+        context.initial_pool_balances = pool.balances.clone().to_vec();
 
         // Swap 1e18 of firstToken to secondToken, resolving imbalance in the pool
         assert_ok!(StableAmm::swap(
@@ -2811,7 +2811,7 @@ fn meta_check_when_ramp_a_downwards_and_tokens_price_unequally() {
         assert_eq!(pool.balances[1], 3e18 as Balance);
 
         // rewrite pool balances
-        context.initial_pool_balances = pool.balances.clone();
+        context.initial_pool_balances = pool.balances.clone().to_vec();
 
         // Swap 1e18 of firstToken to secondToken, resolving imbalance in the pool
         assert_ok!(StableAmm::swap(
@@ -2887,7 +2887,7 @@ fn meta_check_arithmetic_in_add_liquidity_should_successfully() {
 
         mint_more_currencies(
             vec![BOB, CHARLIE],
-            pool.currency_ids,
+            pool.currency_ids.to_vec(),
             vec![1_000_000_000e18 as Balance, 1_000_000_000e18 as Balance],
         );
 
@@ -2948,7 +2948,7 @@ fn meta_check_arithmetic_in_remove_liquidity_should_successfully() {
 
         mint_more_currencies(
             vec![BOB, CHARLIE],
-            pool.currency_ids.clone(),
+            pool.currency_ids.clone().to_vec(),
             vec![10_000_000_000e18 as Balance, 10_000_000_000e18 as Balance],
         );
 
@@ -3045,7 +3045,7 @@ fn meta_check_arithmetic_in_remove_liquidity_one_currency_should_successfully() 
         let pool = StableAmm::pools(meta_pool_id).unwrap().get_pool_info();
         mint_more_currencies(
             vec![BOB, CHARLIE],
-            pool.currency_ids.clone(),
+            pool.currency_ids.clone().to_vec(),
             vec![10_000_000_000e18 as Balance, 10_000_000_000e18 as Balance],
         );
 
@@ -3137,7 +3137,7 @@ fn meta_check_arithmetic_in_remove_liquidity_imbalance_should_successfully() {
         let pool = StableAmm::pools(meta_pool_id).unwrap().get_pool_info();
         mint_more_currencies(
             vec![BOB, CHARLIE],
-            pool.currency_ids.clone(),
+            pool.currency_ids.clone().to_vec(),
             vec![10_000_000_000e18 as Balance, 10_000_000_000e18 as Balance],
         );
 
@@ -3236,7 +3236,7 @@ fn meta_check_arithmetic_in_swap_should_successfully() {
         let pool = StableAmm::pools(meta_pool_id).unwrap().get_pool_info();
         mint_more_currencies(
             vec![BOB, CHARLIE],
-            pool.currency_ids.clone(),
+            pool.currency_ids.clone().to_vec(),
             vec![10_000_000_000e18 as Balance, 10_000_000_000e18 as Balance],
         );
 
@@ -3347,7 +3347,7 @@ fn meta_check_arithmetic_in_add_liquidity_with_admin_fee_should_successfully() {
         let pool = StableAmm::pools(meta_pool_id).unwrap().get_pool_info();
         mint_more_currencies(
             vec![BOB, CHARLIE],
-            pool.currency_ids.clone(),
+            pool.currency_ids.clone().to_vec(),
             vec![10_000_000_000e18 as Balance, 10_000_000_000e18 as Balance],
         );
 
@@ -3400,7 +3400,7 @@ fn meta_check_arithmetic_in_remove_liquidity_with_admin_fee_should_successfully(
         let pool = StableAmm::pools(meta_pool_id).unwrap().get_pool_info();
         mint_more_currencies(
             vec![BOB, CHARLIE],
-            pool.currency_ids.clone(),
+            pool.currency_ids.clone().to_vec(),
             vec![10_000_000_000e18 as Balance, 10_000_000_000e18 as Balance],
         );
 
@@ -3475,7 +3475,7 @@ fn meta_check_arithmetic_in_remove_liquidity_one_currency_with_admin_fee_should_
         let pool = StableAmm::pools(meta_pool_id).unwrap().get_pool_info();
         mint_more_currencies(
             vec![BOB, CHARLIE],
-            pool.currency_ids.clone(),
+            pool.currency_ids.clone().to_vec(),
             vec![10_000_000_000e18 as Balance, 10_000_000_000e18 as Balance],
         );
 
@@ -3555,7 +3555,7 @@ fn meta_check_arithmetic_in_remove_liquidity_imbalance_with_admin_fee_should_suc
         let pool = StableAmm::pools(meta_pool_id).unwrap().get_pool_info();
         mint_more_currencies(
             vec![BOB, CHARLIE],
-            pool.currency_ids.clone(),
+            pool.currency_ids.clone().to_vec(),
             vec![10_000_000_000e18 as Balance, 10_000_000_000e18 as Balance],
         );
 
@@ -3633,7 +3633,7 @@ fn meta_check_arithmetic_in_swap_imbalance_with_admin_fee_should_successfully() 
         let pool = StableAmm::pools(meta_pool_id).unwrap().get_pool_info();
         mint_more_currencies(
             vec![BOB, CHARLIE],
-            pool.currency_ids.clone(),
+            pool.currency_ids.clone().to_vec(),
             vec![10_000_000_000e18 as Balance, 10_000_000_000e18 as Balance],
         );
 

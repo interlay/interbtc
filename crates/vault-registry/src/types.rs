@@ -99,11 +99,9 @@ impl<T: Config> CurrencySource<T> {
     }
 }
 
-pub(crate) type BalanceOf<T> = <T as Config>::Balance;
+pub(crate) type BalanceOf<T> = <T as currency::Config>::Balance;
 
 pub(crate) type UnsignedFixedPoint<T> = <T as currency::Config>::UnsignedFixedPoint;
-
-pub(crate) type SignedInner<T> = <T as currency::Config>::SignedInner;
 
 pub type CurrencyId<T> = <T as orml_tokens::Config>::CurrencyId;
 
@@ -141,7 +139,7 @@ impl Default for VaultStatus {
     }
 }
 
-#[derive(Encode, Decode, Clone, PartialEq, Eq, TypeInfo)]
+#[derive(Encode, Decode, Clone, PartialEq, Eq, TypeInfo, MaxEncodedLen)]
 #[cfg_attr(feature = "std", derive(Debug))]
 pub struct Vault<AccountId, BlockNumber, Balance, CurrencyId: Copy, UnsignedFixedPoint> {
     /// Account identifier of the Vault

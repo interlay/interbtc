@@ -5,10 +5,15 @@
 #![cfg_attr(test, feature(proc_macro_hygiene))]
 #![cfg_attr(not(feature = "std"), no_std)]
 
+#[cfg(feature = "runtime-benchmarks")]
+mod benchmarking;
+
 use sp_runtime::{traits::*, ArithmeticError};
 use sp_std::convert::TryInto;
 
+mod default_weights;
 pub mod types;
+pub use default_weights::WeightInfo;
 
 #[cfg(test)]
 mod mock;
@@ -30,18 +35,18 @@ use frame_support::{
     dispatch::{DispatchError, DispatchResult},
     transactional,
     weights::Weight,
+    BoundedBTreeSet,
 };
 use frame_system::ensure_root;
+pub use pallet::*;
 use sha2::{Digest, Sha256};
 use sp_core::{H256, U256};
-use sp_std::{collections::btree_set::BTreeSet, prelude::*, vec};
-
-pub use pallet::*;
+use sp_std::{prelude::*, vec};
 
 #[frame_support::pallet]
 pub mod pallet {
     use super::*;
-    use frame_support::pallet_prelude::*;
+    use frame_support::{pallet_prelude::*, BoundedBTreeSet};
     use frame_system::pallet_prelude::*;
 
     /// ## Configuration
@@ -50,6 +55,13 @@ pub mod pallet {
     pub trait Config: frame_system::Config {
         /// The overarching event type.
         type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
+
+        /// Weight information for the extrinsics in this module.
+        type WeightInfo: WeightInfo;
+
+        /// The maximum number of error codes.
+        #[pallet::constant]
+        type MaxErrors: Get<u32>;
     }
 
     #[pallet::event]
@@ -68,14 +80,15 @@ pub mod pallet {
     pub enum Error<T> {
         /// Parachain is not running.
         ParachainNotRunning,
+        /// Cannot add the error code.
+        MaxErrorsReached,
     }
 
     #[pallet::hooks]
     impl<T: Config> Hooks<T::BlockNumber> for Pallet<T> {
         fn on_initialize(_n: T::BlockNumber) -> Weight {
             Self::increment_active_block();
-            // TODO: calculate weight
-            Weight::from_ref_time(0)
+            <T as Config>::WeightInfo::on_initialize()
         }
     }
 
@@ -98,7 +111,7 @@ pub mod pallet {
         fn build(&self) {
             Pallet::<T>::set_status(self.initial_status);
 
-            Pallet::<T>::insert_error(ErrorCode::OracleOffline);
+            let _ = Pallet::<T>::insert_error(ErrorCode::OracleOffline);
         }
     }
 
@@ -110,7 +123,7 @@ pub mod pallet {
     /// Set of ErrorCodes, indicating the reason for an "Error" ParachainStatus.
     #[pallet::storage]
     #[pallet::getter(fn errors)]
-    pub type Errors<T: Config> = StorageValue<_, BTreeSet<ErrorCode>, ValueQuery>;
+    pub type Errors<T: Config> = StorageValue<_, BoundedBTreeSet<ErrorCode, T::MaxErrors>, ValueQuery>;
 
     /// Integer increment-only counter, used to prevent collisions when generating identifiers
     /// for e.g. issue, redeem or replace requests (for OP_RETURN field in Bitcoin).
@@ -127,7 +140,6 @@ pub mod pallet {
     pub type ActiveBlockCount<T: Config> = StorageValue<_, T::BlockNumber, ValueQuery>;
 
     #[pallet::pallet]
-    #[pallet::without_storage_info]
     pub struct Pallet<T>(_);
 
     // The pallet's dispatchable functions.
@@ -142,7 +154,7 @@ pub mod pallet {
         ///
         /// # Weight: `O(1)`
         #[pallet::call_index(0)]
-        #[pallet::weight(0)]
+        #[pallet::weight(<T as Config>::WeightInfo::set_parachain_status())]
         #[transactional]
         pub fn set_parachain_status(origin: OriginFor<T>, status_code: StatusCode) -> DispatchResultWithPostInfo {
             ensure_root(origin)?;
@@ -159,11 +171,11 @@ pub mod pallet {
         ///
         /// # Weight: `O(1)`
         #[pallet::call_index(1)]
-        #[pallet::weight(0)]
+        #[pallet::weight(<T as Config>::WeightInfo::insert_parachain_error())]
         #[transactional]
         pub fn insert_parachain_error(origin: OriginFor<T>, error_code: ErrorCode) -> DispatchResultWithPostInfo {
             ensure_root(origin)?;
-            Self::insert_error(error_code);
+            Self::insert_error(error_code)?;
             Ok(().into())
         }
 
@@ -176,7 +188,7 @@ pub mod pallet {
         ///
         /// # Weight: `O(1)`
         #[pallet::call_index(2)]
-        #[pallet::weight(0)]
+        #[pallet::weight(<T as Config>::WeightInfo::remove_parachain_error())]
         #[transactional]
         pub fn remove_parachain_error(origin: OriginFor<T>, error_code: ErrorCode) -> DispatchResultWithPostInfo {
             ensure_root(origin)?;
@@ -213,7 +225,7 @@ impl<T: Config> Pallet<T> {
     }
 
     /// Get the current set of `ErrorCode`.
-    pub fn get_errors() -> BTreeSet<ErrorCode> {
+    pub fn get_errors() -> BoundedBTreeSet<ErrorCode, T::MaxErrors> {
         <Errors<T>>::get()
     }
 
@@ -222,10 +234,9 @@ impl<T: Config> Pallet<T> {
     /// # Arguments
     ///
     /// * `error_code` - the error to insert.
-    pub fn insert_error(error_code: ErrorCode) {
-        <Errors<T>>::mutate(|errors| {
-            errors.insert(error_code);
-        })
+    pub fn insert_error(error_code: ErrorCode) -> DispatchResult {
+        <Errors<T>>::try_mutate(|errors| errors.try_insert(error_code).map_err(|_| Error::<T>::MaxErrorsReached))?;
+        Ok(())
     }
 
     /// Removes the given `ErrorCode`.

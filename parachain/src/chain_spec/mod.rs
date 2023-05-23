@@ -1,5 +1,6 @@
 use bitcoin::utils::{virtual_transaction_size, InputType, TransactionInputMetadata, TransactionOutputMetadata};
 use cumulus_primitives_core::ParaId;
+use frame_support::BoundedVec;
 use hex_literal::hex;
 use primitives::{
     AccountId, Balance, CurrencyId, CurrencyId::Token, CurrencyInfo, Signature, VaultCurrencyPair, BITCOIN_MAINNET,

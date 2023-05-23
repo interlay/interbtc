@@ -21,7 +21,11 @@ use crate as loans;
 
 use currency::Amount;
 use frame_benchmarking::whitelisted_caller;
-use frame_support::{construct_runtime, parameter_types, traits::Everything, PalletId};
+use frame_support::{
+    construct_runtime, parameter_types,
+    traits::{EqualPrivilegeOnly, Everything},
+    PalletId,
+};
 use frame_system::EnsureRoot;
 use mocktopus::{macros::mockable, mocking::MockResult};
 use orml_traits::{currency::MutationHooks, parameter_type_with_key};
@@ -49,6 +53,9 @@ construct_runtime!(
         Tokens: orml_tokens::{Pallet, Call, Storage, Config<T>, Event<T>},
         Currency: currency::{Pallet},
         Utility: pallet_utility,
+        Oracle: oracle::{Pallet, Call, Config<T>, Storage, Event<T>},
+        Security: security::{Pallet, Call, Storage, Event<T>},
+        Scheduler: pallet_scheduler::{Pallet, Call, Storage, Event<T>},
     }
 );
 
@@ -97,6 +104,23 @@ parameter_types! {
     pub const MinimumPeriod: u64 = 5;
 }
 
+parameter_types! {
+    pub MaximumSchedulerWeight: Weight = Weight::from_parts(100000000000000000u64, 1000000000000000000u64);
+}
+
+impl pallet_scheduler::Config for Test {
+    type RuntimeEvent = RuntimeEvent;
+    type RuntimeOrigin = RuntimeOrigin;
+    type PalletsOrigin = OriginCaller;
+    type RuntimeCall = RuntimeCall;
+    type MaximumWeight = MaximumSchedulerWeight;
+    type ScheduleOrigin = EnsureRoot<AccountId32>;
+    type MaxScheduledPerBlock = ConstU32<100>;
+    type OriginPrivilegeCmp = EqualPrivilegeOnly;
+    type WeightInfo = ();
+    type Preimages = ();
+}
+
 impl pallet_timestamp::Config for Test {
     type Moment = u64;
     type OnTimestampSet = ();
@@ -135,6 +159,9 @@ impl orml_tokens::Config for Test {
     type CurrencyId = CurrencyId;
     type WeightInfo = ();
     type ExistentialDeposits = ExistentialDeposits;
+    #[cfg(feature = "try-runtime")]
+    type CurrencyHooks = ();
+    #[cfg(not(feature = "try-runtime"))]
     type CurrencyHooks = CurrencyHooks<Test>;
     type MaxLocks = MaxLocks;
     type DustRemovalWhitelist = Everything;
@@ -183,6 +210,19 @@ impl pallet_utility::Config for Test {
     type RuntimeCall = RuntimeCall;
     type PalletsOrigin = OriginCaller;
     type WeightInfo = ();
+}
+
+impl oracle::Config for Test {
+    type RuntimeEvent = RuntimeEvent;
+    type OnExchangeRateChange = ();
+    type WeightInfo = ();
+    type MaxNameLength = ConstU32<255>;
+}
+
+impl security::Config for Test {
+    type RuntimeEvent = RuntimeEvent;
+    type WeightInfo = ();
+    type MaxErrors = ConstU32<1>;
 }
 
 parameter_types! {
@@ -305,6 +345,7 @@ pub(crate) fn new_test_ext() -> sp_io::TestExternalities {
         Loans::activate_market(RuntimeOrigin::root(), Token(IBTC)).unwrap();
 
         System::set_block_number(0);
+        Security::set_active_block_number(1);
         TimestampPallet::set_timestamp(6000);
     });
     ext
@@ -346,6 +387,7 @@ pub(crate) fn _run_to_block(n: BlockNumber) {
         System::set_block_number(b);
         Loans::on_initialize(b);
         TimestampPallet::set_timestamp(6000 * b);
+        Scheduler::on_initialize(b);
         if b != n {
             Loans::on_finalize(b);
         }

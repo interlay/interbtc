@@ -60,7 +60,7 @@ impl<T: Config> Pallet<T> {
     }
 
     pub(crate) fn get_y(
-        pool: &BasePool<T::CurrencyId, T::AccountId, BoundedVec<u8, T::PoolCurrencySymbolLimit>>,
+        pool: &BasePool<T::CurrencyId, T::AccountId, T::PoolCurrencyLimit, T::PoolCurrencySymbolLimit>,
         in_index: usize,
         out_index: usize,
         in_balance: Balance,
@@ -86,13 +86,13 @@ impl<T: Config> Pallet<T> {
                 .checked_mul(d)?
                 .checked_div(U256::from(x).checked_mul(n_currencies)?)?;
         }
-        let a_percision = U256::from(A_PRECISION);
+        let a_precision = U256::from(A_PRECISION);
         c = c
             .checked_mul(d)?
-            .checked_mul(a_percision)?
+            .checked_mul(a_precision)?
             .checked_div(ann.checked_mul(n_currencies)?)?;
 
-        let b = sum.checked_add(d.checked_mul(a_percision)?.checked_div(ann)?)?;
+        let b = sum.checked_add(d.checked_mul(a_precision)?.checked_div(ann)?)?;
 
         let mut last_y: U256;
         let mut y = d;
@@ -111,7 +111,7 @@ impl<T: Config> Pallet<T> {
     }
 
     pub(crate) fn get_yd(
-        pool: &BasePool<T::CurrencyId, T::AccountId, BoundedVec<u8, T::PoolCurrencySymbolLimit>>,
+        pool: &BasePool<T::CurrencyId, T::AccountId, T::PoolCurrencyLimit, T::PoolCurrencySymbolLimit>,
         a: Balance,
         index: u32,
         xp: &[Balance],
@@ -188,7 +188,7 @@ impl<T: Config> Pallet<T> {
     }
 
     pub(crate) fn get_a_precise(
-        pool: &BasePool<T::CurrencyId, T::AccountId, BoundedVec<u8, T::PoolCurrencySymbolLimit>>,
+        pool: &BasePool<T::CurrencyId, T::AccountId, T::PoolCurrencyLimit, T::PoolCurrencySymbolLimit>,
     ) -> Option<Number> {
         let now = T::TimeProvider::now().as_secs() as Number;
 
@@ -224,7 +224,7 @@ impl<T: Config> Pallet<T> {
     }
 
     pub(crate) fn get_pool_virtual_price(
-        pool: &Pool<T::PoolId, T::CurrencyId, T::AccountId, BoundedVec<u8, T::PoolCurrencySymbolLimit>>,
+        pool: &Pool<T::PoolId, T::CurrencyId, T::AccountId, T::PoolCurrencyLimit, T::PoolCurrencySymbolLimit>,
     ) -> Option<Balance> {
         match pool {
             Pool::Base(bp) => Self::calculate_base_virtual_price(bp),
@@ -233,7 +233,7 @@ impl<T: Config> Pallet<T> {
     }
 
     pub(crate) fn calculate_fee_per_token(
-        pool: &BasePool<T::CurrencyId, T::AccountId, BoundedVec<u8, T::PoolCurrencySymbolLimit>>,
+        pool: &BasePool<T::CurrencyId, T::AccountId, T::PoolCurrencyLimit, T::PoolCurrencySymbolLimit>,
     ) -> Option<Balance> {
         let n_pooled_currency = Balance::from(pool.currency_ids.len() as u64);
 

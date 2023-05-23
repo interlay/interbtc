@@ -1,26 +1,22 @@
 // Copyright 2021-2022 Zenlink.
 // Licensed under Apache 2.0.
 
-#[cfg(feature = "std")]
-use std::marker::PhantomData;
-
 use codec::{Decode, Encode, MaxEncodedLen};
+use frame_support::{pallet_prelude::GenesisBuild, parameter_types, traits::Contains, PalletId};
 use scale_info::TypeInfo;
 use serde::{Deserialize, Serialize};
-
-use frame_support::{pallet_prelude::GenesisBuild, parameter_types, traits::Contains, PalletId};
 use sp_core::H256;
 use sp_runtime::{
     testing::Header,
-    traits::{BlakeTwo256, IdentityLookup, Zero},
+    traits::{BlakeTwo256, IdentityLookup},
     RuntimeDebug,
 };
 
-use crate as router;
-use crate::{Config, Pallet};
-use dex_general::GenerateLpAssetId;
+use crate as dex_swap_router;
+use crate::Config;
+use dex_general::{GenerateLpAssetId, ValidateAsset};
 use dex_stable::traits::{StablePoolLpCurrencyIdGenerate, ValidateCurrency};
-use orml_traits::{parameter_type_with_key, MultiCurrency};
+use orml_traits::parameter_type_with_key;
 
 type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
 type Block = frame_system::mocking::MockBlock<Test>;
@@ -34,6 +30,7 @@ parameter_types! {
     pub const MaxReserves: u32 = 50;
     pub const MaxLocks:u32 = 50;
     pub const MinimumPeriod: Moment = SLOT_DURATION / 2;
+    pub const PoolCurrencyLimit: u32 = 10;
     pub const PoolCurrencySymbolLimit: u32 = 50;
 }
 
@@ -75,14 +72,19 @@ impl CurrencyId {
         };
         Some(CurrencyId::LpToken(lp_token_0, lp_token_1))
     }
-}
 
-impl dex_general::AssetInfo for CurrencyId {
-    fn is_support(&self) -> bool {
+    pub fn is_lp_token(&self) -> bool {
         match self {
             Self::Token(_) => true,
             _ => false,
         }
+    }
+}
+
+impl From<u32> for CurrencyId {
+    fn from(value: u32) -> Self {
+        // Inner value must fit inside `u8`
+        CurrencyId::Token((value % 256).try_into().unwrap())
     }
 }
 
@@ -157,64 +159,15 @@ impl pallet_timestamp::Config for Test {
     type WeightInfo = ();
 }
 
-impl dex_stable::Config for Test {
-    type RuntimeEvent = RuntimeEvent;
-    type CurrencyId = CurrencyId;
-    type MultiCurrency = Tokens;
-    type PoolId = PoolId;
-    type EnsurePoolAsset = EnsurePoolAssetImpl<Tokens>;
-    type LpGenerate = PoolLpGenerate;
-    type TimeProvider = Timestamp;
-    type PoolCurrencySymbolLimit = PoolCurrencySymbolLimit;
-    type PalletId = DexStablePalletId;
-    type WeightInfo = ();
-}
-
-pub struct PairLpIdentity;
-impl GenerateLpAssetId<CurrencyId> for PairLpIdentity {
-    fn generate_lp_asset_id(asset_0: CurrencyId, asset_1: CurrencyId) -> Option<CurrencyId> {
-        CurrencyId::join_lp_token(asset_0, asset_1)
-    }
-}
-
-impl dex_general::Config for Test {
-    type RuntimeEvent = RuntimeEvent;
-    type MultiCurrency = Tokens;
-    type PalletId = DexGeneralPalletId;
-    type AssetId = CurrencyId;
-    type LpGenerate = PairLpIdentity;
-    type WeightInfo = ();
-}
-
-parameter_types! {
-    pub const MaxSwaps: u16 = 10;
-}
-
-impl Config for Test {
-    type RuntimeEvent = RuntimeEvent;
-    type StablePoolId = PoolId;
-    type Balance = Balance;
-    type CurrencyId = CurrencyId;
-    type NormalAmm = DexGeneral;
-    type StableAMM = StableAMM;
-    type MaxSwaps = MaxSwaps;
-    type WeightInfo = ();
-}
-
-pub struct EnsurePoolAssetImpl<Local>(PhantomData<Local>);
-
 pub struct PoolLpGenerate;
-
 impl StablePoolLpCurrencyIdGenerate<CurrencyId, PoolId> for PoolLpGenerate {
     fn generate_by_pool_id(pool_id: PoolId) -> CurrencyId {
         return CurrencyId::StableLP(pool_id);
     }
 }
 
-impl<Local> ValidateCurrency<CurrencyId> for EnsurePoolAssetImpl<Local>
-where
-    Local: MultiCurrency<AccountId, Balance = u128, CurrencyId = CurrencyId>,
-{
+pub struct VerifyPoolAsset;
+impl ValidateCurrency<CurrencyId> for VerifyPoolAsset {
     fn validate_pooled_currency(currencies: &[CurrencyId]) -> bool {
         for currency in currencies.iter() {
             if let CurrencyId::Forbidden(_) = *currency {
@@ -228,11 +181,77 @@ where
         if let CurrencyId::Token(_) = currency_id {
             return false;
         }
-
-        if Local::total_issuance(currency_id) > Zero::zero() {
+        if Tokens::total_issuance(currency_id) > 0 {
             return false;
         }
         true
+    }
+}
+
+impl dex_stable::Config for Test {
+    type RuntimeEvent = RuntimeEvent;
+    type CurrencyId = CurrencyId;
+    type MultiCurrency = Tokens;
+    type PoolId = PoolId;
+    type EnsurePoolAsset = VerifyPoolAsset;
+    type LpGenerate = PoolLpGenerate;
+    type TimeProvider = Timestamp;
+    type PoolCurrencyLimit = PoolCurrencyLimit;
+    type PoolCurrencySymbolLimit = PoolCurrencySymbolLimit;
+    type PalletId = DexStablePalletId;
+    type WeightInfo = ();
+}
+
+pub struct PairLpIdentity;
+impl GenerateLpAssetId<CurrencyId> for PairLpIdentity {
+    fn generate_lp_asset_id(asset_0: CurrencyId, asset_1: CurrencyId) -> Option<CurrencyId> {
+        CurrencyId::join_lp_token(asset_0, asset_1)
+    }
+}
+
+pub struct VerifyPairAsset;
+impl ValidateAsset<CurrencyId> for VerifyPairAsset {
+    fn validate_asset(currency_id: &CurrencyId) -> bool {
+        currency_id.is_lp_token()
+    }
+}
+
+impl dex_general::Config for Test {
+    type RuntimeEvent = RuntimeEvent;
+    type MultiCurrency = Tokens;
+    type PalletId = DexGeneralPalletId;
+    type AssetId = CurrencyId;
+    type EnsurePairAsset = VerifyPairAsset;
+    type LpGenerate = PairLpIdentity;
+    type WeightInfo = ();
+    type MaxBootstrapRewards = MaxBootstrapRewards;
+    type MaxBootstrapLimits = MaxBootstrapLimits;
+}
+
+parameter_types! {
+    pub const MaxBootstrapRewards: u32 = 1000;
+    pub const MaxBootstrapLimits:u32 = 1000;
+}
+
+impl Config for Test {
+    type RuntimeEvent = RuntimeEvent;
+    type StablePoolId = PoolId;
+    type Balance = Balance;
+    type CurrencyId = CurrencyId;
+    type GeneralAmm = DexGeneral;
+    type StableAmm = DexStable;
+    type GeneralWeightInfo = ();
+    type StableWeightInfo = ();
+    type WeightInfo = ();
+}
+
+pub struct ExtBuilder;
+
+impl ExtBuilder {
+    pub fn build() -> sp_io::TestExternalities {
+        let storage = frame_system::GenesisConfig::default().build_storage::<Test>().unwrap();
+
+        storage.into()
     }
 }
 
@@ -245,14 +264,13 @@ frame_support::construct_runtime!(
         System: frame_system::{Pallet, Call, Config, Storage, Event<T>} = 0,
         Timestamp: pallet_timestamp::{Pallet, Call, Storage, Inherent} = 1,
 
-        StableAMM: dex_stable::{Pallet, Call, Storage, Event<T>} = 9,
-        Tokens: orml_tokens::{Pallet, Storage, Event<T>, Config<T>} = 11,
-        DexGeneral: dex_general::{Pallet, Call, Storage, Event<T>} = 12,
-        Router: router::{Pallet, Call, Event<T>} = 13,
+        Tokens: orml_tokens::{Pallet, Storage, Event<T>, Config<T>} = 10,
+        DexGeneral: dex_general::{Pallet, Call, Storage, Event<T>} = 11,
+        DexStable: dex_stable::{Pallet, Call, Storage, Event<T>} = 12,
+        DexSwapRouter: dex_swap_router::{Pallet, Call, Event<T>} = 13,
     }
 );
 
-pub type RouterPallet = Pallet<Test>;
 pub const USER1: u128 = 1;
 pub const USER2: u128 = 2;
 pub const USER3: u128 = 3;

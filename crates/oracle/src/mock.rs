@@ -3,6 +3,7 @@ use crate::{Config, Error};
 use frame_support::{
     parameter_types,
     traits::{ConstU32, Everything, GenesisBuild},
+    BoundedVec,
 };
 use mocktopus::mocking::clear_mocks;
 use orml_traits::parameter_type_with_key;
@@ -135,6 +136,7 @@ impl Config for Test {
     type RuntimeEvent = RuntimeEvent;
     type OnExchangeRateChange = ();
     type WeightInfo = ();
+    type MaxNameLength = ConstU32<255>;
 }
 
 parameter_types! {
@@ -150,6 +152,8 @@ impl pallet_timestamp::Config for Test {
 
 impl security::Config for Test {
     type RuntimeEvent = RuntimeEvent;
+    type WeightInfo = ();
+    type MaxErrors = ConstU32<1>;
 }
 
 impl staking::Config for Test {
@@ -170,7 +174,7 @@ impl ExtBuilder {
         let mut storage = frame_system::GenesisConfig::default().build_storage::<Test>().unwrap();
 
         oracle::GenesisConfig::<Test> {
-            authorized_oracles: vec![(0, "test".as_bytes().to_vec())],
+            authorized_oracles: vec![(0, BoundedVec::try_from("test".as_bytes().to_vec()).unwrap())],
             max_delay: 0,
         }
         .assimilate_storage(&mut storage)

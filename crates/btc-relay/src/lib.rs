@@ -51,6 +51,13 @@ extern crate mocktopus;
 #[cfg(test)]
 use mocktopus::macros::mockable;
 
+#[cfg(feature = "runtime-benchmarks")]
+use bitcoin::types::{BlockBuilder, TransactionBuilder, TransactionOutput};
+use bitcoin::{
+    merkle::{MerkleProof, ProofResult},
+    types::{BlockChain, BlockHeader, H256Le, Transaction, Value},
+    Error as BitcoinError, SetCompact,
+};
 use frame_support::{
     dispatch::{DispatchError, DispatchResult},
     ensure, runtime_print,
@@ -65,17 +72,9 @@ use sp_std::{
     prelude::*,
 };
 
-// Crates
 pub use bitcoin::{self, Address as BtcAddress, PublicKey as BtcPublicKey};
-use bitcoin::{
-    merkle::{MerkleProof, ProofResult},
-    parser::{parse_block_header, parse_transaction},
-    types::{BlockChain, BlockHeader, H256Le, RawBlockHeader, Transaction, Value},
-    Error as BitcoinError, SetCompact,
-};
-pub use types::{OpReturnPaymentData, RichBlockHeader};
-
 pub use pallet::*;
+pub use types::{OpReturnPaymentData, RichBlockHeader};
 
 #[frame_support::pallet]
 pub mod pallet {
@@ -84,7 +83,6 @@ pub mod pallet {
     use frame_system::pallet_prelude::*;
 
     #[pallet::pallet]
-    #[pallet::generate_store(trait Store)]
     pub struct Pallet<T>(_);
 
     #[pallet::config]
@@ -110,36 +108,25 @@ pub mod pallet {
         ///
         /// # Arguments
         ///
-        /// * `block_header_bytes` - 80 byte raw Bitcoin block header.
+        /// * `block_header` - Bitcoin block header.
         /// * `block_height` - starting Bitcoin block height of the submitted block header.
         ///
-        /// # <weight>
-        /// - Storage Reads:
-        /// 	- One storage read to check that parachain is not shutdown. O(1)
-        /// 	- One storage read to check if relayer authorization is disabled. O(1)
-        /// 	- One storage read to check if relayer is authorized. O(1)
-        /// - Storage Writes:
-        ///     - One storage write to store block hash. O(1)
-        ///     - One storage write to store block header. O(1)
-        /// 	- One storage write to initialize main chain. O(1)
-        ///     - One storage write to store best block hash. O(1)
-        ///     - One storage write to store best block height. O(1)
-        /// - Events:
-        /// 	- One event for initialization.
-        ///
-        /// Total Complexity: O(1)
-        /// # </weight>
+        /// ## Complexity
+        /// - O(1)
         #[pallet::call_index(0)]
-        #[pallet::weight(<T as Config>::WeightInfo::initialize())]
+        #[pallet::weight((
+            <T as Config>::WeightInfo::initialize(),
+            DispatchClass::Operational
+        ))]
         #[transactional]
         pub fn initialize(
             origin: OriginFor<T>,
-            raw_block_header: RawBlockHeader,
+            mut block_header: BlockHeader,
             block_height: u32,
         ) -> DispatchResultWithPostInfo {
             let relayer = ensure_signed(origin)?;
 
-            let block_header = Self::parse_raw_block_header(&raw_block_header)?;
+            Self::_validate_block_header(&mut block_header)?;
             Self::_initialize(relayer, block_header, block_height)?;
 
             // don't take tx fees on success
@@ -150,143 +137,44 @@ pub mod pallet {
         ///
         /// # Arguments
         ///
-        /// * `raw_block_header` - 80 byte raw Bitcoin block header.
+        /// * `block_header` - Bitcoin block header.
         ///
-        /// # <weight>
-        /// Key: C (len of chains), P (len of positions)
-        /// - Storage Reads:
-        /// 	- One storage read to check that parachain is not shutdown. O(1)
-        /// 	- One storage read to check if relayer authorization is disabled. O(1)
-        /// 	- One storage read to check if relayer is authorized. O(1)
-        /// 	- One storage read to check if block header is stored. O(1)
-        /// 	- One storage read to retrieve parent block hash. O(1)
-        /// 	- One storage read to check if difficulty check is disabled. O(1)
-        /// 	- One storage read to retrieve last re-target. O(1)
-        /// 	- One storage read to retrieve all Chains. O(C)
-        /// - Storage Writes:
-        ///     - One storage write to store block hash. O(1)
-        ///     - One storage write to store block header. O(1)
-        /// 	- One storage mutate to extend main chain. O(1)
-        ///     - One storage write to store best block hash. O(1)
-        ///     - One storage write to store best block height. O(1)
-        /// - Notable Computation:
-        /// 	- O(P) sort to reorg chains.
-        /// - Events:
-        /// 	- One event for block stored (fork or extension).
-        ///
-        /// Total Complexity: O(C + P)
-        /// # </weight>
+        /// ## Complexity
+        /// - `O(F)` where `F` is the number of forks
         #[pallet::call_index(1)]
-        #[pallet::weight(<T as Config>::WeightInfo::store_block_header())]
+        #[pallet::weight((
+            {
+                let f = *fork_bound;
+                <T as Config>::WeightInfo::store_block_header()
+                    .max(<T as Config>::WeightInfo::store_block_header_new_fork_sorted(f))
+                    .max(<T as Config>::WeightInfo::store_block_header_new_fork_unsorted(f))
+                    .max(<T as Config>::WeightInfo::store_block_header_reorganize_chains(f))
+            },
+            DispatchClass::Operational
+        ))]
         #[transactional]
         pub fn store_block_header(
             origin: OriginFor<T>,
-            raw_block_header: RawBlockHeader,
+            mut block_header: BlockHeader,
+            fork_bound: u32,
         ) -> DispatchResultWithPostInfo {
             let relayer = ensure_signed(origin)?;
 
-            let block_header = Self::parse_raw_block_header(&raw_block_header)?;
+            // the worst-case complexity is always dictated by the number of chains
+            // TODO: as the growth of `Chains` is unbounded this extrinsic may become
+            // prohibitively expensive, we should remove old forks from storage
+            ensure!(
+                // ideally we would compare the number of entries in `Chains` here but
+                // since we never delete from that this should be equal to the length
+                Self::get_chain_counter().saturating_add(1) <= fork_bound,
+                Error::<T>::WrongForkBound
+            );
+
+            Self::_validate_block_header(&mut block_header)?;
             Self::_store_block_header(&relayer, block_header)?;
 
             // don't take tx fees on success
             Ok(Pays::No.into())
-        }
-
-        /// Verifies the inclusion of `tx_id` into the relay, and validates the given raw Bitcoin transaction, according
-        /// to the supported transaction format (see <https://spec.interlay.io/intro/accepted-format.html>)
-        ///
-        /// # Arguments
-        ///
-        /// * `raw_merkle_proof` - The raw merkle proof as returned by bitcoin `gettxoutproof`
-        /// * `confirmations` - The number of confirmations needed to accept the proof. If `none`, the value stored in
-        ///   the StableBitcoinConfirmations storage item is used.
-        /// * `raw_tx` - raw Bitcoin transaction
-        /// * `expected_btc` - expected amount of BTC (satoshis) sent to the recipient
-        /// * `recipient_btc_address` - 20 byte Bitcoin address of recipient of the BTC in the 1st  / payment UTXO
-        /// * `op_return_id` - 32 byte hash identifier expected in OP_RETURN (replay protection)
-        #[pallet::call_index(2)]
-        #[pallet::weight(<T as Config>::WeightInfo::verify_and_validate_transaction())]
-        #[transactional]
-        pub fn verify_and_validate_transaction(
-            origin: OriginFor<T>,
-            raw_merkle_proof: Vec<u8>,
-            confirmations: Option<u32>,
-            raw_tx: Vec<u8>,
-            expected_btc: Value,
-            recipient_btc_address: BtcAddress,
-            op_return_id: Option<H256>,
-        ) -> DispatchResultWithPostInfo {
-            let _ = ensure_signed(origin)?;
-
-            let transaction = Self::parse_transaction(&raw_tx)?;
-            let merkle_proof = Self::parse_merkle_proof(&raw_merkle_proof)?;
-            Self::_verify_transaction_inclusion(transaction.tx_id(), merkle_proof, confirmations)?;
-            Self::_validate_transaction(transaction, expected_btc, recipient_btc_address, op_return_id)?;
-            Ok(().into())
-        }
-
-        /// Verifies the inclusion of `tx_id`
-        ///
-        /// # Arguments
-        ///
-        /// * `tx_id` - The hash of the transaction to check for
-        /// * `raw_merkle_proof` - The raw merkle proof as returned by bitcoin `gettxoutproof`
-        /// * `confirmations` - The number of confirmations needed to accept the proof. If `none`, the value stored in
-        ///   the `StableBitcoinConfirmations` storage item is used.
-        ///
-        /// # <weight>
-        /// Key: C (len of chains), P (len of positions)
-        /// - Storage Reads:
-        /// 	- One storage read to check if inclusion check is disabled. O(1)
-        /// 	- One storage read to retrieve best block height. O(1)
-        /// 	- One storage read to check if transaction is in active fork. O(1)
-        /// 	- One storage read to retrieve block header. O(1)
-        /// 	- One storage read to check that parachain is not shutdown. O(1)
-        /// 	- One storage read to check stable bitcoin confirmations. O(1)
-        /// 	- One storage read to check stable parachain confirmations. O(1)
-        /// # </weight>
-        #[pallet::call_index(3)]
-        #[pallet::weight(<T as Config>::WeightInfo::verify_transaction_inclusion())]
-        #[transactional]
-        pub fn verify_transaction_inclusion(
-            origin: OriginFor<T>,
-            tx_id: H256Le,
-            raw_merkle_proof: Vec<u8>,
-            confirmations: Option<u32>,
-        ) -> DispatchResultWithPostInfo {
-            let _ = ensure_signed(origin)?;
-
-            let merkle_proof = Self::parse_merkle_proof(&raw_merkle_proof)?;
-            Self::_verify_transaction_inclusion(tx_id, merkle_proof, confirmations)?;
-            Ok(().into())
-        }
-
-        /// Validates a given raw Bitcoin transaction, according to the supported transaction
-        /// format (see <https://spec.interlay.io/intro/accepted-format.html>)
-        /// This DOES NOT check if the transaction is included in a block, nor does it guarantee that the
-        /// transaction is fully valid according to the consensus (needs full node).
-        ///
-        /// # Arguments
-        /// * `raw_tx` - raw Bitcoin transaction
-        /// * `expected_btc` - expected amount of BTC (satoshis) sent to the recipient
-        /// * `recipient_btc_address` - expected Bitcoin address of recipient (p2sh, p2pkh, p2wpkh)
-        /// * `op_return_id` - 32 byte hash identifier expected in OP_RETURN (replay protection)
-        #[pallet::call_index(4)]
-        #[pallet::weight(<T as Config>::WeightInfo::validate_transaction())]
-        #[transactional]
-        pub fn validate_transaction(
-            origin: OriginFor<T>,
-            raw_tx: Vec<u8>,
-            expected_btc: Value,
-            recipient_btc_address: BtcAddress,
-            op_return_id: Option<H256>,
-        ) -> DispatchResultWithPostInfo {
-            let _ = ensure_signed(origin)?;
-
-            let transaction = Self::parse_transaction(&raw_tx)?;
-
-            Self::_validate_transaction(transaction, expected_btc, recipient_btc_address, op_return_id)?;
-            Ok(().into())
         }
     }
 
@@ -421,6 +309,10 @@ pub mod pallet {
         InvalidOpReturnTransaction,
         /// Invalid compact value in header
         InvalidCompact,
+        /// Wrong fork bound, should be higher
+        WrongForkBound,
+        /// Weight bound exceeded
+        BoundExceeded,
     }
 
     /// Store Bitcoin block headers
@@ -432,6 +324,7 @@ pub mod pallet {
     /// The first index into this mapping (0) is considered to be the longest chain. The value
     /// of the entry is the index into `ChainsIndex` to retrieve the `BlockChain`.
     #[pallet::storage]
+    // TODO: migrate this to sorted vec
     pub(super) type Chains<T: Config> = StorageMap<_, Blake2_128Concat, u32, u32>;
 
     /// Auxiliary mapping of chains ids to `BlockChain` entries. The first index into this
@@ -522,7 +415,7 @@ pub const DIFFICULTY_ADJUSTMENT_INTERVAL: u32 = 2016;
 // https://github.com/bitcoin/bitcoin/blob/5ba5becbb5d8c794efe579caeea7eea64f895a13/src/chainparams.cpp#L78
 pub const TARGET_SPACING: u32 = 10 * 60;
 
-/// Accepted maximum number of transaction outputs for validation of redeem & replace requests
+/// Accepted maximum number of transaction outputs for validation of redeem or replace
 /// See: <https://spec.interlay.io/intro/accepted-format.html#accepted-bitcoin-transaction-format>
 pub const ACCEPTED_MAX_TRANSACTION_OUTPUTS: usize = 3;
 
@@ -599,10 +492,6 @@ impl<T: Config> Pallet<T> {
             // extend the current chain
             let blockchain = Self::extend_blockchain(current_block_height, &basic_block_header, prev_blockchain)?;
 
-            // Update the pointer to BlockChain in ChainsIndex
-            // todo: remove - this is already done in extend_blockchain
-            ChainsIndex::<T>::mutate(blockchain.chain_id, |_b| &blockchain);
-
             if blockchain.chain_id != MAIN_CHAIN_ID {
                 // if we added a block to a fork, we may need to reorder the chains
                 Self::reorganize_chains(&blockchain)?;
@@ -635,8 +524,10 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
-    pub fn parse_raw_block_header(raw_block_header: &RawBlockHeader) -> Result<BlockHeader, DispatchError> {
-        Ok(parse_block_header(raw_block_header).map_err(Error::<T>::from)?)
+    pub fn _validate_block_header(block_header: &mut BlockHeader) -> Result<(), DispatchError> {
+        block_header.ensure_version().map_err(Error::<T>::from)?;
+        block_header.update_hash().map_err(Error::<T>::from)?;
+        Ok(())
     }
 
     // helper for the dispatchable
@@ -662,10 +553,15 @@ impl<T: Config> Pallet<T> {
     pub fn get_and_verify_issue_payment<V: TryFrom<Value>>(
         merkle_proof: MerkleProof,
         transaction: Transaction,
+        length_bound: u32,
         recipient_btc_address: BtcAddress,
     ) -> Result<V, DispatchError> {
+        let tx_id = transaction
+            .tx_id_bounded(length_bound)
+            .map_err(|err| Error::<T>::from(err))?;
+
         // Verify that the transaction is indeed included in the main chain
-        Self::_verify_transaction_inclusion(transaction.tx_id(), merkle_proof, None)?;
+        Self::_verify_transaction_inclusion(tx_id, merkle_proof, None)?;
 
         Self::get_issue_payment(transaction, recipient_btc_address)
     }
@@ -694,14 +590,19 @@ impl<T: Config> Pallet<T> {
     pub fn verify_and_validate_op_return_transaction<V: TryInto<Value>>(
         merkle_proof: MerkleProof,
         transaction: Transaction,
+        length_bound: u32,
         recipient_btc_address: BtcAddress,
         expected_btc: V,
         op_return_id: H256,
     ) -> Result<(), DispatchError> {
-        // Verify that the transaction is indeed included in the main chain
-        Self::_verify_transaction_inclusion(transaction.tx_id(), merkle_proof, None)?;
+        let tx_id = transaction
+            .tx_id_bounded(length_bound)
+            .map_err(|err| Error::<T>::from(err))?;
 
-        // Parse transaction and check that it matches the given parameters
+        // Verify that the transaction is indeed included in the main chain
+        Self::_verify_transaction_inclusion(tx_id, merkle_proof, None)?;
+
+        // Check that the transaction matches the given parameters
         Self::validate_op_return_transaction(transaction, recipient_btc_address, expected_btc, op_return_id)?;
         Ok(())
     }
@@ -1007,19 +908,11 @@ impl<T: Config> Pallet<T> {
     // *********************************
 
     // Wrapper functions around bitcoin lib for testing purposes
-    pub fn parse_transaction(raw_tx: &[u8]) -> Result<Transaction, DispatchError> {
-        Ok(parse_transaction(&raw_tx).map_err(Error::<T>::from)?)
-    }
-
-    pub fn parse_merkle_proof(raw_merkle_proof: &[u8]) -> Result<MerkleProof, DispatchError> {
-        MerkleProof::parse(&raw_merkle_proof).map_err(|err| Error::<T>::from(err).into())
-    }
-
     fn verify_merkle_proof(merkle_proof: &MerkleProof) -> Result<ProofResult, DispatchError> {
         merkle_proof.verify_proof().map_err(|err| Error::<T>::from(err).into())
     }
 
-    /// Parses and verifies a raw Bitcoin block header.
+    /// Verifies a Bitcoin block header.
     ///
     /// # Arguments
     ///
@@ -1240,6 +1133,7 @@ impl<T: Config> Pallet<T> {
             Err(_) => None,
         })
     }
+
     /// Checks if a newly inserted fork results in an update to the sorted
     /// Chains mapping. This happens when the max height of the fork is greater
     /// than the max height of the previous element in the Chains mapping.
@@ -1257,7 +1151,7 @@ impl<T: Config> Pallet<T> {
         // swap elements as long as previous block height is smaller
         while current_position > 0 {
             // get the previous position
-            let prev_position = current_position - 1;
+            let prev_position = current_position.saturating_sub(1);
             // get the blockchain id
             let prev_blockchain_id = if let Ok(chain_id) = Self::get_chain_id_from_position(prev_position) {
                 chain_id
@@ -1277,13 +1171,13 @@ impl<T: Config> Pallet<T> {
                     // and the current height is more than the
                     // STABLE_TRANSACTION_CONFIRMATIONS ahead
                     // we are swapping the main chain
-                    if prev_height + Self::get_stable_transaction_confirmations() <= current_height {
+                    if prev_height.saturating_add(Self::get_stable_transaction_confirmations()) <= current_height {
                         // Swap the mainchain. As an optimization, this function returns the
                         // new best block hash and its height
                         let (new_chain_tip_hash, new_chain_tip_height) = Self::swap_main_blockchain(&fork)?;
 
                         // announce the new main chain
-                        let fork_depth = fork.max_height - fork.start_height;
+                        let fork_depth = fork.max_height.saturating_sub(fork.start_height);
                         Self::deposit_event(Event::<T>::ChainReorg {
                             new_chain_tip_hash,
                             new_chain_tip_height,
@@ -1321,8 +1215,8 @@ impl<T: Config> Pallet<T> {
     /// * `blockchain` - new blockchain element
     fn insert_sorted(blockchain: &BlockChain) -> Result<(), DispatchError> {
         // get a sorted vector over the Chains elements
-        // NOTE: LinkedStorageMap iterators are not sorted over the keys
         let mut chains = Chains::<T>::iter().collect::<Vec<(u32, u32)>>();
+        // TODO: can we optimize this? i.e. store sorted vec
         chains.sort_by_key(|k| k.0);
 
         let max_chain_element = chains.len() as u32;
@@ -1338,9 +1232,11 @@ impl<T: Config> Pallet<T> {
             // get the height of the current chain_id
             let curr_height = Self::get_block_chain_from_id(*curr_chain_id)?.max_height;
 
-            // if the height of the current blockchain is lower than
-            // the new blockchain, it should be inserted at that position
-            if curr_height <= blockchain.max_height {
+            // if the height of the new blockchain is higher than
+            // the current blockchain, it should be inserted at that position
+            // NOTE: inequality should be gt to prevent swapping chains
+            // at the same height
+            if blockchain.max_height > curr_height {
                 position_blockchain = *curr_position;
                 break;
             };
@@ -1348,16 +1244,11 @@ impl<T: Config> Pallet<T> {
 
         // insert the new fork into the chains element
         Self::set_chain_from_position_and_id(max_chain_element, blockchain.chain_id);
+
         // starting from the last element swap the positions until
         // the new blockchain is at the position_blockchain
-        for curr_position in (position_blockchain + 1..max_chain_element + 1).rev() {
-            // TODO: this is a useless check
-            // stop when the blockchain element is at it's
-            // designated position
-            if curr_position < position_blockchain {
-                break;
-            };
-            let prev_position = curr_position - 1;
+        for prev_position in (position_blockchain..max_chain_element).rev() {
+            let curr_position = prev_position.saturating_add(1);
             // swap the current element with the previous one
             Self::swap_chain(curr_position, prev_position);
         }
@@ -1398,6 +1289,7 @@ impl<T: Config> Pallet<T> {
     /// to flag potentially invalid blocks.
     ///
     /// # Arguments
+    ///
     /// * `para_height` - height of the parachain when the block was stored
     pub fn check_parachain_confirmations(para_height: T::BlockNumber) -> Result<(), DispatchError> {
         let current_height = ext::security::active_block_number::<T>();
@@ -1446,6 +1338,62 @@ impl<T: Config> Pallet<T> {
     pub fn set_disable_difficulty_check(disabled: bool) {
         DisableDifficultyCheck::<T>::put(disabled);
     }
+
+    #[cfg(feature = "runtime-benchmarks")]
+    pub fn initialize_and_store_max(
+        relayer: T::AccountId,
+        hashes: u32,
+        vin: u32,
+        vout: Vec<TransactionOutput>,
+        max_tx_size: usize,
+    ) -> (Transaction, MerkleProof) {
+        let init_block = BlockBuilder::new()
+            .with_version(4)
+            .with_coinbase(&BtcAddress::default(), 50, 3)
+            .with_timestamp(u32::MAX)
+            .mine(U256::from(2).pow(254.into()))
+            .unwrap();
+        let init_block_hash = init_block.header.hash;
+        ext::security::set_active_block_number::<T>(1u32.into());
+        Self::_initialize(relayer.clone(), init_block.header, 0).unwrap();
+
+        let mut transaction = TransactionBuilder::build_max(vin, vout);
+        let min_tx_size = transaction.size_no_witness();
+        let padding = max_tx_size
+            .checked_sub(min_tx_size)
+            .expect("Wrong length bound in benchmark");
+        assert!(vin > 0, "Need at least one input");
+        transaction.inputs[0].pad_script(padding);
+        assert_eq!(transaction.size_no_witness(), max_tx_size, "Wrong transaction size");
+
+        let block = BlockBuilder::build_max(init_block_hash, hashes, transaction.clone());
+        let tx_id = transaction.tx_id();
+        let merkle_proof = block.merkle_proof(&[tx_id]).unwrap();
+
+        Self::_store_block_header(&relayer, block.header).unwrap();
+        ext::security::set_active_block_number::<T>(
+            ext::security::active_block_number::<T>() + Self::parachain_confirmations() + 1u32.into(),
+        );
+
+        (transaction, merkle_proof)
+    }
+
+    #[cfg(feature = "runtime-benchmarks")]
+    pub fn mine_blocks(relayer: &T::AccountId, height: u32) {
+        let mut block_hash = Self::get_best_block();
+
+        for _ in 0..height {
+            let block = BlockBuilder::new()
+                .with_previous_hash(block_hash)
+                .with_version(4)
+                .with_coinbase(&BtcAddress::default(), 50, 3)
+                .with_timestamp(u32::MAX)
+                .mine(U256::from(2).pow(254.into()))
+                .unwrap();
+            block_hash = block.header.hash;
+            Self::_store_block_header(relayer, block.header).unwrap();
+        }
+    }
 }
 
 impl<T: Config> From<BitcoinError> for Error<T> {
@@ -1470,6 +1418,7 @@ impl<T: Config> From<BitcoinError> for Error<T> {
             BitcoinError::ArithmeticOverflow => Self::ArithmeticOverflow,
             BitcoinError::ArithmeticUnderflow => Self::ArithmeticUnderflow,
             BitcoinError::InvalidCompact => Self::InvalidCompact,
+            BitcoinError::BoundExceeded => Self::BoundExceeded,
         }
     }
 }

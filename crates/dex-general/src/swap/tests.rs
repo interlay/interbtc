@@ -1814,11 +1814,11 @@ fn bootstrap_charge_reward_should_work() {
         ));
 
         assert_eq!(
-            <Test as Config>::MultiCurrency::free_balance(ETH_ASSET_ID, &DexPallet::account_id()),
+            <Test as Config>::MultiCurrency::free_balance(ETH_ASSET_ID, &DexPallet::bootstrap_account_id()),
             2000 * unit
         );
         assert_eq!(
-            <Test as Config>::MultiCurrency::free_balance(KSM_ASSET_ID, &DexPallet::account_id()),
+            <Test as Config>::MultiCurrency::free_balance(KSM_ASSET_ID, &DexPallet::bootstrap_account_id()),
             1000 * unit
         );
 
@@ -1871,11 +1871,11 @@ fn bootstrap_withdraw_reward_after_charge_should_work() {
         ));
 
         assert_eq!(
-            <Test as Config>::MultiCurrency::free_balance(ETH_ASSET_ID, &DexPallet::account_id()),
+            <Test as Config>::MultiCurrency::free_balance(ETH_ASSET_ID, &DexPallet::bootstrap_account_id()),
             0
         );
         assert_eq!(
-            <Test as Config>::MultiCurrency::free_balance(KSM_ASSET_ID, &DexPallet::account_id()),
+            <Test as Config>::MultiCurrency::free_balance(KSM_ASSET_ID, &DexPallet::bootstrap_account_id()),
             0
         );
 
@@ -1935,11 +1935,11 @@ fn bootstrap_charge_reward_with_insufficient_account_should_not_work() {
         );
 
         assert_eq!(
-            <Test as Config>::MultiCurrency::free_balance(ETH_ASSET_ID, &DexPallet::account_id()),
+            <Test as Config>::MultiCurrency::free_balance(ETH_ASSET_ID, &DexPallet::bootstrap_account_id()),
             0
         );
         assert_eq!(
-            <Test as Config>::MultiCurrency::free_balance(KSM_ASSET_ID, &DexPallet::account_id()),
+            <Test as Config>::MultiCurrency::free_balance(KSM_ASSET_ID, &DexPallet::bootstrap_account_id()),
             0
         );
 
@@ -1999,11 +1999,11 @@ fn bootstrap_contribute_below_limits_should_not_work() {
         );
 
         assert_eq!(
-            <Test as Config>::MultiCurrency::free_balance(DOT_ASSET_ID, &DexPallet::account_id()),
+            <Test as Config>::MultiCurrency::free_balance(DOT_ASSET_ID, &DexPallet::bootstrap_account_id()),
             0
         );
         assert_eq!(
-            <Test as Config>::MultiCurrency::free_balance(BTC_ASSET_ID, &DexPallet::account_id()),
+            <Test as Config>::MultiCurrency::free_balance(BTC_ASSET_ID, &DexPallet::bootstrap_account_id()),
             0
         );
 

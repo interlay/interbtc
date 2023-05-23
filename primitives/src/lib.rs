@@ -538,6 +538,13 @@ impl CurrencyId {
         };
         Some(CurrencyId::LpToken(lp_token_0, lp_token_1))
     }
+
+    pub fn is_lp_token(&self) -> bool {
+        match self {
+            Self::Token(_) | Self::ForeignAsset(_) | Self::StableLpToken(_) => true,
+            _ => false,
+        }
+    }
 }
 
 impl Into<CurrencyId> for LpToken {
@@ -550,11 +557,14 @@ impl Into<CurrencyId> for LpToken {
     }
 }
 
-impl dex_general::AssetInfo for CurrencyId {
-    fn is_support(&self) -> bool {
-        match self {
-            Self::Token(_) | Self::ForeignAsset(_) | Self::StableLpToken(_) => true,
-            _ => false,
+#[cfg(feature = "runtime-benchmarks")]
+impl From<u32> for CurrencyId {
+    fn from(value: u32) -> Self {
+        if value < 1000 {
+            // Inner value must fit inside `u8`
+            CurrencyId::ForeignAsset((value % 256).try_into().unwrap())
+        } else {
+            CurrencyId::StableLpToken((value % 256).try_into().unwrap())
         }
     }
 }

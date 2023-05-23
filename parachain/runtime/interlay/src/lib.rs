@@ -23,9 +23,9 @@ use frame_support::{
 };
 use frame_system::{
     limits::{BlockLength, BlockWeights},
-    EnsureRoot, EnsureRootWithSuccess, RawOrigin,
+    EnsureRoot, RawOrigin,
 };
-pub use orml_asset_registry::AssetMetadata;
+use loans::{OnSlashHook, PostDeposit, PostTransfer, PreDeposit, PreTransfer};
 use orml_asset_registry::SequentialId;
 use orml_traits::{currency::MutationHooks, parameter_type_with_key};
 use pallet_transaction_payment::{Multiplier, TargetedFeeAdjustment};
@@ -42,6 +42,7 @@ use sp_std::{marker::PhantomData, prelude::*};
 use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
 use traits::OracleApi;
+use weights::{block_weights::BlockExecutionWeight, extrinsic_weights::ExtrinsicBaseWeight};
 
 // A few exports that help ease life for downstream crates.
 pub use frame_support::{
@@ -50,7 +51,7 @@ pub use frame_support::{
     parameter_types,
     traits::{Everything, Get, KeyOwnerProofSystem, LockIdentifier, Nothing},
     weights::{
-        constants::{BlockExecutionWeight, ExtrinsicBaseWeight, RocksDbWeight, WEIGHT_REF_TIME_PER_SECOND},
+        constants::{RocksDbWeight, WEIGHT_REF_TIME_PER_SECOND},
         IdentityFee, Weight,
     },
     StorageValue,
@@ -65,6 +66,7 @@ pub use sp_runtime::{FixedU128, Perbill, Permill};
 pub use btc_relay::{bitcoin, Call as BtcRelayCall, TARGET_SPACING};
 pub use constants::{currency::*, time::*};
 pub use oracle_rpc_runtime_api::BalanceWrapper;
+pub use orml_asset_registry::AssetMetadata;
 pub use security::StatusCode;
 
 pub use primitives::{
@@ -78,7 +80,10 @@ use xcm::opaque::latest::BodyId;
 use xcm_config::ParentLocation;
 
 pub mod constants;
+pub mod weights;
 pub mod xcm_config;
+
+mod dex;
 
 type VaultId = primitives::VaultId<AccountId, CurrencyId>;
 
@@ -94,9 +99,9 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     spec_name: create_runtime_str!("interlay-parachain"),
     impl_name: create_runtime_str!("interlay-parachain"),
     authoring_version: 1,
-    spec_version: 1023000,
+    spec_version: 1024000,
     impl_version: 1,
-    transaction_version: 2, // added preimage
+    transaction_version: 4,
     apis: RUNTIME_API_VERSIONS,
     state_version: 0,
 };
@@ -133,7 +138,7 @@ const NORMAL_DISPATCH_RATIO: Perbill = Perbill::from_percent(75);
 /// We allow for 0.5 seconds of compute with a 12 second average block time.
 pub const MAXIMUM_BLOCK_WEIGHT: Weight = Weight::from_parts(
     WEIGHT_REF_TIME_PER_SECOND.saturating_div(2),
-    cumulus_primitives_core::relay_chain::v2::MAX_POV_SIZE as u64,
+    cumulus_primitives_core::relay_chain::MAX_POV_SIZE as u64,
 );
 
 parameter_types! {
@@ -169,7 +174,6 @@ impl Contains<RuntimeCall> for BaseCallFilter {
         if matches!(
             call,
             RuntimeCall::System(_)
-                | RuntimeCall::Authorship(_)
                 | RuntimeCall::Session(_)
                 | RuntimeCall::Timestamp(_)
                 | RuntimeCall::ParachainSystem(_)
@@ -222,9 +226,9 @@ impl frame_system::Config for Runtime {
     type AccountData = pallet_balances::AccountData<Balance>;
     type OnNewAccount = ();
     type OnKilledAccount = ();
-    type DbWeight = ();
+    type DbWeight = RocksDbWeight;
     type BaseCallFilter = BaseCallFilter;
-    type SystemWeightInfo = ();
+    type SystemWeightInfo = weights::frame_system::WeightInfo<Runtime>;
     type BlockWeights = RuntimeBlockWeights;
     type BlockLength = RuntimeBlockLength;
     type SS58Prefix = SS58Prefix;
@@ -232,14 +236,8 @@ impl frame_system::Config for Runtime {
     type MaxConsumers = frame_support::traits::ConstU32<16>;
 }
 
-parameter_types! {
-    pub const UncleGenerations: u32 = 0;
-}
-
 impl pallet_authorship::Config for Runtime {
     type FindAuthor = pallet_session::FindAccountFromAuthorIndex<Self, Aura>;
-    type UncleGenerations = UncleGenerations;
-    type FilterUncle = ();
     type EventHandler = (CollatorSelection,);
 }
 
@@ -260,7 +258,7 @@ impl pallet_session::Config for Runtime {
     // Essentially just Aura, but lets be pedantic.
     type SessionHandler = <SessionKeys as sp_runtime::traits::OpaqueKeys>::KeyTypeIdProviders;
     type Keys = SessionKeys;
-    type WeightInfo = ();
+    type WeightInfo = (); // TODO: we can't run this benchmark atm since it requires pallet_staking: https://github.com/paritytech/substrate/issues/11068
 }
 
 parameter_types! {
@@ -289,7 +287,7 @@ impl collator_selection::Config for Runtime {
     type ValidatorId = <Self as frame_system::Config>::AccountId;
     type ValidatorIdOf = collator_selection::IdentityCollator;
     type ValidatorRegistration = Session;
-    type WeightInfo = ();
+    type WeightInfo = weights::collator_selection::WeightInfo<Runtime>;
 }
 
 impl pallet_aura::Config for Runtime {
@@ -307,7 +305,7 @@ impl pallet_timestamp::Config for Runtime {
     type Moment = Moment;
     type OnTimestampSet = Aura;
     type MinimumPeriod = MinimumPeriod;
-    type WeightInfo = ();
+    type WeightInfo = weights::pallet_timestamp::WeightInfo<Runtime>;
 }
 
 pub type SlowAdjustingFeeUpdate<R> =
@@ -372,7 +370,7 @@ impl pallet_sudo::Config for Runtime {
 impl pallet_utility::Config for Runtime {
     type RuntimeCall = RuntimeCall;
     type RuntimeEvent = RuntimeEvent;
-    type WeightInfo = ();
+    type WeightInfo = weights::pallet_utility::WeightInfo<Runtime>;
     type PalletsOrigin = OriginCaller;
 }
 
@@ -413,8 +411,8 @@ impl EnsureOrigin<RuntimeOrigin> for EnsureKintsugiLabs {
     }
 
     #[cfg(feature = "runtime-benchmarks")]
-    fn successful_origin() -> RuntimeOrigin {
-        RuntimeOrigin::from(RawOrigin::None)
+    fn try_successful_origin() -> Result<RuntimeOrigin, ()> {
+        Ok(RuntimeOrigin::from(RawOrigin::None))
     }
 }
 
@@ -422,8 +420,11 @@ impl orml_vesting::Config for Runtime {
     type RuntimeEvent = RuntimeEvent;
     type Currency = NativeCurrency;
     type MinVestedTransfer = MinVestedTransfer;
+    #[cfg(feature = "runtime-benchmarks")]
+    type VestedTransferOrigin = frame_system::EnsureSigned<AccountId>;
+    #[cfg(not(feature = "runtime-benchmarks"))]
     type VestedTransferOrigin = EnsureKintsugiLabs;
-    type WeightInfo = ();
+    type WeightInfo = weights::orml_vesting::WeightInfo<Runtime>;
     type MaxVestingSchedules = MaxVestingSchedules;
     type BlockNumberProvider = System;
 }
@@ -441,7 +442,7 @@ impl pallet_scheduler::Config for Runtime {
     type MaximumWeight = MaximumSchedulerWeight;
     type ScheduleOrigin = EnsureRoot<AccountId>;
     type MaxScheduledPerBlock = MaxScheduledPerBlock;
-    type WeightInfo = ();
+    type WeightInfo = weights::pallet_scheduler::WeightInfo<Runtime>;
     type OriginPrivilegeCmp = EqualPrivilegeOnly;
     type Preimages = Preimage;
 }
@@ -452,7 +453,7 @@ parameter_types! {
 }
 
 impl pallet_preimage::Config for Runtime {
-    type WeightInfo = ();
+    type WeightInfo = weights::pallet_preimage::WeightInfo<Runtime>;
     type RuntimeEvent = RuntimeEvent;
     type Currency = NativeCurrency;
     type ManagerOrigin = EnsureRoot<AccountId>;
@@ -493,10 +494,12 @@ impl democracy::Config for Runtime {
     /// with a shorter voting period.
     type FastTrackOrigin = EnsureRootOrAllTechnicalCommittee;
     type PalletsOrigin = OriginCaller;
-    type WeightInfo = ();
+    type WeightInfo = weights::democracy::WeightInfo<Runtime>;
     type UnixTime = Timestamp;
     type Moment = Moment;
     type LaunchOffsetMillis = LaunchOffsetMillis;
+    type TreasuryAccount = TreasuryAccount;
+    type TreasuryCurrency = NativeCurrency;
 }
 
 parameter_types! {
@@ -514,7 +517,7 @@ impl pallet_multisig::Config for Runtime {
     type DepositBase = GetDepositBase;
     type DepositFactor = GetDepositFactor;
     type MaxSignatories = GetMaxSignatories;
-    type WeightInfo = ();
+    type WeightInfo = weights::pallet_multisig::WeightInfo<Runtime>;
 }
 
 parameter_types! {
@@ -525,25 +528,6 @@ parameter_types! {
     pub const Burn: Permill = Permill::from_percent(0);
     pub const MaxApprovals: u32 = 100;
     pub const MaxSpend: Balance = Balance::MAX;
-}
-
-impl pallet_treasury::Config for Runtime {
-    type PalletId = TreasuryPalletId;
-    type Currency = NativeCurrency;
-    type ApproveOrigin = EnsureRoot<AccountId>;
-    type RejectOrigin = EnsureRoot<AccountId>;
-    type SpendOrigin = EnsureRootWithSuccess<AccountId, MaxSpend>;
-    type RuntimeEvent = RuntimeEvent;
-    type OnSlash = Treasury;
-    type ProposalBond = ProposalBond;
-    type ProposalBondMinimum = ProposalBondMinimum;
-    type ProposalBondMaximum = ProposalBondMaximum;
-    type SpendPeriod = SpendPeriod;
-    type Burn = Burn;
-    type BurnDestination = ();
-    type SpendFunds = ();
-    type WeightInfo = ();
-    type MaxApprovals = MaxApprovals;
 }
 
 parameter_types! {
@@ -562,7 +546,8 @@ impl pallet_collective::Config<TechnicalCommitteeInstance> for Runtime {
     type MaxProposals = TechnicalCommitteeMaxProposals;
     type MaxMembers = TechnicalCommitteeMaxMembers;
     type DefaultVote = pallet_collective::PrimeDefaultVote;
-    type WeightInfo = ();
+    type WeightInfo = weights::pallet_collective::WeightInfo<Runtime>;
+    type SetMembersOrigin = EnsureRoot<AccountId>;
 }
 
 impl pallet_membership::Config for Runtime {
@@ -575,7 +560,7 @@ impl pallet_membership::Config for Runtime {
     type MembershipInitialized = TechnicalCommittee;
     type MembershipChanged = TechnicalCommittee;
     type MaxMembers = TechnicalCommitteeMaxMembers;
-    type WeightInfo = ();
+    type WeightInfo = weights::pallet_membership::WeightInfo<Runtime>;
 }
 
 parameter_types! {
@@ -609,7 +594,7 @@ parameter_types! {
 
 impl btc_relay::Config for Runtime {
     type RuntimeEvent = RuntimeEvent;
-    type WeightInfo = ();
+    type WeightInfo = weights::btc_relay::WeightInfo<Runtime>;
     type ParachainBlocksPerBitcoinBlock = ParachainBlocksPerBitcoinBlock;
 }
 
@@ -630,6 +615,8 @@ parameter_types! {
     pub const TreasuryPalletId: PalletId = PalletId(*b"mod/trsy");
     pub const CollatorPotId: PalletId = PalletId(*b"col/slct");
     pub const VaultRegistryPalletId: PalletId = PalletId(*b"mod/vreg");
+    pub const LoansPalletId: PalletId = PalletId(*b"mod/loan");
+    pub const FarmingPalletId: PalletId = PalletId(*b"mod/farm");
 }
 
 parameter_types! {
@@ -647,6 +634,10 @@ parameter_types! {
     pub CollatorSelectionAccount: AccountId = CollatorPotId::get().into_account_truncating();
     // wd9yNSwR5jsJWJrtHcnS8Wf6D5zF2dbQhxwRuvAzg9jefbhuM
     pub VaultRegistryAccount: AccountId = VaultRegistryPalletId::get().into_account_truncating();
+    // wd9yNSwR5jsJWJZ6yzpWRRhe59Z8xLQvZpxrPF7ux76mKaBZ6
+    pub LoansAccount: AccountId = LoansPalletId::get().into_account_truncating();
+    // wd9yNSwR5jsJWJNMKfkcteintFoTp4aBvKN8fa2x7KHMbc6sv
+    pub FarmingAccount: AccountId = FarmingPalletId::get().into_account_truncating();
 }
 
 pub fn get_all_module_accounts() -> Vec<AccountId> {
@@ -658,6 +649,10 @@ pub fn get_all_module_accounts() -> Vec<AccountId> {
         TreasuryAccount::get(),
         CollatorSelectionAccount::get(),
         VaultRegistryAccount::get(),
+        LoansAccount::get(),
+        Loans::incentive_reward_account_id(),
+        Loans::reward_account_id(),
+        FarmingAccount::get(),
     ]
 }
 
@@ -679,16 +674,17 @@ parameter_type_with_key! {
 }
 
 pub struct CurrencyHooks<T>(PhantomData<T>);
-impl<T: orml_tokens::Config> MutationHooks<T::AccountId, T::CurrencyId, T::Balance> for CurrencyHooks<T>
+impl<T: orml_tokens::Config + loans::Config>
+    MutationHooks<T::AccountId, T::CurrencyId, <T as currency::Config>::Balance> for CurrencyHooks<T>
 where
     T::AccountId: From<sp_runtime::AccountId32>,
 {
     type OnDust = orml_tokens::TransferDust<T, FeeAccount>;
-    type OnSlash = ();
-    type PreDeposit = ();
-    type PostDeposit = ();
-    type PreTransfer = ();
-    type PostTransfer = ();
+    type OnSlash = OnSlashHook<T>;
+    type PreDeposit = PreDeposit<T>;
+    type PostDeposit = PostDeposit<T>;
+    type PreTransfer = PreTransfer<T>;
+    type PostTransfer = PostTransfer<T>;
     type OnNewTokenAccount = ();
     type OnKilledTokenAccount = ();
 }
@@ -698,7 +694,7 @@ impl orml_tokens::Config for Runtime {
     type Balance = Balance;
     type Amount = primitives::Amount;
     type CurrencyId = CurrencyId;
-    type WeightInfo = ();
+    type WeightInfo = weights::orml_tokens::WeightInfo<Runtime>;
     type ExistentialDeposits = ExistentialDeposits;
     type CurrencyHooks = CurrencyHooks<Runtime>;
     type MaxLocks = MaxLocks;
@@ -716,8 +712,8 @@ impl EnsureOriginWithArg<RuntimeOrigin, Option<u32>> for AssetAuthority {
     }
 
     #[cfg(feature = "runtime-benchmarks")]
-    fn successful_origin(_asset_id: &Option<u32>) -> RuntimeOrigin {
-        EnsureRoot::successful_origin()
+    fn try_successful_origin(_: &Option<u32>) -> Result<RuntimeOrigin, ()> {
+        EnsureRoot::try_successful_origin()
     }
 }
 
@@ -728,7 +724,7 @@ impl orml_asset_registry::Config for Runtime {
     type AssetProcessor = SequentialId<Runtime>;
     type AssetId = primitives::ForeignAssetId;
     type AuthorityOrigin = AssetAuthority;
-    type WeightInfo = ();
+    type WeightInfo = weights::orml_asset_registry::WeightInfo<Runtime>;
 }
 
 parameter_types! {
@@ -780,6 +776,7 @@ impl supply::Config for Runtime {
     type Currency = NativeCurrency;
     type InflationPeriod = InflationPeriod;
     type OnInflation = DealWithRewards;
+    type WeightInfo = weights::supply::WeightInfo<Runtime>;
 }
 
 pub struct TotalWrapped;
@@ -799,10 +796,8 @@ impl annuity::BlockRewardProvider<AccountId> for EscrowBlockRewardProvider {
     type Currency = NativeCurrency;
 
     #[cfg(feature = "runtime-benchmarks")]
-    fn deposit_stake(from: &AccountId, amount: Balance) -> DispatchResult {
-        let current_stake = <EscrowRewards as reward::RewardsApi<(), AccountId, Balance>>::get_stake(&(), from)?;
-        let new_stake = current_stake.saturating_add(amount);
-        <EscrowRewards as reward::RewardsApi<(), AccountId, Balance>>::set_stake(&(), from, new_stake)
+    fn deposit_stake(who: &AccountId, amount: Balance) -> DispatchResult {
+        <EscrowRewards as reward::RewardsApi<(), AccountId, Balance>>::deposit_stake(&(), who, amount)
     }
 
     fn distribute_block_reward(_from: &AccountId, amount: Balance) -> DispatchResult {
@@ -832,7 +827,7 @@ impl annuity::Config<EscrowAnnuityInstance> for Runtime {
     type BlockNumberToBalance = BlockNumberToBalance;
     type EmissionPeriod = EmissionPeriod;
     type TotalWrapped = TotalWrapped;
-    type WeightInfo = ();
+    type WeightInfo = weights::annuity_escrow_annuity::WeightInfo<Runtime>;
 }
 
 pub struct VaultBlockRewardProvider;
@@ -841,9 +836,14 @@ impl annuity::BlockRewardProvider<AccountId> for VaultBlockRewardProvider {
     type Currency = NativeCurrency;
 
     #[cfg(feature = "runtime-benchmarks")]
-    fn deposit_stake(_from: &AccountId, _amount: Balance) -> DispatchResult {
-        // TODO: fix for vault id
-        Ok(())
+    fn deposit_stake(_who: &AccountId, amount: Balance) -> DispatchResult {
+        // since this is only used for benchmarking
+        // deposit stake for the native currency
+        <VaultCapacity as reward::RewardsApi<(), CurrencyId, Balance>>::deposit_stake(
+            &(),
+            &GetNativeCurrencyId::get(),
+            amount,
+        )
     }
 
     fn distribute_block_reward(from: &AccountId, amount: Balance) -> DispatchResult {
@@ -856,8 +856,13 @@ impl annuity::BlockRewardProvider<AccountId> for VaultBlockRewardProvider {
         )
     }
 
+    #[cfg(feature = "runtime-benchmarks")]
+    fn can_withdraw_reward() -> bool {
+        false
+    }
+
     fn withdraw_reward(_: &AccountId) -> Result<Balance, DispatchError> {
-        Err(sp_runtime::TokenError::Unsupported.into())
+        Err(DispatchError::Other("Unsupported"))
     }
 }
 
@@ -871,7 +876,7 @@ impl annuity::Config<VaultAnnuityInstance> for Runtime {
     type BlockNumberToBalance = BlockNumberToBalance;
     type EmissionPeriod = EmissionPeriod;
     type TotalWrapped = TotalWrapped;
-    type WeightInfo = ();
+    type WeightInfo = weights::annuity_vault_annuity::WeightInfo<Runtime>;
 }
 
 type EscrowRewardsInstance = reward::Instance1;
@@ -884,6 +889,7 @@ impl reward::Config<EscrowRewardsInstance> for Runtime {
     type CurrencyId = CurrencyId;
     type GetNativeCurrencyId = GetNativeCurrencyId;
     type GetWrappedCurrencyId = GetWrappedCurrencyId;
+    type MaxRewardCurrencies = ConstU32<10>;
 }
 
 type VaultRewardsInstance = reward::Instance2;
@@ -896,6 +902,7 @@ impl reward::Config<VaultRewardsInstance> for Runtime {
     type CurrencyId = CurrencyId;
     type GetNativeCurrencyId = GetNativeCurrencyId;
     type GetWrappedCurrencyId = GetWrappedCurrencyId;
+    type MaxRewardCurrencies = ConstU32<10>;
 }
 
 type VaultCapacityInstance = reward::Instance3;
@@ -908,17 +915,40 @@ impl reward::Config<VaultCapacityInstance> for Runtime {
     type CurrencyId = CurrencyId;
     type GetNativeCurrencyId = GetNativeCurrencyId;
     type GetWrappedCurrencyId = GetWrappedCurrencyId;
+    type MaxRewardCurrencies = ConstU32<10>;
+}
+
+type FarmingRewardsInstance = reward::Instance4;
+
+impl reward::Config<FarmingRewardsInstance> for Runtime {
+    type RuntimeEvent = RuntimeEvent;
+    type SignedFixedPoint = SignedFixedPoint;
+    type PoolId = CurrencyId;
+    type StakeId = AccountId;
+    type CurrencyId = CurrencyId;
+    type GetNativeCurrencyId = GetNativeCurrencyId;
+    type GetWrappedCurrencyId = GetWrappedCurrencyId;
+    type MaxRewardCurrencies = ConstU32<10>;
+}
+
+parameter_types! {
+    pub const RewardPeriod: BlockNumber = MINUTES;
+}
+
+impl farming::Config for Runtime {
+    type RuntimeEvent = RuntimeEvent;
+    type FarmingPalletId = FarmingPalletId;
+    type TreasuryAccountId = TreasuryAccount;
+    type RewardPeriod = RewardPeriod;
+    type RewardPools = FarmingRewards;
+    type MultiCurrency = Tokens;
+    type WeightInfo = weights::farming::WeightInfo<Runtime>;
 }
 
 impl security::Config for Runtime {
     type RuntimeEvent = RuntimeEvent;
-}
-
-pub struct CurrencyConvert;
-impl currency::CurrencyConversion<currency::Amount<Runtime>, CurrencyId> for CurrencyConvert {
-    fn convert(amount: &currency::Amount<Runtime>, to: CurrencyId) -> Result<currency::Amount<Runtime>, DispatchError> {
-        Oracle::convert(amount, to)
-    }
+    type WeightInfo = weights::security::WeightInfo<Runtime>;
+    type MaxErrors = ConstU32<1>;
 }
 
 impl currency::Config for Runtime {
@@ -929,7 +959,7 @@ impl currency::Config for Runtime {
     type GetNativeCurrencyId = GetNativeCurrencyId;
     type GetRelayChainCurrencyId = GetRelayChainCurrencyId;
     type GetWrappedCurrencyId = GetWrappedCurrencyId;
-    type CurrencyConversion = CurrencyConvert;
+    type CurrencyConversion = currency::CurrencyConvert<Runtime, Oracle, Loans>;
 }
 
 impl staking::Config for Runtime {
@@ -960,7 +990,7 @@ impl escrow::Config for Runtime {
     type Span = Span;
     type MaxPeriod = MaxPeriod;
     type EscrowRewards = EscrowRewards;
-    type WeightInfo = ();
+    type WeightInfo = weights::escrow::WeightInfo<Runtime>;
 }
 
 // https://github.com/paritytech/polkadot/blob/be005938a64b9170a5d55887ce42004e1b086b7b/runtime/polkadot/src/lib.rs#L584-L592
@@ -983,10 +1013,10 @@ impl pallet_identity::Config for Runtime {
     type MaxSubAccounts = MaxSubAccounts;
     type MaxAdditionalFields = MaxAdditionalFields;
     type MaxRegistrars = MaxRegistrars;
-    type Slashed = Treasury;
+    type Slashed = runtime_common::ToTreasury<Runtime, TreasuryAccount, NativeCurrency>;
     type ForceOrigin = EnsureRoot<AccountId>;
     type RegistrarOrigin = EnsureRoot<AccountId>;
-    type WeightInfo = ();
+    type WeightInfo = weights::pallet_identity::WeightInfo<Runtime>;
 }
 
 parameter_types! {
@@ -1050,7 +1080,7 @@ impl pallet_proxy::Config for Runtime {
     type ProxyDepositBase = ProxyDepositBase;
     type ProxyDepositFactor = ProxyDepositFactor;
     type MaxProxies = MaxProxies;
-    type WeightInfo = ();
+    type WeightInfo = weights::pallet_proxy::WeightInfo<Runtime>;
     type MaxPending = MaxPending;
     type CallHasher = BlakeTwo256;
     type AnnouncementDepositBase = AnnouncementDepositBase;
@@ -1060,8 +1090,7 @@ impl pallet_proxy::Config for Runtime {
 impl vault_registry::Config for Runtime {
     type PalletId = VaultRegistryPalletId;
     type RuntimeEvent = RuntimeEvent;
-    type Balance = Balance;
-    type WeightInfo = ();
+    type WeightInfo = weights::vault_registry::WeightInfo<Runtime>;
     type GetGriefingCollateralCurrencyId = GetNativeCurrencyId;
     type NominationApi = Nomination;
 }
@@ -1074,10 +1103,13 @@ where
     type Extrinsic = UncheckedExtrinsic;
 }
 
+pub type OracleName = oracle::NameOf<Runtime>;
+
 impl oracle::Config for Runtime {
     type RuntimeEvent = RuntimeEvent;
     type OnExchangeRateChange = vault_registry::PoolManager<Runtime>;
-    type WeightInfo = ();
+    type WeightInfo = weights::oracle::WeightInfo<Runtime>;
+    type MaxNameLength = ConstU32<255>;
 }
 
 parameter_types! {
@@ -1086,11 +1118,9 @@ parameter_types! {
 
 impl fee::Config for Runtime {
     type FeePalletId = FeePalletId;
-    type WeightInfo = ();
+    type WeightInfo = weights::fee::WeightInfo<Runtime>;
     type SignedFixedPoint = SignedFixedPoint;
     type SignedInner = SignedInner;
-    type UnsignedFixedPoint = UnsignedFixedPoint;
-    type UnsignedInner = UnsignedInner;
     type CapacityRewards = VaultCapacity;
     type VaultRewards = VaultRewards;
     type VaultStaking = VaultStaking;
@@ -1104,33 +1134,35 @@ impl issue::Config for Runtime {
     type TreasuryPalletId = TreasuryPalletId;
     type RuntimeEvent = RuntimeEvent;
     type BlockNumberToBalance = BlockNumberToBalance;
-    type WeightInfo = ();
+    type WeightInfo = weights::issue::WeightInfo<Runtime>;
 }
 
 pub use redeem::{Event as RedeemEvent, RedeemRequest};
 
 impl redeem::Config for Runtime {
     type RuntimeEvent = RuntimeEvent;
-    type WeightInfo = ();
+    type WeightInfo = weights::redeem::WeightInfo<Runtime>;
 }
 
 pub use replace::{Event as ReplaceEvent, ReplaceRequest};
 
 impl replace::Config for Runtime {
     type RuntimeEvent = RuntimeEvent;
-    type WeightInfo = ();
+    type WeightInfo = weights::replace::WeightInfo<Runtime>;
 }
 
 pub use nomination::Event as NominationEvent;
 
 impl nomination::Config for Runtime {
     type RuntimeEvent = RuntimeEvent;
-    type WeightInfo = ();
+    type WeightInfo = weights::nomination::WeightInfo<Runtime>;
 }
 
 impl clients_info::Config for Runtime {
     type RuntimeEvent = RuntimeEvent;
-    type WeightInfo = ();
+    type WeightInfo = weights::clients_info::WeightInfo<Runtime>;
+    type MaxNameLength = ConstU32<255>;
+    type MaxUriLength = ConstU32<255>;
 }
 
 parameter_types! {
@@ -1146,7 +1178,19 @@ impl tx_pause::Config for Runtime {
     type WhitelistCallNames = Nothing;
     type MaxNameLen = MaxNameLen;
     type PauseTooLongNames = PauseTooLongNames;
-    type WeightInfo = ();
+    type WeightInfo = weights::tx_pause::WeightInfo<Runtime>;
+}
+
+impl loans::Config for Runtime {
+    type RuntimeEvent = RuntimeEvent;
+    type PalletId = LoansPalletId;
+    type ReserveOrigin = EnsureRoot<AccountId>;
+    type UpdateOrigin = EnsureRoot<AccountId>;
+    type WeightInfo = weights::loans::WeightInfo<Runtime>;
+    type UnixTime = Timestamp;
+    type RewardAssetId = GetNativeCurrencyId;
+    type ReferenceAssetId = GetWrappedCurrencyId;
+    type OnExchangeRateChange = vault_registry::PoolManager<Runtime>;
 }
 
 construct_runtime! {
@@ -1183,6 +1227,8 @@ construct_runtime! {
         VaultStaking: staking::{Pallet, Storage, Event<T>} = 42,
         VaultCapacity: reward::<Instance3>::{Pallet, Storage, Event<T>} = 43,
 
+        Farming: farming::{Pallet, Call, Storage, Event<T>} = 44,
+        FarmingRewards: reward::<Instance4>::{Pallet, Storage, Event<T>} = 45,
 
         // # Bitcoin SPV
         BTCRelay: btc_relay::{Pallet, Call, Config<T>, Storage, Event<T>} = 50,
@@ -1204,9 +1250,9 @@ construct_runtime! {
         Democracy: democracy::{Pallet, Call, Storage, Config<T>, Event<T>} = 70,
         TechnicalCommittee: pallet_collective::<Instance1>::{Pallet, Call, Storage, Origin<T>, Event<T>, Config<T>} = 71,
         TechnicalMembership: pallet_membership::{Pallet, Call, Storage, Event<T>, Config<T>} = 72,
-        Treasury: pallet_treasury::{Pallet, Call, Storage, Config, Event<T>} = 73,
+        // Treasury: 73
 
-        Authorship: pallet_authorship::{Pallet, Call, Storage} = 80,
+        Authorship: pallet_authorship::{Pallet, Storage} = 80,
         CollatorSelection: collator_selection::{Pallet, Call, Storage, Event<T>, Config<T>} = 81,
         Session: pallet_session::{Pallet, Call, Storage, Event, Config<T>} = 82,
         Aura: pallet_aura::{Pallet, Storage, Config<T>} = 83,
@@ -1222,6 +1268,12 @@ construct_runtime! {
 
         XTokens: orml_xtokens::{Pallet, Storage, Call, Event<T>} = 94,
         UnknownTokens: orml_unknown_tokens::{Pallet, Storage, Event} = 95,
+
+        // # Lending & AMM
+        Loans: loans::{Pallet, Call, Storage, Event<T>, Config} = 100,
+        DexGeneral: dex_general::{Pallet, Call, Storage, Event<T>} = 101,
+        DexStable: dex_stable::{Pallet, Call, Storage, Event<T>}  = 102,
+        DexSwapRouter: dex_swap_router::{Pallet, Call, Event<T>} = 103,
     }
 }
 
@@ -1257,38 +1309,62 @@ pub type Executive = frame_executive::Executive<
     Runtime,
     AllPalletsWithSystem,
     (
-        // "Bound uses of call" <https://github.com/paritytech/substrate/pull/11649>
-        pallet_preimage::migration::v1::Migration<Runtime>,
-        pallet_scheduler::migration::v3::MigrateToV4<Runtime>,
-        pallet_multisig::migrations::v1::MigrateToV1<Runtime>,
-        reward::migration::v1::MigrateToV1<Runtime, EscrowRewardsInstance>,
-        vault_registry::migration::vault_capacity::RewardsMigration<
-            Runtime,
-            VaultCapacityInstance,
-            VaultRewardsInstance,
-        >,
-        democracy::migrations::v1::Migration<Runtime>,
-        SudoMigrationCheck,
+        orml_asset_registry::Migration<Runtime>,
+        orml_unknown_tokens::Migration<Runtime>,
+        dex::SetLoansExchangeRates,
     ),
 >;
 
-struct SudoMigrationCheck;
+#[cfg(feature = "runtime-benchmarks")]
+#[macro_use]
+extern crate frame_benchmarking;
 
-impl OnRuntimeUpgrade for SudoMigrationCheck {
-    fn on_runtime_upgrade() -> Weight {
-        use frame_support::storage::migration::take_storage_value;
-        take_storage_value::<AccountId>(b"Sudo", b"Key", &[]);
-        Default::default()
-    }
-    #[cfg(feature = "try-runtime")]
-    fn pre_upgrade() -> Result<Vec<u8>, &'static str> {
-        Ok(Vec::new())
-    }
-    #[cfg(feature = "try-runtime")]
-    fn post_upgrade(_state: Vec<u8>) -> Result<(), &'static str> {
-        assert!(pallet_sudo::Pallet::<Runtime>::key().is_none());
-        Ok(())
-    }
+#[cfg(feature = "runtime-benchmarks")]
+mod benches {
+    define_benchmarks!(
+        // Parachain
+        [annuity, EscrowAnnuity]
+        [annuity, VaultAnnuity]
+        [btc_relay, BTCRelay]
+        [clients_info, ClientsInfo]
+        [collator_selection, CollatorSelection]
+        [democracy, Democracy]
+        [dex_general, DexGeneral]
+        [dex_stable, DexStable]
+        [dex_swap_router, DexSwapRouter]
+        [escrow, Escrow]
+        [farming, Farming]
+        [fee, Fee]
+        [issue, Issue]
+        [loans, Loans]
+        [nomination, Nomination]
+        [oracle, Oracle]
+        [redeem, Redeem]
+        [replace, Replace]
+        [security, Security]
+        [supply, Supply]
+        [tx_pause, TxPause]
+        [vault_registry, VaultRegistry]
+
+        // Other
+        [cumulus_pallet_xcmp_queue, XcmpQueue]
+        [frame_system, frame_system_benchmarking::Pallet::<Runtime>]
+        [orml_asset_registry, runtime_common::benchmarking::orml_asset_registry::Pallet::<Runtime>]
+        [orml_tokens, runtime_common::benchmarking::orml_tokens::Pallet::<Runtime>]
+        [orml_vesting, runtime_common::benchmarking::orml_vesting::Pallet::<Runtime>]
+        [pallet_collective, TechnicalCommittee]
+        [pallet_identity, Identity]
+        [pallet_membership, TechnicalMembership]
+        [pallet_multisig, Multisig]
+        [pallet_preimage, Preimage]
+        [pallet_proxy, Proxy]
+        [pallet_scheduler, Scheduler]
+        [pallet_timestamp, Timestamp]
+        [pallet_utility, Utility]
+        [pallet_xcm_benchmarks::fungible, pallet_xcm_benchmarks::fungible::Pallet::<Runtime>]
+        [pallet_xcm_benchmarks::generic, pallet_xcm_benchmarks::generic::Pallet::<Runtime>]
+        [pallet_xcm, PolkadotXcm]
+    );
 }
 
 #[cfg(not(feature = "disable-runtime-api"))]
@@ -1398,6 +1474,14 @@ impl_runtime_apis! {
         ) -> pallet_transaction_payment_rpc_runtime_api::FeeDetails<Balance> {
             TransactionPayment::query_fee_details(uxt, len)
         }
+
+        fn query_weight_to_fee(weight: Weight) -> Balance {
+            TransactionPayment::weight_to_fee(weight)
+        }
+
+        fn query_length_to_fee(length: u32) -> Balance {
+            TransactionPayment::length_to_fee(length)
+        }
     }
 
     impl loans_rpc_runtime_api::LoansApi<
@@ -1405,116 +1489,133 @@ impl_runtime_apis! {
         AccountId,
         Balance,
     > for Runtime {
-        fn get_account_liquidity(_account: AccountId) -> Result<(Liquidity, Shortfall), DispatchError> {
-           Err(DispatchError::Other("RPC Endpoint Not Implemented"))
+        fn get_account_liquidity(account: AccountId) -> Result<(Liquidity, Shortfall), DispatchError> {
+            Loans::get_account_liquidity(&account)
+            .and_then(|liquidity| liquidity.to_rpc_tuple())
         }
 
-        fn get_market_status(_asset_id: CurrencyId) -> Result<(Rate, Rate, Rate, Ratio, Balance, Balance, FixedU128), DispatchError> {
-           Err(DispatchError::Other("RPC Endpoint Not Implemented"))
+        fn get_market_status(asset_id: CurrencyId) -> Result<(Rate, Rate, Rate, Ratio, Balance, Balance, FixedU128), DispatchError> {
+            Loans::get_market_status(asset_id)
         }
 
-        fn get_liquidation_threshold_liquidity(_account: AccountId) -> Result<(Liquidity, Shortfall), DispatchError> {
-           Err(DispatchError::Other("RPC Endpoint Not Implemented"))
+        fn get_liquidation_threshold_liquidity(account: AccountId) -> Result<(Liquidity, Shortfall), DispatchError> {
+            Loans::get_account_liquidation_threshold_liquidity(&account)
+            .and_then(|liquidity| liquidity.to_rpc_tuple())
         }
     }
 
     impl dex_general_rpc_runtime_api::DexGeneralApi<Block, AccountId, CurrencyId> for Runtime {
         fn get_pair_by_asset_id(
-            _asset_0: CurrencyId,
-            _asset_1: CurrencyId
+            asset_0: CurrencyId,
+            asset_1: CurrencyId
         ) -> Option<dex_general::PairInfo<AccountId, dex_general::AssetBalance, CurrencyId>> {
-            Default::default()
+            DexGeneral::get_pair_by_asset_id(asset_0, asset_1)
         }
 
         fn get_amount_in_price(
-            _supply: dex_general::AssetBalance,
-            _path: Vec<CurrencyId>
+            supply: dex_general::AssetBalance,
+            path: Vec<CurrencyId>
         ) -> dex_general::AssetBalance {
-            Default::default()
+            DexGeneral::desired_in_amount(supply, path)
         }
 
         fn get_amount_out_price(
-            _supply: dex_general::AssetBalance,
-            _path: Vec<CurrencyId>
+            supply: dex_general::AssetBalance,
+            path: Vec<CurrencyId>
         ) -> dex_general::AssetBalance {
-            Default::default()
+            DexGeneral::supply_out_amount(supply, path)
         }
 
         fn get_estimate_lptoken(
-            _asset_0: CurrencyId,
-            _asset_1: CurrencyId,
-            _amount_0_desired: dex_general::AssetBalance,
-            _amount_1_desired: dex_general::AssetBalance,
-            _amount_0_min: dex_general::AssetBalance,
-            _amount_1_min: dex_general::AssetBalance,
-        ) -> dex_general::AssetBalance {
-            Default::default()
+            asset_0: CurrencyId,
+            asset_1: CurrencyId,
+            amount_0_desired: dex_general::AssetBalance,
+            amount_1_desired: dex_general::AssetBalance,
+            amount_0_min: dex_general::AssetBalance,
+            amount_1_min: dex_general::AssetBalance,
+        ) -> dex_general::AssetBalance{
+            DexGeneral::get_estimate_lptoken(
+                asset_0,
+                asset_1,
+                amount_0_desired,
+                amount_1_desired,
+                amount_0_min,
+                amount_1_min
+            )
         }
 
         fn calculate_remove_liquidity(
-            _asset_0: CurrencyId,
-            _asset_1: CurrencyId,
-            _amount: dex_general::AssetBalance,
+            asset_0: CurrencyId,
+            asset_1: CurrencyId,
+            amount: dex_general::AssetBalance,
         ) -> Option<(dex_general::AssetBalance, dex_general::AssetBalance)> {
-            Default::default()
+            DexGeneral::calculate_remove_liquidity(
+                asset_0,
+                asset_1,
+                amount,
+            )
         }
     }
 
     impl dex_stable_rpc_runtime_api::DexStableApi<Block, CurrencyId, Balance, AccountId, StablePoolId> for Runtime {
-        fn get_virtual_price(_pool_id: StablePoolId) -> Balance {
-            Default::default()
+        fn get_virtual_price(pool_id: StablePoolId) -> Balance {
+            DexStable::get_virtual_price(pool_id)
         }
 
-        fn get_a(_pool_id: StablePoolId) -> Balance {
-            Default::default()
+        fn get_a(pool_id: StablePoolId) -> Balance {
+            DexStable::get_a(pool_id)
         }
 
-        fn get_a_precise(_pool_id: StablePoolId) -> Balance {
-            Default::default()
+        fn get_a_precise(pool_id: StablePoolId) -> Balance {
+            DexStable::get_a(pool_id) * 100
         }
 
-        fn get_currencies(_pool_id: StablePoolId) -> Vec<CurrencyId> {
-            Default::default()
+        fn get_currencies(pool_id: StablePoolId) -> Vec<CurrencyId> {
+            DexStable::get_currencies(pool_id)
         }
 
-        fn get_currency(_pool_id: StablePoolId, _index: u32) -> Option<CurrencyId> {
-            Default::default()
+        fn get_currency(pool_id: StablePoolId, index: u32) -> Option<CurrencyId> {
+            DexStable::get_currency(pool_id, index)
         }
 
-        fn get_lp_currency(_pool_id: StablePoolId) -> Option<CurrencyId> {
-            Default::default()
+        fn get_lp_currency(pool_id: StablePoolId) -> Option<CurrencyId> {
+            DexStable::get_lp_currency(pool_id)
         }
 
-        fn get_currency_precision_multipliers(_pool_id: StablePoolId) -> Vec<Balance> {
-            Default::default()
+        fn get_currency_precision_multipliers(pool_id: StablePoolId) -> Vec<Balance> {
+            DexStable::get_currency_precision_multipliers(pool_id)
         }
 
-        fn get_currency_balances(_pool_id: StablePoolId) -> Vec<Balance> {
-            Default::default()
+        fn get_currency_balances(pool_id: StablePoolId) -> Vec<Balance> {
+            DexStable::get_currency_balances(pool_id)
         }
 
-        fn get_number_of_currencies(_pool_id: StablePoolId) -> u32 {
-            Default::default()
+        fn get_number_of_currencies(pool_id: StablePoolId) -> u32 {
+            DexStable::get_number_of_currencies(pool_id)
         }
 
-        fn get_admin_balances(_pool_id: StablePoolId) -> Vec<Balance> {
-            Default::default()
+        fn get_admin_balances(pool_id: StablePoolId) -> Vec<Balance> {
+            DexStable::get_admin_balances(pool_id)
         }
 
-        fn calculate_currency_amount(_pool_id: StablePoolId, _amounts: Vec<Balance>, _deposit: bool) -> Balance {
-            Default::default()
+        fn calculate_currency_amount(pool_id: StablePoolId, amounts: Vec<Balance>, deposit: bool) -> Balance {
+            use dex_stable::traits::StableAmmApi;
+            DexStable::stable_amm_calculate_currency_amount(pool_id, &amounts, deposit).unwrap_or_default()
         }
 
-        fn calculate_swap(_pool_id: StablePoolId, _in_index: u32, _out_index: u32, _in_amount: Balance) -> Balance {
-            Default::default()
+        fn calculate_swap(pool_id: StablePoolId, in_index: u32, out_index: u32, in_amount: Balance) -> Balance {
+            use dex_stable::traits::StableAmmApi;
+            DexStable::stable_amm_calculate_swap_amount(pool_id, in_index as usize, out_index as usize, in_amount).unwrap_or_default()
         }
 
-        fn calculate_remove_liquidity(_pool_id: StablePoolId, _amount: Balance) -> Vec<Balance> {
-            Default::default()
+        fn calculate_remove_liquidity(pool_id: StablePoolId, amount: Balance) -> Vec<Balance> {
+            use dex_stable::traits::StableAmmApi;
+            DexStable::stable_amm_calculate_remove_liquidity(pool_id, amount).unwrap_or_default()
         }
 
-        fn calculate_remove_liquidity_one_currency(_pool_id: StablePoolId, _amount: Balance, _index: u32) -> Balance {
-            Default::default()
+        fn calculate_remove_liquidity_one_currency(pool_id: StablePoolId, amount: Balance, index: u32) -> Balance {
+            use dex_stable::traits::StableAmmApi;
+            DexStable::stable_amm_calculate_remove_liquidity_one_currency(pool_id, amount, index).unwrap_or_default()
         }
     }
 
@@ -1524,19 +1625,11 @@ impl_runtime_apis! {
             Vec<frame_benchmarking::BenchmarkList>,
             Vec<frame_support::traits::StorageInfo>,
         ) {
-            use frame_benchmarking::{list_benchmark, Benchmarking, BenchmarkList};
+            use frame_benchmarking::{Benchmarking, BenchmarkList};
             use frame_support::traits::StorageInfoTrait;
 
             let mut list = Vec::<BenchmarkList>::new();
-
-            list_benchmark!(list, extra, btc_relay, BTCRelay);
-            list_benchmark!(list, extra, fee, Fee);
-            list_benchmark!(list, extra, issue, Issue);
-            list_benchmark!(list, extra, nomination, Nomination);
-            list_benchmark!(list, extra, oracle, Oracle);
-            list_benchmark!(list, extra, redeem, Redeem);
-            list_benchmark!(list, extra, replace, Replace);
-            list_benchmark!(list, extra, vault_registry, VaultRegistry);
+            list_benchmarks!(list, extra);
 
             let storage_info = AllPalletsWithSystem::storage_info();
 
@@ -1546,34 +1639,24 @@ impl_runtime_apis! {
         fn dispatch_benchmark(
             config: frame_benchmarking::BenchmarkConfig
         ) -> Result<Vec<frame_benchmarking::BenchmarkBatch>, sp_runtime::RuntimeString> {
-            use frame_benchmarking::{Benchmarking, BenchmarkBatch, add_benchmark, TrackedStorageKey};
+            use frame_benchmarking::{Benchmarking, BenchmarkBatch, TrackedStorageKey};
+            impl frame_system_benchmarking::Config for Runtime {}
+            impl runtime_common::benchmarking::orml_tokens::Config for Runtime {}
+            impl runtime_common::benchmarking::orml_vesting::Config for Runtime {}
+            impl runtime_common::benchmarking::orml_asset_registry::Config for Runtime {}
 
-            let whitelist: Vec<TrackedStorageKey> = vec![
-                // Block Number
-                hex_literal::hex!("26aa394eea5630e07c48ae0c9558cef702a5c1b19ab7a04f536c519aca4983ac").to_vec().into(),
-                // Total Issuance
-                hex_literal::hex!("c2261276cc9d1f8598ea4b6a74b15c2f57c875e4cff74148e4628f264b974c80").to_vec().into(),
-                // Execution Phase
-                hex_literal::hex!("26aa394eea5630e07c48ae0c9558cef7ff553b5a9862a516939d82b3d3d8661a").to_vec().into(),
-                // Event Count
-                hex_literal::hex!("26aa394eea5630e07c48ae0c9558cef70a98fdbe9ce6c55837576c60c7af3850").to_vec().into(),
-                // System Events
-                hex_literal::hex!("26aa394eea5630e07c48ae0c9558cef780d41e5e16056765bc8461851072c9d7").to_vec().into(),
-            ];
+            use frame_support::traits::WhitelistedStorageKeys;
+            let mut whitelist: Vec<TrackedStorageKey> = AllPalletsWithSystem::whitelisted_storage_keys();
+
+            // Treasury Account
+            // TODO: this is manual for now, someday we might be able to use a
+            // macro for this particular key
+            let treasury_key = frame_system::Account::<Runtime>::hashed_key_for(TreasuryAccount::get());
+            whitelist.push(treasury_key.to_vec().into());
 
             let mut batches = Vec::<BenchmarkBatch>::new();
             let params = (&config, &whitelist);
-
-            add_benchmark!(params, batches, btc_relay, BTCRelay);
-            add_benchmark!(params, batches, fee, Fee);
-            add_benchmark!(params, batches, issue, Issue);
-            add_benchmark!(params, batches, nomination, Nomination);
-            add_benchmark!(params, batches, oracle, Oracle);
-            add_benchmark!(params, batches, redeem, Redeem);
-            add_benchmark!(params, batches, replace, Replace);
-            add_benchmark!(params, batches, vault_registry, VaultRegistry);
-
-            if batches.is_empty() { return Err("Benchmark not found for this pallet.".into()) }
+            add_benchmarks!(params, batches);
             Ok(batches)
         }
     }
@@ -1696,8 +1779,10 @@ impl_runtime_apis! {
             Ok(balance)
         }
 
-        fn compute_farming_reward(_account_id: AccountId, _pool_currency_id: CurrencyId, _reward_currency_id: CurrencyId) -> Result<BalanceWrapper<Balance>, DispatchError> {
-            Err(DispatchError::Other("RPC Endpoint Not Implemented"))
+        fn compute_farming_reward(account_id: AccountId, pool_currency_id: CurrencyId, reward_currency_id: CurrencyId) -> Result<BalanceWrapper<Balance>, DispatchError> {
+            let amount = <FarmingRewards as reward::RewardsApi<CurrencyId, AccountId, Balance>>::compute_reward(&pool_currency_id, &account_id, reward_currency_id)?;
+            let balance = BalanceWrapper::<Balance> { amount };
+            Ok(balance)
         }
 
         fn compute_vault_reward(vault_id: VaultId, currency_id: CurrencyId) -> Result<BalanceWrapper<Balance>, DispatchError> {
@@ -1726,11 +1811,15 @@ impl_runtime_apis! {
         }
 
         fn estimate_farming_reward(
-            _account_id: AccountId,
-            _pool_currency_id: CurrencyId,
-            _reward_currency_id: CurrencyId,
+            account_id: AccountId,
+            pool_currency_id: CurrencyId,
+            reward_currency_id: CurrencyId,
         ) -> Result<BalanceWrapper<Balance>, DispatchError> {
-            Err(DispatchError::Other("RPC Endpoint Not Implemented"))
+            <FarmingRewards as reward::RewardsApi<CurrencyId, AccountId, Balance>>::withdraw_reward(&pool_currency_id, &account_id, reward_currency_id)?;
+            <FarmingRewards as reward::RewardsApi<CurrencyId, AccountId, Balance>>::distribute_reward(&pool_currency_id, reward_currency_id, Farming::total_rewards(&pool_currency_id, &reward_currency_id))?;
+            let amount = <FarmingRewards as reward::RewardsApi<CurrencyId, AccountId, Balance>>::compute_reward(&pool_currency_id, &account_id, reward_currency_id)?;
+            let balance = BalanceWrapper::<Balance> { amount };
+            Ok(balance)
         }
 
         fn estimate_vault_reward_rate(
@@ -1834,4 +1923,29 @@ cumulus_pallet_parachain_system::register_validate_block! {
     Runtime = Runtime,
     BlockExecutor = cumulus_pallet_aura_ext::BlockExecutor::<Runtime, Executive>,
     CheckInherents = CheckInherents,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use frame_support::traits::WhitelistedStorageKeys;
+    use sp_core::hexdisplay::HexDisplay;
+    use std::collections::HashSet;
+
+    #[test]
+    fn check_whitelist() {
+        let whitelist: HashSet<String> = AllPalletsWithSystem::whitelisted_storage_keys()
+            .iter()
+            .map(|e| HexDisplay::from(&e.key).to_string())
+            .collect();
+
+        // Block Number
+        assert!(whitelist.contains("26aa394eea5630e07c48ae0c9558cef702a5c1b19ab7a04f536c519aca4983ac"));
+        // Execution Phase
+        assert!(whitelist.contains("26aa394eea5630e07c48ae0c9558cef7ff553b5a9862a516939d82b3d3d8661a"));
+        // Event Count
+        assert!(whitelist.contains("26aa394eea5630e07c48ae0c9558cef70a98fdbe9ce6c55837576c60c7af3850"));
+        // System Events
+        assert!(whitelist.contains("26aa394eea5630e07c48ae0c9558cef780d41e5e16056765bc8461851072c9d7"));
+    }
 }

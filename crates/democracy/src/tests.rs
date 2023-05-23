@@ -142,7 +142,7 @@ impl pallet_balances::Config for Test {
 }
 parameter_types! {
     pub const LaunchPeriod: u64 = 2;
-    pub const VotingPeriod: u64 = 2;
+    pub const VotingPeriod: u64 = 4;
     pub const FastTrackVotingPeriod: u64 = 2;
     pub const MinimumDeposit: u64 = 1;
     pub const EnactmentPeriod: u64 = 2;
@@ -150,6 +150,8 @@ parameter_types! {
     pub const MaxProposals: u32 = MAX_PROPOSALS;
     pub static PreimageByteDeposit: u64 = 0;
     pub LaunchOffsetMillis: u64 = 9 * 60 * 60 * 1000; // 9 hours offset, i.e. MON 9 AM
+    pub const TreasuryAccount:u64 = 232323;
+
 }
 ord_parameter_types! {
     pub const One: u64 = 1;
@@ -186,6 +188,8 @@ impl Config for Test {
     type UnixTime = Timestamp;
     type Moment = u64;
     type LaunchOffsetMillis = LaunchOffsetMillis;
+    type TreasuryAccount = TreasuryAccount;
+    type TreasuryCurrency = pallet_balances::Pallet<Self>;
 }
 
 pub fn new_test_ext() -> sp_io::TestExternalities {

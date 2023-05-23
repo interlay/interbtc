@@ -6,6 +6,7 @@ use frame_support::{
     traits::{ConstU32, Everything, GenesisBuild},
     PalletId,
 };
+use frame_system::EnsureRoot;
 use mocktopus::{macros::mockable, mocking::clear_mocks};
 use orml_traits::parameter_type_with_key;
 pub use primitives::{CurrencyId, CurrencyId::Token, TokenSymbol::*};
@@ -46,6 +47,7 @@ frame_support::construct_runtime!(
         Oracle: oracle::{Pallet, Call, Config<T>, Storage, Event<T>},
         Nomination: nomination::{Pallet, Call, Config, Storage, Event<T>},
         Currency: currency::{Pallet},
+        Loans: loans::{Pallet, Storage, Call, Event<T>, Config},
     }
 );
 
@@ -58,7 +60,6 @@ pub type Index = u64;
 pub type SignedFixedPoint = FixedI128;
 pub type SignedInner = i128;
 pub type UnsignedFixedPoint = FixedU128;
-pub type UnsignedInner = u128;
 
 parameter_types! {
     pub const BlockHashCount: u64 = 250;
@@ -138,6 +139,7 @@ impl reward::Config<CapacityRewardsInstance> for Test {
     type CurrencyId = CurrencyId;
     type GetNativeCurrencyId = GetNativeCurrencyId;
     type GetWrappedCurrencyId = GetWrappedCurrencyId;
+    type MaxRewardCurrencies = ConstU32<10>;
 }
 
 type VaultRewardsInstance = reward::Instance2;
@@ -150,6 +152,7 @@ impl reward::Config<VaultRewardsInstance> for Test {
     type CurrencyId = CurrencyId;
     type GetNativeCurrencyId = GetNativeCurrencyId;
     type GetWrappedCurrencyId = GetWrappedCurrencyId;
+    type MaxRewardCurrencies = ConstU32<10>;
 }
 
 impl staking::Config for Test {
@@ -175,7 +178,6 @@ where
 impl vault_registry::Config for Test {
     type PalletId = VaultPalletId;
     type RuntimeEvent = RuntimeEvent;
-    type Balance = Balance;
     type WeightInfo = ();
     type GetGriefingCollateralCurrencyId = GetNativeCurrencyId;
     type NominationApi = Nomination;
@@ -210,6 +212,8 @@ impl currency::Config for Test {
 
 impl security::Config for Test {
     type RuntimeEvent = RuntimeEvent;
+    type WeightInfo = ();
+    type MaxErrors = ConstU32<1>;
 }
 
 parameter_types! {
@@ -233,8 +237,6 @@ impl fee::Config for Test {
     type WeightInfo = ();
     type SignedFixedPoint = SignedFixedPoint;
     type SignedInner = SignedInner;
-    type UnsignedFixedPoint = UnsignedFixedPoint;
-    type UnsignedInner = UnsignedInner;
     type CapacityRewards = CapacityRewards;
     type VaultRewards = VaultRewards;
     type VaultStaking = VaultStaking;
@@ -246,6 +248,23 @@ impl oracle::Config for Test {
     type RuntimeEvent = RuntimeEvent;
     type OnExchangeRateChange = ();
     type WeightInfo = ();
+    type MaxNameLength = ConstU32<255>;
+}
+
+parameter_types! {
+    pub const LoansPalletId: PalletId = PalletId(*b"par/loan");
+}
+
+impl loans::Config for Test {
+    type RuntimeEvent = RuntimeEvent;
+    type PalletId = LoansPalletId;
+    type ReserveOrigin = EnsureRoot<AccountId>;
+    type UpdateOrigin = EnsureRoot<AccountId>;
+    type WeightInfo = ();
+    type UnixTime = Timestamp;
+    type RewardAssetId = GetNativeCurrencyId;
+    type ReferenceAssetId = GetWrappedCurrencyId;
+    type OnExchangeRateChange = ();
 }
 
 impl Config for Test {

@@ -10,8 +10,8 @@ pub mod migration;
 mod ext;
 pub mod types;
 
-#[cfg(feature = "runtime-benchmarks")]
-mod benchmarking;
+#[cfg(any(feature = "runtime-benchmarks", test))]
+pub mod benchmarking;
 
 mod default_weights;
 
@@ -34,8 +34,7 @@ use mocktopus::macros::mockable;
 use primitives::VaultCurrencyPair;
 
 use crate::types::{
-    BalanceOf, BtcAddress, CurrencyId, DefaultSystemVault, RichSystemVault, RichVault, SignedInner, UnsignedFixedPoint,
-    Version,
+    BalanceOf, BtcAddress, CurrencyId, DefaultSystemVault, RichSystemVault, RichVault, UnsignedFixedPoint, Version,
 };
 
 use crate::types::DefaultVaultCurrencyPair;
@@ -43,8 +42,6 @@ use crate::types::DefaultVaultCurrencyPair;
 pub use crate::types::{
     BtcPublicKey, CurrencySource, DefaultVault, DefaultVaultId, SystemVault, Vault, VaultId, VaultStatus,
 };
-use bitcoin::types::Value;
-use codec::FullCodec;
 pub use currency::Amount;
 use currency::Rounding;
 use frame_support::{
@@ -57,20 +54,13 @@ use frame_system::{
     ensure_signed,
     offchain::{SendTransactionTypes, SubmitTransaction},
 };
-use scale_info::TypeInfo;
 use sp_core::{H256, U256};
-#[cfg(feature = "std")]
-use sp_runtime::traits::AtLeast32BitUnsigned;
 use sp_runtime::{
     traits::*,
     transaction_validity::{InvalidTransaction, TransactionSource, TransactionValidity, ValidTransaction},
-    ArithmeticError, FixedPointOperand,
+    ArithmeticError,
 };
-use sp_std::{
-    convert::{TryFrom, TryInto},
-    fmt::Debug,
-    vec::Vec,
-};
+use sp_std::{convert::TryInto, fmt::Debug, vec::Vec};
 use traits::NominationApi;
 
 // value taken from https://github.com/substrate-developer-hub/recipes/blob/master/pallets/ocw-demo/src/lib.rs
@@ -87,8 +77,6 @@ pub mod pallet {
     use frame_system::pallet_prelude::*;
 
     #[pallet::pallet]
-    #[pallet::generate_store(trait Store)]
-    #[pallet::without_storage_info] // vault struct contains vec which doesn't implement MaxEncodedLen
     pub struct Pallet<T>(_);
 
     #[pallet::config]
@@ -97,8 +85,8 @@ pub mod pallet {
         + SendTransactionTypes<Call<Self>>
         + oracle::Config
         + security::Config
-        + currency::Config<Balance = BalanceOf<Self>>
-        + fee::Config<UnsignedInner = BalanceOf<Self>, SignedInner = SignedInner<Self>>
+        + currency::Config
+        + fee::Config
     {
         /// The vault module id, used for deriving its sovereign account ID.
         #[pallet::constant] // put the constant in metadata
@@ -108,21 +96,6 @@ pub mod pallet {
         type RuntimeEvent: From<Event<Self>>
             + Into<<Self as frame_system::Config>::RuntimeEvent>
             + IsType<<Self as frame_system::Config>::RuntimeEvent>;
-
-        /// The primitive balance type.
-        type Balance: AtLeast32BitUnsigned
-            + FixedPointOperand
-            + Into<U256>
-            + TryFrom<U256>
-            + TryFrom<Value>
-            + TryInto<Value>
-            + MaybeSerializeDeserialize
-            + FullCodec
-            + Copy
-            + Default
-            + Debug
-            + TypeInfo
-            + MaxEncodedLen;
 
         /// Weight information for the extrinsics in this module.
         type WeightInfo: WeightInfo;
@@ -242,6 +215,10 @@ pub mod pallet {
             let mut vault = Self::get_active_rich_vault_from_id(&vault_id)?;
             vault.set_accept_new_issues(accept_new_issues)?;
             PoolManager::<T>::on_vault_settings_change(&vault_id)?;
+            Self::deposit_event(Event::<T>::SetAcceptNewIssues {
+                vault_id,
+                accept_new_issues,
+            });
             Ok(().into())
         }
 
@@ -265,6 +242,10 @@ pub mod pallet {
             let vault_id = VaultId::new(account_id, currency_pair.collateral, currency_pair.wrapped);
             Self::try_set_vault_custom_secure_threshold(&vault_id, custom_threshold)?;
             PoolManager::<T>::on_vault_settings_change(&vault_id)?;
+            Self::deposit_event(Event::<T>::SetCustomSecureThreshold {
+                vault_id,
+                custom_threshold,
+            });
             Ok(().into())
         }
 
@@ -339,7 +320,11 @@ pub mod pallet {
             threshold: UnsignedFixedPoint<T>,
         ) -> DispatchResult {
             ensure_root(origin)?;
-            Self::_set_secure_collateral_threshold(currency_pair, threshold);
+            Self::_set_secure_collateral_threshold(currency_pair.clone(), threshold.clone());
+            Self::deposit_event(Event::<T>::SetSecureCollateralThreshold {
+                currency_pair,
+                threshold,
+            });
             Ok(())
         }
 
@@ -357,7 +342,11 @@ pub mod pallet {
             threshold: UnsignedFixedPoint<T>,
         ) -> DispatchResult {
             ensure_root(origin)?;
-            Self::_set_premium_redeem_threshold(currency_pair, threshold);
+            Self::_set_premium_redeem_threshold(currency_pair.clone(), threshold.clone());
+            Self::deposit_event(Event::<T>::SetPremiumRedeemThreshold {
+                currency_pair,
+                threshold,
+            });
             Ok(())
         }
 
@@ -375,7 +364,11 @@ pub mod pallet {
             threshold: UnsignedFixedPoint<T>,
         ) -> DispatchResult {
             ensure_root(origin)?;
-            Self::_set_liquidation_collateral_threshold(currency_pair, threshold);
+            Self::_set_liquidation_collateral_threshold(currency_pair.clone(), threshold.clone());
+            Self::deposit_event(Event::<T>::SetLiquidationCollateralThreshold {
+                currency_pair,
+                threshold,
+            });
             Ok(())
         }
 
@@ -407,17 +400,6 @@ pub mod pallet {
         RegisterVault {
             vault_id: DefaultVaultId<T>,
             collateral: BalanceOf<T>,
-        },
-        DepositCollateral {
-            vault_id: DefaultVaultId<T>,
-            new_collateral: BalanceOf<T>,
-            total_collateral: BalanceOf<T>,
-            free_collateral: BalanceOf<T>,
-        },
-        WithdrawCollateral {
-            vault_id: DefaultVaultId<T>,
-            withdrawn_amount: BalanceOf<T>,
-            total_collateral: BalanceOf<T>,
         },
         IncreaseLockedCollateral {
             currency_pair: DefaultVaultCurrencyPair<T>,
@@ -510,6 +492,26 @@ pub mod pallet {
             vault_id: DefaultVaultId<T>,
             banned_until: T::BlockNumber,
         },
+        SetAcceptNewIssues {
+            vault_id: DefaultVaultId<T>,
+            accept_new_issues: bool,
+        },
+        SetSecureCollateralThreshold {
+            currency_pair: DefaultVaultCurrencyPair<T>,
+            threshold: UnsignedFixedPoint<T>,
+        },
+        SetPremiumRedeemThreshold {
+            currency_pair: DefaultVaultCurrencyPair<T>,
+            threshold: UnsignedFixedPoint<T>,
+        },
+        SetLiquidationCollateralThreshold {
+            currency_pair: DefaultVaultCurrencyPair<T>,
+            threshold: UnsignedFixedPoint<T>,
+        },
+        SetCustomSecureThreshold {
+            vault_id: DefaultVaultId<T>,
+            custom_threshold: Option<UnsignedFixedPoint<T>>,
+        },
     }
 
     #[pallet::error]
@@ -528,14 +530,10 @@ pub mod pallet {
         VaultAlreadyRegistered,
         /// The specified vault does not exist.
         VaultNotFound,
-        /// The Bitcoin Address has already been registered
-        ReservedDepositAddress,
         /// Attempted to liquidate a vault that is not undercollateralized.
         VaultNotBelowLiquidationThreshold,
         /// Deposit address could not be generated with the given public key.
         InvalidPublicKey,
-        /// Deprecated error. TODO: remove when releasing a breaking runtime upgrade
-        MaxNominationRatioViolation,
         /// The collateral ceiling would be exceeded for the vault's currency.
         CurrencyCeilingExceeded,
         /// Vault is no longer usable as it was liquidated due to undercollateralization.
@@ -848,6 +846,12 @@ impl<T: Config> Pallet<T> {
             Err(x) if x == ArithmeticError::Underflow.into() => return Ok(false),
             Err(x) => return Err(x),
         };
+
+        ensure!(
+            new_collateral.is_zero()
+                || new_collateral.ge(&Self::get_minimum_collateral_vault(vault_id.currencies.collateral))?,
+            Error::<T>::InsufficientVaultCollateralAmount
+        );
 
         let is_below_threshold =
             Pallet::<T>::is_collateral_below_vault_secure_threshold(&new_collateral, &vault.backed_tokens()?, &vault)?;
@@ -1532,6 +1536,10 @@ impl<T: Config> Pallet<T> {
     ) -> Result<bool, DispatchError> {
         let threshold = vault.get_secure_threshold()?;
         Self::is_collateral_below_threshold(collateral, wrapped_amount, threshold)
+    }
+
+    pub fn _set_minimum_collateral_vault(collateral_currency: CurrencyId<T>, min_collateral: BalanceOf<T>) {
+        MinimumCollateralVault::<T>::insert(collateral_currency, min_collateral);
     }
 
     pub fn _set_system_collateral_ceiling(currency_pair: DefaultVaultCurrencyPair<T>, ceiling: BalanceOf<T>) {

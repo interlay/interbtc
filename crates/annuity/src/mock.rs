@@ -1,6 +1,10 @@
 use crate::{self as annuity, BlockRewardProvider, Config};
-use frame_support::{parameter_types, traits::Everything, PalletId};
-pub use primitives::CurrencyId;
+use frame_support::{
+    parameter_types,
+    traits::{ConstU32, Everything},
+    PalletId,
+};
+pub use primitives::{CurrencyId, CurrencyId::Token, SignedFixedPoint, TokenSymbol::*};
 use sp_core::H256;
 use sp_runtime::{
     generic::Header as GenericHeader,
@@ -22,6 +26,7 @@ frame_support::construct_runtime!(
     {
         System: frame_system::{Pallet, Call, Storage, Config, Event<T>},
         Balances: pallet_balances::{Pallet, Call, Storage, Event<T>},
+        Rewards: reward::{Pallet, Call, Storage, Event<T>},
         Annuity: annuity::{Pallet, Call, Storage, Event<T>},
     }
 );
@@ -60,7 +65,7 @@ impl frame_system::Config for Test {
     type SystemWeightInfo = ();
     type SS58Prefix = SS58Prefix;
     type OnSetCode = ();
-    type MaxConsumers = frame_support::traits::ConstU32<16>;
+    type MaxConsumers = ConstU32<16>;
 }
 
 parameter_types! {
@@ -77,6 +82,22 @@ impl pallet_balances::Config for Test {
     type MaxLocks = ();
     type MaxReserves = ();
     type ReserveIdentifier = [u8; 8];
+}
+
+parameter_types! {
+    pub const GetNativeCurrencyId: CurrencyId = Token(INTR);
+    pub const GetWrappedCurrencyId: CurrencyId = Token(IBTC);
+}
+
+impl reward::Config for Test {
+    type RuntimeEvent = RuntimeEvent;
+    type SignedFixedPoint = SignedFixedPoint;
+    type PoolId = ();
+    type StakeId = AccountId;
+    type CurrencyId = CurrencyId;
+    type GetNativeCurrencyId = GetNativeCurrencyId;
+    type GetWrappedCurrencyId = GetWrappedCurrencyId;
+    type MaxRewardCurrencies = ConstU32<10>;
 }
 
 pub const fn unit(amount: Balance) -> Balance {
@@ -96,14 +117,18 @@ pub struct MockBlockRewardProvider;
 impl BlockRewardProvider<AccountId> for MockBlockRewardProvider {
     type Currency = Balances;
     #[cfg(any(feature = "runtime-benchmarks", test))]
-    fn deposit_stake(_: &AccountId, _: Balance) -> DispatchResult {
-        Ok(())
+    fn deposit_stake(who: &AccountId, amount: Balance) -> DispatchResult {
+        <Rewards as reward::RewardsApi<(), AccountId, Balance>>::deposit_stake(&(), who, amount)
     }
-    fn distribute_block_reward(_: &AccountId, _: Balance) -> DispatchResult {
-        Ok(())
+    fn distribute_block_reward(_: &AccountId, amount: Balance) -> DispatchResult {
+        <Rewards as reward::RewardsApi<(), AccountId, Balance>>::distribute_reward(
+            &(),
+            GetNativeCurrencyId::get(),
+            amount,
+        )
     }
-    fn withdraw_reward(_: &AccountId) -> Result<Balance, DispatchError> {
-        Ok(0)
+    fn withdraw_reward(who: &AccountId) -> Result<Balance, DispatchError> {
+        <Rewards as reward::RewardsApi<(), AccountId, Balance>>::withdraw_reward(&(), who, GetNativeCurrencyId::get())
     }
 }
 

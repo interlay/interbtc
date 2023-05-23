@@ -37,8 +37,9 @@ pub fn kintsugi_dev_config() -> KintsugiChainSpec {
                 vec![get_authority_keys_from_seed("Alice")],
                 vec![(
                     get_account_id_from_seed::<sr25519::Public>("Bob"),
-                    "Bob".as_bytes().to_vec(),
+                    BoundedVec::truncate_from("Bob".as_bytes().to_vec()),
                 )],
+                vec![get_account_id_from_seed::<sr25519::Public>("Alice")],
                 id,
                 1,
             )
@@ -107,8 +108,9 @@ pub fn kintsugi_mainnet_config() -> KintsugiChainSpec {
                 ],
                 vec![(
                     get_account_id_from_string("5DcrZv97CipkXni4aXcg98Nz9doT6nfs6t3THn7hhnRXTd6D"),
-                    "Interlay".as_bytes().to_vec(),
+                    BoundedVec::truncate_from("Interlay".as_bytes().to_vec()),
                 )],
+                vec![], // no endowed accounts
                 id,
                 SECURE_BITCOIN_CONFIRMATIONS,
             )
@@ -127,7 +129,8 @@ pub fn kintsugi_mainnet_config() -> KintsugiChainSpec {
 
 fn kintsugi_mainnet_genesis(
     invulnerables: Vec<(AccountId, AuraId)>,
-    authorized_oracles: Vec<(AccountId, Vec<u8>)>,
+    authorized_oracles: Vec<(AccountId, kintsugi_runtime::OracleName)>,
+    endowed_accounts: Vec<AccountId>,
     id: ParaId,
     bitcoin_confirmations: u32,
 ) -> kintsugi_runtime::GenesisConfig {
@@ -165,7 +168,12 @@ fn kintsugi_mainnet_genesis(
             initial_status: kintsugi_runtime::StatusCode::Error,
         },
         asset_registry: Default::default(),
-        tokens: Default::default(),
+        tokens: kintsugi_runtime::TokensConfig {
+            balances: endowed_accounts
+                .iter()
+                .flat_map(|k| vec![(k.clone(), Token(KINT), 1 << 60)])
+                .collect(),
+        },
         vesting: Default::default(),
         oracle: kintsugi_runtime::OracleConfig {
             authorized_oracles,
@@ -247,7 +255,6 @@ fn kintsugi_mainnet_genesis(
         },
         technical_committee: Default::default(),
         technical_membership: Default::default(),
-        treasury: Default::default(),
         democracy: Default::default(),
         supply: kintsugi_runtime::SupplyConfig {
             initial_supply: kintsugi_runtime::token_distribution::INITIAL_ALLOCATION,
@@ -256,7 +263,7 @@ fn kintsugi_mainnet_genesis(
             inflation: FixedU128::checked_from_rational(2, 100).unwrap(), // 2%
         },
         polkadot_xcm: kintsugi_runtime::PolkadotXcmConfig {
-            safe_xcm_version: Some(2),
+            safe_xcm_version: Some(3),
         },
         sudo: Default::default(),
         loans: LoansConfig {

@@ -51,15 +51,15 @@ pub fn development_config(id: ParaId) -> InterlayTestnetChainSpec {
                 vec![
                     (
                         get_account_id_from_seed::<sr25519::Public>("Alice"),
-                        "Alice".as_bytes().to_vec(),
+                        BoundedVec::truncate_from("Alice".as_bytes().to_vec()),
                     ),
                     (
                         get_account_id_from_seed::<sr25519::Public>("Bob"),
-                        "Bob".as_bytes().to_vec(),
+                        BoundedVec::truncate_from("Bob".as_bytes().to_vec()),
                     ),
                     (
                         get_account_id_from_seed::<sr25519::Public>("Charlie"),
-                        "Charlie".as_bytes().to_vec(),
+                        BoundedVec::truncate_from("Charlie".as_bytes().to_vec()),
                     ),
                 ],
                 id,
@@ -78,7 +78,7 @@ pub fn development_config(id: ParaId) -> InterlayTestnetChainSpec {
     )
 }
 
-pub fn staging_testnet_config(id: ParaId) -> InterlayTestnetChainSpec {
+pub fn staging_testnet_config(id: ParaId, benchmarking: bool) -> InterlayTestnetChainSpec {
     InterlayTestnetChainSpec::from_genesis(
         "interBTC",
         "staging_testnet",
@@ -116,11 +116,18 @@ pub fn staging_testnet_config(id: ParaId) -> InterlayTestnetChainSpec {
                     get_account_id_from_string("5GjJ26ffHApgUFLgxKWpWL5T5ppxWjSRJe42PjPNATLvjcJK"),
                     // 5DqzGaydetDXGya818gyuHA7GAjEWRsQN6UWNKpvfgq2KyM7 (//account/5)
                     get_account_id_from_string("5DqzGaydetDXGya818gyuHA7GAjEWRsQN6UWNKpvfgq2KyM7"),
-                ],
+                ]
+                .into_iter()
+                .chain(if benchmarking {
+                    vec![get_account_id_from_seed::<sr25519::Public>("Alice")]
+                } else {
+                    vec![]
+                })
+                .collect(),
                 vec![(
                     // 5ECj4iBBi3h8kYzhqLFmzVLafC64UpsXvK7H4ZZyXoVQJdJq (//oracle/1)
                     get_account_id_from_string("5ECj4iBBi3h8kYzhqLFmzVLafC64UpsXvK7H4ZZyXoVQJdJq"),
-                    "Interlay".as_bytes().to_vec(),
+                    BoundedVec::truncate_from("Interlay".as_bytes().to_vec()),
                 )],
                 id,
                 DEFAULT_BITCOIN_CONFIRMATIONS,
@@ -146,7 +153,7 @@ fn testnet_genesis(
     root_key: AccountId,
     invulnerables: Vec<(AccountId, AuraId)>,
     endowed_accounts: Vec<AccountId>,
-    authorized_oracles: Vec<(AccountId, Vec<u8>)>,
+    authorized_oracles: Vec<(AccountId, testnet_interlay_runtime::OracleName)>,
     id: ParaId,
     bitcoin_confirmations: u32,
 ) -> testnet_interlay_runtime::GenesisConfig {
@@ -252,7 +259,6 @@ fn testnet_genesis(
         },
         technical_committee: Default::default(),
         technical_membership: Default::default(),
-        treasury: Default::default(),
         democracy: Default::default(),
         supply: testnet_interlay_runtime::SupplyConfig {
             initial_supply: testnet_interlay_runtime::token_distribution::INITIAL_ALLOCATION,
