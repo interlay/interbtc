@@ -10,7 +10,7 @@ permissions:
 jobs:
   benchmark:
     name: Benchmark
-    if: ${{ github.event.issue.pull_request && startsWith(github.event.comment.body, '/bench') }}
+    if: ${{ github.event.issue.pull_request && startsWith(github.event.comment.body, '/run_benchmarks') }}
     runs-on: [self-hosted, linux]
     steps:
       - uses: actions/github-script@v6
