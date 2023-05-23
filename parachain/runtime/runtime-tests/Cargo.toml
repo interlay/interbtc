@@ -78,7 +78,7 @@ xcm-builder = { git = "https://github.com/paritytech/polkadot", branch = "releas
 xcm-executor = { git = "https://github.com/paritytech/polkadot", branch = "release-v0.9.31", default-features = false }
 xcm-simulator = { git = "https://github.com/paritytech/polkadot", branch = "release-v0.9.31", default-features = false }
 pallet-xcm = { git = "https://github.com/paritytech/polkadot", branch = "release-v0.9.31", default-features = false }
-xcm-emulator = { git = "https://github.com/shaunxw/xcm-simulator", rev = "754f3b90ecc65af735a6c9a2e1792c5253926ff6" }
+xcm-emulator = { git = "https://github.com/shaunxw/xcm-simulator", rev = "bea35c799d725a4233db6b9108ee2ed5bbfc1aed" }
 
 # Parachain dependencies
 runtime-common = {path = "../common", default-features = false }
@@ -255,6 +255,9 @@ runtime-benchmarks = [
   "vault-registry/runtime-benchmarks",
   "fee/runtime-benchmarks",
   "security/runtime-benchmarks",
+
+  "kusama-runtime/runtime-benchmarks",
+  "polkadot-runtime/runtime-benchmarks",
 ]
 disable-runtime-api = []
 try-runtime = [ "frame-support/try-runtime" ]

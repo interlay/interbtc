@@ -86,9 +86,9 @@ where
         at: Option<<Block as BlockT>::Hash>,
     ) -> RpcResult<BalanceWrapper<Balance>> {
         let api = self.client.runtime_api();
-        let at = BlockId::hash(at.unwrap_or_else(|| self.client.info().best_hash));
+        let at = at.unwrap_or_else(|| self.client.info().best_hash);
 
-        handle_response(api.wrapped_to_collateral(&at, amount, currency_id))
+        handle_response(api.wrapped_to_collateral(at, amount, currency_id))
     }
 
     fn collateral_to_wrapped(
@@ -98,8 +98,8 @@ where
         at: Option<<Block as BlockT>::Hash>,
     ) -> RpcResult<BalanceWrapper<Balance>> {
         let api = self.client.runtime_api();
-        let at = BlockId::hash(at.unwrap_or_else(|| self.client.info().best_hash));
+        let at = at.unwrap_or_else(|| self.client.info().best_hash);
 
-        handle_response(api.collateral_to_wrapped(&at, amount, currency_id))
+        handle_response(api.collateral_to_wrapped(at, amount, currency_id))
     }
 }

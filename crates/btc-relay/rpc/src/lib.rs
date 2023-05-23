@@ -61,9 +61,9 @@ where
         at: Option<<Block as BlockT>::Hash>,
     ) -> RpcResult<Result<(), DispatchError>> {
         let api = self.client.runtime_api();
-        let at = BlockId::hash(at.unwrap_or_else(|| self.client.info().best_hash));
+        let at = at.unwrap_or_else(|| self.client.info().best_hash);
 
-        api.verify_block_header_inclusion(&at, block_hash)
+        api.verify_block_header_inclusion(at, block_hash)
             .map_err(|e| internal_err(format!("execution error: Unable to dry run extrinsic {:?}", e)))
     }
 }

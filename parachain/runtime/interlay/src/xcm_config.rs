@@ -71,7 +71,7 @@ pub type Barrier = Transactless<(
 
 parameter_types! {
     // One XCM operation is 200_000_000 weight, cross-chain transfer ~= 2x of transfer.
-    pub UnitWeightCost: Weight = Weight::from_ref_time(200_000_000);
+    pub UnitWeightCost: Weight = Weight::from_parts(200_000_000, 0u64);
     pub const MaxInstructions: u32 = 100;
 }
 

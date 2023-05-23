@@ -59,9 +59,9 @@ where
 {
     fn get_issue_requests(&self, account_id: AccountId, at: Option<<Block as BlockT>::Hash>) -> RpcResult<Vec<H256>> {
         let api = self.client.runtime_api();
-        let at = BlockId::hash(at.unwrap_or_else(|| self.client.info().best_hash));
+        let at = at.unwrap_or_else(|| self.client.info().best_hash);
 
-        api.get_issue_requests(&at, account_id)
+        api.get_issue_requests(at, account_id)
             .map_err(|e| internal_err(format!("Unable to fetch issue requests: {:?}", e)))
     }
 
@@ -71,9 +71,9 @@ where
         at: Option<<Block as BlockT>::Hash>,
     ) -> RpcResult<Vec<H256>> {
         let api = self.client.runtime_api();
-        let at = BlockId::hash(at.unwrap_or_else(|| self.client.info().best_hash));
+        let at = at.unwrap_or_else(|| self.client.info().best_hash);
 
-        api.get_vault_issue_requests(&at, vault_id)
+        api.get_vault_issue_requests(at, vault_id)
             .map_err(|e| internal_err(format!("Unable to fetch issue requests: {:?}", e)))
     }
 }
