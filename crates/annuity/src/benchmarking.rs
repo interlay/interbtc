@@ -47,6 +47,8 @@ pub mod benchmarks {
 
         // only one account with stake so they get all of the rewards
         assert_eq!(T::Currency::free_balance(&caller), rewards_before + balance);
+
+        Ok(())
     }
 
     #[benchmark]

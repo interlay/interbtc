@@ -1,7 +1,11 @@
 use super::{
-    parameter_types, weights, Balance, CurrencyId, DexGeneral, DexStable, PalletId, Runtime, RuntimeEvent,
-    StablePoolId, Timestamp, Tokens,
+    parameter_types, weights, Balance, CurrencyId, DexGeneral, DexStable, OnRuntimeUpgrade, PalletId, Rate, Runtime,
+    RuntimeEvent, StablePoolId, Timestamp, Tokens, Weight,
 };
+use sp_runtime::traits::Zero;
+
+#[cfg(feature = "try-runtime")]
+use frame_support::ensure;
 
 pub use dex_general::{AssetBalance, GenerateLpAssetId, PairInfo, ValidateAsset};
 pub use dex_stable::traits::{StablePoolLpCurrencyIdGenerate, ValidateCurrency};
@@ -86,4 +90,38 @@ impl dex_swap_router::Config for Runtime {
     type GeneralWeightInfo = weights::dex_general::WeightInfo<Runtime>;
     type StableWeightInfo = weights::dex_stable::WeightInfo<Runtime>;
     type WeightInfo = weights::dex_swap_router::WeightInfo<Runtime>;
+}
+
+pub struct SetLoansExchangeRates;
+impl OnRuntimeUpgrade for SetLoansExchangeRates {
+    fn on_runtime_upgrade() -> Weight {
+        let min_exchange_rate = loans::MinExchangeRate::<Runtime>::get();
+        if min_exchange_rate.is_zero() {
+            loans::MinExchangeRate::<Runtime>::put(Rate::from_inner(loans::DEFAULT_MIN_EXCHANGE_RATE));
+        }
+        let max_exchange_rate = loans::MaxExchangeRate::<Runtime>::get();
+        if max_exchange_rate.is_zero() {
+            loans::MaxExchangeRate::<Runtime>::put(Rate::from_inner(loans::DEFAULT_MAX_EXCHANGE_RATE));
+        }
+        <Runtime as frame_system::Config>::DbWeight::get().reads_writes(2, 2)
+    }
+
+    #[cfg(feature = "try-runtime")]
+    fn post_upgrade(_state: sp_std::vec::Vec<u8>) -> Result<(), &'static str> {
+        let min_exchange_rate = loans::MinExchangeRate::<Runtime>::get();
+        let max_exchange_rate = loans::MaxExchangeRate::<Runtime>::get();
+        ensure!(
+            !min_exchange_rate.is_zero(),
+            "Minimum lending exchange rate must be greater than zero"
+        );
+        ensure!(
+            !max_exchange_rate.is_zero(),
+            "Minimum lending exchange rate must be greater than zero"
+        );
+        ensure!(
+            min_exchange_rate.lt(&max_exchange_rate),
+            "Minimum lending exchange rate must be greater than the maximum exchange rate"
+        );
+        Ok(())
+    }
 }

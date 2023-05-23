@@ -13,8 +13,8 @@ use sc_service::ChainType;
 use serde_json::{map::Map, Value};
 use sp_arithmetic::{FixedPointNumber, FixedU128};
 use sp_consensus_aura::sr25519::AuthorityId as AuraId;
+use sp_consensus_grandpa::AuthorityId as GrandpaId;
 use sp_core::{crypto::UncheckedInto, sr25519, Pair, Public};
-use sp_finality_grandpa::AuthorityId as GrandpaId;
 use sp_runtime::traits::{IdentifyAccount, Verify};
 use std::str::FromStr;
 

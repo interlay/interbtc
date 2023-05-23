@@ -115,7 +115,7 @@ mod hrmp {
     fn open_hrmp_channel_cheaply() {
         // check that 0.25 DOT is enough
         let xcm_fee = DOT.one() / 4;
-        let transact_weight = 14_000_000_000;
+        let transact_weight = Weight::from_parts(10_000_000_000, 100_000_000);
         let deposit = 2 * (10 * DOT.one() + xcm_fee);
         open_hrmp_channel(deposit, xcm_fee, transact_weight);
     }
@@ -125,7 +125,7 @@ mod hrmp {
         // actual minimum transact weight at time of writing is < 700_000_000. Use
         // 800_000_000 so tests don't break every polkadot upgrade
         let xcm_fee = DOT.one() / 5;
-        let transact_weight = 800_000_000;
+        let transact_weight = Weight::from_parts(800_000_000, 50_000_000);
         let deposit = 2 * (10 * DOT.one() + xcm_fee);
         open_hrmp_channel(deposit, xcm_fee, transact_weight);
     }
@@ -134,13 +134,12 @@ mod hrmp {
     fn open_hrmp_channel_with_buffer() {
         // the actual values used in production: about twice the minimum amounts
         let xcm_fee = DOT.one() / 2;
-        let transact_weight = 10_000_000_000;
+        let transact_weight = Weight::from_parts(10_000_000_000, 100_000_000);
         let deposit = 2 * (10 * DOT.one() + xcm_fee);
         open_hrmp_channel(deposit, xcm_fee, transact_weight);
     }
 
-    fn open_hrmp_channel(initial_balance: u128, xcm_fee: u128, transact_weight: u64) {
-        let transact_weight = Weight::from_ref_time(transact_weight);
+    fn open_hrmp_channel(initial_balance: u128, xcm_fee: u128, transact_weight: Weight) {
         let existential_deposit = DOT.one();
 
         // setup sovereign account balances
@@ -192,7 +191,7 @@ fn test_transact_barrier() {
             weight_limit: Unlimited,
         },
         Transact {
-            require_weight_at_most: Weight::from_ref_time(10000000000),
+            require_weight_at_most: Weight::from_parts(10000000000, 0u64),
             origin_kind: OriginKind::Native,
             call: interlay_runtime_parachain::RuntimeCall::Tokens(call).encode().into(),
         },
@@ -257,7 +256,7 @@ fn transfer_to_relay_chain() {
         ));
     });
 
-    let used_weight = FrameWeight::from_ref_time(4_000_000_000 as u64); // The value used in UI - very conservative: actually used at time of writing = 298_368_000
+    let used_weight = FrameWeight::from_parts(4_000_000_000 as u64, 0u64); // The value used in UI - very conservative: actually used at time of writing = 298_368_000
 
     Interlay::execute_with(|| {
         assert_ok!(XTokens::transfer(
@@ -405,8 +404,8 @@ fn xcm_transfer_execution_barrier_trader_works() {
 
     let expect_weight_limit = <interlay_runtime_parachain::xcm_config::XcmConfig as interlay_runtime_parachain::xcm_config::xcm_executor::Config>::Weigher::weight(
         &mut construct_xcm(100, Unlimited)).unwrap();
-    let weight_limit_too_low = Weight::from_ref_time(500_000_000);
-    let unit_instruction_weight = Weight::from_ref_time(200_000_000);
+    let weight_limit_too_low = Weight::from_parts(500_000_000, 0u64);
+    let unit_instruction_weight = Weight::from_parts(200_000_000, 0u64);
     let minimum_fee = (interlay_runtime_parachain::xcm_config::DotPerSecond::get().1
         * expect_weight_limit.ref_time() as u128)
         / WEIGHT_REF_TIME_PER_SECOND as u128;
@@ -584,7 +583,7 @@ fn trap_assets_works() {
             WithdrawAsset(assets.clone().into()),
             BuyExecution {
                 fees: assets,
-                weight_limit: Limited(Weight::from_ref_time(DOT.one() as u64)),
+                weight_limit: Limited(Weight::from_parts(DOT.one() as u64, 0u64)),
             },
             WithdrawAsset(
                 (
@@ -689,7 +688,7 @@ fn trap_assets_works() {
                     intr_asset_amount / 4,
                 )
                     .into(),
-                weight_limit: Limited(Weight::from_ref_time(4_000_000_000_000)),
+                weight_limit: Limited(Weight::from_parts(4_000_000_000_000, 0u64)),
             },
             DepositAsset {
                 assets: All.into(),

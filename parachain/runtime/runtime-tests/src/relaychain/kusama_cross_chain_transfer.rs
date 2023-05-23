@@ -60,7 +60,7 @@ mod hrmp {
                 weight_limit: Unlimited,
             },
             Transact {
-                require_weight_at_most: Weight::from_ref_time(10000000000),
+                require_weight_at_most: Weight::from_parts(10000000000, 1_000_000u64), // actual pov size = 31015
                 origin_kind: OriginKind::Native,
                 call: kusama_runtime::RuntimeCall::Hrmp(call).encode().into(),
             },
@@ -184,7 +184,7 @@ fn test_transact_barrier() {
             weight_limit: Unlimited,
         },
         Transact {
-            require_weight_at_most: Weight::from_ref_time(10000000000),
+            require_weight_at_most: Weight::from_parts(10000000000, 0u64),
             origin_kind: OriginKind::Native,
             call: kintsugi_runtime_parachain::RuntimeCall::Tokens(call).encode().into(),
         },
@@ -414,7 +414,7 @@ fn xcm_transfer_execution_barrier_trader_works() {
         ReserveAssetDeposited((Parent, 100).into()),
         BuyExecution {
             fees: (Parent, 100).into(),
-            weight_limit: Limited(message_weight - Weight::from_ref_time(1)),
+            weight_limit: Limited(message_weight - Weight::from_parts(1, 0u64)),
         },
         DepositAsset {
             assets: All.into(),
@@ -582,7 +582,7 @@ fn trap_assets_works() {
             WithdrawAsset(assets.clone().into()),
             BuyExecution {
                 fees: assets,
-                weight_limit: Limited(Weight::from_ref_time(KSM.one() as u64)),
+                weight_limit: Limited(Weight::from_parts(KSM.one() as u64, 0u64)),
             },
             WithdrawAsset(
                 (
@@ -651,7 +651,7 @@ fn trap_assets_works() {
                     kint_asset_amount / 2,
                 )
                     .into(),
-                weight_limit: Limited(Weight::from_ref_time(KSM.one() as u64)),
+                weight_limit: Limited(Weight::from_parts(KSM.one() as u64, 0u64)),
             },
             DepositAsset {
                 assets: All.into(),

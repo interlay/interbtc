@@ -259,14 +259,11 @@ impl pallet_aura::Config for Runtime {
 
 impl pallet_grandpa::Config for Runtime {
     type RuntimeEvent = RuntimeEvent;
-    type KeyOwnerProofSystem = ();
-    type KeyOwnerProof = <Self::KeyOwnerProofSystem as KeyOwnerProofSystem<(KeyTypeId, GrandpaId)>>::Proof;
-    type KeyOwnerIdentification =
-        <Self::KeyOwnerProofSystem as KeyOwnerProofSystem<(KeyTypeId, GrandpaId)>>::IdentificationTuple;
-    type HandleEquivocation = ();
+    type KeyOwnerProof = sp_core::Void;
     type WeightInfo = ();
     type MaxAuthorities = MaxAuthorities;
     type MaxSetIdSessionEntries = MaxSetIdSessionEntries;
+    type EquivocationReportSystem = ();
 }
 
 parameter_types! {
@@ -489,6 +486,7 @@ impl pallet_collective::Config<TechnicalCommitteeInstance> for Runtime {
     type MaxMembers = TechnicalCommitteeMaxMembers;
     type DefaultVote = pallet_collective::PrimeDefaultVote;
     type WeightInfo = ();
+    type SetMembersOrigin = EnsureRoot<AccountId>;
 }
 
 impl pallet_membership::Config for Runtime {

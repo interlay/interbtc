@@ -99,9 +99,9 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     spec_name: create_runtime_str!("testnet-interlay"),
     impl_name: create_runtime_str!("testnet-interlay"),
     authoring_version: 1,
-    spec_version: 1023002,
+    spec_version: 1024000,
     impl_version: 1,
-    transaction_version: 1, // added preimage
+    transaction_version: 4,
     apis: RUNTIME_API_VERSIONS,
     state_version: 0,
 };
@@ -510,6 +510,7 @@ impl pallet_collective::Config<TechnicalCommitteeInstance> for Runtime {
     type MaxMembers = TechnicalCommitteeMaxMembers;
     type DefaultVote = pallet_collective::PrimeDefaultVote;
     type WeightInfo = weights::pallet_collective::WeightInfo<Runtime>;
+    type SetMembersOrigin = EnsureRoot<AccountId>;
 }
 
 impl pallet_membership::Config for Runtime {

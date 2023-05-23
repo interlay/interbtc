@@ -132,7 +132,6 @@ pub mod pallet {
     const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
 
     #[pallet::pallet]
-    #[pallet::generate_store(pub(super) trait Store)]
     #[pallet::storage_version(STORAGE_VERSION)]
     pub struct Pallet<T>(_);
 
@@ -365,7 +364,7 @@ pub mod pallet {
         fn on_initialize(n: T::BlockNumber) -> Weight {
             Self::begin_block(n).unwrap_or_else(|e| {
                 sp_runtime::print(e);
-                Weight::from_ref_time(0 as u64)
+                Weight::from_parts(0 as u64, 0u64)
             })
         }
     }
@@ -931,7 +930,7 @@ impl<T: Config> Pallet<T> {
     /// # </weight>
     fn begin_block(now: T::BlockNumber) -> Result<Weight, DispatchError> {
         let max_block_weight = T::BlockWeights::get().max_block;
-        let mut weight = Weight::from_ref_time(0 as u64);
+        let mut weight = Weight::from_parts(0 as u64, 0u64);
 
         let next = Self::lowest_unbaked();
         let last = Self::referendum_count();

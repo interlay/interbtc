@@ -71,7 +71,6 @@ pub mod benchmarks {
         #[extrinsic_call]
         feed_values(RawOrigin::Signed(origin), values);
 
-        let key = OracleKey::ExchangeRate(Token(DOT));
         crate::Pallet::<T>::begin_block(0u32.into());
 
         for i in 0..u {

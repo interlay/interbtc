@@ -99,9 +99,9 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     spec_name: create_runtime_str!("kintsugi-parachain"),
     impl_name: create_runtime_str!("kintsugi-parachain"),
     authoring_version: 1,
-    spec_version: 1023003,
+    spec_version: 1024000,
     impl_version: 1,
-    transaction_version: 3, // added preimage
+    transaction_version: 4,
     apis: RUNTIME_API_VERSIONS,
     state_version: 0,
 };
@@ -547,6 +547,7 @@ impl pallet_collective::Config<TechnicalCommitteeInstance> for Runtime {
     type MaxMembers = TechnicalCommitteeMaxMembers;
     type DefaultVote = pallet_collective::PrimeDefaultVote;
     type WeightInfo = weights::pallet_collective::WeightInfo<Runtime>;
+    type SetMembersOrigin = EnsureRoot<AccountId>;
 }
 
 impl pallet_membership::Config for Runtime {
@@ -1301,8 +1302,17 @@ pub type UncheckedExtrinsic = generic::UncheckedExtrinsic<Address, RuntimeCall, 
 /// Extrinsic type that has already been checked.
 pub type CheckedExtrinsic = generic::CheckedExtrinsic<AccountId, RuntimeCall, SignedExtra>;
 /// Executive: handles dispatch to the various modules.
-pub type Executive =
-    frame_executive::Executive<Runtime, Block, frame_system::ChainContext<Runtime>, Runtime, AllPalletsWithSystem, ()>;
+pub type Executive = frame_executive::Executive<
+    Runtime,
+    Block,
+    frame_system::ChainContext<Runtime>,
+    Runtime,
+    AllPalletsWithSystem,
+    (
+        orml_asset_registry::Migration<Runtime>,
+        orml_unknown_tokens::Migration<Runtime>,
+    ),
+>;
 
 #[cfg(feature = "runtime-benchmarks")]
 #[macro_use]
@@ -1497,7 +1507,7 @@ impl_runtime_apis! {
             impl frame_system_benchmarking::Config for Runtime {}
             impl runtime_common::benchmarking::orml_tokens::Config for Runtime {}
             impl runtime_common::benchmarking::orml_vesting::Config for Runtime {}
-            impl  runtime_common::benchmarking::orml_asset_registry::Config for Runtime {}
+            impl runtime_common::benchmarking::orml_asset_registry::Config for Runtime {}
 
             use frame_support::traits::WhitelistedStorageKeys;
             let mut whitelist: Vec<TrackedStorageKey> = AllPalletsWithSystem::whitelisted_storage_keys();

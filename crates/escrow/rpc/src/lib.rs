@@ -82,10 +82,10 @@ where
         at: Option<<Block as BlockT>::Hash>,
     ) -> RpcResult<BalanceWrapper<Balance>> {
         let api = self.client.runtime_api();
-        let at = BlockId::hash(at.unwrap_or_else(|| self.client.info().best_hash));
+        let at = at.unwrap_or_else(|| self.client.info().best_hash);
 
         handle_response(
-            api.balance_at(&at, account_id, height),
+            api.balance_at(at, account_id, height),
             "Unable to obtain the escrow balance".into(),
         )
     }
@@ -96,10 +96,10 @@ where
         at: Option<<Block as BlockT>::Hash>,
     ) -> RpcResult<BalanceWrapper<Balance>> {
         let api = self.client.runtime_api();
-        let at = BlockId::hash(at.unwrap_or_else(|| self.client.info().best_hash));
+        let at = at.unwrap_or_else(|| self.client.info().best_hash);
 
         handle_response(
-            api.total_supply(&at, height),
+            api.total_supply(at, height),
             "Unable to obtain the escrow total supply".into(),
         )
     }
