@@ -514,12 +514,6 @@ pub mod pallet {
     #[pallet::storage]
     pub type Markets<T: Config> = StorageMap<_, Blake2_128Concat, CurrencyId<T>, Market<BalanceOf<T>>>;
 
-    /// Mapping of underlying currency id of a market to the flag indicating
-    /// whether the marked should have interest accrued in the `on_initialize` hook
-    #[pallet::storage]
-    #[pallet::getter(fn market_to_reaccrue)]
-    pub type MarketToReaccrue<T: Config> = StorageMap<_, Blake2_128Concat, CurrencyId<T>, bool, ValueQuery>;
-
     /// Mapping of lend_token id to underlying currency id
     /// `lend_token id`: voucher token id
     /// `asset id`: underlying token id
@@ -1073,7 +1067,7 @@ pub mod pallet {
         pub fn repay_borrow_all(origin: OriginFor<T>, asset_id: CurrencyId<T>) -> DispatchResultWithPostInfo {
             let who = ensure_signed(origin)?;
             Self::ensure_active_market(asset_id)?;
-            Self::accrue_interest(asset_id, true)?;
+            Self::accrue_interest(asset_id)?;
             let account_borrows = Self::current_borrow_balance(&who, asset_id)?;
             ensure!(!account_borrows.is_zero(), Error::<T>::InvalidAmount);
             Self::do_repay_borrow(&who, &account_borrows)?;
@@ -1151,8 +1145,8 @@ pub mod pallet {
             collateral_asset_id: CurrencyId<T>,
         ) -> DispatchResultWithPostInfo {
             let who = ensure_signed(origin)?;
-            Self::accrue_interest(liquidation_asset_id, true)?;
-            Self::accrue_interest(collateral_asset_id, true)?;
+            Self::accrue_interest(liquidation_asset_id)?;
+            Self::accrue_interest(collateral_asset_id)?;
             ensure!(!repay_amount.is_zero(), Error::<T>::InvalidAmount);
             let liquidation = Amount::new(repay_amount, liquidation_asset_id);
             Self::do_liquidate_borrow(who, borrower, &liquidation, collateral_asset_id)?;
@@ -1182,7 +1176,7 @@ pub mod pallet {
             T::ReserveOrigin::ensure_origin(origin)?;
             let payer = T::Lookup::lookup(payer)?;
             Self::ensure_active_market(asset_id)?;
-            Self::accrue_interest(asset_id, true)?;
+            Self::accrue_interest(asset_id)?;
 
             ensure!(!amount_to_transfer.is_zero(), Error::<T>::InvalidAmount);
             amount_to_transfer.transfer(&payer, &Self::account_id())?;
@@ -1219,7 +1213,7 @@ pub mod pallet {
             T::ReserveOrigin::ensure_origin(origin)?;
             let receiver = T::Lookup::lookup(receiver)?;
             Self::ensure_active_market(asset_id)?;
-            Self::accrue_interest(asset_id, true)?;
+            Self::accrue_interest(asset_id)?;
 
             let amount_to_transfer = Amount::new(reduce_amount, asset_id);
 
@@ -1261,7 +1255,7 @@ pub mod pallet {
             let receiver = T::Lookup::lookup(receiver)?;
             let from = Self::incentive_reward_account_id();
             Self::ensure_active_market(asset_id)?;
-            Self::accrue_interest(asset_id, true)?;
+            Self::accrue_interest(asset_id)?;
 
             let underlying = Amount::new(redeem_amount, asset_id);
 
@@ -1284,15 +1278,13 @@ impl<T: Config> Pallet<T> {
         let mut iterations = 0;
         for (asset_id, _) in Self::active_markets() {
             iterations += 1;
-            if Self::market_to_reaccrue(asset_id) {
-                if let Err(e) = Self::accrue_interest(asset_id, false) {
-                    log::trace!(
-                        target: "loans::accrue_interest",
-                        "error: {:?}, failed to accrue interest for: {:?}",
-                        e,
-                        asset_id,
-                    );
-                }
+            if let Err(e) = Self::accrue_interest(asset_id) {
+                log::trace!(
+                    target: "loans::accrue_interest",
+                    "error: {:?}, failed to accrue interest for: {:?}",
+                    e,
+                    asset_id,
+                );
             }
         }
         iterations
@@ -1901,7 +1893,7 @@ impl<T: Config> LoansTrait<CurrencyId<T>, AccountIdOf<T>, Amount<T>> for Pallet<
         Self::ensure_active_market(asset_id)?;
         Self::ensure_under_supply_cap(&amount)?;
 
-        Self::accrue_interest(asset_id, true)?;
+        Self::accrue_interest(asset_id)?;
 
         // update supply index before modify supply balance.
         Self::update_reward_supply_index(asset_id)?;
@@ -1926,7 +1918,7 @@ impl<T: Config> LoansTrait<CurrencyId<T>, AccountIdOf<T>, Amount<T>> for Pallet<
         let asset_id = borrow.currency();
         Self::ensure_active_market(asset_id)?;
 
-        Self::accrue_interest(asset_id, true)?;
+        Self::accrue_interest(asset_id)?;
         Self::borrow_allowed(borrower, &borrow)?;
 
         // update borrow index after accrue interest.
@@ -2025,7 +2017,7 @@ impl<T: Config> LoansTrait<CurrencyId<T>, AccountIdOf<T>, Amount<T>> for Pallet<
     fn do_repay_borrow(borrower: &AccountIdOf<T>, borrow: &Amount<T>) -> Result<(), DispatchError> {
         let asset_id = borrow.currency();
         Self::ensure_active_market(asset_id)?;
-        Self::accrue_interest(asset_id, true)?;
+        Self::accrue_interest(asset_id)?;
         let account_borrows = Self::current_borrow_balance(borrower, asset_id)?;
         Self::do_repay_borrow_with_amount(borrower, asset_id, &account_borrows, &borrow)?;
         Self::deposit_event(Event::<T>::RepaidBorrow {
@@ -2048,7 +2040,7 @@ impl<T: Config> LoansTrait<CurrencyId<T>, AccountIdOf<T>, Amount<T>> for Pallet<
         }
 
         Self::ensure_active_market(asset_id)?;
-        Self::accrue_interest(asset_id, true)?;
+        Self::accrue_interest(asset_id)?;
 
         Self::redeem_allowed(supplier, &voucher)?;
 
@@ -2080,7 +2072,7 @@ impl<T: Config> LoansTrait<CurrencyId<T>, AccountIdOf<T>, Amount<T>> for Pallet<
         // outdated exchange rate. Call `accrue_interest` to avoid this.
         let underlying_id = Self::underlying_id(lend_tokens.currency())?;
         Self::ensure_active_market(underlying_id)?;
-        Self::accrue_interest(underlying_id, true)?;
+        Self::accrue_interest(underlying_id)?;
         let exchange_rate = Self::exchange_rate_stored(underlying_id)?;
         Ok(lend_tokens.checked_mul(&exchange_rate)?.set_currency(underlying_id))
     }
@@ -2098,7 +2090,7 @@ impl<T: Config> LoansTrait<CurrencyId<T>, AccountIdOf<T>, Amount<T>> for Pallet<
         // possibly not having accrued for a few blocks. This would result in using an
         // outdated exchange rate. Call `accrue_interest` to avoid this.
         Self::ensure_active_market(underlying.currency())?;
-        Self::accrue_interest(underlying.currency(), true)?;
+        Self::accrue_interest(underlying.currency())?;
         let exchange_rate = Self::exchange_rate_stored(underlying.currency())?;
 
         let lend_token_id = Self::lend_token_id(underlying.currency())?;

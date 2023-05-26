@@ -738,7 +738,7 @@ fn total_reserves_are_updated_on_withdrawal() {
 
         let blocks_to_run = 1000;
         _run_to_block(blocks_to_run);
-        Loans::accrue_interest(DOT, false).unwrap();
+        Loans::accrue_interest(DOT).unwrap();
         let intermediary_total_reserves = Loans::total_reserves(DOT);
         _run_to_block(2 * blocks_to_run);
 
@@ -764,7 +764,7 @@ fn total_reserves_are_updated_on_deposit() {
 
         let blocks_to_run = 1000;
         _run_to_block(blocks_to_run);
-        Loans::accrue_interest(DOT, false).unwrap();
+        Loans::accrue_interest(DOT).unwrap();
         let intermediary_total_reserves = Loans::total_reserves(DOT);
         _run_to_block(2 * blocks_to_run);
 
@@ -898,7 +898,7 @@ fn update_exchange_rate_works() {
         // Initialize value of exchange rate is 0.02
         assert_eq!(Loans::exchange_rate(DOT), Rate::saturating_from_rational(2, 100));
 
-        assert_ok!(Loans::accrue_interest(DOT, false));
+        assert_ok!(Loans::accrue_interest(DOT));
         assert_eq!(
             Loans::exchange_rate_stored(DOT).unwrap(),
             Rate::saturating_from_rational(2, 100)
@@ -1601,10 +1601,9 @@ fn interest_rate_hook_works() {
 
         // Run to block 1 and accrue interest so further accruals set interest rate storage
         _run_to_block(1);
-        Loans::accrue_interest(DOT, false).unwrap();
-        // Accruing interest on the first block does not enable the flag
-        assert_eq!(Loans::market_to_reaccrue(DOT), false);
+        Loans::accrue_interest(DOT).unwrap();
 
+        // The hook on block 2 auto-accrues interest
         _run_to_block(2);
         // Mint and borrow so both interest rates will be non-zero
         // This enables the re-accrual flag for next block
@@ -1617,11 +1616,9 @@ fn interest_rate_hook_works() {
             &mut current_supply_rate,
             &mut current_borrow_rate,
         );
-        assert_eq!(Loans::market_to_reaccrue(DOT), true);
 
-        // The hook on block 3 auto-accrues interest so storage items are updated
+        // The hook on block 3 auto-accrues interest
         _run_to_block(3);
-        assert_eq!(Loans::market_to_reaccrue(DOT), false);
         read_interest_rates(
             &mut previous_supply_rate,
             &mut previous_borrow_rate,
@@ -1634,7 +1631,7 @@ fn interest_rate_hook_works() {
         assert!(current_supply_rate.gt(&previous_supply_rate));
         assert!(current_borrow_rate.gt(&previous_borrow_rate));
 
-        // The hook on block 4 does not auto-accrue interest
+        // The hook on block 4 auto-accrues interest
         _run_to_block(4);
 
         read_interest_rates(
@@ -1643,15 +1640,12 @@ fn interest_rate_hook_works() {
             &mut current_supply_rate,
             &mut current_borrow_rate,
         );
-        assert_eq!(current_supply_rate, previous_supply_rate);
-        assert_eq!(current_borrow_rate, previous_borrow_rate);
-        // This enables the re-accrual flag for next block
+        assert!(current_supply_rate.gt(&previous_supply_rate));
+        assert!(current_borrow_rate.gt(&previous_borrow_rate));
         assert_ok!(Loans::mint(RuntimeOrigin::signed(ALICE), DOT, unit(100)));
-        assert_eq!(Loans::market_to_reaccrue(DOT), true);
 
-        // The hook on block 5 accrues interest
+        // The hook on block 5 auto-accrues interest
         _run_to_block(5);
-        assert_eq!(Loans::market_to_reaccrue(DOT), false);
         read_interest_rates(
             &mut previous_supply_rate,
             &mut previous_borrow_rate,
@@ -1666,9 +1660,7 @@ fn interest_rate_hook_works() {
             &mut current_supply_rate,
             &mut current_borrow_rate,
         );
-        assert_eq!(current_supply_rate, previous_supply_rate);
-        assert_eq!(current_borrow_rate, previous_borrow_rate);
-        // But it should still enable the flag
-        assert_eq!(Loans::market_to_reaccrue(DOT), true);
+        assert!(current_supply_rate.gt(&previous_supply_rate));
+        assert!(current_borrow_rate.gt(&previous_borrow_rate));
     });
 }

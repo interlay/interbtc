@@ -78,7 +78,7 @@ fn interest_rate_model_works() {
         for i in 1..49 {
             let delta_time = 6u128;
             TimestampPallet::set_timestamp(6000 * (i + 1));
-            assert_ok!(Loans::accrue_interest(Token(DOT), false));
+            assert_ok!(Loans::accrue_interest(Token(DOT)));
             // utilizationRatio = totalBorrows / (totalCash + totalBorrows - totalReserves)
             let util_ratio = Ratio::from_rational(total_borrows, total_cash + total_borrows - total_reserves);
             assert_eq!(Loans::utilization_ratio(Token(DOT)), util_ratio);

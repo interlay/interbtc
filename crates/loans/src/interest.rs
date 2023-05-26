@@ -23,17 +23,8 @@ use crate::*;
 impl<T: Config> Pallet<T> {
     /// Accrue interest and update corresponding storage
     /// - `asset_id`: Underlying currency to accrue interest for
-    /// - `reaccrue_next_block`: Re-accrue interest next block via a substrate hook, so that
-    /// redundant storage about interest rates is updated. This helps the UI reflect changes to the interest
-    /// rates caused by market interactions which happened this block. All extrinsics calling this function
-    /// must pass a `true` value for this argument, while the substrate hook must pass `false`.
     #[cfg_attr(any(test, feature = "integration-tests"), visibility::make(pub))]
-    pub(crate) fn accrue_interest(asset_id: CurrencyId<T>, reaccrue_next_block: bool) -> DispatchResult {
-        // Ensure redundant storage always has up-to-date interest
-        // rates which the UI can display.
-        // This operations mutates storage even if accruing fails.
-        MarketToReaccrue::<T>::insert(asset_id, reaccrue_next_block);
-
+    pub(crate) fn accrue_interest(asset_id: CurrencyId<T>) -> DispatchResult {
         let now = T::UnixTime::now().as_secs();
         let last_accrued_interest_time = Self::last_accrued_interest_time(asset_id);
         if last_accrued_interest_time.is_zero() {

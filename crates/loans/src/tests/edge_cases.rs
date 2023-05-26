@@ -147,10 +147,7 @@ fn prevent_the_exchange_rate_attack() {
         // Eve can not let the exchange rate greater than 1
         // Use `assert_err` instead of `assert_noop` because the `MarketToReaccrue`
         // storage item may be mutated even if interest accrual fails.
-        assert_err!(
-            Loans::accrue_interest(Token(DOT), false),
-            Error::<Test>::InvalidExchangeRate
-        );
+        assert_err!(Loans::accrue_interest(Token(DOT)), Error::<Test>::InvalidExchangeRate);
 
         // Mock a BIG exchange_rate: 100000000000.02
         ExchangeRate::<Test>::insert(Token(DOT), Rate::saturating_from_rational(100000000000020u128, 20 * 50));
@@ -302,7 +299,7 @@ fn small_loans_have_interest_rounded_up() {
         assert_ok!(batch_call.clone().dispatch(RuntimeOrigin::signed(BOB)));
 
         _run_to_block(initial_block + 10000);
-        Loans::accrue_interest(Token(IBTC), false).unwrap();
+        Loans::accrue_interest(Token(IBTC)).unwrap();
         let borrow_index = Loans::borrow_index(Token(IBTC));
         let current_borrow_balance = Loans::current_borrow_balance(&BOB, Token(IBTC)).unwrap();
         let total_borrowed_amount = borrow_amount_small + borrow_amount_big;
@@ -328,7 +325,7 @@ fn big_loan_following_a_small_loan_still_accrues_interest() {
         assert_ok!(Loans::borrow(RuntimeOrigin::signed(BOB), Token(IBTC), 1));
 
         _run_to_block(initial_block + 1);
-        Loans::accrue_interest(Token(IBTC), false).unwrap();
+        Loans::accrue_interest(Token(IBTC)).unwrap();
         // Interest gets accrued immediately (rounded up), to prevent
         // giving out interest-free loans due to truncating the interest.
         assert_eq!(Loans::current_borrow_balance(&BOB, Token(IBTC)).unwrap().amount(), 2);
