@@ -385,9 +385,9 @@ pub(crate) fn _run_to_block(n: BlockNumber) {
     Loans::on_finalize(System::block_number());
     for b in (System::block_number() + 1)..=n {
         System::set_block_number(b);
-        Loans::on_initialize(b);
         TimestampPallet::set_timestamp(6000 * b);
         Scheduler::on_initialize(b);
+        Loans::on_initialize(b);
         if b != n {
             Loans::on_finalize(b);
         }

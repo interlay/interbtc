@@ -145,7 +145,9 @@ fn prevent_the_exchange_rate_attack() {
         );
         TimestampPallet::set_timestamp(12000);
         // Eve can not let the exchange rate greater than 1
-        assert_noop!(Loans::accrue_interest(Token(DOT)), Error::<Test>::InvalidExchangeRate);
+        // Use `assert_err` instead of `assert_noop` because the `MarketToReaccrue`
+        // storage item may be mutated even if interest accrual fails.
+        assert_err!(Loans::accrue_interest(Token(DOT)), Error::<Test>::InvalidExchangeRate);
 
         // Mock a BIG exchange_rate: 100000000000.02
         ExchangeRate::<Test>::insert(Token(DOT), Rate::saturating_from_rational(100000000000020u128, 20 * 50));

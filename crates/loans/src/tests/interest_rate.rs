@@ -31,6 +31,15 @@ fn utilization_rate_works() {
         Loans::calc_utilization_ratio(&ksm(0), &ksm(1), &ksm(0)).unwrap(),
         Ratio::from_percent(100)
     );
+
+    // Ratio::from_rational(10000000057077, 100000000048516) returns 0.09999
+    // check that calc_utilization_ratio correctly returns 0.1
+    let cash = 100000000048516u128 - 10000000057077u128;
+    let borrows = 10000000057077u128;
+    assert_eq!(
+        Loans::calc_utilization_ratio(&ksm(cash), &ksm(borrows), &ksm(0)).unwrap(),
+        Ratio::from_percent(10)
+    );
 }
 
 #[test]

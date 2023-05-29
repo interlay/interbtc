@@ -434,6 +434,14 @@ pub mod pallet {
         },
     }
 
+    #[pallet::hooks]
+    impl<T: Config> Hooks<T::BlockNumber> for Pallet<T> {
+        fn on_initialize(n: T::BlockNumber) -> Weight {
+            let iterations = Self::begin_block(n);
+            <T as Config>::WeightInfo::on_initialize(iterations)
+        }
+    }
+
     /// The timestamp of the last calculation of accrued interest
     #[pallet::storage]
     #[pallet::getter(fn last_accrued_interest_time)]
@@ -1266,6 +1274,22 @@ pub mod pallet {
 }
 
 impl<T: Config> Pallet<T> {
+    pub fn begin_block(_height: T::BlockNumber) -> u32 {
+        let mut iterations = 0;
+        for (asset_id, _) in Self::active_markets() {
+            iterations += 1;
+            if let Err(e) = Self::accrue_interest(asset_id) {
+                log::trace!(
+                    target: "loans::accrue_interest",
+                    "error: {:?}, failed to accrue interest for: {:?}",
+                    e,
+                    asset_id,
+                );
+            }
+        }
+        iterations
+    }
+
     #[cfg_attr(any(test, feature = "integration-tests"), visibility::make(pub))]
     fn account_deposits(lend_token_id: CurrencyId<T>, supplier: &T::AccountId) -> Amount<T> {
         Amount::new(AccountDeposits::<T>::get(lend_token_id, supplier), lend_token_id)

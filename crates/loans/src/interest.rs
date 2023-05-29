@@ -16,12 +16,15 @@
 // limitations under the License.
 
 use primitives::{Timestamp, SECONDS_PER_YEAR};
+use sp_arithmetic::PerThing;
+use sp_core::U256;
 use sp_runtime::{traits::Zero, DispatchResult};
 
 use crate::*;
 
 impl<T: Config> Pallet<T> {
     /// Accrue interest and update corresponding storage
+    /// - `asset_id`: Underlying currency to accrue interest for
     #[cfg_attr(any(test, feature = "integration-tests"), visibility::make(pub))]
     pub(crate) fn accrue_interest(asset_id: CurrencyId<T>) -> DispatchResult {
         let now = T::UnixTime::now().as_secs();
@@ -147,7 +150,20 @@ impl<T: Config> Pallet<T> {
         }
         let total = cash.checked_add(&borrows)?.checked_sub(&reserves)?;
 
-        Ok(Ratio::from_rational(borrows.amount(), total.amount()))
+        // The code below essentially returns Ratio::from_rational(borrows, total).
+        // The reason why we don't use the aforementioned method is that is has some weird
+        // rounding behavior that can cause an unexpected decrease in the utilization ratio.
+        // For example, Ratio::from_rational(10000000057077, 100000000048516) returns 0.09999
+        // rather than 0.1
+        let borrows: U256 = borrows.amount().into(); // convert to u256 so we can safely multiply by ACCURACY
+        let raw_ratio = borrows
+            .saturating_mul(Ratio::ACCURACY.into())
+            .checked_div(total.amount().into())
+            .ok_or(ArithmeticError::DivisionByZero)?
+            .try_into()
+            .map_err(|_| currency::Error::<T>::TryIntoIntError)?;
+
+        Ok(Ratio::from_parts(raw_ratio))
     }
 
     /// The exchange rate should be greater than the `MinExchangeRate` storage value and less than
