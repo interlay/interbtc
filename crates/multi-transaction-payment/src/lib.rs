@@ -80,6 +80,7 @@ pub mod pallet {
             // of the SignedExtension, which calls the `OnChargeTransaction::withdraw_fee` implemented below.
 
             let mut ret = call.dispatch(origin);
+
             // modify any returned weight overrides. Note that we pass-through the `Pays` unmodified.
             let modify_weight = |x: &mut PostDispatchInfo| {
                 x.actual_weight = x
@@ -88,7 +89,6 @@ pub mod pallet {
             };
             match ret {
                 Ok(ref mut info) => {
-                    // if a weight override is returned, add the cost of the swap
                     modify_weight(info);
                 }
                 Err(ref mut err) => {
@@ -126,9 +126,10 @@ where
             Some(pallet::Call::with_fee_swap_path {
                 path, amount_in_max, ..
             }) => {
-                // check that the swap path ends in the native currency
+                // check that the swap path ends in the native currency. Note: we assume that
+                // Vec::last has constant time complexity
                 ensure!(
-                    path.iter().last() == Some(&T::GetNativeCurrencyId::get()),
+                    path.last() == Some(&T::GetNativeCurrencyId::get()),
                     TransactionValidityError::Invalid(InvalidTransaction::Payment)
                 );
                 // note: we get passed only an account id rather than an origin, so we can't do the usual

@@ -730,14 +730,6 @@ pub mod pallet {
             recipient: <T::Lookup as StaticLookup>::Source,
             #[pallet::compact] deadline: T::BlockNumber,
         ) -> DispatchResult {
-<<<<<<< HEAD
-            ensure!(
-                path.iter().all(|id| T::EnsurePairAsset::validate_asset(&id)),
-                Error::<T>::UnsupportedAssetType
-            );
-
-=======
->>>>>>> de988564 (feat: allow payment in non-native currencies by swapping with dex-general)
             let who = ensure_signed(origin)?;
             let recipient = T::Lookup::lookup(recipient)?;
             let now = frame_system::Pallet::<T>::block_number();
