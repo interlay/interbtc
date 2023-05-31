@@ -17,7 +17,7 @@ use orml_traits::parameter_type_with_key;
 use pallet_transaction_payment::{Multiplier, TargetedFeeAdjustment};
 pub use primitives::{CurrencyId, CurrencyId::*, TokenSymbol::*};
 use sp_arithmetic::{FixedI128, FixedPointNumber, FixedU128, Perquintill};
-use sp_core::{ConstU16, ConstU32, Get, H256};
+use sp_core::{ConstU32, Get, H256};
 use sp_runtime::{
     testing::Header,
     traits::{AccountIdConversion, BlakeTwo256, Bounded, IdentityLookup},
@@ -244,9 +244,9 @@ impl dex_general::Config for Test {
     type AssetId = CurrencyId;
     type LpGenerate = PairLpIdentity;
     type WeightInfo = ();
-    type MaxSwaps = ConstU16<10>;
     type MaxBootstrapRewards = ConstU32<1000>;
     type MaxBootstrapLimits = ConstU32<1000>;
+    type EnsurePairAsset = ();
 }
 
 pub fn new_test_ext() -> sp_io::TestExternalities {

@@ -122,8 +122,8 @@ mod helpers {
         let native_currency = GetNativeCurrencyId::get();
 
         let call = RuntimeCall::Testing(testing_helpers::Call::weighted {
-            expected: Weight::from_ref_time(expected_weight),
-            actual_weight: actual_weight.map(|x| Weight::from_ref_time(x)),
+            expected: Weight::from_parts(expected_weight, 0),
+            actual_weight: actual_weight.map(|x| Weight::from_parts(x, 0)),
             err,
             pays_fee,
         });
@@ -147,8 +147,8 @@ mod helpers {
                 amount_in_max: u128::MAX,
                 path: vec![foreign_currency, native_currency],
                 call: Box::new(RuntimeCall::Testing(testing_helpers::Call::weighted {
-                    expected: Weight::from_ref_time(expected_weight),
-                    actual_weight: actual_weight.map(|x| Weight::from_ref_time(x)),
+                    expected: Weight::from_parts(expected_weight, 0),
+                    actual_weight: actual_weight.map(|x| Weight::from_parts(x, 0)),
                     err,
                     pays_fee,
                 })),
@@ -173,7 +173,7 @@ mod helpers {
                 amount_in_max: amount_in_max,
                 path: vec![foreign_currency, native_currency],
                 call: Box::new(RuntimeCall::Testing(testing_helpers::Call::weighted {
-                    expected: Weight::from_ref_time(expected_weight),
+                    expected: Weight::from_parts(expected_weight, 0),
                     actual_weight: None,
                     err: false,
                     pays_fee: Pays::Yes,
@@ -213,7 +213,7 @@ fn pay_in_native_fee_succeeds() {
         let payment_extension = pallet_transaction_payment::ChargeTransactionPayment::<Test>::from(1);
         let who = 1;
         let call = RuntimeCall::System(frame_system::Call::remark { remark: vec![] });
-        let weight = Weight::from_ref_time(5);
+        let weight = Weight::from_parts(5, 0);
         let info = DispatchInfo {
             weight: weight,
             ..Default::default()
@@ -346,7 +346,7 @@ fn pay_fee_in_other_currency_succeeds() {
             amount_in_max: u128::MAX,
             call: Box::new(RuntimeCall::System(frame_system::Call::remark { remark: vec![] })),
         });
-        let weight = Weight::from_ref_time(5);
+        let weight = Weight::from_parts(5, 0);
         let info = DispatchInfo {
             weight: weight,
             ..Default::default()
