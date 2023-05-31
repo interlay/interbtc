@@ -9,8 +9,10 @@ const TARGET: &'static str = "runtime::issue::migration::v1";
 mod v0 {
     use super::*;
 
-    // Due to a known bug in serde we need to specify how u128 is (de)serialized.
-    // See https://github.com/paritytech/substrate/issues/4641
+    #[frame_support::storage_alias]
+    pub(super) type IssueRequests<T: Config> =
+        StorageMap<Pallet<T>, Blake2_128Concat, H256, DefaultIssueRequest<T>, OptionQuery>;
+
     #[derive(Encode, Decode, Clone, PartialEq, TypeInfo, MaxEncodedLen)]
     #[cfg_attr(feature = "std", derive(Debug))]
     pub struct IssueRequest<AccountId, BlockNumber, Balance, CurrencyId: Copy> {
@@ -57,7 +59,7 @@ pub mod v1 {
             assert_eq!(StorageVersion::get::<Pallet<T>>(), 0, "can only upgrade from version 0");
 
             let issue_count = v0::IssueRequests::<T>::get().len();
-            log::info!(target: TARGET, "{} public proposals will be migrated.", issue_count,);
+            log::info!(target: TARGET, "{} issues will be migrated.", issue_count,);
 
             Ok((issue_count as u32).encode())
         }
@@ -102,10 +104,10 @@ pub mod v1 {
         fn post_upgrade(state: Vec<u8>) -> Result<(), &'static str> {
             assert_eq!(StorageVersion::get::<Pallet<T>>(), 1, "must upgrade");
 
-            let (old_issue_count): u32 =
+            let old_issue_count: u32 =
                 Decode::decode(&mut &state[..]).expect("pre_upgrade provides a valid state; qed");
             let new_count = crate::IssueRequests::<T>::get().len() as u32;
-            assert_eq!(new_count, old_issue_count, "must migrate all public proposals");
+            assert_eq!(new_count, old_issue_count, "must migrate all issues");
 
             log::info!(target: TARGET, "{} issues migrated", new_count,);
             Ok(())
@@ -114,96 +116,50 @@ pub mod v1 {
 }
 
 #[cfg(test)]
-#[cfg(feature = "try-runtime")]
 mod test {
     use super::*;
     use crate::{
-        tests::{Test as T, *},
+        mock::{Test as T, *},
         types::*,
     };
-    use frame_support::bounded_vec;
 
     #[allow(deprecated)]
     #[test]
     fn migration_works() {
-        new_test_ext().execute_with(|| {
+        run_test(|| {
             assert_eq!(StorageVersion::get::<Pallet<T>>(), 0);
-            // Insert some values into the v0 storage:
 
-            // Case 1: Ongoing referendum
-            let hash = H256::repeat_byte(1);
-            let status = ReferendumStatus {
-                end: 1u32.into(),
-                proposal: hash.clone(),
-                threshold: VoteThreshold::SuperMajorityApprove,
-                delay: 1u32.into(),
-                tally: Tally {
-                    ayes: 1u32.into(),
-                    nays: 1u32.into(),
-                    turnout: 1u32.into(),
-                },
+            let old = v0::DefaultIssueRequest::<T> {
+                requester: 123,
+                vault: DefaultVaultId::<T>::new(123, Token(DOT), Token(IBTC)),
+                btc_address: BtcAddress::random(),
+                amount: 123,
+                btc_height: 234,
+                btc_public_key: Default::default(),
+                fee: 456,
+                griefing_collateral: 567,
+                opentime: 12334,
+                period: 12313,
+                status: Default::default(),
             };
-            v0::ReferendumInfoOf::<T>::insert(1u32, ReferendumInfo::Ongoing(status));
+            let key = H256::zero();
+            v0::IssueRequests::<T>::insert(key, old.clone());
 
-            // Case 2: Finished referendum
-            v0::ReferendumInfoOf::<T>::insert(
-                2u32,
-                ReferendumInfo::Finished {
-                    approved: true,
-                    end: 123u32.into(),
-                },
-            );
+            v1::Migration::<T>::on_runtime_upgrade();
 
-            // Case 3: Public proposals
-            let hash2 = H256::repeat_byte(2);
-            v0::PublicProps::<T>::put(vec![(3u32, hash.clone(), 123u64), (4u32, hash2.clone(), 123u64)]);
-            v0::Preimages::<T>::insert(
-                hash2,
-                v0::PreimageStatus::Available {
-                    data: vec![],
-                    provider: 0,
-                    deposit: 0,
-                    since: 0,
-                    expiry: None,
-                },
-            );
-
-            // Migrate.
-            let state = v1::Migration::<T>::pre_upgrade().unwrap();
-            let _weight = v1::Migration::<T>::on_runtime_upgrade();
-            v1::Migration::<T>::post_upgrade(state).unwrap();
-            // Check that all values got migrated.
-
-            // Case 1: Ongoing referendum
-            assert_eq!(
-                ReferendumInfoOf::<T>::get(1u32),
-                Some(ReferendumInfo::Ongoing(ReferendumStatus {
-                    end: 1u32.into(),
-                    proposal: Bounded::from_legacy_hash(hash),
-                    threshold: VoteThreshold::SuperMajorityApprove,
-                    delay: 1u32.into(),
-                    tally: Tally {
-                        ayes: 1u32.into(),
-                        nays: 1u32.into(),
-                        turnout: 1u32.into()
-                    },
-                }))
-            );
-            // Case 2: Finished referendum
-            assert_eq!(
-                ReferendumInfoOf::<T>::get(2u32),
-                Some(ReferendumInfo::Finished {
-                    approved: true,
-                    end: 123u32.into()
-                })
-            );
-            // Case 3: Public proposals
-            let props: BoundedVec<_, <Test as Config>::MaxProposals> = bounded_vec![
-                (3u32, Bounded::from_legacy_hash(hash), 123u64),
-                (4u32, Bounded::from_legacy_hash(hash2), 123u64)
-            ];
-            assert_eq!(PublicProps::<T>::get(), props);
-            assert_eq!(v0::Preimages::<T>::iter().collect::<Vec<_>>().len(), 0);
+            let new = crate::IssueRequests::<T>::get(key).unwrap();
+            assert!(old.requester == new.requester);
+            assert!(old.vault == new.vault);
+            assert!(old.btc_address == new.btc_address);
+            assert!(old.amount == new.amount);
+            assert!(old.btc_height == new.btc_height);
+            assert!(old.btc_public_key == new.btc_public_key);
+            assert!(old.fee == new.fee);
+            assert!(old.griefing_collateral == new.griefing_collateral);
+            assert!(old.opentime == new.opentime);
+            assert!(old.period == new.period);
+            assert!(old.status == new.status);
+            assert!(new.griefing_currency == <T as vault_registry::Config>::GetGriefingCollateralCurrencyId::get());
         });
     }
 }
