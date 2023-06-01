@@ -8,7 +8,7 @@ use jsonrpsee::{
 };
 use sp_api::ProvideRuntimeApi;
 use sp_blockchain::HeaderBackend;
-use sp_runtime::{generic::BlockId, traits::Block as BlockT, DispatchError};
+use sp_runtime::{traits::Block as BlockT, DispatchError};
 use std::sync::Arc;
 
 pub use btc_relay_rpc_runtime_api::BtcRelayApi as BtcRelayRuntimeApi;

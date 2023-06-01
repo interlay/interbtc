@@ -17,7 +17,7 @@ use runtime_common::Transactless;
 use xcm::latest::{prelude::*, Weight};
 use xcm_builder::{
     AccountId32Aliases, AllowKnownQueryResponses, AllowSubscriptionsFrom, AllowTopLevelPaidExecutionFrom,
-    EnsureXcmOrigin, FixedRateOfFungible, FixedWeightBounds, NativeAsset, ParentIsPreset, RelayChainAsNative,
+    EnsureXcmOrigin, FixedRateOfFungible, FixedWeightBounds, ParentIsPreset, RelayChainAsNative,
     SiblingParachainAsNative, SiblingParachainConvertsVia, SignedAccountId32AsNative, SignedToAccountId32,
     SovereignSignedViaLocation, TakeRevenue, TakeWeightCredit,
 };

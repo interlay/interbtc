@@ -105,6 +105,7 @@ tx-pause = { path = "../../../crates/tx-pause", default-features = false }
 dex-general = { path = "../../../crates/dex-general", default-features = false }
 dex-stable = { path = "../../../crates/dex-stable", default-features = false }
 dex-swap-router = { path = "../../../crates/dex-swap-router", default-features = false }
+multi-transaction-payment = { path = "../../../crates/multi-transaction-payment", default-features = false }
 
 primitives = { package = "interbtc-primitives", path = "../../../primitives", default-features = false }
 
@@ -233,6 +234,7 @@ std = [
   "dex-general/std",
   "dex-stable/std",
   "dex-swap-router/std",
+  "multi-transaction-payment/std",
 
   "primitives/std",
 
@@ -366,4 +368,5 @@ try-runtime = [
   "cumulus-pallet-dmp-queue/try-runtime",
   "orml-xtokens/try-runtime",
   "orml-unknown-tokens/try-runtime",
+  "multi-transaction-payment/try-runtime",
 ]

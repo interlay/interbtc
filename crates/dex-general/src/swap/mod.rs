@@ -246,13 +246,18 @@ impl<T: Config> Pallet<T> {
     }
 
     #[allow(clippy::too_many_arguments)]
-    pub(crate) fn inner_swap_assets_for_exact_assets(
+    pub fn inner_swap_assets_for_exact_assets(
         who: &T::AccountId,
         amount_out: AssetBalance,
         amount_in_max: AssetBalance,
         path: &[T::AssetId],
         recipient: &T::AccountId,
     ) -> DispatchResult {
+        ensure!(
+            path.iter().all(|id| T::EnsurePairAsset::validate_asset(&id)),
+            Error::<T>::UnsupportedAssetType
+        );
+
         let amounts = Self::get_amount_in_by_path(amount_out, path)?;
 
         ensure!(amounts[0] <= amount_in_max, Error::<T>::ExcessiveSoldAmount);

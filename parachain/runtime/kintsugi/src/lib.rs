@@ -16,10 +16,10 @@ use frame_support::{
     dispatch::{DispatchError, DispatchResult},
     traits::{
         ConstU32, Contains, Currency as PalletCurrency, EitherOfDiverse, EnsureOrigin, EnsureOriginWithArg,
-        EqualPrivilegeOnly, ExistenceRequirement, Imbalance, InstanceFilter, OnRuntimeUpgrade, OnUnbalanced,
+        EqualPrivilegeOnly, ExistenceRequirement, Imbalance, InstanceFilter, OnUnbalanced,
     },
     weights::ConstantMultiplier,
-    Blake2_128Concat, PalletId, Twox64Concat,
+    PalletId,
 };
 use frame_system::{
     limits::{BlockLength, BlockWeights},
@@ -235,6 +235,14 @@ impl frame_system::Config for Runtime {
     type MaxConsumers = frame_support::traits::ConstU32<16>;
 }
 
+impl multi_transaction_payment::Config for Runtime {
+    type DexWeightInfo = weights::dex_general::WeightInfo<Runtime>;
+    type RuntimeCall = RuntimeCall;
+    type Currency = NativeCurrency;
+    type OnUnbalanced = DealWithFees<Runtime, GetNativeCurrencyId>;
+    type Dex = DexGeneral;
+}
+
 impl pallet_authorship::Config for Runtime {
     type FindAuthor = pallet_session::FindAccountFromAuthorIndex<Self, Aura>;
     type EventHandler = (CollatorSelection,);
@@ -353,8 +361,7 @@ where
 
 impl pallet_transaction_payment::Config for Runtime {
     type RuntimeEvent = RuntimeEvent;
-    type OnChargeTransaction =
-        pallet_transaction_payment::CurrencyAdapter<NativeCurrency, DealWithFees<Runtime, GetNativeCurrencyId>>;
+    type OnChargeTransaction = MultiTransactionPayment;
     type LengthToFee = ConstantMultiplier<Balance, TransactionByteFee>;
     type WeightToFee = IdentityFee<Balance>;
     type FeeMultiplierUpdate = SlowAdjustingFeeUpdate<Self>;
@@ -1217,6 +1224,8 @@ construct_runtime! {
         Supply: supply::{Pallet, Storage, Call, Event<T>, Config<T>} = 22,
         Vesting: orml_vesting::{Pallet, Storage, Call, Event<T>, Config<T>} = 23,
         AssetRegistry: orml_asset_registry::{Pallet, Storage, Call, Event<T>, Config<T>} = 24,
+        MultiTransactionPayment: multi_transaction_payment::{Pallet, Call, Storage}  = 25,
+
 
         Escrow: escrow::{Pallet, Call, Storage, Event<T>} = 30,
         EscrowAnnuity: annuity::<Instance1>::{Pallet, Call, Storage, Event<T>} = 31,

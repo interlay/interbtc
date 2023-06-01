@@ -7,6 +7,12 @@ pub trait ValidateAsset<AssetId> {
     fn validate_asset(a: &AssetId) -> bool;
 }
 
+impl<AssetId> ValidateAsset<AssetId> for () {
+    fn validate_asset(_a: &AssetId) -> bool {
+        true
+    }
+}
+
 pub trait GenerateLpAssetId<AssetId> {
     fn generate_lp_asset_id(asset_0: AssetId, asset_1: AssetId) -> Option<AssetId>;
 }

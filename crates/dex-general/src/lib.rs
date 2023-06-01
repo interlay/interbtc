@@ -730,11 +730,6 @@ pub mod pallet {
             recipient: <T::Lookup as StaticLookup>::Source,
             #[pallet::compact] deadline: T::BlockNumber,
         ) -> DispatchResult {
-            ensure!(
-                path.iter().all(|id| T::EnsurePairAsset::validate_asset(&id)),
-                Error::<T>::UnsupportedAssetType
-            );
-
             let who = ensure_signed(origin)?;
             let recipient = T::Lookup::lookup(recipient)?;
             let now = frame_system::Pallet::<T>::block_number();
