@@ -18,6 +18,7 @@ pub fn request_issue(
 pub struct RequestIssueBuilder {
     amount_btc: Balance,
     vault_id: VaultId,
+    griefing_currency: CurrencyId,
     user: [u8; 32],
 }
 
@@ -27,6 +28,7 @@ impl RequestIssueBuilder {
             amount_btc: amount_btc.amount(),
             vault_id: vault_id.clone(),
             user: USER,
+            griefing_currency: DEFAULT_GRIEFING_CURRENCY,
         }
     }
 
@@ -40,6 +42,11 @@ impl RequestIssueBuilder {
         self
     }
 
+    pub fn with_griefing_currency(&mut self, currency: CurrencyId) -> &mut Self {
+        self.griefing_currency = currency;
+        self
+    }
+
     pub fn request(&self) -> (H256, IssueRequest<AccountId32, BlockNumber, Balance, CurrencyId>) {
         try_register_vault(
             Amount::new(DEFAULT_COLLATERAL, self.vault_id.collateral_currency()),
@@ -49,6 +56,7 @@ impl RequestIssueBuilder {
         assert_ok!(RuntimeCall::Issue(IssueCall::request_issue {
             amount: self.amount_btc,
             vault_id: self.vault_id.clone(),
+            griefing_currency: self.griefing_currency,
         })
         .dispatch(origin_of(account_of(self.user))));
 

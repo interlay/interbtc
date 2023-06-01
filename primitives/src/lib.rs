@@ -136,6 +136,8 @@ pub mod issue {
         #[cfg_attr(feature = "std", serde(serialize_with = "serialize_as_string"))]
         /// the collateral held for spam prevention
         pub griefing_collateral: Balance,
+        /// The currency used for the griefing collateral
+        pub griefing_currency: CurrencyId,
         #[cfg_attr(feature = "std", serde(bound(deserialize = "Balance: std::str::FromStr")))]
         #[cfg_attr(feature = "std", serde(deserialize_with = "deserialize_from_string"))]
         #[cfg_attr(feature = "std", serde(bound(serialize = "Balance: std::fmt::Display")))]

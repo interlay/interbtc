@@ -157,6 +157,7 @@ mod request_issue_tests {
                 RuntimeCall::Issue(IssueCall::request_issue {
                     amount: 0,
                     vault_id: dummy_vault_id_of(),
+                    griefing_currency: DEFAULT_GRIEFING_CURRENCY,
                 })
                 .dispatch(origin_of(account_of(USER))),
                 IssueError::WaitingForRelayerInitialization
@@ -170,6 +171,7 @@ mod request_issue_tests {
                 RuntimeCall::Issue(IssueCall::request_issue {
                     amount: 0,
                     vault_id: dummy_vault_id_of(),
+                    griefing_currency: DEFAULT_GRIEFING_CURRENCY,
                 })
                 .dispatch(origin_of(account_of(USER))),
                 IssueError::WaitingForRelayerInitialization
@@ -187,6 +189,7 @@ mod request_issue_tests {
                 RuntimeCall::Issue(IssueCall::request_issue {
                     amount: amount,
                     vault_id: vault_id,
+                    griefing_currency: DEFAULT_GRIEFING_CURRENCY,
                 })
                 .dispatch(origin_of(account_of(USER))),
                 VaultRegistryError::VaultNotFound
@@ -207,6 +210,7 @@ mod request_issue_tests {
                 RuntimeCall::Issue(IssueCall::request_issue {
                     amount: 1000,
                     vault_id: vault_id.clone(),
+                    griefing_currency: DEFAULT_GRIEFING_CURRENCY,
                 })
                 .dispatch(origin_of(account_of(USER))),
                 IssueError::VaultNotAcceptingNewIssues
@@ -223,6 +227,7 @@ mod request_issue_tests {
                 RuntimeCall::Issue(IssueCall::request_issue {
                     amount: amount.amount(),
                     vault_id: vault_id,
+                    griefing_currency: DEFAULT_GRIEFING_CURRENCY,
                 })
                 .dispatch(origin_of(account_of(USER))),
                 IssueError::AmountBelowDustAmount
@@ -256,6 +261,7 @@ mod request_issue_tests {
                 RuntimeCall::Issue(IssueCall::request_issue {
                     amount: amount.amount(),
                     vault_id: vault_id,
+                    griefing_currency: DEFAULT_GRIEFING_CURRENCY,
                 })
                 .dispatch(origin_of(account_of(USER))),
                 VaultRegistryError::ExceedingVaultLimit
@@ -287,6 +293,7 @@ mod request_issue_tests {
             assert_ok!(RuntimeCall::Issue(IssueCall::request_issue {
                 amount: amount.amount(),
                 vault_id: vault_id.clone(),
+                griefing_currency: DEFAULT_GRIEFING_CURRENCY,
             })
             .dispatch(origin_of(account_of(USER))));
         });
@@ -327,6 +334,7 @@ mod request_issue_tests {
                 RuntimeCall::Issue(IssueCall::request_issue {
                     amount: amount.amount(),
                     vault_id: vault_id.clone(),
+                    griefing_currency: DEFAULT_GRIEFING_CURRENCY,
                 })
                 .dispatch(origin_of(account_of(USER))),
                 VaultRegistryError::ExceedingVaultLimit
@@ -335,6 +343,7 @@ mod request_issue_tests {
                 RuntimeCall::Issue(IssueCall::request_issue {
                     amount: original_amount.amount(),
                     vault_id: vault_id,
+                    griefing_currency: DEFAULT_GRIEFING_CURRENCY,
                 })
                 .dispatch(origin_of(account_of(USER))),
                 VaultRegistryError::ExceedingVaultLimit
@@ -363,6 +372,7 @@ mod request_issue_tests {
                 RuntimeCall::Issue(IssueCall::request_issue {
                     amount: amount_btc.amount(),
                     vault_id: vault_id.clone(),
+                    griefing_currency: DEFAULT_GRIEFING_CURRENCY,
                 })
                 .dispatch(origin_of(account_of(USER))),
                 TokensError::BalanceTooLow
@@ -404,6 +414,7 @@ mod request_issue_tests {
                 opentime: current_block,
                 period: IssuePallet::issue_period(),
                 griefing_collateral: expected_griefing_collateral.amount(),
+                griefing_currency: DEFAULT_GRIEFING_CURRENCY,
                 amount: (amount_btc - expected_fee).amount(),
                 fee: expected_fee.amount(),
                 requester: account_of(USER),
@@ -440,6 +451,7 @@ mod request_issue_tests {
             assert_ok!(RuntimeCall::Issue(IssueCall::request_issue {
                 amount: amount_btc.amount(),
                 vault_id: different_collateral_vault_id.clone(),
+                griefing_currency: DEFAULT_GRIEFING_CURRENCY,
             })
             .dispatch(origin_of(account_of(ALICE))));
         });
@@ -465,6 +477,7 @@ fn integration_test_issue_wrapped_execute_succeeds() {
         RuntimeCall::Issue(IssueCall::request_issue {
             amount: amount_btc.amount(),
             vault_id: vault_id,
+            griefing_currency: DEFAULT_GRIEFING_CURRENCY,
         })
         .dispatch(origin_of(account_of(USER)));
 
@@ -535,6 +548,7 @@ fn integration_test_withdraw_after_request_issue() {
         assert_ok!(RuntimeCall::Issue(IssueCall::request_issue {
             amount: amount_btc.amount(),
             vault_id: vault_id.clone(),
+            griefing_currency: DEFAULT_GRIEFING_CURRENCY,
         })
         .dispatch(origin_of(account_of(ALICE))));
 
@@ -542,6 +556,7 @@ fn integration_test_withdraw_after_request_issue() {
         assert!(RuntimeCall::Issue(IssueCall::request_issue {
             amount: amount_btc.amount(),
             vault_id: vault_id.clone(),
+            griefing_currency: DEFAULT_GRIEFING_CURRENCY,
         })
         .dispatch(origin_of(account_of(ALICE)))
         .is_err());
@@ -667,31 +682,35 @@ mod execute_pending_issue_tests {
     #[test]
     fn integration_test_issue_execute_postcond_exact_payment() {
         test_with_initialized_vault(|vault_id| {
-            let requested_btc = vault_id.wrapped(1000);
-            let (issue_id, issue) = request_issue(&vault_id, requested_btc);
-            let post_request_state = ParachainState::get(&vault_id);
+            for griefing_currency in [DEFAULT_GRIEFING_CURRENCY, vault_id.collateral_currency()] {
+                let requested_btc = vault_id.wrapped(1000);
+                let (issue_id, issue) = RequestIssueBuilder::new(&vault_id, requested_btc)
+                    .with_griefing_currency(griefing_currency)
+                    .request();
+                let post_request_state = ParachainState::get(&vault_id);
 
-            ExecuteIssueBuilder::new(issue_id).assert_execute();
+                ExecuteIssueBuilder::new(issue_id).assert_execute();
 
-            // user balances are updated, tokens are minted and fees paid
-            assert_eq!(
-                ParachainState::get(&vault_id),
-                post_request_state.with_changes(|user, vault, _, fee_pool| {
-                    (*user.balances.get_mut(&DEFAULT_GRIEFING_CURRENCY).unwrap()).locked -= issue.griefing_collateral();
-                    (*user.balances.get_mut(&DEFAULT_GRIEFING_CURRENCY).unwrap()).free += issue.griefing_collateral();
-                    (*user.balances.get_mut(&vault_id.wrapped_currency()).unwrap()).free += issue.amount();
+                // user balances are updated, tokens are minted and fees paid
+                assert_eq!(
+                    ParachainState::get(&vault_id),
+                    post_request_state.with_changes(|user, vault, _, fee_pool| {
+                        (*user.balances.get_mut(&griefing_currency).unwrap()).locked -= issue.griefing_collateral();
+                        (*user.balances.get_mut(&griefing_currency).unwrap()).free += issue.griefing_collateral();
+                        (*user.balances.get_mut(&vault_id.wrapped_currency()).unwrap()).free += issue.amount();
 
-                    *fee_pool.rewards_for(&vault_id) += issue.fee();
-                    vault.issued += requested_btc;
-                    vault.to_be_issued -= requested_btc;
-                })
-            );
+                        *fee_pool.rewards_for(&vault_id) += issue.fee();
+                        vault.issued += requested_btc;
+                        vault.to_be_issued -= requested_btc;
+                    })
+                );
 
-            // issue request is updated: status is complete
-            assert_eq!(
-                IssuePallet::issue_requests(issue_id).unwrap().status,
-                IssueRequestStatus::Completed
-            );
+                // issue request is updated: status is complete
+                assert_eq!(
+                    IssuePallet::issue_requests(issue_id).unwrap().status,
+                    IssueRequestStatus::Completed
+                );
+            }
         });
     }
 
@@ -699,69 +718,74 @@ mod execute_pending_issue_tests {
     #[test]
     fn integration_test_issue_execute_postcond_underpayment() {
         test_with_initialized_vault(|vault_id| {
-            let requested_btc = vault_id.wrapped(400_000);
-            let (issue_id, issue) = request_issue(&vault_id, requested_btc);
-            let sent_btc = (issue.amount() + issue.fee()) / 4;
+            for griefing_currency in [DEFAULT_GRIEFING_CURRENCY, vault_id.collateral_currency()] {
+                let requested_btc = vault_id.wrapped(400_000);
+                let (issue_id, issue) = RequestIssueBuilder::new(&vault_id, requested_btc)
+                    .with_griefing_currency(griefing_currency)
+                    .request();
+                let sent_btc = (issue.amount() + issue.fee()) / 4;
 
-            let post_request_state = ParachainState::get(&vault_id);
+                let post_request_state = ParachainState::get(&vault_id);
 
-            // need stake for rewards to deposit
-            let stake: u128 = VaultRewardsPallet::get_stake(&vault_id.collateral_currency(), &vault_id).unwrap();
-            assert!(stake > 0u128);
+                // need stake for rewards to deposit
+                let stake: u128 = VaultRewardsPallet::get_stake(&vault_id.collateral_currency(), &vault_id).unwrap();
+                assert!(stake > 0u128);
 
-            ExecuteIssueBuilder::new(issue_id)
-                .with_amount(sent_btc)
-                .with_submitter(account_of(USER), None)
-                .assert_execute();
+                ExecuteIssueBuilder::new(issue_id)
+                    .with_amount(sent_btc)
+                    .with_submitter(account_of(USER), None)
+                    .assert_execute();
 
-            let slashed_griefing_collateral = (issue.griefing_collateral() * 3) / 4;
-            let returned_griefing_collateral = issue.griefing_collateral() - slashed_griefing_collateral;
+                let slashed_griefing_collateral = (issue.griefing_collateral() * 3) / 4;
+                let returned_griefing_collateral = issue.griefing_collateral() - slashed_griefing_collateral;
 
-            // user balances are updated, tokens are minted and fees paid
-            assert_eq!(
-                ParachainState::get(&vault_id),
-                post_request_state.with_changes(|user, vault, _, fee_pool| {
-                    // user loses 75% of griefing collateral for having only fulfilled 25%
-                    (*user.balances.get_mut(&DEFAULT_GRIEFING_CURRENCY).unwrap()).locked -= issue.griefing_collateral();
-                    (*user.balances.get_mut(&DEFAULT_GRIEFING_CURRENCY).unwrap()).free += returned_griefing_collateral;
-                    // TODO: check treasury balance includes griefing collateral
+                // user balances are updated, tokens are minted and fees paid
+                assert_eq!(
+                    ParachainState::get(&vault_id),
+                    post_request_state.with_changes(|user, vault, _, fee_pool| {
+                        // user loses 75% of griefing collateral for having only fulfilled 25%
+                        (*user.balances.get_mut(&griefing_currency).unwrap()).locked -= issue.griefing_collateral();
+                        (*user.balances.get_mut(&griefing_currency).unwrap()).free += returned_griefing_collateral;
+                        // TODO: check treasury balance includes griefing collateral
 
-                    // token updating as if only 25% was requested
-                    (*user.balances.get_mut(&vault_id.wrapped_currency()).unwrap()).free += issue.amount() / 4;
-                    *fee_pool.rewards_for(&vault_id) += issue.fee() / 4;
-                    vault.issued += (issue.fee() + issue.amount()) / 4;
-                    vault.to_be_issued -= issue.fee() + issue.amount(); // decrease to sent_btc and then decrease to
-                                                                        // zero
-                                                                        // happens within execute_issue and adds up to
-                                                                        // full
-                                                                        // amount
-                })
-            );
+                        // token updating as if only 25% was requested
+                        (*user.balances.get_mut(&vault_id.wrapped_currency()).unwrap()).free += issue.amount() / 4;
+                        *fee_pool.rewards_for(&vault_id) += issue.fee() / 4;
+                        vault.issued += (issue.fee() + issue.amount()) / 4;
+                        vault.to_be_issued -= issue.fee() + issue.amount(); // decrease to sent_btc and then decrease to
+                                                                            // zero
+                                                                            // happens within execute_issue and adds up
+                                                                            // to
+                                                                            // full
+                                                                            // amount
+                    })
+                );
 
-            assert_issue_amount_change_event(
-                issue_id,
-                issue.amount() / 4,
-                issue.fee() / 4,
-                slashed_griefing_collateral,
-            );
+                assert_issue_amount_change_event(
+                    issue_id,
+                    issue.amount() / 4,
+                    issue.fee() / 4,
+                    slashed_griefing_collateral,
+                );
 
-            // issue request is updated: status is complete, amounts have been adjusted
-            let mut completed_issue = issue;
-            completed_issue.amount /= 4;
-            completed_issue.fee /= 4;
-            completed_issue.status = IssueRequestStatus::Completed;
+                // issue request is updated: status is complete, amounts have been adjusted
+                let mut completed_issue = issue;
+                completed_issue.amount /= 4;
+                completed_issue.fee /= 4;
+                completed_issue.status = IssueRequestStatus::Completed;
 
-            assert_eq!(
-                IssuePallet::issue_requests(issue_id).unwrap().status,
-                IssueRequestStatus::Completed
-            );
-            let user_issues = IssuePallet::get_issue_requests_for_account(account_of(USER));
-            let onchain_issue = user_issues
-                .into_iter()
-                .find(|id| id == &issue_id)
-                .map(|id| IssuePallet::issue_requests(id).unwrap())
-                .unwrap();
-            assert_eq!(onchain_issue, completed_issue);
+                assert_eq!(
+                    IssuePallet::issue_requests(issue_id).unwrap().status,
+                    IssueRequestStatus::Completed
+                );
+                let user_issues = IssuePallet::get_issue_requests_for_account(account_of(USER));
+                let onchain_issue = user_issues
+                    .into_iter()
+                    .find(|id| id == &issue_id)
+                    .map(|id| IssuePallet::issue_requests(id).unwrap())
+                    .unwrap();
+                assert_eq!(onchain_issue, completed_issue);
+            }
         });
     }
 
@@ -770,48 +794,53 @@ mod execute_pending_issue_tests {
     #[test]
     fn integration_test_issue_execute_postcond_overpayment_succeeds() {
         test_with_initialized_vault(|vault_id| {
-            // 2000 so that 0.15% is a nice round number, otherwise we get rounding errors below. E.g. with 1000,
-            // 0.15% would be 1.5, which is rounded to 2. Then when we double the sent amount, the fee is 3 instead
-            // of 4, so we wouldn't quite get exactly double the expected amount.
-            let requested_btc = vault_id.wrapped(2000);
-            let (issue_id, issue) = request_issue(&vault_id, requested_btc);
-            let sent_btc = (issue.amount() + issue.fee()) * 2;
-            let post_request_state = ParachainState::get(&vault_id);
+            for griefing_currency in [DEFAULT_GRIEFING_CURRENCY, vault_id.collateral_currency()] {
+                // 2000 so that 0.15% is a nice round number, otherwise we get rounding errors below. E.g. with 1000,
+                // 0.15% would be 1.5, which is rounded to 2. Then when we double the sent amount, the fee is 3 instead
+                // of 4, so we wouldn't quite get exactly double the expected amount.
+                let requested_btc = vault_id.wrapped(2000);
+                let (issue_id, issue) = RequestIssueBuilder::new(&vault_id, requested_btc)
+                    .with_griefing_currency(griefing_currency)
+                    .request();
 
-            ExecuteIssueBuilder::new(issue_id)
-                .with_amount(sent_btc)
-                .assert_execute();
+                let sent_btc = (issue.amount() + issue.fee()) * 2;
+                let post_request_state = ParachainState::get(&vault_id);
 
-            // user balances are updated, tokens are minted and fees paid
-            assert_eq!(
-                ParachainState::get(&vault_id),
-                post_request_state.with_changes(|user, vault, _, fee_pool| {
-                    (*user.balances.get_mut(&DEFAULT_GRIEFING_CURRENCY).unwrap()).locked -= issue.griefing_collateral();
-                    (*user.balances.get_mut(&DEFAULT_GRIEFING_CURRENCY).unwrap()).free += issue.griefing_collateral();
-                    (*user.balances.get_mut(&vault_id.wrapped_currency()).unwrap()).free += issue.amount() * 2;
+                ExecuteIssueBuilder::new(issue_id)
+                    .with_amount(sent_btc)
+                    .assert_execute();
 
-                    *fee_pool.rewards_for(&vault_id) += issue.fee() * 2;
-                    vault.issued += sent_btc;
-                    vault.to_be_issued -= requested_btc; // increase to sent_btc and decrease back to zero happens
-                                                         // within execute_issue and cancels out
-                })
-            );
+                // user balances are updated, tokens are minted and fees paid
+                assert_eq!(
+                    ParachainState::get(&vault_id),
+                    post_request_state.with_changes(|user, vault, _, fee_pool| {
+                        (*user.balances.get_mut(&griefing_currency).unwrap()).locked -= issue.griefing_collateral();
+                        (*user.balances.get_mut(&griefing_currency).unwrap()).free += issue.griefing_collateral();
+                        (*user.balances.get_mut(&vault_id.wrapped_currency()).unwrap()).free += issue.amount() * 2;
 
-            assert_issue_amount_change_event(issue_id, issue.amount() * 2, issue.fee() * 2, griefing(0));
+                        *fee_pool.rewards_for(&vault_id) += issue.fee() * 2;
+                        vault.issued += sent_btc;
+                        vault.to_be_issued -= requested_btc; // increase to sent_btc and decrease back to zero happens
+                                                             // within execute_issue and cancels out
+                    })
+                );
 
-            // issue request is updated: status is complete, amounts have been adjusted
-            let mut completed_issue = issue;
-            completed_issue.amount *= 2;
-            completed_issue.fee *= 2;
-            completed_issue.status = IssueRequestStatus::Completed;
+                assert_issue_amount_change_event(issue_id, issue.amount() * 2, issue.fee() * 2, griefing(0));
 
-            let user_issues = IssuePallet::get_issue_requests_for_account(account_of(USER));
-            let onchain_issue = user_issues
-                .into_iter()
-                .find(|id| id == &issue_id)
-                .map(|id| IssuePallet::issue_requests(id).unwrap())
-                .unwrap();
-            assert_eq!(onchain_issue, completed_issue);
+                // issue request is updated: status is complete, amounts have been adjusted
+                let mut completed_issue = issue;
+                completed_issue.amount *= 2;
+                completed_issue.fee *= 2;
+                completed_issue.status = IssueRequestStatus::Completed;
+
+                let user_issues = IssuePallet::get_issue_requests_for_account(account_of(USER));
+                let onchain_issue = user_issues
+                    .into_iter()
+                    .find(|id| id == &issue_id)
+                    .map(|id| IssuePallet::issue_requests(id).unwrap())
+                    .unwrap();
+                assert_eq!(onchain_issue, completed_issue);
+            }
         });
     }
 

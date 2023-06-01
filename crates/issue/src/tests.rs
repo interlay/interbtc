@@ -26,7 +26,7 @@ fn request_issue(origin: AccountId, amount: Balance, vault: DefaultVaultId<Test>
     ext::vault_registry::register_deposit_address::<Test>
         .mock_safe(|_, _| MockResult::Return(Ok(BtcAddress::random())));
 
-    Issue::_request_issue(origin, amount, vault)
+    Issue::_request_issue(origin, amount, vault, DEFAULT_NATIVE_CURRENCY)
 }
 
 fn request_issue_ok(origin: AccountId, amount: Balance, vault: DefaultVaultId<Test>) -> H256 {
@@ -50,7 +50,7 @@ fn request_issue_ok_with_address(
         ext::vault_registry::register_deposit_address::<Test>.mock_raw(|_, _| MockResult::Return(Ok(address)));
     }
 
-    Issue::_request_issue(origin, amount, vault).unwrap()
+    Issue::_request_issue(origin, amount, vault, DEFAULT_NATIVE_CURRENCY).unwrap()
 }
 
 fn execute_issue(origin: AccountId, issue_id: &H256) -> Result<(), DispatchError> {
@@ -122,6 +122,7 @@ fn test_request_issue_succeeds() {
             amount: amount - issue_fee,
             fee: issue_fee,
             griefing_collateral: issue_griefing_collateral,
+            griefing_currency: DEFAULT_NATIVE_CURRENCY,
             vault_id: vault,
             vault_address: address,
             vault_public_key: BtcPublicKey::default(),
