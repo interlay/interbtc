@@ -236,6 +236,14 @@ impl frame_system::Config for Runtime {
     type MaxConsumers = frame_support::traits::ConstU32<16>;
 }
 
+impl multi_transaction_payment::Config for Runtime {
+    type DexWeightInfo = weights::dex_general::WeightInfo<Runtime>;
+    type RuntimeCall = RuntimeCall;
+    type Currency = NativeCurrency;
+    type OnUnbalanced = DealWithFees<Runtime, GetNativeCurrencyId>;
+    type Dex = DexGeneral;
+}
+
 impl pallet_authorship::Config for Runtime {
     type FindAuthor = pallet_session::FindAccountFromAuthorIndex<Self, Aura>;
     type EventHandler = (CollatorSelection,);
@@ -1182,6 +1190,7 @@ construct_runtime! {
         Supply: supply::{Pallet, Storage, Call, Event<T>, Config<T>} = 22,
         Vesting: orml_vesting::{Pallet, Storage, Call, Event<T>, Config<T>} = 23,
         AssetRegistry: orml_asset_registry::{Pallet, Storage, Call, Event<T>, Config<T>} = 24,
+        MultiTransactionPayment: multi_transaction_payment::{Pallet, Call, Storage}  = 25,
 
         Escrow: escrow::{Pallet, Call, Storage, Event<T>} = 30,
         EscrowAnnuity: annuity::<Instance1>::{Pallet, Call, Storage, Event<T>} = 31,

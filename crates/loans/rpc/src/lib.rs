@@ -29,7 +29,7 @@ use primitives::{CurrencyId, Liquidity, Rate, Ratio, Shortfall};
 use sp_api::ProvideRuntimeApi;
 use sp_blockchain::HeaderBackend;
 use sp_rpc::number::NumberOrHex;
-use sp_runtime::{generic::BlockId, traits::Block as BlockT, FixedU128};
+use sp_runtime::{traits::Block as BlockT, FixedU128};
 
 #[rpc(client, server)]
 pub trait LoansApi<BlockHash, AccountId, Balance>

@@ -9,10 +9,7 @@ use jsonrpsee::{
 use oracle_rpc_runtime_api::BalanceWrapper;
 use sp_api::{ApiError, ProvideRuntimeApi};
 use sp_blockchain::HeaderBackend;
-use sp_runtime::{
-    generic::BlockId,
-    traits::{Block as BlockT, MaybeDisplay, MaybeFromStr},
-};
+use sp_runtime::traits::{Block as BlockT, MaybeDisplay, MaybeFromStr};
 use std::sync::Arc;
 
 pub use escrow_rpc_runtime_api::EscrowApi as EscrowRuntimeApi;

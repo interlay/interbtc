@@ -16,11 +16,10 @@ use frame_support::{
     dispatch::{DispatchError, DispatchResult},
     traits::{
         ConstU32, Contains, Currency as PalletCurrency, EitherOfDiverse, EnsureOrigin, EnsureOriginWithArg,
-        EqualPrivilegeOnly, ExistenceRequirement, Imbalance, InstanceFilter, OnRuntimeUpgrade, OnUnbalanced,
-        WithdrawReasons,
+        EqualPrivilegeOnly, ExistenceRequirement, Imbalance, InstanceFilter, OnUnbalanced,
     },
     weights::ConstantMultiplier,
-    Blake2_128Concat, PalletId, Twox64Concat,
+    PalletId,
 };
 use frame_system::{
     limits::{BlockLength, BlockWeights},
@@ -29,16 +28,13 @@ use frame_system::{
 use loans::{OnSlashHook, PostDeposit, PostTransfer, PreDeposit, PreTransfer};
 use orml_asset_registry::SequentialId;
 use orml_traits::{currency::MutationHooks, parameter_type_with_key};
-use pallet_transaction_payment::{Multiplier, OnChargeTransaction, TargetedFeeAdjustment};
+use pallet_transaction_payment::{Multiplier, TargetedFeeAdjustment};
 use sp_api::impl_runtime_apis;
 use sp_core::{OpaqueMetadata, H256};
 use sp_runtime::{
     create_runtime_str, generic, impl_opaque_keys,
-    traits::{
-        AccountIdConversion, BlakeTwo256, Block as BlockT, Bounded, Convert, DispatchInfoOf, IdentityLookup,
-        PostDispatchInfoOf, Zero,
-    },
-    transaction_validity::{InvalidTransaction, TransactionSource, TransactionValidity, TransactionValidityError},
+    traits::{AccountIdConversion, BlakeTwo256, Block as BlockT, Bounded, Convert, IdentityLookup, Zero},
+    transaction_validity::{TransactionSource, TransactionValidity},
     ApplyExtrinsicResult, FixedPointNumber, Perquintill,
 };
 use sp_std::{marker::PhantomData, prelude::*};
