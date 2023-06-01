@@ -58,7 +58,7 @@ pub mod v1 {
         fn pre_upgrade() -> Result<Vec<u8>, &'static str> {
             assert_eq!(StorageVersion::get::<Pallet<T>>(), 0, "can only upgrade from version 0");
 
-            let issue_count = v0::IssueRequests::<T>::get().len();
+            let issue_count = v0::IssueRequests::<T>::iter().count();
             log::info!(target: TARGET, "{} issues will be migrated.", issue_count,);
 
             Ok((issue_count as u32).encode())
@@ -106,7 +106,7 @@ pub mod v1 {
 
             let old_issue_count: u32 =
                 Decode::decode(&mut &state[..]).expect("pre_upgrade provides a valid state; qed");
-            let new_count = crate::IssueRequests::<T>::get().len() as u32;
+            let new_count = crate::IssueRequests::<T>::iter().count() as u32;
             assert_eq!(new_count, old_issue_count, "must migrate all issues");
 
             log::info!(target: TARGET, "{} issues migrated", new_count,);

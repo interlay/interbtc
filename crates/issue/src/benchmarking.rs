@@ -138,6 +138,7 @@ fn setup_issue<T: crate::Config>(
         btc_public_key: Default::default(),
         fee: Default::default(),
         griefing_collateral: Default::default(),
+        griefing_currency: get_native_currency_id::<T>(),
         opentime: Default::default(),
         period: Default::default(),
         status: Default::default(),
@@ -209,7 +210,12 @@ pub mod benchmarks {
         );
 
         #[extrinsic_call]
-        request_issue(RawOrigin::Signed(origin), amount, vault_id);
+        request_issue(
+            RawOrigin::Signed(origin),
+            amount,
+            vault_id,
+            get_native_currency_id::<T>(),
+        );
     }
 
     #[benchmark]

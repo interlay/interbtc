@@ -1320,6 +1320,7 @@ pub type Executive = frame_executive::Executive<
         orml_asset_registry::Migration<Runtime>,
         orml_unknown_tokens::Migration<Runtime>,
         dex::SetLoansExchangeRates,
+        issue::migration::v1::Migration<Runtime>,
     ),
 >;
 
