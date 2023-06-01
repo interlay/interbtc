@@ -242,7 +242,7 @@ pub mod benchmarks {
 
     // This measures the path of `launch_next` public. Not currently used as we simply
     // assume the weight is `MaxBlockWeight` when executing.
-    #[benchmark(extra)]
+    #[benchmark]
     pub fn on_initialize_public(r: Linear<0, 99>) -> Result<(), BenchmarkError> {
         for i in 0..r {
             add_referendum::<T>(i);
