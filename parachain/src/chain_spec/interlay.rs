@@ -123,7 +123,7 @@ pub fn interlay_mainnet_config() -> InterlayChainSpec {
     )
 }
 
-fn interlay_mainnet_genesis(
+pub fn interlay_mainnet_genesis(
     invulnerables: Vec<(AccountId, AuraId)>,
     authorized_oracles: Vec<(AccountId, interlay_runtime::OracleName)>,
     endowed_accounts: Vec<AccountId>,
