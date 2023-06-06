@@ -4,7 +4,7 @@ use primitives::Rate;
 
 pub const PARA_ID: u32 = 2092;
 
-fn kintsugi_properties() -> Map<String, Value> {
+pub fn kintsugi_properties() -> Map<String, Value> {
     let mut properties = Map::new();
     let mut token_symbol: Vec<String> = vec![];
     let mut token_decimals: Vec<u32> = vec![];
@@ -127,7 +127,7 @@ pub fn kintsugi_mainnet_config() -> KintsugiChainSpec {
     )
 }
 
-fn kintsugi_mainnet_genesis(
+pub fn kintsugi_mainnet_genesis(
     invulnerables: Vec<(AccountId, AuraId)>,
     authorized_oracles: Vec<(AccountId, kintsugi_runtime::OracleName)>,
     endowed_accounts: Vec<AccountId>,
