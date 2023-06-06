@@ -51,12 +51,6 @@ new_runtime_executor!(InterlayRuntimeExecutor, interlay_runtime);
 // Native kintsugi executor instance.
 new_runtime_executor!(KintsugiRuntimeExecutor, kintsugi_runtime);
 
-// Native testnet executor instance.
-new_runtime_executor!(TestnetKintsugiRuntimeExecutor, testnet_kintsugi_runtime);
-
-// Native testnet executor instance.
-new_runtime_executor!(TestnetInterlayRuntimeExecutor, testnet_interlay_runtime);
-
 pub trait RuntimeApiCollection:
     sp_transaction_pool::runtime_api::TaggedTransactionQueue<Block>
     + sp_api::Metadata<Block>
