@@ -73,7 +73,10 @@ pub fn staging_mainnet_config(benchmarking: bool) -> InterlayChainSpec {
             genesis.sudo.key = Some(get_account_id_from_string(
                 "5Ec37KSdjSbGKoQN4evLXrZskjc7jxXYrowPHEtH2MzRC7mv",
             ));
-
+            genesis.btc_relay.bitcoin_confirmations = DEFAULT_BITCOIN_CONFIRMATIONS;
+            genesis.btc_relay.parachain_confirmations = DEFAULT_BITCOIN_CONFIRMATIONS.saturating_mul(testnet_kintsugi_runtime::BITCOIN_BLOCK_SPACING);
+            genesis.btc_relay.disable_difficulty_check = true;
+            
             genesis
         },
         Vec::new(),
