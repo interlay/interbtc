@@ -33,10 +33,10 @@ decl_test_parachain! {
 
 decl_test_parachain! {
     pub struct Sibling {
-        Runtime = testnet_kintsugi_runtime_parachain::Runtime,
-        RuntimeOrigin = testnet_kintsugi_runtime_parachain::RuntimeOrigin,
-        XcmpMessageHandler = testnet_kintsugi_runtime_parachain::XcmpQueue,
-        DmpMessageHandler = testnet_kintsugi_runtime_parachain::DmpQueue,
+        Runtime = kintsugi_runtime_parachain::Runtime,
+        RuntimeOrigin = kintsugi_runtime_parachain::RuntimeOrigin,
+        XcmpMessageHandler = kintsugi_runtime_parachain::XcmpQueue,
+        DmpMessageHandler = kintsugi_runtime_parachain::DmpQueue,
         new_ext = para_ext(SIBLING_PARA_ID),
     }
 }
