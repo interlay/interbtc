@@ -33,13 +33,14 @@ pub fn kintsugi_dev_config() -> KintsugiChainSpec {
         "kintsugi",
         ChainType::Live,
         move || {
-            kintsugi_mainnet_genesis(
+            kintsugi_genesis(
                 vec![get_authority_keys_from_seed("Alice")],
                 vec![(
                     get_account_id_from_seed::<sr25519::Public>("Bob"),
                     BoundedVec::truncate_from("Bob".as_bytes().to_vec()),
                 )],
                 vec![get_account_id_from_seed::<sr25519::Public>("Alice")],
+                Some(get_account_id_from_seed::<sr25519::Public>("Alice")),
                 id,
                 1,
             )
@@ -63,7 +64,7 @@ pub fn kintsugi_mainnet_config() -> KintsugiChainSpec {
         "kintsugi",
         ChainType::Live,
         move || {
-            kintsugi_mainnet_genesis(
+            kintsugi_genesis(
                 vec![
                     // 5DyzufhT1Ynxk9uxrWHjrVuap8oB4Zz7uYdquZHxFxvYBovd (//authority/0)
                     get_authority_keys_from_public_key(hex![
@@ -111,6 +112,7 @@ pub fn kintsugi_mainnet_config() -> KintsugiChainSpec {
                     BoundedVec::truncate_from("Interlay".as_bytes().to_vec()),
                 )],
                 vec![], // no endowed accounts
+                None,   // no sudo key
                 id,
                 SECURE_BITCOIN_CONFIRMATIONS,
             )
@@ -127,10 +129,11 @@ pub fn kintsugi_mainnet_config() -> KintsugiChainSpec {
     )
 }
 
-pub fn kintsugi_mainnet_genesis(
+pub fn kintsugi_genesis(
     invulnerables: Vec<(AccountId, AuraId)>,
     authorized_oracles: Vec<(AccountId, kintsugi_runtime::OracleName)>,
     endowed_accounts: Vec<AccountId>,
+    root_key: Option<AccountId>,
     id: ParaId,
     bitcoin_confirmations: u32,
 ) -> kintsugi_runtime::GenesisConfig {
@@ -265,7 +268,7 @@ pub fn kintsugi_mainnet_genesis(
         polkadot_xcm: kintsugi_runtime::PolkadotXcmConfig {
             safe_xcm_version: Some(3),
         },
-        sudo: Default::default(),
+        sudo: kintsugi_runtime::SudoConfig { key: root_key },
         loans: LoansConfig {
             max_exchange_rate: Rate::from_inner(loans::DEFAULT_MAX_EXCHANGE_RATE),
             min_exchange_rate: Rate::from_inner(loans::DEFAULT_MIN_EXCHANGE_RATE),

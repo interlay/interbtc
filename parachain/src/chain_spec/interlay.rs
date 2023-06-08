@@ -33,13 +33,14 @@ pub fn interlay_dev_config() -> InterlayChainSpec {
         "interlay",
         ChainType::Live,
         move || {
-            interlay_mainnet_genesis(
+            interlay_genesis(
                 vec![get_authority_keys_from_seed("Alice")],
                 vec![(
                     get_account_id_from_seed::<sr25519::Public>("Bob"),
                     BoundedVec::truncate_from("Bob".as_bytes().to_vec()),
                 )],
                 vec![get_account_id_from_seed::<sr25519::Public>("Alice")],
+                Some(get_account_id_from_seed::<sr25519::Public>("Alice")),
                 id,
                 1,
             )
@@ -63,7 +64,7 @@ pub fn interlay_mainnet_config() -> InterlayChainSpec {
         "interlay",
         ChainType::Live,
         move || {
-            interlay_mainnet_genesis(
+            interlay_genesis(
                 vec![
                     // 5CDEceADNMhAgHBCDnb7Ls1YZKgwe2z3qmcwNHTeAFr5dGrW (//authority/1)
                     get_authority_keys_from_public_key(hex![
@@ -107,6 +108,7 @@ pub fn interlay_mainnet_config() -> InterlayChainSpec {
                     BoundedVec::truncate_from("Interlay".as_bytes().to_vec()),
                 )],
                 vec![], // no endowed accounts
+                None,   // no sudo key
                 id,
                 SECURE_BITCOIN_CONFIRMATIONS,
             )
@@ -123,10 +125,11 @@ pub fn interlay_mainnet_config() -> InterlayChainSpec {
     )
 }
 
-pub fn interlay_mainnet_genesis(
+pub fn interlay_genesis(
     invulnerables: Vec<(AccountId, AuraId)>,
     authorized_oracles: Vec<(AccountId, interlay_runtime::OracleName)>,
     endowed_accounts: Vec<AccountId>,
+    root_key: Option<AccountId>,
     id: ParaId,
     bitcoin_confirmations: u32,
 ) -> interlay_runtime::GenesisConfig {
@@ -237,7 +240,7 @@ pub fn interlay_mainnet_genesis(
         polkadot_xcm: interlay_runtime::PolkadotXcmConfig {
             safe_xcm_version: Some(3),
         },
-        sudo: Default::default(),
+        sudo: interlay_runtime::SudoConfig { key: root_key },
         loans: LoansConfig {
             max_exchange_rate: Rate::from_inner(loans::DEFAULT_MAX_EXCHANGE_RATE),
             min_exchange_rate: Rate::from_inner(loans::DEFAULT_MIN_EXCHANGE_RATE),
