@@ -70,7 +70,6 @@ fn load_spec(id: &str) -> std::result::Result<Box<dyn sc_service::ChainSpec>, St
     Ok(match id {
         "" => Box::new(chain_spec::testnet_kintsugi::local_config(DEFAULT_PARA_ID.into())),
         "dev" => Box::new(chain_spec::testnet_kintsugi::development_config(DEFAULT_PARA_ID.into())),
-
         "kintsugi-dev" | "kintsugi-bench" => Box::new(chain_spec::kintsugi::kintsugi_dev_config()),
         "kintsugi-latest" => Box::new(chain_spec::kintsugi::kintsugi_mainnet_config()),
         "kintsugi" => Box::new(chain_spec::KintsugiChainSpec::from_json_bytes(
@@ -81,8 +80,12 @@ fn load_spec(id: &str) -> std::result::Result<Box<dyn sc_service::ChainSpec>, St
         "interlay" => Box::new(chain_spec::InterlayChainSpec::from_json_bytes(
             &include_bytes!("../res/interlay.json")[..],
         )?),
-        "kintsugi-staging" => Box::new(chain_spec::testnet_kintsugi::staging_mainnet_config(false)),
-        "interlay-staging" => Box::new(chain_spec::testnet_interlay::staging_mainnet_config(false)),
+        "kintsugi-staging" | "kintsugi-testnet-latest" => {
+            Box::new(chain_spec::testnet_kintsugi::staging_mainnet_config(false))
+        }
+        "interlay-staging" | "interlay-testnet-latest" => {
+            Box::new(chain_spec::testnet_interlay::staging_mainnet_config(false))
+        }
         path => {
             let chain_spec = chain_spec::DummyChainSpec::from_json_file(path.into())?;
             if chain_spec.is_interlay() {
