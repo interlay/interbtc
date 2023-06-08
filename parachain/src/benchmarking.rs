@@ -14,16 +14,8 @@ macro_rules! with_runtime {
                 use kintsugi_runtime as runtime;
                 $codeblock
             }
-            SelectedRuntime::KintsugiTestnet => {
-                use testnet_kintsugi_runtime as runtime;
-                $codeblock
-            }
             SelectedRuntime::Interlay => {
                 use interlay_runtime as runtime;
-                $codeblock
-            }
-            SelectedRuntime::InterlayTestnet => {
-                use testnet_interlay_runtime as runtime;
                 $codeblock
             }
         }
@@ -169,9 +161,7 @@ pub fn para_benchmark_inherent_data() -> std::result::Result<sp_inherents::Inher
 #[derive(Clone, Copy)]
 pub(crate) enum SelectedRuntime {
     Kintsugi,
-    KintsugiTestnet,
     Interlay,
-    InterlayTestnet,
 }
 
 impl SelectedRuntime {
@@ -180,10 +170,6 @@ impl SelectedRuntime {
             Ok(Self::Interlay)
         } else if chain_spec.is_kintsugi() {
             Ok(Self::Kintsugi)
-        } else if chain_spec.is_kintsugi_testnet() {
-            Ok(Self::KintsugiTestnet)
-        } else if chain_spec.is_interlay_testnet() {
-            Ok(Self::InterlayTestnet)
         } else {
             Err("Chain doesn't support benchmarking".into())
         }

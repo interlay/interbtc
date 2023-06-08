@@ -525,19 +525,15 @@ fn subscribe_version_notify_works() {
         )));
     });
     Sibling::execute_with(|| {
-        assert!(testnet_interlay_runtime_parachain::System::events()
-            .iter()
-            .any(|r| matches!(
-                r.event,
-                testnet_interlay_runtime_parachain::RuntimeEvent::XcmpQueue(
-                    cumulus_pallet_xcmp_queue::Event::XcmpMessageSent { message_hash: Some(_) }
-                ) | testnet_interlay_runtime_parachain::RuntimeEvent::XcmpQueue(
-                    cumulus_pallet_xcmp_queue::Event::Success {
-                        message_hash: Some(_),
-                        weight: _
-                    }
-                )
-            )));
+        assert!(interlay_runtime_parachain::System::events().iter().any(|r| matches!(
+            r.event,
+            interlay_runtime_parachain::RuntimeEvent::XcmpQueue(cumulus_pallet_xcmp_queue::Event::XcmpMessageSent {
+                message_hash: Some(_)
+            }) | interlay_runtime_parachain::RuntimeEvent::XcmpQueue(cumulus_pallet_xcmp_queue::Event::Success {
+                message_hash: Some(_),
+                weight: _
+            })
+        )));
     });
 }
 

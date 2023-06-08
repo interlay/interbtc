@@ -28,8 +28,6 @@ regex = "1.5.6"
 # Parachain dependencies
 interlay-runtime = { package = "interlay-runtime-parachain", path = "./runtime/interlay" }
 kintsugi-runtime = { package = "kintsugi-runtime-parachain", path = "./runtime/kintsugi" }
-testnet-kintsugi-runtime = { package = "testnet-kintsugi-runtime-parachain", path = "./runtime/testnet-kintsugi" }
-testnet-interlay-runtime = { package = "testnet-interlay-runtime-parachain", path = "./runtime/testnet-interlay" }
 runtime-common = { package = "runtime-common", path = "./runtime/common" }
 interbtc-rpc = { path = "../rpc" }
 bitcoin = { path = "../crates/bitcoin" }
@@ -121,8 +119,6 @@ try-runtime = [
     "try-runtime-cli/try-runtime", 
     "interlay-runtime/try-runtime",
     "kintsugi-runtime/try-runtime",
-    "testnet-interlay-runtime/try-runtime",
-    "testnet-kintsugi-runtime/try-runtime",
     "runtime-common/try-runtime",
     "frame-system/try-runtime",
     "pallet-transaction-payment/try-runtime"
@@ -133,8 +129,6 @@ runtime-benchmarks = [
     "frame-system/runtime-benchmarks",
     "interlay-runtime/runtime-benchmarks",
     "kintsugi-runtime/runtime-benchmarks",
-    "testnet-interlay-runtime/runtime-benchmarks",
-    "testnet-kintsugi-runtime/runtime-benchmarks",
     "polkadot-service/runtime-benchmarks",
     "polkadot-cli/runtime-benchmarks",
 ]

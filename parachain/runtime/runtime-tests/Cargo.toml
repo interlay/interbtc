@@ -101,8 +101,6 @@ supply = { path = "../../../crates/supply", default-features = false }
 
 kintsugi-runtime-parachain = { path = "../kintsugi", default-features = false }
 interlay-runtime-parachain = { path = "../interlay", default-features = false }
-testnet-kintsugi-runtime-parachain = { path = "../testnet-kintsugi", default-features = false }
-testnet-interlay-runtime-parachain = { path = "../testnet-interlay", default-features = false }
 
 primitives = { package = "interbtc-primitives", path = "../../../primitives", default-features = false }
 
@@ -196,8 +194,6 @@ std = [
 
   "kintsugi-runtime-parachain/std",
   "interlay-runtime-parachain/std",
-  "testnet-kintsugi-runtime-parachain/std",
-  "testnet-interlay-runtime-parachain/std",
 
   "runtime-common/std",
   "btc-relay/std",
