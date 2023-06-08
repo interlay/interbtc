@@ -75,7 +75,7 @@ pub fn staging_mainnet_config(benchmarking: bool) -> InterlayChainSpec {
             ));
             genesis.btc_relay.bitcoin_confirmations = DEFAULT_BITCOIN_CONFIRMATIONS;
             genesis.btc_relay.parachain_confirmations =
-                DEFAULT_BITCOIN_CONFIRMATIONS.saturating_mul(testnet_kintsugi_runtime::BITCOIN_BLOCK_SPACING);
+                DEFAULT_BITCOIN_CONFIRMATIONS.saturating_mul(interlay_runtime::BITCOIN_BLOCK_SPACING);
             genesis.btc_relay.disable_difficulty_check = true;
 
             genesis
