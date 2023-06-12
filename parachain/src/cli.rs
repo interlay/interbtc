@@ -93,8 +93,9 @@ pub struct Cli {
 
     /// Instant block sealing
     ///
-    /// Can only be used with `--dev`
-    #[clap(long = "instant-seal", requires = "dev")]
+    /// This flag requires `--dev` **or** `--chain=...`,
+    /// `--force-authoring` and `--alice` flags.
+    #[clap(long = "instant-seal")]
     pub instant_seal: bool,
 }
 

@@ -310,7 +310,7 @@ parameter_types! {
 impl pallet_timestamp::Config for Runtime {
     /// A timestamp: milliseconds since the unix epoch.
     type Moment = Moment;
-    type OnTimestampSet = Aura;
+    type OnTimestampSet = runtime_common::MaybeSetTimestamp<Runtime>;
     type MinimumPeriod = MinimumPeriod;
     type WeightInfo = weights::pallet_timestamp::WeightInfo<Runtime>;
 }

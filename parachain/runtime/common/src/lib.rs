@@ -4,9 +4,9 @@ use core::marker::PhantomData;
 use currency::Amount;
 use frame_support::{
     pallet_prelude::Get,
-    traits::{Currency, OnUnbalanced, TryDrop},
+    traits::{Currency, OnTimestampSet, OnUnbalanced, TryDrop},
 };
-use primitives::BlockNumber;
+use primitives::{BlockNumber, UnsignedFixedPoint};
 use sp_runtime::{DispatchError, FixedPointNumber};
 use sp_std::prelude::*;
 
@@ -20,7 +20,6 @@ pub const HOURS: BlockNumber = MINUTES * 60;
 pub const DAYS: BlockNumber = HOURS * 24;
 pub const WEEKS: BlockNumber = DAYS * 7;
 pub const YEARS: BlockNumber = DAYS * 365;
-use primitives::UnsignedFixedPoint;
 
 pub type AccountId<T> = <T as frame_system::Config>::AccountId;
 pub type VaultId<T> = primitives::VaultId<AccountId<T>, currency::CurrencyId<T>>;
@@ -111,5 +110,21 @@ where
     fn on_nonzero_unbalanced(amount: NegImbalance) {
         // Must resolve into existing but better to be safe.
         let _ = NativeCurrency::resolve_creating(&TreasuryAccount::get(), amount);
+    }
+}
+
+pub struct MaybeSetTimestamp<T>(PhantomData<T>);
+
+impl<T> OnTimestampSet<T::Moment> for MaybeSetTimestamp<T>
+where
+    T: frame_system::Config + pallet_aura::Config + pallet_sudo::Config,
+{
+    fn on_timestamp_set(moment: T::Moment) {
+        // key is not set on mainnet
+        if pallet_sudo::Pallet::<T>::key().is_none() {
+            // this hook breaks instant-seal so only call when
+            // using the mainnet configuration
+            <pallet_aura::Pallet<T> as OnTimestampSet<T::Moment>>::on_timestamp_set(moment);
+        }
     }
 }

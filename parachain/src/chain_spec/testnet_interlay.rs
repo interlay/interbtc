@@ -1,5 +1,5 @@
 use super::*;
-use crate::chain_spec::interlay::interlay_mainnet_genesis;
+use crate::chain_spec::interlay::interlay_genesis;
 
 fn testnet_properties(bitcoin_network: &str) -> Map<String, Value> {
     let mut properties = Map::new();
@@ -18,11 +18,11 @@ fn testnet_properties(bitcoin_network: &str) -> Map<String, Value> {
 
 pub fn staging_mainnet_config(benchmarking: bool) -> InterlayChainSpec {
     InterlayChainSpec::from_genesis(
-        "interBTC",
-        "staging_testnet",
+        "Interlay",
+        "interlay",
         ChainType::Live,
         move || {
-            let mut genesis = interlay_mainnet_genesis(
+            let mut genesis = interlay_genesis(
                 vec![
                     // 5EqCiRZGFZ88JCK9FNmak2SkRHSohWpEFpx28vwo5c1m98Xe (//authority/1)
                     get_authority_keys_from_public_key(hex![
@@ -65,14 +65,14 @@ pub fn staging_mainnet_config(benchmarking: bool) -> InterlayChainSpec {
                     vec![]
                 })
                 .collect(),
+                // 5Ec37KSdjSbGKoQN4evLXrZskjc7jxXYrowPHEtH2MzRC7mv (//sudo/1)
+                Some(get_account_id_from_string(
+                    "5Ec37KSdjSbGKoQN4evLXrZskjc7jxXYrowPHEtH2MzRC7mv",
+                )),
                 crate::chain_spec::interlay::PARA_ID.into(),
                 DEFAULT_BITCOIN_CONFIRMATIONS,
             );
 
-            // 5Ec37KSdjSbGKoQN4evLXrZskjc7jxXYrowPHEtH2MzRC7mv (//sudo/1)
-            genesis.sudo.key = Some(get_account_id_from_string(
-                "5Ec37KSdjSbGKoQN4evLXrZskjc7jxXYrowPHEtH2MzRC7mv",
-            ));
             genesis.btc_relay.bitcoin_confirmations = DEFAULT_BITCOIN_CONFIRMATIONS;
             genesis.btc_relay.parachain_confirmations =
                 DEFAULT_BITCOIN_CONFIRMATIONS.saturating_mul(interlay_runtime::BITCOIN_BLOCK_SPACING);

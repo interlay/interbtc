@@ -1,5 +1,5 @@
 use super::*;
-use crate::chain_spec::kintsugi::kintsugi_mainnet_genesis;
+use crate::chain_spec::kintsugi::kintsugi_genesis;
 
 fn testnet_properties(bitcoin_network: &str) -> Map<String, Value> {
     let mut properties = Map::new();
@@ -18,11 +18,11 @@ fn testnet_properties(bitcoin_network: &str) -> Map<String, Value> {
 
 pub fn local_config(id: ParaId) -> KintsugiChainSpec {
     KintsugiChainSpec::from_genesis(
-        "interBTC",
-        "local_testnet",
+        "Kintsugi",
+        "kintsugi",
         ChainType::Local,
         move || {
-            kintsugi_mainnet_genesis(
+            kintsugi_genesis(
                 vec![get_authority_keys_from_seed("Alice")],
                 vec![(
                     get_account_id_from_seed::<sr25519::Public>("Bob"),
@@ -42,6 +42,7 @@ pub fn local_config(id: ParaId) -> KintsugiChainSpec {
                     get_account_id_from_seed::<sr25519::Public>("Eve//stash"),
                     get_account_id_from_seed::<sr25519::Public>("Ferdie//stash"),
                 ],
+                None,
                 id,
                 DEFAULT_BITCOIN_CONFIRMATIONS,
             )
@@ -60,11 +61,11 @@ pub fn local_config(id: ParaId) -> KintsugiChainSpec {
 
 pub fn development_config(id: ParaId) -> KintsugiChainSpec {
     KintsugiChainSpec::from_genesis(
-        "interBTC",
-        "dev_testnet",
+        "Kintsugi",
+        "kintsugi",
         ChainType::Development,
         move || {
-            kintsugi_mainnet_genesis(
+            kintsugi_genesis(
                 vec![get_authority_keys_from_seed("Alice")],
                 vec![
                     (
@@ -94,6 +95,7 @@ pub fn development_config(id: ParaId) -> KintsugiChainSpec {
                     get_account_id_from_seed::<sr25519::Public>("Eve//stash"),
                     get_account_id_from_seed::<sr25519::Public>("Ferdie//stash"),
                 ],
+                Some(get_account_id_from_seed::<sr25519::Public>("Alice")),
                 id,
                 DEFAULT_BITCOIN_CONFIRMATIONS,
             )
@@ -112,13 +114,11 @@ pub fn development_config(id: ParaId) -> KintsugiChainSpec {
 
 pub fn staging_mainnet_config(benchmarking: bool) -> KintsugiChainSpec {
     KintsugiChainSpec::from_genesis(
-        "interBTC",
-        "staging_testnet",
+        "Kintsugi",
+        "kintsugi",
         ChainType::Live,
         move || {
-            let mut genesis = kintsugi_mainnet_genesis(
-                // // 5Ec37KSdjSbGKoQN4evLXrZskjc7jxXYrowPHEtH2MzRC7mv (//sudo/1)
-                // get_account_id_from_string("5Ec37KSdjSbGKoQN4evLXrZskjc7jxXYrowPHEtH2MzRC7mv"),
+            let mut genesis = kintsugi_genesis(
                 vec![
                     // 5EqCiRZGFZ88JCK9FNmak2SkRHSohWpEFpx28vwo5c1m98Xe (//authority/1)
                     get_authority_keys_from_public_key(hex![
@@ -161,14 +161,14 @@ pub fn staging_mainnet_config(benchmarking: bool) -> KintsugiChainSpec {
                     vec![]
                 })
                 .collect(),
+                // 5Ec37KSdjSbGKoQN4evLXrZskjc7jxXYrowPHEtH2MzRC7mv (//sudo/1)
+                Some(get_account_id_from_string(
+                    "5Ec37KSdjSbGKoQN4evLXrZskjc7jxXYrowPHEtH2MzRC7mv",
+                )),
                 crate::chain_spec::kintsugi::PARA_ID.into(),
                 DEFAULT_BITCOIN_CONFIRMATIONS,
             );
 
-            // 5Ec37KSdjSbGKoQN4evLXrZskjc7jxXYrowPHEtH2MzRC7mv (//sudo/1)
-            genesis.sudo.key = Some(get_account_id_from_string(
-                "5Ec37KSdjSbGKoQN4evLXrZskjc7jxXYrowPHEtH2MzRC7mv",
-            ));
             genesis.btc_relay.bitcoin_confirmations = DEFAULT_BITCOIN_CONFIRMATIONS;
             genesis.btc_relay.parachain_confirmations =
                 DEFAULT_BITCOIN_CONFIRMATIONS.saturating_mul(kintsugi_runtime::BITCOIN_BLOCK_SPACING);

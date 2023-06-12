@@ -10476,6 +10476,8 @@ dependencies = [
  "orml-vesting",
  "orml-xcm-support",
  "orml-xtokens",
+ "pallet-aura",
+ "pallet-sudo",
  "redeem",
  "replace",
  "reward",
