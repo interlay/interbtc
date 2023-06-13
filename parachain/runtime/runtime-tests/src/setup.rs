@@ -11,26 +11,37 @@ pub use sp_runtime::{
 pub use xcm::latest::prelude::*;
 pub use xcm_emulator::XcmExecutor;
 
+#[cfg(feature = "with-kintsugi-runtime")]
 pub use kintsugi_imports::*;
+#[cfg(feature = "with-kintsugi-runtime")]
 mod kintsugi_imports {
     pub use frame_support::{parameter_types, weights::Weight};
     pub use kintsugi_runtime_parachain::{xcm_config::*, *};
-    pub use primitives::{
-        CurrencyId::{ForeignAsset, Token},
-        CustomMetadata, KINT, KSM,
-    };
     pub use sp_runtime::{traits::AccountIdConversion, FixedPointNumber};
+
+    pub const DEFAULT_COLLATERAL_CURRENCY: CurrencyId = Token(KSM);
+    pub const DEFAULT_WRAPPED_CURRENCY: CurrencyId = Token(KBTC);
+    pub const DEFAULT_NATIVE_CURRENCY: CurrencyId = Token(KINT);
+    pub const DEFAULT_GRIEFING_CURRENCY: CurrencyId = DEFAULT_NATIVE_CURRENCY;
 }
 
-pub const KINTSUGI_PARA_ID: u32 = 2092;
-pub const SIBLING_PARA_ID: u32 = 2001;
+#[cfg(feature = "with-interlay-runtime")]
+pub use interlay_imports::*;
+#[cfg(feature = "with-interlay-runtime")]
+mod interlay_imports {
+    pub use frame_support::{parameter_types, weights::Weight};
+    pub use interlay_runtime_parachain::{xcm_config::*, *};
+    pub use sp_runtime::{traits::AccountIdConversion, FixedPointNumber};
 
-#[allow(dead_code)]
+    pub const DEFAULT_COLLATERAL_CURRENCY: CurrencyId = Token(DOT);
+    pub const DEFAULT_WRAPPED_CURRENCY: CurrencyId = Token(IBTC);
+    pub const DEFAULT_NATIVE_CURRENCY: CurrencyId = Token(INTR);
+    pub const DEFAULT_GRIEFING_CURRENCY: CurrencyId = DEFAULT_NATIVE_CURRENCY;
+}
+
 pub const DEFAULT: [u8; 32] = [0u8; 32];
 
-#[allow(dead_code)]
 pub const ALICE: [u8; 32] = [4u8; 32];
-#[allow(dead_code)]
 pub const BOB: [u8; 32] = [5u8; 32];
 
 pub struct ExtBuilder {
@@ -96,12 +107,4 @@ impl ExtBuilder {
         ext.execute_with(|| System::set_block_number(1));
         ext
     }
-}
-
-pub(crate) fn kintsugi_sovereign_account_on_kusama() -> AccountId {
-    polkadot_parachain::primitives::Id::from(KINTSUGI_PARA_ID).into_account_truncating()
-}
-
-pub(crate) fn sibling_sovereign_account_on_kusama() -> AccountId {
-    polkadot_parachain::primitives::Id::from(SIBLING_PARA_ID).into_account_truncating()
 }

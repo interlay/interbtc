@@ -371,3 +371,4 @@ try-runtime = [
   "orml-unknown-tokens/try-runtime",
   "multi-transaction-payment/try-runtime",
 ]
+vesting-any = []

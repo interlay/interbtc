@@ -426,9 +426,9 @@ impl orml_vesting::Config for Runtime {
     type RuntimeEvent = RuntimeEvent;
     type Currency = NativeCurrency;
     type MinVestedTransfer = MinVestedTransfer;
-    #[cfg(feature = "runtime-benchmarks")]
+    #[cfg(any(feature = "runtime-benchmarks", feature = "vesting-any"))]
     type VestedTransferOrigin = frame_system::EnsureSigned<AccountId>;
-    #[cfg(not(feature = "runtime-benchmarks"))]
+    #[cfg(not(any(feature = "runtime-benchmarks", feature = "vesting-any")))]
     type VestedTransferOrigin = EnsureKintsugiLabs;
     type WeightInfo = weights::orml_vesting::WeightInfo<Runtime>;
     type MaxVestingSchedules = MaxVestingSchedules;
@@ -478,7 +478,7 @@ parameter_types! {
     // Require 5 vKINT to make a proposal. Given the crowdloan airdrop, this qualifies about 3500
     // accounts to make a governance proposal. Only 2300 can do two proposals,
     // and 700 accounts can do ten or more proposals.
-    pub MinimumDeposit: Balance = 5 * UNITS;
+    pub const MinimumDeposit: Balance = 5 * UNITS;
     pub const EnactmentPeriod: BlockNumber = 6 * HOURS;
     pub const MaxVotes: u32 = 100;
     pub const MaxProposals: u32 = 100;
@@ -543,7 +543,7 @@ parameter_types! {
     pub const TechnicalCommitteeMaxMembers: u32 = 100;
 }
 
-type TechnicalCommitteeInstance = pallet_collective::Instance1;
+pub type TechnicalCommitteeInstance = pallet_collective::Instance1;
 
 impl pallet_collective::Config<TechnicalCommitteeInstance> for Runtime {
     type RuntimeOrigin = RuntimeOrigin;
@@ -824,7 +824,7 @@ impl annuity::BlockRewardProvider<AccountId> for EscrowBlockRewardProvider {
     }
 }
 
-type EscrowAnnuityInstance = annuity::Instance1;
+pub type EscrowAnnuityInstance = annuity::Instance1;
 
 impl annuity::Config<EscrowAnnuityInstance> for Runtime {
     type AnnuityPalletId = EscrowAnnuityPalletId;
@@ -873,7 +873,7 @@ impl annuity::BlockRewardProvider<AccountId> for VaultBlockRewardProvider {
     }
 }
 
-type VaultAnnuityInstance = annuity::Instance2;
+pub type VaultAnnuityInstance = annuity::Instance2;
 
 impl annuity::Config<VaultAnnuityInstance> for Runtime {
     type AnnuityPalletId = VaultAnnuityPalletId;
@@ -886,7 +886,7 @@ impl annuity::Config<VaultAnnuityInstance> for Runtime {
     type WeightInfo = weights::annuity_vault_annuity::WeightInfo<Runtime>;
 }
 
-type EscrowRewardsInstance = reward::Instance1;
+pub type EscrowRewardsInstance = reward::Instance1;
 
 impl reward::Config<EscrowRewardsInstance> for Runtime {
     type RuntimeEvent = RuntimeEvent;
@@ -899,7 +899,7 @@ impl reward::Config<EscrowRewardsInstance> for Runtime {
     type MaxRewardCurrencies = ConstU32<10>;
 }
 
-type VaultRewardsInstance = reward::Instance2;
+pub type VaultRewardsInstance = reward::Instance2;
 
 impl reward::Config<VaultRewardsInstance> for Runtime {
     type RuntimeEvent = RuntimeEvent;
@@ -912,7 +912,7 @@ impl reward::Config<VaultRewardsInstance> for Runtime {
     type MaxRewardCurrencies = ConstU32<10>;
 }
 
-type VaultCapacityInstance = reward::Instance3;
+pub type VaultCapacityInstance = reward::Instance3;
 
 impl reward::Config<VaultCapacityInstance> for Runtime {
     type RuntimeEvent = RuntimeEvent;
