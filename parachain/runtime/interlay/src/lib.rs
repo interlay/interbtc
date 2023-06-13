@@ -1137,7 +1137,7 @@ impl fee::Config for Runtime {
     type MaxExpectedValue = MaxExpectedValue;
 }
 
-pub use issue::{IssueRequest};
+pub use issue::IssueRequest;
 
 impl issue::Config for Runtime {
     type TreasuryPalletId = TreasuryPalletId;
@@ -1146,14 +1146,14 @@ impl issue::Config for Runtime {
     type WeightInfo = weights::issue::WeightInfo<Runtime>;
 }
 
-pub use redeem::{RedeemRequest};
+pub use redeem::RedeemRequest;
 
 impl redeem::Config for Runtime {
     type RuntimeEvent = RuntimeEvent;
     type WeightInfo = weights::redeem::WeightInfo<Runtime>;
 }
 
-pub use replace::{ReplaceRequest};
+pub use replace::ReplaceRequest;
 
 impl replace::Config for Runtime {
     type RuntimeEvent = RuntimeEvent;
