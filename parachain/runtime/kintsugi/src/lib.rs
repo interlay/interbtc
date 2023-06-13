@@ -1114,7 +1114,7 @@ pub type OracleName = oracle::NameOf<Runtime>;
 
 impl oracle::Config for Runtime {
     type RuntimeEvent = RuntimeEvent;
-    type OnExchangeRateChange = vault_registry::PoolManager<Runtime>;
+    type OnExchangeRateChange = (vault_registry::PoolManager<Runtime>, Loans);
     type WeightInfo = weights::oracle::WeightInfo<Runtime>;
     type MaxNameLength = ConstU32<255>;
 }

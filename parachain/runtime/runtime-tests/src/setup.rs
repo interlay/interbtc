@@ -52,13 +52,13 @@ impl ExtBuilder {
             .unwrap();
 
         let balances = vec![
-            (account_of(ALICE), 1 << 60),
-            (account_of(BOB), 1 << 60),
-            (account_of(CAROL), 1 << 60),
-            (account_of(DAVE), 1 << 60),
-            (account_of(EVE), 1 << 60),
-            (account_of(FRANK), 1 << 60),
-            (account_of(GRACE), 1 << 60),
+            (account_of(ALICE), INITIAL_BALANCE),
+            (account_of(BOB), INITIAL_BALANCE),
+            (account_of(CAROL), INITIAL_BALANCE),
+            (account_of(DAVE), INITIAL_BALANCE),
+            (account_of(EVE), INITIAL_BALANCE),
+            (account_of(FRANK), INITIAL_BALANCE),
+            (account_of(GRACE), INITIAL_BALANCE),
             (account_of(FAUCET), 1 << 60),
         ];
 

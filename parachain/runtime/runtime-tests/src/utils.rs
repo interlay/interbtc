@@ -457,6 +457,7 @@ impl FeePool {
         self.vault_rewards.get_mut(&vault_id.wrapped_currency()).unwrap()
     }
 }
+
 impl Default for FeePool {
     fn default() -> Self {
         Self {
@@ -466,6 +467,7 @@ impl Default for FeePool {
         }
     }
 }
+
 pub fn abs_difference<T: std::ops::Sub<Output = T> + PartialOrd>(x: T, y: T) -> T {
     if x < y {
         y - x
