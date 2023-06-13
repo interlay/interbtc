@@ -106,6 +106,7 @@ impl ExtBuilder {
                 (Token(KSM), 0),
                 (ForeignAsset(1), 0),
                 (Token(INTR), 0),
+                (Token(KINT), 0),
                 (LendToken(1), 0),
             ],
             punishment_delay: 8,

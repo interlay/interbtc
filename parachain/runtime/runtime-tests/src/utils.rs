@@ -369,7 +369,15 @@ pub fn iter_endowed_with_lend_token() -> impl Iterator<Item = AccountId> {
 }
 
 pub fn iter_collateral_currencies() -> impl Iterator<Item = CurrencyId> {
-    vec![Token(DOT), Token(KSM), Token(INTR), ForeignAsset(1), LendToken(1)].into_iter()
+    vec![
+        Token(DOT),
+        Token(KSM),
+        Token(INTR),
+        Token(KINT),
+        ForeignAsset(1),
+        LendToken(1),
+    ]
+    .into_iter()
 }
 
 pub fn iter_native_currencies() -> impl Iterator<Item = CurrencyId> {
