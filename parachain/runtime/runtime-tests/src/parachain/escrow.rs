@@ -1,8 +1,5 @@
-mod mock;
-
-use mock::{assert_eq, *};
+use crate::setup::{assert_eq, *};
 use reward::RewardsApi;
-use sp_core::H256;
 
 #[test]
 fn integration_test_individual_balance_and_total_supply() {
@@ -48,7 +45,11 @@ fn integration_test_individual_balance_and_total_supply() {
         })
         .dispatch(origin_of(account_of(BOB))));
 
-        assert_eq!(EscrowPallet::total_supply(Some(height_to_check)), 4615308283904);
+        assert_eq!(
+            EscrowPallet::balance_at(&account_of(ALICE), Some(height_to_check))
+                + EscrowPallet::balance_at(&account_of(BOB), Some(height_to_check)),
+            EscrowPallet::total_supply(Some(height_to_check))
+        );
     });
 }
 
