@@ -1,6 +1,4 @@
-mod mock;
-use crate::assert_eq;
-use mock::*;
+use crate::setup::{assert_eq, *};
 
 use codec::Encode;
 use democracy::{PropIndex, ReferendumIndex, ReferendumInfo, ReferendumStatus, Tally, Vote, VoteThreshold};
@@ -24,7 +22,7 @@ type TechnicalCommitteeEvent = pallet_collective::Event<Runtime, TechnicalCommit
 
 type VestingCall = orml_vesting::Call<Runtime>;
 
-const INITIAL_VOTING_POWER: Balance = 5_000_000_000_000;
+const INITIAL_VOTING_POWER: Balance = MinimumDeposit::get() * 100;
 
 fn get_max_locked(account_id: AccountId) -> Balance {
     TokensPallet::locks(&account_id, DEFAULT_NATIVE_CURRENCY)
@@ -54,7 +52,7 @@ fn set_free_balance(account: AccountId, amount: Balance) {
 
 fn test_with<R>(execute: impl Fn() -> R) {
     ExtBuilder::build().execute_with(|| {
-        set_free_balance(account_of(ALICE), 10_000_000_000_000);
+        set_free_balance(account_of(ALICE), INITIAL_VOTING_POWER * 100);
         create_lock(account_of(ALICE), INITIAL_VOTING_POWER);
         execute()
     });
@@ -272,7 +270,7 @@ fn pause_works_on_calls_in_batch() {
 #[test]
 fn spend_from_treasury() {
     test_with(|| {
-        let treasury_account = interbtc_runtime_standalone::TreasuryAccount::get();
+        let treasury_account = TreasuryAccount::get();
         assert_ok!(RuntimeCall::Tokens(TokensCall::set_balance {
             who: treasury_account.clone(),
             currency_id: DEFAULT_NATIVE_CURRENCY,
@@ -619,7 +617,7 @@ fn integration_test_governance_voter_can_change_vote_with_limited_funds() {
 #[test]
 fn integration_test_create_lock_half_max_period() {
     ExtBuilder::build().execute_with(|| {
-        set_free_balance(account_of(ALICE), 10_000_000_000_000);
+        set_free_balance(account_of(ALICE), INITIAL_VOTING_POWER * 100);
         let max_period = <Runtime as escrow::Config>::MaxPeriod::get() as u128;
 
         let start = <Runtime as escrow::Config>::Span::get();
@@ -655,7 +653,7 @@ fn integration_test_create_lock_half_max_period() {
 #[test]
 fn integration_test_create_lock_halfway_span() {
     ExtBuilder::build().execute_with(|| {
-        set_free_balance(account_of(ALICE), 10_000_000_000_000);
+        set_free_balance(account_of(ALICE), INITIAL_VOTING_POWER * 100);
 
         let span = <Runtime as escrow::Config>::Span::get() as u128;
         let max_period = <Runtime as escrow::Config>::MaxPeriod::get() as u128;

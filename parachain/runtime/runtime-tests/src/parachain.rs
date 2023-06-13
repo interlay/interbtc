@@ -12,3 +12,6 @@ mod escrow;
 
 #[cfg(any(feature = "with-interlay-runtime", feature = "with-kintsugi-runtime",))]
 mod fee_pool;
+
+#[cfg(any(feature = "with-interlay-runtime", feature = "with-kintsugi-runtime",))]
+mod governance;
