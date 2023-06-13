@@ -18,3 +18,6 @@ mod governance;
 
 #[cfg(any(feature = "with-interlay-runtime", feature = "with-kintsugi-runtime",))]
 mod issue;
+
+#[cfg(any(feature = "with-interlay-runtime", feature = "with-kintsugi-runtime",))]
+mod loans;
