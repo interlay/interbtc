@@ -1,10 +1,8 @@
-mod mock;
-
+use crate::setup::{assert_eq, *};
 use frame_support::{dispatch::GetDispatchInfo, weights::Weight};
-use mock::{assert_eq, *};
 use orml_tokens::AccountData;
 use orml_vesting::VestingSchedule;
-use sp_core::{crypto::Ss58Codec, Encode, H256};
+use sp_core::{crypto::Ss58Codec, Encode};
 use sp_std::str::FromStr;
 
 type VestingCall = orml_vesting::Call<Runtime>;
@@ -15,7 +13,7 @@ fn integration_test_transfer_from_multisig_to_vested() {
         // step 0: clear eve's balance for easier testing
         assert_ok!(RuntimeCall::Tokens(TokensCall::set_balance {
             who: account_of(EVE),
-            currency_id: Token(INTR),
+            currency_id: DEFAULT_NATIVE_CURRENCY,
             new_free: 0,
             new_reserved: 0,
         })
@@ -23,13 +21,13 @@ fn integration_test_transfer_from_multisig_to_vested() {
 
         // step 1: deposit funds to a shared account
         let multisig_account = MultisigPallet::multi_account_id(&vec![account_of(ALICE), account_of(BOB)], 2);
-        set_balance(multisig_account.clone(), Token(INTR), 20_000_000_000_001);
-        set_balance(account_of(ALICE), Token(INTR), 1 << 60);
+        set_balance(multisig_account.clone(), DEFAULT_NATIVE_CURRENCY, 20_000_000_000_001);
+        set_balance(account_of(ALICE), DEFAULT_NATIVE_CURRENCY, 1 << 60);
 
         // step 2: submit a call, to be executed from the shared account
         let call = RuntimeCall::Tokens(TokensCall::transfer {
             dest: account_of(EVE),
-            currency_id: Token(INTR),
+            currency_id: DEFAULT_NATIVE_CURRENCY,
             amount: 20_000_000_000_001,
         });
         let call_weight = call.get_dispatch_info().weight;
@@ -46,7 +44,7 @@ fn integration_test_transfer_from_multisig_to_vested() {
 
         // step 2a: balance should not have changed yet - the call is not executed yet
         assert_eq!(
-            TokensPallet::accounts(account_of(EVE), Token(INTR)),
+            TokensPallet::accounts(account_of(EVE), DEFAULT_NATIVE_CURRENCY),
             AccountData {
                 free: 0,
                 reserved: 0,
@@ -69,7 +67,7 @@ fn integration_test_transfer_from_multisig_to_vested() {
         .dispatch(origin_of(account_of(BOB))));
         // step 4a: check that the call is now executed
         assert_eq!(
-            TokensPallet::accounts(account_of(EVE), Token(INTR)),
+            TokensPallet::accounts(account_of(EVE), DEFAULT_NATIVE_CURRENCY),
             AccountData {
                 free: 20_000_000_000_001,
                 reserved: 0,
@@ -86,10 +84,10 @@ fn integration_test_transfer_from_multisig_to_unvested() {
         let multisig_account = MultisigPallet::multi_account_id(&vec![account_of(ALICE), account_of(BOB)], 2);
 
         // vested transfer takes free balance of caller
-        set_balance(multisig_account.clone(), Token(INTR), vesting_amount);
-        set_balance(account_of(ALICE), Token(INTR), 1 << 60);
+        set_balance(multisig_account.clone(), DEFAULT_NATIVE_CURRENCY, vesting_amount);
+        set_balance(account_of(ALICE), DEFAULT_NATIVE_CURRENCY, 1 << 60);
         // clear eve's balance
-        set_balance(account_of(EVE), Token(INTR), 0);
+        set_balance(account_of(EVE), DEFAULT_NATIVE_CURRENCY, 0);
 
         // gradually release amount over 100 periods
         let call = RuntimeCall::Vesting(VestingCall::vested_transfer {
@@ -124,7 +122,7 @@ fn integration_test_transfer_from_multisig_to_unvested() {
 
         // max amount should be locked in vesting
         assert_eq!(
-            TokensPallet::locks(&account_of(EVE), Token(INTR))
+            TokensPallet::locks(&account_of(EVE), DEFAULT_NATIVE_CURRENCY)
                 .iter()
                 .map(|balance_lock| balance_lock.amount)
                 .max()
@@ -132,7 +130,7 @@ fn integration_test_transfer_from_multisig_to_unvested() {
             vesting_amount
         );
         assert_eq!(
-            TokensPallet::accounts(account_of(EVE), Token(INTR)),
+            TokensPallet::accounts(account_of(EVE), DEFAULT_NATIVE_CURRENCY),
             AccountData {
                 free: vesting_amount,
                 reserved: 0,
@@ -148,7 +146,7 @@ fn integration_test_transfer_to_vested_multisig() {
         // step 0: setup eve's balance
         assert_ok!(RuntimeCall::Tokens(TokensCall::set_balance {
             who: account_of(EVE),
-            currency_id: Token(INTR),
+            currency_id: DEFAULT_NATIVE_CURRENCY,
             new_free: 20_000_000_000_001,
             new_reserved: 0,
         })
@@ -160,13 +158,13 @@ fn integration_test_transfer_to_vested_multisig() {
         // transfer to the multisig
         assert_ok!(RuntimeCall::Tokens(TokensCall::transfer {
             dest: multisig_account.clone(),
-            currency_id: Token(INTR),
+            currency_id: DEFAULT_NATIVE_CURRENCY,
             amount: 20_000_000_000_001,
         })
         .dispatch(origin_of(account_of(EVE))));
 
         assert_eq!(
-            TokensPallet::accounts(multisig_account, Token(INTR)),
+            TokensPallet::accounts(multisig_account, DEFAULT_NATIVE_CURRENCY),
             AccountData {
                 free: 20_000_000_000_001,
                 reserved: 0,
@@ -184,7 +182,7 @@ fn integration_test_transfer_to_unvested_multisig() {
         // step 0: setup eve's balance
         assert_ok!(RuntimeCall::Tokens(TokensCall::set_balance {
             who: account_of(EVE),
-            currency_id: Token(INTR),
+            currency_id: DEFAULT_NATIVE_CURRENCY,
             new_free: vesting_amount * 2,
             new_reserved: 0,
         })
@@ -206,7 +204,7 @@ fn integration_test_transfer_to_unvested_multisig() {
         .dispatch(origin_of(account_of(EVE))));
 
         assert_eq!(
-            TokensPallet::accounts(multisig_account, Token(INTR)),
+            TokensPallet::accounts(multisig_account, DEFAULT_NATIVE_CURRENCY),
             AccountData {
                 free: vesting_amount,
                 reserved: 0,
@@ -236,8 +234,12 @@ fn integration_test_batched_multisig_vesting() {
         let multisig_account = MultisigPallet::multi_account_id(&vec![account_of(ALICE), account_of(BOB)], 2);
 
         // vested transfer takes free balance of caller
-        set_balance(multisig_account.clone(), Token(INTR), vesting_amounts.iter().sum());
-        set_balance(account_of(ALICE), Token(INTR), 1 << 60);
+        set_balance(
+            multisig_account.clone(),
+            DEFAULT_NATIVE_CURRENCY,
+            vesting_amounts.iter().sum(),
+        );
+        set_balance(account_of(ALICE), DEFAULT_NATIVE_CURRENCY, 1 << 60);
 
         // gradually release amount over 100 periods
         let calls: Vec<_> = accounts
@@ -281,7 +283,7 @@ fn integration_test_batched_multisig_vesting() {
         // max amount should be locked in vesting
         for (account, vesting_amount) in accounts.iter().zip(vesting_amounts) {
             assert_eq!(
-                TokensPallet::locks(&account, Token(INTR))
+                TokensPallet::locks(&account, DEFAULT_NATIVE_CURRENCY)
                     .iter()
                     .map(|balance_lock| balance_lock.amount)
                     .max()
