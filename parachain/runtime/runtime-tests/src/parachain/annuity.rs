@@ -1,7 +1,5 @@
-mod mock;
-
+use crate::setup::{assert_eq, *};
 use frame_support::traits::{Currency, OnInitialize};
-use mock::{assert_eq, *};
 use sp_io::hashing::blake2_256;
 use sp_runtime::Permill;
 
