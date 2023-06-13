@@ -3,3 +3,6 @@ mod annuity;
 
 #[cfg(any(feature = "with-interlay-runtime", feature = "with-kintsugi-runtime",))]
 mod btc_relay;
+
+#[cfg(any(feature = "with-interlay-runtime", feature = "with-kintsugi-runtime",))]
+mod clients_info;

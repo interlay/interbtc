@@ -171,8 +171,8 @@ pub type TxPauseCall = tx_pause::Call<Runtime>;
 pub type SchedulerCall = pallet_scheduler::Call<Runtime>;
 pub type SchedulerPallet = pallet_scheduler::Pallet<Runtime>;
 
-pub type ServicesCall = clients_info::Call<Runtime>;
-pub type ServicesPallet = clients_info::Pallet<Runtime>;
+pub type ClientsInfoCall = clients_info::Call<Runtime>;
+pub type ClientsInfoPallet = clients_info::Pallet<Runtime>;
 
 pub type LoansCall = loans::Call<Runtime>;
 pub type LoansError = loans::Error<Runtime>;
