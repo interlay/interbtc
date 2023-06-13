@@ -199,7 +199,25 @@ impl ExtBuilder {
             // initialize btc relay
             let _ = TransactionGenerator::new().with_confirmations(7).mine();
 
-            execute()
+            assert_ok!(RuntimeCall::Oracle(OracleCall::insert_authorized_oracle {
+                account_id: account_of(ALICE),
+                name: BoundedVec::truncate_from(vec![])
+            })
+            .dispatch(root()));
+            assert_ok!(RuntimeCall::Oracle(OracleCall::feed_values {
+                values: vec![
+                    (OracleKey::ExchangeRate(DEFAULT_COLLATERAL_CURRENCY), FixedU128::from(1)),
+                    (OracleKey::ExchangeRate(DEFAULT_GRIEFING_CURRENCY), FixedU128::from(1)),
+                    (OracleKey::FeeEstimation, FixedU128::from(3)),
+                ]
+            })
+            .dispatch(origin_of(account_of(ALICE))));
+            OraclePallet::begin_block(0);
+
+            let ret = execute();
+            VaultRegistryPallet::total_user_vault_collateral_integrity_check();
+            VaultRegistryPallet::collateral_integrity_check();
+            ret
         })
     }
 
@@ -209,19 +227,14 @@ impl ExtBuilder {
             SystemPallet::set_block_number(1); // required to be able to dispatch functions
             SecurityPallet::set_active_block_number(1);
 
-            assert_ok!(RuntimeCall::Oracle(OracleCall::feed_values {
-                values: vec![
-                    (OracleKey::ExchangeRate(DEFAULT_COLLATERAL_CURRENCY), FixedU128::one()),
-                    (OracleKey::ExchangeRate(DEFAULT_GRIEFING_CURRENCY), FixedU128::one()),
-                    (OracleKey::FeeEstimation, FixedU128::from(3)),
-                ]
-            })
-            .dispatch(origin_of(account_of(BOB))));
-            OraclePallet::begin_block(0);
+            assert_ok!(OraclePallet::_set_exchange_rate(
+                DEFAULT_COLLATERAL_CURRENCY,
+                FixedU128::one()
+            ));
+            set_default_thresholds();
 
             let ret = execute();
             VaultRegistryPallet::total_user_vault_collateral_integrity_check();
-            VaultRegistryPallet::collateral_integrity_check();
             ret
         })
     }

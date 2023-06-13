@@ -1,25 +1,23 @@
-mod mock;
-use crate::redeem_testing_utils::{expire_bans, setup_cancelable_redeem, RedeemRequestTestExt};
+use crate::{
+    setup::{assert_eq, *},
+    utils::{
+        loans_utils::{deposit_and_borrow, mint_lend_tokens},
+        nomination_utils::*,
+        redeem_utils::{expire_bans, setup_cancelable_redeem, RedeemRequestTestExt},
+        reward_utils::IdealRewardPool,
+    },
+};
 use currency::Amount;
 use frame_support::migration::put_storage_value;
-use interbtc_runtime_standalone::{Timestamp, UnsignedFixedPoint};
-use mock::{
-    assert_eq,
-    loans_testing_utils::{deposit_and_borrow, mint_lend_tokens},
-    nomination_testing_utils::*,
-    reward_testing_utils::IdealRewardPool,
-    *,
-};
 use primitives::TruncateFixedPointToInt;
 use rand::Rng;
 use sp_consensus_aura::{Slot, SlotDuration};
 use sp_timestamp::Timestamp as SlotTimestamp;
 use std::collections::BTreeMap;
 use traits::LoansApi;
-use vault_registry::DefaultVaultId;
 
 const VAULT_2: [u8; 32] = DAVE;
-const REWARD_CURRENCY: CurrencyId = Token(INTR);
+const REWARD_CURRENCY: CurrencyId = DEFAULT_NATIVE_CURRENCY;
 const DEFAULT_EXCHANGE_RATE: f64 = 0.1;
 
 fn default_nomination(currency_id: CurrencyId) -> Amount<Runtime> {
@@ -90,7 +88,7 @@ fn test_with<R>(execute: impl Fn(VaultId) -> R) {
                     FixedU128::from_float(DEFAULT_EXCHANGE_RATE)
                 ));
             }
-            if wrapped_id != Token(IBTC) {
+            if wrapped_id != NATIVE_CURRENCY_ID {
                 assert_ok!(OraclePallet::_set_exchange_rate(wrapped_id, FixedU128::one()));
             }
             activate_lending_and_mint(Token(DOT), LendToken(1));
@@ -1029,7 +1027,7 @@ fn accrued_lend_token_interest_increases_reward_share() {
             ));
         }
         activate_lending_and_mint(Token(DOT), LendToken(1));
-        let vault_id = PrimitiveVaultId::new(account_of(VAULT), LendToken(1), Token(IBTC));
+        let vault_id = PrimitiveVaultId::new(account_of(VAULT), LendToken(1), DEFAULT_WRAPPED_CURRENCY);
         CoreVaultData::force_to(&vault_id, default_vault_state(&vault_id));
 
         // Borrow some lend_tokens so interest starts accruing in the market

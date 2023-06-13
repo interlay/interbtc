@@ -8,6 +8,7 @@ version = "1.2.0"
 targets = ['x86_64-unknown-linux-gnu']
 
 [dependencies]
+env_logger = { version = "0.9.1" }
 log = { version = "0.4.14" }
 serde = { version = "1.0.130", features = ["derive"] }
 codec = { package = "parity-scale-codec", version = "3.1.5", features = ["derive", "max-encoded-len"] }
@@ -17,6 +18,7 @@ libsecp256k1 = { version = "0.6" }
 pretty_assertions = "0.7.2"
 itertools = "0.10.0"
 flate2 = "1.0"
+rand = "0.8.5"
 
 # Substrate dependencies
 sp-std = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.31" }
@@ -31,6 +33,7 @@ sp-block-builder = { git = "https://github.com/paritytech/substrate", branch = "
 sp-transaction-pool = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.31" }
 sp-inherents = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.31" }
 sp-arithmetic = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.31" }
+sp-timestamp = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.31" }
 
 frame-support = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.31" }
 frame-executive = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.31" }
