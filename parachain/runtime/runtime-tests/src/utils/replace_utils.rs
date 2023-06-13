@@ -1,4 +1,4 @@
-use crate::*;
+use crate::setup::*;
 use currency::Amount;
 
 pub fn request_replace(old_vault_id: &VaultId, amount: Amount<Runtime>) -> Amount<Runtime> {

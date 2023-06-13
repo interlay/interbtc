@@ -1,8 +1,6 @@
-#![allow(dead_code)]
+use crate::setup::{assert_eq, *};
 
-extern crate hex;
-
-pub use bitcoin::types::*;
+pub use bitcoin::types::{Block, TransactionInputSource, *};
 pub use btc_relay::{BtcAddress, BtcPublicKey};
 use currency::Amount;
 pub use frame_support::{
@@ -10,11 +8,6 @@ pub use frame_support::{
     dispatch::{DispatchError, DispatchResultWithPostInfo},
 };
 use frame_support::{traits::GenesisBuild, BoundedVec};
-pub use interbtc_runtime_standalone::{
-    token_distribution, AccountId, Balance, BlockNumber, CurrencyId, EscrowAnnuityInstance, EscrowRewardsInstance,
-    GetNativeCurrencyId, GetRelayChainCurrencyId, GetWrappedCurrencyId, Runtime, RuntimeCall, RuntimeEvent,
-    TechnicalCommitteeInstance, VaultAnnuityInstance, VaultCapacityInstance, VaultRewardsInstance, YEARS,
-};
 pub use mocktopus::mocking::*;
 pub use orml_tokens::CurrencyAdapter;
 pub use primitives::{
@@ -26,35 +19,30 @@ use staking::DefaultVaultCurrencyPair;
 use traits::LoansApi;
 use vault_registry::types::UpdatableVault;
 
-use self::redeem_testing_utils::USER_BTC_ADDRESS;
 pub use issue::{types::IssueRequestExt, IssueRequest, IssueRequestStatus};
 pub use loans::{InterestRateModel, Market, MarketState};
-pub use loans_testing_utils::activate_lending_and_mint;
+pub use loans_utils::activate_lending_and_mint;
 pub use oracle::OracleKey;
 pub use redeem::{types::RedeemRequestExt, RedeemRequest};
+use redeem_utils::USER_BTC_ADDRESS;
 pub use replace::{types::ReplaceRequestExt, ReplaceRequest};
 pub use reward::RewardsApi;
 pub use security::{ErrorCode, StatusCode};
 pub use sp_arithmetic::{FixedI128, FixedPointNumber, FixedU128};
 pub use sp_core::{H160, H256, U256};
-pub use sp_runtime::{
-    traits::{Dispatchable, One, Zero},
-    AccountId32,
-};
 pub use sp_std::convert::TryInto;
 use std::collections::BTreeMap;
 pub use std::convert::TryFrom;
 pub use vault_registry::{CurrencySource, DefaultVaultId, Vault, VaultStatus};
 
-pub mod issue_testing_utils;
-pub mod loans_testing_utils;
-pub mod nomination_testing_utils;
-pub mod redeem_testing_utils;
-pub mod replace_testing_utils;
-pub mod reward_testing_utils;
+pub mod issue_utils;
+pub mod loans_utils;
+pub mod nomination_utils;
+pub mod redeem_utils;
+pub mod replace_utils;
+pub mod reward_utils;
 
 pub use itertools::Itertools;
-pub use pretty_assertions::assert_eq;
 
 pub type VaultId = DefaultVaultId<Runtime>;
 
@@ -193,11 +181,6 @@ pub type LoansPallet = loans::Pallet<Runtime>;
 pub type AuraPallet = pallet_aura::Pallet<Runtime>;
 
 pub type VaultAnnuityPallet = annuity::Pallet<Runtime, VaultAnnuityInstance>;
-
-pub const DEFAULT_COLLATERAL_CURRENCY: <Runtime as orml_tokens::Config>::CurrencyId = Token(DOT);
-pub const DEFAULT_WRAPPED_CURRENCY: <Runtime as orml_tokens::Config>::CurrencyId = Token(IBTC);
-pub const DEFAULT_NATIVE_CURRENCY: <Runtime as orml_tokens::Config>::CurrencyId = Token(INTR);
-pub const DEFAULT_GRIEFING_CURRENCY: <Runtime as orml_tokens::Config>::CurrencyId = DEFAULT_NATIVE_CURRENCY;
 
 pub const LEND_DOT: CurrencyId = LendToken(1);
 pub const LEND_KINT: CurrencyId = LendToken(2);

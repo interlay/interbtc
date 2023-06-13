@@ -99,7 +99,7 @@ redeem = { path = "../../../crates/redeem" }
 replace = { path = "../../../crates/replace" }
 nomination = { path = "../../../crates/nomination" }
 reward = { path = "../../../crates/reward" }
-staking = { path = "../../../crates/staking" }
+staking = { path = "../../../crates/staking", features = ["integration-tests"] }
 escrow = { path = "../../../crates/escrow" }
 democracy = { path = "../../../crates/democracy" }
 annuity = { path = "../../../crates/annuity" }

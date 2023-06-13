@@ -1,12 +1,14 @@
+pub use crate::utils::*;
 pub use codec::Encode;
 use frame_support::traits::GenesisBuild;
 pub use frame_support::{assert_noop, assert_ok, traits::Currency};
 pub use frame_system::RawOrigin;
 pub use orml_traits::{location::RelativeLocations, Change, GetByKey, MultiCurrency};
+pub use pretty_assertions::assert_eq;
 pub use sp_core::H160;
 pub use sp_runtime::{
-    traits::{AccountIdConversion, BadOrigin, BlakeTwo256, Convert, Hash, Zero},
-    DispatchError, DispatchResult, FixedPointNumber, MultiAddress, Perbill, Permill,
+    traits::{AccountIdConversion, BadOrigin, BlakeTwo256, Convert, Dispatchable, Hash, One, Zero},
+    AccountId32, DispatchError, DispatchResult, FixedPointNumber, MultiAddress, Perbill, Permill,
 };
 pub use xcm::latest::prelude::*;
 pub use xcm_emulator::XcmExecutor;
@@ -38,11 +40,6 @@ mod interlay_imports {
     pub const DEFAULT_NATIVE_CURRENCY: CurrencyId = Token(INTR);
     pub const DEFAULT_GRIEFING_CURRENCY: CurrencyId = DEFAULT_NATIVE_CURRENCY;
 }
-
-pub const DEFAULT: [u8; 32] = [0u8; 32];
-
-pub const ALICE: [u8; 32] = [4u8; 32];
-pub const BOB: [u8; 32] = [5u8; 32];
 
 pub struct ExtBuilder {
     balances: Vec<(AccountId, CurrencyId, Balance)>,

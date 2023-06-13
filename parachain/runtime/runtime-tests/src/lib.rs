@@ -6,3 +6,6 @@ mod relaychain;
 
 #[cfg(any(feature = "with-interlay-runtime", feature = "with-kintsugi-runtime",))]
 mod setup;
+
+#[cfg(any(feature = "with-interlay-runtime", feature = "with-kintsugi-runtime",))]
+mod utils;
