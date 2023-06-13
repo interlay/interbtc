@@ -1,7 +1,9 @@
-mod mock;
+use crate::{
+    setup::{assert_eq, *},
+    utils::{issue_utils::*, loans_utils::activate_lending_and_mint},
+};
 
 use currency::Amount;
-use mock::{assert_eq, issue_testing_utils::*, loans_testing_utils::activate_lending_and_mint, *};
 use CurrencyId::LendToken;
 
 fn test_with<R>(execute: impl Fn(VaultId) -> R) {
@@ -11,7 +13,7 @@ fn test_with<R>(execute: impl Fn(VaultId) -> R) {
             for currency_id in iter_collateral_currencies().filter(|c| !c.is_lend_token()) {
                 assert_ok!(OraclePallet::_set_exchange_rate(currency_id, FixedU128::one()));
             }
-            if wrapped_id != Token(IBTC) {
+            if wrapped_id != DEFAULT_WRAPPED_CURRENCY {
                 assert_ok!(OraclePallet::_set_exchange_rate(wrapped_id, FixedU128::one()));
             }
             activate_lending_and_mint(Token(DOT), LendToken(1));
@@ -106,7 +108,7 @@ mod expiry_test {
             set_issue_period(1000);
             let (issue_id, _) = request_issue(&vault_id, vault_id.wrapped(4_000));
             SecurityPallet::set_active_block_number(1100);
-            mine_blocks(11);
+            mine_blocks(100);
 
             assert_ok!(cancel_issue(issue_id));
         });
@@ -144,7 +146,6 @@ mod expiry_test {
 }
 
 mod request_issue_tests {
-    use interbtc_runtime_standalone::UnsignedFixedPoint;
     use sp_runtime::traits::CheckedMul;
 
     use super::{assert_eq, *};
@@ -474,12 +475,12 @@ fn integration_test_issue_wrapped_execute_succeeds() {
         register_vault(&vault_id_proof_submitter, collateral_vault);
 
         // alice requests wrapped by locking btc with bob
-        RuntimeCall::Issue(IssueCall::request_issue {
+        assert_ok!(RuntimeCall::Issue(IssueCall::request_issue {
             amount: amount_btc.amount(),
             vault_id: vault_id,
             griefing_currency: DEFAULT_GRIEFING_CURRENCY,
         })
-        .dispatch(origin_of(account_of(USER)));
+        .dispatch(origin_of(account_of(USER))));
 
         let issue_id = assert_issue_request_event();
         let issue_request = IssuePallet::get_issue_request_from_id(&issue_id).unwrap();

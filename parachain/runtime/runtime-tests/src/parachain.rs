@@ -15,3 +15,6 @@ mod fee_pool;
 
 #[cfg(any(feature = "with-interlay-runtime", feature = "with-kintsugi-runtime",))]
 mod governance;
+
+#[cfg(any(feature = "with-interlay-runtime", feature = "with-kintsugi-runtime",))]
+mod issue;
