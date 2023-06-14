@@ -316,6 +316,7 @@ mod actions {
 #[cfg(feature = "testing-utils")]
 mod testing_utils {
     use super::*;
+    use sp_runtime::FixedU128;
     use sp_std::{
         cmp::{Ordering, PartialOrd},
         ops::{Add, AddAssign, Div, Mul, Sub, SubAssign},
@@ -369,12 +370,23 @@ mod testing_utils {
         }
     }
 
-    impl<T: Config> Mul<BalanceOf<T>> for Amount<T> {
+    impl<T: Config<Balance = u128>> Mul<u128> for Amount<T> {
         type Output = Self;
 
-        fn mul(self, other: BalanceOf<T>) -> Self {
+        fn mul(self, other: u128) -> Self {
             Self {
                 amount: self.amount * other,
+                currency_id: self.currency_id,
+            }
+        }
+    }
+
+    impl<T: Config<Balance = u128>> Mul<FixedU128> for Amount<T> {
+        type Output = Self;
+
+        fn mul(self, other: FixedU128) -> Self {
+            Self {
+                amount: other.checked_mul_int(self.amount).unwrap(),
                 currency_id: self.currency_id,
             }
         }
