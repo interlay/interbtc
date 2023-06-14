@@ -1807,18 +1807,7 @@ impl_runtime_apis! {
             amount: Option<Balance>,
             lock_time: Option<BlockNumber>,
         ) -> Result<UnsignedFixedPoint, DispatchError> {
-            // withdraw previous rewards
-            <EscrowRewards as reward::RewardsApi<(), AccountId, Balance>>::withdraw_reward(&(), &account_id, NATIVE_CURRENCY_ID)?;
-            // increase amount and/or lock_time
-            Escrow::round_height_and_deposit_for(&account_id, amount.unwrap_or_default(), lock_time.unwrap_or_default())?;
-            // distribute rewards accrued over block count
-            let reward = EscrowAnnuity::min_reward_per_block().saturating_mul(YEARS.into());
-            <EscrowRewards as reward::RewardsApi<(), AccountId, Balance>>::distribute_reward(&(), NATIVE_CURRENCY_ID, reward)?;
-            let received = <EscrowRewards as reward::RewardsApi<(), AccountId, Balance>>::compute_reward(&(), &account_id, NATIVE_CURRENCY_ID)?;
-            // NOTE: total_locked is same currency as rewards
-            let total_locked = Escrow::locked_balance(&account_id).amount;
-            // rate is received / total_locked
-            Ok(UnsignedFixedPoint::checked_from_rational(received, total_locked).unwrap_or_default())
+            runtime_common::estimate_escrow_reward_rate::<Runtime, EscrowAnnuityInstance, EscrowRewards, _>(account_id, amount, lock_time)
         }
 
         fn estimate_farming_reward(

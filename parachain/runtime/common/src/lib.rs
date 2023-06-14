@@ -32,6 +32,38 @@ fn native_currency_id<T: currency::Config>() -> CurrencyId<T> {
     T::GetNativeCurrencyId::get()
 }
 
+pub fn estimate_escrow_reward_rate<T, EscrowAnnuityInstance, EscrowRewardsApi, EscrowCurrency>(
+    account_id: AccountId<T>,
+    amount: Option<Balance>,
+    lock_time: Option<BlockNumber>,
+) -> Result<UnsignedFixedPoint, DispatchError>
+where
+    T: currency::Config
+        + escrow::Config<BlockNumber = BlockNumber, Currency = EscrowCurrency>
+        + annuity::Config<EscrowAnnuityInstance, Currency = EscrowCurrency>,
+    EscrowAnnuityInstance: 'static,
+    EscrowRewardsApi: reward::RewardsApi<(), AccountId<T>, Balance, CurrencyId = CurrencyId<T>>,
+    EscrowCurrency: Currency<<T as frame_system::Config>::AccountId, Balance = Balance>,
+{
+    let native_currency = native_currency_id::<T>();
+    // withdraw previous rewards
+    EscrowRewardsApi::withdraw_reward(&(), &account_id, native_currency)?;
+    // increase amount and/or lock_time
+    escrow::Pallet::<T>::round_height_and_deposit_for(
+        &account_id,
+        amount.unwrap_or_default(),
+        lock_time.unwrap_or_default(),
+    )?;
+    // distribute rewards accrued over block count
+    let reward = annuity::Pallet::<T, EscrowAnnuityInstance>::min_reward_per_block().saturating_mul(YEARS.into());
+    EscrowRewardsApi::distribute_reward(&(), native_currency, reward)?;
+    let received = EscrowRewardsApi::compute_reward(&(), &account_id, native_currency)?;
+    // NOTE: total_locked is same currency as rewards
+    let total_locked = escrow::Pallet::<T>::locked_balance(&account_id).amount;
+    // rate is received / total_locked
+    Ok(UnsignedFixedPoint::checked_from_rational(received, total_locked).unwrap_or_default())
+}
+
 pub fn estimate_vault_reward_rate<T, VaultAnnuityInstance, VaultStakingApi, VaultCapacityApi, VaultAnnuityCurrency>(
     vault_id: VaultId<T>,
 ) -> Result<UnsignedFixedPoint, DispatchError>
@@ -43,8 +75,7 @@ where
     VaultStakingApi: reward::RewardsApi<(Option<Nonce>, VaultId<T>), AccountId<T>, Balance, CurrencyId = CurrencyId<T>>,
     VaultCapacityApi: reward::RewardsApi<(), CurrencyId<T>, Balance, CurrencyId = CurrencyId<T>>,
     VaultAnnuityInstance: 'static,
-    VaultAnnuityCurrency:
-        frame_support::traits::tokens::currency::Currency<<T as frame_system::Config>::AccountId, Balance = Balance>,
+    VaultAnnuityCurrency: Currency<<T as frame_system::Config>::AccountId, Balance = Balance>,
 {
     // distribute and withdraw previous rewards
     let native_currency = native_currency_id::<T>();

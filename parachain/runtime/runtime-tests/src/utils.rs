@@ -11,7 +11,8 @@ pub use mocktopus::mocking::*;
 pub use orml_tokens::CurrencyAdapter;
 pub use primitives::{
     CurrencyId::{ForeignAsset, LendToken, Token},
-    Rate, Ratio, VaultCurrencyPair, VaultId as PrimitiveVaultId, DOT, IBTC, INTR, KBTC, KINT, KSM,
+    Rate, Ratio, TruncateFixedPointToInt, VaultCurrencyPair, VaultId as PrimitiveVaultId, DOT, IBTC, INTR, KBTC, KINT,
+    KSM,
 };
 use redeem::RedeemRequestStatus;
 use staking::DefaultVaultCurrencyPair;
@@ -180,6 +181,7 @@ pub type LoansPallet = loans::Pallet<Runtime>;
 pub type AuraPallet = pallet_aura::Pallet<Runtime>;
 
 pub type VaultAnnuityPallet = annuity::Pallet<Runtime, VaultAnnuityInstance>;
+pub type EscrowAnnuityPallet = annuity::Pallet<Runtime, EscrowAnnuityInstance>;
 
 pub const LEND_DOT: CurrencyId = LendToken(1);
 pub const LEND_KINT: CurrencyId = LendToken(2);
