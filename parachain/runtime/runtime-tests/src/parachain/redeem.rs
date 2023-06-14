@@ -1,18 +1,19 @@
-mod mock;
-
-use std::str::FromStr;
-
-use crate::loans_testing_utils::activate_lending_and_mint;
+use crate::{
+    setup::{assert_eq, *},
+    utils::{loans_utils::activate_lending_and_mint, redeem_utils::*},
+};
 use currency::Amount;
-use mock::{assert_eq, redeem_testing_utils::*, *};
+use std::str::FromStr;
 
 fn test_with<R>(execute: impl Fn(VaultId) -> R) {
     let test_with = |collateral_id, wrapped_id, extra_vault_currency| {
         ExtBuilder::build().execute_with(|| {
             let vault_id = PrimitiveVaultId::new(account_of(VAULT), collateral_id, wrapped_id);
             SecurityPallet::set_active_block_number(1);
-            assert_ok!(OraclePallet::_set_exchange_rate(collateral_id, FixedU128::one()));
-            if wrapped_id != Token(IBTC) {
+            for currency_id in iter_collateral_currencies().filter(|c| !c.is_lend_token()) {
+                assert_ok!(OraclePallet::_set_exchange_rate(currency_id, FixedU128::one()));
+            }
+            if wrapped_id != DEFAULT_WRAPPED_CURRENCY {
                 assert_ok!(OraclePallet::_set_exchange_rate(wrapped_id, FixedU128::one()));
             }
             activate_lending_and_mint(Token(DOT), LendToken(1));
@@ -35,8 +36,7 @@ fn test_with<R>(execute: impl Fn(VaultId) -> R) {
         })
     };
 
-    // test_with(Token(DOT), Token(KBTC), None); // rewards currently only work for GetWrappedCurrencyId and
-    // GetNativeCurrencyId
+    test_with(Token(DOT), Token(KBTC), None);
     test_with(Token(DOT), Token(IBTC), None);
     test_with(Token(DOT), Token(IBTC), Some(Token(KSM)));
     test_with(Token(KSM), Token(IBTC), None);
@@ -641,7 +641,7 @@ mod spec_based_tests {
             test_with(|vault_id| {
                 set_redeem_period(1000);
                 let redeem_id = request_redeem(&vault_id);
-                mine_blocks(12);
+                mine_blocks(100);
                 SecurityPallet::set_active_block_number(1100);
                 assert_ok!(execute_redeem(redeem_id));
             });
@@ -650,7 +650,7 @@ mod spec_based_tests {
             test_with(|vault_id| {
                 set_redeem_period(1000);
                 let redeem_id = request_redeem(&vault_id);
-                mine_blocks(12);
+                mine_blocks(100);
                 SecurityPallet::set_active_block_number(1100);
                 assert_ok!(cancel_redeem(redeem_id));
             });
@@ -1005,7 +1005,7 @@ mod spec_based_tests {
                 })
                 .dispatch(origin_of(account_of(USER))));
 
-                // NOTE: changes are relative the the post liquidation state
+                // NOTE: changes are relative to the post liquidation state
                 assert_eq!(
                     ParachainState::get(&vault_id),
                     post_liquidation_state.with_changes(|user, vault, liquidation_vault, fee_pool| {
@@ -1949,8 +1949,6 @@ fn setup_cancelable_redeem_with_insufficient_collateral_for_reimburse(vault_id: 
 }
 
 mod mint_tokens_for_reimbursed_redeem_equivalence_test {
-    use interbtc_runtime_standalone::UnsignedFixedPoint;
-
     use super::{assert_eq, *};
 
     #[test]

@@ -1,4 +1,4 @@
-use crate::{assert_eq, *};
+use crate::setup::{assert_eq, *};
 use currency::Amount;
 use frame_support::transactional;
 use redeem::RedeemRequestStatus;

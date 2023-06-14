@@ -2,7 +2,7 @@ use currency::Amount;
 use loans::JumpModel;
 use traits::LoansApi;
 
-use crate::*;
+use crate::setup::*;
 
 pub const fn market_mock(lend_token_id: CurrencyId) -> Market<Balance> {
     Market {

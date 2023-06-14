@@ -1,4 +1,4 @@
-use crate::*;
+use crate::setup::*;
 use primitives::TruncateFixedPointToInt;
 use std::collections::{BTreeMap, HashMap};
 
@@ -177,7 +177,7 @@ impl IdealRewardPool {
         self
     }
 
-    pub fn get_total_reward_for(&self, account: &crate::AccountId) -> u128 {
+    pub fn get_total_reward_for(&self, account: &AccountId) -> u128 {
         self.rewards
             .get(account)
             .map(|x| x.1)
@@ -186,7 +186,7 @@ impl IdealRewardPool {
             .unwrap()
     }
 
-    pub fn get_nominator_collateral(&self, account: &crate::AccountId, currency_id: CurrencyId) -> u128 {
+    pub fn get_nominator_collateral(&self, account: &AccountId, currency_id: CurrencyId) -> u128 {
         self.collateral
             .iter()
             .filter(|((vault, nominator), _stake)| nominator == account && vault.collateral_currency() == currency_id)
@@ -207,7 +207,7 @@ impl IdealRewardPool {
         self.secure_threshold.iter().map(|(key, _)| key.clone()).collect()
     }
 
-    pub fn rewards(&self) -> Vec<(crate::AccountId, u128)> {
+    pub fn rewards(&self) -> Vec<(AccountId, u128)> {
         self.rewards
             .iter()
             .map(|(key, (commission, rewards))| (key.clone(), (*commission + *rewards).truncate_to_inner().unwrap()))

@@ -1,8 +1,6 @@
+use crate::setup::{assert_eq, *};
 use currency::Amount;
-use interbtc_runtime_standalone::{CurrencyId::Token, CurrencyInfo, Tokens, KINT};
-mod mock;
 use loans::{InterestRateModel, JumpModel, Market, MarketState};
-use mock::{assert_eq, *};
 use orml_traits::{MultiCurrency, MultiReservableCurrency};
 use primitives::{Rate, Ratio};
 use sp_runtime::traits::CheckedMul;

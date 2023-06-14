@@ -1,5 +1,4 @@
-mod mock;
-use mock::{assert_eq, *};
+use crate::setup::{assert_eq, *};
 
 mod client_releases {
     use clients_info::ClientRelease;
@@ -16,13 +15,13 @@ mod client_releases {
                 uri: BoundedVec::try_from(b"https://github.com/interlay/interbtc-clients/releases/download/1.16.0/vault-parachain-metadata-kintsugi-testnet".to_vec()).unwrap(),
                 checksum: H256::default(),
             };
-            assert_ok!(RuntimeCall::ClientsInfo(ServicesCall::set_current_client_release {
+            assert_ok!(RuntimeCall::ClientsInfo(ClientsInfoCall::set_current_client_release {
                 client_name: vault_key.clone(),
                 release: vault_release.clone()
             })
             .dispatch(root()));
             assert_eq!(
-                ServicesPallet::current_client_release(vault_key),
+                ClientsInfoPallet::current_client_release(vault_key),
                 Some(vault_release)
             );
 
@@ -32,13 +31,13 @@ mod client_releases {
                 uri: BoundedVec::try_from(b"https://github.com/interlay/interbtc-clients/releases/download/1.16.0/oracle-parachain-metadata-kintsugi-testnet".to_vec()).unwrap(),
                 checksum: H256::default(),
             };
-            assert_ok!(RuntimeCall::ClientsInfo(ServicesCall::set_current_client_release {
+            assert_ok!(RuntimeCall::ClientsInfo(ClientsInfoCall::set_current_client_release {
                 client_name: oracle_client_name.clone(),
                 release: oracle_release.clone()
             })
             .dispatch(root()));
             assert_eq!(
-                ServicesPallet::current_client_release(oracle_client_name),
+                ClientsInfoPallet::current_client_release(oracle_client_name),
                 Some(oracle_release)
             );
         });
@@ -53,7 +52,7 @@ mod client_releases {
                 uri: BoundedVec::try_from(b"https://github.com/interlay/interbtc-clients/releases/download/1.16.0/vault-parachain-metadata-kintsugi-testnet".to_vec()).unwrap(),
                 checksum: H256::default(),
             };
-            assert_ok!(RuntimeCall::ClientsInfo(ServicesCall::set_pending_client_release {
+            assert_ok!(RuntimeCall::ClientsInfo(ClientsInfoCall::set_pending_client_release {
                 client_name: vault_key.clone(),
                 release: vault_release.clone()
             })
@@ -65,18 +64,18 @@ mod client_releases {
                 uri: BoundedVec::try_from(b"https://github.com/interlay/interbtc-clients/releases/download/1.16.0/oracle-parachain-metadata-kintsugi-testnet".to_vec()).unwrap(),
                 checksum: H256::default(),
             };
-            assert_ok!(RuntimeCall::ClientsInfo(ServicesCall::set_pending_client_release {
+            assert_ok!(RuntimeCall::ClientsInfo(ClientsInfoCall::set_pending_client_release {
                 client_name: oracle_key.clone(),
                 release: oracle_release.clone()
             })
             .dispatch(root()));
 
             assert_eq!(
-                ServicesPallet::pending_client_release(vault_key),
+                ClientsInfoPallet::pending_client_release(vault_key),
                 Some(vault_release)
             );
             assert_eq!(
-                ServicesPallet::pending_client_release(oracle_key),
+                ClientsInfoPallet::pending_client_release(oracle_key),
                 Some(oracle_release)
             );
         });

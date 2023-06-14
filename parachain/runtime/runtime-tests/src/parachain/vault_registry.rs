@@ -1,12 +1,11 @@
-mod mock;
-
-use currency::Amount;
-use mock::{assert_eq, *};
-
 use crate::{
-    loans_testing_utils::activate_lending_and_mint,
-    mock::issue_testing_utils::{execute_issue, request_issue},
+    setup::{assert_eq, *},
+    utils::{
+        issue_utils::{execute_issue, request_issue},
+        loans_utils::activate_lending_and_mint,
+    },
 };
+use currency::Amount;
 
 pub const USER: [u8; 32] = ALICE;
 pub const VAULT: [u8; 32] = BOB;
@@ -18,7 +17,7 @@ fn test_with<R>(execute: impl Fn(VaultId) -> R) {
             for currency_id in iter_collateral_currencies().filter(|c| !c.is_lend_token()) {
                 assert_ok!(OraclePallet::_set_exchange_rate(currency_id, FixedU128::one()));
             }
-            if wrapped_id != Token(IBTC) {
+            if wrapped_id != DEFAULT_WRAPPED_CURRENCY {
                 assert_ok!(OraclePallet::_set_exchange_rate(wrapped_id, FixedU128::one()));
             }
             activate_lending_and_mint(Token(DOT), LendToken(1));
@@ -124,6 +123,7 @@ mod deposit_collateral_test {
 
             // Mint lendTokens so that force-setting vault state doesn't fail
             activate_lending_and_mint(Token(DOT), LendToken(1));
+
             let mut vault_data = default_vault_state(&vault_id);
             *vault_data.free_balance.get_mut(&currency_id).unwrap() = Amount::new(amount_1, currency_id);
             CoreVaultData::force_to(&vault_id, vault_data);
@@ -180,8 +180,6 @@ mod deposit_collateral_test {
     }
 }
 mod withdraw_collateral_test {
-    use interbtc_runtime_standalone::UnsignedFixedPoint;
-
     use super::{assert_eq, *};
 
     fn required_collateral(vault_id: VaultId) -> Amount<Runtime> {

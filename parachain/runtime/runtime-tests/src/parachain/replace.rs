@@ -1,12 +1,9 @@
-mod mock;
-
+use crate::{
+    setup::{assert_eq, *},
+    utils::{loans_utils::activate_lending_and_mint, replace_utils::*},
+};
 use currency::Amount;
-use mock::{assert_eq, replace_testing_utils::*, *};
-
 use sp_core::H256;
-use vault_registry::DefaultVaultId;
-
-use crate::loans_testing_utils::activate_lending_and_mint;
 
 type IssueCall = issue::Call<Runtime>;
 
@@ -20,10 +17,10 @@ const NEW_VAULT: [u8; 32] = CAROL;
 fn test_with<R>(execute: impl Fn(VaultId, VaultId) -> R) {
     let test_with = |old_vault_currency, new_vault_currency, wrapped_currency, extra_vault_currency| {
         ExtBuilder::build().execute_with(|| {
-            assert_ok!(OraclePallet::_set_exchange_rate(old_vault_currency, FixedU128::one()));
-            assert_ok!(OraclePallet::_set_exchange_rate(new_vault_currency, FixedU128::one()));
-
-            if wrapped_currency != Token(IBTC) {
+            for currency_id in iter_collateral_currencies().filter(|c| !c.is_lend_token()) {
+                assert_ok!(OraclePallet::_set_exchange_rate(currency_id, FixedU128::one()));
+            }
+            if wrapped_currency != DEFAULT_WRAPPED_CURRENCY {
                 assert_ok!(OraclePallet::_set_exchange_rate(wrapped_currency, FixedU128::one()));
             }
             activate_lending_and_mint(Token(DOT), LendToken(1));
@@ -583,7 +580,7 @@ mod expiry_test {
     fn integration_test_replace_expiry_no_period_change_post_expiry() {
         // can still execute after expiry
         test_with(1000, |replace_id| {
-            mine_blocks(15);
+            mine_blocks(100);
             SecurityPallet::set_active_block_number(1100);
 
             assert_ok!(execute_replace(replace_id));
@@ -591,7 +588,7 @@ mod expiry_test {
 
         // but new-vault can also cancel.. whoever is first wins
         test_with(1000, |replace_id| {
-            mine_blocks(15);
+            mine_blocks(100);
             SecurityPallet::set_active_block_number(1100);
 
             assert_ok!(cancel_replace(replace_id));

@@ -1,0 +1,13 @@
+mod annuity;
+mod btc_relay;
+mod clients_info;
+mod escrow;
+mod fee_pool;
+mod governance;
+mod issue;
+mod loans;
+mod multisig;
+mod nomination;
+mod redeem;
+mod replace;
+mod vault_registry;

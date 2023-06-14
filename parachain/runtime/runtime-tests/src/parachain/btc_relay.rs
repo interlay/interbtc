@@ -1,11 +1,8 @@
-#![feature(exclusive_range_pattern)]
-mod bitcoin_data;
-mod mock;
-
-use bitcoin_data::{get_bitcoin_testdata, get_fork_testdata};
-use mock::{assert_eq, *};
-
-type BTCRelayError = btc_relay::Error<Runtime>;
+use crate::{
+    bitcoin_data::{get_bitcoin_testdata, get_fork_testdata},
+    setup::{assert_eq, *},
+};
+use btc_relay::DIFFICULTY_ADJUSTMENT_INTERVAL;
 
 #[test]
 #[cfg_attr(feature = "skip-slow-tests", ignore)]

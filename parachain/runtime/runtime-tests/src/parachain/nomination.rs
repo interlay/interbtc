@@ -1,8 +1,8 @@
-mod mock;
-
-use crate::loans_testing_utils::activate_lending_and_mint;
+use crate::{
+    setup::{assert_eq, *},
+    utils::{loans_utils::activate_lending_and_mint, nomination_utils::*},
+};
 use currency::Amount;
-use mock::{assert_eq, nomination_testing_utils::*, *};
 
 fn test_with<R>(execute: impl Fn(VaultId) -> R) {
     let test_with = |currency_id, wrapped_id| {
@@ -11,7 +11,7 @@ fn test_with<R>(execute: impl Fn(VaultId) -> R) {
             for currency_id in iter_collateral_currencies().filter(|c| !c.is_lend_token()) {
                 assert_ok!(OraclePallet::_set_exchange_rate(currency_id, FixedU128::one()));
             }
-            if wrapped_id != Token(IBTC) {
+            if wrapped_id != DEFAULT_WRAPPED_CURRENCY {
                 assert_ok!(OraclePallet::_set_exchange_rate(wrapped_id, FixedU128::one()));
             }
             activate_lending_and_mint(Token(DOT), LendToken(1));
@@ -632,8 +632,8 @@ fn integration_test_rewards_are_preserved_on_collateral_withdrawal() {
         UserData::force_to(USER, user_data);
         assert_nominate_collateral(&vault_id, account_of(USER), default_nomination(&vault_id));
 
-        let (issue_id, _) = issue_testing_utils::request_issue(&vault_id, vault_id.wrapped(400000));
-        issue_testing_utils::execute_issue(issue_id);
+        let (issue_id, _) = issue_utils::request_issue(&vault_id, vault_id.wrapped(400000));
+        issue_utils::execute_issue(issue_id);
         FeePallet::distribute_all_vault_rewards(&vault_id).unwrap();
         let reward_before_nomination_withdrawal =
             VaultStakingPallet::compute_reward(vault_id.wrapped_currency(), &vault_id, &account_of(USER)).unwrap();
