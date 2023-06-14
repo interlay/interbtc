@@ -7,7 +7,6 @@ pub use frame_support::{
     assert_err, assert_noop, assert_ok,
     dispatch::{DispatchError, DispatchResultWithPostInfo},
 };
-use frame_support::{traits::GenesisBuild, BoundedVec};
 pub use mocktopus::mocking::*;
 pub use orml_tokens::CurrencyAdapter;
 pub use primitives::{

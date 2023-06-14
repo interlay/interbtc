@@ -118,8 +118,8 @@ dex-stable = { path = "../../../crates/dex-stable" }
 dex-swap-router = { path = "../../../crates/dex-swap-router" }
 multi-transaction-payment = { path = "../../../crates/multi-transaction-payment" }
 
+kintsugi-runtime-parachain = { path = "../kintsugi", features = ["vesting-any"] }
 interlay-runtime-parachain = { path = "../interlay", optional = true, features = ["vesting-any"] }
-kintsugi-runtime-parachain = { path = "../kintsugi", optional = true, features = ["vesting-any"] }
 
 primitives = { package = "interbtc-primitives", path = "../../../primitives" }
 
@@ -151,10 +151,29 @@ bitcoin = { path = "../../../crates/bitcoin" }
 default = ["std"]
 std = []
 skip-slow-tests = []
+runtime-benchmarks = [
+  "frame-benchmarking",
+  "frame-system-benchmarking",
+  "frame-support/runtime-benchmarks",
+  "frame-system/runtime-benchmarks",
+  "pallet-society/runtime-benchmarks",
+  "pallet-collective/runtime-benchmarks",
 
+  "xcm-builder/runtime-benchmarks",
+  "pallet-xcm/runtime-benchmarks",
+
+  "btc-relay/runtime-benchmarks",
+  "oracle/runtime-benchmarks",
+  "issue/runtime-benchmarks",
+  "redeem/runtime-benchmarks",
+  "replace/runtime-benchmarks",
+  "vault-registry/runtime-benchmarks",
+  "fee/runtime-benchmarks",
+  "security/runtime-benchmarks",
+
+  "kusama-runtime/runtime-benchmarks",
+  "polkadot-runtime/runtime-benchmarks",
+]
 with-interlay-runtime = [
 	"interlay-runtime-parachain"
-]
-with-kintsugi-runtime = [
-	"kintsugi-runtime-parachain"
 ]

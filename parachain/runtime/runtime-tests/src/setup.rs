@@ -13,9 +13,9 @@ pub use sp_runtime::{
 pub use xcm::latest::prelude::*;
 pub use xcm_emulator::XcmExecutor;
 
-#[cfg(feature = "with-kintsugi-runtime")]
+#[cfg(not(feature = "with-interlay-runtime"))]
 pub use kintsugi_imports::*;
-#[cfg(feature = "with-kintsugi-runtime")]
+#[cfg(not(feature = "with-interlay-runtime"))]
 mod kintsugi_imports {
     pub use frame_support::{parameter_types, weights::Weight};
     pub use kintsugi_runtime_parachain::{xcm_config::*, *};
