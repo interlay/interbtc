@@ -4,8 +4,6 @@ members = [
   "primitives",
   "parachain",
   "parachain/runtime/*",
-  "standalone",
-  "standalone/runtime",
   "rpc",
 ]
 
