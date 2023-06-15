@@ -9,8 +9,4 @@ PREV_TAG=$(git describe --abbrev=0 --tags $(git rev-list --tags --skip=1 --max-c
         python3 scripts/srtool_info.py artifacts/interlay-srtool-json/interlay_srtool_output.json
         echo $'\n### Kintsugi'
         python3 scripts/srtool_info.py artifacts/kintsugi-srtool-json/kintsugi_srtool_output.json
-        echo $'\n### Testnet-Kintsugi'
-        python3 scripts/srtool_info.py artifacts/testnet-kintsugi-srtool-json/testnet-kintsugi_srtool_output.json
-        echo $'\n### Testnet-Interlay'
-        python3 scripts/srtool_info.py artifacts/testnet-interlay-srtool-json/testnet-interlay_srtool_output.json
 ) >>CHANGELOG.md
