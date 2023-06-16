@@ -894,9 +894,7 @@ impl reward::Config<EscrowRewardsInstance> for Runtime {
     type PoolId = ();
     type StakeId = AccountId;
     type CurrencyId = CurrencyId;
-    type GetNativeCurrencyId = GetNativeCurrencyId;
-    type GetWrappedCurrencyId = GetWrappedCurrencyId;
-    type MaxRewardCurrencies = ConstU32<10>;
+    type MaxRewardCurrencies = ConstU32<1>;
 }
 
 pub type VaultRewardsInstance = reward::Instance2;
@@ -907,9 +905,7 @@ impl reward::Config<VaultRewardsInstance> for Runtime {
     type PoolId = CurrencyId;
     type StakeId = VaultId;
     type CurrencyId = CurrencyId;
-    type GetNativeCurrencyId = GetNativeCurrencyId;
-    type GetWrappedCurrencyId = GetWrappedCurrencyId;
-    type MaxRewardCurrencies = ConstU32<10>;
+    type MaxRewardCurrencies = ConstU32<2>;
 }
 
 pub type VaultCapacityInstance = reward::Instance3;
@@ -920,9 +916,7 @@ impl reward::Config<VaultCapacityInstance> for Runtime {
     type PoolId = ();
     type StakeId = CurrencyId;
     type CurrencyId = CurrencyId;
-    type GetNativeCurrencyId = GetNativeCurrencyId;
-    type GetWrappedCurrencyId = GetWrappedCurrencyId;
-    type MaxRewardCurrencies = ConstU32<10>;
+    type MaxRewardCurrencies = ConstU32<2>;
 }
 
 type FarmingRewardsInstance = reward::Instance4;
@@ -933,8 +927,6 @@ impl reward::Config<FarmingRewardsInstance> for Runtime {
     type PoolId = CurrencyId;
     type StakeId = AccountId;
     type CurrencyId = CurrencyId;
-    type GetNativeCurrencyId = GetNativeCurrencyId;
-    type GetWrappedCurrencyId = GetWrappedCurrencyId;
     type MaxRewardCurrencies = ConstU32<10>;
 }
 

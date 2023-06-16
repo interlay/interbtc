@@ -1,7 +1,8 @@
 use crate as escrow;
 use crate::{Config, Error};
 use frame_support::{parameter_types, traits::Everything};
-use sp_core::H256;
+use primitives::{CurrencyId, SignedFixedPoint};
+use sp_core::{ConstU32, H256};
 use sp_runtime::{
     generic::Header as GenericHeader,
     traits::{BlakeTwo256, Identity, IdentityLookup},
@@ -21,6 +22,7 @@ frame_support::construct_runtime!(
     {
         System: frame_system::{Pallet, Call, Storage, Config, Event<T>},
         Balances: pallet_balances::{Pallet, Call, Storage, Event<T>},
+        Rewards: reward::{Pallet, Call, Storage, Event<T>},
         Escrow: escrow::{Pallet, Call, Storage, Event<T>},
     }
 );
@@ -78,6 +80,15 @@ impl pallet_balances::Config for Test {
     type ReserveIdentifier = [u8; 8];
 }
 
+impl reward::Config for Test {
+    type RuntimeEvent = RuntimeEvent;
+    type SignedFixedPoint = SignedFixedPoint;
+    type PoolId = ();
+    type StakeId = AccountId;
+    type CurrencyId = CurrencyId;
+    type MaxRewardCurrencies = ConstU32<1>;
+}
+
 parameter_types! {
     pub const Span: BlockNumber = 10;
     pub const MaxPeriod: BlockNumber = 100;
@@ -89,7 +100,7 @@ impl Config for Test {
     type Currency = Balances;
     type Span = Span;
     type MaxPeriod = MaxPeriod;
-    type EscrowRewards = ();
+    type EscrowRewards = Rewards;
     type WeightInfo = ();
 }
 

@@ -1,7 +1,5 @@
 use super::*;
 use frame_benchmarking::v2::{account, benchmarks, impl_benchmark_test_suite};
-// use frame_system::RawOrigin;
-// use primitives::VaultId;
 use sp_std::vec;
 
 use crate::Pallet as Fee;
@@ -10,11 +8,10 @@ const SEED: u32 = 0;
 
 #[benchmarks]
 pub mod benchmarks {
+    use super::*;
     use frame_system::RawOrigin;
     use primitives::VaultCurrencyPair;
-    // use crate::mock::VaultRewards;
 
-    use super::*;
     fn distribute_rewards<T: Config>(currency: CurrencyId<T>) {
         let amount = Amount::<T>::new(1000u32.into(), currency);
         amount.mint_to(&Fee::<T>::fee_pool_account_id()).unwrap();
@@ -22,6 +19,7 @@ pub mod benchmarks {
         // distribute
         Fee::<T>::distribute_rewards(&amount).unwrap();
     }
+
     #[benchmark]
     fn withdraw_rewards() {
         let nominator: T::AccountId = account("recipient", 0, SEED);

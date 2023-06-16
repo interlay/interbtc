@@ -71,9 +71,6 @@ impl frame_system::Config for Test {
 }
 
 parameter_types! {
-    pub const GetNativeCurrencyId: CurrencyId = Token(INTR);
-    pub const GetRelayChainCurrencyId: CurrencyId = Token(DOT);
-    pub const GetWrappedCurrencyId: CurrencyId = Token(IBTC);
     pub const MaxLocks: u32 = 50;
 }
 
@@ -103,8 +100,6 @@ impl reward::Config for Test {
     type PoolId = CurrencyId;
     type StakeId = AccountId;
     type CurrencyId = CurrencyId;
-    type GetNativeCurrencyId = GetNativeCurrencyId;
-    type GetWrappedCurrencyId = GetWrappedCurrencyId;
     type MaxRewardCurrencies = ConstU32<10>;
 }
 
