@@ -681,6 +681,79 @@ fn should_set_lower_custom_exchange_fee() {
 }
 
 #[test]
+fn zero_fees_should_work() {
+    new_test_ext().execute_with(|| {
+        // add liquidity
+        assert_ok!(<Test as Config>::MultiCurrency::deposit(
+            DOT_ASSET_ID,
+            &ALICE,
+            100_000_000 * DOT_UNIT
+        ));
+        assert_ok!(<Test as Config>::MultiCurrency::deposit(
+            BTC_ASSET_ID,
+            &ALICE,
+            100_000_000 * BTC_UNIT
+        ));
+        assert_ok!(<Test as Config>::MultiCurrency::deposit(
+            DOT_ASSET_ID,
+            &CHARLIE,
+            100_000_000 * DOT_UNIT
+        ));
+
+        // set zero fees
+        assert_ok!(DexPallet::create_pair(
+            RawOrigin::Root.into(),
+            DOT_ASSET_ID,
+            BTC_ASSET_ID,
+            0,
+        ));
+
+        let total_supply_dot: u128 = 1_000_000 * DOT_UNIT;
+        let total_supply_btc: u128 = 1_000_000 * BTC_UNIT;
+
+        assert_ok!(DexPallet::add_liquidity(
+            RawOrigin::Signed(ALICE).into(),
+            DOT_ASSET_ID,
+            BTC_ASSET_ID,
+            total_supply_dot,
+            total_supply_btc,
+            0,
+            0,
+            100
+        ));
+
+        let charlie_initial_dot = <Test as Config>::MultiCurrency::free_balance(DOT_ASSET_ID, &CHARLIE);
+        let charlie_initial_btc = <Test as Config>::MultiCurrency::free_balance(BTC_ASSET_ID, &CHARLIE);
+        let dot_swap = total_supply_dot / 2;
+        assert_eq!(charlie_initial_btc, 0);
+
+        // swap one direction...
+        assert_ok!(DexPallet::inner_swap_exact_assets_for_assets(
+            &CHARLIE,                          // who
+            dot_swap,                          // amount_in
+            1,                                 // amount_out_min
+            &vec![DOT_ASSET_ID, BTC_ASSET_ID], // path
+            &CHARLIE,                          // recipient
+        ));
+
+        assert!(<Test as Config>::MultiCurrency::free_balance(DOT_ASSET_ID, &CHARLIE) < charlie_initial_dot);
+
+        // swap the same amount back
+        assert_ok!(DexPallet::inner_swap_exact_assets_for_assets(
+            &CHARLIE,                                                              // who
+            <Test as Config>::MultiCurrency::free_balance(BTC_ASSET_ID, &CHARLIE), // amount_in
+            1,                                                                     // amount_out_min
+            &vec![BTC_ASSET_ID, DOT_ASSET_ID],                                     // path
+            &CHARLIE,                                                              // recipient
+        ));
+
+        // there will be some small difference due to roundings, but check that this loss is insignificant
+        let loss = charlie_initial_dot - <Test as Config>::MultiCurrency::free_balance(DOT_ASSET_ID, &CHARLIE);
+        assert!(loss < dot_swap / 1_000_000_000_000);
+    });
+}
+
+#[test]
 fn should_set_higher_custom_exchange_fee() {
     new_test_ext().execute_with(|| {
         // add liquidity
