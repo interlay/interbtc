@@ -19,10 +19,11 @@ use super::*;
 
 #[allow(unused)]
 use crate::Pallet as CollatorSelection;
-use frame_benchmarking::{account, benchmarks, impl_benchmark_test_suite, whitelisted_caller};
+use frame_benchmarking::v2::*;
 use frame_support::{
     assert_ok,
     codec::Decode,
+    dispatch::fmt::Debug,
     traits::{Currency, EnsureOrigin, Get},
 };
 use frame_system::{EventRecord, Pallet as System, RawOrigin};
@@ -34,13 +35,6 @@ use sp_std::prelude::*;
 pub type BalanceOf<T> = <<T as Config>::StakingCurrency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
 
 const SEED: u32 = 0;
-
-// TODO: remove if this is given in substrate commit.
-macro_rules! whitelist {
-    ($acc:ident) => {
-        frame_benchmarking::benchmarking::add_to_whitelist(frame_system::Account::<T>::hashed_key_for(&$acc).into());
-    };
-}
 
 fn assert_last_event<T: Config>(generic_event: <T as Config>::RuntimeEvent) {
     let events = frame_system::Pallet::<T>::events();
@@ -101,51 +95,60 @@ fn register_candidates<T: Config>(count: u32) {
     }
 }
 
-benchmarks! {
-    where_clause { where T: pallet_authorship::Config + session::Config }
+#[benchmarks(where
+    T: pallet_authorship::Config + session::Config,
+    T::RuntimeOrigin: Debug
+)]
+pub mod benchmarks {
+    use super::*;
 
-    set_invulnerables {
-        let b in 1 .. T::MaxInvulnerables::get();
+    #[benchmark]
+    fn set_invulnerables(b: Linear<1, 100>) {
         let new_invulnerables = register_validators::<T>(b);
-        let origin = T::UpdateOrigin::try_successful_origin().unwrap();
-    }: {
-        assert_ok!(
-            <CollatorSelection<T>>::set_invulnerables(origin, new_invulnerables.clone())
+        let origin = T::UpdateOrigin::try_successful_origin().unwrap().into().unwrap();
+
+        #[extrinsic_call]
+        _(origin, new_invulnerables.clone());
+
+        assert_last_event::<T>(
+            Event::NewInvulnerables {
+                invulnerables: new_invulnerables,
+            }
+            .into(),
         );
     }
-    verify {
-        assert_last_event::<T>(Event::NewInvulnerables{invulnerables: new_invulnerables}.into());
-    }
 
-    set_desired_candidates {
+    #[benchmark]
+    fn set_desired_candidates() {
         let max: u32 = 999;
-        let origin = T::UpdateOrigin::try_successful_origin().unwrap();
-    }: {
-        assert_ok!(
-            <CollatorSelection<T>>::set_desired_candidates(origin, max.clone())
+        let origin = T::UpdateOrigin::try_successful_origin().unwrap().into().unwrap();
+
+        #[extrinsic_call]
+        _(origin, max.clone());
+
+        assert_last_event::<T>(
+            Event::NewDesiredCandidates {
+                desired_candidates: max,
+            }
+            .into(),
         );
-    }
-    verify {
-        assert_last_event::<T>(Event::NewDesiredCandidates{desired_candidates: max}.into());
     }
 
-    set_candidacy_bond {
+    #[benchmark]
+    fn set_candidacy_bond() {
         let bond_amount = BalanceOf::<T>::max_value() / 4u32.into();
-        let origin = T::UpdateOrigin::try_successful_origin().unwrap();
-    }: {
-        assert_ok!(
-            <CollatorSelection<T>>::set_candidacy_bond(origin, bond_amount.clone())
-        );
-    }
-    verify {
-        assert_last_event::<T>(Event::NewCandidacyBond{bond_amount}.into());
+        let origin = T::UpdateOrigin::try_successful_origin().unwrap().into().unwrap();
+
+        #[extrinsic_call]
+        _(origin, bond_amount.clone());
+
+        assert_last_event::<T>(Event::NewCandidacyBond { bond_amount }.into());
     }
 
     // worse case is when we have all the max-candidate slots filled except one, and we fill that
     // one.
-    register_as_candidate {
-        let c in 1 .. T::MaxCandidates::get() - 1;
-
+    #[benchmark]
+    fn register_as_candidate(c: Linear<1, 19>) {
         <CandidacyBond<T>>::put(BalanceOf::<T>::max_value() / 4u32.into());
         <DesiredCandidates<T>>::put(c + 1);
 
@@ -163,14 +166,21 @@ benchmarks! {
             Vec::new()
         ));
 
-    }: _(RawOrigin::Signed(caller.clone()))
-    verify {
-        assert_last_event::<T>(Event::CandidateAdded{account_id: caller, deposit: bond / 2u32.into()}.into());
+        #[extrinsic_call]
+        _(RawOrigin::Signed(caller.clone()));
+
+        assert_last_event::<T>(
+            Event::CandidateAdded {
+                account_id: caller,
+                deposit: bond / 2u32.into(),
+            }
+            .into(),
+        );
     }
 
     // worse case is the last candidate leaving.
-    leave_intent {
-        let c in (T::MinCandidates::get() + 1) .. T::MaxCandidates::get();
+    #[benchmark]
+    fn leave_intent(c: Linear<6, 20>) {
         <CandidacyBond<T>>::put(BalanceOf::<T>::max_value() / 4u32.into());
         <DesiredCandidates<T>>::put(c);
 
@@ -178,36 +188,37 @@ benchmarks! {
         register_candidates::<T>(c);
 
         let leaving = <Candidates<T>>::get().last().unwrap().who.clone();
-        whitelist!(leaving);
-    }: _(RawOrigin::Signed(leaving.clone()))
-    verify {
-        assert_last_event::<T>(Event::CandidateRemoved{account_id: leaving}.into());
+        whitelist_account!(leaving);
+
+        #[extrinsic_call]
+        _(RawOrigin::Signed(leaving.clone()));
+
+        assert_last_event::<T>(Event::CandidateRemoved { account_id: leaving }.into());
     }
 
     // worse case is paying a non-existing candidate account.
-    note_author {
+    #[benchmark]
+    fn note_author() {
         <CandidacyBond<T>>::put(BalanceOf::<T>::max_value() / 4u32.into());
-        T::RewardsCurrency::make_free_balance_be(
-            &<CollatorSelection<T>>::account_id(),
-            2000u32.into(),
-        );
+        T::RewardsCurrency::make_free_balance_be(&<CollatorSelection<T>>::account_id(), 2000u32.into());
         let author = account("author", 0, SEED);
         let new_block: T::BlockNumber = 10u32.into();
 
         frame_system::Pallet::<T>::set_block_number(new_block);
         assert!(T::RewardsCurrency::free_balance(&author) == 0u32.into());
-    }: {
-        <CollatorSelection<T> as EventHandler<_, _>>::note_author(author.clone())
-    } verify {
+
+        #[block]
+        {
+            <CollatorSelection<T> as EventHandler<_, _>>::note_author(author.clone());
+        }
+
         assert!(T::RewardsCurrency::free_balance(&author) > 0u32.into());
         assert_eq!(frame_system::Pallet::<T>::block_number(), new_block);
     }
 
     // worst case for new session.
-    new_session {
-        let r in 1 .. T::MaxCandidates::get();
-        let c in 1 .. T::MaxCandidates::get();
-
+    #[benchmark]
+    fn new_session(r: Linear<1, 20>, c: Linear<1, 20>) {
         <CandidacyBond<T>>::put(BalanceOf::<T>::max_value() / 4u32.into());
         <DesiredCandidates<T>>::put(c);
         frame_system::Pallet::<T>::set_block_number(0u32.into());
@@ -240,9 +251,12 @@ benchmarks! {
         frame_system::Pallet::<T>::set_block_number(new_block);
 
         assert!(<Candidates<T>>::get().len() == c as usize);
-    }: {
-        <CollatorSelection<T> as SessionManager<_>>::new_session(0)
-    } verify {
+
+        #[block]
+        {
+            <CollatorSelection<T> as SessionManager<_>>::new_session(0);
+        }
+
         if c > r && non_removals >= T::MinCandidates::get() {
             assert!(<Candidates<T>>::get().len() < pre_length);
         } else if c > r && non_removals < T::MinCandidates::get() {
@@ -251,6 +265,6 @@ benchmarks! {
             assert!(<Candidates<T>>::get().len() == pre_length);
         }
     }
-}
 
-impl_benchmark_test_suite!(CollatorSelection, crate::mock::new_test_ext(), crate::mock::Test,);
+    impl_benchmark_test_suite!(CollatorSelection, crate::mock::new_test_ext(), crate::mock::Test,);
+}
