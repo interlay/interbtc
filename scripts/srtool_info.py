@@ -3,6 +3,8 @@ import json
 from string import Template
 
 tpl = Template("""
+Built using [$srtool_version](https://github.com/paritytech/srtool) and `$rustc_version`.
+
 ```
 🏋️ Runtime Size:		$size bytes
 🔥 Core Version:		$core_version
@@ -18,6 +20,8 @@ data = json.load(open(sys.argv[1], 'r'))
 
 subwasm = data['runtimes']['compressed']['subwasm']
 print(tpl.safe_substitute(
+    srtool_version=data['gen'],
+    rustc_version=data['rustc'],
     size=subwasm['size'],
     core_version=subwasm['core_version'],
     metadata_version=subwasm['metadata_version'],
