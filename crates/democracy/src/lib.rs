@@ -68,9 +68,6 @@
 #![recursion_limit = "256"]
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use core::time::Duration;
-
-use chrono::Days;
 use codec::{Decode, Encode};
 use frame_support::{
     ensure,
@@ -198,11 +195,8 @@ pub mod pallet {
         /// Unix time
         type UnixTime: UnixTime;
 
-        /// Duration
-        type Moment: TryInto<i64>;
-
-        /// Millisecond offset into week from Monday.
-        type LaunchOffsetMillis: Get<Self::Moment>;
+        /// Offset from previous launch timestamp.
+        type LaunchOffset: Get<u64>;
 
         /// Account from which is transferred in `spend_from_treasury`.
         type TreasuryAccount: Get<Self::AccountId>;
@@ -263,6 +257,7 @@ pub mod pallet {
     #[pallet::genesis_config]
     pub struct GenesisConfig<T: Config> {
         _phantom: sp_std::marker::PhantomData<T>,
+        next_launch_timestamp: u64,
     }
 
     #[cfg(feature = "std")]
@@ -270,6 +265,7 @@ pub mod pallet {
         fn default() -> Self {
             GenesisConfig {
                 _phantom: Default::default(),
+                next_launch_timestamp: 0,
             }
         }
     }
@@ -280,6 +276,7 @@ pub mod pallet {
             PublicPropCount::<T>::put(0 as PropIndex);
             ReferendumCount::<T>::put(0 as ReferendumIndex);
             LowestUnbaked::<T>::put(0 as ReferendumIndex);
+            NextLaunchTimestamp::<T>::put(self.next_launch_timestamp);
         }
     }
 
@@ -938,7 +935,7 @@ impl<T: Config> Pallet<T> {
 
         // pick out another public referendum if it's time.
         let current_time = T::UnixTime::now();
-        if Self::should_launch(current_time)? {
+        if Self::should_launch(current_time.as_secs()) {
             // Errors come from the queue being empty. If the queue is not empty, it will take
             // full block weight.
             if Self::launch_next(now).is_ok() {
@@ -964,37 +961,18 @@ impl<T: Config> Pallet<T> {
 
     /// determine whether or not a new referendum should be launched. This will return true
     /// once every week.
-    fn should_launch(now: Duration) -> Result<bool, DispatchError> {
-        if now.as_secs() < NextLaunchTimestamp::<T>::get() {
-            return Ok(false);
+    fn should_launch(now: u64) -> bool {
+        if now < NextLaunchTimestamp::<T>::get() {
+            return false;
         }
 
-        // time to launch - calculate the date of next launch.
-
-        // convert to format used by `chrono`
-        let secs: i64 = now.as_secs().try_into().map_err(Error::<T>::from)?;
-        let now =
-            chrono::NaiveDateTime::from_timestamp_opt(secs, now.subsec_nanos()).ok_or(Error::<T>::TryIntoIntError)?;
-
-        // calculate next week boundary
-        let beginning_of_week = now.date().week(chrono::Weekday::Mon).first_day();
-        let next_week = beginning_of_week
-            .checked_add_days(Days::new(7))
-            .ok_or(Error::<T>::TryIntoIntError)?
-            .and_time(Default::default());
-
-        let offset = T::LaunchOffsetMillis::get()
-            .try_into()
-            .map_err(|_| Error::<T>::TryIntoIntError)?;
-        let next_launch = next_week
-            .checked_add_signed(chrono::Duration::milliseconds(offset))
-            .ok_or(ArithmeticError::Overflow)?;
-
         // update storage
-        let next_timestamp: u64 = next_launch.timestamp().try_into().map_err(Error::<T>::from)?;
-        NextLaunchTimestamp::<T>::set(next_timestamp);
+        NextLaunchTimestamp::<T>::mutate(|next_launch_timestamp| {
+            // offset is number of seconds - e.g. to next week (mon 9am)
+            next_launch_timestamp.saturating_accrue(T::LaunchOffset::get());
+        });
 
-        Ok(true)
+        true
     }
 
     /// Reads the length of account in DepositOf without getting the complete value in the runtime.

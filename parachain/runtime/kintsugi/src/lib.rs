@@ -482,7 +482,7 @@ parameter_types! {
     pub const EnactmentPeriod: BlockNumber = 6 * HOURS;
     pub const MaxVotes: u32 = 100;
     pub const MaxProposals: u32 = 100;
-    pub LaunchOffsetMillis: u64 = 9 * 60 * 60 * 1000; // 9 hours offset, i.e. MON 9 AM
+    pub LaunchOffset: u64 = 1000 * 60 * 60 * 24 * 7; // one week
 }
 
 impl democracy::Config for Runtime {
@@ -503,8 +503,7 @@ impl democracy::Config for Runtime {
     type PalletsOrigin = OriginCaller;
     type WeightInfo = weights::democracy::WeightInfo<Runtime>;
     type UnixTime = Timestamp;
-    type Moment = Moment;
-    type LaunchOffsetMillis = LaunchOffsetMillis;
+    type LaunchOffset = LaunchOffset;
     type TreasuryAccount = TreasuryAccount;
     type TreasuryCurrency = NativeCurrency;
 }
