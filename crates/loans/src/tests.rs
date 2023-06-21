@@ -1577,3 +1577,29 @@ fn redeem_amount_matches_freed_underlying() {
         );
     })
 }
+
+#[test]
+fn fail_to_activate_already_activated_market() {
+    new_test_ext().execute_with(|| {
+        assert_noop!(
+            Loans::activate_market(RuntimeOrigin::root(), Token(DOT_CURRENCY)),
+            Error::<Test>::MarketAlreadyActivated
+        );
+        assert_noop!(
+            Loans::activate_market(RuntimeOrigin::root(), Token(KINT_CURRENCY)),
+            Error::<Test>::MarketAlreadyActivated
+        );
+        assert_noop!(
+            Loans::activate_market(RuntimeOrigin::root(), Token(KSM_CURRENCY)),
+            Error::<Test>::MarketAlreadyActivated
+        );
+        assert_noop!(
+            Loans::activate_market(RuntimeOrigin::root(), Token(KBTC_CURRENCY)),
+            Error::<Test>::MarketAlreadyActivated
+        );
+        assert_noop!(
+            Loans::activate_market(RuntimeOrigin::root(), Token(IBTC_CURRENCY)),
+            Error::<Test>::MarketAlreadyActivated
+        );
+    })
+}
