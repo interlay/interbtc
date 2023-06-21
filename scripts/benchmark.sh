@@ -36,7 +36,7 @@ cargo run \
   --chain "${runtime}" \
   --execution=wasm \
   --wasm-execution=compiled \
-  --steps 100 \
+  --steps 50 \
   --repeat 10 \
   --output "parachain/runtime/${runtime}/src/weights/" \
   --template .deploy/runtime-weight-template.hbs
