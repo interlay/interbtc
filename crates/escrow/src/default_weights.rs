@@ -41,6 +41,7 @@ pub trait WeightInfo {
 	fn increase_amount() -> Weight;
 	fn increase_unlock_height() -> Weight;
 	fn withdraw() -> Weight;
+	fn update_user_stake() -> Weight;
 }
 
 /// Weights for escrow using the Substrate node and recommended hardware.
@@ -202,6 +203,43 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(T::DbWeight::get().reads(111_u64))
 			.saturating_add(T::DbWeight::get().writes(109_u64))
 	}
+	/// Storage: EscrowRewards Stake (r:1 w:1)
+	/// Proof: EscrowRewards Stake (max_values: None, max_size: Some(64), added: 2539, mode: MaxEncodedLen)
+	/// Storage: Escrow Locked (r:1 w:1)
+	/// Proof: Escrow Locked (max_values: None, max_size: Some(68), added: 2543, mode: MaxEncodedLen)
+	/// Storage: Tokens Accounts (r:1 w:1)
+	/// Proof: Tokens Accounts (max_values: None, max_size: Some(115), added: 2590, mode: MaxEncodedLen)
+	/// Storage: Escrow Blocks (r:1 w:0)
+	/// Proof: Escrow Blocks (max_values: None, max_size: Some(49), added: 2524, mode: MaxEncodedLen)
+	/// Storage: Escrow Limits (r:1 w:0)
+	/// Proof: Escrow Limits (max_values: None, max_size: Some(56), added: 2531, mode: MaxEncodedLen)
+	/// Storage: Tokens Locks (r:1 w:1)
+	/// Proof: Tokens Locks (max_values: None, max_size: Some(1268), added: 3743, mode: MaxEncodedLen)
+	/// Storage: Escrow SlopeChanges (r:96 w:1)
+	/// Proof: Escrow SlopeChanges (max_values: None, max_size: Some(36), added: 2511, mode: MaxEncodedLen)
+	/// Storage: Escrow Epoch (r:1 w:1)
+	/// Proof: Escrow Epoch (max_values: Some(1), max_size: Some(4), added: 499, mode: MaxEncodedLen)
+	/// Storage: Escrow PointHistory (r:1 w:95)
+	/// Proof: Escrow PointHistory (max_values: None, max_size: Some(40), added: 2515, mode: MaxEncodedLen)
+	/// Storage: Escrow UserPointEpoch (r:1 w:1)
+	/// Proof: Escrow UserPointEpoch (max_values: None, max_size: Some(52), added: 2527, mode: MaxEncodedLen)
+	/// Storage: EscrowRewards TotalStake (r:1 w:1)
+	/// Proof: EscrowRewards TotalStake (max_values: None, max_size: Some(32), added: 2507, mode: MaxEncodedLen)
+	/// Storage: EscrowRewards RewardCurrencies (r:1 w:0)
+	/// Proof: EscrowRewards RewardCurrencies (max_values: None, max_size: Some(127), added: 2602, mode: MaxEncodedLen)
+	/// Storage: Escrow ThresholdPercentage (r:1 w:0)
+	/// Proof: Escrow ThresholdPercentage (max_values: Some(1), max_size: Some(1), added: 496, mode: MaxEncodedLen)
+	/// Storage: Escrow UserPointHistory (r:0 w:1)
+	/// Proof: Escrow UserPointHistory (max_values: None, max_size: Some(88), added: 2563, mode: MaxEncodedLen)
+	fn update_user_stake	() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `1273`
+		//  Estimated: `281542`
+		// Minimum execution time: 359_000_000 picoseconds.
+		Weight::from_parts(363_000_000, 281542)
+			.saturating_add(T::DbWeight::get().reads(108_u64))
+			.saturating_add(T::DbWeight::get().writes(104_u64))
+	}
 }
 
 // For backwards compatibility and tests
@@ -361,5 +399,42 @@ impl WeightInfo for () {
 		Weight::from_parts(385_866_000, 305386)
 			.saturating_add(RocksDbWeight::get().reads(111_u64))
 			.saturating_add(RocksDbWeight::get().writes(109_u64))
+	}
+	/// Storage: EscrowRewards Stake (r:1 w:1)
+	/// Proof: EscrowRewards Stake (max_values: None, max_size: Some(64), added: 2539, mode: MaxEncodedLen)
+	/// Storage: Escrow Locked (r:1 w:1)
+	/// Proof: Escrow Locked (max_values: None, max_size: Some(68), added: 2543, mode: MaxEncodedLen)
+	/// Storage: Tokens Accounts (r:1 w:1)
+	/// Proof: Tokens Accounts (max_values: None, max_size: Some(115), added: 2590, mode: MaxEncodedLen)
+	/// Storage: Escrow Blocks (r:1 w:0)
+	/// Proof: Escrow Blocks (max_values: None, max_size: Some(49), added: 2524, mode: MaxEncodedLen)
+	/// Storage: Escrow Limits (r:1 w:0)
+	/// Proof: Escrow Limits (max_values: None, max_size: Some(56), added: 2531, mode: MaxEncodedLen)
+	/// Storage: Tokens Locks (r:1 w:1)
+	/// Proof: Tokens Locks (max_values: None, max_size: Some(1268), added: 3743, mode: MaxEncodedLen)
+	/// Storage: Escrow SlopeChanges (r:96 w:1)
+	/// Proof: Escrow SlopeChanges (max_values: None, max_size: Some(36), added: 2511, mode: MaxEncodedLen)
+	/// Storage: Escrow Epoch (r:1 w:1)
+	/// Proof: Escrow Epoch (max_values: Some(1), max_size: Some(4), added: 499, mode: MaxEncodedLen)
+	/// Storage: Escrow PointHistory (r:1 w:95)
+	/// Proof: Escrow PointHistory (max_values: None, max_size: Some(40), added: 2515, mode: MaxEncodedLen)
+	/// Storage: Escrow UserPointEpoch (r:1 w:1)
+	/// Proof: Escrow UserPointEpoch (max_values: None, max_size: Some(52), added: 2527, mode: MaxEncodedLen)
+	/// Storage: EscrowRewards TotalStake (r:1 w:1)
+	/// Proof: EscrowRewards TotalStake (max_values: None, max_size: Some(32), added: 2507, mode: MaxEncodedLen)
+	/// Storage: EscrowRewards RewardCurrencies (r:1 w:0)
+	/// Proof: EscrowRewards RewardCurrencies (max_values: None, max_size: Some(127), added: 2602, mode: MaxEncodedLen)
+	/// Storage: Escrow ThresholdPercentage (r:1 w:0)
+	/// Proof: Escrow ThresholdPercentage (max_values: Some(1), max_size: Some(1), added: 496, mode: MaxEncodedLen)
+	/// Storage: Escrow UserPointHistory (r:0 w:1)
+	/// Proof: Escrow UserPointHistory (max_values: None, max_size: Some(88), added: 2563, mode: MaxEncodedLen)
+	fn update_user_stake	() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `1273`
+		//  Estimated: `281542`
+		// Minimum execution time: 359_000_000 picoseconds.
+		Weight::from_parts(363_000_000, 281542)
+			.saturating_add(RocksDbWeight::get().reads(108_u64))
+			.saturating_add(RocksDbWeight::get().writes(104_u64))
 	}
 }

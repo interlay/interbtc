@@ -1,10 +1,11 @@
 /// Tests for Escrow
 use crate::mock::*;
-use crate::{Limits, Point};
+use crate::{Event, Limits, Point};
 use frame_support::{
     assert_err, assert_ok,
     traits::{Currency, ReservableCurrency},
 };
+use reward::RewardsApi;
 use sp_runtime::traits::Identity;
 
 fn create_lock(origin: AccountId, amount: Balance, end_time: BlockNumber) {
@@ -220,6 +221,37 @@ fn deposit_below_max_height_truncates_to_zero() {
         assert_eq!(
             Point::new::<Identity>(free_balance, 0, 4_838_400, 4_838_400).balance_at::<Identity>(0),
             0
+        );
+    })
+}
+
+#[test]
+fn should_update_stake() {
+    run_test(|| {
+        let start_time = System::block_number();
+        let max_time = start_time + MaxPeriod::get();
+        let end_time = max_time;
+        let amount = 1000;
+
+        create_lock(BOB, amount, end_time);
+
+        let bob_initial_balance: Balance = <Rewards>::get_stake(&(), &BOB).unwrap();
+        assert_eq!(bob_initial_balance, 1000_u128.into());
+
+        System::set_block_number(50);
+
+        assert_ok!(Escrow::update_user_stake(RuntimeOrigin::signed(ALICE), BOB));
+
+        let bob_final_balance: Balance = <Rewards>::get_stake(&(), &BOB).unwrap();
+        assert_eq!(bob_final_balance, 500_u128.into());
+
+        System::assert_last_event(
+            Event::Deposit {
+                who: BOB,
+                amount: 0_u128.into(),
+                unlock_height: 0_u64.into(),
+            }
+            .into(),
         );
     })
 }

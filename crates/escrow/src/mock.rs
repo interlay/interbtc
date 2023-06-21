@@ -1,6 +1,8 @@
 use crate as escrow;
 use crate::{Config, Error};
 use frame_support::{parameter_types, traits::Everything};
+pub use primitives::{CurrencyId, CurrencyId::Token, TokenSymbol::*};
+use sp_arithmetic::FixedI128;
 use sp_core::H256;
 use sp_runtime::{
     generic::Header as GenericHeader,
@@ -22,6 +24,7 @@ frame_support::construct_runtime!(
         System: frame_system::{Pallet, Call, Storage, Config, Event<T>},
         Balances: pallet_balances::{Pallet, Call, Storage, Event<T>},
         Escrow: escrow::{Pallet, Call, Storage, Event<T>},
+        Rewards: reward::{Pallet, Call, Storage, Event<T>},
     }
 );
 
@@ -29,6 +32,7 @@ pub type AccountId = u64;
 pub type Balance = u128;
 pub type BlockNumber = u128;
 pub type Index = u64;
+pub type SignedFixedPoint = FixedI128;
 
 parameter_types! {
     pub const BlockHashCount: u64 = 250;
@@ -78,6 +82,17 @@ impl pallet_balances::Config for Test {
     type ReserveIdentifier = [u8; 8];
 }
 
+impl reward::Config for Test {
+    type RuntimeEvent = RuntimeEvent;
+    type SignedFixedPoint = SignedFixedPoint;
+    type PoolId = ();
+    type StakeId = AccountId;
+    type CurrencyId = ();
+    type GetNativeCurrencyId = ();
+    type GetWrappedCurrencyId = ();
+    type MaxRewardCurrencies = ();
+}
+
 parameter_types! {
     pub const Span: BlockNumber = 10;
     pub const MaxPeriod: BlockNumber = 100;
@@ -89,7 +104,7 @@ impl Config for Test {
     type Currency = Balances;
     type Span = Span;
     type MaxPeriod = MaxPeriod;
-    type EscrowRewards = ();
+    type EscrowRewards = Rewards;
     type WeightInfo = ();
 }
 
@@ -99,11 +114,9 @@ pub const ALICE: AccountId = 1;
 pub const BOB: AccountId = 2;
 
 pub struct ExtBuilder;
-
 impl ExtBuilder {
     pub fn build() -> sp_io::TestExternalities {
         let storage = frame_system::GenesisConfig::default().build_storage::<Test>().unwrap();
-
         storage.into()
     }
 }
