@@ -5,7 +5,7 @@ use frame_support::{
     assert_err, assert_ok,
     traits::{Currency, ReservableCurrency},
 };
-use reward::RewardsApi;
+use reward::{RewardPerToken, RewardsApi, TotalRewards};
 use sp_runtime::traits::Identity;
 
 fn create_lock(origin: AccountId, amount: Balance, end_time: BlockNumber) {
@@ -228,6 +228,15 @@ fn deposit_below_max_height_truncates_to_zero() {
 #[test]
 fn should_update_stake() {
     run_test(|| {
+        // initialize rewards pallet
+        let currency = Token(INTR);
+        let total_rewards = 1_000_000_000_000_000_000_000;
+        let reward_per_token = 1_000_000_000_000_000_000;
+        let f = |x: i128| SignedFixedPoint::from_inner(x);
+
+        RewardPerToken::<Test>::insert(currency, (), f(reward_per_token));
+        TotalRewards::<Test>::insert(currency, f(total_rewards));
+
         let start_time = System::block_number();
         let max_time = start_time + MaxPeriod::get();
         let end_time = max_time;
@@ -235,15 +244,29 @@ fn should_update_stake() {
 
         create_lock(BOB, amount, end_time);
 
-        let bob_initial_balance: Balance = <Rewards>::get_stake(&(), &BOB).unwrap();
-        assert_eq!(bob_initial_balance, 1000_u128.into());
+        let bob_initial_stake_balance: Balance = <Rewards>::get_stake(&(), &BOB).unwrap();
+        assert_eq!(bob_initial_stake_balance, 1000_u128.into());
+
+        let bob_initial_rewards = <Rewards>::compute_reward(&(), &BOB, Token(INTR)).unwrap();
+        assert_eq!(bob_initial_rewards, 1000.into());
+
+        let total_rewards_before = <Rewards>::get_total_rewards(currency).unwrap();
+        assert_eq!(total_rewards_before, 1000.into());
 
         System::set_block_number(50);
 
         assert_ok!(Escrow::update_user_stake(RuntimeOrigin::signed(ALICE), BOB));
 
-        let bob_final_balance: Balance = <Rewards>::get_stake(&(), &BOB).unwrap();
-        assert_eq!(bob_final_balance, 500_u128.into());
+        let bob_final_stake_balance: Balance = <Rewards>::get_stake(&(), &BOB).unwrap();
+        assert_eq!(bob_final_stake_balance, 500_u128.into());
+
+        // reward reduced by half as the stake updated
+        let bob_final_rewards = <Rewards>::compute_reward(&(), &BOB, Token(INTR)).unwrap();
+        assert_eq!(bob_final_rewards, 500.into());
+
+        // total rewards doesn't change
+        let total_rewards_after = <Rewards>::get_total_rewards(currency).unwrap();
+        assert_eq!(total_rewards_after, 1000.into());
 
         System::assert_last_event(
             Event::Deposit {
@@ -253,5 +276,5 @@ fn should_update_stake() {
             }
             .into(),
         );
-    })
+    });
 }

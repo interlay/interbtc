@@ -1,6 +1,9 @@
 use crate as escrow;
 use crate::{Config, Error};
-use frame_support::{parameter_types, traits::Everything};
+use frame_support::{
+    parameter_types,
+    traits::{ConstU32, Everything},
+};
 pub use primitives::{CurrencyId, CurrencyId::Token, TokenSymbol::*};
 use sp_arithmetic::FixedI128;
 use sp_core::H256;
@@ -82,15 +85,20 @@ impl pallet_balances::Config for Test {
     type ReserveIdentifier = [u8; 8];
 }
 
+parameter_types! {
+    pub const GetNativeCurrencyId: CurrencyId = Token(INTR);
+    pub const GetWrappedCurrencyId: CurrencyId = Token(IBTC);
+}
+
 impl reward::Config for Test {
     type RuntimeEvent = RuntimeEvent;
     type SignedFixedPoint = SignedFixedPoint;
     type PoolId = ();
     type StakeId = AccountId;
-    type CurrencyId = ();
-    type GetNativeCurrencyId = ();
-    type GetWrappedCurrencyId = ();
-    type MaxRewardCurrencies = ();
+    type CurrencyId = CurrencyId;
+    type GetNativeCurrencyId = GetNativeCurrencyId;
+    type GetWrappedCurrencyId = GetWrappedCurrencyId;
+    type MaxRewardCurrencies = ConstU32<10>;
 }
 
 parameter_types! {
