@@ -16,6 +16,7 @@ mod tests;
 
 use codec::{Decode, Encode, EncodeLike};
 use frame_support::{
+    pallet_prelude::DispatchResult,
     traits::{Currency, Get, ReservableCurrency},
     transactional,
     weights::Weight,
@@ -24,8 +25,9 @@ use frame_support::{
 use frame_system::ensure_root;
 use primitives::TruncateFixedPointToInt;
 use scale_info::TypeInfo;
+use sp_arithmetic::ArithmeticError;
 use sp_runtime::{
-    traits::{AccountIdConversion, Saturating, Zero},
+    traits::{AccountIdConversion, Saturating},
     FixedPointNumber,
 };
 
@@ -90,7 +92,9 @@ pub mod pallet {
     #[pallet::hooks]
     impl<T: Config> Hooks<T::BlockNumber> for Pallet<T> {
         fn on_initialize(n: T::BlockNumber) -> Weight {
-            Self::begin_block(n);
+            if let Err(e) = Self::begin_block(n) {
+                sp_runtime::print(e);
+            }
             T::WeightInfo::on_initialize()
         }
     }
@@ -163,18 +167,19 @@ impl<T: Config> Pallet<T> {
         T::SupplyPalletId::get().into_account_truncating()
     }
 
-    pub(crate) fn begin_block(height: T::BlockNumber) {
+    pub(crate) fn begin_block(height: T::BlockNumber) -> DispatchResult {
         // ignore if uninitialized or not start height
         if let Some(start_height) = <StartHeight<T>>::get().filter(|&start_height| height == start_height) {
             let end_height = start_height + T::InflationPeriod::get();
             <StartHeight<T>>::put(end_height);
 
             let total_supply = T::Currency::total_issuance();
-            let total_supply_as_fixed = T::UnsignedFixedPoint::checked_from_integer(total_supply).unwrap();
+            let total_supply_as_fixed =
+                T::UnsignedFixedPoint::checked_from_integer(total_supply).ok_or(ArithmeticError::Overflow)?;
             let total_inflation = total_supply_as_fixed
                 .saturating_mul(<Inflation<T>>::get())
                 .truncate_to_inner()
-                .unwrap_or(Zero::zero());
+                .unwrap_or_default();
 
             <LastEmission<T>>::put(total_inflation);
             let supply_account_id = Self::account_id();
@@ -182,6 +187,8 @@ impl<T: Config> Pallet<T> {
             T::OnInflation::on_inflation(&supply_account_id, total_inflation);
             Self::deposit_event(Event::<T>::Inflation { total_inflation });
         }
+
+        Ok(())
     }
 }
 
