@@ -11,7 +11,7 @@
 .idea
 /target/*
 */launch.json
-.vscode
+*.vscode
 
 ## Rococo
 genesis-state*
@@ -23,3 +23,7 @@ rococo-local-raw.json
 
 ### Testdata
 standalone/runtime/tests/data/bitcoin-testdata.json
+
+### Specification
+docs/spec/book
+*.rst
