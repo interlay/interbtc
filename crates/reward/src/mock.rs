@@ -69,19 +69,12 @@ impl frame_system::Config for Test {
     type MaxConsumers = ConstU32<16>;
 }
 
-parameter_types! {
-    pub const GetNativeCurrencyId: CurrencyId = Token(INTR);
-    pub const GetWrappedCurrencyId: CurrencyId = Token(IBTC);
-}
-
 impl Config for Test {
     type RuntimeEvent = RuntimeEvent;
     type SignedFixedPoint = SignedFixedPoint;
     type PoolId = ();
     type StakeId = AccountId;
     type CurrencyId = CurrencyId;
-    type GetNativeCurrencyId = GetNativeCurrencyId;
-    type GetWrappedCurrencyId = GetWrappedCurrencyId;
     type MaxRewardCurrencies = ConstU32<10>;
 }
 

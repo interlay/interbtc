@@ -226,6 +226,7 @@ impl orml_tokens::Config for Test {
     type ReserveIdentifier = [u8; 8];
     type CurrencyHooks = ();
 }
+
 impl currency::Config for Test {
     type SignedInner = SignedInner;
     type SignedFixedPoint = SignedFixedPoint;

@@ -5,8 +5,6 @@
 #![cfg_attr(test, feature(proc_macro_hygiene))]
 #![cfg_attr(not(feature = "std"), no_std)]
 
-pub mod migration;
-
 #[cfg(test)]
 mod mock;
 
@@ -61,12 +59,6 @@ pub mod pallet {
 
         /// The currency ID type.
         type CurrencyId: Parameter + Member + Copy + MaybeSerializeDeserialize + Ord + MaxEncodedLen;
-
-        #[pallet::constant]
-        type GetNativeCurrencyId: Get<Self::CurrencyId>;
-
-        #[pallet::constant]
-        type GetWrappedCurrencyId: Get<Self::CurrencyId>;
 
         /// The maximum number of reward currencies.
         #[pallet::constant]

@@ -3,8 +3,9 @@ use currency::getters::{get_relay_chain_currency_id as get_collateral_currency_i
 use frame_benchmarking::v2::{account, benchmarks, impl_benchmark_test_suite};
 use frame_support::assert_ok;
 use frame_system::RawOrigin;
-use orml_traits::MultiCurrency;
+use orml_traits::{MultiCurrency, MultiReservableCurrency};
 use primitives::CurrencyId;
+use sp_core::Get;
 use sp_runtime::traits::One;
 use sp_std::vec;
 use vault_registry::{
@@ -14,6 +15,7 @@ use vault_registry::{
 
 // Pallets
 use crate::Pallet as Nomination;
+use fee::Pallet as Fee;
 use oracle::Pallet as Oracle;
 use security::{Pallet as Security, StatusCode};
 use vault_registry::Pallet as VaultRegistry;
@@ -52,6 +54,12 @@ fn register_vault<T: crate::Config>(vault_id: DefaultVaultId<T>) {
         vault_id.clone(),
         100000000u32.into()
     ));
+}
+
+fn distribute_rewards<T: fee::Config>(currency: CurrencyId) {
+    let amount = Amount::<T>::new(1000u32.into(), currency);
+    amount.mint_to(&Fee::<T>::fee_pool_account_id()).unwrap();
+    Fee::<T>::distribute_rewards(&amount).unwrap();
 }
 
 #[benchmarks(where T: loans::Config)]
@@ -122,14 +130,25 @@ pub mod benchmarks {
         <Vaults<T>>::insert(&vault_id, true);
 
         let nominator: T::AccountId = account("Nominator", 0, 0);
-        if vault_id.collateral_currency().is_lend_token() {
-            mint_lend_tokens::<T>(&nominator, vault_id.collateral_currency());
+        let collateral_currency = vault_id.collateral_currency();
+        if collateral_currency.is_lend_token() {
+            mint_lend_tokens::<T>(&nominator, collateral_currency);
         } else {
             mint_collateral::<T>(&nominator, (1u32 << 31).into());
         }
         let amount = 100u32.into();
+
+        // only two reward currencies supported
+        distribute_rewards::<T>(T::GetWrappedCurrencyId::get());
+        distribute_rewards::<T>(T::GetNativeCurrencyId::get());
+
+        let balance_before = <orml_tokens::Pallet<T>>::reserved_balance(collateral_currency, &vault_id.account_id);
+
         #[extrinsic_call]
-        _(RawOrigin::Signed(nominator), vault_id, amount);
+        _(RawOrigin::Signed(nominator), vault_id.clone(), amount);
+
+        let balance_after = <orml_tokens::Pallet<T>>::reserved_balance(collateral_currency, &vault_id.account_id);
+        assert_eq!(balance_before + amount, balance_after);
     }
 
     #[benchmark]
@@ -150,8 +169,9 @@ pub mod benchmarks {
         .unwrap();
 
         let nominator: T::AccountId = account("Nominator", 0, 0);
-        if vault_id.collateral_currency().is_lend_token() {
-            mint_lend_tokens::<T>(&nominator, vault_id.collateral_currency());
+        let collateral_currency = vault_id.collateral_currency();
+        if collateral_currency.is_lend_token() {
+            mint_lend_tokens::<T>(&nominator, collateral_currency);
         } else {
             mint_collateral::<T>(&nominator, (1u32 << 31).into());
         }
@@ -159,8 +179,17 @@ pub mod benchmarks {
 
         assert_ok!(Nomination::<T>::_deposit_collateral(&vault_id, &nominator, amount));
 
+        // only two reward currencies supported
+        distribute_rewards::<T>(T::GetWrappedCurrencyId::get());
+        distribute_rewards::<T>(T::GetNativeCurrencyId::get());
+
+        let balance_before = <orml_tokens::Pallet<T>>::reserved_balance(collateral_currency, &vault_id.account_id);
+
         #[extrinsic_call]
-        _(RawOrigin::Signed(nominator), vault_id, amount, None);
+        _(RawOrigin::Signed(nominator.clone()), vault_id.clone(), amount, None);
+
+        let balance_after = <orml_tokens::Pallet<T>>::reserved_balance(collateral_currency, &vault_id.account_id);
+        assert_eq!(balance_before - amount, balance_after);
     }
 
     impl_benchmark_test_suite!(
