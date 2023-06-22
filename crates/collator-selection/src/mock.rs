@@ -188,7 +188,7 @@ ord_parameter_types! {
 parameter_types! {
     pub const PotId: PalletId = PalletId(*b"PotStake");
     pub const MaxCandidates: u32 = 20;
-    pub const MaxInvulnerables: u32 = 20;
+    pub const MaxInvulnerables: u32 = 100;
     pub const MinCandidates: u32 = 1;
     pub const MaxAuthorities: u32 = 100_000;
 }
