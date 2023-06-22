@@ -1,8 +1,12 @@
 use crate as escrow;
 use crate::{Config, Error};
-use frame_support::{parameter_types, traits::Everything};
-use primitives::{CurrencyId, SignedFixedPoint};
-use sp_core::{ConstU32, H256};
+use frame_support::{
+    parameter_types,
+    traits::{ConstU32, Everything},
+};
+pub use primitives::{CurrencyId, CurrencyId::Token, TokenSymbol::*};
+use sp_arithmetic::FixedI128;
+use sp_core::H256;
 use sp_runtime::{
     generic::Header as GenericHeader,
     traits::{BlakeTwo256, Identity, IdentityLookup},
@@ -31,6 +35,7 @@ pub type AccountId = u64;
 pub type Balance = u128;
 pub type BlockNumber = u128;
 pub type Index = u64;
+pub type SignedFixedPoint = FixedI128;
 
 parameter_types! {
     pub const BlockHashCount: u64 = 250;
@@ -61,7 +66,7 @@ impl frame_system::Config for Test {
     type SystemWeightInfo = ();
     type SS58Prefix = SS58Prefix;
     type OnSetCode = ();
-    type MaxConsumers = frame_support::traits::ConstU32<16>;
+    type MaxConsumers = ConstU32<16>;
 }
 
 parameter_types! {
@@ -110,11 +115,9 @@ pub const ALICE: AccountId = 1;
 pub const BOB: AccountId = 2;
 
 pub struct ExtBuilder;
-
 impl ExtBuilder {
     pub fn build() -> sp_io::TestExternalities {
         let storage = frame_system::GenesisConfig::default().build_storage::<Test>().unwrap();
-
         storage.into()
     }
 }

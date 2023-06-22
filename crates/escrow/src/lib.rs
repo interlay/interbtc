@@ -201,6 +201,8 @@ pub mod pallet {
         InsufficientFunds,
         /// Not supported.
         NotSupported,
+        /// Incorrect Percent
+        IncorrectPercent,
     }
 
     #[pallet::hooks]
@@ -361,6 +363,21 @@ pub mod pallet {
             ensure_root(origin)?;
             <Blocks<T>>::insert(&who, true);
             Ok(().into())
+        }
+
+        /// Update the stake amount for a user.
+        ///
+        /// # Arguments
+        ///
+        /// * `origin` - Sender of the transaction.
+        /// * `target_user` - The account ID of the user whose stake amount needs to be updated.
+        #[pallet::call_index(6)]
+        #[pallet::weight(<T as Config>::WeightInfo::update_user_stake())]
+        #[transactional]
+        pub fn update_user_stake(origin: OriginFor<T>, target_user: T::AccountId) -> DispatchResult {
+            ensure_signed(origin)?;
+            // call `deposit_for` for re calculation of stake amount
+            Self::deposit_for(&target_user, Zero::zero(), Zero::zero())
         }
     }
 }

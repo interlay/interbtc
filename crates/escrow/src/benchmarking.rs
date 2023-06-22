@@ -111,5 +111,22 @@ pub mod benchmarks {
         withdraw(RawOrigin::Signed(origin));
     }
 
+    #[benchmark]
+    pub fn update_user_stake() {
+        let origin: T::AccountId = account("Origin", 0, 0);
+        let report_account: T::AccountId = account("Report Account", 0, 0);
+
+        // 52 weeks, i.e. 1 year. Since `increase_unlock_height` iterates ones per elapsed span,
+        // we simulate a very bad case: 1 year without calls to `deposit_for`.
+        // This should be a pretty safe upper bound
+        System::<T>::set_block_number(T::Span::get() * 52u32.into());
+        create_default_lock::<T>(report_account.clone());
+        let end_height = System::<T>::block_number() + T::MaxPeriod::get() - T::Span::get();
+        System::<T>::set_block_number(end_height);
+
+        #[extrinsic_call]
+        update_user_stake(RawOrigin::Signed(origin), report_account);
+    }
+
     impl_benchmark_test_suite! {Escrow, crate::mock::ExtBuilder::build(), crate::mock::Test}
 }

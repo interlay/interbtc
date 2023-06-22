@@ -1,10 +1,11 @@
 /// Tests for Escrow
 use crate::mock::*;
-use crate::{Limits, Point};
+use crate::{Event, Limits, Point};
 use frame_support::{
     assert_err, assert_ok,
     traits::{Currency, ReservableCurrency},
 };
+use reward::RewardsApi;
 use sp_runtime::traits::Identity;
 
 fn create_lock(origin: AccountId, amount: Balance, end_time: BlockNumber) {
@@ -222,4 +223,57 @@ fn deposit_below_max_height_truncates_to_zero() {
             0
         );
     })
+}
+
+#[test]
+fn should_update_stake() {
+    run_test(|| {
+        let start_time = System::block_number();
+        let max_time = start_time + MaxPeriod::get();
+        let end_time = max_time;
+        let amount = 1000;
+
+        create_lock(BOB, amount, end_time);
+
+        // initialize rewards
+        let rewards_currency = Token(INTR);
+        assert_ok!(<Rewards as RewardsApi<(), AccountId, Balance>>::distribute_reward(
+            &(),
+            rewards_currency,
+            1000
+        ));
+
+        let bob_initial_stake_balance: Balance = <Rewards>::get_stake(&(), &BOB).unwrap();
+        assert_eq!(bob_initial_stake_balance, 1000_u128.into());
+
+        let bob_initial_rewards = <Rewards>::compute_reward(&(), &BOB, rewards_currency).unwrap();
+        assert_eq!(bob_initial_rewards, 1000.into());
+
+        let total_rewards_before = <Rewards>::get_total_rewards(rewards_currency).unwrap();
+        assert_eq!(total_rewards_before, 1000.into());
+
+        System::set_block_number(50);
+
+        assert_ok!(Escrow::update_user_stake(RuntimeOrigin::signed(ALICE), BOB));
+
+        let bob_final_stake_balance: Balance = <Rewards>::get_stake(&(), &BOB).unwrap();
+        assert_eq!(bob_final_stake_balance, 500_u128.into());
+
+        // reward doesn't change
+        let bob_final_rewards = <Rewards>::compute_reward(&(), &BOB, rewards_currency).unwrap();
+        assert_eq!(bob_final_rewards, 1000.into());
+
+        // total rewards doesn't change
+        let total_rewards_after = <Rewards>::get_total_rewards(rewards_currency).unwrap();
+        assert_eq!(total_rewards_after, 1000.into());
+
+        System::assert_last_event(
+            Event::Deposit {
+                who: BOB,
+                amount: 0_u128.into(),
+                unlock_height: 0_u64.into(),
+            }
+            .into(),
+        );
+    });
 }
