@@ -131,8 +131,6 @@ impl reward::Config<CapacityRewardsInstance> for Test {
     type PoolId = ();
     type StakeId = CurrencyId;
     type CurrencyId = CurrencyId;
-    type GetNativeCurrencyId = GetNativeCurrencyId;
-    type GetWrappedCurrencyId = GetWrappedCurrencyId;
     type MaxRewardCurrencies = ConstU32<10>;
 }
 
@@ -144,8 +142,6 @@ impl reward::Config<VaultRewardsInstance> for Test {
     type PoolId = CurrencyId;
     type StakeId = VaultId<AccountId, CurrencyId>;
     type CurrencyId = CurrencyId;
-    type GetNativeCurrencyId = GetNativeCurrencyId;
-    type GetWrappedCurrencyId = GetWrappedCurrencyId;
     type MaxRewardCurrencies = ConstU32<10>;
 }
 

@@ -84,19 +84,12 @@ impl pallet_balances::Config for Test {
     type ReserveIdentifier = [u8; 8];
 }
 
-parameter_types! {
-    pub const GetNativeCurrencyId: CurrencyId = Token(INTR);
-    pub const GetWrappedCurrencyId: CurrencyId = Token(IBTC);
-}
-
 impl reward::Config for Test {
     type RuntimeEvent = RuntimeEvent;
     type SignedFixedPoint = SignedFixedPoint;
     type PoolId = ();
     type StakeId = AccountId;
     type CurrencyId = CurrencyId;
-    type GetNativeCurrencyId = GetNativeCurrencyId;
-    type GetWrappedCurrencyId = GetWrappedCurrencyId;
     type MaxRewardCurrencies = ConstU32<10>;
 }
 
@@ -112,6 +105,8 @@ pub const YEAR_2_REWARDS: Balance = VAULT_REWARDS / 100 * 30;
 pub const YEAR_3_REWARDS: Balance = VAULT_REWARDS / 100 * 20;
 pub const YEAR_4_REWARDS: Balance = VAULT_REWARDS / 100 * 10;
 
+pub const NATIVE_CURRENCY_ID: CurrencyId = Token(INTR);
+
 pub struct MockBlockRewardProvider;
 
 impl BlockRewardProvider<AccountId> for MockBlockRewardProvider {
@@ -121,14 +116,10 @@ impl BlockRewardProvider<AccountId> for MockBlockRewardProvider {
         <Rewards as reward::RewardsApi<(), AccountId, Balance>>::deposit_stake(&(), who, amount)
     }
     fn distribute_block_reward(_: &AccountId, amount: Balance) -> DispatchResult {
-        <Rewards as reward::RewardsApi<(), AccountId, Balance>>::distribute_reward(
-            &(),
-            GetNativeCurrencyId::get(),
-            amount,
-        )
+        <Rewards as reward::RewardsApi<(), AccountId, Balance>>::distribute_reward(&(), NATIVE_CURRENCY_ID, amount)
     }
     fn withdraw_reward(who: &AccountId) -> Result<Balance, DispatchError> {
-        <Rewards as reward::RewardsApi<(), AccountId, Balance>>::withdraw_reward(&(), who, GetNativeCurrencyId::get())
+        <Rewards as reward::RewardsApi<(), AccountId, Balance>>::withdraw_reward(&(), who, NATIVE_CURRENCY_ID)
     }
 }
 

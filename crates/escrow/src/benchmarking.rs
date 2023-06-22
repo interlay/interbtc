@@ -2,7 +2,9 @@ use super::*;
 use frame_benchmarking::v2::{account, benchmarks, impl_benchmark_test_suite};
 use frame_support::assert_ok;
 use frame_system::RawOrigin;
+use primitives::{Balance, CurrencyId};
 use sp_std::vec;
+
 // Pallets
 use crate::Pallet as Escrow;
 use frame_system::Pallet as System;
@@ -19,7 +21,26 @@ pub fn create_default_lock<T: Config>(origin: T::AccountId) {
     ));
 }
 
-#[benchmarks]
+fn distribute_rewards<T: Config>()
+where
+    T::EscrowRewards: reward::RewardsApi<(), T::AccountId, Balance, CurrencyId = CurrencyId>,
+{
+    assert_ok!(T::EscrowRewards::deposit_stake(
+        &(),
+        &account("Staker", 0, 0),
+        1000u32.into()
+    ));
+    assert_ok!(T::EscrowRewards::distribute_reward(
+        &(),
+        CurrencyId::ForeignAsset(0),
+        1000u32.into(),
+    ));
+}
+
+#[benchmarks(
+    where
+        T::EscrowRewards: reward::RewardsApi<(), T::AccountId, Balance, CurrencyId = CurrencyId>
+)]
 pub mod benchmarks {
     use super::*;
 
@@ -34,6 +55,7 @@ pub mod benchmarks {
         let end_height = start_height + T::MaxPeriod::get();
         let amount = T::BlockNumberToBalance::convert(T::MaxPeriod::get());
         T::Currency::make_free_balance_be(&origin, amount.into());
+        distribute_rewards::<T>();
 
         #[extrinsic_call]
         create_lock(RawOrigin::Signed(origin), amount.into(), end_height);
@@ -48,6 +70,8 @@ pub mod benchmarks {
         // This should be a pretty safe upper bound
         System::<T>::set_block_number(T::Span::get() * 52u32.into());
         create_default_lock::<T>(origin.clone());
+        distribute_rewards::<T>();
+
         let free_balance = T::Currency::free_balance(&origin);
         T::Currency::make_free_balance_be(&origin, free_balance + amount.into());
 
@@ -65,6 +89,7 @@ pub mod benchmarks {
         create_default_lock::<T>(origin.clone());
         let end_height = System::<T>::block_number() + T::MaxPeriod::get() - T::Span::get();
         System::<T>::set_block_number(end_height);
+        distribute_rewards::<T>();
 
         #[extrinsic_call]
         increase_unlock_height(RawOrigin::Signed(origin), end_height + T::MaxPeriod::get());
@@ -80,6 +105,7 @@ pub mod benchmarks {
         create_default_lock::<T>(origin.clone());
         let end_height = System::<T>::block_number() + T::MaxPeriod::get() + T::Span::get();
         System::<T>::set_block_number(end_height);
+        distribute_rewards::<T>();
 
         #[extrinsic_call]
         withdraw(RawOrigin::Signed(origin));

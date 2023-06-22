@@ -281,6 +281,8 @@ pub mod pallet {
         InvalidLendTokenId,
         /// Market does not exist
         MarketDoesNotExist,
+        /// Market already activated
+        MarketAlreadyActivated,
         /// Market already exists
         MarketAlreadyExists,
         /// New markets must have a pending state
@@ -684,14 +686,13 @@ pub mod pallet {
         #[transactional]
         pub fn activate_market(origin: OriginFor<T>, asset_id: CurrencyId<T>) -> DispatchResultWithPostInfo {
             T::UpdateOrigin::ensure_origin(origin)?;
-            // TODO: if the market is already active throw an error,
-            // to avoid emitting the `ActivatedMarket` event again.
             Self::mutate_market(asset_id, |stored_market| {
+                // Ensure that market is not already active
                 if let MarketState::Active = stored_market.state {
-                    return stored_market.clone();
+                    return Err(Error::<T>::MarketAlreadyActivated.into());
                 }
                 stored_market.state = MarketState::Active;
-                stored_market.clone()
+                Ok(stored_market.clone())
             })?;
             Self::deposit_event(Event::<T>::ActivatedMarket {
                 underlying_currency_id: asset_id,
@@ -716,7 +717,7 @@ pub mod pallet {
             ensure!(rate_model.check_model(), Error::<T>::InvalidRateModelParam);
             let market = Self::mutate_market(asset_id, |stored_market| {
                 stored_market.rate_model = rate_model;
-                stored_market.clone()
+                Ok(stored_market.clone())
             })?;
             Self::deposit_event(Event::<T>::UpdatedMarket {
                 underlying_currency_id: asset_id,
@@ -798,7 +799,7 @@ pub mod pallet {
                     supply_cap,
                     borrow_cap,
                 };
-                stored_market.clone()
+                Ok(stored_market.clone())
             })?;
             Self::deposit_event(Event::<T>::UpdatedMarket {
                 underlying_currency_id: asset_id,
@@ -832,7 +833,7 @@ pub mod pallet {
             UnderlyingAssetId::<T>::insert(market.lend_token_id, asset_id);
             let updated_market = Self::mutate_market(asset_id, |stored_market| {
                 *stored_market = market;
-                stored_market.clone()
+                Ok(stored_market.clone())
             })?;
 
             Self::deposit_event(Event::<T>::UpdatedMarket {
@@ -1831,11 +1832,11 @@ impl<T: Config> Pallet<T> {
     // Returns `Err` if market does not exist.
     pub(crate) fn mutate_market<F>(asset_id: CurrencyId<T>, cb: F) -> Result<Market<BalanceOf<T>>, DispatchError>
     where
-        F: FnOnce(&mut Market<BalanceOf<T>>) -> Market<BalanceOf<T>>,
+        F: FnOnce(&mut Market<BalanceOf<T>>) -> Result<Market<BalanceOf<T>>, DispatchError>,
     {
         Markets::<T>::try_mutate(asset_id, |opt| -> Result<Market<BalanceOf<T>>, DispatchError> {
             if let Some(market) = opt {
-                return Ok(cb(market));
+                return cb(market);
             }
             Err(Error::<T>::MarketDoesNotExist.into())
         })

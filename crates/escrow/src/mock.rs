@@ -26,8 +26,8 @@ frame_support::construct_runtime!(
     {
         System: frame_system::{Pallet, Call, Storage, Config, Event<T>},
         Balances: pallet_balances::{Pallet, Call, Storage, Event<T>},
-        Escrow: escrow::{Pallet, Call, Storage, Event<T>},
         Rewards: reward::{Pallet, Call, Storage, Event<T>},
+        Escrow: escrow::{Pallet, Call, Storage, Event<T>},
     }
 );
 
@@ -66,7 +66,7 @@ impl frame_system::Config for Test {
     type SystemWeightInfo = ();
     type SS58Prefix = SS58Prefix;
     type OnSetCode = ();
-    type MaxConsumers = frame_support::traits::ConstU32<16>;
+    type MaxConsumers = ConstU32<16>;
 }
 
 parameter_types! {
@@ -85,20 +85,13 @@ impl pallet_balances::Config for Test {
     type ReserveIdentifier = [u8; 8];
 }
 
-parameter_types! {
-    pub const GetNativeCurrencyId: CurrencyId = Token(INTR);
-    pub const GetWrappedCurrencyId: CurrencyId = Token(IBTC);
-}
-
 impl reward::Config for Test {
     type RuntimeEvent = RuntimeEvent;
     type SignedFixedPoint = SignedFixedPoint;
     type PoolId = ();
     type StakeId = AccountId;
     type CurrencyId = CurrencyId;
-    type GetNativeCurrencyId = GetNativeCurrencyId;
-    type GetWrappedCurrencyId = GetWrappedCurrencyId;
-    type MaxRewardCurrencies = ConstU32<10>;
+    type MaxRewardCurrencies = ConstU32<1>;
 }
 
 parameter_types! {

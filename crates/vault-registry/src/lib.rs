@@ -5,8 +5,6 @@
 #![cfg_attr(test, feature(proc_macro_hygiene))]
 #![cfg_attr(not(feature = "std"), no_std)]
 
-pub mod migration;
-
 mod ext;
 pub mod types;
 
@@ -60,7 +58,7 @@ use sp_runtime::{
     transaction_validity::{InvalidTransaction, TransactionSource, TransactionValidity, ValidTransaction},
     ArithmeticError,
 };
-use sp_std::{convert::TryInto, fmt::Debug, vec::Vec};
+use sp_std::{convert::TryInto, vec::Vec};
 use traits::NominationApi;
 
 // value taken from https://github.com/substrate-developer-hub/recipes/blob/master/pallets/ocw-demo/src/lib.rs

@@ -528,16 +528,6 @@ impl pallet_multisig::Config for Runtime {
 }
 
 parameter_types! {
-    pub const ProposalBond: Permill = Permill::from_percent(5);
-    pub ProposalBondMinimum: Balance = 5;
-    pub ProposalBondMaximum: Option<Balance> = None;
-    pub const SpendPeriod: BlockNumber = 1 * HOURS;
-    pub const Burn: Permill = Permill::from_percent(0);
-    pub const MaxApprovals: u32 = 100;
-    pub const MaxSpend: Balance = Balance::MAX;
-}
-
-parameter_types! {
     pub const TechnicalCommitteeMotionDuration: BlockNumber = 3 * DAYS;
     pub const TechnicalCommitteeMaxProposals: u32 = 100;
     pub const TechnicalCommitteeMaxMembers: u32 = 100;
@@ -894,9 +884,7 @@ impl reward::Config<EscrowRewardsInstance> for Runtime {
     type PoolId = ();
     type StakeId = AccountId;
     type CurrencyId = CurrencyId;
-    type GetNativeCurrencyId = GetNativeCurrencyId;
-    type GetWrappedCurrencyId = GetWrappedCurrencyId;
-    type MaxRewardCurrencies = ConstU32<10>;
+    type MaxRewardCurrencies = ConstU32<1>;
 }
 
 pub type VaultRewardsInstance = reward::Instance2;
@@ -907,9 +895,7 @@ impl reward::Config<VaultRewardsInstance> for Runtime {
     type PoolId = CurrencyId;
     type StakeId = VaultId;
     type CurrencyId = CurrencyId;
-    type GetNativeCurrencyId = GetNativeCurrencyId;
-    type GetWrappedCurrencyId = GetWrappedCurrencyId;
-    type MaxRewardCurrencies = ConstU32<10>;
+    type MaxRewardCurrencies = ConstU32<2>;
 }
 
 pub type VaultCapacityInstance = reward::Instance3;
@@ -920,9 +906,7 @@ impl reward::Config<VaultCapacityInstance> for Runtime {
     type PoolId = ();
     type StakeId = CurrencyId;
     type CurrencyId = CurrencyId;
-    type GetNativeCurrencyId = GetNativeCurrencyId;
-    type GetWrappedCurrencyId = GetWrappedCurrencyId;
-    type MaxRewardCurrencies = ConstU32<10>;
+    type MaxRewardCurrencies = ConstU32<2>;
 }
 
 type FarmingRewardsInstance = reward::Instance4;
@@ -933,8 +917,6 @@ impl reward::Config<FarmingRewardsInstance> for Runtime {
     type PoolId = CurrencyId;
     type StakeId = AccountId;
     type CurrencyId = CurrencyId;
-    type GetNativeCurrencyId = GetNativeCurrencyId;
-    type GetWrappedCurrencyId = GetWrappedCurrencyId;
     type MaxRewardCurrencies = ConstU32<10>;
 }
 
@@ -1670,18 +1652,7 @@ impl_runtime_apis! {
             amount: Option<Balance>,
             lock_time: Option<BlockNumber>,
         ) -> Result<UnsignedFixedPoint, DispatchError> {
-            // withdraw previous rewards
-            <EscrowRewards as reward::RewardsApi<(), AccountId, Balance>>::withdraw_reward(&(), &account_id, NATIVE_CURRENCY_ID)?;
-            // increase amount and/or lock_time
-            Escrow::round_height_and_deposit_for(&account_id, amount.unwrap_or_default(), lock_time.unwrap_or_default())?;
-            // distribute rewards accrued over block count
-            let reward = EscrowAnnuity::min_reward_per_block().saturating_mul(YEARS.into());
-            <EscrowRewards as reward::RewardsApi<(), AccountId, Balance>>::distribute_reward(&(), NATIVE_CURRENCY_ID, reward)?;
-            let received = <EscrowRewards as reward::RewardsApi<(), AccountId, Balance>>::compute_reward(&(), &account_id, NATIVE_CURRENCY_ID)?;
-            // NOTE: total_locked is same currency as rewards
-            let total_locked = Escrow::locked_balance(&account_id).amount;
-            // rate is received / total_locked
-            Ok(UnsignedFixedPoint::checked_from_rational(received, total_locked).unwrap_or_default())
+            runtime_common::estimate_escrow_reward_rate::<Runtime, EscrowAnnuityInstance, EscrowRewards, _>(account_id, amount, lock_time)
         }
 
         fn estimate_farming_reward(
