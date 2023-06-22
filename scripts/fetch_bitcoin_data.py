@@ -6,7 +6,7 @@ import asyncio
 import gzip
 
 DIRNAME = os.path.dirname(__file__)
-TESTDATA_DIR = os.path.join(DIRNAME, "..", "standalone", "runtime", "tests", "data")
+TESTDATA_DIR = os.path.join(DIRNAME, "..", "data")
 TESTDATA_FILE = os.path.join(TESTDATA_DIR, "bitcoin-testdata.json")
 TESTDATA_ZIPPED = os.path.join(TESTDATA_DIR, "bitcoin-testdata.gzip")
 BASE_URL = "https://blockstream.info/api"
@@ -102,7 +102,8 @@ def read_testdata():
     try:
         with open(TESTDATA_FILE) as data:
             blocks = json.load(data)
-    except:
+    except Exception as e:
+        print(e)
         print("No existing testdata found")
     return blocks
 
@@ -125,6 +126,7 @@ def unzip_file():
                 json.dump(blocks, f, ensure_ascii=False, indent=4)
 
 def zip_file():
+    print("Zipping file")
     blocks = read_testdata()
     with gzip.open(TESTDATA_ZIPPED, 'wt', encoding='utf-8') as zipfile:
         json.dump(blocks, zipfile, ensure_ascii=False, indent=4)
@@ -148,7 +150,6 @@ async def get_and_store_block(height):
     test_txs = await asyncio.gather(
         *map(get_txid_with_proof, test_txids)
     )
-    test_txs = list(filter("null", test_txs))
 
     block = {
         'height': height,
@@ -161,10 +162,8 @@ async def get_and_store_block(height):
 
 async def get_testdata(number, tip_height):
     # query number of blocks
-    # await asyncio.gather(*[
     for i in range(tip_height - number, tip_height):
         await get_and_store_block(i)
-    # ])
 
 async def main():
     max_num_blocks = MAX_BITCOIN_BLOCKS
@@ -173,7 +172,7 @@ async def main():
         try:
             # get current tip of Bitcoin blockchain
             tip_height = await get_tip_height()
-            print("Current Bitcoin height {}".format(tip_height))
+            print("Current height {}".format(tip_height))
             blocks = read_testdata()
             if blocks:
                 if blocks[-1]['height'] == tip_height:
@@ -186,13 +185,12 @@ async def main():
                     number_blocks = delta if delta <= max_num_blocks else max_num_blocks
 
             # download new blocks and store them
-
             print("Getting {} blocks".format(number_blocks))
-
             await get_testdata(number_blocks, tip_height)
         except KeyboardInterrupt:
             break
-        except:
+        except Exception as e:
+            print(e)
             pass
         else:
             break

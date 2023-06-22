@@ -22,4 +22,4 @@ rococo-local-raw.json
 *.log
 
 ### Testdata
-standalone/runtime/tests/data/bitcoin-testdata.json
+data/bitcoin-testdata.json
