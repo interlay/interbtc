@@ -129,6 +129,7 @@ vault-registry-rpc-runtime-api = { path = "../../../crates/vault-registry/rpc/ru
 issue-rpc-runtime-api = { path = "../../../crates/issue/rpc/runtime-api" }
 redeem-rpc-runtime-api = { path = "../../../crates/redeem/rpc/runtime-api" }
 replace-rpc-runtime-api = { path = "../../../crates/replace/rpc/runtime-api" }
+reward-rpc-runtime-api = { path = "../../../crates/reward/rpc/runtime-api" }
 
 # Orml dependencies
 orml-tokens = { git = "https://github.com/open-web3-stack/open-runtime-module-library", rev = "dc39cfddefb10ef0de23655e2c3dcdab66a19404" }

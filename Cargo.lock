@@ -7747,6 +7747,7 @@ dependencies = [
  "replace",
  "replace-rpc-runtime-api",
  "reward",
+ "reward-rpc-runtime-api",
  "runtime-common",
  "scale-info",
  "security",
