@@ -404,7 +404,7 @@ mod self_redeem {
     }
 
     /// returns (fees, consumed_issued_tokens)
-    fn calculate_token_amounts<T: Config>(
+    pub fn calculate_token_amounts<T: Config>(
         vault_id: &DefaultVaultId<T>,
         requested_redeem_amount: &Amount<T>,
     ) -> Result<(Amount<T>, Amount<T>), DispatchError> {
@@ -479,9 +479,11 @@ impl<T: Config> Pallet<T> {
         // Make sure this can't happen again.
         ensure!(!btc_address.is_zero(), btc_relay::Error::<T>::InvalidBtcHash);
 
-        // todo: currently allowed to redeem from one currency to the other for free - decide if this is desirable
         let fee_wrapped = if redeemer == vault_id.account_id {
-            Amount::zero(vault_id.wrapped_currency())
+            // allow to redeem for zero fee if and only if redeemable amount is equal to requested redeem amount
+            let (fees, _consumed_issued_tokens) =
+                self_redeem::calculate_token_amounts::<T>(&vault_id, &amount_wrapped)?;
+            fees
         } else {
             ext::fee::get_redeem_fee::<T>(&amount_wrapped)?
         };
