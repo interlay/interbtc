@@ -158,10 +158,6 @@ pub mod pallet {
         Version::V0
     }
 
-    /// Build storage at V1 (requires default 0).
-    #[pallet::storage]
-    #[pallet::getter(fn storage_version)]
-    pub(super) type StorageVersion<T: Config> = StorageValue<_, Version, ValueQuery, DefaultForStorageVersion>;
 
     #[pallet::genesis_config]
     pub struct GenesisConfig<T: Config> {
@@ -192,7 +188,11 @@ pub mod pallet {
         }
     }
 
+    /// The current storage version.
+    const STORAGE_VERSION: StorageVersion = StorageVersion::new(0);
+
     #[pallet::pallet]
+    #[pallet::storage_version(STORAGE_VERSION)]
     pub struct Pallet<T>(_);
 
     // The pallet's dispatchable functions.

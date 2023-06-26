@@ -8,6 +8,7 @@ use crate::Config;
 use codec::{Decode, Encode, MaxEncodedLen};
 use currency::Amount;
 
+// ToDo: remove this permanently
 /// Storage version.
 #[derive(Encode, Decode, Eq, PartialEq, TypeInfo, MaxEncodedLen)]
 pub enum Version {
