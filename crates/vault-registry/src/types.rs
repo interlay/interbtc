@@ -23,19 +23,19 @@ pub use bitcoin::{Address as BtcAddress, PublicKey as BtcPublicKey};
 #[derive(Encode, Decode, Eq, PartialEq, TypeInfo, MaxEncodedLen)]
 pub enum Version {
     /// Initial version.
-    V0,
+    V0 = 0,
     /// BtcAddress type with script format.
-    V1,
+    V1 = 1,
     /// added replace_collateral to vault, changed vaultStatus enum
-    V2,
+    V2 = 2,
     /// moved public_key out of the vault struct
-    V3,
+    V3 = 3,
     /// Fixed liquidation vault
-    V4,
+    V4 = 4,
     /// Added custom pervault secure collateral threshold
-    V5,
+    V5 = 5,
     /// Removed wallet
-    V6,
+    V6 = 6,
 }
 
 #[derive(Debug, PartialEq)]
@@ -110,16 +110,20 @@ pub type DefaultVaultId<T> = VaultId<<T as frame_system::Config>::AccountId, Cur
 pub type DefaultVaultCurrencyPair<T> = VaultCurrencyPair<CurrencyId<T>>;
 
 pub mod v1 {
+    use frame_support::{dispatch::GetStorageVersion, traits::StorageVersion};
+
     use super::*;
 
     pub fn migrate_v1_to_v6<T: Config>() -> frame_support::weights::Weight {
         // kintsugi is on V6 but interlay is still on V1
-        if !matches!(crate::StorageVersion::<T>::get(), Version::V1) {
+        let current_storage_version = Pallet::<T>::current_storage_version();
+        let _expected_storage_version = Version::V1 as u16;
+        if !matches!(current_storage_version, _expected_storage_version) {
             log::info!("Not running vault storage migration");
             return T::DbWeight::get().reads(1); // already upgraded; don't run migration
         }
         // nothing to do other than update version
-        crate::StorageVersion::<T>::put(Version::V6);
+        StorageVersion::new(Version::V6 as u16).put::<Pallet<T>>();
         T::DbWeight::get().reads_writes(0, 1)
     }
 }
