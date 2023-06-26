@@ -12,6 +12,7 @@ pub mod currency {
 
     // https://github.com/paritytech/polkadot/blob/c4ee9d463adccfa3bf436433e3e26d0de5a4abbc/runtime/kusama/src/constants.rs#L18
     pub const UNITS: Balance = NATIVE_TOKEN_ID.one();
+    pub const DOLLARS: Balance = UNITS; // 1_000_000_000_000
     pub const CENTS: Balance = UNITS / 30_000;
     pub const GRAND: Balance = CENTS * 100_000;
     pub const MILLICENTS: Balance = CENTS / 1_000;

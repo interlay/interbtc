@@ -1076,6 +1076,24 @@ impl pallet_proxy::Config for Runtime {
     type AnnouncementDepositFactor = AnnouncementDepositFactor;
 }
 
+parameter_types! {
+    pub const ConfigDepositBase: Balance = 5 * DOLLARS;
+    pub const FriendDepositFactor: Balance = 50 * CENTS;
+    pub const MaxFriends: u16 = 9;
+    pub const RecoveryDeposit: Balance = 5 * DOLLARS;
+}
+
+impl pallet_recovery::Config for Runtime {
+    type RuntimeEvent = RuntimeEvent;
+    type WeightInfo = weights::pallet_recovery::WeightInfo<Runtime>;
+    type RuntimeCall = RuntimeCall;
+    type Currency = NativeCurrency;
+    type ConfigDepositBase = ConfigDepositBase;
+    type FriendDepositFactor = FriendDepositFactor;
+    type MaxFriends = MaxFriends;
+    type RecoveryDeposit = RecoveryDeposit;
+}
+
 impl vault_registry::Config for Runtime {
     type PalletId = VaultRegistryPalletId;
     type RuntimeEvent = RuntimeEvent;
@@ -1265,6 +1283,8 @@ construct_runtime! {
         DexGeneral: dex_general::{Pallet, Call, Storage, Event<T>} = 101,
         DexStable: dex_stable::{Pallet, Call, Storage, Event<T>}  = 102,
         DexSwapRouter: dex_swap_router::{Pallet, Call, Event<T>} = 103,
+
+        Recovery: pallet_recovery::{Pallet, Call, Storage, Event<T>} = 104,
     }
 }
 
@@ -1349,6 +1369,7 @@ mod benches {
         [pallet_multisig, Multisig]
         [pallet_preimage, Preimage]
         [pallet_proxy, Proxy]
+        [pallet_recovery,Recovery]
         [pallet_scheduler, Scheduler]
         [pallet_timestamp, Timestamp]
         [pallet_utility, Utility]
