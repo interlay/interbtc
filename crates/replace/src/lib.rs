@@ -158,7 +158,6 @@ pub mod pallet {
         Version::V0
     }
 
-
     #[pallet::genesis_config]
     pub struct GenesisConfig<T: Config> {
         pub replace_period: T::BlockNumber,

@@ -158,7 +158,6 @@ pub mod pallet {
         Version::V0
     }
 
-
     #[pallet::genesis_config]
     pub struct GenesisConfig<T: Config> {
         pub max_delay: u32,
