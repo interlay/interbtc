@@ -50,6 +50,7 @@ dex-stable-rpc-runtime-api = { path = "../crates/dex-stable/rpc/runtime-api" }
 sc-cli = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.31" }
 sc-client-api = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.31" }
 sc-consensus = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.31" }
+sc-consensus-aura = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.31" }
 sc-consensus-manual-seal = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.31" }
 sc-executor = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.31" }
 sc-rpc = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.31" }
