@@ -29,7 +29,7 @@ pub mod types;
 #[doc(inline)]
 pub use crate::types::{DefaultRedeemRequest, RedeemRequest, RedeemRequestStatus};
 
-use crate::types::{BalanceOf, RedeemRequestExt, Version};
+use crate::types::{BalanceOf, RedeemRequestExt};
 use bitcoin::types::{MerkleProof, Transaction};
 use btc_relay::BtcAddress;
 use currency::Amount;
@@ -162,11 +162,6 @@ pub mod pallet {
     #[pallet::storage]
     #[pallet::getter(fn redeem_transaction_size)]
     pub(super) type RedeemTransactionSize<T: Config> = StorageValue<_, u32, ValueQuery>;
-
-    #[pallet::type_value]
-    pub(super) fn DefaultForStorageVersion() -> Version {
-        Version::V0
-    }
 
     #[pallet::genesis_config]
     pub struct GenesisConfig<T: Config> {

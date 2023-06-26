@@ -31,7 +31,7 @@ pub mod types;
 #[doc(inline)]
 pub use crate::types::{DefaultIssueRequest, IssueRequest, IssueRequestStatus};
 
-use crate::types::{BalanceOf, DefaultVaultId, Version};
+use crate::types::{BalanceOf, DefaultVaultId};
 use bitcoin::types::{MerkleProof, Transaction};
 use btc_relay::{BtcAddress, BtcPublicKey};
 use currency::Amount;
@@ -148,11 +148,6 @@ pub mod pallet {
     #[pallet::storage]
     pub(super) type IssueBtcDustValue<T: Config> = StorageValue<_, BalanceOf<T>, ValueQuery>;
 
-    #[pallet::type_value]
-    pub(super) fn DefaultForStorageVersion() -> Version {
-        Version::V4
-    }
-
     #[pallet::genesis_config]
     pub struct GenesisConfig<T: Config> {
         pub issue_period: T::BlockNumber,
@@ -178,7 +173,7 @@ pub mod pallet {
     }
 
     /// The current storage version.
-    const STORAGE_VERSION: StorageVersion = StorageVersion::new(0);
+    const STORAGE_VERSION: StorageVersion = StorageVersion::new(4);
 
     #[pallet::pallet]
     #[pallet::storage_version(STORAGE_VERSION)]

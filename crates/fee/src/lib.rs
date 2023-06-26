@@ -44,7 +44,7 @@ use sp_std::{
     fmt::Debug,
 };
 use staking::StakingApi;
-use types::{BalanceOf, DefaultVaultCurrencyPair, DefaultVaultId, UnsignedFixedPoint, Version};
+use types::{BalanceOf, DefaultVaultCurrencyPair, DefaultVaultId, UnsignedFixedPoint};
 
 #[frame_support::pallet]
 pub mod pallet {
@@ -155,11 +155,6 @@ pub mod pallet {
     #[pallet::storage]
     #[pallet::getter(fn replace_griefing_collateral)]
     pub type ReplaceGriefingCollateral<T: Config> = StorageValue<_, UnsignedFixedPoint<T>, ValueQuery>;
-
-    #[pallet::type_value]
-    pub(super) fn DefaultForStorageVersion() -> Version {
-        Version::V0
-    }
 
     /// The fraction up rewards going straight to the vault operator. The rest goes to the vault's pool.
     #[pallet::storage]

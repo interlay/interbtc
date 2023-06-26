@@ -25,7 +25,7 @@ extern crate mocktopus;
 #[cfg(test)]
 use mocktopus::macros::mockable;
 
-use crate::types::{BalanceOf, ReplaceRequestExt, Version};
+use crate::types::{BalanceOf, ReplaceRequestExt};
 pub use crate::types::{DefaultReplaceRequest, ReplaceRequest, ReplaceRequestStatus};
 use bitcoin::types::{MerkleProof, Transaction};
 use btc_relay::BtcAddress;
@@ -152,11 +152,6 @@ pub mod pallet {
     #[pallet::storage]
     #[pallet::getter(fn replace_btc_dust_value)]
     pub(super) type ReplaceBtcDustValue<T: Config> = StorageValue<_, BalanceOf<T>, ValueQuery>;
-
-    #[pallet::type_value]
-    pub(super) fn DefaultForStorageVersion() -> Version {
-        Version::V0
-    }
 
     #[pallet::genesis_config]
     pub struct GenesisConfig<T: Config> {

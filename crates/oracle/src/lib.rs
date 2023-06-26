@@ -27,7 +27,7 @@ extern crate mocktopus;
 #[cfg(test)]
 use mocktopus::macros::mockable;
 
-use crate::types::{BalanceOf, UnsignedFixedPoint, Version};
+use crate::types::{BalanceOf, UnsignedFixedPoint};
 use codec::{Decode, Encode, MaxEncodedLen};
 use currency::Amount;
 use frame_support::{
@@ -152,11 +152,6 @@ pub mod pallet {
     #[pallet::storage]
     #[pallet::getter(fn authorized_oracles)]
     pub type AuthorizedOracles<T: Config> = StorageMap<_, Blake2_128Concat, T::AccountId, NameOf<T>, ValueQuery>;
-
-    #[pallet::type_value]
-    pub(super) fn DefaultForStorageVersion() -> Version {
-        Version::V0
-    }
 
     #[pallet::genesis_config]
     pub struct GenesisConfig<T: Config> {
