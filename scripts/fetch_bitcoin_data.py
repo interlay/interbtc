@@ -10,8 +10,8 @@ TESTDATA_DIR = os.path.join(DIRNAME, "..", "data")
 TESTDATA_FILE = os.path.join(TESTDATA_DIR, "bitcoin-testdata.json")
 TESTDATA_ZIPPED = os.path.join(TESTDATA_DIR, "bitcoin-testdata.gzip")
 BASE_URL = "https://blockstream.info/api"
-MAX_BITCOIN_BLOCKS = 5 # recommended to run this script in a loop. 5 blocks will take about a minute
-MAX_TXS_PER_BITCOIN_BLOCK = 20
+MAX_BITCOIN_BLOCKS = 100 # recommended to run this script in a loop
+MAX_TXS_PER_BITCOIN_BLOCK = 2
 
 #######################
 # Blockstream queries #

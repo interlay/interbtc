@@ -9,10 +9,12 @@ use btc_relay::DIFFICULTY_ADJUSTMENT_INTERVAL;
 #[cfg_attr(feature = "skip-slow-tests", ignore)]
 fn integration_test_transaction_formatting_and_txid_calculation() {
     // reduce number of blocks to reduce testing time, but higher than 2016 blocks for difficulty adjustment
-    const BLOCKS_TO_TEST: usize = 5_000;
+    const BLOCKS_TO_TEST: usize = 2 * 2016 + 1;
 
     // load blocks with transactions
     let test_data = get_bitcoin_testdata();
+
+    assert!(test_data.len() > BLOCKS_TO_TEST);
 
     // verify all transactions
     for block in test_data.iter().take(BLOCKS_TO_TEST) {
@@ -39,7 +41,7 @@ fn integration_test_submit_block_headers_and_verify_transaction_inclusion() {
         assert!(!BTCRelayPallet::disable_difficulty_check());
 
         // reduce number of blocks to reduce testing time, but higher than 2016 blocks for difficulty adjustment
-        const BLOCKS_TO_TEST: usize = 5_000;
+        const BLOCKS_TO_TEST: usize = 2 * 2016 + 1;
 
         // load blocks with transactions
         let test_data = get_bitcoin_testdata();
@@ -64,6 +66,9 @@ fn integration_test_submit_block_headers_and_verify_transaction_inclusion() {
             block_height: parachain_genesis_height
         })
         .dispatch(origin_of(account_of(ALICE))));
+
+        assert_eq!(skip_blocks, 0);
+        assert!(test_data.len() > skip_blocks + BLOCKS_TO_TEST);
 
         for block in test_data.iter().skip(skip_blocks + 1).take(BLOCKS_TO_TEST) {
             let block_header = block.get_block_header();
