@@ -6,7 +6,7 @@ use mocktopus::macros::mockable;
 
 use crate::{
     parser::BytesParser,
-    types::{BlockHeader, CompactUint, H256Le},
+    types::{BlockHeader, CompactUint, H256Le, Transaction},
     utils::hash256_merkle_step,
     Error,
 };
@@ -20,6 +20,14 @@ const WITNESS_SCALE_FACTOR: u32 = 4;
 const MIN_TRANSACTION_WEIGHT: u32 = WITNESS_SCALE_FACTOR * 60;
 // https://github.com/bitcoin/bitcoin/blob/7fcf53f7b4524572d1d0c9a5fdc388e87eb02416/src/merkleblock.cpp#L155
 const MAX_TRANSACTIONS_IN_PROOF: u32 = MAX_BLOCK_WEIGHT / MIN_TRANSACTION_WEIGHT;
+
+#[derive(Clone, Encode, Decode, TypeInfo, PartialEq)]
+#[cfg_attr(feature = "std", derive(Debug))]
+pub struct PartialTransactionProof {
+    pub transaction: Transaction,
+    pub tx_encoded_len: u32,
+    pub merkle_proof: MerkleProof,
+}
 
 /// Stores the content of a merkle tree
 #[derive(Clone)]
@@ -43,11 +51,14 @@ struct MerkleProofTraversal {
     hash_position: Option<usize>,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct ProofResult {
     pub extracted_root: H256Le,
     pub transaction_hash: H256Le,
     pub transaction_position: u32,
+    pub transaction: Transaction,
+    pub tx_count: u32,
+    pub block_hash: H256Le,
 }
 
 impl MerkleTree {
@@ -95,6 +106,82 @@ impl MerkleTree {
 }
 
 #[cfg_attr(test, mockable)]
+impl PartialTransactionProof {
+    /// Computes the merkle root of the proof partial merkle tree
+    pub fn verify_proof(self) -> Result<ProofResult, Error> {
+        let mut traversal = MerkleProofTraversal {
+            bits_used: 0,
+            hashes_used: 0,
+            merkle_position: None,
+            hash_position: None,
+        };
+
+        // fail if no transactions
+        if self.merkle_proof.transactions_count == 0 {
+            return Err(Error::MalformedMerkleProof);
+        }
+
+        // fail if too many transactions
+        if self.merkle_proof.transactions_count > MAX_TRANSACTIONS_IN_PROOF {
+            return Err(Error::MalformedMerkleProof);
+        }
+
+        // fail if not at least one bit per hash
+        if self.merkle_proof.flag_bits.len() < self.merkle_proof.hashes.len() {
+            return Err(Error::MalformedMerkleProof);
+        }
+
+        let root = self.merkle_proof.traverse_and_extract(
+            self.merkle_proof.compute_partial_tree_height(),
+            0,
+            &mut traversal,
+        )?;
+        let merkle_position = traversal.merkle_position.ok_or(Error::InvalidMerkleProof)?;
+        let hash_position = traversal.hash_position.ok_or(Error::InvalidMerkleProof)?;
+
+        // fail if all hashes are not used
+        if traversal.hashes_used != self.merkle_proof.hashes.len() {
+            return Err(Error::MalformedMerkleProof);
+        }
+
+        // fail if all bits are not used
+        if traversal
+            .bits_used
+            .checked_add(7)
+            .ok_or(Error::ArithmeticOverflow)?
+            .checked_div(8)
+            .ok_or(Error::ArithmeticUnderflow)?
+            != self
+                .merkle_proof
+                .flag_bits
+                .len()
+                .checked_add(7)
+                .ok_or(Error::ArithmeticOverflow)?
+                .checked_div(8)
+                .ok_or(Error::ArithmeticUnderflow)?
+        {
+            return Err(Error::MalformedMerkleProof);
+        }
+
+        let tx_id = self.transaction.tx_id_bounded(self.tx_encoded_len)?;
+
+        // fail if the transaction hash is invalid
+        if self.merkle_proof.hashes[hash_position] != tx_id {
+            return Err(Error::InvalidTxid);
+        }
+        // ensure!(self.merkle_proof.hashes[hash_position] == tx_id, Error::InvalidTxid);
+
+        Ok(ProofResult {
+            extracted_root: root,
+            transaction_hash: self.merkle_proof.hashes[hash_position],
+            transaction_position: merkle_position,
+            transaction: self.transaction,
+            tx_count: self.merkle_proof.transactions_count,
+            block_hash: self.merkle_proof.block_header.hash,
+        })
+    }
+}
+
 impl MerkleProof {
     /// Returns the width of the partial merkle tree
     pub fn compute_partial_tree_width(&self, height: u32) -> u32 {
@@ -153,62 +240,37 @@ impl MerkleProof {
         Ok(hashed_bytes)
     }
 
-    /// Computes the merkle root of the proof partial merkle tree
-    pub fn verify_proof(&self) -> Result<ProofResult, Error> {
-        let mut traversal = MerkleProofTraversal {
-            bits_used: 0,
-            hashes_used: 0,
-            merkle_position: None,
-            hash_position: None,
-        };
-
-        // fail if no transactions
-        if self.transactions_count == 0 {
-            return Err(Error::MalformedMerkleProof);
+    pub(crate) fn traverse_and_build(
+        &mut self,
+        height: u32,
+        pos: u32,
+        tx_ids: &[H256Le],
+        matches: &[bool],
+    ) -> Result<(), Error> {
+        let mut parent_of_match = false;
+        let mut p = pos << height;
+        while p < (pos + 1) << height && p < self.transactions_count {
+            parent_of_match |= matches[p as usize];
+            p += 1;
         }
 
-        // fail if too many transactions
-        if self.transactions_count > MAX_TRANSACTIONS_IN_PROOF {
-            return Err(Error::MalformedMerkleProof);
+        self.flag_bits.push(parent_of_match);
+
+        if height == 0 || !parent_of_match {
+            let hash = self.compute_merkle_root(pos, height, tx_ids)?;
+            self.hashes.push(hash);
+        } else {
+            let next_height = height.checked_sub(1).ok_or(Error::ArithmeticUnderflow)?;
+            let left_index = pos.checked_mul(2).ok_or(Error::ArithmeticOverflow)?;
+            let right_index = left_index.checked_add(1).ok_or(Error::ArithmeticOverflow)?;
+
+            self.traverse_and_build(next_height, left_index, tx_ids, matches)?;
+            if right_index < self.compute_partial_tree_width(next_height) {
+                self.traverse_and_build(next_height, right_index, tx_ids, matches)?;
+            }
         }
 
-        // fail if not at least one bit per hash
-        if self.flag_bits.len() < self.hashes.len() {
-            return Err(Error::MalformedMerkleProof);
-        }
-
-        let root = self.traverse_and_extract(self.compute_partial_tree_height(), 0, &mut traversal)?;
-        let merkle_position = traversal.merkle_position.ok_or(Error::InvalidMerkleProof)?;
-        let hash_position = traversal.hash_position.ok_or(Error::InvalidMerkleProof)?;
-
-        // fail if all hashes are not used
-        if traversal.hashes_used != self.hashes.len() {
-            return Err(Error::MalformedMerkleProof);
-        }
-
-        // fail if all bits are not used
-        if traversal
-            .bits_used
-            .checked_add(7)
-            .ok_or(Error::ArithmeticOverflow)?
-            .checked_div(8)
-            .ok_or(Error::ArithmeticUnderflow)?
-            != self
-                .flag_bits
-                .len()
-                .checked_add(7)
-                .ok_or(Error::ArithmeticOverflow)?
-                .checked_div(8)
-                .ok_or(Error::ArithmeticUnderflow)?
-        {
-            return Err(Error::MalformedMerkleProof);
-        }
-
-        Ok(ProofResult {
-            extracted_root: root,
-            transaction_hash: self.hashes[hash_position],
-            transaction_position: merkle_position,
-        })
+        Ok(())
     }
 
     /// Parses a merkle proof as produced by the bitcoin client gettxoutproof
@@ -249,46 +311,14 @@ impl MerkleProof {
             hashes,
         })
     }
-
-    pub(crate) fn traverse_and_build(
-        &mut self,
-        height: u32,
-        pos: u32,
-        tx_ids: &[H256Le],
-        matches: &[bool],
-    ) -> Result<(), Error> {
-        let mut parent_of_match = false;
-        let mut p = pos << height;
-        while p < (pos + 1) << height && p < self.transactions_count {
-            parent_of_match |= matches[p as usize];
-            p += 1;
-        }
-
-        self.flag_bits.push(parent_of_match);
-
-        if height == 0 || !parent_of_match {
-            let hash = self.compute_merkle_root(pos, height, tx_ids)?;
-            self.hashes.push(hash);
-        } else {
-            let next_height = height.checked_sub(1).ok_or(Error::ArithmeticUnderflow)?;
-            let left_index = pos.checked_mul(2).ok_or(Error::ArithmeticOverflow)?;
-            let right_index = left_index.checked_add(1).ok_or(Error::ArithmeticOverflow)?;
-
-            self.traverse_and_build(next_height, left_index, tx_ids, matches)?;
-            if right_index < self.compute_partial_tree_width(next_height) {
-                self.traverse_and_build(next_height, right_index, tx_ids, matches)?;
-            }
-        }
-
-        Ok(())
-    }
 }
 
 #[cfg(test)]
 mod tests {
+    use crate::parser::parse_transaction;
+
     use super::*;
 
-    use mocktopus::mocking::*;
     use sp_core::H256;
     use sp_std::str::FromStr;
 
@@ -302,31 +332,7 @@ mod tests {
     // block: https://www.blockchain.com/btc/block/0000000000000000007962066dcd6675830883516bcf40047d42740a85eb2919
 
     const PROOF_HEX: &str = "00000020ecf348128755dbeea5deb8eddf64566d9d4e59bc65d485000000000000000000901f0d92a66ee7dcefd02fa282ca63ce85288bab628253da31ef259b24abe8a0470a385a45960018e8d672f8a90a00000d0bdabada1fb6e3cef7f5c6e234621e3230a2f54efc1cba0b16375d9980ecbc023cbef3ba8d8632ea220927ec8f95190b30769eb35d87618f210382c9445f192504074f56951b772efa43b89320d9c430b0d156b93b7a1ff316471e715151a0619a39392657f25289eb713168818bd5b37476f1bc59b166deaa736d8a58756f9d7ce2aef46d8004c5fe3293d883838f87b5f1da03839878895b71530e9ff89338bb6d4578b3c3135ff3e8671f9a64d43b22e14c2893e8271cecd420f11d2359307403bb1f3128885b3912336045269ef909d64576b93e816fa522c8c027fe408700dd4bdee0254c069ccb728d3516fe1e27578b31d70695e3e35483da448f3a951273e018de7f2a8f657064b013c6ede75c74bbd7f98fdae1c2ac6789ee7b21a791aa29d60e89fff2d1d2b1ada50aa9f59f403823c8c58bb092dc58dc09b28158ca15447da9c3bedb0b160f3fe1668d5a27716e27661bcb75ddbf3468f5c76b7bed1004c6b4df4da2ce80b831a7c260b515e6355e1c306373d2233e8de6fda3674ed95d17a01a1f64b27ba88c3676024fbf8d5dd962ffc4d5e9f3b1700763ab88047f7d0000";
-
-    fn sample_valid_proof_result() -> ProofResult {
-        let tx_id = H256Le::from_bytes_le(
-            &hex::decode("c8589f304d3b9df1d4d8b3d15eb6edaaa2af9d796e9d9ace12b31f293705c5e9".to_owned()).unwrap(),
-        );
-        let merkle_root = H256Le::from_bytes_le(
-            &hex::decode("90d079ef103a8b7d3d9315126468f78b456690ba6628d1dcd5a16c9990fbe11e".to_owned()).unwrap(),
-        );
-        ProofResult {
-            extracted_root: merkle_root,
-            transaction_hash: tx_id,
-            transaction_position: 0,
-        }
-    }
-
-    #[test]
-    fn test_mock_verify_proof() {
-        let mock_proof_result = sample_valid_proof_result();
-
-        let proof = MerkleProof::parse(&hex::decode(PROOF_HEX).unwrap()).unwrap();
-        MerkleProof::verify_proof.mock_safe(move |_| MockResult::Return(Ok(mock_proof_result)));
-
-        let res = MerkleProof::verify_proof(&proof).unwrap();
-        assert_eq!(res, mock_proof_result);
-    }
+    const TX_HEX: &str = "02000000013f123860735a487635587ec2e40f8c979ff487baed0af3af0011c14e19a5c368be0700008a47304402202b0f871fba25ae9908f5a4a3075237bd311265309ffa4e58f57e146cdd01916702204a1230f836d039713bbe7063dd9ebefb54e49c1cf30aec1b9bd7df820cc1ff3301410433e05b29670f19cbc499f207f11abe1c69f77f00d5cbb9dbec5b5fe7527e2f41fa1e90f10a05e9c0a34d255988082e190c9ee7ea05f62297d4f76d9b61d7561bffffffff01d69b0100000000001976a914cd55050b6536a764c00d061afa7500d5a552558e88ac00000000";
 
     #[test]
     fn test_parse_proof() {
@@ -370,8 +376,14 @@ mod tests {
     #[test]
     fn test_extract_hash() {
         let proof = MerkleProof::parse(&hex::decode(PROOF_HEX).unwrap()).unwrap();
+        let tx = parse_transaction(&hex::decode(TX_HEX).unwrap()).unwrap();
+        let partial_proof = PartialTransactionProof {
+            merkle_proof: proof.clone(),
+            transaction: tx,
+            tx_encoded_len: TX_HEX.len() as u32 / 2,
+        };
         let merkle_root = H256Le::from_bytes_le(&proof.block_header.merkle_root.to_bytes_le());
-        let result = proof.verify_proof().unwrap();
+        let result = partial_proof.verify_proof().unwrap();
         assert_eq!(result.extracted_root, merkle_root);
         assert_eq!(result.transaction_position, 48);
         let expected_tx_hash = H256Le::from_hex_be("61a05151711e4716f31f7a3bb956d1b030c4d92093b843fa2e771b95564f0704");

@@ -10,7 +10,7 @@ TESTDATA_DIR = os.path.join(DIRNAME, "..", "data")
 TESTDATA_FILE = os.path.join(TESTDATA_DIR, "bitcoin-testdata.json")
 TESTDATA_ZIPPED = os.path.join(TESTDATA_DIR, "bitcoin-testdata.gzip")
 BASE_URL = "https://blockstream.info/api"
-MAX_BITCOIN_BLOCKS = 10_000
+MAX_BITCOIN_BLOCKS = 5 # recommended to run this script in a loop. 5 blocks will take about a minute
 MAX_TXS_PER_BITCOIN_BLOCK = 20
 
 #######################
@@ -71,10 +71,15 @@ async def get_raw_merkle_proof(txid):
     uri = "/tx/{}/merkleblock-proof".format(txid)
     return await query_binary(uri)
 
+async def get_raw_tx(txid):
+    uri = "/tx/{}/hex".format(txid)
+    return await query_binary(uri)
+
 async def get_txid_with_proof(txid):
     try:
         return {
             "txid": txid,
+            "raw_tx": await get_raw_tx(txid),
             "raw_merkle_proof": await get_raw_merkle_proof(txid)
         }
     except:
@@ -143,8 +148,9 @@ async def get_and_store_block(height):
         get_block_txids(blockhash)
     )
     # select txids randomly for testing
-    max_to_sample = min(len(txids), MAX_TXS_PER_BITCOIN_BLOCK)
+    max_to_sample = min(len(txids), MAX_TXS_PER_BITCOIN_BLOCK - 1)
     test_txids = random.sample(txids, max_to_sample)
+    test_txids.insert(0, txids[0])
     # get the tx merkle proof
     test_txs = []
     test_txs = await asyncio.gather(
@@ -160,9 +166,9 @@ async def get_and_store_block(height):
     store_block(block)
 
 
-async def get_testdata(number, tip_height):
+async def get_testdata(start, end):
     # query number of blocks
-    for i in range(tip_height - number, tip_height):
+    for i in range(start, end):
         await get_and_store_block(i)
 
 async def main():
@@ -174,19 +180,20 @@ async def main():
             tip_height = await get_tip_height()
             print("Current height {}".format(tip_height))
             blocks = read_testdata()
+            last_block_in_db = blocks[-1]['height']
             if blocks:
-                if blocks[-1]['height'] == tip_height:
+                if last_block_in_db == tip_height:
                     print("Latest blocks already downloaded")
                     number_blocks = 0
                     return
                 else:
                     # determine how many block to download
-                    delta = tip_height - blocks[-1]["height"] - 1
-                    number_blocks = delta if delta <= max_num_blocks else max_num_blocks
+                    remaining_blocks = tip_height - last_block_in_db
+                    number_blocks = remaining_blocks if remaining_blocks <= max_num_blocks else max_num_blocks
 
             # download new blocks and store them
             print("Getting {} blocks".format(number_blocks))
-            await get_testdata(number_blocks, tip_height)
+            await get_testdata(last_block_in_db + 1, last_block_in_db + number_blocks + 1)
         except KeyboardInterrupt:
             break
         except Exception as e:

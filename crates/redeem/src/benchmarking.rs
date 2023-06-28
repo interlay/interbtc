@@ -234,9 +234,7 @@ pub mod benchmarks {
             ));
         }
 
-        let (transaction, merkle_proof) =
-            BtcRelay::<T>::initialize_and_store_max(relayer_id.clone(), h, i, outputs, b as usize);
-        let length_bound = transaction.size_no_witness() as u32;
+        let transaction = BtcRelay::<T>::initialize_and_store_max(relayer_id.clone(), h, i, outputs, b as usize);
 
         assert_ok!(Oracle::<T>::_set_exchange_rate(
             get_collateral_currency_id::<T>(),
@@ -244,13 +242,7 @@ pub mod benchmarks {
         ));
 
         #[extrinsic_call]
-        _(
-            RawOrigin::Signed(vault_id.account_id.clone()),
-            redeem_id,
-            merkle_proof,
-            transaction,
-            length_bound,
-        );
+        _(RawOrigin::Signed(vault_id.account_id.clone()), redeem_id, transaction);
     }
 
     #[benchmark]

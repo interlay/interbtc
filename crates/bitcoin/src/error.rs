@@ -20,4 +20,5 @@ pub enum Error {
     ArithmeticUnderflow,
     InvalidCompact,
     BoundExceeded,
+    InvalidTxid,
 }

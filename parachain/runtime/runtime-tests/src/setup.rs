@@ -1,4 +1,5 @@
 pub use crate::utils::*;
+use bitcoin::merkle::PartialTransactionProof;
 pub use codec::Encode;
 use frame_support::traits::GenesisBuild;
 pub use frame_support::{assert_noop, assert_ok, traits::Currency, BoundedVec};
@@ -39,6 +40,21 @@ mod interlay_imports {
     pub const DEFAULT_WRAPPED_CURRENCY: CurrencyId = Token(IBTC);
     pub const DEFAULT_NATIVE_CURRENCY: CurrencyId = Token(INTR);
     pub const DEFAULT_GRIEFING_CURRENCY: CurrencyId = DEFAULT_NATIVE_CURRENCY;
+}
+
+pub fn dummy_tx() -> FullTransactionProof {
+    FullTransactionProof {
+        coinbase_proof: PartialTransactionProof {
+            merkle_proof: Default::default(),
+            transaction: Default::default(),
+            tx_encoded_len: u32::MAX,
+        },
+        user_tx_proof: PartialTransactionProof {
+            merkle_proof: Default::default(),
+            transaction: Default::default(),
+            tx_encoded_len: u32::MAX,
+        },
+    }
 }
 
 pub struct ExtBuilder {

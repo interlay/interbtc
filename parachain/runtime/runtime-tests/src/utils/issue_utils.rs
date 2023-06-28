@@ -74,7 +74,7 @@ pub struct ExecuteIssueBuilder {
     submitter: AccountId,
     register_vault_with_currency_id: Option<CurrencyId>,
     relayer: Option<[u8; 32]>,
-    execution_tx: Option<(MerkleProof, Transaction)>,
+    execution_tx: Option<FullTransactionProof>,
 }
 
 impl ExecuteIssueBuilder {
@@ -124,13 +124,11 @@ impl ExecuteIssueBuilder {
     pub fn execute_prepared(&self) -> DispatchResultWithPostInfo {
         VaultRegistryPallet::collateral_integrity_check();
 
-        if let Some((merkle_proof, transaction)) = &self.execution_tx {
+        if let Some(transaction) = &self.execution_tx {
             // alice executes the issuerequest by confirming the btc transaction
             let ret = RuntimeCall::Issue(IssueCall::execute_issue {
                 issue_id: self.issue_id,
-                merkle_proof: merkle_proof.clone(),
                 transaction: transaction.clone(),
-                length_bound: u32::MAX,
             })
             .dispatch(origin_of(self.submitter.clone()));
             VaultRegistryPallet::collateral_integrity_check();
@@ -142,7 +140,7 @@ impl ExecuteIssueBuilder {
 
     pub fn prepare_for_execution(&mut self) -> &mut Self {
         // send the btc from the user to the vault
-        let (_tx_id, _height, merkle_proof, transaction) = TransactionGenerator::new()
+        let (_tx_id, _height, unchecked_transaction) = TransactionGenerator::new()
             .with_outputs(vec![(self.issue.btc_address, self.amount)])
             .with_relayer(self.relayer)
             .mine();
@@ -156,7 +154,7 @@ impl ExecuteIssueBuilder {
             );
         }
 
-        self.execution_tx = Some((merkle_proof, transaction));
+        self.execution_tx = Some(unchecked_transaction);
         self
     }
 

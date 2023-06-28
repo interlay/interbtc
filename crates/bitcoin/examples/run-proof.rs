@@ -1,6 +1,9 @@
 extern crate bitcoin;
 
-use bitcoin::merkle::MerkleProof;
+use bitcoin::{
+    merkle::{MerkleProof, PartialTransactionProof},
+    parser::parse_transaction,
+};
 
 // Proving that the transaction
 // 8d30eb0f3e65b8d8a9f26f6f73fc5aafa5c0372f9bb38aa38dd4c9dd1933e090
@@ -13,7 +16,17 @@ const PROOF_HEX: &str = "010000006fd2c5a8fac33dbe89bb2a2947a73eed2afc3b1d4f88694
 fn main() {
     let raw_proof = hex::decode(PROOF_HEX).unwrap();
     let proof = MerkleProof::parse(&raw_proof).unwrap();
-    let result = proof.verify_proof().unwrap();
+    let tx_hex = "010000000168a59c95a89ed5e9af00e90a7823156b02b7811000c63170bb2440d8db6a1869000000008a473044022050c32cf6cd888178268701a636b189dc3f026ee3ebd230fd77018e54044aac77022055aa7fa73c524dd4f0be02694683a21eb03d5d2f2c519d7dc7110b742c417517014104aa5c77986a87b93b03d949013e629601b6dbdbd5fc09f3bef9263b64b3c38d79d443fafa2fbf422a203fe433adf6e071f3172a53747739ce72c640fe7e514981ffffffff0140420f00000000001976a91449cf380abdb86449efc694988bf0f447739f73cd88ac00000000";
+    let raw_tx = hex::decode(tx_hex).unwrap();
+    let transaction = parse_transaction(&raw_tx).unwrap();
+
+    let unchecked_proof = PartialTransactionProof {
+        transaction,
+        tx_encoded_len: raw_tx.len() as u32,
+        merkle_proof: proof.clone(),
+    };
+
+    let result = unchecked_proof.verify_proof().unwrap();
     println!(
         "proof: transactions count = {}, hash count = {}, tree height = {},\nmerkle root = {:?}, hashes count = {}, flags={:?},\ncomputed merkle root = {}, position = {}",
         proof.transactions_count,

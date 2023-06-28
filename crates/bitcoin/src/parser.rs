@@ -502,7 +502,10 @@ pub(crate) mod tests {
     use std::str::FromStr;
 
     use super::*;
-    use crate::{Address, PublicKey, Script};
+    use crate::{
+        formatter::{BoundedWriter, TryFormat},
+        Address, PublicKey, Script,
+    };
     use frame_support::{assert_err, assert_ok};
 
     // examples from https://bitcoin.org/en/developer-reference#block-headers
@@ -841,6 +844,55 @@ pub(crate) mod tests {
         let address = Address::P2SH(H160::from_str(&"288873634ae24a3c9b6792cc7e2a084ec79ef68b").unwrap());
         let extr_address = extract_address_hash_scriptsig(&transaction.inputs[0].script).unwrap();
         assert_eq!(&extr_address, &address);
+    }
+
+    #[test]
+    fn test_parse_coinbase() {
+        // txid 10f08c702616a2d06b4931160fc4d38dd37a286b8e3899bd90e4193ec01b1ca8
+        let raw_tx = "010000000001010000000000000000000000000000000000000000000000000000000000000000ffffffff6403208d0a2cfabe6d6dc722441fc57e62b1d14f65f8fbd605070a8562f865794a4f9ced4b052c53f63310000000f09f909f082f4632506f6f6c2f0000000000000000000000000000000000000000000000000000000000000000000000000500221740604a4d010005dbb44325000000001976a914c825a1ecf2a6830c4401620c3a16f1995057c2ab88ac0000000000000000266a24aa21a9ed1d2944b658ac778d4b6f63975f7f8af1c44aeb70815925c9265a920bccb3c7cb0000000000000000366a34486174684105da4443c8ccdd9bd42ce67916625f2265cab02961b28bcfcb85d354b1938d003687f638c24b5ca63bab804cf5496a00000000000000002c6a4c2952534b424c4f434b3a0bde938d409648c985a31b79d335172cc03b2dce726b9d9284309d2800347b770000000000000000266a24b9e11b6d0c42f3297e5d45f4e3b36795ba9295af6da3897ed7b0116282084f596a4bd793012000000000000000000000000000000000000000000000000000000000000000003845d148";
+        let tx_bytes = hex::decode(&raw_tx).unwrap();
+        let transaction = parse_transaction(&tx_bytes).unwrap();
+        let inputs = transaction.inputs.clone();
+        assert_eq!(transaction.version, 1);
+        assert_eq!(inputs.len(), 1);
+        assert!(matches!(inputs[0].source, TransactionInputSource::Coinbase(_)));
+
+        let mut bytes = BoundedWriter::new(tx_bytes.len() as u32);
+        transaction.try_format(&mut bytes).unwrap();
+        let reconstructed_raw_tx = bytes.result();
+
+        let reconstructed_hex_tx = hex::encode(reconstructed_raw_tx);
+        assert_eq!(reconstructed_hex_tx, raw_tx);
+    }
+
+    #[test]
+    fn test_reconstruct_txid() {
+        // txid eb3db053cd139147f2fd676cf59a491fd5aebc54bddfde829704585b659126fc
+        let raw_tx = "0100000000010120e6fb8f0e2cfb8667a140a92d045d5db7c1b56635790bc907c3e71d43720a150e00000017160014641e441c2ba32dd7cf05afde7922144dd106b09bffffffff019dbd54000000000017a914bd847a4912984cf6152547feca51c1b9c2bcbe2787024830450221008f00033064c26cfca4dc98e5dba800b18729c3441dca37b49358ae0df9be7fad02202a81085318466ea66ef390d5dab6737e44a05f7f2e747932ebba917e0098f37d012102c109fc47335c3a2e206d462ad52590b1842aa9d6e0eb9c683c896fa8723590b400000000";
+        let tx_bytes = hex::decode(&raw_tx).unwrap();
+        let transaction = parse_transaction(&tx_bytes).unwrap();
+
+        let reconstructed_txid = transaction.tx_id_bounded(tx_bytes.len() as u32).unwrap().to_hex_be();
+
+        assert_eq!(
+            reconstructed_txid,
+            "eb3db053cd139147f2fd676cf59a491fd5aebc54bddfde829704585b659126fc"
+        );
+    }
+
+    #[test]
+    fn test_reconstruct_coinbase_2() {
+        // txid 6f807e134d60f7b4a5fb4818ee28971cb4a20f7063e9f34be81ba2a2fde0c024
+        let raw_tx = "020000000001010000000000000000000000000000000000000000000000000000000000000000ffffffff5803478d0a0486b8f360fabe6d6d905e48adc5d0180883bd0b5f0f145e02acb4378eaa8625bc140039035d256c02020000004204cb9a62696e616e63652f6f7235303279643853413924451238e5ae6e244a28000000000000ffffffff04a8f94025000000001600143156afc4249915008020f932783319f3e610b97d0000000000000000266a24aa21a9ede777d528c5e1df7c82399c2a06d5a7e78c4a815c59c33f0ec79749ee863571890000000000000000266a24b9e11b6dfc71482357d4353614be3a63bb3391d078a622a837e3c16a62d23a51cf6a09aa00000000000000002b6a2952534b424c4f434b3a71b49ca583059694eab2c27471a0b82aa9f6af91778544f63a1af01d0035cd0a0120000000000000000000000000000000000000000000000000000000000000000000000000";
+        let tx_bytes = hex::decode(&raw_tx).unwrap();
+        let transaction = parse_transaction(&tx_bytes).unwrap();
+
+        let reconstructed_txid = transaction.tx_id_bounded(tx_bytes.len() as u32).unwrap().to_hex_be();
+
+        assert_eq!(
+            reconstructed_txid,
+            "6f807e134d60f7b4a5fb4818ee28971cb4a20f7063e9f34be81ba2a2fde0c024"
+        );
     }
 
     /*

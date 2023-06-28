@@ -1,4 +1,7 @@
-use bitcoin::types::{BlockHeader, H256Le, MerkleProof};
+use bitcoin::{
+    parser::parse_transaction,
+    types::{BlockHeader, H256Le, MerkleProof},
+};
 use flate2::read::GzDecoder;
 use serde::Deserialize;
 use std::{
@@ -8,7 +11,8 @@ use std::{
 };
 
 /// Bitcoin blocks and transaction from mainnet taken from blockstream.com
-const PATH_MAINNET_BLOCKS_AND_TRANSACTIONS: &str = "../../../data/bitcoin-testdata.gzip";
+const PATH_MAINNET_BLOCKS_AND_TRANSACTIONS: &str =
+    "/home/sander/workspace/interlay/btc-parachain/data/bitcoin-testdata.gzip";
 
 /// Bitcoin core fork testdata from testnet3: https://raw.githubusercontent.com/bitcoin/bitcoin/d6a59166a1879c1dd5b3a301847961f4b3f17742/test/functional/data/blockheader_testnet3.hex
 /// The headers data is taken from testnet3 for early blocks from genesis until the first checkpoint. There are
@@ -43,6 +47,7 @@ impl Block {
 #[derive(Clone, Debug, Deserialize)]
 pub struct Transaction {
     txid: String,
+    pub raw_tx: String,
     raw_merkle_proof: String,
 }
 
@@ -53,6 +58,15 @@ impl Transaction {
 
     pub fn get_merkle_proof(&self) -> MerkleProof {
         MerkleProof::parse(&hex::decode(&self.raw_merkle_proof).expect(ERR_INVALID_PROOF)).expect(ERR_INVALID_PROOF)
+    }
+
+    pub fn get_tx(&self) -> bitcoin::types::Transaction {
+        let raw_tx_bytes = &hex::decode(&self.raw_tx).expect(ERR_INVALID_PROOF);
+        parse_transaction(&raw_tx_bytes).unwrap()
+    }
+
+    pub fn get_tx_len(&self) -> u32 {
+        self.raw_tx.len() as u32
     }
 }
 

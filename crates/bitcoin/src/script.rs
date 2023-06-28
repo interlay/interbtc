@@ -25,7 +25,8 @@ impl Script {
 
     pub(crate) fn height(height: u32) -> Script {
         let mut script = Script::new();
-        script.append(OpCode::Op3);
+        let len: u8 = 0x03; // Note: NOT OP3. See https://github.com/bitcoin/bips/blob/master/bip-0034.mediawiki
+        script.append(len);
         let bytes = height.to_le_bytes();
         script.append(&bytes[0..=2]);
         script

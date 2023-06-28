@@ -2,7 +2,33 @@ use crate::{
     bitcoin_data::{get_bitcoin_testdata, get_fork_testdata},
     setup::{assert_eq, *},
 };
+use bitcoin::{formatter::TryFormat, merkle::PartialTransactionProof};
 use btc_relay::DIFFICULTY_ADJUSTMENT_INTERVAL;
+
+#[test]
+#[cfg_attr(feature = "skip-slow-tests", ignore)]
+fn integration_test_transaction_formatting_and_txid_calculation() {
+    // reduce number of blocks to reduce testing time, but higher than 2016 blocks for difficulty adjustment
+    const BLOCKS_TO_TEST: usize = 5_000;
+
+    // load blocks with transactions
+    let test_data = get_bitcoin_testdata();
+
+    // verify all transactions
+    for block in test_data.iter().take(BLOCKS_TO_TEST) {
+        assert!(block.test_txs[0].get_tx().is_coinbase());
+        for tx in block.test_txs.iter() {
+            let mut reconstructed_raw_tx = vec![];
+            tx.get_tx().try_format(&mut reconstructed_raw_tx).unwrap();
+            let reconstructed_hex_tx = hex::encode(reconstructed_raw_tx);
+            assert_eq!(reconstructed_hex_tx, tx.raw_tx);
+
+            let reconstructed_txid = tx.get_tx().tx_id_bounded(tx.get_tx_len()).unwrap().to_hex_be();
+
+            assert_eq!(reconstructed_txid, tx.get_txid().to_hex_be());
+        }
+    }
+}
 
 #[test]
 #[cfg_attr(feature = "skip-slow-tests", ignore)]
@@ -64,15 +90,29 @@ fn integration_test_submit_block_headers_and_verify_transaction_inclusion() {
         // verify all transactions
         let current_height = btc_relay::Pallet::<Runtime>::get_best_block_height();
         for block in test_data.iter().skip(skip_blocks).take(BLOCKS_TO_TEST) {
-            for tx in &block.test_txs {
-                let txid = tx.get_txid();
-                let merkle_proof = tx.get_merkle_proof();
+            let coinbase = block.test_txs[0].clone();
+            let coinbase_proof = PartialTransactionProof {
+                merkle_proof: coinbase.get_merkle_proof(),
+                transaction: coinbase.get_tx(),
+                tx_encoded_len: coinbase.get_tx_len(),
+            };
+
+            for tx in block.test_txs.iter().skip(1) {
+                let user_tx_proof = PartialTransactionProof {
+                    merkle_proof: tx.get_merkle_proof(),
+                    transaction: tx.get_tx(),
+                    tx_encoded_len: tx.get_tx_len(),
+                };
+                let full_proof = FullTransactionProof {
+                    coinbase_proof: coinbase_proof.clone(),
+                    user_tx_proof,
+                };
                 if block.height <= current_height - CONFIRMATIONS + 1 {
-                    assert_ok!(BTCRelayPallet::_verify_transaction_inclusion(txid, merkle_proof, None));
+                    assert_ok!(BTCRelayPallet::_verify_transaction_inclusion(full_proof, None));
                 } else {
                     // expect to fail due to insufficient confirmations
                     assert_noop!(
-                        BTCRelayPallet::_verify_transaction_inclusion(txid, merkle_proof, None),
+                        BTCRelayPallet::_verify_transaction_inclusion(full_proof, None),
                         BTCRelayError::BitcoinConfirmations
                     );
                 }

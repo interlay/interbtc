@@ -32,7 +32,7 @@ pub mod types;
 pub use crate::types::{DefaultIssueRequest, IssueRequest, IssueRequestStatus};
 
 use crate::types::{BalanceOf, DefaultVaultId, Version};
-use bitcoin::types::{MerkleProof, Transaction};
+use bitcoin::types::FullTransactionProof;
 use btc_relay::{BtcAddress, BtcPublicKey};
 use currency::Amount;
 use frame_support::{dispatch::DispatchError, ensure, traits::Get, transactional, PalletId};
@@ -229,27 +229,38 @@ pub mod pallet {
         ///   - `B` is `transaction` size in bytes (length-fee-bounded)
         #[pallet::call_index(1)]
         #[pallet::weight({
-            let h = merkle_proof.hashes.len() as u32;
-            let i = transaction.inputs.len() as u32;
-            let o = transaction.outputs.len() as u32;
-            let b = *length_bound;
+            let h = transaction.user_tx_proof.merkle_proof.hashes.len() as u32;
+            let i = transaction.user_tx_proof.transaction.inputs.len() as u32;
+            let o = transaction.user_tx_proof.transaction.outputs.len() as u32;
+            let b = transaction.user_tx_proof.tx_encoded_len;
+
             <T as Config>::WeightInfo::execute_issue_underpayment(h, i, o, b)
                 .max(<T as Config>::WeightInfo::execute_issue_exact(h, i, o, b))
                 .max(<T as Config>::WeightInfo::execute_issue_overpayment(h, i, o, b))
                 .max(<T as Config>::WeightInfo::execute_expired_issue_underpayment(h, i, o, b))
                 .max(<T as Config>::WeightInfo::execute_expired_issue_exact(h, i, o, b))
                 .max(<T as Config>::WeightInfo::execute_expired_issue_overpayment(h, i, o, b))
-        })]
+        }.saturating_add({
+            let h = transaction.coinbase_proof.merkle_proof.hashes.len() as u32;
+            let i = transaction.coinbase_proof.transaction.inputs.len() as u32;
+            let o = transaction.coinbase_proof.transaction.outputs.len() as u32;
+            let b = transaction.coinbase_proof.tx_encoded_len;
+
+            <T as Config>::WeightInfo::execute_issue_underpayment(h, i, o, b)
+                .max(<T as Config>::WeightInfo::execute_issue_exact(h, i, o, b))
+                .max(<T as Config>::WeightInfo::execute_issue_overpayment(h, i, o, b))
+                .max(<T as Config>::WeightInfo::execute_expired_issue_underpayment(h, i, o, b))
+                .max(<T as Config>::WeightInfo::execute_expired_issue_exact(h, i, o, b))
+                .max(<T as Config>::WeightInfo::execute_expired_issue_overpayment(h, i, o, b))
+        }))]
         #[transactional]
         pub fn execute_issue(
             origin: OriginFor<T>,
             issue_id: H256,
-            merkle_proof: MerkleProof,
-            transaction: Transaction,
-            #[pallet::compact] length_bound: u32,
+            transaction: FullTransactionProof,
         ) -> DispatchResultWithPostInfo {
             let executor = ensure_signed(origin)?;
-            Self::_execute_issue(executor, issue_id, merkle_proof, transaction, length_bound)?;
+            Self::_execute_issue(executor, issue_id, transaction)?;
             Ok(().into())
         }
 
@@ -375,20 +386,14 @@ impl<T: Config> Pallet<T> {
     fn _execute_issue(
         executor: T::AccountId,
         issue_id: H256,
-        merkle_proof: MerkleProof,
-        transaction: Transaction,
-        length_bound: u32,
+        unchecked_transaction: FullTransactionProof,
     ) -> Result<(), DispatchError> {
         let mut issue = Self::get_issue_request_from_id(&issue_id)?;
         // allow anyone to complete issue request
         let requester = issue.requester.clone();
 
-        let amount_transferred = ext::btc_relay::get_and_verify_issue_payment::<T, BalanceOf<T>>(
-            merkle_proof,
-            transaction,
-            length_bound,
-            issue.btc_address,
-        )?;
+        let amount_transferred =
+            ext::btc_relay::get_and_verify_issue_payment::<T, BalanceOf<T>>(unchecked_transaction, issue.btc_address)?;
         let amount_transferred = Amount::new(amount_transferred, issue.vault.wrapped_currency());
 
         let expected_total_amount = issue.amount().checked_add(&issue.fee())?;
