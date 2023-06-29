@@ -177,11 +177,6 @@ pub mod pallet {
         fn build(&self) {
             IssuePeriod::<T>::put(self.issue_period);
             IssueBtcDustValue::<T>::put(self.issue_btc_dust_value);
-            let current_storage_version = Pallet::<T>::current_storage_version();
-            println!("--- current_storage_version before: {:?}", current_storage_version);
-
-            let on_chain_storage_version = Pallet::<T>::on_chain_storage_version();
-            println!("--- on_chain_storage_version before: {:?}", on_chain_storage_version);
         }
     }
 
