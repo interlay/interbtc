@@ -116,7 +116,7 @@ mod hrmp {
         // check that 0.25 DOT is enough
         let xcm_fee = DOT.one() / 4;
         let transact_weight = Weight::from_parts(10_000_000_000, 100_000_000);
-        let deposit = 2 * (10 * DOT.one() + xcm_fee);
+        let deposit = 2 * (10 * DOT.one() + xcm_fee) + polkadot_runtime::ExistentialDeposit::get();
         open_hrmp_channel(deposit, xcm_fee, transact_weight);
     }
 
@@ -126,7 +126,7 @@ mod hrmp {
         // 800_000_000 so tests don't break every polkadot upgrade
         let xcm_fee = DOT.one() / 5;
         let transact_weight = Weight::from_parts(800_000_000, 50_000_000);
-        let deposit = 2 * (10 * DOT.one() + xcm_fee);
+        let deposit = 2 * (10 * DOT.one() + xcm_fee) + polkadot_runtime::ExistentialDeposit::get();
         open_hrmp_channel(deposit, xcm_fee, transact_weight);
     }
 
@@ -135,7 +135,7 @@ mod hrmp {
         // the actual values used in production: about twice the minimum amounts
         let xcm_fee = DOT.one() / 2;
         let transact_weight = Weight::from_parts(10_000_000_000, 100_000_000);
-        let deposit = 2 * (10 * DOT.one() + xcm_fee);
+        let deposit = 2 * (10 * DOT.one() + xcm_fee) + polkadot_runtime::ExistentialDeposit::get();
         open_hrmp_channel(deposit, xcm_fee, transact_weight);
     }
 

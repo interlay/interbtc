@@ -71,7 +71,7 @@ pub mod v1 {
                 log::warn!(
                     target: TARGET,
                     "skipping on_runtime_upgrade: executed on wrong storage version.\
-				Expected version 0"
+                Expected version 0"
                 );
                 return weight;
             }

@@ -52,11 +52,11 @@ const INTR: CurrencyId = Token(INTR_CURRENCY);
 #[test]
 fn init_minting_ok() {
     new_test_ext().execute_with(|| {
-        assert_eq!(Tokens::balance(KSM, &ALICE), unit(1000));
-        assert_eq!(Tokens::balance(DOT, &ALICE), unit(1000));
-        assert_eq!(Tokens::balance(USDT, &ALICE), unit(1000));
-        assert_eq!(Tokens::balance(KSM, &BOB), unit(1000));
-        assert_eq!(Tokens::balance(DOT, &BOB), unit(1000));
+        assert_eq!(<Tokens as MultiCurrency<_>>::total_balance(KSM, &ALICE), unit(1000));
+        assert_eq!(<Tokens as MultiCurrency<_>>::total_balance(DOT, &ALICE), unit(1000));
+        assert_eq!(<Tokens as MultiCurrency<_>>::total_balance(USDT, &ALICE), unit(1000));
+        assert_eq!(<Tokens as MultiCurrency<_>>::total_balance(KSM, &BOB), unit(1000));
+        assert_eq!(<Tokens as MultiCurrency<_>>::total_balance(DOT, &BOB), unit(1000));
     });
 }
 
@@ -81,7 +81,7 @@ fn init_markets_ok() {
 #[test]
 fn loans_native_token_works() {
     new_test_ext().execute_with(|| {
-        assert_eq!(Tokens::balance(KINT, &DAVE), unit(1000));
+        assert_eq!(<Tokens as MultiCurrency<_>>::total_balance(KINT, &DAVE), unit(1000));
         assert_eq!(Loans::market(KINT).unwrap().state, MarketState::Active);
         assert_eq!(BorrowIndex::<Test>::get(KINT), Rate::one());
         assert_eq!(ExchangeRate::<Test>::get(KINT), Rate::saturating_from_rational(2, 100));
@@ -115,7 +115,7 @@ fn loans_native_token_works() {
         let borrow_snapshot = Loans::account_borrows(KINT, DAVE);
         assert_eq!(borrow_snapshot.principal, unit(100));
         assert_eq!(borrow_snapshot.borrow_index, Loans::borrow_index(KINT));
-        assert_eq!(Tokens::balance(KINT, &DAVE), unit(100),);
+        assert_eq!(<Tokens as MultiCurrency<_>>::total_balance(KINT, &DAVE), unit(100),);
     })
 }
 
@@ -131,8 +131,11 @@ fn mint_works() {
             Loans::exchange_rate(DOT).saturating_mul_int(Loans::free_lend_tokens(DOT, &ALICE).unwrap().amount()),
             unit(100)
         );
-        assert_eq!(Tokens::balance(DOT, &ALICE), unit(900),);
-        assert_eq!(Tokens::balance(DOT, &Loans::account_id()), unit(100),);
+        assert_eq!(<Tokens as MultiCurrency<_>>::total_balance(DOT, &ALICE), unit(900),);
+        assert_eq!(
+            <Tokens as MultiCurrency<_>>::total_balance(DOT, &Loans::account_id()),
+            unit(100),
+        );
     })
 }
 
@@ -288,10 +291,13 @@ fn redeem_works() {
         // DOT collateral: deposit - redeem = 100 - 20 = 80
         // DOT: cash - deposit + redeem = 1000 - 100 + 20 = 920
         assert_eq!(
-            Loans::exchange_rate(DOT).saturating_mul_int(Tokens::balance(Loans::lend_token_id(DOT).unwrap(), &ALICE)),
+            Loans::exchange_rate(DOT).saturating_mul_int(<Tokens as MultiCurrency<_>>::total_balance(
+                Loans::lend_token_id(DOT).unwrap(),
+                &ALICE
+            )),
             unit(80)
         );
-        assert_eq!(Tokens::balance(DOT, &ALICE), unit(920),);
+        assert_eq!(<Tokens as MultiCurrency<_>>::total_balance(DOT, &ALICE), unit(920),);
     })
 }
 
@@ -429,9 +435,9 @@ fn redeem_all_works() {
                 .saturating_mul_int(Loans::account_deposits(Loans::lend_token_id(DOT).unwrap(), &ALICE).amount()),
             0,
         );
-        assert_eq!(Tokens::balance(DOT, &ALICE), unit(1000),);
+        assert_eq!(<Tokens as MultiCurrency<_>>::total_balance(DOT, &ALICE), unit(1000),);
         assert!(!AccountDeposits::<Test>::contains_key(DOT, &ALICE));
-        assert_eq!(Tokens::balance(LEND_DOT, &ALICE), 0);
+        assert_eq!(<Tokens as MultiCurrency<_>>::total_balance(LEND_DOT, &ALICE), 0);
     })
 }
 
@@ -579,7 +585,7 @@ fn borrow_works() {
         let borrow_snapshot = Loans::account_borrows(DOT, ALICE);
         assert_eq!(borrow_snapshot.principal, unit(100));
         assert_eq!(borrow_snapshot.borrow_index, Loans::borrow_index(DOT));
-        assert_eq!(Tokens::balance(DOT, &ALICE), unit(900),);
+        assert_eq!(<Tokens as MultiCurrency<_>>::total_balance(DOT, &ALICE), unit(900),);
     })
 }
 
@@ -605,7 +611,7 @@ fn repay_borrow_works() {
         let borrow_snapshot = Loans::account_borrows(DOT, ALICE);
         assert_eq!(borrow_snapshot.principal, unit(70));
         assert_eq!(borrow_snapshot.borrow_index, Loans::borrow_index(DOT));
-        assert_eq!(Tokens::balance(DOT, &ALICE), unit(870),);
+        assert_eq!(<Tokens as MultiCurrency<_>>::total_balance(DOT, &ALICE), unit(870),);
     })
 }
 
@@ -627,7 +633,7 @@ fn repay_borrow_all_works() {
         // DOT collateral: deposit = 200
         // KSM: cash + borrow - repay = 1000 + 50 - 50 = 1000
         // KSM borrow balance: borrow - repay = 50 - 50 = 0
-        assert_eq!(Tokens::balance(DOT, &ALICE), unit(800),);
+        assert_eq!(<Tokens as MultiCurrency<_>>::total_balance(DOT, &ALICE), unit(800),);
         assert_eq!(
             Loans::exchange_rate(DOT)
                 .saturating_mul_int(Loans::account_deposits(Loans::lend_token_id(DOT).unwrap(), &ALICE).amount()),
@@ -709,8 +715,11 @@ fn add_reserves_works() {
         assert_ok!(Loans::add_reserves(RuntimeOrigin::root(), ALICE, DOT, unit(100)));
 
         assert_eq!(Loans::total_reserves(DOT).amount(), unit(100));
-        assert_eq!(Tokens::balance(DOT, &Loans::account_id()), unit(100),);
-        assert_eq!(Tokens::balance(DOT, &ALICE), unit(900),);
+        assert_eq!(
+            <Tokens as MultiCurrency<_>>::total_balance(DOT, &Loans::account_id()),
+            unit(100),
+        );
+        assert_eq!(<Tokens as MultiCurrency<_>>::total_balance(DOT, &ALICE), unit(900),);
     })
 }
 
@@ -724,8 +733,11 @@ fn reduce_reserves_works() {
         assert_ok!(Loans::reduce_reserves(RuntimeOrigin::root(), ALICE, DOT, unit(20)));
 
         assert_eq!(Loans::total_reserves(DOT).amount(), unit(80));
-        assert_eq!(Tokens::balance(DOT, &Loans::account_id()), unit(80),);
-        assert_eq!(Tokens::balance(DOT, &ALICE), unit(920),);
+        assert_eq!(
+            <Tokens as MultiCurrency<_>>::total_balance(DOT, &Loans::account_id()),
+            unit(80),
+        );
+        assert_eq!(<Tokens as MultiCurrency<_>>::total_balance(DOT, &ALICE), unit(920),);
     })
 }
 
@@ -1227,10 +1239,16 @@ fn reward_calculation_one_player_in_multi_markets_works() {
         _run_to_block(80);
         assert_ok!(Loans::add_reward(RuntimeOrigin::signed(DAVE), unit(200)));
         assert_ok!(Loans::claim_reward(RuntimeOrigin::signed(ALICE)));
-        assert_eq!(Tokens::balance(INTR, &DAVE), unit(800));
-        assert_eq!(almost_equal(Tokens::balance(INTR, &ALICE), unit(130)), true);
+        assert_eq!(<Tokens as MultiCurrency<_>>::total_balance(INTR, &DAVE), unit(800));
         assert_eq!(
-            almost_equal(Tokens::balance(INTR, &Loans::reward_account_id()), unit(70)),
+            almost_equal(<Tokens as MultiCurrency<_>>::total_balance(INTR, &ALICE), unit(130)),
+            true
+        );
+        assert_eq!(
+            almost_equal(
+                <Tokens as MultiCurrency<_>>::total_balance(INTR, &Loans::reward_account_id()),
+                unit(70)
+            ),
             true
         );
         assert_ok!(Loans::update_market_reward_speed(
@@ -1246,7 +1264,10 @@ fn reward_calculation_one_player_in_multi_markets_works() {
         // KSM borrow:0     KSM borrow reward: 20
         _run_to_block(90);
         assert_ok!(Loans::claim_reward(RuntimeOrigin::signed(ALICE)));
-        assert_eq!(almost_equal(Tokens::balance(INTR, &ALICE), unit(140)), true);
+        assert_eq!(
+            almost_equal(<Tokens as MultiCurrency<_>>::total_balance(INTR, &ALICE), unit(140)),
+            true
+        );
     })
 }
 
@@ -1413,11 +1434,20 @@ fn reward_calculation_multi_player_in_one_market_works() {
         assert_ok!(Loans::add_reward(RuntimeOrigin::signed(DAVE), unit(200)));
         assert_ok!(Loans::claim_reward_for_market(RuntimeOrigin::signed(ALICE), DOT));
         assert_ok!(Loans::claim_reward_for_market(RuntimeOrigin::signed(BOB), DOT));
-        assert_eq!(Tokens::balance(INTR, &DAVE), unit(800));
-        assert_eq!(almost_equal(Tokens::balance(INTR, &ALICE), unit(58)), true);
-        assert_eq!(almost_equal(Tokens::balance(INTR, &BOB), unit(22)), true);
+        assert_eq!(<Tokens as MultiCurrency<_>>::total_balance(INTR, &DAVE), unit(800));
         assert_eq!(
-            almost_equal(Tokens::balance(INTR, &Loans::reward_account_id()), unit(120)),
+            almost_equal(<Tokens as MultiCurrency<_>>::total_balance(INTR, &ALICE), unit(58)),
+            true
+        );
+        assert_eq!(
+            almost_equal(<Tokens as MultiCurrency<_>>::total_balance(INTR, &BOB), unit(22)),
+            true
+        );
+        assert_eq!(
+            almost_equal(
+                <Tokens as MultiCurrency<_>>::total_balance(INTR, &Loans::reward_account_id()),
+                unit(120)
+            ),
             true
         );
     })

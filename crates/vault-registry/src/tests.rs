@@ -4,7 +4,7 @@ use crate::{
     BtcPublicKey, CurrencySource, DefaultVaultId, DispatchError, Vault,
 };
 use codec::Decode;
-use currency::{Amount, CurrencyConversion};
+use currency::Amount;
 use frame_support::{assert_err, assert_noop, assert_ok};
 use mocktopus::mocking::*;
 use pretty_assertions::assert_eq;
@@ -39,19 +39,6 @@ macro_rules! assert_not_emitted {
         let test_event = TestEvent::VaultRegistry($event);
         assert!(!System::events().iter().any(|a| a.event == test_event));
     };
-}
-
-fn convert_with_exchange_rate(
-    exchange_rate: u128,
-) -> impl Fn(CurrencyId, Amount<Test>) -> MockResult<(CurrencyId, Amount<Test>), Result<Amount<Test>, DispatchError>> {
-    move |currency_id, amount| {
-        let amount = if currency_id == Token(IBTC) {
-            Amount::new(amount.amount() / exchange_rate, currency_id)
-        } else {
-            Amount::new(amount.amount() * exchange_rate, currency_id)
-        };
-        MockResult::Return(Ok(amount))
-    }
 }
 
 fn create_vault_with_collateral(id: &DefaultVaultId<Test>, collateral: u128) {

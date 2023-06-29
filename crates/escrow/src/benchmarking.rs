@@ -112,6 +112,22 @@ pub mod benchmarks {
     }
 
     #[benchmark]
+    pub fn set_account_limit() {
+        let who: T::AccountId = account("Who", 0, 0);
+
+        #[extrinsic_call]
+        set_account_limit(RawOrigin::Root, who, 1u32.into(), 2u32.into());
+    }
+
+    #[benchmark]
+    pub fn set_account_block() {
+        let who: T::AccountId = account("Who", 0, 0);
+
+        #[extrinsic_call]
+        set_account_block(RawOrigin::Root, who);
+    }
+
+    #[benchmark]
     pub fn update_user_stake() {
         let origin: T::AccountId = account("Origin", 0, 0);
         let report_account: T::AccountId = account("Report Account", 0, 0);

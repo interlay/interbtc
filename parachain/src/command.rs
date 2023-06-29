@@ -488,7 +488,7 @@ async fn start_node(cli: Cli, config: Configuration) -> sc_service::error::Resul
 
     let id = ParaId::from(para_id.unwrap_or(DEFAULT_PARA_ID));
 
-    let parachain_account = AccountIdConversion::<polkadot_primitives::v2::AccountId>::into_account_truncating(&id);
+    let parachain_account = AccountIdConversion::<polkadot_primitives::v4::AccountId>::into_account_truncating(&id);
 
     let tokio_handle = config.tokio_handle.clone();
     let polkadot_config = SubstrateCli::create_configuration(&polkadot_cli, &polkadot_cli, tokio_handle)

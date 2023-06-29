@@ -1772,7 +1772,12 @@ impl<T: Config> Pallet<T> {
     /// Transferrable balance in the pallet account (`free - frozen`)
     fn get_total_cash(asset_id: CurrencyId<T>) -> Amount<T> {
         Amount::new(
-            orml_tokens::Pallet::<T>::reducible_balance(asset_id, &Self::account_id(), true),
+            orml_tokens::Pallet::<T>::reducible_balance(
+                asset_id,
+                &Self::account_id(),
+                frame_support::traits::tokens::Preservation::Expendable,
+                frame_support::traits::tokens::Fortitude::Polite,
+            ),
             asset_id,
         )
     }

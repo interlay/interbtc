@@ -1,4 +1,4 @@
-use frame_benchmarking::v2::{account, benchmarks, whitelisted_caller, Linear};
+use frame_benchmarking::v2::{account, benchmarks, whitelisted_caller};
 use frame_support::{
     assert_ok,
     traits::{Currency, Get},

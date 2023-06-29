@@ -51,7 +51,10 @@ fn repay_borrow_all_no_underflow() {
         assert_ok!(Loans::repay_borrow_all(RuntimeOrigin::signed(ALICE), Token(KSM)));
         assert_eq!(Loans::total_borrows(Token(KSM)).amount(), 0);
 
-        assert_eq!(Tokens::balance(Token(KSM), &ALICE), unit(800) - 7);
+        assert_eq!(
+            <Tokens as MultiCurrency<_>>::total_balance(Token(KSM), &ALICE),
+            unit(800) - 7
+        );
 
         assert_eq!(
             Loans::exchange_rate(Token(DOT)).saturating_mul_int(
@@ -137,8 +140,14 @@ fn prevent_the_exchange_rate_attack() {
             Token(DOT),
             unit(100),
         ));
-        assert_eq!(Tokens::balance(Token(DOT), &EVE), 99999999999999);
-        assert_eq!(Tokens::balance(Token(DOT), &Loans::account_id()), 100000000000001);
+        assert_eq!(
+            <Tokens as MultiCurrency<_>>::total_balance(Token(DOT), &EVE),
+            99999999999999
+        );
+        assert_eq!(
+            <Tokens as MultiCurrency<_>>::total_balance(Token(DOT), &Loans::account_id()),
+            100000000000001
+        );
         assert_eq!(
             Loans::total_supply(Token(DOT)).unwrap().amount(),
             1 * 50, // 1 / 0.02
@@ -278,7 +287,7 @@ fn small_loans_have_interest_rounded_up() {
         let initial_block = 2;
         _run_to_block(initial_block);
 
-        assert_eq!(Tokens::balance(Token(IBTC), &BOB), 0);
+        assert_eq!(<Tokens as MultiCurrency<_>>::total_balance(Token(IBTC), &BOB), 0);
         let borrow_amount_small = 1;
         let borrow_amount_big = unit(10);
         // If there was an bug in the lazy interest accrual, the second loan would be interest-free

@@ -1,6 +1,6 @@
 use super::{Pallet as Oracle, *};
 use crate::OracleKey;
-use frame_benchmarking::v2::{account, benchmarks, impl_benchmark_test_suite, Linear};
+use frame_benchmarking::v2::{account, benchmarks, impl_benchmark_test_suite};
 use frame_support::assert_ok;
 use frame_system::RawOrigin;
 use pallet_timestamp::Pallet as Timestamp;

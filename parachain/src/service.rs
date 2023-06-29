@@ -22,7 +22,7 @@ use sc_service::{Configuration, PartialComponents, RpcHandlers, TFullBackend, TF
 use sc_telemetry::{Telemetry, TelemetryHandle, TelemetryWorker, TelemetryWorkerHandle};
 use sp_api::ConstructRuntimeApi;
 use sp_consensus_aura::sr25519::{AuthorityId as AuraId, AuthorityPair as AuraPair};
-use sp_keystore::SyncCryptoStorePtr;
+use sp_keystore::KeystorePtr;
 use sp_runtime::traits::BlakeTwo256;
 use std::{sync::Arc, time::Duration};
 use substrate_prometheus_endpoint::Registry;
@@ -323,7 +323,7 @@ where
         Arc<dyn RelayChainInterface>,
         Arc<sc_transaction_pool::FullPool<Block, FullClient<RuntimeApi, Executor>>>,
         Arc<SyncingService<Block>>,
-        SyncCryptoStorePtr,
+        KeystorePtr,
         bool,
     ) -> Result<Box<dyn ParachainConsensus<Block>>, sc_service::Error>,
 {
@@ -395,7 +395,7 @@ where
         transaction_pool: transaction_pool.clone(),
         task_manager: &mut task_manager,
         config: parachain_config,
-        keystore: params.keystore_container.sync_keystore(),
+        keystore: params.keystore_container.keystore(),
         backend: backend.clone(),
         network: network.clone(),
         system_rpc_tx,
@@ -425,7 +425,7 @@ where
             relay_chain_interface.clone(),
             transaction_pool,
             sync_service.clone(),
-            params.keystore_container.sync_keystore(),
+            params.keystore_container.keystore(),
             force_authoring,
         )?;
 
@@ -444,6 +444,7 @@ where
             collator_key: collator_key.expect("Command line arguments do not allow this. qed"),
             relay_chain_slot_duration,
             recovery_handle: Box::new(overseer_handle),
+            sync_service: sync_service.clone(),
         };
 
         start_collator(params).await?;
@@ -457,6 +458,7 @@ where
             import_queue: import_queue_service,
             relay_chain_slot_duration,
             recovery_handle: Box::new(overseer_handle),
+            sync_service: sync_service.clone(),
         };
 
         start_full_node(params)?;
@@ -685,7 +687,7 @@ where
         transaction_pool,
         task_manager: &mut task_manager,
         config,
-        keystore: keystore_container.sync_keystore(),
+        keystore: keystore_container.keystore(),
         backend,
         network,
         system_rpc_tx,

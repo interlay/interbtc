@@ -397,7 +397,8 @@ fn should_kick_mechanism_below_balance() {
         // need to decrease reference counter (from candidate bond)
         frame_system::Pallet::<Test>::dec_consumers(&3);
         // workaround to emulate escrow total balance decreasing
-        assert_ok!(Balances::set_balance(RuntimeOrigin::root(), 3, 0, 0));
+        assert_ok!(Balances::force_unreserve(RuntimeOrigin::root(), 3, 10));
+        assert_ok!(Balances::force_set_balance(RuntimeOrigin::root(), 3, 0));
 
         // second session change
         initialize_to_block(Period::get() * 2);

@@ -1,7 +1,7 @@
 use cumulus_primitives_core::MultiLocation;
 use frame_support::traits::GenesisBuild;
 pub use interlay_runtime_parachain::{xcm_config::*, *};
-use polkadot_primitives::v2::{BlockNumber, MAX_CODE_SIZE, MAX_POV_SIZE};
+use polkadot_primitives::v4::{BlockNumber, MAX_CODE_SIZE, MAX_POV_SIZE};
 use polkadot_runtime_parachains::{configuration::HostConfiguration, paras::ParaKind};
 pub use primitives::{
     CurrencyId::Token,
@@ -86,7 +86,6 @@ fn default_parachains_host_configuration() -> HostConfiguration<BlockNumber> {
         max_validators: Some(200),
         dispute_period: 6,
         dispute_post_conclusion_acceptance_period: 600,
-        dispute_conclusion_by_time_out_period: 600,
         no_show_slots: 2,
         n_delay_tranches: 89,
         zeroth_delay_tranche_width: 0,
@@ -96,6 +95,7 @@ fn default_parachains_host_configuration() -> HostConfiguration<BlockNumber> {
         pvf_checking_enabled: false,
         pvf_voting_ttl: 2,
         minimum_validation_upgrade_delay: 20,
+        ..Default::default()
     }
 }
 
