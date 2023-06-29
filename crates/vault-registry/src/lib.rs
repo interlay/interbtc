@@ -682,7 +682,7 @@ pub mod pallet {
                 LiquidationCollateralThreshold::<T>::insert(currency_pair, threshold);
             }
 
-            StorageVersion::new(Version::V3 as u16).put::<Pallet<T>>();
+            StorageVersion::new(Version::V6 as u16).put::<Pallet<T>>();
         }
     }
 }

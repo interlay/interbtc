@@ -11,15 +11,15 @@ use crate::Config;
 #[derive(Encode, Decode, Eq, PartialEq, TypeInfo, MaxEncodedLen)]
 pub enum Version {
     /// Initial version.
-    V0,
+    V0 = 0,
     /// BtcAddress type with script format.
-    V1,
+    V1 = 1,
     /// IssueRequestStatus
-    V2,
+    V2 = 2,
     /// ActiveBlockNumber, btc_height
-    V3,
+    V3 = 3,
     /// Removed refund
-    V4,
+    V4 = 4,
 }
 
 pub(crate) type BalanceOf<T> = <T as currency::Config>::Balance;

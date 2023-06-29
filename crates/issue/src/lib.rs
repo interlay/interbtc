@@ -31,7 +31,7 @@ pub mod types;
 #[doc(inline)]
 pub use crate::types::{DefaultIssueRequest, IssueRequest, IssueRequestStatus};
 
-use crate::types::{BalanceOf, DefaultVaultId};
+use crate::types::{BalanceOf, DefaultVaultId, Version};
 use bitcoin::types::{MerkleProof, Transaction};
 use btc_relay::{BtcAddress, BtcPublicKey};
 use currency::Amount;
@@ -68,6 +68,14 @@ pub mod pallet {
 
         /// Weight information for the extrinsics in this module.
         type WeightInfo: WeightInfo;
+    }
+
+    #[pallet::hooks]
+    impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
+        fn on_runtime_upgrade() -> Weight {
+            StorageVersion::new(Version::V4 as u16).put::<Pallet<T>>();
+            Default::default()
+        }
     }
 
     #[pallet::event]
@@ -169,11 +177,16 @@ pub mod pallet {
         fn build(&self) {
             IssuePeriod::<T>::put(self.issue_period);
             IssueBtcDustValue::<T>::put(self.issue_btc_dust_value);
+            let current_storage_version = Pallet::<T>::current_storage_version();
+            println!("--- current_storage_version before: {:?}", current_storage_version);
+
+            let on_chain_storage_version = Pallet::<T>::on_chain_storage_version();
+            println!("--- on_chain_storage_version before: {:?}", on_chain_storage_version);
         }
     }
 
     /// The current storage version.
-    const STORAGE_VERSION: StorageVersion = StorageVersion::new(4);
+    const STORAGE_VERSION: StorageVersion = StorageVersion::new(0);
 
     #[pallet::pallet]
     #[pallet::storage_version(STORAGE_VERSION)]
