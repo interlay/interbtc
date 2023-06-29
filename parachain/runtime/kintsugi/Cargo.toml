@@ -44,6 +44,8 @@ pallet-preimage = { git = "https://github.com/paritytech/substrate", branch = "p
 pallet-identity = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.31", default-features = false }
 pallet-proxy = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.31", default-features = false }
 pallet-sudo = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.31", default-features = false }
+pallet-contracts = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.31", default-features = false }
+pallet-contracts-primitives = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.31", default-features = false }
 
 frame-try-runtime = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.31", default-features = false, optional = true }
 frame-system-rpc-runtime-api = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.31", default-features = false }
@@ -183,7 +185,8 @@ std = [
   "pallet-preimage/std",
   "pallet-identity/std",
   "pallet-proxy/std",
-  "pallet-sudo/std",
+  "pallet-contracts/std",
+  "pallet-contracts-primitives/std",
 
   "frame-system-rpc-runtime-api/std",
   "pallet-transaction-payment-rpc-runtime-api/std",
