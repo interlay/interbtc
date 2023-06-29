@@ -1217,6 +1217,7 @@ construct_runtime! {
         Proxy: pallet_proxy::{Pallet, Call, Storage, Event<T>} = 8,
         Sudo: pallet_sudo::{Pallet, Call, Storage, Config<T>, Event<T>} = 9,
         TxPause: tx_pause::{Pallet, Call, Storage, Event<T>} = 10,
+        Recovery: pallet_recovery::{Pallet, Call, Storage, Event<T>} = 11,
 
         // # Tokens & Balances
         Currency: currency::{Pallet} = 20,
@@ -1283,8 +1284,6 @@ construct_runtime! {
         DexGeneral: dex_general::{Pallet, Call, Storage, Event<T>} = 101,
         DexStable: dex_stable::{Pallet, Call, Storage, Event<T>}  = 102,
         DexSwapRouter: dex_swap_router::{Pallet, Call, Event<T>} = 103,
-
-        Recovery: pallet_recovery::{Pallet, Call, Storage, Event<T>} = 104,
     }
 }
 
