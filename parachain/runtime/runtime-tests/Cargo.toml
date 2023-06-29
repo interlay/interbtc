@@ -48,6 +48,8 @@ pallet-scheduler = { git = "https://github.com/paritytech/substrate", branch = "
 pallet-multisig = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.31" }
 pallet-sudo = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.31" }
 pallet-preimage = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.31" }
+pallet-contracts = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.31", default-features = false }
+pallet-contracts-primitives = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.31", default-features = false }
 
 frame-system-rpc-runtime-api = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.31" }
 pallet-transaction-payment-rpc-runtime-api = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.31" }
