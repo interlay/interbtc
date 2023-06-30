@@ -467,8 +467,6 @@ impl<T: Config> Pallet<T> {
     ) -> Result<H256, DispatchError> {
         let amount_wrapped = Amount::new(amount_wrapped, vault_id.wrapped_currency());
 
-        ext::security::ensure_parachain_status_running::<T>()?;
-
         let redeemer_balance = ext::treasury::get_balance::<T>(&redeemer, vault_id.wrapped_currency());
         ensure!(
             amount_wrapped.le(&redeemer_balance)?,
@@ -622,8 +620,6 @@ impl<T: Config> Pallet<T> {
     }
 
     fn _cancel_redeem(redeemer: T::AccountId, redeem_id: H256, reimburse: bool) -> DispatchResult {
-        ext::security::ensure_parachain_status_running::<T>()?;
-
         let redeem = Self::get_open_redeem_request_from_id(&redeem_id)?;
         ensure!(redeemer == redeem.redeemer, Error::<T>::UnauthorizedRedeemer);
 
@@ -734,8 +730,6 @@ impl<T: Config> Pallet<T> {
     }
 
     fn _mint_tokens_for_reimbursed_redeem(vault_id: DefaultVaultId<T>, redeem_id: H256) -> DispatchResult {
-        ext::security::ensure_parachain_status_running::<T>()?;
-
         let redeem = RedeemRequests::<T>::try_get(&redeem_id).or(Err(Error::<T>::RedeemIdNotFound))?;
         ensure!(
             matches!(redeem.status, RedeemRequestStatus::Reimbursed(false)),

@@ -157,7 +157,6 @@ pub mod pallet {
             origin: OriginFor<T>,
             currency_pair: DefaultVaultCurrencyPair<T>,
         ) -> DispatchResultWithPostInfo {
-            ext::security::ensure_parachain_status_running::<T>()?;
             let account_id = ensure_signed(origin)?;
             let vault_id = VaultId::new(account_id, currency_pair.collateral, currency_pair.wrapped);
 
@@ -173,8 +172,6 @@ pub mod pallet {
             origin: OriginFor<T>,
             currency_pair: DefaultVaultCurrencyPair<T>,
         ) -> DispatchResultWithPostInfo {
-            ext::security::ensure_parachain_status_running::<T>()?;
-
             let account_id = ensure_signed(origin)?;
             let vault_id = VaultId::new(account_id, currency_pair.collateral, currency_pair.wrapped);
             Self::_opt_out_of_nomination(&vault_id)?;
@@ -190,7 +187,6 @@ pub mod pallet {
             amount: BalanceOf<T>,
         ) -> DispatchResultWithPostInfo {
             let nominator_id = ensure_signed(origin)?;
-            ext::security::ensure_parachain_status_running::<T>()?;
             Self::_deposit_collateral(&vault_id, &nominator_id, amount)?;
             Ok(().into())
         }
@@ -205,7 +201,6 @@ pub mod pallet {
             index: Option<T::Index>,
         ) -> DispatchResultWithPostInfo {
             let nominator_id = ensure_signed(origin)?;
-            ext::security::ensure_parachain_status_running::<T>()?;
             Self::_withdraw_collateral(&vault_id, &nominator_id, amount, index.unwrap_or_default())?;
             Ok(().into())
         }
@@ -218,7 +213,6 @@ pub mod pallet {
             currency_pair: DefaultVaultCurrencyPair<T>,
             limit: BalanceOf<T>,
         ) -> DispatchResultWithPostInfo {
-            ext::security::ensure_parachain_status_running::<T>()?;
             let account_id = ensure_signed(origin)?;
             let vault_id = VaultId::new(account_id, currency_pair.collateral, currency_pair.wrapped);
 

@@ -94,7 +94,6 @@ impl pallet_timestamp::Config for Test {
 impl security::Config for Test {
     type RuntimeEvent = RuntimeEvent;
     type WeightInfo = ();
-    type MaxErrors = ConstU32<1>;
 }
 
 pub type TestEvent = RuntimeEvent;

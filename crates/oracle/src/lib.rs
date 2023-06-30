@@ -5,8 +5,6 @@
 #![cfg_attr(test, feature(proc_macro_hygiene))]
 #![cfg_attr(not(feature = "std"), no_std)]
 
-mod ext;
-
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;
 
@@ -40,7 +38,6 @@ use frame_support::{
 };
 use frame_system::{ensure_root, ensure_signed};
 use scale_info::TypeInfo;
-use security::{ErrorCode, StatusCode};
 use sp_runtime::traits::*;
 use sp_std::{convert::TryInto, vec::Vec};
 use traits::OracleApi;
@@ -278,20 +275,6 @@ impl<T: Config> Pallet<T> {
             Self::deposit_event(Event::<T>::AggregateUpdated { values: updated_items });
         }
 
-        let current_status_is_online = Self::is_oracle_online();
-        let new_status_is_online = raw_values_updated.len() > 0
-            && raw_values_updated
-                .iter()
-                .all(|(key, _)| Aggregate::<T>::get(key).is_some());
-
-        if current_status_is_online != new_status_is_online {
-            if new_status_is_online {
-                Self::recover_from_oracle_offline();
-            } else {
-                Self::report_oracle_offline();
-            }
-        }
-
         raw_values_updated.len().saturated_into()
     }
 
@@ -316,8 +299,6 @@ impl<T: Config> Pallet<T> {
 
     /// Get the exchange rate in planck per satoshi
     pub fn get_price(key: OracleKey) -> Result<UnsignedFixedPoint<T>, DispatchError> {
-        ext::security::ensure_parachain_status_running::<T>()?;
-
         Aggregate::<T>::get(key).ok_or(Error::<T>::MissingExchangeRate.into())
     }
 
@@ -406,23 +387,7 @@ impl<T: Config> Pallet<T> {
         Aggregate::<T>::insert(&OracleKey::ExchangeRate(currency_id), exchange_rate);
         T::OnExchangeRateChange::on_exchange_rate_change(&currency_id);
 
-        // this is useful for benchmark tests
-        Self::recover_from_oracle_offline();
         Ok(())
-    }
-
-    fn is_oracle_online() -> bool {
-        !ext::security::get_errors::<T>().contains(&ErrorCode::OracleOffline)
-    }
-
-    fn report_oracle_offline() {
-        ext::security::set_status::<T>(StatusCode::Error);
-        // this is unlikely to fail since there is only one possible error
-        let _ = ext::security::insert_error::<T>(ErrorCode::OracleOffline);
-    }
-
-    fn recover_from_oracle_offline() {
-        ext::security::recover_from_oracle_offline::<T>()
     }
 
     /// Returns the current timestamp

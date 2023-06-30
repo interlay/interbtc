@@ -27,7 +27,6 @@ pub use redeem::{types::RedeemRequestExt, RedeemRequest};
 use redeem_utils::USER_BTC_ADDRESS;
 pub use replace::{types::ReplaceRequestExt, ReplaceRequest};
 pub use reward::RewardsApi;
-pub use security::{ErrorCode, StatusCode};
 pub use sp_arithmetic::{FixedI128, FixedPointNumber, FixedU128};
 pub use sp_core::{H160, H256, U256};
 pub use sp_std::convert::TryInto;

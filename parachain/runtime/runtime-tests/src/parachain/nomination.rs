@@ -80,50 +80,6 @@ mod spec_based_tests {
         })
     }
 
-    fn nomination_with_non_running_status_fails(status: StatusCode) {
-        SecurityPallet::set_status(status);
-        let vault_id = vault_id_of(VAULT, Token(DOT));
-        assert_noop!(
-            RuntimeCall::Nomination(NominationCall::opt_in_to_nomination {
-                currency_pair: vault_id.currencies.clone()
-            })
-            .dispatch(origin_of(account_of(ALICE))),
-            SecurityError::ParachainNotRunning,
-        );
-        assert_noop!(
-            RuntimeCall::Nomination(NominationCall::opt_out_of_nomination {
-                currency_pair: vault_id.currencies.clone()
-            })
-            .dispatch(origin_of(account_of(ALICE))),
-            SecurityError::ParachainNotRunning,
-        );
-        assert_noop!(
-            RuntimeCall::Nomination(NominationCall::deposit_collateral {
-                vault_id: vault_id.clone(),
-                amount: 100
-            })
-            .dispatch(origin_of(account_of(ALICE))),
-            SecurityError::ParachainNotRunning,
-        );
-        assert_noop!(
-            RuntimeCall::Nomination(NominationCall::withdraw_collateral {
-                vault_id: vault_id.clone(),
-                amount: 100,
-                index: None
-            })
-            .dispatch(origin_of(account_of(ALICE))),
-            SecurityError::ParachainNotRunning,
-        );
-    }
-
-    #[test]
-    fn integration_test_nomination_with_parachain_shutdown_status_fails() {
-        // Checked PRECONDITION: The BTC Parachain status in the Security component be `RUNNING:0`.
-        test_with(|_| {
-            nomination_with_non_running_status_fails(StatusCode::Error);
-        });
-    }
-
     #[test]
     fn integration_test_opt_in() {
         // PRECONDITIONS:

@@ -63,55 +63,6 @@ mod spec_based_tests {
 
     use super::{assert_eq, *};
 
-    #[test]
-    fn integration_test_redeem_with_parachain_error_status_fails() {
-        // PRECONDITION: The BTC Parachain status in the Security component
-        test_with(|vault_id| {
-            // `liquidation_redeem` and `execute_redeem` are not tested here
-            // because they are allowed even in error
-            SecurityPallet::set_status(StatusCode::Error);
-
-            assert_noop!(
-                RuntimeCall::Redeem(RedeemCall::request_redeem {
-                    amount_wrapped: 1500,
-                    btc_address: BtcAddress::random(),
-                    vault_id: vault_id.clone(),
-                })
-                .dispatch(origin_of(account_of(ALICE))),
-                SecurityError::ParachainNotRunning,
-            );
-
-            assert_noop!(
-                RuntimeCall::Redeem(RedeemCall::cancel_redeem {
-                    redeem_id: Default::default(),
-                    reimburse: false
-                })
-                .dispatch(origin_of(account_of(ALICE))),
-                SecurityError::ParachainNotRunning,
-            );
-            assert_noop!(
-                RuntimeCall::Redeem(RedeemCall::cancel_redeem {
-                    redeem_id: Default::default(),
-                    reimburse: true
-                })
-                .dispatch(origin_of(account_of(ALICE))),
-                SecurityError::ParachainNotRunning,
-            );
-
-            assert_noop!(
-                RuntimeCall::Redeem(RedeemCall::mint_tokens_for_reimbursed_redeem {
-                    currency_pair: VaultCurrencyPair {
-                        collateral: DEFAULT_COLLATERAL_CURRENCY,
-                        wrapped: DEFAULT_WRAPPED_CURRENCY
-                    },
-                    redeem_id: Default::default()
-                })
-                .dispatch(origin_of(account_of(ALICE))),
-                SecurityError::ParachainNotRunning,
-            );
-        });
-    }
-
     mod request_redeem {
         use frame_support::assert_ok;
         use sp_runtime::FixedU128;
