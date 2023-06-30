@@ -43,7 +43,6 @@ use frame_support::{
 use frame_system::pallet_prelude::*;
 use num_traits::cast::ToPrimitive;
 use orml_traits::{MultiCurrency, MultiReservableCurrency};
-pub use pallet::*;
 use primitives::{Balance, Rate, Ratio, Timestamp};
 use sp_runtime::{
     traits::{
@@ -53,13 +52,12 @@ use sp_runtime::{
     ArithmeticError, FixedPointNumber, FixedU128,
 };
 use sp_std::{marker, result::Result};
-
-use traits::{
-    ConvertToBigUint, LoansApi as LoansTrait, LoansMarketDataProvider, MarketInfo, MarketStatus, OnExchangeRateChange,
-};
+use traits::{ConvertToBigUint, LoansMarketDataProvider, MarketInfo, MarketStatus, OnExchangeRateChange};
 
 pub use default_weights::WeightInfo;
 pub use orml_traits::currency::{OnDeposit, OnSlash, OnTransfer};
+pub use pallet::*;
+pub use traits::LoansApi;
 pub use types::{BorrowSnapshot, EarnedSnapshot, Market, MarketState, RewardMarketState};
 
 #[cfg(feature = "runtime-benchmarks")]
@@ -1875,8 +1873,8 @@ impl<T: Config> Pallet<T> {
     }
 }
 
-impl<T: Config> LoansTrait<CurrencyId<T>, AccountIdOf<T>, Amount<T>> for Pallet<T> {
-    fn do_mint(supplier: &AccountIdOf<T>, amount: &Amount<T>) -> Result<(), DispatchError> {
+impl<T: Config> LoansApi<CurrencyId<T>, AccountIdOf<T>, Amount<T>> for Pallet<T> {
+    fn do_mint(supplier: &AccountIdOf<T>, amount: &Amount<T>) -> Result<Amount<T>, DispatchError> {
         let asset_id = amount.currency();
         Self::ensure_active_market(asset_id)?;
         Self::ensure_under_supply_cap(&amount)?;
@@ -1899,7 +1897,7 @@ impl<T: Config> LoansTrait<CurrencyId<T>, AccountIdOf<T>, Amount<T>> for Pallet<
             currency_id: asset_id,
             amount: amount.amount(),
         });
-        Ok(())
+        Ok(voucher)
     }
 
     fn do_borrow(borrower: &AccountIdOf<T>, borrow: &Amount<T>) -> Result<(), DispatchError> {

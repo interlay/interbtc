@@ -281,6 +281,7 @@ impl Config for Test {
     type RuntimeEvent = RuntimeEvent;
     type WeightInfo = ();
     type GetGriefingCollateralCurrencyId = GetNativeCurrencyId;
+    type LoansApi = Loans;
 }
 
 impl<C> frame_system::offchain::SendTransactionTypes<C> for Test

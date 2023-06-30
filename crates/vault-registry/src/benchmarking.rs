@@ -125,7 +125,7 @@ pub fn activate_lending_and_get_vault_id<T: crate::Config + loans::Config>() -> 
     let account_id: T::AccountId = account("Vault", 0, 0);
     let lend_token = CurrencyId::LendToken(1);
     activate_lending_and_mint::<T>(get_collateral_currency_id::<T>(), lend_token.clone(), &account_id);
-    let vault_id = VaultId::new(account("Vault", 0, 0), lend_token, get_wrapped_currency_id::<T>());
+    let vault_id = VaultId::new(account_id, lend_token, get_wrapped_currency_id::<T>());
     set_collateral_config::<T>(&vault_id);
     vault_id
 }
@@ -271,6 +271,33 @@ pub mod benchmarks {
 
         #[extrinsic_call]
         recover_vault_id(RawOrigin::Signed(vault_id.account_id), vault_id.currencies.clone());
+    }
+
+    #[benchmark]
+    fn deposit_vault_collateral_in_lending_market() {
+        let old_vault_id = VaultId::new(
+            account("Vault", 0, 0),
+            get_collateral_currency_id::<T>(),
+            get_wrapped_currency_id::<T>(),
+        );
+        set_collateral_config::<T>(&old_vault_id);
+
+        let new_vault_id = VaultId::new(
+            account("Vault", 0, 0),
+            CurrencyId::LendToken(1),
+            get_wrapped_currency_id::<T>(),
+        );
+        set_collateral_config::<T>(&new_vault_id);
+
+        register_vault_with_collateral::<T>(old_vault_id.clone());
+
+        activate_market::<T>(old_vault_id.collateral_currency(), new_vault_id.collateral_currency());
+
+        #[extrinsic_call]
+        _(
+            RawOrigin::Signed(old_vault_id.account_id),
+            old_vault_id.currencies.clone(),
+        );
     }
 
     impl_benchmark_test_suite! {

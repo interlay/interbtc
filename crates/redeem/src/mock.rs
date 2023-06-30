@@ -149,6 +149,7 @@ impl vault_registry::Config for Test {
     type RuntimeEvent = RuntimeEvent;
     type WeightInfo = ();
     type GetGriefingCollateralCurrencyId = GetNativeCurrencyId;
+    type LoansApi = Loans;
 }
 
 impl nomination::Config for Test {

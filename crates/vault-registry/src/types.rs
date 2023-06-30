@@ -336,6 +336,10 @@ impl<T: Config> RichVault<T> {
         Amount::new(self.data.to_be_issued_tokens, self.id().wrapped_currency())
     }
 
+    pub(crate) fn replace_collateral(&self) -> Amount<T> {
+        Amount::new(self.data.replace_collateral, self.id().collateral_currency())
+    }
+
     pub(crate) fn freely_redeemable_tokens(&self) -> Result<Amount<T>, DispatchError> {
         Ok(self.issued_tokens().checked_sub(&self.to_be_redeemed_tokens())?)
     }
@@ -365,6 +369,25 @@ impl<T: Config> RichVault<T> {
         // no need to update stake since these two token changes counteract the other's effect
         self.decrease_to_be_redeemed(tokens)?;
         self.decrease_issued(tokens)
+    }
+
+    pub(crate) fn migrate(&mut self, other: &mut Self) -> DispatchResult {
+        ensure!(!self.data.is_liquidated(), Error::<T>::VaultLiquidated);
+        ensure!(self.data.to_be_issued_tokens.is_zero(), Error::<T>::VaultHasToBeIssued);
+        // this is non-zero for redeem & replace
+        ensure!(
+            self.data.to_be_redeemed_tokens.is_zero(),
+            Error::<T>::VaultHasToBeRedeemed
+        );
+
+        let issued_tokens = self.issued_tokens();
+        self.decrease_issued(&issued_tokens)?;
+        other.increase_issued(&issued_tokens)?;
+
+        self.set_to_be_replaced_amount(&Amount::zero(self.wrapped_currency()))?;
+        self.decrease_available_replace_collateral(&self.replace_collateral())?;
+
+        Ok(())
     }
 
     pub(crate) fn wrapped_currency(&self) -> CurrencyId<T> {

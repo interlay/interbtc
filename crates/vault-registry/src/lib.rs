@@ -52,6 +52,7 @@ use frame_system::{
     ensure_signed,
     offchain::{SendTransactionTypes, SubmitTransaction},
 };
+use loans::LoansApi;
 use sp_core::{H256, U256};
 use sp_runtime::{
     traits::*,
@@ -101,6 +102,9 @@ pub mod pallet {
         /// Currency used for griefing collateral, e.g. DOT.
         #[pallet::constant]
         type GetGriefingCollateralCurrencyId: Get<CurrencyId<Self>>;
+
+        /// API of the loans pallet; used to atomically lock underlying in lending market.
+        type LoansApi: LoansApi<CurrencyId<Self>, Self::AccountId, Amount<Self>>;
     }
 
     #[pallet::hooks]
@@ -388,6 +392,55 @@ pub mod pallet {
 
             Ok(())
         }
+
+        /// Atomically lock vault collateral in lending market and re-lock as vault collateral.
+        ///
+        /// Preconditions:
+        /// - the Vault is not liquidated
+        /// - the Vault does not have `to_be_issued` or `to_be_redeemed` tokens
+        /// - a market exists for the underlying currency
+        ///
+        /// If the Vault has a pre-existing replace request this is cancelled.
+        ///
+        /// # Arguments
+        /// * `currency_pair` - the currency pair to change
+        #[pallet::call_index(11)]
+        #[pallet::weight(<T as Config>::WeightInfo::deposit_vault_collateral_in_lending_market())]
+        #[transactional]
+        pub fn deposit_vault_collateral_in_lending_market(
+            origin: OriginFor<T>,
+            currency_pair: DefaultVaultCurrencyPair<T>,
+        ) -> DispatchResult {
+            let account_id = ensure_signed(origin)?;
+            let old_vault_id = VaultId::new(account_id.clone(), currency_pair.collateral, currency_pair.wrapped);
+
+            let collateral = Amount::new(
+                ext::staking::compute_stake::<T>(&old_vault_id, &old_vault_id.account_id)?,
+                old_vault_id.collateral_currency(),
+            );
+            Self::force_withdraw_collateral(&old_vault_id, &collateral)?;
+
+            let lend_token_collateral = T::LoansApi::do_mint(&account_id, &collateral)?;
+            let new_vault_id = VaultId::new(account_id, lend_token_collateral.currency(), currency_pair.wrapped);
+
+            if Self::vault_exists(&new_vault_id) {
+                Self::try_deposit_collateral(&new_vault_id, &lend_token_collateral)?;
+            } else {
+                Self::_register_vault(new_vault_id.clone(), lend_token_collateral.amount())?;
+            }
+
+            let mut old_vault = Self::get_rich_vault_from_id(&old_vault_id)?;
+            let mut new_vault = Self::get_rich_vault_from_id(&new_vault_id)?;
+
+            old_vault.migrate(&mut new_vault)?;
+
+            ensure!(
+                !Self::is_vault_below_secure_threshold(&new_vault_id)?,
+                Error::<T>::VaultBelowSecureThreshold
+            );
+
+            Ok(())
+        }
     }
 
     #[pallet::event]
@@ -566,6 +619,13 @@ pub mod pallet {
 
         // Minimum collateral was not found for the given currency
         MinimumCollateralNotSet,
+
+        /// Vault has tokens to be issued
+        VaultHasToBeIssued,
+        /// Vault has tokens to be redeemed
+        VaultHasToBeRedeemed,
+        /// Vault below the global secure threshold
+        VaultBelowSecureThreshold,
     }
 
     /// The minimum collateral (e.g. DOT/KSM) a Vault needs to provide to register.
