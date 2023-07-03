@@ -299,6 +299,7 @@ runtime-benchmarks = [
   "supply/runtime-benchmarks",
   "tx-pause/runtime-benchmarks",
   "vault-registry/runtime-benchmarks",
+  "traits/runtime-benchmarks",
 
   "runtime-common/runtime-benchmarks",
   "primitives/runtime-benchmarks",

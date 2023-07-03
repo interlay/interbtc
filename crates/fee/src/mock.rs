@@ -14,7 +14,7 @@ use sp_core::H256;
 use sp_runtime::{
     testing::Header,
     traits::{BlakeTwo256, IdentityLookup, Zero},
-    FixedPointNumber,
+    DispatchError, FixedPointNumber,
 };
 
 type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
@@ -185,6 +185,23 @@ parameter_types! {
     pub const MaxExpectedValue: UnsignedFixedPoint = UnsignedFixedPoint::from_inner(<UnsignedFixedPoint as FixedPointNumber>::DIV);
 }
 
+pub struct MockNomination;
+
+impl traits::NominationApi<VaultId<AccountId, CurrencyId>, currency::Amount<Test>> for MockNomination {
+    fn deposit_vault_collateral(
+        _vault_id: &VaultId<AccountId, CurrencyId>,
+        _amount: &currency::Amount<Test>,
+    ) -> Result<(), DispatchError> {
+        Ok(())
+    }
+    fn ensure_opted_in_to_nomination(_vault_id: &VaultId<AccountId, CurrencyId>) -> Result<(), DispatchError> {
+        Ok(())
+    }
+
+    #[cfg(any(feature = "runtime-benchmarks", test))]
+    fn opt_in_to_nomination(_vault_id: &VaultId<AccountId, CurrencyId>) {}
+}
+
 impl Config for Test {
     type FeePalletId = FeePalletId;
     type WeightInfo = ();
@@ -195,6 +212,7 @@ impl Config for Test {
     type VaultStaking = VaultStaking;
     type OnSweep = ();
     type MaxExpectedValue = MaxExpectedValue;
+    type NominationApi = MockNomination;
 }
 
 #[allow(dead_code)]

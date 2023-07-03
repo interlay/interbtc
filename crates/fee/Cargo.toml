@@ -29,6 +29,7 @@ security = { path = "../security", default-features = false }
 reward = { path = "../reward", default-features = false }
 staking = { path = "../staking", default-features = false }
 primitives = { package = "interbtc-primitives", path = "../../primitives", default-features = false }
+traits = { path = "../traits", default-features = false }
 
 # used in benchmarks
 orml-tokens = { git = "https://github.com/open-web3-stack/open-runtime-module-library", rev = "dc39cfddefb10ef0de23655e2c3dcdab66a19404", default-features = false, optional = true }
@@ -68,6 +69,7 @@ std = [
 	"reward/std",
 	"staking/std",
 	"primitives/std",
+	"traits/std",
 ]
 runtime-benchmarks = [
 	"frame-benchmarking",

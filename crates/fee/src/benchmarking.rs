@@ -3,6 +3,7 @@ use frame_benchmarking::v2::{account, benchmarks, impl_benchmark_test_suite};
 use sp_std::vec;
 
 use crate::Pallet as Fee;
+use traits::NominationApi;
 
 const SEED: u32 = 0;
 
@@ -106,6 +107,12 @@ pub mod benchmarks {
             wrapped: T::GetNativeCurrencyId::get(),
         };
         let commission = Fee::<T>::get_max_expected_value(); //arbitrary value
+        let vault_id = VaultId::new(
+            nominator.clone(),
+            T::GetNativeCurrencyId::get(),
+            T::GetNativeCurrencyId::get(),
+        );
+        T::NominationApi::opt_in_to_nomination(&vault_id);
         #[extrinsic_call]
         set_commission(RawOrigin::Signed(nominator), arbitrary_pair, commission);
     }

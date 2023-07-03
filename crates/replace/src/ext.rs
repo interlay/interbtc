@@ -177,9 +177,8 @@ pub(crate) mod fee {
 #[cfg_attr(test, mockable)]
 pub(crate) mod nomination {
     use crate::DefaultVaultId;
-    use sp_runtime::DispatchError;
 
-    pub fn is_nominatable<T: crate::Config>(vault_id: &DefaultVaultId<T>) -> Result<bool, DispatchError> {
+    pub fn is_nominatable<T: crate::Config>(vault_id: &DefaultVaultId<T>) -> bool {
         <nomination::Pallet<T>>::is_opted_in(vault_id)
     }
 }

@@ -340,7 +340,7 @@ impl<T: Config> Pallet<T> {
         let amount_btc = Amount::new(amount_btc, vault_id.wrapped_currency());
 
         ensure!(
-            !ext::nomination::is_nominatable::<T>(&vault_id)?,
+            !ext::nomination::is_nominatable::<T>(&vault_id),
             Error::<T>::VaultHasEnabledNomination
         );
 

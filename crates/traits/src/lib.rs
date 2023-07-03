@@ -22,6 +22,10 @@ pub trait OracleApi<Amount, CurrencyId> {
 
 pub trait NominationApi<VaultId, Amount> {
     fn deposit_vault_collateral(vault_id: &VaultId, amount: &Amount) -> Result<(), DispatchError>;
+    fn ensure_opted_in_to_nomination(vault_id: &VaultId) -> Result<(), DispatchError>;
+
+    #[cfg(any(feature = "runtime-benchmarks", test))]
+    fn opt_in_to_nomination(vault_id: &VaultId);
 }
 
 pub trait OnExchangeRateChange<CurrencyId> {

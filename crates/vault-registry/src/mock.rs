@@ -246,6 +246,7 @@ impl fee::Config for Test {
     type VaultStaking = VaultStaking;
     type OnSweep = ();
     type MaxExpectedValue = MaxExpectedValue;
+    type NominationApi = MockDeposit;
 }
 
 parameter_types! {
@@ -269,6 +270,11 @@ impl traits::NominationApi<VaultId<AccountId, CurrencyId>, currency::Amount<Test
 
         Ok(())
     }
+    fn ensure_opted_in_to_nomination(vault_id: &VaultId<AccountId, CurrencyId>) -> Result<(), DispatchError> {
+        Ok(())
+    }
+    #[cfg(any(feature = "runtime-benchmarks", test))]
+    fn opt_in_to_nomination(_vault_id: &VaultId<AccountId, CurrencyId>) {}
 }
 
 impl Config for Test {
@@ -276,7 +282,6 @@ impl Config for Test {
     type RuntimeEvent = RuntimeEvent;
     type WeightInfo = ();
     type GetGriefingCollateralCurrencyId = GetNativeCurrencyId;
-    type NominationApi = MockDeposit;
 }
 
 impl<C> frame_system::offchain::SendTransactionTypes<C> for Test
