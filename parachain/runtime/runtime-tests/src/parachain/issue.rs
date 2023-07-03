@@ -1136,3 +1136,84 @@ mod cancel_issue_tests {
         });
     }
 }
+
+mod oracle_down {
+    use super::{assert_eq, *};
+
+    #[test]
+    fn no_oracle_request_issue_fails() {
+        test_with_initialized_vault(|vault_id| {
+            OraclePallet::expire_all();
+            assert_noop!(
+                RequestIssueBuilder::new(&vault_id, vault_id.wrapped(10_000)).try_request(),
+                OracleError::MissingExchangeRate
+            );
+        })
+    }
+
+    #[test]
+    fn no_oracle_execute_issue_succeeds() {
+        test_with_initialized_vault(|vault_id| {
+            let (issue_id, _) = request_issue(&vault_id, vault_id.wrapped(10_000));
+            OraclePallet::expire_all();
+            assert_ok!(ExecuteIssueBuilder::new(issue_id).execute());
+        })
+    }
+
+    #[test]
+    fn no_oracle_cancel_issue_succeeds() {
+        test_with_initialized_vault(|vault_id| {
+            assert_ok!(RuntimeCall::Issue(IssueCall::set_issue_period { period: 1000 }).dispatch(root()));
+            let (issue_id, _) = request_issue(&vault_id, vault_id.wrapped(4_000));
+            SecurityPallet::set_active_block_number(1100);
+            mine_blocks(100);
+            OraclePallet::expire_all();
+            assert_ok!(RuntimeCall::Issue(IssueCall::cancel_issue { issue_id: issue_id })
+                .dispatch(origin_of(account_of(VAULT))));
+        })
+    }
+
+    #[test]
+    fn no_oracle_execute_issue_overpayment_fails() {
+        test_with_initialized_vault(|vault_id| {
+            let (issue_id, _) = request_issue(&vault_id, vault_id.wrapped(10_000));
+            OraclePallet::expire_all();
+            assert_noop!(
+                ExecuteIssueBuilder::new(issue_id)
+                    .with_amount(vault_id.wrapped(10_001))
+                    .execute(),
+                OracleError::MissingExchangeRate
+            );
+        })
+    }
+
+    #[test]
+    fn no_oracle_execute_issue_underpayment_succeeds() {
+        test_with_initialized_vault(|vault_id| {
+            let (issue_id, _) = request_issue(&vault_id, vault_id.wrapped(9_999));
+            OraclePallet::expire_all();
+            assert_ok!(ExecuteIssueBuilder::new(issue_id)
+                .with_amount(vault_id.wrapped(9_999))
+                .execute());
+        })
+    }
+
+    #[test]
+    fn no_oracle_execute_cancelled_issue_fails() {
+        test_with_initialized_vault(|vault_id| {
+            assert_ok!(RuntimeCall::Issue(IssueCall::set_issue_period { period: 1000 }).dispatch(root()));
+            let (issue_id, _) = request_issue(&vault_id, vault_id.wrapped(4_000));
+            SecurityPallet::set_active_block_number(1100);
+            mine_blocks(100);
+            assert_ok!(RuntimeCall::Issue(IssueCall::cancel_issue { issue_id: issue_id })
+                .dispatch(origin_of(account_of(VAULT))));
+
+            OraclePallet::expire_all();
+
+            assert_noop!(
+                ExecuteIssueBuilder::new(issue_id).execute(),
+                OracleError::MissingExchangeRate
+            );
+        })
+    }
+}

@@ -110,6 +110,7 @@ pub type WrappedCurrency = CurrencyAdapter<Runtime, GetWrappedCurrencyId>;
 
 pub type OracleCall = oracle::Call<Runtime>;
 pub type OraclePallet = oracle::Pallet<Runtime>;
+pub type OracleError = oracle::Error<Runtime>;
 
 pub type FeeCall = fee::Call<Runtime>;
 pub type FeeError = fee::Error<Runtime>;

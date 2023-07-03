@@ -325,7 +325,7 @@ impl<T: Config> Pallet<T> {
         let mut raw_values: Vec<_> = RawValues::<T>::iter_prefix(key).map(|(_, value)| value).collect();
         let min_timestamp = Self::get_current_time().saturating_sub(Self::get_max_delay());
         raw_values.retain(|value| value.timestamp >= min_timestamp);
-        if raw_values.len() == 0 {
+        let ret = if raw_values.len() == 0 {
             Aggregate::<T>::remove(key);
             ValidUntil::<T>::remove(key);
             None
@@ -341,12 +341,15 @@ impl<T: Config> Pallet<T> {
 
             Aggregate::<T>::insert(key, value);
             ValidUntil::<T>::insert(key, valid_until);
-            if let OracleKey::ExchangeRate(currency_id) = key {
-                T::OnExchangeRateChange::on_exchange_rate_change(currency_id);
-            }
 
             Some(value)
+        };
+
+        if let OracleKey::ExchangeRate(currency_id) = key {
+            T::OnExchangeRateChange::on_exchange_rate_change(currency_id);
         }
+
+        ret
     }
 
     fn median(mut raw_values: Vec<UnsignedFixedPoint<T>>) -> Option<UnsignedFixedPoint<T>> {
@@ -388,6 +391,21 @@ impl<T: Config> Pallet<T> {
         T::OnExchangeRateChange::on_exchange_rate_change(&currency_id);
 
         Ok(())
+    }
+
+    #[cfg(feature = "testing-utils")]
+    pub fn expire_price(currency_id: CurrencyId) {
+        Aggregate::<T>::remove(&OracleKey::ExchangeRate(currency_id.clone()));
+        T::OnExchangeRateChange::on_exchange_rate_change(&currency_id);
+    }
+
+    #[cfg(feature = "testing-utils")]
+    pub fn expire_all() {
+        for (key, _old_rate) in Aggregate::<T>::drain() {
+            if let OracleKey::ExchangeRate(currency_id) = key {
+                T::OnExchangeRateChange::on_exchange_rate_change(&currency_id);
+            }
+        }
     }
 
     /// Returns the current timestamp

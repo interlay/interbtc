@@ -37,6 +37,7 @@ use sp_std::vec;
 pub mod pallet {
     use super::*;
     use frame_support::pallet_prelude::*;
+    use frame_system::pallet_prelude::*;
 
     /// ## Configuration
     /// The pallet's configuration trait.
@@ -53,6 +54,8 @@ pub mod pallet {
     #[pallet::generate_deposit(pub(super) fn deposit_event)]
     pub enum Event<T: Config> {
         UpdateActiveBlock { block_number: T::BlockNumber },
+        Activated,
+        Deactivated,
     }
 
     #[pallet::error]
@@ -80,12 +83,31 @@ pub mod pallet {
     #[pallet::getter(fn active_block_number)]
     pub type ActiveBlockCount<T: Config> = StorageValue<_, T::BlockNumber, ValueQuery>;
 
+    #[pallet::storage]
+    pub type IsDeactivated<T: Config> = StorageValue<_, bool, ValueQuery>;
+
     #[pallet::pallet]
     pub struct Pallet<T>(_);
 
     // The pallet's dispatchable functions.
     #[pallet::call]
-    impl<T: Config> Pallet<T> {}
+    impl<T: Config> Pallet<T> {
+        /// Activate or deactivate active block counting.
+        #[pallet::call_index(0)]
+        #[pallet::weight(T::WeightInfo::activate_counter())]
+        pub fn activate_counter(origin: OriginFor<T>, is_active: bool) -> DispatchResult {
+            ensure_root(origin)?;
+
+            IsDeactivated::<T>::set(is_active);
+
+            if is_active {
+                Self::deposit_event(Event::Activated);
+            } else {
+                Self::deposit_event(Event::Deactivated);
+            }
+            Ok(())
+        }
+    }
 }
 
 // "Internal" functions, callable by code.
@@ -106,6 +128,10 @@ impl<T: Config> Pallet<T> {
     }
 
     fn increment_active_block() {
+        if IsDeactivated::<T>::get() {
+            return;
+        }
+
         let height = <ActiveBlockCount<T>>::mutate(|n| {
             *n = n.saturating_add(1u32.into());
             *n
