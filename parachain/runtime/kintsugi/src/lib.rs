@@ -1081,7 +1081,6 @@ impl vault_registry::Config for Runtime {
     type RuntimeEvent = RuntimeEvent;
     type WeightInfo = weights::vault_registry::WeightInfo<Runtime>;
     type GetGriefingCollateralCurrencyId = GetNativeCurrencyId;
-    type NominationApi = Nomination;
 }
 
 impl<C> frame_system::offchain::SendTransactionTypes<C> for Runtime
@@ -1115,6 +1114,7 @@ impl fee::Config for Runtime {
     type VaultStaking = VaultStaking;
     type OnSweep = currency::SweepFunds<Runtime, FeeAccount>;
     type MaxExpectedValue = MaxExpectedValue;
+    type NominationApi = Nomination;
 }
 
 pub use issue::IssueRequest;

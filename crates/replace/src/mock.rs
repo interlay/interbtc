@@ -196,7 +196,6 @@ impl vault_registry::Config for Test {
     type RuntimeEvent = RuntimeEvent;
     type WeightInfo = ();
     type GetGriefingCollateralCurrencyId = GetNativeCurrencyId;
-    type NominationApi = Nomination;
 }
 
 impl nomination::Config for Test {
@@ -253,6 +252,7 @@ impl fee::Config for Test {
     type VaultStaking = VaultStaking;
     type OnSweep = ();
     type MaxExpectedValue = MaxExpectedValue;
+    type NominationApi = Nomination;
 }
 
 impl Config for Test {

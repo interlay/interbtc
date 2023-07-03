@@ -253,7 +253,7 @@ impl<T: Config> Pallet<T> {
 
             if &vault_id.account_id != nominator_id {
                 ensure!(Self::is_nomination_enabled(), Error::<T>::VaultNominationDisabled);
-                ensure!(Self::is_opted_in(vault_id)?, Error::<T>::VaultNotOptedInToNomination);
+                ensure!(Self::is_opted_in(vault_id), Error::<T>::VaultNotOptedInToNomination);
             }
         }
 
@@ -285,7 +285,7 @@ impl<T: Config> Pallet<T> {
             let max_nominatable_collateral = Self::get_nomination_limit(vault_id);
 
             ensure!(Self::is_nomination_enabled(), Error::<T>::VaultNominationDisabled);
-            ensure!(Self::is_opted_in(vault_id)?, Error::<T>::VaultNotOptedInToNomination);
+            ensure!(Self::is_opted_in(vault_id), Error::<T>::VaultNotOptedInToNomination);
 
             ensure!(
                 new_nominated_collateral.le(&max_nominatable_collateral)?,
@@ -329,7 +329,7 @@ impl<T: Config> Pallet<T> {
     }
 
     fn _opt_out_of_nomination(vault_id: &DefaultVaultId<T>) -> DispatchResult {
-        ensure!(Self::is_opted_in(&vault_id)?, Error::<T>::VaultNotOptedInToNomination);
+        ensure!(Self::is_opted_in(&vault_id), Error::<T>::VaultNotOptedInToNomination);
         let total_nominated_collateral = Self::get_total_nominated_collateral(&vault_id)?;
         ensure!(
             ext::vault_registry::is_allowed_to_withdraw_collateral::<T>(&vault_id, &total_nominated_collateral)?,
@@ -348,8 +348,8 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
-    pub fn is_opted_in(vault_id: &DefaultVaultId<T>) -> Result<bool, DispatchError> {
-        Ok(<Vaults<T>>::contains_key(&vault_id))
+    pub fn is_opted_in(vault_id: &DefaultVaultId<T>) -> bool {
+        <Vaults<T>>::contains_key(&vault_id)
     }
 
     pub fn get_total_nominated_collateral(vault_id: &DefaultVaultId<T>) -> Result<Amount<T>, DispatchError> {
@@ -375,5 +375,10 @@ impl<T: Config> Pallet<T> {
 impl<T: Config> traits::NominationApi<DefaultVaultId<T>, Amount<T>> for Pallet<T> {
     fn deposit_vault_collateral(vault_id: &DefaultVaultId<T>, amount: &Amount<T>) -> Result<(), DispatchError> {
         Pallet::<T>::_deposit_collateral(vault_id, &vault_id.account_id, amount.amount())
+    }
+
+    fn ensure_opted_in_to_nomination(vault_id: &DefaultVaultId<T>) -> DispatchResult {
+        ensure!(Self::is_opted_in(vault_id), Error::<T>::VaultNotOptedInToNomination);
+        Ok(())
     }
 }

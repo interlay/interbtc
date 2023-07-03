@@ -101,8 +101,6 @@ pub mod pallet {
         /// Currency used for griefing collateral, e.g. DOT.
         #[pallet::constant]
         type GetGriefingCollateralCurrencyId: Get<CurrencyId<Self>>;
-
-        type NominationApi: NominationApi<DefaultVaultId<Self>, Amount<Self>>;
     }
 
     #[pallet::hooks]

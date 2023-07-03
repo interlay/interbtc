@@ -189,9 +189,9 @@ mod spec_based_tests {
                 NominationPallet::get_nominator_collateral(&vault_id, &account_of(USER)).unwrap(),
                 default_nomination(&vault_id)
             );
-            assert_eq!(NominationPallet::is_opted_in(&vault_id).unwrap(), true);
+            assert_eq!(NominationPallet::is_opted_in(&vault_id), true);
             assert_ok!(nomination_opt_out(&vault_id));
-            assert_eq!(NominationPallet::is_opted_in(&vault_id).unwrap(), false);
+            assert_eq!(NominationPallet::is_opted_in(&vault_id), false);
             assert_eq!(
                 VaultRegistryPallet::get_collateralization_from_vault(vault_id.clone(), false).unwrap()
                     >= VaultRegistryPallet::secure_collateral_threshold(&vault_id.currencies).unwrap(),
@@ -396,7 +396,7 @@ fn integration_test_regular_vaults_are_not_opted_in_to_nomination() {
             ..vault_id
         };
         register_vault(&new_vault_id, Amount::new(1000000, new_vault_id.collateral_currency()));
-        assert_eq!(NominationPallet::is_opted_in(&new_vault_id).unwrap(), false);
+        assert_eq!(NominationPallet::is_opted_in(&new_vault_id), false);
     })
 }
 
@@ -404,7 +404,7 @@ fn integration_test_regular_vaults_are_not_opted_in_to_nomination() {
 fn integration_test_vaults_can_opt_in() {
     test_with_nomination_enabled(|vault_id| {
         assert_nomination_opt_in(&vault_id);
-        assert_eq!(NominationPallet::is_opted_in(&vault_id).unwrap(), true);
+        assert_eq!(NominationPallet::is_opted_in(&vault_id), true);
     });
 }
 

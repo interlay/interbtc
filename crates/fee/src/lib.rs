@@ -51,6 +51,7 @@ pub mod pallet {
     use super::*;
     use frame_support::pallet_prelude::*;
     use frame_system::pallet_prelude::*;
+    use traits::NominationApi;
 
     /// ## Configuration
     /// The pallet's configuration trait.
@@ -99,6 +100,9 @@ pub mod pallet {
         /// Maximum expected value to set the storage fields to.
         #[pallet::constant]
         type MaxExpectedValue: Get<UnsignedFixedPoint<Self>>;
+
+        /// Api of the nomination pallet; used to make sure that commission can only be set if opted in.
+        type NominationApi: NominationApi<DefaultVaultId<Self>, Amount<Self>>;
     }
 
     #[pallet::error]
@@ -352,6 +356,7 @@ pub mod pallet {
         ) -> DispatchResultWithPostInfo {
             let account_id = ensure_signed(origin)?;
             let vault_id = VaultId::from_pair(account_id, currencies);
+            T::NominationApi::ensure_opted_in_to_nomination(&vault_id)?;
             ensure!(
                 commission <= UnsignedFixedPoint::<T>::one(),
                 Error::<T>::AboveMaxExpectedValue

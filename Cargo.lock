@@ -2984,6 +2984,7 @@ dependencies = [
  "sp-runtime",
  "sp-std",
  "staking",
+ "traits",
  "visibility",
 ]
 
