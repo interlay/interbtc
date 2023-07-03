@@ -381,4 +381,9 @@ impl<T: Config> traits::NominationApi<DefaultVaultId<T>, Amount<T>> for Pallet<T
         ensure!(Self::is_opted_in(vault_id), Error::<T>::VaultNotOptedInToNomination);
         Ok(())
     }
+
+    #[cfg(any(feature = "runtime-benchmarks", test))]
+    fn opt_in_to_nomination(vault_id: &DefaultVaultId<T>) {
+        Vaults::<T>::insert(vault_id, true);
+    }
 }
