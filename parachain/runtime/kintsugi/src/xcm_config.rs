@@ -18,7 +18,7 @@ use xcm_builder::{
     AccountId32Aliases, AllowKnownQueryResponses, AllowSubscriptionsFrom, AllowTopLevelPaidExecutionFrom,
     EnsureXcmOrigin, FixedRateOfFungible, FixedWeightBounds, ParentIsPreset, RelayChainAsNative,
     SiblingParachainAsNative, SiblingParachainConvertsVia, SignedAccountId32AsNative, SignedToAccountId32,
-    SovereignSignedViaLocation, TakeRevenue, TakeWeightCredit,
+    SovereignSignedViaLocation, TakeRevenue, TakeWeightCredit, WithComputedOrigin,
 };
 use xcm_executor::{traits::WithOriginFilter, XcmExecutor};
 use CurrencyId::ForeignAsset;
@@ -37,6 +37,8 @@ type LocationToAccountId = (
     SiblingParachainConvertsVia<Sibling, AccountId>,
     // Straight up local `AccountId32` origins just alias directly to `AccountId`.
     AccountId32Aliases<ParentNetwork, AccountId>,
+    // Mapping Tinkernet multisig to the correctly derived AccountId.
+    invarch_xcm_builder::TinkernetMultisigAsAccountId<AccountId>,
 );
 
 /// This is the type we use to convert an (incoming) XCM origin into a local `Origin` instance,
@@ -56,16 +58,26 @@ pub type XcmOriginToTransactDispatchOrigin = (
     // Native signed account converter; this just converts an `AccountId32` origin into a normal
     // `Origin::Signed` origin of the same 32-byte value.
     SignedAccountId32AsNative<ParentNetwork, RuntimeOrigin>,
+    // Derives signed AccountId origins for Tinkernet multisigs.
+    invarch_xcm_builder::DeriveOriginFromTinkernetMultisig<RuntimeOrigin>,
     // Xcm origins can be represented natively under the Xcm pallet's Xcm origin.
     XcmPassthrough<RuntimeOrigin>,
 );
 
-pub type Barrier = Transactless<(
-    TakeWeightCredit,
-    AllowTopLevelPaidExecutionFrom<Everything>,
-    AllowKnownQueryResponses<PolkadotXcm>,
-    AllowSubscriptionsFrom<Everything>,
-)>; // required for others to keep track of our xcm version
+pub type Barrier = (
+    Transactless<(
+        TakeWeightCredit,
+        AllowTopLevelPaidExecutionFrom<Everything>,
+        AllowKnownQueryResponses<PolkadotXcm>,
+        AllowSubscriptionsFrom<Everything>,
+    )>, // required for others to keep track of our xcm version
+    // XCM barrier that allows Tinkernet Multisigs to transact if paying for execution.
+    WithComputedOrigin<
+        AllowTopLevelPaidExecutionFrom<invarch_xcm_builder::TinkernetMultisigMultiLocation>,
+        UniversalLocation,
+        ConstU32<8>,
+    >,
+);
 
 parameter_types! {
     // One XCM operation is 200_000_000 weight, cross-chain transfer ~= 2x of transfer.

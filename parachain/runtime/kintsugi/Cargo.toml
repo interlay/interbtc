@@ -132,6 +132,9 @@ orml-xcm-support = { git = "https://github.com/open-web3-stack/open-runtime-modu
 orml-unknown-tokens = { git = "https://github.com/open-web3-stack/open-runtime-module-library", rev = "dc39cfddefb10ef0de23655e2c3dcdab66a19404", default-features = false }
 orml-asset-registry= { git = "https://github.com/open-web3-stack/open-runtime-module-library", rev = "dc39cfddefb10ef0de23655e2c3dcdab66a19404", default-features = false }
 
+# InvArch Tinkernet Multisig dependencies
+invarch-xcm-builder = { git = "https://github.com/InvArch/InvArch-XCM-Builder", branch = "polkadot-v0.9.40", default-features = false }
+
 [dev-dependencies]
 hex = '0.4.2'
 mocktopus = "0.8.0"
