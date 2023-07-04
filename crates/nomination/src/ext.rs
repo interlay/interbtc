@@ -29,11 +29,11 @@ pub(crate) mod vault_registry {
         <vault_registry::Pallet<T>>::compute_collateral(vault_id)
     }
 
-    pub fn is_allowed_to_withdraw_collateral<T: crate::Config>(
+    pub fn is_nominator_allowed_to_withdraw_collateral<T: crate::Config>(
         vault_id: &DefaultVaultId<T>,
         amount: &Amount<T>,
     ) -> Result<bool, DispatchError> {
-        <vault_registry::Pallet<T>>::is_allowed_to_withdraw_collateral(vault_id, amount)
+        <vault_registry::Pallet<T>>::is_nominator_allowed_to_withdraw_collateral(vault_id, amount)
     }
 
     pub fn try_increase_total_backing_collateral<T: crate::Config>(
