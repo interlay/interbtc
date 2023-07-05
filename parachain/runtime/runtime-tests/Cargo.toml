@@ -87,7 +87,7 @@ xcm-builder = { git = "https://github.com/paritytech/polkadot", branch = "releas
 xcm-executor = { git = "https://github.com/paritytech/polkadot", branch = "release-v0.9.31" }
 xcm-simulator = { git = "https://github.com/paritytech/polkadot", branch = "release-v0.9.31" }
 pallet-xcm = { git = "https://github.com/paritytech/polkadot", branch = "release-v0.9.31" }
-xcm-emulator = { git = "https://github.com/shaunxw/xcm-simulator", rev = "bea35c799d725a4233db6b9108ee2ed5bbfc1aed" }
+xcm-emulator = { git = "https://github.com/shaunxw/xcm-simulator", rev = "d011e5ca62b93e8f688c2042c1f92cdbafc5d1d0" }
 
 # Parachain dependencies
 runtime-common = { path = "../common" }
@@ -119,7 +119,7 @@ dex-swap-router = { path = "../../../crates/dex-swap-router" }
 multi-transaction-payment = { path = "../../../crates/multi-transaction-payment" }
 
 kintsugi-runtime-parachain = { path = "../kintsugi", features = ["vesting-any"] }
-interlay-runtime-parachain = { path = "../interlay", optional = true, features = ["vesting-any"] }
+interlay-runtime-parachain = { path = "../interlay", features = ["vesting-any"] }
 
 primitives = { package = "interbtc-primitives", path = "../../../primitives" }
 
@@ -175,6 +175,4 @@ runtime-benchmarks = [
   "kusama-runtime/runtime-benchmarks",
   "polkadot-runtime/runtime-benchmarks",
 ]
-with-interlay-runtime = [
-	"interlay-runtime-parachain"
-]
+with-interlay-runtime = []

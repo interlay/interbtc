@@ -217,4 +217,24 @@ impl<T: frame_system::Config> escrow::WeightInfo for WeightInfo<T> {
 			.saturating_add(T::DbWeight::get().reads(108_u64))
 			.saturating_add(T::DbWeight::get().writes(104_u64))
 	}
+
+	fn set_account_limit	() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `1273`
+		//  Estimated: `281542`
+		// Minimum execution time: 359_000_000 picoseconds.
+		Weight::from_parts(363_000_000, 281542)
+			.saturating_add(T::DbWeight::get().reads(108_u64))
+			.saturating_add(T::DbWeight::get().writes(104_u64))
+	}
+	
+	fn set_account_block	() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `1273`
+		//  Estimated: `281542`
+		// Minimum execution time: 359_000_000 picoseconds.
+		Weight::from_parts(363_000_000, 281542)
+			.saturating_add(T::DbWeight::get().reads(108_u64))
+			.saturating_add(T::DbWeight::get().writes(104_u64))
+	}
 }

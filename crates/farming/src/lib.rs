@@ -3,9 +3,8 @@
 //! staking certain tokens.
 //!
 //! A reward schedule consists of two items:
-//! 1. The number of periods set globally as a configuration for all pools.
-//!    This number is ultimately measured in blocks; e.g., if a period is
-//!    defined as 10 blocks, then a period count of 10 means 100 blocks.
+//! 1. The number of periods set globally as a configuration for all pools. This number is ultimately measured in
+//!    blocks; e.g., if a period is defined as 10 blocks, then a period count of 10 means 100 blocks.
 //! 2. The amount of reward tokens paid in that period.
 //!
 //! Users are only paid a share of the rewards in the period if they have

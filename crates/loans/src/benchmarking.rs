@@ -691,7 +691,6 @@ pub mod benchmarks {
         let deposit_amount: u32 = 200_000_000;
         let borrowed_amount: u32 = 200_000_000;
         let liquidate_amount: u32 = 100_000_000;
-        let incentive_amount: u32 = 110_000_000;
         assert_ok!(Oracle::<T>::_set_exchange_rate(DOT, UnsignedFixedPoint::one()));
         assert_ok!(Loans::<T>::add_market(
             SystemOrigin::Root.into(),

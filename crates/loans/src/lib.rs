@@ -34,7 +34,10 @@ use frame_support::{
     log,
     pallet_prelude::*,
     require_transactional,
-    traits::{tokens::fungibles::Inspect, UnixTime},
+    traits::{
+        tokens::{fungibles::Inspect, Fortitude, Preservation},
+        UnixTime,
+    },
     transactional, PalletId,
 };
 use frame_system::pallet_prelude::*;
@@ -1771,8 +1774,16 @@ impl<T: Config> Pallet<T> {
 
     /// Transferrable balance in the pallet account (`free - frozen`)
     fn get_total_cash(asset_id: CurrencyId<T>) -> Amount<T> {
+        // for the reducible_balance arguments, see:
+        // - https://docs.rs/frame-support/latest/frame_support/traits/tokens/enum.Preservation.html
+        // - https://docs.rs/frame-support/latest/frame_support/traits/tokens/enum.Fortitude.html
         Amount::new(
-            orml_tokens::Pallet::<T>::reducible_balance(asset_id, &Self::account_id(), true),
+            orml_tokens::Pallet::<T>::reducible_balance(
+                asset_id,
+                &Self::account_id(),
+                Preservation::Expendable, // We don’t care if the account gets killed by this operation.
+                Fortitude::Polite,        // "The operation should execute with regular privilege", i.e. not forced
+            ),
             asset_id,
         )
     }

@@ -4,7 +4,7 @@ use core::marker::PhantomData;
 use currency::Amount;
 use frame_support::{
     pallet_prelude::Get,
-    traits::{Currency, OnTimestampSet, OnUnbalanced, TryDrop},
+    traits::{Currency, OnTimestampSet, OnUnbalanced, ProcessMessageError, TryDrop},
 };
 use primitives::{BlockNumber, UnsignedFixedPoint};
 use sp_runtime::{DispatchError, FixedPointNumber};
@@ -101,7 +101,7 @@ impl<T: ShouldExecute, U: ShouldExecute> ShouldExecute for AndBarrier<T, U> {
         instructions: &mut [Instruction<Call>],
         max_weight: Weight,
         weight_credit: &mut Weight,
-    ) -> Result<(), ()> {
+    ) -> Result<(), ProcessMessageError> {
         T::should_execute(origin, instructions, max_weight, weight_credit)?;
         U::should_execute(origin, instructions, max_weight, weight_credit)?;
         // only if both returned ok, we return ok
@@ -117,11 +117,11 @@ impl<T: ShouldExecute> ShouldExecute for Transactless<T> {
         instructions: &mut [Instruction<Call>],
         max_weight: Weight,
         weight_credit: &mut Weight,
-    ) -> Result<(), ()> {
+    ) -> Result<(), ProcessMessageError> {
         // filter any outer-level Transacts. Any Transact calls sent to other chain should still work.
         let has_transact = instructions.iter().any(|x| matches!(x, Instruction::Transact { .. }));
         if has_transact {
-            return Err(());
+            return Err(ProcessMessageError::Unsupported);
         }
         // No transact - return result of the wrapped barrier
         T::should_execute(origin, instructions, max_weight, weight_credit)

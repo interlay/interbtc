@@ -343,7 +343,7 @@ pub mod pallet {
         }
 
         #[pallet::call_index(4)]
-        #[pallet::weight(0)]
+        #[pallet::weight(<T as Config>::WeightInfo::set_account_limit())]
         #[transactional]
         pub fn set_account_limit(
             origin: OriginFor<T>,
@@ -357,7 +357,7 @@ pub mod pallet {
         }
 
         #[pallet::call_index(5)]
-        #[pallet::weight(0)]
+        #[pallet::weight(<T as Config>::WeightInfo::withdraw())]
         #[transactional]
         pub fn set_account_block(origin: OriginFor<T>, who: T::AccountId) -> DispatchResultWithPostInfo {
             ensure_root(origin)?;

@@ -531,6 +531,7 @@ parameter_types! {
     pub const TechnicalCommitteeMotionDuration: BlockNumber = 3 * DAYS;
     pub const TechnicalCommitteeMaxProposals: u32 = 100;
     pub const TechnicalCommitteeMaxMembers: u32 = 100;
+    pub MaxProposalWeight: Weight = Perbill::from_percent(50) * RuntimeBlockWeights::get().max_block;
 }
 
 pub type TechnicalCommitteeInstance = pallet_collective::Instance1;
@@ -541,6 +542,7 @@ impl pallet_collective::Config<TechnicalCommitteeInstance> for Runtime {
     type RuntimeEvent = RuntimeEvent;
     type MotionDuration = TechnicalCommitteeMotionDuration;
     type MaxProposals = TechnicalCommitteeMaxProposals;
+    type MaxProposalWeight = MaxProposalWeight;
     type MaxMembers = TechnicalCommitteeMaxMembers;
     type DefaultVote = pallet_collective::PrimeDefaultVote;
     type WeightInfo = weights::pallet_collective::WeightInfo<Runtime>;
@@ -1263,7 +1265,7 @@ construct_runtime! {
         // # Lending & AMM
         Loans: loans::{Pallet, Call, Storage, Event<T>, Config} = 100,
         DexGeneral: dex_general::{Pallet, Call, Storage, Event<T>} = 101,
-        DexStable: dex_stable::{Pallet, Call, Storage, Event<T>}  = 102,
+        DexStable: dex_stable::{Pallet, Storage, Event<T>}  = 102, // note: calls disabled
         DexSwapRouter: dex_swap_router::{Pallet, Call, Event<T>} = 103,
     }
 }
@@ -1377,6 +1379,14 @@ impl_runtime_apis! {
     impl sp_api::Metadata<Block> for Runtime {
         fn metadata() -> OpaqueMetadata {
             OpaqueMetadata::new(Runtime::metadata().into())
+        }
+
+        fn metadata_at_version(version: u32) -> Option<OpaqueMetadata> {
+            Runtime::metadata_at_version(version)
+        }
+
+        fn metadata_versions() -> sp_std::vec::Vec<u32> {
+            Runtime::metadata_versions()
         }
     }
 
