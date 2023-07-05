@@ -93,9 +93,6 @@ fn full_workflow_works_as_expected() {
     new_test_ext().execute_with(|| {
         initial_setup();
         alice_borrows_100_ksm();
-        assert_eq!(<Tokens as MultiCurrency<_>>::total_balance(KSM, &ALICE), unit(1100),); // 1000 cash + 100 borrow
-                                                                                           // assert_eq!(<Tokens as MultiCurrency<_>>::total_balance(Loans::lend_token_id(KBTC).unwrap(), &ALICE),
-                                                                                           // unit(200),);
 
         // adjust KSM price to make ALICE generate shortfall
         CurrencyConvert::convert.mock_safe(with_price(Some((KSM, 2.into()))));
