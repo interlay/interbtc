@@ -33,9 +33,12 @@ jobs:
       - name: cargo try-runtime check
         run: |
           cargo check --release --workspace --features try-runtime
-      - name: cargo test
+      - name: cargo test all except interlay
         run: |
           cargo test --release --workspace --features runtime-benchmarks
+      - name: cargo test interlay
+        run: |
+          cargo test --release -p parachain-tests --features with-interlay-runtime
       - name: cargo build
         run: |
           cargo build --bin interbtc-parachain --release --features runtime-benchmarks
