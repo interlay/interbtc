@@ -18,6 +18,7 @@ frame-system = { git = "https://github.com/paritytech/substrate", default-featur
 sp-runtime = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "polkadot-v0.9.31" }
 sp-std = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.31", default-features = false }
 sp-arithmetic = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.31", default-features = false }
+pallet-timestamp = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.31", default-features = false }
 
 # Orml dependencies
 orml-traits = { git = "https://github.com/open-web3-stack/open-runtime-module-library", rev = "dc39cfddefb10ef0de23655e2c3dcdab66a19404", default-features = false }
@@ -27,7 +28,6 @@ orml-tokens = { git = "https://github.com/open-web3-stack/open-runtime-module-li
 pallet-balances = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.31" }
 sp-core = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.31", default-features = false }
 sp-io = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.31", default-features = false }
-pallet-timestamp = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.31"}
 
 [features]
 default = ["std"]
@@ -42,6 +42,7 @@ std = [
     "sp-runtime/std",
     "sp-std/std",
     "sp-arithmetic/std",
+    "pallet-timestamp/std",
     "orml-tokens/std",
 ]
 
@@ -50,5 +51,6 @@ runtime-benchmarks = [
     "frame-system/runtime-benchmarks",
     "frame-support/runtime-benchmarks",
     "sp-runtime/runtime-benchmarks",
+    "pallet-timestamp/runtime-benchmarks"
 ]
 try-runtime = [ "frame-support/try-runtime" ]

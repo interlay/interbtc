@@ -865,7 +865,7 @@ pub mod pallet {
         /// - `pool_id`: The id of pool.
         /// - `fee_receiver`: The new admin fee receiver of this pool.
         #[pallet::call_index(13)]
-        #[pallet::weight(1_000_000)]
+        #[pallet::weight(T::WeightInfo::update_fee_receiver())]
         #[transactional]
         pub fn update_fee_receiver(
             origin: OriginFor<T>,
@@ -895,7 +895,7 @@ pub mod pallet {
         /// - `pool_id`: The id of pool.
         /// - `new_swap_fee`: The new swap fee of this pool.
         #[pallet::call_index(14)]
-        #[pallet::weight(1_000_000)]
+        #[pallet::weight(T::WeightInfo::set_swap_fee())]
         #[transactional]
         pub fn set_swap_fee(origin: OriginFor<T>, pool_id: T::PoolId, new_swap_fee: Number) -> DispatchResult {
             ensure_root(origin)?;
@@ -919,7 +919,7 @@ pub mod pallet {
         /// - `pool_id`: The id of pool.
         /// - `new_admin_fee`: The new admin fee of this pool.
         #[pallet::call_index(15)]
-        #[pallet::weight(1_000_000)]
+        #[pallet::weight(T::WeightInfo::set_admin_fee())]
         #[transactional]
         pub fn set_admin_fee(origin: OriginFor<T>, pool_id: T::PoolId, new_admin_fee: Number) -> DispatchResult {
             ensure_root(origin)?;
@@ -946,7 +946,7 @@ pub mod pallet {
         /// - `future_a`: The new A to ramp towards.
         /// - `future_a_time`: Timestamp when the new A should be reached
         #[pallet::call_index(16)]
-        #[pallet::weight(1_000_000)]
+        #[pallet::weight(T::WeightInfo::ramp_a())]
         #[transactional]
         pub fn ramp_a(
             origin: OriginFor<T>,
@@ -1032,7 +1032,7 @@ pub mod pallet {
         ///
         /// - `pool_id`: The id of pool.
         #[pallet::call_index(17)]
-        #[pallet::weight(1_000_000)]
+        #[pallet::weight(T::WeightInfo::stop_ramp_a())]
         #[transactional]
         pub fn stop_ramp_a(origin: OriginFor<T>, pool_id: T::PoolId) -> DispatchResult {
             ensure_root(origin)?;
