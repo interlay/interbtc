@@ -1077,8 +1077,8 @@ impl pallet_proxy::Config for Runtime {
 }
 
 parameter_types! {
-    pub const ConfigDepositBase: Balance = 5 * DOLLARS;
-    pub const FriendDepositFactor: Balance = 50 * CENTS;
+    pub const ConfigDepositBase: Balance = 8 * DOLLARS;
+    pub const FriendDepositFactor: Balance = 1 * DOLLARS;
     pub const MaxFriends: u16 = 9;
     pub const RecoveryDeposit: Balance = 5 * DOLLARS;
 }
