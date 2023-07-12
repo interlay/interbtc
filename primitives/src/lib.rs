@@ -3,6 +3,8 @@
 use bitcoin::{Address as BtcAddress, PublicKey as BtcPublicKey};
 use bstringify::bstringify;
 use codec::{Decode, Encode, MaxEncodedLen};
+use scale_decode::DecodeAsType;
+use scale_encode::EncodeAsType;
 use scale_info::TypeInfo;
 #[cfg(feature = "std")]
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
@@ -467,6 +469,7 @@ macro_rules! create_currency_id {
 create_currency_id! {
     #[derive(Encode, Decode, Eq, Hash, PartialEq, Copy, Clone, RuntimeDebug, PartialOrd, Ord, TypeInfo, MaxEncodedLen)]
     #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+    #[cfg_attr(feature = "std", derive(EncodeAsType,DecodeAsType))]
     #[repr(u8)]
     pub enum TokenSymbol {
         DOT("Polkadot", 10) = 0,
@@ -482,6 +485,7 @@ create_currency_id! {
 #[derive(Encode, Decode, Eq, Hash, PartialEq, Copy, Clone, RuntimeDebug, PartialOrd, Ord, TypeInfo, MaxEncodedLen)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[cfg_attr(feature = "std", serde(rename_all = "camelCase"))]
+#[cfg_attr(feature = "std", derive(EncodeAsType, DecodeAsType))]
 pub enum LpToken {
     Token(TokenSymbol),
     ForeignAsset(ForeignAssetId),
@@ -491,6 +495,7 @@ pub enum LpToken {
 #[derive(Encode, Decode, Eq, Hash, PartialEq, Copy, Clone, RuntimeDebug, PartialOrd, Ord, TypeInfo, MaxEncodedLen)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[cfg_attr(feature = "std", serde(rename_all = "camelCase"))]
+#[cfg_attr(feature = "std", derive(EncodeAsType, DecodeAsType))]
 pub enum CurrencyId {
     Token(TokenSymbol),
     ForeignAsset(ForeignAssetId),
