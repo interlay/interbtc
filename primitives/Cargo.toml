@@ -14,6 +14,8 @@ sp-core = { git = "https://github.com/paritytech/substrate", branch = "polkadot-
 sp-std = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.31", default-features = false }
 sp-runtime = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.31", default-features = false }
 xcm = { git = "https://github.com/paritytech/polkadot", branch = "release-v0.9.31", default-features = false }
+scale-decode = { version = "0.7.0", default-features = false, features = ["derive"], optional = true }
+scale-encode = { version = "0.3.0", default-features = false, features = ["derive"], optional = true }
 
 # Parachain dependencies
 bitcoin = { path = "../crates/bitcoin", default-features = false }
@@ -23,6 +25,8 @@ default = ["std"]
 std = [
     "serde",
     "codec/std",
+    "scale-decode",
+    "scale-encode",
 
     "sp-core/std",
     "sp-std/std",
