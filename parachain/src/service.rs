@@ -21,7 +21,10 @@ use sc_network_sync::SyncingService;
 use sc_service::{Configuration, PartialComponents, RpcHandlers, TFullBackend, TFullClient, TaskManager};
 use sc_telemetry::{Telemetry, TelemetryHandle, TelemetryWorker, TelemetryWorkerHandle};
 use sp_api::ConstructRuntimeApi;
-use sp_consensus_aura::sr25519::{AuthorityId as AuraId, AuthorityPair as AuraPair};
+use sp_consensus_aura::{
+    sr25519::{AuthorityId as AuraId, AuthorityPair as AuraPair},
+    SlotDuration,
+};
 use sp_keystore::KeystorePtr;
 use sp_runtime::traits::BlakeTwo256;
 use std::{sync::Arc, time::Duration};
@@ -163,6 +166,29 @@ type MaybeFullSelectChain = Option<LongestChain<FullBackend, Block>>;
 type ParachainBlockImport<RuntimeApi, ExecutorDispatch> =
     TParachainBlockImport<Block, Arc<FullClient<RuntimeApi, ExecutorDispatch>>, FullBackend>;
 
+fn import_slot_duration<C>(client: &C) -> SlotDuration
+where
+    C: sc_client_api::backend::AuxStore
+        + sp_api::ProvideRuntimeApi<Block>
+        + sc_client_api::UsageProvider<Block>
+        + sp_api::CallApiAt<Block>,
+    C::Api: sp_consensus_aura::AuraApi<Block, AuraId>,
+{
+    match client.runtime_version_at(client.usage_info().chain.best_hash) {
+        Ok(x) if x.spec_name.starts_with("kintsugi") && client.usage_info().chain.best_number < 1983993 => {
+            // the kintsugi runtime was misconfigured at genesis to use a slot duration of 6s
+            // which stalled collators when we upgraded to polkadot-v0.9.16 and subsequently
+            // broke mainnet when we introduced the aura timestamp hook, collators should only
+            // switch when syncing after the (failed) 1.20.0 upgrade
+            SlotDuration::from_millis(6000)
+        }
+        // this is pallet_timestamp::MinimumPeriod * 2 at the current height
+        // on kintsugi we increased MinimumPeriod from 3_000 to 6_000 at 16_593
+        // but the interlay runtime has always used 6_000
+        _ => sc_consensus_aura::slot_duration(&*client).unwrap(),
+    }
+}
+
 /// Starts a `ServiceBuilder` for a full service.
 ///
 /// Use this macro if you don't actually need the full service, but just the builder in order to
@@ -243,13 +269,15 @@ where
             registry,
         )
     } else {
+        let slot_duration = import_slot_duration(&*client);
+
         cumulus_client_consensus_aura::import_queue::<AuraPair, _, _, _, _, _>(
             cumulus_client_consensus_aura::ImportQueueParams {
                 block_import: ParachainBlockImport::new(client.clone(), backend.clone()),
                 client: client.clone(),
                 create_inherent_data_providers: move |_parent: sp_core::H256, _| async move {
                     let timestamp = sp_timestamp::InherentDataProvider::from_system_time();
-                    let slot_duration = sp_consensus_aura::SlotDuration::from_millis(12000);
+
                     let slot = sp_consensus_aura::inherents::InherentDataProvider::from_timestamp_and_slot_duration(
                         *timestamp,
                         slot_duration,
@@ -497,7 +525,7 @@ where
          sync_oracle,
          keystore,
          force_authoring| {
-            let slot_duration = sp_consensus_aura::SlotDuration::from_millis(12000);
+            let slot_duration = import_slot_duration(&*client);
 
             let proposer_factory = sc_basic_authorship::ProposerFactory::with_proof_recording(
                 task_manager.spawn_handle(),
