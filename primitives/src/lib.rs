@@ -3,7 +3,9 @@
 use bitcoin::{Address as BtcAddress, PublicKey as BtcPublicKey};
 use bstringify::bstringify;
 use codec::{Decode, Encode, MaxEncodedLen};
+#[cfg(feature = "std")]
 use scale_decode::DecodeAsType;
+#[cfg(feature = "std")]
 use scale_encode::EncodeAsType;
 use scale_info::TypeInfo;
 #[cfg(feature = "std")]
