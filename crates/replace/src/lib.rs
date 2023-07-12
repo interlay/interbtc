@@ -598,7 +598,7 @@ impl<T: Config> Pallet<T> {
         // if the new_vault locked additional collateral especially for this replace,
         // release it if it does not cause them to be undercollateralized
         if !ext::vault_registry::is_vault_liquidated::<T>(&new_vault_id)?
-            && ext::vault_registry::is_allowed_to_withdraw_collateral::<T>(&new_vault_id, &collateral)?
+            && ext::vault_registry::is_allowed_to_withdraw_collateral::<T>(&new_vault_id, Some(collateral.clone()))?
         {
             ext::vault_registry::force_withdraw_collateral::<T>(&new_vault_id, &collateral)?;
         }

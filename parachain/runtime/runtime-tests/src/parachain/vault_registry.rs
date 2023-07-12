@@ -194,7 +194,7 @@ mod withdraw_collateral_test {
 
             assert_ok!(RuntimeCall::Nomination(NominationCall::withdraw_collateral {
                 vault_id: vault_id.clone(),
-                amount: amount.amount(),
+                amount: Some(amount.amount()),
                 index: None,
             })
             .dispatch(origin_of(account_of(VAULT))));
@@ -218,7 +218,7 @@ mod withdraw_collateral_test {
             assert_ok!(RuntimeCall::Nomination(NominationCall::withdraw_collateral {
                 vault_id: vault_id.clone(),
                 index: None,
-                amount: amount.amount()
+                amount: Some(amount.amount())
             })
             .dispatch(origin_of(account_of(VAULT))));
 
@@ -244,7 +244,7 @@ mod withdraw_collateral_test {
                 RuntimeCall::Nomination(NominationCall::withdraw_collateral {
                     vault_id: vault_id.clone(),
                     index: None,
-                    amount: amount
+                    amount: Some(amount)
                 })
                 .dispatch(origin_of(account_of(VAULT))),
                 NominationError::CannotWithdrawCollateral
@@ -270,7 +270,7 @@ mod withdraw_collateral_test {
                 RuntimeCall::Nomination(NominationCall::withdraw_collateral {
                     vault_id: vault_id.clone(),
                     index: None,
-                    amount: amount.amount()
+                    amount: Some(amount.amount())
                 })
                 .dispatch(origin_of(account_of(VAULT))),
                 NominationError::CannotWithdrawCollateral
@@ -287,7 +287,7 @@ mod withdraw_collateral_test {
             assert_ok!(RuntimeCall::Nomination(NominationCall::withdraw_collateral {
                 vault_id: vault_id.clone(),
                 index: None,
-                amount: amount.amount()
+                amount: Some(amount.amount())
             })
             .dispatch(origin_of(account_of(VAULT))));
 

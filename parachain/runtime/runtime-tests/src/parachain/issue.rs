@@ -564,7 +564,7 @@ fn integration_test_withdraw_after_request_issue() {
         assert!(RuntimeCall::Nomination(NominationCall::withdraw_collateral {
             vault_id: vault_id.clone(),
             index: None,
-            amount: collateral_vault.amount()
+            amount: Some(collateral_vault.amount())
         })
         .dispatch(origin_of(account_of(vault)))
         .is_err());

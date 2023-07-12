@@ -825,7 +825,7 @@ impl<T: Config> Pallet<T> {
         Self::decrease_total_backing_collateral(&vault_id.currencies, amount)?;
 
         // Withdraw `amount` of stake from the pool
-        PoolManager::<T>::withdraw_collateral(vault_id, &vault_id.account_id, amount, None)?;
+        PoolManager::<T>::withdraw_collateral(vault_id, &vault_id.account_id, Some(amount.clone()), None)?;
 
         Ok(())
     }
@@ -833,14 +833,18 @@ impl<T: Config> Pallet<T> {
     /// Checks if the vault would be above the secure threshold after withdrawing collateral
     pub fn is_allowed_to_withdraw_collateral(
         vault_id: &DefaultVaultId<T>,
-        amount: &Amount<T>,
+        amount: Option<Amount<T>>,
     ) -> Result<bool, DispatchError> {
         let vault = Self::get_rich_vault_from_id(vault_id)?;
 
-        let new_collateral = match Self::get_backing_collateral(vault_id)?.checked_sub(&amount) {
-            Ok(x) => x,
-            Err(x) if x == ArithmeticError::Underflow.into() => return Ok(false),
-            Err(x) => return Err(x),
+        let new_collateral = if let Some(amount) = amount {
+            match Self::get_backing_collateral(vault_id)?.checked_sub(&amount) {
+                Ok(x) => x,
+                Err(x) if x == ArithmeticError::Underflow.into() => return Ok(false),
+                Err(x) => return Err(x),
+            }
+        } else {
+            Amount::<T>::zero(vault_id.collateral_currency())
         };
 
         ensure!(

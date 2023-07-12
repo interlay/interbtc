@@ -197,7 +197,7 @@ pub mod pallet {
         pub fn withdraw_collateral(
             origin: OriginFor<T>,
             vault_id: DefaultVaultId<T>,
-            amount: BalanceOf<T>,
+            amount: Option<BalanceOf<T>>,
             index: Option<T::Index>,
         ) -> DispatchResultWithPostInfo {
             let nominator_id = ensure_signed(origin)?;
@@ -228,20 +228,20 @@ impl<T: Config> Pallet<T> {
     pub fn _withdraw_collateral(
         vault_id: &DefaultVaultId<T>,
         nominator_id: &T::AccountId,
-        amount: BalanceOf<T>,
+        maybe_amount: Option<BalanceOf<T>>,
         index: T::Index,
     ) -> DispatchResult {
         let nonce = ext::staking::nonce::<T>(vault_id);
         let index = sp_std::cmp::min(index, nonce);
 
-        let amount = Amount::new(amount, vault_id.collateral_currency());
+        let maybe_amount = maybe_amount.map(|x| Amount::<T>::new(x, vault_id.collateral_currency()));
 
         // nominators are always allowed to withdraw from stale staking pools
         if index == nonce {
             // we can only withdraw nominated collateral if the vault is still
             // above the secure threshold for issued + to_be_issued tokens
             ensure!(
-                ext::vault_registry::is_allowed_to_withdraw_collateral::<T>(vault_id, &amount)?,
+                ext::vault_registry::is_allowed_to_withdraw_collateral::<T>(vault_id, maybe_amount.clone())?,
                 Error::<T>::CannotWithdrawCollateral
             );
 
@@ -251,12 +251,17 @@ impl<T: Config> Pallet<T> {
             }
         }
 
-        ext::vault_registry::decrease_total_backing_collateral(&vault_id.currencies, &amount)?;
-
         // withdraw `amount` of stake from the vault staking pool
-        ext::vault_registry::pool_manager::withdraw_collateral::<T>(vault_id, nominator_id, &amount, Some(index))?;
+        let amount = ext::vault_registry::pool_manager::withdraw_collateral::<T>(
+            vault_id,
+            nominator_id,
+            maybe_amount,
+            Some(index),
+        )?;
         amount.unlock_on(&vault_id.account_id)?;
         amount.transfer(&vault_id.account_id, &nominator_id)?;
+
+        ext::vault_registry::decrease_total_backing_collateral(&vault_id.currencies, &amount)?;
 
         Self::deposit_event(Event::<T>::WithdrawCollateral {
             vault_id: vault_id.clone(),
@@ -326,7 +331,7 @@ impl<T: Config> Pallet<T> {
         ensure!(Self::is_opted_in(&vault_id), Error::<T>::VaultNotOptedInToNomination);
         let total_nominated_collateral = Self::get_total_nominated_collateral(&vault_id)?;
         ensure!(
-            ext::vault_registry::is_allowed_to_withdraw_collateral::<T>(&vault_id, &total_nominated_collateral)?,
+            ext::vault_registry::is_allowed_to_withdraw_collateral::<T>(&vault_id, Some(total_nominated_collateral))?,
             Error::<T>::CollateralizationTooLow
         );
 

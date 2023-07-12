@@ -80,8 +80,18 @@ fn should_not_withdraw_collateral() {
 
         // should not withdraw all
         assert_err!(
-            Nomination::_withdraw_collateral(&ALICE, &ALICE.account_id, 3999749570097, 0),
+            Nomination::_withdraw_collateral(&ALICE, &ALICE.account_id, Some(3999749570097), 0),
             staking::Error::<Test>::InsufficientFunds
+        );
+
+        // should withdraw all
+        assert_ok!(Nomination::_withdraw_collateral(&ALICE, &ALICE.account_id, None, 0));
+
+        // stake is now zero
+        assert_ok!(ext::staking::compute_stake::<Test>(&ALICE, &ALICE.account_id), 0);
+        assert_ok!(
+            VaultRegistry::get_backing_collateral(&ALICE),
+            Amount::new(0, ALICE.collateral_currency())
         );
     });
 }

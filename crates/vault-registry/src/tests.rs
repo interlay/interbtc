@@ -202,17 +202,17 @@ fn should_check_withdraw_collateral() {
 
         // should allow withdraw all
         assert_ok!(
-            VaultRegistry::is_allowed_to_withdraw_collateral(&DEFAULT_ID, &amount(DEFAULT_COLLATERAL)),
+            VaultRegistry::is_allowed_to_withdraw_collateral(&DEFAULT_ID, Some(amount(DEFAULT_COLLATERAL))),
             true,
         );
         // should allow withdraw above minimum
         assert_ok!(
-            VaultRegistry::is_allowed_to_withdraw_collateral(&DEFAULT_ID, &amount(DEFAULT_COLLATERAL / 4)),
+            VaultRegistry::is_allowed_to_withdraw_collateral(&DEFAULT_ID, Some(amount(DEFAULT_COLLATERAL / 4))),
             true,
         );
         // should not allow withdraw above zero, below minimum
         assert_err!(
-            VaultRegistry::is_allowed_to_withdraw_collateral(&DEFAULT_ID, &amount(DEFAULT_COLLATERAL / 4 * 3)),
+            VaultRegistry::is_allowed_to_withdraw_collateral(&DEFAULT_ID, Some(amount(DEFAULT_COLLATERAL / 4 * 3))),
             TestError::InsufficientVaultCollateralAmount,
         );
     });

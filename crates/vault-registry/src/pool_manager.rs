@@ -19,14 +19,16 @@ impl<T: Config> PoolManager<T> {
     pub fn withdraw_collateral(
         vault_id: &DefaultVaultId<T>,
         nominator_id: &T::AccountId,
-        amount: &Amount<T>,
+        maybe_amount: Option<Amount<T>>,
         nonce: Option<<T as frame_system::Config>::Index>,
-    ) -> Result<(), DispatchError> {
+    ) -> Result<Amount<T>, DispatchError> {
         ext::fee::distribute_all_vault_rewards::<T>(vault_id)?;
-        ext::staking::withdraw_stake(vault_id, nominator_id, amount, nonce)?;
+        let amount = ext::staking::withdraw_stake(vault_id, nominator_id, maybe_amount, nonce)?;
 
         // also propagate to reward & capacity pools
-        Self::update_reward_stake(vault_id)
+        Self::update_reward_stake(vault_id)?;
+
+        Ok(amount)
     }
 
     pub fn slash_collateral(vault_id: &DefaultVaultId<T>, amount: &Amount<T>) -> Result<(), DispatchError> {

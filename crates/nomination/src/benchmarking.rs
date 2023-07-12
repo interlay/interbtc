@@ -184,7 +184,12 @@ pub mod benchmarks {
         let balance_before = <orml_tokens::Pallet<T>>::reserved_balance(collateral_currency, &vault_id.account_id);
 
         #[extrinsic_call]
-        _(RawOrigin::Signed(nominator.clone()), vault_id.clone(), amount, None);
+        _(
+            RawOrigin::Signed(nominator.clone()),
+            vault_id.clone(),
+            Some(amount),
+            None,
+        );
 
         let balance_after = <orml_tokens::Pallet<T>>::reserved_balance(collateral_currency, &vault_id.account_id);
         assert_eq!(balance_before - amount, balance_after);
