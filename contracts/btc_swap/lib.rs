@@ -1,40 +1,85 @@
 #![cfg_attr(not(feature = "std"), no_std, no_main)]
 
+use bitcoin::types::{MerkleProof, Transaction};
+use ink::{env::Environment, prelude::vec::Vec};
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(feature = "std", derive(scale_info::TypeInfo))]
+pub enum CustomEnvironment {}
+
+impl Environment for CustomEnvironment {
+    const MAX_EVENT_TOPICS: usize = <ink::env::DefaultEnvironment as Environment>::MAX_EVENT_TOPICS;
+
+    type AccountId = <ink::env::DefaultEnvironment as Environment>::AccountId;
+    type Balance = <ink::env::DefaultEnvironment as Environment>::Balance;
+    type Hash = <ink::env::DefaultEnvironment as Environment>::Hash;
+    type BlockNumber = <ink::env::DefaultEnvironment as Environment>::BlockNumber;
+    type Timestamp = <ink::env::DefaultEnvironment as Environment>::Timestamp;
+
+    type ChainExtension = DoSomethingInRuntime;
+}
+
+#[ink::chain_extension]
+pub trait DoSomethingInRuntime {
+    type ErrorCode = RuntimeErr;
+
+    /// Note: this gives the operation a corresponding `func_id` (1101 in this case),
+    /// and the chain-side chain extension will get the `func_id` to do further operations.
+    #[ink(extension = 1101)]
+    fn get_and_verify_bitcoin_payment(
+        merkle_proof: MerkleProof,
+        transaction: Transaction,
+        length_bound: u32,
+        address: Vec<u8>,
+    ) -> Option<u64>;
+}
+
+#[derive(Debug, Copy, Clone, PartialEq, Eq, scale::Encode, scale::Decode)]
+#[cfg_attr(feature = "std", derive(scale_info::TypeInfo))]
+pub enum RuntimeErr {
+    SomeFailure,
+}
+
+impl ink::env::chain_extension::FromStatusCode for RuntimeErr {
+    fn from_status_code(status_code: u32) -> Result<(), Self> {
+        match status_code {
+            0 => Ok(()),
+            1 => Err(Self::SomeFailure),
+            _ => panic!("encountered unknown status code"),
+        }
+    }
+}
+
 /// Creates a swap contract where Alice locks DOT with a price limit in a contract that
 /// Bob can a acquire by sending BTC on the Bitcoin chain that Alice provided.
-/// 
+///
 /// Note: this is a proof of concept protocol and should not be used in production due to flaws in
 /// the protocol and implementation.
-/// 
+///
 /// ## Protocol
-/// 
+///
 /// - Alice provides a BTC address, a price limit, and a DOT amount to lock in the contract.
 /// - Bob sends BTC to the address provided by Alice.
 /// - Anyone (Alice, Bob, or a third party) provides a BTC transaction proof to the contract.
 /// The proof triggers a DOT transfer from the contract to Bob.
-#[ink::contract]
+#[ink::contract(env = crate::CustomEnvironment)]
 mod btc_swap {
+    use super::*;
+    use bitcoin::Address as BtcAddress;
     use ink::storage::Mapping;
-
-    use bitcoin::{Address as BtcAddress};
-    use bitcoin::types::{MerkleProof, Transaction};
+    use scale::Encode;
 
     /// Defines the limit order contract
     #[derive(scale::Decode, scale::Encode)]
     #[cfg_attr(
         feature = "std",
-        derive(
-            Debug,
-            PartialEq,
-            Eq,
-            scale_info::TypeInfo,
-            ink::storage::traits::StorageLayout
-        )
+        derive(Debug, PartialEq, Eq, scale_info::TypeInfo, ink::storage::traits::StorageLayout)
     )]
     pub struct LimitOrder {
         /// The BTC address to send BTC to
-        /// FIXME: trait bound not satisfied
-        btc_address: BtcAddress,
+        /// can't store as `BtcAddress`, since `StorageLayout` is not implemented, and we can't derive it
+        /// due to the hashes inside it not implementing `StorageLayout`
+        btc_address: Vec<u8>,
         /// The price limit for the BTC denoted in satoshis
         min_satoshis: u64,
         /// The DOT amount to lock in the contract denoted in planck
@@ -65,7 +110,7 @@ mod btc_swap {
             let offer = self.env().transferred_value();
 
             let order = LimitOrder {
-                btc_address,
+                btc_address: btc_address.encode(),
                 min_satoshis,
                 plancks: offer,
             };
@@ -78,23 +123,23 @@ mod btc_swap {
             counterparty: AccountId,
             merkle_proof: MerkleProof,
             transaction: Transaction,
-            length_bound: u32
+            length_bound: u32,
         ) {
             let caller = self.env().caller();
             let order = self.orders.get(&counterparty).unwrap();
-            
 
             // FIXME: How to call the BTC relay?
-            let transferred_sats = btc_relay::get_and_verify_bitcoin_payment(
-                merkle_proof,
-                transaction,
-                length_bound,
-                order.btc_address,
-            );
+            let transferred_sats = self
+                .env()
+                .extension()
+                .get_and_verify_bitcoin_payment(merkle_proof, transaction, length_bound)
+                // .get_and_verify_bitcoin_payment(merkle_proof, transaction, length_bound, order.btc_address)
+                .unwrap()
+                .unwrap_or(0);
 
             assert!(transferred_sats >= order.min_satoshis);
 
-            self.env().transfer(caller, order.plancks)
+            self.env().transfer(caller, order.plancks).unwrap();
         }
     }
 }

@@ -83,6 +83,7 @@ xcm-executor = { git = "https://github.com/paritytech/polkadot", branch = "relea
 
 # Parachain dependencies
 annuity = { path = "../../../crates/annuity", default-features = false }
+bitcoin = { path = "../../../crates/bitcoin", default-features = false }
 btc-relay = { path = "../../../crates/btc-relay", default-features = false }
 clients-info = { path = "../../../crates/clients-info", default-features = false }
 collator-selection = { path = "../../../crates/collator-selection", default-features = false }
@@ -128,18 +129,17 @@ vault-registry-rpc-runtime-api = { path = "../../../crates/vault-registry/rpc/ru
 orml-tokens = { git = "https://github.com/open-web3-stack/open-runtime-module-library", rev = "dc39cfddefb10ef0de23655e2c3dcdab66a19404", default-features = false }
 orml-traits = { git = "https://github.com/open-web3-stack/open-runtime-module-library", rev = "dc39cfddefb10ef0de23655e2c3dcdab66a19404", default-features = false }
 orml-vesting = { git = "https://github.com/open-web3-stack/open-runtime-module-library", rev = "dc39cfddefb10ef0de23655e2c3dcdab66a19404", default-features = false }
-orml-asset-registry = { git = "https://github.com/open-web3-stack/open-runtime-module-library", rev = "dc39cfddefb10ef0de23655e2c3dcdab66a19404", default-features = false }
 
 orml-xtokens = { git = "https://github.com/open-web3-stack/open-runtime-module-library", rev = "dc39cfddefb10ef0de23655e2c3dcdab66a19404", default-features = false }
 orml-xcm-support = { git = "https://github.com/open-web3-stack/open-runtime-module-library", rev = "dc39cfddefb10ef0de23655e2c3dcdab66a19404", default-features = false }
 orml-unknown-tokens = { git = "https://github.com/open-web3-stack/open-runtime-module-library", rev = "dc39cfddefb10ef0de23655e2c3dcdab66a19404", default-features = false }
+orml-asset-registry= { git = "https://github.com/open-web3-stack/open-runtime-module-library", rev = "dc39cfddefb10ef0de23655e2c3dcdab66a19404", default-features = false }
 
 [dev-dependencies]
 hex = '0.4.2'
 mocktopus = "0.8.0"
 serde_json = "1.0"
 
-bitcoin = { path = "../../../crates/bitcoin", default-features = false }
 
 [build-dependencies]
 substrate-wasm-builder = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.31" }
@@ -218,6 +218,7 @@ std = [
   "xcm-executor/std",
 
   "annuity/std",
+  "bitcoin/std",
   "btc-relay/std",
   "clients-info/std",
   "collator-selection/std",

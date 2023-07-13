@@ -1374,3 +1374,13 @@ pub fn set_balance(who: AccountId, currency_id: CurrencyId, new_free: Balance) {
     })
     .dispatch(root()));
 }
+
+/// runs and returns f() without comitting to storage
+pub fn dry_run<T, F: FnOnce() -> T>(f: F) -> T {
+    use sp_runtime::TransactionOutcome;
+    frame_support::storage::with_transaction(|| {
+        let ret = f();
+        TransactionOutcome::Rollback(Result::<T, DispatchError>::Ok(ret))
+    })
+    .unwrap()
+}
