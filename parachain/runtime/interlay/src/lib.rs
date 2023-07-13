@@ -1079,6 +1079,24 @@ impl pallet_proxy::Config for Runtime {
     type AnnouncementDepositFactor = AnnouncementDepositFactor;
 }
 
+parameter_types! {
+    pub const ConfigDepositBase: Balance = 100 * DOLLARS;
+    pub const FriendDepositFactor: Balance = 31 * DOLLARS;
+    pub const MaxFriends: u16 = 9;
+    pub const RecoveryDeposit: Balance = 6300 * DOLLARS;
+}
+
+impl pallet_recovery::Config for Runtime {
+    type RuntimeEvent = RuntimeEvent;
+    type WeightInfo = weights::pallet_recovery::WeightInfo<Runtime>;
+    type RuntimeCall = RuntimeCall;
+    type Currency = NativeCurrency;
+    type ConfigDepositBase = ConfigDepositBase;
+    type FriendDepositFactor = FriendDepositFactor;
+    type MaxFriends = MaxFriends;
+    type RecoveryDeposit = RecoveryDeposit;
+}
+
 impl vault_registry::Config for Runtime {
     type PalletId = VaultRegistryPalletId;
     type RuntimeEvent = RuntimeEvent;
@@ -1202,14 +1220,14 @@ construct_runtime! {
         Identity: pallet_identity::{Pallet, Call, Storage, Event<T>} = 8,
         Proxy: pallet_proxy::{Pallet, Call, Storage, Event<T>} = 9,
         TxPause: tx_pause::{Pallet, Call, Storage, Event<T>} = 10,
+        Recovery: pallet_recovery::{Pallet, Call, Storage, Event<T>} = 11,
 
-        // # Tokens & Balances
         Currency: currency::{Pallet} = 20,
         Tokens: orml_tokens::{Pallet, Call, Storage, Config<T>, Event<T>} = 21,
         Supply: supply::{Pallet, Storage, Call, Event<T>, Config<T>} = 22,
         Vesting: orml_vesting::{Pallet, Storage, Call, Event<T>, Config<T>} = 23,
         AssetRegistry: orml_asset_registry::{Pallet, Storage, Call, Event<T>, Config<T>} = 24,
-        MultiTransactionPayment: multi_transaction_payment::{Pallet, Call, Storage}  = 25,
+        MultiTransactionPayment: multi_transaction_payment::{Pallet, Call, Storage} = 25,
 
         Escrow: escrow::{Pallet, Call, Storage, Event<T>} = 30,
         EscrowAnnuity: annuity::<Instance1>::{Pallet, Call, Storage, Event<T>} = 31,
@@ -1223,11 +1241,8 @@ construct_runtime! {
         Farming: farming::{Pallet, Call, Storage, Event<T>} = 44,
         FarmingRewards: reward::<Instance4>::{Pallet, Storage, Event<T>} = 45,
 
-        // # Bitcoin SPV
         BTCRelay: btc_relay::{Pallet, Call, Config<T>, Storage, Event<T>} = 50,
-        // Relay: 51
 
-        // # Operational
         Security: security::{Pallet, Call, Config, Storage, Event<T>} = 60,
         VaultRegistry: vault_registry::{Pallet, Call, Config<T>, Storage, Event<T>, ValidateUnsigned} = 61,
         Oracle: oracle::{Pallet, Call, Config<T>, Storage, Event<T>} = 62,
@@ -1235,15 +1250,12 @@ construct_runtime! {
         Redeem: redeem::{Pallet, Call, Config<T>, Storage, Event<T>} = 64,
         Replace: replace::{Pallet, Call, Config<T>, Storage, Event<T>} = 65,
         Fee: fee::{Pallet, Call, Config<T>, Storage} = 66,
-        // Refund: 67
         Nomination: nomination::{Pallet, Call, Config, Storage, Event<T>} = 68,
         ClientsInfo: clients_info::{Pallet, Call, Storage, Event<T>} = 69,
 
-        // # Governance
         Democracy: democracy::{Pallet, Call, Storage, Config<T>, Event<T>} = 70,
         TechnicalCommittee: pallet_collective::<Instance1>::{Pallet, Call, Storage, Origin<T>, Event<T>, Config<T>} = 71,
         TechnicalMembership: pallet_membership::{Pallet, Call, Storage, Event<T>, Config<T>} = 72,
-        // Treasury: 73
 
         Authorship: pallet_authorship::{Pallet, Storage} = 80,
         CollatorSelection: collator_selection::{Pallet, Call, Storage, Event<T>, Config<T>} = 81,
@@ -1253,7 +1265,6 @@ construct_runtime! {
         ParachainSystem: cumulus_pallet_parachain_system::{Pallet, Call, Config, Storage, Inherent, Event<T>} = 85,
         ParachainInfo: parachain_info::{Pallet, Storage, Config} = 86,
 
-        // # XCM Helpers
         XcmpQueue: cumulus_pallet_xcmp_queue::{Pallet, Call, Storage, Event<T>} = 90,
         PolkadotXcm: pallet_xcm::{Pallet, Call, Storage, Event<T>, Origin, Config} = 91,
         CumulusXcm: cumulus_pallet_xcm::{Pallet, Call, Event<T>, Origin} = 92,
@@ -1262,7 +1273,6 @@ construct_runtime! {
         XTokens: orml_xtokens::{Pallet, Storage, Call, Event<T>} = 94,
         UnknownTokens: orml_unknown_tokens::{Pallet, Storage, Event} = 95,
 
-        // # Lending & AMM
         Loans: loans::{Pallet, Call, Storage, Event<T>, Config} = 100,
         DexGeneral: dex_general::{Pallet, Call, Storage, Event<T>} = 101,
         DexStable: dex_stable::{Pallet, Call, Storage, Event<T>}  = 102, // note: calls disabled
@@ -1352,6 +1362,7 @@ mod benches {
         [pallet_multisig, Multisig]
         [pallet_preimage, Preimage]
         [pallet_proxy, Proxy]
+        [pallet_recovery,Recovery]
         [pallet_scheduler, Scheduler]
         [pallet_timestamp, Timestamp]
         [pallet_utility, Utility]

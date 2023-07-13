@@ -43,6 +43,7 @@ pallet-multisig = { git = "https://github.com/paritytech/substrate", branch = "p
 pallet-preimage = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.31", default-features = false }
 pallet-identity = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.31", default-features = false }
 pallet-proxy = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.31", default-features = false }
+pallet-recovery = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.31", default-features = false }
 pallet-sudo = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.31", default-features = false }
 
 frame-try-runtime = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.31", default-features = false, optional = true }
@@ -182,7 +183,8 @@ std = [
   "pallet-preimage/std",
   "pallet-identity/std",
   "pallet-proxy/std",
-	"pallet-sudo/std",
+  "pallet-recovery/std",
+  "pallet-sudo/std",
 
   "frame-system-rpc-runtime-api/std",
   "pallet-transaction-payment-rpc-runtime-api/std",
@@ -277,6 +279,7 @@ runtime-benchmarks = [
   "pallet-multisig/runtime-benchmarks",
   "pallet-preimage/runtime-benchmarks",
   "pallet-proxy/runtime-benchmarks",
+  "pallet-recovery/runtime-benchmarks",
   "pallet-scheduler/runtime-benchmarks",
   "pallet-timestamp/runtime-benchmarks",
   "pallet-utility/runtime-benchmarks",
@@ -325,7 +328,8 @@ try-runtime = [
   "pallet-multisig/try-runtime",
   "pallet-identity/try-runtime",
   "pallet-proxy/try-runtime",
-	"pallet-sudo/try-runtime",
+  "pallet-recovery/try-runtime",
+  "pallet-sudo/try-runtime",
   "currency/try-runtime",
   "orml-tokens/try-runtime",
   "supply/try-runtime",
