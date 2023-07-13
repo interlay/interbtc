@@ -5,6 +5,8 @@
 
 use super::*;
 use crate::Pallet as StablePallet;
+use frame_system::Pallet as System;
+use pallet_timestamp::Pallet as Timestamp;
 
 use frame_benchmarking::v2::*;
 use frame_support::assert_ok;
@@ -16,6 +18,10 @@ const LP_UNIT: u128 = 1_000_000_000_000_000_000;
 const INITIAL_A_VALUE: Balance = 50;
 const SWAP_FEE: Balance = 10000000;
 const ADMIN_FEE: Balance = 0;
+
+fn assert_last_event<T: Config>(generic_event: <T as Config>::RuntimeEvent) {
+    System::<T>::assert_last_event(generic_event.into());
+}
 
 pub fn lookup_of_account<T: Config>(
     who: T::AccountId,
@@ -127,7 +133,13 @@ fn setup_meta_pool_and_add_liquidity<T: Config>(
     meta_pool_id
 }
 
-#[benchmarks(where T: Config, T::CurrencyId: From<u32>)]
+#[benchmarks(
+    where
+        T: Config,
+        T::CurrencyId: From<u32>,
+        T: pallet_timestamp::Config,
+
+)]
 pub mod benchmarks {
     use super::*;
 
@@ -413,6 +425,91 @@ pub mod benchmarks {
             caller.clone(),
             1000u32.into(),
         );
+    }
+
+    #[benchmark]
+    pub fn update_fee_receiver() {
+        let caller: T::AccountId = whitelisted_caller();
+        let base_pool_id = setup_base_pool::<T>(caller.clone(), base_currencies::<T>(T::PoolCurrencyLimit::get()));
+
+        #[extrinsic_call]
+        _(
+            RawOrigin::Root,
+            base_pool_id.clone(),
+            lookup_of_account::<T>(caller.clone()).into(),
+        );
+
+        assert_last_event::<T>(
+            Event::UpdateAdminFeeReceiver {
+                pool_id: base_pool_id,
+                admin_fee_receiver: caller,
+            }
+            .into(),
+        );
+    }
+
+    #[benchmark]
+    pub fn set_swap_fee() {
+        let caller: T::AccountId = whitelisted_caller();
+        let base_pool_id = setup_base_pool::<T>(caller.clone(), base_currencies::<T>(T::PoolCurrencyLimit::get()));
+        let new_swap_fee = SWAP_FEE * 2;
+
+        #[extrinsic_call]
+        _(RawOrigin::Root, base_pool_id, new_swap_fee);
+
+        assert_last_event::<T>(
+            Event::NewSwapFee {
+                pool_id: base_pool_id,
+                new_swap_fee,
+            }
+            .into(),
+        );
+    }
+
+    #[benchmark]
+    pub fn set_admin_fee() {
+        let caller: T::AccountId = whitelisted_caller();
+        let base_pool_id = setup_base_pool::<T>(caller.clone(), base_currencies::<T>(T::PoolCurrencyLimit::get()));
+        let new_admin_fee = MAX_ADMIN_FEE;
+
+        #[extrinsic_call]
+        _(RawOrigin::Root, base_pool_id, new_admin_fee);
+
+        assert_last_event::<T>(
+            Event::NewAdminFee {
+                pool_id: base_pool_id,
+                new_admin_fee,
+            }
+            .into(),
+        );
+    }
+
+    #[benchmark]
+    pub fn ramp_a() {
+        let caller: T::AccountId = whitelisted_caller();
+        let base_pool_id = setup_base_pool::<T>(caller.clone(), base_currencies::<T>(T::PoolCurrencyLimit::get()));
+
+        Timestamp::<T>::set_timestamp(Timestamp::<T>::get() + (DAY * 1000).into());
+
+        #[extrinsic_call]
+        _(RawOrigin::Root, base_pool_id, 100, (MIN_RAMP_TIME * 2).into());
+    }
+
+    #[benchmark]
+    pub fn stop_ramp_a() {
+        let caller: T::AccountId = whitelisted_caller();
+        let base_pool_id = setup_base_pool::<T>(caller.clone(), base_currencies::<T>(T::PoolCurrencyLimit::get()));
+
+        Timestamp::<T>::set_timestamp(Timestamp::<T>::get() + (DAY * 1000).into());
+        assert_ok!(StablePallet::<T>::ramp_a(
+            RawOrigin::Root.into(),
+            base_pool_id,
+            100,
+            (MIN_RAMP_TIME * 2).into()
+        ));
+
+        #[extrinsic_call]
+        _(RawOrigin::Root, base_pool_id);
     }
 
     #[benchmark]

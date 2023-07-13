@@ -1265,7 +1265,7 @@ construct_runtime! {
         // # Lending & AMM
         Loans: loans::{Pallet, Call, Storage, Event<T>, Config} = 100,
         DexGeneral: dex_general::{Pallet, Call, Storage, Event<T>} = 101,
-        DexStable: dex_stable::{Pallet, Storage, Event<T>}  = 102, // note: calls disabled
+        DexStable: dex_stable::{Pallet, Call, Storage, Event<T>}  = 102,
         DexSwapRouter: dex_swap_router::{Pallet, Call, Event<T>} = 103,
     }
 }
