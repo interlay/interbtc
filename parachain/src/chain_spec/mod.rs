@@ -3,8 +3,8 @@ use cumulus_primitives_core::ParaId;
 use frame_support::BoundedVec;
 use hex_literal::hex;
 use primitives::{
-    AccountId, Balance, CurrencyId, CurrencyId::Token, CurrencyInfo, Signature, VaultCurrencyPair, BITCOIN_MAINNET,
-    BITCOIN_REGTEST, BITCOIN_TESTNET, DOT, IBTC, INTR, KBTC, KINT, KSM,
+    AccountId, Balance, CurrencyId, CurrencyId::Token, CurrencyInfo, Rate, Signature, VaultCurrencyPair,
+    BITCOIN_MAINNET, BITCOIN_REGTEST, BITCOIN_TESTNET, DOT, IBTC, INTR, KBTC, KINT, KSM,
 };
 use sc_chain_spec::{ChainSpecExtension, ChainSpecGroup};
 use sc_service::ChainType;
@@ -12,7 +12,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::{map::Map, Value};
 use sp_arithmetic::{FixedPointNumber, FixedU128};
 use sp_consensus_aura::sr25519::AuthorityId as AuraId;
-use sp_core::{crypto::UncheckedInto, sr25519, Pair, Public};
+use sp_core::{crypto::UncheckedInto, sr25519, storage::Storage, Pair, Public};
 use sp_runtime::traits::{IdentifyAccount, Verify, Zero};
 use std::str::FromStr;
 
@@ -21,16 +21,10 @@ pub mod kintsugi;
 pub mod testnet_interlay;
 pub mod testnet_kintsugi;
 
-// The URL for the telemetry server.
-// pub const TELEMETRY_URL: &str = "wss://telemetry.polkadot.io/submit/";
+pub use interlay::{InterlayChainSpec, InterlayDevChainSpec, InterlayDevGenesisExt};
+pub use kintsugi::{KintsugiChainSpec, KintsugiDevChainSpec, KintsugiDevGenesisExt};
 
 pub type DummyChainSpec = sc_service::GenericChainSpec<(), Extensions>;
-
-/// Specialized `ChainSpec` for the interlay parachain runtime.
-pub type InterlayChainSpec = sc_service::GenericChainSpec<interlay_runtime::GenesisConfig, Extensions>;
-
-/// Specialized `ChainSpec` for the kintsugi parachain runtime.
-pub type KintsugiChainSpec = sc_service::GenericChainSpec<kintsugi_runtime::GenesisConfig, Extensions>;
 
 /// The extensions for the [`ChainSpec`].
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, ChainSpecExtension, ChainSpecGroup)]

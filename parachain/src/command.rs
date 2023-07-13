@@ -66,16 +66,19 @@ impl<T: sc_service::ChainSpec + 'static> IdentifyChain for T {
     }
 }
 
-fn load_spec(id: &str) -> std::result::Result<Box<dyn sc_service::ChainSpec>, String> {
+fn load_spec(id: &str, enable_instant_seal: bool) -> std::result::Result<Box<dyn sc_service::ChainSpec>, String> {
     Ok(match id {
         "" => Box::new(chain_spec::testnet_kintsugi::local_config(DEFAULT_PARA_ID.into())),
-        "dev" => Box::new(chain_spec::testnet_kintsugi::development_config(DEFAULT_PARA_ID.into())),
-        "kintsugi-dev" | "kintsugi-bench" => Box::new(chain_spec::kintsugi::kintsugi_dev_config()),
+        "dev" => Box::new(chain_spec::testnet_kintsugi::development_config(
+            DEFAULT_PARA_ID.into(),
+            enable_instant_seal,
+        )),
+        "kintsugi-dev" | "kintsugi-bench" => Box::new(chain_spec::kintsugi::kintsugi_dev_config(enable_instant_seal)),
         "kintsugi-latest" => Box::new(chain_spec::kintsugi::kintsugi_mainnet_config()),
         "kintsugi" => Box::new(chain_spec::KintsugiChainSpec::from_json_bytes(
             &include_bytes!("../res/kintsugi.json")[..],
         )?),
-        "interlay-dev" | "interlay-bench" => Box::new(chain_spec::interlay::interlay_dev_config()),
+        "interlay-dev" | "interlay-bench" => Box::new(chain_spec::interlay::interlay_dev_config(enable_instant_seal)),
         "interlay-latest" => Box::new(chain_spec::interlay::interlay_mainnet_config()),
         "interlay" => Box::new(chain_spec::InterlayChainSpec::from_json_bytes(
             &include_bytes!("../res/interlay.json")[..],
@@ -143,7 +146,7 @@ impl SubstrateCli for Cli {
     }
 
     fn load_spec(&self, id: &str) -> std::result::Result<Box<dyn sc_service::ChainSpec>, String> {
-        load_spec(id)
+        load_spec(id, self.instant_seal)
     }
 
     fn native_runtime_version(chain_spec: &Box<dyn ChainSpec>) -> &'static RuntimeVersion {

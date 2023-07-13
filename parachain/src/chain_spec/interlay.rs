@@ -1,8 +1,30 @@
 use super::*;
-use kintsugi_runtime::LoansConfig;
-use primitives::Rate;
 
 pub const PARA_ID: u32 = 2032;
+
+/// Specialized `ChainSpec` for the interlay parachain runtime.
+pub type InterlayChainSpec = sc_service::GenericChainSpec<interlay_runtime::GenesisConfig, Extensions>;
+
+/// Specialized `ChainSpec` for interlay development.
+pub type InterlayDevChainSpec = sc_service::GenericChainSpec<InterlayDevGenesisExt, Extensions>;
+
+/// Extension for the dev genesis config to support a custom changes to the genesis state.
+#[derive(Serialize, Deserialize)]
+pub struct InterlayDevGenesisExt {
+    /// Genesis config.
+    pub(crate) genesis_config: interlay_runtime::GenesisConfig,
+    /// The flag to enable instant-seal mode.
+    pub(crate) enable_instant_seal: bool,
+}
+
+impl sp_runtime::BuildStorage for InterlayDevGenesisExt {
+    fn assimilate_storage(&self, storage: &mut Storage) -> Result<(), String> {
+        sp_state_machine::BasicExternalities::execute_with_storage(storage, || {
+            interlay_runtime::EnableManualSeal::set(&self.enable_instant_seal);
+        });
+        self.genesis_config.assimilate_storage(storage)
+    }
+}
 
 fn interlay_properties() -> Map<String, Value> {
     let mut properties = Map::new();
@@ -26,14 +48,14 @@ fn default_pair_interlay(currency_id: CurrencyId) -> VaultCurrencyPair<CurrencyI
     }
 }
 
-pub fn interlay_dev_config() -> InterlayChainSpec {
+pub fn interlay_dev_config(enable_instant_seal: bool) -> InterlayDevChainSpec {
     let id: ParaId = PARA_ID.into();
-    InterlayChainSpec::from_genesis(
+    InterlayDevChainSpec::from_genesis(
         "Interlay",
         "interlay",
-        ChainType::Live,
-        move || {
-            interlay_genesis(
+        ChainType::Development,
+        move || InterlayDevGenesisExt {
+            genesis_config: interlay_genesis(
                 vec![get_authority_keys_from_seed("Alice")],
                 vec![(
                     get_account_id_from_seed::<sr25519::Public>("Bob"),
@@ -43,7 +65,9 @@ pub fn interlay_dev_config() -> InterlayChainSpec {
                 Some(get_account_id_from_seed::<sr25519::Public>("Alice")),
                 id,
                 1,
-            )
+                false, // disable difficulty check
+            ),
+            enable_instant_seal,
         },
         Vec::new(),
         None,
@@ -111,6 +135,7 @@ pub fn interlay_mainnet_config() -> InterlayChainSpec {
                 None,   // no sudo key
                 id,
                 SECURE_BITCOIN_CONFIRMATIONS,
+                false, // enable difficulty check
             )
         },
         Vec::new(),
@@ -132,6 +157,7 @@ pub fn interlay_genesis(
     root_key: Option<AccountId>,
     id: ParaId,
     bitcoin_confirmations: u32,
+    disable_difficulty_check: bool,
 ) -> interlay_runtime::GenesisConfig {
     interlay_runtime::GenesisConfig {
         system: interlay_runtime::SystemConfig {
@@ -178,7 +204,7 @@ pub fn interlay_genesis(
         btc_relay: interlay_runtime::BTCRelayConfig {
             bitcoin_confirmations,
             parachain_confirmations: bitcoin_confirmations.saturating_mul(interlay_runtime::BITCOIN_BLOCK_SPACING),
-            disable_difficulty_check: false,
+            disable_difficulty_check,
             disable_inclusion_check: false,
         },
         issue: interlay_runtime::IssueConfig {
@@ -238,7 +264,7 @@ pub fn interlay_genesis(
             safe_xcm_version: Some(3),
         },
         sudo: interlay_runtime::SudoConfig { key: root_key },
-        loans: LoansConfig {
+        loans: interlay_runtime::LoansConfig {
             max_exchange_rate: Rate::from_inner(loans::DEFAULT_MAX_EXCHANGE_RATE),
             min_exchange_rate: Rate::from_inner(loans::DEFAULT_MIN_EXCHANGE_RATE),
         },

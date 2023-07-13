@@ -4,7 +4,7 @@ use core::marker::PhantomData;
 use currency::Amount;
 use frame_support::{
     pallet_prelude::Get,
-    traits::{Currency, OnTimestampSet, OnUnbalanced, ProcessMessageError, TryDrop},
+    traits::{Currency, OnUnbalanced, ProcessMessageError, TryDrop},
 };
 use primitives::{BlockNumber, UnsignedFixedPoint};
 use sp_runtime::{DispatchError, FixedPointNumber};
@@ -141,21 +141,5 @@ where
     fn on_nonzero_unbalanced(amount: NegImbalance) {
         // Must resolve into existing but better to be safe.
         let _ = NativeCurrency::resolve_creating(&TreasuryAccount::get(), amount);
-    }
-}
-
-pub struct MaybeSetTimestamp<T>(PhantomData<T>);
-
-impl<T> OnTimestampSet<T::Moment> for MaybeSetTimestamp<T>
-where
-    T: frame_system::Config + pallet_aura::Config + pallet_sudo::Config,
-{
-    fn on_timestamp_set(moment: T::Moment) {
-        // key is not set on mainnet
-        if pallet_sudo::Pallet::<T>::key().is_none() {
-            // this hook breaks instant-seal so only call when
-            // using the mainnet configuration
-            <pallet_aura::Pallet<T> as OnTimestampSet<T::Moment>>::on_timestamp_set(moment);
-        }
     }
 }
