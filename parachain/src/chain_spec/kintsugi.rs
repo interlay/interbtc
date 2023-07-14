@@ -167,9 +167,6 @@ pub fn kintsugi_genesis(
         // Session will take care of this.
         aura: Default::default(),
         aura_ext: Default::default(),
-        security: kintsugi_runtime::SecurityConfig {
-            initial_status: kintsugi_runtime::StatusCode::Error,
-        },
         asset_registry: Default::default(),
         tokens: kintsugi_runtime::TokensConfig {
             balances: endowed_accounts

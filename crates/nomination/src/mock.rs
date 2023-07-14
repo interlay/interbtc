@@ -208,7 +208,6 @@ impl currency::Config for Test {
 impl security::Config for Test {
     type RuntimeEvent = RuntimeEvent;
     type WeightInfo = ();
-    type MaxErrors = ConstU32<1>;
 }
 
 parameter_types! {

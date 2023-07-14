@@ -163,9 +163,6 @@ pub fn interlay_genesis(
         // Session will take care of this.
         aura: Default::default(),
         aura_ext: Default::default(),
-        security: interlay_runtime::SecurityConfig {
-            initial_status: interlay_runtime::StatusCode::Error,
-        },
         asset_registry: Default::default(),
         tokens: interlay_runtime::TokensConfig {
             balances: endowed_accounts

@@ -1105,3 +1105,83 @@ fn integration_test_replace_vault_with_different_currency_succeeds() {
         );
     });
 }
+
+mod oracle_down {
+    use super::{assert_eq, *};
+
+    #[test]
+    fn no_oracle_execute_replace_succeeds() {
+        test_with(|old_vault_id, new_vault_id| {
+            let (_, replace_id) = setup_replace(&old_vault_id, &new_vault_id, old_vault_id.wrapped(1000));
+
+            OraclePallet::expire_all();
+
+            assert_ok!(execute_replace(replace_id));
+        });
+    }
+
+    #[test]
+    fn no_oracle_accept_replace_fails() {
+        test_with(|old_vault_id, new_vault_id| {
+            OraclePallet::expire_all();
+
+            assert_noop!(
+                RuntimeCall::Replace(ReplaceCall::accept_replace {
+                    currency_pair: new_vault_id.currencies.clone(),
+                    old_vault: old_vault_id.clone(),
+                    amount_btc: 1000000,
+                    collateral: DEFAULT_GRIEFING_COLLATERAL.amount(),
+                    btc_address: Default::default(),
+                })
+                .dispatch(origin_of(new_vault_id.account_id.clone())),
+                OracleError::MissingExchangeRate
+            );
+        });
+    }
+
+    #[test]
+    fn no_oracle_request_replace_fails() {
+        test_with(|old_vault_id, _new_vault_id| {
+            let amount = DEFAULT_VAULT_ISSUED - DEFAULT_VAULT_TO_BE_REDEEMED - DEFAULT_VAULT_TO_BE_REPLACED;
+            OraclePallet::expire_all();
+            assert_noop!(
+                RuntimeCall::Replace(ReplaceCall::request_replace {
+                    currency_pair: old_vault_id.currencies.clone(),
+                    amount: amount.amount(),
+                })
+                .dispatch(origin_of(old_vault_id.account_id.clone())),
+                OracleError::MissingExchangeRate
+            );
+        })
+    }
+
+    #[test]
+    fn no_oracle_cancel_replace_fails() {
+        test_with(|old_vault_id, new_vault_id| {
+            let issued_tokens = old_vault_id.wrapped(1000);
+            let (_, replace_id) = setup_replace(&old_vault_id, &new_vault_id, issued_tokens);
+
+            OraclePallet::expire_all();
+
+            mine_blocks(2);
+            SecurityPallet::set_active_block_number(30);
+            assert_noop!(
+                RuntimeCall::Replace(ReplaceCall::cancel_replace { replace_id: replace_id })
+                    .dispatch(origin_of(account_of(NEW_VAULT))),
+                OracleError::MissingExchangeRate
+            );
+        })
+    }
+
+    #[test]
+    fn no_oracle_execute_cancelled_replace_fails() {
+        test_with(|old_vault_id, new_vault_id| {
+            let issued_tokens = old_vault_id.wrapped(1000);
+            let (_, replace_id) = setup_replace(&old_vault_id, &new_vault_id, issued_tokens);
+
+            cancel_replace(replace_id);
+            OraclePallet::expire_all();
+            assert_err!(execute_replace(replace_id), OracleError::MissingExchangeRate);
+        })
+    }
+}

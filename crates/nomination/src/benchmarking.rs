@@ -17,7 +17,6 @@ use vault_registry::{
 use crate::Pallet as Nomination;
 use fee::Pallet as Fee;
 use oracle::Pallet as Oracle;
-use security::{Pallet as Security, StatusCode};
 use vault_registry::Pallet as VaultRegistry;
 
 fn deposit_tokens<T: crate::Config>(currency_id: CurrencyId, account_id: &T::AccountId, amount: BalanceOf<T>) {
@@ -74,7 +73,6 @@ pub mod benchmarks {
 
     #[benchmark]
     pub fn set_nomination_limit() {
-        Security::<T>::set_status(StatusCode::Running);
         let vault_id = activate_lending_and_get_vault_id::<T>();
         let amount = 100u32.into();
         #[extrinsic_call]

@@ -2,15 +2,6 @@
 use mocktopus::macros::mockable;
 
 #[cfg_attr(test, mockable)]
-pub(crate) mod security {
-    use frame_support::dispatch::DispatchResult;
-
-    pub fn ensure_parachain_status_running<T: crate::Config>() -> DispatchResult {
-        <security::Pallet<T>>::ensure_parachain_status_running()
-    }
-}
-
-#[cfg_attr(test, mockable)]
 pub(crate) mod vault_registry {
     use currency::Amount;
     pub use frame_support::dispatch::{DispatchError, DispatchResult};

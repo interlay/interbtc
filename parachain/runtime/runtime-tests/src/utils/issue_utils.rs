@@ -47,18 +47,22 @@ impl RequestIssueBuilder {
         self
     }
 
-    pub fn request(&self) -> (H256, IssueRequest<AccountId32, BlockNumber, Balance, CurrencyId>) {
+    pub fn try_request(&self) -> DispatchResultWithPostInfo {
         try_register_vault(
             Amount::new(DEFAULT_COLLATERAL, self.vault_id.collateral_currency()),
             &self.vault_id,
         );
         // alice requests wrapped by locking btc with bob
-        assert_ok!(RuntimeCall::Issue(IssueCall::request_issue {
+        RuntimeCall::Issue(IssueCall::request_issue {
             amount: self.amount_btc,
             vault_id: self.vault_id.clone(),
             griefing_currency: self.griefing_currency,
         })
-        .dispatch(origin_of(account_of(self.user))));
+        .dispatch(origin_of(account_of(self.user)))
+    }
+
+    pub fn request(&self) -> (H256, IssueRequest<AccountId32, BlockNumber, Balance, CurrencyId>) {
+        assert_ok!(self.try_request());
 
         let issue_id = assert_issue_request_event();
         let issue = IssuePallet::get_issue_request_from_id(&issue_id).unwrap();

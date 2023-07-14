@@ -16,7 +16,7 @@ use primitives::{
     KSM as KSM_CURRENCY,
 };
 use rate_model::{InterestRateModel, JumpModel};
-use security::{Pallet as Security, StatusCode};
+use security::Pallet as Security;
 use sp_std::prelude::*;
 
 const SEED: u32 = 0;
@@ -622,7 +622,6 @@ pub mod benchmarks {
         initialize::<T>();
 
         Security::<T>::set_active_block_number(1u32.into());
-        Security::<T>::set_status(StatusCode::Running);
         let alice: T::AccountId = account("Sample", 100, SEED);
         let bob: T::AccountId = account("Sample", 101, SEED);
         transfer_initial_balance::<T>(alice.clone());
@@ -814,6 +813,5 @@ fn initialize<
         + currency::Config<UnsignedFixedPoint = UnsignedFixedPoint>,
 >() {
     Security::<T>::set_active_block_number(1u32.into());
-    Security::<T>::set_status(StatusCode::Running);
     assert_ok!(Oracle::<T>::_set_exchange_rate(KBTC, UnsignedFixedPoint::one()));
 }

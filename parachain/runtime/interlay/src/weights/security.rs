@@ -34,6 +34,7 @@
 
 use frame_support::{traits::Get, weights::{Weight, constants::RocksDbWeight}};
 use sp_std::marker::PhantomData;
+use frame_system::RawOrigin;
 
 /// Weights for security using the Substrate node and recommended hardware.
 pub struct WeightInfo<T>(PhantomData<T>);
@@ -55,34 +56,12 @@ impl<T: frame_system::Config> security::WeightInfo for WeightInfo<T> {
 	}
 	/// Storage: Security ParachainStatus (r:0 w:1)
 	/// Proof: Security ParachainStatus (max_values: Some(1), max_size: Some(1), added: 496, mode: MaxEncodedLen)
-	fn set_parachain_status	() -> Weight {
+	fn activate_counter	() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`
 		// Minimum execution time: 10_665_000 picoseconds.
 		Weight::from_parts(10_979_000, 0)
-			.saturating_add(T::DbWeight::get().writes(1_u64))
-	}
-	/// Storage: Security Errors (r:1 w:1)
-	/// Proof: Security Errors (max_values: Some(1), max_size: Some(2), added: 497, mode: MaxEncodedLen)
-	fn insert_parachain_error	() -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `126`
-		//  Estimated: `1487`
-		// Minimum execution time: 20_193_000 picoseconds.
-		Weight::from_parts(21_089_000, 1487)
-			.saturating_add(T::DbWeight::get().reads(1_u64))
-			.saturating_add(T::DbWeight::get().writes(1_u64))
-	}
-	/// Storage: Security Errors (r:1 w:1)
-	/// Proof: Security Errors (max_values: Some(1), max_size: Some(2), added: 497, mode: MaxEncodedLen)
-	fn remove_parachain_error	() -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `126`
-		//  Estimated: `1487`
-		// Minimum execution time: 19_640_000 picoseconds.
-		Weight::from_parts(20_236_000, 1487)
-			.saturating_add(T::DbWeight::get().reads(1_u64))
 			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
 }

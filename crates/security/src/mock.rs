@@ -1,5 +1,5 @@
 use crate as security;
-use crate::{Config, Error};
+use crate::Config;
 pub use frame_support::traits::Everything;
 use frame_support::{parameter_types, traits::ConstU32};
 use mocktopus::mocking::clear_mocks;
@@ -62,11 +62,7 @@ impl frame_system::Config for Test {
 impl Config for Test {
     type RuntimeEvent = RuntimeEvent;
     type WeightInfo = ();
-    type MaxErrors = ConstU32<1>;
 }
-
-pub type TestEvent = RuntimeEvent;
-pub type TestError = Error<Test>;
 
 pub struct ExtBuilder;
 

@@ -66,7 +66,6 @@ pub use btc_relay::{bitcoin, Call as BtcRelayCall, TARGET_SPACING};
 pub use constants::{currency::*, time::*};
 pub use oracle_rpc_runtime_api::BalanceWrapper;
 pub use orml_asset_registry::AssetMetadata;
-pub use security::StatusCode;
 
 pub use primitives::{
     self, AccountId, Balance, BlockNumber,
@@ -939,7 +938,6 @@ impl farming::Config for Runtime {
 impl security::Config for Runtime {
     type RuntimeEvent = RuntimeEvent;
     type WeightInfo = weights::security::WeightInfo<Runtime>;
-    type MaxErrors = ConstU32<1>;
 }
 
 impl currency::Config for Runtime {
@@ -1228,7 +1226,7 @@ construct_runtime! {
         // Relay: 51
 
         // # Operational
-        Security: security::{Pallet, Call, Config, Storage, Event<T>} = 60,
+        Security: security::{Pallet, Call, Storage, Event<T>} = 60,
         VaultRegistry: vault_registry::{Pallet, Call, Config<T>, Storage, Event<T>, ValidateUnsigned} = 61,
         Oracle: oracle::{Pallet, Call, Config<T>, Storage, Event<T>} = 62,
         Issue: issue::{Pallet, Call, Config<T>, Storage, Event<T>} = 63,

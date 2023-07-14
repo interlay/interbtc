@@ -95,7 +95,7 @@ btc-relay = { path = "../../../crates/btc-relay" }
 currency = { path = "../../../crates/currency", features = ["testing-utils"] }
 security = { path = "../../../crates/security" }
 vault-registry = { path = "../../../crates/vault-registry", features = ["integration-tests"] }
-oracle = { path = "../../../crates/oracle" }
+oracle = { path = "../../../crates/oracle", features = ["testing-utils"]  }
 fee = { path = "../../../crates/fee" }
 issue = { path = "../../../crates/issue" }
 redeem = { path = "../../../crates/redeem" }
