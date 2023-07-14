@@ -1,4 +1,6 @@
 use crate::mock::*;
+use frame_support::assert_ok;
+use frame_system::RawOrigin;
 use sp_core::H256;
 
 #[test]
@@ -24,17 +26,21 @@ fn test_get_increment_active_block_succeeds() {
     })
 }
 
-// #[test]
-// fn test_get_active_block_not_incremented_if_not_running() {
-//     run_test(|| {
-//         let initial_active_block = Security::active_block_number();
-//
-//         // not updated if there is an error
-//         Security::set_status(StatusCode::Error);
-//         Security::increment_active_block();
-//         assert_eq!(Security::active_block_number(), initial_active_block);
-//     })
-// }
+#[test]
+fn test_get_active_block_not_incremented_if_inactive() {
+    run_test(|| {
+        let initial_active_block = Security::active_block_number();
+
+        // not updated if there is an error
+        assert_ok!(Security::activate_counter(RawOrigin::Root.into(), false));
+        Security::increment_active_block();
+        assert_eq!(Security::active_block_number(), initial_active_block);
+
+        assert_ok!(Security::activate_counter(RawOrigin::Root.into(), true));
+        Security::increment_active_block();
+        assert_eq!(Security::active_block_number(), initial_active_block + 1);
+    })
+}
 
 mod spec_based_tests {
     use super::*;

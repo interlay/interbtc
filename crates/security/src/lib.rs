@@ -98,7 +98,8 @@ pub mod pallet {
         pub fn activate_counter(origin: OriginFor<T>, is_active: bool) -> DispatchResult {
             ensure_root(origin)?;
 
-            IsDeactivated::<T>::set(is_active);
+            // IsDeactivated is negative so that we don't need migration
+            IsDeactivated::<T>::set(!is_active);
 
             if is_active {
                 Self::deposit_event(Event::Activated);
