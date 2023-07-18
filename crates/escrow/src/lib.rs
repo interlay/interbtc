@@ -484,6 +484,7 @@ impl<T: Config> Pallet<T> {
         <UserPointHistory<T>>::insert(who, user_epoch, u_new);
     }
 
+    /// amount of kint/intr that use can lock, taking into consideration the Limits.
     fn get_free_balance(who: &T::AccountId) -> BalanceOf<T> {
         let free_balance = T::Currency::free_balance(who);
         // prevent blocked accounts from minting
@@ -499,6 +500,12 @@ impl<T: Config> Pallet<T> {
         } else {
             free_balance
         }
+    }
+
+    pub fn free_stakable(who: &T::AccountId) -> BalanceOf<T> {
+        let total_stakable = Self::get_free_balance(who);
+        let used = <Locked<T>>::get(who).amount;
+        total_stakable.saturating_sub(used)
     }
 
     fn deposit_for(who: &T::AccountId, amount: BalanceOf<T>, unlock_height: T::BlockNumber) -> DispatchResult {
@@ -570,6 +577,7 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
+    /// vKINT/vINTR balance at given height
     pub fn balance_at(who: &T::AccountId, height: Option<T::BlockNumber>) -> BalanceOf<T> {
         let height = height.unwrap_or(Self::current_height());
         let last_point = <UserPointHistory<T>>::get(who, <UserPointEpoch<T>>::get(who));

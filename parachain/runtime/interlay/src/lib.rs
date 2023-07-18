@@ -1759,6 +1759,10 @@ impl_runtime_apis! {
             BalanceWrapper{amount: Escrow::balance_at(&account_id, height)}
         }
 
+        fn free_stakable(account_id: AccountId) -> BalanceWrapper<Balance> {
+            BalanceWrapper{amount: Escrow::free_stakable(&account_id)}
+        }
+
         fn total_supply(height: Option<BlockNumber>) -> BalanceWrapper<Balance> {
             BalanceWrapper{amount: Escrow::total_supply(height)}
         }
