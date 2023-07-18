@@ -489,6 +489,7 @@ pub mod benchmarks {
         let caller: T::AccountId = whitelisted_caller();
         let base_pool_id = setup_base_pool::<T>(caller.clone(), base_currencies::<T>(T::PoolCurrencyLimit::get()));
 
+        // this will panic if the aura check is enabled
         Timestamp::<T>::set_timestamp(Timestamp::<T>::get() + (DAY * 1000).into());
 
         #[extrinsic_call]
@@ -500,6 +501,7 @@ pub mod benchmarks {
         let caller: T::AccountId = whitelisted_caller();
         let base_pool_id = setup_base_pool::<T>(caller.clone(), base_currencies::<T>(T::PoolCurrencyLimit::get()));
 
+        // this will panic if the aura check is enabled
         Timestamp::<T>::set_timestamp(Timestamp::<T>::get() + (DAY * 1000).into());
         assert_ok!(StablePallet::<T>::ramp_a(
             RawOrigin::Root.into(),

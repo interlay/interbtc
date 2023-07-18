@@ -252,7 +252,7 @@ macro_rules! construct_async_run {
 
 /// Parse command line arguments into service configuration.
 pub fn run() -> Result<()> {
-    let cli = Cli::from_args();
+    let mut cli = Cli::from_args();
 
     match &cli.subcommand {
         Some(Subcommand::BuildSpec(cmd)) => {
@@ -301,6 +301,9 @@ pub fn run() -> Result<()> {
             )))
         }
         Some(Subcommand::Benchmark(cmd)) => {
+            // some benchmarks set the timestamp so we ignore
+            // the aura check which would otherwise panic
+            cli.instant_seal = true;
             let runner = cli.create_runner(cmd)?;
             match cmd {
                 BenchmarkCmd::Pallet(cmd) => {
