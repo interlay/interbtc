@@ -455,7 +455,7 @@ mod spec_based_tests {
                 assert_noop!(
                     RuntimeCall::Redeem(RedeemCall::execute_redeem {
                         redeem_id: H256::random(),
-                        transaction: dummy_tx()
+                        unchecked_transaction: dummy_tx()
                     })
                     .dispatch(origin_of(account_of(VAULT))),
                     RedeemError::RedeemIdNotFound
@@ -527,7 +527,7 @@ mod spec_based_tests {
                 assert_noop!(
                     RuntimeCall::Redeem(RedeemCall::execute_redeem {
                         redeem_id: redeem_id,
-                        transaction
+                        unchecked_transaction: transaction
                     })
                     .dispatch(origin_of(account_of(VAULT))),
                     BTCRelayError::InvalidTxid
@@ -1277,10 +1277,11 @@ fn integration_test_premium_redeem_wrapped_execute() {
 
         SecurityPallet::set_active_block_number(1 + CONFIRMATIONS);
 
-        assert_ok!(
-            RuntimeCall::Redeem(RedeemCall::execute_redeem { redeem_id, transaction })
-                .dispatch(origin_of(account_of(VAULT)))
-        );
+        assert_ok!(RuntimeCall::Redeem(RedeemCall::execute_redeem {
+            redeem_id,
+            unchecked_transaction: transaction
+        })
+        .dispatch(origin_of(account_of(VAULT))));
 
         assert_eq!(
             ParachainState::get(&vault_id),
@@ -1349,7 +1350,7 @@ fn integration_test_multiple_redeems_multiple_op_returns() {
         assert_err!(
             RuntimeCall::Redeem(RedeemCall::execute_redeem {
                 redeem_id: redeem_1_id,
-                transaction: transaction.clone()
+                unchecked_transaction: transaction.clone()
             })
             .dispatch(origin_of(account_of(VAULT))),
             BTCRelayError::InvalidOpReturnTransaction
@@ -1358,7 +1359,7 @@ fn integration_test_multiple_redeems_multiple_op_returns() {
         assert_err!(
             RuntimeCall::Redeem(RedeemCall::execute_redeem {
                 redeem_id: redeem_2_id,
-                transaction
+                unchecked_transaction: transaction
             })
             .dispatch(origin_of(account_of(VAULT))),
             BTCRelayError::InvalidOpReturnTransaction
@@ -1396,8 +1397,11 @@ fn integration_test_single_redeem_multiple_op_returns() {
         SecurityPallet::set_active_block_number(1 + CONFIRMATIONS);
 
         assert_err!(
-            RuntimeCall::Redeem(RedeemCall::execute_redeem { redeem_id, transaction })
-                .dispatch(origin_of(account_of(VAULT))),
+            RuntimeCall::Redeem(RedeemCall::execute_redeem {
+                redeem_id,
+                unchecked_transaction: transaction
+            })
+            .dispatch(origin_of(account_of(VAULT))),
             BTCRelayError::InvalidOpReturnTransaction
         );
     });

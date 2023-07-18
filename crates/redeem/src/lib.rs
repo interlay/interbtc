@@ -35,7 +35,9 @@ use btc_relay::BtcAddress;
 use currency::Amount;
 use frame_support::{
     dispatch::{DispatchError, DispatchResult},
-    ensure, transactional,
+    ensure,
+    pallet_prelude::Weight,
+    transactional,
 };
 use frame_system::{ensure_root, ensure_signed};
 use oracle::OracleKey;
@@ -49,6 +51,27 @@ use vault_registry::{
 };
 
 pub use pallet::*;
+
+/// Complexity:
+/// - `O(H + I + O + B)` where:
+///   - `H` is the number of hashes in the merkle tree
+///   - `I` is the number of transaction inputs
+///   - `O` is the number of transaction outputs
+///   - `B` is `transaction` size in bytes (length-fee-bounded)
+fn weight_for_execute_redeem<T: Config>(proof: &FullTransactionProof) -> Weight {
+    <T as Config>::WeightInfo::execute_redeem(
+        proof.user_tx_proof.merkle_proof.hashes.len() as u32, // H
+        proof.user_tx_proof.transaction.inputs.len() as u32,  // I
+        proof.user_tx_proof.transaction.outputs.len() as u32, // O
+        proof.user_tx_proof.tx_encoded_len,
+    )
+    .saturating_add(<T as Config>::WeightInfo::execute_redeem(
+        proof.coinbase_proof.merkle_proof.hashes.len() as u32, // H
+        proof.coinbase_proof.transaction.inputs.len() as u32,  // I
+        proof.coinbase_proof.transaction.outputs.len() as u32, // O
+        proof.coinbase_proof.tx_encoded_len,
+    ))
+}
 
 #[frame_support::pallet]
 pub mod pallet {
@@ -266,34 +289,17 @@ pub mod pallet {
         /// * `tx_id` - transaction hash
         /// * `merkle_proof` - membership proof
         /// * `transaction` - tx containing payment
-        ///
-        /// ## Complexity:
-        /// - `O(H + I + O + B)` where:
-        ///   - `H` is the number of hashes in the merkle tree
-        ///   - `I` is the number of transaction inputs
-        ///   - `O` is the number of transaction outputs
-        ///   - `B` is `transaction` size in bytes (length-fee-bounded)
         #[pallet::call_index(2)]
-        #[pallet::weight(<T as Config>::WeightInfo::execute_redeem(
-            transaction.user_tx_proof.merkle_proof.hashes.len() as u32, // H
-            transaction.user_tx_proof.transaction.inputs.len() as u32, // I
-            transaction.user_tx_proof.transaction.outputs.len() as u32, // O
-            transaction.user_tx_proof.tx_encoded_len,
-        ).saturating_add(<T as Config>::WeightInfo::execute_redeem(
-            transaction.coinbase_proof.merkle_proof.hashes.len() as u32, // H
-            transaction.coinbase_proof.transaction.inputs.len() as u32, // I
-            transaction.coinbase_proof.transaction.outputs.len() as u32, // O
-            transaction.coinbase_proof.tx_encoded_len,
-        )))]
+        #[pallet::weight(weight_for_execute_redeem::<T>(unchecked_transaction))]
         #[transactional]
         pub fn execute_redeem(
             origin: OriginFor<T>,
             redeem_id: H256,
-            transaction: FullTransactionProof,
+            unchecked_transaction: FullTransactionProof,
         ) -> DispatchResultWithPostInfo {
             let _ = ensure_signed(origin)?;
 
-            Self::_execute_redeem(redeem_id, transaction)?;
+            Self::_execute_redeem(redeem_id, unchecked_transaction)?;
 
             // Don't take tx fees on success. If the vault had to pay for this function, it would
             // have been vulnerable to a griefing attack where users would redeem amounts just

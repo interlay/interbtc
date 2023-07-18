@@ -128,7 +128,7 @@ impl ExecuteIssueBuilder {
             // alice executes the issuerequest by confirming the btc transaction
             let ret = RuntimeCall::Issue(IssueCall::execute_issue {
                 issue_id: self.issue_id,
-                transaction: transaction.clone(),
+                unchecked_transaction: transaction.clone(),
             })
             .dispatch(origin_of(self.submitter.clone()));
             VaultRegistryPallet::collateral_integrity_check();

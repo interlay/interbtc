@@ -713,7 +713,7 @@ fn execute_replace_with_amount(replace_id: H256, amount: Amount<Runtime>) -> Dis
 
     RuntimeCall::Replace(ReplaceCall::execute_replace {
         replace_id,
-        transaction,
+        unchecked_transaction: transaction,
     })
     .dispatch(origin_of(account_of(OLD_VAULT)))
 }

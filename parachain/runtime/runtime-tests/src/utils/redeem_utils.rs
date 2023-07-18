@@ -68,7 +68,7 @@ impl ExecuteRedeemBuilder {
         // alice executes the redeemrequest by confirming the btc transaction
         let ret = RuntimeCall::Redeem(RedeemCall::execute_redeem {
             redeem_id: self.redeem_id,
-            transaction,
+            unchecked_transaction: transaction,
         })
         .dispatch(origin_of(self.submitter.clone()));
         VaultRegistryPallet::collateral_integrity_check();
@@ -209,7 +209,7 @@ pub fn assert_redeem_error(
     assert_noop!(
         RuntimeCall::Redeem(RedeemCall::execute_redeem {
             redeem_id: redeem_id,
-            transaction: unchecked_transaction
+            unchecked_transaction
         })
         .dispatch(origin_of(account_of(VAULT))),
         error

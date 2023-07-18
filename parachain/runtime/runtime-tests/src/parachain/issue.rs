@@ -501,7 +501,7 @@ fn integration_test_issue_wrapped_execute_succeeds() {
         // alice executes the issue by confirming the btc transaction
         assert_ok!(RuntimeCall::Issue(IssueCall::execute_issue {
             issue_id: issue_id,
-            transaction
+            unchecked_transaction: transaction
         })
         .dispatch(origin_of(account_of(vault_proof_submitter))));
     });
@@ -625,7 +625,7 @@ mod execute_pending_issue_tests {
             assert_noop!(
                 RuntimeCall::Issue(IssueCall::execute_issue {
                     issue_id: issue_id,
-                    transaction: unchecked_transaction
+                    unchecked_transaction
                 })
                 .dispatch(origin_of(account_of(CAROL))),
                 BTCRelayError::InvalidTxid
@@ -650,7 +650,7 @@ mod execute_pending_issue_tests {
             assert_noop!(
                 RuntimeCall::Issue(IssueCall::execute_issue {
                     issue_id: issue_id,
-                    transaction
+                    unchecked_transaction: transaction
                 })
                 .dispatch(origin_of(account_of(CAROL))),
                 BTCRelayError::BlockNotFound

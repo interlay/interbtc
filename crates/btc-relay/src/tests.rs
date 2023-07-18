@@ -1923,20 +1923,6 @@ fn sample_block_header() -> BlockHeader {
     ret
 }
 
-//
-//
-// fn sample_unchecked_partial_proof() -> PartialTransactionProof {
-//     let merkle_proof = sample_merkle_proof();
-//     let outputs = vec![sample_valid_payment_output()];
-//     let transaction = sample_transaction_parsed(&outputs);
-//     let tx_encoded_len = 99999999;
-//     PartialTransactionProof {
-//         merkle_proof,
-//         transaction,
-//         tx_encoded_len,
-//     }
-// }
-
 fn sample_unchecked_transaction() -> FullTransactionProof {
     let coinbase_tx_hex = "01000000010000000000000000000000000000000000000000000000000000000000000000ffffffff08044b6d0b1a020b02ffffffff0100f2052a01000000434104e8e37f1556b53b557405fc7924c861e640c8f99ebb3feb09ae69a84bea1f125940309beec02fb815ea5e68782c32da123b4585bc2f23731f1f1c62c9727dba9dac00000000";
     let raw_coinbase_tx = hex::decode(coinbase_tx_hex).unwrap();

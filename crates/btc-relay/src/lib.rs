@@ -54,8 +54,8 @@ use mocktopus::macros::mockable;
 #[cfg(feature = "runtime-benchmarks")]
 use bitcoin::types::{BlockBuilder, TransactionBuilder, TransactionOutput};
 use bitcoin::{
-    merkle::{PartialTransactionProof, ProofResult},
-    types::{BlockChain, BlockHeader, FullTransactionProof, H256Le, Transaction, Value},
+    merkle::ProofResult,
+    types::{BlockChain, BlockHeader, H256Le, Transaction, Value},
     Error as BitcoinError, SetCompact,
 };
 use frame_support::{
@@ -72,7 +72,10 @@ use sp_std::{
     prelude::*,
 };
 
-pub use bitcoin::{self, Address as BtcAddress, PublicKey as BtcPublicKey};
+pub use bitcoin::{
+    self, merkle::PartialTransactionProof, types::FullTransactionProof, Address as BtcAddress,
+    PublicKey as BtcPublicKey,
+};
 pub use pallet::*;
 pub use types::{OpReturnPaymentData, RichBlockHeader};
 
