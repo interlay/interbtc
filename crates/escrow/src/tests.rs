@@ -193,10 +193,29 @@ fn should_get_free_balance() {
     run_test(|| {
         limit_account(ALICE, 1000, 0, 100);
         assert_eq!(Escrow::get_free_balance(&ALICE), 0);
+        System::set_block_number(10);
+        assert_eq!(Escrow::get_free_balance(&ALICE), 100);
         System::set_block_number(100);
         assert_eq!(Escrow::get_free_balance(&ALICE), 1000);
         <Balances as Currency<AccountId>>::make_free_balance_be(&BOB, 2000);
         assert_eq!(Escrow::get_free_balance(&BOB), 2000);
+    })
+}
+
+#[test]
+fn test_free_stakable() {
+    run_test(|| {
+        limit_account(ALICE, 100_000, 0, 100);
+        System::set_block_number(10);
+        assert_eq!(Escrow::get_free_balance(&ALICE), 10_000);
+
+        assert_ok!(Escrow::create_lock(RuntimeOrigin::signed(ALICE), 7_000, 100),);
+        let available = Escrow::free_stakable(&ALICE);
+        assert_err!(
+            Escrow::increase_amount(RuntimeOrigin::signed(ALICE), available + 1),
+            TestError::InsufficientFunds
+        );
+        assert_ok!(Escrow::increase_amount(RuntimeOrigin::signed(ALICE), available));
     })
 }
 
