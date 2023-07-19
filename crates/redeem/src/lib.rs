@@ -30,12 +30,14 @@ pub mod types;
 pub use crate::types::{DefaultRedeemRequest, RedeemRequest, RedeemRequestStatus};
 
 use crate::types::{BalanceOf, RedeemRequestExt, Version};
-use bitcoin::types::{MerkleProof, Transaction};
+use bitcoin::types::FullTransactionProof;
 use btc_relay::BtcAddress;
 use currency::Amount;
 use frame_support::{
     dispatch::{DispatchError, DispatchResult},
-    ensure, transactional,
+    ensure,
+    pallet_prelude::Weight,
+    transactional,
 };
 use frame_system::{ensure_root, ensure_signed};
 use oracle::OracleKey;
@@ -49,6 +51,27 @@ use vault_registry::{
 };
 
 pub use pallet::*;
+
+/// Complexity:
+/// - `O(H + I + O + B)` where:
+///   - `H` is the number of hashes in the merkle tree
+///   - `I` is the number of transaction inputs
+///   - `O` is the number of transaction outputs
+///   - `B` is `transaction` size in bytes (length-fee-bounded)
+fn weight_for_execute_redeem<T: Config>(proof: &FullTransactionProof) -> Weight {
+    <T as Config>::WeightInfo::execute_redeem(
+        proof.user_tx_proof.merkle_proof.hashes.len() as u32, // H
+        proof.user_tx_proof.transaction.inputs.len() as u32,  // I
+        proof.user_tx_proof.transaction.outputs.len() as u32, // O
+        proof.user_tx_proof.tx_encoded_len,
+    )
+    .saturating_add(<T as Config>::WeightInfo::execute_redeem(
+        proof.coinbase_proof.merkle_proof.hashes.len() as u32, // H
+        proof.coinbase_proof.transaction.inputs.len() as u32,  // I
+        proof.coinbase_proof.transaction.outputs.len() as u32, // O
+        proof.coinbase_proof.tx_encoded_len,
+    ))
+}
 
 #[frame_support::pallet]
 pub mod pallet {
@@ -266,30 +289,17 @@ pub mod pallet {
         /// * `tx_id` - transaction hash
         /// * `merkle_proof` - membership proof
         /// * `transaction` - tx containing payment
-        ///
-        /// ## Complexity:
-        /// - `O(H + I + O + B)` where:
-        ///   - `H` is the number of hashes in the merkle tree
-        ///   - `I` is the number of transaction inputs
-        ///   - `O` is the number of transaction outputs
-        ///   - `B` is `transaction` size in bytes (length-fee-bounded)
         #[pallet::call_index(2)]
-        #[pallet::weight(<T as Config>::WeightInfo::execute_redeem(
-            merkle_proof.hashes.len() as u32, // H
-            transaction.inputs.len() as u32, // I
-            transaction.outputs.len() as u32, // O
-            *length_bound,
-        ))]
+        #[pallet::weight(weight_for_execute_redeem::<T>(unchecked_transaction))]
         #[transactional]
         pub fn execute_redeem(
             origin: OriginFor<T>,
             redeem_id: H256,
-            merkle_proof: MerkleProof,
-            transaction: Transaction,
-            #[pallet::compact] length_bound: u32,
+            unchecked_transaction: FullTransactionProof,
         ) -> DispatchResultWithPostInfo {
             let _ = ensure_signed(origin)?;
-            Self::_execute_redeem(redeem_id, merkle_proof, transaction, length_bound)?;
+
+            Self::_execute_redeem(redeem_id, unchecked_transaction)?;
 
             // Don't take tx fees on success. If the vault had to pay for this function, it would
             // have been vulnerable to a griefing attack where users would redeem amounts just
@@ -577,19 +587,12 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
-    fn _execute_redeem(
-        redeem_id: H256,
-        merkle_proof: MerkleProof,
-        transaction: Transaction,
-        length_bound: u32,
-    ) -> Result<(), DispatchError> {
+    fn _execute_redeem(redeem_id: H256, unchecked_transaction: FullTransactionProof) -> Result<(), DispatchError> {
         let redeem = Self::get_open_redeem_request_from_id(&redeem_id)?;
 
         // check the transaction inclusion and validity
         ext::btc_relay::verify_and_validate_op_return_transaction::<T, _>(
-            merkle_proof,
-            transaction,
-            length_bound, // need to check this first to avoid excess work
+            unchecked_transaction,
             redeem.btc_address,
             redeem.amount_btc,
             redeem_id,

@@ -104,10 +104,8 @@ enum PaymentType {
 
 struct ChainState<T: Config> {
     issue_id: H256,
-    merkle_proof: MerkleProof,
-    transaction: Transaction,
+    transaction: FullTransactionProof,
     issue_request: DefaultIssueRequest<T>,
-    length_bound: u32,
 }
 
 fn setup_issue<T: crate::Config>(
@@ -158,9 +156,8 @@ fn setup_issue<T: crate::Config>(
         &vault_btc_address,
     ));
 
-    let (transaction, merkle_proof) =
+    let transaction =
         BtcRelay::<T>::initialize_and_store_max(relayer_id.clone(), hashes, vin, outputs, tx_size as usize);
-    let length_bound = transaction.size_no_witness() as u32;
 
     register_vault::<T>(vault_id.clone());
 
@@ -170,10 +167,8 @@ fn setup_issue<T: crate::Config>(
 
     ChainState {
         issue_id,
-        merkle_proof,
         transaction,
         issue_request,
-        length_bound,
     }
 }
 
@@ -224,13 +219,7 @@ pub mod benchmarks {
         let issue_data = setup_issue::<T>(PaymentType::Exact, h, i, o, b);
 
         #[extrinsic_call]
-        execute_issue(
-            RawOrigin::Signed(origin),
-            issue_data.issue_id,
-            issue_data.merkle_proof,
-            issue_data.transaction,
-            issue_data.length_bound,
-        );
+        execute_issue(RawOrigin::Signed(origin), issue_data.issue_id, issue_data.transaction);
     }
 
     #[benchmark]
@@ -239,13 +228,7 @@ pub mod benchmarks {
         let issue_data = setup_issue::<T>(PaymentType::Overpayment, h, i, o, b);
 
         #[extrinsic_call]
-        execute_issue(
-            RawOrigin::Signed(origin),
-            issue_data.issue_id,
-            issue_data.merkle_proof,
-            issue_data.transaction,
-            issue_data.length_bound,
-        );
+        execute_issue(RawOrigin::Signed(origin), issue_data.issue_id, issue_data.transaction);
     }
 
     #[benchmark]
@@ -254,13 +237,7 @@ pub mod benchmarks {
         let issue_data = setup_issue::<T>(PaymentType::Underpayment, h, i, o, b);
 
         #[extrinsic_call]
-        execute_issue(
-            RawOrigin::Signed(origin),
-            issue_data.issue_id,
-            issue_data.merkle_proof,
-            issue_data.transaction,
-            issue_data.length_bound,
-        );
+        execute_issue(RawOrigin::Signed(origin), issue_data.issue_id, issue_data.transaction);
     }
 
     #[benchmark]
@@ -270,13 +247,7 @@ pub mod benchmarks {
         expire_issue::<T>(&issue_data);
 
         #[extrinsic_call]
-        execute_issue(
-            RawOrigin::Signed(origin),
-            issue_data.issue_id,
-            issue_data.merkle_proof,
-            issue_data.transaction,
-            issue_data.length_bound,
-        );
+        execute_issue(RawOrigin::Signed(origin), issue_data.issue_id, issue_data.transaction);
     }
 
     #[benchmark]
@@ -286,13 +257,7 @@ pub mod benchmarks {
         expire_issue::<T>(&issue_data);
 
         #[extrinsic_call]
-        execute_issue(
-            RawOrigin::Signed(origin),
-            issue_data.issue_id,
-            issue_data.merkle_proof,
-            issue_data.transaction,
-            issue_data.length_bound,
-        );
+        execute_issue(RawOrigin::Signed(origin), issue_data.issue_id, issue_data.transaction);
     }
 
     #[benchmark]
@@ -302,13 +267,7 @@ pub mod benchmarks {
         expire_issue::<T>(&issue_data);
 
         #[extrinsic_call]
-        execute_issue(
-            RawOrigin::Signed(origin),
-            issue_data.issue_id,
-            issue_data.merkle_proof,
-            issue_data.transaction,
-            issue_data.length_bound,
-        );
+        execute_issue(RawOrigin::Signed(origin), issue_data.issue_id, issue_data.transaction);
     }
 
     #[benchmark]

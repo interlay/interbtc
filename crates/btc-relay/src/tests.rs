@@ -1164,9 +1164,6 @@ fn test_verify_transaction_inclusion_succeeds() {
         let confirmations = None;
         let rich_block_header = sample_rich_tx_block_header(chain_id, main_chain_height);
 
-        let merkle_proof = sample_merkle_proof();
-        let proof_result = sample_valid_proof_result();
-
         let main = get_empty_block_chain_from_chain_id_and_height(chain_id, start, main_chain_height);
 
         let fork = get_empty_block_chain_from_chain_id_and_height(fork_ref, start, fork_chain_height);
@@ -1182,7 +1179,7 @@ fn test_verify_transaction_inclusion_succeeds() {
 
         BTCRelay::get_best_block_height.mock_safe(move || MockResult::Return(main_chain_height));
 
-        BTCRelay::verify_merkle_proof.mock_safe(move |_| MockResult::Return(Ok(proof_result)));
+        BTCRelay::block_matches_merkle_root.mock_safe(move |_, _| MockResult::Return(true));
 
         BTCRelay::get_block_header_from_hash.mock_safe(move |_| MockResult::Return(Ok(rich_block_header)));
 
@@ -1191,8 +1188,7 @@ fn test_verify_transaction_inclusion_succeeds() {
         BTCRelay::check_parachain_confirmations.mock_safe(|_| MockResult::Return(Ok(())));
 
         assert_ok!(BTCRelay::_verify_transaction_inclusion(
-            proof_result.transaction_hash,
-            merkle_proof,
+            sample_unchecked_transaction(),
             confirmations
         ));
     });
@@ -1207,9 +1203,6 @@ fn test_verify_transaction_inclusion_empty_fork_succeeds() {
         let confirmations = None;
         let rich_block_header = sample_rich_tx_block_header(chain_id, main_chain_height);
 
-        let merkle_proof = sample_merkle_proof();
-        let proof_result = sample_valid_proof_result();
-
         let main = get_empty_block_chain_from_chain_id_and_height(chain_id, start, main_chain_height);
 
         BTCRelay::get_block_chain_from_id.mock_safe(move |id| {
@@ -1222,17 +1215,16 @@ fn test_verify_transaction_inclusion_empty_fork_succeeds() {
 
         BTCRelay::get_best_block_height.mock_safe(move || MockResult::Return(main_chain_height));
 
-        BTCRelay::verify_merkle_proof.mock_safe(move |_| MockResult::Return(Ok(proof_result)));
-
         BTCRelay::get_block_header_from_hash.mock_safe(move |_| MockResult::Return(Ok(rich_block_header)));
 
         BTCRelay::check_bitcoin_confirmations.mock_safe(|_, _, _| MockResult::Return(Ok(())));
 
         BTCRelay::check_parachain_confirmations.mock_safe(|_| MockResult::Return(Ok(())));
 
+        BTCRelay::block_matches_merkle_root.mock_safe(move |_, _| MockResult::Return(true));
+
         assert_ok!(BTCRelay::_verify_transaction_inclusion(
-            proof_result.transaction_hash,
-            merkle_proof,
+            sample_unchecked_transaction(),
             confirmations,
         ));
     });
@@ -1249,14 +1241,6 @@ fn test_verify_transaction_inclusion_invalid_tx_id_fails() {
         let confirmations = None;
         let rich_block_header = sample_rich_tx_block_header(chain_id, main_chain_height);
 
-        // Mismatching TXID
-        let invalid_tx_id = H256Le::from_bytes_le(
-            &hex::decode("0000000000000000000000000000000000000000000000000000000000000000".to_owned()).unwrap(),
-        );
-
-        let merkle_proof = sample_merkle_proof();
-        let proof_result = sample_valid_proof_result();
-
         let main = get_empty_block_chain_from_chain_id_and_height(chain_id, start, main_chain_height);
 
         let fork = get_empty_block_chain_from_chain_id_and_height(fork_ref, start, fork_chain_height);
@@ -1272,16 +1256,21 @@ fn test_verify_transaction_inclusion_invalid_tx_id_fails() {
 
         BTCRelay::get_best_block_height.mock_safe(move || MockResult::Return(main_chain_height));
 
-        BTCRelay::verify_merkle_proof.mock_safe(move |_| MockResult::Return(Ok(proof_result)));
-
         BTCRelay::get_block_header_from_hash.mock_safe(move |_| MockResult::Return(Ok(rich_block_header)));
 
         BTCRelay::check_bitcoin_confirmations.mock_safe(|_, _, _| MockResult::Return(Ok(())));
 
         BTCRelay::check_parachain_confirmations.mock_safe(|_| MockResult::Return(Ok(())));
 
+        let mut tx = sample_unchecked_transaction();
+
+        // Mismatching TXID
+        tx.coinbase_proof.merkle_proof.hashes[0] = H256Le::from_bytes_le(
+            &hex::decode("0000000000000000000000000000000000000000000000000000000000000000".to_owned()).unwrap(),
+        );
+
         assert_err!(
-            BTCRelay::_verify_transaction_inclusion(invalid_tx_id, merkle_proof, confirmations,),
+            BTCRelay::_verify_transaction_inclusion(tx, confirmations,),
             TestError::InvalidTxid
         );
     });
@@ -1304,9 +1293,6 @@ fn test_verify_transaction_inclusion_invalid_merkle_root_fails() {
         );
         rich_block_header.block_header.merkle_root = invalid_merkle_root;
 
-        let merkle_proof = sample_merkle_proof();
-        let proof_result = sample_valid_proof_result();
-
         let main = get_empty_block_chain_from_chain_id_and_height(chain_id, start, main_chain_height);
 
         let fork = get_empty_block_chain_from_chain_id_and_height(fork_ref, start, fork_chain_height);
@@ -1328,8 +1314,11 @@ fn test_verify_transaction_inclusion_invalid_merkle_root_fails() {
 
         BTCRelay::check_parachain_confirmations.mock_safe(|_| MockResult::Return(Ok(())));
 
+        // merkle root does not match block
+        BTCRelay::block_matches_merkle_root.mock_safe(move |_, _| MockResult::Return(false));
+
         assert_err!(
-            BTCRelay::_verify_transaction_inclusion(proof_result.transaction_hash, merkle_proof, confirmations,),
+            BTCRelay::_verify_transaction_inclusion(sample_unchecked_transaction(), confirmations,),
             TestError::InvalidMerkleProof
         );
     });
@@ -1340,14 +1329,11 @@ fn test_verify_transaction_inclusion_fails_with_ongoing_fork() {
     run_test(|| {
         BTCRelay::get_chain_id_from_position.mock_safe(|_| MockResult::Return(Ok(1)));
         BTCRelay::get_block_chain_from_id.mock_safe(|_| MockResult::Return(Ok(BlockChain::default())));
-        BTCRelay::verify_merkle_proof.mock_safe(|_| MockResult::Return(Ok(sample_valid_proof_result())));
 
-        let tx_id = sample_valid_proof_result().transaction_hash;
-        let merkle_proof = sample_merkle_proof();
         let confirmations = None;
 
         assert_err!(
-            BTCRelay::_verify_transaction_inclusion(tx_id, merkle_proof, confirmations,),
+            BTCRelay::_verify_transaction_inclusion(sample_unchecked_transaction(), confirmations,),
             TestError::OngoingFork
         );
     });
@@ -1356,13 +1342,13 @@ fn test_verify_transaction_inclusion_fails_with_ongoing_fork() {
 #[test]
 fn test_get_and_verify_issue_payment_with_tx_containing_taproot() {
     run_test(|| {
-        let raw_tx = "010000000001013413e41f47eecad702082578c35a2925217056fd0a837b22f1a205fe178a010d0500000000ffffffff19771000000000000017a91415f691c1905082c300362d48540846c30855162d877a1000000000000022512038234fa3e3ca718dfadfb540c320180e68798e67e0a9d4f10d98ea33d37caf047a100000000000001976a914d73838271ee26471aa3640915ed7274b49435b6688acee2000000000000016001470eab26ae0074a58802acc7c38cd9941619c408d14250000000000001976a91479ef95650e8284c3be439d888cf2ee2d1d8ef63088ac3129000000000000160014a558dd2db8167e069f580da2482a9b73dc4f5960217f0000000000001976a91409f3607112083fb1ffe3718214a8e5d5eb0da46188ac04a50000000000001600149215c14609d581aacaa54f629e823cc8abd17ee6c7cd00000000000017a9146da59c9a54a5465402884712bbbe140bc68a4f218728f700000000000017a914ed99cbd06b43b4e3741d1457f7af7b24c2e8d12487ae380100000000001976a91448296f6f29c497f59193ab4e7def5f2e03ef2f9988ac654901000000000017a914ba997376b5daaa3707aefdf30cc09745b579df2187a6a301000000000017a914ffed3c6e71adc2b73939d6951f4655ed1432909b87ec9202000000000017a9147759a1bffe2acca168afdb5b106250b02a703b2887d63603000000000016001439fef3095e8a3bce11ce471aa602bf3e3609d8ddae3703000000000017a914ea0d18bbd804d17a1f2f07ed9aa1670721777d2287cd370300000000001976a914bcc6bcffe584761176d8f510896e882f838208d988ac1d3803000000000016001470eb59ad925fdec71ca0ec50cf7c6b9bbe8dc7592f380300000000001976a91447eb6c94d7b2ac0c11eb3957c0844d333e21d02e88ac724803000000000016001470eb59ad925fdec71ca0ec50cf7c6b9bbe8dc759692e050000000000160014ae26178c1a9b4adb6f24f047fa119e034205900c381b10000000000017a914c9e20b0d7e46d07a878585955ca377db833d181587d32b20000000000017a914bbfcd0b601046e1656ba9b74a98ee8d362d5b63687402f200000000000160014ca146a720a30ca404e979df59d3ddca039e8fd58f22fea0000000000220020935f3eb059cd94bd307e6378bd590724f361f0316fd0964eb5952f274dfb7b4f0400483045022100c9fc44a423e31fc792f5d255ae09ffdc0b224cb70fcebacd52183ce2813ba11d022046c8530230f644be4a05f25bd6a2264b99afc7e3e38531d4bde12d477d03f18001473044022027f50b14154123b173286db76e189a32973a13b0b4ca425329533229cf7f8d9a02202cea81a657ee654c63ab4a01a741931378abae036435a1d695622216596d9e27016952210257bf4070df9735de32305f3bc25320d331edb10c662423e06cd1e50bc58d8fa7210246454540c4e36ba6a481347d0194ffe476640289aecfd2d3f3db1328415b9a5c210248e0a3385d6f744ae81779e10f8ccafbbed7d44debf08a2b0d5250e2f0a0e84853aef0210b00";
-        let tx_bytes = hex::decode(&raw_tx).unwrap();
-        let transaction = parse_transaction(&tx_bytes).unwrap();
+        BTCRelay::_verify_transaction_inclusion.mock_safe(|_, _| {
+            let raw_tx = "010000000001013413e41f47eecad702082578c35a2925217056fd0a837b22f1a205fe178a010d0500000000ffffffff19771000000000000017a91415f691c1905082c300362d48540846c30855162d877a1000000000000022512038234fa3e3ca718dfadfb540c320180e68798e67e0a9d4f10d98ea33d37caf047a100000000000001976a914d73838271ee26471aa3640915ed7274b49435b6688acee2000000000000016001470eab26ae0074a58802acc7c38cd9941619c408d14250000000000001976a91479ef95650e8284c3be439d888cf2ee2d1d8ef63088ac3129000000000000160014a558dd2db8167e069f580da2482a9b73dc4f5960217f0000000000001976a91409f3607112083fb1ffe3718214a8e5d5eb0da46188ac04a50000000000001600149215c14609d581aacaa54f629e823cc8abd17ee6c7cd00000000000017a9146da59c9a54a5465402884712bbbe140bc68a4f218728f700000000000017a914ed99cbd06b43b4e3741d1457f7af7b24c2e8d12487ae380100000000001976a91448296f6f29c497f59193ab4e7def5f2e03ef2f9988ac654901000000000017a914ba997376b5daaa3707aefdf30cc09745b579df2187a6a301000000000017a914ffed3c6e71adc2b73939d6951f4655ed1432909b87ec9202000000000017a9147759a1bffe2acca168afdb5b106250b02a703b2887d63603000000000016001439fef3095e8a3bce11ce471aa602bf3e3609d8ddae3703000000000017a914ea0d18bbd804d17a1f2f07ed9aa1670721777d2287cd370300000000001976a914bcc6bcffe584761176d8f510896e882f838208d988ac1d3803000000000016001470eb59ad925fdec71ca0ec50cf7c6b9bbe8dc7592f380300000000001976a91447eb6c94d7b2ac0c11eb3957c0844d333e21d02e88ac724803000000000016001470eb59ad925fdec71ca0ec50cf7c6b9bbe8dc759692e050000000000160014ae26178c1a9b4adb6f24f047fa119e034205900c381b10000000000017a914c9e20b0d7e46d07a878585955ca377db833d181587d32b20000000000017a914bbfcd0b601046e1656ba9b74a98ee8d362d5b63687402f200000000000160014ca146a720a30ca404e979df59d3ddca039e8fd58f22fea0000000000220020935f3eb059cd94bd307e6378bd590724f361f0316fd0964eb5952f274dfb7b4f0400483045022100c9fc44a423e31fc792f5d255ae09ffdc0b224cb70fcebacd52183ce2813ba11d022046c8530230f644be4a05f25bd6a2264b99afc7e3e38531d4bde12d477d03f18001473044022027f50b14154123b173286db76e189a32973a13b0b4ca425329533229cf7f8d9a02202cea81a657ee654c63ab4a01a741931378abae036435a1d695622216596d9e27016952210257bf4070df9735de32305f3bc25320d331edb10c662423e06cd1e50bc58d8fa7210246454540c4e36ba6a481347d0194ffe476640289aecfd2d3f3db1328415b9a5c210248e0a3385d6f744ae81779e10f8ccafbbed7d44debf08a2b0d5250e2f0a0e84853aef0210b00";
+            let tx_bytes = hex::decode(&raw_tx).unwrap();
+            let transaction = parse_transaction(&tx_bytes).unwrap();
 
-        let raw_proof = "0000402007abe6919ca547e5a9ffe0a11936feef61cb59e7b1f703000000000000000000a53fd3336aa8a18ea00d4127ddb4f4c8d602eee44e271191ee957c257d6b28fc104c4362c0400a17783168d59f0a00000d20a74fa5c909996400a1eaf8ccb08a1fe93f125d260bdbe85f6c46a8ceb0135825c9767aea6bd8d7534a4dcb550332a174a3532aca52665e621c23504d020547dbaa46c7c8fd72b89d3b7dbe1f4f7ca977f3227ad9ce47fc725eb166324662ffdf6b1c856c7a4ec042017fd6c4b10b7b7405d35d2334389b1ea7455f3d94153b3ecfcbaea201e40fdfde250f6a810857bf3ce25af03521a417f44f038e48d7443c46d8574331f1e393ac0c47700544235de90786fca8b6f6d6ce4dce28eabfe82afdf11f4b31ae5209384e56cfc2e103a28f62cd5a269323966a3e29210276fd3fad24c0a2a832ba276dd036b0f50d1d24b12ad239812ffd64cc318f6c28a1a98295da3e28cc22959235808a432225dc101b3c5d545067c8c6553ea89675c7652d914146f9851d78c52802e5dffcbb77ae2f90478f507811c2cece1c2e7b08e5978b8384e6bdf73573b0033a6c2da1494abb5e0b760a00583c106cfdb9b658cecd0d11f35385dbbeb5546bda1144978c674a589e1991e8610aa5ef7480abff3e82bd5bcb91174fd1e896bab2746c9f5fed3faad55d043c1822e7a98f8b8862a104d7ae0500";
-        let proof_bytes = hex::decode(&raw_proof).unwrap();
-        let merkle_proof = MerkleProof::parse(&proof_bytes).unwrap();
+            MockResult::Return(Ok(transaction))
+        });
 
         // check the last output address
         let raw_address = "935f3eb059cd94bd307e6378bd590724f361f0316fd0964eb5952f274dfb7b4f";
@@ -1370,10 +1356,8 @@ fn test_get_and_verify_issue_payment_with_tx_containing_taproot() {
         let address_hash = H256::from_slice(&address_bytes);
         let recipient_btc_address = BtcAddress::P2WSHv0(address_hash);
 
-        BTCRelay::_verify_transaction_inclusion.mock_safe(|_, _, _| MockResult::Return(Ok(())));
-
         assert_ok!(
-            BTCRelay::get_and_verify_issue_payment::<i64>(merkle_proof, transaction, u32::MAX, recipient_btc_address),
+            BTCRelay::get_and_verify_issue_payment::<i64>(sample_unchecked_transaction(), recipient_btc_address),
             15347698
         );
     })
@@ -1923,18 +1907,7 @@ pub fn test_has_request_expired() {
 
 /// # Util functions
 
-const SAMPLE_TX_ID: &str = "c8589f304d3b9df1d4d8b3d15eb6edaaa2af9d796e9d9ace12b31f293705c5e9";
-
 const SAMPLE_MERKLE_ROOT: &str = "1EE1FB90996CA1D5DCD12866BA9066458BF768641215933D7D8B3A10EF79D090";
-
-fn sample_merkle_proof() -> MerkleProof {
-    MerkleProof {
-        block_header: sample_block_header(),
-        transactions_count: 1,
-        hashes: vec![H256Le::from_hex_le(SAMPLE_TX_ID)],
-        flag_bits: vec![true],
-    }
-}
 
 fn sample_block_header() -> BlockHeader {
     let mut ret = BlockHeader {
@@ -1950,14 +1923,35 @@ fn sample_block_header() -> BlockHeader {
     ret
 }
 
-fn sample_valid_proof_result() -> ProofResult {
-    let tx_id = H256Le::from_hex_le(SAMPLE_TX_ID);
-    let merkle_root = H256Le::from_hex_le(SAMPLE_MERKLE_ROOT);
+fn sample_unchecked_transaction() -> FullTransactionProof {
+    let coinbase_tx_hex = "01000000010000000000000000000000000000000000000000000000000000000000000000ffffffff08044b6d0b1a020b02ffffffff0100f2052a01000000434104e8e37f1556b53b557405fc7924c861e640c8f99ebb3feb09ae69a84bea1f125940309beec02fb815ea5e68782c32da123b4585bc2f23731f1f1c62c9727dba9dac00000000";
+    let raw_coinbase_tx = hex::decode(coinbase_tx_hex).unwrap();
+    let coinbase_tx = parse_transaction(&raw_coinbase_tx).unwrap();
 
-    ProofResult {
-        extracted_root: merkle_root,
-        transaction_hash: tx_id,
-        transaction_position: 0,
+    let coinbase_proof_hex = "010000006fd2c5a8fac33dbe89bb2a2947a73eed2afc3b1d4f886942df08000000000000b152eca4364850f3424c7ac2b337d606c5ca0a3f96f1554f8db33d2f6f130bbed325a04e4b6d0b1a85790e6b0a00000005e1af205960ae338a37174b407ee71067c3cd7f04d48a5cec7e13f6eccb61dcbca314970cd7c647d1cc0a477e1a2122b98205b6924b73001b8dab20ee81c2f4f740213c81f059806fb8c1b91d0a7397a57156cfc3a17b71d095c244aafc1eb1158be15fc2ab11ef3e079568d43b2b09ed5a5690fb13ecb1032f7aab99238a1847e827331b1fe7a2689fbc23d14cd21317c699596cbca222182a489322ece1fa74021f00";
+    let coinbase_raw_proof = hex::decode(coinbase_proof_hex).unwrap();
+    let coinbase_proof = MerkleProof::parse(&coinbase_raw_proof).unwrap();
+
+    // txid 8d30eb0f3e65b8d8a9f26f6f73fc5aafa5c0372f9bb38aa38dd4c9dd1933e090
+    let user_tx_hex = "010000000168a59c95a89ed5e9af00e90a7823156b02b7811000c63170bb2440d8db6a1869000000008a473044022050c32cf6cd888178268701a636b189dc3f026ee3ebd230fd77018e54044aac77022055aa7fa73c524dd4f0be02694683a21eb03d5d2f2c519d7dc7110b742c417517014104aa5c77986a87b93b03d949013e629601b6dbdbd5fc09f3bef9263b64b3c38d79d443fafa2fbf422a203fe433adf6e071f3172a53747739ce72c640fe7e514981ffffffff0140420f00000000001976a91449cf380abdb86449efc694988bf0f447739f73cd88ac00000000";
+    let raw_user_tx = hex::decode(user_tx_hex).unwrap();
+    let user_tx = parse_transaction(&raw_user_tx).unwrap();
+
+    let user_proof_hex = "010000006fd2c5a8fac33dbe89bb2a2947a73eed2afc3b1d4f886942df08000000000000b152eca4364850f3424c7ac2b337d606c5ca0a3f96f1554f8db33d2f6f130bbed325a04e4b6d0b1a85790e6b0a000000038d9d737b484e96eed701c4b3728aea80aa7f2a7f57125790ed9998f9050a1bef90e03319ddc9d48da38ab39b2f37c0a5af5afc736f6ff2a9d8b8653e0feb308d84251842a4c0f0e188e1c2bf643ec37a1402dd86a25a9ab5004633467d16e313013d";
+    let user_raw_proof = hex::decode(user_proof_hex).unwrap();
+    let user_proof = MerkleProof::parse(&user_raw_proof).unwrap();
+
+    FullTransactionProof {
+        coinbase_proof: PartialTransactionProof {
+            transaction: coinbase_tx,
+            tx_encoded_len: raw_coinbase_tx.len() as u32,
+            merkle_proof: coinbase_proof,
+        },
+        user_tx_proof: PartialTransactionProof {
+            transaction: user_tx,
+            tx_encoded_len: raw_user_tx.len() as u32,
+            merkle_proof: user_proof,
+        },
     }
 }
 

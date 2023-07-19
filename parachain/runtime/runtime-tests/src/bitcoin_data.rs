@@ -1,4 +1,7 @@
-use bitcoin::types::{BlockHeader, H256Le, MerkleProof};
+use bitcoin::{
+    parser::parse_transaction,
+    types::{BlockHeader, H256Le, MerkleProof},
+};
 use flate2::read::GzDecoder;
 use serde::Deserialize;
 use std::{
@@ -43,6 +46,7 @@ impl Block {
 #[derive(Clone, Debug, Deserialize)]
 pub struct Transaction {
     txid: String,
+    pub raw_tx: String,
     raw_merkle_proof: String,
 }
 
@@ -53,6 +57,15 @@ impl Transaction {
 
     pub fn get_merkle_proof(&self) -> MerkleProof {
         MerkleProof::parse(&hex::decode(&self.raw_merkle_proof).expect(ERR_INVALID_PROOF)).expect(ERR_INVALID_PROOF)
+    }
+
+    pub fn get_tx(&self) -> bitcoin::types::Transaction {
+        let raw_tx_bytes = &hex::decode(&self.raw_tx).expect(ERR_INVALID_PROOF);
+        parse_transaction(&raw_tx_bytes).unwrap()
+    }
+
+    pub fn get_tx_len(&self) -> u32 {
+        self.raw_tx.len() as u32
     }
 }
 

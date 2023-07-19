@@ -3,8 +3,8 @@ use sp_std::{prelude::*, vec, vec::Vec};
 
 use crate::{merkle::MerkleProof, script::*, types::*, Error, GetCompact};
 
-const WITNESS_FLAG: u8 = 0x01;
-const WITNESS_MARKER: u8 = 0x00;
+pub(crate) const WITNESS_FLAG: u8 = 0x01;
+pub(crate) const WITNESS_MARKER: u8 = 0x00;
 
 pub trait Writer {
     fn write(&mut self, buf: &[u8]) -> Result<(), Error>;
@@ -139,9 +139,16 @@ impl TryFormat for TransactionInput {
         };
         previous_hash.try_format(w)?;
         previous_index.try_format(w)?;
-        CompactUint::from_usize(self.script.len()).try_format(w)?;
+
         if let TransactionInputSource::Coinbase(Some(height)) = self.source {
-            Script::height(height).as_bytes().try_format(w)?;
+            let height_bytes = Script::height(height);
+            // account for the height in version 2 blocks
+            let script_len = self.script.len().saturating_add(height_bytes.len());
+
+            CompactUint::from_usize(script_len).try_format(w)?;
+            height_bytes.as_bytes().try_format(w)?;
+        } else {
+            CompactUint::from_usize(self.script.len()).try_format(w)?;
         }
         w.write(&self.script)?; // we already formatted the length
         self.sequence.try_format(w)?;

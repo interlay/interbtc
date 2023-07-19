@@ -1,6 +1,7 @@
 use crate::{ext, mock::*};
 
 use crate::types::{RedeemRequest, RedeemRequestStatus};
+use bitcoin::{merkle::PartialTransactionProof, types::FullTransactionProof};
 use btc_relay::BtcAddress;
 use currency::Amount;
 use frame_support::{assert_err, assert_noop, assert_ok, dispatch::DispatchError};
@@ -358,18 +359,28 @@ fn test_liquidation_redeem_succeeds() {
     })
 }
 
+fn get_some_unchecked_transaction() -> FullTransactionProof {
+    FullTransactionProof {
+        user_tx_proof: PartialTransactionProof {
+            transaction: Default::default(),
+            tx_encoded_len: u32::MAX,
+            merkle_proof: Default::default(),
+        },
+        coinbase_proof: PartialTransactionProof {
+            transaction: Default::default(),
+            tx_encoded_len: u32::MAX,
+            merkle_proof: Default::default(),
+        },
+    }
+}
+
 #[test]
 fn test_execute_redeem_fails_with_redeem_id_not_found() {
     run_test(|| {
         convert_to.mock_safe(|_, x| MockResult::Return(Ok(x)));
+
         assert_err!(
-            Redeem::execute_redeem(
-                RuntimeOrigin::signed(VAULT.account_id),
-                H256([0u8; 32]),
-                Default::default(),
-                Default::default(),
-                u32::MAX,
-            ),
+            Redeem::_execute_redeem(H256([0u8; 32]), get_some_unchecked_transaction()),
             TestError::RedeemIdNotFound
         );
     })
@@ -397,7 +408,7 @@ fn test_execute_redeem_succeeds_with_another_account() {
             },
         );
         ext::btc_relay::verify_and_validate_op_return_transaction::<Test, Balance>
-            .mock_safe(|_, _, _, _, _, _| MockResult::Return(Ok(())));
+            .mock_safe(|_, _, _, _| MockResult::Return(Ok(())));
 
         let btc_fee = Redeem::get_current_inclusion_fee(DEFAULT_WRAPPED_CURRENCY).unwrap();
 
@@ -433,12 +444,9 @@ fn test_execute_redeem_succeeds_with_another_account() {
             MockResult::Return(Ok(()))
         });
 
-        assert_ok!(Redeem::execute_redeem(
-            RuntimeOrigin::signed(USER),
+        assert_ok!(Redeem::_execute_redeem(
             H256([0u8; 32]),
-            Default::default(),
-            Default::default(),
-            u32::MAX,
+            get_some_unchecked_transaction()
         ));
         assert_emitted!(Event::ExecuteRedeem {
             redeem_id: H256([0; 32]),
@@ -477,7 +485,7 @@ fn test_execute_redeem_succeeds() {
             },
         );
         ext::btc_relay::verify_and_validate_op_return_transaction::<Test, Balance>
-            .mock_safe(|_, _, _, _, _, _| MockResult::Return(Ok(())));
+            .mock_safe(|_, _, _, _| MockResult::Return(Ok(())));
 
         let btc_fee = Redeem::get_current_inclusion_fee(DEFAULT_WRAPPED_CURRENCY).unwrap();
 
@@ -513,12 +521,9 @@ fn test_execute_redeem_succeeds() {
             MockResult::Return(Ok(()))
         });
 
-        assert_ok!(Redeem::execute_redeem(
-            RuntimeOrigin::signed(VAULT.account_id),
+        assert_ok!(Redeem::_execute_redeem(
             H256([0u8; 32]),
-            Default::default(),
-            Default::default(),
-            u32::MAX,
+            get_some_unchecked_transaction()
         ));
         assert_emitted!(Event::ExecuteRedeem {
             redeem_id: H256([0; 32]),
@@ -837,7 +842,7 @@ mod spec_based_tests {
                 },
             );
             ext::btc_relay::verify_and_validate_op_return_transaction::<Test, Balance>
-                .mock_safe(|_, _, _, _, _, _| MockResult::Return(Ok(())));
+                .mock_safe(|_, _, _, _| MockResult::Return(Ok(())));
 
             let btc_fee = Redeem::get_current_inclusion_fee(DEFAULT_WRAPPED_CURRENCY).unwrap();
             let redeem_request = RedeemRequest {
@@ -869,12 +874,9 @@ mod spec_based_tests {
                 MockResult::Return(Ok(()))
             });
 
-            assert_ok!(Redeem::execute_redeem(
-                RuntimeOrigin::signed(USER),
+            assert_ok!(Redeem::_execute_redeem(
                 H256([0u8; 32]),
-                Default::default(),
-                Default::default(),
-                u32::MAX,
+                get_some_unchecked_transaction()
             ));
             assert_emitted!(Event::ExecuteRedeem {
                 redeem_id: H256([0; 32]),

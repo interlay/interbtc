@@ -3,6 +3,7 @@ use crate::{
     *,
 };
 
+use bitcoin::merkle::PartialTransactionProof;
 use btc_relay::BtcAddress;
 use currency::Amount;
 use frame_support::{assert_err, assert_ok};
@@ -42,6 +43,21 @@ fn griefing(amount: u128) -> Amount<Test> {
 }
 fn wrapped(amount: u128) -> Amount<Test> {
     Amount::new(amount, DEFAULT_WRAPPED_CURRENCY)
+}
+
+fn get_some_unchecked_transaction() -> FullTransactionProof {
+    FullTransactionProof {
+        user_tx_proof: PartialTransactionProof {
+            transaction: Default::default(),
+            tx_encoded_len: u32::MAX,
+            merkle_proof: Default::default(),
+        },
+        coinbase_proof: PartialTransactionProof {
+            transaction: Default::default(),
+            tx_encoded_len: u32::MAX,
+            merkle_proof: Default::default(),
+        },
+    }
 }
 
 mod request_replace_tests {
@@ -189,7 +205,7 @@ mod execute_replace_test {
         Replace::replace_period.mock_safe(|| MockResult::Return(20));
         ext::btc_relay::has_request_expired::<Test>.mock_safe(|_, _, _| MockResult::Return(Ok(false)));
         ext::btc_relay::verify_and_validate_op_return_transaction::<Test, Balance>
-            .mock_safe(|_, _, _, _, _, _| MockResult::Return(Ok(())));
+            .mock_safe(|_, _, _, _| MockResult::Return(Ok(())));
         ext::vault_registry::replace_tokens::<Test>.mock_safe(|_, _, _, _| MockResult::Return(Ok(())));
         Amount::<Test>::unlock_on.mock_safe(|_, _| MockResult::Return(Ok(())));
         ext::vault_registry::transfer_funds::<Test>.mock_safe(|_, _, _| MockResult::Return(Ok(())));
@@ -204,9 +220,7 @@ mod execute_replace_test {
             setup_mocks();
             assert_ok!(Replace::_execute_replace(
                 H256::zero(),
-                Default::default(),
-                Default::default(),
-                u32::MAX,
+                get_some_unchecked_transaction()
             ));
             assert_event_matches!(Event::ExecuteReplace {
                 replace_id: _,
@@ -231,9 +245,7 @@ mod execute_replace_test {
 
             assert_ok!(Replace::_execute_replace(
                 H256::zero(),
-                Default::default(),
-                Default::default(),
-                u32::MAX,
+                get_some_unchecked_transaction()
             ));
             assert_event_matches!(Event::ExecuteReplace {
                 replace_id: _,

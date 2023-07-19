@@ -54,7 +54,7 @@ use mocktopus::macros::mockable;
 #[cfg(feature = "runtime-benchmarks")]
 use bitcoin::types::{BlockBuilder, TransactionBuilder, TransactionOutput};
 use bitcoin::{
-    merkle::{MerkleProof, ProofResult},
+    merkle::ProofResult,
     types::{BlockChain, BlockHeader, H256Le, Transaction, Value},
     Error as BitcoinError, SetCompact,
 };
@@ -72,7 +72,10 @@ use sp_std::{
     prelude::*,
 };
 
-pub use bitcoin::{self, Address as BtcAddress, PublicKey as BtcPublicKey};
+pub use bitcoin::{
+    self, merkle::PartialTransactionProof, types::FullTransactionProof, Address as BtcAddress,
+    PublicKey as BtcPublicKey,
+};
 pub use pallet::*;
 pub use types::{OpReturnPaymentData, RichBlockHeader};
 
@@ -551,17 +554,11 @@ impl<T: Config> Pallet<T> {
 
     /// interface to the issue pallet; verifies inclusion and returns the payment amount
     pub fn get_and_verify_issue_payment<V: TryFrom<Value>>(
-        merkle_proof: MerkleProof,
-        transaction: Transaction,
-        length_bound: u32,
+        unchecked_transaction: FullTransactionProof,
         recipient_btc_address: BtcAddress,
     ) -> Result<V, DispatchError> {
-        let tx_id = transaction
-            .tx_id_bounded(length_bound)
-            .map_err(|err| Error::<T>::from(err))?;
-
         // Verify that the transaction is indeed included in the main chain
-        Self::_verify_transaction_inclusion(tx_id, merkle_proof, None)?;
+        let transaction = Self::_verify_transaction_inclusion(unchecked_transaction, None)?;
 
         Self::get_issue_payment(transaction, recipient_btc_address)
     }
@@ -588,19 +585,13 @@ impl<T: Config> Pallet<T> {
 
     /// interface to redeem,replace,refund to check that the payment is included and is valid
     pub fn verify_and_validate_op_return_transaction<V: TryInto<Value>>(
-        merkle_proof: MerkleProof,
-        transaction: Transaction,
-        length_bound: u32,
+        unchecked_transaction: FullTransactionProof,
         recipient_btc_address: BtcAddress,
         expected_btc: V,
         op_return_id: H256,
     ) -> Result<(), DispatchError> {
-        let tx_id = transaction
-            .tx_id_bounded(length_bound)
-            .map_err(|err| Error::<T>::from(err))?;
-
         // Verify that the transaction is indeed included in the main chain
-        Self::_verify_transaction_inclusion(tx_id, merkle_proof, None)?;
+        let transaction = Self::_verify_transaction_inclusion(unchecked_transaction, None)?;
 
         // Check that the transaction matches the given parameters
         Self::validate_op_return_transaction(transaction, recipient_btc_address, expected_btc, op_return_id)?;
@@ -608,28 +599,51 @@ impl<T: Config> Pallet<T> {
     }
 
     pub fn _verify_transaction_inclusion(
-        tx_id: H256Le,
-        merkle_proof: MerkleProof,
+        unchecked_transaction: FullTransactionProof,
         confirmations: Option<u32>,
-    ) -> Result<(), DispatchError> {
+    ) -> Result<Transaction, DispatchError> {
         if Self::disable_inclusion_check() {
-            return Ok(());
+            return Ok(unchecked_transaction.user_tx_proof.transaction);
         }
-        let proof_result = Self::verify_merkle_proof(&merkle_proof)?;
+        let user_proof_result = Self::verify_merkle_proof(unchecked_transaction.user_tx_proof)?;
+        let coinbase_proof_result = Self::verify_merkle_proof(unchecked_transaction.coinbase_proof)?;
 
-        let block_hash = merkle_proof.block_header.hash;
-        let stored_block_header = Self::verify_block_header_inclusion(block_hash, confirmations)?;
-
-        // fail if the transaction hash is invalid
-        ensure!(proof_result.transaction_hash == tx_id, Error::<T>::InvalidTxid);
-
-        // fail if the merkle root is invalid
+        // Make sure the coinbase tx is for the same block as the user tx
         ensure!(
-            proof_result.extracted_root == stored_block_header.merkle_root,
+            user_proof_result.extracted_root == coinbase_proof_result.extracted_root,
+            Error::<T>::InvalidMerkleProof
+        );
+        ensure!(
+            user_proof_result.block_hash == coinbase_proof_result.block_hash,
             Error::<T>::InvalidMerkleProof
         );
 
-        Ok(())
+        // ensure that the tx count for the coinbase tx matches the user's
+        ensure!(
+            user_proof_result.tx_count == coinbase_proof_result.tx_count,
+            Error::<T>::InvalidMerkleProof
+        );
+
+        // Ensure that it's actually the coinbase tx
+        ensure!(
+            coinbase_proof_result.transaction.is_coinbase(),
+            Error::<T>::InvalidMerkleProof
+        );
+
+        let stored_block_header = Self::verify_block_header_inclusion(user_proof_result.block_hash, confirmations)?;
+
+        // fail if the merkle root is invalid
+        ensure!(
+            Self::block_matches_merkle_root(&stored_block_header, &user_proof_result),
+            Error::<T>::InvalidMerkleProof
+        );
+
+        Ok(user_proof_result.transaction)
+    }
+
+    // util function extracted for mocking purposes
+    fn block_matches_merkle_root(block_header: &BlockHeader, proof_result: &ProofResult) -> bool {
+        proof_result.extracted_root == block_header.merkle_root
     }
 
     pub fn verify_block_header_inclusion(
@@ -908,8 +922,10 @@ impl<T: Config> Pallet<T> {
     // *********************************
 
     // Wrapper functions around bitcoin lib for testing purposes
-    fn verify_merkle_proof(merkle_proof: &MerkleProof) -> Result<ProofResult, DispatchError> {
-        merkle_proof.verify_proof().map_err(|err| Error::<T>::from(err).into())
+    fn verify_merkle_proof(unchecked_transaction: PartialTransactionProof) -> Result<ProofResult, DispatchError> {
+        unchecked_transaction
+            .verify_proof()
+            .map_err(|err| Error::<T>::from(err).into())
     }
 
     /// Verifies a Bitcoin block header.
@@ -1346,7 +1362,7 @@ impl<T: Config> Pallet<T> {
         vin: u32,
         vout: Vec<TransactionOutput>,
         max_tx_size: usize,
-    ) -> (Transaction, MerkleProof) {
+    ) -> FullTransactionProof {
         let init_block = BlockBuilder::new()
             .with_version(4)
             .with_coinbase(&BtcAddress::default(), 50, 3)
@@ -1375,7 +1391,21 @@ impl<T: Config> Pallet<T> {
             ext::security::active_block_number::<T>() + Self::parachain_confirmations() + 1u32.into(),
         );
 
-        (transaction, merkle_proof)
+        let coinbase_tx = block.transactions[0].clone();
+        let coinbase_merkle_proof = block.merkle_proof(&[coinbase_tx.tx_id()]).unwrap();
+
+        FullTransactionProof {
+            coinbase_proof: PartialTransactionProof {
+                tx_encoded_len: coinbase_tx.size_no_witness() as u32,
+                transaction: coinbase_tx,
+                merkle_proof: coinbase_merkle_proof,
+            },
+            user_tx_proof: PartialTransactionProof {
+                tx_encoded_len: transaction.size_no_witness() as u32,
+                transaction: transaction,
+                merkle_proof,
+            },
+        }
     }
 
     #[cfg(feature = "runtime-benchmarks")]
@@ -1419,6 +1449,7 @@ impl<T: Config> From<BitcoinError> for Error<T> {
             BitcoinError::ArithmeticUnderflow => Self::ArithmeticUnderflow,
             BitcoinError::InvalidCompact => Self::InvalidCompact,
             BitcoinError::BoundExceeded => Self::BoundExceeded,
+            BitcoinError::InvalidTxid => Self::InvalidTxid,
         }
     }
 }

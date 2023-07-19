@@ -137,7 +137,7 @@ fn setup_replace<T: crate::Config>(
     vin: u32,
     vout: u32,
     tx_size: u32,
-) -> (H256, MerkleProof, Transaction)
+) -> (H256, FullTransactionProof)
 where
     <<T as currency::Config>::Balance as TryInto<i64>>::Error: Debug,
 {
@@ -186,7 +186,7 @@ where
         ));
     }
 
-    let (transaction, merkle_proof) =
+    let transaction =
         BtcRelay::<T>::initialize_and_store_max(relayer_id.clone(), hashes, vin, outputs, tx_size as usize);
 
     let period = Replace::<T>::replace_period().max(replace_request.period);
@@ -197,7 +197,7 @@ where
         Security::<T>::active_block_number() + Replace::<T>::replace_period() + 100u32.into(),
     );
 
-    (replace_id, merkle_proof, transaction)
+    (replace_id, transaction)
 }
 
 #[benchmarks(
@@ -278,18 +278,10 @@ pub mod benchmarks {
             to_be_replaced,
             ..
         } = setup_chain::<T>();
-        let (replace_id, merkle_proof, transaction) =
-            setup_replace::<T>(&old_vault_id, &new_vault_id, to_be_replaced, h, i, o, b);
-        let length_bound = transaction.size_no_witness() as u32;
+        let (replace_id, transaction) = setup_replace::<T>(&old_vault_id, &new_vault_id, to_be_replaced, h, i, o, b);
 
         #[extrinsic_call]
-        execute_replace(
-            RawOrigin::Signed(old_vault_id.account_id),
-            replace_id,
-            merkle_proof,
-            transaction,
-            length_bound,
-        );
+        execute_replace(RawOrigin::Signed(old_vault_id.account_id), replace_id, transaction);
     }
 
     #[benchmark]
@@ -300,9 +292,7 @@ pub mod benchmarks {
             to_be_replaced,
             ..
         } = setup_chain::<T>();
-        let (replace_id, merkle_proof, transaction) =
-            setup_replace::<T>(&old_vault_id, &new_vault_id, to_be_replaced, h, i, o, b);
-        let length_bound = transaction.size_no_witness() as u32;
+        let (replace_id, transaction) = setup_replace::<T>(&old_vault_id, &new_vault_id, to_be_replaced, h, i, o, b);
 
         assert_ok!(Pallet::<T>::cancel_replace(
             RawOrigin::Signed(new_vault_id.account_id).into(),
@@ -310,13 +300,7 @@ pub mod benchmarks {
         ));
 
         #[extrinsic_call]
-        execute_replace(
-            RawOrigin::Signed(old_vault_id.account_id),
-            replace_id,
-            merkle_proof,
-            transaction,
-            length_bound,
-        );
+        execute_replace(RawOrigin::Signed(old_vault_id.account_id), replace_id, transaction);
     }
 
     #[benchmark]
@@ -328,7 +312,7 @@ pub mod benchmarks {
             ..
         } = setup_chain::<T>();
 
-        let (replace_id, _, _) = setup_replace::<T>(&old_vault_id, &new_vault_id, to_be_replaced, 2, 2, 2, 541);
+        let (replace_id, _) = setup_replace::<T>(&old_vault_id, &new_vault_id, to_be_replaced, 2, 2, 2, 541);
 
         #[extrinsic_call]
         cancel_replace(RawOrigin::Signed(new_vault_id.account_id), replace_id);

@@ -6,7 +6,7 @@ use mocktopus::macros::mockable;
 pub use crate::merkle::MerkleProof;
 use crate::{
     formatter::{BoundedWriter, TryFormat, Writer},
-    merkle::MerkleTree,
+    merkle::{MerkleTree, PartialTransactionProof},
     parser::{extract_address_hash_scriptsig, extract_address_hash_witness, parse_block_header},
     utils::{log2, reverse_endianness, sha256d_le},
     Address, Error, PublicKey, Script,
@@ -23,6 +23,15 @@ use codec::alloc::string::String;
 use serde::{Deserialize, Serialize};
 
 pub(crate) const SERIALIZE_TRANSACTION_NO_WITNESS: i32 = 0x4000_0000;
+
+/// We also check the coinbase proof in order to defend against the 'leaf-node weakness'.
+/// See https://bitslog.com/2018/06/09/leaf-node-weakness-in-bitcoin-merkle-tree-design/ .
+#[derive(Encode, Decode, Clone, TypeInfo, PartialEq)]
+#[cfg_attr(feature = "std", derive(Debug))]
+pub struct FullTransactionProof {
+    pub user_tx_proof: PartialTransactionProof,
+    pub coinbase_proof: PartialTransactionProof,
+}
 
 /// Bitcoin Script OpCodes
 /// <https://github.com/bitcoin/bitcoin/blob/master/src/script/script.h>
@@ -367,6 +376,17 @@ impl Transaction {
     pub(crate) fn has_witness(&self) -> bool {
         // check if any of the inputs has a witness
         self.inputs.iter().any(|v| !v.witness.is_empty())
+    }
+
+    pub fn is_coinbase(&self) -> bool {
+        self.inputs.len() == 1
+            && matches!(
+                self.inputs.get(0),
+                Some(&TransactionInput {
+                    source: TransactionInputSource::Coinbase(_),
+                    ..
+                })
+            )
     }
 }
 
@@ -1083,8 +1103,8 @@ mod tests {
             .unwrap();
         assert_eq!(block.header.version, 4);
         assert_eq!(block.header.merkle_root, block.transactions[0].tx_id());
-        // should be 3, might change if block is changed
-        assert_eq!(block.header.nonce, 3);
+        // should be 2, might change if block is changed (last change was due to coinbase txid calculation fix)
+        assert_eq!(block.header.nonce, 2);
         assert!(block.header.nonce > 0);
     }
 
