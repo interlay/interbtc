@@ -29,7 +29,7 @@ pub mod types;
 #[doc(inline)]
 pub use crate::types::{DefaultRedeemRequest, RedeemRequest, RedeemRequestStatus};
 
-use crate::types::{BalanceOf, RedeemRequestExt, Version};
+use crate::types::{BalanceOf, RedeemRequestExt};
 use bitcoin::types::{MerkleProof, Transaction};
 use btc_relay::BtcAddress;
 use currency::Amount;
@@ -163,16 +163,6 @@ pub mod pallet {
     #[pallet::getter(fn redeem_transaction_size)]
     pub(super) type RedeemTransactionSize<T: Config> = StorageValue<_, u32, ValueQuery>;
 
-    #[pallet::type_value]
-    pub(super) fn DefaultForStorageVersion() -> Version {
-        Version::V0
-    }
-
-    /// Build storage at V1 (requires default 0).
-    #[pallet::storage]
-    #[pallet::getter(fn storage_version)]
-    pub(super) type StorageVersion<T: Config> = StorageValue<_, Version, ValueQuery, DefaultForStorageVersion>;
-
     #[pallet::genesis_config]
     pub struct GenesisConfig<T: Config> {
         pub redeem_period: T::BlockNumber,
@@ -203,7 +193,11 @@ pub mod pallet {
     #[pallet::hooks]
     impl<T: Config> Hooks<T::BlockNumber> for Pallet<T> {}
 
+    /// The current storage version.
+    const STORAGE_VERSION: StorageVersion = StorageVersion::new(0);
+
     #[pallet::pallet]
+    #[pallet::storage_version(STORAGE_VERSION)]
     pub struct Pallet<T>(_);
 
     // The pallet's dispatchable functions.

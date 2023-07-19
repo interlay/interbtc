@@ -70,6 +70,14 @@ pub mod pallet {
         type WeightInfo: WeightInfo;
     }
 
+    #[pallet::hooks]
+    impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
+        fn on_runtime_upgrade() -> Weight {
+            StorageVersion::new(Version::V4 as u16).put::<Pallet<T>>();
+            Default::default()
+        }
+    }
+
     #[pallet::event]
     #[pallet::generate_deposit(pub(super) fn deposit_event)]
     pub enum Event<T: Config> {
@@ -148,16 +156,6 @@ pub mod pallet {
     #[pallet::storage]
     pub(super) type IssueBtcDustValue<T: Config> = StorageValue<_, BalanceOf<T>, ValueQuery>;
 
-    #[pallet::type_value]
-    pub(super) fn DefaultForStorageVersion() -> Version {
-        Version::V4
-    }
-
-    /// Build storage at V1 (requires default 0).
-    #[pallet::storage]
-    #[pallet::getter(fn storage_version)]
-    pub(super) type StorageVersion<T: Config> = StorageValue<_, Version, ValueQuery, DefaultForStorageVersion>;
-
     #[pallet::genesis_config]
     pub struct GenesisConfig<T: Config> {
         pub issue_period: T::BlockNumber,
@@ -182,7 +180,11 @@ pub mod pallet {
         }
     }
 
+    /// The current storage version.
+    const STORAGE_VERSION: StorageVersion = StorageVersion::new(0);
+
     #[pallet::pallet]
+    #[pallet::storage_version(STORAGE_VERSION)]
     pub struct Pallet<T>(_);
 
     // The pallet's dispatchable functions.

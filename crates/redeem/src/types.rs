@@ -1,19 +1,10 @@
 pub use primitives::redeem::{RedeemRequest, RedeemRequestStatus};
 use primitives::VaultId;
-use scale_info::TypeInfo;
 use sp_runtime::DispatchError;
 use vault_registry::types::CurrencyId;
 
 use crate::Config;
-use codec::{Decode, Encode, MaxEncodedLen};
 use currency::Amount;
-
-/// Storage version.
-#[derive(Encode, Decode, Eq, PartialEq, TypeInfo, MaxEncodedLen)]
-pub enum Version {
-    /// Initial version.
-    V0,
-}
 
 pub(crate) type BalanceOf<T> = <T as currency::Config>::Balance;
 

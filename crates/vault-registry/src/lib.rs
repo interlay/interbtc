@@ -74,7 +74,11 @@ pub mod pallet {
     use frame_support::pallet_prelude::*;
     use frame_system::pallet_prelude::*;
 
+    /// The current storage version.
+    const STORAGE_VERSION: StorageVersion = StorageVersion::new(6);
+
     #[pallet::pallet]
+    #[pallet::storage_version(STORAGE_VERSION)]
     pub struct Pallet<T>(_);
 
     #[pallet::config]
@@ -632,16 +636,6 @@ pub mod pallet {
     pub(super) type TotalUserVaultCollateral<T: Config> =
         StorageMap<_, Blake2_128Concat, DefaultVaultCurrencyPair<T>, BalanceOf<T>, ValueQuery>;
 
-    #[pallet::type_value]
-    pub(super) fn DefaultForStorageVersion() -> Version {
-        Version::V6
-    }
-
-    /// Pallet storage version
-    #[pallet::storage]
-    #[pallet::getter(fn storage_version)]
-    pub(super) type StorageVersion<T: Config> = StorageValue<_, Version, ValueQuery, DefaultForStorageVersion>;
-
     #[pallet::genesis_config]
     pub struct GenesisConfig<T: Config> {
         pub minimum_collateral_vault: Vec<(CurrencyId<T>, BalanceOf<T>)>,
@@ -685,7 +679,8 @@ pub mod pallet {
             for (currency_pair, threshold) in self.liquidation_collateral_threshold.iter() {
                 LiquidationCollateralThreshold::<T>::insert(currency_pair, threshold);
             }
-            StorageVersion::<T>::put(Version::V3);
+
+            StorageVersion::new(Version::V6 as u16).put::<Pallet<T>>();
         }
     }
 }

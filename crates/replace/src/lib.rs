@@ -25,7 +25,7 @@ extern crate mocktopus;
 #[cfg(test)]
 use mocktopus::macros::mockable;
 
-use crate::types::{BalanceOf, ReplaceRequestExt, Version};
+use crate::types::{BalanceOf, ReplaceRequestExt};
 pub use crate::types::{DefaultReplaceRequest, ReplaceRequest, ReplaceRequestStatus};
 use bitcoin::types::{MerkleProof, Transaction};
 use btc_relay::BtcAddress;
@@ -153,16 +153,6 @@ pub mod pallet {
     #[pallet::getter(fn replace_btc_dust_value)]
     pub(super) type ReplaceBtcDustValue<T: Config> = StorageValue<_, BalanceOf<T>, ValueQuery>;
 
-    #[pallet::type_value]
-    pub(super) fn DefaultForStorageVersion() -> Version {
-        Version::V0
-    }
-
-    /// Build storage at V1 (requires default 0).
-    #[pallet::storage]
-    #[pallet::getter(fn storage_version)]
-    pub(super) type StorageVersion<T: Config> = StorageValue<_, Version, ValueQuery, DefaultForStorageVersion>;
-
     #[pallet::genesis_config]
     pub struct GenesisConfig<T: Config> {
         pub replace_period: T::BlockNumber,
@@ -190,7 +180,11 @@ pub mod pallet {
     #[pallet::hooks]
     impl<T: Config> Hooks<T::BlockNumber> for Pallet<T> {}
 
+    /// The current storage version.
+    const STORAGE_VERSION: StorageVersion = StorageVersion::new(0);
+
     #[pallet::pallet]
+    #[pallet::storage_version(STORAGE_VERSION)]
     pub struct Pallet<T>(_);
 
     // The pallet's dispatchable functions.
