@@ -25,7 +25,7 @@ use serde::{Deserialize, Serialize};
 pub(crate) const SERIALIZE_TRANSACTION_NO_WITNESS: i32 = 0x4000_0000;
 
 /// We also check the coinbase proof in order to defend against the 'leaf-node weakness'.
-/// See https://bitslog.com/2018/06/09/leaf-node-weakness-in-bitcoin-merkle-tree-design/ .
+/// See <https://bitslog.com/2018/06/09/leaf-node-weakness-in-bitcoin-merkle-tree-design/> .
 #[derive(Encode, Decode, Clone, TypeInfo, PartialEq)]
 #[cfg_attr(feature = "std", derive(Debug))]
 pub struct FullTransactionProof {
