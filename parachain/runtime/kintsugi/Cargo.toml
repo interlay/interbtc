@@ -62,75 +62,75 @@ sp-consensus-aura = { git = "https://github.com/paritytech/substrate", branch = 
 
 # Cumulus dependencies
 cumulus-pallet-aura-ext = { git = "https://github.com/paritytech/cumulus", branch = "polkadot-v0.9.31", default-features = false }
+cumulus-pallet-dmp-queue = { git = "https://github.com/paritytech/cumulus", branch = "polkadot-v0.9.31", default-features = false }
 cumulus-pallet-parachain-system = { git = "https://github.com/paritytech/cumulus", branch = "polkadot-v0.9.31", default-features = false }
+cumulus-pallet-xcm = { git = "https://github.com/paritytech/cumulus", branch = "polkadot-v0.9.31", default-features = false }
+cumulus-pallet-xcmp-queue = { git = "https://github.com/paritytech/cumulus", branch = "polkadot-v0.9.31", default-features = false }
 cumulus-primitives-core = { git = "https://github.com/paritytech/cumulus", branch = "polkadot-v0.9.31", default-features = false }
 cumulus-primitives-timestamp = { git = "https://github.com/paritytech/cumulus", branch = "polkadot-v0.9.31", default-features = false }
 cumulus-primitives-utility = { git = "https://github.com/paritytech/cumulus", branch = "polkadot-v0.9.31", default-features = false }
-cumulus-pallet-dmp-queue = { git = "https://github.com/paritytech/cumulus", branch = "polkadot-v0.9.31", default-features = false }
-cumulus-pallet-xcmp-queue = { git = "https://github.com/paritytech/cumulus", branch = "polkadot-v0.9.31", default-features = false }
-cumulus-pallet-xcm = { git = "https://github.com/paritytech/cumulus", branch = "polkadot-v0.9.31", default-features = false }
 parachain-info = { git = "https://github.com/paritytech/cumulus", branch = "polkadot-v0.9.31", default-features = false }
 
 # Polkadot dependencies
+pallet-xcm = { git = "https://github.com/paritytech/polkadot", branch = "release-v0.9.31", default-features = false }
+pallet-xcm-benchmarks = { git = "https://github.com/paritytech/polkadot", branch = "release-v0.9.31", default-features = false, optional = true }
 polkadot-parachain = { git = "https://github.com/paritytech/polkadot", branch = "release-v0.9.31", default-features = false }
 xcm = { git = "https://github.com/paritytech/polkadot", branch = "release-v0.9.31", default-features = false }
 xcm-builder = { git = "https://github.com/paritytech/polkadot", branch = "release-v0.9.31", default-features = false }
 xcm-executor = { git = "https://github.com/paritytech/polkadot", branch = "release-v0.9.31", default-features = false }
-pallet-xcm = { git = "https://github.com/paritytech/polkadot", branch = "release-v0.9.31", default-features = false }
-pallet-xcm-benchmarks = { git = "https://github.com/paritytech/polkadot", branch = "release-v0.9.31", default-features = false, optional = true }
 
 # Parachain dependencies
-runtime-common = {path = "../common", default-features = false }
-btc-relay = { path = "../../../crates/btc-relay", default-features = false }
-currency = { path = "../../../crates/currency", default-features = false }
-security = { path = "../../../crates/security", default-features = false }
-vault-registry = { path = "../../../crates/vault-registry", default-features = false }
-oracle = { path = "../../../crates/oracle", default-features = false }
-fee = { path = "../../../crates/fee", default-features = false }
-issue = { path = "../../../crates/issue", default-features = false }
-redeem = { path = "../../../crates/redeem", default-features = false }
-replace = { path = "../../../crates/replace", default-features = false }
-nomination = { path = "../../../crates/nomination", default-features = false }
-reward = { path = "../../../crates/reward", default-features = false }
-staking = { path = "../../../crates/staking", default-features = false }
-escrow = { path = "../../../crates/escrow", default-features = false }
-democracy = { path = "../../../crates/democracy", default-features = false }
 annuity = { path = "../../../crates/annuity", default-features = false }
-supply = { path = "../../../crates/supply", default-features = false }
-collator-selection = { path = "../../../crates/collator-selection", default-features = false }
+btc-relay = { path = "../../../crates/btc-relay", default-features = false }
 clients-info = { path = "../../../crates/clients-info", default-features = false }
-loans = { path = "../../../crates/loans", default-features = false }
-traits = { path = "../../../crates/traits", default-features = false }
-farming = { path = "../../../crates/farming", default-features = false }
-tx-pause = { path = "../../../crates/tx-pause", default-features = false }
+collator-selection = { path = "../../../crates/collator-selection", default-features = false }
+currency = { path = "../../../crates/currency", default-features = false }
+democracy = { path = "../../../crates/democracy", default-features = false }
 dex-general = { path = "../../../crates/dex-general", default-features = false }
 dex-stable = { path = "../../../crates/dex-stable", default-features = false }
 dex-swap-router = { path = "../../../crates/dex-swap-router", default-features = false }
+escrow = { path = "../../../crates/escrow", default-features = false }
+farming = { path = "../../../crates/farming", default-features = false }
+fee = { path = "../../../crates/fee", default-features = false }
+issue = { path = "../../../crates/issue", default-features = false }
+loans = { path = "../../../crates/loans", default-features = false }
 multi-transaction-payment = { path = "../../../crates/multi-transaction-payment", default-features = false }
+nomination = { path = "../../../crates/nomination", default-features = false }
+oracle = { path = "../../../crates/oracle", default-features = false }
+redeem = { path = "../../../crates/redeem", default-features = false }
+replace = { path = "../../../crates/replace", default-features = false }
+reward = { path = "../../../crates/reward", default-features = false }
+security = { path = "../../../crates/security", default-features = false }
+staking = { path = "../../../crates/staking", default-features = false }
+supply = { path = "../../../crates/supply", default-features = false }
+traits = { path = "../../../crates/traits", default-features = false }
+tx-pause = { path = "../../../crates/tx-pause", default-features = false }
+vault-registry = { path = "../../../crates/vault-registry", default-features = false }
 
 primitives = { package = "interbtc-primitives", path = "../../../primitives", default-features = false }
+runtime-common = { path = "../common", default-features = false }
 
 btc-relay-rpc-runtime-api = { path = "../../../crates/btc-relay/rpc/runtime-api", default-features = false }
-oracle-rpc-runtime-api = { path = "../../../crates/oracle/rpc/runtime-api", default-features = false }
-vault-registry-rpc-runtime-api = { path = "../../../crates/vault-registry/rpc/runtime-api", default-features = false }
-escrow-rpc-runtime-api = { path = "../../../crates/escrow/rpc/runtime-api", default-features = false }
-reward-rpc-runtime-api = { path = "../../../crates/reward/rpc/runtime-api", default-features = false }
-issue-rpc-runtime-api = { path = "../../../crates/issue/rpc/runtime-api", default-features = false }
-redeem-rpc-runtime-api = { path = "../../../crates/redeem/rpc/runtime-api", default-features = false }
-replace-rpc-runtime-api = { path = "../../../crates/replace/rpc/runtime-api", default-features = false }
-loans-rpc-runtime-api = { path = "../../../crates/loans/rpc/runtime-api", default-features = false }
 dex-general-rpc-runtime-api = { path = "../../../crates/dex-general/rpc/runtime-api", default-features = false }
 dex-stable-rpc-runtime-api = { path = "../../../crates/dex-stable/rpc/runtime-api", default-features = false }
+escrow-rpc-runtime-api = { path = "../../../crates/escrow/rpc/runtime-api", default-features = false }
+issue-rpc-runtime-api = { path = "../../../crates/issue/rpc/runtime-api", default-features = false }
+loans-rpc-runtime-api = { path = "../../../crates/loans/rpc/runtime-api", default-features = false }
+oracle-rpc-runtime-api = { path = "../../../crates/oracle/rpc/runtime-api", default-features = false }
+redeem-rpc-runtime-api = { path = "../../../crates/redeem/rpc/runtime-api", default-features = false }
+replace-rpc-runtime-api = { path = "../../../crates/replace/rpc/runtime-api", default-features = false }
+reward-rpc-runtime-api = { path = "../../../crates/reward/rpc/runtime-api", default-features = false }
+vault-registry-rpc-runtime-api = { path = "../../../crates/vault-registry/rpc/runtime-api", default-features = false }
 
 # Orml dependencies
 orml-tokens = { git = "https://github.com/open-web3-stack/open-runtime-module-library", rev = "dc39cfddefb10ef0de23655e2c3dcdab66a19404", default-features = false }
 orml-traits = { git = "https://github.com/open-web3-stack/open-runtime-module-library", rev = "dc39cfddefb10ef0de23655e2c3dcdab66a19404", default-features = false }
 orml-vesting = { git = "https://github.com/open-web3-stack/open-runtime-module-library", rev = "dc39cfddefb10ef0de23655e2c3dcdab66a19404", default-features = false }
+orml-asset-registry = { git = "https://github.com/open-web3-stack/open-runtime-module-library", rev = "dc39cfddefb10ef0de23655e2c3dcdab66a19404", default-features = false }
 
 orml-xtokens = { git = "https://github.com/open-web3-stack/open-runtime-module-library", rev = "dc39cfddefb10ef0de23655e2c3dcdab66a19404", default-features = false }
 orml-xcm-support = { git = "https://github.com/open-web3-stack/open-runtime-module-library", rev = "dc39cfddefb10ef0de23655e2c3dcdab66a19404", default-features = false }
 orml-unknown-tokens = { git = "https://github.com/open-web3-stack/open-runtime-module-library", rev = "dc39cfddefb10ef0de23655e2c3dcdab66a19404", default-features = false }
-orml-asset-registry= { git = "https://github.com/open-web3-stack/open-runtime-module-library", rev = "dc39cfddefb10ef0de23655e2c3dcdab66a19404", default-features = false }
 
 [dev-dependencies]
 hex = '0.4.2'
@@ -148,6 +148,8 @@ substrate-wasm-builder = { git = "https://github.com/paritytech/substrate", bran
 
 [features]
 default = ["std"]
+disable-runtime-api = []
+vesting-any = []
 std = [
   "log/std",
   "serde",
@@ -171,7 +173,6 @@ std = [
   "frame-executive/std",
   "frame-system/std",
   "frame-system-benchmarking?/std",
-  "pallet-xcm-benchmarks?/std",
   "frame-benchmarking/std",
   "pallet-balances/std",
   "pallet-timestamp/std",
@@ -182,7 +183,7 @@ std = [
   "pallet-preimage/std",
   "pallet-identity/std",
   "pallet-proxy/std",
-	"pallet-sudo/std",
+  "pallet-sudo/std",
 
   "frame-system-rpc-runtime-api/std",
   "pallet-transaction-payment-rpc-runtime-api/std",
@@ -199,61 +200,61 @@ std = [
   "cumulus-pallet-aura-ext/std",
   "cumulus-pallet-dmp-queue/std",
   "cumulus-pallet-parachain-system/std",
-  "cumulus-pallet-xcmp-queue/std",
   "cumulus-pallet-xcm/std",
+  "cumulus-pallet-xcmp-queue/std",
   "cumulus-primitives-core/std",
   "cumulus-primitives-timestamp/std",
   "cumulus-primitives-utility/std",
+  "parachain-info/std",
 
+  "pallet-xcm/std",
+  "pallet-xcm-benchmarks?/std",
   "polkadot-parachain/std",
   "xcm/std",
   "xcm-builder/std",
   "xcm-executor/std",
-  "pallet-xcm/std",
 
-  "runtime-common/std",
-  "btc-relay/std",
-  "currency/std",
-  "security/std",
-  "vault-registry/std",
-  "oracle/std",
-  "fee/std",
-  "issue/std",
-  "redeem/std",
-  "replace/std",
-  "nomination/std",
-  "reward/std",
-  "staking/std",
-  "escrow/std",
-  "democracy/std",
   "annuity/std",
-  "supply/std",
-  "collator-selection/std",
+  "btc-relay/std",
   "clients-info/std",
-  "loans/std",
-  "traits/std",
-  "farming/std",
-  "tx-pause/std",
+  "collator-selection/std",
+  "currency/std",
+  "democracy/std",
   "dex-general/std",
   "dex-stable/std",
   "dex-swap-router/std",
+  "escrow/std",
+  "farming/std",
+  "fee/std",
+  "issue/std",
+  "loans/std",
   "multi-transaction-payment/std",
+  "nomination/std",
+  "oracle/std",
+  "redeem/std",
+  "replace/std",
+  "reward/std",
+  "security/std",
+  "staking/std",
+  "supply/std",
+  "traits/std",
+  "tx-pause/std",
+  "vault-registry/std",
 
   "primitives/std",
-
-  "parachain-info/std",
+  "runtime-common/std",
 
   "btc-relay-rpc-runtime-api/std",
-  "oracle-rpc-runtime-api/std",
-  "vault-registry-rpc-runtime-api/std",
-  "escrow-rpc-runtime-api/std",
-  "reward-rpc-runtime-api/std",
-  "issue-rpc-runtime-api/std",
-  "redeem-rpc-runtime-api/std",
-  "replace-rpc-runtime-api/std",
-  "loans-rpc-runtime-api/std",
   "dex-general-rpc-runtime-api/std",
   "dex-stable-rpc-runtime-api/std",
+  "escrow-rpc-runtime-api/std",
+  "issue-rpc-runtime-api/std",
+  "loans-rpc-runtime-api/std",
+  "oracle-rpc-runtime-api/std",
+  "redeem-rpc-runtime-api/std",
+  "replace-rpc-runtime-api/std",
+  "reward-rpc-runtime-api/std",
+  "vault-registry-rpc-runtime-api/std",
 
   "orml-tokens/std",
   "orml-traits/std",
@@ -269,7 +270,6 @@ runtime-benchmarks = [
   "frame-support/runtime-benchmarks",
   "frame-system/runtime-benchmarks",
   "frame-system-benchmarking/runtime-benchmarks",
-  "cumulus-pallet-xcmp-queue/runtime-benchmarks",
   "pallet-balances/runtime-benchmarks",
   "pallet-collective/runtime-benchmarks",
   "pallet-identity/runtime-benchmarks",
@@ -281,8 +281,11 @@ runtime-benchmarks = [
   "pallet-timestamp/runtime-benchmarks",
   "pallet-utility/runtime-benchmarks",
   "pallet-society/runtime-benchmarks",
-  "pallet-xcm-benchmarks/runtime-benchmarks",
+
+  "cumulus-pallet-xcmp-queue/runtime-benchmarks",
+
   "pallet-xcm/runtime-benchmarks",
+  "pallet-xcm-benchmarks/runtime-benchmarks",
   "xcm-builder/runtime-benchmarks",
 
   "annuity/runtime-benchmarks",
@@ -304,72 +307,74 @@ runtime-benchmarks = [
   "replace/runtime-benchmarks",
   "security/runtime-benchmarks",
   "supply/runtime-benchmarks",
+  "traits/runtime-benchmarks",
   "tx-pause/runtime-benchmarks",
   "vault-registry/runtime-benchmarks",
-  "traits/runtime-benchmarks",
 
-  "runtime-common/runtime-benchmarks",
   "primitives/runtime-benchmarks",
+  "runtime-common/runtime-benchmarks",
 ]
-disable-runtime-api = []
 try-runtime = [
-	"frame-try-runtime",
-	"frame-executive/try-runtime",
-	"frame-system/try-runtime",
-	"frame-support/try-runtime",
-  "pallet-timestamp/try-runtime",
-  "pallet-utility/try-runtime",
-  "pallet-transaction-payment/try-runtime",
-  "pallet-scheduler/try-runtime",
-  "pallet-preimage/try-runtime",
-  "pallet-multisig/try-runtime",
+  "frame-try-runtime",
+  "frame-executive/try-runtime",
+  "frame-system/try-runtime",
+  "frame-support/try-runtime",
+
+  "pallet-aura/try-runtime",
+  "pallet-authorship/try-runtime",
+  "pallet-collective/try-runtime",
   "pallet-identity/try-runtime",
+  "pallet-membership/try-runtime",
+  "pallet-multisig/try-runtime",
+  "pallet-preimage/try-runtime",
   "pallet-proxy/try-runtime",
-	"pallet-sudo/try-runtime",
-  "currency/try-runtime",
-  "orml-tokens/try-runtime",
-  "supply/try-runtime",
-  "orml-vesting/try-runtime",
-  "orml-asset-registry/try-runtime",
-  "runtime-common/try-runtime",
-  "escrow/try-runtime",
+  "pallet-session/try-runtime",
+  "pallet-scheduler/try-runtime",
+  "pallet-sudo/try-runtime",
+  "pallet-timestamp/try-runtime",
+  "pallet-transaction-payment/try-runtime",
+  "pallet-utility/try-runtime",
+
+  "cumulus-pallet-aura-ext/try-runtime",
+  "cumulus-pallet-dmp-queue/try-runtime",
+  "cumulus-pallet-parachain-system/try-runtime",
+  "cumulus-pallet-xcm/try-runtime",
+  "cumulus-pallet-xcmp-queue/try-runtime",
+  "parachain-info/try-runtime",
+
+  "pallet-xcm/try-runtime",
+
   "annuity/try-runtime",
-  "reward/try-runtime",
-  "annuity/try-runtime",
-  "reward/try-runtime",
-  "staking/try-runtime",
   "btc-relay/try-runtime",
-  "security/try-runtime",
-  "vault-registry/try-runtime",
-  "oracle/try-runtime",
-  "issue/try-runtime",
-  "redeem/try-runtime",
-  "replace/try-runtime",
-  "fee/try-runtime",
-  "nomination/try-runtime",
   "clients-info/try-runtime",
-  "tx-pause/try-runtime",
-  "loans/try-runtime",
+  "currency/try-runtime",
+  "collator-selection/try-runtime",
   "democracy/try-runtime",
   "dex-general/try-runtime",
   "dex-stable/try-runtime",
   "dex-swap-router/try-runtime",
+  "escrow/try-runtime",
   "farming/try-runtime",
-  "pallet-collective/try-runtime",
-  "pallet-membership/try-runtime",
-  "pallet-authorship/try-runtime",
-  "collator-selection/try-runtime",
-  "pallet-session/try-runtime",
-  "pallet-aura/try-runtime",
-  "cumulus-pallet-aura-ext/try-runtime",
-  "cumulus-pallet-parachain-system/try-runtime",
-  "parachain-info/try-runtime",
-  "cumulus-pallet-xcmp-queue/try-runtime",
-  "pallet-xcm/try-runtime",
-  "cumulus-pallet-xcm/try-runtime",
-  "cumulus-pallet-dmp-queue/try-runtime",
+  "fee/try-runtime",
+  "issue/try-runtime",
+  "loans/try-runtime",
+  "multi-transaction-payment/try-runtime",
+  "nomination/try-runtime",
+  "oracle/try-runtime",
+  "redeem/try-runtime",
+  "replace/try-runtime",
+  "reward/try-runtime",
+  "security/try-runtime",
+  "staking/try-runtime",
+  "supply/try-runtime",
+  "tx-pause/try-runtime",
+  "vault-registry/try-runtime",
+
+  "runtime-common/try-runtime",
+
+  "orml-tokens/try-runtime",
+  "orml-vesting/try-runtime",
+  "orml-asset-registry/try-runtime",
   "orml-xtokens/try-runtime",
   "orml-unknown-tokens/try-runtime",
-  "multi-transaction-payment/try-runtime",
 ]
-vesting-any = []
