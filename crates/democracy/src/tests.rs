@@ -141,7 +141,7 @@ impl pallet_balances::Config for Test {
     type WeightInfo = ();
 }
 parameter_types! {
-    pub const LaunchPeriod: u64 = 2;
+    pub const LaunchPeriod: u64 = 60 * 60 * 24 * 7; // one week
     pub const VotingPeriod: u64 = 4;
     pub const FastTrackVotingPeriod: u64 = 2;
     pub const MinimumDeposit: u64 = 1;
@@ -149,9 +149,7 @@ parameter_types! {
     pub const MaxVotes: u32 = 100;
     pub const MaxProposals: u32 = MAX_PROPOSALS;
     pub static PreimageByteDeposit: u64 = 0;
-    pub LaunchOffset: u64 = 60 * 60 * 24 * 7; // one week
     pub const TreasuryAccount:u64 = 232323;
-
 }
 ord_parameter_types! {
     pub const One: u64 = 1;
@@ -186,7 +184,7 @@ impl Config for Test {
     type PalletsOrigin = OriginCaller;
     type WeightInfo = ();
     type UnixTime = Timestamp;
-    type LaunchOffset = LaunchOffset;
+    type LaunchPeriod = LaunchPeriod;
     type TreasuryAccount = TreasuryAccount;
     type TreasuryCurrency = pallet_balances::Pallet<Self>;
 }
@@ -301,5 +299,21 @@ fn should_launch_works() {
             assert!(Democracy::should_launch(boundary));
             assert!(!Democracy::should_launch(boundary));
         }
+    });
+}
+
+#[test]
+fn should_launch_skipped_works() {
+    new_test_ext().execute_with(|| {
+        NextLaunchTimestamp::<Test>::put(1671440400); // Mon Dec 19 2022 09:00:00 GMT
+
+        // skip 3 weeks + 1 day + 1 hour + 5 minutes
+        let now = 1673345100; // Tue Jan 10 2023 10:05:00 GMT
+
+        assert!(Democracy::should_launch(now));
+        assert_eq!(
+            NextLaunchTimestamp::<Test>::get(),
+            1673859600 // Mon Jan 16 2023 09:00:00 GMT
+        );
     });
 }

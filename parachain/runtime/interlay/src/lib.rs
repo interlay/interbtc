@@ -476,6 +476,7 @@ type EnsureRootOrAllTechnicalCommittee = EitherOfDiverse<
 >;
 
 parameter_types! {
+    pub const LaunchPeriod: u64 = 1000 * 60 * 60 * 24 * 7; // one week
     pub const VotingPeriod: BlockNumber = 7 * DAYS;
     pub const FastTrackVotingPeriod: BlockNumber = 3 * HOURS;
     // Require 250 vINTR to make a proposal. Given the crowdloan airdrop, this qualifies about 7500
@@ -484,7 +485,6 @@ parameter_types! {
     pub const EnactmentPeriod: BlockNumber = DAYS;
     pub const MaxVotes: u32 = 100;
     pub const MaxProposals: u32 = 100;
-    pub LaunchOffset: u64 = 1000 * 60 * 60 * 24 * 7; // one week
 }
 
 impl democracy::Config for Runtime {
@@ -505,7 +505,7 @@ impl democracy::Config for Runtime {
     type PalletsOrigin = OriginCaller;
     type WeightInfo = weights::democracy::WeightInfo<Runtime>;
     type UnixTime = Timestamp;
-    type LaunchOffset = LaunchOffset;
+    type LaunchPeriod = LaunchPeriod;
     type TreasuryAccount = TreasuryAccount;
     type TreasuryCurrency = NativeCurrency;
 }

@@ -195,8 +195,8 @@ pub mod pallet {
         /// Unix time
         type UnixTime: UnixTime;
 
-        /// Offset from previous launch timestamp.
-        type LaunchOffset: Get<u64>;
+        /// Period from previous launch timestamp.
+        type LaunchPeriod: Get<u64>;
 
         /// Account from which is transferred in `spend_from_treasury`.
         type TreasuryAccount: Get<Self::AccountId>;
@@ -968,8 +968,14 @@ impl<T: Config> Pallet<T> {
 
         // update storage
         NextLaunchTimestamp::<T>::mutate(|next_launch_timestamp| {
-            // offset is number of seconds - e.g. to next week (mon 9am)
-            next_launch_timestamp.saturating_accrue(T::LaunchOffset::get());
+            // period is number of seconds - e.g. to next week (mon 9am)
+            let launch_period = T::LaunchPeriod::get();
+            next_launch_timestamp.saturating_accrue(
+                (now.saturating_sub(*next_launch_timestamp)
+                    .saturating_div(launch_period)
+                    .saturating_add(One::one()))
+                .saturating_mul(launch_period),
+            );
         });
 
         true
