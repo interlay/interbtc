@@ -641,6 +641,12 @@ impl<T: Config> Pallet<T> {
         checked_sub_mut!(TotalStake<T>, nonce, vault_id, &amount);
         checked_sub_mut!(TotalCurrentStake<T>, nonce, vault_id, &amount);
 
+        if Self::total_stake_at_index(nonce, vault_id).is_zero() {
+            // may be non-zero due to rounding, will truncate to zero
+            // but cleanup anyway
+            TotalCurrentStake::<T>::remove(nonce, vault_id);
+        }
+
         <SlashTally<T>>::mutate(nonce, (vault_id, nominator_id), |slash_tally| {
             let slash_per_token = Self::slash_per_token_at_index(nonce, vault_id);
             let slash_per_token_mul_amount = slash_per_token.checked_mul(&amount).ok_or(ArithmeticError::Overflow)?;
@@ -772,7 +778,7 @@ impl<T: Config> Pallet<T> {
 impl<T, Balance> RewardsApi<(Option<T::Index>, DefaultVaultId<T>), T::AccountId, Balance> for Pallet<T>
 where
     T: Config,
-    Balance: BalanceToFixedPoint<SignedFixedPoint<T>> + Saturating + PartialOrd,
+    Balance: BalanceToFixedPoint<SignedFixedPoint<T>> + Saturating + PartialOrd + Copy,
     <T::SignedFixedPoint as FixedPointNumber>::Inner: TryInto<Balance>,
 {
     type CurrencyId = T::CurrencyId;
@@ -843,6 +849,21 @@ where
             amount.to_fixed().ok_or(Error::<T>::TryIntoIntError)?,
             *nonce,
         )
+    }
+
+    fn withdraw_all_stake(
+        (nonce, vault_id): &(Option<T::Index>, DefaultVaultId<T>),
+        nominator_id: &T::AccountId,
+    ) -> Result<Balance, DispatchError> {
+        let nonce = nonce.unwrap_or(Pallet::<T>::nonce(vault_id));
+        // use the precise stake to avoid rounding issues
+        let amount = Self::compute_precise_stake_at_index(nonce, vault_id, nominator_id)?;
+        Pallet::<T>::withdraw_stake(vault_id, nominator_id, amount, Some(nonce))?;
+        amount
+            .truncate_to_inner()
+            .ok_or(Error::<T>::TryIntoIntError)?
+            .try_into()
+            .map_err(|_| Error::<T>::TryIntoIntError.into())
     }
 
     fn get_total_stake((_, vault_id): &(Option<T::Index>, DefaultVaultId<T>)) -> Result<Balance, DispatchError> {

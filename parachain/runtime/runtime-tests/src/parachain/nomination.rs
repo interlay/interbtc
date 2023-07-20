@@ -257,7 +257,7 @@ mod spec_based_tests {
             assert_noop!(
                 RuntimeCall::Nomination(NominationCall::withdraw_collateral {
                     vault_id: vault_id.clone(),
-                    amount: 1,
+                    amount: Some(1),
                     index: None
                 })
                 .dispatch(origin_of(account_of(USER))),
@@ -267,7 +267,7 @@ mod spec_based_tests {
             assert_noop!(
                 RuntimeCall::Nomination(NominationCall::withdraw_collateral {
                     vault_id: vault_id_of(CAROL, vault_id.collateral_currency()),
-                    amount: 1,
+                    amount: Some(1),
                     index: None
                 })
                 .dispatch(origin_of(account_of(USER))),
@@ -276,7 +276,7 @@ mod spec_based_tests {
             assert_noop!(
                 RuntimeCall::Nomination(NominationCall::withdraw_collateral {
                     vault_id: vault_id.clone(),
-                    amount: 1,
+                    amount: Some(1),
                     index: None
                 })
                 .dispatch(origin_of(account_of(USER))),
@@ -286,7 +286,7 @@ mod spec_based_tests {
             assert_noop!(
                 RuntimeCall::Nomination(NominationCall::withdraw_collateral {
                     vault_id: vault_id.clone(),
-                    amount: DEFAULT_BACKING_COLLATERAL,
+                    amount: Some(DEFAULT_BACKING_COLLATERAL),
                     index: None
                 })
                 .dispatch(origin_of(account_of(USER))),
@@ -302,7 +302,7 @@ mod spec_based_tests {
             assert_ok!(RuntimeCall::Nomination(NominationCall::withdraw_collateral {
                 vault_id: vault_id.clone(),
                 index: None,
-                amount: 750000
+                amount: Some(750000)
             })
             .dispatch(origin_of(account_of(VAULT))));
             assert_nomination_opt_in(&vault_id);
@@ -510,7 +510,7 @@ fn integration_test_nominator_withdrawal_below_collateralization_threshold_fails
         assert_ok!(RuntimeCall::Nomination(NominationCall::withdraw_collateral {
             vault_id: vault_id.clone(),
             index: None,
-            amount: 750000
+            amount: Some(750000)
         })
         .dispatch(origin_of(account_of(VAULT))));
         assert_nomination_opt_in(&vault_id);

@@ -359,7 +359,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 
 pub trait RewardsApi<PoolId, StakeId, Balance>
 where
-    Balance: Saturating + PartialOrd,
+    Balance: Saturating + PartialOrd + Copy,
 {
     type CurrencyId;
 
@@ -389,8 +389,10 @@ where
     fn withdraw_stake(pool_id: &PoolId, stake_id: &StakeId, amount: Balance) -> DispatchResult;
 
     /// Withdraw all stake for an account.
-    fn withdraw_all_stake(pool_id: &PoolId, stake_id: &StakeId) -> DispatchResult {
-        Self::withdraw_stake(pool_id, stake_id, Self::get_stake(pool_id, stake_id)?)
+    fn withdraw_all_stake(pool_id: &PoolId, stake_id: &StakeId) -> Result<Balance, DispatchError> {
+        let amount = Self::get_stake(pool_id, stake_id)?;
+        Self::withdraw_stake(pool_id, stake_id, amount)?;
+        Ok(amount)
     }
 
     /// Return the stake associated with the `pool_id`.
@@ -418,7 +420,7 @@ impl<T, I, Balance> RewardsApi<T::PoolId, T::StakeId, Balance> for Pallet<T, I>
 where
     T: Config<I>,
     I: 'static,
-    Balance: BalanceToFixedPoint<SignedFixedPoint<T, I>> + Saturating + PartialOrd,
+    Balance: BalanceToFixedPoint<SignedFixedPoint<T, I>> + Saturating + PartialOrd + Copy,
     <T::SignedFixedPoint as FixedPointNumber>::Inner: TryInto<Balance>,
 {
     type CurrencyId = T::CurrencyId;
@@ -490,7 +492,7 @@ where
 
 impl<PoolId, StakeId, Balance> RewardsApi<PoolId, StakeId, Balance> for ()
 where
-    Balance: Saturating + PartialOrd + Default,
+    Balance: Saturating + PartialOrd + Default + Copy,
 {
     type CurrencyId = ();
 

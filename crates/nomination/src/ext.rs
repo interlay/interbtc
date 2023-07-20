@@ -22,7 +22,7 @@ pub(crate) mod vault_registry {
 
     pub fn is_allowed_to_withdraw_collateral<T: crate::Config>(
         vault_id: &DefaultVaultId<T>,
-        amount: &Amount<T>,
+        amount: Option<Amount<T>>,
     ) -> Result<bool, DispatchError> {
         <vault_registry::Pallet<T>>::is_allowed_to_withdraw_collateral(vault_id, amount)
     }
@@ -55,10 +55,10 @@ pub(crate) mod vault_registry {
         pub fn withdraw_collateral<T: crate::Config>(
             vault_id: &DefaultVaultId<T>,
             nominator_id: &T::AccountId,
-            amount: &Amount<T>,
+            maybe_amount: Option<Amount<T>>,
             nonce: Option<<T as frame_system::Config>::Index>,
-        ) -> Result<(), DispatchError> {
-            <vault_registry::PoolManager<T>>::withdraw_collateral(vault_id, nominator_id, amount, nonce)
+        ) -> Result<Amount<T>, DispatchError> {
+            <vault_registry::PoolManager<T>>::withdraw_collateral(vault_id, nominator_id, maybe_amount, nonce)
         }
 
         pub fn kick_nominators<T: crate::Config>(vault_id: &DefaultVaultId<T>) -> Result<Amount<T>, DispatchError> {
@@ -77,6 +77,7 @@ pub(crate) mod staking {
     pub fn nonce<T: crate::Config>(vault_id: &DefaultVaultId<T>) -> T::Index {
         T::VaultStaking::nonce(vault_id)
     }
+
     pub fn compute_stake<T: vault_registry::Config>(
         vault_id: &DefaultVaultId<T>,
         nominator_id: &T::AccountId,

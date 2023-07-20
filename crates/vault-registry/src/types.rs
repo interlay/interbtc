@@ -538,8 +538,8 @@ impl<T: Config> RichVault<T> {
     pub(crate) fn slash_for_to_be_redeemed(&mut self, amount: &Amount<T>) -> DispatchResult {
         let vault_id = self.id();
         let collateral = self.get_vault_collateral()?.min(amount)?;
-        PoolManager::<T>::withdraw_collateral(&vault_id, &vault_id.account_id, &collateral, None)?;
         self.increase_liquidated_collateral(&collateral)?;
+        PoolManager::<T>::withdraw_collateral(&vault_id, &vault_id.account_id, Some(collateral), None)?;
         Ok(())
     }
 
@@ -554,7 +554,7 @@ impl<T: Config> RichVault<T> {
             .unwrap_or((amount.clone(), None));
 
         // "slash" vault first
-        PoolManager::<T>::withdraw_collateral(&vault_id, &vault_id.account_id, &to_withdraw, None)?;
+        PoolManager::<T>::withdraw_collateral(&vault_id, &vault_id.account_id, Some(to_withdraw), None)?;
         // take remainder from nominators
         if let Some(to_slash) = to_slash {
             PoolManager::<T>::slash_collateral(&vault_id, &to_slash)?;

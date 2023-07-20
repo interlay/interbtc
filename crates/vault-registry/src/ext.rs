@@ -40,10 +40,16 @@ pub(crate) mod staking {
     pub fn withdraw_stake<T: crate::Config>(
         vault_id: &DefaultVaultId<T>,
         nominator_id: &T::AccountId,
-        amount: &Amount<T>,
+        maybe_amount: Option<Amount<T>>,
         nonce: Option<<T as frame_system::Config>::Index>,
-    ) -> DispatchResult {
-        T::VaultStaking::withdraw_stake(&(nonce, vault_id.clone()), nominator_id, amount.amount())
+    ) -> Result<Amount<T>, DispatchError> {
+        if let Some(amount) = maybe_amount {
+            T::VaultStaking::withdraw_stake(&(nonce, vault_id.clone()), nominator_id, amount.amount())?;
+            Ok(amount)
+        } else {
+            let balance = T::VaultStaking::withdraw_all_stake(&(nonce, vault_id.clone()), nominator_id)?;
+            Ok(Amount::new(balance, vault_id.collateral_currency()))
+        }
     }
 
     pub fn slash_stake<T: crate::Config>(vault_id: &DefaultVaultId<T>, amount: &Amount<T>) -> DispatchResult {
