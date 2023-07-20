@@ -16,7 +16,7 @@ use frame_support::{
     dispatch::{DispatchError, DispatchResult},
     traits::{
         ConstU32, Contains, Currency as PalletCurrency, EitherOfDiverse, EnsureOrigin, EnsureOriginWithArg,
-        EqualPrivilegeOnly, ExistenceRequirement, Imbalance, InstanceFilter, OnTimestampSet, OnUnbalanced,
+        EqualPrivilegeOnly, ExistenceRequirement, Imbalance, InstanceFilter, OnUnbalanced,
     },
     weights::ConstantMultiplier,
     PalletId,
@@ -309,20 +309,10 @@ parameter_types! {
     pub storage EnableManualSeal: bool = false;
 }
 
-pub struct ConsensusOnTimestampSet<T>(PhantomData<T>);
-impl<T: pallet_aura::Config> OnTimestampSet<T::Moment> for ConsensusOnTimestampSet<T> {
-    fn on_timestamp_set(moment: T::Moment) {
-        if EnableManualSeal::get() {
-            return;
-        }
-        <pallet_aura::Pallet<T> as OnTimestampSet<T::Moment>>::on_timestamp_set(moment)
-    }
-}
-
 impl pallet_timestamp::Config for Runtime {
     /// A timestamp: milliseconds since the unix epoch.
     type Moment = Moment;
-    type OnTimestampSet = ConsensusOnTimestampSet<Self>;
+    type OnTimestampSet = runtime_common::ConsensusOnTimestampSet<Self, EnableManualSeal>;
     type MinimumPeriod = MinimumPeriod;
     type WeightInfo = weights::pallet_timestamp::WeightInfo<Runtime>;
 }

@@ -10629,6 +10629,7 @@ dependencies = [
  "orml-vesting",
  "orml-xcm-support",
  "orml-xtokens",
+ "pallet-aura",
  "redeem",
  "replace",
  "reward",

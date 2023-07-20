@@ -4,7 +4,7 @@ use core::marker::PhantomData;
 use currency::Amount;
 use frame_support::{
     pallet_prelude::Get,
-    traits::{Currency, OnUnbalanced, ProcessMessageError, TryDrop},
+    traits::{Currency, OnTimestampSet, OnUnbalanced, ProcessMessageError, TryDrop},
 };
 use primitives::{BlockNumber, UnsignedFixedPoint};
 use sp_runtime::{DispatchError, FixedPointNumber};
@@ -141,5 +141,17 @@ where
     fn on_nonzero_unbalanced(amount: NegImbalance) {
         // Must resolve into existing but better to be safe.
         let _ = NativeCurrency::resolve_creating(&TreasuryAccount::get(), amount);
+    }
+}
+
+pub struct ConsensusOnTimestampSet<T, EnableManualSeal>(PhantomData<(T, EnableManualSeal)>);
+impl<T: pallet_aura::Config, EnableManualSeal: Get<bool>> OnTimestampSet<T::Moment>
+    for ConsensusOnTimestampSet<T, EnableManualSeal>
+{
+    fn on_timestamp_set(moment: T::Moment) {
+        if EnableManualSeal::get() {
+            return;
+        }
+        <pallet_aura::Pallet<T> as OnTimestampSet<T::Moment>>::on_timestamp_set(moment)
     }
 }
