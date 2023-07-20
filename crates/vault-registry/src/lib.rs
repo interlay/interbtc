@@ -831,9 +831,51 @@ impl<T: Config> Pallet<T> {
     }
 
     /// Checks if the vault would be above the secure threshold after withdrawing collateral
+    ///
+    /// # Arguments
+    /// * `vault_id` - The identifier of the vault.
+    /// * `amount` - The amount of collateral to be withdrawn.
+    ///
+    /// # Returns
+    /// Returns `Ok(true)` if the vault is allowed to withdraw the collateral, otherwise returns `Ok(false)`.
+    /// Returns `Err` in case of an error.
+    pub fn is_vault_allowed_to_withdraw_collateral(
+        vault_id: &DefaultVaultId<T>,
+        amount: &Amount<T>,
+    ) -> Result<bool, DispatchError> {
+        Self::is_allowed_to_withdraw_collateral(vault_id, amount, false)
+    }
+
+    /// Checks if a nominator is allowed to withdraw collateral.
+    ///
+    /// # Arguments
+    /// * `vault_id` - The identifier of the vault.
+    /// * `amount` - The amount of collateral to be withdrawn.
+    ///
+    /// # Returns
+    /// Returns `Ok(true)` if the nominator is allowed to withdraw the collateral, otherwise returns `Ok(false)`.
+    /// Returns `Err` in case of an error.
+    pub fn is_nominator_allowed_to_withdraw_collateral(
+        vault_id: &DefaultVaultId<T>,
+        amount: &Amount<T>,
+    ) -> Result<bool, DispatchError> {
+        Self::is_allowed_to_withdraw_collateral(vault_id, amount, true)
+    }
+
+    /// Checks if an entity is allowed to withdraw collateral.
+    ///
+    /// # Arguments
+    /// * `vault_id` - The identifier of the vault.
+    /// * `amount` - The amount of collateral to be withdrawn.
+    /// * `is_nominator` - A boolean indicating whether the entity is a nominator.
+    ///
+    /// # Returns
+    /// Returns `Ok(true)` if the entity is allowed to withdraw the collateral, otherwise returns `Ok(false)`.
+    /// Returns `Err` in case of an error.
     pub fn is_allowed_to_withdraw_collateral(
         vault_id: &DefaultVaultId<T>,
         amount: &Amount<T>,
+        is_nominator: bool,
     ) -> Result<bool, DispatchError> {
         let vault = Self::get_rich_vault_from_id(vault_id)?;
 
@@ -842,9 +884,9 @@ impl<T: Config> Pallet<T> {
             Err(x) if x == ArithmeticError::Underflow.into() => return Ok(false),
             Err(x) => return Err(x),
         };
-
         ensure!(
-            new_collateral.is_zero()
+            is_nominator
+                || new_collateral.is_zero()
                 || new_collateral.ge(&Self::get_minimum_collateral_vault(vault_id.currencies.collateral))?,
             Error::<T>::InsufficientVaultCollateralAmount
         );

@@ -131,11 +131,11 @@ pub(crate) mod vault_registry {
         <vault_registry::Pallet<T>>::force_withdraw_collateral(vault_id, amount)
     }
 
-    pub fn is_allowed_to_withdraw_collateral<T: crate::Config>(
+    pub fn is_vault_allowed_to_withdraw_collateral<T: crate::Config>(
         vault_id: &DefaultVaultId<T>,
         amount: &Amount<T>,
     ) -> Result<bool, DispatchError> {
-        <vault_registry::Pallet<T>>::is_allowed_to_withdraw_collateral(vault_id, amount)
+        <vault_registry::Pallet<T>>::is_vault_allowed_to_withdraw_collateral(vault_id, amount)
     }
 
     pub fn calculate_collateral<T: crate::Config>(

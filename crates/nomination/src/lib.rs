@@ -241,7 +241,7 @@ impl<T: Config> Pallet<T> {
             // we can only withdraw nominated collateral if the vault is still
             // above the secure threshold for issued + to_be_issued tokens
             ensure!(
-                ext::vault_registry::is_allowed_to_withdraw_collateral::<T>(vault_id, &amount)?,
+                ext::vault_registry::is_nominator_allowed_to_withdraw_collateral::<T>(vault_id, &amount)?,
                 Error::<T>::CannotWithdrawCollateral
             );
 
@@ -326,7 +326,10 @@ impl<T: Config> Pallet<T> {
         ensure!(Self::is_opted_in(&vault_id), Error::<T>::VaultNotOptedInToNomination);
         let total_nominated_collateral = Self::get_total_nominated_collateral(&vault_id)?;
         ensure!(
-            ext::vault_registry::is_allowed_to_withdraw_collateral::<T>(&vault_id, &total_nominated_collateral)?,
+            ext::vault_registry::is_nominator_allowed_to_withdraw_collateral::<T>(
+                &vault_id,
+                &total_nominated_collateral
+            )?,
             Error::<T>::CollateralizationTooLow
         );
 
