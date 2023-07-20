@@ -26,10 +26,7 @@ use frame_system::ensure_root;
 use primitives::TruncateFixedPointToInt;
 use scale_info::TypeInfo;
 use sp_arithmetic::ArithmeticError;
-use sp_runtime::{
-    traits::{AccountIdConversion, Saturating},
-    FixedPointNumber,
-};
+use sp_runtime::{traits::AccountIdConversion, FixedPointNumber};
 
 mod default_weights;
 pub use default_weights::WeightInfo;
@@ -174,12 +171,9 @@ impl<T: Config> Pallet<T> {
             <StartHeight<T>>::put(end_height);
 
             let total_supply = T::Currency::total_issuance();
-            let total_supply_as_fixed =
-                T::UnsignedFixedPoint::checked_from_integer(total_supply).ok_or(ArithmeticError::Overflow)?;
-            let total_inflation = total_supply_as_fixed
-                .saturating_mul(<Inflation<T>>::get())
-                .truncate_to_inner()
-                .unwrap_or_default();
+            let total_inflation = <Inflation<T>>::get()
+                .checked_mul_int(total_supply)
+                .ok_or(ArithmeticError::Overflow)?;
 
             <LastEmission<T>>::put(total_inflation);
             let supply_account_id = Self::account_id();

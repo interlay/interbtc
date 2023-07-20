@@ -29,7 +29,7 @@ fn should_not_inflate_total_supply() {
         assert_ok!(Supply::set_start_height_and_inflation(
             RuntimeOrigin::root(),
             start_height,
-            UnsignedFixedPoint::checked_from_rational(2, 100).unwrap()
+            UnsignedFixedPoint::checked_from_rational(110, 100).unwrap()
         ));
         assert_eq!(Supply::start_height(), Some(start_height));
         assert_eq!(Supply::last_emission(), 0);
