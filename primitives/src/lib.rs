@@ -186,6 +186,19 @@ pub mod issue {
     }
 }
 
+#[derive(Eq, PartialEq, Encode, Decode, Default, TypeInfo)]
+#[cfg_attr(feature = "std", derive(Debug, Serialize, Deserialize))]
+#[cfg_attr(feature = "std", serde(rename_all = "camelCase"))]
+/// a wrapper around a balance, used in RPC to workaround a bug where using u128
+/// in runtime-apis fails. See <https://github.com/paritytech/substrate/issues/4641>
+pub struct BalanceWrapper<T> {
+    #[cfg_attr(feature = "std", serde(bound(serialize = "T: std::fmt::Display")))]
+    #[cfg_attr(feature = "std", serde(serialize_with = "serialize_as_string"))]
+    #[cfg_attr(feature = "std", serde(bound(deserialize = "T: std::str::FromStr")))]
+    #[cfg_attr(feature = "std", serde(deserialize_with = "deserialize_from_string"))]
+    pub amount: T,
+}
+
 #[cfg(feature = "std")]
 fn serialize_as_string<S: Serializer, T: std::fmt::Display>(t: &T, serializer: S) -> Result<S::Ok, S::Error> {
     serializer.serialize_str(&t.to_string())

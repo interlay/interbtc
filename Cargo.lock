@@ -6643,9 +6643,8 @@ name = "oracle-rpc-runtime-api"
 version = "1.2.0"
 dependencies = [
  "frame-support",
+ "interbtc-primitives",
  "parity-scale-codec",
- "scale-info",
- "serde",
  "sp-api",
  "sp-std",
 ]
