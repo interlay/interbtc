@@ -5,7 +5,7 @@ use super::*;
 use frame_benchmarking::v2::{benchmarks, impl_benchmark_test_suite};
 use frame_support::traits::OnInitialize;
 use frame_system::{self, RawOrigin as SystemOrigin};
-use sp_runtime::traits::One;
+use sp_runtime::traits::{One, Zero};
 use sp_std::prelude::*;
 
 #[benchmarks]
