@@ -1,23 +1,10 @@
-#[cfg(test)]
-extern crate mocktopus;
+use crate::{types::*, utils::sha256d_le, Error, SetCompact};
+use primitive_types::U256;
 
-extern crate bitcoin_hashes;
+#[cfg(not(feature = "std"))]
+use alloc::{vec, vec::Vec};
 
-use bitcoin_hashes::{hash160::Hash as Hash160, Hash};
-use sha2::{Digest, Sha256};
-
-#[cfg(test)]
-use mocktopus::macros::mockable;
-
-use crate::{utils::sha256d_le, Error, SetCompact};
-use sp_core::U256;
-use sp_std::{prelude::*, vec};
-
-use crate::{address::Address, types::*};
-
-// https://github.com/bitcoin-core/secp256k1/blob/1e5d50fa93d71d751b95eec6a80f6732879a0071/include/secp256k1.h#L180-L181
-const SECP256K1_TAG_PUBKEY_EVEN: u8 = 0x02;
-const SECP256K1_TAG_PUBKEY_ODD: u8 = 0x03;
+const SERIALIZE_TRANSACTION_NO_WITNESS: i32 = 0x4000_0000;
 
 // https://github.com/bitcoin/bitcoin/blob/7fcf53f7b4524572d1d0c9a5fdc388e87eb02416/src/script/script.h#L39
 const LOCKTIME_THRESHOLD: u32 = 500_000_000;
@@ -181,11 +168,6 @@ impl BytesParser {
         Ok(result)
     }
 
-    /// Peeks at the next byte without updating the parser head.
-    pub(crate) fn next(&self) -> Result<u8, Error> {
-        self.raw_bytes.get(self.position).ok_or(Error::EndOfFile).map(|i| *i)
-    }
-
     /// This is the same as `parse` but allows to pass extra data to the parser
     /// Fails if there are not enough bytes to read or if the
     /// underlying `Parsable` parse function fails
@@ -287,7 +269,6 @@ pub fn parse_compact_uint(varint: &[u8]) -> Result<(u64, usize), Error> {
 /// # Arguments
 ///
 /// * `raw_transaction` - the raw bytes of the transaction
-#[cfg_attr(test, mockable)]
 pub fn parse_transaction(raw_transaction: &[u8]) -> Result<Transaction, Error> {
     let mut parser = BytesParser::new(raw_transaction);
     let version: i32 = parser.parse()?;
@@ -418,93 +399,12 @@ fn parse_transaction_output(raw_output: &[u8]) -> Result<(TransactionOutput, usi
     ))
 }
 
-pub(crate) fn extract_address_hash_witness<B: AsRef<[u8]>>(witness_script: B) -> Result<Address, Error> {
-    let witness_script = witness_script.as_ref();
-    // first check if the witness is the compressed public key
-    // https://github.com/bitcoin/bips/blob/master/bip-0141.mediawiki#p2wpkh
-    if witness_script.len() == 33 {
-        let prefix = witness_script[0];
-        // the first byte describes whether the Y-coordinate is even or odd, the remaining
-        // 32-bytes are the X-coordinate of the underlying point on the elliptic curve
-        if prefix == SECP256K1_TAG_PUBKEY_EVEN || prefix == SECP256K1_TAG_PUBKEY_ODD {
-            return Ok(Address::P2WPKHv0(H160::from_slice(
-                &Hash160::hash(witness_script).to_vec(),
-            )));
-        }
-        // NOTE: as defined in BIP143, version 0 witness programs do
-        // not support uncompressed public keys
-    }
-
-    // otherwise assume that the witness is the redeem script
-    // https://github.com/bitcoin/bips/blob/master/bip-0141.mediawiki#p2wsh
-    let mut hasher = Sha256::default();
-    hasher.input(witness_script);
-    // WARNING: this will decode P2TR inputs incorrectly
-    Ok(Address::P2WSHv0(H256::from_slice(&hasher.result()[..])))
-}
-
-pub(crate) fn extract_address_hash_scriptsig(input_script: &[u8]) -> Result<Address, Error> {
-    let mut parser = BytesParser::new(input_script);
-    let mut p2pkh = true;
-
-    // Multisig OBOE hack -> p2sh
-    if parser.next()? == OpCode::Op0 as u8 {
-        parser.parse::<u8>()?;
-        p2pkh = false;
-    }
-
-    let sig_size: u64 = parser.parse::<CompactUint>()?.value;
-
-    // P2WPKH-P2SH (SegWit)
-    if parser.next()? == OpCode::Op0 as u8 {
-        let sig = parser.read(sig_size as usize)?;
-        return Ok(Address::P2SH(H160::from_slice(&Hash160::hash(&sig).to_vec())));
-    }
-
-    let _sig = parser.read(sig_size as usize)?;
-
-    let redeem_script_size: u64 = parser.parse::<CompactUint>()?.value;
-
-    // if not p2sh, redeem script is just 33-byte pubkey
-    if p2pkh && redeem_script_size != 33 {
-        return Err(Error::UnsupportedInputFormat);
-    }
-    let redeem_script = parser.read(redeem_script_size as usize)?;
-    let hash = H160::from_slice(&Hash160::hash(&redeem_script).to_vec());
-    Ok(if p2pkh {
-        Address::P2PKH(hash)
-    } else {
-        Address::P2SH(hash)
-    })
-}
-
-pub(crate) fn extract_op_return_data(output_script: &[u8]) -> Result<Vec<u8>, Error> {
-    if *output_script.get(0).ok_or(Error::EndOfFile)? != OpCode::OpReturn as u8 {
-        return Err(Error::MalformedOpReturnOutput);
-    }
-    // Check for max OP_RETURN size
-    // 83 in total, see here: https://github.com/bitcoin/bitcoin/blob/f018d0c9cd7f408dac016b6bfc873670de713d27/src/script/standard.h#L30
-    if output_script.len() > MAX_OPRETURN_SIZE {
-        return Err(Error::MalformedOpReturnOutput);
-    }
-
-    let result = output_script.get(2..).ok_or(Error::EndOfFile)?;
-
-    if result.len() != output_script[1] as usize {
-        return Err(Error::MalformedOpReturnOutput);
-    }
-
-    Ok(result.to_vec())
-}
-
 #[cfg(test)]
 pub(crate) mod tests {
-    use std::str::FromStr;
-
     use super::*;
     use crate::{
         formatter::{BoundedWriter, TryFormat},
-        Address, PublicKey, Script,
+        Address, Script,
     };
     use frame_support::{assert_err, assert_ok};
 
@@ -764,93 +664,6 @@ pub(crate) mod tests {
         let payload = Address::from_script_pub_key(&script).unwrap();
 
         assert!(matches!(payload, Address::P2SH(hash) if hash.as_bytes() == p2sh_hash))
-    }
-
-    #[test]
-    fn test_extract_address_hash_p2pkh_scriptsig_from_public_key() {
-        let script_sig = PublicKey([
-            2, 168, 49, 109, 0, 14, 227, 106, 112, 84, 59, 37, 153, 238, 121, 44, 66, 8, 181, 64, 248, 19, 137, 27, 47,
-            222, 50, 95, 187, 221, 152, 165, 69,
-        ])
-        .to_p2pkh_script_sig(vec![1; 32]);
-
-        let extr_address = extract_address_hash_scriptsig(script_sig.as_bytes()).unwrap();
-        assert_eq!(
-            extr_address,
-            Address::P2PKH(H160([
-                80, 10, 21, 194, 142, 226, 119, 74, 230, 18, 7, 88, 187, 232, 227, 97, 20, 80, 235, 9
-            ]))
-        );
-    }
-
-    #[test]
-    fn test_extract_address_hash_p2pkh_in_p2sh_scriptsig_from_public_key() {
-        let script_sig = PublicKey([
-            2, 139, 220, 235, 13, 249, 164, 152, 179, 4, 175, 217, 170, 84, 218, 179, 182, 247, 109, 48, 57, 152, 241,
-            165, 225, 26, 242, 187, 160, 225, 248, 195, 250,
-        ])
-        .to_p2sh_script_sig(vec![1; 32]);
-
-        let extr_address = extract_address_hash_scriptsig(script_sig.as_bytes()).unwrap();
-        assert_eq!(
-            extr_address,
-            Address::P2SH(H160([
-                24, 49, 81, 119, 128, 234, 237, 59, 97, 156, 209, 13, 224, 143, 34, 170, 227, 63, 97, 46
-            ]))
-        );
-    }
-
-    #[test]
-    fn test_extract_address_hash_scriptsig() {
-        let raw_tx = "0100000001c15041a06deb6b3818b022fac558da4ce2097f0860c8f642105bbad9d29be02a010000006c493046022100cfd2a2d332b29adce119c55a9fadd3c073332024b7e272513e51623ca15993480221009b482d7f7b4d479aff62bdcdaea54667737d56f8d4d63dd03ec3ef651ed9a25401210325f8b039a11861659c9bf03f43fc4ea055f3a71cd60c7b1fd474ab578f9977faffffffff0290d94000000000001976a9148ed243a7be26080a1a8cf96b53270665f1b8dd2388ac4083086b000000001976a9147e7d94d0ddc21d83bfbcfc7798e4547edf0832aa88ac00000000";
-        let tx_bytes = hex::decode(&raw_tx).unwrap();
-        let transaction = parse_transaction(&tx_bytes).unwrap();
-
-        let address = Address::P2PKH(H160([
-            126, 125, 148, 208, 221, 194, 29, 131, 191, 188, 252, 119, 152, 228, 84, 126, 223, 8, 50, 170,
-        ]));
-        let extr_address = extract_address_hash_scriptsig(&transaction.inputs[0].script).unwrap();
-
-        assert_eq!(&extr_address, &address);
-    }
-
-    #[test]
-    fn test_extract_address_hash_scriptsig_p2sh() {
-        let raw_tx = "0100000001c8cc2b56525e734ff63a13bc6ad06a9e5664df8c67632253a8e36017aee3ee40000000009000483045022100ad0851c69dd756b45190b5a8e97cb4ac3c2b0fa2f2aae23aed6ca97ab33bf88302200b248593abc1259512793e7dea61036c601775ebb23640a0120b0dba2c34b79001455141042f90074d7a5bf30c72cf3a8dfd1381bdbd30407010e878f3a11269d5f74a58788505cdca22ea6eab7cfb40dc0e07aba200424ab0d79122a653ad0c7ec9896bdf51aefeffffff0120f40e00000000001976a9141d30342095961d951d306845ef98ac08474b36a088aca7270400";
-        let tx_bytes = hex::decode(&raw_tx).unwrap();
-        let transaction = parse_transaction(&tx_bytes).unwrap();
-
-        let address = Address::P2SH(H160([
-            233, 195, 221, 12, 7, 170, 199, 97, 121, 235, 199, 106, 108, 120, 212, 214, 124, 108, 22, 10,
-        ]));
-        let extr_address = extract_address_hash_scriptsig(&transaction.inputs[0].script).unwrap();
-
-        assert_eq!(&extr_address, &address);
-    }
-
-    #[test]
-    fn test_extract_address_hash_scriptsig_p2wpkh_p2sh_testnet() {
-        let expected = Address::P2SH(H160::from_slice(
-            &hex::decode("068a6a2ec6be7d6e7aac1657445154c52db0cef8").unwrap(),
-        ));
-        let actual =
-            extract_address_hash_scriptsig(&hex::decode("160014473ca3f4d726ce9c21af7cdc3fcc13264f681b04").unwrap())
-                .unwrap();
-
-        assert_eq!(actual, expected);
-    }
-
-    #[test]
-    fn test_extract_address_hash_scriptsig_p2sh_segwit() {
-        // source: https://blockstream.info/tx/0a0d7b9ab879fbd7a096e856fa5461dbae959ac86d51451c211a65fb8e95f54b?expand
-        let raw_tx = "02000000000101a1dcf3ca033463e346339642dd7305e33de4ce5ab179d1e19b1eb146534421660000000017160014a97a9058829417d4c581ad5004b6e46cc680063dfdffffff01b9010000000000001600143b05c08e224ddec538ac7aa2e3b6583b983807a302473044022051480b10ef40d12bce982d1d08176a403f176dd3e51189c07a0a9584ddb8e91602204a02134b2b892904a3519da0044e97da9ae78232f8f7678fea0b6531bf3104130121039dcac4d315739516bf5cea98bc6a9cfb49cb6269beb67c520bc5ecacc3c7d47206c70900";
-        let tx_bytes = hex::decode(&raw_tx).unwrap();
-        let transaction = parse_transaction(&tx_bytes).unwrap();
-
-        // 35PLQyoXs2sk9QDqMv7bBGowxP1pjwXAMe
-        let address = Address::P2SH(H160::from_str(&"288873634ae24a3c9b6792cc7e2a084ec79ef68b").unwrap());
-        let extr_address = extract_address_hash_scriptsig(&transaction.inputs[0].script).unwrap();
-        assert_eq!(&extr_address, &address);
     }
 
     #[test]

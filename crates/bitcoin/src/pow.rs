@@ -1,5 +1,5 @@
 use crate::{Error, GetCompact};
-use sp_core::U256;
+use primitive_types::U256;
 
 /// Target Timespan: 2 weeks (1209600 seconds)
 // https://github.com/bitcoin/bitcoin/blob/5ba5becbb5d8c794efe579caeea7eea64f895a13/src/chainparams.cpp#L77

@@ -11,18 +11,15 @@ serde = { version = "1.0.130", default-features = false, features = ["derive"], 
 impl-serde = { version = "0.3.1", default-features = false, optional = true }
 sha2 = { version = "0.8.2", default-features = false }
 hex = { version = "0.4.2", default-features = false }
+spin = { version = "0.7.1", default-features = false }
+primitive-types = { version = "0.12.1", default-features = false, features = ["codec", "scale-info"] }
 bitcoin_hashes = { version = "0.7.3", default-features = false }
 secp256k1 = { package = "secp256k1", git = "https://github.com/rust-bitcoin/rust-secp256k1", rev = "8e61874", default-features = false }
-spin = { version = "0.7.1", default-features = false }
-
-# Substrate dependencies
-sp-core = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.31", default-features = false }
-sp-std = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.31", default-features = false }
-frame-support = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.31", default-features = false }
 
 [dev-dependencies]
 mocktopus = "0.8.0"
 secp256k1 = { package = "secp256k1", git = "https://github.com/rust-bitcoin/rust-secp256k1", rev = "8e61874", default-features = false, features = ["rand-std"] }
+frame-support = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.31" }
 
 [features]
 default = ["std"]
@@ -33,10 +30,17 @@ std = [
 	"impl-serde",
 	"sha2/std",
 	"hex/alloc",
+	"primitive-types/std",
+	"primitive-types/serde",
 	"secp256k1/std",
-
-	"sp-core/std",
-	"sp-std/std",
-	"frame-support/std",
 ]
+parser = []
 runtime-benchmarks = []
+
+[[example]]
+name = "parse-transaction"
+required-features = ["parser"]
+
+[[example]]
+name = "run-proof"
+required-features = ["parser"]

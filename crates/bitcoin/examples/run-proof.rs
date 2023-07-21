@@ -1,5 +1,3 @@
-extern crate bitcoin;
-
 use bitcoin::{
     merkle::{MerkleProof, PartialTransactionProof},
     parser::parse_transaction,

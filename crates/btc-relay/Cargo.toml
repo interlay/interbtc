@@ -27,8 +27,9 @@ security = { path = "../security", default-features = false }
 [dev-dependencies]
 mocktopus = "0.8.0"
 hex = "0.4.2"
-frame-benchmarking = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.31", default-features = false }
 itertools = "0.10.0"
+bitcoin = { path = "../bitcoin", features = ["parser"] }
+frame-benchmarking = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.31", default-features = false }
 
 [features]
 default = ["std"]
@@ -54,5 +55,7 @@ runtime-benchmarks = [
     "frame-benchmarking",
     "frame-support/runtime-benchmarks",
     "frame-system/runtime-benchmarks",
+
+    "bitcoin/runtime-benchmarks",
 ]
 try-runtime = [ "frame-support/try-runtime" ]
