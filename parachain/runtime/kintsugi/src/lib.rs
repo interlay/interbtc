@@ -304,12 +304,13 @@ impl pallet_aura::Config for Runtime {
 
 parameter_types! {
     pub const MinimumPeriod: u64 = SLOT_DURATION / 2;
+    pub storage EnableManualSeal: bool = false;
 }
 
 impl pallet_timestamp::Config for Runtime {
     /// A timestamp: milliseconds since the unix epoch.
     type Moment = Moment;
-    type OnTimestampSet = runtime_common::MaybeSetTimestamp<Runtime>;
+    type OnTimestampSet = runtime_common::ConsensusOnTimestampSet<Self, EnableManualSeal>;
     type MinimumPeriod = MinimumPeriod;
     type WeightInfo = weights::pallet_timestamp::WeightInfo<Runtime>;
 }

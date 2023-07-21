@@ -1,5 +1,5 @@
 use super::*;
-use crate::chain_spec::interlay::interlay_genesis;
+use crate::chain_spec::interlay::{interlay_genesis, PARA_ID};
 
 fn testnet_properties(bitcoin_network: &str) -> Map<String, Value> {
     let mut properties = Map::new();
@@ -22,7 +22,7 @@ pub fn staging_mainnet_config(benchmarking: bool) -> InterlayChainSpec {
         "interlay",
         ChainType::Live,
         move || {
-            let mut genesis = interlay_genesis(
+            interlay_genesis(
                 vec![
                     // 5EqCiRZGFZ88JCK9FNmak2SkRHSohWpEFpx28vwo5c1m98Xe (//authority/1)
                     get_authority_keys_from_public_key(hex![
@@ -69,16 +69,10 @@ pub fn staging_mainnet_config(benchmarking: bool) -> InterlayChainSpec {
                 Some(get_account_id_from_string(
                     "5Ec37KSdjSbGKoQN4evLXrZskjc7jxXYrowPHEtH2MzRC7mv",
                 )),
-                crate::chain_spec::interlay::PARA_ID.into(),
+                PARA_ID.into(),
                 DEFAULT_BITCOIN_CONFIRMATIONS,
-            );
-
-            genesis.btc_relay.bitcoin_confirmations = DEFAULT_BITCOIN_CONFIRMATIONS;
-            genesis.btc_relay.parachain_confirmations =
-                DEFAULT_BITCOIN_CONFIRMATIONS.saturating_mul(interlay_runtime::BITCOIN_BLOCK_SPACING);
-            genesis.btc_relay.disable_difficulty_check = true;
-
-            genesis
+                true, // disable difficulty check
+            )
         },
         Vec::new(),
         None,
@@ -87,7 +81,7 @@ pub fn staging_mainnet_config(benchmarking: bool) -> InterlayChainSpec {
         Some(testnet_properties(BITCOIN_TESTNET)),
         Extensions {
             relay_chain: "staging".into(),
-            para_id: crate::chain_spec::interlay::PARA_ID.into(),
+            para_id: PARA_ID.into(),
         },
     )
 }

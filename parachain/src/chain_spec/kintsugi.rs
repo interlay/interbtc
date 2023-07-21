@@ -1,8 +1,30 @@
 use super::*;
-use kintsugi_runtime::LoansConfig;
-use primitives::Rate;
 
 pub const PARA_ID: u32 = 2092;
+
+/// Specialized `ChainSpec` for the kintsugi parachain runtime.
+pub type KintsugiChainSpec = sc_service::GenericChainSpec<kintsugi_runtime::GenesisConfig, Extensions>;
+
+/// Specialized `ChainSpec` for kintsugi development.
+pub type KintsugiDevChainSpec = sc_service::GenericChainSpec<KintsugiDevGenesisExt, Extensions>;
+
+/// Extension for the dev genesis config to support a custom changes to the genesis state.
+#[derive(Serialize, Deserialize)]
+pub struct KintsugiDevGenesisExt {
+    /// Genesis config.
+    pub(crate) genesis_config: kintsugi_runtime::GenesisConfig,
+    /// The flag to enable instant-seal mode.
+    pub(crate) enable_instant_seal: bool,
+}
+
+impl sp_runtime::BuildStorage for KintsugiDevGenesisExt {
+    fn assimilate_storage(&self, storage: &mut Storage) -> Result<(), String> {
+        sp_state_machine::BasicExternalities::execute_with_storage(storage, || {
+            kintsugi_runtime::EnableManualSeal::set(&self.enable_instant_seal);
+        });
+        self.genesis_config.assimilate_storage(storage)
+    }
+}
 
 pub fn kintsugi_properties() -> Map<String, Value> {
     let mut properties = Map::new();
@@ -26,14 +48,14 @@ fn default_pair_kintsugi(currency_id: CurrencyId) -> VaultCurrencyPair<CurrencyI
     }
 }
 
-pub fn kintsugi_dev_config() -> KintsugiChainSpec {
+pub fn kintsugi_dev_config(enable_instant_seal: bool) -> KintsugiDevChainSpec {
     let id: ParaId = PARA_ID.into();
-    KintsugiChainSpec::from_genesis(
+    KintsugiDevChainSpec::from_genesis(
         "Kintsugi",
         "kintsugi",
-        ChainType::Live,
-        move || {
-            kintsugi_genesis(
+        ChainType::Development,
+        move || KintsugiDevGenesisExt {
+            genesis_config: kintsugi_genesis(
                 vec![get_authority_keys_from_seed("Alice")],
                 vec![(
                     get_account_id_from_seed::<sr25519::Public>("Bob"),
@@ -43,7 +65,9 @@ pub fn kintsugi_dev_config() -> KintsugiChainSpec {
                 Some(get_account_id_from_seed::<sr25519::Public>("Alice")),
                 id,
                 1,
-            )
+                false, // disable difficulty check
+            ),
+            enable_instant_seal,
         },
         Vec::new(),
         None,
@@ -115,6 +139,7 @@ pub fn kintsugi_mainnet_config() -> KintsugiChainSpec {
                 None,   // no sudo key
                 id,
                 SECURE_BITCOIN_CONFIRMATIONS,
+                false, // enable difficulty check
             )
         },
         Vec::new(),
@@ -136,6 +161,7 @@ pub fn kintsugi_genesis(
     root_key: Option<AccountId>,
     id: ParaId,
     bitcoin_confirmations: u32,
+    disable_difficulty_check: bool,
 ) -> kintsugi_runtime::GenesisConfig {
     kintsugi_runtime::GenesisConfig {
         system: kintsugi_runtime::SystemConfig {
@@ -182,7 +208,7 @@ pub fn kintsugi_genesis(
         btc_relay: kintsugi_runtime::BTCRelayConfig {
             bitcoin_confirmations,
             parachain_confirmations: bitcoin_confirmations.saturating_mul(kintsugi_runtime::BITCOIN_BLOCK_SPACING),
-            disable_difficulty_check: false,
+            disable_difficulty_check,
             disable_inclusion_check: false,
         },
         issue: kintsugi_runtime::IssueConfig {
@@ -266,7 +292,7 @@ pub fn kintsugi_genesis(
             safe_xcm_version: Some(3),
         },
         sudo: kintsugi_runtime::SudoConfig { key: root_key },
-        loans: LoansConfig {
+        loans: kintsugi_runtime::LoansConfig {
             max_exchange_rate: Rate::from_inner(loans::DEFAULT_MAX_EXCHANGE_RATE),
             min_exchange_rate: Rate::from_inner(loans::DEFAULT_MIN_EXCHANGE_RATE),
         },

@@ -144,18 +144,14 @@ where
     }
 }
 
-pub struct MaybeSetTimestamp<T>(PhantomData<T>);
-
-impl<T> OnTimestampSet<T::Moment> for MaybeSetTimestamp<T>
-where
-    T: frame_system::Config + pallet_aura::Config + pallet_sudo::Config,
+pub struct ConsensusOnTimestampSet<T, EnableManualSeal>(PhantomData<(T, EnableManualSeal)>);
+impl<T: pallet_aura::Config, EnableManualSeal: Get<bool>> OnTimestampSet<T::Moment>
+    for ConsensusOnTimestampSet<T, EnableManualSeal>
 {
     fn on_timestamp_set(moment: T::Moment) {
-        // key is not set on mainnet
-        if pallet_sudo::Pallet::<T>::key().is_none() {
-            // this hook breaks instant-seal so only call when
-            // using the mainnet configuration
-            <pallet_aura::Pallet<T> as OnTimestampSet<T::Moment>>::on_timestamp_set(moment);
+        if EnableManualSeal::get() {
+            return;
         }
+        <pallet_aura::Pallet<T> as OnTimestampSet<T::Moment>>::on_timestamp_set(moment)
     }
 }

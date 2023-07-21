@@ -1,5 +1,5 @@
 use super::*;
-use crate::chain_spec::kintsugi::kintsugi_genesis;
+use crate::chain_spec::kintsugi::{kintsugi_genesis, PARA_ID};
 
 fn testnet_properties(bitcoin_network: &str) -> Map<String, Value> {
     let mut properties = Map::new();
@@ -45,6 +45,7 @@ pub fn local_config(id: ParaId) -> KintsugiChainSpec {
                 None,
                 id,
                 DEFAULT_BITCOIN_CONFIRMATIONS,
+                true, // disable difficulty check
             )
         },
         vec![],
@@ -59,13 +60,13 @@ pub fn local_config(id: ParaId) -> KintsugiChainSpec {
     )
 }
 
-pub fn development_config(id: ParaId) -> KintsugiChainSpec {
-    KintsugiChainSpec::from_genesis(
+pub fn development_config(id: ParaId, enable_instant_seal: bool) -> KintsugiDevChainSpec {
+    KintsugiDevChainSpec::from_genesis(
         "Kintsugi",
         "kintsugi",
         ChainType::Development,
-        move || {
-            kintsugi_genesis(
+        move || KintsugiDevGenesisExt {
+            genesis_config: kintsugi_genesis(
                 vec![get_authority_keys_from_seed("Alice")],
                 vec![
                     (
@@ -98,7 +99,9 @@ pub fn development_config(id: ParaId) -> KintsugiChainSpec {
                 Some(get_account_id_from_seed::<sr25519::Public>("Alice")),
                 id,
                 DEFAULT_BITCOIN_CONFIRMATIONS,
-            )
+                true, // disable difficulty check
+            ),
+            enable_instant_seal,
         },
         Vec::new(),
         None,
@@ -118,7 +121,7 @@ pub fn staging_mainnet_config(benchmarking: bool) -> KintsugiChainSpec {
         "kintsugi",
         ChainType::Live,
         move || {
-            let mut genesis = kintsugi_genesis(
+            kintsugi_genesis(
                 vec![
                     // 5EqCiRZGFZ88JCK9FNmak2SkRHSohWpEFpx28vwo5c1m98Xe (//authority/1)
                     get_authority_keys_from_public_key(hex![
@@ -165,16 +168,10 @@ pub fn staging_mainnet_config(benchmarking: bool) -> KintsugiChainSpec {
                 Some(get_account_id_from_string(
                     "5Ec37KSdjSbGKoQN4evLXrZskjc7jxXYrowPHEtH2MzRC7mv",
                 )),
-                crate::chain_spec::kintsugi::PARA_ID.into(),
+                PARA_ID.into(),
                 DEFAULT_BITCOIN_CONFIRMATIONS,
-            );
-
-            genesis.btc_relay.bitcoin_confirmations = DEFAULT_BITCOIN_CONFIRMATIONS;
-            genesis.btc_relay.parachain_confirmations =
-                DEFAULT_BITCOIN_CONFIRMATIONS.saturating_mul(kintsugi_runtime::BITCOIN_BLOCK_SPACING);
-            genesis.btc_relay.disable_difficulty_check = true;
-
-            genesis
+                true, // disable difficulty check
+            )
         },
         Vec::new(),
         None,
@@ -183,7 +180,7 @@ pub fn staging_mainnet_config(benchmarking: bool) -> KintsugiChainSpec {
         Some(testnet_properties(BITCOIN_TESTNET)),
         Extensions {
             relay_chain: "staging".into(),
-            para_id: crate::chain_spec::kintsugi::PARA_ID.into(),
+            para_id: PARA_ID.into(),
         },
     )
 }
