@@ -1,8 +1,17 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
+#[cfg(not(feature = "std"))]
+extern crate alloc;
+
+#[cfg(not(feature = "std"))]
+use alloc::{vec, vec::Vec};
 use bitcoin::{Address as BtcAddress, PublicKey as BtcPublicKey};
 use bstringify::bstringify;
 use codec::{Decode, Encode, MaxEncodedLen};
+use core::convert::TryFrom;
+#[cfg(any(feature = "runtime-benchmarks", feature = "substrate-compat"))]
+use core::convert::TryInto;
+use primitive_types::H256;
 #[cfg(feature = "std")]
 use scale_decode::DecodeAsType;
 #[cfg(feature = "std")]
@@ -10,17 +19,6 @@ use scale_encode::EncodeAsType;
 use scale_info::TypeInfo;
 #[cfg(feature = "std")]
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
-pub use sp_core::H256;
-pub use sp_runtime::OpaqueExtrinsic as UncheckedExtrinsic;
-use sp_runtime::{
-    generic,
-    traits::{BlakeTwo256, IdentifyAccount, Verify},
-    FixedI128, FixedPointNumber, FixedU128, MultiSignature, Permill, RuntimeDebug,
-};
-use sp_std::{
-    convert::{TryFrom, TryInto},
-    prelude::*,
-};
 
 pub use bitcoin::types::H256Le;
 
@@ -28,33 +26,54 @@ pub const BITCOIN_TESTNET: &str = "bitcoin-testnet";
 pub const BITCOIN_MAINNET: &str = "bitcoin-mainnet";
 pub const BITCOIN_REGTEST: &str = "bitcoin-regtest";
 
-pub trait BalanceToFixedPoint<FixedPoint> {
-    fn to_fixed(self) -> Option<FixedPoint>;
-}
+#[cfg(feature = "substrate-compat")]
+pub use arithmetic::*;
 
-impl BalanceToFixedPoint<SignedFixedPoint> for Balance {
-    fn to_fixed(self) -> Option<SignedFixedPoint> {
-        SignedFixedPoint::checked_from_integer(
-            TryInto::<<SignedFixedPoint as FixedPointNumber>::Inner>::try_into(self).ok()?,
-        )
+#[cfg(feature = "substrate-compat")]
+mod arithmetic {
+    use super::*;
+    use sp_runtime::{FixedI128, FixedPointNumber, FixedU128};
+
+    /// The signed fixed point type.
+    pub type SignedFixedPoint = FixedI128;
+
+    /// The `Inner` type of the `SignedFixedPoint`.
+    pub type SignedInner = <FixedI128 as FixedPointNumber>::Inner;
+
+    /// The unsigned fixed point type.
+    pub type UnsignedFixedPoint = FixedU128;
+
+    /// The `Inner` type of the `UnsignedFixedPoint`.
+    pub type UnsignedInner = <FixedU128 as FixedPointNumber>::Inner;
+
+    pub trait BalanceToFixedPoint<FixedPoint> {
+        fn to_fixed(self) -> Option<FixedPoint>;
     }
-}
 
-pub trait TruncateFixedPointToInt: FixedPointNumber {
-    /// take a fixed point number and turns it into the truncated inner representation,
-    /// e.g. FixedU128(1.23) -> 1u128
-    fn truncate_to_inner(&self) -> Option<<Self as FixedPointNumber>::Inner>;
-}
-
-impl TruncateFixedPointToInt for SignedFixedPoint {
-    fn truncate_to_inner(&self) -> Option<Self::Inner> {
-        self.into_inner().checked_div(SignedFixedPoint::accuracy())
+    impl BalanceToFixedPoint<SignedFixedPoint> for Balance {
+        fn to_fixed(self) -> Option<SignedFixedPoint> {
+            SignedFixedPoint::checked_from_integer(
+                TryInto::<<SignedFixedPoint as FixedPointNumber>::Inner>::try_into(self).ok()?,
+            )
+        }
     }
-}
 
-impl TruncateFixedPointToInt for UnsignedFixedPoint {
-    fn truncate_to_inner(&self) -> Option<<Self as FixedPointNumber>::Inner> {
-        self.into_inner().checked_div(UnsignedFixedPoint::accuracy())
+    pub trait TruncateFixedPointToInt: FixedPointNumber {
+        /// take a fixed point number and turns it into the truncated inner representation,
+        /// e.g. FixedU128(1.23) -> 1u128
+        fn truncate_to_inner(&self) -> Option<<Self as FixedPointNumber>::Inner>;
+    }
+
+    impl TruncateFixedPointToInt for SignedFixedPoint {
+        fn truncate_to_inner(&self) -> Option<Self::Inner> {
+            self.into_inner().checked_div(SignedFixedPoint::accuracy())
+        }
+    }
+
+    impl TruncateFixedPointToInt for UnsignedFixedPoint {
+        fn truncate_to_inner(&self) -> Option<<Self as FixedPointNumber>::Inner> {
+            self.into_inner().checked_div(UnsignedFixedPoint::accuracy())
+        }
     }
 }
 
@@ -321,19 +340,34 @@ pub mod oracle {
     }
 }
 
+#[cfg(feature = "substrate-compat")]
+pub use runtime::*;
+
+#[cfg(feature = "substrate-compat")]
+mod runtime {
+    use super::*;
+    use sp_runtime::{
+        generic,
+        traits::{BlakeTwo256, IdentifyAccount, Verify},
+        MultiSignature, OpaqueExtrinsic,
+    };
+
+    /// Alias to 512-bit hash when used in the context of a transaction signature on the chain.
+    pub type Signature = MultiSignature;
+
+    /// Some way of identifying an account on the chain. We intentionally make it equivalent
+    /// to the public key of our transaction signing scheme.
+    pub type AccountId = <<Signature as Verify>::Signer as IdentifyAccount>::AccountId;
+
+    /// Opaque block header type.
+    pub type Header = generic::Header<BlockNumber, BlakeTwo256>;
+
+    /// Opaque block type.
+    pub type Block = generic::Block<Header, OpaqueExtrinsic>;
+}
+
 /// An index to a block.
 pub type BlockNumber = u32;
-
-/// Alias to 512-bit hash when used in the context of a transaction signature on the chain.
-pub type Signature = MultiSignature;
-
-/// Some way of identifying an account on the chain. We intentionally make it equivalent
-/// to the public key of our transaction signing scheme.
-pub type AccountId = <<Signature as Verify>::Signer as IdentifyAccount>::AccountId;
-
-/// The type for looking up accounts. We don't expect more than 4 billion of them, but you
-/// never know...
-pub type AccountIndex = u32;
 
 /// Index of a transaction in the chain. 32-bit should be plenty.
 pub type Nonce = u32;
@@ -342,48 +376,35 @@ pub type Nonce = u32;
 pub type Balance = u128;
 
 /// Signed version of Balance
-pub type Amount = i128;
+pub type SignedBalance = i128;
 
 /// Index of a transaction in the chain.
 pub type Index = u32;
 
 /// A hash of some data used by the chain.
-pub type Hash = sp_core::H256;
+pub type Hash = H256;
 
 /// An instant or duration in time.
 pub type Moment = u64;
 
-/// Opaque block header type.
-pub type Header = generic::Header<BlockNumber, BlakeTwo256>;
-
-/// Opaque block type.
-pub type Block = generic::Block<Header, UncheckedExtrinsic>;
-
-/// Opaque block identifier type.
-pub type BlockId = generic::BlockId<Block>;
-
-/// The signed fixed point type.
-pub type SignedFixedPoint = FixedI128;
-
-/// The `Inner` type of the `SignedFixedPoint`.
-pub type SignedInner = i128;
-
-/// The unsigned fixed point type.
-pub type UnsignedFixedPoint = FixedU128;
-
-/// The `Inner` type of the `UnsignedFixedPoint`.
-pub type UnsignedInner = u128;
-
 /// Loans pallet types
+#[cfg(feature = "substrate-compat")]
+pub use loans::*;
 
-pub type Price = FixedU128;
-pub type Timestamp = Moment;
-pub type PriceDetail = (Price, Timestamp);
-pub type Rate = FixedU128;
-pub type Ratio = Permill;
-pub type Shortfall = FixedU128;
-pub type Liquidity = FixedU128;
-pub const SECONDS_PER_YEAR: Timestamp = 365 * 24 * 60 * 60;
+#[cfg(feature = "substrate-compat")]
+mod loans {
+    use super::*;
+    use sp_runtime::{FixedU128, Permill};
+
+    pub type Price = FixedU128;
+    pub type Timestamp = Moment;
+    pub type PriceDetail = (Price, Timestamp);
+    pub type Rate = FixedU128;
+    pub type Ratio = Permill;
+    pub type Shortfall = FixedU128;
+    pub type Liquidity = FixedU128;
+    pub const SECONDS_PER_YEAR: Timestamp = 365 * 24 * 60 * 60;
+}
 
 pub trait CurrencyInfo {
     fn name(&self) -> &str;
@@ -469,7 +490,7 @@ macro_rules! create_currency_id {
 }
 
 create_currency_id! {
-    #[derive(Encode, Decode, Eq, Hash, PartialEq, Copy, Clone, RuntimeDebug, PartialOrd, Ord, TypeInfo, MaxEncodedLen)]
+    #[derive(Encode, Decode, Eq, Hash, PartialEq, Copy, Clone, Debug, PartialOrd, Ord, TypeInfo, MaxEncodedLen)]
     #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
     #[cfg_attr(feature = "std", derive(EncodeAsType,DecodeAsType))]
     #[repr(u8)]
@@ -484,7 +505,7 @@ create_currency_id! {
     }
 }
 
-#[derive(Encode, Decode, Eq, Hash, PartialEq, Copy, Clone, RuntimeDebug, PartialOrd, Ord, TypeInfo, MaxEncodedLen)]
+#[derive(Encode, Decode, Eq, Hash, PartialEq, Copy, Clone, Debug, PartialOrd, Ord, TypeInfo, MaxEncodedLen)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[cfg_attr(feature = "std", serde(rename_all = "camelCase"))]
 #[cfg_attr(feature = "std", derive(EncodeAsType, DecodeAsType))]
@@ -494,7 +515,7 @@ pub enum LpToken {
     StableLpToken(StablePoolId),
 }
 
-#[derive(Encode, Decode, Eq, Hash, PartialEq, Copy, Clone, RuntimeDebug, PartialOrd, Ord, TypeInfo, MaxEncodedLen)]
+#[derive(Encode, Decode, Eq, Hash, PartialEq, Copy, Clone, Debug, PartialOrd, Ord, TypeInfo, MaxEncodedLen)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[cfg_attr(feature = "std", serde(rename_all = "camelCase"))]
 #[cfg_attr(feature = "std", derive(EncodeAsType, DecodeAsType))]

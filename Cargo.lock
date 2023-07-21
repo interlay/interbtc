@@ -4386,14 +4386,12 @@ dependencies = [
  "bitcoin",
  "bstringify",
  "parity-scale-codec",
+ "primitive-types",
  "scale-decode",
  "scale-encode",
  "scale-info",
  "serde",
- "sp-core",
  "sp-runtime",
- "sp-std",
- "xcm",
 ]
 
 [[package]]
