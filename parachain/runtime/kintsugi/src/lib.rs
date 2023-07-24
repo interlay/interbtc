@@ -210,7 +210,7 @@ impl frame_system::Config for Runtime {
     /// The hashing algorithm used.
     type Hashing = BlakeTwo256;
     /// The header type.
-    type Header = generic::Header<BlockNumber, BlakeTwo256>;
+    type Header = Header;
     /// The ubiquitous event type.
     type RuntimeEvent = RuntimeEvent;
     /// The ubiquitous origin type.
@@ -691,7 +691,7 @@ where
 impl orml_tokens::Config for Runtime {
     type RuntimeEvent = RuntimeEvent;
     type Balance = Balance;
-    type Amount = primitives::Amount;
+    type Amount = primitives::SignedBalance;
     type CurrencyId = CurrencyId;
     type WeightInfo = weights::orml_tokens::WeightInfo<Runtime>;
     type ExistentialDeposits = ExistentialDeposits;
@@ -1269,8 +1269,6 @@ construct_runtime! {
     }
 }
 
-/// The address format for describing accounts.
-pub type Address = AccountId;
 /// Block header type as expected by this runtime.
 pub type Header = generic::Header<BlockNumber, BlakeTwo256>;
 /// Block type as expected by this runtime.
@@ -1290,7 +1288,7 @@ pub type SignedExtra = (
     pallet_transaction_payment::ChargeTransactionPayment<Runtime>,
 );
 /// Unchecked extrinsic type as expected by this runtime.
-pub type UncheckedExtrinsic = generic::UncheckedExtrinsic<Address, RuntimeCall, Signature, SignedExtra>;
+pub type UncheckedExtrinsic = generic::UncheckedExtrinsic<AccountId, RuntimeCall, Signature, SignedExtra>;
 /// Extrinsic type that has already been checked.
 pub type CheckedExtrinsic = generic::CheckedExtrinsic<AccountId, RuntimeCall, SignedExtra>;
 /// Executive: handles dispatch to the various modules.

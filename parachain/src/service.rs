@@ -25,6 +25,7 @@ use sp_consensus_aura::{
     sr25519::{AuthorityId as AuraId, AuthorityPair as AuraPair},
     SlotDuration,
 };
+use sp_core::H256;
 use sp_keystore::KeystorePtr;
 use sp_runtime::traits::BlakeTwo256;
 use std::{sync::Arc, time::Duration};

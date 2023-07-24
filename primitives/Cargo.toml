@@ -8,30 +8,30 @@ version = "1.2.0"
 bstringify = "0.1.2"
 serde = { version = "1.0.130", optional = true }
 codec = { package = "parity-scale-codec", version = "3.1.5", default-features = false }
+primitive-types = { version = "0.12.1", default-features = false, features = ["codec", "scale-info"] }
 scale-info = { version = "2.2.0", default-features = false, features = ["derive"] }
-
-sp-core = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.31", default-features = false }
-sp-std = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.31", default-features = false }
-sp-runtime = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.31", default-features = false }
-xcm = { git = "https://github.com/paritytech/polkadot", branch = "release-v0.9.31", default-features = false }
 scale-decode = { version = "0.7.0", default-features = false, features = ["derive"], optional = true }
 scale-encode = { version = "0.3.0", default-features = false, features = ["derive"], optional = true }
+
+# Substrate dependencies
+sp-runtime = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.31", default-features = false, optional = true }
 
 # Parachain dependencies
 bitcoin = { path = "../crates/bitcoin", default-features = false }
 
 [features]
-default = ["std"]
+default = ["std", "substrate-compat"]
 std = [
     "serde",
     "codec/std",
+	"primitive-types/std",
+	"primitive-types/serde",
     "scale-decode",
     "scale-encode",
 
-    "sp-core/std",
-    "sp-std/std",
-    "sp-runtime/std",
+    "sp-runtime?/std",
 
     "bitcoin/std",
 ]
 runtime-benchmarks = []
+substrate-compat = ["sp-runtime"]

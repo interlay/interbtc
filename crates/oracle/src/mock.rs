@@ -100,7 +100,7 @@ parameter_type_with_key! {
 impl orml_tokens::Config for Test {
     type RuntimeEvent = RuntimeEvent;
     type Balance = Balance;
-    type Amount = primitives::Amount;
+    type Amount = primitives::SignedBalance;
     type CurrencyId = CurrencyId;
     type WeightInfo = ();
     type ExistentialDeposits = ExistentialDeposits;
