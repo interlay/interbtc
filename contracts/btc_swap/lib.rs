@@ -51,7 +51,7 @@ impl ink::env::chain_extension::FromStatusCode for RuntimeErr {
 }
 
 /// Creates a swap contract where Alice locks DOT with a price limit in a contract that
-/// Bob can a acquire by sending BTC on the Bitcoin chain that Alice provided.
+/// Bob can acquire by sending BTC on the Bitcoin chain that Alice provided.
 ///
 /// Note: this is a proof of concept protocol and should not be used in production due to flaws in
 /// the protocol and implementation.
@@ -128,12 +128,10 @@ mod btc_swap {
             let caller = self.env().caller();
             let order = self.orders.get(&counterparty).unwrap();
 
-            // FIXME: How to call the BTC relay?
             let transferred_sats = self
                 .env()
                 .extension()
                 .get_and_verify_bitcoin_payment(merkle_proof, transaction, length_bound)
-                // .get_and_verify_bitcoin_payment(merkle_proof, transaction, length_bound, order.btc_address)
                 .unwrap()
                 .unwrap_or(0);
 
