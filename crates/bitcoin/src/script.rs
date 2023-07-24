@@ -1,7 +1,9 @@
-use crate::{formatter::TryFormat, parser::extract_op_return_data, types::*, Error};
+use crate::{formatter::TryFormat, types::*, Error};
 use codec::{Decode, Encode};
 use scale_info::TypeInfo;
-use sp_std::{prelude::*, vec};
+
+#[cfg(not(feature = "std"))]
+use alloc::{vec, vec::Vec};
 
 #[cfg(feature = "std")]
 use codec::alloc::string::String;
@@ -75,7 +77,23 @@ impl Script {
     }
 
     pub fn extract_op_return_data(&self) -> Result<Vec<u8>, Error> {
-        extract_op_return_data(&self.bytes)
+        let output_script = &self.bytes;
+        if *output_script.get(0).ok_or(Error::EndOfFile)? != OpCode::OpReturn as u8 {
+            return Err(Error::MalformedOpReturnOutput);
+        }
+        // Check for max OP_RETURN size
+        // 83 in total, see here: https://github.com/bitcoin/bitcoin/blob/f018d0c9cd7f408dac016b6bfc873670de713d27/src/script/standard.h#L30
+        if output_script.len() > MAX_OPRETURN_SIZE {
+            return Err(Error::MalformedOpReturnOutput);
+        }
+
+        let result = output_script.get(2..).ok_or(Error::EndOfFile)?;
+
+        if result.len() != output_script[1] as usize {
+            return Err(Error::MalformedOpReturnOutput);
+        }
+
+        Ok(result.to_vec())
     }
 
     pub fn as_bytes(&self) -> &[u8] {
@@ -103,7 +121,7 @@ impl From<Vec<u8>> for Script {
 }
 
 #[cfg(feature = "std")]
-impl sp_std::convert::TryFrom<&str> for Script {
+impl std::convert::TryFrom<&str> for Script {
     type Error = crate::Error;
 
     fn try_from(hex_string: &str) -> Result<Script, Self::Error> {

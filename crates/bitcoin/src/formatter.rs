@@ -1,5 +1,7 @@
-use sp_core::U256;
-use sp_std::{prelude::*, vec, vec::Vec};
+use primitive_types::U256;
+
+#[cfg(not(feature = "std"))]
+use alloc::{vec, vec::Vec};
 
 use crate::{merkle::MerkleProof, script::*, types::*, Error, GetCompact};
 

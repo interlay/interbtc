@@ -1,18 +1,16 @@
-#[cfg(test)]
-extern crate mocktopus;
-
-#[cfg(test)]
-use mocktopus::macros::mockable;
-
 use crate::{
-    parser::BytesParser,
-    types::{BlockHeader, CompactUint, H256Le, Transaction},
+    types::{BlockHeader, H256Le, Transaction},
     utils::hash256_merkle_step,
     Error,
 };
 use codec::{Decode, Encode};
 use scale_info::TypeInfo;
-use sp_std::prelude::*;
+
+#[cfg(any(feature = "parser", test))]
+use crate::{parser::BytesParser, types::CompactUint};
+
+#[cfg(not(feature = "std"))]
+use alloc::vec::Vec;
 
 // https://github.com/bitcoin/bitcoin/blob/78dae8caccd82cfbfd76557f1fb7d7557c7b5edb/src/consensus/consensus.h
 const MAX_BLOCK_WEIGHT: u32 = 4_000_000;
@@ -105,7 +103,6 @@ impl MerkleTree {
     }
 }
 
-#[cfg_attr(test, mockable)]
 impl PartialTransactionProof {
     /// Computes the merkle root of the proof partial merkle tree
     pub fn verify_proof(self) -> Result<ProofResult, Error> {
@@ -287,6 +284,7 @@ impl MerkleProof {
     /// # Arguments
     ///
     /// * `merkle_proof` - Raw bytes of the merkle proof
+    #[cfg(any(feature = "parser", test))]
     pub fn parse(merkle_proof: &[u8]) -> Result<MerkleProof, Error> {
         let mut proof_parser = BytesParser::new(merkle_proof);
         let block_header = proof_parser.parse()?;
@@ -319,8 +317,8 @@ mod tests {
 
     use super::*;
 
-    use sp_core::H256;
-    use sp_std::str::FromStr;
+    use primitive_types::H256;
+    use std::str::FromStr;
 
     // curl -s -H 'content-type: application/json' http://satoshi.doc.ic.ac.uk:8332 -d '{
     //   "jsonrpc": "1.0",

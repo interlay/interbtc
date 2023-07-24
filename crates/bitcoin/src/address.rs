@@ -1,10 +1,12 @@
 use crate::{types::*, Error, Script};
 use bitcoin_hashes::{hash160::Hash as Hash160, Hash};
 use codec::{Decode, Encode, MaxEncodedLen};
+use primitive_types::{H160, H256};
 use scale_info::TypeInfo;
 use sha2::{Digest, Sha256};
-use sp_core::{H160, H256};
-use sp_std::vec::Vec;
+
+#[cfg(not(feature = "std"))]
+use alloc::vec::Vec;
 
 use secp256k1::{constants::PUBLIC_KEY_SIZE, Error as Secp256k1Error, PublicKey as Secp256k1PublicKey};
 
@@ -175,8 +177,10 @@ impl<'de> serde::Deserialize<'de> for PublicKey {
 }
 
 pub mod global {
+    #[cfg(not(feature = "std"))]
+    use alloc::{vec, vec::Vec};
+    use core::ops::Deref;
     use secp256k1::{ffi::types::AlignedType, AllPreallocated, Secp256k1};
-    use sp_std::{ops::Deref, vec, vec::Vec};
     // this is what lazy_static uses internally
     use spin::Once;
 

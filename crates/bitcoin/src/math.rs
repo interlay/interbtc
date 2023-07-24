@@ -1,4 +1,4 @@
-use sp_core::U256;
+use primitive_types::U256;
 
 pub trait GetCompact {
     fn get_compact(self) -> Option<u32>;

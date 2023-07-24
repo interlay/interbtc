@@ -19,8 +19,13 @@
 #![cfg_attr(test, feature(proc_macro_hygiene))]
 #![cfg_attr(not(feature = "std"), no_std)]
 
+#[cfg(not(feature = "std"))]
+extern crate alloc;
+
 #[cfg(test)]
 extern crate mocktopus;
+
+extern crate hex;
 
 mod error;
 pub use error::Error;
@@ -36,6 +41,8 @@ pub use script::Script;
 pub mod types;
 
 pub mod formatter;
+
+#[cfg(any(feature = "parser", test))]
 pub mod parser;
 
 pub mod utils;

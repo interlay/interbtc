@@ -655,12 +655,11 @@ dependencies = [
  "impl-serde 0.3.2",
  "mocktopus",
  "parity-scale-codec",
+ "primitive-types",
  "scale-info",
  "secp256k1 0.20.1",
  "serde",
  "sha2 0.8.2",
- "sp-core",
- "sp-std",
  "spin 0.7.1",
 ]
 
