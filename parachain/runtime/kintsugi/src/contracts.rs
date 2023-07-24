@@ -1,5 +1,6 @@
 use crate::{BaseCallFilter, NativeCurrency, Runtime, RuntimeCall, RuntimeEvent, Timestamp, Weight};
 use bitcoin::types::{MerkleProof, Transaction};
+use btc_relay::FullTransactionProof;
 use codec::{Decode, Encode};
 use frame_support::{
     dispatch::{DispatchError, DispatchResult},
@@ -225,18 +226,14 @@ impl ChainExtension<Runtime> for BtcRelayExtension {
             1101 => {
                 let mut env = env.buf_in_buf_out();
 
-                let (merkle_proof, transaction, length_bound, btc_address): (MerkleProof, Transaction, u32, Vec<u8>) =
+                let (unchecked_proof, btc_address): (FullTransactionProof, Vec<u8>) =
                     env.read_as_unbounded(env.in_len())?;
 
                 let btc_address = Decode::decode(&mut &btc_address[..]).unwrap();
-                let sats: Option<u64> = btc_relay::Pallet::<Runtime>::get_and_verify_issue_payment::<Balance>(
-                    merkle_proof,
-                    transaction,
-                    length_bound,
-                    btc_address,
-                )
-                .ok()
-                .and_then(|x| x.try_into().ok());
+                let sats: Option<u64> =
+                    btc_relay::Pallet::<Runtime>::get_and_verify_issue_payment::<Balance>(unchecked_proof, btc_address)
+                        .ok()
+                        .and_then(|x| x.try_into().ok());
 
                 env.write(&sats.encode(), false, None)
                     .map_err(|_| DispatchError::Other("ChainExtension failed"))?;

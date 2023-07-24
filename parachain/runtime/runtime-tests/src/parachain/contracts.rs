@@ -15,15 +15,14 @@ mod relay {
 
     use super::*;
 
-    pub fn transfer_sats(address: BtcAddress, amount: u64) -> (MerkleProof, Transaction) {
+    pub fn transfer_sats(address: BtcAddress, amount: u64) -> FullTransactionProof {
         let amount = Amount::<Runtime>::new(amount as u128, Token(KBTC));
 
-        let (_tx_id, _height, merkle_proof, transaction) =
-            TransactionGenerator::new().with_outputs(vec![(address, amount)]).mine();
+        let (_tx_id, _height, proof) = TransactionGenerator::new().with_outputs(vec![(address, amount)]).mine();
 
         SecurityPallet::set_active_block_number(SecurityPallet::active_block_number() + CONFIRMATIONS);
 
-        (merkle_proof, transaction)
+        proof
     }
 }
 
@@ -164,14 +163,12 @@ fn test_btc_swap_contract() {
 
         // test case 1: transfer of sufficient tokens has been made.
         dry_run(|| {
-            let (merkle_proof, transaction) = relay::transfer_sats(address, min_satoshis);
+            let proof = relay::transfer_sats(address, min_satoshis);
 
             // see comment above regarding selector
             let mut execute_trade = vec![0x6b, 0xf4, 0x21, 0xce];
             account_of(ALICE).encode_to(&mut execute_trade);
-            merkle_proof.encode_to(&mut execute_trade);
-            transaction.encode_to(&mut execute_trade);
-            (transaction.size_no_witness() as u32).encode_to(&mut execute_trade);
+            proof.encode_to(&mut execute_trade);
             let result = ContractsPallet::bare_call(
                 account_of(ALICE),
                 addr.clone(),
@@ -186,12 +183,10 @@ fn test_btc_swap_contract() {
         });
 
         // test case 2: payment of insufficient value: execution fails
-        let (merkle_proof, transaction) = relay::transfer_sats(address, min_satoshis / 2);
+        let proof = relay::transfer_sats(address, min_satoshis / 2);
         let mut execute_trade = vec![0x6b, 0xf4, 0x21, 0xce];
         account_of(ALICE).encode_to(&mut execute_trade);
-        merkle_proof.encode_to(&mut execute_trade);
-        transaction.encode_to(&mut execute_trade);
-        (transaction.size_no_witness() as u32).encode_to(&mut execute_trade);
+        proof.encode_to(&mut execute_trade);
         let result = ContractsPallet::bare_call(
             account_of(ALICE),
             addr.clone(),

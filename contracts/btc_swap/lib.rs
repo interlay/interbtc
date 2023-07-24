@@ -1,6 +1,6 @@
 #![cfg_attr(not(feature = "std"), no_std, no_main)]
 
-use bitcoin::types::{MerkleProof, Transaction};
+use bitcoin::types::{FullTransactionProof, MerkleProof, Transaction};
 use ink::{env::Environment, prelude::vec::Vec};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -26,12 +26,7 @@ pub trait DoSomethingInRuntime {
     /// Note: this gives the operation a corresponding `func_id` (1101 in this case),
     /// and the chain-side chain extension will get the `func_id` to do further operations.
     #[ink(extension = 1101)]
-    fn get_and_verify_bitcoin_payment(
-        merkle_proof: MerkleProof,
-        transaction: Transaction,
-        length_bound: u32,
-        address: Vec<u8>,
-    ) -> Option<u64>;
+    fn get_and_verify_bitcoin_payment(full_proof: FullTransactionProof, address: Vec<u8>) -> Option<u64>;
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, scale::Encode, scale::Decode)]
@@ -118,20 +113,14 @@ mod btc_swap {
         }
 
         #[ink(message)]
-        pub fn execute_trade(
-            &mut self,
-            counterparty: AccountId,
-            merkle_proof: MerkleProof,
-            transaction: Transaction,
-            length_bound: u32,
-        ) {
+        pub fn execute_trade(&mut self, counterparty: AccountId, full_proof: FullTransactionProof) {
             let caller = self.env().caller();
             let order = self.orders.get(&counterparty).unwrap();
 
             let transferred_sats = self
                 .env()
                 .extension()
-                .get_and_verify_bitcoin_payment(merkle_proof, transaction, length_bound)
+                .get_and_verify_bitcoin_payment(full_proof, order.btc_address)
                 .unwrap()
                 .unwrap_or(0);
 
