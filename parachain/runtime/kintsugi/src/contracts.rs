@@ -8,7 +8,7 @@ use frame_support::{
     traits::{
         fungible::Inspect,
         tokens::{DepositConsequence, Fortitude, Preservation, Provenance, WithdrawConsequence},
-        ExistenceRequirement, Get, Randomness, ReservableCurrency, SignedImbalance, WithdrawReasons,
+        ExistenceRequirement, Get, Nothing, Randomness, ReservableCurrency, SignedImbalance, WithdrawReasons,
     },
 };
 use orml_traits::BalanceStatus;
@@ -39,10 +39,10 @@ parameter_types! {
     pub const DeletionWeightLimit: Weight = Weight::from_ref_time(100000000 as u64);
     pub const DepositPerByte: Balance = 1;
     pub const DepositPerItem: Balance = 1;
-    pub const MaxCodeLen: u32 = 100000000;
-    pub const MaxStorageKeyLen: u32 = 100000000;
+    pub const MaxCodeLen: u32 = 123 * 1024;
+    pub const MaxStorageKeyLen: u32 = 128;
     pub const UnsafeUnstableInterface: bool = false;
-    pub const MaxDebugBufferLen: u32 = 100000000;
+    pub const MaxDebugBufferLen: u32 = 2 * 1024 * 1024;
     pub const DefaultDepositLimit: Balance = 1_000_000_000_000;
 }
 
@@ -261,12 +261,12 @@ impl pallet_contracts::Config for Runtime {
     type Currency = NativeCurrencyWithEd;
     type RuntimeEvent = RuntimeEvent;
     type RuntimeCall = RuntimeCall;
-    type CallFilter = BaseCallFilter;
+    type CallFilter = Nothing;
     type WeightPrice = DummyWeightPrice;
     type WeightInfo = ();
     type ChainExtension = BtcRelayExtension;
     type Schedule = DefaultSchedule;
-    type CallStack = [pallet_contracts::Frame<Self>; 31];
+    type CallStack = [pallet_contracts::Frame<Self>; 5];
     type DepositPerByte = DepositPerByte;
     type DepositPerItem = DepositPerItem;
     type DefaultDepositLimit = DefaultDepositLimit;
