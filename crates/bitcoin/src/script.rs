@@ -27,10 +27,24 @@ impl Script {
 
     pub(crate) fn height(height: u32) -> Script {
         let mut script = Script::new();
-        let len: u8 = 0x03; // Note: NOT OP3. See https://github.com/bitcoin/bips/blob/master/bip-0034.mediawiki
-        script.append(len);
-        let bytes = height.to_le_bytes();
-        script.append(&bytes[0..=2]);
+
+        // The format is described here https://github.com/bitcoin/bips/blob/master/bip-0034.mediawiki
+        // Tl;dr: first byte is number of bytes in the number, following bytes are little-endian
+        // representation of the number
+
+        let mut height_bytes = height.to_le_bytes().to_vec();
+        for i in (1..4).rev() {
+            // remove trailing zeroes, but always keep first byte even if it's zero
+            if height_bytes[i] == 0 {
+                height_bytes.remove(i);
+            } else {
+                break;
+            }
+        }
+
+        // note: formatting the height_bytes vec automatically prepends the length of the vec, so no need
+        // to append it manually
+        script.append(height_bytes);
         script
     }
 
@@ -128,4 +142,11 @@ impl std::convert::TryFrom<&str> for Script {
         let bytes = hex::decode(hex_string).map_err(|_e| Error::InvalidScript)?;
         Ok(Script { bytes })
     }
+}
+
+#[test]
+fn test_script_height() {
+    assert_eq!(Script::height(7).bytes, vec![1, 7]);
+    assert_eq!(Script::height(256).bytes, vec![2, 0x00, 0x01]);
+    assert_eq!(Script::height(65536).bytes, vec![3, 0x00, 0x00, 0x01]);
 }

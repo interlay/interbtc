@@ -981,11 +981,6 @@ mod tests {
     }
 
     #[test]
-    fn test_script_height() {
-        assert_eq!(Script::height(100).len(), 4);
-    }
-
-    #[test]
     fn test_transaction_input_builder() {
         let source = TransactionInputSource::FromOutput(H256Le::from_bytes_le(&[5; 32]), 123);
         let input = TransactionInputBuilder::new()
@@ -1091,7 +1086,7 @@ mod tests {
         assert_eq!(block.header.version, 4);
         assert_eq!(block.header.merkle_root, block.transactions[0].tx_id());
         // should be 2, might change if block is changed (last change was due to coinbase txid calculation fix)
-        assert_eq!(block.header.nonce, 2);
+        assert_eq!(block.header.nonce, 3);
         assert!(block.header.nonce > 0);
     }
 
