@@ -15,8 +15,8 @@ use currency::Amount;
 use frame_support::{
     dispatch::{DispatchError, DispatchResult},
     traits::{
-        ConstU32, Contains, Currency as PalletCurrency, EitherOfDiverse, EnsureOrigin, EnsureOriginWithArg,
-        EqualPrivilegeOnly, ExistenceRequirement, Imbalance, InstanceFilter, OnUnbalanced,
+        fungible::Inspect, ConstU32, Contains, Currency as PalletCurrency, EitherOfDiverse, EnsureOrigin,
+        EnsureOriginWithArg, EqualPrivilegeOnly, ExistenceRequirement, Imbalance, InstanceFilter, OnUnbalanced,
     },
     weights::ConstantMultiplier,
     PalletId,
@@ -80,6 +80,7 @@ use xcm::opaque::latest::BodyId;
 use xcm_config::ParentLocation;
 
 pub mod constants;
+pub mod contracts;
 pub mod xcm_config;
 
 mod dex;
@@ -781,7 +782,7 @@ impl supply::Config for Runtime {
 pub struct TotalWrapped;
 impl Get<Balance> for TotalWrapped {
     fn get() -> Balance {
-        orml_tokens::CurrencyAdapter::<Runtime, GetWrappedCurrencyId>::total_issuance()
+        <orml_tokens::CurrencyAdapter<Runtime, GetWrappedCurrencyId> as Inspect<AccountId>>::total_issuance()
     }
 }
 
@@ -1266,6 +1267,9 @@ construct_runtime! {
         DexGeneral: dex_general::{Pallet, Call, Storage, Event<T>} = 101,
         DexStable: dex_stable::{Pallet, Call, Storage, Event<T>}  = 102,
         DexSwapRouter: dex_swap_router::{Pallet, Call, Event<T>} = 103,
+
+        // # smart contracts
+        Contracts: pallet_contracts::{Pallet, Call, Storage, Event<T>} = 110,
     }
 }
 

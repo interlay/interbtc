@@ -1,6 +1,8 @@
 mod annuity;
 mod btc_relay;
 mod clients_info;
+#[cfg(not(feature = "with-interlay-runtime"))]
+mod contracts;
 mod escrow;
 mod fee_pool;
 mod governance;

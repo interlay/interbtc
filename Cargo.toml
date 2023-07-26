@@ -180,7 +180,8 @@ sc-consensus-grandpa-rpc  = { git = "https://github.com/paritytech//substrate", 
 sc-network-transactions  = { git = "https://github.com/paritytech//substrate", branch = "polkadot-v0.9.42" }
 sp-consensus-beefy  = { git = "https://github.com/paritytech//substrate", branch = "polkadot-v0.9.42" }
 sp-consensus-grandpa  = { git = "https://github.com/paritytech//substrate", branch = "polkadot-v0.9.42" }
-pallet-message-queue  = { git = "https://github.com/paritytech//substrate", branch = "polkadot-v0.9.42" }
+pallet-contracts = { git = "https://github.com/paritytech//substrate", branch = "polkadot-v0.9.42" }
+pallet-contracts-primitives = { git = "https://github.com/paritytech//substrate", branch = "polkadot-v0.9.42" }
 
 [patch."https://github.com/paritytech/polkadot"]
 kusama-runtime = { git = "https://github.com/paritytech//polkadot", branch = "release-v0.9.42" }

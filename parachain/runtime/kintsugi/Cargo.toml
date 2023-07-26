@@ -44,6 +44,8 @@ pallet-preimage = { git = "https://github.com/paritytech/substrate", branch = "p
 pallet-identity = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.31", default-features = false }
 pallet-proxy = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.31", default-features = false }
 pallet-sudo = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.31", default-features = false }
+pallet-contracts = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.31", default-features = false }
+pallet-contracts-primitives = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.31", default-features = false }
 
 frame-try-runtime = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.31", default-features = false, optional = true }
 frame-system-rpc-runtime-api = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.31", default-features = false }
@@ -81,6 +83,7 @@ xcm-executor = { git = "https://github.com/paritytech/polkadot", branch = "relea
 
 # Parachain dependencies
 annuity = { path = "../../../crates/annuity", default-features = false }
+bitcoin = { path = "../../../crates/bitcoin", default-features = false }
 btc-relay = { path = "../../../crates/btc-relay", default-features = false }
 clients-info = { path = "../../../crates/clients-info", default-features = false }
 collator-selection = { path = "../../../crates/collator-selection", default-features = false }
@@ -126,18 +129,17 @@ vault-registry-rpc-runtime-api = { path = "../../../crates/vault-registry/rpc/ru
 orml-tokens = { git = "https://github.com/open-web3-stack/open-runtime-module-library", rev = "dc39cfddefb10ef0de23655e2c3dcdab66a19404", default-features = false }
 orml-traits = { git = "https://github.com/open-web3-stack/open-runtime-module-library", rev = "dc39cfddefb10ef0de23655e2c3dcdab66a19404", default-features = false }
 orml-vesting = { git = "https://github.com/open-web3-stack/open-runtime-module-library", rev = "dc39cfddefb10ef0de23655e2c3dcdab66a19404", default-features = false }
-orml-asset-registry = { git = "https://github.com/open-web3-stack/open-runtime-module-library", rev = "dc39cfddefb10ef0de23655e2c3dcdab66a19404", default-features = false }
 
 orml-xtokens = { git = "https://github.com/open-web3-stack/open-runtime-module-library", rev = "dc39cfddefb10ef0de23655e2c3dcdab66a19404", default-features = false }
 orml-xcm-support = { git = "https://github.com/open-web3-stack/open-runtime-module-library", rev = "dc39cfddefb10ef0de23655e2c3dcdab66a19404", default-features = false }
 orml-unknown-tokens = { git = "https://github.com/open-web3-stack/open-runtime-module-library", rev = "dc39cfddefb10ef0de23655e2c3dcdab66a19404", default-features = false }
+orml-asset-registry= { git = "https://github.com/open-web3-stack/open-runtime-module-library", rev = "dc39cfddefb10ef0de23655e2c3dcdab66a19404", default-features = false }
 
 [dev-dependencies]
 hex = '0.4.2'
 mocktopus = "0.8.0"
 serde_json = "1.0"
 
-bitcoin = { path = "../../../crates/bitcoin", default-features = false }
 
 [build-dependencies]
 substrate-wasm-builder = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.31" }
@@ -183,7 +185,8 @@ std = [
   "pallet-preimage/std",
   "pallet-identity/std",
   "pallet-proxy/std",
-  "pallet-sudo/std",
+  "pallet-contracts/std",
+  "pallet-contracts-primitives/std",
 
   "frame-system-rpc-runtime-api/std",
   "pallet-transaction-payment-rpc-runtime-api/std",
@@ -215,6 +218,7 @@ std = [
   "xcm-executor/std",
 
   "annuity/std",
+  "bitcoin/std",
   "btc-relay/std",
   "clients-info/std",
   "collator-selection/std",
@@ -322,6 +326,7 @@ try-runtime = [
 
   "pallet-aura/try-runtime",
   "pallet-authorship/try-runtime",
+  "pallet-contracts/try-runtime",
   "pallet-collective/try-runtime",
   "pallet-identity/try-runtime",
   "pallet-membership/try-runtime",

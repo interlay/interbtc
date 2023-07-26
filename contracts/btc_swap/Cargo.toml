@@ -1,0 +1,32 @@
+[package]
+name = "btc_swap"
+version = "0.1.0"
+authors = ["Interlay Ltd"]
+edition = "2021"
+
+[workspace]
+
+[dependencies]
+ink = { version = "4.2.0", default-features = false }
+
+scale = { package = "parity-scale-codec", version = "3", default-features = false, features = ["derive"] }
+scale-info = { version = "2.6", default-features = false, features = ["derive"], optional = true }
+
+bitcoin = { path = "../../crates/bitcoin", default-features = false }
+
+[dev-dependencies]
+ink_e2e = "4.2.0"
+
+[lib]
+path = "lib.rs"
+
+[features]
+default = ["std"]
+std = [
+    "ink/std",
+    "scale/std",
+    "scale-info/std",
+	"bitcoin/std",
+]
+ink-as-dependency = []
+e2e-tests = []
