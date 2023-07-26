@@ -181,6 +181,7 @@ std = [
   "pallet-utility/std",
   "pallet-transaction-payment/std",
   "pallet-scheduler/std",
+  "pallet-sudo/std",
   "pallet-multisig/std",
   "pallet-preimage/std",
   "pallet-identity/std",
