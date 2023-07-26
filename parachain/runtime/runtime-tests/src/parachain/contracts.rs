@@ -31,10 +31,10 @@ fn test_basic_contract() {
     // not sure this case would ever be used, best we have a test for it anyway..
     ExtBuilder::build().execute_with(|| {
         // note: current working directory is diffent when you run this test, vs when you debug it.
-        // Reading this path will fail when debugging
-        let contract_path = "../../../contracts/hello_world/target/ink/hello_world.wasm";
-        let path = std::env::current_dir().unwrap();
-        println!("The current directory is {}", path.display());
+        // However, the `PWD` env variable is (surprisingly) set to the workspace root in both cases.
+        // So, we use a path relative to PWD
+        let contract_path =
+            std::env::var("PWD").expect("pwd not set") + "/contracts/hello_world/target/ink/hello_world.wasm";
 
         let blob = std::fs::read(contract_path).unwrap();
         let blob_hash = <Runtime as frame_system::Config>::Hashing::hash(&blob);
@@ -106,8 +106,9 @@ fn test_btc_swap_contract() {
     // not sure this case would ever be used, best we have a test for it anyway..
     ExtBuilder::build().execute_with(|| {
         // note: current working directory is diffent when you run this test, vs when you debug it.
-        // Reading this path will fail when debugging
-        let contract_path = "../../../contracts/btc_swap/target/ink/btc_swap.wasm";
+        // However, the `PWD` env variable is (surprisingly) set to the workspace root in both cases.
+        // So, we use a path relative to PWD
+        let contract_path = std::env::var("PWD").expect("pwd not set") + "/contracts/btc_swap/target/ink/btc_swap.wasm";
 
         let blob = std::fs::read(contract_path).unwrap();
         let blob_hash = <Runtime as frame_system::Config>::Hashing::hash(&blob);
