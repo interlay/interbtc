@@ -1,0 +1,30 @@
+name: Breaking change notification
+
+on:
+  pull_request:
+    types: [opened, synchronize]
+
+jobs:
+  check-commit-messages:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+
+      - name: Check Commit Messages
+        id: check_commit_messages
+        run: |
+          commit_messages=$(git log --format=%B ${{ github.event.pull_request.base.sha }}..${{ github.event.pull_request.head.sha }})
+          if echo "$commit_messages" | grep -q '!' || echo "$commit_messages" | grep -q '[BREAKING]'; then
+            echo "BREAKING_CHANGE_DETECTED=true" >> $GITHUB_ENV
+          fi
+
+      - name: Send Discord Notification
+        uses: Ilshidur/action-discord@master
+        with:
+          args: "Breaking change detected in PR: ${{ github.event.pull_request.html_url }}"
+          webhook: ${{ secrets.DISCORD_RELEASE_WEBHOOK_URL }}
+        if: env.BREAKING_CHANGE_DETECTED == 'true'
