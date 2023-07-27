@@ -131,6 +131,15 @@ orml-xtokens = { git = "https://github.com/open-web3-stack/open-runtime-module-l
 orml-xcm-support = { git = "https://github.com/open-web3-stack/open-runtime-module-library", rev = "dc39cfddefb10ef0de23655e2c3dcdab66a19404", default-features = false }
 orml-unknown-tokens = { git = "https://github.com/open-web3-stack/open-runtime-module-library", rev = "dc39cfddefb10ef0de23655e2c3dcdab66a19404", default-features = false }
 
+# Frontier dependencies
+fp-rpc = { git = "https://github.com/paritytech/frontier", branch = "polkadot-v0.9.42", default-features = false }
+fp-self-contained = { git = "https://github.com/paritytech/frontier", branch = "polkadot-v0.9.42", default-features = false }
+pallet-base-fee = { git = "https://github.com/paritytech/frontier", branch = "polkadot-v0.9.42", default-features = false }
+pallet-ethereum = { git = "https://github.com/paritytech/frontier", branch = "polkadot-v0.9.42", default-features = false }
+pallet-evm = { git = "https://github.com/paritytech/frontier", branch = "polkadot-v0.9.42", default-features = false }
+pallet-evm-chain-id = { git = "https://github.com/paritytech/frontier", branch = "polkadot-v0.9.42", default-features = false }
+pallet-evm-precompile-dispatch = { git = "https://github.com/paritytech/frontier", branch = "polkadot-v0.9.42", default-features = false }
+
 [dev-dependencies]
 hex = '0.4.2'
 mocktopus = "0.8.0"
@@ -258,6 +267,14 @@ std = [
   "orml-xtokens/std",
   "orml-xcm-support/std",
   "orml-unknown-tokens/std",
+
+  "fp-rpc/std",
+  "fp-self-contained/std",
+  "pallet-base-fee/std",
+  "pallet-ethereum/std",
+  "pallet-evm/std",
+  "pallet-evm-chain-id/std",
+  "pallet-evm-precompile-dispatch/std",
 ]
 runtime-benchmarks = [
   "frame-benchmarking",
@@ -307,6 +324,9 @@ runtime-benchmarks = [
 
   "primitives/runtime-benchmarks",
   "runtime-common/runtime-benchmarks",
+
+  "pallet-ethereum/runtime-benchmarks",
+  "pallet-evm/runtime-benchmarks",
 ]
 try-runtime = [
   "frame-try-runtime",
@@ -371,4 +391,10 @@ try-runtime = [
   "orml-asset-registry/try-runtime",
   "orml-xtokens/try-runtime",
   "orml-unknown-tokens/try-runtime",
+
+  "fp-self-contained/try-runtime",
+  "pallet-base-fee/try-runtime",
+  "pallet-ethereum/try-runtime",
+  "pallet-evm/try-runtime",
+  "pallet-evm-chain-id/try-runtime",
 ]

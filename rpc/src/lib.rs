@@ -3,8 +3,6 @@
 //! used by Substrate nodes. This file extends those RPC definitions with
 //! capabilities that are specific to this project's runtime configuration.
 
-#![warn(missing_docs)]
-
 use primitives::{
     issue::IssueRequest, redeem::RedeemRequest, replace::ReplaceRequest, AccountId, Balance, Block, BlockNumber,
     CurrencyId, H256Le, Hash, Nonce, StablePoolId, VaultId,
@@ -19,13 +17,21 @@ use sp_blockchain::{Error as BlockChainError, HeaderBackend, HeaderMetadata};
 use sp_core::H256;
 use std::sync::Arc;
 
-pub use jsonrpsee;
+// Frontier imports
+use sc_client_api::{backend::Backend, client::BlockchainEvents, StorageProvider};
+use sc_rpc::SubscriptionTaskExecutor;
+use sc_transaction_pool::ChainApi;
+use sp_api::CallApiAt;
+use sp_runtime::traits::Block as BlockT;
+
+pub mod eth;
+pub use self::eth::{create_eth, overrides_handle, EthDeps};
 
 /// A type representing all RPC extensions.
 pub type RpcExtension = jsonrpsee::RpcModule<()>;
 
 /// Full client dependencies.
-pub struct FullDeps<C, P> {
+pub struct FullDeps<C, P, A: ChainApi, CT> {
     /// The client instance to use.
     pub client: Arc<C>,
     /// Transaction pool instance.
@@ -34,14 +40,37 @@ pub struct FullDeps<C, P> {
     pub deny_unsafe: DenyUnsafe,
     /// Manual seal command sink
     pub command_sink: Option<futures::channel::mpsc::Sender<EngineCommand<Hash>>>,
+    /// Ethereum-compatibility specific dependencies.
+    pub eth: EthDeps<C, P, A, CT, Block>,
+}
+
+pub struct DefaultEthConfig<C, BE>(std::marker::PhantomData<(C, BE)>);
+
+impl<C, BE> fc_rpc::EthConfig<Block, C> for DefaultEthConfig<C, BE>
+where
+    C: sc_client_api::StorageProvider<Block, BE> + Sync + Send + 'static,
+    BE: Backend<Block> + 'static,
+{
+    type EstimateGasAdapter = ();
+    type RuntimeStorageOverride = fc_rpc::frontier_backend_client::SystemAccountId20StorageOverride<Block, C, BE>;
 }
 
 /// Instantiate all full RPC extensions.
-pub fn create_full<C, P>(deps: FullDeps<C, P>) -> Result<RpcExtension, Box<dyn std::error::Error + Send + Sync>>
+pub fn create_full<C, P, BE, A, CT>(
+    deps: FullDeps<C, P, A, CT>,
+    subscription_task_executor: SubscriptionTaskExecutor,
+    pubsub_notification_sinks: Arc<
+        fc_mapping_sync::EthereumBlockNotificationSinks<fc_mapping_sync::EthereumBlockNotification<Block>>,
+    >,
+) -> Result<RpcExtension, Box<dyn std::error::Error + Send + Sync>>
 where
-    C: ProvideRuntimeApi<Block>,
-    C: HeaderBackend<Block> + HeaderMetadata<Block, Error = BlockChainError> + 'static,
+    C: CallApiAt<Block> + ProvideRuntimeApi<Block>,
+    C: BlockchainEvents<Block>,
+    C: HeaderBackend<Block> + HeaderMetadata<Block, Error = BlockChainError> + StorageProvider<Block, BE>,
     C: Send + Sync + 'static,
+    C::Api: BlockBuilder<Block>,
+    C::Api: fp_rpc::ConvertTransactionRuntimeApi<Block>,
+    C::Api: fp_rpc::EthereumRuntimeRPCApi<Block>,
     C::Api: substrate_frame_rpc_system::AccountNonceApi<Block, AccountId, Nonce>,
     C::Api: pallet_transaction_payment_rpc::TransactionPaymentRuntimeApi<Block, Balance>,
     C::Api: btc_relay_rpc::BtcRelayRuntimeApi<Block, H256Le>,
@@ -81,8 +110,10 @@ where
     C::Api: loans_rpc::LoansRuntimeApi<Block, AccountId, Balance>,
     C::Api: dex_general_rpc::DexGeneralRuntimeApi<Block, AccountId, CurrencyId>,
     C::Api: dex_stable_rpc::DexStableRuntimeApi<Block, CurrencyId, Balance, AccountId, StablePoolId>,
-    C::Api: BlockBuilder<Block>,
-    P: TransactionPool + 'static,
+    P: TransactionPool<Block = Block> + 'static,
+    BE: Backend<Block> + 'static,
+    A: ChainApi<Block = Block> + 'static,
+    CT: fp_rpc::ConvertTransaction<<Block as BlockT>::Extrinsic> + Send + Sync + 'static,
 {
     use btc_relay_rpc::{BtcRelay, BtcRelayApiServer};
     use dex_general_rpc::{DexGeneral, DexGeneralApiServer};
@@ -104,6 +135,7 @@ where
         pool,
         deny_unsafe,
         command_sink,
+        eth,
     } = deps;
 
     if let Some(command_sink) = command_sink {
@@ -113,6 +145,14 @@ where
             ManualSeal::new(command_sink).into_rpc(),
         )?;
     }
+
+    // Ethereum compatibility RPCs
+    let mut module = create_eth::<_, _, _, _, _, _, DefaultEthConfig<C, BE>>(
+        module,
+        eth,
+        subscription_task_executor,
+        pubsub_notification_sinks,
+    )?;
 
     module.merge(System::new(client.clone(), pool, deny_unsafe).into_rpc())?;
 

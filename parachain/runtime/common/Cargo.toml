@@ -12,12 +12,16 @@ targets = ['x86_64-unknown-linux-gnu']
 # Substrate dependencies
 sp-std = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.31", default-features = false }
 sp-runtime = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.31", default-features = false }
+sp-core = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.31", default-features = false }
 frame-support = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.31", default-features = false }
 frame-system = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.31", default-features = false }
 frame-benchmarking = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.31", default-features = false, optional = true }
 xcm = { git = "https://github.com/paritytech/polkadot", branch = "release-v0.9.31", default-features = false }
 xcm-executor = { git = "https://github.com/paritytech/polkadot", branch = "release-v0.9.31", default-features = false }
 pallet-aura = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.31", default-features = false }
+
+# Cumulus dependencies
+parachain-info = { git = "https://github.com/paritytech/cumulus", branch = "polkadot-v0.9.31", default-features = false }
 
 # Parachain dependencies
 annuity = { path = "../../../crates/annuity", default-features = false }
@@ -53,6 +57,15 @@ orml-xtokens = { git = "https://github.com/open-web3-stack/open-runtime-module-l
 orml-xcm-support = { git = "https://github.com/open-web3-stack/open-runtime-module-library", rev = "3fcd3cf9e63fe80fd9671912833a900ba09d1cc0", default-features = false }
 orml-unknown-tokens = { git = "https://github.com/open-web3-stack/open-runtime-module-library", rev = "3fcd3cf9e63fe80fd9671912833a900ba09d1cc0", default-features = false }
 
+# Frontier dependencies
+pallet-base-fee = { git = "https://github.com/paritytech/frontier", branch = "polkadot-v0.9.42", default-features = false }
+pallet-ethereum = { git = "https://github.com/paritytech/frontier", branch = "polkadot-v0.9.42", default-features = false }
+pallet-evm = { git = "https://github.com/paritytech/frontier", branch = "polkadot-v0.9.42", default-features = false }
+pallet-evm-chain-id = { git = "https://github.com/paritytech/frontier", branch = "polkadot-v0.9.42", default-features = false }
+pallet-evm-precompile-modexp = { git = "https://github.com/paritytech/frontier", branch = "polkadot-v0.9.42", default-features = false }
+pallet-evm-precompile-sha3fips = { git = "https://github.com/paritytech/frontier", branch = "polkadot-v0.9.42", default-features = false }
+pallet-evm-precompile-simple = { git = "https://github.com/paritytech/frontier", branch = "polkadot-v0.9.42", default-features = false }
+
 # TODO: enable weak dependency activation when available
 # https://github.com/rust-lang/cargo/issues/8832
 # https://github.com/paritytech/substrate/issues/8161
@@ -62,12 +75,15 @@ default = ["std"]
 std = [
   "sp-std/std",
   "sp-runtime/std",
+  "sp-core/std",
   "frame-support/std",
   "frame-system/std",
   "frame-benchmarking?/std",
   "xcm/std",
   "xcm-executor/std",
   "pallet-aura/std",
+
+  "parachain-info/std",
 
   "annuity/std",
   "btc-relay/std",
@@ -100,6 +116,14 @@ std = [
   "orml-xtokens/std",
   "orml-xcm-support/std",
   "orml-unknown-tokens/std",
+
+  "pallet-base-fee/std",
+  "pallet-ethereum/std",
+  "pallet-evm/std",
+  "pallet-evm-chain-id/std",
+	"pallet-evm-precompile-modexp/std",
+	"pallet-evm-precompile-sha3fips/std",
+	"pallet-evm-precompile-simple/std",
 ]
 try-runtime = [
   "frame-support/try-runtime",
@@ -128,7 +152,12 @@ try-runtime = [
   "orml-vesting/try-runtime",
   "orml-asset-registry/try-runtime",
   "orml-xtokens/try-runtime",
-  "orml-unknown-tokens/try-runtime"
+  "orml-unknown-tokens/try-runtime",
+
+  "pallet-base-fee/try-runtime",
+  "pallet-ethereum/try-runtime",
+  "pallet-evm/try-runtime",
+  "pallet-evm-chain-id/try-runtime",
 ]
 runtime-benchmarks = [
   "frame-benchmarking",

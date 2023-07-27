@@ -5,6 +5,7 @@ mod chain_spec;
 #[macro_use]
 mod cli;
 mod command;
+mod eth;
 mod service;
 
 #[cfg(feature = "runtime-benchmarks")]
