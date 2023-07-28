@@ -3,7 +3,7 @@ use codec::{Decode, Encode};
 use cumulus_primitives_core::ParaId;
 use frame_support::{
     parameter_types,
-    traits::{Everything, Get, Nothing},
+    traits::{Everything, Get, Nothing, OriginTrait},
 };
 use orml_asset_registry::{AssetRegistryTrader, FixedRateAssetRegistryTrader};
 use orml_traits::{
@@ -13,6 +13,10 @@ use orml_xcm_support::{DepositToAlternative, IsNativeConcrete, MultiCurrencyAdap
 use pallet_xcm::XcmPassthrough;
 use polkadot_parachain::primitives::Sibling;
 use runtime_common::Transactless;
+use sp_core::H256;
+use sp_io::hashing::blake2_256;
+use sp_runtime::traits::TrailingZeroInput;
+use sp_std::{borrow::Borrow, marker::PhantomData};
 use xcm::latest::{prelude::*, Weight};
 use xcm_builder::{
     AccountId32Aliases, AllowKnownQueryResponses, AllowSubscriptionsFrom, AllowTopLevelPaidExecutionFrom,
@@ -20,7 +24,10 @@ use xcm_builder::{
     SiblingParachainAsNative, SiblingParachainConvertsVia, SignedAccountId32AsNative, SignedToAccountId32,
     SovereignSignedViaLocation, TakeRevenue, TakeWeightCredit, WithComputedOrigin,
 };
-use xcm_executor::{traits::WithOriginFilter, XcmExecutor};
+use xcm_executor::{
+    traits::{Convert as XcmConvert, ConvertOrigin, WithOriginFilter},
+    XcmExecutor,
+};
 use CurrencyId::ForeignAsset;
 parameter_types! {
     pub const ParentLocation: MultiLocation = MultiLocation::parent();
@@ -38,7 +45,7 @@ type LocationToAccountId = (
     // Straight up local `AccountId32` origins just alias directly to `AccountId`.
     AccountId32Aliases<ParentNetwork, AccountId>,
     // Mapping Tinkernet multisig to the correctly derived AccountId.
-    invarch_xcm_builder::TinkernetMultisigAsAccountId<AccountId>,
+    TinkernetMultisigAsAccountId<AccountId>,
 );
 
 /// This is the type we use to convert an (incoming) XCM origin into a local `Origin` instance,
@@ -59,7 +66,7 @@ pub type XcmOriginToTransactDispatchOrigin = (
     // `Origin::Signed` origin of the same 32-byte value.
     SignedAccountId32AsNative<ParentNetwork, RuntimeOrigin>,
     // Derives signed AccountId origins for Tinkernet multisigs.
-    invarch_xcm_builder::DeriveOriginFromTinkernetMultisig<RuntimeOrigin>,
+    TinkernetMultisigAsNativeOrigin<RuntimeOrigin>,
     // Xcm origins can be represented natively under the Xcm pallet's Xcm origin.
     XcmPassthrough<RuntimeOrigin>,
 );
@@ -72,11 +79,7 @@ pub type Barrier = (
         AllowSubscriptionsFrom<Everything>,
     )>, // required for others to keep track of our xcm version
     // XCM barrier that allows Tinkernet Multisigs to transact if paying for execution.
-    WithComputedOrigin<
-        AllowTopLevelPaidExecutionFrom<invarch_xcm_builder::TinkernetMultisigMultiLocation>,
-        UniversalLocation,
-        ConstU32<8>,
-    >,
+    WithComputedOrigin<AllowTopLevelPaidExecutionFrom<TinkernetMultisigMultiLocation>, UniversalLocation, ConstU32<8>>,
 );
 
 parameter_types! {
@@ -440,6 +443,91 @@ impl orml_xtokens::Config for Runtime {
     type MultiLocationsFilter = Everything;
     type ReserveProvider = AbsoluteReserveProvider;
     type UniversalLocation = UniversalLocation;
+}
+
+/// Tinkernet Multisig Multilocation for XCM barriers.
+pub struct TinkernetMultisigMultiLocation;
+impl Contains<MultiLocation> for TinkernetMultisigMultiLocation {
+    fn contains(t: &MultiLocation) -> bool {
+        matches!(
+            t,
+            MultiLocation {
+                parents: _,
+                interior: Junctions::X3(
+                    Junction::Parachain(2125),
+                    Junction::PalletInstance(71),
+                    Junction::GeneralIndex(_)
+                )
+            }
+        )
+    }
+}
+
+/// Constant derivation function for Tinkernet Multisigs.
+/// Uses the Tinkernet genesis hash as a salt.
+pub fn derive_tinkernet_multisig<AccountId: Decode>(id: u128) -> Result<AccountId, ()> {
+    AccountId::decode(&mut TrailingZeroInput::new(
+        &(
+            // The constant salt used to derive Tinkernet Multisigs, this is Tinkernet's genesis hash.
+            H256([
+                212, 46, 150, 6, 169, 149, 223, 228, 51, 220, 121, 85, 220, 42, 112, 244, 149, 243, 80, 243, 115, 218,
+                162, 0, 9, 138, 232, 68, 55, 129, 106, 210,
+            ]),
+            // The actual multisig integer id.
+            u32::try_from(id).map_err(|_| ())?,
+        )
+            .using_encoded(blake2_256),
+    ))
+    .map_err(|_| ())
+}
+
+/// Convert a Tinkernet Multisig `MultiLocation` value into a local `AccountId`.
+pub struct TinkernetMultisigAsAccountId<AccountId>(PhantomData<AccountId>);
+impl<AccountId: Decode + Clone> XcmConvert<MultiLocation, AccountId> for TinkernetMultisigAsAccountId<AccountId> {
+    fn convert_ref(location: impl Borrow<MultiLocation>) -> Result<AccountId, ()> {
+        match location.borrow() {
+            MultiLocation {
+                parents: 1,
+                interior:
+                    X3(
+                        Parachain(2125),
+                        PalletInstance(71),
+                        // Index from which the multisig account is derived.
+                        GeneralIndex(id),
+                    ),
+            } => derive_tinkernet_multisig(*id),
+            _ => Err(()),
+        }
+    }
+}
+
+/// Convert a Tinkernet Multisig `MultiLocation` value into a `Signed` origin.
+pub struct TinkernetMultisigAsNativeOrigin<RuntimeOrigin>(PhantomData<RuntimeOrigin>);
+impl<RuntimeOrigin: OriginTrait> ConvertOrigin<RuntimeOrigin> for TinkernetMultisigAsNativeOrigin<RuntimeOrigin>
+where
+    RuntimeOrigin::AccountId: Decode,
+{
+    fn convert_origin(origin: impl Into<MultiLocation>, kind: OriginKind) -> Result<RuntimeOrigin, MultiLocation> {
+        let origin = origin.into();
+        match (kind, origin) {
+            (
+                OriginKind::Native,
+                MultiLocation {
+                    parents: 1,
+                    interior:
+                        X3(
+                            Junction::Parachain(2125),
+                            Junction::PalletInstance(71),
+                            // Index from which the multisig account is derived.
+                            Junction::GeneralIndex(id),
+                        ),
+                },
+            ) => Ok(RuntimeOrigin::signed(
+                derive_tinkernet_multisig(id).map_err(|_| origin)?,
+            )),
+            (_, origin) => Err(origin),
+        }
+    }
 }
 
 #[cfg(feature = "runtime-benchmarks")]
