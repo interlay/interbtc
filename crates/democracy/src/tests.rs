@@ -148,7 +148,7 @@ impl pallet_balances::Config for Test {
     type MaxHolds = ();
 }
 parameter_types! {
-    pub const LaunchPeriod: u64 = 2;
+    pub const LaunchPeriod: u64 = 60 * 60 * 24 * 7; // one week
     pub const VotingPeriod: u64 = 4;
     pub const FastTrackVotingPeriod: u64 = 2;
     pub const MinimumDeposit: u64 = 1;
@@ -156,9 +156,7 @@ parameter_types! {
     pub const MaxVotes: u32 = 100;
     pub const MaxProposals: u32 = MAX_PROPOSALS;
     pub static PreimageByteDeposit: u64 = 0;
-    pub LaunchOffsetMillis: u64 = 9 * 60 * 60 * 1000; // 9 hours offset, i.e. MON 9 AM
     pub const TreasuryAccount:u64 = 232323;
-
 }
 ord_parameter_types! {
     pub const One: u64 = 1;
@@ -193,8 +191,7 @@ impl Config for Test {
     type PalletsOrigin = OriginCaller;
     type WeightInfo = ();
     type UnixTime = Timestamp;
-    type Moment = u64;
-    type LaunchOffsetMillis = LaunchOffsetMillis;
+    type LaunchPeriod = LaunchPeriod;
     type TreasuryAccount = TreasuryAccount;
     type TreasuryCurrency = pallet_balances::Pallet<Self>;
 }
@@ -287,6 +284,7 @@ fn tally(r: ReferendumIndex) -> Tally<u64> {
 #[test]
 fn should_launch_works() {
     new_test_ext().execute_with(|| {
+        NextLaunchTimestamp::<Test>::put(1670835600); // Mon Dec 12 2022 09:00:00 UTC
         let arbitrary_timestamp = 1670864631; // Mon Dec 12 2022 17:03:51 UTC
 
         let week_boundaries = [
@@ -295,38 +293,33 @@ fn should_launch_works() {
             1672650000, // Mon Jan 02 2023 09:00:00 UTC
         ];
         // first launch immediately after launch of chain / first runtime upgrade
-        assert!(Democracy::should_launch(Duration::from_secs(arbitrary_timestamp)).unwrap());
+        assert!(Democracy::should_launch(arbitrary_timestamp));
         // second time it should return false
-        assert!(!Democracy::should_launch(Duration::from_secs(arbitrary_timestamp)).unwrap());
+        assert!(!Democracy::should_launch(arbitrary_timestamp));
 
         for boundary in week_boundaries {
             // one second before the next week it should still return false
-            assert!(!Democracy::should_launch(Duration::from_secs(boundary - 1)).unwrap());
+            assert!(!Democracy::should_launch(boundary - 1));
 
             // first second of next week it should return true exactly once
-            assert!(Democracy::should_launch(Duration::from_secs(boundary)).unwrap());
-            assert!(!Democracy::should_launch(Duration::from_secs(boundary)).unwrap());
+            assert!(Democracy::should_launch(boundary));
+            assert!(!Democracy::should_launch(boundary));
         }
     });
 }
 
 #[test]
-fn should_launch_edge_case_behavior() {
+fn should_launch_skipped_works() {
     new_test_ext().execute_with(|| {
-        // test edge case where we launch on monday before 9 am. Next launch will be
-        // in slightly more than 7 days
-        let initial_launch = 1670828400; // Mon Dec 12 2022 07:00:00 UTC
-        let next_launch = 1671440400; // Mon Dec 19 2022 09:00:00 UTC
+        NextLaunchTimestamp::<Test>::put(1671440400); // Mon Dec 19 2022 09:00:00 GMT
 
-        // first launch immediately after launch of chain / first runtime upgrade
-        assert!(Democracy::should_launch(Duration::from_secs(initial_launch)).unwrap());
-        assert!(!Democracy::should_launch(Duration::from_secs(initial_launch)).unwrap());
+        // skip 3 weeks + 1 day + 1 hour + 5 minutes
+        let now = 1673345100; // Tue Jan 10 2023 10:05:00 GMT
 
-        // one second before the next week it should still return false
-        assert!(!Democracy::should_launch(Duration::from_secs(next_launch - 1)).unwrap());
-
-        // first second of next week it should return true exactly once
-        assert!(Democracy::should_launch(Duration::from_secs(next_launch)).unwrap());
-        assert!(!Democracy::should_launch(Duration::from_secs(next_launch)).unwrap());
+        assert!(Democracy::should_launch(now));
+        assert_eq!(
+            NextLaunchTimestamp::<Test>::get(),
+            1673859600 // Mon Jan 16 2023 09:00:00 GMT
+        );
     });
 }
