@@ -106,12 +106,20 @@ macro_rules! with_runtime_or_err {
     ($chain_spec:expr, { $( $code:tt )* }) => {
         if $chain_spec.is_interlay() {
             #[allow(unused_imports)]
-            use { interlay_runtime::RuntimeApi, crate::service::InterlayRuntimeExecutor as Executor };
+            use {
+                interlay_runtime::RuntimeApi,
+                crate::service::InterlayRuntimeExecutor as Executor,
+                interlay_runtime::TransactionConverter,
+            };
             $( $code )*
 
         } else if $chain_spec.is_kintsugi() {
             #[allow(unused_imports)]
-            use { kintsugi_runtime::RuntimeApi, crate::service::KintsugiRuntimeExecutor as Executor };
+            use {
+                kintsugi_runtime::RuntimeApi,
+                crate::service::KintsugiRuntimeExecutor as Executor,
+                kintsugi_runtime::TransactionConverter,
+            };
             $( $code )*
 
         } else {
@@ -223,6 +231,7 @@ macro_rules! construct_async_run {
             runner.async_run(|$config| {
                 let $components = new_partial::<interlay_runtime::RuntimeApi, InterlayRuntimeExecutor>(
                     &$config,
+                    &$cli.eth,
                     true,
                 )?;
                 let task_manager = $components.task_manager;
@@ -237,6 +246,7 @@ macro_rules! construct_async_run {
                     KintsugiRuntimeExecutor,
                 >(
                     &$config,
+                    &$cli.eth,
                     true,
                 )?;
                 let task_manager = $components.task_manager;
@@ -327,7 +337,7 @@ pub fn run() -> Result<()> {
 
                         with_runtime_or_err!(chain_spec, {
                             runner.sync_run(|config| {
-                                let partials = new_partial::<RuntimeApi, Executor>(&config, false)?;
+                                let partials = new_partial::<RuntimeApi, Executor>(&config, &cli.eth, false)?;
                                 cmd.run(partials.client)
                             })
                         })
@@ -348,7 +358,7 @@ pub fn run() -> Result<()> {
 
                         with_runtime_or_err!(chain_spec, {
                             runner.sync_run(|config| {
-                                let partials = new_partial::<RuntimeApi, Executor>(&config, false)?;
+                                let partials = new_partial::<RuntimeApi, Executor>(&config, &cli.eth, false)?;
                                 let db = partials.backend.expose_db();
                                 let storage = partials.backend.expose_storage();
                                 cmd.run(config, partials.client.clone(), db, storage)
@@ -366,7 +376,7 @@ pub fn run() -> Result<()> {
                     with_runtime_or_err!(chain_spec, {
                         let selected_runtime = SelectedRuntime::from_chain_spec(chain_spec)?;
                         runner.sync_run(|config| {
-                            let partials = new_partial::<RuntimeApi, Executor>(&config, false)?;
+                            let partials = new_partial::<RuntimeApi, Executor>(&config, &cli.eth, false)?;
                             let remark_builder = RemarkBuilder {
                                 client: partials.client.clone(),
                                 selected_runtime,
@@ -461,7 +471,7 @@ pub fn run() -> Result<()> {
             runner
                 .run_node_until_exit(|config| async move {
                     if cli.instant_seal {
-                        start_instant(config).await
+                        start_instant(cli, config).await
                     } else {
                         start_node(cli, config).await
                     }
@@ -471,10 +481,10 @@ pub fn run() -> Result<()> {
     }
 }
 
-async fn start_instant(config: Configuration) -> sc_service::error::Result<TaskManager> {
+async fn start_instant(cli: Cli, config: Configuration) -> sc_service::error::Result<TaskManager> {
     with_runtime_or_err!(config.chain_spec, {
         {
-            crate::service::start_instant::<RuntimeApi, Executor>(config)
+            crate::service::start_instant::<RuntimeApi, Executor, TransactionConverter>(config, cli.eth)
                 .await
                 .map(|r| r.0)
                 .map_err(Into::into)
@@ -511,10 +521,16 @@ async fn start_node(cli: Cli, config: Configuration) -> sc_service::error::Resul
 
     with_runtime_or_err!(config.chain_spec, {
         {
-            crate::service::start_node::<RuntimeApi, Executor>(config, polkadot_config, collator_options, id)
-                .await
-                .map(|r| r.0)
-                .map_err(Into::into)
+            crate::service::start_node::<RuntimeApi, Executor, TransactionConverter>(
+                config,
+                polkadot_config,
+                cli.eth,
+                collator_options,
+                id,
+            )
+            .await
+            .map(|r| r.0)
+            .map_err(Into::into)
         }
     })
 }

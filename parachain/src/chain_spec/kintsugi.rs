@@ -15,12 +15,15 @@ pub struct KintsugiDevGenesisExt {
     pub(crate) genesis_config: kintsugi_runtime::GenesisConfig,
     /// The flag to enable instant-seal mode.
     pub(crate) enable_instant_seal: bool,
+    /// The flag to enable EVM contract creation.
+    pub(crate) enable_create: bool,
 }
 
 impl sp_runtime::BuildStorage for KintsugiDevGenesisExt {
     fn assimilate_storage(&self, storage: &mut Storage) -> Result<(), String> {
         sp_state_machine::BasicExternalities::execute_with_storage(storage, || {
             kintsugi_runtime::EnableManualSeal::set(&self.enable_instant_seal);
+            kintsugi_runtime::evm::EnableCreate::set(&self.enable_create);
         });
         self.genesis_config.assimilate_storage(storage)
     }
@@ -62,12 +65,14 @@ pub fn kintsugi_dev_config(enable_instant_seal: bool) -> KintsugiDevChainSpec {
                     BoundedVec::truncate_from("Bob".as_bytes().to_vec()),
                 )],
                 vec![get_account_id_from_seed::<sr25519::Public>("Alice")],
+                endowed_evm_accounts(),
                 Some(get_account_id_from_seed::<sr25519::Public>("Alice")),
                 id,
                 1,
                 false, // disable difficulty check
             ),
             enable_instant_seal,
+            enable_create: true,
         },
         Vec::new(),
         None,
@@ -136,7 +141,8 @@ pub fn kintsugi_mainnet_config() -> KintsugiChainSpec {
                     BoundedVec::truncate_from("Interlay".as_bytes().to_vec()),
                 )],
                 vec![], // no endowed accounts
-                None,   // no sudo key
+                vec![],
+                None, // no sudo key
                 id,
                 SECURE_BITCOIN_CONFIRMATIONS,
                 false, // enable difficulty check
@@ -157,12 +163,19 @@ pub fn kintsugi_mainnet_config() -> KintsugiChainSpec {
 pub fn kintsugi_genesis(
     invulnerables: Vec<(AccountId, AuraId)>,
     authorized_oracles: Vec<(AccountId, kintsugi_runtime::OracleName)>,
-    endowed_accounts: Vec<AccountId>,
+    mut endowed_accounts: Vec<AccountId>,
+    endowed_evm_accounts: Vec<[u8; 20]>,
     root_key: Option<AccountId>,
     id: ParaId,
     bitcoin_confirmations: u32,
     disable_difficulty_check: bool,
 ) -> kintsugi_runtime::GenesisConfig {
+    let chain_id: u32 = id.into();
+    endowed_accounts.extend(
+        endowed_evm_accounts
+            .into_iter()
+            .map(|addr| kintsugi_runtime::evm::AccountConverter::into_account_id(H160::from(addr))),
+    );
     kintsugi_runtime::GenesisConfig {
         system: kintsugi_runtime::SystemConfig {
             code: kintsugi_runtime::WASM_BINARY
@@ -295,6 +308,29 @@ pub fn kintsugi_genesis(
         loans: kintsugi_runtime::LoansConfig {
             max_exchange_rate: Rate::from_inner(loans::DEFAULT_MAX_EXCHANGE_RATE),
             min_exchange_rate: Rate::from_inner(loans::DEFAULT_MIN_EXCHANGE_RATE),
+        },
+        base_fee: Default::default(),
+        ethereum: Default::default(),
+        evm: kintsugi_runtime::EVMConfig {
+            // we need _some_ code inserted at the precompile address so that
+            // the evm will actually call the address.
+            accounts: kintsugi_runtime::evm::Precompiles::used_addresses()
+                .into_iter()
+                .map(|addr| {
+                    (
+                        addr.into(),
+                        fp_evm::GenesisAccount {
+                            nonce: Default::default(),
+                            balance: Default::default(),
+                            storage: Default::default(),
+                            code: REVERT_BYTECODE.to_vec(),
+                        },
+                    )
+                })
+                .collect(),
+        },
+        evm_chain_id: kintsugi_runtime::EVMChainIdConfig {
+            chain_id: chain_id.into(),
         },
     }
 }

@@ -42,6 +42,7 @@ pub fn local_config(id: ParaId) -> KintsugiChainSpec {
                     get_account_id_from_seed::<sr25519::Public>("Eve//stash"),
                     get_account_id_from_seed::<sr25519::Public>("Ferdie//stash"),
                 ],
+                vec![],
                 None,
                 id,
                 DEFAULT_BITCOIN_CONFIRMATIONS,
@@ -96,12 +97,14 @@ pub fn development_config(id: ParaId, enable_instant_seal: bool) -> KintsugiDevC
                     get_account_id_from_seed::<sr25519::Public>("Eve//stash"),
                     get_account_id_from_seed::<sr25519::Public>("Ferdie//stash"),
                 ],
+                endowed_evm_accounts(),
                 Some(get_account_id_from_seed::<sr25519::Public>("Alice")),
                 id,
                 DEFAULT_BITCOIN_CONFIRMATIONS,
                 true, // disable difficulty check
             ),
             enable_instant_seal,
+            enable_create: true,
         },
         Vec::new(),
         None,
@@ -164,6 +167,7 @@ pub fn staging_mainnet_config(benchmarking: bool) -> KintsugiChainSpec {
                     vec![]
                 })
                 .collect(),
+                vec![],
                 // 5Ec37KSdjSbGKoQN4evLXrZskjc7jxXYrowPHEtH2MzRC7mv (//sudo/1)
                 Some(get_account_id_from_string(
                     "5Ec37KSdjSbGKoQN4evLXrZskjc7jxXYrowPHEtH2MzRC7mv",

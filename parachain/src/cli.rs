@@ -1,7 +1,7 @@
 use clap::Parser;
 use std::path::PathBuf;
 
-use crate::chain_spec;
+use crate::{chain_spec, eth::EthConfiguration};
 
 /// Sub-commands supported by the collator.
 #[derive(Debug, Parser)]
@@ -86,6 +86,9 @@ pub struct Cli {
 
     #[clap(flatten)]
     pub run: cumulus_client_cli::RunCmd,
+
+    #[clap(flatten)]
+    pub eth: EthConfiguration,
 
     /// Relaychain arguments
     #[clap(raw = true)]

@@ -15,6 +15,7 @@ name = "interbtc-parachain"
 substrate-build-script-utils = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.31" }
 
 [dependencies]
+async-trait = "0.1"
 clap = { version = "4.0.9", features = [ "derive" ] }
 log = "0.4.8"
 codec = { package = "parity-scale-codec", version = "3.1.5" }
@@ -112,6 +113,16 @@ polkadot-primitives = { git = "https://github.com/paritytech/polkadot", branch =
 polkadot-cli = { git = "https://github.com/paritytech/polkadot", branch = "release-v0.9.31" }
 polkadot-service = { git = "https://github.com/paritytech/polkadot", branch = "release-v0.9.31" }
 polkadot-parachain = { git = "https://github.com/paritytech/polkadot", branch = "release-v0.9.31" }
+
+# Frontier dependencies
+fc-consensus = { git = "https://github.com/paritytech/frontier", branch = "polkadot-v0.9.42" }
+fc-db = { git = "https://github.com/paritytech/frontier", branch = "polkadot-v0.9.42" }
+fc-mapping-sync = { git = "https://github.com/paritytech/frontier", branch = "polkadot-v0.9.42", features = ["sql"] }
+fc-rpc = { git = "https://github.com/paritytech/frontier", branch = "polkadot-v0.9.42" }
+fc-rpc-core = { git = "https://github.com/paritytech/frontier", branch = "polkadot-v0.9.42" }
+fp-evm = { git = "https://github.com/paritytech/frontier", branch = "polkadot-v0.9.42" }
+fp-rpc = { git = "https://github.com/paritytech/frontier", branch = "polkadot-v0.9.42" }
+pallet-evm = { git = "https://github.com/paritytech/frontier", branch = "polkadot-v0.9.42" }
 
 [features]
 default = []

@@ -65,6 +65,7 @@ pub fn staging_mainnet_config(benchmarking: bool) -> InterlayChainSpec {
                     vec![]
                 })
                 .collect(),
+                vec![],
                 // 5Ec37KSdjSbGKoQN4evLXrZskjc7jxXYrowPHEtH2MzRC7mv (//sudo/1)
                 Some(get_account_id_from_string(
                     "5Ec37KSdjSbGKoQN4evLXrZskjc7jxXYrowPHEtH2MzRC7mv",
