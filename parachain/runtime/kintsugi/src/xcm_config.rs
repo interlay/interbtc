@@ -452,7 +452,7 @@ impl Contains<MultiLocation> for TinkernetMultisigMultiLocation {
         matches!(
             t,
             MultiLocation {
-                parents: _,
+                parents: 1,
                 interior: Junctions::X3(
                     Junction::Parachain(2125),
                     Junction::PalletInstance(71),
