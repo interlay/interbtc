@@ -316,6 +316,8 @@ pub mod pallet {
         WrongForkBound,
         /// Weight bound exceeded
         BoundExceeded,
+        /// Coinbase tx must be the first transaction in the block
+        InvalidCoinbasePosition,
     }
 
     /// Store Bitcoin block headers
@@ -607,6 +609,14 @@ impl<T: Config> Pallet<T> {
         }
         let user_proof_result = Self::verify_merkle_proof(unchecked_transaction.user_tx_proof)?;
         let coinbase_proof_result = Self::verify_merkle_proof(unchecked_transaction.coinbase_proof)?;
+
+        // make sure the the coinbase tx is the first tx in the block. Otherwise a fake coinbase
+        // could be included in a leaf-node attack. Related:
+        // https://bitslog.com/2018/06/09/leaf-node-weakness-in-bitcoin-merkle-tree-design/ .
+        ensure!(
+            coinbase_proof_result.transaction_position == 0,
+            Error::<T>::InvalidCoinbasePosition
+        );
 
         // Make sure the coinbase tx is for the same block as the user tx
         ensure!(
