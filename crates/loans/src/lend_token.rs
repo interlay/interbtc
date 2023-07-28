@@ -93,7 +93,7 @@ impl<T: Config> Pallet<T> {
 
         let sub_result = Self::balance(lend_token_id, who).amount().checked_sub(amount);
         if sub_result.is_none() {
-            return WithdrawConsequence::NoFunds;
+            return WithdrawConsequence::BalanceLow;
         }
 
         let rest = sub_result.expect("Cannot be none; qed");

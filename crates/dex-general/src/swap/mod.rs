@@ -468,7 +468,7 @@ impl<T: Config> Pallet<T> {
 
             let fee_rate = Self::pair_status(Self::sort_asset_id(path[i], path[i - 1])).fee_rate();
             let amount = Self::get_amount_in(out_vec[len - 1 - i], reserve_1, reserve_0, fee_rate)?;
-            ensure!(amount > One::one(), Error::<T>::InvalidPath);
+            ensure!(amount >= One::one(), Error::<T>::InvalidPath);
 
             // check K
             let invariant_before_swap: U256 = U256::from(reserve_0)

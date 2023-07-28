@@ -44,9 +44,6 @@ currency = { path = "../currency", features = ["testing-utils"] }
 orml-tokens = { git = "https://github.com/open-web3-stack/open-runtime-module-library", rev = "dc39cfddefb10ef0de23655e2c3dcdab66a19404", default-features = false }
 orml-traits = { git = "https://github.com/open-web3-stack/open-runtime-module-library", rev = "dc39cfddefb10ef0de23655e2c3dcdab66a19404", default-features = false }
 
-# Parachain dependencies
-primitives = { package = "interbtc-primitives", path = "../../primitives"}
-
 [features]
 default = ["std"]
 std = [

@@ -1,0 +1,1008 @@
+{
+  "source": {
+    "hash": "0x17df59e4cc35a3991615a3d38bf4ac245a3d8aa81a21f5042b8fd8dce8c461f6",
+    "language": "ink! 4.2.1",
+    "compiler": "rustc 1.69.0-nightly",
+    "build_info": {
+      "build_mode": "Release",
+      "cargo_contract_version": "3.0.1",
+      "rust_toolchain": "nightly-x86_64-unknown-linux-gnu",
+      "wasm_opt_settings": {
+        "keep_debug_symbols": false,
+        "optimization_passes": "Z"
+      }
+    }
+  },
+  "contract": {
+    "name": "btc_swap",
+    "version": "0.1.0",
+    "authors": [
+      "Interlay Ltd"
+    ]
+  },
+  "spec": {
+    "constructors": [
+      {
+        "args": [],
+        "default": false,
+        "docs": [],
+        "label": "new",
+        "payable": false,
+        "returnType": {
+          "displayName": [
+            "ink_primitives",
+            "ConstructorResult"
+          ],
+          "type": 4
+        },
+        "selector": "0x9bae9d5e"
+      }
+    ],
+    "docs": [
+      " Creates a swap contract where Alice locks DOT with a price limit in a contract that",
+      " Bob can acquire by sending BTC on the Bitcoin chain that Alice provided.",
+      "",
+      " Note: this is a proof of concept protocol and should not be used in production due to flaws in",
+      " the protocol and implementation.",
+      "",
+      " ## Protocol",
+      "",
+      " - Alice provides a BTC address, a price limit, and a DOT amount to lock in the contract.",
+      " - Bob sends BTC to the address provided by Alice.",
+      " - Anyone (Alice, Bob, or a third party) provides a BTC transaction proof to the contract.",
+      " The proof triggers a DOT transfer from the contract to Bob."
+    ],
+    "environment": {
+      "accountId": {
+        "displayName": [
+          "AccountId"
+        ],
+        "type": 12
+      },
+      "balance": {
+        "displayName": [
+          "Balance"
+        ],
+        "type": 3
+      },
+      "blockNumber": {
+        "displayName": [
+          "BlockNumber"
+        ],
+        "type": 21
+      },
+      "chainExtension": {
+        "displayName": [
+          "ChainExtension"
+        ],
+        "type": 37
+      },
+      "hash": {
+        "displayName": [
+          "Hash"
+        ],
+        "type": 36
+      },
+      "maxEventTopics": 4,
+      "timestamp": {
+        "displayName": [
+          "Timestamp"
+        ],
+        "type": 2
+      }
+    },
+    "events": [],
+    "lang_error": {
+      "displayName": [
+        "ink",
+        "LangError"
+      ],
+      "type": 6
+    },
+    "messages": [
+      {
+        "args": [
+          {
+            "label": "btc_address",
+            "type": {
+              "displayName": [
+                "BtcAddress"
+              ],
+              "type": 7
+            }
+          },
+          {
+            "label": "min_satoshis",
+            "type": {
+              "displayName": [
+                "u64"
+              ],
+              "type": 2
+            }
+          }
+        ],
+        "default": false,
+        "docs": [],
+        "label": "create_trade",
+        "mutates": true,
+        "payable": true,
+        "returnType": {
+          "displayName": [
+            "ink",
+            "MessageResult"
+          ],
+          "type": 4
+        },
+        "selector": "0xf73cab55"
+      },
+      {
+        "args": [
+          {
+            "label": "counterparty",
+            "type": {
+              "displayName": [
+                "AccountId"
+              ],
+              "type": 12
+            }
+          },
+          {
+            "label": "full_proof",
+            "type": {
+              "displayName": [
+                "FullTransactionProof"
+              ],
+              "type": 13
+            }
+          }
+        ],
+        "default": false,
+        "docs": [],
+        "label": "execute_trade",
+        "mutates": true,
+        "payable": false,
+        "returnType": {
+          "displayName": [
+            "ink",
+            "MessageResult"
+          ],
+          "type": 4
+        },
+        "selector": "0x6bf421ce"
+      }
+    ]
+  },
+  "storage": {
+    "root": {
+      "layout": {
+        "struct": {
+          "fields": [
+            {
+              "layout": {
+                "root": {
+                  "layout": {
+                    "struct": {
+                      "fields": [
+                        {
+                          "layout": {
+                            "leaf": {
+                              "key": "0x591eeb08",
+                              "ty": 0
+                            }
+                          },
+                          "name": "btc_address"
+                        },
+                        {
+                          "layout": {
+                            "leaf": {
+                              "key": "0x591eeb08",
+                              "ty": 2
+                            }
+                          },
+                          "name": "min_satoshis"
+                        },
+                        {
+                          "layout": {
+                            "leaf": {
+                              "key": "0x591eeb08",
+                              "ty": 3
+                            }
+                          },
+                          "name": "plancks"
+                        }
+                      ],
+                      "name": "LimitOrder"
+                    }
+                  },
+                  "root_key": "0x591eeb08"
+                }
+              },
+              "name": "orders"
+            }
+          ],
+          "name": "BtcSwap"
+        }
+      },
+      "root_key": "0x00000000"
+    }
+  },
+  "types": [
+    {
+      "id": 0,
+      "type": {
+        "def": {
+          "sequence": {
+            "type": 1
+          }
+        }
+      }
+    },
+    {
+      "id": 1,
+      "type": {
+        "def": {
+          "primitive": "u8"
+        }
+      }
+    },
+    {
+      "id": 2,
+      "type": {
+        "def": {
+          "primitive": "u64"
+        }
+      }
+    },
+    {
+      "id": 3,
+      "type": {
+        "def": {
+          "primitive": "u128"
+        }
+      }
+    },
+    {
+      "id": 4,
+      "type": {
+        "def": {
+          "variant": {
+            "variants": [
+              {
+                "fields": [
+                  {
+                    "type": 5
+                  }
+                ],
+                "index": 0,
+                "name": "Ok"
+              },
+              {
+                "fields": [
+                  {
+                    "type": 6
+                  }
+                ],
+                "index": 1,
+                "name": "Err"
+              }
+            ]
+          }
+        },
+        "params": [
+          {
+            "name": "T",
+            "type": 5
+          },
+          {
+            "name": "E",
+            "type": 6
+          }
+        ],
+        "path": [
+          "Result"
+        ]
+      }
+    },
+    {
+      "id": 5,
+      "type": {
+        "def": {
+          "tuple": []
+        }
+      }
+    },
+    {
+      "id": 6,
+      "type": {
+        "def": {
+          "variant": {
+            "variants": [
+              {
+                "index": 1,
+                "name": "CouldNotReadInput"
+              }
+            ]
+          }
+        },
+        "path": [
+          "ink_primitives",
+          "LangError"
+        ]
+      }
+    },
+    {
+      "id": 7,
+      "type": {
+        "def": {
+          "variant": {
+            "variants": [
+              {
+                "fields": [
+                  {
+                    "type": 8,
+                    "typeName": "H160"
+                  }
+                ],
+                "index": 0,
+                "name": "P2PKH"
+              },
+              {
+                "fields": [
+                  {
+                    "type": 8,
+                    "typeName": "H160"
+                  }
+                ],
+                "index": 1,
+                "name": "P2SH"
+              },
+              {
+                "fields": [
+                  {
+                    "type": 8,
+                    "typeName": "H160"
+                  }
+                ],
+                "index": 2,
+                "name": "P2WPKHv0"
+              },
+              {
+                "fields": [
+                  {
+                    "type": 10,
+                    "typeName": "H256"
+                  }
+                ],
+                "index": 3,
+                "name": "P2WSHv0"
+              }
+            ]
+          }
+        },
+        "path": [
+          "bitcoin",
+          "address",
+          "Address"
+        ]
+      }
+    },
+    {
+      "id": 8,
+      "type": {
+        "def": {
+          "composite": {
+            "fields": [
+              {
+                "type": 9,
+                "typeName": "[u8; 20]"
+              }
+            ]
+          }
+        },
+        "path": [
+          "primitive_types",
+          "H160"
+        ]
+      }
+    },
+    {
+      "id": 9,
+      "type": {
+        "def": {
+          "array": {
+            "len": 20,
+            "type": 1
+          }
+        }
+      }
+    },
+    {
+      "id": 10,
+      "type": {
+        "def": {
+          "composite": {
+            "fields": [
+              {
+                "type": 11,
+                "typeName": "[u8; 32]"
+              }
+            ]
+          }
+        },
+        "path": [
+          "primitive_types",
+          "H256"
+        ]
+      }
+    },
+    {
+      "id": 11,
+      "type": {
+        "def": {
+          "array": {
+            "len": 32,
+            "type": 1
+          }
+        }
+      }
+    },
+    {
+      "id": 12,
+      "type": {
+        "def": {
+          "composite": {
+            "fields": [
+              {
+                "type": 11,
+                "typeName": "[u8; 32]"
+              }
+            ]
+          }
+        },
+        "path": [
+          "ink_primitives",
+          "types",
+          "AccountId"
+        ]
+      }
+    },
+    {
+      "id": 13,
+      "type": {
+        "def": {
+          "composite": {
+            "fields": [
+              {
+                "name": "user_tx_proof",
+                "type": 14,
+                "typeName": "PartialTransactionProof"
+              },
+              {
+                "name": "coinbase_proof",
+                "type": 14,
+                "typeName": "PartialTransactionProof"
+              }
+            ]
+          }
+        },
+        "path": [
+          "bitcoin",
+          "types",
+          "FullTransactionProof"
+        ]
+      }
+    },
+    {
+      "id": 14,
+      "type": {
+        "def": {
+          "composite": {
+            "fields": [
+              {
+                "name": "transaction",
+                "type": 15,
+                "typeName": "Transaction"
+              },
+              {
+                "name": "tx_encoded_len",
+                "type": 21,
+                "typeName": "u32"
+              },
+              {
+                "name": "merkle_proof",
+                "type": 29,
+                "typeName": "MerkleProof"
+              }
+            ]
+          }
+        },
+        "path": [
+          "bitcoin",
+          "merkle",
+          "PartialTransactionProof"
+        ]
+      }
+    },
+    {
+      "id": 15,
+      "type": {
+        "def": {
+          "composite": {
+            "fields": [
+              {
+                "name": "version",
+                "type": 16,
+                "typeName": "i32"
+              },
+              {
+                "name": "inputs",
+                "type": 17,
+                "typeName": "Vec<TransactionInput>"
+              },
+              {
+                "name": "outputs",
+                "type": 24,
+                "typeName": "Vec<TransactionOutput>"
+              },
+              {
+                "name": "lock_at",
+                "type": 28,
+                "typeName": "LockTime"
+              }
+            ]
+          }
+        },
+        "path": [
+          "bitcoin",
+          "types",
+          "Transaction"
+        ]
+      }
+    },
+    {
+      "id": 16,
+      "type": {
+        "def": {
+          "primitive": "i32"
+        }
+      }
+    },
+    {
+      "id": 17,
+      "type": {
+        "def": {
+          "sequence": {
+            "type": 18
+          }
+        }
+      }
+    },
+    {
+      "id": 18,
+      "type": {
+        "def": {
+          "composite": {
+            "fields": [
+              {
+                "name": "source",
+                "type": 19,
+                "typeName": "TransactionInputSource"
+              },
+              {
+                "name": "script",
+                "type": 0,
+                "typeName": "Vec<u8>"
+              },
+              {
+                "name": "sequence",
+                "type": 21,
+                "typeName": "u32"
+              },
+              {
+                "name": "witness",
+                "type": 23,
+                "typeName": "Vec<Vec<u8>>"
+              }
+            ]
+          }
+        },
+        "path": [
+          "bitcoin",
+          "types",
+          "TransactionInput"
+        ]
+      }
+    },
+    {
+      "id": 19,
+      "type": {
+        "def": {
+          "variant": {
+            "variants": [
+              {
+                "fields": [
+                  {
+                    "type": 20,
+                    "typeName": "H256Le"
+                  },
+                  {
+                    "type": 21,
+                    "typeName": "u32"
+                  }
+                ],
+                "index": 0,
+                "name": "FromOutput"
+              },
+              {
+                "fields": [
+                  {
+                    "type": 22,
+                    "typeName": "Option<u32>"
+                  }
+                ],
+                "index": 1,
+                "name": "Coinbase"
+              }
+            ]
+          }
+        },
+        "path": [
+          "bitcoin",
+          "types",
+          "TransactionInputSource"
+        ]
+      }
+    },
+    {
+      "id": 20,
+      "type": {
+        "def": {
+          "composite": {
+            "fields": [
+              {
+                "name": "content",
+                "type": 11,
+                "typeName": "[u8; 32]"
+              }
+            ]
+          }
+        },
+        "path": [
+          "bitcoin",
+          "types",
+          "H256Le"
+        ]
+      }
+    },
+    {
+      "id": 21,
+      "type": {
+        "def": {
+          "primitive": "u32"
+        }
+      }
+    },
+    {
+      "id": 22,
+      "type": {
+        "def": {
+          "variant": {
+            "variants": [
+              {
+                "index": 0,
+                "name": "None"
+              },
+              {
+                "fields": [
+                  {
+                    "type": 21
+                  }
+                ],
+                "index": 1,
+                "name": "Some"
+              }
+            ]
+          }
+        },
+        "params": [
+          {
+            "name": "T",
+            "type": 21
+          }
+        ],
+        "path": [
+          "Option"
+        ]
+      }
+    },
+    {
+      "id": 23,
+      "type": {
+        "def": {
+          "sequence": {
+            "type": 0
+          }
+        }
+      }
+    },
+    {
+      "id": 24,
+      "type": {
+        "def": {
+          "sequence": {
+            "type": 25
+          }
+        }
+      }
+    },
+    {
+      "id": 25,
+      "type": {
+        "def": {
+          "composite": {
+            "fields": [
+              {
+                "name": "value",
+                "type": 26,
+                "typeName": "Value"
+              },
+              {
+                "name": "script",
+                "type": 27,
+                "typeName": "Script"
+              }
+            ]
+          }
+        },
+        "path": [
+          "bitcoin",
+          "types",
+          "TransactionOutput"
+        ]
+      }
+    },
+    {
+      "id": 26,
+      "type": {
+        "def": {
+          "primitive": "i64"
+        }
+      }
+    },
+    {
+      "id": 27,
+      "type": {
+        "def": {
+          "composite": {
+            "fields": [
+              {
+                "name": "bytes",
+                "type": 0,
+                "typeName": "Vec<u8>"
+              }
+            ]
+          }
+        },
+        "path": [
+          "bitcoin",
+          "script",
+          "Script"
+        ]
+      }
+    },
+    {
+      "id": 28,
+      "type": {
+        "def": {
+          "variant": {
+            "variants": [
+              {
+                "fields": [
+                  {
+                    "type": 21,
+                    "typeName": "u32"
+                  }
+                ],
+                "index": 0,
+                "name": "Time"
+              },
+              {
+                "fields": [
+                  {
+                    "type": 21,
+                    "typeName": "u32"
+                  }
+                ],
+                "index": 1,
+                "name": "BlockHeight"
+              }
+            ]
+          }
+        },
+        "path": [
+          "bitcoin",
+          "types",
+          "LockTime"
+        ]
+      }
+    },
+    {
+      "id": 29,
+      "type": {
+        "def": {
+          "composite": {
+            "fields": [
+              {
+                "name": "block_header",
+                "type": 30,
+                "typeName": "BlockHeader"
+              },
+              {
+                "name": "flag_bits",
+                "type": 33,
+                "typeName": "Vec<bool>"
+              },
+              {
+                "name": "transactions_count",
+                "type": 21,
+                "typeName": "u32"
+              },
+              {
+                "name": "hashes",
+                "type": 35,
+                "typeName": "Vec<H256Le>"
+              }
+            ]
+          }
+        },
+        "path": [
+          "bitcoin",
+          "merkle",
+          "MerkleProof"
+        ]
+      }
+    },
+    {
+      "id": 30,
+      "type": {
+        "def": {
+          "composite": {
+            "fields": [
+              {
+                "name": "merkle_root",
+                "type": 20,
+                "typeName": "H256Le"
+              },
+              {
+                "name": "target",
+                "type": 31,
+                "typeName": "U256"
+              },
+              {
+                "name": "timestamp",
+                "type": 21,
+                "typeName": "u32"
+              },
+              {
+                "name": "version",
+                "type": 16,
+                "typeName": "i32"
+              },
+              {
+                "name": "hash",
+                "type": 20,
+                "typeName": "H256Le"
+              },
+              {
+                "name": "hash_prev_block",
+                "type": 20,
+                "typeName": "H256Le"
+              },
+              {
+                "name": "nonce",
+                "type": 21,
+                "typeName": "u32"
+              }
+            ]
+          }
+        },
+        "path": [
+          "bitcoin",
+          "types",
+          "BlockHeader"
+        ]
+      }
+    },
+    {
+      "id": 31,
+      "type": {
+        "def": {
+          "composite": {
+            "fields": [
+              {
+                "type": 32,
+                "typeName": "[u64; 4]"
+              }
+            ]
+          }
+        },
+        "path": [
+          "primitive_types",
+          "U256"
+        ]
+      }
+    },
+    {
+      "id": 32,
+      "type": {
+        "def": {
+          "array": {
+            "len": 4,
+            "type": 2
+          }
+        }
+      }
+    },
+    {
+      "id": 33,
+      "type": {
+        "def": {
+          "sequence": {
+            "type": 34
+          }
+        }
+      }
+    },
+    {
+      "id": 34,
+      "type": {
+        "def": {
+          "primitive": "bool"
+        }
+      }
+    },
+    {
+      "id": 35,
+      "type": {
+        "def": {
+          "sequence": {
+            "type": 20
+          }
+        }
+      }
+    },
+    {
+      "id": 36,
+      "type": {
+        "def": {
+          "composite": {
+            "fields": [
+              {
+                "type": 11,
+                "typeName": "[u8; 32]"
+              }
+            ]
+          }
+        },
+        "path": [
+          "ink_primitives",
+          "types",
+          "Hash"
+        ]
+      }
+    },
+    {
+      "id": 37,
+      "type": {
+        "def": {
+          "variant": {}
+        },
+        "path": [
+          "btc_swap",
+          "DoSomethingInRuntime"
+        ]
+      }
+    }
+  ],
+  "version": "4"
+}

@@ -18,7 +18,6 @@ use sp_runtime::{
     traits::{BlakeTwo256, IdentityLookup, One, Zero},
     DispatchError,
 };
-use traits::OracleApi;
 
 pub(crate) type Extrinsic = TestXt<RuntimeCall, ()>;
 type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
@@ -295,7 +294,6 @@ where
 impl security::Config for Test {
     type RuntimeEvent = RuntimeEvent;
     type WeightInfo = ();
-    type MaxErrors = ConstU32<1>;
 }
 
 pub type TestEvent = RuntimeEvent;

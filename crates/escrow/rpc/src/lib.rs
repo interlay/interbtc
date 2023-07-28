@@ -21,6 +21,7 @@ where
     BlockNumber: Codec,
     AccountId: Codec,
 {
+    /// vkint/vintr balance
     #[method(name = "escrow_balanceAt")]
     fn balance_at(
         &self,
@@ -28,6 +29,10 @@ where
         height: Option<BlockNumber>,
         at: Option<BlockHash>,
     ) -> RpcResult<BalanceWrapper<Balance>>;
+
+    /// amount of kint/intr that use can lock, taking into consideration the Limits.
+    #[method(name = "escrow_freeStakable")]
+    fn free_stakable(&self, account_id: AccountId, at: Option<BlockHash>) -> RpcResult<BalanceWrapper<Balance>>;
 
     #[method(name = "escrow_totalSupply")]
     fn total_supply(&self, height: Option<BlockNumber>, at: Option<BlockHash>) -> RpcResult<BalanceWrapper<Balance>>;
@@ -83,6 +88,20 @@ where
 
         handle_response(
             api.balance_at(at, account_id, height),
+            "Unable to obtain the escrow balance".into(),
+        )
+    }
+
+    fn free_stakable(
+        &self,
+        account_id: AccountId,
+        at: Option<<Block as BlockT>::Hash>,
+    ) -> RpcResult<BalanceWrapper<Balance>> {
+        let api = self.client.runtime_api();
+        let at = at.unwrap_or_else(|| self.client.info().best_hash);
+
+        handle_response(
+            api.free_stakable(at, account_id),
             "Unable to obtain the escrow balance".into(),
         )
     }

@@ -14,6 +14,9 @@ sp_api::decl_runtime_apis! {
         /// Get a given user's escrowed balance
         fn balance_at(account_id: AccountId, height: Option<BlockNumber>) -> BalanceWrapper<Balance>;
 
+        /// amount of kint/intr that use can lock, taking into consideration the Limits.
+        fn free_stakable(account_id: AccountId) -> BalanceWrapper<Balance>;
+
         /// Get the total voting supply in the system
         fn total_supply(height: Option<BlockNumber>) -> BalanceWrapper<Balance>;
     }

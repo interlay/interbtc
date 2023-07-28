@@ -100,7 +100,7 @@ parameter_type_with_key! {
 impl orml_tokens::Config for Test {
     type RuntimeEvent = RuntimeEvent;
     type Balance = Balance;
-    type Amount = primitives::Amount;
+    type Amount = primitives::SignedBalance;
     type CurrencyId = CurrencyId;
     type WeightInfo = ();
     type ExistentialDeposits = ExistentialDeposits;
@@ -153,7 +153,6 @@ impl pallet_timestamp::Config for Test {
 impl security::Config for Test {
     type RuntimeEvent = RuntimeEvent;
     type WeightInfo = ();
-    type MaxErrors = ConstU32<1>;
 }
 
 impl staking::Config for Test {

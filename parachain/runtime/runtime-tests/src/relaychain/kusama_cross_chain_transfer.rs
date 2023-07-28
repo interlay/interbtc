@@ -141,18 +141,19 @@ mod hrmp {
     fn open_hrmp_channel() {
         // setup sovereign account balances
         KusamaNet::execute_with(|| {
+            // transfer the required funds, and make sure that the account remains above the existential deposit
+            // afterwards
             assert_ok!(kusama_runtime::Balances::transfer(
                 kusama_runtime::RuntimeOrigin::signed(ALICE.into()),
                 sp_runtime::MultiAddress::Id(kintsugi_sovereign_account_on_kusama()),
-                10_820_000_000_000
+                10_820_000_000_000 + kusama_runtime::ExistentialDeposit::get()
             ));
             assert_ok!(kusama_runtime::Balances::transfer(
                 kusama_runtime::RuntimeOrigin::signed(ALICE.into()),
                 sp_runtime::MultiAddress::Id(sibling_sovereign_account_on_kusama()),
-                10_820_000_000_000
+                10_820_000_000_000 + kusama_runtime::ExistentialDeposit::get()
             ));
         });
-
         // open channel kintsugi -> sibling
         init_open_channel::<Kintsugi>(KINTSUGI_PARA_ID, SIBLING_PARA_ID);
         accept_open_channel::<Sibling>(KINTSUGI_PARA_ID, SIBLING_PARA_ID);

@@ -38,9 +38,7 @@ use sp_std::marker::PhantomData;
 /// Weight functions needed for security.
 pub trait WeightInfo {
 	fn on_initialize() -> Weight;
-	fn set_parachain_status() -> Weight;
-	fn insert_parachain_error() -> Weight;
-	fn remove_parachain_error() -> Weight;
+	fn activate_counter() -> Weight;
 }
 
 /// Weights for security using the Substrate node and recommended hardware.
@@ -61,34 +59,12 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	}
 	/// Storage: Security ParachainStatus (r:0 w:1)
 	/// Proof Skipped: Security ParachainStatus (max_values: Some(1), max_size: None, mode: Measured)
-	fn set_parachain_status() -> Weight {
+	fn activate_counter() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `711`
 		//  Estimated: `711`
 		// Minimum execution time: 7_477_000 picoseconds.
 		Weight::from_parts(7_814_000, 711)
-			.saturating_add(T::DbWeight::get().writes(1_u64))
-	}
-	/// Storage: Security Errors (r:1 w:1)
-	/// Proof Skipped: Security Errors (max_values: Some(1), max_size: None, mode: Measured)
-	fn insert_parachain_error() -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `837`
-		//  Estimated: `1332`
-		// Minimum execution time: 12_257_000 picoseconds.
-		Weight::from_parts(12_591_000, 1332)
-			.saturating_add(T::DbWeight::get().reads(1_u64))
-			.saturating_add(T::DbWeight::get().writes(1_u64))
-	}
-	/// Storage: Security Errors (r:1 w:1)
-	/// Proof Skipped: Security Errors (max_values: Some(1), max_size: None, mode: Measured)
-	fn remove_parachain_error() -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `837`
-		//  Estimated: `1332`
-		// Minimum execution time: 13_360_000 picoseconds.
-		Weight::from_parts(13_652_000, 1332)
-			.saturating_add(T::DbWeight::get().reads(1_u64))
 			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
 }
@@ -110,34 +86,12 @@ impl WeightInfo for () {
 	}
 	/// Storage: Security ParachainStatus (r:0 w:1)
 	/// Proof Skipped: Security ParachainStatus (max_values: Some(1), max_size: None, mode: Measured)
-	fn set_parachain_status() -> Weight {
+	fn activate_counter() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `711`
 		//  Estimated: `711`
 		// Minimum execution time: 7_477_000 picoseconds.
 		Weight::from_parts(7_814_000, 711)
-			.saturating_add(RocksDbWeight::get().writes(1_u64))
-	}
-	/// Storage: Security Errors (r:1 w:1)
-	/// Proof Skipped: Security Errors (max_values: Some(1), max_size: None, mode: Measured)
-	fn insert_parachain_error() -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `837`
-		//  Estimated: `1332`
-		// Minimum execution time: 12_257_000 picoseconds.
-		Weight::from_parts(12_591_000, 1332)
-			.saturating_add(RocksDbWeight::get().reads(1_u64))
-			.saturating_add(RocksDbWeight::get().writes(1_u64))
-	}
-	/// Storage: Security Errors (r:1 w:1)
-	/// Proof Skipped: Security Errors (max_values: Some(1), max_size: None, mode: Measured)
-	fn remove_parachain_error() -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `837`
-		//  Estimated: `1332`
-		// Minimum execution time: 13_360_000 picoseconds.
-		Weight::from_parts(13_652_000, 1332)
-			.saturating_add(RocksDbWeight::get().reads(1_u64))
 			.saturating_add(RocksDbWeight::get().writes(1_u64))
 	}
 }

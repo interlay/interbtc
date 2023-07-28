@@ -1,5 +1,6 @@
 use crate::{ext, mock::*, Event, IssueRequest};
 
+use bitcoin::{merkle::PartialTransactionProof, types::FullTransactionProof};
 use btc_relay::{BtcAddress, BtcPublicKey};
 use currency::Amount;
 use frame_support::{assert_noop, assert_ok, dispatch::DispatchError};
@@ -54,7 +55,20 @@ fn request_issue_ok_with_address(
 }
 
 fn execute_issue(origin: AccountId, issue_id: &H256) -> Result<(), DispatchError> {
-    Issue::_execute_issue(origin, *issue_id, Default::default(), Default::default(), u32::MAX)
+    let unchecked_transaction = FullTransactionProof {
+        user_tx_proof: PartialTransactionProof {
+            transaction: Default::default(),
+            tx_encoded_len: u32::MAX,
+            merkle_proof: Default::default(),
+        },
+        coinbase_proof: PartialTransactionProof {
+            transaction: Default::default(),
+            tx_encoded_len: u32::MAX,
+            merkle_proof: Default::default(),
+        },
+    };
+
+    Issue::_execute_issue(origin, *issue_id, unchecked_transaction)
 }
 
 fn cancel_issue(origin: AccountId, issue_id: &H256) -> Result<(), DispatchError> {
@@ -158,7 +172,7 @@ fn setup_execute(
     <security::Pallet<Test>>::set_active_block_number(5);
 
     ext::btc_relay::get_and_verify_issue_payment::<Test, Balance>
-        .mock_safe(move |_, _, _, _| MockResult::Return(Ok(btc_transferred)));
+        .mock_safe(move |_, _| MockResult::Return(Ok(btc_transferred)));
 
     issue_id
 }

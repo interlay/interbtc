@@ -1,19 +1,19 @@
-# Parachain Runtimes
+# Parachain Chain Specs
 
-This folder includes all parachain runtimes based on the interBTC bridge code.
+This folder includes the live parachain chain specs.
 
 ## Usage
 
-The `kintsugi.json` file serves as the chain specification used together with the `--chain` parameter when starting a [collator](https://docs.interlay.io/#/collator/guide) or [full-node](https://docs.interlay.io/#/full-node/guide).
+The `interlay.json` and `kintsugi.json` files serve as the chain specifications used together with the `--chain` parameter when starting a [collator](https://docs.interlay.io/#/collator/guide) or [full-node](https://docs.interlay.io/#/full-node/guide).
 
 ## Development
 
-**Note**: The commands below refer to the `kintsugi` chain. Adjust for the desired chain specification.
+**Note**: The command below refer to the `kintsugi` chain. Adjust for the desired chain specification.
 
 **Warning!** Create a chain specification only with tagged releases of the parachain!
 
 ```shell
-docker run interlayhq/interbtc:interbtc-parachain-1.0.2 interbtc-parachain build-spec-with-id --chain kusama --disable-default-bootnode --raw > parachain/res/kintsugi.json
+interbtc-parachain build-spec --chain kintsugi --disable-default-bootnode --raw > parachain/res/kintsugi.json
 ```
 
 The raw chain spec contains all the same information, but it contains the encoded storage keys that the node will use to reference the data in its local storage.
@@ -23,4 +23,5 @@ Distributing a raw spec ensures that each node will store the data at the proper
 
 ## Parachain Ids
 
+- **Interlay**: `2032`
 - **Kintsugi**: `2092`

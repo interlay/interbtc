@@ -25,7 +25,7 @@ To add this library to your crate, simply include the following in your crate's 
 ```TOML
 [dependencies.bitcoin]
 default_features = false
-git = '../creates/bitcoin'
+git = '../crates/bitcoin'
 ```
 
 Update your crate's `std` feature to include this pallet:

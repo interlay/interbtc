@@ -3,24 +3,20 @@ use mocktopus::macros::mockable;
 
 #[cfg_attr(test, mockable)]
 pub(crate) mod btc_relay {
-    use bitcoin::types::{MerkleProof, Transaction, Value};
+    use bitcoin::types::{FullTransactionProof, Value};
     use btc_relay::BtcAddress;
     use frame_support::dispatch::DispatchError;
     use sp_core::H256;
     use sp_std::convert::TryInto;
 
     pub fn verify_and_validate_op_return_transaction<T: crate::Config, V: TryInto<Value>>(
-        merkle_proof: MerkleProof,
-        transaction: Transaction,
-        length_bound: u32,
+        unchecked_transaction: FullTransactionProof,
         recipient_btc_address: BtcAddress,
         expected_btc: V,
         op_return_id: H256,
     ) -> Result<(), DispatchError> {
         <btc_relay::Pallet<T>>::verify_and_validate_op_return_transaction(
-            merkle_proof,
-            transaction,
-            length_bound,
+            unchecked_transaction,
             recipient_btc_address,
             expected_btc,
             op_return_id,
@@ -137,7 +133,7 @@ pub(crate) mod vault_registry {
 
     pub fn is_allowed_to_withdraw_collateral<T: crate::Config>(
         vault_id: &DefaultVaultId<T>,
-        amount: &Amount<T>,
+        amount: Option<Amount<T>>,
     ) -> Result<bool, DispatchError> {
         <vault_registry::Pallet<T>>::is_allowed_to_withdraw_collateral(vault_id, amount)
     }

@@ -6,8 +6,9 @@ use crate::{
     tests::unit,
     Amount, Error, Market, MarketState,
 };
-use frame_support::{assert_noop, assert_ok, dispatch::Dispatchable, traits::fungibles::Inspect};
+use frame_support::{assert_noop, assert_ok, dispatch::Dispatchable};
 use mocktopus::mocking::Mockable;
+use orml_traits::MultiCurrency;
 use primitives::{
     Balance,
     CurrencyId::{self, Token},
@@ -92,6 +93,7 @@ fn full_workflow_works_as_expected() {
     new_test_ext().execute_with(|| {
         initial_setup();
         alice_borrows_100_ksm();
+
         // adjust KSM price to make ALICE generate shortfall
         CurrencyConvert::convert.mock_safe(with_price(Some((KSM, 2.into()))));
         // BOB repay the KSM borrow balance and get DOT from ALICE
@@ -111,28 +113,34 @@ fn full_workflow_works_as_expected() {
         // Alice KSM borrow balance: origin borrow balance - liquidate amount = 100 - 50 = 50
         // Bob KSM: cash - deposit - repay = 1000 - 200 - 50 = 750
         // Bob KBTC collateral: incentive = 110-(110/1.1*0.03)=107
-        assert_eq!(Tokens::balance(KBTC, &ALICE), unit(800),);
+        assert_eq!(<Tokens as MultiCurrency<_>>::total_balance(KBTC, &ALICE), unit(800),);
         assert_eq!(
-            Loans::exchange_rate(KBTC).saturating_mul_int(Tokens::balance(Loans::lend_token_id(KBTC).unwrap(), &ALICE)),
+            Loans::exchange_rate(KBTC).saturating_mul_int(<Tokens as MultiCurrency<_>>::total_balance(
+                Loans::lend_token_id(KBTC).unwrap(),
+                &ALICE
+            )),
             unit(90),
         );
-        assert_eq!(Tokens::balance(KSM, &ALICE), unit(1100),);
+        assert_eq!(<Tokens as MultiCurrency<_>>::total_balance(KSM, &ALICE), unit(1100),);
         assert_eq!(Loans::account_borrows(KSM, ALICE).principal, unit(50));
-        assert_eq!(Tokens::balance(KSM, &BOB), unit(750));
+        assert_eq!(<Tokens as MultiCurrency<_>>::total_balance(KSM, &BOB), unit(750));
         assert_eq!(
-            Loans::exchange_rate(KBTC).saturating_mul_int(Tokens::balance(Loans::lend_token_id(KBTC).unwrap(), &BOB)),
+            Loans::exchange_rate(KBTC).saturating_mul_int(<Tokens as MultiCurrency<_>>::total_balance(
+                Loans::lend_token_id(KBTC).unwrap(),
+                &BOB
+            )),
             unit(107),
         );
         // 3 dollar reserved in our incentive reward account
         let incentive_reward_account = Loans::incentive_reward_account_id();
         assert_eq!(
-            Loans::exchange_rate(KBTC).saturating_mul_int(Tokens::balance(
+            Loans::exchange_rate(KBTC).saturating_mul_int(<Tokens as MultiCurrency<_>>::total_balance(
                 Loans::lend_token_id(KBTC).unwrap(),
                 &incentive_reward_account.clone()
             )),
             unit(3),
         );
-        assert_eq!(Tokens::balance(KBTC, &ALICE), unit(800),);
+        assert_eq!(<Tokens as MultiCurrency<_>>::total_balance(KBTC, &ALICE), unit(800),);
         // reduce 2 dollar from incentive reserve to alice account
         assert_ok!(Loans::reduce_incentive_reserves(
             RuntimeOrigin::root(),
@@ -142,14 +150,17 @@ fn full_workflow_works_as_expected() {
         ));
         // still 1 dollar left in reserve account
         assert_eq!(
-            Loans::exchange_rate(KBTC).saturating_mul_int(Tokens::balance(
+            Loans::exchange_rate(KBTC).saturating_mul_int(<Tokens as MultiCurrency<_>>::total_balance(
                 Loans::lend_token_id(KBTC).unwrap(),
                 &incentive_reward_account
             )),
             unit(1),
         );
         // 2 dollar transfer to alice
-        assert_eq!(Tokens::balance(KBTC, &ALICE), unit(800) + unit(2),);
+        assert_eq!(
+            <Tokens as MultiCurrency<_>>::total_balance(KBTC, &ALICE),
+            unit(800) + unit(2),
+        );
     })
 }
 
@@ -193,28 +204,34 @@ fn liquidate_incentive_reserved_factor_can_be_zero() {
         // Alice KSM borrow balance: origin borrow balance - liquidate amount = 100 - 50 = 50
         // Bob KSM: cash - deposit - repay = 1000 - 200 - 50 = 750
         // Bob KBTC collateral: incentive = 110-(110/1.1*0.0)=110
-        assert_eq!(Tokens::balance(KBTC, &ALICE), unit(800),);
+        assert_eq!(<Tokens as MultiCurrency<_>>::total_balance(KBTC, &ALICE), unit(800),);
         assert_eq!(
-            Loans::exchange_rate(KBTC).saturating_mul_int(Tokens::balance(Loans::lend_token_id(KBTC).unwrap(), &ALICE)),
+            Loans::exchange_rate(KBTC).saturating_mul_int(<Tokens as MultiCurrency<_>>::total_balance(
+                Loans::lend_token_id(KBTC).unwrap(),
+                &ALICE
+            )),
             unit(90),
         );
-        assert_eq!(Tokens::balance(KSM, &ALICE), unit(1100),);
+        assert_eq!(<Tokens as MultiCurrency<_>>::total_balance(KSM, &ALICE), unit(1100),);
         assert_eq!(Loans::account_borrows(KSM, ALICE).principal, unit(50));
-        assert_eq!(Tokens::balance(KSM, &BOB), unit(750));
+        assert_eq!(<Tokens as MultiCurrency<_>>::total_balance(KSM, &BOB), unit(750));
         assert_eq!(
-            Loans::exchange_rate(KBTC).saturating_mul_int(Tokens::balance(Loans::lend_token_id(KBTC).unwrap(), &BOB)),
+            Loans::exchange_rate(KBTC).saturating_mul_int(<Tokens as MultiCurrency<_>>::total_balance(
+                Loans::lend_token_id(KBTC).unwrap(),
+                &BOB
+            )),
             unit(110),
         );
         // 0 dollar reserved in our incentive reward account
         let incentive_reward_account = Loans::incentive_reward_account_id();
         assert_eq!(
-            Loans::exchange_rate(KBTC).saturating_mul_int(Tokens::balance(
+            Loans::exchange_rate(KBTC).saturating_mul_int(<Tokens as MultiCurrency<_>>::total_balance(
                 Loans::lend_token_id(KBTC).unwrap(),
                 &incentive_reward_account.clone()
             )),
             unit(0),
         );
-        assert_eq!(Tokens::balance(KBTC, &ALICE), unit(800),);
+        assert_eq!(<Tokens as MultiCurrency<_>>::total_balance(KBTC, &ALICE), unit(800),);
     })
 }
 
@@ -237,7 +254,7 @@ fn withdrawing_incentive_reserve_accrues_interest() {
             KBTC
         ));
         assert_eq!(
-            Loans::exchange_rate(KBTC).saturating_mul_int(Tokens::balance(
+            Loans::exchange_rate(KBTC).saturating_mul_int(<Tokens as MultiCurrency<_>>::total_balance(
                 Loans::lend_token_id(KBTC).unwrap(),
                 &incentive_reward_account
             )),

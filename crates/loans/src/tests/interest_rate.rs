@@ -187,20 +187,29 @@ fn accrue_interest_works_after_redeem() {
                 .saturating_mul_int(Loans::account_deposits(Loans::lend_token_id(Token(DOT)).unwrap(), &BOB).amount()),
             0,
         );
-        assert_eq!(Tokens::balance(Token(DOT), &ALICE), 820000000000000);
+        assert_eq!(
+            <Tokens as MultiCurrency<_>>::total_balance(Token(DOT), &ALICE),
+            820000000000000
+        );
     })
 }
 
 #[test]
 fn accrue_interest_works_after_redeem_all() {
     new_test_ext().execute_with(|| {
-        assert_eq!(Tokens::balance(Token(DOT), &BOB), 1000000000000000);
+        assert_eq!(
+            <Tokens as MultiCurrency<_>>::total_balance(Token(DOT), &BOB),
+            1000000000000000
+        );
         assert_ok!(Loans::mint(RuntimeOrigin::signed(BOB), Token(DOT), unit(20)));
         assert_ok!(Loans::mint(RuntimeOrigin::signed(ALICE), Token(DOT), unit(200)));
         assert_ok!(Loans::deposit_all_collateral(RuntimeOrigin::signed(ALICE), Token(DOT)));
         assert_ok!(Loans::borrow(RuntimeOrigin::signed(ALICE), Token(DOT), unit(10)));
         assert_eq!(Loans::borrow_index(Token(DOT)), Rate::one());
-        assert_eq!(Tokens::balance(Token(DOT), &BOB), 980000000000000);
+        assert_eq!(
+            <Tokens as MultiCurrency<_>>::total_balance(Token(DOT), &BOB),
+            980000000000000
+        );
         TimestampPallet::set_timestamp(12000);
         assert_ok!(Loans::redeem_all(RuntimeOrigin::signed(BOB), Token(DOT)));
         assert_eq!(Loans::borrow_index(Token(DOT)), Rate::from_inner(1000000004669977174),);
@@ -209,7 +218,10 @@ fn accrue_interest_works_after_redeem_all() {
                 .saturating_mul_int(Loans::account_deposits(Loans::lend_token_id(Token(DOT)).unwrap(), &BOB).amount()),
             0,
         );
-        assert_eq!(Tokens::balance(Token(DOT), &BOB), 1000000000003608);
+        assert_eq!(
+            <Tokens as MultiCurrency<_>>::total_balance(Token(DOT), &BOB),
+            1000000000003608
+        );
         assert_eq!(Loans::free_lend_tokens(Token(DOT), &BOB).unwrap().is_zero(), true);
         assert_eq!(Loans::reserved_lend_tokens(Token(DOT), &BOB).unwrap().is_zero(), true);
         assert!(!AccountDeposits::<Test>::contains_key(Token(DOT), &BOB))
@@ -240,7 +252,10 @@ fn accrue_interest_works_after_repay_all() {
         TimestampPallet::set_timestamp(12000);
         assert_ok!(Loans::repay_borrow_all(RuntimeOrigin::signed(ALICE), Token(KSM)));
         assert_eq!(Loans::borrow_index(Token(KSM)), Rate::from_inner(1000000008561643864),);
-        assert_eq!(Tokens::balance(Token(KSM), &ALICE), 999999999571917);
+        assert_eq!(
+            <Tokens as MultiCurrency<_>>::total_balance(Token(KSM), &ALICE),
+            999999999571917
+        );
         let borrow_snapshot = Loans::account_borrows(Token(KSM), ALICE);
         assert_eq!(borrow_snapshot.principal, 0);
         assert_eq!(borrow_snapshot.borrow_index, Loans::borrow_index(Token(KSM)));

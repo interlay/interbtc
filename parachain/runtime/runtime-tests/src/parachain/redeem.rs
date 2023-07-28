@@ -63,55 +63,6 @@ mod spec_based_tests {
 
     use super::{assert_eq, *};
 
-    #[test]
-    fn integration_test_redeem_with_parachain_error_status_fails() {
-        // PRECONDITION: The BTC Parachain status in the Security component
-        test_with(|vault_id| {
-            // `liquidation_redeem` and `execute_redeem` are not tested here
-            // because they are allowed even in error
-            SecurityPallet::set_status(StatusCode::Error);
-
-            assert_noop!(
-                RuntimeCall::Redeem(RedeemCall::request_redeem {
-                    amount_wrapped: 1500,
-                    btc_address: BtcAddress::random(),
-                    vault_id: vault_id.clone(),
-                })
-                .dispatch(origin_of(account_of(ALICE))),
-                SecurityError::ParachainNotRunning,
-            );
-
-            assert_noop!(
-                RuntimeCall::Redeem(RedeemCall::cancel_redeem {
-                    redeem_id: Default::default(),
-                    reimburse: false
-                })
-                .dispatch(origin_of(account_of(ALICE))),
-                SecurityError::ParachainNotRunning,
-            );
-            assert_noop!(
-                RuntimeCall::Redeem(RedeemCall::cancel_redeem {
-                    redeem_id: Default::default(),
-                    reimburse: true
-                })
-                .dispatch(origin_of(account_of(ALICE))),
-                SecurityError::ParachainNotRunning,
-            );
-
-            assert_noop!(
-                RuntimeCall::Redeem(RedeemCall::mint_tokens_for_reimbursed_redeem {
-                    currency_pair: VaultCurrencyPair {
-                        collateral: DEFAULT_COLLATERAL_CURRENCY,
-                        wrapped: DEFAULT_WRAPPED_CURRENCY
-                    },
-                    redeem_id: Default::default()
-                })
-                .dispatch(origin_of(account_of(ALICE))),
-                SecurityError::ParachainNotRunning,
-            );
-        });
-    }
-
     mod request_redeem {
         use frame_support::assert_ok;
         use sp_runtime::FixedU128;
@@ -455,9 +406,7 @@ mod spec_based_tests {
                 assert_noop!(
                     RuntimeCall::Redeem(RedeemCall::execute_redeem {
                         redeem_id: H256::random(),
-                        merkle_proof: Default::default(),
-                        transaction: Default::default(),
-                        length_bound: u32::MAX,
+                        unchecked_transaction: dummy_tx()
                     })
                     .dispatch(origin_of(account_of(VAULT))),
                     RedeemError::RedeemIdNotFound
@@ -517,22 +466,22 @@ mod spec_based_tests {
                 );
 
                 // The `merkleProof` MUST contain a valid proof of of `rawTX`
-                let (_tx_id, _tx_block_height, _merkle_proof, transaction) = generate_transaction_and_mine(
+                let (_tx_id, _tx_block_height, mut transaction) = generate_transaction_and_mine(
                     Default::default(),
                     vec![],
                     vec![(user_btc_address, redeem.amount_btc())],
                     vec![redeem_id],
                 );
                 let invalid_merkle_proof = hex::decode("00000020b0b3d77b97015b519553423c96642b33ca534c50ecefd133640000000000000029a0a725684aeca24af83e3ba0a3e3ee56adfdf032d19e5acba6d0a262e1580ca354915fd4c8001ac42a7b3a1000000005df41db041b26536b5b7fd7aeea4ea6bdb64f7039e4a566b1fa138a07ed2d3705932955c94ee4755abec003054128b10e0fbcf8dedbbc6236e23286843f1f82a018dc7f5f6fba31aa618fab4acad7df5a5046b6383595798758d30d68c731a14043a50d7cb8560d771fad70c5e52f6d7df26df13ca457655afca2cbab2e3b135c0383525b28fca31296c809641205962eb353fb88a9f3602e98a93b1e9ffd469b023d00").unwrap();
+                transaction.user_tx_proof.merkle_proof = MerkleProof::parse(&invalid_merkle_proof).unwrap();
+                transaction.user_tx_proof.merkle_proof = MerkleProof::parse(&invalid_merkle_proof).unwrap();
                 assert_noop!(
                     RuntimeCall::Redeem(RedeemCall::execute_redeem {
                         redeem_id: redeem_id,
-                        merkle_proof: MerkleProof::parse(&invalid_merkle_proof).unwrap(),
-                        transaction,
-                        length_bound: u32::MAX,
+                        unchecked_transaction: transaction
                     })
                     .dispatch(origin_of(account_of(VAULT))),
-                    BTCRelayError::BlockNotFound
+                    BTCRelayError::InvalidTxid
                 );
                 let parachain_state_before_execution = ParachainState::get(&vault_id);
                 execute_redeem(redeem_id);
@@ -1270,7 +1219,7 @@ fn integration_test_premium_redeem_wrapped_execute() {
         let redeem = RedeemPallet::get_open_redeem_request_from_id(&redeem_id).unwrap();
 
         // send the btc from the vault to the user
-        let (_tx_id, _tx_block_height, merkle_proof, transaction) = generate_transaction_and_mine(
+        let (_tx_id, _tx_block_height, transaction) = generate_transaction_and_mine(
             Default::default(),
             vec![],
             vec![(user_btc_address, redeem.amount_btc())],
@@ -1281,9 +1230,7 @@ fn integration_test_premium_redeem_wrapped_execute() {
 
         assert_ok!(RuntimeCall::Redeem(RedeemCall::execute_redeem {
             redeem_id,
-            merkle_proof,
-            transaction,
-            length_bound: u32::MAX,
+            unchecked_transaction: transaction
         })
         .dispatch(origin_of(account_of(VAULT))));
 
@@ -1339,7 +1286,7 @@ fn integration_test_multiple_redeems_multiple_op_returns() {
         let redeem_2 = RedeemPallet::get_open_redeem_request_from_id(&redeem_2_id).unwrap();
 
         // try to fulfill both redeem requests in a single transaction
-        let (_tx_id, _tx_block_height, merkle_proof, transaction) = generate_transaction_and_mine(
+        let (_tx_id, _tx_block_height, transaction) = generate_transaction_and_mine(
             Default::default(),
             vec![],
             vec![
@@ -1354,9 +1301,7 @@ fn integration_test_multiple_redeems_multiple_op_returns() {
         assert_err!(
             RuntimeCall::Redeem(RedeemCall::execute_redeem {
                 redeem_id: redeem_1_id,
-                merkle_proof: merkle_proof.clone(),
-                transaction: transaction.clone(),
-                length_bound: u32::MAX,
+                unchecked_transaction: transaction.clone()
             })
             .dispatch(origin_of(account_of(VAULT))),
             BTCRelayError::InvalidOpReturnTransaction
@@ -1365,9 +1310,7 @@ fn integration_test_multiple_redeems_multiple_op_returns() {
         assert_err!(
             RuntimeCall::Redeem(RedeemCall::execute_redeem {
                 redeem_id: redeem_2_id,
-                merkle_proof: merkle_proof.clone(),
-                transaction: transaction.clone(),
-                length_bound: u32::MAX,
+                unchecked_transaction: transaction
             })
             .dispatch(origin_of(account_of(VAULT))),
             BTCRelayError::InvalidOpReturnTransaction
@@ -1392,7 +1335,7 @@ fn integration_test_single_redeem_multiple_op_returns() {
         let redeem_id = assert_redeem_request_event();
         let redeem = RedeemPallet::get_open_redeem_request_from_id(&redeem_id).unwrap();
 
-        let (_tx_id, _tx_block_height, merkle_proof, transaction) = generate_transaction_and_mine(
+        let (_tx_id, _tx_block_height, transaction) = generate_transaction_and_mine(
             Default::default(),
             vec![],
             vec![(user_btc_address, redeem.amount_btc())],
@@ -1407,9 +1350,7 @@ fn integration_test_single_redeem_multiple_op_returns() {
         assert_err!(
             RuntimeCall::Redeem(RedeemCall::execute_redeem {
                 redeem_id,
-                merkle_proof,
-                transaction,
-                length_bound: u32::MAX,
+                unchecked_transaction: transaction
             })
             .dispatch(origin_of(account_of(VAULT))),
             BTCRelayError::InvalidOpReturnTransaction
@@ -2166,5 +2107,78 @@ mod self_redeem {
                 RedeemError::AmountBelowDustAmount
             );
         })
+    }
+}
+
+mod oracle_down {
+    use super::{assert_eq, *};
+
+    #[test]
+    fn no_oracle_request_redeem_fails() {
+        test_with(|vault_id| {
+            OraclePallet::expire_all();
+
+            assert_noop!(
+                RuntimeCall::Redeem(RedeemCall::request_redeem {
+                    amount_wrapped: 10_000,
+                    btc_address: USER_BTC_ADDRESS,
+                    vault_id: vault_id.clone()
+                })
+                .dispatch(origin_of(account_of(USER))),
+                OracleError::MissingExchangeRate
+            );
+        });
+    }
+
+    #[test]
+    fn no_oracle_execute_redeem_succeeds() {
+        test_with(|vault_id| {
+            let redeem_id = setup_redeem(vault_id.wrapped(10_000), USER, &vault_id);
+            let redeem = RedeemPallet::get_open_redeem_request_from_id(&redeem_id).unwrap();
+
+            OraclePallet::expire_all();
+
+            ExecuteRedeemBuilder::new(redeem_id)
+                .with_amount(redeem.amount_btc())
+                .assert_execute();
+        });
+    }
+
+    #[test]
+    fn no_oracle_cancel_redeem_reimburse_fails() {
+        test_with(|vault_id| {
+            let amount_btc = vault_id.wrapped(10000);
+            let redeem_id = setup_cancelable_redeem(USER, &vault_id, amount_btc);
+
+            OraclePallet::expire_all();
+
+            assert_noop!(
+                RuntimeCall::Redeem(RedeemCall::cancel_redeem {
+                    redeem_id: redeem_id,
+                    reimburse: true
+                })
+                .dispatch(origin_of(account_of(USER))),
+                OracleError::MissingExchangeRate
+            );
+        });
+    }
+
+    #[test]
+    fn no_oracle_cancel_redeem_retry_fails() {
+        test_with(|vault_id| {
+            let amount_btc = vault_id.wrapped(10000);
+            let redeem_id = setup_cancelable_redeem(USER, &vault_id, amount_btc);
+
+            OraclePallet::expire_all();
+
+            assert_noop!(
+                RuntimeCall::Redeem(RedeemCall::cancel_redeem {
+                    redeem_id: redeem_id,
+                    reimburse: false
+                })
+                .dispatch(origin_of(account_of(USER))),
+                OracleError::MissingExchangeRate
+            );
+        });
     }
 }

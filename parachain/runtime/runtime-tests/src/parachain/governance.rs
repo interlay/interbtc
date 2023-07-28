@@ -1003,9 +1003,7 @@ fn test_sudo_is_disabled_if_key_is_none() {
     test_with(|| {
         // first a sanity check: sudo works if key is set
         assert_ok!(RuntimeCall::Sudo(SudoCall::sudo {
-            call: Box::new(RuntimeCall::Security(SecurityCall::set_parachain_status {
-                status_code: StatusCode::Error,
-            })),
+            call: Box::new(RuntimeCall::System(SystemCall::remark { remark: vec![] })),
         })
         .dispatch(origin_of(account_of(ALICE))),);
 
@@ -1017,9 +1015,7 @@ fn test_sudo_is_disabled_if_key_is_none() {
         // assert that sudo does not work when key is none
         assert_noop!(
             RuntimeCall::Sudo(SudoCall::sudo {
-                call: Box::new(RuntimeCall::Security(SecurityCall::set_parachain_status {
-                    status_code: StatusCode::Error,
-                })),
+                call: Box::new(RuntimeCall::System(SystemCall::remark { remark: vec![] })),
             })
             .dispatch(origin_of(account_of(ALICE))),
             SudoError::RequireSudo

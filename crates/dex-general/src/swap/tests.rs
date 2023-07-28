@@ -529,6 +529,72 @@ fn inner_swap_exact_assets_for_assets_should_work() {
 }
 
 #[test]
+fn inner_swap_assets_for_exact_assets_should_work_with_small_amounts() {
+    new_test_ext().execute_with(|| {
+        assert_ok!(<Test as Config>::MultiCurrency::deposit(
+            DOT_ASSET_ID,
+            &ALICE,
+            MAX_BALANCE
+        ));
+        assert_ok!(<Test as Config>::MultiCurrency::deposit(
+            BTC_ASSET_ID,
+            &ALICE,
+            MAX_BALANCE
+        ));
+
+        // simulate a big imbalance, where one side is way more valuable per planck (like btc is).
+        let total_supply_dot = 100000000000000000000u128;
+        let total_supply_btc = 1000000000u128;
+        assert_ok!(DexPallet::create_pair(
+            RawOrigin::Root.into(),
+            DOT_ASSET_ID,
+            BTC_ASSET_ID,
+            DEFAULT_FEE_RATE,
+        ));
+        assert_ok!(DexPallet::inner_add_liquidity(
+            &ALICE,
+            DOT_ASSET_ID,
+            BTC_ASSET_ID,
+            total_supply_dot,
+            total_supply_btc,
+            0,
+            0
+        ));
+
+        let pair_dot_btc = DexGeneral::pair_account_id(DOT_ASSET_ID, BTC_ASSET_ID);
+        let balance_dot = <Test as Config>::MultiCurrency::free_balance(DOT_ASSET_ID, &pair_dot_btc);
+        let balance_btc = <Test as Config>::MultiCurrency::free_balance(BTC_ASSET_ID, &pair_dot_btc);
+
+        assert_eq!(balance_dot, total_supply_dot);
+        assert_eq!(balance_btc, total_supply_btc);
+
+        let path = vec![BTC_ASSET_ID, DOT_ASSET_ID];
+        let amount_in_max = 1000000000000000u128;
+        let amount_out = 10;
+
+        System::set_block_number(1); // required to be able to read the event
+        assert_ok!(DexPallet::inner_swap_assets_for_exact_assets(
+            &ALICE,
+            amount_out,
+            amount_in_max,
+            &path,
+            &BOB,
+        ));
+
+        // this is the main check of this function: see that they swapped 1 satoshi for the 10 planck.
+        // Note that using  swap_exact_assets_for_assets would have been more efficient - it would
+        // have given more than 10 planck. This is the consequence of effectively rounding up (or more
+        // accurately, of adding 1 planck to the input amount, see `get_amount_in`)
+        System::assert_has_event(RuntimeEvent::DexGeneral(crate::Event::<Test>::AssetSwap {
+            owner: ALICE,
+            recipient: BOB,
+            swap_path: path,
+            balances: vec![1, 10],
+        }));
+    })
+}
+
+#[test]
 fn inner_swap_exact_assets_for_assets_in_pairs_should_work() {
     new_test_ext().execute_with(|| {
         assert_ok!(<Test as Config>::MultiCurrency::deposit(

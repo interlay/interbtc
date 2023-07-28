@@ -66,16 +66,19 @@ impl<T: sc_service::ChainSpec + 'static> IdentifyChain for T {
     }
 }
 
-fn load_spec(id: &str) -> std::result::Result<Box<dyn sc_service::ChainSpec>, String> {
+fn load_spec(id: &str, enable_instant_seal: bool) -> std::result::Result<Box<dyn sc_service::ChainSpec>, String> {
     Ok(match id {
         "" => Box::new(chain_spec::testnet_kintsugi::local_config(DEFAULT_PARA_ID.into())),
-        "dev" => Box::new(chain_spec::testnet_kintsugi::development_config(DEFAULT_PARA_ID.into())),
-        "kintsugi-dev" | "kintsugi-bench" => Box::new(chain_spec::kintsugi::kintsugi_dev_config()),
+        "dev" => Box::new(chain_spec::testnet_kintsugi::development_config(
+            DEFAULT_PARA_ID.into(),
+            enable_instant_seal,
+        )),
+        "kintsugi-dev" | "kintsugi-bench" => Box::new(chain_spec::kintsugi::kintsugi_dev_config(enable_instant_seal)),
         "kintsugi-latest" => Box::new(chain_spec::kintsugi::kintsugi_mainnet_config()),
         "kintsugi" => Box::new(chain_spec::KintsugiChainSpec::from_json_bytes(
             &include_bytes!("../res/kintsugi.json")[..],
         )?),
-        "interlay-dev" | "interlay-bench" => Box::new(chain_spec::interlay::interlay_dev_config()),
+        "interlay-dev" | "interlay-bench" => Box::new(chain_spec::interlay::interlay_dev_config(enable_instant_seal)),
         "interlay-latest" => Box::new(chain_spec::interlay::interlay_mainnet_config()),
         "interlay" => Box::new(chain_spec::InterlayChainSpec::from_json_bytes(
             &include_bytes!("../res/interlay.json")[..],
@@ -103,12 +106,20 @@ macro_rules! with_runtime_or_err {
     ($chain_spec:expr, { $( $code:tt )* }) => {
         if $chain_spec.is_interlay() {
             #[allow(unused_imports)]
-            use { interlay_runtime::RuntimeApi, crate::service::InterlayRuntimeExecutor as Executor };
+            use {
+                interlay_runtime::RuntimeApi,
+                crate::service::InterlayRuntimeExecutor as Executor,
+                interlay_runtime::TransactionConverter,
+            };
             $( $code )*
 
         } else if $chain_spec.is_kintsugi() {
             #[allow(unused_imports)]
-            use { kintsugi_runtime::RuntimeApi, crate::service::KintsugiRuntimeExecutor as Executor };
+            use {
+                kintsugi_runtime::RuntimeApi,
+                crate::service::KintsugiRuntimeExecutor as Executor,
+                kintsugi_runtime::TransactionConverter,
+            };
             $( $code )*
 
         } else {
@@ -143,7 +154,7 @@ impl SubstrateCli for Cli {
     }
 
     fn load_spec(&self, id: &str) -> std::result::Result<Box<dyn sc_service::ChainSpec>, String> {
-        load_spec(id)
+        load_spec(id, self.instant_seal)
     }
 
     fn native_runtime_version(chain_spec: &Box<dyn ChainSpec>) -> &'static RuntimeVersion {
@@ -220,6 +231,7 @@ macro_rules! construct_async_run {
             runner.async_run(|$config| {
                 let $components = new_partial::<interlay_runtime::RuntimeApi, InterlayRuntimeExecutor>(
                     &$config,
+                    &$cli.eth,
                     true,
                 )?;
                 let task_manager = $components.task_manager;
@@ -234,6 +246,7 @@ macro_rules! construct_async_run {
                     KintsugiRuntimeExecutor,
                 >(
                     &$config,
+                    &$cli.eth,
                     true,
                 )?;
                 let task_manager = $components.task_manager;
@@ -249,7 +262,7 @@ macro_rules! construct_async_run {
 
 /// Parse command line arguments into service configuration.
 pub fn run() -> Result<()> {
-    let cli = Cli::from_args();
+    let mut cli = Cli::from_args();
 
     match &cli.subcommand {
         Some(Subcommand::BuildSpec(cmd)) => {
@@ -298,6 +311,9 @@ pub fn run() -> Result<()> {
             )))
         }
         Some(Subcommand::Benchmark(cmd)) => {
+            // some benchmarks set the timestamp so we ignore
+            // the aura check which would otherwise panic
+            cli.instant_seal = true;
             let runner = cli.create_runner(cmd)?;
             match cmd {
                 BenchmarkCmd::Pallet(cmd) => {
@@ -321,7 +337,7 @@ pub fn run() -> Result<()> {
 
                         with_runtime_or_err!(chain_spec, {
                             runner.sync_run(|config| {
-                                let partials = new_partial::<RuntimeApi, Executor>(&config, false)?;
+                                let partials = new_partial::<RuntimeApi, Executor>(&config, &cli.eth, false)?;
                                 cmd.run(partials.client)
                             })
                         })
@@ -342,7 +358,7 @@ pub fn run() -> Result<()> {
 
                         with_runtime_or_err!(chain_spec, {
                             runner.sync_run(|config| {
-                                let partials = new_partial::<RuntimeApi, Executor>(&config, false)?;
+                                let partials = new_partial::<RuntimeApi, Executor>(&config, &cli.eth, false)?;
                                 let db = partials.backend.expose_db();
                                 let storage = partials.backend.expose_storage();
                                 cmd.run(config, partials.client.clone(), db, storage)
@@ -360,7 +376,7 @@ pub fn run() -> Result<()> {
                     with_runtime_or_err!(chain_spec, {
                         let selected_runtime = SelectedRuntime::from_chain_spec(chain_spec)?;
                         runner.sync_run(|config| {
-                            let partials = new_partial::<RuntimeApi, Executor>(&config, false)?;
+                            let partials = new_partial::<RuntimeApi, Executor>(&config, &cli.eth, false)?;
                             let remark_builder = RemarkBuilder {
                                 client: partials.client.clone(),
                                 selected_runtime,
@@ -455,7 +471,7 @@ pub fn run() -> Result<()> {
             runner
                 .run_node_until_exit(|config| async move {
                     if cli.instant_seal {
-                        start_instant(config).await
+                        start_instant(cli, config).await
                     } else {
                         start_node(cli, config).await
                     }
@@ -465,10 +481,10 @@ pub fn run() -> Result<()> {
     }
 }
 
-async fn start_instant(config: Configuration) -> sc_service::error::Result<TaskManager> {
+async fn start_instant(cli: Cli, config: Configuration) -> sc_service::error::Result<TaskManager> {
     with_runtime_or_err!(config.chain_spec, {
         {
-            crate::service::start_instant::<RuntimeApi, Executor>(config)
+            crate::service::start_instant::<RuntimeApi, Executor, TransactionConverter>(config, cli.eth)
                 .await
                 .map(|r| r.0)
                 .map_err(Into::into)
@@ -488,7 +504,7 @@ async fn start_node(cli: Cli, config: Configuration) -> sc_service::error::Resul
 
     let id = ParaId::from(para_id.unwrap_or(DEFAULT_PARA_ID));
 
-    let parachain_account = AccountIdConversion::<polkadot_primitives::v2::AccountId>::into_account_truncating(&id);
+    let parachain_account = AccountIdConversion::<polkadot_primitives::v4::AccountId>::into_account_truncating(&id);
 
     let tokio_handle = config.tokio_handle.clone();
     let polkadot_config = SubstrateCli::create_configuration(&polkadot_cli, &polkadot_cli, tokio_handle)
@@ -505,10 +521,16 @@ async fn start_node(cli: Cli, config: Configuration) -> sc_service::error::Resul
 
     with_runtime_or_err!(config.chain_spec, {
         {
-            crate::service::start_node::<RuntimeApi, Executor>(config, polkadot_config, collator_options, id)
-                .await
-                .map(|r| r.0)
-                .map_err(Into::into)
+            crate::service::start_node::<RuntimeApi, Executor, TransactionConverter>(
+                config,
+                polkadot_config,
+                cli.eth,
+                collator_options,
+                id,
+            )
+            .await
+            .map(|r| r.0)
+            .map_err(Into::into)
         }
     })
 }

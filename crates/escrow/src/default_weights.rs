@@ -42,6 +42,8 @@ pub trait WeightInfo {
 	fn increase_unlock_height() -> Weight;
 	fn withdraw() -> Weight;
 	fn update_user_stake() -> Weight;
+	fn set_account_limit() -> Weight;
+	fn set_account_block() -> Weight;
 }
 
 /// Weights for escrow using the Substrate node and recommended hardware.
@@ -240,6 +242,26 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(T::DbWeight::get().reads(108_u64))
 			.saturating_add(T::DbWeight::get().writes(104_u64))
 	}
+
+	fn set_account_limit	() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `1273`
+		//  Estimated: `281542`
+		// Minimum execution time: 359_000_000 picoseconds.
+		Weight::from_parts(363_000_000, 281542)
+			.saturating_add(T::DbWeight::get().reads(108_u64))
+			.saturating_add(T::DbWeight::get().writes(104_u64))
+	}
+	
+	fn set_account_block	() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `1273`
+		//  Estimated: `281542`
+		// Minimum execution time: 359_000_000 picoseconds.
+		Weight::from_parts(363_000_000, 281542)
+			.saturating_add(T::DbWeight::get().reads(108_u64))
+			.saturating_add(T::DbWeight::get().writes(104_u64))
+	}
 }
 
 // For backwards compatibility and tests
@@ -429,6 +451,26 @@ impl WeightInfo for () {
 	/// Storage: Escrow UserPointHistory (r:0 w:1)
 	/// Proof: Escrow UserPointHistory (max_values: None, max_size: Some(88), added: 2563, mode: MaxEncodedLen)
 	fn update_user_stake	() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `1273`
+		//  Estimated: `281542`
+		// Minimum execution time: 359_000_000 picoseconds.
+		Weight::from_parts(363_000_000, 281542)
+			.saturating_add(RocksDbWeight::get().reads(108_u64))
+			.saturating_add(RocksDbWeight::get().writes(104_u64))
+	}
+
+	fn set_account_limit	() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `1273`
+		//  Estimated: `281542`
+		// Minimum execution time: 359_000_000 picoseconds.
+		Weight::from_parts(363_000_000, 281542)
+			.saturating_add(RocksDbWeight::get().reads(108_u64))
+			.saturating_add(RocksDbWeight::get().writes(104_u64))
+	}
+
+	fn set_account_block	() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `1273`
 		//  Estimated: `281542`

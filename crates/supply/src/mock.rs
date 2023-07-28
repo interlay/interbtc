@@ -4,13 +4,12 @@ use frame_support::{
     traits::{Everything, GenesisBuild},
     PalletId,
 };
-pub use primitives::CurrencyId;
-use primitives::UnsignedFixedPoint;
+pub use primitives::{CurrencyId, UnsignedFixedPoint};
 use sp_core::H256;
+pub use sp_runtime::FixedPointNumber;
 use sp_runtime::{
     testing::Header,
     traits::{BlakeTwo256, IdentityLookup},
-    FixedPointNumber,
 };
 
 type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
@@ -80,6 +79,10 @@ impl pallet_balances::Config for Test {
     type MaxLocks = ();
     type MaxReserves = ();
     type ReserveIdentifier = [u8; 8];
+    type HoldIdentifier = ();
+    type FreezeIdentifier = ();
+    type MaxFreezes = ();
+    type MaxHolds = ();
 }
 
 pub const MILLISECS_PER_BLOCK: u64 = 12000;

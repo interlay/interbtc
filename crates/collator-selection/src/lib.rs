@@ -18,10 +18,8 @@
 //!
 //! The final `Collators` are aggregated from two individual lists:
 //!
-//! 1. [`Invulnerables`]: a set of collators appointed by governance. These accounts will always be
-//!    collators.
-//! 2. [`Candidates`]: these are *candidates to the collation task* and may or may not be elected as
-//!    a final collator.
+//! 1. [`Invulnerables`]: a set of collators appointed by governance. These accounts will always be collators.
+//! 2. [`Candidates`]: these are *candidates to the collation task* and may or may not be elected as a final collator.
 //!
 //! The current implementation resolves congestion of [`Candidates`] in a first-come-first-serve
 //! manner.

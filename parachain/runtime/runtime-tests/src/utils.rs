@@ -1,5 +1,6 @@
 use crate::setup::{assert_eq, *};
 
+use bitcoin::merkle::PartialTransactionProof;
 pub use bitcoin::types::{Block, TransactionInputSource, *};
 pub use btc_relay::{BtcAddress, BtcPublicKey};
 use currency::Amount;
@@ -27,7 +28,6 @@ pub use redeem::{types::RedeemRequestExt, RedeemRequest};
 use redeem_utils::USER_BTC_ADDRESS;
 pub use replace::{types::ReplaceRequestExt, ReplaceRequest};
 pub use reward::RewardsApi;
-pub use security::{ErrorCode, StatusCode};
 pub use sp_arithmetic::{FixedI128, FixedPointNumber, FixedU128};
 pub use sp_core::{H160, H256, U256};
 pub use sp_std::convert::TryInto;
@@ -111,6 +111,7 @@ pub type WrappedCurrency = CurrencyAdapter<Runtime, GetWrappedCurrencyId>;
 
 pub type OracleCall = oracle::Call<Runtime>;
 pub type OraclePallet = oracle::Pallet<Runtime>;
+pub type OracleError = oracle::Error<Runtime>;
 
 pub type FeeCall = fee::Call<Runtime>;
 pub type FeeError = fee::Error<Runtime>;
@@ -1209,7 +1210,7 @@ impl TransactionGenerator {
         self.relayer = relayer;
         self
     }
-    pub fn mine(&self) -> (H256Le, u32, MerkleProof, Transaction) {
+    pub fn mine(&self) -> (H256Le, u32, FullTransactionProof) {
         let mut height = BTCRelayPallet::get_best_block_height() + 1;
         let extra_confirmations = self.confirmations - 1;
 
@@ -1287,6 +1288,9 @@ impl TransactionGenerator {
         let tx_block_height = height;
         let merkle_proof = block.merkle_proof(&[tx_id]).unwrap();
 
+        let coinbase_tx = block.transactions[0].clone();
+        let coinbase_merkle_proof = block.merkle_proof(&[coinbase_tx.tx_id()]).unwrap();
+
         self.relay(height, &block, block.header);
 
         // Mine six new blocks to get over required confirmations
@@ -1308,7 +1312,20 @@ impl TransactionGenerator {
             prev_block_hash = conf_block.header.hash;
         }
 
-        (tx_id, tx_block_height, merkle_proof, transaction)
+        let unchecked_transaction = FullTransactionProof {
+            coinbase_proof: PartialTransactionProof {
+                tx_encoded_len: coinbase_tx.size_no_witness() as u32,
+                transaction: coinbase_tx,
+                merkle_proof: coinbase_merkle_proof,
+            },
+            user_tx_proof: PartialTransactionProof {
+                tx_encoded_len: transaction.size_no_witness() as u32,
+                transaction: transaction,
+                merkle_proof,
+            },
+        };
+
+        (tx_id, tx_block_height, unchecked_transaction)
     }
 
     fn relay(&self, height: u32, block: &Block, block_header: BlockHeader) {
@@ -1331,7 +1348,7 @@ pub fn generate_transaction_and_mine(
     inputs: Vec<(Transaction, u32, Option<BtcPublicKey>)>,
     outputs: Vec<(BtcAddress, Amount<Runtime>)>,
     return_data: Vec<H256>,
-) -> (H256Le, u32, MerkleProof, Transaction) {
+) -> (H256Le, u32, FullTransactionProof) {
     TransactionGenerator::new()
         .with_script(signer.to_p2pkh_script_sig(vec![1; 32]).as_bytes())
         .with_inputs(inputs)
@@ -1356,4 +1373,14 @@ pub fn set_balance(who: AccountId, currency_id: CurrencyId, new_free: Balance) {
         new_reserved: 0,
     })
     .dispatch(root()));
+}
+
+/// runs and returns f() without comitting to storage
+pub fn dry_run<T, F: FnOnce() -> T>(f: F) -> T {
+    use sp_runtime::TransactionOutcome;
+    frame_support::storage::with_transaction(|| {
+        let ret = f();
+        TransactionOutcome::Rollback(Result::<T, DispatchError>::Ok(ret))
+    })
+    .unwrap()
 }

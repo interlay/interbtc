@@ -56,7 +56,7 @@ impl ExecuteRedeemBuilder {
     #[transactional]
     pub fn execute(&self) -> DispatchResultWithPostInfo {
         // send the btc from the user to the vault
-        let (_tx_id, _height, merkle_proof, transaction) = TransactionGenerator::new()
+        let (_tx_id, _height, transaction) = TransactionGenerator::new()
             .with_outputs(vec![(self.redeem.btc_address, self.amount)])
             .with_op_return(vec![self.redeem_id])
             .mine();
@@ -68,9 +68,7 @@ impl ExecuteRedeemBuilder {
         // alice executes the redeemrequest by confirming the btc transaction
         let ret = RuntimeCall::Redeem(RedeemCall::execute_redeem {
             redeem_id: self.redeem_id,
-            merkle_proof,
-            transaction,
-            length_bound: u32::MAX,
+            unchecked_transaction: transaction,
         })
         .dispatch(origin_of(self.submitter.clone()));
         VaultRegistryPallet::collateral_integrity_check();
@@ -199,7 +197,7 @@ pub fn assert_redeem_error(
     error: BTCRelayError,
 ) -> u32 {
     // send the btc from the vault to the user
-    let (_tx_id, _tx_block_height, merkle_proof, transaction) = generate_transaction_and_mine(
+    let (_tx_id, _tx_block_height, unchecked_transaction) = generate_transaction_and_mine(
         Default::default(),
         vec![],
         vec![(user_btc_address, amount)],
@@ -211,9 +209,7 @@ pub fn assert_redeem_error(
     assert_noop!(
         RuntimeCall::Redeem(RedeemCall::execute_redeem {
             redeem_id: redeem_id,
-            merkle_proof,
-            transaction,
-            length_bound: u32::MAX,
+            unchecked_transaction
         })
         .dispatch(origin_of(account_of(VAULT))),
         error

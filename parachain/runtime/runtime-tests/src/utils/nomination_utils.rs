@@ -78,7 +78,7 @@ pub fn withdraw_vault_collateral(vault_id: &VaultId, amount_collateral: Amount<R
     RuntimeCall::Nomination(NominationCall::withdraw_collateral {
         vault_id: vault_id.clone(),
         index: None,
-        amount: amount_collateral.amount(),
+        amount: Some(amount_collateral.amount()),
     })
     .dispatch(origin_of(vault_id.account_id.clone()))
 }
@@ -90,7 +90,7 @@ pub fn withdraw_nominator_collateral(
 ) -> DispatchResultWithPostInfo {
     RuntimeCall::Nomination(NominationCall::withdraw_collateral {
         vault_id: vault_id.clone(),
-        amount: amount_collateral.amount(),
+        amount: Some(amount_collateral.amount()),
         index: None,
     })
     .dispatch(origin_of(nominator_id))

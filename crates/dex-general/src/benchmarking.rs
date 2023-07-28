@@ -235,8 +235,6 @@ pub mod benchmarks {
 
     #[benchmark]
     pub fn bootstrap_update(r: Linear<1, 10>, l: Linear<1, 10>) {
-        let caller: T::AccountId = whitelisted_caller();
-
         let rewards: Vec<T::AssetId> = (0..r).map(Into::into).collect();
         let limits: Vec<(T::AssetId, u128)> = (0..l).map(|a| (a.into(), 0)).collect();
 

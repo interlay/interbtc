@@ -7,7 +7,7 @@ use crate::{
     Error,
 };
 use currency::Amount;
-use frame_support::{assert_err, assert_noop, assert_ok, traits::tokens::fungibles::Inspect};
+use frame_support::{assert_err, assert_noop, assert_ok};
 use orml_traits::{MultiCurrency, MultiReservableCurrency};
 use primitives::{
     Balance,
@@ -49,8 +49,8 @@ fn trait_inspect_methods_works() {
     new_test_ext().execute_with(|| {
         // No Deposits can't not withdraw
         assert_err!(
-            Loans::can_withdraw(LEND_KINT, &DAVE, 100).into_result(),
-            TokenError::NoFunds
+            Loans::can_withdraw(LEND_KINT, &DAVE, 100).into_result(false),
+            TokenError::FundsUnavailable
         );
         assert_eq!(Loans::total_issuance(LEND_KINT), 0);
         assert_eq!(Loans::total_issuance(LEND_KSM), 0);
@@ -62,7 +62,10 @@ fn trait_inspect_methods_works() {
 
         // DAVE Deposit 100 KINT
         assert_ok!(Loans::mint(RuntimeOrigin::signed(DAVE), KINT, unit(100)));
-        assert_eq!(Tokens::balance(LEND_KINT, &DAVE), unit(100) * 50);
+        assert_eq!(
+            <Tokens as MultiCurrency<_>>::total_balance(LEND_KINT, &DAVE),
+            unit(100) * 50
+        );
         assert_eq!(Tokens::total_issuance(LEND_KINT), unit(100) * 50);
         // Check entries from orml-tokens directly
         assert_eq!(free_balance(LEND_KINT, &DAVE), unit(100) * 50);
@@ -96,7 +99,10 @@ fn trait_inspect_methods_works() {
         // Liquidity KINT = 25, KBTC = 25
         // lend_tokens = dollar(25 + 25) / 1 / 0.5 / 0.02 = dollar(50) * 100
         assert_ok!(Loans::mint(RuntimeOrigin::signed(DAVE), KBTC, unit(50)));
-        assert_eq!(Tokens::balance(LEND_KBTC, &DAVE), unit(50) * 50);
+        assert_eq!(
+            <Tokens as MultiCurrency<_>>::total_balance(LEND_KBTC, &DAVE),
+            unit(50) * 50
+        );
         // Check entries from orml-tokens directly
         assert_eq!(free_balance(LEND_KBTC, &DAVE), unit(50) * 50);
         assert_eq!(reserved_balance(LEND_KBTC, &DAVE), 0);
@@ -118,7 +124,7 @@ fn trait_inspect_methods_works() {
 
         assert_eq!(Loans::total_issuance(LEND_KINT), unit(100) * 50);
         assert_ok!(Loans::can_deposit(LEND_KINT, &DAVE, 100, true).into_result());
-        assert_ok!(Loans::can_withdraw(LEND_KINT, &DAVE, 1000).into_result());
+        assert_ok!(Loans::can_withdraw(LEND_KINT, &DAVE, 1000).into_result(false));
     })
 }
 
@@ -148,13 +154,19 @@ fn transfer_lend_token_works() {
         // DAVE KINT collateral: deposit = 100
         // KINT: cash - deposit = 1000 - 100 = 900
         assert_eq!(
-            Loans::exchange_rate(KINT).saturating_mul_int(Tokens::balance(Loans::lend_token_id(KINT).unwrap(), &DAVE)),
+            Loans::exchange_rate(KINT).saturating_mul_int(<Tokens as MultiCurrency<_>>::total_balance(
+                Loans::lend_token_id(KINT).unwrap(),
+                &DAVE
+            )),
             unit(100)
         );
 
         // ALICE KINT collateral: deposit = 0
         assert_eq!(
-            Loans::exchange_rate(KINT).saturating_mul_int(Tokens::balance(Loans::lend_token_id(KINT).unwrap(), &ALICE)),
+            Loans::exchange_rate(KINT).saturating_mul_int(<Tokens as MultiCurrency<_>>::total_balance(
+                Loans::lend_token_id(KINT).unwrap(),
+                &ALICE
+            )),
             unit(0)
         );
 
@@ -164,7 +176,10 @@ fn transfer_lend_token_works() {
 
         // DAVE KINT collateral: deposit = 50
         assert_eq!(
-            Loans::exchange_rate(KINT).saturating_mul_int(Tokens::balance(Loans::lend_token_id(KINT).unwrap(), &DAVE)),
+            Loans::exchange_rate(KINT).saturating_mul_int(<Tokens as MultiCurrency<_>>::total_balance(
+                Loans::lend_token_id(KINT).unwrap(),
+                &DAVE
+            )),
             unit(50)
         );
         // DAVE Redeem 51 KINT should cause InsufficientDeposit
@@ -175,7 +190,10 @@ fn transfer_lend_token_works() {
 
         // ALICE KINT collateral: deposit = 50
         assert_eq!(
-            Loans::exchange_rate(KINT).saturating_mul_int(Tokens::balance(Loans::lend_token_id(KINT).unwrap(), &ALICE)),
+            Loans::exchange_rate(KINT).saturating_mul_int(<Tokens as MultiCurrency<_>>::total_balance(
+                Loans::lend_token_id(KINT).unwrap(),
+                &ALICE
+            )),
             unit(50)
         );
         // ALICE Redeem 50 KINT should be succeeded
@@ -246,7 +264,10 @@ fn transfer_lend_tokens_under_collateral_does_not_work() {
 
         // Assert ALICE Supply KINT 20
         assert_eq!(
-            Loans::exchange_rate(KINT).saturating_mul_int(Tokens::balance(Loans::lend_token_id(KINT).unwrap(), &ALICE)),
+            Loans::exchange_rate(KINT).saturating_mul_int(<Tokens as MultiCurrency<_>>::total_balance(
+                Loans::lend_token_id(KINT).unwrap(),
+                &ALICE
+            )),
             unit(20)
         );
         // ALICE Redeem 20 KINT should be succeeded

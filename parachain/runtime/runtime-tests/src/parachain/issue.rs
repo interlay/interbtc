@@ -489,7 +489,7 @@ fn integration_test_issue_wrapped_execute_succeeds() {
         let total_amount_btc = amount_btc + fee_amount_btc;
 
         // send the btc from the user to the vault
-        let (_tx_id, _height, merkle_proof, transaction) = generate_transaction_and_mine(
+        let (_tx_id, _height, transaction) = generate_transaction_and_mine(
             Default::default(),
             vec![],
             vec![(vault_btc_address, total_amount_btc)],
@@ -501,9 +501,7 @@ fn integration_test_issue_wrapped_execute_succeeds() {
         // alice executes the issue by confirming the btc transaction
         assert_ok!(RuntimeCall::Issue(IssueCall::execute_issue {
             issue_id: issue_id,
-            merkle_proof,
-            transaction,
-            length_bound: u32::MAX,
+            unchecked_transaction: transaction
         })
         .dispatch(origin_of(account_of(vault_proof_submitter))));
     });
@@ -566,7 +564,7 @@ fn integration_test_withdraw_after_request_issue() {
         assert!(RuntimeCall::Nomination(NominationCall::withdraw_collateral {
             vault_id: vault_id.clone(),
             index: None,
-            amount: collateral_vault.amount()
+            amount: Some(collateral_vault.amount())
         })
         .dispatch(origin_of(account_of(vault)))
         .is_err());
@@ -614,7 +612,7 @@ mod execute_pending_issue_tests {
     fn integration_test_issue_execute_precond_rawtx_valid() {
         test_with_initialized_vault(|vault_id| {
             let (issue_id, issue) = request_issue(&vault_id, vault_id.wrapped(1000));
-            let (_tx_id, _height, merkle_proof, mut transaction) = TransactionGenerator::new()
+            let (_tx_id, _height, mut unchecked_transaction) = TransactionGenerator::new()
                 .with_outputs(vec![(issue.btc_address, wrapped(1000))])
                 .mine();
 
@@ -622,13 +620,12 @@ mod execute_pending_issue_tests {
 
             // send to wrong address
             let bogus_address = BtcAddress::P2WPKHv0(H160::random());
-            transaction.outputs[0] = TransactionOutput::payment(1000, &bogus_address);
+            unchecked_transaction.user_tx_proof.transaction.outputs[0] =
+                TransactionOutput::payment(1000, &bogus_address);
             assert_noop!(
                 RuntimeCall::Issue(IssueCall::execute_issue {
                     issue_id: issue_id,
-                    merkle_proof,
-                    transaction,
-                    length_bound: u32::MAX,
+                    unchecked_transaction
                 })
                 .dispatch(origin_of(account_of(CAROL))),
                 BTCRelayError::InvalidTxid
@@ -641,20 +638,19 @@ mod execute_pending_issue_tests {
     fn integration_test_issue_execute_precond_proof_valid() {
         test_with_initialized_vault(|vault_id| {
             let (issue_id, issue) = request_issue(&vault_id, vault_id.wrapped(1000));
-            let (_tx_id, _height, mut merkle_proof, transaction) = TransactionGenerator::new()
+            let (_tx_id, _height, mut transaction) = TransactionGenerator::new()
                 .with_outputs(vec![(issue.btc_address, wrapped(1))])
                 .mine();
 
             SecurityPallet::set_active_block_number(SecurityPallet::active_block_number() + CONFIRMATIONS);
 
             // mangle block header in merkle proof
-            merkle_proof.block_header = Default::default();
+            transaction.user_tx_proof.merkle_proof.block_header = Default::default();
+            transaction.coinbase_proof.merkle_proof.block_header = Default::default();
             assert_noop!(
                 RuntimeCall::Issue(IssueCall::execute_issue {
                     issue_id: issue_id,
-                    merkle_proof,
-                    transaction,
-                    length_bound: u32::MAX,
+                    unchecked_transaction: transaction
                 })
                 .dispatch(origin_of(account_of(CAROL))),
                 BTCRelayError::BlockNotFound
@@ -1134,5 +1130,86 @@ mod cancel_issue_tests {
                 .unwrap();
             assert_eq!(onchain_issue.status, IssueRequestStatus::Cancelled);
         });
+    }
+}
+
+mod oracle_down {
+    use super::{assert_eq, *};
+
+    #[test]
+    fn no_oracle_request_issue_fails() {
+        test_with_initialized_vault(|vault_id| {
+            OraclePallet::expire_all();
+            assert_noop!(
+                RequestIssueBuilder::new(&vault_id, vault_id.wrapped(10_000)).try_request(),
+                OracleError::MissingExchangeRate
+            );
+        })
+    }
+
+    #[test]
+    fn no_oracle_execute_issue_succeeds() {
+        test_with_initialized_vault(|vault_id| {
+            let (issue_id, _) = request_issue(&vault_id, vault_id.wrapped(10_000));
+            OraclePallet::expire_all();
+            assert_ok!(ExecuteIssueBuilder::new(issue_id).execute());
+        })
+    }
+
+    #[test]
+    fn no_oracle_cancel_issue_succeeds() {
+        test_with_initialized_vault(|vault_id| {
+            assert_ok!(RuntimeCall::Issue(IssueCall::set_issue_period { period: 1000 }).dispatch(root()));
+            let (issue_id, _) = request_issue(&vault_id, vault_id.wrapped(4_000));
+            SecurityPallet::set_active_block_number(1100);
+            mine_blocks(100);
+            OraclePallet::expire_all();
+            assert_ok!(RuntimeCall::Issue(IssueCall::cancel_issue { issue_id: issue_id })
+                .dispatch(origin_of(account_of(VAULT))));
+        })
+    }
+
+    #[test]
+    fn no_oracle_execute_issue_overpayment_fails() {
+        test_with_initialized_vault(|vault_id| {
+            let (issue_id, _) = request_issue(&vault_id, vault_id.wrapped(10_000));
+            OraclePallet::expire_all();
+            assert_noop!(
+                ExecuteIssueBuilder::new(issue_id)
+                    .with_amount(vault_id.wrapped(10_001))
+                    .execute(),
+                OracleError::MissingExchangeRate
+            );
+        })
+    }
+
+    #[test]
+    fn no_oracle_execute_issue_underpayment_succeeds() {
+        test_with_initialized_vault(|vault_id| {
+            let (issue_id, _) = request_issue(&vault_id, vault_id.wrapped(9_999));
+            OraclePallet::expire_all();
+            assert_ok!(ExecuteIssueBuilder::new(issue_id)
+                .with_amount(vault_id.wrapped(9_999))
+                .execute());
+        })
+    }
+
+    #[test]
+    fn no_oracle_execute_cancelled_issue_fails() {
+        test_with_initialized_vault(|vault_id| {
+            assert_ok!(RuntimeCall::Issue(IssueCall::set_issue_period { period: 1000 }).dispatch(root()));
+            let (issue_id, _) = request_issue(&vault_id, vault_id.wrapped(4_000));
+            SecurityPallet::set_active_block_number(1100);
+            mine_blocks(100);
+            assert_ok!(RuntimeCall::Issue(IssueCall::cancel_issue { issue_id: issue_id })
+                .dispatch(origin_of(account_of(VAULT))));
+
+            OraclePallet::expire_all();
+
+            assert_noop!(
+                ExecuteIssueBuilder::new(issue_id).execute(),
+                OracleError::MissingExchangeRate
+            );
+        })
     }
 }

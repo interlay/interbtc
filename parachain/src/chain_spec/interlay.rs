@@ -1,8 +1,33 @@
 use super::*;
-use kintsugi_runtime::LoansConfig;
-use primitives::Rate;
 
 pub const PARA_ID: u32 = 2032;
+
+/// Specialized `ChainSpec` for the interlay parachain runtime.
+pub type InterlayChainSpec = sc_service::GenericChainSpec<interlay_runtime::GenesisConfig, Extensions>;
+
+/// Specialized `ChainSpec` for interlay development.
+pub type InterlayDevChainSpec = sc_service::GenericChainSpec<InterlayDevGenesisExt, Extensions>;
+
+/// Extension for the dev genesis config to support a custom changes to the genesis state.
+#[derive(Serialize, Deserialize)]
+pub struct InterlayDevGenesisExt {
+    /// Genesis config.
+    pub(crate) genesis_config: interlay_runtime::GenesisConfig,
+    /// The flag to enable instant-seal mode.
+    pub(crate) enable_instant_seal: bool,
+    /// The flag to enable EVM contract creation.
+    pub(crate) enable_create: bool,
+}
+
+impl sp_runtime::BuildStorage for InterlayDevGenesisExt {
+    fn assimilate_storage(&self, storage: &mut Storage) -> Result<(), String> {
+        sp_state_machine::BasicExternalities::execute_with_storage(storage, || {
+            interlay_runtime::EnableManualSeal::set(&self.enable_instant_seal);
+            interlay_runtime::evm::EnableCreate::set(&self.enable_create);
+        });
+        self.genesis_config.assimilate_storage(storage)
+    }
+}
 
 fn interlay_properties() -> Map<String, Value> {
     let mut properties = Map::new();
@@ -26,24 +51,28 @@ fn default_pair_interlay(currency_id: CurrencyId) -> VaultCurrencyPair<CurrencyI
     }
 }
 
-pub fn interlay_dev_config() -> InterlayChainSpec {
+pub fn interlay_dev_config(enable_instant_seal: bool) -> InterlayDevChainSpec {
     let id: ParaId = PARA_ID.into();
-    InterlayChainSpec::from_genesis(
+    InterlayDevChainSpec::from_genesis(
         "Interlay",
         "interlay",
-        ChainType::Live,
-        move || {
-            interlay_genesis(
+        ChainType::Development,
+        move || InterlayDevGenesisExt {
+            genesis_config: interlay_genesis(
                 vec![get_authority_keys_from_seed("Alice")],
                 vec![(
                     get_account_id_from_seed::<sr25519::Public>("Bob"),
                     BoundedVec::truncate_from("Bob".as_bytes().to_vec()),
                 )],
                 vec![get_account_id_from_seed::<sr25519::Public>("Alice")],
+                endowed_evm_accounts(),
                 Some(get_account_id_from_seed::<sr25519::Public>("Alice")),
                 id,
                 1,
-            )
+                false, // disable difficulty check
+            ),
+            enable_instant_seal,
+            enable_create: true,
         },
         Vec::new(),
         None,
@@ -108,9 +137,11 @@ pub fn interlay_mainnet_config() -> InterlayChainSpec {
                     BoundedVec::truncate_from("Interlay".as_bytes().to_vec()),
                 )],
                 vec![], // no endowed accounts
-                None,   // no sudo key
+                vec![],
+                None, // no sudo key
                 id,
                 SECURE_BITCOIN_CONFIRMATIONS,
+                false, // enable difficulty check
             )
         },
         Vec::new(),
@@ -128,11 +159,19 @@ pub fn interlay_mainnet_config() -> InterlayChainSpec {
 pub fn interlay_genesis(
     invulnerables: Vec<(AccountId, AuraId)>,
     authorized_oracles: Vec<(AccountId, interlay_runtime::OracleName)>,
-    endowed_accounts: Vec<AccountId>,
+    mut endowed_accounts: Vec<AccountId>,
+    endowed_evm_accounts: Vec<[u8; 20]>,
     root_key: Option<AccountId>,
     id: ParaId,
     bitcoin_confirmations: u32,
+    disable_difficulty_check: bool,
 ) -> interlay_runtime::GenesisConfig {
+    let chain_id: u32 = id.into();
+    endowed_accounts.extend(
+        endowed_evm_accounts
+            .into_iter()
+            .map(|addr| interlay_runtime::evm::AccountConverter::into_account_id(H160::from(addr))),
+    );
     interlay_runtime::GenesisConfig {
         system: interlay_runtime::SystemConfig {
             code: interlay_runtime::WASM_BINARY
@@ -163,9 +202,6 @@ pub fn interlay_genesis(
         // Session will take care of this.
         aura: Default::default(),
         aura_ext: Default::default(),
-        security: interlay_runtime::SecurityConfig {
-            initial_status: interlay_runtime::StatusCode::Error,
-        },
         asset_registry: Default::default(),
         tokens: interlay_runtime::TokensConfig {
             balances: endowed_accounts
@@ -181,7 +217,7 @@ pub fn interlay_genesis(
         btc_relay: interlay_runtime::BTCRelayConfig {
             bitcoin_confirmations,
             parachain_confirmations: bitcoin_confirmations.saturating_mul(interlay_runtime::BITCOIN_BLOCK_SPACING),
-            disable_difficulty_check: false,
+            disable_difficulty_check,
             disable_inclusion_check: false,
         },
         issue: interlay_runtime::IssueConfig {
@@ -241,9 +277,32 @@ pub fn interlay_genesis(
             safe_xcm_version: Some(3),
         },
         sudo: interlay_runtime::SudoConfig { key: root_key },
-        loans: LoansConfig {
+        loans: interlay_runtime::LoansConfig {
             max_exchange_rate: Rate::from_inner(loans::DEFAULT_MAX_EXCHANGE_RATE),
             min_exchange_rate: Rate::from_inner(loans::DEFAULT_MIN_EXCHANGE_RATE),
+        },
+        base_fee: Default::default(),
+        ethereum: Default::default(),
+        evm: kintsugi_runtime::EVMConfig {
+            // we need _some_ code inserted at the precompile address so that
+            // the evm will actually call the address.
+            accounts: interlay_runtime::evm::Precompiles::used_addresses()
+                .into_iter()
+                .map(|addr| {
+                    (
+                        addr.into(),
+                        fp_evm::GenesisAccount {
+                            nonce: Default::default(),
+                            balance: Default::default(),
+                            storage: Default::default(),
+                            code: REVERT_BYTECODE.to_vec(),
+                        },
+                    )
+                })
+                .collect(),
+        },
+        evm_chain_id: kintsugi_runtime::EVMChainIdConfig {
+            chain_id: chain_id.into(),
         },
     }
 }

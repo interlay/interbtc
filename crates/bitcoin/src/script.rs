@@ -1,7 +1,9 @@
-use crate::{formatter::TryFormat, parser::extract_op_return_data, types::*, Error};
+use crate::{formatter::TryFormat, types::*, Error};
 use codec::{Decode, Encode};
 use scale_info::TypeInfo;
-use sp_std::{prelude::*, vec};
+
+#[cfg(not(feature = "std"))]
+use alloc::{vec, vec::Vec};
 
 #[cfg(feature = "std")]
 use codec::alloc::string::String;
@@ -25,9 +27,24 @@ impl Script {
 
     pub(crate) fn height(height: u32) -> Script {
         let mut script = Script::new();
-        script.append(OpCode::Op3);
-        let bytes = height.to_le_bytes();
-        script.append(&bytes[0..=2]);
+
+        // The format is described here https://github.com/bitcoin/bips/blob/master/bip-0034.mediawiki
+        // Tl;dr: first byte is number of bytes in the number, following bytes are little-endian
+        // representation of the number
+
+        let mut height_bytes = height.to_le_bytes().to_vec();
+        for i in (1..4).rev() {
+            // remove trailing zeroes, but always keep first byte even if it's zero
+            if height_bytes[i] == 0 {
+                height_bytes.remove(i);
+            } else {
+                break;
+            }
+        }
+
+        // note: formatting the height_bytes vec automatically prepends the length of the vec, so no need
+        // to append it manually
+        script.append(height_bytes);
         script
     }
 
@@ -74,7 +91,23 @@ impl Script {
     }
 
     pub fn extract_op_return_data(&self) -> Result<Vec<u8>, Error> {
-        extract_op_return_data(&self.bytes)
+        let output_script = &self.bytes;
+        if *output_script.get(0).ok_or(Error::EndOfFile)? != OpCode::OpReturn as u8 {
+            return Err(Error::MalformedOpReturnOutput);
+        }
+        // Check for max OP_RETURN size
+        // 83 in total, see here: https://github.com/bitcoin/bitcoin/blob/f018d0c9cd7f408dac016b6bfc873670de713d27/src/script/standard.h#L30
+        if output_script.len() > MAX_OPRETURN_SIZE {
+            return Err(Error::MalformedOpReturnOutput);
+        }
+
+        let result = output_script.get(2..).ok_or(Error::EndOfFile)?;
+
+        if result.len() != output_script[1] as usize {
+            return Err(Error::MalformedOpReturnOutput);
+        }
+
+        Ok(result.to_vec())
     }
 
     pub fn as_bytes(&self) -> &[u8] {
@@ -102,11 +135,18 @@ impl From<Vec<u8>> for Script {
 }
 
 #[cfg(feature = "std")]
-impl sp_std::convert::TryFrom<&str> for Script {
+impl std::convert::TryFrom<&str> for Script {
     type Error = crate::Error;
 
     fn try_from(hex_string: &str) -> Result<Script, Self::Error> {
         let bytes = hex::decode(hex_string).map_err(|_e| Error::InvalidScript)?;
         Ok(Script { bytes })
     }
+}
+
+#[test]
+fn test_script_height() {
+    assert_eq!(Script::height(7).bytes, vec![1, 7]);
+    assert_eq!(Script::height(256).bytes, vec![2, 0x00, 0x01]);
+    assert_eq!(Script::height(65536).bytes, vec![3, 0x00, 0x00, 0x01]);
 }

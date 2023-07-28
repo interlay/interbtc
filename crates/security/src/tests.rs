@@ -1,75 +1,7 @@
-use crate::{mock::*, ErrorCode, StatusCode};
-use frame_support::{assert_noop, assert_ok};
+use crate::mock::*;
+use frame_support::assert_ok;
+use frame_system::RawOrigin;
 use sp_core::H256;
-
-type Event = crate::Event<Test>;
-
-macro_rules! assert_emitted {
-    ($event:expr) => {
-        let test_event = TestEvent::Security($event);
-        assert!(System::events().iter().any(|a| a.event == test_event));
-    };
-    ($event:expr, $times:expr) => {
-        let test_event = TestEvent::Security($event);
-        assert_eq!(
-            System::events().iter().filter(|a| a.event == test_event).count(),
-            $times
-        );
-    };
-}
-
-#[test]
-fn test_is_ensure_parachain_running_succeeds() {
-    run_test(|| {
-        Security::set_status(StatusCode::Running);
-        assert_ok!(Security::ensure_parachain_status_running());
-    })
-}
-
-#[test]
-fn test_is_ensure_parachain_running_fails() {
-    run_test(|| {
-        Security::set_status(StatusCode::Error);
-        assert_noop!(
-            Security::ensure_parachain_status_running(),
-            TestError::ParachainNotRunning
-        );
-    })
-}
-
-#[test]
-fn test_is_parachain_error_oracle_offline() {
-    run_test(|| {
-        Security::set_status(StatusCode::Error);
-        Security::insert_error(ErrorCode::OracleOffline).unwrap();
-        assert_eq!(Security::is_parachain_error_oracle_offline(), true);
-    })
-}
-
-fn test_recover_from_<F>(recover: F, error_codes: Vec<ErrorCode>)
-where
-    F: FnOnce(),
-{
-    for err in &error_codes {
-        Security::insert_error(err.clone()).unwrap();
-    }
-    recover();
-    for err in &error_codes {
-        assert_eq!(Security::get_errors().contains(&err), false);
-    }
-    assert_eq!(Security::parachain_status(), StatusCode::Running);
-    assert_emitted!(Event::RecoverFromErrors {
-        new_status: StatusCode::Running,
-        cleared_errors: error_codes
-    });
-}
-
-#[test]
-fn test_recover_from_oracle_offline_succeeds() {
-    run_test(|| {
-        test_recover_from_(Security::recover_from_oracle_offline, vec![ErrorCode::OracleOffline]);
-    })
-}
 
 #[test]
 fn test_get_secure_id() {
@@ -89,21 +21,24 @@ fn test_get_secure_id() {
 fn test_get_increment_active_block_succeeds() {
     run_test(|| {
         let initial_active_block = Security::active_block_number();
-        Security::set_status(StatusCode::Running);
         Security::increment_active_block();
         assert_eq!(Security::active_block_number(), initial_active_block + 1);
     })
 }
 
 #[test]
-fn test_get_active_block_not_incremented_if_not_running() {
+fn test_get_active_block_not_incremented_if_inactive() {
     run_test(|| {
         let initial_active_block = Security::active_block_number();
 
         // not updated if there is an error
-        Security::set_status(StatusCode::Error);
+        assert_ok!(Security::activate_counter(RawOrigin::Root.into(), false));
         Security::increment_active_block();
         assert_eq!(Security::active_block_number(), initial_active_block);
+
+        assert_ok!(Security::activate_counter(RawOrigin::Root.into(), true));
+        Security::increment_active_block();
+        assert_eq!(Security::active_block_number(), initial_active_block + 1);
     })
 }
 

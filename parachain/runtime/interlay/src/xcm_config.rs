@@ -260,6 +260,7 @@ impl pallet_xcm::Config for Runtime {
     type WeightInfo = pallet_xcm::TestWeightInfo; // todo: use actual weight
     #[cfg(feature = "runtime-benchmarks")]
     type ReachableDest = ReachableDest;
+    type AdminOrigin = EnsureRoot<AccountId>;
 }
 
 impl cumulus_pallet_xcm::Config for Runtime {
@@ -550,7 +551,7 @@ mod benchmark_impls {
             Err(BenchmarkError::Skip)
         }
 
-        fn universal_alias() -> Result<Junction, BenchmarkError> {
+        fn universal_alias() -> Result<(MultiLocation, Junction), BenchmarkError> {
             // The XCM executor doesn't have a configured `UniversalAliases`
             Err(BenchmarkError::Skip)
         }
@@ -578,6 +579,12 @@ mod benchmark_impls {
 
         fn unlockable_asset() -> Result<(MultiLocation, MultiLocation, MultiAsset), BenchmarkError> {
             // we don't support asset locking
+            Err(BenchmarkError::Skip)
+        }
+
+        fn export_message_origin_and_destination(
+        ) -> Result<(MultiLocation, NetworkId, InteriorMultiLocation), BenchmarkError> {
+            // We don't support exporting messages
             Err(BenchmarkError::Skip)
         }
     }
