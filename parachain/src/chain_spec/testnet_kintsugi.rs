@@ -61,7 +61,7 @@ pub fn local_config(id: ParaId) -> KintsugiChainSpec {
     )
 }
 
-pub fn development_config(id: ParaId, enable_instant_seal: bool) -> KintsugiDevChainSpec {
+pub fn development_config(id: ParaId, enable_manual_seal: bool) -> KintsugiDevChainSpec {
     KintsugiDevChainSpec::from_genesis(
         "Kintsugi",
         "kintsugi",
@@ -103,7 +103,7 @@ pub fn development_config(id: ParaId, enable_instant_seal: bool) -> KintsugiDevC
                 DEFAULT_BITCOIN_CONFIRMATIONS,
                 true, // disable difficulty check
             ),
-            enable_instant_seal,
+            enable_manual_seal,
             enable_create: true,
         },
         Vec::new(),

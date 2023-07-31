@@ -16,7 +16,7 @@
 
 use crate::{
     chain_spec,
-    cli::{Cli, RelayChainCli, RuntimeName, Subcommand},
+    cli::{Cli, RelayChainCli, RuntimeName, Sealing, Subcommand},
     service::{new_partial, InterlayRuntimeExecutor, KintsugiRuntimeExecutor},
 };
 use cumulus_primitives_core::ParaId;
@@ -66,19 +66,19 @@ impl<T: sc_service::ChainSpec + 'static> IdentifyChain for T {
     }
 }
 
-fn load_spec(id: &str, enable_instant_seal: bool) -> std::result::Result<Box<dyn sc_service::ChainSpec>, String> {
+fn load_spec(id: &str, enable_manual_seal: bool) -> std::result::Result<Box<dyn sc_service::ChainSpec>, String> {
     Ok(match id {
         "" => Box::new(chain_spec::testnet_kintsugi::local_config(DEFAULT_PARA_ID.into())),
         "dev" => Box::new(chain_spec::testnet_kintsugi::development_config(
             DEFAULT_PARA_ID.into(),
-            enable_instant_seal,
+            enable_manual_seal,
         )),
-        "kintsugi-dev" | "kintsugi-bench" => Box::new(chain_spec::kintsugi::kintsugi_dev_config(enable_instant_seal)),
+        "kintsugi-dev" | "kintsugi-bench" => Box::new(chain_spec::kintsugi::kintsugi_dev_config(enable_manual_seal)),
         "kintsugi-latest" => Box::new(chain_spec::kintsugi::kintsugi_mainnet_config()),
         "kintsugi" => Box::new(chain_spec::KintsugiChainSpec::from_json_bytes(
             &include_bytes!("../res/kintsugi.json")[..],
         )?),
-        "interlay-dev" | "interlay-bench" => Box::new(chain_spec::interlay::interlay_dev_config(enable_instant_seal)),
+        "interlay-dev" | "interlay-bench" => Box::new(chain_spec::interlay::interlay_dev_config(enable_manual_seal)),
         "interlay-latest" => Box::new(chain_spec::interlay::interlay_mainnet_config()),
         "interlay" => Box::new(chain_spec::InterlayChainSpec::from_json_bytes(
             &include_bytes!("../res/interlay.json")[..],
@@ -154,7 +154,8 @@ impl SubstrateCli for Cli {
     }
 
     fn load_spec(&self, id: &str) -> std::result::Result<Box<dyn sc_service::ChainSpec>, String> {
-        load_spec(id, self.instant_seal)
+        let enable_manual_seal = self.sealing.is_some();
+        load_spec(id, enable_manual_seal)
     }
 
     fn native_runtime_version(chain_spec: &Box<dyn ChainSpec>) -> &'static RuntimeVersion {
@@ -313,7 +314,7 @@ pub fn run() -> Result<()> {
         Some(Subcommand::Benchmark(cmd)) => {
             // some benchmarks set the timestamp so we ignore
             // the aura check which would otherwise panic
-            cli.instant_seal = true;
+            cli.sealing = Some(Sealing::Manual);
             let runner = cli.create_runner(cmd)?;
             match cmd {
                 BenchmarkCmd::Pallet(cmd) => {
@@ -470,8 +471,8 @@ pub fn run() -> Result<()> {
 
             runner
                 .run_node_until_exit(|config| async move {
-                    if cli.instant_seal {
-                        start_instant(cli, config).await
+                    if let Some(sealing) = cli.sealing {
+                        start_instant(cli, config, sealing).await
                     } else {
                         start_node(cli, config).await
                     }
@@ -481,10 +482,10 @@ pub fn run() -> Result<()> {
     }
 }
 
-async fn start_instant(cli: Cli, config: Configuration) -> sc_service::error::Result<TaskManager> {
+async fn start_instant(cli: Cli, config: Configuration, sealing: Sealing) -> sc_service::error::Result<TaskManager> {
     with_runtime_or_err!(config.chain_spec, {
         {
-            crate::service::start_instant::<RuntimeApi, Executor, TransactionConverter>(config, cli.eth)
+            crate::service::start_instant::<RuntimeApi, Executor, TransactionConverter>(config, cli.eth, sealing)
                 .await
                 .map(|r| r.0)
                 .map_err(Into::into)
