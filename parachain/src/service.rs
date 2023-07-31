@@ -1,3 +1,4 @@
+use crate::cli::Sealing;
 use cumulus_client_cli::CollatorOptions;
 use cumulus_client_consensus_aura::{AuraConsensus, BuildAuraConsensusParams, SlotProportion};
 use cumulus_client_consensus_common::{ParachainBlockImport as TParachainBlockImport, ParachainConsensus};
@@ -15,6 +16,7 @@ use polkadot_service::CollatorPair;
 use primitives::*;
 use sc_client_api::{HeaderBackend, StateBackendFor};
 use sc_consensus::{ImportQueue, LongestChain};
+use sc_consensus_manual_seal::EngineCommand;
 use sc_executor::NativeElseWasmExecutor;
 use sc_network::NetworkBlock;
 use sc_network_sync::SyncingService;
@@ -219,7 +221,7 @@ where
 pub fn new_partial<RuntimeApi, Executor>(
     config: &Configuration,
     eth_config: &EthConfiguration,
-    instant_seal: bool,
+    manual_seal: bool,
 ) -> Result<
     PartialComponents<
         FullClient<RuntimeApi, Executor>,
@@ -285,7 +287,7 @@ where
         client.clone(),
     );
 
-    let select_chain = if instant_seal {
+    let select_chain = if manual_seal {
         Some(LongestChain::new(backend.clone()))
     } else {
         None
@@ -294,8 +296,8 @@ where
     let overrides = interbtc_rpc::overrides_handle(client.clone());
     let frontier_backend = open_frontier_backend(client.clone(), config, eth_config, overrides.clone())?;
 
-    let import_queue = if instant_seal {
-        // instant sealing
+    let import_queue = if manual_seal {
+        // manual / instant seal
         sc_consensus_manual_seal::import_queue(
             Box::new(EthBlockImport::new(client.clone(), client.clone())),
             &task_manager.spawn_essential_handle(),
@@ -679,6 +681,7 @@ where
 pub async fn start_instant<RuntimeApi, Executor, CT>(
     mut config: Configuration,
     eth_config: EthConfiguration,
+    sealing: Sealing,
 ) -> sc_service::error::Result<(TaskManager, RpcHandlers)>
 where
     RuntimeApi: ConstructRuntimeApi<Block, FullClient<RuntimeApi, Executor>> + Send + Sync + 'static,
@@ -731,15 +734,24 @@ where
         // Channel for the rpc handler to communicate with the authorship task.
         let (command_sink, commands_stream) = futures::channel::mpsc::channel(1024);
 
-        let pool = transaction_pool.pool().clone();
-        let import_stream = pool.validated_pool().import_notification_stream().map(|_| {
-            sc_consensus_manual_seal::rpc::EngineCommand::SealNewBlock {
-                create_empty: true,
-                finalize: true,
-                parent_hash: None,
-                sender: None,
+        let commands_stream: Box<dyn futures::Stream<Item = EngineCommand<H256>> + Send + Sync + Unpin> = match sealing
+        {
+            Sealing::Instant => {
+                let import_stream = transaction_pool
+                    .pool()
+                    .validated_pool()
+                    .import_notification_stream()
+                    .map(|_| EngineCommand::SealNewBlock {
+                        create_empty: true,
+                        finalize: true,
+                        parent_hash: None,
+                        sender: None,
+                    });
+                // combine so we can still seal blocks manually
+                Box::new(futures::stream_select!(commands_stream, import_stream))
             }
-        });
+            Sealing::Manual => Box::new(commands_stream),
+        };
 
         let client_for_cidp = client.clone();
 
@@ -748,7 +760,7 @@ where
             env: proposer_factory,
             client: client.clone(),
             pool: transaction_pool.clone(),
-            commands_stream: futures::stream_select!(commands_stream, import_stream),
+            commands_stream,
             select_chain,
             consensus_data_provider: None,
             create_inherent_data_providers: move |block: Hash, _| {
@@ -774,7 +786,7 @@ where
         });
         // we spawn the future on a background thread managed by service.
         task_manager.spawn_essential_handle().spawn_blocking(
-            "instant-seal",
+            "authorship_task",
             Some("block-authoring"),
             authorship_future,
         );

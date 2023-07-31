@@ -52,6 +52,12 @@ pub enum Subcommand {
     TryRuntime,
 }
 
+#[derive(clap::ValueEnum, Debug, Clone)]
+pub enum RuntimeName {
+    Interlay,
+    Kintsugi,
+}
+
 /// Command for exporting the metadata.
 #[derive(Debug, Parser)]
 pub struct ExportMetadataCommand {
@@ -68,10 +74,14 @@ pub struct ExportMetadataCommand {
     pub runtime: RuntimeName,
 }
 
-#[derive(clap::ValueEnum, Debug, Clone)]
-pub enum RuntimeName {
-    Interlay,
-    Kintsugi,
+/// Available Sealing methods.
+#[derive(Copy, Clone, Debug, Default, clap::ValueEnum)]
+pub enum Sealing {
+    /// Seal using rpc method.
+    #[default]
+    Manual,
+    /// Seal when transaction is executed.
+    Instant,
 }
 
 #[derive(Debug, Parser)]
@@ -94,12 +104,12 @@ pub struct Cli {
     #[clap(raw = true)]
     pub relaychain_args: Vec<String>,
 
-    /// Instant block sealing
+    /// Choose sealing method.
     ///
     /// This flag requires `--dev` **or** `--chain=...`,
     /// `--force-authoring` and `--alice` flags.
-    #[clap(long = "instant-seal")]
-    pub instant_seal: bool,
+    #[arg(long, value_enum, ignore_case = true)]
+    pub sealing: Option<Sealing>,
 }
 
 #[derive(Debug)]

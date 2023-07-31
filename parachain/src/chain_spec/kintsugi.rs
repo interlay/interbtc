@@ -13,8 +13,8 @@ pub type KintsugiDevChainSpec = sc_service::GenericChainSpec<KintsugiDevGenesisE
 pub struct KintsugiDevGenesisExt {
     /// Genesis config.
     pub(crate) genesis_config: kintsugi_runtime::GenesisConfig,
-    /// The flag to enable instant-seal mode.
-    pub(crate) enable_instant_seal: bool,
+    /// The flag to enable manual-seal mode.
+    pub(crate) enable_manual_seal: bool,
     /// The flag to enable EVM contract creation.
     pub(crate) enable_create: bool,
 }
@@ -22,7 +22,7 @@ pub struct KintsugiDevGenesisExt {
 impl sp_runtime::BuildStorage for KintsugiDevGenesisExt {
     fn assimilate_storage(&self, storage: &mut Storage) -> Result<(), String> {
         sp_state_machine::BasicExternalities::execute_with_storage(storage, || {
-            kintsugi_runtime::EnableManualSeal::set(&self.enable_instant_seal);
+            kintsugi_runtime::EnableManualSeal::set(&self.enable_manual_seal);
             kintsugi_runtime::evm::EnableCreate::set(&self.enable_create);
         });
         self.genesis_config.assimilate_storage(storage)
@@ -51,7 +51,7 @@ fn default_pair_kintsugi(currency_id: CurrencyId) -> VaultCurrencyPair<CurrencyI
     }
 }
 
-pub fn kintsugi_dev_config(enable_instant_seal: bool) -> KintsugiDevChainSpec {
+pub fn kintsugi_dev_config(enable_manual_seal: bool) -> KintsugiDevChainSpec {
     let id: ParaId = PARA_ID.into();
     KintsugiDevChainSpec::from_genesis(
         "Kintsugi",
@@ -71,7 +71,7 @@ pub fn kintsugi_dev_config(enable_instant_seal: bool) -> KintsugiDevChainSpec {
                 1,
                 false, // disable difficulty check
             ),
-            enable_instant_seal,
+            enable_manual_seal,
             enable_create: true,
         },
         Vec::new(),

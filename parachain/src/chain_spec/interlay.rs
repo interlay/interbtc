@@ -13,8 +13,8 @@ pub type InterlayDevChainSpec = sc_service::GenericChainSpec<InterlayDevGenesisE
 pub struct InterlayDevGenesisExt {
     /// Genesis config.
     pub(crate) genesis_config: interlay_runtime::GenesisConfig,
-    /// The flag to enable instant-seal mode.
-    pub(crate) enable_instant_seal: bool,
+    /// The flag to enable manual-seal mode.
+    pub(crate) enable_manual_seal: bool,
     /// The flag to enable EVM contract creation.
     pub(crate) enable_create: bool,
 }
@@ -22,7 +22,7 @@ pub struct InterlayDevGenesisExt {
 impl sp_runtime::BuildStorage for InterlayDevGenesisExt {
     fn assimilate_storage(&self, storage: &mut Storage) -> Result<(), String> {
         sp_state_machine::BasicExternalities::execute_with_storage(storage, || {
-            interlay_runtime::EnableManualSeal::set(&self.enable_instant_seal);
+            interlay_runtime::EnableManualSeal::set(&self.enable_manual_seal);
             interlay_runtime::evm::EnableCreate::set(&self.enable_create);
         });
         self.genesis_config.assimilate_storage(storage)
@@ -51,7 +51,7 @@ fn default_pair_interlay(currency_id: CurrencyId) -> VaultCurrencyPair<CurrencyI
     }
 }
 
-pub fn interlay_dev_config(enable_instant_seal: bool) -> InterlayDevChainSpec {
+pub fn interlay_dev_config(enable_manual_seal: bool) -> InterlayDevChainSpec {
     let id: ParaId = PARA_ID.into();
     InterlayDevChainSpec::from_genesis(
         "Interlay",
@@ -71,7 +71,7 @@ pub fn interlay_dev_config(enable_instant_seal: bool) -> InterlayDevChainSpec {
                 1,
                 false, // disable difficulty check
             ),
-            enable_instant_seal,
+            enable_manual_seal,
             enable_create: true,
         },
         Vec::new(),
