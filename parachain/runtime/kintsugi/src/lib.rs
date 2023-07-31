@@ -196,11 +196,15 @@ impl Contains<RuntimeCall> for BaseCallFilter {
         ) {
             // always allow core calls
             true
-        } else if let RuntimeCall::PolkadotXcm(_) = call {
-            // For security reasons, disallow usage of the xcm package by users. Sudo and
+        } else if let RuntimeCall::PolkadotXcm(polkadot_xcm_call) = call {
+            // For security reasons, disallow most usage of the xcm package by users. Sudo and
             // governance are still able to call these (sudo is explicitly white-listed, while
             // governance bypasses this call filter).
-            false
+
+            // We do allow PolkadotXcm.send - it's needed for e.g. wormhole interactions on
+            // moonbeam/moonriver. We could probably also allow other functions, but this way
+            // we don't need to worry about security implications of these functions
+            matches!(polkadot_xcm_call, pallet_xcm::Call::<Runtime>::send { .. })
         } else if let RuntimeCall::EVM(_) = call {
             // disable non-root EVM access
             false
