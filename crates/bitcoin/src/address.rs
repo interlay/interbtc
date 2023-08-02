@@ -413,4 +413,52 @@ mod tests {
             ])
         );
     }
+
+    #[test]
+    fn test_convert_address_script() {
+        // 1MsmX1jpgyJY3h8det2VZz9NYXs6WhpjdT
+        let script = Script {
+            bytes: hex::decode("76a914e4fc799e2e718d64064af4cd15b2a6c11780fe2a88ac").unwrap(),
+        };
+        assert!(script.is_p2pkh());
+        let address = Address::from_script_pub_key(&script).unwrap();
+        assert!(matches!(address, Address::P2PKH(_)));
+        assert_eq!(script, address.to_script_pub_key());
+
+        // 3NZbxHNESLkkAPCaTgrgSZQgkmhnv2cdxz
+        let script = Script {
+            bytes: hex::decode("a914e4f3b8771c0eff8645a9669eef1fb1ea0cf1dec187").unwrap(),
+        };
+        assert!(script.is_p2sh());
+        let address = Address::from_script_pub_key(&script).unwrap();
+        assert!(matches!(address, Address::P2SH(_)));
+        assert_eq!(script, address.to_script_pub_key());
+
+        // bc1q4m304aj7c3xcxaqdz9kl6axnex2gkufmh7rsqw
+        let script = Script {
+            bytes: hex::decode("0014aee2faf65ec44d83740d116dfd74d3c9948b713b").unwrap(),
+        };
+        assert!(script.is_p2wpkh_v0());
+        let address = Address::from_script_pub_key(&script).unwrap();
+        assert!(matches!(address, Address::P2WPKHv0(_)));
+        assert_eq!(script, address.to_script_pub_key());
+
+        // bc1qgdjqv0av3q56jvd82tkdjpy7gdp9ut8tlqmgrpmv24sq90ecnvqqjwvw97
+        let script = Script {
+            bytes: hex::decode("00204364063fac8829a931a752ecd9049e43425e2cebf83681876c556002bf389b00").unwrap(),
+        };
+        assert!(script.is_p2wsh_v0());
+        let address = Address::from_script_pub_key(&script).unwrap();
+        assert!(matches!(address, Address::P2WSHv0(_)));
+        assert_eq!(script, address.to_script_pub_key());
+
+        // bc1pq2cealz0zkvse0sxus2hwx8jquchtyvs64v4cwqnelrhs3helunsxyral2
+        let script = Script {
+            bytes: hex::decode("512002b19efc4f15990cbe06e4157718f20731759190d5595c3813cfc77846f9ff27").unwrap(),
+        };
+        assert!(script.is_p2tr_v1());
+        let address = Address::from_script_pub_key(&script).unwrap();
+        assert!(matches!(address, Address::P2TRv1(_)));
+        assert_eq!(script, address.to_script_pub_key());
+    }
 }

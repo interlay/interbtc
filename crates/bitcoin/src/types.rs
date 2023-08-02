@@ -169,17 +169,21 @@ pub enum OpCode {
 /// Custom Types
 
 // Constants
-pub const P2PKH_SCRIPT_SIZE: u32 = 25;
-pub const P2SH_SCRIPT_SIZE: u32 = 23;
+pub const P2PKH_SCRIPT_SIZE: usize = 25;
+pub const P2SH_SCRIPT_SIZE: usize = 23;
 pub const HASH160_SIZE_HEX: u8 = 0x14;
 pub const HASH256_SIZE_HEX: u8 = 0x20;
 // TODO: reduce to H256 size + op code
 pub const MAX_OPRETURN_SIZE: usize = 83;
 
 // https://github.com/bitcoin/bitcoin/blob/2fa60f0b683cefd7956273986dafe3bde00c98fd/src/script/interpreter.h#L225-L227
-pub const WITNESS_V0_SCRIPTHASH_SIZE: usize = 32;
 pub const WITNESS_V0_KEYHASH_SIZE: usize = 20;
+pub const WITNESS_V0_SCRIPTHASH_SIZE: usize = 32;
 pub const WITNESS_V1_TAPROOT_SIZE: usize = 32;
+
+pub const P2WPKH_V0_SCRIPT_SIZE: usize = WITNESS_V0_KEYHASH_SIZE + 2;
+pub const P2WSH_V0_SCRIPT_SIZE: usize = WITNESS_V0_SCRIPTHASH_SIZE + 2;
+pub const P2TR_V1_SCRIPT_SIZE: usize = WITNESS_V1_TAPROOT_SIZE + 2;
 
 /// Structs
 

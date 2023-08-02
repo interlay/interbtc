@@ -58,27 +58,21 @@ impl Script {
 
     pub fn is_p2wpkh_v0(&self) -> bool {
         // first byte is version
-        self.len() == WITNESS_V0_KEYHASH_SIZE + 2 as usize
-            && self.bytes[0] == OpCode::Op0 as u8
-            && self.bytes[1] == HASH160_SIZE_HEX
+        self.len() == P2WPKH_V0_SCRIPT_SIZE && self.bytes[0] == OpCode::Op0 as u8 && self.bytes[1] == HASH160_SIZE_HEX
     }
 
     pub fn is_p2wsh_v0(&self) -> bool {
         // first byte is version
-        self.len() == WITNESS_V0_SCRIPTHASH_SIZE + 2 as usize
-            && self.bytes[0] == OpCode::Op0 as u8
-            && self.bytes[1] == HASH256_SIZE_HEX
+        self.len() == P2WSH_V0_SCRIPT_SIZE && self.bytes[0] == OpCode::Op0 as u8 && self.bytes[1] == HASH256_SIZE_HEX
     }
 
     pub fn is_p2tr_v1(&self) -> bool {
         // first byte is version
-        self.len() == WITNESS_V1_TAPROOT_SIZE + 2 as usize
-            && self.bytes[0] == OpCode::Op1 as u8
-            && self.bytes[1] == HASH256_SIZE_HEX
+        self.len() == P2TR_V1_SCRIPT_SIZE && self.bytes[0] == OpCode::Op1 as u8 && self.bytes[1] == HASH256_SIZE_HEX
     }
 
     pub fn is_p2pkh(&self) -> bool {
-        self.len() == P2PKH_SCRIPT_SIZE as usize
+        self.len() == P2PKH_SCRIPT_SIZE
             && self.bytes[0] == OpCode::OpDup as u8
             && self.bytes[1] == OpCode::OpHash160 as u8
             && self.bytes[2] == HASH160_SIZE_HEX
@@ -87,7 +81,7 @@ impl Script {
     }
 
     pub fn is_p2sh(&self) -> bool {
-        self.len() == P2SH_SCRIPT_SIZE as usize
+        self.len() == P2SH_SCRIPT_SIZE
             && self.bytes[0] == OpCode::OpHash160 as u8
             && self.bytes[1] == HASH160_SIZE_HEX
             && self.bytes[22] == OpCode::OpEqual as u8
